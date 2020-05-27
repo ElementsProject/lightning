@@ -14,6 +14,8 @@
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/io/io.h>
 #include <ccan/tal/str/str.h>
+#include <common/coin_mvt.h>
+#include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
@@ -22,6 +24,7 @@
 #include <common/utils.h>
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
+#include <lightningd/coin_mvts.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/io_loop_with_timers.h>
 
@@ -300,9 +303,14 @@ static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
 const char *feerate_name(enum feerate feerate)
 {
 	switch (feerate) {
-	case FEERATE_URGENT: return "urgent";
-	case FEERATE_NORMAL: return "normal";
-	case FEERATE_SLOW: return "slow";
+	case FEERATE_OPENING: return "opening";
+	case FEERATE_MUTUAL_CLOSE: return "mutual_close";
+	case FEERATE_UNILATERAL_CLOSE: return "unilateral_close";
+	case FEERATE_DELAYED_TO_US: return "delayed_to_us";
+	case FEERATE_HTLC_RESOLUTION: return "htlc_resolution";
+	case FEERATE_PENALTY: return "penalty";
+	case FEERATE_MIN: return "min_acceptable";
+	case FEERATE_MAX: return "max_acceptable";
 	}
 	abort();
 }
@@ -337,13 +345,23 @@ static void add_feerate_history(struct chain_topology *topo,
 	topo->feehistory[feerate][0] = val;
 }
 
+/* Did the the feerate change since we last estimated it ? */
+static bool feerate_changed(struct chain_topology *topo, u32 old_feerates[])
+{
+	for (enum feerate f = 0; f < NUM_FEERATES; f++) {
+		if (try_get_feerate(topo, f) != old_feerates[f])
+			return true;
+	}
+
+	return false;
+}
+
 /* We sanitize feerates if necessary to put them in descending order. */
 static void update_feerates(struct bitcoind *bitcoind,
 			    const u32 *satoshi_per_kw,
 			    struct chain_topology *topo)
 {
 	u32 old_feerates[NUM_FEERATES];
-	bool changed = false;
 	/* Smoothing factor alpha for simple exponential smoothing. The goal is to
 	 * have the feerate account for 90 percent of the values polled in the last
 	 * 2 minutes. The following will do that in a polling interval
@@ -405,26 +423,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 		maybe_completed_init(topo);
 	}
 
-	/* Make sure (known) fee rates are in order. */
-	for (size_t i = 0; i < NUM_FEERATES; i++) {
-		if (!topo->feerate[i])
-			continue;
-		for (size_t j = 0; j < i; j++) {
-			if (!topo->feerate[j])
-				continue;
-			if (topo->feerate[j] < topo->feerate[i]) {
-				log_unusual(topo->log,
-					  "Feerate estimate for %s (%u) above %s (%u)",
-					  feerate_name(i), topo->feerate[i],
-					  feerate_name(j), topo->feerate[j]);
-				topo->feerate[j] = topo->feerate[i];
-			}
-		}
-		if (try_get_feerate(topo, i) != old_feerates[i])
-			changed = true;
-	}
-
-	if (changed)
+	if (feerate_changed(topo, old_feerates))
 		notify_feerate_change(bitcoind->ld);
 
 	next_updatefee_timer(topo);
@@ -432,30 +431,39 @@ static void update_feerates(struct bitcoind *bitcoind,
 
 static void start_fee_estimate(struct chain_topology *topo)
 {
-	/* FEERATE_IMMEDIATE, FEERATE_NORMAL, FEERATE_SLOW */
-	const char *estmodes[] = { "CONSERVATIVE", "ECONOMICAL", "ECONOMICAL" };
-	const u32 blocks[] = { 2, 4, 100 };
-
-	BUILD_ASSERT(ARRAY_SIZE(blocks) == NUM_FEERATES);
-
 	/* Once per new block head, update fee estimates. */
-	bitcoind_estimate_fees(topo->bitcoind, blocks, estmodes, NUM_FEERATES,
-			       update_feerates, topo);
-}
-
-u32 mutual_close_feerate(struct chain_topology *topo)
-{
-	return try_get_feerate(topo, FEERATE_NORMAL);
+	bitcoind_estimate_fees(topo->bitcoind, NUM_FEERATES, update_feerates,
+			       topo);
 }
 
 u32 opening_feerate(struct chain_topology *topo)
 {
-	return try_get_feerate(topo, FEERATE_NORMAL);
+	return try_get_feerate(topo, FEERATE_OPENING);
+}
+
+u32 mutual_close_feerate(struct chain_topology *topo)
+{
+	return try_get_feerate(topo, FEERATE_MUTUAL_CLOSE);
 }
 
 u32 unilateral_feerate(struct chain_topology *topo)
 {
-	return try_get_feerate(topo, FEERATE_URGENT);
+	return try_get_feerate(topo, FEERATE_UNILATERAL_CLOSE);
+}
+
+u32 delayed_to_us_feerate(struct chain_topology *topo)
+{
+	return try_get_feerate(topo, FEERATE_DELAYED_TO_US);
+}
+
+u32 htlc_resolution_feerate(struct chain_topology *topo)
+{
+	return try_get_feerate(topo, FEERATE_HTLC_RESOLUTION);
+}
+
+u32 penalty_feerate(struct chain_topology *topo)
+{
+	return try_get_feerate(topo, FEERATE_PENALTY);
 }
 
 u32 feerate_from_style(u32 feerate, enum feerate_style style)
@@ -510,7 +518,7 @@ static struct command_result *json_feerates(struct command *cmd,
 	response = json_stream_success(cmd);
 	json_object_start(response, json_feerate_style_name(*style));
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
-		if (!feerates[i])
+		if (!feerates[i] || i == FEERATE_MIN || i == FEERATE_MAX)
 			continue;
 		json_add_num(response, feerate_name(i),
 			     feerate_to_style(feerates[i], *style));
@@ -519,6 +527,23 @@ static struct command_result *json_feerates(struct command *cmd,
 		     feerate_to_style(feerate_min(cmd->ld, NULL), *style));
 	json_add_u64(response, "max_acceptable",
 		     feerate_to_style(feerate_max(cmd->ld, NULL), *style));
+
+	if (deprecated_apis) {
+		/* urgent feerate was CONSERVATIVE/2, i.e. what bcli gives us
+		 * now for unilateral close feerate */
+		json_add_u64(response, "urgent",
+			     feerate_to_style(unilateral_feerate(cmd->ld->topology), *style));
+		/* normal feerate was ECONOMICAL/4, i.e. what bcli gives us
+		 * now for opening feerate */
+		json_add_u64(response, "normal",
+			     feerate_to_style(opening_feerate(cmd->ld->topology), *style));
+		/* slow feerate was ECONOMICAL/100, i.e. what bcli gives us
+		 * now for min feerate, but doubled (the min was slow/2 but now
+		 * the Bitcoin plugin directly gives the real min acceptable). */
+		json_add_u64(response, "slow",
+			     feerate_to_style(feerate_min(cmd->ld, NULL) * 2, *style));
+	}
+
 	json_object_end(response);
 
 	if (missing)
@@ -535,6 +560,20 @@ static struct command_result *json_feerates(struct command *cmd,
 		/* eg. 02000000000101c4fecaae1ea940c15ec502de732c4c386d51f981317605bbe5ad2c59165690ab00000000009db0e280010a2d0f00000000002200208d290003cedb0dd00cd5004c2d565d55fc70227bf5711186f4fa9392f8f32b4a0400483045022100952fcf8c730c91cf66bcb742cd52f046c0db3694dc461e7599be330a22466d790220740738a6f9d9e1ae5c86452fa07b0d8dddc90f8bee4ded24a88fe4b7400089eb01483045022100db3002a93390fc15c193da57d6ce1020e82705e760a3aa935ebe864bd66dd8e8022062ee9c6aa7b88ff4580e2671900a339754116371d8f40eba15b798136a76cd150147522102324266de8403b3ab157a09f1f784d587af61831c998c151bcc21bb74c2b2314b2102e3bd38009866c9da8ec4aa99cc4ea9c6c0dd46df15c61ef0ce1f271291714e5752ae9a3ed620 == weight 598 */
 		json_add_u64(response, "unilateral_close_satoshis",
 			     unilateral_feerate(cmd->ld->topology) * 598 / 1000);
+		/* BOLT #3:
+		 *
+		 * The *expected weight* of an HTLC transaction is calculated as follows:
+		 * ...
+		 * results in weights of:
+		 *
+		 *	663 (HTLC-timeout)
+		 *	703 (HTLC-success)
+		 *
+		 */
+		json_add_u64(response, "htlc_timeout_satoshis",
+			     htlc_resolution_feerate(cmd->ld->topology) * 663 / 1000);
+		json_add_u64(response, "htlc_success_satoshis",
+			     htlc_resolution_feerate(cmd->ld->topology) * 703 / 1000);
 		json_object_end(response);
 	}
 
@@ -623,6 +662,72 @@ static void updates_complete(struct chain_topology *topo)
 	next_topology_timer(topo);
 }
 
+static void record_output_spend(struct lightningd *ld,
+				const struct bitcoin_txid *txid,
+				const struct bitcoin_txid *utxo_txid,
+				u32 vout, u32 blockheight,
+				struct amount_sat *input_amt)
+{
+	struct utxo *utxo;
+	struct chain_coin_mvt *mvt;
+	u8 *ctx = tal(NULL, u8);
+
+	utxo = wallet_utxo_get(ctx, ld->wallet, utxo_txid, vout);
+	if (!utxo)
+		log_broken(ld->log, "No record of utxo %s:%d",
+			    type_to_string(tmpctx, struct bitcoin_txid,
+					   utxo_txid),
+			    vout);
+
+	*input_amt = utxo->amount;
+	mvt = new_coin_spend_track(ctx, txid, utxo_txid, vout, blockheight);
+	notify_chain_mvt(ld, mvt);
+	tal_free(ctx);
+}
+
+static void record_tx_outs_and_fees(struct lightningd *ld, const struct bitcoin_tx *tx,
+				    struct bitcoin_txid *txid, u32 blockheight,
+				    struct amount_sat inputs_total)
+{
+	struct amount_sat fee;
+	struct chain_coin_mvt *mvt;
+	size_t i;
+	u8 *ctx = tal(NULL, u8);
+
+	if (!tx)
+		log_broken(ld->log, "We have no record of transaction %s",
+			   type_to_string(ctx, struct bitcoin_txid, txid));
+
+	/* We record every output on this transaction as a withdraw */
+	/* FIXME: collaborative tx will need to keep track of which
+	 *        outputs are ours */
+	for (i = 0; i < tx->wtx->num_outputs; i++) {
+		struct amount_asset asset;
+		struct amount_sat outval;
+		if (elements_tx_output_is_fee(tx, i))
+			continue;
+		asset = bitcoin_tx_output_get_amount(tx, i);
+		assert(amount_asset_is_main(&asset));
+		outval = amount_asset_to_sat(&asset);
+		mvt = new_coin_withdrawal_sat(ctx, "wallet", txid, txid,
+					      i, blockheight, outval);
+		notify_chain_mvt(ld, mvt);
+	}
+
+	fee = bitcoin_tx_compute_fee_w_inputs(tx, inputs_total);
+
+	/* Note that to figure out the *total* 'onchain'
+	 * cost of a channel, you'll want to also include
+	 * fees logged here, to the 'wallet' account (for funding tx).
+	 * You can do this in post by accounting for any 'chain_fees' logged for
+	 * the funding txid when looking at a channel. */
+	notify_chain_mvt(ld,
+			new_coin_chain_fees_sat(ctx, "wallet", txid,
+						blockheight, fee));
+
+	tal_free(ctx);
+}
+
 /**
  * topo_update_spends -- Tell the wallet about all spent outpoints
  */
@@ -631,19 +736,56 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 	const struct short_channel_id *scid;
 	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
+		bool our_tx = false;
+		struct bitcoin_txid txid;
+		struct amount_sat inputs_total = AMOUNT_SAT(0);
+
+		bitcoin_txid(tx, &txid);
+
 		for (size_t j = 0; j < tx->wtx->num_inputs; j++) {
 			const struct wally_tx_input *input = &tx->wtx->inputs[j];
-			struct bitcoin_txid txid;
-			bitcoin_tx_input_get_txid(tx, j, &txid);
+			struct bitcoin_txid outpoint_txid;
+			bool our_spend;
+
+			bitcoin_tx_input_get_txid(tx, j, &outpoint_txid);
 
 			scid = wallet_outpoint_spend(topo->ld->wallet, tmpctx,
-						     b->height, &txid,
-						     input->index);
+						     b->height, &outpoint_txid,
+						     input->index,
+						     &our_spend);
 			if (scid) {
 				gossipd_notify_spend(topo->bitcoind->ld, scid);
 				tal_free(scid);
 			}
+
+			our_tx |= our_spend;
+			if (our_spend) {
+				struct amount_sat input_amt;
+				bool ok;
+
+				record_output_spend(topo->ld, &txid, &outpoint_txid,
+						    input->index, b->height, &input_amt);
+				ok = amount_sat_add(&inputs_total, inputs_total, input_amt);
+				assert(ok);
+			} else if (our_tx)
+				log_broken(topo->ld->log, "Recording fee spend for tx %s but "
+					   "our wallet did not contribute input %s:%d",
+					   type_to_string(tmpctx, struct bitcoin_txid,
+							  &txid),
+					   type_to_string(tmpctx, struct bitcoin_txid,
+							  &outpoint_txid),
+					   input->index);
+
 		}
+
+		/* For now we assume that if one of the spent utxos
+		 * in this tx is 'ours', that we own all of the
+		 * utxos and therefore paid all of the fees
+		 * FIXME: update once interactive tx construction
+		 * is a reality */
+		if (our_tx)
+			record_tx_outs_and_fees(topo->ld, tx, &txid,
+						b->height, inputs_total);
 	}
 }
 
@@ -812,20 +954,18 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 	if (ld->config.ignore_fee_limits)
 		min = 1;
 	else {
-		min = try_get_feerate(ld->topology, FEERATE_SLOW);
+		min = try_get_feerate(ld->topology, FEERATE_MIN);
 		if (!min) {
 			if (unknown)
 				*unknown = true;
 		} else {
-			const u32 *hist = ld->topology->feehistory[FEERATE_SLOW];
+			const u32 *hist = ld->topology->feehistory[FEERATE_MIN];
 
 			/* If one of last three was an outlier, use that. */
 			for (size_t i = 0; i < FEE_HISTORY_NUM; i++) {
 				if (hist[i] < min)
 					min = hist[i];
 			}
-			/* Normally, we use half of slow rate. */
-			min /= 2;
 		}
 	}
 
@@ -834,16 +974,10 @@ u32 feerate_min(struct lightningd *ld, bool *unknown)
 	return min;
 }
 
-/* BOLT #2:
- *
- * Given the variance in fees, and the fact that the transaction may be
- * spent in the future, it's a good idea for the fee payer to keep a good
- * margin (say 5x the expected fee requirement)
- */
 u32 feerate_max(struct lightningd *ld, bool *unknown)
 {
 	u32 feerate;
-	const u32 *feehistory = ld->topology->feehistory[FEERATE_URGENT];
+	const u32 *feehistory = ld->topology->feehistory[FEERATE_MAX];
 
 	if (unknown)
 		*unknown = false;
@@ -852,7 +986,7 @@ u32 feerate_max(struct lightningd *ld, bool *unknown)
 		return UINT_MAX;
 
 	/* If we don't know feerate, don't limit other side. */
-	feerate = try_get_feerate(ld->topology, FEERATE_URGENT);
+	feerate = try_get_feerate(ld->topology, FEERATE_MAX);
 	if (!feerate) {
 		if (unknown)
 			*unknown = true;
@@ -864,7 +998,7 @@ u32 feerate_max(struct lightningd *ld, bool *unknown)
 		if (feehistory[i] > feerate)
 			feerate = feehistory[i];
 	}
-	return feerate * ld->config.max_fee_multiplier;
+	return feerate;
 }
 
 /* On shutdown, channels get deleted last.  That frees from our list, so

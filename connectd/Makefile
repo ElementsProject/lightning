@@ -44,12 +44,14 @@ CONNECTD_COMMON_OBJS :=				\
 	common/bech32_util.o			\
 	common/bigsize.o			\
 	common/bip32.o				\
+	common/channel_id.o			\
 	common/crypto_state.o			\
 	common/cryptomsg.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
+	common/ecdh_hsmd.o			\
 	common/features.o			\
 	common/gen_status_wire.o		\
 	common/gossip_rcvd_filter.o		\
@@ -60,6 +62,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/onionreply.o			\
 	common/per_peer_state.o			\
 	common/pseudorand.o			\
+	common/setup.o				\
 	common/status.o				\
 	common/status_wire.o			\
 	common/subdaemon.o			\

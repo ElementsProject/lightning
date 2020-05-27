@@ -57,6 +57,8 @@
 /*~ This is common code: routines shared by one or more executables
  *  (separate daemons, or the lightning-cli program). */
 #include <common/daemon.h>
+#include <common/ecdh_hsmd.h>
+#include <common/features.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/utils.h>
@@ -68,6 +70,7 @@
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>
+#include <lightningd/coin_mvts.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/invoice.h>
 #include <lightningd/io_loop_with_timers.h>
@@ -103,9 +106,10 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * the entire subtree rooted at that node to be freed.
 	 *
 	 * It's incredibly useful for grouping object lifetimes, as we'll see.
-	 * For example, a `struct bitcoin_tx` has a pointer to an array of
-	 * `struct bitcoin_tx_input`; they are allocated off the `struct
-	 * bitcoind_tx`, so freeing the `struct bitcoind_tx` frees them all.
+	 * For example, a `struct lightningd` has a pointer to a `log_book`
+	 * which is allocated off the `struct lightningd`, and has its own
+	 * internal members allocated off `log_book`: freeing `struct
+	 * lightningd` frees them all.
 	 *
 	 * In this case, freeing `ctx` will free `ld`:
 	 */
@@ -121,8 +125,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * is a nod to keeping it minimal and explicit: we need this code for
 	 * testing, but its existence means we're not actually testing the
 	 * same exact code users will be running. */
-	ld->dev_debug_subprocess = NULL;
 #if DEVELOPER
+	ld->dev_debug_subprocess = NULL;
 	ld->dev_disconnect_fd = -1;
 	ld->dev_subdaemon_fail = false;
 	ld->dev_allow_localhost = false;
@@ -570,7 +574,7 @@ static void init_txfilter(struct wallet *w, struct txfilter *filter)
 
 	bip32_max_index = db_get_intvar(w->db, "bip32_max_index", 0);
 	/*~ One of the C99 things I unequivocally approve: for-loop scope. */
-	for (u64 i = 0; i <= bip32_max_index; i++) {
+	for (u64 i = 0; i <= bip32_max_index + w->keyscan_gap; i++) {
 		if (bip32_key_from_parent(w->bip32_base, i, BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
 			abort();
 		}
@@ -702,6 +706,50 @@ static void setup_sig_handlers(void)
 	}
 }
 
+/*~ We actually keep more than one set of features, used in different
+ * contexts.  common/features.c knows how each standard feature is
+ * presented, so we have it generate the set for each one at a time, and
+ * combine them.
+ *
+ * This is inefficient, but the primitives are useful for adding single
+ * features later, or adding them when supplied by plugins. */
+static struct feature_set *default_features(const tal_t *ctx)
+{
+	struct feature_set *ret = NULL;
+	static const u32 features[] = {
+		OPTIONAL_FEATURE(OPT_DATA_LOSS_PROTECT),
+		OPTIONAL_FEATURE(OPT_UPFRONT_SHUTDOWN_SCRIPT),
+		OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES),
+		OPTIONAL_FEATURE(OPT_VAR_ONION),
+		OPTIONAL_FEATURE(OPT_PAYMENT_SECRET),
+		OPTIONAL_FEATURE(OPT_BASIC_MPP),
+		OPTIONAL_FEATURE(OPT_GOSSIP_QUERIES_EX),
+		OPTIONAL_FEATURE(OPT_STATIC_REMOTEKEY),
+#if EXPERIMENTAL_FEATURES
+		OPTIONAL_FEATURE(OPT_ONION_MESSAGES),
+#endif
+	};
+
+	for (size_t i = 0; i < ARRAY_SIZE(features); i++) {
+		struct feature_set *f
+			= feature_set_for_feature(NULL, features[i]);
+		if (!ret)
+			ret = tal_steal(ctx, f);
+		else
+			feature_set_or(ret, take(f));
+	}
+
+	return ret;
+}
+
+/*~ We need this function style to hand to ecdh_hsmd_setup, but it's just a thin
+ * wrapper around fatal() */
+static void hsm_ecdh_failed(enum status_failreason fail,
+			    const char *fmt, ...)
+{
+	fatal("hsm failure: %s", fmt);
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
@@ -750,6 +798,9 @@ int main(int argc, char *argv[])
 	if (!ld->daemon_dir)
 		errx(1, "Could not find daemons");
 
+	/* Set up the feature bits for what we support */
+	ld->our_features = default_features(ld);
+
 	/*~ Handle early options; this moves us into --lightning-dir.
 	 * Plugins may add new options, which is why we are splitting
 	 * between early args (including --plugin registration) and
@@ -759,7 +810,7 @@ int main(int argc, char *argv[])
 	/*~ Initialize all the plugins we just registered, so they can
 	 *  do their thing and tell us about themselves (including
 	 *  options registration). */
-	plugins_init(ld->plugins, ld->dev_debug_subprocess);
+	plugins_init(ld->plugins);
 
 	/*~ Handle options and config. */
 	handle_opts(ld, argc, argv);
@@ -775,6 +826,10 @@ int main(int argc, char *argv[])
 	 * bitcoin wallet (though it's that too).  It also stores channel
 	 * states, invoices, payments, blocks and bitcoin transactions. */
 	ld->wallet = wallet_new(ld, ld->timers);
+
+	/*~ We keep track of how many 'coin moves' we've ever made.
+	 * Initialize the starting value from the database here. */
+	coin_mvts_init_count(ld);
 
 	/*~ We keep a filter of scriptpubkeys we're interested in. */
 	ld->owned_txfilter = txfilter_new(ld);
@@ -927,6 +982,9 @@ int main(int argc, char *argv[])
 	 * a backtrace if we fail during startup. */
 	crashlog = ld->log;
 
+	/*~ This sets up the ecdh() function in ecdh_hsmd to talk to hsmd */
+	ecdh_hsmd_setup(ld->hsm_fd, hsm_ecdh_failed);
+
 	/*~ The root of every backtrace (almost).  This is our main event
 	 *  loop. */
 	void *io_loop_ret = io_loop_with_timers(ld);
@@ -945,7 +1003,7 @@ int main(int argc, char *argv[])
 	shutdown_subdaemons(ld);
 
 	/* Remove plugins. */
-	ld->plugins = tal_free(ld->plugins);
+	plugins_free(ld->plugins);
 
 	/* Clean up the JSON-RPC. This needs to happen in a DB transaction since
 	 * it might actually be touching the DB in some destructors, e.g.,

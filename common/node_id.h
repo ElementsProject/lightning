@@ -40,4 +40,7 @@ static inline int node_id_idx(const struct node_id *id1,
 	return node_id_cmp(id1, id2) > 0;
 }
 
+/* marshal/unmarshal functions */
+void towire_node_id(u8 **pptr, const struct node_id *id);
+void fromwire_node_id(const u8 **cursor, size_t *max, struct node_id *id);
 #endif /* LIGHTNING_COMMON_NODE_ID_H */

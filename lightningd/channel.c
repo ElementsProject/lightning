@@ -1,6 +1,7 @@
 #include <bitcoin/script.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/tal/str/str.h>
+#include <common/closing_fee.h>
 #include <common/fee_states.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
@@ -111,7 +112,7 @@ static void destroy_channel(struct channel *channel)
 	list_del_from(&channel->peer->channels, &channel->list);
 }
 
-void delete_channel(struct channel *channel)
+void delete_channel(struct channel *channel STEALS)
 {
 	struct peer *peer = channel->peer;
 	wallet_channel_close(channel->peer->ld->wallet, channel->dbid);
@@ -144,7 +145,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct wallet_shachain *their_shachain,
 			    enum channel_state state,
-			    enum side funder,
+			    enum side opener,
 			    /* NULL or stolen */
 			    struct log *log,
 			    const char *transient_billboard TAKES,
@@ -158,6 +159,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u16 funding_outnum,
 			    struct amount_sat funding,
 			    struct amount_msat push,
+			    struct amount_sat our_funds,
 			    bool remote_funding_locked,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid,
@@ -203,7 +205,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		shachain_init(&channel->their_shachain.chain);
 	}
 	channel->state = state;
-	channel->funder = funder;
+	channel->opener = opener;
 	channel->owner = NULL;
 	memset(&channel->billboard, 0, sizeof(channel->billboard));
 	channel->billboard.transient = tal_strdup(channel, transient_billboard);
@@ -226,6 +228,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->funding_outnum = funding_outnum;
 	channel->funding = funding;
 	channel->push = push;
+	channel->our_funds = our_funds;
 	channel->remote_funding_locked = remote_funding_locked;
 	channel->scid = tal_steal(channel, scid);
 	channel->our_msat = our_msat;
@@ -242,6 +245,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->shutdown_scriptpubkey[REMOTE]
 		= tal_steal(channel, remote_shutdown_scriptpubkey);
 	channel->final_key_idx = final_key_idx;
+	channel->closing_fee_negotiation_step = 50;
+	channel->closing_fee_negotiation_step_unit
+		= CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
 	if (local_shutdown_scriptpubkey)
 		channel->shutdown_scriptpubkey[LOCAL]
 			= tal_steal(channel, local_shutdown_scriptpubkey);
@@ -423,7 +429,7 @@ void channel_fail_forget(struct channel *channel, const char *fmt, ...)
 	char *why;
 	struct channel_id cid;
 
-	assert(channel->funder == REMOTE &&
+	assert(channel->opener == REMOTE &&
 	       channel->state == CHANNELD_AWAITING_LOCKIN);
 	va_start(ap, fmt);
 	why = tal_vfmt(tmpctx, fmt, ap);

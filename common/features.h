@@ -4,24 +4,55 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 
+enum feature_place {
+	INIT_FEATURE,
+	GLOBAL_INIT_FEATURE,
+	NODE_ANNOUNCE_FEATURE,
+	CHANNEL_FEATURE,
+	BOLT11_FEATURE,
+};
+#define NUM_FEATURE_PLACE (BOLT11_FEATURE+1)
+
+extern const char *feature_place_names[NUM_FEATURE_PLACE];
+
+/* The complete set of features for all contexts */
+struct feature_set {
+	u8 *bits[NUM_FEATURE_PLACE];
+};
+
+/* Create feature set for a known feature. */
+struct feature_set *feature_set_for_feature(const tal_t *ctx, int feature);
+
+/* Marshalling a feature set */
+struct feature_set *fromwire_feature_set(const tal_t *ctx,
+					 const u8 **ptr, size_t *max);
+void towire_feature_set(u8 **pptr, const struct feature_set *fset);
+
+/* a |= b, or returns false if features already in a */
+bool feature_set_or(struct feature_set *a,
+		    const struct feature_set *b TAKES);
+
 /* Returns -1 if we're OK with all these offered features, otherwise first
  * unsupported (even) feature. */
-int features_unsupported(const u8 *features);
+int features_unsupported(const struct feature_set *our_features,
+			 const u8 *their_features,
+			 enum feature_place p);
 
-/* For sending our features: tal_count() returns length. */
-u8 *get_offered_initfeatures(const tal_t *ctx);
-u8 *get_offered_globalinitfeatures(const tal_t *ctx);
-u8 *get_offered_nodefeatures(const tal_t *ctx);
-u8 *get_offered_bolt11features(const tal_t *ctx);
+/* For the features in channel_announcement */
+u8 *get_agreed_channelfeatures(const tal_t *ctx,
+			       const struct feature_set *our_features,
+			       const u8 *theirfeatures);
 
 /* Is this feature bit requested? (Either compulsory or optional) */
 bool feature_offered(const u8 *features, size_t f);
 
 /* Was this feature bit offered by them and us? */
-bool feature_negotiated(const u8 *lfeatures, size_t f);
+bool feature_negotiated(const struct feature_set *our_features,
+			const u8 *their_features, size_t f);
 
-/* Return a list of what features we advertize. */
-const char **list_supported_features(const tal_t *ctx);
+/* Return a list of what (init) features we advertize. */
+const char **list_supported_features(const tal_t *ctx,
+				     const struct feature_set *fset);
 
 /* Low-level helpers to deal with big-endian bitfields. */
 bool feature_is_set(const u8 *features, size_t bit);
@@ -64,8 +95,17 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
  *
  * | 14/15 | `payment_secret` |... IN9 ...
  * | 16/17 | `basic_mpp`      |... IN9 ...
+ * | 18/19 | `option_support_large_channel` |... INC+ ...
  */
 #define OPT_PAYMENT_SECRET			14
 #define OPT_BASIC_MPP				16
+#define OPT_LARGE_CHANNELS			18
 
+/* BOLT-9fc25cfd2895578c0b1ab701ebe6c1eb67a19623 #9:
+ *
+ * | 102/103 | `option_onion_messages` |... INC+ ...
+ */
+#if EXPERIMENTAL_FEATURES
+#define OPT_ONION_MESSAGES			102
+#endif
 #endif /* LIGHTNING_COMMON_FEATURES_H */

@@ -4,7 +4,7 @@
 Only used for 'channel_opened' for now.
 """
 
-from lightning import Plugin
+from pyln.client import Plugin
 
 plugin = Plugin()
 

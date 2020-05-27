@@ -130,6 +130,8 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    struct amount_msat msat, u32 cltv_expiry,
 			    const struct sha256 *payment_hash,
 			    const struct secret *shared_secret TAKES,
+			    const struct pubkey *blinding TAKES,
+			    const struct secret *blinding_ss,
 			    const u8 *onion_routing_packet)
 {
 	struct htlc_in *hin = tal(ctx, struct htlc_in);
@@ -144,6 +146,11 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 		hin->shared_secret = tal_dup(hin, struct secret, shared_secret);
 	else
 		hin->shared_secret = NULL;
+	if (blinding) {
+		hin->blinding = tal_dup(hin, struct pubkey, blinding);
+		hin->blinding_ss = *blinding_ss;
+	} else
+		hin->blinding = NULL;
 	memcpy(hin->onion_routing_packet, onion_routing_packet,
 	       sizeof(hin->onion_routing_packet));
 
@@ -151,6 +158,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->badonion = 0;
 	hin->failonion = NULL;
 	hin->preimage = NULL;
+	hin->we_filled = NULL;
 
 	hin->received_time = time_now();
 
@@ -267,6 +275,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      u32 cltv_expiry,
 			      const struct sha256 *payment_hash,
 			      const u8 *onion_routing_packet,
+			      const struct pubkey *blinding,
 			      bool am_origin,
 			      u64 partid,
 			      struct htlc_in *in)
@@ -289,6 +298,10 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->failonion = NULL;
 	hout->preimage = NULL;
 
+	if (blinding)
+		hout->blinding = tal_dup(hout, struct pubkey, blinding);
+	else
+		hout->blinding = NULL;
 	hout->am_origin = am_origin;
 	if (am_origin)
 		hout->partid = partid;

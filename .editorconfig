@@ -10,6 +10,7 @@ trim_trailing_whitespace = true
 
 [{**.c,**.h,Makefile}]
 indent_style = tab
+indent_size = 8
 
 [**.py]
 indent_style = space

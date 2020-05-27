@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from lightning import Plugin
+from pyln.client import Plugin
 import time
 
 plugin = Plugin()
@@ -19,6 +19,12 @@ def hello(plugin, name="world"):
     return s
 
 
+@plugin.method("bye")
+def bye(plugin, name, **kwargs):
+    """This methods requires {name} to be set by the caller !"""
+    return "Bye {}".format(name)
+
+
 @plugin.init()
 def init(options, configuration, plugin, **kwargs):
     plugin.log("Plugin helloworld.py initialized")
@@ -36,10 +42,14 @@ def on_disconnect(plugin, id, **kwargs):
 
 @plugin.subscribe("invoice_payment")
 def on_payment(plugin, invoice_payment, **kwargs):
-    plugin.log("Received invoice_payment event for label {}, preimage {},"
-               " and amount of {}".format(invoice_payment.get("label"),
-                                          invoice_payment.get("preimage"),
-                                          invoice_payment.get("msat")))
+    plugin.log("Received invoice_payment event for label {label}, preimage {preimage},"
+               " and amount of {msat}".format(**invoice_payment))
+
+
+@plugin.subscribe("invoice_creation")
+def on_invoice_creation(plugin, invoice_creation, **kwargs):
+    plugin.log("Received invoice_creation event for label {label}, preimage {preimage},"
+               " and amount of {msat}".format(**invoice_creation))
 
 
 @plugin.hook("htlc_accepted")

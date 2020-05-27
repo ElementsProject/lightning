@@ -7,7 +7,7 @@ settled/forwarded/
 """
 
 
-from lightning import Plugin
+from pyln.client import Plugin
 import json
 import os
 import tempfile

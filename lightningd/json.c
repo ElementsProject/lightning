@@ -7,6 +7,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
+#include <common/channel_id.h>
 #include <common/json.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
@@ -115,6 +116,15 @@ struct command_result *param_feerate(struct command *cmd, const char *name,
 		if (json_tok_streq(buffer, tok, feerate_name(i)))
 			return param_feerate_estimate(cmd, feerate, i);
 	}
+	/* We used SLOW, NORMAL, and URGENT as feerate targets previously,
+	 * and many commands rely on this syntax now.
+	 * It's also really more natural for an user interface. */
+	if (json_tok_streq(buffer, tok, "slow"))
+		return param_feerate_estimate(cmd, feerate, FEERATE_MIN);
+	else if (json_tok_streq(buffer, tok, "normal"))
+		return param_feerate_estimate(cmd, feerate, FEERATE_OPENING);
+	else if (json_tok_streq(buffer, tok, "urgent"))
+		return param_feerate_estimate(cmd, feerate, FEERATE_UNILATERAL_CLOSE);
 
 	/* We have to split the number and suffix. */
 	suffix.start = suffix.end;

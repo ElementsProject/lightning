@@ -1,6 +1,10 @@
 DEVTOOLS_SRC := devtools/gen_print_wire.c devtools/gen_print_onion_wire.c devtools/print_wire.c
 DEVTOOLS_OBJS := $(DEVTOOLS_SRC:.c=.o)
 DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/checkchannels devtools/mkquery devtools/lightning-checkmessage
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+DEVTOOLS += devtools/blindedpath
+endif
+
 DEVTOOLS_TOOL_SRC := $(DEVTOOLS:=.c)
 DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o)
 
@@ -13,17 +17,17 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/bech32_util.o			\
 	common/bigsize.o			\
 	common/bolt11.o				\
+	common/channel_id.o			\
 	common/crypto_state.o			\
 	common/decode_array.o			\
 	common/features.o			\
 	common/fee_states.o			\
 	common/gossip_rcvd_filter.o		\
 	common/hash_u5.o			\
+	common/hmac.o				\
 	common/htlc_state.o			\
 	common/memleak.o			\
 	common/node_id.o			\
-	common/onion.o				\
-	common/onionreply.o			\
 	common/per_peer_state.o			\
 	common/pseudorand.o			\
 	common/json.o				\
@@ -63,7 +67,9 @@ devtools/create-gossipstore.o: gossipd/gen_gossip_store.h
 
 devtools/onion.c: ccan/config.h
 
-devtools/onion: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/onion.o common/sphinx.o
+devtools/onion: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) common/onion.o common/onionreply.o wire/fromwire.o wire/towire.o devtools/onion.o common/sphinx.o
+
+devtools/blindedpath: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) common/blinding.o $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/blindedpath.o common/onion.o common/onionreply.o common/sphinx.o
 
 devtools/gossipwith: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/gen_peer_wire.o devtools/gossipwith.o common/cryptomsg.o common/cryptomsg.o common/crypto_sync.o
 

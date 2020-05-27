@@ -7,6 +7,8 @@
 #include <common/initial_channel.h>
 #include <common/sphinx.h>
 
+struct existing_htlc;
+
 /**
  * new_full_channel: Given initial fees and funding, what is initial state?
  * @ctx: tal context to allocate return value from.
@@ -23,7 +25,7 @@
  * @local_fundingkey: local funding key
  * @remote_fundingkey: remote funding key
  * @option_static_remotekey: use `option_static_remotekey`.
- * @funder: which side initiated it.
+ * @opener: which side initiated it.
  *
  * Returns state, or NULL if malformed.
  */
@@ -41,14 +43,15 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 const struct pubkey *local_funding_pubkey,
 				 const struct pubkey *remote_funding_pubkey,
 				 bool option_static_remotekey,
-				 enum side funder);
+				 enum side opener);
 
 /**
  * channel_txs: Get the current commitment and htlc txs for the channel.
  * @ctx: tal context to allocate return value from.
  * @channel: The channel to evaluate
  * @htlc_map: Pointer to htlcs for each tx output (allocated off @ctx).
- * @wscripts: Pointer to array of wscript for each tx returned (alloced off @ctx)
+ * @direct_outputs: If non-NULL, fill with pointers to the direct (non-HTLC) outputs (or NULL if none).
+ * @funding_wscript: Pointer to wscript for the funding tx output
  * @per_commitment_point: Per-commitment point to determine keys
  * @commitment_number: The index of this commitment.
  * @side: which side to get the commitment transaction for
@@ -59,7 +62,8 @@ struct channel *new_full_channel(const tal_t *ctx,
  */
 struct bitcoin_tx **channel_txs(const tal_t *ctx,
 				const struct htlc ***htlcmap,
-				const u8 ***wscripts,
+				struct wally_tx_output *direct_outputs[NUM_SIDES],
+				const u8 **funding_wscript,
 				const struct channel *channel,
 				const struct pubkey *per_commitment_point,
 				u64 commitment_number,
@@ -90,6 +94,7 @@ u32 actual_feerate(const struct channel *channel,
  * @cltv_expiry: block number when HTLC can no longer be redeemed.
  * @payment_hash: hash whose preimage can redeem HTLC.
  * @routing: routing information (copied)
+ * @blinding: optional blinding information for this HTLC.
  * @htlcp: optional pointer for resulting htlc: filled in if and only if CHANNEL_ERR_NONE.
  *
  * If this returns CHANNEL_ERR_NONE, the fee htlc was added and
@@ -103,6 +108,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
 				      const u8 routing[TOTAL_PACKET_SIZE],
+				      const struct pubkey *blinding TAKES,
 				      struct htlc **htlcp,
 				      struct amount_sat *htlc_fee);
 
@@ -147,7 +153,7 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 					     struct htlc **htlcp);
 
 /**
- * approx_max_feerate: what's the max funder could raise fee rate to?
+ * approx_max_feerate: what's the max opener could raise fee rate to?
  * @channel: The channel state
  *
  * This is not exact!  To check if their offer is valid, try
@@ -156,14 +162,14 @@ enum channel_remove_err channel_fulfill_htlc(struct channel *channel,
 u32 approx_max_feerate(const struct channel *channel);
 
 /**
- * can_funder_afford_feerate: could the funder pay the fee?
+ * can_opener_afford_feerate: could the opener pay the fee?
  * @channel: The channel state
  * @feerate: The feerate in satoshi per 1000 bytes.
  */
-bool can_funder_afford_feerate(const struct channel *channel, u32 feerate);
+bool can_opener_afford_feerate(const struct channel *channel, u32 feerate);
 
 /**
- * channel_update_feerate: Change fee rate on non-funder side.
+ * channel_update_feerate: Change fee rate on non-opener side.
  * @channel: The channel
  * @feerate_per_kw: fee in satoshi per 1000 bytes.
  *
@@ -227,22 +233,12 @@ size_t num_channel_htlcs(const struct channel *channel);
 /**
  * channel_force_htlcs: force these htlcs into the (new) channel
  * @channel: the channel
- * @htlcs: the htlcs to add (tal_arr)
- * @hstates: the states for the htlcs (tal_arr of same size)
- * @fulfilled: htlcs of those which are fulfilled
- * @fulfilled_sides: sides for ids in @fulfilled
- * @failed_in: incoming htlcs which are failed (stolen!)
- * @failed_out: outgoing htlc ids which are failed
+ * @htlcs: the htlcs to add (tal_arr) elements stolen.
  *
  * This is used for restoring a channel state.
  */
 bool channel_force_htlcs(struct channel *channel,
-			 const struct added_htlc *htlcs,
-			 const enum htlc_state *hstates,
-			 const struct fulfilled_htlc *fulfilled,
-			 const enum side *fulfilled_sides,
-			 const struct failed_htlc **failed_in,
-			 const u64 *failed_out);
+			 const struct existing_htlc **htlcs);
 
 /**
  * dump_htlcs: debugging dump of all HTLCs

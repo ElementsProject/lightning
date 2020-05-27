@@ -7,14 +7,14 @@ if [ x"$1" = x"--inside-docker" ]; then
     git clone /src /build
     cd /build
     ./configure
-    make -j3
+    make
     make install DESTDIR=/"$VER"
     cd /"$VER" && tar cvfz /release/clightning-"$VER".tar.gz -- *
     exit 0
 fi
 
 # bin-Ubuntu-16.04-amd64 was superceded by the reproducible built 18.04 version.
-ALL_TARGETS="bin-Fedora-28-amd64 bin-Ubuntu-16.04-i386 zipfile"
+ALL_TARGETS="bin-Fedora-28-amd64 zipfile"
 
 FORCE_VERSION=
 FORCE_UNCLEAN=false
@@ -88,10 +88,6 @@ for target in $TARGETS; do
 	Ubuntu-16.04-amd64)
 	    DOCKERFILE=contrib/Dockerfile.builder
 	    TAG=ubuntu-amd64
-	    ;;
-	Ubuntu-16.04-i386)
-	    DOCKERFILE=contrib/Dockerfile.builder.i386
-	    TAG=ubuntu-i386
 	    ;;
 	*)
 	    echo "No Dockerfile for $platform" >&2

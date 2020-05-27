@@ -30,30 +30,25 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/plugin.h>
 
-/* How many seconds will we wait for our Bitcoin plugin to respond to `init` ?
- * Note that bcli waits for bitcoind to be warmed up before responding, so it
- * shouldn't be too low. */
-#define BITCOIN_INIT_TIMEOUT 30
-
 /* The names of the requests we can make to our Bitcoin backend. */
 static const char *methods[] = {"getchaininfo", "getrawblockbyheight",
                                 "sendrawtransaction", "getutxout",
-                                "getfeerate"};
+                                "estimatefees"};
+
+static void bitcoin_destructor(struct plugin *p)
+{
+	if (p->plugins->ld->state == LD_STATE_SHUTDOWN)
+		return;
+	fatal("The Bitcoin backend died.");
+}
 
 static void plugin_config_cb(const char *buffer,
 			     const jsmntok_t *toks,
 			     const jsmntok_t *idtok,
 			     struct plugin *plugin)
 {
-	tal_free(plugin->timeout_timer);
-	plugin->plugin_state = CONFIGURED;
+	plugin->plugin_state = INIT_COMPLETE;
 	io_break(plugin);
-}
-
-static void plugin_config_timeout(void *unused UNUSED)
-{
-	fatal("Timed out while waiting for (one of) the Bitcoin backend "
-	      "plugin(s) to complete the handshake.");
 }
 
 static void config_plugin(struct plugin *plugin)
@@ -66,11 +61,7 @@ static void config_plugin(struct plugin *plugin)
 	jsonrpc_request_end(req);
 	plugin_request_send(plugin, req);
 
-	/* Don't hang forever if the plugin encountered a problem at init. */
-	plugin->timeout_timer
-		= new_reltimer(plugin->plugins->ld->timers, NULL,
-			       time_from_sec(BITCOIN_INIT_TIMEOUT),
-			       plugin_config_timeout, NULL);
+	tal_add_destructor(plugin, bitcoin_destructor);
 
 	io_loop_with_timers(plugin->plugins->ld);
 }
@@ -86,8 +77,9 @@ static void wait_plugin(struct bitcoind *bitcoind, const char *method,
 	 * before responding to `init`).
 	 * Note that lightningd/plugin will not send `init` to an already
 	 * configured plugin. */
-	if (p->plugin_state != CONFIGURED)
+	if (p->plugin_state == NEEDS_INIT)
 		config_plugin(p);
+
 	strmap_add(&bitcoind->pluginsmap, method, p);
 }
 
@@ -113,127 +105,136 @@ void bitcoind_check_commands(struct bitcoind *bitcoind)
 /* Our Bitcoin backend plugin gave us a bad response. We can't recover. */
 static void bitcoin_plugin_error(struct bitcoind *bitcoind, const char *buf,
 				 const jsmntok_t *toks, const char *method,
-				 const char *reason)
+				 const char *fmt, ...)
 {
-	struct plugin *p = strmap_get(&bitcoind->pluginsmap, method);
+	va_list ap;
+	char *reason;
+	struct plugin *p;
+
+	va_start(ap, fmt);
+	reason = tal_vfmt(NULL, fmt, ap);
+	va_end(ap);
+
+	p = strmap_get(&bitcoind->pluginsmap, method);
 	fatal("%s error: bad response to %s (%s), response was %.*s",
 	      p->cmd, method, reason,
 	      toks->end - toks->start, buf + toks->start);
 }
 
-/* `getfeerate`
+/* Send a request to the Bitcoin plugin which registered that method,
+ * if it's still alive. */
+static void bitcoin_plugin_send(struct bitcoind *bitcoind,
+				struct jsonrpc_request *req)
+{
+	struct plugin *plugin = strmap_get(&bitcoind->pluginsmap, req->method);
+	if (!plugin)
+		fatal("Bitcoin backend plugin for %s died.", req->method);
+
+	plugin_request_send(plugin, req);
+}
+
+/* `estimatefees`
  *
  * Gather feerate from our Bitcoin backend. Will set the feerate to `null`
  * if estimation failed.
  *
+ *   - `opening` is used for funding and also misc transactions
+ *   - `mutual_close` is used for the mutual close transaction
+ *   - `unilateral_close` is used for unilateral close (commitment transactions)
+ *   - `delayed_to_us` is used for resolving our output from our unilateral close
+ *   - `htlc_resolution` is used for resolving onchain HTLCs
+ *   - `penalty` is used for resolving revoked transactions
+ *   - `min` is the minimum acceptable feerate
+ *   - `max` is the maximum acceptable feerate
+ *
  * Plugin response:
  * {
- *	"feerate": <fee per KB>,
+ *	"opening": <sat per kVB>,
+ *	"mutual_close": <sat per kVB>,
+ *	"unilateral_close": <sat per kVB>,
+ *	"delayed_to_us": <sat per kVB>,
+ *	"htlc_resolution": <sat per kVB>,
+ *	"penalty": <sat per kVB>,
+ *	"min_acceptable": <sat per kVB>,
+ *	"max_acceptable": <sat per kVB>,
  * }
  */
 
 struct estimatefee_call {
 	struct bitcoind *bitcoind;
-	size_t i;
-	const u32 *blocks;
-	const char **estmode;
-
 	void (*cb)(struct bitcoind *bitcoind, const u32 satoshi_per_kw[],
 		   void *);
 	void *arg;
-	u32 *satoshi_per_kw;
 };
 
-static void do_one_estimatefee(struct bitcoind *bitcoind,
-			       struct estimatefee_call *call);
-
-static void getfeerate_callback(const char *buf, const jsmntok_t *toks,
-				const jsmntok_t *idtok,
-				struct estimatefee_call *call)
+static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
+				  const jsmntok_t *idtok,
+				  struct estimatefee_call *call)
 {
 	const jsmntok_t *resulttok, *feeratetok;
-	u64 feerate;
+	u32 *feerates = tal_arr(call, u32, NUM_FEERATES);
 
 	resulttok = json_get_member(buf, toks, "result");
 	if (!resulttok)
 		bitcoin_plugin_error(call->bitcoind, buf, toks,
-				     "getfeerate",
+				     "estimatefees",
 				     "bad 'result' field");
 
-	feeratetok = json_get_member(buf, resulttok, "feerate");
-	if (!feeratetok)
-		bitcoin_plugin_error(call->bitcoind, buf, toks,
-				     "getfeerate",
-				     "bad 'feerate' field");
+	for (enum feerate f = 0; f < NUM_FEERATES; f++) {
+		feeratetok = json_get_member(buf, resulttok, feerate_name(f));
+		if (!feeratetok)
+			bitcoin_plugin_error(call->bitcoind, buf, toks,
+					     "estimatefees",
+					     "missing '%s' field", feerate_name(f));
 
-	/* FIXME: We could trawl recent blocks for median fee... */
-	if (!json_to_u64(buf, feeratetok, &feerate)) {
-		log_unusual(call->bitcoind->log, "Unable to estimate %s/%u fee",
-			    call->estmode[call->i], call->blocks[call->i]);
+		/* FIXME: We could trawl recent blocks for median fee... */
+		if (!json_to_u32(buf, feeratetok, &feerates[f])) {
+			log_unusual(call->bitcoind->log,
+				    "Unable to estimate %s fees",
+				    feerate_name(f));
 
 #if DEVELOPER
-		/* This is needed to test for failed feerate estimates
-		 * in DEVELOPER mode */
-		call->satoshi_per_kw[call->i] = 0;
+			/* This is needed to test for failed feerate estimates
+			* in DEVELOPER mode */
+			feerates[f] = 0;
 #else
-		/* If we are in testnet mode we want to allow payments
-		 * with the minimal fee even if the estimate didn't
-		 * work out. This is less disruptive than erring out
-		 * all the time. */
-		if (chainparams->testnet)
-			call->satoshi_per_kw[call->i] = FEERATE_FLOOR;
-		else
-			call->satoshi_per_kw[call->i] = 0;
+			/* If we are in testnet mode we want to allow payments
+			* with the minimal fee even if the estimate didn't
+			* work out. This is less disruptive than erring out
+			* all the time. */
+			if (chainparams->testnet)
+				feerates[f] = FEERATE_FLOOR;
+			else
+				feerates[f] = 0;
 #endif
-	} else
-		/* Rate in satoshi per kw. */
-		call->satoshi_per_kw[call->i]
-			= feerate_from_style(feerate, FEERATE_PER_KBYTE);
-
-	call->i++;
-	if (call->i == tal_count(call->satoshi_per_kw)) {
-		call->cb(call->bitcoind, call->satoshi_per_kw, call->arg);
-		tal_free(call);
-	} else {
-		/* Next */
-		do_one_estimatefee(call->bitcoind, call);
+		} else
+			/* Rate in satoshi per kw. */
+			feerates[f] = feerate_from_style(feerates[f],
+							 FEERATE_PER_KBYTE);
 	}
-}
 
-static void do_one_estimatefee(struct bitcoind *bitcoind,
-			       struct estimatefee_call *call)
-{
-	struct jsonrpc_request *req;
-
-	req = jsonrpc_request_start(bitcoind, "getfeerate",
-				    bitcoind->log, getfeerate_callback,
-				    call);
-	json_add_num(req->stream, "blocks", call->blocks[call->i]);
-	json_add_string(req->stream, "mode", call->estmode[call->i]);
-	jsonrpc_request_end(req);
-	plugin_request_send(strmap_get(&bitcoind->pluginsmap,
-				       "getfeerate"), req);
+	call->cb(call->bitcoind, feerates, call->arg);
+	tal_free(call);
 }
 
 void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
-			     const u32 blocks[], const char *estmode[],
 			     size_t num_estimates,
 			     void (*cb)(struct bitcoind *bitcoind,
 					const u32 satoshi_per_kw[], void *),
 			     void *arg)
 {
-	struct estimatefee_call *efee = tal(bitcoind, struct estimatefee_call);
+	struct jsonrpc_request *req;
+	struct estimatefee_call *call = tal(bitcoind, struct estimatefee_call);
 
-	efee->bitcoind = bitcoind;
-	efee->i = 0;
-	efee->blocks = tal_dup_arr(efee, u32, blocks, num_estimates, 0);
-	efee->estmode = tal_dup_arr(efee, const char *, estmode, num_estimates,
-				    0);
-	efee->cb = cb;
-	efee->arg = arg;
-	efee->satoshi_per_kw = tal_arr(efee, u32, num_estimates);
+	call->bitcoind = bitcoind;
+	call->cb = cb;
+	call->arg = arg;
 
-	do_one_estimatefee(bitcoind, efee);
+	req = jsonrpc_request_start(bitcoind, "estimatefees", bitcoind->log,
+				    estimatefees_callback, call);
+	jsonrpc_request_end(req);
+	plugin_request_send(strmap_get(&bitcoind->pluginsmap,
+				       "estimatefees"), req);
 }
 
 /* `sendrawtransaction`
@@ -311,8 +312,7 @@ void bitcoind_sendrawtx_(struct bitcoind *bitcoind,
 				    call);
 	json_add_string(req->stream, "tx", hextx);
 	jsonrpc_request_end(req);
-	plugin_request_send(strmap_get(&bitcoind->pluginsmap,
-				       "sendrawtransaction"), req);
+	bitcoin_plugin_send(bitcoind, req);
 }
 
 /* `getrawblockbyheight`
@@ -412,8 +412,7 @@ void bitcoind_getrawblockbyheight_(struct bitcoind *bitcoind,
 				    notleak(call));
 	json_add_num(req->stream, "height", height);
 	jsonrpc_request_end(req);
-	plugin_request_send(strmap_get(&bitcoind->pluginsmap,
-				       "getrawblockbyheight"), req);
+	bitcoin_plugin_send(bitcoind, req);
 }
 
 /* `getchaininfo`
@@ -507,8 +506,7 @@ void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 	req = jsonrpc_request_start(bitcoind, "getchaininfo", bitcoind->log,
 				    getchaininfo_callback, call);
 	jsonrpc_request_end(req);
-	plugin_request_send(strmap_get(&bitcoind->pluginsmap, "getchaininfo"),
-			    req);
+	bitcoin_plugin_send(bitcoind, req);
 }
 
 /* `getutxout`
@@ -591,8 +589,7 @@ void bitcoind_getutxout_(struct bitcoind *bitcoind,
 	json_add_txid(req->stream, "txid", txid);
 	json_add_num(req->stream, "vout", outnum);
 	jsonrpc_request_end(req);
-	plugin_request_send(strmap_get(&bitcoind->pluginsmap, "getutxout"),
-			    req);
+	bitcoin_plugin_send(bitcoind, req);
 }
 
 /* Context for the getfilteredblock call. Wraps the actual arguments while we

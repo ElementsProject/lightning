@@ -1,4 +1,6 @@
+from bitcoin.core import COIN
 from bitcoin.rpc import RawProxy as BitcoinProxy
+from pyln.client import RpcError
 from pyln.testing.btcproxy import BitcoinRpcProxy
 from collections import OrderedDict
 from decimal import Decimal
@@ -17,14 +19,15 @@ import sqlite3
 import string
 import struct
 import subprocess
-import sys
 import threading
 import time
+import warnings
 
 BITCOIND_CONFIG = {
     "regtest": 1,
     "rpcuser": "rpcuser",
     "rpcpassword": "rpcpass",
+    "fallbackfee": Decimal(1000) / COIN,
 }
 
 
@@ -66,11 +69,8 @@ TEST_NETWORK = env("TEST_NETWORK", 'regtest')
 DEVELOPER = env("DEVELOPER", "0") == "1"
 TEST_DEBUG = env("TEST_DEBUG", "0") == "1"
 SLOW_MACHINE = env("SLOW_MACHINE", "0") == "1"
+DEPRECATED_APIS = env("DEPRECATED_APIS", "0") == "1"
 TIMEOUT = int(env("TIMEOUT", 180 if SLOW_MACHINE else 60))
-
-
-if TEST_DEBUG:
-    logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
 
 def wait_for(success, timeout=TIMEOUT):
@@ -140,6 +140,7 @@ class TailableProc(object):
         self.proc = None
         self.outputDir = outputDir
         self.logsearch_start = 0
+        self.err_logs = []
 
         # Should we be logging lines we read from stdout?
         self.verbose = verbose
@@ -210,6 +211,10 @@ class TailableProc(object):
         self.running = False
         self.proc.stdout.close()
         if self.proc.stderr:
+            for line in iter(self.proc.stderr.readline, ''):
+                if len(line) == 0:
+                    break
+                self.err_logs.append(line.rstrip().decode('ASCII'))
             self.proc.stderr.close()
 
     def is_in_log(self, regex, start=0):
@@ -222,6 +227,18 @@ class TailableProc(object):
                 return l
 
         logging.debug("Did not find '%s' in logs", regex)
+        return None
+
+    def is_in_stderr(self, regex):
+        """Look for `regex` in stderr."""
+
+        ex = re.compile(regex)
+        for l in self.err_logs:
+            if ex.search(l):
+                logging.debug("Found '%s' in stderr", regex)
+                return l
+
+        logging.debug("Did not find '%s' in stderr", regex)
         return None
 
     def wait_for_logs(self, regexs, timeout=TIMEOUT):
@@ -466,11 +483,15 @@ class LightningD(TailableProc):
         opts = {
             'lightning-dir': lightning_dir,
             'addr': '127.0.0.1:{}'.format(port),
-            'allow-deprecated-apis': 'false',
+            'allow-deprecated-apis': '{}'.format("true" if DEPRECATED_APIS
+                                                 else "false"),
             'network': TEST_NETWORK,
             'ignore-fee-limits': 'false',
             'bitcoin-rpcuser': BITCOIND_CONFIG['rpcuser'],
             'bitcoin-rpcpassword': BITCOIND_CONFIG['rpcpassword'],
+
+            # Make sure we don't touch any existing config files in the user's $HOME
+            'bitcoin-datadir': lightning_dir,
         }
 
         for k, v in opts.items():
@@ -637,8 +658,8 @@ class LightningNode(object):
             info = self.rpc.getinfo()
         return 'warning_bitcoind_sync' not in info and 'warning_lightningd_sync' not in info
 
-    def start(self, wait_for_bitcoind_sync=True):
-        self.daemon.start()
+    def start(self, wait_for_bitcoind_sync=True, stderr=None):
+        self.daemon.start(stderr=stderr)
         # Cache `getinfo`, we'll be using it a lot
         self.info = self.rpc.getinfo()
         # This shortcut is sufficient for our simple tests.
@@ -799,33 +820,44 @@ class LightningNode(object):
                     if 'htlcs' in channel:
                         wait_for(lambda: len(self.rpc.listpeers()['peers'][p]['channels'][c]['htlcs']) == 0)
 
+    # This sends money to a directly connected peer
     def pay(self, dst, amt, label=None):
         if not label:
             label = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20))
 
+        # check we are connected
+        dst_id = dst.info['id']
+        assert len(self.rpc.listpeers(dst_id).get('peers')) == 1
+
+        # make an invoice
         rhash = dst.rpc.invoice(amt, label, label)['payment_hash']
         invoices = dst.rpc.listinvoices(label)['invoices']
         assert len(invoices) == 1 and invoices[0]['status'] == 'unpaid'
 
         routestep = {
             'msatoshi': amt,
-            'id': dst.info['id'],
+            'id': dst_id,
             'delay': 5,
-            'channel': '1x1x1'
+            'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments
         }
 
-        def wait_pay():
-            # Up to 10 seconds for payment to succeed.
-            start_time = time.time()
-            while dst.rpc.listinvoices(label)['invoices'][0]['status'] != 'paid':
-                if time.time() > start_time + 10:
-                    raise TimeoutError('Payment timed out')
-                time.sleep(0.1)
         # sendpay is async now
         self.rpc.sendpay([routestep], rhash)
         # wait for sendpay to comply
         result = self.rpc.waitsendpay(rhash)
         assert(result.get('status') == 'complete')
+
+    # This helper sends all money to a peer until even 1 msat can't get through.
+    def drain(self, peer):
+        total = 0
+        msat = 16**9
+        while msat != 0:
+            try:
+                self.pay(peer, msat)
+                total += msat
+            except RpcError:
+                msat //= 2
+        return total
 
     # Note: this feeds through the smoother in update_feerate, so changing
     # it on a running daemon may not give expected result!
@@ -836,12 +868,17 @@ class LightningNode(object):
             params = r['params']
             if params == [2, 'CONSERVATIVE']:
                 feerate = feerates[0] * 4
-            elif params == [4, 'ECONOMICAL']:
+            elif params == [3, 'CONSERVATIVE']:
                 feerate = feerates[1] * 4
-            elif params == [100, 'ECONOMICAL']:
+            elif params == [4, 'ECONOMICAL']:
                 feerate = feerates[2] * 4
+            elif params == [100, 'ECONOMICAL']:
+                feerate = feerates[3] * 4
             else:
-                raise ValueError()
+                warnings.warn("Don't have a feerate set for {}/{}.".format(
+                    params[0], params[1],
+                ))
+                feerate = 42
             return {
                 'id': r['id'],
                 'error': None,
@@ -854,7 +891,17 @@ class LightningNode(object):
         # Technically, this waits until it's called, not until it's processed.
         # We wait until all three levels have been called.
         if wait_for_effect:
-            wait_for(lambda: self.daemon.rpcproxy.mock_counts['estimatesmartfee'] >= 3)
+            wait_for(lambda:
+                     self.daemon.rpcproxy.mock_counts['estimatesmartfee'] >= 4)
+
+    # force new feerates by restarting and thus skipping slow smoothed process
+    # Note: testnode must be created with: opts={'may_reconnect': True}
+    def force_feerates(self, rate):
+        assert(self.may_reconnect)
+        self.set_feerates([rate] * 4, False)
+        self.restart()
+        self.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
+        assert(self.rpc.feerates('perkw')['perkw']['opening'] == rate)
 
     def wait_for_onchaind_broadcast(self, name, resolve=None):
         """Wait for onchaind to drop tx name to resolve (if any)"""
@@ -972,8 +1019,9 @@ class NodeFactory(object):
         return [j.result() for j in jobs]
 
     def get_node(self, node_id=None, options=None, dbfile=None,
-                 feerates=(15000, 7500, 3750), start=True,
-                 wait_for_bitcoind_sync=True, **kwargs):
+                 feerates=(15000, 11000, 7500, 3750), start=True,
+                 wait_for_bitcoind_sync=True, expect_fail=False,
+                 cleandir=True, **kwargs):
 
         node_id = self.get_node_id() if not node_id else node_id
         port = self.get_next_port()
@@ -981,7 +1029,7 @@ class NodeFactory(object):
         lightning_dir = os.path.join(
             self.directory, "lightning-{}/".format(node_id))
 
-        if os.path.exists(lightning_dir):
+        if cleandir and os.path.exists(lightning_dir):
             shutil.rmtree(lightning_dir)
 
         # Get the DB backend DSN we should be using for this test and this
@@ -1004,8 +1052,15 @@ class NodeFactory(object):
 
         if start:
             try:
-                node.start(wait_for_bitcoind_sync)
+                # Capture stderr if we're failing
+                if expect_fail:
+                    stderr = subprocess.PIPE
+                else:
+                    stderr = None
+                node.start(wait_for_bitcoind_sync, stderr=stderr)
             except Exception:
+                if expect_fail:
+                    return node
                 node.daemon.stop()
                 raise
         return node

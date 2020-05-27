@@ -11,7 +11,7 @@ from pyln.client import Plugin
 plugin = Plugin()
 
 
-@plugin.method("getfeerate")
+@plugin.method("estimatefees")
 def getfeerate(plugin, **kwargs):
     time.sleep(1)
     return {}
@@ -33,5 +33,6 @@ def getchaininfo(plugin, **kwargs):
 plugin.add_option("bitcoin-rpcuser", "", "")
 plugin.add_option("bitcoin-rpcpassword", "", "")
 plugin.add_option("bitcoin-rpcport", "", "")
+plugin.add_option("bitcoin-datadir", "", "")
 
 plugin.run()

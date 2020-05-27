@@ -22,11 +22,16 @@ struct txwatch;
 
 /* FIXME: move all feerate stuff out to new lightningd/feerate.[ch] files */
 enum feerate {
-	FEERATE_URGENT, /* Aka: aim for next block. */
-	FEERATE_NORMAL, /* Aka: next 4 blocks or so. */
-	FEERATE_SLOW, /* Aka: next 100 blocks or so. */
+	FEERATE_OPENING,
+	FEERATE_MUTUAL_CLOSE,
+	FEERATE_UNILATERAL_CLOSE,
+	FEERATE_DELAYED_TO_US,
+	FEERATE_HTLC_RESOLUTION,
+	FEERATE_PENALTY,
+	FEERATE_MIN,
+	FEERATE_MAX,
 };
-#define NUM_FEERATES (FEERATE_SLOW+1)
+#define NUM_FEERATES (FEERATE_MAX+1)
 
 /* We keep the last three in case there are outliers (for min/max) */
 #define FEE_HISTORY_NUM 3
@@ -146,9 +151,13 @@ u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate);
 u32 feerate_min(struct lightningd *ld, bool *unknown);
 u32 feerate_max(struct lightningd *ld, bool *unknown);
 
-u32 mutual_close_feerate(struct chain_topology *topo);
 u32 opening_feerate(struct chain_topology *topo);
+u32 mutual_close_feerate(struct chain_topology *topo);
 u32 unilateral_feerate(struct chain_topology *topo);
+/* For onchain resolution. */
+u32 delayed_to_us_feerate(struct chain_topology *topo);
+u32 htlc_resolution_feerate(struct chain_topology *topo);
+u32 penalty_feerate(struct chain_topology *topo);
 
 /* We always use feerate-per-ksipa, ie. perkw */
 u32 feerate_from_style(u32 feerate, enum feerate_style style);

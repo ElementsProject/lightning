@@ -1,12 +1,13 @@
 from concurrent import futures
 from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
-from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER, LightningNode
+from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER, LightningNode, TEST_DEBUG
 
 import logging
 import os
 import pytest
 import re
 import shutil
+import sys
 import tempfile
 
 
@@ -28,6 +29,18 @@ def test_base_dir():
         shutil.rmtree(directory)
 
 
+@pytest.fixture(autouse=True)
+def setup_logging():
+    logger = logging.getLogger()
+    before_handlers = list(logger.handlers)
+
+    if TEST_DEBUG:
+        logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
+
+    yield
+    logger.handlers = before_handlers
+
+
 @pytest.fixture
 def directory(request, test_base_dir, test_name):
     """Return a per-test specific directory.
@@ -41,6 +54,9 @@ def directory(request, test_base_dir, test_name):
     directory = os.path.join(test_base_dir, "{}_{}".format(test_name, __attempts[test_name]))
     request.node.has_errors = False
 
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
     yield directory
 
     # This uses the status set in conftest.pytest_runtest_makereport to
@@ -52,7 +68,12 @@ def directory(request, test_base_dir, test_name):
     failed = not outcome or request.node.has_errors or outcome != 'passed'
 
     if not failed:
-        shutil.rmtree(directory)
+        try:
+            shutil.rmtree(directory)
+        except Exception:
+            files = [os.path.join(dp, f) for dp, dn, fn in os.walk(directory) for f in fn]
+            print("Directory still contains files:", files)
+            raise
     else:
         logging.debug("Test execution failed, leaving the test directory {} intact.".format(directory))
 

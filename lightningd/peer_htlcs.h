@@ -29,14 +29,8 @@ struct channel_info {
 };
 
 /* Get all HTLCs for a peer, to send in init message. */
-void peer_htlcs(const tal_t *ctx,
-		const struct channel *channel,
-		struct added_htlc **htlcs,
-		enum htlc_state **htlc_states,
-		struct fulfilled_htlc **fulfilled_htlcs,
-		enum side **fulfilled_sides,
-		const struct failed_htlc ***failed_in,
-		u64 **failed_out);
+const struct existing_htlc **peer_htlcs(const tal_t *ctx,
+					const struct channel *channel);
 
 void free_htlcs(struct lightningd *ld, const struct channel *channel);
 
@@ -52,6 +46,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			struct channel *out,
 			struct amount_msat amount, u32 cltv,
 			const struct sha256 *payment_hash,
+			const struct pubkey *blinding,
 			u64 partid,
 			const u8 *onion_routing_packet,
 			struct htlc_in *in,
@@ -87,5 +82,6 @@ void json_format_forwarding_object(struct json_stream *response, const char *fie
 
 /* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
 const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx,
+				       struct lightningd *ld,
 				       const struct htlc_in *hin);
 #endif /* LIGHTNING_LIGHTNINGD_PEER_HTLCS_H */

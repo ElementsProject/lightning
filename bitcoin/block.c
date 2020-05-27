@@ -1,8 +1,10 @@
-#include "bitcoin/block.h"
-#include "bitcoin/pullpush.h"
-#include "bitcoin/tx.h"
+#include <bitcoin/block.h>
+#include <bitcoin/chainparams.h>
+#include <bitcoin/pullpush.h>
+#include <bitcoin/tx.h>
 #include <ccan/str/hex/hex.h>
 #include <common/type_to_string.h>
+#include <wire/wire.h>
 
 static void sha256_varint(struct sha256_ctx *ctx, u64 val)
 {
@@ -206,3 +208,28 @@ static char *fmt_bitcoin_blkid(const tal_t *ctx,
 	return hexstr;
 }
 REGISTER_TYPE_TO_STRING(bitcoin_blkid, fmt_bitcoin_blkid);
+
+void fromwire_bitcoin_blkid(const u8 **cursor, size_t *max,
+			    struct bitcoin_blkid *blkid)
+{
+	fromwire_sha256_double(cursor, max, &blkid->shad);
+}
+
+void towire_bitcoin_blkid(u8 **pptr, const struct bitcoin_blkid *blkid)
+{
+	towire_sha256_double(pptr, &blkid->shad);
+}
+
+
+void towire_chainparams(u8 **cursor, const struct chainparams *chainparams)
+{
+	towire_bitcoin_blkid(cursor, &chainparams->genesis_blockhash);
+}
+
+void fromwire_chainparams(const u8 **cursor, size_t *max,
+			  const struct chainparams **chainparams)
+{
+	struct bitcoin_blkid genesis;
+	fromwire_bitcoin_blkid(cursor, max, &genesis);
+	*chainparams = chainparams_by_chainhash(&genesis);
+}

@@ -9,6 +9,7 @@
 #include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
 #include <common/errcode.h>
+#include <common/features.h>
 #include <common/json.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
@@ -89,6 +90,9 @@ struct plugin_hook {
 	                                 const char *buf,
 	                                 const jsmntok_t *params);
 };
+
+/* Return the feature set of the current lightning node */
+const struct feature_set *plugin_feature_set(const struct plugin *p);
 
 /* Helper to create a JSONRPC2 request stream. Send it with `send_outreq`. */
 struct out_req *
@@ -234,6 +238,7 @@ void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...) PRINTF
 
 /* Standard helpers */
 char *u64_option(const char *arg, u64 *i);
+char *u32_option(const char *arg, u32 *i);
 char *charp_option(const char *arg, char **p);
 
 /* The main plugin runner: append with 0 or more plugin_option(), then NULL. */
@@ -241,6 +246,7 @@ void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
 					void (*init)(struct plugin *p,
 						     const char *buf, const jsmntok_t *),
 					const enum plugin_restartability restartability,
+					struct feature_set *features,
 					const struct plugin_command *commands,
 					size_t num_commands,
 					const struct plugin_notification *notif_subs,

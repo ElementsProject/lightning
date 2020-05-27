@@ -165,6 +165,12 @@ def test_withdraw(node_factory, bitcoind):
     for utxo in utxos:
         assert utxo in vins
 
+    # Try passing unconfirmed utxos
+    unconfirmed_utxos = [l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5)
+                         for _ in range(5)]
+    uutxos = [u["txid"] + ":0" for u in unconfirmed_utxos]
+    l1.rpc.withdraw(waddr, "all", minconf=0, utxos=uutxos)
+
 
 def test_minconf_withdraw(node_factory, bitcoind):
     """Issue 2518: ensure that ridiculous confirmation levels don't overflow
@@ -296,6 +302,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
 
     prep = l1.rpc.txprepare(outputs=[{addr: Millisatoshi(amount * 3 * 1000)}])
+    assert prep['psbt']
     decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
     assert decode['txid'] == prep['txid']
     # 4 inputs, 2 outputs (3 if we have a fee output).

@@ -138,9 +138,8 @@ ${print_fieldset(msg.fields.values(), False, '&cursor', '&plen')}
 
 void print${options.enum_name}_tlv_message(const char *tlv_name, const u8 *msg) {
 % if bool(tlvs):
-	size_t plen;
+	size_t plen = tal_count(msg);
     % for tlv_name in tlvs:
-	plen = tal_count(msg);
 	if (strcmp(tlv_name, "${tlv_name}") == 0) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_${tlv_name}, ARRAY_SIZE(print_tlvs_${tlv_name}));
 	}

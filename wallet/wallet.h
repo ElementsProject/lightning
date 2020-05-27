@@ -10,6 +10,7 @@
 #include <ccan/list/list.h>
 #include <ccan/tal/tal.h>
 #include <common/channel_config.h>
+#include <common/penalty_base.h>
 #include <common/utxo.h>
 #include <common/wallet.h>
 #include <lightningd/bitcoind.h>
@@ -50,6 +51,9 @@ struct wallet {
 
 	/* Unreleased txs, waiting for txdiscard/txsend */
 	struct list_head unreleased_txs;
+
+	/* How many keys should we look ahead at most? */
+	u64 keyscan_gap;
 };
 
 /* A transaction we've txprepared, but  haven't signed and released yet */
@@ -380,6 +384,14 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w,
 struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 						     struct wallet *w);
 
+/** wallet_utxo_get - Retrive a utxo.
+ *
+ * Returns a utxo, or NULL if not found.
+ */
+struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
+			     const struct bitcoin_txid *txid,
+			     u32 outnum);
+
 const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
 					bool with_change,
 					struct amount_sat value,
@@ -395,6 +407,14 @@ const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
 				      u32 maxheight,
 				      struct amount_sat *sat,
 				      struct amount_sat *fee_estimate);
+
+/* derive_redeem_scriptsig - Compute the scriptSig for a P2SH-P2WPKH
+ *
+ * @ctx - allocation context
+ * @w - wallet
+ * @keyindex - index of the internal BIP32 key
+ */
+u8 *derive_redeem_scriptsig(const tal_t *ctx, struct wallet *w, u32 keyindex);
 
 /**
  * wallet_select_specific - Select utxos given an array of txids and an array of outputs index
@@ -419,7 +439,7 @@ void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos);
  *
  * FIXME: This is very slow with lots of inputs!
  *
- * @w: (in) allet holding the pubkeys to check against (privkeys are on HSM)
+ * @w: (in) wallet holding the pubkeys to check against (privkeys are on HSM)
  * @script: (in) the script to check
  * @index: (out) the bip32 derivation index that matched the script
  * @output_is_p2sh: (out) whether the script is a p2sh, or p2wpkh
@@ -584,6 +604,7 @@ void wallet_htlc_save_out(struct wallet *wallet,
  * @badonion: the current BADONION failure code, or 0.
  * @failonion: the current failure onion message (from peer), or NULL.
  * @failmsg: the current local failure message, or NULL.
+ * @we_filled: for htlc-ins, true if we originated the preimage.
  *
  * Used to update the state of an HTLC, either a `struct htlc_in` or a
  * `struct htlc_out` and optionally set the `payment_key` should the
@@ -594,7 +615,8 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const struct preimage *payment_key,
 			enum onion_type badonion,
 			const struct onionreply *failonion,
-			const u8 *failmsg);
+			const u8 *failmsg,
+			bool *we_filled);
 
 /**
  * wallet_htlcs_load_in_for_channel - Load incoming HTLCs associated with chan from DB.
@@ -1077,12 +1099,14 @@ bool wallet_have_block(struct wallet *w, u32 blockheight);
  * Given the outpoint (txid, outnum), and the blockheight, mark the
  * corresponding DB entries as spent at the blockheight.
  *
+ * @our_spend - set to true if found in our wallet's output set, false otherwise
  * @return scid The short_channel_id corresponding to the spent outpoint, if
  *         any.
  */
 const struct short_channel_id *
 wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
-		      const struct bitcoin_txid *txid, const u32 outnum);
+		      const struct bitcoin_txid *txid, const u32 outnum,
+		      bool *our_spend);
 
 struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 					  const struct short_channel_id *scid);
@@ -1240,6 +1264,33 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
  */
 void wallet_filteredblock_add(struct wallet *w, const struct filteredblock *fb);
 
+/**
+ * Store a penalty base in the database.
+ *
+ * Required to eventually create a penalty transaction when we get a
+ * revocation.
+ */
+void wallet_penalty_base_add(struct wallet *w, u64 chan_id,
+			     const struct penalty_base *pb);
+
+/**
+ * Retrieve all pending penalty bases for a given channel.
+ *
+ * This list should stay relatively small since we remove items from it as we
+ * get revocations. We retrieve this list whenever we start a new `channeld`.
+ */
+struct penalty_base *wallet_penalty_base_load_for_channel(const tal_t *ctx,
+							  struct wallet *w,
+							  u64 chan_id);
+
+/**
+ * Delete a penalty_base, after we created and delivered it to the hook.
+ */
+void wallet_penalty_base_delete(struct wallet *w, u64 chan_id, u64 commitnum);
+
+/**
+ * Add short channel id 
+ */
 void wallet_add_short_channel_id(struct wallet *w, const struct short_channel_id *scid);
 
 #endif /* LIGHTNING_WALLET_WALLET_H */

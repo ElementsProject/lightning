@@ -12,11 +12,11 @@ to the node\. Because channels may be bidirectional, up to 2 objects will
 be returned for each channel (one for each direction)\.
 
 
-If \fIshort_channel_id\fR is supplied, then only known channels with a
-matching \fIshort_channel_id\fR are returned\.
+If \fIshort_channel_id\fR is a short channel id, then only known channels with a
+matching \fIshort_channel_id\fR are returned\.  Otherwise, it must be null\.
 
 
-If \fIsource\fR is supplied, then only channels leading from that node id
+If \fIsource\fR is a node id, then only channels leading from that node id
 are returned\.
 
 

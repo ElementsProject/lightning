@@ -163,7 +163,7 @@ static void invoice_payload_remove_set(struct htlc_set *set,
 }
 
 static const u8 *hook_gives_failmsg(const tal_t *ctx,
-				    struct log *log,
+				    struct lightningd *ld,
 				    const struct htlc_in *hin,
 				    const char *buffer,
 				    const jsmntok_t *toks)
@@ -181,7 +181,7 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 		if (json_tok_streq(buffer, resulttok, "continue")) {
 			return NULL;
 		} else if (json_tok_streq(buffer, resulttok, "reject")) {
-			return failmsg_incorrect_or_unknown(ctx, hin);
+			return failmsg_incorrect_or_unknown(ctx, ld, hin);
 		} else
 			fatal("Invalid invoice_payment hook result: %.*s",
 			      toks[0].end - toks[0].start, buffer);
@@ -204,7 +204,7 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 		static bool warned = false;
 		if (!warned) {
 			warned = true;
-			log_unusual(log,
+			log_unusual(ld->log,
 				    "Plugin did not return object with "
 				    "'result' or 'failure_message' fields.  "
 				    "This is now deprecated and you should "
@@ -212,7 +212,7 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 				    "{'result': 'reject'} or "
 				    "{'failure_message'... instead.");
 		}
-		return failmsg_incorrect_or_unknown(ctx, hin);
+		return failmsg_incorrect_or_unknown(ctx, ld, hin);
 	}
 
 	if (!json_to_number(buffer, t, &val))
@@ -227,11 +227,11 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 			   " changing to incorrect_or_unknown_payment_details",
 			   val);
 
-	return failmsg_incorrect_or_unknown(ctx, hin);
+	return failmsg_incorrect_or_unknown(ctx, ld, hin);
 }
 
 static void
-invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload,
+invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload STEALS,
 			const char *buffer,
 			const jsmntok_t *toks)
 {
@@ -258,12 +258,12 @@ invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload,
 	 * we can also fail */
 	if (!wallet_invoice_find_by_label(ld->wallet, &invoice, payload->label)) {
 		htlc_set_fail(payload->set, take(failmsg_incorrect_or_unknown(
-							 NULL, payload->set->htlcs[0])));
+							 NULL, ld, payload->set->htlcs[0])));
 		return;
 	}
 
 	/* Did we have a hook result? */
-	failmsg = hook_gives_failmsg(NULL, ld->log,
+	failmsg = hook_gives_failmsg(NULL, ld,
 				     payload->set->htlcs[0], buffer, toks);
 	if (failmsg) {
 		htlc_set_fail(payload->set, take(failmsg));
@@ -278,12 +278,10 @@ invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload,
 	htlc_set_fulfill(payload->set, &payload->preimage);
 }
 
-REGISTER_PLUGIN_HOOK(invoice_payment,
-		     PLUGIN_HOOK_SINGLE,
-		     invoice_payment_hook_cb,
-		     struct invoice_payment_hook_payload *,
-		     invoice_payment_serialize,
-		     struct invoice_payment_hook_payload *);
+REGISTER_SINGLE_PLUGIN_HOOK(invoice_payment,
+			    invoice_payment_hook_cb,
+			    invoice_payment_serialize,
+			    struct invoice_payment_hook_payload *);
 
 const struct invoice_details *
 invoice_check_payment(const tal_t *ctx,
@@ -316,15 +314,22 @@ invoice_check_payment(const tal_t *ctx,
 	 *    - MUST fail the HTLC.
 	 */
 	if (feature_is_set(details->features, COMPULSORY_FEATURE(OPT_VAR_ONION))
-	    && !payment_secret)
+	    && !payment_secret) {
+		log_debug(ld->log, "Attept to pay %s without secret",
+			  type_to_string(tmpctx, struct sha256, &details->rhash));
 		return tal_free(details);
+	}
 
 	if (payment_secret) {
 		struct secret expected;
 
 		invoice_secret(&details->r, &expected);
-		if (!secret_eq_consttime(payment_secret, &expected))
+		if (!secret_eq_consttime(payment_secret, &expected)) {
+			log_debug(ld->log, "Attept to pay %s with wrong secret",
+				  type_to_string(tmpctx, struct sha256,
+						 &details->rhash));
 			return tal_free(details);
+		}
 	}
 
 	/* BOLT #4:
@@ -360,7 +365,7 @@ void invoice_try_pay(struct lightningd *ld,
 {
 	struct invoice_payment_hook_payload *payload;
 
-	payload = tal(ld, struct invoice_payment_hook_payload);
+	payload = tal(NULL, struct invoice_payment_hook_payload);
 	payload->ld = ld;
 	payload->label = tal_steal(payload, details->label);
 	payload->msat = set->so_far;
@@ -368,7 +373,7 @@ void invoice_try_pay(struct lightningd *ld,
 	payload->set = set;
 	tal_add_destructor2(set, invoice_payload_remove_set, payload);
 
-	plugin_hook_call_invoice_payment(ld, payload, payload);
+	plugin_hook_call_invoice_payment(ld, payload);
 }
 
 static bool hsm_sign_b11(const u5 *u5bytes,
@@ -640,7 +645,11 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 					 &inchans[i].short_channel_id)) {
 				tal_arr_remove(&inchans, i);
 				tal_arr_remove(&inchan_deadends, i);
-			}
+				i--;
+			} else
+				/* If they specify directly, we don't
+				 * care if it's a deadend */
+				inchan_deadends[i] = false;
 		}
 
 		/* If they told us to use scids and we couldn't, fail. */
@@ -710,6 +719,9 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	json_add_sha256(response, "payment_hash", &details->rhash);
 	json_add_u64(response, "expires_at", details->expiry_time);
 	json_add_string(response, "bolt11", details->bolt11);
+
+	notify_invoice_creation(info->cmd->ld, info->b11->msat,
+				info->payment_preimage, info->label);
 
 	/* Warn if there's not sufficient incoming capacity. */
 	if (tal_count(info->b11->routes) == 0) {
@@ -1013,14 +1025,9 @@ static struct command_result *json_invoice(struct command *cmd,
 	info->b11->description_hash = NULL;
 	info->b11->payment_secret = tal_dup(info->b11, struct secret,
 					    &payment_secret);
-
-	/* Which features should we announce to the node receiving this invoice?
-	 * This is a combination of natively supported features and featurebits
-	 * that plugins asked us to include in the invoice. */
-	info->b11->features = featurebits_or(
-	    info->b11, take(get_offered_bolt11features(NULL)),
-	    take(plugins_collect_featurebits(NULL, cmd->ld->plugins,
-					     PLUGIN_FEATURES_INVOICE)));
+	info->b11->features = tal_dup_talarr(info->b11, u8,
+					     cmd->ld->our_features
+					     ->bits[BOLT11_FEATURE]);
 
 #if DEVELOPER
 	info->b11->routes = unpack_routes(info->b11, buffer, routes);
@@ -1326,7 +1333,7 @@ static struct command_result *json_decodepay(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	b11 = bolt11_decode(cmd, str, desc, &fail);
+	b11 = bolt11_decode(cmd, str, cmd->ld->our_features, desc, &fail);
 
 	if (!b11) {
 		return command_fail(cmd, LIGHTNINGD, "Invalid bolt11: %s", fail);

@@ -7,10 +7,12 @@
 
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <common/hmac.h>
 #include <secp256k1.h>
 #include <sodium/randombytes.h>
 #include <wire/gen_onion_wire.h>
-#include <wire/wire.h>
+
+struct node_id;
 
 #define VERSION_SIZE 1
 #define REALM_SIZE 1
@@ -23,12 +25,20 @@
 struct onionpacket {
 	/* Cleartext information */
 	u8 version;
-	u8 mac[HMAC_SIZE];
+	struct hmac hmac;
 	struct pubkey ephemeralkey;
 
 	/* Encrypted information */
 	u8 routinginfo[ROUTING_INFO_SIZE];
 };
+
+struct sphinx_compressed_onion {
+	u8 version;
+	struct pubkey ephemeralkey;
+	u8 *routinginfo;
+	struct hmac hmac;
+};
+
 
 enum route_next_case {
 	ONION_END = 0,
@@ -75,7 +85,7 @@ struct hop_data_legacy {
 struct sphinx_hop {
 	struct pubkey pubkey;
 	const u8 *raw_payload;
-	u8 hmac[HMAC_SIZE];
+	struct hmac hmac;
 };
 
 struct route_step {
@@ -126,13 +136,15 @@ bool onion_shared_secret(
  * @hoppayload: the per-hop payload destined for the processing node.
  * @assocdata: associated data to commit to in HMACs
  * @assocdatalen: length of the assocdata
+ * @has_realm: used for HTLCs, where first byte 0 is magical.
  */
 struct route_step *process_onionpacket(
 	const tal_t * ctx,
 	const struct onionpacket *packet,
 	const struct secret *shared_secret,
 	const u8 *assocdata,
-	const size_t assocdatalen
+	const size_t assocdatalen,
+	bool has_realm
 	);
 
 /**
@@ -226,6 +238,49 @@ void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
  * Compute the size of the serialized payloads.
  */
 size_t sphinx_path_payloads_size(const struct sphinx_path *path);
+
+/**
+ * Set the rendez-vous node_id and make the onion generated from the
+ * sphinx_path compressible. To unset pass in a NULL rendezvous_id.
+ *
+ * Returns false if there was an error converting from the node_id to a public
+ * key.
+ */
+bool sphinx_path_set_rendezvous(struct sphinx_path *sp,
+				const struct node_id *rendezvous_id);
+
+/**
+ * Given a compressed onion expand it by re-generating the prefiller and
+ * inserting it in the appropriate place.
+ */
+struct onionpacket *sphinx_decompress(const tal_t *ctx,
+				      const struct sphinx_compressed_onion *src,
+				      const struct secret *shared_secret);
+
+/**
+ * Use ECDH to generate a shared secret from a privkey and a pubkey.
+ *
+ * Sphinx uses shared secrets derived from a private key and a public key
+ * using ECDH in a number of places. This is a simple wrapper around the
+ * secp256k1 functions, with our internal types.
+ */
+bool sphinx_create_shared_secret(struct secret *privkey,
+				 const struct pubkey *pubkey,
+				 const struct secret *secret);
+
+
+/**
+ * Given a compressible onionpacket, return the compressed version.
+ */
+struct sphinx_compressed_onion *
+sphinx_compress(const tal_t *ctx, const struct onionpacket *packet,
+		const struct sphinx_path *path);
+
+u8 *sphinx_compressed_onion_serialize(
+    const tal_t *ctx, const struct sphinx_compressed_onion *onion);
+
+struct sphinx_compressed_onion *
+sphinx_compressed_onion_deserialize(const tal_t *ctx, const u8 *src);
 
 #if DEVELOPER
 /* Override to force us to reject valid onion packets */

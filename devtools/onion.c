@@ -7,6 +7,7 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
+#include <common/ecdh.h>
 #include <common/json.h>
 #include <common/json_helpers.h>
 #include <common/onion.h>
@@ -16,12 +17,18 @@
 #include <err.h>
 #include <secp256k1.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
-#define ASSOC_DATA_SIZE 32
+/* We don't actually use this, but common/onion needs it */
+void ecdh(const struct pubkey *point, struct secret *ss)
+{
+	abort();
+}
 
 static void do_generate(int argc, char **argv,
-			const u8 assocdata[ASSOC_DATA_SIZE])
+			const u8 *assocdata,
+			const struct node_id *rvnode_id)
 {
 	const tal_t *ctx = talz(NULL, tal_t);
 	int num_hops = argc - 2;
@@ -30,12 +37,14 @@ static void do_generate(int argc, char **argv,
 	struct secret session_key;
 	struct secret *shared_secrets;
 	struct sphinx_path *sp;
+	struct sphinx_compressed_onion *comp;
+	u8 *serialized;
+	struct onionpacket *packet;
 
-	const u8* tmp_assocdata =tal_dup_arr(ctx, u8, assocdata,
-					  ASSOC_DATA_SIZE, 0);
 	memset(&session_key, 'A', sizeof(struct secret));
 
-	sp = sphinx_path_new_with_key(ctx, tmp_assocdata, &session_key);
+	sp = sphinx_path_new_with_key(ctx, assocdata, &session_key);
+	sphinx_path_set_rendezvous(sp, rvnode_id);
 
 	for (int i = 0; i < num_hops; i++) {
 		size_t klen = strcspn(argv[2 + i], "/");
@@ -80,19 +89,30 @@ static void do_generate(int argc, char **argv,
 					       take(onion_final_hop(NULL,
 								    use_tlv,
 								    amt, i, amt,
+								    NULL, NULL,
 								    NULL)));
 			else
 				sphinx_add_hop(sp, &path[i],
 					       take(onion_nonfinal_hop(NULL,
 								       use_tlv,
 								       &scid,
-								       amt, i)));
+								       amt, i,
+								       NULL,
+								       NULL)));
 		}
 	}
 
-	struct onionpacket *res = create_onionpacket(ctx, sp, &shared_secrets);
+	packet = create_onionpacket(ctx, sp, &shared_secrets);
 
-	u8 *serialized = serialize_onionpacket(ctx, res);
+	if (rvnode_id != NULL) {
+		comp = sphinx_compress(ctx, packet, sp);
+		serialized = sphinx_compressed_onion_serialize(ctx, comp);
+		printf("Rendezvous onion: %s\n", tal_hex(ctx, serialized));
+	} else {
+		assert(sphinx_compress(ctx, packet, sp) == NULL);
+	}
+
+	serialized = serialize_onionpacket(ctx, packet);
 	if (!serialized)
 		errx(1, "Error serializing message.");
 	printf("%s\n", tal_hex(ctx, serialized));
@@ -118,12 +138,12 @@ static struct route_step *decode_with_privkey(const tal_t *ctx, const u8 *onion,
 		errx(1, "Error creating shared secret.");
 
 	step = process_onionpacket(ctx, &packet, &shared_secret, assocdata,
-				   tal_bytelen(assocdata));
+				   tal_bytelen(assocdata), true);
 	return step;
 
 }
 
-static void do_decode(int argc, char **argv, const u8 assocdata[ASSOC_DATA_SIZE])
+static void do_decode(int argc, char **argv, const u8 *assocdata)
 {
 	const tal_t *ctx = talz(NULL, tal_t);
 	u8 serialized[TOTAL_PACKET_SIZE];
@@ -132,7 +152,8 @@ static void do_decode(int argc, char **argv, const u8 assocdata[ASSOC_DATA_SIZE]
 	if (argc != 4)
 		opt_usage_exit_fail("Expect an filename and privkey with 'decode' method");
 
-	char *hextemp = grab_file(ctx, argv[2]);
+	/* "-" means stdin, which is NULL for grab_file */
+	char *hextemp = grab_file(ctx, streq(argv[2], "-") ? NULL : argv[2]);
 	size_t hexlen = strlen(hextemp);
 
 	// trim trailing whitespace
@@ -143,9 +164,7 @@ static void do_decode(int argc, char **argv, const u8 assocdata[ASSOC_DATA_SIZE]
 		errx(1, "Invalid onion hex '%s'", hextemp);
 	}
 
-	const u8* tmp_assocdata =tal_dup_arr(ctx, u8, assocdata,
-					  ASSOC_DATA_SIZE, 0);
-	step = decode_with_privkey(ctx, serialized, tal_strdup(ctx, argv[3]), tmp_assocdata);
+	step = decode_with_privkey(ctx, serialized, tal_strdup(ctx, argv[3]), assocdata);
 
 	if (!step || !step->next)
 		errx(1, "Error processing message.");
@@ -160,16 +179,23 @@ static void do_decode(int argc, char **argv, const u8 assocdata[ASSOC_DATA_SIZE]
 	tal_free(ctx);
 }
 
-static char *opt_set_ad(const char *arg, u8 *assocdata)
+static char *opt_set_ad(const char *arg, u8 **assocdata)
 {
-	if (!hex_decode(arg, strlen(arg), assocdata, ASSOC_DATA_SIZE))
+	*assocdata = tal_hexdata(NULL, arg, strlen(arg));
+	if (!*assocdata)
 		return "Bad hex string";
 	return NULL;
 }
 
-static void opt_show_ad(char buf[OPT_SHOW_LEN], const u8 *assocdata)
+static void opt_show_ad(char buf[OPT_SHOW_LEN], u8 *const *assocdata)
 {
-	hex_encode(assocdata, ASSOC_DATA_SIZE, buf, OPT_SHOW_LEN);
+	hex_encode(*assocdata, tal_bytelen(*assocdata), buf, OPT_SHOW_LEN);
+}
+
+static char *opt_set_node_id(const char *arg, struct node_id *node_id)
+{
+	node_id_from_hexstr(arg, strlen(arg), node_id);
+	return NULL;
 }
 
 /**
@@ -266,15 +292,58 @@ static void runtest(const char *filename)
 			errx(1, "Error serializing message.");
 		onion_payload_length(step->raw_payload,
 				     tal_bytelen(step->raw_payload),
-				     &valid, &type);
+				     true, &valid, &type);
 		assert(valid);
 		printf("  Type: %d\n", type);
 		printf("  Payload: %s\n", tal_hex(ctx, step->raw_payload));
 		printf("  Next onion: %s\n", tal_hex(ctx, serialized));
-		printf("  Next HMAC: %s\n", tal_hexstr(ctx, step->next->mac, HMAC_SIZE));
+		printf("  Next HMAC: %s\n",
+		       tal_hexstr(ctx, step->next->hmac.bytes,
+				  crypto_auth_hmacsha256_BYTES));
 	}
 
 	tal_free(ctx);
+}
+
+static void decompress(char *hexprivkey, char *hexonion)
+{
+	struct privkey rendezvous_key;
+	size_t onionlen = hex_data_size(strlen(hexonion));
+	u8 *compressed;
+	struct pubkey ephkey;
+	struct secret shared_secret;
+	struct onionpacket *onion;
+	struct sphinx_compressed_onion *tinyonion;
+
+	if (!hex_decode(hexprivkey, strlen(hexprivkey), &rendezvous_key, sizeof(rendezvous_key)))
+		errx(1, "Invalid private key hex '%s'", hexprivkey);
+
+	compressed = tal_arr(NULL, u8, onionlen);
+	if (!hex_decode(hexonion, strlen(hexonion), compressed, onionlen))
+		errx(1, "Invalid onion hex '%s'", hexonion);
+
+	if (onionlen < HMAC_SIZE + 1 + PUBKEY_SIZE)
+		errx(1, "Onion is too short to contain the version, ephemeral key and HMAC");
+
+	pubkey_from_der(compressed + 1, PUBKEY_SIZE, &ephkey);
+
+	tinyonion = sphinx_compressed_onion_deserialize(NULL, compressed);
+	if (tinyonion == NULL)
+		errx(1, "Could not deserialize compressed onion");
+
+	if (!sphinx_create_shared_secret(&shared_secret,
+					 &tinyonion->ephemeralkey,
+					 &rendezvous_key.secret))
+		errx(1,
+		     "Could not generate shared secret from ephemeral key %s "
+		     "and private key %s",
+		     pubkey_to_hexstr(NULL, &ephkey), hexprivkey);
+
+	onion = sphinx_decompress(NULL, tinyonion, &shared_secret);
+	if (onion == NULL)
+		errx(1, "Could not decompress compressed onion");
+
+	printf("Decompressed Onion: %s\n", tal_hex(NULL, serialize_onionpacket(NULL, onion)));
 }
 
 /* Tal wrappers for opt. */
@@ -300,16 +369,18 @@ int main(int argc, char **argv)
 {
 	setup_locale();
 	const char *method;
-	u8 assocdata[ASSOC_DATA_SIZE];
-	memset(&assocdata, 'B', sizeof(assocdata));
+	u8 *assocdata = NULL;
+	struct node_id rendezvous_id;
+	memset(&rendezvous_id, 0, sizeof(struct node_id));
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
 						 SECP256K1_CONTEXT_SIGN);
 
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
-	opt_register_arg("--assoc-data", opt_set_ad, opt_show_ad,
-			 assocdata,
+	opt_register_arg("--assoc-data", opt_set_ad, opt_show_ad, &assocdata,
 			 "Associated data (usu. payment_hash of payment)");
+	opt_register_arg("--rendezvous-id", opt_set_node_id, NULL,
+			 &rendezvous_id, "Node ID of the rendez-vous node");
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
 			   "\n\n\tdecode <onion_file> <privkey>\n"
 			   "\tgenerate <pubkey1> <pubkey2> ...\n"
@@ -333,7 +404,19 @@ int main(int argc, char **argv)
 			errx(1, "'runtest' requires a filename argument");
 		runtest(argv[2]);
 	} else if (streq(method, "generate")) {
-		do_generate(argc, argv, assocdata);
+		if (memeqzero(&rendezvous_id, sizeof(rendezvous_id)))
+			do_generate(argc, argv, assocdata, NULL);
+		else
+			do_generate(argc, argv, assocdata, &rendezvous_id);
+	} else if (streq(method, "decompress")) {
+		if (argc != 4) {
+			errx(2,
+			     "'%s decompress' requires a private key and a "
+			     "compressed onion",
+			     argv[0]);
+		}
+
+		decompress(argv[2], argv[3]);
 	} else if (streq(method, "decode")) {
 		do_decode(argc, argv, assocdata);
 	} else {

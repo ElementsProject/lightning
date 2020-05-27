@@ -1,6 +1,7 @@
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
+#include <bitcoin/tx.h>
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
@@ -297,8 +298,10 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 	}
 
 	if (!feerate_per_kw) {
+		/* We mainly use `txprepare` for opening transactions, and FEERATE_OPENING
+		 * is kind of the new FEERATE_NORMAL so it fits well `withdraw` too. */
 		result = param_feerate_estimate(cmd, &feerate_per_kw,
-						FEERATE_NORMAL);
+						FEERATE_OPENING);
 		if (result)
 			return result;
 	}
@@ -440,6 +443,7 @@ static struct command_result *json_txprepare(struct command *cmd,
 	response = json_stream_success(cmd);
 	json_add_tx(response, "unsigned_tx", utx->tx);
 	json_add_txid(response, "txid", &utx->txid);
+	json_add_psbt(response, "psbt", utx->tx);
 	return command_success(cmd, response);
 }
 static const struct json_command txprepare_command = {
@@ -1031,9 +1035,12 @@ static void json_transaction_details(struct json_stream *response,
 
 		json_array_start(response, "inputs");
 		for (size_t i = 0; i < wtx->num_inputs; i++) {
+			struct bitcoin_txid prevtxid;
 			struct wally_tx_input *in = &wtx->inputs[i];
+			bitcoin_tx_input_get_txid(tx->tx, i, &prevtxid);
+
 			json_object_start(response, NULL);
-			json_add_hex(response, "txid", in->txhash, sizeof(in->txhash));
+			json_add_txid(response, "txid", &prevtxid);
 			json_add_u32(response, "index", in->index);
 			json_add_u32(response, "sequence", in->sequence);
 #if EXPERIMENTAL_FEATURES

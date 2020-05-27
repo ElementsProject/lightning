@@ -68,7 +68,11 @@ struct ${tlv.struct_name()} {
 	/* TODO The following explicit fields could just point into the
 	 * tlv_field entries above to save on memory. */
     % for msg in tlv.messages.values():
+        % if msg.singleton():
+	${msg.singleton().type_obj.type_name()} *${msg.name};
+	% else:
         struct ${msg.struct_name()} *${msg.name};
+	% endif
     % endfor
 };
 % endfor
@@ -125,8 +129,7 @@ extern const struct tlv_record_type tlvs_${tlv.name}[];
     % endfor
 void towire_${subtype.name}(u8 **p, const ${subtype.type_name()} *${subtype.name});
 % if subtype.is_varsize():
-${subtype.type_name()} *
-fromwire_${subtype.name}(const tal_t *ctx, const u8 **cursor, size_t *plen);
+${subtype.type_name()} *fromwire_${subtype.name}(const tal_t *ctx, const u8 **cursor, size_t *plen);
 % else:
 void fromwire_${subtype.name}(const u8 **cursor, size_t *plen, ${subtype.type_name()} *${subtype.name});
 % endif

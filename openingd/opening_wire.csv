@@ -1,11 +1,15 @@
+#include <bitcoin/chainparams.h>
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
+#include <common/channel_id.h>
 #include <common/derive_basepoints.h>
+#include <common/features.h>
 #include <common/per_peer_state.h>
 
 msgtype,opening_init,6000
 # Which network are we configured for?
 msgdata,opening_init,chainparams,chainparams,
+msgdata,opening_init,our_features,feature_set,
 # Base configuration we'll offer (channel reserve will vary with amount)
 msgdata,opening_init,our_config,channel_config,
 # Minimum/maximum configuration values we'll accept
@@ -47,11 +51,13 @@ msgdata,opening_got_offer_reply,rejection,?wirestring,
 msgdata,opening_got_offer_reply,shutdown_len,u16,
 msgdata,opening_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len
 
+#include <common/penalty_base.h>
 # Openingd->master: we've successfully offered channel.
 # This gives their sig, means we can broadcast tx: we're done.
 msgtype,opening_funder_reply,6101
 msgdata,opening_funder_reply,their_config,channel_config,
 msgdata,opening_funder_reply,first_commit,bitcoin_tx,
+msgdata,opening_funder_reply,pbase,?penalty_base,
 msgdata,opening_funder_reply,first_commit_sig,bitcoin_signature,
 msgdata,opening_funder_reply,pps,per_peer_state,
 msgdata,opening_funder_reply,revocation_basepoint,pubkey,
@@ -102,6 +108,7 @@ msgdata,opening_funder_failed,reason,wirestring,
 msgtype,opening_fundee,6003
 msgdata,opening_fundee,their_config,channel_config,
 msgdata,opening_fundee,first_commit,bitcoin_tx,
+msgdata,opening_fundee,pbase,?penalty_base,
 msgdata,opening_fundee,first_commit_sig,bitcoin_signature,
 msgdata,opening_fundee,pps,per_peer_state,
 msgdata,opening_fundee,revocation_basepoint,pubkey,

@@ -5,7 +5,7 @@ A plugin started with dynamic to False cannot be controlled after lightningd
 has been started.
 """
 
-from lightning import Plugin
+from pyln.client import Plugin
 
 plugin = Plugin(dynamic=False)
 

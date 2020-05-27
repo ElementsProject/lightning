@@ -284,13 +284,13 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     assert r['cltv_expiry_delta'] == 6
 
     # Ask it explicitly to use a channel it can't (insufficient capacity)
-    inv = l2.rpc.invoice(msatoshi=10, label="inv5", description="?", exposeprivatechannels=scid2)
-    assert 'warning_deadends' in inv
-    assert 'warning_capacity' not in inv
+    inv = l2.rpc.invoice(msatoshi=(10**5) * 1000 + 1, label="inv5", description="?", exposeprivatechannels=scid2)
+    assert 'warning_deadends' not in inv
+    assert 'warning_capacity' in inv
     assert 'warning_offline' not in inv
 
     # Give it two options and it will pick one with suff capacity.
-    inv = l2.rpc.invoice(msatoshi=10, label="inv6", description="?", exposeprivatechannels=[scid2, scid])
+    inv = l2.rpc.invoice(msatoshi=(10**5) * 1000 + 1, label="inv6", description="?", exposeprivatechannels=[scid2, scid])
     assert 'warning_capacity' not in inv
     assert 'warning_offline' not in inv
     assert 'warning_deadends' not in inv
@@ -298,6 +298,24 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
     assert r['pubkey'] == l1.info['id']
     assert r['short_channel_id'] == scid
+    assert r['fee_base_msat'] == 1
+    assert r['fee_proportional_millionths'] == 10
+    assert r['cltv_expiry_delta'] == 6
+
+    # It will use an explicit exposeprivatechannels even if it thinks its a dead-end
+    l0.rpc.close(l1.info['id'])
+    l0.wait_for_channel_onchain(l1.info['id'])
+    bitcoind.generate_block(1)
+    wait_for(lambda: l2.rpc.listchannels(scid_dummy)['channels'] == [])
+
+    inv = l2.rpc.invoice(msatoshi=123456, label="inv7", description="?", exposeprivatechannels=scid)
+    assert 'warning_capacity' not in inv
+    assert 'warning_offline' not in inv
+    assert 'warning_deadends' not in inv
+    # Route array has single route with single element.
+    r = only_one(only_one(l1.rpc.decodepay(inv['bolt11'])['routes']))
+    assert r['pubkey'] == l1.info['id']
+    assert r['short_channel_id'] == l1.rpc.listchannels()['channels'][0]['short_channel_id']
     assert r['fee_base_msat'] == 1
     assert r['fee_proportional_millionths'] == 10
     assert r['cltv_expiry_delta'] == 6

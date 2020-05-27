@@ -139,7 +139,7 @@ int main(int argc, char *argv[])
 		u8 *script = scriptpubkey_p2wpkh(NULL, &outkey[LOCAL]);
 		printf("# local witness script: %s\n", tal_hex(NULL, script));
 		/* One output is to us. */
-		bitcoin_tx_add_output(tx, script,
+		bitcoin_tx_add_output(tx, script, NULL,
 				      amount_msat_to_sat_round_down(local_msat));
 		num_outputs++;
 	} else
@@ -149,7 +149,7 @@ int main(int argc, char *argv[])
 		u8 *script = scriptpubkey_p2wpkh(NULL, &outkey[REMOTE]);
 		printf("# remote witness script: %s\n", tal_hex(NULL, script));
 		/* Other output is to them. */
-		bitcoin_tx_add_output(tx, script,
+		bitcoin_tx_add_output(tx, script, NULL,
 				      amount_msat_to_sat_round_down(remote_msat));
 		num_outputs++;
 	} else

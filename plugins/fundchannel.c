@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
 #include <common/amount.h>
+#include <common/features.h>
 #include <common/json_stream.h>
 #include <common/json_tok.h>
 #include <common/type_to_string.h>
@@ -25,6 +26,9 @@ struct funding_req {
 	bool funding_all;
 	struct amount_msat *push_msat;
 
+	/* Features offered by this peer. */
+	const u8 *their_features;
+
 	bool *announce_channel;
 	u32 *minconf;
 
@@ -39,17 +43,6 @@ struct funding_req {
 	/* Raw JSON from RPC output */
 	const char *error;
 };
-
-/* Helper to copy JSON object directly into a json_out */
-static void json_out_add_raw_len(struct json_out *jout,
-				 const char *fieldname,
-				 const char *jsonstr, size_t len)
-{
-	char *p;
-
-	p = json_out_member_direct(jout, fieldname, len);
-	memcpy(p, jsonstr, len);
-}
 
 static struct command_result *send_prior(struct command *cmd,
 					 const char *buf,
@@ -216,8 +209,7 @@ static void txprepare(struct json_stream *js,
 	if (fr->minconf)
 		json_add_u32(js, "minconf", *fr->minconf);
 	if (fr->utxo_str)
-		json_out_add_raw_len(js->jout, "utxos", fr->utxo_str,
-				     strlen(fr->utxo_str));
+		json_add_jsonstr(js, "utxos", fr->utxo_str);
 }
 
 static struct command_result *prepare_actual(struct command *cmd,
@@ -270,10 +262,7 @@ static struct command_result *fundchannel_start(struct command *cmd,
 
 	json_add_string(req->js, "id", node_id_to_hexstr(tmpctx, fr->id));
 
-	if (deprecated_apis)
-		json_add_string(req->js, "satoshi", fr->funding_str);
-	else
-		json_add_string(req->js, "amount", fr->funding_str);
+	json_add_string(req->js, "amount", fr->funding_str);
 
 	if (fr->feerate_str)
 		json_add_string(req->js, "feerate", fr->feerate_str);
@@ -330,7 +319,10 @@ static struct command_result *post_dryrun(struct command *cmd,
 		plugin_err(cmd->plugin, "Error creating placebo funding tx, funding_out not found. %s", hex);
 
 	/* Update funding to actual amount */
-	if (fr->funding_all && amount_sat_greater(funding, chainparams->max_funding))
+	if (fr->funding_all
+	    && !feature_negotiated(plugin_feature_set(cmd->plugin),
+				   fr->their_features, OPT_LARGE_CHANNELS)
+	    && amount_sat_greater(funding, chainparams->max_funding))
 		funding = chainparams->max_funding;
 
 	fr->funding_str = type_to_string(fr, struct amount_sat, &funding);
@@ -342,9 +334,21 @@ static struct command_result *exec_dryrun(struct command *cmd,
 					  const jsmntok_t *result,
 					  struct funding_req *fr)
 {
-	struct out_req *req = jsonrpc_request_start(cmd->plugin, cmd, "txprepare",
-						    post_dryrun, forward_error,
-						    fr);
+	struct out_req *req;
+	const jsmntok_t *t;
+
+	/* Stash features so we can wumbo. */
+	t = json_get_member(buf, result, "features");
+	if (!t)
+		plugin_err(cmd->plugin, "No features found in connect response?");
+	fr->their_features = json_tok_bin_from_hex(fr, buf, t);
+	if (!fr->their_features)
+		plugin_err(cmd->plugin, "Bad features '%.*s' in connect response?",
+			   t->end - t->start, buf + t->start);
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "txprepare",
+				    post_dryrun, forward_error,
+				    fr);
 
 	/* Now that we've tried connecting, we do a 'dry-run' of txprepare,
 	 * so we can get an accurate idea of the funding amount */
@@ -393,40 +397,16 @@ static struct command_result *json_fundchannel(struct command *cmd,
 {
 	struct funding_req *fr = tal(cmd, struct funding_req);
 
-	/* For generating help, give new-style. */
-	if (!params || !deprecated_apis || params->type == JSMN_ARRAY) {
-		if (!param(cmd, buf, params,
-			   p_req("id", param_node_id, &fr->id),
-			   p_req("amount", param_string_check_sat, &fr->funding_str),
-			   p_opt("feerate", param_string, &fr->feerate_str),
-			   p_opt_def("announce", param_bool, &fr->announce_channel, true),
-			   p_opt_def("minconf", param_number, &fr->minconf, 1),
-			   p_opt("utxos", param_string, &fr->utxo_str),
-			   p_opt("push_msat", param_msat, &fr->push_msat),
-			   NULL))
-			return command_param_failed();
-	} else {
-		const char *satoshi_str;
-		if (!param(cmd, buf, params,
-			   p_req("id", param_node_id, &fr->id),
-			   p_opt("amount", param_string, &fr->funding_str),
-			   p_opt("satoshi", param_string, &satoshi_str),
-			   p_opt("feerate", param_string, &fr->feerate_str),
-			   p_opt_def("announce", param_bool, &fr->announce_channel, true),
-			   p_opt_def("minconf", param_number, &fr->minconf, 1),
-			   p_opt("utxos", param_string, &fr->utxo_str),
-			   p_opt("push_msat", param_msat, &fr->push_msat),
-			   NULL))
-			return command_param_failed();
-
-		if (!fr->funding_str) {
-			if (satoshi_str)
-				fr->funding_str = satoshi_str;
-			else
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "Need set 'amount' field");
-		}
-	}
+	if (!param(cmd, buf, params,
+		   p_req("id", param_node_id, &fr->id),
+		   p_req("amount", param_string_check_sat, &fr->funding_str),
+		   p_opt("feerate", param_string, &fr->feerate_str),
+		   p_opt_def("announce", param_bool, &fr->announce_channel, true),
+		   p_opt_def("minconf", param_number, &fr->minconf, 1),
+		   p_opt("utxos", param_string, &fr->utxo_str),
+		   p_opt("push_msat", param_msat, &fr->push_msat),
+		   NULL))
+		return command_param_failed();
 
 	fr->funding_all = streq(fr->funding_str, "all");
 
@@ -453,7 +433,7 @@ static void init(struct plugin *p,
 static const struct plugin_command commands[] = { {
 		"fundchannel",
 		"channels",
-		"Fund channel with {id} using {satoshi} (or 'all'), at optional {feerate}. "
+		"Fund channel with {id} using {amount} (or 'all'), at optional {feerate}. "
 		"Only use outputs that have {minconf} confirmations.",
 		"Initiaties a channel open with node 'id'. Must "
 		"be connected to the node and have enough funds available at the requested minimum confirmation "
@@ -466,6 +446,6 @@ static const struct plugin_command commands[] = { {
 int main(int argc, char *argv[])
 {
 	setup_locale();
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, commands, ARRAY_SIZE(commands),
-	            NULL, 0, NULL, 0, NULL);
+	plugin_main(argv, init, PLUGIN_RESTARTABLE, NULL, commands,
+		    ARRAY_SIZE(commands), NULL, 0, NULL, 0, NULL);
 }

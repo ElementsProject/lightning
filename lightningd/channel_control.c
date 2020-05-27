@@ -2,9 +2,11 @@
 #include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
 #include <channeld/gen_channel_wire.h>
+#include <common/coin_mvt.h>
 #include <common/features.h>
 #include <common/gossip_constants.h>
 #include <common/json_command.h>
+#include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/per_peer_state.h>
@@ -17,10 +19,12 @@
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
+#include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/onion_message.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wire/gen_common_wire.h>
@@ -37,7 +41,8 @@ static void update_feerates(struct lightningd *ld, struct channel *channel)
 
 	msg = towire_channel_feerates(NULL, feerate,
 				      feerate_min(ld, NULL),
-				      feerate_max(ld, NULL));
+				      feerate_max(ld, NULL),
+				      try_get_feerate(ld->topology, FEERATE_PENALTY));
 	subd_send_msg(channel->owner, take(msg));
 }
 
@@ -72,6 +77,54 @@ void notify_feerate_change(struct lightningd *ld)
 	}
 }
 
+static void record_channel_open(struct channel *channel)
+{
+	struct channel_id channel_id;
+	struct chain_coin_mvt *mvt;
+	struct amount_msat channel_open_amt;
+	u32 blockheight;
+
+	u8 *ctx = tal(NULL, u8);
+
+	/* figure out the 'account name' */
+	derive_channel_id(&channel_id, &channel->funding_txid,
+			  channel->funding_outnum);
+
+	blockheight = short_channel_id_blocknum(channel->scid);
+
+	/* FIXME: logic here will change for dual funded channels */
+	if (channel->opener == LOCAL) {
+		if (!amount_sat_to_msat(&channel_open_amt, channel->funding))
+			fatal("Unable to convert funding %s to msat",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &channel->funding));
+
+		/* if we pushed sats, we should decrement that from the channel balance */
+		if (amount_msat_greater(channel->push, AMOUNT_MSAT(0))) {
+			mvt = new_coin_pushed(ctx, type_to_string(tmpctx,
+								  struct channel_id,
+								  &channel_id),
+					      &channel->funding_txid,
+					      blockheight, channel->push);
+			notify_chain_mvt(channel->peer->ld, mvt);
+		}
+	} else {
+		/* we're not the funder, we record our 'opening balance' anyway
+		 * (there's a small chance we were pushed some satoshis, otherwise
+		 * it's zero) */
+		channel_open_amt = channel->our_msat;
+	}
+
+	mvt = new_coin_deposit(ctx,
+			       type_to_string(tmpctx, struct channel_id,
+					      &channel_id),
+			       &channel->funding_txid,
+			       channel->funding_outnum,
+			       blockheight, channel_open_amt);
+	notify_chain_mvt(channel->peer->ld, mvt);
+	tal_free(ctx);
+}
+
 static void lockin_complete(struct channel *channel)
 {
 	/* We set this once we're locked in. */
@@ -91,6 +144,7 @@ static void lockin_complete(struct channel *channel)
 	/* Fees might have changed (and we use IMMEDIATE once we're funded),
 	 * so update now. */
 	try_update_feerates(channel->peer->ld, channel);
+	record_channel_open(channel);
 }
 
 /* We were informed by channeld that it announced the channel and sent
@@ -319,7 +373,17 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
 		break;
-
+#if EXPERIMENTAL_FEATURES
+	case WIRE_GOT_ONIONMSG_TO_US:
+		handle_onionmsg_to_us(sd->channel, msg);
+		break;
+	case WIRE_GOT_ONIONMSG_FORWARD:
+		handle_onionmsg_forward(sd->channel, msg);
+		break;
+#else
+	case WIRE_GOT_ONIONMSG_TO_US:
+	case WIRE_GOT_ONIONMSG_FORWARD:
+#endif
 	/* And we never get these from channeld. */
 	case WIRE_CHANNEL_INIT:
 	case WIRE_CHANNEL_FUNDING_DEPTH:
@@ -334,7 +398,8 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNEL_FEERATES:
 	case WIRE_CHANNEL_SPECIFIC_FEERATES:
 	case WIRE_CHANNEL_DEV_MEMLEAK:
-	/* Replies go to requests. */
+	case WIRE_SEND_ONIONMSG:
+		/* Replies go to requests. */
 	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
 	case WIRE_CHANNEL_DEV_REENABLE_COMMIT_REPLY:
 	case WIRE_CHANNEL_DEV_MEMLEAK_REPLY:
@@ -365,12 +430,7 @@ void peer_start_channeld(struct channel *channel,
 {
 	u8 *initmsg;
 	int hsmfd;
-	struct added_htlc *htlcs;
-	enum htlc_state *htlc_states;
-	struct fulfilled_htlc *fulfilled_htlcs;
-	enum side *fulfilled_sides;
-	const struct failed_htlc **failed_in;
-	u64 *failed_out;
+	const struct existing_htlc **htlcs;
 	struct short_channel_id scid;
 	u64 num_revocations;
 	struct lightningd *ld = channel->peer->ld;
@@ -378,13 +438,15 @@ void peer_start_channeld(struct channel *channel,
 	bool reached_announce_depth;
 	struct secret last_remote_per_commit_secret;
 	secp256k1_ecdsa_signature *remote_ann_node_sig, *remote_ann_bitcoin_sig;
+	struct penalty_base *pbases;
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,
 				  HSM_CAP_SIGN_GOSSIP
 				  | HSM_CAP_ECDH
 				  | HSM_CAP_COMMITMENT_POINT
-				  | HSM_CAP_SIGN_REMOTE_TX);
+				  | HSM_CAP_SIGN_REMOTE_TX
+				  | HSM_CAP_SIGN_ONCHAIN_TX);
 
 	channel_set_owner(channel,
 			  new_channel_subd(ld,
@@ -401,15 +463,14 @@ void peer_start_channeld(struct channel *channel,
 					   take(&hsmfd), NULL));
 
 	if (!channel->owner) {
-		log_unusual(channel->log, "Could not subdaemon channel: %s",
-			    strerror(errno));
+		log_broken(channel->log, "Could not subdaemon channel: %s",
+			   strerror(errno));
 		channel_fail_reconnect_later(channel,
 					     "Failed to subdaemon channel");
 		return;
 	}
 
-	peer_htlcs(tmpctx, channel, &htlcs, &htlc_states, &fulfilled_htlcs,
-		   &fulfilled_sides, &failed_in, &failed_out);
+	htlcs = peer_htlcs(tmpctx, channel);
 
 	if (channel->scid) {
 		scid = *channel->scid;
@@ -457,8 +518,12 @@ void peer_start_channeld(struct channel *channel,
 		return;
 	}
 
+	pbases = wallet_penalty_base_load_for_channel(
+	    tmpctx, channel->peer->ld->wallet, channel->dbid);
+
 	initmsg = towire_channel_init(tmpctx,
 				      chainparams,
+ 				      ld->our_features,
 				      &channel->funding_txid,
 				      channel->funding_outnum,
 				      channel->funding,
@@ -468,13 +533,14 @@ void peer_start_channeld(struct channel *channel,
 				      channel->channel_info.fee_states,
 				      feerate_min(ld, NULL),
 				      feerate_max(ld, NULL),
+				      try_get_feerate(ld->topology, FEERATE_PENALTY),
 				      &channel->last_sig,
 				      pps,
 				      &channel->channel_info.remote_fundingkey,
 				      &channel->channel_info.theirbase,
 				      &channel->channel_info.remote_per_commit,
 				      &channel->channel_info.old_remote_per_commit,
-				      channel->funder,
+				      channel->opener,
 				      channel->feerate_base,
 				      channel->feerate_ppm,
 				      channel->our_msat,
@@ -490,9 +556,7 @@ void peer_start_channeld(struct channel *channel,
 				      channel->next_index[REMOTE],
 				      num_revocations,
 				      channel->next_htlc_id,
-				      htlcs, htlc_states,
-				      fulfilled_htlcs, fulfilled_sides,
-				      failed_in, failed_out,
+				      htlcs,
 				      channel->scid != NULL,
 				      channel->remote_funding_locked,
 				      &scid,
@@ -504,7 +568,7 @@ void peer_start_channeld(struct channel *channel,
 				      funding_signed,
 				      reached_announce_depth,
 				      &last_remote_per_commit_secret,
-				      channel->peer->features,
+				      channel->peer->their_features,
 				      channel->remote_upfront_shutdown_script,
 				      remote_ann_node_sig,
 				      remote_ann_bitcoin_sig,
@@ -512,13 +576,14 @@ void peer_start_channeld(struct channel *channel,
 				       * negotiated now! */
 				      channel->option_static_remotekey,
 				      IFDEV(ld->dev_fast_gossip, false),
-				      IFDEV(dev_fail_process_onionpacket, false));
+				      IFDEV(dev_fail_process_onionpacket, false),
+				      pbases);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
 
 	/* On restart, feerate might not be what we expect: adjust now. */
-	if (channel->funder == LOCAL)
+	if (channel->opener == LOCAL)
 		try_update_feerates(ld, channel);
 }
 
@@ -578,7 +643,7 @@ is_fundee_should_forget(struct lightningd *ld,
 	 */
 
 	/* Only applies if we are fundee. */
-	if (channel->funder == LOCAL)
+	if (channel->opener == LOCAL)
 		return false;
 
 	/* Does not apply if we already saw the funding tx. */
@@ -741,7 +806,7 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 					    buffer + cidtok->start);
 	}
 
-	if (cancel_channel->funder == REMOTE)
+	if (cancel_channel->opener == REMOTE)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Cannot cancel channel that was "
 				    "initiated by peer");
@@ -808,7 +873,8 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 
 	msg = towire_channel_feerates(NULL, *feerate,
 				      feerate_min(cmd->ld, NULL),
-				      feerate_max(cmd->ld, NULL));
+				      feerate_max(cmd->ld, NULL),
+				      try_get_feerate(cmd->ld->topology, FEERATE_PENALTY));
 	subd_send_msg(channel->owner, take(msg));
 
 	response = json_stream_success(cmd);

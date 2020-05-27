@@ -46,6 +46,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/bech32_util.o			\
 	common/bigsize.o			\
 	common/bip32.o				\
+	common/channel_id.o			\
 	common/crypto_state.o			\
 	common/cryptomsg.o			\
 	common/daemon.o				\
@@ -64,6 +65,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/per_peer_state.o			\
 	common/ping.o				\
 	common/pseudorand.o			\
+	common/setup.o				\
 	common/status.o				\
 	common/status_wire.o			\
 	common/subdaemon.o			\

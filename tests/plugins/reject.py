@@ -7,7 +7,7 @@ continue.
 
 """
 
-from lightning import Plugin
+from pyln.client import Plugin
 
 plugin = Plugin()
 

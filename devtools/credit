@@ -13,6 +13,10 @@ if [ "$#" != 1 ]; then
 fi
 PREV_TAG="$1"
 
+if [ -z $(git tag -l "$PREV_TAG") ]; then
+    echo "Error: couldn't find tag '$PREV_TAG'!"
+    exit 1
+fi
 git log "$PREV_TAG".. --format="%an|%ae" | sort | uniq -c | sort -rn > /tmp/authors.$$
 sed -n 's/.*[Nn]amed by //p' < CHANGELOG.md > /tmp/namers.$$
 git log "$PREV_TAG" --format="%an|%ae" | sort -u > /tmp/prev-authors.$$

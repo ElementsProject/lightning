@@ -1,7 +1,10 @@
 #include "common/onion.h"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
+#include <common/ecdh.h>
 #include <common/sphinx.h>
+#include <sodium/crypto_aead_chacha20poly1305.h>
 #include <wire/gen_onion_wire.h>
 
 /* BOLT #4:
@@ -58,13 +61,12 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 		       bool use_tlv,
 		       const struct short_channel_id *scid,
 		       struct amount_msat forward,
-		       u32 outgoing_cltv)
+		       u32 outgoing_cltv,
+		       const struct pubkey *blinding,
+		       const u8 *enctlv)
 {
 	if (use_tlv) {
 		struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
-		struct tlv_tlv_payload_amt_to_forward tlv_amt;
-		struct tlv_tlv_payload_outgoing_cltv_value tlv_cltv;
-		struct tlv_tlv_payload_short_channel_id tlv_scid;
 
 		/* BOLT #4:
 		 *
@@ -76,15 +78,20 @@ u8 *onion_nonfinal_hop(const tal_t *ctx,
 		 *    - MUST include `short_channel_id`
 		 *    - MUST NOT include `payment_data`
 		 */
-		tlv_amt.amt_to_forward = forward.millisatoshis; /* Raw: TLV convert */
-		tlv_cltv.outgoing_cltv_value = outgoing_cltv;
-		tlv_scid.short_channel_id = *scid;
-		tlv->amt_to_forward = &tlv_amt;
-		tlv->outgoing_cltv_value = &tlv_cltv;
-		tlv->short_channel_id = &tlv_scid;
-
+		tlv->amt_to_forward = &forward.millisatoshis; /* Raw: TLV convert */
+		tlv->outgoing_cltv_value = &outgoing_cltv;
+		tlv->short_channel_id = cast_const(struct short_channel_id *,
+						   scid);
+#if EXPERIMENTAL_FEATURES
+		tlv->blinding_seed = cast_const(struct pubkey *, blinding);
+		tlv->enctlv = cast_const(u8 *, enctlv);
+#endif
 		return make_tlv_hop(ctx, tlv);
 	} else {
+#if EXPERIMENTAL_FEATURES
+		if (blinding || enctlv)
+			return NULL;
+#endif
 		return make_v0_hop(ctx, scid, forward, outgoing_cltv);
 	}
 }
@@ -94,6 +101,8 @@ u8 *onion_final_hop(const tal_t *ctx,
 		    struct amount_msat forward,
 		    u32 outgoing_cltv,
 		    struct amount_msat total_msat,
+		    const struct pubkey *blinding,
+		    const u8 *enctlv,
 		    const struct secret *payment_secret)
 {
 	/* These go together! */
@@ -102,8 +111,6 @@ u8 *onion_final_hop(const tal_t *ctx,
 
 	if (use_tlv) {
 		struct tlv_tlv_payload *tlv = tlv_tlv_payload_new(tmpctx);
-		struct tlv_tlv_payload_amt_to_forward tlv_amt;
-		struct tlv_tlv_payload_outgoing_cltv_value tlv_cltv;
 		struct tlv_tlv_payload_payment_data tlv_pdata;
 
 		/* BOLT #4:
@@ -120,22 +127,28 @@ u8 *onion_final_hop(const tal_t *ctx,
 		 *      - MUST set `payment_secret` to the one provided
 		 *      - MUST set `total_msat` to the total amount it will send
 		 */
-		tlv_amt.amt_to_forward = forward.millisatoshis; /* Raw: TLV convert */
-		tlv_cltv.outgoing_cltv_value = outgoing_cltv;
-		tlv->amt_to_forward = &tlv_amt;
-		tlv->outgoing_cltv_value = &tlv_cltv;
+		tlv->amt_to_forward = &forward.millisatoshis; /* Raw: TLV convert */
+		tlv->outgoing_cltv_value = &outgoing_cltv;
 
 		if (payment_secret) {
 			tlv_pdata.payment_secret = *payment_secret;
 			tlv_pdata.total_msat = total_msat.millisatoshis; /* Raw: TLV convert */
 			tlv->payment_data = &tlv_pdata;
 		}
+#if EXPERIMENTAL_FEATURES
+		tlv->blinding_seed = cast_const(struct pubkey *, blinding);
+		tlv->enctlv = cast_const(u8 *, enctlv);
+#endif
 		return make_tlv_hop(ctx, tlv);
 	} else {
 		static struct short_channel_id all_zero_scid;
 		/* No payment secrets in legacy format. */
 		if (payment_secret)
 			return NULL;
+#if EXPERIMENTAL_FEATURES
+		if (blinding || enctlv)
+			return NULL;
+#endif
 		return make_v0_hop(ctx, &all_zero_scid, forward, outgoing_cltv);
 	}
 }
@@ -143,6 +156,7 @@ u8 *onion_final_hop(const tal_t *ctx,
 /* Returns true if valid, and fills in type. */
 static bool pull_payload_length(const u8 **cursor,
 				size_t *max,
+				bool has_realm,
 				enum onion_payload_type *type,
 				size_t *len)
 {
@@ -163,7 +177,7 @@ static bool pull_payload_length(const u8 **cursor,
 	 *   length. In this case the `hop_payload_length` is defined to be 32
 	 *   bytes.
 	 */
-	if (*len == 0) {
+	if (has_realm && *len == 0) {
 		if (type)
 			*type = ONION_V0_PAYLOAD;
 		assert(*cursor - start == 1);
@@ -176,10 +190,15 @@ static bool pull_payload_length(const u8 **cursor,
 	 *   case the `hop_payload_length` is equal to the numeric value of
 	 *   `length`.
 	 */
-	if (*len > 1) {
+	if (!has_realm || *len > 1) {
 		/* It's still invalid if it claims to be too long! */
-		if (*len > ROUTING_INFO_SIZE - HMAC_SIZE)
-			return false;
+		if (has_realm) {
+			if (*len > ROUTING_INFO_SIZE - HMAC_SIZE)
+				return false;
+		} else {
+			if (*len > *max)
+				return false;
+		}
 
 		if (type)
 			*type = ONION_TLV_PAYLOAD;
@@ -190,12 +209,12 @@ static bool pull_payload_length(const u8 **cursor,
 	return false;
 }
 
-size_t onion_payload_length(const u8 *raw_payload, size_t len,
+size_t onion_payload_length(const u8 *raw_payload, size_t len, bool has_realm,
 			    bool *valid,
 			    enum onion_payload_type *type)
 {
 	size_t max = len, payload_len;
-	*valid = pull_payload_length(&raw_payload, &max, type, &payload_len);
+	*valid = pull_payload_length(&raw_payload, &max, has_realm, type, &payload_len);
 
 	/* If it's not valid, copy the entire thing. */
 	if (!*valid)
@@ -204,8 +223,50 @@ size_t onion_payload_length(const u8 *raw_payload, size_t len,
 	return payload_len;
 }
 
+#if EXPERIMENTAL_FEATURES
+static struct tlv_tlv_payload *decrypt_tlv(const tal_t *ctx,
+					   const struct secret *blinding_ss,
+					   const u8 *enc)
+{
+	const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+	struct secret rho;
+	u8 *dec;
+	const u8 *cursor;
+	size_t max;
+	int ret;
+	struct tlv_tlv_payload *tlv;
+
+	subkey_from_hmac("rho", blinding_ss, &rho);
+	if (tal_bytelen(enc) < crypto_aead_chacha20poly1305_ietf_ABYTES)
+		return NULL;
+
+	dec = tal_arr(tmpctx, u8,
+		      tal_bytelen(enc)
+		      - crypto_aead_chacha20poly1305_ietf_ABYTES);
+	ret = crypto_aead_chacha20poly1305_ietf_decrypt(dec, NULL,
+							NULL,
+							enc,
+							tal_bytelen(enc),
+							NULL, 0,
+							npub,
+							rho.data);
+	if (ret != 0)
+		return NULL;
+
+	tlv = tlv_tlv_payload_new(ctx);
+	cursor = dec;
+	max = tal_bytelen(dec);
+	if (!fromwire_tlv_payload(&cursor, &max, tlv))
+		return tal_free(tlv);
+
+	return tlv;
+}
+#endif /* EXPERIMENTAL_FEATURES */
+
 struct onion_payload *onion_decode(const tal_t *ctx,
 				   const struct route_step *rs,
+				   const struct pubkey *blinding,
+				   const struct secret *blinding_ss,
 				   u64 *failtlvtype,
 				   size_t *failtlvpos)
 {
@@ -214,7 +275,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 	size_t max = tal_bytelen(cursor), len;
 	struct tlv_tlv_payload *tlv;
 
-	if (!pull_payload_length(&cursor, &max, &p->type, &len))
+	if (!pull_payload_length(&cursor, &max, true, &p->type, &len))
 		return tal_free(p);
 
 	switch (p->type) {
@@ -225,6 +286,10 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		p->amt_to_forward = fromwire_amount_msat(&cursor, &max);
 		p->outgoing_cltv = fromwire_u32(&cursor, &max);
 		p->payment_secret = NULL;
+		p->blinding = NULL;
+		/* We can't handle blinding with a legacy payload */
+		if (blinding)
+			return tal_free(p);
 
 		if (rs->nextcase == ONION_FORWARD) {
 			p->total_msat = NULL;
@@ -261,9 +326,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		if (!tlv->amt_to_forward || !tlv->outgoing_cltv_value)
 			goto fail;
 
-		amount_msat_from_u64(&p->amt_to_forward,
-				     tlv->amt_to_forward->amt_to_forward);
-		p->outgoing_cltv = tlv->outgoing_cltv_value->outgoing_cltv_value;
+		amount_msat_from_u64(&p->amt_to_forward, *tlv->amt_to_forward);
+		p->outgoing_cltv = *tlv->outgoing_cltv_value;
 
 		/* BOLT #4:
 		 *
@@ -275,9 +339,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		if (rs->nextcase == ONION_FORWARD) {
 			if (!tlv->short_channel_id)
 				goto fail;
-			p->forward_channel = tal(p, struct short_channel_id);
-			*p->forward_channel
-				= tlv->short_channel_id->short_channel_id;
+			p->forward_channel = tal_dup(p, struct short_channel_id,
+						     tlv->short_channel_id);
 			p->total_msat = NULL;
 		} else {
 			p->forward_channel = NULL;
@@ -290,6 +353,47 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		}
 
 		p->payment_secret = NULL;
+		if (blinding)
+			p->blinding = tal_dup(p, struct pubkey, blinding);
+		else
+			p->blinding = NULL;
+
+#if EXPERIMENTAL_FEATURES
+		if (!p->blinding) {
+			/* If we have no blinding, it could be in TLV. */
+			if (tlv->blinding_seed) {
+				p->blinding =
+					tal_dup(p, struct pubkey,
+						tlv->blinding_seed);
+				ecdh(p->blinding, &p->blinding_ss);
+			}
+		} else
+			p->blinding_ss = *blinding_ss;
+
+		if (p->blinding) {
+			/* If they give us a blinding and we're not terminal,
+			 * we must have an enctlv. */
+			if (rs->nextcase == ONION_FORWARD) {
+				struct tlv_tlv_payload *ntlv;
+
+				if (!tlv->enctlv)
+					goto fail;
+
+				ntlv = decrypt_tlv(tmpctx,
+						   &p->blinding_ss,
+						   tlv->enctlv);
+				if (!ntlv)
+					goto fail;
+
+				/* Must override short_channel_id */
+				if (!ntlv->short_channel_id)
+					goto fail;
+
+				*p->forward_channel
+					= *ntlv->short_channel_id;
+			}
+		}
+#endif /* EXPERIMENTAL_FEATURES */
 
 		if (tlv->payment_data) {
 			p->payment_secret = tal_dup(p, struct secret,

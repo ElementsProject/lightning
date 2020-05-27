@@ -1,6 +1,7 @@
 #include "permute_tx.h"
 #include <stdbool.h>
 #include <string.h>
+#include <wally_psbt.h>
 
 static bool input_better(const struct wally_tx_input *a,
 			 const struct wally_tx_input *b)
@@ -35,24 +36,37 @@ static size_t find_best_in(struct wally_tx_input *inputs, size_t num)
 }
 
 static void swap_wally_inputs(struct wally_tx_input *inputs,
-			     const void **map,
-                             size_t i1, size_t i2)
+			      struct wally_tx_input *psbt_global_ins,
+			      struct wally_psbt_input *psbt_ins,
+			      const void **map,
+                              size_t i1, size_t i2)
 {
-       struct wally_tx_input tmpinput;
-       const void *tmp;
+	struct wally_tx_input tmpinput;
+	struct wally_psbt_input tmppsbtin;
+	const void *tmp;
 
-       if (i1 == i2)
-               return;
+	if (i1 == i2)
+		return;
 
-       tmpinput = inputs[i1];
-       inputs[i1] = inputs[i2];
-       inputs[i2] = tmpinput;
+	tmpinput = inputs[i1];
+	inputs[i1] = inputs[i2];
+	inputs[i2] = tmpinput;
 
-       if (map) {
-               tmp = map[i1];
-               map[i1] = map[i2];
-               map[i2] = tmp;
-       }
+	/* For the PSBT, we swap the psbt inputs and
+	 * the global tx's inputs */
+	tmpinput = psbt_global_ins[i1];
+	psbt_global_ins[i1] = psbt_global_ins[i2];
+	psbt_global_ins[i2] = tmpinput;
+
+	tmppsbtin = psbt_ins[i1];
+	psbt_ins[i1] = psbt_ins[i2];
+	psbt_ins[i2] = tmppsbtin;
+
+	if (map) {
+		tmp = map[i1];
+		map[i1] = map[i2];
+		map[i2] = tmp;
+	}
 }
 
 static void swap_input_amounts(struct amount_sat **amounts, size_t i1,
@@ -77,17 +91,22 @@ void permute_inputs(struct bitcoin_tx *tx, const void **map)
 	for (i = 0; i < num_inputs-1; i++) {
 		best_pos = i + find_best_in(inputs + i, num_inputs - i);
 		/* Swap best into first place. */
-		swap_wally_inputs(tx->wtx->inputs, map, i, best_pos);
+		swap_wally_inputs(tx->wtx->inputs,
+				  tx->psbt->tx->inputs,
+				  tx->psbt->inputs,
+				  map, i, best_pos);
 		swap_input_amounts(tx->input_amounts, i, best_pos);
 	}
 }
 
 static void swap_wally_outputs(struct wally_tx_output *outputs,
-			 const void **map,
-			 u32 *cltvs,
-			 size_t i1, size_t i2)
+			       struct wally_tx_output *psbt_global_outs,
+			       struct wally_psbt_output *psbt_outs,
+			       const void **map, u32 *cltvs,
+			       size_t i1, size_t i2)
 {
 	struct wally_tx_output tmpoutput;
+	struct wally_psbt_output tmppsbtout;
 
 	if (i1 == i2)
 		return;
@@ -95,6 +114,16 @@ static void swap_wally_outputs(struct wally_tx_output *outputs,
 	tmpoutput = outputs[i1];
 	outputs[i1] = outputs[i2];
 	outputs[i2] = tmpoutput;
+
+	/* For the PSBT, we swap the psbt outputs and
+	 * the global tx's outputs */
+	tmpoutput = psbt_global_outs[i1];
+	psbt_global_outs[i1] = psbt_global_outs[i2];
+	psbt_global_outs[i2] = tmpoutput;
+
+	tmppsbtout = psbt_outs[i1];
+	psbt_outs[i1] = psbt_outs[i2];
+	psbt_outs[i2] = tmppsbtout;
 
 	if (map) {
 		const void *tmp = map[i1];
@@ -173,13 +202,9 @@ void permute_outputs(struct bitcoin_tx *tx, u32 *cltvs, const void **map)
 				      num_outputs - i);
 
 		/* Swap best into first place. */
-		swap_wally_outputs(tx->wtx->outputs, map, cltvs, i, best_pos);
-
-		/* If output_witscripts are present, swap them to match. */
-		if (tx->output_witscripts) {
-			struct witscript *tmp = tx->output_witscripts[i];
-			tx->output_witscripts[i] = tx->output_witscripts[best_pos];
-			tx->output_witscripts[best_pos] = tmp;
-		}
+		swap_wally_outputs(tx->wtx->outputs,
+				   tx->psbt->tx->outputs,
+				   tx->psbt->outputs,
+				   map, cltvs, i, best_pos);
 	}
 }

@@ -33,6 +33,7 @@ struct gossip_getchannels_entry {
 	bool local_disabled;
 	/* NULL if we haven't received an update */
 	struct gossip_halfchannel_entry *e[2];
+	u8 *features;
 };
 
 struct gossip_getnodes_entry *
@@ -40,7 +41,8 @@ fromwire_gossip_getnodes_entry(const tal_t *ctx, const u8 **pptr, size_t *max);
 void towire_gossip_getnodes_entry(u8 **pptr,
 				  const struct gossip_getnodes_entry *entry);
 
-void fromwire_route_hop(const u8 **pprt, size_t *max, struct route_hop *entry);
+struct route_hop *fromwire_route_hop(const tal_t *ctx,
+				     const u8 **pptr, size_t *max);
 void towire_route_hop(u8 **pprt, const struct route_hop *entry);
 
 void fromwire_route_info(const u8 **pprt, size_t *max, struct route_info *entry);

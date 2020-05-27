@@ -162,6 +162,18 @@ void json_add_member(struct json_stream *js,
 	va_end(ap);
 }
 
+void json_add_jsonstr(struct json_stream *js,
+		      const char *fieldname,
+		      const char *jsonstr)
+{
+	char *p;
+	size_t len = strlen(jsonstr);
+
+	p = json_member_direct(js, fieldname, len);
+
+	memcpy(p, jsonstr, len);
+}
+
 /* This is where we read the json_stream and write it to conn */
 static struct io_plan *json_stream_output_write(struct io_conn *conn,
 						struct json_stream *js)

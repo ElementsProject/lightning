@@ -256,3 +256,4 @@ const char *chainparams_get_network_names(const tal_t *ctx)
         tal_append_fmt(&networks_string, ", %s", networks[i].network_name);
     return networks_string;
 }
+

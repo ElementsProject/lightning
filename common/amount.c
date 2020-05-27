@@ -7,6 +7,7 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <inttypes.h>
+#include <wire/wire.h>
 
 bool amount_sat_to_msat(struct amount_msat *msat,
 			struct amount_sat sat)
@@ -181,6 +182,7 @@ bool parse_amount_msat(struct amount_msat *msat, const char *s, size_t slen)
  *  [0-9]+ => satoshi.
  *  [0-9]+sat => satoshi.
  *  [0-9]+000msat => satoshi.
+ *  0msat => 0 satoshi
  *  [0-9]+.[0-9]{1,8}btc => satoshi.
  */
 bool parse_amount_sat(struct amount_sat *sat, const char *s, size_t slen)
@@ -198,8 +200,12 @@ bool parse_amount_sat(struct amount_sat *sat, const char *s, size_t slen)
 	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "sat"))
 		return from_number(&sat->satoshis, s, whole_number_len, 0);
 	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "msat")) {
-		if (!memends(s, whole_number_len, "000", strlen("000")))
+		if (!memends(s, whole_number_len, "000", strlen("000"))) {
+			if (memeqstr(s, whole_number_len, "0"))
+				return from_number(&sat->satoshis, s,
+						   whole_number_len, 0);
 			return false;
+		}
 		return from_number(&sat->satoshis, s, whole_number_len - 3, 0);
 	}
 	if (post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "btc"))
@@ -276,6 +282,18 @@ WARN_UNUSED_RESULT bool amount_sat_sub_msat(struct amount_msat *val,
 		return false;
 
 	return amount_msat_sub(val, msata, b);
+}
+
+WARN_UNUSED_RESULT bool amount_msat_add_sat(struct amount_msat *val,
+					    struct amount_msat a,
+					    struct amount_sat b)
+{
+	struct amount_msat msatb;
+
+	if (!amount_sat_to_msat(&msatb, b))
+		return false;
+
+	return amount_msat_add(val, a, msatb);
 }
 
 bool amount_sat_eq(struct amount_sat a, struct amount_sat b)
@@ -364,6 +382,16 @@ bool amount_msat_less_eq_sat(struct amount_msat msat, struct amount_sat sat)
 	return msat.millisatoshis <= msat_from_sat.millisatoshis;
 }
 
+bool amount_msat_eq_sat(struct amount_msat msat, struct amount_sat sat)
+{
+	struct amount_msat msat_from_sat;
+
+	if (!amount_sat_to_msat(&msat_from_sat, sat))
+		return false;
+
+	return msat.millisatoshis == msat_from_sat.millisatoshis;
+}
+
 bool amount_msat_to_u32(struct amount_msat msat, u32 *millisatoshis)
 {
 	if (amount_msat_greater_eq(msat, AMOUNT_MSAT(0x100000000)))
@@ -446,6 +474,33 @@ struct amount_sat amount_asset_to_sat(struct amount_asset *amount)
 {
 	struct amount_sat sats;
 	assert(amount_asset_is_main(amount));
-	sats.satoshis = amount->value; /* Raw: low-level conversion */
+	sats.satoshis = amount->value;
 	return sats;
 }
+
+struct amount_msat fromwire_amount_msat(const u8 **cursor, size_t *max)
+{
+	struct amount_msat msat;
+
+	msat.millisatoshis = fromwire_u64(cursor, max);
+	return msat;
+}
+
+struct amount_sat fromwire_amount_sat(const u8 **cursor, size_t *max)
+{
+	struct amount_sat sat;
+
+	sat.satoshis = fromwire_u64(cursor, max);
+	return sat;
+}
+
+void towire_amount_msat(u8 **pptr, const struct amount_msat msat)
+{
+	towire_u64(pptr, msat.millisatoshis);
+}
+
+void towire_amount_sat(u8 **pptr, const struct amount_sat sat)
+{
+	towire_u64(pptr, sat.satoshis);
+}
+

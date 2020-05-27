@@ -5,7 +5,7 @@ We use this to check whether they're TLV or not
 
 """
 
-from lightning import Plugin
+from pyln.client import Plugin
 
 plugin = Plugin()
 

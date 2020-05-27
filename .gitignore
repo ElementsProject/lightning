@@ -30,6 +30,8 @@ config.vars
 external/libbacktrace-build/
 external/libbacktrace.a
 external/libbacktrace.la
+external/libbase58/
+external/libbase58.a
 test/test_protocol
 test/test_sphinx
 tests/.pytest.restart
@@ -44,3 +46,5 @@ contrib/pylightning/pylightning.egg-info/
 contrib/pyln-*/build/
 contrib/pyln-*/dist/
 contrib/pyln-*/pyln_*.egg-info/
+plugins/keysend
+release/

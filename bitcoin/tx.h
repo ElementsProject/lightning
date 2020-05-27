@@ -8,13 +8,11 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
 #include <common/amount.h>
+#include <wally_psbt.h>
 #include <wally_transaction.h>
 
 #define BITCOIN_TX_DEFAULT_SEQUENCE 0xFFFFFFFF
-
-struct witscript {
-    u8 *ptr;
-};
+struct wally_psbt;
 
 struct bitcoin_txid {
 	struct sha256_double shad;
@@ -28,11 +26,11 @@ struct bitcoin_tx {
 	struct amount_sat **input_amounts;
 	struct wally_tx *wtx;
 
-	/* Need the output wscripts in the HSM to validate transaction */
-	struct witscript **output_witscripts;
-
 	/* Keep a reference to the ruleset we have to abide by */
 	const struct chainparams *chainparams;
+
+	/* psbt struct */
+	struct wally_psbt *psbt;
 };
 
 struct bitcoin_tx_output {
@@ -40,22 +38,13 @@ struct bitcoin_tx_output {
 	u8 *script;
 };
 
-struct bitcoin_tx_input {
-	struct bitcoin_txid txid;
-	u32 index; /* output number referred to by above */
-	u8 *script;
-	u32 sequence_number;
-
-	/* Only if BIP141 used. */
-	u8 **witness;
-};
-
-
-/* SHA256^2 the tx: simpler than sha256_tx */
+/* SHA256^2 the tx in legacy format. */
 void bitcoin_txid(const struct bitcoin_tx *tx, struct bitcoin_txid *txid);
+void wally_txid(const struct wally_tx *wtx, struct bitcoin_txid *txid);
 
 /* Linear bytes of tx. */
 u8 *linearize_tx(const tal_t *ctx, const struct bitcoin_tx *tx);
+u8 *linearize_wtx(const tal_t *ctx, const struct wally_tx *wtx);
 
 /* Get weight of tx in Sipa. */
 size_t bitcoin_tx_weight(const struct bitcoin_tx *tx);
@@ -84,6 +73,7 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 				   const u8 **cursor, size_t *max);
 /* Add one output to tx. */
 int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
+			  u8 *wscript,
 			  struct amount_sat amount);
 
 /* Add mutiple output to tx. */
@@ -94,6 +84,13 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 			 u32 outnum, u32 sequence,
 			 struct amount_sat amount, u8 *script);
 
+/* This helps is useful because wally uses a raw byte array for txids */
+bool wally_tx_input_spends(const struct wally_tx_input *input,
+			   const struct bitcoin_txid *txid,
+			   int outnum);
+
+struct amount_asset
+wally_tx_output_get_amount(const struct wally_tx_output *output);
 
 /**
  * Set the output amount on the transaction.
@@ -115,6 +112,18 @@ void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
  */
 const u8 *bitcoin_tx_output_get_script(const tal_t *ctx, const struct bitcoin_tx *tx, int outnum);
 
+/**
+ * Helper to get a witness script for an output.
+ */
+u8 *bitcoin_tx_output_get_witscript(const tal_t *ctx, const struct bitcoin_tx *tx, int outnum);
+
+/** bitcoin_tx_output_get_amount_sat - Helper to get transaction output's amount
+ *
+ * Internally we use a `wally_tx` to represent the transaction. The
+ * satoshi amount isn't a struct amount_sat, so we need a conversion
+ */
+void bitcoin_tx_output_get_amount_sat(struct bitcoin_tx *tx, int outnum,
+				      struct amount_sat *amount);
 /**
  * Helper to just get an amount_sat for the output amount.
  */
@@ -147,6 +156,8 @@ const u8 *bitcoin_tx_input_get_witness(const tal_t *ctx,
  */
 void bitcoin_tx_input_get_txid(const struct bitcoin_tx *tx, int innum,
 			       struct bitcoin_txid *out);
+void wally_tx_input_get_txid(const struct wally_tx_input *in,
+			     struct bitcoin_txid *txid);
 
 /**
  * Check a transaction for consistency.
@@ -156,16 +167,47 @@ void bitcoin_tx_input_get_txid(const struct bitcoin_tx *tx, int innum,
  */
 bool bitcoin_tx_check(const struct bitcoin_tx *tx);
 
-/**
- * Add an explicit fee output if necessary.
- *
- * An explicit fee output is only necessary if we are using an elements
- * transaction, and we have a non-zero fee. This method may be called multiple
- * times.
- *
- * Returns the position of the fee output, or -1 in the case of non-elements
- * transactions.
- */
-int elements_tx_add_fee_output(struct bitcoin_tx *tx);
 
+/**
+ * Finalize a transaction by truncating overallocated and temporary
+ * fields. This includes adding a fee output for elements transactions or
+ * adjusting an existing fee output, and resizing metadata arrays for inputs
+ * and outputs.
+ */
+void bitcoin_tx_finalize(struct bitcoin_tx *tx);
+
+/**
+ * Returns true if the given outnum is a fee output
+ */
+bool elements_tx_output_is_fee(const struct bitcoin_tx *tx, int outnum);
+
+/**
+ * Calculate the fees for this transaction
+ */
+struct amount_sat bitcoin_tx_compute_fee(const struct bitcoin_tx *tx);
+
+/*
+ * Calculate the fees for this transaction, given a pre-computed input balance.
+ *
+ * This is needed for cases where the input_amounts aren't properly initialized,
+ * typically due to being passed across the wire.
+ */
+struct amount_sat bitcoin_tx_compute_fee_w_inputs(const struct bitcoin_tx *tx,
+						  struct amount_sat input_val);
+
+/* Wire marshalling and unmarshalling */
+void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
+			   struct bitcoin_txid *txid);
+struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
+				       const u8 **cursor, size_t *max);
+struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
+						     const u8 **cursor, size_t *max);
+void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid);
+void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
+void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output);
+
+/*
+ * Get the base64 string encoded PSBT of a bitcoin transaction.
+ */
+char *bitcoin_tx_to_psbt_base64(const tal_t *ctx, struct bitcoin_tx *tx);
 #endif /* LIGHTNING_BITCOIN_TX_H */

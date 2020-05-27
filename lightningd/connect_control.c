@@ -68,10 +68,11 @@ static struct connect *find_connect(struct lightningd *ld,
 }
 
 static struct command_result *connect_cmd_succeed(struct command *cmd,
-						  const struct node_id *id)
+						  const struct peer *peer)
 {
 	struct json_stream *response = json_stream_success(cmd);
-	json_add_node_id(response, "id", id);
+	json_add_node_id(response, "id", &peer->id);
+	json_add_hex_talarr(response, "features", peer->their_features);
 	return command_success(cmd, response);
 }
 
@@ -139,7 +140,7 @@ static struct command_result *json_connect(struct command *cmd,
 
 		if (peer->uncommitted_channel
 		    || (channel && channel->connected)) {
-			return connect_cmd_succeed(cmd, &id);
+			return connect_cmd_succeed(cmd, peer);
 		}
 	}
 
@@ -256,14 +257,14 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 		delay_then_reconnect(channel, seconds_to_delay, addrhint);
 }
 
-void connect_succeeded(struct lightningd *ld, const struct node_id *id)
+void connect_succeeded(struct lightningd *ld, const struct peer *peer)
 {
 	struct connect *c;
 
 	/* We can have multiple connect commands: fail them all */
-	while ((c = find_connect(ld, id)) != NULL) {
+	while ((c = find_connect(ld, &peer->id)) != NULL) {
 		/* They delete themselves from list */
-		connect_cmd_succeed(c->cmd, id);
+		connect_cmd_succeed(c->cmd, peer);
 	}
 }
 
@@ -337,7 +338,7 @@ static void connect_init_done(struct subd *connectd,
 int connectd_init(struct lightningd *ld)
 {
 	int fds[2];
-	u8 *msg, *init_features;
+	u8 *msg;
 	int hsmfd;
 	struct wireaddr_internal *wireaddrs = ld->proposed_wireaddr;
 	enum addr_listen_announce *listen_announce = ld->proposed_listen_announce;
@@ -362,21 +363,16 @@ int connectd_init(struct lightningd *ld)
 		*listen_announce = ADDR_LISTEN_AND_ANNOUNCE;
 	}
 
-	init_features =
-	    featurebits_or(tmpctx,
-			   take(plugins_collect_featurebits(
-			       tmpctx, ld->plugins, PLUGIN_FEATURES_INIT)),
-			   take(get_offered_initfeatures(tmpctx)));
-
 	msg = towire_connectctl_init(
 	    tmpctx, chainparams,
+	    ld->our_features,
 	    &ld->id,
 	    wireaddrs,
 	    listen_announce,
 	    ld->proxyaddr, ld->use_proxy_always || ld->pure_tor_setup,
 	    IFDEV(ld->dev_allow_localhost, false), ld->config.use_dns,
 	    ld->tor_service_password ? ld->tor_service_password : "",
-	    ld->config.use_v3_autotor, init_features);
+	    ld->config.use_v3_autotor);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_init_done, NULL);

@@ -16,6 +16,7 @@
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/tal/str/str.h>
 #include <common/gossip_constants.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>

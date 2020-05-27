@@ -7,6 +7,7 @@
 #include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
 #include <common/crypto_state.h>
+#include <common/ecdh.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -181,7 +182,7 @@ struct handshake {
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      const struct pubkey *their_id,
 			      const struct wireaddr_internal *wireaddr,
-			      const struct crypto_state *cs,
+			      struct crypto_state *cs,
 			      void *cbarg);
 	void *cbarg;
 };
@@ -351,7 +352,7 @@ static struct io_plan *handshake_succeeded(struct io_conn *conn,
 	struct io_plan *(*cb)(struct io_conn *conn,
 			      const struct pubkey *their_id,
 			      const struct wireaddr_internal *addr,
-			      const struct crypto_state *cs,
+			      struct crypto_state *cs,
 			      void *cbarg);
 	void *cbarg;
 	struct pubkey their_id;
@@ -425,11 +426,11 @@ static struct handshake *new_handshake(const tal_t *ctx,
 	 * into the handshake digest:
 	 *
 	 * * The initiating node mixes in the responding node's static public
-	 *    key serialized in Bitcoin's DER-compressed format:
+	 *    key serialized in Bitcoin's compressed format:
 	 *    * `h = SHA-256(h || rs.pub.serializeCompressed())`
 	 *
 	 * * The responding node mixes in their local static public key
-	 *   serialized in Bitcoin's DER-compressed format:
+	 *   serialized in Bitcoin's compressed format:
 	 *    * `h = SHA-256(h || ls.pub.serializeCompressed())`
 	 */
 	sha_mix_in_key(&handshake->h, responder_id);
@@ -471,10 +472,8 @@ static struct io_plan *act_three_initiator(struct io_conn *conn,
 	 * 3. `se = ECDH(s.priv, re)`
 	 *     * where `re` is the ephemeral public key of the responder
 	 */
-	h->ss = hsm_do_ecdh(h, &h->re);
-	if (!h->ss)
-		return handshake_failed(conn, h);
-
+	h->ss = tal(h, struct secret);
+	ecdh(&h->re, h->ss);
 	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
@@ -903,10 +902,8 @@ static struct io_plan *act_one_responder2(struct io_conn *conn,
 	 *    * The responder performs an ECDH between its static private key and
 	 *      the initiator's ephemeral public key.
 	 */
-	h->ss = hsm_do_ecdh(h, &h->re);
-	if (!h->ss)
-		return handshake_failed(conn, h);
-
+	h->ss = tal(h, struct secret);
+	ecdh(&h->re, h->ss);
 	SUPERVERBOSE("# ss=0x%s", tal_hexstr(tmpctx, h->ss, sizeof(*h->ss)));
 
 	/* BOLT #8:
@@ -968,7 +965,7 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
 							   const struct wireaddr_internal *,
-							   const struct crypto_state *,
+							   struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg)
 {
@@ -990,7 +987,7 @@ struct io_plan *initiator_handshake_(struct io_conn *conn,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
 							   const struct wireaddr_internal *,
-							   const struct crypto_state *,
+							   struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg)
 {

@@ -41,6 +41,10 @@ struct half_chan {
 	/* Token bucket */
 	u8 tokens;
 
+	/* Feature cache for parent chan: squeezed in here where it would
+	 * otherwise simply be padding. */
+	u8 any_features;
+
 	/* Minimum and maximum number of msatoshi in an HTLC */
 	struct amount_msat htlc_minimum, htlc_maximum;
 };
@@ -325,6 +329,8 @@ struct route_hop {
 	struct node_id nodeid;
 	struct amount_msat amount;
 	u32 delay;
+	struct pubkey *blinding;
+	u8 *enctlv;
 	enum route_hop_style style;
 };
 
@@ -359,7 +365,8 @@ struct chan *new_chan(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
 		      const struct node_id *id1,
 		      const struct node_id *id2,
-		      struct amount_sat sat);
+		      struct amount_sat sat,
+		      const u8 *features);
 
 /* Handlers for incoming messages */
 
@@ -408,15 +415,15 @@ struct node *get_node(struct routing_state *rstate,
 		      const struct node_id *id);
 
 /* Compute a route to a destination, for a given amount and riskfactor. */
-struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
-			    const struct node_id *source,
-			    const struct node_id *destination,
-			    const struct amount_msat msat, double riskfactor,
-			    u32 final_cltv,
-			    double fuzz,
-			    u64 seed,
-			    struct exclude_entry **excluded,
-			    u32 max_hops);
+struct route_hop **get_route(const tal_t *ctx, struct routing_state *rstate,
+			     const struct node_id *source,
+			     const struct node_id *destination,
+			     const struct amount_msat msat, double riskfactor,
+			     u32 final_cltv,
+			     double fuzz,
+			     u64 seed,
+			     struct exclude_entry **excluded,
+			     u32 max_hops);
 /* Disable channel(s) based on the given routing failure. */
 void routing_failure(struct routing_state *rstate,
 		     const struct node_id *erring_node,

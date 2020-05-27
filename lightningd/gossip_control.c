@@ -193,7 +193,7 @@ static void gossip_topology_synced(struct chain_topology *topo, void *unused)
  * message */
 void gossip_init(struct lightningd *ld, int connectd_fd)
 {
-	u8 *msg, *node_featurebits;
+	u8 *msg;
 	int hsmfd;
 
 	hsmfd = hsm_get_global_fd(ld, HSM_CAP_SIGN_GOSSIP);
@@ -208,16 +208,11 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	topology_add_sync_waiter(ld->gossip, ld->topology,
 				 gossip_topology_synced, NULL);
 
-	node_featurebits =
-	    featurebits_or(tmpctx, take(get_offered_nodefeatures(tmpctx)),
-			   take(plugins_collect_featurebits(
-			       tmpctx, ld->plugins, PLUGIN_FEATURES_NODE)));
-
 	msg = towire_gossipctl_init(
 	    tmpctx,
 	    chainparams,
+	    ld->our_features,
 	    &ld->id,
-	    node_featurebits,
 	    ld->rgb,
 	    ld->alias,
 	    ld->announcable,
@@ -269,9 +264,6 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 			     nodes[i]->color, ARRAY_SIZE(nodes[i]->color));
 		json_add_u64(response, "last_timestamp",
 			     nodes[i]->last_timestamp);
-		if (deprecated_apis)
-			json_add_hex_talarr(response, "globalfeatures",
-					    nodes[i]->features);
 		json_add_hex_talarr(response, "features", nodes[i]->features);
 		json_array_start(response, "addresses");
 		for (j=0; j<tal_count(nodes[i]->addresses); j++) {
@@ -343,12 +335,12 @@ static void json_add_route_hop(struct json_stream *r, char const *n,
 
 /* Output a route */
 static void json_add_route(struct json_stream *r, char const *n,
-			   const struct route_hop *hops, size_t hops_len)
+			   struct route_hop **hops, size_t hops_len)
 {
 	size_t i;
 	json_array_start(r, n);
 	for (i = 0; i < hops_len; ++i) {
-		json_add_route_hop(r, NULL, &hops[i]);
+		json_add_route_hop(r, NULL, hops[i]);
 	}
 	json_array_end(r);
 }
@@ -357,7 +349,7 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 				struct command *cmd)
 {
 	struct json_stream *response;
-	struct route_hop *hops;
+	struct route_hop **hops;
 
 	fromwire_gossip_getroute_reply(reply, reply, &hops);
 
@@ -492,6 +484,7 @@ static void json_add_halfchan(struct json_stream *response,
 	json_add_num(response, "delay", he->delay);
 	json_add_amount_msat_only(response, "htlc_minimum_msat", he->min);
 	json_add_amount_msat_only(response, "htlc_maximum_msat", he->max);
+	json_add_hex_talarr(response, "features", e->features);
 	json_object_end(response);
 }
 

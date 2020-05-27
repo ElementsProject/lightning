@@ -9,7 +9,7 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-`fundchannel_cancel` is a lower level RPC command. It allows channel funder
+`fundchannel_cancel` is a lower level RPC command. It allows channel opener
 to cancel a channel before funding broadcast with a connected peer.
 
 *id* is the node id of the remote peer with which to cancel.

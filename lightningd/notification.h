@@ -7,6 +7,7 @@
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/time/time.h>
 #include <common/amount.h>
+#include <common/coin_mvt.h>
 #include <common/errcode.h>
 #include <common/node_id.h>
 #include <lightningd/htlc_end.h>
@@ -47,6 +48,9 @@ void notify_warning(struct lightningd *ld, struct log_entry *l);
 void notify_invoice_payment(struct lightningd *ld, struct amount_msat amount,
 			    struct preimage preimage, const struct json_escape *label);
 
+void notify_invoice_creation(struct lightningd *ld, struct amount_msat *amount,
+			    struct preimage preimage, const struct json_escape *label);
+
 void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
 			   struct amount_sat *funding_sat, struct bitcoin_txid *funding_txid,
 			   bool *funding_locked);
@@ -71,4 +75,6 @@ void notify_sendpay_failure(struct lightningd *ld,
 			    const struct routing_failure *fail,
 			    const char *errmsg);
 
+void notify_coin_mvt(struct lightningd *ld,
+		     const struct coin_mvt *mvt);
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */

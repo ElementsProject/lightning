@@ -24,15 +24,15 @@ bool cupdate_different(struct gossip_store *gs UNNEEDED,
 /* Generated stub for fmt_wireaddr_without_port */
 char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
 { fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
-/* Generated stub for fromwire_gossipd_local_add_channel */
-bool fromwire_gossipd_local_add_channel(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct node_id *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED)
-{ fprintf(stderr, "fromwire_gossipd_local_add_channel called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_channel_amount */
 bool fromwire_gossip_store_channel_amount(const void *p UNNEEDED, struct amount_sat *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_channel_amount called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_private_update */
 bool fromwire_gossip_store_private_update(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **update UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_private_update called!\n"); abort(); }
+/* Generated stub for fromwire_gossipd_local_add_channel */
+bool fromwire_gossipd_local_add_channel(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct node_id *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED, u8 **features UNNEEDED)
+{ fprintf(stderr, "fromwire_gossipd_local_add_channel called!\n"); abort(); }
 /* Generated stub for fromwire_wireaddr */
 bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
 { fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
@@ -163,7 +163,7 @@ int main(void)
 		if (!mk_short_channel_id(&scid, i, i-1, 0))
 			abort();
 		chan = new_chan(rstate, &scid, &ids[i], &ids[i-1],
-				AMOUNT_SAT(1000000));
+				AMOUNT_SAT(1000000), NULL);
 
 		hc = &chan->half[node_id_idx(&ids[i-1], &ids[i])];
 		hc->bcast.index = 1;
@@ -183,7 +183,7 @@ int main(void)
 		if (!mk_short_channel_id(&scid, i, 1, 0))
 			abort();
 		chan = new_chan(rstate, &scid, &ids[i], &ids[1],
-				AMOUNT_SAT(1000000));
+				AMOUNT_SAT(1000000), NULL);
 		hc = &chan->half[node_id_idx(&ids[1], &ids[i])];
 		hc->bcast.index = 1;
 		hc->base_fee = 1 << i;

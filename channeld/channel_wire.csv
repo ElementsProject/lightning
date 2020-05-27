@@ -1,12 +1,14 @@
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 #include <common/derive_basepoints.h>
+#include <common/features.h>
 #include <common/fee_states.h>
 #include <common/per_peer_state.h>
 
 # Begin!  (passes gossipd-client fd)
 msgtype,channel_init,1000
 msgdata,channel_init,chainparams,chainparams,
+msgdata,channel_init,our_features,feature_set,
 msgdata,channel_init,funding_txid,bitcoin_txid,
 msgdata,channel_init,funding_txout,u16,
 msgdata,channel_init,funding_satoshi,amount_sat,
@@ -16,13 +18,14 @@ msgdata,channel_init,their_config,channel_config,
 msgdata,channel_init,fee_states,fee_states,
 msgdata,channel_init,feerate_min,u32,
 msgdata,channel_init,feerate_max,u32,
+msgdata,channel_init,feerate_penalty,u32,
 msgdata,channel_init,first_commit_sig,bitcoin_signature,
 msgdata,channel_init,per_peer_state,per_peer_state,
 msgdata,channel_init,remote_fundingkey,pubkey,
 msgdata,channel_init,remote_basepoints,basepoints,
 msgdata,channel_init,remote_per_commit,pubkey,
 msgdata,channel_init,old_remote_per_commit,pubkey,
-msgdata,channel_init,funder,enum side,
+msgdata,channel_init,opener,enum side,
 msgdata,channel_init,fee_base,u32,
 msgdata,channel_init,fee_proportional,u32,
 msgdata,channel_init,local_msatoshi,amount_msat,
@@ -39,16 +42,8 @@ msgdata,channel_init,next_index_local,u64,
 msgdata,channel_init,next_index_remote,u64,
 msgdata,channel_init,revocations_received,u64,
 msgdata,channel_init,next_htlc_id,u64,
-msgdata,channel_init,num_htlcs,u16,
-msgdata,channel_init,htlcs,added_htlc,num_htlcs
-msgdata,channel_init,htlc_states,enum htlc_state,num_htlcs
-msgdata,channel_init,num_fulfilled,u16,
-msgdata,channel_init,fulfilled,fulfilled_htlc,num_fulfilled
-msgdata,channel_init,fulfilled_sides,enum side,num_fulfilled
-msgdata,channel_init,num_failed_in,u16,
-msgdata,channel_init,failed_in,failed_htlc,num_failed_in
-msgdata,channel_init,num_failed_out,u16,
-msgdata,channel_init,failed_out,u64,num_failed_out
+msgdata,channel_init,num_existing_htlcs,u16,
+msgdata,channel_init,htlcs,existing_htlc,num_existing_htlcs
 msgdata,channel_init,local_funding_locked,bool,
 msgdata,channel_init,remote_funding_locked,bool,
 msgdata,channel_init,funding_short_id,short_channel_id,
@@ -62,8 +57,8 @@ msgdata,channel_init,init_peer_pkt_len,u16,
 msgdata,channel_init,init_peer_pkt,u8,init_peer_pkt_len
 msgdata,channel_init,reached_announce_depth,bool,
 msgdata,channel_init,last_remote_secret,secret,
-msgdata,channel_init,lflen,u16,
-msgdata,channel_init,localfeatures,u8,lflen
+msgdata,channel_init,flen,u16,
+msgdata,channel_init,their_features,u8,flen
 msgdata,channel_init,upfront_shutdown_script_len,u16,
 msgdata,channel_init,upfront_shutdown_script,u8,upfront_shutdown_script_len
 msgdata,channel_init,remote_ann_node_sig,?secp256k1_ecdsa_signature,
@@ -71,6 +66,8 @@ msgdata,channel_init,remote_ann_bitcoin_sig,?secp256k1_ecdsa_signature,
 msgdata,channel_init,option_static_remotekey,bool,
 msgdata,channel_init,dev_fast_gossip,bool,
 msgdata,channel_init,dev_fail_process_onionpacket,bool,
+msgdata,channel_init,num_penalty_bases,u32,
+msgdata,channel_init,pbases,penalty_base,num_penalty_bases
 
 # master->channeld funding hit new depth(funding locked if >= lock depth)
 msgtype,channel_funding_depth,1002
@@ -83,6 +80,7 @@ msgdata,channel_offer_htlc,amount_msat,amount_msat,
 msgdata,channel_offer_htlc,cltv_expiry,u32,
 msgdata,channel_offer_htlc,payment_hash,sha256,
 msgdata,channel_offer_htlc,onion_routing_packet,u8,1366
+msgdata,channel_offer_htlc,blinding,?pubkey,
 
 # Reply; synchronous since IDs have to increment.
 msgtype,channel_offer_htlc_reply,1104
@@ -105,9 +103,12 @@ msgdata,channel_fail_htlc,failed_htlc,failed_htlc,
 msgtype,channel_got_funding_locked,1019
 msgdata,channel_got_funding_locked,next_per_commit_point,pubkey,
 
+#include <common/penalty_base.h>
+
 # When we send a commitment_signed message, tell master.
 msgtype,channel_sending_commitsig,1020
 msgdata,channel_sending_commitsig,commitnum,u64,
+msgdata,channel_sending_commitsig,pbase,?penalty_base,
 msgdata,channel_sending_commitsig,fee_states,fee_states,
 # SENT_ADD_COMMIT, SENT_REMOVE_ACK_COMMIT, SENT_ADD_ACK_COMMIT, SENT_REMOVE_COMMIT
 msgdata,channel_sending_commitsig,num_changed,u16,
@@ -152,6 +153,8 @@ msgdata,channel_got_revoke,next_per_commit_point,pubkey,
 msgdata,channel_got_revoke,fee_states,fee_states,
 msgdata,channel_got_revoke,num_changed,u16,
 msgdata,channel_got_revoke,changed,changed_htlc,num_changed
+msgdata,channel_got_revoke,pbase,?penalty_base,
+msgdata,channel_got_revoke,penalty_tx,?bitcoin_tx,
 # Wait for reply, to make sure it's on disk before we continue
 # (eg. if we sent another commitment_signed, that would implicitly ack).
 msgtype,channel_got_revoke_reply,1122
@@ -178,6 +181,7 @@ msgtype,channel_feerates,1027
 msgdata,channel_feerates,feerate,u32,
 msgdata,channel_feerates,min_feerate,u32,
 msgdata,channel_feerates,max_feerate,u32,
+msgdata,channel_feerates,penalty_feerate,u32,
 
 # master -> channeld: do you have a memleak?
 msgtype,channel_dev_memleak,1033
@@ -206,3 +210,20 @@ msgdata,channel_send_error,reason,wirestring,
 
 # Tell master channeld has sent the error message.
 msgtype,channel_send_error_reply,1108
+
+# Tell lightningd we got a onion message (for us, or to fwd)
+msgtype,got_onionmsg_to_us,1142
+msgdata,got_onionmsg_to_us,reply_blinding,?pubkey,
+msgdata,got_onionmsg_to_us,reply_path_len,u16,
+msgdata,got_onionmsg_to_us,reply_path,onionmsg_path,reply_path_len
+
+msgtype,got_onionmsg_forward,1143
+msgdata,got_onionmsg_forward,next_scid,?short_channel_id,
+msgdata,got_onionmsg_forward,next_node_id,?node_id,
+msgdata,got_onionmsg_forward,next_blinding,?pubkey,
+msgdata,got_onionmsg_forward,next_onion,u8,1366
+
+# Lightningd tells us to send a onion message.
+msgtype,send_onionmsg,1040
+msgdata,send_onionmsg,onion,u8,1366
+msgdata,send_onionmsg,blinding,?pubkey,

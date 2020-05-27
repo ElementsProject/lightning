@@ -3,7 +3,7 @@
 misbehaving plugin via RPC.
 """
 
-from lightning import Plugin
+from pyln.client import Plugin
 import an_unexistent_module_that_will_make_me_crash
 
 plugin = Plugin(dynamic=False)

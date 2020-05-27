@@ -17,7 +17,7 @@ if [ $# -eq 0 ]; then
 	    *)
 		continue
 		;;
-	esac; done | sort -u)
+	esac; done | LC_ALL=C sort -u)
 fi
 
 for SYMBOL; do

@@ -83,9 +83,12 @@ class Request(dict):
         self._write_result({
             'jsonrpc': '2.0',
             'id': self.id,
-            "error": "Error while processing {method}: {exc}".format(
-                method=self.method, exc=repr(exc)
-            ),
+            "error": {
+                "code": -32600,  # "Invalid Request"
+                "message": "Error while processing {method}: {exc}"
+                           .format(method=self.method, exc=str(exc)),
+                # 'data' field "may be omitted."
+            },
         })
 
     def _write_result(self, result):
@@ -250,6 +253,9 @@ class Plugin(object):
                 "Name {} is already used by another option".format(name)
             )
 
+        if opt_type not in ["string", "int", "bool", "flag"]:
+            raise ValueError('{} not in supported type set (string, int, bool, flag)')
+
         self.options[name] = {
             'name': name,
             'default': default,
@@ -257,6 +263,15 @@ class Plugin(object):
             'type': opt_type,
             'value': None,
         }
+
+    def add_flag_option(self, name, description):
+        """Add a flag option that we'd like to register with lightningd.
+
+        Needs to be called before `Plugin.run`, otherwise we might not
+        end up getting it set.
+
+        """
+        self.add_option(name, None, description, opt_type="flag")
 
     def get_option(self, name):
         if name not in self.options:

@@ -204,15 +204,15 @@ via this channel;
 a number followed by a string unit\.
 The peer imposes this on us, default is 1% of the total channel capacity\.
 .IP \[bu]
-\fIspendable_msat\fR: A string describing an \fB\fIestimate\fR\fR of how much we
-can send out over this channel in a single payment (or payment-part for
-multi-part payments);
+\fIspendable_msat\fR and \fIreceivable_msat\fR: A string describing an
+\fB\fIestimate\fR\fR of how much we can send or receive over this channel in a
+single payment (or payment-part for multi-part payments);
 a number followed by a string unit\.
 This is an \fB\fIestimate\fR\fR, which can be wrong because adding HTLCs requires
 an increase in fees paid to onchain miners, and onchain fees change
 dynamically according to onchain activity\.
-For a sufficiently-large channel with capacity on your side, this can
-be limited by the rules imposed under certain blockchains;
+For a sufficiently-large channel, this can be limited by the rules imposed
+under certain blockchains;
 for example, individual Bitcoin mainnet payment-parts cannot exceed
 42\.94967295 mBTC\.
 .IP \[bu]

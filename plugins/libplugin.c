@@ -19,8 +19,6 @@
 
 #define READ_CHUNKSIZE 4096
 
-const struct chainparams *chainparams;
-
 bool deprecated_apis;
 
 struct plugin_timer {
@@ -82,8 +80,10 @@ struct plugin {
 	/* Timers */
 	struct timers timers;
 	size_t in_timer;
-};
 
+	/* Feature set for lightningd */
+	struct feature_set *our_features;
+};
 
 /* command_result is mainly used as a compile-time check to encourage you
  * to return as soon as you get one (and not risk use-after-free of command).
@@ -146,6 +146,11 @@ jsonrpc_request_start_(struct plugin *plugin, struct command *cmd,
 	json_object_start(out->js, "params");
 
 	return out;
+}
+
+const struct feature_set *plugin_feature_set(const struct plugin *p)
+{
+	return p->our_features;
 }
 
 static void jsonrpc_finish_and_send(struct plugin *p, struct json_stream *js)
@@ -598,6 +603,18 @@ handle_getmanifest(struct command *getmanifest_cmd)
 		json_add_string(params, NULL, p->hook_subs[i].name);
 	json_array_end(params);
 
+	if (p->our_features != NULL) {
+		json_object_start(params, "featurebits");
+		for (size_t i = 0; i < NUM_FEATURE_PLACE; i++) {
+			u8 *f = p->our_features->bits[i];
+			const char *fieldname = feature_place_names[i];
+			if (fieldname == NULL)
+				continue;
+			json_add_hex(params, fieldname, f, tal_bytelen(f));
+		}
+		json_object_end(params);
+	}
+
 	json_add_bool(params, "dynamic", p->restartability == PLUGIN_RESTARTABLE);
 
 	return command_finished(getmanifest_cmd, params);
@@ -710,11 +727,37 @@ static struct io_plan *rpc_conn_init(struct io_conn *conn,
 			 rpc_conn_write_request(conn, plugin));
 }
 
+static struct feature_set *json_to_feature_set(struct plugin *plugin,
+					       const char *buf,
+					       const jsmntok_t *features)
+{
+	struct feature_set *fset = talz(plugin, struct feature_set);
+	const jsmntok_t *t;
+	size_t i;
+
+	json_for_each_obj(i, t, features) {
+		enum feature_place p;
+		if (json_tok_streq(buf, t, "init"))
+			p = INIT_FEATURE;
+		else if (json_tok_streq(buf, t, "node"))
+			p = NODE_ANNOUNCE_FEATURE;
+		else if (json_tok_streq(buf, t, "channel"))
+			p = CHANNEL_FEATURE;
+		else if (json_tok_streq(buf, t, "invoice"))
+			p = BOLT11_FEATURE;
+		else
+			continue;
+		fset->bits[p] = json_tok_bin_from_hex(fset, buf, t + 1);
+	}
+	return fset;
+}
+
 static struct command_result *handle_init(struct command *cmd,
 					  const char *buf,
 					  const jsmntok_t *params)
 {
-	const jsmntok_t *configtok, *rpctok, *dirtok, *opttok, *nettok, *t;
+	const jsmntok_t *configtok, *rpctok, *dirtok, *opttok, *nettok, *fsettok,
+		*t;
 	struct sockaddr_un addr;
 	size_t i;
 	char *dir, *network;
@@ -733,6 +776,9 @@ static struct command_result *handle_init(struct command *cmd,
 	nettok = json_delve(buf, configtok, ".network");
 	network = json_strdup(tmpctx, buf, nettok);
 	chainparams = chainparams_for_network(network);
+
+	fsettok = json_delve(buf, configtok, ".feature_set");
+	p->our_features = json_to_feature_set(p, buf, fsettok);
 
 	rpctok = json_delve(buf, configtok, ".rpc-file");
 	p->rpc_conn->fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -794,6 +840,25 @@ char *u64_option(const char *arg, u64 *i)
 		return tal_fmt(NULL, "'%s' is not a number", arg);
 	if (errno)
 		return tal_fmt(NULL, "'%s' is out of range", arg);
+	return NULL;
+}
+
+char *u32_option(const char *arg, u32 *i)
+{
+	char *endp;
+	u64 n;
+
+	errno = 0;
+	n = strtoul(arg, &endp, 0);
+	if (*endp || !arg[0])
+		return tal_fmt(NULL, "'%s' is not a number", arg);
+	if (errno)
+		return tal_fmt(NULL, "'%s' is out of range", arg);
+
+	*i = n;
+	if (*i != n)
+		return tal_fmt(NULL, "'%s' is too large (overflow)", arg);
+
 	return NULL;
 }
 
@@ -1096,6 +1161,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 				 void (*init)(struct plugin *p,
 					      const char *buf, const jsmntok_t *),
 				 const enum plugin_restartability restartability,
+				 struct feature_set *features,
 				 const struct plugin_command *commands,
 				 size_t num_commands,
 				 const struct plugin_notification *notif_subs,
@@ -1118,6 +1184,8 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->rpc_len_read = 0;
 	p->next_outreq_id = 0;
 	uintmap_init(&p->out_reqs);
+
+	p->our_features = features;
 	/* Sync RPC FIXME: maybe go full async ? */
 	p->rpc_conn = tal(p, struct rpc_conn);
 	membuf_init(&p->rpc_conn->mb,
@@ -1155,6 +1223,7 @@ void plugin_main(char *argv[],
 		 void (*init)(struct plugin *p,
 			      const char *buf, const jsmntok_t *),
 		 const enum plugin_restartability restartability,
+		 struct feature_set *features,
 		 const struct plugin_command *commands,
 		 size_t num_commands,
 		 const struct plugin_notification *notif_subs,
@@ -1174,8 +1243,8 @@ void plugin_main(char *argv[],
 	daemon_setup(argv[0], NULL, NULL);
 
 	va_start(ap, num_hook_subs);
-	plugin = new_plugin(NULL, init, restartability, commands, num_commands,
-			    notif_subs, num_notif_subs, hook_subs,
+	plugin = new_plugin(NULL, init, restartability, features, commands,
+			    num_commands, notif_subs, num_notif_subs, hook_subs,
 			    num_hook_subs, ap);
 	va_end(ap);
 	setup_command_usage(plugin);

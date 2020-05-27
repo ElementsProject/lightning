@@ -7,8 +7,11 @@ COMMON_SRC_NOGEN :=				\
 	common/bech32_util.c			\
 	common/bigsize.c			\
 	common/bip32.c				\
+	common/blinding.c			\
 	common/bolt11.c				\
 	common/channel_config.c			\
+	common/channel_id.c			\
+	common/coin_mvt.c			\
 	common/close_tx.c			\
 	common/configdir.c			\
 	common/crypto_state.c			\
@@ -19,12 +22,14 @@ COMMON_SRC_NOGEN :=				\
 	common/decode_array.c			\
 	common/derive_basepoints.c		\
 	common/dev_disconnect.c			\
+	common/ecdh_hsmd.c			\
 	common/features.c			\
 	common/fee_states.c			\
 	common/funding_tx.c			\
 	common/gossip_rcvd_filter.c		\
 	common/gossip_store.c			\
 	common/hash_u5.c			\
+	common/hmac.c				\
 	common/htlc_state.c			\
 	common/htlc_trim.c			\
 	common/htlc_tx.c			\
@@ -44,6 +49,7 @@ COMMON_SRC_NOGEN :=				\
 	common/onion.c				\
 	common/onionreply.c			\
 	common/param.c				\
+	common/penalty_base.c			\
 	common/per_peer_state.c			\
 	common/peer_billboard.c			\
 	common/peer_failed.c			\
@@ -51,6 +57,7 @@ COMMON_SRC_NOGEN :=				\
 	common/ping.c				\
 	common/pseudorand.c			\
 	common/read_peer_msg.c			\
+	common/setup.c				\
 	common/socket_close.c			\
 	common/sphinx.c				\
 	common/status.c				\
@@ -70,6 +77,8 @@ COMMON_SRC_NOGEN :=				\
 COMMON_SRC_GEN := common/gen_status_wire.c common/gen_peer_status_wire.c
 
 COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
+	common/closing_fee.h				\
+	common/ecdh.h					\
 	common/errcode.h				\
 	common/gossip_constants.h			\
 	common/htlc.h					\

@@ -10,6 +10,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/base64.h>
+#include <common/channel_id.h>
 #include <common/derive_basepoints.h>
 #include <common/features.h>
 #include <common/json_command.h>
@@ -343,15 +344,18 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 
 static char *opt_add_plugin(const char *arg, struct lightningd *ld)
 {
-	plugin_register(ld->plugins, arg);
+	if (plugin_blacklisted(ld->plugins, arg)) {
+		log_info(ld->log, "%s: disabled via disable-plugin", arg);
+		return NULL;
+	}
+	plugin_register(ld->plugins, arg, NULL);
 	return NULL;
 }
 
 static char *opt_disable_plugin(const char *arg, struct lightningd *ld)
 {
-	if (plugin_remove(ld->plugins, arg))
-		return NULL;
-	return tal_fmt(NULL, "Could not find plugin %s", arg);
+	plugin_blacklist(ld->plugins, arg);
+	return NULL;
 }
 
 static char *opt_add_plugin_dir(const char *arg, struct lightningd *ld)
@@ -518,13 +522,6 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_arg("--dev-bitcoind-poll", opt_set_u32, opt_show_u32,
 			 &ld->topology->poll_seconds,
 			 "Time between polling for new transactions");
-	opt_register_arg("--dev-max-fee-multiplier", opt_set_u32, opt_show_u32,
-			 &ld->config.max_fee_multiplier,
-			 "Allow the fee proposed by the remote end to be up to "
-			 "multiplier times higher than our own. Small values "
-			 "will cause channels to be closed more often due to "
-			 "fee fluctuations, large values may result in large "
-			 "fees.");
 
 	opt_register_noarg("--dev-fast-gossip", opt_set_bool,
 			   &ld->dev_fast_gossip,
@@ -574,9 +571,6 @@ static const struct config testnet_config = {
 	.commitment_fee_min_percent = 0,
 	.commitment_fee_max_percent = 0,
 
-	/* We offer to pay 5 times 2-block fee */
-	.commitment_fee_percent = 500,
-
 	/* Testnet blockspace is free. */
 	.max_concurrent_htlcs = 483,
 
@@ -597,9 +591,6 @@ static const struct config testnet_config = {
 
 	/* Rescan 5 hours of blocks on testnet, it's reorg happy */
 	.rescan = 30,
-
-	/* Fees may be in the range our_fee - 10*our_fee */
-	.max_fee_multiplier = 10,
 
 	.use_dns = true,
 
@@ -624,9 +615,6 @@ static const struct config mainnet_config = {
 	/* Insist between 2 and 20 times the 2-block fee. */
 	.commitment_fee_min_percent = 200,
 	.commitment_fee_max_percent = 2000,
-
-	/* We offer to pay 5 times 2-block fee */
-	.commitment_fee_percent = 500,
 
 	/* While up to 483 htlcs are possible we do 30 by default (as eclair does) to save blockspace */
 	.max_concurrent_htlcs = 30,
@@ -658,9 +646,6 @@ static const struct config mainnet_config = {
 
 	/* Rescan 2.5 hours of blocks on startup, it's not so reorg happy */
 	.rescan = 15,
-
-	/* Fees may be in the range our_fee - 10*our_fee */
-	.max_fee_multiplier = 10,
 
 	.use_dns = true,
 
@@ -705,7 +690,7 @@ static char *test_subdaemons_and_exit(struct lightningd *ld)
 
 static char *list_features_and_exit(struct lightningd *ld)
 {
-	const char **features = list_supported_features(ld);
+	const char **features = list_supported_features(tmpctx, ld->our_features);
 	for (size_t i = 0; i < tal_count(features); i++)
 		printf("%s\n", features[i]);
 	exit(0);
@@ -755,6 +740,14 @@ static char *opt_start_daemon(struct lightningd *ld)
 	errx(1, "Died with signal %u", WTERMSIG(exitcode));
 }
 
+static char *opt_set_wumbo(struct lightningd *ld)
+{
+	feature_set_or(ld->our_features,
+		       take(feature_set_for_feature(NULL,
+						    OPTIONAL_FEATURE(OPT_LARGE_CHANNELS))));
+	return NULL;
+}
+
 static void register_opts(struct lightningd *ld)
 {
 	/* This happens before plugins started */
@@ -787,6 +780,11 @@ static void register_opts(struct lightningd *ld)
 			       &ld->wallet_dsn,
 			       "Location of the wallet database.");
 
+	/* This affects our features, so set early. */
+	opt_register_early_noarg("--large-channels|--wumbo",
+				 opt_set_wumbo, ld,
+				 "Allow channels larger than 0.16777215 BTC");
+
 	opt_register_noarg("--help|-h", opt_lightningd_usage, ld,
 				 "Print this message.");
 	opt_register_arg("--rgb", opt_set_rgb, NULL, ld,
@@ -816,9 +814,6 @@ static void register_opts(struct lightningd *ld)
 	opt_register_arg("--commit-fee-max=<percent>", opt_set_u32, opt_show_u32,
 			 &ld->config.commitment_fee_max_percent,
 			 "Maximum percentage of fee to accept for commitment (0 for unlimited)");
-	opt_register_arg("--commit-fee=<percent>", opt_set_u32, opt_show_u32,
-			 &ld->config.commitment_fee_percent,
-			 "Percentage of fee to request for their commitment");
 	opt_register_arg("--cltv-delta", opt_set_u32, opt_show_u32,
 			 &ld->config.cltv_expiry_delta,
 			 "Number of blocks for cltv_expiry_delta");
@@ -1201,6 +1196,11 @@ static void add_config(struct lightningd *ld,
 					 ? "false" : "true");
 		} else if (opt->cb == (void *)opt_set_hsm_password) {
 			json_add_bool(response, "encrypted-hsm", ld->encrypted_hsm);
+		} else if (opt->cb == (void *)opt_set_wumbo) {
+			json_add_bool(response, "wumbo",
+				      feature_offered(ld->our_features
+						      ->bits[INIT_FEATURE],
+						      OPT_LARGE_CHANNELS));
 		} else {
 			/* Insert more decodes here! */
 			assert(!"A noarg option was added but was not handled");
@@ -1270,9 +1270,11 @@ static void add_config(struct lightningd *ld,
 			json_add_opt_plugins(response, ld->plugins);
 		} else if (opt->cb_arg == (void *)opt_log_level) {
 			json_add_opt_log_levels(response, ld->log);
+		} else if (opt->cb_arg == (void *)opt_disable_plugin) {
+			json_add_opt_disable_plugins(response, ld->plugins);
 		} else if (opt->cb_arg == (void *)opt_add_plugin_dir
-			   || opt->cb_arg == (void *)opt_disable_plugin
-			   || opt->cb_arg == (void *)plugin_opt_set) {
+			   || opt->cb_arg == (void *)plugin_opt_set
+			   || opt->cb_arg == (void *)plugin_opt_flag_set) {
 			/* FIXME: We actually treat it as if they specified
 			 * --plugin for each one, so ignore these */
 #if DEVELOPER

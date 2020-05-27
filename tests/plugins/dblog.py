@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """This plugin is used to check that db_write calls are working correctly.
 """
-from lightning import Plugin, RpcError
+from pyln.client import Plugin, RpcError
 import sqlite3
 
 plugin = Plugin()

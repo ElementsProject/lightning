@@ -996,7 +996,6 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 	struct bitcoin_signature sig;
 	struct secrets secrets;
 	const u8 *funding_wscript;
-	struct witscript **output_witscripts;
 	struct pubkey remote_per_commit;
 	bool option_static_remotekey;
 
@@ -1004,10 +1003,9 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 						    &tx,
 						    &remote_funding_pubkey,
 						    &funding,
-						    &output_witscripts,
 						    &remote_per_commit,
 						    &option_static_remotekey))
-		bad_req(conn, c, msg_in);
+		return bad_req(conn, c, msg_in);
 	tx->chainparams = c->chainparams;
 
 	/* Basic sanity checks. */
@@ -1015,8 +1013,6 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in, "tx must have 1 input");
 	if (tx->wtx->num_outputs == 0)
 		return bad_req_fmt(conn, c, msg_in, "tx must have > 0 outputs");
-	if (tal_count(output_witscripts) != tx->wtx->num_outputs)
-		return bad_req_fmt(conn, c, msg_in, "tx must have matching witscripts");
 
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
 	derive_basepoints(&channel_seed,
@@ -1547,6 +1543,41 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 	}
 }
 
+static void sign_input(struct bitcoin_tx *tx, struct utxo *in,
+		       struct pubkey *inkey,
+		       struct bitcoin_signature *sig,
+		       int index)
+{
+	struct privkey inprivkey;
+	u8 *subscript, *wscript, *script;
+
+	/* Figure out keys to spend this. */
+	hsm_key_for_utxo(&inprivkey, inkey, in);
+
+	/* It's either a p2wpkh or p2sh (we support that so people from
+	 * the last bitcoin era can put funds into the wallet) */
+	wscript = p2wpkh_scriptcode(tmpctx, inkey);
+	if (in->is_p2sh) {
+		/* For P2SH-wrapped Segwit, the (implied) redeemScript
+		 * is defined in BIP141 */
+		subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, inkey);
+		script = bitcoin_scriptsig_p2sh_p2wpkh(tx, inkey);
+		bitcoin_tx_input_set_script(tx, index, script);
+	} else {
+		/* Pure segwit uses an empty inputScript; NULL has
+		 * tal_count() == 0, so it works great here. */
+		subscript = NULL;
+		bitcoin_tx_input_set_script(tx, index, NULL);
+	}
+	/* This is the core crypto magic. */
+	sign_tx_input(tx, index, subscript, wscript, &inprivkey, inkey,
+		      SIGHASH_ALL, sig);
+
+	/* The witness is [sig] [key] */
+	bitcoin_tx_input_set_witness(
+		tx, index, take(bitcoin_witness_p2wpkh(tx, sig, inkey)));
+}
+
 /* This completes the tx by filling in the input scripts with signatures. */
 static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 {
@@ -1564,36 +1595,9 @@ static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 	assert(tx->wtx->num_inputs == tal_count(utxos));
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		struct pubkey inkey;
-		struct privkey inprivkey;
-		const struct utxo *in = utxos[i];
-		u8 *subscript, *wscript, *script;
 		struct bitcoin_signature sig;
 
-		/* Figure out keys to spend this. */
-		hsm_key_for_utxo(&inprivkey, &inkey, in);
-
-		/* It's either a p2wpkh or p2sh (we support that so people from
-		 * the last bitcoin era can put funds into the wallet) */
-		wscript = p2wpkh_scriptcode(tmpctx, &inkey);
-		if (in->is_p2sh) {
-			/* For P2SH-wrapped Segwit, the (implied) redeemScript
-			 * is defined in BIP141 */
-			subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &inkey);
-			script = bitcoin_scriptsig_p2sh_p2wpkh(tx, &inkey);
-			bitcoin_tx_input_set_script(tx, i, script);
-		} else {
-			/* Pure segwit uses an empty inputScript; NULL has
-			 * tal_count() == 0, so it works great here. */
-			subscript = NULL;
-			bitcoin_tx_input_set_script(tx, i, NULL);
-		}
-		/* This is the core crypto magic. */
-		sign_tx_input(tx, i, subscript, wscript, &inprivkey, &inkey,
-			      SIGHASH_ALL, &sig);
-
-		/* The witness is [sig] [key] */
-		bitcoin_tx_input_set_witness(
-			tx, i, take(bitcoin_witness_p2wpkh(tx, &sig, &inkey)));
+		sign_input(tx, utxos[i], &inkey, &sig, i);
 	}
 }
 

@@ -16,6 +16,11 @@ void towire_utxo(u8 **pptr, const struct utxo *utxo)
 	towire_u32(pptr, utxo->keyindex);
 	towire_bool(pptr, utxo->is_p2sh);
 
+	towire_u16(pptr, tal_count(utxo->scriptPubkey));
+	towire_u8_array(pptr, utxo->scriptPubkey, tal_count(utxo->scriptPubkey));
+	towire_u16(pptr, tal_count(utxo->scriptSig));
+	towire_u8_array(pptr, utxo->scriptSig, tal_count(utxo->scriptSig));
+
 	towire_bool(pptr, is_unilateral_close);
 	if (is_unilateral_close) {
 		towire_u64(pptr, utxo->close_info->channel_id);
@@ -36,9 +41,8 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 	utxo->keyindex = fromwire_u32(ptr, max);
 	utxo->is_p2sh = fromwire_bool(ptr, max);
 
-	/* No need to tell hsmd about the scriptPubkey, it has all the info to
-	 * derive it from the rest. */
-	utxo->scriptPubkey = NULL;
+	utxo->scriptPubkey = fromwire_tal_arrn(utxo, ptr, max, fromwire_u16(ptr, max));
+	utxo->scriptSig = fromwire_tal_arrn(utxo, ptr, max, fromwire_u16(ptr, max));
 
 	if (fromwire_bool(ptr, max)) {
 		utxo->close_info = tal(utxo, struct unilateral_close_info);

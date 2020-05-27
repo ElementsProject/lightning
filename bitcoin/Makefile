@@ -5,7 +5,9 @@ BITCOIN_SRC :=					\
 	bitcoin/block.c				\
 	bitcoin/chainparams.c			\
 	bitcoin/locktime.c			\
+	bitcoin/preimage.c			\
 	bitcoin/privkey.c			\
+	bitcoin/psbt.c				\
 	bitcoin/pubkey.c			\
 	bitcoin/pullpush.c			\
 	bitcoin/script.c			\
@@ -13,6 +15,7 @@ BITCOIN_SRC :=					\
 	bitcoin/short_channel_id.c		\
 	bitcoin/signature.c			\
 	bitcoin/tx.c				\
+	bitcoin/tx_parts.c			\
 	bitcoin/varint.c
 
 BITCOIN_OBJS := $(BITCOIN_SRC:.c=.o)
@@ -25,6 +28,7 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/locktime.h			\
 	bitcoin/preimage.h			\
 	bitcoin/privkey.h			\
+	bitcoin/psbt.h				\
 	bitcoin/pubkey.h			\
 	bitcoin/pullpush.h			\
 	bitcoin/script.h			\
@@ -32,6 +36,7 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/short_channel_id.h		\
 	bitcoin/signature.h			\
 	bitcoin/tx.h				\
+	bitcoin/tx_parts.h			\
 	bitcoin/varint.h
 
 check-source: $(BITCOIN_SRC:%=check-src-include-order/%)		\

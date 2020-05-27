@@ -18,6 +18,26 @@ struct added_htlc {
 	struct sha256 payment_hash;
 	u32 cltv_expiry;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+
+	/* If this is non-NULL, secret is the resulting shared secret */
+	struct pubkey *blinding;
+	struct secret blinding_ss;
+};
+
+/* This is how lightningd tells us about HTLCs which already exist at startup */
+struct existing_htlc {
+	u64 id;
+	enum htlc_state state;
+	struct amount_msat amount;
+	struct sha256 payment_hash;
+	u32 cltv_expiry;
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+	/* If this is non-NULL, this is blinding to send with (outgoing) HTLC */
+	struct pubkey *blinding;
+	/* If fulfilled, this is non-NULL */
+	struct preimage *payment_preimage;
+	/* If failed, this is set */
+	const struct failed_htlc *failed;
 };
 
 struct fulfilled_htlc {
@@ -45,7 +65,21 @@ struct changed_htlc {
 	u64 id;
 };
 
+struct existing_htlc *new_existing_htlc(const tal_t *ctx,
+					u64 id,
+					enum htlc_state state,
+					struct amount_msat amount,
+					const struct sha256 *payment_hash,
+					u32 cltv_expiry,
+					const u8 onion_routing_packet[TOTAL_PACKET_SIZE],
+					const struct pubkey *blinding TAKES,
+					const struct preimage *preimage TAKES,
+					const struct failed_htlc *failed TAKES);
+
+struct failed_htlc *failed_htlc_dup(const tal_t *ctx, const struct failed_htlc *f TAKES);
+
 void towire_added_htlc(u8 **pptr, const struct added_htlc *added);
+void towire_existing_htlc(u8 **pptr, const struct existing_htlc *existing);
 void towire_fulfilled_htlc(u8 **pptr, const struct fulfilled_htlc *fulfilled);
 void towire_failed_htlc(u8 **pptr, const struct failed_htlc *failed);
 void towire_changed_htlc(u8 **pptr, const struct changed_htlc *changed);
@@ -55,6 +89,8 @@ void towire_shachain(u8 **pptr, const struct shachain *shachain);
 
 void fromwire_added_htlc(const u8 **cursor, size_t *max,
 			 struct added_htlc *added);
+struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,
+					     const u8 **cursor, size_t *max);
 void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,
 			     struct fulfilled_htlc *fulfilled);
 struct failed_htlc *fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor,

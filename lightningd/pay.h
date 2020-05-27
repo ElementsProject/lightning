@@ -16,8 +16,10 @@ struct routing_failure;
 void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 		       const struct preimage *rval);
 
+/* failmsg_needs_update is if we actually wanted to temporary_channel_failure
+ * but we haven't got the update msg yet */
 void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
-		    const char *localfail);
+		    const char *localfail, const u8 *failmsg_needs_update);
 
 /* Inform payment system to save the payment. */
 void payment_store(struct lightningd *ld, struct wallet_payment *payment);

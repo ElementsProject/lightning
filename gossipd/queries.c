@@ -1,4 +1,5 @@
 /* Routines to generate and handle gossip query messages */
+#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/crc32c/crc32c.h>
@@ -348,7 +349,7 @@ static void reply_channel_range(struct peer *peer,
 				u32 first_blocknum, u32 number_of_blocks,
 				const u8 *encoded_scids,
 				struct tlv_reply_channel_range_tlvs_timestamps_tlv *timestamps,
-				struct tlv_reply_channel_range_tlvs_checksums_tlv *checksums)
+				struct channel_update_checksums *checksums)
 {
 	/* BOLT #7:
 	 *
@@ -437,7 +438,7 @@ static bool queue_channel_ranges(struct peer *peer,
 	struct routing_state *rstate = peer->daemon->rstate;
 	u8 *encoded_scids = encoding_start(tmpctx);
 	struct tlv_reply_channel_range_tlvs_timestamps_tlv *tstamps;
-	struct tlv_reply_channel_range_tlvs_checksums_tlv *csums;
+	struct channel_update_checksums *csums;
 	struct short_channel_id scid;
 	bool scid_ok;
 
@@ -464,10 +465,7 @@ static bool queue_channel_ranges(struct peer *peer,
 		tstamps = NULL;
 
 	if (query_option_flags & QUERY_ADD_CHECKSUMS) {
-		csums = tal(tmpctx,
-			    struct tlv_reply_channel_range_tlvs_checksums_tlv);
-		csums->checksums
-			= tal_arr(csums, struct channel_update_checksums, 0);
+		csums = tal_arr(tmpctx, struct channel_update_checksums, 0);
 	} else
 		csums = NULL;
 
@@ -509,7 +507,7 @@ static bool queue_channel_ranges(struct peer *peer,
 					   &cs.checksum_node_id_2);
 
 		if (csums)
-			tal_arr_expand(&csums->checksums, cs);
+			tal_arr_expand(&csums, cs);
 		if (tstamps)
 			encoding_add_timestamps(&tstamps->encoded_timestamps,
 						&ts);
@@ -520,7 +518,7 @@ static bool queue_channel_ranges(struct peer *peer,
 	/* If either of these can't fit in max_encoded_bytes by itself,
 	 * it's over. */
 	if (csums) {
-		extension_bytes += tlv_len(csums->checksums);
+		extension_bytes += tlv_len(csums);
 	}
 
 	if (tstamps) {
@@ -585,7 +583,7 @@ const u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 				       tal_hex(tmpctx, msg));
 	}
 	if (tlvs->query_option)
-		query_option_flags = tlvs->query_option->query_option_flags;
+		query_option_flags = *tlvs->query_option;
 	else
 		query_option_flags = 0;
 
@@ -1036,9 +1034,8 @@ bool query_channel_range(struct daemon *daemon,
 
 	if (qflags) {
 		tlvs = tlv_query_channel_range_tlvs_new(tmpctx);
-		tlvs->query_option
-			= tal(tlvs, struct tlv_query_channel_range_tlvs_query_option);
-		tlvs->query_option->query_option_flags = qflags;
+		tlvs->query_option = tal(tlvs, varint);
+		*tlvs->query_option = qflags;
 	} else
 		tlvs = NULL;
 	status_peer_debug(&peer->id,

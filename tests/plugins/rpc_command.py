@@ -2,14 +2,14 @@
 """
 This plugin is used to test the `rpc_command` hook.
 """
-from lightning import Plugin
+from pyln.client import Plugin
 
 plugin = Plugin()
 
 
 @plugin.hook("rpc_command")
 def on_rpc_command(plugin, rpc_command, **kwargs):
-    request = rpc_command["rpc_command"]
+    request = rpc_command
     if request["method"] == "invoice":
         # Replace part of this command
         request["params"]["description"] = "A plugin modified this description"

@@ -153,15 +153,15 @@ state, or in various circumstances:
   via this channel;
   a number followed by a string unit.
   The peer imposes this on us, default is 1% of the total channel capacity.
-* *spendable\_msat*: A string describing an ***estimate*** of how much we
-  can send out over this channel in a single payment (or payment-part for
-  multi-part payments);
+* *spendable\_msat* and *receivable\_msat*: A string describing an
+  ***estimate*** of how much we can send or receive over this channel in a
+  single payment (or payment-part for multi-part payments);
   a number followed by a string unit.
   This is an ***estimate***, which can be wrong because adding HTLCs requires
   an increase in fees paid to onchain miners, and onchain fees change
   dynamically according to onchain activity.
-  For a sufficiently-large channel with capacity on your side, this can
-  be limited by the rules imposed under certain blockchains;
+  For a sufficiently-large channel, this can be limited by the rules imposed
+  under certain blockchains;
   for example, individual Bitcoin mainnet payment-parts cannot exceed
   42.94967295 mBTC.
 * *minimum\_htlc\_in\_msat*: A string describing the minimum amount that

@@ -30,22 +30,22 @@ u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
 	return be64_to_cpu(obscurer);
 }
 
-bool try_subtract_fee(enum side funder, enum side side,
+bool try_subtract_fee(enum side opener, enum side side,
 		      struct amount_sat base_fee,
 		      struct amount_msat *self,
 		      struct amount_msat *other)
 {
-	struct amount_msat *funder_amount;
+	struct amount_msat *opener_amount;
 
-	if (funder == side)
-		funder_amount = self;
+	if (opener == side)
+		opener_amount = self;
 	else
-		funder_amount = other;
+		opener_amount = other;
 
-	if (amount_msat_sub_sat(funder_amount, *funder_amount, base_fee))
+	if (amount_msat_sub_sat(opener_amount, *opener_amount, base_fee))
 		return true;
 
-	*funder_amount = AMOUNT_MSAT(0);
+	*opener_amount = AMOUNT_MSAT(0);
 	return false;
 }
 
@@ -62,7 +62,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     const struct bitcoin_txid *funding_txid,
 				     unsigned int funding_txout,
 				     struct amount_sat funding,
-				     enum side funder,
+				     enum side opener,
 				     u16 to_self_delay,
 				     const struct keyset *keyset,
 				     u32 feerate_per_kw,
@@ -71,6 +71,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     struct amount_msat other_pay,
 				     struct amount_sat self_reserve,
 				     u64 obscured_commitment_number,
+				     struct wally_tx_output *direct_outputs[NUM_SIDES],
 				     enum side side,
 				     char** err_reason)
 {
@@ -80,6 +81,8 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	struct amount_msat total_pay;
 	struct amount_sat amount;
 	u32 sequence;
+	void *dummy_local = (void *)LOCAL, *dummy_remote = (void *)REMOTE;
+	const void *output_order[NUM_SIDES];
 
 	if (!amount_msat_add(&total_pay, self_pay, other_pay))
 		abort();
@@ -104,7 +107,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 * 3. Subtract this base fee from the funder (either `to_local` or
 	 * `to_remote`), with a floor of 0 (see [Fee Payment](#fee-payment)).
 	 */
-	if (!try_subtract_fee(funder, side, base_fee, &self_pay, &other_pay)) {
+	if (!try_subtract_fee(opener, side, base_fee, &self_pay, &other_pay)) {
 		/* BOLT #2:
 		 *
 		 * The receiving node MUST fail the channel if:
@@ -173,13 +176,9 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		u8 *wscript = to_self_wscript(tmpctx, to_self_delay, keyset);
 		amount = amount_msat_to_sat_round_down(self_pay);
 		int pos = bitcoin_tx_add_output(
-		    tx, scriptpubkey_p2wsh(tx, wscript), amount);
+		    tx, scriptpubkey_p2wsh(tx, wscript), wscript, amount);
 		assert(pos == n);
-		tx->output_witscripts[n] =
-			tal(tx->output_witscripts, struct witscript);
-		tx->output_witscripts[n]->ptr =
-			tal_dup_arr(tx->output_witscripts[n], u8,
-				    wscript, tal_count(wscript), 0);
+		output_order[n] = dummy_local;
 		n++;
 	}
 
@@ -200,8 +199,9 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		amount = amount_msat_to_sat_round_down(other_pay);
 		int pos = bitcoin_tx_add_output(
 		    tx, scriptpubkey_p2wpkh(tx, &keyset->other_payment_key),
-		    amount);
+		    NULL, amount);
 		assert(pos == n);
+		output_order[n] = dummy_remote;
 		n++;
 	}
 
@@ -212,7 +212,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 * 7. Sort the outputs into [BIP 69+CLTV
 	 *    order](#transaction-input-and-output-ordering)
 	 */
-	permute_outputs(tx, NULL, NULL);
+	permute_outputs(tx, NULL, output_order);
 
 	/* BOLT #3:
 	 *
@@ -241,8 +241,18 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	sequence = (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));
 	bitcoin_tx_add_input(tx, funding_txid, funding_txout, sequence, funding, NULL);
 
-	elements_tx_add_fee_output(tx);
-	tal_resize(&(tx->output_witscripts), tx->wtx->num_outputs);
+	if (direct_outputs != NULL) {
+		direct_outputs[LOCAL] = direct_outputs[REMOTE] = NULL;
+		for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
+			if (output_order[i] == dummy_local)
+				direct_outputs[LOCAL] = &tx->wtx->outputs[i];
+			else if (output_order[i] == dummy_remote)
+				direct_outputs[REMOTE] = &tx->wtx->outputs[i];
+		}
+	}
+
+	/* This doesn't reorder outputs, so we can do this after mapping outputs. */
+	bitcoin_tx_finalize(tx);
 
 	assert(bitcoin_tx_check(tx));
 

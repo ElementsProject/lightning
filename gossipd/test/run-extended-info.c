@@ -7,6 +7,7 @@
 #include <common/json.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <stdio.h>
 
 #ifdef NDEBUG
@@ -340,9 +341,8 @@ static u8 *test_query_channel_range(const char *test_vector, const jsmntok_t *ob
 	json_for_each_arr(i, t, opt) {
 		assert(json_tok_streq(test_vector, t,
 				      "WANT_TIMESTAMPS | WANT_CHECKSUMS"));
-		tlvs->query_option = tal(tlvs,
-					struct tlv_query_channel_range_tlvs_query_option);
-		tlvs->query_option->query_option_flags =
+		tlvs->query_option = tal(tlvs, varint);
+		*tlvs->query_option =
 			QUERY_ADD_TIMESTAMPS | QUERY_ADD_CHECKSUMS;
 	}
 	msg = towire_query_channel_range(NULL, &chain_hash, firstBlockNum, numberOfBlocks, tlvs);
@@ -410,11 +410,7 @@ static u8 *test_reply_channel_range(const char *test_vector, const jsmntok_t *ob
 	if (opt) {
 		const jsmntok_t *cstok;
 		tlvs->checksums_tlv
-			= tal(tlvs, struct tlv_reply_channel_range_tlvs_checksums_tlv);
-
-		tlvs->checksums_tlv->checksums
-			= tal_arr(tlvs->checksums_tlv,
-				  struct channel_update_checksums, 0);
+			= tal_arr(tlvs, struct channel_update_checksums, 0);
 
 		cstok = json_get_member(test_vector, opt, "checksums");
 		json_for_each_arr(i, t, cstok) {
@@ -427,7 +423,7 @@ static u8 *test_reply_channel_range(const char *test_vector, const jsmntok_t *ob
 					      json_get_member(test_vector, t,
 							      "checksum2"),
 					      &cs.checksum_node_id_2));
-			tal_arr_expand(&tlvs->checksums_tlv->checksums, cs);
+			tal_arr_expand(&tlvs->checksums_tlv, cs);
 		}
 	}
 

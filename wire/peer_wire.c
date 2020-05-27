@@ -1,3 +1,4 @@
+#include <bitcoin/block.h>
 #include <wire/peer_wire.h>
 
 static bool unknown_type(enum wire_type t)
@@ -31,6 +32,9 @@ static bool unknown_type(enum wire_type t)
 	case WIRE_QUERY_CHANNEL_RANGE:
 	case WIRE_REPLY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_ONION_MESSAGE:
+#endif
 		return false;
 	}
 	return true;
@@ -68,6 +72,9 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_ONION_MESSAGE:
+#endif
 		break;
 	}
 	return false;

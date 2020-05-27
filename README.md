@@ -11,6 +11,7 @@ c-lightning is a lightweight, highly customizable and [standard compliant][std] 
 	* [Sending and Receiving Payments](#sending-and-receiving-payments)
 	* [Configuration File](#configuration-file)
 * [Further Information](#further-information)
+    * [FAQ](doc/FAQ.md)
     * [Pruning](#pruning)
     * [HD wallet encryption](#hd-wallet-encryption)
 	* [Developers](#developers)
@@ -126,9 +127,6 @@ open a channel:
 ```bash
 # Returns an address <address>
 lightning-cli newaddr
-
-# Returns a transaction id <txid>
-bitcoin-cli sendtoaddress <address> <amount_in_bitcoins>
 ```
 
 `lightningd` will register the funds once the transaction is confirmed.

@@ -36,6 +36,22 @@ using early returns or continues, eg:
 }
 ```
 
+## Tabs and indentaion
+
+The C code uses TAB charaters with a visual indentation of 8 whitespaces.
+If you submit code for a review, make sure your editor knows this.
+
+When breaking a line with more than 80 characters, align parameters and
+arguments like so:
+
+```C
+static void subtract_received_htlcs(const struct channel *channel,
+				    struct amount_msat *amount)
+```
+
+Note: For more details, the files `.clang-format` and `.editorconfig` are
+located in the projects root directory.
+
 ## Prefer Simple Statements
 
 Notice the statement above uses separate tests, rather than combining
@@ -168,7 +184,7 @@ c-lightning, and to make things more pleasant for contributors.
 
 ### Changelog Entries in Commit Messages
 
-We are maintaining a chanelog in the top-level directory of this
+We are maintaining a changelog in the top-level directory of this
 project. However since every pull request has a tendency to touch the file and
 therefore create merge-conflicts we decided to derive the changelog file from
 the pull requests that were added between releases. In order for a pull

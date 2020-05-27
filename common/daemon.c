@@ -7,16 +7,15 @@
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
 #include <common/memleak.h>
+#include <common/setup.h>
 #include <common/status.h>
 #include <common/utils.h>
 #include <common/version.h>
 #include <signal.h>
-#include <sodium.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <wally_core.h>
 
 #if BACKTRACE_SUPPORTED
 static void (*bt_print)(const char *fmt, ...) PRINTF_FMT(1,2);
@@ -123,8 +122,7 @@ void daemon_setup(const char *argv0,
 		  void (*backtrace_print)(const char *fmt, ...),
 		  void (*backtrace_exit)(void))
 {
-	err_set_progname(argv0);
-
+	common_setup(argv0);
 #if BACKTRACE_SUPPORTED
 	bt_print = backtrace_print;
 	bt_exit = backtrace_exit;
@@ -145,25 +143,15 @@ void daemon_setup(const char *argv0,
 		memleak_init();
 #endif
 
-	/* We rely on libsodium for some of the crypto stuff, so we'd better
-	 * not start if it cannot do its job correctly. */
-	if (sodium_init() == -1)
-		errx(1, "Could not initialize libsodium. Maybe not enough entropy"
-		     " available ?");
-
 	/* We handle write returning errors! */
 	signal(SIGPIPE, SIG_IGN);
-	wally_init(0);
-	secp256k1_ctx = wally_get_secp_context();
 
-	setup_tmpctx();
 	io_poll_override(daemon_poll);
 }
 
 void daemon_shutdown(void)
 {
-	tal_free(tmpctx);
-	wally_cleanup(0);
+	common_shutdown();
 }
 
 void daemon_maybe_debug(char *argv[])

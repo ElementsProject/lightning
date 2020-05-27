@@ -16,14 +16,17 @@ LIGHTNINGD_CHANNEL_HEADERS_NOGEN :=			\
 	channeld/channeld_htlc.h		\
 	channeld/commit_tx.h			\
 	channeld/full_channel.h			\
-	channeld/full_channel_error.h
+	channeld/full_channel_error.h		\
+	channeld/watchtower.h
 
 LIGHTNINGD_CHANNEL_HEADERS := $(LIGHTNINGD_CHANNEL_HEADERS_GEN) $(LIGHTNINGD_CHANNEL_HEADERS_NOGEN)
 
 LIGHTNINGD_CHANNEL_SRC := channeld/channeld.c	\
 	channeld/commit_tx.c			\
-	channeld/full_channel.c		\
-	channeld/gen_channel_wire.c
+	channeld/full_channel.c			\
+	channeld/gen_channel_wire.c		\
+	channeld/watchtower.c
+
 LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o)
 
 # Make sure these depend on everything.
@@ -37,7 +40,9 @@ CHANNELD_COMMON_OBJS :=				\
 	common/base32.o				\
 	common/bigsize.o			\
 	common/bip32.o				\
+	common/blinding.o			\
 	common/channel_config.o			\
+	common/channel_id.o			\
 	common/crypto_state.o			\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
@@ -45,12 +50,14 @@ CHANNELD_COMMON_OBJS :=				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
+	common/ecdh_hsmd.o			\
 	common/features.o			\
 	common/fee_states.o			\
 	common/gen_status_wire.o		\
 	common/gen_peer_status_wire.o		\
 	common/gossip_rcvd_filter.o		\
 	common/gossip_store.o			\
+	common/hmac.o				\
 	common/htlc_state.o			\
 	common/htlc_trim.o			\
 	common/htlc_tx.o			\
@@ -66,11 +73,13 @@ CHANNELD_COMMON_OBJS :=				\
 	common/onionreply.o			\
 	common/peer_billboard.o			\
 	common/peer_failed.o			\
+	common/penalty_base.o			\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
 	common/ping.o				\
 	common/pseudorand.o			\
 	common/read_peer_msg.o			\
+	common/setup.o				\
 	common/sphinx.o				\
 	common/status.o				\
 	common/status_wire.o			\

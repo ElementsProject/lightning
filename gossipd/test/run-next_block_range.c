@@ -1,6 +1,7 @@
 #include "../seeker.c"
 #include <ccan/err/err.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/wireaddr.h>
 #include <stdarg.h>
 #include <stdio.h>

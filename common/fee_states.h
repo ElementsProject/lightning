@@ -18,11 +18,11 @@ struct fee_states {
 /**
  * new_fee_states: Initialize a fee_states structure as at open-of-channel.
  * @ctx: the tal ctx to allocate off
- * @funder: which side funded the channel (and thus, proposes fee updates).
+ * @opener: which side opened the channel (and thus, proposes fee updates).
  * @feerate_per_kw: the initial feerate (if any).
  */
 struct fee_states *new_fee_states(const tal_t *ctx,
-				  enum side funder,
+				  enum side opener,
 				  const u32 *feerate_per_kw);
 
 /**
@@ -36,33 +36,33 @@ struct fee_states *dup_fee_states(const tal_t *ctx,
 /**
  * get_feerate: Get the current feerate
  * @fee_states: the fee state machine
- * @funder: which side funded the channel (and thus, proposes fee updates).
+ * @opener: which side opened the channel (and thus, proposes fee updates).
  * @side: which side to get the feerate for
  */
 u32 get_feerate(const struct fee_states *fee_states,
-		enum side funder,
+		enum side opener,
 		enum side side);
 
 /**
  * first_fee_state: get the initial fee state.
- * @funder: which side funded the channel (and thus, proposes fee updates).
+ * @opener: which side opened the channel (and thus, proposes fee updates).
  */
-enum htlc_state first_fee_state(enum side funder);
+enum htlc_state first_fee_state(enum side opener);
 
 /**
  * last_fee_state: get the final fee state.
- * @funder: which side funded the channel (and thus, proposes fee updates).
+ * @opener: which side opened the channel (and thus, proposes fee updates).
  */
-enum htlc_state last_fee_state(enum side funder);
+enum htlc_state last_fee_state(enum side opener);
 
 /**
  * start_fee_update: feed a new fee update into state machine.
  * @fee_states: the fee state machine
- * @funder: which side funded the channel (and thus, proposes fee updates).
+ * @opener: which side opened the channel (and thus, proposes fee updates).
  * @feerate_per_kw: the new feerate.
  */
 void start_fee_update(struct fee_states *fee_states,
-		      enum side funder,
+		      enum side opener,
 		      u32 feerate_per_kw);
 
 /**
@@ -82,7 +82,7 @@ struct fee_states *fromwire_fee_states(const tal_t *ctx,
 				       const u8 **cursor, size_t *max);
 
 /**
- * Is this fee_state struct valid for this funding side?
+ * Is this fee_state struct valid for this side?
  */
-bool fee_states_valid(const struct fee_states *fee_states, enum side funder);
+bool fee_states_valid(const struct fee_states *fee_states, enum side opener);
 #endif /* LIGHTNING_COMMON_FEE_STATES_H */

@@ -22,7 +22,7 @@ class Millisatoshi:
     A subtype to represent thousandths of a satoshi.
 
     Many JSON API fields are expressed in millisatoshis: these automatically get
-    turned into Millisatoshi types.  Converts to and from int.
+    turned into Millisatoshi types. Converts to and from int.
     """
     def __init__(self, v):
         """
@@ -58,13 +58,13 @@ class Millisatoshi:
 
     def to_satoshi(self):
         """
-        Return a Decimal representing the number of satoshis
+        Return a Decimal representing the number of satoshis.
         """
         return Decimal(self.millisatoshis) / 1000
 
     def to_btc(self):
         """
-        Return a Decimal representing the number of bitcoin
+        Return a Decimal representing the number of bitcoin.
         """
         return Decimal(self.millisatoshis) / 1000 / 10**8
 
@@ -242,7 +242,7 @@ class UnixDomainSocketRpc(object):
         sock.sendall(bytearray(s, 'UTF-8'))
 
     def _readobj(self, sock, buff=b''):
-        """Read a JSON object, starting with buff; returns object and any buffer left over"""
+        """Read a JSON object, starting with buff; returns object and any buffer left over."""
         while True:
             parts = buff.split(b'\n\n', 1)
             if len(parts) == 1:
@@ -257,7 +257,7 @@ class UnixDomainSocketRpc(object):
                 return obj, buff
 
     def __getattr__(self, name):
-        """Intercept any call that is not explicitly defined and call @call
+        """Intercept any call that is not explicitly defined and call @call.
 
         We might still want to define the actual methods in the subclasses for
         documentation purposes.
@@ -412,11 +412,12 @@ class LightningRpc(UnixDomainSocketRpc):
                 if args[0] is None and isinstance(args[1], int):
                     return self._deprecated_close(peer_id, *args, **kwargs)
 
-        def _close(peer_id, unilateraltimeout=None, destination=None):
+        def _close(peer_id, unilateraltimeout=None, destination=None, fee_negotiation_step=None):
             payload = {
                 "id": peer_id,
                 "unilateraltimeout": unilateraltimeout,
-                "destination": destination
+                "destination": destination,
+                "fee_negotiation_step": fee_negotiation_step
             }
             return self.call("close", payload)
 
@@ -424,7 +425,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def connect(self, peer_id, host=None, port=None):
         """
-        Connect to {peer_id} at {host} and {port}
+        Connect to {peer_id} at {host} and {port}.
         """
         payload = {
             "id": peer_id,
@@ -435,7 +436,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def decodepay(self, bolt11, description=None):
         """
-        Decode {bolt11}, using {description} if necessary
+        Decode {bolt11}, using {description} if necessary.
         """
         payload = {
             "bolt11": bolt11,
@@ -445,7 +446,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def delexpiredinvoice(self, maxexpirytime=None):
         """
-        Delete all invoices that have expired on or before the given {maxexpirytime}
+        Delete all invoices that have expired on or before the given {maxexpirytime}.
         """
         payload = {
             "maxexpirytime": maxexpirytime
@@ -454,7 +455,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def delinvoice(self, label, status):
         """
-        Delete unpaid invoice {label} with {status}
+        Delete unpaid invoice {label} with {status}.
         """
         payload = {
             "label": label,
@@ -464,7 +465,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def dev_crash(self):
         """
-        Crash lightningd by calling fatal()
+        Crash lightningd by calling fatal().
         """
         payload = {
             "subcommand": "crash"
@@ -473,7 +474,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def dev_fail(self, peer_id):
         """
-        Fail with peer {peer_id}
+        Fail with peer {peer_id}.
         """
         payload = {
             "id": peer_id
@@ -481,7 +482,7 @@ class LightningRpc(UnixDomainSocketRpc):
         return self.call("dev-fail", payload)
 
     def dev_forget_channel(self, peerid, force=False):
-        """ Forget the channel with id=peerid
+        """ Forget the channel with id=peerid.
         """
         return self.call(
             "dev-forget-channel",
@@ -490,13 +491,13 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def dev_memdump(self):
         """
-        Show memory objects currently in use
+        Show memory objects currently in use.
         """
         return self.call("dev-memdump")
 
     def dev_memleak(self):
         """
-        Show unreferenced memory objects
+        Show unreferenced memory objects.
         """
         return self.call("dev-memleak")
 
@@ -524,7 +525,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def dev_reenable_commit(self, peer_id):
         """
-        Re-enable the commit timer on peer {id}
+        Re-enable the commit timer on peer {id}.
         """
         payload = {
             "id": peer_id
@@ -533,7 +534,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def dev_rescan_outputs(self):
         """
-        Synchronize the state of our funds with bitcoind
+        Synchronize the state of our funds with bitcoind.
         """
         return self.call("dev-rescan-outputs")
 
@@ -549,7 +550,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def dev_sign_last_tx(self, peer_id):
         """
-        Sign and show the last commitment transaction with peer {id}
+        Sign and show the last commitment transaction with peer {id}.
         """
         payload = {
             "id": peer_id
@@ -558,7 +559,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def dev_slowcmd(self, msec=None):
         """
-        Torture test for slow commands, optional {msec}
+        Torture test for slow commands, optional {msec}.
         """
         payload = {
             "subcommand": "slowcmd",
@@ -568,7 +569,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def disconnect(self, peer_id, force=False):
         """
-        Disconnect from peer with {peer_id}, optional {force} even if has active channel
+        Disconnect from peer with {peer_id}, optional {force} even if has active channel.
         """
         payload = {
             "id": peer_id,
@@ -680,7 +681,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def fundchannel_complete(self, node_id, funding_txid, funding_txout):
         """
-        Complete channel establishment with {id}, using {funding_txid} at {funding_txout}
+        Complete channel establishment with {id}, using {funding_txid} at {funding_txout}.
         """
         payload = {
             "id": node_id,
@@ -691,13 +692,13 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def getinfo(self):
         """
-        Show information about this node
+        Show information about this node.
         """
         return self.call("getinfo")
 
     def getlog(self, level=None):
         """
-        Show logs, with optional log {level} (info|unusual|debug|io)
+        Show logs, with optional log {level} (info|unusual|debug|io).
         """
         payload = {
             "level": level
@@ -706,7 +707,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def getpeer(self, peer_id, level=None):
         """
-        Show peer with {peer_id}, if {level} is set, include {log}s
+        Show peer with {peer_id}, if {level} is set, include {log}s.
         """
         payload = {
             "id": peer_id,
@@ -748,7 +749,7 @@ class LightningRpc(UnixDomainSocketRpc):
     def invoice(self, msatoshi, label, description, expiry=None, fallbacks=None, preimage=None, exposeprivatechannels=None):
         """
         Create an invoice for {msatoshi} with {label} and {description} with
-        optional {expiry} seconds (default 1 week)
+        optional {expiry} seconds (default 1 week).
         """
         payload = {
             "msatoshi": msatoshi,
@@ -763,7 +764,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def listchannels(self, short_channel_id=None, source=None):
         """
-        Show all known channels, accept optional {short_channel_id} or {source}
+        Show all known channels, accept optional {short_channel_id} or {source}.
         """
         payload = {
             "short_channel_id": short_channel_id,
@@ -772,7 +773,7 @@ class LightningRpc(UnixDomainSocketRpc):
         return self.call("listchannels", payload)
 
     def listconfigs(self, config=None):
-        """List this node's config
+        """List this node's config.
         """
         payload = {
             "config": config
@@ -780,25 +781,25 @@ class LightningRpc(UnixDomainSocketRpc):
         return self.call("listconfigs", payload)
 
     def listforwards(self):
-        """List all forwarded payments and their information
+        """List all forwarded payments and their information.
         """
         return self.call("listforwards")
 
     def listfunds(self):
         """
-        Show funds available for opening channels
+        Show funds available for opening channels.
         """
         return self.call("listfunds")
 
     def listtransactions(self):
         """
-        Show wallet history
+        Show wallet history.
         """
         return self.call("listtransactions")
 
     def listinvoices(self, label=None):
         """
-        Show invoice {label} (or all, if no {label))
+        Show invoice {label} (or all, if no {label)).
         """
         payload = {
             "label": label
@@ -808,7 +809,7 @@ class LightningRpc(UnixDomainSocketRpc):
     def listnodes(self, node_id=None):
         """
         Show all nodes in our local network view, filter on node {id}
-        if provided
+        if provided.
         """
         payload = {
             "id": node_id
@@ -818,7 +819,7 @@ class LightningRpc(UnixDomainSocketRpc):
     def listpayments(self, bolt11=None, payment_hash=None):
         """
         Show outgoing payments, regarding {bolt11} or {payment_hash} if set
-        Can only specify one of {bolt11} or {payment_hash}
+        Can only specify one of {bolt11} or {payment_hash}.
         """
         assert not (bolt11 and payment_hash)
         payload = {
@@ -829,7 +830,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def listpeers(self, peerid=None, level=None):
         """
-        Show current peers, if {level} is set, include {log}s"
+        Show current peers, if {level} is set, include {log}s".
         """
         payload = {
             "id": peerid,
@@ -838,7 +839,7 @@ class LightningRpc(UnixDomainSocketRpc):
         return self.call("listpeers", payload)
 
     def listsendpays(self, bolt11=None, payment_hash=None):
-        """Show all sendpays results, or only for `bolt11` or `payment_hash`"""
+        """Show all sendpays results, or only for `bolt11` or `payment_hash`."""
         payload = {
             "bolt11": bolt11,
             "payment_hash": payment_hash
@@ -856,7 +857,7 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         Send payment specified by {bolt11} with {msatoshi}
         (ignored if {bolt11} has an amount), optional {label}
-        and {riskfactor} (default 1.0)
+        and {riskfactor} (default 1.0).
         """
         payload = {
             "bolt11": bolt11,
@@ -873,7 +874,7 @@ class LightningRpc(UnixDomainSocketRpc):
         return self.call("pay", payload)
 
     def paystatus(self, bolt11=None):
-        """Detail status of attempts to pay {bolt11} or any"""
+        """Detail status of attempts to pay {bolt11} or any."""
         payload = {
             "bolt11": bolt11
         }
@@ -881,7 +882,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def ping(self, peer_id, length=128, pongbytes=128):
         """
-        Send {peer_id} a ping of length {len} asking for {pongbytes}"
+        Send {peer_id} a ping of length {len} asking for {pongbytes}.
         """
         payload = {
             "id": peer_id,
@@ -949,7 +950,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def sendpay(self, route, payment_hash, *args, **kwargs):
         """
-        Send along {route} in return for preimage of {payment_hash}
+        Send along {route} in return for preimage of {payment_hash}.
         """
 
         if 'description' in kwargs:
@@ -984,14 +985,14 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def stop(self):
         """
-        Shut down the lightningd process
+        Shut down the lightningd process.
         """
         return self.call("stop")
 
     def waitanyinvoice(self, lastpay_index=None, timeout=None, **kwargs):
         """
         Wait for the next invoice to be paid, after {lastpay_index}
-        (if supplied)
+        (if supplied).
         Fail after {timeout} seconds has passed without an invoice
         being paid.
         """
@@ -1014,7 +1015,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def waitinvoice(self, label):
         """
-        Wait for an incoming payment matching the invoice with {label}
+        Wait for an incoming payment matching the invoice with {label}.
         """
         payload = {
             "label": label
@@ -1023,7 +1024,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def waitsendpay(self, payment_hash, timeout=None, partid=None):
         """
-        Wait for payment for preimage of {payment_hash} to complete
+        Wait for payment for preimage of {payment_hash} to complete.
         """
         payload = {
             "payment_hash": payment_hash,
@@ -1036,7 +1037,7 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         Send to {destination} address {satoshi} (or "all")
         amount via Bitcoin transaction. Only select outputs
-        with {minconf} confirmations
+        with {minconf} confirmations.
         """
         payload = {
             "destination": destination,
@@ -1062,7 +1063,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def txprepare(self, *args, **kwargs):
         """
-        Prepare a bitcoin transaction which sends to [outputs].
+        Prepare a Bitcoin transaction which sends to [outputs].
         The format of output is like [{address1: amount1},
         {address2: amount2}], or [{address: "all"}]).
         Only select outputs with {minconf} confirmations.
@@ -1089,7 +1090,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def txdiscard(self, txid):
         """
-        Cancel a bitcoin transaction returned from txprepare.  The outputs
+        Cancel a Bitcoin transaction returned from txprepare. The outputs
         it was spending are released for other use.
         """
         payload = {
@@ -1099,7 +1100,7 @@ class LightningRpc(UnixDomainSocketRpc):
 
     def txsend(self, txid):
         """
-        Sign and broadcast a bitcoin transaction returned from txprepare.
+        Sign and broadcast a Bitcoin transaction returned from txprepare.
         """
         payload = {
             "txid": txid

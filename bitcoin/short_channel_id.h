@@ -19,8 +19,8 @@ STRUCTEQ_DEF(short_channel_id, 0, u64);
 /* BOLT #7:
  *
  * - MUST set `node_id_1` and `node_id_2` to the public keys of the two nodes
- * operating the channel, such that `node_id_1` is the numerically-lesser of the
- * two DER-encoded keys sorted in ascending numerical order.
+ * operating the channel, such that `node_id_1` is the lexicographically-lesser of the
+ * two compressed keys sorted in ascending lexicographic order.
  *...
  *   - if the origin node is `node_id_1` in the message:
  *     - MUST set the `direction` bit of `channel_flags` to 0.
@@ -72,5 +72,15 @@ bool WARN_UNUSED_RESULT short_channel_id_dir_from_str(const char *str, size_t st
 
 char *short_channel_id_dir_to_str(const tal_t *ctx,
 				  const struct short_channel_id_dir *scidd);
+
+/* Marshal/unmarshal */
+void towire_short_channel_id(u8 **pptr,
+			     const struct short_channel_id *short_channel_id);
+void towire_short_channel_id_dir(u8 **pptr,
+				 const struct short_channel_id_dir *scidd);
+void fromwire_short_channel_id(const u8 **cursor, size_t *max,
+			       struct short_channel_id *short_channel_id);
+void fromwire_short_channel_id_dir(const u8 **cursor, size_t *max,
+				   struct short_channel_id_dir *scidd);
 
 #endif /* LIGHTNING_BITCOIN_SHORT_CHANNEL_ID_H */

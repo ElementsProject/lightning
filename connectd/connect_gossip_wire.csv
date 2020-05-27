@@ -1,3 +1,4 @@
+#include <common/node_id.h>
 #include <common/per_peer_state.h>
 #include <common/wireaddr.h>
 

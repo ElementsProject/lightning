@@ -488,6 +488,9 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_ONION_MESSAGE:
+#endif
 		status_broken("peer %s: relayed unexpected msg of type %s",
 			      type_to_string(tmpctx, struct node_id, &peer->id),
 			      wire_type_name(fromwire_peektype(msg)));
@@ -613,7 +616,8 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	 *
 	 * A node:
 	 *   - if the `gossip_queries` feature is negotiated:
-	 * 	- MUST NOT relay any gossip messages unless explicitly requested.
+	 * 	- MUST NOT relay any gossip messages it did not generate itself,
+	 *        unless explicitly requested.
 	 */
 	if (peer->gossip_queries_feature) {
 		gs = NULL;
@@ -830,8 +834,8 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 
 	if (!fromwire_gossipctl_init(daemon, msg,
 				     &chainparams,
+				     &daemon->our_features,
 				     &daemon->id,
-				     &daemon->nodefeatures,
 				     daemon->rgb,
 				     daemon->alias,
 				     &daemon->announcable,
@@ -887,7 +891,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	u64 riskfactor_millionths;
 	u32 max_hops;
 	u8 *out;
-	struct route_hop *hops;
+	struct route_hop **hops;
 	/* fuzz 12.345% -> fuzz_millionths = 12345000 */
 	u64 fuzz_millionths;
 	struct exclude_entry **excluded;
@@ -920,7 +924,9 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 			 fuzz_millionths / 1000000.0, pseudorand_u64(),
 			 excluded, max_hops);
 
-	out = towire_gossip_getroute_reply(NULL, hops);
+	out = towire_gossip_getroute_reply(NULL,
+					   cast_const2(const struct route_hop **,
+						       hops));
 	daemon_conn_send(daemon->master, take(out));
 	return daemon_conn_read_next(conn, daemon->master);
 }
@@ -960,6 +966,41 @@ static struct gossip_halfchannel_entry *hc_entry(const tal_t *ctx,
 	return e;
 }
 
+/*~ We don't keep channel features in memory; they're rarely used.  So we
+ * remember if it exists, and load it off disk when needed. */
+static u8 *get_channel_features(const tal_t *ctx,
+				struct gossip_store *gs,
+				const struct chan *chan)
+{
+	secp256k1_ecdsa_signature sig;
+	u8 *features;
+	struct bitcoin_blkid chain_hash;
+	struct short_channel_id short_channel_id;
+	struct node_id node_id;
+	struct pubkey bitcoin_key;
+	struct amount_sat sats;
+	const u8 *ann;
+
+	/* This is where we stash a flag to indicate it exists. */
+	if (!chan->half[0].any_features)
+		return NULL;
+
+	/* Could be a channel_announcement, could be a local_add_channel */
+	ann = gossip_store_get(tmpctx, gs, chan->bcast.index);
+	if (!fromwire_channel_announcement(ctx, ann, &sig, &sig, &sig, &sig,
+					   &features, &chain_hash,
+					   &short_channel_id,
+					   &node_id, &node_id,
+					   &bitcoin_key, &bitcoin_key)
+	    && !fromwire_gossipd_local_add_channel(ctx, ann, &short_channel_id,
+						   &node_id, &sats, &features))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "bad channel_announcement / local_add_channel at %u: %s",
+			      chan->bcast.index, tal_hex(tmpctx, ann));
+
+	return features;
+}
+
 /*~ Marshal (possibly) both channel directions into entries. */
 static void append_channel(struct routing_state *rstate,
 			   const struct gossip_getchannels_entry ***entries,
@@ -974,6 +1015,7 @@ static void append_channel(struct routing_state *rstate,
 	e->local_disabled = is_chan_local_disabled(rstate, chan);
 	e->public = is_chan_public(chan);
 	e->short_channel_id = chan->scid;
+	e->features = get_channel_features(e, rstate->gs, chan);
 	if (!srcfilter || node_id_eq(&e->node[0], srcfilter))
 		e->e[0] = hc_entry(*entries, chan, 0);
 	else

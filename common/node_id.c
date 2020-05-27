@@ -1,9 +1,11 @@
+#include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
 #include <common/node_id.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
+#include <wire/wire.h>
 
 /* Convert from pubkey to compressed pubkey. */
 void node_id_from_pubkey(struct node_id *id, const struct pubkey *key)
@@ -47,4 +49,16 @@ bool node_id_from_hexstr(const char *str, size_t slen, struct node_id *id)
 int node_id_cmp(const struct node_id *a, const struct node_id *b)
 {
 	return memcmp(a->k, b->k, sizeof(a->k));
+}
+
+void fromwire_node_id(const u8 **cursor, size_t *max, struct node_id *id)
+{
+	fromwire(cursor, max, &id->k, sizeof(id->k));
+}
+
+void towire_node_id(u8 **pptr, const struct node_id *id)
+{
+	/* Cheap sanity check */
+	assert(id->k[0] == 0x2 || id->k[0] == 0x3);
+	towire(pptr, id->k, sizeof(id->k));
 }

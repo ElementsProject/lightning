@@ -104,13 +104,11 @@ void peer_failed_connection_lost(void)
 	exit(0);
 }
 
-struct secret *hsm_do_ecdh(const tal_t *ctx, const struct pubkey *point)
+void ecdh(const struct pubkey *point, struct secret *ss)
 {
-	struct secret *ss = tal(ctx, struct secret);
 	if (secp256k1_ecdh(secp256k1_ctx, ss->data, &point->pubkey,
 			   notsosecret.data, NULL, NULL) != 1)
-		return tal_free(ss);
-	return ss;
+		abort();
 }
 
 /* We don't want to discard *any* messages. */
@@ -142,7 +140,7 @@ static struct io_plan *simple_read(struct io_conn *conn,
 static struct io_plan *handshake_success(struct io_conn *conn,
 					 const struct pubkey *them,
 					 const struct wireaddr_internal *addr,
-					 const struct crypto_state *orig_cs,
+					 struct crypto_state *orig_cs,
 					 char **args)
 {
 	u8 *msg;
@@ -158,9 +156,8 @@ static struct io_plan *handshake_success(struct io_conn *conn,
 		struct tlv_init_tlvs *tlvs = NULL;
 		if (chainparams) {
 			tlvs = tlv_init_tlvs_new(NULL);
-			tlvs->networks = tal(tlvs, struct tlv_init_tlvs_networks);
-			tlvs->networks->chains = tal_arr(tlvs->networks, struct bitcoin_blkid, 1);
-			tlvs->networks->chains[0] = chainparams->genesis_blockhash;
+			tlvs->networks = tal_arr(tlvs, struct bitcoin_blkid, 1);
+			tlvs->networks[0] = chainparams->genesis_blockhash;
 		}
 			msg = towire_init(NULL, NULL, features, tlvs);
 

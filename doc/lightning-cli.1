@@ -41,23 +41,39 @@ Follow strictly the order of parameters for the command
 
 
  \fB--json\fR/\fB-J\fR
-Return result in JSON format (default unless \fIhelp\fR command)
+Return result in JSON format (default unless \fIhelp\fR command,
+or result contains a \fBformat-hint\fR field)\.
 
 
  \fB--raw\fR/\fB-R\fR
-Return raw JSON directly as lightningd replies
+Return raw JSON directly as lightningd replies; this can be faster for
+large requests\.
 
 
  \fB--human-readable\fR/\fB-H\fR
-Return result in human-readable output (default for \fIhelp\fR command)
+Return result in human-readable output\.
+
+
+ \fB--flat\fR/\fB-F\fR
+Return JSON result in flattened one-per-line output, e\.g\. \fB{ "help":
+[ { "command": "check" } ] }\fR would become \fBhelp[0].command=check\fR\.
+This is useful for simple scripts which want to find a specific output
+field without parsing JSON\.
 
 
  \fB--help\fR/\fB-h\fR
-Print summary of options to standard output and exit\.
+Pretty-print summary of options to standard output and exit\.  The format can
+be changed using -F, -R, -J, -H etc\.
 
 
  \fB--version\fR/\fB-V\fR
 Print version number to standard output and exit\.
+
+
+ \fBallow-deprecated-apis\fR=\fIBOOL\fR
+Enable deprecated options\. It defaults to \fItrue\fR, but you should set
+it to \fIfalse\fR when testing to ensure that an upgrade won’t break your
+configuration\.
 
 .SH COMMANDS
 

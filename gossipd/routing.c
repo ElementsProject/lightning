@@ -1,6 +1,7 @@
 #include "routing.h"
 #include <arpa/inet.h>
 #include <bitcoin/block.h>
+#include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/endian/endian.h>
@@ -93,6 +94,8 @@ HTABLE_DEFINE_TYPE(struct pending_node_announce, pending_node_announce_keyof,
 struct unupdated_channel {
 	/* The channel_announcement message */
 	const u8 *channel_announce;
+	/* The feature bitmap within it */
+	const u8 *features;
 	/* The short_channel_id */
 	struct short_channel_id scid;
 	/* The ids of the nodes */
@@ -571,7 +574,8 @@ struct chan *new_chan(struct routing_state *rstate,
 		      const struct short_channel_id *scid,
 		      const struct node_id *id1,
 		      const struct node_id *id2,
-		      struct amount_sat satoshis)
+		      struct amount_sat satoshis,
+		      const u8 *features)
 {
 	struct chan *chan = tal(rstate, struct chan);
 	int n1idx = node_id_idx(id1, id2);
@@ -606,6 +610,8 @@ struct chan *new_chan(struct routing_state *rstate,
 	init_half_chan(rstate, chan, n1idx);
 	init_half_chan(rstate, chan, !n1idx);
 
+	/* Stash hint here about whether we have features */
+	chan->half[0].any_features = tal_bytelen(features) != 0;
 	uintmap_add(&rstate->chanmap, scid->u64, chan);
 
 	/* Initialize shadow structure if it's local */
@@ -648,7 +654,7 @@ static WARN_UNUSED_RESULT bool risk_add_fee(struct amount_msat *risk,
 
 	/* Won't overflow on add, just lose precision */
 	r = (double)riskbias + riskfactor * delay * msat.millisatoshis + risk->millisatoshis; /* Raw: to double */
-	if (r > UINT64_MAX)
+	if (r > (double)UINT64_MAX)
 		return false;
 	risk->millisatoshis = r; /* Raw: from double */
 	return true;
@@ -682,7 +688,7 @@ static bool fuzz_fee(u64 *fee,
 	 * 2*fuzz*rand              random number between 0.0 -> 2*fuzz
 	 * 2*fuzz*rand - fuzz       random number between -fuzz -> +fuzz
 	 */
-	fee_scale = 1.0 + (2.0 * fuzz * h / UINT64_MAX) - fuzz;
+	fee_scale = 1.0 + (2.0 * fuzz * h / (double)UINT64_MAX) - fuzz;
 	fuzzed_fee = *fee * fee_scale;
 	if (fee_scale > 1.0 && fuzzed_fee < *fee)
 		return false;
@@ -1416,7 +1422,7 @@ static u8 *check_channel_announcement(const tal_t *ctx,
 	if (!check_signed_hash_nodeid(&hash, node1_sig, node1_id)) {
 		return towire_errorfmt(ctx, NULL,
 				       "Bad node_signature_1 %s hash %s"
-				       " on node_announcement %s",
+				       " on channel_announcement %s",
 				       type_to_string(ctx,
 						      secp256k1_ecdsa_signature,
 						      node1_sig),
@@ -1428,7 +1434,7 @@ static u8 *check_channel_announcement(const tal_t *ctx,
 	if (!check_signed_hash_nodeid(&hash, node2_sig, node2_id)) {
 		return towire_errorfmt(ctx, NULL,
 				       "Bad node_signature_2 %s hash %s"
-				       " on node_announcement %s",
+				       " on channel_announcement %s",
 				       type_to_string(ctx,
 						      secp256k1_ecdsa_signature,
 						      node2_sig),
@@ -1440,7 +1446,7 @@ static u8 *check_channel_announcement(const tal_t *ctx,
 	if (!check_signed_hash(&hash, bitcoin1_sig, bitcoin1_key)) {
 		return towire_errorfmt(ctx, NULL,
 				       "Bad bitcoin_signature_1 %s hash %s"
-				       " on node_announcement %s",
+				       " on channel_announcement %s",
 				       type_to_string(ctx,
 						      secp256k1_ecdsa_signature,
 						      bitcoin1_sig),
@@ -1452,7 +1458,7 @@ static u8 *check_channel_announcement(const tal_t *ctx,
 	if (!check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key)) {
 		return towire_errorfmt(ctx, NULL,
 				       "Bad bitcoin_signature_2 %s hash %s"
-				       " on node_announcement %s",
+				       " on channel_announcement %s",
 				       type_to_string(ctx,
 						      secp256k1_ecdsa_signature,
 						      bitcoin2_sig),
@@ -1651,6 +1657,7 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 
 	uc = tal(rstate, struct unupdated_channel);
 	uc->channel_announce = tal_dup_talarr(uc, u8, msg);
+	uc->features = tal_steal(uc, features);
 	uc->added = gossip_time_now(rstate);
 	uc->index = index;
 	uc->sat = sat;
@@ -2098,7 +2105,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	if (uc) {
 		assert(!chan);
 		chan = new_chan(rstate, &short_channel_id,
-				&uc->id[0], &uc->id[1], sat);
+				&uc->id[0], &uc->id[1], sat, uc->features);
 	}
 
 	/* Discard older updates */
@@ -2630,20 +2637,20 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 	return NULL;
 }
 
-struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
-			    const struct node_id *source,
-			    const struct node_id *destination,
-			    struct amount_msat msat, double riskfactor,
-			    u32 final_cltv,
-			    double fuzz, u64 seed,
-			    struct exclude_entry **excluded,
-			    u32 max_hops)
+struct route_hop **get_route(const tal_t *ctx, struct routing_state *rstate,
+			     const struct node_id *source,
+			     const struct node_id *destination,
+			     struct amount_msat msat, double riskfactor,
+			     u32 final_cltv,
+			     double fuzz, u64 seed,
+			     struct exclude_entry **excluded,
+			     u32 max_hops)
 {
 	struct chan **route;
 	struct amount_msat total_amount;
 	unsigned int total_delay;
 	struct amount_msat fee;
-	struct route_hop *hops;
+	struct route_hop **hops;
 	struct node *n;
 	struct amount_msat *saved_capacity;
 	struct short_channel_id_dir *excluded_chan;
@@ -2717,7 +2724,7 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 	}
 
 	/* Fees, delays need to be calculated backwards along route. */
-	hops = tal_arr(ctx, struct route_hop, tal_count(route));
+	hops = tal_arr(ctx, struct route_hop *, tal_count(route));
 	total_amount = msat;
 	total_delay = final_cltv;
 
@@ -2728,12 +2735,15 @@ struct route_hop *get_route(const tal_t *ctx, struct routing_state *rstate,
 
 		int idx = half_chan_to(n, route[i]);
 		c = &route[i]->half[idx];
-		hops[i].channel_id = route[i]->scid;
-		hops[i].nodeid = n->id;
-		hops[i].amount = total_amount;
-		hops[i].delay = total_delay;
-		hops[i].direction = idx;
-		hops[i].style = n->hop_style;
+		hops[i] = tal(hops, struct route_hop);
+		hops[i]->channel_id = route[i]->scid;
+		hops[i]->nodeid = n->id;
+		hops[i]->amount = total_amount;
+		hops[i]->delay = total_delay;
+		hops[i]->direction = idx;
+		hops[i]->style = n->hop_style;
+		hops[i]->blinding = NULL;
+		hops[i]->enctlv = NULL;
 
 		/* Since we calculated this route, it should not overflow! */
 		if (!amount_msat_add_fee(&total_amount,
@@ -2901,9 +2911,10 @@ bool handle_local_add_channel(struct routing_state *rstate,
 	struct node_id remote_node_id;
 	struct amount_sat sat;
 	struct chan *chan;
+	u8 *features;
 
-	if (!fromwire_gossipd_local_add_channel(msg, &scid, &remote_node_id,
-						&sat)) {
+	if (!fromwire_gossipd_local_add_channel(msg, msg, &scid, &remote_node_id,
+						&sat, &features)) {
 		status_peer_broken(peer ? &peer->id : NULL,
 				  "Unable to parse local_add_channel message: %s",
 				   tal_hex(msg, msg));
@@ -2922,7 +2933,8 @@ bool handle_local_add_channel(struct routing_state *rstate,
 			  type_to_string(tmpctx, struct short_channel_id, &scid));
 
 	/* Create new (unannounced) channel */
-	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, sat);
+	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, sat,
+			features);
 	if (!index)
 		index = gossip_store_add(rstate->gs, msg, 0, false, NULL);
 	chan->bcast.index = index;

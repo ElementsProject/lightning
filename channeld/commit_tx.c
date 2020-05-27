@@ -36,8 +36,7 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
 
 static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 				 const struct htlc *htlc,
-				 const struct keyset *keyset,
-				 struct witscript *o_wscript)
+				 const struct keyset *keyset)
 {
 	struct ripemd160 ripemd;
 	u8 *wscript, *p2wsh;
@@ -46,19 +45,16 @@ static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 	ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
 	wscript = htlc_offered_wscript(tx, &ripemd, keyset);
 	p2wsh = scriptpubkey_p2wsh(tx, wscript);
-	bitcoin_tx_add_output(tx, p2wsh, amount);
+	bitcoin_tx_add_output(tx, p2wsh, wscript, amount);
 	SUPERVERBOSE("# HTLC %" PRIu64 " offered %s wscript %s\n", htlc->id,
 		     type_to_string(tmpctx, struct amount_sat, &amount),
 		     tal_hex(wscript, wscript));
-	o_wscript->ptr = tal_dup_arr(o_wscript, u8, wscript,
-				     tal_count(wscript), 0);
 	tal_free(wscript);
 }
 
 static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 				  const struct htlc *htlc,
-				  const struct keyset *keyset,
-				  struct witscript *o_wscript)
+				  const struct keyset *keyset)
 {
 	struct ripemd160 ripemd;
 	u8 *wscript, *p2wsh;
@@ -69,15 +65,13 @@ static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 	p2wsh = scriptpubkey_p2wsh(tx, wscript);
 	amount = amount_msat_to_sat_round_down(htlc->amount);
 
-	bitcoin_tx_add_output(tx, p2wsh, amount);
+	bitcoin_tx_add_output(tx, p2wsh, wscript, amount);
 
 	SUPERVERBOSE("# HTLC %"PRIu64" received %s wscript %s\n",
 		     htlc->id,
 		     type_to_string(tmpctx, struct amount_sat,
 				    &amount),
 		     tal_hex(wscript, wscript));
-	o_wscript->ptr = tal_dup_arr(o_wscript, u8,
-				     wscript, tal_count(wscript), 0);
 	tal_free(wscript);
 }
 
@@ -85,7 +79,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     const struct bitcoin_txid *funding_txid,
 			     unsigned int funding_txout,
 			     struct amount_sat funding,
-			     enum side funder,
+			     enum side opener,
 			     u16 to_self_delay,
 			     const struct keyset *keyset,
 			     u32 feerate_per_kw,
@@ -94,6 +88,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     struct amount_msat other_pay,
 			     const struct htlc **htlcs,
 			     const struct htlc ***htlcmap,
+			     struct wally_tx_output *direct_outputs[NUM_SIDES],
 			     u64 obscured_commitment_number,
 			     enum side side)
 {
@@ -102,7 +97,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	struct bitcoin_tx *tx;
 	size_t i, n, untrimmed;
 	u32 *cltvs;
-
+	struct htlc *dummy_to_local = (struct htlc *)0x01,
+		*dummy_to_remote = (struct htlc *)0x02;
 	if (!amount_msat_add(&total_pay, self_pay, other_pay))
 		abort();
 	assert(!amount_msat_greater_sat(total_pay, funding));
@@ -131,7 +127,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 * 3. Subtract this base fee from the funder (either `to_local` or
 	 * `to_remote`), with a floor of 0 (see [Fee Payment](#fee-payment)).
 	 */
-	try_subtract_fee(funder, side, base_fee, &self_pay, &other_pay);
+	try_subtract_fee(opener, side, base_fee, &self_pay, &other_pay);
 
 #ifdef PRINT_ACTUAL_FEE
 	{
@@ -175,10 +171,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			continue;
 		if (trim(htlcs[i], feerate_per_kw, dust_limit, side))
 			continue;
-		tx->output_witscripts[n] =
-			tal(tx->output_witscripts, struct witscript);
-		add_offered_htlc_out(tx, n, htlcs[i],
-				     keyset, tx->output_witscripts[n]);
+		add_offered_htlc_out(tx, n, htlcs[i], keyset);
 		(*htlcmap)[n] = htlcs[i];
 		cltvs[n] = abs_locktime_to_blocks(&htlcs[i]->expiry);
 		n++;
@@ -194,10 +187,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			continue;
 		if (trim(htlcs[i], feerate_per_kw, dust_limit, side))
 			continue;
-		tx->output_witscripts[n] =
-			tal(tx->output_witscripts, struct witscript);
-		add_received_htlc_out(tx, n, htlcs[i], keyset,
-				      tx->output_witscripts[n]);
+		add_received_htlc_out(tx, n, htlcs[i], keyset);
 		(*htlcmap)[n] = htlcs[i];
 		cltvs[n] = abs_locktime_to_blocks(&htlcs[i]->expiry);
 		n++;
@@ -214,18 +204,14 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		u8 *p2wsh = scriptpubkey_p2wsh(tx, wscript);
 		struct amount_sat amount = amount_msat_to_sat_round_down(self_pay);
 
-		bitcoin_tx_add_output(tx, p2wsh, amount);
-		(*htlcmap)[n] = NULL;
+		bitcoin_tx_add_output(tx, p2wsh, wscript, amount);
+		/* Add a dummy entry to the htlcmap so we can recognize it later */
+		(*htlcmap)[n] = direct_outputs ? dummy_to_local : NULL;
 		/* We don't assign cltvs[n]: if we use it, order doesn't matter.
 		 * However, valgrind will warn us something wierd is happening */
 		SUPERVERBOSE("# to-local amount %s wscript %s\n",
 			     type_to_string(tmpctx, struct amount_sat, &amount),
 			     tal_hex(tmpctx, wscript));
-		tx->output_witscripts[n] =
-			tal(tx->output_witscripts, struct witscript);
-		tx->output_witscripts[n]->ptr =
-			tal_dup_arr(tx->output_witscripts[n], u8,
-				    wscript, tal_count(wscript), 0);
 		n++;
 	}
 
@@ -246,9 +232,9 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 * This output sends funds to the other peer and thus is a simple
 		 * P2WPKH to `remotepubkey`.
 		 */
-		int pos = bitcoin_tx_add_output(tx, p2wpkh, amount);
+		int pos = bitcoin_tx_add_output(tx, p2wpkh, NULL, amount);
 		assert(pos == n);
-		(*htlcmap)[n] = NULL;
+		(*htlcmap)[n] = direct_outputs ? dummy_to_remote : NULL;
 		/* We don't assign cltvs[n]: if we use it, order doesn't matter.
 		 * However, valgrind will warn us something wierd is happening */
 		SUPERVERBOSE("# to-remote amount %s P2WPKH(%s)\n",
@@ -305,8 +291,22 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	u32 sequence = (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));
 	bitcoin_tx_add_input(tx, funding_txid, funding_txout, sequence, funding, NULL);
 
-	elements_tx_add_fee_output(tx);
-	tal_resize(&(tx->output_witscripts), tx->wtx->num_outputs);
+	/* Identify the direct outputs (to_us, to_them). */
+	if (direct_outputs != NULL) {
+		direct_outputs[LOCAL] = direct_outputs[REMOTE] = NULL;
+		for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
+			if ((*htlcmap)[i] == dummy_to_local) {
+				(*htlcmap)[i] = NULL;
+				direct_outputs[LOCAL] = tx->wtx->outputs + i;
+			} else if ((*htlcmap)[i] == dummy_to_remote) {
+				(*htlcmap)[i] = NULL;
+				direct_outputs[REMOTE] = tx->wtx->outputs + i;
+			}
+		}
+	}
+
+	bitcoin_tx_finalize(tx);
+	assert(bitcoin_tx_check(tx));
 
 	return tx;
 }

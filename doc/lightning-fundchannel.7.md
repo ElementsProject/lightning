@@ -27,11 +27,12 @@ for the channel.
 
 *amount* is the amount in satoshis taken from the internal wallet to
 fund the channel. The string *all* can be used to specify all available
-funds (or 16777215 satoshi if more is available). Otherwise, it is in
+funds (or 16777215 satoshi if more is available and large channels were not negotiated with the peer). Otherwise, it is in
 satoshi precision; it can be a whole number, a whole number ending in
 *sat*, a whole number ending in *000msat*, or a number with 1 to 8
 decimal places ending in *btc*. The value cannot be less than the dust
-limit, currently set to 546, nor more than 16777215 satoshi.
+limit, currently set to 546, nor more than 16777215 satoshi (unless large
+channels were negotiated with the peer).
 
 *feerate* is an optional feerate used for the opening transaction and as
 initial feerate for commitment and HTLC transactions. It can be one of

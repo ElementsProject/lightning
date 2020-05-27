@@ -94,6 +94,7 @@ this example:
   ],
   "features": {
     "node": "D0000000",
+    "channel": "D0000000",
     "init": "0E000000",
     "invoice": "00AD0000"
   },
@@ -104,7 +105,7 @@ this example:
 The `options` will be added to the list of command line options that
 `lightningd` accepts. The above will add a `--greeting` option with a
 default value of `World` and the specified description. *Notice that
-currently string, (unsigned) integers, and bool options are supported.*
+currently string, integers, bool, and flag options are supported.*
 
 The `rpcmethods` are methods that will be exposed via `lightningd`'s
 JSON-RPC over Unix-Socket interface, just like the builtin
@@ -118,15 +119,15 @@ The `dynamic` indicates if the plugin can be managed after `lightningd`
 has been started. Critical plugins that should not be stopped should set it
 to false.
 
-The `features` object allows the plugin to register featurebits that should be
+The `featurebits` object allows the plugin to register featurebits that should be
 announced in a number of places in [the protocol][bolt9]. They can be used to signal
 support for custom protocol extensions to direct peers, remote nodes and in
 invoices. Custom protocol extensions can be implemented for example using the
 `sendcustommsg` method and the `custommsg` hook, or the `sendonion` method and
-the `htlc_accepted` hook. The keys in the `features` object are `node` for
+the `htlc_accepted` hook. The keys in the `featurebits` object are `node` for
 features that should be announced via the `node_announcement` to all nodes in
 the network, `init` for features that should be announced to direct peers
-during the connection setup, and `invoice` for features that should be
+during the connection setup, `channel` for features which should apply to `channel_announcement`, and `invoice` for features that should be
 announced to a potential sender of a payment in the invoice. The low range of
 featurebits is reserved for standardize features, so please pick random, high
 position bits for experiments. If you'd like to standardize your extension
@@ -138,6 +139,48 @@ as the name was not previously registered. This includes both built-in
 methods, such as `help` and `getinfo`, as well as methods registered
 by other plugins. If there is a conflict then `lightningd` will report
 an error and exit.
+
+#### Types of Options
+
+There are currently four supported option 'types':
+  - string: a string
+  - bool: a boolean
+  - int: parsed as a signed integer (64-bit)
+  - flag: no-arg flag option. Is boolean under the hood. Defaults to false.
+
+Nota bene: if a `flag` type option is not set, it will not appear
+in the options set that is passed to the plugin.
+
+Here's an example option set, as sent in response to `getmanifest`
+
+```json
+  "options": [
+    {
+      "name": "greeting",
+      "type": "string",
+      "default": "World",
+      "description": "What name should I call you?"
+    },
+    {
+      "name": "run-hot",
+      "type": "flag",
+      "default": None,  // defaults to false
+      "description": "If set, overclocks plugin"
+    },
+    {
+      "name": "is_online",
+      "type": "bool",
+      "default": false,
+      "description": "Set to true if plugin can use network"
+    },
+    {
+      "name": "service-port",
+      "type": "int",
+      "default": 6666,
+      "description": "Port to use to connect to 3rd-party service"
+    }
+  ],
+```
 
 ### The `init` method
 
@@ -281,11 +324,25 @@ to a peer was lost.
 
 ### `invoice_payment`
 
-A notification for topic `invoice_payment` is sent every time an invoie is paid.
+A notification for topic `invoice_payment` is sent every time an invoice is paid.
 
 ```json
 {
   "invoice_payment": {
+    "label": "unique-label-for-invoice",
+    "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
+    "msat": "10000msat"
+  }
+}
+
+```
+### `invoice_creation`
+
+A notification for topic `invoice_creation` is sent every time an invoice is created.
+
+```json
+{
+  "invoice_creation": {
     "label": "unique-label-for-invoice",
     "preimage": "0000000000000000000000000000000000000000000000000000000000000000",
     "msat": "10000msat"
@@ -467,6 +524,95 @@ returns the result of sendpay in specified time or timeout, but
 `sendpay_failure` will always return the result anytime when sendpay
 fails if is was subscribed.
 
+
+### `coin_movement`
+
+A notification for topic `coin_movement` is sent to record the
+movement of coins.  It is only triggered by finalized ledger updates,
+i.e. only definitively resolved HTLCs or confirmed bitcoin transactions.
+
+```json
+{
+	"coin_movement": {
+		"version":1,
+		"node_id":"03a7103a2322b811f7369cbb27fb213d30bbc0b012082fed3cad7e4498da2dc56b",
+		"movement_idx":0,
+		"type":"chain_mvt",
+		"account_id":"wallet",
+		"txid":"0159693d8f3876b4def468b208712c630309381e9d106a9836fa0a9571a28722", // (`chain_mvt` type only, mandatory)
+		"utxo_txid":"0159693d8f3876b4def468b208712c630309381e9d106a9836fa0a9571a28722", // (`chain_mvt` type only, optional)
+		"vout":1, // (`chain_mvt` type only, optional)
+		"payment_hash": "xxx", // (either type, optional on `chain_mvt`)
+		"part_id": 0, // (`channel_mvt` type only, mandatory)
+		"credit":"2000000000msat",
+		"debit":"0msat",
+		"tag":"deposit",
+		"blockheight":102, // (`channel_mvt` type only. may be null)
+		"timestamp":1585948198,
+		"coin_type":"bc"
+	}
+}
+```
+
+`version` indicates which version of the coin movement data struct this
+notification adheres to.
+
+`node_id` specifies the node issuing the coin movement.
+
+`movement_idx` is an increment-only counter for coin moves emitted by this node.
+
+`type` marks the underlying mechanism which moved these coins. There are two
+'types' of `coin_movements`:
+  - `channel_mvt`s, which occur as a result of htlcs being resolved and,
+  - `chain_mvt`s, which occur as a result of bitcoin txs being mined.
+
+`account_id` is the name of this account. The node's wallet is named 'wallet',
+all channel funds' account are the channel id.
+
+`txid` is the transaction id of the bitcoin transaction that triggered this
+ledger event. `utxo_txid` and `vout` identify the bitcoin output which triggered
+this notification. (`chain_mvt` only) In most cases, the `utxo_txid` will be the
+same as the `txid`, except for `spend_track` notficiations.  Notifications tagged
+`chain_fees` and `journal_entry` do not have a `utxo_txid` as they're not
+represented in the utxo set.
+
+`payment_hash` is the hash of the preimage used to move this payment. Only
+present for HTLC mediated moves (both `chain_mvt` and `channel_mvt`)
+A `chain_mvt` will have a `payment_hash` iff it's recording an htlc that was
+fulfilled onchain.
+
+`part_id` is an identifier for parts of a multi-part payment. useful for
+aggregating payments for an invoice or to indicate why a payment hash appears
+multiple times. `channel_mvt` only
+
+`credit` and `debit` are millisatoshi denominated amounts of the fund movement. A
+'credit' is funds deposited into an account; a `debit` is funds withdrawn.
+
+
+`tag` is a movement descriptor. Current tags are as follows:
+ - `deposit`: funds deposited
+ - `withdrawal`: funds withdrawn
+ - `chain_fees`: funds paid for onchain fees. `chain_mvt` only
+ - `penalty`: funds paid or gained from a penalty tx. `chain_mvt` only
+ - `invoice`: funds paid to or recieved from an invoice. `channel_mvt` only
+ - `routed`: funds routed through this node. `channel_mvt` only
+ - `journal_entry`: a balance reconciliation event, typically triggered
+                    by a penalty tx onchain. `chain_mvt` only
+ - `onchain_htlc`: funds moved via an htlc onchain. `chain_mvt` only
+ - `pushed`: funds pushed to peer. `channel_mvt` only.
+ - `spend_track`:  informational notification about a wallet utxo spend. `chain_mvt` only.
+
+`blockheight` is the block the txid is included in. `chain_mvt` only. In the
+case that an output is considered dust, c-lightning does not track its return to
+our wallet. In those cases, the blockheight will be `null`, as they're recorded
+before confirmation.
+
+The `timestamp` is seconds since Unix epoch of the node's machine time
+at the time lightningd broadcasts the notification.
+
+`coin_type` is the BIP173 name for the coin which moved.
+
+
 ## Hooks
 
 Hooks allow a plugin to define custom behavior for `lightningd`
@@ -546,6 +692,45 @@ the string `disconnect` or `continue`.  If `disconnect` and
 there's a member `error_message`, that member is sent to the peer
 before disconnection.
 
+
+### `commitment_revocation`
+
+This hook is called whenever a channel state is updated, and the old state was
+revoked. State updates in Lightning consist of the following steps:
+
+ 1. Proposal of a new state commitment in the form of a commitment transaction
+ 2. Exchange of signatures for the agreed upon commitment transaction
+ 3. Verification that the signatures match the commitment transaction
+ 4. Exchange of revocation secrets that could be used to penalize an eventual misbehaving party
+
+The `commitment_revocation` hook is used to inform the plugin about the state
+transition being completed, and deliver the penalty transaction. The penalty
+transaction could then be sent to a watchtower that automaticaly reacts in
+case one party attempts to settle using a revoked commitment.
+
+The payload consists of the following information:
+
+```json
+{
+	"commitment_txid": "58eea2cf538cfed79f4d6b809b920b40bb6b35962c4bb4cc81f5550a7728ab05",
+	"penalty_tx": "02000000000101...ac00000000"
+}
+```
+
+Notice that the `commitment_txid` could also be extracted from the sole input
+of the `penalty_tx`, however it is enclosed so plugins don't have to include
+the logic to parse transactions.
+
+Not included are the `htlc_success` and `htlc_failure` transactions that
+may also be spending `commitment_tx` outputs. This is because these
+transactions are much more dynamic and have a predictable timeout, allowing
+wallets to ensure a quick checkin when the CLTV of the HTLC is about to
+expire.
+
+The `commitment_revocation` hook is a chained hook, i.e., multiple plugins can
+register it, and they will be called in the order they were registered in.
+Plugins should always return `{"result": "continue"}`, otherwise subsequent
+hook subscribers would not get called.
 
 ### `db_write`
 
@@ -760,6 +945,13 @@ This means that the plugin does not want to do anything special and
 if we're the recipient, or attempt to forward it otherwise. Notice that the
 usual checks such as sufficient fees and CLTV deltas are still enforced.
 
+It can also replace the `onion.payload` by specifying a `payload` in
+the response.  Note that this is always a TLV-style payload, so unlike
+`onion.payload` there is no length prefix (and it must be at least 4
+hex digits long).  This will be re-parsed; it's useful for removing
+onion fields which a plugin doesn't want lightningd to consider.
+
+
 ```json
 {
   "result": "fail",
@@ -894,6 +1086,81 @@ The result for this hook is currently being discarded. For future uses of the
 result we suggest just returning `{'result': 'continue'}`.
 This will ensure backward
 compatibility should the semantics be changed in future.
+
+
+
+## Bitcoin backend
+
+C-lightning communicates with the Bitcoin network through a plugin. It uses the
+`bcli` plugin by default but you can use a custom one, multiple custom ones for
+different operations, or write your own for your favourite Bitcoin data source!
+
+Communication with the plugin is done through 5 JSONRPC commands, `lightningd`
+can use from 1 to 5 plugin(s) registering these 5 commands for gathering Bitcoin
+data. Each plugin must follow the below specification for `lightningd` to operate.
+
+
+### `getchainfo`
+
+Called at startup, it's used to check the network `lightningd` is operating on and to
+get the sync status of the backend.
+
+The plugin must respond to `getchainfo` with the following fields:
+    - `chain` (string), the network name as introduced in bip70
+    - `headercount` (number), the number of fetched block headers
+    - `blockcount` (number), the number of fetched block body
+    - `ibd` (bool), whether the backend is performing initial block download
+
+
+### `estimatefees`
+
+Polled by `lightningd` to get the current feerate, all values must be passed in sat/kVB.
+
+If fee estimation fails, the plugin must set all the fields to `null`.
+
+The plugin, if fee estimation succeeds, must respond with the following fields:
+    - `opening` (number), used for funding and also misc transactions
+    - `mutual_close` (number), used for the mutual close transaction
+    - `unilateral_close` (number), used for unilateral close (/commitment) transactions
+    - `delayed_to_us` (number), used for resolving our output from our unilateral close
+    - `htlc_resolution` (number), used for resolving HTLCs after an unilateral close
+    - `penalty` (number), used for resolving revoked transactions
+    - `min_acceptable` (number), used as the minimum acceptable feerate
+    - `max_acceptable` (number), used as the maximum acceptable feerate
+
+
+### `getrawblockbyheight`
+
+This call takes one parameter, `height`, which determines the block height of
+the block to fetch.
+
+The plugin must set all fields to `null` if no block was found at the specified `height`.
+
+The plugin must respond to `getrawblockbyheight` with the following fields:
+    - `blockhash` (string), the block hash as a hexadecimal string
+    - `block` (string), the block content as a hexadecimal string
+
+
+### `getutxout`
+
+This call takes two parameter, the `txid` (string) and the `vout` (number)
+identifying the UTXO we're interested in.
+
+The plugin must set both fields to `null` if the specified TXO was spent.
+
+The plugin must respond to `gettxout` with the following fields:
+    - `amount` (number), the output value in **sats**
+    - `script` (string), the output scriptPubKey
+
+
+### `sendrawtransaction`
+
+This call takes one parameter, a string representing a hex-encoded Bitcoin
+transaction.
+
+The plugin must broadcast it and respond with the following fields:
+    - `success` (boolean), which is `true` if the broadcast succeeded
+    - `errmsg` (string), if success is `false`, the reason why it failed
 
 
 [jsonrpc-spec]: https://www.jsonrpc.org/specification

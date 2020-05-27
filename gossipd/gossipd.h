@@ -42,9 +42,6 @@ struct daemon {
 	/* Timers: we batch gossip, and also refresh announcements */
 	struct timers timers;
 
-	/* Features to list in node_announcement. */
-	u8 *nodefeatures;
-
 	/* Alias (not NUL terminated) and favorite color for node_announcement */
 	u8 alias[32];
 	u8 rgb[3];
@@ -60,6 +57,9 @@ struct daemon {
 
 	/* What, if any, gossip we're seeker from peers. */
 	struct seeker *seeker;
+
+	/* Features lightningd told us to set. */
+	struct feature_set *our_features;
 };
 
 /* This represents each peer we're gossiping with */

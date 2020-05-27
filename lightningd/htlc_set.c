@@ -57,6 +57,10 @@ void htlc_set_fulfill(struct htlc_set *set, const struct preimage *preimage)
 	for (size_t i = 0; i < tal_count(set->htlcs); i++) {
 		/* Don't remove from set */
 		tal_del_destructor2(set->htlcs[i], htlc_set_hin_destroyed, set);
+
+		/* mark that we filled -- needed for tagging coin mvt */
+		set->htlcs[i]->we_filled = tal(set->htlcs[i], bool);
+		*set->htlcs[i]->we_filled = true;
 		fulfill_htlc(set->htlcs[i], preimage);
 	}
 	tal_free(set);
@@ -106,7 +110,7 @@ void htlc_set_add(struct lightningd *ld,
 					total_msat, payment_secret);
 	if (!details) {
 		local_fail_in_htlc(hin,
-				   take(failmsg_incorrect_or_unknown(NULL, hin)));
+				   take(failmsg_incorrect_or_unknown(NULL, ld, hin)));
 		return;
 	}
 
@@ -130,7 +134,7 @@ void htlc_set_add(struct lightningd *ld,
 		/* We check this now, since we want to fail with this as soon
 		 * as possible, to avoid other probing attacks. */
 		if (!payment_secret) {
-			local_fail_in_htlc(hin, take(failmsg_incorrect_or_unknown(NULL, hin)));
+			local_fail_in_htlc(hin, take(failmsg_incorrect_or_unknown(NULL, ld, hin)));
 			return;
 		}
 		tal_arr_expand(&set->htlcs, hin);
@@ -193,7 +197,7 @@ void htlc_set_add(struct lightningd *ld,
 	/* This catches the case of the first payment in a set. */
 	if (!payment_secret) {
 		htlc_set_fail(set,
-			      take(failmsg_incorrect_or_unknown(NULL, hin)));
+			      take(failmsg_incorrect_or_unknown(NULL, ld, hin)));
 		return;
 	}
 }

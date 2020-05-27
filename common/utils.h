@@ -12,6 +12,11 @@ extern secp256k1_context *secp256k1_ctx;
 
 extern const struct chainparams *chainparams;
 
+/* Marker which indicates an (tal) pointer argument is stolen
+ * (i.e. eventually freed) by the function.  Unlike TAKEN, which
+ * indicates it's only stolen if caller says take() */
+#define STEALS
+
 /* Simple accessor function for our own dependencies to use, in order to avoid
  * circular dependencies (should only be used in `bitcoin/y`). */
 bool is_elements(const struct chainparams *chainparams);

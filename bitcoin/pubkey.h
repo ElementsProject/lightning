@@ -55,4 +55,9 @@ static inline int pubkey_idx(const struct pubkey *id1, const struct pubkey *id2)
  * pubkey_to_hash160 - Get the hash for p2pkh payments for a given pubkey
  */
 void pubkey_to_hash160(const struct pubkey *pk, struct ripemd160 *hash);
+
+/* marshal/unmarshal functions */
+void towire_pubkey(u8 **pptr, const struct pubkey *pubkey);
+void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey);
+
 #endif /* LIGHTNING_BITCOIN_PUBKEY_H */

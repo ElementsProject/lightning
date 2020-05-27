@@ -2,9 +2,9 @@ from collections import Counter
 from ephemeral_port_reserve import reserve
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
-from pyln.client import RpcError
+from pyln.client import RpcError, Millisatoshi
 from utils import (
-    wait_for, TIMEOUT, only_one, sync_blockheight, expected_features
+    wait_for, TIMEOUT, only_one, sync_blockheight, expected_node_features, COMPAT
 )
 
 import json
@@ -120,9 +120,6 @@ def test_announce_address(node_factory, bitcoind):
             'dev-allow-localhost': None}
     l1, l2 = node_factory.get_nodes(2, opts=[opts, {}])
 
-    # It should warn about the collision between --addr=127.0.0.1:<ephem>
-    # and --announce-addr=1.2.3.4:1234 (may happen before get_nodes returns).
-    wait_for(lambda: l1.daemon.is_in_log('Cannot announce address 127.0.0.1:[0-9]*, already announcing 1.2.3.4:1234'))
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     scid = l1.fund_channel(l2, 10**6)
     bitcoind.generate_block(5)
@@ -130,8 +127,14 @@ def test_announce_address(node_factory, bitcoind):
     l1.wait_channel_active(scid)
     l2.wait_channel_active(scid)
 
-    # We should see it send node announce (257 = 0x0101)
-    l1.daemon.wait_for_log(r"\[OUT\] 0101.*004d010102030404d202000000000000000000000000000000002607039216a8b803f3acd758aa260704e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607'")
+    # We should see it send node announce with all addresses (257 = 0x0101)
+    # local ephemeral port is masked out.
+    l1.daemon.wait_for_log(r"\[OUT\] 0101.*54"
+                           "010102030404d2"
+                           "017f000001...."
+                           "02000000000000000000000000000000002607"
+                           "039216a8b803f3acd758aa2607"
+                           "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607")
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -917,7 +920,7 @@ def test_gossip_store_load(node_factory):
     """Make sure we can read canned gossip store"""
     l1 = node_factory.get_node(start=False)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("07"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("08"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -949,7 +952,7 @@ def test_gossip_store_load_announce_before_update(node_factory):
     """Make sure we can read canned gossip store with node_announce before update.  This happens when a channel_update gets replaced, leaving node_announce before it"""
     l1 = node_factory.get_node(start=False)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("07"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("08"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -992,7 +995,7 @@ def test_gossip_store_load_amount_truncated(node_factory):
     """Make sure we can read canned gossip store with truncated amount"""
     l1 = node_factory.get_node(start=False, allow_broken_log=True)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("07"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("08"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -1026,7 +1029,7 @@ def test_node_reannounce(node_factory, bitcoind):
     wait_for(lambda: 'alias' in only_one(l2.rpc.listnodes(l1.info['id'])['nodes']))
     assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['alias'].startswith('JUNIORBEAM')
 
-    lfeatures = expected_features()
+    lfeatures = expected_node_features()
 
     # Make sure it gets features correct.
     assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['features'] == lfeatures
@@ -1416,7 +1419,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
 
     # A channel announcement with no channel_update.
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("07"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("08"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -1443,7 +1446,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
     l1.rpc.call('dev-compact-gossip-store')
 
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), "rb") as f:
-        assert bytearray(f.read()) == bytearray.fromhex("07")
+        assert bytearray(f.read()) == bytearray.fromhex("08")
 
 
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
@@ -1453,7 +1456,8 @@ def test_gossip_store_compact_on_load(node_factory, bitcoind):
     l2.restart()
 
     wait_for(lambda: l2.daemon.is_in_log(r'gossip_store_compact_offline: [5-8] deleted, 9 copied'))
-    wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 1/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in 1452 bytes'))
+
+    wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 1/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in [0-9]* bytes'))
 
 
 def test_gossip_announce_invalid_block(node_factory, bitcoind):
@@ -1653,3 +1657,74 @@ def test_torport_onions(node_factory):
 
     assert l1.daemon.is_in_log('45321,127.0.0.1:{}'.format(l1.port))
     assert l2.daemon.is_in_log('x2y4zvh4fn5q3eouuh7nxnc7zeawrqoutljrup2xjtiyxgx3emgkemad.onion:45321,127.0.0.1:{}'.format(l2.port))
+
+
+@unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete gossip_store")
+def test_gossip_store_upgrade_v7_v8(node_factory):
+    """Version 8 added feature bits to local channel announcements"""
+    l1 = node_factory.get_node(start=False)
+
+    # A channel announcement with no channel_update.
+    with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
+        f.write(bytearray.fromhex("07000000428ce4d2d8000000000daf00"
+                                  "00670000010001022d223620a359a47f"
+                                  "f7f7ac447c85c46c923da53389221a00"
+                                  "54c11c1e3ca31d5900000000000f4240"
+                                  "000d8000000000000000000000000000"
+                                  "00008e3af3badf000000001006008a01"
+                                  "02005a9911d425effd461f803a380f05"
+                                  "e72d3332eb6e9a7c6c58405ae61eacde"
+                                  "4e2da18240ffb3d5c595f85e4f78b594"
+                                  "c59e4d01c0470edd4f5afe645026515e"
+                                  "fe06226e46111a0b59caaf126043eb5b"
+                                  "bf28c34f3a5e332a1fc7b2b73cf18891"
+                                  "0f00006700000100015eaa5eb0010100"
+                                  "06000000000000000000000001000000"
+                                  "0a000000003b0233800000008e074a6e"
+                                  "0f000000001006008a0102463de636b2"
+                                  "f46ccd6c23259787fc39dc4fdb983510"
+                                  "1651879325b18cf1bb26330127e51ce8"
+                                  "7a111b05ef92fe00a9a089979dc49178"
+                                  "200f49139a541e7078cdc506226e4611"
+                                  "1a0b59caaf126043eb5bbf28c34f3a5e"
+                                  "332a1fc7b2b73cf188910f0000670000"
+                                  "0100015eaa5eb0010000060000000000"
+                                  "000000000000010000000a000000003b"
+                                  "023380"))
+
+    l1.start()
+
+    assert l1.rpc.listchannels()['channels'] == [
+        {'source': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+         'destination': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
+         'short_channel_id': '103x1x1',
+         'public': False,
+         'satoshis': 1000000,
+         'amount_msat': Millisatoshi(1000000000),
+         'message_flags': 1,
+         'channel_flags': 0,
+         'active': False,
+         'last_update': 1588223664,
+         'base_fee_millisatoshi': 1,
+         'fee_per_millionth': 10,
+         'delay': 6,
+         'htlc_minimum_msat': Millisatoshi(0),
+         'htlc_maximum_msat': Millisatoshi(990000000),
+         # This store was created on an experimental branch (OPT_ONION_MESSAGES)
+         'features': '80000000000000000000000000'},
+        {'source': '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518',
+         'destination': '022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59',
+         'short_channel_id': '103x1x1',
+         'public': False,
+         'satoshis': 1000000,
+         'amount_msat': Millisatoshi(1000000000),
+         'message_flags': 1,
+         'channel_flags': 1,
+         'active': False,
+         'last_update': 1588223664,
+         'base_fee_millisatoshi': 1,
+         'fee_per_millionth': 10,
+         'delay': 6,
+         'htlc_minimum_msat': Millisatoshi(0),
+         'htlc_maximum_msat': Millisatoshi(990000000),
+         'features': '80000000000000000000000000'}]

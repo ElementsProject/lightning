@@ -21,18 +21,15 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 	}
 
 	flen = fromwire_u16(pptr, max);
-	entry->features = tal_arr(entry, u8, flen);
-	fromwire_u8_array(pptr, max, entry->features, flen);
+	entry->features = fromwire_tal_arrn(entry, pptr, max, flen);
 
 	numaddresses = fromwire_u8(pptr, max);
 
 	entry->addresses = tal_arr(entry, struct wireaddr, numaddresses);
 	for (i=0; i<numaddresses; i++) {
 		/* Gossipd doesn't hand us addresses we can't understand. */
-		if (!fromwire_wireaddr(pptr, max, &entry->addresses[i])) {
-			fromwire_fail(pptr, max);
-			return NULL;
-		}
+		if (!fromwire_wireaddr(pptr, max, &entry->addresses[i]))
+			return fromwire_fail(pptr, max);
 	}
 	fromwire(pptr, max, entry->alias, ARRAY_SIZE(entry->alias));
 	fromwire(pptr, max, entry->color, ARRAY_SIZE(entry->color));
@@ -59,14 +56,28 @@ void towire_gossip_getnodes_entry(u8 **pptr,
 	towire(pptr, entry->color, ARRAY_SIZE(entry->color));
 }
 
-void fromwire_route_hop(const u8 **pptr, size_t *max, struct route_hop *entry)
+struct route_hop *fromwire_route_hop(const tal_t *ctx,
+				     const u8 **pptr, size_t *max)
 {
+	struct route_hop *entry = tal(ctx, struct route_hop);
+	size_t enclen;
+
 	fromwire_node_id(pptr, max, &entry->nodeid);
 	fromwire_short_channel_id(pptr, max, &entry->channel_id);
 	entry->direction = fromwire_u8(pptr, max);
 	entry->amount = fromwire_amount_msat(pptr, max);
 	entry->delay = fromwire_u32(pptr, max);
 	entry->style = fromwire_u8(pptr, max);
+	if (fromwire_bool(pptr, max)) {
+		entry->blinding = tal(entry, struct pubkey);
+		fromwire_pubkey(pptr, max, entry->blinding);
+	}
+	enclen = fromwire_u16(pptr, max);
+	if (enclen)
+		entry->enctlv = fromwire_tal_arrn(entry, pptr, max, enclen);
+	else
+		entry->enctlv = NULL;
+	return entry;
 }
 
 void towire_route_hop(u8 **pptr, const struct route_hop *entry)
@@ -77,6 +88,13 @@ void towire_route_hop(u8 **pptr, const struct route_hop *entry)
 	towire_amount_msat(pptr, entry->amount);
 	towire_u32(pptr, entry->delay);
 	towire_u8(pptr, entry->style);
+	if (entry->blinding) {
+		towire_bool(pptr, true);
+		towire_pubkey(pptr, entry->blinding);
+	} else
+		towire_bool(pptr, false);
+	towire_u16(pptr, tal_bytelen(entry->enctlv));
+	towire_u8_array(pptr, entry->enctlv, tal_bytelen(entry->enctlv));
 }
 
 void fromwire_route_info(const u8 **pptr, size_t *max, struct route_info *entry)
@@ -123,6 +141,8 @@ fromwire_gossip_getchannels_entry(const tal_t *ctx,
 	fromwire_short_channel_id(pptr, max, &entry->short_channel_id);
 	entry->public = fromwire_bool(pptr, max);
 	entry->local_disabled = fromwire_bool(pptr, max);
+	entry->features = fromwire_tal_arrn(entry,
+					    pptr, max, fromwire_u16(pptr, max));
 
 	if (fromwire_bool(pptr, max)) {
 		entry->e[0] = tal(entry, struct gossip_halfchannel_entry);
@@ -160,6 +180,8 @@ void towire_gossip_getchannels_entry(u8 **pptr,
 	towire_short_channel_id(pptr, &entry->short_channel_id);
 	towire_bool(pptr, entry->public);
 	towire_bool(pptr, entry->local_disabled);
+	towire_u16(pptr, tal_bytelen(entry->features));
+	towire_u8_array(pptr, entry->features, tal_bytelen(entry->features));
 	if (entry->e[0]) {
 		towire_bool(pptr, true);
 		towire_gossip_halfchannel_entry(pptr, entry->e[0]);
@@ -186,8 +208,7 @@ struct exclude_entry *fromwire_exclude_entry(const tal_t *ctx,
 			fromwire_node_id(pptr, max, &entry->u.node_id);
 			return entry;
 		default:
-			fromwire_fail(pptr, max);
-			return NULL;
+			return fromwire_fail(pptr, max);
 	}
 }
 

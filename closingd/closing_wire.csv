@@ -1,3 +1,4 @@
+#include <bitcoin/tx.h>
 #include <common/cryptomsg.h>
 #include <common/htlc_wire.h>
 #include <common/per_peer_state.h>
@@ -10,7 +11,7 @@ msgdata,closing_init,funding_txout,u16,
 msgdata,closing_init,funding_satoshi,amount_sat,
 msgdata,closing_init,local_fundingkey,pubkey,
 msgdata,closing_init,remote_fundingkey,pubkey,
-msgdata,closing_init,funder,enum side,
+msgdata,closing_init,opener,enum side,
 msgdata,closing_init,local_sat,amount_sat,
 msgdata,closing_init,remote_sat,amount_sat,
 msgdata,closing_init,our_dust_limit,amount_sat,
@@ -21,6 +22,8 @@ msgdata,closing_init,local_scriptpubkey_len,u16,
 msgdata,closing_init,local_scriptpubkey,u8,local_scriptpubkey_len
 msgdata,closing_init,remote_scriptpubkey_len,u16,
 msgdata,closing_init,remote_scriptpubkey,u8,remote_scriptpubkey_len
+msgdata,closing_init,fee_negotiation_step,u64,
+msgdata,closing_init,fee_negotiation_step_unit,u8,
 msgdata,closing_init,reconnected,bool,
 msgdata,closing_init,next_index_local,u64,
 msgdata,closing_init,next_index_remote,u64,

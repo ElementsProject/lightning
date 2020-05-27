@@ -39,7 +39,8 @@ lightning-fundchannel(7).
 RETURN VALUE
 ------------
 
-On success the peer *id* is returned.
+On success the peer *id* is returned, as well as a hexidecimal *features*
+bitmap.
 
 ERRORS
 ------

@@ -18,16 +18,13 @@ char *add_plugin_dir(struct plugins *plugins UNNEEDED, const char *dir UNNEEDED,
 /* Generated stub for begin_topology */
 void begin_topology(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "begin_topology called!\n"); abort(); }
-/* Generated stub for bigsize_get */
-size_t bigsize_get(const u8 *p UNNEEDED, size_t max UNNEEDED, bigsize_t *val UNNEEDED)
-{ fprintf(stderr, "bigsize_get called!\n"); abort(); }
-/* Generated stub for bigsize_put */
-size_t bigsize_put(u8 buf[BIGSIZE_MAX_LEN] UNNEEDED, bigsize_t v UNNEEDED)
-{ fprintf(stderr, "bigsize_put called!\n"); abort(); }
 /* Generated stub for channel_notify_new_block */
 void channel_notify_new_block(struct lightningd *ld UNNEEDED,
 			      u32 block_height UNNEEDED)
 { fprintf(stderr, "channel_notify_new_block called!\n"); abort(); }
+/* Generated stub for coin_mvts_init_count */
+void coin_mvts_init_count(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "coin_mvts_init_count called!\n"); abort(); }
 /* Generated stub for connectd_activate */
 void connectd_activate(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "connectd_activate called!\n"); abort(); }
@@ -57,15 +54,37 @@ s64 db_get_intvar(struct db *db UNNEEDED, char *varname UNNEEDED, s64 defval UNN
 /* Generated stub for db_in_transaction */
 bool db_in_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_in_transaction called!\n"); abort(); }
+/* Generated stub for ecdh_hsmd_setup */
+void ecdh_hsmd_setup(int hsm_fd UNNEEDED,
+		     void (*failed)(enum status_failreason UNNEEDED,
+				    const char *fmt UNNEEDED, ...))
+{ fprintf(stderr, "ecdh_hsmd_setup called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
+/* Generated stub for feature_set_for_feature */
+struct feature_set *feature_set_for_feature(const tal_t *ctx UNNEEDED, int feature UNNEEDED)
+{ fprintf(stderr, "feature_set_for_feature called!\n"); abort(); }
+/* Generated stub for feature_set_or */
+bool feature_set_or(struct feature_set *a UNNEEDED,
+		    const struct feature_set *b TAKES UNNEEDED)
+{ fprintf(stderr, "feature_set_or called!\n"); abort(); }
 /* Generated stub for free_htlcs */
 void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UNNEEDED)
 { fprintf(stderr, "free_htlcs called!\n"); abort(); }
 /* Generated stub for free_unreleased_txs */
 void free_unreleased_txs(struct wallet *w UNNEEDED)
 { fprintf(stderr, "free_unreleased_txs called!\n"); abort(); }
+/* Generated stub for fromwire_bigsize */
+bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
+{ fprintf(stderr, "fromwire_bigsize called!\n"); abort(); }
+/* Generated stub for fromwire_channel_id */
+void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
+			 struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
+/* Generated stub for fromwire_node_id */
+void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
+{ fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
 /* Generated stub for fromwire_status_fail */
 bool fromwire_status_fail(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, enum status_failreason *failreason UNNEEDED, wirestring **desc UNNEEDED)
 { fprintf(stderr, "fromwire_status_fail called!\n"); abort(); }
@@ -178,8 +197,11 @@ void per_peer_state_set_fds_arr(struct per_peer_state *pps UNNEEDED, const int *
 /* Generated stub for plugins_config */
 void plugins_config(struct plugins *plugins UNNEEDED)
 { fprintf(stderr, "plugins_config called!\n"); abort(); }
+/* Generated stub for plugins_free */
+void plugins_free(struct plugins *plugins UNNEEDED)
+{ fprintf(stderr, "plugins_free called!\n"); abort(); }
 /* Generated stub for plugins_init */
-void plugins_init(struct plugins *plugins UNNEEDED, const char *dev_plugin_debug UNNEEDED)
+void plugins_init(struct plugins *plugins UNNEEDED)
 { fprintf(stderr, "plugins_init called!\n"); abort(); }
 /* Generated stub for plugins_new */
 struct plugins *plugins_new(const tal_t *ctx UNNEEDED, struct log_book *log_book UNNEEDED,
@@ -195,6 +217,15 @@ void setup_topology(struct chain_topology *topology UNNEEDED, struct timers *tim
 /* Generated stub for timer_expired */
 void timer_expired(tal_t *ctx UNNEEDED, struct timer *timer UNNEEDED)
 { fprintf(stderr, "timer_expired called!\n"); abort(); }
+/* Generated stub for towire_bigsize */
+void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
+{ fprintf(stderr, "towire_bigsize called!\n"); abort(); }
+/* Generated stub for towire_channel_id */
+void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "towire_channel_id called!\n"); abort(); }
+/* Generated stub for towire_node_id */
+void towire_node_id(u8 **pptr UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "towire_node_id called!\n"); abort(); }
 /* Generated stub for txfilter_add_derkey */
 void txfilter_add_derkey(struct txfilter *filter UNNEEDED,
 			 const u8 derkey[PUBKEY_CMPR_LEN])

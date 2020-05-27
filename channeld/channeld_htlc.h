@@ -27,6 +27,9 @@ struct htlc {
 
 	/* Routing information sent with this HTLC (outgoing only). */
 	const u8 *routing;
+
+	/* Blinding (optional). */
+	struct pubkey *blinding;
 };
 
 static inline bool htlc_has(const struct htlc *h, int flag)

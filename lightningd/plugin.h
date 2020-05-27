@@ -22,25 +22,17 @@
 
 
 enum plugin_state {
+	/* We have to ask getmanifest */
 	UNCONFIGURED,
-	CONFIGURED
+	/* We sent getmanifest, need response. */
+	AWAITING_GETMANIFEST_RESPONSE,
+	/* Got `getmanifest` reply, now we need to send `init`. */
+	NEEDS_INIT,
+	/* We have to get `init` response */
+	AWAITING_INIT_RESPONSE,
+	/* We have `init` response. */
+	INIT_COMPLETE
 };
-
-/**
- * A plugin may register any number of featurebits that should be added to
- * various messages as part of their manifest. The following enum enumerates
- * the possible locations the featurebits can be added to, and are used as
- * indices into the array of featurebits in the plugin struct itself.
- *
- * If you edit this make sure that there is a matching entry in the
- * `plugin_features_type_names[]` array in plugin.c.
- */
-enum plugin_features_type {
-	PLUGIN_FEATURES_NODE,
-	PLUGIN_FEATURES_INIT,
-	PLUGIN_FEATURES_INVOICE,
-};
-#define NUM_PLUGIN_FEATURES_TYPE (PLUGIN_FEATURES_INVOICE+1)
 
 /**
  * A plugin, exposed as a stub so we can pass it as an argument.
@@ -51,9 +43,10 @@ struct plugin {
 	pid_t pid;
 	char *cmd;
 	struct io_conn *stdin_conn, *stdout_conn;
-	bool stop;
 	struct plugins *plugins;
 	const char **plugin_path;
+	/* If there's a json command which ordered this to start */
+	struct command *start_cmd;
 
 	enum plugin_state plugin_state;
 
@@ -83,10 +76,9 @@ struct plugin {
 	/* An array of subscribed topics */
 	char **subscriptions;
 
-	/* Featurebits for various locations that the plugin
-	 * registered. Indices correspond to the `plugin_features_type`
-	 * enum. */
-	u8 *featurebits[NUM_PLUGIN_FEATURES_TYPE];
+	/* An array of currently pending RPC method calls, to be killed if the
+	 * plugin exits. */
+	struct list_head pending_rpccalls;
 };
 
 /**
@@ -96,7 +88,6 @@ struct plugin {
  */
 struct plugins {
 	struct list_head plugins;
-	size_t pending_manifests;
 	bool startup;
 
 	/* Currently pending requests by their request ID */
@@ -106,6 +97,12 @@ struct plugins {
 
 	struct lightningd *ld;
 	const char *default_dir;
+
+	/* If there are json commands waiting for plugin resolutions. */
+	struct command **json_cmds;
+
+	/* Blacklist of plugins from --disable-plugin */
+	const char **blacklist;
 };
 
 /* The value of a plugin option, which can have different types.
@@ -114,7 +111,7 @@ struct plugins {
  */
 struct plugin_opt_value {
 	char *as_str;
-	int *as_int;
+	s64 *as_int;
 	bool *as_bool;
 };
 
@@ -149,18 +146,42 @@ void plugins_add_default_dir(struct plugins *plugins);
  * arguments. In order to read the getmanifest reply from the plugins
  * we spin up our own io_loop that exits once all plugins have
  * responded.
- *
- * The dev_plugin_debug arg comes from --dev-debugger if DEVELOPER.
  */
-void plugins_init(struct plugins *plugins, const char *dev_plugin_debug);
+void plugins_init(struct plugins *plugins);
+
+/**
+ * Free all resources that are held by plugins in the correct order.
+ *
+ * This function ensures that the resources dangling off of the plugins struct
+ * are freed in the correct order. This is necessary since the struct manages
+ * two orthogonal sets of resources:
+ *
+ *  - Plugins
+ *  - Hook calls and notifications
+ *
+ * The tal hierarchy is organized in a plugin centric way, i.e., the plugins
+ * may exit in an arbitrary order and they'll unregister pointers in the other
+ * resources. However this will fail if `tal_free` decides to free one of the
+ * non-plugin resources (technically a sibling in the allocation tree) before
+ * the plugins we will get a use-after-free. This function fixes this by
+ * freeing in the correct order without adding additional child-relationships
+ * in the allocation structure and without adding destructors.
+ */
+void plugins_free(struct plugins *plugins);
 
 /**
  * Register a plugin for initialization and execution.
  *
  * @param plugins: Plugin context
  * @param path: The path of the executable for this plugin
+ * @param start_cmd: The optional JSON command which caused this.
+ *
+ * If @start_cmd, then plugin_cmd_killed or plugin_cmd_succeeded will be called
+ * on it eventually.
  */
-struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES);
+struct plugin *plugin_register(struct plugins *plugins,
+			       const char* path TAKES,
+			       struct command *start_cmd);
 
 /**
  * Returns true if the provided name matches a plugin command
@@ -173,12 +194,34 @@ bool plugin_paths_match(const char *cmd, const char *name);
  * @param plugins: Plugin context
  * @param arg: The basename or fullname of the executable for this plugin
  */
-bool plugin_remove(struct plugins *plugins, const char *name);
+void plugin_blacklist(struct plugins *plugins, const char *name);
 
 /**
- * Kill a plugin process, with an error message.
+ * Is a plugin disabled?.
+ *
+ * @param plugins: Plugin context
+ * @param arg: The basename or fullname of the executable for this plugin
  */
-void plugin_kill(struct plugin *plugin, char *fmt, ...) PRINTF_FMT(2,3);
+bool plugin_blacklisted(struct plugins *plugins, const char *name);
+
+/**
+ * Kick off initialization of a plugin.
+ *
+ * Returns error string, or NULL.
+ */
+const char *plugin_send_getmanifest(struct plugin *p);
+
+/**
+ * Kick of initialization of all plugins which need it/
+ *
+ * Return true if any were started.
+ */
+bool plugins_send_getmanifest(struct plugins *plugins);
+
+/**
+ * Kill a plugin process and free @plugin, with an error message.
+ */
+void plugin_kill(struct plugin *plugin, const char *msg);
 
 /**
  * Returns the plugin which registers the command with name {cmd_name}
@@ -186,6 +229,15 @@ void plugin_kill(struct plugin *plugin, char *fmt, ...) PRINTF_FMT(2,3);
 struct plugin *find_plugin_for_command(struct lightningd *ld,
 				       const char *cmd_name);
 
+
+/**
+ * Call plugin_cmd_all_complete once all plugins are init or killed.
+ *
+ * Returns NULL if it's still pending. otherwise, returns
+ * plugin_cmd_all_complete().
+ */
+struct command_result *plugin_register_all_complete(struct lightningd *ld,
+						    struct command *cmd);
 
 /**
  * Send the configure message to all plugins.
@@ -198,12 +250,14 @@ struct plugin *find_plugin_for_command(struct lightningd *ld,
 void plugins_config(struct plugins *plugins);
 
 /**
- * Read and treat (populate options, methods, ...) the `getmanifest` response.
+ * Are any plugins at this state still?
  */
-bool plugin_parse_getmanifest_response(const char *buffer,
-                                       const jsmntok_t *toks,
-                                       const jsmntok_t *idtok,
-                                       struct plugin *plugin);
+bool plugins_any_in_state(const struct plugins *plugins, enum plugin_state state);
+
+/**
+ * Are all plugins at this state?
+ */
+bool plugins_all_in_state(const struct plugins *plugins, enum plugin_state state);
 
 /**
  * This populates the jsonrpc request with the plugin/lightningd specifications
@@ -219,6 +273,12 @@ void plugin_populate_init_request(struct plugin *p, struct jsonrpc_request *req)
 void json_add_opt_plugins(struct json_stream *response,
 			  const struct plugins *plugins);
 
+
+/**
+ * Add the disable-plugins options to listconfigs.
+ */
+void json_add_opt_disable_plugins(struct json_stream *response,
+				  const struct plugins *plugins);
 
 /**
  * Used by db hooks which can't have any other I/O while talking to plugin.
@@ -255,6 +315,12 @@ void plugin_request_send(struct plugin *plugin,
 char *plugin_opt_set(const char *arg, struct plugin_opt *popt);
 
 /**
+ * Callback called when plugin flag-type options.It just stores
+ * the value in the plugin_opt
+ */
+char *plugin_opt_flag_set(struct plugin_opt *popt);
+
+/**
  * Helpers to initialize a connection to a plugin; we read from their
  * stdout, and write to their stdin.
  */
@@ -272,9 +338,4 @@ struct log *plugin_get_log(struct plugin *plugin);
  * call both! */
 struct plugin_destroyed *plugin_detect_destruction(const struct plugin *plugin);
 bool was_plugin_destroyed(struct plugin_destroyed *destroyed);
-
-/* Gather all the features of the given type that plugins registered. */
-u8 *plugins_collect_featurebits(const tal_t *ctx, const struct plugins *plugins,
-				enum plugin_features_type type);
-
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_H */

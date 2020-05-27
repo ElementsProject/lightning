@@ -36,8 +36,6 @@ pip3 install --user -U --quiet --progress-bar off \
 
 pip3 install --user -U --quiet --progress-bar off \
      -r requirements.txt \
-     -r tests/requirements.txt \
-     -r doc/requirements.txt \
      -r contrib/pyln-client/requirements.txt \
      -r contrib/pyln-proto/requirements.txt \
      -r contrib/pyln-testing/requirements.txt

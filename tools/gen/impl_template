@@ -7,6 +7,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/utils.h>
 #include <stdio.h>
 
 #ifndef SUPERVERBOSE
@@ -46,26 +47,28 @@ bool ${enum_set['name']}_is_defined(u16 type)
 % endfor
 ## START PARTIALS
 ## Subtype and TLV-msg towire_
-<%def name="towire_subtype_field(fieldname, f, ptr)">\
+<%def name="towire_subtype_field(fieldname, f, type_obj, is_single_ptr, ptr)">\
 % if f.is_array() or f.is_varlen():
-    % if f.type_obj.has_array_helper():
-towire_${f.type_obj.name}_array(${ptr}, ${fieldname}, ${f.size('tal_count(' + fieldname + ')')});
+    % if type_obj.has_array_helper():
+towire_${type_obj.name}_array(${ptr}, ${fieldname}, ${f.size('tal_count(' + fieldname + ')')});
     % else:
 	for (size_t i = 0; i < ${f.size('tal_count(' + fieldname + ')')}; i++)
-	% if f.type_obj.is_assignable() or f.type_obj.has_len_fields():
-		towire_${f.type_obj.name}(${ptr}, ${fieldname}[i]);
+	% if type_obj.is_assignable() or type_obj.has_len_fields():
+		towire_${type_obj.name}(${ptr}, ${fieldname}[i]);
 	% else:
-		towire_${f.type_obj.name}(${ptr}, ${fieldname} + i);
+		towire_${type_obj.name}(${ptr}, ${fieldname} + i);
 	% endif
     % endif
 % elif f.len_field_of:
-towire_${f.type_obj.name}(${ptr}, ${f.name});
+towire_${type_obj.name}(${ptr}, ${f.name});
+% elif is_single_ptr:
+towire_${type_obj.name}(${ptr}, ${'*' if type_obj.is_assignable() else ''}${fieldname});
 % else:
-towire_${f.type_obj.name}(${ptr}, ${'' if f.type_obj.is_assignable() else '&'}${fieldname});
+towire_${type_obj.name}(${ptr}, ${'' if type_obj.is_assignable() else '&'}${fieldname});
 % endif
 </%def>
 ## Subtype and TLV-msg fromwire
-<%def name="fromwire_subtype_field(fieldname, f, ctx)">\
+<%def name="fromwire_subtype_field(fieldname, f, ctx, is_ptr)">\
 <%
     type_ = f.type_obj.name
     typename = f.type_obj.type_name()
@@ -100,6 +103,10 @@ ${fieldname} = ${f.size('*plen')} ? tal_arr(${ctx}, ${typename}, 0) : NULL;
 	}
     % endif
 % else:
+    % if is_ptr:
+    ${fieldname} = tal(${ctx}, ${typename});
+    <% fieldname = '*' + fieldname %>
+    % endif
     % if f.type_obj.is_assignable():
 ${ f.name if f.len_field_of else fieldname} = fromwire_${type_}(cursor, plen);
     % elif f.type_obj.is_varsize():
@@ -132,9 +139,9 @@ ${static}void towire_${subtype.name}(u8 **p, const ${subtype.type_name()} *${sub
 	/*${c} */
 	    % endfor
 <%
-    fieldname = '{}->{}'.format(subtype.name,f.name)
+   fieldname = '{}->{}'.format(subtype.name,f.name)
 %>\
-	${towire_subtype_field(fieldname, f, 'p')}\
+	${towire_subtype_field(fieldname, f, f.type_obj, False, 'p')}\
 	% endfor
 }
 % if subtype.is_varsize():
@@ -160,7 +167,7 @@ ${static}void fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.needs_c
     fieldname = '{}->{}'.format(subtype.name,f.name)
     ctx = subtype.name
 %> \
-	${fromwire_subtype_field(fieldname, f, ctx)}\
+	${fromwire_subtype_field(fieldname, f, ctx, False)}\
 	% endfor
 % if subtype.is_varsize():
 
@@ -205,8 +212,15 @@ static u8 *towire_${msg.struct_name()}(const tal_t *ctx, const void *vrecord)
 
 	ptr = tal_arr(ctx, u8, 0);
 	% for f in msg.fields.values():
-<% fieldname = 'r->{}->{}'.format(msg.name, f.name) %>\
-	${towire_subtype_field(fieldname, f, '&ptr')}\
+<%
+    if msg.singleton():
+        fieldname = 'r->{}'.format(msg.name)
+	type_obj = msg.singleton().type_obj
+    else:
+        fieldname = 'r->{}->{}'.format(msg.name, f.name)
+	type_obj = f.type_obj
+%>
+	${towire_subtype_field(fieldname, f, type_obj, msg.singleton(), '&ptr')}\
 	% endfor
 	return ptr;
 }
@@ -218,13 +232,19 @@ static void fromwire_${msg.struct_name()}(const u8 **cursor, size_t *plen, void 
 	${f.type_obj.type_name()} ${f.name};
 	% endfor
 
+	% if not msg.singleton():
 	r->${msg.name} = tal(r, struct ${msg.struct_name()});
+	% endif
 	% for f in msg.fields.values():
 <%
-    fieldname = 'r->{}->{}'.format(msg.name, f.name)
-    ctx = 'r->{}'.format(msg.name)
+    if msg.singleton():
+        fieldname = 'r->{}'.format(msg.name)
+        ctx = 'r'
+    else:
+        fieldname = 'r->{}->{}'.format(msg.name, f.name)
+        ctx = 'r->{}'.format(msg.name)
 %>\
-	${fromwire_subtype_field(fieldname, f, ctx)}\
+	${fromwire_subtype_field(fieldname, f, ctx, msg.singleton())}\
 	% endfor
 }
     % endfor

@@ -1,4 +1,5 @@
 #include <ccan/array_size/array_size.h>
+#include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <plugins/libplugin.h>
 
@@ -123,7 +124,7 @@ static const struct plugin_notification notifs[] = { {
 int main(int argc, char *argv[])
 {
 	setup_locale();
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, commands, ARRAY_SIZE(commands),
+	plugin_main(argv, init, PLUGIN_RESTARTABLE, NULL, commands, ARRAY_SIZE(commands),
 	            notifs, ARRAY_SIZE(notifs), hooks, ARRAY_SIZE(hooks),
 		    plugin_option("name",
 				  "string",

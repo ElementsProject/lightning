@@ -10,7 +10,6 @@ const struct config test_config = {
 	.anchor_confirms = 1,
 	.commitment_fee_min_percent = 0,
 	.commitment_fee_max_percent = 0,
-	.commitment_fee_percent = 500,
 	.cltv_expiry_delta = 6,
 	.cltv_final = 10,
 	.commit_time_ms = 10,

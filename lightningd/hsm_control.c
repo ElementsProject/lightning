@@ -5,7 +5,9 @@
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/io/io.h>
 #include <ccan/take/take.h>
+#include <common/ecdh.h>
 #include <common/json.h>
+#include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/param.h>
 #include <common/status.h>
@@ -134,10 +136,8 @@ static struct command_result *json_getsharedsecret(struct command *cmd,
 					   const jsmntok_t *obj UNNEEDED,
 					   const jsmntok_t *params)
 {
-	struct lightningd *ld = cmd->ld;
 	struct pubkey *point;
 	struct secret ss;
-	u8 *msg;
 	struct json_stream *response;
 
 	if (!param(cmd, buffer, params,
@@ -145,15 +145,7 @@ static struct command_result *json_getsharedsecret(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	msg = towire_hsm_ecdh_req(NULL, point);
-	if (!wire_sync_write(ld->hsm_fd, take(msg)))
-		return command_fail(cmd, HSM_ECDH_FAILED,
-				    "Failed to request ECDH to HSM");
-	msg = wire_sync_read(tmpctx, ld->hsm_fd);
-	if (!fromwire_hsm_ecdh_resp(msg, &ss))
-		return command_fail(cmd, HSM_ECDH_FAILED,
-				    "Failed HSM response for ECDH");
-
+	ecdh(point, &ss);
 	response = json_stream_success(cmd);
 	json_add_secret(response, "shared_secret", &ss);
 	return command_success(cmd, response);

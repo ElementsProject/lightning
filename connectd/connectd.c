@@ -29,6 +29,7 @@
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
 #include <common/decode_array.h>
+#include <common/ecdh_hsmd.h>
 #include <common/errcode.h>
 #include <common/features.h>
 #include <common/jsonrpc_errors.h>
@@ -155,8 +156,8 @@ struct daemon {
 	/* Allow to define the default behavior of tor services calls*/
 	bool use_v3_autotor;
 
-	/* featurebits that we support internally, and via plugins */
-	u8 *init_featurebits;
+	/* Our features, as lightningd told us */
+	struct feature_set *our_features;
 };
 
 /* Peers we're trying to reach: we iterate through addrs until we succeed
@@ -253,11 +254,11 @@ static struct connecting *find_connecting(struct daemon *daemon,
 {
 	struct connecting *i;
 
-	/*~ Note the pubkey_eq function: this is generally preferred over
+	/*~ Note the node_id_eq function: this is generally preferred over
 	 * doing a memcmp() manually, as it is both typesafe and can handle
 	 * any padding which the C compiler is allowed to insert between
 	 * members (unnecessary here, as there's no padding in a `struct
-	 * pubkey`). */
+	 * node_id`). */
 	list_for_each(&daemon->connecting, i, list)
 		if (node_id_eq(id, &i->id))
 			return i;
@@ -294,7 +295,7 @@ static void connected_to_peer(struct daemon *daemon,
  */
 static bool get_gossipfds(struct daemon *daemon,
 			  const struct node_id *id,
-			  const u8 *features,
+			  const u8 *their_features,
 			  struct per_peer_state *pps)
 {
 	bool gossip_queries_feature, initial_routing_sync, success;
@@ -303,13 +304,14 @@ static bool get_gossipfds(struct daemon *daemon,
 	/*~ The way features generally work is that both sides need to offer it;
 	 * we always offer `gossip_queries`, but this check is explicit. */
 	gossip_queries_feature
-		= feature_negotiated(features, OPT_GOSSIP_QUERIES);
+		= feature_negotiated(daemon->our_features, their_features,
+				     OPT_GOSSIP_QUERIES);
 
 	/*~ `initial_routing_sync` is supported by every node, since it was in
 	 * the initial lightning specification: it means the peer wants the
 	 * backlog of existing gossip. */
 	initial_routing_sync
-		= feature_offered(features, OPT_INITIAL_ROUTING_SYNC);
+		= feature_offered(their_features, OPT_INITIAL_ROUTING_SYNC);
 
 	/*~ We do this communication sync, since gossipd is our friend and
 	 * it's easier.  If gossipd fails, we fail. */
@@ -348,7 +350,7 @@ struct peer_reconnected {
 	struct node_id id;
 	struct wireaddr_internal addr;
 	struct crypto_state cs;
-	const u8 *features;
+	const u8 *their_features;
 };
 
 /*~ For simplicity, lightningd only ever deals with a single connection per
@@ -365,7 +367,7 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 	/*~ Usually the pattern is to return this directly, but we have to free
 	 * our temporary structure. */
 	plan = peer_connected(conn, pr->daemon, &pr->id, &pr->addr, &pr->cs,
-			      take(pr->features));
+			      take(pr->their_features));
 	tal_free(pr);
 	return plan;
 }
@@ -377,7 +379,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 					const struct node_id *id,
 					const struct wireaddr_internal *addr,
 					const struct crypto_state *cs,
-					const u8 *features TAKES)
+					const u8 *their_features TAKES)
 {
 	u8 *msg;
 	struct peer_reconnected *pr;
@@ -397,7 +399,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 
 	/*~ Note that tal_dup_talarr() will do handle the take() of features
 	 * (turning it into a simply tal_steal() in those cases). */
-	pr->features = tal_dup_talarr(pr, u8, features);
+	pr->their_features = tal_dup_talarr(pr, u8, their_features);
 
 	/*~ ccan/io supports waiting on an address: in this case, the key in
 	 * the peer set.  When someone calls `io_wake()` on that address, it
@@ -416,31 +418,51 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       struct daemon *daemon,
 			       const struct node_id *id,
 			       const struct wireaddr_internal *addr,
-			       const struct crypto_state *cs,
-			       const u8 *features TAKES)
+			       struct crypto_state *cs,
+			       const u8 *their_features TAKES)
 {
 	u8 *msg;
 	struct per_peer_state *pps;
+	int unsup;
 
 	if (node_set_get(&daemon->peers, id))
-		return peer_reconnected(conn, daemon, id, addr, cs, features);
+		return peer_reconnected(conn, daemon, id, addr, cs,
+					their_features);
+
+	/* We promised we'd take it by marking it TAKEN above; prepare to free it. */
+	if (taken(their_features))
+		tal_steal(tmpctx, their_features);
+
+	/* BOLT #1:
+	 *
+	 * The receiving node:
+	 * ...
+	 *  - upon receiving unknown _odd_ feature bits that are non-zero:
+	 *    - MUST ignore the bit.
+	 *  - upon receiving unknown _even_ feature bits that are non-zero:
+	 *    - MUST fail the connection.
+	 */
+	unsup = features_unsupported(daemon->our_features, their_features,
+				     INIT_FEATURE);
+	if (unsup != -1) {
+		msg = towire_errorfmt(NULL, NULL, "Unsupported feature %u",
+				      unsup);
+		msg = cryptomsg_encrypt_msg(tmpctx, cs, take(msg));
+		return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
+	}
 
 	/* We've successfully connected. */
 	connected_to_peer(daemon, conn, id);
-
-	/* We promised we'd take it by marking it TAKEN above; prepare to free it. */
-	if (taken(features))
-		tal_steal(tmpctx, features);
 
 	/* This contains the per-peer state info; gossipd fills in pps->gs */
 	pps = new_per_peer_state(tmpctx, cs);
 
 	/* If gossipd can't give us a file descriptor, we give up connecting. */
-	if (!get_gossipfds(daemon, id, features, pps))
+	if (!get_gossipfds(daemon, id, their_features, pps))
 		return io_close(conn);
 
 	/* Create message to tell master peer has connected. */
-	msg = towire_connect_peer_connected(NULL, id, addr, pps, features);
+	msg = towire_connect_peer_connected(NULL, id, addr, pps, their_features);
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd
@@ -469,14 +491,14 @@ struct io_plan *peer_connected(struct io_conn *conn,
 static struct io_plan *handshake_in_success(struct io_conn *conn,
 					    const struct pubkey *id_key,
 					    const struct wireaddr_internal *addr,
-					    const struct crypto_state *cs,
+					    struct crypto_state *cs,
 					    struct daemon *daemon)
 {
 	struct node_id id;
 	node_id_from_pubkey(&id, id_key);
 	status_peer_debug(&id, "Connect IN");
-	return peer_exchange_initmsg(conn, daemon, cs, &id, addr,
-				     daemon->init_featurebits);
+	return peer_exchange_initmsg(conn, daemon, daemon->our_features,
+				     cs, &id, addr);
 }
 
 /*~ When we get a connection in we set up its network address then call
@@ -528,7 +550,7 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 static struct io_plan *handshake_out_success(struct io_conn *conn,
 					     const struct pubkey *key,
 					     const struct wireaddr_internal *addr,
-					     const struct crypto_state *cs,
+					     struct crypto_state *cs,
 					     struct connecting *connect)
 {
 	struct node_id id;
@@ -536,8 +558,9 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 	node_id_from_pubkey(&id, key);
 	connect->connstate = "Exchanging init messages";
 	status_peer_debug(&id, "Connect OUT");
-	return peer_exchange_initmsg(conn, connect->daemon, cs, &id, addr,
-				     connect->daemon->init_featurebits);
+	return peer_exchange_initmsg(conn, connect->daemon,
+				     connect->daemon->our_features,
+				     cs, &id, addr);
 }
 
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
@@ -951,44 +974,21 @@ static void add_binding(struct wireaddr_internal **binding,
 static int wireaddr_cmp_type(const struct wireaddr *a,
 			     const struct wireaddr *b, void *unused)
 {
-	/* Returns > 0 if a belongs after b, < 0 if before, == 0 if don't care */
-	return (int)a->type - (int)b->type;
-}
+	/* This works, but of course it's inefficient.  We don't
+	 * really care, since it's called only once at startup. */
+	u8 *a_wire = tal_arr(tmpctx, u8, 0), *b_wire = tal_arr(tmpctx, u8, 0);
+	int cmp, minlen;
 
-/*~ The spec for we-can't-remember reasons specifies only one address of each
- * type.  I think there was a bias against "hubs" which would want this.  So
- * we sort and uniquify. */
-static void finalize_announcable(struct wireaddr **announcable)
-{
-	size_t n = tal_count(*announcable);
+	towire_wireaddr(&a_wire, a);
+	towire_wireaddr(&b_wire, b);
 
-	/* BOLT #7:
-	 *
-	 * The origin node:
-	 *...
-	 *   - MUST NOT include more than one `address descriptor` of the same
-	 *     type.
-	 */
-	asort(*announcable, n, wireaddr_cmp_type, NULL);
-	for (size_t i = 1; i < n; i++) {
-		/* Note we use > instead of !=: catches asort bugs too. */
-		if ((*announcable)[i].type > (*announcable)[i-1].type)
-			continue;
-
-		status_unusual("WARNING: Cannot announce address %s,"
-			       " already announcing %s",
-			       type_to_string(tmpctx, struct wireaddr,
-					      &(*announcable)[i]),
-			       type_to_string(tmpctx, struct wireaddr,
-					      &(*announcable)[i-1]));
-
-		/* Move and shrink; step back because i++ above would skip. */
-		memmove(*announcable + i,
-			*announcable + i + 1,
-			(n - i - 1) * sizeof((*announcable)[0]));
-		tal_resize(announcable, --n);
-		--i;
-	}
+	minlen = tal_bytelen(a_wire) < tal_bytelen(b_wire)
+		? tal_bytelen(a_wire) : tal_bytelen(b_wire);
+	cmp = memcmp(a_wire, b_wire, minlen);
+	/* On a tie, shorter one goes first. */
+	if (cmp == 0)
+		return tal_bytelen(a_wire) - tal_bytelen(b_wire);
+	return cmp;
 }
 
 /*~ The user can specify three kinds of addresses: ones we bind to but don't
@@ -1158,8 +1158,11 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 				randombytes_buf((void * const)&random, 32);
 				/* generate static tor node address, take first 32 bytes from secret of node_id plus 32 random bytes from sodiom */
 				struct sha256 sha;
+				struct secret ss;
+
+				ecdh(&pb, &ss);
 				/* let's sha, that will clear ctx of hsm data */
-				sha256(&sha, hsm_do_ecdh(tmpctx, &pb), 32);
+				sha256(&sha, &ss, 32);
 				/* even if it's a secret pub derived, tor shall see only the single sha */
 				memcpy((void *)&blob[0], &sha, 32);
 				memcpy((void *)&blob[32], &random, 32);
@@ -1184,8 +1187,16 @@ static struct wireaddr_internal *setup_listeners(const tal_t *ctx,
 		};
 		add_announcable(announcable, toraddr);
 	}
-	/* Sort and uniquify. */
-	finalize_announcable(announcable);
+
+	/*~ The spec used to ban more than one address of each type, but
+	 * nobody could remember exactly why, so now that's allowed. */
+	/* BOLT #7:
+	 *
+	 * The origin node:
+	 *...
+	 *   - MUST place address descriptors in ascending order.
+	 */
+	asort(*announcable, tal_count(*announcable), wireaddr_cmp_type, NULL);
 
 	return binding;
 }
@@ -1209,13 +1220,14 @@ static struct io_plan *connect_init(struct io_conn *conn,
 	if (!fromwire_connectctl_init(
 		daemon, msg,
 		&chainparams,
+		&daemon->our_features,
 		&daemon->id,
 		&proposed_wireaddr,
 		&proposed_listen_announce,
 		&proxyaddr, &daemon->use_proxy_always,
 		&daemon->dev_allow_localhost, &daemon->use_dns,
 		&tor_password,
-		&daemon->use_v3_autotor, &daemon->init_featurebits)) {
+		&daemon->use_v3_autotor)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTCTL_INIT, msg);
@@ -1318,6 +1330,8 @@ static const char **seednames(const tal_t *ctx, const struct node_id *id)
 	bech32_encode(bech32, "ln", data, tal_count(data), sizeof(bech32));
 	/* This is cdecker's seed */
 	tal_arr_expand(&seednames, tal_fmt(seednames, "%s.lseed.bitcoinstats.com", bech32));
+	/* This is darosior's seed */
+	tal_arr_expand(&seednames, tal_fmt(seednames, "%s.lseed.darosior.ninja", bech32));
 	return seednames;
 }
 
@@ -1349,6 +1363,8 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 								 &a.u.wireaddr));
 				tal_arr_expand(addrs, a);
 			}
+			/* Other seeds will likely have the same informations. */
+			return;
 		} else
 			status_peer_debug(id, "Could not resolve %s", hostnames[i]);
 	}
@@ -1570,31 +1586,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		      t, tal_hex(tmpctx, msg));
 }
 
-/*~ Helper for handshake.c: we ask `hsmd` to do the ECDH to get the shared
- * secret.  It's here because it's nicer then giving the handshake code
- * knowledge of the HSM, but also at one stage I made a hacky gossip vampire
- * tool which used the handshake code, so it's nice to keep that
- * standalone. */
-struct secret *hsm_do_ecdh(const tal_t *ctx, const struct pubkey *point)
-{
-	u8 *req = towire_hsm_ecdh_req(tmpctx, point), *resp;
-	struct secret *secret = tal(ctx, struct secret);
-
-	if (!wire_sync_write(HSM_FD, req))
-		return tal_free(secret);
-	resp = wire_sync_read(req, HSM_FD);
-	if (!resp)
-		return tal_free(secret);
-
-	/* Note: hsmd will actually hang up on us if it can't ECDH: that implies
-	 * that our node private key is invalid, and we shouldn't have made
-	 * it this far.  */
-	if (!fromwire_hsm_ecdh_resp(resp, secret))
-		return tal_free(secret);
-
-	return secret;
-}
-
 /*~ UNUSED is defined to an __attribute__ for GCC; at one stage we tried to use
  * it ubiquitously to make us compile cleanly with -Wunused, but it's bitrotted
  * and we'd need to start again.
@@ -1639,6 +1630,10 @@ int main(int argc, char *argv[])
 	/* This tells the status_* subsystem to use this connection to send
 	 * our status_ and failed messages. */
 	status_setup_async(daemon->master);
+
+	/* Set up ecdh() function so it uses our HSM fd, and calls
+	 * status_failed on error. */
+	ecdh_hsmd_setup(HSM_FD, status_failed);
 
 	/* Should never exit. */
 	io_loop(NULL, NULL);

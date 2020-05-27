@@ -1,29 +1,30 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
+#include <ccan/tal/str/str.h>
 #include <common/fee_states.h>
 #include <common/type_to_string.h>
 #include <wire/wire.h>
 
 /* If we're the finder, it's like an HTLC we added, if they are, it's like
  * a HTLC they added. */
-enum htlc_state first_fee_state(enum side funder)
+enum htlc_state first_fee_state(enum side opener)
 {
-	if (funder == LOCAL)
+	if (opener == LOCAL)
 		return SENT_ADD_HTLC;
 	else
 		return RCVD_ADD_HTLC;
 }
 
-enum htlc_state last_fee_state(enum side funder)
+enum htlc_state last_fee_state(enum side opener)
 {
-	if (funder == LOCAL)
+	if (opener == LOCAL)
 		return SENT_ADD_ACK_REVOCATION;
 	else
 		return RCVD_ADD_ACK_REVOCATION;
 }
 
 struct fee_states *new_fee_states(const tal_t *ctx,
-				  enum side funder,
+				  enum side opener,
 				  const u32 *feerate_per_kw)
 {
 	struct fee_states *fee_states = tal(ctx, struct fee_states);
@@ -32,7 +33,7 @@ struct fee_states *new_fee_states(const tal_t *ctx,
 	for (size_t i = 0; i < ARRAY_SIZE(fee_states->feerate); i++)
 		fee_states->feerate[i] = NULL;
 	if (feerate_per_kw)
-		fee_states->feerate[last_fee_state(funder)]
+		fee_states->feerate[last_fee_state(opener)]
 			= tal_dup(fee_states, u32, feerate_per_kw);
 	return fee_states;
 }
@@ -54,12 +55,12 @@ struct fee_states *dup_fee_states(const tal_t *ctx,
 }
 
 u32 get_feerate(const struct fee_states *fee_states,
-		enum side funder,
+		enum side opener,
 		enum side side)
 {
 	/* The first non-NULL feerate committed to this side is current */
-	for (enum htlc_state i = first_fee_state(funder);
-	     i <= last_fee_state(funder);
+	for (enum htlc_state i = first_fee_state(opener);
+	     i <= last_fee_state(opener);
 	     i++) {
 		if (!fee_states->feerate[i])
 			continue;
@@ -73,10 +74,10 @@ u32 get_feerate(const struct fee_states *fee_states,
 }
 
 void start_fee_update(struct fee_states *fee_states,
-		      enum side funder,
+		      enum side opener,
 		      u32 feerate_per_kw)
 {
-	enum htlc_state start = first_fee_state(funder);
+	enum htlc_state start = first_fee_state(opener);
 
 	/* BOLT #2:
 	 * Unlike an HTLC, `update_fee` is never closed but simply replaced.
@@ -135,11 +136,11 @@ void towire_fee_states(u8 **pptr, const struct fee_states *fee_states)
 	}
 }
 
-/* FIXME: we don't know funder inside fromwire_fee_states, so can't do
+/* FIXME: we don't know opener inside fromwire_fee_states, so can't do
  * this there :( */
-bool fee_states_valid(const struct fee_states *fee_states, enum side funder)
+bool fee_states_valid(const struct fee_states *fee_states, enum side opener)
 {
-	return fee_states->feerate[last_fee_state(funder)] != NULL;
+	return fee_states->feerate[last_fee_state(opener)] != NULL;
 }
 
 static const char *fmt_fee_states(const tal_t *ctx,

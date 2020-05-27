@@ -16,7 +16,7 @@ struct pubkey;
 						 struct io_conn *,	\
 						 const struct pubkey *,	\
 						 const struct wireaddr_internal *,	\
-						 const struct crypto_state *), \
+						 struct crypto_state *), \
 			     (cbarg))
 
 
@@ -27,7 +27,7 @@ struct io_plan *initiator_handshake_(struct io_conn *conn,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
 							   const struct wireaddr_internal *,
-							   const struct crypto_state *,
+							   struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg);
 
@@ -39,7 +39,7 @@ struct io_plan *initiator_handshake_(struct io_conn *conn,
 						 struct io_conn *,	\
 						 const struct pubkey *,	\
 						 const struct wireaddr_internal *,	\
-						 const struct crypto_state *), \
+						 struct crypto_state *), \
 			     (cbarg))
 
 struct io_plan *responder_handshake_(struct io_conn *conn,
@@ -48,10 +48,7 @@ struct io_plan *responder_handshake_(struct io_conn *conn,
 				     struct io_plan *(*cb)(struct io_conn *,
 							   const struct pubkey *,
 							   const struct wireaddr_internal *,
-							   const struct crypto_state *,
+							   struct crypto_state *,
 							   void *cbarg),
 				     void *cbarg);
-
-/* helper which is defined in connect.c */
-struct secret *hsm_do_ecdh(const tal_t *ctx, const struct pubkey *point);
 #endif /* LIGHTNING_CONNECTD_HANDSHAKE_H */

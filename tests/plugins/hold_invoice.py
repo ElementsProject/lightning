@@ -2,7 +2,7 @@
 """Simple plugin to allow testing while closing of HTLC is delayed.
 """
 
-from lightning import Plugin
+from pyln.client import Plugin
 import time
 
 plugin = Plugin()
