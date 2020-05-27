@@ -122,6 +122,23 @@ enum payment_step {
 	PAYMENT_STEP_SUCCESS = 64,
 };
 
+/* Just a container to collect a subtree result so we can summarize all
+ * sub-payments and return a reasonable result to the caller of `pay` */
+struct payment_tree_result {
+	/* OR of all the leafs in the subtree. */
+	enum payment_step leafstates;
+
+	/* OR of all the inner nodes and leaf nodes. */
+	enum payment_step treestates;
+
+	struct amount_msat sent;
+
+	/* Preimage if any of the attempts succeeded. */
+	struct preimage *preimage;
+
+	u32 attempts;
+};
+
 struct payment {
 	/* The command that triggered this payment. Only set for the root
 	 * payment. */
@@ -260,5 +277,6 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 void payment_start(struct payment *p);
 void payment_continue(struct payment *p);
 struct payment *payment_root(struct payment *p);
+struct payment_tree_result payment_collect_result(struct payment *p);
 
 #endif /* LIGHTNING_PLUGINS_LIBPLUGIN_PAY_H */
