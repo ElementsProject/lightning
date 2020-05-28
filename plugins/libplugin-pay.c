@@ -91,6 +91,9 @@ struct payment_tree_result payment_collect_result(struct payment *p)
 	res.treestates = p->step;
 	res.leafstates = 0;
 	res.preimage = NULL;
+	res.failure = NULL;
+	if (p->step == PAYMENT_STEP_FAILED && p->result != NULL)
+		res.failure = p->result;
 
 	if (numchildren == 0) {
 		res.leafstates |= p->step;
@@ -122,6 +125,14 @@ struct payment_tree_result payment_collect_result(struct payment *p)
 		res.leafstates |= cres.leafstates;
 		res.treestates |= cres.treestates;
 		res.attempts += cres.attempts;
+
+		/* We bubble the failure result with the highest failcode up
+		 * to the root. */
+		if (res.failure == NULL ||
+		    (cres.failure != NULL &&
+		     cres.failure->failcode > res.failure->failcode)) {
+			res.failure = cres.failure;
+		}
 	}
 	return res;
 }

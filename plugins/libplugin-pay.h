@@ -137,6 +137,11 @@ struct payment_tree_result {
 	struct preimage *preimage;
 
 	u32 attempts;
+
+	/* Pointer to the failure that caused the payment to fail. We just
+	 * take the one with the highest failcode, since that happen to match
+	 * the severity of the error. */
+	struct payment_result *failure;
 };
 
 struct payment {
