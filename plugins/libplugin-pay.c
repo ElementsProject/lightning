@@ -838,10 +838,84 @@ static void payment_finished(struct payment *p)
 			p->cmd = NULL;
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
 			return;
-		} else {
-			if (command_fail(p->cmd, JSONRPC2_INVALID_REQUEST,
-					 "Not functional yet")) {/* Ignore result. */}
+		} else if (result.failure == NULL || result.failure->failcode < NODE) {
+			/* This is failing because we have no more routes to try */
+			ret = jsonrpc_stream_fail(cmd, PAY_ROUTE_NOT_FOUND,
+						  NULL);
+			json_add_string(
+			    ret, "message",
+			    tal_fmt(cmd,
+				    "Ran out of routes to try after "
+				    "%d attempt%s: see `paystatus`",
+				    result.attempts,
+				    result.attempts == 1 ? "" : "s"));
+			if (command_finished(cmd, ret)) {/* Ignore result. */}
+			return;
 
+		}  else {
+			struct payment_result *failure = result.failure;
+			assert(failure!= NULL);
+			ret = jsonrpc_stream_fail(cmd, p->result->code,
+						  failure->message);
+
+			json_add_u64(ret, "id", p->result->id);
+
+			json_add_u32(ret, "failcode", result.failure->failcode);
+			json_add_string(ret, "failcodename",
+					result.failure->failcodename);
+
+			if (p->bolt11)
+				json_add_string(ret, "bolt11", p->bolt11);
+
+			json_add_hex_talarr(ret, "raw_message",
+					    p->result->raw_message);
+			json_add_num(ret, "created_at", p->start_time.ts.tv_sec);
+			json_add_string(ret, "message", p->result->message);
+			json_add_node_id(ret, "destination", p->destination);
+			json_add_sha256(ret, "payment_hash", p->payment_hash);
+
+			if (result.leafstates & PAYMENT_STEP_SUCCESS) {
+				/* If one sub-payment succeeded then we have
+				 * proof of payment, and the payment is a
+				 * success. */
+				json_add_string(ret, "status", "complete");
+
+			} else if (result.leafstates & ~PAYMENT_FAILED) {
+				/* If there are non-failed leafs we are still trying. */
+				json_add_string(ret, "status", "pending");
+
+			} else {
+				json_add_string(ret, "status", "failed");
+			}
+
+			json_add_amount_msat_compat(ret, p->amount, "msatoshi",
+						    "amount_msat");
+
+			json_add_amount_msat_compat(ret, result.sent,
+						    "msatoshi_sent",
+						    "amount_sent_msat");
+
+			if (failure != NULL) {
+				if (failure->erring_index)
+					json_add_num(ret, "erring_index",
+						     *failure->erring_index);
+
+				if (failure->erring_node)
+					json_add_node_id(ret, "erring_node",
+							 failure->erring_node);
+
+				if (failure->erring_channel)
+					json_add_short_channel_id(
+					    ret, "erring_channel",
+					    failure->erring_channel);
+
+				if (failure->erring_direction)
+					json_add_num(
+					    ret, "erring_direction",
+					    *failure->erring_direction);
+			}
+
+			if (command_finished(cmd, ret)) {/* Ignore result. */}
 			return;
 		}
 	} else {
