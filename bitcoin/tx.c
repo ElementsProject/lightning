@@ -486,15 +486,7 @@ void bitcoin_tx_finalize(struct bitcoin_tx *tx)
 
 char *bitcoin_tx_to_psbt_base64(const tal_t *ctx, struct bitcoin_tx *tx)
 {
-	char *serialized_psbt, *ret_val;
-	int ret;
-
-	ret = wally_psbt_to_base64(tx->psbt, &serialized_psbt);
-	assert(ret == WALLY_OK);
-
-	ret_val = tal_strdup(ctx, serialized_psbt);
-	wally_free_string(serialized_psbt);
-	return ret_val;
+	return psbt_to_b64(ctx, tx->psbt);
 }
 
 struct bitcoin_tx *bitcoin_tx_with_psbt(const tal_t *ctx, struct wally_psbt *psbt STEALS)
