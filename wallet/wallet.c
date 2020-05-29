@@ -2797,7 +2797,8 @@ wallet_payment_list(const tal_t *ctx,
 						     ", failonionreply"
 						     ", total_msat"
 						     ", partid"
-						     " FROM payments;"));
+						     " FROM payments"
+						     " ORDER BY id;"));
 	}
 	db_query_prepared(stmt);
 
