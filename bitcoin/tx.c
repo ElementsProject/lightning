@@ -502,17 +502,22 @@ struct bitcoin_tx *bitcoin_tx_with_psbt(const tal_t *ctx, struct wally_psbt *psb
 	 * data, not the global tx. But 'finalizing' a tx destroys some fields
 	 * so we 'clone' it first and then finalize it */
 	if (wally_psbt_clone(psbt, &tmppsbt) != WALLY_OK)
-		abort();
+		return NULL;
 
-	if (wally_finalize_psbt(tmppsbt) != WALLY_OK)
-		abort();
+	if (wally_finalize_psbt(tmppsbt) != WALLY_OK) {
+		wally_psbt_free(tmppsbt);
+		return NULL;
+	}
 
 	if (psbt_is_finalized(tmppsbt)) {
-		if (wally_extract_psbt(tmppsbt, &tx->wtx) != WALLY_OK)
-			abort();
-	} else if (wally_tx_clone(psbt->tx, &tx->wtx) != WALLY_OK)
-		abort();
-
+		if (wally_extract_psbt(tmppsbt, &tx->wtx) != WALLY_OK) {
+			wally_psbt_free(tmppsbt);
+			return NULL;
+		}
+	} else if (wally_tx_clone(psbt->tx, &tx->wtx) != WALLY_OK) {
+		wally_psbt_free(tmppsbt);
+		return NULL;
+	}
 
 	wally_psbt_free(tmppsbt);
 
