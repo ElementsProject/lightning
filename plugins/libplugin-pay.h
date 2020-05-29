@@ -257,16 +257,11 @@ void *payment_mod_get_data(const struct payment *payment,
 		return payment_mod_get_data(p, &name##_pay_mod);               \
 	}
 
-struct dummy_data {
-	unsigned int *dummy_param;
-};
 
 struct retry_mod_data {
 	int retries;
 };
-
 /* List of globally available payment modifiers. */
-extern struct payment_modifier dummy_pay_mod;
 REGISTER_PAYMENT_MODIFIER_HEADER(retry, struct retry_mod_data);
 
 /* For the root payment we can seed the channel_hints with the result from

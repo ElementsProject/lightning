@@ -984,22 +984,6 @@ void *payment_mod_get_data(const struct payment *p,
 	abort();
 }
 
-static inline struct dummy_data *
-dummy_data_init(struct payment *p)
-{
-	return tal(p, struct dummy_data);
-}
-
-static inline void dummy_step_cb(struct dummy_data *dd,
-				 struct payment *p)
-{
-	fprintf(stderr, "dummy_step_cb called for payment %p at step %d\n", p, p->step);
-	payment_continue(p);
-}
-
-REGISTER_PAYMENT_MODIFIER(dummy, struct dummy_data *, dummy_data_init,
-			  dummy_step_cb);
-
 static struct retry_mod_data *retry_data_init(struct payment *p);
 
 static inline void retry_step_cb(struct retry_mod_data *rd,
