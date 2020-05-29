@@ -233,25 +233,54 @@ static struct command_result *payment_getroute_error(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+static const struct short_channel_id_dir *
+payment_get_excluded_channels(const tal_t *ctx, struct payment *p)
+{
+	struct payment *root = payment_root(p);
+	struct channel_hint *hint;
+	struct short_channel_id_dir *res =
+	    tal_arr(ctx, struct short_channel_id_dir, 0);
+	for (size_t i = 0; i < tal_count(root->channel_hints); i++) {
+		hint = &root->channel_hints[i];
+
+		if (!hint->enabled)
+			tal_arr_expand(&res, hint->scid);
+
+		else if (amount_msat_greater_eq(p->amount,
+						hint->estimated_capacity))
+			tal_arr_expand(&res, hint->scid);
+	}
+	return res;
+}
+
+static const struct node_id *payment_get_excluded_nodes(const tal_t *ctx,
+						  struct payment *p)
+{
+	struct payment *root = payment_root(p);
+	return root->excluded_nodes;
+}
+
 /* Iterate through the channel_hints and exclude any channel that we are
  * confident will not be able to handle this payment. */
 static void payment_getroute_add_excludes(struct payment *p,
 					  struct json_stream *js)
 {
-	struct payment *root = payment_root(p);
-	struct channel_hint *hint;
+	const struct node_id *nodes;
+	const struct short_channel_id_dir *chans;
 
 	json_array_start(js, "exclude");
-	for (size_t i = 0; i < tal_count(root->channel_hints); i++) {
-		hint = &root->channel_hints[i];
 
-		if (!hint->enabled)
-			json_add_short_channel_id_dir(js, NULL, &hint->scid);
+	/* Collect and exclude all channels that are disabled or we know have
+	 * insufficient capacity. */
+	chans = payment_get_excluded_channels(tmpctx, p);
+	for (size_t i=0; i<tal_count(chans); i++)
+		json_add_short_channel_id_dir(js, NULL, &chans[i]);
 
-		else if (amount_msat_greater_eq(p->amount,
-						hint->estimated_capacity))
-			json_add_short_channel_id_dir(js, NULL, &hint->scid);
-	}
+	/* Now also exclude nodes that we think have failed. */
+	nodes = payment_get_excluded_nodes(tmpctx, p);
+	for (size_t i=0; i<tal_count(nodes); i++)
+		json_add_node_id(js, NULL, &nodes[i]);
+
 	json_array_end(js);
 }
 
@@ -900,6 +929,7 @@ static void payment_finished(struct payment *p)
 				    "%d attempt%s: see `paystatus`",
 				    result.attempts,
 				    result.attempts == 1 ? "" : "s"));
+			json_add_num(ret, "attempts", result.attempts);
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
 			return;
 
@@ -1213,3 +1243,208 @@ static void local_channel_hints_cb(void *d UNUSED, struct payment *p)
 }
 
 REGISTER_PAYMENT_MODIFIER(local_channel_hints, void *, NULL, local_channel_hints_cb);
+
+/* Trim route to this length by taking from the *front* of route
+ * (end points to destination, so we need that bit!) */
+static void trim_route(struct route_info **route, size_t n)
+{
+	size_t remove = tal_count(*route) - n;
+	memmove(*route, *route + remove, sizeof(**route) * n);
+	tal_resize(route, n);
+}
+
+/* Make sure routehints are reasonable length, and (since we assume we
+ * can append), not directly to us.  Note: untrusted data! */
+static struct route_info **filter_routehints(struct routehints_data *d,
+					     struct node_id *myid,
+					     struct route_info **hints)
+{
+	char *mods = tal_strdup(tmpctx, "");
+	for (size_t i = 0; i < tal_count(hints); i++) {
+		/* Trim any routehint > 10 hops */
+		size_t max_hops = ROUTING_MAX_HOPS / 2;
+		if (tal_count(hints[i]) > max_hops) {
+			tal_append_fmt(&mods,
+				       "Trimmed routehint %zu (%zu hops) to %zu. ",
+				       i, tal_count(hints[i]), max_hops);
+			trim_route(&hints[i], max_hops);
+		}
+
+		/* If we are first hop, trim. */
+		if (tal_count(hints[i]) > 0
+		    && node_id_eq(&hints[i][0].pubkey, myid)) {
+			tal_append_fmt(&mods,
+				       "Removed ourselves from routehint %zu. ",
+				       i);
+			trim_route(&hints[i], tal_count(hints[i])-1);
+		}
+
+		/* If route is empty, remove altogether. */
+		if (tal_count(hints[i]) == 0) {
+			tal_append_fmt(&mods,
+				       "Removed empty routehint %zu. ", i);
+			tal_arr_remove(&hints, i);
+			i--;
+		}
+	}
+
+	if (!streq(mods, ""))
+		d->routehint_modifications = tal_steal(d, mods);
+
+	return tal_steal(d, hints);
+}
+
+static bool routehint_excluded(struct payment *p,
+			       const struct route_info *routehint)
+{
+	const struct node_id *nodes = payment_get_excluded_nodes(tmpctx, p);
+	const struct short_channel_id_dir *chans =
+	    payment_get_excluded_channels(tmpctx, p);
+
+	/* Note that we ignore direction here: in theory, we could have
+	 * found that one direction of a channel is unavailable, but they
+	 * are suggesting we use it the other way.  Very unlikely though! */
+	for (size_t i = 0; i < tal_count(routehint); i++) {
+		const struct route_info *r = &routehint[i];
+		for (size_t j=0; tal_count(nodes); j++)
+			if (node_id_eq(&r->pubkey, &nodes[j]))
+			    return true;
+
+		for (size_t j = 0; j < tal_count(chans); j++)
+			if (short_channel_id_eq(&chans[j].scid, &r->short_channel_id))
+				return true;
+	}
+	return false;
+}
+
+static struct route_info *next_routehint(struct routehints_data *d,
+					     struct payment *p)
+{
+	while (tal_count(d->routehints) > 0) {
+		if (!routehint_excluded(p, d->routehints[0])) {
+			d->current_routehint = d->routehints[0];
+			tal_arr_remove(&d->routehints, 0);
+			return d->current_routehint;
+		}
+		tal_free(d->routehints[0]);
+		tal_arr_remove(&d->routehints, 0);
+	}
+	return NULL;
+}
+
+/* Calculate how many millisatoshi we need at the start of this route
+ * to get msatoshi to the end. */
+static bool route_msatoshi(struct amount_msat *total,
+			   const struct amount_msat msat,
+			   const struct route_info *route, size_t num_route)
+{
+	*total = msat;
+	for (ssize_t i = num_route - 1; i >= 0; i--) {
+		if (!amount_msat_add_fee(total,
+					 route[i].fee_base_msat,
+					 route[i].fee_proportional_millionths))
+			return false;
+	}
+	return true;
+}
+
+/* The pubkey to use is the destination of this routehint. */
+static const struct node_id *route_pubkey(const struct payment *p,
+					  const struct route_info *routehint,
+					  size_t n)
+{
+	if (n == tal_count(routehint))
+		return p->destination;
+	return &routehint[n].pubkey;
+}
+
+static u32 route_cltv(u32 cltv,
+		      const struct route_info *route, size_t num_route)
+{
+	for (size_t i = 0; i < num_route; i++)
+		cltv += route[i].cltv_expiry_delta;
+	return cltv;
+}
+
+static void routehint_step_cb(struct routehints_data *d, struct payment *p)
+{
+	struct routehints_data *pd;
+	struct route_hop hop;
+	const struct payment *root = payment_root(p);
+
+	if (p->step == PAYMENT_STEP_INITIALIZED) {
+		if (root->invoice == NULL || root->invoice->routes == NULL)
+			return payment_continue(p);
+
+		/* The root payment gets the unmodified routehints, children may
+		 * start dropping some as they learn that they were not
+		 * functional. */
+		if (p->parent == NULL) {
+			d->routehints = filter_routehints(d, p->local_id,
+							  p->invoice->routes);
+		} else {
+			pd = payment_mod_get_data(p->parent,
+						  &routehints_pay_mod);
+			d->routehints = tal_dup_talarr(d, struct route_info *,
+						       pd->routehints);
+		}
+		d->current_routehint = next_routehint(d, p);
+
+		if (d->current_routehint != NULL) {
+			/* Change the destination and compute the final msatoshi
+			 * amount to send to the routehint entry point. */
+			if (!route_msatoshi(&p->getroute->amount, p->amount,
+				    d->current_routehint,
+				    tal_count(d->current_routehint))) {
+			}
+			d->final_cltv = p->getroute->cltv;
+			p->getroute->destination = &d->current_routehint[0].pubkey;
+			p->getroute->cltv =
+			    route_cltv(p->getroute->cltv, d->current_routehint,
+				       tal_count(d->current_routehint));
+		}
+	} else if (p->step == PAYMENT_STEP_GOT_ROUTE) {
+		/* Now it's time to stitch the two partial routes together. */
+		struct amount_msat dest_amount;
+		struct route_info *routehint = d->current_routehint;
+		struct route_hop *prev_hop;
+		for (ssize_t i = 0; i < tal_count(routehint); i++) {
+			prev_hop = &p->route[tal_count(p->route)-1];
+			if (!route_msatoshi(&dest_amount, p->amount,
+				    routehint + i + 1,
+					    tal_count(routehint) - i - 1)) {
+				/* Just let it fail, since we couldn't stitch
+				 * the routes together. */
+				return payment_continue(p);
+			}
+
+			hop.nodeid = *route_pubkey(p, routehint, i + 1);
+			hop.style = ROUTE_HOP_TLV;
+			hop.channel_id = routehint[i].short_channel_id;
+			hop.amount = dest_amount;
+			hop.delay = route_cltv(d->final_cltv, routehint + i + 1,
+					       tal_count(routehint) - i - 1);
+
+			/* Should we get a failure inside the routehint we'll
+			 * need the direction so we can exclude it. Luckily
+			 * it's rather easy to compute given the two
+			 * subsequent hops. */
+			hop.direction =
+			    node_id_cmp(&prev_hop->nodeid, &hop.nodeid) > 0 ? 1
+									    : 0;
+			tal_arr_expand(&p->route, hop);
+		}
+	}
+
+	payment_continue(p);
+}
+
+static struct routehints_data *routehint_data_init(struct payment *p)
+{
+	/* We defer the actual initialization to the step callback when we have
+	 * the invoice attached. */
+	return talz(p, struct routehints_data);
+}
+
+REGISTER_PAYMENT_MODIFIER(routehints, struct routehints_data *,
+			  routehint_data_init, routehint_step_cb);

@@ -1834,6 +1834,7 @@ static void init(struct plugin *p,
 }
 
 struct payment_modifier *paymod_mods[] = {
+	&routehints_pay_mod,
 	&local_channel_hints_pay_mod,
 	&retry_pay_mod,
 	NULL,
