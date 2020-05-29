@@ -14,6 +14,12 @@ if [ $# -eq 0 ]; then
 		# ld: error: undefined symbol: foo()
 		echo "${LINE#*undefined symbol: }"
 		;;
+	    *,\ referenced\ from:*)
+		# Apple clang version 11.0.3 (clang-1103.0.32.29)
+                # "_towire", referenced from:
+		LINE=${LINE#\"_}
+		echo "${LINE%\"*}"
+		;;
 	    *)
 		continue
 		;;
