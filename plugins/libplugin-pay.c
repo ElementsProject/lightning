@@ -473,6 +473,34 @@ static void channel_hints_update(struct payment *root,
 	tal_arr_expand(&root->channel_hints, hint);
 }
 
+/* Try to infer the erring_node, erring_channel and erring_direction from what
+ * we know, but don't override the values that are returned by `waitsendpay`.  */
+static void payment_result_infer(struct route_hop *route,
+				 struct payment_result *r)
+{
+	int i, len = tal_count(route);
+	if (r->code == 0 || r->erring_index == NULL || route == NULL)
+		return;
+
+	i = *r->erring_index;
+	assert(i <= len);
+
+	if (r->erring_node == NULL)
+		r->erring_node = &route[i-1].nodeid;
+
+	/* The above assert was enough for the erring_node, but might be off
+	 * by one on channel and direction, in case the destination failed on
+	 * us. */
+	if (i == len)
+		return;
+
+	if (r->erring_channel == NULL)
+		r->erring_channel = &route[i].channel_id;
+
+	if (r->erring_direction == NULL)
+		r->erring_direction = &route[i].direction;
+}
+
 static struct command_result *
 payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 			     const jsmntok_t *toks, struct payment *p)
@@ -482,6 +510,7 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 	assert(p->route != NULL);
 
 	p->result = tal_sendpay_result_from_json(p, buffer, toks);
+	payment_result_infer(p->route, p->result);
 
 	if (p->result == NULL)
 		plugin_err(
@@ -490,6 +519,7 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 
 	if (p->result->state == PAYMENT_COMPLETE) {
 		p->step = PAYMENT_STEP_SUCCESS;
+		p->end_time = time_now();
 		payment_continue(p);
 		return command_still_pending(cmd);
 	}
