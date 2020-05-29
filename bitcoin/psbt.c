@@ -68,9 +68,26 @@ struct wally_psbt *new_psbt(const tal_t *ctx, const struct wally_tx *wtx)
 
 	/* set the scripts + witnesses back */
 	for (size_t i = 0; i < wtx->num_inputs; i++) {
+		int wally_err;
+
 		wtx->inputs[i].script = (unsigned char *)scripts[i];
 		wtx->inputs[i].script_len = script_lens[i];
 		wtx->inputs[i].witness = witnesses[i];
+
+		/* add these scripts + witnesses to the psbt */
+		if (scripts[i]) {
+			wally_err =
+				wally_psbt_input_set_final_script_sig(&psbt->inputs[i],
+								      (unsigned char *)scripts[i],
+								      script_lens[i]);
+			assert(wally_err == WALLY_OK);
+		}
+		if (witnesses[i]) {
+			wally_err =
+				wally_psbt_input_set_final_witness(&psbt->inputs[i],
+								   witnesses[i]);
+			assert(wally_err == WALLY_OK);
+		}
 	}
 
 	tal_free(witnesses);
