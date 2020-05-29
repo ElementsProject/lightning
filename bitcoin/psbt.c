@@ -80,6 +80,17 @@ struct wally_psbt *new_psbt(const tal_t *ctx, const struct wally_tx *wtx)
 	return tal_steal(ctx, psbt);
 }
 
+bool psbt_is_finalized(struct wally_psbt *psbt)
+{
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		if (!psbt->inputs[i].final_script_sig &&
+				!psbt->inputs[i].final_witness)
+			return false;
+	}
+
+	return true;
+}
+
 struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
 					struct wally_tx_input *input,
 				       	size_t insert_at)

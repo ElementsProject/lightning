@@ -21,6 +21,17 @@ void psbt_destroy(struct wally_psbt *psbt);
 struct wally_psbt *new_psbt(const tal_t *ctx,
 			    const struct wally_tx *wtx);
 
+/**
+ * psbt_is_finalized - Check if tx is ready to be extracted
+ *
+ * The libwally library requires a transaction be *ready* for
+ * extraction before it will add/append all of the sigs/witnesses
+ * onto the global transaction. This check returns true if
+ * a psbt has the finalized script sig and/or witness data populated
+ * for such a call
+ */
+bool psbt_is_finalized(struct wally_psbt *psbt);
+
 struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
 					struct wally_tx_input *input,
 					size_t insert_at);
