@@ -228,6 +228,9 @@ struct payment {
 	/* Serialized bolt11 string, kept attachd to the root so we can filter
 	 * by the invoice. */
 	const char *bolt11;
+
+	/* Textual explanation of why this payment was attempted. */
+	const char *why;
 };
 
 struct payment_modifier {
