@@ -1726,8 +1726,7 @@ static void init(struct plugin *p,
 	maxdelay_default = atoi(field);
 }
 
-struct payment_modifier *paymod_mods[4] = {
-	&dummy_pay_mod,
+struct payment_modifier *paymod_mods[3] = {
 	&local_channel_hints_pay_mod,
 	&retry_pay_mod,
 	NULL,
@@ -1744,16 +1743,12 @@ static struct command_result *json_paymod(struct command *cmd,
 	const char *b11str;
 	struct bolt11 *b11;
 	char *fail;
-	struct dummy_data *ddata;
 	p = payment_new(NULL, cmd, NULL /* No parent */, paymod_mods);
-
-	ddata = (struct dummy_data*)p->modifier_data[0];
 
 	/* If any of the modifiers need to add params to the JSON-RPC call we
 	 * would add them to the `param()` call below, and have them be
 	 * initialized directly that way. */
 	if (!param(cmd, buf, params, p_req("bolt11", param_string, &b11str),
-		   p_opt_def("dummy", param_number, &ddata->dummy_param, 42),
 		      NULL))
 		return command_param_failed();
 
