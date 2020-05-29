@@ -5,7 +5,9 @@
 #include <bitcoin/signature.h>
 #include <ccan/cast/cast.h>
 #include <ccan/ccan/array_size/array_size.h>
+#include <ccan/tal/str/str.h>
 #include <common/amount.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <string.h>
 #include <wally_psbt.h>
@@ -309,6 +311,28 @@ struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
 
 	return val;
 }
+
+bool psbt_from_b64(const char *b64str, struct wally_psbt **psbt)
+{
+	int wally_err;
+	wally_err = wally_psbt_from_base64(b64str, psbt);
+	return wally_err == WALLY_OK;
+}
+
+char *psbt_to_b64(const tal_t *ctx, const struct wally_psbt *psbt)
+{
+	char *serialized_psbt, *ret_val;
+	int ret;
+
+	ret = wally_psbt_to_base64(cast_const(struct wally_psbt *, psbt),
+				   &serialized_psbt);
+	assert(ret == WALLY_OK);
+
+	ret_val = tal_strdup(ctx, serialized_psbt);
+	wally_free_string(serialized_psbt);
+	return ret_val;
+}
+REGISTER_TYPE_TO_STRING(wally_psbt, psbt_to_b64);
 
 const u8 *psbt_get_bytes(const tal_t *ctx, const struct wally_psbt *psbt,
 			 size_t *bytes_written)

@@ -4,6 +4,7 @@
 #include "utils.h"
 #include <ccan/autodata/autodata.h>
 #include <secp256k1.h>
+#include <wally_psbt.h>
 
 /* This must match the type_to_string_ cases. */
 union printable_types {
@@ -35,6 +36,7 @@ union printable_types {
 	const struct amount_sat *amount_sat;
 	const struct fee_states *fee_states;
 	const char *charp_;
+	const struct wally_psbt *wally_psbt;
 };
 
 #define type_to_string(ctx, type, ptr)					\
