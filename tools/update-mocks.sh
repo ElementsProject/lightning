@@ -18,7 +18,7 @@ function make_binary() {
 
 if [ -n "$START" ]; then
     mv "$FILE" "${BASE}.old"
-    echo "${FILE}:"
+    echo "mocking out ${FILE}:"
     head -n "$START" "${BASE}.old" > "$FILE"
     tail -n +"$END" "${BASE}.old" >> "$FILE"
     # Try to make binary.
