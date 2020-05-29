@@ -1453,6 +1453,77 @@ static void add_attempt(struct json_stream *ret,
 	json_object_end(ret);
 }
 
+static void json_add_sendpay_result(struct json_stream *s, const struct payment_result *r)
+{
+	if (r->code != 0) {
+		/* This is a failure */
+		json_add_string(s, "message", r->message);
+		json_add_u32(s, "code", r->code);
+
+		json_object_start(s, "data");
+		json_add_u32(s, "id", r->id);
+		json_add_hex(s, "raw_message", r->raw_message, tal_bytelen(r->raw_message));
+		json_add_num(s, "failcode", r->failcode);
+		json_add_string(s, "failcodename", r->failcodename);
+
+		if (r->erring_index)
+			json_add_num(s, "erring_index", *r->erring_index);
+
+		if (r->erring_node)
+			json_add_node_id(s, "erring_node", r->erring_node);
+
+		if (r->erring_channel)
+			json_add_short_channel_id(s, "erring_channel",
+						  r->erring_channel);
+
+		if (r->erring_direction)
+			json_add_num(s, "erring_direction",
+				     *r->erring_direction);
+		if (r->erring_node)
+			json_add_node_id(s, "erring_node", r->erring_node);
+		json_object_end(s);
+	} else {
+		/* This is a success */
+		json_add_u32(s, "id", r->id);
+		json_add_preimage(s, "payment_preimage", r->payment_preimage);
+	}
+
+}
+
+static void paystatus_add_payment(struct json_stream *s, const struct payment *p)
+{
+	char timestr[UTC_TIMELEN];
+
+	utc_timestring(&p->start_time, timestr);
+
+	json_object_start(s, NULL);
+	json_add_string(s, "start_time", timestr);
+	json_add_u64(s, "age_in_seconds",
+		     time_to_sec(time_between(time_now(), p->start_time)));
+
+	/* Any final state will have an end time. */
+	if (p->step >= PAYMENT_STEP_SPLIT) {
+		utc_timestring(&p->end_time, timestr);
+		json_add_string(s, "end_time", timestr);
+	}
+
+	/* TODO Add routehint. */
+	/* TODO Add route details */
+
+	if (p->result != NULL) {
+		if (p->step == PAYMENT_STEP_SUCCESS)
+			json_object_start(s, "success");
+		else
+			json_object_start(s, "failure");
+		json_add_sendpay_result(s, p->result);
+		json_object_end(s);
+	}
+
+	json_object_end(s);
+	for (size_t i = 0; i < tal_count(p->children); i++)
+		paystatus_add_payment(s, p->children[i]);
+}
+
 static struct command_result *json_paystatus(struct command *cmd,
 					     const char *buf,
 					     const jsmntok_t *params)
@@ -1460,6 +1531,7 @@ static struct command_result *json_paystatus(struct command *cmd,
 	struct pay_status *ps;
 	const char *b11str;
 	struct json_stream *ret;
+	struct payment *p;
 
 	if (!param(cmd, buf, params,
 		   p_opt("bolt11", param_string, &b11str),
@@ -1470,6 +1542,7 @@ static struct command_result *json_paystatus(struct command *cmd,
 	json_array_start(ret, "pay");
 
 	/* FIXME: Index by bolt11 string! */
+	/* TODO(cdecker) Remove once we migrated to `pay` with modifiers. */
 	list_for_each(&pay_status, ps, list) {
 		if (b11str && !streq(b11str, ps->bolt11))
 			continue;
@@ -1496,6 +1569,33 @@ static struct command_result *json_paystatus(struct command *cmd,
 		json_array_start(ret, "attempts");
 		for (size_t i = 0; i < tal_count(ps->attempts); i++)
 			add_attempt(ret, ps, &ps->attempts[i]);
+		json_array_end(ret);
+		json_object_end(ret);
+	}
+
+	list_for_each(&payments, p, list) {
+		assert(p->parent == NULL);
+		if (b11str && !streq(b11str, p->bolt11))
+			continue;
+
+		json_object_start(ret, NULL);
+		if (p->bolt11)
+			json_add_string(ret, "bolt11", p->bolt11);
+		json_add_amount_msat_only(ret, "amount_msat", p->amount);
+		json_add_string(
+		    ret, "amount_msat",
+		    type_to_string(tmpctx, struct amount_msat, &p->amount));
+
+		json_add_node_id(ret, "destination", p->destination);
+
+		/* TODO(cdecker) Add label in once we track labels. */
+		/* TODO(cdecker) Add routehint_modifications in once we track
+		 * them. */
+		/* TODO(cdecker) Add shadow route once we support it. */
+
+		/* If it's in listpeers right now, this can be 0 */
+		json_array_start(ret, "attempts");
+		paystatus_add_payment(ret, p);
 		json_array_end(ret);
 		json_object_end(ret);
 	}
