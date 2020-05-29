@@ -1497,6 +1497,8 @@ static void paystatus_add_payment(struct json_stream *s, const struct payment *p
 	utc_timestring(&p->start_time, timestr);
 
 	json_object_start(s, NULL);
+	if (p->why != NULL)
+		json_add_string(s, "strategy", p->why);
 	json_add_string(s, "start_time", timestr);
 	json_add_u64(s, "age_in_seconds",
 		     time_to_sec(time_between(time_now(), p->start_time)));
@@ -1516,6 +1518,11 @@ static void paystatus_add_payment(struct json_stream *s, const struct payment *p
 		else
 			json_object_start(s, "failure");
 		json_add_sendpay_result(s, p->result);
+		json_object_end(s);
+	} else {
+		json_object_start(s, "failure");
+		json_add_num(s, "code", PAY_ROUTE_NOT_FOUND);
+		json_add_string(s, "message", "Call to getroute: Could not find a route");
 		json_object_end(s);
 	}
 
@@ -1888,6 +1895,7 @@ static struct command_result *json_paymod(struct command *cmd,
 				: NULL;
 	p->invoice = tal_steal(p, b11);
 	p->bolt11 = tal_steal(p, b11str);
+	p->why = "Initial attempt";
 	payment_start(p);
 	list_add_tail(&payments, &p->list);
 

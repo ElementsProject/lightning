@@ -156,7 +156,6 @@ def test_pay_exclude_node(node_factory, bitcoind):
     assert len(status) == 2
     assert status[0]['strategy'] == "Initial attempt"
     assert status[0]['failure']['data']['failcodename'] == 'WIRE_TEMPORARY_NODE_FAILURE'
-    assert status[1]['strategy'].startswith("Excluded node {}".format(l2.info['id']))
     assert 'failure' in status[1]
 
     # l1->l4->l5->l3 is the longer route. This makes sure this route won't be
@@ -197,7 +196,6 @@ def test_pay_exclude_node(node_factory, bitcoind):
     assert len(status) == 2
     assert status[0]['strategy'] == "Initial attempt"
     assert status[0]['failure']['data']['failcodename'] == 'WIRE_TEMPORARY_NODE_FAILURE'
-    assert status[1]['strategy'].startswith("Excluded node {}".format(l2.info['id']))
     assert 'success' in status[1]
 
 

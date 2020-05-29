@@ -21,6 +21,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->start_time = time_now();
 	p->result = NULL;
 	p->getroute_cltv = DEFAULT_FINAL_CLTV_DELTA;
+	p->why = NULL;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -1144,6 +1145,9 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 		subpayment = payment_new(p, NULL, p, p->modifiers);
 		payment_start(subpayment);
 		p->step = PAYMENT_STEP_RETRY;
+		subpayment->why =
+		    tal_fmt(subpayment, "Still have %d attempts left",
+			    rdata->retries - 1);
 	}
 
 	payment_continue(p);
