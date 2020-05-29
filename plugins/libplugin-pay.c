@@ -76,8 +76,7 @@ static struct command_result *payment_rpc_failure(struct command *cmd,
 		   "Failing a partial payment due to a failed RPC call: %.*s",
 		   toks->end - toks->start, buffer + toks->start);
 
-	p->step = PAYMENT_STEP_FAILED;
-	payment_continue(p);
+	payment_fail(p);
 	return command_still_pending(cmd);
 }
 
@@ -226,9 +225,8 @@ static struct command_result *payment_getroute_error(struct command *cmd,
 						     const jsmntok_t *toks,
 						     struct payment *p)
 {
-	p->step = PAYMENT_STEP_FAILED;
 	p->route = NULL;
-	payment_continue(p);
+	payment_fail(p);
 
 	/* Let payment_finished_ handle this, so we mark it as pending */
 	return command_still_pending(cmd);
@@ -492,10 +490,10 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 
 	if (p->result->state == PAYMENT_COMPLETE) {
 		p->step = PAYMENT_STEP_SUCCESS;
-		goto cont;
+		payment_continue(p);
+		return command_still_pending(cmd);
 	}
 
-	p->step = PAYMENT_STEP_FAILED;
 	root = payment_root(p);
 
 	switch (p->result->failcode) {
@@ -567,8 +565,7 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 		break;
 	}
 
-cont:
-	payment_continue(p);
+	payment_fail(p);
 	return command_still_pending(cmd);
 }
 
@@ -820,8 +817,6 @@ static void payment_finished(struct payment *p)
 	struct json_stream *ret;
 	struct command *cmd = p->cmd;
 
-	p->end_time = time_now();
-
 	/* Either none of the leaf attempts succeeded yet, or we have a
 	 * preimage. */
 	assert((result.leafstates & PAYMENT_STEP_SUCCESS) == 0 ||
@@ -994,6 +989,15 @@ void payment_continue(struct payment *p)
 	/* We should never get here, it'd mean one of the state machine called
 	 * `payment_continue` after the final state. */
 	abort();
+}
+
+void payment_fail(struct payment *p)
+{
+	va_list ap;
+
+	p->end_time = time_now();
+	p->step = PAYMENT_STEP_FAILED;
+	payment_continue(p);
 }
 
 void *payment_mod_get_data(const struct payment *p,

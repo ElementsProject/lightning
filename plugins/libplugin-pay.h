@@ -276,6 +276,9 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 
 void payment_start(struct payment *p);
 void payment_continue(struct payment *p);
+
+/* Fails a partial payment and continues with the core flow. */
+void payment_fail(struct payment *p);
 struct payment *payment_root(struct payment *p);
 struct payment_tree_result payment_collect_result(struct payment *p);
 
