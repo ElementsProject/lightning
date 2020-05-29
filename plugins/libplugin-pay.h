@@ -264,8 +264,25 @@ void *payment_mod_get_data(const struct payment *payment,
 struct retry_mod_data {
 	int retries;
 };
+
+struct routehints_data {
+	/* What we did about routehints (if anything) */
+	const char *routehint_modifications;
+
+	/* Any remaining routehints to try. */
+	struct route_info **routehints;
+
+	/* Current routehint, if any. */
+	struct route_info *current_routehint;
+
+	/* We modify the CLTV in the getroute call, so we need to remember
+	 * what the final cltv delta was so we re-apply it correctly. */
+	u32 final_cltv;
+};
+
 /* List of globally available payment modifiers. */
 REGISTER_PAYMENT_MODIFIER_HEADER(retry, struct retry_mod_data);
+REGISTER_PAYMENT_MODIFIER_HEADER(routehints, struct routehints_data);
 
 /* For the root payment we can seed the channel_hints with the result from
  * `listpeers`, hence avoid channels that we know have insufficient capacity
