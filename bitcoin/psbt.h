@@ -12,6 +12,8 @@ struct wally_psbt_input;
 struct wally_tx;
 struct amount_sat;
 
+int wally_psbt_clone(const struct wally_psbt *psbt, struct wally_psbt **output);
+
 void psbt_destroy(struct wally_psbt *psbt);
 
 struct wally_psbt *new_psbt(const tal_t *ctx,
