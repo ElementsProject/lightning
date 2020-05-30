@@ -1887,6 +1887,7 @@ static struct command_result *json_paymod(struct command *cmd,
 				    "Invalid bolt11:"
 				    " sets feature var_onion with no secret");
 
+	p->local_id = &my_id;
 	p->json_buffer = tal_steal(p, buf);
 	p->json_toks = params;
 	p->destination = p->getroute_destination = &b11->receiver_id;
