@@ -150,6 +150,7 @@ struct payment {
 	struct command *cmd;
 	struct plugin *plugin;
 	struct list_node list;
+	struct node_id *local_id;
 
 	const char *json_buffer;
 	const jsmntok_t *json_toks;
