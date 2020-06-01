@@ -1269,6 +1269,9 @@ static struct pay_status *add_pay_status(struct pay_command *pc,
 	return ps;
 }
 
+#ifndef COMPAT_V090
+UNUSED
+#endif
 static struct command_result *json_pay(struct command *cmd,
 				       const char *buf,
 				       const jsmntok_t *params)
@@ -1705,13 +1708,15 @@ static void init(struct plugin *p,
 	maxdelay_default = atoi(field);
 }
 
-#if DEVELOPER
 struct payment_modifier *paymod_mods[3] = {
 	&dummy_pay_mod,
 	&retry_pay_mod,
 	NULL,
 };
 
+#if !DEVELOPER
+UNUSED
+#endif
 static struct command_result *json_paymod(struct command *cmd,
 					  const char *buf,
 					  const jsmntok_t *params)
@@ -1770,7 +1775,6 @@ static struct command_result *json_paymod(struct command *cmd,
 
 	return command_still_pending(cmd);
 }
-#endif
 
 static const struct plugin_command commands[] = { {
 		"pay",
