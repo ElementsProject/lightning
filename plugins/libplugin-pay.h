@@ -144,6 +144,13 @@ struct payment_tree_result {
 	struct payment_result *failure;
 };
 
+struct getroute_request {
+	struct node_id *destination;
+	struct amount_msat amount;
+	u32 cltv;
+	u32 max_hops;
+};
+
 struct payment {
 	/* The command that triggered this payment. Only set for the root
 	 * payment. */
@@ -172,9 +179,8 @@ struct payment {
 
 	/* Destination we should ask `getroute` for. This might differ from
 	 * the above destination if we use rendez-vous routing of blinded
-	 * paths to amend the route later in a mixin. */
-	struct node_id  *getroute_destination;
-	u32 getroute_cltv;
+	 * paths amend the route later in a mixin. */
+	struct getroute_request *getroute;
 
 	struct createonion_request *createonion_request;
 	struct createonion_response *createonion_response;

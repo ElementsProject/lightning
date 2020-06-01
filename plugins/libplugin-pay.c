@@ -20,15 +20,14 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->cmd = cmd;
 	p->start_time = time_now();
 	p->result = NULL;
-	p->getroute_cltv = DEFAULT_FINAL_CLTV_DELTA;
 	p->why = NULL;
+	p->getroute = tal(p, struct getroute_request);
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
 		assert(cmd == NULL);
 		tal_arr_expand(&parent->children, p);
-		p->destination = p->getroute_destination = parent->destination;
-		p->getroute_cltv = parent->getroute_cltv;
+		p->destination = parent->destination;
 		p->amount = parent->amount;
 		p->payment_hash = parent->payment_hash;
 		p->partid = payment_root(p->parent)->next_partid++;
@@ -151,8 +150,19 @@ static struct command_result *payment_getinfo_success(struct command *cmd,
 
 void payment_start(struct payment *p)
 {
+	struct payment *root = payment_root(p);
 	p->step = PAYMENT_STEP_INITIALIZED;
 	p->current_modifier = -1;
+
+	/* Pre-generate the getroute request, so modifiers can have their say,
+	 * before we actually call `getroute` */
+	p->getroute->destination = p->destination;
+	p->getroute->max_hops = ROUTING_MAX_HOPS;
+	if (root->invoice != NULL && root->invoice->min_final_cltv_expiry != 0)
+		p->getroute->cltv = root->invoice->min_final_cltv_expiry;
+	else
+		p->getroute->cltv = DEFAULT_FINAL_CLTV_DELTA;
+	p->getroute->amount = p->amount;
 
 	/* TODO If this is not the root, we can actually skip the getinfo call
 	 * and just reuse the parent's value. */
@@ -290,10 +300,11 @@ static void payment_getroute(struct payment *p)
 	req = jsonrpc_request_start(p->plugin, NULL, "getroute",
 				    payment_getroute_result,
 				    payment_getroute_error, p);
-	json_add_node_id(req->js, "id", p->getroute_destination);
-	json_add_amount_msat_only(req->js, "msatoshi", p->amount);
+	json_add_node_id(req->js, "id", p->getroute->destination);
+	json_add_amount_msat_only(req->js, "msatoshi", p->getroute->amount);
 	json_add_num(req->js, "riskfactor", 1);
-	json_add_num(req->js, "cltv", p->getroute_cltv);
+	json_add_num(req->js, "cltv", p->getroute->cltv);
+	json_add_num(req->js, "maxhops", p->getroute->max_hops);
 	payment_getroute_add_excludes(p, req->js);
 	send_outreq(p->plugin, req);
 }
