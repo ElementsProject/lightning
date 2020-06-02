@@ -44,18 +44,6 @@ msgdata,hsm_get_channel_basepoints_reply,funding_pubkey,pubkey,
 
 # Return signature for a funding tx.
 #include <common/utxo.h>
-# FIXME: This should also take their commit sig & details, to verify.
-msgtype,hsm_sign_funding,4
-msgdata,hsm_sign_funding,satoshi_out,amount_sat,
-msgdata,hsm_sign_funding,change_out,amount_sat,
-msgdata,hsm_sign_funding,change_keyindex,u32,
-msgdata,hsm_sign_funding,our_pubkey,pubkey,
-msgdata,hsm_sign_funding,their_pubkey,pubkey,
-msgdata,hsm_sign_funding,num_inputs,u16,
-msgdata,hsm_sign_funding,inputs,utxo,num_inputs
-
-msgtype,hsm_sign_funding_reply,104
-msgdata,hsm_sign_funding_reply,tx,bitcoin_tx,
 
 # Master asks the HSM to sign a node_announcement
 msgtype,hsm_node_announcement_sig_req,6
