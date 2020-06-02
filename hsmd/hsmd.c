@@ -1601,49 +1601,7 @@ static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
 	}
 }
 
-/*~ lightningd asks us to sign the transaction to fund a channel; it feeds us
- * the set of inputs and the local and remote pubkeys, and we sign it. */
-static struct io_plan *handle_sign_funding_tx(struct io_conn *conn,
-					      struct client *c,
-					      const u8 *msg_in)
-{
-	struct amount_sat satoshi_out, change_out;
-	u32 change_keyindex;
-	struct pubkey local_pubkey, remote_pubkey;
-	struct utxo **utxos;
-	struct bitcoin_tx *tx;
-	u16 outnum;
-	struct pubkey *changekey;
-
-	/* FIXME: Check fee is "reasonable" */
-	if (!fromwire_hsm_sign_funding(tmpctx, msg_in,
-				       &satoshi_out, &change_out,
-				       &change_keyindex, &local_pubkey,
-				       &remote_pubkey, &utxos))
-		return bad_req(conn, c, msg_in);
-
-	if (amount_sat_greater(change_out, AMOUNT_SAT(0))) {
-		changekey = tal(tmpctx, struct pubkey);
-		bitcoin_key(NULL, changekey, change_keyindex);
-	} else
-		changekey = NULL;
-
-	tx = funding_tx(tmpctx, c->chainparams, &outnum,
-			/*~ For simplicity, our generated code is not const
-			 * correct.  The C rules around const and
-			 * pointer-to-pointer are a bit weird, so we use
-			 * ccan/cast which ensures the type is correct and
-			 * we're not casting something random */
-			cast_const2(const struct utxo **, utxos),
-			satoshi_out, &local_pubkey, &remote_pubkey,
-			change_out, changekey,
-			NULL);
-
-	sign_all_inputs(tx, utxos);
-	return req_reply(conn, c, take(towire_hsm_sign_funding_reply(NULL, tx)));
-}
-
-/*~ lightningd asks us to sign a withdrawal; same as above but in theory
+/*~ lightningd asks us to sign a withdrawal or funding as above but in theory
  * we can do more to check the previous case is valid. */
 static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 						 struct client *c,
@@ -1898,7 +1856,6 @@ static bool check_client_capabilities(struct client *client,
 
 	case WIRE_HSM_INIT:
 	case WIRE_HSM_CLIENT_HSMFD:
-	case WIRE_HSM_SIGN_FUNDING:
 	case WIRE_HSM_SIGN_WITHDRAWAL:
 	case WIRE_HSM_SIGN_INVOICE:
 	case WIRE_HSM_SIGN_COMMITMENT_TX:
@@ -1914,7 +1871,6 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_CUPDATE_SIG_REPLY:
 	case WIRE_HSM_CLIENT_HSMFD_REPLY:
-	case WIRE_HSM_SIGN_FUNDING_REPLY:
 	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSM_SIGN_INVOICE_REPLY:
@@ -1964,9 +1920,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 
 	case WIRE_HSM_CUPDATE_SIG_REQ:
 		return handle_channel_update_sig(conn, c, c->msg_in);
-
-	case WIRE_HSM_SIGN_FUNDING:
-		return handle_sign_funding_tx(conn, c, c->msg_in);
 
 	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REQ:
 		return handle_sign_node_announcement(conn, c, c->msg_in);
@@ -2019,7 +1972,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSM_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_CUPDATE_SIG_REPLY:
 	case WIRE_HSM_CLIENT_HSMFD_REPLY:
-	case WIRE_HSM_SIGN_FUNDING_REPLY:
 	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSM_SIGN_INVOICE_REPLY:
