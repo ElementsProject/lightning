@@ -1,4 +1,3 @@
-#! /usr/bin/python3
 import struct
 
 
@@ -42,7 +41,7 @@ These are further specialized.
         return self.name
 
     def __repr__(self):
-        return self.name
+        return 'FieldType({})'.format(self.name)
 
 
 class IntegerType(FieldType):

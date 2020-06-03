@@ -18,23 +18,23 @@ def test_sized_array():
         def __init__(self, name):
             self.name = name
 
-    for test in [[SizedArrayType(dummy("test1"), "test_arr", byte, 4),
-                  "00010203",
-                  bytes([0, 1, 2, 3])],
-                 [SizedArrayType(dummy("test2"), "test_arr", u16, 4),
-                  "[0,1,2,256]",
-                  bytes([0, 0, 0, 1, 0, 2, 1, 0])],
-                 [SizedArrayType(dummy("test3"), "test_arr", scid, 4),
-                  "[1x2x3,4x5x6,7x8x9,10x11x12]",
-                  bytes([0, 0, 1, 0, 0, 2, 0, 3]
-                        + [0, 0, 4, 0, 0, 5, 0, 6]
-                        + [0, 0, 7, 0, 0, 8, 0, 9]
-                        + [0, 0, 10, 0, 0, 11, 0, 12])]]:
-        v, _ = test[0].val_from_str(test[1])
-        assert test[0].val_to_str(v, None) == test[1]
-        v2, _ = test[0].val_from_bin(test[2], None)
+    for arrtype, s, b in [[SizedArrayType(dummy("test1"), "test_arr", byte, 4),
+                           "00010203",
+                           bytes([0, 1, 2, 3])],
+                          [SizedArrayType(dummy("test2"), "test_arr", u16, 4),
+                           "[0,1,2,256]",
+                           bytes([0, 0, 0, 1, 0, 2, 1, 0])],
+                          [SizedArrayType(dummy("test3"), "test_arr", scid, 4),
+                           "[1x2x3,4x5x6,7x8x9,10x11x12]",
+                           bytes([0, 0, 1, 0, 0, 2, 0, 3]
+                                 + [0, 0, 4, 0, 0, 5, 0, 6]
+                                 + [0, 0, 7, 0, 0, 8, 0, 9]
+                                 + [0, 0, 10, 0, 0, 11, 0, 12])]]:
+        v, _ = arrtype.val_from_str(s)
+        assert arrtype.val_to_str(v, None) == s
+        v2, _ = arrtype.val_from_bin(b, None)
         assert v2 == v
-        assert test[0].val_to_bin(v, None) == test[2]
+        assert arrtype.val_to_bin(v, None) == b
 
 
 def test_ellipsis_array():
