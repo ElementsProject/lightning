@@ -3077,7 +3077,7 @@ def test_pay_modifiers(node_factory):
     # Make sure that the dummy param is in the help (and therefore assigned to
     # the modifier data).
     hlp = l1.rpc.help("paymod")['help'][0]
-    assert(hlp['command'] == 'paymod bolt11 [maxdelay] [maxfeepercent]')
+    assert(hlp['command'] == 'paymod bolt11 [exemptfee] [maxdelay] [maxfeepercent]')
 
     inv = l2.rpc.invoice(123, 'lbl', 'desc')['bolt11']
     r = l1.rpc.paymod(inv)
@@ -3085,7 +3085,39 @@ def test_pay_modifiers(node_factory):
     assert(sha256(unhexlify(r['payment_preimage'])).hexdigest() == r['payment_hash'])
 
 
-def test_pay_exemptfee(node_factory):
+@unittest.skipIf(not DEVELOPER, "Requires use_shadow")
+def test_pay_exemptfee(node_factory, compat):
     """Tiny payment, huge fee
+
+    l1 -> l2 -> l3
+
+    Create a tiny invoice for 1 msat, it'll be dominated by the base_fee on
+    the l2->l3 channel. So it'll get rejected on the first attempt if we set
+    the exemptfee way too low. The default fee exemption threshold is
+    5000msat, so 5001msat is not exempted by default and a 5001msat fee on
+    l2->l3 should trigger this.
+
     """
-    l1, l2, l3 = node_factory.line_graph(3)
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        opts=[{}, {'fee-base': 5001, 'fee-per-satoshi': 0}, {}],
+        wait_for_announce=True
+    )
+
+    err = r'Route wanted fee of 5001msat' if compat('090') else r'Ran out of routes to try'
+
+    with pytest.raises(RpcError, match=err):
+        l1.rpc.dev_pay(l3.rpc.invoice(1, "lbl1", "desc")['bolt11'], use_shadow=False)
+
+    # If we tell our node that 5001msat is ok this should work
+    l1.rpc.dev_pay(l3.rpc.invoice(1, "lbl2", "desc")['bolt11'], use_shadow=False, exemptfee=5001)
+
+    # Given the above network this is the smallest amount that passes without
+    # the fee-exemption (notice that we let it through on equality).
+    threshold = int(5001 / 0.05)
+
+    # This should be just below the fee-exemption and is the first value that is allowed through
+    with pytest.raises(RpcError, match=err):
+        l1.rpc.dev_pay(l3.rpc.invoice(threshold - 1, "lbl3", "desc")['bolt11'], use_shadow=False)
+
+    l1.rpc.pay(inv, exemptfee=5001)
