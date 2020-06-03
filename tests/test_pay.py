@@ -1678,8 +1678,15 @@ def test_pay_routeboost(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True)
     l3, l4, l5 = node_factory.line_graph(3, announce_channels=False, wait_for_announce=False)
 
+    # COMPAT_V090 made the return value of pay and paystatus more consistent,
+    # but broke tests relying on the inconsistent interface. Remove this once
+    # COMPAT_V090 gets removed.
+    COMPAT_V090 = env('COMPAT') == '1'
+    PAY_ROUTE_NOT_FOUND = 205
+
     # This should a "could not find a route" because that's true.
-    with pytest.raises(RpcError, match=r'Could not find a route'):
+    error = r'Could not find a route' if COMPAT_V090 else r'Ran out of routes'
+    with pytest.raises(RpcError, match=error):
         l1.rpc.pay(l5.rpc.invoice(10**8, 'test_retry', 'test_retry')['bolt11'])
 
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -1718,25 +1725,33 @@ def test_pay_routeboost(node_factory, bitcoind):
     assert 'label' not in only_one(status['pay'])
     assert 'routehint_modifications' not in only_one(status['pay'])
     assert 'local_exclusions' not in only_one(status['pay'])
-    # First attempt will fail, then it will try route hint
     attempts = only_one(status['pay'])['attempts']
-    assert len(attempts) == 2
-    assert attempts[0]['strategy'] == "Initial attempt"
-    # FIXME!
-    PAY_ROUTE_NOT_FOUND = 205
-    assert attempts[0]['failure']['code'] == PAY_ROUTE_NOT_FOUND
-    assert attempts[1]['strategy'] == "Trying route hint"
-    assert 'success' in attempts[1]
-    assert attempts[1]['age_in_seconds'] <= time.time() - start
-    assert attempts[1]['duration_in_seconds'] <= end - start
-    assert only_one(attempts[1]['routehint'])
-    assert only_one(attempts[1]['routehint'])['id'] == l3.info['id']
     scid34 = only_one(l3.rpc.listpeers(l4.info['id'])['peers'])['channels'][0]['short_channel_id']
-    assert only_one(attempts[1]['routehint'])['channel'] == scid34
-    assert only_one(attempts[1]['routehint'])['fee_base_msat'] == 1
-    assert only_one(attempts[1]['routehint'])['fee_proportional_millionths'] == 10
-    assert only_one(attempts[1]['routehint'])['cltv_expiry_delta'] == 6
+    if COMPAT_V090:
+        assert len(attempts) == 2
+        assert attempts[0]['strategy'] == "Initial attempt"
+        # FIXME!
+        assert attempts[0]['failure']['code'] == PAY_ROUTE_NOT_FOUND
+        assert attempts[1]['strategy'] == "Trying route hint"
+        assert 'success' in attempts[1]
+        assert attempts[1]['age_in_seconds'] <= time.time() - start
+        assert attempts[1]['duration_in_seconds'] <= end - start
+        assert only_one(attempts[1]['routehint'])
+        assert only_one(attempts[1]['routehint'])['id'] == l3.info['id']
+        assert only_one(attempts[1]['routehint'])['channel'] == scid34
+        assert only_one(attempts[1]['routehint'])['fee_base_msat'] == 1
+        assert only_one(attempts[1]['routehint'])['fee_proportional_millionths'] == 10
+        assert only_one(attempts[1]['routehint'])['cltv_expiry_delta'] == 6
+    else:
+        # The behavior changed to try with the route hint first, so we end up
+        # with a single successful attempt:
+        assert(len(attempts) == 1)
+        a = attempts[0]
+        assert(a['strategy'] == "Initial attempt")
+        assert('success' in a)
+        assert('payment_preimage' in a['success'])
 
+    print("XXX longer route developeronly")
     # With dev-route option we can test longer routehints.
     if DEVELOPER:
         scid45 = only_one(l4.rpc.listpeers(l5.info['id'])['peers'])['channels'][0]['short_channel_id']
@@ -1756,11 +1771,18 @@ def test_pay_routeboost(node_factory, bitcoind):
                                       'dev-routes': [routel3l4l5]})
         l1.rpc.dev_pay(inv['bolt11'], use_shadow=False)
         status = l1.rpc.call('paystatus', [inv['bolt11']])
-        assert len(only_one(status['pay'])['attempts']) == 2
-        assert 'failure' in only_one(status['pay'])['attempts'][0]
-        assert 'success' not in only_one(status['pay'])['attempts'][0]
-        assert 'failure' not in only_one(status['pay'])['attempts'][1]
-        assert 'success' in only_one(status['pay'])['attempts'][1]
+        pay = only_one(status['pay'])
+        attempts = pay['attempts']
+        if COMPAT_V090:
+            assert len(pay['attempts']) == 2
+            assert 'failure' in attempts[0]
+            assert 'success' not in attempts[0]
+            assert 'failure' not in attempts[1]
+            assert 'success' in attempts[1]
+        else:
+            assert(len(attempts) == 1)
+            assert 'failure' not in attempts[0]
+            assert 'success' in attempts[0]
 
         # Finally, it should fall back to second routehint if first fails.
         # (Note, this is not public because it's not 6 deep)
@@ -3055,9 +3077,15 @@ def test_pay_modifiers(node_factory):
     # Make sure that the dummy param is in the help (and therefore assigned to
     # the modifier data).
     hlp = l1.rpc.help("paymod")['help'][0]
-    assert(hlp['command'] == 'paymod bolt11')
+    assert(hlp['command'] == 'paymod bolt11 [maxdelay] [maxfeepercent]')
 
     inv = l2.rpc.invoice(123, 'lbl', 'desc')['bolt11']
     r = l1.rpc.paymod(inv)
     assert(r['status'] == 'complete')
     assert(sha256(unhexlify(r['payment_preimage'])).hexdigest() == r['payment_hash'])
+
+
+def test_pay_exemptfee(node_factory):
+    """Tiny payment, huge fee
+    """
+    l1, l2, l3 = node_factory.line_graph(3)

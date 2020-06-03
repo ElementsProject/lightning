@@ -1851,12 +1851,19 @@ static struct command_result *json_paymod(struct command *cmd,
 	const char *b11str;
 	struct bolt11 *b11;
 	char *fail;
+	u64 *maxfee_pct_millionths;
+	u32 *maxdelay;
+
 	p = payment_new(NULL, cmd, NULL /* No parent */, paymod_mods);
 
 	/* If any of the modifiers need to add params to the JSON-RPC call we
 	 * would add them to the `param()` call below, and have them be
 	 * initialized directly that way. */
 	if (!param(cmd, buf, params, p_req("bolt11", param_string, &b11str),
+		   p_opt_def("maxdelay", param_number, &maxdelay,
+			     maxdelay_default),
+		   p_opt_def("maxfeepercent", param_millionths,
+			     &maxfee_pct_millionths, 500000),
 		      NULL))
 		return command_param_failed();
 
@@ -1898,6 +1905,14 @@ static struct command_result *json_paymod(struct command *cmd,
 	p->invoice = tal_steal(p, b11);
 	p->bolt11 = tal_steal(p, b11str);
 	p->why = "Initial attempt";
+	p->cltv_budget = *maxdelay;
+
+	if (!amount_msat_fee(&p->fee_budget, p->amount, 0, *maxfee_pct_millionths)) {
+		tal_free(p);
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Overflow when computing fee budget, fee rate too high.");
+	}
 	payment_start(p);
 	list_add_tail(&payments, &p->list);
 

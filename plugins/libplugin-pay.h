@@ -201,7 +201,13 @@ struct payment {
 	struct timeabs start_time, end_time;
 	struct timeabs deadline;
 
-	struct amount_msat extra_budget;
+	/* Maximum remaining fees we're willing to pay to complete this
+	 * (sub-)payment. */
+	struct amount_msat fee_budget;
+
+	/* Maximum end-to-end CLTV delta we're willing to wait for this
+	 * (sub-)payment to complete. */
+	u32 cltv_budget;
 
 	struct short_channel_id *exclusions;
 

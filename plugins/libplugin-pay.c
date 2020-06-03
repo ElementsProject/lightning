@@ -32,6 +32,8 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->payment_hash = parent->payment_hash;
 		p->partid = payment_root(p->parent)->next_partid++;
 		p->plugin = parent->plugin;
+		p->fee_budget = parent->fee_budget;
+		p->cltv_budget = parent->cltv_budget;
 	} else {
 		assert(cmd != NULL);
 		p->partid = 0;
@@ -220,9 +222,41 @@ static struct command_result *payment_getroute_result(struct command *cmd,
 						      struct payment *p)
 {
 	const jsmntok_t *rtok = json_get_member(buffer, toks, "route");
+	struct amount_msat fee;
 	assert(rtok != NULL);
 	p->route = tal_route_from_json(p, buffer, rtok);
 	p->step = PAYMENT_STEP_GOT_ROUTE;
+
+	/* Ensure that our fee and CLTV budgets are respected. */
+
+	if (!amount_msat_sub(&fee, p->route[0].amount, p->amount)) {
+		plugin_err(
+		    p->plugin,
+		    "gossipd returned a route with a negative fee: sending %s "
+		    "to deliver %s",
+		    type_to_string(tmpctx, struct amount_msat,
+				   &p->route[0].amount),
+		    type_to_string(tmpctx, struct amount_msat, &p->amount));
+		payment_fail(p);
+		return command_still_pending(cmd);
+	}
+
+	if (amount_msat_greater(fee, p->fee_budget)) {
+		plugin_log(p->plugin, LOG_INFORM,
+		    "Fee exceeds our fee budget: %s > %s, discarding route",
+		    type_to_string(tmpctx, struct amount_msat, &fee),
+		    type_to_string(tmpctx, struct amount_msat, &p->fee_budget));
+		payment_fail(p);
+		return command_still_pending(cmd);
+	}
+
+	if (p->route[0].delay > p->cltv_budget) {
+		plugin_log(p->plugin, LOG_INFORM,
+			   "CLTV delay exceeds our CLTV budget: %d > %d",
+			   p->route[0].delay, p->cltv_budget);
+		payment_fail(p);
+		return command_still_pending(cmd);
+	}
 
 	/* Allow modifiers to modify the route, before
 	 * payment_compute_onion_payloads uses the route to generate the
