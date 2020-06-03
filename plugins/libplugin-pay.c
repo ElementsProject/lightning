@@ -216,6 +216,48 @@ tal_route_from_json(const tal_t *ctx, const char *buffer, const jsmntok_t *toks)
 	return hops;
 }
 
+static void payment_exclude_most_expensive(struct payment *p)
+{
+	struct payment *root = payment_root(p);
+	struct route_hop *e = &p->route[0];
+	struct amount_msat fee, worst = AMOUNT_MSAT(0);
+	struct channel_hint hint;
+
+	for (size_t i = 0; i < tal_count(p->route)-1; i++) {
+		if (!amount_msat_sub(&fee, p->route[i].amount, p->route[i+1].amount))
+			plugin_err(p->plugin, "Negative fee in a route.");
+
+		if (amount_msat_greater_eq(fee, worst)) {
+			e = &p->route[i];
+			worst = fee;
+		}
+	}
+	hint.scid.scid = e->channel_id;
+	hint.scid.dir = e->direction;
+	hint.enabled = false;
+	tal_arr_expand(&root->channel_hints, hint);
+}
+
+static void payment_exclude_longest_delay(struct payment *p)
+{
+	struct payment *root = payment_root(p);
+	struct route_hop *e = &p->route[0];
+	u32 delay, worst = 0;
+	struct channel_hint hint;
+
+	for (size_t i = 0; i < tal_count(p->route)-1; i++) {
+		delay = p->route[i].delay - p->route[i+1].delay;
+		if (delay >= worst) {
+			e = &p->route[i];
+			worst = delay;
+		}
+	}
+	hint.scid.scid = e->channel_id;
+	hint.scid.dir = e->direction;
+	hint.enabled = false;
+	tal_arr_expand(&root->channel_hints, hint);
+}
+
 static struct command_result *payment_getroute_result(struct command *cmd,
 						      const char *buffer,
 						      const jsmntok_t *toks,
@@ -246,6 +288,7 @@ static struct command_result *payment_getroute_result(struct command *cmd,
 		    "Fee exceeds our fee budget: %s > %s, discarding route",
 		    type_to_string(tmpctx, struct amount_msat, &fee),
 		    type_to_string(tmpctx, struct amount_msat, &p->fee_budget));
+		payment_exclude_most_expensive(p);
 		payment_fail(p);
 		return command_still_pending(cmd);
 	}
@@ -254,6 +297,7 @@ static struct command_result *payment_getroute_result(struct command *cmd,
 		plugin_log(p->plugin, LOG_INFORM,
 			   "CLTV delay exceeds our CLTV budget: %d > %d",
 			   p->route[0].delay, p->cltv_budget);
+		payment_exclude_longest_delay(p);
 		payment_fail(p);
 		return command_still_pending(cmd);
 	}
@@ -1493,3 +1537,37 @@ static struct routehints_data *routehint_data_init(struct payment *p)
 
 REGISTER_PAYMENT_MODIFIER(routehints, struct routehints_data *,
 			  routehint_data_init, routehint_step_cb);
+
+/* For tiny payments the fees incurred due to the fixed base_fee may dominate
+ * the overall cost of the payment. Since these payments are often used as a
+ * way to signal, rather than actually transfer the amount, we add an
+ * exemption that allows tiny payments to exceed the fee allowance. This is
+ * implemented by setting a larger allowance than we would normally do if the
+ * payment is below the threshold. */
+
+static struct exemptfee_data *exemptfee_data_init(struct payment *p)
+{
+	struct exemptfee_data *d = tal(p, struct exemptfee_data);
+	d->amount = AMOUNT_MSAT(5000);
+	return d;
+}
+
+static void exemptfee_cb(struct exemptfee_data *d, struct payment *p)
+{
+	if (p->step != PAYMENT_STEP_INITIALIZED)
+		return payment_continue(p);
+
+	if (amount_msat_greater_eq(d->amount, p->amount)) {
+		p->fee_budget = d->amount;
+		plugin_log(
+		    p->plugin, LOG_INFORM,
+		    "Payment amount is below exemption threshold, "
+		    "allowing a maximum fee of %s",
+		    type_to_string(tmpctx, struct amount_msat, &p->fee_budget));
+	}
+	return payment_continue(p);
+}
+
+REGISTER_PAYMENT_MODIFIER(exemptfee, struct exemptfee_data *,
+			  exemptfee_data_init, exemptfee_cb);
+

@@ -293,9 +293,16 @@ struct routehints_data {
 	u32 final_cltv;
 };
 
+struct exemptfee_data {
+	/* Amounts below this amount will get their fee limit raised to
+	 * exemptfee, i.e., we're willing to pay twice exemptfee to get this
+	 * payment through. */
+	struct amount_msat amount;
+};
 /* List of globally available payment modifiers. */
 REGISTER_PAYMENT_MODIFIER_HEADER(retry, struct retry_mod_data);
 REGISTER_PAYMENT_MODIFIER_HEADER(routehints, struct routehints_data);
+REGISTER_PAYMENT_MODIFIER_HEADER(exemptfee, struct exemptfee_data);
 
 /* For the root payment we can seed the channel_hints with the result from
  * `listpeers`, hence avoid channels that we know have insufficient capacity
