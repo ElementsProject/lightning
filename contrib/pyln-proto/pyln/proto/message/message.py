@@ -1,4 +1,3 @@
-#! /usr/bin/python3
 import struct
 from .fundamental_types import fundamental_types, BigSizeType, split_field
 from .array_types import (

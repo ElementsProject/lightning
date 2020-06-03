@@ -1,11 +1,11 @@
-#! /usr/bin/python3
 from .fundamental_types import FieldType, IntegerType, split_field
 
 
 class ArrayType(FieldType):
-    """Abstract class for the different kinds of arrays: these are not in
-the namespace, but generated when a message says it wants an array of
-some type.
+    """Abstract class for the different kinds of arrays.
+
+These are not in the namespace, but generated when a message says it
+wants an array of some type.
 
     """
     def __init__(self, outer, name, elemtype):
