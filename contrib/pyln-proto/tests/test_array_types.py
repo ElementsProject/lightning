@@ -1,6 +1,7 @@
 #! /usr/bin/python3
 from pyln.proto.message.fundamental_types import fundamental_types
 from pyln.proto.message.array_types import SizedArrayType, DynamicArrayType, EllipsisArrayType, LengthFieldType
+import io
 
 
 def test_sized_array():
@@ -32,9 +33,11 @@ def test_sized_array():
                                  + [0, 0, 10, 0, 0, 11, 0, 12])]]:
         v, _ = arrtype.val_from_str(s)
         assert arrtype.val_to_str(v, None) == s
-        v2, _ = arrtype.val_from_bin(b, None)
+        v2 = arrtype.read(io.BytesIO(b), None)
         assert v2 == v
-        assert arrtype.val_to_bin(v, None) == b
+        buf = io.BytesIO()
+        arrtype.write(buf, v, None)
+        assert buf.getvalue() == b
 
 
 def test_ellipsis_array():
@@ -52,23 +55,25 @@ def test_ellipsis_array():
         def __init__(self, name):
             self.name = name
 
-    for test in [[EllipsisArrayType(dummy("test1"), "test_arr", byte),
-                  "00010203",
-                  bytes([0, 1, 2, 3])],
-                 [EllipsisArrayType(dummy("test2"), "test_arr", u16),
-                  "[0,1,2,256]",
-                  bytes([0, 0, 0, 1, 0, 2, 1, 0])],
-                 [EllipsisArrayType(dummy("test3"), "test_arr", scid),
-                  "[1x2x3,4x5x6,7x8x9,10x11x12]",
-                  bytes([0, 0, 1, 0, 0, 2, 0, 3]
-                        + [0, 0, 4, 0, 0, 5, 0, 6]
-                        + [0, 0, 7, 0, 0, 8, 0, 9]
-                        + [0, 0, 10, 0, 0, 11, 0, 12])]]:
-        v, _ = test[0].val_from_str(test[1])
-        assert test[0].val_to_str(v, None) == test[1]
-        v2, _ = test[0].val_from_bin(test[2], None)
+    for arrtype, s, b in [[EllipsisArrayType(dummy("test1"), "test_arr", byte),
+                           "00010203",
+                           bytes([0, 1, 2, 3])],
+                          [EllipsisArrayType(dummy("test2"), "test_arr", u16),
+                           "[0,1,2,256]",
+                           bytes([0, 0, 0, 1, 0, 2, 1, 0])],
+                          [EllipsisArrayType(dummy("test3"), "test_arr", scid),
+                           "[1x2x3,4x5x6,7x8x9,10x11x12]",
+                           bytes([0, 0, 1, 0, 0, 2, 0, 3]
+                                 + [0, 0, 4, 0, 0, 5, 0, 6]
+                                 + [0, 0, 7, 0, 0, 8, 0, 9]
+                                 + [0, 0, 10, 0, 0, 11, 0, 12])]]:
+        v, _ = arrtype.val_from_str(s)
+        assert arrtype.val_to_str(v, None) == s
+        v2 = arrtype.read(io.BytesIO(b), None)
         assert v2 == v
-        assert test[0].val_to_bin(v, None) == test[2]
+        buf = io.BytesIO()
+        arrtype.write(buf, v, None)
+        assert buf.getvalue() == b
 
 
 def test_dynamic_array():
@@ -93,27 +98,29 @@ def test_dynamic_array():
 
     lenfield = field_dummy('lenfield', LengthFieldType(u16))
 
-    for test in [[DynamicArrayType(dummy("test1"), "test_arr", byte,
-                                   lenfield),
-                  "00010203",
-                  bytes([0, 1, 2, 3])],
-                 [DynamicArrayType(dummy("test2"), "test_arr", u16,
-                                   lenfield),
-                  "[0,1,2,256]",
-                  bytes([0, 0, 0, 1, 0, 2, 1, 0])],
-                 [DynamicArrayType(dummy("test3"), "test_arr", scid,
-                                   lenfield),
-                  "[1x2x3,4x5x6,7x8x9,10x11x12]",
-                  bytes([0, 0, 1, 0, 0, 2, 0, 3]
-                        + [0, 0, 4, 0, 0, 5, 0, 6]
-                        + [0, 0, 7, 0, 0, 8, 0, 9]
-                        + [0, 0, 10, 0, 0, 11, 0, 12])]]:
+    for arrtype, s, b in [[DynamicArrayType(dummy("test1"), "test_arr", byte,
+                                            lenfield),
+                           "00010203",
+                           bytes([0, 1, 2, 3])],
+                          [DynamicArrayType(dummy("test2"), "test_arr", u16,
+                                            lenfield),
+                           "[0,1,2,256]",
+                           bytes([0, 0, 0, 1, 0, 2, 1, 0])],
+                          [DynamicArrayType(dummy("test3"), "test_arr", scid,
+                                            lenfield),
+                           "[1x2x3,4x5x6,7x8x9,10x11x12]",
+                           bytes([0, 0, 1, 0, 0, 2, 0, 3]
+                                 + [0, 0, 4, 0, 0, 5, 0, 6]
+                                 + [0, 0, 7, 0, 0, 8, 0, 9]
+                                 + [0, 0, 10, 0, 0, 11, 0, 12])]]:
 
-        lenfield.fieldtype.add_length_for(field_dummy(test[1], test[0]))
-        v, _ = test[0].val_from_str(test[1])
-        otherfields = {test[1]: v}
-        assert test[0].val_to_str(v, otherfields) == test[1]
-        v2, _ = test[0].val_from_bin(test[2], otherfields)
+        lenfield.fieldtype.add_length_for(field_dummy(s, arrtype))
+        v, _ = arrtype.val_from_str(s)
+        otherfields = {s: v}
+        assert arrtype.val_to_str(v, otherfields) == s
+        v2 = arrtype.read(io.BytesIO(b), otherfields)
         assert v2 == v
-        assert test[0].val_to_bin(v, otherfields) == test[2]
+        buf = io.BytesIO()
+        arrtype.write(buf, v, None)
+        assert buf.getvalue() == b
         lenfield.fieldtype.len_for = []

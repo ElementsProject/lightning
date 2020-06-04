@@ -2,3 +2,4 @@ bitstring==3.1.6
 cryptography==2.8
 coincurve==13.0.0
 base58==1.0.2
+mypy

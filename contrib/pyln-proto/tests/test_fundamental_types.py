@@ -1,5 +1,6 @@
 #! /usr/bin/python3
 from pyln.proto.message.fundamental_types import fundamental_types
+import io
 
 
 def test_fundamental_types():
@@ -67,8 +68,10 @@ def test_fundamental_types():
         for test in expect[t.name]:
             v, _ = t.val_from_str(test[0])
             assert t.val_to_str(v, None) == test[0]
-            v2, _ = t.val_from_bin(test[1], None)
+            v2 = t.read(io.BytesIO(test[1]), None)
             assert v2 == v
-            assert t.val_to_bin(v, None) == test[1]
+            buf = io.BytesIO()
+            t.write(buf, v, None)
+            assert buf.getvalue() == test[1]
 
     assert untested == set(['varint'])

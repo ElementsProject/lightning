@@ -1,5 +1,6 @@
 import struct
-from .fundamental_types import fundamental_types, BigSizeType, split_field
+import io
+from .fundamental_types import fundamental_types, BigSizeType, split_field, try_unpack
 from .array_types import (
     SizedArrayType, DynamicArrayType, LengthFieldType, EllipsisArrayType
 )
@@ -253,24 +254,21 @@ inherit from this too.
 
         return '{' + s + '}'
 
-    def val_to_bin(self, v, otherfields):
+    def write(self, io_out, v, otherfields):
         self._raise_if_badvals(v)
-        b = bytes()
         for fname, val in v.items():
             field = self.find_field(fname)
-            b += field.fieldtype.val_to_bin(val, otherfields)
-        return b
+            field.fieldtype.write(io_out, val, otherfields)
 
-    def val_from_bin(self, bytestream, otherfields):
-        totsize = 0
+    def read(self, io_in, otherfields):
         vals = {}
         for field in self.fields:
-            val, size = field.fieldtype.val_from_bin(bytestream[totsize:],
-                                                     otherfields)
-            totsize += size
+            val = field.fieldtype.read(io_in, otherfields)
+            if val is None:
+                raise ValueError("{}.{}: short read".format(self, field))
             vals[field.name] = val
 
-        return vals, totsize
+        return vals
 
     @staticmethod
     def field_from_csv(namespace, parts):
@@ -433,17 +431,15 @@ tlvdata,reply_channel_range_tlvs,timestamps_tlv,encoding_type,u8,
 
         return '{' + s + '}'
 
-    def val_to_bin(self, v, otherfields):
-        b = bytes()
-
+    def write(self, iobuf, v, otherfields):
         # If they didn't specify this tlvstream, it's empty.
         if v is None:
-            return b
+            return
 
         # Make a tuple of (fieldnum, val_to_bin, val) so we can sort into
         # ascending order as TLV spec requires.
-        def copy_val(val, otherfields):
-            return val
+        def write_raw_val(iobuf, val, otherfields):
+            iobuf.write(val)
 
         def get_value(tup):
             """Get value from num, fun, val tuple"""
@@ -454,43 +450,40 @@ tlvdata,reply_channel_range_tlvs,timestamps_tlv,encoding_type,u8,
             f = self.find_field(fieldname)
             if f is None:
                 # fieldname can be an integer for a raw field.
-                ordered.append((int(fieldname), copy_val, v[fieldname]))
+                ordered.append((int(fieldname), write_raw_val, v[fieldname]))
             else:
-                ordered.append((f.number, f.val_to_bin, v[fieldname]))
+                ordered.append((f.number, f.write, v[fieldname]))
 
         ordered.sort(key=get_value)
 
-        for tup in ordered:
-            value = tup[1](tup[2], otherfields)
-            b += (BigSizeType.to_bin(tup[0])
-                  + BigSizeType.to_bin(len(value))
-                  + value)
+        for typenum, writefunc, val in ordered:
+            buf = io.BytesIO()
+            writefunc(buf, val, otherfields)
+            BigSizeType.write(iobuf, typenum)
+            BigSizeType.write(iobuf, len(buf.getvalue()))
+            iobuf.write(buf.getvalue())
 
-        return b
-
-    def val_from_bin(self, bytestream, otherfields):
-        totsize = 0
+    def read(self, io_in, otherfields):
         vals = {}
 
-        while totsize < len(bytestream):
-            tlv_type, size = BigSizeType.from_bin(bytestream[totsize:])
-            totsize += size
-            tlv_len, size = BigSizeType.from_bin(bytestream[totsize:])
-            totsize += size
+        while True:
+            tlv_type = BigSizeType.read(io_in)
+            if tlv_type is None:
+                return vals
+
+            tlv_len = BigSizeType.read(io_in)
+            if tlv_len is None:
+                raise ValueError("{}: truncated tlv_len field".format(self))
+            binval = io_in.read(tlv_len)
+            if len(binval) != tlv_len:
+                raise ValueError("{}: truncated tlv {} value"
+                                 .format(tlv_type, self))
             f = self.find_field_by_number(tlv_type)
             if f is None:
-                vals[tlv_type] = bytestream[totsize:totsize + tlv_len]
-                size = len(vals[tlv_type])
+                # Raw fields are allowed, just index by number.
+                vals[tlv_type] = binval
             else:
-                vals[f.name], size = f.val_from_bin(bytestream
-                                                    [totsize:totsize
-                                                     + tlv_len],
-                                                    otherfields)
-            if size != tlv_len:
-                raise ValueError("Truncated tlv field")
-            totsize += size
-
-        return vals, totsize
+                vals[f.name] = f.read(io.BytesIO(binval), otherfields)
 
     def name_and_val(self, name, v):
         """This is overridden by LengthFieldType to return nothing"""
@@ -541,10 +534,15 @@ class Message(object):
         return missing
 
     @staticmethod
-    def from_bin(namespace, binmsg):
-        """Decode a binary wire format to a Message within that namespace"""
-        typenum = struct.unpack_from(">H", binmsg)[0]
-        off = 2
+    def read(namespace, io_in):
+        """Read and decode a Message within that namespace.
+
+Returns None on EOF
+
+        """
+        typenum = try_unpack('message_type', io_in, ">H", empty_ok=True)
+        if typenum is None:
+            return None
 
         mtype = namespace.get_msgtype_by_number(typenum)
         if not mtype:
@@ -552,16 +550,21 @@ class Message(object):
 
         fields = {}
         for f in mtype.fields:
-            v, size = f.fieldtype.val_from_bin(binmsg[off:], fields)
-            off += size
-            fields[f.name] = v
+            fields[f.name] = f.fieldtype.read(io_in, fields)
+            if fields[f.name] is None:
+                # optional fields are OK to be missing at end!
+                raise ValueError('{}: truncated at field {}'
+                                 .format(mtype, f.name))
 
         return Message(mtype, **fields)
 
     @staticmethod
     def from_str(namespace, s, incomplete_ok=False):
-        """Decode a string to a Message within that namespace, of format
-msgname [ field=...]*."""
+        """Decode a string to a Message within that namespace.
+
+Format is msgname [ field=...]*.
+
+        """
         parts = s.split()
 
         mtype = namespace.get_msgtype(parts[0])
@@ -582,14 +585,17 @@ msgname [ field=...]*."""
 
         return m
 
-    def to_bin(self):
-        """Encode a Message into its wire format (must not have missing
-fields)"""
+    def write(self, io_out):
+        """Write a Message into its wire format.
+
+Must not have missing fields.
+
+        """
         if self.missing_fields():
             raise ValueError('Missing fields: {}'
                              .format(self.missing_fields()))
 
-        ret = struct.pack(">H", self.messagetype.number)
+        io_out.write(struct.pack(">H", self.messagetype.number))
         for f in self.messagetype.fields:
             # Optional fields get val == None.  Usually this means they don't
             # write anything, but length fields are an exception: they intuit
@@ -598,8 +604,7 @@ fields)"""
                 val = self.fields[f.name]
             else:
                 val = None
-            ret += f.fieldtype.val_to_bin(val, self.fields)
-        return ret
+            f.fieldtype.write(io_out, val, self.fields)
 
     def to_str(self):
         """Encode a Message into a string"""

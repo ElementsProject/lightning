@@ -1,4 +1,22 @@
 import struct
+import io
+from typing import Optional
+
+
+def try_unpack(name: str,
+               io_out: io.BufferedIOBase,
+               structfmt: str,
+               empty_ok: bool) -> Optional[int]:
+    """Unpack a single value using struct.unpack.
+
+If need_all, never return None, otherwise returns None if EOF."""
+    b = io_out.read(struct.calcsize(structfmt))
+    if len(b) == 0 and empty_ok:
+        return None
+    elif len(b) < struct.calcsize(structfmt):
+        raise ValueError("{}: not enough bytes", name)
+
+    return struct.unpack(structfmt, b)[0]
 
 
 def split_field(s):
@@ -57,15 +75,11 @@ class IntegerType(FieldType):
         a, b = split_field(s)
         return int(a), b
 
-    def val_to_bin(self, v, otherfields):
-        return struct.pack(self.structfmt, v)
+    def write(self, io_out, v, otherfields):
+        io_out.write(struct.pack(self.structfmt, v))
 
-    def val_from_bin(self, bytestream, otherfields):
-        "Returns value, bytesused"
-        if self.bytelen > len(bytestream):
-            raise ValueError('{}: not enough remaining to read'.format(self))
-        return struct.unpack_from(self.structfmt,
-                                  bytestream)[0], self.bytelen
+    def read(self, io_in, otherfields):
+        return try_unpack(self.name, io_in, self.structfmt, empty_ok=True)
 
 
 class ShortChannelIDType(IntegerType):
@@ -110,30 +124,24 @@ class TruncatedIntType(FieldType):
                              .format(a, self.name))
         return int(a), b
 
-    def val_to_bin(self, v, otherfields):
+    def write(self, io_out, v, otherfields):
         binval = struct.pack('>Q', v)
         while len(binval) != 0 and binval[0] == 0:
             binval = binval[1:]
         if len(binval) > self.maxbytes:
             raise ValueError('{} exceeds maximum {} capacity'
                              .format(v, self.name))
-        return binval
+        io_out.write(binval)
 
-    def val_from_bin(self, bytestream, otherfields):
-        "Returns value, bytesused"
-        binval = bytes()
-        while len(binval) < len(bytestream):
-            if len(binval) == 0 and bytestream[len(binval)] == 0:
-                raise ValueError('{} encoding is not minimal: {}'
-                                 .format(self.name, bytestream))
-            binval += bytes([bytestream[len(binval)]])
-
+    def read(self, io_in, otherfields):
+        binval = io_in.read()
         if len(binval) > self.maxbytes:
             raise ValueError('{} is too long for {}'.format(binval, self.name))
-
+        if len(binval) > 0 and binval[0] == 0:
+            raise ValueError('{} encoding is not minimal: {}'
+                             .format(self.name, binval))
         # Pad with zeroes and convert as u64
-        return (struct.unpack_from('>Q', bytes(8 - len(binval)) + binval)[0],
-                len(binval))
+        return struct.unpack_from('>Q', bytes(8 - len(binval)) + binval)[0]
 
 
 class FundamentalHexType(FieldType):
@@ -154,16 +162,18 @@ class FundamentalHexType(FieldType):
             raise ValueError("Length of {} != {}", a, self.bytelen)
         return ret, b
 
-    def val_to_bin(self, v, otherfields):
+    def write(self, io_out, v, otherfields):
         if len(bytes(v)) != self.bytelen:
             raise ValueError("Length of {} != {}", v, self.bytelen)
-        return bytes(v)
+        io_out.write(v)
 
-    def val_from_bin(self, bytestream, otherfields):
-        "Returns value, size from bytestream"
-        if self.bytelen > len(bytestream):
+    def read(self, io_in, otherfields):
+        val = io_in.read(self.bytelen)
+        if len(val) == 0:
+            return None
+        elif len(val) != self.bytelen:
             raise ValueError('{}: not enough remaining'.format(self))
-        return bytestream[:self.bytelen], self.bytelen
+        return val
 
 
 class BigSizeType(FieldType):
@@ -177,36 +187,33 @@ class BigSizeType(FieldType):
 
     # For the convenience of TLV header parsing
     @staticmethod
-    def to_bin(v):
+    def write(io_out, v, otherfields=None):
         if v < 253:
-            return bytes([v])
+            io_out.write(bytes([v]))
         elif v < 2**16:
-            return bytes([253]) + struct.pack('>H', v)
+            io_out.write(bytes([253]) + struct.pack('>H', v))
         elif v < 2**32:
-            return bytes([254]) + struct.pack('>I', v)
+            io_out.write(bytes([254]) + struct.pack('>I', v))
         else:
-            return bytes([255]) + struct.pack('>Q', v)
+            io_out.write(bytes([255]) + struct.pack('>Q', v))
 
     @staticmethod
-    def from_bin(bytestream):
-        "Returns value, bytesused"
-        if bytestream[0] < 253:
-            return int(bytestream[0]), 1
-        elif bytestream[0] == 253:
-            return struct.unpack_from('>H', bytestream[1:])[0], 3
-        elif bytestream[0] == 254:
-            return struct.unpack_from('>I', bytestream[1:])[0], 5
+    def read(io_in, otherfields=None):
+        "Returns value, or None on EOF"
+        b = io_in.read(1)
+        if len(b) == 0:
+            return None
+        if b[0] < 253:
+            return int(b[0])
+        elif b[0] == 253:
+            return try_unpack('BigSize', io_in, '>H', empty_ok=False)
+        elif b[0] == 254:
+            return try_unpack('BigSize', io_in, '>I', empty_ok=False)
         else:
-            return struct.unpack_from('>Q', bytestream[1:])[0], 9
+            return try_unpack('BigSize', io_in, '>Q', empty_ok=False)
 
     def val_to_str(self, v, otherfields):
         return "{}".format(int(v))
-
-    def val_to_bin(self, v, otherfields):
-        return self.to_bin(v)
-
-    def val_from_bin(self, bytestream, otherfields):
-        return self.from_bin(bytestream)
 
 
 def fundamental_types():
