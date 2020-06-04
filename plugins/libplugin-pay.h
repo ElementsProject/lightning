@@ -151,6 +151,17 @@ struct getroute_request {
 	u32 max_hops;
 };
 
+struct payment_constraints {
+	/* Maximum remaining fees we're willing to pay to complete this
+	 * (sub-)payment. This is modified by a route being applied of by
+	 * modifiers that use some of the budget. */
+	struct amount_msat fee_budget;
+
+	/* Maximum end-to-end CLTV delta we're willing to wait for this
+	 * (sub-)payment to complete. */
+	u32 cltv_budget;
+};
+
 struct payment {
 	/* The command that triggered this payment. Only set for the root
 	 * payment. */
@@ -201,13 +212,14 @@ struct payment {
 	struct timeabs start_time, end_time;
 	struct timeabs deadline;
 
-	/* Maximum remaining fees we're willing to pay to complete this
-	 * (sub-)payment. */
-	struct amount_msat fee_budget;
+	/* Constraints the state machine and modifiers needs to maintain. */
+	struct payment_constraints constraints;
 
-	/* Maximum end-to-end CLTV delta we're willing to wait for this
-	 * (sub-)payment to complete. */
-	u32 cltv_budget;
+	/* Copy of the above constraints inherited to sub-payments
+	 * automatically. This is mainly so we don't have to unapply changes
+	 * to the constraints when retrying or splitting. The copy is made in
+	 * `payment_start` so they can be adjusted until then. */
+	struct payment_constraints *start_constraints;
 
 	struct short_channel_id *exclusions;
 
