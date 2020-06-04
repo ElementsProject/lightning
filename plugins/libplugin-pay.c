@@ -32,8 +32,9 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->payment_hash = parent->payment_hash;
 		p->partid = payment_root(p->parent)->next_partid++;
 		p->plugin = parent->plugin;
-		p->fee_budget = parent->fee_budget;
-		p->cltv_budget = parent->cltv_budget;
+
+		/* Re-establish the unmodified constraints for our sub-payment. */
+		p->constraints = *parent->start_constraints;
 	} else {
 		assert(cmd != NULL);
 		p->partid = 0;
@@ -166,6 +167,8 @@ void payment_start(struct payment *p)
 		p->getroute->cltv = DEFAULT_FINAL_CLTV_DELTA;
 	p->getroute->amount = p->amount;
 
+	p->start_constraints = tal_dup(p, struct payment_constraints, &p->constraints);
+
 	/* TODO If this is not the root, we can actually skip the getinfo call
 	 * and just reuse the parent's value. */
 	send_outreq(p->plugin,
@@ -258,6 +261,41 @@ static void payment_exclude_longest_delay(struct payment *p)
 	tal_arr_expand(&root->channel_hints, hint);
 }
 
+static struct amount_msat payment_route_fee(struct payment *p)
+{
+	struct amount_msat fee;
+	if (!amount_msat_sub(&fee, p->route[0].amount, p->amount)) {
+		plugin_log(
+		    p->plugin,
+		    LOG_BROKEN,
+		    "gossipd returned a route with a negative fee: sending %s "
+		    "to deliver %s",
+		    type_to_string(tmpctx, struct amount_msat,
+				   &p->route[0].amount),
+		    type_to_string(tmpctx, struct amount_msat, &p->amount));
+		abort();
+	}
+	return fee;
+}
+
+/* Update the constraints by subtracting the delta_fee and delta_cltv if the
+ * result is positive. Returns whether or not the update has been applied. */
+static WARN_UNUSED_RESULT bool
+payment_constraints_update(struct payment_constraints *cons,
+			   const struct amount_msat delta_fee,
+			   const u32 delta_cltv)
+{
+	if (delta_cltv > cons->cltv_budget)
+		return false;
+
+	/* amount_msat_sub performs a check before actually subtracting. */
+	if (!amount_msat_sub(&cons->fee_budget, cons->fee_budget, delta_fee))
+		return false;
+
+	cons->cltv_budget -= delta_cltv;
+	return true;
+}
+
 static struct command_result *payment_getroute_result(struct command *cmd,
 						      const char *buffer,
 						      const jsmntok_t *toks,
@@ -269,37 +307,34 @@ static struct command_result *payment_getroute_result(struct command *cmd,
 	p->route = tal_route_from_json(p, buffer, rtok);
 	p->step = PAYMENT_STEP_GOT_ROUTE;
 
+	fee = payment_route_fee(p);
+
 	/* Ensure that our fee and CLTV budgets are respected. */
-
-	if (!amount_msat_sub(&fee, p->route[0].amount, p->amount)) {
-		plugin_err(
-		    p->plugin,
-		    "gossipd returned a route with a negative fee: sending %s "
-		    "to deliver %s",
-		    type_to_string(tmpctx, struct amount_msat,
-				   &p->route[0].amount),
-		    type_to_string(tmpctx, struct amount_msat, &p->amount));
-		payment_fail(p);
-		return command_still_pending(cmd);
-	}
-
-	if (amount_msat_greater(fee, p->fee_budget)) {
+	if (amount_msat_greater(fee, p->constraints.fee_budget)) {
 		plugin_log(p->plugin, LOG_INFORM,
 		    "Fee exceeds our fee budget: %s > %s, discarding route",
 		    type_to_string(tmpctx, struct amount_msat, &fee),
-		    type_to_string(tmpctx, struct amount_msat, &p->fee_budget));
+		    type_to_string(tmpctx, struct amount_msat, &p->constraints.fee_budget));
 		payment_exclude_most_expensive(p);
 		payment_fail(p);
 		return command_still_pending(cmd);
 	}
 
-	if (p->route[0].delay > p->cltv_budget) {
+	if (p->route[0].delay > p->constraints.cltv_budget) {
 		plugin_log(p->plugin, LOG_INFORM,
 			   "CLTV delay exceeds our CLTV budget: %d > %d",
-			   p->route[0].delay, p->cltv_budget);
+			   p->route[0].delay, p->constraints.cltv_budget);
 		payment_exclude_longest_delay(p);
 		payment_fail(p);
 		return command_still_pending(cmd);
+	}
+
+	/* Now update the constraints in fee_budget and cltv_budget so
+	 * modifiers know what constraints they need to adhere to. */
+	if (!payment_constraints_update(&p->constraints, fee, p->route[0].delay)) {
+		plugin_log(p->plugin, LOG_BROKEN,
+			   "Could not update constraints.");
+		abort();
 	}
 
 	/* Allow modifiers to modify the route, before
@@ -1557,13 +1592,14 @@ static void exemptfee_cb(struct exemptfee_data *d, struct payment *p)
 	if (p->step != PAYMENT_STEP_INITIALIZED)
 		return payment_continue(p);
 
-	if (amount_msat_greater_eq(d->amount, p->amount)) {
-		p->fee_budget = d->amount;
+	if (amount_msat_greater_eq(d->amount, p->constraints.fee_budget)) {
+		p->constraints.fee_budget = d->amount;
+		p->start_constraints->fee_budget = d->amount;
 		plugin_log(
 		    p->plugin, LOG_INFORM,
 		    "Payment amount is below exemption threshold, "
 		    "allowing a maximum fee of %s",
-		    type_to_string(tmpctx, struct amount_msat, &p->fee_budget));
+		    type_to_string(tmpctx, struct amount_msat, &p->constraints.fee_budget));
 	}
 	return payment_continue(p);
 }

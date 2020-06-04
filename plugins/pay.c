@@ -1908,14 +1908,16 @@ static struct command_result *json_paymod(struct command *cmd,
 	p->invoice = tal_steal(p, b11);
 	p->bolt11 = tal_steal(p, b11str);
 	p->why = "Initial attempt";
-	p->cltv_budget = *maxdelay;
+	p->constraints.cltv_budget = *maxdelay;
 
-	if (!amount_msat_fee(&p->fee_budget, p->amount, 0, *maxfee_pct_millionths)) {
+	if (!amount_msat_fee(&p->constraints.fee_budget, p->amount, 0,
+			     *maxfee_pct_millionths / 100)) {
 		tal_free(p);
 		return command_fail(
 		    cmd, JSONRPC2_INVALID_PARAMS,
 		    "Overflow when computing fee budget, fee rate too high.");
 	}
+	p->constraints.cltv_budget = *maxdelay;
 
 	payment_mod_exemptfee_get_data(p)->amount = *exemptfee;
 
