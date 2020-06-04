@@ -1,5 +1,6 @@
 import struct
 import io
+import sys
 from typing import Optional
 
 
@@ -235,3 +236,9 @@ def fundamental_types():
             # FIXME: See https://github.com/lightningnetwork/lightning-rfc/pull/778
             BigSizeType('varint'),
             ]
+
+
+# Expose these as native types.
+mod = sys.modules[FieldType.__module__]
+for m in fundamental_types():
+    setattr(mod, m.name, m)
