@@ -1,13 +1,10 @@
 #! /usr/bin/python3
 from pyln.proto.message import Message, MessageNamespace
-from pyln.proto.message.bolts import bolt_01_csv, bolt_02_csv, bolt_04_csv, bolt_07_csv
+import pyln.proto.message.bolt1 as bolt1
+import io
 
 
 def test_bolt_01_csv_tlv():
-    ns = MessageNamespace(bolt_01_csv)
-
-    n1 = ns.get_tlvtype('n1')
-
     # FIXME: Test failure cases too!
     for t in [['0x', ''],
               ['0x21 00', '33='],
@@ -28,15 +25,17 @@ def test_bolt_01_csv_tlv():
               ['0x02 08 0000000000000226', 'tlv2={scid=0x0x550}'],
               ['0x03 31 023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb00000000000000010000000000000002', 'tlv3={node_id=023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb,amount_msat_1=1,amount_msat_2=2}'],
               ['0xfd00fe 02 0226', 'tlv4={cltv_delta=550}']]:
-        msg = bytes.fromhex(t[0][2:].replace(' ', ''))
+        msg = io.BytesIO(bytes.fromhex(t[0][2:].replace(' ', '')))
 
-        val, size = n1.val_from_bin(msg, None)
-        assert size == len(msg)
-        assert n1.val_to_str(val, None) == '{' + t[1] + '}'
+        val = bolt1.n1.read(msg, None)
+        assert len(msg.read()) == 0
+        assert bolt1.n1.val_to_str(val, None) == '{' + t[1] + '}'
 
 
 def test_bolt_01_csv():
-    ns = MessageNamespace(bolt_01_csv)
+    # We can create a namespace from the csv.
+    ns = MessageNamespace(bolt1.csv)
+
     # string [expected string]
     for t in [['init globalfeatures= features=80',
                'init globalfeatures= features=80 tlvs={}'],
@@ -48,22 +47,15 @@ def test_bolt_01_csv():
               ['ping num_pong_bytes=3 ignored=0000'],
               ['pong ignored='],
               ['pong ignored=000000']]:
-        m = Message.from_str(ns, t[0])
-        b = m.to_bin()
-        m2 = Message.from_bin(ns, b)
+        m = Message.from_str(bolt1.namespace, t[0])
+        b = io.BytesIO()
+        m.write(b)
+
+        # Works with our manually-made namespace, and the builtin one.
+        b.seek(0)
+        m2 = Message.read(bolt1.namespace, b)
         assert m2.to_str() == t[-1]
 
-
-def test_bolt_02_csv():
-    MessageNamespace(bolt_02_csv)
-    # FIXME: Add tests.
-
-
-def test_bolt_04_csv():
-    MessageNamespace(bolt_04_csv)
-    # FIXME: Add tests.
-
-
-def test_bolt_07_csv():
-    MessageNamespace(bolt_07_csv)
-    # FIXME: Add tests.
+        b.seek(0)
+        m2 = Message.read(ns, b)
+        assert m2.to_str() == t[-1]
