@@ -86,9 +86,9 @@ domain, such as within a given BOLT"""
 
     def get_type(self, name):
         t = self.get_fundamentaltype(name)
-        if not t:
+        if t is None:
             t = self.get_subtype(name)
-        if not t:
+        if t is None:
             t = self.get_tlvtype(name)
         return t
 
@@ -203,7 +203,7 @@ inherit from this too.
 
         """
         basetype = namespace.get_type(parts[1])
-        if not basetype:
+        if basetype is None:
             raise ValueError('Unknown type {}'.format(parts[1]))
 
         # Fixed number, or another field.
@@ -367,7 +367,7 @@ class MessageType(SubtypeType):
             raise ValueError("msgdata expected 4 CSV parts, not {}"
                              .format(parts))
         messagetype = namespace.get_msgtype(parts[0])
-        if not messagetype:
+        if messagetype is None:
             raise ValueError("unknown subtype {}".format(parts[0]))
 
         field = messagetype._field_from_csv(namespace, parts[1:4],
@@ -405,7 +405,7 @@ confusingly) refers to them.
             raise ValueError("tlvtype expected 4 CSV parts, not {}"
                              .format(parts))
         tlvstream = namespace.get_tlvtype(parts[0])
-        if not tlvstream:
+        if tlvstream is None:
             tlvstream = TlvStreamType(parts[0])
             namespace.add_tlvtype(tlvstream)
 
@@ -422,7 +422,7 @@ tlvdata,reply_channel_range_tlvs,timestamps_tlv,encoding_type,u8,
                              .format(parts))
 
         tlvstream = namespace.get_tlvtype(parts[0])
-        if not tlvstream:
+        if tlvstream is None:
             raise ValueError("unknown tlvtype {}".format(parts[0]))
 
         field = tlvstream.find_field(parts[1])
@@ -582,7 +582,7 @@ Returns None on EOF
             return None
 
         mtype = namespace.get_msgtype_by_number(typenum)
-        if not mtype:
+        if mtype is None:
             raise ValueError('Unknown message type number {}'.format(typenum))
 
         fields = {}
@@ -605,7 +605,7 @@ Format is msgname [ field=...]*.
         parts = s.split()
 
         mtype = namespace.get_msgtype(parts[0])
-        if not mtype:
+        if mtype is None:
             raise ValueError('Unknown message type name {}'.format(parts[0]))
 
         args = {}

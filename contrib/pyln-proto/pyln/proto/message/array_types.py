@@ -34,12 +34,7 @@ wants an array of some type.
         if self.elemtype.name == 'byte':
             return bytes(v).hex()
 
-        s = ''
-        sep = ''
-        for i in v:
-            s += sep + self.elemtype.val_to_str(i, otherfields)
-            sep = ','
-
+        s = ','.join(self.elemtype.val_to_str(i, otherfields) for i in v)
         return '[' + s + ']'
 
     def write(self, io_out, v, otherfields):
