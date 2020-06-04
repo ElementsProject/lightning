@@ -142,7 +142,7 @@ class MessageTypeField(object):
 
     def missing_fields(self, fields):
         """Return this field if it's not in fields"""
-        if self.name not in fields and not self.fieldtype.is_optional():
+        if self.name not in fields and not self.option and not self.fieldtype.is_optional():
             return [self]
         return []
 
@@ -294,7 +294,9 @@ inherit from this too.
         for field in self.fields:
             val = field.fieldtype.read(io_in, otherfields)
             if val is None:
-                raise ValueError("{}.{}: short read".format(self, field))
+                # Might only exist with certain options available
+                if field.fieldtype.option is None:
+                    raise ValueError("{}.{}: short read".format(self, field))
             vals[field.name] = val
 
         return vals
