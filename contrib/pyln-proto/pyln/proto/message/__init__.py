@@ -1,4 +1,5 @@
 from .message import MessageNamespace, MessageType, Message, SubtypeType
+from .fundamental_types import split_field, FieldType
 
 __version__ = '0.0.1'
 
@@ -7,6 +8,8 @@ __all__ = [
     "MessageType",
     "Message",
     "SubtypeType",
+    "FieldType",
+    "split_field",
 
     # fundamental_types
     'byte',
