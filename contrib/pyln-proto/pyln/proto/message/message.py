@@ -21,6 +21,19 @@ domain, such as within a given BOLT"""
 
         self.load_csv(csv_lines)
 
+    def __add__(self, other):
+        ret = MessageNamespace()
+        ret.subtypes = self.subtypes.copy()
+        for v in other.subtypes.values():
+            ret.add_subtype(v)
+        ret.tlvtypes = self.tlvtypes.copy()
+        for v in other.tlvtypes.values():
+            ret.add_tlvtype(v)
+        ret.messagetypes = self.messagetypes.copy()
+        for v in other.messagetypes.values():
+            ret.add_messagetype(v)
+        return ret
+
     def add_subtype(self, t):
         prev = self.get_type(t.name)
         if prev:
