@@ -74,4 +74,4 @@ def test_fundamental_types():
             t.write(buf, v, None)
             assert buf.getvalue() == test[1]
 
-    assert untested == set(['varint'])
+    assert untested == set(['varint', 'u8'])

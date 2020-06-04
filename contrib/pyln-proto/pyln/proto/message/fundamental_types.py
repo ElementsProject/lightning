@@ -235,6 +235,8 @@ def fundamental_types():
             BigSizeType('bigsize'),
             # FIXME: See https://github.com/lightningnetwork/lightning-rfc/pull/778
             BigSizeType('varint'),
+            # FIXME
+            IntegerType('u8', 1, 'B'),
             ]
 
 
