@@ -7,4 +7,20 @@ __all__ = [
     "MessageType",
     "Message",
     "SubtypeType",
+
+    # fundamental_types
+    'byte',
+    'u16',
+    'u32',
+    'u64',
+    'tu16',
+    'tu32',
+    'tu64',
+    'chain_hash',
+    'channel_id',
+    'sha256',
+    'point',
+    'short_channel_id',
+    'signature',
+    'bigsize',
 ]
