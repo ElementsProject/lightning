@@ -1,6 +1,7 @@
 #! /usr/bin/python3
 from pyln.proto.message import MessageNamespace, Message
 import pytest
+import io
 
 
 def test_fundamental():
@@ -51,9 +52,10 @@ def test_static_array():
                         + [0, 0, 10, 0, 0, 11, 0, 12])]]:
         m = Message.from_str(ns, test[0])
         assert m.to_str() == test[0]
-        v = m.to_bin()
-        assert v == test[1]
-        assert Message.from_bin(ns, test[1]).to_str() == test[0]
+        buf = io.BytesIO()
+        m.write(buf)
+        assert buf.getvalue() == test[1]
+        assert Message.read(ns, io.BytesIO(test[1])).to_str() == test[0]
 
 
 def test_subtype():
@@ -78,9 +80,10 @@ def test_subtype():
                         + [0, 0, 0, 7, 0, 0, 0, 8])]]:
         m = Message.from_str(ns, test[0])
         assert m.to_str() == test[0]
-        v = m.to_bin()
-        assert v == test[1]
-        assert Message.from_bin(ns, test[1]).to_str() == test[0]
+        buf = io.BytesIO()
+        m.write(buf)
+        assert buf.getvalue() == test[1]
+        assert Message.read(ns, io.BytesIO(test[1])).to_str() == test[0]
 
     # Test missing field logic.
     m = Message.from_str(ns, "test1", incomplete_ok=True)
@@ -111,16 +114,19 @@ def test_tlv():
                         + [253, 0, 255, 4, 1, 2, 3, 4])]]:
         m = Message.from_str(ns, test[0])
         assert m.to_str() == test[0]
-        v = m.to_bin()
-        assert v == test[1]
-        assert Message.from_bin(ns, test[1]).to_str() == test[0]
+        buf = io.BytesIO()
+        m.write(buf)
+        assert buf.getvalue() == test[1]
+        assert Message.read(ns, io.BytesIO(test[1])).to_str() == test[0]
 
     # Ordering test (turns into canonical ordering)
     m = Message.from_str(ns, 'test1 tlvs={tlv1={field1=01020304,field2=5},tlv2={field3=01020304},4=010203}')
-    assert m.to_bin() == bytes([0, 1]
-                               + [1, 8, 1, 2, 3, 4, 0, 0, 0, 5]
-                               + [4, 3, 1, 2, 3]
-                               + [253, 0, 255, 4, 1, 2, 3, 4])
+    buf = io.BytesIO()
+    m.write(buf)
+    assert buf.getvalue() == bytes([0, 1]
+                                   + [1, 8, 1, 2, 3, 4, 0, 0, 0, 5]
+                                   + [4, 3, 1, 2, 3]
+                                   + [253, 0, 255, 4, 1, 2, 3, 4])
 
 
 def test_message_constructor():
@@ -135,10 +141,12 @@ def test_message_constructor():
     m = Message(ns.get_msgtype('test1'),
                 tlvs='{tlv1={field1=01020304,field2=5}'
                 ',tlv2={field3=01020304},4=010203}')
-    assert m.to_bin() == bytes([0, 1]
-                               + [1, 8, 1, 2, 3, 4, 0, 0, 0, 5]
-                               + [4, 3, 1, 2, 3]
-                               + [253, 0, 255, 4, 1, 2, 3, 4])
+    buf = io.BytesIO()
+    m.write(buf)
+    assert buf.getvalue() == bytes([0, 1]
+                                   + [1, 8, 1, 2, 3, 4, 0, 0, 0, 5]
+                                   + [4, 3, 1, 2, 3]
+                                   + [253, 0, 255, 4, 1, 2, 3, 4])
 
 
 def test_dynamic_array():
@@ -151,13 +159,15 @@ def test_dynamic_array():
     # This one is fine.
     m = Message(ns.get_msgtype('test1'),
                 arr1='01020304', arr2='[1,2,3,4]')
-    assert m.to_bin() == bytes([0, 1]
-                               + [0, 4]
-                               + [1, 2, 3, 4]
-                               + [0, 0, 0, 1,
-                                  0, 0, 0, 2,
-                                  0, 0, 0, 3,
-                                  0, 0, 0, 4])
+    buf = io.BytesIO()
+    m.write(buf)
+    assert buf.getvalue() == bytes([0, 1]
+                                   + [0, 4]
+                                   + [1, 2, 3, 4]
+                                   + [0, 0, 0, 1,
+                                      0, 0, 0, 2,
+                                      0, 0, 0, 3,
+                                      0, 0, 0, 4])
 
     # These ones are not
     with pytest.raises(ValueError, match='Inconsistent length.*count'):

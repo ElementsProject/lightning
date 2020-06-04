@@ -42,27 +42,25 @@ wants an array of some type.
 
         return '[' + s + ']'
 
-    def val_to_bin(self, v, otherfields):
-        b = bytes()
+    def write(self, io_out, v, otherfields):
         for i in v:
-            b += self.elemtype.val_to_bin(i, otherfields)
-        return b
+            self.elemtype.write(io_out, i, otherfields)
 
-    def arr_from_bin(self, bytestream, otherfields, arraysize):
-        """arraysize None means take rest of bytestream exactly"""
-        totsize = 0
+    def read_arr(self, io_in, otherfields, arraysize):
+        """arraysize None means take rest of io entirely and exactly"""
         vals = []
-        i = 0
-        while True:
-            if arraysize is None and totsize == len(bytestream):
-                return vals, totsize
-            elif i == arraysize:
-                return vals, totsize
-            val, size = self.elemtype.val_from_bin(bytestream[totsize:],
-                                                   otherfields)
-            totsize += size
-            i += 1
+        while arraysize is None or len(vals) < arraysize:
+            # Throws an exception on partial read, so None means completely empty.
+            val = self.elemtype.read(io_in, otherfields)
+            if val is None:
+                if arraysize is not None:
+                    raise ValueError('{}: not enough remaining to read'
+                                     .format(self))
+                break
+
             vals.append(val)
+
+        return vals
 
 
 class SizedArrayType(ArrayType):
@@ -82,13 +80,13 @@ class SizedArrayType(ArrayType):
             raise ValueError("Length of {} != {}", s, self.arraysize)
         return a, b
 
-    def val_to_bin(self, v, otherfields):
+    def write(self, io_out, v, otherfields):
         if len(v) != self.arraysize:
             raise ValueError("Length of {} != {}", v, self.arraysize)
-        return super().val_to_bin(v, otherfields)
+        return super().write(io_out, v, otherfields)
 
-    def val_from_bin(self, bytestream, otherfields):
-        return super().arr_from_bin(bytestream, otherfields, self.arraysize)
+    def read(self, io_in, otherfields):
+        return super().read_arr(io_in, otherfields, self.arraysize)
 
 
 class EllipsisArrayType(ArrayType):
@@ -97,9 +95,9 @@ when the tlv ends"""
     def __init__(self, tlv, name, elemtype):
         super().__init__(tlv, name, elemtype)
 
-    def val_from_bin(self, bytestream, otherfields):
+    def read(self, io_in, otherfields):
         """Takes rest of bytestream"""
-        return super().arr_from_bin(bytestream, otherfields, None)
+        return super().read_arr(io_in, otherfields, None)
 
     def only_at_tlv_end(self):
         """These only make sense at the end of a TLV"""
@@ -142,10 +140,6 @@ class LengthFieldType(FieldType):
             return v
         return self.calc_value(otherfields)
 
-    def val_to_bin(self, _, otherfields):
-        return self.underlying_type.val_to_bin(self.calc_value(otherfields),
-                                               otherfields)
-
     def val_to_str(self, _, otherfields):
         return self.underlying_type.val_to_str(self.calc_value(otherfields),
                                                otherfields)
@@ -155,9 +149,13 @@ class LengthFieldType(FieldType):
 they're implied by the length of other fields"""
         return ''
 
-    def val_from_bin(self, bytestream, otherfields):
+    def read(self, io_in, otherfields):
         """We store this, but it'll be removed from the fields as soon as it's used (i.e. by DynamicArrayType's val_from_bin)"""
-        return self.underlying_type.val_from_bin(bytestream, otherfields)
+        return self.underlying_type.read(io_in, otherfields)
+
+    def write(self, io_out, _, otherfields):
+        self.underlying_type.write(io_out, self.calc_value(otherfields),
+                                   otherfields)
 
     def val_from_str(self, s):
         raise ValueError('{} is implied, cannot be specified'.format(self))
@@ -182,6 +180,6 @@ class DynamicArrayType(ArrayType):
         assert type(lenfield.fieldtype) is LengthFieldType
         self.lenfield = lenfield
 
-    def val_from_bin(self, bytestream, otherfields):
-        return super().arr_from_bin(bytestream, otherfields,
-                                    self.lenfield.fieldtype._maybe_calc_value(self.lenfield.name, otherfields))
+    def read(self, io_in, otherfields):
+        return super().read_arr(io_in, otherfields,
+                                self.lenfield.fieldtype._maybe_calc_value(self.lenfield.name, otherfields))
