@@ -116,10 +116,32 @@ struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
 {
 	struct wally_tx *tx;
 	struct wally_tx_input tmp_in;
+	u8 *script;
+	size_t scriptlen = 0;
+	struct wally_tx_witness_stack *witness = NULL;
 
 	tx = psbt->tx;
 	assert(insert_at <= tx->num_inputs);
+
+	/* Remove any script sig or witness info before adding it ! */
+	if (input->script_len > 0) {
+		scriptlen = input->script_len;
+		input->script_len = 0;
+		script = (u8 *)input->script;
+		input->script = NULL;
+	}
+	if (input->witness) {
+		witness = input->witness;
+		input->witness = NULL;
+	}
 	wally_tx_add_input(tx, input);
+	/* Put the script + witness info back */
+	if (scriptlen > 0) {
+		input->script_len = scriptlen;
+		input->script = script;
+	}
+	if (witness)
+		input->witness = witness;
 
 	tmp_in = tx->inputs[tx->num_inputs - 1];
 	MAKE_ROOM(tx->inputs, insert_at, tx->num_inputs);
