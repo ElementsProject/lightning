@@ -70,7 +70,7 @@ const u8 *psbt_get_bytes(const tal_t *ctx, const struct wally_psbt *psbt,
 			 size_t *bytes_written);
 struct wally_psbt *psbt_from_bytes(const tal_t *ctx, const u8 *bytes,
 				   size_t byte_len);
-void towire_psbt(u8 **pptr, const struct wally_psbt *psbt);
-struct wally_psbt *fromwire_psbt(const tal_t *ctx,
-				 const u8 **curosr, size_t *max);
+void towire_wally_psbt(u8 **pptr, const struct wally_psbt *psbt);
+struct wally_psbt *fromwire_wally_psbt(const tal_t *ctx,
+				       const u8 **cursor, size_t *max);
 #endif /* LIGHTNING_BITCOIN_PSBT_H */

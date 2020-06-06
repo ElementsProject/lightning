@@ -235,6 +235,7 @@ class Type(FieldSet):
         'onionmsg_path',
         'route_hop',
         'tx_parts',
+        'wally_psbt',
     ]
 
     # Some BOLT types are re-typed based on their field name
