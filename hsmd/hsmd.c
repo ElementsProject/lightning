@@ -1512,87 +1512,63 @@ static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 	}
 }
 
-static void sign_input(struct bitcoin_tx *tx, struct utxo *in,
-		       struct pubkey *inkey,
-		       struct bitcoin_signature *sig,
-		       int index)
+/* Find our inputs by the pubkey associated with the inputs, and
+ * add a partial sig for each */
+static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 {
-	struct privkey inprivkey;
-	u8 *subscript, *wscript, *script;
-
-	/* Figure out keys to spend this. */
-	hsm_key_for_utxo(&inprivkey, inkey, in);
-
-	/* It's either a p2wpkh or p2sh (we support that so people from
-	 * the last bitcoin era can put funds into the wallet) */
-	wscript = p2wpkh_scriptcode(tmpctx, inkey);
-	if (in->is_p2sh) {
-		/* For P2SH-wrapped Segwit, the (implied) redeemScript
-		 * is defined in BIP141 */
-		subscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, inkey);
-		script = bitcoin_scriptsig_p2sh_p2wpkh(tx, inkey);
-		bitcoin_tx_input_set_script(tx, index, script);
-	} else {
-		/* Pure segwit uses an empty inputScript; NULL has
-		 * tal_count() == 0, so it works great here. */
-		subscript = NULL;
-		bitcoin_tx_input_set_script(tx, index, NULL);
-	}
-	/* This is the core crypto magic. */
-	sign_tx_input(tx, index, subscript, wscript, &inprivkey, inkey,
-		      SIGHASH_ALL, sig);
-
-	/* The witness is [sig] [key] */
-	bitcoin_tx_input_set_witness(
-		tx, index, take(bitcoin_witness_p2wpkh(tx, sig, inkey)));
-}
-
-/* This completes the tx by filling in the input scripts with signatures. */
-static void sign_all_inputs(struct bitcoin_tx *tx, struct utxo **utxos)
-{
-	/*~ Deep in my mind there's a continuous battle: should arrays be
-	 * named as singular or plural?  Is consistency the sign of a weak
-	 * mind?
-	 *
-	 * ZmnSCPxj answers thusly: One must make peace with the fact, that
-	 * the array itself is singular, yet its contents are plural. Do you
-	 * name the array, or do you name its contents? Is the array itself
-	 * the thing and the whole of the thing, or is it its contents that
-	 * define what it is?
-	 *
-	 *... I'm not sure that helps! */
-	assert(tx->wtx->num_inputs == tal_count(utxos));
 	for (size_t i = 0; i < tal_count(utxos); i++) {
-		struct pubkey inkey;
-		struct bitcoin_signature sig;
+		struct utxo *utxo = utxos[i];
+		for (size_t j = 0; j < psbt->num_inputs; j++) {
+			struct privkey privkey;
+			struct pubkey pubkey;
 
-		sign_input(tx, utxos[i], &inkey, &sig, i);
+			if (!wally_tx_input_spends(&psbt->tx->inputs[j],
+						   &utxo->txid, utxo->outnum))
+				continue;
+
+			hsm_key_for_utxo(&privkey, &pubkey, utxo);
+
+			/* This line is basically the entire reason we have
+			 * to iterate through to match the psbt input
+			 * to the UTXO -- otherwise we would just
+			 * call wally_sign_psbt for every utxo privkey
+			 * and be done with it. We can't do that though
+			 * because any UTXO that's derived from channel_info
+			 * requires the HSM to find the pubkey, and we
+			 * skip doing that until now as a bit of a reduction
+			 * of complexity in the calling code */
+			psbt_input_add_pubkey(psbt, j, &pubkey);
+
+			if (wally_sign_psbt(psbt, privkey.secret.data,
+					    sizeof(privkey.secret.data)) != WALLY_OK)
+				status_broken("Received wally_err attempting to "
+					      "sign utxo with key %s. PSBT: %s",
+					      type_to_string(tmpctx, struct pubkey,
+							     &pubkey),
+					      type_to_string(tmpctx, struct wally_psbt,
+							     psbt));
+
+		}
 	}
 }
 
-/*~ lightningd asks us to sign a withdrawal or funding as above but in theory
+/*~ lightningd asks us to sign a withdrawal; same as above but in theory
  * we can do more to check the previous case is valid. */
 static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 						 struct client *c,
 						 const u8 *msg_in)
 {
 	struct utxo **utxos;
-	struct bitcoin_tx *tx;
-	struct bitcoin_tx_output **outputs;
-	u32 nlocktime;
+	struct wally_psbt *psbt;
 
 	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg_in,
-					  &outputs, &utxos, &nlocktime))
+					  &utxos, &psbt))
 		return bad_req(conn, c, msg_in);
 
-	tx = withdraw_tx(tmpctx, c->chainparams,
-			 cast_const2(const struct utxo **, utxos),
-			 outputs, NULL, nlocktime);
-
-	sign_all_inputs(tx, utxos);
+	sign_our_inputs(utxos, psbt);
 
 	return req_reply(conn, c,
-			 take(towire_hsm_sign_withdrawal_reply(NULL, tx)));
+			 take(towire_hsm_sign_withdrawal_reply(NULL, psbt)));
 }
 
 /*~ Lightning invoices, defined by BOLT 11, are signed.  This has been
