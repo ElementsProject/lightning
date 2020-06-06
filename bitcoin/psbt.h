@@ -57,6 +57,8 @@ void psbt_input_set_prev_utxo(struct wally_psbt *psbt, size_t in,
 			      const u8 *wscript, struct amount_sat amt);
 void psbt_input_set_prev_utxo_wscript(struct wally_psbt *psbt, size_t in,
 			              const u8 *wscript, struct amount_sat amt);
+bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
+				 const u8 *redeemscript);
 struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
 					size_t in);
 

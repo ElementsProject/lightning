@@ -312,6 +312,17 @@ void psbt_input_set_prev_utxo_wscript(struct wally_psbt *psbt, size_t in,
 	psbt_input_set_prev_utxo(psbt, in, scriptPubkey, amt);
 }
 
+bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
+				 const u8 *redeemscript)
+{
+	int wally_err;
+	assert(psbt->num_inputs > in);
+	wally_err = wally_psbt_input_set_redeem_script(&psbt->inputs[in],
+						       cast_const(u8 *, redeemscript),
+						       tal_bytelen(redeemscript));
+	return wally_err == WALLY_OK;
+}
+
 struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
 					size_t in)
 {
