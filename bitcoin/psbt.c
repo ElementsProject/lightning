@@ -424,7 +424,7 @@ struct wally_psbt *psbt_from_bytes(const tal_t *ctx, const u8 *bytes,
 	return psbt;
 }
 
-void towire_psbt(u8 **pptr, const struct wally_psbt *psbt)
+void towire_wally_psbt(u8 **pptr, const struct wally_psbt *psbt)
 {
 	/* Let's include the PSBT bytes */
 	size_t bytes_written;
@@ -434,8 +434,8 @@ void towire_psbt(u8 **pptr, const struct wally_psbt *psbt)
 	tal_free(pbt_bytes);
 }
 
-struct wally_psbt *fromwire_psbt(const tal_t *ctx,
-				 const u8 **cursor, size_t *max)
+struct wally_psbt *fromwire_wally_psbt(const tal_t *ctx,
+				       const u8 **cursor, size_t *max)
 {
 	struct wally_psbt *psbt;
 	u32 psbt_byte_len;

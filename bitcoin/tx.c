@@ -652,7 +652,7 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 
 	/* pull_bitcoin_tx sets the psbt */
 	tal_free(tx->psbt);
-	tx->psbt = fromwire_psbt(tx, cursor, max);
+	tx->psbt = fromwire_wally_psbt(tx, cursor, max);
 
 	return tx;
 }
@@ -667,7 +667,7 @@ void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 	u8 *lin = linearize_tx(tmpctx, tx);
 	towire_u8_array(pptr, lin, tal_count(lin));
 
-	towire_psbt(pptr, tx->psbt);
+	towire_wally_psbt(pptr, tx->psbt);
 }
 
 struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,
