@@ -54,15 +54,14 @@ msgtype,hsm_node_announcement_sig_reply,106
 msgdata,hsm_node_announcement_sig_reply,signature,secp256k1_ecdsa_signature,
 
 # Sign a withdrawal request
+#include <bitcoin/psbt.h>
 msgtype,hsm_sign_withdrawal,7
-msgdata,hsm_sign_withdrawal,num_outputs,u16,
-msgdata,hsm_sign_withdrawal,outputs,bitcoin_tx_output,num_outputs
 msgdata,hsm_sign_withdrawal,num_inputs,u16,
 msgdata,hsm_sign_withdrawal,inputs,utxo,num_inputs
-msgdata,hsm_sign_withdrawal,nlocktime,u32,
+msgdata,hsm_sign_withdrawal,psbt,wally_psbt,
 
 msgtype,hsm_sign_withdrawal_reply,107
-msgdata,hsm_sign_withdrawal_reply,tx,bitcoin_tx,
+msgdata,hsm_sign_withdrawal_reply,psbt,wally_psbt,
 
 # Sign an invoice
 msgtype,hsm_sign_invoice,8

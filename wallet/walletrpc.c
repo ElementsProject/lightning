@@ -80,16 +80,13 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 static struct command_result *broadcast_and_wait(struct command *cmd,
 						 struct unreleased_tx *utx)
 {
-	struct bitcoin_tx *signed_tx;
+	struct wally_psbt *signed_psbt;
+	struct wally_tx *signed_wtx;
 	struct bitcoin_txid signed_txid;
 
 	/* FIXME: hsm will sign almost anything, but it should really
 	 * fail cleanly (not abort!) and let us report the error here. */
-	u8 *msg = towire_hsm_sign_withdrawal(cmd,
-					     cast_const2(const struct bitcoin_tx_output **,
-							 utx->outputs),
-					     utx->wtx->utxos,
-					     utx->tx->wtx->locktime);
+	u8 *msg = towire_hsm_sign_withdrawal(cmd, utx->wtx->utxos, utx->tx->psbt);
 
 	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
 		fatal("Could not write sign_withdrawal to HSM: %s",
@@ -97,25 +94,39 @@ static struct command_result *broadcast_and_wait(struct command *cmd,
 
 	msg = wire_sync_read(cmd, cmd->ld->hsm_fd);
 
-	if (!fromwire_hsm_sign_withdrawal_reply(utx, msg, &signed_tx))
+	if (!fromwire_hsm_sign_withdrawal_reply(utx, msg, &signed_psbt))
 		fatal("HSM gave bad sign_withdrawal_reply %s",
 		      tal_hex(tmpctx, msg));
-	signed_tx->chainparams = utx->tx->chainparams;
+
+	signed_wtx = psbt_finalize(signed_psbt, true);
+
+	if (!signed_wtx) {
+		/* Have the utx persist past this command */
+		tal_steal(cmd->ld->wallet, utx);
+		add_unreleased_tx(cmd->ld->wallet, utx);
+		return command_fail(cmd, LIGHTNINGD,
+				    "PSBT is not finalized %s",
+				    type_to_string(tmpctx,
+						   struct wally_psbt,
+						   signed_psbt));
+	}
 
 	/* Sanity check */
-	bitcoin_txid(signed_tx, &signed_txid);
+	wally_txid(signed_wtx, &signed_txid);
 	if (!bitcoin_txid_eq(&signed_txid, &utx->txid))
 		fatal("HSM changed txid: unsigned %s, signed %s",
 		      tal_hex(tmpctx, linearize_tx(tmpctx, utx->tx)),
-		      tal_hex(tmpctx, linearize_tx(tmpctx, signed_tx)));
+		      tal_hex(tmpctx, linearize_wtx(tmpctx, signed_wtx)));
 
 	/* Replace unsigned tx by signed tx. */
-	tal_free(utx->tx);
-	utx->tx = signed_tx;
+	wally_tx_free(utx->tx->wtx);
+	utx->tx->wtx = tal_steal(utx->tx, signed_wtx);
+	tal_free(utx->tx->psbt);
+	utx->tx->psbt = tal_steal(utx->tx, signed_psbt);
 
 	/* Now broadcast the transaction */
 	bitcoind_sendrawtx(cmd->ld->topology->bitcoind,
-			   tal_hex(tmpctx, linearize_tx(tmpctx, signed_tx)),
+			   tal_hex(tmpctx, linearize_tx(tmpctx, utx->tx)),
 			   wallet_withdrawal_broadcast, utx);
 
 	return command_still_pending(cmd);
