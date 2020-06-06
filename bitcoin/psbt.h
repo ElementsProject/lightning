@@ -32,6 +32,8 @@ struct wally_psbt *new_psbt(const tal_t *ctx,
  */
 bool psbt_is_finalized(struct wally_psbt *psbt);
 
+struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place);
+
 struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
 					struct wally_tx_input *input,
 					size_t insert_at);

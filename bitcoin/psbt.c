@@ -340,6 +340,38 @@ struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
 	return val;
 }
 
+struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
+{
+	struct wally_psbt *tmppsbt;
+	struct wally_tx *wtx;
+
+	/* We want the 'finalized' tx since that includes any signature
+	 * data, not the global tx. But 'finalizing' a tx destroys some fields
+	 * so we 'clone' it first and then finalize it */
+	if (!finalize_in_place) {
+		if (wally_psbt_clone(psbt, &tmppsbt) != WALLY_OK)
+			return NULL;
+	} else
+		tmppsbt = cast_const(struct wally_psbt *, psbt);
+
+	if (wally_finalize_psbt(tmppsbt) != WALLY_OK) {
+		if (!finalize_in_place)
+			wally_psbt_free(tmppsbt);
+		return NULL;
+	}
+
+	if (psbt_is_finalized(tmppsbt)
+		&& wally_extract_psbt(tmppsbt, &wtx) == WALLY_OK) {
+		if (!finalize_in_place)
+			wally_psbt_free(tmppsbt);
+		return wtx;
+	}
+
+	if (!finalize_in_place)
+		wally_psbt_free(tmppsbt);
+	return NULL;
+}
+
 bool psbt_from_b64(const char *b64str, struct wally_psbt **psbt)
 {
 	int wally_err;
