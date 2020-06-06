@@ -220,10 +220,5 @@ void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid);
 void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
 void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output);
 
-/*
- * Get the base64 string encoded PSBT of a bitcoin transaction.
- */
-char *bitcoin_tx_to_psbt_base64(const tal_t *ctx, struct bitcoin_tx *tx);
-
 int wally_tx_clone(struct wally_tx *tx, struct wally_tx **output);
 #endif /* LIGHTNING_BITCOIN_TX_H */

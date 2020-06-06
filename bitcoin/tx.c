@@ -494,11 +494,6 @@ void bitcoin_tx_finalize(struct bitcoin_tx *tx)
 	assert(bitcoin_tx_check(tx));
 }
 
-char *bitcoin_tx_to_psbt_base64(const tal_t *ctx, struct bitcoin_tx *tx)
-{
-	return psbt_to_b64(ctx, tx->psbt);
-}
-
 struct bitcoin_tx *bitcoin_tx_with_psbt(const tal_t *ctx, struct wally_psbt *psbt STEALS)
 {
 	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams,
