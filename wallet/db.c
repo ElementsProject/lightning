@@ -1173,8 +1173,9 @@ void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db)
 			abort();
 
 		last_sig.sighash_type = SIGHASH_ALL;
-		psbt_input_set_partial_sig(last_tx->psbt, 0,
-		    &remote_funding_pubkey, &last_sig);
+		if (!psbt_input_set_partial_sig(last_tx->psbt, 0,
+						&remote_funding_pubkey, &last_sig))
+			abort();
 		psbt_input_add_pubkey(last_tx->psbt, 0,
 		    &local_funding_pubkey);
 		psbt_input_add_pubkey(last_tx->psbt, 0,

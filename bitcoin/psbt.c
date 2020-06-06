@@ -243,29 +243,24 @@ void psbt_input_add_pubkey(struct wally_psbt *psbt, size_t in,
 	assert(wally_err == WALLY_OK);
 }
 
-void psbt_input_set_partial_sig(struct wally_psbt *psbt, size_t in,
+bool psbt_input_set_partial_sig(struct wally_psbt *psbt, size_t in,
 				const struct pubkey *pubkey,
 				const struct bitcoin_signature *sig)
 {
-	int wally_err;
 	u8 pk_der[PUBKEY_CMPR_LEN];
 
 	assert(in < psbt->num_inputs);
 	if (!psbt->inputs[in].partial_sigs)
 		if (wally_partial_sigs_map_init_alloc(1, &psbt->inputs[in].partial_sigs) != WALLY_OK)
-			abort();
+			return false;
 
 	/* we serialize the compressed version of the key, wally likes this */
 	pubkey_to_der(pk_der, pubkey);
-	wally_err = wally_add_new_partial_sig(psbt->inputs[in].partial_sigs,
-					      pk_der, sizeof(pk_der),
-					      cast_const(unsigned char *, sig->s.data),
-					      sizeof(sig->s.data));
-	assert(wally_err == WALLY_OK);
-
-	wally_err = wally_psbt_input_set_sighash_type(&psbt->inputs[in],
-						      sig->sighash_type);
-	assert(wally_err == WALLY_OK);
+	wally_psbt_input_set_sighash_type(&psbt->inputs[in], sig->sighash_type);
+	return wally_add_new_partial_sig(psbt->inputs[in].partial_sigs,
+					 pk_der, sizeof(pk_der),
+					 cast_const(unsigned char *, sig->s.data),
+					 sizeof(sig->s.data)) == WALLY_OK;
 }
 
 void psbt_input_set_prev_utxo(struct wally_psbt *psbt, size_t in,
