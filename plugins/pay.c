@@ -1858,7 +1858,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	char *fail;
 	u64 *maxfee_pct_millionths;
 	u32 *maxdelay;
-	struct amount_msat *exemptfee;
+	struct amount_msat *exemptfee, *msat;
 	const char *label;
 #if DEVELOPER
 	bool *use_shadow;
@@ -1870,6 +1870,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	 * would add them to the `param()` call below, and have them be
 	 * initialized directly that way. */
 	if (!param(cmd, buf, params, p_req("bolt11", param_string, &b11str),
+		   p_opt("msatoshi", param_msat, &msat),
 		   p_opt("label", param_string, &label),
 		   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
 		   p_opt_def("maxdelay", param_number, &maxdelay,
@@ -1897,10 +1898,20 @@ static struct command_result *json_paymod(struct command *cmd,
 	if (time_now().ts.tv_sec > b11->timestamp + b11->expiry)
 		return command_fail(cmd, PAY_INVOICE_EXPIRED, "Invoice expired");
 
-	if (b11->msat)
+	if (b11->msat) {
+		if (msat) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "msatoshi parameter unnecessary");
+		}
 		p->amount = *b11->msat;
-	else
-		abort();
+
+	} else {
+		if (!msat) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "msatoshi parameter required");
+		}
+		p->amount = *msat;
+	}
 
 	/* Sanity check */
 	if (feature_offered(b11->features, OPT_VAR_ONION)
