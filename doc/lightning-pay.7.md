@@ -22,7 +22,7 @@ The *label* field is used to attach a label to payments, and is returned
 in lightning-listpays(7) and lightning-listsendpays(7). The *riskfactor*
 is described in detail in lightning-getroute(7), and defaults to 10. The
 *maxfeepercent* limits the money paid in fees, and defaults to 0.5. The
-`` maxfeepercent' is a percentage of the amount that is to be paid. The `exemptfee ``
+`maxfeepercent` is a percentage of the amount that is to be paid. The `exemptfee`
 option can be used for tiny payments which would be dominated by the fee
 leveraged by forwarding nodes. Setting `exemptfee` allows the
 `maxfeepercent` check to be skipped on fees that are smaller than
