@@ -122,20 +122,25 @@ static void test_json_tok_size(void)
 	assert(toks[0].size == 2);
 	assert(toks[1].size == 2);
 
-	buf = "{\"e1\" : {\"e2\", \"e3\"}}";
+	buf = "{\"e1\" : {\"e2\": 2, \"e3\": 3}}";
 	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
 	assert(ok);
 	/* size only counts *direct* children */
 	assert(toks[0].size == 1);
 	assert(toks[2].size == 2);
 
-	buf = "{\"e1\" : {\"e2\", \"e3\"}, \"e4\" : {\"e5\", \"e6\"}}";
+	buf = "{\"e1\" : {\"e2\": 2, \"e3\": 3}, \"e4\" : {\"e5\": 5, \"e6\": 6}}";
 	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
 	assert(ok);
 	/* size only counts *direct* children */
 	assert(toks[0].size == 2);
 	assert(toks[2].size == 2);
-	assert(toks[6].size == 2);
+	assert(toks[8].size == 2);
+
+	/* This should *not* parse! (used to give toks[0]->size == 3!) */
+	buf = "{ \"\" \"\" \"\" }";
+	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
+	assert(!ok);
 
 	/* This should *not* parse! (used to give toks[0]->size == 2!) */
 	buf = "{ 'satoshi', '546' }";
