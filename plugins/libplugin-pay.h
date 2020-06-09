@@ -344,6 +344,16 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 void payment_start(struct payment *p);
 void payment_continue(struct payment *p);
 
+/**
+ * Set the payment to the current step.
+ *
+ * This must be used by modifiers if they want to skip to a specific step. It
+ * ensures that the internal state is reset correctly and that all modifier
+ * callbacks are called once `payment_continue` is called again.
+ */
+void payment_set_step(struct payment *p, enum payment_step newstep);
+
+
 /* Fails a partial payment and continues with the core flow. */
 void payment_fail(struct payment *p, const char *fmt, ...) PRINTF_FMT(2,3);
 
