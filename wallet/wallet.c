@@ -355,6 +355,15 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 	return utxo;
 }
 
+bool wallet_unreserve_output(struct wallet *w,
+			     const struct bitcoin_txid *txid,
+			     const u32 outnum)
+{
+	return wallet_update_output_status(w, txid, outnum,
+					   output_state_reserved,
+					   output_state_available);
+}
+
 /**
  * unreserve_utxo - Mark a reserved UTXO as available again
  */
@@ -374,6 +383,11 @@ static void destroy_utxos(const struct utxo **utxos, struct wallet *w)
 {
 	for (size_t i = 0; i < tal_count(utxos); i++)
 		unreserve_utxo(w, utxos[i]);
+}
+
+void wallet_persist_utxo_reservation(struct wallet *w, const struct utxo **utxos)
+{
+	tal_del_destructor2(utxos, destroy_utxos, w);
 }
 
 void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
