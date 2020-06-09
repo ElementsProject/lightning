@@ -296,6 +296,60 @@ payment_constraints_update(struct payment_constraints *cons,
 	return true;
 }
 
+/* Given a route and a couple of channel hints, apply the route to the channel
+ * hints, so we have a better estimation of channel's capacity. We apply a
+ * route to a channel hint before calling `sendonion` so subsequent `route`
+ * calls don't accidentally try to use those out-of-date estimates. We unapply
+ * if the payment failed, i.e., all HTLCs we might have added have been torn
+ * down again. Finally we leave the update in place if the payment went
+ * through, since the balances really changed in that case. The `remove`
+ * argument indicates whether we want to apply (`remove=false`), or clear a
+ * prior application (`remove=true`). */
+static void payment_chanhints_apply_route(struct payment *p, bool remove)
+{
+	struct route_hop *curhop;
+	struct channel_hint *curhint;
+	struct payment *root = payment_root(p);
+	assert(p->route != NULL);
+	for (size_t i = 0; i < tal_count(p->route); i++) {
+		curhop = &p->route[i];
+		for (size_t j = 0; j < tal_count(root->channel_hints); j++) {
+			curhint = &root->channel_hints[j];
+			if (short_channel_id_eq(&curhint->scid.scid,
+						&curhop->channel_id) &&
+			    curhint->scid.dir == curhop->direction) {
+				if (remove && !amount_msat_add(
+						  &curhint->estimated_capacity,
+						  curhint->estimated_capacity,
+						  curhop->amount)) {
+					/* This should never happen, it'd mean
+					 * that we unapply a route that would
+					 * result in a msatoshi
+					 * wrap-around. */
+					abort();
+				} else if (!amount_msat_sub(
+					       &curhint->estimated_capacity,
+					       curhint->estimated_capacity,
+					       curhop->amount)) {
+					/* This can happen in case of multipl
+					 * concurrent getroute calls using the
+					 * same channel_hints, no biggy, it's
+					 * an estimation anyway. */
+					plugin_log(
+					    p->plugin, LOG_UNUSUAL,
+					    "Could not update the channel hint "
+					    "for %s. Could be a concurrent "
+					    "`getroute` call.",
+					    type_to_string(
+						tmpctx,
+						struct short_channel_id_dir,
+						&curhint->scid));
+				}
+			}
+		}
+	}
+}
+
 static struct command_result *payment_getroute_result(struct command *cmd,
 						      const char *buffer,
 						      const jsmntok_t *toks,
@@ -679,6 +733,7 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 	}
 
 	root = payment_root(p);
+	payment_chanhints_apply_route(p, true);
 
 	switch (p->result->failcode) {
 	case WIRE_PERMANENT_CHANNEL_FAILURE:
@@ -777,6 +832,9 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	struct out_req *req;
 	struct route_hop *first = &p->route[0];
 	struct secret *secrets;
+
+	payment_chanhints_apply_route(p, false);
+
 	p->createonion_response = tal_createonion_response_from_json(p, buffer, toks);
 
 	req = jsonrpc_request_start(p->plugin, NULL, "sendonion",
