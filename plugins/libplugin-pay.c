@@ -176,48 +176,6 @@ void payment_start(struct payment *p)
 					  payment_rpc_failure, p));
 }
 
-static bool route_hop_from_json(struct route_hop *dst, const char *buffer,
-				const jsmntok_t *toks)
-{
-	const jsmntok_t *idtok = json_get_member(buffer, toks, "id");
-	const jsmntok_t *channeltok = json_get_member(buffer, toks, "channel");
-	const jsmntok_t *directiontok = json_get_member(buffer, toks, "direction");
-	const jsmntok_t *amounttok = json_get_member(buffer, toks, "amount_msat");
-	const jsmntok_t *delaytok = json_get_member(buffer, toks, "delay");
-	const jsmntok_t *styletok = json_get_member(buffer, toks, "style");
-
-	if (idtok == NULL || channeltok == NULL || directiontok == NULL ||
-	    amounttok == NULL || delaytok == NULL || styletok == NULL)
-		return false;
-
-	json_to_node_id(buffer, idtok, &dst->nodeid);
-	json_to_short_channel_id(buffer, channeltok, &dst->channel_id);
-	json_to_int(buffer, directiontok, &dst->direction);
-	json_to_msat(buffer, amounttok, &dst->amount);
-	json_to_number(buffer, delaytok, &dst->delay);
-	dst->style = json_tok_streq(buffer, styletok, "legacy")
-			 ? ROUTE_HOP_LEGACY
-			 : ROUTE_HOP_TLV;
-	return true;
-}
-
-static struct route_hop *
-tal_route_from_json(const tal_t *ctx, const char *buffer, const jsmntok_t *toks)
-{
-	size_t num = toks->size, i;
-	struct route_hop *hops;
-	const jsmntok_t *rtok;
-	if (toks->type != JSMN_ARRAY)
-		return NULL;
-
-	hops = tal_arr(ctx, struct route_hop, num);
-	json_for_each_arr(i, rtok, toks) {
-		if (!route_hop_from_json(&hops[i], buffer, rtok))
-			return tal_free(hops);
-	}
-	return hops;
-}
-
 static void payment_exclude_most_expensive(struct payment *p)
 {
 	struct payment *root = payment_root(p);
@@ -357,7 +315,7 @@ static struct command_result *payment_getroute_result(struct command *cmd,
 	const jsmntok_t *rtok = json_get_member(buffer, toks, "route");
 	struct amount_msat fee;
 	assert(rtok != NULL);
-	p->route = tal_route_from_json(p, buffer, rtok);
+	p->route = json_to_route(p, buffer, rtok);
 	p->step = PAYMENT_STEP_GOT_ROUTE;
 
 	fee = payment_route_fee(p);
@@ -493,37 +451,6 @@ static u8 *tal_towire_legacy_payload(const tal_t *ctx, const struct legacy_paylo
 	towire(&buf, padding, ARRAY_SIZE(padding));
 	assert(tal_bytelen(buf) == 1 + 32);
 	return buf;
-}
-
-static struct createonion_response *
-tal_createonion_response_from_json(const tal_t *ctx, const char *buffer,
-				   const jsmntok_t *toks)
-{
-	size_t i;
-	struct createonion_response *resp;
-	const jsmntok_t *oniontok = json_get_member(buffer, toks, "onion");
-	const jsmntok_t *secretstok = json_get_member(buffer, toks, "shared_secrets");
-	const jsmntok_t *cursectok;
-
-	if (oniontok == NULL || secretstok == NULL)
-		return NULL;
-	resp = tal(ctx, struct createonion_response);
-
-	if (oniontok->type != JSMN_STRING)
-		goto fail;
-
-	resp->onion = json_tok_bin_from_hex(resp, buffer, oniontok);
-	resp->shared_secrets = tal_arr(resp, struct secret, secretstok->size);
-
-	json_for_each_arr(i, cursectok, secretstok) {
-		if (cursectok->type != JSMN_STRING)
-			goto fail;
-		json_to_secret(buffer, cursectok, &resp->shared_secrets[i]);
-	}
-	return resp;
-
-fail:
-	return tal_free(resp);
 }
 
 static struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
@@ -840,7 +767,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 
 	payment_chanhints_apply_route(p, false);
 
-	p->createonion_response = tal_createonion_response_from_json(p, buffer, toks);
+	p->createonion_response = json_to_createonion_response(p, buffer, toks);
 
 	req = jsonrpc_request_start(p->plugin, NULL, "sendonion",
 				    payment_sendonion_success,
@@ -1893,3 +1820,111 @@ static void shadow_route_cb(struct shadow_route_data *d,
 
 REGISTER_PAYMENT_MODIFIER(shadowroute, struct shadow_route_data *,
 			  shadow_route_init, shadow_route_cb);
+
+static void direct_pay_override(struct payment *p) {
+
+	/* The root has performed the search for a direct channel. */
+	struct payment *root = payment_root(p);
+	struct direct_pay_data *d;
+	struct channel_hint *hint = NULL;
+
+	/* If we were unable to find a direct channel we don't need to do
+	 * anything. */
+	d = payment_mod_directpay_get_data(root);
+
+	if (d->chan == NULL)
+		return payment_continue(p);
+
+	/* If we have a channel we need to make sure that it still has
+	 * sufficient capacity. Look it up in the channel_hints. */
+	for (size_t i=0; i<tal_count(root->channel_hints); i++) {
+		struct short_channel_id_dir *cur = &root->channel_hints[i].scid;
+		if (short_channel_id_eq(&cur->scid, &d->chan->scid) &&
+		    cur->dir == d->chan->dir) {
+			hint = &root->channel_hints[i];
+			break;
+		}
+	}
+
+	if (hint && hint->enabled &&
+	    amount_msat_greater(hint->estimated_capacity, p->amount)) {
+		/* Now build a route that consists only of this single hop */
+		p->route = tal_arr(p, struct route_hop, 1);
+		p->route[0].amount = p->amount;
+		p->route[0].delay = p->getroute->cltv;
+		p->route[0].channel_id = hint->scid.scid;
+		p->route[0].direction = hint->scid.dir;
+		p->route[0].nodeid = *p->destination;
+		p->route[0].style = ROUTE_HOP_TLV;
+		plugin_log(p->plugin, LOG_DBG,
+			   "Found a direct channel (%s) with sufficient "
+			   "capacity, skipping route computation.",
+			   type_to_string(tmpctx, struct short_channel_id_dir,
+					  &hint->scid));
+
+		payment_set_step(p, PAYMENT_STEP_GOT_ROUTE);
+	}
+
+
+	payment_continue(p);
+}
+
+/* Now that we have the listpeers result for the root payment, let's search
+ * for a direct channel that is a) connected and b) in state normal. We will
+ * check the capacity based on the channel_hints in the override. */
+static struct command_result *direct_pay_listpeers(struct command *cmd,
+						   const char *buffer,
+						   const jsmntok_t *toks,
+						   struct payment *p)
+{
+	struct listpeers_result *r =
+	    json_to_listpeers_result(tmpctx, buffer, toks);
+	struct direct_pay_data *d = payment_mod_directpay_get_data(p);
+
+	if (tal_count(r->peers) == 1) {
+		struct listpeers_peer *peer = r->peers[0];
+		if (!peer->connected)
+			goto cont;
+
+		for (size_t i=0; i<tal_count(peer->channels); i++) {
+			struct listpeers_channel *chan = r->peers[0]->channels[i];
+			if (!streq(chan->state, "CHANNELD_NORMAL"))
+			    continue;
+
+			d->chan = tal(d, struct short_channel_id_dir);
+			d->chan->scid = *chan->scid;
+			d->chan->dir = *chan->direction;
+		}
+	}
+cont:
+	direct_pay_override(p);
+	return command_still_pending(cmd);
+
+}
+
+static void direct_pay_cb(struct direct_pay_data *d, struct payment *p)
+{
+	struct out_req *req;
+
+/* Look up the direct channel only on root. */
+	if (p->step != PAYMENT_STEP_INITIALIZED)
+		return payment_continue(p);
+
+
+
+	req = jsonrpc_request_start(p->plugin, NULL, "listpeers",
+				    direct_pay_listpeers, direct_pay_listpeers,
+				    p);
+	json_add_node_id(req->js, "id", p->destination);
+	send_outreq(p->plugin, req);
+}
+
+static struct direct_pay_data *direct_pay_init(struct payment *p)
+{
+	struct direct_pay_data *d = tal(p, struct direct_pay_data);
+	d->chan = NULL;
+	return d;
+}
+
+REGISTER_PAYMENT_MODIFIER(directpay, struct direct_pay_data *, direct_pay_init,
+			  direct_pay_cb);

@@ -6,21 +6,6 @@
 #include <plugins/libplugin.h>
 #include <wire/gen_onion_wire.h>
 
-enum route_hop_style {
-	ROUTE_HOP_LEGACY = 1,
-	ROUTE_HOP_TLV = 2,
-};
-
-struct route_hop {
-	struct short_channel_id channel_id;
-	int direction;
-	struct node_id nodeid;
-	struct amount_msat amount;
-	u32 delay;
-	struct pubkey *blinding;
-	enum route_hop_style style;
-};
-
 struct legacy_payload {
 	struct short_channel_id scid;
 	struct amount_msat forward_amt;
@@ -40,11 +25,6 @@ struct createonion_request {
 	struct createonion_hop *hops;
 	u8 *assocdata;
 	struct secret *session_key;
-};
-
-struct createonion_response {
-	u8 *onion;
-	struct secret *shared_secrets;
 };
 
 /* States returned by listsendpays, waitsendpay, etc. */
@@ -325,11 +305,18 @@ struct shadow_route_data {
 	struct node_id destination;
 	struct route_hop *route;
 };
+
+struct direct_pay_data {
+	/* If we have a direct channel remember it, so we can check each
+	 * attempt against the channel hints. */
+	struct short_channel_id_dir *chan;
+};
 /* List of globally available payment modifiers. */
 REGISTER_PAYMENT_MODIFIER_HEADER(retry, struct retry_mod_data);
 REGISTER_PAYMENT_MODIFIER_HEADER(routehints, struct routehints_data);
 REGISTER_PAYMENT_MODIFIER_HEADER(exemptfee, struct exemptfee_data);
 REGISTER_PAYMENT_MODIFIER_HEADER(shadowroute, struct shadow_route_data);
+REGISTER_PAYMENT_MODIFIER_HEADER(directpay, struct direct_pay_data);
 
 /* For the root payment we can seed the channel_hints with the result from
  * `listpeers`, hence avoid channels that we know have insufficient capacity

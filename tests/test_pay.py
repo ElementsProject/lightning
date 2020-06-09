@@ -3120,4 +3120,54 @@ def test_pay_exemptfee(node_factory, compat):
     with pytest.raises(RpcError, match=err):
         l1.rpc.dev_pay(l3.rpc.invoice(threshold - 1, "lbl3", "desc")['bolt11'], use_shadow=False)
 
-    l1.rpc.pay(inv, exemptfee=5001)
+    # While this'll work just fine
+    l1.rpc.dev_pay(l3.rpc.invoice(int(5001 * 200), "lbl4", "desc")['bolt11'], use_shadow=False)
+
+
+@unittest.skipIf(is_compat('090'), "Modifier only available with paymod")
+@unittest.skipIf(not DEVELOPER, "Requires use_shadow flag")
+def test_pay_peer(node_factory):
+    """If we have a direct channel to the destination we should use that.
+
+    This is complicated a bit by not having sufficient capacity, but the
+    channel_hints can help us there.
+
+    l1 -> l2
+     |   ^
+     v  /
+     l3
+    """
+    l1, l2 = node_factory.line_graph(2, fundamount=10**6)
+    l3 = node_factory.get_node()
+
+    l1.openchannel(l3, 10**6, wait_for_announce=False)
+    l3.openchannel(l2, 10**6, wait_for_announce=True)
+
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 6)
+
+    def spendable(n1, n2):
+        peer = n1.rpc.listpeers(n2.info['id'])['peers'][0]
+        chan = peer['channels'][0]
+        avail = chan['spendable_msat']
+        return avail
+
+    amt = Millisatoshi(10**8)
+    # How many payments do we expect to go through directly?
+    direct = spendable(l1, l2).millisatoshis // amt.millisatoshis
+
+    # Remember the l1 -> l3 capacity, it should not change until we run out of
+    # direct capacity.
+    l1l3cap = spendable(l1, l3)
+
+    for i in range(0, direct):
+        inv = l2.rpc.invoice(amt.millisatoshis, "lbl{}".format(i),
+                             "desc{}".format(i))['bolt11']
+        l1.rpc.dev_pay(inv, use_shadow=False)
+
+    # We should not have more than amt in the direct channel anymore
+    assert(spendable(l1, l2) < amt)
+    assert(spendable(l1, l3) == l1l3cap)
+
+    # Next one should take the alternative, but it should still work
+    inv = l2.rpc.invoice(amt.millisatoshis, "final", "final")['bolt11']
+    l1.rpc.dev_pay(inv, use_shadow=False)
