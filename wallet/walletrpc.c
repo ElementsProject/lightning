@@ -140,8 +140,9 @@ static struct command_result *broadcast_and_wait(struct command *cmd,
 static struct command_result *json_prepare_tx(struct command *cmd,
 					      const char *buffer,
 					      const jsmntok_t *params,
+					      bool for_withdraw,
 					      struct unreleased_tx **utx,
-					      bool for_withdraw)
+					      u32 *feerate)
 {
 	u32 *feerate_per_kw = NULL;
 	struct command_result *result;
@@ -430,6 +431,8 @@ create_tx:
 
 	bitcoin_txid((*utx)->tx, &(*utx)->txid);
 
+	if (feerate)
+		*feerate = *feerate_per_kw;
 	return NULL;
 }
 
@@ -442,7 +445,7 @@ static struct command_result *json_txprepare(struct command *cmd,
 	struct command_result *res;
 	struct json_stream *response;
 
-	res = json_prepare_tx(cmd, buffer, params, &utx, false);
+	res = json_prepare_tx(cmd, buffer, params, false, &utx, NULL);
 	if (res)
 		return res;
 
@@ -569,7 +572,7 @@ static struct command_result *json_withdraw(struct command *cmd,
 	struct unreleased_tx *utx;
 	struct command_result *res;
 
-	res = json_prepare_tx(cmd, buffer, params, &utx, true);
+	res = json_prepare_tx(cmd, buffer, params, true, &utx, NULL);
 	if (res)
 		return res;
 
