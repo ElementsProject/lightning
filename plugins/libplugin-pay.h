@@ -258,6 +258,9 @@ struct payment {
 	const char *why;
 
 	const char *label;
+
+	/* Human readable explanation of why this payment failed. */
+	const char *failreason;
 };
 
 struct payment_modifier {
@@ -342,7 +345,8 @@ void payment_start(struct payment *p);
 void payment_continue(struct payment *p);
 
 /* Fails a partial payment and continues with the core flow. */
-void payment_fail(struct payment *p);
+void payment_fail(struct payment *p, const char *fmt, ...) PRINTF_FMT(2,3);
+
 struct payment *payment_root(struct payment *p);
 struct payment_tree_result payment_collect_result(struct payment *p);
 
