@@ -28,6 +28,7 @@ Each entry in *outputs* will include:
     appended)
 -   *address*
 -   *status* (whether *unconfirmed*, *confirmed*, or *spent*)
+-   *reserved* (whether this is UTXO is currently reserved for an in-flight tx)
 
 Each entry in *channels* will include:
 -   *peer\_id* - the peer with which the channel is opened.
