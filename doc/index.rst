@@ -57,6 +57,7 @@ c-lightning Documentation
    lightning-newaddr <lightning-newaddr.7.md>
    lightning-pay <lightning-pay.7.md>
    lightning-plugin <lightning-plugin.7.md>
+   lightning-reserveinputs <lightning-reserveinputs.7.md>
    lightning-sendonion <lightning-sendonion.7.md>
    lightning-sendpay <lightning-sendpay.7.md>
    lightning-setchannelfee <lightning-setchannelfee.7.md>
@@ -64,6 +65,7 @@ c-lightning Documentation
    lightning-txdiscard <lightning-txdiscard.7.md>
    lightning-txprepare <lightning-txprepare.7.md>
    lightning-txsend <lightning-txsend.7.md>
+   lightning-unreserveinputs <lightning-unreserveinputs.7.md>
    lightning-waitanyinvoice <lightning-waitanyinvoice.7.md>
    lightning-waitblockheight <lightning-waitblockheight.7.md>
    lightning-waitinvoice <lightning-waitinvoice.7.md>
