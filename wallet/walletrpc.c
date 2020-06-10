@@ -797,23 +797,13 @@ static const struct json_command listaddrs_command = {
 };
 AUTODATA(json_command, &listaddrs_command);
 
-static struct command_result *json_listfunds(struct command *cmd,
-					     const char *buffer,
-					     const jsmntok_t *obj UNNEEDED,
-					     const jsmntok_t *params)
+static struct command_result *json_outputs(struct command *cmd,
+					   struct json_stream *response,
+					   struct utxo **utxos)
 {
-	struct json_stream *response;
-	struct peer *p;
-	struct utxo **utxos;
 	char* out;
 	struct pubkey funding_pubkey;
 
-	if (!param(cmd, buffer, params, NULL))
-		return command_param_failed();
-
-	utxos = wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
-	response = json_stream_success(cmd);
-	json_array_start(response, "outputs");
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		json_object_start(response, NULL);
 		json_add_txid(response, "txid", &utxos[i]->txid);
@@ -850,8 +840,38 @@ static struct command_result *json_listfunds(struct command *cmd,
 		} else
 			json_add_string(response, "status", "unconfirmed");
 
+		json_add_bool(response, "reserved",
+			      utxos[i]->status == output_state_reserved);
 		json_object_end(response);
 	}
+
+	return NULL;
+}
+
+static struct command_result *json_listfunds(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct peer *p;
+	struct utxo **utxos, **reserved_utxos;
+	struct command_result *ret;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	response = json_stream_success(cmd);
+
+	utxos = wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
+	reserved_utxos = wallet_get_utxos(cmd, cmd->ld->wallet, output_state_reserved);
+	json_array_start(response, "outputs");
+	ret = json_outputs(cmd, response, utxos);
+	if (ret)
+		return ret;
+	ret = json_outputs(cmd, response, reserved_utxos);
+	if (ret)
+		return ret;
 	json_array_end(response);
 
 	/* Add funds that are allocated to channels */
