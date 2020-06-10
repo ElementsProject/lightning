@@ -1,0 +1,85 @@
+.TH "LIGHTNING-RESERVEINPUTS" "7" "" "" "lightning-reserveinputs"
+.SH NAME
+lightning-reserveinputs - Construct a transaction and reserve the UTXOs it spends
+.SH SYNOPSIS
+
+\fBreserveinputs\fR \fIoutputs\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR]
+
+.SH DESCRIPTION
+
+The \fBreserveinputs\fR RPC command creates an unsigned PSBT which
+spends funds from c-lightning’s internal wallet to the outputs specified
+in \fIoutputs\fR\.
+
+
+The \fIoutputs\fR is the array of output that include \fIdestination\fR
+and \fIamount\fR({\fIdestination\fR: \fIamount\fR})\. Its format is like:
+[{address1: amount1}, {address2: amount2}]
+or
+[{address: \fIall\fR}]\.
+It supports any number of outputs\.
+
+
+The \fIdestination\fR of output is the address which can be of any Bitcoin accepted
+type, including bech32\.
+
+
+The \fIamount\fR of output is the amount to be sent from the internal wallet
+(expressed, as name suggests, in amount)\. The string \fIall\fR can be used to specify
+all available funds\. Otherwise, it is in amount precision; it can be a whole
+number, a whole number ending in \fIsat\fR, a whole number ending in \fI000msat\fR,
+or a number with 1 to 8 decimal places ending in \fIbtc\fR\.
+
+
+\fIfeerate\fR is an optional feerate to use\. It can be one of the strings
+\fIurgent\fR (aim for next block), \fInormal\fR (next 4 blocks or so) or \fIslow\fR
+(next 100 blocks or so) to use lightningd’s internal estimates: \fInormal\fR
+is the default\.
+
+
+Otherwise, \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means
+the number is interpreted as satoshi-per-kilosipa (weight), and \fIperkb\fR
+means it is interpreted bitcoind-style as satoshi-per-kilobyte\. Omitting
+the suffix is equivalent to \fIperkb\fR\.
+
+
+\fIminconf\fR specifies the minimum number of confirmations that reserved UTXOs 
+should have\. Default is 1\.
+
+
+\fIutxos\fR specifies the utxos to be used to fund the transaction, as an array
+of "txid:vout"\. These must be drawn from the node's available UTXO set\.
+
+.SH RETURN VALUE
+
+On success, an object with attributes \fIpsbt\fR and \fIfeerate_per_kw\fR will be
+returned\. The inputs of the \fIpsbt\fR have been marked as reserved in the internal wallet\.
+
+
+On failure, an error is reported and no UTXOs are reserved\.
+
+
+The following error codes may occur:
+
+.RS
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+301: There are not enough funds in the internal wallet (including
+fees) to create the transaction\.
+.IP \[bu]
+302: The dust limit is not met\.
+
+.RE
+.SH AUTHOR
+
+niftynei \fI<niftynei@gmail.com\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-unreserveinputs\fR(7), \fBlightning-signpsbt\fR(7), \fBlightning-sendpsbt\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
