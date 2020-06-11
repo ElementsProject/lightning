@@ -129,6 +129,9 @@ struct getroute_request {
 	struct amount_msat amount;
 	u32 cltv;
 	u32 max_hops;
+
+	/* Riskfactor milionths */
+	u64 riskfactorppm;
 };
 
 struct payment_constraints {
