@@ -793,6 +793,9 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 
 	json_add_num(req->js, "partid", p->partid);
 
+	if (p->label)
+		json_add_string(req->js, "label", p->label);
+
 	send_outreq(p->plugin, req);
 	return command_still_pending(cmd);
 }
