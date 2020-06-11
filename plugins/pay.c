@@ -1863,6 +1863,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	struct amount_msat *exemptfee, *msat;
 	const char *label;
 	unsigned int *retryfor;
+	u64 *riskfactor_millionths;
 #if DEVELOPER
 	bool *use_shadow;
 #endif
@@ -1875,6 +1876,8 @@ static struct command_result *json_paymod(struct command *cmd,
 	if (!param(cmd, buf, params, p_req("bolt11", param_string, &b11str),
 		   p_opt("msatoshi", param_msat, &msat),
 		   p_opt("label", param_string, &label),
+		   p_opt_def("riskfactor", param_millionths,
+			     &riskfactor_millionths, 10000000),
 		   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
 		   p_opt_def("maxdelay", param_number, &maxdelay,
 			     maxdelay_default),
@@ -1937,6 +1940,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	p->why = "Initial attempt";
 	p->constraints.cltv_budget = *maxdelay;
 	p->deadline = timeabs_add(time_now(), time_from_sec(*retryfor));
+	p->getroute->riskfactorppm = *riskfactor_millionths;
 
 	if (!amount_msat_fee(&p->constraints.fee_budget, p->amount, 0,
 			     *maxfee_pct_millionths / 100)) {

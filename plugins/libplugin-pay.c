@@ -23,6 +23,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->getroute = tal(p, struct getroute_request);
 	p->label = NULL;
 	p->failreason = NULL;
+	p->getroute->riskfactorppm = 10000000;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -433,9 +434,10 @@ static void payment_getroute(struct payment *p)
 				    payment_getroute_error, p);
 	json_add_node_id(req->js, "id", p->getroute->destination);
 	json_add_amount_msat_only(req->js, "msatoshi", p->getroute->amount);
-	json_add_num(req->js, "riskfactor", 1);
 	json_add_num(req->js, "cltv", p->getroute->cltv);
 	json_add_num(req->js, "maxhops", p->getroute->max_hops);
+	json_add_member(req->js, "riskfactor", false, "%lf",
+			p->getroute->riskfactorppm / 1000000.0);
 	payment_getroute_add_excludes(p, req->js);
 	send_outreq(p->plugin, req);
 }
