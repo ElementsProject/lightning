@@ -36,6 +36,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 
 		/* Re-establish the unmodified constraints for our sub-payment. */
 		p->constraints = *parent->start_constraints;
+		p->deadline = parent->deadline;
 	} else {
 		assert(cmd != NULL);
 		p->partid = 0;
@@ -1317,9 +1318,20 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 {
 	struct payment *subpayment;
 	struct retry_mod_data *rdata = payment_mod_retry_get_data(p);
+	struct timeabs now = time_now();
 
 	if (p->step != PAYMENT_STEP_FAILED)
 		return payment_continue(p);
+
+	if (time_after(now, p->deadline)) {
+		plugin_log(
+		    p->plugin, LOG_INFORM,
+		    "Payment deadline expired, not retrying (partial-)payment "
+		    "%s/%d",
+		    type_to_string(tmpctx, struct sha256, p->payment_hash),
+		    p->partid);
+		return payment_continue(p);
+	}
 
 	/* If we failed to find a route, it's unlikely we can suddenly find a
 	 * new one without any other changes, so it's time to give up. */
@@ -1928,3 +1940,68 @@ static struct direct_pay_data *direct_pay_init(struct payment *p)
 
 REGISTER_PAYMENT_MODIFIER(directpay, struct direct_pay_data *, direct_pay_init,
 			  direct_pay_cb);
+
+static struct command_result *waitblockheight_rpc_cb(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *toks,
+						     struct payment *p)
+{
+	struct payment *subpayment;
+	subpayment = payment_new(p, NULL, p, p->modifiers);
+	payment_start(subpayment);
+	payment_set_step(p, PAYMENT_STEP_RETRY);
+	subpayment->why =
+		tal_fmt(subpayment, "Retrying after waiting for blockchain sync.");
+	payment_continue(p);
+	return command_still_pending(cmd);
+}
+
+static void waitblockheight_cb(void *d, struct payment *p)
+{
+	struct out_req *req;
+	struct timeabs now = time_now();
+	struct timerel remaining;
+	u32 blockheight;
+	int failcode;
+	const u8 *raw_message;
+	if (p->step != PAYMENT_STEP_FAILED)
+		return payment_continue(p);
+
+	/* If we don't have an error message to parse we can't wait for blockheight. */
+	if (p->result == NULL)
+		return payment_continue(p);
+
+	if (time_after(now, p->deadline))
+		return payment_continue(p);
+
+	failcode = p->result->failcode;
+	raw_message = p->result->raw_message;
+	remaining = time_between(p->deadline, now);
+
+	if (failcode != 17 /* Former final_expiry_too_soon */) {
+		blockheight = p->start_block + 1;
+	}  else {
+		/* If it's incorrect_or_unknown_payment_details, that tells us
+		 * what height they're at */
+		struct amount_msat unused;
+		const void *ptr = raw_message;
+		if (!fromwire_incorrect_or_unknown_payment_details(
+			ptr, &unused, &blockheight))
+			return payment_continue(p);
+	}
+
+	plugin_log(p->plugin, LOG_INFORM,
+		   "Remote node appears to be on a longer chain, which causes "
+		   "CLTV timeouts to be incorrect. Waiting up to %" PRIu64
+		   " seconds to catch up to block %d before retrying.",
+		   time_to_sec(remaining), blockheight);
+
+	req = jsonrpc_request_start(p->plugin, NULL, "waitblockheight",
+				    waitblockheight_rpc_cb,
+				    waitblockheight_rpc_cb, p);
+	json_add_u32(req->js, "blockheight", blockheight);
+	json_add_u32(req->js, "timeout", time_to_sec(remaining));
+	send_outreq(p->plugin, req);
+}
+
+REGISTER_PAYMENT_MODIFIER(waitblockheight, void *, NULL, waitblockheight_cb);
