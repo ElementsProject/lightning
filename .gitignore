@@ -11,6 +11,7 @@
 *.po
 *.pyc
 .cppcheck-suppress
+.mypy_cache
 TAGS
 tags
 ccan/tools/configurator/configurator

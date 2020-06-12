@@ -1,4 +1,8 @@
 from .fundamental_types import FieldType, IntegerType, split_field
+from typing import List, Optional, Dict, Tuple, TYPE_CHECKING, Any
+from io import BufferedIOBase
+if TYPE_CHECKING:
+    from .message import SubtypeType, TlvStreamType
 
 
 class ArrayType(FieldType):
@@ -8,11 +12,11 @@ These are not in the namespace, but generated when a message says it
 wants an array of some type.
 
     """
-    def __init__(self, outer, name, elemtype):
+    def __init__(self, outer: 'SubtypeType', name: str, elemtype: FieldType):
         super().__init__("{}.{}".format(outer.name, name))
         self.elemtype = elemtype
 
-    def val_from_str(self, s):
+    def val_from_str(self, s: str) -> Tuple[List[Any], str]:
         # Simple arrays of bytes don't need commas
         if self.elemtype.name == 'byte':
             a, b = split_field(s)
@@ -30,20 +34,20 @@ wants an array of some type.
                 s = s[1:]
         return ret, s[1:]
 
-    def val_to_str(self, v, otherfields):
+    def val_to_str(self, v: List[Any], otherfields: Dict[str, Any]) -> str:
         if self.elemtype.name == 'byte':
             return bytes(v).hex()
 
         s = ','.join(self.elemtype.val_to_str(i, otherfields) for i in v)
         return '[' + s + ']'
 
-    def write(self, io_out, v, otherfields):
+    def write(self, io_out: BufferedIOBase, v: List[Any], otherfields: Dict[str, Any]) -> None:
         for i in v:
             self.elemtype.write(io_out, i, otherfields)
 
-    def read_arr(self, io_in, otherfields, arraysize):
+    def read_arr(self, io_in: BufferedIOBase, otherfields: Dict[str, Any], arraysize: Optional[int]) -> List[Any]:
         """arraysize None means take rest of io entirely and exactly"""
-        vals = []
+        vals: List[Any] = []
         while arraysize is None or len(vals) < arraysize:
             # Throws an exception on partial read, so None means completely empty.
             val = self.elemtype.read(io_in, otherfields)
@@ -60,65 +64,65 @@ wants an array of some type.
 
 class SizedArrayType(ArrayType):
     """A fixed-size array"""
-    def __init__(self, outer, name, elemtype, arraysize):
+    def __init__(self, outer: 'SubtypeType', name: str, elemtype: FieldType, arraysize: int):
         super().__init__(outer, name, elemtype)
         self.arraysize = arraysize
 
-    def val_to_str(self, v, otherfields):
+    def val_to_str(self, v: List[Any], otherfields: Dict[str, Any]) -> str:
         if len(v) != self.arraysize:
             raise ValueError("Length of {} != {}", v, self.arraysize)
         return super().val_to_str(v, otherfields)
 
-    def val_from_str(self, s):
+    def val_from_str(self, s: str) -> Tuple[List[Any], str]:
         a, b = super().val_from_str(s)
         if len(a) != self.arraysize:
             raise ValueError("Length of {} != {}", s, self.arraysize)
         return a, b
 
-    def write(self, io_out, v, otherfields):
+    def write(self, io_out: BufferedIOBase, v: List[Any], otherfields: Dict[str, Any]) -> None:
         if len(v) != self.arraysize:
             raise ValueError("Length of {} != {}", v, self.arraysize)
         return super().write(io_out, v, otherfields)
 
-    def read(self, io_in, otherfields):
+    def read(self, io_in: BufferedIOBase, otherfields: Dict[str, Any]) -> List[Any]:
         return super().read_arr(io_in, otherfields, self.arraysize)
 
 
 class EllipsisArrayType(ArrayType):
     """This is used for ... fields at the end of a tlv: the array ends
 when the tlv ends"""
-    def __init__(self, tlv, name, elemtype):
+    def __init__(self, tlv: 'TlvStreamType', name: str, elemtype: FieldType):
         super().__init__(tlv, name, elemtype)
 
-    def read(self, io_in, otherfields):
+    def read(self, io_in: BufferedIOBase, otherfields: Dict[str, Any]) -> List[Any]:
         """Takes rest of bytestream"""
         return super().read_arr(io_in, otherfields, None)
 
-    def only_at_tlv_end(self):
+    def only_at_tlv_end(self) -> bool:
         """These only make sense at the end of a TLV"""
         return True
 
 
 class LengthFieldType(FieldType):
     """Special type to indicate this serves as a length field for others"""
-    def __init__(self, inttype):
+    def __init__(self, inttype: IntegerType):
         if type(inttype) is not IntegerType:
             raise ValueError("{} cannot be a length; not an integer!"
                              .format(self.name))
         super().__init__(inttype.name)
         self.underlying_type = inttype
         # You can be length for more than one field!
-        self.len_for = []
+        self.len_for: List[DynamicArrayType] = []
 
-    def is_optional(self):
+    def is_optional(self) -> bool:
         """This field value is always implies, never specified directly"""
         return True
 
-    def add_length_for(self, field):
+    def add_length_for(self, field: 'DynamicArrayType') -> None:
         assert isinstance(field.fieldtype, DynamicArrayType)
         self.len_for.append(field)
 
-    def calc_value(self, otherfields):
+    def calc_value(self, otherfields: Dict[str, Any]) -> int:
         """Calculate length value from field(s) themselves"""
         if self.len_fields_bad('', otherfields):
             raise ValueError("Lengths of fields {} not equal!"
@@ -126,7 +130,7 @@ class LengthFieldType(FieldType):
 
         return len(otherfields[self.len_for[0].name])
 
-    def _maybe_calc_value(self, fieldname, otherfields):
+    def _maybe_calc_value(self, fieldname: str, otherfields: Dict[str, Any]) -> int:
         # Perhaps we're just demarshalling from binary now, so we actually
         # stored it.  Remove, and we'll calc from now on.
         if fieldname in otherfields:
@@ -135,27 +139,27 @@ class LengthFieldType(FieldType):
             return v
         return self.calc_value(otherfields)
 
-    def val_to_str(self, _, otherfields):
+    def val_to_str(self, _, otherfields: Dict[str, Any]) -> str:
         return self.underlying_type.val_to_str(self.calc_value(otherfields),
                                                otherfields)
 
-    def name_and_val(self, name, v):
+    def name_and_val(self, name: str, v: int) -> str:
         """We don't print out length fields when printing out messages:
 they're implied by the length of other fields"""
         return ''
 
-    def read(self, io_in, otherfields):
+    def read(self, io_in: BufferedIOBase, otherfields: Dict[str, Any]) -> None:
         """We store this, but it'll be removed from the fields as soon as it's used (i.e. by DynamicArrayType's val_from_bin)"""
         return self.underlying_type.read(io_in, otherfields)
 
-    def write(self, io_out, _, otherfields):
+    def write(self, io_out: BufferedIOBase, _, otherfields: Dict[str, Any]) -> None:
         self.underlying_type.write(io_out, self.calc_value(otherfields),
                                    otherfields)
 
-    def val_from_str(self, s):
+    def val_from_str(self, s: str):
         raise ValueError('{} is implied, cannot be specified'.format(self))
 
-    def len_fields_bad(self, fieldname, otherfields):
+    def len_fields_bad(self, fieldname: str, otherfields: Dict[str, Any]) -> List[str]:
         """fieldname is the name to return if this length is bad"""
         mylen = None
         for lens in self.len_for:
@@ -170,11 +174,11 @@ they're implied by the length of other fields"""
 
 class DynamicArrayType(ArrayType):
     """This is used for arrays where another field controls the size"""
-    def __init__(self, outer, name, elemtype, lenfield):
+    def __init__(self, outer: 'SubtypeType', name: str, elemtype: FieldType, lenfield: LengthFieldType):
         super().__init__(outer, name, elemtype)
         assert type(lenfield.fieldtype) is LengthFieldType
         self.lenfield = lenfield
 
-    def read(self, io_in, otherfields):
+    def read(self, io_in: BufferedIOBase, otherfields: Dict[str, Any]) -> List[Any]:
         return super().read_arr(io_in, otherfields,
                                 self.lenfield.fieldtype._maybe_calc_value(self.lenfield.name, otherfields))
