@@ -591,6 +591,8 @@ Returns None on EOF
             fields[f.name] = f.fieldtype.read(io_in, fields)
             if fields[f.name] is None:
                 # optional fields are OK to be missing at end!
+                if f.option is not None:
+                    break
                 raise ValueError('{}: truncated at field {}'
                                  .format(mtype, f.name))
 
@@ -641,6 +643,9 @@ Must not have missing fields.
             if f.name in self.fields:
                 val = self.fields[f.name]
             else:
+                # If this isn't present, and it's marked optional, don't write.
+                if f.option is not None:
+                    return
                 val = None
             f.fieldtype.write(io_out, val, self.fields)
 
