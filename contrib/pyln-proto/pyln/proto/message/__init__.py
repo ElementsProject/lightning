@@ -1,3 +1,4 @@
+from .array_types import SizedArrayType, DynamicArrayType, EllipsisArrayType
 from .message import MessageNamespace, MessageType, Message, SubtypeType
 from .fundamental_types import split_field, FieldType
 
@@ -10,6 +11,9 @@ __all__ = [
     "SubtypeType",
     "FieldType",
     "split_field",
+    "SizedArrayType",
+    "DynamicArrayType",
+    "EllipsisArrayType",
 
     # fundamental_types
     'byte',

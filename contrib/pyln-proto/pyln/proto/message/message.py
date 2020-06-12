@@ -545,21 +545,23 @@ class Message(object):
 
         # Convert arguments from strings to values if necessary.
         for field in kwargs:
-            f = self.messagetype.find_field(field)
-            if f is None:
-                raise ValueError("Unknown field {}".format(field))
-
-            v = kwargs[field]
-            if isinstance(v, str):
-                v, remainder = f.fieldtype.val_from_str(v)
-                if remainder != '':
-                    raise ValueError('Unexpected {} at end of initializer for {}'.format(remainder, field))
-            self.fields[field] = v
+            self.set_field(field, kwargs[field])
 
         bad_lens = self.messagetype.len_fields_bad(self.messagetype.name,
                                                    self.fields)
         if bad_lens:
             raise ValueError("Inconsistent length fields: {}".format(bad_lens))
+
+    def set_field(self, field: str, val: Any) -> None:
+        f = self.messagetype.find_field(field)
+        if f is None:
+            raise ValueError("Unknown field {}".format(field))
+
+        if isinstance(val, str):
+            val, remainder = f.fieldtype.val_from_str(val)
+            if remainder != '':
+                raise ValueError('Unexpected {} at end of initializer for {}'.format(remainder, field))
+        self.fields[field] = val
 
     def missing_fields(self) -> List[str]:
         """Are any required fields missing?"""
