@@ -592,6 +592,7 @@ Returns None on EOF
             if fields[f.name] is None:
                 # optional fields are OK to be missing at end!
                 if f.option is not None:
+                    del fields[f.name]
                     break
                 raise ValueError('{}: truncated at field {}'
                                  .format(mtype, f.name))
