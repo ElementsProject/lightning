@@ -289,9 +289,14 @@ inherit from this too.
         for field in self.fields:
             val = field.fieldtype.read(io_in, otherfields)
             if val is None:
+                # If first field fails to read, we return None.
+                if field == self.fields[0]:
+                    return None
                 # Might only exist with certain options available
-                if field.fieldtype.option is None:
-                    raise ValueError("{}.{}: short read".format(self, field))
+                if field.option is not None:
+                    break
+                # Otherwise, we only read part of it!
+                raise ValueError("{}.{}: short read".format(self, field))
             vals[field.name] = val
 
         return vals
