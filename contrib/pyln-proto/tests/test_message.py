@@ -129,6 +129,35 @@ def test_tlv():
                                    + [253, 0, 255, 4, 1, 2, 3, 4])
 
 
+def test_tlv_complex():
+    # A real example from the spec.
+    ns = MessageNamespace(["msgtype,reply_channel_range,264,gossip_queries",
+                           "msgdata,reply_channel_range,chain_hash,chain_hash,",
+                           "msgdata,reply_channel_range,first_blocknum,u32,",
+                           "msgdata,reply_channel_range,number_of_blocks,u32,",
+                           "msgdata,reply_channel_range,full_information,byte,",
+                           "msgdata,reply_channel_range,len,u16,",
+                           "msgdata,reply_channel_range,encoded_short_ids,byte,len",
+                           "msgdata,reply_channel_range,tlvs,reply_channel_range_tlvs,",
+                           "tlvtype,reply_channel_range_tlvs,timestamps_tlv,1",
+                           "tlvdata,reply_channel_range_tlvs,timestamps_tlv,encoding_type,u8,",
+                           "tlvdata,reply_channel_range_tlvs,timestamps_tlv,encoded_timestamps,byte,...",
+                           "tlvtype,reply_channel_range_tlvs,checksums_tlv,3",
+                           "tlvdata,reply_channel_range_tlvs,checksums_tlv,checksums,channel_update_checksums,...",
+                           "subtype,channel_update_timestamps",
+                           "subtypedata,channel_update_timestamps,timestamp_node_id_1,u32,",
+                           "subtypedata,channel_update_timestamps,timestamp_node_id_2,u32,",
+                           "subtype,channel_update_checksums",
+                           "subtypedata,channel_update_checksums,checksum_node_id_1,u32,",
+                           "subtypedata,channel_update_checksums,checksum_node_id_2,u32,"])
+
+    binmsg = bytes.fromhex('010806226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f000000670000000701001100000067000001000000006d000001000003101112fa300000000022d7a4a79bece840')
+    msg = Message.read(ns, io.BytesIO(binmsg))
+    buf = io.BytesIO()
+    msg.write(buf)
+    assert buf.getvalue() == binmsg
+
+
 def test_message_constructor():
     ns = MessageNamespace(['msgtype,test1,1',
                            'msgdata,test1,tlvs,test_tlvstream,',
