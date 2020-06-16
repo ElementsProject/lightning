@@ -6,7 +6,7 @@ from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES, COMPAT,
-    VALGRIND
+    VALGRIND, check_coin_moves
 )
 
 import os
@@ -568,7 +568,9 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     """
     amount = 1000000
     total_outs = 12
-    l1 = node_factory.get_node(feerates=(7500, 7500, 7500, 7500))
+    coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+    l1 = node_factory.get_node(options={'plugin': coin_mvt_plugin},
+                               feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node()
     addr = chainparams['example_addr']
 
@@ -676,6 +678,41 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     modded_psbt = l2_reserved['psbt'][:-3] + 'A' + l2_reserved['psbt'][-3:]
     with pytest.raises(RpcError, match=r"should be a PSBT, not"):
         l1.rpc.signpsbt(modded_psbt)
+
+    wallet_coin_mvts = [
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+        # Nicely splits out withdrawals and chain fees, because it's all our tx
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 988255000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 3000000000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 11745000, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 988255000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+        # Note that this is technically wrong since we paid 11745sat in fees
+        # but since it includes inputs / outputs from a second node, we can't
+        # do proper acccounting for it.
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 4000000000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 988255000, 'debit': 0, 'tag': 'deposit'},
+    ]
+    check_coin_moves(l1, 'wallet', wallet_coin_mvts)
 
 
 def test_txsend(node_factory, bitcoind, chainparams):
