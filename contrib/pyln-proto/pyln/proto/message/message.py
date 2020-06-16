@@ -4,7 +4,7 @@ from .fundamental_types import fundamental_types, BigSizeType, split_field, try_
 from .array_types import (
     SizedArrayType, DynamicArrayType, LengthFieldType, EllipsisArrayType
 )
-from typing import Dict, List, Optional, Tuple, Any, cast
+from typing import Dict, List, Optional, Tuple, Any, Union, cast
 
 
 class MessageNamespace(object):
@@ -278,6 +278,12 @@ inherit from this too.
 
         return '{' + s + '}'
 
+    def val_to_py(self, val: Dict[str, Any], otherfields: Dict[str, Any]) -> Dict[str, Any]:
+        ret: Dict[str, Any] = {}
+        for k, v in val.items():
+            ret[k] = self.find_field(k).fieldtype.val_to_py(v, val)
+        return ret
+
     def write(self, io_out: BufferedIOBase, v: Dict[str, Any], otherfields: Dict[str, Any]) -> None:
         self._raise_if_badvals(v)
         for fname, val in v.items():
@@ -471,6 +477,12 @@ tlvdata,reply_channel_range_tlvs,timestamps_tlv,encoding_type,u8,
 
         return '{' + s + '}'
 
+    def val_to_py(self, val: Dict[str, Any], otherfields: Dict[str, Any]) -> Dict[str, Any]:
+        ret: Dict[str, Any] = {}
+        for k, v in val.items():
+            ret[k] = self.find_field(k).val_to_py(v, val)
+        return ret
+
     def write(self, io_out: BufferedIOBase, v: Optional[Dict[str, Any]], otherfields: Dict[str, Any]) -> None:
         # If they didn't specify this tlvstream, it's empty.
         if v is None:
@@ -661,4 +673,13 @@ Must not have missing fields.
         for f in self.messagetype.fields:
             if f.name in self.fields:
                 ret += f.fieldtype.name_and_val(f.name, self.fields[f.name])
+        return ret
+
+    def to_py(self) -> Dict[str, Any]:
+        """Convert to a Python native object: dicts, lists, strings, ints"""
+        ret: Dict[str, Union[Dict[str, Any], List[Any], str, int]] = {}
+        for f, v in self.fields.items():
+            fieldtype = self.messagetype.find_field(f).fieldtype
+            ret[f] = fieldtype.val_to_py(v, self.fields)
+
         return ret

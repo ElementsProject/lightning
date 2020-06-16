@@ -59,6 +59,10 @@ These are further specialized.
     def val_to_str(self, v: Any, otherfields: Dict[str, Any]) -> str:
         raise NotImplementedError()
 
+    def val_to_py(self, v: Any, otherfields: Dict[str, Any]) -> Any:
+        """Convert to a python object: for simple fields, this means a string"""
+        return self.val_to_str(v, otherfields)
+
     def __str__(self):
         return self.name
 
@@ -78,6 +82,10 @@ class IntegerType(FieldType):
     def val_from_str(self, s: str) -> Tuple[int, str]:
         a, b = split_field(s)
         return int(a), b
+
+    def val_to_py(self, v: Any, otherfields: Dict[str, Any]) -> int:
+        """Convert to a python object: for integer fields, this means an int"""
+        return int(v)
 
     def write(self, io_out: BufferedIOBase, v: int, otherfields: Dict[str, Any]) -> None:
         io_out.write(struct.pack(self.structfmt, v))
@@ -107,6 +115,10 @@ basically a u64.
                 | (int(parts[1]) << 16)
                 | (int(parts[2]))), b
 
+    def val_to_py(self, v: Any, otherfields: Dict[str, Any]) -> str:
+        # Unlike a normal int, this returns a str.
+        return self.val_to_str(v, otherfields)
+
 
 class TruncatedIntType(FieldType):
     """Truncated integer types"""
@@ -127,6 +139,10 @@ class TruncatedIntType(FieldType):
             raise ValueError('{} exceeds maximum {} capacity'
                              .format(a, self.name))
         return int(a), b
+
+    def val_to_py(self, v: Any, otherfields: Dict[str, Any]) -> int:
+        """Convert to a python object: for integer fields, this means an int"""
+        return int(v)
 
     def write(self, io_out: BufferedIOBase, v: int, otherfields: Dict[str, Any]) -> None:
         binval = struct.pack('>Q', v)
@@ -218,6 +234,10 @@ class BigSizeType(FieldType):
 
     def val_to_str(self, v: int, otherfields: Dict[str, Any]) -> str:
         return "{}".format(int(v))
+
+    def val_to_py(self, v: Any, otherfields: Dict[str, Any]) -> int:
+        """Convert to a python object: for integer fields, this means an int"""
+        return int(v)
 
 
 def fundamental_types():

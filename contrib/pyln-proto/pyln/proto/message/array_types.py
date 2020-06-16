@@ -1,5 +1,5 @@
 from .fundamental_types import FieldType, IntegerType, split_field
-from typing import List, Optional, Dict, Tuple, TYPE_CHECKING, Any
+from typing import List, Optional, Dict, Tuple, TYPE_CHECKING, Any, Union
 from io import BufferedIOBase
 if TYPE_CHECKING:
     from .message import SubtypeType, TlvStreamType
@@ -40,6 +40,13 @@ wants an array of some type.
 
         s = ','.join(self.elemtype.val_to_str(i, otherfields) for i in v)
         return '[' + s + ']'
+
+    def val_to_py(self, v: Any, otherfields: Dict[str, Any]) -> Union[str, List[Any]]:
+        """Convert to a python object: for arrays, this means a list (or hex, if bytes)"""
+        if self.elemtype.name == 'byte':
+            return bytes(v).hex()
+
+        return [self.elemtype.val_to_py(i, otherfields) for i in v]
 
     def write(self, io_out: BufferedIOBase, v: List[Any], otherfields: Dict[str, Any]) -> None:
         for i in v:
@@ -142,6 +149,11 @@ class LengthFieldType(FieldType):
     def val_to_str(self, _, otherfields: Dict[str, Any]) -> str:
         return self.underlying_type.val_to_str(self.calc_value(otherfields),
                                                otherfields)
+
+    def val_to_py(self, v: Any, otherfields: Dict[str, Any]) -> int:
+        """Convert to a python object: for integer fields, this means an int"""
+        return self.underlying_type.val_to_py(self.calc_value(otherfields),
+                                              otherfields)
 
     def name_and_val(self, name: str, v: int) -> str:
         """We don't print out length fields when printing out messages:
