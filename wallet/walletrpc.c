@@ -59,7 +59,7 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 		wallet_confirm_utxos(ld->wallet, utx->wtx->utxos);
 
 		/* Extract the change output and add it to the DB */
-		wallet_extract_owned_outputs(ld->wallet, utx->tx, NULL, &change);
+		wallet_extract_owned_outputs(ld->wallet, utx->tx->wtx, NULL, &change);
 
 		/* Note normally, change_satoshi == withdraw->wtx->change, but
 		 * not if we're actually making a payment to ourselves! */

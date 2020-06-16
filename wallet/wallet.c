@@ -1664,25 +1664,27 @@ void wallet_confirm_tx(struct wallet *w,
 	db_exec_prepared_v2(take(stmt));
 }
 
-int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
+int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 				 const u32 *blockheight,
 				 struct amount_sat *total)
 {
 	int num_utxos = 0;
 
 	*total = AMOUNT_SAT(0);
-	for (size_t output = 0; output < tx->wtx->num_outputs; output++) {
+	for (size_t output = 0; output < wtx->num_outputs; output++) {
 		struct utxo *utxo;
 		u32 index;
 		bool is_p2sh;
 		const u8 *script;
-		struct amount_asset asset = bitcoin_tx_output_get_amount(tx, output);
+		struct amount_asset asset =
+			wally_tx_output_get_amount(&wtx->outputs[output]);
 		struct chain_coin_mvt *mvt;
 
 		if (!amount_asset_is_main(&asset))
 			continue;
 
-		script = bitcoin_tx_output_get_script(tmpctx, tx, output);
+		script = wally_tx_output_get_script(tmpctx,
+						    &wtx->outputs[output]);
 		if (!script)
 			continue;
 
@@ -1694,7 +1696,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 		utxo->is_p2sh = is_p2sh;
 		utxo->amount = amount_asset_to_sat(&asset);
 		utxo->status = output_state_available;
-		bitcoin_txid(tx, &utxo->txid);
+		wally_txid(wtx, &utxo->txid);
 		utxo->outnum = output;
 		utxo->close_info = NULL;
 
@@ -1738,7 +1740,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct bitcoin_tx *tx,
 
 		if (!amount_sat_add(total, *total, utxo->amount))
 			fatal("Cannot add utxo output %zu/%zu %s + %s",
-			      output, tx->wtx->num_outputs,
+			      output, wtx->num_outputs,
 			      type_to_string(tmpctx, struct amount_sat, total),
 			      type_to_string(tmpctx, struct amount_sat,
 					     &utxo->amount));
