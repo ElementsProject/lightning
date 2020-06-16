@@ -15,6 +15,7 @@ import time
 import unittest
 
 
+@pytest.mark.xfail(strict=True)
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Test relies on a number of example addresses valid only in regtest")
 def test_withdraw(node_factory, bitcoind):
     amount = 1000000
@@ -146,11 +147,11 @@ def test_withdraw(node_factory, bitcoind):
         l1.rpc.withdraw(waddr, 'all')
 
     # Add some funds to withdraw
-    for i in range(10):
+    for i in range(12):
         l1.bitcoin.rpc.sendtoaddress(addr, amount / 10**8 + 0.01)
 
     bitcoind.generate_block(1)
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 12)
 
     # Try passing in a utxo set
     utxos = [utxo["txid"] + ":" + str(utxo["output"]) for utxo in l1.rpc.listfunds()["outputs"]][:4]
@@ -170,6 +171,10 @@ def test_withdraw(node_factory, bitcoind):
                          for _ in range(5)]
     uutxos = [u["txid"] + ":0" for u in unconfirmed_utxos]
     l1.rpc.withdraw(waddr, "all", minconf=0, utxos=uutxos)
+
+    # Try passing minimum feerates (for relay)
+    l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5, feerate="253perkw")
+    l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5, feerate="1000perkb")
 
 
 def test_minconf_withdraw(node_factory, bitcoind):
