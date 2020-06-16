@@ -165,6 +165,20 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
         assert funding_input['witness_utxo']['scriptPubKey']['type'] == 'witness_v0_scripthash'
         assert funding_input['witness_script']['type'] == 'multisig'
 
+    l1.stop()
+    # Test again, but this time with a database with a closed channel + forgotten peer
+    # We need to get to block #232 from block #113
+    bitcoind.generate_block(232 - 113)
+    # We need to give it a chance to update
+    time.sleep(2)
+
+    l2 = node_factory.get_node(dbfile='last_tx_closed.sqlite3.xz')
+    last_txs = [x['last_tx'] for x in l2.db_query('SELECT last_tx FROM channels ORDER BY id;')]
+
+    # The first tx should be psbt, the second should still be hex
+    bitcoind.rpc.decodepsbt(base64.b64encode(last_txs[0]).decode('utf-8'))
+    bitcoind.rpc.decoderawtransaction(last_txs[1].hex())
+
 
 @unittest.skipIf(VALGRIND and not DEVELOPER, "Without developer valgrind will complain about debug symbols missing")
 def test_optimistic_locking(node_factory, bitcoind):

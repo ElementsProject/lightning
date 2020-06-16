@@ -1150,6 +1150,11 @@ void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db)
 		last_tx = db_column_tx(stmt, stmt, 2);
 		assert(last_tx != NULL);
 
+		/* If we've forgotten about the peer_id
+		 * because we closed / forgot the channel,
+		 * we can skip this. */
+		if (db_column_is_null(stmt, 1))
+			continue;
 		db_column_node_id(stmt, 1, &peer_id);
 		db_column_amount_sat(stmt, 3, &funding_sat);
 		db_column_pubkey(stmt, 4, &remote_funding_pubkey);
