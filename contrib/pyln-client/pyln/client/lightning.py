@@ -1129,6 +1129,24 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("unreserveinputs", payload)
 
+    def signpsbt(self, psbt):
+        """
+        Add internal wallet's signatures to PSBT
+        """
+        payload = {
+            "psbt": psbt,
+        }
+        return self.call("signpsbt", payload)
+
+    def sendpsbt(self, psbt):
+        """
+        Finalize extract and broadcast a PSBT
+        """
+        payload = {
+            "psbt": psbt,
+        }
+        return self.call("sendpsbt", payload)
+
     def signmessage(self, message):
         """
         Sign a message with this node's secret key.

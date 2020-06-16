@@ -34,6 +34,28 @@
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
 
+struct tx_broadcast {
+	struct command *cmd;
+	const struct utxo **utxos;
+	const struct wally_tx *wtx;
+	struct amount_sat *expected_change;
+};
+
+static struct tx_broadcast *unreleased_tx_to_broadcast(const tal_t *ctx,
+						       struct command *cmd,
+						       struct unreleased_tx *utx)
+{
+	struct tx_broadcast *txb = tal(ctx, struct tx_broadcast);
+	struct amount_sat *change = tal(txb, struct amount_sat);
+
+	txb->cmd = cmd;
+	txb->utxos = utx->wtx->utxos;
+	txb->wtx = utx->tx->wtx;
+	*change = utx->wtx->change;
+	txb->expected_change = change;
+	return txb;
+}
+
 /**
  * wallet_withdrawal_broadcast - The tx has been broadcast (or it failed)
  *
@@ -45,29 +67,34 @@
  */
 static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 					bool success, const char *msg,
-					struct unreleased_tx *utx)
+					struct tx_broadcast *txb)
 {
-	struct command *cmd = utx->wtx->cmd;
+	struct command *cmd = txb->cmd;
 	struct lightningd *ld = cmd->ld;
-	struct amount_sat change = AMOUNT_SAT(0);
 
 	/* FIXME: This won't be necessary once we use ccan/json_out! */
 	/* Massage output into shape so it doesn't kill the JSON serialization */
 	char *output = tal_strjoin(cmd, tal_strsplit(cmd, msg, "\n", STR_NO_EMPTY), " ", STR_NO_TRAIL);
 	if (success) {
+		struct bitcoin_txid txid;
+		struct amount_sat change = AMOUNT_SAT(0);
+
 		/* Mark used outputs as spent */
-		wallet_confirm_utxos(ld->wallet, utx->wtx->utxos);
+		wallet_confirm_utxos(ld->wallet, txb->utxos);
 
 		/* Extract the change output and add it to the DB */
-		wallet_extract_owned_outputs(ld->wallet, utx->tx->wtx, NULL, &change);
+		wallet_extract_owned_outputs(ld->wallet, txb->wtx, NULL, &change);
 
 		/* Note normally, change_satoshi == withdraw->wtx->change, but
 		 * not if we're actually making a payment to ourselves! */
-		assert(amount_sat_greater_eq(change, utx->wtx->change));
+		if (txb->expected_change)
+			assert(amount_sat_greater_eq(change, *txb->expected_change));
 
 		struct json_stream *response = json_stream_success(cmd);
-		json_add_tx(response, "tx", utx->tx);
-		json_add_txid(response, "txid", &utx->txid);
+		wally_txid(txb->wtx, &txid);
+		json_add_hex_talarr(response, "tx",
+				    linearize_wtx(tmpctx, txb->wtx));
+		json_add_txid(response, "txid", &txid);
 		was_pending(command_success(cmd, response));
 	} else {
 		was_pending(command_fail(cmd, LIGHTNINGD,
@@ -127,7 +154,8 @@ static struct command_result *broadcast_and_wait(struct command *cmd,
 	/* Now broadcast the transaction */
 	bitcoind_sendrawtx(cmd->ld->topology->bitcoind,
 			   tal_hex(tmpctx, linearize_tx(tmpctx, utx->tx)),
-			   wallet_withdrawal_broadcast, utx);
+			   wallet_withdrawal_broadcast,
+			   unreleased_tx_to_broadcast(cmd, cmd, utx));
 
 	return command_still_pending(cmd);
 }
@@ -1218,7 +1246,6 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 {
 	struct json_stream *response;
 	struct wally_psbt *psbt;
-	bool all_unreserved;
 
 	/* for each input in the psbt, attempt to 'unreserve' it */
 	if (!param(cmd, buffer, params,
@@ -1227,7 +1254,6 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 		return command_param_failed();
 
 	response = json_stream_success(cmd);
-	all_unreserved = psbt->tx->num_inputs != 0;
 	json_array_start(response, "outputs");
 	for (size_t i = 0; i < psbt->tx->num_inputs; i++) {
 		struct wally_tx_input *in;
@@ -1243,11 +1269,9 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 		json_add_u64(response, "vout", in->index);
 		json_add_bool(response, "unreserved", unreserved);
 		json_object_end(response);
-		all_unreserved &= unreserved;
 	}
 	json_array_end(response);
 
-	json_add_bool(response, "all_unreserved", all_unreserved);
 	return command_success(cmd, response);
 }
 static const struct json_command unreserveinputs_command = {
@@ -1258,3 +1282,145 @@ static const struct json_command unreserveinputs_command = {
 	false
 };
 AUTODATA(json_command, &unreserveinputs_command);
+
+static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
+							 struct wally_psbt *psbt,
+							 struct utxo ***utxos)
+{
+	*utxos = tal_arr(cmd, struct utxo *, 0);
+	for (size_t i = 0; i < psbt->tx->num_inputs; i++) {
+		struct utxo *utxo;
+		struct bitcoin_txid txid;
+
+		wally_tx_input_get_txid(&psbt->tx->inputs[i], &txid);
+		utxo = wallet_utxo_get(*utxos, cmd->ld->wallet,
+				       &txid, psbt->tx->inputs[i].index);
+		if (!utxo)
+			continue;
+
+		/* Oops we haven't reserved this utxo yet.
+		 * Let's just go ahead and reserve it now. */
+		if (utxo->status != output_state_reserved)
+			return command_fail(cmd, LIGHTNINGD,
+					    "Aborting PSBT signing. UTXO %s:%u is not reserved",
+					    type_to_string(tmpctx, struct bitcoin_txid,
+							   &utxo->txid),
+					    utxo->outnum);
+		tal_arr_expand(utxos, utxo);
+	}
+
+	return NULL;
+}
+
+static struct command_result *json_signpsbt(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *obj UNNEEDED,
+					    const jsmntok_t *params)
+{
+	struct command_result *res;
+	struct json_stream *response;
+	struct wally_psbt *psbt, *signed_psbt;
+	struct utxo **utxos;
+
+	if (!param(cmd, buffer, params,
+		   p_req("psbt", param_psbt, &psbt),
+		   NULL))
+		return command_param_failed();
+
+	/* We have to find/locate the utxos that are ours on this PSBT,
+	 * so that the HSM knows how/what to sign for (it's possible some of
+	 * our utxos require more complicated data to sign for e.g.
+	 * closeinfo outputs */
+	res = match_psbt_inputs_to_utxos(cmd, psbt, &utxos);
+	if (res)
+		return res;
+
+	if (tal_count(utxos) == 0)
+		return command_fail(cmd, LIGHTNINGD,
+				    "No wallet inputs to sign");
+
+	/* FIXME: hsm will sign almost anything, but it should really
+	 * fail cleanly (not abort!) and let us report the error here. */
+	u8 *msg = towire_hsm_sign_withdrawal(cmd,
+					     cast_const2(const struct utxo **, utxos),
+					     psbt);
+
+	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
+		fatal("Could not write sign_withdrawal to HSM: %s",
+		      strerror(errno));
+
+	msg = wire_sync_read(cmd, cmd->ld->hsm_fd);
+
+	if (!fromwire_hsm_sign_withdrawal_reply(cmd, msg, &signed_psbt))
+		fatal("HSM gave bad sign_withdrawal_reply %s",
+		      tal_hex(tmpctx, msg));
+
+	response = json_stream_success(cmd);
+	json_add_psbt(response, "signed_psbt", signed_psbt);
+	return command_success(cmd, response);
+}
+
+static const struct json_command signpsbt_command = {
+	"signpsbt",
+	"bitcoin",
+	json_signpsbt,
+	"Sign this wallet's inputs on a provided PSBT.",
+	false
+};
+
+AUTODATA(json_command, &signpsbt_command);
+
+static struct command_result *json_sendpsbt(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *obj UNNEEDED,
+					    const jsmntok_t *params)
+{
+	struct command_result *res;
+	struct wally_psbt *psbt;
+	struct wally_tx *w_tx;
+	struct tx_broadcast *txb;
+	struct utxo **utxos;
+
+	if (!param(cmd, buffer, params,
+		   p_req("psbt", param_psbt, &psbt),
+		   NULL))
+		return command_param_failed();
+
+	w_tx = psbt_finalize(psbt, true);
+	if (!w_tx)
+		return command_fail(cmd, LIGHTNINGD,
+				    "PSBT not finalizeable %s",
+				    type_to_string(tmpctx, struct wally_psbt,
+						   psbt));
+
+	/* We have to find/locate the utxos that are ours on this PSBT,
+	 * so that we know who to mark as used.
+	 */
+	res = match_psbt_inputs_to_utxos(cmd, psbt, &utxos);
+	if (res)
+		return res;
+
+	txb = tal(cmd, struct tx_broadcast);
+	txb->utxos = cast_const2(const struct utxo **,
+				tal_steal(txb, utxos));
+	txb->wtx = tal_steal(txb, w_tx);
+	txb->cmd = cmd;
+	txb->expected_change = NULL;
+
+	/* Now broadcast the transaction */
+	bitcoind_sendrawtx(cmd->ld->topology->bitcoind,
+			   tal_hex(tmpctx, linearize_wtx(tmpctx, w_tx)),
+			   wallet_withdrawal_broadcast, txb);
+
+	return command_still_pending(cmd);
+}
+
+static const struct json_command sendpsbt_command = {
+	"sendpsbt",
+	"bitcoin",
+	json_sendpsbt,
+	"Finalize, extract and send a PSBT.",
+	false
+};
+
+AUTODATA(json_command, &sendpsbt_command);
