@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
+#include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/mem/mem.h>
@@ -159,6 +160,8 @@ struct command_result *param_feerate(struct command *cmd, const char *name,
 
 	*feerate = tal(cmd, u32);
 	**feerate = feerate_from_style(num, style);
+	if (**feerate < FEERATE_FLOOR)
+		**feerate = FEERATE_FLOOR;
 	return NULL;
 }
 
