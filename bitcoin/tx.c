@@ -121,7 +121,9 @@ struct amount_sat bitcoin_tx_compute_fee_w_inputs(const struct bitcoin_tx *tx,
 
 		ok = amount_sat_sub(&input_val, input_val,
 				    amount_asset_to_sat(&asset));
-		assert(ok);
+		if (!ok)
+			return AMOUNT_SAT(0);
+
 	}
 	return input_val;
 }
