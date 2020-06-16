@@ -597,8 +597,10 @@ static struct command_result *command_exec(struct json_connection *jcon,
 	if (res == &pending)
 		assert(cmd->pending);
 
-	list_for_each(&jcon->commands, cmd, list)
-		assert(cmd->pending);
+	/* The command might outlive the connection. */
+	if (jcon)
+		list_for_each(&jcon->commands, cmd, list)
+			assert(cmd->pending);
 
 	return res;
 }
