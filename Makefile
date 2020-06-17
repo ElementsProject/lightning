@@ -340,7 +340,7 @@ check-markdown:
 check-spelling:
 	@tools/check-spelling.sh
 
-PYSRC=$(shell git ls-files "*.py") contrib/pylightning/lightning-pay
+PYSRC=$(shell git ls-files "*.py" | grep -v /text.py) contrib/pylightning/lightning-pay
 
 check-python:
 	@# E501 line too long (N > 79 characters)
