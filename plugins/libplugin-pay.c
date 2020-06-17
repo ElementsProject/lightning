@@ -1990,6 +1990,13 @@ static void waitblockheight_cb(void *d, struct payment *p)
 			return payment_continue(p);
 	}
 
+	/* If we are already at the desired blockheight there is no point in
+	 * waiting, and it is likely just some other error. Notice that
+	 * start_block gets set by the initial getinfo call for each
+	 * attempt.*/
+	if (blockheight < p->start_block)
+		return payment_continue(p);
+
 	plugin_log(p->plugin, LOG_INFORM,
 		   "Remote node appears to be on a longer chain, which causes "
 		   "CLTV timeouts to be incorrect. Waiting up to %" PRIu64
