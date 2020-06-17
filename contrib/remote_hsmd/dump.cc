@@ -184,23 +184,10 @@ string dump_bitcoin_tx_outputs(const struct bitcoin_tx_output **outputs)
 	return ostrm.str();
 }
 
-string dump_input_amounts(const struct amount_sat **ias)
-{
-	ostringstream ostrm;
-	ostrm << "[";
-	if (*ias) {
-		for (size_t ii = 0; ii < tal_count(ias); ii++) {
-			if (ii != 0)
-				ostrm << ",";
-			ostrm << ias[ii]->satoshis;
-		}
-	}
-	ostrm << "]";
-	return ostrm.str();
-}
-
 string dump_wally_tx_witness_stack(const struct wally_tx_witness_stack *sp)
 {
+	if (sp == NULL)
+		return "[]";
 	ostringstream ostrm;
 	ostrm << "[";
 	for (size_t ii = 0; ii < sp->num_items; ii++) {
@@ -247,6 +234,8 @@ string dump_wally_tx_inputs(const struct wally_tx_input *inputs,
 
 string dump_wally_tx_output(const struct wally_tx_output *out)
 {
+	if (out == NULL)
+		return "{}";
 	ostringstream ostrm;
 	ostrm << "{ ";
 	ostrm << "satoshi=" << out->satoshi;
@@ -274,6 +263,8 @@ string dump_wally_tx_outputs(const struct wally_tx_output *outputs,
 
 string dump_wally_tx(const struct wally_tx *wtx)
 {
+	if (wtx == NULL)
+		return "{}";
 	ostringstream ostrm;
 	ostrm << "{ ";
 	ostrm << "version=" << wtx->version;
@@ -288,18 +279,78 @@ string dump_wally_tx(const struct wally_tx *wtx)
 	return ostrm.str();
 }
 
-string dump_output_witscripts(const struct witscript **wp)
+string dump_wally_psbt_input(const struct wally_psbt_input *in)
+{
+	ostringstream ostrm;
+	ostrm << "{ ";
+	ostrm << "non_witness_utxo=" << dump_wally_tx(in->non_witness_utxo);
+	ostrm << ", witness_utxo=" << dump_wally_tx_output(in->witness_utxo);
+	ostrm << ", redeem_script=" << dump_hex(in->redeem_script,
+					      in->redeem_script_len);
+	ostrm << ", witness_script=" << dump_hex(in->witness_script,
+					       in->witness_script_len);
+	ostrm << ", final_script_sig=" << dump_hex(in->final_script_sig,
+						   in->final_script_sig_len);
+	ostrm << ", final_witness="
+	      << dump_wally_tx_witness_stack(in->final_witness);
+	ostrm << ", keypaths=??, partial_sigs==??, unknown=??";
+	ostrm << ", sighash_type=" << in->sighash_type;
+	ostrm << " }";
+	return ostrm.str();
+}
+
+string dump_wally_psbt_inputs(const struct wally_psbt_input *inputs,
+			      size_t num_inputs)
 {
 	ostringstream ostrm;
 	ostrm << "[";
-	for (size_t ii = 0; ii < tal_count(wp); ii++) {
+	for (size_t ii = 0; ii < num_inputs; ii++) {
 		if (ii != 0)
 			ostrm << ",";
-		ostrm << (wp[ii] ?
-			  dump_hex(wp[ii]->ptr, tal_count(wp[ii]->ptr)) :
-			  "<none>");
+		ostrm << dump_wally_psbt_input(&inputs[ii]);
 	}
 	ostrm << "]";
+	return ostrm.str();
+}
+
+string dump_wally_psbt_output(const struct wally_psbt_output *out)
+{
+	ostringstream ostrm;
+	ostrm << "{ ";
+	ostrm << "redeem_script=" << dump_hex(out->redeem_script,
+					      out->redeem_script_len);
+	ostrm << ", witness_script=" << dump_hex(out->witness_script,
+						 out->witness_script_len);
+	ostrm << ", keypaths=??, unknown=??";
+	ostrm << " }";
+	return ostrm.str();
+
+}
+
+string dump_wally_psbt_outputs(const struct wally_psbt_output *outputs,
+			      size_t num_outputs)
+{
+	ostringstream ostrm;
+	ostrm << "[";
+	for (size_t ii = 0; ii < num_outputs; ii++) {
+		if (ii != 0)
+			ostrm << ",";
+		ostrm << dump_wally_psbt_output(&outputs[ii]);
+	}
+	ostrm << "]";
+	return ostrm.str();
+}
+
+string dump_wally_psbt(const struct wally_psbt *psbt)
+{
+	ostringstream ostrm;
+	ostrm << "{ ";
+	ostrm << "tx=" << dump_wally_tx(psbt->tx);
+	ostrm << ", inputs="
+	      << dump_wally_psbt_inputs(psbt->inputs, psbt->num_inputs);
+	ostrm << ", outputs="
+	      << dump_wally_psbt_outputs(psbt->outputs, psbt->num_outputs);
+	ostrm << " }";
 	return ostrm.str();
 }
 
@@ -307,13 +358,8 @@ string dump_tx(const struct bitcoin_tx *tx)
 {
 	ostringstream ostrm;
 	ostrm << "{ ";
-	ostrm << "input_amounts=" <<
-		dump_input_amounts(
-			(const struct amount_sat **)tx->input_amounts);
-	ostrm << ", wally_tx=" << dump_wally_tx(tx->wtx);
-	ostrm << ", output_witscripts=" <<
-		dump_output_witscripts(
-			(const struct witscript **)tx->output_witscripts);
+	ostrm << ", wtx=" << dump_wally_tx(tx->wtx);
+	ostrm << ", psbt=" << dump_wally_psbt(tx->psbt);
 	ostrm << " }";
 	return ostrm.str();
 }

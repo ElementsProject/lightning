@@ -575,12 +575,6 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 	wally_tx_get_length(tx->wtx, flags & ~WALLY_TX_FLAG_USE_ELEMENTS,
 			    &wsize);
 
-	/* We don't know the input amounts yet, so set them all to NULL */
-	tx->input_amounts =
-	    tal_arrz(tx, struct amount_sat *, tx->wtx->inputs_allocation_len);
-	/* Same for the output_witscripts. */
-	tx->output_witscripts =
-	    tal_arrz(tx, struct witscript*, tx->wtx->outputs_allocation_len);
 	tx->chainparams = chainparams;
 
 	tx->psbt = new_psbt(tx, tx->wtx);

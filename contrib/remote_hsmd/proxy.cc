@@ -12,6 +12,7 @@
 
 extern "C" {
 #include <bitcoin/chainparams.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/short_channel_id.h>
 #include <bitcoin/tx.h>
@@ -177,22 +178,23 @@ void marshal_basepoints(struct basepoints const *bps,
 
 void marshal_single_input_tx(struct bitcoin_tx const *tx,
 			     u8 const *output_witscript,
-			     struct witscript const **output_witscripts,
+			     bool use_tx_psbt,
 			     Transaction *o_tp)
 {
 	if (output_witscript) {
 		/* Called with a single witscript. */
 		assert(tx->wtx->num_outputs == 1);
-	} else if (output_witscripts) {
+	} else if (use_tx_psbt) {
 		/* Called with an array of witscripts. */
-		assert(tal_count(output_witscripts) == tx->wtx->num_outputs);
+		assert(tx->psbt->num_outputs == tx->wtx->num_outputs);
 	}
 
 	o_tp->set_raw_tx_bytes(serialized_tx(tx, true));
 
 	assert(tx->wtx->num_inputs == 1);
+	assert(tx->psbt->num_inputs == 1);
 	InputDescriptor *idesc = o_tp->add_input_descs();
-	idesc->mutable_prev_output()->set_value_sat(tx->input_amounts[0]->satoshis);
+	idesc->mutable_prev_output()->set_value_sat(psbt_input_get_amount(tx->psbt, 0).satoshis);
 	/* FIXME - What else needs to be set? */
 
 	for (size_t ii = 0; ii < tx->wtx->num_outputs; ii++) {
@@ -201,13 +203,13 @@ void marshal_single_input_tx(struct bitcoin_tx const *tx,
 			/* We have a single witscript. */
 			odesc->set_witscript((const char *) output_witscript,
 					     tal_count(output_witscript));
-		} else if (output_witscripts) {
+		} else if (use_tx_psbt) {
 			/* We have an array of witscripts. */
-			if (output_witscripts[ii])
+			if (tx->psbt->outputs[ii].witness_script_len)
 				odesc->set_witscript(
 					(const char *)
-					output_witscripts[ii]->ptr,
-					tal_count(output_witscripts[ii]->ptr));
+					tx->psbt->outputs[ii].witness_script,
+					tx->psbt->outputs[ii].witness_script_len);
 			else
 				odesc->set_witscript("");
 		} else {
@@ -678,26 +680,22 @@ proxy_stat proxy_handle_sign_withdrawal_tx(
 proxy_stat proxy_handle_sign_remote_commitment_tx(
 	struct bitcoin_tx *tx,
 	const struct pubkey *remote_funding_pubkey,
-	struct amount_sat *funding,
 	struct node_id *peer_id,
 	u64 dbid,
-	struct witscript const **output_witscripts,
 	const struct pubkey *remote_per_commit,
 	bool option_static_remotekey,
 	struct bitcoin_signature *o_sig)
 {
 	status_debug(
 		"%s:%d %s self_id=%s peer_id=%s dbid=%" PRIu64 " "
-		"funding=%" PRIu64 " remote_funding_pubkey=%s "
-		"output_witscripts=%s remote_per_commit=%s "
+		"remote_funding_pubkey=%s "
+		"remote_per_commit=%s "
 		"option_static_remotekey=%s  tx=%s",
 		__FILE__, __LINE__, __FUNCTION__,
 		dump_node_id(&self_id).c_str(),
 		dump_node_id(peer_id).c_str(),
 		dbid,
-		funding->satoshis,
 		dump_pubkey(remote_funding_pubkey).c_str(),
-		dump_output_witscripts(output_witscripts).c_str(),
 		dump_pubkey(remote_per_commit).c_str(),
 		(option_static_remotekey ? "true" : "false"),
 		dump_tx(tx).c_str()
@@ -709,7 +707,7 @@ proxy_stat proxy_handle_sign_remote_commitment_tx(
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	marshal_pubkey(remote_per_commit,
 		       req.mutable_remote_per_commit_point());
-	marshal_single_input_tx(tx, NULL, output_witscripts, req.mutable_tx());
+	marshal_single_input_tx(tx, NULL, true, req.mutable_tx());
 
 	ClientContext context;
 	SignatureReply rsp;
@@ -976,7 +974,7 @@ proxy_stat proxy_handle_sign_mutual_close_tx(
 	SignMutualCloseTxRequest req;
 	marshal_node_id(&self_id, req.mutable_node_id());
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
-	marshal_single_input_tx(tx, NULL, NULL, req.mutable_tx());
+	marshal_single_input_tx(tx, NULL, false, req.mutable_tx());
 
 	ClientContext context;
 	SignatureReply rsp;
@@ -1021,7 +1019,7 @@ proxy_stat proxy_handle_sign_commitment_tx(
 	SignCommitmentTxRequest req;
 	marshal_node_id(&self_id, req.mutable_node_id());
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
-	marshal_single_input_tx(tx, NULL, NULL, req.mutable_tx());
+	marshal_single_input_tx(tx, NULL, false, req.mutable_tx());
 
 	ClientContext context;
 	SignatureReply rsp;
@@ -1122,7 +1120,7 @@ proxy_stat proxy_handle_sign_local_htlc_tx(
 	marshal_node_id(&self_id, req.mutable_node_id());
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	req.set_n(commit_num);
-	marshal_single_input_tx(tx, wscript, NULL, req.mutable_tx());
+	marshal_single_input_tx(tx, wscript, false, req.mutable_tx());
 
 	ClientContext context;
 	SignatureReply rsp;
@@ -1171,7 +1169,7 @@ proxy_stat proxy_handle_sign_remote_htlc_tx(
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	marshal_pubkey(remote_per_commit_point,
 		       req.mutable_remote_per_commit_point());
-	marshal_single_input_tx(tx, wscript, NULL, req.mutable_tx());
+	marshal_single_input_tx(tx, wscript, false, req.mutable_tx());
 
 	ClientContext context;
 	SignatureReply rsp;
@@ -1221,7 +1219,7 @@ proxy_stat proxy_handle_sign_delayed_payment_to_us(
 	marshal_node_id(&self_id, req.mutable_node_id());
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	req.set_n(commit_num);
-	marshal_single_input_tx(tx, wscript, NULL, req.mutable_tx());
+	marshal_single_input_tx(tx, wscript, false, req.mutable_tx());
 
 	ClientContext context;
 	SignatureReply rsp;
@@ -1269,7 +1267,7 @@ proxy_stat proxy_handle_sign_remote_htlc_to_us(
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	marshal_pubkey(remote_per_commit_point,
 		       req.mutable_remote_per_commit_point());
-	marshal_single_input_tx(tx, wscript, NULL, req.mutable_tx());
+	marshal_single_input_tx(tx, wscript, false, req.mutable_tx());
 
 	ClientContext context;
 	SignatureReply rsp;
@@ -1320,7 +1318,7 @@ proxy_stat proxy_handle_sign_penalty_to_us(
 	marshal_node_id(&self_id, req.mutable_node_id());
 	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
 	marshal_secret(revocation_secret, req.mutable_revocation_secret());
-	marshal_single_input_tx(tx, wscript, NULL, req.mutable_tx());
+	marshal_single_input_tx(tx, wscript, false, req.mutable_tx());
 
 	ClientContext context;
 	SignatureReply rsp;

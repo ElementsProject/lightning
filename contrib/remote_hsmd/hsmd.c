@@ -637,15 +637,13 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 	struct pubkey remote_funding_pubkey;
 	struct node_id peer_id;
 	u64 dbid;
-	struct amount_sat funding;
 	struct bitcoin_tx *tx;
 	struct bitcoin_signature sig;
 
 	if (!fromwire_hsm_sign_commitment_tx(tmpctx, msg_in,
 					     &peer_id, &dbid,
 					     &tx,
-					     &remote_funding_pubkey,
-					     &funding))
+					     &remote_funding_pubkey))
 		return bad_req(conn, c, msg_in);
 
 	tx->chainparams = c->chainparams;
@@ -655,14 +653,6 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in, "tx must have 1 input");
 	if (tx->wtx->num_outputs == 0)
 		return bad_req_fmt(conn, c, msg_in, "tx must have > 0 outputs");
-
-	/*~ Segregated Witness also added the input amount to the signing
-	 * algorithm; it's only part of the input implicitly (it's part of the
-	 * output it's spending), so in our 'bitcoin_tx' structure it's a
-	 * pointer, as we don't always know it (and zero is a valid amount, so
-	 * NULL is better to mean 'unknown' and has the nice property that
-	 * you'll crash if you assume it's there and you're wrong.) */
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
 
 	proxy_stat rv = proxy_handle_sign_commitment_tx(
 		tx, &remote_funding_pubkey, &peer_id, dbid, &sig);
@@ -692,18 +682,14 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 							const u8 *msg_in)
 {
 	struct pubkey remote_funding_pubkey;
-	struct amount_sat funding;
 	struct bitcoin_tx *tx;
 	struct bitcoin_signature sig;
-	struct witscript **output_witscripts;
 	struct pubkey remote_per_commit;
 	bool option_static_remotekey;
 
 	if (!fromwire_hsm_sign_remote_commitment_tx(tmpctx, msg_in,
 						    &tx,
 						    &remote_funding_pubkey,
-						    &funding,
-						    &output_witscripts,
 						    &remote_per_commit,
 						    &option_static_remotekey))
 		bad_req(conn, c, msg_in);
@@ -714,16 +700,10 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in, "tx must have 1 input");
 	if (tx->wtx->num_outputs == 0)
 		return bad_req_fmt(conn, c, msg_in, "tx must have > 0 outputs");
-	if (tal_count(output_witscripts) != tx->wtx->num_outputs)
-		return bad_req_fmt(conn, c, msg_in, "tx must have matching witscripts");
-
-	/* Need input amount for signing */
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
 
 	proxy_stat rv = proxy_handle_sign_remote_commitment_tx(
-		tx, &remote_funding_pubkey, &funding,
+		tx, &remote_funding_pubkey,
 		&c->id, c->dbid,
-		(const struct witscript **) output_witscripts,
 		&remote_per_commit,
 		option_static_remotekey,
 		&sig);
@@ -752,19 +732,13 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 	struct bitcoin_tx *tx;
 	struct bitcoin_signature sig;
 	struct pubkey remote_per_commit_point;
-	struct amount_sat amount;
 	u8 *wscript;
 
 	if (!fromwire_hsm_sign_remote_htlc_tx(tmpctx, msg_in,
-					      &tx, &wscript, &amount,
+					      &tx, &wscript,
 					      &remote_per_commit_point))
 		return bad_req(conn, c, msg_in);
 	tx->chainparams = c->chainparams;
-
-	/* Need input amount for signing */
-	if (tx->wtx->num_inputs != 1)
-		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &amount);
 
 	proxy_stat rv = proxy_handle_sign_remote_htlc_tx(
 		tx,
@@ -794,21 +768,15 @@ static struct io_plan *handle_sign_delayed_payment_to_us(struct io_conn *conn,
 							 const u8 *msg_in)
 {
 	u64 commit_num;
-	struct amount_sat input_sat;
 	struct bitcoin_tx *tx;
 	u8 *wscript;
 
 	/*~ We don't derive the wscript ourselves, but perhaps we should? */
 	if (!fromwire_hsm_sign_delayed_payment_to_us(tmpctx, msg_in,
 						     &commit_num,
-						     &tx, &wscript,
-						     &input_sat))
+						     &tx, &wscript))
 		return bad_req(conn, c, msg_in);
 	tx->chainparams = c->chainparams;
-
-	if (tx->wtx->num_inputs != 1)
-		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &input_sat);
 
 	struct bitcoin_signature sig;
 	proxy_stat rv = proxy_handle_sign_delayed_payment_to_us(
@@ -832,23 +800,16 @@ static struct io_plan *handle_sign_remote_htlc_to_us(struct io_conn *conn,
 						     struct client *c,
 						     const u8 *msg_in)
 {
-	struct amount_sat input_sat;
 	struct bitcoin_tx *tx;
 	struct pubkey remote_per_commitment_point;
 	u8 *wscript;
 
 	if (!fromwire_hsm_sign_remote_htlc_to_us(tmpctx, msg_in,
 						 &remote_per_commitment_point,
-						 &tx, &wscript,
-						 &input_sat))
+						 &tx, &wscript))
 		return bad_req(conn, c, msg_in);
 
 	tx->chainparams = c->chainparams;
-
-	/* Need input amount for signing */
-	if (tx->wtx->num_inputs != 1)
-		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &input_sat);
 
 	struct bitcoin_signature sig;
 	proxy_stat rv = proxy_handle_sign_remote_htlc_to_us(
@@ -877,22 +838,15 @@ static struct io_plan *handle_sign_penalty_to_us(struct io_conn *conn,
 						 struct client *c,
 						 const u8 *msg_in)
 {
-	struct amount_sat input_sat;
 	struct secret revocation_secret;
 	struct bitcoin_tx *tx;
 	u8 *wscript;
 
 	if (!fromwire_hsm_sign_penalty_to_us(tmpctx, msg_in,
 					     &revocation_secret,
-					     &tx, &wscript,
-					     &input_sat))
+					     &tx, &wscript))
 		return bad_req(conn, c, msg_in);
 	tx->chainparams = c->chainparams;
-
-	/* Need input amount for signing */
-	if (tx->wtx->num_inputs != 1)
-		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &input_sat);
 
 	struct bitcoin_signature sig;
 	proxy_stat rv = proxy_handle_sign_penalty_to_us(
@@ -917,21 +871,15 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 						 const u8 *msg_in)
 {
 	u64 commit_num;
-	struct amount_sat input_sat;
 	struct bitcoin_tx *tx;
 	u8 *wscript;
 	struct bitcoin_signature sig;
 
 	if (!fromwire_hsm_sign_local_htlc_tx(tmpctx, msg_in,
-					     &commit_num, &tx, &wscript,
-					     &input_sat))
+					     &commit_num, &tx, &wscript))
 		return bad_req(conn, c, msg_in);
 
 	tx->chainparams = c->chainparams;
-
-	if (tx->wtx->num_inputs != 1)
-		return bad_req_fmt(conn, c, msg_in, "bad txinput count");
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &input_sat);
 
 	proxy_stat rv = proxy_handle_sign_local_htlc_tx(
 		tx, commit_num, wscript, &c->id, c->dbid, &sig);
@@ -1023,18 +971,13 @@ static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 	struct bitcoin_tx *tx;
 	struct pubkey remote_funding_pubkey;
 	struct bitcoin_signature sig;
-	struct amount_sat funding;
 
 	if (!fromwire_hsm_sign_mutual_close_tx(tmpctx, msg_in,
 					       &tx,
-					       &remote_funding_pubkey,
-					       &funding))
+					       &remote_funding_pubkey))
 		return bad_req(conn, c, msg_in);
 
 	tx->chainparams = c->chainparams;
-
-	/* Need input amount for signing */
-	tx->input_amounts[0] = tal_dup(tx, struct amount_sat, &funding);
 
 	proxy_stat rv = proxy_handle_sign_mutual_close_tx(
 		tx, &remote_funding_pubkey, &c->id, c->dbid, &sig);
@@ -1463,7 +1406,6 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_INIT:
 	case WIRE_HSM_NEW_CHANNEL:
 	case WIRE_HSM_CLIENT_HSMFD:
-	case WIRE_HSM_SIGN_FUNDING:
 	case WIRE_HSM_SIGN_WITHDRAWAL:
 	case WIRE_HSM_SIGN_INVOICE:
 	case WIRE_HSM_SIGN_COMMITMENT_TX:
@@ -1481,7 +1423,6 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_CLIENT_HSMFD_REPLY:
 	case WIRE_HSM_NEW_CHANNEL_REPLY:
 	case WIRE_HSM_READY_CHANNEL_REPLY:
-	case WIRE_HSM_SIGN_FUNDING_REPLY:
 	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSM_SIGN_INVOICE_REPLY:
@@ -1539,11 +1480,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSM_CUPDATE_SIG_REQ:
 		return handle_channel_update_sig(conn, c, c->msg_in);
 
-	case WIRE_HSM_SIGN_FUNDING:
-		/* FIXME: Never called by integration tests. */
-		/* return handle_sign_funding_tx(conn, c, c->msg_in); */
-		assert(false);
-
 	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REQ:
 		return handle_sign_node_announcement(conn, c, c->msg_in);
 
@@ -1597,7 +1533,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSM_CLIENT_HSMFD_REPLY:
 	case WIRE_HSM_NEW_CHANNEL_REPLY:
 	case WIRE_HSM_READY_CHANNEL_REPLY:
-	case WIRE_HSM_SIGN_FUNDING_REPLY:
 	case WIRE_HSM_NODE_ANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSM_SIGN_WITHDRAWAL_REPLY:
 	case WIRE_HSM_SIGN_INVOICE_REPLY:
