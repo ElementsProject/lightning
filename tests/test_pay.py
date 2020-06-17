@@ -3045,11 +3045,8 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind, compat):
 
 
 def test_keysend(node_factory):
-    # Use a temporary python plugin until we implement a native one
-    plugin_path = os.path.join(os.getcwd(), 'tests/plugins/keysend.py')
-    opts = {'plugin': plugin_path}
     amt = 10000
-    l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
     # The keysend featurebit must be set in the announcement, i.e., l1 should
     # learn that l3 supports keysends.

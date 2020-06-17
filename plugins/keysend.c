@@ -2,17 +2,186 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <plugins/libplugin.h>
+#include <plugins/libplugin-pay.h>
 #include <wire/gen_onion_wire.h>
 
 #define PREIMAGE_TLV_TYPE 5482373484
 #define KEYSEND_FEATUREBIT 55
+static unsigned int maxdelay_default;
+static struct node_id my_id;
+
+/*****************************************************************************
+ * Keysend modifier
+ * ================
+ *
+ * The keysend modifier adds the payment preimage to the TLV payload. This
+ * enables the recipient to accept the payment despite it not correspondin to
+ * an invoice that the recipient created. Keysend does not provide any proof
+ * or payment, but does not require an out-of-band communication round to get
+ * an invoice first.
+ */
+
+/* FIXME: If we have more than one plugin using keysend we can move this to
+ * libplugin-pay.c */
+
+struct keysend_data {
+	struct preimage preimage;
+};
+
+REGISTER_PAYMENT_MODIFIER_HEADER(keysend, struct keysend_data);
+
+static struct keysend_data *keysend_init(struct payment *p)
+{
+	struct keysend_data *d;
+	struct sha256 payment_hash;
+	if (p->parent == NULL) {
+		/* If we are the root payment we generate a random preimage
+		 * and populate the preimage field in the keysend_data and the
+		 * payment_hash in the payment. */
+		d = tal(p, struct keysend_data);
+		randombytes_buf(&d->preimage, sizeof(d->preimage));
+		ccan_sha256(&payment_hash, &d->preimage, sizeof(d->preimage));
+		p->payment_hash = tal_dup(p, struct sha256, &payment_hash);
+		return d;
+	} else {
+		/* If we are a child payment (retry or split) we copy the
+		 * parent's information, since the payment_hash needs to match
+		 * in order to be collated at the recipient. */
+		return payment_mod_keysend_get_data(p->parent);
+	}
+}
+
+static void keysend_cb(struct keysend_data *d, struct payment *p) {
+	struct route_hop *last_hop;
+	struct createonion_hop *last_payload;
+	size_t hopcount;
+	u8 *raw_preimage;
+
+	if (p->step == PAYMENT_STEP_GOT_ROUTE) {
+		/* Force the last step to be a TLV, we might not have an
+		 * announcement and it still supports it. Required later when
+		 * we adjust the payload. */
+		last_hop = &p->route[tal_count(p->route) - 1];
+		last_hop->style = ROUTE_HOP_TLV;
+	}
+
+	if (p->step != PAYMENT_STEP_ONION_PAYLOAD)
+		return payment_continue(p);
+
+	raw_preimage = tal_dup_arr(p->createonion_request, u8, d->preimage.r,
+				   sizeof(d->preimage), 0);
+
+	hopcount = tal_count(p->createonion_request->hops);
+	last_payload = &p->createonion_request->hops[hopcount - 1];
+	tlvstream_set_raw(&last_payload->tlv_payload->fields, PREIMAGE_TLV_TYPE,
+			  take(raw_preimage));
+
+	return payment_continue(p);
+}
+
+REGISTER_PAYMENT_MODIFIER(keysend, struct keysend_data *, keysend_init,
+			  keysend_cb);
+/*
+ * End of keysend modifier
+ *****************************************************************************/
 
 static void init(struct plugin *p, const char *buf UNUSED,
 		 const jsmntok_t *config UNUSED)
 {
+	const char *field;
+
+	field = rpc_delve(tmpctx, p, "getinfo",
+			  take(json_out_obj(NULL, NULL, NULL)), ".id");
+	if (!node_id_from_hexstr(field, strlen(field), &my_id))
+		plugin_err(p, "getinfo didn't contain valid id: '%s'", field);
+
+	field =
+	    rpc_delve(tmpctx, p, "listconfigs",
+		      take(json_out_obj(NULL, "config", "max-locktime-blocks")),
+		      ".max-locktime-blocks");
+	maxdelay_default = atoi(field);
+}
+
+struct payment_modifier *pay_mods[8] = {
+    &keysend_pay_mod,
+    &local_channel_hints_pay_mod,
+    &directpay_pay_mod,
+    &shadowroute_pay_mod,
+    &exemptfee_pay_mod,
+    &waitblockheight_pay_mod,
+    &retry_pay_mod,
+    NULL,
+};
+
+static struct command_result *json_keysend(struct command *cmd, const char *buf,
+					   const jsmntok_t *params)
+{
+	struct payment *p;
+	const char *label;
+	struct amount_msat *exemptfee, *msat;
+	struct node_id *destination;
+	u64 *maxfee_pct_millionths;
+	u32 *maxdelay;
+	unsigned int *retryfor;
+#if DEVELOPER
+	bool *use_shadow;
+#endif
+	p = payment_new(NULL, cmd, NULL /* No parent */, pay_mods);
+	if (!param(cmd, buf, params,
+		   p_req("destination", param_node_id, &destination),
+		   p_req("msatoshi", param_msat, &msat),
+		   p_opt("label", param_string, &label),
+		   p_opt_def("maxfeepercent", param_millionths,
+			     &maxfee_pct_millionths, 500000),
+		   p_opt_def("retry_for", param_number, &retryfor, 60),
+		   p_opt_def("maxdelay", param_number, &maxdelay,
+			     maxdelay_default),
+		   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
+#if DEVELOPER
+		   p_opt_def("use_shadow", param_bool, &use_shadow, true),
+#endif
+		   NULL))
+		return command_param_failed();
+
+	p->local_id = &my_id;
+	p->json_buffer = tal_steal(p, buf);
+	p->json_toks = params;
+	p->destination = tal_steal(p, destination);
+	p->payment_secret = NULL;
+	p->amount = *msat;
+	p->invoice = NULL;
+	p->bolt11 = NULL;
+	p->why = "Initial attempt";
+	p->constraints.cltv_budget = *maxdelay;
+	p->deadline = timeabs_add(time_now(), time_from_sec(*retryfor));
+	p->getroute->riskfactorppm = 10000000;
+
+	if (!amount_msat_fee(&p->constraints.fee_budget, p->amount, 0,
+			     *maxfee_pct_millionths / 100)) {
+		tal_free(p);
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Overflow when computing fee budget, fee rate too high.");
+	}
+	p->constraints.cltv_budget = *maxdelay;
+
+	payment_mod_exemptfee_get_data(p)->amount = *exemptfee;
+#if DEVELOPER
+	payment_mod_shadowroute_get_data(p)->use_shadow = *use_shadow;
+#endif
+	p->label = tal_steal(p, label);
+	payment_start(p);
+	return command_still_pending(cmd);
 }
 
 static const struct plugin_command commands[] = {
+    {
+	    "keysend",
+	    "payment",
+	    "Send a payment without an invoice to a node",
+            "Send an unsolicited payment of {amount} to {destination}, by providing the recipient the necessary information to claim the payment",
+            json_keysend
+    },
 };
 
 static struct command_result *
