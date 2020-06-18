@@ -59,6 +59,15 @@ These are further specialized.
     def val_to_str(self, v: Any, otherfields: Dict[str, Any]) -> str:
         raise NotImplementedError()
 
+    def val_from_str(self, s: str) -> Tuple[Any, str]:
+        raise NotImplementedError()
+
+    def write(self, io_out: BufferedIOBase, v: Any, otherfields: Dict[str, Any]) -> None:
+        raise NotImplementedError()
+
+    def read(self, io_in: BufferedIOBase, otherfields: Dict[str, Any]) -> Any:
+        raise NotImplementedError()
+
     def val_to_py(self, v: Any, otherfields: Dict[str, Any]) -> Any:
         """Convert to a python object: for simple fields, this means a string"""
         return self.val_to_str(v, otherfields)
@@ -83,7 +92,7 @@ class IntegerType(FieldType):
         a, b = split_field(s)
         return int(a), b
 
-    def val_to_py(self, v: Any, otherfields: Dict[str, Any]) -> int:
+    def val_to_py(self, v: Any, otherfields: Dict[str, Any]) -> Any:
         """Convert to a python object: for integer fields, this means an int"""
         return int(v)
 
@@ -240,7 +249,7 @@ class BigSizeType(FieldType):
         return int(v)
 
 
-def fundamental_types():
+def fundamental_types() -> List[FieldType]:
     # From 01-messaging.md#fundamental-types:
     return [IntegerType('byte', 1, 'B'),
             IntegerType('u16', 2, '>H'),

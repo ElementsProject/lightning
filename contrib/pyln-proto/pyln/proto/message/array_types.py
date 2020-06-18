@@ -1,8 +1,8 @@
 from .fundamental_types import FieldType, IntegerType, split_field
-from typing import List, Optional, Dict, Tuple, TYPE_CHECKING, Any, Union
+from typing import List, Optional, Dict, Tuple, TYPE_CHECKING, Any, Union, cast
 from io import BufferedIOBase
 if TYPE_CHECKING:
-    from .message import SubtypeType, TlvStreamType
+    from .message import SubtypeType, TlvMessageType, MessageTypeField
 
 
 class ArrayType(FieldType):
@@ -98,7 +98,7 @@ class SizedArrayType(ArrayType):
 class EllipsisArrayType(ArrayType):
     """This is used for ... fields at the end of a tlv: the array ends
 when the tlv ends"""
-    def __init__(self, tlv: 'TlvStreamType', name: str, elemtype: FieldType):
+    def __init__(self, tlv: 'TlvMessageType', name: str, elemtype: FieldType):
         super().__init__(tlv, name, elemtype)
 
     def read(self, io_in: BufferedIOBase, otherfields: Dict[str, Any]) -> List[Any]:
@@ -119,13 +119,13 @@ class LengthFieldType(FieldType):
         super().__init__(inttype.name)
         self.underlying_type = inttype
         # You can be length for more than one field!
-        self.len_for: List[DynamicArrayType] = []
+        self.len_for: List['MessageTypeField'] = []
 
     def is_optional(self) -> bool:
         """This field value is always implies, never specified directly"""
         return True
 
-    def add_length_for(self, field: 'DynamicArrayType') -> None:
+    def add_length_for(self, field: 'MessageTypeField') -> None:
         assert isinstance(field.fieldtype, DynamicArrayType)
         self.len_for.append(field)
 
@@ -160,7 +160,7 @@ class LengthFieldType(FieldType):
 they're implied by the length of other fields"""
         return ''
 
-    def read(self, io_in: BufferedIOBase, otherfields: Dict[str, Any]) -> None:
+    def read(self, io_in: BufferedIOBase, otherfields: Dict[str, Any]) -> Optional[int]:
         """We store this, but it'll be removed from the fields as soon as it's used (i.e. by DynamicArrayType's val_from_bin)"""
         return self.underlying_type.read(io_in, otherfields)
 
@@ -186,11 +186,11 @@ they're implied by the length of other fields"""
 
 class DynamicArrayType(ArrayType):
     """This is used for arrays where another field controls the size"""
-    def __init__(self, outer: 'SubtypeType', name: str, elemtype: FieldType, lenfield: LengthFieldType):
+    def __init__(self, outer: 'SubtypeType', name: str, elemtype: FieldType, lenfield: 'MessageTypeField'):
         super().__init__(outer, name, elemtype)
         assert type(lenfield.fieldtype) is LengthFieldType
         self.lenfield = lenfield
 
     def read(self, io_in: BufferedIOBase, otherfields: Dict[str, Any]) -> List[Any]:
         return super().read_arr(io_in, otherfields,
-                                self.lenfield.fieldtype._maybe_calc_value(self.lenfield.name, otherfields))
+                                cast(LengthFieldType, self.lenfield.fieldtype)._maybe_calc_value(self.lenfield.name, otherfields))

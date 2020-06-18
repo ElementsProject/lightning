@@ -17,7 +17,7 @@ check-flake8:
 
 # mypy . does not recurse.  I have no idea why...
 check-mypy:
-	mypy --ignore-missing-imports `find * -name '*.py'`
+	mypy --ignore-missing-imports `find pyln/proto/message/ -name '*.py'`
 
 $(SDIST_FILE):
 	python3 setup.py sdist
