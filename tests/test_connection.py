@@ -1025,7 +1025,7 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
             else:
                 cancels.append(executor.submit(l1.rpc.fundchannel_cancel, n.info['id']))
 
-        # Only one should succeed.
+        # Only up to one should succeed.
         success = False
         for c in completes:
             try:
@@ -1036,23 +1036,25 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
             except RpcError:
                 pass
 
-        # These may both succeed, iff the above didn't.
+        # At least one of these must succeed, regardless of whether
+        # the completes succeeded or not.
         cancelled = False
         for c in cancels:
             try:
                 c.result(TIMEOUT)
                 cancelled = True
-                assert not success
             except RpcError:
                 pass
-
-        if cancelled:
-            num_cancel += 1
-        else:
-            assert success
+        # cancel always succeeds, as per Sequential Consistency.
+        # Either the cancel occurred before complete, in which
+        # case it prevents complete from succeeding, or it
+        # occurred after complete, in which case it errors the
+        # channel to force the remote to forget it.
+        assert cancelled
+        num_cancel += 1
 
     print("Cancelled {} complete {}".format(num_cancel, num_complete))
-    assert num_cancel + num_complete == len(nodes)
+    assert num_cancel == len(nodes)
 
     # We should have raced at least once!
     if not VALGRIND:
