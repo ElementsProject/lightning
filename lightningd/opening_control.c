@@ -34,6 +34,7 @@
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 #include <openingd/gen_opening_wire.h>
+#include <string.h>
 #include <wire/gen_common_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
@@ -282,17 +283,66 @@ wallet_commit_channel(struct lightningd *ld,
 	return channel;
 }
 
+/** cancel_after_fundchannel_complete_success
+ *
+ * @brief Called to cancel a `fundchannel` after
+ * a `fundchannel_complete` succeeds.
+ *
+ * @desc Specifically, this is called when a
+ * `fundchannel_cancel` is blocked due to a
+ * parallel `fundchannel_complete` still running.
+ * After the `fundchannel_complete` succeeds, we
+ * invoke this function to cancel the funding
+ * after all.
+ *
+ * In effect, this forces the `fundchannel_cancel`
+ * to be invoked after the `fundchannel_complete`
+ * succeeds, leading to a reasonable serial
+ * execution.
+ *
+ * @param cmd - The `fundchannel_cancel` command
+ * that wants to cancel this.
+ * @param channel - The channel being cancelled.
+ */
+static void
+cancel_after_fundchannel_complete_success(struct command *cmd,
+					  struct channel *channel)
+{
+	struct peer *peer;
+	struct channel_id cid;
+	/* Fake these to adapt to the existing
+	 * cancel_channel_before_broadcast
+	 * interface.
+	 */
+	const char *buffer;
+	jsmntok_t cidtok;
+
+	peer = channel->peer;
+	derive_channel_id(&cid,
+			  &channel->funding_txid, channel->funding_outnum);
+
+	buffer = type_to_string(tmpctx, struct channel_id, &cid);
+	cidtok.type = JSMN_STRING;
+	cidtok.start = 0;
+	cidtok.end = strlen(buffer);
+	cidtok.size = 0;
+
+	was_pending(cancel_channel_before_broadcast(cmd,
+						    buffer,
+						    peer,
+						    &cidtok));
+}
+
 static void funding_success(struct channel *channel)
 {
 	struct json_stream *response;
 	struct funding_channel *fc = channel->peer->uncommitted_channel->fc;
 	struct command *cmd = fc->cmd;
 
-	/* Well, those cancels didn't work! */
+	/* Well, those cancels now need to trigger!  */
 	for (size_t i = 0; i < tal_count(fc->cancels); i++)
-		was_pending(command_fail(fc->cancels[i], LIGHTNINGD,
-					 "Funding succeeded before cancel. "
-					 "Try fundchannel_cancel again."));
+		cancel_after_fundchannel_complete_success(fc->cancels[i],
+							  channel);
 
 	response = json_stream_success(cmd);
 	json_add_string(response, "channel_id",
