@@ -18,6 +18,7 @@ setup(name='pyln-proto',
       author_email='decker.christian@gmail.com',
       license='MIT',
       packages=['pyln.proto', 'pyln.proto.message'],
+      package_data={'pyln.proto.message': ['py.typed']},
       scripts=[],
       zip_safe=True,
       install_requires=requirements)
