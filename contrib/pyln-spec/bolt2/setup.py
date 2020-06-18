@@ -15,6 +15,7 @@ def do_setup(boltnum: int, version: str, desc: str):
           author_email='rusty@rustcorp.com.au',
           license='MIT',
           packages=['pyln.spec.bolt{}'.format(boltnum)],
+          package_data={'pyln.proto.message': ['py.typed']},
           scripts=[],
           zip_safe=True,
           install_requires=requirements)
