@@ -6,18 +6,21 @@ opening-wrongdir:
 
 default: opening-all
 
-opening-all: lightningd/lightning_openingd
+opening-all: lightningd/lightning_openingd lightningd/lightning_dualopend
 
 # opening needs these:
 LIGHTNINGD_OPENING_HEADERS_GEN :=			\
-	openingd/gen_opening_wire.h
+	openingd/gen_opening_wire.h			\
+	openingd/gen_dual_open_wire.h
 
 LIGHTNINGD_OPENING_HEADERS_NOGEN :=
 
 LIGHTNINGD_OPENING_HEADERS := $(LIGHTNINGD_OPENING_HEADERS_GEN) $(LIGHTNINGD_OPENING_HEADERS_NOGEN)
 
 LIGHTNINGD_OPENING_SRC := openingd/openingd.c	\
+	opendingd/dualopend.c			\
 	$(LIGHTNINGD_OPENING_HEADERS:.h=.c)
+
 LIGHTNINGD_OPENING_OBJS := $(LIGHTNINGD_OPENING_SRC:.c=.o)
 
 # Control daemon uses this:
@@ -94,14 +97,22 @@ openingd/gen_opening_wire.h: $(WIRE_GEN) openingd/opening_wire.csv
 openingd/gen_opening_wire.c: $(WIRE_GEN) openingd/opening_wire.csv
 	$(WIRE_GEN) --page impl ${@:.c=.h} opening_wire_type < openingd/opening_wire.csv > $@
 
+openingd/gen_dual_open_wire.h: $(WIRE_GEN) openingd/dual_open_wire.csv
+	$(WIRE_GEN) --page header $@ dual_open_wire_type < openingd/dual_open_wire.csv > $@
+
+openingd/gen_dual_open_wire.c: $(WIRE_GEN) openingd/dual_open_wire.csv
+	$(WIRE_GEN) --page impl ${@:.c=.h} dual_open_wire_type < openingd/dual_open_wire.csv > $@
+
 LIGHTNINGD_OPENING_OBJS := $(LIGHTNINGD_OPENING_SRC:.c=.o) $(LIGHTNINGD_OPENING_GEN_SRC:.c=.o)
 
 # Make sure these depend on everything.
 ALL_OBJS += $(LIGHTNINGD_OPENING_OBJS)
-ALL_PROGRAMS += lightningd/lightning_openingd
+ALL_PROGRAMS += lightningd/lightning_openingd lightningd/lightning_dualopend
 ALL_GEN_HEADERS += $(LIGHTNINGD_OPENING_HEADERS_GEN)
 
-lightningd/lightning_openingd: $(LIGHTNINGD_OPENING_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
+lightningd/lightning_openingd: openingd/openingd.o $(LIGHTNINGD_OPENING_HEADERS:.h=.o) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
+
+lightningd/lightning_dualopend: openingd/dualopend.o $(LIGHTNINGD_OPENING_HEADERS:.h=.o) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
 
 check-source: $(LIGHTNINGD_OPENING_SRC_NOGEN:%=check-src-include-order/%)
 check-source-bolt: $(LIGHTNINGD_OPENING_SRC:%=bolt-check/%) $(LIGHTNINGD_OPENING_HEADERS:%=bolt-check/%)

@@ -532,9 +532,11 @@ PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_gossipd \
 	       lightningd/lightning_hsmd \
 	       lightningd/lightning_onchaind \
-	       lightningd/lightning_openingd
+	       lightningd/lightning_openingd \
+	       lightningd/lightning_dualopend
 
 # $(PLUGINS) is defined in plugins/Makefile.
+PLUGINS=plugins/pay plugins/autoclean plugins/fundchannel plugins/bcli plugins/keysend
 
 install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS)
 	@$(NORMAL_INSTALL)
