@@ -433,19 +433,68 @@ static void tlvstream_set_tlv_payload_data(struct tlv_field **stream,
 					   struct secret *payment_secret,
 					   u64 total_msat)
 {
-		u8 *ser = tal_arr(NULL, u8, 0);
-		towire_secret(&ser, payment_secret);
-		towire_tu64(&ser, total_msat);
-		tlvstream_set_raw(stream, TLV_TLV_PAYLOAD_PAYMENT_DATA,
-				  take(ser));
+	u8 *ser = tal_arr(NULL, u8, 0);
+	towire_secret(&ser, payment_secret);
+	towire_tu64(&ser, total_msat);
+	tlvstream_set_raw(stream, TLV_TLV_PAYLOAD_PAYMENT_DATA, take(ser));
+}
+static void payment_add_hop_onion_payload(struct payment *p,
+					  struct createonion_hop *dst,
+					  struct route_hop *node,
+					  struct route_hop *next,
+					  bool final,
+					  struct secret *payment_secret)
+{
+	struct createonion_request *cr = p->createonion_request;
+	u32 cltv = p->start_block + next->delay;
+	u64 msat = next->amount.millisatoshis; /* Raw: TLV payload generation*/
+	struct tlv_field *fields;
+	static struct short_channel_id all_zero_scid = {.u64 = 0};
+
+	/* This is the information of the node processing this payload, while
+	 * `next` are the instructions to include in the payload, which is
+	 * basically the channel going to the next node. */
+	dst->style = node->style;
+	dst->pubkey = node->nodeid;
+
+	switch (node->style) {
+	case ROUTE_HOP_LEGACY:
+		dst->legacy_payload = tal(cr->hops, struct legacy_payload);
+		dst->legacy_payload->forward_amt = next->amount;
+
+		if (!final)
+			dst->legacy_payload->scid = next->channel_id;
+		else
+			dst->legacy_payload->scid = all_zero_scid;
+
+		dst->legacy_payload->outgoing_cltv = cltv;
+		break;
+	case ROUTE_HOP_TLV:
+		dst->tlv_payload = tlv_tlv_payload_new(cr->hops);
+		fields = dst->tlv_payload->fields;
+		tlvstream_set_tu64(&fields, TLV_TLV_PAYLOAD_AMT_TO_FORWARD,
+				   msat);
+		tlvstream_set_tu32(&fields, TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE,
+				   cltv);
+
+		if (!final)
+			tlvstream_set_short_channel_id(&fields,
+						       TLV_TLV_PAYLOAD_SHORT_CHANNEL_ID,
+						       &next->channel_id);
+
+		if (payment_secret != NULL) {
+			assert(final);
+			tlvstream_set_tlv_payload_data(&fields, payment_secret,
+						       msat);
+		}
+		break;
+	}
 }
 
 static void payment_compute_onion_payloads(struct payment *p)
 {
 	struct createonion_request *cr;
 	size_t hopcount;
-	static struct short_channel_id all_zero_scid;
-	struct createonion_hop *cur;
 	struct payment *root = payment_root(p);
 	p->step = PAYMENT_STEP_ONION_PAYLOAD;
 	hopcount = tal_count(p->route);
@@ -461,64 +510,14 @@ static void payment_compute_onion_payloads(struct payment *p)
 	for (size_t i = 0; i < hopcount - 1; i++) {
 		/* The message is destined for hop i, but contains fields for
 		 * i+1 */
-		cur = &cr->hops[i];
-		cur->style = p->route[i].style;
-		cur->pubkey = p->route[i].nodeid;
-		switch (cur->style) {
-		case ROUTE_HOP_LEGACY:
-			cur->legacy_payload =
-			    tal(cr->hops, struct legacy_payload);
-			cur->legacy_payload->forward_amt =
-			    p->route[i + 1].amount;
-			cur->legacy_payload->scid = p->route[i + 1].channel_id;
-			cur->legacy_payload->outgoing_cltv =
-			    p->start_block + p->route[i + 1].delay;
-			break;
-		case ROUTE_HOP_TLV:
-			cur->tlv_payload = tlv_tlv_payload_new(cr->hops);
-			tlvstream_set_tu64(
-			    &cur->tlv_payload->fields,
-			    TLV_TLV_PAYLOAD_AMT_TO_FORWARD,
-			    p->route[i + 1].amount.millisatoshis); /* Raw: TLV payload generation*/
-			tlvstream_set_tu32(&cur->tlv_payload->fields,
-					   TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE,
-					   p->start_block +
-					       p->route[i + 1].delay);
-			tlvstream_set_short_channel_id(
-			    &cur->tlv_payload->fields,
-			    TLV_TLV_PAYLOAD_SHORT_CHANNEL_ID,
-			    &p->route[i + 1].channel_id);
-		}
+		payment_add_hop_onion_payload(p, &cr->hops[i], &p->route[i],
+					      &p->route[i + 1], false, NULL);
 	}
 
 	/* Final hop */
-	cur = &cr->hops[hopcount - 1];
-	cur->style = p->route[hopcount - 1].style;
-	cur->pubkey = p->route[hopcount - 1].nodeid;
-	switch (cur->style) {
-	case ROUTE_HOP_LEGACY:
-		cur->legacy_payload = tal(cr->hops, struct legacy_payload);
-		cur->legacy_payload->forward_amt =
-		    p->route[hopcount - 1].amount;
-		cur->legacy_payload->scid = all_zero_scid;
-		cur->legacy_payload->outgoing_cltv =
-		    p->start_block + p->route[hopcount - 1].delay;
-		break;
-	case ROUTE_HOP_TLV:
-		cur->tlv_payload = tlv_tlv_payload_new(cr->hops);
-		tlvstream_set_tu64(&cur->tlv_payload->fields,
-				   TLV_TLV_PAYLOAD_AMT_TO_FORWARD,
-				   p->route[hopcount - 1].amount.millisatoshis); /* Raw: TLV payload generation*/
-		tlvstream_set_tu32(&cur->tlv_payload->fields,
-				   TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE,
-				   p->start_block +
-				       p->route[hopcount - 1].delay);
-
-		if (root->payment_secret != NULL)
-			tlvstream_set_tlv_payload_data(
-			    &cur->tlv_payload->fields, root->payment_secret,
-			    root->amount.millisatoshis);  /* Raw: TLV payload generation*/
-	}
+	payment_add_hop_onion_payload(
+	    p, &cr->hops[hopcount - 1], &p->route[hopcount - 1],
+	    &p->route[hopcount - 1], true, root->payment_secret);
 
 	/* Now allow all the modifiers to mess with the payloads, before we
 	 * serialize via a call to createonion in the next step. */
