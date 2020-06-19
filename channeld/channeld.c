@@ -2017,6 +2017,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_ONION_MESSAGE:
 		handle_onion_message(peer, msg);
 		return;
+	/* FIXME: handle this here */
+	case WIRE_INIT_RBF:
+		break;
 #endif
 
 	case WIRE_INIT:
@@ -2026,6 +2029,17 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_FUNDING_SIGNED:
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_CLOSING_SIGNED:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_TX_ADD_INPUT:
+	case WIRE_TX_REMOVE_INPUT:
+	case WIRE_TX_ADD_OUTPUT:
+	case WIRE_TX_REMOVE_OUTPUT:
+	case WIRE_TX_COMPLETE:
+	case WIRE_TX_SIGNATURES:
+	case WIRE_OPEN_CHANNEL2:
+	case WIRE_ACCEPT_CHANNEL2:
+	case WIRE_BLACKLIST_PODLE:
+#endif
 		break;
 
 	/* These are all swallowed by handle_peer_gossip_or_error */
