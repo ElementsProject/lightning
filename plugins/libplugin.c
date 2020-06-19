@@ -8,8 +8,8 @@
 #include <common/json_stream.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <poll.h>
 #include <plugins/libplugin.h>
+#include <poll.h>
 #include <stdarg.h>
 #include <string.h>
 #include <sys/socket.h>
