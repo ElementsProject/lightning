@@ -17,6 +17,24 @@ PLUGIN_LIB_SRC := plugins/libplugin.c plugins/libplugin-pay.c
 PLUGIN_LIB_HEADER := plugins/libplugin.h plugins/libplugin-pay.h
 PLUGIN_LIB_OBJS := $(PLUGIN_LIB_SRC:.c=.o)
 
+PLUGIN_ALL_SRC :=				\
+	$(PLUGIN_AUTOCLEAN_SRC)			\
+	$(PLUGIN_BCLI_SRC)			\
+	$(PLUGIN_FUNDCHANNEL_SRC)		\
+	$(PLUGIN_KEYSEND_SRC)			\
+	$(PLUGIN_LIB_SRC)			\
+	$(PLUGIN_PAY_SRC)
+PLUGIN_ALL_HEADER :=				\
+	$(PLUGIN_LIB_HEADER)
+PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:.c=.o)
+
+PLUGINS :=					\
+	plugins/autoclean			\
+	plugins/bcli				\
+	plugins/fundchannel			\
+	plugins/keysend				\
+	plugins/pay
+
 PLUGIN_COMMON_OBJS :=				\
 	bitcoin/base58.o			\
 	bitcoin/privkey.o			\
@@ -65,17 +83,20 @@ plugins/bcli: bitcoin/chainparams.o $(PLUGIN_BCLI_OBJS) $(PLUGIN_LIB_OBJS) $(PLU
 
 plugins/keysend: bitcoin/chainparams.o wire/tlvstream.o wire/gen_onion_wire.o $(PLUGIN_KEYSEND_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
 
-$(PLUGIN_PAY_OBJS) $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_FUNDCHANNEL_OBJS) $(PLUGIN_BCLI_OBJS) $(PLUGIN_LIB_OBJS): $(PLUGIN_LIB_HEADER)
+$(PLUGIN_ALL_OBJS): $(PLUGIN_LIB_HEADER)
 
 # Make sure these depend on everything.
-ALL_PROGRAMS += plugins/pay plugins/autoclean plugins/fundchannel plugins/bcli plugins/keysend
-ALL_OBJS += $(PLUGIN_PAY_OBJS) $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_FUNDCHANNEL_OBJS) $(PLUGIN_BCLI_OBJS) $(PLUGIN_KEYSEND_OBJS) $(PLUGIN_LIB_OBJS)
+ALL_PROGRAMS += $(PLUGINS)
+ALL_OBJS += $(PLUGIN_ALL_OBJS)
 
-check-source: $(PLUGIN_PAY_SRC:%=check-src-include-order/%) $(PLUGIN_AUTOCLEAN_SRC:%=check-src-include-order/%) $(PLUGIN_FUNDCHANNEL_SRC:%=check-src-include-order/%) $(PLUGIN_BCLI_SRC:%=check-src-include-order/%)
-check-source-bolt: $(PLUGIN_PAY_SRC:%=bolt-check/%) $(PLUGIN_AUTOCLEAN_SRC:%=bolt-check/%) $(PLUGIN_FUNDCHANNEL_SRC:%=bolt-check/%) $(PLUGIN_BCLI_SRC:%=bolt-check/%)
-check-whitespace: $(PLUGIN_PAY_SRC:%=check-whitespace/%) $(PLUGIN_AUTOCLEAN_SRC:%=check-whitespace/%) $(PLUGIN_FUNDCHANNEL_SRC:%=check-whitespace/%) $(PLUGIN_BCLI_SRC:%=check-whitespace/%)
+check-source: $(PLUGIN_ALL_SRC:%=check-src-include-order/%)
+check-source: $(PLUGIN_ALL_HEADER:%=check-hdr-include-order/%)
+check-source-bolt: $(PLUGIN_ALL_SRC:%=bolt-check/%)
+check-source-bolt: $(PLUGIN_ALL_HEADER:%=bolt-check/%)
+check-whitespace: $(PLUGIN_ALL_SRC:%=check-whitespace/%)
+check-whitespace: $(PLUGIN_ALL_HEADER:%=check-whitespace/%)
 
 clean: plugin-clean
 
 plugin-clean:
-	$(RM) $(PLUGIN_PAY_OBJS) $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_FUNDCHANNEL_OBJS) $(PLUGIN_LIB_OBJS)
+	$(RM) $(PLUGIN_ALL_OBJS)
