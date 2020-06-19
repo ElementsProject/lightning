@@ -140,7 +140,7 @@ def test_tlv_complex():
                            "msgdata,reply_channel_range,encoded_short_ids,byte,len",
                            "msgdata,reply_channel_range,tlvs,reply_channel_range_tlvs,",
                            "tlvtype,reply_channel_range_tlvs,timestamps_tlv,1",
-                           "tlvdata,reply_channel_range_tlvs,timestamps_tlv,encoding_type,u8,",
+                           "tlvdata,reply_channel_range_tlvs,timestamps_tlv,encoding_type,byte,",
                            "tlvdata,reply_channel_range_tlvs,timestamps_tlv,encoded_timestamps,byte,...",
                            "tlvtype,reply_channel_range_tlvs,checksums_tlv,3",
                            "tlvdata,reply_channel_range_tlvs,checksums_tlv,checksums,channel_update_checksums,...",
