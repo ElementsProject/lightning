@@ -3019,7 +3019,6 @@ def test_keysend(node_factory):
     assert(inv['msatoshi_received'] >= amt)
 
 
-@pytest.mark.xfail(strict=True)
 def test_invalid_onion_channel_update(node_factory):
     '''
     Some onion failures "should" send a `channel_update`.
