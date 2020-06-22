@@ -171,19 +171,19 @@ void towire_u8_array(u8 **pptr UNNEEDED, const u8 *arr UNNEEDED, size_t num UNNE
  *         "name": "two byte not canonical",
  *         "value": 0,
  *         "bytes": "fd00fc",
- *         "exp_error": "decoded varint is not canonical"
+ *         "exp_error": "decoded bigsize is not canonical"
  *     },
  *     {
  *         "name": "four byte not canonical",
  *         "value": 0,
  *         "bytes": "fe0000ffff",
- *         "exp_error": "decoded varint is not canonical"
+ *         "exp_error": "decoded bigsize is not canonical"
  *     },
  *     {
  *         "name": "eight byte not canonical",
  *         "value": 0,
  *         "bytes": "ff00000000ffffffff",
- *         "exp_error": "decoded varint is not canonical"
+ *         "exp_error": "decoded bigsize is not canonical"
  *     },
  *     {
  *         "name": "two byte short read",

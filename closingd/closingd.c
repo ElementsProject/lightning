@@ -154,6 +154,7 @@ static void do_reconnect(struct per_peer_state *pps,
 	struct channel_id their_channel_id;
 	u64 next_local_commitment_number, next_remote_revocation_number;
 	struct pubkey my_current_per_commitment_point, next_commitment_point;
+	struct secret their_secret;
 
 	my_current_per_commitment_point = get_per_commitment_point(next_index[LOCAL]-1);
 
@@ -175,9 +176,7 @@ static void do_reconnect(struct per_peer_state *pps,
 	 *     of the next `revoke_and_ack` message it expects to receive.
 	 */
 
-	/* We're always allowed to send extra fields, so we send dataloss_protect
-	 * even if we didn't negotiate it */
-	msg = towire_channel_reestablish_option_data_loss_protect(NULL, channel_id,
+	msg = towire_channel_reestablish(NULL, channel_id,
 					 next_index[LOCAL],
 					 revocations_received,
 					 last_remote_per_commit_secret,
@@ -199,7 +198,9 @@ static void do_reconnect(struct per_peer_state *pps,
 
 	if (!fromwire_channel_reestablish(channel_reestablish, &their_channel_id,
 					  &next_local_commitment_number,
-					  &next_remote_revocation_number)) {
+					  &next_remote_revocation_number,
+					  &their_secret,
+					  &next_commitment_point)) {
 		peer_failed(pps, channel_id,
 			    "bad reestablish msg: %s %s",
 			    wire_type_name(fromwire_peektype(channel_reestablish)),

@@ -10,7 +10,8 @@
  *   - upon receiving a message of _odd_, unknown type:
  *     - MUST ignore the received message.
  *   - upon receiving a message of _even_, unknown type:
- *     - MUST fail the channels.
+ *     - MUST close the connection.
+ *     - MAY fail the channels.
  */
 
 /* Return true if it's an unknown ODD message.  cursor is a tal ptr. */

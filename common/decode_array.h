@@ -23,7 +23,7 @@ struct short_channel_id *decode_short_ids(const tal_t *ctx, const u8 *encoded);
 
 /* BOLT #7:
  *
- * `encoded_query_flags` is an array of bitfields, one varint per bitfield,
+ * `encoded_query_flags` is an array of bitfields, one bigsize per bitfield,
  * one bitfield for each `short_channel_id`. Bits have the following meaning:
  *
  * | Bit Position  | Meaning                                  |
