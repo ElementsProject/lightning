@@ -142,9 +142,12 @@ void tal_arr_remove_(void *p, size_t elemsize, size_t n)
     tal_resize((char **)p, len - elemsize);
 }
 
-void *tal_dup_talarr_(const tal_t *ctx, const tal_t *src, const char *label)
+void *tal_dup_talarr_(const tal_t *ctx, const tal_t *src TAKES, const char *label)
 {
-	if (!src)
+	if (!src) {
+		/* Correctly handle TAKES on a NULL `src`.  */
+		(void) taken(src);
 		return NULL;
+	}
 	return tal_dup_(ctx, src, 1, tal_bytelen(src), 0, label);
 }
