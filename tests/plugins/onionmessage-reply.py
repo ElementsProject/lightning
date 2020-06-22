@@ -2,7 +2,7 @@
 """
 This plugin is used to test the `onion_message` hook.
 """
-from lightning import Plugin
+from pyln.client import Plugin
 
 plugin = Plugin()
 
