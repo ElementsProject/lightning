@@ -97,6 +97,7 @@ struct msg_accept_channel {
 	struct pubkey delayed_payment_basepoint;
 	struct pubkey htlc_basepoint;
 	struct pubkey first_per_commitment_point;
+	struct tlv_accept_channel_tlvs *tlvs;
 };
 struct msg_update_fulfill_htlc {
 	struct channel_id channel_id;
@@ -184,6 +185,7 @@ struct msg_open_channel {
 	struct pubkey htlc_basepoint;
 	struct pubkey first_per_commitment_point;
 	u8 channel_flags;
+	struct tlv_open_channel_tlvs *tlvs;
 };
 struct msg_update_fail_htlc {
 	struct channel_id channel_id;
@@ -278,12 +280,14 @@ static void *towire_struct_open_channel(const tal_t *ctx,
 				   &s->delayed_payment_basepoint,
 				   &s->htlc_basepoint,
 				   &s->first_per_commitment_point,
-				   s->channel_flags);
+				   s->channel_flags,
+				   NULL);
 }
 
 static struct msg_open_channel *fromwire_struct_open_channel(const tal_t *ctx, const void *p)
 {
 	struct msg_open_channel *s = tal(ctx, struct msg_open_channel);
+	s->tlvs = tlv_open_channel_tlvs_new(s);
 
 	if (fromwire_open_channel(p,
 				  &s->chain_hash,
@@ -303,7 +307,8 @@ static struct msg_open_channel *fromwire_struct_open_channel(const tal_t *ctx, c
 				  &s->delayed_payment_basepoint,
 				  &s->htlc_basepoint,
 				  &s->first_per_commitment_point,
-				  &s->channel_flags))
+				  &s->channel_flags,
+				  s->tlvs))
 		return s;
 	return tal_free(s);
 }
@@ -325,12 +330,14 @@ static void *towire_struct_accept_channel(const tal_t *ctx,
 				     &s->payment_basepoint,
 				     &s->htlc_basepoint,
 				     &s->delayed_payment_basepoint,
-				     &s->first_per_commitment_point);
+				     &s->first_per_commitment_point,
+				     s->tlvs);
 }
 
 static struct msg_accept_channel *fromwire_struct_accept_channel(const tal_t *ctx, const void *p)
 {
 	struct msg_accept_channel *s = tal(ctx, struct msg_accept_channel);
+	s->tlvs = tlv_accept_channel_tlvs_new(s);
 
 	if (fromwire_accept_channel(p,
 				    &s->temporary_channel_id,
@@ -346,7 +353,8 @@ static struct msg_accept_channel *fromwire_struct_accept_channel(const tal_t *ct
 				    &s->payment_basepoint,
 				    &s->htlc_basepoint,
 				    &s->delayed_payment_basepoint,
-				    &s->first_per_commitment_point))
+				    &s->first_per_commitment_point,
+				    s->tlvs))
 		return s;
 	return tal_free(s);
 }
@@ -1136,6 +1144,7 @@ int main(void)
 	set_pubkey(&ac.delayed_payment_basepoint);
 	set_pubkey(&ac.htlc_basepoint);
 	set_pubkey(&ac.first_per_commitment_point);
+	ac.tlvs = NULL;
 
 	msg = towire_struct_accept_channel(ctx, &ac);
 	ac2 = fromwire_struct_accept_channel(ctx, msg);

@@ -167,7 +167,7 @@ bool query_short_channel_ids(struct daemon *daemon,
 	/* BOLT #7:
 	 *   - MAY include an optional `query_flags`. If so:
 	 *    - MUST set `encoding_type`, as for `encoded_short_ids`.
-	 *    - Each query flag is a minimally-encoded varint.
+	 *    - Each query flag is a minimally-encoded bigsize.
 	 *    - MUST encode one query flag per `short_channel_id`.
 	 */
 	if (query_flags)
@@ -353,18 +353,15 @@ static void reply_channel_range(struct peer *peer,
 {
 	/* BOLT #7:
 	 *
-	 * - For each `reply_channel_range`:
+	 * - MUST respond with one or more `reply_channel_range`:
 	 *   - MUST set with `chain_hash` equal to that of `query_channel_range`,
-	 *   - MUST encode a `short_channel_id` for every open channel it
-	 *     knows in blocks `first_blocknum` to `first_blocknum` plus
-	 *     `number_of_blocks` minus one.
 	 *   - MUST limit `number_of_blocks` to the maximum number of blocks
 	 *     whose results could fit in `encoded_short_ids`
 	 *   - if does not maintain up-to-date channel information for
 	 *     `chain_hash`:
-	 *     - MUST set `complete` to 0.
+	 *     - MUST set `full_information` to 0.
 	 *   - otherwise:
-	 *     - SHOULD set `complete` to 1.
+	 *     - SHOULD set `full_information` to 1.
 	 */
  	struct tlv_reply_channel_range_tlvs *tlvs
  		= tlv_reply_channel_range_tlvs_new(tmpctx);
@@ -449,7 +446,7 @@ static bool queue_channel_ranges(struct peer *peer,
 	 *   * [`chain_hash`:`chain_hash`]
 	 *   * [`u32`:`first_blocknum`]
 	 *   * [`u32`:`number_of_blocks`]
-	 *   * [`byte`:`complete`]
+	 *   * [`byte`:`full_information`]
 	 *   * [`u16`:`len`]
 	 *   * [`len*byte`:`encoded_short_ids`]
 	 */
@@ -696,9 +693,18 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	 *
 	 * The receiver of `query_channel_range`:
 	 *...
-	 *  - MUST respond with one or more `reply_channel_range` whose
-	 *    combined range cover the requested `first_blocknum` to
-	 *    `first_blocknum` plus `number_of_blocks` minus one.
+	 * - the first `reply_channel_range` message:
+	 *   - MUST set `first_blocknum` less than or equal to the
+	 *     `first_blocknum` in `query_channel_range`
+	 *   - MUST set `first_blocknum` plus `number_of_blocks` greater than
+	 *     `first_blocknum` in `query_channel_range`.
+	 * - successive `reply_channel_range` message:
+	 *   - MUST set `first_blocknum` to the previous `first_blocknum`
+	 *     plus `number_of_blocks`.
+	 * - the final `reply_channel_range` message:
+	 *   - MUST have `first_blocknum` plus `number_of_blocks` equal or
+	 *     greater than the `query_channel_range` `first_blocknum` plus
+	 *     `number_of_blocks`.
 	 */
 	/* ie. They can be outside range we asked, but they must overlap! */
 	if (first_blocknum + number_of_blocks <= peer->range_first_blocknum
@@ -988,9 +994,9 @@ void maybe_send_query_responses(struct peer *peer)
 		 *   `reply_short_channel_ids_end`.
 		 *   - if does not maintain up-to-date channel information for
 		 *     `chain_hash`:
-		 *      - MUST set `complete` to 0.
+		 *      - MUST set `full_information` to 0.
 		 *   - otherwise:
-		 *      - SHOULD set `complete` to 1.
+		 *      - SHOULD set `full_information` to 1.
 		 */
 		/* FIXME: We consider ourselves to have complete knowledge. */
 		u8 *end = towire_reply_short_channel_ids_end(peer,

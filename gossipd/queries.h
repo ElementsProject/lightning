@@ -21,7 +21,7 @@ void maybe_send_query_responses(struct peer *peer);
 
 /* BOLT #7:
  *
- * `query_option_flags` is a bitfield represented as a minimally-encoded varint.
+ * `query_option_flags` is a bitfield represented as a minimally-encoded bigsize.
  * Bits have the following meaning:
  *
  * | Bit Position  | Meaning                 |

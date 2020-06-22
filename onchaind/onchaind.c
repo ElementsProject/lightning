@@ -2270,7 +2270,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 			 * only be valid after that duration has passed) and
 			 * witness:
 			 *
-			 *	<local_delayedsig> 0
+			 *	<local_delayedsig> <>
 			 */
 			to_us = tx_to_us(out, delayed_payment_to_us, out,
 					 to_self_delay[LOCAL], 0, NULL, 0,

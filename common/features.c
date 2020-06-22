@@ -61,9 +61,8 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [BOLT11_FEATURE] = FEATURE_REPRESENT } },
-	/* FIXME: Spec is wrong, and Eclair doesn't include in channel_announce! */
 	/* BOLT #9:
-	 * | 18/19 | `option_support_large_channel` |... INC+ ...
+	 * | 18/19 | `option_support_large_channel` |... IN ...
 	 */
 	{ OPT_LARGE_CHANNELS,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
