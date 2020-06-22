@@ -3017,3 +3017,30 @@ def test_keysend(node_factory):
 
     inv = invs[0]
     assert(inv['msatoshi_received'] >= amt)
+
+
+@pytest.mark.xfail(strict=True)
+def test_invalid_onion_channel_update(node_factory):
+    '''
+    Some onion failures "should" send a `channel_update`.
+
+    This test checks to see if we handle things correctly
+    even if some remote node does not send the required
+    `channel_update`.
+    '''
+    plugin = os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs_invalid.py')
+    l1, l2, l3 = node_factory.line_graph(3,
+                                         opts=[{},
+                                               {'plugin': plugin},
+                                               {}],
+                                         wait_for_announce=True)
+
+    l1id = l1.info['id']
+
+    inv = l3.rpc.invoice(12345, 'inv', 'inv')['bolt11']
+    # Should fail, since l2 will always fail to forward.
+    with pytest.raises(RpcError):
+        l1.rpc.pay(inv)
+
+    # l1 should still be alive afterwards.
+    assert l1.rpc.getinfo()['id'] == l1id
