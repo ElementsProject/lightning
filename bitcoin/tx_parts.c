@@ -293,8 +293,10 @@ static void towire_wally_tx_input(u8 **pptr, const struct wally_tx_input *in)
 	towire_wally_tx_witness_stack(pptr, in->witness);
 
 	if (is_elements(chainparams)) {
+		towire_u32(pptr, sizeof(in->blinding_nonce));
 		towire_u8_array(pptr, in->blinding_nonce,
 				sizeof(in->blinding_nonce));
+		towire_u32(pptr, sizeof(in->entropy));
 		towire_u8_array(pptr, in->entropy, sizeof(in->entropy));
 		towire_u32(pptr, in->issuance_amount_len);
 		towire_u8_array(pptr, in->issuance_amount,
