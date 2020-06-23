@@ -9,7 +9,6 @@ BITCOIN_SRC :=					\
 	bitcoin/privkey.c			\
 	bitcoin/psbt.c				\
 	bitcoin/pubkey.c			\
-	bitcoin/pullpush.c			\
 	bitcoin/script.c			\
 	bitcoin/shadouble.c			\
 	bitcoin/short_channel_id.c		\
@@ -30,7 +29,6 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/privkey.h			\
 	bitcoin/psbt.h				\
 	bitcoin/pubkey.h			\
-	bitcoin/pullpush.h			\
 	bitcoin/script.h			\
 	bitcoin/shadouble.h			\
 	bitcoin/short_channel_id.h		\

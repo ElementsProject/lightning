@@ -22,7 +22,6 @@ PLUGIN_COMMON_OBJS :=				\
 	bitcoin/privkey.o			\
 	bitcoin/psbt.o				\
 	bitcoin/pubkey.o			\
-	bitcoin/pullpush.o			\
 	bitcoin/script.o			\
 	bitcoin/shadouble.o			\
 	bitcoin/short_channel_id.o		\

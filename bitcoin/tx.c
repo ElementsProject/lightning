@@ -2,7 +2,6 @@
 #include <bitcoin/block.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/psbt.h>
-#include <bitcoin/pullpush.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/cast/cast.h>
