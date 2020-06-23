@@ -1,6 +1,5 @@
 #include <assert.h>
 #include <bitcoin/psbt.c>
-#include <bitcoin/pullpush.c>
 #include <bitcoin/shadouble.c>
 #include <bitcoin/tx.c>
 #include <bitcoin/varint.c>
