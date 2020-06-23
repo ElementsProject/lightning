@@ -821,8 +821,7 @@ def test_funding_toolarge(node_factory, bitcoind):
     l1.rpc.fundchannel(l2.info['id'], amount)
 
 
-@unittest.skipIf(TEST_NETWORK != 'regtest', "check_coin_moves is network-specific")
-def test_funding_push(node_factory, bitcoind):
+def test_funding_push(node_factory, bitcoind, chainparams):
     """ Try to push peer some sats """
     # We track balances, to verify that accounting is ok.
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
@@ -862,7 +861,7 @@ def test_funding_push(node_factory, bitcoind):
         {'type': 'chain_mvt', 'credit': 0, 'debit': 20000000, 'tag': 'pushed'},
         {'type': 'chain_mvt', 'credit': 16777215000, 'debit': 0, 'tag': 'deposit'},
     ]
-    check_coin_moves(l1, chanid, channel_mvts)
+    check_coin_moves(l1, chanid, channel_mvts, chainparams)
     assert account_balance(l1, chanid) == (amount - push_sat) * 1000
 
 
