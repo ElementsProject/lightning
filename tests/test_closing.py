@@ -703,7 +703,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 @unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
-def test_penalty_htlc_tx_fulfill(node_factory, bitcoind):
+def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
     """ Test that the penalizing node claims any published
         HTLC transactions
 
@@ -774,8 +774,8 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind):
 
     # make database snapshot of l2
     l2.stop()
-    l2_db_path = os.path.join(l2.daemon.lightning_dir, 'regtest', 'lightningd.sqlite3')
-    l2_db_path_bak = os.path.join(l2.daemon.lightning_dir, 'regtest', 'lightningd.sqlite3.bak')
+    l2_db_path = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3')
+    l2_db_path_bak = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3.bak')
     copyfile(l2_db_path, l2_db_path_bak)
     l2.start()
     sync_blockheight(bitcoind, [l2])
@@ -844,7 +844,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 @unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
-def test_penalty_htlc_tx_timeout(node_factory, bitcoind):
+def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     """ Test that the penalizing node claims any published
         HTLC transactions
 
@@ -932,8 +932,8 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind):
 
     # make database snapshot of l2
     l2.stop()
-    l2_db_path = os.path.join(l2.daemon.lightning_dir, 'regtest', 'lightningd.sqlite3')
-    l2_db_path_bak = os.path.join(l2.daemon.lightning_dir, 'regtest', 'lightningd.sqlite3.bak')
+    l2_db_path = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3')
+    l2_db_path_bak = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3.bak')
     copyfile(l2_db_path, l2_db_path_bak)
     l2.start()
     sync_blockheight(bitcoind, [l2])
