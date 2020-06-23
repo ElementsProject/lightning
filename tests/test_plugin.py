@@ -1360,7 +1360,7 @@ def test_plugin_fail(node_factory):
 
 
 @unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
-def test_coin_movement_notices(node_factory, bitcoind):
+def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     """Verify that coin movements are triggered correctly.
     """
 
@@ -1373,23 +1373,44 @@ def test_coin_movement_notices(node_factory, bitcoind):
         {'type': 'chain_mvt', 'credit': 0, 'debit': 1, 'tag': 'chain_fees'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 100001000, 'tag': 'withdrawal'},
     ]
-    l2_l3_mvts = [
-        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
-        {'type': 'channel_mvt', 'credit': 0, 'debit': 100000000, 'tag': 'routed'},
-        {'type': 'channel_mvt', 'credit': 50000501, 'debit': 0, 'tag': 'routed'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 5430501, 'tag': 'chain_fees'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 944570000, 'tag': 'withdrawal'},
-    ]
-    l2_wallet_mvts = [
-        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 995418000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 4582000, 'tag': 'chain_fees'},
-        {'type': 'chain_mvt', 'credit': 995418000, 'debit': 0, 'tag': 'deposit'},
-        {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
-        {'type': 'chain_mvt', 'credit': 944570000, 'debit': 0, 'tag': 'deposit'},
-    ]
+    if chainparams['elements']:
+        l2_l3_mvts = [
+            {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'channel_mvt', 'credit': 0, 'debit': 100000000, 'tag': 'routed'},
+            {'type': 'channel_mvt', 'credit': 50000501, 'debit': 0, 'tag': 'routed'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 8955501, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 941045000, 'tag': 'withdrawal'},
+        ]
+
+        l2_wallet_mvts = [
+            {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 991893000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 8107000, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 991893000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 941045000, 'debit': 0, 'tag': 'deposit'},
+        ]
+    else:
+        l2_l3_mvts = [
+            {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'channel_mvt', 'credit': 0, 'debit': 100000000, 'tag': 'routed'},
+            {'type': 'channel_mvt', 'credit': 50000501, 'debit': 0, 'tag': 'routed'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 5430501, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 944570000, 'tag': 'withdrawal'},
+        ]
+
+        l2_wallet_mvts = [
+            {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 995418000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 4582000, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 995418000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 944570000, 'debit': 0, 'tag': 'deposit'},
+        ]
 
     l1, l2, l3 = node_factory.line_graph(3, opts=[
         {'may_reconnect': True},
@@ -1468,7 +1489,7 @@ def test_coin_movement_notices(node_factory, bitcoind):
     assert account_balance(l2, chanid_3) == 0
 
     # Verify we recorded all the movements we expect
-    check_coin_moves(l2, chanid_1, l1_l2_mvts)
-    check_coin_moves(l2, chanid_3, l2_l3_mvts)
-    check_coin_moves(l2, 'wallet', l2_wallet_mvts)
+    check_coin_moves(l2, chanid_1, l1_l2_mvts, chainparams)
+    check_coin_moves(l2, chanid_3, l2_l3_mvts, chainparams)
+    check_coin_moves(l2, 'wallet', l2_wallet_mvts, chainparams)
     check_coin_moves_idx(l2)

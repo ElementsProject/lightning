@@ -658,7 +658,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
         {'type': 'chain_mvt', 'credit': 0, 'debit': 11957378000, 'tag': 'withdrawal'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 3652000, 'tag': 'chain_fees'},
     ]
-    check_coin_moves(l1, 'wallet', wallet_moves)
+    check_coin_moves(l1, 'wallet', wallet_moves, chainparams)
 
 
 def test_minconf_withdraw(node_factory, bitcoind):
