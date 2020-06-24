@@ -19,6 +19,7 @@ struct utxo;
  *
  * @ctx: context to tal from.
  * @chainparams: (in) the params for the created transaction.
+ * @allow_rbf: (in) bool to signal whether to flag the sequence as RBF'able
  * @utxos: (in/out) tal_arr of UTXO pointers to spend (permuted to match)
  * @outputs: (in) tal_arr of bitcoin_tx_output, scriptPubKeys with amount to send to.
  * @bip32_base: (in) bip32 base for key derivation, or NULL.
@@ -26,6 +27,7 @@ struct utxo;
  */
 struct bitcoin_tx *withdraw_tx(const tal_t *ctx,
 			       const struct chainparams *chainparams,
+			       bool allow_rbf,
 			       const struct utxo **utxos,
 			       struct bitcoin_tx_output **outputs,
 			       const struct ext_key *bip32_base,

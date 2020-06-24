@@ -3,7 +3,7 @@
 lightning-reserveinputs - Construct a transaction and reserve the UTXOs it spends
 .SH SYNOPSIS
 
-\fBreserveinputs\fR \fIoutputs\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR] [\fIexpire_after\fR]
+\fBreserveinputs\fR \fIoutputs\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR] [\fIexpire_after\fR] [\fIallow_rbf\fR]
 
 .SH DESCRIPTION
 
@@ -54,6 +54,10 @@ of "txid:vout"\. These must be drawn from the node's available UTXO set\.
 \fIexpire_after\fR specifies the number of blocks after which the UTXOs reserved
 by this command will be eligible for re-use\. Defaults to 144 blocks\.
 Can be disabled by passing in 0\.
+
+
+\fIallow_rbf\fR, if flagged on, will set the sequence for each input to permit
+it to be RBF'd\. Defaults to true\.
 
 .SH RETURN VALUE
 

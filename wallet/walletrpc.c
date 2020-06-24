@@ -242,7 +242,8 @@ static struct command_result *create_tx(struct command *cmd,
 					size_t out_len,
 					u32 *feerate_per_kw,
 					u32 minconf,
-					u32 locktime)
+					u32 locktime,
+					bool allow_rbf)
 {
 	struct command_result *result;
 	u32 maxheight;
@@ -281,7 +282,7 @@ static struct command_result *create_tx(struct command *cmd,
 	}
 
 	(*utx)->outputs = tal_steal(*utx, outputs);
-	(*utx)->tx = withdraw_tx(*utx, chainparams,
+	(*utx)->tx = withdraw_tx(*utx, chainparams, allow_rbf,
 				 (*utx)->wtx->utxos,
 				 (*utx)->outputs,
 				 cmd->ld->wallet->bip32_base,
@@ -310,6 +311,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 					      const char *buffer,
 					      const jsmntok_t *params,
 					      bool for_withdraw,
+					      bool allow_rbf,
 					      struct unreleased_tx **utx,
 					      u32 *feerate)
 {
@@ -491,7 +493,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 
 		return create_tx(cmd, utx, outputs, chosen_utxos, out_len,
 				 feerate_per_kw, *minconf,
-				 locktime);
+				 locktime, allow_rbf);
 	}
 
 	result = build_outputs(cmd, buffer, outputstok, utx, &out_len,
@@ -501,7 +503,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 
 	return create_tx(cmd, utx, outputs, chosen_utxos, out_len,
 			 feerate_per_kw, *minconf,
-			 locktime);
+			 locktime, allow_rbf);
 }
 
 
@@ -514,7 +516,7 @@ static struct command_result *json_txprepare(struct command *cmd,
 	struct command_result *res;
 	struct json_stream *response;
 
-	res = json_prepare_tx(cmd, buffer, params, false, &utx, NULL);
+	res = json_prepare_tx(cmd, buffer, params, false, false, &utx, NULL);
 	if (res)
 		return res;
 
@@ -641,7 +643,7 @@ static struct command_result *json_withdraw(struct command *cmd,
 	struct unreleased_tx *utx;
 	struct command_result *res;
 
-	res = json_prepare_tx(cmd, buffer, params, true, &utx, NULL);
+	res = json_prepare_tx(cmd, buffer, params, true, false, &utx, NULL);
 	if (res)
 		return res;
 
@@ -1245,6 +1247,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 	struct bitcoin_tx_output **outputs;
 	u32 *feerate_per_kw, *minconf, *expire_after;
 	size_t out_len;
+	bool *allow_rbf;
 
 	if (!param(cmd, buffer, params,
 		   p_req("outputs", param_array, &outputstok),
@@ -1252,6 +1255,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 		   p_opt_def("minconf", param_number, &minconf, 1),
 		   p_opt("utxos", param_utxos, &chosen_utxos),
 		   p_opt_def("expire_after", param_number, &expire_after, 144),
+		   p_opt_def("allow_rbf", param_bool, &allow_rbf, true),
 		   NULL))
 		return command_param_failed();
 
@@ -1268,7 +1272,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 	if (res)
 		return res;
 	res = create_tx(cmd, &utx, outputs, chosen_utxos, out_len,
-			feerate_per_kw, *minconf, 0);
+			feerate_per_kw, *minconf, 0, *allow_rbf);
 	if (res)
 		return res;
 
