@@ -437,7 +437,6 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert decode['vout'][changenum]['scriptPubKey']['type'] == 'witness_v0_keyhash'
 
 
-@pytest.mark.xfail
 def test_reserveinputs(node_factory, bitcoind, chainparams):
     """
     Reserve inputs is basically the same as txprepare, with the
