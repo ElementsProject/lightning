@@ -3911,6 +3911,14 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 	enum output_status newstate =
 	    txout == NULL ? output_state_spent : output_state_available;
 
+	/* If the utxo is still unspent, don't reset it if the 'lease'
+	 * on it hasn't expired yet */
+	if (txout != NULL && utxos[0]->reserved_til) {
+		if (!utxo_reservation_expired(bitcoind->ld, utxos[0]))
+			goto next;
+		else
+			utxo_reservation_clear(bitcoind->ld->wallet, utxos[0]);
+	}
 	log_unusual(bitcoind->ld->wallet->log,
 		    "wallet: reserved output %s/%u reset to %s",
 		    type_to_string(tmpctx, struct bitcoin_txid, &utxos[0]->txid),
@@ -3920,6 +3928,7 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 				    &utxos[0]->txid, utxos[0]->outnum,
 				    utxos[0]->status, newstate);
 
+next:
 	/* If we have more, resolve them too. */
 	tal_arr_remove(&utxos, 0);
 	if (tal_count(utxos) != 0) {

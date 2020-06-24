@@ -563,9 +563,11 @@ def test_reserveinputs(node_factory, bitcoind, chainparams):
     outputs = l1.rpc.listfunds()['outputs']
     assert len([x for x in outputs if x['reserved']]) == 12
 
-    # move the blockchain forward 24 blocks (default reserved value)
-    bitcoind.generate_block(24)
-    l1.restart()
+    # move the blockchain forward 144 blocks (default reserved value)
+    l1.stop()
+    bitcoind.generate_block(144)
+    l1.start()
+    sync_blockheight(bitcoind, [l1])
     # everything should be back to unreserved now
     outputs = l1.rpc.listfunds()['outputs']
     assert len([x for x in outputs if not x['reserved']]) == 12
