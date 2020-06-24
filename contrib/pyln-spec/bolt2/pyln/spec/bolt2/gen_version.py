@@ -1,2 +1,3 @@
-__version__ = "1.0.post137"
-__gitversion__ = "ae2d248b7ad8b0965f224c303019ba04c661008f"
+__base_version__ = "1.0"
+__post_version__ = "137"
+__gitversion__ = "9e8e29af9b9a922eb114b2c716205d0772946e56"
