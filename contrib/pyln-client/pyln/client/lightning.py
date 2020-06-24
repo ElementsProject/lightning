@@ -1107,7 +1107,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("txsend", payload)
 
-    def reserveinputs(self, outputs, feerate=None, minconf=None, utxos=None):
+    def reserveinputs(self, outputs, feerate=None, minconf=None, utxos=None, expire_after=None):
         """
         Reserve UTXOs and return a psbt for a 'stub' transaction that
         spends the reserved UTXOs.
@@ -1117,6 +1117,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "feerate": feerate,
             "minconf": minconf,
             "utxos": utxos,
+            "expire_after": expire_after,
         }
         return self.call("reserveinputs", payload)
 

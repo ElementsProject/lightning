@@ -1243,7 +1243,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 	struct unreleased_tx *utx;
 	const struct utxo **chosen_utxos;
 	struct bitcoin_tx_output **outputs;
-	u32 *feerate_per_kw, *minconf;
+	u32 *feerate_per_kw, *minconf, *expire_after;
 	size_t out_len;
 
 	if (!param(cmd, buffer, params,
@@ -1251,6 +1251,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 		   p_opt("feerate", param_feerate, &feerate_per_kw),
 		   p_opt_def("minconf", param_number, &minconf, 1),
 		   p_opt("utxos", param_utxos, &chosen_utxos),
+		   p_opt_def("expire_after", param_number, &expire_after, 144),
 		   NULL))
 		return command_param_failed();
 
@@ -1275,13 +1276,13 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 	 * around, so we remove the auto-cleanup that happens
 	 * when the utxo objects are free'd */
 	wallet_persist_utxo_reservation(cmd->ld->wallet, utx->wtx->utxos);
-	/* Set the lease on these utxos to expire in ~24 hours,
-	 * or 24 blocks */
-	u32 expires_at = cmd->ld->topology->tip->height + 6 * 24;
-	for (size_t i = 0; i < tal_count(utx->wtx->utxos); i++)
-		wallet_output_reservation_update(cmd->ld->wallet,
-						 utx->wtx->utxos[i],
-						 expires_at);
+	if (*expire_after > 0) {
+		u32 height = get_block_height(cmd->ld->topology) + *expire_after;
+		for (size_t i = 0; i < tal_count(utx->wtx->utxos); i++)
+			wallet_output_reservation_update(cmd->ld->wallet,
+							 utx->wtx->utxos[i],
+							 height);
+	}
 
 	response = json_stream_success(cmd);
 	json_add_psbt(response, "psbt", utx->tx->psbt);

@@ -571,6 +571,20 @@ def test_reserveinputs(node_factory, bitcoind, chainparams):
     outputs = l1.rpc.listfunds()['outputs']
     assert len([x for x in outputs if not x['reserved']]) == 12
 
+    # try setting the default reserved to 5 blocks
+    reserved = l1.rpc.reserveinputs([{addr: 'all'}], expire_after=5)
+    bitcoind.generate_block(5)
+    sync_blockheight(bitcoind, [l1])
+    outputs = l1.rpc.listfunds()['outputs']
+    assert len([x for x in outputs if not x['reserved']]) == 12
+
+    # try turning off the default reservation
+    reserved = l1.rpc.reserveinputs([{addr: 'all'}], expire_after=0)
+    bitcoind.generate_block(144)
+    sync_blockheight(bitcoind, [l1])
+    outputs = l1.rpc.listfunds()['outputs']
+    assert len([x for x in outputs if x['reserved']]) == 12
+
 
 def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     """
