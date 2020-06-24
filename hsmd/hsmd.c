@@ -37,7 +37,6 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/version.h>
-#include <common/withdraw_tx.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <hsmd/capabilities.h>
