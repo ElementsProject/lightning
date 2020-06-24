@@ -1210,6 +1210,13 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 	 * around, so we remove the auto-cleanup that happens
 	 * when the utxo objects are free'd */
 	wallet_persist_utxo_reservation(cmd->ld->wallet, utx->wtx->utxos);
+	/* Set the lease on these utxos to expire in ~24 hours,
+	 * or 24 blocks */
+	u32 expires_at = cmd->ld->topology->tip->height + 6 * 24;
+	for (size_t i = 0; i < tal_count(utx->wtx->utxos); i++)
+		wallet_output_reservation_update(cmd->ld->wallet,
+						 utx->wtx->utxos[i],
+						 expires_at);
 
 	response = json_stream_success(cmd);
 	json_add_psbt(response, "psbt", utx->tx->psbt);
