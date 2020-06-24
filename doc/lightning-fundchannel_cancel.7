@@ -36,9 +36,13 @@ with \fBcode\fR being one of the following:
 .IP \[bu]
 -32602: If the given parameters are wrong\.
 .IP \[bu]
--1: Catchall nonspecific error\.
-.IP \[bu]
 306: Unknown peer id\.
+.IP \[bu]
+307: No channel currently being funded that can be cancelled\.
+.IP \[bu]
+308: It is unsafe to cancel the channel: the funding transaction
+has been broadcast, or there are HTLCs already in the channel, or
+the peer was the initiator and not us\.
 
 .RE
 .SH AUTHOR
