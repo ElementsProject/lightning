@@ -160,6 +160,147 @@ static struct command_result *broadcast_and_wait(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+static struct command_result *build_outputs(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *outputstok,
+					    struct unreleased_tx **utx,
+					    size_t *out_len,
+					    struct bitcoin_tx_output ***outputs)
+{
+	size_t i;
+	const jsmntok_t *t;
+
+	if (outputstok->size == 0)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Empty outputs");
+
+	*outputs = tal_arr(tmpctx, struct bitcoin_tx_output *, outputstok->size);
+	*out_len = 0;
+	(*utx)->wtx->all_funds = false;
+	(*utx)->wtx->amount = AMOUNT_SAT(0);
+	json_for_each_arr(i, t, outputstok) {
+		struct amount_sat *amount;
+		const u8 *destination;
+		enum address_parse_result res;
+
+		/* output format: {destination: amount} */
+		if (t->type != JSMN_OBJECT)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "The output format must be "
+					    "{destination: amount}");
+
+		res = json_to_address_scriptpubkey(cmd,
+						   chainparams,
+						   buffer, &t[1],
+						   &destination);
+		if (res == ADDRESS_PARSE_UNRECOGNIZED)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Could not parse destination address");
+		else if (res == ADDRESS_PARSE_WRONG_NETWORK)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Destination address is not on network %s",
+					    chainparams->network_name);
+
+		amount = tal(tmpctx, struct amount_sat);
+		if (!json_to_sat_or_all(buffer, &t[2], amount))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "'%.*s' is a invalid satoshi amount",
+					    t[2].end - t[2].start, buffer + t[2].start);
+
+		*outputs[i] = new_tx_output(*outputs, *amount,
+					    cast_const(u8 *, destination));
+		*out_len += tal_count(destination);
+
+		/* In fact, the maximum amount of bitcoin satoshi is 2.1e15.
+		 * It can't be equal to/bigger than 2^64.
+		 * On the hand, the maximum amount of litoshi is 8.4e15,
+		 * which also can't overflow. */
+		/* This means this destination need "all" satoshi we have. */
+		if (amount_sat_eq(*amount, AMOUNT_SAT(-1ULL))) {
+			if (outputstok->size > 1)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "outputs[%zi]: this destination wants"
+						    " all satoshi. The count of outputs"
+						    " can't be more than 1. ", i);
+			(*utx)->wtx->all_funds = true;
+			/* `AMOUNT_SAT(-1ULL)` is the max permissible for `wallet_select_all`. */
+			(*utx)->wtx->amount = *amount;
+			break;
+		}
+
+		if (!amount_sat_add(&(*utx)->wtx->amount, (*utx)->wtx->amount, *amount))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "outputs: The sum of first %zi outputs"
+					    " overflow. ", i);
+	}
+	return NULL;
+}
+
+static struct command_result *create_tx(struct command *cmd,
+					struct unreleased_tx **utx,
+					struct bitcoin_tx_output **outputs,
+					const struct utxo **chosen_utxos,
+					size_t out_len,
+					u32 *feerate_per_kw,
+					u32 minconf,
+					u32 locktime)
+{
+	struct command_result *result;
+	u32 maxheight;
+	struct pubkey *changekey;
+
+	maxheight = minconf_to_maxheight(minconf, cmd->ld);
+
+	if (chosen_utxos)
+		result = wtx_from_utxos((*utx)->wtx, *feerate_per_kw,
+					out_len, maxheight,
+					chosen_utxos);
+	else
+		result = wtx_select_utxos((*utx)->wtx, *feerate_per_kw,
+					  out_len, maxheight);
+
+	if (result)
+		return result;
+
+	/* Because of the max limit of AMOUNT_SAT(-1ULL),
+	 * `(*utx)->wtx->all_funds` won't change in `wtx_select_utxos()` */
+	if ((*utx)->wtx->all_funds)
+		outputs[0]->amount = (*utx)->wtx->amount;
+
+	/* Add the change as the last output */
+	if (!amount_sat_eq((*utx)->wtx->change, AMOUNT_SAT(0))) {
+		struct bitcoin_tx_output *change_output;
+
+		changekey = tal(tmpctx, struct pubkey);
+		if (!bip32_pubkey(cmd->ld->wallet->bip32_base, changekey,
+				  (*utx)->wtx->change_key_index))
+			return command_fail(cmd, LIGHTNINGD, "Change key generation failure");
+
+		change_output = new_tx_output(outputs, (*utx)->wtx->change,
+					      scriptpubkey_p2wpkh(tmpctx, changekey));
+		tal_arr_expand(&outputs, change_output);
+	}
+
+	(*utx)->outputs = tal_steal(*utx, outputs);
+	(*utx)->tx = withdraw_tx(*utx, chainparams,
+				 (*utx)->wtx->utxos,
+				 (*utx)->outputs,
+				 cmd->ld->wallet->bip32_base,
+				 locktime);
+
+	bitcoin_txid((*utx)->tx, &(*utx)->txid);
+
+	return NULL;
+}
+
+static struct unreleased_tx *utx_new(const tal_t *ctx,
+				     struct command *cmd)
+{
+	struct unreleased_tx *utx = tal(ctx, struct unreleased_tx);
+	utx->wtx = tal(utx, struct wallet_tx);
+	wtx_init(cmd, utx->wtx, AMOUNT_SAT(-1ULL));
+	return utx;
+}
+
 /* Common code for withdraw and txprepare.
  *
  * Returns NULL on success, and fills in wtx, output and
@@ -172,20 +313,15 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 					      struct unreleased_tx **utx,
 					      u32 *feerate)
 {
-	u32 *feerate_per_kw = NULL;
 	struct command_result *result;
-	u32 *minconf, maxheight;
-	struct pubkey *changekey;
+	u32 *minconf, *feerate_per_kw = NULL, locktime = 0;
 	struct bitcoin_tx_output **outputs;
-	const jsmntok_t *outputstok = NULL, *t;
+	const jsmntok_t *outputstok = NULL;
 	const u8 *destination = NULL;
-	size_t out_len, i;
+	size_t out_len;
 	const struct utxo **chosen_utxos = NULL;
-	u32 locktime = 0;
 
-	*utx = tal(cmd, struct unreleased_tx);
-	(*utx)->wtx = tal(*utx, struct wallet_tx);
-	wtx_init(cmd, (*utx)->wtx, AMOUNT_SAT(-1ULL));
+	*utx = utx_new(cmd, cmd);
 
 	if (!for_withdraw) {
 		/* From v0.7.3, the new style for *txprepare* use array of outputs
@@ -342,8 +478,8 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 		if (result)
 			return result;
 	}
-
-	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
+	if (feerate)
+		*feerate = *feerate_per_kw;
 
 	/* *withdraw* command or old *txprepare* command.
 	 * Support only one output. */
@@ -353,116 +489,21 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 					   destination);
 		out_len = tal_count(outputs[0]->script);
 
-		goto create_tx;
+		return create_tx(cmd, utx, outputs, chosen_utxos, out_len,
+				 feerate_per_kw, *minconf,
+				 locktime);
 	}
 
-	if (outputstok->size == 0)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Empty outputs");
-
-	outputs = tal_arr(tmpctx, struct bitcoin_tx_output *, outputstok->size);
-	out_len = 0;
-	(*utx)->wtx->all_funds = false;
-	(*utx)->wtx->amount = AMOUNT_SAT(0);
-	json_for_each_arr(i, t, outputstok) {
-		struct amount_sat *amount;
-		const u8 *destination;
-		enum address_parse_result res;
-
-		/* output format: {destination: amount} */
-		if (t->type != JSMN_OBJECT)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "The output format must be "
-					    "{destination: amount}");
-
-		res = json_to_address_scriptpubkey(cmd,
-						   chainparams,
-						   buffer, &t[1],
-						   &destination);
-		if (res == ADDRESS_PARSE_UNRECOGNIZED)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Could not parse destination address");
-		else if (res == ADDRESS_PARSE_WRONG_NETWORK)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Destination address is not on network %s",
-					    chainparams->network_name);
-
-		amount = tal(tmpctx, struct amount_sat);
-		if (!json_to_sat_or_all(buffer, &t[2], amount))
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "'%.*s' is a invalid satoshi amount",
-					    t[2].end - t[2].start, buffer + t[2].start);
-
-		outputs[i] = new_tx_output(outputs, *amount,
-					   cast_const(u8 *, destination));
-		out_len += tal_count(destination);
-
-		/* In fact, the maximum amount of bitcoin satoshi is 2.1e15.
-		 * It can't be equal to/bigger than 2^64.
-		 * On the hand, the maximum amount of litoshi is 8.4e15,
-		 * which also can't overflow. */
-		/* This means this destination need "all" satoshi we have. */
-		if (amount_sat_eq(*amount, AMOUNT_SAT(-1ULL))) {
-			if (outputstok->size > 1)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "outputs[%zi]: this destination wants"
-						    " all satoshi. The count of outputs"
-						    " can't be more than 1. ", i);
-			(*utx)->wtx->all_funds = true;
-			/* `AMOUNT_SAT(-1ULL)` is the max permissible for `wallet_select_all`. */
-			(*utx)->wtx->amount = *amount;
-			break;
-		}
-
-		if (!amount_sat_add(&(*utx)->wtx->amount, (*utx)->wtx->amount, *amount))
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "outputs: The sum of first %zi outputs"
-					    " overflow. ", i);
-	}
-
-create_tx:
-	if (chosen_utxos)
-		result = wtx_from_utxos((*utx)->wtx, *feerate_per_kw,
-					out_len, maxheight,
-					chosen_utxos);
-	else
-		result = wtx_select_utxos((*utx)->wtx, *feerate_per_kw,
-					  out_len, maxheight);
-
+	result = build_outputs(cmd, buffer, outputstok, utx, &out_len,
+			       &outputs);
 	if (result)
 		return result;
 
-	/* Because of the max limit of AMOUNT_SAT(-1ULL),
-	 * `(*utx)->wtx->all_funds` won't change in `wtx_select_utxos()` */
-	if ((*utx)->wtx->all_funds)
-		outputs[0]->amount = (*utx)->wtx->amount;
-
-	/* Add the change as the last output */
-	if (!amount_sat_eq((*utx)->wtx->change, AMOUNT_SAT(0))) {
-		struct bitcoin_tx_output *change_output;
-
-		changekey = tal(tmpctx, struct pubkey);
-		if (!bip32_pubkey(cmd->ld->wallet->bip32_base, changekey,
-				  (*utx)->wtx->change_key_index))
-			return command_fail(cmd, LIGHTNINGD, "Keys generation failure");
-
-		change_output = new_tx_output(outputs, (*utx)->wtx->change,
-					      scriptpubkey_p2wpkh(tmpctx, changekey));
-		tal_arr_expand(&outputs, change_output);
-	}
-
-	(*utx)->outputs = tal_steal(*utx, outputs);
-	(*utx)->tx = withdraw_tx(*utx, chainparams,
-				 (*utx)->wtx->utxos,
-				 (*utx)->outputs,
-				 cmd->ld->wallet->bip32_base,
-				 locktime);
-
-	bitcoin_txid((*utx)->tx, &(*utx)->txid);
-
-	if (feerate)
-		*feerate = *feerate_per_kw;
-	return NULL;
+	return create_tx(cmd, utx, outputs, chosen_utxos, out_len,
+			 feerate_per_kw, *minconf,
+			 locktime);
 }
+
 
 static struct command_result *json_txprepare(struct command *cmd,
 					     const char *buffer,
@@ -1198,11 +1239,35 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 {
 	struct command_result *res;
 	struct json_stream *response;
+	const jsmntok_t *outputstok;
 	struct unreleased_tx *utx;
+	const struct utxo **chosen_utxos;
+	struct bitcoin_tx_output **outputs;
+	u32 *feerate_per_kw, *minconf;
+	size_t out_len;
 
-	u32 feerate;
+	if (!param(cmd, buffer, params,
+		   p_req("outputs", param_array, &outputstok),
+		   p_opt("feerate", param_feerate, &feerate_per_kw),
+		   p_opt_def("minconf", param_number, &minconf, 1),
+		   p_opt("utxos", param_utxos, &chosen_utxos),
+		   NULL))
+		return command_param_failed();
 
-	res = json_prepare_tx(cmd, buffer, params, false, &utx, &feerate);
+	if (!feerate_per_kw) {
+		res = param_feerate_estimate(cmd, &feerate_per_kw,
+						FEERATE_OPENING);
+		if (res)
+			return res;
+	}
+
+	utx = utx_new(cmd, cmd);
+
+	res = build_outputs(cmd, buffer, outputstok, &utx, &out_len, &outputs);
+	if (res)
+		return res;
+	res = create_tx(cmd, &utx, outputs, chosen_utxos, out_len,
+			feerate_per_kw, *minconf, 0);
 	if (res)
 		return res;
 
@@ -1220,7 +1285,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 
 	response = json_stream_success(cmd);
 	json_add_psbt(response, "psbt", utx->tx->psbt);
-	json_add_u32(response, "feerate_per_kw", feerate);
+	json_add_u32(response, "feerate_per_kw", *feerate_per_kw);
 	return command_success(cmd, response);
 }
 static const struct json_command reserveinputs_command = {
