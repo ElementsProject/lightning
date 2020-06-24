@@ -1261,6 +1261,20 @@ bool wallet_unreserve_output(struct wallet *w,
 			     const struct bitcoin_txid *txid,
 			     const u32 outnum);
 /**
+ * wallet_output_reservation_update - Add an expiration for a utxo reservation
+ * Will be returned to available upon expiration.
+ *
+ * Output must currently be in `reserved` state. Passing in 0 for `reserve_til`
+ * will expire the current reservation (if any)
+ *
+ * @w - wallet
+ * @utxo - output to update
+ * @reserve_til - block number to consider reservation expired */
+bool wallet_output_reservation_update(struct wallet *w,
+				      const struct utxo *utxo,
+				      const u32 reserve_til);
+
+/**
  * Get a list of transactions that we track in the wallet.
  *
  * @param ctx: allocation context for the returned list

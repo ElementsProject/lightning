@@ -178,6 +178,7 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 	utxo->spendheight = NULL;
 	utxo->scriptPubkey = NULL;
 	utxo->scriptSig = NULL;
+	utxo->reserved_til = NULL;
 
 	if (!db_column_is_null(stmt, 9)) {
 		blockheight = tal(utxo, u32);
@@ -196,8 +197,22 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 		    tal_dup_arr(utxo, u8, db_column_blob(stmt, 11),
 				db_column_bytes(stmt, 11), 0);
 	}
+	if (!db_column_is_null(stmt, 12)) {
+		u32 reserved_til = db_column_int(stmt, 12);
+		utxo->reserved_til = tal_dup(utxo, u32, &reserved_til);
+	}
 
 	return utxo;
+}
+
+static bool utxo_reservation_expired(struct lightningd *ld, const struct utxo *utxo)
+{
+	return !utxo->reserved_til || *utxo->reserved_til <= ld->topology->tip->height;
+}
+
+static bool utxo_reservation_clear(struct wallet *w, const struct utxo *utxo)
+{
+	return wallet_output_reservation_update(w, utxo, 0);
 }
 
 bool wallet_update_output_status(struct wallet *w,
@@ -229,6 +244,79 @@ bool wallet_update_output_status(struct wallet *w,
 	return changes > 0;
 }
 
+static bool assert_utxo_status(struct wallet *w,
+			       const struct bitcoin_txid *txid,
+			       const u32 outnum,
+			       const enum output_status state)
+{
+	struct db_stmt *stmt;
+	bool res;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT COUNT(*) FROM outputs "
+				"WHERE status=? AND prev_out_tx=? "
+				"AND prev_out_index=?"));
+	db_bind_int(stmt, 0, output_status_in_db(state));
+	db_bind_txid(stmt, 1, txid);
+	db_bind_int(stmt, 2, outnum);
+
+	db_query_prepared(stmt);
+	if (db_step(stmt)) {
+		res = db_column_u64(stmt, 0) > 0;
+	} else
+		res = false;
+
+	tal_free(stmt);
+	return res;
+}
+
+/* Given a utxo, check that it is eligible to be marked as reserved.
+ * This used to be a simple state check, but since we added 'expireable'
+ * reservations, we can 're-reserve' inputs if the original reservation
+ * has expired, while clearing out the expiration info
+ */
+static bool wallet_reserve_output(struct wallet *w, struct utxo *u)
+{
+	if (u->status == output_state_reserved) {
+		if (!utxo_reservation_expired(w->ld,
+				cast_const(struct utxo *, u)))
+			return false;
+
+		return utxo_reservation_clear(w, u);
+	}
+
+	return wallet_update_output_status(w, &u->txid, u->outnum,
+					   output_state_available,
+					   output_state_reserved);
+}
+
+bool wallet_output_reservation_update(struct wallet *w,
+				      const struct utxo *utxo,
+				      const u32 expires_at)
+{
+	struct db_stmt *stmt;
+	size_t changes;
+
+	/* If not already reserved, say no */
+	if (!assert_utxo_status(w, &utxo->txid, utxo->outnum, output_state_reserved))
+		return false;
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("UPDATE outputs"
+				 " SET reserved_til = ?"
+				 " WHERE prev_out_tx = ? AND prev_out_index = ?"));
+	if (expires_at == 0)
+		db_bind_null(stmt, 0);
+	else
+		db_bind_int(stmt, 0, expires_at);
+
+	db_bind_txid(stmt, 1, &utxo->txid);
+	db_bind_int(stmt, 2, utxo->outnum);
+	db_exec_prepared_v2(stmt);
+	changes = db_count_changes(stmt);
+	tal_free(stmt);
+	return changes > 0;
+}
+
 struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum output_status state)
 {
 	struct utxo **results;
@@ -249,6 +337,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", confirmation_height"
 						", spend_height"
 						", scriptpubkey "
+						", reserved_til "
 						"FROM outputs"));
 	} else {
 		stmt = db_prepare_v2(w->db, SQL("SELECT"
@@ -264,6 +353,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", confirmation_height"
 						", spend_height"
 						", scriptpubkey "
+						", reserved_til "
 						"FROM outputs "
 						"WHERE status= ? "));
 		db_bind_int(stmt, 0, output_status_in_db(state));
@@ -300,6 +390,7 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 					", confirmation_height"
 					", spend_height"
 					", scriptpubkey"
+					", reserved_til"
 					" FROM outputs"
 					" WHERE channel_id IS NOT NULL AND "
 					"confirmation_height IS NULL"));
@@ -335,6 +426,7 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 					", confirmation_height"
 					", spend_height"
 					", scriptpubkey"
+					", reserved_til"
 					" FROM outputs"
 					" WHERE prev_out_tx = ?"
 					" AND prev_out_index = ?"));
@@ -355,10 +447,89 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 	return utxo;
 }
 
+static struct utxo **expired_reserved_utxos_get(const tal_t *ctx, struct wallet *w)
+{
+	struct db_stmt *stmt;
+	struct utxo **results;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					"  prev_out_tx"
+					", prev_out_index"
+					", value"
+					", type"
+					", status"
+					", keyindex"
+					", channel_id"
+					", peer_id"
+					", commitment_point"
+					", confirmation_height"
+					", spend_height"
+					", scriptpubkey "
+					", reserved_til"
+					" FROM outputs"
+					" WHERE status = ?"
+					" AND reserved_til <= ?"));
+	db_bind_int(stmt, 0, output_status_in_db(output_state_reserved));
+	db_bind_int(stmt, 1, w->ld->topology->tip->height);
+
+	db_query_prepared(stmt);
+
+	if (stmt->error) {
+		log_broken(w->log, "SQL error: %s", stmt->error);
+		return NULL;
+	}
+
+	results = tal_arr(ctx, struct utxo *, 0);
+	while (db_step(stmt)) {
+		struct utxo *u = wallet_stmt2output(results, stmt);
+		tal_arr_expand(&results, u);
+	}
+	tal_free(stmt);
+
+	return results;
+}
+
+static struct utxo **spendable_utxos_get(const tal_t *ctx, struct wallet *w)
+{
+	struct utxo **reserved, **available;
+	size_t rcount;
+
+	reserved = expired_reserved_utxos_get(ctx, w);
+	available = wallet_get_utxos(ctx, w, output_state_available);
+
+	rcount = tal_count(reserved);
+	tal_resize(&reserved, rcount + tal_count(available));
+	for (size_t i = 0; i < tal_count(available); i++)
+		reserved[rcount + i] = tal_steal(reserved, available[i]);
+
+	tal_free(available);
+	return reserved;
+}
+
 bool wallet_unreserve_output(struct wallet *w,
 			     const struct bitcoin_txid *txid,
 			     const u32 outnum)
 {
+	struct utxo *utxo;
+
+	utxo = wallet_utxo_get(NULL, w, txid, outnum);
+	if (utxo && utxo->reserved_til && utxo->status == output_state_reserved) {
+		if (w->ld->topology->tip->height <= *utxo->reserved_til)
+			log_info(w->log, "Unreserving utxo "
+					"%s:%u before expiration. blockheight is %u,"
+					" would have unreserved at %u.",
+				 type_to_string(tmpctx, struct bitcoin_txid, &utxo->txid),
+				 utxo->outnum,
+				 w->ld->topology->tip->height,
+				 *utxo->reserved_til);
+
+		if (!utxo_reservation_clear(w, utxo)) {
+			tal_free(utxo);
+			return false;
+		}
+	}
+	tal_free(utxo);
+
 	return wallet_update_output_status(w, txid, outnum,
 					   output_state_reserved,
 					   output_state_available);
@@ -369,11 +540,9 @@ bool wallet_unreserve_output(struct wallet *w,
  */
 static void unreserve_utxo(struct wallet *w, const struct utxo *unres)
 {
-	if (!wallet_update_output_status(w, &unres->txid, unres->outnum,
-					 output_state_reserved,
-					 output_state_available)) {
+	if (!wallet_unreserve_output(w, &unres->txid,
+				     unres->outnum))
 		fatal("Unable to unreserve output");
-	}
 }
 
 /**
@@ -450,7 +619,7 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 	*fee_estimate = AMOUNT_SAT(0);
 	*satoshi_in = AMOUNT_SAT(0);
 
-	available = wallet_get_utxos(ctx, w, output_state_available);
+	available = spendable_utxos_get(ctx, w);
 
 	for (i = 0; i < tal_count(available); i++) {
 		size_t input_weight;
@@ -468,9 +637,7 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 
 		tal_arr_expand(&utxos, u);
 
-		if (!wallet_update_output_status(
-			w, &available[i]->txid, available[i]->outnum,
-			output_state_available, output_state_reserved))
+		if (!wallet_reserve_output(w, u))
 			fatal("Unable to reserve output");
 
 		/* Input weight: txid + index + sequence */

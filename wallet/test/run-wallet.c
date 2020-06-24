@@ -902,6 +902,10 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	struct node_id id;
 	struct amount_sat fee_estimate, change_satoshis;
 	const struct utxo **utxos;
+	u32 expires_at = 30;
+
+	/* Set the chaintip height to 15 */
+	ld->topology->tip->height = 15;
 	CHECK(w);
 
 	memset(&u, 0, sizeof(u));
@@ -966,6 +970,61 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 					      output_state_spent),
 		  "could not change output state ignoring oldstate");
 
+	/* Check for 'reserved' state changes */
+	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(1), 0, 21,
+				    0 /* no confirmations required */,
+				    &fee_estimate, &change_satoshis);
+	CHECK(utxos && tal_count(utxos) == 1);
+
+	u = *utxos[0];
+
+	/* Add expiration to reservation */
+	CHECK_MSG(wallet_output_reservation_update(w, &u, expires_at),
+		  "could not add high watermark for reserved output");
+
+	/* Usually we'd remove the reservation on free, but
+	 * we want to do some things with it, so check that
+	 * we can short-circuit this by calling persist */
+	wallet_persist_utxo_reservation(w, utxos);
+	tal_free(utxos);
+
+	/* Now should be unable to select 1 sat amount */
+	CHECK_MSG(!wallet_select_coins(w, w, true, AMOUNT_SAT(1), 0, 21,
+				       0 /* no confirmations required */,
+				       &fee_estimate, &change_satoshis),
+	          "too many utxos available");
+
+	/* Get reserved utxos */
+	utxos = (const struct utxo **)wallet_get_utxos(w, w, output_state_reserved);
+	CHECK(utxos && tal_count(utxos) == 1);
+
+	/* Check that reserved_til is set */
+	CHECK(*utxos[0]->reserved_til == expires_at);
+
+	/* Expire the lease! */
+	ld->topology->tip->height = expires_at;
+
+	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(1), 0, 21,
+				    0 /* no confirmations required */,
+				    &fee_estimate, &change_satoshis);
+	CHECK_MSG(utxos && tal_count(utxos) == 1, "utxo count is incorrect");
+
+	/* Check freeing them resets them to available */
+	tal_free(utxos);
+
+	/* There should be no reserved utxos */
+	utxos = (const struct utxo **)wallet_get_utxos(w, w, output_state_reserved);
+	CHECK(tal_count(utxos) == 0);
+
+	/* check that we can mark as spent */
+	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(1), 0, 21,
+				    0 /* no confirmations required */,
+				    &fee_estimate, &change_satoshis);
+	CHECK_MSG(utxos && tal_count(utxos) == 1, "utxo count is incorrect");
+	wallet_confirm_utxos(w, utxos);
+
+	tal_free(utxos);
+
 	/* Attempt to save an UTXO with close_info set, no commitment_point */
 	memset(&u.txid, 2, sizeof(u.txid));
 	u.amount = AMOUNT_SAT(5);
@@ -980,9 +1039,9 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(5), 0, 21,
 				    0 /* no confirmations required */,
 				    &fee_estimate, &change_satoshis);
-	CHECK(utxos && tal_count(utxos) == 2);
+	CHECK(utxos && tal_count(utxos) == 1);
 
-	u = *utxos[1];
+	u = *utxos[0];
 	CHECK(u.close_info->channel_id == 42 &&
 	      u.close_info->commitment_point == NULL &&
 	      node_id_eq(&u.close_info->peer_id, &id));
@@ -1481,6 +1540,9 @@ int main(int argc, const char *argv[])
 
 	/* Only elements in ld we should access */
 	list_head_init(&ld->peers);
+	ld->topology = tal(ld, struct chain_topology);
+	ld->topology->tip = tal(ld, struct block);
+
 	node_id_from_hexstr("02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66, &ld->id);
 	/* Accessed in peer destructor sanity check */
 	htlc_in_map_init(&ld->htlcs_in);
