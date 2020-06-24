@@ -1163,8 +1163,8 @@ def test_funding_close_upfront(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
 def test_funding_external_wallet(node_factory, bitcoind):
-    l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
+    l1 = node_factory.get_node(options={'funding-confirms': 2})
+    l2 = node_factory.get_node(options={'funding-confirms': 2})
     l3 = node_factory.get_node()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -1198,19 +1198,22 @@ def test_funding_external_wallet(node_factory, bitcoind):
 
     assert l1.rpc.fundchannel_complete(l2.info['id'], txid, txout)['commitments_secured']
 
-    # Broadcast the transaction manually and confirm that channel locks in
+    # Broadcast the transaction manually
     signed_tx = bitcoind.rpc.signrawtransactionwithwallet(raw_funded_tx)['hex']
     assert txid == bitcoind.rpc.decoderawtransaction(signed_tx)['txid']
 
     bitcoind.rpc.sendrawtransaction(signed_tx)
     bitcoind.generate_block(1)
 
-    l1.daemon.wait_for_log(r'Funding tx {} depth 1 of 1'.format(txid))
+    l1.daemon.wait_for_log(r'Funding tx {} depth 1 of 2'.format(txid))
 
     # Check that tx is broadcast by a third party can be catched.
     # Only when the transaction (broadcast by a third pary) is onchain, we can catch it.
     with pytest.raises(RpcError, match=r'.* been broadcast.*'):
         l1.rpc.fundchannel_cancel(l2.info['id'])
+
+    # Confirm that channel locks in
+    bitcoind.generate_block(1)
 
     for node in [l1, l2]:
         node.daemon.wait_for_log(r'State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')

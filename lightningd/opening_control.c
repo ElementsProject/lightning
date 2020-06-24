@@ -308,29 +308,7 @@ static void
 cancel_after_fundchannel_complete_success(struct command *cmd,
 					  struct channel *channel)
 {
-	struct peer *peer;
-	struct channel_id cid;
-	/* Fake these to adapt to the existing
-	 * cancel_channel_before_broadcast
-	 * interface.
-	 */
-	const char *buffer;
-	jsmntok_t cidtok;
-
-	peer = channel->peer;
-	derive_channel_id(&cid,
-			  &channel->funding_txid, channel->funding_outnum);
-
-	buffer = type_to_string(tmpctx, struct channel_id, &cid);
-	cidtok.type = JSMN_STRING;
-	cidtok.start = 0;
-	cidtok.end = strlen(buffer);
-	cidtok.size = 0;
-
-	was_pending(cancel_channel_before_broadcast(cmd,
-						    buffer,
-						    peer,
-						    &cidtok));
+	was_pending(cancel_channel_before_broadcast(cmd, channel->peer));
 }
 
 static void funding_success(struct channel *channel)
@@ -1150,12 +1128,10 @@ static struct command_result *json_fund_channel_cancel(struct command *cmd,
 
 	struct node_id *id;
 	struct peer *peer;
-	const jsmntok_t *cidtok;
 	u8 *msg;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &id),
-		   p_opt("channel_id", param_tok, &cidtok),
 		   NULL))
 		return command_param_failed();
 
@@ -1166,7 +1142,8 @@ static struct command_result *json_fund_channel_cancel(struct command *cmd,
 
 	if (peer->uncommitted_channel) {
 		if (!peer->uncommitted_channel->fc || !peer->uncommitted_channel->fc->inflight)
-			return command_fail(cmd, LIGHTNINGD, "No channel funding in progress.");
+			return command_fail(cmd, FUNDING_NOTHING_TO_CANCEL,
+					    "No channel funding in progress.");
 
 		/* Make sure this gets notified if we succeed or cancel */
 		tal_arr_expand(&peer->uncommitted_channel->fc->cancels, cmd);
@@ -1175,7 +1152,8 @@ static struct command_result *json_fund_channel_cancel(struct command *cmd,
 		return command_still_pending(cmd);
 	}
 
-	return cancel_channel_before_broadcast(cmd, buffer, peer, cidtok);
+	/* Handle `fundchannel_cancel` after `fundchannel_complete`.  */
+	return cancel_channel_before_broadcast(cmd, peer);
 }
 
 /**
