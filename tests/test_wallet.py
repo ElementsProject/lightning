@@ -437,6 +437,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert decode['vout'][changenum]['scriptPubKey']['type'] == 'witness_v0_keyhash'
 
 
+@pytest.mark.xfail
 def test_reserveinputs(node_factory, bitcoind, chainparams):
     """
     Reserve inputs is basically the same as txprepare, with the
@@ -557,9 +558,17 @@ def test_reserveinputs(node_factory, bitcoind, chainparams):
     assert len([x for x in outputs if not x['reserved']]) == 0
     assert len([x for x in outputs if x['reserved']]) == 12
 
-    # FIXME: restart the node, nothing will remain reserved
+    # restart the node, things remain reserved
     l1.restart()
-    assert len(l1.rpc.listfunds()['outputs']) == 12
+    outputs = l1.rpc.listfunds()['outputs']
+    assert len([x for x in outputs if x['reserved']]) == 12
+
+    # move the blockchain forward 24 blocks (default reserved value)
+    bitcoind.generate_block(24)
+    l1.restart()
+    # everything should be back to unreserved now
+    outputs = l1.rpc.listfunds()['outputs']
+    assert len([x for x in outputs if not x['reserved']]) == 12
 
 
 def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
