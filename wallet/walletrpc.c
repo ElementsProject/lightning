@@ -881,8 +881,12 @@ static struct command_result *json_outputs(struct command *cmd,
 		} else
 			json_add_string(response, "status", "unconfirmed");
 
-		json_add_bool(response, "reserved",
-			      utxos[i]->status == output_state_reserved);
+		bool reserved = utxos[i]->status == output_state_reserved;
+		if (reserved && utxos[i]->reserved_til) {
+			reserved =
+			    *utxos[i]->reserved_til > get_block_height(cmd->ld->topology);
+		}
+		json_add_bool(response, "reserved", reserved);
 		json_object_end(response);
 	}
 
