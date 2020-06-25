@@ -1,0 +1,62 @@
+.TH "LIGHTNING-DEV-SENDCUSTOMMSG" "7" "" "" "lightning-dev-sendcustommsg"
+.SH NAME
+lightning-dev-sendcustommsg - Low-level interface to send protocol messages to peers
+.SH SYNOPSIS
+
+\fBdev-sendcustommsg\fR \fInode_id\fR \fImsg\fR
+
+.SH DESCRIPTION
+
+The \fBdev-sendcustommsg\fR RPC method allows the user to inject a custom message
+into the communication with the peer with the given \fBnode_id\fR\. This is
+intended as a low-level interface to implement custom protocol extensions on
+top, not for direct use by end-users\.
+
+
+The message must be a hex encoded well-formed message, including the 2-byte
+type prefix, but excluding the length prefix which will be added by the RPC
+method\. The messages must not use even-numbered types, since these may require
+synchronous handling on the receiving side, and can cause the connection to be
+dropped\. The message types may also not use one of the internally handled
+types, since that may cause issues with the internal state tracking of
+c-lightning\.
+
+
+The node specified by \fBnode_id\fR must be a peer, i\.e\., it must have a direct
+connection with the node receiving the RPC call, and the connection must be
+established\. For a method to send arbitrary messages over multiple hops,
+including hops that do not understand the custom message, see the
+\fBcreateonion\fR and \fBsendonion\fR RPC methods\. Messages can only be injected if
+the connection is handled by \fBopeningd\fR or \fBchanneld\fR\. Messages cannot be
+injected when the peer is handled by \fBonchaind\fR or \fBclosingd\fR since these do
+not have a connection, or are synchronous daemons that do not handle
+spontaneous messages\.
+
+
+On the reveiving end a plugin may implement the \fBcustommsg\fR plugin hook and
+get notified about incoming messages\.
+
+.SH RETURN VALUE
+
+The method will validate the arguments and queue the message for delivery
+through the daemon that is currently handling the connection\. Queuing provides
+best effort guarantees and the message may not be delivered if the connection
+is terminated while the message is queued\. The RPC method will return as soon
+as the message is queued\.
+
+
+If any of the above limitations is not respected the method returns an
+explicit error message stating the issue\.
+
+.SH AUTHOR
+
+Christian Decker \fI<decker.christian@gmail.com\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-createonion\fR(7), \fBlightning-sendonion\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

@@ -1,9 +1,6 @@
 .TH "LIGHTNING-WAITBLOCKHEIGHT" "7" "" "" "lightning-waitblockheight"
 .SH NAME
-lightning-waitblockheight -- Command for waiting for blocks on the blockchain
-
-lightning-waitblockheight -- Command for waiting for blocks on the blockchain
-
+lightning-waitblockheight - Command for waiting for blocks on the blockchain
 .SH SYNOPSIS
 
 \fBwaitblockheight\fR \fIblockheight\fR [\fItimeout\fR]
@@ -11,24 +8,26 @@ lightning-waitblockheight -- Command for waiting for blocks on the blockchain
 .SH DESCRIPTION
 
 The \fBwaitblockheight\fR RPC command waits until the blockchain
-has reached the specified \fIblockheight\fR.
-It will only wait up to \fItimeout\fR seconds (default 60).
+has reached the specified \fIblockheight\fR\.
+It will only wait up to \fItimeout\fR seconds (default 60)\.
+
 
 If the \fIblockheight\fR is a present or past block height, then this
-command returns immediately.
+command returns immediately\.
 
 .SH RETURN VALUE
 
 Once the specified block height has been achieved by the blockchain,
 an object with the single field \fIblockheight\fR is returned, which is
-the block height at the time the command returns.
+the block height at the time the command returns\.
+
 
 If \fItimeout\fR seconds is reached without the specified blockheight
-being reached, this command will fail.
+being reached, this command will fail\.
 
 .SH AUTHOR
 
-ZmnSCPxj <\fIZmnSCPxj@protonmail.com\fR> is mainly responsible.
+ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 
 .SH RESOURCES
 
