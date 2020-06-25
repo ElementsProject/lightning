@@ -445,12 +445,41 @@ fail:
 	return tal_free(result);
 }
 
+static void channel_hints_update(struct payment *root,
+				 struct short_channel_id *scid, int direction,
+				 bool enabled,
+				 struct amount_msat estimated_capacity)
+{
+	struct channel_hint hint;
+	/* Try and look for an existing hint: */
+	for (size_t i=0; i<tal_count(root->channel_hints); i++) {
+		struct channel_hint *hint = &root->channel_hints[i];
+		if (short_channel_id_eq(&hint->scid.scid, scid) &&
+		    hint->scid.dir == direction) {
+			/* Prefer to disable a channel. */
+			hint->enabled = hint->enabled & enabled;
+
+			/* Prefer the more conservative estimate. */
+			if (amount_msat_greater(hint->estimated_capacity,
+						estimated_capacity))
+				hint->estimated_capacity = estimated_capacity;
+			return;
+		}
+	}
+
+	/* No hint found, create one. */
+	hint.enabled = enabled;
+	hint.scid.scid = *scid;
+	hint.scid.dir = direction;
+	hint.estimated_capacity = estimated_capacity;
+	tal_arr_expand(&root->channel_hints, hint);
+}
+
 static struct command_result *
 payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 			     const jsmntok_t *toks, struct payment *p)
 {
 	struct payment *root;
-	struct channel_hint hint;
 	struct route_hop *hop;
 	assert(p->route != NULL);
 
@@ -477,22 +506,18 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 		/* All of these result in the channel being marked as disabled. */
 		assert(*p->result->erring_index < tal_count(p->route));
 		hop = &p->route[*p->result->erring_index];
-		hint.enabled = false;
-		hint.scid.scid = hop->channel_id;
-		hint.scid.dir = hop->direction;
-		hint.estimated_capacity = AMOUNT_MSAT(0);
-		tal_arr_expand(&root->channel_hints, hint);
+		channel_hints_update(root, &hop->channel_id, hop->direction,
+				     false, AMOUNT_MSAT(0));
 		break;
 	case WIRE_TEMPORARY_CHANNEL_FAILURE:
 		/* These are an indication that the capacity was insufficient,
 		 * remember the amount we tried as an estimate. */
 		assert(*p->result->erring_index < tal_count(p->route));
 		hop = &p->route[*p->result->erring_index];
-		hint.enabled = true;
-		hint.scid.scid = hop->channel_id;
-		hint.scid.dir = hop->direction;
-		hint.estimated_capacity.millisatoshis = hop->amount.millisatoshis * 0.75; /* Raw: Multiplication */
-		tal_arr_expand(&root->channel_hints, hint);
+		struct amount_msat est = {
+			.millisatoshis = hop->amount.millisatoshis * 0.75}; /* Raw: Multiplication */
+		channel_hints_update(root, &hop->channel_id, hop->direction,
+				     true, est);
 		break;
 
 	case WIRE_INVALID_ONION_PAYLOAD:
