@@ -91,11 +91,6 @@ struct command_result *param_utxos(struct command *cmd,
 	tal_free(txids);
 	tal_free(outnums);
 
-	if (!*utxos)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-							"Could not decode all of the outpoints. The utxos"
-							" should be specified as an array of "
-							" 'txid:output_index'.");
 	if (tal_count(*utxos) == 0)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 							"No matching utxo was found from the wallet. "

@@ -565,7 +565,7 @@ void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		if (!wallet_update_output_status(
 			w, &utxos[i]->txid, utxos[i]->outnum,
-			output_state_reserved, output_state_spent)) {
+			output_state_any, output_state_spent)) {
 			fatal("Unable to mark output as spent");
 		}
 	}
@@ -718,25 +718,52 @@ const struct utxo **wallet_select_specific(const tal_t *ctx, struct wallet *w,
 	const struct utxo **utxos = tal_arr(ctx, const struct utxo*, 0);
 	tal_add_destructor2(utxos, destroy_utxos, w);
 
-	available = wallet_get_utxos(ctx, w, output_state_available);
+	available = wallet_get_utxos(ctx, w, output_state_any);
 	for (i = 0; i < tal_count(txids); i++) {
 		for (j = 0; j < tal_count(available); j++) {
 
 			if (bitcoin_txid_eq(&available[j]->txid, txids[i])
 					&& available[j]->outnum == *outnums[i]) {
+				switch (available[j]->status) {
+				case output_state_available:
+					if (!wallet_update_output_status(
+						w, &available[j]->txid, available[j]->outnum,
+						output_state_available, output_state_reserved))
+						fatal("Unable to reserve output");
+					break;
+				case output_state_reserved:
+					if (!utxo_reservation_expired(w->ld, available[j]))
+						log_info(w->log, "Selecting reserved utxo %s:%u",
+							 type_to_string(tmpctx, struct bitcoin_txid, &available[j]->txid),
+							 available[j]->outnum);
+					break;
+				case output_state_spent:
+					/* We'll let you attempt to re-spend utxos that we've already
+					 * 'sent' now, since this is the only way to do it for RBF's*/
+					if (available[j]->spendheight) {
+						log_info(w->log, "Attempting to spend an already spent UTXO %s:%u"
+								 " (spent in block %u)",
+							 type_to_string(tmpctx, struct bitcoin_txid, &available[j]->txid),
+							 available[j]->outnum,
+							 *available[j]->spendheight);
+						goto fail;
+					}
+					break;
+				default:
+					fatal("Unable to reserve output");
+				}
+
 				struct utxo *u = tal_steal(utxos, available[j]);
 				tal_arr_expand(&utxos, u);
-
-				if (!wallet_update_output_status(
-					w, &available[j]->txid, available[j]->outnum,
-					output_state_available, output_state_reserved))
-					fatal("Unable to reserve output");
 			}
 		}
 	}
 	tal_free(available);
 
 	return utxos;
+fail:
+	tal_free(available);
+	return tal_free(utxos);
 }
 
 const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,

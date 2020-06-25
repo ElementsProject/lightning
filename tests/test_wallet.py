@@ -586,6 +586,59 @@ def test_reserveinputs(node_factory, bitcoind, chainparams):
     assert len([x for x in outputs if x['reserved']]) == 12
 
 
+def test_reserve_rbf(node_factory, bitcoind, chainparams):
+    """
+    We now default everything to RBF. I'm not really sure how to test this
+    """
+    amount = 1000000
+    total_outs = 12
+    coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+    l1 = node_factory.get_node(options={'plugin': coin_mvt_plugin},
+                               feerates=(7500, 7500, 7500, 7500))
+    l2 = node_factory.get_node()
+    addr = chainparams['example_addr']
+
+    # Add a medley of funds to withdraw later, bech32 + p2sh-p2wpkh
+    for i in range(total_outs // 2):
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'],
+                                   amount / 10**8)
+        bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2sh-segwit')['p2sh-segwit'],
+                                   amount / 10**8)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == total_outs)
+
+    # Make a PSBT out of our inputs
+    reserved = l1.rpc.reserveinputs(outputs=[{addr: Millisatoshi(3 * amount * 1000)}])
+    assert len([x for x in l1.rpc.listfunds()['outputs'] if x['reserved']]) == 4
+
+    signed_psbt = l1.rpc.signpsbt(reserved['psbt'])['signed_psbt']
+    broadcast_tx = l1.rpc.sendpsbt(signed_psbt)
+    assert bitcoind.rpc.getmempoolinfo()['size'] == 1
+
+    # Try to do it again?
+    psbt = bitcoind.rpc.decodepsbt(reserved['psbt'])
+    utxos = []
+    unreserve_utxos = []
+    for vin in psbt['tx']['vin']:
+        utxos.append(vin['txid'] + ":" + str(vin['vout']))
+        unreserve_utxos.append({'txid': vin['txid'], 'vout': vin['vout'], 'sequence': vin['sequence']})
+    unreserve_psbt = bitcoind.rpc.createpsbt(unreserve_utxos, [])
+    unres = l1.rpc.unreserveinputs(unreserve_psbt)
+
+    # let's not set the fee high enough, should explode
+    reserved = l1.rpc.reserveinputs([{addr: Millisatoshi(amount * 0.5 * 1000)}], feerate='7000perkw', utxos=utxos)
+    signed_psbt = l1.rpc.signpsbt(reserved['psbt'])['signed_psbt']
+    with pytest.raises(RpcError, match=r'insufficient fee, rejecting replacement'):
+        l1.rpc.sendpsbt(signed_psbt)
+
+    # now let's do it for reals
+    unres = l1.rpc.unreserveinputs(unreserve_psbt)
+    reserved = l1.rpc.reserveinputs([{addr: Millisatoshi(amount * 0.5 * 1000)}], feerate='10000perkw', utxos=utxos)
+    signed_psbt = l1.rpc.signpsbt(reserved['psbt'])['signed_psbt']
+    l1.rpc.sendpsbt(signed_psbt)
+    assert bitcoind.rpc.getmempoolinfo()['size'] == 1
+
+
 def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     """
     Tests for the sign + send psbt RPCs
