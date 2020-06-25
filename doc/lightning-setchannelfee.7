@@ -43,12 +43,14 @@ array \fIchannels\fR which contains objects with fields \fIpeer_id\fR,
 
 The following error codes may occur:
 
+.RS
 .IP \[bu]
 -1: Channel is in incorrect state, i\.e\. Catchall nonspecific error\.
 .IP \[bu]
 -32602: JSONRPC2_INVALID_PARAMS, i\.e\. Given id is not a channel ID
 or short channel ID\.
 
+.RE
 .SH AUTHOR
 
 Michael Schmoock \fI<michael@schmoock.net\fR> is the author of this
@@ -63,8 +65,4 @@ responsible for the c-lightning project\.
 .SH RESOURCES
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
-
-.HL
-
-Last updated 2019-04-30 17:34:18 CEST
 
