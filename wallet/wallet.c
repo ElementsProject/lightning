@@ -1535,22 +1535,47 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	tal_free(stmt);
 }
 
+static void wallet_peer_save(struct wallet *w, struct peer *peer)
+{
+	const char *addr =
+	    type_to_string(tmpctx, struct wireaddr_internal, &peer->addr);
+	struct db_stmt *stmt =
+	    db_prepare_v2(w->db, SQL("SELECT id FROM peers WHERE node_id = ?"));
+
+	db_bind_node_id(stmt, 0, &peer->id);
+	db_query_prepared(stmt);
+
+	if (db_step(stmt)) {
+		/* So we already knew this peer, just return its dbid */
+		peer->dbid = db_column_u64(stmt, 0);
+		tal_free(stmt);
+
+		/* Since we're at it update the wireaddr */
+		stmt = db_prepare_v2(
+		    w->db, SQL("UPDATE peers SET address = ? WHERE id = ?"));
+		db_bind_text(stmt, 0, addr);
+		db_bind_u64(stmt, 1, peer->dbid);
+		db_exec_prepared_v2(take(stmt));
+
+	} else {
+		/* Unknown peer, create it from scratch */
+		tal_free(stmt);
+		stmt = db_prepare_v2(w->db,
+				     SQL("INSERT INTO peers (node_id, address) VALUES (?, ?);")
+			);
+		db_bind_node_id(stmt, 0, &peer->id);
+		db_bind_text(stmt, 1,addr);
+		db_exec_prepared_v2(stmt);
+		peer->dbid = db_last_insert_id_v2(take(stmt));
+	}
+}
+
 void wallet_channel_insert(struct wallet *w, struct channel *chan)
 {
 	struct db_stmt *stmt;
 
-	if (chan->peer->dbid == 0) {
-		/* Need to create the peer first */
-		stmt = db_prepare_v2(w->db,
-				     SQL("INSERT INTO peers (node_id, address) VALUES (?, ?);")
-			);
-		db_bind_node_id(stmt, 0, &chan->peer->id);
-		db_bind_text(stmt, 1,
-			     type_to_string(tmpctx, struct wireaddr_internal,
-					    &chan->peer->addr));
-		db_exec_prepared_v2(stmt);
-		chan->peer->dbid = db_last_insert_id_v2(take(stmt));
-	}
+	if (chan->peer->dbid == 0)
+		wallet_peer_save(w, chan->peer);
 
 	/* Insert a stub, that we update, unifies INSERT and UPDATE paths */
 	stmt = db_prepare_v2(
