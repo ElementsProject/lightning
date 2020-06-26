@@ -67,7 +67,7 @@ class Request(dict):
         if self.state != RequestState.PENDING:
             raise ValueError(
                 "Cannot set the result of a request that is not pending, "
-                "current state is {state}".format(self.state))
+                "current state is {state}".format(state=self.state))
         self.result = result
         self._write_result({
             'jsonrpc': '2.0',
@@ -79,7 +79,7 @@ class Request(dict):
         if self.state != RequestState.PENDING:
             raise ValueError(
                 "Cannot set the exception of a request that is not pending, "
-                "current state is {state}".format(self.state))
+                "current state is {state}".format(state=self.state))
         self.exc = exc
         self._write_result({
             'jsonrpc': '2.0',
@@ -338,7 +338,7 @@ class Plugin(object):
         """
         if name in self.methods:
             raise ValueError(
-                "Method {} was already registered".format(name, self.methods[name])
+                "Method {name} was already registered".format(name=name)
             )
 
         # Make sure the hook callback has a **kwargs argument so that it
