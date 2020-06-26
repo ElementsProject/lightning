@@ -195,8 +195,9 @@ u8 *get_agreed_channelfeatures(const tal_t *ctx,
 		max_len = (i / 8) + 1;
 	}
 
-	/* Trim to length */
-	tal_resize(&f, max_len);
+	/* Trim to length (unless it's already NULL). */
+	if (f)
+		tal_resize(&f, max_len);
 	return f;
 }
 

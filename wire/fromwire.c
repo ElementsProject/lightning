@@ -211,6 +211,9 @@ u8 *fromwire_tal_arrn(const tal_t *ctx,
 		      const u8 **cursor, size_t *max, size_t num)
 {
 	u8 *arr;
+	if (num == 0)
+		return NULL;
+
 	if (num > *max)
 		return fromwire_fail(cursor, max);
 
