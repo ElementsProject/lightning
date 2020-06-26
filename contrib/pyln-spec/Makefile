@@ -66,7 +66,7 @@ test-release-bolt%: $(ARTEFACTS)
 
 test-release: check $(foreach b,$(BOLTS),test-release-bolt$b)
 
-prod-release: test $(ARTEFACTS)
+prod-release: test-release $(ARTEFACTS)
 	python3 -m twine upload $(ARTEFACTS)
 
 refresh: $(CODE_DIRS:%=%/gen_csv_version.py) $(CODE_DIRS:%=%/gen_version.py)

@@ -39,7 +39,7 @@ test-release: check $(ARTEFACTS)
 	testpypi/bin/pytest tests
 	rm -rf testpypi
 
-prod-release: test $(ARTEFACTS)
+prod-release: test-release $(ARTEFACTS)
 	python3 -m twine upload $(ARTEFACTS)
 
 clean:
