@@ -1,3 +1,4 @@
+import coincurve
 import struct
 
 
@@ -66,5 +67,79 @@ class ShortChannelId(object):
     def __str__(self):
         return "{self.block}x{self.txnum}x{self.outnum}".format(self=self)
 
-    def __eq__(self, other):
-        return self.block == other.block and self.txnum == other.txnum and self.outnum == other.outnum
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, ShortChannelId):
+            return False
+
+        return (
+            self.block == other.block
+            and self.txnum == other.txnum
+            and self.outnum == other.outnum
+        )
+
+
+class Secret(object):
+    def __init__(self, data: bytes) -> None:
+        assert(len(data) == 32)
+        self.data = data
+
+    def to_bytes(self) -> bytes:
+        return self.data
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, Secret) and self.data == other.data
+
+    def __str__(self):
+        return "Secret[0x{}]".format(self.data.hex())
+
+
+class PrivateKey(object):
+    def __init__(self, rawkey) -> None:
+        if not isinstance(rawkey, bytes):
+            raise TypeError(f"rawkey must be bytes, {type(rawkey)} received")
+        elif len(rawkey) != 32:
+            raise ValueError(f"rawkey must be 32-byte long. {len(rawkey)} received")
+
+        self.rawkey = rawkey
+        self.key = coincurve.PrivateKey(rawkey)
+
+    def serializeCompressed(self):
+        return self.key.secret
+
+    def public_key(self):
+        return PublicKey(self.key.public_key)
+
+
+class PublicKey(object):
+    def __init__(self, innerkey):
+        # We accept either 33-bytes raw keys, or an EC PublicKey as returned
+        # by coincurve
+        if isinstance(innerkey, bytes):
+            if innerkey[0] in [2, 3] and len(innerkey) == 33:
+                innerkey = coincurve.PublicKey(innerkey)
+            else:
+                raise ValueError(
+                    "Byte keys must be 33-byte long starting from either 02 or 03"
+                )
+
+        elif not isinstance(innerkey, coincurve.keys.PublicKey):
+            raise ValueError(
+                "Key must either be bytes or coincurve.keys.PublicKey"
+            )
+        self.key = innerkey
+
+    def serializeCompressed(self):
+        return self.key.format(compressed=True)
+
+    def to_bytes(self) -> bytes:
+        return self.serializeCompressed()
+
+    def __str__(self):
+        return "PublicKey[0x{}]".format(
+            self.serializeCompressed().hex()
+        )
+
+
+def Keypair(object):
+    def __init__(self, priv, pub):
+        self.priv, self.pub = priv, pub
