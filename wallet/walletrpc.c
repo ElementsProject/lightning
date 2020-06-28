@@ -181,7 +181,7 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 	const u8 *destination = NULL;
 	size_t out_len, i;
 	const struct utxo **chosen_utxos = NULL;
-	u32 locktime = 0;
+	u32 locktime;
 
 	*utx = tal(cmd, struct unreleased_tx);
 	(*utx)->wtx = tal(*utx, struct wallet_tx);
@@ -318,21 +318,22 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 			   p_opt_def("minconf", param_number, &minconf, 1),
 			   p_opt("utxos", param_utxos, &chosen_utxos),
 			   NULL))
-		return command_param_failed();
-		/* Setting the locktime to the next block to be mined has multiple
-		 * benefits:
-		 * - anti fee-snipping (even if not yet likely)
-		 * - less distinguishable transactions (with this we create
-		 *   general-purpose transactions which looks like bitcoind:
-		 *   native segwit, nlocktime set to tip, and sequence set to
-		 *   0xFFFFFFFE by default. Other wallets are likely to implement
-		 *   this too).
-		 */
-		locktime = cmd->ld->topology->tip->height;
-		/* Eventually fuzz it too. */
-		if (pseudorand(10) == 0)
-			locktime -= (u32)pseudorand(100);
+			return command_param_failed();
 	}
+
+	/* Setting the locktime to the next block to be mined has multiple
+	 * benefits:
+	 * - anti fee-snipping (even if not yet likely)
+	 * - less distinguishable transactions (with this we create
+	 *   general-purpose transactions which looks like bitcoind:
+	 *   native segwit, nlocktime set to tip, and sequence set to
+	 *   0xFFFFFFFE by default. Other wallets are likely to implement
+	 *   this too).
+	 */
+	locktime = cmd->ld->topology->tip->height;
+	/* Eventually fuzz it too. */
+	if (pseudorand(10) == 0)
+		locktime -= (u32)pseudorand(100);
 
 	if (!feerate_per_kw) {
 		/* We mainly use `txprepare` for opening transactions, and FEERATE_OPENING
@@ -455,6 +456,9 @@ create_tx:
 				 (*utx)->wtx->utxos,
 				 (*utx)->outputs,
 				 cmd->ld->wallet->bip32_base,
+				 /* FIXME: Should probably be
+				  * struct abs_locktime.
+				  */
 				 locktime);
 
 	bitcoin_txid((*utx)->tx, &(*utx)->txid);
