@@ -721,13 +721,24 @@ def test_fundchannel_listtransaction(node_factory, bitcoind):
 
 def test_withdraw_nlocktime(node_factory):
     """
-    Test that we don't set the nLockTime to 0 for withdrawal transactions.
+    Test that we don't set the nLockTime to 0 for withdrawal and
+    txprepare transactions.
     """
     l1 = node_factory.get_node(1)
     l1.fundwallet(10**4)
+    l1.fundwallet(10**4)
 
+    # withdraw
     addr = l1.rpc.newaddr()["bech32"]
     tx = l1.rpc.withdraw(addr, 10**3)["tx"]
+    nlocktime = node_factory.bitcoind.rpc.decoderawtransaction(tx)["locktime"]
+    tip = node_factory.bitcoind.rpc.getblockcount()
+
+    assert nlocktime > 0 and nlocktime <= tip
+
+    # txprepare
+    txid = l1.rpc.txprepare([{addr: 10**3}])["txid"]
+    tx = l1.rpc.txsend(txid)["tx"]
     nlocktime = node_factory.bitcoind.rpc.decoderawtransaction(tx)["locktime"]
     tip = node_factory.bitcoind.rpc.getblockcount()
 
