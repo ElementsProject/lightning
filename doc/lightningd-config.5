@@ -255,6 +255,9 @@ automatically by \fBlightningd\fR\.
 If set, you will be prompted to enter a password used to encrypt the \fBhsm_secret\fR\.
 Note that once you encrypt the \fBhsm_secret\fR this option will be mandatory for
 \fBlightningd\fR to start\.
+If there is no \fBhsm_secret\fR yet, \fBlightningd\fR will create a new encrypted secret\.
+If you have an unencrypted \fBhsm_secret\fR you want to encrypt on-disk, or vice versa,
+see \fBlightning-hsmtool\fR(8)\.
 
 .SH Lightning node customization options
 
@@ -548,6 +551,7 @@ actually implementing these options\.
 .SH SEE ALSO
 
 \fBlightning-listconfigs\fR(7) \fBlightning-setchannelfee\fR(7) \fBlightningd\fR(8)
+\fBlightning-hsmtool\fR(8)
 
 .SH RESOURCES
 

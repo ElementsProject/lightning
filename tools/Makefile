@@ -16,11 +16,14 @@ tools/check-bolt: tools/check-bolt.o $(CCAN_OBJS) $(TOOLS_COMMON_OBJS)
 
 tools/hsmtool: tools/hsmtool.o $(CCAN_OBJS) $(TOOLS_COMMON_OBJS) $(BITCOIN_OBJS) common/amount.o common/bech32.o common/bigsize.o common/derive_basepoints.o common/node_id.o common/type_to_string.o wire/fromwire.o wire/towire.o
 
+tools/lightning-hsmtool: tools/hsmtool
+	cp $< $@
+
 clean: tools-clean
 
 tools-clean:
 	$(RM) tools/check-bolt tools/*.o
 	$(RM) tools/headerversions
-	$(RM) $(TOOLS_OBJ) $(TOOLS)
+	$(RM) $(TOOLS_OBJ) $(TOOLS) tools/lightning-hsmtool
 
 include tools/test/Makefile

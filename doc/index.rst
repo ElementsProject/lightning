@@ -46,6 +46,7 @@ c-lightning Documentation
    lightning-fundchannel_start <lightning-fundchannel_start.7.md>
    lightning-getroute <lightning-getroute.7.md>
    lightning-getsharedsecret <lightning-getsharedsecret.7.md>
+   lightning-hsmtool <lightning-hsmtool.8.md>
    lightning-invoice <lightning-invoice.7.md>
    lightning-listchannels <lightning-listchannels.7.md>
    lightning-listforwards <lightning-listforwards.7.md>

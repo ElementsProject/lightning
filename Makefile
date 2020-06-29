@@ -523,7 +523,8 @@ installdirs:
 # the individual Makefiles, however.
 BIN_PROGRAMS = \
 	       cli/lightning-cli \
-	       lightningd/lightningd
+	       lightningd/lightningd \
+	       tools/lightning-hsmtool
 PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_channeld \
 	       lightningd/lightning_closingd \
