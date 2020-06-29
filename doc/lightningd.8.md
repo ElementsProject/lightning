@@ -171,7 +171,8 @@ SEE ALSO
 
 lightning-listconfigs(7), lightning-config(5), lightning-cli(1),
 lightning-newaddr(7), lightning-listfunds(7), lightning-connect(7),
-lightning-fundchannel(7), lightning-listpeers(7), lightning-pay(7)
+lightning-fundchannel(7), lightning-listpeers(7), lightning-pay(7),
+lightning-hsmtool(8)
 
 RESOURCES
 ---------

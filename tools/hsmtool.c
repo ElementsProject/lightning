@@ -23,9 +23,9 @@
 #define ERROR_LIBWALLY 4
 #define ERROR_KEYDERIV 5
 
-static void show_usage(void)
+static void show_usage(const char *progname)
 {
-	printf("./hsmtool <method> [arguments]\n");
+	printf("%s <method> [arguments]\n", progname);
 	printf("methods:\n");
 	printf("	- decrypt <path/to/hsm_secret> <password>\n");
 	printf("	- encrypt <path/to/hsm_secret> <password>\n");
@@ -377,24 +377,24 @@ int main(int argc, char *argv[])
 
 	method = argc > 1 ? argv[1] : NULL;
 	if (!method)
-		show_usage();
+		show_usage(argv[0]);
 
 	if (streq(method, "decrypt")) {
 		if (argc < 4)
-			show_usage();
+			show_usage(argv[0]);
 		return decrypt_hsm(argv[2], argv[3]);
 	}
 
 	if (streq(method, "encrypt")) {
 		if (argc < 4)
-			show_usage();
+			show_usage(argv[0]);
 		return encrypt_hsm(argv[2], argv[3]);
 	}
 
 	if (streq(method, "dumpcommitments")) {
 		/*   node_id    channel_id   depth    hsm_secret  ?password? */
 		if (argc < 7)
-			show_usage();
+			show_usage(argv[0]);
 		struct node_id node_id;
 		if (!node_id_from_hexstr(argv[2], strlen(argv[2]), &node_id))
 			err(ERROR_USAGE, "Bad node id");
@@ -405,7 +405,7 @@ int main(int argc, char *argv[])
 	if (streq(method, "guesstoremote")) {
 		/*   address    node_id    depth    hsm_secret  ?password? */
 		if (argc < 7)
-			show_usage();
+			show_usage(argv[0]);
 		struct node_id node_id;
 		if (!node_id_from_hexstr(argv[3], strlen(argv[3]), &node_id))
 			errx(ERROR_USAGE, "Bad node id");
@@ -413,5 +413,5 @@ int main(int argc, char *argv[])
 		                       argv[5], argv[6]);
 	}
 
-	show_usage();
+	show_usage(argv[0]);
 }
