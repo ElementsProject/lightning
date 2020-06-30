@@ -3768,7 +3768,8 @@ void wallet_clean_utxos(struct wallet *w, struct bitcoind *bitcoind)
 
 	if (tal_count(utxos) != 0) {
 		bitcoind_getutxout(bitcoind, &utxos[0]->txid, utxos[0]->outnum,
-				   process_utxo_result, notleak(utxos));
+				   process_utxo_result,
+				   notleak_with_children(utxos));
 	} else
 		tal_free(utxos);
 }
