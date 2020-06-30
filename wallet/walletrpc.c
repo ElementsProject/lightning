@@ -1105,7 +1105,7 @@ static void json_transaction_details(struct json_stream *response,
 			json_add_u32(response, "index", in->index);
 			json_add_u32(response, "sequence", in->sequence);
 #if EXPERIMENTAL_FEATURES
-			struct tx_annotation *ann = &tx->output_annotations[i];
+			struct tx_annotation *ann = &tx->input_annotations[i];
 			const char *txtype = txtype_to_string(ann->type);
 			if (txtype != NULL)
 				json_add_string(response, "type", txtype);
