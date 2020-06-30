@@ -801,9 +801,10 @@ def test_txprepare_restart(node_factory, bitcoind, chainparams):
     # It goes backwards in blockchain just in case there was a reorg.  Wait.
     wait_for(lambda: [o['status'] for o in l1.rpc.listfunds()['outputs']] == ['confirmed'] * 10)
 
-    # It should have logged this for each output.
-    for i in decode['vin']:
-        assert l1.daemon.is_in_log('wallet: reserved output {}/{} reset to available'.format(i['txid'], i['vout']))
+    # It should have logged this for each output (any order)
+    template = r'wallet: reserved output {}/{} reset to available'
+    lines = [template.format(i['txid'], i['vout']) for i in decode['vin']]
+    l1.daemon.wait_for_logs(lines)
 
     prep = l1.rpc.txprepare([{addr: 'all'}])
     decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
