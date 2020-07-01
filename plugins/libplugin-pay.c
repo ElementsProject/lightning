@@ -2047,3 +2047,105 @@ static void waitblockheight_cb(void *d, struct payment *p)
 }
 
 REGISTER_PAYMENT_MODIFIER(waitblockheight, void *, NULL, waitblockheight_cb);
+
+/*****************************************************************************
+ * presplit -- Early MPP splitter modifier.
+ *
+ * This splitter modifier is applied to the root payment, and splits the
+ * payment into parts that are more likely to succeed right away. The
+ * parameters are derived from probing the network for channel capacities, and
+ * may be adjusted in future.
+ */
+
+
+/*By probing the capacity from a well-connected vantage point in the network
+ * we found that the 80th percentile of capacities is >= 9765 sats.
+ *
+ * Rounding to 10e6 msats per part there is a ~80% chance that the payment
+ * will go through without requiring further splitting. The fuzzing is
+ * symmetric and uniformy distributed around this value, so this should not
+ * change the success rate much. For the remaining 20% of payments we might
+ * require a split to make the parts succeed, so we try only a limited number
+ * of times before we split adaptively.
+ *
+ * Notice that these numbers are based on a worst case assumption that
+ * payments from any node to any other node are equally likely, which isn't
+ * really the case, so this is likely a lower bound on the success rate.
+ *
+ * As the network evolves these numbers are also likely to change.
+ */
+#define MPP_TARGET_SIZE (10 * 1000 * 1000)
+#define MPP_TARGET_MSAT AMOUNT_MSAT(MPP_TARGET_SIZE)
+#define MPP_TARGET_FUZZ ( 1 * 1000 * 1000)
+
+static void presplit_cb(void *d, struct payment *p)
+{
+	struct payment *root = payment_root(p);
+	struct amount_msat amt = root->amount;
+
+	if (p->step == PAYMENT_STEP_ONION_PAYLOAD) {
+		/* We need to tell the last hop the total we're going to
+		 * send. Presplit disables amount fuzzing, so we should always
+		 * get the exact value through. */
+		size_t lastidx = tal_count(p->createonion_request->hops) - 1;
+		struct createonion_hop *hop = &p->createonion_request->hops[lastidx];
+		if (hop->style == ROUTE_HOP_TLV) {
+			struct tlv_field **fields = &hop->tlv_payload->fields;
+			tlvstream_set_tlv_payload_data(
+			    fields, root->payment_secret,
+			    root->amount.millisatoshis); /* Raw: onion payload */
+		}
+	} else if (p == root && p->step == PAYMENT_STEP_INITIALIZED) {
+		/* The presplitter only acts on the root and only in the first
+		 * step. */
+		/* We need to opt-in to the MPP sending facility no matter
+		 * what we do. That means setting all partids to a non-zero
+		 * value. */
+		root->partid++;
+
+		/* If we are already below the target size don't split it
+		 * either. */
+		if (amount_msat_greater(MPP_TARGET_MSAT, p->amount))
+			return payment_continue(p);
+
+		/* Ok, we know we should split, so split here and then skip this
+		 * payment and start the children instead. */
+
+		while (!amount_msat_eq(amt, AMOUNT_MSAT(0))) {
+			struct payment *c =
+			    payment_new(p, NULL, p, p->modifiers);
+
+			/* Pseudorandom number in the range [-1, 1]. */
+			double rand = pseudorand_double() * 2 - 1;
+			double multiplier;
+
+			c->amount.millisatoshis = rand * MPP_TARGET_FUZZ + MPP_TARGET_SIZE; /* Raw: Multiplication */
+
+			/* Clamp the value to the total amount, so the fuzzing
+			 * doesn't go above the total. */
+			if (amount_msat_greater(c->amount, amt))
+				c->amount = amt;
+
+			multiplier =
+			    (double)c->amount.millisatoshis / (double)p->amount.millisatoshis; /* Raw: msat division. */
+
+			if (!amount_msat_sub(&amt, amt, c->amount))
+				plugin_err(
+				    p->plugin,
+				    "Cannot subtract %s from %s in splitter",
+				    type_to_string(tmpctx, struct amount_msat,
+						   &c->amount),
+				    type_to_string(tmpctx, struct amount_msat,
+						   &amt));
+
+			/* Now adjust the constraints so we don't multiply them
+			 * when splitting. */
+			c->constraints.fee_budget.millisatoshis *= multiplier; /* Raw: Multiplication */
+			payment_start(c);
+		}
+		p->step = PAYMENT_STEP_SPLIT;
+	}
+	payment_continue(p);
+}
+
+REGISTER_PAYMENT_MODIFIER(presplit, void *, NULL, presplit_cb);
