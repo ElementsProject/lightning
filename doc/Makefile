@@ -27,6 +27,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-getsharedsecret.7 \
 	doc/lightning-hsmtool.8 \
 	doc/lightning-invoice.7 \
+	doc/lightning-keysend.7 \
 	doc/lightning-listchannels.7 \
 	doc/lightning-listforwards.7 \
 	doc/lightning-listfunds.7 \
