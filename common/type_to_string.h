@@ -37,6 +37,7 @@ union printable_types {
 	const struct fee_states *fee_states;
 	const char *charp_;
 	const struct wally_psbt *wally_psbt;
+	const struct wally_tx *wally_tx;
 };
 
 #define type_to_string(ctx, type, ptr)					\
