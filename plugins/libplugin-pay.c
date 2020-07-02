@@ -531,7 +531,7 @@ static struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 		msgtok = json_get_member(buffer, toks, "message");
 		rawmsgtok = json_get_member(buffer, datatok, "raw_message");
 		if (failcodetok == NULL || failcodetok->type != JSMN_PRIMITIVE ||
-		    failcodenametok == NULL || failcodenametok->type != JSMN_STRING ||
+		    (failcodenametok != NULL && failcodenametok->type != JSMN_STRING) ||
 		    (erridxtok != NULL && erridxtok->type != JSMN_PRIMITIVE) ||
 		    (errnodetok != NULL && errnodetok->type != JSMN_STRING) ||
 		    (errchantok != NULL && errchantok->type != JSMN_STRING) ||
@@ -545,7 +545,11 @@ static struct payment_result *tal_sendpay_result_from_json(const tal_t *ctx,
 		else
 			result->raw_message = NULL;
 
-		result->failcodename = json_strdup(result, buffer, failcodenametok);
+		if (failcodenametok != NULL)
+			result->failcodename = json_strdup(result, buffer, failcodenametok);
+		else
+			result->failcodename = NULL;
+
 		json_to_u32(buffer, failcodetok, &result->failcode);
 		result->message = json_strdup(result, buffer, msgtok);
 
