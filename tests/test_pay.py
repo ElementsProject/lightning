@@ -2759,10 +2759,14 @@ def test_partial_payment_restart(node_factory, bitcoind):
     l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=2)
 
 
-@unittest.skipIf(not DEVELOPER, "needs dev-fail")
+@unittest.skipIf(not DEVELOPER, "needs dev-disconnect")
 def test_partial_payment_htlc_loss(node_factory, bitcoind):
     """Test that we discard a set when the HTLC is lost"""
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    # We want l2 to fail once it has completed first htlc.
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{},
+                                               {'disconnect': ['=WIRE_UPDATE_ADD_HTLC', '+WIRE_REVOKE_AND_ACK']},
+                                               {}])
 
     inv = l3.rpc.invoice(1000, 'inv', 'inv')
     paysecret = l3.rpc.decodepay(inv['bolt11'])['payment_secret']
@@ -2770,8 +2774,8 @@ def test_partial_payment_htlc_loss(node_factory, bitcoind):
     route = l1.rpc.getroute(l3.info['id'], 500, 1)['route']
 
     l1.rpc.sendpay(route=route, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
-    wait_for(lambda: [f['status'] for f in l2.rpc.listforwards()['forwards']] == ['offered'])
 
+    wait_for(lambda: not only_one(l2.rpc.listpeers(l3.info['id'])['peers'])['connected'])
     l2.rpc.dev_fail(l3.info['id'])
 
     # Since HTLC is missing from commit (dust), it's closed as soon as l2 sees
