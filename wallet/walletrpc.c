@@ -99,8 +99,9 @@ static void wallet_withdrawal_broadcast(struct bitcoind *bitcoind UNUSED,
 		was_pending(command_success(cmd, response));
 	} else {
 		was_pending(command_fail(cmd, LIGHTNINGD,
-					 "Error broadcasting transaction: %s. Unsent tx discarded",
-					 output));
+					 "Error broadcasting transaction: %s. Unsent tx discarded %s",
+					 output,
+					 type_to_string(tmpctx, struct wally_tx, txb->wtx)));
 	}
 }
 
