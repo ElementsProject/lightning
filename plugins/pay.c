@@ -1269,7 +1269,7 @@ static struct pay_status *add_pay_status(struct pay_command *pc,
 	return ps;
 }
 
-#ifndef COMPAT_V090
+#ifndef COMPAT_090
 UNUSED
 #endif
 static struct command_result *json_pay(struct command *cmd,
@@ -1847,9 +1847,6 @@ struct payment_modifier *paymod_mods[] = {
 	NULL,
 };
 
-#if !DEVELOPER
-UNUSED
-#endif
 static struct command_result *json_paymod(struct command *cmd,
 					  const char *buf,
 					  const jsmntok_t *params)
@@ -1962,17 +1959,17 @@ static struct command_result *json_paymod(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-static const struct plugin_command commands[] = { {
-		"pay",
+static const struct plugin_command commands[] = {
+#ifdef COMPAT_v090
+	{
+		"legacypay",
 		"payment",
 		"Send payment specified by {bolt11} with {amount}",
 		"Try to send a payment, retrying {retry_for} seconds before giving up",
-#ifdef COMPAT_V090
 		json_pay
-#else
-		json_paymod
+	},
 #endif
-	}, {
+	{
 		"paystatus",
 		"payment",
 		"Detail status of attempts to pay {bolt11}, or all",
@@ -1985,15 +1982,13 @@ static const struct plugin_command commands[] = { {
 		"Covers old payments (failed and succeeded) and current ones.",
 		json_listpays
 	},
-#if DEVELOPER
 	{
-		"paymod",
+		"pay",
 		"payment",
 		"Send payment specified by {bolt11}",
-		"Experimental implementation of pay using modifiers",
+		"Attempt to pay the {bolt11} invoice.",
 		json_paymod
 	},
-#endif
 };
 
 int main(int argc, char *argv[])

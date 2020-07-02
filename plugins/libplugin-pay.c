@@ -1084,7 +1084,7 @@ static void payment_finished(struct payment *p)
 			return;
 		} else if (result.failure == NULL || result.failure->failcode < NODE) {
 			/* This is failing because we have no more routes to try */
-			ret = jsonrpc_stream_fail(cmd, PAY_ROUTE_NOT_FOUND,
+			ret = jsonrpc_stream_fail(cmd, PAY_STOPPED_RETRYING,
 						  NULL);
 			json_add_string(
 			    ret, "message",
