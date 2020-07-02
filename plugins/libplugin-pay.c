@@ -823,7 +823,7 @@ static void payment_add_hop_onion_payload(struct payment *p,
 	struct createonion_request *cr = p->createonion_request;
 	u32 cltv = p->start_block + next->delay;
 	u64 msat = next->amount.millisatoshis; /* Raw: TLV payload generation*/
-	struct tlv_field *fields;
+	struct tlv_field **fields;
 	static struct short_channel_id all_zero_scid = {.u64 = 0};
 
 	/* This is the information of the node processing this payload, while
@@ -846,20 +846,20 @@ static void payment_add_hop_onion_payload(struct payment *p,
 		break;
 	case ROUTE_HOP_TLV:
 		dst->tlv_payload = tlv_tlv_payload_new(cr->hops);
-		fields = dst->tlv_payload->fields;
-		tlvstream_set_tu64(&fields, TLV_TLV_PAYLOAD_AMT_TO_FORWARD,
+		fields = &dst->tlv_payload->fields;
+		tlvstream_set_tu64(fields, TLV_TLV_PAYLOAD_AMT_TO_FORWARD,
 				   msat);
-		tlvstream_set_tu32(&fields, TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE,
+		tlvstream_set_tu32(fields, TLV_TLV_PAYLOAD_OUTGOING_CLTV_VALUE,
 				   cltv);
 
 		if (!final)
-			tlvstream_set_short_channel_id(&fields,
+			tlvstream_set_short_channel_id(fields,
 						       TLV_TLV_PAYLOAD_SHORT_CHANNEL_ID,
 						       &next->channel_id);
 
 		if (payment_secret != NULL) {
 			assert(final);
-			tlvstream_set_tlv_payload_data(&fields, payment_secret,
+			tlvstream_set_tlv_payload_data(fields, payment_secret,
 						       msat);
 		}
 		break;
