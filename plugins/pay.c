@@ -1967,7 +1967,11 @@ static const struct plugin_command commands[] = { {
 		"payment",
 		"Send payment specified by {bolt11} with {amount}",
 		"Try to send a payment, retrying {retry_for} seconds before giving up",
+#ifdef COMPAT_V090
 		json_pay
+#else
+		json_paymod
+#endif
 	}, {
 		"paystatus",
 		"payment",
