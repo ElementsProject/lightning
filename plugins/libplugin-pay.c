@@ -2,10 +2,9 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
+#include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <plugins/libplugin-pay.h>
-#include <stdio.h>
-
 
 #define DEFAULT_FINAL_CLTV_DELTA 9
 
@@ -22,6 +21,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->result = NULL;
 	p->why = NULL;
 	p->getroute = tal(p, struct getroute_request);
+	p->label = NULL;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -1178,8 +1178,6 @@ void payment_continue(struct payment *p)
 
 void payment_fail(struct payment *p)
 {
-	va_list ap;
-
 	p->end_time = time_now();
 	p->step = PAYMENT_STEP_FAILED;
 	payment_continue(p);
@@ -1607,3 +1605,177 @@ static void exemptfee_cb(struct exemptfee_data *d, struct payment *p)
 REGISTER_PAYMENT_MODIFIER(exemptfee, struct exemptfee_data *,
 			  exemptfee_data_init, exemptfee_cb);
 
+/* BOLT #7:
+ *
+ * If a route is computed by simply routing to the intended recipient and
+ * summing the `cltv_expiry_delta`s, then it's possible for intermediate nodes
+ * to guess their position in the route. Knowing the CLTV of the HTLC, the
+ * surrounding network topology, and the `cltv_expiry_delta`s gives an
+ * attacker a way to guess the intended recipient. Therefore, it's highly
+ * desirable to add a random offset to the CLTV that the intended recipient
+ * will receive, which bumps all CLTVs along the route.
+ *
+ * In order to create a plausible offset, the origin node MAY start a limited
+ * random walk on the graph, starting from the intended recipient and summing
+ * the `cltv_expiry_delta`s, and use the resulting sum as the offset.  This
+ * effectively creates a _shadow route extension_ to the actual route and
+ * provides better protection against this attack vector than simply picking a
+ * random offset would.
+ */
+
+static struct shadow_route_data *shadow_route_init(struct payment *p)
+{
+	if (p->parent != NULL)
+		return payment_mod_shadowroute_get_data(p->parent);
+	else
+		return tal(p, struct shadow_route_data);
+}
+
+/* Mutual recursion */
+static struct command_result *shadow_route_listchannels(struct command *cmd,
+							const char *buf,
+							const jsmntok_t *result,
+							struct payment *p);
+
+static struct command_result *shadow_route_extend(struct shadow_route_data *d,
+						  struct payment *p)
+{
+	struct out_req *req;
+	req = jsonrpc_request_start(p->plugin, NULL, "listchannels",
+				    shadow_route_listchannels,
+				    payment_rpc_failure, p);
+	json_add_string(req->js, "source",
+			type_to_string(req, struct node_id, &d->destination));
+	return send_outreq(p->plugin, req);
+}
+
+static struct command_result *shadow_route_listchannels(struct command *cmd,
+					       const char *buf,
+					       const jsmntok_t *result,
+					       struct payment *p)
+{
+	/* Use reservoir sampling across the capable channels. */
+	struct shadow_route_data *d = payment_mod_shadowroute_get_data(p);
+	struct payment_constraints *cons = &d->constraints;
+	struct route_info *best = NULL;
+	size_t i;
+	u64 sample = 0;
+	struct amount_msat best_fee;
+	const jsmntok_t *sattok, *delaytok, *basefeetok, *propfeetok, *desttok,
+	    *channelstok, *chan;
+
+	channelstok = json_get_member(buf, result, "channels");
+	json_for_each_arr(i, chan, channelstok) {
+		u64 v = pseudorand(UINT64_MAX);
+		struct route_info curr;
+		struct amount_sat capacity;
+		struct amount_msat fee;
+
+		sattok = json_get_member(buf, chan, "satoshis");
+		delaytok = json_get_member(buf, chan, "delay");
+		basefeetok = json_get_member(buf, chan, "base_fee_millisatoshi");
+		propfeetok = json_get_member(buf, chan, "fee_per_millionth");
+		desttok =  json_get_member(buf, chan, "destination");
+
+		if (sattok == NULL || delaytok == NULL ||
+		    delaytok->type != JSMN_PRIMITIVE || basefeetok == NULL ||
+		    basefeetok->type != JSMN_PRIMITIVE || propfeetok == NULL ||
+		    propfeetok->type != JSMN_PRIMITIVE || desttok == NULL)
+			continue;
+
+		json_to_u16(buf, delaytok, &curr.cltv_expiry_delta);
+		json_to_number(buf, basefeetok, &curr.fee_base_msat);
+		json_to_number(buf, propfeetok,
+			       &curr.fee_proportional_millionths);
+		json_to_sat(buf, sattok, &capacity);
+		json_to_node_id(buf, desttok, &curr.pubkey);
+
+		if (!best || v > sample) {
+			/* If the capacity is insufficient to pass the amount
+			 * it's not a plausible extension. */
+			if (amount_msat_greater_sat(p->amount, capacity))
+				continue;
+
+			if (curr.cltv_expiry_delta > cons->cltv_budget)
+				continue;
+
+			if (!amount_msat_fee(
+				&fee, p->amount, curr.fee_base_msat,
+				curr.fee_proportional_millionths)) {
+				/* Fee computation failed... */
+				continue;
+			}
+
+			if (amount_msat_greater_eq(fee, cons->fee_budget))
+				continue;
+
+			best = tal_dup(tmpctx, struct route_info, &curr);
+			best_fee = fee;
+			sample = v;
+		}
+	}
+
+	if (best != NULL) {
+		bool ok;
+		/* Ok, we found an extension, let's add it. */
+		d->destination = best->pubkey;
+
+		/* Apply deltas to the constraints in the shadow route so we
+		 * don't overshoot our 1/4th target. */
+		if (!payment_constraints_update(&d->constraints, best_fee,
+						best->cltv_expiry_delta)) {
+			best = NULL;
+			goto next;
+		}
+
+		/* Now do the same to the payment constraints so other
+		 * modifiers don't do it either. */
+		ok = payment_constraints_update(&p->constraints, best_fee,
+						 best->cltv_expiry_delta);
+
+		/* And now the thing that caused all of this: adjust the call
+		 * to getroute. */
+		ok &= amount_msat_add(&p->getroute->amount, p->getroute->amount,
+				      best_fee);
+		p->getroute->cltv += best->cltv_expiry_delta;
+		assert(ok);
+	}
+
+next:
+
+	/* Now it's time to decide whether we want to extend or continue. */
+	if (best == NULL || pseudorand(2) == 0) {
+		payment_continue(p);
+		return command_still_pending(cmd);
+	} else {
+		return shadow_route_extend(d, p);
+	}
+}
+
+static void shadow_route_cb(struct shadow_route_data *d,
+					      struct payment *p)
+{
+#if DEVELOPER
+	if (!d->use_shadow)
+		return payment_continue(p);
+#endif
+
+	if (p->step != PAYMENT_STEP_INITIALIZED)
+		return payment_continue(p);
+
+	d->destination = *p->destination;
+
+	/* Allow shadowroutes to consume up to 1/4th of our budget. */
+	d->constraints.cltv_budget = p->constraints.cltv_budget / 4;
+	d->constraints.fee_budget = p->constraints.fee_budget;
+	d->constraints.fee_budget.millisatoshis /= 4; /* Raw: msat division. */
+
+	if (pseudorand(2) == 0) {
+		return payment_continue(p);
+	} else {
+		shadow_route_extend(d, p);
+	}
+}
+
+REGISTER_PAYMENT_MODIFIER(shadowroute, struct shadow_route_data *,
+			  shadow_route_init, shadow_route_cb);
