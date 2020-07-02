@@ -3077,7 +3077,7 @@ def test_pay_modifiers(node_factory):
     # Make sure that the dummy param is in the help (and therefore assigned to
     # the modifier data).
     hlp = l1.rpc.help("paymod")['help'][0]
-    assert(hlp['command'] == 'paymod bolt11 [exemptfee] [maxdelay] [maxfeepercent]')
+    assert(hlp['command'] == 'paymod bolt11 [label] [exemptfee] [maxdelay] [maxfeepercent] [use_shadow]')
 
     inv = l2.rpc.invoice(123, 'lbl', 'desc')['bolt11']
     r = l1.rpc.paymod(inv)

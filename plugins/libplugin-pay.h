@@ -256,6 +256,8 @@ struct payment {
 
 	/* Textual explanation of why this payment was attempted. */
 	const char *why;
+
+	const char *label;
 };
 
 struct payment_modifier {
@@ -311,10 +313,20 @@ struct exemptfee_data {
 	 * payment through. */
 	struct amount_msat amount;
 };
+
+struct shadow_route_data {
+#if DEVELOPER
+	bool use_shadow;
+#endif
+	struct payment_constraints constraints;
+	struct node_id destination;
+	struct route_hop *route;
+};
 /* List of globally available payment modifiers. */
 REGISTER_PAYMENT_MODIFIER_HEADER(retry, struct retry_mod_data);
 REGISTER_PAYMENT_MODIFIER_HEADER(routehints, struct routehints_data);
 REGISTER_PAYMENT_MODIFIER_HEADER(exemptfee, struct exemptfee_data);
+REGISTER_PAYMENT_MODIFIER_HEADER(shadowroute, struct shadow_route_data);
 
 /* For the root payment we can seed the channel_hints with the result from
  * `listpeers`, hence avoid channels that we know have insufficient capacity
