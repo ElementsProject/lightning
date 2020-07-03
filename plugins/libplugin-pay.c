@@ -2098,6 +2098,8 @@ static void presplit_cb(void *d, struct payment *p)
 	} else if (p == root && p->step == PAYMENT_STEP_INITIALIZED) {
 		/* The presplitter only acts on the root and only in the first
 		 * step. */
+		size_t count = 0;
+
 		/* We need to opt-in to the MPP sending facility no matter
 		 * what we do. That means setting all partids to a non-zero
 		 * value. */
@@ -2142,8 +2144,20 @@ static void presplit_cb(void *d, struct payment *p)
 			 * when splitting. */
 			c->constraints.fee_budget.millisatoshis *= multiplier; /* Raw: Multiplication */
 			payment_start(c);
+			count++;
 		}
 		p->step = PAYMENT_STEP_SPLIT;
+		p->end_time = time_now();
+		p->why = tal_fmt(
+		    p,
+		    "Split into %zu sub-payments due to initial size (%s > "
+		    "%dmsat)",
+		    count,
+		    type_to_string(tmpctx, struct amount_msat, &root->amount),
+		    MPP_TARGET_SIZE);
+		plugin_log(p->plugin, LOG_INFORM, "%s", p->why);
+		p->result = NULL;
+		p->route = NULL;
 	}
 	payment_continue(p);
 }

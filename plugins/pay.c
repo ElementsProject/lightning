@@ -1512,7 +1512,9 @@ static void paystatus_add_payment(struct json_stream *s, const struct payment *p
 	/* TODO Add routehint. */
 	/* TODO Add route details */
 
-	if (p->result != NULL) {
+	if (p->step == PAYMENT_STEP_SPLIT) {
+		/* Don't add anything, this is neither a success nor a failure. */
+	} else if (p->result != NULL) {
 		if (p->step == PAYMENT_STEP_SUCCESS)
 			json_object_start(s, "success");
 		else
