@@ -1105,22 +1105,22 @@ static void payment_finished(struct payment *p)
 		}  else {
 			struct payment_result *failure = result.failure;
 			assert(failure!= NULL);
-			ret = jsonrpc_stream_fail(cmd, p->result->code,
+			ret = jsonrpc_stream_fail(cmd, failure->code,
 						  failure->message);
 
-			json_add_u64(ret, "id", p->result->id);
+			json_add_u64(ret, "id", failure->id);
 
-			json_add_u32(ret, "failcode", result.failure->failcode);
+			json_add_u32(ret, "failcode", failure->failcode);
 			json_add_string(ret, "failcodename",
-					result.failure->failcodename);
+					failure->failcodename);
 
 			if (p->bolt11)
 				json_add_string(ret, "bolt11", p->bolt11);
 
 			json_add_hex_talarr(ret, "raw_message",
-					    p->result->raw_message);
+					    result.failure->raw_message);
 			json_add_num(ret, "created_at", p->start_time.ts.tv_sec);
-			json_add_string(ret, "message", p->result->message);
+			json_add_string(ret, "message", result.failure->message);
 			json_add_node_id(ret, "destination", p->destination);
 			json_add_sha256(ret, "payment_hash", p->payment_hash);
 
