@@ -3055,3 +3055,27 @@ def test_pay_peer(node_factory):
     # Next one should take the alternative, but it should still work
     inv = l2.rpc.invoice(amt.millisatoshis, "final", "final")['bolt11']
     l1.rpc.dev_pay(inv, use_shadow=False)
+
+
+def test_mpp_presplit(node_factory):
+    """Make a rather large payment of 5*10ksat and see it being split.
+    """
+    MPP_TARGET_SIZE = 10**7  # Taken from libpluin-pay.c
+    amt = 5 * MPP_TARGET_SIZE
+
+    # Assert that the amount we're going to send is indeed larger than our
+    # split size.
+    assert(MPP_TARGET_SIZE < amt)
+
+    l1, l2, l3 = node_factory.line_graph(
+        3, fundamount=10**8, wait_for_announce=True,
+        opts={'wumbo': None}
+    )
+
+    inv = l3.rpc.invoice(amt, 'lbl', 'desc')['bolt11']
+    p = l1.rpc.pay(inv)
+
+    assert(p['parts'] >= 5)
+    inv = l3.rpc.listinvoices()['invoices'][0]
+
+    assert(inv['msatoshi'] == inv['msatoshi_received'])

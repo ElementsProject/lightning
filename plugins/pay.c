@@ -1841,6 +1841,7 @@ struct payment_modifier *paymod_mods[] = {
 	&directpay_pay_mod,
 	&shadowroute_pay_mod,
 	&exemptfee_pay_mod,
+	&presplit_pay_mod,
 	&routehints_pay_mod,
 	&waitblockheight_pay_mod,
 	&retry_pay_mod,
@@ -1861,6 +1862,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	const char *label;
 	unsigned int *retryfor;
 	u64 *riskfactor_millionths;
+	struct shadow_route_data *shadow_route;
 #if DEVELOPER
 	bool *use_shadow;
 #endif
@@ -1949,8 +1951,12 @@ static struct command_result *json_paymod(struct command *cmd,
 	p->constraints.cltv_budget = *maxdelay;
 
 	payment_mod_exemptfee_get_data(p)->amount = *exemptfee;
+	shadow_route = payment_mod_shadowroute_get_data(p);
+
+	/* This is an MPP enabled pay command, disable amount fuzzing. */
+	shadow_route->fuzz_amount = false;
 #if DEVELOPER
-	payment_mod_shadowroute_get_data(p)->use_shadow = *use_shadow;
+	shadow_route->use_shadow = *use_shadow;
 #endif
 	p->label = tal_steal(p, label);
 	payment_start(p);
