@@ -348,7 +348,7 @@ static void add_feerate_history(struct chain_topology *topo,
 /* Did the the feerate change since we last estimated it ? */
 static bool feerate_changed(struct chain_topology *topo, u32 old_feerates[])
 {
-	for (enum feerate f = 0; f < NUM_FEERATES; f++) {
+	for (enum feerate f = 0; f < FEERATE_MAX; f++) {
 		if (try_get_feerate(topo, f) != old_feerates[f])
 			return true;
 	}
@@ -368,7 +368,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 	 * independent manner. */
 	double alpha = 1 - pow(0.1,(double)topo->poll_seconds / 120);
 
-	for (size_t i = 0; i < NUM_FEERATES; i++) {
+	for (size_t i = 0; i < FEERATE_MAX; i++) {
 		u32 feerate = satoshi_per_kw[i];
 
 		/* Takes into account override_fee_rate */
