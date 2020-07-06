@@ -1680,8 +1680,6 @@ def test_pay_routeboost(node_factory, bitcoind, compat):
     l1, l2 = node_factory.line_graph(2, announce_channels=True, wait_for_announce=True)
     l3, l4, l5 = node_factory.line_graph(3, announce_channels=False, wait_for_announce=False)
 
-    PAY_ROUTE_NOT_FOUND = 205
-
     # This should a "could not find a route" because that's true.
     error = r'Ran out of routes'
 

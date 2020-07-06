@@ -1401,7 +1401,7 @@ def test_htlc_send_timeout(node_factory, bitcoind, compat):
     err = excinfo.value
     # Complains it stopped after several attempts.
     # FIXME: include in pylightning
-    PAY_STOPPED_RETRYING = 210 if compat('090') else 205
+    PAY_STOPPED_RETRYING = 210
     assert err.error['code'] == PAY_STOPPED_RETRYING
 
     status = only_one(l1.rpc.call('paystatus')['pay'])
