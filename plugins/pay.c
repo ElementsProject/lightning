@@ -1847,6 +1847,7 @@ struct payment_modifier *paymod_mods[] = {
 	&routehints_pay_mod,
 	&waitblockheight_pay_mod,
 	&retry_pay_mod,
+	&adaptive_splitter_pay_mod,
 	NULL,
 };
 
