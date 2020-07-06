@@ -842,9 +842,9 @@ static const struct json_command listaddrs_command = {
 };
 AUTODATA(json_command, &listaddrs_command);
 
-static struct command_result *json_outputs(struct command *cmd,
-					   struct json_stream *response,
-					   struct utxo **utxos)
+static void json_add_utxos(struct command *cmd,
+			   struct json_stream *response,
+			   struct utxo **utxos)
 {
 	char* out;
 	struct pubkey funding_pubkey;
@@ -864,16 +864,27 @@ static struct command_result *json_outputs(struct command *cmd,
 						    &funding_pubkey,
 						    utxos[i]->is_p2sh,
 						    NULL);
-			if (!out) {
-				return command_fail(cmd, LIGHTNINGD,
-						    "p2wpkh address encoding failure.");
-			}
-		        json_add_string(response, "address", out);
+			if (!out)
+				log_broken(cmd->ld->log,
+					   "Could not encode utxo %s:%u!",
+					   type_to_string(tmpctx,
+							  struct bitcoin_txid,
+							  &utxos[i]->txid),
+					   utxos[i]->outnum);
+			else
+				json_add_string(response, "address", out);
 		} else if (utxos[i]->scriptPubkey != NULL) {
 			out = encode_scriptpubkey_to_addr(
 			    cmd, chainparams,
 			    utxos[i]->scriptPubkey);
-			if (out)
+			if (!out)
+				log_broken(cmd->ld->log,
+					   "Could not encode utxo %s:%u!",
+					   type_to_string(tmpctx,
+							  struct bitcoin_txid,
+							  &utxos[i]->txid),
+					   utxos[i]->outnum);
+			else
 				json_add_string(response, "address", out);
 		}
 
@@ -889,8 +900,6 @@ static struct command_result *json_outputs(struct command *cmd,
 			      utxos[i]->status == output_state_reserved);
 		json_object_end(response);
 	}
-
-	return NULL;
 }
 
 static struct command_result *json_listfunds(struct command *cmd,
@@ -901,7 +910,6 @@ static struct command_result *json_listfunds(struct command *cmd,
 	struct json_stream *response;
 	struct peer *p;
 	struct utxo **utxos, **reserved_utxos;
-	struct command_result *ret;
 
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
@@ -911,12 +919,8 @@ static struct command_result *json_listfunds(struct command *cmd,
 	utxos = wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
 	reserved_utxos = wallet_get_utxos(cmd, cmd->ld->wallet, output_state_reserved);
 	json_array_start(response, "outputs");
-	ret = json_outputs(cmd, response, utxos);
-	if (ret)
-		return ret;
-	ret = json_outputs(cmd, response, reserved_utxos);
-	if (ret)
-		return ret;
+	json_add_utxos(cmd, response, utxos);
+	json_add_utxos(cmd, response, reserved_utxos);
 	json_array_end(response);
 
 	/* Add funds that are allocated to channels */
