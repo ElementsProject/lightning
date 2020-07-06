@@ -24,6 +24,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->label = NULL;
 	p->failreason = NULL;
 	p->getroute->riskfactorppm = 10000000;
+	p->abort = false;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -45,7 +46,6 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->plugin = cmd->plugin;
 		p->channel_hints = tal_arr(p, struct channel_hint, 0);
 		p->excluded_nodes = tal_arr(p, struct node_id, 0);
-		p->abort = false;
 	}
 
 	/* Initialize all modifier data so we can point to the fields when
@@ -714,6 +714,7 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 		break;
 
  	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
+		p->result->code = PAY_DESTINATION_PERM_FAIL;
 	case WIRE_MPP_TIMEOUT:
 		/* These are permanent failures that should abort all of our
 		 * attempts right away. We'll still track pending partial
@@ -1327,7 +1328,7 @@ static bool payment_can_retry(struct payment *p)
 static inline void retry_step_cb(struct retry_mod_data *rd,
 				 struct payment *p)
 {
-	struct payment *subpayment;
+	struct payment *subpayment, *root = payment_root(p);
 	struct retry_mod_data *rdata = payment_mod_retry_get_data(p);
 	struct timeabs now = time_now();
 
@@ -1341,6 +1342,7 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 		    "%s/%d",
 		    type_to_string(tmpctx, struct sha256, p->payment_hash),
 		    p->partid);
+		root->abort = true;
 		return payment_continue(p);
 	}
 
