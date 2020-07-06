@@ -731,3 +731,75 @@ wally_tx_output_get_amount(const struct wally_tx_output *output)
 
 	return amount;
 }
+
+/* Various weights of transaction parts. */
+size_t bitcoin_tx_core_weight(size_t num_inputs, size_t num_outputs)
+{
+	size_t weight;
+
+	/* version, input count, output count, locktime */
+	weight = (4 + varint_size(num_inputs) + varint_size(num_outputs) + 4)
+		* 4;
+
+	/* Add segwit fields: marker + flag */
+	weight += 1 + 1;
+
+	/* A couple of things need to change for elements: */
+	if (chainparams->is_elements) {
+                /* Each transaction has surjection and rangeproof (both empty
+		 * for us as long as we use unblinded L-BTC transactions). */
+		weight += 2 * 4;
+
+		/* An elements transaction has 1 additional output for fees */
+		weight += bitcoin_tx_output_weight(0);
+	}
+	return weight;
+}
+
+size_t bitcoin_tx_output_weight(size_t outscript_len)
+{
+	size_t weight;
+
+	/* amount, len, scriptpubkey */
+	weight = (8 + varint_size(outscript_len) + outscript_len) * 4;
+
+	if (chainparams->is_elements) {
+		/* Each output additionally has an asset_tag (1 + 32), value
+		 * is prefixed by a version (1 byte), an empty nonce (1
+		 * byte), two empty proofs (2 bytes). */
+		weight += (32 + 1 + 1 + 1) * 4;
+	}
+
+	return weight;
+}
+
+/* We grind signatures to get them down to 71 bytes (+1 for sighash flags) */
+size_t bitcoin_tx_input_sig_weight(void)
+{
+	return 1 + 71 + 1;
+}
+
+/* We only do segwit inputs, and we assume witness is sig + key  */
+size_t bitcoin_tx_simple_input_weight(bool p2sh)
+{
+	size_t weight;
+
+	/* Input weight: txid + index + sequence */
+	weight = (32 + 4 + 4) * 4;
+
+	/* We always encode the length of the script, even if empty */
+	weight += 1 * 4;
+
+	/* P2SH variants include push of <0 <20-byte-key-hash>> */
+	if (p2sh)
+		weight += 23 * 4;
+
+	/* Account for witness (1 byte count + sig + key) */
+	weight += 1 + (bitcoin_tx_input_sig_weight() + 1 + 33);
+
+	/* Elements inputs have 6 bytes of blank proofs attached. */
+	if (chainparams->is_elements)
+		weight += 6;
+
+	return weight;
+}

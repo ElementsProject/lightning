@@ -710,7 +710,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
         # do proper acccounting for it.
         {'type': 'chain_mvt', 'credit': 0, 'debit': 4000000000, 'tag': 'withdrawal'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'chain_fees'},
-        {'type': 'chain_mvt', 'credit': 988255000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 988285000, 'debit': 0, 'tag': 'deposit'},
     ]
     check_coin_moves(l1, 'wallet', wallet_coin_mvts, chainparams)
 
