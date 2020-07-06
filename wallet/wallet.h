@@ -334,14 +334,6 @@ struct wallet_transaction {
 struct wallet *wallet_new(struct lightningd *ld, struct timers *timers);
 
 /**
- * wallet_add_utxo - Register an UTXO which we (partially) own
- *
- * Add an UTXO to the set of outputs we care about.
- */
-bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
-		     enum wallet_output_type type);
-
-/**
  * wallet_confirm_tx - Confirm a tx which contains a UTXO.
  */
 void wallet_confirm_tx(struct wallet *w,

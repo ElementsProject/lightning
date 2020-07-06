@@ -73,9 +73,15 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 	return wallet;
 }
 
-/* This can fail if we've already seen UTXO. */
-bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
-		     enum wallet_output_type type)
+/**
+ * wallet_add_utxo - Register an UTXO which we (partially) own
+ *
+ * Add an UTXO to the set of outputs we care about.
+ *
+ * This can fail if we've already seen UTXO.
+ */
+static bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
+			    enum wallet_output_type type)
 {
 	struct db_stmt *stmt;
 
