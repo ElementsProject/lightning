@@ -382,6 +382,24 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w,
 struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 						     struct wallet *w);
 
+/**
+ * wallet_add_onchaind_utxo - Add a UTXO with spending info from onchaind.
+ *
+ * Usually we add UTXOs by looking at transactions, but onchaind tells
+ * us about other UTXOs we can spend with some extra metadata.
+ *
+ * Returns false if we already have it in db (that's fine).
+ */
+bool wallet_add_onchaind_utxo(struct wallet *w,
+			      const struct bitcoin_txid *txid,
+			      u32 outnum,
+			      const u8 *scriptpubkey,
+			      u32 blockheight,
+			      struct amount_sat amount,
+			      const struct channel *chan,
+			      /* NULL if option_static_remotekey */
+			      const struct pubkey *commitment_point);
+
 /** wallet_utxo_get - Retrive a utxo.
  *
  * Returns a utxo, or NULL if not found.

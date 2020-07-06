@@ -402,6 +402,69 @@ void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
 	}
 }
 
+bool wallet_add_onchaind_utxo(struct wallet *w,
+			      const struct bitcoin_txid *txid,
+			      u32 outnum,
+			      const u8 *scriptpubkey,
+			      u32 blockheight,
+			      struct amount_sat amount,
+			      const struct channel *channel,
+			      /* NULL if option_static_remotekey */
+			      const struct pubkey *commitment_point)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT * from outputs WHERE "
+					"prev_out_tx=? AND prev_out_index=?"));
+	db_bind_txid(stmt, 0, txid);
+	db_bind_int(stmt, 1, outnum);
+	db_query_prepared(stmt);
+
+	/* If we get a result, that means a clash. */
+	if (db_step(stmt)) {
+		tal_free(stmt);
+		return false;
+	}
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(
+	    w->db, SQL("INSERT INTO outputs ("
+		       "  prev_out_tx"
+		       ", prev_out_index"
+		       ", value"
+		       ", type"
+		       ", status"
+		       ", keyindex"
+		       ", channel_id"
+		       ", peer_id"
+		       ", commitment_point"
+		       ", confirmation_height"
+		       ", spend_height"
+		       ", scriptpubkey"
+		       ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+	db_bind_txid(stmt, 0, txid);
+	db_bind_int(stmt, 1, outnum);
+	db_bind_amount_sat(stmt, 2, &amount);
+	db_bind_int(stmt, 3, wallet_output_type_in_db(p2wpkh));
+	db_bind_int(stmt, 4, output_state_available);
+	db_bind_int(stmt, 5, 0);
+	db_bind_u64(stmt, 6, channel->dbid);
+	db_bind_node_id(stmt, 7, &channel->peer->id);
+	if (commitment_point)
+		db_bind_pubkey(stmt, 8, commitment_point);
+	else
+		db_bind_null(stmt, 8);
+
+	db_bind_int(stmt, 9, blockheight);
+
+	/* spendheight */
+	db_bind_null(stmt, 10);
+	db_bind_blob(stmt, 11, scriptpubkey, tal_bytelen(scriptpubkey));
+
+	db_exec_prepared_v2(take(stmt));
+	return true;
+}
+
 static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 					 struct amount_sat sat,
 					 const u32 feerate_per_kw,
