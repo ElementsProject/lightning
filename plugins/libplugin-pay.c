@@ -1264,11 +1264,15 @@ retry_data_init(struct payment *p)
 {
 	struct retry_mod_data *rdata = tal(p, struct retry_mod_data);
 	struct retry_mod_data *parent_rdata;
-	if (p->parent != NULL) {
+
+	/* We start the retry counter from scratch for the root payment, or if
+	 * the parent was split, meaning this is a new attempt with new
+	 * amounts. */
+	if (p->parent == NULL || p->parent->step == PAYMENT_STEP_SPLIT) {
+		rdata->retries = 10;
+	} else {
 		parent_rdata = payment_mod_retry_get_data(p->parent);
 		rdata->retries = parent_rdata->retries - 1;
-	} else {
-		rdata->retries = 10;
 	}
 	return rdata;
 }
