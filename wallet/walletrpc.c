@@ -31,6 +31,7 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wallet/wallet.h>
+#include <wallet/walletrpc.h>
 #include <wally_bip32.h>
 #include <wire/wire_sync.h>
 
@@ -633,7 +634,6 @@ AUTODATA(json_command, &withdraw_command);
 /* May return NULL if encoding error occurs. */
 static char *
 encode_pubkey_to_addr(const tal_t *ctx,
-		      const struct lightningd *ld,
 		      const struct pubkey *pubkey,
 		      bool is_p2sh_p2wpkh,
 		      /* Output: redeemscript to use to redeem outputs
@@ -741,8 +741,8 @@ static struct command_result *json_newaddr(struct command *cmd,
 		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter,
 					  scriptpubkey_p2sh(tmpctx, b32script));
 
-	p2sh = encode_pubkey_to_addr(cmd, cmd->ld, &pubkey, true, NULL);
-	bech32 = encode_pubkey_to_addr(cmd, cmd->ld, &pubkey, false, NULL);
+	p2sh = encode_pubkey_to_addr(cmd, &pubkey, true, NULL);
+	bech32 = encode_pubkey_to_addr(cmd, &pubkey, false, NULL);
 	if (!p2sh || !bech32) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "p2wpkh address encoding failure.");
@@ -801,14 +801,14 @@ static struct command_result *json_listaddrs(struct command *cmd,
 
 		// p2sh
 		u8 *redeemscript_p2sh;
-		char *out_p2sh = encode_pubkey_to_addr(cmd, cmd->ld,
+		char *out_p2sh = encode_pubkey_to_addr(cmd,
 						       &pubkey,
 						       true,
 						       &redeemscript_p2sh);
 
 		// bech32 : p2wpkh
 		u8 *redeemscript_p2wpkh;
-		char *out_p2wpkh = encode_pubkey_to_addr(cmd, cmd->ld,
+		char *out_p2wpkh = encode_pubkey_to_addr(cmd,
 							 &pubkey,
 							 false,
 							 &redeemscript_p2wpkh);
@@ -842,64 +842,71 @@ static const struct json_command listaddrs_command = {
 };
 AUTODATA(json_command, &listaddrs_command);
 
-static void json_add_utxos(struct command *cmd,
-			   struct json_stream *response,
-			   struct utxo **utxos)
+static void json_add_utxo(struct json_stream *response,
+			  const char *fieldname,
+			  struct wallet *wallet,
+			  const struct utxo *utxo)
 {
-	char* out;
-	struct pubkey funding_pubkey;
+	const char *out;
 
-	for (size_t i = 0; i < tal_count(utxos); i++) {
-		json_object_start(response, NULL);
-		json_add_txid(response, "txid", &utxos[i]->txid);
-		json_add_num(response, "output", utxos[i]->outnum);
-		json_add_amount_sat_compat(response, utxos[i]->amount,
-					   "value", "amount_msat");
+	json_object_start(response, fieldname);
+	json_add_txid(response, "txid", &utxo->txid);
+	json_add_num(response, "output", utxo->outnum);
+	json_add_amount_sat_compat(response, utxo->amount,
+				   "value", "amount_msat");
 
-		/* @close_info is for outputs that are not yet claimable */
-		if (utxos[i]->close_info == NULL) {
-			bip32_pubkey(cmd->ld->wallet->bip32_base, &funding_pubkey,
-				     utxos[i]->keyindex);
-			out = encode_pubkey_to_addr(cmd, cmd->ld,
+	if (utxo->scriptPubkey != NULL) {
+		out = encode_scriptpubkey_to_addr(
+			tmpctx, chainparams,
+			utxo->scriptPubkey);
+	} else {
+		out = NULL;
+#ifdef COMPAT_V072
+		/* scriptpubkey was introduced in v0.7.3.
+		 * We could handle close_info via HSM to get address,
+		 * but who cares?  We'll print a warning though. */
+		if (utxo->close_info == NULL) {
+			struct pubkey funding_pubkey;
+			bip32_pubkey(wallet->bip32_base,
+				     &funding_pubkey,
+				     utxo->keyindex);
+			out = encode_pubkey_to_addr(tmpctx,
 						    &funding_pubkey,
-						    utxos[i]->is_p2sh,
+						    utxo->is_p2sh,
 						    NULL);
-			if (!out)
-				log_broken(cmd->ld->log,
-					   "Could not encode utxo %s:%u!",
-					   type_to_string(tmpctx,
-							  struct bitcoin_txid,
-							  &utxos[i]->txid),
-					   utxos[i]->outnum);
-			else
-				json_add_string(response, "address", out);
-		} else if (utxos[i]->scriptPubkey != NULL) {
-			out = encode_scriptpubkey_to_addr(
-			    cmd, chainparams,
-			    utxos[i]->scriptPubkey);
-			if (!out)
-				log_broken(cmd->ld->log,
-					   "Could not encode utxo %s:%u!",
-					   type_to_string(tmpctx,
-							  struct bitcoin_txid,
-							  &utxos[i]->txid),
-					   utxos[i]->outnum);
-			else
-				json_add_string(response, "address", out);
 		}
-
-		if (utxos[i]->spendheight)
-			json_add_string(response, "status", "spent");
-		else if (utxos[i]->blockheight) {
-			json_add_string(response, "status", "confirmed");
-			json_add_num(response, "blockheight", *utxos[i]->blockheight);
-		} else
-			json_add_string(response, "status", "unconfirmed");
-
-		json_add_bool(response, "reserved",
-			      utxos[i]->status == output_state_reserved);
-		json_object_end(response);
+#endif
 	}
+	if (!out)
+		log_broken(wallet->log,
+			   "Could not encode utxo %s:%u%s!",
+			   type_to_string(tmpctx,
+					  struct bitcoin_txid,
+					  &utxo->txid),
+			   utxo->outnum,
+			   utxo->close_info ? " (has close_info)" : "");
+	else
+		json_add_string(response, "address", out);
+
+	if (utxo->spendheight)
+		json_add_string(response, "status", "spent");
+	else if (utxo->blockheight) {
+		json_add_string(response, "status", "confirmed");
+		json_add_num(response, "blockheight", *utxo->blockheight);
+	} else
+		json_add_string(response, "status", "unconfirmed");
+
+	json_add_bool(response, "reserved",
+		      utxo->status == output_state_reserved);
+	json_object_end(response);
+}
+
+void json_add_utxos(struct json_stream *response,
+		    struct wallet *wallet,
+		    struct utxo **utxos)
+{
+	for (size_t i = 0; i < tal_count(utxos); i++)
+		json_add_utxo(response, NULL, wallet, utxos[i]);
 }
 
 static struct command_result *json_listfunds(struct command *cmd,
@@ -919,8 +926,8 @@ static struct command_result *json_listfunds(struct command *cmd,
 	utxos = wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
 	reserved_utxos = wallet_get_utxos(cmd, cmd->ld->wallet, output_state_reserved);
 	json_array_start(response, "outputs");
-	json_add_utxos(cmd, response, utxos);
-	json_add_utxos(cmd, response, reserved_utxos);
+	json_add_utxos(response, cmd->ld->wallet, utxos);
+	json_add_utxos(response, cmd->ld->wallet, reserved_utxos);
 	json_array_end(response);
 
 	/* Add funds that are allocated to channels */
