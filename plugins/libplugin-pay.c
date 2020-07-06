@@ -2167,3 +2167,74 @@ static void presplit_cb(void *d, struct payment *p)
 }
 
 REGISTER_PAYMENT_MODIFIER(presplit, void *, NULL, presplit_cb);
+
+/*****************************************************************************
+ * Adaptive splitter -- Split payment if we can't get it through.
+ *
+ * The adaptive splitter splits the amount of a failed payment in half, with
+ * +/- 10% randomness, and then starts two attempts, one for either side of
+ * the split. The goal is to find two smaller routes, that still adhere to our
+ * constraints, but that can complete the payment.
+ */
+
+#define MPP_ADAPTIVE_LOWER_LIMIT AMOUNT_MSAT(100 * 1000)
+
+static void adaptive_splitter_cb(void *d, struct payment *p)
+{
+	struct payment *root = payment_root(p);
+	if (p->step == PAYMENT_STEP_ONION_PAYLOAD) {
+		/* We need to tell the last hop the total we're going to
+		 * send. Presplit disables amount fuzzing, so we should always
+		 * get the exact value through. */
+		size_t lastidx = tal_count(p->createonion_request->hops) - 1;
+		struct createonion_hop *hop = &p->createonion_request->hops[lastidx];
+		if (hop->style == ROUTE_HOP_TLV) {
+			struct tlv_field **fields = &hop->tlv_payload->fields;
+			tlvstream_set_tlv_payload_data(
+			    fields, root->payment_secret,
+			    root->amount.millisatoshis); /* Raw: onion payload */
+		}
+	} else if (p->step == PAYMENT_STEP_FAILED && !p->abort) {
+		if (amount_msat_greater(p->amount, MPP_ADAPTIVE_LOWER_LIMIT)) {
+			struct payment *a, *b;
+			/* Random number in the range [90%, 110%] */
+			double rand = pseudorand_double() * 0.2 + 0.9;
+			u64 mid = p->amount.millisatoshis / 2 * rand; /* Raw: multiplication */
+			bool ok;
+
+			a = payment_new(p, NULL, p, p->modifiers);
+			b = payment_new(p, NULL, p, p->modifiers);
+
+			a->amount.millisatoshis = mid;  /* Raw: split. */
+			b->amount.millisatoshis -= mid; /* Raw: split. */
+
+			/* Adjust constraints since we don't want to double our
+			 * fee allowance when we split. */
+			a->constraints.fee_budget.millisatoshis *= (double)a->amount.millisatoshis / (double)p->amount.millisatoshis; /* Raw: msat division. */
+			ok = amount_msat_sub(&b->constraints.fee_budget,
+					     p->constraints.fee_budget,
+					     a->constraints.fee_budget);
+
+			/* Should not fail, mid is less than 55% of original
+			 * amount. fee_budget_a <= 55% of fee_budget_p (parent
+			 * of the new payments).*/
+			assert(ok);
+
+			payment_start(a);
+			payment_start(b);
+			p->step = PAYMENT_STEP_SPLIT;
+		} else {
+			plugin_log(p->plugin, LOG_INFORM,
+				   "Lower limit of adaptive splitter reached "
+				   "(%s < %s), not splitting further.",
+				   type_to_string(tmpctx, struct amount_msat,
+						  &p->amount),
+				   type_to_string(tmpctx, struct amount_msat,
+						  &MPP_ADAPTIVE_LOWER_LIMIT));
+		}
+	}
+	payment_continue(p);
+}
+
+REGISTER_PAYMENT_MODIFIER(adaptive_splitter, void *, NULL,
+			  adaptive_splitter_cb);
