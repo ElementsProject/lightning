@@ -327,6 +327,7 @@ REGISTER_PAYMENT_MODIFIER_HEADER(shadowroute, struct shadow_route_data);
 REGISTER_PAYMENT_MODIFIER_HEADER(directpay, struct direct_pay_data);
 extern struct payment_modifier waitblockheight_pay_mod;
 extern struct payment_modifier presplit_pay_mod;
+extern struct payment_modifier adaptive_splitter_pay_mod;
 
 /* For the root payment we can seed the channel_hints with the result from
  * `listpeers`, hence avoid channels that we know have insufficient capacity
