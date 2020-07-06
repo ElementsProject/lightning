@@ -119,7 +119,7 @@ struct state {
 	struct feature_set *our_features;
 };
 
-static u8 *dev_upfront_shutdown_script(const tal_t *ctx)
+static u8 *no_upfront_shutdown_script(const tal_t *ctx, struct state *state)
 {
 #if DEVELOPER
 	/* This is a hack, for feature testing */
@@ -127,6 +127,20 @@ static u8 *dev_upfront_shutdown_script(const tal_t *ctx)
 	if (e)
 		return tal_hexdata(ctx, e, strlen(e));
 #endif
+
+	/* BOLT #2:
+	 *
+	 * - if both nodes advertised the `option_upfront_shutdown_script`
+	 *   feature:
+	 *   - MUST include `upfront_shutdown_script` with either a valid
+	 *     `shutdown_scriptpubkey` as required by `shutdown`
+	 *     `scriptpubkey`, or a zero-length `shutdown_scriptpubkey`
+	 *     (ie. `0x0000`).
+	 */
+	if (feature_negotiated(state->our_features, state->their_features,
+			       OPT_UPFRONT_SHUTDOWN_SCRIPT))
+		return tal_arr(ctx, u8, 0);
+
 	return NULL;
 }
 
@@ -522,17 +536,8 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	if (!setup_channel_funder(state))
 		return NULL;
 
-	/* BOLT #2:
-	 *
-	 * - if both nodes advertised the `option_upfront_shutdown_script`
-	 *   feature:
-	 *   - MUST include `upfront_shutdown_script` with either a valid
-	 *     `shutdown_scriptpubkey` as required by `shutdown`
-	 *     `scriptpubkey`, or a zero-length `shutdown_scriptpubkey`
-	 *     (ie. `0x0000`).
-	 */
 	if (!state->upfront_shutdown_script[LOCAL])
-		state->upfront_shutdown_script[LOCAL] = dev_upfront_shutdown_script(state);
+		state->upfront_shutdown_script[LOCAL] = no_upfront_shutdown_script(state, state);
 
 	open_tlvs = tlv_open_channel_tlvs_new(tmpctx);
 	open_tlvs->upfront_shutdown_script
@@ -1092,7 +1097,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	}
 
 	if (!state->upfront_shutdown_script[LOCAL])
-		state->upfront_shutdown_script[LOCAL] = dev_upfront_shutdown_script(state);
+		state->upfront_shutdown_script[LOCAL] = no_upfront_shutdown_script(state, state);
 
 	/* OK, we accept! */
 	accept_tlvs = tlv_accept_channel_tlvs_new(tmpctx);
