@@ -1568,6 +1568,34 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind):
     assert account_balance(l2, channel_id) == 0
 
 
+def test_listfunds_after_their_unilateral(node_factory, bitcoind):
+    """We keep spending info around for their unilateral closes.
+
+Make sure we show the address.
+    """
+    coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+    l1, l2 = node_factory.line_graph(2, opts={'plugin': coin_mvt_plugin})
+    channel_id = first_channel_id(l1, l2)
+
+    # listfunds will show 1 output change, and channels.
+    assert len(l1.rpc.listfunds()['outputs']) == 1
+
+    l1.stop()
+    l2.rpc.close(l1.info['id'], unilateraltimeout=1)
+    l2.wait_for_channel_onchain(l1.info['id'])
+    bitcoind.generate_block(100)
+
+    l1.start()
+    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+    assert all(['address' in o for o in l1.rpc.listfunds()['outputs']])
+
+    # Verify accounting for l1 & l2
+    assert account_balance(l1, channel_id) == 0
+    assert account_balance(l2, channel_id) == 0
+
+
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_onchain_feechange(node_factory, bitcoind, executor):
     """Onchain handling when we restart with different fees"""
