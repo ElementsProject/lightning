@@ -307,6 +307,11 @@ struct shadow_route_data {
 	struct payment_constraints constraints;
 	struct node_id destination;
 	struct route_hop *route;
+
+	/* multi-part payments require the sum of parts to be the exact
+	 * amount, so we allow the payment flow to opt out of fuzzing the
+	 * amount. */
+	bool fuzz_amount;
 };
 
 struct direct_pay_data {

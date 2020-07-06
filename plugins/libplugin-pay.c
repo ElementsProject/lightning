@@ -1700,10 +1700,13 @@ REGISTER_PAYMENT_MODIFIER(exemptfee, struct exemptfee_data *,
 
 static struct shadow_route_data *shadow_route_init(struct payment *p)
 {
-	if (p->parent != NULL)
+	if (p->parent != NULL) {
 		return payment_mod_shadowroute_get_data(p->parent);
-	else
-		return tal(p, struct shadow_route_data);
+	} else {
+		struct shadow_route_data *d = tal(p, struct shadow_route_data);
+		d->fuzz_amount = true;
+		return d;
+	}
 }
 
 /* Mutual recursion */
@@ -1810,8 +1813,12 @@ static struct command_result *shadow_route_listchannels(struct command *cmd,
 
 		/* And now the thing that caused all of this: adjust the call
 		 * to getroute. */
-		ok &= amount_msat_add(&p->getroute->amount, p->getroute->amount,
-				      best_fee);
+		if (d->fuzz_amount) {
+			/* Only fuzz the amount to route to the destination if
+			 * we didn't opt-out earlier. */
+			ok &= amount_msat_add(&p->getroute->amount,
+					      p->getroute->amount, best_fee);
+		}
 		p->getroute->cltv += best->cltv_expiry_delta;
 		assert(ok);
 	}
