@@ -1214,9 +1214,11 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
 
     l2.daemon.rpcproxy.mock_rpc('getblockhash', no_more_blocks)
 
-    # Reorg changes short_channel_id 103x1x0 to 103x2x0, l1 sees it, restarts channeld
-    bitcoind.simple_reorg(102, 1)                   # heights 102 - 108
-    l1.daemon.wait_for_log(r'Peer transient failure .* short_channel_id changed to 103x2x0 \(was 103x1x0\)')
+    # Reorg changes short_channel_id 103x1x0 to 104x1x0, l1 sees it, restarts channeld
+    bitcoind.simple_reorg(103, 1)                   # heights 103 - 108
+    # But now it's height 104, we need another block to make it announcable.
+    bitcoind.generate_block(1)
+    l1.daemon.wait_for_log(r'Peer transient failure .* short_channel_id changed to 104x1x0 \(was 103x1x0\)')
 
     wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
         'CHANNELD_NORMAL:Reconnected, and reestablished.',
@@ -1226,7 +1228,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
     l2.daemon.rpcproxy.mock_rpc('getblockhash', None)
 
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('103x1x0')['channels']] == [False, False])
-    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('103x2x0')['channels']] == [True, True])
+    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('104x1x0')['channels']] == [True, True])
 
     wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
         'CHANNELD_NORMAL:Reconnected, and reestablished.',
