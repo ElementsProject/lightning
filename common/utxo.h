@@ -59,4 +59,6 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 				     u32 nlocktime,
 				     u32 nsequence);
 
+/* Estimate of (signed) UTXO weight in transaction */
+size_t utxo_spend_weight(const struct utxo *utxo);
 #endif /* LIGHTNING_COMMON_UTXO_H */

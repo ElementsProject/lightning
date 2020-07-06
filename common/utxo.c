@@ -113,3 +113,8 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 
 	return tx;
 }
+
+size_t utxo_spend_weight(const struct utxo *utxo)
+{
+	return bitcoin_tx_simple_input_weight(utxo->is_p2sh);
+}

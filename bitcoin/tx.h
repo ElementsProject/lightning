@@ -230,4 +230,15 @@ void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
 void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output);
 
 int wally_tx_clone(struct wally_tx *tx, struct wally_tx **output);
+
+/* Various weights of transaction parts. */
+size_t bitcoin_tx_core_weight(size_t num_inputs, size_t num_outputs);
+size_t bitcoin_tx_output_weight(size_t outscript_len);
+
+/* Weight to push sig on stack. */
+size_t bitcoin_tx_input_sig_weight(void);
+
+/* We only do segwit inputs, and we assume witness is sig + key  */
+size_t bitcoin_tx_simple_input_weight(bool p2sh);
+
 #endif /* LIGHTNING_BITCOIN_TX_H */

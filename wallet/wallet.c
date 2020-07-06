@@ -418,34 +418,13 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
 	tal_add_destructor2(utxos, destroy_utxos, w);
 
-	/* version, input count, output count, locktime */
-	weight = (4 + 1 + 1 + 4) * 4;
-
-	/* Add segwit fields: marker + flag */
-	weight += 1 + 1;
-
-	/* The main output: amount, len, scriptpubkey */
-	weight += (8 + 1 + outscriptlen) * 4;
+	/* We assume < 253 inputs, and margin is tiny if we're wrong */
+	weight = bitcoin_tx_core_weight(1, num_outputs)
+		+ bitcoin_tx_output_weight(outscriptlen);
 
 	/* Change output will be P2WPKH */
 	if (may_have_change)
-		weight += (8 + 1 + BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN) * 4;
-
-	/* A couple of things need to change for elements: */
-	if (chainparams->is_elements) {
-                /* Each transaction has surjection and rangeproof (both empty
-		 * for us as long as we use unblinded L-BTC transactions). */
-		weight += 2 * 4;
-
-		/* Each output additionally has an asset_tag (1 + 32), value
-		 * is prefixed by a version (1 byte), an empty nonce (1
-		 * byte), two empty proofs (2 bytes). */
-		weight += (32 + 1 + 1 + 1) * 4 * num_outputs;
-
-		/* An elements transaction has 1 additional output for fees */
-		weight += (8 + 1) * 4; /* Bitcoin style output */
-		weight += (32 + 1 + 1 + 1) * 4; /* Elements added fields */
-	}
+		weight += bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
 
 	*fee_estimate = AMOUNT_SAT(0);
 	*satoshi_in = AMOUNT_SAT(0);
@@ -453,7 +432,6 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 	available = wallet_get_utxos(ctx, w, output_state_available);
 
 	for (i = 0; i < tal_count(available); i++) {
-		size_t input_weight;
 		struct amount_sat needed;
 		struct utxo *u = tal_steal(utxos, available[i]);
 
@@ -473,24 +451,7 @@ static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
 			output_state_available, output_state_reserved))
 			fatal("Unable to reserve output");
 
-		/* Input weight: txid + index + sequence */
-		input_weight = (32 + 4 + 4) * 4;
-
-		/* We always encode the length of the script, even if empty */
-		input_weight += 1 * 4;
-
-		/* P2SH variants include push of <0 <20-byte-key-hash>> */
-		if (u->is_p2sh)
-			input_weight += 23 * 4;
-
-		/* Account for witness (1 byte count + sig + key) */
-		input_weight += 1 + (1 + 73 + 1 + 33);
-
-		/* Elements inputs have 6 bytes of blank proofs attached. */
-		if (chainparams->is_elements)
-			input_weight += 6;
-
-		weight += input_weight;
+		weight += bitcoin_tx_simple_input_weight(u->is_p2sh);
 
 		if (!amount_sat_add(satoshi_in, *satoshi_in, u->amount))
 			fatal("Overflow in available satoshis %zu/%zu %s + %s",
