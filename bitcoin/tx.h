@@ -241,4 +241,15 @@ size_t bitcoin_tx_input_sig_weight(void);
 /* We only do segwit inputs, and we assume witness is sig + key  */
 size_t bitcoin_tx_simple_input_weight(bool p2sh);
 
+/**
+ * change_amount - Is it worth making a P2WPKH change output at this feerate?
+ * @excess: input amount we have above the tx fee and other outputs.
+ * @feerate_perkw: feerate.
+ *
+ * If it's not worth (or possible) to make change, returns AMOUNT_SAT(0).
+ * Otherwise returns the amount of the change output to add (@excess minus
+ * the additional fee for the change output itself).
+ */
+struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw);
+
 #endif /* LIGHTNING_BITCOIN_TX_H */
