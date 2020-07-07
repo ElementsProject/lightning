@@ -856,6 +856,7 @@ static void json_add_utxo(struct json_stream *response,
 				   "value", "amount_msat");
 
 	if (utxo->scriptPubkey != NULL) {
+		json_add_hex_talarr(response, "scriptpubkey", utxo->scriptPubkey);
 		out = encode_scriptpubkey_to_addr(
 			tmpctx, chainparams,
 			utxo->scriptPubkey);
