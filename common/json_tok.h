@@ -131,4 +131,9 @@ struct command_result *param_secrets_array(struct command *cmd,
 					   const jsmntok_t *tok,
 					   struct secret **secrets);
 
+struct command_result *param_feerate_val(struct command *cmd,
+					 const char *name, const char *buffer,
+					 const jsmntok_t *tok,
+					 u32 **feerate_per_kw);
+
 #endif /* LIGHTNING_COMMON_JSON_TOK_H */

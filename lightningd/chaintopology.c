@@ -466,32 +466,6 @@ u32 penalty_feerate(struct chain_topology *topo)
 	return try_get_feerate(topo, FEERATE_PENALTY);
 }
 
-u32 feerate_from_style(u32 feerate, enum feerate_style style)
-{
-	switch (style) {
-	case FEERATE_PER_KSIPA:
-		return feerate;
-	case FEERATE_PER_KBYTE:
-		/* Everyone uses satoshi per kbyte, but we use satoshi per ksipa
-		 * (don't round down to zero though)! */
-		return (feerate + 3) / 4;
-	}
-	abort();
-}
-
-u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style)
-{
-	switch (style) {
-	case FEERATE_PER_KSIPA:
-		return feerate_perkw;
-	case FEERATE_PER_KBYTE:
-		if ((u64)feerate_perkw * 4 > UINT_MAX)
-			return UINT_MAX;
-		return feerate_perkw * 4;
-	}
-	abort();
-}
-
 static struct command_result *json_feerates(struct command *cmd,
 					    const char *buffer,
 					    const jsmntok_t *obj UNNEEDED,
@@ -516,7 +490,7 @@ static struct command_result *json_feerates(struct command *cmd,
 	}
 
 	response = json_stream_success(cmd);
-	json_object_start(response, json_feerate_style_name(*style));
+	json_object_start(response, feerate_style_name(*style));
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
 		if (!feerates[i] || i == FEERATE_MIN || i == FEERATE_MAX)
 			continue;

@@ -12,9 +12,6 @@ void db_commit_transaction(struct db *db UNNEEDED)
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
-/* Generated stub for feerate_from_style */
-u32 feerate_from_style(u32 feerate UNNEEDED, enum feerate_style style UNNEEDED)
-{ fprintf(stderr, "feerate_from_style called!\n"); abort(); }
 /* Generated stub for feerate_name */
 const char *feerate_name(enum feerate feerate UNNEEDED)
 { fprintf(stderr, "feerate_name called!\n"); abort(); }
@@ -80,6 +77,12 @@ struct command_result *param_feerate_estimate(struct command *cmd UNNEEDED,
 					      u32 **feerate_per_kw UNNEEDED,
 					      enum feerate feerate UNNEEDED)
 { fprintf(stderr, "param_feerate_estimate called!\n"); abort(); }
+/* Generated stub for param_feerate_val */
+struct command_result *param_feerate_val(struct command *cmd UNNEEDED,
+					 const char *name UNNEEDED, const char *buffer UNNEEDED,
+					 const jsmntok_t *tok UNNEEDED,
+					 u32 **feerate_per_kw UNNEEDED)
+{ fprintf(stderr, "param_feerate_val called!\n"); abort(); }
 /* Generated stub for param_ignore */
 struct command_result *param_ignore(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,

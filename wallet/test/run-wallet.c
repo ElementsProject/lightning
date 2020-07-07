@@ -702,7 +702,7 @@ u8 *towire_incorrect_cltv_expiry(const tal_t *ctx UNNEEDED, u32 cltv_expiry UNNE
 u8 *towire_incorrect_or_unknown_payment_details(const tal_t *ctx UNNEEDED, struct amount_msat htlc_msat UNNEEDED, u32 height UNNEEDED)
 { fprintf(stderr, "towire_incorrect_or_unknown_payment_details called!\n"); abort(); }
 /* Generated stub for towire_invalid_onion_payload */
-u8 *towire_invalid_onion_payload(const tal_t *ctx UNNEEDED, varint type UNNEEDED, u16 offset UNNEEDED)
+u8 *towire_invalid_onion_payload(const tal_t *ctx UNNEEDED, bigsize type UNNEEDED, u16 offset UNNEEDED)
 { fprintf(stderr, "towire_invalid_onion_payload called!\n"); abort(); }
 /* Generated stub for towire_invalid_realm */
 u8 *towire_invalid_realm(const tal_t *ctx UNNEEDED)
