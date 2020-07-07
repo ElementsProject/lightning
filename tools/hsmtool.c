@@ -393,24 +393,24 @@ int main(int argc, char *argv[])
 
 	if (streq(method, "dumpcommitments")) {
 		/*   node_id    channel_id   depth    hsm_secret  ?password? */
-		if (argc < 7)
+		if (argc < 6)
 			show_usage(argv[0]);
 		struct node_id node_id;
 		if (!node_id_from_hexstr(argv[2], strlen(argv[2]), &node_id))
 			err(ERROR_USAGE, "Bad node id");
 		return dump_commitments_infos(&node_id, atol(argv[3]), atol(argv[4]),
-		                              argv[5], argv[6]);
+		                              argv[5], argc >= 7 ? argv[6] : NULL);
 	}
 
 	if (streq(method, "guesstoremote")) {
 		/*   address    node_id    depth    hsm_secret  ?password? */
-		if (argc < 7)
+		if (argc < 6)
 			show_usage(argv[0]);
 		struct node_id node_id;
 		if (!node_id_from_hexstr(argv[3], strlen(argv[3]), &node_id))
 			errx(ERROR_USAGE, "Bad node id");
 		return guess_to_remote(argv[2], &node_id, atol(argv[4]),
-		                       argv[5], argv[6]);
+		                       argv[5], argc >= 7 ? argv[6] : NULL);
 	}
 
 	show_usage(argv[0]);
