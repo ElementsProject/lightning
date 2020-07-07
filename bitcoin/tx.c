@@ -803,3 +803,20 @@ size_t bitcoin_tx_simple_input_weight(bool p2sh)
 
 	return weight;
 }
+
+struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw)
+{
+	size_t outweight;
+
+	/* Must be able to pay for its own additional weight */
+	outweight = bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
+	if (!amount_sat_sub(&excess,
+			    excess, amount_tx_fee(feerate_perkw, outweight)))
+		return AMOUNT_SAT(0);
+
+	/* Must be non-dust */
+	if (!amount_sat_greater_eq(excess, chainparams->dust_limit))
+		return AMOUNT_SAT(0);
+
+	return excess;
+}
