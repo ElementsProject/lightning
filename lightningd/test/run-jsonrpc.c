@@ -29,6 +29,12 @@ void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct n
 void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		     const struct sha256 *hash UNNEEDED)
 { fprintf(stderr, "json_add_sha256 called!\n"); abort(); }
+/* Generated stub for json_to_address_scriptpubkey */
+enum address_parse_result json_to_address_scriptpubkey(const tal_t *ctx UNNEEDED,
+			     const struct chainparams *chainparams UNNEEDED,
+			     const char *buffer UNNEEDED,
+			     const jsmntok_t *tok UNNEEDED, const u8 **scriptpubkey UNNEEDED)
+{ fprintf(stderr, "json_to_address_scriptpubkey called!\n"); abort(); }
 /* Generated stub for json_to_pubkey */
 bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		    struct pubkey *pubkey UNNEEDED)
