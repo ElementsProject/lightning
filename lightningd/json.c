@@ -69,17 +69,6 @@ struct command_result *param_short_channel_id(struct command *cmd,
 			    json_tok_full(buffer, tok));
 }
 
-const char *json_feerate_style_name(enum feerate_style style)
-{
-	switch (style) {
-	case FEERATE_PER_KBYTE:
-		return "perkb";
-	case FEERATE_PER_KSIPA:
-		return "perkw";
-	}
-	abort();
-}
-
 struct command_result *param_feerate_style(struct command *cmd,
 					   const char *name,
 					   const char *buffer,
@@ -88,11 +77,11 @@ struct command_result *param_feerate_style(struct command *cmd,
 {
 	*style = tal(cmd, enum feerate_style);
 	if (json_tok_streq(buffer, tok,
-			   json_feerate_style_name(FEERATE_PER_KSIPA))) {
+			   feerate_style_name(FEERATE_PER_KSIPA))) {
 		**style = FEERATE_PER_KSIPA;
 		return NULL;
 	} else if (json_tok_streq(buffer, tok,
-				  json_feerate_style_name(FEERATE_PER_KBYTE))) {
+				  feerate_style_name(FEERATE_PER_KBYTE))) {
 		**style = FEERATE_PER_KBYTE;
 		return NULL;
 	}
@@ -100,8 +89,8 @@ struct command_result *param_feerate_style(struct command *cmd,
 	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 			    "'%s' should be '%s' or '%s', not '%.*s'",
 			    name,
-			    json_feerate_style_name(FEERATE_PER_KSIPA),
-			    json_feerate_style_name(FEERATE_PER_KBYTE),
+			    feerate_style_name(FEERATE_PER_KSIPA),
+			    feerate_style_name(FEERATE_PER_KBYTE),
 			    json_tok_full_len(tok), json_tok_full(buffer, tok));
 }
 
@@ -109,10 +98,6 @@ struct command_result *param_feerate(struct command *cmd, const char *name,
 				     const char *buffer, const jsmntok_t *tok,
 				     u32 **feerate)
 {
-	jsmntok_t base = *tok, suffix = *tok;
-	enum feerate_style style;
-	unsigned int num;
-
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
 		if (json_tok_streq(buffer, tok, feerate_name(i)))
 			return param_feerate_estimate(cmd, feerate, i);
@@ -127,42 +112,8 @@ struct command_result *param_feerate(struct command *cmd, const char *name,
 	else if (json_tok_streq(buffer, tok, "urgent"))
 		return param_feerate_estimate(cmd, feerate, FEERATE_UNILATERAL_CLOSE);
 
-	/* We have to split the number and suffix. */
-	suffix.start = suffix.end;
-	while (suffix.start > base.start && !isdigit(buffer[suffix.start-1])) {
-		suffix.start--;
-		base.end--;
-	}
-
-	if (!json_to_number(buffer, &base, &num)) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "'%s' prefix should be an integer, not '%.*s'",
-				    name, base.end - base.start,
-				    buffer + base.start);
-	}
-
-	if (json_tok_streq(buffer, &suffix, "")
-	    || json_tok_streq(buffer, &suffix,
-			      json_feerate_style_name(FEERATE_PER_KBYTE))) {
-		style = FEERATE_PER_KBYTE;
-	} else if (json_tok_streq(buffer, &suffix,
-				json_feerate_style_name(FEERATE_PER_KSIPA))) {
-		style = FEERATE_PER_KSIPA;
-	} else {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "'%s' suffix should be '%s' or '%s', not '%.*s'",
-				    name,
-				    json_feerate_style_name(FEERATE_PER_KSIPA),
-				    json_feerate_style_name(FEERATE_PER_KBYTE),
-				    suffix.end - suffix.start,
-				    buffer + suffix.start);
-	}
-
-	*feerate = tal(cmd, u32);
-	**feerate = feerate_from_style(num, style);
-	if (**feerate < FEERATE_FLOOR)
-		**feerate = FEERATE_FLOOR;
-	return NULL;
+	/* It's a number... */
+	return param_feerate_val(cmd, name, buffer, tok, feerate);
 }
 
 bool

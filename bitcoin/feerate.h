@@ -33,6 +33,11 @@
  */
 #define FEERATE_FLOOR 253
 
+enum feerate_style {
+	FEERATE_PER_KSIPA,
+	FEERATE_PER_KBYTE
+};
+
 static inline u32 feerate_floor(void)
 {
 	/* Assert that bitcoind will see this as above minRelayTxFee */
@@ -47,4 +52,9 @@ static inline u32 feerate_floor(void)
 
 	return FEERATE_FLOOR;
 }
+
+u32 feerate_from_style(u32 feerate, enum feerate_style style);
+u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style);
+const char *feerate_style_name(enum feerate_style style);
+
 #endif /* LIGHTNING_BITCOIN_FEERATE_H */

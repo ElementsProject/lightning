@@ -19,6 +19,7 @@ PLUGIN_LIB_OBJS := $(PLUGIN_LIB_SRC:.c=.o)
 
 PLUGIN_COMMON_OBJS :=				\
 	bitcoin/base58.o			\
+	bitcoin/feerate.o			\
 	bitcoin/privkey.o			\
 	bitcoin/psbt.o				\
 	bitcoin/pubkey.o			\
