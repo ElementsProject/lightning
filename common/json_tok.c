@@ -490,3 +490,18 @@ json_to_address_scriptpubkey(const tal_t *ctx,
 
 	return ADDRESS_PARSE_UNRECOGNIZED;
 }
+
+struct command_result *param_txid(struct command *cmd,
+				  const char *name,
+				  const char *buffer,
+				  const jsmntok_t *tok,
+				  struct bitcoin_txid **txid)
+{
+	*txid = tal(cmd, struct bitcoin_txid);
+	if (json_to_txid(buffer, tok, *txid))
+		return NULL;
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "'%s' should be txid, not '%.*s'",
+			    name, json_tok_full_len(tok),
+			    json_tok_full(buffer, tok));
+}
