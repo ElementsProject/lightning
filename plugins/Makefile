@@ -1,3 +1,5 @@
+PLUGINS=plugins/pay plugins/autoclean plugins/fundchannel plugins/bcli plugins/keysend
+
 PLUGIN_PAY_SRC := plugins/pay.c
 PLUGIN_PAY_OBJS := $(PLUGIN_PAY_SRC:.c=.o)
 
@@ -69,7 +71,7 @@ plugins/keysend: bitcoin/chainparams.o wire/tlvstream.o wire/gen_onion_wire.o $(
 $(PLUGIN_PAY_OBJS) $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_FUNDCHANNEL_OBJS) $(PLUGIN_BCLI_OBJS) $(PLUGIN_LIB_OBJS): $(PLUGIN_LIB_HEADER)
 
 # Make sure these depend on everything.
-ALL_PROGRAMS += plugins/pay plugins/autoclean plugins/fundchannel plugins/bcli plugins/keysend
+ALL_PROGRAMS += $(PLUGINS)
 ALL_OBJS += $(PLUGIN_PAY_OBJS) $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_FUNDCHANNEL_OBJS) $(PLUGIN_BCLI_OBJS) $(PLUGIN_KEYSEND_OBJS) $(PLUGIN_LIB_OBJS)
 
 check-source: $(PLUGIN_PAY_SRC:%=check-src-include-order/%) $(PLUGIN_AUTOCLEAN_SRC:%=check-src-include-order/%) $(PLUGIN_FUNDCHANNEL_SRC:%=check-src-include-order/%) $(PLUGIN_BCLI_SRC:%=check-src-include-order/%)
