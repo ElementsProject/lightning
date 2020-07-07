@@ -29,10 +29,6 @@ struct command_result *param_pubkey(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
 				    struct pubkey **pubkey);
 
-struct command_result *param_txid(struct command *cmd, const char *name,
-				  const char *buffer, const jsmntok_t *tok,
-				  struct bitcoin_txid **txid);
-
 struct command_result *param_short_channel_id(struct command *cmd,
 					      const char *name,
 					      const char *buffer,
