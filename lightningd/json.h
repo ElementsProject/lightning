@@ -56,22 +56,6 @@ struct command_result *param_feerate(struct command *cmd, const char *name,
 bool json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
 			 struct channel_id *cid);
 
-enum address_parse_result {
-	/* Not recognized as an onchain address */
-	ADDRESS_PARSE_UNRECOGNIZED,
-	/* Recognized as an onchain address, but targets wrong network */
-	ADDRESS_PARSE_WRONG_NETWORK,
-	/* Recognized and succeeds */
-	ADDRESS_PARSE_SUCCESS,
-};
-/* Return result of address parsing and fills in *scriptpubkey
- * allocated off ctx if ADDRESS_PARSE_SUCCESS
- */
-enum address_parse_result json_to_address_scriptpubkey(const tal_t *ctx,
-			     const struct chainparams *chainparams,
-			     const char *buffer,
-			     const jsmntok_t *tok, const u8 **scriptpubkey);
-
 struct command_result *param_bitcoin_address(struct command *cmd,
 					     const char *name,
 					     const char *buffer,
