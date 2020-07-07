@@ -10,6 +10,7 @@
 
 struct amount_msat;
 struct amount_sat;
+struct bitcoin_txid;
 struct channel_id;
 struct command;
 struct command_result;
@@ -135,6 +136,12 @@ struct command_result *param_feerate_val(struct command *cmd,
 					 const char *name, const char *buffer,
 					 const jsmntok_t *tok,
 					 u32 **feerate_per_kw);
+
+struct command_result *param_txid(struct command *cmd,
+				  const char *name,
+				  const char *buffer,
+				  const jsmntok_t *tok,
+				  struct bitcoin_txid **txid);
 
 enum address_parse_result {
 	/* Not recognized as an onchain address */

@@ -43,10 +43,6 @@ bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			      struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
-/* Generated stub for json_to_txid */
-bool json_to_txid(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		  struct bitcoin_txid *txid UNNEEDED)
-{ fprintf(stderr, "json_to_txid called!\n"); abort(); }
 /* Generated stub for log_ */
 void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED,
 	  const struct node_id *node_id UNNEEDED,

@@ -50,6 +50,10 @@ bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		    struct pubkey *pubkey UNNEEDED)
 { fprintf(stderr, "json_to_pubkey called!\n"); abort(); }
+/* Generated stub for json_to_txid */
+bool json_to_txid(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		  struct bitcoin_txid *txid UNNEEDED)
+{ fprintf(stderr, "json_to_txid called!\n"); abort(); }
 /* Generated stub for segwit_addr_decode */
 int segwit_addr_decode(
     int* ver UNNEEDED,
