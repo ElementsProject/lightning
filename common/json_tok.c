@@ -356,7 +356,7 @@ struct command_result *param_feerate_val(struct command *cmd,
 				    buffer + base.start);
 	}
 
-	if (json_tok_streq(buffer, &suffix, "")
+	if (suffix.end == suffix.start
 	    || json_tok_streq(buffer, &suffix,
 			      feerate_style_name(FEERATE_PER_KBYTE))) {
 		style = FEERATE_PER_KBYTE;
