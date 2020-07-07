@@ -23,9 +23,6 @@ struct amount_sat amount_asset_to_sat(struct amount_asset *asset UNNEEDED)
 /* Generated stub for amount_sat_eq */
 bool amount_sat_eq(struct amount_sat a UNNEEDED, struct amount_sat b UNNEEDED)
 { fprintf(stderr, "amount_sat_eq called!\n"); abort(); }
-/* Generated stub for amount_sat_less */
-bool amount_sat_less(struct amount_sat a UNNEEDED, struct amount_sat b UNNEEDED)
-{ fprintf(stderr, "amount_sat_less called!\n"); abort(); }
 /* Generated stub for amount_sat_sub */
  bool amount_sat_sub(struct amount_sat *val UNNEEDED,
 				       struct amount_sat a UNNEEDED,

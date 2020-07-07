@@ -5,6 +5,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_JSON_H
 #define LIGHTNING_LIGHTNINGD_JSON_H
 #include "config.h"
+#include <bitcoin/feerate.h>
 #include <bitcoin/privkey.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
@@ -37,11 +38,6 @@ struct command_result *param_short_channel_id(struct command *cmd,
 					      const char *buffer,
 					      const jsmntok_t *tok,
 					      struct short_channel_id **scid);
-
-enum feerate_style {
-	FEERATE_PER_KSIPA,
-	FEERATE_PER_KBYTE
-};
 
 /* Extract a feerate style. */
 struct command_result *param_feerate_style(struct command *cmd,

@@ -1,3 +1,4 @@
+#include <bitcoin/feerate.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/str/hex/hex.h>
@@ -330,3 +331,51 @@ struct command_result *param_secrets_array(struct command *cmd,
 	}
 	return NULL;
 }
+
+struct command_result *param_feerate_val(struct command *cmd,
+					 const char *name, const char *buffer,
+					 const jsmntok_t *tok,
+					 u32 **feerate_per_kw)
+{
+	jsmntok_t base = *tok, suffix = *tok;
+	enum feerate_style style;
+	unsigned int num;
+
+	/* We have to split the number and suffix. */
+	suffix.start = suffix.end;
+	while (suffix.start > base.start && !isdigit(buffer[suffix.start-1])) {
+		suffix.start--;
+		base.end--;
+	}
+
+	if (!json_to_number(buffer, &base, &num)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%s' prefix should be an integer, not '%.*s'",
+				    name, base.end - base.start,
+				    buffer + base.start);
+	}
+
+	if (json_tok_streq(buffer, &suffix, "")
+	    || json_tok_streq(buffer, &suffix,
+			      feerate_style_name(FEERATE_PER_KBYTE))) {
+		style = FEERATE_PER_KBYTE;
+	} else if (json_tok_streq(buffer, &suffix,
+				feerate_style_name(FEERATE_PER_KSIPA))) {
+		style = FEERATE_PER_KSIPA;
+	} else {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "'%s' suffix should be '%s' or '%s', not '%.*s'",
+				    name,
+				    feerate_style_name(FEERATE_PER_KSIPA),
+				    feerate_style_name(FEERATE_PER_KBYTE),
+				    suffix.end - suffix.start,
+				    buffer + suffix.start);
+	}
+
+	*feerate_per_kw = tal(cmd, u32);
+	**feerate_per_kw = feerate_from_style(num, style);
+	if (**feerate_per_kw < FEERATE_FLOOR)
+		**feerate_per_kw = FEERATE_FLOOR;
+	return NULL;
+}
+
