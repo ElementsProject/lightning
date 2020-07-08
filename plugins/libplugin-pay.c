@@ -2016,6 +2016,12 @@ static void waitblockheight_cb(void *d, struct payment *p)
 		   " seconds to catch up to block %d before retrying.",
 		   time_to_sec(remaining), blockheight);
 
+	/* Set temporarily set the state of the payment to not failed, so
+	 * interim status queries don't show this as terminally failed. We're
+	 * in control for this payment so nobody else could be fooled by
+	 * this. The callback will set it to retry anyway. */
+	payment_set_step(p, PAYMENT_STEP_RETRY);
+
 	req = jsonrpc_request_start(p->plugin, NULL, "waitblockheight",
 				    waitblockheight_rpc_cb,
 				    waitblockheight_rpc_cb, p);
