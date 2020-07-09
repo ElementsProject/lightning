@@ -1,5 +1,4 @@
-#include <iostream>
-#include <sstream>
+#include "contrib/remote_hsmd/dump.hpp"
 
 extern "C" {
 #include <bitcoin/chainparams.h>
@@ -11,11 +10,13 @@ extern "C" {
 #include <common/status.h>
 #include <common/utils.h>
 #include <common/utxo.h>
-#include <secp256k1_recovery.h>
+}
+#include <iostream>
+#include <sstream>
+extern "C" {
 #include <wally_bip32.h>
 }
 
-#include "contrib/remote_hsmd/dump.h"
 
 using std::ostringstream;
 using std::string;

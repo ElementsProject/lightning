@@ -1473,11 +1473,11 @@ static struct io_plan *handle_new_channel(struct io_conn *conn,
 
 static bool mem_is_zero(const void *mem, size_t len)
 {
-    size_t i;
-    for (i = 0; i < len; ++i)
-        if (((const unsigned char *)mem)[i])
-            return false;
-    return true;
+	size_t i;
+	for (i = 0; i < len; ++i)
+		if (((const unsigned char *)mem)[i])
+			return false;
+	return true;
 }
 
 /*~ This is used to provide all unchanging public channel parameters. */
@@ -1497,6 +1497,7 @@ static struct io_plan *handle_ready_channel(struct io_conn *conn,
 	u16 remote_to_self_delay;
 	u8 *remote_shutdown_script;
 	bool option_static_remotekey;
+	struct amount_msat value_msat;
 
 	if (!fromwire_hsm_ready_channel(tmpctx, msg_in, &is_outbound,
 					&channel_value, &push_value, &funding_txid,
@@ -1510,8 +1511,9 @@ static struct io_plan *handle_ready_channel(struct io_conn *conn,
 		return bad_req(conn, c, msg_in);
 
 	/* Fail fast if any values are obviously uninitialized. */
-	assert(channel_value.satoshis > 0);
-	assert(push_value.millisatoshis / 1000 <= channel_value.satoshis);
+	assert(amount_sat_greater(channel_value, AMOUNT_SAT(0)));
+	assert(amount_sat_to_msat(&value_msat, channel_value));
+	assert(amount_msat_less_eq(push_value, value_msat));
 	assert(!mem_is_zero(&funding_txid, sizeof(funding_txid)));
 	assert(local_to_self_delay > 0);
 	assert(!mem_is_zero(&remote_basepoints, sizeof(remote_basepoints)));

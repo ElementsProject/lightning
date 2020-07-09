@@ -45,6 +45,8 @@ pip3 install --user -U --quiet --progress-bar off \
      pytest-sentry \
      pytest-rerunfailures
 
+wget -q --directory-prefix=contrib/remote_hsmd https://gitlab.com/lightning-signer/rust-lightning-signer/-/raw/master/src/server/remotesigner.proto
+    
 echo "Configuration which is going to be built:"
 echo -en 'travis_fold:start:script.1\\r'
 ./configure CC="$CC"

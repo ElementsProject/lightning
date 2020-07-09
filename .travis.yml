@@ -5,7 +5,8 @@ notifications:
   email: false
 
 before_install:
-  sudo apt-get install -y libsqlite3-dev cppcheck valgrind gcc-4.8 gettext libc6-dev-armhf-cross libc6-dev-arm64-cross gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf qemu-user-static binfmt-support libsecp256k1-dev
+  - sudo apt-get install -y libsqlite3-dev cppcheck valgrind gcc-4.8 gettext libc6-dev-armhf-cross libc6-dev-arm64-cross gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf qemu-user-static binfmt-support libsecp256k1-dev g++ protobuf-compiler protobuf-c-compiler libprotobuf-dev protobuf-compiler-grpc libgrpc++-dev libstdc++-6-dev
+  - sudo ln -s /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libstdc++.so
 
 env:
   - ARCH=64 SOURCE_CHECK_ONLY=true COPTFLAGS="-O3"

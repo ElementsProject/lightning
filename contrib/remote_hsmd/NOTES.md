@@ -83,7 +83,6 @@ rust-lightning-signer
 
     cargo run --bin server |& tee log3
 
-
 Signing Formats
 ```
 rust-lightning  c-lightning     rust-lightning-signer
@@ -93,14 +92,4 @@ p2wpkh          p2wpkh          P2WPKH
 p2shwpkh        p2sh-p2wpkh     P2SH_P2WPKH
 p2wsh
 p2shwsh
-```
-
-
-Failing tests after removing seed from hsmd:
-```
-    export THETEST=tests/test_misc.py::test_blockchaintrack
-    export THETEST=tests/test_misc.py::test_new_node_is_mainnet
-    export THETEST=tests/test_misc.py::test_getsharedsecret
-    export THETEST=tests/test_wallet.py::test_hsm_secret_encryption
-    export THETEST=tests/test_wallet.py::test_hsmtool_secret_decryption
 ```

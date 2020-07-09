@@ -1,3 +1,10 @@
+#ifndef LIGHTNING_CONTRIB_REMOTE_HSMD_DUMP_H
+#define LIGHTNING_CONTRIB_REMOTE_HSMD_DUMP_H
+
+extern "C" {
+#include <ccan/short_types/short_types.h>
+#include <secp256k1_recovery.h>
+}
 #include <string>
 
 std::string dump_hex(const void *vptr, size_t sz);
@@ -26,3 +33,5 @@ std::string dump_wally_tx_outputs(const struct wally_tx_output *outputs,
 std::string dump_wally_tx(const struct wally_tx *wtx);
 std::string dump_wally_psbt(const struct wally_psbt *psbt);
 std::string dump_tx(const struct bitcoin_tx *tx);
+
+#endif /* LIGHTNING_CONTRIB_REMOTE_HSMD_DUMP_H */

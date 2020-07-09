@@ -1,19 +1,14 @@
 /* This needs to be first */
 #define __STDC_FORMAT_MACROS
-#include <inttypes.h>
 
-#include <sys/types.h>	/* These two only needed for sleep() and getpid() */
-#include <unistd.h>
-
-#include <iostream>
-#include <sstream>
-
-#include <grpc++/grpc++.h>
-
+#include "contrib/remote_hsmd/dump.hpp"
+#include "contrib/remote_hsmd/proxy.hpp"
+#include "contrib/remote_hsmd/remotesigner.grpc.pb.h"
+#include "contrib/remote_hsmd/remotesigner.pb.h"
 extern "C" {
 #include <bitcoin/chainparams.h>
-#include <bitcoin/psbt.h>
 #include <bitcoin/privkey.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/short_channel_id.h>
 #include <bitcoin/tx.h>
 #include <common/derive_basepoints.h>
@@ -22,15 +17,20 @@ extern "C" {
 #include <common/status.h>
 #include <common/utils.h>
 #include <common/utxo.h>
+}
+#include <grpc++/grpc++.h>
+#include <inttypes.h>
+#include <iostream>
+extern "C" {
 #include <secp256k1_recovery.h>
+}
+#include <sstream>
+#include <sys/types.h>	/* These two only needed for sleep() and getpid() */
+#include <unistd.h>
+extern "C" {
 #include <wally_bip32.h>
 }
 
-#include "contrib/remote_hsmd/remotesigner.pb.h"
-#include "contrib/remote_hsmd/remotesigner.grpc.pb.h"
-
-#include "contrib/remote_hsmd/dump.h"
-#include "contrib/remote_hsmd/proxy.h"
 
 using std::cerr;
 using std::endl;
@@ -269,7 +269,7 @@ void unmarshal_witnesses(RepeatedPtrField<Witness> const &wits, u8 ****o_wits)
 		owits = tal_arrz(tmpctx, u8**, nwits);
 		for (size_t ii = 0; ii < nwits; ++ii) {
 			owits[ii] = tal_arrz(owits, u8*, 2);
-			Witness const &wit = wits[ii];
+			Witness const &wit = wits.Get(ii);
 			const string &sig = wit.signature().data();
 			const string &pubkey = wit.pubkey().data();
 			owits[ii][0] = tal_arr(owits[ii], u8, sig.size());
@@ -915,7 +915,7 @@ proxy_stat proxy_handle_get_channel_basepoints(
 		unmarshal_pubkey(bps.delayed_payment(),
 				 &o_basepoints->delayed_payment);
 		unmarshal_pubkey(bps.funding_pubkey(), o_funding_pubkey);
-		status_debug("%s:%d %s self_id=%s",
+		status_debug("%s:%d %s self_id=%s basepoints=%s pubkey=%s",
 			     __FILE__, __LINE__, __FUNCTION__,
 			     dump_node_id(&self_id).c_str(),
 			     dump_basepoints(o_basepoints).c_str(),
