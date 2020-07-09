@@ -815,8 +815,10 @@ static void tlvstream_set_tlv_payload_data(struct tlv_field **stream,
 	u8 *ser = tal_arr(NULL, u8, 0);
 	towire_secret(&ser, payment_secret);
 	towire_tu64(&ser, total_msat);
-	tlvstream_set_raw(stream, TLV_TLV_PAYLOAD_PAYMENT_DATA, take(ser));
+	tlvstream_set_raw(stream, TLV_TLV_PAYLOAD_PAYMENT_DATA, ser, tal_bytelen(ser));
+	tal_free(ser);
 }
+
 static void payment_add_hop_onion_payload(struct payment *p,
 					  struct createonion_hop *dst,
 					  struct route_hop *node,

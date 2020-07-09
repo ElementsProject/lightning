@@ -55,7 +55,6 @@ static void keysend_cb(struct keysend_data *d, struct payment *p) {
 	struct route_hop *last_hop;
 	struct createonion_hop *last_payload;
 	size_t hopcount;
-	u8 *raw_preimage;
 
 	if (p->step == PAYMENT_STEP_GOT_ROUTE) {
 		/* Force the last step to be a TLV, we might not have an
@@ -68,13 +67,10 @@ static void keysend_cb(struct keysend_data *d, struct payment *p) {
 	if (p->step != PAYMENT_STEP_ONION_PAYLOAD)
 		return payment_continue(p);
 
-	raw_preimage = tal_dup_arr(p->createonion_request, u8, d->preimage.r,
-				   sizeof(d->preimage), 0);
-
 	hopcount = tal_count(p->createonion_request->hops);
 	last_payload = &p->createonion_request->hops[hopcount - 1];
 	tlvstream_set_raw(&last_payload->tlv_payload->fields, PREIMAGE_TLV_TYPE,
-			  take(raw_preimage));
+			  &d->preimage, sizeof(struct preimage));
 
 	return payment_continue(p);
 }

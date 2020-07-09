@@ -39,7 +39,7 @@ void towire_tlvstream_raw(u8 **pptr, const struct tlv_field *fields);
 
 
 /* Generic primitive setters for tlvstreams. */
-void tlvstream_set_raw(struct tlv_field **stream, u64 type, u8 *value TAKES);
+void tlvstream_set_raw(struct tlv_field **stream, u64 type, void *value, size_t valuelen);
 void tlvstream_set_short_channel_id(struct tlv_field **stream, u64 type,
 				    struct short_channel_id *value);
 void tlvstream_set_tu64(struct tlv_field **stream, u64 type, u64 value);
