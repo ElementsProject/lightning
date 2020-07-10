@@ -25,6 +25,8 @@
 /* Public key of this node. */
 static struct node_id my_id;
 static unsigned int maxdelay_default;
+static bool disablempp = false;
+
 static LIST_HEAD(pay_status);
 
 static LIST_HEAD(payments);
@@ -1955,6 +1957,8 @@ static struct command_result *json_paymod(struct command *cmd,
 
 	payment_mod_exemptfee_get_data(p)->amount = *exemptfee;
 	shadow_route = payment_mod_shadowroute_get_data(p);
+	payment_mod_presplit_get_data(p)->disable = disablempp;
+	payment_mod_adaptive_splitter_get_data(p)->disable = disablempp;
 
 	/* This is an MPP enabled pay command, disable amount fuzzing. */
 	shadow_route->fuzz_amount = false;
@@ -2004,5 +2008,9 @@ int main(int argc, char *argv[])
 {
 	setup_locale();
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, NULL, commands,
-		    ARRAY_SIZE(commands), NULL, 0, NULL, 0, NULL);
+		    ARRAY_SIZE(commands), NULL, 0, NULL, 0,
+		    plugin_option("disable-mpp", "flag",
+				  "Disable multi-part payments.",
+				  flag_option, &disablempp),
+		    NULL);
 }

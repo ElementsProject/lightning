@@ -309,6 +309,14 @@ up space in the database.
 Control how long invoices must have been expired before they are cleaned
 (if *autocleaninvoice-cycle* is non-zero).
 
+Payment control options:
+
+ **disable-mpp**
+Disable the multi-part payment sending support in the `pay` plugin. By default
+the MPP support is enabled, but it can be desirable to disable in situations
+in which each payment should result in a single HTLC being forwarded in the
+network.
+
 ### Networking options
 
 Note that for simple setups, the implicit *autolisten* option does the

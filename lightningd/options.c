@@ -1201,6 +1201,9 @@ static void add_config(struct lightningd *ld,
 				      feature_offered(ld->our_features
 						      ->bits[INIT_FEATURE],
 						      OPT_LARGE_CHANNELS));
+		} else if (opt->cb == (void *)plugin_opt_flag_set) {
+			/* Noop, they will get added below along with the
+			 * OPT_HASARG options. */
 		} else {
 			/* Insert more decodes here! */
 			assert(!"A noarg option was added but was not handled");

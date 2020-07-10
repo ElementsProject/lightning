@@ -239,7 +239,9 @@ void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...) PRINTF
 /* Standard helpers */
 char *u64_option(const char *arg, u64 *i);
 char *u32_option(const char *arg, u32 *i);
+char *bool_option(const char *arg, bool *i);
 char *charp_option(const char *arg, char **p);
+char *flag_option(const char *arg, bool *i);
 
 /* The main plugin runner: append with 0 or more plugin_option(), then NULL. */
 void NORETURN LAST_ARG_NULL plugin_main(char *argv[],

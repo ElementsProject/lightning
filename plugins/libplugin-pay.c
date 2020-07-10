@@ -2082,10 +2082,25 @@ REGISTER_PAYMENT_MODIFIER(waitblockheight, void *, NULL, waitblockheight_cb);
 #define MPP_TARGET_MSAT AMOUNT_MSAT(MPP_TARGET_SIZE)
 #define MPP_TARGET_FUZZ ( 1 * 1000 * 1000)
 
-static void presplit_cb(void *d, struct payment *p)
+static struct presplit_mod_data *presplit_mod_data_init(struct payment *p)
+{
+	struct presplit_mod_data *d;
+	if (p->parent == NULL) {
+		d = tal(p, struct presplit_mod_data);
+		d->disable = false;
+		return d;
+	} else {
+		return payment_mod_presplit_get_data(p->parent);
+	}
+}
+
+static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 {
 	struct payment *root = payment_root(p);
 	struct amount_msat amt = root->amount;
+
+	if (d->disable)
+		return payment_continue(p);
 
 	if (p->step == PAYMENT_STEP_ONION_PAYLOAD) {
 		/* We need to tell the last hop the total we're going to
@@ -2166,7 +2181,8 @@ static void presplit_cb(void *d, struct payment *p)
 	payment_continue(p);
 }
 
-REGISTER_PAYMENT_MODIFIER(presplit, void *, NULL, presplit_cb);
+REGISTER_PAYMENT_MODIFIER(presplit, struct presplit_mod_data *,
+			  presplit_mod_data_init, presplit_cb);
 
 /*****************************************************************************
  * Adaptive splitter -- Split payment if we can't get it through.
@@ -2179,9 +2195,25 @@ REGISTER_PAYMENT_MODIFIER(presplit, void *, NULL, presplit_cb);
 
 #define MPP_ADAPTIVE_LOWER_LIMIT AMOUNT_MSAT(100 * 1000)
 
-static void adaptive_splitter_cb(void *d, struct payment *p)
+static struct presplit_mod_data *adaptive_splitter_data_init(struct payment *p)
+{
+	struct presplit_mod_data *d;
+	if (p->parent == NULL) {
+		d = tal(p, struct presplit_mod_data);
+		d->disable = false;
+		return d;
+	} else {
+		return payment_mod_presplit_get_data(p->parent);
+	}
+}
+
+static void adaptive_splitter_cb(struct presplit_mod_data *d, struct payment *p)
 {
 	struct payment *root = payment_root(p);
+
+	if (d->disable)
+		return payment_continue(p);
+
 	if (p->step == PAYMENT_STEP_ONION_PAYLOAD) {
 		/* We need to tell the last hop the total we're going to
 		 * send. Presplit disables amount fuzzing, so we should always
@@ -2236,5 +2268,5 @@ static void adaptive_splitter_cb(void *d, struct payment *p)
 	payment_continue(p);
 }
 
-REGISTER_PAYMENT_MODIFIER(adaptive_splitter, void *, NULL,
-			  adaptive_splitter_cb);
+REGISTER_PAYMENT_MODIFIER(adaptive_splitter, struct presplit_mod_data *,
+			  adaptive_splitter_data_init, adaptive_splitter_cb);
