@@ -12,9 +12,8 @@ export PATH=$CWD/dependencies/bin:"$HOME"/.local/bin:"$PATH"
 export PYTEST_PAR=2
 export PYTEST_SENTRY_ALWAYS_REPORT=1
 
-# If we're not in developer mode, tests spend a lot of time waiting for gossip!
-# But if we're under valgrind, we can run out of memory!
-if [ "$DEVELOPER" = 0 ] && [ "$VALGRIND" = 0 ]; then
+# Allow up to 4 concurrent tests when not under valgrind, which might run out of memory.
+if [ "$VALGRIND" = 0 ]; then
     PYTEST_PAR=4
 fi
 
