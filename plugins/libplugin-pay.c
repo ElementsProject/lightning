@@ -1973,7 +1973,7 @@ static void waitblockheight_cb(void *d, struct payment *p)
 	struct out_req *req;
 	struct timeabs now = time_now();
 	struct timerel remaining;
-	u32 blockheight;
+	u32 blockheight = p->start_block;
 	int failcode;
 	const u8 *raw_message;
 	if (p->step != PAYMENT_STEP_FAILED)
@@ -1990,7 +1990,7 @@ static void waitblockheight_cb(void *d, struct payment *p)
 	raw_message = p->result->raw_message;
 	remaining = time_between(p->deadline, now);
 
-	if (failcode != 17 /* Former final_expiry_too_soon */) {
+	if (failcode == 17 /* Former final_expiry_too_soon */) {
 		blockheight = p->start_block + 1;
 	}  else {
 		/* If it's incorrect_or_unknown_payment_details, that tells us
@@ -2006,7 +2006,7 @@ static void waitblockheight_cb(void *d, struct payment *p)
 	 * waiting, and it is likely just some other error. Notice that
 	 * start_block gets set by the initial getinfo call for each
 	 * attempt.*/
-	if (blockheight < p->start_block)
+	if (blockheight <= p->start_block)
 		return payment_continue(p);
 
 	plugin_log(p->plugin, LOG_INFORM,
