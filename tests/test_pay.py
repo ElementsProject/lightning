@@ -6,7 +6,7 @@ from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
-    EXPERIMENTAL_FEATURES, env
+    EXPERIMENTAL_FEATURES, env, VALGRIND
 )
 import copy
 import os
@@ -2320,6 +2320,7 @@ def test_channel_spendable_receivable_capped(node_factory, bitcoind):
     assert l2.rpc.listpeers()['peers'][0]['channels'][0]['receivable_msat'] == Millisatoshi(0xFFFFFFFF)
 
 
+@unittest.skipIf(not DEVELOPER and VALGRIND, "Doesn't raise exception, needs better sync")
 def test_lockup_drain(node_factory, bitcoind):
     """Try to get channel into a state where opener can't afford fees on additional HTLC, so peer can't add HTLC"""
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
