@@ -1645,9 +1645,13 @@ REGISTER_PAYMENT_MODIFIER(routehints, struct routehints_data *,
 
 static struct exemptfee_data *exemptfee_data_init(struct payment *p)
 {
-	struct exemptfee_data *d = tal(p, struct exemptfee_data);
-	d->amount = AMOUNT_MSAT(5000);
-	return d;
+	if (p->parent == NULL) {
+		struct exemptfee_data *d = tal(p, struct exemptfee_data);
+		d->amount = AMOUNT_MSAT(5000);
+		return d;
+	} else {
+		return payment_mod_exemptfee_get_data(p->parent);
+	}
 }
 
 static void exemptfee_cb(struct exemptfee_data *d, struct payment *p)
