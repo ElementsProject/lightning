@@ -862,6 +862,27 @@ char *u32_option(const char *arg, u32 *i)
 	return NULL;
 }
 
+char *bool_option(const char *arg, bool *i)
+{
+	if (!streq(arg, "true") && !streq(arg, "false"))
+		return tal_fmt(NULL, "'%s' is not a bool, must be \"true\" or \"false\"", arg);
+
+	*i = streq(arg, "true");
+	return NULL;
+}
+
+char *flag_option(const char *arg, bool *i)
+{
+	/* We only get called if the flag was provided, so *i should be false
+	 * by default */
+	assert(*i == false);
+	if (!streq(arg, "true"))
+		return tal_fmt(NULL, "Invalid argument '%s' passed to a flag", arg);
+
+	*i = true;
+	return NULL;
+}
+
 char *charp_option(const char *arg, char **p)
 {
 	*p = tal_strdup(NULL, arg);

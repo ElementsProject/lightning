@@ -378,6 +378,16 @@ up space in the database\.
 Control how long invoices must have been expired before they are cleaned
 (if \fIautocleaninvoice-cycle\fR is non-zero)\.
 
+
+Payment control options:
+
+
+ \fBdisable-mpp\fR
+Disable the multi-part payment sending support in the \fBpay\fR plugin\. By default
+the MPP support is enabled, but it can be desirable to disable in situations
+in which each payment should result in a single HTLC being forwarded in the
+network\.
+
 .SH Networking options
 
 Note that for simple setups, the implicit \fIautolisten\fR option does the
