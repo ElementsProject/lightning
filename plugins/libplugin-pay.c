@@ -39,6 +39,8 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		/* Re-establish the unmodified constraints for our sub-payment. */
 		p->constraints = *parent->start_constraints;
 		p->deadline = parent->deadline;
+
+		p->invoice = parent->invoice;
 	} else {
 		assert(cmd != NULL);
 		p->partid = 0;
@@ -715,6 +717,7 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 
  	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
 		p->result->code = PAY_DESTINATION_PERM_FAIL;
+		root->abort = true;
 	case WIRE_MPP_TIMEOUT:
 		/* These are permanent failures that should abort all of our
 		 * attempts right away. We'll still track pending partial
@@ -2094,12 +2097,23 @@ static struct presplit_mod_data *presplit_mod_data_init(struct payment *p)
 	}
 }
 
+static bool payment_supports_mpp(struct payment *p)
+{
+	if (p->invoice == NULL || p->invoice->features == NULL)
+		return false;
+
+	return feature_offered(p->invoice->features, OPT_BASIC_MPP);
+}
+
 static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 {
 	struct payment *root = payment_root(p);
 	struct amount_msat amt = root->amount;
 
 	if (d->disable)
+		return payment_continue(p);
+
+	if (!payment_supports_mpp(p))
 		return payment_continue(p);
 
 	if (p->step == PAYMENT_STEP_ONION_PAYLOAD) {
@@ -2212,6 +2226,9 @@ static void adaptive_splitter_cb(struct presplit_mod_data *d, struct payment *p)
 	struct payment *root = payment_root(p);
 
 	if (d->disable)
+		return payment_continue(p);
+
+	if (!payment_supports_mpp(p) || root->abort)
 		return payment_continue(p);
 
 	if (p->step == PAYMENT_STEP_ONION_PAYLOAD) {
