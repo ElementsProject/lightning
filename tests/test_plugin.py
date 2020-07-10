@@ -501,7 +501,7 @@ def test_invoice_payment_hook(node_factory):
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
     # This one works
-    inv1 = l2.rpc.invoice(123000, 'label', 'description', preimage='1' * 64)
+    inv1 = l2.rpc.invoice(1230, 'label', 'description', preimage='1' * 64)
     l1.rpc.pay(inv1['bolt11'])
 
     l2.daemon.wait_for_log('label=label')
@@ -509,12 +509,12 @@ def test_invoice_payment_hook(node_factory):
     l2.daemon.wait_for_log('preimage=' + '1' * 64)
 
     # This one will be rejected.
-    inv2 = l2.rpc.invoice(123000, 'label2', 'description', preimage='0' * 64)
+    inv2 = l2.rpc.invoice(1230, 'label2', 'description', preimage='0' * 64)
     with pytest.raises(RpcError):
         l1.rpc.pay(inv2['bolt11'])
 
     pstatus = l1.rpc.call('paystatus', [inv2['bolt11']])['pay'][0]
-    assert pstatus['attempts'][0]['failure']['data']['failcodename'] == 'WIRE_TEMPORARY_NODE_FAILURE'
+    assert pstatus['attempts'][-1]['failure']['data']['failcodename'] == 'WIRE_TEMPORARY_NODE_FAILURE'
 
     l2.daemon.wait_for_log('label=label2')
     l2.daemon.wait_for_log('msat=')
@@ -527,7 +527,7 @@ def test_invoice_payment_hook_hold(node_factory):
     opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': TIMEOUT / 2}]
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
-    inv1 = l2.rpc.invoice(123000, 'label', 'description', preimage='1' * 64)
+    inv1 = l2.rpc.invoice(1230, 'label', 'description', preimage='1' * 64)
     l1.rpc.pay(inv1['bolt11'])
 
 
