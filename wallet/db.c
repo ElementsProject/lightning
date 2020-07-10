@@ -1165,9 +1165,18 @@ void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db)
 		funding_wscript = bitcoin_redeem_2of2(stmt, &local_funding_pubkey,
 						      &remote_funding_pubkey);
 
-		psbt_input_set_prev_utxo_wscript(last_tx->psbt,
-						 0, funding_wscript,
-						 funding_sat);
+		if (is_elements(chainparams)) {
+			/*FIXME: persist asset tags */
+			struct amount_asset asset;
+			asset = amount_sat_to_asset(&funding_sat,
+						    chainparams->fee_asset_tag);
+			psbt_elements_input_init_witness(last_tx->psbt,
+							 0, funding_wscript,
+							 &asset, NULL);
+		} else
+			psbt_input_set_prev_utxo_wscript(last_tx->psbt,
+							 0, funding_wscript,
+							 funding_sat);
 
 		if (!db_column_signature(stmt, 5, &last_sig.s))
 			abort();
