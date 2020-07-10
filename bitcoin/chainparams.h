@@ -9,6 +9,8 @@
 #include <common/bip32.h>
 #include <stdbool.h>
 
+#define ELEMENTS_ASSET_LEN 33
+
 struct chainparams {
 	const char *network_name;
 	const char *bip173_name;

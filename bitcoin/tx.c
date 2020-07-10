@@ -207,18 +207,51 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 
 	if (input_wscript) {
 		/* Add the prev output's data into the PSBT struct */
-		psbt_input_set_prev_utxo_wscript(tx->psbt, i, input_wscript, amount);
+		if (is_elements(chainparams)) {
+			struct amount_asset asset;
+			/*FIXME: persist asset tags */
+			asset = amount_sat_to_asset(
+					&amount,
+					chainparams->fee_asset_tag);
+			psbt_elements_input_init_witness(tx->psbt, i,
+							 input_wscript,
+							 &asset, NULL);
+		} else
+			psbt_input_set_prev_utxo_wscript(tx->psbt, i,
+							 input_wscript,
+							 amount);
 	} else if (scriptPubkey) {
-		if (is_p2wsh(scriptPubkey, NULL) || is_p2wpkh(scriptPubkey, NULL) ||
-			/* FIXME: assert that p2sh inputs are witness/are accompanied by a redeemscript+witnessscript */
+		if (is_p2wsh(scriptPubkey, NULL) ||
+			is_p2wpkh(scriptPubkey, NULL) ||
+			/* FIXME: assert that p2sh inputs are
+			 * witness/are accompanied by a
+			 * redeemscript+witnessscript */
 			is_p2sh(scriptPubkey, NULL)) {
-			/* the only way to get here currently with a p2sh script is via a p2sh-p2wpkh script
+			/* the only way to get here currently with
+			 * a p2sh script is via a p2sh-p2wpkh script
 			 * that we've created ...*/
-			/* Relevant section from bip-0174, emphasis mine:
-			 * ** Value: The entire transaction output in network serialization which the current input spends from.
-			 * This should only be present for inputs which spend segwit outputs, _including P2SH embedded ones._
+			/* BIP0174:
+			 * ** Value: The entire transaction output in
+			 * network serialization which the
+			 * current input spends from.
+			 * This should only be present for
+			 * inputs which spend segwit outputs,
+			 * including P2SH embedded ones.
 			 */
-			psbt_input_set_prev_utxo(tx->psbt, i, scriptPubkey, amount);
+			if (is_elements(chainparams)) {
+				struct amount_asset asset;
+				/*FIXME: persist asset tags */
+				asset = amount_sat_to_asset(
+						&amount,
+						chainparams->fee_asset_tag);
+				/* FIXME: persist nonces */
+				psbt_elements_input_init(tx->psbt, i,
+							 scriptPubkey,
+							 &asset, NULL);
+			} else
+				psbt_input_set_prev_utxo(tx->psbt, i,
+							 scriptPubkey,
+							 amount);
 		}
 	}
 
@@ -722,10 +755,9 @@ wally_tx_output_get_amount(const struct wally_tx_output *output)
 	if (chainparams->is_elements) {
 		assert(output->asset_len == sizeof(amount.asset));
 		memcpy(&amount.asset, output->asset, sizeof(amount.asset));
-
-		/* We currently only support explicit value asset tags, others
-		 * are confidential, so don't even try to assign a value to
-		 * it. */
+		/* We currently only support explicit value
+		 * asset tags, others are confidential, so
+		 * don't even try to assign a value to it. */
 		if (output->asset[0] == 0x01) {
 			memcpy(&raw, output->value + 1, sizeof(raw));
 			amount.value = be64_to_cpu(raw);

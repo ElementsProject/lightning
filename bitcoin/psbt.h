@@ -10,6 +10,7 @@ struct wally_tx_output;
 struct wally_psbt;
 struct wally_psbt_input;
 struct wally_tx;
+struct amount_asset;
 struct amount_sat;
 struct bitcoin_signature;
 struct pubkey;
@@ -55,10 +56,21 @@ WARN_UNUSED_RESULT bool psbt_input_set_partial_sig(struct wally_psbt *psbt, size
 						   const struct pubkey *pubkey,
 						   const struct bitcoin_signature *sig);
 
-void psbt_input_set_prev_utxo(struct wally_psbt *psbt, size_t in,
-			      const u8 *wscript, struct amount_sat amt);
+void psbt_input_set_prev_utxo(struct wally_psbt *psbt,
+			      size_t in,
+			      const u8 *wscript,
+			      struct amount_sat amt);
 void psbt_input_set_prev_utxo_wscript(struct wally_psbt *psbt, size_t in,
-			              const u8 *wscript, struct amount_sat amt);
+			              const u8 *wscript,
+				      struct amount_sat amt);
+void psbt_elements_input_init(struct wally_psbt *psbt, size_t in,
+			      const u8 *scriptPubkey,
+			      struct amount_asset *asset,
+			      const u8 *nonce);
+void psbt_elements_input_init_witness(struct wally_psbt *psbt, size_t in,
+				      const u8 *witscript,
+				      struct amount_asset *asset,
+				      const u8 *nonce);
 bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
 				 const u8 *redeemscript);
 struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,

@@ -267,6 +267,16 @@ bool psbt_input_set_partial_sig(struct wally_psbt *psbt, size_t in,
 					 sizeof(sig->s.data)) == WALLY_OK;
 }
 
+static void psbt_input_set_witness_utxo(struct wally_psbt *psbt, size_t in,
+					struct wally_tx_output *txout)
+{
+	int wally_err;
+	assert(psbt->num_inputs > in);
+	wally_err = wally_psbt_input_set_witness_utxo(&psbt->inputs[in],
+						      txout);
+	assert(wally_err == WALLY_OK);
+}
+
 void psbt_input_set_prev_utxo(struct wally_psbt *psbt, size_t in,
 			      const u8 *scriptPubkey, struct amount_sat amt)
 {
@@ -274,7 +284,6 @@ void psbt_input_set_prev_utxo(struct wally_psbt *psbt, size_t in,
 	int wally_err;
 	u8 *scriptpk;
 
-	assert(psbt->num_inputs > in);
 	if (scriptPubkey) {
 		assert(is_p2wsh(scriptPubkey, NULL) || is_p2wpkh(scriptPubkey, NULL)
 		       || is_p2sh(scriptPubkey, NULL));
@@ -293,10 +302,34 @@ void psbt_input_set_prev_utxo(struct wally_psbt *psbt, size_t in,
 					       tal_bytelen(scriptpk),
 					       &prev_out);
 	assert(wally_err == WALLY_OK);
-	wally_err = wally_psbt_input_set_witness_utxo(&psbt->inputs[in],
-						      prev_out);
+	psbt_input_set_witness_utxo(psbt, in, prev_out);
+}
+
+static void psbt_input_set_elements_prev_utxo(struct wally_psbt *psbt,
+					      size_t in,
+					      const u8 *scriptPubkey,
+					      struct amount_asset *asset,
+					      const u8 *nonce)
+{
+	struct wally_tx_output *prev_out;
+	int wally_err;
+
+	u8 *prefixed_value = amount_asset_extract_value(psbt, asset);
+
+	wally_err =
+		wally_tx_elements_output_init_alloc(scriptPubkey,
+					            tal_bytelen(scriptPubkey),
+						    asset->asset,
+						    sizeof(asset->asset),
+						    prefixed_value,
+						    tal_bytelen(prefixed_value),
+						    nonce,
+						    tal_bytelen(nonce),
+						    NULL, 0,
+						    NULL, 0,
+					            &prev_out);
 	assert(wally_err == WALLY_OK);
-	tal_steal(psbt, psbt->inputs[in].witness_utxo);
+	psbt_input_set_witness_utxo(psbt, in, prev_out);
 }
 
 void psbt_input_set_prev_utxo_wscript(struct wally_psbt *psbt, size_t in,
@@ -316,6 +349,76 @@ void psbt_input_set_prev_utxo_wscript(struct wally_psbt *psbt, size_t in,
 	psbt_input_set_prev_utxo(psbt, in, scriptPubkey, amt);
 }
 
+static void
+psbt_input_set_elements_prev_utxo_wscript(struct wally_psbt *psbt,
+					  size_t in,
+					  const u8 *wscript,
+					  struct amount_asset *asset,
+					  const u8 *nonce)
+{
+	int wally_err;
+	const u8 *scriptPubkey;
+
+	if (wscript) {
+		scriptPubkey = scriptpubkey_p2wsh(psbt, wscript);
+		wally_err = wally_psbt_input_set_witness_script(
+				&psbt->inputs[in],
+				cast_const(u8 *, wscript),
+				tal_bytelen(wscript));
+		assert(wally_err == WALLY_OK);
+	} else
+		scriptPubkey = NULL;
+
+	psbt_input_set_elements_prev_utxo(psbt, in, scriptPubkey,
+					  asset, nonce);
+}
+
+void psbt_elements_input_init_witness(struct wally_psbt *psbt, size_t in,
+				      const u8 *witscript,
+				      struct amount_asset *asset,
+				      const u8 *nonce)
+{
+	psbt_input_set_elements_prev_utxo_wscript(
+			psbt, in, witscript,
+			asset, nonce);
+
+	if (asset->value > 0)
+		wally_psbt_elements_input_set_value(&psbt->inputs[in],
+						    asset->value);
+
+	/* PSET expects an asset tag without the prefix */
+	if (wally_psbt_elements_input_set_asset(&psbt->inputs[in],
+					    asset->asset + 1,
+					    ELEMENTS_ASSET_LEN - 1) != WALLY_OK)
+		abort();
+}
+
+void psbt_elements_input_init(struct wally_psbt *psbt, size_t in,
+			      const u8 *scriptPubkey,
+			      struct amount_asset *asset,
+			      const u8 *nonce)
+{
+	psbt_input_set_elements_prev_utxo(psbt, in,
+					  scriptPubkey,
+					  asset, nonce);
+
+	if (asset->value > 0) {
+		if (wally_psbt_elements_input_set_value(
+					&psbt->inputs[in],
+					asset->value) != WALLY_OK)
+			abort();
+
+	}
+
+	/* PSET expects an asset tag without the prefix */
+	/* FIXME: Verify that we're sending unblinded asset tag */
+	if (wally_psbt_elements_input_set_asset(
+					&psbt->inputs[in],
+					asset->asset + 1,
+					ELEMENTS_ASSET_LEN - 1) != WALLY_OK)
+		abort();
+}
+
 bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
 				 const u8 *redeemscript)
 {
@@ -333,7 +436,10 @@ struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
 	struct amount_sat val;
 	assert(in < psbt->num_inputs);
 	if (psbt->inputs[in].witness_utxo) {
-		val.satoshis = psbt->inputs[in].witness_utxo->satoshi; /* Raw: type conversion */
+		struct amount_asset amt_asset =
+			wally_tx_output_get_amount(psbt->inputs[in].witness_utxo);
+		assert(amount_asset_is_main(&amt_asset));
+		val = amount_asset_to_sat(&amt_asset);
 	} else if (psbt->inputs[in].non_witness_utxo) {
 		int idx = psbt->tx->inputs[in].index;
 		struct wally_tx *prev_tx = psbt->inputs[in].non_witness_utxo;
