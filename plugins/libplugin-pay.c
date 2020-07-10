@@ -1039,6 +1039,7 @@ static void payment_finished(struct payment *p)
 	struct payment_tree_result result = payment_collect_result(p);
 	struct json_stream *ret;
 	struct command *cmd = p->cmd;
+	const char *msg;
 
 	/* Either none of the leaf attempts succeeded yet, or we have a
 	 * preimage. */
@@ -1085,15 +1086,13 @@ static void payment_finished(struct payment *p)
 			return;
 		} else if (result.failure == NULL || result.failure->failcode < NODE) {
 			/* This is failing because we have no more routes to try */
+			msg = tal_fmt(cmd,
+				      "Ran out of routes to try after "
+				      "%d attempt%s: see `paystatus`",
+				      result.attempts,
+				      result.attempts == 1 ? "" : "s");
 			ret = jsonrpc_stream_fail(cmd, PAY_STOPPED_RETRYING,
-						  NULL);
-			json_add_string(
-			    ret, "message",
-			    tal_fmt(cmd,
-				    "Ran out of routes to try after "
-				    "%d attempt%s: see `paystatus`",
-				    result.attempts,
-				    result.attempts == 1 ? "" : "s"));
+						  msg);
 			payment_json_add_attempts(ret, "attempts", p);
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
 			return;
