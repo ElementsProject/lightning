@@ -474,6 +474,8 @@ def test_reserveinputs(node_factory, bitcoind, chainparams):
 
     # We should have two outputs
     for vout in psbt['tx']['vout']:
+        if chainparams['elements'] and vout['scriptPubKey']['type'] == 'fee':
+            continue
         if vout['scriptPubKey']['addresses'][0] == addr:
             assert vout['value'] == sent
             out_found = True
