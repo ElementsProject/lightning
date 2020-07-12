@@ -1015,6 +1015,11 @@ static void payment_add_attempt(struct json_stream *s, const char *fieldname, st
 	if (p->failreason != NULL)
 		json_add_string(s, "failreason", p->failreason);
 
+	json_add_u64(s, "partid", p->partid);
+	json_add_amount_msat_only(s, "amount", p->amount);
+	if (p->parent != NULL)
+		json_add_u64(s, "parent_partid", p->parent->partid);
+
 	json_object_end(s);
 	for (size_t i=0; i<tal_count(p->children); i++) {
 		payment_add_attempt(s, fieldname, p->children[i], recurse);
