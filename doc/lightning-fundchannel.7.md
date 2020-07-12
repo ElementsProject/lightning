@@ -80,7 +80,8 @@ channel parameters (funding limits, channel reserves, fees, etc.).
 SEE ALSO
 --------
 
-lightning-connect(7), lightning-listfunds(), lightning-listpeers(7)
+lightning-connect(7), lightning-listfunds(), lightning-listpeers(7),
+lightning-feerates(7)
 
 RESOURCES
 ---------

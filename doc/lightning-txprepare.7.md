@@ -76,7 +76,8 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-withdraw(7), lightning-txsend(7), lightning-txdiscard(7)
+lightning-withdraw(7), lightning-txsend(7), lightning-txdiscard(7),
+lightning-feerates(7)
 
 RESOURCES
 ---------
