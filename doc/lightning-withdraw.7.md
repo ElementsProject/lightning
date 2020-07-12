@@ -63,7 +63,7 @@ SEE ALSO
 --------
 
 lightning-listfunds(7), lightning-fundchannel(7), lightning-newaddr(7),
-lightning-txprepare(7).
+lightning-txprepare(7), lightning-feerates(7).
 
 RESOURCES
 ---------

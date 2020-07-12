@@ -18,6 +18,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-delinvoice.7 \
 	doc/lightning-dev-sendcustommsg.7 \
 	doc/lightning-disconnect.7 \
+	doc/lightning-feerates.7 \
 	doc/lightning-fundchannel.7 \
 	doc/lightning-fundchannel_start.7 \
 	doc/lightning-fundchannel_complete.7 \

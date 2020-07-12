@@ -1,0 +1,155 @@
+.TH "LIGHTNING-FEERATES" "7" "" "" "lightning-feerates"
+.SH NAME
+lightning-feerates - Command for querying recommended onchain feerates
+.SH SYNOPSIS
+
+\fBfeerates\fR \fIstyle\fR
+
+.SH DESCRIPTION
+
+The \fBfeerates\fR command returns the feerates that C-lightning will use\.
+The feerates will be based on the recommended feerates from the backend\.
+The backend may fail to provide estimates, but if it was able to provide
+estimates in the past, C-lightning will continue to use those for a while\.
+C-lightning will also smoothen feerate estimations from the backend\.
+
+
+\fIstyle\fR is either of the two strings:
+
+.RS
+.IP \[bu]
+\fIperkw\fR - provide feerate in units of satoshis per 1000 weight\.
+.IP \[bu]
+\fIperkb\fR - provide feerate in units of satoshis per 1000 virtual bytes\.
+
+.RE
+
+Bitcoin transactions have non-witness and witness bytes:
+
+.RS
+.IP \[bu]
+Non-witness bytes count as 4 weight, 1 virtual byte\.
+All bytes other than SegWit witness count as non-witness bytes\.
+.IP \[bu]
+Witness bytes count as 1 weight, 0\.25 virtual bytes\.
+
+.RE
+
+Thus, all \fIperkb\fR feerates will be exactly 4 times \fIperkw\fR feerates\.
+
+
+To compute the fee for a transaction, multiply its weight or virtual bytes
+by the appropriate \fIperkw\fR or \fIperkw\fR feerate
+returned by this command,
+then divide by 1000\.
+
+
+There is currently no way to change these feerates from the RPC\.
+If you need custom control over onchain feerates,
+you will need to provide your own plugin
+that replaces the \fBbcli\fR plugin backend\.
+For commands like \fBlightning-withdraw\fR(7) or \fBlightning-fundchannel\fR(7) you
+can provide a preferred feerate directly as a parameter,
+which will override the recommended feerates returned by \fBfeerates\fR\.
+
+.SH RETURN VALUE
+
+The \fBfeerates\fR command returns the feerates in an object named
+\fIperkw\fR or \fIperkb\fR, depending on your \fIstyle\fR parameter\.
+
+
+Some of these estimations may be missing, except for \fImin_acceptable\fR
+and \fImax_acceptable\fR, which are always present\.
+
+
+The \fIperkw\fR or \fIperkb\fR object may have fields containing the estimates:
+
+.RS
+.IP \[bu]
+\fIopening\fR - feerate used for channel opening by \fBlightning-fundchannel\fR(7),
+as well as normal onchain-to-onchain spends by \fBlightning-withdraw\fR(7)\.
+In general, for all normal onchain-to-onchain spends, this is the feerate
+you should also use\.
+.IP \[bu]
+\fImutual_close\fR - the starting feerate used in mutual close negotiation\.
+Note that since mutual close is a \fBnegotiation\fR,
+the actual feerate used in mutual close
+will be somewhere between this
+and the corresponding mutual close feerate of the peer\.
+.IP \[bu]
+\fIunilateral_close\fR - the feerate we will pay for when a unilateral close
+is done on a channel we originally funded\.
+When anchor commitments are implemented,
+this will be the feerate we will use
+for a unilateral close we initiated\.
+.IP \[bu]
+\fIdelayed_to_us\fR - the feerate we will use when claiming our output from
+a unilateral close we initiated\.
+.IP \[bu]
+\fIhtlc_resolution\fR - the feerate we will use to claim HTLCs
+from a unilateral close we initiated\.
+.IP \[bu]
+\fIpenalty\fR - the feerate we will use to revoke old state,
+if the counterparty attempts to cheat us\.
+
+.RE
+
+The following fields are always present in the \fIperkw\fR or \fIperkb\fR object:
+
+.RS
+.IP \[bu]
+\fImin_acceptable\fR - the smallest feerate that you can use,
+usually the minimum relayed feerate of the backend\.
+.IP \[bu]
+\fImax_acceptable\fR - the largest feerate we will accept
+from remote negotiations\.
+If a peer attempts to open a channel to us but wants a unilateral close
+feerate larger than \fImax_acceptable\fR, we reject the open attempt\.
+If the peer attempts to change the unilateral close feerate of a channel it
+opened to us, such that the new feerate exceeds \fImax_acceptable\fR, we
+unilaterally close the channel
+(at the current unilateral close feerate instead of the new one)\.
+
+.RE
+.SH ERRORS
+
+The \fBfeerates\fR command will never error,
+however some fields may be missing in the result
+if feerate estimates for that kind of transaction are unavailable\.
+
+.SH NOTES
+
+Many other commands have a \fIfeerate\fR parameter, which can be the strings
+\fIurgent\fR, \fInormal\fR, or \fIslow\fR\.
+These are mapped to the \fBfeerates\fR outputs as:
+
+.RS
+.IP \[bu]
+\fIurgent\fR - equal to \fIunilateral_close\fR
+.IP \[bu]
+\fInormal\fR - equal to \fIopening\fR
+.IP \[bu]
+\fIslow\fR - equal to \fImin_acceptable\fR\.
+
+.RE
+.SH TRIVIA
+
+In C-lightning we like to call the weight unit "sipa"
+in honor of Pieter Wuille,
+who uses the name "sipa" on IRC and elsewhere\.
+Internally we call the \fIperkw\fR style as "feerate per kilosipa"\.
+
+.SH AUTHOR
+
+ZmnSCPxj < \fIZmnSCPxj@protonmail.com\fR > wrote the initial version of this
+manpage\.
+
+.SH SEE ALSO
+
+\fBlightning-fundchannel\fR(7), \fBlightning-withdraw\fR(7), \fBlightning-txprepare\fR(7),
+\fBlightning-fundchannel_start\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
