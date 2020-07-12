@@ -1661,17 +1661,18 @@ static struct exemptfee_data *exemptfee_data_init(struct payment *p)
 
 static void exemptfee_cb(struct exemptfee_data *d, struct payment *p)
 {
-	if (p->step != PAYMENT_STEP_INITIALIZED)
+	if (p->step != PAYMENT_STEP_INITIALIZED || p->parent != NULL)
 		return payment_continue(p);
 
 	if (amount_msat_greater_eq(d->amount, p->constraints.fee_budget)) {
-		p->constraints.fee_budget = d->amount;
-		p->start_constraints->fee_budget = d->amount;
 		plugin_log(
 		    p->plugin, LOG_INFORM,
-		    "Payment amount is below exemption threshold, "
+		    "Payment fee constraint %s is below exemption threshold, "
 		    "allowing a maximum fee of %s",
-		    type_to_string(tmpctx, struct amount_msat, &p->constraints.fee_budget));
+		    type_to_string(tmpctx, struct amount_msat, &p->constraints.fee_budget),
+		    type_to_string(tmpctx, struct amount_msat, &d->amount));
+		p->constraints.fee_budget = d->amount;
+		p->start_constraints->fee_budget = d->amount;
 	}
 	return payment_continue(p);
 }
