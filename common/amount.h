@@ -112,6 +112,15 @@ bool amount_msat_eq_sat(struct amount_msat msat, struct amount_sat sat);
  * current chain. */
 bool amount_asset_is_main(struct amount_asset *asset);
 
+/* Convert an amount_sat to an amount_asset */
+struct amount_asset amount_sat_to_asset(struct amount_sat *sat, const u8 *asset);
+
+/* amount_asset_extract_value -Prefix the amount_asset's value
+ * to have the 'explicit' marker. Returns NULL if the
+ * asset was originally blinded.
+ * FIXME: pass through blinded amounts */
+u8 *amount_asset_extract_value(const tal_t *ctx, struct amount_asset *asset);
+
 /* Convert from a generic asset to the fee-paying asset if possible. */
 struct amount_sat amount_asset_to_sat(struct amount_asset *asset);
 
