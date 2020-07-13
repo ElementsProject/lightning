@@ -956,7 +956,7 @@ static void payment_finished(struct payment *p);
  * child-spawning state and all of its children are in a final state. */
 static bool payment_is_finished(const struct payment *p)
 {
-	if (p->step == PAYMENT_STEP_FAILED || p->step == PAYMENT_STEP_SUCCESS)
+	if (p->step == PAYMENT_STEP_FAILED || p->step == PAYMENT_STEP_SUCCESS || p->abort)
 		return true;
 	else if (p->step == PAYMENT_STEP_SPLIT || p->step == PAYMENT_STEP_RETRY) {
 		bool running_children = false;
