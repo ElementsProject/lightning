@@ -40,6 +40,7 @@ c-lightning Documentation
    lightning-delinvoice <lightning-delinvoice.7.md>
    lightning-dev-sendcustommsg <lightning-dev-sendcustommsg.7.md>
    lightning-disconnect <lightning-disconnect.7.md>
+   lightning-feerates <lightning-feerates.7.md>
    lightning-fundchannel <lightning-fundchannel.7.md>
    lightning-fundchannel_cancel <lightning-fundchannel_cancel.7.md>
    lightning-fundchannel_complete <lightning-fundchannel_complete.7.md>
