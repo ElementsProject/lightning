@@ -701,15 +701,20 @@ static struct command_result *wait_payment(struct lightningd *ld,
 		} else {
 			/* Parsed onion error, get its details */
 			assert(failnode);
-			assert(failchannel);
 			fail = tal(tmpctx, struct routing_failure);
 			fail->erring_index = failindex;
 			fail->failcode = failcode;
 			fail->erring_node =
 			    tal_dup(fail, struct node_id, failnode);
-			fail->erring_channel =
-			    tal_dup(fail, struct short_channel_id, failchannel);
-			fail->channel_dir = faildirection;
+
+			if (failchannel) {
+				fail->erring_channel = tal_dup(
+				    fail, struct short_channel_id, failchannel);
+				fail->channel_dir = faildirection;
+			} else {
+				fail->erring_channel = NULL;
+			}
+
 			/* FIXME: We don't store this! */
 			fail->msg = NULL;
 
