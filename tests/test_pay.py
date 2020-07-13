@@ -3083,3 +3083,62 @@ def test_mpp_presplit(node_factory):
     inv = l3.rpc.listinvoices()['invoices'][0]
 
     assert(inv['msatoshi'] == inv['msatoshi_received'])
+
+
+def test_mpp_adaptive(node_factory, bitcoind):
+    """We have two paths, both too small on their own, let's combine them.
+
+    ```dot
+    digraph {
+      l1 -> l2;
+      l2 -> l4;
+      l1 -> l3;
+      l3 -> l4;
+    }
+    """
+    amt = 10**7 - 1
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
+
+    l1.connect(l2)
+    l2.connect(l4)
+    l1.connect(l3)
+    l3.connect(l4)
+
+    # First roadblock right away on an outgoing channel
+    l2.fund_channel(l1, amt)
+    l2.fund_channel(l4, amt, wait_for_active=True)
+    l2.rpc.pay(l1.rpc.invoice(
+        amt + 99999000 - 1,  # Slightly less than amt + reserve
+        label="reb l1->l2",
+        description="Rebalance l1 -> l2"
+    )['bolt11'])
+
+    # Second path fails only after the first hop
+    l1.fund_channel(l3, amt)
+    l4.fund_channel(l3, amt, wait_for_active=True)
+    l4.rpc.pay(l3.rpc.invoice(
+        amt + 99999000 - 1,  # Slightly less than amt + reserve
+        label="reb l3->l4",
+        description="Rebalance l3 -> l4"
+    )['bolt11'])
+    l1.rpc.listpeers()
+
+    # Make sure neither channel can fit the payment by itself.
+    c12 = l1.rpc.listpeers(l2.info['id'])['peers'][0]['channels'][0]
+    c34 = l3.rpc.listpeers(l4.info['id'])['peers'][0]['channels'][0]
+    assert(c12['spendable_msat'].millisatoshis < amt)
+    assert(c34['spendable_msat'].millisatoshis < amt)
+
+    bitcoind.generate_block(5)
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 8)
+
+    inv = l4.rpc.invoice(
+        amt,
+        label="splittest",
+        description="Needs to be split into at least 2"
+    )['bolt11']
+
+    p = l1.rpc.pay(inv)
+    from pprint import pprint
+    pprint(p)
+    pprint(l1.rpc.paystatus(inv))
