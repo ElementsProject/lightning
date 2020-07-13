@@ -50,8 +50,8 @@ wire/extracted_onion_experimental_csv:
 	@touch $@
 
 ifeq ($(EXPERIMENTAL_FEATURES),1)
-EXPERIMENTAL_PEER_PATCHES := $(wildcard wire/extracted_peer_experimental_*)
-EXPERIMENTAL_ONION_PATCHES := $(wildcard wire/extracted_onion_experimental_*)
+EXPERIMENTAL_PEER_PATCHES := $(sort $(wildcard wire/extracted_peer_experimental_*))
+EXPERIMENTAL_ONION_PATCHES := $(sort $(wildcard wire/extracted_onion_experimental_*))
 
 wire/gen_peer_wire_csv: wire/extracted_peer_wire_csv $(EXPERIMENTAL_PEER_PATCHES)
 	@set -e; trap "rm -f $@.$$$$" 0; cp $< $@.$$$$; for exp in $(EXPERIMENTAL_PEER_PATCHES); do patch $@.$$$$ $$exp >/dev/null ; done; mv $@.$$$$ $@
