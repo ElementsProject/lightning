@@ -1963,7 +1963,7 @@ def test_fulfill_incoming_first(node_factory, bitcoind):
     # We manually reconnect l2 & l3, after 100 blocks; hence allowing manual
     # reconnect, but disabling auto connect, and massive cltv so 2/3 doesn't
     # time out.
-    l1, l2, l3 = node_factory.line_graph(3, opts=[{},
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{'disable-mpp': None},
                                                   {'may_reconnect': True,
                                                    'dev-no-reconnect': None},
                                                   {'may_reconnect': True,

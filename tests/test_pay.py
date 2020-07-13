@@ -138,7 +138,11 @@ def test_pay_exclude_node(node_factory, bitcoind):
     """
     # FIXME: Remove our reliance on HTLCs failing on startup and the need for
     #        this plugin
-    opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')}, {}]
+    opts = [
+        {'disable-mpp': None},
+        {'plugin': os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')},
+        {}
+    ]
     l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
     amount = 10**8
 
@@ -1615,7 +1619,7 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     # We connect every node to l5; in a line and individually.
     # Keep fixed fees so we can easily calculate exhaustion
     l1, l2, l3, l4, l5 = node_factory.line_graph(5, fundchannel=False,
-                                                 opts={'feerates': (7500, 7500, 7500, 7500)})
+                                                 opts={'feerates': (7500, 7500, 7500, 7500), 'disable-mpp': None})
 
     # scid12
     l1.fund_channel(l2, 10**6, wait_for_active=False)

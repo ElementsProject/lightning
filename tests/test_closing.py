@@ -732,6 +732,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
                                may_reconnect=True,
                                options={'dev-no-reconnect': None})
     l2 = node_factory.get_node(options={'plugin': coin_mvt_plugin,
+                                        'disable-mpp': None,
                                         'dev-no-reconnect': None},
                                may_reconnect=True,
                                allow_broken_log=True)
@@ -910,11 +911,9 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     # push some money so that 1 + 4 can both send htlcs
     inv = l1.rpc.invoice(10**9 // 2, '1', 'balancer')
     l2.rpc.pay(inv['bolt11'])
-    l2.rpc.waitsendpay(inv['payment_hash'])
 
     inv = l4.rpc.invoice(10**9 // 2, '1', 'balancer')
     l2.rpc.pay(inv['bolt11'])
-    l2.rpc.waitsendpay(inv['payment_hash'])
 
     # now we send two 'sticky' htlcs, l1->l5 + l4->l1
     amt = 10**8 // 2
