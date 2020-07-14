@@ -843,6 +843,19 @@ static const struct json_command listaddrs_command = {
 };
 AUTODATA(json_command, &listaddrs_command);
 
+bool is_reserved(const struct utxo *utxo, u32 current_height)
+{
+	if (utxo->status != output_state_reserved)
+		return false;
+
+	/* FIXME: Eventually this will always be set! */
+	if (!utxo->reserved_til)
+		return true;
+
+	return *utxo->reserved_til > current_height;
+}
+
+
 static void json_add_utxo(struct json_stream *response,
 			  const char *fieldname,
 			  struct wallet *wallet,
@@ -899,7 +912,8 @@ static void json_add_utxo(struct json_stream *response,
 		json_add_string(response, "status", "unconfirmed");
 
 	json_add_bool(response, "reserved",
-		      utxo->status == output_state_reserved);
+		      is_reserved(utxo,
+				  get_block_height(wallet->ld->topology)));
 	json_object_end(response);
 }
 
@@ -1315,9 +1329,8 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 		if (!utxo)
 			continue;
 
-		/* Oops we haven't reserved this utxo yet.
-		 * Let's just go ahead and reserve it now. */
-		if (utxo->status != output_state_reserved)
+		/* Oops we haven't reserved this utxo yet! */
+		if (!is_reserved(utxo, get_block_height(cmd->ld->topology)))
 			return command_fail(cmd, LIGHTNINGD,
 					    "Aborting PSBT signing. UTXO %s:%u is not reserved",
 					    type_to_string(tmpctx, struct bitcoin_txid,

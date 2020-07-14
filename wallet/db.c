@@ -617,6 +617,7 @@ static struct migration dbmigrations[] = {
     /* We track the counter for coin_moves, as a convenience for notification consumers */
     {SQL("INSERT INTO vars (name, intval) VALUES ('coin_moves_count', 0);"), NULL},
     {NULL, migrate_last_tx_to_psbt},
+    {SQL("ALTER TABLE outputs ADD reserved_til INTEGER DEFAULT NULL;"), NULL},
 };
 
 /* Leak tracking. */

@@ -158,7 +158,7 @@ static bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 {
 	struct utxo *utxo = tal(ctx, struct utxo);
-	u32 *blockheight, *spendheight;
+	u32 *blockheight, *spendheight, *reserved_til;
 	db_column_txid(stmt, 0, &utxo->txid);
 	utxo->outnum = db_column_int(stmt, 1);
 	db_column_amount_sat(stmt, 2, &utxo->amount);
@@ -184,6 +184,7 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 	utxo->spendheight = NULL;
 	utxo->scriptPubkey = NULL;
 	utxo->scriptSig = NULL;
+	utxo->reserved_til = NULL;
 
 	if (!db_column_is_null(stmt, 9)) {
 		blockheight = tal(utxo, u32);
@@ -201,6 +202,11 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 		utxo->scriptPubkey =
 		    tal_dup_arr(utxo, u8, db_column_blob(stmt, 11),
 				db_column_bytes(stmt, 11), 0);
+	}
+	if (!db_column_is_null(stmt, 12)) {
+		reserved_til = tal(utxo, u32);
+		*reserved_til = db_column_int(stmt, 12);
+		utxo->reserved_til = reserved_til;
 	}
 
 	return utxo;
@@ -255,6 +261,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", confirmation_height"
 						", spend_height"
 						", scriptpubkey "
+						", reserved_til "
 						"FROM outputs"));
 	} else {
 		stmt = db_prepare_v2(w->db, SQL("SELECT"
@@ -270,6 +277,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", confirmation_height"
 						", spend_height"
 						", scriptpubkey "
+						", reserved_til "
 						"FROM outputs "
 						"WHERE status= ? "));
 		db_bind_int(stmt, 0, output_status_in_db(state));
@@ -306,6 +314,7 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 					", confirmation_height"
 					", spend_height"
 					", scriptpubkey"
+					", reserved_til"
 					" FROM outputs"
 					" WHERE channel_id IS NOT NULL AND "
 					"confirmation_height IS NULL"));
@@ -341,6 +350,7 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 					", confirmation_height"
 					", spend_height"
 					", scriptpubkey"
+					", reserved_til"
 					" FROM outputs"
 					" WHERE prev_out_tx = ?"
 					" AND prev_out_index = ?"));
@@ -3799,14 +3809,17 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 	enum output_status newstate =
 	    txout == NULL ? output_state_spent : output_state_available;
 
-	log_unusual(bitcoind->ld->wallet->log,
-		    "wallet: reserved output %s/%u reset to %s",
-		    type_to_string(tmpctx, struct bitcoin_txid, &utxos[0]->txid),
-		    utxos[0]->outnum,
-		    newstate == output_state_spent ? "spent" : "available");
-	wallet_update_output_status(bitcoind->ld->wallet,
-				    &utxos[0]->txid, utxos[0]->outnum,
-				    utxos[0]->status, newstate);
+	/* Don't unreserve ones which are on timers */
+	if (!utxos[0]->reserved_til || newstate == output_state_spent) {
+		log_unusual(bitcoind->ld->wallet->log,
+			    "wallet: reserved output %s/%u reset to %s",
+			    type_to_string(tmpctx, struct bitcoin_txid, &utxos[0]->txid),
+			    utxos[0]->outnum,
+			    newstate == output_state_spent ? "spent" : "available");
+		wallet_update_output_status(bitcoind->ld->wallet,
+					    &utxos[0]->txid, utxos[0]->outnum,
+					    utxos[0]->status, newstate);
+	}
 
 	/* If we have more, resolve them too. */
 	tal_arr_remove(&utxos, 0);
