@@ -616,6 +616,8 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 
 	popt->name = tal_fmt(popt, "--%.*s", nametok->end - nametok->start,
 			     buffer + nametok->start);
+	popt->description = NULL;
+
 	if (json_tok_streq(buffer, typetok, "string")) {
 		popt->type = "string";
 		if (defaulttok) {
@@ -647,7 +649,6 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 	} else if (json_tok_streq(buffer, typetok, "flag")) {
 		popt->type = "flag";
 		popt->value->as_bool = talz(popt->value, bool);
-		popt->description = json_strdup(popt, buffer, desctok);
 		/* We default flags to false, the default token is ignored */
 		*popt->value->as_bool = false;
 
@@ -655,8 +656,10 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 		return tal_fmt(plugin,
 			       "Only \"string\", \"int\", \"bool\", and \"flag\" options are supported");
 	}
-	if (!defaulttok)
+
+	if (!popt->description)
 		popt->description = json_strdup(popt, buffer, desctok);
+
 	list_add_tail(&plugin->plugin_opts, &popt->list);
 
 	if (streq(popt->type, "flag"))
@@ -1425,7 +1428,7 @@ void json_add_opt_plugins(struct json_stream *response,
 				/* Trim the `--` that we added before */
 				opt_name = opt->name + 2;
 				if (opt->value->as_bool) {
-					json_add_bool(response, opt_name, opt->value->as_bool);
+					json_add_bool(response, opt_name, *opt->value->as_bool);
 				} else if (opt->value->as_int) {
 					json_add_s64(response, opt_name, *opt->value->as_int);
 				} else if (opt->value->as_str) {
