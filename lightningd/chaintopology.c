@@ -490,6 +490,11 @@ static struct command_result *json_feerates(struct command *cmd,
 	}
 
 	response = json_stream_success(cmd);
+
+	if (missing)
+		json_add_string(response, "warning_missing_feerates",
+				"Some fee estimates unavailable: bitcoind startup?");
+
 	json_object_start(response, feerate_style_name(*style));
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
 		if (!feerates[i] || i == FEERATE_MIN || i == FEERATE_MAX)
@@ -520,10 +525,7 @@ static struct command_result *json_feerates(struct command *cmd,
 
 	json_object_end(response);
 
-	if (missing)
-		json_add_string(response, "warning",
-				"Some fee estimates unavailable: bitcoind startup?");
-	else {
+	if (!missing) {
 		json_object_start(response, "onchain_fee_estimates");
 		/* eg 020000000001016f51de645a47baa49a636b8ec974c28bdff0ac9151c0f4eda2dbe3b41dbe711d000000001716001401fad90abcd66697e2592164722de4a95ebee165ffffffff0240420f00000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cdb73f890000000000160014c2ccab171c2a5be9dab52ec41b825863024c54660248304502210088f65e054dbc2d8f679de3e40150069854863efa4a45103b2bb63d060322f94702200d3ae8923924a458cffb0b7360179790830027bb6b29715ba03e12fc22365de1012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf00000000 == weight 702 */
 		json_add_num(response, "opening_channel_satoshis",

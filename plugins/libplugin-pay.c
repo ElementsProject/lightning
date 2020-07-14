@@ -1076,7 +1076,7 @@ static void payment_finished(struct payment *p)
 
 			if (result.leafstates != PAYMENT_STEP_SUCCESS)
 				json_add_string(
-				    ret, "warning",
+				    ret, "warning_partial_completion",
 				    "Some parts of the payment are not yet "
 				    "completed, but we have the confirmation "
 				    "from the recipient.");
