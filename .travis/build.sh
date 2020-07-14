@@ -52,7 +52,7 @@ echo -en 'travis_fold:end:script.1\\r'
 
 cat > pytest.ini << EOF
 [pytest]
-addopts=-p no:logging --color=no --reruns=5
+addopts=-p no:logging --color=no --reruns=0
 EOF
 
 if [ "$TARGET_HOST" == "arm-linux-gnueabihf" ] || [ "$TARGET_HOST" == "aarch64-linux-gnu" ]
