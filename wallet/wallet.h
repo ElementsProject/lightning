@@ -392,6 +392,23 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 			      /* NULL if option_static_remotekey */
 			      const struct pubkey *commitment_point);
 
+/**
+ * wallet_reserve_utxo - set a reservation on a UTXO.
+ *
+ * If the reservation is already reserved, refreshes the reservation,
+ * otherwise if it's not available, returns false.
+ */
+bool wallet_reserve_utxo(struct wallet *w,
+			 struct utxo *utxo,
+			 u32 reservation_blocknum);
+
+/* wallet_unreserve_utxo - make a reserved UTXO available again.
+ *
+ * Must be reserved.
+ */
+void wallet_unreserve_utxo(struct wallet *w, struct utxo *utxo,
+			   u32 current_height);
+
 /** wallet_utxo_get - Retrive a utxo.
  *
  * Returns a utxo, or NULL if not found.

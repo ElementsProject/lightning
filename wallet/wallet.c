@@ -28,6 +28,9 @@
  * to prune? */
 #define UTXO_PRUNE_DEPTH 144
 
+/* 12 hours is usually enough reservation time */
+#define RESERVATION_INC (6 * 12)
+
 static void outpointfilters_init(struct wallet *w)
 {
 	struct db_stmt *stmt;
@@ -416,6 +419,87 @@ void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
 			fatal("Unable to mark output as spent");
 		}
 	}
+}
+
+static void db_set_utxo(struct db *db, const struct utxo *utxo)
+{
+	struct db_stmt *stmt;
+
+	if (utxo->status == output_state_reserved)
+		assert(utxo->reserved_til);
+	else
+		assert(!utxo->reserved_til);
+
+	stmt = db_prepare_v2(
+		db, SQL("UPDATE outputs SET status=?, reserved_til=?"
+			"WHERE prev_out_tx=? AND prev_out_index=?"));
+	db_bind_int(stmt, 0, output_status_in_db(utxo->status));
+	if (utxo->reserved_til)
+		db_bind_int(stmt, 1, *utxo->reserved_til);
+	else
+		db_bind_null(stmt, 1);
+	db_bind_txid(stmt, 2, &utxo->txid);
+	db_bind_int(stmt, 3, utxo->outnum);
+	db_exec_prepared_v2(take(stmt));
+}
+
+bool wallet_reserve_utxo(struct wallet *w, struct utxo *utxo, u32 current_height)
+{
+	u32 reservation_height;
+
+	if (utxo->status == output_state_reserved)
+		assert(utxo->reserved_til);
+	else
+		assert(!utxo->reserved_til);
+
+	switch (utxo->status) {
+	case output_state_spent:
+		return false;
+	case output_state_available:
+	case output_state_reserved:
+		break;
+	case output_state_any:
+		abort();
+	}
+
+	/* We simple increase existing reservations, which DTRT if we unreserve */
+	if (utxo->reserved_til
+	    && *utxo->reserved_til >= current_height)
+		reservation_height = *utxo->reserved_til + RESERVATION_INC;
+	else
+		reservation_height = current_height + RESERVATION_INC;
+
+	utxo->status = output_state_reserved;
+	tal_free(utxo->reserved_til);
+	utxo->reserved_til = tal_dup(utxo, u32, &reservation_height);
+
+	db_set_utxo(w->db, utxo);
+
+	return true;
+}
+
+void wallet_unreserve_utxo(struct wallet *w, struct utxo *utxo, u32 current_height)
+{
+	if (utxo->status == output_state_reserved) {
+		/* FIXME: old code didn't set reserved_til, so fake it here */
+		if (!utxo->reserved_til)
+			utxo->reserved_til = tal_dup(utxo, u32, &current_height);
+		assert(utxo->reserved_til);
+	} else
+		assert(!utxo->reserved_til);
+
+	if (utxo->status != output_state_reserved)
+		fatal("UTXO %s:%u is not reserved",
+		      type_to_string(tmpctx, struct bitcoin_txid, &utxo->txid),
+		      utxo->outnum);
+
+	if (*utxo->reserved_til <= current_height + RESERVATION_INC) {
+		utxo->status = output_state_available;
+		utxo->reserved_til = tal_free(utxo->reserved_til);
+	} else
+		*utxo->reserved_til -= RESERVATION_INC;
+
+	db_set_utxo(w->db, utxo);
 }
 
 bool wallet_add_onchaind_utxo(struct wallet *w,
