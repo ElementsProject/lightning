@@ -177,6 +177,38 @@ fixes as you see other things, and a minimal amount is unavoidable, but
 you can end up shaving infinite yaks.  This is a good time to drop a 
 `/* FIXME: ...*/` comment and move on.
 
+## Creating JSON APIs
+
+Our JSON RPCs always return a top-level object.  This allows us to add
+warnings (e.g. that we're still starting up) or other optional fields
+later.
+
+Prefer to use JSON names which are already in use, or otherwise names
+from the BOLT specifications.
+
+The same command should always return the same JSON format: this is
+why e.g. `listchannels` return an array even if given an argument so
+there's only zero or one entries.
+
+All `warning` fields should have unique names which start with
+`warning_`, the value of which should be an explanation.  This allows
+for programs to deal with them sanely, and also perform translations.
+
+## Changing JSON APIs
+
+All JSON API changes need a Changelog line (see below).
+
+You can always add a new JSON field (Changelog-Added), but you cannot
+remove one without going through a 6-month deprecation cycle
+(Changelog-Deprecated)
+
+So, only output it if `deprecated-apis` is true, so users can test
+their code is futureproof.  In 6 months remove it (Changelog-Removed).
+
+Changing existing input parameters is harder, and should generally be
+avoided.  Adding input parameters is possible, but should be done
+cautiously as too many parameters gets unwieldy quickly.
+
 ## Github Workflows
 
 We have adopted a number of workflows to facilitate the development of
