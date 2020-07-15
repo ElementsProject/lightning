@@ -198,8 +198,8 @@ for programs to deal with them sanely, and also perform translations.
 
 All JSON API changes need a Changelog line (see below).
 
-You can always add a new JSON field (Changelog-Added), but you cannot
-remove one without going through a 6-month deprecation cycle
+You can always add a new output JSON field (Changelog-Added), but you
+cannot remove one without going through a 6-month deprecation cycle
 (Changelog-Deprecated)
 
 So, only output it if `deprecated-apis` is true, so users can test
