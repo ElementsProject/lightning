@@ -44,12 +44,16 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 	struct json_stream *response;
 	struct wally_psbt *psbt;
 	struct utxo **utxos = tal_arr(cmd, struct utxo *, 0);
+	bool *exclusive;
+	u32 current_height;
 
 	if (!param(cmd, buffer, params,
 		   p_req("psbt", param_psbt, &psbt),
+		   p_opt_def("exclusive", param_bool, &exclusive, true),
 		   NULL))
 		return command_param_failed();
 
+	current_height = get_block_height(cmd->ld->topology);
 	for (size_t i = 0; i < psbt->tx->num_inputs; i++) {
 		struct bitcoin_txid txid;
 		struct utxo *utxo;
@@ -59,6 +63,14 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 				       &txid, psbt->tx->inputs[i].index);
 		if (!utxo)
 			continue;
+		if (*exclusive && is_reserved(utxo, current_height)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "%s:%u already reserved",
+					    type_to_string(tmpctx,
+							   struct bitcoin_txid,
+							   &utxo->txid),
+					    utxo->outnum);
+		}
 		if (utxo->status == output_state_spent)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "%s:%u already spent",
@@ -80,7 +92,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 
 		if (!wallet_reserve_utxo(cmd->ld->wallet,
 					 utxos[i],
-					 get_block_height(cmd->ld->topology))) {
+					 current_height)) {
 			fatal("Unable to reserve %s:%u!",
 			      type_to_string(tmpctx,
 					     struct bitcoin_txid,
@@ -88,7 +100,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 			      utxos[i]->outnum);
 		}
 		json_add_reservestatus(response, utxos[i], oldstatus, old_res,
-				       get_block_height(cmd->ld->topology));
+				       current_height);
 	}
 	json_array_end(response);
 	return command_success(cmd, response);
