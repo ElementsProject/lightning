@@ -3,13 +3,18 @@
 lightning-reserveinputs - Construct a transaction and reserve the UTXOs it spends
 .SH SYNOPSIS
 
-\fBreserveinputs\fR \fIpsbt\fR
+\fBreserveinputs\fR \fIpsbt\fR [\fIexclusive\fR]
 
 .SH DESCRIPTION
 
 The \fBreserveinputs\fR RPC command places (or increases) reservations on any
 inputs specified in \fIpsbt\fR which are known to lightningd\.  It will fail
 with an error it any of the inputs are known to be spent\.
+
+
+Normally the command will fail (with no reservations made) if an input
+is already reserved\.  If \fIexclusive\fR is set to \fIFalse\fR, then existing
+reservations are simply extended, rather than causing failure\.
 
 .SH RETURN VALUE
 
@@ -37,7 +42,7 @@ The following error codes may occur:
 
 .RS
 .IP \[bu]
--32602: Invalid parameter, such as specifying a spent input in \fIpsbt\fR\.
+-32602: Invalid parameter, such as specifying a spent/reserved input in \fIpsbt\fR\.
 
 .RE
 .SH AUTHOR
