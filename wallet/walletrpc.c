@@ -490,7 +490,6 @@ static struct command_result *json_txprepare(struct command *cmd,
 	response = json_stream_success(cmd);
 	json_add_tx(response, "unsigned_tx", utx->tx);
 	json_add_txid(response, "txid", &utx->txid);
-	json_add_psbt(response, "psbt", utx->tx->psbt);
 	return command_success(cmd, response);
 }
 static const struct json_command txprepare_command = {
