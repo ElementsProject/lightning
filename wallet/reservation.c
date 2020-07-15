@@ -37,6 +37,35 @@ static void json_add_reservestatus(struct json_stream *response,
 	json_object_end(response);
 }
 
+/* Reserve these UTXOs and print to JSON */
+static void reserve_and_report(struct json_stream *response,
+			       struct wallet *wallet,
+			       u32 current_height,
+			       struct utxo **utxos)
+{
+	json_array_start(response, "reservations");
+	for (size_t i = 0; i < tal_count(utxos); i++) {
+		enum output_status oldstatus;
+		u32 old_res;
+
+		oldstatus = utxos[i]->status;
+		old_res = utxos[i]->reserved_til ? *utxos[i]->reserved_til : 0;
+
+		if (!wallet_reserve_utxo(wallet,
+					 utxos[i],
+					 current_height)) {
+			fatal("Unable to reserve %s:%u!",
+			      type_to_string(tmpctx,
+					     struct bitcoin_txid,
+					     &utxos[i]->txid),
+			      utxos[i]->outnum);
+		}
+		json_add_reservestatus(response, utxos[i], oldstatus, old_res,
+				       current_height);
+	}
+	json_array_end(response);
+}
+
 static struct command_result *json_reserveinputs(struct command *cmd,
 						 const char *buffer,
 						 const jsmntok_t *obj UNNEEDED,
@@ -83,27 +112,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 	}
 
 	response = json_stream_success(cmd);
-	json_array_start(response, "reservations");
-	for (size_t i = 0; i < tal_count(utxos); i++) {
-		enum output_status oldstatus;
-		u32 old_res;
-
-		oldstatus = utxos[i]->status;
-		old_res = utxos[i]->reserved_til ? *utxos[i]->reserved_til : 0;
-
-		if (!wallet_reserve_utxo(cmd->ld->wallet,
-					 utxos[i],
-					 current_height)) {
-			fatal("Unable to reserve %s:%u!",
-			      type_to_string(tmpctx,
-					     struct bitcoin_txid,
-					     &utxos[i]->txid),
-			      utxos[i]->outnum);
-		}
-		json_add_reservestatus(response, utxos[i], oldstatus, old_res,
-				       current_height);
-	}
-	json_array_end(response);
+	reserve_and_report(response, cmd->ld->wallet, current_height, utxos);
 	return command_success(cmd, response);
 }
 
@@ -173,27 +182,30 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 					      const jsmntok_t *params)
 {
 	struct json_stream *response;
-	const struct utxo **utxos;
+	struct utxo **utxos;
 	u32 *feerate_per_kw;
 	u32 *minconf;
 	struct amount_sat *amount, input, needed, excess, total_fee;
-	bool all;
-	u32 locktime, maxheight;
+	bool all, *reserve;
+	u32 locktime, maxheight, current_height;
 	struct bitcoin_tx *tx;
 
 	if (!param(cmd, buffer, params,
 		   p_req("satoshi", param_sat_or_all, &amount),
 		   p_req("feerate", param_feerate_val, &feerate_per_kw),
 		   p_opt_def("minconf", param_number, &minconf, 1),
+		   p_opt_def("reserve", param_bool, &reserve, true),
 		   NULL))
 		return command_param_failed();
 
 	all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
 
+	current_height = get_block_height(cmd->ld->topology);
+
 	/* We keep adding until we meet their output requirements. */
 	input = AMOUNT_SAT(0);
-	utxos = tal_arr(cmd, const struct utxo *, 0);
+	utxos = tal_arr(cmd, struct utxo *, 0);
 	total_fee = AMOUNT_SAT(0);
 	while (amount_sat_sub(&needed, *amount, input)
 	       && !amount_sat_eq(needed, AMOUNT_SAT(0))) {
@@ -204,7 +216,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 					&needed,
 					*feerate_per_kw,
 					maxheight,
-					utxos);
+					cast_const2(const struct utxo **, utxos));
 		if (utxo) {
 			struct amount_sat fee;
 			tal_arr_expand(&utxos, utxo);
@@ -256,7 +268,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	 *   0xFFFFFFFD by default. Other wallets are likely to implement
 	 *   this too).
 	 */
-	locktime = cmd->ld->topology->tip->height;
+	locktime = current_height;
 
 	/* Eventually fuzz it too. */
 	if (locktime > 100 && pseudorand(10) == 0)
@@ -264,7 +276,8 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 
 	/* FIXME: tx_spending_utxos does more than we need, but there
 	 * are other users right now. */
-	tx = tx_spending_utxos(cmd, chainparams, utxos,
+	tx = tx_spending_utxos(cmd, chainparams,
+			       cast_const2(const struct utxo **, utxos),
 			       cmd->ld->wallet->bip32_base,
 			       false, 0, locktime,
 			       BITCOIN_TX_RBF_SEQUENCE);
@@ -288,6 +301,9 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	response = json_stream_success(cmd);
 	json_add_psbt(response, "psbt", tx->psbt);
 	json_add_amount_sat_only(response, "excess_msat", excess);
+	if (*reserve)
+		reserve_and_report(response, cmd->ld->wallet, current_height,
+				   utxos);
 	return command_success(cmd, response);
 }
 
