@@ -544,7 +544,6 @@ def test_fundpsbt(node_factory, bitcoind, chainparams):
         l1.rpc.fundpsbt(amount // 2, feerate)
 
 
-@pytest.mark.xfail(strict=True)
 def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     """
     Tests for the sign + send psbt RPCs
@@ -566,53 +565,58 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == total_outs)
 
-    # Make a PSBT out of our inputs
-    reserved = l1.rpc.reserveinputs(outputs=[{addr: Millisatoshi(3 * amount * 1000)}])
+    # Make a PSBT out of our inputs (FIXME: satoshi amount should include fees!)
+    funding = l1.rpc.fundpsbt(satoshi=Millisatoshi(3 * amount * 1000),
+                              feerate=7500,
+                              reserve=True)
     assert len([x for x in l1.rpc.listfunds()['outputs'] if x['reserved']]) == 4
-    psbt = bitcoind.rpc.decodepsbt(reserved['psbt'])
+    psbt = bitcoind.rpc.decodepsbt(funding['psbt'])
     saved_input = psbt['tx']['vin'][0]
 
     # Go ahead and unreserve the UTXOs, we'll use a smaller
     # set of them to create a second PSBT that we'll attempt to sign
     # and broadcast (to disastrous results)
-    l1.rpc.unreserveinputs(reserved['psbt'])
+    l1.rpc.unreserveinputs(funding['psbt'])
 
     # Re-reserve one of the utxos we just unreserved
-    utxos = []
-    utxos.append(saved_input['txid'] + ":" + str(saved_input['vout']))
-    second_reservation = l1.rpc.reserveinputs([{addr: Millisatoshi(amount * 0.5 * 1000)}], feerate='253perkw', utxos=utxos)
+    psbt = bitcoind.rpc.createpsbt([{'txid': saved_input['txid'],
+                                     'vout': saved_input['vout']}], [])
+    l1.rpc.reserveinputs(psbt)
 
     # We require the utxos be reserved before signing them
     with pytest.raises(RpcError, match=r"Aborting PSBT signing. UTXO .* is not reserved"):
-        l1.rpc.signpsbt(reserved['psbt'])['signed_psbt']
+        l1.rpc.signpsbt(funding['psbt'])['signed_psbt']
 
     # Now we unreserve the singleton, so we can reserve it again
-    l1.rpc.unreserveinputs(second_reservation['psbt'])
+    l1.rpc.unreserveinputs(psbt)
+
+    # Now add an output.
+    output_pbst = bitcoind.rpc.createpsbt([],
+                                          [{addr: 3 * amount / 10**8}])
+    fullpsbt = bitcoind.rpc.joinpsbts([funding['psbt'], output_pbst])
 
     # We re-reserve the first set...
-    utxos = []
-    for vin in psbt['tx']['vin']:
-        utxos.append(vin['txid'] + ':' + str(vin['vout']))
-    reserved = l1.rpc.reserveinputs(outputs=[{addr: Millisatoshi(3 * amount * 1000)}], utxos=utxos)
+    l1.rpc.reserveinputs(fullpsbt)
+
     # Sign + send the PSBT we've created
-    signed_psbt = l1.rpc.signpsbt(reserved['psbt'])['signed_psbt']
+    signed_psbt = l1.rpc.signpsbt(fullpsbt)['signed_psbt']
     broadcast_tx = l1.rpc.sendpsbt(signed_psbt)
 
     # Check that it was broadcast successfully
     l1.daemon.wait_for_log(r'sendrawtx exit 0 .* sendrawtransaction {}'.format(broadcast_tx['tx']))
     bitcoind.generate_block(1)
 
-    # We expect a change output to be added to the wallet
-    expected_outs = total_outs - 4 + 1
+    # We didn't add a change output.
+    expected_outs = total_outs - 4
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == expected_outs)
 
     # Let's try *sending* a PSBT that can't be finalized (it's unsigned)
     with pytest.raises(RpcError, match=r"PSBT not finalizeable"):
-        l1.rpc.sendpsbt(second_reservation['psbt'])
+        l1.rpc.sendpsbt(fullpsbt)
 
     # Now we try signing a PSBT with an output that's already been spent
-    with pytest.raises(RpcError, match=r"Aborting PSBT signing. UTXO {} is not reserved".format(utxos[0])):
-        l1.rpc.signpsbt(second_reservation['psbt'])
+    with pytest.raises(RpcError, match=r"Aborting PSBT signing. UTXO .* is not reserved"):
+        l1.rpc.signpsbt(fullpsbt)
 
     # Queue up another node, to make some PSBTs for us
     for i in range(total_outs // 2):
@@ -623,15 +627,22 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     # Create a PSBT using L2
     bitcoind.generate_block(1)
     wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == total_outs)
-    l2_reserved = l2.rpc.reserveinputs(outputs=[{addr: Millisatoshi(3 * amount * 1000)}])
+    l2_funding = l2.rpc.fundpsbt(satoshi=Millisatoshi(3 * amount * 1000),
+                                 feerate=7500,
+                                 reserve=True)
 
     # Try to get L1 to sign it
     with pytest.raises(RpcError, match=r"No wallet inputs to sign"):
-        l1.rpc.signpsbt(l2_reserved['psbt'])
+        l1.rpc.signpsbt(l2_funding['psbt'])
 
     # Add some of our own PSBT inputs to it
-    l1_reserved = l1.rpc.reserveinputs(outputs=[{addr: Millisatoshi(3 * amount * 1000)}])
-    joint_psbt = bitcoind.rpc.joinpsbts([l1_reserved['psbt'], l2_reserved['psbt']])
+    l1_funding = l1.rpc.fundpsbt(satoshi=Millisatoshi(3 * amount * 1000),
+                                 feerate=7500,
+                                 reserve=True)
+
+    # Join and add an output
+    joint_psbt = bitcoind.rpc.joinpsbts([l1_funding['psbt'], l2_funding['psbt'],
+                                         output_pbst])
 
     half_signed_psbt = l1.rpc.signpsbt(joint_psbt)['signed_psbt']
     totally_signed = l2.rpc.signpsbt(half_signed_psbt)['signed_psbt']
@@ -640,8 +651,11 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log(r'sendrawtx exit 0 .* sendrawtransaction {}'.format(broadcast_tx['tx']))
 
     # Send a PSBT that's not ours
-    l2_reserved = l2.rpc.reserveinputs(outputs=[{addr: Millisatoshi(3 * amount * 1000)}])
-    l2_signed_psbt = l2.rpc.signpsbt(l2_reserved['psbt'])['signed_psbt']
+    l2_funding = l2.rpc.fundpsbt(satoshi=Millisatoshi(3 * amount * 1000),
+                                 feerate=7500,
+                                 reserve=True)
+    psbt = bitcoind.rpc.joinpsbts([l2_funding['psbt'], output_pbst])
+    l2_signed_psbt = l2.rpc.signpsbt(psbt)['signed_psbt']
     l1.rpc.sendpsbt(l2_signed_psbt)
 
     # Re-try sending the same tx?
@@ -658,7 +672,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
         l1.rpc.sendpsbt('')
 
     # Try a modified (invalid) PSBT string
-    modded_psbt = l2_reserved['psbt'][:-3] + 'A' + l2_reserved['psbt'][-3:]
+    modded_psbt = psbt[:-3] + 'A' + psbt[-3:]
     with pytest.raises(RpcError, match=r"should be a PSBT, not"):
         l1.rpc.signpsbt(modded_psbt)
 
@@ -679,26 +693,15 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
-        # Nicely splits out withdrawals and chain fees, because it's all our tx
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 988255000, 'tag': 'withdrawal'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 3000000000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 11745000, 'tag': 'chain_fees'},
-        {'type': 'chain_mvt', 'credit': 988255000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'chain_fees'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
-        # Note that this is technically wrong since we paid 11745sat in fees
-        # but since it includes inputs / outputs from a second node, we can't
-        # do proper acccounting for it.
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 4000000000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 3000000000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'chain_fees'},
     ]
-
-    if chainparams['elements']:
-        wallet_coin_mvts.append({'type': 'chain_mvt', 'credit': 984625000, 'debit': 0, 'tag': 'deposit'})
-    else:
-        wallet_coin_mvts.append({'type': 'chain_mvt', 'credit': 988285000, 'debit': 0, 'tag': 'deposit'})
 
     check_coin_moves(l1, 'wallet', wallet_coin_mvts, chainparams)
 
