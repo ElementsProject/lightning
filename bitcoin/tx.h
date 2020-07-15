@@ -233,8 +233,6 @@ void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid);
 void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
 void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output);
 
-int wally_tx_clone(struct wally_tx *tx, struct wally_tx **output);
-
 /* Various weights of transaction parts. */
 size_t bitcoin_tx_core_weight(size_t num_inputs, size_t num_outputs);
 size_t bitcoin_tx_output_weight(size_t outscript_len);

@@ -52,9 +52,9 @@ void psbt_rm_output(struct wally_psbt *psbt,
 void psbt_input_add_pubkey(struct wally_psbt *psbt, size_t in,
 			   const struct pubkey *pubkey);
 
-WARN_UNUSED_RESULT bool psbt_input_set_partial_sig(struct wally_psbt *psbt, size_t in,
-						   const struct pubkey *pubkey,
-						   const struct bitcoin_signature *sig);
+WARN_UNUSED_RESULT bool psbt_input_set_signature(struct wally_psbt *psbt, size_t in,
+						 const struct pubkey *pubkey,
+						 const struct bitcoin_signature *sig);
 
 void psbt_input_set_prev_utxo(struct wally_psbt *psbt,
 			      size_t in,

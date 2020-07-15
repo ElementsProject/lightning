@@ -16,21 +16,6 @@
 
 #define SEGREGATED_WITNESS_FLAG 0x1
 
-/* FIXME: When wally exposes this, we will clash and can remove this one */
-int wally_tx_clone(struct wally_tx *tx, struct wally_tx **output)
-{
-	u8 *txlin = linearize_wtx(NULL, tx);
-	int flags = WALLY_TX_FLAG_USE_WITNESS;
-	int ret;
-
-	if (chainparams->is_elements)
-		flags |= WALLY_TX_FLAG_USE_ELEMENTS;
-
-	ret = wally_tx_from_bytes(txlin, tal_bytelen(txlin), flags, output);
-	tal_free(txlin);
-	return ret;
-}
-
 struct bitcoin_tx_output *new_tx_output(const tal_t *ctx,
 					struct amount_sat amount,
 					const u8 *script)
@@ -393,7 +378,7 @@ void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script)
 	/* Also add to the psbt */
 	assert(innum < tx->psbt->num_inputs);
 	in = &tx->psbt->inputs[innum];
-	wally_psbt_input_set_final_script_sig(in, script, tal_bytelen(script));
+	wally_psbt_input_set_final_scriptsig(in, script, tal_bytelen(script));
 }
 
 const u8 *bitcoin_tx_input_get_witness(const tal_t *ctx,
@@ -540,7 +525,7 @@ struct bitcoin_tx *bitcoin_tx_with_psbt(const tal_t *ctx, struct wally_psbt *psb
 					   psbt->tx->locktime);
 	wally_tx_free(tx->wtx);
 	tx->wtx = psbt_finalize(psbt, false);
-	if (!tx->wtx && wally_tx_clone(psbt->tx, &tx->wtx) != WALLY_OK)
+	if (!tx->wtx && wally_tx_clone_alloc(psbt->tx, 0, &tx->wtx) != WALLY_OK)
 		return NULL;
 
 	tal_free(tx->psbt);
