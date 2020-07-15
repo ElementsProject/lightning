@@ -12,6 +12,10 @@
 #include <wally_transaction.h>
 
 #define BITCOIN_TX_DEFAULT_SEQUENCE 0xFFFFFFFF
+
+/* BIP 125: Any nsequence < 0xFFFFFFFE is replacable.
+ * And bitcoind uses this value. */
+#define BITCOIN_TX_RBF_SEQUENCE 0xFFFFFFFD
 struct wally_psbt;
 
 struct bitcoin_txid {
