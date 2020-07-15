@@ -7,31 +7,40 @@ lightning-unreserveinputs - Release reserved UTXOs
 
 .SH DESCRIPTION
 
-The \fBunreserveinputs\fR RPC command releases UTXOs which were previously 
-marked as reserved, generally by \fBlightning-reserveinputs\fR(7)\.
+The \fBunreserveinputs\fR RPC command releases (or reduces reservation)
+on UTXOs which were previously marked as reserved, generally by
+\fBlightning-reserveinputs\fR(7)\.
 
 
 The inputs to unreserve are the inputs specified in the passed-in \fIpsbt\fR\.
 
 .SH RETURN VALUE
 
-On success, an object with \fIoutputs\fR will be returned\.
+On success, an \fIreservations\fR array is returned, with an entry for each input
+which was reserved:
 
+.RS
+.IP \[bu]
+\fItxid\fR is the input transaction id\.
+.IP \[bu]
+\fIvout\fR is the input index\.
+.IP \[bu]
+\fIwas_reserved\fR indicates whether the input was already reserved (generally true)
+.IP \[bu]
+\fIreserved\fR indicates that the input is now reserved (may still be true, if it was previously reserved for a long time)\.
+.IP \[bu]
+\fIreserved_to_block\fR (if \fIreserved\fR is still true) indicates what blockheight the reservation will expire\.
 
-\fIoutputs\fR will include an entry for each input specified in the \fIpsbt\fR,
-indicating the \fItxid\fR and \fIvout\fR for that input plus a boolean result
- \fIunreserved\fR, which will be true if that UTXO was successfully unreserved
-by this call\.
+.RE
 
-
-Note that restarting lightningd will unreserve all UTXOs by default\.
+On failure, an error is reported and no UTXOs are unreserved\.
 
 
 The following error codes may occur:
 
 .RS
 .IP \[bu]
--1: An unparseable PSBT\.
+-32602: Invalid parameter, i\.e\. an unparseable PSBT\.
 
 .RE
 .SH AUTHOR

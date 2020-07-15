@@ -11,11 +11,14 @@ WALLET_LIB_SRC :=		\
 	wallet/wallet.c		\
 	wallet/walletrpc.c
 
+WALLET_LIB_SRC_NOHDR :=		\
+	wallet/reservation.c
+
 WALLET_DB_DRIVERS :=		\
 	wallet/db_postgres.c	\
 	wallet/db_sqlite3.c
 
-WALLET_LIB_OBJS := $(WALLET_LIB_SRC:.c=.o) $(WALLET_DB_DRIVERS:.c=.o)
+WALLET_LIB_OBJS := $(WALLET_LIB_SRC:.c=.o) $(WALLET_LIB_SRC_NOHDR:.c=.o) $(WALLET_DB_DRIVERS:.c=.o)
 WALLET_LIB_HEADERS := $(WALLET_LIB_SRC:.c=.h)
 
 # Make sure these depend on everything.

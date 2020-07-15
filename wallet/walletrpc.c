@@ -1218,45 +1218,11 @@ static const struct json_command listtransactions_command = {
 };
 AUTODATA(json_command, &listtransactions_command);
 
-static struct command_result *json_reserveinputs(struct command *cmd,
-						 const char *buffer,
-						 const jsmntok_t *obj UNNEEDED,
-						 const jsmntok_t *params)
-{
-	struct command_result *res;
-	struct json_stream *response;
-	struct unreleased_tx *utx;
-
-	u32 feerate;
-
-	res = json_prepare_tx(cmd, buffer, params, false, &utx, &feerate);
-	if (res)
-		return res;
-
-	/* Unlike json_txprepare, we don't keep the utx object
-	 * around, so we remove the auto-cleanup that happens
-	 * when the utxo objects are free'd */
-	wallet_persist_utxo_reservation(cmd->ld->wallet, utx->wtx->utxos);
-
-	response = json_stream_success(cmd);
-	json_add_psbt(response, "psbt", utx->tx->psbt);
-	json_add_u32(response, "feerate_per_kw", feerate);
-	return command_success(cmd, response);
-}
-static const struct json_command reserveinputs_command = {
-	"reserveinputs",
-	"bitcoin",
-	json_reserveinputs,
-	"Reserve inputs and pass back the resulting psbt",
-	false
-};
-AUTODATA(json_command, &reserveinputs_command);
-
-static struct command_result *param_psbt(struct command *cmd,
-					 const char *name,
-					 const char *buffer,
-					 const jsmntok_t *tok,
-					 struct wally_psbt **psbt)
+struct command_result *param_psbt(struct command *cmd,
+				  const char *name,
+				  const char *buffer,
+				  const jsmntok_t *tok,
+				  struct wally_psbt **psbt)
 {
 	/* Pull out the token into a string, then pass to
 	 * the PSBT parser; PSBT parser can't handle streaming
@@ -1265,54 +1231,11 @@ static struct command_result *param_psbt(struct command *cmd,
 	if (psbt_from_b64(psbt_buff, psbt))
 		return NULL;
 
-	return command_fail(cmd, LIGHTNINGD, "'%s' should be a PSBT, not '%.*s'",
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "'%s' should be a PSBT, not '%.*s'",
 			    name, json_tok_full_len(tok),
 			    json_tok_full(buffer, tok));
 }
-
-static struct command_result *json_unreserveinputs(struct command *cmd,
-						   const char *buffer,
-						   const jsmntok_t *obj UNNEEDED,
-						   const jsmntok_t *params)
-{
-	struct json_stream *response;
-	struct wally_psbt *psbt;
-
-	/* for each input in the psbt, attempt to 'unreserve' it */
-	if (!param(cmd, buffer, params,
-		   p_req("psbt", param_psbt, &psbt),
-		   NULL))
-		return command_param_failed();
-
-	response = json_stream_success(cmd);
-	json_array_start(response, "outputs");
-	for (size_t i = 0; i < psbt->tx->num_inputs; i++) {
-		struct wally_tx_input *in;
-		struct bitcoin_txid txid;
-		bool unreserved;
-
-		in = &psbt->tx->inputs[i];
-		wally_tx_input_get_txid(in, &txid);
-		unreserved = wallet_unreserve_output(cmd->ld->wallet,
-						     &txid, in->index);
-		json_object_start(response, NULL);
-		json_add_txid(response, "txid", &txid);
-		json_add_u64(response, "vout", in->index);
-		json_add_bool(response, "unreserved", unreserved);
-		json_object_end(response);
-	}
-	json_array_end(response);
-
-	return command_success(cmd, response);
-}
-static const struct json_command unreserveinputs_command = {
-	"unreserveinputs",
-	"bitcoin",
-	json_unreserveinputs,
-	"Unreserve inputs, freeing them up to be reused",
-	false
-};
-AUTODATA(json_command, &unreserveinputs_command);
 
 static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 							 struct wally_psbt *psbt,
