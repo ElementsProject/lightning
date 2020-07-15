@@ -2,6 +2,7 @@
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
+#include <common/wallet_tx.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <wallet/wallet.h>
@@ -164,3 +165,137 @@ static const struct json_command unreserveinputs_command = {
 	false
 };
 AUTODATA(json_command, &unreserveinputs_command);
+
+
+static struct command_result *json_fundpsbt(struct command *cmd,
+					      const char *buffer,
+					      const jsmntok_t *obj UNNEEDED,
+					      const jsmntok_t *params)
+{
+	struct json_stream *response;
+	const struct utxo **utxos;
+	u32 *feerate_per_kw;
+	u32 *minconf;
+	struct amount_sat *amount, input, needed, excess, total_fee;
+	bool all;
+	u32 locktime, maxheight;
+	struct bitcoin_tx *tx;
+
+	if (!param(cmd, buffer, params,
+		   p_req("satoshi", param_sat_or_all, &amount),
+		   p_req("feerate", param_feerate_val, &feerate_per_kw),
+		   p_opt_def("minconf", param_number, &minconf, 1),
+		   NULL))
+		return command_param_failed();
+
+	all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
+	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
+
+	/* We keep adding until we meet their output requirements. */
+	input = AMOUNT_SAT(0);
+	utxos = tal_arr(cmd, const struct utxo *, 0);
+	total_fee = AMOUNT_SAT(0);
+	while (amount_sat_sub(&needed, *amount, input)
+	       && !amount_sat_eq(needed, AMOUNT_SAT(0))) {
+		struct utxo *utxo;
+
+		utxo = wallet_find_utxo(utxos, cmd->ld->wallet,
+					cmd->ld->topology->tip->height,
+					&needed,
+					*feerate_per_kw,
+					maxheight,
+					utxos);
+		if (utxo) {
+			struct amount_sat fee;
+			tal_arr_expand(&utxos, utxo);
+
+			/* It supplies more input. */
+			if (!amount_sat_add(&input, input, utxo->amount))
+				return command_fail(cmd, LIGHTNINGD,
+						    "impossible UTXO value");
+
+			/* But increase amount needed, to pay for new input */
+			fee = amount_tx_fee(*feerate_per_kw,
+					    utxo_spend_weight(utxo));
+			if (!amount_sat_add(amount, *amount, fee))
+				/* Either they specified "all", or we
+				 * will fail anyway. */
+				*amount = AMOUNT_SAT(-1ULL);
+			if (!amount_sat_add(&total_fee, total_fee, fee))
+				return command_fail(cmd, LIGHTNINGD,
+						    "impossible fee value");
+			continue;
+		}
+
+		/* If they said "all", we expect to run out of utxos. */
+		if (all) {
+			/* If we have none at all though, fail */
+			if (!tal_count(utxos))
+				return command_fail(cmd, FUND_CANNOT_AFFORD,
+						    "No available UTXOs");
+			break;
+		}
+
+		return command_fail(cmd, FUND_CANNOT_AFFORD,
+				    "Could not afford %s using all %zu available UTXOs: %s short",
+				    type_to_string(tmpctx,
+						   struct amount_sat,
+						   amount),
+				    tal_count(utxos),
+				    type_to_string(tmpctx,
+						   struct amount_sat,
+						   &needed));
+	}
+
+	/* Setting the locktime to the next block to be mined has multiple
+	 * benefits:
+	 * - anti fee-snipping (even if not yet likely)
+	 * - less distinguishable transactions (with this we create
+	 *   general-purpose transactions which looks like bitcoind:
+	 *   native segwit, nlocktime set to tip, and sequence set to
+	 *   0xFFFFFFFD by default. Other wallets are likely to implement
+	 *   this too).
+	 */
+	locktime = cmd->ld->topology->tip->height;
+
+	/* Eventually fuzz it too. */
+	if (locktime > 100 && pseudorand(10) == 0)
+		locktime -= pseudorand(100);
+
+	/* FIXME: tx_spending_utxos does more than we need, but there
+	 * are other users right now. */
+	tx = tx_spending_utxos(cmd, chainparams, utxos,
+			       cmd->ld->wallet->bip32_base,
+			       false, 0, locktime,
+			       BITCOIN_TX_RBF_SEQUENCE);
+
+	if (all) {
+		/* Count everything not going towards fees as excess. */
+		if (!amount_sat_sub(&excess, input, total_fee))
+			return command_fail(cmd, FUND_CANNOT_AFFORD,
+					    "All %zu inputs could not afford"
+					    " %s fees",
+					    tal_count(utxos),
+					    type_to_string(tmpctx,
+							   struct amount_sat,
+							   &total_fee));
+	} else {
+		/* This was the condition of exiting the loop above! */
+		if (!amount_sat_sub(&excess, input, *amount))
+			abort();
+	}
+
+	response = json_stream_success(cmd);
+	json_add_psbt(response, "psbt", tx->psbt);
+	json_add_amount_sat_only(response, "excess_msat", excess);
+	return command_success(cmd, response);
+}
+
+static const struct json_command fundpsbt_command = {
+	"fundpsbt",
+	"bitcoin",
+	json_fundpsbt,
+	"Create PSBT using enough utxos to allow an output of {satoshi} at {feerate}",
+	false
+};
+AUTODATA(json_command, &fundpsbt_command);
