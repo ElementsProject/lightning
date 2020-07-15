@@ -486,6 +486,64 @@ def test_reserveinputs(node_factory, bitcoind, chainparams):
     assert not any(o['reserved'] for o in l1.rpc.listfunds()['outputs'])
 
 
+def test_fundpsbt(node_factory, bitcoind, chainparams):
+    amount = 1000000
+    total_outs = 4
+    l1 = node_factory.get_node()
+
+    outputs = []
+    # Add a medley of funds to withdraw later, bech32 + p2sh-p2wpkh
+    for i in range(total_outs // 2):
+        txid = bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'],
+                                          amount / 10**8)
+        outputs.append((txid, bitcoind.rpc.gettransaction(txid)['details'][0]['vout']))
+        txid = bitcoind.rpc.sendtoaddress(l1.rpc.newaddr('p2sh-segwit')['p2sh-segwit'],
+                                          amount / 10**8)
+        outputs.append((txid, bitcoind.rpc.gettransaction(txid)['details'][0]['vout']))
+
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == total_outs)
+
+    feerate = '7500perkw'
+
+    # Should get one input, plus some excess
+    funding = l1.rpc.fundpsbt(amount // 2, feerate, reserve=False)
+    psbt = bitcoind.rpc.decodepsbt(funding['psbt'])
+    assert len(psbt['tx']['vin']) == 1
+    assert funding['excess_msat'] > Millisatoshi(0)
+    assert funding['excess_msat'] < Millisatoshi(amount // 2 * 1000)
+
+    # Cannot afford this one (too much)
+    with pytest.raises(RpcError, match=r"not afford"):
+        l1.rpc.fundpsbt(amount * total_outs, feerate)
+
+    # Nor this (depth insufficient)
+    with pytest.raises(RpcError, match=r"not afford"):
+        l1.rpc.fundpsbt(amount // 2, feerate, minconf=2)
+
+    # Should get two inputs.
+    psbt = bitcoind.rpc.decodepsbt(l1.rpc.fundpsbt(amount, feerate, reserve=False)['psbt'])
+    assert len(psbt['tx']['vin']) == 2
+
+    # Should not use reserved outputs.
+    psbt = bitcoind.rpc.createpsbt([{'txid': out[0], 'vout': out[1]} for out in outputs], [])
+    l1.rpc.reserveinputs(psbt)
+    with pytest.raises(RpcError, match=r"not afford"):
+        l1.rpc.fundpsbt(amount // 2, feerate)
+
+    # Will use first one if unreserved.
+    l1.rpc.unreserveinputs(bitcoind.rpc.createpsbt([{'txid': outputs[0][0], 'vout': outputs[0][1]}], []))
+    psbt = l1.rpc.fundpsbt(amount // 2, feerate)['psbt']
+
+    # Should have passed to reserveinputs.
+    with pytest.raises(RpcError, match=r"already reserved"):
+        l1.rpc.reserveinputs(psbt)
+
+    # And now we can't afford any more.
+    with pytest.raises(RpcError, match=r"not afford"):
+        l1.rpc.fundpsbt(amount // 2, feerate)
+
+
 @pytest.mark.xfail(strict=True)
 def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     """

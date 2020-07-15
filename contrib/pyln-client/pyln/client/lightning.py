@@ -1126,6 +1126,18 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("unreserveinputs", payload)
 
+    def fundpsbt(self, satoshi, feerate, minconf=None, reserve=True):
+        """
+        Create a PSBT with inputs sufficient to give an output of satoshi.
+        """
+        payload = {
+            "satoshi": satoshi,
+            "feerate": feerate,
+            "minconf": minconf,
+            "reserve": reserve,
+        }
+        return self.call("fundpsbt", payload)
+
     def signpsbt(self, psbt):
         """
         Add internal wallet's signatures to PSBT
