@@ -1107,22 +1107,19 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("txsend", payload)
 
-    def reserveinputs(self, outputs, feerate=None, minconf=None, utxos=None):
+    def reserveinputs(self, psbt, exclusive=True):
         """
-        Reserve UTXOs and return a psbt for a 'stub' transaction that
-        spends the reserved UTXOs.
+        Reserve any inputs in this psbt.
         """
         payload = {
-            "outputs": outputs,
-            "feerate": feerate,
-            "minconf": minconf,
-            "utxos": utxos,
+            "psbt": psbt,
+            "exclusive": exclusive,
         }
         return self.call("reserveinputs", payload)
 
     def unreserveinputs(self, psbt):
         """
-        Unreserve UTXOs that were previously reserved.
+        Unreserve (or reduce reservation) on any UTXOs in this psbt were previously reserved.
         """
         payload = {
             "psbt": psbt,
