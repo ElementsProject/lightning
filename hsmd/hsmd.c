@@ -1531,7 +1531,7 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 			/* This line is basically the entire reason we have
 			 * to iterate through to match the psbt input
 			 * to the UTXO -- otherwise we would just
-			 * call wally_sign_psbt for every utxo privkey
+			 * call wally_psbt_sign for every utxo privkey
 			 * and be done with it. We can't do that though
 			 * because any UTXO that's derived from channel_info
 			 * requires the HSM to find the pubkey, and we
@@ -1539,8 +1539,9 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 			 * of complexity in the calling code */
 			psbt_input_add_pubkey(psbt, j, &pubkey);
 
-			if (wally_sign_psbt(psbt, privkey.secret.data,
-					    sizeof(privkey.secret.data)) != WALLY_OK)
+			if (wally_psbt_sign(psbt, privkey.secret.data,
+					    sizeof(privkey.secret.data),
+					    EC_FLAG_GRIND_R) != WALLY_OK)
 				status_broken("Received wally_err attempting to "
 					      "sign utxo with key %s. PSBT: %s",
 					      type_to_string(tmpctx, struct pubkey,

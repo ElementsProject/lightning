@@ -839,9 +839,9 @@ static bool funder_finalize_channel_setup(struct state *state,
 	}
 
 	/* We save their sig to our first commitment tx */
-	if (!psbt_input_set_partial_sig((*tx)->psbt, 0,
-					&state->their_funding_pubkey,
-					sig))
+	if (!psbt_input_set_signature((*tx)->psbt, 0,
+				      &state->their_funding_pubkey,
+				      sig))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Unable to set signature internally");
 

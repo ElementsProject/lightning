@@ -1291,9 +1291,9 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 			peer->next_index[LOCAL], LOCAL);
 
 	/* Set the commit_sig on the commitment tx psbt */
-	if (!psbt_input_set_partial_sig(txs[0]->psbt, 0,
-					&peer->channel->funding_pubkey[REMOTE],
-					&commit_sig))
+	if (!psbt_input_set_signature(txs[0]->psbt, 0,
+				      &peer->channel->funding_pubkey[REMOTE],
+				      &commit_sig))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Unable to set signature internally");
 

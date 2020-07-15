@@ -9,6 +9,5 @@
 	url = https://github.com/ianlancetaylor/libbacktrace.git
 [submodule "external/libwally-core"]
 	path = external/libwally-core
-	url = https://github.com/niftynei/libwally-core.git
+	url = https://github.com/ElementsProject/libwally-core.git
 	ignore = dirty
-	branch = nifty/blessed-branch

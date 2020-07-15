@@ -44,61 +44,37 @@ struct wally_psbt *new_psbt(const tal_t *ctx, const struct wally_tx *wtx)
 {
 	struct wally_psbt *psbt;
 	int wally_err;
-	u8 **scripts;
-	size_t *script_lens;
-	struct wally_tx_witness_stack **witnesses;
 
 	if (is_elements(chainparams))
-		wally_err = wally_psbt_elements_init_alloc(wtx->num_inputs, wtx->num_outputs, 0, &psbt);
+		wally_err = wally_psbt_elements_init_alloc(0, wtx->num_inputs, wtx->num_outputs, 0, &psbt);
 	else
-		wally_err = wally_psbt_init_alloc(wtx->num_inputs, wtx->num_outputs, 0, &psbt);
+		wally_err = wally_psbt_init_alloc(0, wtx->num_inputs, wtx->num_outputs, 0, &psbt);
 	assert(wally_err == WALLY_OK);
 	tal_add_destructor(psbt, psbt_destroy);
 
-	/* we can't have scripts on the psbt's global tx,
-	 * so we erase them/stash them until after it's been populated */
-	scripts = tal_arr(NULL, u8 *, wtx->num_inputs);
-	script_lens = tal_arr(NULL, size_t, wtx->num_inputs);
-	witnesses = tal_arr(NULL, struct wally_tx_witness_stack *, wtx->num_inputs);
-	for (size_t i = 0; i < wtx->num_inputs; i++) {
-		scripts[i] = (u8 *)wtx->inputs[i].script;
-		wtx->inputs[i].script = NULL;
-		script_lens[i] = wtx->inputs[i].script_len;
-		wtx->inputs[i].script_len = 0;
-		witnesses[i] = wtx->inputs[i].witness;
-		wtx->inputs[i].witness = NULL;
-	}
-
-	wally_err = wally_psbt_set_global_tx(psbt, cast_const(struct wally_tx *, wtx));
+	/* Set directly: avoids psbt checks for non-NULL scripts/witnesses */
+	wally_err = wally_tx_clone_alloc(wtx, 0, &psbt->tx);
 	assert(wally_err == WALLY_OK);
+	/* Inputs/outs are pre-allocated above, 'add' them as empty dummies */
+	psbt->num_inputs = wtx->num_inputs;
+	psbt->num_outputs = wtx->num_outputs;
 
-	/* set the scripts + witnesses back */
 	for (size_t i = 0; i < wtx->num_inputs; i++) {
-		int wally_err;
-
-		wtx->inputs[i].script = (unsigned char *)scripts[i];
-		wtx->inputs[i].script_len = script_lens[i];
-		wtx->inputs[i].witness = witnesses[i];
-
 		/* add these scripts + witnesses to the psbt */
-		if (scripts[i]) {
+		if (wtx->inputs[i].script) {
 			wally_err =
-				wally_psbt_input_set_final_script_sig(&psbt->inputs[i],
-								      (unsigned char *)scripts[i],
-								      script_lens[i]);
+				wally_psbt_input_set_final_scriptsig(&psbt->inputs[i],
+								     wtx->inputs[i].script,
+								     wtx->inputs[i].script_len);
 			assert(wally_err == WALLY_OK);
 		}
-		if (witnesses[i]) {
+		if (wtx->inputs[i].witness) {
 			wally_err =
 				wally_psbt_input_set_final_witness(&psbt->inputs[i],
-								   witnesses[i]);
+								   wtx->inputs[i].witness);
 			assert(wally_err == WALLY_OK);
 		}
 	}
-
-	tal_free(witnesses);
-	tal_free(scripts);
-	tal_free(script_lens);
 
 	return tal_steal(ctx, psbt);
 }
@@ -106,7 +82,7 @@ struct wally_psbt *new_psbt(const tal_t *ctx, const struct wally_tx *wtx)
 bool psbt_is_finalized(struct wally_psbt *psbt)
 {
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
-		if (!psbt->inputs[i].final_script_sig &&
+		if (!psbt->inputs[i].final_scriptsig &&
 				!psbt->inputs[i].final_witness)
 			return false;
 	}
@@ -235,36 +211,28 @@ void psbt_input_add_pubkey(struct wally_psbt *psbt, size_t in,
 	/* we serialize the compressed version of the key, wally likes this */
 	pubkey_to_der(pk_der, pubkey);
 
-	if (!psbt->inputs[in].keypaths)
-		if (wally_keypath_map_init_alloc(1, &psbt->inputs[in].keypaths) != WALLY_OK)
-			abort();
-
-	wally_err = wally_add_new_keypath(psbt->inputs[in].keypaths,
-					  pk_der, sizeof(pk_der),
-					  fingerprint, sizeof(fingerprint),
-					  empty_path, ARRAY_SIZE(empty_path));
-
+	wally_err = wally_psbt_input_add_keypath_item(&psbt->inputs[in],
+						      pk_der, sizeof(pk_der),
+						      fingerprint, sizeof(fingerprint),
+						      empty_path, ARRAY_SIZE(empty_path));
 	assert(wally_err == WALLY_OK);
 }
 
-bool psbt_input_set_partial_sig(struct wally_psbt *psbt, size_t in,
-				const struct pubkey *pubkey,
-				const struct bitcoin_signature *sig)
+bool psbt_input_set_signature(struct wally_psbt *psbt, size_t in,
+			      const struct pubkey *pubkey,
+			      const struct bitcoin_signature *sig)
 {
 	u8 pk_der[PUBKEY_CMPR_LEN];
 
 	assert(in < psbt->num_inputs);
-	if (!psbt->inputs[in].partial_sigs)
-		if (wally_partial_sigs_map_init_alloc(1, &psbt->inputs[in].partial_sigs) != WALLY_OK)
-			return false;
 
 	/* we serialize the compressed version of the key, wally likes this */
 	pubkey_to_der(pk_der, pubkey);
-	wally_psbt_input_set_sighash_type(&psbt->inputs[in], sig->sighash_type);
-	return wally_add_new_partial_sig(psbt->inputs[in].partial_sigs,
-					 pk_der, sizeof(pk_der),
-					 cast_const(unsigned char *, sig->s.data),
-					 sizeof(sig->s.data)) == WALLY_OK;
+	wally_psbt_input_set_sighash(&psbt->inputs[in], sig->sighash_type);
+	return wally_psbt_input_add_signature(&psbt->inputs[in],
+					      pk_der, sizeof(pk_der),
+					      sig->s.data,
+					      sizeof(sig->s.data)) == WALLY_OK;
 }
 
 static void psbt_input_set_witness_utxo(struct wally_psbt *psbt, size_t in,
@@ -383,13 +351,12 @@ void psbt_elements_input_init_witness(struct wally_psbt *psbt, size_t in,
 			asset, nonce);
 
 	if (asset->value > 0)
-		wally_psbt_elements_input_set_value(&psbt->inputs[in],
-						    asset->value);
+		wally_psbt_input_set_value(&psbt->inputs[in], asset->value);
 
 	/* PSET expects an asset tag without the prefix */
-	if (wally_psbt_elements_input_set_asset(&psbt->inputs[in],
-					    asset->asset + 1,
-					    ELEMENTS_ASSET_LEN - 1) != WALLY_OK)
+	if (wally_psbt_input_set_asset(&psbt->inputs[in],
+				       asset->asset + 1,
+				       ELEMENTS_ASSET_LEN - 1) != WALLY_OK)
 		abort();
 }
 
@@ -403,7 +370,7 @@ void psbt_elements_input_init(struct wally_psbt *psbt, size_t in,
 					  asset, nonce);
 
 	if (asset->value > 0) {
-		if (wally_psbt_elements_input_set_value(
+		if (wally_psbt_input_set_value(
 					&psbt->inputs[in],
 					asset->value) != WALLY_OK)
 			abort();
@@ -412,10 +379,9 @@ void psbt_elements_input_init(struct wally_psbt *psbt, size_t in,
 
 	/* PSET expects an asset tag without the prefix */
 	/* FIXME: Verify that we're sending unblinded asset tag */
-	if (wally_psbt_elements_input_set_asset(
-					&psbt->inputs[in],
-					asset->asset + 1,
-					ELEMENTS_ASSET_LEN - 1) != WALLY_OK)
+	if (wally_psbt_input_set_asset(&psbt->inputs[in],
+				       asset->asset + 1,
+				       ELEMENTS_ASSET_LEN - 1) != WALLY_OK)
 		abort();
 }
 
@@ -440,9 +406,9 @@ struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
 			wally_tx_output_get_amount(psbt->inputs[in].witness_utxo);
 		assert(amount_asset_is_main(&amt_asset));
 		val = amount_asset_to_sat(&amt_asset);
-	} else if (psbt->inputs[in].non_witness_utxo) {
+	} else if (psbt->inputs[in].utxo) {
 		int idx = psbt->tx->inputs[in].index;
-		struct wally_tx *prev_tx = psbt->inputs[in].non_witness_utxo;
+		struct wally_tx *prev_tx = psbt->inputs[in].utxo;
 		val = amount_sat(prev_tx->outputs[idx].satoshi);
 	} else
 		abort();
@@ -464,14 +430,14 @@ struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 	} else
 		tmppsbt = cast_const(struct wally_psbt *, psbt);
 
-	if (wally_finalize_psbt(tmppsbt) != WALLY_OK) {
+	if (wally_psbt_finalize(tmppsbt) != WALLY_OK) {
 		if (!finalize_in_place)
 			wally_psbt_free(tmppsbt);
 		return NULL;
 	}
 
 	if (psbt_is_finalized(tmppsbt)
-		&& wally_extract_psbt(tmppsbt, &wtx) == WALLY_OK) {
+		&& wally_psbt_extract(tmppsbt, &wtx) == WALLY_OK) {
 		if (!finalize_in_place)
 			wally_psbt_free(tmppsbt);
 		return wtx;
@@ -494,7 +460,7 @@ char *psbt_to_b64(const tal_t *ctx, const struct wally_psbt *psbt)
 	char *serialized_psbt, *ret_val;
 	int ret;
 
-	ret = wally_psbt_to_base64(cast_const(struct wally_psbt *, psbt),
+	ret = wally_psbt_to_base64(cast_const(struct wally_psbt *, psbt), 0,
 				   &serialized_psbt);
 	assert(ret == WALLY_OK);
 
@@ -512,7 +478,7 @@ const u8 *psbt_get_bytes(const tal_t *ctx, const struct wally_psbt *psbt,
 	 */
 	size_t room = 1024 * 1000;
 	u8 *pbt_bytes = tal_arr(ctx, u8, room);
-	if (wally_psbt_to_bytes(psbt, pbt_bytes, room, bytes_written) != WALLY_OK) {
+	if (wally_psbt_to_bytes(psbt, 0, pbt_bytes, room, bytes_written) != WALLY_OK) {
 		/* something went wrong. bad libwally ?? */
 		abort();
 	}
@@ -564,7 +530,7 @@ struct wally_psbt *fromwire_wally_psbt(const tal_t *ctx,
 	/* Re-marshall for sanity check! */
 	u8 *tmpbuf = tal_arr(NULL, u8, psbt_byte_len);
 	size_t written;
-	if (wally_psbt_to_bytes(psbt, tmpbuf, psbt_byte_len, &written) != WALLY_OK) {
+	if (wally_psbt_to_bytes(psbt, 0, tmpbuf, psbt_byte_len, &written) != WALLY_OK) {
 		tal_free(tmpbuf);
 		tal_free(psbt);
 		return fromwire_fail(cursor, max);
