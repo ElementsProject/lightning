@@ -1,0 +1,76 @@
+.TH "LIGHTNING-FUNDPSBT" "7" "" "" "lightning-fundpsbt"
+.SH NAME
+lightning-fundpsbt - Command to populate PSBT inputs from the wallet
+.SH SYNOPSIS
+
+\fBfundpsbt\fR \fIsatoshi\fR \fIfeerate\fR [\fIminconf\fR] [\fIreserve\fR]
+
+.SH DESCRIPTION
+
+\fBfundpsbt\fR is a low-level RPC command which creates a PSBT using unreserved
+inputs in the wallet, optionally reserving them as well\.
+
+
+\fIsatoshi\fR is the minimum satoshi value of the output(s) needed (or the
+string "all" meaning use all unreserved inputs)\.  If a value, it can
+be a whole number, a whole number ending in \fIsat\fR, a whole number
+ending in \fI000msat\fR, or a number with 1 to 8 decimal places ending in
+\fIbtc\fR\.
+
+
+You calculate the value by starting with the amount you want to pay
+and adding the fee which will be needed to pay for the base of the
+transaction plus that output, and any other outputs and inputs you
+will add to the final transaction\.
+
+
+\fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means the
+number is interpreted as satoshi-per-kilosipa (weight), and \fIperkb\fR
+means it is interpreted bitcoind-style as
+satoshi-per-kilobyte\. Omitting the suffix is equivalent to \fIperkb\fR\.
+
+
+\fIminconf\fR specifies the minimum number of confirmations that used
+outputs should have\. Default is 1\.
+
+
+\fIreserve\fR is a boolean: if true (the default), then \fIreserveinputs\fR is
+called (successfully, with \fIexclusive\fR true) on the returned PSBT\.
+
+.SH RETURN VALUE
+
+On success, returns the \fIpsbt\fR containing the inputs, and
+\fIexcess_msat\fR containing the amount above \fIsatoshi\fR which is
+available\.  This could be zero, or dust\.  If \fIsatoshi\fR was "all",
+then \fIexcess_msat\fR is the entire amount once fees are subtracted
+for the weights of the inputs\.
+
+
+If \fIreserve\fR was true, then a \fIreservations\fR array is returned,
+exactly like \fIreserveinputs\fR\.
+
+
+On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
+with \fBcode\fR being one of the following:
+
+.RS
+.IP \[bu]
+-32602: If the given parameters are wrong\.
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+301: Insufficient UTXOs to meet \fIsatoshi\fR value\.
+
+.RE
+.SH AUTHOR
+
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-reserveinputs\fR(7), \fBlightning-unreserveinputs\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

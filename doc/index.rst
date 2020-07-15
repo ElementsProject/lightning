@@ -45,6 +45,7 @@ c-lightning Documentation
    lightning-fundchannel_cancel <lightning-fundchannel_cancel.7.md>
    lightning-fundchannel_complete <lightning-fundchannel_complete.7.md>
    lightning-fundchannel_start <lightning-fundchannel_start.7.md>
+   lightning-fundpsbt <lightning-fundpsbt.7.md>
    lightning-getroute <lightning-getroute.7.md>
    lightning-getsharedsecret <lightning-getsharedsecret.7.md>
    lightning-hsmtool <lightning-hsmtool.8.md>

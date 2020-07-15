@@ -9,7 +9,8 @@ lightning-reserveinputs - Construct a transaction and reserve the UTXOs it spend
 
 The \fBreserveinputs\fR RPC command places (or increases) reservations on any
 inputs specified in \fIpsbt\fR which are known to lightningd\.  It will fail
-with an error it any of the inputs are known to be spent\.
+with an error if any of the inputs are known to be spent, and ignore inputs
+which are unknown\.
 
 
 Normally the command will fail (with no reservations made) if an input
@@ -18,7 +19,7 @@ reservations are simply extended, rather than causing failure\.
 
 .SH RETURN VALUE
 
-On success, an \fIreservations\fR array is returned, with an entry for each input
+On success, a \fIreservations\fR array is returned, with an entry for each input
 which was reserved:
 
 .RS

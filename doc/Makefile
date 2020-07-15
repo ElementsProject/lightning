@@ -23,6 +23,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-fundchannel_start.7 \
 	doc/lightning-fundchannel_complete.7 \
 	doc/lightning-fundchannel_cancel.7 \
+	doc/lightning-fundpsbt.7 \
 	doc/lightning-getroute.7 \
 	doc/lightning-getsharedsecret.7 \
 	doc/lightning-hsmtool.8 \

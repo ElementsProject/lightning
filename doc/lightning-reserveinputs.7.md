@@ -11,7 +11,8 @@ DESCRIPTION
 
 The **reserveinputs** RPC command places (or increases) reservations on any
 inputs specified in *psbt* which are known to lightningd.  It will fail
-with an error it any of the inputs are known to be spent.
+with an error if any of the inputs are known to be spent, and ignore inputs
+which are unknown.
 
 Normally the command will fail (with no reservations made) if an input
 is already reserved.  If *exclusive* is set to *False*, then existing
@@ -21,7 +22,7 @@ reservations are simply extended, rather than causing failure.
 RETURN VALUE
 ------------
 
-On success, an *reservations* array is returned, with an entry for each input
+On success, a *reservations* array is returned, with an entry for each input
 which was reserved:
 
 - *txid* is the input transaction id.
