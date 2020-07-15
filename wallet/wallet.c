@@ -502,6 +502,79 @@ void wallet_unreserve_utxo(struct wallet *w, struct utxo *utxo, u32 current_heig
 	db_set_utxo(w->db, utxo);
 }
 
+static bool excluded(const struct utxo **excludes,
+		     const struct utxo *utxo)
+{
+	for (size_t i = 0; i < tal_count(excludes); i++) {
+		if (bitcoin_txid_eq(&excludes[i]->txid, &utxo->txid)
+		    && excludes[i]->outnum == utxo->outnum)
+			return true;
+	}
+	return false;
+}
+
+static bool deep_enough(u32 maxheight, const struct utxo *utxo)
+{
+	/* If we require confirmations check that we have a
+	 * confirmation height and that it is below the required
+	 * maxheight (current_height - minconf) */
+	if (maxheight == 0)
+		return true;
+	if (!utxo->blockheight)
+		return false;
+	return *utxo->blockheight <= maxheight;
+}
+
+/* FIXME: Make this wallet_find_utxos, and branch and bound and I've
+ * left that to @niftynei to do, who actually read the paper! */
+struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
+			      unsigned current_blockheight,
+			      struct amount_sat *amount_hint,
+			      unsigned feerate_per_kw,
+			      u32 maxheight,
+			      const struct utxo **excludes)
+{
+	struct db_stmt *stmt;
+	struct utxo *utxo;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					"  prev_out_tx"
+					", prev_out_index"
+					", value"
+					", type"
+					", status"
+					", keyindex"
+					", channel_id"
+					", peer_id"
+					", commitment_point"
+					", confirmation_height"
+					", spend_height"
+					", scriptpubkey "
+					", reserved_til"
+					" FROM outputs"
+					" WHERE status = ?"
+					" OR (status = ? AND reserved_til <= ?)"
+					"ORDER BY RANDOM();"));
+	db_bind_int(stmt, 0, output_status_in_db(output_state_available));
+	db_bind_int(stmt, 1, output_status_in_db(output_state_reserved));
+	db_bind_u64(stmt, 2, current_blockheight);
+
+	/* FIXME: Use feerate + estimate of input cost to establish
+	 * range for amount_hint */
+
+	db_query_prepared(stmt);
+
+	utxo = NULL;
+	while (!utxo && db_step(stmt)) {
+		utxo = wallet_stmt2output(ctx, stmt);
+		if (excluded(excludes, utxo) || !deep_enough(maxheight, utxo))
+			utxo = tal_free(utxo);
+
+	}
+	tal_free(stmt);
+	return utxo;
+}
+
 bool wallet_add_onchaind_utxo(struct wallet *w,
 			      const struct bitcoin_txid *txid,
 			      u32 outnum,
