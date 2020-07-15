@@ -564,6 +564,7 @@ def test_reserveinputs(node_factory, bitcoind, chainparams):
     assert len(l1.rpc.listfunds()['outputs']) == 12
 
 
+@pytest.mark.xfail(strict=True)
 def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     """
     Tests for the sign + send psbt RPCs
