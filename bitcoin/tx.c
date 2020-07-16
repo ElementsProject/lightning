@@ -551,14 +551,7 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
 
 	tal_add_destructor(tx, bitcoin_tx_destroy);
 
-	/* For whatever reason the length computation gets upset if we tell it
-	 * that we are using elements. It wants to discover it on its own, NO
-	 * CLUES! (Ms. Doyle)
-	 *
-	 * https://github.com/ElementsProject/libwally-core/issues/139
-	 */
-	wally_tx_get_length(tx->wtx, flags & ~WALLY_TX_FLAG_USE_ELEMENTS,
-			    &wsize);
+	wally_tx_get_length(tx->wtx, flags, &wsize);
 
 	tx->chainparams = chainparams;
 
