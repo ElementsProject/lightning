@@ -249,11 +249,7 @@ bool is_reserved(const struct utxo *utxo, u32 current_height)
 	if (utxo->status != output_state_reserved)
 		return false;
 
-	/* FIXME: Eventually this will always be set! */
-	if (!utxo->reserved_til)
-		return true;
-
-	return *utxo->reserved_til > current_height;
+	return utxo->reserved_til > current_height;
 }
 
 

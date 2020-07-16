@@ -12,13 +12,13 @@
 #include <wallet/walletrpc.h>
 
 static bool was_reserved(enum output_status oldstatus,
-			 const u32 *reserved_til,
+			 u32 reserved_til,
 			 u32 current_height)
 {
 	if (oldstatus != output_state_reserved)
 		return false;
 
-	return *reserved_til > current_height;
+	return reserved_til > current_height;
 }
 
 static void json_add_reservestatus(struct json_stream *response,
@@ -31,12 +31,12 @@ static void json_add_reservestatus(struct json_stream *response,
 	json_add_txid(response, "txid", &utxo->txid);
 	json_add_u32(response, "vout", utxo->outnum);
 	json_add_bool(response, "was_reserved",
-		      was_reserved(oldstatus, &old_res, current_height));
+		      was_reserved(oldstatus, old_res, current_height));
 	json_add_bool(response, "reserved",
 		      is_reserved(utxo, current_height));
-	if (utxo->reserved_til)
+	if (is_reserved(utxo, current_height))
 		json_add_u32(response, "reserved_to_block",
-			     *utxo->reserved_til);
+			     utxo->reserved_til);
 	json_object_end(response);
 }
 
@@ -52,7 +52,7 @@ static void reserve_and_report(struct json_stream *response,
 		u32 old_res;
 
 		oldstatus = utxos[i]->status;
-		old_res = utxos[i]->reserved_til ? *utxos[i]->reserved_til : 0;
+		old_res = utxos[i]->reserved_til;
 
 		if (!wallet_reserve_utxo(wallet,
 					 utxos[i],
@@ -156,7 +156,7 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 			continue;
 
 		oldstatus = utxo->status;
-		old_res = *utxo->reserved_til;
+		old_res = utxo->reserved_til;
 
 		wallet_unreserve_utxo(cmd->ld->wallet,
 				      utxo,
