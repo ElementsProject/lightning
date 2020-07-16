@@ -186,7 +186,6 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 	utxo->blockheight = NULL;
 	utxo->spendheight = NULL;
 	utxo->scriptPubkey = NULL;
-	utxo->scriptSig = NULL;
 	utxo->reserved_til = NULL;
 
 	if (!db_column_is_null(stmt, 9)) {
