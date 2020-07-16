@@ -76,7 +76,9 @@ bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
 struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
 					size_t in);
 
-bool psbt_from_b64(const char *b64str, struct wally_psbt **psbt);
+struct wally_psbt *psbt_from_b64(const tal_t *ctx,
+				 const char *b64,
+				 size_t b64len);
 char *psbt_to_b64(const tal_t *ctx, const struct wally_psbt *psbt);
 const u8 *psbt_get_bytes(const tal_t *ctx, const struct wally_psbt *psbt,
 			 size_t *bytes_written);

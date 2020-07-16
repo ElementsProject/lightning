@@ -10,6 +10,8 @@
 #include <common/amount.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
+/* FIXME: this is ugly! */
+#include <external/libwally-core/src/ccan/ccan/base64/base64.h>
 #include <string.h>
 #include <wally_psbt.h>
 #include <wally_transaction.h>
@@ -482,11 +484,19 @@ struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 	return NULL;
 }
 
-bool psbt_from_b64(const char *b64str, struct wally_psbt **psbt)
+struct wally_psbt *psbt_from_b64(const tal_t *ctx,
+				 const char *b64,
+				 size_t b64len)
 {
-	int wally_err;
-	wally_err = wally_psbt_from_base64(b64str, psbt);
-	return wally_err == WALLY_OK;
+	ssize_t decodelen;
+	u8 *bytes = tal_arr(tmpctx, u8, base64_decoded_length(b64len));
+
+	decodelen = base64_decode((char *)bytes, tal_bytelen(bytes),
+				  b64, b64len);
+	if (decodelen < 0)
+		return NULL;
+
+	return psbt_from_bytes(ctx, bytes, decodelen);
 }
 
 char *psbt_to_b64(const tal_t *ctx, const struct wally_psbt *psbt)
