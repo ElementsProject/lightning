@@ -69,10 +69,8 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/utxo.o				\
 	common/version.o			\
 	common/wallet.o				\
-	common/wallet_tx.o			\
 	common/wire_error.o			\
 	common/wireaddr.o			\
-	common/withdraw_tx.o			\
 	hsmd/gen_hsm_wire.o
 
 LIGHTNINGD_SRC :=				\

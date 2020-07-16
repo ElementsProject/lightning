@@ -67,7 +67,6 @@ struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
 	wallet->bip32_base = NULL;
 	wallet->keyscan_gap = 50;
 	list_head_init(&wallet->unstored_payments);
-	list_head_init(&wallet->unreleased_txs);
 
 	db_begin_transaction(wallet->db);
 	wallet->invoices = invoices_new(wallet, wallet->db, timers);
@@ -161,7 +160,7 @@ static bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 {
 	struct utxo *utxo = tal(ctx, struct utxo);
-	u32 *blockheight, *spendheight, *reserved_til;
+	u32 *blockheight, *spendheight;
 	db_column_txid(stmt, 0, &utxo->txid);
 	utxo->outnum = db_column_int(stmt, 1);
 	db_column_amount_sat(stmt, 2, &utxo->amount);
@@ -186,7 +185,6 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 	utxo->blockheight = NULL;
 	utxo->spendheight = NULL;
 	utxo->scriptPubkey = NULL;
-	utxo->reserved_til = NULL;
 
 	if (!db_column_is_null(stmt, 9)) {
 		blockheight = tal(utxo, u32);
@@ -205,11 +203,10 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 		    tal_dup_arr(utxo, u8, db_column_blob(stmt, 11),
 				db_column_bytes(stmt, 11), 0);
 	}
-	if (!db_column_is_null(stmt, 12)) {
-		reserved_til = tal(utxo, u32);
-		*reserved_til = db_column_int(stmt, 12);
-		utxo->reserved_til = reserved_til;
-	}
+
+	/* This column can be null if 0.9.1 db or below. */
+	utxo->reserved_til = tal(utxo, u32);
+	*utxo->reserved_til = db_column_int_or_default(stmt, 12, 0);
 
 	return utxo;
 }
@@ -448,8 +445,6 @@ bool wallet_reserve_utxo(struct wallet *w, struct utxo *utxo, u32 current_height
 
 	if (utxo->status == output_state_reserved)
 		assert(utxo->reserved_til);
-	else
-		assert(!utxo->reserved_til);
 
 	switch (utxo->status) {
 	case output_state_spent:
@@ -484,8 +479,7 @@ void wallet_unreserve_utxo(struct wallet *w, struct utxo *utxo, u32 current_heig
 		if (!utxo->reserved_til)
 			utxo->reserved_til = tal_dup(utxo, u32, &current_height);
 		assert(utxo->reserved_til);
-	} else
-		assert(!utxo->reserved_til);
+	}
 
 	if (utxo->status != output_state_reserved)
 		fatal("UTXO %s:%u is not reserved",
@@ -635,175 +629,6 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 
 	db_exec_prepared_v2(take(stmt));
 	return true;
-}
-
-static const struct utxo **wallet_select(const tal_t *ctx, struct wallet *w,
-					 struct amount_sat sat,
-					 const u32 feerate_per_kw,
-					 size_t outscriptlen,
-					 bool may_have_change,
-					 u32 maxheight,
-					 struct amount_sat *satoshi_in,
-					 struct amount_sat *fee_estimate)
-{
-	size_t i = 0;
-	struct utxo **available;
-	u64 weight;
-	size_t num_outputs = may_have_change ? 2 : 1;
-	const struct utxo **utxos = tal_arr(ctx, const struct utxo *, 0);
-	tal_add_destructor2(utxos, destroy_utxos, w);
-
-	/* We assume < 253 inputs, and margin is tiny if we're wrong */
-	weight = bitcoin_tx_core_weight(1, num_outputs)
-		+ bitcoin_tx_output_weight(outscriptlen);
-
-	/* Change output will be P2WPKH */
-	if (may_have_change)
-		weight += bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
-
-	*fee_estimate = AMOUNT_SAT(0);
-	*satoshi_in = AMOUNT_SAT(0);
-
-	available = wallet_get_utxos(ctx, w, output_state_available);
-
-	for (i = 0; i < tal_count(available); i++) {
-		struct amount_sat needed;
-		struct utxo *u = tal_steal(utxos, available[i]);
-
-		/* If we require confirmations check that we have a
-		 * confirmation height and that it is below the required
-		 * maxheight (current_height - minconf) */
-		if (maxheight != 0 &&
-		    (!u->blockheight || *u->blockheight > maxheight)) {
-			tal_free(u);
-			continue;
-		}
-
-		tal_arr_expand(&utxos, u);
-
-		if (!wallet_update_output_status(
-			w, &available[i]->txid, available[i]->outnum,
-			output_state_available, output_state_reserved))
-			fatal("Unable to reserve output");
-
-		weight += bitcoin_tx_simple_input_weight(u->is_p2sh);
-
-		if (!amount_sat_add(satoshi_in, *satoshi_in, u->amount))
-			fatal("Overflow in available satoshis %zu/%zu %s + %s",
-			      i, tal_count(available),
-			      type_to_string(tmpctx, struct amount_sat,
-					     satoshi_in),
-			      type_to_string(tmpctx, struct amount_sat,
-					     &u->amount));
-
-		*fee_estimate = amount_tx_fee(feerate_per_kw, weight);
-		if (!amount_sat_add(&needed, sat, *fee_estimate))
-			fatal("Overflow in fee estimate %zu/%zu %s + %s",
-			      i, tal_count(available),
-			      type_to_string(tmpctx, struct amount_sat, &sat),
-			      type_to_string(tmpctx, struct amount_sat,
-					     fee_estimate));
-		if (amount_sat_greater_eq(*satoshi_in, needed))
-			break;
-	}
-	tal_free(available);
-
-	return utxos;
-}
-
-const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
-					bool with_change,
-					struct amount_sat sat,
-					const u32 feerate_per_kw,
-					size_t outscriptlen,
-					u32 maxheight,
-					struct amount_sat *fee_estimate,
-					struct amount_sat *change)
-{
-	struct amount_sat satoshi_in;
-	const struct utxo **utxo;
-
-	utxo = wallet_select(ctx, w, sat, feerate_per_kw,
-			     outscriptlen, with_change, maxheight,
-			     &satoshi_in, fee_estimate);
-
-	/* Couldn't afford it? */
-	if (!amount_sat_sub(change, satoshi_in, sat)
-	    || !amount_sat_sub(change, *change, *fee_estimate))
-		return tal_free(utxo);
-
-	if (!with_change)
-		*change = AMOUNT_SAT(0);
-
-	return utxo;
-}
-
-const struct utxo **wallet_select_specific(const tal_t *ctx, struct wallet *w,
-					struct bitcoin_txid **txids,
-                    u32 **outnums)
-{
-	size_t i, j;
-	struct utxo **available;
-	const struct utxo **utxos = tal_arr(ctx, const struct utxo*, 0);
-	tal_add_destructor2(utxos, destroy_utxos, w);
-
-	available = wallet_get_utxos(ctx, w, output_state_available);
-	for (i = 0; i < tal_count(txids); i++) {
-		for (j = 0; j < tal_count(available); j++) {
-
-			if (bitcoin_txid_eq(&available[j]->txid, txids[i])
-					&& available[j]->outnum == *outnums[i]) {
-				struct utxo *u = tal_steal(utxos, available[j]);
-				tal_arr_expand(&utxos, u);
-
-				if (!wallet_update_output_status(
-					w, &available[j]->txid, available[j]->outnum,
-					output_state_available, output_state_reserved))
-					fatal("Unable to reserve output");
-			}
-		}
-	}
-	tal_free(available);
-
-	return utxos;
-}
-
-const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
-				      const u32 feerate_per_kw,
-				      size_t outscriptlen,
-				      u32 maxheight,
-				      struct amount_sat *value,
-				      struct amount_sat *fee_estimate)
-{
-	struct amount_sat satoshi_in;
-	const struct utxo **utxo;
-
-	/* Huge value, but won't overflow on addition */
-	utxo = wallet_select(ctx, w, AMOUNT_SAT(1ULL << 56), feerate_per_kw,
-			     outscriptlen, false, maxheight,
-			     &satoshi_in, fee_estimate);
-
-	/* Can't afford fees? */
-	if (!amount_sat_sub(value, satoshi_in, *fee_estimate))
-		return tal_free(utxo);
-
-	return utxo;
-}
-
-u8 *derive_redeem_scriptsig(const tal_t *ctx, struct wallet *w, u32 keyindex)
-{
-	struct ext_key ext;
-	struct pubkey key;
-
-	if (bip32_key_from_parent(w->bip32_base, keyindex,
-				  BIP32_FLAG_KEY_PUBLIC, &ext) != WALLY_OK) {
-		fatal("Unable to derive pubkey");
-	}
-
-	if (!pubkey_from_der(ext.pub_key, PUBKEY_CMPR_LEN, &key))
-		fatal("Unble to derive pubkey from DER");
-
-	return bitcoin_scriptsig_p2sh_p2wpkh(ctx, &key);
 }
 
 bool wallet_can_spend(struct wallet *w, const u8 *script,
@@ -3919,85 +3744,6 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 	}
 	tal_free(stmt);
 	return results;
-}
-
-struct unreleased_tx *find_unreleased_tx(struct wallet *w,
-					 const struct bitcoin_txid *txid)
-{
-	struct unreleased_tx *utx;
-
-	list_for_each(&w->unreleased_txs, utx, list) {
-		if (bitcoin_txid_eq(txid, &utx->txid))
-			return utx;
-	}
-	return NULL;
-}
-
-static void destroy_unreleased_tx(struct unreleased_tx *utx)
-{
-	list_del(&utx->list);
-}
-
-void remove_unreleased_tx(struct unreleased_tx *utx)
-{
-	tal_del_destructor(utx, destroy_unreleased_tx);
-	list_del(&utx->list);
-}
-
-void add_unreleased_tx(struct wallet *w, struct unreleased_tx *utx)
-{
-	list_add_tail(&w->unreleased_txs, &utx->list);
-	tal_add_destructor(utx, destroy_unreleased_tx);
-}
-
-/* These will touch the db, so need to be explicitly freed. */
-void free_unreleased_txs(struct wallet *w)
-{
-	struct unreleased_tx *utx;
-
-	while ((utx = list_top(&w->unreleased_txs, struct unreleased_tx, list)))
-		tal_free(utx);
-}
-
-static void process_utxo_result(struct bitcoind *bitcoind,
-				const struct bitcoin_tx_output *txout,
-				void *_utxos)
-{
-	struct utxo **utxos = _utxos;
-	enum output_status newstate =
-	    txout == NULL ? output_state_spent : output_state_available;
-
-	/* Don't unreserve ones which are on timers */
-	if (!utxos[0]->reserved_til || newstate == output_state_spent) {
-		log_unusual(bitcoind->ld->wallet->log,
-			    "wallet: reserved output %s/%u reset to %s",
-			    type_to_string(tmpctx, struct bitcoin_txid, &utxos[0]->txid),
-			    utxos[0]->outnum,
-			    newstate == output_state_spent ? "spent" : "available");
-		wallet_update_output_status(bitcoind->ld->wallet,
-					    &utxos[0]->txid, utxos[0]->outnum,
-					    utxos[0]->status, newstate);
-	}
-
-	/* If we have more, resolve them too. */
-	tal_arr_remove(&utxos, 0);
-	if (tal_count(utxos) != 0) {
-		bitcoind_getutxout(bitcoind, &utxos[0]->txid, utxos[0]->outnum,
-				   process_utxo_result, utxos);
-	} else
-		tal_free(utxos);
-}
-
-void wallet_clean_utxos(struct wallet *w, struct bitcoind *bitcoind)
-{
-	struct utxo **utxos = wallet_get_utxos(NULL, w, output_state_reserved);
-
-	if (tal_count(utxos) != 0) {
-		bitcoind_getutxout(bitcoind, &utxos[0]->txid, utxos[0]->outnum,
-				   process_utxo_result,
-				   notleak_with_children(utxos));
-	} else
-		tal_free(utxos);
 }
 
 struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t *ctx)

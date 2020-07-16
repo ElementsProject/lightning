@@ -35,8 +35,7 @@ HSMD_COMMON_OBJS :=				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/utxo.o				\
-	common/version.o			\
-	common/withdraw_tx.o
+	common/version.o
 
 # For checking
 LIGHTNINGD_HSM_ALLSRC_NOGEN := $(filter-out hsmd/gen_%, $(LIGHTNINGD_HSM_SRC) $(LIGHTNINGD_HSM_SRC))

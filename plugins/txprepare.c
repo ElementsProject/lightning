@@ -916,7 +916,7 @@ static const struct plugin_command commands[] = {
 		json_txsend
 	},
 	{
-		"newwithdraw",
+		"withdraw",
 		"bitcoin",
 		"Send funds to {destination} address",
 		"Send to {destination} {satoshi} (or 'all') at optional {feerate} using utxos from {minconf} or {utxos}.",

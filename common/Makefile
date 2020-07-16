@@ -69,10 +69,8 @@ COMMON_SRC_NOGEN :=				\
 	common/utxo.c				\
 	common/version.c			\
 	common/wallet.c				\
-	common/wallet_tx.c			\
 	common/wireaddr.c			\
-	common/wire_error.c			\
-	common/withdraw_tx.c
+	common/wire_error.c
 
 COMMON_SRC_GEN := common/gen_status_wire.c common/gen_peer_status_wire.c
 

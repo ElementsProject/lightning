@@ -49,24 +49,8 @@ struct wallet {
 	 * the blockchain. This is currently all P2WSH outputs */
 	struct outpointfilter *utxoset_outpoints;
 
-	/* Unreleased txs, waiting for txdiscard/txsend */
-	struct list_head unreleased_txs;
-
 	/* How many keys should we look ahead at most? */
 	u64 keyscan_gap;
-};
-
-/* A transaction we've txprepared, but  haven't signed and released yet */
-struct unreleased_tx {
-	/* In wallet->unreleased_txs */
-	struct list_node list;
-	/* All the utxos. */
-	struct wallet_tx *wtx;
-	/* Outputs(scriptpubkey and satoshi) this pays to. */
-	struct bitcoin_tx_output **outputs;
-	/* The tx itself (unsigned initially) */
-	struct bitcoin_tx *tx;
-	struct bitcoin_txid txid;
 };
 
 /* Possible states for tracked outputs in the database. Not sure yet
@@ -439,30 +423,6 @@ void wallet_unreserve_utxo(struct wallet *w, struct utxo *utxo,
 struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 			     const struct bitcoin_txid *txid,
 			     u32 outnum);
-
-const struct utxo **wallet_select_coins(const tal_t *ctx, struct wallet *w,
-					bool with_change,
-					struct amount_sat value,
-					const u32 feerate_per_kw,
-					size_t outscriptlen,
-					u32 maxheight,
-					struct amount_sat *fee_estimate,
-					struct amount_sat *change_satoshi);
-
-const struct utxo **wallet_select_all(const tal_t *ctx, struct wallet *w,
-				      const u32 feerate_per_kw,
-				      size_t outscriptlen,
-				      u32 maxheight,
-				      struct amount_sat *sat,
-				      struct amount_sat *fee_estimate);
-
-/* derive_redeem_scriptsig - Compute the scriptSig for a P2SH-P2WPKH
- *
- * @ctx - allocation context
- * @w - wallet
- * @keyindex - index of the internal BIP32 key
- */
-u8 *derive_redeem_scriptsig(const tal_t *ctx, struct wallet *w, u32 keyindex);
 
 /**
  * wallet_select_specific - Select utxos given an array of txids and an array of outputs index
