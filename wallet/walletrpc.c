@@ -1079,25 +1079,69 @@ static const struct json_command signpsbt_command = {
 
 AUTODATA(json_command, &signpsbt_command);
 
+struct sending_psbt {
+	struct command *cmd;
+	struct utxo **utxos;
+	struct wally_tx *wtx;
+};
+
+static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
+			  bool success, const char *msg,
+			  struct sending_psbt *sending)
+{
+	struct lightningd *ld = sending->cmd->ld;
+	struct json_stream *response;
+	struct bitcoin_txid txid;
+	struct amount_sat change;
+
+	if (!success) {
+		/* Unreserve the inputs again. */
+		for (size_t i = 0; i < tal_count(sending->utxos); i++) {
+			wallet_unreserve_utxo(ld->wallet,
+					      sending->utxos[i],
+					      get_block_height(ld->topology));
+		}
+
+		was_pending(command_fail(sending->cmd, LIGHTNINGD,
+					 "Error broadcasting transaction: %s."
+					 " Unsent tx discarded %s",
+					 msg,
+					 type_to_string(tmpctx, struct wally_tx,
+							sending->wtx)));
+		return;
+	}
+
+	wallet_transaction_add(ld->wallet, sending->wtx, 0, 0);
+
+	/* Extract the change output and add it to the DB */
+	wallet_extract_owned_outputs(ld->wallet, sending->wtx, NULL, &change);
+
+	response = json_stream_success(sending->cmd);
+	wally_txid(sending->wtx, &txid);
+	json_add_hex_talarr(response, "tx", linearize_wtx(tmpctx, sending->wtx));
+	json_add_txid(response, "txid", &txid);
+	was_pending(command_success(sending->cmd, response));
+}
+
 static struct command_result *json_sendpsbt(struct command *cmd,
 					    const char *buffer,
 					    const jsmntok_t *obj UNNEEDED,
 					    const jsmntok_t *params)
 {
 	struct command_result *res;
+	struct sending_psbt *sending;
 	struct wally_psbt *psbt;
-	struct wally_tx *w_tx;
-	struct tx_broadcast *txb;
-	struct utxo **utxos;
-	struct bitcoin_txid txid;
+	struct lightningd *ld = cmd->ld;
 
 	if (!param(cmd, buffer, params,
 		   p_req("psbt", param_psbt, &psbt),
 		   NULL))
 		return command_param_failed();
 
-	w_tx = psbt_finalize(psbt, true);
-	if (!w_tx)
+	sending = tal(cmd, struct sending_psbt);
+	sending->cmd = cmd;
+	sending->wtx = tal_steal(sending, psbt_finalize(psbt, true));
+	if (!sending->wtx)
 		return command_fail(cmd, LIGHTNINGD,
 				    "PSBT not finalizeable %s",
 				    type_to_string(tmpctx, struct wally_psbt,
@@ -1106,27 +1150,21 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 	/* We have to find/locate the utxos that are ours on this PSBT,
 	 * so that we know who to mark as used.
 	 */
-	res = match_psbt_inputs_to_utxos(cmd, psbt, &utxos);
+	res = match_psbt_inputs_to_utxos(cmd, psbt, &sending->utxos);
 	if (res)
 		return res;
 
-	txb = tal(cmd, struct tx_broadcast);
-	txb->utxos = cast_const2(const struct utxo **,
-				tal_steal(txb, utxos));
-	txb->wtx = tal_steal(txb, w_tx);
-	txb->cmd = cmd;
-	txb->expected_change = NULL;
-
-	/* FIXME: Do this *after* successful broadcast! */
-	wallet_transaction_add(cmd->ld->wallet, txb->wtx, 0, 0);
-	wally_txid(txb->wtx, &txid);
-	wallet_transaction_annotate(cmd->ld->wallet, &txid,
-				    TX_UNKNOWN, 0);
+	for (size_t i = 0; i < tal_count(sending->utxos); i++) {
+		if (!wallet_reserve_utxo(ld->wallet, sending->utxos[i],
+					 get_block_height(ld->topology)))
+			fatal("UTXO not reservable?");
+	}
 
 	/* Now broadcast the transaction */
 	bitcoind_sendrawtx(cmd->ld->topology->bitcoind,
-			   tal_hex(tmpctx, linearize_wtx(tmpctx, w_tx)),
-			   wallet_withdrawal_broadcast, txb);
+			   tal_hex(tmpctx,
+				   linearize_wtx(tmpctx, sending->wtx)),
+			   sendpsbt_done, sending);
 
 	return command_still_pending(cmd);
 }

@@ -3195,13 +3195,15 @@ wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
 	int changes;
 	if (outpointfilter_matches(w->owned_outpoints, txid, outnum)) {
 		stmt = db_prepare_v2(w->db, SQL("UPDATE outputs "
-						"SET spend_height = ? "
+						"SET spend_height = ?, "
+						" status = ? "
 						"WHERE prev_out_tx = ?"
 						" AND prev_out_index = ?"));
 
 		db_bind_int(stmt, 0, blockheight);
-		db_bind_sha256d(stmt, 1, &txid->shad);
-		db_bind_int(stmt, 2, outnum);
+		db_bind_int(stmt, 1, output_status_in_db(output_state_spent));
+		db_bind_sha256d(stmt, 2, &txid->shad);
+		db_bind_int(stmt, 3, outnum);
 
 		db_exec_prepared_v2(take(stmt));
 
