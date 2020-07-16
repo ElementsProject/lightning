@@ -834,21 +834,21 @@ static struct command_result *json_txsend(struct command *cmd,
 
 static const struct plugin_command commands[] = {
 	{
-		"newtxprepare",
+		"txprepare",
 		"bitcoin",
 		"Create a transaction, with option to spend in future (either txsend and txdiscard)",
 		"Create an unsigned transaction paying {outputs} with optional {feerate}, {minconf} and {utxos}",
 		json_txprepare
 	},
 	{
-		"newtxdiscard",
+		"txdiscard",
 		"bitcoin",
 		"Discard a transaction created by txprepare",
 		"Discard a transcation by {txid}",
 		json_txdiscard
 	},
 	{
-		"newtxsend",
+		"txsend",
 		"bitcoin",
 		"Send a transaction created by txprepare",
 		"Send a transacation by {txid}",
