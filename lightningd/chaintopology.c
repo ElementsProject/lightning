@@ -83,7 +83,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 			txo = txowatch_hash_get(&topo->txowatches, &out);
 			if (txo) {
 				wallet_transaction_add(topo->ld->wallet,
-						       tx, b->height, i);
+						       tx->wtx, b->height, i);
 				txowatch_fire(txo, tx, j, b);
 			}
 		}
@@ -93,14 +93,14 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		if (txfilter_match(topo->bitcoind->ld->owned_txfilter, tx)) {
 			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
 						     tx->wtx, &b->height, &owned);
-			wallet_transaction_add(topo->ld->wallet, tx, b->height,
-					       i);
+			wallet_transaction_add(topo->ld->wallet, tx->wtx,
+					       b->height, i);
 		}
 
 		/* We did spends first, in case that tells us to watch tx. */
 		if (watching_txid(topo, &txid) || we_broadcast(topo, &txid)) {
 			wallet_transaction_add(topo->ld->wallet,
-					       tx, b->height, i);
+					       tx->wtx, b->height, i);
 		}
 
 		txwatch_inform(topo, &txid, tx);
@@ -235,7 +235,7 @@ void broadcast_tx(struct chain_topology *topo,
 	log_debug(topo->log, "Broadcasting txid %s",
 		  type_to_string(tmpctx, struct bitcoin_txid, &otx->txid));
 
-	wallet_transaction_add(topo->ld->wallet, tx, 0, 0);
+	wallet_transaction_add(topo->ld->wallet, tx->wtx, 0, 0);
 	bitcoind_sendrawtx(topo->bitcoind, otx->hextx, broadcast_done, otx);
 }
 

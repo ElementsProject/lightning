@@ -356,7 +356,7 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 	} else {
 		sign_last_tx(channel);
 		bitcoin_txid(channel->last_tx, &txid);
-		wallet_transaction_add(ld->wallet, channel->last_tx, 0, 0);
+		wallet_transaction_add(ld->wallet, channel->last_tx->wtx, 0, 0);
 		wallet_transaction_annotate(ld->wallet, &txid, channel->last_tx_type, channel->dbid);
 
 		/* Keep broadcasting until we say stop (can fail due to dup,

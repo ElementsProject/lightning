@@ -1339,9 +1339,9 @@ void db_bind_timeabs(struct db_stmt *stmt, int col, struct timeabs t)
 	db_bind_u64(stmt, col, timestamp);
 }
 
-void db_bind_tx(struct db_stmt *stmt, int col, const struct bitcoin_tx *tx)
+void db_bind_tx(struct db_stmt *stmt, int col, const struct wally_tx *tx)
 {
-	u8 *ser = linearize_tx(stmt, tx);
+	u8 *ser = linearize_wtx(stmt, tx);
 	assert(ser);
 	db_bind_blob(stmt, col, ser, tal_count(ser));
 }

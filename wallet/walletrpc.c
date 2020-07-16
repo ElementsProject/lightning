@@ -543,7 +543,7 @@ static struct command_result *json_txsend(struct command *cmd,
 	/* We're the owning cmd now. */
 	utx->wtx->cmd = cmd;
 
-	wallet_transaction_add(cmd->ld->wallet, utx->tx, 0, 0);
+	wallet_transaction_add(cmd->ld->wallet, utx->tx->wtx, 0, 0);
 	wallet_transaction_annotate(cmd->ld->wallet, &utx->txid,
 				    TX_UNKNOWN, 0);
 
@@ -610,7 +610,7 @@ static struct command_result *json_withdraw(struct command *cmd,
 		return res;
 
 	/* Store the transaction in the DB and annotate it as a withdrawal */
-	wallet_transaction_add(cmd->ld->wallet, utx->tx, 0, 0);
+	wallet_transaction_add(cmd->ld->wallet, utx->tx->wtx, 0, 0);
 	wallet_transaction_annotate(cmd->ld->wallet, &utx->txid,
 				    TX_WALLET_WITHDRAWAL, 0);
 
@@ -1329,6 +1329,7 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 	struct wally_tx *w_tx;
 	struct tx_broadcast *txb;
 	struct utxo **utxos;
+	struct bitcoin_txid txid;
 
 	if (!param(cmd, buffer, params,
 		   p_req("psbt", param_psbt, &psbt),
@@ -1355,6 +1356,12 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 	txb->wtx = tal_steal(txb, w_tx);
 	txb->cmd = cmd;
 	txb->expected_change = NULL;
+
+	/* FIXME: Do this *after* successful broadcast! */
+	wallet_transaction_add(cmd->ld->wallet, txb->wtx, 0, 0);
+	wally_txid(txb->wtx, &txid);
+	wallet_transaction_annotate(cmd->ld->wallet, &txid,
+				    TX_UNKNOWN, 0);
 
 	/* Now broadcast the transaction */
 	bitcoind_sendrawtx(cmd->ld->topology->bitcoind,
