@@ -361,6 +361,20 @@ static struct command_result *call_fundpsbt(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static const char *feerate_name(const char *name)
+{
+	/* We used SLOW, NORMAL, and URGENT as feerate targets previously,
+	 * and many commands rely on this syntax now.
+	 * It's also really more natural for an user interface. */
+	if (streq(name, "slow"))
+		return "min_acceptable";
+	else if (streq(name, "normal"))
+		return "opening";
+	else if (streq(name, "urgent"))
+		return "unilateral_close";
+	return name;
+}
+
 /* If they give us a feerate *name*, we use 'feerates' to map it */
 static struct command_result *feerates_done(struct command *cmd,
 					     const char *buf,
@@ -369,9 +383,12 @@ static struct command_result *feerates_done(struct command *cmd,
 {
 	const jsmntok_t *rates, *ratetok;
 
+	if (json_get_member(buf, result, "warning_missing_feerates"))
+		return command_fail(cmd, LIGHTNINGD, "Cannot estimate fees");
+
 	rates = json_get_member(buf, result,
 				feerate_style_name(FEERATE_PER_KSIPA));
-	ratetok = json_get_member(buf, rates, txp->feerate->name);
+	ratetok = json_get_member(buf, rates, feerate_name(txp->feerate->name));
 	if (!ratetok)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Unknown feerate '%s'",
