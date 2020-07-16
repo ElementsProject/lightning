@@ -240,19 +240,22 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 		}
 
 		/* If they said "all", we expect to run out of utxos. */
-		if (all) {
-			/* If we have none at all though, fail */
-			if (!tal_count(utxos))
-				return command_fail(cmd, FUND_CANNOT_AFFORD,
-						    "No available UTXOs");
+		if (all && tal_count(utxos))
 			break;
-		}
+
+		/* Since it's possible the lack of utxos is because we haven't
+		 * finished syncing yet, report a sync timing error first */
+		if (!topology_synced(cmd->ld->topology))
+			return command_fail(cmd,
+					    FUNDING_STILL_SYNCING_BITCOIN,
+					    "Cannot afford: still syncing with bitcoin network...");
 
 		return command_fail(cmd, FUND_CANNOT_AFFORD,
 				    "Could not afford %s using all %zu available UTXOs: %s short",
-				    type_to_string(tmpctx,
-						   struct amount_sat,
-						   amount),
+				    all ? "all"
+				    : type_to_string(tmpctx,
+						     struct amount_sat,
+						     amount),
 				    tal_count(utxos),
 				    type_to_string(tmpctx,
 						   struct amount_sat,
