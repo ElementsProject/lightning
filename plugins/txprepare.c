@@ -204,6 +204,54 @@ static struct command_result *param_feerate(struct command *cmd,
 	return param_feerate_val(cmd, name, buffer, tok, &(*feerate)->per_kw);
 }
 
+/* Called after lightningd has broadcast the transaction. */
+static struct command_result *sendpsbt_done(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    struct unreleased_tx *utx)
+{
+	struct json_stream *out;
+
+	out = jsonrpc_stream_success(cmd);
+	json_add_hex_talarr(out, "tx", linearize_wtx(tmpctx, utx->tx));
+	json_add_txid(out, "txid", &utx->txid);
+	return command_finished(cmd, out);
+}
+
+/* Called after lightningd has signed the inputs. */
+static struct command_result *signpsbt_done(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    struct unreleased_tx *utx)
+{
+	struct out_req *req;
+	const jsmntok_t *psbttok = json_get_member(buf, result, "signed_psbt");
+	struct bitcoin_txid txid;
+
+	tal_free(utx->psbt);
+	utx->psbt = json_tok_psbt(utx, buf, psbttok);
+	/* Replace with signed tx. */
+	tal_free(utx->tx);
+
+	/* The txid from the final should match our expectation. */
+	psbt_txid(utx->psbt, &txid, &utx->tx);
+	if (!bitcoin_txid_eq(&txid, &utx->txid)) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Signed tx changed txid? Had '%s' now '%s'",
+				    tal_hex(tmpctx,
+					    linearize_wtx(tmpctx, utx->tx)),
+				    tal_hex(tmpctx,
+					    linearize_wtx(tmpctx,
+							  utx->psbt->tx)));
+	}
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpsbt",
+				    sendpsbt_done, forward_error,
+				    utx);
+	json_add_psbt(req->js, "psbt", utx->psbt);
+	return send_outreq(cmd->plugin, req);
+}
+
 static struct command_result *finish_txprepare(struct command *cmd,
 					       struct txprepare *txp)
 {
@@ -755,54 +803,6 @@ static struct command_result *json_txdiscard(struct command *cmd,
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "unreserveinputs",
 				    unreserve_done, forward_error,
-				    utx);
-	json_add_psbt(req->js, "psbt", utx->psbt);
-	return send_outreq(cmd->plugin, req);
-}
-
-/* Called after lightningd has broadcast the transaction. */
-static struct command_result *sendpsbt_done(struct command *cmd,
-					    const char *buf,
-					    const jsmntok_t *result,
-					    struct unreleased_tx *utx)
-{
-	struct json_stream *out;
-
-	out = jsonrpc_stream_success(cmd);
-	json_add_hex_talarr(out, "tx", linearize_wtx(tmpctx, utx->tx));
-	json_add_txid(out, "txid", &utx->txid);
-	return command_finished(cmd, out);
-}
-
-/* Called after lightningd has signed the inputs. */
-static struct command_result *signpsbt_done(struct command *cmd,
-					    const char *buf,
-					    const jsmntok_t *result,
-					    struct unreleased_tx *utx)
-{
-	struct out_req *req;
-	const jsmntok_t *psbttok = json_get_member(buf, result, "signed_psbt");
-	struct bitcoin_txid txid;
-
-	tal_free(utx->psbt);
-	utx->psbt = json_tok_psbt(utx, buf, psbttok);
-	/* Replace with signed tx. */
-	tal_free(utx->tx);
-
-	/* The txid from the final should match our expectation. */
-	psbt_txid(utx->psbt, &txid, &utx->tx);
-	if (!bitcoin_txid_eq(&txid, &utx->txid)) {
-		return command_fail(cmd, LIGHTNINGD,
-				    "Signed tx changed txid? Had '%s' now '%s'",
-				    tal_hex(tmpctx,
-					    linearize_wtx(tmpctx, utx->tx)),
-				    tal_hex(tmpctx,
-					    linearize_wtx(tmpctx,
-							  utx->psbt->tx)));
-	}
-
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpsbt",
-				    sendpsbt_done, forward_error,
 				    utx);
 	json_add_psbt(req->js, "psbt", utx->psbt);
 	return send_outreq(cmd->plugin, req);
