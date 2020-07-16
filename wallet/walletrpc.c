@@ -868,6 +868,14 @@ static void json_add_utxo(struct json_stream *response,
 	json_add_amount_sat_compat(response, utxo->amount,
 				   "value", "amount_msat");
 
+	if (utxo->is_p2sh) {
+		struct pubkey key;
+		bip32_pubkey(wallet->bip32_base, &key, utxo->keyindex);
+
+		json_add_hex_talarr(response, "redeemscript",
+				    bitcoin_redeem_p2sh_p2wpkh(tmpctx, &key));
+	}
+
 	if (utxo->scriptPubkey != NULL) {
 		json_add_hex_talarr(response, "scriptpubkey", utxo->scriptPubkey);
 		out = encode_scriptpubkey_to_addr(

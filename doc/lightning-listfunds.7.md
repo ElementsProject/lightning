@@ -28,6 +28,7 @@ Each entry in *outputs* will include:
     appended)
 -   *address*
 -   *scriptpubkey* (the ScriptPubkey of the output, in hex)
+-   *redeemscript* (the redeemscript of the output, in hex, only if it's p2sh-wrapped)
 -   *status* (whether *unconfirmed*, *confirmed*, or *spent*)
 -   *reserved* (whether this is UTXO is currently reserved for an in-flight tx)
 
