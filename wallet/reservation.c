@@ -15,7 +15,7 @@ static bool was_reserved(enum output_status oldstatus,
 			 u32 reserved_til,
 			 u32 current_height)
 {
-	if (oldstatus != output_state_reserved)
+	if (oldstatus != OUTPUT_STATE_RESERVED)
 		return false;
 
 	return reserved_til > current_height;
@@ -33,8 +33,8 @@ static void json_add_reservestatus(struct json_stream *response,
 	json_add_bool(response, "was_reserved",
 		      was_reserved(oldstatus, old_res, current_height));
 	json_add_bool(response, "reserved",
-		      is_reserved(utxo, current_height));
-	if (is_reserved(utxo, current_height))
+		      utxo_is_reserved(utxo, current_height));
+	if (utxo_is_reserved(utxo, current_height))
 		json_add_u32(response, "reserved_to_block",
 			     utxo->reserved_til);
 	json_object_end(response);
@@ -96,7 +96,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 				       &txid, psbt->tx->inputs[i].index);
 		if (!utxo)
 			continue;
-		if (*exclusive && is_reserved(utxo, current_height)) {
+		if (*exclusive && utxo_is_reserved(utxo, current_height)) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "%s:%u already reserved",
 					    type_to_string(tmpctx,
@@ -104,7 +104,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 							   &utxo->txid),
 					    utxo->outnum);
 		}
-		if (utxo->status == output_state_spent)
+		if (utxo->status == OUTPUT_STATE_SPENT)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "%s:%u already spent",
 					    type_to_string(tmpctx,
@@ -152,7 +152,7 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 		wally_tx_input_get_txid(&psbt->tx->inputs[i], &txid);
 		utxo = wallet_utxo_get(cmd, cmd->ld->wallet,
 				       &txid, psbt->tx->inputs[i].index);
-		if (!utxo || utxo->status != output_state_reserved)
+		if (!utxo || utxo->status != OUTPUT_STATE_RESERVED)
 			continue;
 
 		oldstatus = utxo->status;

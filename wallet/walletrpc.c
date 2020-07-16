@@ -244,15 +244,6 @@ static const struct json_command listaddrs_command = {
 };
 AUTODATA(json_command, &listaddrs_command);
 
-bool is_reserved(const struct utxo *utxo, u32 current_height)
-{
-	if (utxo->status != output_state_reserved)
-		return false;
-
-	return utxo->reserved_til > current_height;
-}
-
-
 static void json_add_utxo(struct json_stream *response,
 			  const char *fieldname,
 			  struct wallet *wallet,
@@ -317,8 +308,8 @@ static void json_add_utxo(struct json_stream *response,
 		json_add_string(response, "status", "unconfirmed");
 
 	json_add_bool(response, "reserved",
-		      is_reserved(utxo,
-				  get_block_height(wallet->ld->topology)));
+		      utxo_is_reserved(utxo,
+				       get_block_height(wallet->ld->topology)));
 	json_object_end(response);
 }
 
@@ -344,8 +335,8 @@ static struct command_result *json_listfunds(struct command *cmd,
 
 	response = json_stream_success(cmd);
 
-	utxos = wallet_get_utxos(cmd, cmd->ld->wallet, output_state_available);
-	reserved_utxos = wallet_get_utxos(cmd, cmd->ld->wallet, output_state_reserved);
+	utxos = wallet_get_utxos(cmd, cmd->ld->wallet, OUTPUT_STATE_AVAILABLE);
+	reserved_utxos = wallet_get_utxos(cmd, cmd->ld->wallet, OUTPUT_STATE_RESERVED);
 	json_array_start(response, "outputs");
 	json_add_utxos(response, cmd->ld->wallet, utxos);
 	json_add_utxos(response, cmd->ld->wallet, reserved_utxos);
@@ -411,7 +402,7 @@ static void process_utxo_result(struct bitcoind *bitcoind,
 	struct json_stream *response = rescan->response;
 	struct utxo *u = rescan->utxos[0];
 	enum output_status newstate =
-	    txout == NULL ? output_state_spent : output_state_available;
+	    txout == NULL ? OUTPUT_STATE_SPENT : OUTPUT_STATE_AVAILABLE;
 
 	json_object_start(rescan->response, NULL);
 	json_add_txid(response, "txid", &u->txid);
@@ -452,7 +443,7 @@ static struct command_result *json_dev_rescan_outputs(struct command *cmd,
 
 	/* Open the outputs structure so we can incrementally add results */
 	json_array_start(rescan->response, "outputs");
-	rescan->utxos = wallet_get_utxos(rescan, cmd->ld->wallet, output_state_any);
+	rescan->utxos = wallet_get_utxos(rescan, cmd->ld->wallet, OUTPUT_STATE_ANY);
 	if (tal_count(rescan->utxos) == 0) {
 		json_array_end(rescan->response);
 		return command_success(cmd, rescan->response);
@@ -655,7 +646,7 @@ static struct command_result *match_psbt_inputs_to_utxos(struct command *cmd,
 			continue;
 
 		/* Oops we haven't reserved this utxo yet! */
-		if (!is_reserved(utxo, get_block_height(cmd->ld->topology)))
+		if (!utxo_is_reserved(utxo, get_block_height(cmd->ld->topology)))
 			return command_fail(cmd, LIGHTNINGD,
 					    "Aborting PSBT signing. UTXO %s:%u is not reserved",
 					    type_to_string(tmpctx, struct bitcoin_txid,
