@@ -13,7 +13,6 @@
 #include <ccan/str/hex/hex.h>
 #include <common/amount.h>
 #include <common/derive_basepoints.h>
-#include <common/funding_tx.h>
 #include <common/initial_commit_tx.h>
 #include <common/keyset.h>
 #include <common/status.h>
@@ -37,6 +36,44 @@ static char *sig_as_hex(const struct bitcoin_signature *sig)
 	return tal_hexstr(NULL, compact_sig, sizeof(compact_sig));
 }
 
+static struct bitcoin_tx *tx_spending_utxo(const tal_t *ctx,
+					   const struct utxo *utxo,
+					   size_t num_output,
+					   u32 nlocktime,
+					   u32 nsequence)
+{
+	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams, 1, num_output,
+					   nlocktime);
+
+	assert(!utxo->is_p2sh);
+	bitcoin_tx_add_input(tx, &utxo->txid, utxo->outnum,
+			     nsequence, NULL, utxo->amount,
+			     utxo->scriptPubkey, NULL);
+
+	return tx;
+}
+
+static struct bitcoin_tx *funding_tx(const tal_t *ctx,
+				     const struct utxo *utxo,
+				     struct amount_sat funding,
+				     const struct pubkey *local_fundingkey,
+				     const struct pubkey *remote_fundingkey)
+{
+	u8 *wscript;
+	struct bitcoin_tx *tx;
+
+	tx = tx_spending_utxo(ctx, utxo,
+			      1, 0, BITCOIN_TX_DEFAULT_SEQUENCE);
+
+	wscript = bitcoin_redeem_2of2(tx, local_fundingkey, remote_fundingkey);
+	bitcoin_tx_add_output(tx, scriptpubkey_p2wsh(tx, wscript), wscript, funding);
+	tal_free(wscript);
+
+	bitcoin_tx_finalize(tx);
+	assert(bitcoin_tx_check(tx));
+	return tx;
+}
+
 int main(int argc, char *argv[])
 {
 	struct privkey input_privkey;
@@ -46,10 +83,8 @@ int main(int argc, char *argv[])
 	unsigned int feerate_per_kw;
 	int argnum;
 	struct bitcoin_tx *tx;
-	u16 outnum;
 	size_t weight;
 	struct utxo input;
-	const struct utxo **utxomap;
 	struct bitcoin_signature sig;
 	struct bitcoin_txid txid;
 	u8 **witnesses;
@@ -111,14 +146,9 @@ int main(int argc, char *argv[])
 		     type_to_string(NULL, struct amount_sat, &input.amount),
 		     type_to_string(NULL, struct amount_sat, &fee));
 
-	/* funding_tx wants a utxo array. */
-	utxomap = tal_arr(tmpctx, const struct utxo *, 1);
-	utxomap[0] = &input;
-
 	/* No change output, so we don't need a bip32 base. */
-	tx = funding_tx(NULL, chainparams, &outnum, utxomap, funding_amount,
-			&funding_localkey, &funding_remotekey,
-			AMOUNT_SAT(0), NULL, NULL);
+	tx = funding_tx(NULL, &input, funding_amount,
+			&funding_localkey, &funding_remotekey);
 
 	/* P2WSH of inputkey */
 	bitcoin_tx_input_set_script(tx, 0, NULL);

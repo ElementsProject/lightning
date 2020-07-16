@@ -27,7 +27,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/daemon_conn.h>
 #include <common/derive_basepoints.h>
-#include <common/funding_tx.h>
 #include <common/hash_u5.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>

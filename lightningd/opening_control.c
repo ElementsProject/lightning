@@ -6,7 +6,6 @@
 #include <common/channel_config.h>
 #include <common/features.h>
 #include <common/fee_states.h>
-#include <common/funding_tx.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>

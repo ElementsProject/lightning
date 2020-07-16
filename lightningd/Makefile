@@ -34,7 +34,6 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/ecdh_hsmd.o			\
 	common/features.o			\
 	common/fee_states.o			\
-	common/funding_tx.o			\
 	common/gen_peer_status_wire.o		\
 	common/gen_status_wire.o		\
 	common/gossip_rcvd_filter.o		\
