@@ -5,6 +5,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/json_out/json_out.h>
+#include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
 #include <common/amount.h>
@@ -70,6 +71,15 @@ static struct wally_psbt *json_tok_psbt(const tal_t *ctx,
 {
 	return psbt_from_b64(ctx, buffer + tok->start, tok->end - tok->start);
 }
+
+struct unreleased_tx {
+	struct list_node list;
+	struct bitcoin_txid txid;
+	struct wally_tx *tx;
+	struct wally_psbt *psbt;
+};
+
+static LIST_HEAD(unreleased_txs);
 
 static struct command_result *param_txout(struct command *cmd,
 					  const char *name,
@@ -198,8 +208,7 @@ static struct command_result *finish_txprepare(struct command *cmd,
 					       struct txprepare *txp)
 {
 	struct json_stream *out;
-	struct wally_tx *tx;
-	struct bitcoin_txid txid;
+	struct unreleased_tx *utx;
 
 	/* Add the outputs they gave us */
 	for (size_t i = 0; i < tal_count(txp->outputs); i++) {
@@ -218,10 +227,14 @@ static struct command_result *finish_txprepare(struct command *cmd,
 		psbt_add_output(txp->psbt, out, i);
 	}
 
-	psbt_txid(txp->psbt, &txid, &tx);
+	utx = tal(NULL, struct unreleased_tx);
+	utx->psbt = tal_steal(utx, txp->psbt);
+	psbt_txid(txp->psbt, &utx->txid, &utx->tx);
+	list_add(&unreleased_txs, &utx->list);
+
 	out = jsonrpc_stream_success(cmd);
-	json_add_hex_talarr(out, "unsigned_tx", linearize_wtx(tmpctx, tx));
-	json_add_txid(out, "txid", &txid);
+	json_add_hex_talarr(out, "unsigned_tx", linearize_wtx(tmpctx, utx->tx));
+	json_add_txid(out, "txid", &utx->txid);
 	return command_finished(cmd, out);
 }
 
@@ -685,6 +698,68 @@ static struct command_result *json_txprepare(struct command *cmd,
 	return call_fundpsbt(cmd, txp);
 }
 
+/* Called after we've unreserved the inputs. */
+static struct command_result *unreserve_done(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     struct unreleased_tx *utx)
+{
+	struct json_stream *out;
+
+	out = jsonrpc_stream_success(cmd);
+	json_add_hex_talarr(out, "unsigned_tx", linearize_wtx(tmpctx, utx->tx));
+	json_add_txid(out, "txid", &utx->txid);
+
+	return command_finished(cmd, out);
+}
+
+static struct command_result *param_unreleased_txid(struct command *cmd,
+						    const char *name,
+						    const char *buffer,
+						    const jsmntok_t *tok,
+						    struct unreleased_tx **utx)
+{
+	struct command_result *res;
+	struct bitcoin_txid *txid;
+
+	res = param_txid(cmd, name, buffer, tok, &txid);
+	if (res)
+		return res;
+
+	list_for_each(&unreleased_txs, (*utx), list) {
+		if (bitcoin_txid_eq(txid, &(*utx)->txid))
+			return NULL;
+	}
+
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "not an unreleased txid '%s'",
+			    type_to_string(tmpctx, struct bitcoin_txid, txid));
+}
+
+static struct command_result *json_txdiscard(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *params)
+{
+	struct unreleased_tx *utx;
+	struct out_req *req;
+
+	if (!param(cmd, buffer, params,
+		   p_req("txid", param_unreleased_txid, &utx),
+		   NULL))
+		return command_param_failed();
+
+	/* Remove from list now, to avoid races! */
+	list_del_from(&unreleased_txs, &utx->list);
+	/* Whatever happens, we free it once this command is done. */
+	tal_steal(cmd, utx);
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "unreserveinputs",
+				    unreserve_done, forward_error,
+				    utx);
+	json_add_psbt(req->js, "psbt", utx->psbt);
+	return send_outreq(cmd->plugin, req);
+}
+
 static const struct plugin_command commands[] = {
 	{
 		"newtxprepare",
@@ -692,6 +767,13 @@ static const struct plugin_command commands[] = {
 		"Create a transaction, with option to spend in future (either txsend and txdiscard)",
 		"Create an unsigned transaction paying {outputs} with optional {feerate}, {minconf} and {utxos}",
 		json_txprepare
+	},
+	{
+		"newtxdiscard",
+		"bitcoin",
+		"Discard a transaction created by txprepare",
+		"Discard a transcation by {txid}",
+		json_txdiscard
 	},
 };
 
