@@ -760,6 +760,78 @@ static struct command_result *json_txdiscard(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+/* Called after lightningd has broadcast the transaction. */
+static struct command_result *sendpsbt_done(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    struct unreleased_tx *utx)
+{
+	struct json_stream *out;
+
+	out = jsonrpc_stream_success(cmd);
+	json_add_hex_talarr(out, "tx", linearize_wtx(tmpctx, utx->tx));
+	json_add_txid(out, "txid", &utx->txid);
+	return command_finished(cmd, out);
+}
+
+/* Called after lightningd has signed the inputs. */
+static struct command_result *signpsbt_done(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    struct unreleased_tx *utx)
+{
+	struct out_req *req;
+	const jsmntok_t *psbttok = json_get_member(buf, result, "signed_psbt");
+	struct bitcoin_txid txid;
+
+	tal_free(utx->psbt);
+	utx->psbt = json_tok_psbt(utx, buf, psbttok);
+	/* Replace with signed tx. */
+	tal_free(utx->tx);
+
+	/* The txid from the final should match our expectation. */
+	psbt_txid(utx->psbt, &txid, &utx->tx);
+	if (!bitcoin_txid_eq(&txid, &utx->txid)) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Signed tx changed txid? Had '%s' now '%s'",
+				    tal_hex(tmpctx,
+					    linearize_wtx(tmpctx, utx->tx)),
+				    tal_hex(tmpctx,
+					    linearize_wtx(tmpctx,
+							  utx->psbt->tx)));
+	}
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendpsbt",
+				    sendpsbt_done, forward_error,
+				    utx);
+	json_add_psbt(req->js, "psbt", utx->psbt);
+	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *json_txsend(struct command *cmd,
+					  const char *buffer,
+					  const jsmntok_t *params)
+{
+	struct unreleased_tx *utx;
+	struct out_req *req;
+
+	if (!param(cmd, buffer, params,
+		   p_req("txid", param_unreleased_txid, &utx),
+		   NULL))
+		return command_param_failed();
+
+	/* Remove from list now, to avoid races! */
+	list_del_from(&unreleased_txs, &utx->list);
+	/* If things go wrong, free it. */
+	tal_steal(cmd, utx);
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "signpsbt",
+				    signpsbt_done, forward_error,
+				    utx);
+	json_add_psbt(req->js, "psbt", utx->psbt);
+	return send_outreq(cmd->plugin, req);
+}
+
 static const struct plugin_command commands[] = {
 	{
 		"newtxprepare",
@@ -774,6 +846,13 @@ static const struct plugin_command commands[] = {
 		"Discard a transaction created by txprepare",
 		"Discard a transcation by {txid}",
 		json_txdiscard
+	},
+	{
+		"newtxsend",
+		"bitcoin",
+		"Send a transaction created by txprepare",
+		"Send a transacation by {txid}",
+		json_txsend
 	},
 };
 
