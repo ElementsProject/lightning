@@ -34,6 +34,7 @@ struct funding_req {
 
 	/* The prepared tx id */
 	struct bitcoin_txid tx_id;
+	u32 outnum;
 
 	const char *chanstr;
 	const u8 *out_script;
@@ -86,6 +87,7 @@ static struct command_result *finish(struct command *cmd,
 	json_add_tok(out, "tx", json_get_member(buf, result, "tx"), buf);
 	json_add_string(out, "txid",
 			type_to_string(tmpctx, struct bitcoin_txid, &fr->tx_id));
+	json_add_u32(out, "outnum", fr->outnum);
 	json_add_string(out, "channel_id", fr->chanstr);
 
 	return command_finished(cmd, out);
@@ -130,7 +132,6 @@ static struct command_result *tx_prepare_done(struct command *cmd,
 	struct out_req *req;
 	const struct bitcoin_tx *tx;
 	const char *hex;
-	u32 outnum;
 	bool outnum_found;
 
 	txid_tok = json_get_member(buf, result, "txid");
@@ -151,7 +152,7 @@ static struct command_result *tx_prepare_done(struct command *cmd,
 	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		const u8 *output_script = bitcoin_tx_output_get_script(fr, tx, i);
 		if (scripteq(output_script, fr->out_script)) {
-			outnum = i;
+			fr->outnum = i;
 			outnum_found = true;
 			break;
 		}
@@ -171,7 +172,7 @@ static struct command_result *tx_prepare_done(struct command *cmd,
 	json_add_string(req->js, "id", node_id_to_hexstr(tmpctx, fr->id));
 	/* Note that hex is reused from above */
 	json_add_string(req->js, "txid", hex);
-	json_add_u32(req->js, "txout", outnum);
+	json_add_u32(req->js, "txout", fr->outnum);
 
 	return send_outreq(cmd->plugin, req);
 }
