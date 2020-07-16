@@ -63,7 +63,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-No security related changes were necessary.
 
 
 ## [0.8.2] - 2020-04-30: "A Scalable Ethereum Blockchain"
@@ -460,6 +459,8 @@ changes.
 - JSON API: `stop` now only returns once lightningd has released all resources.
 
 ### Security
+
+- Fixes CVE-2019-12998 ([Full Disclosure](https://lists.linuxfoundation.org/pipermail/lightning-dev/2019-September/002174.html)).
 
 ## [0.7.0] - 2019-02-28: "Actually an Altcoin"
 
