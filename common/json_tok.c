@@ -505,3 +505,29 @@ struct command_result *param_txid(struct command *cmd,
 			    name, json_tok_full_len(tok),
 			    json_tok_full(buffer, tok));
 }
+
+struct command_result *param_bitcoin_address(struct command *cmd,
+					     const char *name,
+					     const char *buffer,
+					     const jsmntok_t *tok,
+					     const u8 **scriptpubkey)
+{
+	/* Parse address. */
+	switch (json_to_address_scriptpubkey(cmd,
+					     chainparams,
+					     buffer, tok,
+					     scriptpubkey)) {
+	case ADDRESS_PARSE_UNRECOGNIZED:
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not parse destination address, "
+				    "%s should be a valid address",
+				    name ? name : "address field");
+	case ADDRESS_PARSE_WRONG_NETWORK:
+		return command_fail(cmd, LIGHTNINGD,
+				    "Destination address is not on network %s",
+				    chainparams->network_name);
+	case ADDRESS_PARSE_SUCCESS:
+		return NULL;
+	}
+	abort();
+}
