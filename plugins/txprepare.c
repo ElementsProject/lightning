@@ -375,6 +375,234 @@ static const char *feerate_name(const char *name)
 	return name;
 }
 
+/* We've reserved the inputs they told us with 'utxos' */
+static struct command_result *reserveinputs_done(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *result,
+						 struct txprepare *txp)
+{
+	struct out_req *req;
+
+	/* Don't need change? */
+	if (amount_sat_eq(txp->change_amount, AMOUNT_SAT(0)))
+		return finish_txprepare(cmd, txp);
+
+	/* Ask for a change address */
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "newaddr",
+				    newaddr_done,
+				    /* It would be nice to unreserve inputs,
+				     * but probably won't happen. */
+				    forward_error,
+				    txp);
+	return send_outreq(cmd->plugin, req);
+}
+
+/* P2SH need a scriptsig */
+static u8 *scriptsig_for(const tal_t *ctx, const u8 *redeemscript)
+{
+	u8 *script;
+
+	if (!redeemscript)
+		return NULL;
+
+	script = tal_arr(ctx, u8, 0);
+	script_push_bytes(&script,
+			  redeemscript, tal_bytelen(redeemscript));
+	return script;
+}
+
+/* getinfo gives us the block height for nLocktime. */
+static struct command_result *getinfo_done(struct command *cmd,
+					   const char *buf,
+					   const jsmntok_t *result,
+					   struct txprepare *txp)
+{
+	const jsmntok_t *blockheight = json_get_member(buf, result, "blockheight");
+	u32 locktime;
+	struct bitcoin_tx *tx;
+	struct out_req *req;
+
+	json_to_number(buf, blockheight, &locktime);
+
+	/* Eventually fuzz it too. */
+	if (locktime > 100 && pseudorand(10) == 0)
+		locktime -= pseudorand(100);
+
+	/* Now create a PSBT to try to reserve the inputs. */
+	tx = bitcoin_tx(cmd, chainparams, 0, 0, locktime);
+
+	for (size_t i = 0; i < tal_count(txp->fixed_txos); i++) {
+		bitcoin_tx_add_input(tx, &txp->fixed_txos[i].txid,
+				     txp->fixed_txos[i].outnum,
+				     BITCOIN_TX_RBF_SEQUENCE,
+				     scriptsig_for(tmpctx,
+						   txp->fixed_txos[i].redeemscript),
+				     *txp->fixed_txos[i].amount,
+				     txp->fixed_txos[i].scriptpubkey, NULL);
+		if (txp->fixed_txos[i].redeemscript)
+			psbt_input_set_redeemscript(tx->psbt, i,
+						    txp->fixed_txos[i].redeemscript);
+	}
+
+	txp->psbt = tx->psbt;
+
+	/* Now, try reserving the inputs. */
+	req = jsonrpc_request_start(cmd->plugin, cmd, "reserveinputs",
+				    reserveinputs_done, forward_error,
+				    txp);
+	json_add_psbt(req->js, "psbt", txp->psbt);
+
+	return send_outreq(cmd->plugin, req);
+}
+
+static struct txout *find_txout(const struct txout txouts[],
+				const u8 txhash[WALLY_TXHASH_LEN],
+				unsigned int outnum)
+{
+	for (size_t i = 0; i < tal_count(txouts); i++) {
+		BUILD_ASSERT(WALLY_TXHASH_LEN == sizeof(txouts[i].txid));
+		if (memcmp(&txouts[i].txid, txhash, WALLY_TXHASH_LEN) == 0
+		    && txouts[i].outnum == outnum)
+			return cast_const(struct txout *, txouts + i);
+	}
+	return NULL;
+}
+
+/* listfunds gives us the amounts we need for the utxos they provided. */
+static struct command_result *listfunds_done(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     struct txprepare *txp)
+{
+	size_t i;
+	const jsmntok_t *arr, *t;
+	struct out_req *req;
+	size_t input_weight = 0;
+	struct amount_sat in_total, excess, fee;
+
+	in_total = AMOUNT_SAT(0);
+	arr = json_get_member(buf, result, "outputs");
+	json_for_each_arr(i, t, arr) {
+		const jsmntok_t *txidtok, *outputtok, *amounttok, *scripttok, *redeemtok;
+		struct bitcoin_txid txid;
+		u32 outnum;
+		struct amount_sat amount;
+		struct txout *txo;
+
+		txidtok = json_get_member(buf, t, "txid");
+		outputtok = json_get_member(buf, t, "output");
+		amounttok = json_get_member(buf, t, "amount_msat");
+		scripttok = json_get_member(buf, t, "scriptpubkey");
+		redeemtok = json_get_member(buf, t, "redeemscript");
+
+		if (!json_to_sat(buf, amounttok, &amount)
+		    || !json_to_number(buf, outputtok, &outnum)
+		    || !json_to_txid(buf, txidtok, &txid))
+			plugin_err(cmd->plugin,
+				   "listfunds result bad tokens: %.*s",
+				   result->end - result->start,
+				   buf + result->start);
+		txo = find_txout(txp->fixed_txos, txid.shad.sha.u.u8, outnum);
+		if (txo) {
+			/* Note: txo is not a tal ptr! */
+			txo->amount = tal_dup(txp->fixed_txos, struct amount_sat,
+					      &amount);
+			txo->scriptpubkey = tal_hexdata(txp,
+							buf + scripttok->start,
+							scripttok->end
+							- scripttok->start);
+			if (redeemtok) {
+				txo->redeemscript = tal_hexdata(txp,
+								buf + redeemtok->start,
+								redeemtok->end
+								- redeemtok->start);
+			} else
+				txo->redeemscript = NULL;
+
+			input_weight
+				+= bitcoin_tx_simple_input_weight(txo->redeemscript != NULL);
+
+			if (!amount_sat_add(&in_total, in_total, amount))
+				return command_done_err(cmd,
+							LIGHTNINGD,
+							"Impossible input amt!",
+							NULL);
+		}
+	}
+
+	/* UTXOs must be known. */
+	for (i = 0; i < tal_count(txp->fixed_txos); i++) {
+		if (txp->fixed_txos[i].amount)
+			continue;
+
+		return command_done_err(cmd,
+					JSONRPC2_INVALID_PARAMS,
+					tal_fmt(tmpctx,
+						"Unknown UTXO %s:%u",
+						type_to_string(tmpctx,
+							       struct bitcoin_txid,
+							       &txp->fixed_txos[i].txid),
+						txp->fixed_txos[i].outnum),
+					NULL);
+	}
+
+	/* Figure out how much we have to pay fee. */
+	if (!amount_sat_sub(&excess, in_total, txp->output_total))
+		return command_done_err(cmd,
+					JSONRPC2_INVALID_PARAMS,
+					tal_fmt(tmpctx,
+						"Input total %s less than output total %s: maybe try using unconfirmed utxos?",
+						type_to_string(tmpctx,
+							       struct amount_sat,
+							       &in_total),
+						type_to_string(tmpctx,
+							       struct amount_sat,
+							       &txp->output_total)),
+					NULL);
+
+	fee = amount_tx_fee(*txp->feerate->per_kw,
+			    txp->weight + input_weight);
+
+	if (!amount_sat_sub(&excess, excess, fee))
+		return command_done_err(cmd,
+					JSONRPC2_INVALID_PARAMS,
+					tal_fmt(tmpctx,
+						"%s inputs and %s outputs"
+						" cannot afford fee %s",
+						type_to_string(tmpctx,
+							       struct amount_sat,
+							       &in_total),
+						type_to_string(tmpctx,
+							       struct amount_sat,
+							       &txp->output_total),
+						type_to_string(tmpctx,
+							       struct amount_sat,
+							       &fee)),
+					NULL);
+
+	/* If we have an "all" output, now we can derive its value: excess
+	 * in this case will be total value after inputs paid for themselves. */
+	if (txp->all_output_idx != -1) {
+		if (!resolve_all_output_amount(txp, excess))
+			return command_fail(cmd, FUND_CANNOT_AFFORD,
+					    "Insufficient funds to make"
+					    " 'all' output");
+
+		/* Never produce change if they asked for all */
+		excess = AMOUNT_SAT(0);
+	}
+
+	/* Figure if we need change. */
+	txp->change_amount = change_amount(excess, *txp->feerate->per_kw);
+
+	/* Now get blockheight, so we can set locktime appropriately. */
+	req = jsonrpc_request_start(cmd->plugin, cmd, "getinfo",
+				    getinfo_done, forward_error,
+				    txp);
+	return send_outreq(cmd->plugin, req);
+}
+
 /* If they give us a feerate *name*, we use 'feerates' to map it */
 static struct command_result *feerates_done(struct command *cmd,
 					     const char *buf,
@@ -401,6 +629,16 @@ static struct command_result *feerates_done(struct command *cmd,
 				    ratetok->end - ratetok->start,
 				    buf + ratetok->start);
 
+	/* If they specify utxos, we turn them into PSBT directly. */
+	if (txp->fixed_txos) {
+		struct out_req *req;
+
+		req = jsonrpc_request_start(cmd->plugin, cmd, "listfunds",
+					    listfunds_done, forward_error,
+					    txp);
+		return send_outreq(cmd->plugin, req);
+	}
+
 	/* Got feerate, so we're good to go. */
 	return call_fundpsbt(cmd, txp);
 }
@@ -420,14 +658,6 @@ static struct command_result *json_txprepare(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	/* If they specify utxos, we turn them into PSBT directly. */
-	if (txp->fixed_txos) {
-		return command_done_err(cmd,
-					JSONRPC2_INVALID_PARAMS,
-					"FIXME: utxos not implemented!",
-					NULL);
-	}
-
 	/* Default is opening feerate */
 	if (!txp->feerate) {
 		txp->feerate = tal(txp, struct feerate);
@@ -441,6 +671,14 @@ static struct command_result *json_txprepare(struct command *cmd,
 					    feerates_done, forward_error,
 					    txp);
 		json_add_string(req->js, "style", feerate_style_name(FEERATE_PER_KSIPA));
+		return send_outreq(cmd->plugin, req);
+	}
+
+	/* If they specify utxos, we turn them into PSBT directly. */
+	if (txp->fixed_txos) {
+		req = jsonrpc_request_start(cmd->plugin, cmd, "listfunds",
+					    listfunds_done, forward_error,
+					    txp);
 		return send_outreq(cmd->plugin, req);
 	}
 
