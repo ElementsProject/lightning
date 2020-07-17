@@ -41,19 +41,12 @@ struct bitcoin_tx_output *new_tx_output(const tal_t *ctx,
 	return output;
 }
 
-int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
-			  u8 *wscript, struct amount_sat amount)
+struct wally_tx_output *wally_tx_output(const u8 *script,
+					struct amount_sat amount)
 {
-	size_t i = tx->wtx->num_outputs;
+	u64 satoshis = amount.satoshis; /* Raw: wally API */
 	struct wally_tx_output *output;
-	struct wally_psbt_output *psbt_out;
 	int ret;
-	u64 satoshis = amount.satoshis; /* Raw: low-level helper */
-	const struct chainparams *chainparams = tx->chainparams;
-	assert(i < tx->wtx->outputs_allocation_len);
-
-	assert(tx->wtx != NULL);
-	assert(chainparams);
 
 	if (chainparams->is_elements) {
 		u8 value[9];
@@ -63,15 +56,36 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 		ret = wally_tx_elements_output_init_alloc(
 		    script, tal_bytelen(script), chainparams->fee_asset_tag, 33,
 		    value, sizeof(value), NULL, 0, NULL, 0, NULL, 0, &output);
-		assert(ret == WALLY_OK);
+		if (ret != WALLY_OK)
+			return NULL;
+
 		/* Cheat a bit by also setting the numeric satoshi value,
 		 * otherwise we end up converting a number of times */
 		output->satoshi = satoshis;
 	} else {
 		ret = wally_tx_output_init_alloc(satoshis, script,
 						 tal_bytelen(script), &output);
-		assert(ret == WALLY_OK);
+		if (ret != WALLY_OK)
+			return NULL;
 	}
+	return output;
+}
+
+int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
+			  u8 *wscript, struct amount_sat amount)
+{
+	size_t i = tx->wtx->num_outputs;
+	struct wally_tx_output *output;
+	struct wally_psbt_output *psbt_out;
+	int ret;
+	const struct chainparams *chainparams = tx->chainparams;
+	assert(i < tx->wtx->outputs_allocation_len);
+
+	assert(tx->wtx != NULL);
+	assert(chainparams);
+
+	output = wally_tx_output(script, amount);
+	assert(output);
 	ret = wally_tx_add_output(tx->wtx, output);
 	assert(ret == WALLY_OK);
 
