@@ -35,6 +35,9 @@
  *	bool <name>_del(struct <name> *ht, const <type> *e);
  *	bool <name>_delkey(struct <name> *ht, const <keytype> *k);
  *
+ * Delete by iterator:
+ *	bool <name>_delval(struct <name> *ht, struct <name>_iter *i);
+ *
  * Find and return the (first) matching element, or NULL:
  *	type *<name>_get(const struct @name *ht, const <keytype> *k);
  *
@@ -48,7 +51,8 @@
  *	type *<name>_first(const struct <name> *ht, struct <name>_iter *i);
  *	type *<name>_next(const struct <name> *ht, struct <name>_iter *i);
  *	type *<name>_prev(const struct <name> *ht, struct <name>_iter *i);
- *
+ *      type *<name>_pick(const struct <name> *ht, size_t seed,
+ *                        struct <name>_iter *i);
  * It's currently safe to iterate over a changing hashtable, but you might
  * miss an element.  Iteration isn't very efficient, either.
  *
@@ -145,6 +149,18 @@
 		if (elem)						\
 			return name##_del(ht, elem);			\
 		return false;						\
+	}								\
+	static inline UNNEEDED void name##_delval(struct name *ht,	\
+						  struct name##_iter *iter) \
+	{								\
+		htable_delval(&ht->raw, &iter->i);			\
+	}								\
+	static inline UNNEEDED type *name##_pick(const struct name *ht,	\
+						size_t seed,		\
+						struct name##_iter *iter) \
+	{								\
+		/* Note &iter->i == NULL iff iter is NULL */		\
+		return htable_pick(&ht->raw, seed, &iter->i);			\
 	}								\
 	static inline UNNEEDED type *name##_first(const struct name *ht, \
 					 struct name##_iter *iter)	\

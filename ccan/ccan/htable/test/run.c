@@ -105,7 +105,7 @@ int main(void)
 	void *p;
 	struct htable_iter iter;
 
-	plan_tests(38);
+	plan_tests(43);
 	for (i = 0; i < NUM_VALS; i++)
 		val[i] = i;
 	dne = i;
@@ -134,6 +134,12 @@ int main(void)
 	/* Mask should be set. */
 	ok1(check_mask(&ht, val, 1));
 
+	/* htable_pick should always return that value */
+	ok1(htable_pick(&ht, 0, NULL) == val);
+	ok1(htable_pick(&ht, 1, NULL) == val);
+	ok1(htable_pick(&ht, 0, &iter) == val);
+	ok1(get_raw_ptr(&ht, ht.table[iter.off]) == val);
+	
 	/* This should increase it again. */
 	add_vals(&ht, val, 1, 1);
 	ok1(ht.bits == 2);
@@ -210,6 +216,7 @@ int main(void)
 	htable_clear(&ht);
 
 	ok1(htable_count(&ht) == 0);
+	ok1(htable_pick(&ht, 0, NULL) == NULL);
 
 	return exit_status();
 }
