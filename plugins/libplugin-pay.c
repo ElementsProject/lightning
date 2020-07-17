@@ -663,10 +663,15 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 
 	p->result = tal_sendpay_result_from_json(p, buffer, toks);
 
-	if (p->result == NULL)
-		plugin_err(
-		    p->plugin, "Unable to parse `waitsendpay` result: %.*s",
-		    json_tok_full_len(toks), json_tok_full(buffer, toks));
+	if (p->result == NULL) {
+		plugin_log(p->plugin, LOG_UNUSUAL,
+			   "Unable to parse `waitsendpay` result: %.*s",
+			   json_tok_full_len(toks),
+			   json_tok_full(buffer, toks));
+		payment_set_step(p, PAYMENT_STEP_FAILED);
+		payment_continue(p);
+		return command_still_pending(cmd);
+	}
 
 	payment_result_infer(p->route, p->result);
 
