@@ -575,3 +575,34 @@ struct wally_psbt *fromwire_wally_psbt(const tal_t *ctx,
 	return psbt;
 }
 
+/* This only works on a non-final psbt because we're ALL SEGWIT! */
+void psbt_txid(const struct wally_psbt *psbt, struct bitcoin_txid *txid,
+	       struct wally_tx **wtx)
+{
+	struct wally_tx *tx;
+
+	/* You can *almost* take txid of global tx.  But @niftynei thought
+	 * about this far more than me and pointed out that P2SH
+	 * inputs would not be represented, so here we go. */
+
+	wally_tx_clone(psbt->tx, &tx);
+
+	for (size_t i = 0; i < tx->num_inputs; i++) {
+		u8 *script;
+		if (!psbt->inputs[i].redeem_script)
+			continue;
+
+		/* P2SH requires push of the redeemscript, from libwally src */
+		script = tal_arr(tmpctx, u8, 0);
+		script_push_bytes(&script,
+				  psbt->inputs[i].redeem_script,
+				  psbt->inputs[i].redeem_script_len);
+		wally_tx_set_input_script(tx, i, script, tal_bytelen(script));
+	}
+
+	wally_txid(tx, txid);
+	if (wtx)
+		*wtx = tx;
+	else
+		wally_tx_free(tx);
+}
