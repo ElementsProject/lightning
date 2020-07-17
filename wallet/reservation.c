@@ -184,7 +184,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	struct json_stream *response;
 	struct utxo **utxos;
 	u32 *feerate_per_kw;
-	u32 *minconf;
+	u32 *minconf, *weight;
 	struct amount_sat *amount, input, needed, excess, total_fee;
 	bool all, *reserve;
 	u32 locktime, maxheight, current_height;
@@ -192,7 +192,8 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("satoshi", param_sat_or_all, &amount),
-		   p_req("feerate", param_feerate_val, &feerate_per_kw),
+		   p_req("feerate", param_feerate, &feerate_per_kw),
+		   p_req("startweight", param_number, &weight),
 		   p_opt_def("minconf", param_number, &minconf, 1),
 		   p_opt_def("reserve", param_bool, &reserve, true),
 		   NULL))
@@ -203,10 +204,15 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 
 	current_height = get_block_height(cmd->ld->topology);
 
+	/* Can overflow if amount is "all" */
+	if (!amount_sat_add(amount, *amount,
+			    amount_tx_fee(*feerate_per_kw, *weight)))
+		;
+
 	/* We keep adding until we meet their output requirements. */
 	input = AMOUNT_SAT(0);
 	utxos = tal_arr(cmd, struct utxo *, 0);
-	total_fee = AMOUNT_SAT(0);
+	total_fee = amount_tx_fee(*feerate_per_kw, *weight);
 	while (amount_sat_sub(&needed, *amount, input)
 	       && !amount_sat_eq(needed, AMOUNT_SAT(0))) {
 		struct utxo *utxo;
@@ -227,6 +233,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 						    "impossible UTXO value");
 
 			/* But increase amount needed, to pay for new input */
+			*weight += utxo_spend_weight(utxo);
 			fee = amount_tx_fee(*feerate_per_kw,
 					    utxo_spend_weight(utxo));
 			if (!amount_sat_add(amount, *amount, fee))
@@ -300,6 +307,8 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 
 	response = json_stream_success(cmd);
 	json_add_psbt(response, "psbt", tx->psbt);
+	json_add_num(response, "feerate_per_kw", *feerate_per_kw);
+	json_add_num(response, "estimated_final_weight", *weight);
 	json_add_amount_sat_only(response, "excess_msat", excess);
 	if (*reserve)
 		reserve_and_report(response, cmd->ld->wallet, current_height,

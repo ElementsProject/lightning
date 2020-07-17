@@ -1126,13 +1126,14 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("unreserveinputs", payload)
 
-    def fundpsbt(self, satoshi, feerate, minconf=None, reserve=True):
+    def fundpsbt(self, satoshi, feerate, startweight, minconf=None, reserve=True):
         """
         Create a PSBT with inputs sufficient to give an output of satoshi.
         """
         payload = {
             "satoshi": satoshi,
             "feerate": feerate,
+            "startweight": startweight,
             "minconf": minconf,
             "reserve": reserve,
         }

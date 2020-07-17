@@ -506,33 +506,45 @@ def test_fundpsbt(node_factory, bitcoind, chainparams):
     feerate = '7500perkw'
 
     # Should get one input, plus some excess
-    funding = l1.rpc.fundpsbt(amount // 2, feerate, reserve=False)
+    funding = l1.rpc.fundpsbt(amount // 2, feerate, 0, reserve=False)
     psbt = bitcoind.rpc.decodepsbt(funding['psbt'])
     assert len(psbt['tx']['vin']) == 1
     assert funding['excess_msat'] > Millisatoshi(0)
     assert funding['excess_msat'] < Millisatoshi(amount // 2 * 1000)
+    assert funding['feerate_per_kw'] == 7500
+    assert 'estimated_final_weight' in funding
+    assert 'reservations' not in funding
+
+    # This should add 99 to the weight, but otherwise be identical (might choose different inputs though!)
+    funding2 = l1.rpc.fundpsbt(amount // 2, feerate, 99, reserve=False)
+    psbt2 = bitcoind.rpc.decodepsbt(funding2['psbt'])
+    assert len(psbt2['tx']['vin']) == 1
+    assert funding2['excess_msat'] < funding['excess_msat']
+    assert funding2['feerate_per_kw'] == 7500
+    # Naively you'd expect this to be +99, but it might have selected a non-p2sh output...
+    assert funding2['estimated_final_weight'] > funding['estimated_final_weight']
 
     # Cannot afford this one (too much)
     with pytest.raises(RpcError, match=r"not afford"):
-        l1.rpc.fundpsbt(amount * total_outs, feerate)
+        l1.rpc.fundpsbt(amount * total_outs, feerate, 0)
 
     # Nor this (depth insufficient)
     with pytest.raises(RpcError, match=r"not afford"):
-        l1.rpc.fundpsbt(amount // 2, feerate, minconf=2)
+        l1.rpc.fundpsbt(amount // 2, feerate, 0, minconf=2)
 
     # Should get two inputs.
-    psbt = bitcoind.rpc.decodepsbt(l1.rpc.fundpsbt(amount, feerate, reserve=False)['psbt'])
+    psbt = bitcoind.rpc.decodepsbt(l1.rpc.fundpsbt(amount, feerate, 0, reserve=False)['psbt'])
     assert len(psbt['tx']['vin']) == 2
 
     # Should not use reserved outputs.
     psbt = bitcoind.rpc.createpsbt([{'txid': out[0], 'vout': out[1]} for out in outputs], [])
     l1.rpc.reserveinputs(psbt)
     with pytest.raises(RpcError, match=r"not afford"):
-        l1.rpc.fundpsbt(amount // 2, feerate)
+        l1.rpc.fundpsbt(amount // 2, feerate, 0)
 
     # Will use first one if unreserved.
     l1.rpc.unreserveinputs(bitcoind.rpc.createpsbt([{'txid': outputs[0][0], 'vout': outputs[0][1]}], []))
-    psbt = l1.rpc.fundpsbt(amount // 2, feerate)['psbt']
+    psbt = l1.rpc.fundpsbt(amount // 2, feerate, 0)['psbt']
 
     # Should have passed to reserveinputs.
     with pytest.raises(RpcError, match=r"already reserved"):
@@ -540,7 +552,7 @@ def test_fundpsbt(node_factory, bitcoind, chainparams):
 
     # And now we can't afford any more.
     with pytest.raises(RpcError, match=r"not afford"):
-        l1.rpc.fundpsbt(amount // 2, feerate)
+        l1.rpc.fundpsbt(amount // 2, feerate, 0)
 
 
 def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
@@ -564,9 +576,10 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == total_outs)
 
-    # Make a PSBT out of our inputs (FIXME: satoshi amount should include fees!)
+    # Make a PSBT out of our inputs
     funding = l1.rpc.fundpsbt(satoshi=Millisatoshi(3 * amount * 1000),
                               feerate=7500,
+                              startweight=42,
                               reserve=True)
     assert len([x for x in l1.rpc.listfunds()['outputs'] if x['reserved']]) == 4
     psbt = bitcoind.rpc.decodepsbt(funding['psbt'])
@@ -628,6 +641,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == total_outs)
     l2_funding = l2.rpc.fundpsbt(satoshi=Millisatoshi(3 * amount * 1000),
                                  feerate=7500,
+                                 startweight=42,
                                  reserve=True)
 
     # Try to get L1 to sign it
@@ -637,6 +651,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     # Add some of our own PSBT inputs to it
     l1_funding = l1.rpc.fundpsbt(satoshi=Millisatoshi(3 * amount * 1000),
                                  feerate=7500,
+                                 startweight=42,
                                  reserve=True)
 
     # Join and add an output
@@ -652,6 +667,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     # Send a PSBT that's not ours
     l2_funding = l2.rpc.fundpsbt(satoshi=Millisatoshi(3 * amount * 1000),
                                  feerate=7500,
+                                 startweight=42,
                                  reserve=True)
     psbt = bitcoind.rpc.joinpsbts([l2_funding['psbt'], output_pbst])
     l2_signed_psbt = l2.rpc.signpsbt(psbt)['signed_psbt']
