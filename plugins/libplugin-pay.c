@@ -627,10 +627,13 @@ static void channel_hints_update(struct payment *root,
 static void payment_result_infer(struct route_hop *route,
 				 struct payment_result *r)
 {
-	int i, len = tal_count(route);
+	int i, len;
+	assert(r != NULL);
+
 	if (r->code == 0 || r->erring_index == NULL || route == NULL)
 		return;
 
+	len = tal_count(route);
 	i = *r->erring_index;
 	assert(i <= len);
 
@@ -659,12 +662,13 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 	assert(p->route != NULL);
 
 	p->result = tal_sendpay_result_from_json(p, buffer, toks);
-	payment_result_infer(p->route, p->result);
 
 	if (p->result == NULL)
 		plugin_err(
 		    p->plugin, "Unable to parse `waitsendpay` result: %.*s",
 		    json_tok_full_len(toks), json_tok_full(buffer, toks));
+
+	payment_result_infer(p->route, p->result);
 
 	if (p->result->state == PAYMENT_COMPLETE) {
 		payment_set_step(p, PAYMENT_STEP_SUCCESS);
