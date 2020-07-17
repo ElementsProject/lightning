@@ -116,7 +116,7 @@ int main(void)
 	void *p;
 	struct htable_obj_iter iter;
 
-	plan_tests(32);
+	plan_tests(35);
 	for (i = 0; i < NUM_VALS; i++)
 		val[i].key = i;
 	dne = i;
@@ -128,6 +128,7 @@ int main(void)
 
 	/* We cannot find an entry which doesn't exist. */
 	ok1(!htable_obj_get(&ht, &dne));
+	ok1(!htable_obj_pick(&ht, 0, NULL));
 
 	/* Fill it, it should increase in size. */
 	add_vals(&ht, val, NUM_VALS);
@@ -142,6 +143,8 @@ int main(void)
 	/* Find all. */
 	find_vals(&ht, val, NUM_VALS);
 	ok1(!htable_obj_get(&ht, &dne));
+	ok1(htable_obj_pick(&ht, 0, NULL));
+	ok1(htable_obj_pick(&ht, 0, &iter));
 
 	/* Walk once, should get them all. */
 	i = 0;
