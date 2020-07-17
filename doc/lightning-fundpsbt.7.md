@@ -4,7 +4,7 @@ lightning-fundpsbt -- Command to populate PSBT inputs from the wallet
 SYNOPSIS
 --------
 
-**fundpsbt** *satoshi* *feerate* \[*minconf*\] \[*reserve*\]
+**fundpsbt** *satoshi* *feerate* *startweight* \[*minconf*\] \[*reserve*\]
 
 DESCRIPTION
 -----------
@@ -18,15 +18,17 @@ be a whole number, a whole number ending in *sat*, a whole number
 ending in *000msat*, or a number with 1 to 8 decimal places ending in
 *btc*.
 
-You calculate the value by starting with the amount you want to pay
-and adding the fee which will be needed to pay for the base of the
-transaction plus that output, and any other outputs and inputs you
-will add to the final transaction.
+*feerate* can be one of the feerates listed in lightning-feerates(7),
+or one of the strings *urgent* (aim for next block), *normal* (next 4
+blocks or so) or *slow* (next 100 blocks or so) to use lightningd’s
+internal estimates.  It can also be a *feerate* is a number, with an
+optional suffix: *perkw* means the number is interpreted as
+satoshi-per-kilosipa (weight), and *perkb* means it is interpreted
+bitcoind-style as satoshi-per-kilobyte. Omitting the suffix is
+equivalent to *perkb*.
 
-*feerate* is a number, with an optional suffix: *perkw* means the
-number is interpreted as satoshi-per-kilosipa (weight), and *perkb*
-means it is interpreted bitcoind-style as
-satoshi-per-kilobyte. Omitting the suffix is equivalent to *perkb*.
+*startweight* is the weight of the transaction before *fundpsbt* has
+added any inputs.
 
 *minconf* specifies the minimum number of confirmations that used
 outputs should have. Default is 1.
@@ -34,14 +36,36 @@ outputs should have. Default is 1.
 *reserve* is a boolean: if true (the default), then *reserveinputs* is
 called (successfully, with *exclusive* true) on the returned PSBT.
 
+EXAMPLE USAGE
+-------------
+
+Let's assume the caller is trying to produce a 100,000 satoshi output.
+
+First, the caller estimates the weight of the core (typically 42) and
+known outputs of the transaction (typically (9 + scriptlen) * 4).  For
+a simple P2WPKH it's a 22 byte scriptpubkey, so that's 164 weight.
+
+It calls "*fundpsbt* 100000sat slow 206", which succeeds, and returns
+the *psbt* and *feerate_per_kw* it used, the *estimated_final_weight*
+and any *excess_msat*.
+
+If *excess_msat* is greater than the cost of adding a change output,
+the caller adds a change output randomly to position 0 or 1 in the
+PSBT.  Say *feerate_per_kw* is 253, and the change output is a P2WPKH
+(weight 164), that would cost the cost is around 41 sats.  With the
+dust limit disallowing payments below 546 satoshis, we would only create
+a change output if *excess_msat* was greater or equal to 41 + 546.
+
 RETURN VALUE
 ------------
 
-On success, returns the *psbt* containing the inputs, and
+On success, returns the *psbt* containing the inputs, *feerate_per_kw*
+showing the exact numeric feerate it used, *estimated_final_weight* for
+the estimated weight of the transaction once fully signed, and
 *excess_msat* containing the amount above *satoshi* which is
 available.  This could be zero, or dust.  If *satoshi* was "all",
 then *excess_msat* is the entire amount once fees are subtracted
-for the weights of the inputs.
+for the weights of the inputs and startweight.
 
 If *reserve* was true, then a *reservations* array is returned,
 exactly like *reserveinputs*.
