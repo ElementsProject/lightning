@@ -1063,18 +1063,20 @@ static void payment_finished(struct payment *p)
 	assert((result.leafstates & PAYMENT_STEP_SUCCESS) == 0 ||
 	       result.preimage != NULL);
 
-	if (p->parent == NULL && cmd == NULL) {
-		/* This is the tree root, but we already reported success or
-		 * failure, so noop. */
-		return;
-
-	}  else if (p->parent == NULL) {
-		if (payment_is_success(p)) {
+	if (p->parent == NULL) {
+		/* We are about to reply, unset the pointer to the cmd so we
+		 * don't attempt to return a response twice. */
+		p->cmd = NULL;
+		if (cmd == NULL) {
+			/* This is the tree root, but we already reported
+			 * success or failure, so noop. */
+			return;
+		} else if (payment_is_success(p)) {
 			assert(result.treestates & PAYMENT_STEP_SUCCESS);
 			assert(result.leafstates & PAYMENT_STEP_SUCCESS);
 			assert(result.preimage != NULL);
 
-			ret = jsonrpc_stream_success(p->cmd);
+			ret = jsonrpc_stream_success(cmd);
 			json_add_node_id(ret, "destination", p->destination);
 			json_add_sha256(ret, "payment_hash", p->payment_hash);
 			json_add_timeabs(ret, "created_at", p->start_time);
@@ -1096,9 +1098,6 @@ static void payment_finished(struct payment *p)
 
 			json_add_string(ret, "status", "complete");
 
-			/* Unset the pointer to the cmd so we don't attempt to
-			 * return a response twice. */
-			p->cmd = NULL;
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
 			return;
 		} else if (result.failure == NULL || result.failure->failcode < NODE) {

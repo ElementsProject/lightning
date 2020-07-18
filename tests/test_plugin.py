@@ -1499,7 +1499,6 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     check_coin_moves_idx(l2)
 
 
-@pytest.mark.xfail(strict=True)
 def test_3847_repro(node_factory, bitcoind):
     """Reproduces the issue in #3847: duplicate response from plugin
 
