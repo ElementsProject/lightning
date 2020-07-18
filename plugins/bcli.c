@@ -618,9 +618,9 @@ static struct command_result *process_getrawblock(struct bitcoin_cli *bcli)
 	struct json_stream *response;
 	struct getrawblock_stash *stash = bcli->stash;
 
-	/* -1 to strip \n. */
-	stash->block_hex = tal_fmt(stash, "%.*s",
-	                           (int)bcli->output_bytes-1, bcli->output);
+	/* -1 to strip \n and steal onto the stash. */
+	bcli->output[bcli->output_bytes-1] = 0x00;
+	stash->block_hex = tal_steal(stash, bcli->output);
 
 	response = jsonrpc_stream_success(bcli->cmd);
 	json_add_string(response, "blockhash", stash->block_hash);
