@@ -661,6 +661,7 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 	struct route_hop *hop;
 	assert(p->route != NULL);
 
+	p->end_time = time_now();
 	p->result = tal_sendpay_result_from_json(p, buffer, toks);
 
 	if (p->result == NULL) {
@@ -677,7 +678,6 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 
 	if (p->result->state == PAYMENT_COMPLETE) {
 		payment_set_step(p, PAYMENT_STEP_SUCCESS);
-		p->end_time = time_now();
 		payment_continue(p);
 		return command_still_pending(cmd);
 	}
@@ -1189,6 +1189,10 @@ void payment_set_step(struct payment *p, enum payment_step newstep)
 {
 	p->current_modifier = -1;
 	p->step = newstep;
+
+	/* Any final state needs an end_time */
+	if (p->step >= PAYMENT_STEP_SPLIT)
+		p->end_time = time_now();
 }
 
 void payment_continue(struct payment *p)
