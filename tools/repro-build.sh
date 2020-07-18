@@ -69,7 +69,7 @@ case "$PLATFORM" in
 	    echo Please disable security and updates in /etc/apt/sources.list >&2
 	    exit 1
 	fi
-	DOWNLOAD='sudo apt --no-install-recommends --reinstall -d install'
+	DOWNLOAD='sudo apt -y --no-install-recommends --reinstall -d install'
 	PKGS='autoconf automake libtool make gcc libgmp-dev libsqlite3-dev zlib1g-dev libsodium-dev'
 	INST='sudo dpkg -i'
 	cat > /tmp/SHASUMS <<EOF
