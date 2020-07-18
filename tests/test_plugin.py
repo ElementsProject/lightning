@@ -1497,3 +1497,41 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     check_coin_moves(l2, chanid_3, l2_l3_mvts, chainparams)
     check_coin_moves(l2, 'wallet', l2_wallet_mvts, chainparams)
     check_coin_moves_idx(l2)
+
+
+@pytest.mark.xfail(strict=True)
+def test_3847_repro(node_factory, bitcoind):
+    """Reproduces the issue in #3847: duplicate response from plugin
+
+    l2 holds on to HTLCs until the deadline expires. Then we allow them
+    through and either should terminate the payment attempt, and the second
+    would return a redundant result.
+
+    """
+    l1, l2, l3 = node_factory.line_graph(3, opts=[
+        {},
+        {},
+        {
+            'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py'),
+            'hold-time': 11,
+            'hold-result': 'fail',
+        },
+    ], wait_for_announce=True)
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
+
+    # Amount sufficient to trigger the presplit modifier
+    amt = 20 * 1000 * 1000
+
+    i1 = l3.rpc.invoice(
+        msatoshi=amt, label="direct", description="desc"
+    )['bolt11']
+    with pytest.raises(RpcError):
+        l1.rpc.pay(i1, retry_for=10)
+
+    # We wait for at least two parts, and the bug would cause the `pay` plugin
+    # to crash
+    l1.daemon.wait_for_logs([r'Payment deadline expired, not retrying'] * 2)
+
+    # This call to paystatus would fail if the pay plugin crashed (it's
+    # provided by the plugin)
+    l1.rpc.paystatus(i1)
