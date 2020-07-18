@@ -5,8 +5,6 @@ Used to test restarts / crashes while HTLCs were accepted, but not yet
 settled/forwarded/
 
 """
-
-
 from pyln.client import Plugin
 import json
 import os
@@ -23,20 +21,35 @@ def on_htlc_accepted(htlc, onion, plugin, **kwargs):
     with open(fname, 'w') as f:
         f.write(json.dumps(onion))
 
-    plugin.log("Holding onto an incoming htlc for 10 seconds")
+    plugin.log("Holding onto an incoming htlc for {hold_time} seconds".format(
+        hold_time=plugin.hold_time
+    ))
 
-    time.sleep(10)
+    time.sleep(plugin.hold_time)
 
     print("Onion written to {}".format(fname))
 
     # Give the tester something to look for
     plugin.log("htlc_accepted hook called")
-    return {'result': 'continue'}
+    return {'result': plugin.hold_result}
+
+
+plugin.add_option(
+    'hold-time', 10,
+    'How long should we hold on to HTLCs?',
+    opt_type='int'
+)
+plugin.add_option(
+    'hold-result',
+    'continue', 'How should we continue after holding?',
+)
 
 
 @plugin.init()
 def init(options, configuration, plugin):
     plugin.log("hold_htlcs.py initializing")
+    plugin.hold_time = options['hold-time']
+    plugin.hold_result = options['hold-result']
 
 
 plugin.run()
