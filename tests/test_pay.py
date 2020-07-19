@@ -3157,7 +3157,6 @@ def test_mpp_adaptive(node_factory, bitcoind):
     pprint(l1.rpc.paystatus(inv))
 
 
-@pytest.mark.xfail(strict=True)
 def test_pay_fail_unconfirmed_channel(node_factory, bitcoind):
     '''
     Replicate #3855.
