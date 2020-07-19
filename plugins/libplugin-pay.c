@@ -1622,7 +1622,8 @@ local_channel_hints_listpeers(struct command *cmd, const char *buffer,
 			spendsats = json_get_member(buffer, channel, "spendable_msat");
 			scid = json_get_member(buffer, channel, "short_channel_id");
 			dir = json_get_member(buffer, channel, "direction");
-			assert(spendsats != NULL && scid != NULL && dir != NULL);
+			if(spendsats == NULL || scid == NULL || dir == NULL)
+				continue;
 
 			json_to_bool(buffer, connected, &h.enabled);
 			json_to_short_channel_id(buffer, scid, &h.scid.scid);
