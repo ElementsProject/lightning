@@ -3143,3 +3143,38 @@ def test_mpp_adaptive(node_factory, bitcoind):
     from pprint import pprint
     pprint(p)
     pprint(l1.rpc.paystatus(inv))
+
+
+@pytest.mark.xfail(strict=True)
+def test_pay_fail_unconfirmed_channel(node_factory, bitcoind):
+    '''
+    Replicate #3855.
+    `pay` crash when any direct channel is still
+    unconfirmed.
+    '''
+    l1, l2 = node_factory.get_nodes(2)
+
+    amount_sat = 10 ** 6
+
+    # create l2->l1 channel.
+    l2.fundwallet(amount_sat * 5)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l2.rpc.fundchannel(l1.info['id'], amount_sat * 3)
+    # channel is still unconfirmed.
+
+    # Attempt to pay from l1 to l2.
+    # This should fail since the channel capacities are wrong.
+    invl2 = l2.rpc.invoice(Millisatoshi(amount_sat * 1000), 'i', 'i')['bolt11']
+    with pytest.raises(RpcError):
+        l1.rpc.pay(invl2)
+
+    # Let the channel confirm.
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # Now give enough capacity so l1 can pay.
+    invl1 = l1.rpc.invoice(Millisatoshi(amount_sat * 2 * 1000), 'j', 'j')['bolt11']
+    l2.rpc.pay(invl1)
+
+    # Now l1 can pay to l2.
+    l1.rpc.pay(invl2)
