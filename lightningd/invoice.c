@@ -1127,7 +1127,7 @@ static struct command_result *json_delinvoice(struct command *cmd,
 		return command_param_failed();
 
 	if (!wallet_invoice_find_by_label(wallet, &i, label)) {
-		return command_fail(cmd, LIGHTNINGD, "Unknown invoice");
+		return command_fail(cmd, INVOICE_NOT_FOUND, "Unknown invoice");
 	}
 
 	details = wallet_invoice_details(cmd, cmd->ld->wallet, i);
@@ -1136,15 +1136,22 @@ static struct command_result *json_delinvoice(struct command *cmd,
 	 * might not make sense if it changed! */
 	actual_status = invoice_status_str(details);
 	if (!streq(actual_status, status)) {
-		return command_fail(cmd, LIGHTNINGD,
-				    "Invoice status is %s not %s",
-				    actual_status, status);
+		struct json_stream *js;
+		js = json_stream_fail(cmd, INVOICE_STATUS_UNEXPECTED,
+				      tal_fmt(tmpctx,
+					      "Invoice status is %s not %s",
+					      actual_status, status));
+		json_add_string(js, "current_status", actual_status);
+		json_add_string(js, "expected_status", status);
+		json_object_end(js);
+		return command_failed(cmd, js);
 	}
 
 	if (!wallet_invoice_delete(wallet, i)) {
 		log_broken(cmd->ld->log,
 			   "Error attempting to remove invoice %"PRIu64,
 			   i.id);
+		/* FIXME: allocate a generic DATABASE_ERROR code.  */
 		return command_fail(cmd, LIGHTNINGD, "Database error");
 	}
 

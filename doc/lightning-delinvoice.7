@@ -19,6 +19,21 @@ The caller should be particularly aware of the error case caused by the
 On success, an invoice description will be returned as per
 \fBlightning-listinvoice\fR(7)\.
 
+.SH ERRORS
+
+The following errors may be reported:
+
+.RS
+.IP \[bu]
+-1:  Database error\.
+.IP \[bu]
+905:  An invoice with that label does not exist\.
+.IP \[bu]
+906:  The invoice \fIstatus\fR does not match the parameter\.
+An error object will be returned as error \fIdata\fR, containing
+\fIcurrent_status\fR and \fIexpected_status\fR fields\.
+
+.RE
 .SH AUTHOR
 
 Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.

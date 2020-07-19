@@ -21,6 +21,19 @@ RETURN VALUE
 On success, an invoice description will be returned as per
 lightning-listinvoice(7).
 
+ERRORS
+------
+
+The following errors may be reported:
+
+- -1:  Database error.
+- 905:  An invoice with that label does not exist.
+- 906:  The invoice *status* does not match the parameter.
+  An error object will be returned as error *data*, containing
+  *current_status* and *expected_status* fields.
+  This is most likely due to the *status* of the invoice
+  changing just before this command is invoked.
+
 AUTHOR
 ------
 
