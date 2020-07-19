@@ -59,12 +59,14 @@ static const errcode_t CONNECT_ALL_ADDRESSES_FAILED = 401;
 /* bitcoin-cli plugin errors */
 #define BCLI_ERROR                      400
 
-/* Errors from `invoice` command */
+/* Errors from `invoice` or `delinvoice` commands */
 static const errcode_t INVOICE_LABEL_ALREADY_EXISTS = 900;
 static const errcode_t INVOICE_PREIMAGE_ALREADY_EXISTS = 901;
 static const errcode_t INVOICE_HINTS_GAVE_NO_ROUTES = 902;
 static const errcode_t INVOICE_EXPIRED_DURING_WAIT = 903;
 static const errcode_t INVOICE_WAIT_TIMED_OUT = 904;
+static const errcode_t INVOICE_NOT_FOUND = 905;
+static const errcode_t INVOICE_STATUS_UNEXPECTED = 906;
 
 /* Errors from HSM crypto operations. */
 static const errcode_t HSM_ECDH_FAILED = 800;
