@@ -2335,6 +2335,8 @@ static void adaptive_splitter_cb(struct presplit_mod_data *d, struct payment *p)
 			double rand = pseudorand_double() * 0.2 + 0.9;
 			u64 mid = p->amount.millisatoshis / 2 * rand; /* Raw: multiplication */
 			bool ok;
+			/* Use the start constraints, not the ones updated by routes and shadow-routes. */
+			struct payment_constraints *pconstraints = p->start_constraints;
 
 			a = payment_new(p, NULL, p, p->modifiers);
 			b = payment_new(p, NULL, p, p->modifiers);
@@ -2342,11 +2344,15 @@ static void adaptive_splitter_cb(struct presplit_mod_data *d, struct payment *p)
 			a->amount.millisatoshis = mid;  /* Raw: split. */
 			b->amount.millisatoshis -= mid; /* Raw: split. */
 
+			double multiplier = (double)a->amount.millisatoshis / (double)p->amount.millisatoshis; /* Raw: msat division */
+			assert(multiplier >= 0.4 && multiplier < 0.6);
+
 			/* Adjust constraints since we don't want to double our
 			 * fee allowance when we split. */
-			a->constraints.fee_budget.millisatoshis *= (double)a->amount.millisatoshis / (double)p->amount.millisatoshis; /* Raw: msat division. */
+			a->constraints.fee_budget.millisatoshis = pconstraints->fee_budget.millisatoshis * multiplier; /* Raw: msat multiplication. */
+
 			ok = amount_msat_sub(&b->constraints.fee_budget,
-					     p->constraints.fee_budget,
+					     pconstraints->fee_budget,
 					     a->constraints.fee_budget);
 
 			/* Should not fail, mid is less than 55% of original
