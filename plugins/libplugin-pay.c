@@ -619,6 +619,14 @@ static void channel_hints_update(struct payment *root,
 	hint.scid.dir = direction;
 	hint.estimated_capacity = estimated_capacity;
 	tal_arr_expand(&root->channel_hints, hint);
+
+	plugin_log(
+	    root->plugin, LOG_DBG,
+	    "Added a channel hint for %s: enabled %s, estimated capacity %s",
+	    type_to_string(tmpctx, struct short_channel_id_dir, &hint.scid),
+	    hint.enabled ? "true" : "false",
+	    type_to_string(tmpctx, struct amount_msat,
+			   &hint.estimated_capacity));
 }
 
 /* Try to infer the erring_node, erring_channel and erring_direction from what
