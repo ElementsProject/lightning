@@ -1784,6 +1784,11 @@ static struct command_result *shadow_route_listchannels(struct command *cmd,
 	const jsmntok_t *sattok, *delaytok, *basefeetok, *propfeetok, *desttok,
 	    *channelstok, *chan;
 
+	/* Check the invariants on the constraints between payment and modifier. */
+	assert(d->constraints.cltv_budget <= p->constraints.cltv_budget / 4);
+	assert(amount_msat_greater_eq(p->constraints.fee_budget,
+				      d->constraints.fee_budget));
+
 	channelstok = json_get_member(buf, result, "channels");
 	json_for_each_arr(i, chan, channelstok) {
 		u64 v = pseudorand(UINT64_MAX);
