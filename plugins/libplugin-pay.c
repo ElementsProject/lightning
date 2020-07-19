@@ -2217,6 +2217,12 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		 * value. */
 		root->partid++;
 
+		/* Bump the next_partid as well so we don't have duplicate
+		 * partids. Not really necessary since the root payment whose
+		 * id could be reused will never reach the `sendonion` step,
+		 * but makes debugging a bit easier. */
+		root->next_partid++;
+
 		/* If we are already below the target size don't split it
 		 * either. */
 		if (amount_msat_greater(MPP_TARGET_MSAT, p->amount))
