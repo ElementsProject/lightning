@@ -684,6 +684,22 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 	root = payment_root(p);
 	payment_chanhints_apply_route(p, true);
 
+	/* Either we have no erring_index, or it must be a correct index into
+	 * p->route. From the docs:
+	 *
+	 * - *erring_index*: The index of the node along the route that
+	 *   reported the error. 0 for the local node, 1 for the first hop,
+	 *   and so on.
+         *
+         * The only difficulty is mapping the erring_index to the correct hop,
+         * since the hop consists of the processing node, but the payload for
+         * the next hop. In addition there is a class of onion-related errors
+         * that are reported by the previous hop to the one erring, since the
+         * erring node couldn't read the onion in the first place.
+	 */
+	assert(p->result->erring_index == NULL ||
+	       *p->result->erring_index - 1 < tal_count(p->route));
+
 	switch (p->result->failcode) {
 	case WIRE_PERMANENT_CHANNEL_FAILURE:
 	case WIRE_CHANNEL_DISABLED:
