@@ -91,8 +91,7 @@ struct payment_tree_result payment_collect_result(struct payment *p)
 	struct payment_tree_result res;
 	size_t numchildren = tal_count(p->children);
 	res.sent = AMOUNT_MSAT(0);
-	/* If we didn't have a route, we didn't attempt. */
-	res.attempts = p->route == NULL ? 0 : 1;
+	res.attempts = 1;
 	res.treestates = p->step;
 	res.leafstates = 0;
 	res.preimage = NULL;
