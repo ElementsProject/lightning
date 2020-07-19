@@ -2192,10 +2192,7 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 	struct payment *root = payment_root(p);
 	struct amount_msat amt = root->amount;
 
-	if (d->disable)
-		return payment_continue(p);
-
-	if (!payment_supports_mpp(p))
+	if (d->disable || p->parent != NULL || !payment_supports_mpp(p))
 		return payment_continue(p);
 
 	if (p->step == PAYMENT_STEP_ONION_PAYLOAD) {
@@ -2210,7 +2207,7 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 			    fields, root->payment_secret,
 			    root->amount.millisatoshis); /* Raw: onion payload */
 		}
-	} else if (p == root && p->step == PAYMENT_STEP_INITIALIZED) {
+	} else if (p->step == PAYMENT_STEP_INITIALIZED) {
 		/* The presplitter only acts on the root and only in the first
 		 * step. */
 		size_t count = 0;
@@ -2261,8 +2258,9 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 			payment_start(c);
 			count++;
 		}
-		p->step = PAYMENT_STEP_SPLIT;
-		p->end_time = time_now();
+
+		p->result = NULL;
+		p->route = NULL;
 		p->why = tal_fmt(
 		    p,
 		    "Split into %zu sub-payments due to initial size (%s > "
@@ -2270,9 +2268,8 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		    count,
 		    type_to_string(tmpctx, struct amount_msat, &root->amount),
 		    MPP_TARGET_SIZE);
+		payment_set_step(p, PAYMENT_STEP_SPLIT);
 		plugin_log(p->plugin, LOG_INFORM, "%s", p->why);
-		p->result = NULL;
-		p->route = NULL;
 	}
 	payment_continue(p);
 }
