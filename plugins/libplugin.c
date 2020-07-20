@@ -83,6 +83,10 @@ struct plugin {
 
 	/* Feature set for lightningd */
 	struct feature_set *our_features;
+
+	/* Location of the RPC filename in case we need to defer RPC
+	 * initialization or need to recover from a disconnect. */
+	const char *rpc_location;
 };
 
 /* command_result is mainly used as a compile-time check to encourage you
@@ -763,7 +767,7 @@ static struct command_result *handle_init(struct command *cmd,
 	char *dir, *network;
 	struct json_out *param_obj;
 	struct plugin *p = cmd->plugin;
-	bool with_rpc = true;
+	bool with_rpc = p->rpc_conn != NULL;
 
 	configtok = json_delve(buf, params, ".configuration");
 
@@ -780,27 +784,39 @@ static struct command_result *handle_init(struct command *cmd,
 	fsettok = json_delve(buf, configtok, ".feature_set");
 	p->our_features = json_to_feature_set(p, buf, fsettok);
 
+	/* Only attempt to connect if the plugin has configured the rpc_conn
+	 * already, if that's not the case we were told to run without an RPC
+	 * connection, so don't even log an error. */
 	rpctok = json_delve(buf, configtok, ".rpc-file");
-	p->rpc_conn->fd = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (rpctok->end - rpctok->start + 1 > sizeof(addr.sun_path))
-		plugin_err(p, "rpc filename '%.*s' too long",
-			   rpctok->end - rpctok->start,
-			   buf + rpctok->start);
-	memcpy(addr.sun_path, buf + rpctok->start, rpctok->end - rpctok->start);
-	addr.sun_path[rpctok->end - rpctok->start] = '\0';
-	addr.sun_family = AF_UNIX;
+	p->rpc_location = json_strdup(p, buf, rpctok);
+	/* FIXME: Move this to its own function so we can initialize at a
+	 * later point in time. */
+	if (p->rpc_conn != NULL) {
+		p->rpc_conn->fd = socket(AF_UNIX, SOCK_STREAM, 0);
+		if (strlen(p->rpc_location) + 1 > sizeof(addr.sun_path))
+			plugin_err(p, "rpc filename '%s' too long",
+				   p->rpc_location);
+		memcpy(addr.sun_path, buf + rpctok->start,
+		       rpctok->end - rpctok->start);
+		addr.sun_path[rpctok->end - rpctok->start] = '\0';
+		addr.sun_family = AF_UNIX;
 
-	if (connect(p->rpc_conn->fd, (struct sockaddr *)&addr, sizeof(addr)) != 0) {
-		with_rpc = false;
-		plugin_log(p, LOG_UNUSUAL, "Could not connect to '%.*s': %s",
-			   rpctok->end - rpctok->start, buf + rpctok->start,
-			   strerror(errno));
-	} else {
+		if (connect(p->rpc_conn->fd, (struct sockaddr *)&addr,
+			    sizeof(addr)) != 0) {
+			with_rpc = false;
+			plugin_log(p, LOG_UNUSUAL,
+				   "Could not connect to '%s': %s",
+				   p->rpc_location, strerror(errno));
+		}
+
+		membuf_init(&p->rpc_conn->mb, tal_arr(p, char, READ_CHUNKSIZE),
+			    READ_CHUNKSIZE, membuf_tal_realloc);
+
 		param_obj = json_out_obj(NULL, "config", "allow-deprecated-apis");
-		deprecated_apis = streq(rpc_delve(tmpctx, p, "listconfigs",
-						  take(param_obj),
-						  ".allow-deprecated-apis"),
-					"true");
+		deprecated_apis =
+			streq(rpc_delve(tmpctx, p, "listconfigs", take(param_obj),
+					".allow-deprecated-apis"),
+			      "true");
 	}
 
 	opttok = json_get_member(buf, params, "options");
@@ -1182,6 +1198,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 				 void (*init)(struct plugin *p,
 					      const char *buf, const jsmntok_t *),
 				 const enum plugin_restartability restartability,
+				 bool init_rpc,
 				 struct feature_set *features,
 				 const struct plugin_command *commands,
 				 size_t num_commands,
@@ -1207,11 +1224,12 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	uintmap_init(&p->out_reqs);
 
 	p->our_features = features;
-	/* Sync RPC FIXME: maybe go full async ? */
-	p->rpc_conn = tal(p, struct rpc_conn);
-	membuf_init(&p->rpc_conn->mb,
-		    tal_arr(p, char, READ_CHUNKSIZE), READ_CHUNKSIZE,
-		    membuf_tal_realloc);
+	if (init_rpc) {
+		/* Sync RPC FIXME: maybe go full async ? */
+		p->rpc_conn = tal(p, struct rpc_conn);
+	} else {
+		p->rpc_conn = NULL;
+	}
 
 	p->init = init;
 	p->manifested = p->initialized = false;
@@ -1244,6 +1262,7 @@ void plugin_main(char *argv[],
 		 void (*init)(struct plugin *p,
 			      const char *buf, const jsmntok_t *),
 		 const enum plugin_restartability restartability,
+		 bool init_rpc,
 		 struct feature_set *features,
 		 const struct plugin_command *commands,
 		 size_t num_commands,
@@ -1264,7 +1283,7 @@ void plugin_main(char *argv[],
 	daemon_setup(argv[0], NULL, NULL);
 
 	va_start(ap, num_hook_subs);
-	plugin = new_plugin(NULL, init, restartability, features, commands,
+	plugin = new_plugin(NULL, init, restartability, init_rpc, features, commands,
 			    num_commands, notif_subs, num_notif_subs, hook_subs,
 			    num_hook_subs, ap);
 	va_end(ap);

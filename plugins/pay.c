@@ -2007,7 +2007,7 @@ static const struct plugin_command commands[] = {
 int main(int argc, char *argv[])
 {
 	setup_locale();
-	plugin_main(argv, init, PLUGIN_RESTARTABLE, NULL, commands,
+	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL, commands,
 		    ARRAY_SIZE(commands), NULL, 0, NULL, 0,
 		    plugin_option("disable-mpp", "flag",
 				  "Disable multi-part payments.",

@@ -88,7 +88,7 @@ static const struct plugin_command commands[] = { {
 int main(int argc, char *argv[])
 {
 	setup_locale();
-	plugin_main(argv, init, PLUGIN_STATIC, NULL, commands, ARRAY_SIZE(commands),
+	plugin_main(argv, init, PLUGIN_STATIC, true, NULL, commands, ARRAY_SIZE(commands),
 	            NULL, 0, NULL, 0,
 		    plugin_option("autocleaninvoice-cycle",
 				  "string",
