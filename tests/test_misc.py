@@ -1368,8 +1368,11 @@ def test_reserve_enforcement(node_factory, executor):
 def test_htlc_send_timeout(node_factory, bitcoind, compat):
     """Test that we don't commit an HTLC to an unreachable node."""
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(options={'log-level': 'io'},
-                               feerates=(7500, 7500, 7500, 7500))
+    l1 = node_factory.get_node(
+        options={'log-level': 'io'},
+        feerates=(7500, 7500, 7500, 7500)
+    )
+
     # Blackhole it after it sends HTLC_ADD to l3.
     l2 = node_factory.get_node(disconnect=['0WIRE_UPDATE_ADD_HTLC'],
                                options={'log-level': 'io'},
@@ -1395,7 +1398,7 @@ def test_htlc_send_timeout(node_factory, bitcoind, compat):
             timedout = True
 
     inv = l3.rpc.invoice(123000, 'test_htlc_send_timeout', 'description')
-    with pytest.raises(RpcError, match=r'Ran out of routes to try after 1 attempt') as excinfo:
+    with pytest.raises(RpcError, match=r'Ran out of routes to try after [0-9]+ attempt[s]?') as excinfo:
         l1.rpc.pay(inv['bolt11'])
 
     err = excinfo.value
