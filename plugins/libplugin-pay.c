@@ -592,7 +592,8 @@ fail:
 }
 
 static void channel_hints_update(struct payment *root,
-				 struct short_channel_id *scid, int direction,
+				 const struct short_channel_id *scid,
+				 int direction,
 				 bool enabled,
 				 struct amount_msat estimated_capacity)
 {
@@ -660,12 +661,255 @@ static void payment_result_infer(struct route_hop *route,
 		r->erring_direction = &route[i].direction;
 }
 
+/* If a node takes too much fee or cltv, the next one reports it.  We don't
+ * know who to believe, but log it */
+static void report_tampering(struct payment *p,
+			     size_t report_pos,
+			     const char *style)
+{
+	const struct node_id *id = &p->route[report_pos].nodeid;
+
+	if (report_pos == 0) {
+		plugin_log(p->plugin, LOG_UNUSUAL,
+			   "Node #%zu (%s) claimed we sent them invalid %s",
+			   report_pos + 1,
+			   type_to_string(tmpctx, struct node_id, id),
+			   style);
+	} else {
+		plugin_log(p->plugin, LOG_UNUSUAL,
+			   "Node #%zu (%s) claimed #%zu (%s) sent them invalid %s",
+			   report_pos + 1,
+			   type_to_string(tmpctx, struct node_id, id),
+			   report_pos,
+			   type_to_string(tmpctx, struct node_id,
+					  &p->route[report_pos-1].nodeid),
+			   style);
+	}
+}
+
+static struct command_result *
+handle_final_failure(struct command *cmd,
+		     struct payment *p,
+		     const struct node_id *final_id,
+		     enum onion_type failcode)
+{
+	/* We use an exhaustive switch statement here so you get a compile
+	 * warning when new ones are added, and can think about where they go */
+	switch (failcode) {
+	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
+		report_tampering(p, tal_count(p->route)-1, "cltv");
+		goto error;
+	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
+		report_tampering(p, tal_count(p->route)-1, "amount");
+		goto error;
+
+	/* BOLT #4:
+	 *
+	 * A _forwarding node_ MAY, but a _final node_ MUST NOT:
+	 *...
+	 *     - return an `invalid_onion_version` error.
+	 *...
+	 *     - return an `invalid_onion_hmac` error.
+	 *...
+	 *     - return an `invalid_onion_key` error.
+	 *...
+	 *     - return a `temporary_channel_failure` error.
+	 *...
+	 *     - return a `permanent_channel_failure` error.
+	 *...
+	 *     - return a `required_channel_feature_missing` error.
+	 *...
+	 *     - return an `unknown_next_peer` error.
+	 *...
+	 *     - return an `amount_below_minimum` error.
+	 *...
+	 *     - return a `fee_insufficient` error.
+	 *...
+	 *     - return an `incorrect_cltv_expiry` error.
+	 *...
+	 *     - return an `expiry_too_soon` error.
+	 *...
+	 *     - return an `expiry_too_far` error.
+	 *...
+	 *     - return a `channel_disabled` error.
+	 */
+	case WIRE_INVALID_ONION_VERSION:
+	case WIRE_INVALID_ONION_HMAC:
+	case WIRE_INVALID_ONION_KEY:
+	case WIRE_TEMPORARY_CHANNEL_FAILURE:
+	case WIRE_PERMANENT_CHANNEL_FAILURE:
+	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
+	case WIRE_UNKNOWN_NEXT_PEER:
+	case WIRE_AMOUNT_BELOW_MINIMUM:
+	case WIRE_FEE_INSUFFICIENT:
+	case WIRE_INCORRECT_CLTV_EXPIRY:
+	case WIRE_EXPIRY_TOO_FAR:
+	case WIRE_EXPIRY_TOO_SOON:
+	case WIRE_CHANNEL_DISABLED:
+		goto strange_error;
+
+	case WIRE_INVALID_ONION_PAYLOAD:
+	case WIRE_INVALID_REALM:
+	case WIRE_PERMANENT_NODE_FAILURE:
+	case WIRE_TEMPORARY_NODE_FAILURE:
+	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_INVALID_ONION_BLINDING:
+#endif
+ 	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
+	case WIRE_MPP_TIMEOUT:
+		goto error;
+	}
+
+strange_error:
+	plugin_log(p->plugin, LOG_UNUSUAL,
+		   "Final node %s reported strange error code %u",
+		   type_to_string(tmpctx, struct node_id, final_id),
+		   failcode);
+
+error:
+	p->result->code = PAY_DESTINATION_PERM_FAIL;
+	payment_root(p)->abort = true;
+
+	payment_fail(p, "%s", p->result->message);
+	return command_still_pending(cmd);
+}
+
+
+static struct command_result *
+handle_intermediate_failure(struct command *cmd,
+			    struct payment *p,
+			    const struct node_id *errnode,
+			    const struct route_hop *errchan,
+			    enum onion_type failcode)
+{
+	struct payment *root = payment_root(p);
+
+	/* We use an exhaustive switch statement here so you get a compile
+	 * warning when new ones are added, and can think about where they go */
+	switch (failcode) {
+	/* BOLT #4:
+	 *
+	 * An _intermediate hop_ MUST NOT, but the _final node_:
+	 *...
+	 *     - MUST return an `incorrect_or_unknown_payment_details` error.
+	 *...
+	 *     - MUST return `final_incorrect_cltv_expiry` error.
+	 *...
+	 *     - MUST return a `final_incorrect_htlc_amount` error.
+	 */
+ 	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
+ 	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
+ 	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
+	/* FIXME: Document in BOLT that intermediates must not return this! */
+	case WIRE_MPP_TIMEOUT:
+		goto strange_error;
+
+	case WIRE_PERMANENT_CHANNEL_FAILURE:
+	case WIRE_CHANNEL_DISABLED:
+	case WIRE_UNKNOWN_NEXT_PEER:
+	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
+		/* All of these result in the channel being marked as disabled. */
+		channel_hints_update(root,
+				     &errchan->channel_id, errchan->direction,
+				     false, AMOUNT_MSAT(0));
+		break;
+
+	case WIRE_TEMPORARY_CHANNEL_FAILURE: {
+		/* These are an indication that the capacity was insufficient,
+		 * remember the amount we tried as an estimate. */
+		struct amount_msat est = errchan->amount;
+		est.millisatoshis *= 0.75; /* Raw: Multiplication */
+		channel_hints_update(root,
+				     &errchan->channel_id, errchan->direction,
+				     true, est);
+		goto error;
+	}
+
+	case WIRE_INCORRECT_CLTV_EXPIRY:
+		report_tampering(p, errchan - p->route, "cltv");
+		goto error;
+
+	case WIRE_INVALID_ONION_VERSION:
+	case WIRE_INVALID_ONION_HMAC:
+	case WIRE_INVALID_ONION_KEY:
+	case WIRE_PERMANENT_NODE_FAILURE:
+	case WIRE_TEMPORARY_NODE_FAILURE:
+	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
+	case WIRE_INVALID_ONION_PAYLOAD:
+	case WIRE_INVALID_REALM:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_INVALID_ONION_BLINDING:
+#endif
+		tal_arr_expand(&root->excluded_nodes, *errnode);
+		goto error;
+
+	case WIRE_AMOUNT_BELOW_MINIMUM:
+	case WIRE_FEE_INSUFFICIENT:
+	case WIRE_EXPIRY_TOO_FAR:
+	case WIRE_EXPIRY_TOO_SOON:
+		goto error;
+	}
+
+strange_error:
+	plugin_log(p->plugin, LOG_UNUSUAL,
+		   "Intermediate node %s reported strange error code %u",
+		   type_to_string(tmpctx, struct node_id, errnode),
+		   failcode);
+
+error:
+	payment_fail(p, "%s", p->result->message);
+	return command_still_pending(cmd);
+}
+
+/* From the docs:
+ *
+ * - *erring_index*: The index of the node along the route that
+ *   reported the error. 0 for the local node, 1 for the first hop,
+ *   and so on.
+ *
+ * The only difficulty is mapping the erring_index to the correct hop.
+ * We split into the erring node, and the error channel, since they're
+ * used in different contexts. NULL error_channel means it's the final
+ * node, whose errors are treated differently.
+ */
+static bool assign_blame(const struct payment *p,
+			 const struct node_id **errnode,
+			 const struct route_hop **errchan)
+{
+	int index;
+
+	if (p->result->erring_index == NULL)
+		return false;
+
+	index = *p->result->erring_index;
+
+	/* BADONION errors are reported on behalf of the next node. */
+	if (p->result->failcode & BADONION)
+		index++;
+
+	/* Final node *shouldn't* report BADONION, but don't assume. */
+	if (index >= tal_count(p->route)) {
+		*errchan = NULL;
+		*errnode = &p->route[tal_count(p->route) - 1].nodeid;
+		return true;
+	}
+
+	*errchan = &p->route[index];
+	if (index == 0)
+		*errnode = p->local_id;
+	else
+		*errnode = &p->route[index - 1].nodeid;
+	return true;
+}
+
 static struct command_result *
 payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 			     const jsmntok_t *toks, struct payment *p)
 {
-	struct payment *root;
-	struct route_hop *hop;
+	const struct node_id *errnode;
+	const struct route_hop *errchan;
+
 	assert(p->route != NULL);
 
 	p->end_time = time_now();
@@ -689,98 +933,25 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 		return command_still_pending(cmd);
 	}
 
-	root = payment_root(p);
 	payment_chanhints_apply_route(p, true);
 
-	/* Either we have no erring_index, or it must be a correct index into
-	 * p->route. From the docs:
-	 *
-	 * - *erring_index*: The index of the node along the route that
-	 *   reported the error. 0 for the local node, 1 for the first hop,
-	 *   and so on.
-         *
-         * The only difficulty is mapping the erring_index to the correct hop,
-         * since the hop consists of the processing node, but the payload for
-         * the next hop. In addition there is a class of onion-related errors
-         * that are reported by the previous hop to the one erring, since the
-         * erring node couldn't read the onion in the first place.
-	 */
-	assert(p->result->erring_index == NULL ||
-	       *p->result->erring_index - 1 < tal_count(p->route));
-
-	switch (p->result->failcode) {
-	case WIRE_PERMANENT_CHANNEL_FAILURE:
-	case WIRE_CHANNEL_DISABLED:
-	case WIRE_UNKNOWN_NEXT_PEER:
-	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
-		/* All of these result in the channel being marked as disabled. */
-		assert(*p->result->erring_index < tal_count(p->route));
-		hop = &p->route[*p->result->erring_index];
-		channel_hints_update(root, &hop->channel_id, hop->direction,
-				     false, AMOUNT_MSAT(0));
-		break;
-	case WIRE_TEMPORARY_CHANNEL_FAILURE:
-		/* These are an indication that the capacity was insufficient,
-		 * remember the amount we tried as an estimate. */
-		assert(*p->result->erring_index < tal_count(p->route));
-		hop = &p->route[*p->result->erring_index];
-		struct amount_msat est = {
-			.millisatoshis = hop->amount.millisatoshis * 0.75}; /* Raw: Multiplication */
-		channel_hints_update(root, &hop->channel_id, hop->direction,
-				     true, est);
-		break;
-
-	case WIRE_INVALID_ONION_PAYLOAD:
-	case WIRE_INVALID_REALM:
-	case WIRE_PERMANENT_NODE_FAILURE:
-	case WIRE_TEMPORARY_NODE_FAILURE:
-	case WIRE_REQUIRED_NODE_FEATURE_MISSING:
-	case WIRE_INVALID_ONION_VERSION:
-	case WIRE_INVALID_ONION_HMAC:
-	case WIRE_INVALID_ONION_KEY:
-#if EXPERIMENTAL_FEATURES
-	case WIRE_INVALID_ONION_BLINDING:
-#endif
-		/* These are reported by the last hop, i.e., the destination of hop i-1. */
-		assert(*p->result->erring_index - 1 < tal_count(p->route));
-		hop = &p->route[*p->result->erring_index - 1];
-		tal_arr_expand(&root->excluded_nodes, hop->nodeid);
-		break;
-
- 	case WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS:
-		p->result->code = PAY_DESTINATION_PERM_FAIL;
-		root->abort = true;
-	case WIRE_MPP_TIMEOUT:
-		/* These are permanent failures that should abort all of our
-		 * attempts right away. We'll still track pending partial
-		 * payments correctly, just not start new ones. */
-		root->abort = true;
-		break;
-
-	case WIRE_AMOUNT_BELOW_MINIMUM:
-	case WIRE_EXPIRY_TOO_FAR:
-	case WIRE_EXPIRY_TOO_SOON:
-	case WIRE_FEE_INSUFFICIENT:
-	case WIRE_INCORRECT_CLTV_EXPIRY:
-	case WIRE_FINAL_INCORRECT_CLTV_EXPIRY:
-		/* These are issues that are due to gossipd being out of date,
-		 * we ignore them here, and wait for gossipd to adjust
-		 * instead. */
-		break;
-	case WIRE_FINAL_INCORRECT_HTLC_AMOUNT:
-		/* These are symptoms of intermediate hops tampering with the
-		 * payment. */
-		hop = &p->route[*p->result->erring_index];
-		plugin_log(
-		    p->plugin, LOG_UNUSUAL,
-		    "Node %s reported an incorrect HTLC amount, this could be "
-		    "a prior hop messing with the amounts.",
-		    type_to_string(tmpctx, struct node_id, &hop->nodeid));
-		break;
+	if (!assign_blame(p, &errnode, &errchan)) {
+		plugin_log(p->plugin, LOG_UNUSUAL,
+			   "No erring_index set in `waitsendpay` result: %.*s",
+			   json_tok_full_len(toks),
+			   json_tok_full(buffer, toks));
+		/* FIXME: Pick a random channel to fail? */
+		payment_set_step(p, PAYMENT_STEP_FAILED);
+		payment_continue(p);
+		return command_still_pending(cmd);
 	}
 
-	payment_fail(p, "%s", p->result->message);
-	return command_still_pending(cmd);
+	if (!errchan)
+		return handle_final_failure(cmd, p, errnode,
+					    p->result->failcode);
+
+	return handle_intermediate_failure(cmd, p, errnode, errchan,
+					   p->result->failcode);
 }
 
 static struct command_result *payment_sendonion_success(struct command *cmd,
