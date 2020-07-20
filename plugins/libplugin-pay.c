@@ -2373,10 +2373,16 @@ REGISTER_PAYMENT_MODIFIER(waitblockheight, void *, NULL, waitblockheight_cb);
  * really the case, so this is likely a lower bound on the success rate.
  *
  * As the network evolves these numbers are also likely to change.
+ *
+ * Finally, if applied trivially this splitter may end up creating more splits
+ * than the sum of all channels can support, i.e., each split results in an
+ * HTLC, and each channel has an upper limit on the number of HTLCs it'll
+ * allow us to add. If the initial split would result in more than 1/3rd of
+ * the total available HTLCs we clamp the number of splits to 1/3rd. We don't
+ * use 3/3rds in order to retain flexibility in the adaptive splitter.
  */
 #define MPP_TARGET_SIZE (10 * 1000 * 1000)
-#define MPP_TARGET_MSAT AMOUNT_MSAT(MPP_TARGET_SIZE)
-#define MPP_TARGET_FUZZ ( 1 * 1000 * 1000)
+#define PRESPLIT_MAX_HTLC_SHARE 3
 
 static struct presplit_mod_data *presplit_mod_data_init(struct payment *p)
 {
@@ -2390,6 +2396,18 @@ static struct presplit_mod_data *presplit_mod_data_init(struct payment *p)
 	}
 }
 
+static u32 payment_max_htlcs(const struct payment *p)
+{
+	struct channel_hint *h;
+	u32 res = 0;
+	for (size_t i = 0; i < tal_count(p->channel_hints); i++) {
+		h = &p->channel_hints[i];
+		if (h->local && h->enabled)
+			res += h->htlc_budget;
+	}
+	return res;
+}
+
 static bool payment_supports_mpp(struct payment *p)
 {
 	if (p->invoice == NULL || p->invoice->features == NULL)
@@ -2398,10 +2416,26 @@ static bool payment_supports_mpp(struct payment *p)
 	return feature_offered(p->invoice->features, OPT_BASIC_MPP);
 }
 
+/* Return fuzzed amount ~= target, but never exceeding max */
+static struct amount_msat fuzzed_near(struct amount_msat target,
+				      struct amount_msat max)
+{
+	s64 fuzz;
+	struct amount_msat res = target;
+
+	/* Somewhere within 25% of target please. */
+	fuzz = pseudorand(target.millisatoshis / 2) /* Raw: fuzz */
+		- target.millisatoshis / 4; /* Raw: fuzz */
+	res.millisatoshis = target.millisatoshis + fuzz; /* Raw: fuzz < msat */
+
+	if (amount_msat_greater(res, max))
+		res = max;
+	return res;
+}
+
 static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 {
 	struct payment *root = payment_root(p);
-	struct amount_msat amt = root->amount;
 
 	if (d->disable || p->parent != NULL || !payment_supports_mpp(p))
 		return payment_continue(p);
@@ -2422,6 +2456,8 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		/* The presplitter only acts on the root and only in the first
 		 * step. */
 		size_t count = 0;
+		u32 htlcs = payment_max_htlcs(p) / PRESPLIT_MAX_HTLC_SHARE;
+		struct amount_msat target, amt = p->amount;
 
 		/* We need to opt-in to the MPP sending facility no matter
 		 * what we do. That means setting all partids to a non-zero
@@ -2434,31 +2470,31 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		 * but makes debugging a bit easier. */
 		root->next_partid++;
 
+		if (htlcs == 0) {
+			p->abort = true;
+			return payment_fail(
+			    p, "Cannot attempt payment, we have no channel to "
+			       "which we can add an HTLC");
+		} else if (p->amount.millisatoshis / MPP_TARGET_SIZE > htlcs) /* Raw: division */
+			target.millisatoshis = p->amount.millisatoshis / htlcs; /* Raw: division */
+		else
+			target = AMOUNT_MSAT(MPP_TARGET_SIZE);
+
 		/* If we are already below the target size don't split it
 		 * either. */
-		if (amount_msat_greater(MPP_TARGET_MSAT, p->amount))
+		if (amount_msat_greater(target, p->amount))
 			return payment_continue(p);
 
 		/* Ok, we know we should split, so split here and then skip this
 		 * payment and start the children instead. */
-
 		while (!amount_msat_eq(amt, AMOUNT_MSAT(0))) {
+			double multiplier;
+
 			struct payment *c =
 			    payment_new(p, NULL, p, p->modifiers);
 
-			/* Pseudorandom number in the range [-1, 1]. */
-			double rand = pseudorand_double() * 2 - 1;
-			double multiplier;
-
-			c->amount.millisatoshis = rand * MPP_TARGET_FUZZ + MPP_TARGET_SIZE; /* Raw: Multiplication */
-
-			/* Clamp the value to the total amount, so the fuzzing
-			 * doesn't go above the total. */
-			if (amount_msat_greater(c->amount, amt))
-				c->amount = amt;
-
-			multiplier =
-			    (double)c->amount.millisatoshis / (double)p->amount.millisatoshis; /* Raw: msat division. */
+			/* Get ~ target, but don't exceed amt */
+			c->amount = fuzzed_near(target, amt);
 
 			if (!amount_msat_sub(&amt, amt, c->amount))
 				plugin_err(
@@ -2471,6 +2507,7 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 
 			/* Now adjust the constraints so we don't multiply them
 			 * when splitting. */
+			multiplier = (double)c->amount.millisatoshis / (double)p->amount.millisatoshis; /* Raw: msat division. */
 			c->constraints.fee_budget.millisatoshis *= multiplier; /* Raw: Multiplication */
 			payment_start(c);
 			count++;
@@ -2480,11 +2517,10 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		p->route = NULL;
 		p->why = tal_fmt(
 		    p,
-		    "Split into %zu sub-payments due to initial size (%s > "
-		    "%dmsat)",
+		    "Split into %zu sub-payments due to initial size (%s > %s)",
 		    count,
 		    type_to_string(tmpctx, struct amount_msat, &root->amount),
-		    MPP_TARGET_SIZE);
+		    type_to_string(tmpctx, struct amount_msat, &target));
 		payment_set_step(p, PAYMENT_STEP_SPLIT);
 		plugin_log(p->plugin, LOG_INFORM, "%s", p->why);
 	}
