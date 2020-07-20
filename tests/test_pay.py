@@ -1672,8 +1672,9 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     # It will try l1->l2->l5, which fails.
     # It will try l1->l2->l3->l5, which fails.
     # It will try l1->l2->l3->l4->l5, which fails.
+    # Finally, fails to find a route.
     inv = l5.rpc.invoice(10**8, 'test_retry2', 'test_retry2')['bolt11']
-    with pytest.raises(RpcError, match=r'3 attempts'):
+    with pytest.raises(RpcError, match=r'4 attempts'):
         l1.rpc.dev_pay(inv, use_shadow=False)
 
 
