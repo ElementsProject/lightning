@@ -328,11 +328,13 @@ struct direct_pay_data {
 	struct short_channel_id_dir *chan;
 };
 
-/* Since presplit and adaptive mpp modifiers share the same information we
- * just use the same backing struct. Should they deviate we can create an
- * adaptive_splitter_mod_data struct and populate that. */
 struct presplit_mod_data {
 	bool disable;
+};
+
+struct adaptive_split_mod_data {
+	bool disable;
+	u32 htlc_budget;
 };
 
 /* List of globally available payment modifiers. */
@@ -343,7 +345,7 @@ REGISTER_PAYMENT_MODIFIER_HEADER(shadowroute, struct shadow_route_data);
 REGISTER_PAYMENT_MODIFIER_HEADER(directpay, struct direct_pay_data);
 extern struct payment_modifier waitblockheight_pay_mod;
 REGISTER_PAYMENT_MODIFIER_HEADER(presplit, struct presplit_mod_data);
-REGISTER_PAYMENT_MODIFIER_HEADER(adaptive_splitter, struct presplit_mod_data);
+REGISTER_PAYMENT_MODIFIER_HEADER(adaptive_splitter, struct adaptive_split_mod_data);
 
 /* For the root payment we can seed the channel_hints with the result from
  * `listpeers`, hence avoid channels that we know have insufficient capacity
