@@ -1750,13 +1750,21 @@ REGISTER_PAYMENT_MODIFIER(exemptfee, struct exemptfee_data *,
 
 static struct shadow_route_data *shadow_route_init(struct payment *p)
 {
+	struct shadow_route_data *d = tal(p, struct shadow_route_data), *pd;
+
+	/* If we're not the root we need to inherit the flags set only on the
+	 * root payment. Since we inherit them at each step it's sufficient to
+	 * do so from our direct parent. */
 	if (p->parent != NULL) {
-		return payment_mod_shadowroute_get_data(p->parent);
+		pd = payment_mod_shadowroute_get_data(p->parent);
+		d->fuzz_amount = pd->fuzz_amount;
+#if DEVELOPER
+		d->use_shadow = pd->use_shadow;
+#endif
 	} else {
-		struct shadow_route_data *d = tal(p, struct shadow_route_data);
 		d->fuzz_amount = true;
-		return d;
 	}
+	return d;
 }
 
 /* Mutual recursion */
