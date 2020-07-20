@@ -358,7 +358,7 @@ int main(int argc, char *argv[])
 		features.bits[i] = tal_arr(NULL, u8, 0);
 	set_feature_bit(&features.bits[NODE_ANNOUNCE_FEATURE], KEYSEND_FEATUREBIT);
 
-	plugin_main(argv, init, PLUGIN_STATIC, &features, commands,
+	plugin_main(argv, init, PLUGIN_STATIC, true, &features, commands,
 		    ARRAY_SIZE(commands), NULL, 0, hooks, ARRAY_SIZE(hooks),
 		    NULL);
 }
