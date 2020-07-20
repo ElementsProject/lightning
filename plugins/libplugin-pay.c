@@ -198,6 +198,7 @@ static void payment_exclude_most_expensive(struct payment *p)
 	hint.scid.scid = e->channel_id;
 	hint.scid.dir = e->direction;
 	hint.enabled = false;
+	hint.local = false;
 	tal_arr_expand(&root->channel_hints, hint);
 }
 
@@ -218,6 +219,7 @@ static void payment_exclude_longest_delay(struct payment *p)
 	hint.scid.scid = e->channel_id;
 	hint.scid.dir = e->direction;
 	hint.enabled = false;
+	hint.local = false;
 	tal_arr_expand(&root->channel_hints, hint);
 }
 
@@ -278,6 +280,14 @@ static void payment_chanhints_apply_route(struct payment *p, bool remove)
 			if (short_channel_id_eq(&curhint->scid.scid,
 						&curhop->channel_id) &&
 			    curhint->scid.dir == curhop->direction) {
+
+				/* Update the number of htlcs for any local
+				 * channel in the route */
+				if (curhint->local && remove)
+					curhint->htlc_budget++;
+				else if (curhint->local)
+					curhint->htlc_budget--;
+
 				if (remove && !amount_msat_add(
 						  &curhint->estimated_capacity,
 						  curhint->estimated_capacity,
@@ -391,6 +401,10 @@ payment_get_excluded_channels(const tal_t *ctx, struct payment *p)
 
 		else if (amount_msat_greater_eq(p->amount,
 						hint->estimated_capacity))
+			tal_arr_expand(&res, hint->scid);
+		else if (hint->local && hint->htlc_budget == 0)
+			/* If we cannot add any HTLCs to the channel we
+			 * shouldn't look for a route through that channel */
 			tal_arr_expand(&res, hint->scid);
 	}
 	return res;
@@ -619,6 +633,7 @@ static void channel_hints_update(struct payment *root,
 	hint.scid.scid = *scid;
 	hint.scid.dir = direction;
 	hint.estimated_capacity = estimated_capacity;
+	hint.local = false;
 	tal_arr_expand(&root->channel_hints, hint);
 
 	plugin_log(
@@ -1603,7 +1618,8 @@ static struct command_result *
 local_channel_hints_listpeers(struct command *cmd, const char *buffer,
 			      const jsmntok_t *toks, struct payment *p)
 {
-	const jsmntok_t *peers, *peer, *channels, *channel, *spendsats, *scid, *dir, *connected;
+	const jsmntok_t *peers, *peer, *channels, *channel, *spendsats, *scid,
+	    *dir, *connected, *max_htlc, *htlcs;
 	size_t i, j;
 	peers = json_get_member(buffer, toks, "peers");
 
@@ -1622,7 +1638,12 @@ local_channel_hints_listpeers(struct command *cmd, const char *buffer,
 			spendsats = json_get_member(buffer, channel, "spendable_msat");
 			scid = json_get_member(buffer, channel, "short_channel_id");
 			dir = json_get_member(buffer, channel, "direction");
-			if(spendsats == NULL || scid == NULL || dir == NULL)
+			max_htlc = json_get_member(buffer, channel, "max_accepted_htlcs");
+			htlcs = json_get_member(buffer, channel, "htlcs");
+			if (spendsats == NULL || scid == NULL || dir == NULL ||
+			    max_htlc == NULL ||
+			    max_htlc->type != JSMN_PRIMITIVE || htlcs == NULL ||
+			    htlcs->type != JSMN_ARRAY)
 				continue;
 
 			json_to_bool(buffer, connected, &h.enabled);
@@ -1630,6 +1651,16 @@ local_channel_hints_listpeers(struct command *cmd, const char *buffer,
 			json_to_int(buffer, dir, &h.scid.dir);
 
 			json_to_msat(buffer, spendsats, &h.estimated_capacity);
+
+			/* Take the configured number of max_htlcs and
+			 * subtract any HTLCs that might already be added to
+			 * the channel. This is a best effort estimate and
+			 * mostly considers stuck htlcs, concurrent payments
+			 * may throw us off a bit. */
+			json_to_u16(buffer, max_htlc, &h.htlc_budget);
+			h.htlc_budget -= htlcs->size;
+			h.local = true;
+
 			tal_arr_expand(&p->channel_hints, h);
 		}
 	}
