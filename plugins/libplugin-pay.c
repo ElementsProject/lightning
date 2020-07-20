@@ -2537,31 +2537,55 @@ REGISTER_PAYMENT_MODIFIER(presplit, struct presplit_mod_data *,
  * +/- 10% randomness, and then starts two attempts, one for either side of
  * the split. The goal is to find two smaller routes, that still adhere to our
  * constraints, but that can complete the payment.
+ *
+ * This modifier also checks whether we can split and still have enough HTLCs
+ * available on the channels and aborts if that's no longer the case.
  */
 
 #define MPP_ADAPTIVE_LOWER_LIMIT AMOUNT_MSAT(100 * 1000)
 
-static struct presplit_mod_data *adaptive_splitter_data_init(struct payment *p)
+static struct adaptive_split_mod_data *adaptive_splitter_data_init(struct payment *p)
 {
-	struct presplit_mod_data *d;
+	struct adaptive_split_mod_data *d;
 	if (p->parent == NULL) {
-		d = tal(p, struct presplit_mod_data);
+		d = tal(p, struct adaptive_split_mod_data);
 		d->disable = false;
+		d->htlc_budget = 0;
 		return d;
 	} else {
-		return payment_mod_presplit_get_data(p->parent);
+		return payment_mod_adaptive_splitter_get_data(p->parent);
 	}
 }
 
-static void adaptive_splitter_cb(struct presplit_mod_data *d, struct payment *p)
+static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payment *p)
 {
 	struct payment *root = payment_root(p);
-
+	struct adaptive_split_mod_data *root_data =
+	    payment_mod_adaptive_splitter_get_data(root);
 	if (d->disable)
 		return payment_continue(p);
 
 	if (!payment_supports_mpp(p) || root->abort)
 		return payment_continue(p);
+
+	if (p->parent == NULL && d->htlc_budget == 0) {
+		/* Now that we potentially had an early splitter run, let's
+		 * update our htlc_budget that we own exclusively from now
+		 * on. We do this by subtracting the number of payment
+		 * attempts an eventual presplitter has already performed. */
+		struct payment_tree_result res;
+		res = payment_collect_result(p);
+		d->htlc_budget = payment_max_htlcs(p);
+		if (res.attempts > d->htlc_budget) {
+			p->abort = true;
+			return payment_fail(
+			    p,
+			    "Cannot add %d HTLCs to our channels, we "
+			    "only have %d HTLCs available.",
+			    res.attempts, d->htlc_budget);
+		}
+		d->htlc_budget -= res.attempts;
+	}
 
 	if (p->step == PAYMENT_STEP_ONION_PAYLOAD) {
 		/* We need to tell the last hop the total we're going to
@@ -2584,6 +2608,16 @@ static void adaptive_splitter_cb(struct presplit_mod_data *d, struct payment *p)
 			bool ok;
 			/* Use the start constraints, not the ones updated by routes and shadow-routes. */
 			struct payment_constraints *pconstraints = p->start_constraints;
+
+			/* First check that splitting doesn't exceed our HTLC budget */
+			if (root_data->htlc_budget == 0) {
+				root->abort = true;
+				return payment_fail(
+				    p,
+				    "Cannot split payment any further without "
+				    "exceeding the maximum number of HTLCs "
+				    "allowed by our channels");
+			}
 
 			a = payment_new(p, NULL, p, p->modifiers);
 			b = payment_new(p, NULL, p, p->modifiers);
@@ -2610,6 +2644,10 @@ static void adaptive_splitter_cb(struct presplit_mod_data *d, struct payment *p)
 			payment_start(a);
 			payment_start(b);
 			p->step = PAYMENT_STEP_SPLIT;
+
+			/* Take note that we now have an additional split that
+			 * may end up using an HTLC. */
+			root_data->htlc_budget--;
 		} else {
 			plugin_log(p->plugin, LOG_INFORM,
 				   "Lower limit of adaptive splitter reached "
@@ -2623,5 +2661,5 @@ static void adaptive_splitter_cb(struct presplit_mod_data *d, struct payment *p)
 	payment_continue(p);
 }
 
-REGISTER_PAYMENT_MODIFIER(adaptive_splitter, struct presplit_mod_data *,
+REGISTER_PAYMENT_MODIFIER(adaptive_splitter, struct adaptive_split_mod_data *,
 			  adaptive_splitter_data_init, adaptive_splitter_cb);
