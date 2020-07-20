@@ -69,6 +69,14 @@ struct channel_hint {
 
 	/* Is the channel enabled? */
 	bool enabled;
+
+	/* True if we are one endpoint of this channel */
+	bool local;
+
+	/* How many more htlcs can we send over this channel? Only set if this
+	 * is a local channel, because those are the channels we have exact
+	 * numbers on, and they are the bottleneck onto the network. */
+	u16 htlc_budget;
 };
 
 /* Each payment goes through a number of steps that are always processed in
