@@ -309,7 +309,7 @@ void psbt_input_set_prev_utxo_wscript(struct wally_psbt *psbt, size_t in,
 	if (wscript) {
 		scriptPubkey = scriptpubkey_p2wsh(psbt, wscript);
 		wally_err = wally_psbt_input_set_witness_script(&psbt->inputs[in],
-								cast_const(u8 *, wscript),
+								wscript,
 								tal_bytelen(wscript));
 		assert(wally_err == WALLY_OK);
 	} else
@@ -331,8 +331,7 @@ psbt_input_set_elements_prev_utxo_wscript(struct wally_psbt *psbt,
 		scriptPubkey = scriptpubkey_p2wsh(psbt, wscript);
 		wally_err = wally_psbt_input_set_witness_script(
 				&psbt->inputs[in],
-				cast_const(u8 *, wscript),
-				tal_bytelen(wscript));
+				wscript, tal_bytelen(wscript));
 		assert(wally_err == WALLY_OK);
 	} else
 		scriptPubkey = NULL;
@@ -391,7 +390,7 @@ bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
 	int wally_err;
 	assert(psbt->num_inputs > in);
 	wally_err = wally_psbt_input_set_redeem_script(&psbt->inputs[in],
-						       cast_const(u8 *, redeemscript),
+						       redeemscript,
 						       tal_bytelen(redeemscript));
 	return wally_err == WALLY_OK;
 }
@@ -460,8 +459,7 @@ char *psbt_to_b64(const tal_t *ctx, const struct wally_psbt *psbt)
 	char *serialized_psbt, *ret_val;
 	int ret;
 
-	ret = wally_psbt_to_base64(cast_const(struct wally_psbt *, psbt), 0,
-				   &serialized_psbt);
+	ret = wally_psbt_to_base64(psbt, 0, &serialized_psbt);
 	assert(ret == WALLY_OK);
 
 	ret_val = tal_strdup(ctx, serialized_psbt);
