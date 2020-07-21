@@ -1765,14 +1765,12 @@ static bool routehint_excluded(struct payment *p,
 static struct route_info *next_routehint(struct routehints_data *d,
 					     struct payment *p)
 {
-	while (tal_count(d->routehints) > 0) {
-		if (!routehint_excluded(p, d->routehints[0])) {
-			d->current_routehint = d->routehints[0];
-			tal_arr_remove(&d->routehints, 0);
-			return d->current_routehint;
+	/* FIXME: Add a pseudorandom offset to rotate between the routehints
+	 * we use, similar to what we'd do by randomizing the routes. */
+	for (size_t i=0; i<tal_count(d->routehints); i++) {
+		if (!routehint_excluded(p, d->routehints[i])) {
+			return d->routehints[i];
 		}
-		tal_free(d->routehints[0]);
-		tal_arr_remove(&d->routehints, 0);
 	}
 	return NULL;
 }
@@ -1821,17 +1819,19 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 		if (root->invoice == NULL || root->invoice->routes == NULL)
 			return payment_continue(p);
 
-		/* The root payment gets the unmodified routehints, children may
-		 * start dropping some as they learn that they were not
-		 * functional. */
+		/* We filter out non-functional routehints once at the
+		 * beginning, and every other payment will filter out the
+		 * exluded ones on the fly. */
 		if (p->parent == NULL) {
 			d->routehints = filter_routehints(d, p->local_id,
 							  p->invoice->routes);
 		} else {
 			pd = payment_mod_get_data(p->parent,
 						  &routehints_pay_mod);
-			d->routehints = tal_dup_talarr(d, struct route_info *,
-						       pd->routehints);
+			/* Since we don't modify the list of routehints after
+			 * the root has filtered them we can just shared a
+			 * pointer here. */
+			d->routehints = pd->routehints;
 		}
 		d->current_routehint = next_routehint(d, p);
 
@@ -1847,6 +1847,11 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 			p->getroute->cltv =
 			    route_cltv(p->getroute->cltv, d->current_routehint,
 				       tal_count(d->current_routehint));
+			plugin_log(p->plugin, LOG_DBG, "Using routehint %s (%s) cltv_delta=%d",
+				   type_to_string(tmpctx, struct node_id, &d->current_routehint->pubkey),
+				   type_to_string(tmpctx, struct short_channel_id, &d->current_routehint->short_channel_id),
+				   d->current_routehint->cltv_expiry_delta
+				);
 		}
 	} else if (p->step == PAYMENT_STEP_GOT_ROUTE) {
 		/* Now it's time to stitch the two partial routes together. */
@@ -1886,8 +1891,8 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 
 static struct routehints_data *routehint_data_init(struct payment *p)
 {
-	/* We defer the actual initialization to the step callback when we have
-	 * the invoice attached. */
+	/* We defer the actual initialization to the step callback when
+	 * we have the invoice attached. */
 	return talz(p, struct routehints_data);
 }
 
