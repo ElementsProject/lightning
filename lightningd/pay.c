@@ -837,8 +837,29 @@ send_payment_core(struct lightningd *ld,
 						    "Already have %s payment in progress",
 						    payments[i]->partid ? "parallel" : "non-parallel");
 			}
-			if (payments[i]->partid == partid)
+			if (payments[i]->partid == partid) {
+				/* You can't change details while it's pending */
+				if (!amount_msat_eq(payments[i]->msatoshi, msat)) {
+					return command_fail(cmd, PAY_RHASH_ALREADY_USED,
+						    "Already pending "
+						    "with amount %s (not %s)",
+						    type_to_string(tmpctx,
+								   struct amount_msat,
+								   &payments[i]->msatoshi),
+						    type_to_string(tmpctx,
+								   struct amount_msat, &msat));
+				}
+				if (payments[i]->destination && destination
+				    && !node_id_eq(payments[i]->destination,
+						   destination)) {
+					return command_fail(cmd, PAY_RHASH_ALREADY_USED,
+							    "Already pending to %s",
+							    type_to_string(tmpctx,
+									   struct node_id,
+									   payments[i]->destination));
+				}
 				return json_sendpay_in_progress(cmd, payments[i]);
+			}
 			/* You shouldn't change your mind about amount being
 			 * sent, since we'll use it in onion! */
 			else if (!amount_msat_eq(payments[i]->total_msat,
