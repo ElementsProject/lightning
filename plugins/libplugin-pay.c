@@ -1049,7 +1049,7 @@ static void payment_add_hop_onion_payload(struct payment *p,
 					  struct secret *payment_secret)
 {
 	struct createonion_request *cr = p->createonion_request;
-	u32 cltv = p->start_block + next->delay;
+	u32 cltv = p->start_block + next->delay + 1;
 	u64 msat = next->amount.millisatoshis; /* Raw: TLV payload generation*/
 	struct tlv_field **fields;
 	static struct short_channel_id all_zero_scid = {.u64 = 0};
