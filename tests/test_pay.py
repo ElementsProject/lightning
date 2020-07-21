@@ -2639,6 +2639,14 @@ def test_partial_payment(node_factory, bitcoind, executor):
     assert pay['number_of_parts'] == 2
     assert pay['amount_sent_msat'] == Millisatoshi(1002)
 
+    # It will immediately succeed if we pay again.
+    pay = l1.rpc.sendpay(route=r124, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=2)
+    assert pay['status'] == 'complete'
+
+    # If we try with an unknown partid, it will refuse.
+    with pytest.raises(RpcError, match=r'Already succeeded'):
+        l1.rpc.sendpay(route=r124, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=3)
+
 
 def test_partial_payment_timeout(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2)
