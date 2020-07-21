@@ -2609,9 +2609,12 @@ def test_partial_payment(node_factory, bitcoind, executor):
         l1.rpc.sendpay(route=r124, payment_hash=inv['payment_hash'],
                        msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=3)
 
-    # But repeat is a NOOP.
-    l1.rpc.sendpay(route=r124, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
-    l1.rpc.sendpay(route=r134, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=2)
+    # But repeat is a NOOP, as long as they're exactly the same!
+    with pytest.raises(RpcError, match=r'Already pending with amount 501msat \(not 499msat\)'):
+        l1.rpc.sendpay(route=r124, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
+
+    l1.rpc.sendpay(route=r134, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
+    l1.rpc.sendpay(route=r124, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=2)
 
     # Make sure they've done the suppress-commitment thing before we unsuppress
     l2.daemon.wait_for_log(r'dev_disconnect')
