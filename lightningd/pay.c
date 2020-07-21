@@ -789,6 +789,7 @@ send_payment_core(struct lightningd *ld,
 	struct htlc_out *hout;
 	struct routing_failure *fail;
 	struct amount_msat msat_already_pending = AMOUNT_MSAT(0);
+	bool have_complete = false;
 
 	/* Now, do we already have one or more payments? */
 	payments = wallet_payment_list(tmpctx, ld->wallet, rhash);
@@ -803,6 +804,7 @@ send_payment_core(struct lightningd *ld,
 
 		switch (payments[i]->status) {
 		case PAYMENT_COMPLETE:
+			have_complete = true;
 			if (payments[i]->partid != partid)
 				continue;
 
@@ -810,10 +812,12 @@ send_payment_core(struct lightningd *ld,
 			if (!amount_msat_eq(payments[i]->msatoshi, msat)) {
 				return command_fail(cmd, PAY_RHASH_ALREADY_USED,
 						    "Already succeeded "
-						    "with amount %s",
+						    "with amount %s (not %s)",
 						    type_to_string(tmpctx,
 								   struct amount_msat,
-								   &payments[i]->msatoshi));
+								   &payments[i]->msatoshi),
+						    type_to_string(tmpctx,
+								   struct amount_msat, &msat));
 			}
 			if (payments[i]->destination && destination
 			    && !node_id_eq(payments[i]->destination,
@@ -869,6 +873,12 @@ send_payment_core(struct lightningd *ld,
 			if (payments[i]->partid == partid)
 				old_payment = payments[i];
  		}
+	}
+
+	/* If any part has succeeded, you can't start a new one! */
+	if (have_complete) {
+		return command_fail(cmd, PAY_RHASH_ALREADY_USED,
+				    "Already succeeded other parts");
 	}
 
 	/* BOLT #4:
