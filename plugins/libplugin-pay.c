@@ -1769,12 +1769,19 @@ static bool routehint_excluded(struct payment *p,
 static struct route_info *next_routehint(struct routehints_data *d,
 					     struct payment *p)
 {
-	/* FIXME: Add a pseudorandom offset to rotate between the routehints
-	 * we use, similar to what we'd do by randomizing the routes. */
+	/* Implements a random selection of a routehint, or none in 1/numhints
+	 * cases, by starting the iteration of the routehints in a random
+	 * order, and adding a virtual NULL result at the end. */
+	size_t numhints = tal_count(d->routehints);
+	size_t offset = pseudorand(numhints + 1);
+
 	for (size_t i=0; i<tal_count(d->routehints); i++) {
-		if (!routehint_excluded(p, d->routehints[i])) {
+		size_t curr = (offset + i) % (numhints + 1);
+		if (curr == numhints)
+			return NULL;
+
+		if (!routehint_excluded(p, d->routehints[curr]))
 			return d->routehints[i];
-		}
 	}
 	return NULL;
 }
