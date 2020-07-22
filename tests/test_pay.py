@@ -3103,10 +3103,10 @@ def test_mpp_adaptive(node_factory, bitcoind):
 
     ```dot
     digraph {
-      l1 -> l2;
-      l2 -> l4;
-      l1 -> l3;
-      l3 -> l4;
+      l1 -> l2 [label="scid=103x1x1, cap=amt-1"];
+      l2 -> l4 [label="scid=105x1x1, cap=max"];
+      l1 -> l3 [label="scid=107x1x1, cap=max"];
+      l3 -> l4 [label="scid=109x1x1, cap=amt-1"];
     }
     """
     amt = 10**7 - 1
