@@ -179,12 +179,63 @@ void payment_start(struct payment *p)
 					  payment_rpc_failure, p));
 }
 
-static void payment_exclude_most_expensive(struct payment *p)
+static void channel_hints_update(struct payment *p,
+				 const struct short_channel_id scid,
+				 int direction, bool enabled, bool local,
+				 struct amount_msat *estimated_capacity,
+				 u16 *htlc_budget)
 {
 	struct payment *root = payment_root(p);
+	struct channel_hint hint;
+
+	/* If the channel is marked as enabled it must have an estimate. */
+	assert(!enabled || estimated_capacity != NULL);
+
+	/* Try and look for an existing hint: */
+	for (size_t i=0; i<tal_count(root->channel_hints); i++) {
+		struct channel_hint *hint = &root->channel_hints[i];
+		if (short_channel_id_eq(&hint->scid.scid, &scid) &&
+		    hint->scid.dir == direction) {
+			/* Prefer to disable a channel. */
+			hint->enabled = hint->enabled & enabled;
+
+			/* Prefer the more conservative estimate. */
+			if (estimated_capacity != NULL &&
+			    amount_msat_greater(hint->estimated_capacity,
+						*estimated_capacity))
+				hint->estimated_capacity = *estimated_capacity;
+			if (htlc_budget != NULL && *htlc_budget < hint->htlc_budget)
+				hint->htlc_budget = *htlc_budget;
+			return;
+		}
+	}
+
+	/* No hint found, create one. */
+	hint.enabled = enabled;
+	hint.scid.scid = scid;
+	hint.scid.dir = direction;
+	hint.local = local;
+	if (estimated_capacity != NULL)
+		hint.estimated_capacity = *estimated_capacity;
+
+	if (htlc_budget != NULL)
+		hint.htlc_budget = *htlc_budget;
+
+	tal_arr_expand(&root->channel_hints, hint);
+
+	plugin_log(
+	    root->plugin, LOG_DBG,
+	    "Added a channel hint for %s: enabled %s, estimated capacity %s",
+	    type_to_string(tmpctx, struct short_channel_id_dir, &hint.scid),
+	    hint.enabled ? "true" : "false",
+	    type_to_string(tmpctx, struct amount_msat,
+			   &hint.estimated_capacity));
+}
+
+static void payment_exclude_most_expensive(struct payment *p)
+{
 	struct route_hop *e = &p->route[0];
 	struct amount_msat fee, worst = AMOUNT_MSAT(0);
-	struct channel_hint hint;
 
 	for (size_t i = 0; i < tal_count(p->route)-1; i++) {
 		if (!amount_msat_sub(&fee, p->route[i].amount, p->route[i+1].amount))
@@ -195,19 +246,14 @@ static void payment_exclude_most_expensive(struct payment *p)
 			worst = fee;
 		}
 	}
-	hint.scid.scid = e->channel_id;
-	hint.scid.dir = e->direction;
-	hint.enabled = false;
-	hint.local = false;
-	tal_arr_expand(&root->channel_hints, hint);
+	channel_hints_update(p, e->channel_id, e->direction, false, false,
+			     NULL, NULL);
 }
 
 static void payment_exclude_longest_delay(struct payment *p)
 {
-	struct payment *root = payment_root(p);
 	struct route_hop *e = &p->route[0];
 	u32 delay, worst = 0;
-	struct channel_hint hint;
 
 	for (size_t i = 0; i < tal_count(p->route)-1; i++) {
 		delay = p->route[i].delay - p->route[i+1].delay;
@@ -216,11 +262,8 @@ static void payment_exclude_longest_delay(struct payment *p)
 			worst = delay;
 		}
 	}
-	hint.scid.scid = e->channel_id;
-	hint.scid.dir = e->direction;
-	hint.enabled = false;
-	hint.local = false;
-	tal_arr_expand(&root->channel_hints, hint);
+	channel_hints_update(p, e->channel_id, e->direction, false, false,
+			     NULL, NULL);
 }
 
 static struct amount_msat payment_route_fee(struct payment *p)
@@ -605,46 +648,6 @@ fail:
 	return tal_free(result);
 }
 
-static void channel_hints_update(struct payment *root,
-				 const struct short_channel_id *scid,
-				 int direction,
-				 bool enabled,
-				 struct amount_msat estimated_capacity)
-{
-	struct channel_hint hint;
-	/* Try and look for an existing hint: */
-	for (size_t i=0; i<tal_count(root->channel_hints); i++) {
-		struct channel_hint *hint = &root->channel_hints[i];
-		if (short_channel_id_eq(&hint->scid.scid, scid) &&
-		    hint->scid.dir == direction) {
-			/* Prefer to disable a channel. */
-			hint->enabled = hint->enabled & enabled;
-
-			/* Prefer the more conservative estimate. */
-			if (amount_msat_greater(hint->estimated_capacity,
-						estimated_capacity))
-				hint->estimated_capacity = estimated_capacity;
-			return;
-		}
-	}
-
-	/* No hint found, create one. */
-	hint.enabled = enabled;
-	hint.scid.scid = *scid;
-	hint.scid.dir = direction;
-	hint.estimated_capacity = estimated_capacity;
-	hint.local = false;
-	tal_arr_expand(&root->channel_hints, hint);
-
-	plugin_log(
-	    root->plugin, LOG_DBG,
-	    "Added a channel hint for %s: enabled %s, estimated capacity %s",
-	    type_to_string(tmpctx, struct short_channel_id_dir, &hint.scid),
-	    hint.enabled ? "true" : "false",
-	    type_to_string(tmpctx, struct amount_msat,
-			   &hint.estimated_capacity));
-}
-
 /* Try to infer the erring_node, erring_channel and erring_direction from what
  * we know, but don't override the values that are returned by `waitsendpay`.  */
 static void payment_result_infer(struct route_hop *route,
@@ -825,9 +828,9 @@ handle_intermediate_failure(struct command *cmd,
 	case WIRE_UNKNOWN_NEXT_PEER:
 	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
 		/* All of these result in the channel being marked as disabled. */
-		channel_hints_update(root,
-				     &errchan->channel_id, errchan->direction,
-				     false, AMOUNT_MSAT(0));
+		channel_hints_update(root, errchan->channel_id,
+				     errchan->direction, false, false, NULL,
+				     NULL);
 		break;
 
 	case WIRE_TEMPORARY_CHANNEL_FAILURE: {
@@ -835,9 +838,9 @@ handle_intermediate_failure(struct command *cmd,
 		 * remember the amount we tried as an estimate. */
 		struct amount_msat est = errchan->amount;
 		est.millisatoshis *= 0.75; /* Raw: Multiplication */
-		channel_hints_update(root,
-				     &errchan->channel_id, errchan->direction,
-				     true, est);
+		channel_hints_update(root, errchan->channel_id,
+				     errchan->direction, true, false, &est,
+				     NULL);
 		goto error;
 	}
 
@@ -1661,7 +1664,8 @@ local_channel_hints_listpeers(struct command *cmd, const char *buffer,
 			h.htlc_budget -= htlcs->size;
 			h.local = true;
 
-			tal_arr_expand(&p->channel_hints, h);
+			channel_hints_update(p, h.scid.scid, h.scid.dir,
+					     h.enabled, true, &h.estimated_capacity, &h.htlc_budget);
 		}
 	}
 
