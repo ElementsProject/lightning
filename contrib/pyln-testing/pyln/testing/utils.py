@@ -601,6 +601,9 @@ class LightningNode(object):
                 '--error-exitcode=7',
                 '--log-file={}/valgrind-errors.%p'.format(self.daemon.lightning_dir)
             ]
+            # Reduce precision of errors, speeding startup and reducing memory greatly:
+            if SLOW_MACHINE:
+                self.daemon.cmd_prefix += ['--read-inline-info=no']
 
     def connect(self, remote_node):
         self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.daemon.port)
