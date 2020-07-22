@@ -553,6 +553,9 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_noarg("--dev-fail-process-onionpacket", opt_set_bool,
 			   &dev_fail_process_onionpacket,
 			   "Force all processing of onion packets to fail");
+	opt_register_noarg("--dev-no-version-checks", opt_set_bool,
+			   &ld->dev_no_version_checks,
+			   "Skip calling subdaemons with --version on startup");
 }
 #endif /* DEVELOPER */
 
