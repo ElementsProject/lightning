@@ -716,7 +716,7 @@ static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
 
-	status_debug("%s:%d %s: signature: %s",
+	STATUS_DEBUG("%s:%d %s: signature: %s",
 		     __FILE__, __LINE__, __FUNCTION__,
 		     type_to_string(tmpctx, struct bitcoin_signature, &sig));
 
@@ -1044,7 +1044,7 @@ static struct io_plan *pass_client_hsmfd(struct io_conn *conn,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR, "creating fds: %s",
 			      strerror(errno));
 
-	status_debug("new_client: %"PRIu64, dbid);
+	STATUS_DEBUG("new_client: %"PRIu64, dbid);
 	new_client(c, c->chainparams, &id, dbid, capabilities, fds[0]);
 
 	// Skip zero dbid (master, gossipd, connectd).
@@ -1154,32 +1154,27 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 						 struct client *c,
 						 const u8 *msg_in)
 {
-	struct amount_sat satoshi_out, change_out;
-	u32 change_keyindex;
 	struct utxo **utxos;
-	struct bitcoin_tx *tx;
-	struct pubkey changekey;
-	struct bitcoin_tx_output **outputs;
-	u32 nlocktime;
+	struct wally_psbt *psbt;
 
-	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg_in, &satoshi_out,
-					  &change_out, &change_keyindex,
-					  &outputs, &utxos, &nlocktime))
+	if (!fromwire_hsm_sign_withdrawal(tmpctx, msg_in,
+					  &utxos, &psbt))
 		return bad_req(conn, c, msg_in);
 
-	if (!bip32_pubkey(&pubstuff.bip32, &changekey, change_keyindex))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed to get key %u", change_keyindex);
-
-	tx = withdraw_tx(tmpctx, c->chainparams,
-			 cast_const2(const struct utxo **, utxos), outputs,
-			 &changekey, change_out, NULL, NULL, nlocktime);
+	struct bitcoin_tx_output **outputs;
+	outputs = tal_arr(tmpctx, struct bitcoin_tx_output *, psbt->num_outputs);
+	for (size_t ii = 0; ii < psbt->num_outputs; ++ii) {
+		outputs[ii] = tal(outputs, struct bitcoin_tx_output);
+		outputs[ii]->amount.satoshis = psbt->tx->outputs[ii].satoshi; /* Raw: from wally_tx_output */
+		outputs[ii]->script =
+			tal_dup_arr(outputs[ii], u8,
+				    psbt->tx->outputs[ii].script,
+				    psbt->tx->outputs[ii].script_len, 0);
+	}
 
 	u8 *** wits;
 	proxy_stat rv = proxy_handle_sign_withdrawal_tx(
-		&c->id, c->dbid, &satoshi_out,
-		&change_out, change_keyindex,
-		outputs, utxos, tx, &wits);
+		&c->id, c->dbid, outputs, utxos, psbt, &wits);
 	if (PROXY_PERMANENT(rv))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "proxy_%s failed: %s", __FUNCTION__,
@@ -1189,35 +1184,40 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 				   "proxy_%s error: %s", __FUNCTION__,
 				   proxy_last_message());
 
-	/* Sign w/ the remote lightning-signer. */
-	assert(tal_count(wits) == tal_count(utxos));
-	for (size_t ii = 0; ii < tal_count(wits); ++ii) {
-		struct pubkey inkey;
-		bool ok = pubkey_from_der(
-			wits[ii][1], tal_count(wits[ii][1]), &inkey);
-		assert(ok);
+	/* We must have one witness element for each input. */
+	assert(tal_count(wits) == psbt->num_inputs);
 
-		if (utxos[ii]->is_p2sh) {
-			u8 *script = bitcoin_scriptsig_p2sh_p2wpkh(
-				tx, &inkey);
-			bitcoin_tx_input_set_script(tx, ii, script);
+	/* Witnesses and inputs are in the same order. */
+	for (size_t kk = 0; kk < tal_count(wits); ++kk) {
+		struct wally_psbt_input *input = &psbt->inputs[kk];
+		u8 *sig = wits[kk][0];
+		u8 *pubkey = wits[kk][1];
+		int ret;
 
-		} else {
-			bitcoin_tx_input_set_script(tx, ii, NULL);
+		/* If this is a PSBT, we should skip any inputs that
+		 * have an empty signature. */
+		if (tal_count(sig) == 0)
+			continue;
+
+		struct pubkey spubkey;
+		pubkey_from_der(pubkey, EC_PUBLIC_KEY_LEN, &spubkey);
+		psbt_input_add_pubkey(psbt, kk, &spubkey);
+
+		if (!input->partial_sigs) {
+			ret = wally_partial_sigs_map_init_alloc(
+				1, &input->partial_sigs);
+			assert(ret == WALLY_OK);
 		}
 
-		u8 **witness = tal_arr(tx, u8 *, 2);
-		witness[0] = tal_dup_arr(witness, u8,
-					 wits[ii][0],
-					 tal_count(wits[ii][0]), 0);
-		witness[1] = tal_dup_arr(witness, u8,
-					 wits[ii][1],
-					 tal_count(wits[ii][1]), 0);
-		bitcoin_tx_input_set_witness(tx, ii, take(witness));
+		ret = wally_add_new_partial_sig(
+			input->partial_sigs,
+			pubkey, EC_PUBLIC_KEY_LEN,
+			sig, tal_count(sig));
+		assert(ret == WALLY_OK);
 	}
 
 	return req_reply(conn, c,
-			 take(towire_hsm_sign_withdrawal_reply(NULL, tx)));
+			 take(towire_hsm_sign_withdrawal_reply(NULL, psbt)));
 }
 
 /*~ Lightning invoices, defined by BOLT 11, are signed.  This has been
@@ -1445,7 +1445,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 {
 	enum hsm_wire_type t = fromwire_peektype(c->msg_in);
 
-	status_debug("Client: Received message %d from client", t);
+	STATUS_DEBUG("Client: Received message %d from client", t);
 
 	/* Before we do anything else, is this client allowed to do
 	 * what he asks for? */

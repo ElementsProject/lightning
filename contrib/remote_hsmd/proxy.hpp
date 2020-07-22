@@ -8,6 +8,12 @@ extern "C" {
 #include <ccan/short_types/short_types.h>
 #include <common/hash_u5.h>
 
+#define STATUS_DEBUG(args...)			\
+	do {					\
+		fprintf(stderr, args);		\
+		fprintf(stderr, "\n");		\
+	} while (false)
+
 enum proxy_status {
 	/* SUCCESS */
 	PROXY_OK = 0,
@@ -70,12 +76,9 @@ proxy_stat proxy_handle_ready_channel(
 
 proxy_stat proxy_handle_sign_withdrawal_tx(
 	struct node_id *peer_id, u64 dbid,
-	struct amount_sat *satoshi_out,
-	struct amount_sat *change_out,
-	u32 change_keyindex,
 	struct bitcoin_tx_output **outputs,
 	struct utxo **utxos,
-	struct bitcoin_tx *tx,
+	struct wally_psbt *psbt,
 	u8 ****o_wits);
 
 proxy_stat proxy_handle_sign_remote_commitment_tx(
@@ -187,6 +190,7 @@ proxy_stat proxy_handle_sign_node_announcement(
 
 // FIXME - For debugging, remove for production.
 void print_tx(char const *tag, struct bitcoin_tx const *tx);
+void print_psbt(char const *tag, const struct wally_psbt *psbt);
 
 #ifdef __cplusplus
 } /* extern C */

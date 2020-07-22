@@ -24,6 +24,9 @@ std::string dump_utxos(const struct utxo **utxos);
 std::string dump_bitcoin_tx_output(const struct bitcoin_tx_output *op);
 std::string dump_bitcoin_tx_outputs(const struct bitcoin_tx_output **outputs);
 std::string dump_wally_tx_witness_stack(const struct wally_tx_witness_stack *sp);
+std::string dump_wally_keypath_map(const struct wally_keypath_map *mp);
+std::string dump_wally_partial_sigs_map(const struct wally_partial_sigs_map *mp);
+std::string dump_wally_unknowns_map(const struct wally_unknowns_map *mp);
 std::string dump_wally_tx_input(const struct wally_tx_input *in);
 std::string dump_wally_tx_inputs(const struct wally_tx_input *inputs,
 				 size_t num_inputs);

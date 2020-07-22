@@ -8,6 +8,7 @@ Setup
 
 Building
 
+    make distclean
     ./configure --enable-developer
     make
 
