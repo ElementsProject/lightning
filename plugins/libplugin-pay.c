@@ -25,6 +25,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->failreason = NULL;
 	p->getroute->riskfactorppm = 10000000;
 	p->abort = false;
+	p->route = NULL;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
