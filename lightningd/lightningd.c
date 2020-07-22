@@ -139,6 +139,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_force_channel_secrets_shaseed = NULL;
 	ld->dev_force_tmp_channel_id = NULL;
 	ld->dev_no_htlc_timeout = false;
+	ld->dev_no_version_checks = false;
 #endif
 
 	/*~ These are CCAN lists: an embedded double-linked list.  It's not
@@ -820,8 +821,13 @@ int main(int argc, char *argv[])
 	 * daemon running, so we call before doing almost anything else. */
 	pidfile_create(ld);
 
-	/*~ Make sure we can reach the subdaemons, and versions match. */
-	test_subdaemons(ld);
+	/*~ Make sure we can reach the subdaemons, and versions match.
+	 * This can be turned off in DEVELOPER builds with --dev-skip-version-checks,
+	 * but the `dev_no_version_checks` field of `ld` doesn't even exist
+	 * if DEVELOPER isn't defined, so we use IFDEV(devoption,non-devoption):
+	 */
+	if (IFDEV(!ld->dev_no_version_checks, 1))
+		test_subdaemons(ld);
 
 	/*~ Set up the HSM daemon, which knows our node secret key, so tells
 	 *  us who we are.

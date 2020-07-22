@@ -579,6 +579,9 @@ class LightningNode(object):
             self.daemon.opts["dev-disconnect"] = "dev_disconnect"
         if DEVELOPER:
             self.daemon.opts["dev-fail-on-subdaemon-fail"] = None
+            # Don't run --version on every subdaemon if we're valgrinding and slow.
+            if SLOW_MACHINE and VALGRIND:
+                self.daemon.opts["dev-no-version-checks"] = None
             self.daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
             if os.getenv("DEBUG_SUBD"):
                 self.daemon.opts["dev-debugger"] = os.getenv("DEBUG_SUBD")

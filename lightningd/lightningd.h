@@ -240,6 +240,8 @@ struct lightningd {
 	/* For slow tests (eg protocol tests) don't die if HTLC not
 	 * committed in 30 secs */
 	bool dev_no_htlc_timeout;
+
+	bool dev_no_version_checks;
 #endif /* DEVELOPER */
 
 	/* tor support */
