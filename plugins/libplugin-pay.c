@@ -1820,6 +1820,33 @@ static u32 route_cltv(u32 cltv,
 	return cltv;
 }
 
+/* Change the destination and compute the final msatoshi amount to send to the
+ * routehint entry point. */
+static void routehint_pre_getroute(struct routehints_data *d, struct payment *p)
+{
+	d->current_routehint = next_routehint(d, p);
+	if (d->current_routehint != NULL) {
+		if (!route_msatoshi(&p->getroute->amount, p->amount,
+				    d->current_routehint,
+				    tal_count(d->current_routehint))) {
+		}
+		d->final_cltv = p->getroute->cltv;
+		p->getroute->destination = &d->current_routehint[0].pubkey;
+		p->getroute->cltv =
+		    route_cltv(p->getroute->cltv, d->current_routehint,
+			       tal_count(d->current_routehint));
+		plugin_log(
+		    p->plugin, LOG_DBG, "Using routehint %s (%s) cltv_delta=%d",
+		    type_to_string(tmpctx, struct node_id,
+				   &d->current_routehint->pubkey),
+		    type_to_string(tmpctx, struct short_channel_id,
+				   &d->current_routehint->short_channel_id),
+		    d->current_routehint->cltv_expiry_delta);
+	} else {
+		plugin_log(p->plugin, LOG_DBG, "Not using a routehint");
+	}
+}
+
 static struct command_result *routehint_getroute_result(struct command *cmd,
 							const char *buffer,
 							const jsmntok_t *toks,
@@ -1836,7 +1863,7 @@ static struct command_result *routehint_getroute_result(struct command *cmd,
 	if (d->destination_reachable)
 		tal_arr_expand(&d->routehints, NULL);
 
-	d->current_routehint = next_routehint(d, p);
+	routehint_pre_getroute(d, p);
 
 	plugin_log(p->plugin, LOG_DBG,
 		   "The destination is%s directly reachable %s attempts "
@@ -1897,25 +1924,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 			    return routehint_check_reachable(p);
 		}
 
-		d->current_routehint = next_routehint(d, p);
-		if (d->current_routehint != NULL) {
-			/* Change the destination and compute the final msatoshi
-			 * amount to send to the routehint entry point. */
-			if (!route_msatoshi(&p->getroute->amount, p->amount,
-				    d->current_routehint,
-				    tal_count(d->current_routehint))) {
-			}
-			d->final_cltv = p->getroute->cltv;
-			p->getroute->destination = &d->current_routehint[0].pubkey;
-			p->getroute->cltv =
-			    route_cltv(p->getroute->cltv, d->current_routehint,
-				       tal_count(d->current_routehint));
-			plugin_log(p->plugin, LOG_DBG, "Using routehint %s (%s) cltv_delta=%d",
-				   type_to_string(tmpctx, struct node_id, &d->current_routehint->pubkey),
-				   type_to_string(tmpctx, struct short_channel_id, &d->current_routehint->short_channel_id),
-				   d->current_routehint->cltv_expiry_delta
-				);
-		}
+		routehint_pre_getroute(d, p);
 	} else if (p->step == PAYMENT_STEP_GOT_ROUTE && d->current_routehint != NULL) {
 		/* Now it's time to stitch the two partial routes together. */
 		struct amount_msat dest_amount;
