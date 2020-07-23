@@ -296,6 +296,11 @@ struct routehints_data {
 	/* Current routehint, if any. */
 	struct route_info *current_routehint;
 
+	/* Position of the current routehint in the routehints
+	 * array. Inherited and incremented on child payments and reset on
+	 * split. */
+	int offset;
+
 	/* We modify the CLTV in the getroute call, so we need to remember
 	 * what the final cltv delta was so we re-apply it correctly. */
 	u32 final_cltv;
