@@ -232,6 +232,9 @@ struct payment {
 	struct channel_hint *channel_hints;
 	struct node_id *excluded_nodes;
 
+	/* Optional temporarily excluded channel (i.e. this routehint) */
+	struct short_channel_id *temp_exclusion;
+
 	struct payment_result *result;
 
 	/* Did something happen that will cause all future attempts to fail?

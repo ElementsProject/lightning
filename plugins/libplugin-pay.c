@@ -26,6 +26,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->getroute->riskfactorppm = 10000000;
 	p->abort = false;
 	p->route = NULL;
+	p->temp_exclusion = NULL;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -481,6 +482,16 @@ static void payment_getroute_add_excludes(struct payment *p,
 	nodes = payment_get_excluded_nodes(tmpctx, p);
 	for (size_t i=0; i<tal_count(nodes); i++)
 		json_add_node_id(js, NULL, &nodes[i]);
+
+	/* And make sure we don't route in a circle via the routehint! */
+	if (p->temp_exclusion) {
+		struct short_channel_id_dir scidd;
+		scidd.scid = *p->temp_exclusion;
+		for (size_t dir = 0; dir < 2; dir++) {
+			scidd.dir = dir;
+			json_add_short_channel_id_dir(js, NULL, &scidd);
+		}
+	}
 
 	json_array_end(js);
 }
@@ -1776,6 +1787,12 @@ static struct route_info *next_routehint(struct routehints_data *d,
 	if (d->routehints == NULL || numhints == 0)
 		return NULL;
 
+	/* BOLT #11:
+	 *
+	 *   - if a writer offers more than one of any field type, it:
+	 *     - MUST specify the most-preferred field first, followed
+	 *       by less-preferred fields, in order.
+	 */
 	for (; d->offset <numhints; d->offset++) {
 		curr = d->routehints[d->offset];
 		if (curr == NULL || !routehint_excluded(p, curr))
@@ -1840,8 +1857,13 @@ static void routehint_pre_getroute(struct routehints_data *d, struct payment *p)
 		    type_to_string(tmpctx, struct short_channel_id,
 				   &d->current_routehint->short_channel_id),
 		    d->current_routehint->cltv_expiry_delta);
+
+		/* Exclude the entrypoint to the routehint, so we don't end up
+		 * going through the destination to the entrypoint. */
+		p->temp_exclusion = &d->current_routehint[0].short_channel_id;
 	} else {
 		plugin_log(p->plugin, LOG_DBG, "Not using a routehint");
+		p->temp_exclusion = NULL;
 	}
 }
 
