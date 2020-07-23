@@ -1,16 +1,5 @@
---- wire/extracted_peer_wire_csv	2020-05-08 13:38:26.914779938 -0500
-+++ -	2020-06-19 17:35:44.467543790 -0500
-@@ -1,8 +1,8 @@
- msgtype,init,16
- msgdata,init,gflen,u16,
- msgdata,init,globalfeatures,byte,gflen
--msgdata,init,lflen,u16,
--msgdata,init,localfeatures,byte,lflen
-+msgdata,init,flen,u16,
-+msgdata,init,features,byte,flen
- msgdata,init,tlvs,init_tlvs,
- tlvtype,init_tlvs,networks,1
- tlvdata,init_tlvs,networks,chains,chain_hash,...
+--- wire/extracted_peer_wire_csv	2020-07-16 18:54:17.692810224 -0500
++++ -	2020-07-16 19:01:29.250218079 -0500
 @@ -31,6 +31,46 @@
  tlvdata,n2,tlv1,amount_msat,tu64,
  tlvtype,n2,tlv2,11
@@ -18,14 +7,12 @@
 +msgtype,tx_add_input,66
 +msgdata,tx_add_input,channel_id,channel_id,
 +msgdata,tx_add_input,serial_id,u16,
-+msgdata,tx_add_input,sats,u64,
-+msgdata,tx_add_input,prevtx_txid,sha256,
++msgdata,tx_add_input,prevtx_len,u16,
++msgdata,tx_add_input,prevtx,byte,prevtx_len
 +msgdata,tx_add_input,prevtx_vout,u32,
-+msgdata,tx_add_input,prevtx_scriptpubkey_len,u16,
-+msgdata,tx_add_input,prevtx_scriptpubkey,byte,prevtx_scriptpubkey_len
 +msgdata,tx_add_input,max_witness_len,u16,
-+msgdata,tx_add_input,scriptlen,u16,
-+msgdata,tx_add_input,script,byte,scriptlen
++msgdata,tx_add_input,redeemscript_len,u16,
++msgdata,tx_add_input,script,byte,redeemscript_len
 +msgdata,tx_add_input,tlvs,tx_add_input_tlvs,
 +tlvtype,tx_add_input_tlvs,podle_proof,2
 +tlvdata,tx_add_input_tlvs,podle_proof,p,point,
@@ -39,8 +26,10 @@
 +msgdata,tx_add_output,scriptlen,u16,
 +msgdata,tx_add_output,script,byte,scriptlen
 +msgtype,tx_remove_input,68
++msgdata,tx_remove_input,channel_id,channel_id,
 +msgdata,tx_remove_input,serial_id,u16,
 +msgtype,tx_remove_output,69
++msgdata,tx_remove_output,channel_id,channel_id,
 +msgdata,tx_remove_output,serial_id,u16,
 +msgtype,tx_complete,70
 +msgdata,tx_complete,channel_id,channel_id,
@@ -58,7 +47,7 @@
  msgtype,open_channel,32
  msgdata,open_channel,chain_hash,chain_hash,
  msgdata,open_channel,temporary_channel_id,byte,32
-@@ -80,6 +120,54 @@
+@@ -82,6 +122,54 @@
  msgtype,funding_locked,36
  msgdata,funding_locked,channel_id,channel_id,
  msgdata,funding_locked,next_per_commitment_point,point,
@@ -72,7 +61,7 @@
 +msgdata,open_channel2,feerate_per_kw,u32,
 +msgdata,open_channel2,to_self_delay,u16,
 +msgdata,open_channel2,max_accepted_htlcs,u16,
-+msgdata,open_channel2,locktime,u16,
++msgdata,open_channel2,locktime,u32,
 +msgdata,open_channel2,podle_h2,sha256,
 +msgdata,open_channel2,funding_pubkey,point,
 +msgdata,open_channel2,revocation_basepoint,point,
@@ -107,13 +96,13 @@
 +msgtype,init_rbf,72
 +msgdata,init_rbf,channel_id,channel_id,
 +msgdata,init_rbf,funding_satoshis,u64,
-+msgdata,init_rbf,locktime,u16,
++msgdata,init_rbf,locktime,u32,
 +msgdata,init_rbf,feerate_per_kw,u32,
 +msgdata,init_rbf,fee_step,u8,
  msgtype,shutdown,38
  msgdata,shutdown,channel_id,channel_id,
  msgdata,shutdown,len,u16,
-@@ -167,6 +255,11 @@
+@@ -169,6 +257,11 @@
  msgdata,channel_update,fee_base_msat,u32,
  msgdata,channel_update,fee_proportional_millionths,u32,
  msgdata,channel_update,htlc_maximum_msat,u64,,option_channel_htlc_max
