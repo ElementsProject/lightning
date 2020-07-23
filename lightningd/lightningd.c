@@ -537,12 +537,12 @@ static void shutdown_subdaemons(struct lightningd *ld)
 		}
 
 		/* A peer may have a channel in the process of opening. */
-		if (p->uncommitted_channel) {
-			struct uncommitted_channel *uc = p->uncommitted_channel;
+		if (p->c.uncommitted_channel) {
+			struct uncommitted_channel *uc = p->c.uncommitted_channel;
 
 			/* Setting to NULL stops destroy_uncommitted_channel
 			 * from trying to remove peer from db! */
-			p->uncommitted_channel = NULL;
+			p->c.uncommitted_channel = NULL;
 			tal_free(uc);
 		}
 		/* Removes itself from list as we free it */

@@ -41,7 +41,7 @@
 
 /* Channel we're still opening. */
 struct uncommitted_channel {
-	/* peer->uncommitted_channel == this */
+	/* peer->c.uncommitted_channel == this */
 	struct peer *peer;
 
 	/* openingd which is running now */
@@ -314,7 +314,8 @@ cancel_after_fundchannel_complete_success(struct command *cmd,
 static void funding_success(struct channel *channel)
 {
 	struct json_stream *response;
-	struct funding_channel *fc = channel->peer->uncommitted_channel->fc;
+	struct funding_channel *fc =
+		channel->peer->c.uncommitted_channel->fc;
 	struct command *cmd = fc->cmd;
 
 	/* Well, those cancels now need to trigger!  */
@@ -659,10 +660,10 @@ static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
 	}
 
 	/* This is how shutdown_subdaemons tells us not to delete from db! */
-	if (!uc->peer->uncommitted_channel)
+	if (!uc->peer->c.uncommitted_channel)
 		return;
 
-	uc->peer->uncommitted_channel = NULL;
+	uc->peer->c.uncommitted_channel = NULL;
 
 	maybe_delete_peer(uc->peer);
 }
@@ -674,7 +675,7 @@ new_uncommitted_channel(struct peer *peer)
 	struct uncommitted_channel *uc = tal(ld, struct uncommitted_channel);
 
 	uc->peer = peer;
-	assert(!peer->uncommitted_channel);
+	assert(!peer->c.uncommitted_channel);
 
 	uc->transient_billboard = NULL;
 	uc->dbid = wallet_get_channel_dbid(ld->wallet);
@@ -688,7 +689,7 @@ new_uncommitted_channel(struct peer *peer)
 	get_channel_basepoints(ld, &uc->peer->id, uc->dbid,
 			       &uc->local_basepoints, &uc->local_funding_pubkey);
 
-	uc->peer->uncommitted_channel = uc;
+	uc->peer->c.uncommitted_channel = uc;
 	tal_add_destructor(uc, destroy_uncommitted_channel);
 
 	return uc;
@@ -1002,9 +1003,9 @@ void peer_start_openingd(struct peer *peer,
 	struct uncommitted_channel *uc;
 	const u8 *msg;
 
-	assert(!peer->uncommitted_channel);
+	assert(!peer->c.uncommitted_channel);
 
-	uc = peer->uncommitted_channel = new_uncommitted_channel(peer);
+	uc = peer->c.uncommitted_channel = new_uncommitted_channel(peer);
 
 	hsmfd = hsm_get_client_fd(peer->ld, &uc->peer->id, uc->dbid,
 				  HSM_CAP_COMMITMENT_POINT
@@ -1099,21 +1100,21 @@ static struct command_result *json_fund_channel_complete(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Peer already %s",
 				    channel_state_name(channel));
 
-	if (!peer->uncommitted_channel)
+	if (!peer->c.uncommitted_channel)
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
 
-	if (!peer->uncommitted_channel->fc || !peer->uncommitted_channel->fc->inflight)
+	if (!peer->c.uncommitted_channel->fc || !peer->c.uncommitted_channel->fc->inflight)
 		return command_fail(cmd, LIGHTNINGD, "No channel funding in progress.");
-	if (peer->uncommitted_channel->fc->cmd)
+	if (peer->c.uncommitted_channel->fc->cmd)
 		return command_fail(cmd, LIGHTNINGD, "Channel funding in progress.");
 
 	/* Set the cmd to this new cmd */
-	peer->uncommitted_channel->fc->cmd = cmd;
+	peer->c.uncommitted_channel->fc->cmd = cmd;
 	msg = towire_opening_funder_complete(NULL,
 					     funding_txid,
 					     funding_txout);
-	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
+	subd_send_msg(peer->c.uncommitted_channel->openingd, take(msg));
 	return command_still_pending(cmd);
 }
 
@@ -1140,15 +1141,15 @@ static struct command_result *json_fund_channel_cancel(struct command *cmd,
 		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
 	}
 
-	if (peer->uncommitted_channel) {
-		if (!peer->uncommitted_channel->fc || !peer->uncommitted_channel->fc->inflight)
+	if (peer->c.uncommitted_channel) {
+		if (!peer->c.uncommitted_channel->fc || !peer->c.uncommitted_channel->fc->inflight)
 			return command_fail(cmd, FUNDING_NOTHING_TO_CANCEL,
 					    "No channel funding in progress.");
 
 		/* Make sure this gets notified if we succeed or cancel */
-		tal_arr_expand(&peer->uncommitted_channel->fc->cancels, cmd);
+		tal_arr_expand(&peer->c.uncommitted_channel->fc->cancels, cmd);
 		msg = towire_opening_funder_cancel(NULL);
-		subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
+		subd_send_msg(peer->c.uncommitted_channel->openingd, take(msg));
 		return command_still_pending(cmd);
 	}
 
@@ -1228,12 +1229,12 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 				    channel_state_name(channel));
 	}
 
-	if (!peer->uncommitted_channel) {
+	if (!peer->c.uncommitted_channel) {
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
 	}
 
-	if (peer->uncommitted_channel->fc) {
+	if (peer->c.uncommitted_channel->fc) {
 		return command_fail(cmd, LIGHTNINGD, "Already funding channel");
 	}
 
@@ -1259,8 +1260,8 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 			type_to_string(fc, struct node_id, id));
 	}
 
-	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
-	fc->uc = peer->uncommitted_channel;
+	peer->c.uncommitted_channel->fc = tal_steal(peer->c.uncommitted_channel, fc);
+	fc->uc = peer->c.uncommitted_channel;
 
 	/* Needs to be stolen away from cmd */
 	if (fc->our_upfront_shutdown_script)
@@ -1274,7 +1275,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 					  *feerate_per_kw,
 					  fc->channel_flags);
 
-	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
+	subd_send_msg(peer->c.uncommitted_channel->openingd, take(msg));
 	return command_still_pending(cmd);
 }
 
@@ -1343,7 +1344,7 @@ static void opening_memleak_req_next(struct command *cmd, struct peer *prev)
 	struct peer *p;
 
 	list_for_each(&cmd->ld->peers, p, list) {
-		if (!p->uncommitted_channel)
+		if (!p->c.uncommitted_channel)
 			continue;
 		if (p == prev) {
 			prev = NULL;
@@ -1353,11 +1354,11 @@ static void opening_memleak_req_next(struct command *cmd, struct peer *prev)
 			continue;
 
 		subd_req(p,
-			 p->uncommitted_channel->openingd,
+			 p->c.uncommitted_channel->openingd,
 			 take(towire_opening_dev_memleak(NULL)),
 			 -1, 0, opening_memleak_req_done, cmd);
 		/* Just in case it dies before replying! */
-		tal_add_destructor2(p->uncommitted_channel->openingd,
+		tal_add_destructor2(p->c.uncommitted_channel->openingd,
 				    opening_died_forget_memleak, cmd);
 		return;
 	}
@@ -1377,8 +1378,8 @@ struct subd *peer_get_owning_subd(struct peer *peer)
 
 	if (channel != NULL) {
 		return channel->owner;
-	} else if (peer->uncommitted_channel != NULL) {
-		return peer->uncommitted_channel->openingd;
+	} else if (peer->c.uncommitted_channel != NULL) {
+		return peer->c.uncommitted_channel->openingd;
 	}
 	return NULL;
 }

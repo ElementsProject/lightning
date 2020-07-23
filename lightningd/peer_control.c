@@ -94,7 +94,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->ld = ld;
 	peer->dbid = dbid;
 	peer->id = *id;
-	peer->uncommitted_channel = NULL;
+	peer->c.uncommitted_channel = NULL;
 	peer->addr = *addr;
 	peer->their_features = NULL;
 	list_head_init(&peer->channels);
@@ -111,7 +111,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 static void delete_peer(struct peer *peer)
 {
 	assert(list_empty(&peer->channels));
-	assert(!peer->uncommitted_channel);
+	assert(!peer->c.uncommitted_channel);
 	/* If it only ever existed because of uncommitted channel, it won't
 	 * be in the database */
 	if (peer->dbid != 0)
@@ -124,7 +124,7 @@ void maybe_delete_peer(struct peer *peer)
 {
 	if (!list_empty(&peer->channels))
 		return;
-	if (peer->uncommitted_channel) {
+	if (peer->c.uncommitted_channel) {
 		/* This isn't sufficient to keep it in db! */
 		if (peer->dbid != 0) {
 			wallet_peer_delete(peer->ld->wallet, peer->dbid);
@@ -1012,7 +1012,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	connect_succeeded(ld, peer);
 
 	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
-	assert(!peer->uncommitted_channel);
+	assert(!peer->c.uncommitted_channel);
 	hook_payload->channel = peer_active_channel(peer);
 
 	plugin_hook_call_peer_connected(ld, hook_payload);
@@ -1156,7 +1156,7 @@ static void json_add_peer(struct lightningd *ld,
 	json_add_node_id(response, "id", &p->id);
 
 	/* Channel is also connected if uncommitted channel */
-	if (p->uncommitted_channel)
+	if (p->c.uncommitted_channel)
 		connected = true;
 	else {
 		channel = peer_active_channel(p);
@@ -1178,7 +1178,7 @@ static void json_add_peer(struct lightningd *ld,
 	}
 
 	json_array_start(response, "channels");
-	json_add_uncommitted_channel(response, p->uncommitted_channel);
+	json_add_uncommitted_channel(response, p->c.uncommitted_channel);
 
 	list_for_each(&p->channels, channel, list)
 		json_add_channel(ld, response, NULL, channel);
@@ -1311,7 +1311,7 @@ static struct command_result *json_close(struct command *cmd,
 	}
 
 	if (!channel && peer) {
-		struct uncommitted_channel *uc = peer->uncommitted_channel;
+		struct uncommitted_channel *uc = peer->c.uncommitted_channel;
 		if (uc) {
 			/* Easy case: peer can simply be forgotten. */
 			kill_uncommitted_channel(uc, "close command called");
@@ -1570,10 +1570,10 @@ static struct command_result *json_disconnect(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Peer is in state %s",
 				    channel_state_name(channel));
 	}
-	if (!peer->uncommitted_channel) {
+	if (!peer->c.uncommitted_channel) {
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 	}
-	kill_uncommitted_channel(peer->uncommitted_channel,
+	kill_uncommitted_channel(peer->c.uncommitted_channel,
 				 "disconnect command");
 	return command_success(cmd, json_stream_success(cmd));
 }

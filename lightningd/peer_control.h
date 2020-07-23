@@ -34,7 +34,10 @@ struct peer {
 	struct list_head channels;
 
 	/* Our (only) uncommitted channel, still opening. */
-	struct uncommitted_channel *uncommitted_channel;
+	union {
+		struct uncommitted_channel *uncommitted_channel;
+		struct precommit_channel *precommit_channel;
+	} c;
 
 	/* Where we connected to, or it connected from. */
 	struct wireaddr_internal addr;

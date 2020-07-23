@@ -330,7 +330,7 @@ struct channel *active_channel_by_id(struct lightningd *ld,
 	}
 
 	if (uc)
-		*uc = peer->uncommitted_channel;
+		*uc = peer->c.uncommitted_channel;
 	return peer_active_channel(peer);
 }
 

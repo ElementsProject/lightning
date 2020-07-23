@@ -138,7 +138,7 @@ static struct command_result *json_connect(struct command *cmd,
 	if (peer) {
 		struct channel *channel = peer_active_channel(peer);
 
-		if (peer->uncommitted_channel
+		if (peer->c.uncommitted_channel
 		    || (channel && channel->connected)) {
 			return connect_cmd_succeed(cmd, peer);
 		}
