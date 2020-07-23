@@ -6,6 +6,7 @@
 #include <bitcoin/signature.h>
 #include <ccan/cast/cast.h>
 #include <ccan/ccan/array_size/array_size.h>
+#include <ccan/ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/type_to_string.h>
@@ -420,6 +421,105 @@ struct amount_sat psbt_output_get_amount(struct wally_psbt *psbt,
 	assert(amount_asset_is_main(&asset));
 	return amount_asset_to_sat(&asset);
 }
+
+static void add(u8 **key, const void *mem, size_t len)
+{
+	size_t oldlen = tal_count(*key);
+	tal_resize(key, oldlen + len);
+	memcpy(*key + oldlen, memcheck(mem, len), len);
+}
+
+static void add_type(u8 **key, const u8 num)
+{
+	add(key, &num, 1);
+}
+
+static void add_varint(u8 **key, size_t val)
+{
+	u8 vt[VARINT_MAX_LEN];
+	size_t vtlen;
+	vtlen = varint_put(vt, val);
+	add(key, vt, vtlen);
+}
+
+#define LIGHTNING_PROPRIETARY_PREFIX "lightning"
+
+u8 *psbt_make_key(const tal_t *ctx, u8 key_subtype, const u8 *key_data)
+{
+	/**
+	 * BIP174:
+	 * Type: Proprietary Use Type <tt>PSBT_GLOBAL_PROPRIETARY = 0xFC</tt>
+	 ** Key: Variable length identifier prefix, followed
+	 *       by a subtype, followed by the key data itself.
+	 *** <tt>{0xFC}|<prefix>|{subtype}|{key data}</tt>
+	 ** Value: Any value data as defined by the proprietary type user.
+	 *** <tt><data></tt>
+	 */
+	u8 *key = tal_arr(ctx, u8, 0);
+	add_type(&key, PSBT_PROPRIETARY_TYPE);
+	add_varint(&key, strlen(LIGHTNING_PROPRIETARY_PREFIX));
+	add(&key, LIGHTNING_PROPRIETARY_PREFIX,
+	    strlen(LIGHTNING_PROPRIETARY_PREFIX));
+	add_type(&key, key_subtype);
+	if (key_data)
+		add(&key, key_data, tal_bytelen(key_data));
+	return key;
+}
+
+void psbt_input_add_unknown(struct wally_psbt_input *in,
+			    const u8 *key,
+			    const void *value,
+			    size_t value_len)
+{
+	if (wally_map_add(&in->unknowns,
+			  cast_const(unsigned char *, key), tal_bytelen(key),
+			  (unsigned char *) memcheck(value, value_len), value_len)
+			!= WALLY_OK)
+		abort();
+}
+
+void *psbt_get_unknown(const struct wally_map *map,
+		       const u8 *key,
+		       size_t *val_len)
+{
+	size_t index;
+
+	if (wally_map_find(map, key, tal_bytelen(key), &index) != WALLY_OK)
+		return NULL;
+
+	/* Zero: item not found. */
+	if (index == 0)
+		return NULL;
+
+	/* ++: item is at this index minus 1 */
+	*val_len = map->items[index - 1].value_len;
+	return map->items[index - 1].value;
+}
+
+void *psbt_get_lightning(const struct wally_map *map,
+			 const u8 proprietary_type,
+			 size_t *val_len)
+{
+	void *res;
+	u8 *key = psbt_make_key(NULL, proprietary_type, NULL);
+	res = psbt_get_unknown(map, key, val_len);
+	tal_free(key);
+	return res;
+}
+
+
+void psbt_output_add_unknown(struct wally_psbt_output *out,
+			     const u8 *key,
+			     const void *value,
+			     size_t value_len)
+{
+	if (wally_map_add(&out->unknowns,
+			  cast_const(unsigned char *, key), tal_bytelen(key),
+			  (unsigned char *) memcheck(value, value_len), value_len)
+			!= WALLY_OK)
+		abort();
+}
+
 struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 {
 	struct wally_psbt *tmppsbt;
@@ -480,6 +580,8 @@ char *psbt_to_b64(const tal_t *ctx, const struct wally_psbt *psbt)
 	wally_free_string(serialized_psbt);
 	return ret_val;
 }
+
+/* Do not remove this line, it is magic */
 REGISTER_TYPE_TO_STRING(wally_psbt, psbt_to_b64);
 
 const u8 *psbt_get_bytes(const tal_t *ctx, const struct wally_psbt *psbt,
