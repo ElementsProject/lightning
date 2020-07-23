@@ -1756,7 +1756,7 @@ static bool routehint_excluded(struct payment *p,
 	 * are suggesting we use it the other way.  Very unlikely though! */
 	for (size_t i = 0; i < tal_count(routehint); i++) {
 		const struct route_info *r = &routehint[i];
-		for (size_t j=0; tal_count(nodes); j++)
+		for (size_t j = 0; j < tal_count(nodes); j++)
 			if (node_id_eq(&r->pubkey, &nodes[j]))
 			    return true;
 
