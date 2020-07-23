@@ -1771,9 +1771,13 @@ static struct route_info *next_routehint(struct routehints_data *d,
 					     struct payment *p)
 {
 	size_t numhints = tal_count(d->routehints);
-	size_t offset = pseudorand(numhints);
+	size_t offset;
 	struct route_info *curr;
 
+	if (d->routehints == NULL || numhints == 0)
+		return NULL;
+
+	offset = pseudorand(numhints);
 	for (size_t i=0; i<tal_count(d->routehints); i++) {
 		curr = d->routehints[(offset + i) % numhints];
 		if (curr == NULL || !routehint_excluded(p, curr))
@@ -1870,7 +1874,6 @@ static void routehint_check_reachable(struct payment *p)
 
 static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 {
-	struct routehints_data *pd;
 	struct route_hop hop;
 	const struct payment *root = payment_root(p);
 
@@ -1892,17 +1895,9 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 			    /* Do not continue normally, instead go and check if
 			     * we can reach the destination directly. */
 			    return routehint_check_reachable(p);
-		} else {
-			pd = payment_mod_get_data(p->parent,
-						  &routehints_pay_mod);
-			/* Since we don't modify the list of routehints after
-			 * the root has filtered them we can just shared a
-			 * pointer here. */
-			d->routehints = pd->routehints;
-			d->destination_reachable = pd->destination_reachable;
 		}
-		d->current_routehint = next_routehint(d, p);
 
+		d->current_routehint = next_routehint(d, p);
 		if (d->current_routehint != NULL) {
 			/* Change the destination and compute the final msatoshi
 			 * amount to send to the routehint entry point. */
@@ -1921,7 +1916,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 				   d->current_routehint->cltv_expiry_delta
 				);
 		}
-	} else if (p->step == PAYMENT_STEP_GOT_ROUTE) {
+	} else if (p->step == PAYMENT_STEP_GOT_ROUTE && d->current_routehint != NULL) {
 		/* Now it's time to stitch the two partial routes together. */
 		struct amount_msat dest_amount;
 		struct route_info *routehint = d->current_routehint;
@@ -1959,9 +1954,20 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 
 static struct routehints_data *routehint_data_init(struct payment *p)
 {
-	/* We defer the actual initialization to the step callback when
-	 * we have the invoice attached. */
-	return talz(p, struct routehints_data);
+	struct routehints_data *pd, *d = tal(p, struct routehints_data);
+	/* If for some reason we skipped the getroute call (directpay) we'll
+	 * need this to be initialized. */
+	d->current_routehint = NULL;
+	if (p->parent != NULL) {
+		pd = payment_mod_routehints_get_data(payment_root(p));
+		d->destination_reachable = pd->destination_reachable;
+		d->routehints = pd->routehints;
+	} else {
+		/* We defer the actual initialization of the routehints array to
+		 * the step callback when we have the invoice attached. */
+		d->routehints = NULL;
+	}
+	return d;
 }
 
 REGISTER_PAYMENT_MODIFIER(routehints, struct routehints_data *,
