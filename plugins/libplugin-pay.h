@@ -299,6 +299,9 @@ struct routehints_data {
 	/* We modify the CLTV in the getroute call, so we need to remember
 	 * what the final cltv delta was so we re-apply it correctly. */
 	u32 final_cltv;
+
+	/* Is the destination reachable without any routehints? */
+	bool destination_reachable;
 };
 
 struct exemptfee_data {

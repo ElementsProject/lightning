@@ -1770,19 +1770,14 @@ static bool routehint_excluded(struct payment *p,
 static struct route_info *next_routehint(struct routehints_data *d,
 					     struct payment *p)
 {
-	/* Implements a random selection of a routehint, or none in 1/numhints
-	 * cases, by starting the iteration of the routehints in a random
-	 * order, and adding a virtual NULL result at the end. */
 	size_t numhints = tal_count(d->routehints);
-	size_t offset = pseudorand(numhints + 1);
+	size_t offset = pseudorand(numhints);
+	struct route_info *curr;
 
 	for (size_t i=0; i<tal_count(d->routehints); i++) {
-		size_t curr = (offset + i) % (numhints + 1);
-		if (curr == numhints)
-			return NULL;
-
-		if (!routehint_excluded(p, d->routehints[curr]))
-			return d->routehints[i];
+		curr = d->routehints[(offset + i) % numhints];
+		if (curr == NULL || !routehint_excluded(p, curr))
+			return curr;
 	}
 	return NULL;
 }
@@ -1821,6 +1816,58 @@ static u32 route_cltv(u32 cltv,
 	return cltv;
 }
 
+static struct command_result *routehint_getroute_result(struct command *cmd,
+							const char *buffer,
+							const jsmntok_t *toks,
+							struct payment *p)
+{
+	struct payment *root = payment_root(p);
+	const jsmntok_t *rtok = json_get_member(buffer, toks, "route");
+	struct routehints_data *d = payment_mod_routehints_get_data(root);
+
+	/* If there was a route the destination is reachable without
+	 * routehints. */
+	d->destination_reachable = (rtok != NULL);
+
+	if (d->destination_reachable)
+		tal_arr_expand(&d->routehints, NULL);
+
+	d->current_routehint = next_routehint(d, p);
+
+	plugin_log(p->plugin, LOG_DBG,
+		   "The destination is%s directly reachable %s attempts "
+		   "without routehints",
+		   d->destination_reachable ? "" : " not",
+		   d->destination_reachable ? "including" : "excluding");
+
+	/* Now we can continue on our merry way. */
+	payment_continue(p);
+
+	/* Let payment_finished_ handle this, so we mark it as pending */
+	return command_still_pending(cmd);
+}
+
+static void routehint_check_reachable(struct payment *p)
+{
+	struct out_req *req;
+	/* Start a tiny exploratory getroute request, so we
+	 * know whether we stand any chance of reaching the
+	 * destination without routehints. This will later be
+	 * used to mix in attempts without routehints. */
+	req = jsonrpc_request_start(p->plugin, NULL, "getroute",
+				    routehint_getroute_result,
+				    routehint_getroute_result, p);
+	json_add_node_id(req->js, "id", p->destination);
+	json_add_amount_msat_only(req->js, "msatoshi", AMOUNT_MSAT(1000));
+	json_add_num(req->js, "maxhops", 20);
+	json_add_num(req->js, "riskfactor", 10);
+	send_outreq(p->plugin, req);
+	plugin_log(p->plugin, LOG_DBG,
+		   "Asking gossipd whether %s is reachable "
+		   "without routehints.",
+		   type_to_string(tmpctx, struct node_id, p->destination));
+}
+
 static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 {
 	struct routehints_data *pd;
@@ -1837,6 +1884,14 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 		if (p->parent == NULL) {
 			d->routehints = filter_routehints(d, p->local_id,
 							  p->invoice->routes);
+
+			plugin_log(p->plugin, LOG_DBG,
+				   "After filtering routehints we're left with "
+				   "%zu usable hints",
+				   tal_count(d->routehints));
+			    /* Do not continue normally, instead go and check if
+			     * we can reach the destination directly. */
+			    return routehint_check_reachable(p);
 		} else {
 			pd = payment_mod_get_data(p->parent,
 						  &routehints_pay_mod);
@@ -1844,6 +1899,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 			 * the root has filtered them we can just shared a
 			 * pointer here. */
 			d->routehints = pd->routehints;
+			d->destination_reachable = pd->destination_reachable;
 		}
 		d->current_routehint = next_routehint(d, p);
 
