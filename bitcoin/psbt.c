@@ -21,6 +21,36 @@ void psbt_destroy(struct wally_psbt *psbt)
 	wally_psbt_free(psbt);
 }
 
+static struct wally_psbt *init_psbt(const tal_t *ctx, size_t num_inputs, size_t num_outputs)
+{
+	int wally_err;
+	struct wally_psbt *psbt;
+
+	if (is_elements(chainparams))
+		wally_err = wally_psbt_elements_init_alloc(0, num_inputs, num_outputs, 0, &psbt);
+	else
+		wally_err = wally_psbt_init_alloc(0, num_inputs, num_outputs, 0, &psbt);
+	assert(wally_err == WALLY_OK);
+	tal_add_destructor(psbt, psbt_destroy);
+	return tal_steal(ctx, psbt);
+}
+
+struct wally_psbt *create_psbt(const tal_t *ctx, size_t num_inputs, size_t num_outputs)
+{
+	int wally_err;
+	struct wally_tx *wtx;
+	struct wally_psbt *psbt;
+
+	if (wally_tx_init_alloc(WALLY_TX_VERSION_2, 0, num_inputs, num_outputs, &wtx) != WALLY_OK)
+		abort();
+
+	psbt = init_psbt(ctx, num_inputs, num_outputs);
+
+	wally_err = wally_psbt_set_global_tx(psbt, wtx);
+	assert(wally_err == WALLY_OK);
+	return psbt;
+}
+
 struct wally_psbt *new_psbt(const tal_t *ctx, const struct wally_tx *wtx)
 {
 	struct wally_psbt *psbt;
@@ -80,6 +110,28 @@ struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
 	return &psbt->inputs[insert_at];
 }
 
+struct wally_psbt_input *psbt_append_input(struct wally_psbt *psbt,
+					   const struct bitcoin_txid *txid,
+					   u32 outnum, u32 sequence)
+{
+	struct wally_tx_input *tx_in;
+	struct wally_psbt_input *input;
+	size_t insert_at;
+
+	insert_at = psbt->num_inputs;
+
+	if (wally_tx_input_init_alloc(txid->shad.sha.u.u8,
+				      sizeof(struct bitcoin_txid),
+				      outnum, sequence, NULL, 0, NULL,
+				      &tx_in) != WALLY_OK)
+		abort();
+
+	tx_in->features = chainparams->is_elements ? WALLY_TX_IS_ELEMENTS : 0;
+	input = psbt_add_input(psbt, tx_in, insert_at);
+	wally_tx_input_free(tx_in);
+	return input;
+}
+
 void psbt_rm_input(struct wally_psbt *psbt,
 		   size_t remove_at)
 {
@@ -94,6 +146,18 @@ struct wally_psbt_output *psbt_add_output(struct wally_psbt *psbt,
 	int wally_err = wally_psbt_add_output_at(psbt, insert_at, 0, output);
 	assert(wally_err == WALLY_OK);
 	return &psbt->outputs[insert_at];
+}
+
+struct wally_psbt_output *psbt_append_out(struct wally_psbt *psbt,
+					  const u8 *script,
+					  struct amount_sat amount)
+{
+	struct wally_psbt_output *out;
+	struct wally_tx_output *tx_out = wally_tx_output(script, amount);
+
+	out = psbt_add_output(psbt, tx_out, psbt->tx->num_outputs);
+	wally_tx_output_free(tx_out);
+	return out;
 }
 
 void psbt_rm_output(struct wally_psbt *psbt,
@@ -298,6 +362,24 @@ void psbt_elements_input_init(struct wally_psbt *psbt, size_t in,
 		abort();
 }
 
+bool psbt_has_input(struct wally_psbt *psbt,
+		    struct bitcoin_txid *txid,
+		    u32 outnum)
+{
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		struct bitcoin_txid in_txid;
+		struct wally_tx_input *in = &psbt->tx->inputs[i];
+
+		if (outnum != in->index)
+			continue;
+
+		wally_tx_input_get_txid(in, &in_txid);
+		if (bitcoin_txid_eq(txid, &in_txid))
+			return true;
+	}
+	return false;
+}
+
 bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
 				 const u8 *redeemscript)
 {
@@ -329,6 +411,15 @@ struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
 	return val;
 }
 
+struct amount_sat psbt_output_get_amount(struct wally_psbt *psbt,
+					 size_t out)
+{
+	struct amount_asset asset;
+	assert(out < psbt->num_outputs);
+	asset = wally_tx_output_get_amount(&psbt->tx->outputs[out]);
+	assert(amount_asset_is_main(&asset));
+	return amount_asset_to_sat(&asset);
+}
 struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 {
 	struct wally_psbt *tmppsbt;
