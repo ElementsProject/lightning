@@ -6,6 +6,7 @@
 #include <bitcoin/signature.h>
 #include <ccan/cast/cast.h>
 #include <ccan/ccan/array_size/array_size.h>
+#include <ccan/ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/type_to_string.h>
@@ -523,6 +524,103 @@ struct amount_sat psbt_output_get_amount(struct wally_psbt *psbt,
 	assert(amount_asset_is_main(&asset));
 	return amount_asset_to_sat(&asset);
 }
+
+static void add(u8 **key, const void *mem, size_t len)
+{
+	size_t oldlen = tal_count(*key);
+	tal_resize(key, oldlen + len);
+	memcpy(*key + oldlen, mem, len);
+}
+
+static void add_type(u8 **key, const u8 num)
+{
+	add(key, &num, 1);
+}
+
+/**
+ * BIP174:
+ * Type: Proprietary Use Type <tt>PSBT_GLOBAL_PROPRIETARY = 0xFC</tt>
+ * Type: Proprietary Use Type <tt>PSBT_IN_PROPRIETARY = 0xFC</tt>
+ * Type: Proprietary Use Type <tt>PSBT_OUT_PROPRIETARY = 0xFC</tt>
+ */
+#define WALLY_PSBT_PROPRIETARY 0xFC
+#define LIGHTNING_PROPRIETARY_PREFIX "lightning"
+
+u8 *psbt_make_key(const tal_t *ctx, u8 key_subtype, const u8 *key_data)
+{
+	/**
+	 * BIP174:
+	 * Type: Proprietary Use Type <tt>PSBT_GLOBAL_PROPRIETARY = 0xFC</tt>
+	 ** Key: Variable length identifier prefix, followed
+	 *       by a subtype, followed by the key data itself.
+	 *** <tt>{0xFC}|<prefix>|{subtype}|{key data}</tt>
+	 ** Value: Any value data as defined by the proprietary type user.
+	 *** <tt><data></tt>
+	 */
+	u8 *key = tal_arr(ctx, u8, 0);
+	add_type(&key, WALLY_PSBT_PROPRIETARY);
+	add(&key, LIGHTNING_PROPRIETARY_PREFIX,
+	    strlen(LIGHTNING_PROPRIETARY_PREFIX));
+	add_type(&key, key_subtype);
+	if (key_data)
+		add(&key, key_data, tal_bytelen(key_data));
+	return key;
+}
+
+bool psbt_input_add_unknown(struct wally_psbt_input *in,
+			    const u8 *key,
+			    const void *value,
+			    size_t value_len)
+{
+	u8 *data = tal_arr(NULL, u8, value_len);
+	if (!in->unknowns) {
+		if (wally_unknowns_map_init_alloc(1, &in->unknowns) != WALLY_OK)
+			abort();
+	}
+	memcpy(data, memcheck(value, value_len), value_len);
+	return wally_add_new_unknown(in->unknowns,
+				     cast_const(unsigned char *, key),
+				     tal_bytelen(key),
+				     data, value_len) == WALLY_OK;
+}
+
+void *psbt_get_unknown(struct wally_unknowns_map *map,
+		       const u8 *key,
+		       size_t *val_len)
+{
+	if (!map)
+		return NULL;
+
+	size_t key_len = tal_bytelen(key);
+	for (size_t i = 0; i < map->num_items; i++) {
+		struct wally_unknowns_item *item = &map->items[i];
+		if (key_len == item->key_len &&
+			memcmp(key, item->key, key_len) == 0) {
+			*val_len = item->value_len;
+			return (void *)item->value;
+		}
+	}
+	return NULL;
+}
+
+bool psbt_output_add_unknown(struct wally_psbt_output *out,
+			     const u8 *key,
+			     const void *value,
+			     size_t value_len)
+{
+	u8 *data = tal_arr(NULL, u8, value_len);
+	if (!out->unknowns) {
+		if (wally_unknowns_map_init_alloc(1, &out->unknowns) != WALLY_OK)
+			abort();
+	}
+
+	memcpy(data, memcheck(value, value_len), value_len);
+	return wally_add_new_unknown(out->unknowns,
+				     cast_const(unsigned char *, key),
+				     tal_bytelen(key),
+				     data, value_len) == WALLY_OK;
+}
+
 struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 {
 	struct wally_psbt *tmppsbt;

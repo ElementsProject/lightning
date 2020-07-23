@@ -10,6 +10,7 @@ struct wally_psbt_input;
 struct wally_tx;
 struct wally_tx_input;
 struct wally_tx_output;
+struct wally_unknowns_map;
 struct amount_asset;
 struct amount_sat;
 struct bitcoin_signature;
@@ -60,6 +61,16 @@ void psbt_txid(const struct wally_psbt *psbt, struct bitcoin_txid *txid,
 	       struct wally_tx **wtx);
 
 struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place);
+
+/* psbt_make_key - Create a new, proprietary c-lightning key
+ *
+ * @ctx - allocation context
+ * @key_subtype - type for this key
+ * @key_data - any extra data to append to the key
+ *
+ * Returns a proprietary-prefixed key.
+ */
+u8 *psbt_make_key(const tal_t *ctx, u8 key_subtype, const u8 *key_data);
 
 struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
 					struct wally_tx_input *input,
@@ -114,6 +125,36 @@ void psbt_elements_input_init_witness(struct wally_psbt *psbt, size_t in,
 				      const u8 *nonce);
 bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
 				 const u8 *redeemscript);
+/* psbt_input_add_unknown - Add the given Key-Value to the psbt's input keymap
+ * @in - psbt input to add key-value to
+ * @key - key for key-value pair
+ * @value - value to add
+ * @value_len - length of {@value}
+ */
+bool psbt_input_add_unknown(struct wally_psbt_input *in,
+			    const u8 *key,
+			    const void *value,
+			    size_t value_len);
+/* psbt_get_unknown - Fetch the value from the given map at key
+ *
+ * @map - map of unknowns to search for key
+ * @key - key of key-value pair to return value for
+ * @value_len - (out) length of value (if found)
+ *
+ * Returns: value at @key, or NULL if not found */
+void *psbt_get_unknown(struct wally_unknowns_map *map, const u8 *key, size_t *value_len);
+
+/* psbt_output_add_unknown - Add the given Key-Value to the psbt's output keymap
+ *
+ * @out - psbt output to add key-value to
+ * @key - key for key-value pair
+ * @value - value to add
+ * @value_len - length of {@value}
+ */
+bool psbt_output_add_unknown(struct wally_psbt_output *out,
+			     const u8 *key, const void *value,
+			     size_t value_len);
+
 /* psbt_input_get_amount - Returns the value of this input
  *
  * @psbt - psbt
