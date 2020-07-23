@@ -106,10 +106,11 @@ def test_pay_limits(node_factory, compat):
     # It should have retried two more times (one without routehint and one with routehint)
     status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][0]['attempts']
 
-    # Will directly exclude channels and routehints that don't match our
-    # fee expectations. The first attempt notices that and terminates
-    # directly.
-    assert(len(status) == 1)
+    # We have an internal test to see if we can reach the destination directly
+    # without a routehint, that will enable a NULL-routehint. We will then try
+    # with the provided routehint, and the NULL routehint, resulting in 2
+    # attempts.
+    assert(len(status) == 2)
     assert(status[0]['failure']['code'] == 205)
 
     failmsg = r'CLTV delay exceeds our CLTV budget'
@@ -121,7 +122,7 @@ def test_pay_limits(node_factory, compat):
     # Should also have retried two more times.
     status = l1.rpc.call('paystatus', {'bolt11': inv['bolt11']})['pay'][1]['attempts']
 
-    assert(len(status) == 1)
+    assert(len(status) == 2)
     assert(status[0]['failure']['code'] == 205)
 
     # This works, because fee is less than exemptfee.
