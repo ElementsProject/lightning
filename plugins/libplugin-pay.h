@@ -255,6 +255,13 @@ struct payment {
 
 	/* Human readable explanation of why this payment failed. */
 	const char *failreason;
+
+	/* If a failed getroute call can be retried for this payment. Allows
+	 * us for example to signal to any retry modifier that we can retry
+	 * despite getroute not returning a usable route. This can be the case
+	 * if we switch any of the parameters such as destination or
+	 * amount. */
+	bool failroute_retry;
 };
 
 struct payment_modifier {
