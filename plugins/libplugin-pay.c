@@ -26,7 +26,6 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->getroute->riskfactorppm = 10000000;
 	p->abort = false;
 	p->route = NULL;
-	p->temp_exclusion = NULL;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -482,16 +481,6 @@ static void payment_getroute_add_excludes(struct payment *p,
 	nodes = payment_get_excluded_nodes(tmpctx, p);
 	for (size_t i=0; i<tal_count(nodes); i++)
 		json_add_node_id(js, NULL, &nodes[i]);
-
-	/* And make sure we don't route in a circle via the routehint! */
-	if (p->temp_exclusion) {
-		struct short_channel_id_dir scidd;
-		scidd.scid = *p->temp_exclusion;
-		for (size_t dir = 0; dir < 2; dir++) {
-			scidd.dir = dir;
-			json_add_short_channel_id_dir(js, NULL, &scidd);
-		}
-	}
 
 	json_array_end(js);
 }
@@ -1767,7 +1756,7 @@ static bool routehint_excluded(struct payment *p,
 	 * are suggesting we use it the other way.  Very unlikely though! */
 	for (size_t i = 0; i < tal_count(routehint); i++) {
 		const struct route_info *r = &routehint[i];
-		for (size_t j=0; tal_count(nodes); j++)
+		for (size_t j = 0; j < tal_count(nodes); j++)
 			if (node_id_eq(&r->pubkey, &nodes[j]))
 			    return true;
 
@@ -1779,19 +1768,21 @@ static bool routehint_excluded(struct payment *p,
 }
 
 static struct route_info *next_routehint(struct routehints_data *d,
-					 struct payment *p)
+					     struct payment *p)
 {
-	/* BOLT #11:
-	 *
-	 *   - if a writer offers more than one of any field type, it:
-	 *     - MUST specify the most-preferred field first, followed
-	 *       by less-preferred fields, in order.
-	 */
-	while (tal_count(d->routehints) != 0) {
-		struct route_info *ret = d->routehints[0];
-		tal_arr_remove(&d->routehints, 0);
-		if (!routehint_excluded(p, ret))
-			return ret;
+	/* Implements a random selection of a routehint, or none in 1/numhints
+	 * cases, by starting the iteration of the routehints in a random
+	 * order, and adding a virtual NULL result at the end. */
+	size_t numhints = tal_count(d->routehints);
+	size_t offset = pseudorand(numhints + 1);
+
+	for (size_t i=0; i<tal_count(d->routehints); i++) {
+		size_t curr = (offset + i) % (numhints + 1);
+		if (curr == numhints)
+			return NULL;
+
+		if (!routehint_excluded(p, d->routehints[curr]))
+			return d->routehints[i];
 	}
 	return NULL;
 }
@@ -1868,14 +1859,12 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 			p->getroute->cltv =
 			    route_cltv(p->getroute->cltv, d->current_routehint,
 				       tal_count(d->current_routehint));
-			p->temp_exclusion = &d->current_routehint[0].short_channel_id;
 			plugin_log(p->plugin, LOG_DBG, "Using routehint %s (%s) cltv_delta=%d",
 				   type_to_string(tmpctx, struct node_id, &d->current_routehint->pubkey),
 				   type_to_string(tmpctx, struct short_channel_id, &d->current_routehint->short_channel_id),
 				   d->current_routehint->cltv_expiry_delta
 				);
-		} else
-			p->temp_exclusion = NULL;
+		}
 	} else if (p->step == PAYMENT_STEP_GOT_ROUTE) {
 		/* Now it's time to stitch the two partial routes together. */
 		struct amount_msat dest_amount;
