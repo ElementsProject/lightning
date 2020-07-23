@@ -1771,15 +1771,13 @@ static struct route_info *next_routehint(struct routehints_data *d,
 					     struct payment *p)
 {
 	size_t numhints = tal_count(d->routehints);
-	size_t offset;
 	struct route_info *curr;
 
 	if (d->routehints == NULL || numhints == 0)
 		return NULL;
 
-	offset = pseudorand(numhints);
-	for (size_t i=0; i<tal_count(d->routehints); i++) {
-		curr = d->routehints[(offset + i) % numhints];
+	for (; d->offset <numhints; d->offset++) {
+		curr = d->routehints[d->offset];
 		if (curr == NULL || !routehint_excluded(p, curr))
 			return curr;
 	}
@@ -1971,10 +1969,17 @@ static struct routehints_data *routehint_data_init(struct payment *p)
 		pd = payment_mod_routehints_get_data(payment_root(p));
 		d->destination_reachable = pd->destination_reachable;
 		d->routehints = pd->routehints;
+		if (p->parent->step == PAYMENT_STEP_RETRY)
+			d->offset = pd->offset + 1;
+		else
+			d->offset = 0;
+		return d;
 	} else {
 		/* We defer the actual initialization of the routehints array to
 		 * the step callback when we have the invoice attached. */
 		d->routehints = NULL;
+		d->offset = 0;
+		return d;
 	}
 	return d;
 }
