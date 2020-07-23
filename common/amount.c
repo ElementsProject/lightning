@@ -153,7 +153,7 @@ static bool from_numbers(u64 *res,
 /* Valid strings:
  *  [0-9]+ => millisatoshi.
  *  [0-9]+msat => millisatoshi.
- *  [0-9]+sat => *1000 -> millisatopshi.
+ *  [0-9]+sat => *1000 -> millisatoshi.
  *  [0-9]+.[0-9]{1,11}btc => millisatoshi.
  */
 bool parse_amount_msat(struct amount_msat *msat, const char *s, size_t slen)
