@@ -1607,9 +1607,9 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 
 	/* If the failure was not final, and we tried a route, try again. */
 	if (rdata->retries > 0) {
+		payment_set_step(p, PAYMENT_STEP_RETRY);
 		subpayment = payment_new(p, NULL, p, p->modifiers);
 		payment_start(subpayment);
-		payment_set_step(p, PAYMENT_STEP_RETRY);
 		subpayment->why =
 		    tal_fmt(subpayment, "Still have %d attempts left",
 			    rdata->retries - 1);
@@ -2600,6 +2600,7 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		if (amount_msat_greater(target, p->amount))
 			return payment_continue(p);
 
+		payment_set_step(p, PAYMENT_STEP_SPLIT);
 		/* Ok, we know we should split, so split here and then skip this
 		 * payment and start the children instead. */
 		while (!amount_msat_eq(amt, AMOUNT_MSAT(0))) {
@@ -2636,7 +2637,6 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		    count,
 		    type_to_string(tmpctx, struct amount_msat, &root->amount),
 		    type_to_string(tmpctx, struct amount_msat, &target));
-		payment_set_step(p, PAYMENT_STEP_SPLIT);
 		plugin_log(p->plugin, LOG_INFORM, "%s", p->why);
 	}
 	payment_continue(p);
@@ -2734,6 +2734,7 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 				    "allowed by our channels");
 			}
 
+			p->step = PAYMENT_STEP_SPLIT;
 			a = payment_new(p, NULL, p, p->modifiers);
 			b = payment_new(p, NULL, p, p->modifiers);
 
@@ -2758,7 +2759,6 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 
 			payment_start(a);
 			payment_start(b);
-			p->step = PAYMENT_STEP_SPLIT;
 
 			/* Take note that we now have an additional split that
 			 * may end up using an HTLC. */
