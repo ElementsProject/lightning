@@ -55,6 +55,7 @@ COMMON_SRC_NOGEN :=				\
 	common/peer_failed.c			\
 	common/permute_tx.c			\
 	common/ping.c				\
+	common/psbt_open.c			\
 	common/pseudorand.c			\
 	common/read_peer_msg.c			\
 	common/setup.c				\
