@@ -27,6 +27,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->abort = false;
 	p->route = NULL;
 	p->temp_exclusion = NULL;
+	p->failroute_retry = false;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -1527,7 +1528,7 @@ static bool payment_can_retry(struct payment *p)
 	bool is_final;
 
 	if (p->result == NULL)
-		return false;
+		return p->failroute_retry;
 
 	idx = res->erring_index != NULL ? *res->erring_index : 0;
 	is_final = (idx == tal_count(p->route));
@@ -1595,7 +1596,7 @@ static inline void retry_step_cb(struct retry_mod_data *rd,
 
 	/* If we failed to find a route, it's unlikely we can suddenly find a
 	 * new one without any other changes, so it's time to give up. */
-	if (p->route == NULL)
+	if (p->route == NULL && !p->failroute_retry)
 		return payment_continue(p);
 
 	/* If the root is marked as abort, we do not retry anymore */
@@ -1839,7 +1840,14 @@ static u32 route_cltv(u32 cltv,
  * routehint entry point. */
 static void routehint_pre_getroute(struct routehints_data *d, struct payment *p)
 {
+	bool have_more;
 	d->current_routehint = next_routehint(d, p);
+
+	/* Signal that we could retry with another routehint even if getroute
+	 * fails. */
+	have_more = (d->offset < tal_count(d->routehints) - 1);
+	p->failroute_retry = have_more;
+
 	if (d->current_routehint != NULL) {
 		if (!route_msatoshi(&p->getroute->amount, p->amount,
 				    d->current_routehint,
