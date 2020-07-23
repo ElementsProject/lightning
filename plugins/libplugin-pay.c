@@ -1356,7 +1356,6 @@ static void payment_finished(struct payment *p)
 			json_add_hex_talarr(ret, "raw_message",
 					    result.failure->raw_message);
 			json_add_num(ret, "created_at", p->start_time.ts.tv_sec);
-			json_add_string(ret, "message", result.failure->message);
 			json_add_node_id(ret, "destination", p->destination);
 			json_add_sha256(ret, "payment_hash", p->payment_hash);
 
