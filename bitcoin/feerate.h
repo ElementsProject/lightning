@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_BITCOIN_FEERATE_H
 #define LIGHTNING_BITCOIN_FEERATE_H
 #include "config.h"
+#include <bitcoin/varint.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/short_types/short_types.h>
 #include <common/amount.h>
@@ -33,6 +34,17 @@
  * This formula is satisfied by a feerate of 253 (hand-search).
  */
 #define FEERATE_FLOOR 253
+
+/*
+ * This is the net common weight of a transaction.
+ *
+ * It's defined as
+ *     (nVersion + num inputs + num outputs + locktime) * 4
+ *         + SegWit marker + SegWit flag
+ */
+#define common_weight(num_inputs, num_outputs) \
+	(4 + (size_t)varint_size(num_inputs) + \
+	 (size_t)varint_size(num_outputs) + 4) * 4 + 1 + 1
 
 enum feerate_style {
 	FEERATE_PER_KSIPA,
