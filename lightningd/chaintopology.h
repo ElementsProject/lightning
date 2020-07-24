@@ -60,10 +60,7 @@ struct block {
 	/* Key for hash table */
 	struct bitcoin_blkid blkid;
 
-	/* And their associated index in the block */
-	u32 *txnums;
-
-	/* Full copy of txs (trimmed to txs list in connect_block) */
+	/* Full copy of txs (freed in filter_block_txs) */
 	struct bitcoin_tx **full_txs;
 };
 
