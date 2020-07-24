@@ -840,7 +840,6 @@ static struct block *new_block(struct chain_topology *topo,
 
 	b->hdr = blk->hdr;
 
-	b->txnums = tal_arr(b, u32, 0);
 	b->full_txs = tal_steal(b, blk->tx);
 
 	return b;
