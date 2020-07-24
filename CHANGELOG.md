@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - JSON-API: `listchannels` now shows channel `features`. ([3685](https://github.com/ElementsProject/lightning/pull/3685))
  - plugin: New `invoice_creation` plugin event ([3658](https://github.com/ElementsProject/lightning/pull/3658))
  - docs: Install documentation now has information about building for Alpine linux ([3660](https://github.com/ElementsProject/lightning/pull/3660))
+ - plugin: Plugins can opt out of having an RPC connection automatically initialized on startup. ([3857](https://github.com/ElementsProject/lightning/pull/3857))
 
 ### Changed
 
@@ -67,6 +68,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - macOS: Build for macOS Catalina / Apple clang v11.0.3 fixed ([3756](https://github.com/ElementsProject/lightning/pull/3756))
  - protocol: Fixed a deviation from BOLT#2: if both nodes advertised `option_upfront_shutdown_script` feature: MUST include ... a zero-length `shutdown_scriptpubkey`. ([3816](https://github.com/ElementsProject/lightning/pull/3816))
  - wumbo: negotiate successfully with Eclair nodes. ([3712](https://github.com/ElementsProject/lightning/pull/3712))
+ - plugin: `bcli` no longer logs a harmless warning about being unable to connect to the JSON-RPC interface. ([3857](https://github.com/ElementsProject/lightning/pull/3857))
 
 ### Security
 
