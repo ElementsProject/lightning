@@ -1745,7 +1745,8 @@ static struct command_result *listsendpays_done(struct command *cmd,
 
 		b11tok = json_get_member(buf, t, "bolt11");
 		hashtok = json_get_member(buf, t, "payment_hash");
-		assert(hashtok != NULL);
+		//assert(b11tok != NULL); //TODO(vincenzopalazzo) I added this command
+        assert(hashtok != NULL);
 
 		json_to_sha256(buf, hashtok, &payment_hash);
 		if (b11tok)
