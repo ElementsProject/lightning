@@ -1100,12 +1100,12 @@ can use from 1 to 5 plugin(s) registering these 5 commands for gathering Bitcoin
 data. Each plugin must follow the below specification for `lightningd` to operate.
 
 
-### `getchainfo`
+### `getchaininfo`
 
 Called at startup, it's used to check the network `lightningd` is operating on and to
 get the sync status of the backend.
 
-The plugin must respond to `getchainfo` with the following fields:
+The plugin must respond to `getchaininfo` with the following fields:
     - `chain` (string), the network name as introduced in bip70
     - `headercount` (number), the number of fetched block headers
     - `blockcount` (number), the number of fetched block body
