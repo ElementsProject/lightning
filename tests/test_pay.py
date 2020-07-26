@@ -3195,7 +3195,6 @@ def test_pay_fail_unconfirmed_channel(node_factory, bitcoind):
     l1.rpc.pay(invl2)
 
 
-@pytest.mark.xfail(strict=True)    
 def test_bolt11_null_after_pay(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2)
 

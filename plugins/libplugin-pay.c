@@ -28,6 +28,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->route = NULL;
 	p->temp_exclusion = NULL;
 	p->failroute_retry = false;
+	p->bolt11 = NULL;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -1039,6 +1040,9 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 
 	if (p->label)
 		json_add_string(req->js, "label", p->label);
+
+	if (p->bolt11)
+		json_add_string(req->js, "bolt11", p->bolt11);
 
 	send_outreq(p->plugin, req);
 	return command_still_pending(cmd);
