@@ -3,7 +3,7 @@
 lightning-sendonion - Send a payment with a custom onion packet
 .SH SYNOPSIS
 
-\fBsendonion\fR \fIonion\fR \fIfirst_hop\fR \fIpayment_hash\fR [\fIlabel\fR] [\fIshared_secrets\fR]
+\fBsendonion\fR \fIonion\fR \fIfirst_hop\fR \fIpayment_hash\fR [\fIlabel\fR] [\fIshared_secrets\fR] [\fIpartid\fR] [\fIbolt11\fR]
 
 .SH DESCRIPTION
 
@@ -80,6 +80,14 @@ externally\. The following is an example of a 3 hop onion:
 If \fIshared_secrets\fR is not provided the c-lightning node does not know how
 long the route is, which channels or nodes are involved, and what an eventual
 error could have been\. It can therefore be used for oblivious payments\.
+
+
+The \fIpartid\fR value, if provided and non-zero, allows for multiple parallel
+partial payments with the same \fIpayment_hash\fR\.
+
+
+The \fIbolt11\fR parameter, if provided, will be returned in
+\fIwaitsendpay\fR and \fIlistsendpays\fR results\.
 
 .SH RETURN VALUE
 

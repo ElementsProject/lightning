@@ -4,7 +4,7 @@ lightning-sendonion -- Send a payment with a custom onion packet
 SYNOPSIS
 --------
 
-**sendonion** *onion* *first_hop* *payment_hash* \[*label*\] \[*shared_secrets*\]
+**sendonion** *onion* *first_hop* *payment_hash* \[*label*\] \[*shared_secrets*\] \[*partid*\] \[*bolt11*\]
 
 DESCRIPTION
 -----------
@@ -71,6 +71,12 @@ externally. The following is an example of a 3 hop onion:
 If *shared_secrets* is not provided the c-lightning node does not know how
 long the route is, which channels or nodes are involved, and what an eventual
 error could have been. It can therefore be used for oblivious payments.
+
+The *partid* value, if provided and non-zero, allows for multiple parallel
+partial payments with the same *payment_hash*.
+
+The *bolt11* parameter, if provided, will be returned in
+*waitsendpay* and *listsendpays* results.
 
 RETURN VALUE
 ------------
