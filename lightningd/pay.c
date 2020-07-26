@@ -437,8 +437,6 @@ remote_routing_failure(const tal_t *ctx,
 			*pay_errcode = PAY_TRY_OTHER_ROUTE;
 		erring_node = &route_nodes[origin_index];
 	} else {
-		u8 *gossip_msg;
-
 		*pay_errcode = PAY_TRY_OTHER_ROUTE;
 
 		/* Report the *next* channel as failing. */
@@ -455,17 +453,13 @@ remote_routing_failure(const tal_t *ctx,
 			erring_node = &route_nodes[origin_index + 1];
 		} else
 			erring_node = &route_nodes[origin_index];
-
-		/* Tell gossipd: it may want to remove channels or even nodes
-		 * in response to this, and there may be a channel_update
-		 * embedded too */
-		gossip_msg = towire_gossip_payment_failure(NULL,
-							   erring_node,
-							   erring_channel,
-							   dir,
-							   failuremsg);
-		subd_send_msg(ld->gossip, take(gossip_msg));
 	}
+
+	/* Tell gossipd; it will try to extract channel_update */
+	/* FIXME: sendonion caller should do this, and inform gossipd of any
+	 * permanent errors. */
+	subd_send_msg(ld->gossip,
+		      take(towire_gossip_payment_failure(NULL, failuremsg)));
 
 	routing_failure->erring_index = (unsigned int) (origin_index + 1);
 	routing_failure->failcode = failcode;
