@@ -4,7 +4,7 @@ lightning-sendonion -- Send a payment with a custom onion packet
 SYNOPSIS
 --------
 
-**sendonion** *onion* *first_hop* *payment_hash* \[*label*\] \[*shared_secrets*\] \[*partid*\] \[*bolt11*\]
+**sendonion** *onion* *first_hop* *payment_hash* \[*label*\] \[*shared_secrets*\] \[*partid*\] \[*bolt11*\] \[*msatoshi*\]
 
 DESCRIPTION
 -----------
@@ -77,6 +77,9 @@ partial payments with the same *payment_hash*.
 
 The *bolt11* parameter, if provided, will be returned in
 *waitsendpay* and *listsendpays* results.
+
+The *msatoshi* parameter is used to annotate the payment, and is returned by
+*waitsendpay* and *listsendpays*.
 
 RETURN VALUE
 ------------
