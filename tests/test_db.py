@@ -133,6 +133,7 @@ def test_max_channel_id(node_factory, bitcoind):
 @unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
+@unittest.skipIf(os.getenv('SUBDAEMON', 'xxx') == 'hsmd:remote_hsmd', "remote_hsmd doesn't like channel_nonce changing")
 def test_scid_upgrade(node_factory, bitcoind):
     bitcoind.generate_block(1)
 
@@ -146,6 +147,7 @@ def test_scid_upgrade(node_factory, bitcoind):
 @unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
+@unittest.skipIf(os.getenv('SUBDAEMON', 'xxx') == 'hsmd:remote_hsmd', "remote_hsmd doesn't like channel_nonce changing")
 def test_last_tx_psbt_upgrade(node_factory, bitcoind):
     bitcoind.generate_block(12)
 
