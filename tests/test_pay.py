@@ -3195,6 +3195,7 @@ def test_pay_fail_unconfirmed_channel(node_factory, bitcoind):
     l1.rpc.pay(invl2)
 
 
+@pytest.mark.xfail(strict=True)
 def test_bolt11_null_after_pay(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2)
 
@@ -3211,8 +3212,10 @@ def test_bolt11_null_after_pay(node_factory, bitcoind):
     bitcoind.generate_block(6)
     sync_blockheight(bitcoind, [l1, l2])
 
-    invl1 = l1.rpc.invoice(Millisatoshi(amount_sat * 2 * 1000), 'j', 'j')['bolt11']
+    amt = Millisatoshi(amount_sat * 2 * 1000)
+    invl1 = l1.rpc.invoice(amt, 'j', 'j')['bolt11']
     l2.rpc.pay(invl1)
 
     pays = l2.rpc.listpays()["pays"]
-    assert pays[0]["bolt11"] == invl1
+    assert(pays[0]["bolt11"] == invl1)
+    assert('amount_msat' in pays[0] and pays[0]['amount_msat'] == amt)
