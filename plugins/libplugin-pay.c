@@ -186,7 +186,7 @@ void payment_start(struct payment *p)
 static void channel_hints_update(struct payment *p,
 				 const struct short_channel_id scid,
 				 int direction, bool enabled, bool local,
-				 struct amount_msat *estimated_capacity,
+				 const struct amount_msat *estimated_capacity,
 				 u16 *htlc_budget)
 {
 	struct payment *root = payment_root(p);
@@ -448,7 +448,10 @@ payment_get_excluded_channels(const tal_t *ctx, struct payment *p)
 
 		else if (amount_msat_greater_eq(p->amount,
 						hint->estimated_capacity))
+			/* We exclude on equality because we've set the
+			 * estimate to the smallest failed attempt. */
 			tal_arr_expand(&res, hint->scid);
+
 		else if (hint->local && hint->htlc_budget == 0)
 			/* If we cannot add any HTLCs to the channel we
 			 * shouldn't look for a route through that channel */
@@ -850,11 +853,9 @@ handle_intermediate_failure(struct command *cmd,
 	case WIRE_TEMPORARY_CHANNEL_FAILURE: {
 		/* These are an indication that the capacity was insufficient,
 		 * remember the amount we tried as an estimate. */
-		struct amount_msat est = errchan->amount;
-		est.millisatoshis *= 0.75; /* Raw: Multiplication */
 		channel_hints_update(root, errchan->channel_id,
-				     errchan->direction, true, false, &est,
-				     NULL);
+				     errchan->direction, true, false,
+				     &errchan->amount, NULL);
 		goto error;
 	}
 
