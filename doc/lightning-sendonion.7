@@ -3,7 +3,7 @@
 lightning-sendonion - Send a payment with a custom onion packet
 .SH SYNOPSIS
 
-\fBsendonion\fR \fIonion\fR \fIfirst_hop\fR \fIpayment_hash\fR [\fIlabel\fR] [\fIshared_secrets\fR] [\fIpartid\fR] [\fIbolt11\fR]
+\fBsendonion\fR \fIonion\fR \fIfirst_hop\fR \fIpayment_hash\fR [\fIlabel\fR] [\fIshared_secrets\fR] [\fIpartid\fR] [\fIbolt11\fR] [\fImsatoshi\fR]
 
 .SH DESCRIPTION
 
@@ -88,6 +88,10 @@ partial payments with the same \fIpayment_hash\fR\.
 
 The \fIbolt11\fR parameter, if provided, will be returned in
 \fIwaitsendpay\fR and \fIlistsendpays\fR results\.
+
+
+The \fImsatoshi\fR parameter is used to annotate the payment, and is returned by
+\fIwaitsendpay\fR and \fIlistsendpays\fR\.
 
 .SH RETURN VALUE
 
