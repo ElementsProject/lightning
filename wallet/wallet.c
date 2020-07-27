@@ -2749,8 +2749,16 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	else
 		payment->failonion = NULL;
 
-	db_column_amount_msat(stmt, 14, &payment->total_msat);
-	payment->partid = db_column_u64(stmt, 15);
+	if (!db_column_is_null(stmt, 14))
+		db_column_amount_msat(stmt, 14, &payment->total_msat);
+	else
+		payment->total_msat = AMOUNT_MSAT(0);
+
+	if (!db_column_is_null(stmt, 15))
+		payment->partid = db_column_u64(stmt, 15);
+	else
+		payment->partid = 0;
+
 	return payment;
 }
 
