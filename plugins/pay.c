@@ -1661,6 +1661,11 @@ struct pay_mpp {
 	size_t num_nonfailed_parts;
 	/* Total amount sent ("complete" or "pending" only). */
 	struct amount_msat amount_sent;
+
+	/* Total amount received by the recipient ("complete" or "pending"
+	 * only). Null if we have any part for which we didn't know the
+	 * amount. */
+	struct amount_msat *amount;
 };
 
 static const struct sha256 *pay_mpp_key(const struct pay_mpp *pm)
@@ -1683,17 +1688,43 @@ HTABLE_DEFINE_TYPE(struct pay_mpp, pay_mpp_key, pay_mpp_hash, pay_mpp_eq,
 
 static void add_amount_sent(struct plugin *p,
 			    const char *b11,
-			    struct amount_msat *total,
+			    struct pay_mpp *mpp,
 			    const char *buf,
 			    const jsmntok_t *t)
 {
-	struct amount_msat sent;
+	struct amount_msat sent, recv;
+	const jsmntok_t *msattok;
+
+
 	json_to_msat(buf, json_get_member(buf, t, "amount_sent_msat"), &sent);
-	if (!amount_msat_add(total, *total, sent))
+	if (!amount_msat_add(&mpp->amount_sent, mpp->amount_sent, sent))
 		plugin_log(p, LOG_BROKEN,
 			   "Cannot add amount_sent_msat for %s: %s + %s",
 			   b11,
-			   type_to_string(tmpctx, struct amount_msat, total),
+			   type_to_string(tmpctx, struct amount_msat, &mpp->amount_sent),
+			   type_to_string(tmpctx, struct amount_msat, &sent));
+
+	msattok = json_get_member(buf, t, "amount_msat");
+
+	/* If this is an unannotated partial payment we drop out estimate for
+	 * all parts. */
+	if (msattok == NULL) {
+		mpp->amount = tal_free(mpp->amount);
+		return;
+	}
+
+	/* If we had a part of this multi-part payment for which we don't know
+	 * the amount, then this is NULL. No point in summing up if we don't
+	 * have the exact value.*/
+	if (mpp->amount == NULL)
+		return;
+
+	json_to_msat(buf, msattok, &recv);
+	if (!amount_msat_add(mpp->amount, *mpp->amount, recv))
+		plugin_log(p, LOG_BROKEN,
+			   "Cannot add amount_msat for %s: %s + %s",
+			   b11,
+			   type_to_string(tmpctx, struct amount_msat, mpp->amount),
 			   type_to_string(tmpctx, struct amount_msat, &sent));
 }
 
@@ -1708,6 +1739,13 @@ static void add_new_entry(struct json_stream *ret,
 		json_add_tok(ret, "label", pm->label, buf);
 	if (pm->preimage)
 		json_add_tok(ret, "preimage", pm->preimage, buf);
+
+	/* This is only tallied for pending and successful payments, not
+	 * failures. */
+	if (pm->amount != NULL && pm->num_nonfailed_parts > 0)
+		json_add_string(ret, "amount_msat",
+				fmt_amount_msat(tmpctx, pm->amount));
+
 	json_add_string(ret, "amount_sent_msat",
 			fmt_amount_msat(tmpctx, &pm->amount_sent));
 
@@ -1759,6 +1797,7 @@ static struct command_result *listsendpays_done(struct command *cmd,
 			pm->label = json_get_member(buf, t, "label");
 			pm->preimage = NULL;
 			pm->amount_sent = AMOUNT_MSAT(0);
+			pm->amount = talz(pm, struct amount_msat);
 			pm->num_nonfailed_parts = 0;
 			pm->status = NULL;
 			pay_map_add(&pay_map, pm);
@@ -1766,15 +1805,13 @@ static struct command_result *listsendpays_done(struct command *cmd,
 
 		status = json_get_member(buf, t, "status");
 		if (json_tok_streq(buf, status, "complete")) {
-			add_amount_sent(cmd->plugin, pm->b11,
-					&pm->amount_sent, buf, t);
+			add_amount_sent(cmd->plugin, pm->b11, pm, buf, t);
 			pm->num_nonfailed_parts++;
 			pm->status = "complete";
 			pm->preimage
 				= json_get_member(buf, t, "payment_preimage");
 		} else if (json_tok_streq(buf, status, "pending")) {
-			add_amount_sent(cmd->plugin, pm->b11,
-					&pm->amount_sent, buf, t);
+			add_amount_sent(cmd->plugin, pm->b11, pm, buf, t);
 			pm->num_nonfailed_parts++;
 			/* Failed -> pending; don't downgrade success. */
 			if (!pm->status || !streq(pm->status, "complete"))
