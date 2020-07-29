@@ -1526,6 +1526,16 @@ struct log *plugin_get_log(struct plugin *plugin)
 	return plugin->log;
 }
 
+void plugins_set_builtin_plugins_dir(struct plugins *plugins,
+				     const char *dir)
+{
+	/*~ The builtin-plugins dir does not need to exist, but
+	 * we would error those anyway for our important built-in
+	 * plugins.
+	 */
+	add_plugin_dir(plugins, dir, true);
+}
+
 struct plugin_destroyed {
 	const struct plugin *plugin;
 };
@@ -1535,6 +1545,7 @@ static void mark_plugin_destroyed(const struct plugin *unused,
 {
 	pd->plugin = NULL;
 }
+
 
 struct plugin_destroyed *plugin_detect_destruction(const struct plugin *plugin)
 {

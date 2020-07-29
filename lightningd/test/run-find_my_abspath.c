@@ -207,6 +207,9 @@ void plugins_init(struct plugins *plugins UNNEEDED)
 struct plugins *plugins_new(const tal_t *ctx UNNEEDED, struct log_book *log_book UNNEEDED,
 			    struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "plugins_new called!\n"); abort(); }
+void plugins_set_builtin_plugins_dir(struct plugins *plugins UNNEEDED,
+				     const char *dir UNNEEDED)
+{ fprintf(stderr, "plugins_set_builtin_plugins_dir called!\n"); abort(); }
 /* Generated stub for setup_color_and_alias */
 void setup_color_and_alias(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "setup_color_and_alias called!\n"); abort(); }

@@ -469,9 +469,9 @@ static const char *find_my_pkglibexec_path(struct lightningd *ld,
 
 	/*~ The plugin dir is in ../libexec/c-lightning/plugins, which (unlike
 	 * those given on the command line) does not need to exist. */
-	add_plugin_dir(ld->plugins,
-		       path_join(tmpctx, pkglibexecdir, "plugins"),
-		       true);
+	plugins_set_builtin_plugins_dir(ld->plugins,
+					path_join(tmpctx,
+						  pkglibexecdir, "plugins"));
 
 	/*~ Sometimes take() can be more efficient, since the routine can
 	 * manipulate the string in place.  This is the case here. */
@@ -484,10 +484,11 @@ static const char *find_daemon_dir(struct lightningd *ld, const char *argv0)
 	const char *my_path = find_my_directory(ld, argv0);
 	/* If we're running in-tree, all the subdaemons are with lightningd. */
 	if (has_all_subdaemons(my_path)) {
-		/* In this case, look in ../plugins */
-		add_plugin_dir(ld->plugins,
-			       path_join(tmpctx, my_path, "../plugins"),
-			       true);
+		/* In this case, look for built-in plugins in ../plugins */
+		plugins_set_builtin_plugins_dir(ld->plugins,
+						path_join(tmpctx,
+							  my_path,
+							  "../plugins"));
 		return my_path;
 	}
 
