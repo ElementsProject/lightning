@@ -128,6 +128,18 @@ def test_bitcoin_failure(node_factory, bitcoind):
     bitcoind.generate_block(5)
     sync_blockheight(bitcoind, [l1])
 
+    # We refuse to start if bitcoind is in `blocksonly`
+    l1.stop()
+    bitcoind.stop()
+    bitcoind.cmd_line += ["-blocksonly"]
+    bitcoind.start()
+
+    l2 = node_factory.get_node(start=False, expect_fail=True)
+    with pytest.raises(ValueError):
+        l2.start(stderr=subprocess.PIPE)
+    assert l2.daemon.is_in_stderr(r".*deactivating transaction relay is not"
+                                  " supported.") is not None
+
 
 def test_bitcoin_ibd(node_factory, bitcoind):
     """Test that we recognize bitcoin in initial download mode"""
