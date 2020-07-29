@@ -1026,8 +1026,8 @@ class NodeFactory(object):
 
     def get_node(self, node_id=None, options=None, dbfile=None,
                  feerates=(15000, 11000, 7500, 3750), start=True,
-                 wait_for_bitcoind_sync=True, expect_fail=False,
-                 cleandir=True, **kwargs):
+                 wait_for_bitcoind_sync=True, may_fail=False,
+                 expect_fail=False, cleandir=True, **kwargs):
 
         node_id = self.get_node_id() if not node_id else node_id
         port = self.get_next_port()
@@ -1043,7 +1043,8 @@ class NodeFactory(object):
         db = self.db_provider.get_db(os.path.join(lightning_dir, TEST_NETWORK), self.testname, node_id)
         node = self.node_cls(
             node_id, lightning_dir, self.bitcoind, self.executor, db=db,
-            port=port, options=options, **kwargs
+            port=port, options=options, may_fail=may_fail or expect_fail,
+            **kwargs
         )
 
         # Regtest estimatefee are unusable, so override.
