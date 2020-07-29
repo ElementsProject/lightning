@@ -58,7 +58,7 @@ struct command_result *plugin_cmd_all_complete(struct plugins *plugins,
 static struct command_result *
 plugin_dynamic_start(struct command *cmd, const char *plugin_path)
 {
-	struct plugin *p = plugin_register(cmd->ld->plugins, plugin_path, cmd);
+	struct plugin *p = plugin_register(cmd->ld->plugins, plugin_path, cmd, false);
 	const char *err;
 
 	if (!p)
