@@ -932,6 +932,9 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u.close_info->channel_id = 42;
 	u.close_info->peer_id = id;
 	u.close_info->commitment_point = &pk;
+	/* Arbitrarily set scriptpubkey len to 20 */
+	u.scriptPubkey = tal_arr(w, u8, 20);
+	memset(u.scriptPubkey, 1, 20);
 	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
 		  "wallet_add_utxo with close_info");
 
@@ -980,6 +983,8 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u.close_info->channel_id = 42;
 	u.close_info->peer_id = id;
 	u.close_info->commitment_point = NULL;
+	u.scriptPubkey = tal_arr(w, u8, 20);
+	memset(u.scriptPubkey, 1, 20);
 	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
 		  "wallet_add_utxo with close_info no commitment_point");
 

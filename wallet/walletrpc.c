@@ -868,29 +868,9 @@ static void json_add_utxo(struct json_stream *response,
 	json_add_amount_sat_compat(response, utxo->amount,
 				   "value", "amount_msat");
 
-	if (utxo->scriptPubkey != NULL) {
-		json_add_hex_talarr(response, "scriptpubkey", utxo->scriptPubkey);
-		out = encode_scriptpubkey_to_addr(
-			tmpctx, chainparams,
-			utxo->scriptPubkey);
-	} else {
-		out = NULL;
-#ifdef COMPAT_V072
-		/* scriptpubkey was introduced in v0.7.3.
-		 * We could handle close_info via HSM to get address,
-		 * but who cares?  We'll print a warning though. */
-		if (utxo->close_info == NULL) {
-			struct pubkey funding_pubkey;
-			bip32_pubkey(wallet->bip32_base,
-				     &funding_pubkey,
-				     utxo->keyindex);
-			out = encode_pubkey_to_addr(tmpctx,
-						    &funding_pubkey,
-						    utxo->is_p2sh,
-						    NULL);
-		}
-#endif
-	}
+	json_add_hex_talarr(response, "scriptpubkey", utxo->scriptPubkey);
+	out = encode_scriptpubkey_to_addr(tmpctx, chainparams,
+					  utxo->scriptPubkey);
 	if (!out)
 		log_broken(wallet->log,
 			   "Could not encode utxo %s:%u%s!",
