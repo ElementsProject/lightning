@@ -3,12 +3,12 @@
 lightning-listpays - Command for querying payment status
 .SH SYNOPSIS
 
-\fBlistpays\fR [bolt11]
+\fBlistpays\fR [bolt11] [payment_hash]
 
 .SH DESCRIPTION
 
 The \fBlistpay\fR RPC command gets the status of all \fIpay\fR commands, or a
-single one if \fIbolt11\fR is specified\.
+single one if either \fIbolt11\fR or \fIpayment_hash\fR was specified\.
 
 .SH RETURN VALUE
 
@@ -16,7 +16,11 @@ On success, an array of objects is returned\. Each object contains:
 
 
  \fIbolt11\fR
-the \fIbolt11\fR argument given to \fIpay\fR (see below for exceptions)\.
+the \fIbolt11\fR invoice if provided to \fBpay\fR\.
+
+
+ \fIpayment_hash\fR
+the \fIpayment_hash\fR of the payment\.
 
 
  \fIstatus\fR
@@ -24,11 +28,11 @@ one of \fIcomplete\fR, \fIfailed\fR or \fIpending\fR\.
 
 
  \fIpayment_preimage\fR
-(if \fIstatus\fR is \fIcomplete\fR) proves payment was received\.
+if \fIstatus\fR is \fIcomplete\fR\.
 
 
  \fIlabel\fR
-optional \fIlabel\fR, if provided to \fIpay\fR\.
+optional \fIlabel\fR, if provided to \fIpay\fR or \fIsendonion\fR\.
 
 
  \fIamount_sent_msat\fR
