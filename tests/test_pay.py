@@ -161,6 +161,11 @@ def test_pay_exclude_node(node_factory, bitcoind):
     assert status[0]['failure']['data']['failcodename'] == 'WIRE_TEMPORARY_NODE_FAILURE'
     assert 'failure' in status[1]
 
+    # Get a fresh invoice, but do it before other routes exist, so routehint
+    # will be via l2.
+    inv = l3.rpc.invoice(amount, "test2", 'description')['bolt11']
+    assert only_one(l1.rpc.decodepay(inv)['routes'])[0]['pubkey'] == l2.info['id']
+
     # l1->l4->l5->l3 is the longer route. This makes sure this route won't be
     # tried for the first pay attempt. Just to be sure we also raise the fees
     # that l4 leverages.
@@ -186,8 +191,6 @@ def test_pay_exclude_node(node_factory, bitcoind):
                              .format(scid53),
                              r'update for channel {}/1 now ACTIVE'
                              .format(scid53)])
-
-    inv = l3.rpc.invoice(amount, "test2", 'description')['bolt11']
 
     # This `pay` will work
     l1.rpc.pay(inv)
