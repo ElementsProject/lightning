@@ -15,8 +15,6 @@ struct amount_sat;
 struct bitcoin_signature;
 struct pubkey;
 
-int wally_psbt_clone(const struct wally_psbt *psbt, struct wally_psbt **output);
-
 void psbt_destroy(struct wally_psbt *psbt);
 
 struct wally_psbt *new_psbt(const tal_t *ctx,
