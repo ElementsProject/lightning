@@ -1571,6 +1571,31 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 			 take(towire_hsm_sign_withdrawal_reply(NULL, psbt)));
 }
 
+static struct io_plan *handle_get_output_scriptpubkey(struct io_conn *conn,
+						    struct client *c,
+						    const u8 *msg_in)
+{
+	struct pubkey pubkey;
+	struct privkey privkey;
+	struct unilateral_close_info info;
+	u8 *scriptPubkey;
+
+	info.commitment_point = NULL;
+	if (!fromwire_hsm_get_output_scriptpubkey(tmpctx, msg_in,
+						  &info.channel_id,
+						  &info.peer_id,
+						  &info.commitment_point))
+		return bad_req(conn, c, msg_in);
+
+	hsm_unilateral_close_privkey(&privkey, &info);
+	pubkey_from_privkey(&privkey, &pubkey);
+	scriptPubkey = scriptpubkey_p2wpkh(tmpctx, &pubkey);
+
+	return req_reply(conn, c,
+			 take(towire_hsm_get_output_scriptpubkey_reply(NULL,
+								       scriptPubkey)));
+}
+
 /*~ Lightning invoices, defined by BOLT 11, are signed.  This has been
  * surprisingly controversial; it means a node needs to be online to create
  * invoices.  However, it seems clear to me that in a world without
@@ -1799,6 +1824,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS:
 	case WIRE_HSM_DEV_MEMLEAK:
 	case WIRE_HSM_SIGN_MESSAGE:
+	case WIRE_HSM_GET_OUTPUT_SCRIPTPUBKEY:
 		return (client->capabilities & HSM_CAP_MASTER) != 0;
 
 	/*~ These are messages sent by the HSM so we should never receive them. */
@@ -1820,6 +1846,7 @@ static bool check_client_capabilities(struct client *client,
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
 	case WIRE_HSM_DEV_MEMLEAK_REPLY:
 	case WIRE_HSM_SIGN_MESSAGE_REPLY:
+	case WIRE_HSM_GET_OUTPUT_SCRIPTPUBKEY_REPLY:
 		break;
 	}
 	return false;
@@ -1848,6 +1875,9 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS:
 		return handle_get_channel_basepoints(conn, c, c->msg_in);
+
+	case WIRE_HSM_GET_OUTPUT_SCRIPTPUBKEY:
+		return handle_get_output_scriptpubkey(conn, c, c->msg_in);
 
 	case WIRE_HSM_ECDH_REQ:
 		return handle_ecdh(conn, c, c->msg_in);
@@ -1921,6 +1951,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSM_GET_CHANNEL_BASEPOINTS_REPLY:
 	case WIRE_HSM_DEV_MEMLEAK_REPLY:
 	case WIRE_HSM_SIGN_MESSAGE_REPLY:
+	case WIRE_HSM_GET_OUTPUT_SCRIPTPUBKEY_REPLY:
 		break;
 	}
 

@@ -135,6 +135,9 @@ bool fromwire_custommsg_in(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8
 /* Generated stub for fromwire_gossip_get_stripped_cupdate_reply */
 bool fromwire_gossip_get_stripped_cupdate_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **stripped_update UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_get_stripped_cupdate_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsm_get_output_scriptpubkey_reply */
+bool fromwire_hsm_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **script UNNEEDED)
+{ fprintf(stderr, "fromwire_hsm_get_output_scriptpubkey_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsm_sign_commitment_tx_reply */
 bool fromwire_hsm_sign_commitment_tx_reply(const void *p UNNEEDED, struct bitcoin_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsm_sign_commitment_tx_reply called!\n"); abort(); }
@@ -692,6 +695,9 @@ u8 *towire_final_incorrect_htlc_amount(const tal_t *ctx UNNEEDED, struct amount_
 /* Generated stub for towire_gossip_get_stripped_cupdate */
 u8 *towire_gossip_get_stripped_cupdate(const tal_t *ctx UNNEEDED, const struct short_channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_gossip_get_stripped_cupdate called!\n"); abort(); }
+/* Generated stub for towire_hsm_get_output_scriptpubkey */
+u8 *towire_hsm_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
+{ fprintf(stderr, "towire_hsm_get_output_scriptpubkey called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_commitment_tx */
 u8 *towire_hsm_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_commitment_tx called!\n"); abort(); }
