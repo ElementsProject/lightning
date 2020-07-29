@@ -23,18 +23,6 @@
 	memmove((arr) + (pos), (arr) + (pos) + 1,		\
 		sizeof(*(arr)) * ((num) - ((pos) + 1)))
 
-/* FIXME: someday this will break, because it's been exposed in libwally */
-int wally_psbt_clone(const struct wally_psbt *psbt, struct wally_psbt **output)
-{
-	int ret;
-	size_t byte_len;
-	const u8 *bytes = psbt_get_bytes(NULL, psbt, &byte_len);
-
-	ret = wally_psbt_from_bytes(bytes, byte_len, output);
-	tal_free(bytes);
-	return ret;
-}
-
 void psbt_destroy(struct wally_psbt *psbt)
 {
 	wally_psbt_free(psbt);
@@ -424,7 +412,7 @@ struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 	 * data, not the global tx. But 'finalizing' a tx destroys some fields
 	 * so we 'clone' it first and then finalize it */
 	if (!finalize_in_place) {
-		if (wally_psbt_clone(psbt, &tmppsbt) != WALLY_OK)
+		if (wally_psbt_clone_alloc(psbt, 0, &tmppsbt) != WALLY_OK)
 			return NULL;
 	} else
 		tmppsbt = cast_const(struct wally_psbt *, psbt);
