@@ -840,15 +840,16 @@ static void bitcoind_failure(struct plugin *p, const char *error_message)
 /* Do some sanity checks on bitcoind based on the output of `getnetworkinfo`. */
 static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 {
-	const jsmntok_t *result, *versiontok;
-	bool valid;
+	const jsmntok_t *result, *versiontok, *relaytok;
+	bool valid, tx_relay;
+	u32 min_version = 160000;
 
 	result = json_parse_input(NULL,
 				  buf, strlen(buf),
 				  &valid);
 	if (!result || !valid)
-		plugin_err(p, "No or invalid response to '%s' ? Got '%s'. Can not"
-			      " continue without proceeding to sanity checks.",
+		plugin_err(p, "Invalid response to '%s': '%s'. Can not "
+			      "continue without proceeding to sanity checks.",
 			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
 
 	/* Check that we have a fully-featured `estimatesmartfee`. */
@@ -863,9 +864,21 @@ static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 			      " continue without proceeding to sanity checks.",
 			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
 
-	if (bitcoind->version < 160000)
-		plugin_err(p, "Unsupported bitcoind version, you need to update"
-			      " Bitcoin Core.");
+	if (bitcoind->version < min_version)
+		plugin_err(p, "Unsupported bitcoind version %"PRIu32", at least"
+			      " %"PRIu32" required.", bitcoind->version, min_version);
+
+	/* We don't support 'blocksonly', as we rely on transaction relay for fee
+	 * estimates. */
+	relaytok = json_get_member(buf, result, "localrelay");
+	if (!relaytok || !json_to_bool(buf, relaytok, &tx_relay))
+		plugin_err(p, "No 'localrelay' in '%s' ? Got '%s'. Can not"
+			      " continue without proceeding to sanity checks.",
+			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
+
+	if (!tx_relay)
+		plugin_err(p, "The 'blocksonly' mode of bitcoind, or any option "
+			      "deactivating transaction relay is not supported.");
 
 	tal_free(result);
 }
