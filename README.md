@@ -31,7 +31,7 @@ Don't hesitate to reach out to us on IRC at [#lightning-dev @ freenode.net][irc1
 
 ## Getting Started
 
-c-lightning only works on Linux and Mac OS, and requires a locally (or remotely) running `bitcoind` (version 0.16 or above) that is fully caught up with the network you're testing on.
+c-lightning only works on Linux and Mac OS, and requires a locally (or remotely) running `bitcoind` (version 0.16 or above) that is fully caught up with the network you're running on, and relays transactions (ie with `blocksonly=0`).
 Pruning (`prune=n` option in `bitcoin.conf`) is partially supported, see [here](#pruning) for more details.
 
 ### Installation
