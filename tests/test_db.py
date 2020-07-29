@@ -180,6 +180,76 @@ def test_last_tx_psbt_upgrade(node_factory, bitcoind):
     bitcoind.rpc.decoderawtransaction(last_txs[1].hex())
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
+def test_backfill_scriptpubkeys(node_factory, bitcoind):
+    bitcoind.generate_block(214)
+
+    script_map = [
+        {
+            "txid": "2513F3340D493489811EAB440AC05650B5BC06290358972EB6A55533A9EED96A",
+            "scriptpubkey": "001438C10854C11E10CB3786460143C963C8530DF891",
+        }, {
+            "txid": "E380E18B6E810A464634B3A94B95AAA06B36A8982FD9D9D294982726EDC77DD3",
+            "scriptpubkey": "001407DB91DA65EF06B385F4EA20BA05FAF286165C0B",
+        }, {
+            "txid": "E9AE7C9A346F9B9E35868176F311F3F2EE5DB8B94A065963E26954E119C49A79",
+            "scriptpubkey": "00147E5B5C8F4FC1A9484E259F92CA4CBB7FA2814EA4",
+        }, {
+            "txid": "4C88F50BF00518E4FE3434ACA42351D5AC5FEEE17C35595DFBC3D1F4279F6EC1",
+            "scriptpubkey": "0014D0EAC62FDCEE2D1881259BE9CDA4C43DE9050DB8",
+        }, {
+            "txid": "55265C3CAFE98C355FE0A440DCC005CF5C3145280EAD44D6B903A45D2DF3619C",
+            "scriptpubkey": "0014D0EAC62FDCEE2D1881259BE9CDA4C43DE9050DB8",
+        }, {
+            "txid": "06F6D1D29B175146381EAB59924EC438572D18A3701F8E4FDF4EE17DE78D31E3",
+            "scriptpubkey": "A9149551336F1E360F5AFB977F24CE72C744A82463D187",
+        }, {
+            "txid": "91BCEC7867F3F97F4F575D1D9DEDF5CF22BDDE643B36C2D9E6097048334EE32A",
+            "scriptpubkey": "0014DFA9D65F06088E922A661C29797EE616F793C863",
+        },
+    ]
+
+    # Test the first time, all entries are with option_static_remotekey
+    l1 = node_factory.get_node(node_id=3, dbfile='pubkey_regen.sqlite.xz')
+    results = l1.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
+    scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
+    for exp, actual in zip(script_map, scripts):
+        assert exp == actual
+
+    # Test again, without option_static_remotekey
+    script_map_2 = [
+        {
+            "txid": "FF89677793AC6F39E4AEB9D393B45F1E3D902CBFA26B521C5C438345A6D36E54",
+            "scriptpubkey": "001438C10854C11E10CB3786460143C963C8530DF891",
+        }, {
+            "txid": "0F0685CCEE067638629B1CB27111EB0E15E19B75B1F5D368FC10D216D48FF4A5",
+            "scriptpubkey": "001407DB91DA65EF06B385F4EA20BA05FAF286165C0B",
+        }, {
+            "txid": "822466946527F940A53B823C507A319FDC91CCE55E455D916C9FE13B982058FA",
+            "scriptpubkey": "00144A94D23CD5A438531AADD86A0237FE11B9EA4E09",
+        }, {
+            "txid": "383145E40C8A9F45A0409E080DA5861C9E754B1EC8DD5EFA8A84DEB158E61C88",
+            "scriptpubkey": "0014D0EAC62FDCEE2D1881259BE9CDA4C43DE9050DB8",
+        }, {
+            "txid": "D221BE9B7CDB5FDB58B34D59B30304B7C4C2DF9C3BF73A4AE0E0265642FEC560",
+            "scriptpubkey": "0014D0EAC62FDCEE2D1881259BE9CDA4C43DE9050DB8",
+        }, {
+            "txid": "420F06E91CEE996D8E75E0565D776A96E8959ECA11E799FFE14522C2D43CCFA5",
+            "scriptpubkey": "A9149551336F1E360F5AFB977F24CE72C744A82463D187",
+        }, {
+            "txid": "9F6127316EBED57E7702A4DF19D6FC0EC23A8FAB9BC0D4AD82C29D3F93C525CD",
+            "scriptpubkey": "0014E445493A382C798AF195724DFF67DE4C9250AEC6",
+        }
+    ]
+
+    l2 = node_factory.get_node(node_id=3, dbfile='pubkey_regen_commitment_point.sqlite3.xz')
+    results = l2.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
+    scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
+    for exp, actual in zip(script_map_2, scripts):
+        assert exp == actual
+
+
 @unittest.skipIf(VALGRIND and not DEVELOPER, "Without developer valgrind will complain about debug symbols missing")
 def test_optimistic_locking(node_factory, bitcoind):
     """Have a node run against a DB, then change it under its feet, crashing it.
