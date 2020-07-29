@@ -146,11 +146,8 @@ static bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	else
 		db_bind_null(stmt, 10);
 
-	if (utxo->scriptPubkey)
-		db_bind_blob(stmt, 11, utxo->scriptPubkey,
-				  tal_bytelen(utxo->scriptPubkey));
-	else
-		db_bind_null(stmt, 11);
+	db_bind_blob(stmt, 11, utxo->scriptPubkey,
+			  tal_bytelen(utxo->scriptPubkey));
 
 	db_exec_prepared_v2(take(stmt));
 	return true;
@@ -184,9 +181,12 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 		utxo->close_info = NULL;
 	}
 
+	utxo->scriptPubkey =
+	    tal_dup_arr(utxo, u8, db_column_blob(stmt, 11),
+			db_column_bytes(stmt, 11), 0);
+
 	utxo->blockheight = NULL;
 	utxo->spendheight = NULL;
-	utxo->scriptPubkey = NULL;
 	utxo->scriptSig = NULL;
 	utxo->reserved_til = NULL;
 
@@ -202,11 +202,6 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 		utxo->spendheight = spendheight;
 	}
 
-	if (!db_column_is_null(stmt, 11)) {
-		utxo->scriptPubkey =
-		    tal_dup_arr(utxo, u8, db_column_blob(stmt, 11),
-				db_column_bytes(stmt, 11), 0);
-	}
 	if (!db_column_is_null(stmt, 12)) {
 		reserved_til = tal(utxo, u32);
 		*reserved_til = db_column_int(stmt, 12);
