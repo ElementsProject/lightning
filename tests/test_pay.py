@@ -3240,3 +3240,27 @@ def test_mpp_presplit_routehint_conflict(node_factory, bitcoind):
     inv = l3.rpc.invoice(Millisatoshi(2 * 10000 * 1000), 'i', 'i', exposeprivatechannels=True)['bolt11']
 
     l1.rpc.pay(inv)
+
+
+def test_listpay_result_with_paymod(node_factory, bitcoind):
+    """
+    The object of this test is to verify the correct behavior
+    of the RPC command listpay e with two different type of
+    payment, such as: keysend (without invoice) and pay (with invoice).
+    l1 -> keysend -> l2
+    l2 -> pay invoice -> l3
+    """
+
+    amount_sat = 10 ** 6
+
+    l1, l2, l3 = node_factory.line_graph(3)
+
+    invl2 = l2.rpc.invoice(amount_sat * 2, "inv_l2", "inv_l2")
+    l1.rpc.pay(invl2['bolt11'])
+
+    l2.rpc.keysend(l3.info['id'], amount_sat * 2, "keysend_l3")
+
+    assert 'bolt11' in l1.rpc.listpays()['pays'][0]
+    assert 'payment_hash' in l2.rpc.listpays()['pays'][0]
+    assert 'payment_hash' in l1.rpc.listpays()['pays'][0]
+    assert 'bolt11' not in l2.rpc.listpays()['pays'][0]

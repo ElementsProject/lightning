@@ -4,13 +4,13 @@ lightning-listpays -- Command for querying payment status
 SYNOPSIS
 --------
 
-**listpays** \[bolt11\]
+**listpays** \[bolt11\] \[payment_hash\]
 
 DESCRIPTION
 -----------
 
 The **listpay** RPC command gets the status of all *pay* commands, or a
-single one if *bolt11* is specified.
+single one if either *bolt11* or *payment_hash* was specified.
 
 RETURN VALUE
 ------------
@@ -18,16 +18,19 @@ RETURN VALUE
 On success, an array of objects is returned. Each object contains:
 
  *bolt11*
-the *bolt11* argument given to *pay* (see below for exceptions).
+the *bolt11* invoice if provided to `pay`.
+
+ *payment_hash*
+the *payment_hash* of the payment.
 
  *status*
 one of *complete*, *failed* or *pending*.
 
  *payment\_preimage*
-(if *status* is *complete*) proves payment was received.
+if *status* is *complete*.
 
  *label*
-optional *label*, if provided to *pay*.
+optional *label*, if provided to *pay* or *sendonion*.
 
  *amount\_sent\_msat*
 total amount sent, in "NNNmsat" format.
