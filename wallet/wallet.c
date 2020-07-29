@@ -58,16 +58,17 @@ static void outpointfilters_init(struct wallet *w)
 	tal_free(stmt);
 }
 
-struct wallet *wallet_new(struct lightningd *ld, struct timers *timers)
+struct wallet *wallet_new(struct lightningd *ld, struct timers *timers,
+			  struct ext_key *bip32_base STEALS)
 {
 	struct wallet *wallet = tal(ld, struct wallet);
 	wallet->ld = ld;
-	wallet->db = db_setup(wallet, ld);
 	wallet->log = new_log(wallet, ld->log_book, NULL, "wallet");
-	wallet->bip32_base = NULL;
+	wallet->bip32_base = tal_steal(wallet, bip32_base);
 	wallet->keyscan_gap = 50;
 	list_head_init(&wallet->unstored_payments);
 	list_head_init(&wallet->unreleased_txs);
+	wallet->db = db_setup(wallet, ld, wallet->bip32_base);
 
 	db_begin_transaction(wallet->db);
 	wallet->invoices = invoices_new(wallet, wallet->db, timers);

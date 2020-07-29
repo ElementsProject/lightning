@@ -841,8 +841,7 @@ int main(int argc, char *argv[])
 	/*~ Our "wallet" code really wraps the db, which is more than a simple
 	 * bitcoin wallet (though it's that too).  It also stores channel
 	 * states, invoices, payments, blocks and bitcoin transactions. */
-	ld->wallet = wallet_new(ld, ld->timers);
-	ld->wallet->bip32_base = tal_steal(ld->wallet, bip32_base);
+	ld->wallet = wallet_new(ld, ld->timers, bip32_base);
 
 	/*~ We keep track of how many 'coin moves' we've ever made.
 	 * Initialize the starting value from the database here. */

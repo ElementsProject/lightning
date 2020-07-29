@@ -866,6 +866,7 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	int fd = mkstemp(filename);
 	struct wallet *w = tal(ctx, struct wallet);
 	static unsigned char badseed[BIP32_ENTROPY_LEN_128];
+	const struct ext_key *bip32_base = NULL;
 	CHECK_MSG(fd != -1, "Unable to generate temp filename");
 	close(fd);
 
@@ -885,7 +886,7 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 
 	CHECK_MSG(w->db, "Failed opening the db");
 	db_begin_transaction(w->db);
-	db_migrate(ld, w->db);
+	db_migrate(ld, w->db, bip32_base);
 	w->db->data_version = 0;
 	db_commit_transaction(w->db);
 	CHECK_MSG(!wallet_err, "DB migration failed");
