@@ -334,6 +334,12 @@ struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
 */
 struct log *plugin_get_log(struct plugin *plugin);
 
+/**
+ * Tells the plugin system the directory for builtin plugins.
+ */
+void plugins_set_builtin_plugins_dir(struct plugins *plugins,
+				     const char *dir);
+
 /* Pair of functions to detect if plugin destroys itself: must always
  * call both! */
 struct plugin_destroyed *plugin_detect_destruction(const struct plugin *plugin);
