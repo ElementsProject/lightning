@@ -72,10 +72,11 @@ static struct db *create_test_db(void)
 static bool test_empty_db_migrate(struct lightningd *ld)
 {
 	struct db *db = create_test_db();
+	const struct ext_key *bip32_base = NULL;
 	CHECK(db);
 	db_begin_transaction(db);
 	CHECK(db_get_version(db) == -1);
-	db_migrate(ld, db);
+	db_migrate(ld, db, bip32_base);
 	db_commit_transaction(db);
 
 	db_begin_transaction(db);
@@ -124,10 +125,11 @@ static bool test_vars(struct lightningd *ld)
 {
 	struct db *db = create_test_db();
 	char *varname = "testvar";
+	const struct ext_key *bip32_base = NULL;
 	CHECK(db);
 
 	db_begin_transaction(db);
-	db_migrate(ld, db);
+	db_migrate(ld, db, bip32_base);
 	/* Check default behavior */
 	CHECK(db_get_intvar(db, varname, 42) == 42);
 

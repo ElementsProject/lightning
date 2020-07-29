@@ -14,17 +14,25 @@
 #include <lightningd/log.h>
 #include <lightningd/plugin_hook.h>
 #include <wallet/db_common.h>
+#include <wally_bip32.h>
 
 #define NSEC_IN_SEC 1000000000
 
 struct migration {
 	const char *sql;
-	void (*func)(struct lightningd *ld, struct db *db);
+	void (*func)(struct lightningd *ld, struct db *db,
+		     const struct ext_key *bip32_base);
 };
 
-static void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db);
+static void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db,
+					       const struct ext_key *bip32_base);
 
-static void migrate_our_funding(struct lightningd *ld, struct db *db);
+static void migrate_our_funding(struct lightningd *ld, struct db *db,
+				const struct ext_key *bip32_base);
+
+static void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db,
+				    const struct ext_key *bip32_base);
+
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -970,7 +978,8 @@ static int db_get_version(struct db *db)
 /**
  * db_migrate - Apply all remaining migrations from the current version
  */
-static void db_migrate(struct lightningd *ld, struct db *db)
+static void db_migrate(struct lightningd *ld, struct db *db,
+		       const struct ext_key *bip32_base)
 {
 	/* Attempt to read the version from the database */
 	int current, orig, available;
@@ -997,7 +1006,7 @@ static void db_migrate(struct lightningd *ld, struct db *db)
 			tal_free(stmt);
 		}
 		if (dbmigrations[current].func)
-			dbmigrations[current].func(ld, db);
+			dbmigrations[current].func(ld, db, bip32_base);
 	}
 
 	/* Finally update the version number in the version table */
@@ -1029,14 +1038,15 @@ u32 db_data_version_get(struct db *db)
 	return version;
 }
 
-struct db *db_setup(const tal_t *ctx, struct lightningd *ld)
+struct db *db_setup(const tal_t *ctx, struct lightningd *ld,
+		    const struct ext_key *bip32_base)
 {
 	struct db *db = db_open(ctx, ld->wallet_dsn);
 	db->log = new_log(db, ld->log_book, NULL, "database");
 
 	db_begin_transaction(db);
 
-	db_migrate(ld, db);
+	db_migrate(ld, db, bip32_base);
 
 	db->data_version = db_data_version_get(db);
 	db_commit_transaction(db);
@@ -1082,7 +1092,8 @@ void db_set_intvar(struct db *db, char *varname, s64 val)
 }
 
 /* Will apply the current config fee settings to all channels */
-static void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db)
+static void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db,
+					       const struct ext_key *bip32_base)
 {
 	struct db_stmt *stmt = db_prepare_v2(
 	    db, SQL("UPDATE channels SET feerate_base = ?, feerate_ppm = ?;"));
@@ -1100,7 +1111,8 @@ static void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db 
  * is the same as the funding_satoshi for every channel where we are
  * the `funder`
  */
-static void migrate_our_funding(struct lightningd *ld, struct db *db)
+static void migrate_our_funding(struct lightningd *ld, struct db *db,
+				const struct ext_key *bip32_base)
 {
 	struct db_stmt *stmt;
 
@@ -1121,7 +1133,8 @@ static void migrate_our_funding(struct lightningd *ld, struct db *db)
  * This migration loads all of the last_tx's and 're-formats' them into psbts,
  * adds the required input witness utxo information, and then saves it back to disk
  * */
-void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db)
+void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db,
+			     const struct ext_key *bip32_base)
 {
 	struct db_stmt *stmt, *update_stmt;
 

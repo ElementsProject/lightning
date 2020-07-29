@@ -15,6 +15,7 @@
 #include <secp256k1_ecdh.h>
 #include <stdbool.h>
 
+struct ext_key;
 struct lightningd;
 struct log;
 struct node_id;
@@ -23,7 +24,6 @@ struct db_stmt;
 struct db;
 struct wally_psbt;
 
-void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db);
 /**
  * Macro to annotate a named SQL query.
  *
@@ -56,8 +56,10 @@ void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db);
  * Params:
  *  @ctx: the tal_t context to allocate from
  *  @ld: the lightningd context to hand to upgrade functions.
+ *  @bip32_base: the base all of our pubkeys are constructed on
  */
-struct db *db_setup(const tal_t *ctx, struct lightningd *ld);
+struct db *db_setup(const tal_t *ctx, struct lightningd *ld,
+		    const struct ext_key *bip32_base);
 
 /**
  * db_begin_transaction - Begin a transaction

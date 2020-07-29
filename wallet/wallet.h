@@ -331,7 +331,8 @@ struct wallet_transaction {
  * This is guaranteed to either return a valid wallet, or abort with
  * `fatal` if it cannot be initialized.
  */
-struct wallet *wallet_new(struct lightningd *ld, struct timers *timers);
+struct wallet *wallet_new(struct lightningd *ld, struct timers *timers,
+			  struct ext_key *bip32_base);
 
 /**
  * wallet_confirm_tx - Confirm a tx which contains a UTXO.
