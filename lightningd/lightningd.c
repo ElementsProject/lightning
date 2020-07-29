@@ -281,6 +281,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 */
 	ld->rpc_filemode = 0600;
 
+	/*~ This is the exit code to use on exit.
+	 * Set to NULL meaning we are not interested in exiting yet.
+	 */
+	ld->exit_code = NULL;
+
 	return ld;
 }
 
@@ -752,6 +757,14 @@ static void hsm_ecdh_failed(enum status_failreason fail,
 	fatal("hsm failure: %s", fmt);
 }
 
+/*~ This signals to the mainloop that some part wants to cleanly exit now.  */
+void lightningd_exit(struct lightningd *ld, int exit_code)
+{
+	ld->exit_code = tal(ld, int);
+	*ld->exit_code = exit_code;
+	io_break(ld);
+}
+
 int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
@@ -763,6 +776,8 @@ int main(int argc, char *argv[])
 	struct htlc_in_map *unconnected_htlcs_in;
 	struct ext_key *bip32_base;
 	struct rlimit nofile = {1024, 1024};
+
+	int exit_code = 0;
 
 	/*~ Make sure that we limit ourselves to something reasonable. Modesty
 	 *  is a virtue. */
@@ -1003,10 +1018,17 @@ int main(int argc, char *argv[])
 	assert(io_loop_ret == ld);
 	ld->state = LD_STATE_SHUTDOWN;
 
-	/* Keep this fd around, to write final response at the end. */
-	stop_fd = io_conn_fd(ld->stop_conn);
-	io_close_taken_fd(ld->stop_conn);
-	stop_response = tal_steal(NULL, ld->stop_response);
+	/* Were we exited via `lightningd_exit`?  */
+	if (ld->exit_code) {
+		exit_code = *ld->exit_code;
+		stop_fd = -1;
+		stop_response = NULL;
+	} else {
+		/* Keep this fd around, to write final response at the end. */
+		stop_fd = io_conn_fd(ld->stop_conn);
+		io_close_taken_fd(ld->stop_conn);
+		stop_response = tal_steal(NULL, ld->stop_response);
+	}
 
 	shutdown_subdaemons(ld);
 
@@ -1041,11 +1063,13 @@ int main(int argc, char *argv[])
 
 	daemon_shutdown();
 
-	/* Finally, send response to shutdown command */
-	write_all(stop_fd, stop_response, strlen(stop_response));
-	close(stop_fd);
-	tal_free(stop_response);
+	/* Finally, send response to shutdown command if appropriate.  */
+	if (stop_fd >= 0) {
+		write_all(stop_fd, stop_response, strlen(stop_response));
+		close(stop_fd);
+		tal_free(stop_response);
+	}
 
 	/*~ Farewell.  Next stop: hsmd/hsmd.c. */
-	return 0;
+	return exit_code;
 }
