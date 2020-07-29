@@ -271,6 +271,9 @@ struct lightningd {
 	/* Total number of coin moves we've seen, since
 	 * coin move tracking was cool */
 	s64 coin_moves_count;
+
+	/* If non-NULL, contains the exit code to use.  */
+	int *exit_code;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.
@@ -288,5 +291,12 @@ void test_subdaemons(const struct lightningd *ld);
 
 /* Notify lightningd about new blocks. */
 void notify_new_block(struct lightningd *ld, u32 block_height);
+
+/* Signal a clean exit from lightningd.
+ * NOTE! This function **returns**.
+ * This just causes the main loop to exit, so you have to return
+ * all the way to the main loop for `lightningd` to exit.
+ */
+void lightningd_exit(struct lightningd *ld, int exit_code);
 
 #endif /* LIGHTNING_LIGHTNINGD_LIGHTNINGD_H */
