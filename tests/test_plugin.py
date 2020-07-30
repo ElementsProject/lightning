@@ -1534,3 +1534,41 @@ def test_3847_repro(node_factory, bitcoind):
     # This call to paystatus would fail if the pay plugin crashed (it's
     # provided by the plugin)
     l1.rpc.paystatus(i1)
+
+
+def test_important_plugin(node_factory):
+    # Cache it here.
+    pluginsdir = os.path.join(os.path.dirname(__file__), "plugins")
+
+    # Check we fail if we cannot find the important plugin.
+    n = node_factory.get_node(options={"important-plugin": os.path.join(pluginsdir, "nonexistent")},
+                              may_fail=True, expect_fail=True,
+                              allow_broken_log=True)
+    assert not n.daemon.running
+    assert n.daemon.is_in_stderr(r"error starting plugin '.*nonexistent'")
+
+    # Check we exit if the important plugin dies.
+    n = node_factory.get_node(options={"important-plugin": os.path.join(pluginsdir, "fail_by_itself.py")},
+                              may_fail=True, expect_fail=True,
+                              allow_broken_log=True)
+
+    n.daemon.wait_for_log('fail_by_itself.py: Plugin marked as important, shutting down lightningd')
+    wait_for(lambda: not n.daemon.running)
+
+    # Check if the important plugin is disabled, we run as normal.
+    n = node_factory.get_node(options=OrderedDict([("important-plugin", os.path.join(pluginsdir, "fail_by_itself.py")),
+                                                   ("disable-plugin", "fail_by_itself.py")]))
+    # Make sure we can call into a plugin RPC (this is from `bcli`) even
+    # if fail_by_itself.py is disabled.
+    n.rpc.call("estimatefees", {})
+    # Make sure we are still running.
+    assert n.daemon.running
+    n.stop()
+
+    # Check if an important plugin dies later, we fail.
+    n = node_factory.get_node(options={"important-plugin": os.path.join(pluginsdir, "suicidal_plugin.py")},
+                              may_fail=True, allow_broken_log=True)
+    with pytest.raises(RpcError):
+        n.rpc.call("die", {})
+    n.daemon.wait_for_log('suicidal_plugin.py: Plugin marked as important, shutting down lightningd')
+    wait_for(lambda: not n.daemon.running)
