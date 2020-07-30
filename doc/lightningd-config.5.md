@@ -460,6 +460,8 @@ plugin stops for any reason (including via lightning-plugin(7) `stop`),
 C-lightning will also stop running.
 This way, you can monitor crashes of important plugins by simply monitoring
 if C-lightning terminates.
+Built-in plugins, which are installed with lightningd(8), are automatically
+considered important.
 
 BUGS
 ----

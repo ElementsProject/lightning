@@ -16,6 +16,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+/* Only this file can include this generated header! */
+# include <gen_list_of_builtin_plugins.h>
+
 /* How many seconds may the plugin take to reply to the `getmanifest`
  * call? This is the maximum delay to `lightningd --help` and until
  * we can start the main `io_loop` to communicate with peers. If this
@@ -1582,11 +1585,13 @@ struct log *plugin_get_log(struct plugin *plugin)
 void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 				     const char *dir)
 {
-	/*~ The builtin-plugins dir does not need to exist, but
-	 * we would error those anyway for our important built-in
-	 * plugins.
-	 */
-	add_plugin_dir(plugins, dir, true);
+	/*~ Load the builtin plugins as important.  */
+	for (size_t i = 0; list_of_builtin_plugins[i]; ++i)
+		plugin_register(plugins,
+				take(path_join(NULL, dir,
+					       list_of_builtin_plugins[i])),
+				NULL,
+				/* important = */ true);
 }
 
 struct plugin_destroyed {
