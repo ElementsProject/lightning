@@ -29,7 +29,7 @@ struct wally_psbt *new_psbt(const tal_t *ctx,
  * a psbt has the finalized script sig and/or witness data populated
  * for such a call
  */
-bool psbt_is_finalized(struct wally_psbt *psbt);
+bool psbt_is_finalized(const struct wally_psbt *psbt);
 
 struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place);
 
