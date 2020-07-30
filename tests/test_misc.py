@@ -832,9 +832,9 @@ def test_listconfigs_plugins(node_factory, bitcoind, chainparams):
 
     # assert that we have pay plugin and that plugins have a name and path
     configs = l1.rpc.listconfigs()
-    assert configs['plugins']
-    assert len([p for p in configs['plugins'] if p['name'] == "pay"]) == 1
-    for p in configs['plugins']:
+    assert configs['important-plugins']
+    assert len([p for p in configs['important-plugins'] if p['name'] == "pay"]) == 1
+    for p in configs['important-plugins']:
         assert p['name'] and len(p['name']) > 0
         assert p['path'] and len(p['path']) > 0
         assert os.path.isfile(p['path']) and os.access(p['path'], os.X_OK)

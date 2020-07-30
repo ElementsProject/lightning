@@ -137,6 +137,9 @@ LIGHTNINGD_HEADERS = $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) $(WAL
 
 $(LIGHTNINGD_OBJS): $(LIGHTNINGD_HEADERS)
 
+# Only the plugin component needs to depend on this header.
+lightningd/plugin.o : gen_list_of_builtin_plugins.h
+
 lightningd/gen_channel_state_names.h: lightningd/channel_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr lightningd/channel_state.h > $@
 
