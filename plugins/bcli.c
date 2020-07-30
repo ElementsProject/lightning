@@ -40,6 +40,9 @@ struct bitcoind {
 	/* -datadir arg for bitcoin-cli. */
 	char *datadir;
 
+	/* bitcoind's version, used for compatibility checks. */
+	u32 version;
+
 	/* Is bitcoind synced?  If not, we retry. */
 	bool synced;
 
@@ -834,14 +837,50 @@ static void bitcoind_failure(struct plugin *p, const char *error_message)
 		      args_string(cmd, cmd));
 }
 
-static void wait_for_bitcoind(struct plugin *p)
+/* Do some sanity checks on bitcoind based on the output of `getnetworkinfo`. */
+static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
+{
+	const jsmntok_t *result, *versiontok;
+	bool valid;
+
+	result = json_parse_input(NULL,
+				  buf, strlen(buf),
+				  &valid);
+	if (!result || !valid)
+		plugin_err(p, "No or invalid response to '%s' ? Got '%s'. Can not"
+			      " continue without proceeding to sanity checks.",
+			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
+
+	/* Check that we have a fully-featured `estimatesmartfee`. */
+	versiontok = json_get_member(buf, result, "version");
+	if (!versiontok)
+		plugin_err(p, "No 'version' in '%s' ? Got '%s'. Can not"
+			      " continue without proceeding to sanity checks.",
+			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
+
+	if (!json_to_u32(buf, versiontok, &bitcoind->version))
+		plugin_err(p, "Invalid 'version' in '%s' ? Got '%s'. Can not"
+			      " continue without proceeding to sanity checks.",
+			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
+
+	if (bitcoind->version < 160000)
+		plugin_err(p, "Unsupported bitcoind version, you need to update"
+			      " Bitcoin Core.");
+
+	tal_free(result);
+}
+
+static void wait_and_check_bitcoind(struct plugin *p)
 {
 	int from, status, ret;
 	pid_t child;
-	const char **cmd = gather_args(bitcoind, "echo", NULL);
+	const char **cmd = gather_args(bitcoind, "getnetworkinfo", NULL);
 	bool printed = false;
+	char *output = NULL;
 
 	for (;;) {
+		tal_free(output);
+
 		child = pipecmdarr(NULL, &from, &from, cast_const2(char **,cmd));
 		if (child < 0) {
 			if (errno == ENOENT)
@@ -850,7 +889,7 @@ static void wait_for_bitcoind(struct plugin *p)
 			plugin_err(p, "%s exec failed: %s", cmd[0], strerror(errno));
 		}
 
-		char *output = grab_fd(cmd, from);
+		output = grab_fd(cmd, from);
 
 		while ((ret = waitpid(child, &status, 0)) < 0 && errno == EINTR);
 		if (ret != child)
@@ -881,13 +920,16 @@ static void wait_for_bitcoind(struct plugin *p)
 		}
 		sleep(1);
 	}
+
+	parse_getnetworkinfo_result(p, output);
+
 	tal_free(cmd);
 }
 
 static void init(struct plugin *p, const char *buffer UNUSED,
                  const jsmntok_t *config UNUSED)
 {
-	wait_for_bitcoind(p);
+	wait_and_check_bitcoind(p);
 	plugin_log(p, LOG_INFORM,
 		   "bitcoin-cli initialized and connected to bitcoind.");
 }
