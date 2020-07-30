@@ -385,17 +385,18 @@ REGISTER_TYPE_TO_STRING(wally_psbt, psbt_to_b64);
 const u8 *psbt_get_bytes(const tal_t *ctx, const struct wally_psbt *psbt,
 			 size_t *bytes_written)
 {
-	/* the libwally API doesn't do anything helpful for allocating
-	 * things here -- to compensate we do a single shot large alloc
-	 */
-	size_t room = 1024 * 1000;
-	u8 *pbt_bytes = tal_arr(ctx, u8, room);
-	if (wally_psbt_to_bytes(psbt, 0, pbt_bytes, room, bytes_written) != WALLY_OK) {
+	size_t len = 0;
+	u8 *bytes;
+
+	wally_psbt_get_length(psbt, 0, &len);
+	bytes = tal_arr(ctx, u8, len);
+
+	if (wally_psbt_to_bytes(psbt, 0, bytes, len, bytes_written) != WALLY_OK ||
+	    *bytes_written != len) {
 		/* something went wrong. bad libwally ?? */
 		abort();
 	}
-	tal_resize(&pbt_bytes, *bytes_written);
-	return pbt_bytes;
+	return bytes;
 }
 
 struct wally_psbt *psbt_from_bytes(const tal_t *ctx, const u8 *bytes,
