@@ -10,11 +10,13 @@ from utils import (
     expected_channel_features, account_balance,
     check_coin_moves, first_channel_id, check_coin_moves_idx
 )
+from pyln.testing.utils import TailableProc
 
 import json
 import os
 import pytest
 import re
+import signal
 import sqlite3
 import subprocess
 import time
@@ -1571,4 +1573,26 @@ def test_important_plugin(node_factory):
     with pytest.raises(RpcError):
         n.rpc.call("die", {})
     n.daemon.wait_for_log('suicidal_plugin.py: Plugin marked as important, shutting down lightningd')
+    wait_for(lambda: not n.daemon.running)
+
+    # Check that if a builtin plugin dies, we fail.
+    n = node_factory.get_node(may_fail=True, allow_broken_log=True,
+                              # The log message with the pay PID is printed
+                              # very early in the logs.
+                              start=False)
+    # Start the daemon directly, not via the node object n.start,
+    # because the normal n.daemon.start and n.start methods will
+    # wait for "Starting server with public key" and will execute
+    # getinfo, both of which are very much after plugins are
+    # started.
+    # And the PIDs of plugins are only seen at plugin startup.
+    TailableProc.start(n.daemon)
+    assert n.daemon.running
+    # Extract the pid of pay.
+    r = n.daemon.wait_for_log(r'started([0-9]*).*plugins/pay')
+    pidstr = re.search(r'.*started\(([0-9]*)\)', r).group(1)
+    # Kill pay.
+    os.kill(int(pidstr), signal.SIGKILL)
+    # node should die as well.
+    n.daemon.wait_for_log('pay: Plugin marked as important, shutting down lightningd')
     wait_for(lambda: not n.daemon.running)
