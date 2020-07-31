@@ -486,14 +486,9 @@ static void payment_getroute_add_excludes(struct payment *p,
 		json_add_node_id(js, NULL, &nodes[i]);
 
 	/* And make sure we don't route in a circle via the routehint! */
-	if (p->temp_exclusion) {
-		struct short_channel_id_dir scidd;
-		scidd.scid = *p->temp_exclusion;
-		for (size_t dir = 0; dir < 2; dir++) {
-			scidd.dir = dir;
-			json_add_short_channel_id_dir(js, NULL, &scidd);
-		}
-	}
+	if (p->temp_exclusion)
+		for (size_t i = 0; i < tal_count(p->temp_exclusion); ++i)
+			json_add_string(js, NULL, p->temp_exclusion[i]);
 
 	json_array_end(js);
 }
@@ -1840,6 +1835,47 @@ static u32 route_cltv(u32 cltv,
 	return cltv;
 }
 
+/** routehint_generate_exclusion_list
+ *
+ * @brief generate a list of items to append to `excludes`
+ * parameter of `getroute`.
+ *
+ * @param ctx - the context to allocate off of.
+ * @param routehint - the actual routehint, a `tal` array.
+ * @param payment - the payment that we will create an
+ * exclusion list for.
+ *
+ * @return an array of strings that will be appended to the
+ * `excludes` parameter of `getroute`.
+ */
+static
+const char **routehint_generate_exclusion_list(const tal_t *ctx,
+					       struct route_info *routehint,
+					       struct payment *payment)
+{
+	const char **exc;
+	size_t i;
+
+	if (!routehint || tal_count(routehint) == 0)
+		/* Nothing to exclude.  */
+		return NULL;
+
+	exc = tal_arr(ctx, const char *, 0);
+	/* Exclude every node except the first, because the first is
+	 * the entry point to the routehint.  */
+	for (i = 1 /* Skip the first! */; i < tal_count(routehint); ++i)
+		tal_arr_expand(&exc,
+			       type_to_string(exc, struct node_id,
+					      &routehint[i].pubkey));
+	/* Also exclude the destination, because it would be foolish to
+	 * pass through it and *then* go to the routehint entry point.  */
+	tal_arr_expand(&exc,
+		       type_to_string(exc, struct node_id,
+				      payment->destination));
+
+	return exc;
+}
+
 /* Change the destination and compute the final msatoshi amount to send to the
  * routehint entry point. */
 static void routehint_pre_getroute(struct routehints_data *d, struct payment *p)
@@ -1851,6 +1887,8 @@ static void routehint_pre_getroute(struct routehints_data *d, struct payment *p)
 	 * fails. */
 	have_more = (d->offset < tal_count(d->routehints) - 1);
 	p->failroute_retry = have_more;
+
+	p->temp_exclusion = tal_free(p->temp_exclusion);
 
 	if (d->current_routehint != NULL) {
 		if (!route_msatoshi(&p->getroute->amount, p->amount,
@@ -1872,11 +1910,9 @@ static void routehint_pre_getroute(struct routehints_data *d, struct payment *p)
 
 		/* Exclude the entrypoint to the routehint, so we don't end up
 		 * going through the destination to the entrypoint. */
-		p->temp_exclusion = &d->current_routehint[0].short_channel_id;
-	} else {
+		p->temp_exclusion = routehint_generate_exclusion_list(p, d->current_routehint, p);
+	} else
 		plugin_log(p->plugin, LOG_DBG, "Not using a routehint");
-		p->temp_exclusion = NULL;
-	}
 }
 
 static struct command_result *routehint_getroute_result(struct command *cmd,
