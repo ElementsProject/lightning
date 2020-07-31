@@ -57,12 +57,7 @@ struct wally_psbt *new_psbt(const tal_t *ctx, const struct wally_tx *wtx)
 	struct wally_psbt *psbt;
 	int wally_err;
 
-	if (is_elements(chainparams))
-		wally_err = wally_psbt_elements_init_alloc(0, wtx->num_inputs, wtx->num_outputs, 0, &psbt);
-	else
-		wally_err = wally_psbt_init_alloc(0, wtx->num_inputs, wtx->num_outputs, 0, &psbt);
-	assert(wally_err == WALLY_OK);
-	tal_add_destructor(psbt, psbt_destroy);
+	psbt = init_psbt(ctx, wtx->num_inputs, wtx->num_outputs);
 
 	/* Set directly: avoids psbt checks for non-NULL scripts/witnesses */
 	wally_err = wally_tx_clone_alloc(wtx, 0, &psbt->tx);
