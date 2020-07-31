@@ -1,3 +1,11 @@
+"""Pure-python implementation of the sphinx onion routing format
+
+Warning: This implementation is not intended to be used in production, rather
+it is geared towards testing and experimenting. It may have several critical
+issues, including being susceptible to timing attacks and crashes. You have
+been warned!
+
+"""
 from .primitives import varint_decode, varint_encode, Secret
 from .wire import PrivateKey, PublicKey, ecdh
 from binascii import hexlify, unhexlify
