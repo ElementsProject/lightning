@@ -6,7 +6,7 @@ from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE, TIMEOUT,
-    VALGRIND, EXPERIMENTAL_FEATURES
+    VALGRIND, EXPERIMENTAL_FEATURES, get_tx_p2wsh_outnum
 )
 import copy
 import os
@@ -3221,3 +3221,90 @@ def test_bolt11_null_after_pay(node_factory, bitcoind):
     pays = l2.rpc.listpays()["pays"]
     assert(pays[0]["bolt11"] == invl1)
     assert('amount_msat' in pays[0] and pays[0]['amount_msat'] == amt)
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(VALGRIND or SLOW_MACHINE, "7 nodes")
+def test_route_random(node_factory, bitcoind):
+    '''
+    Create the following graph:
+
+          4---5
+         / \\/ \\
+        1---2---3
+        \\ / \\/
+          6---7
+
+    Then 1 makes multiple payments to 3.
+    Check that less than 50% of them go through the path 1->2->3.
+    '''
+    l1, l2, l3, l4, l5, l6, l7 = node_factory.get_nodes(7)
+
+    # Test parameters.
+    num_payments = 200
+    amount_payment = Millisatoshi(1000 * 1000)
+    amount_channel = amount_payment * (num_payments * 2.5)
+
+    # Generate invoices before connecting graph
+    # This prevents l3 from adding routehints, which might
+    # fool our judgment.
+    invoices = [l3.rpc.invoice(amount_payment, 'i{}'.format(i), 'i{}'.format(i))['bolt11']
+                for i in range(num_payments)]
+
+    # Create a balanced channel.
+    def make_channel(lx, ly):
+        lx.fundwallet(int(amount_channel) // 1000 + 10000)
+        lx.rpc.connect(ly.info['id'], 'localhost', ly.port)
+
+        # Open the channel, make sure it gets mined.
+        num_tx = len(bitcoind.rpc.getrawmempool())
+        tx = lx.rpc.fundchannel(ly.info['id'], amount_channel, feerate='slow', announce=True, minconf=0, push_msat=amount_channel // 2)['tx']
+        wait_for(lambda: len(bitcoind.rpc.getrawmempool()) == num_tx + 1)
+        bitcoind.generate_block(1)
+
+        # Figure out our scid.
+        # This is a hack that assumes only one non-coinbase tx gets mined!
+        return "{}x1x{}".format(bitcoind.rpc.getblockcount(),
+                                get_tx_p2wsh_outnum(bitcoind, tx, int(amount_channel) // 1000))
+
+    # Create the graph.
+    scids = [make_channel(l1, l4),  # 0
+             make_channel(l4, l5),  # 1
+             make_channel(l5, l3),  # 2
+             make_channel(l2, l4),  # 3
+             make_channel(l2, l5),  # 4
+             make_channel(l1, l2),  # 5 <- scid12
+             make_channel(l2, l3),  # 6 <- scid23
+             make_channel(l2, l6),  # 7
+             make_channel(l2, l7),  # 8
+             make_channel(l1, l6),  # 9
+             make_channel(l6, l7),  # 10
+             make_channel(l7, l3)]  # 11
+    scid12 = scids[5]
+    scid23 = scids[6]
+
+    # Wait for announcements to reach l1.
+    bitcoind.generate_block(5)
+    for scid in scids:
+        if len(l1.rpc.listchannels(scid)['channels']) < 2:
+            wait_for(lambda: len(l1.rpc.listchannels(scid)['channels']) >= 2)
+
+    # Pay it all.
+    for invoice in invoices:
+        l1.rpc.pay(invoice)
+
+    # Now check the forwards known by l2.
+    matched_forwards = [f['payment_hash']
+                        for f in l2.rpc.listforwards()['forwards']
+                        if f['status'] == 'settled' and f['in_channel'] == scid12 and f['out_channel'] == scid23]
+    # Deduplicate payment_hash.
+    # This is needed in case MPP actually divides
+    # tiny amounts.
+    # FIXME: What to do in a PTLC universe?
+    matched_forwards = list(dict.fromkeys(matched_forwards))
+    # Number of payments from l1->l2->l3 that l2 knows about.
+    num_forwards = len(matched_forwards)
+    # print(num_forwards)
+
+    # Target that at most 75% of payments are through l1->l2->l3.
+    assert (float(num_forwards) / float(num_payments)) < 0.75
