@@ -32,7 +32,7 @@ def on_htlc_accepted(htlc, onion, plugin, **kwargs):
 
 
 @plugin.method('setpayload')
-def setpayload(plugin, payload: bool):
+def setpayload(plugin, payload: bytes):
     plugin.replace_payload = payload
     return {}
 
