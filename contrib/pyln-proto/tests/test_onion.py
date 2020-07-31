@@ -12,7 +12,7 @@ def test_legacy_payload():
         b'00000067000001000100000000000003e800000075000000000000000000000000'
     )
     payload = onion.OnionPayload.from_bytes(legacy)
-    assert(payload.to_bytes(include_realm=True) == legacy)
+    assert(payload.to_bytes(include_prefix=True) == legacy)
 
 
 def test_tlv_payload():
@@ -325,3 +325,21 @@ def test_sphinx_path_compile():
     o = sp.compile()
 
     assert(o.to_bin() == unhexlify(v['onion']))
+
+
+def test_unwrap():
+    f = 'tests/vectors/onion-test-multi-frame.json'
+    sp, v = sphinx_path_from_test_vector(f)
+    o = onion.RoutingOnion.from_hex(v['onion'])
+    assocdata = unhexlify(v['generate']['associated_data'])
+    privkeys = [onion.PrivateKey(unhexlify(h)) for h in v['decode']]
+
+    for pk, h in zip(privkeys, v['generate']['hops']):
+        pl, o = o.unwrap(pk, assocdata=assocdata)
+
+        b = hexlify(pl.to_bytes(include_prefix=False))
+        if h['type'] == 'legacy':
+            assert(b == h['payload'].encode('ascii') + b'00' * 12)
+        else:
+            assert(b == h['payload'].encode('ascii'))
+    assert(o is None)
