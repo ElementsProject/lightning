@@ -1041,6 +1041,9 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	if (p->bolt11)
 		json_add_string(req->js, "bolt11", p->bolt11);
 
+	if (p->destination)
+		json_add_node_id(req->js, "destination", p->destination);
+
 	send_outreq(p->plugin, req);
 	return command_still_pending(cmd);
 }

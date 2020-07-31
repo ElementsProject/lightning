@@ -3261,6 +3261,8 @@ def test_listpay_result_with_paymod(node_factory, bitcoind):
     l2.rpc.keysend(l3.info['id'], amount_sat * 2, "keysend_l3")
 
     assert 'bolt11' in l1.rpc.listpays()['pays'][0]
+    assert 'bolt11' not in l2.rpc.listpays()['pays'][0]
     assert 'payment_hash' in l2.rpc.listpays()['pays'][0]
     assert 'payment_hash' in l1.rpc.listpays()['pays'][0]
-    assert 'bolt11' not in l2.rpc.listpays()['pays'][0]
+    assert 'destination' in l1.rpc.listpays()['pays'][0]
+    assert 'destination' in l2.rpc.listpays()['pays'][0]
