@@ -123,6 +123,10 @@ struct chain_topology {
 	/* Transactions/txos we are watching. */
 	struct txwatch_hash txwatches;
 	struct txowatch_hash txowatches;
+
+	/* The number of headers known to the bitcoin backend at startup. Not
+	 * updated after the initial check. */
+	u32 headercount;
 };
 
 /* Information relevant to locating a TX in a blockchain. */
@@ -142,6 +146,13 @@ size_t get_tx_depth(const struct chain_topology *topo,
 
 /* Get highest block number. */
 u32 get_block_height(const struct chain_topology *topo);
+
+/* Get the highest block number in the network that we are aware of. Unlike
+ * `get_block_height` this takes into consideration the block header counter
+ * in the bitcoin backend as well. If an absolute time is required, rather
+ * than our current scan position this is preferable since it is far less
+ * likely to lag behind the rest of the network.*/
+u32 get_network_blockheight(const struct chain_topology *topo);
 
 /* Get fee rate in satoshi per kiloweight, or 0 if unavailable! */
 u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate);

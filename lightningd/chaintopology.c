@@ -932,6 +932,15 @@ u32 get_block_height(const struct chain_topology *topo)
 	return topo->tip->height;
 }
 
+u32 get_network_blockheight(const struct chain_topology *topo)
+{
+	if (topo->tip->height > topo->headercount)
+		return topo->tip->height;
+	else
+		return topo->headercount;
+}
+
+
 u32 try_get_feerate(const struct chain_topology *topo, enum feerate feerate)
 {
 	return topo->feerate[feerate];
@@ -1068,6 +1077,8 @@ check_chain(struct bitcoind *bitcoind, const char *chain,
 	if (!streq(chain, chainparams->bip70_name))
 		fatal("Wrong network! Our Bitcoin backend is running on '%s',"
 		      " but we expect '%s'.", chain, chainparams->bip70_name);
+
+	topo->headercount = headercount;
 
 	if (first_call) {
 		/* Has the Bitcoin backend gone backward ? */

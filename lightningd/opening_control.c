@@ -265,7 +265,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      NULL, /* No commit sent yet */
 			      /* If we're fundee, could be a little before this
 			       * in theory, but it's only used for timing out. */
-			      get_block_height(ld->topology),
+			      get_network_blockheight(ld->topology),
 			      feerate, feerate,
 			      /* We are connected */
 			      true,
