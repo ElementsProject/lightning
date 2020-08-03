@@ -5,7 +5,7 @@ THETEST=$1
 PYTHONPATH=\
 $PWD/contrib/pyln-client:\
 $PWD/contrib/pyln-testing:\
-$PWD/contrib/pyln-proto/: \
+$PWD/contrib/pyln-proto \
 TEST_DEBUG=1 \
 DEVELOPER=1 \
 VALGRIND=0 \
