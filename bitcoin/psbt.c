@@ -144,9 +144,9 @@ struct wally_psbt_output *psbt_add_output(struct wally_psbt *psbt,
 	return &psbt->outputs[insert_at];
 }
 
-struct wally_psbt_output *psbt_append_out(struct wally_psbt *psbt,
-					  const u8 *script,
-					  struct amount_sat amount)
+struct wally_psbt_output *psbt_append_output(struct wally_psbt *psbt,
+					     const u8 *script,
+					     struct amount_sat amount)
 {
 	struct wally_psbt_output *out;
 	struct wally_tx_output *tx_out = wally_tx_output(script, amount);
