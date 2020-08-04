@@ -1072,13 +1072,10 @@ class NodeFactory(object):
                 raise
         return node
 
-    def line_graph(self, num_nodes, fundchannel=True, fundamount=10**6, wait_for_announce=False, opts=None, announce_channels=True):
-        """ Create nodes, connect them and optionally fund channels.
-        """
+    def join_nodes(self, nodes, fundchannel=True, fundamount=10**6, wait_for_announce=False, announce_channels=True) -> None:
+        """Given nodes, connect them in a line, optionally funding a channel"""
         assert not (wait_for_announce and not announce_channels), "You've asked to wait for an announcement that's not coming. (wait_for_announce=True,announce_channels=False)"
-        nodes = self.get_nodes(num_nodes, opts=opts)
-        bitcoin = nodes[0].bitcoin
-        connections = [(nodes[i], nodes[i + 1]) for i in range(0, num_nodes - 1)]
+        connections = [(nodes[i], nodes[i + 1]) for i in range(len(nodes) - 1)]
 
         for src, dst in connections:
             src.rpc.connect(dst.info['id'], 'localhost', dst.port)
@@ -1088,21 +1085,22 @@ class NodeFactory(object):
         if not fundchannel:
             for src, dst in connections:
                 dst.daemon.wait_for_log(r'{}-.*openingd-chan#[0-9]*: Handed peer, entering loop'.format(src.info['id']))
-            return nodes
+            return
 
+        bitcoind = nodes[0].bitcoin
         # If we got here, we want to fund channels
         for src, dst in connections:
             addr = src.rpc.newaddr()['bech32']
-            src.bitcoin.rpc.sendtoaddress(addr, (fundamount + 1000000) / 10**8)
+            bitcoind.rpc.sendtoaddress(addr, (fundamount + 1000000) / 10**8)
 
-        bitcoin.generate_block(1)
+        bitcoind.generate_block(1)
         for src, dst in connections:
             wait_for(lambda: len(src.rpc.listfunds()['outputs']) > 0)
             tx = src.rpc.fundchannel(dst.info['id'], fundamount, announce=announce_channels)
-            wait_for(lambda: tx['txid'] in bitcoin.rpc.getrawmempool())
+            wait_for(lambda: tx['txid'] in bitcoind.rpc.getrawmempool())
 
         # Confirm all channels and wait for them to become usable
-        bitcoin.generate_block(1)
+        bitcoind.generate_block(1)
         scids = []
         for src, dst in connections:
             wait_for(lambda: src.channel_state(dst) == 'CHANNELD_NORMAL')
@@ -1111,9 +1109,9 @@ class NodeFactory(object):
             scids.append(scid)
 
         if not wait_for_announce:
-            return nodes
+            return
 
-        bitcoin.generate_block(5)
+        bitcoind.generate_block(5)
 
         def both_dirs_ready(n, scid):
             resp = n.rpc.listchannels(scid)
@@ -1129,6 +1127,12 @@ class NodeFactory(object):
             for end in (nodes[0], nodes[-1]):
                 wait_for(lambda: 'alias' in only_one(end.rpc.listnodes(n.info['id'])['nodes']))
 
+    def line_graph(self, num_nodes, fundchannel=True, fundamount=10**6, wait_for_announce=False, opts=None, announce_channels=True):
+        """ Create nodes, connect them and optionally fund channels.
+        """
+        nodes = self.get_nodes(num_nodes, opts=opts)
+
+        self.join_nodes(nodes, fundchannel, fundamount, wait_for_announce, announce_channels)
         return nodes
 
     def killall(self, expected_successes):
