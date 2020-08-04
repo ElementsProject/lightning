@@ -110,6 +110,11 @@ struct plugins {
 
 	/* Whether we are shutting down (`plugins_free` is called) */
 	bool shutdown;
+
+#if DEVELOPER
+	/* Whether builtin plugins should be overridden as unimportant.  */
+	bool dev_builtin_plugins_unimportant;
+#endif /* DEVELOPER */
 };
 
 /* The value of a plugin option, which can have different types.

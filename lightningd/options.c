@@ -566,6 +566,10 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_noarg("--dev-no-version-checks", opt_set_bool,
 			   &ld->dev_no_version_checks,
 			   "Skip calling subdaemons with --version on startup");
+	opt_register_early_noarg("--dev-builtin-plugins-unimportant",
+				 opt_set_bool,
+				 &ld->plugins->dev_builtin_plugins_unimportant,
+				 "Make builtin plugins unimportant so you can plugin stop them.");
 }
 #endif /* DEVELOPER */
 

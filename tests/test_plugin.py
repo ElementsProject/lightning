@@ -1596,3 +1596,9 @@ def test_important_plugin(node_factory):
     # node should die as well.
     n.daemon.wait_for_log('pay: Plugin marked as important, shutting down lightningd')
     wait_for(lambda: not n.daemon.running)
+
+
+@unittest.skipIf(not DEVELOPER, "tests developer-only option.")
+def test_dev_builtin_plugins_unimportant(node_factory):
+    n = node_factory.get_node(options={"dev-builtin-plugins-unimportant": None})
+    n.rpc.plugin_stop(plugin="pay")
