@@ -92,9 +92,9 @@ struct wally_psbt_output *psbt_add_output(struct wally_psbt *psbt,
  * @script - scriptPubKey of the output
  * @amount - value of the output
  */
-struct wally_psbt_output *psbt_append_out(struct wally_psbt *psbt,
-					  const u8 *script,
-					  struct amount_sat amount);
+struct wally_psbt_output *psbt_append_output(struct wally_psbt *psbt,
+					     const u8 *script,
+					     struct amount_sat amount);
 
 void psbt_rm_output(struct wally_psbt *psbt,
 		    size_t remove_at);
