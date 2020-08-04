@@ -1105,8 +1105,28 @@ class NodeFactory(object):
         for src, dst in connections:
             wait_for(lambda: src.channel_state(dst) == 'CHANNELD_NORMAL')
             scid = src.get_channel_scid(dst)
-            src.daemon.wait_for_log(r'Received channel_update for channel {scid}/. now ACTIVE'.format(scid=scid))
             scids.append(scid)
+
+        # We don't want to assume message order here.
+        # Wait for ends:
+        nodes[0].daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
+                                       .format(scids[0]),
+                                       r'update for channel {}/1 now ACTIVE'
+                                       .format(scids[0])])
+        nodes[-1].daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
+                                        .format(scids[-1]),
+                                        r'update for channel {}/1 now ACTIVE'
+                                        .format(scids[-1])])
+        # Now wait for intermediate nodes:
+        for i, n in enumerate(nodes[1:-1]):
+            n.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
+                                    .format(scids[i]),
+                                    r'update for channel {}/1 now ACTIVE'
+                                    .format(scids[i]),
+                                    r'update for channel {}/0 now ACTIVE'
+                                    .format(scids[i + 1]),
+                                    r'update for channel {}/1 now ACTIVE'
+                                    .format(scids[i + 1])])
 
         if not wait_for_announce:
             return
