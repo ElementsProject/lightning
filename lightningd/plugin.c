@@ -57,6 +57,9 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->json_cmds = tal_arr(p, struct command *, 0);
 	p->blacklist = tal_arr(p, const char *, 0);
 	p->shutdown = false;
+#if DEVELOPER
+	p->dev_builtin_plugins_unimportant = false;
+#endif /* DEVELOPER */
 	uintmap_init(&p->pending_requests);
 	memleak_add_helper(p, memleak_help_pending_requests);
 
@@ -1327,6 +1330,27 @@ void plugins_init(struct plugins *plugins)
 {
 	plugins->default_dir = path_join(plugins, plugins->ld->config_basedir, "plugins");
 	plugins_add_default_dir(plugins);
+
+#if DEVELOPER
+	if (plugins->dev_builtin_plugins_unimportant) {
+		size_t i;
+
+		log_debug(plugins->log, "Builtin plugins now unimportant");
+
+		/* For each builtin plugin, check for a matching plugin
+		 * and make it unimportant.  */
+		for (i = 0; list_of_builtin_plugins[i]; ++i) {
+			const char *name = list_of_builtin_plugins[i];
+			struct plugin *p;
+			list_for_each(&plugins->plugins, p, list) {
+				if (plugin_paths_match(p->cmd, name)) {
+					p->important = false;
+					break;
+				}
+			}
+		}
+	}
+#endif /* DEVELOPER */
 
 	setenv("LIGHTNINGD_PLUGIN", "1", 1);
 	setenv("LIGHTNINGD_VERSION", version(), 1);
