@@ -2000,40 +2000,52 @@ def test_fulfill_incoming_first(node_factory, bitcoind):
 def test_restart_many_payments(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True)
 
-    # On my laptop, these take 74 seconds and 44 seconds (with restart commented out)
+    # On my laptop, these take 89 seconds and 12 seconds
     if VALGRIND:
         num = 2
     else:
         num = 5
 
+    nodes = node_factory.get_nodes(num * 2, opts={'may_reconnect': True})
+    innodes = nodes[:num]
+    outnodes = nodes[num:]
+
+    # Fund up-front to save some time.
+    dests = {l1.rpc.newaddr()['bech32']: (10**6 + 1000000) / 10**8 * num}
+    for n in innodes:
+        dests[n.rpc.newaddr()['bech32']] = (10**6 + 1000000) / 10**8
+    bitcoind.rpc.sendmany("", dests)
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1] + innodes)
+
     # Nodes with channels into the main node
-    innodes = node_factory.get_nodes(num, opts={'may_reconnect': True})
-    inchans = []
     for n in innodes:
         n.rpc.connect(l1.info['id'], 'localhost', l1.port)
-        inchans.append(n.fund_channel(l1, 10**6, False))
+        n.rpc.fundchannel(l1.info['id'], 10**6)
 
     # Nodes with channels out of the main node
-    outnodes = node_factory.get_nodes(len(innodes), opts={'may_reconnect': True})
+    for n in outnodes:
+        l1.rpc.connect(n.info['id'], 'localhost', n.port)
+        # OK to use change from previous fundings
+        l1.rpc.fundchannel(n.info['id'], 10**6, minconf=0)
+
+    # Now mine them, get scids.
+    bitcoind.generate_block(6, wait_for_mempool=num * 2)
+    sync_blockheight(bitcoind, [l1] + nodes)
+
+    wait_for(lambda: [only_one(n.rpc.listpeers()['peers'])['channels'][0]['state'] for n in nodes] == ['CHANNELD_NORMAL'] * len(nodes))
+
+    inchans = []
+    for n in innodes:
+        inchans.append(only_one(n.rpc.listpeers()['peers'])['channels'][0]['short_channel_id'])
+
     outchans = []
     for n in outnodes:
-        n.rpc.connect(l1.info['id'], 'localhost', l1.port)
-        outchans.append(l1.fund_channel(n, 10**6, False))
+        outchans.append(only_one(n.rpc.listpeers()['peers'])['channels'][0]['short_channel_id'])
 
-    # Make sure they're all announced.
-    bitcoind.generate_block(5)
-
-    # We wait for each node to see each dir active, and its own
-    # channel CHANNELD_NORMAL
-    logs = ([r'update for channel {}/0 now ACTIVE'.format(scid)
-             for scid in inchans + outchans]
-            + [r'update for channel {}/1 now ACTIVE'.format(scid)
-               for scid in inchans + outchans]
-            + ['to CHANNELD_NORMAL'])
-
-    # Now do all the waiting at once: if !DEVELOPER, this can be *very* slow!
-    for n in innodes + outnodes:
-        n.daemon.wait_for_logs(logs)
+    # Now make sure every node sees every channel.
+    for n in nodes + [l1]:
+        wait_for(lambda: [c['public'] for c in n.rpc.listchannels()['channels']] == [True] * len(nodes) * 2)
 
     # Manually create routes, get invoices
     Payment = namedtuple('Payment', ['innode', 'route', 'payment_hash'])
