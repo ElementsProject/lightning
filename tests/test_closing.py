@@ -1519,6 +1519,7 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind):
 
     bitcoind.generate_block(5)
     l1.wait_channel_active(c12)
+    sync_blockheight(bitcoind, [l1, l2])
 
     route = l2.rpc.getroute(l1.info['id'], 10**8, 1)["route"]
     assert len(route) == 1
@@ -1545,8 +1546,8 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind):
     l1.daemon.wait_for_log(' to ONCHAIN')
     l2.daemon.wait_for_log('THEIR_UNILATERAL/OUR_HTLC')
 
-    # l2 should wait til to_self_delay (6), then fulfill onchain
-    l1.bitcoin.generate_block(5)
+    # l2 should wait til to_self_delay (10), then fulfill onchain
+    l1.bitcoin.generate_block(9)
     l2.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TO_US',
                                    'THEIR_UNILATERAL/OUR_HTLC')
 
