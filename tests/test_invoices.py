@@ -172,7 +172,7 @@ def test_invoice_routeboost(node_factory, bitcoind):
     # Due to reserve & fees, l1 doesn't have capacity to pay this.
     inv = l2.rpc.invoice(msatoshi=2 * (10**8) - 123456, label="inv2", description="?")
     # Check warning
-    assert 'warning_capacity' in inv
+    assert 'warning_capacity' in inv or 'warning_mpp_capacity' in inv
     assert 'warning_offline' not in inv
     assert 'warning_deadends' not in inv
 
@@ -233,7 +233,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
 
     # If we explicitly say not to, it won't expose.
     inv = l2.rpc.invoice(msatoshi=123456, label="inv1", description="?", exposeprivatechannels=False)
-    assert 'warning_capacity' in inv
+    assert 'warning_capacity' in inv or 'warning_mpp_capacity' in inv
     assert 'warning_offline' not in inv
     assert 'warning_deadends' not in inv
     assert 'routes' not in l1.rpc.decodepay(inv['bolt11'])
@@ -306,7 +306,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # Ask it explicitly to use a channel it can't (insufficient capacity)
     inv = l2.rpc.invoice(msatoshi=(10**5) * 1000 + 1, label="inv5", description="?", exposeprivatechannels=scid2)
     assert 'warning_deadends' not in inv
-    assert 'warning_capacity' in inv
+    assert 'warning_capacity' in inv or 'warning_mpp_capacity' in inv
     assert 'warning_offline' not in inv
 
     # Give it two options and it will pick one with suff capacity.

@@ -436,6 +436,39 @@ static struct command_result *parse_fallback(struct command *cmd,
 	return NULL;
 }
 
+/** incoming_capacity
+ *
+ * @brief Determine the ability of the peer to pay us.
+ *
+ * @param ld - the lightningd.
+ * @param c - the channel to check.
+ * @param capacity_to_pay_us - out; if this returns true,
+ * the pointed-to `struct amount_msat` will contain how
+ * much the peer can pay us at maximum.
+ *
+ * @return false if the peer cannot pay to us, true if
+ * the peer can pay us and `capacity_to_pay_us` is set.
+ */
+static bool incoming_capacity(struct lightningd *ld,
+			      struct channel *c,
+			      struct amount_msat *capacity_to_pay_us)
+{
+	struct amount_msat their_msat;
+	if (!amount_sat_sub_msat(&their_msat, c->funding, c->our_msat)) {
+		log_broken(ld->log,
+			   "underflow: funding %s - our_msat %s",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &c->funding),
+			   type_to_string(tmpctx, struct amount_msat,
+					  &c->our_msat));
+		return false;
+	}
+	if (!amount_msat_sub_sat(capacity_to_pay_us, their_msat,
+			c->our_config.channel_reserve))
+		return false;
+	return true;
+}
+
 /*
  * From array of incoming channels [inchan], find suitable ones for
  * a payment-to-us of [amount_needed], using criteria:
@@ -473,7 +506,7 @@ static struct route_info **select_inchan(const tal_t *ctx,
 		struct peer *peer;
 		struct channel *c;
 		struct sample sample;
-		struct amount_msat their_msat, capacity_to_pay_us, excess, capacity;
+		struct amount_msat capacity_to_pay_us, excess, capacity;
 		struct amount_sat cumulative_reserve;
 		double excess_frac;
 
@@ -505,23 +538,12 @@ static struct route_info **select_inchan(const tal_t *ctx,
 		0       ^             ^                                ^                funding
 		   our_reserve     our_msat	*/
 
-		/* Does the peer have sufficient balance to pay us. */
-		if (!amount_sat_sub_msat(&their_msat, c->funding, c->our_msat)) {
-
-			log_broken(ld->log,
-				   "underflow: funding %s - our_msat %s",
-				   type_to_string(tmpctx, struct amount_sat,
-						  &c->funding),
-				   type_to_string(tmpctx, struct amount_msat,
-						  &c->our_msat));
-			continue;
-		}
-
-		/* Even after taken into account their reserve */
-		if (!amount_msat_sub_sat(&capacity_to_pay_us, their_msat,
-				c->our_config.channel_reserve))
+		/* Can the peer pay to us, and if so how much?  */
+		if (!incoming_capacity(ld, c, &capacity_to_pay_us))
 			continue;
 
+		/* Does the peer have sufficient balance to pay us,
+		 * even after having taken into account their reserve? */
 		if (!amount_msat_sub(&excess, capacity_to_pay_us, amount_needed))
 			continue;
 
@@ -569,6 +591,102 @@ static struct route_info **select_inchan(const tal_t *ctx,
 	}
 
 	return R;
+}
+
+/** select_inchan_mpp
+ *
+ * @brief fallback in case select_inchan cannot find a *single*
+ * channel capable of accepting the payment as a whole.
+ * Also the main routehint-selector if we are completely unpublished
+ * (i.e. all our channels are unpublished), since if we are completely
+ * unpublished then the payer cannot fall back to just directly routing
+ * to us.
+ */
+static struct route_info **select_inchan_mpp(const tal_t *ctx,
+					     struct lightningd *ld,
+					     struct amount_msat amount_needed,
+					     const struct route_info *inchans,
+					     const bool *deadends,
+					     bool *any_offline,
+					     bool *warning_mpp_capacity)
+{
+	/* The total amount we have gathered for incoming channels.  */
+	struct amount_msat gathered;
+	/* Channels we have already processed.  */
+	struct list_head processed;
+	/* Routehint array.  */
+	struct route_info **routehints;
+
+	gathered = AMOUNT_MSAT(0);
+	list_head_init(&processed);
+	routehints = tal_arr(ctx, struct route_info *, 0);
+
+	while (amount_msat_less(gathered, amount_needed)
+	       && !list_empty(&ld->rr_channels)) {
+		struct channel *c;
+		struct amount_msat capacity_to_pay_us;
+		size_t found_i;
+		const struct route_info *found;
+
+		/* Get a channel and put it in the processed list.  */
+		c = list_pop(&ld->rr_channels, struct channel, rr_list);
+		list_add_tail(&processed, &c->rr_list);
+
+		/* Is the channel even useful?  */
+		if (c->state != CHANNELD_NORMAL)
+			continue;
+		/* SCID should have been set when we locked in, and we
+		 * can only CHANNELD_NORMAL if both us and peer are
+		 * locked in.  */
+		assert(c->scid != NULL);
+
+		/* Is the peer offline?  */
+		if (c->owner == NULL) {
+			*any_offline = true;
+			continue;
+		}
+
+		/* Can the peer pay to us?  */
+		if (!incoming_capacity(ld, c, &capacity_to_pay_us))
+			continue;
+
+		/* Is the channel in the inchans input?  */
+		found = NULL;
+		found_i = 0;
+		for (size_t i = 0; i < tal_count(inchans); ++i) {
+			if (short_channel_id_eq(&inchans[i].short_channel_id,
+						c->scid)) {
+				found = &inchans[i];
+				found_i = i;
+				break;
+			}
+		}
+		if (!found)
+			continue;
+
+		/* Is it a deadend?  */
+		if (deadends[found_i])
+			continue;
+
+		/* Add to current routehints set.  */
+		if (!amount_msat_add(&gathered, gathered, capacity_to_pay_us)) {
+			log_broken(ld->log,
+				   "Gathered channel capacity overflow: "
+				   "%s + %s",
+				   type_to_string(tmpctx, struct amount_msat, &gathered),
+				   type_to_string(tmpctx, struct amount_msat, &capacity_to_pay_us));
+			continue;
+		}
+		tal_arr_expand(&routehints,
+			       tal_dup(routehints, struct route_info, found));
+	}
+
+	/* Append the processed list back to the rr_channels.  */
+	list_append_list(&ld->rr_channels, &processed);
+	/* Check if we gathered enough.  */
+	*warning_mpp_capacity = amount_msat_less(gathered, amount_needed);
+
+	return routehints;
 }
 
 /* Encapsulating struct while we wait for gossipd to give us incoming channels */
@@ -628,20 +746,27 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	struct json_stream *response;
 	struct route_info *inchans, *private;
 	bool *inchan_deadends, *private_deadends;
-	bool any_offline;
 	struct invoice invoice;
 	char *b11enc;
 	const struct invoice_details *details;
 	struct wallet *wallet = info->cmd->ld->wallet;
 	const struct chanhints *chanhints = info->chanhints;
 
+	bool any_offline = false;
+	bool warning_mpp = false;
+	bool warning_mpp_capacity = false;
+	bool node_unpublished;
+
 	if (!fromwire_gossipd_get_incoming_channels_reply(tmpctx, msg,
-							 &inchans,
-							 &inchan_deadends,
-							 &private,
-							 &private_deadends))
+							  &inchans,
+							  &inchan_deadends,
+							  &private,
+							  &private_deadends))
 		fatal("Gossip gave bad GOSSIP_GET_INCOMING_CHANNELS_REPLY %s",
 		      tal_hex(msg, msg));
+
+	node_unpublished = (tal_count(inchans) == 0)
+			&& (tal_count(private) > 0);
 
 	/* fromwire explicitly makes empty arrays into NULL */
 	if (!inchans) {
@@ -688,18 +813,45 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 		}
 	}
 
-#if DEVELOPER
-	/* dev-routes overrides this. */
-	any_offline = false;
-	if (!info->b11->routes)
-#endif
-	info->b11->routes
-		= select_inchan(info->b11,
-				info->cmd->ld,
-				info->b11->msat ? *info->b11->msat : AMOUNT_MSAT(1),
-				inchans,
-				inchan_deadends,
-				&any_offline);
+	if (tal_count(info->b11->routes) == 0) {
+		struct amount_msat needed;
+		needed = info->b11->msat ? *info->b11->msat : AMOUNT_MSAT(1);
+
+		/* If we are not completely unpublished, try with reservoir
+		 * sampling first.
+		 *
+		 * Why do we not do this if we are completely unpublished?
+		 * Because it is possible that multiple invoices will, by
+		 * chance, select the same channel as routehint.
+		 * This single channel might not be able to accept all the
+		 * incoming payments on all the invoices generated.
+		 * If we were published, that is fine because the payer can
+		 * fall back to just attempting to route directly.
+		 * But if we were unpublished, the only way for the payer to
+		 * reach us would be via the routehints we provide, so we
+		 * should make an effort to avoid overlapping incoming
+		 * channels, which is done by select_inchan_mpp.
+		 */
+		if (!node_unpublished)
+			info->b11->routes = select_inchan(info->b11,
+							  info->cmd->ld,
+							  needed,
+							  inchans,
+							  inchan_deadends,
+							  &any_offline);
+		/* If we are completely unpublished, or if the above reservoir
+		 * sampling fails, select channels by round-robin.  */
+		if (tal_count(info->b11->routes) == 0) {
+			info->b11->routes = select_inchan_mpp(info->b11,
+							      info->cmd->ld,
+							      needed,
+							      inchans,
+							      inchan_deadends,
+							      &any_offline,
+							      &warning_mpp_capacity);
+			warning_mpp = (tal_count(info->b11->routes) > 1);
+		}
+	}
 
 	/* FIXME: add private routes if necessary! */
 	b11enc = bolt11_encode(info, info->b11, false,
@@ -766,6 +918,13 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 			json_add_string(response, "warning_capacity",
 					"No channel with a peer that has sufficient incoming capacity");
 	}
+
+	if (warning_mpp)
+		json_add_string(response, "warning_mpp",
+				"The invoice might only be payable by MPP-capable payers.");
+	if (warning_mpp_capacity)
+		json_add_string(response, "warning_mpp_capacity",
+				"The total incoming capacity is still insufficient even if the payer had MPP capability.");
 
 	was_pending(command_success(info->cmd, response));
 }
@@ -1051,6 +1210,8 @@ static struct command_result *json_invoice(struct command *cmd,
 
 #if DEVELOPER
 	info->b11->routes = unpack_routes(info->b11, buffer, routes);
+#else
+	info->b11->routes = NULL;
 #endif
 	if (fallback_scripts)
 		info->b11->fallbacks = tal_steal(info->b11, fallback_scripts);
