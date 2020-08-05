@@ -650,14 +650,13 @@ static WARN_UNUSED_RESULT bool risk_add_fee(struct amount_msat *risk,
 					    u32 delay, double riskfactor,
 					    u64 riskbias)
 {
-	double r;
+	struct amount_msat riskfee;
 
-	/* Won't overflow on add, just lose precision */
-	r = (double)riskbias + riskfactor * delay * msat.millisatoshis + risk->millisatoshis; /* Raw: to double */
-	if (r > (double)UINT64_MAX)
+	if (!amount_msat_scale(&riskfee, msat, riskfactor * delay))
 		return false;
-	risk->millisatoshis = r; /* Raw: from double */
-	return true;
+	if (!amount_msat_add(&riskfee, riskfee, amount_msat(riskbias)))
+		return false;
+	return amount_msat_add(risk, *risk, riskfee);
 }
 
 /* Check that we can fit through this channel's indicated
@@ -1209,7 +1208,7 @@ find_shorter_route(const tal_t *ctx, struct routing_state *rstate,
 	 * per block delay, which is close enough to zero to not break
 	 * this algorithm, but still provide some bias towards
 	 * low-delay routes. */
-	riskfactor = (double)1.0 / msat.millisatoshis; /* Raw: inversion */
+	riskfactor = amount_msat_ratio(AMOUNT_MSAT(1), msat);
 
 	/* First, figure out if a short route is even possible.
 	 * We set the cost function to ignore total, riskbias 1 and riskfactor

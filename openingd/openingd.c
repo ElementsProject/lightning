@@ -348,8 +348,7 @@ static bool check_config_bounds(struct state *state,
 /* We always set channel_reserve_satoshis to 1%, rounded down. */
 static void set_reserve(struct state *state)
 {
-	state->localconf.channel_reserve.satoshis  /* Raw: rounding. */
-		= state->funding.satoshis / 100;   /* Raw: rounding. */
+	state->localconf.channel_reserve = amount_sat_div(state->funding, 100);
 
 	/* BOLT #2:
 	 *

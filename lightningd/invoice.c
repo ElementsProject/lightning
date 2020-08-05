@@ -542,7 +542,7 @@ static struct route_info **select_inchan(const tal_t *ctx,
 			continue;
 		}
 
-		excess_frac = (double)excess.millisatoshis / capacity.millisatoshis; /* Raw: double fraction */
+		excess_frac = amount_msat_ratio(excess, capacity);
 
 		sample.route = &inchans[i];
 		sample.weight = excess_frac;
