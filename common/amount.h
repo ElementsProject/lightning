@@ -47,6 +47,10 @@ struct amount_asset {
 #define AMOUNT_SAT(constant)						\
 	((struct amount_sat){(constant) + AMOUNT_MUST_BE_CONST(constant)})
 
+/* We do sometimes need to import from raw types, eg. wally or wire fmt */
+struct amount_msat amount_msat(u64 millisatoshis);
+struct amount_sat amount_sat(u64 satoshis);
+
 /* You may not always be able to convert satoshis->millisatoshis. */
 WARN_UNUSED_RESULT bool amount_sat_to_msat(struct amount_msat *msat,
 					   struct amount_sat sat);
@@ -127,11 +131,6 @@ struct amount_sat amount_asset_to_sat(struct amount_asset *asset);
 /* Returns true if msat fits in a u32 value. */
 WARN_UNUSED_RESULT bool amount_msat_to_u32(struct amount_msat msat,
 					   u32 *millisatoshis);
-
-/* Programatically initialize from various types */
-void amount_msat_from_u64(struct amount_msat *msat, u64 millisatoshis);
-void amount_sat_from_u64(struct amount_sat *sat, u64 satoshis);
-WARN_UNUSED_RESULT bool amount_msat_from_sat_u64(struct amount_msat *msat, u64 satoshis);
 
 /* Common operation: what is the HTLC fee for given feerate?  Can overflow! */
 WARN_UNUSED_RESULT bool amount_msat_fee(struct amount_msat *fee,

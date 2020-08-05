@@ -540,17 +540,16 @@ adjust_offer(struct per_peer_state *pps, const struct channel_id *channel_id,
 		 * one from our previous proposal. So, if the user requested a
 		 * step of 1 satoshi at a time we should just return our end of
 		 * the range from this function. */
-		amount_msat_from_u64(&step_msat,
-				     (fee_negotiation_step - 1) * MSAT_PER_SAT);
+		step_msat = amount_msat((fee_negotiation_step - 1)
+					* MSAT_PER_SAT);
 	} else {
 		/* fee_negotiation_step is e.g. 20 to designate 20% from
 		 * range_len (which is in satoshi), so:
 		 * range_len * fee_negotiation_step / 100 [sat]
 		 * is equivalent to:
 		 * range_len * fee_negotiation_step * 10 [msat] */
-		amount_msat_from_u64(&step_msat,
-				     range_len.satoshis /* Raw: % calc */ *
-					 fee_negotiation_step * 10);
+		step_msat = amount_msat(range_len.satoshis /* Raw: % calc */ *
+					fee_negotiation_step * 10);
 	}
 
 	step_sat = amount_msat_to_sat_round_down(step_msat);

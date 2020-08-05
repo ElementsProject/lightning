@@ -705,8 +705,8 @@ static void channel_config(struct lightningd *ld,
 	*max_to_self_delay = ld->config.locktime_max;
 
 	/* Take minimal effective capacity from config min_capacity_sat */
-	if (!amount_msat_from_sat_u64(min_effective_htlc_capacity,
-				ld->config.min_capacity_sat))
+	if (!amount_sat_to_msat(min_effective_htlc_capacity,
+				amount_sat(ld->config.min_capacity_sat)))
 		fatal("amount_msat overflow for config.min_capacity_sat");
 	/* Substract 2 * dust_limit, so fundchannel with min value is possible */
 	if (!amount_sat_to_msat(&dust_limit, chainparams->dust_limit))

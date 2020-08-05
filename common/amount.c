@@ -401,22 +401,20 @@ bool amount_msat_to_u32(struct amount_msat msat, u32 *millisatoshis)
 	return true;
 }
 
-void amount_msat_from_u64(struct amount_msat *msat, u64 millisatoshis)
+struct amount_msat amount_msat(u64 millisatoshis)
 {
-	msat->millisatoshis = millisatoshis;
+	struct amount_msat msat;
+
+	msat.millisatoshis = millisatoshis;
+	return msat;
 }
 
-void amount_sat_from_u64(struct amount_sat *sat, u64 satoshis)
+struct amount_sat amount_sat(u64 satoshis)
 {
-	sat->satoshis = satoshis;
-}
+	struct amount_sat sat;
 
-WARN_UNUSED_RESULT bool amount_msat_from_sat_u64(struct amount_msat *msat, u64 satoshis)
-{
-	if (mul_overflows_u64(satoshis, MSAT_PER_SAT))
-		return false;
-	msat->millisatoshis = satoshis * MSAT_PER_SAT;
-	return true;
+	sat.satoshis = satoshis;
+	return sat;
 }
 
 bool amount_msat_fee(struct amount_msat *fee,
