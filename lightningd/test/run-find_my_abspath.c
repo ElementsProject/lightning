@@ -11,10 +11,6 @@ int unused_main(int argc, char *argv[]);
 /* Generated stub for activate_peers */
 void activate_peers(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "activate_peers called!\n"); abort(); }
-/* Generated stub for add_plugin_dir */
-char *add_plugin_dir(struct plugins *plugins UNNEEDED, const char *dir UNNEEDED,
-		     bool error_ok UNNEEDED)
-{ fprintf(stderr, "add_plugin_dir called!\n"); abort(); }
 /* Generated stub for begin_topology */
 void begin_topology(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "begin_topology called!\n"); abort(); }
@@ -207,6 +203,7 @@ void plugins_init(struct plugins *plugins UNNEEDED)
 struct plugins *plugins_new(const tal_t *ctx UNNEEDED, struct log_book *log_book UNNEEDED,
 			    struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "plugins_new called!\n"); abort(); }
+/* Generated stub for plugins_set_builtin_plugins_dir */
 void plugins_set_builtin_plugins_dir(struct plugins *plugins UNNEEDED,
 				     const char *dir UNNEEDED)
 { fprintf(stderr, "plugins_set_builtin_plugins_dir called!\n"); abort(); }

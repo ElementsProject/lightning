@@ -25,12 +25,12 @@ bool amount_asset_is_main(struct amount_asset *asset UNNEEDED)
 /* Generated stub for amount_asset_to_sat */
 struct amount_sat amount_asset_to_sat(struct amount_asset *asset UNNEEDED)
 { fprintf(stderr, "amount_asset_to_sat called!\n"); abort(); }
+/* Generated stub for amount_msat */
+struct amount_msat amount_msat(u64 millisatoshis UNNEEDED)
+{ fprintf(stderr, "amount_msat called!\n"); abort(); }
 /* Generated stub for amount_msat_eq */
 bool amount_msat_eq(struct amount_msat a UNNEEDED, struct amount_msat b UNNEEDED)
 { fprintf(stderr, "amount_msat_eq called!\n"); abort(); }
-/* Generated stub for amount_msat_from_u64 */
-void amount_msat_from_u64(struct amount_msat *msat UNNEEDED, u64 millisatoshis UNNEEDED)
-{ fprintf(stderr, "amount_msat_from_u64 called!\n"); abort(); }
 /* Generated stub for amount_sat_add */
  bool amount_sat_add(struct amount_sat *val UNNEEDED,
 				       struct amount_sat a UNNEEDED,

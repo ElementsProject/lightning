@@ -326,7 +326,7 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 		if (!tlv->amt_to_forward || !tlv->outgoing_cltv_value)
 			goto fail;
 
-		amount_msat_from_u64(&p->amt_to_forward, *tlv->amt_to_forward);
+		p->amt_to_forward = amount_msat(*tlv->amt_to_forward);
 		p->outgoing_cltv = *tlv->outgoing_cltv_value;
 
 		/* BOLT #4:
