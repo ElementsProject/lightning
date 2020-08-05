@@ -662,7 +662,7 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 					   "Invalid sub-millisatoshi amount"
 					   " '%sp'", amountstr);
 
-		b11->msat->millisatoshis = amount * m10 / 10; /* Raw: raw amount multiplier calculation */
+		*b11->msat = amount_msat(amount * m10 / 10);
 	}
 
 	/* BOLT #11:

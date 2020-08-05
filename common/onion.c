@@ -400,8 +400,8 @@ struct onion_payload *onion_decode(const tal_t *ctx,
 						    &tlv->payment_data->payment_secret);
 			tal_free(p->total_msat);
 			p->total_msat = tal(p, struct amount_msat);
-			p->total_msat->millisatoshis /* Raw: tu64 on wire */
-				= tlv->payment_data->total_msat;
+			*p->total_msat
+				= amount_msat(tlv->payment_data->total_msat);
 		}
 		tal_free(tlv);
 		return p;

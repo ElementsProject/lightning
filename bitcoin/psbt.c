@@ -443,7 +443,7 @@ struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
 	} else if (psbt->inputs[in].non_witness_utxo) {
 		int idx = psbt->tx->inputs[in].index;
 		struct wally_tx *prev_tx = psbt->inputs[in].non_witness_utxo;
-		val.satoshis = prev_tx->outputs[idx].satoshi; /* Raw: type conversion */
+		val = amount_sat(prev_tx->outputs[idx].satoshi);
 	} else
 		abort();
 

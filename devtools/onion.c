@@ -83,7 +83,7 @@ static void do_generate(int argc, char **argv,
 
 			/* FIXME: support secret and and total_msat */
 			memset(&scid, i, sizeof(scid));
-			amt.millisatoshis = i; /* Raw: test code */
+			amt = amount_msat(i);
 			if (i == num_hops - 1)
 				sphinx_add_hop(sp, &path[i],
 					       take(onion_final_hop(NULL,

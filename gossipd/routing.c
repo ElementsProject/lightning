@@ -2906,7 +2906,7 @@ void remove_all_gossip(struct routing_state *rstate)
 	while ((c = uintmap_first(&rstate->chanmap, &index)) != NULL) {
 		uintmap_del(&rstate->chanmap, index);
 #if DEVELOPER
-		c->sat.satoshis = (unsigned long)c; /* Raw: dev-hack */
+		c->sat = amount_sat((unsigned long)c);
 #endif
 		tal_free(c);
 	}
