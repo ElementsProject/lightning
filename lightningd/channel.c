@@ -110,6 +110,8 @@ static void destroy_channel(struct channel *channel)
 	channel_set_owner(channel, NULL);
 
 	list_del_from(&channel->peer->channels, &channel->list);
+
+	list_del(&channel->rr_list);
 }
 
 void delete_channel(struct channel *channel STEALS)
@@ -275,6 +277,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->forgets = tal_arr(channel, struct command *, 0);
 
 	list_add_tail(&peer->channels, &channel->list);
+	list_add_tail(&peer->ld->rr_channels, &channel->rr_list);
 	tal_add_destructor(channel, destroy_channel);
 
 	/* Make sure we see any spends using this key */

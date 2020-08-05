@@ -274,6 +274,9 @@ struct lightningd {
 
 	/* If non-NULL, contains the exit code to use.  */
 	int *exit_code;
+
+	/* The round-robin list of channels, for use when doing MPP.  */
+	struct list_head rr_channels;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.
