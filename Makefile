@@ -196,8 +196,6 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/typesafe_cb/typesafe_cb.h	\
 	$(CCANDIR)/ccan/utf8/utf8.h
 
-ALL_GEN_HEADERS += gen_version.h
-
 CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
 BOLT_GEN := tools/generate-wire.py
