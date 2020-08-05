@@ -1,6 +1,8 @@
-#include "gen_version.h"
 #include "version.h"
 #include <stdio.h>
+
+/* Only common/version.c can safely include this.  */
+# include "gen_version.h"
 
 const char *version(void)
 {
