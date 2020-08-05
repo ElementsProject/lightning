@@ -80,6 +80,12 @@ WARN_UNUSED_RESULT bool amount_msat_add_sat(struct amount_msat *val,
 WARN_UNUSED_RESULT bool amount_sat_sub_msat(struct amount_msat *val,
 					    struct amount_sat a,
 					    struct amount_msat b);
+WARN_UNUSED_RESULT bool amount_msat_scale(struct amount_msat *val,
+					  struct amount_msat msat,
+					  double scale);
+
+struct amount_msat amount_msat_div(struct amount_msat msat, u64 div);
+struct amount_sat amount_sat_div(struct amount_sat sat, u64 div);
 
 /* Is a == b? */
 bool amount_sat_eq(struct amount_sat a, struct amount_sat b);
@@ -111,6 +117,9 @@ bool amount_msat_less_sat(struct amount_msat msat, struct amount_sat sat);
 bool amount_msat_less_eq_sat(struct amount_msat msat, struct amount_sat sat);
 /* Is msat == sat? */
 bool amount_msat_eq_sat(struct amount_msat msat, struct amount_sat sat);
+
+/* a / b */
+double amount_msat_ratio(struct amount_msat a, struct amount_msat b);
 
 /* Check whether this asset is actually the main / fee-paying asset of the
  * current chain. */

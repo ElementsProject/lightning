@@ -2313,8 +2313,8 @@ static void shadow_route_cb(struct shadow_route_data *d,
 
 	/* Allow shadowroutes to consume up to 1/4th of our budget. */
 	d->constraints.cltv_budget = p->constraints.cltv_budget / 4;
-	d->constraints.fee_budget = p->constraints.fee_budget;
-	d->constraints.fee_budget.millisatoshis /= 4; /* Raw: msat division. */
+	d->constraints.fee_budget
+		= amount_msat_div(p->constraints.fee_budget, 4);
 
 	if (pseudorand(2) == 0) {
 		return payment_continue(p);
@@ -2672,8 +2672,11 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 
 			/* Now adjust the constraints so we don't multiply them
 			 * when splitting. */
-			multiplier = (double)c->amount.millisatoshis / (double)p->amount.millisatoshis; /* Raw: msat division. */
-			c->constraints.fee_budget.millisatoshis *= multiplier; /* Raw: Multiplication */
+			multiplier = amount_msat_ratio(c->amount, p->amount);
+			if (!amount_msat_scale(&c->constraints.fee_budget,
+					       c->constraints.fee_budget,
+					       multiplier))
+				abort(); /* multiplier < 1! */
 			payment_start(c);
 			count++;
 		}
@@ -2790,12 +2793,16 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 			a->amount.millisatoshis = mid;  /* Raw: split. */
 			b->amount.millisatoshis -= mid; /* Raw: split. */
 
-			double multiplier = (double)a->amount.millisatoshis / (double)p->amount.millisatoshis; /* Raw: msat division */
+			double multiplier = amount_msat_ratio(a->amount,
+							      p->amount);
 			assert(multiplier >= 0.4 && multiplier < 0.6);
 
 			/* Adjust constraints since we don't want to double our
 			 * fee allowance when we split. */
-			a->constraints.fee_budget.millisatoshis = pconstraints->fee_budget.millisatoshis * multiplier; /* Raw: msat multiplication. */
+			if (!amount_msat_scale(&a->constraints.fee_budget,
+					       pconstraints->fee_budget,
+					       multiplier))
+				abort();
 
 			ok = amount_msat_sub(&b->constraints.fee_budget,
 					     pconstraints->fee_budget,
