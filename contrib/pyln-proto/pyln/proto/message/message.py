@@ -600,7 +600,8 @@ class Message(object):
         f = self.messagetype.find_field(field)
         if f is None:
             raise ValueError("Unknown field {}".format(field))
-
+        if isinstance(f.fieldtype, LengthFieldType):
+            raise ValueError("Cannot specify implied length field {}".format(field))
         if isinstance(val, str):
             val, remainder = f.fieldtype.val_from_str(val)
             if remainder != '':
