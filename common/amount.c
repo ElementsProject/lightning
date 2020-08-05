@@ -406,6 +406,11 @@ void amount_msat_from_u64(struct amount_msat *msat, u64 millisatoshis)
 	msat->millisatoshis = millisatoshis;
 }
 
+void amount_sat_from_u64(struct amount_sat *sat, u64 satoshis)
+{
+	sat->satoshis = satoshis;
+}
+
 WARN_UNUSED_RESULT bool amount_msat_from_sat_u64(struct amount_msat *msat, u64 satoshis)
 {
 	if (mul_overflows_u64(satoshis, MSAT_PER_SAT))
