@@ -136,6 +136,9 @@ struct channel {
 
 	/* Any commands trying to forget us. */
 	struct command **forgets;
+
+	/* Our position in the round-robin list.  */
+	struct list_node rr_list;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,

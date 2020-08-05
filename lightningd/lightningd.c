@@ -285,6 +285,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 */
 	ld->exit_code = NULL;
 
+	/*~ We maintain a round-robin list of channels.
+	 * This round-robin list of channels is used to ensure that
+	 * each invoice we generate has a different set of channels.  */
+	list_head_init(&ld->rr_channels);
+
 	return ld;
 }
 

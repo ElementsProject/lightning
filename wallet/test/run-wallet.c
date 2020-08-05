@@ -1498,6 +1498,7 @@ int main(int argc, const char *argv[])
 
 	/* Only elements in ld we should access */
 	list_head_init(&ld->peers);
+	list_head_init(&ld->rr_channels);
 	node_id_from_hexstr("02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66, &ld->id);
 	/* Accessed in peer destructor sanity check */
 	htlc_in_map_init(&ld->htlcs_in);
