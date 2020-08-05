@@ -42,6 +42,9 @@ bool amount_asset_is_main(struct amount_asset *asset UNNEEDED)
 /* Generated stub for amount_asset_to_sat */
 struct amount_sat amount_asset_to_sat(struct amount_asset *asset UNNEEDED)
 { fprintf(stderr, "amount_asset_to_sat called!\n"); abort(); }
+/* Generated stub for amount_sat */
+struct amount_sat amount_sat(u64 satoshis UNNEEDED)
+{ fprintf(stderr, "amount_sat called!\n"); abort(); }
 /* Generated stub for amount_sat_add */
  bool amount_sat_add(struct amount_sat *val UNNEEDED,
 				       struct amount_sat a UNNEEDED,

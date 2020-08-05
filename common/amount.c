@@ -487,7 +487,7 @@ struct amount_asset amount_sat_to_asset(struct amount_sat *sat, const u8 *asset)
 
 	assert(33 == sizeof(amt_asset.asset));
 	memcpy(amt_asset.asset, asset, sizeof(amt_asset.asset));
-	amt_asset.value = sat->satoshis; /* Raw: type conversion */
+	amt_asset.value = sat->satoshis;
 	return amt_asset;
 }
 

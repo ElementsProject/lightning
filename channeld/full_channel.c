@@ -85,7 +85,7 @@ static bool balance_ok(const struct balance *balance,
 {
 	if (balance->msat < 0)
 		return false;
-	msat->millisatoshis = balance->msat; /* Raw: balance */
+	*msat = amount_msat(balance->msat);
 	return true;
 }
 

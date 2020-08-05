@@ -14,7 +14,7 @@ struct penalty_base *penalty_base_new(const tal_t *ctx,
 	bitcoin_txid(tx, &pbase->txid);
 	pbase->outnum = txout - tx->wtx->outputs;
 	assert(pbase->outnum < tx->wtx->num_outputs);
-	pbase->amount.satoshis = txout->satoshi; /* Raw: from wally_tx_output */
+	pbase->amount = amount_sat(txout->satoshi);
 
 	return pbase;
 }
