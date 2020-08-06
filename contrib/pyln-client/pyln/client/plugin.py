@@ -523,6 +523,12 @@ class Plugin(object):
             partial = self._multi_dispatch(msgs)
 
     def _getmanifest(self, **kwargs):
+        if 'allow-deprecated-apis' in kwargs:
+            self.deprecated_apis = kwargs['allow-deprecated-apis']
+        else:
+            # 0.9.0 and before didn't offer this, so assume "yes".
+            self.deprecated_apis = True
+
         methods = []
         hooks = []
         for method in self.methods.values():
