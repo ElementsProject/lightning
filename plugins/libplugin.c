@@ -23,7 +23,7 @@ bool deprecated_apis;
 
 struct plugin_timer {
 	struct timer timer;
-	void (*cb)(void *cb_arg);
+	void (*cb)(struct plugin *p, void *cb_arg);
 	void *cb_arg;
 };
 
@@ -929,7 +929,7 @@ static void call_plugin_timer(struct plugin *p, struct timer *timer)
 	p->in_timer++;
 	/* Free this if they don't. */
 	tal_steal(tmpctx, t);
-	t->cb(t->cb_arg);
+	t->cb(p, t->cb_arg);
 }
 
 static void destroy_plugin_timer(struct plugin_timer *timer, struct plugin *p)
@@ -938,7 +938,7 @@ static void destroy_plugin_timer(struct plugin_timer *timer, struct plugin *p)
 }
 
 struct plugin_timer *plugin_timer_(struct plugin *p, struct timerel t,
-				   void (*cb)(void *cb_arg),
+				   void (*cb)(struct plugin *p, void *cb_arg),
 				   void *cb_arg)
 {
 	struct plugin_timer *timer = tal(NULL, struct plugin_timer);

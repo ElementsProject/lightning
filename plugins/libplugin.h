@@ -216,13 +216,15 @@ struct command_result *timer_complete(struct plugin *p);
  */
 struct plugin_timer *plugin_timer_(struct plugin *p,
 				   struct timerel t,
-				   void (*cb)(void *cb_arg),
+				   void (*cb)(struct plugin *p, void *cb_arg),
 				   void *cb_arg);
 
-#define plugin_timer(plugin, time, cb, cb_arg)		\
-	plugin_timer_((plugin), (time),			\
-		      typesafe_cb(void, void *,		\
-				  (cb), (cb_arg)),	\
+#define plugin_timer(p, time, cb, cb_arg)		\
+	plugin_timer_((p), (time),			\
+		      typesafe_cb_preargs(void, void *,	\
+					  (cb),		\
+					  (cb_arg),	\
+					  struct plugin *),	\
 		      (cb_arg))				\
 
 /* Log something */

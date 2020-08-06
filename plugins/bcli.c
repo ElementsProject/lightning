@@ -168,9 +168,12 @@ static char *bcli_args(struct bitcoin_cli *bcli)
     return args_string(bcli, bcli->args);
 }
 
-static void retry_bcli(void *cb_arg)
+static void retry_bcli(struct plugin *p, void *cb_arg)
 {
 	struct bitcoin_cli *bcli = cb_arg;
+
+	plugin_log(p, LOG_DBG, "Retrying %s", bcli_args(bcli));
+
 	list_add_tail(&bitcoind->pending[bcli->prio], &bcli->list);
 	next_bcli(bcli->prio);
 }

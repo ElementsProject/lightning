@@ -9,7 +9,7 @@
 static u64 cycle_seconds = 0, expired_by = 86400;
 static struct plugin_timer *cleantimer;
 
-static void do_clean(void *cb_arg);
+static void do_clean(struct plugin *p, void *cb_arg UNUSED);
 
 static struct command_result *ignore(struct command *timer,
 				     const char *buf,
@@ -17,16 +17,17 @@ static struct command_result *ignore(struct command *timer,
 				     void *arg)
 {
 	struct plugin *p = arg;
-	cleantimer = plugin_timer(p, time_from_sec(cycle_seconds), do_clean, p);
+	cleantimer = plugin_timer(p, time_from_sec(cycle_seconds), do_clean, NULL);
 	return timer_complete(p);
 }
 
-static void do_clean(void *cb_arg)
+static void do_clean(struct plugin *p, void *cb_arg UNUSED)
 {
-	struct plugin *p = cb_arg;
+	plugin_log(p, LOG_INFORM, "Cleaning expired invoices.");
 	/* FIXME: delexpiredinvoice should be in our plugin too! */
 	struct out_req *req = jsonrpc_request_start(p, NULL, "delexpiredinvoice",
 						    ignore, ignore, p);
+
 	json_add_u64(req->js, "maxexpirytime",
 		     time_now().ts.tv_sec - expired_by);
 
@@ -55,7 +56,7 @@ static struct command_result *json_autocleaninvoice(struct command *cmd,
 	}
 	tal_free(cleantimer);
 	cleantimer = plugin_timer(cmd->plugin, time_from_sec(cycle_seconds),
-				  do_clean, cmd->plugin);
+				  do_clean, NULL);
 
 	return command_success_str(cmd,
 				   tal_fmt(cmd, "Autocleaning %"PRIu64
