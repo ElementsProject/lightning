@@ -3221,3 +3221,32 @@ def test_bolt11_null_after_pay(node_factory, bitcoind):
     pays = l2.rpc.listpays()["pays"]
     assert(pays[0]["bolt11"] == invl1)
     assert('amount_msat' in pays[0] and pays[0]['amount_msat'] == amt)
+
+
+@pytest.mark.xfail(strict=True)
+def test_mpp_presplit_routehint_conflict(node_factory, bitcoind):
+    '''
+    We have a bug where pre-splitting the payment prevents *any*
+    routehints from being taken.
+    We tickle that bug here by building l1->l2->l3, but with
+    l2->l3 as an unpublished channel.
+    If the payment is large enough to trigger pre-splitting, the
+    routehints are not applied in any of the splits.
+    '''
+    l1, l2, l3 = node_factory.get_nodes(3)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1l2 = l1.fund_channel(l2, 10**7, announce_channel=True)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l2.fund_channel(l3, 10**7, announce_channel=False)
+
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l1, l2, l3])
+
+    # Wait for l3 to learn about l1->l2, otherwise it will think
+    # l2 is a deadend and not add it to the routehint.
+    wait_for(lambda: len(l3.rpc.listchannels(l1l2)['channels']) >= 2)
+
+    inv = l3.rpc.invoice(Millisatoshi(2 * 10000 * 1000), 'i', 'i', exposeprivatechannels=True)['bolt11']
+
+    l1.rpc.pay(inv)
