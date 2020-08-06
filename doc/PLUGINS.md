@@ -57,9 +57,10 @@ interface.
 
 ### The `getmanifest` method
 
-The `getmanifest` method is required for all plugins and will be called on
-startup without any params. It MUST return a JSON object similar to
-this example:
+The `getmanifest` method is required for all plugins and will be
+called on startup with optionsl parameters (in particular, it may have
+`allow-deprecated-apis: false`, but you should accept others).  It
+MUST return a JSON object similar to this example:
 
 ```json
 {
