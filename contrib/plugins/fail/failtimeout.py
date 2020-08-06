@@ -8,7 +8,7 @@ import sys
 import time
 
 
-def json_getmanifest(request):
+def json_getmanifest(request, **kwargs):
     # Timeout is 60 seconds, so wait more
     time.sleep(61)
     return {

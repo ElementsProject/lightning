@@ -1285,6 +1285,9 @@ const char *plugin_send_getmanifest(struct plugin *p)
 	p->stdin_conn = io_new_conn(p, stdin, plugin_stdin_conn_init, p);
 	req = jsonrpc_request_start(p, "getmanifest", p->log,
 				    plugin_manifest_cb, p);
+	/* Adding allow-deprecated-apis is part of the deprecation cycle! */
+	if (!deprecated_apis)
+		json_add_bool(req->stream, "allow-deprecated-apis", deprecated_apis);
 	jsonrpc_request_end(req);
 	plugin_request_send(p, req);
 	p->plugin_state = AWAITING_GETMANIFEST_RESPONSE;
