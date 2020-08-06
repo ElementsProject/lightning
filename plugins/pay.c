@@ -1881,9 +1881,25 @@ struct payment_modifier *paymod_mods[] = {
 	&local_channel_hints_pay_mod,
 	&exemptfee_pay_mod,
 	&directpay_pay_mod,
-	&presplit_pay_mod,
 	&shadowroute_pay_mod,
+	/* NOTE: The order in which these two paymods are executed is
+	 * significant!
+	 * routehints *must* execute first before presplit.
+	 *
+	 * FIXME: Giving an ordered list of paymods to the paymod
+	 * system is the wrong interface, given that the order in
+	 * which paymods execute is significant.
+	 * (This is typical of Entity-Component-System pattern.)
+	 * What should be done is that libplugin-pay should have a
+	 * canonical list of paymods in the order they execute
+	 * correctly, and whether they are default-enabled/default-disabled,
+	 * and then clients like `pay` and `keysend` will disable/enable
+	 * paymods that do not help them, instead of the current interface
+	 * where clients provide an *ordered* list of paymods they want to
+	 * use.
+	 */
 	&routehints_pay_mod,
+	&presplit_pay_mod,
 	&waitblockheight_pay_mod,
 	&retry_pay_mod,
 	&adaptive_splitter_pay_mod,

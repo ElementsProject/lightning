@@ -3223,10 +3223,9 @@ def test_bolt11_null_after_pay(node_factory, bitcoind):
     assert('amount_msat' in pays[0] and pays[0]['amount_msat'] == amt)
 
 
-@pytest.mark.xfail(strict=True)
 def test_mpp_presplit_routehint_conflict(node_factory, bitcoind):
     '''
-    We have a bug where pre-splitting the payment prevents *any*
+    We had a bug where pre-splitting the payment prevents *any*
     routehints from being taken.
     We tickle that bug here by building l1->l2->l3, but with
     l2->l3 as an unpublished channel.
