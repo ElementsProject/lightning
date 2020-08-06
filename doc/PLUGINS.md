@@ -58,9 +58,10 @@ interface.
 ### The `getmanifest` method
 
 The `getmanifest` method is required for all plugins and will be
-called on startup with optionsl parameters (in particular, it may have
-`allow-deprecated-apis: false`, but you should accept others).  It
-MUST return a JSON object similar to this example:
+called on startup with optional parameters (in particular, it may have
+`allow-deprecated-apis: false`, but you should accept, and ignore,
+other parameters).  It MUST return a JSON object similar to this
+example:
 
 ```json
 {
@@ -69,7 +70,8 @@ MUST return a JSON object similar to this example:
       "name": "greeting",
       "type": "string",
       "default": "World",
-      "description": "What name should I call you?"
+      "description": "What name should I call you?",
+      "deprecated": false
     }
   ],
   "rpcmethods": [
@@ -82,7 +84,8 @@ MUST return a JSON object similar to this example:
       "name": "gettime",
       "usage": "",
       "description": "Returns the current time in {timezone}",
-      "long_description": "Returns the current time in the timezone that is given as the only parameter.\nThis description may be quite long and is allowed to span multiple lines."
+      "long_description": "Returns the current time in the timezone that is given as the only parameter.\nThis description may be quite long and is allowed to span multiple lines.",
+      "deprecated": false
     }
   ],
   "subscriptions": [
@@ -115,6 +118,11 @@ through verbatim. Notice that the `name`, `description` and `usage` fields
 are mandatory, while the `long_description` can be omitted (it'll be
 set to `description` if it was not provided). `usage` should surround optional
 parameter names in `[]`.
+
+`options` and `rpcmethods` can mark themselves `deprecated: true` if
+you plan on removing them: this will disable them if the user sets
+`allow-deprecated-apis` to false (which every developer should do,
+right?).
 
 The `dynamic` indicates if the plugin can be managed after `lightningd`
 has been started. Critical plugins that should not be stopped should set it

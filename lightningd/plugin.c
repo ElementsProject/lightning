@@ -556,6 +556,10 @@ char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
 	char *endp;
 	long long l;
 
+	/* Warn them that this is deprecated */
+	if (popt->deprecated && !deprecated_apis)
+		return tal_fmt(tmpctx, "deprecated option (will be removed!)");
+
 	tal_free(popt->value->as_str);
 
 	popt->value->as_str = tal_strdup(popt, arg);
@@ -599,12 +603,13 @@ static void destroy_plugin_opt(struct plugin_opt *opt)
 static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 				  const jsmntok_t *opt)
 {
-	const jsmntok_t *nametok, *typetok, *defaulttok, *desctok;
+	const jsmntok_t *nametok, *typetok, *defaulttok, *desctok, *deptok;
 	struct plugin_opt *popt;
 	nametok = json_get_member(buffer, opt, "name");
 	typetok = json_get_member(buffer, opt, "type");
 	desctok = json_get_member(buffer, opt, "description");
 	defaulttok = json_get_member(buffer, opt, "default");
+	deptok = json_get_member(buffer, opt, "deprecated");
 
 	if (!typetok || !nametok || !desctok) {
 		return tal_fmt(plugin,
@@ -617,6 +622,15 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 	popt->name = tal_fmt(popt, "--%.*s", nametok->end - nametok->start,
 			     buffer + nametok->start);
 	popt->description = NULL;
+	if (deptok) {
+		if (!json_to_bool(buffer, deptok, &popt->deprecated))
+			return tal_fmt(plugin,
+				       "%s: invalid \"deprecated\" field %.*s",
+				       popt->name,
+				       deptok->end - deptok->start,
+				       buffer + deptok->start);
+	} else
+		popt->deprecated = false;
 
 	if (json_tok_streq(buffer, typetok, "string")) {
 		popt->type = "string";
@@ -806,7 +820,8 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 					const char *buffer,
 					const jsmntok_t *meth)
 {
-	const jsmntok_t *nametok, *categorytok, *desctok, *longdesctok, *usagetok;
+	const jsmntok_t *nametok, *categorytok, *desctok, *longdesctok,
+		*usagetok, *deptok;
 	struct json_command *cmd;
 	const char *usage;
 
@@ -815,6 +830,7 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 	desctok = json_get_member(buffer, meth, "description");
 	longdesctok = json_get_member(buffer, meth, "long_description");
 	usagetok = json_get_member(buffer, meth, "usage");
+	deptok = json_get_member(buffer, meth, "deprecated");
 
 	if (!nametok || nametok->type != JSMN_STRING) {
 		return tal_fmt(plugin,
@@ -860,7 +876,16 @@ static const char *plugin_rpcmethod_add(struct plugin *plugin,
 	} else
 		usage = "[params]";
 
-	cmd->deprecated = false;
+	if (deptok) {
+		if (!json_to_bool(buffer, deptok, &cmd->deprecated))
+			return tal_fmt(plugin,
+				       "%s: invalid \"deprecated\" field %.*s",
+				       cmd->name,
+			               deptok->end - deptok->start,
+				       buffer + deptok->start);
+	} else
+		cmd->deprecated = false;
+
 	cmd->dispatch = plugin_rpcmethod_dispatch;
 	if (!jsonrpc_command_add(plugin->plugins->ld->jsonrpc, cmd, usage)) {
 		return tal_fmt(plugin,
@@ -1428,6 +1453,9 @@ void json_add_opt_plugins(struct json_stream *response,
 		if (!list_empty(&p->plugin_opts)) {
 			json_object_start(response, "options");
 			list_for_each(&p->plugin_opts, opt, list) {
+				if (!deprecated_apis && opt->deprecated)
+					continue;
+
 				/* Trim the `--` that we added before */
 				opt_name = opt->name + 2;
 				if (opt->value->as_bool) {
