@@ -6,6 +6,7 @@ from collections import OrderedDict
 from decimal import Decimal
 from ephemeral_port_reserve import reserve
 from pyln.client import LightningRpc
+from pyln.client import Millisatoshi
 
 import json
 import logging
@@ -643,6 +644,30 @@ class LightningNode(object):
         self.bitcoin.generate_block(1)
         self.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
         return addr, txid
+
+    def fundbalancedchannel(self, remote_node, total_capacity, announce=True):
+        '''
+        Creates a perfectly-balanced channel, as all things should be.
+        '''
+        if isinstance(total_capacity, Millisatoshi):
+            total_capacity = int(total_capacity.to_satoshi())
+        else:
+            total_capacity = int(total_capacity)
+
+        self.fundwallet(total_capacity + 10000)
+        self.rpc.connect(remote_node.info['id'], 'localhost', remote_node.port)
+
+        # Make sure the fundchannel is confirmed.
+        num_tx = len(self.bitcoin.rpc.getrawmempool())
+        tx = self.rpc.fundchannel(remote_node.info['id'], total_capacity, feerate='slow', minconf=0, announce=announce, push_msat=Millisatoshi(total_capacity * 500))['tx']
+        wait_for(lambda: len(self.bitcoin.rpc.getrawmempool()) == num_tx + 1)
+        self.bitcoin.generate_block(1)
+
+        # Generate the scid.
+        # NOTE This assumes only the coinbase and the fundchannel is
+        # confirmed in the block.
+        return '{}x1x{}'.format(self.bitcoin.rpc.getblockcount(),
+                                get_tx_p2wsh_outnum(self.bitcoin, tx, total_capacity))
 
     def getactivechannels(self):
         return [c for c in self.rpc.listchannels()['channels'] if c['active']]
