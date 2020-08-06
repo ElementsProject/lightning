@@ -59,8 +59,10 @@ static struct command_result *tx_abort(struct command *cmd,
 {
 	struct out_req *req;
 
-	/* We stash the error so we can return it after we've cleaned up */
-	fr->error = json_strdup(fr, buf, error);
+	/* We stash the error so we can return it after we've cleaned up.
+	 * If one already occured upstream, we keep it instead. */
+	if (!fr->error)
+		fr->error = json_strdup(fr, buf, error);
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "txdiscard",
 				    send_prior, send_prior, fr);
@@ -70,6 +72,24 @@ static struct command_result *tx_abort(struct command *cmd,
 	/* We need to call txdiscard, and forward the actual cause for the
 	 * error after we've cleaned up. We swallow any errors returned by
 	 * this call, as we don't really care if it succeeds or not */
+	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *channel_abort(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *error,
+					    struct funding_req *fr)
+{
+	struct out_req *req;
+
+	fr->error = json_strdup(fr, buf, error);
+
+	/* After we cancel the channel we need to unreserve the coin reserved with
+	 * `txprepare`. */
+	req = jsonrpc_request_start(cmd->plugin, cmd, "fundchannel_cancel",
+				    tx_abort, tx_abort, fr);
+	json_add_string(req->js, "id", node_id_to_hexstr(tmpctx, fr->id));
+
 	return send_outreq(cmd->plugin, req);
 }
 
@@ -113,7 +133,7 @@ static struct command_result *send_tx(struct command *cmd,
 	fr->chanstr = json_strdup(fr, buf, tok);
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "txsend",
-				    finish, tx_abort, fr);
+				    finish, channel_abort, fr);
 	json_add_string(req->js, "txid",
 			type_to_string(tmpctx, struct bitcoin_txid, &fr->tx_id));
 
@@ -409,6 +429,7 @@ static struct command_result *json_fundchannel(struct command *cmd,
 		return command_param_failed();
 
 	fr->funding_all = streq(fr->funding_str, "all");
+	fr->error = NULL;
 
 	return connect_to_peer(cmd, fr);
 }
