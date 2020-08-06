@@ -6,7 +6,7 @@ from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
-    EXPERIMENTAL_FEATURES, env
+    EXPERIMENTAL_FEATURES, env, VALGRIND
 )
 import copy
 import os
@@ -3373,3 +3373,100 @@ def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor
 
     # pay command should complete without error
     fut.result(TIMEOUT)
+
+
+@unittest.skipIf(VALGRIND, "runs 7 nodes")
+@unittest.skipIf(not DEVELOPER, "channel setup very slow (~10 minutes) if not DEVELOPER")
+@pytest.mark.slow_test
+@pytest.mark.xfail(strict=True)
+def test_mpp_interference_2(node_factory, bitcoind, executor):
+    '''
+    We create a "public network" that looks like so.
+    Each channel is perfectly balanced, with 7 * unit
+    funds on each side.
+
+        4 -- 5
+        |   /|
+        |  / |
+        | /  |
+        |/   |
+        6 -- 7
+
+    l1 is the payee, who will later issue some invoices.
+    It arranges unpublished channels from the above public
+    network:
+
+        l5->l1: 7 * unit
+        l6->l1: 5 * unit
+        l4->l1: 3 * unit
+        l7->l1: 2 * unit
+
+    l2 and l3 are payers.
+    They create some unpublished channels to the public network:
+
+        l2->l4, l2->l6: 6 * unit each
+        l3->l7, l3->l6: 6 * unit each
+
+    Finally, l1 issues 6 * unit invoices, simultaneously, to l1 and l2.
+    Both of them perform `pay` simultaneously, in order to test if
+    they interfere with each other.
+
+    This test then tries to check if both of them can pay, given
+    that there is sufficient incoming capacity, and then some,
+    to the payee, and the public network is perfectly balanced
+    with more than sufficient capacity, as well.
+    '''
+    l1, l2, l3, l4, l5, l6, l7 = node_factory.get_nodes(7, opts={'feerates': (1000, 1000, 1000, 1000)})
+
+    # Unit
+    unit = Millisatoshi(11000 * 1000)
+
+    # Build the public network.
+    public_network = [l4.fundbalancedchannel(l5, unit * 14),
+                      l4.fundbalancedchannel(l6, unit * 14),
+                      l5.fundbalancedchannel(l6, unit * 14),
+                      l5.fundbalancedchannel(l7, unit * 14),
+                      l6.fundbalancedchannel(l7, unit * 14)]
+
+    # Build unpublished channels to the merchant l1.
+    l4.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l5.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l6.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l7.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    # The order in which the routes are built should not matter so
+    # shuffle them.
+    incoming_builders = [lambda: l5.fund_channel(l1, int((unit * 7).to_satoshi()), announce_channel=False),
+                         lambda: l6.fund_channel(l1, int((unit * 5).to_satoshi()), announce_channel=False),
+                         lambda: l4.fund_channel(l1, int((unit * 3).to_satoshi()), announce_channel=False),
+                         lambda: l7.fund_channel(l1, int((unit * 2).to_satoshi()), announce_channel=False)]
+    random.shuffle(incoming_builders)
+    for b in incoming_builders:
+        b()
+
+    # Build unpublished channels from the buyers l2 and l3.
+    l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    l2.rpc.connect(l6.info['id'], 'localhost', l6.port)
+    l3.rpc.connect(l7.info['id'], 'localhost', l7.port)
+    l3.rpc.connect(l6.info['id'], 'localhost', l6.port)
+    l2.fund_channel(l4, int((unit * 6).to_satoshi()), announce_channel=False)
+    l2.fund_channel(l6, int((unit * 6).to_satoshi()), announce_channel=False)
+    l3.fund_channel(l7, int((unit * 6).to_satoshi()), announce_channel=False)
+    l3.fund_channel(l6, int((unit * 6).to_satoshi()), announce_channel=False)
+
+    # Now wait for the buyers to learn the entire public network.
+    bitcoind.generate_block(5)
+    for channel in public_network:
+        wait_for(lambda: len(l2.rpc.listchannels(channel)['channels']) >= 2)
+        wait_for(lambda: len(l3.rpc.listchannels(channel)['channels']) >= 2)
+
+    # Buyers check out some purchaseable stuff from the merchant.
+    i2 = l1.rpc.invoice(unit * 6, 'i2', 'i2')['bolt11']
+    i3 = l1.rpc.invoice(unit * 6, 'i3', 'i3')['bolt11']
+
+    # Pay simultaneously!
+    p2 = executor.submit(l2.rpc.pay, i2)
+    p3 = executor.submit(l3.rpc.pay, i3)
+
+    # Both payments should succeed.
+    p2.result(TIMEOUT)
+    p3.result(TIMEOUT)
