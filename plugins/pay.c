@@ -1666,6 +1666,9 @@ struct pay_mpp {
 	 * only). Null if we have any part for which we didn't know the
 	 * amount. */
 	struct amount_msat *amount;
+
+	/* Timestamp of the first part */
+	u32 timestamp;
 };
 
 static const struct sha256 *pay_mpp_key(const struct pay_mpp *pm)
@@ -1735,6 +1738,8 @@ static void add_new_entry(struct json_stream *ret,
 	json_object_start(ret, NULL);
 	json_add_string(ret, "bolt11", pm->b11);
 	json_add_string(ret, "status", pm->status);
+	json_add_u32(ret, "created_at", pm->timestamp);
+
 	if (pm->label)
 		json_add_tok(ret, "label", pm->label, buf);
 	if (pm->preimage)
@@ -1777,15 +1782,19 @@ static struct command_result *listsendpays_done(struct command *cmd,
 	ret = jsonrpc_stream_success(cmd);
 	json_array_start(ret, "pays");
 	json_for_each_arr(i, t, arr) {
-		const jsmntok_t *status, *b11tok, *hashtok;
+		const jsmntok_t *status, *b11tok, *hashtok, *createdtok;
 		const char *b11 = b11str;
 		struct sha256 payment_hash;
+		u32 created_at;
 
 		b11tok = json_get_member(buf, t, "bolt11");
 		hashtok = json_get_member(buf, t, "payment_hash");
+		createdtok = json_get_member(buf, t, "created_at");
 		assert(hashtok != NULL);
+		assert(createdtok != NULL);
 
 		json_to_sha256(buf, hashtok, &payment_hash);
+		json_to_u32(buf, createdtok, &created_at);
 		if (b11tok)
 			b11 = json_strdup(cmd, buf, b11tok);
 
@@ -1800,6 +1809,7 @@ static struct command_result *listsendpays_done(struct command *cmd,
 			pm->amount = talz(pm, struct amount_msat);
 			pm->num_nonfailed_parts = 0;
 			pm->status = NULL;
+			pm->timestamp = created_at;
 			pay_map_add(&pay_map, pm);
 		}
 
