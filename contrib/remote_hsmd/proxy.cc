@@ -124,6 +124,11 @@ void marshal_secret(struct secret const *ss, Secret *o_sp)
 	o_sp->set_data(ss->data, sizeof(ss->data));
 }
 
+void marshal_bip32seed(struct secret const *ss, BIP32Seed *o_sp)
+{
+	o_sp->set_data(ss->data, sizeof(ss->data));
+}
+
 void marshal_node_id(struct node_id const *np, NodeId *o_np)
 {
 	o_np->set_data(np->k, sizeof(np->k));
@@ -323,6 +328,9 @@ proxy_stat proxy_init_hsm(struct bip32_key_version *bip32_key_version,
 		last_message = "";
 		InitRequest req;
 
+		auto nc = req.mutable_node_config();
+		nc->set_key_derivation_style(NodeConfig::NATIVE);
+
 		auto cp = req.mutable_chainparams();
 		cp->set_network_name(chainparams->network_name);
 
@@ -330,7 +338,7 @@ proxy_stat proxy_init_hsm(struct bip32_key_version *bip32_key_version,
 
 		/* FIXME - Sending the secret instead of generating on
 		 * the remote. */
-		marshal_secret(hsm_secret, req.mutable_hsm_secret());
+		marshal_bip32seed(hsm_secret, req.mutable_hsm_secret());
 
 		ClientContext context;
 		InitReply rsp;
