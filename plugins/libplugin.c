@@ -593,6 +593,7 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		json_add_string(params, "name", p->opts[i].name);
 		json_add_string(params, "type", p->opts[i].type);
 		json_add_string(params, "description", p->opts[i].description);
+		json_add_bool(params, "deprecated", p->opts[i].deprecated);
 		json_object_end(params);
 	}
 	json_array_end(params);
@@ -607,6 +608,7 @@ handle_getmanifest(struct command *getmanifest_cmd,
 		if (p->commands[i].long_description)
 			json_add_string(params, "long_description",
 					p->commands[i].long_description);
+		json_add_bool(params, "deprecated", p->commands[i].deprecated);
 		json_object_end(params);
 	}
 	json_array_end(params);
@@ -1260,6 +1262,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 		o.description = va_arg(ap, const char *);
 		o.handle = va_arg(ap, char *(*)(const char *str, void *arg));
 		o.arg = va_arg(ap, void *);
+		o.deprecated = va_arg(ap, int); /* bool gets promoted! */
 		tal_arr_expand(&p->opts, o);
 	}
 

@@ -106,6 +106,14 @@ static const struct plugin_command commands[] = { {
 		"Makes a simple getinfo call, to test rpc socket.",
 		"",
 		json_testrpc,
+	},
+	{
+		"testrpc-deprecated",
+		"utils",
+		"Makes a simple getinfo call, to test rpc socket.",
+		"",
+		json_testrpc,
+		true,
 	}
 };
 
@@ -131,5 +139,9 @@ int main(int argc, char *argv[])
 				  "string",
 				  "Who to say hello to.",
 				  charp_option, &name_option),
+		    plugin_option_deprecated("name-deprecated",
+					     "string",
+					     "Who to say hello to.",
+					     charp_option, &name_option),
 		    NULL);
 }

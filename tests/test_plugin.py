@@ -961,7 +961,8 @@ def test_rpc_command_hook(node_factory):
 def test_libplugin(node_factory):
     """Sanity checks for plugins made with libplugin"""
     plugin = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
-    l1 = node_factory.get_node(options={"plugin": plugin})
+    l1 = node_factory.get_node(options={"plugin": plugin,
+                                        'allow-deprecated-apis': False})
 
     # Test startup
     assert l1.daemon.is_in_log("test_libplugin initialised!")
@@ -989,6 +990,39 @@ def test_libplugin(node_factory):
 
     # Test RPC calls FIXME: test concurrent ones ?
     assert l1.rpc.call("testrpc") == l1.rpc.getinfo()
+
+    # Make sure deprecated options nor commands are mentioned.
+    with pytest.raises(RpcError, match=r'Command "testrpc-deprecated" is deprecated'):
+        l1.rpc.call('testrpc-deprecated')
+
+    assert not any([h['command'] == 'testrpc-deprecated'
+                    for h in l1.rpc.help()['help']])
+    with pytest.raises(RpcError, match=r"Deprecated command.*testrpc-deprecated"):
+        l1.rpc.help('testrpc-deprecated')
+
+    assert 'name-deprecated' not in str(l1.rpc.listconfigs())
+
+    l1.stop()
+    l1.daemon.opts["name-deprecated"] = "test_opt"
+
+    # This actually dies while waiting for the logs.
+    with pytest.raises(ValueError):
+        l1.start()
+
+    del l1.daemon.opts["name-deprecated"]
+    l1.start()
+
+
+def test_libplugin_deprecated(node_factory):
+    """Sanity checks for plugins made with libplugin using deprecated args"""
+    plugin = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
+    l1 = node_factory.get_node(options={"plugin": plugin,
+                                        'name-deprecated': 'test_opt depr',
+                                        'allow-deprecated-apis': True})
+
+    assert l1.rpc.call("helloworld") == "hello test_opt depr"
+    l1.rpc.help('testrpc-deprecated')
+    assert l1.rpc.call("testrpc-deprecated") == l1.rpc.getinfo()
 
 
 @unittest.skipIf(
