@@ -64,6 +64,8 @@ struct plugin_command {
 	struct command_result *(*handle)(struct command *cmd,
 					 const char *buf,
 					 const jsmntok_t *params);
+	/* If true, this command *disabled* if allow-deprecated-apis = false */
+	bool deprecated;
 };
 
 /* Create an array of these, one for each --option you support. */
@@ -73,6 +75,8 @@ struct plugin_option {
 	const char *description;
 	char *(*handle)(const char *str, void *arg);
 	void *arg;
+	/* If true, this options *disabled* if allow-deprecated-apis = false */
+	bool deprecated;
 };
 
 /* Create an array of these, one for each notification you subscribe to. */
@@ -229,12 +233,19 @@ struct plugin_timer *plugin_timer_(struct plugin *p,
 void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...) PRINTF_FMT(3, 4);
 
 /* Macro to define arguments */
-#define plugin_option(name, type, description, set, arg)			\
+#define plugin_option_(name, type, description, set, arg, deprecated)	\
 	(name),								\
 	(type),								\
 	(description),							\
 	typesafe_cb_preargs(char *, void *, (set), (arg), const char *),	\
-	(arg)
+	(arg),								\
+	(deprecated)
+
+#define plugin_option(name, type, description, set, arg) \
+	plugin_option_((name), (type), (description), (set), (arg), false)
+
+#define plugin_option_deprecated(name, type, description, set, arg) \
+	plugin_option_((name), (type), (description), (set), (arg), true)
 
 /* Standard helpers */
 char *u64_option(const char *arg, u64 *i);
