@@ -33,7 +33,7 @@ class Method(object):
      - HOOK registered to be called synchronously by lightningd
     """
     def __init__(self, name, func, mtype=MethodType.RPCMETHOD, category=None,
-                 desc=None, long_desc=None):
+                 desc=None, long_desc=None, deprecated=False):
         self.name = name
         self.func = func
         self.mtype = mtype
@@ -41,6 +41,7 @@ class Method(object):
         self.background = False
         self.desc = desc
         self.long_desc = long_desc
+        self.deprecated = deprecated
 
 
 class Request(dict):
@@ -161,7 +162,7 @@ class Plugin(object):
         self.write_lock = RLock()
 
     def add_method(self, name, func, background=False, category=None, desc=None,
-                   long_desc=None):
+                   long_desc=None, deprecated=False):
         """Add a plugin method to the dispatch table.
 
         The function will be expected at call time (see `_dispatch`)
@@ -191,6 +192,8 @@ class Plugin(object):
         The `category` argument can be used to specify the category of the
         newly created rpc command.
 
+        `deprecated` means that it won't appear unless `allow-deprecated-apis`
+        is true (the default).
         """
         if name in self.methods:
             raise ValueError(
@@ -198,7 +201,7 @@ class Plugin(object):
             )
 
         # Register the function with the name
-        method = Method(name, func, MethodType.RPCMETHOD, category, desc, long_desc)
+        method = Method(name, func, MethodType.RPCMETHOD, category, desc, long_desc, deprecated)
         method.background = background
         self.methods[name] = method
 
@@ -242,7 +245,8 @@ class Plugin(object):
             return f
         return decorator
 
-    def add_option(self, name, default, description, opt_type="string"):
+    def add_option(self, name, default, description, opt_type="string",
+                   deprecated=False):
         """Add an option that we'd like to register with lightningd.
 
         Needs to be called before `Plugin.run`, otherwise we might not
@@ -263,16 +267,18 @@ class Plugin(object):
             'description': description,
             'type': opt_type,
             'value': None,
+            'deprecated': deprecated,
         }
 
-    def add_flag_option(self, name, description):
+    def add_flag_option(self, name, description, deprecated=False):
         """Add a flag option that we'd like to register with lightningd.
 
         Needs to be called before `Plugin.run`, otherwise we might not
         end up getting it set.
 
         """
-        self.add_option(name, None, description, opt_type="flag")
+        self.add_option(name, None, description, opt_type="flag",
+                        deprecated=deprecated)
 
     def get_option(self, name):
         if name not in self.options:
@@ -283,25 +289,27 @@ class Plugin(object):
         else:
             return self.options[name]['default']
 
-    def async_method(self, method_name, category=None, desc=None, long_desc=None):
+    def async_method(self, method_name, category=None, desc=None, long_desc=None, deprecated=False):
         """Decorator to add an async plugin method to the dispatch table.
 
         Internally uses add_method.
         """
         def decorator(f):
             self.add_method(method_name, f, background=True, category=category,
-                            desc=desc, long_desc=long_desc)
+                            desc=desc, long_desc=long_desc,
+                            deprecated=deprecated)
             return f
         return decorator
 
-    def method(self, method_name, category=None, desc=None, long_desc=None):
+    def method(self, method_name, category=None, desc=None, long_desc=None, deprecated=False):
         """Decorator to add a plugin method to the dispatch table.
 
         Internally uses add_method.
         """
         def decorator(f):
             self.add_method(method_name, f, background=False, category=category,
-                            desc=desc, long_desc=long_desc)
+                            desc=desc, long_desc=long_desc,
+                            deprecated=deprecated)
             return f
         return decorator
 
