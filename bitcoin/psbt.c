@@ -742,7 +742,7 @@ struct wally_psbt *fromwire_wally_psbt(const tal_t *ctx,
 
 	psbt_byte_len = fromwire_u32(cursor, max);
 	psbt_buf = fromwire(cursor, max, NULL, psbt_byte_len);
-	if (!psbt_buf)
+	if (!psbt_buf || psbt_byte_len == 0)
 		return NULL;
 
 	psbt = psbt_from_bytes(ctx, psbt_buf, psbt_byte_len);
