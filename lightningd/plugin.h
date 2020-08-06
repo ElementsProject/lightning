@@ -137,6 +137,7 @@ struct plugin_opt {
 	const char *type;
 	const char *description;
 	struct plugin_opt_value *value;
+	bool deprecated;
 };
 
 /**
