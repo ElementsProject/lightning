@@ -12,6 +12,7 @@
 #include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <errno.h>
+#include <wally_psbt.h>
 
 bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 			    uint64_t *satoshi)
@@ -125,6 +126,13 @@ bool json_to_preimage(const char *buffer, const jsmntok_t *tok, struct preimage 
 {
 	size_t hexlen = tok->end - tok->start;
 	return hex_decode(buffer + tok->start, hexlen, preimage->r, sizeof(preimage->r));
+}
+
+bool json_to_psbt(const tal_t *ctx, const char *buffer,
+		  const jsmntok_t *tok, struct wally_psbt **dest)
+{
+	*dest = psbt_from_b64(ctx, buffer + tok->start, tok->end - tok->start);
+	return dest != NULL;
 }
 
 void json_add_node_id(struct json_stream *response,

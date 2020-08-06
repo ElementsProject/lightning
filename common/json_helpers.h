@@ -17,12 +17,17 @@ struct secret;
 struct short_channel_id;
 struct wireaddr;
 struct wireaddr_internal;
+struct wally_psbt;
 
 /* Decode a hex-encoded payment preimage */
 bool json_to_preimage(const char *buffer, const jsmntok_t *tok, struct preimage *preimage);
 
 /* Extract a secret from this. */
 bool json_to_secret(const char *buffer, const jsmntok_t *tok, struct secret *dest);
+
+/* Extract a psbt from this. */
+bool json_to_psbt(const tal_t *ctx, const char *buffer,
+		  const jsmntok_t *tok, struct wally_psbt **dest);
 
 /* Extract a pubkey from this */
 bool json_to_pubkey(const char *buffer, const jsmntok_t *tok,
