@@ -321,8 +321,13 @@ static void json_add_help_command(struct command *cmd,
 {
 	char *usage;
 
-	usage = tal_fmt(cmd, "%s %s",
+	/* If they disallow deprecated APIs, don't even list them */
+	if (!deprecated_apis && json_command->deprecated)
+		return;
+
+	usage = tal_fmt(cmd, "%s%s %s",
 			json_command->name,
+			json_command->deprecated ? " (DEPRECATED!)" : "",
 			strmap_get(&cmd->ld->jsonrpc->usagemap,
 				   json_command->name));
 	json_object_start(response, NULL);
@@ -387,6 +392,11 @@ static struct command_result *json_help(struct command *cmd,
 					    "Unknown command '%.*s'",
 					    cmdtok->end - cmdtok->start,
 					    buffer + cmdtok->start);
+		if (!deprecated_apis && one_cmd->deprecated)
+			return command_fail(cmd, JSONRPC2_METHOD_NOT_FOUND,
+					    "Deprecated command '%.*s'",
+					    json_tok_full_len(cmdtok),
+					    json_tok_full(buffer, cmdtok));
 	} else
 		one_cmd = NULL;
 
@@ -839,9 +849,9 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	}
 	if (c->json_cmd->deprecated && !deprecated_apis) {
 		return command_fail(c, JSONRPC2_METHOD_NOT_FOUND,
-				    "Command '%.*s' is deprecated",
-				    method->end - method->start,
-				    jcon->buffer + method->start);
+				    "Command %.*s is deprecated",
+				    json_tok_full_len(method),
+				    json_tok_full(jcon->buffer, method));
 	}
 
 	rpc_hook = tal(c, struct rpc_command_hook_payload);
