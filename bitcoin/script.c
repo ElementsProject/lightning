@@ -59,7 +59,7 @@ static void add_op(u8 **scriptp, u8 op)
 	add(scriptp, &op, 1);
 }
 
-static void add_push_bytes(u8 **scriptp, const void *mem, size_t len)
+void script_push_bytes(u8 **scriptp, const void *mem, size_t len)
 {
 	if (len < 76)
 		add_op(scriptp, OP_PUSHBYTES(len));
@@ -91,15 +91,15 @@ static void add_number(u8 **script, u32 num)
 
 		/* Beware: encoding is signed! */
 		if (num <= 0x0000007F)
-			add_push_bytes(script, &n, 1);
+			script_push_bytes(script, &n, 1);
 		else if (num <= 0x00007FFF)
-			add_push_bytes(script, &n, 2);
+			script_push_bytes(script, &n, 2);
 		else if (num <= 0x007FFFFF)
-			add_push_bytes(script, &n, 3);
+			script_push_bytes(script, &n, 3);
 		else if (num <= 0x7FFFFFFF)
-			add_push_bytes(script, &n, 4);
+			script_push_bytes(script, &n, 4);
 		else
-			add_push_bytes(script, &n, 5);
+			script_push_bytes(script, &n, 5);
 	}
 }
 
@@ -108,7 +108,7 @@ static void add_push_key(u8 **scriptp, const struct pubkey *key)
 	u8 der[PUBKEY_CMPR_LEN];
 	pubkey_to_der(der, key);
 
-	add_push_bytes(scriptp, der, sizeof(der));
+	script_push_bytes(scriptp, der, sizeof(der));
 }
 
 static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
@@ -116,7 +116,7 @@ static void add_push_sig(u8 **scriptp, const struct bitcoin_signature *sig)
 	u8 der[73];
 	size_t len = signature_to_der(der, sig);
 
-	add_push_bytes(scriptp, der, len);
+	script_push_bytes(scriptp, der, len);
 }
 
 static u8 *stack_key(const tal_t *ctx, const struct pubkey *key)
@@ -183,7 +183,7 @@ u8 *scriptpubkey_p2sh_hash(const tal_t *ctx, const struct ripemd160 *redeemhash)
 	u8 *script = tal_arr(ctx, u8, 0);
 
 	add_op(&script, OP_HASH160);
-	add_push_bytes(&script, redeemhash->u.u8, sizeof(redeemhash->u.u8));
+	script_push_bytes(&script, redeemhash->u.u8, sizeof(redeemhash->u.u8));
 	add_op(&script, OP_EQUAL);
 	assert(tal_count(script) == BITCOIN_SCRIPTPUBKEY_P2SH_LEN);
 	return script;
@@ -205,7 +205,7 @@ u8 *scriptpubkey_p2pkh(const tal_t *ctx, const struct bitcoin_address *addr)
 
 	add_op(&script, OP_DUP);
 	add_op(&script, OP_HASH160);
-	add_push_bytes(&script, &addr->addr, sizeof(addr->addr));
+	script_push_bytes(&script, &addr->addr, sizeof(addr->addr));
 	add_op(&script, OP_EQUALVERIFY);
 	add_op(&script, OP_CHECKSIG);
 	assert(tal_count(script) == BITCOIN_SCRIPTPUBKEY_P2PKH_LEN);
@@ -242,7 +242,7 @@ u8 *bitcoin_redeem_p2sh_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 	 * push of a version byte plus a push of a witness program. */
 	add_number(&script, 0);
 	pubkey_to_hash160(key, &keyhash);
-	add_push_bytes(&script, &keyhash, sizeof(keyhash));
+	script_push_bytes(&script, &keyhash, sizeof(keyhash));
 
 	assert(tal_count(script) == BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
 	return script;
@@ -255,7 +255,7 @@ u8 *bitcoin_scriptsig_p2sh_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 	/* BIP141: The scriptSig must be exactly a push of the BIP16
 	 * redeemScript or validation fails. */
 	script = tal_arr(ctx, u8, 0);
-	add_push_bytes(&script, redeemscript, tal_count(redeemscript));
+	script_push_bytes(&script, redeemscript, tal_count(redeemscript));
 	tal_free(redeemscript);
 	return script;
 }
@@ -283,7 +283,7 @@ u8 *scriptpubkey_p2wsh(const tal_t *ctx, const u8 *witnessscript)
 
 	add_op(&script, OP_0);
 	sha256(&h, witnessscript, tal_count(witnessscript));
-	add_push_bytes(&script, h.u.u8, sizeof(h.u.u8));
+	script_push_bytes(&script, h.u.u8, sizeof(h.u.u8));
 	assert(tal_count(script) == BITCOIN_SCRIPTPUBKEY_P2WSH_LEN);
 	return script;
 }
@@ -296,7 +296,7 @@ u8 *scriptpubkey_p2wpkh(const tal_t *ctx, const struct pubkey *key)
 
 	add_op(&script, OP_0);
 	pubkey_to_hash160(key, &h);
-	add_push_bytes(&script, &h, sizeof(h));
+	script_push_bytes(&script, &h, sizeof(h));
 	return script;
 }
 
@@ -307,7 +307,7 @@ u8 *scriptpubkey_p2wpkh_derkey(const tal_t *ctx, const u8 der[33])
 
 	add_op(&script, OP_0);
 	hash160(&h, der, PUBKEY_CMPR_LEN);
-	add_push_bytes(&script, &h, sizeof(h));
+	script_push_bytes(&script, &h, sizeof(h));
 	return script;
 }
 
@@ -316,7 +316,7 @@ u8 *scriptpubkey_witness_raw(const tal_t *ctx, u8 version,
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	add_number(&script, version);
-	add_push_bytes(&script, wprog, wprog_size);
+	script_push_bytes(&script, wprog, wprog_size);
 	return script;
 }
 
@@ -362,7 +362,7 @@ u8 *p2wpkh_scriptcode(const tal_t *ctx, const struct pubkey *key)
 	 * OP_EQUALVERIFY OP_CHECKSIG */
 	add_op(&script, OP_DUP);
 	add_op(&script, OP_HASH160);
-	add_push_bytes(&script, &pkhash, sizeof(pkhash));
+	script_push_bytes(&script, &pkhash, sizeof(pkhash));
 	add_op(&script, OP_EQUALVERIFY);
 	add_op(&script, OP_CHECKSIG);
 
@@ -528,7 +528,7 @@ u8 *bitcoin_wscript_htlc_offer_ripemd160(const tal_t *ctx,
 	add_op(&script, OP_DUP);
 	add_op(&script, OP_HASH160);
 	pubkey_to_hash160(revocationkey, &ripemd);
-	add_push_bytes(&script, &ripemd, sizeof(ripemd));
+	script_push_bytes(&script, &ripemd, sizeof(ripemd));
 	add_op(&script, OP_EQUAL);
 	add_op(&script, OP_IF);
 	add_op(&script, OP_CHECKSIG);
@@ -547,8 +547,8 @@ u8 *bitcoin_wscript_htlc_offer_ripemd160(const tal_t *ctx,
 	add_op(&script, OP_CHECKMULTISIG);
 	add_op(&script, OP_ELSE);
 	add_op(&script, OP_HASH160);
-	add_push_bytes(&script,
-		       payment_ripemd->u.u8, sizeof(payment_ripemd->u.u8));
+	script_push_bytes(&script,
+			  payment_ripemd->u.u8, sizeof(payment_ripemd->u.u8));
 	add_op(&script, OP_EQUALVERIFY);
 	add_op(&script, OP_CHECKSIG);
 	add_op(&script, OP_ENDIF);
@@ -610,7 +610,7 @@ u8 *bitcoin_wscript_htlc_receive_ripemd(const tal_t *ctx,
 	add_op(&script, OP_DUP);
 	add_op(&script, OP_HASH160);
 	pubkey_to_hash160(revocationkey, &ripemd);
-	add_push_bytes(&script, &ripemd, sizeof(ripemd));
+	script_push_bytes(&script, &ripemd, sizeof(ripemd));
 	add_op(&script, OP_EQUAL);
 	add_op(&script, OP_IF);
 	add_op(&script, OP_CHECKSIG);
@@ -622,8 +622,8 @@ u8 *bitcoin_wscript_htlc_receive_ripemd(const tal_t *ctx,
 	add_op(&script, OP_EQUAL);
 	add_op(&script, OP_IF);
 	add_op(&script, OP_HASH160);
-	add_push_bytes(&script,
-		       payment_ripemd->u.u8, sizeof(payment_ripemd->u.u8));
+	script_push_bytes(&script,
+			  payment_ripemd->u.u8, sizeof(payment_ripemd->u.u8));
 	add_op(&script, OP_EQUALVERIFY);
 	add_number(&script, 2);
 	add_op(&script, OP_SWAP);

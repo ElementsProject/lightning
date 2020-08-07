@@ -140,6 +140,9 @@ bool is_known_scripttype(const u8 *script);
 /* Are these two scripts equal? */
 bool scripteq(const u8 *s1, const u8 *s2);
 
+/* Raw "push these bytes" accessor. */
+void script_push_bytes(u8 **scriptp, const void *mem, size_t len);
+
 /* OP_DUP + OP_HASH160 + PUSH(20-byte-hash) + OP_EQUALVERIFY + OP_CHECKSIG */
 #define BITCOIN_SCRIPTPUBKEY_P2PKH_LEN (1 + 1 + 1 + 20 + 1 + 1)
 
