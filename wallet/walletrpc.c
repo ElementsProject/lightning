@@ -1203,11 +1203,8 @@ struct command_result *param_psbt(struct command *cmd,
 				  const jsmntok_t *tok,
 				  struct wally_psbt **psbt)
 {
-	/* Pull out the token into a string, then pass to
-	 * the PSBT parser; PSBT parser can't handle streaming
-	 * atm as it doesn't accept a len value */
-	char *psbt_buff = json_strdup(cmd, buffer, tok);
-	if (psbt_from_b64(psbt_buff, psbt))
+	*psbt = psbt_from_b64(cmd, buffer + tok->start, tok->end - tok->start);
+	if (*psbt)
 		return NULL;
 
 	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
