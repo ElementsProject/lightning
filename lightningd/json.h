@@ -51,11 +51,4 @@ struct command_result *param_feerate(struct command *cmd, const char *name,
 
 bool json_tok_channel_id(const char *buffer, const jsmntok_t *tok,
 			 struct channel_id *cid);
-
-struct command_result *param_bitcoin_address(struct command *cmd,
-					     const char *name,
-					     const char *buffer,
-					     const jsmntok_t *tok,
-					     const u8 **scriptpubkey);
-
 #endif /* LIGHTNING_LIGHTNINGD_JSON_H */
