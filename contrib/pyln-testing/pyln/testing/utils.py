@@ -1094,8 +1094,8 @@ class NodeFactory(object):
             bitcoind.rpc.sendtoaddress(addr, (fundamount + 1000000) / 10**8)
 
         bitcoind.generate_block(1)
+        sync_blockheight(bitcoind, nodes)
         for src, dst in connections:
-            wait_for(lambda: len(src.rpc.listfunds()['outputs']) > 0)
             tx = src.rpc.fundchannel(dst.info['id'], fundamount, announce=announce_channels)
             wait_for(lambda: tx['txid'] in bitcoind.rpc.getrawmempool())
 
