@@ -158,4 +158,11 @@ enum address_parse_result json_to_address_scriptpubkey(const tal_t *ctx,
 			     const struct chainparams *chainparams,
 			     const char *buffer,
 			     const jsmntok_t *tok, const u8 **scriptpubkey);
+
+
+struct command_result *param_bitcoin_address(struct command *cmd,
+					     const char *name,
+					     const char *buffer,
+					     const jsmntok_t *tok,
+					     const u8 **scriptpubkey);
 #endif /* LIGHTNING_COMMON_JSON_TOK_H */
