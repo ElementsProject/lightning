@@ -229,7 +229,7 @@ static void handle_onchain_broadcast_tx(struct channel *channel, const u8 *msg)
 	tx->chainparams = chainparams;
 
 	bitcoin_txid(tx, &txid);
-	wallet_transaction_add(w, tx, 0, 0);
+	wallet_transaction_add(w, tx->wtx, 0, 0);
 	wallet_transaction_annotate(w, &txid, type, channel->dbid);
 
 	/* We don't really care if it fails, we'll respond via watch. */
