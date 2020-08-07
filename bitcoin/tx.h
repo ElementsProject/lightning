@@ -79,6 +79,13 @@ struct bitcoin_tx *bitcoin_tx_with_psbt(const tal_t *ctx, struct wally_psbt *psb
 /* Internal de-linearization functions. */
 struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 				   const u8 **cursor, size_t *max);
+
+/* Helper to create a wally_tx_output: make sure to wally_tx_output_free!
+ * Returns NULL if amount is extreme (wally doesn't like).
+ */
+struct wally_tx_output *wally_tx_output(const u8 *script,
+					struct amount_sat amount);
+
 /* Add one output to tx. */
 int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 			  u8 *wscript,
