@@ -550,9 +550,10 @@ class LightningD(TailableProc):
 
 
 class LightningNode(object):
-    def __init__(self, node_id, lightning_dir, bitcoind, executor, may_fail=False,
+    def __init__(self, node_id, lightning_dir, bitcoind, executor, valgrind, may_fail=False,
                  may_reconnect=False, allow_broken_log=False,
-                 allow_bad_gossip=False, db=None, port=None, disconnect=None, random_hsm=None, options=None, **kwargs):
+                 allow_bad_gossip=False, db=None, port=None, disconnect=None, random_hsm=None, options=None,
+                 **kwargs):
         self.bitcoin = bitcoind
         self.executor = executor
         self.may_fail = may_fail
@@ -585,7 +586,7 @@ class LightningNode(object):
             self.daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
             if os.getenv("DEBUG_SUBD"):
                 self.daemon.opts["dev-debugger"] = os.getenv("DEBUG_SUBD")
-            if VALGRIND:
+            if valgrind:
                 self.daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
             if not may_reconnect:
                 self.daemon.opts["dev-no-reconnect"] = None
@@ -595,7 +596,7 @@ class LightningNode(object):
         dsn = db.get_dsn()
         if dsn is not None:
             self.daemon.opts['wallet'] = dsn
-        if VALGRIND:
+        if valgrind:
             self.daemon.cmd_prefix = [
                 'valgrind',
                 '-q',
@@ -968,6 +969,7 @@ class NodeFactory(object):
         self.lock = threading.Lock()
         self.db_provider = db_provider
         self.node_cls = node_cls
+        self.valgrind = VALGRIND
 
     def split_options(self, opts):
         """Split node options from cli options
@@ -1042,7 +1044,7 @@ class NodeFactory(object):
         # node.
         db = self.db_provider.get_db(os.path.join(lightning_dir, TEST_NETWORK), self.testname, node_id)
         node = self.node_cls(
-            node_id, lightning_dir, self.bitcoind, self.executor, db=db,
+            node_id, lightning_dir, self.bitcoind, self.executor, self.valgrind, db=db,
             port=port, options=options, may_fail=may_fail or expect_fail,
             **kwargs
         )
@@ -1165,7 +1167,7 @@ class NodeFactory(object):
             leaks = None
             # leak detection upsets VALGRIND by reading uninitialized mem.
             # If it's dead, we'll catch it below.
-            if not VALGRIND and DEVELOPER:
+            if not self.valgrind and DEVELOPER:
                 try:
                     # This also puts leaks in log.
                     leaks = self.nodes[i].rpc.dev_memleak()['leaks']
