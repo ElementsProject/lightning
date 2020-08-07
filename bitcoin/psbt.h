@@ -13,6 +13,7 @@ struct wally_tx;
 struct amount_asset;
 struct amount_sat;
 struct bitcoin_signature;
+struct bitcoin_txid;
 struct pubkey;
 
 void psbt_destroy(struct wally_psbt *psbt);
@@ -30,6 +31,15 @@ struct wally_psbt *new_psbt(const tal_t *ctx,
  * for such a call
  */
 bool psbt_is_finalized(const struct wally_psbt *psbt);
+
+/**
+ * psbt_txid - get the txid of the psbt (what it would be after finalization)
+ * @psbt: the psbt.
+ * @txid: the transaction id (output)
+ * @wtx: if non-NULL, returns a copy of the transaction (caller must wally_tx_free).
+ */
+void psbt_txid(const struct wally_psbt *psbt, struct bitcoin_txid *txid,
+	       struct wally_tx **wtx);
 
 struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place);
 
