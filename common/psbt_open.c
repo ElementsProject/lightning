@@ -61,11 +61,13 @@ static const u8 *linearize_input(const tal_t *ctx,
 	struct wally_psbt *psbt = create_psbt(NULL, 1, 0);
 	size_t byte_len;
 
-
 	if (wally_tx_add_input(psbt->tx, tx_in) != WALLY_OK)
 		abort();
 	psbt->inputs[0] = *in;
 	psbt->num_inputs++;
+	/* Blank out unknowns. These are unordered and serializing
+	 * them might have different outputs for identical data */
+	psbt->inputs[0].unknowns.num_items = 0;
 
 	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
 
@@ -89,8 +91,12 @@ static const u8 *linearize_output(const tal_t *ctx,
 
 	if (wally_tx_add_output(psbt->tx, tx_out) != WALLY_OK)
 		abort();
+
 	psbt->outputs[0] = *out;
 	psbt->num_outputs++;
+	/* Blank out unknowns. These are unordered and serializing
+	 * them might have different outputs for identical data */
+	psbt->outputs[0].unknowns.num_items = 0;
 
 	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
 
@@ -127,7 +133,6 @@ static bool output_identical(const struct wally_psbt *a,
 	const u8 *b_out = linearize_output(tmpctx,
 					   &b->outputs[b_index],
 					   &b->tx->outputs[b_index]);
-
 	return memeq(a_out, tal_bytelen(a_out),
 		     b_out, tal_bytelen(b_out));
 }

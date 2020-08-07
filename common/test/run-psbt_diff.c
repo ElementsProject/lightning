@@ -171,6 +171,21 @@ int main(int argc, const char *argv[])
 	diff_count(start, end, 1, 1);
 	diff_count(end, start, 1, 1);
 
+	/* Add some extra unknown info to a PSBT */
+	psbt_input_add_max_witness_len(&end->inputs[1], 100);
+	psbt_input_add_max_witness_len(&start->inputs[1], 100);
+
+	/* Swap locations */
+	struct wally_map_item tmp;
+	tmp = end->inputs[1].unknowns.items[0];
+	end->inputs[1].unknowns.items[0] = end->inputs[1].unknowns.items[1];
+	end->inputs[1].unknowns.items[1] = tmp;
+
+	/* We expect nothing to change ? */
+	/* FIXME: stable ordering of unknowns ? */
+	diff_count(start, end, 1, 1);
+	diff_count(end, start, 1, 1);
+
 	/* No memory leaks please */
 	common_shutdown();
 	return 0;
