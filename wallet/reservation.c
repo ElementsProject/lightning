@@ -175,6 +175,38 @@ static const struct json_command unreserveinputs_command = {
 };
 AUTODATA(json_command, &unreserveinputs_command);
 
+/**
+ * inputs_sufficient - are we there yet?
+ * @input: total input amount
+ * @amount: required output amount
+ * @feerate_per_kw: feerate we have to pay
+ * @weight: weight of transaction so far.
+ * @diff: (output) set to amount over or under requirements.
+ *
+ * Returns true if inputs >= fees + amount, otherwise false.  diff is
+ * the amount over (if returns true) or under (if returns false)
+ */
+static bool inputs_sufficient(struct amount_sat input,
+			      struct amount_sat amount,
+			      u32 feerate_per_kw,
+			      size_t weight,
+			      struct amount_sat *diff)
+{
+	struct amount_sat fee;
+
+	fee = amount_tx_fee(feerate_per_kw, weight);
+
+	/* If we can't add fees, amount is huge (e.g. "all") */
+	if (!amount_sat_add(&amount, amount, fee))
+		return false;
+
+	/* One of these must work! */
+	if (amount_sat_sub(diff, input, amount))
+		return true;
+	if (!amount_sat_sub(diff, amount, input))
+		abort();
+	return false;
+}
 
 static struct command_result *json_fundpsbt(struct command *cmd,
 					      const char *buffer,
@@ -185,7 +217,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	struct utxo **utxos;
 	u32 *feerate_per_kw;
 	u32 *minconf, *weight;
-	struct amount_sat *amount, input, needed, excess, total_fee;
+	struct amount_sat *amount, input, diff;
 	bool all, *reserve;
 	u32 locktime, maxheight, current_height;
 	struct bitcoin_tx *tx;
@@ -204,27 +236,21 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 
 	current_height = get_block_height(cmd->ld->topology);
 
-	/* Can overflow if amount is "all" */
-	if (!amount_sat_add(amount, *amount,
-			    amount_tx_fee(*feerate_per_kw, *weight)))
-		;
-
 	/* We keep adding until we meet their output requirements. */
-	input = AMOUNT_SAT(0);
 	utxos = tal_arr(cmd, struct utxo *, 0);
-	total_fee = amount_tx_fee(*feerate_per_kw, *weight);
-	while (amount_sat_sub(&needed, *amount, input)
-	       && !amount_sat_eq(needed, AMOUNT_SAT(0))) {
+
+	input = AMOUNT_SAT(0);
+	while (!inputs_sufficient(input, *amount, *feerate_per_kw, *weight,
+				  &diff)) {
 		struct utxo *utxo;
 
 		utxo = wallet_find_utxo(utxos, cmd->ld->wallet,
 					cmd->ld->topology->tip->height,
-					&needed,
+					&diff,
 					*feerate_per_kw,
 					maxheight,
 					cast_const2(const struct utxo **, utxos));
 		if (utxo) {
-			struct amount_sat fee;
 			tal_arr_expand(&utxos, utxo);
 
 			/* It supplies more input. */
@@ -232,17 +258,8 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 				return command_fail(cmd, LIGHTNINGD,
 						    "impossible UTXO value");
 
-			/* But increase amount needed, to pay for new input */
+			/* But also adds weight */
 			*weight += utxo_spend_weight(utxo);
-			fee = amount_tx_fee(*feerate_per_kw,
-					    utxo_spend_weight(utxo));
-			if (!amount_sat_add(amount, *amount, fee))
-				/* Either they specified "all", or we
-				 * will fail anyway. */
-				*amount = AMOUNT_SAT(-1ULL);
-			if (!amount_sat_add(&total_fee, total_fee, fee))
-				return command_fail(cmd, LIGHTNINGD,
-						    "impossible fee value");
 			continue;
 		}
 
@@ -263,7 +280,18 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 				    tal_count(utxos),
 				    type_to_string(tmpctx,
 						   struct amount_sat,
-						   &needed));
+						   &diff));
+	}
+
+	if (all) {
+		/* Anything above 0 is "excess" */
+		if (!inputs_sufficient(input, AMOUNT_SAT(0),
+				       *feerate_per_kw, *weight,
+				       &diff))
+			return command_fail(cmd, FUND_CANNOT_AFFORD,
+					    "All %zu inputs could not afford"
+					    " fees",
+					    tal_count(utxos));
 	}
 
 	/* Setting the locktime to the next block to be mined has multiple
@@ -289,27 +317,11 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 			       false, 0, locktime,
 			       BITCOIN_TX_RBF_SEQUENCE);
 
-	if (all) {
-		/* Count everything not going towards fees as excess. */
-		if (!amount_sat_sub(&excess, input, total_fee))
-			return command_fail(cmd, FUND_CANNOT_AFFORD,
-					    "All %zu inputs could not afford"
-					    " %s fees",
-					    tal_count(utxos),
-					    type_to_string(tmpctx,
-							   struct amount_sat,
-							   &total_fee));
-	} else {
-		/* This was the condition of exiting the loop above! */
-		if (!amount_sat_sub(&excess, input, *amount))
-			abort();
-	}
-
 	response = json_stream_success(cmd);
 	json_add_psbt(response, "psbt", tx->psbt);
 	json_add_num(response, "feerate_per_kw", *feerate_per_kw);
 	json_add_num(response, "estimated_final_weight", *weight);
-	json_add_amount_sat_only(response, "excess_msat", excess);
+	json_add_amount_sat_only(response, "excess_msat", diff);
 	if (*reserve)
 		reserve_and_report(response, cmd->ld->wallet, current_height,
 				   utxos);
