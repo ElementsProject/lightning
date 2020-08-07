@@ -789,13 +789,14 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     amount = 10**8
     disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
 
-    l1, l2, l3 = node_factory.line_graph(3, opts=[
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts=[
         {},
         {'plugin': os.path.join(os.getcwd(), 'tests/plugins/forward_payment_status.py')},
-        {}
-    ], wait_for_announce=True)
-    l4 = node_factory.get_node()
-    l5 = node_factory.get_node(disconnect=disconnects)
+        {},
+        {},
+        {'disconnect': disconnects}])
+
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
     l2.openchannel(l4, 10**6, wait_for_announce=False)
     l2.openchannel(l5, 10**6, wait_for_announce=True)
 

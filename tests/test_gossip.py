@@ -456,10 +456,11 @@ def test_routing_gossip_reconnect(node_factory):
     # Connect two peers, reconnect and then see if we resume the
     # gossip.
     disconnects = ['-WIRE_CHANNEL_ANNOUNCEMENT']
-    l1 = node_factory.get_node(disconnect=disconnects,
-                               may_reconnect=True)
-    l2 = node_factory.get_node(may_reconnect=True)
-    l3 = node_factory.get_node()
+    l1, l2, l3 = node_factory.get_nodes(3,
+                                        opts=[{'disconnect': disconnects,
+                                               'may_reconnect': True},
+                                              {'may_reconnect': True},
+                                              {}])
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.openchannel(l2, 20000)
 
@@ -475,17 +476,13 @@ def test_routing_gossip_reconnect(node_factory):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_gossip_no_empty_announcements(node_factory, bitcoind):
     # Need full IO logging so we can see gossip
-    opts = {'log-level': 'io'}
-    l1, l2 = node_factory.get_nodes(2, opts=opts)
     # l3 sends CHANNEL_ANNOUNCEMENT to l2, but not CHANNEL_UDPATE.
-    l3 = node_factory.get_node(disconnect=['+WIRE_CHANNEL_ANNOUNCEMENT'],
-                               options={'dev-no-reconnect': None},
-                               may_reconnect=True)
-    l4 = node_factory.get_node(may_reconnect=True)
-
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
+    l1, l2, l3, l4 = node_factory.line_graph(4, opts=[{'log-level': 'io'},
+                                                      {'log-level': 'io'},
+                                                      {'disconnect': ['+WIRE_CHANNEL_ANNOUNCEMENT'],
+                                                       'may_reconnect': True},
+                                                      {'may_reconnect': True}],
+                                             fundchannel=False)
 
     # Make an announced-but-not-updated channel.
     l3.fund_channel(l4, 10**5)
@@ -1094,9 +1091,11 @@ def test_gossipwith(node_factory):
 def test_gossip_notices_close(node_factory, bitcoind):
     # We want IO logging so we can replay a channel_announce to l1;
     # We also *really* do feed it bad gossip!
-    l1 = node_factory.get_node(options={'log-level': 'io'},
-                               allow_bad_gossip=True)
-    l2, l3 = node_factory.line_graph(2)
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[{'log-level': 'io',
+                                                  'allow_bad_gossip': True},
+                                                 {},
+                                                 {}])
+    node_factory.join_nodes([l2, l3])
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     bitcoind.generate_block(5)
@@ -1174,7 +1173,8 @@ def test_getroute_exclude_duplicate(node_factory):
 @unittest.skipIf(not DEVELOPER, "gossip propagation is slow without DEVELOPER=1")
 def test_getroute_exclude(node_factory, bitcoind):
     """Test getroute's exclude argument"""
-    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5)
+    node_factory.join_nodes([l1, l2, l3, l4], wait_for_announce=True)
 
     # This should work
     route = l1.rpc.getroute(l4.info['id'], 1, 1)['route']
@@ -1230,7 +1230,6 @@ def test_getroute_exclude(node_factory, bitcoind):
     with pytest.raises(RpcError):
         l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[l3.info['id'], chan_l2l4])
 
-    l5 = node_factory.get_node()
     l1.rpc.connect(l5.info['id'], 'localhost', l5.port)
     scid15 = l1.fund_channel(l5, 1000000, wait_for_active=False)
     l5.rpc.connect(l4.info['id'], 'localhost', l4.port)
@@ -1520,10 +1519,10 @@ def test_gossip_announce_unknown_block(node_factory, bitcoind):
 
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 def test_gossip_no_backtalk(node_factory):
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
-
-    # This connects, gets gossip, but should *not* play it back.
-    l3 = node_factory.get_node(options={'log-level': 'io'})
+    # l3 connects, gets gossip, but should *not* play it back.
+    l1, l2, l3 = node_factory.get_nodes(3,
+                                        opts=[{}, {}, {'log-level': 'io'}])
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
 
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # Will get channel_announce, then two channel_update and two node_announcement
@@ -1539,12 +1538,13 @@ def test_gossip_no_backtalk(node_factory):
 @unittest.skipIf(not DEVELOPER, "Needs --dev-gossip")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Channel announcement contains genesis hash, receiving node discards on mismatch")
 def test_gossip_ratelimit(node_factory):
+    l1, l2, l3 = node_factory.get_nodes(3,
+                                        opts=[{}, {}, {'dev-gossip-time': 1568096251}])
     # These make the channel exist, but we use our own gossip.
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    node_factory.join_nodes([l1, l2], wait_for_announce=True)
 
     # Here are some ones I generated earlier (by removing gossip
     # ratelimiting)
-    l3 = node_factory.get_node(options={'dev-gossip-time': 1568096251})
     subprocess.run(['devtools/gossipwith',
                     '--max-messages=0',
                     '{}@localhost:{}'.format(l3.info['id'], l3.port),
