@@ -361,11 +361,20 @@ struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 	return NULL;
 }
 
-bool psbt_from_b64(const char *b64str, struct wally_psbt **psbt)
+struct wally_psbt *psbt_from_b64(const tal_t *ctx,
+				 const char *b64,
+				 size_t b64len)
 {
-	int wally_err;
-	wally_err = wally_psbt_from_base64(b64str, psbt);
-	return wally_err == WALLY_OK;
+	struct wally_psbt *psbt;
+	char *str = tal_strndup(tmpctx, b64, b64len);
+
+	if (wally_psbt_from_base64(str, &psbt) != WALLY_OK)
+		return NULL;
+
+	/* We promised it would be owned by ctx: libwally uses a dummy owner */
+	tal_steal(ctx, psbt);
+	tal_add_destructor(psbt, psbt_destroy);
+	return psbt;
 }
 
 char *psbt_to_b64(const tal_t *ctx, const struct wally_psbt *psbt)
