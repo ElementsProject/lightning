@@ -100,8 +100,12 @@ def test_db_upgrade(node_factory):
     assert(upgrades[0]['lightning_version'] == version)
 
 
-def test_bitcoin_failure(node_factory, bitcoind):
-    l1 = node_factory.get_node()
+def test_bitcoin_failure(node_factory, bitcoind, executor):
+    retry_timeout = 10
+    l1 = node_factory.get_node(options={
+        "bitcoin-retry-timeout": retry_timeout,
+        "log-level": "io",
+    })
 
     # Make sure we're not failing it between getblockhash and getblock.
     sync_blockheight(bitcoind, [l1])
@@ -127,6 +131,21 @@ def test_bitcoin_failure(node_factory, bitcoind):
 
     bitcoind.generate_block(5)
     sync_blockheight(bitcoind, [l1])
+
+    # When the retry timeout is reached, we should deliver a nice logging
+    # message explaining what's going on
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', crash_bitcoincli)
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', crash_bitcoincli)
+    #fut = executor.submit(l1.rpc.call, "getrawblockbyheight", {"height": 102})
+    l1.daemon.wait_for_logs(["Unable to estimate .* fee",
+                             "getblockhash .* exited with status 1",
+                             "bitcoin-cli .* getblockhash .* exited 1 .* we "
+                             "have been retrying command for --bitcoin-retry"
+                             "-timeout={} seconds with status 1"
+                             .format(retry_timeout)])
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', None)
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
+    #fut.result()
 
     # We refuse to start if bitcoind is in `blocksonly`
     l1.stop()
