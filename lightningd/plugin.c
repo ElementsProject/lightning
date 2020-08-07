@@ -554,6 +554,8 @@ static struct io_plan *plugin_write_json(struct io_conn *conn,
 /* This catches the case where their stdout closes (usually they're dead). */
 static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 {
+	/* Did it try to tell us something before dying ? */
+	io_flush_sync(conn);
 	plugin_kill(plugin, "Plugin exited before completing handshake.");
 }
 

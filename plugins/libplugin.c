@@ -102,12 +102,13 @@ struct command_result *command_param_failed(void)
 	return &complete;
 }
 
-
+#include <stdio.h>
 static void ld_send(struct plugin *plugin, struct json_stream *stream)
 {
 	tal_steal(plugin->js_arr, stream);
 	tal_arr_expand(&plugin->js_arr, stream);
 	io_wake(plugin);
+	fprintf(stderr, "End of ld_send\n");
 }
 
 static void ld_rpc_send(struct plugin *plugin, struct json_stream *stream)
@@ -968,6 +969,8 @@ static void plugin_logv(struct plugin *p, enum log_level l,
 	json_out_addv(js->jout, "message", true, fmt, ap);
 	json_object_end(js);
 
+	fprintf(stderr, "End of logv %s\n", fmt);
+
 	jsonrpc_finish_and_send(p, js);
 }
 
@@ -978,6 +981,10 @@ void NORETURN plugin_err(struct plugin *p, const char *fmt, ...)
 	va_start(ap, fmt);
 	plugin_logv(p, LOG_BROKEN, fmt, ap);
 	va_end(ap);
+
+	/* Make sure the log gets to lightningd. */
+	io_flush_sync(p->stdout_conn);
+
 	va_start(ap, fmt);
 	errx(1, "%s", tal_vfmt(NULL, fmt, ap));
 	va_end(ap);

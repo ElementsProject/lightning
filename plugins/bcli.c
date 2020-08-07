@@ -184,11 +184,14 @@ static void bcli_failure(struct bitcoin_cli *bcli,
 {
 	struct timerel t;
 
+	plugin_log(bcli->cmd->plugin, LOG_INFORM, "Always sent, but not before crash");
 	if (!bitcoind->error_count)
 		bitcoind->first_error_time = time_mono();
 
 	t = timemono_between(time_mono(), bitcoind->first_error_time);
-	if (time_greater(t, time_from_sec(bitcoind->retry_timeout)))
+	if (time_greater(t, time_from_sec(bitcoind->retry_timeout))) {
+		plugin_log(bcli->cmd->plugin, LOG_INFORM, "BEFORE CRASH");
+		sleep(3);
 		plugin_err(bcli->cmd->plugin,
 		           "%s exited %u (after %u other errors) '%.*s'; "
 		           "we have been retrying command for "
@@ -200,6 +203,7 @@ static void bcli_failure(struct bitcoin_cli *bcli,
 		           (int)bcli->output_bytes,
 		           bcli->output,
 		           bitcoind->retry_timeout);
+	}
 
 	plugin_log(bcli->cmd->plugin, LOG_UNUSUAL, "%s exited with status %u",
 		   bcli_args(bcli), exitstatus);
