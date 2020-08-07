@@ -1095,9 +1095,11 @@ class NodeFactory(object):
 
         bitcoind.generate_block(1)
         sync_blockheight(bitcoind, nodes)
+        txids = []
         for src, dst in connections:
-            tx = src.rpc.fundchannel(dst.info['id'], fundamount, announce=announce_channels)
-            wait_for(lambda: tx['txid'] in bitcoind.rpc.getrawmempool())
+            txids.append(src.rpc.fundchannel(dst.info['id'], fundamount, announce=announce_channels)['txid'])
+
+        wait_for(lambda: set(txids).issubset(set(bitcoind.rpc.getrawmempool())))
 
         # Confirm all channels and wait for them to become usable
         bitcoind.generate_block(1)
