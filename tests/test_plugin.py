@@ -1211,13 +1211,16 @@ def test_bcli(node_factory, bitcoind, chainparams):
 
     l1.fundwallet(10**5)
     l1.connect(l2)
-    txid = l1.rpc.fundchannel(l2.info["id"], 10**4)["txid"]
-    txo = l1.rpc.call("getutxout", {"txid": txid, "vout": 0})
+    fc = l1.rpc.fundchannel(l2.info["id"], 10**4)
+    txo = l1.rpc.call("getutxout", {"txid": fc['txid'], "vout": fc['outnum']})
     assert (Millisatoshi(txo["amount"]) == Millisatoshi(10**4 * 10**3)
             and txo["script"].startswith("0020"))
     l1.rpc.close(l2.info["id"])
     # When output is spent, it should give us null !
-    wait_for(lambda: l1.rpc.call("getutxout", {"txid": txid, "vout": 0})['amount'] is None)
+    wait_for(lambda: l1.rpc.call("getutxout", {
+        "txid": fc['txid'],
+        "vout": fc['outnum']
+    })['amount'] is None)
 
     resp = l1.rpc.call("sendrawtransaction", {"tx": "dummy"})
     assert not resp["success"] and "decode failed" in resp["errmsg"]

@@ -64,6 +64,7 @@ RETURN VALUE
 ------------
 
 On success, the *tx* and *txid* of the transaction is returned, as well
+as the *outnum* indicating the output index which creates the channel, as well
 as the *channel\_id* of the newly created channel. On failure, an error
 is reported and the channel is not funded.
 
