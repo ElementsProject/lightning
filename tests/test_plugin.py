@@ -774,6 +774,9 @@ def test_channel_opened_notification(node_factory):
     amount = 10**6
     l1, l2 = node_factory.line_graph(2, fundchannel=True, fundamount=amount,
                                      opts=opts)
+
+    # Might have already passed, so reset start.
+    l2.daemon.logsearch_start = 0
     l2.daemon.wait_for_log(r"A channel was opened to us by {}, "
                            "with an amount of {}*"
                            .format(l1.info["id"], amount))
