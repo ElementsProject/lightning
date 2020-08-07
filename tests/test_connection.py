@@ -171,12 +171,11 @@ def test_opening_tiny_channel(node_factory):
     l4_min_capacity = 10000           # the current default
     l5_min_capacity = 20000           # a server with more than default minimum
 
-    l1 = node_factory.get_node(options={'min-capacity-sat': l1_min_capacity})
-    l2 = node_factory.get_node(options={'min-capacity-sat': l2_min_capacity})
-    l3 = node_factory.get_node(options={'min-capacity-sat': l3_min_capacity})
-    l4 = node_factory.get_node(options={'min-capacity-sat': l4_min_capacity})
-    l5 = node_factory.get_node(options={'min-capacity-sat': l5_min_capacity})
-
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts=[{'min-capacity-sat': l1_min_capacity},
+                                                         {'min-capacity-sat': l2_min_capacity},
+                                                         {'min-capacity-sat': l3_min_capacity},
+                                                         {'min-capacity-sat': l4_min_capacity},
+                                                         {'min-capacity-sat': l5_min_capacity}])
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
@@ -212,9 +211,7 @@ def test_opening_tiny_channel(node_factory):
 
 
 def test_second_channel(node_factory):
-    l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
-    l3 = node_factory.get_node()
+    l1, l2, l3 = node_factory.get_nodes(3)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -428,9 +425,7 @@ def test_reconnect_no_update(node_factory, executor):
 
 def test_connect_stresstest(node_factory, executor):
     # This test is unreliable, but it's better than nothing.
-    l1 = node_factory.get_node(may_reconnect=True)
-    l2 = node_factory.get_node(may_reconnect=True)
-    l3 = node_factory.get_node(may_reconnect=True)
+    l1, l2, l3 = node_factory.get_nodes(3, opts={'may_reconnect': True})
 
     # Hack l3 into a clone of l2, to stress reconnect code.
     l3.stop()
@@ -1162,9 +1157,8 @@ def test_funding_close_upfront(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
 def test_funding_external_wallet(node_factory, bitcoind):
-    l1 = node_factory.get_node(options={'funding-confirms': 2})
-    l2 = node_factory.get_node(options={'funding-confirms': 2})
-    l3 = node_factory.get_node()
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[{'funding-confirms': 2},
+                                                 {'funding-confirms': 2}, {}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     assert(l1.rpc.listpeers()['peers'][0]['id'] == l2.info['id'])
@@ -1422,7 +1416,12 @@ def test_update_fee(node_factory, bitcoind):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_fee_limits(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5, 'may_reconnect': True}, fundchannel=True)
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=[{'dev-max-fee-multiplier': 5, 'may_reconnect': True},
+                                                     {'dev-max-fee-multiplier': 5, 'may_reconnect': True},
+                                                     {'ignore-fee-limits': True, 'may_reconnect': True},
+                                                     {}])
+
+    node_factory.join_nodes([l1, l2], fundchannel=True)
 
     # Kick off fee adjustment using HTLC.
     l1.pay(l2, 1000)
@@ -1441,7 +1440,6 @@ def test_fee_limits(node_factory, bitcoind):
     sync_blockheight(bitcoind, [l1, l2])
 
     # Trying to open a channel with too low a fee-rate is denied
-    l4 = node_factory.get_node()
     l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
     with pytest.raises(RpcError, match='They sent error .* feerate_per_kw 253 below minimum'):
         l1.fund_channel(l4, 10**6)
@@ -1452,7 +1450,6 @@ def test_fee_limits(node_factory, bitcoind):
     l1.start()
 
     # Try with node which sets --ignore-fee-limits
-    l3 = node_factory.get_node(options={'ignore-fee-limits': 'true'}, may_reconnect=True)
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     chan = l1.fund_channel(l3, 10**6)
 

@@ -35,8 +35,7 @@ def test_stop_pending_fundchannel(node_factory, executor):
     freeing the daemon, but that needs a DB transaction to be open.
 
     """
-    l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
+    l1, l2 = node_factory.get_nodes(2)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
@@ -69,8 +68,8 @@ def test_names(node_factory):
         ('0265b6ab5ec860cd257865d61ef0bbf5b3339c36cbda8b26b74e7f1dca490b6518', 'LOUDPHOTO', '0265b6')
     ]
 
-    for key, alias, color in configs:
-        n = node_factory.get_node()
+    nodes = node_factory.get_nodes(len(configs))
+    for n, (key, alias, color) in zip(nodes, configs):
         assert n.daemon.is_in_log(r'public key {}, alias {}.* \(color #{}\)'
                                   .format(key, alias, color))
 
@@ -180,17 +179,19 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
         }
 
     # Start it, establish channel, get extra funds.
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True, 'wait_for_bitcoind_sync': False})
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[{'may_reconnect': True,
+                                                  'wait_for_bitcoind_sync': False},
+                                                 {'may_reconnect': True,
+                                                  'wait_for_bitcoind_sync': False},
+                                                 {}])
+    node_factory.join_nodes([l1, l2])
 
     # Balance l1<->l2 channel
     l1.pay(l2, 10**9 // 2)
 
     l1.stop()
 
-    # Start extra node.
-    l3 = node_factory.get_node()
-
-    # Now make sure it's behind.
+    # Now make sure l2 is behind.
     bitcoind.generate_block(2)
     # Make sure l2/l3 are synced
     sync_blockheight(bitcoind, [l2, l3])
@@ -463,11 +464,7 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_bech32_funding(node_factory, chainparams):
     # Don't get any funds from previous runs.
-    l1 = node_factory.get_node(random_hsm=True)
-    l2 = node_factory.get_node(random_hsm=True)
-
-    # connect
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1, l2 = node_factory.line_graph(2, opts={'random_hsm': True}, fundchannel=False)
 
     # fund a bech32 address and then open a channel with it
     res = l1.openchannel(l2, 20000, 'bech32')
@@ -1380,25 +1377,16 @@ def test_reserve_enforcement(node_factory, executor):
 def test_htlc_send_timeout(node_factory, bitcoind, compat):
     """Test that we don't commit an HTLC to an unreachable node."""
     # Feerates identical so we don't get gratuitous commit to update them
-    l1 = node_factory.get_node(
-        options={'log-level': 'io'},
-        feerates=(7500, 7500, 7500, 7500)
-    )
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{'log-level': 'io',
+                                                   'feerates': (7500, 7500, 7500, 7500)},
+                                                  # Blackhole it after it sends HTLC_ADD to l3.
+                                                  {'log-level': 'io',
+                                                   'feerates': (7500, 7500, 7500, 7500),
+                                                   'disconnect': ['0WIRE_UPDATE_ADD_HTLC']},
+                                                  {}],
+                                         wait_for_announce=True)
 
-    # Blackhole it after it sends HTLC_ADD to l3.
-    l2 = node_factory.get_node(disconnect=['0WIRE_UPDATE_ADD_HTLC'],
-                               options={'log-level': 'io'},
-                               feerates=(7500, 7500, 7500, 7500))
-    l3 = node_factory.get_node()
-
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
-
-    l1.fund_channel(l2, 10**6)
-    chanid2 = l2.fund_channel(l3, 10**6)
-
-    # Make sure channels get announced.
-    bitcoind.generate_block(5)
+    chanid2 = l2.get_channel_scid(l3)
 
     # Make sure we have 30 seconds without any incoming traffic from l3 to l2
     # so it tries to ping before sending WIRE_COMMITMENT_SIGNED.
@@ -2247,8 +2235,8 @@ def test_sendcustommsg(node_factory):
     """
     plugin = os.path.join(os.path.dirname(__file__), "plugins", "custommsg.py")
     opts = {'log-level': 'io', 'plugin': plugin}
-    l1, l2, l3 = node_factory.line_graph(3, opts=opts)
-    l4 = node_factory.get_node(options=opts)
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
+    node_factory.join_nodes([l1, l2, l3])
     l2.connect(l4)
     l3.stop()
     msg = r'ff' * 32

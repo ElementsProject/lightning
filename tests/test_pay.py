@@ -142,9 +142,12 @@ def test_pay_exclude_node(node_factory, bitcoind):
     opts = [
         {'disable-mpp': None},
         {'plugin': os.path.join(os.getcwd(), 'tests/plugins/fail_htlcs.py')},
+        {},
+        {'fee-base': 100, 'fee-per-satoshi': 1000},
         {}
     ]
-    l1, l2, l3 = node_factory.line_graph(3, opts=opts, wait_for_announce=True)
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts=opts)
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
     amount = 10**8
 
     inv = l3.rpc.invoice(amount, "test1", 'description')['bolt11']
@@ -169,8 +172,6 @@ def test_pay_exclude_node(node_factory, bitcoind):
     # l1->l4->l5->l3 is the longer route. This makes sure this route won't be
     # tried for the first pay attempt. Just to be sure we also raise the fees
     # that l4 leverages.
-    l4 = node_factory.get_node(options={'fee-base': 100, 'fee-per-satoshi': 1000})
-    l5 = node_factory.get_node()
     l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
     l4.rpc.connect(l5.info['id'], 'localhost', l5.port)
     l5.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -1072,9 +1073,9 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     # 1. D: 400 base + 4000 millionths
 
     # We don't do D yet.
-    l1 = node_factory.get_node(options={'cltv-delta': 10, 'fee-base': 100, 'fee-per-satoshi': 1000})
-    l2 = node_factory.get_node(options={'cltv-delta': 20, 'fee-base': 200, 'fee-per-satoshi': 2000})
-    l3 = node_factory.get_node(options={'cltv-delta': 30, 'cltv-final': 9, 'fee-base': 300, 'fee-per-satoshi': 3000})
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[{'cltv-delta': 10, 'fee-base': 100, 'fee-per-satoshi': 1000},
+                                                 {'cltv-delta': 20, 'fee-base': 200, 'fee-per-satoshi': 2000},
+                                                 {'cltv-delta': 30, 'cltv-final': 9, 'fee-base': 300, 'fee-per-satoshi': 3000}])
 
     ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     assert ret['id'] == l2.info['id']
@@ -1178,9 +1179,9 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
 def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     """Test that we are allowed extra locktime delta, and fees"""
 
-    l1 = node_factory.get_node(options={'cltv-delta': 10, 'fee-base': 100, 'fee-per-satoshi': 1000})
-    l2 = node_factory.get_node(options={'cltv-delta': 20, 'fee-base': 200, 'fee-per-satoshi': 2000})
-    l3 = node_factory.get_node(options={'cltv-delta': 30, 'cltv-final': 9, 'fee-base': 300, 'fee-per-satoshi': 3000})
+    l1, l2, l3 = node_factory.get_nodes(3, opts=[{'cltv-delta': 10, 'fee-base': 100, 'fee-per-satoshi': 1000},
+                                                 {'cltv-delta': 20, 'fee-base': 200, 'fee-per-satoshi': 2000},
+                                                 {'cltv-delta': 30, 'cltv-final': 9, 'fee-base': 300, 'fee-per-satoshi': 3000}])
 
     ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     assert ret['id'] == l2.info['id']
@@ -1236,9 +1237,8 @@ def test_forward_stats(node_factory, bitcoind):
 
     """
     amount = 10**5
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=False)
-    l4 = node_factory.get_node()
-    l5 = node_factory.get_node(may_fail=True)
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts=[{}] * 4 + [{'may_fail': True}])
+    node_factory.join_nodes([l1, l2, l3], wait_for_announce=False)
     l2.openchannel(l4, 10**6, wait_for_announce=False)
     l2.openchannel(l5, 10**6, wait_for_announce=True)
 
@@ -1347,12 +1347,12 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
 
     disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
 
-    l1 = node_factory.get_node()
-    l2 = node_factory.get_node()
-    l3 = node_factory.get_node()
-    l4 = node_factory.get_node(disconnect=disconnects)
-    l5 = node_factory.get_node()
-    l6 = node_factory.get_node()
+    l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=[{},
+                                                             {},
+                                                             {},
+                                                             {'disconnect': disconnects},
+                                                             {},
+                                                             {}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
@@ -1813,12 +1813,10 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     DEF_BASE = 10
     DEF_PPM = 100
 
-    l1 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
-    l2 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
-    l3 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1, l2, l3 = node_factory.get_nodes(3,
+                                        opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+    node_factory.join_nodes([l1, l2])
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    l1.fund_channel(l2, 1000000)
 
     def channel_get_fees(scid):
         return l1.db.query(
@@ -1933,9 +1931,7 @@ def test_setchannelfee_state(node_factory, bitcoind):
     DEF_BASE = 0
     DEF_PPM = 0
 
-    l0 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
-    l1 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
-    l2 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+    l0, l1, l2 = node_factory.get_nodes(3, opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
 
     # connection and funding
     l0.rpc.connect(l1.info['id'], 'localhost', l1.port)
@@ -2132,9 +2128,7 @@ def test_setchannelfee_all(node_factory, bitcoind):
     DEF_BASE = 10
     DEF_PPM = 100
 
-    l1 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
-    l2 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
-    l3 = node_factory.get_node(options={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+    l1, l2, l3 = node_factory.get_nodes(3, opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.fund_channel(l2, 1000000)
@@ -2351,16 +2345,11 @@ def test_error_returns_blockheight(node_factory, bitcoind):
 
 @unittest.skipIf(not DEVELOPER, 'Needs dev-routes')
 def test_tlv_or_legacy(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.get_nodes(3,
-                                        opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')})
+    l1, l2, l3 = node_factory.line_graph(3,
+                                         opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')})
 
-    # Set up a channel from 1->2 first.
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    scid12 = l1.fund_channel(l2, 1000000)
-
-    # Now set up 2->3.
-    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    scid23 = l2.fund_channel(l3, 1000000)
+    scid12 = l1.get_channel_scid(l2)
+    scid23 = l2.get_channel_scid(l3)
 
     # We need to force l3 to provide route hint from l2 (it won't normally,
     # since it sees l2 as a dead end).
@@ -2378,8 +2367,8 @@ def test_tlv_or_legacy(node_factory, bitcoind):
     l2.daemon.wait_for_log("Got onion.*'type': 'legacy'")
     l3.daemon.wait_for_log("Got onion.*'type': 'tlv'")
 
-    # Turns out we only need 3 more blocks to announce l1->l2 channel.
-    bitcoind.generate_block(3)
+    # We need 5 more blocks to announce l1->l2 channel.
+    bitcoind.generate_block(5)
 
     # Make sure l1 knows about l2
     wait_for(lambda: 'alias' in l1.rpc.listnodes(l2.info['id'])['nodes'][0])
@@ -3031,7 +3020,7 @@ def test_pay_exemptfee(node_factory, compat):
 
 
 @unittest.skipIf(not DEVELOPER, "Requires use_shadow flag")
-def test_pay_peer(node_factory):
+def test_pay_peer(node_factory, bitcoind):
     """If we have a direct channel to the destination we should use that.
 
     This is complicated a bit by not having sufficient capacity, but the
@@ -3042,11 +3031,10 @@ def test_pay_peer(node_factory):
      v  /
      l3
     """
-    l1, l2 = node_factory.line_graph(2, fundamount=10**6)
-    l3 = node_factory.get_node()
-
-    l1.openchannel(l3, 10**6, wait_for_announce=False)
-    l3.openchannel(l2, 10**6, wait_for_announce=True)
+    l1, l2, l3 = node_factory.get_nodes(3)
+    node_factory.join_nodes([l1, l2])
+    node_factory.join_nodes([l1, l3])
+    node_factory.join_nodes([l3, l2], wait_for_announce=True)
 
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 6)
 
