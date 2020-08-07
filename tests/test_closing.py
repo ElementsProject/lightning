@@ -3,8 +3,8 @@ from flaky import flaky
 from pyln.client import RpcError
 from shutil import copyfile
 from utils import (
-    only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT, VALGRIND,
-    SLOW_MACHINE, account_balance, first_channel_id
+    only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT,
+    account_balance, first_channel_id
 )
 
 import os
@@ -149,17 +149,15 @@ def test_closing_id(node_factory):
     wait_for(lambda: not only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
 
 
-@unittest.skipIf(VALGRIND, "Flaky under valgrind")
+@pytest.mark.slow_test
 def test_closing_torture(node_factory, executor, bitcoind):
     # We set up a fully-connected mesh of N nodes, then try
     # closing them all at once.
     amount = 10**6
 
     num_nodes = 10  # => 45 channels (36 seconds on my laptop)
-    if VALGRIND:
+    if node_factory.valgrind:
         num_nodes -= 4  # => 15 (135 seconds)
-    if SLOW_MACHINE:
-        num_nodes -= 1  # => 36/10 (37/95 seconds)
 
     nodes = node_factory.get_nodes(num_nodes)
 
@@ -213,7 +211,7 @@ def test_closing_torture(node_factory, executor, bitcoind):
         wait_for(lambda: n.rpc.listpeers()['peers'] == [])
 
 
-@unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
+@pytest.mark.slow_test
 def test_closing_different_fees(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
 
@@ -690,8 +688,8 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
-@unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
+@pytest.mark.slow_test
 def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
     """ Test that the penalizing node claims any published
         HTLC transactions
@@ -823,8 +821,8 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
-@unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
+@pytest.mark.slow_test
 def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     """ Test that the penalizing node claims any published
         HTLC transactions
@@ -1866,7 +1864,7 @@ def setup_multihtlc_test(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_ignore_htlcs")
-@unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
+@pytest.mark.slow_test
 def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
     """Node pushes a channel onchain with multiple HTLCs with same payment_hash """
     h, nodes = setup_multihtlc_test(node_factory, bitcoind)
@@ -1958,7 +1956,7 @@ def test_onchain_multihtlc_our_unilateral(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_ignore_htlcs")
-@unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
+@pytest.mark.slow_test
 def test_onchain_multihtlc_their_unilateral(node_factory, bitcoind):
     """Node pushes a channel onchain with multiple HTLCs with same payment_hash """
     h, nodes = setup_multihtlc_test(node_factory, bitcoind)
@@ -2257,7 +2255,7 @@ def test_permfail(node_factory, bitcoind):
 def test_shutdown(node_factory):
     # Fail, in that it will exit before cleanup.
     l1 = node_factory.get_node(may_fail=True)
-    if not VALGRIND:
+    if not node_factory.valgrind:
         leaks = l1.rpc.dev_memleak()['leaks']
         if len(leaks):
             raise Exception("Node {} has memory leaks: {}"

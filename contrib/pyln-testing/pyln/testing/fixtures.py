@@ -174,6 +174,7 @@ def teardown_checks(request):
 @pytest.fixture
 def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks, node_cls):
     nf = NodeFactory(
+        request,
         test_name,
         bitcoind,
         executor,

@@ -959,7 +959,11 @@ class LightningNode(object):
 class NodeFactory(object):
     """A factory to setup and start `lightningd` daemons.
     """
-    def __init__(self, testname, bitcoind, executor, directory, db_provider, node_cls):
+    def __init__(self, request, testname, bitcoind, executor, directory, db_provider, node_cls):
+        if request.node.get_closest_marker("slow_test") and SLOW_MACHINE:
+            self.valgrind = False
+        else:
+            self.valgrind = VALGRIND
         self.testname = testname
         self.next_id = 1
         self.nodes = []
@@ -969,7 +973,6 @@ class NodeFactory(object):
         self.lock = threading.Lock()
         self.db_provider = db_provider
         self.node_cls = node_cls
-        self.valgrind = VALGRIND
 
     def split_options(self, opts):
         """Split node options from cli options
