@@ -154,9 +154,6 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 		if (streq(path, p_temp->cmd)) {
 			if (taken(path))
 				tal_free(path);
-		 	/* If added as "important", upgrade to "important".  */
-			if (important)
-				p_temp->important = true;
 			return NULL;
 		}
 	}
