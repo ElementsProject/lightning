@@ -5,8 +5,8 @@ from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
 from utils import (
-    DEVELOPER, only_one, wait_for, sync_blockheight, VALGRIND, TIMEOUT,
-    SLOW_MACHINE, expected_peer_features, expected_node_features,
+    DEVELOPER, only_one, wait_for, sync_blockheight, TIMEOUT,
+    expected_peer_features, expected_node_features,
     expected_channel_features,
     check_coin_moves, first_channel_id, account_balance
 )
@@ -140,6 +140,7 @@ def test_bad_opening(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Fee computation and limits are network specific")
+@pytest.mark.slow_test
 def test_opening_tiny_channel(node_factory):
     # Test custom min-capacity-sat parameters
     #
@@ -990,7 +991,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 def test_funding_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
 
-    if VALGRIND or SLOW_MACHINE:
+    if node_factory.valgrind:
         num = 5
     else:
         num = 100
@@ -1051,7 +1052,7 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
     assert num_cancel == len(nodes)
 
     # We should have raced at least once!
-    if not VALGRIND:
+    if not node_factory.valgrind:
         assert num_cancel > 0
         assert num_complete > 0
 
@@ -1994,11 +1995,12 @@ def test_fulfill_incoming_first(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+@pytest.mark.slow_test
 def test_restart_many_payments(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True)
 
     # On my laptop, these take 89 seconds and 12 seconds
-    if VALGRIND:
+    if node_factory.valgrind:
         num = 2
     else:
         num = 5
@@ -2235,9 +2237,10 @@ def test_feerate_stress(node_factory, executor):
 
 
 @unittest.skipIf(not DEVELOPER, "need dev_disconnect")
+@pytest.mark.slow_test
 def test_pay_disconnect_stress(node_factory, executor):
     """Expose race in htlc restoration in channeld: 50% chance of failure"""
-    if SLOW_MACHINE and VALGRIND:
+    if node_factory.valgrind:
         NUM_RUNS = 2
     else:
         NUM_RUNS = 5

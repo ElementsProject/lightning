@@ -5,8 +5,8 @@ from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
 from utils import (
-    DEVELOPER, wait_for, only_one, sync_blockheight, SLOW_MACHINE, TIMEOUT,
-    VALGRIND, EXPERIMENTAL_FEATURES
+    DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
+    EXPERIMENTAL_FEATURES
 )
 import copy
 import os
@@ -1303,7 +1303,8 @@ def test_forward_stats(node_factory, bitcoind):
     assert 'received_time' in stats['forwards'][2] and 'resolved_time' not in stats['forwards'][2]
 
 
-@unittest.skipIf(not DEVELOPER or (VALGRIND and SLOW_MACHINE), "Gossip too slow without DEVELOPER, and too stressful if VALGRIND on slow machines")
+@unittest.skipIf(not DEVELOPER, "too slow without --dev-fast-gossip")
+@pytest.mark.slow_test
 def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     """Check that we track forwarded payments correctly.
 
@@ -1522,7 +1523,8 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     assert 'received_time' in stats['forwards'][3] and 'resolved_time' not in stats['forwards'][4]
 
 
-@unittest.skipIf(not DEVELOPER or SLOW_MACHINE, "needs DEVELOPER=1 for dev_ignore_htlcs, and temporarily disabled on Travis")
+@unittest.skipIf(not DEVELOPER, "too slow without --dev-fast-gossip")
+@pytest.mark.slow_test
 def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     # l1 -> l2 -> l3 -> l4
     # l4 ignores htlcs, so they stay.
@@ -1599,7 +1601,7 @@ def test_pay_variants(node_factory):
 
 
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
-@unittest.skipIf(VALGRIND and SLOW_MACHINE, "Travis times out under valgrind")
+@pytest.mark.slow_test
 def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     """Make sure pay command retries properly. """
 
@@ -1683,7 +1685,7 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 otherwise gossip takes 5 minutes!")
-@unittest.skipIf(VALGRIND, "temporarily disabled due to timeouts")
+@pytest.mark.slow_test
 def test_pay_routeboost(node_factory, bitcoind, compat):
     """Make sure we can use routeboost information. """
     # l1->l2->l3--private-->l4
