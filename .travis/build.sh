@@ -11,11 +11,12 @@ export COMPAT=${COMPAT:-1}
 export PATH=$CWD/dependencies/bin:"$HOME"/.local/bin:"$PATH"
 export PYTEST_PAR=2
 export PYTEST_SENTRY_ALWAYS_REPORT=1
-
+export BOLTDIR=lightning-rfc
 # Allow up to 4 concurrent tests when not under valgrind, which might run out of memory.
 if [ "$VALGRIND" = 0 ]; then
     PYTEST_PAR=4
 fi
+export TEST_CMD=${TEST_CMD:-"make -j $PYTEST_PAR pytest"}
 
 mkdir -p dependencies/bin || true
 
@@ -54,6 +55,8 @@ cat > pytest.ini << EOF
 [pytest]
 addopts=-p no:logging --color=no --reruns=5
 EOF
+
+git clone https://github.com/lightningnetwork/lightning-rfc.git
 
 if [ "$TARGET_HOST" == "arm-linux-gnueabihf" ] || [ "$TARGET_HOST" == "aarch64-linux-gnu" ]
 then
@@ -103,18 +106,12 @@ then
     #echo -en 'travis_fold:start:script.3\\r'
     #make -j$PYTEST_PAR check-units
     #echo -en 'travis_fold:end:script.3\\r'
-elif [ "$SOURCE_CHECK_ONLY" == "false" ]; then
+else
     echo -en 'travis_fold:start:script.2\\r'
-    make -j3 > /dev/null
+    make -j8 > /dev/null
     echo -en 'travis_fold:end:script.2\\r'
 
     echo -en 'travis_fold:start:script.3\\r'
-    make -j$PYTEST_PAR check
+    $TEST_CMD
     echo -en 'travis_fold:end:script.3\\r'
-else
-    git clone https://github.com/lightningnetwork/lightning-rfc.git
-    echo -en 'travis_fold:start:script.2\\r'
-    make -j3 > /dev/null
-    echo -en 'travis_fold:end:script.2\\r'
-    make check-source BOLTDIR=lightning-rfc
 fi
