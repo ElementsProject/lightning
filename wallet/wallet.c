@@ -2448,7 +2448,7 @@ void wallet_payment_store(struct wallet *wallet,
 	if (payment->bolt11 != NULL)
 		db_bind_text(stmt, 10, payment->bolt11);
 	else
-		db_bind_null(stmt, 10);
+	       	db_bind_null(stmt, 10);
 
 	db_bind_amount_msat(stmt, 11, &payment->total_msat);
 	db_bind_u64(stmt, 12, payment->partid);
@@ -2486,6 +2486,17 @@ void wallet_payment_delete(struct wallet *wallet,
 	db_bind_sha256(stmt, 0, payment_hash);
 	db_bind_u64(stmt, 1, partid);
 
+	db_exec_prepared_v2(take(stmt));
+}
+
+void wallet_payment_delete_by_hash(struct wallet *wallet,
+				   const struct sha256 *payment_hash)
+{
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(
+		wallet->db, SQL("DELETE FROM payments WHERE payment_hash = ?"));
+
+	db_bind_sha256(stmt, 0, payment_hash);
 	db_exec_prepared_v2(take(stmt));
 }
 
