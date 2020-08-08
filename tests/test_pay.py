@@ -3316,3 +3316,52 @@ def test_listpays_ongoing_attempt(node_factory, bitcoind, executor):
     # Now restart and see if we still can aggregate things correctly.
     l1.restart()
     l1.rpc.listpays()
+
+
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(not DEVELOPER, "needs use_shadow")
+def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor):
+    '''
+    We have a bug where a blockheight disagreement between us and
+    the receiver causes us to advance through the routehints a bit
+    too aggressively.
+    '''
+    l1, l2, l3 = node_factory.get_nodes(3)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1l2 = l1.fund_channel(l2, 10**7, announce_channel=True)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l2.fund_channel(l3, 10**7, announce_channel=False)
+
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l1, l2, l3])
+
+    # Wait for l3 to learn about l1->l2, otherwise it will think
+    # l2 is a deadend and not add it to the routehint.
+    wait_for(lambda: len(l3.rpc.listchannels(l1l2)['channels']) >= 2)
+
+    # Now make the l1 payer stop receiving blocks.
+    def no_more_blocks(req):
+        return {"result": None,
+                "error": {"code": -8, "message": "Block height out of range"}, "id": req['id']}
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', no_more_blocks)
+
+    # Increase blockheight by 2, like in test_blockheight_disagreement.
+    bitcoind.generate_block(2)
+    sync_blockheight(bitcoind, [l3])
+
+    inv = l3.rpc.invoice(Millisatoshi(2 * 10000 * 1000), 'i', 'i', exposeprivatechannels=True)['bolt11']
+
+    # Have l1 pay l3
+    def pay(l1, inv):
+        l1.rpc.dev_pay(inv, use_shadow=False)
+    fut = executor.submit(pay, l1, inv)
+
+    # Make sure l1 sends out the HTLC.
+    l1.daemon.wait_for_logs([r'NEW:: HTLC LOCAL'])
+
+    # Unblock l1 from new blocks.
+    l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
+
+    # pay command should complete without error
+    fut.result(TIMEOUT)
