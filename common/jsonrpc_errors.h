@@ -40,6 +40,7 @@ static const errcode_t PAY_INVOICE_EXPIRED = 207;
 static const errcode_t PAY_NO_SUCH_PAYMENT = 208;
 static const errcode_t PAY_UNSPECIFIED_ERROR = 209;
 static const errcode_t PAY_STOPPED_RETRYING = 210;
+static const errcode_t PAY_STATUS_UNEXPECTED = 211;
 
 /* `fundchannel` or `withdraw` errors */
 static const errcode_t FUND_MAX_EXCEEDED = 300;

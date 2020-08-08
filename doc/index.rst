@@ -38,6 +38,7 @@ c-lightning Documentation
    lightning-decodepay <lightning-decodepay.7.md>
    lightning-delexpiredinvoice <lightning-delexpiredinvoice.7.md>
    lightning-delinvoice <lightning-delinvoice.7.md>
+   lightning-delpay <lightning-delpay.7.md>
    lightning-dev-sendcustommsg <lightning-dev-sendcustommsg.7.md>
    lightning-disconnect <lightning-disconnect.7.md>
    lightning-feerates <lightning-feerates.7.md>

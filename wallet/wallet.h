@@ -968,6 +968,15 @@ void wallet_payment_delete(struct wallet *wallet,
 			   u64 partid);
 
 /**
+ * wallet_payment_delete_by_hash - Remove a payment
+ *
+ * Removes the payment from the database by hash; if it is a MPP payment
+ * it remove all parts with a single query.
+ */
+void wallet_payment_delete_by_hash(struct wallet *wallet,
+				   const struct sha256 *payment_hash);
+
+/**
  * wallet_local_htlc_out_delete - Remove a local outgoing failed HTLC
  *
  * This is not a generic HTLC cleanup!  This is specifically for the

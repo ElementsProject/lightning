@@ -42,6 +42,34 @@ struct sendpay_command {
 	struct command *cmd;
 };
 
+static bool string_to_payment_status(const char *status_str, enum wallet_payment_status *status)
+{
+	if (streq(status_str, "complete")) {
+		*status = PAYMENT_COMPLETE;
+		return true;
+	} else if (streq(status_str, "pending")) {
+		*status = PAYMENT_PENDING;
+		return true;
+	} else if (streq(status_str, "failed")) {
+		*status = PAYMENT_FAILED;
+		return true;
+	}
+	return false;
+}
+
+static const char *payment_status_to_string(const enum wallet_payment_status status)
+{
+	switch (status) {
+	case PAYMENT_COMPLETE:
+		return "complete";
+	case PAYMENT_FAILED:
+		return "failed";
+	default:
+		return "pending";
+	}
+}
+
+
 static void destroy_sendpay_command(struct sendpay_command *pc)
 {
 	list_del(&pc->list);
@@ -1485,6 +1513,73 @@ static const struct json_command listsendpays_command = {
 	"Show sendpay, old and current, optionally limiting to {bolt11} or {payment_hash}."
 };
 AUTODATA(json_command, &listsendpays_command);
+
+
+static struct command_result *json_delpay(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *obj UNNEEDED,
+						const jsmntok_t *params)
+{
+	struct json_stream *response;
+	const struct wallet_payment **payments;
+	const char *status_str;
+	enum wallet_payment_status status;
+	struct sha256 *payment_hash;
+
+	if (!param(cmd, buffer, params,
+		p_req("payment_hash", param_sha256, &payment_hash),
+		p_opt("status", param_string, &status_str),
+		NULL))
+		return command_param_failed();
+
+	if (!status_str)
+		status_str = "complete";
+
+	if (!string_to_payment_status(status_str, &status))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						"Unrecognized status: %s", status_str);
+
+	if (status == PAYMENT_PENDING)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Invalid status: %s",
+							payment_status_to_string(status));
+
+	payments = wallet_payment_list(cmd, cmd->ld->wallet, payment_hash);
+
+	if (tal_count(payments) == 0)
+		return command_fail(cmd, PAY_NO_SUCH_PAYMENT,
+			"Unknown payment with payment_hash: %s",
+				    type_to_string(tmpctx, struct sha256, payment_hash));
+
+	for (int i = 0; i < tal_count(payments); i++) {
+		if (payments[i]->status != status) {
+			return command_fail(cmd, PAY_STATUS_UNEXPECTED,
+					"Payment with hash %s has %s status but it should be %s",
+					type_to_string(tmpctx, struct sha256, payment_hash),
+					payment_status_to_string(payments[i]->status),
+				        payment_status_to_string(status));
+		}
+	}
+
+	wallet_payment_delete_by_hash(cmd->ld->wallet, payment_hash);
+
+	response = json_stream_success(cmd);
+	json_array_start(response, "payments");
+	for (int i = 0; i < tal_count(payments); i++) {
+		json_object_start(response, NULL);
+		json_add_payment_fields(response, payments[i]);
+		json_object_end(response);
+	}
+	json_array_end(response);
+	return command_success(cmd, response);
+}
+
+static const struct json_command delpay_command = {
+	"delpay",
+	"payment",
+	json_delpay,
+	"Delete payment with {payment_hash} and {status}",
+};
+AUTODATA(json_command, &delpay_command);
 
 static struct command_result *json_createonion(struct command *cmd,
 						const char *buffer,

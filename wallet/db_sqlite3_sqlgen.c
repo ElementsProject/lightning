@@ -1359,6 +1359,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "DELETE FROM payments WHERE payment_hash = ?",
+         .query = "DELETE FROM payments WHERE payment_hash = ?",
+         .placeholders = 1,
+         .readonly = false,
+    },
+    {
          .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid FROM payments WHERE payment_hash = ? AND partid = ?",
          .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid FROM payments WHERE payment_hash = ? AND partid = ?",
          .placeholders = 2,
@@ -1642,10 +1648,10 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
-#define DB_SQLITE3_QUERY_COUNT 272
+#define DB_SQLITE3_QUERY_COUNT 273
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:4c9787464f33fe9bfd209efbd84daebeb5584d52daa1d83f4c34f9a0a6108b46
+// SHA256STAMP:849372d40a212ddb790eb4e3181c6b525dce234e48cda9b71b8909527bd48e33
