@@ -384,6 +384,7 @@ static struct command_result *payment_getroute_result(struct command *cmd,
 	/* Ensure that our fee and CLTV budgets are respected. */
 	if (amount_msat_greater(fee, p->constraints.fee_budget)) {
 		payment_exclude_most_expensive(p);
+		p->route = tal_free(p->route);
 		payment_fail(
 		    p, "Fee exceeds our fee budget: %s > %s, discarding route",
 		    type_to_string(tmpctx, struct amount_msat, &fee),
@@ -393,9 +394,11 @@ static struct command_result *payment_getroute_result(struct command *cmd,
 	}
 
 	if (p->route[0].delay > p->constraints.cltv_budget) {
+		u32 delay = p->route[0].delay;
 		payment_exclude_longest_delay(p);
+		p->route = tal_free(p->route);
 		payment_fail(p, "CLTV delay exceeds our CLTV budget: %d > %d",
-			     p->route[0].delay, p->constraints.cltv_budget);
+			     delay, p->constraints.cltv_budget);
 		return command_still_pending(cmd);
 	}
 
@@ -1764,12 +1767,17 @@ static struct route_info **filter_routehints(struct routehints_data *d,
 	return tal_steal(d, hints);
 }
 
+static bool route_msatoshi(struct amount_msat *total,
+			   const struct amount_msat msat,
+			   const struct route_info *route, size_t num_route);
+
 static bool routehint_excluded(struct payment *p,
 			       const struct route_info *routehint)
 {
 	const struct node_id *nodes = payment_get_excluded_nodes(tmpctx, p);
 	const struct short_channel_id_dir *chans =
 	    payment_get_excluded_channels(tmpctx, p);
+	const struct channel_hint *hints = payment_root(p)->channel_hints;
 
 	/* Note that we ignore direction here: in theory, we could have
 	 * found that one direction of a channel is unavailable, but they
@@ -1783,6 +1791,41 @@ static bool routehint_excluded(struct payment *p,
 		for (size_t j = 0; j < tal_count(chans); j++)
 			if (short_channel_id_eq(&chans[j].scid, &r->short_channel_id))
 				return true;
+
+		/* Skip the capacity check if this is the last hop
+		 * in the routehint.
+		 * The last hop in the routehint delivers the exact
+		 * final amount to the destination, which
+		 * payment_get_excluded_channels uses for excluding
+		 * already.
+		 * Thus, the capacity check below only really matters
+		 * for multi-hop routehints.
+		 */
+		if (i == tal_count(routehint) - 1)
+			continue;
+
+		/* Check our capacity fits.  */
+		struct amount_msat needed_capacity;
+		if (!route_msatoshi(&needed_capacity, p->amount,
+				    r + 1, tal_count(routehint) - i - 1))
+			return true;
+		/* Why do we scan the hints again if
+		 * payment_get_excluded_channels already does?
+		 * Because payment_get_excluded_channels checks the
+		 * amount at destination, but we know that we are
+		 * a specific distance from the destination and we
+		 * know the exact capacity we need to send via this
+		 * channel, which is greater than the destination.
+		 */
+		for (size_t j = 0; j < tal_count(hints); j++) {
+			if (!short_channel_id_eq(&hints[j].scid.scid, &r->short_channel_id))
+				continue;
+			/* We exclude on equality because we set the estimate
+			 * to the smallest failed attempt.  */
+			if (amount_msat_greater_eq(needed_capacity,
+						   hints[j].estimated_capacity))
+				return true;
+		}
 	}
 	return false;
 }
@@ -2007,9 +2050,14 @@ static struct routehints_data *routehint_data_init(struct payment *p)
 		pd = payment_mod_routehints_get_data(payment_root(p));
 		d->destination_reachable = pd->destination_reachable;
 		d->routehints = pd->routehints;
-		if (p->parent->step == PAYMENT_STEP_RETRY)
-			d->offset = pd->offset + 1;
-		else
+		pd = payment_mod_routehints_get_data(p->parent);
+		if (p->parent->step == PAYMENT_STEP_RETRY) {
+			d->offset = pd->offset;
+			/* If the previous try failed to route, advance
+			 * to the next routehint.  */
+			if (!p->parent->route)
+				++d->offset;
+		} else
 			d->offset = 0;
 		return d;
 	} else {
