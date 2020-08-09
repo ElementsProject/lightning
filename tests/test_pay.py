@@ -3308,7 +3308,6 @@ def test_listpays_ongoing_attempt(node_factory, bitcoind, executor):
     l1.rpc.listpays()
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "needs use_shadow")
 def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor):
     '''
