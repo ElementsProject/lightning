@@ -2090,13 +2090,11 @@ bool routing_add_channel_update(struct routing_state *rstate,
 
 	/* Check timestamp is sane (unless from store). */
 	if (!index && !timestamp_reasonable(rstate, timestamp)) {
-		status_peer_debug(peer ? &peer->id : NULL,
-				  "Ignoring update timestamp %u for %s/%u",
-				  timestamp,
-				  type_to_string(tmpctx,
-						 struct short_channel_id,
-						 &short_channel_id),
-				  direction);
+		SUPERVERBOSE("Ignoring update timestamp %u for %s/%u",
+			     timestamp,
+			     type_to_string(tmpctx, struct short_channel_id,
+					    &short_channel_id),
+			     direction);
 		return false;
 	}
 
@@ -2127,14 +2125,12 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		/* Allow redundant updates once every 7 days */
 		if (timestamp < hc->bcast.timestamp + GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip_prune) / 2
 		    && !cupdate_different(rstate->gs, hc, update)) {
-			status_peer_debug(peer ? &peer->id : NULL,
-					  "Ignoring redundant update for %s/%u"
-					  " (last %u, now %u)",
-					  type_to_string(tmpctx,
-							 struct short_channel_id,
-							 &short_channel_id),
-					  direction,
-					  hc->bcast.timestamp, timestamp);
+			SUPERVERBOSE("Ignoring redundant update for %s/%u"
+				     " (last %u, now %u)",
+				     type_to_string(tmpctx,
+						    struct short_channel_id,
+						    &short_channel_id),
+				     direction, hc->bcast.timestamp, timestamp);
 			/* Ignoring != failing */
 			return true;
 		}
@@ -2221,6 +2217,14 @@ bool routing_add_channel_update(struct routing_state *rstate,
 		process_pending_node_announcement(rstate, &chan->nodes[1]->id);
 		tal_free(uc);
 	}
+
+	status_peer_debug(peer ? &peer->id : NULL,
+			  "Received channel_update for channel %s/%d now %s",
+			  type_to_string(tmpctx, struct short_channel_id,
+					 &short_channel_id),
+			  channel_flags & 0x01,
+			  channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
+
 	return true;
 }
 
@@ -2368,13 +2372,6 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		return err;
 	}
 
-	status_peer_debug(peer ? &peer->id : NULL,
-			  "Received channel_update for channel %s/%d now %s",
-			  type_to_string(tmpctx, struct short_channel_id,
-					 &short_channel_id),
-			  channel_flags & 0x01,
-			  channel_flags & ROUTING_FLAGS_DISABLED ? "DISABLED" : "ACTIVE");
-
 	routing_add_channel_update(rstate, take(serialized), 0, peer);
 	return NULL;
 }
@@ -2439,13 +2436,6 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		return false;
 	}
 
-	/* Only log this if *not* loading from store. */
-	if (!index)
-		status_peer_debug(peer ? &peer->id : NULL,
-				  "Received node_announcement for node %s",
-				  type_to_string(tmpctx, struct node_id,
-						 &node_id));
-
 	node = get_node(rstate, &node_id);
 
 	if (node == NULL || !node_has_broadcastable_channels(node)) {
@@ -2500,13 +2490,11 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 		/* Allow redundant updates once every 7 days */
 		if (timestamp < node->bcast.timestamp + GOSSIP_PRUNE_INTERVAL(rstate->dev_fast_gossip_prune) / 2
 		    && !nannounce_different(rstate->gs, node, msg)) {
-			status_peer_debug(peer ? &peer->id : NULL,
-					  "Ignoring redundant nannounce for %s"
-					  " (last %u, now %u)",
-					  type_to_string(tmpctx,
-							 struct node_id,
-							 &node_id),
-					  node->bcast.timestamp, timestamp);
+			SUPERVERBOSE(
+			    "Ignoring redundant nannounce for %s"
+			    " (last %u, now %u)",
+			    type_to_string(tmpctx, struct node_id, &node_id),
+			    node->bcast.timestamp, timestamp);
 			/* Ignoring != failing */
 			return true;
 		}
@@ -2553,6 +2541,14 @@ bool routing_add_node_announcement(struct routing_state *rstate,
 					   NULL);
 		peer_supplied_good_gossip(peer, 1);
 	}
+
+	/* Only log this if *not* loading from store. */
+	if (!index)
+		status_peer_debug(peer ? &peer->id : NULL,
+				  "Received node_announcement for node %s",
+				  type_to_string(tmpctx, struct node_id,
+						 &node_id));
+
 	return true;
 }
 
