@@ -723,12 +723,50 @@ static void report_tampering(struct payment *p,
 	}
 }
 
+static bool
+failure_is_blockheight_disagreement(const struct payment *p,
+				    u32 *blockheight)
+{
+	struct amount_msat unused;
+
+	assert(p && p->result);
+
+	if (p->result->failcode == 17 /* Former final_expiry_too_soon */)
+		*blockheight = p->start_block + 1;
+	else if (!fromwire_incorrect_or_unknown_payment_details(
+			p->result->raw_message,
+			&unused, blockheight))
+		/* If it's incorrect_or_unknown_payment_details, that tells us
+		 * what height they're at */
+		return false;
+
+	/* If we are already at the desired blockheight there is no point in
+	 * waiting, and it is likely just some other error. Notice that
+	 * start_block gets set by the initial getinfo call for each
+	 * attempt.*/
+	if (*blockheight <= p->start_block)
+		return false;
+
+	return true;
+}
+
 static struct command_result *
 handle_final_failure(struct command *cmd,
 		     struct payment *p,
 		     const struct node_id *final_id,
 		     enum onion_type failcode)
 {
+	u32 unused;
+
+	/* Need to check for blockheight disagreement case here,
+	 * otherwise we would set the abort flag too eagerly.
+	 */
+	if (failure_is_blockheight_disagreement(p, &unused)) {
+		plugin_log(p->plugin, LOG_DBG,
+			   "Blockheight disagreement, not aborting.");
+		goto nonerror;
+	}
+
 	/* We use an exhaustive switch statement here so you get a compile
 	 * warning when new ones are added, and can think about where they go */
 	switch (failcode) {
@@ -807,8 +845,10 @@ error:
 	p->result->code = PAY_DESTINATION_PERM_FAIL;
 	payment_root(p)->abort = true;
 
+nonerror:
 	payment_fail(p, "%s", p->result->message);
 	return command_still_pending(cmd);
+
 }
 
 
@@ -2471,9 +2511,7 @@ static void waitblockheight_cb(void *d, struct payment *p)
 	struct out_req *req;
 	struct timeabs now = time_now();
 	struct timerel remaining;
-	u32 blockheight = p->start_block;
-	int failcode;
-	const u8 *raw_message;
+	u32 blockheight;
 	if (p->step != PAYMENT_STEP_FAILED)
 		return payment_continue(p);
 
@@ -2484,27 +2522,10 @@ static void waitblockheight_cb(void *d, struct payment *p)
 	if (time_after(now, p->deadline))
 		return payment_continue(p);
 
-	failcode = p->result->failcode;
-	raw_message = p->result->raw_message;
 	remaining = time_between(p->deadline, now);
 
-	if (failcode == 17 /* Former final_expiry_too_soon */) {
-		blockheight = p->start_block + 1;
-	}  else {
-		/* If it's incorrect_or_unknown_payment_details, that tells us
-		 * what height they're at */
-		struct amount_msat unused;
-		const void *ptr = raw_message;
-		if (!fromwire_incorrect_or_unknown_payment_details(
-			ptr, &unused, &blockheight))
-			return payment_continue(p);
-	}
-
-	/* If we are already at the desired blockheight there is no point in
-	 * waiting, and it is likely just some other error. Notice that
-	 * start_block gets set by the initial getinfo call for each
-	 * attempt.*/
-	if (blockheight <= p->start_block)
+	/* *Was* it a blockheight disagreement that caused the failure?  */
+	if (!failure_is_blockheight_disagreement(p, &blockheight))
 		return payment_continue(p);
 
 	plugin_log(p->plugin, LOG_INFORM,
