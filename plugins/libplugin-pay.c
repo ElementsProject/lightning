@@ -2597,6 +2597,9 @@ static struct command_result *waitblockheight_rpc_cb(struct command *cmd,
 	payment_set_step(p, PAYMENT_STEP_RETRY);
 	subpayment->why =
 		tal_fmt(subpayment, "Retrying after waiting for blockchain sync.");
+	paymod_log(p, LOG_DBG,
+		   "Retrying after waitblockheight, new partid %"PRIu32,
+		   subpayment->partid);
 	payment_continue(p);
 	return command_still_pending(cmd);
 }
@@ -2755,6 +2758,7 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		size_t count = 0;
 		u32 htlcs = payment_max_htlcs(p) / PRESPLIT_MAX_HTLC_SHARE;
 		struct amount_msat target, amt = p->amount;
+		char *partids = tal_strdup(tmpctx, "");
 
 		/* We need to opt-in to the MPP sending facility no matter
 		 * what we do. That means setting all partids to a non-zero
@@ -2816,6 +2820,15 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 					       multiplier))
 				abort(); /* multiplier < 1! */
 			payment_start(c);
+			/* Why the wordy "new partid n" that we repeat for
+			 * each payment?
+			 * So that you can search the logs for the
+			 * creation of a partid by just "new partid n".
+			 */
+			if (count == 0)
+				tal_append_fmt(&partids, "new partid %"PRIu32, c->partid);
+			else
+				tal_append_fmt(&partids, ", new partid %"PRIu32, c->partid);
 			count++;
 		}
 
@@ -2827,7 +2840,7 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		    count,
 		    type_to_string(tmpctx, struct amount_msat, &root->amount),
 		    type_to_string(tmpctx, struct amount_msat, &target));
-		paymod_log(p, LOG_INFORM, "%s", p->why);
+		paymod_log(p, LOG_INFORM, "%s: %s", p->why, partids);
 	}
 	payment_continue(p);
 }
@@ -2953,6 +2966,17 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 
 			payment_start(a);
 			payment_start(b);
+
+			paymod_log(p, LOG_DBG,
+				   "Adaptively split into 2 sub-payments: "
+				   "new partid %"PRIu32" (%s), "
+				   "new partid %"PRIu32" (%s)",
+				   a->partid,
+				   type_to_string(tmpctx, struct amount_msat,
+						  &a->amount),
+				   b->partid,
+				   type_to_string(tmpctx, struct amount_msat,
+						  &b->amount));
 
 			/* Take note that we now have an additional split that
 			 * may end up using an HTLC. */
