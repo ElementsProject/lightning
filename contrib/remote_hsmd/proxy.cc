@@ -136,7 +136,10 @@ void marshal_node_id(struct node_id const *np, NodeId *o_np)
 
 void marshal_pubkey(struct pubkey const *pp, PubKey *o_pp)
 {
-	o_pp->set_data(pp->pubkey.data, sizeof(pp->pubkey.data));
+	u8 pubkey_der[PUBKEY_CMPR_LEN];
+	pubkey_to_der(pubkey_der, pp);
+
+	o_pp->set_data(pubkey_der, sizeof(pubkey_der));
 }
 
 void marshal_utxo(struct utxo const *up, InputDescriptor *idesc)
