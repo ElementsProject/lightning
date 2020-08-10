@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0.1] - 2020-08-10: "(Still) Rat Poison Squared on Steroids"
+
+This is a point release, mainly including some omissions in the `listpays` result, and a fix for routehints from invoices being skipped for payments larger than 10,000 satoshis.
+
+### Added
+
+ - JSON-RPC: `listpays` now lists the `destination` if it was provided (e.g., via the `pay` plugin or `keysend` plugin) ([None](https://github.com/ElementsProject/lightning/pull/None))
+ - JSON-RPC: `listpays` can be used to query payments using the `payment_hash` ([3888](https://github.com/ElementsProject/lightning/pull/3888))
+ - JSON-RPC: `listpays` now includes the `payment_hash` ([3888](https://github.com/ElementsProject/lightning/pull/3888))
+ - JSON-RPC: The result returned by `listpays` now includes the timestamp of the first part of the payment ([3909](https://github.com/ElementsProject/lightning/pull/3909))
+
+### Changed
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+
+### Removed
+
+
+### Fixed
+
+ - pay: Fixed a bug where routehints would be ignored if the payment exceeded 10,000 satoshi. This is particularly bad if the payee is only reachable via routehints in an invoice. ([3908](https://github.com/ElementsProject/lightning/pull/3908))
+
+### Security
+
 
 ## [0.9.0] - 2020-07-31: "Rat Poison Squared on Steroids"
 
@@ -785,6 +813,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
+[0.9.0.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.0.1
 [0.9.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.0
 [0.8.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.8.2
 [0.8.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.8.1
