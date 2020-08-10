@@ -262,6 +262,9 @@ struct payment {
 	 * if we switch any of the parameters such as destination or
 	 * amount. */
 	bool failroute_retry;
+
+	/* A unique id for the root of this payment.  */
+	u64 id;
 };
 
 struct payment_modifier {
