@@ -905,7 +905,7 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
 
     # push some money from l3->l2, so that the commit counter advances
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    l2.daemon.wait_for_log('now ACTIVE')
+
     inv = l3.rpc.invoice(10**4, '1', 'push')
     # Make sure gossipd in l2 knows it's active
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(l2.get_channel_scid(l3))['channels']] == [True, True])
