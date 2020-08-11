@@ -1379,13 +1379,26 @@ static void payment_finished(struct payment *p);
  * child-spawning state and all of its children are in a final state. */
 static bool payment_is_finished(const struct payment *p)
 {
+top:
 	if (p->step == PAYMENT_STEP_FAILED || p->step == PAYMENT_STEP_SUCCESS || p->abort)
 		return true;
 	else if (p->step == PAYMENT_STEP_SPLIT || p->step == PAYMENT_STEP_RETRY) {
-		bool running_children = false;
-		for (size_t i = 0; i < tal_count(p->children); i++)
-			running_children |= !payment_is_finished(p->children[i]);
-		return !running_children;
+		size_t num_children = tal_count(p->children);
+
+		/* Retry case will almost always have just one child, so avoid
+		 * the overhead of pushing and popping off the C stack and
+		 * tail-recurse manually.  */
+		if (num_children == 1) {
+			p = p->children[0];
+			goto top;
+		}
+
+		for (size_t i = 0; i < num_children; i++)
+			/* In other words: if any child is unfinished,
+			 * we are unfinished.  */
+			if (!payment_is_finished(p->children[i]))
+				return false;
+		return true;
 	} else {
 		return false;
 	}
