@@ -36,6 +36,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		tal_arr_expand(&parent->children, p);
 		p->destination = parent->destination;
 		p->amount = parent->amount;
+		p->label = parent->label;
 		p->payment_hash = parent->payment_hash;
 		p->partid = payment_root(p->parent)->next_partid++;
 		p->plugin = parent->plugin;
