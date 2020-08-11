@@ -43,6 +43,7 @@ COMMON_SRC_NOGEN :=				\
 	common/json_tok.c			\
 	common/key_derive.c			\
 	common/keyset.c				\
+	common/gossmap.c			\
 	common/memleak.c			\
 	common/msg_queue.c			\
 	common/node_id.c			\
@@ -106,6 +107,8 @@ ALL_OBJS += $(COMMON_OBJS)
 
 common/gen_htlc_state_names.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr common/htlc_state.h > $@
+
+common/gossip_store.o: gossipd/gossip_store_wiregen.h
 
 check-makefile: check-common-makefile
 
