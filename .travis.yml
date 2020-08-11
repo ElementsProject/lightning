@@ -43,6 +43,7 @@ cache:
     - external/x86_64-linux-gnu
     - external/aarch64-linux-gnu
     - external/arm-linux-gnueabihf
+    - dependencies
 
 script:
   .travis/build.sh
