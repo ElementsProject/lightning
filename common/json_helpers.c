@@ -179,13 +179,14 @@ void json_add_address(struct json_stream *response, const char *fieldname,
 		      const struct wireaddr *addr)
 {
 	json_object_start(response, fieldname);
-	char *addrstr = tal_arr(response, char, INET6_ADDRSTRLEN);
 	if (addr->type == ADDR_TYPE_IPV4) {
+		char addrstr[INET_ADDRSTRLEN];
 		inet_ntop(AF_INET, addr->addr, addrstr, INET_ADDRSTRLEN);
 		json_add_string(response, "type", "ipv4");
 		json_add_string(response, "address", addrstr);
 		json_add_num(response, "port", addr->port);
 	} else if (addr->type == ADDR_TYPE_IPV6) {
+		char addrstr[INET6_ADDRSTRLEN];
 		inet_ntop(AF_INET6, addr->addr, addrstr, INET6_ADDRSTRLEN);
 		json_add_string(response, "type", "ipv6");
 		json_add_string(response, "address", addrstr);
