@@ -16,6 +16,7 @@ LIGHTNINGD_TEST_COMMON_OBJS :=			\
 	common/json.o				\
 	common/key_derive.o			\
 	common/pseudorand.o			\
+	common/random_select.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/utils.o				\
