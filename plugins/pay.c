@@ -5,6 +5,7 @@
 #include <ccan/htable/htable_type.h>
 #include <ccan/intmap/intmap.h>
 #include <ccan/json_out/json_out.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/bolt11.h>
@@ -80,6 +81,8 @@ struct pay_status {
 
 	/* Array of payment attempts. */
 	struct pay_attempt *attempts;
+
+	struct sha256 payment_hash;
 };
 
 struct pay_command {
@@ -1266,6 +1269,8 @@ static struct pay_status *add_pay_status(struct pay_command *pc,
 	ps->shadow = NULL;
 	ps->exclusions = NULL;
 	ps->attempts = tal_arr(ps, struct pay_attempt, 0);
+	hex_decode(pc->payment_hash, strlen(pc->payment_hash),
+		   &ps->payment_hash, sizeof(ps->payment_hash));
 
 	list_add_tail(&pay_status, &ps->list);
 	return ps;
@@ -1618,7 +1623,7 @@ static struct command_result *json_paystatus(struct command *cmd,
 	return command_finished(cmd, ret);
 }
 
-static bool attempt_ongoing(const char *b11)
+static bool attempt_ongoing(const struct sha256 *payment_hash)
 {
 	struct pay_status *ps;
 	struct payment *root;
@@ -1628,14 +1633,14 @@ static bool attempt_ongoing(const char *b11)
 	    final_states = PAYMENT_STEP_FAILED | PAYMENT_STEP_SUCCESS;
 
 	list_for_each(&pay_status, ps, list) {
-		if (!streq(b11, ps->bolt11))
+		if (!sha256_eq(payment_hash, &ps->payment_hash))
 			continue;
 		attempt = &ps->attempts[tal_count(ps->attempts)-1];
 		return attempt->result == NULL && attempt->failure == NULL;
 	}
 
 	list_for_each(&payments, root, list) {
-		if (root->bolt11 == NULL || !streq(b11, root->bolt11))
+		if (!sha256_eq(payment_hash, root->payment_hash))
 			continue;
 		res = payment_collect_result(root);
 		diff = res.leafstates & ~final_states;
@@ -1842,7 +1847,7 @@ static struct command_result *listsendpays_done(struct command *cmd,
 			if (!pm->status || !streq(pm->status, "complete"))
 				pm->status = "pending";
 		} else {
-			if (attempt_ongoing(pm->b11)) {
+			if (attempt_ongoing(pm->payment_hash)) {
 				/* Failed -> pending; don't downgrade success. */
 				if (!pm->status
 				    || !streq(pm->status, "complete"))
