@@ -24,8 +24,8 @@ mkdir -p dependencies/bin || true
 
 # Download bitcoind, elementsd, bitcoin-cli and elements-cli
 if [ ! -f dependencies/bin/bitcoind ]; then
-    wget https://storage.googleapis.com/c-lightning-tests/bitcoin-0.20.1-x86_64-linux-gnu.tar.bz2
-    wget https://storage.googleapis.com/c-lightning-tests/elements-0.20.1.8-x86_64-linux-gnu.tar.bz2
+    wget -q https://storage.googleapis.com/c-lightning-tests/bitcoin-0.20.1-x86_64-linux-gnu.tar.bz2
+    wget -q https://storage.googleapis.com/c-lightning-tests/elements-0.18.1.8-x86_64-linux-gnu.tar.bz2
     tar -xjf bitcoin-0.20.1-x86_64-linux-gnu.tar.bz2
     tar -xjf elements-0.18.1.8-x86_64-linux-gnu.tar.bz2
     mv bitcoin-0.20.1/bin/* dependencies/bin
