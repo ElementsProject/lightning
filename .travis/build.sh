@@ -11,6 +11,8 @@ export PATH=$CWD/dependencies/bin:"$HOME"/.local/bin:"$PATH"
 export PYTEST_PAR=2
 export PYTEST_SENTRY_ALWAYS_REPORT=1
 export BOLTDIR=lightning-rfc
+export TEST_DB_PROVIDER=${DB:-"sqlite3"}
+export TEST_NETWORK=${NETWORK:-"regtest"}
 
 # Allow up to 4 concurrent tests when not under valgrind, which might run out of memory.
 if [ "$VALGRIND" = 0 ]; then
@@ -20,12 +22,19 @@ export TEST_CMD=${TEST_CMD:-"make -j $PYTEST_PAR pytest"}
 
 mkdir -p dependencies/bin || true
 
-# Download bitcoind and bitcoin-cli 
+# Download bitcoind, elementsd, bitcoin-cli and elements-cli
 if [ ! -f dependencies/bin/bitcoind ]; then
     wget https://storage.googleapis.com/c-lightning-tests/bitcoin-0.20.1-x86_64-linux-gnu.tar.bz2
+    wget https://storage.googleapis.com/c-lightning-tests/elements-0.20.1.8-x86_64-linux-gnu.tar.bz2
     tar -xjf bitcoin-0.20.1-x86_64-linux-gnu.tar.bz2
+    tar -xjf elements-0.18.1.8-x86_64-linux-gnu.tar.bz2
     mv bitcoin-0.20.1/bin/* dependencies/bin
-    rm -rf bitcoin-0.20.1-x86_64-linux-gnu.tar.gz bitcoin-0.20.1
+    mv elements-0.18.1.8/bin/* dependencies/bin
+    rm -rf \
+       bitcoin-0.20.1-x86_64-linux-gnu.tar.gz \
+       bitcoin-0.20.1 \
+       elements-0.18.1.8-x86_64-linux-gnu.tar.bz2 \
+       elements-0.18.1.8
 fi
 
 if [ "$NO_PYTHON" != 1 ]; then
