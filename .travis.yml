@@ -5,7 +5,7 @@ notifications:
   email: false
 
 before_install:
-  sudo apt-get install -y libsqlite3-dev cppcheck valgrind gcc-4.8 gettext libc6-dev-armhf-cross libc6-dev-arm64-cross gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf qemu-user-static binfmt-support libsecp256k1-dev
+  sudo apt-get install -y libsqlite3-dev cppcheck valgrind gcc-4.8 gettext libc6-dev-armhf-cross libc6-dev-arm64-cross gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf qemu-user-static binfmt-support libsecp256k1-dev libpq-dev postgresql
 
 env:
   # These run superficial checks that don't take too long on their own
