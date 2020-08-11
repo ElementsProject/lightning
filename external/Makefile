@@ -1,6 +1,7 @@
 SUBMODULES =					\
 	external/libsodium			\
 	external/libwally-core			\
+	external/gheap				\
 	external/jsmn				\
 	external/libbacktrace
 
@@ -19,8 +20,9 @@ LIBWALLY_HEADERS := external/libwally-core/include/wally_bip32.h		\
 LIBSECP_HEADERS := external/libwally-core/src/secp256k1/include/secp256k1_ecdh.h		\
 		external/libwally-core/src/secp256k1/include/secp256k1.h
 JSMN_HEADERS := external/jsmn/jsmn.h
+GHEAP_HEADERS := external/gheap/gheap.h external/gheap/galgorithm.h
 
-EXTERNAL_HEADERS := $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS) $(JSMN_HEADERS)
+EXTERNAL_HEADERS := $(LIBSODIUM_HEADERS) $(LIBWALLY_HEADERS) $(LIBSECP_HEADERS) $(JSMN_HEADERS) $(GHEAP_HEADERS)
 EXTERNAL_LIBS := ${TARGET_DIR}/libwallycore.a ${TARGET_DIR}/libsecp256k1.a ${TARGET_DIR}/libjsmn.a ${TARGET_DIR}/libbacktrace.a
 
 EXTERNAL_INCLUDE_FLAGS :=					\
@@ -28,6 +30,7 @@ EXTERNAL_INCLUDE_FLAGS :=					\
 	-I external/libwally-core/src/secp256k1/include/	\
 	-I external/jsmn/					\
 	-I external/libbacktrace/				\
+	-I external/gheap/					\
 	-I ${TARGET_DIR}/libbacktrace-build
 
 ifneq ($(HAVE_GOOD_LIBSODIUM),1)

@@ -11,3 +11,6 @@
 	path = external/libwally-core
 	url = https://github.com/ElementsProject/libwally-core.git
 	ignore = dirty
+[submodule "external/gheap"]
+	path = external/gheap
+	url = https://github.com/valyala/gheap
