@@ -2021,8 +2021,8 @@ static struct route_info *next_routehint(struct routehints_data *d,
 	 *     - MUST specify the most-preferred field first, followed
 	 *       by less-preferred fields, in order.
 	 */
-	for (; d->offset <numhints; d->offset++) {
-		curr = d->routehints[d->offset];
+	for (; d->offset < numhints; d->offset++) {
+		curr = d->routehints[(d->base + d->offset) % numhints];
 		if (curr == NULL || !routehint_excluded(p, curr))
 			return curr;
 	}
@@ -2269,18 +2269,50 @@ static struct routehints_data *routehint_data_init(struct payment *p)
 		d->routehints = pd->routehints;
 		pd = payment_mod_routehints_get_data(p->parent);
 		if (p->parent->step == PAYMENT_STEP_RETRY) {
+			d->base = pd->base;
 			d->offset = pd->offset;
 			/* If the previous try failed to route, advance
 			 * to the next routehint.  */
 			if (!p->parent->route)
 				++d->offset;
-		} else
+		} else {
+			size_t num_routehints = tal_count(d->routehints);
 			d->offset = 0;
+			/* This used to be pseudorand.
+			 *
+			 * However, it turns out that using the partid for
+			 * this payment has some nice properties.
+			 * The partid is in general quite random, due to
+			 * getting entropy from the network on the timing
+			 * of when payments complete/fail, and the routehint
+			 * randomization is not a privacy or security feature,
+			 * only a reliability one, thus does not need a lot
+			 * of entropy.
+			 *
+			 * But the most important bit is that *splits get
+			 * contiguous partids*, e.g. a presplit into 4 will
+			 * usually be numbered 2,3,4,5, and an adaptive split
+			 * will get two consecutive partid.
+			 * Because of the contiguity, using the partid for
+			 * the base will cause the split-up payments to
+			 * have fairly diverse initial routehints.
+			 *
+			 * The special-casing for <= 2 and the - 2 is due
+			 * to the presplitter skipping over partid 1, we want
+			 * the starting splits to have partid 2 start at
+			 * base 0.
+			 */
+			if (p->partid <= 2 || num_routehints <= 1)
+				d->base = 0;
+			else
+				d->base = (p->partid - 2) % num_routehints;
+		}
 		return d;
 	} else {
 		/* We defer the actual initialization of the routehints array to
 		 * the step callback when we have the invoice attached. */
 		d->routehints = NULL;
+		d->base = 0;
 		d->offset = 0;
 		return d;
 	}
