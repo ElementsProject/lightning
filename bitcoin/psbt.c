@@ -698,6 +698,11 @@ const u8 *psbt_get_bytes(const tal_t *ctx, const struct wally_psbt *psbt,
 	size_t len = 0;
 	u8 *bytes;
 
+	if (!psbt) {
+		*bytes_written = 0;
+		return NULL;
+	}
+
 	wally_psbt_get_length(psbt, 0, &len);
 	bytes = tal_arr(ctx, u8, len);
 
