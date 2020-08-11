@@ -145,10 +145,11 @@ struct payment_tree_result payment_collect_result(struct payment *p)
 	return res;
 }
 
-static struct command_result *payment_getinfo_success(struct command *cmd,
-						      const char *buffer,
-						      const jsmntok_t *toks,
-						      struct payment *p)
+static struct command_result *
+payment_getblockheight_success(struct command *cmd,
+			       const char *buffer,
+			       const jsmntok_t *toks,
+			       struct payment *p)
 {
 	const jsmntok_t *blockheighttok =
 	    json_get_member(buffer, toks, "blockheight");
@@ -157,7 +158,10 @@ static struct command_result *payment_getinfo_success(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-void payment_start(struct payment *p)
+#define INVALID_BLOCKHEIGHT UINT32_MAX
+
+static
+void payment_start_at_blockheight(struct payment *p, u32 blockheight)
 {
 	struct payment *root = payment_root(p);
 	p->step = PAYMENT_STEP_INITIALIZED;
@@ -175,12 +179,33 @@ void payment_start(struct payment *p)
 
 	p->start_constraints = tal_dup(p, struct payment_constraints, &p->constraints);
 
-	/* TODO If this is not the root, we can actually skip the getinfo call
-	 * and just reuse the parent's value. */
-	send_outreq(p->plugin,
-		    jsonrpc_request_start(p->plugin, NULL, "getinfo",
-					  payment_getinfo_success,
-					  payment_rpc_failure, p));
+	if (blockheight != INVALID_BLOCKHEIGHT) {
+		/* The caller knows the actual blockheight.  */
+		p->start_block = blockheight;
+		return payment_continue(p);
+	}
+	if (p->parent) {
+		/* The parent should have a start block.  */
+		p->start_block = p->parent->start_block;
+		return payment_continue(p);
+	}
+
+	/* `waitblockheight 0` can be used as a query for the current
+	 * block height.
+	 * This is slightly better than `getinfo` since `getinfo`
+	 * counts the channels and addresses and pushes more data
+	 * onto the RPC but all we care about is the blockheight.
+	 */
+	struct out_req *req;
+	req = jsonrpc_request_start(p->plugin, NULL, "waitblockheight",
+				    &payment_getblockheight_success,
+				    &payment_rpc_failure, p);
+	json_add_u32(req->js, "blockheight", 0);
+	send_outreq(p->plugin, req);
+}
+void payment_start(struct payment *p)
+{
+	payment_start_at_blockheight(p, INVALID_BLOCKHEIGHT);
 }
 
 static void channel_hints_update(struct payment *p,
@@ -2455,9 +2480,20 @@ static struct command_result *waitblockheight_rpc_cb(struct command *cmd,
 						     const jsmntok_t *toks,
 						     struct payment *p)
 {
+	const jsmntok_t *blockheighttok =
+		json_get_member(buffer, toks, "blockheight");
+	u32 blockheight;
 	struct payment *subpayment;
+
+	if (!blockheighttok
+	 || !json_to_number(buffer, blockheighttok, &blockheight))
+		plugin_err(p->plugin,
+			   "Unexpected result from waitblockheight: %.*s",
+			   json_tok_full_len(toks),
+			   json_tok_full(buffer, toks));
+
 	subpayment = payment_new(p, NULL, p, p->modifiers);
-	payment_start(subpayment);
+	payment_start_at_blockheight(subpayment, blockheight);
 	payment_set_step(p, PAYMENT_STEP_RETRY);
 	subpayment->why =
 		tal_fmt(subpayment, "Retrying after waiting for blockchain sync.");
