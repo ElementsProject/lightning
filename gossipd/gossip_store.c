@@ -619,6 +619,13 @@ void gossip_store_delete(struct gossip_store *gs,
 				WIRE_GOSSIP_STORE_CHANNEL_AMOUNT);
 }
 
+void gossip_store_mark_channel_deleted(struct gossip_store *gs,
+				       const struct short_channel_id *scid)
+{
+	gossip_store_add(gs, towire_gossip_store_delete_chan(tmpctx, scid),
+			 0, false, NULL);
+}
+
 const u8 *gossip_store_get(const tal_t *ctx,
 			   struct gossip_store *gs,
 			   u64 offset)
@@ -782,6 +789,9 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 				bad = "Bad local_add_channel";
 				goto badmsg;
 			}
+			break;
+		case WIRE_GOSSIP_STORE_DELETE_CHAN:
+			/* No need to copy these */
 			break;
 		default:
 			bad = "Unknown message";

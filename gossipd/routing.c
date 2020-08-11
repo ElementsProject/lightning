@@ -2257,6 +2257,7 @@ void remove_channel_from_store(struct routing_state *rstate,
 	if (is_chan_public(chan)) {
 		update_type = WIRE_CHANNEL_UPDATE;
 		announcment_type = WIRE_CHANNEL_ANNOUNCEMENT;
+		gossip_store_mark_channel_deleted(rstate->gs, &chan->scid);
 	} else {
 		update_type = WIRE_GOSSIP_STORE_PRIVATE_UPDATE;
 		announcment_type = WIRE_GOSSIPD_LOCAL_ADD_CHANNEL;

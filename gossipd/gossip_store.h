@@ -56,6 +56,13 @@ void gossip_store_delete(struct gossip_store *gs,
 			 int type);
 
 /**
+ * Mark that the channel is about to be deleted, for convenience of
+ * others mapping the gossip_store.
+ */
+void gossip_store_mark_channel_deleted(struct gossip_store *gs,
+				       const struct short_channel_id *scid);
+
+/**
  * Direct store accessor: loads gossip msg back from store.
  *
  * Caller must ensure offset != 0.  Never returns NULL.
