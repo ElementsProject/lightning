@@ -6,7 +6,7 @@ from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
-    EXPERIMENTAL_FEATURES
+    EXPERIMENTAL_FEATURES, env
 )
 import copy
 import os
@@ -3266,3 +3266,43 @@ def test_listpay_result_with_paymod(node_factory, bitcoind):
     assert 'payment_hash' in l1.rpc.listpays()['pays'][0]
     assert 'destination' in l1.rpc.listpays()['pays'][0]
     assert 'destination' in l2.rpc.listpays()['pays'][0]
+
+
+@unittest.skipIf(env('COMPAT') != 1, "legacypay requires COMPAT=1")
+def test_listpays_ongoing_attempt(node_factory, bitcoind, executor):
+    """Test to reproduce issue #3915.
+
+    The issue is that the bolt11 string is not initialized if the root payment
+    was split (no attempt with the bolt11 annotation ever hit `lightningd`,
+    hence we cannot filter by that. In addition keysends never have a bolt11
+    string, so we need to switch to payment_hash comparisons anyway.
+    """
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins', 'hold_htlcs.py')
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{}, {}, {'plugin': plugin}],
+                                         wait_for_announce=True)
+
+    f = executor.submit(l1.rpc.keysend, l3.info['id'], 100)
+    l3.daemon.wait_for_log(r'Holding onto an incoming htlc')
+    l1.rpc.listpays()
+    f.result()
+
+    inv = l2.rpc.invoice(10**6, 'legacy', 'desc')['bolt11']
+    l1.rpc.legacypay(inv)
+    l1.rpc.listpays()
+
+    # Produce loads of parts to increase probability of hitting the issue,
+    # should result in 100 splits at least
+    inv = l3.rpc.invoice(10**9, 'mpp invoice', 'desc')['bolt11']
+
+    # Start the payment, it'll get stuck for 10 seconds at l3
+    executor.submit(l1.rpc.pay, inv)
+    l1.daemon.wait_for_log(r'Split into [0-9]+ sub-payments due to initial size')
+    l3.daemon.wait_for_log(r'Holding onto an incoming htlc')
+
+    # While that is going on, check in with `listpays` to see if aggregation
+    # is working.
+    l1.rpc.listpays()
+
+    # Now restart and see if we still can aggregate things correctly.
+    l1.restart()
+    l1.rpc.listpays()

@@ -2661,6 +2661,11 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 			struct payment *c =
 			    payment_new(p, NULL, p, p->modifiers);
 
+			/* Annotate the subpayments with the bolt11 string,
+			 * they'll be used when aggregating the payments
+			 * again. */
+			c->bolt11 = tal_strdup(c, p->bolt11);
+
 			/* Get ~ target, but don't exceed amt */
 			c->amount = fuzzed_near(target, amt);
 
