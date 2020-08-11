@@ -686,10 +686,10 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     with pytest.raises(RpcError, match=r"should be a PSBT, not"):
         l1.rpc.sendpsbt('')
 
-    # Try a modified (invalid) PSBT string
-    modded_psbt = psbt[:-3] + 'A' + psbt[-3:]
+    # Try an invalid PSBT string
+    invalid_psbt = 'cHNidP8BAM0CAAAABJ9446mTRp/ml8OxSLC1hEvrcxG1L02AG7YZ4syHon2sAQAAAAD9////JFJH/NjKwjwrP9myuU68G7t8Q4VIChH0KUkZ5hSAyqcAAAAAAP3///8Uhrj0XDRhGRno8V7qEe4hHvZcmEjt3LQSIXWc+QU2tAEAAAAA/f///wstLikuBrgZJI83VPaY8aM7aPe5U6TMb06+jvGYzQLEAQAAAAD9////AcDGLQAAAAAAFgAUyQltQ/QI6lJgICYsza18hRa5KoEAAAAAAAEBH0BCDwAAAAAAFgAUqc1Qh7Q5kY1noDksmj7cJmHaIbQAAQEfQEIPAAAAAAAWABS3bdYeQbXvBSryHNoyYIiMBwu5rwABASBAQg8AAAAAABepFD1r0NuqAA+R7zDiXrlP7J+/PcNZhwEEFgAUKvGgVL/ThjWE/P1oORVXh/ObucYAAQEgQEIPAAAAAAAXqRRsrE5ugA1VJnAith5+msRMUTwl8ocBBBYAFMrfGCiLi0ZnOCY83ERKJ1sLYMY8A='
     with pytest.raises(RpcError, match=r"should be a PSBT, not"):
-        l1.rpc.signpsbt(modded_psbt)
+        l1.rpc.signpsbt(invalid_psbt)
 
     wallet_coin_mvts = [
         {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
