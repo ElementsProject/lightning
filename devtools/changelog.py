@@ -116,7 +116,9 @@ ${group(groups['removed']) | trim}
 ${h3} Fixed
 ${group(groups['fixed']) | trim}
 ${h3} Security
-${group(groups['security']) | trim}""")
+${group(groups['security']) | trim}
+
+[${version}]: https://github.com/ElementsProject/lightning/releases/tag/v${version}""")
 
 
 if __name__ == "__main__":
@@ -142,6 +144,6 @@ if __name__ == "__main__":
         groups=groups,
         h2='##',
         h3='###',
-        version=tocommit,
+        version=tocommit[1:],
         date=date,
     ))
