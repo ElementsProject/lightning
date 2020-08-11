@@ -306,16 +306,26 @@ struct routehints_data {
 	/* What we did about routehints (if anything) */
 	const char *routehint_modifications;
 
-	/* Any remaining routehints to try. */
+	/* Array of routehints to try. */
 	struct route_info **routehints;
 
 	/* Current routehint, if any. */
 	struct route_info *current_routehint;
 
 	/* Position of the current routehint in the routehints
-	 * array. Inherited and incremented on child payments and reset on
-	 * split. */
+	 * array. Inherited on retry (and possibly incremented),
+	 * reset to 0 on split. */
 	int offset;
+	/* Base of the current routehint.
+	 * This is randomized to start routehints at a random point
+	 * on each split, to reduce the chances of multiple splits
+	 * going to the same routehint.
+	 * The sum of base + offset is used as the index into the
+	 * routehints array (wraps around).
+	 * offset is used to determine if we have run out of
+	 * routehints, base is used for randomization.
+	 */
+	int base;
 
 	/* We modify the CLTV in the getroute call, so we need to remember
 	 * what the final cltv delta was so we re-apply it correctly. */
