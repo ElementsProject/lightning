@@ -63,6 +63,9 @@ void queue_peer_msg(struct peer *peer UNNEEDED, const u8 *msg TAKES UNNEEDED)
 struct peer *random_peer(struct daemon *daemon UNNEEDED,
 			 bool (*check_peer)(const struct peer *peer))
 { fprintf(stderr, "random_peer called!\n"); abort(); }
+/* Generated stub for random_select */
+bool random_select(double weight UNNEEDED, double *tot_weight UNNEEDED)
+{ fprintf(stderr, "random_select called!\n"); abort(); }
 /* Generated stub for status_failed */
 void status_failed(enum status_failreason code UNNEEDED,
 		   const char *fmt UNNEEDED, ...)

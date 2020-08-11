@@ -3,6 +3,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <common/pseudorand.h>
+#include <common/random_select.h>
 #include <common/type_to_string.h>
 #include <plugins/libplugin-pay.h>
 
@@ -2421,12 +2422,11 @@ static struct command_result *shadow_route_listchannels(struct command *cmd,
 					       const jsmntok_t *result,
 					       struct payment *p)
 {
-	/* Use reservoir sampling across the capable channels. */
 	struct shadow_route_data *d = payment_mod_shadowroute_get_data(p);
 	struct payment_constraints *cons = &d->constraints;
 	struct route_info *best = NULL;
+	double total_weight = 0.0;
 	size_t i;
-	u64 sample = 0;
 	struct amount_msat best_fee;
 	const jsmntok_t *sattok, *delaytok, *basefeetok, *propfeetok, *desttok,
 		*channelstok, *chan, *scidtok;
@@ -2438,7 +2438,6 @@ static struct command_result *shadow_route_listchannels(struct command *cmd,
 
 	channelstok = json_get_member(buf, result, "channels");
 	json_for_each_arr(i, chan, channelstok) {
-		u64 v = pseudorand(UINT64_MAX);
 		struct route_info curr;
 		struct amount_sat capacity;
 		struct amount_msat fee;
@@ -2465,28 +2464,27 @@ static struct command_result *shadow_route_listchannels(struct command *cmd,
 		json_to_sat(buf, sattok, &capacity);
 		json_to_node_id(buf, desttok, &curr.pubkey);
 
-		if (!best || v > sample) {
-			/* If the capacity is insufficient to pass the amount
-			 * it's not a plausible extension. */
-			if (amount_msat_greater_sat(p->amount, capacity))
-				continue;
+		/* If the capacity is insufficient to pass the amount
+		 * it's not a plausible extension. */
+		if (amount_msat_greater_sat(p->amount, capacity))
+			continue;
 
-			if (curr.cltv_expiry_delta > cons->cltv_budget)
-				continue;
+		if (curr.cltv_expiry_delta > cons->cltv_budget)
+			continue;
 
-			if (!amount_msat_fee(
-				&fee, p->amount, curr.fee_base_msat,
-				curr.fee_proportional_millionths)) {
-				/* Fee computation failed... */
-				continue;
-			}
+		if (!amount_msat_fee(
+			    &fee, p->amount, curr.fee_base_msat,
+			    curr.fee_proportional_millionths)) {
+			/* Fee computation failed... */
+			continue;
+		}
 
-			if (amount_msat_greater_eq(fee, cons->fee_budget))
-				continue;
+		if (amount_msat_greater_eq(fee, cons->fee_budget))
+			continue;
 
+		if (random_select(1.0, &total_weight)) {
 			best = tal_dup(tmpctx, struct route_info, &curr);
 			best_fee = fee;
-			sample = v;
 		}
 	}
 

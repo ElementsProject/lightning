@@ -9,6 +9,7 @@
 #include <ccan/tal/tal.h>
 #include <common/decode_array.h>
 #include <common/pseudorand.h>
+#include <common/random_select.h>
 #include <common/status.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
@@ -454,7 +455,7 @@ static bool get_unannounced_nodes(const tal_t *ctx,
 {
 	size_t num = 0;
 	u64 offset;
-	u64 threshold = pseudorand_u64();
+	double total_weight = 0.0;
 
 	/* Pick an example short_channel_id at random to query.  As a
 	 * side-effect this gets the node. */
@@ -475,11 +476,8 @@ static bool get_unannounced_nodes(const tal_t *ctx,
 			(*scids)[num++] = c->scid;
 		} else {
 			/* Maybe replace one: approx. reservoir sampling */
-			u64 p = pseudorand_u64();
-			if (p > threshold) {
+			if (random_select(1.0, &total_weight))
 				(*scids)[pseudorand(max)] = c->scid;
-				threshold = p;
-			}
 		}
 	}
 

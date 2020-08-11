@@ -57,6 +57,7 @@ COMMON_SRC_NOGEN :=				\
 	common/ping.c				\
 	common/psbt_open.c			\
 	common/pseudorand.c			\
+	common/random_select.c			\
 	common/read_peer_msg.c			\
 	common/setup.c				\
 	common/socket_close.c			\

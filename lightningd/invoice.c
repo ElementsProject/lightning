@@ -16,7 +16,7 @@
 #include <common/jsonrpc_errors.h>
 #include <common/overflows.h>
 #include <common/param.h>
-#include <common/pseudorand.h>
+#include <common/random_select.h>
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -489,15 +489,8 @@ static struct route_info **select_inchan(const tal_t *ctx,
 					 bool *any_offline)
 {
 	/* BOLT11 struct wants an array of arrays (can provide multiple routes) */
-	struct route_info **R;
-	double wsum, p;
-
-	struct sample {
-		const struct route_info *route;
-		double weight;
-	};
-
-	struct sample *S = tal_arr(tmpctx, struct sample, 0);
+	struct route_info **r = NULL;
+	double total_weight = 0.0;
 
 	*any_offline = false;
 
@@ -505,7 +498,6 @@ static struct route_info **select_inchan(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(inchans); i++) {
 		struct peer *peer;
 		struct channel *c;
-		struct sample sample;
 		struct amount_msat capacity_to_pay_us, excess, capacity;
 		struct amount_sat cumulative_reserve;
 		double excess_frac;
@@ -564,33 +556,23 @@ static struct route_info **select_inchan(const tal_t *ctx,
 			continue;
 		}
 
+		/* We don't want a 0 probability if 0 excess; it might be the
+		 * only one!  So bump it by 1 msat */
+		if (!amount_msat_add(&excess, excess, AMOUNT_MSAT(1))) {
+			log_broken(ld->log, "Channel %s excess overflow!",
+					type_to_string(tmpctx, struct short_channel_id, c->scid));
+			continue;
+		}
 		excess_frac = amount_msat_ratio(excess, capacity);
 
-		sample.route = &inchans[i];
-		sample.weight = excess_frac;
-		tal_arr_expand(&S, sample);
+		if (random_select(excess_frac, &total_weight)) {
+			tal_free(r);
+			r = tal_arr(ctx, struct route_info *, 1);
+			r[0] = tal_dup(r, struct route_info, &inchans[i]);
+		}
 	}
 
-	if (!tal_count(S))
-		return NULL;
-
-	/* Use weighted reservoir sampling, see:
-	 * https://en.wikipedia.org/wiki/Reservoir_sampling#Algorithm_A-Chao
-	 * But (currently) the result will consist of only one sample (k=1) */
-	R = tal_arr(ctx, struct route_info *, 1);
-	R[0] = tal_dup(R, struct route_info, S[0].route);
-	wsum = S[0].weight;
-
-	for (size_t i = 1; i < tal_count(S); i++) {
-		wsum += S[i].weight;
-		p = S[i].weight / wsum;
-		double random_1 = pseudorand_double();	/* range [0,1) */
-
-		if (random_1 <= p)
-			R[0] = tal_dup(R, struct route_info, S[i].route);
-	}
-
-	return R;
+	return r;
 }
 
 /** select_inchan_mpp
@@ -1414,6 +1396,7 @@ static struct command_result *json_waitanyinvoice(struct command *cmd,
 				       " is non-trivial.");
 }
 
+
 static const struct json_command waitanyinvoice_command = {
 	"waitanyinvoice",
 	"payment",
@@ -1422,7 +1405,6 @@ static const struct json_command waitanyinvoice_command = {
 	"If {timeout} seconds is reached while waiting, fail with an error."
 };
 AUTODATA(json_command, &waitanyinvoice_command);
-
 
 /* Wait for an incoming payment matching the `label` in the JSON
  * command.  This will either return immediately if the payment has
