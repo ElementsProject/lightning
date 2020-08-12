@@ -69,7 +69,7 @@ Uncomment those in, then restart `tor` (usually `systemctl restart tor`  or
 Debian and Ubuntu, or just restart the entire computer if you cannot figure
 it out).
 
-Then add these to your `${LIGHTNING_DIR}/config` or other C-Lightning configuration
+Then make sure these are in your `${LIGHTNING_DIR}/config` or other C-Lightning configuration
 (or prepend `--` to each of them and add them to your `lightningd` invocation
 command line):
 
@@ -86,7 +86,9 @@ always-use-proxy=true
     for a `SocksPort` entry to confirm the port number.
 2.  `bind-addr` informs C-Lightning to bind itself to port 9735.
     This is needed for the subsequent `statictor` to work.
-    9735 is the normal Lightning Network port.
+    9735 is the normal Lightning Network port, so this setting may already be present.
+    If you add a second `bind-addr=...` you may get errors, so choose this new one
+    or keep the old one, but don't keep both.
     This has to appear before any `statictor:` setting.
 3.  `addr=statictor:` informs C-Lightning that you want to create a persistent
     hidden service that is based on your node private key.
