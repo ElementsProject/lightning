@@ -34,6 +34,7 @@
 #define OP_1SUB		0x8C
 #define OP_ADD		0x93
 #define OP_CHECKSIG	0xAC
+#define OP_CHECKSIGVERIFY	0xAD
 #define OP_CHECKMULTISIG	0xAE
 #define OP_HASH160	0xA9
 #define OP_CHECKSEQUENCEVERIFY	0xB2
@@ -318,6 +319,27 @@ u8 *scriptpubkey_witness_raw(const tal_t *ctx, u8 version,
 	u8 *script = tal_arr(ctx, u8, 0);
 	add_number(&script, version);
 	script_push_bytes(&script, wprog, wprog_size);
+	return script;
+}
+
+/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+ *
+ * #### `to_remote` Output
+ *
+ * If `option_anchor_outputs` applies to the commitment
+ * transaction, the `to_remote` output is encumbered by a one
+ * block csv lock.
+ *    <remote_pubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
+ */
+u8 *anchor_to_remote_redeem(const tal_t *ctx,
+			    const struct pubkey *remote_key)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+	add_push_key(&script, remote_key);
+	add_op(&script, OP_CHECKSIGVERIFY);
+	add_number(&script, 1);
+	add_op(&script, OP_CHECKSEQUENCEVERIFY);
+
 	return script;
 }
 

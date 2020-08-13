@@ -57,6 +57,10 @@ u8 *scriptpubkey_p2wpkh_derkey(const tal_t *ctx, const u8 der[33]);
 u8 *scriptpubkey_witness_raw(const tal_t *ctx, u8 version,
 			     const u8 *wprog, size_t wprog_size);
 
+/* To-remotekey with csv 1 delay. */
+u8 *anchor_to_remote_redeem(const tal_t *ctx,
+			    const struct pubkey *remote_key);
+
 /* Create a witness which spends the 2of2. */
 u8 **bitcoin_witness_2of2(const tal_t *ctx,
 			  const struct bitcoin_signature *sig1,

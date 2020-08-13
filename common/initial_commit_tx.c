@@ -223,17 +223,28 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *    output](#to_remote-output).
 	 */
 	if (amount_msat_greater_eq_sat(other_pay, dust_limit)) {
-		/* BOLT #3:
+		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
 		 *
-		 * #### `to_remote` Output
+		 * If `option_anchor_outputs` applies to the commitment
+		 * transaction, the `to_remote` output is encumbered by a one
+		 * block csv lock.
+		 *    <remote_pubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
 		 *
-		 * This output sends funds to the other peer and thus is a simple
-		 * P2WPKH to `remotepubkey`.
+		 *...
+		 * Otherwise, this output is a simple P2WPKH to `remotepubkey`.
 		 */
+		u8 *scriptpubkey;
+		int pos;
+
 		amount = amount_msat_to_sat_round_down(other_pay);
-		int pos = bitcoin_tx_add_output(
-		    tx, scriptpubkey_p2wpkh(tx, &keyset->other_payment_key),
-		    NULL, amount);
+		if (option_anchor_outputs) {
+			scriptpubkey = scriptpubkey_p2wsh(tmpctx,
+							  anchor_to_remote_redeem(tmpctx, &keyset->other_payment_key));
+		} else {
+			scriptpubkey = scriptpubkey_p2wpkh(tmpctx,
+							   &keyset->other_payment_key);
+		}
+		pos = bitcoin_tx_add_output(tx, scriptpubkey, NULL, amount);
 		assert(pos == n);
 		output_order[n] = dummy_remote;
 		n++;
