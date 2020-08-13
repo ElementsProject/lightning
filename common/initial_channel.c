@@ -98,7 +98,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 	init_tx = initial_commit_tx(ctx, &channel->funding_txid,
 				    channel->funding_txout,
 				    channel->funding,
-				    cast_const(u8 *, *wscript),
+				    channel->funding_pubkey,
 				    channel->opener,
 				    /* They specify our to_self_delay and v.v. */
 				    channel->config[!side].to_self_delay,
@@ -152,4 +152,5 @@ static char *fmt_channel(const tal_t *ctx, const struct channel *channel)
 		       fmt_channel_view(ctx, &channel->view[LOCAL]),
 		       fmt_channel_view(ctx, &channel->view[REMOTE]));
 }
+/* Magic comment. */
 REGISTER_TYPE_TO_STRING(channel, fmt_channel);

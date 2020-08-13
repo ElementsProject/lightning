@@ -81,6 +81,7 @@ static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
  * @ctx: context to allocate transaction and @htlc_map from.
  * @funding_txid, @funding_out, @funding: funding outpoint.
  * @funding_wscript: scriptPubkey of the funding output
+ * @funding_keys: funding bitcoin keys
  * @opener: is the LOCAL or REMOTE paying the fee?
  * @keyset: keys derived for this commit tx.
  * @feerate_per_kw: feerate to use
@@ -102,7 +103,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     const struct bitcoin_txid *funding_txid,
 				     unsigned int funding_txout,
 				     struct amount_sat funding,
-				     u8 *funding_wscript,
+				     const struct pubkey funding_key[NUM_SIDES],
 				     enum side opener,
 				     u16 to_self_delay,
 				     const struct keyset *keyset,

@@ -80,7 +80,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     const struct bitcoin_txid *funding_txid,
 			     unsigned int funding_txout,
 			     struct amount_sat funding,
-			     const u8 *funding_wscript,
+			     const struct pubkey *local_funding_key,
+			     const struct pubkey *remote_funding_key,
 			     enum side opener,
 			     u16 to_self_delay,
 			     const struct keyset *keyset,
@@ -101,6 +102,10 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	u32 *cltvs;
 	struct htlc *dummy_to_local = (struct htlc *)0x01,
 		*dummy_to_remote = (struct htlc *)0x02;
+	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
+							local_funding_key,
+							remote_funding_key);
+
 	if (!amount_msat_add(&total_pay, self_pay, other_pay))
 		abort();
 	assert(!amount_msat_greater_sat(total_pay, funding));
