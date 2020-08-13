@@ -206,7 +206,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			 const struct pubkey *remotekey,
 			 const struct pubkey *remote_htlckey,
 			 const struct pubkey *remote_revocation_key,
-			 u32 feerate_per_kw)
+			 u32 feerate_per_kw,
+			 bool option_anchor_outputs)
 {
 	size_t i, n;
 	struct bitcoin_txid txid;
@@ -249,27 +250,30 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 								local_htlckey,
 								remote_htlckey,
 								&htlc->rhash,
-								remote_revocation_key);
+								remote_revocation_key,
+								option_anchor_outputs);
 			htlc_tx[i] = htlc_timeout_tx(htlc_tx, tx->chainparams,
 						     &txid, i, wscript[i],
 						     htlc->amount,
 						     htlc->expiry.locktime,
 						     to_self_delay,
 						     feerate_per_kw,
-						     &keyset);
+						     &keyset, option_anchor_outputs);
 		} else {
 			wscript[i] = bitcoin_wscript_htlc_receive(tmpctx,
 								  &htlc->expiry,
 								  local_htlckey,
 								  remote_htlckey,
 								  &htlc->rhash,
-								  remote_revocation_key);
+								  remote_revocation_key,
+								  option_anchor_outputs);
 			htlc_tx[i] = htlc_success_tx(htlc_tx, tx->chainparams,
 						     &txid, i, wscript[i],
 						     htlc->amount,
 						     to_self_delay,
 						     feerate_per_kw,
-						     &keyset);
+						     &keyset,
+						     option_anchor_outputs);
 		}
 		sign_tx_input(htlc_tx[i], 0,
 			      NULL,
@@ -307,7 +311,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 						    &htlc->rhash,
 						    remote_revocation_key,
 						    &localhtlcsig,
-						    &remotehtlcsig[i]);
+						    &remotehtlcsig[i],
+						    option_anchor_outputs);
 		} else {
 			htlc_success_tx_add_witness(htlc_tx[i],
 						    &htlc->expiry,
@@ -316,7 +321,8 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 						    &localhtlcsig,
 						    &remotehtlcsig[i],
 						    htlc->r,
-						    remote_revocation_key);
+						    remote_revocation_key,
+						    option_anchor_outputs);
 		}
 		printf("output htlc_%s_tx %"PRIu64": %s\n",
 		       htlc_owner(htlc) == LOCAL ? "timeout" : "success",
@@ -341,6 +347,7 @@ static void report(struct bitcoin_tx *tx,
 		   const struct pubkey *remote_htlckey,
 		   const struct pubkey *remote_revocation_key,
 		   u32 feerate_per_kw,
+		   bool option_anchor_outputs,
 		   const struct htlc **htlc_map)
 {
 	char *txhex;
@@ -377,7 +384,8 @@ static void report(struct bitcoin_tx *tx,
 		     x_remote_htlcsecretkey,
 		     remotekey, remote_htlckey,
 		     remote_revocation_key,
-		     feerate_per_kw);
+		     feerate_per_kw,
+		     option_anchor_outputs);
 }
 
 #ifdef DEBUG
@@ -482,6 +490,7 @@ int main(int argc, const char *argv[])
 	u64 commitment_number, cn_obscurer;
 	struct amount_msat to_local, to_remote;
 	const struct htlc **htlcs, **htlc_map, **htlc_map2, **inv_htlcs;
+	bool option_anchor_outputs = false;
 
 	chainparams = chainparams_for_network("bitcoin");
 
@@ -771,6 +780,7 @@ int main(int argc, const char *argv[])
 	       &remote_htlckey,
 	       &remote_revocation_key,
 	       feerate_per_kw,
+	       option_anchor_outputs,
 	       htlc_map);
 
 	/* BOLT #3:
@@ -828,6 +838,7 @@ int main(int argc, const char *argv[])
 	       &remote_htlckey,
 	       &remote_revocation_key,
 	       feerate_per_kw,
+	       option_anchor_outputs,
 	       htlc_map);
 
 	do {
@@ -905,6 +916,7 @@ int main(int argc, const char *argv[])
 		       &remote_htlckey,
 		       &remote_revocation_key,
 		       feerate_per_kw-1,
+		       option_anchor_outputs,
 		       htlc_map);
 
 		printf("\n"
@@ -942,6 +954,7 @@ int main(int argc, const char *argv[])
 		       &remote_htlckey,
 		       &remote_revocation_key,
 		       feerate_per_kw,
+		       option_anchor_outputs,
 		       htlc_map);
 
 		assert(newtx->wtx->num_outputs != tx->wtx->num_outputs);
@@ -1001,6 +1014,7 @@ int main(int argc, const char *argv[])
 		       &remote_htlckey,
 		       &remote_revocation_key,
 		       feerate_per_kw,
+		       option_anchor_outputs,
 		       htlc_map);
 		break;
 	}

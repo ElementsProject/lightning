@@ -516,11 +516,32 @@ u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay,
  *         OP_ENDIF
  *     OP_ENDIF
  */
+/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+ * Or, with `option_anchor_outputs`:
+ *
+ *  # To remote node with revocation key
+ *  OP_DUP OP_HASH160 <RIPEMD160(SHA256(revocationpubkey))> OP_EQUAL
+ *  OP_IF
+ *      OP_CHECKSIG
+ *  OP_ELSE
+ *      <remote_htlcpubkey> OP_SWAP OP_SIZE 32 OP_EQUAL
+ *      OP_NOTIF
+ *          # To local node via HTLC-timeout transaction (timelocked).
+ *          OP_DROP 2 OP_SWAP <local_htlcpubkey> 2 OP_CHECKMULTISIG
+ *      OP_ELSE
+ *          # To remote node with preimage.
+ *          OP_HASH160 <RIPEMD160(payment_hash)> OP_EQUALVERIFY
+ *          OP_CHECKSIG
+ *      OP_ENDIF
+ *      1 OP_CHECKSEQUENCEVERIFY OP_DROP
+ *  OP_ENDIF
+ */
 u8 *bitcoin_wscript_htlc_offer_ripemd160(const tal_t *ctx,
 					 const struct pubkey *localhtlckey,
 					 const struct pubkey *remotehtlckey,
 					 const struct ripemd160 *payment_ripemd,
-					 const struct pubkey *revocationkey)
+					 const struct pubkey *revocationkey,
+					 bool option_anchor_outputs)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	struct ripemd160 ripemd;
@@ -552,6 +573,11 @@ u8 *bitcoin_wscript_htlc_offer_ripemd160(const tal_t *ctx,
 	add_op(&script, OP_EQUALVERIFY);
 	add_op(&script, OP_CHECKSIG);
 	add_op(&script, OP_ENDIF);
+	if (option_anchor_outputs) {
+		add_number(&script, 1);
+		add_op(&script, OP_CHECKSEQUENCEVERIFY);
+		add_op(&script, OP_DROP);
+	}
 	add_op(&script, OP_ENDIF);
 
 	return script;
@@ -561,14 +587,16 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
 			       const struct pubkey *localhtlckey,
 			       const struct pubkey *remotehtlckey,
 			       const struct sha256 *payment_hash,
-			       const struct pubkey *revocationkey)
+			       const struct pubkey *revocationkey,
+			       bool option_anchor_outputs)
 {
 	struct ripemd160 ripemd;
 
 	ripemd160(&ripemd, payment_hash->u.u8, sizeof(payment_hash->u));
 	return bitcoin_wscript_htlc_offer_ripemd160(ctx, localhtlckey,
 						    remotehtlckey,
-						    &ripemd, revocationkey);
+						    &ripemd, revocationkey,
+						    option_anchor_outputs);
 }
 
 /* BOLT #3:
@@ -597,12 +625,34 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
  *         OP_ENDIF
  *     OP_ENDIF
  */
+/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+ * Or, with `option_anchor_outputs`:
+ *
+ *  # To remote node with revocation key
+ *  OP_DUP OP_HASH160 <RIPEMD160(SHA256(revocationpubkey))> OP_EQUAL
+ *  OP_IF
+ *      OP_CHECKSIG
+ *  OP_ELSE
+ *      <remote_htlcpubkey> OP_SWAP OP_SIZE 32 OP_EQUAL
+ *      OP_IF
+ *          # To local node via HTLC-success transaction.
+ *          OP_HASH160 <RIPEMD160(payment_hash)> OP_EQUALVERIFY
+ *          2 OP_SWAP <local_htlcpubkey> 2 OP_CHECKMULTISIG
+ *      OP_ELSE
+ *          # To remote node after timeout.
+ *          OP_DROP <cltv_expiry> OP_CHECKLOCKTIMEVERIFY OP_DROP
+ *          OP_CHECKSIG
+ *      OP_ENDIF
+ *      1 OP_CHECKSEQUENCEVERIFY OP_DROP
+ *  OP_ENDIF
+ */
 u8 *bitcoin_wscript_htlc_receive_ripemd(const tal_t *ctx,
 					const struct abs_locktime *htlc_abstimeout,
 					const struct pubkey *localhtlckey,
 					const struct pubkey *remotehtlckey,
 					const struct ripemd160 *payment_ripemd,
-					const struct pubkey *revocationkey)
+					const struct pubkey *revocationkey,
+					bool option_anchor_outputs)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	struct ripemd160 ripemd;
@@ -637,6 +687,11 @@ u8 *bitcoin_wscript_htlc_receive_ripemd(const tal_t *ctx,
 	add_op(&script, OP_DROP);
 	add_op(&script, OP_CHECKSIG);
 	add_op(&script, OP_ENDIF);
+	if (option_anchor_outputs) {
+		add_number(&script, 1);
+		add_op(&script, OP_CHECKSEQUENCEVERIFY);
+		add_op(&script, OP_DROP);
+	}
 	add_op(&script, OP_ENDIF);
 
 	return script;
@@ -647,14 +702,16 @@ u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
 				 const struct pubkey *localhtlckey,
 				 const struct pubkey *remotehtlckey,
 				 const struct sha256 *payment_hash,
-				 const struct pubkey *revocationkey)
+				 const struct pubkey *revocationkey,
+				 bool option_anchor_outputs)
 {
 	struct ripemd160 ripemd;
 
 	ripemd160(&ripemd, payment_hash->u.u8, sizeof(payment_hash->u));
 	return bitcoin_wscript_htlc_receive_ripemd(ctx, htlc_abstimeout,
 						   localhtlckey, remotehtlckey,
-						   &ripemd, revocationkey);
+						   &ripemd, revocationkey,
+						   option_anchor_outputs);
 }
 
 /* BOLT #3:

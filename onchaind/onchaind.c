@@ -1686,7 +1686,7 @@ static void handle_preimage(struct tracked_output **outs,
 					     htlc_amount,
 					     to_self_delay[LOCAL],
 					     0,
-					     keyset);
+					     keyset, false /* FIXME-anchor */);
 			set_htlc_success_fee(tx, outs[i]->remote_htlc_sig,
 					     outs[i]->wscript);
 			hsm_sign_local_htlc_tx(tx, outs[i]->wscript, &sig);
@@ -1875,7 +1875,7 @@ static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side)
 		if (htlcs[i].owner == side)
 			htlc_scripts[i] = htlc_offered_wscript(htlc_scripts,
 							       &htlcs[i].ripemd,
-							       keyset);
+							       keyset, false /* FIXME-anchor */);
 		else {
 			/* FIXME: remove abs_locktime */
 			struct abs_locktime ltime;
@@ -1887,7 +1887,7 @@ static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side)
 			htlc_scripts[i] = htlc_received_wscript(htlc_scripts,
 								&htlcs[i].ripemd,
 								&ltime,
-								keyset);
+								keyset, false /* FIXME-anchor */);
 		}
 	}
 	return htlc_scripts;
@@ -1929,7 +1929,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 				     &out->txid, out->outnum,
 				     htlc_scripts[matches[i]], htlc_amount,
 				     htlcs[matches[i]].cltv_expiry,
-				     to_self_delay[LOCAL], 0, keyset);
+				     to_self_delay[LOCAL], 0, keyset, false /* FIXME-anchor */);
 
 		if (set_htlc_timeout_fee(tx, out->remote_htlc_sig,
 					 htlc_scripts[matches[i]]))

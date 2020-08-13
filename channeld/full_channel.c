@@ -247,23 +247,23 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 
 		if (htlc_owner(htlc) == side) {
 			ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
-			wscript = htlc_offered_wscript(tmpctx, &ripemd, keyset);
+			wscript = htlc_offered_wscript(tmpctx, &ripemd, keyset, false /* FIXME-anchor */);
 			tx = htlc_timeout_tx(*txs, chainparams, &txid, i,
 					     wscript,
 					     htlc->amount,
 					     htlc->expiry.locktime,
 					     channel->config[!side].to_self_delay,
 					     feerate_per_kw,
-					     keyset);
+					     keyset, false /* FIXME-anchor */);
 		} else {
 			ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
-			wscript = htlc_received_wscript(tmpctx, &ripemd, &htlc->expiry, keyset);
+			wscript = htlc_received_wscript(tmpctx, &ripemd, &htlc->expiry, keyset, false /* FIXME-anchor */);
 			tx = htlc_success_tx(*txs, chainparams, &txid, i,
 					     wscript,
 					     htlc->amount,
 					     channel->config[!side].to_self_delay,
 					     feerate_per_kw,
-					     keyset);
+					     keyset, false /* FIXME-anchor */);
 		}
 
 		/* Append to array. */
