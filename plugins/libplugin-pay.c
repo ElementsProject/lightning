@@ -2206,8 +2206,21 @@ static struct command_result *routehint_getroute_result(struct command *cmd,
 	 * routehints. */
 	d->destination_reachable = (rtok != NULL);
 
-	if (d->destination_reachable)
+	if (d->destination_reachable) {
 		tal_arr_expand(&d->routehints, NULL);
+		/* The above could trigger a realloc.
+		 * However, p->invoice->routes and d->routehints are
+		 * actually the same array, so we need to update the
+		 * p->invoice->routes pointer, since the realloc
+		 * might have changed pointer addresses, in order to
+		 * ensure that the pointers are not stale.
+		 */
+		p->invoice->routes = d->routehints;
+
+		/* FIXME: ***DO*** we need to add this extra routehint?
+		 * Once we run out of routehints the default system will
+		 * just attempt directly routing to the destination anyway.  */
+	}
 
 	routehint_pre_getroute(d, p);
 
@@ -2260,6 +2273,27 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 		if (p->parent == NULL) {
 			d->routehints = filter_routehints(d, p->local_id,
 							  p->invoice->routes);
+			/* filter_routehints modifies the array, but
+			 * this could trigger a resize and the resize
+			 * could trigger a realloc.
+			 * Keep the invoice pointer up-to-date.
+			 * FIXME: We should really consider that if we are
+			 * mutating p->invoices->routes, maybe we should
+			 * drop d->routehints and just use p->invoice->routes
+			 * directly.
+			 * It is probably not a good idea to *copy* the
+			 * routehints: other paymods are interested in
+			 * p->invoice->routes, and if the routehints system
+			 * itself adds or removes routehints from its
+			 * copy, the *actual* number of routehints that we
+			 * end up using is the one that the routehints paymod
+			 * is maintaining and traversing, and it is *that*
+			 * set of routehints that is the important one.
+			 * So rather than copying the array of routehints
+			 * in paymod, paymod should use (and mutate) the
+			 * p->invoice->routes array, and
+			 */
+			p->invoice->routes = d->routehints;
 
 			paymod_log(p, LOG_DBG,
 				   "After filtering routehints we're left with "
