@@ -625,6 +625,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  channel->max_possible_feerate,
 				  channel->future_per_commitment_point,
 				  channel->option_static_remotekey,
+				  channel->option_anchor_outputs,
 				  is_replay);
 	subd_send_msg(channel->owner, take(msg));
 

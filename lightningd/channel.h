@@ -131,6 +131,9 @@ struct channel {
 	/* Was this negotiated with `option_static_remotekey? */
 	bool option_static_remotekey;
 
+	/* Was this negotiated with `option_anchor_outputs? */
+	bool option_anchor_outputs;
+
 	/* Any commands trying to forget us. */
 	struct command **forgets;
 };
@@ -183,7 +186,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u32 feerate_ppm,
 			    /* NULL or stolen */
 			    const u8 *remote_upfront_shutdown_script STEALS,
-			    bool option_static_remotekey);
+			    bool option_static_remotekey,
+			    bool option_anchor_outputs);
 
 void delete_channel(struct channel *channel STEALS);
 

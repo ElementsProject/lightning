@@ -80,7 +80,10 @@ static u8 **missing_htlc_msgs;
 static struct amount_msat our_msat;
 
 /* Does option_static_remotekey apply to this commitment tx? */
-bool option_static_remotekey;
+static bool option_static_remotekey;
+
+/* Does option_anchor_outputs apply to this commitment tx? */
+static bool option_anchor_outputs;
 
 /* If we broadcast a tx, or need a delay to resolve the output. */
 struct proposed_resolution {
@@ -3225,6 +3228,7 @@ int main(int argc, char *argv[])
 				   &max_possible_feerate,
 				   &possible_remote_per_commitment_point,
 				   &option_static_remotekey,
+				   &option_anchor_outputs,
 				   &open_is_replay)) {
 		master_badmsg(WIRE_ONCHAIN_INIT, msg);
 	}

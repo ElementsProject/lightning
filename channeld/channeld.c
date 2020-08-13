@@ -3108,7 +3108,7 @@ static void init_channel(struct peer *peer)
 	struct secret last_remote_per_commit_secret;
 	secp256k1_ecdsa_signature *remote_ann_node_sig;
 	secp256k1_ecdsa_signature *remote_ann_bitcoin_sig;
-	bool option_static_remotekey;
+	bool option_static_remotekey, option_anchor_outputs;
 	struct penalty_base *pbases;
 #if !DEVELOPER
 	bool dev_fail_process_onionpacket; /* Ignored */
@@ -3169,6 +3169,7 @@ static void init_channel(struct peer *peer)
 				   &remote_ann_node_sig,
 				   &remote_ann_bitcoin_sig,
 				   &option_static_remotekey,
+				   &option_anchor_outputs,
 				   &dev_fast_gossip,
 				   &dev_fail_process_onionpacket,
 				   &pbases)) {
