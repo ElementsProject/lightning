@@ -260,21 +260,34 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 */
 	if (amount_msat_greater_eq_sat(other_pay, dust_limit)) {
 		struct amount_sat amount = amount_msat_to_sat_round_down(other_pay);
-		u8 *p2wpkh =
-		    scriptpubkey_p2wpkh(tx, &keyset->other_payment_key);
-		/* BOLT #3:
+		u8 *scriptpubkey;
+		int pos;
+
+		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
 		 *
 		 * #### `to_remote` Output
 		 *
-		 * This output sends funds to the other peer and thus is a simple
-		 * P2WPKH to `remotepubkey`.
+		 * If `option_anchor_outputs` applies to the commitment
+		 * transaction, the `to_remote` output is encumbered by a one
+		 * block csv lock.
+		 *    <remote_pubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
+		 *
+		 *...
+		 * Otherwise, this output is a simple P2WPKH to `remotepubkey`.
 		 */
-		int pos = bitcoin_tx_add_output(tx, p2wpkh, NULL, amount);
+		if (option_anchor_outputs) {
+			scriptpubkey = scriptpubkey_p2wsh(tmpctx,
+							  anchor_to_remote_redeem(tmpctx, &keyset->other_payment_key));
+		} else {
+			scriptpubkey = scriptpubkey_p2wpkh(tmpctx,
+							   &keyset->other_payment_key);
+		}
+		pos = bitcoin_tx_add_output(tx, scriptpubkey, NULL, amount);
 		assert(pos == n);
 		(*htlcmap)[n] = direct_outputs ? dummy_to_remote : NULL;
 		/* We don't assign cltvs[n]: if we use it, order doesn't matter.
 		 * However, valgrind will warn us something wierd is happening */
-		SUPERVERBOSE("# to-remote amount %s P2WPKH(%s)\n",
+		SUPERVERBOSE("# to-remote amount %s key %s\n",
 			     type_to_string(tmpctx, struct amount_sat,
 					    &amount),
 			     type_to_string(tmpctx, struct pubkey,
