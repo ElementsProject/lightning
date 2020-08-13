@@ -170,7 +170,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct bitcoin_tx *last_tx,
 			    const struct bitcoin_signature *last_sig,
 			    /* NULL or stolen */
-			    secp256k1_ecdsa_signature *last_htlc_sigs,
+			    const struct bitcoin_signature *last_htlc_sigs,
 			    const struct channel_info *channel_info,
 			    /* NULL or stolen */
 			    u8 *remote_shutdown_scriptpubkey,

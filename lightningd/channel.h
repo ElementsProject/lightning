@@ -82,7 +82,7 @@ struct channel {
 	struct bitcoin_tx *last_tx;
 	enum wallet_tx_type last_tx_type;
 	struct bitcoin_signature last_sig;
-	secp256k1_ecdsa_signature *last_htlc_sigs;
+	const struct bitcoin_signature *last_htlc_sigs;
 
 	/* Keys for channel */
 	struct channel_info channel_info;
@@ -166,7 +166,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct bitcoin_tx *last_tx STEALS,
 			    const struct bitcoin_signature *last_sig,
 			    /* NULL or stolen */
-			    secp256k1_ecdsa_signature *last_htlc_sigs STEALS,
+			    const struct bitcoin_signature *last_htlc_sigs STEALS,
 			    const struct channel_info *channel_info,
 			    /* NULL or stolen */
 			    u8 *remote_shutdown_scriptpubkey STEALS,

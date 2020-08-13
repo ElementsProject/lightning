@@ -1700,7 +1700,7 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 	struct changed_htlc *changed_htlcs;
 	size_t i, maxid = 0, num_local_added = 0;
 	struct bitcoin_signature commit_sig;
-	secp256k1_ecdsa_signature *htlc_sigs;
+	struct bitcoin_signature *htlc_sigs;
 	struct lightningd *ld = channel->peer->ld;
 	struct penalty_base *pbase;
 
@@ -1890,8 +1890,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 {
 	u64 commitnum;
 	struct fee_states *fee_states;
-	struct bitcoin_signature commit_sig;
-	secp256k1_ecdsa_signature *htlc_sigs;
+	struct bitcoin_signature commit_sig, *htlc_sigs;
 	struct added_htlc *added;
 	struct fulfilled_htlc *fulfilled;
 	struct failed_htlc **failed;

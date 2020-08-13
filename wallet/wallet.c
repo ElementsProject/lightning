@@ -1013,20 +1013,32 @@ done:
 	return peer;
 }
 
-static secp256k1_ecdsa_signature *
-wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid)
+static struct bitcoin_signature *
+wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid,
+		      bool option_anchor_outputs)
 {
 	struct db_stmt *stmt;
+	struct bitcoin_signature *htlc_sigs = tal_arr(ctx, struct bitcoin_signature, 0);
 
 	stmt = db_prepare_v2(
 	    w->db, SQL("SELECT signature FROM htlc_sigs WHERE channelid = ?"));
-	secp256k1_ecdsa_signature *htlc_sigs = tal_arr(ctx, secp256k1_ecdsa_signature, 0);
 	db_bind_u64(stmt, 0, channelid);
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {
-		secp256k1_ecdsa_signature sig;
-		db_column_signature(stmt, 0, &sig);
+		struct bitcoin_signature sig;
+		db_column_signature(stmt, 0, &sig.s);
+		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+		 * ## HTLC-Timeout and HTLC-Success Transactions
+		 *...
+		 * * if `option_anchor_outputs` applies to this commitment
+		 *   transaction, `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is
+		 *   used.
+		 */
+		if (option_anchor_outputs)
+			sig.sighash_type = SIGHASH_SINGLE|SIGHASH_ANYONECANPAY;
+		else
+			sig.sighash_type = SIGHASH_ALL;
 		tal_arr_expand(&htlc_sigs, sig);
 	}
 	tal_free(stmt);
@@ -1264,7 +1276,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_column_psbt_to_tx(tmpctx, stmt, 33),
 			   &last_sig,
 			   wallet_htlc_sigs_load(tmpctx, w,
-						 db_column_u64(stmt, 0)),
+						 db_column_u64(stmt, 0),
+						 db_column_int(stmt, 47)),
 			   &channel_info,
 			   remote_shutdown_scriptpubkey,
 			   local_shutdown_scriptpubkey,
@@ -3067,7 +3080,7 @@ wallet_payment_list(const tal_t *ctx,
 }
 
 void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
-			   secp256k1_ecdsa_signature *htlc_sigs)
+			   const struct bitcoin_signature *htlc_sigs)
 {
 	/* Clear any existing HTLC sigs for this channel */
 	struct db_stmt *stmt = db_prepare_v2(
@@ -3081,7 +3094,7 @@ void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
 				     SQL("INSERT INTO htlc_sigs (channelid, "
 					 "signature) VALUES (?, ?)"));
 		db_bind_u64(stmt, 0, channel_id);
-		db_bind_signature(stmt, 1, &htlc_sigs[i]);
+		db_bind_signature(stmt, 1, &htlc_sigs[i].s);
 		db_exec_prepared_v2(take(stmt));
 	}
 }

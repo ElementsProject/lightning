@@ -116,7 +116,7 @@ msgdata,channel_sending_commitsig,num_changed,u16,
 msgdata,channel_sending_commitsig,changed,changed_htlc,num_changed
 msgdata,channel_sending_commitsig,commit_sig,bitcoin_signature,
 msgdata,channel_sending_commitsig,num_htlc_sigs,u16,
-msgdata,channel_sending_commitsig,htlc_sigs,secp256k1_ecdsa_signature,num_htlc_sigs
+msgdata,channel_sending_commitsig,htlc_sigs,bitcoin_signature,num_htlc_sigs
 
 # Wait for reply, to make sure it's on disk before we send commit.
 msgtype,channel_sending_commitsig_reply,1120
@@ -127,7 +127,7 @@ msgdata,channel_got_commitsig,commitnum,u64,
 msgdata,channel_got_commitsig,fee_states,fee_states,
 msgdata,channel_got_commitsig,signature,bitcoin_signature,
 msgdata,channel_got_commitsig,num_htlcs,u16,
-msgdata,channel_got_commitsig,htlc_signature,secp256k1_ecdsa_signature,num_htlcs
+msgdata,channel_got_commitsig,htlc_signature,bitcoin_signature,num_htlcs
 # RCVD_ADD_COMMIT: we're now committed to their new offered HTLCs.
 msgdata,channel_got_commitsig,num_added,u16,
 msgdata,channel_got_commitsig,added,added_htlc,num_added
