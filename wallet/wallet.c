@@ -3049,7 +3049,7 @@ wallet_payment_list(const tal_t *ctx,
 						     " FROM payments"
 						     " ORDER BY id DESC"
 						     " LIMIT ?"
-						     ") ORDER BY id ASC;"));
+						     ")x ORDER BY id ASC;"));
 		db_bind_int(stmt, 0, limit_at);
 	}
 	db_query_prepared(stmt);
