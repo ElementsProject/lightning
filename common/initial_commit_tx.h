@@ -23,17 +23,21 @@ u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
 
 /* Helper to calculate the base fee if we have this many htlc outputs */
 static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
-						   size_t num_untrimmed_htlcs)
+						   size_t num_untrimmed_htlcs,
+						   bool option_anchor_outputs)
 {
 	u64 weight;
 
-	/* BOLT #3:
+	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
 	 *
 	 * The base fee for a commitment transaction:
 	 *  - MUST be calculated to match:
-	 *    1. Start with `weight` = 724.
+	 *    1. Start with `weight` = 724 (1124 if `option_anchor_outputs` applies).
 	 */
-	weight = 724;
+	if (option_anchor_outputs)
+		weight = 1124;
+	else
+		weight = 724;
 
 	/* BOLT #3:
 	 *
@@ -87,6 +91,7 @@ static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
  * @obscured_commitment_number: number to encode in commitment transaction
  * @direct_outputs: If non-NULL, fill with pointers to the direct (non-HTLC) outputs (or NULL if none).
  * @side: side to generate commitment transaction for.
+ * @option_anchor_outputs: does option_anchor_outputs apply to this channel?
  * @err_reason: When NULL is returned, this will point to a human readable reason.
  *
  * We need to be able to generate the remote side's tx to create signatures,
@@ -109,6 +114,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     u64 obscured_commitment_number,
 				     struct wally_tx_output *direct_outputs[NUM_SIDES],
 				     enum side side,
+				     bool option_anchor_outputs,
 				     char** err_reason);
 
 /* try_subtract_fee - take away this fee from the opener (and return true), or all if insufficient (and return false). */

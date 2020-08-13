@@ -9,6 +9,7 @@ bool htlc_is_trimmed(enum side htlc_owner,
 		     struct amount_msat htlc_amount,
 		     u32 feerate_per_kw,
 		     struct amount_sat dust_limit,
-		     enum side side);
+		     enum side side,
+		     bool option_anchor_outputs);
 
 #endif /* LIGHTNING_COMMON_HTLC_TRIM_H */

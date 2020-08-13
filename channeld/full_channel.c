@@ -390,7 +390,8 @@ static struct amount_sat fee_for_htlcs(const struct channel *channel,
 	untrimmed = num_untrimmed_htlcs(side, dust_limit, feerate,
 					committed, adding, removing);
 
-	return commit_tx_base_fee(feerate, untrimmed);
+	return commit_tx_base_fee(feerate, untrimmed,
+				  false /* FIXME-anchor */);
 }
 
 /*
@@ -438,7 +439,8 @@ static bool local_opener_has_fee_headroom(const struct channel *channel,
 
 	/* Now, how much would it cost us if feerate increases 100% and we added
 	 * another HTLC? */
-	fee = commit_tx_base_fee(2 * feerate, untrimmed + 1);
+	fee = commit_tx_base_fee(2 * feerate, untrimmed + 1,
+				 false /* FIXME-anchor */);
 	if (amount_msat_greater_eq_sat(remainder, fee))
 		return true;
 
@@ -1034,7 +1036,8 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 			- commit_tx_num_untrimmed(removing, feerate_per_kw, dust_limit,
 						  !channel->opener);
 
-	fee = commit_tx_base_fee(feerate_per_kw, untrimmed);
+	fee = commit_tx_base_fee(feerate_per_kw, untrimmed,
+				 false /* FIXME-anchor */);
 
 	/* BOLT #2:
 	 *

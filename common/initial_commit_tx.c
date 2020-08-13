@@ -74,6 +74,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     u64 obscured_commitment_number,
 				     struct wally_tx_output *direct_outputs[NUM_SIDES],
 				     enum side side,
+				     bool option_anchor_outputs,
 				     char** err_reason)
 {
 	struct amount_sat base_fee;
@@ -101,7 +102,8 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 * 2. Calculate the base [commitment transaction
 	 * fee](#fee-calculation).
 	 */
-	base_fee = commit_tx_base_fee(feerate_per_kw, untrimmed);
+	base_fee = commit_tx_base_fee(feerate_per_kw, untrimmed,
+				      option_anchor_outputs);
 
 	/* BOLT #3:
 	 *

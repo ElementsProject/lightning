@@ -218,10 +218,12 @@ void peer_start_closingd(struct channel *channel,
 	 */
 	final_commit_feerate = get_feerate(channel->channel_info.fee_states,
 					   channel->opener, LOCAL);
-	feelimit = commit_tx_base_fee(final_commit_feerate, 0);
+	feelimit = commit_tx_base_fee(final_commit_feerate, 0,
+				      false /* FIXME-anchor */);
 
 	/* Pick some value above slow feerate (or min possible if unknown) */
-	minfee = commit_tx_base_fee(feerate_min(ld, NULL), 0);
+	minfee = commit_tx_base_fee(feerate_min(ld, NULL), 0,
+				    false /* FIXME-anchor */);
 
 	/* If we can't determine feerate, start at half unilateral feerate. */
 	feerate = mutual_close_feerate(ld->topology);
@@ -230,7 +232,8 @@ void peer_start_closingd(struct channel *channel,
 		if (feerate < feerate_floor())
 			feerate = feerate_floor();
 	}
-	startfee = commit_tx_base_fee(feerate, 0);
+	startfee = commit_tx_base_fee(feerate, 0,
+				      false /* FIXME-anchor */);
 
 	if (amount_sat_greater(startfee, feelimit))
 		startfee = feelimit;

@@ -39,28 +39,40 @@ static inline size_t elements_add_overhead(size_t weight, size_t incount,
 	return weight;
 }
 
-static inline struct amount_sat htlc_timeout_fee(u32 feerate_per_kw)
+static inline struct amount_sat htlc_timeout_fee(u32 feerate_per_kw,
+						 bool option_anchor_outputs)
 {
-	/* BOLT #3:
+	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
 	 *
 	 * The fee for an HTLC-timeout transaction:
-	 *  - MUST BE calculated to match:
-	 *    1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding
-	 *       down).
+	 * - MUST BE calculated to match:
+	 *   1. Multiply `feerate_per_kw` by 663 (666 if `option_anchor_outputs`
+	 *      applies) and divide by 1000 (rounding down).
 	 */
-	return amount_tx_fee(elements_add_overhead(663, 1, 1), feerate_per_kw);
+	u32 base;
+	if (option_anchor_outputs)
+		base = 666;
+	else
+		base = 663;
+	return amount_tx_fee(elements_add_overhead(base, 1, 1), feerate_per_kw);
 }
 
-static inline struct amount_sat htlc_success_fee(u32 feerate_per_kw)
+static inline struct amount_sat htlc_success_fee(u32 feerate_per_kw,
+						 bool option_anchor_outputs)
 {
-	/* BOLT #3:
+	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
 	 *
 	 * The fee for an HTLC-success transaction:
-	 *   - MUST BE calculated to match:
-	 *     1. Multiply `feerate_per_kw` by 703 and divide by 1000 (rounding
-	 *     down).
+	 * - MUST BE calculated to match:
+	 *   1. Multiply `feerate_per_kw` by 703 (706 if `option_anchor_outputs`
+	 *      applies) and divide by 1000 (rounding down).
 	 */
-	return amount_tx_fee(elements_add_overhead(703, 1, 1), feerate_per_kw);
+	u32 base;
+	if (option_anchor_outputs)
+		base = 706;
+	else
+		base = 703;
+	return amount_tx_fee(elements_add_overhead(base, 1, 1), feerate_per_kw);
 }
 
 /* Create HTLC-success tx to spend a received HTLC commitment tx
