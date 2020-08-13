@@ -50,6 +50,12 @@ bool feature_offered(const u8 *features, size_t f);
 bool feature_negotiated(const struct feature_set *our_features,
 			const u8 *their_features, size_t f);
 
+/* Features can depend on other features: both must be set!
+ * Sets @depender, @missing_dependency if returns false.
+ */
+bool feature_check_depends(const u8 *their_features,
+			   size_t *depender, size_t *missing_dependency);
+
 /* Return a list of what (init) features we advertize. */
 const char **list_supported_features(const tal_t *ctx,
 				     const struct feature_set *fset);

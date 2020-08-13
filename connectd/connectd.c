@@ -424,6 +424,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	u8 *msg;
 	struct per_peer_state *pps;
 	int unsup;
+	size_t depender, missing;
 
 	if (node_set_get(&daemon->peers, id))
 		return peer_reconnected(conn, daemon, id, addr, cs,
@@ -447,6 +448,14 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	if (unsup != -1) {
 		msg = towire_errorfmt(NULL, NULL, "Unsupported feature %u",
 				      unsup);
+		msg = cryptomsg_encrypt_msg(tmpctx, cs, take(msg));
+		return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
+	}
+
+	if (!feature_check_depends(their_features, &depender, &missing)) {
+		msg = towire_errorfmt(NULL, NULL,
+				      "Feature %zu requires feature %zu",
+				      depender, missing);
 		msg = cryptomsg_encrypt_msg(tmpctx, cs, take(msg));
 		return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
 	}

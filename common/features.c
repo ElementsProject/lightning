@@ -77,6 +77,26 @@ static const struct feature_style feature_styles[] = {
 #endif
 };
 
+struct dependency {
+	size_t depender;
+	size_t must_also_have;
+};
+
+static const struct dependency feature_deps[] = {
+	/* BOLT #9:
+	 * Name                | Description  | Context  | Dependencies  |
+	 *...
+	 * `gossip_queries_ex` | ...          | ...      | `gossip_queries` |
+	 *...
+	 * `payment_secret`    | ...          | ...      | `var_onion_optin` |
+	 *...
+	 * `basic_mpp`         | ...          | ...      | `payment_secret` |
+	 */
+	{ OPT_GOSSIP_QUERIES_EX, OPT_GOSSIP_QUERIES },
+	{ OPT_PAYMENT_SECRET, OPT_VAR_ONION },
+	{ OPT_BASIC_MPP, OPT_PAYMENT_SECRET },
+};
+
 static enum feature_copy_style feature_copy_style(u32 f, enum feature_place p)
 {
 	for (size_t i = 0; i < ARRAY_SIZE(feature_styles); i++) {
@@ -222,6 +242,22 @@ bool feature_negotiated(const struct feature_set *our_features,
 {
 	return feature_offered(their_features, f)
 		&& feature_offered(our_features->bits[INIT_FEATURE], f);
+}
+
+bool feature_check_depends(const u8 *their_features,
+			   size_t *depender, size_t *missing_dependency)
+{
+	for (size_t i = 0; i < ARRAY_SIZE(feature_deps); i++) {
+		if (!feature_offered(their_features, feature_deps[i].depender))
+			continue;
+		if (feature_offered(their_features,
+				    feature_deps[i].must_also_have))
+			continue;
+		*depender = feature_deps[i].depender;
+		*missing_dependency = feature_deps[i].must_also_have;
+		return false;
+	}
+	return true;
 }
 
 /**
