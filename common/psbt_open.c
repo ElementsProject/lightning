@@ -377,6 +377,7 @@ bool psbt_has_required_fields(struct wally_psbt *psbt)
 			return false;
 
 		/* If is P2SH, redeemscript must be present */
+		assert(psbt->tx->inputs[i].index < input->utxo->num_outputs);
 		const u8 *outscript =
 			wally_tx_output_get_script(tmpctx,
 				&input->utxo->outputs[psbt->tx->inputs[i].index]);
