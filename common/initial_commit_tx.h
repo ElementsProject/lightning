@@ -21,12 +21,12 @@ struct keyset;
 u64 commit_number_obscurer(const struct pubkey *opener_payment_basepoint,
 			   const struct pubkey *accepter_payment_basepoint);
 
-/* Helper to calculate the base fee if we have this many htlc outputs */
-static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
-						   size_t num_untrimmed_htlcs,
-						   bool option_anchor_outputs)
+
+/* The base weight of a commitment tx */
+static inline size_t commit_tx_base_weight(size_t num_untrimmed_htlcs,
+					   bool option_anchor_outputs)
 {
-	u64 weight;
+	size_t weight;
 
 	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
 	 *
@@ -68,12 +68,17 @@ static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
 		weight += (32 + 1 + 1 + 1) * 4; /* Elements added fields */
 	}
 
-	/* BOLT #3:
-	 *
-	 *    3. Multiply `feerate_per_kw` by `weight`, divide by 1000 (rounding
-	 *    down).
-	 */
-	return amount_tx_fee(feerate_per_kw, weight);
+	return weight;
+}
+
+/* Helper to calculate the base fee if we have this many htlc outputs */
+static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
+						   size_t num_untrimmed_htlcs,
+						   bool option_anchor_outputs)
+{
+	return amount_tx_fee(feerate_per_kw,
+			     commit_tx_base_weight(num_untrimmed_htlcs,
+						   option_anchor_outputs));
 }
 
 /**

@@ -1015,28 +1015,7 @@ u32 approx_max_feerate(const struct channel *channel)
 	/* Assume none are trimmed; this gives lower bound on feerate. */
 	num = tal_count(committed) + tal_count(adding) - tal_count(removing);
 
-	/* BOLT #3:
-	 *
-	 * commitment_transaction: 125 + 43 * num-htlc-outputs bytes
-	 *	- version: 4 bytes
-	 *	- witness_header <---- part of the witness data
-	 *	- count_tx_in: 1 byte
-	 *	- tx_in: 41 bytes
-	 *		funding_input
-	 *	- count_tx_out: 1 byte
-	 *	- tx_out: 74 + 43 * num-htlc-outputs bytes
-	 *		output_paying_to_remote,
-	 *		output_paying_to_local,
-	 *		....htlc_output's...
-	 *	- lock_time: 4 bytes
-	 */
-	/* Those 74 bytes static output are effectively 2 outputs, one
-	 * `output_paying_to_local` and one `output_paying_to_remote`. So when
-	 * adding the elements overhead we need to add 2 + num htlcs
-	 * outputs. */
-
-	weight = 724 + 172 * num;
-	weight = elements_add_overhead(weight, 1, num + 2);
+	weight = commit_tx_base_weight(num, false /* FIXME-anchor */);
 
 	/* Available is their view */
 	avail = amount_msat_to_sat_round_down(channel->view[!channel->opener].owed[channel->opener]);
