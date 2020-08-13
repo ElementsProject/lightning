@@ -633,6 +633,9 @@ static struct migration dbmigrations[] = {
     {NULL, migrate_last_tx_to_psbt},
     {SQL("ALTER TABLE outputs ADD reserved_til INTEGER DEFAULT NULL;"), NULL},
     {NULL, fillin_missing_scriptpubkeys},
+    /* option_anchor_outputs is nailed at creation time. */
+    {SQL("ALTER TABLE channels ADD COLUMN option_anchor_outputs INTEGER"
+	 " DEFAULT 0;"), NULL },
 };
 
 /* Leak tracking. */
