@@ -126,6 +126,10 @@ u8 *bitcoin_wscript_htlc_tx(const tal_t *ctx,
 			    const struct pubkey *revocation_pubkey,
 			    const struct pubkey *local_delayedkey);
 
+/* Anchor outputs */
+u8 *bitcoin_wscript_anchor(const tal_t *ctx,
+			   const struct pubkey *funding_pubkey);
+
 /* Is this a pay to pubkey hash? (extract addr if not NULL) */
 bool is_p2pkh(const u8 *script, struct bitcoin_address *addr);
 

@@ -23,6 +23,7 @@
 #define OP_ENDIF	0x68
 #define OP_RETURN	0x6a
 #define OP_2DROP	0x6d
+#define OP_IFDUP	0x73
 #define OP_DEPTH	0x74
 #define OP_DROP		0x75
 #define OP_DUP		0x76
@@ -784,6 +785,30 @@ u8 *bitcoin_wscript_htlc_tx(const tal_t *ctx,
 	add_push_key(&script, local_delayedkey);
 	add_op(&script, OP_ENDIF);
 	add_op(&script, OP_CHECKSIG);
+
+	return script;
+}
+
+u8 *bitcoin_wscript_anchor(const tal_t *ctx,
+			   const struct pubkey *funding_pubkey)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+
+	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	 * #### `to_local_anchor` and `to_remote_anchor` Output (option_anchor_outputs)
+	 *...
+	 *  <local_funding_pubkey/remote_funding_pubkey> OP_CHECKSIG OP_IFDUP
+	 *  OP_NOTIF
+	 *      OP_16 OP_CHECKSEQUENCEVERIFY
+	 *  OP_ENDIF
+	 */
+	add_push_key(&script, funding_pubkey);
+	add_op(&script, OP_CHECKSIG);
+	add_op(&script, OP_IFDUP);
+	add_op(&script, OP_NOTIF);
+	add_number(&script, 16);
+	add_op(&script, OP_CHECKSEQUENCEVERIFY);
+	add_op(&script, OP_ENDIF);
 
 	return script;
 }
