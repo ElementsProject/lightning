@@ -73,7 +73,8 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx,
 				   struct amount_msat htlc_msatoshi,
 				   u16 to_self_delay,
 				   u32 feerate_per_kw,
-				   const struct keyset *keyset);
+				   const struct keyset *keyset,
+				   bool option_anchor_outputs);
 
 /* Fill in the witness for HTLC-success tx produced above. */
 void htlc_success_tx_add_witness(struct bitcoin_tx *htlc_success,
@@ -83,7 +84,8 @@ void htlc_success_tx_add_witness(struct bitcoin_tx *htlc_success,
 				 const struct bitcoin_signature *localsig,
 				 const struct bitcoin_signature *remotesig,
 				 const struct preimage *payment_preimage,
-				 const struct pubkey *revocationkey);
+				 const struct pubkey *revocationkey,
+				 bool option_anchor_outputs);
 
 /* Create HTLC-timeout tx to spend an offered HTLC commitment tx
  * output; doesn't fill in input witness. */
@@ -96,7 +98,8 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 				   u32 cltv_expiry,
 				   u16 to_self_delay,
 				   u32 feerate_per_kw,
-				   const struct keyset *keyset);
+				   const struct keyset *keyset,
+				   bool option_anchor_outputs);
 
 /* Fill in the witness for HTLC-timeout tx produced above. */
 void htlc_timeout_tx_add_witness(struct bitcoin_tx *htlc_timeout,
@@ -105,7 +108,8 @@ void htlc_timeout_tx_add_witness(struct bitcoin_tx *htlc_timeout,
 				 const struct sha256 *payment_hash,
 				 const struct pubkey *revocationkey,
 				 const struct bitcoin_signature *localsig,
-				 const struct bitcoin_signature *remotesig);
+				 const struct bitcoin_signature *remotesig,
+				 bool option_anchor_outputs);
 
 
 /* Generate the witness script for an HTLC the other side offered:
@@ -113,12 +117,14 @@ void htlc_timeout_tx_add_witness(struct bitcoin_tx *htlc_timeout,
 u8 *htlc_received_wscript(const tal_t *ctx,
 			  const struct ripemd160 *ripemd,
 			  const struct abs_locktime *expiry,
-			  const struct keyset *keyset);
+			  const struct keyset *keyset,
+			  bool option_anchor_outputs);
 
 /* Generate the witness script for an HTLC this side offered:
  * scriptpubkey_p2wsh(ctx, wscript) gives the scriptpubkey */
 u8 *htlc_offered_wscript(const tal_t *ctx,
 			 const struct ripemd160 *ripemd,
-			 const struct keyset *keyset);
+			 const struct keyset *keyset,
+			 bool option_anchor_outputs);
 
 #endif /* LIGHTNING_COMMON_HTLC_TX_H */

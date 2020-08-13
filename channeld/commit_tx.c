@@ -43,7 +43,7 @@ static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 	struct amount_sat amount = amount_msat_to_sat_round_down(htlc->amount);
 
 	ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
-	wscript = htlc_offered_wscript(tx, &ripemd, keyset);
+	wscript = htlc_offered_wscript(tx, &ripemd, keyset, false /* FIXME-anchor */);
 	p2wsh = scriptpubkey_p2wsh(tx, wscript);
 	bitcoin_tx_add_output(tx, p2wsh, wscript, amount);
 	SUPERVERBOSE("# HTLC %" PRIu64 " offered %s wscript %s\n", htlc->id,
@@ -61,7 +61,7 @@ static void add_received_htlc_out(struct bitcoin_tx *tx, size_t n,
 	struct amount_sat amount;
 
 	ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
-	wscript = htlc_received_wscript(tx, &ripemd, &htlc->expiry, keyset);
+	wscript = htlc_received_wscript(tx, &ripemd, &htlc->expiry, keyset, false /* FIXME-anchor */);
 	p2wsh = scriptpubkey_p2wsh(tx, wscript);
 	amount = amount_msat_to_sat_round_down(htlc->amount);
 

@@ -87,13 +87,15 @@ u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for htlc_offered_wscript */
 u8 *htlc_offered_wscript(const tal_t *ctx UNNEEDED,
 			 const struct ripemd160 *ripemd UNNEEDED,
-			 const struct keyset *keyset UNNEEDED)
+			 const struct keyset *keyset UNNEEDED,
+			 bool option_anchor_outputs UNNEEDED)
 { fprintf(stderr, "htlc_offered_wscript called!\n"); abort(); }
 /* Generated stub for htlc_received_wscript */
 u8 *htlc_received_wscript(const tal_t *ctx UNNEEDED,
 			  const struct ripemd160 *ripemd UNNEEDED,
 			  const struct abs_locktime *expiry UNNEEDED,
-			  const struct keyset *keyset UNNEEDED)
+			  const struct keyset *keyset UNNEEDED,
+			  bool option_anchor_outputs UNNEEDED)
 { fprintf(stderr, "htlc_received_wscript called!\n"); abort(); }
 /* Generated stub for htlc_success_tx */
 struct bitcoin_tx *htlc_success_tx(const tal_t *ctx UNNEEDED,
@@ -104,7 +106,8 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx UNNEEDED,
 				   struct amount_msat htlc_msatoshi UNNEEDED,
 				   u16 to_self_delay UNNEEDED,
 				   u32 feerate_per_kw UNNEEDED,
-				   const struct keyset *keyset UNNEEDED)
+				   const struct keyset *keyset UNNEEDED,
+				   bool option_anchor_outputs UNNEEDED)
 { fprintf(stderr, "htlc_success_tx called!\n"); abort(); }
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
@@ -344,9 +347,10 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 				   u32 cltv_expiry,
 				   u16 to_self_delay UNNEEDED,
 				   u32 feerate_per_kw UNNEEDED,
-				   const struct keyset *keyset UNNEEDED)
+				   const struct keyset *keyset UNNEEDED,
+				   bool option_anchor_outputs)
 {
-	struct bitcoin_tx *tx;
+ 	struct bitcoin_tx *tx;
 	struct amount_sat in_amount;
 
 	tx = bitcoin_tx_from_hex(ctx, "0200000001a02a38c6ec5541963704a2a035b3094b18d69cc25cc7419d75e02894618329720000000000000000000191ea3000000000002200208bfadb3554f41cc06f00de0ec2e2f91e36ee45b5006a1f606146784755356ba532f10800",
