@@ -44,7 +44,7 @@ Felix <<fixone@gmail.com>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-listfunds(7), lightning-fundchannel(7), lightning-withdraw(7)
+lightning-listfunds(7), lightning-fundchannel(7), lightning-withdraw(7), lightning-listtransactions(7)
 
 RESOURCES
 ---------
