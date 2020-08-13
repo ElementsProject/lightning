@@ -68,9 +68,12 @@ static const u8 *linearize_input(const tal_t *ctx,
 		abort();
 	psbt->inputs[0] = *in;
 	psbt->num_inputs++;
-	/* Blank out unknowns. These are unordered and serializing
-	 * them might have different outputs for identical data */
-	psbt->inputs[0].unknowns.num_items = 0;
+
+
+	/* Sort the inputs, so serializing them is ok */
+	wally_map_sort(&psbt->inputs[0].unknowns, 0);
+	wally_map_sort(&psbt->inputs[0].keypaths, 0);
+	wally_map_sort(&psbt->inputs[0].signatures, 0);
 
 	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
 
@@ -97,9 +100,9 @@ static const u8 *linearize_output(const tal_t *ctx,
 
 	psbt->outputs[0] = *out;
 	psbt->num_outputs++;
-	/* Blank out unknowns. These are unordered and serializing
-	 * them might have different outputs for identical data */
-	psbt->outputs[0].unknowns.num_items = 0;
+	/* Sort the outputs, so serializing them is ok */
+	wally_map_sort(&psbt->outputs[0].unknowns, 0);
+	wally_map_sort(&psbt->outputs[0].keypaths, 0);
 
 	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
 
