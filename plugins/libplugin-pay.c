@@ -39,6 +39,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->failroute_retry = false;
 	p->bolt11 = NULL;
 	p->routetxt = NULL;
+	p->max_htlcs = UINT32_MAX;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -2908,6 +2909,7 @@ static struct presplit_mod_data *presplit_mod_data_init(struct payment *p)
 
 static u32 payment_max_htlcs(const struct payment *p)
 {
+	const struct payment *root;
 	struct channel_hint *h;
 	u32 res = 0;
 	for (size_t i = 0; i < tal_count(p->channel_hints); i++) {
@@ -2915,8 +2917,48 @@ static u32 payment_max_htlcs(const struct payment *p)
 		if (h->local && h->enabled)
 			res += h->htlc_budget;
 	}
+	root = p;
+	while (root->parent)
+		root = root->parent;
+	if (res > root->max_htlcs)
+		res = root->max_htlcs;
 	return res;
 }
+
+/* Temporary comment out else GCC will complain that it is unused;
+ * will be used in a later commit.  */
+#if 0
+/** payment_lower_max_htlcs
+ *
+ * @brief indicates that we have a good reason to believe that
+ * we should limit our number of max HTLCs.
+ *
+ * @desc Causes future payment_max_htlcs to have a maximum value
+ * they return.
+ * Can be called by multiple paymods: the lowest one any paymod
+ * has given will be used.
+ * If this is called with a limit higher than the existing limit,
+ * it just successfully returns without doing anything.
+ *
+ * @param p - a payment on the payment tree we should limit.
+ * @param limit - the number of max HTLCs.
+ * @param why - the reason we think the given max HTLCs is
+ * reasonable.
+ */
+static void payment_lower_max_htlcs(struct payment *p, u32 limit,
+				    const char *why)
+{
+	struct payment *root = payment_root(p);
+	if (root->max_htlcs > limit) {
+		paymod_log(p, LOG_INFORM,
+			   "%s limit on max HTLCs: %"PRIu32", %s",
+			   root->max_htlcs == UINT32_MAX ?
+				"Initial" : "Lowering",
+			   limit, why);
+		root->max_htlcs = limit;
+	}
+}
+#endif
 
 static bool payment_supports_mpp(struct payment *p)
 {
