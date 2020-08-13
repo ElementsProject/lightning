@@ -19,6 +19,8 @@ struct ripemd160;
  * proofs per input and 35 bytes per output. In addition the explicit fee
  * output will add 9 bytes and the per output overhead as well.
  */
+/* FIXME: This seems to be a generalization of the logic in initial_commit_tx.h
+ * and should be in bitcoin/tx.h */
 static inline size_t elements_add_overhead(size_t weight, size_t incount,
 					   size_t outcount)
 {
