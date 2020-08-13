@@ -883,7 +883,8 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 		wscript = bitcoin_tx_output_get_witscript(tmpctx, txs[0],
 							  txs[i+1]->wtx->inputs[0].index);
 		msg = towire_hsm_sign_remote_htlc_tx(NULL, txs[i + 1], wscript,
-						     &peer->remote_per_commit);
+						     &peer->remote_per_commit,
+						     false /* FIXME-anchor */);
 
 		msg = hsm_req(tmpctx, take(msg));
 		if (!fromwire_hsm_sign_tx_reply(msg, &sig))
