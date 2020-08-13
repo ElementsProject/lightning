@@ -62,7 +62,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     const struct bitcoin_txid *funding_txid,
 				     unsigned int funding_txout,
 				     struct amount_sat funding,
-				     u8 *funding_wscript,
+				     const struct pubkey funding_key[NUM_SIDES],
 				     enum side opener,
 				     u16 to_self_delay,
 				     const struct keyset *keyset,
@@ -85,6 +85,9 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	u32 sequence;
 	void *dummy_local = (void *)LOCAL, *dummy_remote = (void *)REMOTE;
 	const void *output_order[NUM_SIDES];
+	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
+							&funding_key[LOCAL],
+							&funding_key[REMOTE]);
 
 	if (!amount_msat_add(&total_pay, self_pay, other_pay))
 		abort();

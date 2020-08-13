@@ -524,7 +524,9 @@ int main(int argc, const char *argv[])
 
 	raw_tx = commit_tx(tmpctx,
 			   &funding_txid, funding_output_index,
-			   funding_amount, funding_wscript,
+			   funding_amount,
+			   &local_funding_pubkey,
+			   &remote_funding_pubkey,
 			   LOCAL, remote_config->to_self_delay,
 			   &keyset,
 			   feerate_per_kw[LOCAL],
@@ -651,7 +653,10 @@ int main(int argc, const char *argv[])
 
 		raw_tx = commit_tx(
 		    tmpctx, &funding_txid, funding_output_index,
-		    funding_amount, funding_wscript, LOCAL, remote_config->to_self_delay,
+		    funding_amount,
+		    &local_funding_pubkey,
+		    &remote_funding_pubkey,
+		    LOCAL, remote_config->to_self_delay,
 		    &keyset, feerate_per_kw[LOCAL], local_config->dust_limit,
 		    to_local, to_remote, htlcs, &htlc_map, NULL,
 		    0x2bb038521914 ^ 42, LOCAL);

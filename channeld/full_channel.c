@@ -304,7 +304,10 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	txs = tal_arr(ctx, struct bitcoin_tx *, 1);
 	txs[0] = commit_tx(
 	    ctx, &channel->funding_txid, channel->funding_txout,
-	    channel->funding, cast_const(u8 *, *funding_wscript), channel->opener,
+	    channel->funding,
+	    &channel->funding_pubkey[side],
+	    &channel->funding_pubkey[!side],
+	    channel->opener,
 	    channel->config[!side].to_self_delay, &keyset,
 	    channel_feerate(channel, side),
 	    channel->config[side].dust_limit, channel->view[side].owed[side],
