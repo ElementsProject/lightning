@@ -180,6 +180,7 @@ wallet_commit_channel(struct lightningd *ld,
 	struct amount_sat local_funding;
 	s64 final_key_idx;
 	bool option_static_remotekey;
+	bool option_anchor_outputs;
 
 	/* Get a key to use for closing outputs from this tx */
 	final_key_idx = wallet_get_newindex(ld);
@@ -209,7 +210,7 @@ wallet_commit_channel(struct lightningd *ld,
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
-	/* BOLT #2:
+	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #2:
 	 * 1. type: 35 (`funding_signed`)
 	 * 2. data:
 	 *     * [`channel_id`:`channel_id`]
@@ -218,11 +219,11 @@ wallet_commit_channel(struct lightningd *ld,
 	 * #### Requirements
 	 *
 	 * Both peers:
-	 *   - if `option_static_remotekey` was negotiated:
-	 *     - `option_static_remotekey` applies to all commitment
+	 *   - if `option_static_remotekey` or `option_anchor_outputs` was negotiated:
+	 *     - `option_static_remotekey` or `option_anchor_outputs` applies to all commitment
 	 *       transactions
 	 *   - otherwise:
-	 *     - `option_static_remotekey` does not apply to any commitment
+	 *     - `option_static_remotekey` or `option_anchor_outputs` does not apply to any commitment
 	 *        transactions
 	 */
 	/* i.e. We set it now for the channel permanently. */
@@ -230,6 +231,10 @@ wallet_commit_channel(struct lightningd *ld,
 		= feature_negotiated(ld->our_features,
 				     uc->peer->their_features,
 				     OPT_STATIC_REMOTEKEY);
+	option_anchor_outputs
+		= feature_negotiated(ld->our_features,
+				     uc->peer->their_features,
+				     OPT_ANCHOR_OUTPUTS);
 
 	channel = new_channel(uc->peer, uc->dbid,
 			      NULL, /* No shachain yet */
@@ -275,7 +280,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      ld->config.fee_base,
 			      ld->config.fee_per_satoshi,
 			      remote_upfront_shutdown_script,
-			      option_static_remotekey);
+			      option_static_remotekey,
+			      option_anchor_outputs);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);

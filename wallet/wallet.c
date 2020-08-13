@@ -1281,7 +1281,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_column_int(stmt, 43),
 			   db_column_int(stmt, 44),
 			   db_column_arr(tmpctx, stmt, 45, u8),
-			   db_column_int(stmt, 46));
+			   db_column_int(stmt, 46),
+			   db_column_int(stmt, 47));
 
 	return chan;
 }
@@ -1673,8 +1674,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_null(stmt, 28);
 
 	db_bind_int(stmt, 29, chan->option_static_remotekey);
-	/* FIXME: option_anchor_outputs */
-	db_bind_int(stmt, 30, false);
+	db_bind_int(stmt, 30, chan->option_anchor_outputs);
 	db_bind_blob(stmt, 31, chan->shutdown_scriptpubkey[LOCAL],
 		     tal_count(chan->shutdown_scriptpubkey[LOCAL]));
 	db_bind_u64(stmt, 32, chan->dbid);
