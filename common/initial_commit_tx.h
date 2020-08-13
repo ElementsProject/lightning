@@ -132,4 +132,8 @@ u8 *to_self_wscript(const tal_t *ctx,
 
 /* To-other is simply: scriptpubkey_p2wpkh(tx, keyset->other_payment_key) */
 
+/* If we determine we need one, append this anchor output */
+void tx_add_anchor_output(struct bitcoin_tx *tx,
+			  const struct pubkey *funding_key);
+
 #endif /* LIGHTNING_COMMON_INITIAL_COMMIT_TX_H */

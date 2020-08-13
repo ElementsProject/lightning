@@ -14,6 +14,7 @@ struct keyset;
  * @htlcs: tal_arr of HTLCs
  * @feerate_per_kw: feerate to use
  * @dust_limit: dust limit below which to trim outputs.
+ * @option_anchor_outputs: does option_anchor_outputs apply to this channel?
  * @side: from which side's point of view
  *
  * We need @side because HTLC fees are different for offered and
@@ -22,6 +23,7 @@ struct keyset;
 size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
 			       u32 feerate_per_kw,
 			       struct amount_sat dust_limit,
+			       bool option_anchor_outputs,
 			       enum side side);
 
 /**
@@ -39,6 +41,7 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
  * @htlc_map: outputed map of outnum->HTLC (NULL for direct outputs).
  * @obscured_commitment_number: number to encode in commitment transaction
  * @direct_outputs: If non-NULL, fill with pointers to the direct (non-HTLC) outputs (or NULL if none).
+ * @option_anchor_outputs: does option_anchor_outputs apply to this channel?
  * @side: side to generate commitment transaction for.
  *
  * We need to be able to generate the remote side's tx to create signatures,
@@ -62,6 +65,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     const struct htlc ***htlcmap,
 			     struct wally_tx_output *direct_outputs[NUM_SIDES],
 			     u64 obscured_commitment_number,
+			     bool option_anchor_outputs,
 			     enum side side);
 
 #endif /* LIGHTNING_CHANNELD_COMMIT_TX_H */

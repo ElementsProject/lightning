@@ -528,6 +528,8 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 	u32 feerate = get_feerate(channel->channel_info.fee_states,
 				  channel->opener, side);
 	struct amount_sat dust_limit;
+	struct amount_sat fee;
+
 	if (side == LOCAL)
 		dust_limit = channel->our_config.dust_limit;
 	if (side == REMOTE)
@@ -572,8 +574,21 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 	 *       ("fee spike buffer"). A buffer of 2*feerate_per_kw is
 	 *       recommended to ensure predictability.
 	 */
-	return commit_tx_base_fee(2 * feerate, num_untrimmed_htlcs + 1,
-				  false /* FIXME-anchor */);
+	fee = commit_tx_base_fee(2 * feerate, num_untrimmed_htlcs + 1,
+				 false /* FIXME-anchor */);
+
+	if (false /* FIXME-anchor */) {
+		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
+		 * If `option_anchor_outputs` applies to the commitment
+		 * transaction, also subtract two times the fixed anchor size
+		 * of 330 sats from the funder (either `to_local` or
+		 * `to_remote`).
+		 */
+		if (!amount_sat_add(&fee, fee, AMOUNT_SAT(660)))
+			; /* fee is somehow astronomical already.... */
+	}
+
+	return fee;
 }
 
 static void subtract_offered_htlcs(const struct channel *channel,

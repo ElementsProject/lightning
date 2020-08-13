@@ -120,6 +120,15 @@ int main(int argc, char *argv[])
 
 	fee = commit_tx_base_fee(feerate_per_kw, 0,
 				 option_anchor_outputs);
+	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
+	 * If `option_anchor_outputs` applies to the commitment
+	 * transaction, also subtract two times the fixed anchor size
+	 * of 330 sats from the funder (either `to_local` or
+	 * `to_remote`).
+	 */
+	if (option_anchor_outputs && !amount_sat_add(&fee, fee, AMOUNT_SAT(660)))
+		errx(1, "Can't afford anchors");
+
 	if (!amount_msat_sub_sat(&local_msat, local_msat, fee))
 		errx(1, "Can't afford fee %s",
 		     type_to_string(NULL, struct amount_sat, &fee));

@@ -313,6 +313,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	    channel->config[side].dust_limit, channel->view[side].owed[side],
 	    channel->view[side].owed[!side], committed, htlcmap, direct_outputs,
 	    commitment_number ^ channel->commitment_number_obscurer,
+	    false /* FIXME-anchor */,
 	    side);
 
 	/* Set the remote/local pubkeys on the commitment tx psbt */
@@ -371,13 +372,17 @@ static bool get_room_above_reserve(const struct channel *channel,
 static size_t num_untrimmed_htlcs(enum side side,
 				  struct amount_sat dust_limit,
 				  u32 feerate,
+				  bool option_static_remotekey,
 				  const struct htlc **committed,
 				  const struct htlc **adding,
 				  const struct htlc **removing)
 {
-	return commit_tx_num_untrimmed(committed, feerate, dust_limit, side)
-		+ commit_tx_num_untrimmed(adding, feerate, dust_limit, side)
-		- commit_tx_num_untrimmed(removing, feerate, dust_limit, side);
+	return commit_tx_num_untrimmed(committed, feerate, dust_limit,
+				       option_static_remotekey, side)
+		+ commit_tx_num_untrimmed(adding, feerate, dust_limit,
+					  option_static_remotekey, side)
+		- commit_tx_num_untrimmed(removing, feerate, dust_limit,
+					  option_static_remotekey, side);
 }
 
 static struct amount_sat fee_for_htlcs(const struct channel *channel,
@@ -391,6 +396,7 @@ static struct amount_sat fee_for_htlcs(const struct channel *channel,
 	size_t untrimmed;
 
 	untrimmed = num_untrimmed_htlcs(side, dust_limit, feerate,
+					false /* FIXME-anchor */,
 					committed, adding, removing);
 
 	return commit_tx_base_fee(feerate, untrimmed,
@@ -438,6 +444,7 @@ static bool local_opener_has_fee_headroom(const struct channel *channel,
 	 * only *reduce* this number, so use current feerate here! */
 	untrimmed = num_untrimmed_htlcs(LOCAL, channel->config[LOCAL].dust_limit,
 					feerate,
+					false /* FIXME-anchor */,
 					committed, adding, removing);
 
 	/* Now, how much would it cost us if feerate increases 100% and we added
@@ -629,6 +636,17 @@ static enum channel_add_err add_htlc(struct channel *channel,
 					    &remainder))
 			return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
 
+		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
+		 * If `option_anchor_outputs` applies to the commitment
+		 * transaction, also subtract two times the fixed anchor size
+		 * of 330 sats from the funder (either `to_local` or
+		 * `to_remote`).
+		 */
+		if (false /* FIXME-anchor */
+		    && channel->opener == sender
+		    && !amount_msat_sub_sat(&remainder, remainder, AMOUNT_SAT(660)))
+			return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
+
 		if (channel->opener== sender) {
 			if (amount_msat_less_sat(remainder, fee)) {
 				status_debug("Cannot afford fee %s with %s above reserve",
@@ -657,6 +675,12 @@ static enum channel_add_err add_htlc(struct channel *channel,
 						    channel->opener,
 						    &remainder))
 				return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
+
+			if (false /* FIXME-anchor */
+			    && channel->opener != sender
+			    && !amount_msat_sub_sat(&remainder, remainder, AMOUNT_SAT(660)))
+				return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
+
 			/* Should be able to afford both their own commit tx
 			 * fee, and other's commit tx fee, which are subtly
 			 * different! */
@@ -1014,11 +1038,24 @@ u32 approx_max_feerate(const struct channel *channel)
 	weight = 724 + 172 * num;
 	weight = elements_add_overhead(weight, 1, num + 2);
 
-	/* We should never go below reserve. */
-	if (!amount_sat_sub(&avail,
-			    amount_msat_to_sat_round_down(channel->view[!channel->opener].owed[channel->opener]),
-			    channel->config[!channel->opener].channel_reserve))
+	/* Available is their view */
+	avail = amount_msat_to_sat_round_down(channel->view[!channel->opener].owed[channel->opener]);
+
+	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
+	 * If `option_anchor_outputs` applies to the commitment
+	 * transaction, also subtract two times the fixed anchor size
+	 * of 330 sats from the funder (either `to_local` or
+	 * `to_remote`).
+	 */
+	if (false /* FIXME-anchor */
+	    && !amount_sat_sub(&avail, avail, AMOUNT_SAT(660))) {
 		avail = AMOUNT_SAT(0);
+	} else {
+		/* We should never go below reserve. */
+		if (!amount_sat_sub(&avail, avail,
+				    channel->config[!channel->opener].channel_reserve))
+		avail = AMOUNT_SAT(0);
+	}
 
 	return avail.satoshis / weight * 1000; /* Raw: once-off reverse feerate*/
 }
@@ -1033,14 +1070,30 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 		     &committed, &removing, &adding);
 
 	untrimmed = commit_tx_num_untrimmed(committed, feerate_per_kw, dust_limit,
+					    false /* FIXME-anchor */,
 					    !channel->opener)
 			+ commit_tx_num_untrimmed(adding, feerate_per_kw, dust_limit,
+						  false /* FIXME-anchor */,
 						  !channel->opener)
 			- commit_tx_num_untrimmed(removing, feerate_per_kw, dust_limit,
+						  false /* FIXME-anchor */,
 						  !channel->opener);
 
 	fee = commit_tx_base_fee(feerate_per_kw, untrimmed,
 				 false /* FIXME-anchor */);
+
+	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
+	 * If `option_anchor_outputs` applies to the commitment
+	 * transaction, also subtract two times the fixed anchor size
+	 * of 330 sats from the funder (either `to_local` or
+	 * `to_remote`).
+	 */
+	if (false /* FIXME-anchor */
+	    && !amount_sat_add(&fee, fee, AMOUNT_SAT(660)))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Cannot add 660 sats to %s for anchor",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &fee));
 
 	/* BOLT #2:
 	 *
