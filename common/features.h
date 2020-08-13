@@ -107,6 +107,12 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
 #define OPT_BASIC_MPP				16
 #define OPT_LARGE_CHANNELS			18
 
+/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #9:
+ *
+ * | 20/21 | `option_anchor_outputs` |... IN ...
+ */
+#define OPT_ANCHOR_OUTPUTS			20
+
 /* BOLT-9fc25cfd2895578c0b1ab701ebe6c1eb67a19623 #9:
  *
  * | 102/103 | `option_onion_messages` |... INC+ ...
