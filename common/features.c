@@ -69,6 +69,10 @@ static const struct feature_style feature_styles[] = {
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
 #if EXPERIMENTAL_FEATURES
+	{ OPT_ANCHOR_OUTPUTS,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
 	{ OPT_ONION_MESSAGES,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
@@ -95,6 +99,14 @@ static const struct dependency feature_deps[] = {
 	{ OPT_GOSSIP_QUERIES_EX, OPT_GOSSIP_QUERIES },
 	{ OPT_PAYMENT_SECRET, OPT_VAR_ONION },
 	{ OPT_BASIC_MPP, OPT_PAYMENT_SECRET },
+	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #9:
+	 * Name                | Description  | Context  | Dependencies  |
+	 *...
+	 * `option_anchor_outputs` | ...      | ...      | `option_static_remotekey`
+	 */
+#if EXPERIMENTAL_FEATURES
+	{ OPT_ANCHOR_OUTPUTS, OPT_STATIC_REMOTEKEY },
+#endif
 };
 
 static enum feature_copy_style feature_copy_style(u32 f, enum feature_place p)
@@ -315,6 +327,8 @@ static const char *feature_name(const tal_t *ctx, size_t f)
 		"option_static_remotekey",
 		"option_payment_secret",
 		"option_basic_mpp",
+		"option_support_large_channel",
+		"option_anchor_outputs",
 	};
 
 	if (f / 2 >= ARRAY_SIZE(fnames))
