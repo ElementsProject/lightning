@@ -1217,8 +1217,7 @@ def test_bcli(node_factory, bitcoind, chainparams):
             and txo["script"].startswith("0020"))
     l1.rpc.close(l2.info["id"])
     # When output is spent, it should give us null !
-    txo = l1.rpc.call("getutxout", {"txid": txid, "vout": 0})
-    assert txo["amount"] is txo["script"] is None
+    wait_for(lambda: l1.rpc.call("getutxout", {"txid": txid, "vout": 0})['amount'] is None)
 
     resp = l1.rpc.call("sendrawtransaction", {"tx": "dummy"})
     assert not resp["success"] and "decode failed" in resp["errmsg"]
