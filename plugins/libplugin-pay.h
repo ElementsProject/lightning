@@ -270,6 +270,16 @@ struct payment {
 
 	/* A short description of the route of this payment.  */
 	char *routetxt;
+
+	/* The maximum number of parallel outgoing HTLCs we will allow.
+	 * If unset, the maximum is based on the number of outgoing HTLCs.
+	 * This only applies for the root payment, and is ignored on non-root
+	 * payments.
+	 * Clients of the paymod system MUST NOT modify it, and individual
+	 * paymods MUST interact with it only via the payment_max_htlcs
+	 * and payment_lower_max_htlcs functions.
+	 */
+	u32 max_htlcs;
 };
 
 struct payment_modifier {
