@@ -60,7 +60,7 @@ Felix <<fixone@gmail.com>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-newaddr(7), lightning-fundchannel(7), lightning-withdraw(7)
+lightning-newaddr(7), lightning-fundchannel(7), lightning-withdraw(7), lightning-listtransactions(7)
 
 RESOURCES
 ---------

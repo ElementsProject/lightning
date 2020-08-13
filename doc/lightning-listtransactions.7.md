@@ -24,28 +24,25 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, the command will return a list of transactions, each object rappresent the transaction with all details.
+On success, the command will return a list of transactions, each object represents a transaction, with the following details:
 
-- *hash*: A string that rappresent  the hash of transaction, with the caller can use to find it on blockchain.
-- *rawtx*: A string that rappresent the hexdecimal of transaction.
-- *blockheight*: An integer that rappresent the block height that contains the transaction on blockchain.
+- *hash*: A string that rappresents the hash of transaction, which the caller can use to find it on the blockchain.
+- *rawtx*: A string that rappresents the hexadecimal dump of the transaction.
+- *blockheight*: An integer that rappresents the block height that contains the transaction on the blockchain.
 - *txindex*: An integer that rappresent the transaction index inside the block.
 - *locktime*: An integer that rappresent the locktime.
 - *version*: An integer that rappresent the version.
-- *inputs*: A list of transactions, each transaction is rappresented with an object with the following proprieties:
-  - *txid*: A string that rappresent the hash of transaction.
+- *inputs*: A list of spent transaction outputs, each spent transaction output is rappresented with an object with the following properties:
+  - *txid*: A string that rappresent the hash of transaction. This is the output index of the transaction output being spent.
   - *index*: An integer that rappresent the index of transaction.
-  - *sequence*: A integera that rappresent the sequence.
+  - *sequence*: An integer that rappresent the sequence number.
 - *outputs*: A list of transactions, each transaction is rappresented with an object with the following proprieties:
-  - *index*: An integer that rappresent the index of transaction.
+  - *index*: An integer that rappresent the index of transaction. This is the output index of the transaction output.
   - *satoshis*: A string that rappresent the amount in millisatoshi that contains the transaction.
-  - *scriptPubKey*: A string that contains the lock script.
+  - *scriptPubKey*: A string that contains the lock script in hexadecimal dump form..
   
-On failure, an error is returned and any result was returned.
-
-The following error codes may occur:
-
-- -32602: parameter is malformed;
+On failure, one of the following error codes may be returned:
+ -32602. Error in given parameters.
 
 EXAMPLE JSON RESPONSE
 -----
@@ -87,12 +84,12 @@ EXAMPLE JSON RESPONSE
 AUTHOR
 ------
 
-Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page, but many others did the hard work of actually implementing of this rpc command.
+Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command.
 
 SEE ALSO
 --------
 
-FIXME: add somethings.
+lightning-newaddr(7), lightning-listfunds(7)
 
 RESOURCES
 ---------

@@ -55,6 +55,7 @@ c-lightning Documentation
    lightning-listforwards <lightning-listforwards.7.md>
    lightning-listfunds <lightning-listfunds.7.md>
    lightning-listinvoices <lightning-listinvoices.7.md>
+   lightning-listnodes <lightning-listnodes.7.md>
    lightning-listpays <lightning-listpays.7.md>
    lightning-listpeers <lightning-listpeers.7.md>
    lightning-listsendpays <lightning-listsendpays.7.md>
@@ -65,6 +66,7 @@ c-lightning Documentation
    lightning-reserveinputs <lightning-reserveinputs.7.md>
    lightning-sendonion <lightning-sendonion.7.md>
    lightning-sendpay <lightning-sendpay.7.md>
+   lightning-sendpsbt <lightning-sendpsbt.7.md>
    lightning-setchannelfee <lightning-setchannelfee.7.md>
    lightning-signmessage <lightning-signmessage.7.md>
    lightning-txdiscard <lightning-txdiscard.7.md>
