@@ -119,6 +119,7 @@ msgdata,hsm_sign_remote_htlc_to_us,remote_per_commitment_point,pubkey,
 msgdata,hsm_sign_remote_htlc_to_us,tx,bitcoin_tx,
 msgdata,hsm_sign_remote_htlc_to_us,wscript_len,u16,
 msgdata,hsm_sign_remote_htlc_to_us,wscript,u8,wscript_len
+msgdata,hsm_sign_remote_htlc_to_us,option_anchor_outputs,bool,
 
 msgtype,hsm_sign_penalty_to_us,14
 msgdata,hsm_sign_penalty_to_us,revocation_secret,secret,
@@ -132,6 +133,7 @@ msgdata,hsm_sign_local_htlc_tx,commit_num,u64,
 msgdata,hsm_sign_local_htlc_tx,tx,bitcoin_tx,
 msgdata,hsm_sign_local_htlc_tx,wscript_len,u16,
 msgdata,hsm_sign_local_htlc_tx,wscript,u8,wscript_len
+msgdata,hsm_sign_local_htlc_tx,option_anchor_outputs,bool,
 
 # Openingd/channeld asks HSM to sign the other sides' commitment tx.
 msgtype,hsm_sign_remote_commitment_tx,19
@@ -146,6 +148,7 @@ msgdata,hsm_sign_remote_htlc_tx,tx,bitcoin_tx,
 msgdata,hsm_sign_remote_htlc_tx,len,u16,
 msgdata,hsm_sign_remote_htlc_tx,wscript,u8,len
 msgdata,hsm_sign_remote_htlc_tx,remote_per_commit_point,pubkey,
+msgdata,hsm_sign_remote_htlc_tx,option_anchor_outputs,bool,
 
 # closingd asks HSM to sign mutual close tx.
 msgtype,hsm_sign_mutual_close_tx,21

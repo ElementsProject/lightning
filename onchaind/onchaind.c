@@ -574,7 +574,8 @@ static u8 *remote_htlc_to_us(const tal_t *ctx,
 {
 	return towire_hsm_sign_remote_htlc_to_us(ctx,
 						 remote_per_commitment_point,
-						 tx, wscript);
+						 tx, wscript,
+						 false /* FIXME-anchor */);
 }
 
 static u8 *penalty_to_us(const tal_t *ctx,
@@ -678,7 +679,8 @@ static void hsm_sign_local_htlc_tx(struct bitcoin_tx *tx,
 				   struct bitcoin_signature *sig)
 {
 	u8 *msg = towire_hsm_sign_local_htlc_tx(NULL, commit_num,
-						tx, wscript);
+						tx, wscript,
+						false /* FIXME-anchor */);
 
 	if (!wire_sync_write(HSM_FD, take(msg)))
 		status_failed(STATUS_FAIL_HSM_IO,
