@@ -3516,3 +3516,60 @@ def test_large_mpp_presplit(node_factory):
     inv = l3.rpc.listinvoices()['invoices'][0]
 
     assert(inv['msatoshi'] == inv['msatoshi_received'])
+
+
+@unittest.skipIf(not DEVELOPER, "builds large network, which is slow if not DEVELOPER")
+@pytest.mark.slow_test
+@pytest.mark.xfail(strict=True)
+def test_mpp_overload_payee(node_factory, bitcoind):
+    """
+    We have a bug where if the payer is unusually well-connected compared
+    to the payee, the payee is unable to accept a large payment since the
+    payer will split it into lots of tiny payments, which would choke the
+    max-concurrent-htlcs limit of the payee.
+    """
+    # Default value as of this writing.
+    # However, with anchor commitments we might be able to safely lift this
+    # default limit in the future, so explicitly put this value here, since
+    # that is what our test assumes.
+    opts = {'max-concurrent-htlcs': 30}
+    l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts)
+
+    # Respect wumbo.
+    # Using max-sized channels shows that the issue is not capacity
+    # but rather max-concurrent-htlcs.
+    # This is grade-school level.
+    amt = 2**24 - 1
+
+    # Build the public network.
+    # l1 is the very well-connected payer.
+    # l2 is the poorly-connected payee.
+    # l3->l6 are well-connected hop nodes.
+    public_network = [l1.fundbalancedchannel(l3, amt),
+                      l1.fundbalancedchannel(l4, amt),
+                      l1.fundbalancedchannel(l5, amt),
+                      l1.fundbalancedchannel(l6, amt),
+                      l2.fundbalancedchannel(l6, amt),
+                      l3.fundbalancedchannel(l4, amt),
+                      l3.fundbalancedchannel(l5, amt),
+                      l3.fundbalancedchannel(l6, amt),
+                      l4.fundbalancedchannel(l5, amt),
+                      l5.fundbalancedchannel(l6, amt)]
+
+    # Ensure l1 knows the entire public network.
+    bitcoind.generate_block(5)
+    sync_blockheight(bitcoind, [l1, l2, l3, l4, l5, l6])
+    for c in public_network:
+        wait_for(lambda: len(l1.rpc.listchannels(c)['channels']) >= 2)
+
+    # Now create a 400,000-sat invoice.
+    # This assumes the MPP presplitter strongly prefers to
+    # create lot sizes of 10,000 sats each.
+    # This leads the presplitter to prefer to split into
+    # around 40 HTLCs of 10,000 sats each, but since
+    # max-concurrent-htlcs is set to 30, l2 would be unable
+    # to receive.
+    inv = l2.rpc.invoice(Millisatoshi(400000 * 1000), 'i', 'i')['bolt11']
+
+    # pay.
+    l1.rpc.pay(inv)
