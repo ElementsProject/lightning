@@ -4,20 +4,23 @@
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/asort/asort.h>
+#include <ccan/ccan/endian/endian.h>
 #include <ccan/ccan/mem/mem.h>
 #include <common/utils.h>
 
 bool psbt_get_serial_id(const struct wally_map *map, u16 *serial_id)
 {
 	size_t value_len;
+	beint16_t bev;
 	void *result = psbt_get_lightning(map, PSBT_TYPE_SERIAL_ID, &value_len);
 	if (!result)
 		return false;
 
-	if (value_len != sizeof(*serial_id))
+	if (value_len != sizeof(bev))
 		return false;
 
-	memcpy(serial_id, result, value_len);
+	memcpy(&bev, result, value_len);
+	*serial_id = be16_to_cpu(bev);
 	return true;
 }
 
@@ -297,7 +300,9 @@ void psbt_input_add_serial_id(struct wally_psbt_input *input,
 			      u16 serial_id)
 {
 	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_SERIAL_ID, NULL);
-	psbt_input_add_unknown(input, key, &serial_id, sizeof(serial_id));
+	beint16_t bev = cpu_to_be16(serial_id);
+
+	psbt_input_add_unknown(input, key, &bev, sizeof(bev));
 }
 
 
@@ -305,7 +310,8 @@ void psbt_output_add_serial_id(struct wally_psbt_output *output,
 			       u16 serial_id)
 {
 	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_SERIAL_ID, NULL);
-	psbt_output_add_unknown(output, key, &serial_id, sizeof(serial_id));
+	beint16_t bev = cpu_to_be16(serial_id);
+	psbt_output_add_unknown(output, key, &bev, sizeof(bev));
 }
 
 bool psbt_has_serial_input(struct wally_psbt *psbt, u16 serial_id)
@@ -345,16 +351,18 @@ bool psbt_input_get_max_witness_len(struct wally_psbt_input *input,
 				    u16 *max_witness_len)
 {
 	size_t value_len;
+	beint16_t bev;
 	void *result = psbt_get_lightning(&input->unknowns,
 					  PSBT_TYPE_MAX_WITNESS_LEN,
 					  &value_len);
 	if (!result)
 		return false;
 
-	if (value_len != sizeof(*max_witness_len))
+	if (value_len != sizeof(bev))
 		return false;
 
-	memcpy(max_witness_len, result, value_len);
+	memcpy(&bev, result, value_len);
+	*max_witness_len = be16_to_cpu(bev);
 	return true;
 }
 
