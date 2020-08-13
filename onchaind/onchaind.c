@@ -451,19 +451,25 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 {
 	static struct amount_sat amount, fee = AMOUNT_SAT_INIT(UINT64_MAX);
 	struct amount_asset asset = bitcoin_tx_output_get_amount(tx, 0);
-	size_t weight = elements_add_overhead(663, tx->wtx->num_inputs,
-					      tx->wtx->num_outputs);
+	size_t weight;
+
+	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	 *
+	 * The fee for an HTLC-timeout transaction:
+	 *  - MUST BE calculated to match:
+	 *    1. Multiply `feerate_per_kw` by 663 (666 if `option_anchor_outputs`
+	 *       applies) and divide by 1000 (rounding down).
+	 */
+	if (option_anchor_outputs)
+		weight = 666;
+	else
+		weight = 663;
+	weight = elements_add_overhead(weight, tx->wtx->num_inputs,
+				       tx->wtx->num_outputs);
 
 	assert(amount_asset_is_main(&asset));
 	amount = amount_asset_to_sat(&asset);
 
-	/* BOLT #3:
-	 *
-	 * The fee for an HTLC-timeout transaction:
-	 *  - MUST BE calculated to match:
-	 *    1. Multiply `feerate_per_kw` by 663 and divide by 1000 (rounding
-	 *    down).
-	 */
 	if (amount_sat_eq(fee, AMOUNT_SAT(UINT64_MAX))) {
 		struct amount_sat grindfee;
 		if (grind_htlc_tx_fee(&grindfee, tx, remotesig, wscript, weight)) {
@@ -492,15 +498,22 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 {
 	static struct amount_sat amt, fee = AMOUNT_SAT_INIT(UINT64_MAX);
 	struct amount_asset asset;
-	size_t weight = elements_add_overhead(703, tx->wtx->num_inputs,
-					      tx->wtx->num_outputs);
-	/* BOLT #3:
+	size_t weight;
+
+	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
 	 *
 	 * The fee for an HTLC-success transaction:
-	 *  - MUST BE calculated to match:
-	 *    1. Multiply `feerate_per_kw` by 703 and divide by 1000
-	 *    (rounding down).
+	 * - MUST BE calculated to match:
+	 *   1. Multiply `feerate_per_kw` by 703 (706 if `option_anchor_outputs`
+	 *      applies) and divide by 1000 (rounding down).
 	 */
+	if (option_anchor_outputs)
+		weight = 706;
+	else
+		weight = 703;
+
+	weight = elements_add_overhead(weight, tx->wtx->num_inputs,
+				       tx->wtx->num_outputs);
 	if (amount_sat_eq(fee, AMOUNT_SAT(UINT64_MAX))) {
 		if (!grind_htlc_tx_fee(&fee, tx, remotesig, wscript, weight))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,

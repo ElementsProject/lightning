@@ -6,7 +6,8 @@ bool htlc_is_trimmed(enum side htlc_owner,
 		     struct amount_msat htlc_amount,
 		     u32 feerate_per_kw,
 		     struct amount_sat dust_limit,
-		     enum side side)
+		     enum side side,
+		     bool option_anchor_outputs)
 {
 	struct amount_sat htlc_fee, htlc_min;
 
@@ -21,7 +22,8 @@ bool htlc_is_trimmed(enum side htlc_owner,
 	 *      [Offered HTLC Outputs](#offered-htlc-outputs).
 	 */
 	if (htlc_owner == side)
-		htlc_fee = htlc_timeout_fee(feerate_per_kw);
+		htlc_fee = htlc_timeout_fee(feerate_per_kw,
+					    option_anchor_outputs);
 	/* BOLT #3:
 	 *
 	 *  - for every received HTLC:
@@ -32,7 +34,8 @@ bool htlc_is_trimmed(enum side htlc_owner,
 	 *      - MUST be generated as specified in
 	 */
 	else
-		htlc_fee = htlc_success_fee(feerate_per_kw);
+		htlc_fee = htlc_success_fee(feerate_per_kw,
+					    option_anchor_outputs);
 
 	/* If these overflow, it implies htlc must be less. */
 	if (!amount_sat_add(&htlc_min, dust_limit, htlc_fee))

@@ -967,7 +967,8 @@ int main(int argc, const char *argv[])
 	 * its output cannot go negative! */
 	for (;;) {
 		struct amount_sat base_fee
-			= commit_tx_base_fee(feerate_per_kw, 0);
+			= commit_tx_base_fee(feerate_per_kw, 0,
+					     option_anchor_outputs);
 
 		if (amount_msat_greater_eq_sat(to_local, base_fee)) {
 			feerate_per_kw++;

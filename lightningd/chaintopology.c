@@ -16,6 +16,8 @@
 #include <ccan/tal/str/str.h>
 #include <common/coin_mvt.h>
 #include <common/configdir.h>
+#include <common/features.h>
+#include <common/htlc_tx.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
@@ -526,6 +528,11 @@ static struct command_result *json_feerates(struct command *cmd,
 	json_object_end(response);
 
 	if (!missing) {
+		/* It actually is negotiated per-channel... */
+		bool anchor_outputs
+			= feature_offered(cmd->ld->our_features->bits[INIT_FEATURE],
+					  OPT_ANCHOR_OUTPUTS);
+
 		json_object_start(response, "onchain_fee_estimates");
 		/* eg 020000000001016f51de645a47baa49a636b8ec974c28bdff0ac9151c0f4eda2dbe3b41dbe711d000000001716001401fad90abcd66697e2592164722de4a95ebee165ffffffff0240420f00000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cdb73f890000000000160014c2ccab171c2a5be9dab52ec41b825863024c54660248304502210088f65e054dbc2d8f679de3e40150069854863efa4a45103b2bb63d060322f94702200d3ae8923924a458cffb0b7360179790830027bb6b29715ba03e12fc22365de1012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf00000000 == weight 702 */
 		json_add_num(response, "opening_channel_satoshis",
@@ -536,20 +543,15 @@ static struct command_result *json_feerates(struct command *cmd,
 		/* eg. 02000000000101c4fecaae1ea940c15ec502de732c4c386d51f981317605bbe5ad2c59165690ab00000000009db0e280010a2d0f00000000002200208d290003cedb0dd00cd5004c2d565d55fc70227bf5711186f4fa9392f8f32b4a0400483045022100952fcf8c730c91cf66bcb742cd52f046c0db3694dc461e7599be330a22466d790220740738a6f9d9e1ae5c86452fa07b0d8dddc90f8bee4ded24a88fe4b7400089eb01483045022100db3002a93390fc15c193da57d6ce1020e82705e760a3aa935ebe864bd66dd8e8022062ee9c6aa7b88ff4580e2671900a339754116371d8f40eba15b798136a76cd150147522102324266de8403b3ab157a09f1f784d587af61831c998c151bcc21bb74c2b2314b2102e3bd38009866c9da8ec4aa99cc4ea9c6c0dd46df15c61ef0ce1f271291714e5752ae9a3ed620 == weight 598 */
 		json_add_u64(response, "unilateral_close_satoshis",
 			     unilateral_feerate(cmd->ld->topology) * 598 / 1000);
-		/* BOLT #3:
-		 *
-		 * The *expected weight* of an HTLC transaction is calculated as follows:
-		 * ...
-		 * results in weights of:
-		 *
-		 *	663 (HTLC-timeout)
-		 *	703 (HTLC-success)
-		 *
-		 */
+
+		/* This really depends on whether we *negotiated*
+		 * option_anchor_outputs for a particular channel! */
 		json_add_u64(response, "htlc_timeout_satoshis",
-			     htlc_resolution_feerate(cmd->ld->topology) * 663 / 1000);
+			     htlc_timeout_fee(htlc_resolution_feerate(cmd->ld->topology),
+					      anchor_outputs).satoshis /* Raw: estimate */);
 		json_add_u64(response, "htlc_success_satoshis",
-			     htlc_resolution_feerate(cmd->ld->topology) * 703 / 1000);
+			     htlc_success_fee(htlc_resolution_feerate(cmd->ld->topology),
+					      anchor_outputs).satoshis /* Raw: estimate */);
 		json_object_end(response);
 	}
 

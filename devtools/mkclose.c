@@ -70,6 +70,7 @@ int main(int argc, char *argv[])
 	const u8 *funding_wscript;
 	const struct chainparams *chainparams = chainparams_for_network("bitcoin");
 	const struct amount_sat dust_limit = AMOUNT_SAT(546);
+	bool option_anchor_outputs = false;
 
 	setup_locale();
 
@@ -117,7 +118,8 @@ int main(int argc, char *argv[])
 		errx(1, "Parsing remote-close-pubkey");
 	argnum++;
 
-	fee = commit_tx_base_fee(feerate_per_kw, 0);
+	fee = commit_tx_base_fee(feerate_per_kw, 0,
+				 option_anchor_outputs);
 	if (!amount_msat_sub_sat(&local_msat, local_msat, fee))
 		errx(1, "Can't afford fee %s",
 		     type_to_string(NULL, struct amount_sat, &fee));

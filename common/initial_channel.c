@@ -111,6 +111,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				    0 ^ channel->commitment_number_obscurer,
 				    direct_outputs,
 				    side,
+				    false /* FIXME-anchor */,
 				    err_reason);
 
 	if (init_tx) {

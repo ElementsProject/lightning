@@ -471,7 +471,8 @@ static void json_add_htlcs(struct lightningd *ld,
 		json_add_string(response, "state",
 				htlc_state_name(hin->hstate));
 		if (htlc_is_trimmed(REMOTE, hin->msat, local_feerate,
-				    channel->our_config.dust_limit, LOCAL))
+				    channel->our_config.dust_limit, LOCAL,
+				    false /* FIXME-anchor */))
 			json_add_bool(response, "local_trimmed", true);
 		json_object_end(response);
 	}
@@ -492,7 +493,8 @@ static void json_add_htlcs(struct lightningd *ld,
 		json_add_string(response, "state",
 				htlc_state_name(hout->hstate));
 		if (htlc_is_trimmed(LOCAL, hout->msat, local_feerate,
-				    channel->our_config.dust_limit, LOCAL))
+				    channel->our_config.dust_limit, LOCAL,
+				    false /* FIXME-anchor */))
 			json_add_bool(response, "local_trimmed", true);
 		json_object_end(response);
 	}
@@ -532,7 +534,8 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 		dust_limit = channel->channel_info.their_config.dust_limit;
 
 	/* Assume we tried to add "amount" */
-	if (!htlc_is_trimmed(side, amount, feerate, dust_limit, side))
+	if (!htlc_is_trimmed(side, amount, feerate, dust_limit, side,
+			     false /* FIXME-anchor */))
 		num_untrimmed_htlcs++;
 
 	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
@@ -541,7 +544,8 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 		if (hin->key.channel != channel)
 			continue;
 		if (!htlc_is_trimmed(!side, hin->msat, feerate, dust_limit,
-				     side))
+				     side,
+				     false /* FIXME-anchor */))
 			num_untrimmed_htlcs++;
 	}
 	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
@@ -550,7 +554,8 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 		if (hout->key.channel != channel)
 			continue;
 		if (!htlc_is_trimmed(side, hout->msat, feerate, dust_limit,
-				     side))
+				     side,
+				     false /* FIXME-anchor */))
 			num_untrimmed_htlcs++;
 	}
 
@@ -567,7 +572,8 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 	 *       ("fee spike buffer"). A buffer of 2*feerate_per_kw is
 	 *       recommended to ensure predictability.
 	 */
-	return commit_tx_base_fee(2 * feerate, num_untrimmed_htlcs + 1);
+	return commit_tx_base_fee(2 * feerate, num_untrimmed_htlcs + 1,
+				  false /* FIXME-anchor */);
 }
 
 static void subtract_offered_htlcs(const struct channel *channel,

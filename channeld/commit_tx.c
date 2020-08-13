@@ -18,7 +18,8 @@ static bool trim(const struct htlc *htlc,
 		 enum side side)
 {
 	return htlc_is_trimmed(htlc_owner(htlc), htlc->amount,
-			       feerate_per_kw, dust_limit, side);
+			       feerate_per_kw, dust_limit, side,
+			       false /* FIXME-anchor */);
 }
 
 size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
@@ -118,7 +119,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 * 2. Calculate the base [commitment transaction
 	 * fee](#fee-calculation).
 	 */
-	base_fee = commit_tx_base_fee(feerate_per_kw, untrimmed);
+	base_fee = commit_tx_base_fee(feerate_per_kw, untrimmed,
+				      false /* FIXME-anchor */);
 
 	SUPERVERBOSE("# base commitment transaction fee = %s\n",
 		     type_to_string(tmpctx, struct amount_sat, &base_fee));
