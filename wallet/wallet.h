@@ -1102,10 +1102,12 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
  * wallet_payment_list - Retrieve a list of payments
  *
  * payment_hash: optional filter for only this payment hash.
+ * limit_reverse: return only the latest x entries.
  */
 const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
 						  struct wallet *wallet,
-						  const struct sha256 *payment_hash);
+						  const struct sha256 *payment_hash,
+						  u32 *limit_reverse);
 
 /**
  * wallet_htlc_sigs_save - Store the latest HTLC sigs for the channel

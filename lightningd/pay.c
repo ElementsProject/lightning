@@ -786,7 +786,7 @@ send_payment_core(struct lightningd *ld,
 	bool have_complete = false;
 
 	/* Now, do we already have one or more payments? */
-	payments = wallet_payment_list(tmpctx, ld->wallet, rhash);
+	payments = wallet_payment_list(tmpctx, ld->wallet, rhash, NULL);
 	for (size_t i = 0; i < tal_count(payments); i++) {
 		log_debug(ld->log, "Payment %zu/%zu: %s %s",
 			  i, tal_count(payments),
@@ -1450,10 +1450,12 @@ static struct command_result *json_listsendpays(struct command *cmd,
 	struct json_stream *response;
 	struct sha256 *rhash;
 	const char *b11str;
+	u32 *limit_reverse;
 
 	if (!param(cmd, buffer, params,
 		   p_opt("bolt11", param_string, &b11str),
 		   p_opt("payment_hash", param_sha256, &rhash),
+		   p_opt("limit_reverse", param_number, &limit_reverse),
 		   NULL))
 		return command_param_failed();
 
@@ -1475,7 +1477,7 @@ static struct command_result *json_listsendpays(struct command *cmd,
 		rhash = &b11->payment_hash;
 	}
 
-	payments = wallet_payment_list(cmd, cmd->ld->wallet, rhash);
+	payments = wallet_payment_list(cmd, cmd->ld->wallet, rhash, limit_reverse);
 
 	response = json_stream_success(cmd);
 

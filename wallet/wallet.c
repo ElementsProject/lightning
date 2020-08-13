@@ -2992,7 +2992,8 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 const struct wallet_payment **
 wallet_payment_list(const tal_t *ctx,
 		    struct wallet *wallet,
-		    const struct sha256 *payment_hash)
+		    const struct sha256 *payment_hash,
+		    u32 *limit_reverse)
 {
 	const struct wallet_payment **payments;
 	struct db_stmt *stmt;
@@ -3023,7 +3024,12 @@ wallet_payment_list(const tal_t *ctx,
 						  " WHERE payment_hash = ?;"));
 		db_bind_sha256(stmt, 0, payment_hash);
 	} else {
-		stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+	    u32 limit_at = 999999;
+	    if (limit_reverse)
+	        limit_at = *limit_reverse;
+
+	    stmt = db_prepare_v2(wallet->db, SQL("SELECT * FROM ("
+						     "SELECT"
 						     "  id"
 						     ", status"
 						     ", destination"
@@ -3041,7 +3047,10 @@ wallet_payment_list(const tal_t *ctx,
 						     ", total_msat"
 						     ", partid"
 						     " FROM payments"
-						     " ORDER BY id;"));
+						     " ORDER BY id DESC"
+						     " LIMIT ?"
+						     ") ORDER BY id ASC;"));
+		db_bind_int(stmt, 0, limit_at);
 	}
 	db_query_prepared(stmt);
 
