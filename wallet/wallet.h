@@ -1111,7 +1111,7 @@ const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
  * wallet_htlc_sigs_save - Store the latest HTLC sigs for the channel
  */
 void wallet_htlc_sigs_save(struct wallet *w, u64 channel_id,
-			   secp256k1_ecdsa_signature *htlc_sigs);
+			   const struct bitcoin_signature *htlc_sigs);
 
 /**
  * wallet_network_check - Check that the wallet is setup for this chain

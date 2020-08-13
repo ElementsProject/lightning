@@ -732,7 +732,7 @@ new_tracked_output(struct tracked_output ***outs,
 		   enum output_type output_type,
 		   const struct htlc_stub *htlc,
 		   const u8 *wscript,
-		   const secp256k1_ecdsa_signature *remote_htlc_sig)
+		   const struct bitcoin_signature *remote_htlc_sig TAKES)
 {
 	struct tracked_output *out = tal(*outs, struct tracked_output);
 
@@ -754,13 +754,10 @@ new_tracked_output(struct tracked_output ***outs,
 	if (htlc)
 		out->htlc = *htlc;
 	out->wscript = tal_steal(out, wscript);
-	if (remote_htlc_sig) {
-		struct bitcoin_signature *sig;
-		sig = tal(out, struct bitcoin_signature);
-		sig->s = *remote_htlc_sig;
-		sig->sighash_type = SIGHASH_ALL;
-		out->remote_htlc_sig = sig;
-	} else
+	if (remote_htlc_sig)
+		out->remote_htlc_sig = tal_dup(out, struct bitcoin_signature,
+					       remote_htlc_sig);
+	else
 		out->remote_htlc_sig = NULL;
 
 	tal_arr_expand(outs, out);
@@ -2153,7 +2150,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 				  const struct htlc_stub *htlcs,
 				  const bool *tell_if_missing,
 				  const bool *tell_immediately,
-				  const secp256k1_ecdsa_signature *remote_htlc_sigs,
+				  const struct bitcoin_signature *remote_htlc_sigs,
 				  struct tracked_output **outs,
 				  bool is_replay)
 {
@@ -3195,7 +3192,7 @@ int main(int argc, char *argv[])
 	struct tx_parts *tx;
 	struct tracked_output **outs;
 	struct bitcoin_txid our_broadcast_txid, tmptxid;
-	secp256k1_ecdsa_signature *remote_htlc_sigs;
+	struct bitcoin_signature *remote_htlc_sigs;
 	struct amount_sat funding;
 	u64 num_htlcs;
 	u8 *scriptpubkey[NUM_SIDES];

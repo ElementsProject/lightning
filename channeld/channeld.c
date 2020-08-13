@@ -738,7 +738,7 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 				 const struct fee_states *fee_states,
 				 const struct htlc **changed_htlcs,
 				 const struct bitcoin_signature *commit_sig,
-				 const secp256k1_ecdsa_signature *htlc_sigs)
+				 const struct bitcoin_signature *htlc_sigs)
 {
 	struct changed_htlc *changed;
 	u8 *msg;
@@ -827,7 +827,7 @@ static u8 *master_wait_sync_reply(const tal_t *ctx,
 }
 
 /* Returns HTLC sigs, sets commit_sig */
-static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
+static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 						  const struct peer *peer,
 						  struct bitcoin_tx **txs,
 						  const u8 *funding_wscript,
@@ -838,7 +838,7 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 	size_t i;
 	struct pubkey local_htlckey;
 	const u8 *msg;
-	secp256k1_ecdsa_signature *htlc_sigs;
+	struct bitcoin_signature *htlc_sigs;
 
 	msg = towire_hsm_sign_remote_commitment_tx(NULL, txs[0],
 						   &peer->channel->funding_pubkey[REMOTE],
@@ -874,10 +874,9 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 	 *  - MUST include one `htlc_signature` for every HTLC transaction
 	 *    corresponding to the ordering of the commitment transaction
 	 */
-	htlc_sigs = tal_arr(ctx, secp256k1_ecdsa_signature, tal_count(txs) - 1);
+	htlc_sigs = tal_arr(ctx, struct bitcoin_signature, tal_count(txs) - 1);
 
 	for (i = 0; i < tal_count(htlc_sigs); i++) {
-		struct bitcoin_signature sig;
 		u8 *wscript;
 
 		wscript = bitcoin_tx_output_get_witscript(tmpctx, txs[0],
@@ -887,22 +886,21 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 						     false /* FIXME-anchor */);
 
 		msg = hsm_req(tmpctx, take(msg));
-		if (!fromwire_hsm_sign_tx_reply(msg, &sig))
+		if (!fromwire_hsm_sign_tx_reply(msg, &htlc_sigs[i]))
 			status_failed(STATUS_FAIL_HSM_IO,
 				      "Bad sign_remote_htlc_tx reply: %s",
 				      tal_hex(tmpctx, msg));
 
-		htlc_sigs[i] = sig.s;
 		status_debug("Creating HTLC signature %s for tx %s wscript %s key %s",
 			     type_to_string(tmpctx, struct bitcoin_signature,
-					    &sig),
+					    &htlc_sigs[i]),
 			     type_to_string(tmpctx, struct bitcoin_tx, txs[1+i]),
 			     tal_hex(tmpctx, wscript),
 			     type_to_string(tmpctx, struct pubkey,
 					    &local_htlckey));
 		assert(check_tx_sig(txs[1+i], 0, NULL, wscript,
 				    &local_htlckey,
-				    &sig));
+				    &htlc_sigs[i]));
 	}
 
 	return htlc_sigs;
@@ -929,12 +927,48 @@ static void maybe_send_ping(struct peer *peer)
 	peer->expecting_pong = true;
 }
 
+/* Peer protocol doesn't want sighash flags. */
+static secp256k1_ecdsa_signature *raw_sigs(const tal_t *ctx,
+					   const struct bitcoin_signature *sigs)
+{
+	secp256k1_ecdsa_signature *raw;
+
+	raw = tal_arr(ctx, secp256k1_ecdsa_signature, tal_count(sigs));
+	for (size_t i = 0; i < tal_count(sigs); i++)
+		raw[i] = sigs[i].s;
+	return raw;
+}
+
+static struct bitcoin_signature *unraw_sigs(const tal_t *ctx,
+					    const secp256k1_ecdsa_signature *raw,
+					    bool option_anchor_outputs)
+{
+	struct bitcoin_signature *sigs;
+
+	sigs = tal_arr(ctx, struct bitcoin_signature, tal_count(raw));
+	for (size_t i = 0; i < tal_count(raw); i++) {
+		sigs[i].s = raw[i];
+
+		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+		 * ## HTLC-Timeout and HTLC-Success Transactions
+		 *...
+		 * * if `option_anchor_outputs` applies to this commitment
+		 *   transaction, `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is
+		 *   used.
+		 */
+		if (option_anchor_outputs)
+			sigs[i].sighash_type = SIGHASH_SINGLE|SIGHASH_ANYONECANPAY;
+		else
+			sigs[i].sighash_type = SIGHASH_ALL;
+	}
+	return sigs;
+}
+
 static void send_commit(struct peer *peer)
 {
 	u8 *msg;
 	const struct htlc **changed_htlcs;
-	struct bitcoin_signature commit_sig;
-	secp256k1_ecdsa_signature *htlc_sigs;
+	struct bitcoin_signature commit_sig, *htlc_sigs;
 	struct bitcoin_tx **txs;
 	const u8 *funding_wscript;
 	const struct htlc **htlc_map;
@@ -1067,7 +1101,7 @@ static void send_commit(struct peer *peer)
 
 	msg = towire_commitment_signed(NULL, &peer->channel_id,
 				       &commit_sig.s,
-				       htlc_sigs);
+				       raw_sigs(tmpctx, htlc_sigs));
 	sync_crypto_write_no_delay(peer->pps, take(msg));
 
 	maybe_send_shutdown(peer);
@@ -1187,7 +1221,7 @@ static void marshall_htlc_info(const tal_t *ctx,
 
 static void send_revocation(struct peer *peer,
 			    const struct bitcoin_signature *commit_sig,
-			    const secp256k1_ecdsa_signature *htlc_sigs,
+			    const struct bitcoin_signature *htlc_sigs,
 			    const struct htlc **changed_htlcs,
 			    const struct bitcoin_tx *committx)
 {
@@ -1244,7 +1278,8 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 {
 	struct channel_id channel_id;
 	struct bitcoin_signature commit_sig;
-	secp256k1_ecdsa_signature *htlc_sigs;
+	secp256k1_ecdsa_signature *raw_sigs;
+	struct bitcoin_signature *htlc_sigs;
 	struct pubkey remote_htlckey;
 	struct bitcoin_tx **txs;
 	const struct htlc **htlc_map, **changed_htlcs;
@@ -1279,12 +1314,13 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	}
 
 	if (!fromwire_commitment_signed(tmpctx, msg,
-					&channel_id, &commit_sig.s, &htlc_sigs))
+					&channel_id, &commit_sig.s, &raw_sigs))
 		peer_failed(peer->pps,
 			    &peer->channel_id,
 			    "Bad commit_sig %s", tal_hex(msg, msg));
 	/* SIGHASH_ALL is implied. */
 	commit_sig.sighash_type = SIGHASH_ALL;
+	htlc_sigs = unraw_sigs(tmpctx, raw_sigs, false /* FIXME-anchor */);
 
 	txs =
 	    channel_txs(tmpctx, &htlc_map, NULL,
@@ -1353,22 +1389,17 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	 *     - MUST fail the channel.
 	 */
 	for (i = 0; i < tal_count(htlc_sigs); i++) {
-		struct bitcoin_signature sig;
 		u8 *wscript;
 
 		wscript = bitcoin_tx_output_get_witscript(tmpctx, txs[0],
 							  txs[i+1]->wtx->inputs[0].index);
 
-		/* SIGHASH_ALL is implied. */
-		sig.s = htlc_sigs[i];
-		sig.sighash_type = SIGHASH_ALL;
-
 		if (!check_tx_sig(txs[1+i], 0, NULL, wscript,
-				  &remote_htlckey, &sig))
+				  &remote_htlckey, &htlc_sigs[i]))
 			peer_failed(peer->pps,
 				    &peer->channel_id,
 				    "Bad commit_sig signature %s for htlc %s wscript %s key %s",
-				    type_to_string(msg, struct bitcoin_signature, &sig),
+				    type_to_string(msg, struct bitcoin_signature, &htlc_sigs[i]),
 				    type_to_string(msg, struct bitcoin_tx, txs[1+i]),
 				    tal_hex(msg, wscript),
 				    type_to_string(msg, struct pubkey,
@@ -2088,8 +2119,7 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 static void resend_commitment(struct peer *peer, const struct changed_htlc *last)
 {
 	size_t i;
-	struct bitcoin_signature commit_sig;
-	secp256k1_ecdsa_signature *htlc_sigs;
+	struct bitcoin_signature commit_sig, *htlc_sigs;
 	u8 *msg;
 	struct bitcoin_tx **txs;
 	const u8 *funding_wscript;
@@ -2185,7 +2215,8 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	htlc_sigs = calc_commitsigs(tmpctx, peer, txs, funding_wscript, htlc_map, peer->next_index[REMOTE]-1,
 				    &commit_sig);
 	msg = towire_commitment_signed(NULL, &peer->channel_id,
-				       &commit_sig.s, htlc_sigs);
+				       &commit_sig.s,
+				       raw_sigs(tmpctx, htlc_sigs));
 	sync_crypto_write(peer->pps, take(msg));
 
 	/* If we have already received the revocation for the previous, the

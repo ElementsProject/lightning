@@ -39,7 +39,7 @@ msgdata,onchain_init,locktime,u32,
 msgdata,onchain_init,tx_blockheight,u32,
 msgdata,onchain_init,reasonable_depth,u32,
 msgdata,onchain_init,num_htlc_sigs,u16,
-msgdata,onchain_init,htlc_signature,secp256k1_ecdsa_signature,num_htlc_sigs
+msgdata,onchain_init,htlc_signature,bitcoin_signature,num_htlc_sigs
 msgdata,onchain_init,num_htlcs,u64,
 msgdata,onchain_init,min_possible_feerate,u32,
 msgdata,onchain_init,max_possible_feerate,u32,
