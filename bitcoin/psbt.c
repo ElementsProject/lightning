@@ -112,18 +112,27 @@ struct wally_psbt_input *psbt_append_input(struct wally_psbt *psbt,
 {
 	struct wally_tx_input *tx_in;
 	struct wally_psbt_input *input;
-	size_t insert_at;
 
-	insert_at = psbt->num_inputs;
+	if (chainparams->is_elements) {
+		if (wally_tx_elements_input_init_alloc(txid->shad.sha.u.u8,
+						       sizeof(txid->shad.sha.u.u8),
+						       outnum, sequence, NULL, 0,
+						       NULL,
+						       NULL, 0,
+						       NULL, 0, NULL, 0,
+						       NULL, 0, NULL, 0,
+						       NULL, 0, NULL,
+						       &tx_in) != WALLY_OK)
+			abort();
+	} else {
+		if (wally_tx_input_init_alloc(txid->shad.sha.u.u8,
+					      sizeof(txid->shad.sha.u.u8),
+					      outnum, sequence, NULL, 0, NULL,
+					      &tx_in) != WALLY_OK)
+			abort();
+	}
 
-	if (wally_tx_input_init_alloc(txid->shad.sha.u.u8,
-				      sizeof(struct bitcoin_txid),
-				      outnum, sequence, NULL, 0, NULL,
-				      &tx_in) != WALLY_OK)
-		abort();
-
-	tx_in->features = chainparams->is_elements ? WALLY_TX_IS_ELEMENTS : 0;
-	input = psbt_add_input(psbt, tx_in, insert_at);
+	input = psbt_add_input(psbt, tx_in, psbt->num_inputs);
 	wally_tx_input_free(tx_in);
 	return input;
 }
