@@ -244,8 +244,13 @@ static bool check_config_bounds(struct state *state,
 		return false;
 	}
 
-	/* If they're opener, they must pay for anchor outputs, so include
-	 * that in "reserve". */
+	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #2:
+	 *  - if `option_anchor_outputs` applies to this commitment
+	 *    transaction and the sending node is the funder:
+	 *   - MUST be able to additionally pay for `to_local_anchor` and
+	 *    `to_remote_anchor` above its reserve.
+	 */
+	/* (We simply include in "reserve" here if they opened). */
 	if (state->option_anchor_outputs
 	    && !am_opener
 	    && !amount_sat_add(&reserve, reserve, AMOUNT_SAT(660))) {
