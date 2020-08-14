@@ -883,7 +883,7 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 							  txs[i+1]->wtx->inputs[0].index);
 		msg = towire_hsm_sign_remote_htlc_tx(NULL, txs[i + 1], wscript,
 						     &peer->remote_per_commit,
-						     false /* FIXME-anchor */);
+						     peer->channel->option_anchor_outputs);
 
 		msg = hsm_req(tmpctx, take(msg));
 		if (!fromwire_hsm_sign_tx_reply(msg, &htlc_sigs[i]))
@@ -1320,7 +1320,8 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 			    "Bad commit_sig %s", tal_hex(msg, msg));
 	/* SIGHASH_ALL is implied. */
 	commit_sig.sighash_type = SIGHASH_ALL;
-	htlc_sigs = unraw_sigs(tmpctx, raw_sigs, false /* FIXME-anchor */);
+	htlc_sigs = unraw_sigs(tmpctx, raw_sigs,
+			       peer->channel->option_anchor_outputs);
 
 	txs =
 	    channel_txs(tmpctx, &htlc_map, NULL,
@@ -3273,6 +3274,7 @@ static void init_channel(struct peer *peer)
 					 &funding_pubkey[LOCAL],
 					 &funding_pubkey[REMOTE],
 					 option_static_remotekey,
+					 option_anchor_outputs,
 					 opener);
 
 	if (!channel_force_htlcs(peer->channel,

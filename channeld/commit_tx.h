@@ -16,6 +16,7 @@ struct keyset;
  * @dust_limit: dust limit below which to trim outputs.
  * @option_anchor_outputs: does option_anchor_outputs apply to this channel?
  * @side: from which side's point of view
+ * @option_anchor_outputs: does option_anchor_outputs apply to this channel?
  *
  * We need @side because HTLC fees are different for offered and
  * received HTLCs.
@@ -43,6 +44,7 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
  * @direct_outputs: If non-NULL, fill with pointers to the direct (non-HTLC) outputs (or NULL if none).
  * @option_anchor_outputs: does option_anchor_outputs apply to this channel?
  * @side: side to generate commitment transaction for.
+ * @option_anchor_outputs: does option_anchor_outputs apply to this channel?
  *
  * We need to be able to generate the remote side's tx to create signatures,
  * but the BOLT is expressed in terms of generating our local commitment

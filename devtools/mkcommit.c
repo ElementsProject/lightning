@@ -267,7 +267,7 @@ int main(int argc, char *argv[])
 	const struct htlc **htlcmap;
 	struct privkey local_htlc_privkey, remote_htlc_privkey;
 	struct pubkey local_htlc_pubkey, remote_htlc_pubkey;
-	bool option_static_remotekey = false;
+	bool option_static_remotekey = false, option_anchor_outputs = false;
 	struct sha256_double hash;
 
 	setup_locale();
@@ -300,6 +300,9 @@ int main(int argc, char *argv[])
 	opt_register_noarg("--option-static-remotekey", opt_set_bool,
 			   &option_static_remotekey,
 			   "Use option_static_remotekey generation rules");
+	opt_register_noarg("--option-anchor-outputs", opt_set_bool,
+			   &option_anchor_outputs,
+			   "Use option_anchor_outputs generation rules");
 	opt_register_version();
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
@@ -339,6 +342,10 @@ int main(int argc, char *argv[])
 	if (!amount_sat_sub_msat(&remote_msat, funding_amount, local_msat))
 		errx(1, "Can't afford local_msat");
 
+	if (option_anchor_outputs) {
+		printf("Using option-anchor-outputs\n");
+		option_static_remotekey = true;
+	}
 	if (option_static_remotekey)
 		printf("Using option-static-remotekey\n");
 
@@ -389,6 +396,7 @@ int main(int argc, char *argv[])
 				   &localbase, &remotebase,
 				   &funding_localkey, &funding_remotekey,
 				   option_static_remotekey,
+				   option_anchor_outputs,
 				   fee_payer);
 
 	if (!channel_force_htlcs(channel,

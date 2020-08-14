@@ -103,6 +103,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 const struct pubkey *local_funding_pubkey,
 				 const struct pubkey *remote_funding_pubkey,
 				 bool option_static_remotekey,
+				 bool option_anchor_outputs,
 				 enum side opener)
 {
 	struct channel *channel = new_initial_channel(ctx,
@@ -118,6 +119,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 						      local_funding_pubkey,
 						      remote_funding_pubkey,
 						      option_static_remotekey,
+						      option_anchor_outputs,
 						      opener);
 
 	if (channel) {
@@ -247,23 +249,28 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 
 		if (htlc_owner(htlc) == side) {
 			ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
-			wscript = htlc_offered_wscript(tmpctx, &ripemd, keyset, false /* FIXME-anchor */);
+			wscript = htlc_offered_wscript(tmpctx, &ripemd, keyset,
+						       channel->option_anchor_outputs);
 			tx = htlc_timeout_tx(*txs, chainparams, &txid, i,
 					     wscript,
 					     htlc->amount,
 					     htlc->expiry.locktime,
 					     channel->config[!side].to_self_delay,
 					     feerate_per_kw,
-					     keyset, false /* FIXME-anchor */);
+					     keyset,
+					     channel->option_anchor_outputs);
 		} else {
 			ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
-			wscript = htlc_received_wscript(tmpctx, &ripemd, &htlc->expiry, keyset, false /* FIXME-anchor */);
+			wscript = htlc_received_wscript(tmpctx, &ripemd,
+							&htlc->expiry, keyset,
+							channel->option_anchor_outputs);
 			tx = htlc_success_tx(*txs, chainparams, &txid, i,
 					     wscript,
 					     htlc->amount,
 					     channel->config[!side].to_self_delay,
 					     feerate_per_kw,
-					     keyset, false /* FIXME-anchor */);
+					     keyset,
+					     channel->option_anchor_outputs);
 		}
 
 		/* Append to array. */
@@ -313,7 +320,7 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	    channel->config[side].dust_limit, channel->view[side].owed[side],
 	    channel->view[side].owed[!side], committed, htlcmap, direct_outputs,
 	    commitment_number ^ channel->commitment_number_obscurer,
-	    false /* FIXME-anchor */,
+	    channel->option_anchor_outputs,
 	    side);
 
 	/* Set the remote/local pubkeys on the commitment tx psbt */
@@ -396,11 +403,11 @@ static struct amount_sat fee_for_htlcs(const struct channel *channel,
 	size_t untrimmed;
 
 	untrimmed = num_untrimmed_htlcs(side, dust_limit, feerate,
-					false /* FIXME-anchor */,
+					channel->option_anchor_outputs,
 					committed, adding, removing);
 
 	return commit_tx_base_fee(feerate, untrimmed,
-				  false /* FIXME-anchor */);
+				  channel->option_anchor_outputs);
 }
 
 /*
@@ -444,13 +451,13 @@ static bool local_opener_has_fee_headroom(const struct channel *channel,
 	 * only *reduce* this number, so use current feerate here! */
 	untrimmed = num_untrimmed_htlcs(LOCAL, channel->config[LOCAL].dust_limit,
 					feerate,
-					false /* FIXME-anchor */,
+					channel->option_anchor_outputs,
 					committed, adding, removing);
 
 	/* Now, how much would it cost us if feerate increases 100% and we added
 	 * another HTLC? */
 	fee = commit_tx_base_fee(2 * feerate, untrimmed + 1,
-				 false /* FIXME-anchor */);
+				 channel->option_anchor_outputs);
 	if (amount_msat_greater_eq_sat(remainder, fee))
 		return true;
 
@@ -642,7 +649,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		 * of 330 sats from the funder (either `to_local` or
 		 * `to_remote`).
 		 */
-		if (false /* FIXME-anchor */
+		if (channel->option_anchor_outputs
 		    && channel->opener == sender
 		    && !amount_msat_sub_sat(&remainder, remainder, AMOUNT_SAT(660)))
 			return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
@@ -676,7 +683,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 						    &remainder))
 				return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
 
-			if (false /* FIXME-anchor */
+			if (channel->option_anchor_outputs
 			    && channel->opener != sender
 			    && !amount_msat_sub_sat(&remainder, remainder, AMOUNT_SAT(660)))
 				return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
@@ -1015,7 +1022,7 @@ u32 approx_max_feerate(const struct channel *channel)
 	/* Assume none are trimmed; this gives lower bound on feerate. */
 	num = tal_count(committed) + tal_count(adding) - tal_count(removing);
 
-	weight = commit_tx_base_weight(num, false /* FIXME-anchor */);
+	weight = commit_tx_base_weight(num, channel->option_anchor_outputs);
 
 	/* Available is their view */
 	avail = amount_msat_to_sat_round_down(channel->view[!channel->opener].owed[channel->opener]);
@@ -1026,7 +1033,7 @@ u32 approx_max_feerate(const struct channel *channel)
 	 * of 330 sats from the funder (either `to_local` or
 	 * `to_remote`).
 	 */
-	if (false /* FIXME-anchor */
+	if (channel->option_anchor_outputs
 	    && !amount_sat_sub(&avail, avail, AMOUNT_SAT(660))) {
 		avail = AMOUNT_SAT(0);
 	} else {
@@ -1049,17 +1056,17 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 		     &committed, &removing, &adding);
 
 	untrimmed = commit_tx_num_untrimmed(committed, feerate_per_kw, dust_limit,
-					    false /* FIXME-anchor */,
+					    channel->option_anchor_outputs,
 					    !channel->opener)
 			+ commit_tx_num_untrimmed(adding, feerate_per_kw, dust_limit,
-						  false /* FIXME-anchor */,
+						  channel->option_anchor_outputs,
 						  !channel->opener)
 			- commit_tx_num_untrimmed(removing, feerate_per_kw, dust_limit,
-						  false /* FIXME-anchor */,
+						  channel->option_anchor_outputs,
 						  !channel->opener);
 
 	fee = commit_tx_base_fee(feerate_per_kw, untrimmed,
-				 false /* FIXME-anchor */);
+				 channel->option_anchor_outputs);
 
 	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
 	 * If `option_anchor_outputs` applies to the commitment
@@ -1067,7 +1074,7 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 	 * of 330 sats from the funder (either `to_local` or
 	 * `to_remote`).
 	 */
-	if (false /* FIXME-anchor */
+	if (channel->option_anchor_outputs
 	    && !amount_sat_add(&fee, fee, AMOUNT_SAT(660)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Cannot add 660 sats to %s for anchor",

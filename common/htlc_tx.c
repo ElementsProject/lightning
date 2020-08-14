@@ -93,7 +93,8 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx,
 		       to_self_delay,
 		       &keyset->self_revocation_key,
 		       &keyset->self_delayed_payment_key,
-		       htlc_success_fee(feerate_per_kw,	false /* FIXME-anchor */),
+		       htlc_success_fee(feerate_per_kw,
+					option_anchor_outputs),
 		       0,
 		       option_anchor_outputs);
 }
@@ -145,7 +146,8 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 		       commit_wscript, htlc_msatoshi, to_self_delay,
 		       &keyset->self_revocation_key,
 		       &keyset->self_delayed_payment_key,
-		       htlc_timeout_fee(feerate_per_kw,	false /* FIXME-anchor */),
+		       htlc_timeout_fee(feerate_per_kw,
+					option_anchor_outputs),
 		       cltv_expiry,
 		       option_anchor_outputs);
 }

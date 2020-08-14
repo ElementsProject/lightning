@@ -25,6 +25,7 @@ msgdata,opening_init,max_feerate,u32,
 msgdata,opening_init,lfeatures_len,u16,
 msgdata,opening_init,lfeatures,u8,lfeatures_len
 msgdata,opening_init,option_static_remotekey,bool,
+msgdata,opening_init,option_anchor_outputs,bool,
 # Optional msg to send.
 msgdata,opening_init,len,u16,
 msgdata,opening_init,msg,u8,len
