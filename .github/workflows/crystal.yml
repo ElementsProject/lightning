@@ -1,0 +1,22 @@
+name: Crystal CI
+
+on:
+  push:
+    branches: [ grc.com ]
+  pull_request:
+    branches: [ crystllize.com ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    container:
+      image: crystallang/crystal
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install dependencies
+      run: shards install
+    - name: Run tests
+      run: crystal spec
