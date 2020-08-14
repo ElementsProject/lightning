@@ -2623,6 +2623,24 @@ REGISTER_PAYMENT_MODIFIER(waitblockheight, void *, NULL, waitblockheight_cb);
 #define MPP_TARGET_SIZE (10 * 1000 * 1000)
 #define PRESPLIT_MAX_HTLC_SHARE 3
 
+/* Intermediate network nodes have some limit on the number of HTLCs
+ * they can forward.
+ * Payments which get presplit into several dozen payments are likely
+ * to just flood the network and ultimately fail due to resource
+ * exhaustion.
+ * Even if the payee had the theoretical capacity to accept all those
+ * HTLCs, intermediate hops might not be able to do so, and the public
+ * network is a shared resource as well with other payers.
+ * So we need to limit at least the initial presplit to a number of
+ * sub-payments at the start; the adaptive splitter can always split it
+ * further later on.
+ * Thus, to get this number, we need to gather statistics on the number
+ * of channels a typical hop node has, and gather information from users
+ * on their max-concurrent-htlcs values; the number below is thus derived
+ * ex asino.
+ */
+#define REASONABLE_MAX_PRESPLIT 20
+
 static struct presplit_mod_data *presplit_mod_data_init(struct payment *p)
 {
 	struct presplit_mod_data *d;
@@ -2697,6 +2715,10 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		size_t count = 0;
 		u32 htlcs = payment_max_htlcs(p) / PRESPLIT_MAX_HTLC_SHARE;
 		struct amount_msat target, amt = p->amount;
+
+		/* Limit the starting number of HTLCs to a reasonable amount.  */
+		if (htlcs > REASONABLE_MAX_PRESPLIT)
+			htlcs = REASONABLE_MAX_PRESPLIT;
 
 		/* We need to opt-in to the MPP sending facility no matter
 		 * what we do. That means setting all partids to a non-zero
