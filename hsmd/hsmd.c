@@ -1530,7 +1530,7 @@ static void hsm_unilateral_close_privkey(struct privkey *dst,
 	}
 }
 
-/* This gets the bitcoin private key needed to spend from our wallet. */
+/* This gets the bitcoin private key needed to spend from our wallet */
 static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
 			     const struct utxo *utxo)
 {
@@ -1575,6 +1575,13 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 			 * of complexity in the calling code */
 			psbt_input_add_pubkey(psbt, j, &pubkey);
 
+			/* It's actually a P2WSH in this case. */
+			if (utxo->close_info && utxo->close_info->option_anchor_outputs) {
+				psbt_input_set_prev_utxo_wscript(psbt, j,
+								 anchor_to_remote_redeem(tmpctx,
+											 &pubkey),
+								 utxo->amount);
+			}
 			if (wally_psbt_sign(psbt, privkey.secret.data,
 					    sizeof(privkey.secret.data),
 					    EC_FLAG_GRIND_R) != WALLY_OK)

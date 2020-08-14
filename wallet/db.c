@@ -636,6 +636,9 @@ static struct migration dbmigrations[] = {
     /* option_anchor_outputs is nailed at creation time. */
     {SQL("ALTER TABLE channels ADD COLUMN option_anchor_outputs INTEGER"
 	 " DEFAULT 0;"), NULL },
+    /* We need to know if it was option_anchor_outputs to spend to_remote */
+    {SQL("ALTER TABLE outputs ADD option_anchor_outputs INTEGER"
+	 " DEFAULT 0;"), NULL},
 };
 
 /* Leak tracking. */

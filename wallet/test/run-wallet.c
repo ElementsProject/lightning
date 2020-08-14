@@ -933,6 +933,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u.close_info->channel_id = 42;
 	u.close_info->peer_id = id;
 	u.close_info->commitment_point = &pk;
+	u.close_info->option_anchor_outputs = false;
 	/* Arbitrarily set scriptpubkey len to 20 */
 	u.scriptPubkey = tal_arr(w, u8, 20);
 	memset(u.scriptPubkey, 1, 20);
@@ -948,7 +949,8 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u = *utxos[1];
 	CHECK(u.close_info->channel_id == 42 &&
 	      pubkey_eq(u.close_info->commitment_point, &pk) &&
-	      node_id_eq(&u.close_info->peer_id, &id));
+	      node_id_eq(&u.close_info->peer_id, &id) &&
+	      u.close_info->option_anchor_outputs == false);
 	/* Now un-reserve them for the tests below */
 	tal_free(utxos);
 
@@ -984,6 +986,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u.close_info->channel_id = 42;
 	u.close_info->peer_id = id;
 	u.close_info->commitment_point = NULL;
+	u.close_info->option_anchor_outputs = true;
 	u.scriptPubkey = tal_arr(w, u8, 20);
 	memset(u.scriptPubkey, 1, 20);
 	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
@@ -998,7 +1001,8 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u = *utxos[1];
 	CHECK(u.close_info->channel_id == 42 &&
 	      u.close_info->commitment_point == NULL &&
-	      node_id_eq(&u.close_info->peer_id, &id));
+	      node_id_eq(&u.close_info->peer_id, &id) &&
+	      u.close_info->option_anchor_outputs == true);
 	/* Now un-reserve them */
 	tal_free(utxos);
 
