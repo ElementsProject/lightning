@@ -340,7 +340,23 @@ u8 *anchor_to_remote_redeem(const tal_t *ctx,
 	add_number(&script, 1);
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 
+	assert(is_anchor_witness_script(script, tal_bytelen(script)));
 	return script;
+}
+
+bool is_anchor_witness_script(const u8 *script, size_t script_len)
+{
+	if (script_len != 34 + 1 + 1 + 1)
+		return false;
+	if (script[0] != OP_PUSHBYTES(33))
+		return false;
+	if (script[34] != OP_CHECKSIGVERIFY)
+		return false;
+	if (script[35] != 0x51)
+		return false;
+	if (script[36] != OP_CHECKSEQUENCEVERIFY)
+		return false;
+	return true;
 }
 
 /* Create a witness which spends the 2of2. */

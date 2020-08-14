@@ -64,6 +64,9 @@ u16 fromwire_u16(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for fromwire_u32 */
 u32 fromwire_u32(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_u32 called!\n"); abort(); }
+/* Generated stub for is_anchor_witness_script */
+bool is_anchor_witness_script(const u8 *script UNNEEDED, size_t script_len UNNEEDED)
+{ fprintf(stderr, "is_anchor_witness_script called!\n"); abort(); }
 /* Generated stub for is_p2sh */
 bool is_p2sh(const u8 *script UNNEEDED, struct ripemd160 *addr UNNEEDED)
 { fprintf(stderr, "is_p2sh called!\n"); abort(); }

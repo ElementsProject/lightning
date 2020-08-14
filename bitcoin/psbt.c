@@ -343,6 +343,44 @@ struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 	} else
 		tmppsbt = cast_const(struct wally_psbt *, psbt);
 
+	/* Wally doesn't know how to finalize P2WSH; this happens with
+	 * option_anchor_outputs, and finalizing is trivial. */
+	/* FIXME: miniscript! miniscript! miniscript! */
+	for (size_t i = 0; i < tmppsbt->num_inputs; i++) {
+		struct wally_psbt_input *input = &tmppsbt->inputs[i];
+		struct wally_tx_witness_stack *stack;
+
+		if (!is_anchor_witness_script(input->witness_script,
+					      input->witness_script_len))
+			continue;
+
+		if (input->signatures.num_items != 1)
+			continue;
+
+		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+		 * #### `to_remote` Output
+		 *...
+		 *
+		 * If `option_anchor_outputs` applies to the commitment
+		 * transaction, the `to_remote` output is encumbered by a one
+		 * block csv lock.
+		 *
+		 *    <remote_pubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
+		 *
+		 * The output is spent by a transaction with `nSequence` field set to `1` and witness:
+		 *
+		 *    <remote_sig>
+		 */
+		wally_tx_witness_stack_init_alloc(2, &stack);
+		wally_tx_witness_stack_add(stack,
+					   input->signatures.items[0].value,
+					   input->signatures.items[0].value_len);
+		wally_tx_witness_stack_add(stack,
+					   input->witness_script,
+					   input->witness_script_len);
+		input->final_witness = stack;
+	}
+
 	if (wally_psbt_finalize(tmppsbt) != WALLY_OK) {
 		if (!finalize_in_place)
 			wally_psbt_free(tmppsbt);
