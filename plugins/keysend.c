@@ -2,6 +2,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <plugins/libplugin-pay.h>
+#include <plugins/libplugin-paymake.h>
 #include <plugins/libplugin.h>
 #include <wire/gen_onion_wire.h>
 
@@ -96,6 +97,8 @@ static void init(struct plugin *p, const char *buf UNUSED,
 		      take(json_out_obj(NULL, "config", "max-locktime-blocks")),
 		      ".max-locktime-blocks");
 	maxdelay_default = atoi(field);
+
+	paymake_global_init(p, buf, config);
 }
 
 struct payment_modifier *pay_mods[8] = {
@@ -112,6 +115,7 @@ struct payment_modifier *pay_mods[8] = {
 static struct command_result *json_keysend(struct command *cmd, const char *buf,
 					   const jsmntok_t *params)
 {
+	struct paymake *pm;
 	struct payment *p;
 	const char *label;
 	struct amount_msat *exemptfee, *msat;
@@ -122,7 +126,21 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 #if DEVELOPER
 	bool *use_shadow;
 #endif
-	p = payment_new(NULL, cmd, NULL /* No parent */, pay_mods);
+
+	pm = paymake_new(tmpctx, cmd);
+	/* Base AMP (MPP) is only atomic if knowledge of the preimage is
+	 * valuable.
+	 * Since in keysend *we* already know the preimage, MPP is not
+	 * atomic in a keysend payment.
+	 */
+	paymake_disable_mpp_paymods(pm);
+	/* Keysend is invoiceless, and routehints are from an invoice,
+	 * so might as well turn it off too.  */
+	paymake_disable_paymod(pm, "routehints");
+	/* We have our own custom paymod that must execute before the
+	 * standard paymods.  */
+	paymake_prepend_paymod(pm, "keysend", &keysend_pay_mod);
+
 	if (!param(cmd, buf, params,
 		   p_req("destination", param_node_id, &destination),
 		   p_req("msatoshi", param_msat, &msat),
@@ -138,6 +156,12 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 #endif
 		   NULL))
 		return command_param_failed();
+
+#if DEVELOPER
+	if (!*use_shadow)
+		paymake_disable_paymod(pm, "shadowroute");
+#endif
+	p = paymake_create(NULL, pm);
 
 	p->local_id = &my_id;
 	p->json_buffer = tal_steal(p, buf);
@@ -162,9 +186,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->constraints.cltv_budget = *maxdelay;
 
 	payment_mod_exemptfee_get_data(p)->amount = *exemptfee;
-#if DEVELOPER
-	payment_mod_shadowroute_get_data(p)->use_shadow = *use_shadow;
-#endif
+
 	p->label = tal_steal(p, label);
 	payment_start(p);
 	return command_still_pending(cmd);

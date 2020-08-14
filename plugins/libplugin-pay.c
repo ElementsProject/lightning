@@ -2224,6 +2224,9 @@ static struct shadow_route_data *shadow_route_init(struct payment *p)
 #endif
 	} else {
 		d->fuzz_amount = true;
+#if DEVELOPER
+		d->use_shadow = true;
+#endif
 	}
 	return d;
 }

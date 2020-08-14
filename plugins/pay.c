@@ -17,6 +17,7 @@
 #include <common/type_to_string.h>
 #include <inttypes.h>
 #include <plugins/libplugin-pay.h>
+#include <plugins/libplugin-paymake.h>
 #include <plugins/libplugin.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -1911,41 +1912,15 @@ static void init(struct plugin *p,
 					    "config", "max-locktime-blocks")),
 			  ".max-locktime-blocks");
 	maxdelay_default = atoi(field);
-}
 
-struct payment_modifier *paymod_mods[] = {
-	&local_channel_hints_pay_mod,
-	&exemptfee_pay_mod,
-	&directpay_pay_mod,
-	&shadowroute_pay_mod,
-	/* NOTE: The order in which these two paymods are executed is
-	 * significant!
-	 * routehints *must* execute first before presplit.
-	 *
-	 * FIXME: Giving an ordered list of paymods to the paymod
-	 * system is the wrong interface, given that the order in
-	 * which paymods execute is significant.
-	 * (This is typical of Entity-Component-System pattern.)
-	 * What should be done is that libplugin-pay should have a
-	 * canonical list of paymods in the order they execute
-	 * correctly, and whether they are default-enabled/default-disabled,
-	 * and then clients like `pay` and `keysend` will disable/enable
-	 * paymods that do not help them, instead of the current interface
-	 * where clients provide an *ordered* list of paymods they want to
-	 * use.
-	 */
-	&routehints_pay_mod,
-	&presplit_pay_mod,
-	&waitblockheight_pay_mod,
-	&retry_pay_mod,
-	&adaptive_splitter_pay_mod,
-	NULL,
-};
+	paymake_global_init(p, buf, config);
+}
 
 static struct command_result *json_paymod(struct command *cmd,
 					  const char *buf,
 					  const jsmntok_t *params)
 {
+	struct paymake *pm;
 	struct payment *p;
 	const char *b11str;
 	struct bolt11 *b11;
@@ -1956,12 +1931,17 @@ static struct command_result *json_paymod(struct command *cmd,
 	const char *label;
 	unsigned int *retryfor;
 	u64 *riskfactor_millionths;
-	struct shadow_route_data *shadow_route;
 #if DEVELOPER
 	bool *use_shadow;
 #endif
 
-	p = payment_new(NULL, cmd, NULL /* No parent */, paymod_mods);
+	pm = paymake_new(tmpctx, cmd);
+	if (disablempp)
+		paymake_disable_mpp_paymods(pm);
+	else
+		/* This is an MPP enabled pay command,
+		 * disable amount fuzzing.  */
+		paymake_disable_amount_fuzz(pm);
 
 	/* If any of the modifiers need to add params to the JSON-RPC call we
 	 * would add them to the `param()` call below, and have them be
@@ -1982,6 +1962,12 @@ static struct command_result *json_paymod(struct command *cmd,
 #endif
 		      NULL))
 		return command_param_failed();
+
+#if DEVELOPER
+	if (!*use_shadow)
+		paymake_disable_paymod(pm, "shadowroute");
+#endif
+	p = paymake_create(NULL, pm);
 
 	b11 = bolt11_decode(cmd, b11str, plugin_feature_set(cmd->plugin),
 			    NULL, &fail);
@@ -2045,15 +2031,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	p->constraints.cltv_budget = *maxdelay;
 
 	payment_mod_exemptfee_get_data(p)->amount = *exemptfee;
-	shadow_route = payment_mod_shadowroute_get_data(p);
-	payment_mod_presplit_get_data(p)->disable = disablempp;
-	payment_mod_adaptive_splitter_get_data(p)->disable = disablempp;
 
-	/* This is an MPP enabled pay command, disable amount fuzzing. */
-	shadow_route->fuzz_amount = false;
-#if DEVELOPER
-	shadow_route->use_shadow = *use_shadow;
-#endif
 	p->label = tal_steal(p, label);
 	payment_start(p);
 	list_add_tail(&payments, &p->list);
