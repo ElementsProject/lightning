@@ -23,6 +23,8 @@ def expected_peer_features(wumbo_channels=False, extra=[]):
     if EXPERIMENTAL_FEATURES:
         # OPT_ONION_MESSAGES
         features += [103]
+        # option_anchor_outputs
+        features += [21]
     if wumbo_channels:
         features += [19]
     return hex_bits(features + extra)
@@ -36,6 +38,8 @@ def expected_node_features(wumbo_channels=False, extra=[]):
     if EXPERIMENTAL_FEATURES:
         # OPT_ONION_MESSAGES
         features += [103]
+        # option_anchor_outputs
+        features += [21]
     if wumbo_channels:
         features += [19]
     return hex_bits(features + extra)
@@ -105,7 +109,7 @@ def first_channel_id(n1, n2):
 
 
 def basic_fee(feerate):
-    if False:  # FIXME-anchor
+    if EXPERIMENTAL_FEATURES:
         # option_anchor_outputs
         weight = 1124
     else:

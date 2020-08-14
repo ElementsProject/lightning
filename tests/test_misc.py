@@ -1537,8 +1537,13 @@ def test_feerates(node_factory):
     htlc_feerate = feerates["perkw"]["htlc_resolution"]
     htlc_timeout_cost = feerates["onchain_fee_estimates"]["htlc_timeout_satoshis"]
     htlc_success_cost = feerates["onchain_fee_estimates"]["htlc_success_satoshis"]
-    assert htlc_timeout_cost == htlc_feerate * 663 // 1000
-    assert htlc_success_cost == htlc_feerate * 703 // 1000
+    if EXPERIMENTAL_FEATURES:
+        # option_anchor_outputs
+        assert htlc_timeout_cost == htlc_feerate * 666 // 1000
+        assert htlc_success_cost == htlc_feerate * 706 // 1000
+    else:
+        assert htlc_timeout_cost == htlc_feerate * 663 // 1000
+        assert htlc_success_cost == htlc_feerate * 703 // 1000
 
 
 def test_logging(node_factory):
@@ -1887,6 +1892,7 @@ def test_list_features_only(node_factory):
                 'option_basic_mpp/odd',
                 ]
     if EXPERIMENTAL_FEATURES:
+        expected += ['option_anchor_outputs/odd']
         expected += ['option_unknown_102/odd']
     assert features == expected
 

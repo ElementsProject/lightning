@@ -8,7 +8,7 @@ from utils import (
     DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK,
     DEPRECATED_APIS, expected_peer_features, expected_node_features,
     expected_channel_features, account_balance,
-    check_coin_moves, first_channel_id, check_coin_moves_idx
+    check_coin_moves, first_channel_id, check_coin_moves_idx, EXPERIMENTAL_FEATURES
 )
 from pyln.testing.utils import TailableProc
 
@@ -1437,6 +1437,26 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
             {'type': 'chain_mvt', 'credit': 991900000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'chain_mvt', 'credit': 941045000, 'debit': 0, 'tag': 'deposit'},
+        ]
+    elif EXPERIMENTAL_FEATURES:
+        # option_anchor_outputs
+        l2_l3_mvts = [
+            {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'channel_mvt', 'credit': 0, 'debit': 100000000, 'tag': 'routed'},
+            {'type': 'channel_mvt', 'credit': 50000501, 'debit': 0, 'tag': 'routed'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 8430501, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 941570000, 'tag': 'withdrawal'},
+        ]
+
+        l2_wallet_mvts = [
+            {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 995425000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 4575000, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 995425000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 941570000, 'debit': 0, 'tag': 'deposit'},
         ]
     else:
         l2_l3_mvts = [
