@@ -624,6 +624,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  channel->min_possible_feerate,
 				  channel->max_possible_feerate,
 				  channel->future_per_commitment_point,
+				  &channel->local_funding_pubkey,
+				  &channel->channel_info.remote_fundingkey,
 				  channel->option_static_remotekey,
 				  channel->option_anchor_outputs,
 				  is_replay);
