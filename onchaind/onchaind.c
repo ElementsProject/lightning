@@ -2172,6 +2172,30 @@ static void get_anchor_scriptpubkeys(const tal_t *ctx, u8 **anchor)
 	}
 }
 
+static u8 *scriptpubkey_to_remote(const tal_t *ctx,
+				  const struct pubkey *remotekey)
+{
+	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	 *
+	 * #### `to_remote` Output
+	 *
+	 * If `option_anchor_outputs` applies to the commitment
+	 * transaction, the `to_remote` output is encumbered by a one
+	 * block csv lock.
+	 *    <remote_pubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
+	 *
+	 *...
+	 * Otherwise, this output is a simple P2WPKH to `remotepubkey`.
+	 */
+	if (option_anchor_outputs) {
+		return scriptpubkey_p2wsh(ctx,
+					  anchor_to_remote_redeem(tmpctx,
+								  remotekey));
+	} else {
+		return scriptpubkey_p2wpkh(ctx, remotekey);
+	}
+}
+
 static void handle_our_unilateral(const struct tx_parts *tx,
 				  u32 tx_blockheight,
 				  const struct basepoints basepoints[NUM_SIDES],
@@ -2240,7 +2264,8 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 	script[LOCAL] = scriptpubkey_p2wsh(tmpctx, local_wscript);
 
 	/* Figure out what direct to-them output looks like. */
-	script[REMOTE] = scriptpubkey_p2wpkh(tmpctx, &keyset->other_payment_key);
+	script[REMOTE] = scriptpubkey_to_remote(tmpctx,
+						&keyset->other_payment_key);
 
 	/* Calculate all the HTLC scripts so we can match them */
 	htlc_scripts = derive_htlc_scripts(htlcs, LOCAL);
@@ -2675,7 +2700,8 @@ static void handle_their_cheat(const struct tx_parts *tx,
 	script[REMOTE] = scriptpubkey_p2wsh(tmpctx, remote_wscript);
 
 	/* Figure out what direct to-us output looks like. */
-	script[LOCAL] = scriptpubkey_p2wpkh(tmpctx, &keyset->other_payment_key);
+	script[LOCAL] = scriptpubkey_to_remote(tmpctx,
+					       &keyset->other_payment_key);
 
 	/* Calculate all the HTLC scripts so we can match them */
 	htlc_scripts = derive_htlc_scripts(htlcs, REMOTE);
@@ -2956,7 +2982,8 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 	script[REMOTE] = scriptpubkey_p2wsh(tmpctx, remote_wscript);
 
 	/* Figure out what direct to-us output looks like. */
-	script[LOCAL] = scriptpubkey_p2wpkh(tmpctx, &keyset->other_payment_key);
+	script[LOCAL] = scriptpubkey_to_remote(tmpctx,
+					       &keyset->other_payment_key);
 
 	/* Calculate all the HTLC scripts so we can match them */
 	htlc_scripts = derive_htlc_scripts(htlcs, REMOTE);
@@ -3211,17 +3238,8 @@ static void handle_unknown_commitment(const struct tx_parts *tx,
 		local_script = scriptpubkey_p2wpkh(tmpctx,
 						   &ks->other_payment_key);
 	} else {
-		/* BOLT #3:
-		 *
-		 * ### `remotepubkey` Derivation
-		 *
-		 * If `option_static_remotekey` is negotiated the
-		 * `remotepubkey` is simply the remote node's
-		 * `payment_basepoint`, otherwise it is calculated as above
-		 * using the remote node's `payment_basepoint`.
-		 */
-		local_script = scriptpubkey_p2wpkh(tmpctx,
-						   &basepoints[LOCAL].payment);
+		local_script = scriptpubkey_to_remote(tmpctx,
+						      &basepoints[LOCAL].payment);
 	}
 
 	for (size_t i = 0; i < tal_count(tx->outputs); i++) {
