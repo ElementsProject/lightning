@@ -8,7 +8,8 @@ from utils import (
     DEVELOPER, only_one, wait_for, sync_blockheight, TIMEOUT,
     expected_peer_features, expected_node_features,
     expected_channel_features,
-    check_coin_moves, first_channel_id, account_balance, basic_fee
+    check_coin_moves, first_channel_id, account_balance, basic_fee,
+    EXPERIMENTAL_FEATURES
 )
 from bitcoin.core import CMutableTransaction, CMutableTxOut
 
@@ -138,6 +139,7 @@ def test_bad_opening(node_factory):
     l2.daemon.wait_for_log('to_self_delay 100 larger than 99')
 
 
+@unittest.skipIf(EXPERIMENTAL_FEATURES, "FIXME: anchor_outputs changes numbers")
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Fee computation and limits are network specific")
 @pytest.mark.slow_test
@@ -2176,8 +2178,9 @@ def test_feerate_spam(node_factory, chainparams):
     # Now change feerates to something l1 can't afford.
     l1.set_feerates((100000, 100000, 100000, 100000))
 
-    # It will raise as far as it can (48000)
-    l1.daemon.wait_for_log('Setting REMOTE feerate to 48000')
+    # It will raise as far as it can (48000) (30000 for option_anchor_outputs)
+    maxfeerate = 30000 if EXPERIMENTAL_FEATURES else 48000
+    l1.daemon.wait_for_log('Setting REMOTE feerate to {}'.format(maxfeerate))
     l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE')
 
     # But it won't do it again once it's at max.
