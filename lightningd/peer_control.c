@@ -472,7 +472,7 @@ static void json_add_htlcs(struct lightningd *ld,
 				htlc_state_name(hin->hstate));
 		if (htlc_is_trimmed(REMOTE, hin->msat, local_feerate,
 				    channel->our_config.dust_limit, LOCAL,
-				    false /* FIXME-anchor */))
+				    channel->option_anchor_outputs))
 			json_add_bool(response, "local_trimmed", true);
 		json_object_end(response);
 	}
@@ -494,7 +494,7 @@ static void json_add_htlcs(struct lightningd *ld,
 				htlc_state_name(hout->hstate));
 		if (htlc_is_trimmed(LOCAL, hout->msat, local_feerate,
 				    channel->our_config.dust_limit, LOCAL,
-				    false /* FIXME-anchor */))
+				    channel->option_anchor_outputs))
 			json_add_bool(response, "local_trimmed", true);
 		json_object_end(response);
 	}
@@ -537,7 +537,7 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 
 	/* Assume we tried to add "amount" */
 	if (!htlc_is_trimmed(side, amount, feerate, dust_limit, side,
-			     false /* FIXME-anchor */))
+			     channel->option_anchor_outputs))
 		num_untrimmed_htlcs++;
 
 	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
@@ -547,7 +547,7 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 			continue;
 		if (!htlc_is_trimmed(!side, hin->msat, feerate, dust_limit,
 				     side,
-				     false /* FIXME-anchor */))
+				     channel->option_anchor_outputs))
 			num_untrimmed_htlcs++;
 	}
 	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
@@ -557,7 +557,7 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 			continue;
 		if (!htlc_is_trimmed(side, hout->msat, feerate, dust_limit,
 				     side,
-				     false /* FIXME-anchor */))
+				     channel->option_anchor_outputs))
 			num_untrimmed_htlcs++;
 	}
 
@@ -575,9 +575,9 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 	 *       recommended to ensure predictability.
 	 */
 	fee = commit_tx_base_fee(2 * feerate, num_untrimmed_htlcs + 1,
-				 false /* FIXME-anchor */);
+				 channel->option_anchor_outputs);
 
-	if (false /* FIXME-anchor */) {
+	if (channel->option_anchor_outputs) {
 		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
 		 * If `option_anchor_outputs` applies to the commitment
 		 * transaction, also subtract two times the fixed anchor size

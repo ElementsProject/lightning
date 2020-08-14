@@ -25,6 +25,7 @@ struct existing_htlc;
  * @local_fundingkey: local funding key
  * @remote_fundingkey: remote funding key
  * @option_static_remotekey: use `option_static_remotekey`.
+ * @option_anchor_outputs: use `option_anchor_outputs`.
  * @opener: which side initiated it.
  *
  * Returns state, or NULL if malformed.
@@ -43,6 +44,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 const struct pubkey *local_funding_pubkey,
 				 const struct pubkey *remote_funding_pubkey,
 				 bool option_static_remotekey,
+				 bool option_anchor_outputs,
 				 enum side opener);
 
 /**

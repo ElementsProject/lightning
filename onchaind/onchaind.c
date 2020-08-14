@@ -588,7 +588,7 @@ static u8 *remote_htlc_to_us(const tal_t *ctx,
 	return towire_hsm_sign_remote_htlc_to_us(ctx,
 						 remote_per_commitment_point,
 						 tx, wscript,
-						 false /* FIXME-anchor */);
+						 option_anchor_outputs);
 }
 
 static u8 *penalty_to_us(const tal_t *ctx,
@@ -693,7 +693,7 @@ static void hsm_sign_local_htlc_tx(struct bitcoin_tx *tx,
 {
 	u8 *msg = towire_hsm_sign_local_htlc_tx(NULL, commit_num,
 						tx, wscript,
-						false /* FIXME-anchor */);
+						option_anchor_outputs);
 
 	if (!wire_sync_write(HSM_FD, take(msg)))
 		status_failed(STATUS_FAIL_HSM_IO,
@@ -1698,7 +1698,7 @@ static void handle_preimage(struct tracked_output **outs,
 					     htlc_amount,
 					     to_self_delay[LOCAL],
 					     0,
-					     keyset, false /* FIXME-anchor */);
+					     keyset, option_anchor_outputs);
 			set_htlc_success_fee(tx, outs[i]->remote_htlc_sig,
 					     outs[i]->wscript);
 			hsm_sign_local_htlc_tx(tx, outs[i]->wscript, &sig);
@@ -1887,7 +1887,8 @@ static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side)
 		if (htlcs[i].owner == side)
 			htlc_scripts[i] = htlc_offered_wscript(htlc_scripts,
 							       &htlcs[i].ripemd,
-							       keyset, false /* FIXME-anchor */);
+							       keyset,
+							       option_anchor_outputs);
 		else {
 			/* FIXME: remove abs_locktime */
 			struct abs_locktime ltime;
@@ -1899,7 +1900,8 @@ static u8 **derive_htlc_scripts(const struct htlc_stub *htlcs, enum side side)
 			htlc_scripts[i] = htlc_received_wscript(htlc_scripts,
 								&htlcs[i].ripemd,
 								&ltime,
-								keyset, false /* FIXME-anchor */);
+								keyset,
+								option_anchor_outputs);
 		}
 	}
 	return htlc_scripts;
@@ -1941,7 +1943,8 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 				     &out->txid, out->outnum,
 				     htlc_scripts[matches[i]], htlc_amount,
 				     htlcs[matches[i]].cltv_expiry,
-				     to_self_delay[LOCAL], 0, keyset, false /* FIXME-anchor */);
+				     to_self_delay[LOCAL], 0, keyset,
+				     option_anchor_outputs);
 
 		if (set_htlc_timeout_fee(tx, out->remote_htlc_sig,
 					 htlc_scripts[matches[i]]))

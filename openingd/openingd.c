@@ -115,6 +115,7 @@ struct state {
 	struct channel *channel;
 
 	bool option_static_remotekey;
+	bool option_anchor_outputs;
 
 	struct feature_set *our_features;
 };
@@ -240,6 +241,18 @@ static bool check_config_bounds(struct state *state,
 				   " too large",
 				   type_to_string(tmpctx, struct amount_sat,
 						  &remoteconf->channel_reserve));
+		return false;
+	}
+
+	/* If they're opener, they must pay for anchor outputs, so include
+	 * that in "reserve". */
+	if (state->option_anchor_outputs
+	    && !am_opener
+	    && !amount_sat_add(&reserve, reserve, AMOUNT_SAT(660))) {
+		negotiation_failed(state, am_opener,
+				   "cannot add anchors to reserve %s",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &reserve));
 		return false;
 	}
 
@@ -686,6 +699,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
 					     state->option_static_remotekey,
+					     state->option_anchor_outputs,
 					     /* Opener is local */
 					     LOCAL);
 	/* We were supposed to do enough checks above, but just in case,
@@ -1167,6 +1181,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					     &state->our_funding_pubkey,
 					     &their_funding_pubkey,
 					     state->option_static_remotekey,
+					     state->option_anchor_outputs,
 					     REMOTE);
 	/* We don't expect this to fail, but it does do some additional
 	 * internal sanity checks. */
@@ -1519,6 +1534,7 @@ int main(int argc, char *argv[])
 				   &state->min_feerate, &state->max_feerate,
 				   &state->their_features,
 				   &state->option_static_remotekey,
+				   &state->option_anchor_outputs,
 				   &inner,
 				   &force_tmp_channel_id,
 				   &dev_fast_gossip))
