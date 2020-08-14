@@ -1,6 +1,7 @@
 #include <bitcoin/preimage.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
+#include <common/json_helpers.h>
 #include <common/json_stream.h>
 #include <common/pseudorand.h>
 #include <common/random_select.h>
@@ -2925,9 +2926,6 @@ static u32 payment_max_htlcs(const struct payment *p)
 	return res;
 }
 
-/* Temporary comment out else GCC will complain that it is unused;
- * will be used in a later commit.  */
-#if 0
 /** payment_lower_max_htlcs
  *
  * @brief indicates that we have a good reason to believe that
@@ -2958,7 +2956,6 @@ static void payment_lower_max_htlcs(struct payment *p, u32 limit,
 		root->max_htlcs = limit;
 	}
 }
-#endif
 
 static bool payment_supports_mpp(struct payment *p)
 {
@@ -3258,3 +3255,106 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 
 REGISTER_PAYMENT_MODIFIER(adaptive_splitter, struct adaptive_split_mod_data *,
 			  adaptive_splitter_data_init, adaptive_splitter_cb);
+
+
+/*****************************************************************************
+ * payee_incoming_limit
+ *
+ * @desc every channel has a limit on the number of HTLCs it is willing to
+ * transport.
+ * This is particularly crucial for the payers and payees, as they represent
+ * the bottleneck to and from the network.
+ * The `payment_max_htlcs` function will, by itself, be able to count the
+ * payer-side channels, but assessing the payee requires us to probe the
+ * area around it.
+ *
+ * This paymod must be *after* `routehints` but *before* `presplit` paymods:
+ *
+ * - If we cannot find the destination on the public network, we can only
+ *   use channels it put in the routehints.
+ *   In this case, that is the number of channels we assess the payee as
+ *   having.
+ *   However, the `routehints` paymod may filter out some routehints, thus
+ *   we should assess based on the post-filtered routehints.
+ * - The `presplit` is the first splitter that executes, so we have to have
+ *   performed the payee-channels assessment by then.
+ */
+
+/* The default `max-concurrent-htlcs` is 30, but node operators might want
+ * to push it even lower to reduce their liabilities in case they have to
+ * unilaterally close.
+ * This will not necessarily improve even in a post-anchor-commitments world,
+ * since one of the reasons to unilaterally close is if some HTLC is about to
+ * expire, which of course requires the HTLCs to be published anyway, meaning
+ * it will still be potentially costly.
+ * So our initial assumption is 15 HTLCs per channel.
+ *
+ * The presplitter will divide this by `PRESPLIT_MAX_HTLC_SHARE` as well.
+ */
+#define ASSUMED_MAX_HTLCS_PER_CHANNEL 15
+
+static struct command_result *
+payee_incoming_limit_count(struct command *cmd,
+			   const char *buf,
+			   const jsmntok_t *result,
+			   struct payment *p)
+{
+	const jsmntok_t *channelstok;
+	size_t num_channels = 0;
+
+	channelstok = json_get_member(buf, result, "channels");
+	assert(channelstok);
+
+	/* Count channels.
+	 * `listchannels` returns half-channels, i.e. it normally
+	 * gives two objects per channel, one for each direction.
+	 * However, `listchannels <source>` returns only half-channel
+	 * objects whose `source` is the given channel.
+	 * Thus, the length of `channels` is accurately the number
+	 * of channels.
+	 */
+	num_channels = channelstok->size;
+
+	/* If num_channels is 0, check if there is an invoice.  */
+	if (num_channels == 0 && p->invoice)
+		num_channels = tal_count(p->invoice->routes);
+
+	/* If we got a decent number of channels, limit!  */
+	if (num_channels != 0) {
+		const char *why;
+		u32 lim;
+		why = tal_fmt(tmpctx,
+			      "Destination %s has %zd channels, "
+			      "assuming %d HTLCs per channel",
+			      type_to_string(tmpctx, struct node_id,
+					     p->destination),
+			      num_channels,
+			      ASSUMED_MAX_HTLCS_PER_CHANNEL);
+		lim = num_channels * ASSUMED_MAX_HTLCS_PER_CHANNEL;
+		payment_lower_max_htlcs(p, lim, why);
+	}
+
+	payment_continue(p);
+	return command_still_pending(cmd);
+}
+
+static void payee_incoming_limit_step_cb(void *d UNUSED, struct payment *p)
+{
+	/* Only operate at the initialization of te root payment.
+	 * Also, no point operating if payment does not support MPP anyway.
+	 */
+	if (p->parent || p->step != PAYMENT_STEP_INITIALIZED
+	 || !payment_supports_mpp(p))
+		return payment_continue(p);
+
+	/* Get information on the destination.  */
+	struct out_req *req;
+	req = jsonrpc_request_start(p->plugin, NULL, "listchannels",
+				    &payee_incoming_limit_count,
+				    &payment_rpc_failure, p);
+	json_add_node_id(req->js, "source", p->destination);
+	(void) send_outreq(p->plugin, req);
+}
+
+REGISTER_PAYMENT_MODIFIER(payee_incoming_limit, void *, NULL,
+			  payee_incoming_limit_step_cb);

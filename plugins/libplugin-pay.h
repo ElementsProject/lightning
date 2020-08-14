@@ -398,6 +398,11 @@ REGISTER_PAYMENT_MODIFIER_HEADER(adaptive_splitter, struct adaptive_split_mod_da
  * or are disabled. We do this only for the root payment, to minimize the
  * overhead. */
 REGISTER_PAYMENT_MODIFIER_HEADER(local_channel_hints, void);
+/* The payee might be less well-connected than ourselves.
+ * This paymod limits the number of HTLCs based on the number of channels
+ * we detect the payee to have, in order to not exhaust the number of HTLCs
+ * each of those channels can bear.  */
+REGISTER_PAYMENT_MODIFIER_HEADER(payee_incoming_limit, void);
 
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
