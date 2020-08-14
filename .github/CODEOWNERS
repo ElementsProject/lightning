@@ -14,5 +14,7 @@ common/json.*           @wythe
 common/json_tok.*       @wythe
 common/wallet_tx.*      @wythe
 
+plugins/libplugin-paymake.*        @ZmnSCPxj
+
 # See https://help.github.com/articles/about-codeowners/ for more
 # information

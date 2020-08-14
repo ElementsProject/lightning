@@ -17,8 +17,8 @@ PLUGIN_LIB_SRC := plugins/libplugin.c
 PLUGIN_LIB_HEADER := plugins/libplugin.h
 PLUGIN_LIB_OBJS := $(PLUGIN_LIB_SRC:.c=.o)
 
-PLUGIN_PAY_LIB_SRC := plugins/libplugin-pay.c
-PLUGIN_PAY_LIB_HEADER := plugins/libplugin-pay.h
+PLUGIN_PAY_LIB_SRC := plugins/libplugin-pay.c plugins/libplugin-paymake.c
+PLUGIN_PAY_LIB_HEADER := plugins/libplugin-pay.h plugins/libplugin-paymake.h
 PLUGIN_PAY_LIB_OBJS := $(PLUGIN_PAY_LIB_SRC:.c=.o)
 
 PLUGIN_ALL_SRC :=				\
