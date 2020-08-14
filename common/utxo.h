@@ -17,6 +17,7 @@ struct ext_key;
 struct unilateral_close_info {
 	u64 channel_id;
 	struct node_id peer_id;
+	bool option_anchor_outputs;
 	/* NULL if this is an option_static_remotekey commitment */
 	struct pubkey *commitment_point;
 };

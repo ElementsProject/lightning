@@ -113,10 +113,11 @@ static bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 		       ", channel_id"
 		       ", peer_id"
 		       ", commitment_point"
+		       ", option_anchor_outputs"
 		       ", confirmation_height"
 		       ", spend_height"
 		       ", scriptpubkey"
-		       ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+		       ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 	db_bind_txid(stmt, 0, &utxo->txid);
 	db_bind_int(stmt, 1, utxo->outnum);
 	db_bind_amount_sat(stmt, 2, &utxo->amount);
@@ -130,23 +131,25 @@ static bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 			db_bind_pubkey(stmt, 8, utxo->close_info->commitment_point);
 		else
 			db_bind_null(stmt, 8);
+		db_bind_int(stmt, 9, utxo->close_info->option_anchor_outputs);
 	} else {
 		db_bind_null(stmt, 6);
 		db_bind_null(stmt, 7);
 		db_bind_null(stmt, 8);
+		db_bind_null(stmt, 9);
 	}
 
 	if (utxo->blockheight) {
-		db_bind_int(stmt, 9, *utxo->blockheight);
+		db_bind_int(stmt, 10, *utxo->blockheight);
 	} else
-		db_bind_null(stmt, 9);
-
-	if (utxo->spendheight)
-		db_bind_int(stmt, 10, *utxo->spendheight);
-	else
 		db_bind_null(stmt, 10);
 
-	db_bind_blob(stmt, 11, utxo->scriptPubkey,
+	if (utxo->spendheight)
+		db_bind_int(stmt, 11, *utxo->spendheight);
+	else
+		db_bind_null(stmt, 11);
+
+	db_bind_blob(stmt, 12, utxo->scriptPubkey,
 			  tal_bytelen(utxo->scriptPubkey));
 
 	db_exec_prepared_v2(take(stmt));
@@ -177,33 +180,35 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 					 utxo->close_info->commitment_point);
 		} else
 			utxo->close_info->commitment_point = NULL;
+		utxo->close_info->option_anchor_outputs
+			= db_column_int(stmt, 9);
 	} else {
 		utxo->close_info = NULL;
 	}
 
 	utxo->scriptPubkey =
-	    tal_dup_arr(utxo, u8, db_column_blob(stmt, 11),
-			db_column_bytes(stmt, 11), 0);
+	    tal_dup_arr(utxo, u8, db_column_blob(stmt, 12),
+			db_column_bytes(stmt, 12), 0);
 
 	utxo->blockheight = NULL;
 	utxo->spendheight = NULL;
 	utxo->reserved_til = NULL;
 
-	if (!db_column_is_null(stmt, 9)) {
+	if (!db_column_is_null(stmt, 10)) {
 		blockheight = tal(utxo, u32);
-		*blockheight = db_column_int(stmt, 9);
+		*blockheight = db_column_int(stmt, 10);
 		utxo->blockheight = blockheight;
 	}
 
-	if (!db_column_is_null(stmt, 10)) {
+	if (!db_column_is_null(stmt, 11)) {
 		spendheight = tal(utxo, u32);
-		*spendheight = db_column_int(stmt, 10);
+		*spendheight = db_column_int(stmt, 11);
 		utxo->spendheight = spendheight;
 	}
 
-	if (!db_column_is_null(stmt, 12)) {
+	if (!db_column_is_null(stmt, 13)) {
 		reserved_til = tal(utxo, u32);
-		*reserved_til = db_column_int(stmt, 12);
+		*reserved_til = db_column_int(stmt, 13);
 		utxo->reserved_til = reserved_til;
 	}
 
@@ -256,6 +261,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", channel_id"
 						", peer_id"
 						", commitment_point"
+						", option_anchor_outputs"
 						", confirmation_height"
 						", spend_height"
 						", scriptpubkey "
@@ -272,6 +278,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", channel_id"
 						", peer_id"
 						", commitment_point"
+						", option_anchor_outputs"
 						", confirmation_height"
 						", spend_height"
 						", scriptpubkey "
@@ -309,6 +316,7 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 					", channel_id"
 					", peer_id"
 					", commitment_point"
+					", option_anchor_outputs"
 					", confirmation_height"
 					", spend_height"
 					", scriptpubkey"
@@ -345,6 +353,7 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 					", channel_id"
 					", peer_id"
 					", commitment_point"
+					", option_anchor_outputs"
 					", confirmation_height"
 					", spend_height"
 					", scriptpubkey"
@@ -542,6 +551,7 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 					", channel_id"
 					", peer_id"
 					", commitment_point"
+					", option_anchor_outputs"
 					", confirmation_height"
 					", spend_height"
 					", scriptpubkey "
@@ -606,10 +616,11 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 		       ", channel_id"
 		       ", peer_id"
 		       ", commitment_point"
+		       ", option_anchor_outputs"
 		       ", confirmation_height"
 		       ", spend_height"
 		       ", scriptpubkey"
-		       ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+		       ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 	db_bind_txid(stmt, 0, txid);
 	db_bind_int(stmt, 1, outnum);
 	db_bind_amount_sat(stmt, 2, &amount);
@@ -623,11 +634,12 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 	else
 		db_bind_null(stmt, 8);
 
-	db_bind_int(stmt, 9, blockheight);
+	db_bind_int(stmt, 9, channel->option_anchor_outputs);
+	db_bind_int(stmt, 10, blockheight);
 
 	/* spendheight */
-	db_bind_null(stmt, 10);
-	db_bind_blob(stmt, 11, scriptpubkey, tal_bytelen(scriptpubkey));
+	db_bind_null(stmt, 11);
+	db_bind_blob(stmt, 12, scriptpubkey, tal_bytelen(scriptpubkey));
 
 	db_exec_prepared_v2(take(stmt));
 	return true;
