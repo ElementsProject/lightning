@@ -149,6 +149,9 @@ bool is_p2wpkh(const u8 *script, struct bitcoin_address *addr);
 /* Is this one of the four above script types? */
 bool is_known_scripttype(const u8 *script);
 
+/* Is this an anchor witness script? */
+bool is_anchor_witness_script(const u8 *script, size_t script_len);
+
 /* Are these two scripts equal? */
 bool scripteq(const u8 *s1, const u8 *s2);
 
