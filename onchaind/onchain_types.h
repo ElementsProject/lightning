@@ -73,6 +73,10 @@ enum output_type {
 
 	/* For elements we need a fee output type */
 	ELEMENTS_FEE,
+
+	/* Anchor outputs for option_anchor_outputs */
+	ANCHOR_TO_US,
+	ANCHOR_TO_THEM,
 };
 
 
