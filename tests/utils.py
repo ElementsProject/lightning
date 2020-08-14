@@ -102,3 +102,12 @@ def account_balance(n, account_id):
 
 def first_channel_id(n1, n2):
     return only_one(only_one(n1.rpc.listpeers(n2.info['id'])['peers'])['channels'])['channel_id']
+
+
+def basic_fee(feerate):
+    if False:  # FIXME-anchor
+        # option_anchor_outputs
+        weight = 1124
+    else:
+        weight = 724
+    return (weight * feerate) // 1000

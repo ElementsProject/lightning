@@ -2402,7 +2402,7 @@ def test_listtransactions(node_factory):
     """Sanity check for the listtransactions RPC command"""
     l1, l2 = node_factory.get_nodes(2, opts=[{}, {}])
 
-    wallettxid = l1.openchannel(l2, 10**4)["wallettxid"]
+    wallettxid = l1.openchannel(l2, 10**5)["wallettxid"]
     txids = [i["txid"] for tx in l1.rpc.listtransactions()["transactions"]
              for i in tx["inputs"]]
     # The txid of the transaction funding the channel is present, and
