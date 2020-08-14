@@ -3520,10 +3520,9 @@ def test_large_mpp_presplit(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "builds large network, which is slow if not DEVELOPER")
 @pytest.mark.slow_test
-@pytest.mark.xfail(strict=True)
 def test_mpp_overload_payee(node_factory, bitcoind):
     """
-    We have a bug where if the payer is unusually well-connected compared
+    We had a bug where if the payer is unusually well-connected compared
     to the payee, the payee is unable to accept a large payment since the
     payer will split it into lots of tiny payments, which would choke the
     max-concurrent-htlcs limit of the payee.

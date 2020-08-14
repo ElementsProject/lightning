@@ -1915,9 +1915,10 @@ struct payment_modifier *paymod_mods[] = {
 	&exemptfee_pay_mod,
 	&directpay_pay_mod,
 	&shadowroute_pay_mod,
-	/* NOTE: The order in which these two paymods are executed is
+	/* NOTE: The order in which these three paymods are executed is
 	 * significant!
-	 * routehints *must* execute first before presplit.
+	 * routehints *must* execute first before payee_incoming_limit
+	 * which *must* execute bfore presplit.
 	 *
 	 * FIXME: Giving an ordered list of paymods to the paymod
 	 * system is the wrong interface, given that the order in
@@ -1932,6 +1933,7 @@ struct payment_modifier *paymod_mods[] = {
 	 * use.
 	 */
 	&routehints_pay_mod,
+	&payee_incoming_limit_pay_mod,
 	&presplit_pay_mod,
 	&waitblockheight_pay_mod,
 	&retry_pay_mod,
