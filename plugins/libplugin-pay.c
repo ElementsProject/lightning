@@ -8,7 +8,7 @@
 
 #define DEFAULT_FINAL_CLTV_DELTA 9
 
-struct payment *payment_new(tal_t *ctx, struct command *cmd,
+struct payment *payment_new(const tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
 			    struct payment_modifier **mods)
 {

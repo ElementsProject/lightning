@@ -371,7 +371,7 @@ REGISTER_PAYMENT_MODIFIER_HEADER(adaptive_splitter, struct adaptive_split_mod_da
  * overhead. */
 REGISTER_PAYMENT_MODIFIER_HEADER(local_channel_hints, void);
 
-struct payment *payment_new(tal_t *ctx, struct command *cmd,
+struct payment *payment_new(const tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
 			    struct payment_modifier **mods);
 
