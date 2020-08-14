@@ -8,7 +8,7 @@ from utils import (
     DEVELOPER, only_one, wait_for, sync_blockheight, TIMEOUT,
     expected_peer_features, expected_node_features,
     expected_channel_features,
-    check_coin_moves, first_channel_id, account_balance
+    check_coin_moves, first_channel_id, account_balance, basic_fee
 )
 from bitcoin.core import CMutableTransaction, CMutableTxOut
 
@@ -163,7 +163,7 @@ def test_opening_tiny_channel(node_factory):
     #
     dustlimit = 546
     reserves = 2 * dustlimit
-    min_commit_tx_fees = 5430
+    min_commit_tx_fees = basic_fee(7500)
     min_for_opener = min_commit_tx_fees + dustlimit + 1
 
     l1_min_capacity = 1000            # 1k old default, too small but used at l1 to allow small incoming channels

@@ -4,7 +4,7 @@ from pyln.client import RpcError
 from shutil import copyfile
 from utils import (
     only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT,
-    account_balance, first_channel_id
+    account_balance, first_channel_id, basic_fee
 )
 
 import os
@@ -19,7 +19,7 @@ import unittest
 def test_closing(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.line_graph(2)
     chan = l1.get_channel_scid(l2)
-    fee = 5430 if not chainparams['elements'] else 8955
+    fee = basic_fee(7500) if not chainparams['elements'] else 8955
 
     l1.pay(l2, 200000000)
 
@@ -358,8 +358,20 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
 
 
 def closing_negotiation_step(node_factory, bitcoind, chainparams, opts):
-    orate = 29006  # closing fee negotiation starts at 21000
-    prate = 27625  # closing fee negotiation starts at 20000
+    def feerate_for(target, minimum=0, maximum=10000000):
+        """Binary search to find feerate"""
+        assert minimum != maximum
+        mid = (minimum + maximum) // 2
+        mid_fee = basic_fee(mid)
+        if mid_fee > target:
+            return feerate_for(target, minimum, mid)
+        elif mid_fee < target:
+            return feerate_for(target, mid, maximum)
+        else:
+            return mid
+
+    orate = feerate_for(21000)  # closing fee negotiation starts at 21000
+    prate = feerate_for(20000)  # closing fee negotiation starts at 20000
     opener, peer = node_factory.line_graph(2, opts=[{'feerates': (orate, orate, orate, orate)},
                                                     {'feerates': (prate, prate, prate, prate)}])
 
@@ -1672,7 +1684,7 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
 
     l1.wait_for_onchaind_broadcast('IGNORING_TINY_PAYMENT',
                                    'THEIR_UNILATERAL/OUR_HTLC')
-    l1.daemon.wait_for_log('Ignoring output 0 of .*: THEIR_UNILATERAL/OUR_HTLC')
+    l1.daemon.wait_for_log('Ignoring output .* of .*: THEIR_UNILATERAL/OUR_HTLC')
 
     # 100 deep and l2 forgets.
     bitcoind.generate_block(93)
@@ -2204,7 +2216,7 @@ def test_permfail(node_factory, bitcoind):
         return (
             len(billboard) == 2
             and billboard[0] == 'ONCHAIN:Tracking our own unilateral close'
-            and re.fullmatch(r'ONCHAIN:.* outputs unresolved: in 4 blocks will spend DELAYED_OUTPUT_TO_US \(.*:0\) using OUR_DELAYED_RETURN_TO_WALLET', billboard[1])
+            and re.fullmatch(r'ONCHAIN:.* outputs unresolved: in 4 blocks will spend DELAYED_OUTPUT_TO_US \(.*:.*\) using OUR_DELAYED_RETURN_TO_WALLET', billboard[1])
         )
     wait_for(check_billboard)
 
