@@ -1,4 +1,5 @@
 #include "libplugin-paymake.h"
+#include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
@@ -33,6 +34,9 @@ static const char *const mpp_paymods[] = {
 	"adaptive_splitter"
 };
 
+/* List of paymods to disable no matter what.  */
+static char **dev_disable_paymods = NULL;
+
 /* Create an initial copy of the paymods.  */
 static struct paymod_desc *
 initial_paymod_list(const tal_t *ctx)
@@ -46,6 +50,18 @@ initial_paymod_list(const tal_t *ctx)
 	return rv;
 }
 
+/* Determine if the named paymod is in the list of dev-disabled
+ * paymods.  */
+static inline bool is_dev_disabled_paymod(const char *name)
+{
+#if DEVELOPER
+	for (size_t i = 0; i < tal_count(dev_disable_paymods); ++i)
+		if (streq(name, dev_disable_paymods[i]))
+			return true;
+#endif
+	return false;
+}
+
 /* From a list of paymods descriptions, create a sequenced list of
  * paymods.  */
 static struct payment_modifier **
@@ -55,9 +71,12 @@ finalize_paymod_list(const tal_t *ctx,
 	struct payment_modifier **rv = tal_arr(ctx, struct payment_modifier *,
 					       0);
 
-	for (size_t i = 0; i < tal_count(paymod_list); ++i)
+	for (size_t i = 0; i < tal_count(paymod_list); ++i) {
+		if (is_dev_disabled_paymod(paymod_list[i].name))
+			continue;
 		if (!paymod_list[i].disabled)
 			tal_arr_expand(&rv, paymod_list[i].mod);
+	}
 	/* Add NULL terminator.  */
 	tal_arr_expand(&rv, NULL);
 
@@ -69,7 +88,24 @@ finalize_paymod_list(const tal_t *ctx,
 void paymake_global_init(struct plugin *plugin,
 			 const char *buf, const jsmntok_t *t)
 {
-	/* Do nothing.  */
+	dev_disable_paymods = tal_arr(NULL, char *, 0);
+#if DEVELOPER
+	const char *field;
+	const jsmntok_t *array, *entry;
+	bool valid;
+	size_t i;
+
+	field = rpc_delve(tmpctx, plugin, "listconfigs",
+			  take(json_out_obj(NULL,
+					    "config", "dev-disable-paymods")),
+			  ".dev-disable-paymods");
+	assert(field);
+	array = json_parse_input(tmpctx, field, strlen(field), &valid);
+	assert(array && valid);
+	json_for_each_arr (i, entry, array)
+		tal_arr_expand(&dev_disable_paymods,
+			       json_strdup(NULL, field, entry));
+#endif
 }
 
 struct paymake {

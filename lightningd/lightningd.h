@@ -242,6 +242,9 @@ struct lightningd {
 	bool dev_no_htlc_timeout;
 
 	bool dev_no_version_checks;
+
+	/* List of names of paymods to disable.  */
+	char **dev_disable_paymods;
 #endif /* DEVELOPER */
 
 	/* tor support */

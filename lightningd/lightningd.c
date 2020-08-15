@@ -140,6 +140,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_force_tmp_channel_id = NULL;
 	ld->dev_no_htlc_timeout = false;
 	ld->dev_no_version_checks = false;
+	ld->dev_disable_paymods = tal_arr(ld, char *, 0);
 #endif
 
 	/*~ These are CCAN lists: an embedded double-linked list.  It's not

@@ -512,6 +512,36 @@ static char *opt_force_channel_secrets(const char *optarg,
 	return NULL;
 }
 
+static char *opt_dev_disable_paymods(const char *optarg, struct lightningd *ld)
+{
+	const char *end = optarg + strlen(optarg);
+	const char *step = optarg;
+	const char *next;
+	char *name;
+
+	/* Comma-separated list of paymod names.  */
+	while (step < end) {
+		while (*step == ',') {
+			++step;
+			if (step == end)
+				goto finished;
+		}
+
+		next = strchr(step, ',');
+		if (!next)
+			next = end;
+		assert(step != next);
+
+		name = tal_strndup(ld->dev_disable_paymods,
+				   step, next - step);
+		tal_arr_expand(&ld->dev_disable_paymods, name);
+
+		step = next;
+	}
+finished:;
+	return NULL;
+}
+
 static void dev_register_opts(struct lightningd *ld)
 {
 	/* We might want to debug plugins, which are started before normal
@@ -570,6 +600,10 @@ static void dev_register_opts(struct lightningd *ld)
 				 opt_set_bool,
 				 &ld->plugins->dev_builtin_plugins_unimportant,
 				 "Make builtin plugins unimportant so you can plugin stop them.");
+
+	opt_register_early_arg("--dev-disable-paymods",
+			       opt_dev_disable_paymods, NULL, ld,
+			       "Disable the comma-separated list of paymod names.");
 }
 #endif /* DEVELOPER */
 
@@ -1305,6 +1339,16 @@ static void add_config(struct lightningd *ld,
 			/* FIXME: We actually treat it as if they specified
 			 * --plugin for each one, so ignore these */
 #if DEVELOPER
+		} else if (opt->cb_arg == (void*)opt_dev_disable_paymods) {
+			/* We normally do not print dev settings, but
+			 * dev-disable-paymods is really handled by
+			 * plugins, so need to print it here so all plugins
+			 * can access it.  */
+			json_array_start(response, name0);
+			for (size_t i = 0; i < tal_count(ld->dev_disable_paymods); ++i)
+				json_add_string(response, NULL,
+						ld->dev_disable_paymods[i]);
+			json_array_end(response);
 		} else if (strstarts(name, "dev-")) {
 			/* Ignore dev settings */
 #endif
