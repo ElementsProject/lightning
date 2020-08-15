@@ -806,6 +806,29 @@ failure_is_blockheight_disagreement(const struct payment *p,
 	return true;
 }
 
+static char *describe_failcode(const tal_t *ctx, enum onion_type failcode)
+{
+	char *rv = tal_strdup(ctx, "");
+	if (failcode & BADONION) {
+		tal_append_fmt(&rv, "BADONION|");
+		failcode &= ~BADONION;
+	}
+	if (failcode & PERM) {
+		tal_append_fmt(&rv, "PERM|");
+		failcode &= ~PERM;
+	}
+	if (failcode & NODE) {
+		tal_append_fmt(&rv, "NODE|");
+		failcode &= ~NODE;
+	}
+	if (failcode & UPDATE) {
+		tal_append_fmt(&rv, "UPDATE|");
+		failcode &= ~UPDATE;
+	}
+	tal_append_fmt(&rv, "%u", failcode);
+	return rv;
+}
+
 static struct command_result *
 handle_final_failure(struct command *cmd,
 		     struct payment *p,
@@ -893,9 +916,9 @@ handle_final_failure(struct command *cmd,
 
 strange_error:
 	paymod_log(p, LOG_UNUSUAL,
-		   "Final node %s reported strange error code %u",
+		   "Final node %s reported strange error code %04x (%s)",
 		   type_to_string(tmpctx, struct node_id, final_id),
-		   failcode);
+		   failcode, describe_failcode(tmpctx, failcode));
 
 error:
 	p->result->code = PAY_DESTINATION_PERM_FAIL;
@@ -983,9 +1006,9 @@ handle_intermediate_failure(struct command *cmd,
 
 strange_error:
 	paymod_log(p, LOG_UNUSUAL,
-		   "Intermediate node %s reported strange error code %u",
+		   "Intermediate node %s reported strange error code %04x (%s)",
 		   type_to_string(tmpctx, struct node_id, errnode),
-		   failcode);
+		   failcode, describe_failcode(tmpctx, failcode));
 
 error:
 	payment_fail(p, "%s", p->result->message);
