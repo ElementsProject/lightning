@@ -71,7 +71,7 @@ def test_pay(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
 def test_pay_amounts(node_factory):
-    l1, l2 = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2, opts={"dev-disable-paymods": "shadowroute"})
     inv = l2.rpc.invoice(Millisatoshi("123sat"), 'test_pay_amounts', 'description')['bolt11']
 
     invoice = only_one(l2.rpc.listinvoices('test_pay_amounts')['invoices'])
@@ -79,7 +79,7 @@ def test_pay_amounts(node_factory):
     assert isinstance(invoice['amount_msat'], Millisatoshi)
     assert invoice['amount_msat'] == Millisatoshi(123000)
 
-    l1.rpc.dev_pay(inv, use_shadow=False)
+    l1.rpc.pay(inv)
 
     invoice = only_one(l2.rpc.listinvoices('test_pay_amounts')['invoices'])
     assert isinstance(invoice['amount_received_msat'], Millisatoshi)
