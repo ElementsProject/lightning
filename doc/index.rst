@@ -70,6 +70,7 @@ c-lightning Documentation
    lightning-setchannelfee <lightning-setchannelfee.7.md>
    lightning-signmessage <lightning-signmessage.7.md>
    lightning-signpsbt <lightning-signpsbt.7.md>
+   lightning-stop <lightning-stop.7.md>
    lightning-txdiscard <lightning-txdiscard.7.md>
    lightning-txprepare <lightning-txprepare.7.md>
    lightning-txsend <lightning-txsend.7.md>
