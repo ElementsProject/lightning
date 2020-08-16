@@ -579,6 +579,9 @@ class LightningNode(object):
             self.daemon.opts["dev-disconnect"] = "dev_disconnect"
         if DEVELOPER:
             self.daemon.opts["dev-fail-on-subdaemon-fail"] = None
+            # Don't run --version on every subdaemon if we're valgrinding and slow.
+            if SLOW_MACHINE and VALGRIND:
+                self.daemon.opts["dev-no-version-checks"] = None
             self.daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
             if os.getenv("DEBUG_SUBD"):
                 self.daemon.opts["dev-debugger"] = os.getenv("DEBUG_SUBD")
@@ -601,6 +604,9 @@ class LightningNode(object):
                 '--error-exitcode=7',
                 '--log-file={}/valgrind-errors.%p'.format(self.daemon.lightning_dir)
             ]
+            # Reduce precision of errors, speeding startup and reducing memory greatly:
+            if SLOW_MACHINE:
+                self.daemon.cmd_prefix += ['--read-inline-info=no']
 
     def connect(self, remote_node):
         self.rpc.connect(remote_node.info['id'], '127.0.0.1', remote_node.daemon.port)

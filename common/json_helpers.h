@@ -2,6 +2,7 @@
 #ifndef LIGHTNING_COMMON_JSON_HELPERS_H
 #define LIGHTNING_COMMON_JSON_HELPERS_H
 #include "config.h"
+#include <bitcoin/short_channel_id.h>
 #include <bitcoin/tx.h>
 #include <common/json.h>
 #include <wire/wire.h>
@@ -92,6 +93,11 @@ void json_add_short_channel_id(struct json_stream *response,
 			       const char *fieldname,
 			       const struct short_channel_id *id);
 
+/* '"fieldname" : "1234:5:6/7"' */
+void json_add_short_channel_id_dir(struct json_stream *response,
+				   const char *fieldname,
+				   const struct short_channel_id_dir *id);
+
 /* JSON serialize a network address for a node */
 void json_add_address(struct json_stream *response, const char *fieldname,
 		      const struct wireaddr *addr);
@@ -141,6 +147,6 @@ void json_add_tx(struct json_stream *result,
 /* '"fieldname" : "cHNidP8BAJoCAAAAAljo..." or "cHNidP8BAJoCAAAAAljo..." if fieldname is NULL */
 void json_add_psbt(struct json_stream *stream,
 		   const char *fieldname,
-		   struct bitcoin_tx *tx);
+		   struct wally_psbt *psbt);
 
 #endif /* LIGHTNING_COMMON_JSON_HELPERS_H */

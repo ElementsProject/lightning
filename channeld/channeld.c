@@ -12,6 +12,7 @@
  */
 #include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
@@ -841,7 +842,6 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 
 	msg = towire_hsm_sign_remote_commitment_tx(NULL, txs[0],
 						   &peer->channel->funding_pubkey[REMOTE],
-						   *txs[0]->input_amounts[0],
 						   &peer->remote_per_commit,
 						   peer->channel->option_static_remotekey);
 
@@ -883,7 +883,6 @@ static secp256k1_ecdsa_signature *calc_commitsigs(const tal_t *ctx,
 		wscript = bitcoin_tx_output_get_witscript(tmpctx, txs[0],
 							  txs[i+1]->wtx->inputs[0].index);
 		msg = towire_hsm_sign_remote_htlc_tx(NULL, txs[i + 1], wscript,
-						     *txs[i+1]->input_amounts[0],
 						     &peer->remote_per_commit);
 
 		msg = hsm_req(tmpctx, take(msg));
@@ -1290,6 +1289,13 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	    channel_txs(tmpctx, &htlc_map, NULL,
 			&funding_wscript, peer->channel, &peer->next_local_per_commit,
 			peer->next_index[LOCAL], LOCAL);
+
+	/* Set the commit_sig on the commitment tx psbt */
+	if (!psbt_input_set_partial_sig(txs[0]->psbt, 0,
+					&peer->channel->funding_pubkey[REMOTE],
+					&commit_sig))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Unable to set signature internally");
 
 	if (!derive_simple_key(&peer->channel->basepoints[REMOTE].htlc,
 			       &peer->next_local_per_commit, &remote_htlckey))
@@ -2198,8 +2204,7 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
  *    `your_last_per_commitment_secret` is correct for that
  *    `next_revocation_number` minus 1:
  *...
- *  - otherwise, if it supports `option_data_loss_protect`, AND the
- * `option_data_loss_protect` fields are present:
+ *  - otherwise, if it supports `option_data_loss_protect`:
  *    - if `next_revocation_number` is greater than expected above,
  *      AND `your_last_per_commitment_secret` is correct for that
  *     `next_revocation_number` minus 1:
@@ -2260,8 +2265,7 @@ static void check_future_dataloss_fields(struct peer *peer,
  * ...
  *  - if `your_last_per_commitment_secret` does not match the expected values:
  *     - SHOULD fail the channel.
- *  - otherwise, if it supports `option_data_loss_protect`, AND the
- * `option_data_loss_protect` fields are present:
+ *  - otherwise, if it supports `option_data_loss_protect`:
  *...
  *    - otherwise (`your_last_per_commitment_secret` or
  *     `my_current_per_commitment_point` do not match the expected values):
@@ -2434,41 +2438,33 @@ static void peer_reconnect(struct peer *peer,
 	 *     of the next `revoke_and_ack` message it expects to receive.
 	 *   - if `option_static_remotekey` applies to the commitment transaction:
 	 *     - MUST set `my_current_per_commitment_point` to a valid point.
-	 *   - otherwise, if it supports `option_data_loss_protect`:
+	 *   - otherwise:
 	 *     - MUST set `my_current_per_commitment_point` to its commitment
 	 *       point for the last signed commitment it received from its
 	 *       channel peer (i.e. the commitment_point corresponding to the
 	 *       commitment transaction the sender would use to unilaterally
 	 *       close).
-	 *   - if `option_static_remotekey` applies to the commitment
-	 *      transaction, or the sending node supports
-	 *      `option_data_loss_protect`:
-	 *     - if `next_revocation_number` equals 0:
-	 *       - MUST set `your_last_per_commitment_secret` to all zeroes
-	 *     - otherwise:
-	 *       - MUST set `your_last_per_commitment_secret` to the last
-	 *         `per_commitment_secret` it received
+	 *   - if `next_revocation_number` equals 0:
+	 *     - MUST set `your_last_per_commitment_secret` to all zeroes
+	 *   - otherwise:
+	 *     - MUST set `your_last_per_commitment_secret` to the last
+	 *       `per_commitment_secret` it received
 	 */
 	if (peer->channel->option_static_remotekey) {
-		msg = towire_channel_reestablish_option_static_remotekey
+		msg = towire_channel_reestablish
 			(NULL, &peer->channel_id,
 			 peer->next_index[LOCAL],
 			 peer->revocations_received,
 			 last_remote_per_commit_secret,
 			 /* Can send any (valid) point here */
 			 &peer->remote_per_commit);
-	} else if (dataloss_protect) {
-		msg = towire_channel_reestablish_option_data_loss_protect
+	} else {
+		msg = towire_channel_reestablish
 			(NULL, &peer->channel_id,
 			 peer->next_index[LOCAL],
 			 peer->revocations_received,
 			 last_remote_per_commit_secret,
 			 &my_current_per_commitment_point);
-	} else {
-		msg = towire_channel_reestablish
-			(NULL, &peer->channel_id,
-			 peer->next_index[LOCAL],
-			 peer->revocations_received);
 	}
 
 	sync_crypto_write(peer->pps, take(msg));
@@ -2488,43 +2484,17 @@ static void peer_reconnect(struct peer *peer,
 					     msg) ||
 		 capture_premature_msg(&premature_msgs, msg));
 
-	if (peer->channel->option_static_remotekey) {
-		struct pubkey ignore;
-		if (!fromwire_channel_reestablish_option_static_remotekey(msg,
-					&channel_id,
-					&next_commitment_number,
-					&next_revocation_number,
-					&last_local_per_commitment_secret,
-					&ignore)) {
-			peer_failed(peer->pps,
-				    &peer->channel_id,
-				    "bad reestablish static_remotekey msg: %s %s",
-				    wire_type_name(fromwire_peektype(msg)),
-				    tal_hex(msg, msg));
-		}
-	} else if (dataloss_protect) {
-		if (!fromwire_channel_reestablish_option_data_loss_protect(msg,
+	if (!fromwire_channel_reestablish(msg,
 					&channel_id,
 					&next_commitment_number,
 					&next_revocation_number,
 					&last_local_per_commitment_secret,
 					&remote_current_per_commitment_point)) {
-			peer_failed(peer->pps,
-				    &peer->channel_id,
-				    "bad reestablish dataloss msg: %s %s",
-				    wire_type_name(fromwire_peektype(msg)),
-				    tal_hex(msg, msg));
-		}
-	} else {
-		if (!fromwire_channel_reestablish(msg, &channel_id,
-					  &next_commitment_number,
-					  &next_revocation_number)) {
-			peer_failed(peer->pps,
-				    &peer->channel_id,
-				    "bad reestablish msg: %s %s",
-				    wire_type_name(fromwire_peektype(msg)),
-				    tal_hex(msg, msg));
-		}
+		peer_failed(peer->pps,
+			    &peer->channel_id,
+			    "bad reestablish msg: %s %s",
+			    wire_type_name(fromwire_peektype(msg)),
+			    tal_hex(msg, msg));
 	}
 
 	status_debug("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,

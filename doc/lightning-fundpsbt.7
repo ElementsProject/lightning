@@ -1,0 +1,102 @@
+.TH "LIGHTNING-FUNDPSBT" "7" "" "" "lightning-fundpsbt"
+.SH NAME
+lightning-fundpsbt - Command to populate PSBT inputs from the wallet
+.SH SYNOPSIS
+
+\fBfundpsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR [\fIminconf\fR] [\fIreserve\fR]
+
+.SH DESCRIPTION
+
+\fBfundpsbt\fR is a low-level RPC command which creates a PSBT using unreserved
+inputs in the wallet, optionally reserving them as well\.
+
+
+\fIsatoshi\fR is the minimum satoshi value of the output(s) needed (or the
+string "all" meaning use all unreserved inputs)\.  If a value, it can
+be a whole number, a whole number ending in \fIsat\fR, a whole number
+ending in \fI000msat\fR, or a number with 1 to 8 decimal places ending in
+\fIbtc\fR\.
+
+
+\fIfeerate\fR can be one of the feerates listed in \fBlightning-feerates\fR(7),
+or one of the strings \fIurgent\fR (aim for next block), \fInormal\fR (next 4
+blocks or so) or \fIslow\fR (next 100 blocks or so) to use lightningd’s
+internal estimates\.  It can also be a \fIfeerate\fR is a number, with an
+optional suffix: \fIperkw\fR means the number is interpreted as
+satoshi-per-kilosipa (weight), and \fIperkb\fR means it is interpreted
+bitcoind-style as satoshi-per-kilobyte\. Omitting the suffix is
+equivalent to \fIperkb\fR\.
+
+
+\fIstartweight\fR is the weight of the transaction before \fIfundpsbt\fR has
+added any inputs\.
+
+
+\fIminconf\fR specifies the minimum number of confirmations that used
+outputs should have\. Default is 1\.
+
+
+\fIreserve\fR is a boolean: if true (the default), then \fIreserveinputs\fR is
+called (successfully, with \fIexclusive\fR true) on the returned PSBT\.
+
+.SH EXAMPLE USAGE
+
+Let's assume the caller is trying to produce a 100,000 satoshi output\.
+
+
+First, the caller estimates the weight of the core (typically 42) and
+known outputs of the transaction (typically (9 + scriptlen) * 4)\.  For
+a simple P2WPKH it's a 22 byte scriptpubkey, so that's 164 weight\.
+
+
+It calls "\fIfundpsbt\fR 100000sat slow 206", which succeeds, and returns
+the \fIpsbt\fR and \fIfeerate_per_kw\fR it used, the \fIestimated_final_weight\fR
+and any \fIexcess_msat\fR\.
+
+
+If \fIexcess_msat\fR is greater than the cost of adding a change output,
+the caller adds a change output randomly to position 0 or 1 in the
+PSBT\.  Say \fIfeerate_per_kw\fR is 253, and the change output is a P2WPKH
+(weight 164), that would cost the cost is around 41 sats\.  With the
+dust limit disallowing payments below 546 satoshis, we would only create
+a change output if \fIexcess_msat\fR was greater or equal to 41 + 546\.
+
+.SH RETURN VALUE
+
+On success, returns the \fIpsbt\fR containing the inputs, \fIfeerate_per_kw\fR
+showing the exact numeric feerate it used, \fIestimated_final_weight\fR for
+the estimated weight of the transaction once fully signed, and
+\fIexcess_msat\fR containing the amount above \fIsatoshi\fR which is
+available\.  This could be zero, or dust\.  If \fIsatoshi\fR was "all",
+then \fIexcess_msat\fR is the entire amount once fees are subtracted
+for the weights of the inputs and startweight\.
+
+
+If \fIreserve\fR was true, then a \fIreservations\fR array is returned,
+exactly like \fIreserveinputs\fR\.
+
+
+On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
+with \fBcode\fR being one of the following:
+
+.RS
+.IP \[bu]
+-32602: If the given parameters are wrong\.
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+301: Insufficient UTXOs to meet \fIsatoshi\fR value\.
+
+.RE
+.SH AUTHOR
+
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-reserveinputs\fR(7), \fBlightning-unreserveinputs\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

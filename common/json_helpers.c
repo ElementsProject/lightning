@@ -1,8 +1,8 @@
 #include <arpa/inet.h>
 #include <bitcoin/preimage.h>
 #include <bitcoin/privkey.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/pubkey.h>
-#include <bitcoin/short_channel_id.h>
 #include <ccan/ccan/str/hex/hex.h>
 #include <common/amount.h>
 #include <common/channel_id.h>
@@ -163,6 +163,18 @@ void json_add_short_channel_id(struct json_stream *response,
 			short_channel_id_outnum(scid));
 }
 
+void json_add_short_channel_id_dir(struct json_stream *response,
+			       const char *fieldname,
+			       const struct short_channel_id_dir *scidd)
+{
+	json_add_member(response, fieldname, true, "%dx%dx%d/%d",
+			short_channel_id_blocknum(&scidd->scid),
+			short_channel_id_txnum(&scidd->scid),
+			short_channel_id_outnum(&scidd->scid),
+			scidd->dir
+		);
+}
+
 void json_add_address(struct json_stream *response, const char *fieldname,
 		      const struct wireaddr *addr)
 {
@@ -242,10 +254,10 @@ void json_add_tx(struct json_stream *result,
 
 void json_add_psbt(struct json_stream *stream,
 		   const char *fieldname,
-		   struct bitcoin_tx *tx)
+		   struct wally_psbt *psbt)
 {
 	const char *psbt_b64;
-	psbt_b64 = bitcoin_tx_to_psbt_base64(tx, tx);
+	psbt_b64 = psbt_to_b64(NULL, psbt);
 	json_add_string(stream, fieldname, take(psbt_b64));
 }
 

@@ -1506,32 +1506,26 @@ static struct io_plan *handle_payment_failure(struct io_conn *conn,
 					      struct daemon *daemon,
 					      const u8 *msg)
 {
-	struct node_id erring_node;
-	struct short_channel_id erring_channel;
-	u8 erring_channel_direction;
 	u8 *error;
-	enum onion_type failcode;
 	u8 *channel_update;
 
-	if (!fromwire_gossip_payment_failure(msg, msg,
-					     &erring_node,
-					     &erring_channel,
-					     &erring_channel_direction,
-					     &error))
+	if (!fromwire_gossip_payment_failure(msg, msg, &error))
 		master_badmsg(WIRE_GOSSIP_PAYMENT_FAILURE, msg);
 
-	failcode = fromwire_peektype(error);
 	channel_update = channel_update_from_onion_error(tmpctx, error);
-	if (channel_update)
+	if (channel_update) {
 		status_debug("Extracted channel_update %s from onionreply %s",
 			     tal_hex(tmpctx, channel_update),
 			     tal_hex(tmpctx, error));
-	routing_failure(daemon->rstate,
-			&erring_node,
-			&erring_channel,
-			erring_channel_direction,
-			failcode,
-			channel_update);
+		u8 *err = handle_channel_update(daemon->rstate, channel_update,
+						NULL, NULL);
+		if (err) {
+			status_info("extracted bad channel_update %s from onionreply %s",
+				    sanitize_error(err, err, NULL),
+				    error);
+			tal_free(err);
+		}
+	}
 
 	return daemon_conn_read_next(conn, daemon->master);
 }

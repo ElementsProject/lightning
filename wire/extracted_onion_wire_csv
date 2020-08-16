@@ -49,6 +49,6 @@ msgdata,final_incorrect_htlc_amount,incoming_htlc_amt,u64,
 msgtype,channel_disabled,UPDATE|20
 msgtype,expiry_too_far,21
 msgtype,invalid_onion_payload,PERM|22
-msgdata,invalid_onion_payload,type,varint,
+msgdata,invalid_onion_payload,type,bigsize,
 msgdata,invalid_onion_payload,offset,u16,
 msgtype,mpp_timeout,23

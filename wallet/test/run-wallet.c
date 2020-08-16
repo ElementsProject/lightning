@@ -135,6 +135,9 @@ bool fromwire_custommsg_in(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8
 /* Generated stub for fromwire_gossip_get_stripped_cupdate_reply */
 bool fromwire_gossip_get_stripped_cupdate_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **stripped_update UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_get_stripped_cupdate_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsm_get_output_scriptpubkey_reply */
+bool fromwire_hsm_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **script UNNEEDED)
+{ fprintf(stderr, "fromwire_hsm_get_output_scriptpubkey_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsm_sign_commitment_tx_reply */
 bool fromwire_hsm_sign_commitment_tx_reply(const void *p UNNEEDED, struct bitcoin_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsm_sign_commitment_tx_reply called!\n"); abort(); }
@@ -692,8 +695,11 @@ u8 *towire_final_incorrect_htlc_amount(const tal_t *ctx UNNEEDED, struct amount_
 /* Generated stub for towire_gossip_get_stripped_cupdate */
 u8 *towire_gossip_get_stripped_cupdate(const tal_t *ctx UNNEEDED, const struct short_channel_id *channel_id UNNEEDED)
 { fprintf(stderr, "towire_gossip_get_stripped_cupdate called!\n"); abort(); }
+/* Generated stub for towire_hsm_get_output_scriptpubkey */
+u8 *towire_hsm_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
+{ fprintf(stderr, "towire_hsm_get_output_scriptpubkey called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_commitment_tx */
-u8 *towire_hsm_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED, struct amount_sat funding_amount UNNEEDED)
+u8 *towire_hsm_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_commitment_tx called!\n"); abort(); }
 /* Generated stub for towire_incorrect_cltv_expiry */
 u8 *towire_incorrect_cltv_expiry(const tal_t *ctx UNNEEDED, u32 cltv_expiry UNNEEDED, const u8 *channel_update UNNEEDED)
@@ -702,7 +708,7 @@ u8 *towire_incorrect_cltv_expiry(const tal_t *ctx UNNEEDED, u32 cltv_expiry UNNE
 u8 *towire_incorrect_or_unknown_payment_details(const tal_t *ctx UNNEEDED, struct amount_msat htlc_msat UNNEEDED, u32 height UNNEEDED)
 { fprintf(stderr, "towire_incorrect_or_unknown_payment_details called!\n"); abort(); }
 /* Generated stub for towire_invalid_onion_payload */
-u8 *towire_invalid_onion_payload(const tal_t *ctx UNNEEDED, varint type UNNEEDED, u16 offset UNNEEDED)
+u8 *towire_invalid_onion_payload(const tal_t *ctx UNNEEDED, bigsize type UNNEEDED, u16 offset UNNEEDED)
 { fprintf(stderr, "towire_invalid_onion_payload called!\n"); abort(); }
 /* Generated stub for towire_invalid_realm */
 u8 *towire_invalid_realm(const tal_t *ctx UNNEEDED)
@@ -866,6 +872,7 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 	int fd = mkstemp(filename);
 	struct wallet *w = tal(ctx, struct wallet);
 	static unsigned char badseed[BIP32_ENTROPY_LEN_128];
+	const struct ext_key *bip32_base = NULL;
 	CHECK_MSG(fd != -1, "Unable to generate temp filename");
 	close(fd);
 
@@ -885,7 +892,7 @@ static struct wallet *create_test_wallet(struct lightningd *ld, const tal_t *ctx
 
 	CHECK_MSG(w->db, "Failed opening the db");
 	db_begin_transaction(w->db);
-	db_migrate(ld, w->db);
+	db_migrate(ld, w->db, bip32_base);
 	w->db->data_version = 0;
 	db_commit_transaction(w->db);
 	CHECK_MSG(!wallet_err, "DB migration failed");
@@ -925,6 +932,9 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u.close_info->channel_id = 42;
 	u.close_info->peer_id = id;
 	u.close_info->commitment_point = &pk;
+	/* Arbitrarily set scriptpubkey len to 20 */
+	u.scriptPubkey = tal_arr(w, u8, 20);
+	memset(u.scriptPubkey, 1, 20);
 	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
 		  "wallet_add_utxo with close_info");
 
@@ -973,6 +983,8 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u.close_info->channel_id = 42;
 	u.close_info->peer_id = id;
 	u.close_info->commitment_point = NULL;
+	u.scriptPubkey = tal_arr(w, u8, 20);
+	memset(u.scriptPubkey, 1, 20);
 	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
 		  "wallet_add_utxo with close_info no commitment_point");
 

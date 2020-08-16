@@ -752,7 +752,8 @@ static void process_check_funding_broadcast(struct bitcoind *bitcoind,
 
 	if (txout != NULL) {
 		for (size_t i = 0; i < tal_count(cancel->forgets); i++)
-			was_pending(command_fail(cancel->forgets[i], LIGHTNINGD,
+			was_pending(command_fail(cancel->forgets[i],
+				    FUNDING_CANCEL_NOT_SAFE,
 				    "The funding transaction has been broadcast, "
 				    "please consider `close` or `dev-fail`! "));
 		tal_free(cancel->forgets);
@@ -767,47 +768,41 @@ static void process_check_funding_broadcast(struct bitcoind *bitcoind,
 }
 
 struct command_result *cancel_channel_before_broadcast(struct command *cmd,
-						       const char *buffer,
-						       struct peer *peer,
-						       const jsmntok_t *cidtok)
+						       struct peer *peer)
 {
 	struct channel *cancel_channel;
 	struct channel_to_cancel *cc = tal(cmd, struct channel_to_cancel);
+	struct channel *channel;
 
 	cc->peer = peer->id;
-	if (!cidtok) {
-		struct channel *channel;
-
-		cancel_channel = NULL;
-		list_for_each(&peer->channels, channel, list) {
-			if (cancel_channel) {
-				return command_fail(cmd, LIGHTNINGD,
-						    "Multiple channels:"
-						    " please specify channel_id");
-			}
-			cancel_channel = channel;
-		}
-		if (!cancel_channel)
-			return command_fail(cmd, LIGHTNINGD,
-					    "No channels matching that peer_id");
-		derive_channel_id(&cc->cid,
-				  &cancel_channel->funding_txid,
-				  cancel_channel->funding_outnum);
-	} else {
-		if (!json_tok_channel_id(buffer, cidtok, &cc->cid))
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Invalid channel_id parameter.");
-
-		cancel_channel = find_channel_by_id(peer, &cc->cid);
-		if (!cancel_channel)
-			return command_fail(cmd, LIGHTNINGD,
-					    "Channel ID not found: '%.*s'",
-					    cidtok->end - cidtok->start,
-					    buffer + cidtok->start);
+	cancel_channel = NULL;
+	list_for_each(&peer->channels, channel, list) {
+		/* After `fundchannel_complete`, channel is in
+		 * `CHANNELD_AWAITING_LOCKIN` state.
+		 *
+		 * TODO: This assumes only one channel at a time
+		 * can be in this state, which is true at the
+		 * time of this writing, but may change *if* we
+		 * ever implement multiple channels per peer.
+		 */
+		if (channel->state != CHANNELD_AWAITING_LOCKIN)
+			continue;
+		cancel_channel = channel;
+		break;
 	}
+	if (!cancel_channel)
+		return command_fail(cmd, FUNDING_NOTHING_TO_CANCEL,
+				    "No channels being opened or "
+				    "awaiting lock-in for "
+				    "peer_id %s",
+				    type_to_string(tmpctx, struct node_id,
+						   &peer->id));
+	derive_channel_id(&cc->cid,
+			  &cancel_channel->funding_txid,
+			  cancel_channel->funding_outnum);
 
 	if (cancel_channel->opener == REMOTE)
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_CANCEL_NOT_SAFE,
 				    "Cannot cancel channel that was "
 				    "initiated by peer");
 
@@ -817,13 +812,13 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 	if (wallet_transaction_type(cmd->ld->wallet,
 				   &cancel_channel->funding_txid,
 				   &type))
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_CANCEL_NOT_SAFE,
 				    "Has the funding transaction been broadcast? "
 				    "Please use `close` or `dev-fail` instead.");
 
 	if (channel_has_htlc_out(cancel_channel) ||
 	    channel_has_htlc_in(cancel_channel)) {
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_CANCEL_NOT_SAFE,
 				    "This channel has HTLCs attached and it is "
 				    "not safe to cancel. Has the funding transaction "
 				    "been broadcast? Please use `close` or `dev-fail` "

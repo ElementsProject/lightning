@@ -82,12 +82,13 @@ RUN ./configure --prefix=/tmp/lightning_install --enable-static && make -j3 DEVE
 
 FROM debian:stretch-slim as final
 COPY --from=downloader /opt/tini /usr/bin/tini
-RUN apt-get update && apt-get install -y --no-install-recommends socat inotify-tools \
+RUN apt-get update && apt-get install -y --no-install-recommends socat inotify-tools python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*
 
 ENV LIGHTNINGD_DATA=/root/.lightning
 ENV LIGHTNINGD_RPC_PORT=9835
 ENV LIGHTNINGD_PORT=9735
+ENV LIGHTNINGD_NETWORK=bitcoin
 
 RUN mkdir $LIGHTNINGD_DATA && \
     touch $LIGHTNINGD_DATA/config

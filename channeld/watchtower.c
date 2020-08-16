@@ -69,7 +69,7 @@ penalty_tx_create(const tal_t *ctx,
 
 	tx = bitcoin_tx(ctx, chainparams, 1, 1, locktime);
 	bitcoin_tx_add_input(tx, commitment_txid, to_them_outnum, 0xFFFFFFFF,
-			     to_them_sats, NULL);
+			     NULL, to_them_sats, NULL, wscript);
 
 	bitcoin_tx_add_output(tx, final_scriptpubkey, NULL, to_them_sats);
 
@@ -102,8 +102,8 @@ penalty_tx_create(const tal_t *ctx,
 	bitcoin_tx_finalize(tx);
 
 	u8 *hsm_sign_msg =
-	    towire_hsm_sign_penalty_to_us(ctx, &remote_per_commitment_secret, tx,
-					  wscript, *tx->input_amounts[0]);
+	    towire_hsm_sign_penalty_to_us(ctx, &remote_per_commitment_secret,
+					  tx, wscript);
 
 	if (!wire_sync_write(hsm_fd, take(hsm_sign_msg)))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,

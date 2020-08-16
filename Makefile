@@ -1,7 +1,7 @@
 #! /usr/bin/make
 
 # Extract version from git, or if we're from a zipfile, use dirname
-VERSION=$(shell git describe --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's|.*/c\{0,1\}lightning-v\{0,1\}\([0-9a-f.rc]*\)$$|\1|gp')
+VERSION=$(shell git describe --always --dirty=-modded --abbrev=7 2>/dev/null || pwd | sed -n 's|.*/c\{0,1\}lightning-v\{0,1\}\([0-9a-f.rc\-]*\)$$|\1|gp')
 
 ifeq ($(VERSION),)
 $(error "ERROR: git is required for generating version information")
@@ -24,7 +24,7 @@ CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
 BOLTDIR := ../lightning-rfc/
-BOLTVERSION := 4107c69e315b4f33d5b00459bef919bcfaa64bf2
+BOLTVERSION := 9e8e29af9b9a922eb114b2c716205d0772946e56
 
 -include config.vars
 
@@ -65,7 +65,7 @@ endif
 
 ifeq ($(COMPAT),1)
 # We support compatibility with pre-0.6.
-COMPAT_CFLAGS=-DCOMPAT_V052=1 -DCOMPAT_V060=1 -DCOMPAT_V061=1 -DCOMPAT_V062=1 -DCOMPAT_V070=1 -DCOMPAT_V072=1 -DCOMPAT_V073=1 -DCOMPAT_V080=1 -DCOMPAT_V081=1 -DCOMPAT_V082=1
+COMPAT_CFLAGS=-DCOMPAT_V052=1 -DCOMPAT_V060=1 -DCOMPAT_V061=1 -DCOMPAT_V062=1 -DCOMPAT_V070=1 -DCOMPAT_V072=1 -DCOMPAT_V073=1 -DCOMPAT_V080=1 -DCOMPAT_V081=1 -DCOMPAT_V082=1 -DCOMPAT_V090=1
 endif
 
 # Timeout shortly before the 600 second travis silence timeout
@@ -340,7 +340,7 @@ check-markdown:
 check-spelling:
 	@tools/check-spelling.sh
 
-PYSRC=$(shell git ls-files "*.py") contrib/pylightning/lightning-pay
+PYSRC=$(shell git ls-files "*.py" | grep -v /text.py) contrib/pylightning/lightning-pay
 
 check-python:
 	@# E501 line too long (N > 79 characters)
@@ -523,7 +523,8 @@ installdirs:
 # the individual Makefiles, however.
 BIN_PROGRAMS = \
 	       cli/lightning-cli \
-	       lightningd/lightningd
+	       lightningd/lightningd \
+	       tools/lightning-hsmtool
 PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_channeld \
 	       lightningd/lightning_closingd \
@@ -532,7 +533,8 @@ PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_hsmd \
 	       lightningd/lightning_onchaind \
 	       lightningd/lightning_openingd
-PLUGINS=plugins/pay plugins/autoclean plugins/fundchannel plugins/bcli plugins/keysend
+
+# $(PLUGINS) is defined in plugins/Makefile.
 
 install-program: installdirs $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS)
 	@$(NORMAL_INSTALL)

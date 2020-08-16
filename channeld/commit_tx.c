@@ -79,6 +79,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     const struct bitcoin_txid *funding_txid,
 			     unsigned int funding_txout,
 			     struct amount_sat funding,
+			     const u8 *funding_wscript,
 			     enum side opener,
 			     u16 to_self_delay,
 			     const struct keyset *keyset,
@@ -275,8 +276,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *
 	 * * locktime: upper 8 bits are 0x20, lower 24 bits are the lower 24 bits of the obscured commitment number
 	 */
-	tx->wtx->locktime
-		= (0x20000000 | (obscured_commitment_number & 0xFFFFFF));
+	bitcoin_tx_set_locktime(tx,
+	    (0x20000000 | (obscured_commitment_number & 0xFFFFFF)));
 
 	/* BOLT #3:
 	 *
@@ -289,7 +290,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    * `txin[0]` sequence: upper 8 bits are 0x80, lower 24 bits are upper 24 bits of the obscured commitment number
 	 */
 	u32 sequence = (0x80000000 | ((obscured_commitment_number>>24) & 0xFFFFFF));
-	bitcoin_tx_add_input(tx, funding_txid, funding_txout, sequence, funding, NULL);
+	bitcoin_tx_add_input(tx, funding_txid, funding_txout,
+			     sequence, NULL, funding, NULL, funding_wscript);
 
 	/* Identify the direct outputs (to_us, to_them). */
 	if (direct_outputs != NULL) {

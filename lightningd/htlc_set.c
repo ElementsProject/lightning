@@ -181,6 +181,13 @@ void htlc_set_add(struct lightningd *ld,
 		return;
 	}
 
+	log_debug(ld->log,
+		  "HTLC set contains %zu HTLCs, for a total of %s out of %s",
+		  tal_count(set->htlcs),
+		  type_to_string(tmpctx, struct amount_msat, &set->so_far),
+		  type_to_string(tmpctx, struct amount_msat, &total_msat)
+		);
+
 	if (amount_msat_eq(set->so_far, total_msat)) {
 		/* Disable timer now, in case invoice_hook is slow! */
 		tal_free(set->timeout);

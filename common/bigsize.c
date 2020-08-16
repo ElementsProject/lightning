@@ -64,7 +64,7 @@ size_t bigsize_get(const u8 *p, size_t max, bigsize_t *val)
 		}
 		*val = ((u64)p[1] << 8) + p[2];
 		if (*val < 0xfd) {
-			SUPERVERBOSE("decoded varint is not canonical");
+			SUPERVERBOSE("decoded bigsize is not canonical");
 			return 0;
 		}
 		return 3;
@@ -76,7 +76,7 @@ size_t bigsize_get(const u8 *p, size_t max, bigsize_t *val)
 		*val = ((u64)p[1] << 24) + ((u64)p[2] << 16)
 			+ ((u64)p[3] << 8) + p[4];
 		if ((*val >> 16) == 0) {
-			SUPERVERBOSE("decoded varint is not canonical");
+			SUPERVERBOSE("decoded bigsize is not canonical");
 			return 0;
 		}
 		return 5;
@@ -90,7 +90,7 @@ size_t bigsize_get(const u8 *p, size_t max, bigsize_t *val)
 			+ ((u64)p[5] << 24) + ((u64)p[6] << 16)
 			+ ((u64)p[7] << 8) + p[8];
 		if ((*val >> 32) == 0) {
-			SUPERVERBOSE("decoded varint is not canonical");
+			SUPERVERBOSE("decoded bigsize is not canonical");
 			return 0;
 		}
 		return 9;

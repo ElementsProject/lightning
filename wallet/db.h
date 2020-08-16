@@ -15,12 +15,14 @@
 #include <secp256k1_ecdh.h>
 #include <stdbool.h>
 
+struct ext_key;
 struct lightningd;
 struct log;
 struct node_id;
 struct onionreply;
 struct db_stmt;
 struct db;
+struct wally_psbt;
 
 /**
  * Macro to annotate a named SQL query.
@@ -54,8 +56,10 @@ struct db;
  * Params:
  *  @ctx: the tal_t context to allocate from
  *  @ld: the lightningd context to hand to upgrade functions.
+ *  @bip32_base: the base all of our pubkeys are constructed on
  */
-struct db *db_setup(const tal_t *ctx, struct lightningd *ld);
+struct db *db_setup(const tal_t *ctx, struct lightningd *ld,
+		    const struct ext_key *bip32_base);
 
 /**
  * db_begin_transaction - Begin a transaction
@@ -115,6 +119,7 @@ void db_bind_signature(struct db_stmt *stmt, int col,
 		       const secp256k1_ecdsa_signature *sig);
 void db_bind_timeabs(struct db_stmt *stmt, int col, struct timeabs t);
 void db_bind_tx(struct db_stmt *stmt, int col, const struct bitcoin_tx *tx);
+void db_bind_psbt(struct db_stmt *stmt, int col, const struct wally_psbt *psbt);
 void db_bind_amount_msat(struct db_stmt *stmt, int pos,
 			 const struct amount_msat *msat);
 void db_bind_amount_sat(struct db_stmt *stmt, int pos,
@@ -153,6 +158,7 @@ bool db_column_signature(struct db_stmt *stmt, int col,
 			 secp256k1_ecdsa_signature *sig);
 struct timeabs db_column_timeabs(struct db_stmt *stmt, int col);
 struct bitcoin_tx *db_column_tx(const tal_t *ctx, struct db_stmt *stmt, int col);
+struct bitcoin_tx *db_column_psbt_to_tx(const tal_t *ctx, struct db_stmt *stmt, int col);
 
 struct onionreply *db_column_onionreply(const tal_t *ctx,
 					struct db_stmt *stmt, int col);

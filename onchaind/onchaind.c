@@ -1,4 +1,5 @@
 #include <bitcoin/feerate.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/mem/mem.h>
@@ -193,7 +194,7 @@ static void update_ledger_chain_fees(const struct bitcoin_txid *txid,
 
 /* Log the fees paid on this transaction as 'chain fees'. note that
  * you *cannot* pass a chaintopology-originated tx to this method,
- * as they don't have the input_amounts populated */
+ * as they don't have input amounts populated */
 static struct amount_sat record_chain_fees_tx(const struct bitcoin_txid *txid,
 					      const struct bitcoin_tx *tx,
 					      u32 blockheight)
@@ -400,7 +401,8 @@ static bool grind_htlc_tx_fee(struct amount_sat *fee,
 			      const u8 *wscript,
 			      u64 weight)
 {
-	struct amount_sat prev_fee = AMOUNT_SAT(UINT64_MAX);
+	struct amount_sat prev_fee = AMOUNT_SAT(UINT64_MAX), input_amt;
+	input_amt = psbt_input_get_amount(tx->psbt, 0);
 
 	for (u64 i = min_possible_feerate; i <= max_possible_feerate; i++) {
 		/* BOLT #3:
@@ -424,7 +426,7 @@ static bool grind_htlc_tx_fee(struct amount_sat *fee,
 			continue;
 
 		prev_fee = *fee;
-		if (!amount_sat_sub(&out, *tx->input_amounts[0], *fee))
+		if (!amount_sat_sub(&out, input_amt, *fee))
 			break;
 
 		bitcoin_tx_output_set_amount(tx, 0, out);
@@ -560,8 +562,7 @@ static u8 *delayed_payment_to_us(const tal_t *ctx,
 				 const u8 *wscript)
 {
 	return towire_hsm_sign_delayed_payment_to_us(ctx, commit_num,
-						     tx, wscript,
-						     *tx->input_amounts[0]);
+						     tx, wscript);
 }
 
 static u8 *remote_htlc_to_us(const tal_t *ctx,
@@ -570,8 +571,7 @@ static u8 *remote_htlc_to_us(const tal_t *ctx,
 {
 	return towire_hsm_sign_remote_htlc_to_us(ctx,
 						 remote_per_commitment_point,
-						 tx, wscript,
-						 *tx->input_amounts[0]);
+						 tx, wscript);
 }
 
 static u8 *penalty_to_us(const tal_t *ctx,
@@ -579,7 +579,7 @@ static u8 *penalty_to_us(const tal_t *ctx,
 			 const u8 *wscript)
 {
 	return towire_hsm_sign_penalty_to_us(ctx, remote_per_commitment_secret,
-					     tx, wscript, *tx->input_amounts[0]);
+					     tx, wscript);
 }
 
 /*
@@ -613,7 +613,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 
 	tx = bitcoin_tx(ctx, chainparams, 1, 1, locktime);
 	bitcoin_tx_add_input(tx, &out->txid, out->outnum, to_self_delay,
-			     out->sat, NULL);
+			     NULL, out->sat, NULL, wscript);
 
 	bitcoin_tx_add_output(
 	    tx, scriptpubkey_p2wpkh(tx, &our_wallet_pubkey), NULL, out->sat);
@@ -675,8 +675,7 @@ static void hsm_sign_local_htlc_tx(struct bitcoin_tx *tx,
 				   struct bitcoin_signature *sig)
 {
 	u8 *msg = towire_hsm_sign_local_htlc_tx(NULL, commit_num,
-					  tx, wscript,
-					  *tx->input_amounts[0]);
+						tx, wscript);
 
 	if (!wire_sync_write(HSM_FD, take(msg)))
 		status_failed(STATUS_FAIL_HSM_IO,
@@ -1680,6 +1679,7 @@ static void handle_preimage(struct tracked_output **outs,
 			tx = htlc_success_tx(outs[i], chainparams,
 					     &outs[i]->txid,
 					     outs[i]->outnum,
+					     outs[i]->wscript,
 					     htlc_amount,
 					     to_self_delay[LOCAL],
 					     0,
@@ -1924,7 +1924,7 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 		 */
 		tx = htlc_timeout_tx(tmpctx, chainparams,
 				     &out->txid, out->outnum,
-				     htlc_amount,
+				     htlc_scripts[matches[i]], htlc_amount,
 				     htlcs[matches[i]].cltv_expiry,
 				     to_self_delay[LOCAL], 0, keyset);
 
@@ -2270,7 +2270,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 			 * only be valid after that duration has passed) and
 			 * witness:
 			 *
-			 *	<local_delayedsig> 0
+			 *	<local_delayedsig> <>
 			 */
 			to_us = tx_to_us(out, delayed_payment_to_us, out,
 					 to_self_delay[LOCAL], 0, NULL, 0,

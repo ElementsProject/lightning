@@ -662,7 +662,7 @@ u8 *bitcoin_wscript_htlc_receive(const tal_t *ctx,
  * ## HTLC-Timeout and HTLC-Success Transactions
  *
  *...
- *   * `txin[0]` witness stack: `0 <remotehtlcsig> <localhtlcsig>  <payment_preimage>` for HTLC-success, `0 <remotehtlcsig> <localhtlcsig> 0` for HTLC-timeout
+ *   * `txin[0]` witness stack: `0 <remotehtlcsig> <localhtlcsig>  <payment_preimage>` for HTLC-success, `0 <remotehtlcsig> <localhtlcsig> <>` for HTLC-timeout
  */
 u8 **bitcoin_witness_htlc_timeout_tx(const tal_t *ctx,
 				     const struct bitcoin_signature *localhtlcsig,

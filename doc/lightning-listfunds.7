@@ -20,6 +20,7 @@ channels\.
 
 Each entry in \fIoutputs\fR will include:
 
+.RS
 .IP \[bu]
 \fItxid\fR
 .IP \[bu]
@@ -32,11 +33,17 @@ appended)
 .IP \[bu]
 \fIaddress\fR
 .IP \[bu]
+\fIscriptpubkey\fR (the ScriptPubkey of the output, in hex)
+.IP \[bu]
 \fIstatus\fR (whether \fIunconfirmed\fR, \fIconfirmed\fR, or \fIspent\fR)
+.IP \[bu]
+\fIreserved\fR (whether this is UTXO is currently reserved for an in-flight tx)
 
+.RE
 
 Each entry in \fIchannels\fR will include:
 
+.RS
 .IP \[bu]
 \fIpeer_id\fR - the peer with which the channel is opened\.
 .IP \[bu]
@@ -66,6 +73,7 @@ transaction\.
 \fIstate\fR - the channel state, in particular \fICHANNELD_NORMAL\fR means the
 channel can be used normally\.
 
+.RE
 .SH AUTHOR
 
 Felix \fI<fixone@gmail.com\fR> is mainly responsible\.

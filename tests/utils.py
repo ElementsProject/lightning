@@ -1,6 +1,7 @@
 from pyln.testing.utils import TEST_NETWORK, SLOW_MACHINE, TIMEOUT, VALGRIND, DEVELOPER, DEPRECATED_APIS  # noqa: F401
 from pyln.testing.utils import env, only_one, wait_for, write_config, TailableProc, sync_blockheight, wait_channel_quiescent, get_tx_p2wsh_outnum  # noqa: F401
 import bitstring
+from pyln.client import Millisatoshi
 
 EXPERIMENTAL_FEATURES = env("EXPERIMENTAL_FEATURES", "0") == "1"
 COMPAT = env("COMPAT", "1") == "1"
@@ -49,10 +50,17 @@ def expected_channel_features(wumbo_channels=False, extra=[]):
     return hex_bits(features + extra)
 
 
-def check_coin_moves(n, account_id, expected_moves):
+def check_coin_moves(n, account_id, expected_moves, chainparams):
     moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
     node_id = n.info['id']
     acct_moves = [m for m in moves if m['account_id'] == account_id]
+    for mv in acct_moves:
+        print("{{'type': '{}', 'credit': {}, 'debit': {}, 'tag': '{}'}},"
+              .format(mv['type'],
+                      Millisatoshi(mv['credit']).millisatoshis,
+                      Millisatoshi(mv['debit']).millisatoshis,
+                      mv['tag']))
+
     assert len(acct_moves) == len(expected_moves)
     for mv, exp in list(zip(acct_moves, expected_moves)):
         assert mv['version'] == 1
@@ -62,7 +70,7 @@ def check_coin_moves(n, account_id, expected_moves):
         assert mv['debit'] == "{}msat".format(exp['debit'])
         assert mv['tag'] == exp['tag']
         assert mv['timestamp'] > 0
-        assert mv['coin_type'] == 'bcrt'
+        assert mv['coin_type'] == chainparams['bip173_prefix']
         # chain moves should have blockheights
         if mv['type'] == 'chain_mvt':
             assert mv['blockheight'] is not None

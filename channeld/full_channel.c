@@ -1,9 +1,11 @@
 #include <assert.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/commit_tx.h>
@@ -237,19 +239,27 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 	for (i = 0; i < tal_count(htlcmap); i++) {
 		const struct htlc *htlc = htlcmap[i];
 		struct bitcoin_tx *tx;
+		struct ripemd160 ripemd;
+		const u8 *wscript;
 
 		if (!htlc)
 			continue;
 
 		if (htlc_owner(htlc) == side) {
+			ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
+			wscript = htlc_offered_wscript(tmpctx, &ripemd, keyset);
 			tx = htlc_timeout_tx(*txs, chainparams, &txid, i,
+					     wscript,
 					     htlc->amount,
 					     htlc->expiry.locktime,
 					     channel->config[!side].to_self_delay,
 					     feerate_per_kw,
 					     keyset);
 		} else {
+			ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
+			wscript = htlc_received_wscript(tmpctx, &ripemd, &htlc->expiry, keyset);
 			tx = htlc_success_tx(*txs, chainparams, &txid, i,
+					     wscript,
 					     htlc->amount,
 					     channel->config[!side].to_self_delay,
 					     feerate_per_kw,
@@ -285,10 +295,16 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	/* Figure out what @side will already be committed to. */
 	gather_htlcs(ctx, channel, side, &committed, NULL, NULL);
 
+	/* Generating and saving witness script required to spend
+	 * the funding output */
+	*funding_wscript = bitcoin_redeem_2of2(ctx,
+					      &channel->funding_pubkey[side],
+					      &channel->funding_pubkey[!side]);
+
 	txs = tal_arr(ctx, struct bitcoin_tx *, 1);
 	txs[0] = commit_tx(
 	    ctx, &channel->funding_txid, channel->funding_txout,
-	    channel->funding, channel->opener,
+	    channel->funding, cast_const(u8 *, *funding_wscript), channel->opener,
 	    channel->config[!side].to_self_delay, &keyset,
 	    channel_feerate(channel, side),
 	    channel->config[side].dust_limit, channel->view[side].owed[side],
@@ -296,11 +312,11 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 	    commitment_number ^ channel->commitment_number_obscurer,
 	    side);
 
-	/* Generating and saving witness script required to spend
-	 * the funding output */
-	*funding_wscript = bitcoin_redeem_2of2(ctx,
-					      &channel->funding_pubkey[side],
-					      &channel->funding_pubkey[!side]);
+	/* Set the remote/local pubkeys on the commitment tx psbt */
+	psbt_input_add_pubkey(txs[0]->psbt, 0,
+			      &channel->funding_pubkey[side]);
+	psbt_input_add_pubkey(txs[0]->psbt, 0,
+			      &channel->funding_pubkey[!side]);
 
 	add_htlcs(&txs, *htlcmap, channel, &keyset, side);
 

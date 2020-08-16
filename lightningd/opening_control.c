@@ -34,6 +34,7 @@
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 #include <openingd/gen_opening_wire.h>
+#include <string.h>
 #include <wire/gen_common_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
@@ -282,17 +283,44 @@ wallet_commit_channel(struct lightningd *ld,
 	return channel;
 }
 
+/** cancel_after_fundchannel_complete_success
+ *
+ * @brief Called to cancel a `fundchannel` after
+ * a `fundchannel_complete` succeeds.
+ *
+ * @desc Specifically, this is called when a
+ * `fundchannel_cancel` is blocked due to a
+ * parallel `fundchannel_complete` still running.
+ * After the `fundchannel_complete` succeeds, we
+ * invoke this function to cancel the funding
+ * after all.
+ *
+ * In effect, this forces the `fundchannel_cancel`
+ * to be invoked after the `fundchannel_complete`
+ * succeeds, leading to a reasonable serial
+ * execution.
+ *
+ * @param cmd - The `fundchannel_cancel` command
+ * that wants to cancel this.
+ * @param channel - The channel being cancelled.
+ */
+static void
+cancel_after_fundchannel_complete_success(struct command *cmd,
+					  struct channel *channel)
+{
+	was_pending(cancel_channel_before_broadcast(cmd, channel->peer));
+}
+
 static void funding_success(struct channel *channel)
 {
 	struct json_stream *response;
 	struct funding_channel *fc = channel->peer->uncommitted_channel->fc;
 	struct command *cmd = fc->cmd;
 
-	/* Well, those cancels didn't work! */
+	/* Well, those cancels now need to trigger!  */
 	for (size_t i = 0; i < tal_count(fc->cancels); i++)
-		was_pending(command_fail(fc->cancels[i], LIGHTNINGD,
-					 "Funding succeeded before cancel. "
-					 "Try fundchannel_cancel again."));
+		cancel_after_fundchannel_complete_success(fc->cancels[i],
+							  channel);
 
 	response = json_stream_success(cmd);
 	json_add_string(response, "channel_id",
@@ -1100,12 +1128,10 @@ static struct command_result *json_fund_channel_cancel(struct command *cmd,
 
 	struct node_id *id;
 	struct peer *peer;
-	const jsmntok_t *cidtok;
 	u8 *msg;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &id),
-		   p_opt("channel_id", param_tok, &cidtok),
 		   NULL))
 		return command_param_failed();
 
@@ -1116,7 +1142,8 @@ static struct command_result *json_fund_channel_cancel(struct command *cmd,
 
 	if (peer->uncommitted_channel) {
 		if (!peer->uncommitted_channel->fc || !peer->uncommitted_channel->fc->inflight)
-			return command_fail(cmd, LIGHTNINGD, "No channel funding in progress.");
+			return command_fail(cmd, FUNDING_NOTHING_TO_CANCEL,
+					    "No channel funding in progress.");
 
 		/* Make sure this gets notified if we succeed or cancel */
 		tal_arr_expand(&peer->uncommitted_channel->fc->cancels, cmd);
@@ -1125,7 +1152,8 @@ static struct command_result *json_fund_channel_cancel(struct command *cmd,
 		return command_still_pending(cmd);
 	}
 
-	return cancel_channel_before_broadcast(cmd, buffer, peer, cidtok);
+	/* Handle `fundchannel_cancel` after `fundchannel_complete`.  */
+	return cancel_channel_before_broadcast(cmd, peer);
 }
 
 /**

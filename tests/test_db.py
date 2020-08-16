@@ -1,7 +1,10 @@
+from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError
-from utils import wait_for, sync_blockheight, COMPAT, VALGRIND, DEVELOPER
+from utils import wait_for, sync_blockheight, COMPAT, VALGRIND, DEVELOPER, only_one
+
+import base64
 import os
 import pytest
 import time
@@ -138,6 +141,113 @@ def test_scid_upgrade(node_factory, bitcoind):
 
     assert l1.db_query('SELECT short_channel_id from channels;') == [{'short_channel_id': '103x1x1'}]
     assert l1.db_query('SELECT failchannel from payments;') == [{'failchannel': '103x1x1'}]
+
+
+@unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
+def test_last_tx_psbt_upgrade(node_factory, bitcoind):
+    bitcoind.generate_block(12)
+
+    prior_txs = ['02000000018DD699861B00061E50937A233DB584BF8ED4C0BF50B44C0411F71B031A06455000000000000EF7A9800350C300000000000022002073356CFF7E1588F14935EF138E142ABEFB5F7E3D51DE942758DCD5A179449B6250A90600000000002200202DF545EA882889846C52FC5E111AC07CE07E0C09418AC15743A6F6284C2A4FA720A1070000000000160014E89954FAC8F7A2DCE51E095D7BEB5271C3F7DA56EF81DC20', '02000000018A0AE4C63BCDF9D78B07EB4501BB23404FDDBC73973C592793F047BE1495074B010000000074D99980010A2D0F00000000002200203B8CB644781CBECA96BE8B2BF1827AFD908B3CFB5569AC74DAB9395E8DDA39E4C9555420', '020000000135DAB2996E57762E3EC158C0D57D39F43CA657E882D93FC24F5FEBAA8F36ED9A0100000000566D1D800350C30000000000002200205679A7D06E1BD276AA25F56E9E4DF7E07D9837EFB0C5F63604F10CD9F766A03ED4DD0600000000001600147E5B5C8F4FC1A9484E259F92CA4CBB7FA2814EA49A6C070000000000220020AB6226DEBFFEFF4A741C01367FA3C875172483CFB3E327D0F8C7AA4C51EDECAA27AA4720']
+
+    l1 = node_factory.get_node(dbfile='last_tx_upgrade.sqlite3.xz')
+
+    b64_last_txs = [base64.b64encode(x['last_tx']).decode('utf-8') for x in l1.db_query('SELECT last_tx FROM channels ORDER BY id;')]
+    for i in range(len(b64_last_txs)):
+        bpsbt = b64_last_txs[i]
+        psbt = bitcoind.rpc.decodepsbt(bpsbt)
+        tx = prior_txs[i]
+        assert psbt['tx']['txid'] == bitcoind.rpc.decoderawtransaction(tx)['txid']
+        funding_input = only_one(psbt['inputs'])
+        # Every opened channel was funded with the same amount: 1M sats
+        assert funding_input['witness_utxo']['amount'] == Decimal('0.01')
+        assert funding_input['witness_utxo']['scriptPubKey']['type'] == 'witness_v0_scripthash'
+        assert funding_input['witness_script']['type'] == 'multisig'
+
+    l1.stop()
+    # Test again, but this time with a database with a closed channel + forgotten peer
+    # We need to get to block #232 from block #113
+    bitcoind.generate_block(232 - 113)
+    # We need to give it a chance to update
+    time.sleep(2)
+
+    l2 = node_factory.get_node(dbfile='last_tx_closed.sqlite3.xz')
+    last_txs = [x['last_tx'] for x in l2.db_query('SELECT last_tx FROM channels ORDER BY id;')]
+
+    # The first tx should be psbt, the second should still be hex
+    bitcoind.rpc.decodepsbt(base64.b64encode(last_txs[0]).decode('utf-8'))
+    bitcoind.rpc.decoderawtransaction(last_txs[1].hex())
+
+
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
+def test_backfill_scriptpubkeys(node_factory, bitcoind):
+    bitcoind.generate_block(214)
+
+    script_map = [
+        {
+            "txid": "2513F3340D493489811EAB440AC05650B5BC06290358972EB6A55533A9EED96A",
+            "scriptpubkey": "001438C10854C11E10CB3786460143C963C8530DF891",
+        }, {
+            "txid": "E380E18B6E810A464634B3A94B95AAA06B36A8982FD9D9D294982726EDC77DD3",
+            "scriptpubkey": "001407DB91DA65EF06B385F4EA20BA05FAF286165C0B",
+        }, {
+            "txid": "E9AE7C9A346F9B9E35868176F311F3F2EE5DB8B94A065963E26954E119C49A79",
+            "scriptpubkey": "00147E5B5C8F4FC1A9484E259F92CA4CBB7FA2814EA4",
+        }, {
+            "txid": "4C88F50BF00518E4FE3434ACA42351D5AC5FEEE17C35595DFBC3D1F4279F6EC1",
+            "scriptpubkey": "0014D0EAC62FDCEE2D1881259BE9CDA4C43DE9050DB8",
+        }, {
+            "txid": "55265C3CAFE98C355FE0A440DCC005CF5C3145280EAD44D6B903A45D2DF3619C",
+            "scriptpubkey": "0014D0EAC62FDCEE2D1881259BE9CDA4C43DE9050DB8",
+        }, {
+            "txid": "06F6D1D29B175146381EAB59924EC438572D18A3701F8E4FDF4EE17DE78D31E3",
+            "scriptpubkey": "A9149551336F1E360F5AFB977F24CE72C744A82463D187",
+        }, {
+            "txid": "91BCEC7867F3F97F4F575D1D9DEDF5CF22BDDE643B36C2D9E6097048334EE32A",
+            "scriptpubkey": "0014DFA9D65F06088E922A661C29797EE616F793C863",
+        },
+    ]
+
+    # Test the first time, all entries are with option_static_remotekey
+    l1 = node_factory.get_node(node_id=3, dbfile='pubkey_regen.sqlite.xz')
+    results = l1.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
+    scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
+    for exp, actual in zip(script_map, scripts):
+        assert exp == actual
+
+    # Test again, without option_static_remotekey
+    script_map_2 = [
+        {
+            "txid": "FF89677793AC6F39E4AEB9D393B45F1E3D902CBFA26B521C5C438345A6D36E54",
+            "scriptpubkey": "001438C10854C11E10CB3786460143C963C8530DF891",
+        }, {
+            "txid": "0F0685CCEE067638629B1CB27111EB0E15E19B75B1F5D368FC10D216D48FF4A5",
+            "scriptpubkey": "001407DB91DA65EF06B385F4EA20BA05FAF286165C0B",
+        }, {
+            "txid": "822466946527F940A53B823C507A319FDC91CCE55E455D916C9FE13B982058FA",
+            "scriptpubkey": "00144A94D23CD5A438531AADD86A0237FE11B9EA4E09",
+        }, {
+            "txid": "383145E40C8A9F45A0409E080DA5861C9E754B1EC8DD5EFA8A84DEB158E61C88",
+            "scriptpubkey": "0014D0EAC62FDCEE2D1881259BE9CDA4C43DE9050DB8",
+        }, {
+            "txid": "D221BE9B7CDB5FDB58B34D59B30304B7C4C2DF9C3BF73A4AE0E0265642FEC560",
+            "scriptpubkey": "0014D0EAC62FDCEE2D1881259BE9CDA4C43DE9050DB8",
+        }, {
+            "txid": "420F06E91CEE996D8E75E0565D776A96E8959ECA11E799FFE14522C2D43CCFA5",
+            "scriptpubkey": "A9149551336F1E360F5AFB977F24CE72C744A82463D187",
+        }, {
+            "txid": "9F6127316EBED57E7702A4DF19D6FC0EC23A8FAB9BC0D4AD82C29D3F93C525CD",
+            "scriptpubkey": "0014E445493A382C798AF195724DFF67DE4C9250AEC6",
+        }
+    ]
+
+    l2 = node_factory.get_node(node_id=3, dbfile='pubkey_regen_commitment_point.sqlite3.xz')
+    results = l2.db_query('SELECT hex(prev_out_tx) AS txid, hex(scriptpubkey) AS script FROM outputs')
+    scripts = [{'txid': x['txid'], 'scriptpubkey': x['script']} for x in results]
+    for exp, actual in zip(script_map_2, scripts):
+        assert exp == actual
 
 
 @unittest.skipIf(VALGRIND and not DEVELOPER, "Without developer valgrind will complain about debug symbols missing")

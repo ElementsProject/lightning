@@ -41,12 +41,13 @@ Get dependencies:
       gettext
 
 If you don't have Bitcoin installed locally you'll need to install that
-as well:
+as well. It's now available via [snapd](https://snapcraft.io/bitcoin-core).
 
-    sudo apt-get install software-properties-common
-    sudo add-apt-repository ppa:bitcoin/bitcoin
-    sudo apt-get update
-    sudo apt-get install -y bitcoind
+    sudo apt-get install snapd
+    sudo snap install bitcoin-core
+    # Snap does some weird things with binary names; you'll
+    # want to add a link to them so everything works as expected
+    sudo ln -s /snap/bitcoin-core/current/bin/bitcoin{d,-cli} /usr/local/bin/
 
 Clone lightning:
 

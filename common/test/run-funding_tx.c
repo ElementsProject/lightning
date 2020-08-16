@@ -177,6 +177,7 @@ int main(int argc, const char *argv[])
 	utxo.amount = AMOUNT_SAT(5000000000);
 	utxo.is_p2sh = false;
 	utxo.close_info = NULL;
+	utxo.scriptPubkey = tal_hexdata(tmpctx, "a914a5996075e4b468c9fb01d131bf9d4052a6fee19e87", strlen("a914a5996075e4b468c9fb01d131bf9d4052a6fee19e87"));
 	funding_sat = AMOUNT_SAT(10000000);
 	fee = AMOUNT_SAT(13920);
 

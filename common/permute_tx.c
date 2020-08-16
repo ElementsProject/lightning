@@ -69,14 +69,6 @@ static void swap_wally_inputs(struct wally_tx_input *inputs,
 	}
 }
 
-static void swap_input_amounts(struct amount_sat **amounts, size_t i1,
-			       size_t i2)
-{
-	struct amount_sat *tmp = amounts[i1];
-	amounts[i1] = amounts[i2];
-	amounts[i2] = tmp;
-}
-
 void permute_inputs(struct bitcoin_tx *tx, const void **map)
 {
 	size_t i, best_pos;
@@ -95,7 +87,6 @@ void permute_inputs(struct bitcoin_tx *tx, const void **map)
 				  tx->psbt->tx->inputs,
 				  tx->psbt->inputs,
 				  map, i, best_pos);
-		swap_input_amounts(tx->input_amounts, i, best_pos);
 	}
 }
 

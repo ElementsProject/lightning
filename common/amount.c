@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <bitcoin/chainparams.h>
+#include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
@@ -476,6 +477,29 @@ struct amount_sat amount_asset_to_sat(struct amount_asset *amount)
 	assert(amount_asset_is_main(amount));
 	sats.satoshis = amount->value;
 	return sats;
+}
+
+struct amount_asset amount_sat_to_asset(struct amount_sat *sat, const u8 *asset) {
+	struct amount_asset amt_asset;
+
+	assert(33 == sizeof(amt_asset.asset));
+	memcpy(amt_asset.asset, asset, sizeof(amt_asset.asset));
+	amt_asset.value = sat->satoshis; /* Raw: type conversion */
+	return amt_asset;
+}
+
+u8 *amount_asset_extract_value(const tal_t *ctx, struct amount_asset *asset)
+{
+	u8 *val = tal_arr(ctx, u8, 9);
+
+	/* FIXME: persist blinded values */
+	if (asset->value == 0)
+		return NULL;
+
+	beint64_t be64 = cpu_to_be64(asset->value);
+	val[0] = 0x01;
+	memcpy(val + 1, &be64, sizeof(be64));
+	return val;
 }
 
 struct amount_msat fromwire_amount_msat(const u8 **cursor, size_t *max)

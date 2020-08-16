@@ -61,9 +61,8 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [BOLT11_FEATURE] = FEATURE_REPRESENT } },
-	/* FIXME: Spec is wrong, and Eclair doesn't include in channel_announce! */
 	/* BOLT #9:
-	 * | 18/19 | `option_support_large_channel` |... INC+ ...
+	 * | 18/19 | `option_support_large_channel` |... IN ...
 	 */
 	{ OPT_LARGE_CHANNELS,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
@@ -196,8 +195,9 @@ u8 *get_agreed_channelfeatures(const tal_t *ctx,
 		max_len = (i / 8) + 1;
 	}
 
-	/* Trim to length */
-	tal_resize(&f, max_len);
+	/* Trim to length (unless it's already NULL). */
+	if (f)
+		tal_resize(&f, max_len);
 	return f;
 }
 

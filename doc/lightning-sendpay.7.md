@@ -5,7 +5,7 @@ SYNOPSIS
 --------
 
 **sendpay** *route* *payment\_hash* \[*label*\] \[*msatoshi*\]
-\[*bolt11*\] \[*partid*\]
+\[*bolt11*\] \[*payment_secret*\] \[*partid*\]
 
 DESCRIPTION
 -----------
@@ -32,6 +32,11 @@ it must be equal to the final
 amount to the destination. By default it is in millisatoshi precision; it can be a whole number, or a whole number
 ending in *msat* or *sat*, or a number with three decimal places ending
 in *sat*, or a number with 1 to 11 decimal places ending in *btc*.
+
+The *payment_secret* is the value that the final recipient requires to
+accept the payment, as defined by the `payment_data` field in BOLT 4
+and the `s` field in the BOLT 11 invoice format.  It is required if
+*partid* is non-zero.
 
 The *partid* value, if provided and non-zero, allows for multiple parallel
 partial payments with the same *payment_hash*.  The *msatoshi* amount

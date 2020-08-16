@@ -12,9 +12,6 @@ void db_commit_transaction(struct db *db UNNEEDED)
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
-/* Generated stub for feerate_from_style */
-u32 feerate_from_style(u32 feerate UNNEEDED, enum feerate_style style UNNEEDED)
-{ fprintf(stderr, "feerate_from_style called!\n"); abort(); }
 /* Generated stub for feerate_name */
 const char *feerate_name(enum feerate feerate UNNEEDED)
 { fprintf(stderr, "feerate_name called!\n"); abort(); }
@@ -32,6 +29,12 @@ void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct n
 void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		     const struct sha256 *hash UNNEEDED)
 { fprintf(stderr, "json_add_sha256 called!\n"); abort(); }
+/* Generated stub for json_to_address_scriptpubkey */
+enum address_parse_result json_to_address_scriptpubkey(const tal_t *ctx UNNEEDED,
+			     const struct chainparams *chainparams UNNEEDED,
+			     const char *buffer UNNEEDED,
+			     const jsmntok_t *tok UNNEEDED, const u8 **scriptpubkey UNNEEDED)
+{ fprintf(stderr, "json_to_address_scriptpubkey called!\n"); abort(); }
 /* Generated stub for json_to_pubkey */
 bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		    struct pubkey *pubkey UNNEEDED)
@@ -40,10 +43,6 @@ bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			      struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "json_to_short_channel_id called!\n"); abort(); }
-/* Generated stub for json_to_txid */
-bool json_to_txid(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
-		  struct bitcoin_txid *txid UNNEEDED)
-{ fprintf(stderr, "json_to_txid called!\n"); abort(); }
 /* Generated stub for log_ */
 void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED,
 	  const struct node_id *node_id UNNEEDED,
@@ -80,6 +79,12 @@ struct command_result *param_feerate_estimate(struct command *cmd UNNEEDED,
 					      u32 **feerate_per_kw UNNEEDED,
 					      enum feerate feerate UNNEEDED)
 { fprintf(stderr, "param_feerate_estimate called!\n"); abort(); }
+/* Generated stub for param_feerate_val */
+struct command_result *param_feerate_val(struct command *cmd UNNEEDED,
+					 const char *name UNNEEDED, const char *buffer UNNEEDED,
+					 const jsmntok_t *tok UNNEEDED,
+					 u32 **feerate_per_kw UNNEEDED)
+{ fprintf(stderr, "param_feerate_val called!\n"); abort(); }
 /* Generated stub for param_ignore */
 struct command_result *param_ignore(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,

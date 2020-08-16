@@ -203,6 +203,9 @@ automatically by `lightningd`.
 If set, you will be prompted to enter a password used to encrypt the `hsm_secret`.
 Note that once you encrypt the `hsm_secret` this option will be mandatory for
 `lightningd` to start.
+If there is no `hsm_secret` yet, `lightningd` will create a new encrypted secret.
+If you have an unencrypted `hsm_secret` you want to encrypt on-disk, or vice versa,
+see lightning-hsmtool(8).
 
 ### Lightning node customization options
 
@@ -305,6 +308,14 @@ up space in the database.
  **autocleaninvoice-expired-by**=*SECONDS*
 Control how long invoices must have been expired before they are cleaned
 (if *autocleaninvoice-cycle* is non-zero).
+
+Payment control options:
+
+ **disable-mpp**
+Disable the multi-part payment sending support in the `pay` plugin. By default
+the MPP support is enabled, but it can be desirable to disable in situations
+in which each payment should result in a single HTLC being forwarded in the
+network.
 
 ### Networking options
 
@@ -457,6 +468,7 @@ SEE ALSO
 --------
 
 lightning-listconfigs(7) lightning-setchannelfee(7) lightningd(8)
+lightning-hsmtool(8)
 
 RESOURCES
 ---------

@@ -88,6 +88,7 @@ class Request(dict):
                 "message": "Error while processing {method}: {exc}"
                            .format(method=self.method, exc=str(exc)),
                 # 'data' field "may be omitted."
+                "traceback": traceback.format_exc(),
             },
         })
 

@@ -88,11 +88,12 @@ char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 				  const struct chainparams *chainparams UNNEEDED,
 				  const u8 *scriptPubkey UNNEEDED)
 { fprintf(stderr, "encode_scriptpubkey_to_addr called!\n"); abort(); }
-/* Generated stub for failmsg_incorrect_or_unknown */
-const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx UNNEEDED,
-				       struct lightningd *ld UNNEEDED,
-				       const struct htlc_in *hin UNNEEDED)
-{ fprintf(stderr, "failmsg_incorrect_or_unknown called!\n"); abort(); }
+/* Generated stub for failmsg_incorrect_or_unknown_ */
+const u8 *failmsg_incorrect_or_unknown_(const tal_t *ctx UNNEEDED,
+					struct lightningd *ld UNNEEDED,
+					const struct htlc_in *hin UNNEEDED,
+					const char *file UNNEEDED, int line UNNEEDED)
+{ fprintf(stderr, "failmsg_incorrect_or_unknown_ called!\n"); abort(); }
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
@@ -492,7 +493,7 @@ u8 *towire_gossip_get_incoming_channels(const tal_t *ctx UNNEEDED)
 u8 *towire_hsm_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct node_id *peerid UNNEEDED, u64 dbid UNNEEDED)
 { fprintf(stderr, "towire_hsm_get_channel_basepoints called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_commitment_tx */
-u8 *towire_hsm_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED, struct amount_sat funding_amount UNNEEDED)
+u8 *towire_hsm_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_commitment_tx called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_invoice */
 u8 *towire_hsm_sign_invoice(const tal_t *ctx UNNEEDED, const u8 *u5bytes UNNEEDED, const u8 *hrp UNNEEDED)

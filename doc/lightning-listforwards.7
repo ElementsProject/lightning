@@ -18,6 +18,7 @@ been processed
 
 Each entry in \fIforwards\fR will include:
 
+.RS
 .IP \[bu]
 \fIin_channel\fR: the short_channel_id of the channel that recieved the incoming htlc\.
 .IP \[bu]
@@ -28,10 +29,12 @@ Each entry in \fIforwards\fR will include:
 .IP \[bu]
 \fIreceived_time\fR: timestamp when incoming htlc was received\.
 
+.RE
 
 The following additional fields are usually present, but will not be for some
 variants of status \fIlocal_failed\fR (if it failed before we determined these):
 
+.RS
 .IP \[bu]
 \fIout_channel\fR: the short_channel_id of to which the outgoing htlc is supposed to be forwarded\.
 .IP \[bu]
@@ -39,18 +42,23 @@ variants of status \fIlocal_failed\fR (if it failed before we determined these):
 .IP \[bu]
 \fIout_msatoshi\fR, \fIout_msat\fR - amount of msatoshis to be forwarded\.
 
+.RE
 
 The following fields may be offered, but for old forgotten HTLCs they will be omitted:
 
+.RS
 .IP \[bu]
 \fIpayment_hash\fR - the payment_hash belonging to the HTLC\.
 
+.RE
 
 If the status is not 'offered', the following additional fields are present:
 
+.RS
 .IP \[bu]
 \fIresolved_time\fR - timestamp when htlc was resolved (settled or failed)\.
 
+.RE
 .SH AUTHOR
 
 Rene Pickhardt \fI<r.pickhardt@gmail.com\fR> is mainly responsible\.
@@ -62,8 +70,4 @@ Rene Pickhardt \fI<r.pickhardt@gmail.com\fR> is mainly responsible\.
 .SH RESOURCES
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
-
-.HL
-
-Last updated 2019-07-23 00:53:16 CEST
 

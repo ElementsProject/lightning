@@ -1,0 +1,78 @@
+.TH "LIGHTNING-HSMTOOL" "8" "" "" "lightning-hsmtool"
+.SH NAME
+lightning-hsmtool - Tool for working with software HSM secrets of lightningd
+.SH SYNOPSIS
+.nf
+.RS
+lightning-hsmtool method [ARGUMENTS]...
+.RE
+
+.fi
+.SH DESCRIPTION
+
+\fBlightning-hsmtool\fR performs various operations on the \fBhsm_secret\fR
+file used by the software HSM component of \fBlightningd\fR\.
+
+
+This can be used to encrypt and decrypt the \fBhsm_secret\fR file,
+as well as derive secrets used in channel commitments\.
+
+.SH METHODS
+
+ \fBencrypt\fR \fIhsm_secret\fR \fIpassword\fR
+Encrypt the \fBhsm_secret\fR file so that it can only be decrypted at
+\fBlightningd\fR startup\.
+You must give the option \fB--encrypted-hsm\fR to \fBlightningd\fR\.
+The password of the \fBhsm_secret\fR file will be asked whenever you
+start \fBlightningd\fR\.
+
+
+ \fBdecrypt\fR \fIhsm_secret\fR \fIpassword\fR
+Decrypt the \fBhsm_secret\fR file that was encrypted with the \fBencrypt\fR
+method\.
+
+
+ \fBdumpcommitments\fR \fInode_id\fR \fIchannel_dbid\fR \fIdepth\fR \fIhsm_secret\fR [\fIpassword\fR]
+Show the per-commitment secret and point of up to \fIdepth\fR commitments,
+of the specified channel with the specified peer,
+identified by the channel database index\.
+Specify \fIpassword\fR if the \fBhsm_secret\fR is encrypted\.
+
+
+ \fBguesstoremote\fR \fIp2wpkh\fR \fInode_id\fR \fImax_channel_dbid\fR \fIhsm_secret\fR [\fIpassword\fR]
+Brute-force the private key to our funds from a remote unilateral close
+of a channel, in a case where we have lost all database data except for
+our \fBhsm_secret\fR\.
+The peer must be the one to close the channel (and the funds will remain
+unrecoverable until the channel is closed)\.
+\fImax_channel_dbid\fR is your own guess on what the \fIchannel_dbid\fR was,
+or at least the maximum possible value,
+and is usually no greater than the number of channels that the node has
+ever had\.
+Specify \fIpassword\fR if the \fBhsm_secret\fR is encrypted\.
+
+.SH BUGS
+
+You should report bugs on our github issues page, and maybe submit a fix
+to gain our eternal gratitude!
+
+.SH AUTHOR
+
+ZmnSCPxj < \fIZmnSCPxj@protonmail.com\fR > wrote the initial version of
+this man page, but many others did the hard work of actually implementing
+\fBlightning-hsmtool\fR\.
+
+.SH SEE ALSO
+
+\fBlightningd\fR(8), \fBlightningd-config\fR(5)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+.SH COPYING
+
+Note: the modules in the ccan/ directory have their own licenses, but
+the rest of the code is covered by the BSD-style MIT license\.
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

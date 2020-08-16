@@ -159,10 +159,6 @@ u32 delayed_to_us_feerate(struct chain_topology *topo);
 u32 htlc_resolution_feerate(struct chain_topology *topo);
 u32 penalty_feerate(struct chain_topology *topo);
 
-/* We always use feerate-per-ksipa, ie. perkw */
-u32 feerate_from_style(u32 feerate, enum feerate_style style);
-u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style);
-
 const char *feerate_name(enum feerate feerate);
 
 /* Set feerate_per_kw to this estimate & return NULL, or fail cmd */

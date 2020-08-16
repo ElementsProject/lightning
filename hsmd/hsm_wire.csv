@@ -44,18 +44,6 @@ msgdata,hsm_get_channel_basepoints_reply,funding_pubkey,pubkey,
 
 # Return signature for a funding tx.
 #include <common/utxo.h>
-# FIXME: This should also take their commit sig & details, to verify.
-msgtype,hsm_sign_funding,4
-msgdata,hsm_sign_funding,satoshi_out,amount_sat,
-msgdata,hsm_sign_funding,change_out,amount_sat,
-msgdata,hsm_sign_funding,change_keyindex,u32,
-msgdata,hsm_sign_funding,our_pubkey,pubkey,
-msgdata,hsm_sign_funding,their_pubkey,pubkey,
-msgdata,hsm_sign_funding,num_inputs,u16,
-msgdata,hsm_sign_funding,inputs,utxo,num_inputs
-
-msgtype,hsm_sign_funding_reply,104
-msgdata,hsm_sign_funding_reply,tx,bitcoin_tx,
 
 # Master asks the HSM to sign a node_announcement
 msgtype,hsm_node_announcement_sig_req,6
@@ -66,18 +54,14 @@ msgtype,hsm_node_announcement_sig_reply,106
 msgdata,hsm_node_announcement_sig_reply,signature,secp256k1_ecdsa_signature,
 
 # Sign a withdrawal request
+#include <bitcoin/psbt.h>
 msgtype,hsm_sign_withdrawal,7
-msgdata,hsm_sign_withdrawal,satoshi_out,amount_sat,
-msgdata,hsm_sign_withdrawal,change_out,amount_sat,
-msgdata,hsm_sign_withdrawal,change_keyindex,u32,
-msgdata,hsm_sign_withdrawal,num_outputs,u16,
-msgdata,hsm_sign_withdrawal,outputs,bitcoin_tx_output,num_outputs
 msgdata,hsm_sign_withdrawal,num_inputs,u16,
 msgdata,hsm_sign_withdrawal,inputs,utxo,num_inputs
-msgdata,hsm_sign_withdrawal,nlocktime,u32,
+msgdata,hsm_sign_withdrawal,psbt,wally_psbt,
 
 msgtype,hsm_sign_withdrawal_reply,107
-msgdata,hsm_sign_withdrawal_reply,tx,bitcoin_tx,
+msgdata,hsm_sign_withdrawal_reply,psbt,wally_psbt,
 
 # Sign an invoice
 msgtype,hsm_sign_invoice,8
@@ -117,7 +101,6 @@ msgdata,hsm_sign_commitment_tx,peer_id,node_id,
 msgdata,hsm_sign_commitment_tx,channel_dbid,u64,
 msgdata,hsm_sign_commitment_tx,tx,bitcoin_tx,
 msgdata,hsm_sign_commitment_tx,remote_funding_key,pubkey,
-msgdata,hsm_sign_commitment_tx,funding_amount,amount_sat,
 
 msgtype,hsm_sign_commitment_tx_reply,105
 msgdata,hsm_sign_commitment_tx_reply,sig,bitcoin_signature,
@@ -130,21 +113,18 @@ msgdata,hsm_sign_delayed_payment_to_us,commit_num,u64,
 msgdata,hsm_sign_delayed_payment_to_us,tx,bitcoin_tx,
 msgdata,hsm_sign_delayed_payment_to_us,wscript_len,u16,
 msgdata,hsm_sign_delayed_payment_to_us,wscript,u8,wscript_len
-msgdata,hsm_sign_delayed_payment_to_us,input_amount,amount_sat,
 
 msgtype,hsm_sign_remote_htlc_to_us,13
 msgdata,hsm_sign_remote_htlc_to_us,remote_per_commitment_point,pubkey,
 msgdata,hsm_sign_remote_htlc_to_us,tx,bitcoin_tx,
 msgdata,hsm_sign_remote_htlc_to_us,wscript_len,u16,
 msgdata,hsm_sign_remote_htlc_to_us,wscript,u8,wscript_len
-msgdata,hsm_sign_remote_htlc_to_us,input_amount,amount_sat,
 
 msgtype,hsm_sign_penalty_to_us,14
 msgdata,hsm_sign_penalty_to_us,revocation_secret,secret,
 msgdata,hsm_sign_penalty_to_us,tx,bitcoin_tx,
 msgdata,hsm_sign_penalty_to_us,wscript_len,u16,
 msgdata,hsm_sign_penalty_to_us,wscript,u8,wscript_len
-msgdata,hsm_sign_penalty_to_us,input_amount,amount_sat,
 
 # Onchaind asks HSM to sign a local HTLC success or HTLC timeout tx.
 msgtype,hsm_sign_local_htlc_tx,16
@@ -152,13 +132,11 @@ msgdata,hsm_sign_local_htlc_tx,commit_num,u64,
 msgdata,hsm_sign_local_htlc_tx,tx,bitcoin_tx,
 msgdata,hsm_sign_local_htlc_tx,wscript_len,u16,
 msgdata,hsm_sign_local_htlc_tx,wscript,u8,wscript_len
-msgdata,hsm_sign_local_htlc_tx,input_amount,amount_sat,
 
 # Openingd/channeld asks HSM to sign the other sides' commitment tx.
 msgtype,hsm_sign_remote_commitment_tx,19
 msgdata,hsm_sign_remote_commitment_tx,tx,bitcoin_tx,
 msgdata,hsm_sign_remote_commitment_tx,remote_funding_key,pubkey,
-msgdata,hsm_sign_remote_commitment_tx,funding_amount,amount_sat,
 msgdata,hsm_sign_remote_commitment_tx,remote_per_commit,pubkey,
 msgdata,hsm_sign_remote_commitment_tx,option_static_remotekey,bool,
 
@@ -167,14 +145,12 @@ msgtype,hsm_sign_remote_htlc_tx,20
 msgdata,hsm_sign_remote_htlc_tx,tx,bitcoin_tx,
 msgdata,hsm_sign_remote_htlc_tx,len,u16,
 msgdata,hsm_sign_remote_htlc_tx,wscript,u8,len
-msgdata,hsm_sign_remote_htlc_tx,amounts_satoshi,amount_sat,
 msgdata,hsm_sign_remote_htlc_tx,remote_per_commit_point,pubkey,
 
 # closingd asks HSM to sign mutual close tx.
 msgtype,hsm_sign_mutual_close_tx,21
 msgdata,hsm_sign_mutual_close_tx,tx,bitcoin_tx,
 msgdata,hsm_sign_mutual_close_tx,remote_funding_key,pubkey,
-msgdata,hsm_sign_mutual_close_tx,funding,amount_sat,
 
 # Reply for all the above requests.
 msgtype,hsm_sign_tx_reply,112
@@ -209,3 +185,13 @@ msgdata,hsm_sign_message,msg,u8,len
 
 msgtype,hsm_sign_message_reply,123
 msgdata,hsm_sign_message_reply,sig,secp256k1_ecdsa_recoverable_signature,
+
+# lightningd needs to get a scriptPubkey for a utxo with closeinfo
+msgtype,hsm_get_output_scriptpubkey,24
+msgdata,hsm_get_output_scriptpubkey,channel_id,u64,
+msgdata,hsm_get_output_scriptpubkey,peer_id,node_id,
+msgdata,hsm_get_output_scriptpubkey,commitment_point,?pubkey,
+
+msgtype,hsm_get_output_scriptpubkey_reply,124
+msgdata,hsm_get_output_scriptpubkey_reply,script_len,u16,
+msgdata,hsm_get_output_scriptpubkey_reply,script,u8,script_len

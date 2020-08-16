@@ -1,7 +1,9 @@
 #include <assert.h>
 #include <bitcoin/chainparams.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/fee_states.h>
 #include <common/initial_channel.h>
@@ -75,6 +77,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				      char** err_reason)
 {
 	struct keyset keyset;
+	struct bitcoin_tx *init_tx;
 
 	/* This assumes no HTLCs! */
 	assert(!channel->htlcs);
@@ -92,23 +95,32 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				       &channel->funding_pubkey[side],
 				       &channel->funding_pubkey[!side]);
 
-	return initial_commit_tx(ctx,
-				 &channel->funding_txid,
-				 channel->funding_txout,
-				 channel->funding,
-				 channel->opener,
-				 /* They specify our to_self_delay and v.v. */
-				 channel->config[!side].to_self_delay,
-				 &keyset,
-				 channel_feerate(channel, side),
-				 channel->config[side].dust_limit,
-				 channel->view[side].owed[side],
-				 channel->view[side].owed[!side],
-				 channel->config[!side].channel_reserve,
-				 0 ^ channel->commitment_number_obscurer,
-				 direct_outputs,
-				 side,
-				 err_reason);
+	init_tx = initial_commit_tx(ctx, &channel->funding_txid,
+				    channel->funding_txout,
+				    channel->funding,
+				    cast_const(u8 *, *wscript),
+				    channel->opener,
+				    /* They specify our to_self_delay and v.v. */
+				    channel->config[!side].to_self_delay,
+				    &keyset,
+				    channel_feerate(channel, side),
+				    channel->config[side].dust_limit,
+				    channel->view[side].owed[side],
+				    channel->view[side].owed[!side],
+				    channel->config[!side].channel_reserve,
+				    0 ^ channel->commitment_number_obscurer,
+				    direct_outputs,
+				    side,
+				    err_reason);
+
+	if (init_tx) {
+		psbt_input_add_pubkey(init_tx->psbt, 0,
+				      &channel->funding_pubkey[side]);
+		psbt_input_add_pubkey(init_tx->psbt, 0,
+				      &channel->funding_pubkey[!side]);
+	}
+
+	return init_tx;
 }
 
 u32 channel_feerate(const struct channel *channel, enum side side)

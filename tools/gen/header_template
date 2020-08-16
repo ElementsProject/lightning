@@ -119,6 +119,18 @@ bool ${tlv.name}_is_valid(const struct ${tlv.struct_name()} *record,
 #define TLVS_${tlv.name.upper()}_ARRAY_SIZE ${len(tlv.messages)}
 extern const struct tlv_record_type tlvs_${tlv.name}[];
 
+<%!
+    def upper(text):
+        return text.upper()
+%>
+
+/* Define an enum with the constants */
+enum ${tlv.name}_types {
+% for msg in tlv.ordered_msgs():
+	${msg.struct_name()|upper} = ${msg.number},
+% endfor
+};
+
 % endif
 % endfor
 % if options.expose_subtypes and bool(subtypes):

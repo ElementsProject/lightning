@@ -1,5 +1,8 @@
 #include <assert.h>
+#include <bitcoin/privkey.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
+#include <ccan/ccan/mem/mem.h>
 #include <common/key_derive.h>
 #include <common/utils.h>
 #include <common/utxo.h>
@@ -71,9 +74,8 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 				     u32 nsequence)
 {
 	struct pubkey key;
-	u8 *script;
+	u8 *scriptSig, *redeemscript;
 
-	assert(num_output);
 	size_t outcount = add_change_output ? 1 + num_output : num_output;
 	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams, tal_count(utxos),
 					   outcount, nlocktime);
@@ -81,14 +83,33 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		if (utxos[i]->is_p2sh && bip32_base) {
 			bip32_pubkey(bip32_base, &key, utxos[i]->keyindex);
-			script = bitcoin_scriptsig_p2sh_p2wpkh(tmpctx, &key);
+			scriptSig =
+				bitcoin_scriptsig_p2sh_p2wpkh(tmpctx, &key);
+			redeemscript =
+				bitcoin_redeem_p2sh_p2wpkh(tmpctx, &key);
+
 		} else {
-			script = NULL;
+			scriptSig = NULL;
+			redeemscript = NULL;
 		}
 
-		bitcoin_tx_add_input(tx, &utxos[i]->txid, utxos[i]->outnum,
-				     nsequence, utxos[i]->amount, script);
+		bitcoin_tx_add_input(tx, &utxos[i]->txid,
+				     utxos[i]->outnum,
+				     nsequence,
+				     scriptSig, utxos[i]->amount,
+				     utxos[i]->scriptPubkey, NULL);
+
+		/* Add redeemscript to the PSBT input */
+		if (redeemscript)
+			psbt_input_set_redeemscript(tx->psbt, i,
+						    redeemscript);
+
 	}
 
 	return tx;
+}
+
+size_t utxo_spend_weight(const struct utxo *utxo)
+{
+	return bitcoin_tx_simple_input_weight(utxo->is_p2sh);
 }

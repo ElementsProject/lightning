@@ -411,7 +411,7 @@ static const struct test base_tests[] = {
 	  "int main(int argc, char *argv[]) {\n"
 	  "	(void)argc;\n"
 	  "     char pad[sizeof(int *) * 1];\n"
-	  "	strncpy(pad, argv[0], sizeof(pad));\n"
+	  "	memcpy(pad, argv[0], sizeof(pad));\n"
 	  "	int *x = (int *)pad, *y = (int *)(pad + 1);\n"
 	  "	return *x == *y;\n"
 	  "}\n" },

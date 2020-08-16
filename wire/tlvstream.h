@@ -1,10 +1,9 @@
 #ifndef LIGHTNING_WIRE_TLVSTREAM_H
 #define LIGHTNING_WIRE_TLVSTREAM_H
 #include "config.h"
+#include <bitcoin/short_channel_id.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <stdbool.h>
-#include <stdlib.h>
 
 struct tlv_record_type {
 	u64 type;
@@ -36,5 +35,20 @@ void towire_tlvs(u8 **pptr,
 
 /* Given any tlvstream serialize the raw fields (untyped ones). */
 void towire_tlvstream_raw(u8 **pptr, const struct tlv_field *fields);
+
+
+
+/* Generic primitive setters for tlvstreams. */
+void tlvstream_set_raw(struct tlv_field **stream, u64 type, void *value, size_t valuelen);
+void tlvstream_set_short_channel_id(struct tlv_field **stream, u64 type,
+				    struct short_channel_id *value);
+void tlvstream_set_tu64(struct tlv_field **stream, u64 type, u64 value);
+void tlvstream_set_tu32(struct tlv_field **stream, u64 type, u32 value);
+
+/* Generic primitive gettes for tlvstreams. */
+bool tlvstream_get_short_channel_id(struct tlv_field *stream, u64 type,
+				    struct short_channel_id *value);
+bool tlvstream_get_tu64(struct tlv_field *stream, u64 type, u64 *value);
+bool tlvstream_get_tu32(struct tlv_field *stream, u64 type, u32 *value);
 
 #endif /* LIGHTNING_WIRE_TLVSTREAM_H */

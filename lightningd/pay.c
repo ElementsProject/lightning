@@ -437,8 +437,6 @@ remote_routing_failure(const tal_t *ctx,
 			*pay_errcode = PAY_TRY_OTHER_ROUTE;
 		erring_node = &route_nodes[origin_index];
 	} else {
-		u8 *gossip_msg;
-
 		*pay_errcode = PAY_TRY_OTHER_ROUTE;
 
 		/* Report the *next* channel as failing. */
@@ -455,17 +453,13 @@ remote_routing_failure(const tal_t *ctx,
 			erring_node = &route_nodes[origin_index + 1];
 		} else
 			erring_node = &route_nodes[origin_index];
-
-		/* Tell gossipd: it may want to remove channels or even nodes
-		 * in response to this, and there may be a channel_update
-		 * embedded too */
-		gossip_msg = towire_gossip_payment_failure(NULL,
-							   erring_node,
-							   erring_channel,
-							   dir,
-							   failuremsg);
-		subd_send_msg(ld->gossip, take(gossip_msg));
 	}
+
+	/* Tell gossipd; it will try to extract channel_update */
+	/* FIXME: sendonion caller should do this, and inform gossipd of any
+	 * permanent errors. */
+	subd_send_msg(ld->gossip,
+		      take(towire_gossip_payment_failure(NULL, failuremsg)));
 
 	routing_failure->erring_index = (unsigned int) (origin_index + 1);
 	routing_failure->failcode = failcode;
@@ -701,15 +695,20 @@ static struct command_result *wait_payment(struct lightningd *ld,
 		} else {
 			/* Parsed onion error, get its details */
 			assert(failnode);
-			assert(failchannel);
 			fail = tal(tmpctx, struct routing_failure);
 			fail->erring_index = failindex;
 			fail->failcode = failcode;
 			fail->erring_node =
 			    tal_dup(fail, struct node_id, failnode);
-			fail->erring_channel =
-			    tal_dup(fail, struct short_channel_id, failchannel);
-			fail->channel_dir = faildirection;
+
+			if (failchannel) {
+				fail->erring_channel = tal_dup(
+				    fail, struct short_channel_id, failchannel);
+				fail->channel_dir = faildirection;
+			} else {
+				fail->erring_channel = NULL;
+			}
+
 			/* FIXME: We don't store this! */
 			fail->msg = NULL;
 
@@ -784,6 +783,7 @@ send_payment_core(struct lightningd *ld,
 	struct htlc_out *hout;
 	struct routing_failure *fail;
 	struct amount_msat msat_already_pending = AMOUNT_MSAT(0);
+	bool have_complete = false;
 
 	/* Now, do we already have one or more payments? */
 	payments = wallet_payment_list(tmpctx, ld->wallet, rhash);
@@ -798,6 +798,7 @@ send_payment_core(struct lightningd *ld,
 
 		switch (payments[i]->status) {
 		case PAYMENT_COMPLETE:
+			have_complete = true;
 			if (payments[i]->partid != partid)
 				continue;
 
@@ -805,10 +806,12 @@ send_payment_core(struct lightningd *ld,
 			if (!amount_msat_eq(payments[i]->msatoshi, msat)) {
 				return command_fail(cmd, PAY_RHASH_ALREADY_USED,
 						    "Already succeeded "
-						    "with amount %s",
+						    "with amount %s (not %s)",
 						    type_to_string(tmpctx,
 								   struct amount_msat,
-								   &payments[i]->msatoshi));
+								   &payments[i]->msatoshi),
+						    type_to_string(tmpctx,
+								   struct amount_msat, &msat));
 			}
 			if (payments[i]->destination && destination
 			    && !node_id_eq(payments[i]->destination,
@@ -828,8 +831,29 @@ send_payment_core(struct lightningd *ld,
 						    "Already have %s payment in progress",
 						    payments[i]->partid ? "parallel" : "non-parallel");
 			}
-			if (payments[i]->partid == partid)
+			if (payments[i]->partid == partid) {
+				/* You can't change details while it's pending */
+				if (!amount_msat_eq(payments[i]->msatoshi, msat)) {
+					return command_fail(cmd, PAY_RHASH_ALREADY_USED,
+						    "Already pending "
+						    "with amount %s (not %s)",
+						    type_to_string(tmpctx,
+								   struct amount_msat,
+								   &payments[i]->msatoshi),
+						    type_to_string(tmpctx,
+								   struct amount_msat, &msat));
+				}
+				if (payments[i]->destination && destination
+				    && !node_id_eq(payments[i]->destination,
+						   destination)) {
+					return command_fail(cmd, PAY_RHASH_ALREADY_USED,
+							    "Already pending to %s",
+							    type_to_string(tmpctx,
+									   struct node_id,
+									   payments[i]->destination));
+				}
 				return json_sendpay_in_progress(cmd, payments[i]);
+			}
 			/* You shouldn't change your mind about amount being
 			 * sent, since we'll use it in onion! */
 			else if (!amount_msat_eq(payments[i]->total_msat,
@@ -864,6 +888,12 @@ send_payment_core(struct lightningd *ld,
 			if (payments[i]->partid == partid)
 				old_payment = payments[i];
  		}
+	}
+
+	/* If any part has succeeded, you can't start a new one! */
+	if (have_complete) {
+		return command_fail(cmd, PAY_RHASH_ALREADY_USED,
+				    "Already succeeded other parts");
 	}
 
 	/* BOLT #4:
@@ -1147,8 +1177,10 @@ static struct command_result *json_sendonion(struct command *cmd,
 	struct route_hop *first_hop;
 	struct sha256 *payment_hash;
 	struct lightningd *ld = cmd->ld;
-	const char *label;
+	const char *label, *b11str;
+	struct node_id *destination;
 	struct secret *path_secrets;
+	struct amount_msat *msat;
 	u64 *partid;
 
 	if (!param(cmd, buffer, params,
@@ -1158,6 +1190,9 @@ static struct command_result *json_sendonion(struct command *cmd,
 		   p_opt("label", param_escaped_string, &label),
 		   p_opt("shared_secrets", param_secrets_array, &path_secrets),
 		   p_opt_def("partid", param_u64, &partid, 0),
+		   p_opt("bolt11", param_string, &b11str),
+		   p_opt_def("msatoshi", param_msat, &msat, AMOUNT_MSAT(0)),
+		   p_opt("destination", param_node_id, &destination),
 		   NULL))
 		return command_param_failed();
 
@@ -1170,8 +1205,8 @@ static struct command_result *json_sendonion(struct command *cmd,
 				    failcode);
 
 	return send_payment_core(ld, cmd, payment_hash, *partid,
-				 first_hop, AMOUNT_MSAT(0), AMOUNT_MSAT(0),
-				 label, NULL, &packet, NULL, NULL, NULL,
+				 first_hop, *msat, AMOUNT_MSAT(0),
+				 label, b11str, &packet, destination, NULL, NULL,
 				 path_secrets);
 }
 

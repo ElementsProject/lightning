@@ -4,7 +4,7 @@ lightning-sendpay - Low-level command for sending a payment via a route
 .SH SYNOPSIS
 
 \fBsendpay\fR \fIroute\fR \fIpayment_hash\fR [\fIlabel\fR] [\fImsatoshi\fR]
-[\fIbolt11\fR] [\fIpartid\fR]
+[\fIbolt11\fR] [\fIpayment_secret\fR] [\fIpartid\fR]
 
 .SH DESCRIPTION
 
@@ -34,6 +34,12 @@ it must be equal to the final
 amount to the destination\. By default it is in millisatoshi precision; it can be a whole number, or a whole number
 ending in \fImsat\fR or \fIsat\fR, or a number with three decimal places ending
 in \fIsat\fR, or a number with 1 to 11 decimal places ending in \fIbtc\fR\.
+
+
+The \fIpayment_secret\fR is the value that the final recipient requires to
+accept the payment, as defined by the \fBpayment_data\fR field in BOLT 4
+and the \fBs\fR field in the BOLT 11 invoice format\.  It is required if
+\fIpartid\fR is non-zero\.
 
 
 The \fIpartid\fR value, if provided and non-zero, allows for multiple parallel

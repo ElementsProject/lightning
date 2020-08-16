@@ -11,6 +11,7 @@
 *.po
 *.pyc
 .cppcheck-suppress
+.mypy_cache
 TAGS
 tags
 ccan/tools/configurator/configurator
@@ -19,6 +20,7 @@ gen_*
 cli/lightning-cli
 tools/check-bolt
 tools/hsmtool
+tools/lightning-hsmtool
 coverage
 ccan/config.h
 __pycache__

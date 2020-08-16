@@ -10,6 +10,7 @@
 #include <bitcoin/block.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/breakpoint/breakpoint.h>
@@ -118,7 +119,7 @@ struct state {
 	struct feature_set *our_features;
 };
 
-static u8 *dev_upfront_shutdown_script(const tal_t *ctx)
+static u8 *no_upfront_shutdown_script(const tal_t *ctx, struct state *state)
 {
 #if DEVELOPER
 	/* This is a hack, for feature testing */
@@ -126,6 +127,20 @@ static u8 *dev_upfront_shutdown_script(const tal_t *ctx)
 	if (e)
 		return tal_hexdata(ctx, e, strlen(e));
 #endif
+
+	/* BOLT #2:
+	 *
+	 * - if both nodes advertised the `option_upfront_shutdown_script`
+	 *   feature:
+	 *   - MUST include `upfront_shutdown_script` with either a valid
+	 *     `shutdown_scriptpubkey` as required by `shutdown`
+	 *     `scriptpubkey`, or a zero-length `shutdown_scriptpubkey`
+	 *     (ie. `0x0000`).
+	 */
+	if (feature_negotiated(state->our_features, state->their_features,
+			       OPT_UPFRONT_SHUTDOWN_SCRIPT))
+		return tal_arr(ctx, u8, 0);
+
 	return NULL;
 }
 
@@ -515,24 +530,20 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	u8 *msg;
 	u8 *funding_output_script;
 	struct channel_id id_in;
+	struct tlv_open_channel_tlvs *open_tlvs;
+	struct tlv_accept_channel_tlvs *accept_tlvs;
 
 	if (!setup_channel_funder(state))
 		return NULL;
 
-	/* BOLT #2:
-	 *
-	 * - if both nodes advertised the `option_upfront_shutdown_script`
-	 *   feature:
-	 *   - MUST include either a valid `shutdown_scriptpubkey` as required
-	 *     by `shutdown` `scriptpubkey`, or a zero-length
-	 *     `shutdown_scriptpubkey`.
-	 * - otherwise:
-	 *   - MAY include a`shutdown_scriptpubkey`.
-	 */
 	if (!state->upfront_shutdown_script[LOCAL])
-		state->upfront_shutdown_script[LOCAL] = dev_upfront_shutdown_script(state);
+		state->upfront_shutdown_script[LOCAL] = no_upfront_shutdown_script(state, state);
 
-	msg = towire_open_channel_option_upfront_shutdown_script(NULL,
+	open_tlvs = tlv_open_channel_tlvs_new(tmpctx);
+	open_tlvs->upfront_shutdown_script
+		= state->upfront_shutdown_script[LOCAL];
+
+	msg = towire_open_channel(NULL,
 				  &chainparams->genesis_blockhash,
 				  &state->channel_id,
 				  state->funding,
@@ -551,7 +562,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 				  &state->our_points.htlc,
 				  &state->first_per_commitment_point[LOCAL],
 				  channel_flags,
-				  state->upfront_shutdown_script[LOCAL]);
+				  open_tlvs);
 	sync_crypto_write(state->pps, take(msg));
 
 	/* This is usually a very transient state... */
@@ -571,10 +582,8 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not
 	 *    valid secp256k1 pubkeys in compressed format.
 	 */
-	if (feature_negotiated(state->our_features, state->their_features,
-			       OPT_UPFRONT_SHUTDOWN_SCRIPT)) {
-		if (!fromwire_accept_channel_option_upfront_shutdown_script(state,
-				     msg, &id_in,
+	accept_tlvs = tlv_accept_channel_tlvs_new(tmpctx);
+	if (!fromwire_accept_channel(msg, &id_in,
 				     &state->remoteconf.dust_limit,
 				     &state->remoteconf.max_htlc_value_in_flight,
 				     &state->remoteconf.channel_reserve,
@@ -588,27 +597,13 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 				     &state->their_points.delayed_payment,
 				     &state->their_points.htlc,
 				     &state->first_per_commitment_point[REMOTE],
-				     &state->upfront_shutdown_script[REMOTE]))
+				     accept_tlvs)) {
 			peer_failed(state->pps,
 				    &state->channel_id,
-				    "Parsing accept_channel with option_upfront_shutdown_script %s", tal_hex(msg, msg));
-	} else if (!fromwire_accept_channel(msg, &id_in,
-				     &state->remoteconf.dust_limit,
-				     &state->remoteconf.max_htlc_value_in_flight,
-				     &state->remoteconf.channel_reserve,
-				     &state->remoteconf.htlc_minimum,
-				     &state->minimum_depth,
-				     &state->remoteconf.to_self_delay,
-				     &state->remoteconf.max_accepted_htlcs,
-				     &state->their_funding_pubkey,
-				     &state->their_points.revocation,
-				     &state->their_points.payment,
-				     &state->their_points.delayed_payment,
-				     &state->their_points.htlc,
-				     &state->first_per_commitment_point[REMOTE]))
-		peer_failed(state->pps,
-			    &state->channel_id,
-			    "Parsing accept_channel %s", tal_hex(msg, msg));
+				    "Parsing accept_channel %s", tal_hex(msg, msg));
+	}
+	state->upfront_shutdown_script[REMOTE]
+		= tal_steal(state, accept_tlvs->upfront_shutdown_script);
 
 	/* BOLT #2:
 	 *
@@ -735,7 +730,6 @@ static bool funder_finalize_channel_setup(struct state *state,
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   *tx,
 						   &state->channel->funding_pubkey[REMOTE],
-						   state->channel->funding,
 						   &state->first_per_commitment_point[REMOTE],
 						   state->channel->option_static_remotekey);
 
@@ -845,6 +839,13 @@ static bool funder_finalize_channel_setup(struct state *state,
 					   &state->their_funding_pubkey));
 	}
 
+	/* We save their sig to our first commitment tx */
+	if (!psbt_input_set_partial_sig((*tx)->psbt, 0,
+					&state->their_funding_pubkey,
+					sig))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Unable to set signature internally");
+
 	peer_billboard(false, "Funding channel: opening negotiation succeeded");
 
 	return true;
@@ -916,6 +917,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	char* err_reason;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct penalty_base *pbase;
+	struct tlv_accept_channel_tlvs *accept_tlvs;
+	struct tlv_open_channel_tlvs *open_tlvs
+		= tlv_open_channel_tlvs_new(tmpctx);
 
 	/* BOLT #2:
 	 *
@@ -925,10 +929,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 *    `payment_basepoint`, or `delayed_payment_basepoint` are not valid
 	 *     secp256k1 pubkeys in compressed format.
 	 */
-	if (feature_negotiated(state->our_features, state->their_features,
-			       OPT_UPFRONT_SHUTDOWN_SCRIPT)) {
-		if (!fromwire_open_channel_option_upfront_shutdown_script(state,
-			    open_channel_msg, &chain_hash,
+	if (!fromwire_open_channel(open_channel_msg, &chain_hash,
 			    &state->channel_id,
 			    &state->funding,
 			    &state->push_msat,
@@ -946,31 +947,12 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 			    &theirs.htlc,
 			    &state->first_per_commitment_point[REMOTE],
 			    &channel_flags,
-			    &state->upfront_shutdown_script[REMOTE]))
+			    open_tlvs))
 		    peer_failed(state->pps,
 				&state->channel_id,
-				"Parsing open_channel with option_upfront_shutdown_script %s", tal_hex(tmpctx, open_channel_msg));
-	} else if (!fromwire_open_channel(open_channel_msg, &chain_hash,
-				      &state->channel_id,
-				      &state->funding,
-				      &state->push_msat,
-				      &state->remoteconf.dust_limit,
-				      &state->remoteconf.max_htlc_value_in_flight,
-				      &state->remoteconf.channel_reserve,
-				      &state->remoteconf.htlc_minimum,
-				      &state->feerate_per_kw,
-				      &state->remoteconf.to_self_delay,
-				      &state->remoteconf.max_accepted_htlcs,
-				      &their_funding_pubkey,
-				      &theirs.revocation,
-				      &theirs.payment,
-				      &theirs.delayed_payment,
-				      &theirs.htlc,
-				      &state->first_per_commitment_point[REMOTE],
-				      &channel_flags))
-		peer_failed(state->pps, NULL,
-			    "Bad open_channel %s",
-			    tal_hex(open_channel_msg, open_channel_msg));
+				"Parsing open_channel %s", tal_hex(tmpctx, open_channel_msg));
+	state->upfront_shutdown_script[REMOTE]
+		= tal_steal(state, open_tlvs->upfront_shutdown_script);
 
 	/* BOLT #2:
 	 *
@@ -1115,10 +1097,14 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	}
 
 	if (!state->upfront_shutdown_script[LOCAL])
-		state->upfront_shutdown_script[LOCAL] = dev_upfront_shutdown_script(state);
+		state->upfront_shutdown_script[LOCAL] = no_upfront_shutdown_script(state, state);
 
 	/* OK, we accept! */
-	msg = towire_accept_channel_option_upfront_shutdown_script(NULL, &state->channel_id,
+	accept_tlvs = tlv_accept_channel_tlvs_new(tmpctx);
+	accept_tlvs->upfront_shutdown_script
+		= state->upfront_shutdown_script[LOCAL];
+
+	msg = towire_accept_channel(NULL, &state->channel_id,
 				    state->localconf.dust_limit,
 				    state->localconf.max_htlc_value_in_flight,
 				    state->localconf.channel_reserve,
@@ -1132,7 +1118,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				    &state->our_points.delayed_payment,
 				    &state->our_points.htlc,
 				    &state->first_per_commitment_point[LOCAL],
-				    state->upfront_shutdown_script[LOCAL]);
+				    accept_tlvs);
 
 	sync_crypto_write(state->pps, take(msg));
 
@@ -1269,7 +1255,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	msg = towire_hsm_sign_remote_commitment_tx(NULL,
 						   remote_commit,
 						   &state->channel->funding_pubkey[REMOTE],
-						   state->channel->funding,
 						   &state->first_per_commitment_point[REMOTE],
 						   state->channel->option_static_remotekey);
 

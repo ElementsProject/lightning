@@ -39,6 +39,9 @@ struct utxo {
 	/* NULL if not spent yet, otherwise, the block the spending transaction is in */
 	const u32 *spendheight;
 
+	/* Block this utxo becomes unreserved, if applicable */
+	u32 *reserved_til;
+
 	/* The scriptPubkey if it is known */
 	u8 *scriptPubkey;
 
@@ -59,4 +62,6 @@ struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
 				     u32 nlocktime,
 				     u32 nsequence);
 
+/* Estimate of (signed) UTXO weight in transaction */
+size_t utxo_spend_weight(const struct utxo *utxo);
 #endif /* LIGHTNING_COMMON_UTXO_H */

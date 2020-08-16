@@ -1,0 +1,60 @@
+.TH "LIGHTNING-RESERVEINPUTS" "7" "" "" "lightning-reserveinputs"
+.SH NAME
+lightning-reserveinputs - Construct a transaction and reserve the UTXOs it spends
+.SH SYNOPSIS
+
+\fBreserveinputs\fR \fIpsbt\fR [\fIexclusive\fR]
+
+.SH DESCRIPTION
+
+The \fBreserveinputs\fR RPC command places (or increases) reservations on any
+inputs specified in \fIpsbt\fR which are known to lightningd\.  It will fail
+with an error if any of the inputs are known to be spent, and ignore inputs
+which are unknown\.
+
+
+Normally the command will fail (with no reservations made) if an input
+is already reserved\.  If \fIexclusive\fR is set to \fIFalse\fR, then existing
+reservations are simply extended, rather than causing failure\.
+
+.SH RETURN VALUE
+
+On success, a \fIreservations\fR array is returned, with an entry for each input
+which was reserved:
+
+.RS
+.IP \[bu]
+\fItxid\fR is the input transaction id\.
+.IP \[bu]
+\fIvout\fR is the input index\.
+.IP \[bu]
+\fIwas_reserved\fR indicates whether the input was already reserved\.
+.IP \[bu]
+\fIreserved\fR indicates that the input is now reserved (i\.e\. true)\.
+.IP \[bu]
+\fIreserved_to_block\fR indicates what blockheight the reservation will expire\.
+
+.RE
+
+On failure, an error is reported and no UTXOs are reserved\.
+
+
+The following error codes may occur:
+
+.RS
+.IP \[bu]
+-32602: Invalid parameter, such as specifying a spent/reserved input in \fIpsbt\fR\.
+
+.RE
+.SH AUTHOR
+
+niftynei \fI<niftynei@gmail.com\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-unreserveinputs\fR(7), \fBlightning-signpsbt\fR(7), \fBlightning-sendpsbt\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

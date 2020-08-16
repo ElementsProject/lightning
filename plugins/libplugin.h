@@ -239,13 +239,16 @@ void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...) PRINTF
 /* Standard helpers */
 char *u64_option(const char *arg, u64 *i);
 char *u32_option(const char *arg, u32 *i);
+char *bool_option(const char *arg, bool *i);
 char *charp_option(const char *arg, char **p);
+char *flag_option(const char *arg, bool *i);
 
 /* The main plugin runner: append with 0 or more plugin_option(), then NULL. */
 void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
 					void (*init)(struct plugin *p,
 						     const char *buf, const jsmntok_t *),
 					const enum plugin_restartability restartability,
+					bool init_rpc,
 					struct feature_set *features,
 					const struct plugin_command *commands,
 					size_t num_commands,
@@ -254,4 +257,59 @@ void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
 					const struct plugin_hook *hook_subs,
 					size_t num_hook_subs,
 					...);
+
+struct listpeers_channel {
+	bool private;
+	struct bitcoin_txid funding_txid;
+	const char *state;
+	struct short_channel_id *scid;
+	int *direction;
+	struct amount_msat total_msat;
+	struct amount_msat spendable_msat;
+	/* TODO Add fields as we need them. */
+};
+
+struct listpeers_peer {
+	struct node_id id;
+	bool connected;
+	const char **netaddr;
+	struct feature_set *features;
+	struct listpeers_channel **channels;
+};
+
+struct listpeers_result {
+	struct listpeers_peer **peers;
+};
+
+struct listpeers_result *json_to_listpeers_result(const tal_t *ctx,
+						  const char *buffer,
+						  const jsmntok_t *tok);
+
+struct createonion_response {
+	u8 *onion;
+	struct secret *shared_secrets;
+};
+
+struct createonion_response *json_to_createonion_response(const tal_t *ctx,
+							  const char *buffer,
+							  const jsmntok_t *toks);
+
+enum route_hop_style {
+	ROUTE_HOP_LEGACY = 1,
+	ROUTE_HOP_TLV = 2,
+};
+
+struct route_hop {
+	struct short_channel_id channel_id;
+	int direction;
+	struct node_id nodeid;
+	struct amount_msat amount;
+	u32 delay;
+	struct pubkey *blinding;
+	enum route_hop_style style;
+};
+
+struct route_hop *json_to_route(const tal_t *ctx, const char *buffer,
+				const jsmntok_t *toks);
+
 #endif /* LIGHTNING_PLUGINS_LIBPLUGIN_H */

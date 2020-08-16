@@ -37,7 +37,7 @@ tools/test/gen_test.c.tmp.c: $(TOOLS_WIRE_DEPS)
 	$(BOLT_GEN) --page impl tools/test/gen_test.h test_type < tools/test/test_cases > $@
 
 tools/test/gen_test.c: tools/test/gen_test.c.tmp.c $(EXTERNAL_HEADERS) tools/test/gen_test.h
-	@MAKE=$(MAKE) tools/update-mocks.sh "$<" && mv "$<" "$@"
+	@MAKE=$(MAKE) tools/update-mocks.sh "$<" $(SUPPRESS_OUTPUT) && mv "$<" "$@"
 
 tools/test/gen_print.h: wire/gen_onion_wire.h $(TOOLS_WIRE_DEPS)
 	$(BOLT_GEN) -P --page header $@ test_type < tools/test/test_cases > $@

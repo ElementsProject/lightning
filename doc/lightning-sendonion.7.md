@@ -4,7 +4,8 @@ lightning-sendonion -- Send a payment with a custom onion packet
 SYNOPSIS
 --------
 
-**sendonion** *onion* *first_hop* *payment_hash* \[*label*\] \[*shared_secrets*\]
+**sendonion** *onion* *first_hop* *payment_hash* \[*label*\] \[*shared_secrets*\] \[*partid*\] \[*bolt11*\]
+\[*msatoshi*\] \[*destination*\]
 
 DESCRIPTION
 -----------
@@ -30,12 +31,12 @@ further details.
 The *first_hop* parameter instructs c-lightning which peer to send the onion
 to. It is a JSON dictionary that corresponds to the first element of the route
 array returned by *getroute*. The following is a minimal example telling
-c-lightning to use channel `103x1x1` to add an HTLC for 1002 millisatoshis and
-a delay of 21 blocks on top of the current blockheight:
+c-lightning to use any available channel to `022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59`
+to add an HTLC for 1002 millisatoshis and a delay of 21 blocks on top of the current blockheight:
 
 ```json
 {
-  "channel": "103x1x1",
+  "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
   "direction": 1,
   "amount_msat": "1002msat",
   "delay": 21,
@@ -71,6 +72,17 @@ externally. The following is an example of a 3 hop onion:
 If *shared_secrets* is not provided the c-lightning node does not know how
 long the route is, which channels or nodes are involved, and what an eventual
 error could have been. It can therefore be used for oblivious payments.
+
+The *partid* value, if provided and non-zero, allows for multiple parallel
+partial payments with the same *payment_hash*.
+
+The *bolt11* parameter, if provided, will be returned in
+*waitsendpay* and *listsendpays* results.
+
+The *destination* parameter, if provided, will be returned in **listpays** result.
+
+The *msatoshi* parameter is used to annotate the payment, and is returned by
+*waitsendpay* and *listsendpays*.
 
 RETURN VALUE
 ------------

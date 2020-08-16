@@ -18,13 +18,17 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-delinvoice.7 \
 	doc/lightning-dev-sendcustommsg.7 \
 	doc/lightning-disconnect.7 \
+	doc/lightning-feerates.7 \
 	doc/lightning-fundchannel.7 \
 	doc/lightning-fundchannel_start.7 \
 	doc/lightning-fundchannel_complete.7 \
 	doc/lightning-fundchannel_cancel.7 \
+	doc/lightning-fundpsbt.7 \
 	doc/lightning-getroute.7 \
 	doc/lightning-getsharedsecret.7 \
+	doc/lightning-hsmtool.8 \
 	doc/lightning-invoice.7 \
+	doc/lightning-keysend.7 \
 	doc/lightning-listchannels.7 \
 	doc/lightning-listforwards.7 \
 	doc/lightning-listfunds.7 \
@@ -35,6 +39,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-newaddr.7 \
 	doc/lightning-pay.7 \
 	doc/lightning-plugin.7 \
+	doc/lightning-reserveinputs.7 \
 	doc/lightning-sendonion.7 \
 	doc/lightning-sendpay.7 \
 	doc/lightning-setchannelfee.7 \
@@ -42,11 +47,12 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-txprepare.7 \
 	doc/lightning-txdiscard.7 \
 	doc/lightning-txsend.7 \
+	doc/lightning-unreserveinputs.7 \
 	doc/lightning-waitinvoice.7 \
 	doc/lightning-waitanyinvoice.7 \
 	doc/lightning-waitblockheight.7 \
 	doc/lightning-waitsendpay.7 \
-	doc/lightning-withdraw.7 
+	doc/lightning-withdraw.7
 
 doc-all: $(MANPAGES) doc/index.rst
 

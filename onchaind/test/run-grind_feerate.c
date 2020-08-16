@@ -101,6 +101,7 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx UNNEEDED,
 				   const struct chainparams *chainparams UNNEEDED,
 				   const struct bitcoin_txid *commit_txid UNNEEDED,
 				   unsigned int commit_output_number UNNEEDED,
+				   const u8 *commit_wscript UNNEEDED,
 				   struct amount_msat htlc_msatoshi UNNEEDED,
 				   u16 to_self_delay UNNEEDED,
 				   u32 feerate_per_kw UNNEEDED,
@@ -111,6 +112,7 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx UNNEEDED,
 				   const struct chainparams *chainparams UNNEEDED,
 				   const struct bitcoin_txid *commit_txid UNNEEDED,
 				   unsigned int commit_output_number UNNEEDED,
+				   const u8 *commit_wscript UNNEEDED,
 				   struct amount_msat htlc_msatoshi UNNEEDED,
 				   u32 cltv_expiry UNNEEDED,
 				   u16 to_self_delay UNNEEDED,
@@ -236,16 +238,16 @@ void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
 u8 *towire_hsm_get_per_commitment_point(const tal_t *ctx UNNEEDED, u64 n UNNEEDED)
 { fprintf(stderr, "towire_hsm_get_per_commitment_point called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_delayed_payment_to_us */
-u8 *towire_hsm_sign_delayed_payment_to_us(const tal_t *ctx UNNEEDED, u64 commit_num UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED, struct amount_sat input_amount UNNEEDED)
+u8 *towire_hsm_sign_delayed_payment_to_us(const tal_t *ctx UNNEEDED, u64 commit_num UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_delayed_payment_to_us called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_local_htlc_tx */
-u8 *towire_hsm_sign_local_htlc_tx(const tal_t *ctx UNNEEDED, u64 commit_num UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED, struct amount_sat input_amount UNNEEDED)
+u8 *towire_hsm_sign_local_htlc_tx(const tal_t *ctx UNNEEDED, u64 commit_num UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_local_htlc_tx called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_penalty_to_us */
-u8 *towire_hsm_sign_penalty_to_us(const tal_t *ctx UNNEEDED, const struct secret *revocation_secret UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED, struct amount_sat input_amount UNNEEDED)
+u8 *towire_hsm_sign_penalty_to_us(const tal_t *ctx UNNEEDED, const struct secret *revocation_secret UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_penalty_to_us called!\n"); abort(); }
 /* Generated stub for towire_hsm_sign_remote_htlc_to_us */
-u8 *towire_hsm_sign_remote_htlc_to_us(const tal_t *ctx UNNEEDED, const struct pubkey *remote_per_commitment_point UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED, struct amount_sat input_amount UNNEEDED)
+u8 *towire_hsm_sign_remote_htlc_to_us(const tal_t *ctx UNNEEDED, const struct pubkey *remote_per_commitment_point UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const u8 *wscript UNNEEDED)
 { fprintf(stderr, "towire_hsm_sign_remote_htlc_to_us called!\n"); abort(); }
 /* Generated stub for towire_onchain_add_utxo */
 u8 *towire_onchain_add_utxo(const tal_t *ctx UNNEEDED, const struct bitcoin_txid *prev_out_tx UNNEEDED, u32 prev_out_index UNNEEDED, const struct pubkey *per_commit_point UNNEEDED, struct amount_sat value UNNEEDED, u32 blockheight UNNEEDED, const u8 *scriptpubkey UNNEEDED)
@@ -330,8 +332,7 @@ int main(int argc, char *argv[])
 	tx = bitcoin_tx_from_hex(tmpctx, "0200000001e1ebca08cf1c301ac563580a1126d5c8fcb0e5e2043230b852c726553caf1e1d0000000000000000000160ae0a000000000022002082e03c5a9cb79c82cd5a0572dc175290bc044609aabe9cc852d61927436041796d000000",
 				 strlen("0200000001e1ebca08cf1c301ac563580a1126d5c8fcb0e5e2043230b852c726553caf1e1d0000000000000000000160ae0a000000000022002082e03c5a9cb79c82cd5a0572dc175290bc044609aabe9cc852d61927436041796d000000"));
 	tx->chainparams = chainparams_for_network("regtest");
-	tx->input_amounts[0] = tal(tx, struct amount_sat);
-	*tx->input_amounts[0] = AMOUNT_SAT(700000);
+	psbt_input_set_prev_utxo(tx->psbt, 0, NULL, AMOUNT_SAT(700000));
 	tx->chainparams = chainparams_for_network("bitcoin");
 	der = tal_hexdata(tmpctx, "30450221009b2e0eef267b94c3899fb0dc7375012e2cee4c10348a068fe78d1b82b4b14036022077c3fad3adac2ddf33f415e45f0daf6658b7a0b09647de4443938ae2dbafe2b9" "01",
 			  strlen("30450221009b2e0eef267b94c3899fb0dc7375012e2cee4c10348a068fe78d1b82b4b14036022077c3fad3adac2ddf33f415e45f0daf6658b7a0b09647de4443938ae2dbafe2b9" "01"));

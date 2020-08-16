@@ -501,7 +501,7 @@ def test_invoice_payment_hook(node_factory):
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
     # This one works
-    inv1 = l2.rpc.invoice(123000, 'label', 'description', preimage='1' * 64)
+    inv1 = l2.rpc.invoice(1230, 'label', 'description', preimage='1' * 64)
     l1.rpc.pay(inv1['bolt11'])
 
     l2.daemon.wait_for_log('label=label')
@@ -509,12 +509,12 @@ def test_invoice_payment_hook(node_factory):
     l2.daemon.wait_for_log('preimage=' + '1' * 64)
 
     # This one will be rejected.
-    inv2 = l2.rpc.invoice(123000, 'label2', 'description', preimage='0' * 64)
+    inv2 = l2.rpc.invoice(1230, 'label2', 'description', preimage='0' * 64)
     with pytest.raises(RpcError):
         l1.rpc.pay(inv2['bolt11'])
 
     pstatus = l1.rpc.call('paystatus', [inv2['bolt11']])['pay'][0]
-    assert pstatus['attempts'][0]['failure']['data']['failcodename'] == 'WIRE_TEMPORARY_NODE_FAILURE'
+    assert pstatus['attempts'][-1]['failure']['data']['failcodename'] == 'WIRE_TEMPORARY_NODE_FAILURE'
 
     l2.daemon.wait_for_log('label=label2')
     l2.daemon.wait_for_log('msat=')
@@ -527,7 +527,7 @@ def test_invoice_payment_hook_hold(node_factory):
     opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': TIMEOUT / 2}]
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
-    inv1 = l2.rpc.invoice(123000, 'label', 'description', preimage='1' * 64)
+    inv1 = l2.rpc.invoice(1230, 'label', 'description', preimage='1' * 64)
     l1.rpc.pay(inv1['bolt11'])
 
 
@@ -1255,7 +1255,11 @@ def test_feature_set(node_factory):
 def test_replacement_payload(node_factory):
     """Test that htlc_accepted plugin hook can replace payload"""
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/replace_payload.py')
-    l1, l2 = node_factory.line_graph(2, opts=[{}, {"plugin": plugin}])
+    l1, l2 = node_factory.line_graph(
+        2,
+        opts=[{}, {"plugin": plugin}],
+        wait_for_announce=True
+    )
 
     # Replace with an invalid payload.
     l2.rpc.call('setpayload', ['0000'])
@@ -1360,7 +1364,7 @@ def test_plugin_fail(node_factory):
 
 
 @unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
-def test_coin_movement_notices(node_factory, bitcoind):
+def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     """Verify that coin movements are triggered correctly.
     """
 
@@ -1373,23 +1377,44 @@ def test_coin_movement_notices(node_factory, bitcoind):
         {'type': 'chain_mvt', 'credit': 0, 'debit': 1, 'tag': 'chain_fees'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 100001000, 'tag': 'withdrawal'},
     ]
-    l2_l3_mvts = [
-        {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
-        {'type': 'channel_mvt', 'credit': 0, 'debit': 100000000, 'tag': 'routed'},
-        {'type': 'channel_mvt', 'credit': 50000501, 'debit': 0, 'tag': 'routed'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 5430501, 'tag': 'chain_fees'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 944570000, 'tag': 'withdrawal'},
-    ]
-    l2_wallet_mvts = [
-        {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 995418000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 4582000, 'tag': 'chain_fees'},
-        {'type': 'chain_mvt', 'credit': 995418000, 'debit': 0, 'tag': 'deposit'},
-        {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
-        {'type': 'chain_mvt', 'credit': 944570000, 'debit': 0, 'tag': 'deposit'},
-    ]
+    if chainparams['elements']:
+        l2_l3_mvts = [
+            {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'channel_mvt', 'credit': 0, 'debit': 100000000, 'tag': 'routed'},
+            {'type': 'channel_mvt', 'credit': 50000501, 'debit': 0, 'tag': 'routed'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 8955501, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 941045000, 'tag': 'withdrawal'},
+        ]
+
+        l2_wallet_mvts = [
+            {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 991900000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 8100000, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 991900000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 941045000, 'debit': 0, 'tag': 'deposit'},
+        ]
+    else:
+        l2_l3_mvts = [
+            {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'channel_mvt', 'credit': 0, 'debit': 100000000, 'tag': 'routed'},
+            {'type': 'channel_mvt', 'credit': 50000501, 'debit': 0, 'tag': 'routed'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 5430501, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 944570000, 'tag': 'withdrawal'},
+        ]
+
+        l2_wallet_mvts = [
+            {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 995425000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 4575000, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 995425000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 944570000, 'debit': 0, 'tag': 'deposit'},
+        ]
 
     l1, l2, l3 = node_factory.line_graph(3, opts=[
         {'may_reconnect': True},
@@ -1468,7 +1493,44 @@ def test_coin_movement_notices(node_factory, bitcoind):
     assert account_balance(l2, chanid_3) == 0
 
     # Verify we recorded all the movements we expect
-    check_coin_moves(l2, chanid_1, l1_l2_mvts)
-    check_coin_moves(l2, chanid_3, l2_l3_mvts)
-    check_coin_moves(l2, 'wallet', l2_wallet_mvts)
+    check_coin_moves(l2, chanid_1, l1_l2_mvts, chainparams)
+    check_coin_moves(l2, chanid_3, l2_l3_mvts, chainparams)
+    check_coin_moves(l2, 'wallet', l2_wallet_mvts, chainparams)
     check_coin_moves_idx(l2)
+
+
+def test_3847_repro(node_factory, bitcoind):
+    """Reproduces the issue in #3847: duplicate response from plugin
+
+    l2 holds on to HTLCs until the deadline expires. Then we allow them
+    through and either should terminate the payment attempt, and the second
+    would return a redundant result.
+
+    """
+    l1, l2, l3 = node_factory.line_graph(3, opts=[
+        {},
+        {},
+        {
+            'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_htlcs.py'),
+            'hold-time': 11,
+            'hold-result': 'fail',
+        },
+    ], wait_for_announce=True)
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
+
+    # Amount sufficient to trigger the presplit modifier
+    amt = 20 * 1000 * 1000
+
+    i1 = l3.rpc.invoice(
+        msatoshi=amt, label="direct", description="desc"
+    )['bolt11']
+    with pytest.raises(RpcError):
+        l1.rpc.pay(i1, retry_for=10)
+
+    # We wait for at least two parts, and the bug would cause the `pay` plugin
+    # to crash
+    l1.daemon.wait_for_logs([r'Payment deadline expired, not retrying'] * 2)
+
+    # This call to paystatus would fail if the pay plugin crashed (it's
+    # provided by the plugin)
+    l1.rpc.paystatus(i1)

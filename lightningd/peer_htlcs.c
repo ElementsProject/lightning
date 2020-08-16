@@ -283,10 +283,13 @@ void local_fail_in_htlc_needs_update(struct htlc_in *hin,
 }
 
 /* Helper to create (common) WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS */
-const u8 *failmsg_incorrect_or_unknown(const tal_t *ctx,
-				       struct lightningd *ld,
-				       const struct htlc_in *hin)
+const u8 *failmsg_incorrect_or_unknown_(const tal_t *ctx,
+					struct lightningd *ld,
+					const struct htlc_in *hin,
+					const char *file, int line)
 {
+	log_debug(ld->log, "WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS: %s:%u",
+		  file, line);
 	return towire_incorrect_or_unknown_payment_details(
 		ctx, hin->msat,
 		get_block_height(ld->topology));

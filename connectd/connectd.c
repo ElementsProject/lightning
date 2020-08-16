@@ -633,6 +633,13 @@ static void connect_failed(struct daemon *daemon,
 	status_peer_debug(id, "Failed connected out: %s", errmsg);
 }
 
+/* add errors to error list */
+void add_errors_to_error_list(struct connecting *connect, const char *error)
+{
+	tal_append_fmt(&connect->errors,
+		       "%s. ", error);
+}
+
 /*~ This is the destructor for the (unsuccessful) connection.  We accumulate
  * the errors which occurred, so we can report to lightningd properly in case
  * they all fail, and try the next address.
@@ -650,11 +657,12 @@ static void destroy_io_conn(struct io_conn *conn, struct connecting *connect)
 		if (streq(connect->connstate, "Cryptographic handshake"))
 			errstr = "peer closed connection (wrong key?)";
 	}
-	tal_append_fmt(&connect->errors,
-		       "%s: %s: %s. ",
+
+	add_errors_to_error_list(connect,
+		       tal_fmt(tmpctx, "%s: %s: %s",
 		       type_to_string(tmpctx, struct wireaddr_internal,
 				      &connect->addrs[connect->addrnum]),
-		       connect->connstate, errstr);
+		       connect->connstate, errstr));
 	connect->addrnum++;
 	try_connect_one_addr(connect);
 }

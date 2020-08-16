@@ -12,6 +12,10 @@
 #include <wally_transaction.h>
 
 #define BITCOIN_TX_DEFAULT_SEQUENCE 0xFFFFFFFF
+
+/* BIP 125: Any nsequence < 0xFFFFFFFE is replacable.
+ * And bitcoind uses this value. */
+#define BITCOIN_TX_RBF_SEQUENCE 0xFFFFFFFD
 struct wally_psbt;
 
 struct bitcoin_txid {
@@ -21,9 +25,6 @@ struct bitcoin_txid {
 STRUCTEQ_DEF(bitcoin_txid, 0, shad.sha.u);
 
 struct bitcoin_tx {
-	/* Keep track of input amounts, this is needed for signatures (NULL if
-	 * unknown) */
-	struct amount_sat **input_amounts;
 	struct wally_tx *wtx;
 
 	/* Keep a reference to the ruleset we have to abide by */
@@ -37,6 +38,10 @@ struct bitcoin_tx_output {
 	struct amount_sat amount;
 	u8 *script;
 };
+
+struct bitcoin_tx_output *new_tx_output(const tal_t *ctx,
+					struct amount_sat amount,
+					const u8 *script);
 
 /* SHA256^2 the tx in legacy format. */
 void bitcoin_txid(const struct bitcoin_tx *tx, struct bitcoin_txid *txid);
@@ -68,6 +73,9 @@ bool bitcoin_txid_from_hex(const char *hexstr, size_t hexstr_len,
 bool bitcoin_txid_to_hex(const struct bitcoin_txid *txid,
 			 char *hexstr, size_t hexstr_len);
 
+/* Create a bitcoin_tx from a psbt */
+struct bitcoin_tx *bitcoin_tx_with_psbt(const tal_t *ctx, struct wally_psbt *psbt);
+
 /* Internal de-linearization functions. */
 struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 				   const u8 **cursor, size_t *max);
@@ -80,9 +88,19 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 int bitcoin_tx_add_multi_outputs(struct bitcoin_tx *tx,
 				 struct bitcoin_tx_output **outputs);
 
+/* Set the locktime for a transaction */
+void bitcoin_tx_set_locktime(struct bitcoin_tx *tx, u32 locktime);
+
+/* Add a new input to a bitcoin tx.
+ *
+ * For P2WSH inputs, we'll also store the wscript and/or scriptPubkey
+ * Passing in just the {input_wscript}, we'll generate the scriptPubkey for you.
+ * In some cases we may not have the wscript, in which case the scriptPubkey
+ * should be provided. We'll check that it's P2WSH before saving it */
 int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
-			 u32 outnum, u32 sequence,
-			 struct amount_sat amount, u8 *script);
+			 u32 outnum, u32 sequence, const u8 *scriptSig,
+			 struct amount_sat amount, const u8 *scriptPubkey,
+			 const u8 *input_wscript);
 
 /* This helps is useful because wally uses a raw byte array for txids */
 bool wally_tx_input_spends(const struct wally_tx_input *input,
@@ -112,6 +130,15 @@ void bitcoin_tx_output_set_amount(struct bitcoin_tx *tx, int outnum,
  */
 const u8 *bitcoin_tx_output_get_script(const tal_t *ctx, const struct bitcoin_tx *tx, int outnum);
 
+/**
+ * Helper to get the script of a script's output as a tal_arr
+ *
+ * The script attached to a `wally_tx_output` is not a `tal_arr`, so in order to keep the
+ * comfort of being able to call `tal_bytelen` and similar on a script we just
+ * return a `tal_arr` clone of the original script.
+ */
+const u8 *wally_tx_output_get_script(const tal_t *ctx,
+				     const struct wally_tx_output *output);
 /**
  * Helper to get a witness script for an output.
  */
@@ -189,8 +216,8 @@ struct amount_sat bitcoin_tx_compute_fee(const struct bitcoin_tx *tx);
 /*
  * Calculate the fees for this transaction, given a pre-computed input balance.
  *
- * This is needed for cases where the input_amounts aren't properly initialized,
- * typically due to being passed across the wire.
+ * This is needed for cases where the transaction's psbt metadata isn't properly filled
+ * in typically due to being instantiated from a tx hex (i.e. from a block scan)
  */
 struct amount_sat bitcoin_tx_compute_fee_w_inputs(const struct bitcoin_tx *tx,
 						  struct amount_sat input_val);
@@ -206,8 +233,27 @@ void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid);
 void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx);
 void towire_bitcoin_tx_output(u8 **pptr, const struct bitcoin_tx_output *output);
 
-/*
- * Get the base64 string encoded PSBT of a bitcoin transaction.
+int wally_tx_clone(struct wally_tx *tx, struct wally_tx **output);
+
+/* Various weights of transaction parts. */
+size_t bitcoin_tx_core_weight(size_t num_inputs, size_t num_outputs);
+size_t bitcoin_tx_output_weight(size_t outscript_len);
+
+/* Weight to push sig on stack. */
+size_t bitcoin_tx_input_sig_weight(void);
+
+/* We only do segwit inputs, and we assume witness is sig + key  */
+size_t bitcoin_tx_simple_input_weight(bool p2sh);
+
+/**
+ * change_amount - Is it worth making a P2WPKH change output at this feerate?
+ * @excess: input amount we have above the tx fee and other outputs.
+ * @feerate_perkw: feerate.
+ *
+ * If it's not worth (or possible) to make change, returns AMOUNT_SAT(0).
+ * Otherwise returns the amount of the change output to add (@excess minus
+ * the additional fee for the change output itself).
  */
-char *bitcoin_tx_to_psbt_base64(const tal_t *ctx, struct bitcoin_tx *tx);
+struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw);
+
 #endif /* LIGHTNING_BITCOIN_TX_H */

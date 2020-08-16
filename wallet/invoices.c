@@ -441,7 +441,8 @@ bool invoices_iterate(struct invoices *invoices,
 						       ", bolt11"
 						       ", description"
 						       ", features"
-						       " FROM invoices;"));
+						       " FROM invoices"
+						       " ORDER BY id;"));
 		db_query_prepared(stmt);
 		it->p = stmt;
 	} else

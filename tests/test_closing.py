@@ -703,7 +703,7 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 @unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
-def test_penalty_htlc_tx_fulfill(node_factory, bitcoind):
+def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
     """ Test that the penalizing node claims any published
         HTLC transactions
 
@@ -732,6 +732,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind):
                                may_reconnect=True,
                                options={'dev-no-reconnect': None})
     l2 = node_factory.get_node(options={'plugin': coin_mvt_plugin,
+                                        'disable-mpp': None,
                                         'dev-no-reconnect': None},
                                may_reconnect=True,
                                allow_broken_log=True)
@@ -774,15 +775,14 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind):
 
     # make database snapshot of l2
     l2.stop()
-    l2_db_path = os.path.join(l2.daemon.lightning_dir, 'regtest', 'lightningd.sqlite3')
-    l2_db_path_bak = os.path.join(l2.daemon.lightning_dir, 'regtest', 'lightningd.sqlite3.bak')
+    l2_db_path = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3')
+    l2_db_path_bak = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3.bak')
     copyfile(l2_db_path, l2_db_path_bak)
     l2.start()
     sync_blockheight(bitcoind, [l2])
 
     # push some money from l3->l2, so that the commit counter advances
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    l2.daemon.wait_for_log('now ACTIVE')
     inv = l3.rpc.invoice(10**4, '1', 'push')
     # Make sure gossipd in l2 knows it's active
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(l2.get_channel_scid(l3))['channels']] == [True, True])
@@ -845,7 +845,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind):
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 @unittest.skipIf(SLOW_MACHINE and VALGRIND, "slow test")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
-def test_penalty_htlc_tx_timeout(node_factory, bitcoind):
+def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     """ Test that the penalizing node claims any published
         HTLC transactions
 
@@ -911,11 +911,9 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind):
     # push some money so that 1 + 4 can both send htlcs
     inv = l1.rpc.invoice(10**9 // 2, '1', 'balancer')
     l2.rpc.pay(inv['bolt11'])
-    l2.rpc.waitsendpay(inv['payment_hash'])
 
     inv = l4.rpc.invoice(10**9 // 2, '1', 'balancer')
     l2.rpc.pay(inv['bolt11'])
-    l2.rpc.waitsendpay(inv['payment_hash'])
 
     # now we send two 'sticky' htlcs, l1->l5 + l4->l1
     amt = 10**8 // 2
@@ -933,8 +931,8 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind):
 
     # make database snapshot of l2
     l2.stop()
-    l2_db_path = os.path.join(l2.daemon.lightning_dir, 'regtest', 'lightningd.sqlite3')
-    l2_db_path_bak = os.path.join(l2.daemon.lightning_dir, 'regtest', 'lightningd.sqlite3.bak')
+    l2_db_path = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3')
+    l2_db_path_bak = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3.bak')
     copyfile(l2_db_path, l2_db_path_bak)
     l2.start()
     sync_blockheight(bitcoind, [l2])
@@ -1563,6 +1561,34 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind):
     l1.bitcoin.generate_block(100)
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
     l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+    # Verify accounting for l1 & l2
+    assert account_balance(l1, channel_id) == 0
+    assert account_balance(l2, channel_id) == 0
+
+
+def test_listfunds_after_their_unilateral(node_factory, bitcoind):
+    """We keep spending info around for their unilateral closes.
+
+Make sure we show the address.
+    """
+    coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
+    l1, l2 = node_factory.line_graph(2, opts={'plugin': coin_mvt_plugin})
+    channel_id = first_channel_id(l1, l2)
+
+    # listfunds will show 1 output change, and channels.
+    assert len(l1.rpc.listfunds()['outputs']) == 1
+
+    l1.stop()
+    l2.rpc.close(l1.info['id'], unilateraltimeout=1)
+    l2.wait_for_channel_onchain(l1.info['id'])
+    bitcoind.generate_block(100)
+
+    l1.start()
+    l2.daemon.wait_for_log('onchaind complete, forgetting peer')
+    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 2)
+    assert all(['address' in o for o in l1.rpc.listfunds()['outputs']])
 
     # Verify accounting for l1 & l2
     assert account_balance(l1, channel_id) == 0

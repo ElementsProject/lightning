@@ -92,7 +92,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		bitcoin_txid(tx, &txid);
 		if (txfilter_match(topo->bitcoind->ld->owned_txfilter, tx)) {
 			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
-						     tx, &b->height, &owned);
+						     tx->wtx, &b->height, &owned);
 			wallet_transaction_add(topo->ld->wallet, tx, b->height,
 					       i);
 		}
@@ -466,32 +466,6 @@ u32 penalty_feerate(struct chain_topology *topo)
 	return try_get_feerate(topo, FEERATE_PENALTY);
 }
 
-u32 feerate_from_style(u32 feerate, enum feerate_style style)
-{
-	switch (style) {
-	case FEERATE_PER_KSIPA:
-		return feerate;
-	case FEERATE_PER_KBYTE:
-		/* Everyone uses satoshi per kbyte, but we use satoshi per ksipa
-		 * (don't round down to zero though)! */
-		return (feerate + 3) / 4;
-	}
-	abort();
-}
-
-u32 feerate_to_style(u32 feerate_perkw, enum feerate_style style)
-{
-	switch (style) {
-	case FEERATE_PER_KSIPA:
-		return feerate_perkw;
-	case FEERATE_PER_KBYTE:
-		if ((u64)feerate_perkw * 4 > UINT_MAX)
-			return UINT_MAX;
-		return feerate_perkw * 4;
-	}
-	abort();
-}
-
 static struct command_result *json_feerates(struct command *cmd,
 					    const char *buffer,
 					    const jsmntok_t *obj UNNEEDED,
@@ -516,7 +490,12 @@ static struct command_result *json_feerates(struct command *cmd,
 	}
 
 	response = json_stream_success(cmd);
-	json_object_start(response, json_feerate_style_name(*style));
+
+	if (missing)
+		json_add_string(response, "warning_missing_feerates",
+				"Some fee estimates unavailable: bitcoind startup?");
+
+	json_object_start(response, feerate_style_name(*style));
 	for (size_t i = 0; i < ARRAY_SIZE(feerates); i++) {
 		if (!feerates[i] || i == FEERATE_MIN || i == FEERATE_MAX)
 			continue;
@@ -546,10 +525,7 @@ static struct command_result *json_feerates(struct command *cmd,
 
 	json_object_end(response);
 
-	if (missing)
-		json_add_string(response, "warning",
-				"Some fee estimates unavailable: bitcoind startup?");
-	else {
+	if (!missing) {
 		json_object_start(response, "onchain_fee_estimates");
 		/* eg 020000000001016f51de645a47baa49a636b8ec974c28bdff0ac9151c0f4eda2dbe3b41dbe711d000000001716001401fad90abcd66697e2592164722de4a95ebee165ffffffff0240420f00000000002200205b8cd3b914cf67cdd8fa6273c930353dd36476734fbd962102c2df53b90880cdb73f890000000000160014c2ccab171c2a5be9dab52ec41b825863024c54660248304502210088f65e054dbc2d8f679de3e40150069854863efa4a45103b2bb63d060322f94702200d3ae8923924a458cffb0b7360179790830027bb6b29715ba03e12fc22365de1012103d745445c9362665f22e0d96e9e766f273f3260dea39c8a76bfa05dd2684ddccf00000000 == weight 702 */
 		json_add_num(response, "opening_channel_satoshis",
@@ -662,22 +638,24 @@ static void updates_complete(struct chain_topology *topo)
 	next_topology_timer(topo);
 }
 
-static void record_output_spend(struct lightningd *ld,
-				const struct bitcoin_txid *txid,
-				const struct bitcoin_txid *utxo_txid,
-				u32 vout, u32 blockheight,
-				struct amount_sat *input_amt)
+static void record_utxo_spent(struct lightningd *ld,
+			      const struct bitcoin_txid *txid,
+			      const struct bitcoin_txid *utxo_txid,
+			      u32 vout, u32 blockheight,
+			      struct amount_sat *input_amt)
 {
 	struct utxo *utxo;
 	struct chain_coin_mvt *mvt;
 	u8 *ctx = tal(NULL, u8);
 
 	utxo = wallet_utxo_get(ctx, ld->wallet, utxo_txid, vout);
-	if (!utxo)
+	if (!utxo) {
 		log_broken(ld->log, "No record of utxo %s:%d",
 			    type_to_string(tmpctx, struct bitcoin_txid,
 					   utxo_txid),
 			    vout);
+		return;
+	}
 
 	*input_amt = utxo->amount;
 	mvt = new_coin_spend_track(ctx, txid, utxo_txid, vout, blockheight);
@@ -685,23 +663,14 @@ static void record_output_spend(struct lightningd *ld,
 	tal_free(ctx);
 }
 
-static void record_tx_outs_and_fees(struct lightningd *ld, const struct bitcoin_tx *tx,
-				    struct bitcoin_txid *txid, u32 blockheight,
-				    struct amount_sat inputs_total)
+static void record_outputs_as_withdraws(const tal_t *ctx,
+					struct lightningd *ld,
+					const struct bitcoin_tx *tx,
+					struct bitcoin_txid *txid,
+					u32 blockheight)
 {
-	struct amount_sat fee;
 	struct chain_coin_mvt *mvt;
-	size_t i;
-	u8 *ctx = tal(NULL, u8);
-
-	if (!tx)
-		log_broken(ld->log, "We have no record of transaction %s",
-			   type_to_string(ctx, struct bitcoin_txid, txid));
-
-	/* We record every output on this transaction as a withdraw */
-	/* FIXME: collaborative tx will need to keep track of which
-	 *        outputs are ours */
-	for (i = 0; i < tx->wtx->num_outputs; i++) {
+	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
 		struct amount_asset asset;
 		struct amount_sat outval;
 		if (elements_tx_output_is_fee(tx, i))
@@ -709,18 +678,55 @@ static void record_tx_outs_and_fees(struct lightningd *ld, const struct bitcoin_
 		asset = bitcoin_tx_output_get_amount(tx, i);
 		assert(amount_asset_is_main(&asset));
 		outval = amount_asset_to_sat(&asset);
-		mvt = new_coin_withdrawal_sat(ctx, "wallet", txid, txid,
-					      i, blockheight, outval);
+		mvt = new_coin_withdrawal_sat(ctx, "wallet", txid,
+					      txid, i, blockheight,
+					      outval);
 		notify_chain_mvt(ld, mvt);
 	}
+}
 
-	fee = bitcoin_tx_compute_fee_w_inputs(tx, inputs_total);
+static void record_tx_outs_and_fees(struct lightningd *ld,
+				    const struct bitcoin_tx *tx,
+				    struct bitcoin_txid *txid,
+				    u32 blockheight,
+				    struct amount_sat inputs_total,
+				    bool our_tx)
+{
+	struct amount_sat fee, out_val;
+	struct chain_coin_mvt *mvt;
+	bool ok;
+	struct wally_psbt *psbt = NULL;
+	u8 *ctx = tal(NULL, u8);
+
+	/* We own every input on this tx, so track withdrawals precisely */
+	if (our_tx) {
+		record_outputs_as_withdraws(ctx, ld, tx, txid, blockheight);
+		fee = bitcoin_tx_compute_fee_w_inputs(tx, inputs_total);
+		goto log_fee;
+	}
+
+	/* FIXME: look up stashed psbt! */
+	if (!psbt) {
+		fee = bitcoin_tx_compute_fee_w_inputs(tx, inputs_total);
+		ok = amount_sat_sub(&out_val, inputs_total, fee);
+		assert(ok);
+
+		/* We don't have detailed withdrawal info for this tx,
+		 * so we log the wallet withdrawal as a single entry */
+		mvt = new_coin_withdrawal_sat(ctx, "wallet", txid, NULL,
+					      0, blockheight, out_val);
+		notify_chain_mvt(ld, mvt);
+		goto log_fee;
+	}
+
+	fee = AMOUNT_SAT(0);
 
 	/* Note that to figure out the *total* 'onchain'
 	 * cost of a channel, you'll want to also include
 	 * fees logged here, to the 'wallet' account (for funding tx).
 	 * You can do this in post by accounting for any 'chain_fees' logged for
 	 * the funding txid when looking at a channel. */
+log_fee:
 	notify_chain_mvt(ld,
 			new_coin_chain_fees_sat(ctx, "wallet", txid,
 						blockheight, fee));
@@ -736,7 +742,7 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 	const struct short_channel_id *scid;
 	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
-		bool our_tx = false;
+		bool our_tx = true, includes_our_spend = false;
 		struct bitcoin_txid txid;
 		struct amount_sat inputs_total = AMOUNT_SAT(0);
 
@@ -758,34 +764,22 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 				tal_free(scid);
 			}
 
-			our_tx |= our_spend;
+			our_tx &= our_spend;
+			includes_our_spend |= our_spend;
 			if (our_spend) {
 				struct amount_sat input_amt;
 				bool ok;
 
-				record_output_spend(topo->ld, &txid, &outpoint_txid,
-						    input->index, b->height, &input_amt);
+				record_utxo_spent(topo->ld, &txid, &outpoint_txid,
+						  input->index, b->height, &input_amt);
 				ok = amount_sat_add(&inputs_total, inputs_total, input_amt);
 				assert(ok);
-			} else if (our_tx)
-				log_broken(topo->ld->log, "Recording fee spend for tx %s but "
-					   "our wallet did not contribute input %s:%d",
-					   type_to_string(tmpctx, struct bitcoin_txid,
-							  &txid),
-					   type_to_string(tmpctx, struct bitcoin_txid,
-							  &outpoint_txid),
-					   input->index);
-
+			}
 		}
 
-		/* For now we assume that if one of the spent utxos
-		 * in this tx is 'ours', that we own all of the
-		 * utxos and therefore paid all of the fees
-		 * FIXME: update once interactive tx construction
-		 * is a reality */
-		if (our_tx)
+		if (includes_our_spend)
 			record_tx_outs_and_fees(topo->ld, tx, &txid,
-						b->height, inputs_total);
+						b->height, inputs_total, our_tx);
 	}
 }
 
