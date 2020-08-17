@@ -5,7 +5,6 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives import serialization
 from hashlib import sha256
 import coincurve
 import os
@@ -59,18 +58,19 @@ def decryptWithAD(k, n, ad, ciphertext):
 
 class PrivateKey(object):
     def __init__(self, rawkey):
-        assert len(rawkey) == 32 and isinstance(rawkey, bytes)
+        if not isinstance(rawkey, bytes):
+            raise TypeError(f"rawkey must be bytes, {type(rawkey)} received")
+        elif len(rawkey) != 32:
+            raise ValueError(f"rawkey must be 32-byte long. {len(rawkey)} received")
+
         self.rawkey = rawkey
-        rawkey = int(hexlify(rawkey), base=16)
-        self.key = ec.derive_private_key(rawkey, ec.SECP256K1(),
-                                         default_backend())
+        self.key = coincurve.PrivateKey(rawkey)
 
     def serializeCompressed(self):
-        return self.key.private_bytes(serialization.Encoding.Raw,
-                                      serialization.PrivateFormat.Raw, None)
+        return self.key.secret
 
     def public_key(self):
-        return PublicKey(self.key.public_key())
+        return PublicKey(self.key.public_key)
 
 
 class Secret(object):
@@ -85,24 +85,23 @@ class Secret(object):
 class PublicKey(object):
     def __init__(self, innerkey):
         # We accept either 33-bytes raw keys, or an EC PublicKey as returned
-        # by cryptography.io
+        # by coincurve
         if isinstance(innerkey, bytes):
-            innerkey = ec.EllipticCurvePublicKey.from_encoded_point(
-                ec.SECP256K1(), innerkey
-            )
+            if innerkey[0] in [2, 3] and len(innerkey) == 33:
+                innerkey = coincurve.PublicKey(innerkey)
+            else:
+                raise ValueError(
+                    "Byte keys must be 33-byte long starting from either 02 or 03"
+                )
 
-        elif not isinstance(innerkey, ec.EllipticCurvePublicKey):
+        elif not isinstance(innerkey, coincurve.keys.PublicKey):
             raise ValueError(
-                "Key must either be bytes or ec.EllipticCurvePublicKey"
+                "Key must either be bytes or coincurve.keys.PublicKey"
             )
         self.key = innerkey
 
     def serializeCompressed(self):
-        raw = self.key.public_bytes(
-            serialization.Encoding.X962,
-            serialization.PublicFormat.CompressedPoint
-        )
-        return raw
+        return self.key.format(compressed=True)
 
     def __str__(self):
         return "PublicKey[0x{}]".format(
