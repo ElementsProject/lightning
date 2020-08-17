@@ -2844,9 +2844,9 @@ static struct amount_msat fuzzed_near(struct amount_msat target,
 	s64 fuzz;
 	struct amount_msat res = target;
 
-	/* Somewhere within 25% of target please. */
-	fuzz = pseudorand(target.millisatoshis / 2) /* Raw: fuzz */
-		- target.millisatoshis / 4; /* Raw: fuzz */
+	/* Somewhere within 5% of target please. */
+	fuzz = pseudorand(target.millisatoshis / 10) /* Raw: fuzz */
+		- target.millisatoshis / 20; /* Raw: fuzz */
 	res.millisatoshis = target.millisatoshis + fuzz; /* Raw: fuzz < msat */
 
 	if (amount_msat_greater(res, max))
@@ -3219,8 +3219,8 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 	} else if (p->step == PAYMENT_STEP_FAILED && !p->abort) {
 		if (amount_msat_greater(p->amount, MPP_ADAPTIVE_LOWER_LIMIT)) {
 			struct payment *a, *b;
-			/* Random number in the range [90%, 110%] */
-			double rand = pseudorand_double() * 0.2 + 0.9;
+			/* Random number in the range [95%, 105%] */
+			double rand = pseudorand_double() * 0.1 + 0.95;
 			u64 mid = round((p->amount.millisatoshis / PHI) * rand); /* Raw: multiplication */
 			bool ok;
 			/* Use the start constraints, not the ones updated by routes and shadow-routes. */
