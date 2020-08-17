@@ -4,6 +4,7 @@
 #include <common/json_stream.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
+#include <math.h>
 #include <plugins/libplugin-pay.h>
 
 #define DEFAULT_FINAL_CLTV_DELTA 9
@@ -2931,16 +2932,21 @@ REGISTER_PAYMENT_MODIFIER(presplit, struct presplit_mod_data *,
 /*****************************************************************************
  * Adaptive splitter -- Split payment if we can't get it through.
  *
- * The adaptive splitter splits the amount of a failed payment in half, with
- * +/- 10% randomness, and then starts two attempts, one for either side of
- * the split. The goal is to find two smaller routes, that still adhere to our
+ * The adaptive splitter splits the amount of a failed payment by the golden
+ * ratio phi, with a small randomization, and then starts two attempts, one for
+ * either side of the split.
+ * The goal is to find two smaller routes, that still adhere to our
  * constraints, but that can complete the payment.
+ *
+ * The reason for splitting by phi is described here:
+ * https://lists.linuxfoundation.org/pipermail/lightning-dev/2020-August/002778.html
  *
  * This modifier also checks whether we can split and still have enough HTLCs
  * available on the channels and aborts if that's no longer the case.
  */
 
 #define MPP_ADAPTIVE_LOWER_LIMIT AMOUNT_MSAT(100 * 1000)
+#define PHI ((double) 1.61803398874989484820)
 
 static struct adaptive_split_mod_data *adaptive_splitter_data_init(struct payment *p)
 {
@@ -3002,7 +3008,7 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 			struct payment *a, *b;
 			/* Random number in the range [90%, 110%] */
 			double rand = pseudorand_double() * 0.2 + 0.9;
-			u64 mid = p->amount.millisatoshis / 2 * rand; /* Raw: multiplication */
+			u64 mid = round((p->amount.millisatoshis / PHI) * rand); /* Raw: multiplication */
 			bool ok;
 			/* Use the start constraints, not the ones updated by routes and shadow-routes. */
 			struct payment_constraints *pconstraints = p->start_constraints;
@@ -3026,7 +3032,7 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 
 			double multiplier = amount_msat_ratio(a->amount,
 							      p->amount);
-			assert(multiplier >= 0.4 && multiplier < 0.6);
+			assert(0.0 < multiplier && multiplier < 1.0);
 
 			/* Adjust constraints since we don't want to double our
 			 * fee allowance when we split. */
@@ -3039,11 +3045,13 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 					     pconstraints->fee_budget,
 					     a->constraints.fee_budget);
 
-			/* Should not fail, mid is less than 55% of original
-			 * amount. fee_budget_a <= 55% of fee_budget_p (parent
-			 * of the new payments).*/
+			/* Should not fail, fee_budget_a <= fee_budget_p
+			 * (parent of the new payments).*/
 			assert(ok);
 
+			/* Payment `a` is the larger split, thus less likely
+			 * to succeed, so start `a` first so that it gets into
+			 * channels earlier.  */
 			payment_start(a);
 			payment_start(b);
 
