@@ -2742,12 +2742,18 @@ REGISTER_PAYMENT_MODIFIER(waitblockheight, void *, NULL, waitblockheight_cb);
 /*By probing the capacity from a well-connected vantage point in the network
  * we found that the 80th percentile of capacities is >= 9765 sats.
  *
- * Rounding to 10e6 msats per part there is a ~80% chance that the payment
- * will go through without requiring further splitting. The fuzzing is
- * symmetric and uniformy distributed around this value, so this should not
- * change the success rate much. For the remaining 20% of payments we might
- * require a split to make the parts succeed, so we try only a limited number
- * of times before we split adaptively.
+ * Rounding to the nearest Fibonacci number, 9227465 msats, per part there is
+ * a ~80% chance that the payment will go through without requiring further
+ * splitting.
+ * The fuzzing is symmetric and uniformly distributed around this value, so
+ * this should not change the success rate much.
+ * For the remaining 20% of payments we might require a split to make the
+ * parts succeed, so we try only a limited number of times before we split
+ * adaptively.
+ *
+ * We use an approximately fibonacci schedule, based on the arguments laid
+ * out here:
+ * https://lists.linuxfoundation.org/pipermail/lightning-dev/2020-August/002778.html
  *
  * Notice that these numbers are based on a worst case assumption that
  * payments from any node to any other node are equally likely, which isn't
@@ -2762,8 +2768,42 @@ REGISTER_PAYMENT_MODIFIER(waitblockheight, void *, NULL, waitblockheight_cb);
  * the total available HTLCs we clamp the number of splits to 1/3rd. We don't
  * use 3/3rds in order to retain flexibility in the adaptive splitter.
  */
-#define MPP_TARGET_SIZE (10 * 1000 * 1000)
 #define PRESPLIT_MAX_HTLC_SHARE 3
+#define MPP_PRESPLIT_PREFERRED_AMOUNT 9227465L
+
+/* Golden ratio.
+ * The ratio of one fibonacci number to the next is approximately
+ * the golden ratio.
+ */
+#define PHI ((double) 1.61803398874989484820)
+
+/* Do not presplit beyond this number of splits.
+ * 13 seems like a reasonable fibonacci-sequence
+ * number to use.
+ */
+#define REASONABLE_MAX_PRESPLIT 13
+
+/* Would have preferred struct amount_msat here, but GCC 4.8 barfs
+ * when initializing the array via AMOUNT_MSAT().  */
+static const u64 fibonacci_schedule[] = {
+	/* The next higher Fibonacci number would be
+	 * 4807526976, which exceeds the 4294967295
+	 * wumbo limit.
+	 */
+	2971215073ULL,
+	1836311903ULL,
+	1134903170ULL,
+	701408733ULL,
+	433494437ULL,
+	267914296ULL,
+	165580141ULL,
+	102334155ULL,
+	63245986ULL,
+	39088169ULL,
+	24157817ULL,
+	14930352ULL,
+	9227465ULL
+};
 
 static struct presplit_mod_data *presplit_mod_data_init(struct payment *p)
 {
@@ -2814,6 +2854,214 @@ static struct amount_msat fuzzed_near(struct amount_msat target,
 	return res;
 }
 
+/* Create and start a child payment.
+ * Adds a description of the child to the given comment.
+ */
+static void presplit(char **comment,
+		     struct payment *p, struct amount_msat child_amount)
+{
+	double multiplier;
+	struct payment *c = payment_new(p, NULL, p, p->modifiers);
+
+	/* Annotate the subpayments with the bolt11 string,
+	 * they'll be used when aggregating the payments
+	 * again. */
+	c->bolt11 = tal_strdup(c, p->bolt11);
+
+	c->amount = child_amount;
+
+	/* Adjust the constraints.  */
+	multiplier = amount_msat_ratio(c->amount, p->amount);
+	if (!amount_msat_scale(&c->constraints.fee_budget,
+			       c->constraints.fee_budget,
+			       multiplier))
+		abort(); /* multiplier < 1! */
+
+	payment_start(c);
+
+	/* If comment contains some text, append a ", " to it.  */
+	if (**comment)
+		tal_append_fmt(comment, ", ");
+
+	/* Append a description of the new child.  */
+	tal_append_fmt(comment, "new partid %"PRIu32" (%s)",
+		       c->partid,
+		       type_to_string(tmpctx, struct amount_msat,
+				      &child_amount));
+}
+
+/* Split by equal units of our preferred amount.
+ * If dividing the amount by the preferred amount resulted in fewer
+ * splits than the HTLC limit, we use this method of splitting, in
+ * order to get the theoretical 80% percentile success.
+ * Returns a one-line report, allocated off @ctx, of how we split up
+ * the payment.
+ */
+static char *presplit_by_preferred(const tal_t *ctx, struct payment *p)
+{
+	struct amount_msat amt = p->amount;
+	struct amount_msat target = AMOUNT_MSAT(MPP_PRESPLIT_PREFERRED_AMOUNT);
+	char *comment = tal_strdup(tmpctx, "");
+
+	size_t count = 0;
+	while (!amount_msat_eq(amt, AMOUNT_MSAT(0))) {
+		struct amount_msat child_amount;
+
+		/*Get ~ target, but don't exceed amt */
+		child_amount = fuzzed_near(target, amt);
+
+		presplit(&comment, p, child_amount);
+
+		if (!amount_msat_sub(&amt, amt, child_amount))
+			paymod_err(
+			    p,
+			    "Cannot subtract %s from %s in splitter",
+			    type_to_string(tmpctx, struct amount_msat,
+					   &child_amount),
+			    type_to_string(tmpctx, struct amount_msat,
+					   &amt));
+
+		++count;
+	}
+	return tal_fmt(ctx,
+		       "Split into %zu sub-payments due to initial size "
+		       "(%s > %s): %s",
+		       count,
+		       type_to_string(tmpctx, struct amount_msat, &p->amount),
+		       type_to_string(tmpctx, struct amount_msat, &target),
+		       comment);
+}
+
+/* Utility function for inserting an amount in a tal-array of amounts
+ * that is sorted from largest to smallest.  */
+static void insert_amount_reverse_sorted(struct amount_msat **amounts,
+					 struct amount_msat insert)
+{
+	size_t orig_size = tal_count(*amounts);
+	size_t i = 0;
+	for (i = 0; i < orig_size; ++i)
+		if (amount_msat_greater(insert, (*amounts)[i]))
+			break;
+
+	tal_resize(amounts, orig_size + 1);
+	memmove(&(*amounts)[i + 1], &(*amounts)[i],
+		(orig_size - i) * sizeof(**amounts));
+	(*amounts)[i] = insert;
+}
+
+/* Split by following the fibonacci_schedule.
+ * If dividing in equal splits of our preferred amount would result
+ * in more splits than the HTLC limit, we instead go through the
+ * fibonacci_schedule, which should provide fewer splits in general.
+ * Returns a one-line report, allocated off @ctx, of how we split up
+ * the payment.
+ */
+static char *presplit_by_fibonacci(const tal_t *ctx,
+				   struct payment *p, u32 htlcs)
+{
+	struct amount_msat amt = p->amount;
+	struct amount_msat *splits = tal_arr(tmpctx, struct amount_msat, 0);
+	char *comment = tal_strdup(tmpctx, "");
+
+	assert(htlcs != 0);
+
+	/* Divide up the amount according to the fibonacci schedule.  */
+	while (!amount_msat_eq(amt, AMOUNT_MSAT(0)) && htlcs > 1) {
+		struct amount_msat target, child_amount;
+
+		/* Find the largest fibonacci_schedule entry that
+		 * fits.  */
+		for (size_t i = 0; i < ARRAY_SIZE(fibonacci_schedule); ++i) {
+			target = amount_msat(fibonacci_schedule[i]);
+			if (amount_msat_greater(amt, target))
+				break;
+		}
+
+		/*Get ~ target, but don't exceed amt */
+		child_amount = fuzzed_near(target, amt);
+
+		tal_arr_expand(&splits, child_amount);
+
+		if (!amount_msat_sub(&amt, amt, child_amount))
+			paymod_err(
+			    p,
+			    "Cannot subtract %s from %s in splitter",
+			    type_to_string(tmpctx, struct amount_msat,
+					   &child_amount),
+			    type_to_string(tmpctx, struct amount_msat,
+					   &amt));
+
+		--htlcs;
+	}
+	/* There might be a remainder if the number of htlcs is very
+	 * limited.  */
+	if (!amount_msat_eq(amt, AMOUNT_MSAT(0))) {
+		assert(htlcs > 0);
+		tal_arr_expand(&splits, amt);
+		--htlcs;
+	}
+
+	/* At this point, we are likely to have only a small number of
+	 * splits, due to the fibonacci sequence being fairly efficient
+	 * at splitting an amount.
+	 * For the given fibonacci_schedule, the largest non-wumbo
+	 * payment will at worst have 7 splits + 1 remainder split
+	 * that is below 9,227,465 msats.
+	 *
+	 * However, the largest split of a payment gives a lower bound
+	 * on the payment size.
+	 * Thus, if there are remaining HTLCs we can use, we should also
+	 * split the larger splits of the schedule in order to reduce
+	 * the lower bound on the payment size and further obscure
+	 * our payment amount.
+	 */
+	while (htlcs > 0) {
+		struct amount_msat largest, target, a, b;
+
+		/* Flip a coin, if it comes up heads, stop the presplit.  */
+		if (pseudorand(2) == 0)
+			break;
+
+		/* Pop the largest number, which is always the first
+		 * in the splits array.  */
+		largest = splits[0];
+		memmove(&splits[0], &splits[1],
+			(tal_count(splits) - 1) * sizeof(*splits));
+		tal_resize(&splits, tal_count(splits) - 1);
+
+		/* We could use amount_msat_scale by 1 / PHI, but
+		 * amount_msat_scale rounds down.
+		 * Fibonacci sequence is approximated by 1 / PHI
+		 * with round-to-nearest.  */
+		target = amount_msat(round(largest.millisatoshis / PHI)); /* Raw: division by double.  */
+
+		a = fuzzed_near(target, largest);
+		if (!amount_msat_sub(&b, largest, a))
+			/* Impossible.  */
+			abort();
+
+		assert(amount_msat_greater_eq(a, b));
+
+		/* Insert a and b.  */
+		insert_amount_reverse_sorted(&splits, a);
+		insert_amount_reverse_sorted(&splits, b);
+
+		--htlcs;
+	}
+
+	/* At this point we have a decent schedule of how to
+	 * split up the payment.  */
+	for (size_t i = 0; i < tal_count(splits); ++i)
+		presplit(&comment, p, splits[i]);
+
+	return tal_fmt(ctx,
+		       "Split into %zu sub-payments due to initial size "
+		       "(%s -> fibonacci): %s",
+		       tal_count(splits),
+		       type_to_string(tmpctx, struct amount_msat, &p->amount),
+		       comment);
+}
+
 static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 {
 	struct payment *root = payment_root(p);
@@ -2836,10 +3084,19 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 	} else if (p->step == PAYMENT_STEP_INITIALIZED) {
 		/* The presplitter only acts on the root and only in the first
 		 * step. */
-		size_t count = 0;
 		u32 htlcs = payment_max_htlcs(p) / PRESPLIT_MAX_HTLC_SHARE;
-		struct amount_msat target, amt = p->amount;
-		char *partids = tal_strdup(tmpctx, "");
+		u32 initial_splits;
+		struct amount_msat amt = p->amount;
+		char *why;
+
+		/* Limit initial splits to no more than reasonable.
+		 * This handles the case where the payer is well-connected
+		 * and thus has a large number of channels, which might
+		 * cause payment_max_htlcs to return a very large number,
+		 * which might practically overload the rest of the network.
+		 */
+		if (htlcs > REASONABLE_MAX_PRESPLIT)
+			htlcs = REASONABLE_MAX_PRESPLIT;
 
 		/* We need to opt-in to the MPP sending facility no matter
 		 * what we do. That means setting all partids to a non-zero
@@ -2857,71 +3114,28 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 			return payment_fail(
 			    p, "Cannot attempt payment, we have no channel to "
 			       "which we can add an HTLC");
-		} else if (p->amount.millisatoshis / MPP_TARGET_SIZE > htlcs) /* Raw: division */
-			target.millisatoshis = p->amount.millisatoshis / htlcs; /* Raw: division */
-		else
-			target = AMOUNT_MSAT(MPP_TARGET_SIZE);
+		}
 
-		/* If we are already below the target size don't split it
-		 * either. */
-		if (amount_msat_greater(target, p->amount))
+		/* If we are already below the preferred size don't split it.
+		 */
+		if (amount_msat_greater(AMOUNT_MSAT(MPP_PRESPLIT_PREFERRED_AMOUNT),
+					p->amount))
 			return payment_continue(p);
 
 		payment_set_step(p, PAYMENT_STEP_SPLIT);
-		/* Ok, we know we should split, so split here and then skip this
-		 * payment and start the children instead. */
-		while (!amount_msat_eq(amt, AMOUNT_MSAT(0))) {
-			double multiplier;
 
-			struct payment *c =
-			    payment_new(p, NULL, p, p->modifiers);
-
-			/* Annotate the subpayments with the bolt11 string,
-			 * they'll be used when aggregating the payments
-			 * again. */
-			c->bolt11 = tal_strdup(c, p->bolt11);
-
-			/* Get ~ target, but don't exceed amt */
-			c->amount = fuzzed_near(target, amt);
-
-			if (!amount_msat_sub(&amt, amt, c->amount))
-				paymod_err(
-				    p,
-				    "Cannot subtract %s from %s in splitter",
-				    type_to_string(tmpctx, struct amount_msat,
-						   &c->amount),
-				    type_to_string(tmpctx, struct amount_msat,
-						   &amt));
-
-			/* Now adjust the constraints so we don't multiply them
-			 * when splitting. */
-			multiplier = amount_msat_ratio(c->amount, p->amount);
-			if (!amount_msat_scale(&c->constraints.fee_budget,
-					       c->constraints.fee_budget,
-					       multiplier))
-				abort(); /* multiplier < 1! */
-			payment_start(c);
-			/* Why the wordy "new partid n" that we repeat for
-			 * each payment?
-			 * So that you can search the logs for the
-			 * creation of a partid by just "new partid n".
-			 */
-			if (count == 0)
-				tal_append_fmt(&partids, "new partid %"PRIu32, c->partid);
-			else
-				tal_append_fmt(&partids, ", new partid %"PRIu32, c->partid);
-			count++;
-		}
+		/* Can we split by the preferred size?  */
+		initial_splits = (amt.millisatoshis + MPP_PRESPLIT_PREFERRED_AMOUNT - 1) /* Raw: division. */
+			       / MPP_PRESPLIT_PREFERRED_AMOUNT;
+		if (initial_splits <= htlcs)
+			why = presplit_by_preferred(p, p);
+		else
+			why = presplit_by_fibonacci(p, p, htlcs);
 
 		p->result = NULL;
 		p->route = NULL;
-		p->why = tal_fmt(
-		    p,
-		    "Split into %zu sub-payments due to initial size (%s > %s)",
-		    count,
-		    type_to_string(tmpctx, struct amount_msat, &root->amount),
-		    type_to_string(tmpctx, struct amount_msat, &target));
-		paymod_log(p, LOG_INFORM, "%s: %s", p->why, partids);
+		p->why = why;
+		paymod_log(p, LOG_INFORM, "%s", p->why);
 	}
 	payment_continue(p);
 }
@@ -2946,7 +3160,6 @@ REGISTER_PAYMENT_MODIFIER(presplit, struct presplit_mod_data *,
  */
 
 #define MPP_ADAPTIVE_LOWER_LIMIT AMOUNT_MSAT(100 * 1000)
-#define PHI ((double) 1.61803398874989484820)
 
 static struct adaptive_split_mod_data *adaptive_splitter_data_init(struct payment *p)
 {
