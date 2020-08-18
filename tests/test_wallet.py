@@ -508,6 +508,9 @@ def test_fundpsbt(node_factory, bitcoind, chainparams):
     # Should get one input, plus some excess
     funding = l1.rpc.fundpsbt(amount // 2, feerate, 0, reserve=False)
     psbt = bitcoind.rpc.decodepsbt(funding['psbt'])
+    # We can fuzz this up to 99 blocks back.
+    assert psbt['tx']['locktime'] > bitcoind.rpc.getblockcount() - 100
+    assert psbt['tx']['locktime'] <= bitcoind.rpc.getblockcount()
     assert len(psbt['tx']['vin']) == 1
     assert funding['excess_msat'] > Millisatoshi(0)
     assert funding['excess_msat'] < Millisatoshi(amount // 2 * 1000)
@@ -515,9 +518,10 @@ def test_fundpsbt(node_factory, bitcoind, chainparams):
     assert 'estimated_final_weight' in funding
     assert 'reservations' not in funding
 
-    # This should add 99 to the weight, but otherwise be identical (might choose different inputs though!)
-    funding2 = l1.rpc.fundpsbt(amount // 2, feerate, 99, reserve=False)
+    # This should add 99 to the weight, but otherwise be identical (might choose different inputs though!) except for locktime.
+    funding2 = l1.rpc.fundpsbt(amount // 2, feerate, 99, reserve=False, locktime=bitcoind.rpc.getblockcount() + 1)
     psbt2 = bitcoind.rpc.decodepsbt(funding2['psbt'])
+    assert psbt2['tx']['locktime'] == bitcoind.rpc.getblockcount() + 1
     assert len(psbt2['tx']['vin']) == 1
     assert funding2['excess_msat'] < funding['excess_msat']
     assert funding2['feerate_per_kw'] == 7500
