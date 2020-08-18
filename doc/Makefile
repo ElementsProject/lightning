@@ -48,6 +48,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-txdiscard.7 \
 	doc/lightning-txsend.7 \
 	doc/lightning-unreserveinputs.7 \
+	doc/lightning-utxopsbt.7 \
 	doc/lightning-waitinvoice.7 \
 	doc/lightning-waitanyinvoice.7 \
 	doc/lightning-waitblockheight.7 \

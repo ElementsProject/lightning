@@ -1,0 +1,64 @@
+.TH "LIGHTNING-UTXOPSBT" "7" "" "" "lightning-utxopsbt"
+.SH NAME
+lightning-utxopsbt - Command to populate PSBT inputs from given UTXOs
+.SH SYNOPSIS
+
+\fButxopsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR \fIutxos\fR [\fIreserve\fR]
+
+.SH DESCRIPTION
+
+\fIutxopsbt\fR is a low-level RPC command which creates a PSBT using unreserved
+inputs in the wallet, optionally reserving them as well\.
+
+
+It deliberately mirrors the parameters and output of
+\fBlightning-fundpsbt\fR(7) except instead of an optional \fIminconf\fR
+parameter to select unreserved outputs from the wallet, it takes a
+compulsory list of outputs to use\.
+
+
+\fIutxos\fR must be an array of "txid:vout", each of which must be
+reserved or available: the total amount must be sufficient to pay for
+the resulting transaction plus \fIstartweight\fR at the given \fIfeerate\fR,
+with at least \fIsatoshi\fR left over (unless \fIsatoshi\fR is \fBall\fR, which
+is equivalent to setting it to zero)\.
+
+.SH RETURN VALUE
+
+On success, returns the \fIpsbt\fR containing the inputs, \fIfeerate_per_kw\fR
+showing the exact numeric feerate it used, \fIestimated_final_weight\fR for
+the estimated weight of the transaction once fully signed, and
+\fIexcess_msat\fR containing the amount above \fIsatoshi\fR which is
+available\.  This could be zero, or dust\.  If \fIsatoshi\fR was "all",
+then \fIexcess_msat\fR is the entire amount once fees are subtracted
+for the weights of the inputs and \fIstartweight\fR\.
+
+
+If \fIreserve\fR was true, then a \fIreservations\fR array is returned,
+exactly like \fIreserveinputs\fR\.
+
+
+On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
+with \fBcode\fR being one of the following:
+
+.RS
+.IP \[bu]
+-32602: If the given parameters are wrong\.
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+301: Insufficient UTXOs to meet \fIsatoshi\fR value\.
+
+.RE
+.SH AUTHOR
+
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-fundpsbt\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

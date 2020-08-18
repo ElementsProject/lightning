@@ -85,7 +85,7 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-reserveinputs(7), lightning-unreserveinputs(7).
+lightning-utxopsbt(7), lightning-reserveinputs(7), lightning-unreserveinputs(7).
 
 RESOURCES
 ---------
