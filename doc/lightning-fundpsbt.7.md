@@ -4,7 +4,7 @@ lightning-fundpsbt -- Command to populate PSBT inputs from the wallet
 SYNOPSIS
 --------
 
-**fundpsbt** *satoshi* *feerate* *startweight* \[*minconf*\] \[*reserve*\]
+**fundpsbt** *satoshi* *feerate* *startweight* \[*minconf*\] \[*reserve*\] \[*locktime*\]
 
 DESCRIPTION
 -----------
@@ -35,6 +35,9 @@ outputs should have. Default is 1.
 
 *reserve* is a boolean: if true (the default), then *reserveinputs* is
 called (successfully, with *exclusive* true) on the returned PSBT.
+
+*locktime* is an optional locktime: if not set, it is set to a recent
+block height.
 
 EXAMPLE USAGE
 -------------

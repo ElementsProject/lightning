@@ -3,7 +3,7 @@
 lightning-fundpsbt - Command to populate PSBT inputs from the wallet
 .SH SYNOPSIS
 
-\fBfundpsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR [\fIminconf\fR] [\fIreserve\fR]
+\fBfundpsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR [\fIminconf\fR] [\fIreserve\fR] [\fIlocktime\fR]
 
 .SH DESCRIPTION
 
@@ -38,6 +38,10 @@ outputs should have\. Default is 1\.
 
 \fIreserve\fR is a boolean: if true (the default), then \fIreserveinputs\fR is
 called (successfully, with \fIexclusive\fR true) on the returned PSBT\.
+
+
+\fIlocktime\fR is an optional locktime: if not set, it is set to a recent
+block height\.
 
 .SH EXAMPLE USAGE
 

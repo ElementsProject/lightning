@@ -213,11 +213,11 @@ static struct command_result *finish_psbt(struct command *cmd,
 					  u32 feerate_per_kw,
 					  size_t weight,
 					  struct amount_sat excess,
-					  bool reserve)
+					  bool reserve,
+					  u32 *locktime)
 {
 	struct json_stream *response;
 	struct bitcoin_tx *tx;
-	u32 locktime;
 	u32 current_height = get_block_height(cmd->ld->topology);
 
 	/* Setting the locktime to the next block to be mined has multiple
@@ -229,18 +229,21 @@ static struct command_result *finish_psbt(struct command *cmd,
 	 *   0xFFFFFFFD by default. Other wallets are likely to implement
 	 *   this too).
 	 */
-	locktime = current_height;
+	if (!locktime) {
+		locktime = tal(cmd, u32);
+		*locktime = current_height;
 
-	/* Eventually fuzz it too. */
-	if (locktime > 100 && pseudorand(10) == 0)
-		locktime -= pseudorand(100);
+		/* Eventually fuzz it too. */
+		if (*locktime > 100 && pseudorand(10) == 0)
+			*locktime -= pseudorand(100);
+	}
 
 	/* FIXME: tx_spending_utxos does more than we need, but there
 	 * are other users right now. */
 	tx = tx_spending_utxos(cmd, chainparams,
 			       cast_const2(const struct utxo **, utxos),
 			       cmd->ld->wallet->bip32_base,
-			       false, 0, locktime,
+			       false, 0, *locktime,
 			       BITCOIN_TX_RBF_SEQUENCE);
 
 	response = json_stream_success(cmd);
@@ -264,7 +267,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	u32 *minconf, *weight;
 	struct amount_sat *amount, input, diff;
 	bool all, *reserve;
-	u32 maxheight;
+	u32 *locktime, maxheight;
 
 	if (!param(cmd, buffer, params,
 		   p_req("satoshi", param_sat_or_all, &amount),
@@ -272,6 +275,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 		   p_req("startweight", param_number, &weight),
 		   p_opt_def("minconf", param_number, &minconf, 1),
 		   p_opt_def("reserve", param_bool, &reserve, true),
+		   p_opt("locktime", param_number, &locktime),
 		   NULL))
 		return command_param_failed();
 
@@ -336,7 +340,8 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 					    tal_count(utxos));
 	}
 
-	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, diff, *reserve);
+	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, diff, *reserve,
+			   locktime);
 }
 
 static const struct json_command fundpsbt_command = {
@@ -474,7 +479,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 	}
 
 	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, excess,
-			   *reserve);
+			   *reserve, NULL);
 }
 static const struct json_command utxopsbt_command = {
 	"utxopsbt",
