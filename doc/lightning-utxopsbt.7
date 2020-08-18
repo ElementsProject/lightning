@@ -3,7 +3,7 @@
 lightning-utxopsbt - Command to populate PSBT inputs from given UTXOs
 .SH SYNOPSIS
 
-\fButxopsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR \fIutxos\fR [\fIreserve\fR]
+\fButxopsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR \fIutxos\fR [\fIreserve\fR] [\fIreservedok\fR]
 
 .SH DESCRIPTION
 
@@ -22,6 +22,10 @@ reserved or available: the total amount must be sufficient to pay for
 the resulting transaction plus \fIstartweight\fR at the given \fIfeerate\fR,
 with at least \fIsatoshi\fR left over (unless \fIsatoshi\fR is \fBall\fR, which
 is equivalent to setting it to zero)\.
+
+
+Unless \fIreservedok\fR is set to true (default is false) it will also fail
+if any of the \fIutxos\fR are already reserved\.
 
 .SH RETURN VALUE
 
