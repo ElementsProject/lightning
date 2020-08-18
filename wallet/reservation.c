@@ -208,19 +208,63 @@ static bool inputs_sufficient(struct amount_sat input,
 	return false;
 }
 
+static struct command_result *finish_psbt(struct command *cmd,
+					  struct utxo **utxos,
+					  u32 feerate_per_kw,
+					  size_t weight,
+					  struct amount_sat excess,
+					  bool reserve)
+{
+	struct json_stream *response;
+	struct bitcoin_tx *tx;
+	u32 locktime;
+	u32 current_height = get_block_height(cmd->ld->topology);
+
+	/* Setting the locktime to the next block to be mined has multiple
+	 * benefits:
+	 * - anti fee-snipping (even if not yet likely)
+	 * - less distinguishable transactions (with this we create
+	 *   general-purpose transactions which looks like bitcoind:
+	 *   native segwit, nlocktime set to tip, and sequence set to
+	 *   0xFFFFFFFD by default. Other wallets are likely to implement
+	 *   this too).
+	 */
+	locktime = current_height;
+
+	/* Eventually fuzz it too. */
+	if (locktime > 100 && pseudorand(10) == 0)
+		locktime -= pseudorand(100);
+
+	/* FIXME: tx_spending_utxos does more than we need, but there
+	 * are other users right now. */
+	tx = tx_spending_utxos(cmd, chainparams,
+			       cast_const2(const struct utxo **, utxos),
+			       cmd->ld->wallet->bip32_base,
+			       false, 0, locktime,
+			       BITCOIN_TX_RBF_SEQUENCE);
+
+	response = json_stream_success(cmd);
+	json_add_psbt(response, "psbt", tx->psbt);
+	json_add_num(response, "feerate_per_kw", feerate_per_kw);
+	json_add_num(response, "estimated_final_weight", weight);
+	json_add_amount_sat_only(response, "excess_msat", excess);
+	if (reserve)
+		reserve_and_report(response, cmd->ld->wallet, current_height,
+				   utxos);
+	return command_success(cmd, response);
+}
+
 static struct command_result *json_fundpsbt(struct command *cmd,
 					      const char *buffer,
 					      const jsmntok_t *obj UNNEEDED,
 					      const jsmntok_t *params)
 {
-	struct json_stream *response;
 	struct utxo **utxos;
 	u32 *feerate_per_kw;
 	u32 *minconf, *weight;
 	struct amount_sat *amount, input, diff;
 	bool all, *reserve;
-	u32 locktime, maxheight, current_height;
-	struct bitcoin_tx *tx;
+	u32 maxheight;
 
 	if (!param(cmd, buffer, params,
 		   p_req("satoshi", param_sat_or_all, &amount),
@@ -233,8 +277,6 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 
 	all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
-
-	current_height = get_block_height(cmd->ld->topology);
 
 	/* We keep adding until we meet their output requirements. */
 	utxos = tal_arr(cmd, struct utxo *, 0);
@@ -294,38 +336,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 					    tal_count(utxos));
 	}
 
-	/* Setting the locktime to the next block to be mined has multiple
-	 * benefits:
-	 * - anti fee-snipping (even if not yet likely)
-	 * - less distinguishable transactions (with this we create
-	 *   general-purpose transactions which looks like bitcoind:
-	 *   native segwit, nlocktime set to tip, and sequence set to
-	 *   0xFFFFFFFD by default. Other wallets are likely to implement
-	 *   this too).
-	 */
-	locktime = current_height;
-
-	/* Eventually fuzz it too. */
-	if (locktime > 100 && pseudorand(10) == 0)
-		locktime -= pseudorand(100);
-
-	/* FIXME: tx_spending_utxos does more than we need, but there
-	 * are other users right now. */
-	tx = tx_spending_utxos(cmd, chainparams,
-			       cast_const2(const struct utxo **, utxos),
-			       cmd->ld->wallet->bip32_base,
-			       false, 0, locktime,
-			       BITCOIN_TX_RBF_SEQUENCE);
-
-	response = json_stream_success(cmd);
-	json_add_psbt(response, "psbt", tx->psbt);
-	json_add_num(response, "feerate_per_kw", *feerate_per_kw);
-	json_add_num(response, "estimated_final_weight", *weight);
-	json_add_amount_sat_only(response, "excess_msat", diff);
-	if (*reserve)
-		reserve_and_report(response, cmd->ld->wallet, current_height,
-				   utxos);
-	return command_success(cmd, response);
+	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, diff, *reserve);
 }
 
 static const struct json_command fundpsbt_command = {
@@ -336,3 +347,129 @@ static const struct json_command fundpsbt_command = {
 	false
 };
 AUTODATA(json_command, &fundpsbt_command);
+
+static struct command_result *param_txout(struct command *cmd,
+					  const char *name,
+					  const char *buffer,
+					  const jsmntok_t *tok,
+					  struct utxo ***utxos)
+{
+	size_t i;
+	const jsmntok_t *curr;
+
+	*utxos = tal_arr(cmd, struct utxo *, tok->size);
+
+	json_for_each_arr(i, curr, tok) {
+		struct utxo *utxo;
+		jsmntok_t txid_tok, outnum_tok;
+		struct bitcoin_txid txid;
+		u32 outnum;
+
+		if (!split_tok(buffer, curr, ':', &txid_tok, &outnum_tok))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Could not decode the outpoint from \"%s\""
+					    " The utxos should be specified as"
+					    " 'txid:output_index'.",
+					    json_strdup(tmpctx, buffer, curr));
+
+		if (!json_to_txid(buffer, &txid_tok, &txid)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Could not get a txid out of \"%s\"",
+					    json_strdup(tmpctx, buffer, &txid_tok));
+		}
+		if (!json_to_number(buffer, &outnum_tok, &outnum)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Could not get a vout out of \"%s\"",
+					    json_strdup(tmpctx, buffer, &outnum_tok));
+		}
+
+		utxo = wallet_utxo_get(*utxos, cmd->ld->wallet, &txid, outnum);
+		if (!utxo) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Unknown UTXO %s:%u",
+					    type_to_string(tmpctx,
+							   struct bitcoin_txid,
+							   &txid),
+					    outnum);
+		}
+		if (utxo->status == output_state_spent) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Already spent UTXO %s:%u",
+					    type_to_string(tmpctx,
+							   struct bitcoin_txid,
+							   &txid),
+					    outnum);
+		}
+
+		(*utxos)[i] = utxo;
+	}
+
+	if (i == 0)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Please specify an array of 'txid:output_index',"
+				    " not \"%.*s\"",
+				    tok->end - tok->start,
+				    buffer + tok->start);
+	return NULL;
+}
+
+static struct command_result *json_utxopsbt(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *obj UNNEEDED,
+					    const jsmntok_t *params)
+{
+	struct utxo **utxos;
+	u32 *feerate_per_kw, *weight;
+	bool all, *reserve;
+	struct amount_sat *amount, input, excess;
+
+	if (!param(cmd, buffer, params,
+		   p_req("satoshi", param_sat_or_all, &amount),
+		   p_req("feerate", param_feerate, &feerate_per_kw),
+		   p_req("startweight", param_number, &weight),
+		   p_req("utxos", param_txout, &utxos),
+		   p_opt_def("reserve", param_bool, &reserve, true),
+		   NULL))
+		return command_param_failed();
+
+	all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
+
+	input = AMOUNT_SAT(0);
+	for (size_t i = 0; i < tal_count(utxos); i++) {
+		const struct utxo *utxo = utxos[i];
+
+		/* It supplies more input. */
+		if (!amount_sat_add(&input, input, utxo->amount))
+			return command_fail(cmd, LIGHTNINGD,
+					    "impossible UTXO value");
+
+		/* But also adds weight */
+		*weight += utxo_spend_weight(utxo);
+	}
+
+	/* For all, anything above 0 is "excess" */
+	if (!inputs_sufficient(input, all ? AMOUNT_SAT(0) : *amount,
+			       *feerate_per_kw, *weight, &excess)) {
+		return command_fail(cmd, FUND_CANNOT_AFFORD,
+				    "Could not afford %s using UTXOs totalling %s with weight %u at feerate %u",
+				    all ? "anything" :
+				    type_to_string(tmpctx,
+						   struct amount_sat,
+						   amount),
+				    type_to_string(tmpctx,
+						   struct amount_sat,
+						   &input),
+				    *weight, *feerate_per_kw);
+	}
+
+	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, excess,
+			   *reserve);
+}
+static const struct json_command utxopsbt_command = {
+	"utxopsbt",
+	"bitcoin",
+	json_utxopsbt,
+	"Create PSBT using these utxos",
+	false
+};
+AUTODATA(json_command, &utxopsbt_command);
