@@ -420,8 +420,9 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 {
 	struct utxo **utxos;
 	u32 *feerate_per_kw, *weight;
-	bool all, *reserve;
+	bool all, *reserve, *reserved_ok;
 	struct amount_sat *amount, input, excess;
+	u32 current_height;
 
 	if (!param(cmd, buffer, params,
 		   p_req("satoshi", param_sat_or_all, &amount),
@@ -429,14 +430,24 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 		   p_req("startweight", param_number, &weight),
 		   p_req("utxos", param_txout, &utxos),
 		   p_opt_def("reserve", param_bool, &reserve, true),
+		   p_opt_def("reservedok", param_bool, &reserved_ok, false),
 		   NULL))
 		return command_param_failed();
 
 	all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
 
 	input = AMOUNT_SAT(0);
+	current_height = get_block_height(cmd->ld->topology);
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		const struct utxo *utxo = utxos[i];
+
+		if (!*reserved_ok && is_reserved(utxo, current_height))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "UTXO %s:%u already reserved",
+					    type_to_string(tmpctx,
+							   struct bitcoin_txid,
+							   &utxo->txid),
+					    utxo->outnum);
 
 		/* It supplies more input. */
 		if (!amount_sat_add(&input, input, utxo->amount))

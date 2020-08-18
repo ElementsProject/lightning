@@ -4,7 +4,7 @@ lightning-utxopsbt -- Command to populate PSBT inputs from given UTXOs
 SYNOPSIS
 --------
 
-**utxopsbt** *satoshi* *feerate* *startweight* *utxos* \[*reserve*\]
+**utxopsbt** *satoshi* *feerate* *startweight* *utxos* \[*reserve*\] \[*reservedok*\]
 
 DESCRIPTION
 -----------
@@ -22,6 +22,9 @@ reserved or available: the total amount must be sufficient to pay for
 the resulting transaction plus *startweight* at the given *feerate*,
 with at least *satoshi* left over (unless *satoshi* is **all**, which
 is equivalent to setting it to zero).
+
+Unless *reservedok* is set to true (default is false) it will also fail
+if any of the *utxos* are already reserved.
 
 RETURN VALUE
 ------------
