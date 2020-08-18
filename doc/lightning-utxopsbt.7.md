@@ -4,7 +4,7 @@ lightning-utxopsbt -- Command to populate PSBT inputs from given UTXOs
 SYNOPSIS
 --------
 
-**utxopsbt** *satoshi* *feerate* *startweight* *utxos* \[*reserve*\] \[*reservedok*\]
+**utxopsbt** *satoshi* *feerate* *startweight* *utxos* \[*reserve*\] \[*reservedok*\] \[*locktime*\]
 
 DESCRIPTION
 -----------
@@ -25,6 +25,9 @@ is equivalent to setting it to zero).
 
 Unless *reservedok* is set to true (default is false) it will also fail
 if any of the *utxos* are already reserved.
+
+*locktime* is an optional locktime: if not set, it is set to a recent
+block height.
 
 RETURN VALUE
 ------------

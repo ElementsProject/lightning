@@ -427,7 +427,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 	u32 *feerate_per_kw, *weight;
 	bool all, *reserve, *reserved_ok;
 	struct amount_sat *amount, input, excess;
-	u32 current_height;
+	u32 current_height, *locktime;
 
 	if (!param(cmd, buffer, params,
 		   p_req("satoshi", param_sat_or_all, &amount),
@@ -436,6 +436,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 		   p_req("utxos", param_txout, &utxos),
 		   p_opt_def("reserve", param_bool, &reserve, true),
 		   p_opt_def("reservedok", param_bool, &reserved_ok, false),
+		   p_opt("locktime", param_number, &locktime),
 		   NULL))
 		return command_param_failed();
 
@@ -479,7 +480,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 	}
 
 	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, excess,
-			   *reserve, NULL);
+			   *reserve, locktime);
 }
 static const struct json_command utxopsbt_command = {
 	"utxopsbt",
