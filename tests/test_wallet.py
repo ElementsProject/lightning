@@ -738,17 +738,42 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     with pytest.raises(RpcError, match=r"No wallet inputs to sign"):
         l1.rpc.signpsbt(l2_funding['psbt'])
 
+    # With signonly it will fail if it can't sign it.
+    with pytest.raises(RpcError, match=r"is unknown"):
+        l1.rpc.signpsbt(l2_funding['psbt'], signonly=[0])
+
     # Add some of our own PSBT inputs to it
     l1_funding = l1.rpc.fundpsbt(satoshi=Millisatoshi(3 * amount * 1000),
                                  feerate=7500,
                                  startweight=42,
                                  reserve=True)
+    l1_num_inputs = len(bitcoind.rpc.decodepsbt(l1_funding['psbt'])['tx']['vin'])
+    l2_num_inputs = len(bitcoind.rpc.decodepsbt(l2_funding['psbt'])['tx']['vin'])
 
-    # Join and add an output
+    # Join and add an output (reorders!)
     joint_psbt = bitcoind.rpc.joinpsbts([l1_funding['psbt'], l2_funding['psbt'],
                                          output_pbst])
 
-    half_signed_psbt = l1.rpc.signpsbt(joint_psbt)['signed_psbt']
+    # Ask it to sign inputs it doesn't know, it will fail.
+    with pytest.raises(RpcError, match=r"is unknown"):
+        l1.rpc.signpsbt(joint_psbt,
+                        signonly=list(range(l1_num_inputs + 1)))
+
+    # Similarly, it can't sign inputs it doesn't know.
+    sign_success = []
+    for i in range(l1_num_inputs + l2_num_inputs):
+        try:
+            l1.rpc.signpsbt(joint_psbt, signonly=[i])
+        except RpcError:
+            continue
+        sign_success.append(i)
+    assert len(sign_success) == l1_num_inputs
+
+    # But it can sign all the valid ones at once.
+    half_signed_psbt = l1.rpc.signpsbt(joint_psbt, signonly=sign_success)['signed_psbt']
+    for s in sign_success:
+        assert bitcoind.rpc.decodepsbt(half_signed_psbt)['inputs'][s]['partial_signatures'] is not None
+
     totally_signed = l2.rpc.signpsbt(half_signed_psbt)['signed_psbt']
 
     broadcast_tx = l1.rpc.sendpsbt(totally_signed)
