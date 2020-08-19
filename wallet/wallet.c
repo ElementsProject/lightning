@@ -2448,7 +2448,7 @@ void wallet_payment_store(struct wallet *wallet,
 	if (payment->bolt11 != NULL)
 		db_bind_text(stmt, 10, payment->bolt11);
 	else
-	       	db_bind_null(stmt, 10);
+		db_bind_null(stmt, 10);
 
 	db_bind_amount_msat(stmt, 11, &payment->total_msat);
 	db_bind_u64(stmt, 12, payment->partid);

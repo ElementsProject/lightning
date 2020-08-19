@@ -3265,45 +3265,37 @@ def test_mpp_presplit_routehint_conflict(node_factory, bitcoind):
 
 def test_delpay_argument_invalid(node_factory, bitcoind):
     """
-    This test includes all possible combination of input error inside the
+    This test includes all possible combinations of input error inside the
     delpay command.
     """
 
-    l1, l2 = node_factory.get_nodes(2)
+    # Create the line graph l2 -> l1 with a channel of 10 ** 5 sat!
+    l2, l1 = node_factory.line_graph(2, fundamount=10**5, wait_for_announce=True)
 
     with pytest.raises(RpcError):
         l2.rpc.delpay()
 
-    # invoice unpayed
+    # sanity check
     inv = l1.rpc.invoice(10 ** 5, 'inv', 'inv')
-    payment_hash = inv["payment_hash"]
+    payment_hash = "AA" * 32
     with pytest.raises(RpcError):
-        l2.rpc.delpay(payment_hash)
+        l2.rpc.delpay(payment_hash, 'complete')
 
-    # payment unpayed with wrong status (pending status is a illegal input)
+    l2.rpc.pay(inv['bolt11'])
+
+    wait_for(lambda: l2.rpc.listpays(inv['bolt11'])['pays'][0]['status'] == 'complete')
+
+    payment_hash = inv['payment_hash']
+
+    # payment paid with wrong status (pending status is a illegal input)
     with pytest.raises(RpcError):
         l2.rpc.delpay(payment_hash, 'pending')
 
     with pytest.raises(RpcError):
         l2.rpc.delpay(payment_hash, 'invalid_status')
 
-    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
-    l2.fund_channel(l1, 10 ** 6)
-
-    bitcoind.generate_block(6)
-    sync_blockheight(bitcoind, [l1, l2])
-
-    wait_for(lambda: len(l2.rpc.listchannels()['channels']) == 2)
-
-    l2.rpc.pay(inv['bolt11'])
-
     with pytest.raises(RpcError):
         l2.rpc.delpay(payment_hash, 'failed')
-
-    with pytest.raises(RpcError):
-        l2.rpc.delpay(payment_hash, 'pending')
-
-    assert len(l2.rpc.listpays()['pays']) == 1
 
     # test if the node is still ready
     payments = l2.rpc.delpay(payment_hash, 'complete')
@@ -3313,47 +3305,15 @@ def test_delpay_argument_invalid(node_factory, bitcoind):
     assert len(l2.rpc.listpays()['pays']) == 0
 
 
-def test_delpay(node_factory, bitcoind):
-    """
-    This unit test try to catch some error inside the command
-    delpay when it receives the correct input from the user
-    """
-
-    l1, l2 = node_factory.get_nodes(2)
-
-    amount_sat = 10 ** 6
-
-    # create l2->l1 channel.
-    l2.fundwallet(amount_sat * 5)
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l2.rpc.fundchannel(l1.info['id'], amount_sat * 3)
-
-    # Let the channel confirm.
-    bitcoind.generate_block(6)
-    sync_blockheight(bitcoind, [l1, l2])
-
-    invl1 = l1.rpc.invoice(Millisatoshi(amount_sat * 2 * 1000), "j", "j")
-    l2.rpc.pay(invl1["bolt11"])
-
-    before_del_pay = l2.rpc.listpays()
-
-    l2.rpc.delpay(invl1["payment_hash"])
-
-    after_del_pay = l2.rpc.listpays()["pays"]
-    assert len(after_del_pay) == (len(before_del_pay) - 1)
-
-
 def test_delpay_payment_split(node_factory, bitcoind):
     """
-    This test test the correct bheaivord of the commmand delpay with a mpp
+    Test behavior of delpay with an MPP
     """
     MPP_TARGET_SIZE = 10**7  # Taken from libpluin-pay.c
     amt = 5 * MPP_TARGET_SIZE
 
-    l1, l2, l3 = node_factory.line_graph(
-        3, fundamount=10**8, wait_for_announce=True,
-        opts={'wumbo': None}
-    )
+    l1, l2, l3 = node_factory.line_graph(3, fundamount=10**5,
+                                         wait_for_announce=True)
 
     inv = l3.rpc.invoice(amt, 'lbl', 'desc')
     l1.rpc.pay(inv['bolt11'])
