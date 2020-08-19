@@ -4,17 +4,16 @@ lightning-delpay -- Command for removing a completed or failed payment
 SYNOPSIS
 --------
 
-**delpay** *payment\_hash* \[status\]
+**delpay** *payment\_hash* *status*
 
 DESCRIPTION
 -----------
 
-The **delpay** RPC command removes a payment as given in **listsendpays** or **listpays** with a complete or failed
-status. However, the command doesn't permit to remove a pending payment.
+The **delpay** RPC command deletes a payment with the given `payment_hash` if its status is either `complete` or `failed`. Deleting a `pending` payment is an error.
 
-- *payment\_hash*: Rapresents the unique identifier of a payment. To find it, you can run **listpays** or **listsendpays**;
-- *status* is the expected status of the payment. It can be *complete* or *failed*. 
-Only delete if the payment status matches. If not specified, defaults to *complete*.
+- *payment\_hash*: The unique identifier of a payment.
+- *status*: Expected status of the payment. 
+Only deletes if the payment status matches.
 
 EXAMPLE JSON REQUEST
 ------------
@@ -32,16 +31,16 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, the command will return a payment object, such as the **listsendpays**. In addition, if the payment is a MPP (Multi part payment) the command return a list of 
-payments; a payment object for each partid.
+If successful the command returns a payment object, in the same format as **listsendpays**. If the payment is a multi-part payment (MPP) the command return a list of 
+payments will be return -- one payment object for each partid.
 
-On failure, an error is returned and any payment is deleted. If the lightning process fails before responding, the
+On failure, an error is returned. If the lightning process fails before responding, the
 caller should use lightning-listsentpays(7) or lightning-listpays(7) to query whether this payment was deleted or not.
 
 The following error codes may occur:
 
-- -32602: Some parameter missed or some parameter is malformed;
-- 211: Payment with payment\_hash have a wrong status. To check the correct status run the command **paystatus**;
+- -32602: Parameter missed or malformed;
+- 211: Payment status mismatch. Check the correct status via **paystatus**;
 - 208: Payment with payment\_hash not found.
 
 EXAMPLE JSON RESPONSE
