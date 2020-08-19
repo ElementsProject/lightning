@@ -1,4 +1,3 @@
-from binascii import hexlify
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -79,7 +78,7 @@ class Secret(object):
         self.raw = raw
 
     def __str__(self):
-        return "Secret[0x{}]".format(hexlify(self.raw).decode('ASCII'))
+        return "Secret[0x{}]".format(self.raw.hex())
 
 
 class PublicKey(object):
@@ -105,7 +104,7 @@ class PublicKey(object):
 
     def __str__(self):
         return "PublicKey[0x{}]".format(
-            hexlify(self.serializeCompressed()).decode('ASCII')
+            self.serializeCompressed().hex()
         )
 
 
@@ -128,7 +127,7 @@ class Sha256Mixer(object):
         return self.hash
 
     def __str__(self):
-        return "Sha256Mixer[0x{}]".format(hexlify(self.hash).decode('ASCII'))
+        return "Sha256Mixer[0x{}]".format(self.hash.hex())
 
 
 class LightningConnection(object):
