@@ -344,9 +344,10 @@ bool psbt_has_serial_output(struct wally_psbt *psbt, u16 serial_id)
 void psbt_input_add_max_witness_len(struct wally_psbt_input *input,
 				    u16 max_witness_len)
 {
-	u8 *key = psbt_make_key(NULL, PSBT_TYPE_MAX_WITNESS_LEN, NULL);
-	psbt_input_add_unknown(input, key, &max_witness_len, sizeof(max_witness_len));
-	tal_free(key);
+	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_MAX_WITNESS_LEN, NULL);
+	beint16_t bev = cpu_to_be16(max_witness_len);
+
+	psbt_input_add_unknown(input, key, &bev, sizeof(bev));
 }
 
 
