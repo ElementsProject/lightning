@@ -765,6 +765,8 @@ struct openchannel_hook_payload {
 	u16 max_accepted_htlcs;
 	u8 channel_flags;
 	u8 *shutdown_scriptpubkey;
+	const u8 *our_upfront_shutdown_script;
+	char *errmsg;
 };
 
 static void
@@ -803,13 +805,12 @@ static void openchannel_payload_remove_openingd(struct subd *openingd,
 	payload->openingd = NULL;
 }
 
-static void openchannel_hook_cb(struct openchannel_hook_payload *payload STEALS,
-			    const char *buffer,
-			    const jsmntok_t *toks)
+static void
+openchannel_hook_final(struct openchannel_hook_payload *payload STEALS)
 {
 	struct subd *openingd = payload->openingd;
-	const u8 *our_upfront_shutdown_script;
-	const char *errmsg = NULL;
+	const u8 *our_upfront_shutdown_script = payload->our_upfront_shutdown_script;
+	const char *errmsg = payload->errmsg;
 
 	/* We want to free this, whatever happens. */
 	tal_steal(tmpctx, payload);
@@ -820,65 +821,87 @@ static void openchannel_hook_cb(struct openchannel_hook_payload *payload STEALS,
 
 	tal_del_destructor2(openingd, openchannel_payload_remove_openingd, payload);
 
-	/* If we had a hook, check what it says */
-	if (buffer) {
-		const jsmntok_t *t = json_get_member(buffer, toks, "result");
-		if (!t)
-			fatal("Plugin returned an invalid response to the"
-			      " openchannel hook: %.*s",
-			      toks[0].end - toks[0].start,
-			      buffer + toks[0].start);
-
-		if (json_tok_streq(buffer, t, "reject")) {
-			t = json_get_member(buffer, toks, "error_message");
-			if (t)
-				errmsg = json_strdup(tmpctx, buffer, t);
-			else
-				errmsg = "";
-			log_debug(openingd->ld->log,
-				  "openchannel_hook_cb says '%s'",
-				  errmsg);
-			our_upfront_shutdown_script = NULL;
-		} else if (!json_tok_streq(buffer, t, "continue"))
-			fatal("Plugin returned an invalid result for the "
-			      "openchannel hook: %.*s",
-			      t->end - t->start, buffer + t->start);
-
-		/* Check for a 'close_to' address passed back */
-		if (!errmsg) {
-			t = json_get_member(buffer, toks, "close_to");
-			if (t) {
-				switch (json_to_address_scriptpubkey(tmpctx, chainparams,
-								     buffer, t,
-								     &our_upfront_shutdown_script)) {
-					case ADDRESS_PARSE_UNRECOGNIZED:
-						fatal("Plugin returned an invalid response to the"
-						      " openchannel.close_to hook: %.*s",
-						      t->end - t->start, buffer + t->start);
-					case ADDRESS_PARSE_WRONG_NETWORK:
-						fatal("Plugin returned invalid response to the"
-						      " openchannel.close_to hook: address %s is"
-						      " not on network %s",
-						      tal_hex(NULL, our_upfront_shutdown_script),
-						      chainparams->network_name);
-					case ADDRESS_PARSE_SUCCESS:
-						errmsg = NULL;
-				}
-			} else
-				our_upfront_shutdown_script = NULL;
-		}
-	} else
-		our_upfront_shutdown_script = NULL;
-
 	subd_send_msg(openingd,
 		      take(towire_openingd_got_offer_reply(NULL, errmsg,
 							  our_upfront_shutdown_script)));
 }
 
-REGISTER_SINGLE_PLUGIN_HOOK(openchannel,
-			    openchannel_hook_cb,
-			    openchannel_hook_serialize,
-			    struct openchannel_hook_payload *);
+static bool
+openchannel_hook_deserialize(struct openchannel_hook_payload *payload,
+			     const char *buffer,
+			     const jsmntok_t *toks)
+{
+	struct subd *openingd = payload->openingd;
+
+	/* already rejected by prior plugin hook in the chain */
+	if (payload->errmsg != NULL)
+		return true;
+
+	if (!toks || !buffer)
+		return true;
+
+	const jsmntok_t *t_result  = json_get_member(buffer, toks, "result");
+	const jsmntok_t *t_errmsg  = json_get_member(buffer, toks, "error_message");
+	const jsmntok_t *t_closeto = json_get_member(buffer, toks, "close_to");
+
+	if (!t_result)
+		fatal("Plugin returned an invalid response to the"
+		      " openchannel hook: %.*s",
+		      toks[0].end - toks[0].start, buffer + toks[0].start);
+
+	/* reject */
+	if (json_tok_streq(buffer, t_result, "reject")) {
+		payload->errmsg = "";
+		if (t_errmsg)
+			payload->errmsg = json_strdup(payload, buffer, t_errmsg);
+		log_debug(openingd->ld->log,
+			  "openchannel_hook rejects and says '%s'",
+			  payload->errmsg);
+		if (t_closeto)
+			fatal("Plugin rejected openchannel but also set close_to");
+		openchannel_hook_final(payload);
+		return false;
+	} else if (!json_tok_streq(buffer, t_result, "continue")) {
+		fatal("Plugin returned an invalid result for the "
+		      "openchannel hook: %.*s",
+		      t_result->end - t_result->start, buffer + t_result->start);
+	}
+
+	/* Check for a valid 'close_to' address passed back */
+	if (t_closeto) {
+		/* First plugin can set close_to. Log others. */
+		if (payload->our_upfront_shutdown_script != NULL) {
+			log_unusual(openingd->ld->log,
+				    "openchannel_hook close_to address was"
+				    " already set by other plugin. Ignoring!");
+			return true;
+		}
+		switch (json_to_address_scriptpubkey(tmpctx, chainparams,
+						     buffer, t_closeto,
+						     &payload->our_upfront_shutdown_script)) {
+			case ADDRESS_PARSE_UNRECOGNIZED:
+				fatal("Plugin returned an invalid response to"
+				      " the openchannel.close_to hook: %.*s",
+				      t_closeto->end - t_closeto->start,
+				      buffer + t_closeto->start);
+			case ADDRESS_PARSE_WRONG_NETWORK:
+				fatal("Plugin returned invalid response to the"
+				      " openchannel.close_to hook: address %s is"
+				      " not on network %s",
+				      tal_hex(NULL, payload->our_upfront_shutdown_script),
+				      chainparams->network_name);
+			case ADDRESS_PARSE_SUCCESS:
+				break;
+		}
+	}
+	return true;
+}
+
+REGISTER_PLUGIN_HOOK(openchannel,
+		     openchannel_hook_deserialize,
+		     openchannel_hook_final,
+		     openchannel_hook_serialize,
+		     struct openchannel_hook_payload *);
 
 static void opening_got_offer(struct subd *openingd,
 			      const u8 *msg,
@@ -896,6 +919,8 @@ static void opening_got_offer(struct subd *openingd,
 
 	payload = tal(openingd, struct openchannel_hook_payload);
 	payload->openingd = openingd;
+	payload->our_upfront_shutdown_script = NULL;
+	payload->errmsg = NULL;
 	if (!fromwire_openingd_got_offer(payload, msg,
 					&payload->funding_satoshis,
 					&payload->push_msat,
