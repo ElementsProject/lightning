@@ -75,9 +75,15 @@ struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
 					struct wally_tx_input *input,
 					size_t insert_at);
 
+/* One stop shop for adding an input + metadata to a PSBT */
 struct wally_psbt_input *psbt_append_input(struct wally_psbt *psbt,
 					   const struct bitcoin_txid *txid,
-					   u32 outnum, u32 sequence);
+					   u32 outnum, u32 sequence,
+					   const u8 *scriptSig,
+					   struct amount_sat amount,
+					   const u8 *scriptPubkey,
+					   const u8 *input_wscript,
+					   const u8 *redeemscript);
 
 void psbt_rm_input(struct wally_psbt *psbt,
 		   size_t remove_at);
