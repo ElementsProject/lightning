@@ -563,17 +563,16 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 
 	/*
 	 * BOLT-f5490f17d17ff49dc26ee459432b3c9db4fda8a9 #2:
-	 * Adding an HTLC: update_add_htlc
-	 *
 	 * A sending node:
-	 *   - if it is responsible for paying the Bitcoin fee:
-	 *     - SHOULD NOT offer amount_msat if, after adding that HTLC to its
-	 *       commitment transaction, its remaining balance doesn't allow it
-	 *       to pay the fee for a future additional non-dust HTLC at a
-	 *       higher feerate while maintaining its channel reserve
-	 *       ("fee spike buffer"). A buffer of 2*feerate_per_kw is
-	 *       recommended to ensure predictability.
-	 */
+	 *...
+	 * - SHOULD NOT offer `amount_msat` if, after adding that HTLC to its
+	 *   commitment transaction, its remaining balance doesn't allow it to
+	 *   pay the commitment transaction fee when receiving or sending a
+	 *   future additional non-dust HTLC while maintaining its channel
+	 *   reserve. It is recommended that this "fee spike buffer" can
+	 *   handle twice the current `feerate_per_kw` to ensure
+	 *   predictability between implementations.
+	*/
 	fee = commit_tx_base_fee(2 * feerate, num_untrimmed_htlcs + 1,
 				 channel->option_anchor_outputs);
 
