@@ -56,6 +56,8 @@ struct plugin {
 	/* Stuff we read */
 	char *buffer;
 	size_t used, len_read;
+	jsmn_parser parser;
+	jsmntok_t *toks;
 
 	/* Our json_streams. Since multiple streams could start
 	 * returning data at once, we always service these in order,
