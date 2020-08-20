@@ -1676,7 +1676,7 @@ struct pay_mpp {
 	u32 timestamp;
 
 	/* The destination of the payment, if specified. */
-	struct node_id *destination;
+	const jsmntok_t *destination;
 };
 
 static const struct sha256 *pay_mpp_key(const struct pay_mpp *pm)
@@ -1748,7 +1748,7 @@ static void add_new_entry(struct json_stream *ret,
 		json_add_string(ret, "bolt11", pm->b11);
 
 	if (pm->destination)
-		json_add_node_id(ret, "destination", pm->destination);
+		json_add_tok(ret, "destination", pm->destination, buf);
 
 	json_add_sha256(ret, "payment_hash", pm->payment_hash);
 	json_add_string(ret, "status", pm->status);
@@ -1793,18 +1793,14 @@ static struct command_result *listsendpays_done(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD,
 				    "Unexpected non-array result from listsendpays");
 
-	ret = jsonrpc_stream_success(cmd);
-	json_array_start(ret, "pays");
 	json_for_each_arr(i, t, arr) {
-		const jsmntok_t *status, *b11tok, *hashtok, *destinationtok, *createdtok;
+		const jsmntok_t *status, *b11tok, *hashtok, *createdtok;
 		const char *b11 = b11str;
 		struct sha256 payment_hash;
-		struct node_id destination;
 		u32 created_at;
 
 		b11tok = json_get_member(buf, t, "bolt11");
 		hashtok = json_get_member(buf, t, "payment_hash");
-		destinationtok = json_get_member(buf, t, "destination");
 		createdtok = json_get_member(buf, t, "created_at");
 		assert(hashtok != NULL);
 		assert(createdtok != NULL);
@@ -1814,15 +1810,12 @@ static struct command_result *listsendpays_done(struct command *cmd,
 		if (b11tok)
 			b11 = json_strdup(cmd, buf, b11tok);
 
-		if (destinationtok)
-			json_to_node_id(buf, destinationtok, &destination);
-
 		pm = pay_map_get(&pay_map, &payment_hash);
 		if (!pm) {
 			pm = tal(cmd, struct pay_mpp);
 			pm->payment_hash = tal_dup(pm, struct sha256, &payment_hash);
 			pm->b11 = tal_steal(pm, b11);
-			pm->destination = tal_dup(pm,struct node_id, &destination);
+			pm->destination = json_get_member(buf, t, "destination");
 			pm->label = json_get_member(buf, t, "label");
 			pm->preimage = NULL;
 			pm->amount_sent = AMOUNT_MSAT(0);
@@ -1859,6 +1852,9 @@ static struct command_result *listsendpays_done(struct command *cmd,
 	}
 
 	/* Now we've collapsed them, provide summary. */
+	ret = jsonrpc_stream_success(cmd);
+	json_array_start(ret, "pays");
+
 	for (pm = pay_map_first(&pay_map, &it);
 	     pm;
 	     pm = pay_map_next(&pay_map, &it)) {
