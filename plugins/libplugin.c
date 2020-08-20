@@ -651,9 +651,11 @@ static bool rpc_read_response_one(struct plugin *plugin)
 	bool valid;
 	const jsmntok_t *toks, *jrtok;
 
-	/* FIXME: This could be done more efficiently by storing the
-	 * toks and doing an incremental parse, like lightning-cli
-	 * does. */
+	/* For our convenience, lightningd always ends JSON requests with
+	 * \n\n.  We can abuse that as an optimization here.*/
+	if (!memmem(plugin->rpc_buffer, plugin->rpc_used, "\n\n", 2))
+		return false;
+
 	toks = json_parse_input(NULL, plugin->rpc_buffer, plugin->rpc_used,
 				&valid);
 	if (!toks) {
@@ -681,10 +683,10 @@ static bool rpc_read_response_one(struct plugin *plugin)
 
 	handle_rpc_reply(plugin, toks);
 
-	/* Move this object out of the buffer */
-	memmove(plugin->rpc_buffer, plugin->rpc_buffer + toks[0].end,
-		tal_count(plugin->rpc_buffer) - toks[0].end);
-	plugin->rpc_used -= toks[0].end;
+	/* Move this object out of the buffer (+ 2 for \n\n)*/
+	memmove(plugin->rpc_buffer, plugin->rpc_buffer + toks[0].end + 2,
+		tal_count(plugin->rpc_buffer) - toks[0].end - 2);
+	plugin->rpc_used -= toks[0].end + 2;
 	tal_free(toks);
 
 	return true;
