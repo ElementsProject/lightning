@@ -40,6 +40,8 @@ struct plugin {
 	/* To read from lightningd */
 	char *buffer;
 	size_t used, len_read;
+	jsmn_parser parser;
+	jsmntok_t *toks;
 
 	/* To write to lightningd */
 	struct json_stream **js_arr;
@@ -1090,18 +1092,11 @@ static void ld_command_handle(struct plugin *plugin,
 static bool ld_read_json_one(struct plugin *plugin)
 {
 	bool complete;
-	jsmntok_t *toks;
 	struct command *cmd = tal(plugin, struct command);
-	jsmn_parser parser;
 
-	/* FIXME: This could be done more efficiently by storing the
-	 * toks and doing an incremental parse, like lightning-cli
-	 * does. */
-	toks = toks_alloc(NULL);
-	jsmn_init(&parser);
-	if (!json_parse_input(&parser, &toks, plugin->buffer, plugin->used,
+	if (!json_parse_input(&plugin->parser, &plugin->toks,
+			      plugin->buffer, plugin->used,
 			      &complete)) {
-		tal_free(toks);
 		plugin_err(plugin, "Failed to parse JSON response '%.*s'",
 			   (int)plugin->used, plugin->buffer);
 		return false;
@@ -1113,20 +1108,23 @@ static bool ld_read_json_one(struct plugin *plugin)
 	}
 
 	/* Empty buffer? (eg. just whitespace). */
-	if (tal_count(toks) == 1) {
+	if (tal_count(plugin->toks) == 1) {
+		toks_reset(plugin->toks);
+		jsmn_init(&plugin->parser);
 		plugin->used = 0;
 		return false;
 	}
 
 	/* FIXME: Spark doesn't create proper jsonrpc 2.0!  So we don't
 	 * check for "jsonrpc" here. */
-	ld_command_handle(plugin, cmd, toks);
+	ld_command_handle(plugin, cmd, plugin->toks);
 
 	/* Move this object out of the buffer */
-	memmove(plugin->buffer, plugin->buffer + toks[0].end,
-		tal_count(plugin->buffer) - toks[0].end);
-	plugin->used -= toks[0].end;
-	tal_free(toks);
+	memmove(plugin->buffer, plugin->buffer + plugin->toks[0].end,
+		tal_count(plugin->buffer) - plugin->toks[0].end);
+	plugin->used -= plugin->toks[0].end;
+	toks_reset(plugin->toks);
+	jsmn_init(&plugin->parser);
 
 	return true;
 }
@@ -1225,6 +1223,8 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
 	p->used = 0;
 	p->len_read = 0;
+	jsmn_init(&p->parser);
+	p->toks = toks_alloc(p);
 	/* Async RPC */
 	p->rpc_buffer = tal_arr(p, char, 64);
 	p->rpc_js_arr = tal_arr(p, struct json_stream *, 0);
