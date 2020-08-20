@@ -25,8 +25,9 @@ void psbt_destroy(struct wally_psbt *psbt);
  * @ctx - allocation context
  * @num_inputs - number of inputs to allocate
  * @num_outputs - number of outputs to allocate
+ * @locktime - locktime for the transaction
  */
-struct wally_psbt *create_psbt(const tal_t *ctx, size_t num_inputs, size_t num_outputs);
+struct wally_psbt *create_psbt(const tal_t *ctx, size_t num_inputs, size_t num_outputs, u32 locktime);
 
 /*
  * new_psbt - Create a PSBT, using the passed in tx

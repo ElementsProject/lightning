@@ -61,7 +61,7 @@ static const u8 *linearize_input(const tal_t *ctx,
 				 const struct wally_psbt_input *in,
 				 const struct wally_tx_input *tx_in)
 {
-	struct wally_psbt *psbt = create_psbt(NULL, 1, 0);
+	struct wally_psbt *psbt = create_psbt(NULL, 1, 0, 0);
 	size_t byte_len;
 
 	if (wally_tx_add_input(psbt->tx, tx_in) != WALLY_OK)
@@ -87,7 +87,7 @@ static const u8 *linearize_output(const tal_t *ctx,
 				  const struct wally_psbt_output *out,
 				  const struct wally_tx_output *tx_out)
 {
-	struct wally_psbt *psbt = create_psbt(NULL, 1, 1);
+	struct wally_psbt *psbt = create_psbt(NULL, 1, 1, 0);
 	size_t byte_len;
 	struct bitcoin_txid txid;
 
