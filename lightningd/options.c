@@ -639,16 +639,16 @@ static const struct config mainnet_config = {
 	/* BOLT #2:
 	 *
 	 * 1. the `cltv_expiry_delta` for channels, `3R+2G+2S`: if in doubt, a
-	 *   `cltv_expiry_delta` of 12 is reasonable (R=2, G=1, S=2)
+	 *   `cltv_expiry_delta` of at least 34 is reasonable (R=2, G=2, S=12)
 	 */
-	/* R = 2, G = 1, S = 3 */
-	.cltv_expiry_delta = 14,
+	/* R = 2, G = 2, S = 12 */
+	.cltv_expiry_delta = 34,
 
 	/* BOLT #2:
 	 *
 	 * 4. the minimum `cltv_expiry` accepted for terminal payments: the
 	 *    worst case for the terminal node C is `2R+G+S` blocks */
-	.cltv_final = 10,
+	.cltv_final = 18,
 
 	/* Send commit 10msec after receiving; almost immediately. */
 	.commit_time_ms = 10,
