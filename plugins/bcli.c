@@ -312,13 +312,20 @@ start_bitcoin_cli(const tal_t *ctx,
 	next_bcli(bcli->prio);
 }
 
+static struct command_result *command_err_bcli_badjson(struct bitcoin_cli *bcli,
+						       const char *errmsg)
+{
+	char *err = tal_fmt(bcli, "%s: bad JSON: %s (%.*s)",
+			    bcli_args(bcli), errmsg,
+			    (int)bcli->output_bytes, bcli->output);
+	return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+}
+
 static struct command_result *process_getutxout(struct bitcoin_cli *bcli)
 {
 	const jsmntok_t *tokens, *valuetok, *scriptpubkeytok, *hextok;
 	struct json_stream *response;
-	bool valid;
 	struct bitcoin_tx_output output;
-	char *err;
 
 	/* As of at least v0.15.1.0, bitcoind returns "success" but an empty
 	   string on a spent txout. */
@@ -330,59 +337,41 @@ static struct command_result *process_getutxout(struct bitcoin_cli *bcli)
 		return command_finished(bcli->cmd, response);
 	}
 
-	tokens = json_parse_input(bcli->output, bcli->output,
-				  bcli->output_bytes, &valid);
+	tokens = json_parse_simple(bcli->output, bcli->output,
+				   bcli->output_bytes);
 	if (!tokens) {
-		err = tal_fmt(bcli, "%s: %s response", bcli_args(bcli),
-			      valid ? "partial" : "invalid");
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli, "cannot parse");
 	}
 
 	if (tokens[0].type != JSMN_OBJECT) {
-		err = tal_fmt(bcli, "%s: gave non-object (%.*s)?",
-			      bcli_args(bcli), (int)bcli->output_bytes,
-			      bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli, "non-object");
 	}
 
 	valuetok = json_get_member(bcli->output, tokens, "value");
 	if (!valuetok) {
-		err = tal_fmt(bcli,"%s: had no value member (%.*s)?",
-			      bcli_args(bcli), (int)bcli->output_bytes,
-			      bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli, "no value member");
 	}
 
 	if (!json_to_bitcoin_amount(bcli->output, valuetok, &output.amount.satoshis)) {/* Raw: talking to bitcoind */
-		err = tal_fmt(bcli, "%s: had bad value (%.*s)?",
-			      bcli_args(bcli), (int)bcli->output_bytes,
-			      bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli, "bad value member");
 	}
 
 	scriptpubkeytok = json_get_member(bcli->output, tokens, "scriptPubKey");
 	if (!scriptpubkeytok) {
-		err = tal_fmt(bcli, "%s: had no scriptPubKey member (%.*s)?",
-			      bcli_args(bcli), (int)bcli->output_bytes,
-			      bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli, "no scriptPubkey member");
 	}
 
 	hextok = json_get_member(bcli->output, scriptpubkeytok, "hex");
 	if (!hextok) {
-		err = tal_fmt(bcli, "%s: had no scriptPubKey->hex member (%.*s)?",
-			      bcli_args(bcli), (int)bcli->output_bytes,
-			      bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli,
+						"no scriptPubkey.hex member");
 	}
 
 	output.script = tal_hexdata(bcli, bcli->output + hextok->start,
 	                            hextok->end - hextok->start);
 	if (!output.script) {
-		err = tal_fmt(bcli, "%s: scriptPubKey->hex invalid hex (%.*s)?",
-			      bcli_args(bcli), (int)bcli->output_bytes,
-			      bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli,
+						"scriptPubkey.hex invalid hex");
 	}
 
 	response = jsonrpc_stream_success(bcli->cmd);
@@ -396,56 +385,40 @@ static struct command_result *process_getblockchaininfo(struct bitcoin_cli *bcli
 {
 	const jsmntok_t *tokens, *chaintok, *headerstok, *blockstok, *ibdtok;
 	struct json_stream *response;
-	bool valid, ibd;
+	bool ibd;
 	u32 headers, blocks;
-	char *err;
 
-	tokens = json_parse_input(bcli, bcli->output, bcli->output_bytes,
-	                          &valid);
+	tokens = json_parse_simple(bcli->output,
+				   bcli->output, bcli->output_bytes);
 	if (!tokens) {
-		err = tal_fmt(bcli->cmd, "%s: %s response (%.*s)",
-			      bcli_args(bcli), valid ? "partial" : "invalid",
-			      (int)bcli->output_bytes, bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli, "cannot parse");
 	}
 
 	if (tokens[0].type != JSMN_OBJECT) {
-		err = tal_fmt(bcli->cmd, "%s: gave non-object (%.*s)",
-			      bcli_args(bcli), (int)bcli->output_bytes,
-			      bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli, "non-object");
 	}
 
 	chaintok = json_get_member(bcli->output, tokens, "chain");
 	if (!chaintok) {
-		err = tal_fmt(bcli->cmd, "%s: bad 'chain' field (%.*s)",
-			      bcli_args(bcli), (int)bcli->output_bytes,
-			      bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli, "missing chain member");
 	}
 
 	headerstok = json_get_member(bcli->output, tokens, "headers");
 	if (!headerstok || !json_to_number(bcli->output, headerstok, &headers)) {
-		err = tal_fmt(bcli->cmd, "%s: bad 'headers' field (%.*s)",
-			      bcli_args(bcli), (int)bcli->output_bytes,
-			      bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli,
+						"missing/bad headers member");
 	}
 
 	blockstok = json_get_member(bcli->output, tokens, "blocks");
 	if (!blockstok || !json_to_number(bcli->output, blockstok, &blocks)) {
-		err = tal_fmt(bcli->cmd, "%s: bad 'blocks' field (%.*s)",
-			      bcli_args(bcli), (int)bcli->output_bytes,
-			      bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli,
+						"missing/bad blocks member");
 	}
 
 	ibdtok = json_get_member(bcli->output, tokens, "initialblockdownload");
 	if (!ibdtok || !json_to_bool(bcli->output, ibdtok, &ibd)) {
-		err = tal_fmt(bcli->cmd, "%s: bad 'initialblockdownload' field (%.*s)",
-			      bcli_args(bcli), (int)bcli->output_bytes,
-			      bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli,
+						"missing/bad initialblockdownload member");
 	}
 
 	response = jsonrpc_stream_success(bcli->cmd);
@@ -485,32 +458,21 @@ static struct command_result *
 estimatefees_parse_feerate(struct bitcoin_cli *bcli, u64 *feerate)
 {
 	const jsmntok_t *tokens, *feeratetok = NULL;
-	bool valid;
-	char *err;
 
-	tokens = json_parse_input(bcli->output, bcli->output,
-	                          (int)bcli->output_bytes, &valid);
+	tokens = json_parse_simple(bcli->output,
+				   bcli->output, bcli->output_bytes);
 	if (!tokens) {
-		err = tal_fmt(bcli->cmd, "%s: %s response (%.*s)",
-			      bcli_args(bcli), valid ? "partial" : "invalid",
-			      (int)bcli->output_bytes, bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli, "cannot parse");
 	}
 
 	if (tokens[0].type != JSMN_OBJECT) {
-		err = tal_fmt(bcli->cmd, "%s: gave non-object (%.*s)",
-			      bcli_args(bcli), (int)bcli->output_bytes,
-			      bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli, "non-object");
 	}
 
 	feeratetok = json_get_member(bcli->output, tokens, "feerate");
 	if (feeratetok &&
 	    !json_to_bitcoin_amount(bcli->output, feeratetok, feerate)) {
-		err = tal_fmt(bcli->cmd, "%s: bad 'feerate' field (%.*s)",
-			      bcli_args(bcli), (int)bcli->output_bytes,
-			      bcli->output);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli, "bad feerate");
 	} else if (!feeratetok)
 		/* We return null if estimation failed, and bitcoin-cli will
 		 * exit with 0 but no feerate field on failure. */
@@ -681,7 +643,7 @@ getrawblockbyheight_notfound(struct bitcoin_cli *bcli)
 
 static struct command_result *process_getblockhash(struct bitcoin_cli *bcli)
 {
-	const char *err, **params;
+	const char **params;
 	struct getrawblock_stash *stash = bcli->stash;
 
 	/* If it failed with error 8, give an empty response. */
@@ -696,9 +658,7 @@ static struct command_result *process_getblockhash(struct bitcoin_cli *bcli)
 	stash->block_hash = tal_strndup(stash, bcli->output,
 					bcli->output_bytes-1);
 	if (!stash->block_hash || strlen(stash->block_hash) != 64) {
-		err = tal_fmt(bcli->cmd, "%s: bad blockhash '%s'",
-			      bcli_args(bcli), stash->block_hash);
-		return command_done_err(bcli->cmd, BCLI_ERROR, err, NULL);
+		return command_err_bcli_badjson(bcli, "bad blockhash");
 	}
 
 	params = tal_arr(bcli->cmd, const char *, 2);
@@ -841,13 +801,11 @@ static void bitcoind_failure(struct plugin *p, const char *error_message)
 static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 {
 	const jsmntok_t *result, *versiontok, *relaytok;
-	bool valid, tx_relay;
+	bool tx_relay;
 	u32 min_version = 160000;
 
-	result = json_parse_input(NULL,
-				  buf, strlen(buf),
-				  &valid);
-	if (!result || !valid)
+	result = json_parse_simple(NULL, buf, strlen(buf));
+	if (!result)
 		plugin_err(p, "Invalid response to '%s': '%s'. Can not "
 			      "continue without proceeding to sanity checks.",
 			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
