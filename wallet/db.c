@@ -1498,7 +1498,6 @@ void db_column_node_id(struct db_stmt *stmt, int col, struct node_id *dest)
 {
 	assert(db_column_bytes(stmt, col) == sizeof(dest->k));
 	memcpy(dest->k, db_column_blob(stmt, col), sizeof(dest->k));
-	assert(node_id_valid(dest));
 }
 
 struct node_id *db_column_node_id_arr(const tal_t *ctx, struct db_stmt *stmt,
@@ -1510,11 +1509,8 @@ struct node_id *db_column_node_id_arr(const tal_t *ctx, struct db_stmt *stmt,
 	assert(n * sizeof(ret->k) == (size_t)db_column_bytes(stmt, col));
 	ret = tal_arr(ctx, struct node_id, n);
 
-	for (size_t i = 0; i < n; i++) {
+	for (size_t i = 0; i < n; i++)
 		memcpy(ret[i].k, arr + i * sizeof(ret[i].k), sizeof(ret[i].k));
-		if (!node_id_valid(&ret[i]))
-			return tal_free(ret);
-	}
 
 	return ret;
 }
