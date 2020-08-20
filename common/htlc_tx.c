@@ -39,7 +39,7 @@ static struct bitcoin_tx *htlc_tx(const tal_t *ctx,
 	 */
 	assert(tx->wtx->version == 2);
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	/* BOLT #3:
 	 * * txin count: 1
 	 *    * `txin[0]` outpoint: `txid` of the commitment transaction and
 	 *      `output_index` of the matching HTLC output for the HTLC

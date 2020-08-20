@@ -17,6 +17,7 @@ bool derive_keyset(const struct pubkey *per_commitment_point,
 	 *	pubkey = basepoint + SHA256(per_commitment_point || basepoint) * G
 	 *
 	 * The `localpubkey` uses the local node's `payment_basepoint`;
+ * The `remotepubkey` uses the remote node's `payment_basepoint`;
 	 * the `local_htlcpubkey` uses the local node's `htlc_basepoint`;
 	 * the `remote_htlcpubkey` uses the remote node's `htlc_basepoint`;
 	 * the `local_delayedpubkey` uses the local node's `delayed_payment_basepoint`;
@@ -31,9 +32,10 @@ bool derive_keyset(const struct pubkey *per_commitment_point,
 	 *
 	 * ### `remotepubkey` Derivation
 	 *
-	 * If `option_static_remotekey` is negotiated the `remotepubkey`
-	 * is simply the remote node's `payment_basepoint`, otherwise it is
-	 * calculated as above using the remote node's `payment_basepoint`.
+	 * If `option_static_remotekey` or `option_anchor_outputs` is
+	 * negotiated, the `remotepubkey` is simply the remote node's
+	 * `payment_basepoint`, otherwise it is calculated as above using the
+	 * remote node's `payment_basepoint`.
 	 */
 	if (option_static_remotekey)
 		keyset->other_payment_key = other->payment;

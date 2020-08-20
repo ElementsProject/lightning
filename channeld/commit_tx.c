@@ -141,7 +141,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	SUPERVERBOSE("# base commitment transaction fee = %s\n",
 		     type_to_string(tmpctx, struct amount_sat, &base_fee));
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
+	/* BOLT #3:
 	 * If `option_anchor_outputs` applies to the commitment
 	 * transaction, also subtract two times the fixed anchor size
 	 * of 330 sats from the funder (either `to_local` or
@@ -155,7 +155,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	/* BOLT #3:
 	 *
 	 * 3. Subtract this base fee from the funder (either `to_local` or
-	 * `to_remote`), with a floor of 0 (see [Fee Payment](#fee-payment)).
+	 * `to_remote`).
 	 */
 	try_subtract_fee(opener, side, base_fee, &self_pay, &other_pay);
 
@@ -194,7 +194,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	n = 0;
 	/* BOLT #3:
 	 *
-	 * 3. For every offered HTLC, if it is not trimmed, add an
+	 * 4. For every offered HTLC, if it is not trimmed, add an
 	 *    [offered HTLC output](#offered-htlc-outputs).
 	 */
 	for (i = 0; i < tal_count(htlcs); i++) {
@@ -212,7 +212,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 * 4. For every received HTLC, if it is not trimmed, add an
+	 * 5. For every received HTLC, if it is not trimmed, add an
 	 *    [received HTLC output](#received-htlc-outputs).
 	 */
 	for (i = 0; i < tal_count(htlcs); i++) {
@@ -230,7 +230,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 * 5. If the `to_local` amount is greater or equal to
+	 * 6. If the `to_local` amount is greater or equal to
 	 *    `dust_limit_satoshis`, add a [`to_local`
 	 *    output](#to_local-output).
 	 */
@@ -254,7 +254,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 * 6. If the `to_remote` amount is greater or equal to
+	 * 7. If the `to_remote` amount is greater or equal to
 	 *    `dust_limit_satoshis`, add a [`to_remote`
 	 *    output](#to_remote-output).
 	 */
@@ -263,7 +263,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		u8 *scriptpubkey;
 		int pos;
 
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+		/* BOLT #3:
 		 *
 		 * #### `to_remote` Output
 		 *
@@ -298,19 +298,21 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	} else
 		to_remote = false;
 
+	/* BOLT #3:
+	 *
+	 * 8. If `option_anchor_outputs` applies to the commitment transaction:
+	 *    * if `to_local` exists or there are untrimmed HTLCs, add a
+	 *      `to_local_anchor` output
+	 *    * if `to_remote` exists or there are untrimmed HTLCs, add a
+	 *      `to_remote_anchor` output
+	 */
 	if (option_anchor_outputs) {
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
-		 * if `to_local` exists or there are untrimmed HTLCs, add a `to_local_anchor` output
-		 */
 		if (to_local || untrimmed != 0) {
 			tx_add_anchor_output(tx, local_funding_key);
 			(*htlcmap)[n] = NULL;
 			n++;
 		}
 
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
-		 * if `to_remote` exists or there are untrimmed HTLCs, add a `to_remote_anchor` output
-		 */
 		if (to_remote || untrimmed != 0) {
 			tx_add_anchor_output(tx, remote_funding_key);
 			(*htlcmap)[n] = NULL;
@@ -331,7 +333,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 * 7. Sort the outputs into [BIP 69+CLTV
+	 * 9. Sort the outputs into [BIP 69+CLTV
 	 *    order](#transaction-input-and-output-ordering)
 	 */
 	permute_outputs(tx, cltvs, (const void **)*htlcmap);

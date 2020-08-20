@@ -28,7 +28,7 @@ static inline size_t commit_tx_base_weight(size_t num_untrimmed_htlcs,
 {
 	size_t weight;
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	/* BOLT #3:
 	 *
 	 * The base fee for a commitment transaction:
 	 *  - MUST be calculated to match:

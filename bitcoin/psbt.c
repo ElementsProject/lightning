@@ -618,9 +618,8 @@ struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 		if (input->signatures.num_items != 1)
 			continue;
 
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+		/* BOLT #3:
 		 * #### `to_remote` Output
-		 *...
 		 *
 		 * If `option_anchor_outputs` applies to the commitment
 		 * transaction, the `to_remote` output is encumbered by a one
@@ -628,7 +627,8 @@ struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 		 *
 		 *    <remote_pubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
 		 *
-		 * The output is spent by a transaction with `nSequence` field set to `1` and witness:
+		 * The output is spent by an input with `nSequence`
+		 * field set to `1` and witness:
 		 *
 		 *    <remote_sig>
 		 */

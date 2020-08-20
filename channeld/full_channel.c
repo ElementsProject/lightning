@@ -618,7 +618,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 *...
 	 *  - receiving an `amount_msat` that the sending node cannot afford at
 	 *    the current `feerate_per_kw` (while maintaining its channel
-	 *    reserve):
+	 *    reserve and any `to_local_anchor` and `to_remote_anchor` costs):
 	 *    - SHOULD fail the channel.
 	 */
 	if (enforce_aggregate_limits) {
@@ -643,7 +643,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 					    &remainder))
 			return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
 
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
+		/* BOLT #3:
 		 * If `option_anchor_outputs` applies to the commitment
 		 * transaction, also subtract two times the fixed anchor size
 		 * of 330 sats from the funder (either `to_local` or
@@ -1027,7 +1027,7 @@ u32 approx_max_feerate(const struct channel *channel)
 	/* Available is their view */
 	avail = amount_msat_to_sat_round_down(channel->view[!channel->opener].owed[channel->opener]);
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
+	/* BOLT #3:
 	 * If `option_anchor_outputs` applies to the commitment
 	 * transaction, also subtract two times the fixed anchor size
 	 * of 330 sats from the funder (either `to_local` or
@@ -1068,7 +1068,7 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 	fee = commit_tx_base_fee(feerate_per_kw, untrimmed,
 				 channel->option_anchor_outputs);
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
+	/* BOLT #3:
 	 * If `option_anchor_outputs` applies to the commitment
 	 * transaction, also subtract two times the fixed anchor size
 	 * of 330 sats from the funder (either `to_local` or

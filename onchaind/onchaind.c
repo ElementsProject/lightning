@@ -415,13 +415,15 @@ static bool grind_htlc_tx_fee(struct amount_sat *fee,
 		 *
 		 * The fee for an HTLC-timeout transaction:
 		 *   - MUST BE calculated to match:
-		 *     1. Multiply `feerate_per_kw` by 663 and divide by 1000
-		 *     (rounding down).
+		 *     1. Multiply `feerate_per_kw` by 663
+		 *        (666 if `option_anchor_outputs` applies)
+		 *        and divide by 1000 (rounding down).
 		 *
 		 * The fee for an HTLC-success transaction:
 		 *   - MUST BE calculated to match:
-		 *     1. Multiply `feerate_per_kw` by 703 and divide by 1000
-		 *     (rounding down).
+		 *     1. Multiply `feerate_per_kw` by 703
+		 *        (706 if `option_anchor_outputs` applies)
+		 *        and divide by 1000 (rounding down).
 		 */
 		struct amount_sat out;
 
@@ -2335,7 +2337,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 						 NULL, NULL, NULL);
 			/* BOLT #3:
 			 *
-			 * The output is spent by a transaction with
+			 * The output is spent by an input with
 			 * `nSequence` field set to `to_self_delay` (which can
 			 * only be valid after that duration has passed) and
 			 * witness:

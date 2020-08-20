@@ -64,7 +64,7 @@ void tx_add_anchor_output(struct bitcoin_tx *tx,
 	u8 *wscript = bitcoin_wscript_anchor(tmpctx, funding_key);
 	u8 *p2wsh = scriptpubkey_p2wsh(tmpctx, wscript);
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	/* BOLT #3:
 	 * The amount of the output is fixed at 330 sats, the default
 	 * dust limit for P2WSH.
 	 */
@@ -122,7 +122,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	base_fee = commit_tx_base_fee(feerate_per_kw, untrimmed,
 				      option_anchor_outputs);
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
+	/* BOLT:
 	 * If `option_anchor_outputs` applies to the commitment
 	 * transaction, also subtract two times the fixed anchor size
 	 * of 330 sats from the funder (either `to_local` or
@@ -137,7 +137,10 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	/* BOLT #3:
 	 *
 	 * 3. Subtract this base fee from the funder (either `to_local` or
-	 * `to_remote`), with a floor of 0 (see [Fee Payment](#fee-payment)).
+	 * `to_remote`).
+	 * If `option_anchor_outputs` applies to the commitment transaction,
+	 * also subtract two times the fixed anchor size of 330 sats from the
+	 * funder (either `to_local` or `to_remote`).
 	 */
 	if (!try_subtract_fee(opener, side, base_fee, &self_pay, &other_pay)) {
 		/* BOLT #2:
@@ -188,19 +191,19 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	n = 0;
 	/* BOLT #3:
 	 *
-	 * 3. For every offered HTLC, if it is not trimmed, add an
+	 * 4. For every offered HTLC, if it is not trimmed, add an
 	 *    [offered HTLC output](#offered-htlc-outputs).
 	 */
 
 	/* BOLT #3:
 	 *
-	 * 4. For every received HTLC, if it is not trimmed, add an
+	 * 5. For every received HTLC, if it is not trimmed, add an
 	 *    [received HTLC output](#received-htlc-outputs).
 	 */
 
 	/* BOLT #3:
 	 *
-	 * 5. If the `to_local` amount is greater or equal to
+	 * 6. If the `to_local` amount is greater or equal to
 	 *    `dust_limit_satoshis`, add a [`to_local`
 	 *    output](#to_local-output).
 	 */
@@ -218,12 +221,12 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 * 6. If the `to_remote` amount is greater or equal to
+	 * 7. If the `to_remote` amount is greater or equal to
 	 *    `dust_limit_satoshis`, add a [`to_remote`
 	 *    output](#to_remote-output).
 	 */
 	if (amount_msat_greater_eq_sat(other_pay, dust_limit)) {
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+		/* BOLT #3:
 		 *
 		 * If `option_anchor_outputs` applies to the commitment
 		 * transaction, the `to_remote` output is encumbered by a one
@@ -252,19 +255,20 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	} else
 		to_remote = false;
 
+	/* BOLT #3:
+	 * 8. If `option_anchor_outputs` applies to the commitment transaction:
+	 *    * if `to_local` exists or there are untrimmed HTLCs, add a
+	 *      `to_local_anchor` output
+	 *    * if `to_remote` exists or there are untrimmed HTLCs, add a
+	 *       `to_remote_anchor` output
+	 */
 	if (option_anchor_outputs) {
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
-		 * if `to_local` exists or there are untrimmed HTLCs, add a `to_local_anchor` output
-		 */
 		if (to_local || untrimmed != 0) {
 			tx_add_anchor_output(tx, &funding_key[side]);
 			output_order[n] = NULL;
 			n++;
 		}
 
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
-		 * if `to_remote` exists or there are untrimmed HTLCs, add a `to_remote_anchor` output
-		 */
 		if (to_remote || untrimmed != 0) {
 			tx_add_anchor_output(tx, &funding_key[!side]);
 			output_order[n] = NULL;
@@ -276,7 +280,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 * 7. Sort the outputs into [BIP 69+CLTV
+	 * 9. Sort the outputs into [BIP 69+CLTV
 	 *    order](#transaction-input-and-output-ordering)
 	 */
 	permute_outputs(tx, NULL, output_order);

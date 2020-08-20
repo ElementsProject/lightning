@@ -994,7 +994,7 @@ int main(int argc, const char *argv[])
 			= commit_tx_base_fee(feerate_per_kw, 0,
 					     option_anchor_outputs);
 
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
+		/* BOLT #3:
 		 * If `option_anchor_outputs` applies to the commitment
 		 * transaction, also subtract two times the fixed anchor size
 		 * of 330 sats from the funder (either `to_local` or
