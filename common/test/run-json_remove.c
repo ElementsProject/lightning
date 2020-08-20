@@ -148,9 +148,8 @@ static struct json *json_parse(const tal_t * ctx, const char *str)
 	struct json *j = tal(ctx, struct json);
 	j->buffer = tal_strdup(j, str);
 	convert_quotes(j->buffer);
-	bool ok;
-	j->toks = json_parse_input(j, j->buffer, strlen(j->buffer), &ok);
-	assert(ok);
+	j->toks = json_parse_simple(j, j->buffer, strlen(j->buffer));
+	assert(j->toks);
 	j->toks = json_tok_copy(j, j->toks);
 	return j;
 }

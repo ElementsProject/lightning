@@ -442,12 +442,12 @@ static const jsmntok_t *read_rpc_reply(const tal_t *ctx,
 				       int *reqlen)
 {
 	const jsmntok_t *toks;
-	bool valid;
 
 	*reqlen = read_json_from_rpc(plugin);
 
-	toks = json_parse_input(ctx, membuf_elems(&plugin->rpc_conn->mb), *reqlen, &valid);
-	if (!valid)
+	toks = json_parse_simple(ctx,
+				 membuf_elems(&plugin->rpc_conn->mb), *reqlen);
+	if (!toks)
 		plugin_err(plugin, "Malformed JSON reply '%.*s'",
 			   *reqlen, membuf_elems(&plugin->rpc_conn->mb));
 
@@ -648,7 +648,6 @@ static void rpc_conn_finished(struct io_conn *conn,
 
 static bool rpc_read_response_one(struct plugin *plugin)
 {
-	bool valid;
 	const jsmntok_t *toks, *jrtok;
 
 	/* For our convenience, lightningd always ends JSON requests with
@@ -656,15 +655,10 @@ static bool rpc_read_response_one(struct plugin *plugin)
 	if (!memmem(plugin->rpc_buffer, plugin->rpc_used, "\n\n", 2))
 		return false;
 
-	toks = json_parse_input(NULL, plugin->rpc_buffer, plugin->rpc_used,
-				&valid);
+	toks = json_parse_simple(NULL, plugin->rpc_buffer, plugin->rpc_used);
 	if (!toks) {
-		if (!valid) {
-			plugin_err(plugin, "Failed to parse RPC JSON response '%.*s'",
-				   (int)plugin->rpc_used, plugin->rpc_buffer);
-			return false;
-		}
-		/* We need more. */
+		plugin_err(plugin, "Failed to parse RPC JSON response '%.*s'",
+			   (int)plugin->rpc_used, plugin->rpc_buffer);
 		return false;
 	}
 
