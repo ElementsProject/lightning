@@ -51,6 +51,8 @@ struct plugin {
 	struct json_stream **rpc_js_arr;
 	char *rpc_buffer;
 	size_t rpc_used, rpc_len_read;
+	jsmn_parser rpc_parser;
+	jsmntok_t *rpc_toks;
 	/* Tracking async RPC requests */
 	UINTMAP(struct out_req *) out_reqs;
 	u64 next_outreq_id;
@@ -650,40 +652,44 @@ static void rpc_conn_finished(struct io_conn *conn,
 
 static bool rpc_read_response_one(struct plugin *plugin)
 {
-	const jsmntok_t *toks, *jrtok;
+	const jsmntok_t *jrtok;
+	bool complete;
 
-	/* For our convenience, lightningd always ends JSON requests with
-	 * \n\n.  We can abuse that as an optimization here.*/
-	if (!memmem(plugin->rpc_buffer, plugin->rpc_used, "\n\n", 2))
-		return false;
-
-	toks = json_parse_simple(NULL, plugin->rpc_buffer, plugin->rpc_used);
-	if (!toks) {
+	if (!json_parse_input(&plugin->rpc_parser, &plugin->rpc_toks,
+			      plugin->rpc_buffer, plugin->rpc_used, &complete)) {
 		plugin_err(plugin, "Failed to parse RPC JSON response '%.*s'",
 			   (int)plugin->rpc_used, plugin->rpc_buffer);
 		return false;
 	}
 
-	/* Empty buffer? (eg. just whitespace). */
-	if (tal_count(toks) == 1) {
-		plugin->rpc_used = 0;
+	if (!complete) {
+		/* We need more. */
 		return false;
 	}
 
-	jrtok = json_get_member(plugin->rpc_buffer, toks, "jsonrpc");
+	/* Empty buffer? (eg. just whitespace). */
+	if (tal_count(plugin->rpc_toks) == 1) {
+		plugin->rpc_used = 0;
+		jsmn_init(&plugin->rpc_parser);
+		toks_reset(plugin->rpc_toks);
+		return false;
+	}
+
+	jrtok = json_get_member(plugin->rpc_buffer, plugin->rpc_toks, "jsonrpc");
 	if (!jrtok) {
 		plugin_err(plugin, "JSON-RPC message does not contain \"jsonrpc\" field: '%.*s'",
                                    (int)plugin->rpc_used, plugin->rpc_buffer);
 		return false;
 	}
 
-	handle_rpc_reply(plugin, toks);
+	handle_rpc_reply(plugin, plugin->rpc_toks);
 
-	/* Move this object out of the buffer (+ 2 for \n\n)*/
-	memmove(plugin->rpc_buffer, plugin->rpc_buffer + toks[0].end + 2,
-		tal_count(plugin->rpc_buffer) - toks[0].end - 2);
-	plugin->rpc_used -= toks[0].end + 2;
-	tal_free(toks);
+	/* Move this object out of the buffer */
+	memmove(plugin->rpc_buffer, plugin->rpc_buffer + plugin->rpc_toks[0].end,
+		tal_count(plugin->rpc_buffer) - plugin->rpc_toks[0].end);
+	plugin->rpc_used -= plugin->rpc_toks[0].end;
+	jsmn_init(&plugin->rpc_parser);
+	toks_reset(plugin->rpc_toks);
 
 	return true;
 }
@@ -1230,6 +1236,8 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->rpc_js_arr = tal_arr(p, struct json_stream *, 0);
 	p->rpc_used = 0;
 	p->rpc_len_read = 0;
+	jsmn_init(&p->rpc_parser);
+	p->rpc_toks = toks_alloc(p);
 	p->next_outreq_id = 0;
 	uintmap_init(&p->out_reqs);
 
