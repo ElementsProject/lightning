@@ -2278,7 +2278,7 @@ void free_htlcs(struct lightningd *ld, const struct channel *channel)
  *
  * 2. the deadline for offered HTLCs: the deadline after which the channel has
  *    to be failed and timed out on-chain. This is `G` blocks after the HTLC's
- *    `cltv_expiry`: 1 block is reasonable.
+ *    `cltv_expiry`: 1 or 2 blocks is reasonable.
  */
 static u32 htlc_out_deadline(const struct htlc_out *hout)
 {
@@ -2290,7 +2290,7 @@ static u32 htlc_out_deadline(const struct htlc_out *hout)
  * 3. the deadline for received HTLCs this node has fulfilled: the deadline
  * after which the channel has to be failed and the HTLC fulfilled on-chain
  * before its `cltv_expiry`. See steps 4-7 above, which imply a deadline of
- * `2R+G+S` blocks before `cltv_expiry`: 7 blocks is reasonable.
+ * `2R+G+S` blocks before `cltv_expiry`: 18 blocks is reasonable.
  */
 /* We approximate this, by using half the cltv_expiry_delta (3R+2G+2S),
  * rounded up. */
