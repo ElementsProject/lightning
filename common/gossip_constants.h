@@ -58,7 +58,7 @@
 /* BOLT #7:
  *
  * A node:
- *   - if a channel's latest `channel_update`s `timestamp` is older than two weeks
+ *   - if a channel's oldest `channel_update`s `timestamp` is older than two weeks
  *   (1209600 seconds):
  *     - MAY prune the channel.
  *     - MAY ignore the channel.

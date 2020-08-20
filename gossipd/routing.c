@@ -2777,10 +2777,16 @@ void route_prune(struct routing_state *rstate)
 		if (!is_chan_public(chan))
 			continue;
 
-		if ((!is_halfchan_defined(&chan->half[0])
-		     || chan->half[0].bcast.timestamp < highwater)
-		    && (!is_halfchan_defined(&chan->half[1])
-			|| chan->half[1].bcast.timestamp < highwater)) {
+		/* BOLT #7:
+		 *   - if a channel's oldest `channel_update`s `timestamp` is
+		 *     older than two weeks (1209600 seconds):
+		 *    - MAY prune the channel.
+		 */
+		/* This is a fancy way of saying "both ends must refresh!" */
+		if (!is_halfchan_defined(&chan->half[0])
+		    || chan->half[0].bcast.timestamp < highwater
+		    || !is_halfchan_defined(&chan->half[1])
+		    || chan->half[1].bcast.timestamp < highwater) {
 			status_debug(
 			    "Pruning channel %s from network view (ages %"PRIu64" and %"PRIu64"s)",
 			    type_to_string(tmpctx, struct short_channel_id,
