@@ -1089,21 +1089,25 @@ static void ld_command_handle(struct plugin *plugin,
  */
 static bool ld_read_json_one(struct plugin *plugin)
 {
-	bool valid;
-	const jsmntok_t *toks;
+	bool complete;
+	jsmntok_t *toks;
 	struct command *cmd = tal(plugin, struct command);
+	jsmn_parser parser;
 
 	/* FIXME: This could be done more efficiently by storing the
 	 * toks and doing an incremental parse, like lightning-cli
 	 * does. */
-	toks = json_parse_input(NULL, plugin->buffer, plugin->used,
-				&valid);
-	if (!toks) {
-		if (!valid) {
-			plugin_err(plugin, "Failed to parse JSON response '%.*s'",
-				   (int)plugin->used, plugin->buffer);
-			return false;
-		}
+	toks = toks_alloc(NULL);
+	jsmn_init(&parser);
+	if (!json_parse_input(&parser, &toks, plugin->buffer, plugin->used,
+			      &complete)) {
+		tal_free(toks);
+		plugin_err(plugin, "Failed to parse JSON response '%.*s'",
+			   (int)plugin->used, plugin->buffer);
+		return false;
+	}
+
+	if (!complete) {
 		/* We need more. */
 		return false;
 	}
