@@ -36,13 +36,13 @@ static struct wally_psbt *init_psbt(const tal_t *ctx, size_t num_inputs, size_t 
 	return tal_steal(ctx, psbt);
 }
 
-struct wally_psbt *create_psbt(const tal_t *ctx, size_t num_inputs, size_t num_outputs)
+struct wally_psbt *create_psbt(const tal_t *ctx, size_t num_inputs, size_t num_outputs, u32 locktime)
 {
 	int wally_err;
 	struct wally_tx *wtx;
 	struct wally_psbt *psbt;
 
-	if (wally_tx_init_alloc(WALLY_TX_VERSION_2, 0, num_inputs, num_outputs, &wtx) != WALLY_OK)
+	if (wally_tx_init_alloc(WALLY_TX_VERSION_2, locktime, num_inputs, num_outputs, &wtx) != WALLY_OK)
 		abort();
 
 	psbt = init_psbt(ctx, num_inputs, num_outputs);

@@ -127,7 +127,7 @@ int main(int argc, const char *argv[])
 	chainparams = chainparams_for_network("bitcoin");
 
 	/* Create two psbts! */
-	end = create_psbt(tmpctx, 1, 1);
+	end = create_psbt(tmpctx, 1, 1, 0);
 	if (wally_psbt_clone_alloc(end, flags, &start) != WALLY_OK)
 		abort();
 	diff_count(start, end, 0, 0);
