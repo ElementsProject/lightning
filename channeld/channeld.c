@@ -949,7 +949,7 @@ static struct bitcoin_signature *unraw_sigs(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(raw); i++) {
 		sigs[i].s = raw[i];
 
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+		/* BOLT #3:
 		 * ## HTLC-Timeout and HTLC-Success Transactions
 		 *...
 		 * * if `option_anchor_outputs` applies to this commitment

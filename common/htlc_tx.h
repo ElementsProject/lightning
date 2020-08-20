@@ -44,7 +44,7 @@ static inline size_t elements_add_overhead(size_t weight, size_t incount,
 static inline struct amount_sat htlc_timeout_fee(u32 feerate_per_kw,
 						 bool option_anchor_outputs)
 {
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	/* BOLT #3:
 	 *
 	 * The fee for an HTLC-timeout transaction:
 	 * - MUST BE calculated to match:
@@ -62,7 +62,7 @@ static inline struct amount_sat htlc_timeout_fee(u32 feerate_per_kw,
 static inline struct amount_sat htlc_success_fee(u32 feerate_per_kw,
 						 bool option_anchor_outputs)
 {
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	/* BOLT #3:
 	 *
 	 * The fee for an HTLC-success transaction:
 	 * - MUST BE calculated to match:

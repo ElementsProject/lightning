@@ -1513,9 +1513,10 @@ static void hsm_unilateral_close_privkey(struct privkey *dst,
 
 	/* BOLT #3:
 	 *
-	 * If `option_static_remotekey` is negotiated the `remotepubkey`
-	 * is simply the remote node's `payment_basepoint`, otherwise it is
-	 * calculated as above using the remote node's `payment_basepoint`.
+	 * If `option_static_remotekey` or `option_anchor_outputs` is
+	 * negotiated, the `remotepubkey` is simply the remote node's
+	 * `payment_basepoint`, otherwise it is calculated as above using the
+	 * remote node's `payment_basepoint`.
 	 */
 	/* In our UTXO representation, this is indicated by a NULL
 	 * commitment_point. */

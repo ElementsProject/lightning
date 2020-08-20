@@ -99,7 +99,7 @@ static const struct dependency feature_deps[] = {
 	{ OPT_GOSSIP_QUERIES_EX, OPT_GOSSIP_QUERIES },
 	{ OPT_PAYMENT_SECRET, OPT_VAR_ONION },
 	{ OPT_BASIC_MPP, OPT_PAYMENT_SECRET },
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #9:
+	/* BOLT #9:
 	 * Name                | Description  | Context  | Dependencies  |
 	 *...
 	 * `option_anchor_outputs` | ...      | ...      | `option_static_remotekey`

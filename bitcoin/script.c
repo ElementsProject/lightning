@@ -322,7 +322,7 @@ u8 *scriptpubkey_witness_raw(const tal_t *ctx, u8 version,
 	return script;
 }
 
-/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+/* BOLT #3:
  *
  * #### `to_remote` Output
  *
@@ -537,7 +537,8 @@ u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay,
  *
  * This output sends funds to either an HTLC-timeout transaction after the
  * HTLC-timeout or to the remote node using the payment preimage or the
- * revocation key. The output is a P2WSH, with a witness script:
+ * revocation key. The output is a P2WSH, with a witness script (no
+ * option_anchor_outputs):
  *
  *     # To remote node with revocation key
  *     OP_DUP OP_HASH160 <RIPEMD160(SHA256(revocationpubkey))> OP_EQUAL
@@ -554,8 +555,7 @@ u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay,
  *             OP_CHECKSIG
  *         OP_ENDIF
  *     OP_ENDIF
- */
-/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+ *
  * Or, with `option_anchor_outputs`:
  *
  *  # To remote node with revocation key
@@ -644,7 +644,8 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
  *
  * This output sends funds to either the remote node after the HTLC-timeout or
  * using the revocation key, or to an HTLC-success transaction with a
- * successful payment preimage. The output is a P2WSH, with a witness script:
+ * successful payment preimage. The output is a P2WSH, with a witness script
+ * (no `option_anchor_outputs`):
  *
  *     # To remote node with revocation key
  *     OP_DUP OP_HASH160 <RIPEMD160(SHA256(revocationpubkey))> OP_EQUAL
@@ -663,8 +664,7 @@ u8 *bitcoin_wscript_htlc_offer(const tal_t *ctx,
  *             OP_CHECKSIG
  *         OP_ENDIF
  *     OP_ENDIF
- */
-/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+ *
  * Or, with `option_anchor_outputs`:
  *
  *  # To remote node with revocation key
@@ -832,7 +832,7 @@ u8 *bitcoin_wscript_anchor(const tal_t *ctx,
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	/* BOLT #3:
 	 * #### `to_local_anchor` and `to_remote_anchor` Output (option_anchor_outputs)
 	 *...
 	 *  <local_funding_pubkey/remote_funding_pubkey> OP_CHECKSIG OP_IFDUP
