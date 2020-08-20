@@ -89,6 +89,10 @@ const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index);
 jsmntok_t *json_parse_input(const tal_t *ctx,
 			    const char *input, int len, bool *valid);
 
+/* Simplified version of above which parses only a complete, valid
+ * JSON string */
+jsmntok_t *json_parse_simple(const tal_t *ctx, const char *input, int len);
+
 /* Convert a jsmntype_t enum to a human readable string. */
 const char *jsmntype_to_string(jsmntype_t t);
 

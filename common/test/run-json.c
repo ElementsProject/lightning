@@ -144,19 +144,18 @@ static void test_json_tok_size(void)
 
 	/* This should *not* parse! (used to give toks[0]->size == 2!) */
 	buf = "{ 'satoshi', '546' }";
-	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
-	assert(!ok);
+	toks = json_parse_simple(tmpctx, buf, strlen(buf));
+	assert(!toks);
 }
 
 static void test_json_delve(void)
 {
 	const jsmntok_t *toks, *t;
 	char *buf;
-	bool ok;
 
 	buf = "{\"1\":\"one\", \"2\":\"two\", \"3\":[\"three\", {\"deeper\": 17}]}";
-	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
-	assert(ok);
+	toks = json_parse_simple(tmpctx, buf, strlen(buf));
+	assert(toks);
 	assert(toks->size == 3);
 
 	t = json_delve(buf, toks, ".1");
@@ -227,8 +226,8 @@ static void test_json_delve(void)
 		"  }\n"
 		"}\n"
 		"\n";
-	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
-	assert(ok);
+	toks = json_parse_simple(tmpctx, buf, strlen(buf));
+	assert(toks);
 	assert(toks->size == 4);
 
 	t = json_delve(buf, toks, ".rpcfile");

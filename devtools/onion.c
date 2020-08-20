@@ -204,7 +204,6 @@ static char *opt_set_node_id(const char *arg, struct node_id *node_id)
 static void runtest(const char *filename)
 {
 	const tal_t *ctx = tal(NULL, u8);
-	bool valid;
 	char *buffer = grab_file(ctx, filename);
 	const jsmntok_t *toks, *session_key_tok, *associated_data_tok, *gentok,
 		*hopstok, *hop, *payloadtok, *pubkeytok, *typetok, *oniontok, *decodetok;
@@ -217,8 +216,8 @@ static void runtest(const char *filename)
 	struct route_step *step;
 	char *hexprivkey;
 
-	toks = json_parse_input(ctx, buffer, strlen(buffer), &valid);
-	if (!valid)
+	toks = json_parse_simple(ctx, buffer, strlen(buffer));
+	if (!toks)
 		errx(1, "File is not a valid JSON file.");
 
 	gentok = json_get_member(buffer, toks, "generate");

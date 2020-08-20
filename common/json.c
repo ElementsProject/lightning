@@ -585,6 +585,17 @@ again:
 	return toks;
 }
 
+jsmntok_t *json_parse_simple(const tal_t *ctx, const char *input, int len)
+{
+	bool valid;
+	jsmntok_t *toks;
+
+	toks = json_parse_input(ctx, input, len, &valid);
+	if (toks && !valid)
+		toks = tal_free(toks);
+	return toks;
+}
+
 const char *jsmntype_to_string(jsmntype_t t)
 {
 	switch (t) {
