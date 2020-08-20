@@ -119,6 +119,10 @@ static void test_b11(const char *b11str,
 	}
 	assert(!expect_extra);
 
+	/* FIXME: Spec changed to require c fields, but test vectors don't! */
+	if (b11->min_final_cltv_expiry == 18)
+		return;
+
 	/* Re-encode to check */
 	reproduce = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
 	for (size_t i = 0; i < strlen(reproduce); i++) {
@@ -294,7 +298,7 @@ int main(void)
 			strlen("850aeaf5f69670e8889936fc2e0cff3ceb0c3b5eab8f04ae57767118db673a91"),
 			&b11->payment_hash, sizeof(b11->payment_hash)))
 		abort();
-	b11->min_final_cltv_expiry = 9;
+	b11->min_final_cltv_expiry = 18;
 	b11->receiver_id = node;
 	b11->description = "Payment request with multipart support";
 	b11->expiry = 28800;
@@ -454,7 +458,7 @@ int main(void)
 	/* This one can be encoded, but not decoded */
 	set_feature_bit(&b11->features, 100);
 	badstr = bolt11_encode(tmpctx, b11, false, test_sign, NULL);
-	assert(streq(badstr, "lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeessp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q4psqqqqqqqqqqqqqqqpqsqq40wa3khl49yue3zsgm26jrepqr2eghqlx86rttutve3ugd05em86nsefzh4pfurpd9ek9w2vp95zxqnfe2u7ckudyahsa52q66tgzcp6t2dyk"));
+	assert(streq(badstr, "lnbc25m1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5vdhkven9v5sxyetpdeescqpjsp5zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3zygs9q4psqqqqqqqqqqqqqqqpqsq0hxcz4sktfhmyqsedyuf79vyhah4kv3ruth2hrpvd8tnsceqwj592r4a6w5x2vh5cr4jadanl6qu8lqs8ggxr0pax8mdlwjm2hyyg7gpe7cxue"));
 	/* Empty set of allowed bits, ensures this fails! */
 	fset = tal(tmpctx, struct feature_set);
 	fset->bits[BOLT11_FEATURE] = tal_arr(fset, u8, 0);

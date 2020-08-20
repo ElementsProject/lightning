@@ -584,7 +584,7 @@ def test_decode_unknown(node_factory):
     assert b11['description'] == 'Payment request with multipart support'
     assert b11['expiry'] == 28800
     assert b11['payee'] == '02330d13587b67a85c0a36ea001c4dba14bcd48dda8988f7303275b040bffb6abd'
-    assert b11['min_final_cltv_expiry'] == 9
+    assert b11['min_final_cltv_expiry'] == 18
     extra = only_one(b11['extra'])
     assert extra['tag'] == 'v'
     assert extra['data'] == 'dp68gup69uhnzwfj9cejuvf3xshrwde68qcrswf0d46kcarfwpshyaplw3skw0tdw4k8g6tsv9e8g'
