@@ -108,10 +108,17 @@ struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
 
 struct wally_psbt_input *psbt_append_input(struct wally_psbt *psbt,
 					   const struct bitcoin_txid *txid,
-					   u32 outnum, u32 sequence)
+					   u32 outnum, u32 sequence,
+					   const u8 *scriptSig,
+					   struct amount_sat amount,
+					   const u8 *scriptPubkey,
+					   const u8 *input_wscript,
+					   const u8 *redeemscript)
 {
 	struct wally_tx_input *tx_in;
-	struct wally_psbt_input *input;
+	size_t input_num = psbt->num_inputs;
+	const u32 flags = WALLY_PSBT_FLAG_NON_FINAL; /* Skip script/witness */
+	int wally_err;
 
 	if (chainparams->is_elements) {
 		if (wally_tx_elements_input_init_alloc(txid->shad.sha.u.u8,
@@ -132,9 +139,68 @@ struct wally_psbt_input *psbt_append_input(struct wally_psbt *psbt,
 			abort();
 	}
 
-	input = psbt_add_input(psbt, tx_in, psbt->num_inputs);
+	wally_err = wally_psbt_add_input_at(psbt, input_num, flags, tx_in);
+	assert(wally_err == WALLY_OK);
 	wally_tx_input_free(tx_in);
-	return input;
+
+	if (input_wscript) {
+		/* Add the prev output's data into the PSBT struct */
+		if (is_elements(chainparams)) {
+			struct amount_asset asset;
+			/*FIXME: persist asset tags */
+			asset = amount_sat_to_asset(
+					&amount,
+					chainparams->fee_asset_tag);
+			psbt_elements_input_init_witness(psbt, input_num,
+							 input_wscript,
+							 &asset, NULL);
+		} else
+			psbt_input_set_prev_utxo_wscript(psbt, input_num,
+							 input_wscript,
+							 amount);
+	} else if (scriptPubkey) {
+		if (is_p2wsh(scriptPubkey, NULL) ||
+			is_p2wpkh(scriptPubkey, NULL) ||
+			/* FIXME: assert that p2sh inputs are
+			 * witness/are accompanied by a
+			 * redeemscript+witnessscript */
+			is_p2sh(scriptPubkey, NULL)) {
+			/* the only way to get here currently with
+			 * a p2sh script is via a p2sh-p2wpkh script
+			 * that we've created ...*/
+			/* BIP0174:
+			 * ** Value: The entire transaction output in
+			 * network serialization which the
+			 * current input spends from.
+			 * This should only be present for
+			 * inputs which spend segwit outputs,
+			 * including P2SH embedded ones.
+			 */
+			if (is_elements(chainparams)) {
+				struct amount_asset asset;
+				/*FIXME: persist asset tags */
+				asset = amount_sat_to_asset(
+						&amount,
+						chainparams->fee_asset_tag);
+				/* FIXME: persist nonces */
+				psbt_elements_input_init(psbt, input_num,
+							 scriptPubkey,
+							 &asset, NULL);
+			} else
+				psbt_input_set_prev_utxo(psbt, input_num,
+							 scriptPubkey,
+							 amount);
+		}
+	}
+
+	if (redeemscript) {
+		wally_err = wally_psbt_input_set_redeem_script(&psbt->inputs[input_num],
+							       redeemscript,
+							       tal_bytelen(redeemscript));
+		assert(wally_err == WALLY_OK);
+	}
+
+	return &psbt->inputs[input_num];
 }
 
 void psbt_rm_input(struct wally_psbt *psbt,

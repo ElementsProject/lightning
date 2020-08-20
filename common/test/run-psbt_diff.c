@@ -103,7 +103,8 @@ static void add_in_out_with_serial(struct wally_psbt *psbt,
 	struct wally_psbt_output *out;
 
 	memset(&txid, default_value, sizeof(txid));
-	in = psbt_append_input(psbt, &txid, default_value, default_value);
+	in = psbt_append_input(psbt, &txid, default_value, default_value,
+			       NULL, AMOUNT_SAT(0), NULL, NULL, NULL);
 	if (!in)
 		abort();
 	psbt_input_add_serial_id(in, serial_id);
