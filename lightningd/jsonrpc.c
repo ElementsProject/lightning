@@ -89,6 +89,10 @@ struct json_connection {
 	/* How much has just been filled. */
 	size_t len_read;
 
+	/* JSON parsing state. */
+	jsmn_parser input_parser;
+	jsmntok_t *input_toks;
+
 	/* Our commands */
 	struct list_head commands;
 
@@ -912,9 +916,7 @@ static struct io_plan *stream_out_complete(struct io_conn *conn,
 static struct io_plan *read_json(struct io_conn *conn,
 				 struct json_connection *jcon)
 {
-	jsmntok_t *toks;
 	bool complete;
-	jsmn_parser parser;
 
 	if (jcon->len_read)
 		log_io(jcon->log, LOG_IO_IN, NULL, "",
@@ -931,9 +933,8 @@ static struct io_plan *read_json(struct io_conn *conn,
 		return io_wait(conn, conn, read_json, jcon);
 	}
 
-	toks = toks_alloc(jcon->buffer);
-	jsmn_init(&parser);
-	if (!json_parse_input(&parser, &toks, jcon->buffer, jcon->used,
+	if (!json_parse_input(&jcon->input_parser, &jcon->input_toks,
+			      jcon->buffer, jcon->used,
 			      &complete)) {
 		json_command_malformed(jcon, "null",
 				       "Invalid token in json input");
@@ -944,30 +945,36 @@ static struct io_plan *read_json(struct io_conn *conn,
 		goto read_more;
 
 	/* Empty buffer? (eg. just whitespace). */
-	if (tal_count(toks) == 1) {
+	if (tal_count(jcon->input_toks) == 1) {
 		jcon->used = 0;
+
+		/* Reset parser. */
+		jsmn_init(&jcon->input_parser);
+		toks_reset(jcon->input_toks);
 		goto read_more;
 	}
 
-	parse_request(jcon, toks);
+	parse_request(jcon, jcon->input_toks);
 
 	/* Remove first {}. */
-	memmove(jcon->buffer, jcon->buffer + toks[0].end,
-		tal_count(jcon->buffer) - toks[0].end);
-	jcon->used -= toks[0].end;
+	memmove(jcon->buffer, jcon->buffer + jcon->input_toks[0].end,
+		tal_count(jcon->buffer) - jcon->input_toks[0].end);
+	jcon->used -= jcon->input_toks[0].end;
+
+	/* Reset parser. */
+	jsmn_init(&jcon->input_parser);
+	toks_reset(jcon->input_toks);
 
 	/* If we have more to process, try again.  FIXME: this still gets
 	 * first priority in io_loop, so can starve others.  Hack would be
 	 * a (non-zero) timer, but better would be to have io_loop avoid
 	 * such livelock */
 	if (jcon->used) {
-		tal_free(toks);
 		jcon->len_read = 0;
 		return io_always(conn, read_json, jcon);
 	}
 
 read_more:
-	tal_free(toks);
 	return io_read_partial(conn, jcon->buffer + jcon->used,
 			       tal_count(jcon->buffer) - jcon->used,
 			       &jcon->len_read, read_json, jcon);
@@ -986,6 +993,8 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jcon->buffer = tal_arr(jcon, char, 64);
 	jcon->js_arr = tal_arr(jcon, struct json_stream *, 0);
 	jcon->len_read = 0;
+	jsmn_init(&jcon->input_parser);
+	jcon->input_toks = toks_alloc(jcon);
 	list_head_init(&jcon->commands);
 
 	/* We want to log on destruction, so we free this in destructor. */

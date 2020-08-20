@@ -386,22 +386,16 @@ static const char *plugin_read_json_one(struct plugin *plugin,
 					bool *complete,
 					bool *destroyed)
 {
-	jsmntok_t *toks;
 	const jsmntok_t *jrtok, *idtok;
 	struct plugin_destroyed *pd;
 	const char *err;
-	jsmn_parser parser;
 
 	*destroyed = false;
 	/* Note that in the case of 'plugin stop' this can free request (since
 	 * plugin is parent), so detect that case */
 
-	/* FIXME: This could be done more efficiently by storing the
-	 * toks and doing an incremental parse, like lightning-cli
-	 * does. */
-	toks = toks_alloc(plugin);
-	jsmn_init(&parser);
-	if (!json_parse_input(&parser, &toks, plugin->buffer, plugin->used,
+	if (!json_parse_input(&plugin->parser, &plugin->toks,
+			      plugin->buffer, plugin->used,
 			      complete)) {
 		return tal_fmt(plugin,
 			       "Failed to parse JSON response '%.*s'",
@@ -410,21 +404,21 @@ static const char *plugin_read_json_one(struct plugin *plugin,
 
 	if (!*complete) {
 		/* We need more. */
-		tal_free(toks);
 		return NULL;
 	}
 
 	/* Empty buffer? (eg. just whitespace). */
-	if (tal_count(toks) == 1) {
-		tal_free(toks);
+	if (tal_count(plugin->toks) == 1) {
 		plugin->used = 0;
+		jsmn_init(&plugin->parser);
+		toks_reset(plugin->toks);
 		/* We need more. */
 		*complete = false;
 		return NULL;
 	}
 
-	jrtok = json_get_member(plugin->buffer, toks, "jsonrpc");
-	idtok = json_get_member(plugin->buffer, toks, "id");
+	jrtok = json_get_member(plugin->buffer, plugin->toks, "jsonrpc");
+	idtok = json_get_member(plugin->buffer, plugin->toks, "id");
 
 	if (!jrtok) {
 		return tal_fmt(
@@ -445,7 +439,7 @@ static const char *plugin_read_json_one(struct plugin *plugin,
 		 *
 		 * https://www.jsonrpc.org/specification#notification
 		 */
-		err = plugin_notification_handle(plugin, toks);
+		err = plugin_notification_handle(plugin, plugin->toks);
 
 	} else {
 		/* When a rpc call is made, the Server MUST reply with
@@ -475,7 +469,7 @@ static const char *plugin_read_json_one(struct plugin *plugin,
 		 *
 		 * https://www.jsonrpc.org/specification#response_object
 		 */
-		err = plugin_response_handle(plugin, toks, idtok);
+		err = plugin_response_handle(plugin, plugin->toks, idtok);
 	}
 
 	/* Corner case: rpc_command hook can destroy plugin for 'plugin
@@ -484,10 +478,11 @@ static const char *plugin_read_json_one(struct plugin *plugin,
 		*destroyed = true;
 	} else {
 		/* Move this object out of the buffer */
-		memmove(plugin->buffer, plugin->buffer + toks[0].end,
-			tal_count(plugin->buffer) - toks[0].end);
-		plugin->used -= toks[0].end;
-		tal_free(toks);
+		memmove(plugin->buffer, plugin->buffer + plugin->toks[0].end,
+			tal_count(plugin->buffer) - plugin->toks[0].end);
+		plugin->used -= plugin->toks[0].end;
+		jsmn_init(&plugin->parser);
+		toks_reset(plugin->toks);
 	}
 	return err;
 }
@@ -1306,6 +1301,8 @@ const char *plugin_send_getmanifest(struct plugin *p)
 
 	log_debug(p->plugins->log, "started(%u) %s", p->pid, p->cmd);
 	p->buffer = tal_arr(p, char, 64);
+	jsmn_init(&p->parser);
+	p->toks = toks_alloc(p);
 
 	/* Create two connections, one read-only on top of p->stdout, and one
 	 * write-only on p->stdin */
