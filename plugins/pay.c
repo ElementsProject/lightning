@@ -1858,10 +1858,11 @@ static struct command_result *listsendpays_done(struct command *cmd,
 		}
 	}
 
-	/* Now we've collapsed them, provide summary (free mem as we go). */
-	while ((pm = pay_map_first(&pay_map, &it)) != NULL) {
+	/* Now we've collapsed them, provide summary. */
+	for (pm = pay_map_first(&pay_map, &it);
+	     pm;
+	     pm = pay_map_next(&pay_map, &it)) {
 		add_new_entry(ret, buf, pm);
-		pay_map_del(&pay_map, pm);
 	}
 	pay_map_clear(&pay_map);
 
