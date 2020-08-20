@@ -539,60 +539,74 @@ validate_jsmn_parse_output(const jsmntok_t *p, const jsmntok_t *end)
 JSMN Result Validation Ends
 -----------------------------------------------------------------------------*/
 
-jsmntok_t *json_parse_input(const tal_t *ctx,
-			    const char *input, int len, bool *valid)
+void toks_reset(jsmntok_t *toks)
 {
-	jsmn_parser parser;
-	jsmntok_t *toks;
+	assert(tal_count(toks) >= 1);
+	toks[0].type = JSMN_UNDEFINED;
+}
+
+jsmntok_t *toks_alloc(const tal_t *ctx)
+{
+	jsmntok_t *toks = tal_arr(ctx, jsmntok_t, 10);
+	toks_reset(toks);
+	return toks;
+}
+
+bool json_parse_input(jsmn_parser *parser,
+		      jsmntok_t **toks,
+		      const char *input, int len,
+		      bool *complete)
+{
 	int ret;
 
-	toks = tal_arr(ctx, jsmntok_t, 10);
-	toks[0].type = JSMN_UNDEFINED;
-
-	jsmn_init(&parser);
 again:
-	ret = jsmn_parse(&parser, input, len, toks, tal_count(toks) - 1);
+	ret = jsmn_parse(parser, input, len, *toks, tal_count(*toks) - 1);
 
 	switch (ret) {
 	case JSMN_ERROR_INVAL:
-		*valid = false;
-		return tal_free(toks);
+		return false;
 	case JSMN_ERROR_NOMEM:
-		tal_resize(&toks, tal_count(toks) * 2);
+		tal_resize(toks, tal_count(*toks) * 2);
 		goto again;
 	}
 
 	/* Check whether we read at least one full root element, i.e., root
 	 * element has its end set. */
-	if (toks[0].type == JSMN_UNDEFINED || toks[0].end == -1) {
-		*valid = true;
-		return tal_free(toks);
+	if ((*toks)[0].type == JSMN_UNDEFINED || (*toks)[0].end == -1) {
+		*complete = false;
+		return true;
 	}
 
 	/* If we read a partial element at the end of the stream we'll get a
 	 * ret=JSMN_ERROR_PART, but due to the previous check we know we read at
 	 * least one full element, so count tokens that are part of this root
 	 * element. */
-	ret = json_next(toks) - toks;
+	ret = json_next(*toks) - *toks;
+
+	if (!validate_jsmn_parse_output(*toks, *toks + ret))
+		return false;
 
 	/* Cut to length and return. */
-	*valid = validate_jsmn_parse_output(toks, toks + ret);
-	tal_resize(&toks, ret + 1);
+	tal_resize(toks, ret + 1);
 	/* Make sure last one is always referenceable. */
-	toks[ret].type = -1;
-	toks[ret].start = toks[ret].end = toks[ret].size = 0;
+	(*toks)[ret].type = -1;
+	(*toks)[ret].start = (*toks)[ret].end = (*toks)[ret].size = 0;
 
-	return toks;
+	*complete = true;
+	return true;
 }
 
 jsmntok_t *json_parse_simple(const tal_t *ctx, const char *input, int len)
 {
-	bool valid;
-	jsmntok_t *toks;
+	bool complete;
+	jsmn_parser parser;
+	jsmntok_t *toks = toks_alloc(ctx);
 
-	toks = json_parse_input(ctx, input, len, &valid);
-	if (toks && !valid)
-		toks = tal_free(toks);
+	jsmn_init(&parser);
+
+	if (!json_parse_input(&parser, &toks, input, len, &complete)
+	    || !complete)
+		return tal_free(toks);
 	return toks;
 }
 

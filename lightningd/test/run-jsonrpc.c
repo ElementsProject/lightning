@@ -132,11 +132,12 @@ static int test_json_filter(void)
 	struct json_stream *result = new_json_stream(NULL, NULL, NULL);
 	jsmntok_t *toks;
 	const jsmntok_t *x;
-	bool valid;
+	bool valid, complete;
 	int i;
 	char *badstr = tal_arr(result, char, 256);
 	const char *str;
 	size_t len;
+	jsmn_parser parser;
 
 	/* Fill with junk, and nul-terminate (256 -> 0) */
 	for (i = 1; i < 257; i++)
@@ -150,9 +151,11 @@ static int test_json_filter(void)
 	str = json_out_contents(result->jout, &len);
 	str = tal_strndup(result, str, len);
 
-	toks = json_parse_input(str, str, strlen(str), &valid);
+	toks = toks_alloc(str);
+	jsmn_init(&parser);
+	valid = json_parse_input(&parser, &toks, str, strlen(str), &complete);
 	assert(valid);
-	assert(toks);
+	assert(complete);
 
 	assert(toks[0].type == JSMN_OBJECT);
 	x = json_get_member(str, toks, "x");
@@ -240,32 +243,54 @@ static void test_json_partial(void)
 /* Test that we can segment and parse a stream of json objects correctly. */
 static void test_json_stream(void)
 {
-	bool valid;
+	bool valid, complete;
 	char *input, *talstr;
 	jsmntok_t *toks;
+	jsmn_parser parser;
 
 	/* Multiple full messages in a single buffer (happens when buffer
 	 * boundary coincides with message boundary, or read returned after
 	 * timeout. */
 	input = "{\"x\":\"x\"}{\"y\":\"y\"}";
 	talstr = tal_strndup(NULL, input, strlen(input));
-	toks = json_parse_input(talstr, talstr, strlen(talstr), &valid);
-	assert(toks);
+	toks = toks_alloc(NULL);
+	jsmn_init(&parser);
+	valid = json_parse_input(&parser, &toks, talstr, strlen(talstr), &complete);
 	assert(tal_count(toks) == 4);
 	assert(toks[0].start == 0 && toks[0].end == 9);
 	assert(valid);
+	assert(complete);
 	tal_free(talstr);
 
 	/* Multiple messages, and the last one is partial, far more likely than
 	 * accidentally getting the boundaries to match. */
 	input = "{\"x\":\"x\"}{\"y\":\"y\"}{\"z\":\"z";
 	talstr = tal_strndup(NULL, input, strlen(input));
-	toks = json_parse_input(talstr, talstr, strlen(talstr), &valid);
+	toks_reset(toks);
+	jsmn_init(&parser);
+	valid = json_parse_input(&parser, &toks, talstr, strlen(talstr), &complete);
 	assert(toks);
 	assert(tal_count(toks) == 4);
 	assert(toks[0].start == 0 && toks[0].end == 9);
 	assert(valid);
+	assert(complete);
 	tal_free(talstr);
+
+	/* We can do this incrementally, too. */
+	toks_reset(toks);
+	input = "{\"x\":\"x\"}";
+	jsmn_init(&parser);
+	for (size_t i = 0; i <= strlen(input); i++) {
+		valid = json_parse_input(&parser, &toks, input, i, &complete);
+		assert(valid);
+		if (i == strlen(input))
+			assert(complete);
+		else
+			assert(!complete);
+	}
+	assert(tal_count(toks) == 4);
+	assert(toks[0].start == 0 && toks[0].end == 9);
+	tal_free(toks);
 }
 
 int main(void)

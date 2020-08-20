@@ -104,34 +104,47 @@ static int test_json_tok_millionths(void)
 
 static void test_json_tok_size(void)
 {
-	const jsmntok_t *toks;
+	jsmntok_t *toks;
 	char *buf;
-	bool ok;
+	bool ok, complete;
+	jsmn_parser parser;
 
 	buf = "[\"e1\", [\"e2\", \"e3\"]]";
-	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
+	toks = toks_alloc(tmpctx);
+	jsmn_init(&parser);
+	ok = json_parse_input(&parser, &toks, buf, strlen(buf), &complete);
 	assert(ok);
+	assert(complete);
 	/* size only counts *direct* children */
 	assert(toks[0].size == 2);
 	assert(toks[2].size == 2);
 
 	buf = "[[\"e1\", \"e2\"], \"e3\"]";
-	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
+	toks_reset(toks);
+	jsmn_init(&parser);
+	ok = json_parse_input(&parser, &toks, buf, strlen(buf), &complete);
 	assert(ok);
+	assert(complete);
 	/* size only counts *direct* children */
 	assert(toks[0].size == 2);
 	assert(toks[1].size == 2);
 
 	buf = "{\"e1\" : {\"e2\": 2, \"e3\": 3}}";
-	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
+	toks_reset(toks);
+	jsmn_init(&parser);
+	ok = json_parse_input(&parser, &toks, buf, strlen(buf), &complete);
 	assert(ok);
+	assert(complete);
 	/* size only counts *direct* children */
 	assert(toks[0].size == 1);
 	assert(toks[2].size == 2);
 
 	buf = "{\"e1\" : {\"e2\": 2, \"e3\": 3}, \"e4\" : {\"e5\": 5, \"e6\": 6}}";
-	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
+	toks_reset(toks);
+	jsmn_init(&parser);
+	ok = json_parse_input(&parser, &toks, buf, strlen(buf), &complete);
 	assert(ok);
+	assert(complete);
 	/* size only counts *direct* children */
 	assert(toks[0].size == 2);
 	assert(toks[2].size == 2);
@@ -139,7 +152,9 @@ static void test_json_tok_size(void)
 
 	/* This should *not* parse! (used to give toks[0]->size == 3!) */
 	buf = "{ \"\" \"\" \"\" }";
-	toks = json_parse_input(tmpctx, buf, strlen(buf), &ok);
+	toks_reset(toks);
+	jsmn_init(&parser);
+	ok = json_parse_input(&parser, &toks, buf, strlen(buf), &complete);
 	assert(!ok);
 
 	/* This should *not* parse! (used to give toks[0]->size == 2!) */

@@ -913,7 +913,8 @@ static struct io_plan *read_json(struct io_conn *conn,
 				 struct json_connection *jcon)
 {
 	jsmntok_t *toks;
-	bool valid;
+	bool complete;
+	jsmn_parser parser;
 
 	if (jcon->len_read)
 		log_io(jcon->log, LOG_IO_IN, NULL, "",
@@ -930,20 +931,17 @@ static struct io_plan *read_json(struct io_conn *conn,
 		return io_wait(conn, conn, read_json, jcon);
 	}
 
-	toks = json_parse_input(jcon->buffer, jcon->buffer, jcon->used, &valid);
-	if (!toks) {
-		if (!valid) {
-			log_unusual(jcon->log,
-				    "Invalid token in json input: '%.*s'",
-				    (int)jcon->used, jcon->buffer);
-			json_command_malformed(
-			    jcon, "null",
-			    "Invalid token in json input");
-			return io_halfclose(conn);
-		}
-		/* We need more. */
-		goto read_more;
+	toks = toks_alloc(jcon->buffer);
+	jsmn_init(&parser);
+	if (!json_parse_input(&parser, &toks, jcon->buffer, jcon->used,
+			      &complete)) {
+		json_command_malformed(jcon, "null",
+				       "Invalid token in json input");
+		return io_halfclose(conn);
 	}
+
+	if (!complete)
+		goto read_more;
 
 	/* Empty buffer? (eg. just whitespace). */
 	if (tal_count(toks) == 1) {

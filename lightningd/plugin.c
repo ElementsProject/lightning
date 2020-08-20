@@ -386,10 +386,11 @@ static const char *plugin_read_json_one(struct plugin *plugin,
 					bool *complete,
 					bool *destroyed)
 {
-	bool valid;
-	const jsmntok_t *toks, *jrtok, *idtok;
+	jsmntok_t *toks;
+	const jsmntok_t *jrtok, *idtok;
 	struct plugin_destroyed *pd;
 	const char *err;
+	jsmn_parser parser;
 
 	*destroyed = false;
 	/* Note that in the case of 'plugin stop' this can free request (since
@@ -398,28 +399,30 @@ static const char *plugin_read_json_one(struct plugin *plugin,
 	/* FIXME: This could be done more efficiently by storing the
 	 * toks and doing an incremental parse, like lightning-cli
 	 * does. */
-	toks = json_parse_input(plugin->buffer, plugin->buffer, plugin->used,
-				&valid);
-	if (!toks) {
-		if (!valid) {
-			return tal_fmt(plugin,
-				       "Failed to parse JSON response '%.*s'",
-				       (int)plugin->used, plugin->buffer);
-		}
+	toks = toks_alloc(plugin);
+	jsmn_init(&parser);
+	if (!json_parse_input(&parser, &toks, plugin->buffer, plugin->used,
+			      complete)) {
+		return tal_fmt(plugin,
+			       "Failed to parse JSON response '%.*s'",
+			       (int)plugin->used, plugin->buffer);
+	}
+
+	if (!*complete) {
 		/* We need more. */
-		*complete = false;
+		tal_free(toks);
 		return NULL;
 	}
 
 	/* Empty buffer? (eg. just whitespace). */
 	if (tal_count(toks) == 1) {
+		tal_free(toks);
 		plugin->used = 0;
 		/* We need more. */
 		*complete = false;
 		return NULL;
 	}
 
-	*complete = true;
 	jrtok = json_get_member(plugin->buffer, toks, "jsonrpc");
 	idtok = json_get_member(plugin->buffer, toks, "id");
 

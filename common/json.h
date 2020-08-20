@@ -85,9 +85,35 @@ const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 /* Get index'th array member. */
 const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index);
 
-/* If input is complete and valid, return tokens. */
-jsmntok_t *json_parse_input(const tal_t *ctx,
-			    const char *input, int len, bool *valid);
+/* Allocate a starter array of tokens for json_parse_input */
+jsmntok_t *toks_alloc(const tal_t *ctx);
+
+/* Reset a token array to reuse it. */
+void toks_reset(jsmntok_t *toks);
+
+/**
+ * json_parse_input: parse and validate JSON.
+ * @parser: parser initialized with jsmn_init.
+ * @toks: tallocated array from toks_alloc()
+ * @input, @len: input string.
+ * @complete: set to true if the valid JSON is complete, or NULL if must be.
+ *
+ * This returns false if the JSON is invalid, true otherwise.
+ * If it returns true, *@complete indicates that (*@toks)[0] points to a
+ * valid, complete JSON element.  If @complete is NULL, then incomplete
+ * JSON returns false (i.e. is considered invalid).
+ *
+ * *@toks is resized to the complete set of tokens, with a dummy
+ * terminator (type == -1) at the end.
+ *
+ * If it returns true, and *@complete is false, you can append more
+ * data to @input and call it again (with the same perser) and the parser
+ * will continue where it left off.
+*/
+bool json_parse_input(jsmn_parser *parser,
+		      jsmntok_t **toks,
+		      const char *input, int len,
+		      bool *complete);
 
 /* Simplified version of above which parses only a complete, valid
  * JSON string */
