@@ -68,7 +68,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 		return io_close(conn);
 	}
 
-	/* BOLT-ef7c97c02b6fa67a1df1af30b3843eb576100ebd #1:
+	/* BOLT #1:
 	 * The receiving node:
 	 * ...
 	 *  - upon receiving `networks` containing no common chains
@@ -151,7 +151,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	peer->addr = *addr;
 	peer->cs = *cs;
 
-	/* BOLT-ef7c97c02b6fa67a1df1af30b3843eb576100ebd #1:
+	/* BOLT #1:
 	 *
 	 * The sending node:
 	 *   - MUST send `init` as the first Lightning message for any

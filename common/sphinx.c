@@ -479,10 +479,10 @@ struct onionpacket *create_onionpacket(
 	packet->version = 0;
 	memset(nexthmac.bytes, 0, sizeof(nexthmac.bytes));
 
-	/* BOLT-e116441ee836447ac3f24cdca62bac1e0f223d5f #4:
+	/* BOLT #4:
 	 *
-	 * The packet is initialized with 1366 _random_ bytes derived from a
-	 * CSPRNG.
+	 * The packet is initialized with 1300 _random_ bytes derived from a
+	 * CSPRNG
 	 */
 	/* Note that this is just hop_payloads: the rest of the packet is
 	 * overwritten below or above anyway. */
