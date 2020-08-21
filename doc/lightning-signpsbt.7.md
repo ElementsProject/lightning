@@ -4,7 +4,7 @@ lightning-signpsbt -- Command to sign a wallet's inputs on a provided bitcoin tr
 SYNOPSIS
 --------
 
-**signpsbt** \[psbt\]
+**signpsbt** *psbt*
 
 DESCRIPTION
 -----------
@@ -28,13 +28,13 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, a object will be return with a string that rappresent the hexadecimal value of psbt.
+On success, a object will be return with a string.
 
 - *psbt*: A string that rappresent the hexadecimal dump of the psbt.
 
 On failure, one of the following error codes may be returned:
 
-- -32602. Error in given parameters or there isn't wallet inputs to sign.
+- -32602. Error in given parameters or there aren't wallet's inputs to sign.
 
 EXAMPLE JSON RESPONSE
 -----

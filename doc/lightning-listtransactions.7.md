@@ -1,4 +1,4 @@
-lightning-listtransactions -- Command to get the list of transactions that was stored in the wallet
+lightning-listtransactions -- Command to get the list of transactions that was stored in the wallet.
 ============================================================
 
 SYNOPSIS
@@ -37,9 +37,9 @@ On success, the command will return a list of transactions, each object represen
   - *index*: An integer that rappresent the index of transaction.
   - *sequence*: An integer that rappresent the sequence number.
 - *outputs*: A list of transactions, each transaction is rappresented with an object with the following proprieties:
-  - *index*: An integer that rappresent the index of transaction. This is the output index of the transaction output.
-  - *satoshis*: A string that rappresent the amount in millisatoshi that contains the transaction.
-  - *scriptPubKey*: A string that contains the lock script in hexadecimal dump form..
+  - *index*: An integer that rappresent the index of transaction.
+  - *satoshis*: A string that rappresent the amount in millisatoshi.
+  - *scriptPubKey*: A string that contains the lock script in hexadecimal dump form.
   
 On failure, one of the following error codes may be returned:
  -32602. Error in given parameters.

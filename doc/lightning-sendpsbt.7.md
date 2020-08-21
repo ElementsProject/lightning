@@ -4,14 +4,14 @@ lightning-sendpsbt -- Command to finalize, extract and send a partially signed b
 SYNOPSIS
 --------
 
-**sendpsbt** \[psbt\]
+**sendpsbt** psbt
 
 DESCRIPTION
 -----------
 
 The **sendpsbt** is a low-level RPC command which sent a PSBT.
 
-- *psbt*: A string that rappresent the hexadecimal of the psbt. It is required to run the **sendpsbt** command. The called can build a psbt with a the command *fundpsbt*
+- *psbt*: A string that rappresent the hexadecimal of the psbt. It is required to run the **sendpsbt** command. The caller can build a psbt with command *fundpsbt*.
 
 EXAMPLE JSON REQUEST
 ------------
@@ -28,7 +28,7 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, the tx and txid of the transaction is returned, as well as the channel_id of the newly created channel.
+On success, the tx and txid of the transaction are returned, as well as the channel_id of the newly created channel.
 
 - *txid*: A string that rappresent the hash of transaction which the caller can use to find it on the blockchain.
 - *tx*: A string that rappresent the hexadecimal dump of the transaction.

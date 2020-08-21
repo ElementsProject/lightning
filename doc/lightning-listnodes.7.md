@@ -1,4 +1,4 @@
-lightning-listnodes -- Command to get the list of nodes in the own node network
+lightning-listnodes -- Command to get the list of nodes in the own node network.
 ============================================================
 
 SYNOPSIS
@@ -32,9 +32,9 @@ On success, the command will return a list of nodes, each object represents a no
 - *alias*: A string that rappresents alias of the node on the network.
 - *color*: A string that rappresents the personal color of the node.
 - *last_timestamp*: An integer that rappresent the last timestamp.
-- *features*: An string that rappresent the features value.
-- *addresses*: An array that rappresent the addreses avaible, each address is rappresented with an object with the following properties:
-  - *type*: A string that rappresent the type of address (ipv4 or ipv6).
+- *features*: A string that rappresent the features value.
+- *addresses*: An array that rappresent the addreses avaible. Each address is rappresented with an object with the following properties:
+  - *type*: A string that rappresent the address type (ipv4 or ipv6).
   - *address*: A string that rappresent the address value.
   - *port*: An integer that rappresent the port number where the node are listening.
   
