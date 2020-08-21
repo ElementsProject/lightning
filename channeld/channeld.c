@@ -1975,6 +1975,58 @@ static void send_onionmsg(struct peer *peer, const u8 *msg)
 }
 #endif /* EXPERIMENTAL_FEATURES */
 
+static void handle_peer_open_channel(struct peer *peer, const u8 *msg)
+{
+	/* Nearly all of these are unused, we only really care about
+	 * `temporary_channel_id`.  */
+	struct bitcoin_blkid chain_hash;
+	struct channel_id temporary_channel_id;
+	struct amount_sat funding_satoshis;
+	struct amount_msat push_msat;
+	struct amount_sat dust_limit_satoshis;
+	struct amount_msat max_htlc_value_in_flight_msat;
+	struct amount_sat channel_reserve_satoshis;
+	struct amount_msat htlc_minimum_msat;
+	u32 feerate_per_kw;
+	u16 to_self_delay;
+	u16 max_accepted_htlcs;
+	struct pubkey funding_pubkey;
+	struct pubkey revocation_basepoint;
+	struct pubkey payment_basepoint;
+	struct pubkey delayed_payment_basepoint;
+	struct pubkey htlc_basepoint;
+	struct pubkey first_per_commitment_point;
+	u8 channel_flags;
+	struct tlv_open_channel_tlvs tlvs;
+
+	u8 *err;
+
+	if (!fromwire_open_channel(msg, &chain_hash, &temporary_channel_id,
+				   &funding_satoshis, &push_msat,
+				   &dust_limit_satoshis,
+				   &max_htlc_value_in_flight_msat,
+				   &channel_reserve_satoshis,
+				   &htlc_minimum_msat, &feerate_per_kw,
+				   &to_self_delay, &max_accepted_htlcs,
+				   &funding_pubkey, &revocation_basepoint,
+				   &payment_basepoint,
+				   &delayed_payment_basepoint,
+				   &htlc_basepoint,
+				   &first_per_commitment_point, &channel_flags,
+				   &tlvs))
+		peer_failed(peer->pps,
+			    &peer->channel_id,
+			    "Bad open_channel %s", tal_hex(peer, msg));
+
+	/* Turn down the channel opening offer, do not error our
+	 * current channel.  */
+	err = towire_errorfmt(tmpctx, &temporary_channel_id,
+			      "Only one channel per peer allowed. "
+			      "Help support the network by diversifying the "
+			      "peers you create channels with.");
+	sync_crypto_write(peer->pps, take(err));
+}
+
 static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
@@ -2052,8 +2104,11 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		return;
 #endif
 
-	case WIRE_INIT:
 	case WIRE_OPEN_CHANNEL:
+		handle_peer_open_channel(peer, msg);
+		return;
+
+	case WIRE_INIT:
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
