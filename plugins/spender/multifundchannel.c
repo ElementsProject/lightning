@@ -19,7 +19,7 @@
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
-#include <plugins/libplugin.h>
+#include <plugins/spender/multifundchannel.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -2006,7 +2006,6 @@ json_multifundchannel(struct command *cmd,
 	return perform_multifundchannel(mfc);
 }
 
-static
 const struct plugin_command multifundchannel_commands[] = {
 	{
 		"multifundchannel",
@@ -2022,32 +2021,6 @@ const struct plugin_command multifundchannel_commands[] = {
 		json_multifundchannel
 	}
 };
-static
-const unsigned int num_multifundchannel_commands =
+const size_t num_multifundchannel_commands =
 	ARRAY_SIZE(multifundchannel_commands);
 
-static
-void multifundchannel_init(struct plugin *plugin,
-			   const char *buf UNUSED,
-			   const jsmntok_t *config UNUSED)
-{
-	/* Save our chainparams.  */
-	const char *network_name;
-
-	network_name = rpc_delve(tmpctx, plugin, "listconfigs",
-				 take(json_out_obj(NULL, "config",
-						   "network")),
-				 ".network");
-	chainparams = chainparams_for_network(network_name);
-}
-
-int main(int argc, char **argv)
-{
-	setup_locale();
-	plugin_main(argv,
-		    &multifundchannel_init, PLUGIN_RESTARTABLE,
-		    true,
-		    NULL,
-		    multifundchannel_commands, num_multifundchannel_commands,
-		    NULL, 0, NULL, 0, NULL);
-}
