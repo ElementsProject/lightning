@@ -784,7 +784,7 @@ def test_funding_fail(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # We don't have enough left to cover fees if we try to spend it all.
-    with pytest.raises(RpcError, match=r'Could not afford'):
+    with pytest.raises(RpcError, match=r'not afford'):
         l1.rpc.fundchannel(l2.info['id'], funds)
 
     # Should still be connected.
