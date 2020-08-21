@@ -1,6 +1,7 @@
 #include <common/utils.h>
 #include <plugins/libplugin.h>
 #include <plugins/spender/multiwithdraw.h>
+#include <plugins/spender/fundchannel.h>
 #include <plugins/spender/multifundchannel.h>
 
 /*~ The spender plugin contains various commands that handle
@@ -22,6 +23,7 @@ int main(int argc, char **argv)
 	commands = tal_arr(owner, struct plugin_command, 0);
 
 	tal_expand(&commands, multiwithdraw_commands, num_multiwithdraw_commands);
+	tal_expand(&commands, fundchannel_commands, num_fundchannel_commands);
 	tal_expand(&commands, multifundchannel_commands, num_multifundchannel_commands);
 	/* tal_expand(&commands, whatever_commands, num_whatever_commands); */
 

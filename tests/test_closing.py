@@ -2528,11 +2528,13 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
     # Figure out what address it will try to use.
     keyidx = int(l1.db_query("SELECT intval FROM vars WHERE name='bip32_max_index';")[0]['intval'])
 
-    # Expect 1 for change address, 1 for the channel final address,
-    # which are discarded as the 'scratch' tx that the fundchannel
-    # plugin makes, plus 1 for the funding address of the actual
+    # Expect 1 for change address, plus 1 for the funding address of the actual
     # funding tx.
-    addr = l1.rpc.call('dev-listaddrs', [keyidx + 3])['addresses'][-1]
+    addr = l1.rpc.call('dev-listaddrs', [keyidx + 2])['addresses'][-1]
+    # the above used to be keyidx + 3, but that was when `fundchannel`
+    # used the `txprepare`-`txdiscard`-`txprepare` trick, which skipped
+    # one address in the discarded tx.
+    # Now we use PSBTs, which means we never discard and skip an address.
 
     # Now, if we specify upfront and it's OK, all good.
     l1.stop()
