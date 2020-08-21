@@ -155,6 +155,18 @@ void json_add_uncommitted_channel(struct json_stream *response,
 		json_add_amount_msat_compat(response, total,
 					    "msatoshi_total", "total_msat");
 	}
+
+	json_array_start(response, "features");
+	if (feature_negotiated(uc->peer->ld->our_features,
+			       uc->peer->their_features,
+			       OPT_STATIC_REMOTEKEY))
+		json_add_string(response, NULL, "option_static_remotekey");
+
+	if (feature_negotiated(uc->peer->ld->our_features,
+			       uc->peer->their_features,
+			       OPT_ANCHOR_OUTPUTS))
+		json_add_string(response, NULL, "option_anchor_outputs");
+	json_array_end(response);
 	json_object_end(response);
 }
 

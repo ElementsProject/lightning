@@ -2330,3 +2330,35 @@ def test_wumbo_channels(node_factory, bitcoind):
     # Exact amount depends on fees, but it will be wumbo!
     amount = [c['funding_msat'][l1.info['id']] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'] if c['state'] == 'CHANNELD_NORMAL'][0]
     assert Millisatoshi(amount) > Millisatoshi(str((1 << 24) - 1) + "sat")
+
+
+def test_channel_features(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], 0.1)
+    bitcoind.generate_block(1)
+    wait_for(lambda: l1.rpc.listfunds()['outputs'] != [])
+
+    l1.rpc.fundchannel(l2.info['id'], 'all')
+
+    # We should see features in unconfirmed channels.
+    chan = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])
+    assert 'option_static_remotekey' in chan['features']
+    if EXPERIMENTAL_FEATURES:
+        assert 'option_anchor_outputs' in chan['features']
+
+    # l2 should agree.
+    assert only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['features'] == chan['features']
+
+    # Confirm it.
+    bitcoind.generate_block(1)
+    wait_for(lambda: only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CHANNELD_NORMAL')
+    wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state'] == 'CHANNELD_NORMAL')
+
+    chan = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])
+    assert 'option_static_remotekey' in chan['features']
+    if EXPERIMENTAL_FEATURES:
+        assert 'option_anchor_outputs' in chan['features']
+
+    # l2 should agree.
+    assert only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['features'] == chan['features']

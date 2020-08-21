@@ -672,6 +672,13 @@ static void json_add_channel(struct lightningd *ld,
 	    response, "private",
 	    !(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL));
 
+	json_array_start(response, "features");
+	if (channel->option_static_remotekey)
+		json_add_string(response, NULL, "option_static_remotekey");
+	if (channel->option_anchor_outputs)
+		json_add_string(response, NULL, "option_anchor_outputs");
+	json_array_end(response);
+
 	// FIXME @conscott : Modify this when dual-funded channels
 	// are implemented
 	json_object_start(response, "funding_allocation_msat");
