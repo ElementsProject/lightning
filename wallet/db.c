@@ -3,6 +3,7 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/derive_basepoints.h>
 #include <common/key_derive.h>
@@ -1319,12 +1320,14 @@ void db_bind_null(struct db_stmt *stmt, int pos)
 void db_bind_int(struct db_stmt *stmt, int pos, int val)
 {
 	assert(pos < tal_count(stmt->bindings));
+	memcheck(&val, sizeof(val));
 	stmt->bindings[pos].type = DB_BINDING_INT;
 	stmt->bindings[pos].v.i = val;
 }
 
 void db_bind_u64(struct db_stmt *stmt, int pos, u64 val)
 {
+	memcheck(&val, sizeof(val));
 	assert(pos < tal_count(stmt->bindings));
 	stmt->bindings[pos].type = DB_BINDING_UINT64;
 	stmt->bindings[pos].v.u64 = val;
@@ -1334,7 +1337,7 @@ void db_bind_blob(struct db_stmt *stmt, int pos, const u8 *val, size_t len)
 {
 	assert(pos < tal_count(stmt->bindings));
 	stmt->bindings[pos].type = DB_BINDING_BLOB;
-	stmt->bindings[pos].v.blob = val;
+	stmt->bindings[pos].v.blob = memcheck(val, len);
 	stmt->bindings[pos].len = len;
 }
 
