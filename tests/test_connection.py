@@ -1050,13 +1050,13 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
 def test_funding_close_upfront(node_factory, bitcoind):
     l1 = node_factory.get_node()
 
-    opts = {'plugin': os.path.join(os.getcwd(), 'tests/plugins/accepter_close_to.py')}
+    opts = {'plugin': os.path.join(os.getcwd(), 'tests/plugins/openchannel_hook_accepter.py')}
     l2 = node_factory.get_node(options=opts)
 
     # The 'accepter_close_to' plugin uses the channel funding amount to determine
     # whether or not to include a 'close_to' address
-    amt_normal = 100007     # continues without returning a close_to
-    amt_addr = 100001       # returns valid regtest address
+    amt_normal = 100000     # continues without returning a close_to
+    amt_addr = 100003       # returns valid regtest address
 
     remote_valid_addr = 'bcrt1q7gtnxmlaly9vklvmfj06amfdef3rtnrdazdsvw'
 

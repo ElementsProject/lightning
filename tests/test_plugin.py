@@ -538,13 +538,7 @@ def test_openchannel_hook(node_factory, bitcoind):
     """
     opts = [{}, {'plugin': os.path.join(os.getcwd(), 'tests/plugins/reject_odd_funding_amounts.py')}]
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
-
-    # Get some funds.
-    addr = l1.rpc.newaddr()['bech32']
-    txid = bitcoind.rpc.sendtoaddress(addr, 10)
-    numfunds = len(l1.rpc.listfunds()['outputs'])
-    bitcoind.generate_block(1, txid)
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > numfunds)
+    l1.fundwallet(10**6)
 
     # Even amount: works.
     l1.rpc.fundchannel(l2.info['id'], 100000)
@@ -572,6 +566,70 @@ def test_openchannel_hook(node_factory, bitcoind):
     l1.connect(l2)
     with pytest.raises(RpcError, match=r"I don't like odd amounts"):
         l1.rpc.fundchannel(l2.info['id'], 100001)
+
+
+def test_openchannel_hook_error_handling(node_factory, bitcoind):
+    """ l2 uses a plugin that should fatal() crash the node.
+
+    This is because the plugin rejects a channel while
+    also setting a close_to address which isn't allowed.
+    """
+    opts = {'plugin': os.path.join(os.getcwd(), 'tests/plugins/openchannel_hook_accepter.py')}
+    # openchannel_reject_but_set_close_to.py')}
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(options=opts,
+                               expect_fail=True,
+                               may_fail=True,
+                               allow_broken_log=True)
+    l1.connect(l2)
+    l1.fundwallet(10**6)
+
+    # next fundchannel should fail fatal() for l2
+    with pytest.raises(RpcError, match=r'Owning subdaemon openingd died'):
+        l1.rpc.fundchannel(l2.info['id'], 100004)
+    assert l2.daemon.is_in_log("Plugin rejected openchannel but also set close_to")
+
+
+def test_openchannel_hook_chaining(node_factory, bitcoind):
+    """ l2 uses a set of plugin that all use the openchannel_hook.
+
+    We test that chaining works by using multiple plugins in a way
+    that we check for the first plugin that rejects prevents from evaluating
+    further plugin responses down the chain.
+
+    """
+    opts = [{}, {'plugin': [
+        os.path.join(os.path.dirname(__file__), '..', 'tests/plugins/openchannel_hook_accept.py'),
+        os.path.join(os.path.dirname(__file__), '..', 'tests/plugins/openchannel_hook_accepter.py'),
+        os.path.join(os.path.dirname(__file__), '..', 'tests/plugins/openchannel_hook_reject.py')
+    ]}]
+    l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
+    l1.fundwallet(10**6)
+
+    hook_msg = "openchannel_hook rejects and says '"
+    # 100005sat fundchannel should fail fatal() for l2
+    # because hook_accepter.py rejects on that amount 'for a reason'
+    with pytest.raises(RpcError, match=r'They sent error channel'):
+        l1.rpc.fundchannel(l2.info['id'], 100005)
+
+    # Note: hook chain order is currently undefined, because hooks are registerd
+    #       as a result of the getmanifest call, which may take some random time.
+    #       We need to workaround that fact, so test can be stable
+    correct_order = l2.daemon.is_in_log(hook_msg + "reject for a reason")
+    if correct_order:
+        assert l2.daemon.wait_for_log(hook_msg + "reject for a reason")
+        # the other plugin must not be called
+        assert not l2.daemon.is_in_log("reject on principle")
+    else:
+        assert l2.daemon.wait_for_log(hook_msg + "reject on principle")
+        # the other plugin must not be called
+        assert not l2.daemon.is_in_log("reject for a reason")
+
+    # 100000sat is good for hook_accepter, so it should fail 'on principle'
+    # at third hook openchannel_reject.py
+    with pytest.raises(RpcError, match=r'They sent error channel'):
+        l1.rpc.fundchannel(l2.info['id'], 100000)
+    assert l2.daemon.wait_for_log(hook_msg + "reject on principle")
 
 
 @unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
