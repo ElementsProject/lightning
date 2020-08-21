@@ -1975,6 +1975,60 @@ static void send_onionmsg(struct peer *peer, const u8 *msg)
 }
 #endif /* EXPERIMENTAL_FEATURES */
 
+static void handle_unexpected_reestablish(struct peer *peer, const u8 *msg)
+{
+	struct channel_id channel_id;
+	u64 next_commitment_number;
+	u64 next_revocation_number;
+	struct secret your_last_per_commitment_secret;
+	struct pubkey my_current_per_commitment_point;
+
+	if (!fromwire_channel_reestablish(msg, &channel_id,
+					  &next_commitment_number,
+					  &next_revocation_number,
+					  &your_last_per_commitment_secret,
+					  &my_current_per_commitment_point))
+		peer_failed(peer->pps,
+			    &peer->channel_id,
+			    "Bad channel_reestablish %s", tal_hex(peer, msg));
+
+	/* Is it the same as the peer channel ID?  */
+	if (channel_id_eq(&channel_id, &peer->channel_id)) {
+		/* Log this event as unusual.  */
+		status_unusual("Got repeated WIRE_CHANNEL_REESTABLISH "
+			       "for channel %s, ignoring: %s",
+			       type_to_string(tmpctx, struct channel_id,
+					      &peer->channel_id),
+			       tal_hex(tmpctx, msg));
+		/* This is a mitigation for a known bug in some peer software
+		 * that sometimes double-sends a reestablish message.
+		 *
+		 * Ideally we would send some kind of `error` message to the
+		 * peer here, but if we sent an `error` message with the
+		 * same channel ID it would cause the peer to drop the
+		 * channel unilaterally.
+		 * We also cannot use 0x00...00 because that means "all
+		 * channels", so a proper peer (like C-lightning) will
+		 * unilaterally close all channels we have with it, if we
+		 * sent the 0x00...00 channel ID.
+		 *
+		 * So just do not send an error.
+		 */
+		return;
+	}
+
+	/* We only support one channel here, so the unexpected channel is the
+	 * peer getting its wires crossed somewhere.
+	 * Fail the channel they sent, not the channel we are actively
+	 * handling.  */
+	peer_failed(peer->pps, &channel_id,
+		    "Peer sent unexpected message %u, (%s) "
+		    "for nonexistent channel %s",
+		    WIRE_CHANNEL_REESTABLISH, "WIRE_CHANNEL_REESTABLISH",
+		    type_to_string(tmpctx, struct channel_id,
+				   &channel_id));
+}
+
 static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum wire_type type = fromwire_peektype(msg);
@@ -2057,9 +2111,12 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
-	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_CLOSING_SIGNED:
 		break;
+
+	case WIRE_CHANNEL_REESTABLISH:
+		handle_unexpected_reestablish(peer, msg);
+		return;
 
 	/* These are all swallowed by handle_peer_gossip_or_error */
 	case WIRE_CHANNEL_ANNOUNCEMENT:
