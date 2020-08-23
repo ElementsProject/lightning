@@ -9,6 +9,7 @@
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
 #include <common/utils.h>
+#include <sodium/randombytes.h>
 
 /* Some standard ops */
 #define OP_0		0x00
@@ -219,6 +220,16 @@ u8 *scriptpubkey_opreturn(const tal_t *ctx)
 	u8 *script = tal_arr(ctx, u8, 0);
 
 	add_op(&script, OP_RETURN);
+	return script;
+}
+u8 *scriptpubkey_opreturn_padded(const tal_t *ctx)
+{
+	u8 *script = tal_arr(ctx, u8, 0);
+	u8 random[20];
+	randombytes_buf(random, sizeof(random));
+
+	add_op(&script, OP_RETURN);
+	script_push_bytes(&script, random, sizeof(random));
 	return script;
 }
 
