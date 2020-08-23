@@ -577,6 +577,17 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("disconnect", payload)
 
+    def donateutxo(self, utxo, amount, **kwargs):
+        """
+        Donate the entire amount in a specific {utxo} to miners.
+        """
+        payload = {
+            "utxo": utxo,
+            "amount": amount
+        }
+        payload.update({k: v for k, v in kwargs.items()})
+        return self.call("donateutxo", payload)
+
     def feerates(self, style, urgent=None, normal=None, slow=None):
         """
         Supply feerate estimates manually.

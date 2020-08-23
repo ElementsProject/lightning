@@ -1,0 +1,60 @@
+.TH "LIGHTNING-DONATEUTXO" "7" "" "" "lightning-donateutxo"
+.SH NAME
+lightning-donateutxo - Command to donate a UTXO to miners
+.SH SYNOPSIS
+
+\fBdonateutxo\fR \fIutxo\fR \fIamount\fR
+
+.SH DESCRIPTION
+
+\fBdonateutxo\fR donates a specific \fIutxo\fR (a string of the form "txid:vout")
+to miners\.
+
+
+The \fIamount\fR must exactly match the amount of the UTXO\.
+This parameter exists as a basic safety check for manual usage of this
+command\.
+A human user of this command must acquire the exact value of the UTXO
+and explicitly specify it,
+as a basic check that the amount to be donated is reasonable\.
+
+
+Once donated, \fBthere is no way to recover the funds\fR\.
+Miners have very strong incentive to gather such donations and do not
+have any incentive to mine an alternative transaction to claw back the
+donation\.
+
+
+This is intended to be used to reduce privacy leakage on dust coins sometimes
+created by blockchain analysis\.
+Thus, it will only donate one UTXO at a time, and will not accept multiple
+UTXOS being donated, as those addresses would become linked\.
+
+.SH RETURN VALUE
+
+On success, returns the \fItx\fR and \fItxid\fR of the donation transaction\.
+
+
+On failure, one of the following error codes may be returned:
+
+.RS
+.IP \[bu]
+-32602: If the given \fIutxo\fR is incorrect, or has been spent or
+reserved for other use\.
+.IP \[bu]
+301: If the given \fIamount\fR does not match the exact amount of the
+given \fIutxo\fR\.
+
+.RE
+.SH AUTHOR
+
+ZmnSCPxj < \fIZmnSCPxj@protonmail.com\fR > is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-withdraw\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

@@ -22,8 +22,10 @@ PLUGIN_PAY_LIB_HEADER := plugins/libplugin-pay.h
 PLUGIN_PAY_LIB_OBJS := $(PLUGIN_PAY_LIB_SRC:.c=.o)
 
 PLUGIN_SPENDER_SRC :=				\
+	plugins/spender/donateutxo.c		\
 	plugins/spender/main.c
-PLUGIN_SPENDER_HEADER :=
+PLUGIN_SPENDER_HEADER :=			\
+	plugins/spender/donateutxo.h
 PLUGIN_SPENDER_OBJS := $(PLUGIN_SPENDER_SRC:.c=.o)
 
 PLUGIN_ALL_SRC :=				\
