@@ -1170,3 +1170,33 @@ def test_withdraw_nlocktime_fuzz(node_factory, bitcoind):
             return
     else:
         raise Exception("No transaction with fuzzed nLockTime !")
+
+
+def test_donateutxo_simple(node_factory, bitcoind):
+    """
+    Simple test of donateutxo.
+    """
+    l1 = node_factory.get_node()
+
+    # Dust them.
+    addr = l1.rpc.newaddr()['bech32']
+    l1.bitcoin.rpc.sendtoaddress(addr, 0.00000547)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
+
+    # Get the output.
+    output = only_one(l1.rpc.listfunds()['outputs'])
+    assert output['status'] == 'confirmed'
+    txo = '{}:{}'.format(output['txid'], output['output'])
+
+    # We should give exact amount.
+    with pytest.raises(RpcError):
+        l1.rpc.donateutxo(txo, "548sat")
+
+    # Donate the dust.
+    txid = l1.rpc.donateutxo(txo, "547sat")['txid']
+    wait_for(lambda: txid in bitcoind.rpc.getrawmempool())
+    bitcoind.generate_block(1)
+
+    # Check the output is now spent.
+    assert len(l1.rpc.listfunds()['outputs']) == 0
