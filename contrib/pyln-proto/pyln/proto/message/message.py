@@ -305,7 +305,7 @@ other types.  Since 'msgtype' is almost identical, it inherits from this too.
     def read(self, io_in: BufferedIOBase, otherfields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         vals = {}
         for field in self.fields:
-            val = field.fieldtype.read(io_in, otherfields)
+            val = field.fieldtype.read(io_in, vals)
             if val is None:
                 # If first field fails to read, we return None.
                 if field == self.fields[0]:
