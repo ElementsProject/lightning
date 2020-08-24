@@ -1,6 +1,6 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
-from pyln.client import RpcError
+from pyln.client import RpcError, Millisatoshi
 from utils import only_one, DEVELOPER, wait_for, wait_channel_quiescent
 
 
@@ -611,3 +611,26 @@ def test_decode_unknown(node_factory):
     assert b11['signature'] == '3045022100e2b2bc3204dc7416c8227d5db2ce65d24b35e22b8de8379c392b74a0c650a397022041db8304c7ff0ad25264167e23dcfce7744b3bff95b8dfda9579a38799ce8f5e'
     assert 'fallbacks' not in b11
     assert 'routes' not in b11
+
+
+def test_amountless_invoice(node_factory):
+    """The recipient should know how much was received by an amountless invoice.
+    """
+    l1, l2 = node_factory.line_graph(2)
+
+    inv = l2.rpc.invoice('any', 'lbl', 'desc')['bolt11']
+    i = l2.rpc.listinvoices()['invoices']
+    assert(len(i) == 1)
+    assert('msatoshi_received' not in i[0])
+    assert('amount_received_msat' not in i[0])
+    assert(i[0]['status'] == 'unpaid')
+    details = l1.rpc.decodepay(inv)
+    assert('msatoshi' not in details)
+
+    l1.rpc.pay(inv, msatoshi=1337)
+
+    i = l2.rpc.listinvoices()['invoices']
+    assert(len(i) == 1)
+    assert(i[0]['msatoshi_received'] == 1337)
+    assert(i[0]['amount_received_msat'] == Millisatoshi(1337))
+    assert(i[0]['status'] == 'paid')
