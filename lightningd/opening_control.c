@@ -716,8 +716,6 @@ static void channel_config(struct lightningd *ld,
 			   u32 *max_to_self_delay,
 			   struct amount_msat *min_effective_htlc_capacity)
 {
-	struct amount_msat dust_limit;
-
 	/* FIXME: depend on feerate. */
 	*max_to_self_delay = ld->config.locktime_max;
 
@@ -725,17 +723,6 @@ static void channel_config(struct lightningd *ld,
 	if (!amount_sat_to_msat(min_effective_htlc_capacity,
 				amount_sat(ld->config.min_capacity_sat)))
 		fatal("amount_msat overflow for config.min_capacity_sat");
-	/* Substract 2 * dust_limit, so fundchannel with min value is possible */
-	if (!amount_sat_to_msat(&dust_limit, chainparams->dust_limit))
-		fatal("amount_msat overflow for dustlimit");
-	if (!amount_msat_sub(min_effective_htlc_capacity,
-				*min_effective_htlc_capacity,
-				dust_limit))
-		*min_effective_htlc_capacity = AMOUNT_MSAT(0);
-	if (!amount_msat_sub(min_effective_htlc_capacity,
-				*min_effective_htlc_capacity,
-				dust_limit))
-		*min_effective_htlc_capacity = AMOUNT_MSAT(0);
 
 	/* BOLT #2:
 	 *

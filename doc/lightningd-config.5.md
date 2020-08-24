@@ -234,8 +234,12 @@ for existing channels, use the RPC call lightning-setchannelfee(7).
 
  **min-capacity-sat**=*SATOSHI*
 Default: 10000. This value defines the minimal effective channel
-capacity in satoshi to accept for channel opening requests. If a peer
-tries to open a channel smaller than this, the opening will be rejected.
+capacity in satoshi to accept for channel opening requests. This will
+reject any opening of a channel which can't pass an HTLC of least this
+value.  Usually this prevents a peer opening a tiny channel, but it
+can also prevent a channel you open with a reasonable amount and the peer
+requesting such a large reserve that the capacity of the channel
+falls below this.
 
  **ignore-fee-limits**=*BOOL*
 Allow nodes which establish channels to us to set any fee they want.

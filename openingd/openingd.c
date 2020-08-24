@@ -26,6 +26,7 @@
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
 #include <common/initial_channel.h>
+#include <common/initial_commit_tx.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>
 #include <common/overflows.h>
@@ -205,6 +206,7 @@ static bool check_config_bounds(struct state *state,
 {
 	struct amount_sat capacity;
 	struct amount_sat reserve;
+	struct amount_sat fee;
 
 	/* BOLT #2:
 	 *
@@ -244,15 +246,14 @@ static bool check_config_bounds(struct state *state,
 		return false;
 	}
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #2:
+	/* BOLT #2:
 	 *  - if `option_anchor_outputs` applies to this commitment
 	 *    transaction and the sending node is the funder:
 	 *   - MUST be able to additionally pay for `to_local_anchor` and
 	 *    `to_remote_anchor` above its reserve.
 	 */
-	/* (We simply include in "reserve" here if they opened). */
+	/* We simply include in "reserve" here. */
 	if (state->option_anchor_outputs
-	    && !am_opener
 	    && !amount_sat_add(&reserve, reserve, AMOUNT_SAT(660))) {
 		negotiation_failed(state, am_opener,
 				   "cannot add anchors to reserve %s",
@@ -270,6 +271,25 @@ static bool check_config_bounds(struct state *state,
 						  &remoteconf->channel_reserve),
 				   type_to_string(tmpctx, struct amount_sat,
 						  &state->localconf.channel_reserve),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->funding));
+		return false;
+	}
+
+	/* They have to pay for fees, too.  Assuming HTLC is dust, though,
+	 * we don't account for an HTLC output. */
+	fee = commit_tx_base_fee(state->feerate_per_kw, 0,
+				 state->option_anchor_outputs);
+	if (!amount_sat_sub(&capacity, capacity, fee)) {
+		negotiation_failed(state, am_opener,
+				   "channel_reserve_satoshis %s"
+				   " and %s plus fee %s too large for funding %s",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &remoteconf->channel_reserve),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &state->localconf.channel_reserve),
+				   type_to_string(tmpctx, struct amount_sat,
+						  &fee),
 				   type_to_string(tmpctx, struct amount_sat,
 						  &state->funding));
 		return false;
