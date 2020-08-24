@@ -139,7 +139,6 @@ def test_bad_opening(node_factory):
     l2.daemon.wait_for_log('to_self_delay 100 larger than 99')
 
 
-@unittest.skipIf(EXPERIMENTAL_FEATURES, "FIXME: anchor_outputs changes numbers")
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Fee computation and limits are network specific")
 @pytest.mark.slow_test
@@ -165,6 +164,9 @@ def test_opening_tiny_channel(node_factory):
     reserves = 2 * dustlimit
     min_commit_tx_fees = basic_fee(7500)
     overhead = reserves + min_commit_tx_fees
+    if EXPERIMENTAL_FEATURES:
+        # Gotta fund those anchors too!
+        overhead += 660
 
     l2_min_capacity = 1               # just enough to get past capacity filter
     l3_min_capacity = 10000           # the current default
