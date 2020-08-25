@@ -7,7 +7,7 @@
 #include <common/jsonrpc_errors.h>
 #include <common/utils.h>
 #include <common/wire_error.h>
-#include <connectd/gen_connect_wire.h>
+#include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
@@ -43,7 +43,7 @@ void channel_set_owner(struct channel *channel, struct subd *owner)
 			 */
 			if (channel->peer->ld->connectd) {
 				u8 *msg;
-				msg = towire_connectctl_peer_disconnected(
+				msg = towire_connectd_peer_disconnected(
 						NULL,
 						&channel->peer->id);
 				subd_send_msg(channel->peer->ld->connectd,

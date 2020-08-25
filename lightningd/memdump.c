@@ -10,7 +10,7 @@
 #include <common/memleak.h>
 #include <common/param.h>
 #include <common/timeout.h>
-#include <connectd/gen_connect_wire.h>
+#include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
@@ -243,7 +243,7 @@ static void connect_dev_memleak_done(struct subd *connectd,
 {
 	bool found_leak;
 
-	if (!fromwire_connect_dev_memleak_reply(reply, &found_leak)) {
+	if (!fromwire_connectd_dev_memleak_reply(reply, &found_leak)) {
 		was_pending(command_fail(cmd, LIGHTNINGD,
 					 "Bad connect_dev_memleak"));
 		return;
@@ -324,7 +324,7 @@ static struct command_result *json_memleak(struct command *cmd,
 
 	/* Start by asking connectd, which is always async. */
 	subd_req(ld->connectd, ld->connectd,
-		 take(towire_connect_dev_memleak(NULL)),
+		 take(towire_connectd_dev_memleak(NULL)),
 		 -1, 0, connect_dev_memleak_done, cmd);
 
 	return command_still_pending(cmd);

@@ -1,0 +1,24 @@
+#include <common/node_id.h>
+#include <common/per_peer_state.h>
+#include <common/wireaddr.h>
+
+# Communication between gossipd and connectd.
+msgtype,gossipd_new_peer,4000
+msgdata,gossipd_new_peer,id,node_id,
+# Did we negotiate LOCAL_GOSSIP_QUERIES?
+msgdata,gossipd_new_peer,gossip_queries_feature,bool,
+# Did they offer LOCAL_INITIAL_ROUTING_SYNC?
+msgdata,gossipd_new_peer,initial_routing_sync,bool,
+
+# if success: + gossip fd and gossip_store fd
+msgtype,gossipd_new_peer_reply,4100
+msgdata,gossipd_new_peer_reply,success,bool,
+msgdata,gossipd_new_peer_reply,gs,?gossip_state,
+
+# Connectd asks gossipd for any known addresses for that node.
+msgtype,gossipd_get_addrs,4001
+msgdata,gossipd_get_addrs,id,node_id,
+
+msgtype,gossipd_get_addrs_reply,4101
+msgdata,gossipd_get_addrs_reply,num,u16,
+msgdata,gossipd_get_addrs_reply,addrs,wireaddr,num

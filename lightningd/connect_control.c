@@ -14,7 +14,7 @@
 #include <common/pseudorand.h>
 #include <common/timeout.h>
 #include <common/wireaddr.h>
-#include <connectd/gen_connect_wire.h>
+#include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <hsmd/capabilities.h>
 #include <lightningd/channel.h>
@@ -164,7 +164,7 @@ static struct command_result *json_connect(struct command *cmd,
 	} else
 		addr = NULL;
 
-	msg = towire_connectctl_connect_to_peer(NULL, &id, 0, addr);
+	msg = towire_connectd_connect_to_peer(NULL, &id, 0, addr);
 	subd_send_msg(cmd->ld->connectd, take(msg));
 
 	/* Leave this here for peer_connected or connect_failed. */
@@ -193,7 +193,7 @@ static void maybe_reconnect(struct delayed_reconnect *d)
 
 	/* Might have gone onchain since we started timer. */
 	if (channel_active(d->channel)) {
-		u8 *msg = towire_connectctl_connect_to_peer(NULL, &peer->id,
+		u8 *msg = towire_connectd_connect_to_peer(NULL, &peer->id,
 							    d->seconds_delayed,
 							    d->addrhint);
 		subd_send_msg(peer->ld->connectd, take(msg));
@@ -239,9 +239,9 @@ static void connect_failed(struct lightningd *ld, const u8 *msg)
 	struct wireaddr_internal *addrhint;
 	struct channel *channel;
 
-	if (!fromwire_connectctl_connect_failed(tmpctx, msg, &id, &errcode, &errmsg,
+	if (!fromwire_connectd_connect_failed(tmpctx, msg, &id, &errcode, &errmsg,
 						&seconds_to_delay, &addrhint))
-		fatal("Connect gave bad CONNECTCTL_CONNECT_FAILED message %s",
+		fatal("Connect gave bad CONNECTD_CONNECT_FAILED message %s",
 		      tal_hex(msg, msg));
 
 	/* We can have multiple connect commands: fail them all */
@@ -273,7 +273,7 @@ static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 	struct channel *c;
 	struct uncommitted_channel *uc;
 
-	if (!fromwire_connect_reconnected(msg, &id))
+	if (!fromwire_connectd_reconnected(msg, &id))
 		fatal("Bad msg %s from connectd", tal_hex(tmpctx, msg));
 
 	c = active_channel_by_id(ld, &id, &uc);
@@ -285,32 +285,32 @@ static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
 {
-	enum connect_wire_type t = fromwire_peektype(msg);
+	enum connectd_wire t = fromwire_peektype(msg);
 
 	switch (t) {
 	/* These are messages we send, not them. */
-	case WIRE_CONNECTCTL_INIT:
-	case WIRE_CONNECTCTL_ACTIVATE:
-	case WIRE_CONNECTCTL_CONNECT_TO_PEER:
-	case WIRE_CONNECTCTL_PEER_DISCONNECTED:
-	case WIRE_CONNECT_DEV_MEMLEAK:
+	case WIRE_CONNECTD_INIT:
+	case WIRE_CONNECTD_ACTIVATE:
+	case WIRE_CONNECTD_CONNECT_TO_PEER:
+	case WIRE_CONNECTD_PEER_DISCONNECTED:
+	case WIRE_CONNECTD_DEV_MEMLEAK:
 	/* This is a reply, so never gets through to here. */
-	case WIRE_CONNECTCTL_INIT_REPLY:
-	case WIRE_CONNECTCTL_ACTIVATE_REPLY:
-	case WIRE_CONNECT_DEV_MEMLEAK_REPLY:
+	case WIRE_CONNECTD_INIT_REPLY:
+	case WIRE_CONNECTD_ACTIVATE_REPLY:
+	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:
 		break;
 
-	case WIRE_CONNECT_RECONNECTED:
+	case WIRE_CONNECTD_RECONNECTED:
 		peer_please_disconnect(connectd->ld, msg);
 		break;
 
-	case WIRE_CONNECT_PEER_CONNECTED:
+	case WIRE_CONNECTD_PEER_CONNECTED:
 		if (tal_count(fds) != 3)
 			return 3;
 		peer_connected(connectd->ld, msg, fds[0], fds[1], fds[2]);
 		break;
 
-	case WIRE_CONNECTCTL_CONNECT_FAILED:
+	case WIRE_CONNECTD_CONNECT_FAILED:
 		connect_failed(connectd->ld, msg);
 		break;
 	}
@@ -324,10 +324,10 @@ static void connect_init_done(struct subd *connectd,
 {
 	struct lightningd *ld = connectd->ld;
 
-	if (!fromwire_connectctl_init_reply(ld, reply,
+	if (!fromwire_connectd_init_reply(ld, reply,
 					    &ld->binding,
 					    &ld->announcable))
-		fatal("Bad connectctl_activate_reply: %s",
+		fatal("Bad connectd_activate_reply: %s",
 		      tal_hex(reply, reply));
 
 	/* Break out of loop, so we can begin */
@@ -348,7 +348,7 @@ int connectd_init(struct lightningd *ld)
 	hsmfd = hsm_get_global_fd(ld, HSM_CAP_ECDH);
 
 	ld->connectd = new_global_subd(ld, "lightning_connectd",
-				       connect_wire_type_name, connectd_msg,
+				       connectd_wire_name, connectd_msg,
 				       take(&hsmfd), take(&fds[1]), NULL);
 	if (!ld->connectd)
 		err(1, "Could not subdaemon connectd");
@@ -362,7 +362,7 @@ int connectd_init(struct lightningd *ld)
 		*listen_announce = ADDR_LISTEN_AND_ANNOUNCE;
 	}
 
-	msg = towire_connectctl_init(
+	msg = towire_connectd_init(
 	    tmpctx, chainparams,
 	    ld->our_features,
 	    &ld->id,
@@ -393,7 +393,7 @@ static void connect_activate_done(struct subd *connectd,
 
 void connectd_activate(struct lightningd *ld)
 {
-	const u8 *msg = towire_connectctl_activate(NULL, ld->listen);
+	const u8 *msg = towire_connectd_activate(NULL, ld->listen);
 
 	subd_req(ld->connectd, ld->connectd, take(msg), -1, 0,
 		 connect_activate_done, NULL);
