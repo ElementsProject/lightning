@@ -259,16 +259,37 @@ static void channel_hints_update(struct payment *p,
 		struct channel_hint *hint = &root->channel_hints[i];
 		if (short_channel_id_eq(&hint->scid.scid, &scid) &&
 		    hint->scid.dir == direction) {
+			bool modified = false;
 			/* Prefer to disable a channel. */
-			hint->enabled = hint->enabled & enabled;
+			if (!enabled && hint->enabled) {
+				hint->enabled = false;
+				modified = true;
+			}
 
 			/* Prefer the more conservative estimate. */
 			if (estimated_capacity != NULL &&
 			    amount_msat_greater(hint->estimated_capacity,
-						*estimated_capacity))
+						*estimated_capacity)) {
 				hint->estimated_capacity = *estimated_capacity;
-			if (htlc_budget != NULL && *htlc_budget < hint->htlc_budget)
+				modified = true;
+			}
+			if (htlc_budget != NULL && *htlc_budget < hint->htlc_budget) {
 				hint->htlc_budget = *htlc_budget;
+				modified = true;
+			}
+
+			if (modified)
+				paymod_log(p, LOG_DBG,
+					   "Updated a channel hint for %s: "
+					   "enabled %s, "
+					   "estimated capacity %s",
+					   type_to_string(tmpctx,
+						struct short_channel_id_dir,
+						&hint->scid),
+					   hint->enabled ? "true" : "false",
+					   type_to_string(tmpctx,
+						struct amount_msat,
+						&hint->estimated_capacity));
 			return;
 		}
 	}
@@ -1246,6 +1267,8 @@ static void payment_compute_onion_payloads(struct payment *p)
 	struct createonion_request *cr;
 	size_t hopcount;
 	struct payment *root = payment_root(p);
+	char *routetxt = tal_strdup(tmpctx, "");
+
 	p->step = PAYMENT_STEP_ONION_PAYLOAD;
 	hopcount = tal_count(p->route);
 
@@ -1262,12 +1285,21 @@ static void payment_compute_onion_payloads(struct payment *p)
 		 * i+1 */
 		payment_add_hop_onion_payload(p, &cr->hops[i], &p->route[i],
 					      &p->route[i + 1], false, NULL);
+		tal_append_fmt(&routetxt, "%s -> ",
+			       type_to_string(tmpctx, struct short_channel_id,
+					      &p->route[i].channel_id));
 	}
 
 	/* Final hop */
 	payment_add_hop_onion_payload(
 	    p, &cr->hops[hopcount - 1], &p->route[hopcount - 1],
 	    &p->route[hopcount - 1], true, root->payment_secret);
+	tal_append_fmt(&routetxt, "%s",
+		       type_to_string(tmpctx, struct short_channel_id,
+				      &p->route[hopcount - 1].channel_id));
+
+	paymod_log(p, LOG_DBG,
+		   "Created outgoing onion for route: %s", routetxt);
 
 	/* Now allow all the modifiers to mess with the payloads, before we
 	 * serialize via a call to createonion in the next step. */
