@@ -17,7 +17,7 @@ lightning daemon can use to pay this invoice. This token includes a
 invoice, if any exists.
 
 The *msatoshi* parameter can be the string "any", which creates an
-invoice that can be paid with any amount. Otherwise it is in
+invoice that can be paid with any amount. Otherwise it is a positive value in
 millisatoshi precision; it can be a whole number, or a whole number
 ending in *msat* or *sat*, or a number with three decimal places ending
 in *sat*, or a number with 1 to 11 decimal places ending in *btc*.
