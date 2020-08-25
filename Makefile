@@ -276,7 +276,8 @@ gen_list_of_builtin_plugins.h : plugins/Makefile Makefile
 	@echo '};' >> $@
 
 # Git doesn't maintain timestamps, so we only regen if git says we should.
-CHANGED_FROM_GIT = [ x"`git log $@ | head -n1`" != x"`git log $< | head -n1`" -o x"`git diff $<`" != x"" ]
+# If neither is in git, we generate (note: one combines stderr, one discards)
+CHANGED_FROM_GIT = [ x"`git log $@ 2>&1 | head -n1`" != x"`git log $< 2>/dev/null | head -n1`" -o x"`git diff $<`" != x"" ]
 
 ifneq ($(TEST_GROUP_COUNT),)
 PYTEST_OPTS += --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT)
