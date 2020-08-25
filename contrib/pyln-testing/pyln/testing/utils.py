@@ -759,18 +759,9 @@ class LightningNode(object):
                                 get_tx_p2wsh_outnum(self.bitcoin, tx, amount))
 
         if wait_for_active:
-            # We wait until gossipd sees both local updates, as well as status NORMAL,
-            # so it can definitely route through.
-            self.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
-                                       .format(scid),
-                                       r'update for channel {}/1 now ACTIVE'
-                                       .format(scid),
-                                       'to CHANNELD_NORMAL'])
-            l2.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
-                                     .format(scid),
-                                     r'update for channel {}/1 now ACTIVE'
-                                     .format(scid),
-                                     'to CHANNELD_NORMAL'])
+            self.wait_channel_active(scid)
+            l2.wait_channel_active(scid)
+
         return scid
 
     def subd_pid(self, subd, peerid=None):
