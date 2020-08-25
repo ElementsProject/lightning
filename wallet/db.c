@@ -1430,7 +1430,7 @@ void db_bind_short_channel_id_arr(struct db_stmt *stmt, int col,
 	for (size_t i = 0; i < num; ++i)
 		towire_short_channel_id(&ser, &id[i]);
 
-	db_bind_blob(stmt, col, ser, tal_count(ser));
+	db_bind_talarr(stmt, col, ser);
 }
 
 void db_bind_signature(struct db_stmt *stmt, int col,
@@ -1453,7 +1453,7 @@ void db_bind_tx(struct db_stmt *stmt, int col, const struct wally_tx *tx)
 {
 	u8 *ser = linearize_wtx(stmt, tx);
 	assert(ser);
-	db_bind_blob(stmt, col, ser, tal_count(ser));
+	db_bind_talarr(stmt, col, ser);
 }
 
 void db_bind_psbt(struct db_stmt *stmt, int col, const struct wally_psbt *psbt)
@@ -1484,7 +1484,15 @@ void db_bind_json_escape(struct db_stmt *stmt, int pos,
 
 void db_bind_onionreply(struct db_stmt *stmt, int pos, const struct onionreply *r)
 {
-	db_bind_blob(stmt, pos, r->contents, tal_bytelen(r->contents));
+	db_bind_talarr(stmt, pos, r->contents);
+}
+
+void db_bind_talarr(struct db_stmt *stmt, int col, const u8 *arr)
+{
+	if (!arr)
+		db_bind_null(stmt, col);
+	else
+		db_bind_blob(stmt, col, arr, tal_bytelen(arr));
 }
 
 void db_column_preimage(struct db_stmt *stmt, int col,
@@ -1684,6 +1692,15 @@ struct onionreply *db_column_onionreply(const tal_t *ctx,
 				  db_column_blob(stmt, col),
 				  db_column_bytes(stmt, col), 0);
 	return r;
+}
+
+u8 *db_column_talarr(const tal_t *ctx, struct db_stmt *stmt, int col)
+{
+	if (db_column_is_null(stmt, col))
+		return NULL;
+	return tal_dup_arr(ctx, u8,
+			   db_column_blob(stmt, col),
+			   db_column_bytes(stmt, col), 0);
 }
 
 bool db_exec_prepared_v2(struct db_stmt *stmt TAKES)

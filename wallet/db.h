@@ -128,6 +128,7 @@ void db_bind_json_escape(struct db_stmt *stmt, int pos,
 			 const struct json_escape *esc);
 void db_bind_onionreply(struct db_stmt *stmt, int col,
 			const struct onionreply *r);
+void db_bind_talarr(struct db_stmt *stmt, int col, const u8 *arr);
 
 bool db_step(struct db_stmt *stmt);
 u64 db_column_u64(struct db_stmt *stmt, int col);
@@ -162,6 +163,7 @@ struct bitcoin_tx *db_column_psbt_to_tx(const tal_t *ctx, struct db_stmt *stmt, 
 
 struct onionreply *db_column_onionreply(const tal_t *ctx,
 					struct db_stmt *stmt, int col);
+u8 *db_column_talarr(const tal_t *ctx, struct db_stmt *stmt, int col);
 
 #define db_column_arr(ctx, stmt, col, type)			\
 	((type *)db_column_arr_((ctx), (stmt), (col),		\

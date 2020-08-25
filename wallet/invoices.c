@@ -300,7 +300,7 @@ bool invoices_create(struct invoices *invoices,
 	db_bind_u64(stmt, 5, expiry_time);
 	db_bind_text(stmt, 6, b11enc);
 	db_bind_text(stmt, 7, description);
-	db_bind_blob(stmt, 8, features, tal_bytelen(features));
+	db_bind_talarr(stmt, 8, features);
 
 	db_exec_prepared_v2(stmt);
 
