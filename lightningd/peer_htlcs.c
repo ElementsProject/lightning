@@ -20,7 +20,6 @@
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <gossipd/gen_gossip_wire.h>
-#include <hsmd/gen_hsm_wire.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/htlc_end.h>

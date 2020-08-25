@@ -3,7 +3,6 @@
 #include <common/key_derive.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/coin_mvts.h>

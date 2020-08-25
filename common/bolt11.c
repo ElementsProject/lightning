@@ -12,7 +12,6 @@
 #include <common/features.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>

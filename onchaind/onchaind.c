@@ -20,7 +20,7 @@
 #include <common/version.h>
 #include <common/wallet.h>
 #include <errno.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/channel_state.h>
 #include <onchaind/gen_onchain_wire.h>
@@ -582,7 +582,7 @@ static u8 *delayed_payment_to_us(const tal_t *ctx,
 				 struct bitcoin_tx *tx,
 				 const u8 *wscript)
 {
-	return towire_hsm_sign_delayed_payment_to_us(ctx, commit_num,
+	return towire_hsmd_sign_delayed_payment_to_us(ctx, commit_num,
 						     tx, wscript);
 }
 
@@ -590,7 +590,7 @@ static u8 *remote_htlc_to_us(const tal_t *ctx,
 			     struct bitcoin_tx *tx,
 			     const u8 *wscript)
 {
-	return towire_hsm_sign_remote_htlc_to_us(ctx,
+	return towire_hsmd_sign_remote_htlc_to_us(ctx,
 						 remote_per_commitment_point,
 						 tx, wscript,
 						 option_anchor_outputs);
@@ -600,7 +600,7 @@ static u8 *penalty_to_us(const tal_t *ctx,
 			 struct bitcoin_tx *tx,
 			 const u8 *wscript)
 {
-	return towire_hsm_sign_penalty_to_us(ctx, remote_per_commitment_secret,
+	return towire_hsmd_sign_penalty_to_us(ctx, remote_per_commitment_secret,
 					     tx, wscript);
 }
 
@@ -680,7 +680,7 @@ static struct bitcoin_tx *tx_to_us(const tal_t *ctx,
 	if (!wire_sync_write(HSM_FD, take(hsm_sign_msg(NULL, tx, wscript))))
 		status_failed(STATUS_FAIL_HSM_IO, "Writing sign request to hsm");
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_sign_tx_reply(msg, &sig)) {
+	if (!msg || !fromwire_hsmd_sign_tx_reply(msg, &sig)) {
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading sign_tx_reply: %s",
 			      tal_hex(tmpctx, msg));
@@ -696,7 +696,7 @@ static void hsm_sign_local_htlc_tx(struct bitcoin_tx *tx,
 				   const u8 *wscript,
 				   struct bitcoin_signature *sig)
 {
-	u8 *msg = towire_hsm_sign_local_htlc_tx(NULL, commit_num,
+	u8 *msg = towire_hsmd_sign_local_htlc_tx(NULL, commit_num,
 						tx, wscript,
 						option_anchor_outputs);
 
@@ -704,7 +704,7 @@ static void hsm_sign_local_htlc_tx(struct bitcoin_tx *tx,
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Writing sign_local_htlc_tx to hsm");
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_sign_tx_reply(msg, sig))
+	if (!msg || !fromwire_hsmd_sign_tx_reply(msg, sig))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading sign_local_htlc_tx: %s",
 			      tal_hex(tmpctx, msg));
@@ -712,14 +712,14 @@ static void hsm_sign_local_htlc_tx(struct bitcoin_tx *tx,
 
 static void hsm_get_per_commitment_point(struct pubkey *per_commitment_point)
 {
-	u8 *msg = towire_hsm_get_per_commitment_point(NULL, commit_num);
+	u8 *msg = towire_hsmd_get_per_commitment_point(NULL, commit_num);
 	struct secret *unused;
 
 	if (!wire_sync_write(HSM_FD, take(msg)))
 		status_failed(STATUS_FAIL_HSM_IO, "Writing sign_htlc_tx to hsm");
 	msg = wire_sync_read(tmpctx, HSM_FD);
 	if (!msg
-	    || !fromwire_hsm_get_per_commitment_point_reply(tmpctx, msg,
+	    || !fromwire_hsmd_get_per_commitment_point_reply(tmpctx, msg,
 							    per_commitment_point,
 							    &unused))
 		status_failed(STATUS_FAIL_HSM_IO,

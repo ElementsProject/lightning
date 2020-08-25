@@ -21,7 +21,7 @@
 #include <common/utils.h>
 #include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
@@ -399,13 +399,13 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 			 secp256k1_ecdsa_recoverable_signature *rsig,
 			 struct lightningd *ld)
 {
-	u8 *msg = towire_hsm_sign_invoice(NULL, u5bytes, hrpu8);
+	u8 *msg = towire_hsmd_sign_invoice(NULL, u5bytes, hrpu8);
 
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = wire_sync_read(tmpctx, ld->hsm_fd);
-        if (!fromwire_hsm_sign_invoice_reply(msg, rsig))
+        if (!fromwire_hsmd_sign_invoice_reply(msg, rsig))
 		fatal("HSM gave bad sign_invoice_reply %s",
 		      tal_hex(msg, msg));
 

@@ -37,12 +37,12 @@ bool fromwire_gossip_dev_set_max_scids_encode_size(const void *p UNNEEDED, u32 *
 /* Generated stub for fromwire_gossipd_local_channel_update */
 bool fromwire_gossipd_local_channel_update(const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, bool *disable UNNEEDED, u16 *cltv_expiry_delta UNNEEDED, struct amount_msat *htlc_minimum_msat UNNEEDED, u32 *fee_base_msat UNNEEDED, u32 *fee_proportional_millionths UNNEEDED, struct amount_msat *htlc_maximum_msat UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_local_channel_update called!\n"); abort(); }
-/* Generated stub for fromwire_hsm_cupdate_sig_reply */
-bool fromwire_hsm_cupdate_sig_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **cu UNNEEDED)
-{ fprintf(stderr, "fromwire_hsm_cupdate_sig_reply called!\n"); abort(); }
-/* Generated stub for fromwire_hsm_node_announcement_sig_reply */
-bool fromwire_hsm_node_announcement_sig_reply(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED)
-{ fprintf(stderr, "fromwire_hsm_node_announcement_sig_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_cupdate_sig_reply */
+bool fromwire_hsmd_cupdate_sig_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **cu UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_cupdate_sig_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_node_announcement_sig_reply */
+bool fromwire_hsmd_node_announcement_sig_reply(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_node_announcement_sig_reply called!\n"); abort(); }
 /* Generated stub for get_node */
 struct node *get_node(struct routing_state *rstate UNNEEDED,
 		      const struct node_id *id UNNEEDED)
@@ -123,12 +123,12 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
-/* Generated stub for towire_hsm_cupdate_sig_req */
-u8 *towire_hsm_cupdate_sig_req(const tal_t *ctx UNNEEDED, const u8 *cu UNNEEDED)
-{ fprintf(stderr, "towire_hsm_cupdate_sig_req called!\n"); abort(); }
-/* Generated stub for towire_hsm_node_announcement_sig_req */
-u8 *towire_hsm_node_announcement_sig_req(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED)
-{ fprintf(stderr, "towire_hsm_node_announcement_sig_req called!\n"); abort(); }
+/* Generated stub for towire_hsmd_cupdate_sig_req */
+u8 *towire_hsmd_cupdate_sig_req(const tal_t *ctx UNNEEDED, const u8 *cu UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_cupdate_sig_req called!\n"); abort(); }
+/* Generated stub for towire_hsmd_node_announcement_sig_req */
+u8 *towire_hsmd_node_announcement_sig_req(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_node_announcement_sig_req called!\n"); abort(); }
 /* Generated stub for towire_wireaddr */
 void towire_wireaddr(u8 **pptr UNNEEDED, const struct wireaddr *addr UNNEEDED)
 { fprintf(stderr, "towire_wireaddr called!\n"); abort(); }

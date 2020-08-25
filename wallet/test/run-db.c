@@ -21,9 +21,9 @@ static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const s
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
-/* Generated stub for fromwire_hsm_get_output_scriptpubkey_reply */
-bool fromwire_hsm_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **script UNNEEDED)
-{ fprintf(stderr, "fromwire_hsm_get_output_scriptpubkey_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_get_output_scriptpubkey_reply */
+bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **script UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_get_output_scriptpubkey_reply called!\n"); abort(); }
 /* Generated stub for get_channel_basepoints */
 void get_channel_basepoints(struct lightningd *ld UNNEEDED,
 			    const struct node_id *peer_id UNNEEDED,
@@ -36,9 +36,9 @@ struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
 		    const struct node_id *default_node_id UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "new_log called!\n"); abort(); }
-/* Generated stub for towire_hsm_get_output_scriptpubkey */
-u8 *towire_hsm_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
-{ fprintf(stderr, "towire_hsm_get_output_scriptpubkey called!\n"); abort(); }
+/* Generated stub for towire_hsmd_get_output_scriptpubkey */
+u8 *towire_hsmd_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_get_output_scriptpubkey called!\n"); abort(); }
 /* Generated stub for wire_sync_read */
 u8 *wire_sync_read(const tal_t *ctx UNNEEDED, int fd UNNEEDED)
 { fprintf(stderr, "wire_sync_read called!\n"); abort(); }

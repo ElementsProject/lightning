@@ -20,7 +20,7 @@
 #include <common/wire_error.h>
 #include <errno.h>
 #include <gossipd/gen_gossip_peerd_wire.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -120,7 +120,7 @@ static struct pubkey get_per_commitment_point(u64 commitment_number)
 	/* Our current per-commitment point is the commitment point in the last
 	 * received signed commitment; HSM gives us that and the previous
 	 * secret (which we don't need). */
-	msg = towire_hsm_get_per_commitment_point(NULL,
+	msg = towire_hsmd_get_per_commitment_point(NULL,
 	                                          commitment_number);
 	if (!wire_sync_write(HSM_FD, take(msg)))
 		status_failed(STATUS_FAIL_HSM_IO,
@@ -132,7 +132,7 @@ static struct pubkey get_per_commitment_point(u64 commitment_number)
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading resp get_per_commitment_point reply: %s",
 			      strerror(errno));
-	if (!fromwire_hsm_get_per_commitment_point_reply(tmpctx, msg,
+	if (!fromwire_hsmd_get_per_commitment_point_reply(tmpctx, msg,
 	                                                 &commitment_point,
 	                                                 &s))
 		status_failed(STATUS_FAIL_HSM_IO,
@@ -279,11 +279,11 @@ static void send_offer(struct per_peer_state *pps,
 	 */
 	/* (We don't do this). */
 	wire_sync_write(HSM_FD,
-			take(towire_hsm_sign_mutual_close_tx(NULL,
+			take(towire_hsmd_sign_mutual_close_tx(NULL,
 							     tx,
 							     &funding_pubkey[REMOTE])));
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsm_sign_tx_reply(msg, &our_sig))
+	if (!fromwire_hsmd_sign_tx_reply(msg, &our_sig))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Bad hsm_sign_mutual_close_tx reply %s",
 			      tal_hex(tmpctx, msg));

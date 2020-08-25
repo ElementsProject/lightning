@@ -9,7 +9,7 @@
 #include <common/keyset.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <wire/wire_sync.h>
 
 static const u8 ONE = 0x1;
@@ -102,7 +102,7 @@ penalty_tx_create(const tal_t *ctx,
 	bitcoin_tx_finalize(tx);
 
 	u8 *hsm_sign_msg =
-	    towire_hsm_sign_penalty_to_us(ctx, &remote_per_commitment_secret,
+	    towire_hsmd_sign_penalty_to_us(ctx, &remote_per_commitment_secret,
 					  tx, wscript);
 
 	if (!wire_sync_write(hsm_fd, take(hsm_sign_msg)))
@@ -110,7 +110,7 @@ penalty_tx_create(const tal_t *ctx,
 			      "Writing sign request to hsm");
 
 	msg = wire_sync_read(tmpctx, hsm_fd);
-	if (!msg || !fromwire_hsm_sign_tx_reply(msg, &sig))
+	if (!msg || !fromwire_hsmd_sign_tx_reply(msg, &sig))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Reading sign_tx_reply: %s", tal_hex(tmpctx, msg));
 

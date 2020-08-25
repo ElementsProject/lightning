@@ -13,7 +13,7 @@
 #include <gossipd/gossip_generation.h>
 #include <gossipd/gossip_store.h>
 #include <gossipd/gossipd.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_sync.h>
 
@@ -194,11 +194,11 @@ static void update_own_node_announcement(struct daemon *daemon)
 	}
 
 	/* Ask hsmd to sign it (synchronous) */
-	if (!wire_sync_write(HSM_FD, take(towire_hsm_node_announcement_sig_req(NULL, nannounce))))
+	if (!wire_sync_write(HSM_FD, take(towire_hsmd_node_announcement_sig_req(NULL, nannounce))))
 		status_failed(STATUS_FAIL_MASTER_IO, "Could not write to HSM: %s", strerror(errno));
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsm_node_announcement_sig_reply(msg, &sig))
+	if (!fromwire_hsmd_node_announcement_sig_reply(msg, &sig))
 		status_failed(STATUS_FAIL_MASTER_IO, "HSM returned an invalid node_announcement sig");
 
 	/* We got the signature for our provisional node_announcement back
@@ -355,13 +355,13 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 	 * callback hell)!, but may need to change to async if we ever want
 	 * remote HSMs */
 	if (!wire_sync_write(HSM_FD,
-			     towire_hsm_cupdate_sig_req(tmpctx, update))) {
+			     towire_hsmd_cupdate_sig_req(tmpctx, update))) {
 		status_failed(STATUS_FAIL_HSM_IO, "Writing cupdate_sig_req: %s",
 			      strerror(errno));
 	}
 
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg || !fromwire_hsm_cupdate_sig_reply(tmpctx, msg, &update)) {
+	if (!msg || !fromwire_hsmd_cupdate_sig_reply(tmpctx, msg, &update)) {
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading cupdate_sig_req: %s",
 			      strerror(errno));

@@ -9,7 +9,7 @@
 #include <common/wire_error.h>
 #include <connectd/gen_connect_wire.h>
 #include <errno.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
 #include <lightningd/connect_control.h>
@@ -130,12 +130,12 @@ void get_channel_basepoints(struct lightningd *ld,
 	u8 *msg;
 
 	assert(dbid != 0);
-	msg = towire_hsm_get_channel_basepoints(NULL, peer_id, dbid);
+	msg = towire_hsmd_get_channel_basepoints(NULL, peer_id, dbid);
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = wire_sync_read(tmpctx, ld->hsm_fd);
-	if (!fromwire_hsm_get_channel_basepoints_reply(msg, local_basepoints,
+	if (!fromwire_hsmd_get_channel_basepoints_reply(msg, local_basepoints,
 						       local_funding_pubkey))
 		fatal("HSM gave bad hsm_get_channel_basepoints_reply %s",
 		      tal_hex(msg, msg));
