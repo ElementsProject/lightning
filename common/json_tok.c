@@ -25,9 +25,7 @@ struct command_result *param_array(struct command *cmd, const char *name,
 		return NULL;
 	}
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be an array, not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
+	return command_fail_badparam(cmd, name, buffer, tok, "should be an array");
 }
 
 struct command_result *param_bool(struct command *cmd, const char *name,
@@ -37,9 +35,8 @@ struct command_result *param_bool(struct command *cmd, const char *name,
 	*b = tal(cmd, bool);
 	if (json_to_bool(buffer, tok, *b))
 		return NULL;
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be 'true' or 'false', not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be 'true' or 'false'");
 }
 
 struct command_result *param_millionths(struct command *cmd, const char *name,
@@ -50,10 +47,8 @@ struct command_result *param_millionths(struct command *cmd, const char *name,
 	if (json_to_millionths(buffer, tok, *num))
 		return NULL;
 
-	return command_fail(
-	    cmd, JSONRPC2_INVALID_PARAMS,
-	    "'%s' should be a non-negative floating-point number, not '%.*s'",
-	    name, tok->end - tok->start, buffer + tok->start);
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a non-negative floating-point number");
 }
 
 struct command_result *param_escaped_string(struct command *cmd,
@@ -71,11 +66,8 @@ struct command_result *param_escaped_string(struct command *cmd,
 		if (*str)
 			return NULL;
 	}
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a string, not '%.*s'"
-			    " (note, we don't allow \\u)",
-			    name,
-			    tok->end - tok->start, buffer + tok->start);
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a string (without \\u)");
 }
 
 struct command_result *param_string(struct command *cmd, const char *name,
@@ -103,9 +95,8 @@ struct command_result *param_label(struct command *cmd, const char *name,
 	if (*label && (tok->type == JSMN_STRING || json_tok_is_num(buffer, tok)))
 		return NULL;
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a string or number, not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a string or number");
 }
 
 struct command_result *param_number(struct command *cmd, const char *name,
@@ -116,9 +107,8 @@ struct command_result *param_number(struct command *cmd, const char *name,
 	if (json_to_number(buffer, tok, *num))
 		return NULL;
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be an integer, not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be an integer");
 }
 
 struct command_result *param_sha256(struct command *cmd, const char *name,
@@ -131,9 +121,8 @@ struct command_result *param_sha256(struct command *cmd, const char *name,
 		       *hash, sizeof(**hash)))
 		return NULL;
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a 32 byte hex value, not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a 32 byte hex value");
 }
 
 struct command_result *param_u64(struct command *cmd, const char *name,
@@ -144,9 +133,8 @@ struct command_result *param_u64(struct command *cmd, const char *name,
 	if (json_to_u64(buffer, tok, *num))
 		return NULL;
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be an unsigned 64 bit integer, not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be an unsigned 64 bit integer");
 }
 
 struct command_result *param_tok(struct command *cmd, const char *name,
@@ -165,9 +153,8 @@ struct command_result *param_msat(struct command *cmd, const char *name,
 	if (parse_amount_msat(*msat, buffer + tok->start, tok->end - tok->start))
 		return NULL;
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a millisatoshi amount, not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a millisatoshi amount");
 }
 
 struct command_result *param_sat(struct command *cmd, const char *name,
@@ -178,10 +165,8 @@ struct command_result *param_sat(struct command *cmd, const char *name,
 	if (parse_amount_sat(*sat, buffer + tok->start, tok->end - tok->start))
 		return NULL;
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "%s should be a satoshi amount, not '%.*s'",
-			    name ? name : "amount field",
-			    tok->end - tok->start, buffer + tok->start);
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a satoshi amount");
 }
 
 struct command_result *param_sat_or_all(struct command *cmd, const char *name,
@@ -204,10 +189,8 @@ struct command_result *param_node_id(struct command *cmd, const char *name,
 	if (json_to_node_id(buffer, tok, *id))
 		return NULL;
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a node id, not '%.*s'",
-			    name, json_tok_full_len(tok),
-			    json_tok_full(buffer, tok));
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a node id");
 }
 
 struct command_result *param_channel_id(struct command *cmd, const char *name,
@@ -218,10 +201,8 @@ struct command_result *param_channel_id(struct command *cmd, const char *name,
 	if (json_to_channel_id(buffer, tok, *cid))
 		return NULL;
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a channel id, not '%.*s'",
-			    name, json_tok_full_len(tok),
-			    json_tok_full(buffer, tok));
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a channel id");
 }
 
 struct command_result *param_secret(struct command *cmd, const char *name,
@@ -234,9 +215,8 @@ struct command_result *param_secret(struct command *cmd, const char *name,
 		       *secret, sizeof(**secret)))
 		return NULL;
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a 32 byte hex value, not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a 32 byte hex value");
 }
 
 struct command_result *param_bin_from_hex(struct command *cmd, const char *name,
@@ -246,10 +226,9 @@ struct command_result *param_bin_from_hex(struct command *cmd, const char *name,
 	*bin = json_tok_bin_from_hex(cmd, buffer, tok);
 	if (bin != NULL)
 		return NULL;
-	else
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "'%s' should be a hex value, not '%.*s'",
-				    name, tok->end - tok->start, buffer + tok->start);
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a hex value");
 }
 
 struct command_result *param_hops_array(struct command *cmd, const char *name,
@@ -260,10 +239,8 @@ struct command_result *param_hops_array(struct command *cmd, const char *name,
 	struct sphinx_hop h;
 	size_t i;
 	if (tok->type != JSMN_ARRAY) {
-		return command_fail(
-		    cmd, JSONRPC2_INVALID_PARAMS,
-		    "'%s' should be an array of hops, got '%.*s'", name,
-		    tok->end - tok->start, buffer + tok->start);
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be an array of hops");
 	}
 
 	*hops = tal_arr(cmd, struct sphinx_hop, 0);
@@ -282,18 +259,13 @@ struct command_result *param_hops_array(struct command *cmd, const char *name,
 
 		h.raw_payload = json_tok_bin_from_hex(*hops, buffer, payloadtok);
 		if (!json_to_pubkey(buffer, pubkeytok, &h.pubkey))
-			return command_fail(
-			    cmd, JSONRPC2_INVALID_PARAMS,
-			    "'pubkey' should be a pubkey, not '%.*s'",
-			    pubkeytok->end - pubkeytok->start,
-			    buffer + pubkeytok->start);
+			return command_fail_badparam(cmd, name, buffer, pubkeytok,
+						     "should be a pubkey");
 
 		if (!h.raw_payload)
-			return command_fail(
-			    cmd, JSONRPC2_INVALID_PARAMS,
-			    "'payload' should be a hex encoded binary, not '%.*s'",
-			    pubkeytok->end - pubkeytok->start,
-			    buffer + pubkeytok->start);
+			return command_fail_badparam(cmd, name, buffer,
+						     payloadtok,
+						     "should be hex");
 
 		tal_arr_expand(hops, h);
 	}
@@ -316,10 +288,8 @@ struct command_result *param_secrets_array(struct command *cmd,
 	struct secret secret;
 
 	if (tok->type != JSMN_ARRAY) {
-		return command_fail(
-		    cmd, JSONRPC2_INVALID_PARAMS,
-		    "'%s' should be an array of secrets, got '%.*s'", name,
-		    tok->end - tok->start, buffer + tok->start);
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be an array of secrets");
 	}
 
 	*secrets = tal_arr(cmd, struct secret, 0);
@@ -500,10 +470,8 @@ struct command_result *param_txid(struct command *cmd,
 	*txid = tal(cmd, struct bitcoin_txid);
 	if (json_to_txid(buffer, tok, *txid))
 		return NULL;
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be txid, not '%.*s'",
-			    name, json_tok_full_len(tok),
-			    json_tok_full(buffer, tok));
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a txid");
 }
 
 struct command_result *param_bitcoin_address(struct command *cmd,

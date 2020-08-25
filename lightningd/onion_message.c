@@ -240,8 +240,8 @@ static struct command_result *param_reply_path(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "%s has no 'blinding'", name);
 	if (!json_to_pubkey(buffer, tblinding, &(*reply_path)->blinding))
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "%s 'blinding' invalid pubkey", name);
+		return command_fail_badparam(cmd, name, buffer, tblinding,
+					     "'blinding' should be valid pubkey");
 
 	tpath = json_get_member(buffer, tok, "path");
 	if (!tpath || tpath->type != JSMN_ARRAY)

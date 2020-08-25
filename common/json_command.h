@@ -5,6 +5,8 @@
 #include "config.h"
 #include <ccan/compiler/compiler.h>
 #include <common/errcode.h>
+#include <common/json.h>
+#include <common/jsonrpc_errors.h>
 #include <stdbool.h>
 
 struct command;
@@ -14,6 +16,21 @@ struct command_result;
 struct command_result *command_fail(struct command *cmd, errcode_t code,
 				    const char *fmt, ...)
 	PRINTF_FMT(3, 4) WARN_UNUSED_RESULT;
+
+/* Convenient wrapper for "paramname: msg: invalid token '.*%s'" */
+static inline struct command_result *
+command_fail_badparam(struct command *cmd,
+		      const char *paramname,
+		      const char *buffer,
+		      const jsmntok_t *tok,
+		      const char *msg)
+{
+	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			    "%s: %s: invalid token '%.*s'",
+			    paramname, msg,
+			    json_tok_full_len(tok),
+			    json_tok_full(buffer, tok));
+}
 
 /* Also caller supplied: is this invoked simply to get usage? */
 bool command_usage_only(const struct command *cmd);

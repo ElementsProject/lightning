@@ -31,10 +31,8 @@ struct command_result *param_pubkey(struct command *cmd, const char *name,
 	if (json_to_pubkey(buffer, tok, *pubkey))
 		return NULL;
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a pubkey, not '%.*s'",
-			    name, json_tok_full_len(tok),
-			    json_tok_full(buffer, tok));
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a compressed pubkey");
 }
 
 struct command_result *param_short_channel_id(struct command *cmd,
@@ -47,10 +45,8 @@ struct command_result *param_short_channel_id(struct command *cmd,
 	if (json_to_short_channel_id(buffer, tok, *scid))
 		return NULL;
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a short channel id, not '%.*s'",
-			    name, json_tok_full_len(tok),
-			    json_tok_full(buffer, tok));
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a short_channel_id of form NxNxN");
 }
 
 struct command_result *param_feerate_style(struct command *cmd,

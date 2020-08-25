@@ -1284,11 +1284,8 @@ command_find_channel(struct command *cmd,
 				    tok->end - tok->start,
 				    buffer + tok->start);
 	} else {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Given id is not a channel ID or "
-				    "short channel ID: '%.*s'",
-				    json_tok_full_len(tok),
-				    json_tok_full(buffer, tok));
+		return command_fail_badparam(cmd, "id", buffer, tok,
+					     "should be a channel ID or short channel ID");
 	}
 }
 
@@ -1457,6 +1454,7 @@ static struct command_result *json_close(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+/* Magic marker: remove at your own peril! */
 static const struct json_command close_command = {
 	"close",
 	"channels",
@@ -1847,11 +1845,8 @@ static struct command_result *param_msat_u32(struct command *cmd,
 
 	*num = tal(cmd, u32);
 	if (!amount_msat_to_u32(*msat, *num)) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "'%s' value '%s' exceeds u32 max",
-				    name,
-				    type_to_string(tmpctx, struct amount_msat,
-						   msat));
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "exceeds u32 max");
 	}
 
 	return NULL;
