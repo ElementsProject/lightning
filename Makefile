@@ -32,7 +32,7 @@ SORT=LC_ALL=C sort
 
 
 ifeq ($V,1)
-VERBOSE = $(ECHO) $(2); $(2)
+VERBOSE = $(ECHO) '$(2)'; $(2)
 else
 VERBOSE = $(ECHO) $(1); $(2)
 endif
