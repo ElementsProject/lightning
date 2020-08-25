@@ -44,7 +44,7 @@
 #include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
-#include <openingd/gen_opening_wire.h>
+#include <openingd/openingd_wiregen.h>
 #include <poll.h>
 #include <secp256k1.h>
 #include <stdio.h>
@@ -161,7 +161,7 @@ static void negotiation_aborted(struct state *state, bool am_opener,
 
 	/* If necessary, tell master that funding failed. */
 	if (am_opener) {
-		u8 *msg = towire_opening_funder_failed(NULL, why);
+		u8 *msg = towire_openingd_funder_failed(NULL, why);
 		wire_sync_write(REQ_FD, take(msg));
 	}
 
@@ -463,7 +463,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 			/* Close connection on all_channels error. */
 			if (all_channels) {
 				if (am_opener) {
-					msg = towire_opening_funder_failed(NULL,
+					msg = towire_openingd_funder_failed(NULL,
 									   err);
 					wire_sync_write(REQ_FD, take(msg));
 				}
@@ -661,7 +661,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 		       "Funding channel start: awaiting funding_txid with output to %s",
 		       tal_hex(tmpctx, funding_output_script));
 
-	return towire_opening_funder_start_reply(state,
+	return towire_openingd_funder_start_reply(state,
 						 funding_output_script,
 						 feature_negotiated(
 							 state->our_features,
@@ -900,7 +900,7 @@ static u8 *funder_channel_complete(struct state *state)
 					   &pbase))
 		return NULL;
 
-	return towire_opening_funder_reply(state,
+	return towire_openingd_funder_reply(state,
 					   &state->remoteconf,
 					   tx,
 					   pbase,
@@ -1084,7 +1084,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 
 	/* Check with lightningd that we can accept this?  In particular,
 	 * if we have an existing channel, we don't support it. */
-	msg = towire_opening_got_offer(NULL,
+	msg = towire_openingd_got_offer(NULL,
 				       state->funding,
 				       state->push_msat,
 				       state->remoteconf.dust_limit,
@@ -1101,9 +1101,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 
 	/* We don't allocate off tmpctx, because that's freed inside
 	 * opening_negotiate_msg */
-	if (!fromwire_opening_got_offer_reply(state, msg, &err_reason,
+	if (!fromwire_openingd_got_offer_reply(state, msg, &err_reason,
 					      &state->upfront_shutdown_script[LOCAL]))
-		master_badmsg(WIRE_OPENING_GOT_OFFER_REPLY, msg);
+		master_badmsg(WIRE_OPENINGD_GOT_OFFER_REPLY, msg);
 
 	/* If they give us a reason to reject, do so. */
 	if (err_reason) {
@@ -1294,7 +1294,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	else
 		pbase = NULL;
 
-	return towire_opening_fundee(state,
+	return towire_openingd_fundee(state,
 				     &state->remoteconf,
 				     local_commit,
 				     pbase,
@@ -1412,7 +1412,7 @@ static void handle_dev_memleak(struct state *state, const u8 *msg)
 	/* If there's anything left, dump it to logs, and return true. */
 	found_leak = dump_memleak(memtable);
 	wire_sync_write(REQ_FD,
-			take(towire_opening_dev_memleak_reply(NULL,
+			take(towire_openingd_dev_memleak_reply(NULL,
 							      found_leak)));
 }
 
@@ -1430,55 +1430,55 @@ static void openingd_send_custommsg(struct state *state, const u8 *msg)
 static u8 *handle_master_in(struct state *state)
 {
 	u8 *msg = wire_sync_read(tmpctx, REQ_FD);
-	enum opening_wire_type t = fromwire_peektype(msg);
+	enum openingd_wire t = fromwire_peektype(msg);
 	u8 channel_flags;
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
 
 	switch (t) {
-	case WIRE_OPENING_FUNDER_START:
-		if (!fromwire_opening_funder_start(state, msg, &state->funding,
+	case WIRE_OPENINGD_FUNDER_START:
+		if (!fromwire_openingd_funder_start(state, msg, &state->funding,
 						   &state->push_msat,
 						   &state->upfront_shutdown_script[LOCAL],
 						   &state->feerate_per_kw,
 						   &channel_flags))
-			master_badmsg(WIRE_OPENING_FUNDER_START, msg);
+			master_badmsg(WIRE_OPENINGD_FUNDER_START, msg);
 		msg = funder_channel_start(state, channel_flags);
 
 		/* We want to keep openingd alive, since we're not done yet */
 		if (msg)
 			wire_sync_write(REQ_FD, take(msg));
 		return NULL;
-	case WIRE_OPENING_FUNDER_COMPLETE:
-		if (!fromwire_opening_funder_complete(msg,
+	case WIRE_OPENINGD_FUNDER_COMPLETE:
+		if (!fromwire_openingd_funder_complete(msg,
 						      &funding_txid,
 						      &funding_txout))
-			master_badmsg(WIRE_OPENING_FUNDER_COMPLETE, msg);
+			master_badmsg(WIRE_OPENINGD_FUNDER_COMPLETE, msg);
 		state->funding_txid = funding_txid;
 		state->funding_txout = funding_txout;
 		return funder_channel_complete(state);
-	case WIRE_OPENING_FUNDER_CANCEL:
+	case WIRE_OPENINGD_FUNDER_CANCEL:
 		/* We're aborting this, simple */
-		if (!fromwire_opening_funder_cancel(msg))
-			master_badmsg(WIRE_OPENING_FUNDER_CANCEL, msg);
+		if (!fromwire_openingd_funder_cancel(msg))
+			master_badmsg(WIRE_OPENINGD_FUNDER_CANCEL, msg);
 
 		msg = towire_errorfmt(NULL, &state->channel_id, "Channel open canceled by us");
 		sync_crypto_write(state->pps, take(msg));
 		negotiation_aborted(state, true, "Channel open canceled by RPC");
 		return NULL;
-	case WIRE_OPENING_DEV_MEMLEAK:
+	case WIRE_OPENINGD_DEV_MEMLEAK:
 #if DEVELOPER
 		handle_dev_memleak(state, msg);
 		return NULL;
 #endif
-	case WIRE_OPENING_DEV_MEMLEAK_REPLY:
-	case WIRE_OPENING_INIT:
-	case WIRE_OPENING_FUNDER_REPLY:
-	case WIRE_OPENING_FUNDER_START_REPLY:
-	case WIRE_OPENING_FUNDEE:
-	case WIRE_OPENING_FUNDER_FAILED:
-	case WIRE_OPENING_GOT_OFFER:
-	case WIRE_OPENING_GOT_OFFER_REPLY:
+	case WIRE_OPENINGD_DEV_MEMLEAK_REPLY:
+	case WIRE_OPENINGD_INIT:
+	case WIRE_OPENINGD_FUNDER_REPLY:
+	case WIRE_OPENINGD_FUNDER_START_REPLY:
+	case WIRE_OPENINGD_FUNDEE:
+	case WIRE_OPENINGD_FUNDER_FAILED:
+	case WIRE_OPENINGD_GOT_OFFER:
+	case WIRE_OPENINGD_GOT_OFFER_REPLY:
 		break;
 	}
 
@@ -1526,7 +1526,7 @@ int main(int argc, char *argv[])
 
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
-	if (!fromwire_opening_init(state, msg,
+	if (!fromwire_openingd_init(state, msg,
 				   &chainparams,
 				   &state->our_features,
 				   &state->localconf,
@@ -1543,7 +1543,7 @@ int main(int argc, char *argv[])
 				   &inner,
 				   &force_tmp_channel_id,
 				   &dev_fast_gossip))
-		master_badmsg(WIRE_OPENING_INIT, msg);
+		master_badmsg(WIRE_OPENINGD_INIT, msg);
 
 #if DEVELOPER
 	dev_force_tmp_channel_id = force_tmp_channel_id;
@@ -1638,7 +1638,7 @@ int main(int argc, char *argv[])
 	wire_sync_write(REQ_FD, msg);
 	per_peer_state_fdpass_send(REQ_FD, state->pps);
 	status_debug("Sent %s with fds",
-		     opening_wire_type_name(fromwire_peektype(msg)));
+		     openingd_wire_name(fromwire_peektype(msg)));
 
 	/* This frees the entire tal tree. */
 	tal_free(state);
