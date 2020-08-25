@@ -58,7 +58,7 @@ MANPAGES := doc/lightning-cli.1 \
 doc-all: $(MANPAGES) doc/index.rst
 
 $(MANPAGES): doc/%: doc/%.md
-	if $(CHANGED_FROM_GIT); then mrkd $< $@; else touch $@; fi
+	@if $(CHANGED_FROM_GIT); then $(call VERBOSE, "mrkd $<", mrkd $< $@); else touch $@; fi
 
 doc/protocol-%.svg: test/test_protocol
 	test/test_protocol --svg < test/commits/$*.script > $@
@@ -104,7 +104,5 @@ doc-maintainer-clean:
 doc-clean:
 	$(RM) doc/deployable-lightning.{aux,bbl,blg,dvi,log,out,tex}
 
-doc/index.rst:
-	(grep -v '^   lightning.*\.[0-9]\.md>$$' $@; for m in $$(cd doc && ls lightningd*.[0-9].md lightning-*.[0-9].md); do echo "   $${m%.[0-9].md} <$$m>"; done |$(SORT)) > $@.tmp.$$$$ && mv $@.tmp.$$$$ $@
-
-.PHONY: doc/index.rst
+doc/index.rst: $(MANPAGES:=.md)
+	@$(call VERBOSE, "genidx $@",(grep -v "^   lightning.*\.[0-9]\.md>$$" $@; for m in $$(cd doc && ls lightningd*.[0-9].md lightning-*.[0-9].md); do echo "   $${m%.[0-9].md} <$$m>"; done |$(SORT)) > $@.tmp.$$$$ && mv $@.tmp.$$$$ $@)
