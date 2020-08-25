@@ -512,6 +512,27 @@ static char *opt_force_channel_secrets(const char *optarg,
 	return NULL;
 }
 
+static char *opt_force_featureset(const char *optarg,
+				  struct lightningd *ld)
+{
+	char **parts = tal_strsplit(tmpctx, optarg, "/", STR_EMPTY_OK);
+	if (tal_count(parts) != NUM_FEATURE_PLACE)
+		return "Expected 5 feature sets (init, globalinit, node_announce, channel, bolt11) separated by /";
+	for (size_t i = 0; parts[i]; i++) {
+		char **bits = tal_strsplit(tmpctx, parts[i], ",", STR_EMPTY_OK);
+		tal_resize(&ld->our_features->bits[i], 0);
+
+		for (size_t j = 0; bits[j]; j++) {
+			char *endp;
+			long int n = strtol(bits[j], &endp, 10);
+			if (*endp || endp == bits[j])
+				return "Invalid bitnumber";
+			set_feature_bit(&ld->our_features->bits[i], n);
+		}
+	}
+	return NULL;
+}
+
 static void dev_register_opts(struct lightningd *ld)
 {
 	/* We might want to debug plugins, which are started before normal
@@ -570,6 +591,8 @@ static void dev_register_opts(struct lightningd *ld)
 				 opt_set_bool,
 				 &ld->plugins->dev_builtin_plugins_unimportant,
 				 "Make builtin plugins unimportant so you can plugin stop them.");
+	opt_register_arg("--dev-force-features", opt_force_featureset, NULL, ld,
+			 "Force the init/globalinit/node_announce/channel/bolt11 features, each comma-separated bitnumbers");
 }
 #endif /* DEVELOPER */
 
