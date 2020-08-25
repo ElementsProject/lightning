@@ -1110,7 +1110,7 @@ def test_onchaind_replay(node_factory, bitcoind):
     }
     l1.rpc.sendpay([routestep], rhash)
     l1.daemon.wait_for_log('sendrawtx exit 0')
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
 
     # Wait for nodes to notice the failure, this seach needle is after the
     # DB commit so we're sure the tx entries in onchaindtxs have been added
