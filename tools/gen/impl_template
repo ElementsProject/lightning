@@ -53,7 +53,7 @@ bool ${enum_set['name']}_is_defined(u16 type)
 towire_${type_obj.name}_array(${ptr}, ${fieldname}, ${f.size('tal_count(' + fieldname + ')')});
     % else:
 	for (size_t i = 0; i < ${f.size('tal_count(' + fieldname + ')')}; i++)
-	% if type_obj.is_assignable() or type_obj.has_len_fields():
+	% if type_obj.is_assignable() or type_obj.is_varsize():
 		towire_${type_obj.name}(${ptr}, ${fieldname}[i]);
 	% else:
 		towire_${type_obj.name}(${ptr}, ${fieldname} + i);
