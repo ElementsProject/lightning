@@ -51,8 +51,8 @@ OPENINGD_COMMON_OBJS :=				\
 	common/features.o			\
 	common/fee_states.o			\
 	common/funding_tx.o			\
-	common/gen_status_wire.o		\
-	common/gen_peer_status_wire.o		\
+	common/status_wiregen.o			\
+	common/peer_status_wiregen.o		\
 	common/gossip_rcvd_filter.o		\
 	common/gossip_store.o			\
 	common/htlc_state.o			\

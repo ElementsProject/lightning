@@ -7,8 +7,8 @@
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
 #include <common/daemon_conn.h>
-#include <common/gen_status_wire.h>
 #include <common/status.h>
+#include <common/status_wiregen.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <signal.h>

@@ -1,7 +1,7 @@
 #include <ccan/tal/str/str.h>
-#include <common/gen_status_wire.h>
 #include <common/peer_billboard.h>
 #include <common/status.h>
+#include <common/status_wiregen.h>
 
 void peer_billboard(bool perm, const char *fmt, ...)
 {

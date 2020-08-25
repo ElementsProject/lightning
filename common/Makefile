@@ -75,7 +75,7 @@ COMMON_SRC_NOGEN :=				\
 	common/wire_error.c			\
 	common/withdraw_tx.c
 
-COMMON_SRC_GEN := common/gen_status_wire.c common/gen_peer_status_wire.c
+COMMON_SRC_GEN := common/status_wiregen.c common/peer_status_wiregen.c
 
 COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/closing_fee.h				\
@@ -87,7 +87,7 @@ COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/jsonrpc_errors.h				\
 	common/overflows.h				\
 	common/status_levels.h
-COMMON_HEADERS_GEN := common/gen_htlc_state_names.h common/gen_status_wire.h common/gen_peer_status_wire.h
+COMMON_HEADERS_GEN := common/gen_htlc_state_names.h common/status_wiregen.h common/peer_status_wiregen.h
 
 COMMON_HEADERS := $(COMMON_HEADERS_GEN) $(COMMON_HEADERS_NOGEN)
 COMMON_SRC := $(COMMON_SRC_NOGEN) $(COMMON_SRC_GEN)
@@ -106,22 +106,10 @@ ALL_OBJS += $(COMMON_OBJS)
 common/gen_htlc_state_names.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr common/htlc_state.h > $@
 
-common/gen_status_wire.h: $(WIRE_GEN) common/status_wire.csv
-	$(WIRE_GEN) --page header $@ status < common/status_wire.csv > $@
-
-common/gen_status_wire.c: $(WIRE_GEN) common/status_wire.csv
-	$(WIRE_GEN) --page impl ${@:.c=.h} status < common/status_wire.csv > $@
-
-common/gen_peer_status_wire.h: $(WIRE_GEN) common/peer_status_wire.csv
-	$(WIRE_GEN) --page header $@ peer_status < common/peer_status_wire.csv > $@
-
-common/gen_peer_status_wire.c: $(WIRE_GEN) common/peer_status_wire.csv
-	$(WIRE_GEN) --page impl ${@:.c=.h} peer_status < common/peer_status_wire.csv > $@
-
 check-makefile: check-common-makefile
 
 check-common-makefile:
-	if [ x"`LC_ALL=C ls common/*.h | grep -v ^common/gen_`" != x"`echo $(COMMON_HEADERS_NOGEN) | tr ' ' '\n' | LC_ALL=C sort`" ]; then echo COMMON_HEADERS_NOGEN incorrect; exit 1; fi
+	if [ x"`LC_ALL=C ls common/*.h | grep -v ^common/gen_ | grep -v '^common/.*wiregen'`" != x"`echo $(COMMON_HEADERS_NOGEN) | tr ' ' '\n' | LC_ALL=C sort`" ]; then echo COMMON_HEADERS_NOGEN incorrect; exit 1; fi
 
 check-source-bolt: $(COMMON_SRC_NOGEN:%=bolt-check/%) $(COMMON_HEADERS:%=bolt-check/%)
 check-whitespace: $(COMMON_SRC_NOGEN:%=check-whitespace/%) $(COMMON_HEADERS:%=check-whitespace/%)

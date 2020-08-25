@@ -1,11 +1,11 @@
 #include <ccan/breakpoint/breakpoint.h>
 #include <ccan/tal/str/str.h>
 #include <common/crypto_sync.h>
-#include <common/gen_peer_status_wire.h>
-#include <common/gen_status_wire.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
+#include <common/peer_status_wiregen.h>
 #include <common/status.h>
+#include <common/status_wiregen.h>
 #include <common/wire_error.h>
 #include <stdarg.h>
 
