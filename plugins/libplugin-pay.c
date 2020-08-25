@@ -50,6 +50,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 
 		p->invoice = parent->invoice;
 		p->id = parent->id;
+		p->local_id = parent->local_id;
 	} else {
 		assert(cmd != NULL);
 		p->partid = 0;
@@ -58,6 +59,8 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->channel_hints = tal_arr(p, struct channel_hint, 0);
 		p->excluded_nodes = tal_arr(p, struct node_id, 0);
 		p->id = next_id++;
+		/* Caller must set this.  */
+		p->local_id = NULL;
 	}
 
 	/* Initialize all modifier data so we can point to the fields when
@@ -219,6 +222,11 @@ static struct command_result *payment_getinfo_success(struct command *cmd,
 void payment_start(struct payment *p)
 {
 	struct payment *root = payment_root(p);
+
+	/* Should have been set in root payment, or propagated from root
+	 * payment to all child payments.  */
+	assert(p->local_id);
+
 	p->step = PAYMENT_STEP_INITIALIZED;
 	p->current_modifier = -1;
 
