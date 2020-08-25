@@ -1674,11 +1674,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_amount_msat(stmt, 14, &chan->push);
 	db_bind_amount_msat(stmt, 15, &chan->our_msat);
 
-	if (chan->shutdown_scriptpubkey[REMOTE])
-		db_bind_blob(stmt, 16, chan->shutdown_scriptpubkey[REMOTE],
-			     tal_count(chan->shutdown_scriptpubkey[REMOTE]));
-	else
-		db_bind_null(stmt, 16);
+	db_bind_talarr(stmt, 16, chan->shutdown_scriptpubkey[REMOTE]);
 
 	db_bind_u64(stmt, 17, chan->final_key_idx);
 	db_bind_u64(stmt, 18, chan->our_config.id);
@@ -1691,17 +1687,10 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_amount_msat(stmt, 25, &chan->msat_to_us_max);
 	db_bind_int(stmt, 26, chan->feerate_base);
 	db_bind_int(stmt, 27, chan->feerate_ppm);
-	if (chan->remote_upfront_shutdown_script)
-		db_bind_blob(
-		    stmt, 28, chan->remote_upfront_shutdown_script,
-		    tal_count(chan->remote_upfront_shutdown_script));
-	else
-		db_bind_null(stmt, 28);
-
+	db_bind_talarr(stmt, 28, chan->remote_upfront_shutdown_script);
 	db_bind_int(stmt, 29, chan->option_static_remotekey);
 	db_bind_int(stmt, 30, chan->option_anchor_outputs);
-	db_bind_blob(stmt, 31, chan->shutdown_scriptpubkey[LOCAL],
-		     tal_count(chan->shutdown_scriptpubkey[LOCAL]));
+	db_bind_talarr(stmt, 31, chan->shutdown_scriptpubkey[LOCAL]);
 	db_bind_u64(stmt, 32, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
@@ -1756,15 +1745,14 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	for (size_t i = 0; i < tal_count(chan->last_sent_commit); i++)
 		towire_changed_htlc(&last_sent_commit,
 				    &chan->last_sent_commit[i]);
+	/* Make it null in db if it's empty */
+	if (tal_count(last_sent_commit) == 0)
+		last_sent_commit = tal_free(last_sent_commit);
 
 	stmt = db_prepare_v2(w->db, SQL("UPDATE channels SET"
 					"  last_sent_commit=?"
 					" WHERE id=?"));
-	if (tal_count(last_sent_commit))
-		db_bind_blob(stmt, 0, last_sent_commit,
-			     tal_count(last_sent_commit));
-	else
-		db_bind_null(stmt, 0);
+	db_bind_talarr(stmt, 0, last_sent_commit);
 	db_bind_u64(stmt, 1, chan->dbid);
 	db_exec_prepared_v2(stmt);
 	tal_free(stmt);
@@ -2138,10 +2126,7 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 	else
 		db_bind_null(stmt, 3);
 
-	if (failmsg)
-		db_bind_blob(stmt, 4, failmsg, tal_bytelen(failmsg));
-	else
-		db_bind_null(stmt, 4);
+	db_bind_talarr(stmt, 4, failmsg);
 
 	if (we_filled)
 		db_bind_int(stmt, 5, *we_filled);
@@ -2980,11 +2965,9 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 					     " WHERE payment_hash=?"
 					     " AND partid=?;"));
 	if (failonionreply)
-		db_bind_blob(stmt, 0, failonionreply->contents,
-			     tal_count(failonionreply->contents));
+		db_bind_talarr(stmt, 0, failonionreply->contents);
 	else
 		db_bind_null(stmt, 0);
-
 	db_bind_int(stmt, 1, faildestperm ? 1 : 0);
 	db_bind_int(stmt, 2, failindex);
 	db_bind_int(stmt, 3, (int) failcode);
@@ -3002,10 +2985,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 		db_bind_null(stmt, 8);
 	}
 
-	if (failupdate)
-		db_bind_blob(stmt, 6, failupdate, tal_count(failupdate));
-	else
-		db_bind_null(stmt, 6);
+	db_bind_talarr(stmt, 6, failupdate);
 
 	if (faildetail != NULL)
 		db_bind_text(stmt, 7, faildetail);
@@ -3308,7 +3288,7 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 	db_bind_int(stmt, 2, blockheight);
 	db_bind_null(stmt, 3);
 	db_bind_int(stmt, 4, txindex);
-	db_bind_blob(stmt, 5, scriptpubkey, tal_count(scriptpubkey));
+	db_bind_talarr(stmt, 5, scriptpubkey);
 	db_bind_amount_sat(stmt, 6, &sat);
 	db_exec_prepared_v2(take(stmt));
 
@@ -3346,8 +3326,7 @@ void wallet_filteredblock_add(struct wallet *w, const struct filteredblock *fb)
 		db_bind_int(stmt, 2, fb->height);
 		db_bind_null(stmt, 3);
 		db_bind_int(stmt, 4, o->txindex);
-		db_bind_blob(stmt, 5, o->scriptPubKey,
-			     tal_count(o->scriptPubKey));
+		db_bind_talarr(stmt, 5, o->scriptPubKey);
 		db_bind_amount_sat(stmt, 6, &o->amount);
 		db_exec_prepared_v2(take(stmt));
 
