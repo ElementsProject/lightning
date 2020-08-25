@@ -64,7 +64,7 @@ towire_${type_obj.name}(${ptr}, ${f.name});
 % elif is_single_ptr:
 towire_${type_obj.name}(${ptr}, ${'*' if type_obj.is_assignable() else ''}${fieldname});
 % else:
-towire_${type_obj.name}(${ptr}, ${'' if type_obj.is_assignable() else '&'}${fieldname});
+towire_${type_obj.name}(${ptr}, ${'' if type_obj.is_assignable() or type_obj.is_varsize() else '&'}${fieldname});
 % endif
 </%def>
 ## Subtype and TLV-msg fromwire
@@ -110,7 +110,7 @@ ${fieldname} = ${f.size('*plen')} ? tal_arr(${ctx}, ${typename}, 0) : NULL;
     % if f.type_obj.is_assignable():
 ${ f.name if f.len_field_of else fieldname} = fromwire_${type_}(cursor, plen);
     % elif f.type_obj.is_varsize():
-${fieldname} = *fromwire_${type_}(${ctx}, cursor, plen);
+${fieldname} = fromwire_${type_}(${ctx}, cursor, plen);
     % else:
 fromwire_${type_}(cursor, plen, &${fieldname});
     % endif

@@ -49,7 +49,7 @@ struct ${struct.struct_name()} {
         % endif
             % if f.is_varlen() and f.type_obj.is_varsize():
         ${f.type_obj.type_name()} **${f.name};
-            % elif f.is_varlen():
+            % elif f.is_varlen() or f.type_obj.is_varsize():
         ${f.type_obj.type_name()} *${f.name};
             % elif f.is_array():
         ${f.type_obj.type_name()} ${f.name}[${f.count}];
