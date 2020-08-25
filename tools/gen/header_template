@@ -69,7 +69,12 @@ struct ${tlv.struct_name()} {
 	 * tlv_field entries above to save on memory. */
     % for msg in tlv.messages.values():
         % if msg.singleton():
+	## Array of variable-length elems needs ptr-to-ptr!
+            % if msg.singleton().is_varlen() and msg.singleton().type_obj.is_varsize():
+	${msg.singleton().type_obj.type_name()} **${msg.name};
+	    % else:
 	${msg.singleton().type_obj.type_name()} *${msg.name};
+	    % endif
 	% else:
         struct ${msg.struct_name()} *${msg.name};
 	% endif
