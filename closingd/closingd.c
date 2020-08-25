@@ -1,6 +1,6 @@
 #include <bitcoin/script.h>
 #include <ccan/fdpass/fdpass.h>
-#include <closingd/gen_closing_wire.h>
+#include <closingd/closingd_wiregen.h>
 #include <common/close_tx.h>
 #include <common/closing_fee.h>
 #include <common/crypto_sync.h>
@@ -300,7 +300,7 @@ static void tell_master_their_offer(const struct bitcoin_signature *their_sig,
 				    const struct bitcoin_tx *tx,
 				    struct bitcoin_txid *tx_id)
 {
-	u8 *msg = towire_closing_received_signature(NULL, their_sig, tx);
+	u8 *msg = towire_closingd_received_signature(NULL, their_sig, tx);
 	if (!wire_sync_write(REQ_FD, take(msg)))
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "Writing received to master: %s",
@@ -308,8 +308,8 @@ static void tell_master_their_offer(const struct bitcoin_signature *their_sig,
 
 	/* Wait for master to ack, to make sure it's in db. */
 	msg = wire_sync_read(NULL, REQ_FD);
-	if (!fromwire_closing_received_signature_reply(msg, tx_id))
-		master_badmsg(WIRE_CLOSING_RECEIVED_SIGNATURE_REPLY, msg);
+	if (!fromwire_closingd_received_signature_reply(msg, tx_id))
+		master_badmsg(WIRE_CLOSINGD_RECEIVED_SIGNATURE_REPLY, msg);
 	tal_free(msg);
 }
 
@@ -625,7 +625,7 @@ int main(int argc, char *argv[])
 	status_setup_sync(REQ_FD);
 
 	msg = wire_sync_read(tmpctx, REQ_FD);
-	if (!fromwire_closing_init(ctx, msg,
+	if (!fromwire_closingd_init(ctx, msg,
 				   &chainparams,
 				   &pps,
 				   &funding_txid, &funding_txout,
@@ -649,7 +649,7 @@ int main(int argc, char *argv[])
 				   &channel_reestablish,
 				   &last_remote_per_commit_secret,
 				   &dev_fast_gossip))
-		master_badmsg(WIRE_CLOSING_INIT, msg);
+		master_badmsg(WIRE_CLOSINGD_INIT, msg);
 
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = hsmd */
 	per_peer_state_set_fds(pps, 3, 4, 5);
@@ -791,7 +791,7 @@ int main(int argc, char *argv[])
 		status_unusual("Closing and draining peerfd gave error: %s",
 			       strerror(errno));
 	/* Sending the below will kill us! */
-	wire_sync_write(REQ_FD, take(towire_closing_complete(NULL)));
+	wire_sync_write(REQ_FD, take(towire_closingd_complete(NULL)));
 	tal_free(ctx);
 	daemon_shutdown();
 

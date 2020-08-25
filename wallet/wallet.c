@@ -17,7 +17,7 @@
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
-#include <onchaind/gen_onchain_wire.h>
+#include <onchaind/onchaind_wiregen.h>
 #include <string.h>
 #include <wallet/db_common.h>
 
@@ -3670,7 +3670,7 @@ u32 *wallet_onchaind_channels(struct wallet *w,
 	stmt = db_prepare_v2(
 	    w->db,
 	    SQL("SELECT DISTINCT(channel_id) FROM channeltxs WHERE type = ?;"));
-	db_bind_int(stmt, 0, WIRE_ONCHAIN_INIT);
+	db_bind_int(stmt, 0, WIRE_ONCHAIND_INIT);
 	db_query_prepared(stmt);
 
 	while (db_step(stmt)) {

@@ -10,7 +10,7 @@ closingd-all: lightningd/lightning_closingd
 
 # closingd needs these:
 LIGHTNINGD_CLOSING_HEADERS_GEN :=			\
-	closingd/gen_closing_wire.h
+	closingd/closingd_wiregen.h
 
 LIGHTNINGD_CLOSING_HEADERS_NOGEN :=
 
@@ -30,9 +30,9 @@ LIGHTNINGD_CLOSING_CONTROL_HEADERS := $(LIGHTNINGD_CLOSING_HEADERS)
 LIGHTNINGD_CLOSING_CONTROL_SRC := $(LIGHTNINGD_CLOSING_HEADERS:.h=.c)
 LIGHTNINGD_CLOSING_CONTROL_OBJS := $(LIGHTNINGD_CLOSING_CONTROL_SRC:.c=.o)
 
-LIGHTNINGD_CLOSING_GEN_SRC := $(filter closingd/gen_%, $(LIGHTNINGD_CLOSING_SRC) $(LIGHTNINGD_CLOSING_CONTROL_SRC))
+LIGHTNINGD_CLOSING_GEN_SRC := $(filter closingd/%wiregen.c, $(LIGHTNINGD_CLOSING_SRC) $(LIGHTNINGD_CLOSING_CONTROL_SRC))
 
-LIGHTNINGD_CLOSING_SRC_NOGEN := $(filter-out closingd/gen_%, $(LIGHTNINGD_CLOSING_SRC))
+LIGHTNINGD_CLOSING_SRC_NOGEN := $(filter-out closingd/%wiregen.c, $(LIGHTNINGD_CLOSING_SRC))
 
 # Add to headers which any object might need.
 LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_CLOSING_HEADERS_GEN)
@@ -83,12 +83,6 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/wire_error.o			\
 	common/wireaddr.o			\
 	gossipd/gossipd_peerd_wiregen.o
-
-closingd/gen_closing_wire.h: $(WIRE_GEN) closingd/closing_wire.csv
-	$(WIRE_GEN) --page header $@ closing_wire_type < closingd/closing_wire.csv > $@
-
-closingd/gen_closing_wire.c: $(WIRE_GEN) closingd/closing_wire.csv
-	$(WIRE_GEN) --page impl ${@:.c=.h} closing_wire_type < closingd/closing_wire.csv > $@
 
 LIGHTNINGD_CLOSING_OBJS := $(LIGHTNINGD_CLOSING_SRC:.c=.o) $(LIGHTNINGD_CLOSING_GEN_SRC:.c=.o)
 

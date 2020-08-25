@@ -23,8 +23,8 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/channel_state.h>
-#include <onchaind/gen_onchain_wire.h>
 #include <onchaind/onchain_types.h>
+#include <onchaind/onchaind_wiregen.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <wire/wire_sync.h>
@@ -141,7 +141,7 @@ static bool wally_tx_output_scripteq(const struct wally_tx_output *out,
 static void send_coin_mvt(struct chain_coin_mvt *mvt TAKES)
 {
 	wire_sync_write(REQ_FD,
-			take(towire_onchain_notify_coin_mvt(NULL, mvt)));
+			take(towire_onchaind_notify_coin_mvt(NULL, mvt)));
 
 	if (taken(mvt))
 		tal_free(mvt);
@@ -837,7 +837,7 @@ static void proposal_meets_depth(struct tracked_output *out, bool is_replay)
 
 	wire_sync_write(
 	    REQ_FD,
-	    take(towire_onchain_broadcast_tx(
+	    take(towire_onchaind_broadcast_tx(
 		 NULL, out->proposal->tx,
 		 onchain_txtype_to_wallet_txtype(out->proposal->tx_type))));
 
@@ -1164,7 +1164,7 @@ static void unwatch_txid(const struct bitcoin_txid *txid)
 {
 	u8 *msg;
 
-	msg = towire_onchain_unwatch_tx(NULL, txid);
+	msg = towire_onchaind_unwatch_tx(NULL, txid);
 	wire_sync_write(REQ_FD, take(msg));
 }
 
@@ -1259,7 +1259,7 @@ static void handle_htlc_onchain_fulfill(struct tracked_output *out,
 		     output_type_name(out->output_type),
 		     type_to_string(tmpctx, struct preimage, &preimage));
 	wire_sync_write(REQ_FD,
-			take(towire_onchain_extracted_preimage(NULL,
+			take(towire_onchaind_extracted_preimage(NULL,
 							       &preimage)));
 }
 
@@ -1390,14 +1390,14 @@ static void steal_htlc_tx(struct tracked_output *out,
 static void onchain_annotate_txout(const struct bitcoin_txid *txid, u32 outnum,
 				   enum wallet_tx_type type)
 {
-	wire_sync_write(REQ_FD, take(towire_onchain_annotate_txout(
+	wire_sync_write(REQ_FD, take(towire_onchaind_annotate_txout(
 				    tmpctx, txid, outnum, type)));
 }
 
 static void onchain_annotate_txin(const struct bitcoin_txid *txid, u32 innum,
 				  enum wallet_tx_type type)
 {
-	wire_sync_write(REQ_FD, take(towire_onchain_annotate_txin(
+	wire_sync_write(REQ_FD, take(towire_onchaind_annotate_txin(
 				    tmpctx, txid, innum, type)));
 }
 
@@ -1568,7 +1568,7 @@ static void update_resolution_depth(struct tracked_output *out, u32 depth)
 			     tx_type_name(out->tx_type),
 			     output_type_name(out->output_type),
 			     depth);
-		msg = towire_onchain_htlc_timeout(out, &out->htlc);
+		msg = towire_onchaind_htlc_timeout(out, &out->htlc);
 		wire_sync_write(REQ_FD, take(msg));
 	}
 	out->resolved->depth = depth;
@@ -1776,7 +1776,7 @@ static bool handle_dev_memleak(struct tracked_output **outs, const u8 *msg)
 	struct htable *memtable;
 	bool found_leak;
 
-	if (!fromwire_onchain_dev_memleak(msg))
+	if (!fromwire_onchaind_dev_memleak(msg))
 		return false;
 
 	memtable = memleak_enter_allocations(tmpctx, msg, msg);
@@ -1786,7 +1786,7 @@ static bool handle_dev_memleak(struct tracked_output **outs, const u8 *msg)
 
 	found_leak = dump_memleak(memtable);
 	wire_sync_write(REQ_FD,
-			take(towire_onchain_dev_memleak_reply(NULL,
+			take(towire_onchaind_dev_memleak_reply(NULL,
 							      found_leak)));
 	return true;
 }
@@ -1819,14 +1819,14 @@ static void wait_for_resolved(struct tracked_output **outs)
 		struct tx_parts *tx_parts;
 
 		status_debug("Got new message %s",
-			     onchain_wire_type_name(fromwire_peektype(msg)));
+			     onchaind_wire_name(fromwire_peektype(msg)));
 
-		if (fromwire_onchain_depth(msg, &txid, &depth, &is_replay))
+		if (fromwire_onchaind_depth(msg, &txid, &depth, &is_replay))
 			tx_new_depth(outs, &txid, depth, is_replay);
-		else if (fromwire_onchain_spent(msg, msg, &tx_parts, &input_num,
+		else if (fromwire_onchaind_spent(msg, msg, &tx_parts, &input_num,
 						&tx_blockheight, &is_replay)) {
 			output_spent(&outs, tx_parts, input_num, tx_blockheight, is_replay);
-		} else if (fromwire_onchain_known_preimage(msg, &preimage, &is_replay))
+		} else if (fromwire_onchaind_known_preimage(msg, &preimage, &is_replay))
 			handle_preimage(outs, &preimage, is_replay);
 		else if (!handle_dev_memleak(outs, msg))
 			master_badmsg(-1, msg);
@@ -1837,13 +1837,13 @@ static void wait_for_resolved(struct tracked_output **outs)
 	}
 
 	wire_sync_write(REQ_FD,
-			take(towire_onchain_all_irrevocably_resolved(outs)));
+			take(towire_onchaind_all_irrevocably_resolved(outs)));
 }
 
 static void init_reply(const char *what)
 {
 	/* Send init_reply first, so billboard gets credited to ONCHAIND */
-	wire_sync_write(REQ_FD, take(towire_onchain_init_reply(NULL)));
+	wire_sync_write(REQ_FD, take(towire_onchaind_init_reply(NULL)));
 	peer_billboard(true, what);
 }
 
@@ -2151,7 +2151,7 @@ static void note_missing_htlcs(u8 **htlc_scripts,
 		if (!tell_if_missing[i])
 			continue;
 
-		msg = towire_onchain_missing_htlc_output(missing_htlc_msgs,
+		msg = towire_onchaind_missing_htlc_output(missing_htlc_msgs,
 							 &htlcs[i]);
 		if (tell_immediately[i])
 			wire_sync_write(REQ_FD, take(msg));
@@ -2545,7 +2545,7 @@ static void tell_wallet_to_remote(const struct tx_parts *tx,
 		per_commit_point = NULL;
 
 	wire_sync_write(REQ_FD,
-			take(towire_onchain_add_utxo(NULL, &tx->txid, outnum,
+			take(towire_onchaind_add_utxo(NULL, &tx->txid, outnum,
 						     per_commit_point,
 						     amt,
 						     tx_blockheight,
@@ -3307,7 +3307,7 @@ search_done:
 		if (!tell_if_missing[i])
 			continue;
 
-		msg = towire_onchain_missing_htlc_output(NULL, &htlcs[i]);
+		msg = towire_onchaind_missing_htlc_output(NULL, &htlcs[i]);
 		wire_sync_write(REQ_FD, take(msg));
 	}
 
@@ -3345,7 +3345,7 @@ int main(int argc, char *argv[])
 	missing_htlc_msgs = tal_arr(ctx, u8 *, 0);
 
 	msg = wire_sync_read(tmpctx, REQ_FD);
-	if (!fromwire_onchain_init(tmpctx, msg,
+	if (!fromwire_onchaind_init(tmpctx, msg,
 				   &shachain,
 				   &chainparams,
 				   &funding,
@@ -3379,7 +3379,7 @@ int main(int argc, char *argv[])
 				   &option_static_remotekey,
 				   &option_anchor_outputs,
 				   &open_is_replay)) {
-		master_badmsg(WIRE_ONCHAIN_INIT, msg);
+		master_badmsg(WIRE_ONCHAIND_INIT, msg);
 	}
 
 	status_debug("delayed_to_us_feerate = %u, htlc_feerate = %u, "
@@ -3398,10 +3398,10 @@ int main(int argc, char *argv[])
 
 	for (u64 i = 0; i < num_htlcs; i++) {
 		msg = wire_sync_read(tmpctx, REQ_FD);
-		if (!fromwire_onchain_htlc(msg, &htlcs[i],
+		if (!fromwire_onchaind_htlc(msg, &htlcs[i],
 					   &tell_if_missing[i],
 					   &tell_immediately[i]))
-			master_badmsg(WIRE_ONCHAIN_HTLC, msg);
+			master_badmsg(WIRE_ONCHAIND_HTLC, msg);
 	}
 
 	outs = tal_arr(ctx, struct tracked_output *, 0);

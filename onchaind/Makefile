@@ -13,31 +13,31 @@ onchaind/gen_onchain_types_names.h: onchaind/onchain_types.h ccan/ccan/cdump/too
 
 # onchaind needs these:
 LIGHTNINGD_ONCHAIN_HEADERS_GEN :=			\
-	onchaind/gen_onchain_wire.h		\
+	onchaind/onchaind_wiregen.h		\
 	onchaind/gen_onchain_types_names.h
 
 LIGHTNINGD_ONCHAIN_HEADERS_NOGEN :=			\
 	onchaind/onchain_types.h		\
-	onchaind/onchain_wire.h
+	onchaind/onchaind_wire.h
 
 LIGHTNINGD_ONCHAIN_HEADERS := $(LIGHTNINGD_ONCHAIN_HEADERS_GEN) $(LIGHTNINGD_ONCHAIN_HEADERS_NOGEN)
 
 LIGHTNINGD_ONCHAIN_SRC := onchaind/onchaind.c	\
-	onchaind/gen_onchain_wire.c		\
-	onchaind/onchain_wire.c
+	onchaind/onchaind_wiregen.c		\
+	onchaind/onchaind_wire.c
 
 LIGHTNINGD_ONCHAIN_OBJS := $(LIGHTNINGD_ONCHAIN_SRC:.c=.o)
 
 # Control daemon uses this:
 LIGHTNINGD_ONCHAIN_CONTROL_HEADERS :=			\
-	onchaind/gen_onchain_wire.h		\
-	onchaind/onchain_wire.h
+	onchaind/onchaind_wiregen.h		\
+	onchaind/onchaind_wire.h
 LIGHTNINGD_ONCHAIN_CONTROL_SRC := $(LIGHTNINGD_ONCHAIN_CONTROL_HEADERS:.h=.c)
 LIGHTNINGD_ONCHAIN_CONTROL_OBJS := $(LIGHTNINGD_ONCHAIN_CONTROL_SRC:.c=.o)
 
-LIGHTNINGD_ONCHAIN_GEN_SRC := $(filter onchaind/gen_%, $(LIGHTNINGD_ONCHAIN_SRC) $(LIGHTNINGD_ONCHAIN_CONTROL_SRC))
+LIGHTNINGD_ONCHAIN_GEN_SRC := $(filter onchaind/%wiregen.c, $(LIGHTNINGD_ONCHAIN_SRC) $(LIGHTNINGD_ONCHAIN_CONTROL_SRC))
 
-LIGHTNINGD_ONCHAIN_SRC_NOGEN := $(filter-out onchaind/gen_%, $(LIGHTNINGD_ONCHAIN_SRC))
+LIGHTNINGD_ONCHAIN_SRC_NOGEN := $(filter-out onchaind/%wiregen.c, $(LIGHTNINGD_ONCHAIN_SRC))
 
 # Add to headers which any object might need.
 LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_ONCHAIN_HEADERS_GEN)
@@ -77,12 +77,6 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/utxo.o				\
 	common/version.o			\
 	common/wallet.o
-
-onchaind/gen_onchain_wire.h: $(WIRE_GEN) onchaind/onchain_wire.csv
-	$(WIRE_GEN) --page header $@ onchain_wire_type < onchaind/onchain_wire.csv > $@
-
-onchaind/gen_onchain_wire.c: $(WIRE_GEN) onchaind/onchain_wire.csv
-	$(WIRE_GEN) --page impl ${@:.c=.h} onchain_wire_type < onchaind/onchain_wire.csv > $@
 
 LIGHTNINGD_ONCHAIN_OBJS := $(LIGHTNINGD_ONCHAIN_SRC:.c=.o) $(LIGHTNINGD_ONCHAIN_GEN_SRC:.c=.o)
 

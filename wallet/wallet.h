@@ -18,7 +18,7 @@
 #include <lightningd/htlc_end.h>
 #include <lightningd/invoice.h>
 #include <lightningd/log.h>
-#include <onchaind/onchain_wire.h>
+#include <onchaind/onchaind_wire.h>
 #include <wally_bip32.h>
 #include <wire/gen_onion_wire.h>
 
