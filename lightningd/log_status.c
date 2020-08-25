@@ -1,4 +1,4 @@
-#include <common/gen_status_wire.h>
+#include <common/status_wiregen.h>
 #include <lightningd/log_status.h>
 
 bool log_status_msg(struct log *log,

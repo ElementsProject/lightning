@@ -8,10 +8,10 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/crypto_state.h>
-#include <common/gen_peer_status_wire.h>
-#include <common/gen_status_wire.h>
 #include <common/memleak.h>
+#include <common/peer_status_wiregen.h>
 #include <common/per_peer_state.h>
+#include <common/status_wiregen.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/lightningd.h>
@@ -434,7 +434,7 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	tal_steal(tmpctx, sd->msg_in);
 
 	/* We handle status messages ourselves. */
-	switch ((enum status)type) {
+	switch ((enum status_wire)type) {
 	case WIRE_STATUS_LOG:
 	case WIRE_STATUS_IO:
 		if (!log_status_msg(sd->log, sd->node_id, sd->msg_in))
@@ -458,7 +458,7 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 	}
 
 	if (sd->channel) {
-		switch ((enum peer_status)type) {
+		switch ((enum peer_status_wire)type) {
 		case WIRE_STATUS_PEER_ERROR:
 			/* We expect 3 fds after this */
 			if (!sd->fds_in) {

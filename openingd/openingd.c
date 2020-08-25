@@ -23,7 +23,6 @@
 #include <common/features.h>
 #include <common/fee_states.h>
 #include <common/funding_tx.h>
-#include <common/gen_peer_status_wire.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
 #include <common/initial_channel.h>
@@ -32,6 +31,7 @@
 #include <common/overflows.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
+#include <common/peer_status_wiregen.h>
 #include <common/penalty_base.h>
 #include <common/pseudorand.h>
 #include <common/read_peer_msg.h>

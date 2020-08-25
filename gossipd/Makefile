@@ -55,7 +55,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/derive_basepoints.o		\
 	common/dev_disconnect.o			\
 	common/features.o			\
-	common/gen_status_wire.o		\
+	common/status_wiregen.o			\
 	common/gossip_rcvd_filter.o		\
 	common/key_derive.o			\
 	common/memleak.o			\
