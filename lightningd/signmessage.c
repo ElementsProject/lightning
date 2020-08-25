@@ -7,7 +7,7 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <gossipd/gen_gossip_wire.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -137,7 +137,7 @@ static void getnode_reply(struct subd *gossip UNUSED, const u8 *reply,
 	struct gossip_getnodes_entry **nodes;
 	struct json_stream *response;
 
-	if (!fromwire_gossip_getnodes_reply(reply, reply, &nodes)) {
+	if (!fromwire_gossipd_getnodes_reply(reply, reply, &nodes)) {
 		log_broken(can->cmd->ld->log,
 			   "Malformed gossip_getnodes response %s",
 			   tal_hex(tmpctx, reply));
@@ -212,7 +212,7 @@ static struct command_result *json_checkmessage(struct command *cmd,
 
 		node_id_from_pubkey(&can->id, &reckey);
 		can->cmd = cmd;
-		req = towire_gossip_getnodes_request(cmd, &can->id);
+		req = towire_gossipd_getnodes_request(cmd, &can->id);
 		subd_req(cmd, cmd->ld->gossip, req, -1, 0, getnode_reply, can);
 		return command_still_pending(cmd);
 	}

@@ -20,7 +20,7 @@
 #include <common/timeout.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <gossipd/gen_gossip_wire.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
@@ -635,7 +635,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	struct wallet *wallet = info->cmd->ld->wallet;
 	const struct chanhints *chanhints = info->chanhints;
 
-	if (!fromwire_gossip_get_incoming_channels_reply(tmpctx, msg,
+	if (!fromwire_gossipd_get_incoming_channels_reply(tmpctx, msg,
 							 &inchans,
 							 &inchan_deadends,
 							 &private,
@@ -1054,7 +1054,7 @@ static struct command_result *json_invoice(struct command *cmd,
 		info->b11->fallbacks = tal_steal(info->b11, fallback_scripts);
 
 	subd_req(cmd, cmd->ld->gossip,
-		 take(towire_gossip_get_incoming_channels(NULL)),
+		 take(towire_gossipd_get_incoming_channels(NULL)),
 		 -1, 0, gossipd_incoming_channels_reply, info);
 
 	return command_still_pending(cmd);

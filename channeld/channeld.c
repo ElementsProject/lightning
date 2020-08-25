@@ -56,7 +56,7 @@
 #include <common/wire_error.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <gossipd/gen_gossip_peerd_wire.h>
+#include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <secp256k1.h>

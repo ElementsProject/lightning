@@ -19,7 +19,7 @@
 #include <common/sphinx.h>
 #include <common/timeout.h>
 #include <common/utils.h>
-#include <gossipd/gen_gossip_wire.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/htlc_end.h>
@@ -164,7 +164,7 @@ static void failmsg_update_reply(struct subd *gossipd,
 	struct failed_htlc *failed_htlc;
 
 	/* This can happen because channel never got properly announced.*/
-	if (!fromwire_gossip_get_stripped_cupdate_reply(msg, msg,
+	if (!fromwire_gossipd_get_stripped_cupdate_reply(msg, msg,
 							&stripped_update)
 	    || !tal_count(stripped_update)) {
 		failmsg = towire_temporary_node_failure(NULL);
@@ -277,7 +277,7 @@ void local_fail_in_htlc_needs_update(struct htlc_in *hin,
 	cbdata->failmsg_needs_update
 		= tal_dup_talarr(cbdata, u8, failmsg_needs_update);
 	subd_req(cbdata, hin->key.channel->peer->ld->gossip,
-		 take(towire_gossip_get_stripped_cupdate(NULL, failmsg_scid)),
+		 take(towire_gossipd_get_stripped_cupdate(NULL, failmsg_scid)),
 		 -1, 0, failmsg_update_reply, cbdata);
 }
 

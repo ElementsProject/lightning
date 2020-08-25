@@ -15,11 +15,11 @@
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <common/wireaddr.h>
-#include <gossipd/gen_gossip_peerd_wire.h>
-#include <gossipd/gen_gossip_store.h>
-#include <gossipd/gen_gossip_wire.h>
 #include <gossipd/gossip_generation.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
+#include <gossipd/gossipd_peerd_wiregen.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <inttypes.h>
 #include <wire/gen_peer_wire.h>
 

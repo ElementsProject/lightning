@@ -7,7 +7,7 @@
 #include <common/per_peer_state.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <gossipd/gen_gossip_wire.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
@@ -311,6 +311,6 @@ void peer_start_closingd(struct channel *channel,
 	 * be used. */
 	if (channel->scid)
 		subd_send_msg(channel->peer->ld->gossip,
-			      take(towire_gossip_local_channel_close(
+			      take(towire_gossipd_local_channel_close(
 				  tmpctx, channel->scid)));
 }

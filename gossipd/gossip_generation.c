@@ -9,10 +9,10 @@
 #include <common/utils.h>
 #include <common/wireaddr.h>
 #include <errno.h>
-#include <gossipd/gen_gossip_peerd_wire.h>
 #include <gossipd/gossip_generation.h>
 #include <gossipd/gossip_store.h>
 #include <gossipd/gossipd.h>
+#include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <wire/gen_peer_wire.h>
 #include <wire/wire_sync.h>

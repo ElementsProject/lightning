@@ -45,10 +45,10 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/broadcast.h>
-#include <gossipd/gen_gossip_peerd_wire.h>
-#include <gossipd/gen_gossip_wire.h>
 #include <gossipd/gossip_generation.h>
 #include <gossipd/gossipd.h>
+#include <gossipd/gossipd_peerd_wiregen.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <gossipd/queries.h>
 #include <gossipd/routing.h>
 #include <gossipd/seeker.h>
@@ -249,7 +249,7 @@ static const u8 *handle_channel_announcement_msg(struct peer *peer,
 			tal_arr_expand(&peer->daemon->deferred_txouts, *scid);
 		} else {
 			daemon_conn_send(peer->daemon->master,
-					 take(towire_gossip_get_txout(NULL,
+					 take(towire_gossipd_get_txout(NULL,
 								      scid)));
 		}
 	}
@@ -331,7 +331,7 @@ static const u8 *handle_pong(struct peer *peer, const u8 *pong)
 		return towire_errorfmt(peer, NULL, "%s", err);
 
 	daemon_conn_send(peer->daemon->master,
-			 take(towire_gossip_ping_reply(NULL, &peer->id, true,
+			 take(towire_gossipd_ping_reply(NULL, &peer->id, true,
 						       tal_count(pong))));
 	return NULL;
 }
@@ -497,8 +497,8 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 		return io_close(conn);
 	}
 
-	/* Must be a gossip_peerd_wire_type asking us to do something. */
-	switch ((enum gossip_peerd_wire_type)fromwire_peektype(msg)) {
+	/* Must be a gossipd_peerd_wire_type asking us to do something. */
+	switch ((enum gossipd_peerd_wire)fromwire_peektype(msg)) {
 	case WIRE_GOSSIPD_GET_UPDATE:
 		ok = handle_get_local_channel_update(peer, msg);
 		goto handled_cmd;
@@ -522,7 +522,7 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	/* Anything else should not have been sent to us: close on it */
 	status_peer_broken(&peer->id, "unexpected cmd of type %i %s",
 			   fromwire_peektype(msg),
-			   gossip_peerd_wire_type_name(fromwire_peektype(msg)));
+			   gossipd_peerd_wire_name(fromwire_peektype(msg)));
 	return io_close(conn);
 
 	/* Commands should always be OK. */
@@ -832,7 +832,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	bool dev_fast_gossip, dev_fast_gossip_prune;
 	u32 timestamp;
 
-	if (!fromwire_gossipctl_init(daemon, msg,
+	if (!fromwire_gossipd_init(daemon, msg,
 				     &chainparams,
 				     &daemon->our_features,
 				     &daemon->id,
@@ -842,7 +842,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 				     &dev_gossip_time,
 				     &dev_fast_gossip,
 				     &dev_fast_gossip_prune)) {
-		master_badmsg(WIRE_GOSSIPCTL_INIT, msg);
+		master_badmsg(WIRE_GOSSIPD_INIT, msg);
 	}
 
 	daemon->rstate = new_routing_state(daemon,
@@ -907,10 +907,10 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 	 * for a route from ourselves (the usual case): in that case,
 	 * we don't have to consider fees on our own outgoing channels.
 	 */
-	if (!fromwire_gossip_getroute_request(
+	if (!fromwire_gossipd_getroute_request(
 		msg, msg, &source, &destination, &msat, &riskfactor_millionths,
 		&final_cltv, &fuzz_millionths, &excluded, &max_hops))
-		master_badmsg(WIRE_GOSSIP_GETROUTE_REQUEST, msg);
+		master_badmsg(WIRE_GOSSIPD_GETROUTE_REQUEST, msg);
 
 	status_debug("Trying to find a route from %s to %s for %s",
 		     source
@@ -924,7 +924,7 @@ static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
 			 fuzz_millionths / 1000000.0, pseudorand_u64(),
 			 excluded, max_hops);
 
-	out = towire_gossip_getroute_reply(NULL,
+	out = towire_gossipd_getroute_reply(NULL,
 					   cast_const2(const struct route_hop **,
 						       hops));
 	daemon_conn_send(daemon->master, take(out));
@@ -1045,9 +1045,9 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 	bool complete = true;
 
 	/* Note: scid is marked optional in gossip_wire.csv */
-	if (!fromwire_gossip_getchannels_request(msg, msg, &scid, &source,
+	if (!fromwire_gossipd_getchannels_request(msg, msg, &scid, &source,
 						 &prev))
-		master_badmsg(WIRE_GOSSIP_GETCHANNELS_REQUEST, msg);
+		master_badmsg(WIRE_GOSSIPD_GETCHANNELS_REQUEST, msg);
 
 	entries = tal_arr(tmpctx, const struct gossip_getchannels_entry *, 0);
 	/* They can ask about a particular channel by short_channel_id */
@@ -1083,7 +1083,7 @@ static struct io_plan *getchannels_req(struct io_conn *conn,
 		}
 	}
 
-	out = towire_gossip_getchannels_reply(NULL, complete, entries);
+	out = towire_gossipd_getchannels_reply(NULL, complete, entries);
 	daemon_conn_send(daemon->master, take(out));
 	return daemon_conn_read_next(conn, daemon->master);
 }
@@ -1119,8 +1119,8 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 	struct gossip_getnodes_entry *node_arr;
 	struct node_id *id;
 
-	if (!fromwire_gossip_getnodes_request(tmpctx, msg, &id))
-		master_badmsg(WIRE_GOSSIP_GETNODES_REQUEST, msg);
+	if (!fromwire_gossipd_getnodes_request(tmpctx, msg, &id))
+		master_badmsg(WIRE_GOSSIPD_GETNODES_REQUEST, msg);
 
 	/* Format of reply is the same whether they ask for a specific node
 	 * (0 or one responses) or all nodes (0 or more) */
@@ -1153,7 +1153,7 @@ static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
 			tal_count(node_arr));
 	for (size_t i = 0; i < tal_count(node_arr); i++)
 		nodes[i] = &node_arr[i];
-	out = towire_gossip_getnodes_reply(NULL, nodes);
+	out = towire_gossipd_getnodes_reply(NULL, nodes);
 	daemon_conn_send(daemon->master, take(out));
 	return daemon_conn_read_next(conn, daemon->master);
 }
@@ -1168,8 +1168,8 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 	struct peer *peer;
 	u8 *ping;
 
-	if (!fromwire_gossip_ping(msg, &id, &num_pong_bytes, &len))
-		master_badmsg(WIRE_GOSSIP_PING, msg);
+	if (!fromwire_gossipd_ping(msg, &id, &num_pong_bytes, &len))
+		master_badmsg(WIRE_GOSSIPD_PING, msg);
 
 	/* Even if lightningd were to check for valid ids, there's a race
 	 * where it might vanish before we read this command; cleaner to
@@ -1177,7 +1177,7 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 	peer = find_peer(daemon, &id);
 	if (!peer) {
 		daemon_conn_send(daemon->master,
-				 take(towire_gossip_ping_reply(NULL, &id,
+				 take(towire_gossipd_ping_reply(NULL, &id,
 							       false, 0)));
 		goto out;
 	}
@@ -1203,7 +1203,7 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 	 */
 	if (num_pong_bytes >= 65532)
 		daemon_conn_send(daemon->master,
-				 take(towire_gossip_ping_reply(NULL, &id,
+				 take(towire_gossipd_ping_reply(NULL, &id,
 							       true, 0)));
 	else
 		/* We'll respond to lightningd once the pong comes in */
@@ -1244,8 +1244,8 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 	bool *priv_deadends = tal_arr(tmpctx, bool, 0);
 	bool *pub_deadends = tal_arr(tmpctx, bool, 0);
 
-	if (!fromwire_gossip_get_incoming_channels(msg))
-		master_badmsg(WIRE_GOSSIP_GET_INCOMING_CHANNELS, msg);
+	if (!fromwire_gossipd_get_incoming_channels(msg))
+		master_badmsg(WIRE_GOSSIPD_GET_INCOMING_CHANNELS, msg);
 
 	node = get_node(daemon->rstate, &daemon->rstate->local_id);
 	if (node) {
@@ -1280,7 +1280,7 @@ static struct io_plan *get_incoming_channels(struct io_conn *conn,
 		}
 	}
 
-	msg = towire_gossip_get_incoming_channels_reply(NULL,
+	msg = towire_gossipd_get_incoming_channels_reply(NULL,
 							public, pub_deadends,
 							private, priv_deadends);
 	daemon_conn_send(daemon->master, take(msg));
@@ -1292,8 +1292,8 @@ static struct io_plan *new_blockheight(struct io_conn *conn,
 				       struct daemon *daemon,
 				       const u8 *msg)
 {
-	if (!fromwire_gossip_new_blockheight(msg, &daemon->current_blockheight))
-		master_badmsg(WIRE_GOSSIP_NEW_BLOCKHEIGHT, msg);
+	if (!fromwire_gossipd_new_blockheight(msg, &daemon->current_blockheight))
+		master_badmsg(WIRE_GOSSIPD_NEW_BLOCKHEIGHT, msg);
 
 	/* Check if we can now send any deferred queries. */
 	for (size_t i = 0; i < tal_count(daemon->deferred_txouts); i++) {
@@ -1306,7 +1306,7 @@ static struct io_plan *new_blockheight(struct io_conn *conn,
 
 		/* short_channel_id is deep enough, now ask about it. */
 		daemon_conn_send(daemon->master,
-				 take(towire_gossip_get_txout(NULL, scid)));
+				 take(towire_gossipd_get_txout(NULL, scid)));
 
 		tal_arr_remove(&daemon->deferred_txouts, i);
 		i--;
@@ -1321,8 +1321,8 @@ static struct io_plan *dev_gossip_suppress(struct io_conn *conn,
 					   struct daemon *daemon,
 					   const u8 *msg)
 {
-	if (!fromwire_gossip_dev_suppress(msg))
-		master_badmsg(WIRE_GOSSIP_DEV_SUPPRESS, msg);
+	if (!fromwire_gossipd_dev_suppress(msg))
+		master_badmsg(WIRE_GOSSIPD_DEV_SUPPRESS, msg);
 
 	status_unusual("Suppressing all gossip");
 	dev_suppress_gossip = true;
@@ -1343,7 +1343,7 @@ static struct io_plan *dev_gossip_memleak(struct io_conn *conn,
 
 	found_leak = dump_memleak(memtable);
 	daemon_conn_send(daemon->master,
-			 take(towire_gossip_dev_memleak_reply(NULL,
+			 take(towire_gossipd_dev_memleak_reply(NULL,
 							      found_leak)));
 	return daemon_conn_read_next(conn, daemon->master);
 }
@@ -1355,7 +1355,7 @@ static struct io_plan *dev_compact_store(struct io_conn *conn,
 	bool done = gossip_store_compact(daemon->rstate->gs);
 
 	daemon_conn_send(daemon->master,
-			 take(towire_gossip_dev_compact_store_reply(NULL,
+			 take(towire_gossipd_dev_compact_store_reply(NULL,
 								    done)));
 	return daemon_conn_read_next(conn, daemon->master);
 }
@@ -1366,8 +1366,8 @@ static struct io_plan *dev_gossip_set_time(struct io_conn *conn,
 {
 	u32 time;
 
-	if (!fromwire_gossip_dev_set_time(msg, &time))
-		master_badmsg(WIRE_GOSSIP_DEV_SET_TIME, msg);
+	if (!fromwire_gossipd_dev_set_time(msg, &time))
+		master_badmsg(WIRE_GOSSIPD_DEV_SET_TIME, msg);
 	if (!daemon->rstate->gossip_time)
 		daemon->rstate->gossip_time = tal(daemon->rstate, struct timeabs);
 	daemon->rstate->gossip_time->ts.tv_sec = time;
@@ -1386,8 +1386,8 @@ static struct io_plan *get_stripped_cupdate(struct io_conn *conn,
 	struct local_chan *local_chan;
 	const u8 *stripped_update;
 
-	if (!fromwire_gossip_get_stripped_cupdate(msg, &scid))
-		master_badmsg(WIRE_GOSSIP_GET_STRIPPED_CUPDATE, msg);
+	if (!fromwire_gossipd_get_stripped_cupdate(msg, &scid))
+		master_badmsg(WIRE_GOSSIPD_GET_STRIPPED_CUPDATE, msg);
 
 	local_chan = local_chan_map_get(&daemon->rstate->local_chan_map, &scid);
 	if (!local_chan) {
@@ -1412,7 +1412,7 @@ static struct io_plan *get_stripped_cupdate(struct io_conn *conn,
 			stripped_update = NULL;
 	}
 	daemon_conn_send(daemon->master,
-			 take(towire_gossip_get_stripped_cupdate_reply(NULL,
+			 take(towire_gossipd_get_stripped_cupdate_reply(NULL,
 							   stripped_update)));
 	return daemon_conn_read_next(conn, daemon->master);
 }
@@ -1427,8 +1427,8 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 	struct amount_sat sat;
 	bool good;
 
-	if (!fromwire_gossip_get_txout_reply(msg, msg, &scid, &sat, &outscript))
-		master_badmsg(WIRE_GOSSIP_GET_TXOUT_REPLY, msg);
+	if (!fromwire_gossipd_get_txout_reply(msg, msg, &scid, &sat, &outscript))
+		master_badmsg(WIRE_GOSSIPD_GET_TXOUT_REPLY, msg);
 
 	/* Outscript is NULL if it's not an unspent output */
 	good = handle_pending_cannouncement(daemon, daemon->rstate,
@@ -1509,8 +1509,8 @@ static struct io_plan *handle_payment_failure(struct io_conn *conn,
 	u8 *error;
 	u8 *channel_update;
 
-	if (!fromwire_gossip_payment_failure(msg, msg, &error))
-		master_badmsg(WIRE_GOSSIP_PAYMENT_FAILURE, msg);
+	if (!fromwire_gossipd_payment_failure(msg, msg, &error))
+		master_badmsg(WIRE_GOSSIPD_PAYMENT_FAILURE, msg);
 
 	channel_update = channel_update_from_onion_error(tmpctx, error);
 	if (channel_update) {
@@ -1539,8 +1539,8 @@ static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
 	struct short_channel_id scid;
 	struct chan *chan;
 	struct routing_state *rstate = daemon->rstate;
-	if (!fromwire_gossip_outpoint_spent(msg, &scid))
-		master_badmsg(WIRE_GOSSIP_OUTPOINT_SPENT, msg);
+	if (!fromwire_gossipd_outpoint_spent(msg, &scid))
+		master_badmsg(WIRE_GOSSIPD_OUTPOINT_SPENT, msg);
 
 	chan = get_channel(rstate, &scid);
 	if (chan) {
@@ -1576,8 +1576,8 @@ static struct io_plan *handle_local_channel_close(struct io_conn *conn,
 	struct short_channel_id scid;
 	struct chan *chan;
 	struct routing_state *rstate = daemon->rstate;
-	if (!fromwire_gossip_local_channel_close(msg, &scid))
-		master_badmsg(WIRE_GOSSIP_LOCAL_CHANNEL_CLOSE, msg);
+	if (!fromwire_gossipd_local_channel_close(msg, &scid))
+		master_badmsg(WIRE_GOSSIPD_LOCAL_CHANNEL_CLOSE, msg);
 
 	chan = get_channel(rstate, &scid);
 	if (chan)
@@ -1590,75 +1590,75 @@ static struct io_plan *recv_req(struct io_conn *conn,
 				const u8 *msg,
 				struct daemon *daemon)
 {
-	enum gossip_wire_type t = fromwire_peektype(msg);
+	enum gossipd_wire t = fromwire_peektype(msg);
 
 	switch (t) {
-	case WIRE_GOSSIPCTL_INIT:
+	case WIRE_GOSSIPD_INIT:
 		return gossip_init(conn, daemon, msg);
 
-	case WIRE_GOSSIP_GETNODES_REQUEST:
+	case WIRE_GOSSIPD_GETNODES_REQUEST:
 		return getnodes(conn, daemon, msg);
 
-	case WIRE_GOSSIP_GETROUTE_REQUEST:
+	case WIRE_GOSSIPD_GETROUTE_REQUEST:
 		return getroute_req(conn, daemon, msg);
 
-	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
+	case WIRE_GOSSIPD_GETCHANNELS_REQUEST:
 		return getchannels_req(conn, daemon, msg);
 
-	case WIRE_GOSSIP_GET_STRIPPED_CUPDATE:
+	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE:
 		return get_stripped_cupdate(conn, daemon, msg);
 
-	case WIRE_GOSSIP_GET_TXOUT_REPLY:
+	case WIRE_GOSSIPD_GET_TXOUT_REPLY:
 		return handle_txout_reply(conn, daemon, msg);
 
-	case WIRE_GOSSIP_PAYMENT_FAILURE:
+	case WIRE_GOSSIPD_PAYMENT_FAILURE:
 		return handle_payment_failure(conn, daemon, msg);
 
-	case WIRE_GOSSIP_OUTPOINT_SPENT:
+	case WIRE_GOSSIPD_OUTPOINT_SPENT:
 		return handle_outpoint_spent(conn, daemon, msg);
 
-	case WIRE_GOSSIP_LOCAL_CHANNEL_CLOSE:
+	case WIRE_GOSSIPD_LOCAL_CHANNEL_CLOSE:
 		return handle_local_channel_close(conn, daemon, msg);
 
-	case WIRE_GOSSIP_PING:
+	case WIRE_GOSSIPD_PING:
 		return ping_req(conn, daemon, msg);
 
-	case WIRE_GOSSIP_GET_INCOMING_CHANNELS:
+	case WIRE_GOSSIPD_GET_INCOMING_CHANNELS:
 		return get_incoming_channels(conn, daemon, msg);
 
-	case WIRE_GOSSIP_NEW_BLOCKHEIGHT:
+	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
 		return new_blockheight(conn, daemon, msg);
 
 #if DEVELOPER
-	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
+	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 		return dev_set_max_scids_encode_size(conn, daemon, msg);
-	case WIRE_GOSSIP_DEV_SUPPRESS:
+	case WIRE_GOSSIPD_DEV_SUPPRESS:
 		return dev_gossip_suppress(conn, daemon, msg);
-	case WIRE_GOSSIP_DEV_MEMLEAK:
+	case WIRE_GOSSIPD_DEV_MEMLEAK:
 		return dev_gossip_memleak(conn, daemon, msg);
-	case WIRE_GOSSIP_DEV_COMPACT_STORE:
+	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
 		return dev_compact_store(conn, daemon, msg);
-	case WIRE_GOSSIP_DEV_SET_TIME:
+	case WIRE_GOSSIPD_DEV_SET_TIME:
 		return dev_gossip_set_time(conn, daemon, msg);
 #else
-	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
-	case WIRE_GOSSIP_DEV_SUPPRESS:
-	case WIRE_GOSSIP_DEV_MEMLEAK:
-	case WIRE_GOSSIP_DEV_COMPACT_STORE:
-	case WIRE_GOSSIP_DEV_SET_TIME:
+	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
+	case WIRE_GOSSIPD_DEV_SUPPRESS:
+	case WIRE_GOSSIPD_DEV_MEMLEAK:
+	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
+	case WIRE_GOSSIPD_DEV_SET_TIME:
 		break;
 #endif /* !DEVELOPER */
 
 	/* We send these, we don't receive them */
-	case WIRE_GOSSIP_GETNODES_REPLY:
-	case WIRE_GOSSIP_GETROUTE_REPLY:
-	case WIRE_GOSSIP_GETCHANNELS_REPLY:
-	case WIRE_GOSSIP_PING_REPLY:
-	case WIRE_GOSSIP_GET_STRIPPED_CUPDATE_REPLY:
-	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
-	case WIRE_GOSSIP_GET_TXOUT:
-	case WIRE_GOSSIP_DEV_MEMLEAK_REPLY:
-	case WIRE_GOSSIP_DEV_COMPACT_STORE_REPLY:
+	case WIRE_GOSSIPD_GETNODES_REPLY:
+	case WIRE_GOSSIPD_GETROUTE_REPLY:
+	case WIRE_GOSSIPD_GETCHANNELS_REPLY:
+	case WIRE_GOSSIPD_PING_REPLY:
+	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE_REPLY:
+	case WIRE_GOSSIPD_GET_INCOMING_CHANNELS_REPLY:
+	case WIRE_GOSSIPD_GET_TXOUT:
+	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
+	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
 		break;
 	}
 

@@ -11,9 +11,9 @@
 #include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <gossipd/gen_gossip_peerd_wire.h>
-#include <gossipd/gen_gossip_store.h>
-#include <gossipd/gen_gossip_wire.h>
+#include <gossipd/gossip_store_wiregen.h>
+#include <gossipd/gossipd_peerd_wiregen.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <stdio.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
