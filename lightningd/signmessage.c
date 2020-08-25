@@ -8,7 +8,7 @@
 #include <common/utils.h>
 #include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/subd.h>
@@ -85,14 +85,14 @@ static struct command_result *json_signmessage(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Message must be < 64k");
 
-	msg = towire_hsm_sign_message(NULL,
+	msg = towire_hsmd_sign_message(NULL,
 				      tal_dup_arr(tmpctx, u8, (u8 *)message,
 						  strlen(message), 0));
 	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = wire_sync_read(tmpctx, cmd->ld->hsm_fd);
-	if (!fromwire_hsm_sign_message_reply(msg, &rsig))
+	if (!fromwire_hsmd_sign_message_reply(msg, &rsig))
 		fatal("HSM gave bad hsm_sign_message_reply %s",
 		      tal_hex(msg, msg));
 

@@ -76,8 +76,7 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/utils.o				\
 	common/utxo.o				\
 	common/version.o			\
-	common/wallet.o				\
-	hsmd/gen_hsm_wire.o
+	common/wallet.o
 
 onchaind/gen_onchain_wire.h: $(WIRE_GEN) onchaind/onchain_wire.csv
 	$(WIRE_GEN) --page header $@ onchain_wire_type < onchaind/onchain_wire.csv > $@

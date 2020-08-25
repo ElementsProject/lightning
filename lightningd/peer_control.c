@@ -35,7 +35,7 @@
 #include <connectd/gen_connect_wire.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
@@ -184,7 +184,7 @@ static void sign_last_tx(struct channel *channel)
 	u8 *msg, **witness;
 
 	assert(!channel->last_tx->wtx->inputs[0].witness);
-	msg = towire_hsm_sign_commitment_tx(tmpctx,
+	msg = towire_hsmd_sign_commitment_tx(tmpctx,
 					    &channel->peer->id,
 					    channel->dbid,
 					    channel->last_tx,
@@ -195,7 +195,7 @@ static void sign_last_tx(struct channel *channel)
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = wire_sync_read(tmpctx, ld->hsm_fd);
-	if (!fromwire_hsm_sign_commitment_tx_reply(msg, &sig))
+	if (!fromwire_hsmd_sign_commitment_tx_reply(msg, &sig))
 		fatal("HSM gave bad sign_commitment_tx_reply %s",
 		      tal_hex(tmpctx, msg));
 

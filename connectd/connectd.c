@@ -53,7 +53,7 @@
 #include <connectd/tor_autoservice.h>
 #include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/gossip_msg.h>
 #include <netdb.h>

@@ -42,7 +42,7 @@
 #include <common/wire_error.h>
 #include <errno.h>
 #include <gossipd/gen_gossip_peerd_wire.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <openingd/gen_opening_wire.h>
 #include <poll.h>
@@ -745,7 +745,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 	 * witness script.  It also needs the amount of the funding output,
 	 * as segwit signatures commit to that as well, even though it doesn't
 	 * explicitly appear in the transaction itself. */
-	msg = towire_hsm_sign_remote_commitment_tx(NULL,
+	msg = towire_hsmd_sign_remote_commitment_tx(NULL,
 						   *tx,
 						   &state->channel->funding_pubkey[REMOTE],
 						   &state->first_per_commitment_point[REMOTE],
@@ -753,7 +753,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsm_sign_tx_reply(msg, sig))
+	if (!fromwire_hsmd_sign_tx_reply(msg, sig))
 		status_failed(STATUS_FAIL_HSM_IO, "Bad sign_tx_reply %s",
 			      tal_hex(tmpctx, msg));
 
@@ -1271,7 +1271,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	}
 
 	/* Make HSM sign it */
-	msg = towire_hsm_sign_remote_commitment_tx(NULL,
+	msg = towire_hsmd_sign_remote_commitment_tx(NULL,
 						   remote_commit,
 						   &state->channel->funding_pubkey[REMOTE],
 						   &state->first_per_commitment_point[REMOTE],
@@ -1279,7 +1279,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsm_sign_tx_reply(msg, &sig))
+	if (!fromwire_hsmd_sign_tx_reply(msg, &sig))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Bad sign_tx_reply %s", tal_hex(tmpctx, msg));
 
@@ -1574,9 +1574,9 @@ int main(int argc, char *argv[])
 	 * they are, and lightningd has reserved a unique dbid for us already,
 	 * so we might as well get the hsm daemon to generate it now. */
 	wire_sync_write(HSM_FD,
-			take(towire_hsm_get_per_commitment_point(NULL, 0)));
+			take(towire_hsmd_get_per_commitment_point(NULL, 0)));
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsm_get_per_commitment_point_reply(tmpctx, msg,
+	if (!fromwire_hsmd_get_per_commitment_point_reply(tmpctx, msg,
 							 &state->first_per_commitment_point[LOCAL],
 							 &none))
 		status_failed(STATUS_FAIL_HSM_IO,

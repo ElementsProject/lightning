@@ -13,7 +13,7 @@
 #include <connectd/gen_connect_wire.h>
 #include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -265,7 +265,7 @@ static void hsm_dev_memleak_done(struct subd *hsmd,
 	struct lightningd *ld = cmd->ld;
 	bool found_leak;
 
-	if (!fromwire_hsm_dev_memleak_reply(reply, &found_leak)) {
+	if (!fromwire_hsmd_dev_memleak_reply(reply, &found_leak)) {
 		was_pending(command_fail(cmd, LIGHTNINGD,
 					 "Bad hsm_dev_memleak"));
 		return;
@@ -287,7 +287,7 @@ void peer_memleak_done(struct command *cmd, struct subd *leaker)
 		report_leak_info(cmd, leaker);
 	else {
 		/* No leak there, try hsmd (we talk to hsm sync) */
-		u8 *msg = towire_hsm_dev_memleak(NULL);
+		u8 *msg = towire_hsmd_dev_memleak(NULL);
 		if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
 			fatal("Could not write to HSM: %s", strerror(errno));
 

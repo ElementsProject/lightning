@@ -18,7 +18,7 @@
 #include <common/wallet_tx.h>
 #include <common/withdraw_tx.h>
 #include <errno.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
@@ -115,7 +115,7 @@ static struct command_result *broadcast_and_wait(struct command *cmd,
 
 	/* FIXME: hsm will sign almost anything, but it should really
 	 * fail cleanly (not abort!) and let us report the error here. */
-	u8 *msg = towire_hsm_sign_withdrawal(cmd, utx->wtx->utxos, utx->tx->psbt);
+	u8 *msg = towire_hsmd_sign_withdrawal(cmd, utx->wtx->utxos, utx->tx->psbt);
 
 	if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
 		fatal("Could not write sign_withdrawal to HSM: %s",
@@ -123,7 +123,7 @@ static struct command_result *broadcast_and_wait(struct command *cmd,
 
 	msg = wire_sync_read(cmd, cmd->ld->hsm_fd);
 
-	if (!fromwire_hsm_sign_withdrawal_reply(utx, msg, &signed_psbt))
+	if (!fromwire_hsmd_sign_withdrawal_reply(utx, msg, &signed_psbt))
 		fatal("HSM gave bad sign_withdrawal_reply %s",
 		      tal_hex(tmpctx, msg));
 
@@ -1333,7 +1333,7 @@ static struct command_result *json_signpsbt(struct command *cmd,
 
 	/* FIXME: hsm will sign almost anything, but it should really
 	 * fail cleanly (not abort!) and let us report the error here. */
-	u8 *msg = towire_hsm_sign_withdrawal(cmd,
+	u8 *msg = towire_hsmd_sign_withdrawal(cmd,
 					     cast_const2(const struct utxo **, utxos),
 					     psbt);
 
@@ -1343,7 +1343,7 @@ static struct command_result *json_signpsbt(struct command *cmd,
 
 	msg = wire_sync_read(cmd, cmd->ld->hsm_fd);
 
-	if (!fromwire_hsm_sign_withdrawal_reply(cmd, msg, &signed_psbt))
+	if (!fromwire_hsmd_sign_withdrawal_reply(cmd, msg, &signed_psbt))
 		fatal("HSM gave bad sign_withdrawal_reply %s",
 		      tal_hex(tmpctx, msg));
 

@@ -15,7 +15,6 @@
 #include <common/wallet_tx.h>
 #include <common/wire_error.h>
 #include <errno.h>
-#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>

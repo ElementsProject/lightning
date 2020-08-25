@@ -13,7 +13,7 @@
 #include <common/status.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/hsm_control.h>
@@ -36,12 +36,12 @@ static int hsm_get_fd(struct lightningd *ld,
 	int hsm_fd;
 	u8 *msg;
 
-	msg = towire_hsm_client_hsmfd(NULL, id, dbid, capabilities);
+	msg = towire_hsmd_client_hsmfd(NULL, id, dbid, capabilities);
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
 	msg = wire_sync_read(tmpctx, ld->hsm_fd);
-	if (!fromwire_hsm_client_hsmfd_reply(msg))
+	if (!fromwire_hsmd_client_hsmfd_reply(msg))
 		fatal("Bad reply from HSM: %s", tal_hex(tmpctx, msg));
 
 	hsm_fd = fdpass_recv(ld->hsm_fd);
@@ -95,7 +95,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 		err(1, "Could not create hsm socketpair");
 
 	ld->hsm = new_global_subd(ld, "lightning_hsmd",
-				  hsm_wire_type_name,
+				  hsmd_wire_name,
 				  hsm_msg,
 				  take(&fds[1]), NULL);
 	if (!ld->hsm)
@@ -112,7 +112,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	}
 
 	ld->hsm_fd = fds[0];
-	if (!wire_sync_write(ld->hsm_fd, towire_hsm_init(tmpctx,
+	if (!wire_sync_write(ld->hsm_fd, towire_hsmd_init(tmpctx,
 							 &chainparams->bip32_key_version,
 							 chainparams,
 							 ld->config.keypass,
@@ -124,7 +124,7 @@ struct ext_key *hsm_init(struct lightningd *ld)
 
 	bip32_base = tal(ld, struct ext_key);
 	msg = wire_sync_read(tmpctx, ld->hsm_fd);
-	if (!fromwire_hsm_init_reply(msg,
+	if (!fromwire_hsmd_init_reply(msg,
 				     &ld->id, bip32_base)) {
 		if (ld->config.keypass)
 			errx(1, "Wrong password for encrypted hsm_secret.");

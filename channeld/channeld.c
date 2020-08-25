@@ -57,7 +57,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gen_gossip_peerd_wire.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <secp256k1.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
@@ -237,14 +237,14 @@ static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 	if (!wire_sync_write(HSM_FD, req))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Writing %s to HSM: %s",
-			      hsm_wire_type_name(type),
+			      hsmd_wire_name(type),
 			      strerror(errno));
 
 	msg = wire_sync_read(ctx, HSM_FD);
 	if (!msg)
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading resp to %s: %s",
-			      hsm_wire_type_name(type),
+			      hsmd_wire_name(type),
 			      strerror(errno));
 
 	return msg;
@@ -385,10 +385,10 @@ static void send_announcement_signatures(struct peer *peer)
 
 	status_debug("Exchanging announcement signatures.");
 	ca = create_channel_announcement(tmpctx, peer);
-	req = towire_hsm_cannouncement_sig_req(tmpctx, ca);
+	req = towire_hsmd_cannouncement_sig_req(tmpctx, ca);
 
 	msg = hsm_req(tmpctx, req);
-	if (!fromwire_hsm_cannouncement_sig_reply(msg,
+	if (!fromwire_hsmd_cannouncement_sig_reply(msg,
 				  &peer->announcement_node_sigs[LOCAL],
 				  &peer->announcement_bitcoin_sigs[LOCAL]))
 		status_failed(STATUS_FAIL_HSM_IO,
@@ -840,13 +840,13 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 	const u8 *msg;
 	struct bitcoin_signature *htlc_sigs;
 
-	msg = towire_hsm_sign_remote_commitment_tx(NULL, txs[0],
+	msg = towire_hsmd_sign_remote_commitment_tx(NULL, txs[0],
 						   &peer->channel->funding_pubkey[REMOTE],
 						   &peer->remote_per_commit,
 						   peer->channel->option_static_remotekey);
 
 	msg = hsm_req(tmpctx, take(msg));
-	if (!fromwire_hsm_sign_tx_reply(msg, commit_sig))
+	if (!fromwire_hsmd_sign_tx_reply(msg, commit_sig))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Reading sign_remote_commitment_tx reply: %s",
 			      tal_hex(tmpctx, msg));
@@ -881,12 +881,12 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 
 		wscript = bitcoin_tx_output_get_witscript(tmpctx, txs[0],
 							  txs[i+1]->wtx->inputs[0].index);
-		msg = towire_hsm_sign_remote_htlc_tx(NULL, txs[i + 1], wscript,
+		msg = towire_hsmd_sign_remote_htlc_tx(NULL, txs[i + 1], wscript,
 						     &peer->remote_per_commit,
 						     peer->channel->option_anchor_outputs);
 
 		msg = hsm_req(tmpctx, take(msg));
-		if (!fromwire_hsm_sign_tx_reply(msg, &htlc_sigs[i]))
+		if (!fromwire_hsmd_sign_tx_reply(msg, &htlc_sigs[i]))
 			status_failed(STATUS_FAIL_HSM_IO,
 				      "Bad sign_remote_htlc_tx reply: %s",
 				      tal_hex(tmpctx, msg));
@@ -1134,9 +1134,9 @@ static void get_per_commitment_point(u64 index, struct pubkey *point,
 	const u8 *msg;
 
 	msg = hsm_req(tmpctx,
-		      take(towire_hsm_get_per_commitment_point(NULL, index)));
+		      take(towire_hsmd_get_per_commitment_point(NULL, index)));
 
-	if (!fromwire_hsm_get_per_commitment_point_reply(tmpctx, msg,
+	if (!fromwire_hsmd_get_per_commitment_point_reply(tmpctx, msg,
 							 point,
 							 &s))
 		status_failed(STATUS_FAIL_HSM_IO,
@@ -2253,11 +2253,11 @@ static void check_future_dataloss_fields(struct peer *peer,
 
 	assert(next_revocation_number > peer->next_index[LOCAL] - 1);
 
-	msg = towire_hsm_check_future_secret(NULL,
+	msg = towire_hsmd_check_future_secret(NULL,
 					     next_revocation_number - 1,
 					     last_local_per_commit_secret);
 	msg = hsm_req(tmpctx, take(msg));
-	if (!fromwire_hsm_check_future_secret_reply(msg, &correct))
+	if (!fromwire_hsmd_check_future_secret_reply(msg, &correct))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Bad hsm_check_future_secret_reply: %s",
 			      tal_hex(tmpctx, msg));

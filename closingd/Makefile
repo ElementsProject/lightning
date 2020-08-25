@@ -82,8 +82,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/version.o			\
 	common/wire_error.o			\
 	common/wireaddr.o			\
-	gossipd/gen_gossip_peerd_wire.o		\
-	hsmd/gen_hsm_wire.o
+	gossipd/gen_gossip_peerd_wire.o
 
 closingd/gen_closing_wire.h: $(WIRE_GEN) closingd/closing_wire.csv
 	$(WIRE_GEN) --page header $@ closing_wire_type < closingd/closing_wire.csv > $@

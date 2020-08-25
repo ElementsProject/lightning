@@ -22,7 +22,6 @@
 #include <errno.h>
 #include <gossipd/gen_gossip_wire.h>
 #include <hsmd/capabilities.h>
-#include <hsmd/gen_hsm_wire.h>
 #include <inttypes.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/gossip_msg.h>

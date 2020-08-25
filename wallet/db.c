@@ -10,7 +10,7 @@
 #include <common/node_id.h>
 #include <common/onionreply.h>
 #include <common/version.h>
-#include <hsmd/gen_hsm_wire.h>
+#include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
 #include <lightningd/lightningd.h>
@@ -1188,14 +1188,14 @@ void fillin_missing_scriptpubkeys(struct lightningd *ld, struct db *db,
 				commitment_point = NULL;
 
 			/* Have to go ask the HSM to derive the pubkey for us */
-			msg = towire_hsm_get_output_scriptpubkey(NULL,
+			msg = towire_hsmd_get_output_scriptpubkey(NULL,
 								 channel_id,
 								 &peer_id,
 								 commitment_point);
 			if (!wire_sync_write(ld->hsm_fd, take(msg)))
 				fatal("Could not write to HSM: %s", strerror(errno));
 			msg = wire_sync_read(stmt, ld->hsm_fd);
-			if (!fromwire_hsm_get_output_scriptpubkey_reply(stmt, msg,
+			if (!fromwire_hsmd_get_output_scriptpubkey_reply(stmt, msg,
 									&scriptPubkey))
 				fatal("HSM gave bad hsm_get_output_scriptpubkey_reply %s",
 				      tal_hex(msg, msg));
