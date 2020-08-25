@@ -141,9 +141,9 @@ bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, cons
 /* Generated stub for fromwire_hsmd_sign_commitment_tx_reply */
 bool fromwire_hsmd_sign_commitment_tx_reply(const void *p UNNEEDED, struct bitcoin_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_sign_commitment_tx_reply called!\n"); abort(); }
-/* Generated stub for fromwire_onchain_dev_memleak_reply */
-bool fromwire_onchain_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
-{ fprintf(stderr, "fromwire_onchain_dev_memleak_reply called!\n"); abort(); }
+/* Generated stub for fromwire_onchaind_dev_memleak_reply */
+bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
+{ fprintf(stderr, "fromwire_onchaind_dev_memleak_reply called!\n"); abort(); }
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
@@ -714,12 +714,12 @@ u8 *towire_invalid_onion_payload(const tal_t *ctx UNNEEDED, bigsize type UNNEEDE
 /* Generated stub for towire_invalid_realm */
 u8 *towire_invalid_realm(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_invalid_realm called!\n"); abort(); }
-/* Generated stub for towire_onchain_dev_memleak */
-u8 *towire_onchain_dev_memleak(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_onchain_dev_memleak called!\n"); abort(); }
-/* Generated stub for towire_onchain_known_preimage */
-u8 *towire_onchain_known_preimage(const tal_t *ctx UNNEEDED, const struct preimage *preimage UNNEEDED, bool is_replay UNNEEDED)
-{ fprintf(stderr, "towire_onchain_known_preimage called!\n"); abort(); }
+/* Generated stub for towire_onchaind_dev_memleak */
+u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_onchaind_dev_memleak called!\n"); abort(); }
+/* Generated stub for towire_onchaind_known_preimage */
+u8 *towire_onchaind_known_preimage(const tal_t *ctx UNNEEDED, const struct preimage *preimage UNNEEDED, bool is_replay UNNEEDED)
+{ fprintf(stderr, "towire_onchaind_known_preimage called!\n"); abort(); }
 /* Generated stub for towire_permanent_channel_failure */
 u8 *towire_permanent_channel_failure(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_permanent_channel_failure called!\n"); abort(); }

@@ -34,8 +34,7 @@
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
-#include <onchaind/gen_onchain_wire.h>
-#include <onchaind/onchain_wire.h>
+#include <onchaind/onchaind_wiregen.h>
 #include <wallet/wallet.h>
 #include <wire/gen_onion_wire.h>
 #include <wire/wire_sync.h>
@@ -428,7 +427,7 @@ void fulfill_htlc(struct htlc_in *hin, const struct preimage *preimage)
 	}
 
 	if (channel_on_chain(channel)) {
-		msg = towire_onchain_known_preimage(hin, preimage, false);
+		msg = towire_onchaind_known_preimage(hin, preimage, false);
 	} else {
 		struct fulfilled_htlc fulfilled_htlc;
 		fulfilled_htlc.id = hin->key.id;

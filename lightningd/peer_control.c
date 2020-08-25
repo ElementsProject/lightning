@@ -1150,7 +1150,7 @@ static enum watch_result funding_spent(struct channel *channel,
 	bitcoin_txid(tx, &txid);
 
 	wallet_channeltxs_add(channel->peer->ld->wallet, channel,
-			      WIRE_ONCHAIN_INIT, &txid, 0, block->height);
+			      WIRE_ONCHAIND_INIT, &txid, 0, block->height);
 	return onchaind_funding_spent(channel, tx, block->height, false);
 }
 
@@ -2253,7 +2253,7 @@ static void onchaind_memleak_req_done(struct subd *onchaind,
 	bool found_leak;
 
 	tal_del_destructor2(onchaind, subd_died_forget_memleak, cmd);
-	if (!fromwire_onchain_dev_memleak_reply(msg, &found_leak)) {
+	if (!fromwire_onchaind_dev_memleak_reply(msg, &found_leak)) {
 		was_pending(command_fail(cmd, LIGHTNINGD,
 					 "Bad onchain_dev_memleak"));
 		return;
@@ -2292,7 +2292,7 @@ static void peer_memleak_req_next(struct command *cmd, struct channel *prev)
 			}
 			if (streq(c->owner->name, "onchaind")) {
 				subd_req(c, c->owner,
-					 take(towire_onchain_dev_memleak(NULL)),
+					 take(towire_onchaind_dev_memleak(NULL)),
 					 -1, 0, onchaind_memleak_req_done, cmd);
 				tal_add_destructor2(c->owner,
 						    subd_died_forget_memleak,

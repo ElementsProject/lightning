@@ -1,6 +1,6 @@
 #include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
-#include <closingd/gen_closing_wire.h>
+#include <closingd/closingd_wiregen.h>
 #include <common/close_tx.h>
 #include <common/fee_states.h>
 #include <common/initial_commit_tx.h>
@@ -97,7 +97,7 @@ static void peer_received_closing_signature(struct channel *channel,
 	struct bitcoin_txid tx_id;
 	struct lightningd *ld = channel->peer->ld;
 
-	if (!fromwire_closing_received_signature(msg, msg, &sig, &tx)) {
+	if (!fromwire_closingd_received_signature(msg, msg, &sig, &tx)) {
 		channel_internal_error(channel, "Bad closing_received_signature %s",
 				       tal_hex(msg, msg));
 		return;
@@ -115,12 +115,12 @@ static void peer_received_closing_signature(struct channel *channel,
 	bitcoin_txid(channel->last_tx, &tx_id);
 	/* OK, you can continue now. */
 	subd_send_msg(channel->owner,
-		      take(towire_closing_received_signature_reply(channel, &tx_id)));
+		      take(towire_closingd_received_signature_reply(channel, &tx_id)));
 }
 
 static void peer_closing_complete(struct channel *channel, const u8 *msg)
 {
-	if (!fromwire_closing_complete(msg)) {
+	if (!fromwire_closingd_complete(msg)) {
 		channel_internal_error(channel, "Bad closing_complete %s",
 				       tal_hex(msg, msg));
 		return;
@@ -142,20 +142,20 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 
 static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSED)
 {
-	enum closing_wire_type t = fromwire_peektype(msg);
+	enum closingd_wire t = fromwire_peektype(msg);
 
 	switch (t) {
-	case WIRE_CLOSING_RECEIVED_SIGNATURE:
+	case WIRE_CLOSINGD_RECEIVED_SIGNATURE:
 		peer_received_closing_signature(sd->channel, msg);
 		break;
 
-	case WIRE_CLOSING_COMPLETE:
+	case WIRE_CLOSINGD_COMPLETE:
 		peer_closing_complete(sd->channel, msg);
 		break;
 
 	/* We send these, not receive them */
-	case WIRE_CLOSING_INIT:
-	case WIRE_CLOSING_RECEIVED_SIGNATURE_REPLY:
+	case WIRE_CLOSINGD_INIT:
+	case WIRE_CLOSINGD_RECEIVED_SIGNATURE_REPLY:
 		break;
 	}
 
@@ -192,7 +192,7 @@ void peer_start_closingd(struct channel *channel,
 					   "lightning_closingd",
 					   channel, &channel->peer->id,
 					   channel->log, true,
-					   closing_wire_type_name, closing_msg,
+					   closingd_wire_name, closing_msg,
 					   channel_errmsg,
 					   channel_set_billboard,
 					   take(&pps->peer_fd),
@@ -278,7 +278,7 @@ void peer_start_closingd(struct channel *channel,
 				       num_revocations-1);
 		return;
 	}
-	initmsg = towire_closing_init(tmpctx,
+	initmsg = towire_closingd_init(tmpctx,
 				      chainparams,
 				      pps,
 				      &channel->funding_txid,

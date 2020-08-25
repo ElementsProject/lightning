@@ -1,0 +1,45 @@
+#include <bitcoin/tx.h>
+#include <common/cryptomsg.h>
+#include <common/htlc_wire.h>
+#include <common/per_peer_state.h>
+# Begin!  (passes peer fd, gossipd-client fd)
+msgtype,closingd_init,2001
+msgdata,closingd_init,chainparams,chainparams,
+msgdata,closingd_init,pps,per_peer_state,
+msgdata,closingd_init,funding_txid,bitcoin_txid,
+msgdata,closingd_init,funding_txout,u16,
+msgdata,closingd_init,funding_satoshi,amount_sat,
+msgdata,closingd_init,local_fundingkey,pubkey,
+msgdata,closingd_init,remote_fundingkey,pubkey,
+msgdata,closingd_init,opener,enum side,
+msgdata,closingd_init,local_sat,amount_sat,
+msgdata,closingd_init,remote_sat,amount_sat,
+msgdata,closingd_init,our_dust_limit,amount_sat,
+msgdata,closingd_init,min_fee_satoshi,amount_sat,
+msgdata,closingd_init,fee_limit_satoshi,amount_sat,
+msgdata,closingd_init,initial_fee_satoshi,amount_sat,
+msgdata,closingd_init,local_scriptpubkey_len,u16,
+msgdata,closingd_init,local_scriptpubkey,u8,local_scriptpubkey_len
+msgdata,closingd_init,remote_scriptpubkey_len,u16,
+msgdata,closingd_init,remote_scriptpubkey,u8,remote_scriptpubkey_len
+msgdata,closingd_init,fee_negotiation_step,u64,
+msgdata,closingd_init,fee_negotiation_step_unit,u8,
+msgdata,closingd_init,reconnected,bool,
+msgdata,closingd_init,next_index_local,u64,
+msgdata,closingd_init,next_index_remote,u64,
+msgdata,closingd_init,revocations_received,u64,
+msgdata,closingd_init,channel_reestablish_len,u16,
+msgdata,closingd_init,channel_reestablish,u8,channel_reestablish_len
+msgdata,closingd_init,last_remote_secret,secret,
+msgdata,closingd_init,dev_fast_gossip,bool,
+
+# We received an offer, save signature.
+msgtype,closingd_received_signature,2002
+msgdata,closingd_received_signature,signature,bitcoin_signature,
+msgdata,closingd_received_signature,tx,bitcoin_tx,
+
+msgtype,closingd_received_signature_reply,2102
+msgdata,closingd_received_signature_reply,closing_txid,bitcoin_txid,
+
+# Negotiations complete, we're exiting.
+msgtype,closingd_complete,2004

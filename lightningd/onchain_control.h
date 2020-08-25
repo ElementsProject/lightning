@@ -3,7 +3,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <lightningd/lightningd.h>
-#include <onchaind/gen_onchain_wire.h>
+#include <onchaind/onchaind_wiregen.h>
 
 struct channel;
 struct bitcoin_tx;

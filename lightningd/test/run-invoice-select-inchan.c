@@ -131,9 +131,9 @@ bool fromwire_hsmd_sign_invoice_reply(const void *p UNNEEDED, secp256k1_ecdsa_re
 /* Generated stub for fromwire_node_id */
 void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
-/* Generated stub for fromwire_onchain_dev_memleak_reply */
-bool fromwire_onchain_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
-{ fprintf(stderr, "fromwire_onchain_dev_memleak_reply called!\n"); abort(); }
+/* Generated stub for fromwire_onchaind_dev_memleak_reply */
+bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
+{ fprintf(stderr, "fromwire_onchaind_dev_memleak_reply called!\n"); abort(); }
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
@@ -502,9 +502,9 @@ u8 *towire_hsmd_sign_invoice(const tal_t *ctx UNNEEDED, const u8 *u5bytes UNNEED
 /* Generated stub for towire_node_id */
 void towire_node_id(u8 **pptr UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "towire_node_id called!\n"); abort(); }
-/* Generated stub for towire_onchain_dev_memleak */
-u8 *towire_onchain_dev_memleak(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_onchain_dev_memleak called!\n"); abort(); }
+/* Generated stub for towire_onchaind_dev_memleak */
+u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_onchaind_dev_memleak called!\n"); abort(); }
 /* Generated stub for towire_temporary_node_failure */
 u8 *towire_temporary_node_failure(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_temporary_node_failure called!\n"); abort(); }

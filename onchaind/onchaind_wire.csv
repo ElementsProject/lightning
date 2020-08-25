@@ -1,0 +1,136 @@
+#include <bitcoin/tx_parts.h>
+#include <common/coin_mvt.h>
+#include <common/derive_basepoints.h>
+#include <common/htlc_wire.h>
+#include <common/wallet.h>
+
+# Begin!  Here's the onchain tx which spends funding tx, followed by all HTLCs.
+msgtype,onchaind_init,5001
+msgdata,onchaind_init,shachain,shachain,
+# This needs to be set explicitly since the same message also contains a
+# transaction that we need to parse correctly.
+msgdata,onchaind_init,chainparams,chainparams,
+msgdata,onchaind_init,funding_amount_satoshi,amount_sat,
+# Our current balance (of funding amount, not counting any pending htlcs)
+msgdata,onchaind_init,our_msat,amount_msat,
+# Remote per commit point for committed tx.
+msgdata,onchaind_init,old_remote_per_commitment_point,pubkey,
+# Remote per commit point for current tx (needed if we haven't got revoke_and_ack yet).
+msgdata,onchaind_init,remote_per_commitment_point,pubkey,
+msgdata,onchaind_init,local_to_self_delay,u32,
+msgdata,onchaind_init,remote_to_self_delay,u32,
+msgdata,onchaind_init,delayed_to_us_feerate,u32,
+msgdata,onchaind_init,htlc_feerate,u32,
+msgdata,onchaind_init,penalty_feerate,u32,
+msgdata,onchaind_init,local_dust_limit_satoshi,amount_sat,
+# Gives an easy way to tell if it's our unilateral close or theirs...
+msgdata,onchaind_init,our_broadcast_txid,bitcoin_txid,
+msgdata,onchaind_init,local_scriptpubkey_len,u16,
+msgdata,onchaind_init,local_scriptpubkey,u8,local_scriptpubkey_len
+msgdata,onchaind_init,remote_scriptpubkey_len,u16,
+msgdata,onchaind_init,remote_scriptpubkey,u8,remote_scriptpubkey_len
+msgdata,onchaind_init,ourwallet_pubkey,pubkey,
+# We need these two for commit number obscurer
+msgdata,onchaind_init,opener,enum side,
+msgdata,onchaind_init,local_basepoints,basepoints,
+msgdata,onchaind_init,remote_basepoints,basepoints,
+msgdata,onchaind_init,tx_parts,tx_parts,
+msgdata,onchaind_init,locktime,u32,
+msgdata,onchaind_init,tx_blockheight,u32,
+msgdata,onchaind_init,reasonable_depth,u32,
+msgdata,onchaind_init,num_htlc_sigs,u16,
+msgdata,onchaind_init,htlc_signature,bitcoin_signature,num_htlc_sigs
+msgdata,onchaind_init,num_htlcs,u64,
+msgdata,onchaind_init,min_possible_feerate,u32,
+msgdata,onchaind_init,max_possible_feerate,u32,
+msgdata,onchaind_init,possible_remote_per_commit_point,?pubkey,
+msgdata,onchaind_init,local_funding_pubkey,pubkey,
+msgdata,onchaind_init,remote_funding_pubkey,pubkey,
+msgdata,onchaind_init,option_static_remotekey,bool,
+msgdata,onchaind_init,option_anchor_outputs,bool,
+msgdata,onchaind_init,is_replay,bool,
+
+#include <onchaind/onchaind_wire.h>
+# This is all the HTLCs: one per message
+msgtype,onchaind_htlc,5002
+msgdata,onchaind_htlc,htlc,htlc_stub,
+# If it's not in the commitment tx, tell us (immediately or htlc_missing_depth)
+msgdata,onchaind_htlc,tell_if_missing,bool,
+msgdata,onchaind_htlc,tell_immediately,bool,
+
+# This says we're ready; give us preimages.
+msgtype,onchaind_init_reply,5101
+
+# onchaind->master: Send out a tx.
+msgtype,onchaind_broadcast_tx,5003
+msgdata,onchaind_broadcast_tx,tx,bitcoin_tx,
+msgdata,onchaind_broadcast_tx,type,enum wallet_tx_type,
+
+# master->onchaind: Notifier that an output has been spent by input_num of tx.
+msgtype,onchaind_spent,5004
+msgdata,onchaind_spent,tx,tx_parts,
+msgdata,onchaind_spent,input_num,u32,
+msgdata,onchaind_spent,blockheight,u32,
+msgdata,onchaind_spent,is_replay,bool,
+
+# master->onchaind: We will receive more than one of these, as depth changes.
+msgtype,onchaind_depth,5005
+msgdata,onchaind_depth,txid,bitcoin_txid,
+msgdata,onchaind_depth,depth,u32,
+msgdata,onchaind_depth,is_replay,bool,
+
+# onchaind->master: We don't want to watch this tx, or its outputs
+msgtype,onchaind_unwatch_tx,5006
+msgdata,onchaind_unwatch_tx,txid,bitcoin_txid,
+
+# master->onchaind: We know HTLC preimage
+msgtype,onchaind_known_preimage,5007
+msgdata,onchaind_known_preimage,preimage,preimage,
+msgdata,onchaind_known_preimage,is_replay,bool,
+
+# onchaind->master: We discovered HTLC preimage
+msgtype,onchaind_extracted_preimage,5008
+msgdata,onchaind_extracted_preimage,preimage,preimage,
+
+# onchaind->master: this HTLC was missing from commit tx.
+msgtype,onchaind_missing_htlc_output,5009
+msgdata,onchaind_missing_htlc_output,htlc,htlc_stub,
+
+# onchaind->master: this HTLC has timed out (after reasonable_depth)
+msgtype,onchaind_htlc_timeout,5010
+msgdata,onchaind_htlc_timeout,htlc,htlc_stub,
+
+# onchaind->master: this peer can be forgotten
+msgtype,onchaind_all_irrevocably_resolved,5011
+
+# onchaind->master: hey, I identified an UTXO you'll want to track
+msgtype,onchaind_add_utxo,5012
+msgdata,onchaind_add_utxo,prev_out_tx,bitcoin_txid,
+msgdata,onchaind_add_utxo,prev_out_index,u32,
+msgdata,onchaind_add_utxo,per_commit_point,?pubkey,
+msgdata,onchaind_add_utxo,value,amount_sat,
+msgdata,onchaind_add_utxo,blockheight,u32,
+msgdata,onchaind_add_utxo,len,u16,
+msgdata,onchaind_add_utxo,scriptpubkey,u8,len
+
+# master -> onchaind: do you have a memleak?
+msgtype,onchaind_dev_memleak,5033
+
+msgtype,onchaind_dev_memleak_reply,5133
+msgdata,onchaind_dev_memleak_reply,leak,bool,
+
+# Tell the main daemon what we've been watching, mainly used for transactions
+# that we tracked automatically but only onchaind knows how to classify their
+# transactions.
+msgtype,onchaind_annotate_txout,5035
+msgdata,onchaind_annotate_txout,txid,bitcoin_txid,
+msgdata,onchaind_annotate_txout,outnum,u32,
+msgdata,onchaind_annotate_txout,type,enum wallet_tx_type,
+
+msgtype,onchaind_annotate_txin,5036
+msgdata,onchaind_annotate_txin,txid,bitcoin_txid,
+msgdata,onchaind_annotate_txin,innum,u32,
+msgdata,onchaind_annotate_txin,type,enum wallet_tx_type,
+
+msgtype,onchaind_notify_coin_mvt,5037
+msgdata,onchaind_notify_coin_mvt,mvt,chain_coin_mvt,

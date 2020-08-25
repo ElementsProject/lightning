@@ -12,7 +12,6 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <lightningd/watch.h>
-#include <onchaind/onchain_wire.h>
 #include <wire/wire_sync.h>
 
 /* We dump all the known preimages when onchaind starts up. */
@@ -65,7 +64,7 @@ static void onchaind_tell_fulfill(struct channel *channel)
 		 * The alternative is to double-count *every* ignored htlc output
 		 * It's easier to delete than find a missing, but I'm banking on
 		 * the rarity of failure here. (hahaha) */
-		msg = towire_onchain_known_preimage(channel, hin->preimage, false);
+		msg = towire_onchaind_known_preimage(channel, hin->preimage, false);
 		subd_send_msg(channel->owner, take(msg));
 	}
 }
@@ -85,7 +84,7 @@ static void onchain_tx_depth(struct channel *channel,
 			     bool is_replay)
 {
 	u8 *msg;
-	msg = towire_onchain_depth(channel, txid, depth, is_replay);
+	msg = towire_onchaind_depth(channel, txid, depth, is_replay);
 	subd_send_msg(channel->owner, take(msg));
 }
 
@@ -126,7 +125,7 @@ static enum watch_result onchain_tx_watched(struct lightningd *ld,
 
 	/* Store the channeltx so we can replay later */
 	wallet_channeltxs_add(ld->wallet, channel,
-			      WIRE_ONCHAIN_DEPTH, txid, 0, blockheight);
+			      WIRE_ONCHAIND_DEPTH, txid, 0, blockheight);
 
 	onchain_tx_depth(channel, txid, depth, false);
 	return KEEP_WATCHING;
@@ -148,7 +147,7 @@ static void onchain_txo_spent(struct channel *channel, const struct bitcoin_tx *
 
 	watch_tx_and_outputs(channel, tx);
 
-	msg = towire_onchain_spent(channel, parts, input_num, blockheight, is_replay);
+	msg = towire_onchaind_spent(channel, parts, input_num, blockheight, is_replay);
 	subd_send_msg(channel->owner, take(msg));
 
 }
@@ -166,7 +165,7 @@ static enum watch_result onchain_txo_watched(struct channel *channel,
 
 	/* Store the channeltx so we can replay later */
 	wallet_channeltxs_add(channel->peer->ld->wallet, channel,
-			      WIRE_ONCHAIN_SPENT, &txid, input_num,
+			      WIRE_ONCHAIND_SPENT, &txid, input_num,
 			      block->height);
 
 	onchain_txo_spent(channel, tx, input_num, block->height, false);
@@ -201,7 +200,7 @@ static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
 	struct channel_id channel_id;
 	struct chain_coin_mvt *mvt = tal(NULL, struct chain_coin_mvt);
 
-	if (!fromwire_onchain_notify_coin_mvt(msg, mvt)) {
+	if (!fromwire_onchaind_notify_coin_mvt(msg, mvt)) {
 		channel_internal_error(channel, "Invalid onchain notify_coin_mvt");
 		return;
 	}
@@ -221,7 +220,7 @@ static void handle_onchain_broadcast_tx(struct channel *channel, const u8 *msg)
 	struct bitcoin_txid txid;
 	enum wallet_tx_type type;
 
-	if (!fromwire_onchain_broadcast_tx(msg, msg, &tx, &type)) {
+	if (!fromwire_onchaind_broadcast_tx(msg, msg, &tx, &type)) {
 		channel_internal_error(channel, "Invalid onchain_broadcast_tx");
 		return;
 	}
@@ -240,7 +239,7 @@ static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
 	struct bitcoin_txid txid;
 	struct txwatch *txw;
 
-	if (!fromwire_onchain_unwatch_tx(msg, &txid)) {
+	if (!fromwire_onchaind_unwatch_tx(msg, &txid)) {
 		channel_internal_error(channel, "Invalid onchain_unwatch_tx");
 		return;
 	}
@@ -257,7 +256,7 @@ static void handle_extracted_preimage(struct channel *channel, const u8 *msg)
 {
 	struct preimage preimage;
 
-	if (!fromwire_onchain_extracted_preimage(msg, &preimage)) {
+	if (!fromwire_onchaind_extracted_preimage(msg, &preimage)) {
 		channel_internal_error(channel, "Invalid extracted_preimage");
 		return;
 	}
@@ -269,7 +268,7 @@ static void handle_missing_htlc_output(struct channel *channel, const u8 *msg)
 {
 	struct htlc_stub htlc;
 
-	if (!fromwire_onchain_missing_htlc_output(msg, &htlc)) {
+	if (!fromwire_onchaind_missing_htlc_output(msg, &htlc)) {
 		channel_internal_error(channel, "Invalid missing_htlc_output");
 		return;
 	}
@@ -291,7 +290,7 @@ static void handle_onchain_htlc_timeout(struct channel *channel, const u8 *msg)
 {
 	struct htlc_stub htlc;
 
-	if (!fromwire_onchain_htlc_timeout(msg, &htlc)) {
+	if (!fromwire_onchaind_htlc_timeout(msg, &htlc)) {
 		channel_internal_error(channel, "Invalid onchain_htlc_timeout");
 		return;
 	}
@@ -330,7 +329,7 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 	struct pubkey *commitment_point;
 	u8 *scriptPubkey;
 
-	if (!fromwire_onchain_add_utxo(
+	if (!fromwire_onchaind_add_utxo(
 		tmpctx, msg, &txid, &outnum, &commitment_point,
 		&amount, &blockheight, &scriptPubkey)) {
 		log_broken(channel->log,
@@ -357,7 +356,7 @@ static void onchain_annotate_txout(struct channel *channel, const u8 *msg)
 	struct bitcoin_txid txid;
 	enum wallet_tx_type type;
 	u32 outnum;
-	if (!fromwire_onchain_annotate_txout(msg, &txid, &outnum, &type))
+	if (!fromwire_onchaind_annotate_txout(msg, &txid, &outnum, &type))
 		fatal("onchaind gave invalid onchain_annotate_txout "
 		      "message: %s",
 		      tal_hex(msg, msg));
@@ -370,7 +369,7 @@ static void onchain_annotate_txin(struct channel *channel, const u8 *msg)
 	struct bitcoin_txid txid;
 	enum wallet_tx_type type;
 	u32 innum;
-	if (!fromwire_onchain_annotate_txin(msg, &txid, &innum, &type))
+	if (!fromwire_onchaind_annotate_txin(msg, &txid, &innum, &type))
 		fatal("onchaind gave invalid onchain_annotate_txin "
 		      "message: %s",
 		      tal_hex(msg, msg));
@@ -380,61 +379,61 @@ static void onchain_annotate_txin(struct channel *channel, const u8 *msg)
 
 static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds UNUSED)
 {
-	enum onchain_wire_type t = fromwire_peektype(msg);
+	enum onchaind_wire t = fromwire_peektype(msg);
 
 	switch (t) {
-	case WIRE_ONCHAIN_INIT_REPLY:
+	case WIRE_ONCHAIND_INIT_REPLY:
 		handle_onchain_init_reply(sd->channel, msg);
 		break;
 
-	case WIRE_ONCHAIN_BROADCAST_TX:
+	case WIRE_ONCHAIND_BROADCAST_TX:
 		handle_onchain_broadcast_tx(sd->channel, msg);
 		break;
 
-	case WIRE_ONCHAIN_UNWATCH_TX:
+	case WIRE_ONCHAIND_UNWATCH_TX:
 		handle_onchain_unwatch_tx(sd->channel, msg);
 		break;
 
- 	case WIRE_ONCHAIN_EXTRACTED_PREIMAGE:
+ 	case WIRE_ONCHAIND_EXTRACTED_PREIMAGE:
 		handle_extracted_preimage(sd->channel, msg);
 		break;
 
-	case WIRE_ONCHAIN_MISSING_HTLC_OUTPUT:
+	case WIRE_ONCHAIND_MISSING_HTLC_OUTPUT:
 		handle_missing_htlc_output(sd->channel, msg);
 		break;
 
-	case WIRE_ONCHAIN_HTLC_TIMEOUT:
+	case WIRE_ONCHAIND_HTLC_TIMEOUT:
 		handle_onchain_htlc_timeout(sd->channel, msg);
 		break;
 
-	case WIRE_ONCHAIN_ALL_IRREVOCABLY_RESOLVED:
+	case WIRE_ONCHAIND_ALL_IRREVOCABLY_RESOLVED:
 		handle_irrevocably_resolved(sd->channel, msg);
 		break;
 
-	case WIRE_ONCHAIN_ADD_UTXO:
+	case WIRE_ONCHAIND_ADD_UTXO:
 		onchain_add_utxo(sd->channel, msg);
 		break;
 
-	case WIRE_ONCHAIN_ANNOTATE_TXIN:
+	case WIRE_ONCHAIND_ANNOTATE_TXIN:
 		onchain_annotate_txin(sd->channel, msg);
 		break;
 
-	case WIRE_ONCHAIN_ANNOTATE_TXOUT:
+	case WIRE_ONCHAIND_ANNOTATE_TXOUT:
 		onchain_annotate_txout(sd->channel, msg);
 		break;
 
-	case WIRE_ONCHAIN_NOTIFY_COIN_MVT:
+	case WIRE_ONCHAIND_NOTIFY_COIN_MVT:
 		handle_onchain_log_coin_move(sd->channel, msg);
 		break;
 
 	/* We send these, not receive them */
-	case WIRE_ONCHAIN_INIT:
-	case WIRE_ONCHAIN_SPENT:
-	case WIRE_ONCHAIN_DEPTH:
-	case WIRE_ONCHAIN_HTLC:
-	case WIRE_ONCHAIN_KNOWN_PREIMAGE:
-	case WIRE_ONCHAIN_DEV_MEMLEAK:
-	case WIRE_ONCHAIN_DEV_MEMLEAK_REPLY:
+	case WIRE_ONCHAIND_INIT:
+	case WIRE_ONCHAIND_SPENT:
+	case WIRE_ONCHAIND_DEPTH:
+	case WIRE_ONCHAIND_HTLC:
+	case WIRE_ONCHAIND_KNOWN_PREIMAGE:
+	case WIRE_ONCHAIND_DEV_MEMLEAK:
+	case WIRE_ONCHAIND_DEV_MEMLEAK_REPLY:
 		break;
 	}
 
@@ -523,7 +522,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 						    "lightning_onchaind",
 						    channel, &channel->peer->id,
 						    channel->log, false,
-						    onchain_wire_type_name,
+						    onchaind_wire_name,
 						    onchain_msg,
 						    onchain_error,
 						    channel_set_billboard,
@@ -588,7 +587,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 		}
 	}
 
-	msg = towire_onchain_init(channel,
+	msg = towire_onchaind_init(channel,
 				  &channel->their_shachain.chain,
 				  chainparams,
 				  channel->funding,
@@ -634,7 +633,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	for (size_t i = 0; i < tal_count(stubs); i++) {
 		bool tell_immediate;
 		bool tell = tell_if_missing(channel, &stubs[i], &tell_immediate);
-		msg = towire_onchain_htlc(channel, &stubs[i],
+		msg = towire_onchaind_htlc(channel, &stubs[i],
 					  tell, tell_immediate);
 		subd_send_msg(channel->owner, take(msg));
 	}
@@ -666,18 +665,18 @@ void onchaind_replay_channels(struct lightningd *ld)
 		chan = channel_by_dbid(ld, onchaind_ids[i]);
 
 		for (size_t j = 0; j < tal_count(txs); j++) {
-			if (txs[j].type == WIRE_ONCHAIN_INIT) {
+			if (txs[j].type == WIRE_ONCHAIND_INIT) {
 				onchaind_funding_spent(chan, txs[j].tx,
 						       txs[j].blockheight,
 						       true);
 
-			} else if (txs[j].type == WIRE_ONCHAIN_SPENT) {
+			} else if (txs[j].type == WIRE_ONCHAIND_SPENT) {
 				onchain_txo_spent(chan, txs[j].tx,
 						  txs[j].input_num,
 						  txs[j].blockheight,
 						  true);
 
-			} else if (txs[j].type == WIRE_ONCHAIN_DEPTH) {
+			} else if (txs[j].type == WIRE_ONCHAIND_DEPTH) {
 				onchain_tx_depth(chan, &txs[j].txid,
 						 txs[j].depth, true);
 

@@ -79,7 +79,6 @@
 #include <lightningd/memdump.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/options.h>
-#include <onchaind/onchain_wire.h>
 #include <signal.h>
 #include <sodium.h>
 #include <sys/resource.h>
