@@ -467,7 +467,7 @@ def test_bech32_funding(node_factory, chainparams):
     l1, l2 = node_factory.line_graph(2, opts={'random_hsm': True}, fundchannel=False)
 
     # fund a bech32 address and then open a channel with it
-    res = l1.openchannel(l2, 20000, 'bech32')
+    res = l1.openchannel(l2, 25000, 'bech32')
     address = res['address']
     assert address.startswith(chainparams['bip173_prefix'])
 
