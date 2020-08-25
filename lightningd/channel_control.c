@@ -1,7 +1,7 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
-#include <channeld/gen_channel_wire.h>
+#include <channeld/channeld_wiregen.h>
 #include <common/coin_mvt.h>
 #include <common/features.h>
 #include <common/gossip_constants.h>
@@ -39,10 +39,10 @@ static void update_feerates(struct lightningd *ld, struct channel *channel)
 	if (!feerate)
 		return;
 
-	msg = towire_channel_feerates(NULL, feerate,
-				      feerate_min(ld, NULL),
-				      feerate_max(ld, NULL),
-				      try_get_feerate(ld->topology, FEERATE_PENALTY));
+	msg = towire_channeld_feerates(NULL, feerate,
+				       feerate_min(ld, NULL),
+				       feerate_max(ld, NULL),
+				       try_get_feerate(ld->topology, FEERATE_PENALTY));
 	subd_send_msg(channel->owner, take(msg));
 }
 
@@ -156,7 +156,7 @@ static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
 {
 	struct pubkey next_per_commitment_point;
 
-	if (!fromwire_channel_got_funding_locked(msg,
+	if (!fromwire_channeld_got_funding_locked(msg,
 						 &next_per_commitment_point)) {
 		channel_internal_error(channel,
 				       "bad channel_got_funding_locked %s",
@@ -183,7 +183,7 @@ static void peer_got_announcement(struct channel *channel, const u8 *msg)
 	secp256k1_ecdsa_signature remote_ann_node_sig;
 	secp256k1_ecdsa_signature remote_ann_bitcoin_sig;
 
-	if (!fromwire_channel_got_announcement(msg,
+	if (!fromwire_channeld_got_announcement(msg,
 					       &remote_ann_node_sig,
 					       &remote_ann_bitcoin_sig)) {
 		channel_internal_error(channel,
@@ -202,7 +202,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	u8 *scriptpubkey;
 	struct lightningd *ld = channel->peer->ld;
 
-	if (!fromwire_channel_got_shutdown(channel, msg, &scriptpubkey)) {
+	if (!fromwire_channeld_got_shutdown(channel, msg, &scriptpubkey)) {
 		channel_internal_error(channel, "bad channel_got_shutdown %s",
 				       tal_hex(msg, msg));
 		return;
@@ -243,7 +243,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 
 static void channel_fail_fallen_behind(struct channel *channel, const u8 *msg)
 {
-	if (!fromwire_channel_fail_fallen_behind(channel, msg,
+	if (!fromwire_channeld_fail_fallen_behind(channel, msg,
 						 cast_const2(struct pubkey **,
 							    &channel->future_per_commitment_point))) {
 		channel_internal_error(channel,
@@ -277,7 +277,7 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 {
 	struct per_peer_state *pps;
 
-	if (!fromwire_channel_shutdown_complete(tmpctx, msg, &pps)) {
+	if (!fromwire_channeld_shutdown_complete(tmpctx, msg, &pps)) {
 		channel_internal_error(channel, "bad shutdown_complete: %s",
 				       tal_hex(msg, msg));
 		return;
@@ -312,7 +312,7 @@ static void forget(struct channel *channel)
 static void handle_error_channel(struct channel *channel,
 				 const u8 *msg)
 {
-	if (!fromwire_channel_send_error_reply(msg)) {
+	if (!fromwire_channeld_send_error_reply(msg)) {
 		channel_internal_error(channel, "bad send_error_reply: %s",
 				       tal_hex(tmpctx, msg));
 		return;
@@ -333,44 +333,44 @@ void forget_channel(struct channel *channel, const char *why)
 	 * we just directly remove the channel */
 	if (channel->owner)
 		subd_send_msg(channel->owner,
-			      take(towire_channel_send_error(NULL, why)));
+			      take(towire_channeld_send_error(NULL, why)));
 	else
 		forget(channel);
 }
 
 static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
-	enum channel_wire_type t = fromwire_peektype(msg);
+	enum channeld_wire t = fromwire_peektype(msg);
 
 	switch (t) {
-	case WIRE_CHANNEL_SENDING_COMMITSIG:
+	case WIRE_CHANNELD_SENDING_COMMITSIG:
 		peer_sending_commitsig(sd->channel, msg);
 		break;
-	case WIRE_CHANNEL_GOT_COMMITSIG:
+	case WIRE_CHANNELD_GOT_COMMITSIG:
 		peer_got_commitsig(sd->channel, msg);
 		break;
-	case WIRE_CHANNEL_GOT_REVOKE:
+	case WIRE_CHANNELD_GOT_REVOKE:
 		peer_got_revoke(sd->channel, msg);
 		break;
-	case WIRE_CHANNEL_GOT_FUNDING_LOCKED:
+	case WIRE_CHANNELD_GOT_FUNDING_LOCKED:
 		peer_got_funding_locked(sd->channel, msg);
 		break;
-	case WIRE_CHANNEL_GOT_ANNOUNCEMENT:
+	case WIRE_CHANNELD_GOT_ANNOUNCEMENT:
 		peer_got_announcement(sd->channel, msg);
 		break;
-	case WIRE_CHANNEL_GOT_SHUTDOWN:
+	case WIRE_CHANNELD_GOT_SHUTDOWN:
 		peer_got_shutdown(sd->channel, msg);
 		break;
-	case WIRE_CHANNEL_SHUTDOWN_COMPLETE:
+	case WIRE_CHANNELD_SHUTDOWN_COMPLETE:
 		/* We expect 3 fds. */
 		if (!fds)
 			return 3;
 		peer_start_closingd_after_shutdown(sd->channel, msg, fds);
 		break;
-	case WIRE_CHANNEL_FAIL_FALLEN_BEHIND:
+	case WIRE_CHANNELD_FAIL_FALLEN_BEHIND:
 		channel_fail_fallen_behind(sd->channel, msg);
 		break;
-	case WIRE_CHANNEL_SEND_ERROR_REPLY:
+	case WIRE_CHANNELD_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
 		break;
 #if EXPERIMENTAL_FEATURES
@@ -385,25 +385,25 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_GOT_ONIONMSG_FORWARD:
 #endif
 	/* And we never get these from channeld. */
-	case WIRE_CHANNEL_INIT:
-	case WIRE_CHANNEL_FUNDING_DEPTH:
-	case WIRE_CHANNEL_OFFER_HTLC:
-	case WIRE_CHANNEL_FULFILL_HTLC:
-	case WIRE_CHANNEL_FAIL_HTLC:
-	case WIRE_CHANNEL_GOT_COMMITSIG_REPLY:
-	case WIRE_CHANNEL_GOT_REVOKE_REPLY:
-	case WIRE_CHANNEL_SENDING_COMMITSIG_REPLY:
-	case WIRE_CHANNEL_SEND_SHUTDOWN:
-	case WIRE_CHANNEL_DEV_REENABLE_COMMIT:
-	case WIRE_CHANNEL_FEERATES:
-	case WIRE_CHANNEL_SPECIFIC_FEERATES:
-	case WIRE_CHANNEL_DEV_MEMLEAK:
+	case WIRE_CHANNELD_INIT:
+	case WIRE_CHANNELD_FUNDING_DEPTH:
+	case WIRE_CHANNELD_OFFER_HTLC:
+	case WIRE_CHANNELD_FULFILL_HTLC:
+	case WIRE_CHANNELD_FAIL_HTLC:
+	case WIRE_CHANNELD_GOT_COMMITSIG_REPLY:
+	case WIRE_CHANNELD_GOT_REVOKE_REPLY:
+	case WIRE_CHANNELD_SENDING_COMMITSIG_REPLY:
+	case WIRE_CHANNELD_SEND_SHUTDOWN:
+	case WIRE_CHANNELD_DEV_REENABLE_COMMIT:
+	case WIRE_CHANNELD_FEERATES:
+	case WIRE_CHANNELD_SPECIFIC_FEERATES:
+	case WIRE_CHANNELD_DEV_MEMLEAK:
 	case WIRE_SEND_ONIONMSG:
 		/* Replies go to requests. */
-	case WIRE_CHANNEL_OFFER_HTLC_REPLY:
-	case WIRE_CHANNEL_DEV_REENABLE_COMMIT_REPLY:
-	case WIRE_CHANNEL_DEV_MEMLEAK_REPLY:
-	case WIRE_CHANNEL_SEND_ERROR:
+	case WIRE_CHANNELD_OFFER_HTLC_REPLY:
+	case WIRE_CHANNELD_DEV_REENABLE_COMMIT_REPLY:
+	case WIRE_CHANNELD_DEV_MEMLEAK_REPLY:
+	case WIRE_CHANNELD_SEND_ERROR:
 		break;
 	}
 
@@ -453,7 +453,7 @@ void peer_start_channeld(struct channel *channel,
 					   "lightning_channeld", channel,
 					   &channel->peer->id,
 					   channel->log, true,
-					   channel_wire_type_name,
+					   channeld_wire_name,
 					   channel_msg,
 					   channel_errmsg,
 					   channel_set_billboard,
@@ -521,7 +521,7 @@ void peer_start_channeld(struct channel *channel,
 	pbases = wallet_penalty_base_load_for_channel(
 	    tmpctx, channel->peer->ld->wallet, channel->dbid);
 
-	initmsg = towire_channel_init(tmpctx,
+	initmsg = towire_channeld_init(tmpctx,
 				      chainparams,
  				      ld->our_features,
 				      &channel->funding_txid,
@@ -614,7 +614,7 @@ bool channel_tell_depth(struct lightningd *ld,
 	}
 
 	subd_send_msg(channel->owner,
-		      take(towire_channel_funding_depth(NULL, channel->scid,
+		      take(towire_channeld_funding_depth(NULL, channel->scid,
 							 depth)));
 
 	if (channel->remote_funding_locked
@@ -867,7 +867,7 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 	if (!channel || !channel->owner || channel->state != CHANNELD_NORMAL)
 		return command_fail(cmd, LIGHTNINGD, "Peer bad state");
 
-	msg = towire_channel_feerates(NULL, *feerate,
+	msg = towire_channeld_feerates(NULL, *feerate,
 				      feerate_min(cmd->ld, NULL),
 				      feerate_max(cmd->ld, NULL),
 				      try_get_feerate(cmd->ld->topology, FEERATE_PENALTY));

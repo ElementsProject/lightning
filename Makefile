@@ -247,6 +247,13 @@ config.vars:
 %.o: %.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 
+# generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
+%_wiregen.h: %_wire.csv
+	@if $(CHANGED_FROM_GIT); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page header $($@_args) $@ `basename $< .csv` < $< > $@); fi
+
+%_wiregen.c: %_wire.csv
+	@if $(CHANGED_FROM_GIT); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page impl $($@_args) ${@:.c=.h} `basename $< .csv` < $< > $@); fi
+
 include external/Makefile
 include bitcoin/Makefile
 include common/Makefile

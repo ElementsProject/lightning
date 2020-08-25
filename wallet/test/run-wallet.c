@@ -111,21 +111,21 @@ char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
-/* Generated stub for fromwire_channel_dev_memleak_reply */
-bool fromwire_channel_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
-{ fprintf(stderr, "fromwire_channel_dev_memleak_reply called!\n"); abort(); }
-/* Generated stub for fromwire_channel_got_commitsig */
-bool fromwire_channel_got_commitsig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *commitnum UNNEEDED, struct fee_states **fee_states UNNEEDED, struct bitcoin_signature *signature UNNEEDED, struct bitcoin_signature **htlc_signature UNNEEDED, struct added_htlc **added UNNEEDED, struct fulfilled_htlc **fulfilled UNNEEDED, struct failed_htlc ***failed UNNEEDED, struct changed_htlc **changed UNNEEDED, struct bitcoin_tx **tx UNNEEDED)
-{ fprintf(stderr, "fromwire_channel_got_commitsig called!\n"); abort(); }
-/* Generated stub for fromwire_channel_got_revoke */
-bool fromwire_channel_got_revoke(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *revokenum UNNEEDED, struct secret *per_commitment_secret UNNEEDED, struct pubkey *next_per_commit_point UNNEEDED, struct fee_states **fee_states UNNEEDED, struct changed_htlc **changed UNNEEDED, struct penalty_base **pbase UNNEEDED, struct bitcoin_tx **penalty_tx UNNEEDED)
-{ fprintf(stderr, "fromwire_channel_got_revoke called!\n"); abort(); }
-/* Generated stub for fromwire_channel_offer_htlc_reply */
-bool fromwire_channel_offer_htlc_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *id UNNEEDED, u8 **failuremsg UNNEEDED, wirestring **failurestr UNNEEDED)
-{ fprintf(stderr, "fromwire_channel_offer_htlc_reply called!\n"); abort(); }
-/* Generated stub for fromwire_channel_sending_commitsig */
-bool fromwire_channel_sending_commitsig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *commitnum UNNEEDED, struct penalty_base **pbase UNNEEDED, struct fee_states **fee_states UNNEEDED, struct changed_htlc **changed UNNEEDED, struct bitcoin_signature *commit_sig UNNEEDED, struct bitcoin_signature **htlc_sigs UNNEEDED)
-{ fprintf(stderr, "fromwire_channel_sending_commitsig called!\n"); abort(); }
+/* Generated stub for fromwire_channeld_dev_memleak_reply */
+bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
+{ fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
+/* Generated stub for fromwire_channeld_got_commitsig */
+bool fromwire_channeld_got_commitsig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *commitnum UNNEEDED, struct fee_states **fee_states UNNEEDED, struct bitcoin_signature *signature UNNEEDED, struct bitcoin_signature **htlc_signature UNNEEDED, struct added_htlc **added UNNEEDED, struct fulfilled_htlc **fulfilled UNNEEDED, struct failed_htlc ***failed UNNEEDED, struct changed_htlc **changed UNNEEDED, struct bitcoin_tx **tx UNNEEDED)
+{ fprintf(stderr, "fromwire_channeld_got_commitsig called!\n"); abort(); }
+/* Generated stub for fromwire_channeld_got_revoke */
+bool fromwire_channeld_got_revoke(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *revokenum UNNEEDED, struct secret *per_commitment_secret UNNEEDED, struct pubkey *next_per_commit_point UNNEEDED, struct fee_states **fee_states UNNEEDED, struct changed_htlc **changed UNNEEDED, struct penalty_base **pbase UNNEEDED, struct bitcoin_tx **penalty_tx UNNEEDED)
+{ fprintf(stderr, "fromwire_channeld_got_revoke called!\n"); abort(); }
+/* Generated stub for fromwire_channeld_offer_htlc_reply */
+bool fromwire_channeld_offer_htlc_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *id UNNEEDED, u8 **failuremsg UNNEEDED, wirestring **failurestr UNNEEDED)
+{ fprintf(stderr, "fromwire_channeld_offer_htlc_reply called!\n"); abort(); }
+/* Generated stub for fromwire_channeld_sending_commitsig */
+bool fromwire_channeld_sending_commitsig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *commitnum UNNEEDED, struct penalty_base **pbase UNNEEDED, struct fee_states **fee_states UNNEEDED, struct changed_htlc **changed UNNEEDED, struct bitcoin_signature *commit_sig UNNEEDED, struct bitcoin_signature **htlc_sigs UNNEEDED)
+{ fprintf(stderr, "fromwire_channeld_sending_commitsig called!\n"); abort(); }
 /* Generated stub for fromwire_connect_peer_connected */
 bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **features UNNEEDED)
 { fprintf(stderr, "fromwire_connect_peer_connected called!\n"); abort(); }
@@ -631,39 +631,39 @@ void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 					  void *arg) UNNEEDED,
 			       void *arg UNNEEDED)
 { fprintf(stderr, "topology_add_sync_waiter_ called!\n"); abort(); }
-/* Generated stub for towire_channel_dev_memleak */
-u8 *towire_channel_dev_memleak(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_channel_dev_memleak called!\n"); abort(); }
-/* Generated stub for towire_channel_dev_reenable_commit */
-u8 *towire_channel_dev_reenable_commit(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_channel_dev_reenable_commit called!\n"); abort(); }
 /* Generated stub for towire_channel_disabled */
 u8 *towire_channel_disabled(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_channel_disabled called!\n"); abort(); }
-/* Generated stub for towire_channel_fail_htlc */
-u8 *towire_channel_fail_htlc(const tal_t *ctx UNNEEDED, const struct failed_htlc *failed_htlc UNNEEDED)
-{ fprintf(stderr, "towire_channel_fail_htlc called!\n"); abort(); }
-/* Generated stub for towire_channel_fulfill_htlc */
-u8 *towire_channel_fulfill_htlc(const tal_t *ctx UNNEEDED, const struct fulfilled_htlc *fulfilled_htlc UNNEEDED)
-{ fprintf(stderr, "towire_channel_fulfill_htlc called!\n"); abort(); }
-/* Generated stub for towire_channel_got_commitsig_reply */
-u8 *towire_channel_got_commitsig_reply(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_channel_got_commitsig_reply called!\n"); abort(); }
-/* Generated stub for towire_channel_got_revoke_reply */
-u8 *towire_channel_got_revoke_reply(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_channel_got_revoke_reply called!\n"); abort(); }
-/* Generated stub for towire_channel_offer_htlc */
-u8 *towire_channel_offer_htlc(const tal_t *ctx UNNEEDED, struct amount_msat amount_msat UNNEEDED, u32 cltv_expiry UNNEEDED, const struct sha256 *payment_hash UNNEEDED, const u8 onion_routing_packet[1366] UNNEEDED, const struct pubkey *blinding UNNEEDED)
-{ fprintf(stderr, "towire_channel_offer_htlc called!\n"); abort(); }
-/* Generated stub for towire_channel_send_shutdown */
-u8 *towire_channel_send_shutdown(const tal_t *ctx UNNEEDED, const u8 *shutdown_scriptpubkey UNNEEDED)
-{ fprintf(stderr, "towire_channel_send_shutdown called!\n"); abort(); }
-/* Generated stub for towire_channel_sending_commitsig_reply */
-u8 *towire_channel_sending_commitsig_reply(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_channel_sending_commitsig_reply called!\n"); abort(); }
-/* Generated stub for towire_channel_specific_feerates */
-u8 *towire_channel_specific_feerates(const tal_t *ctx UNNEEDED, u32 feerate_base UNNEEDED, u32 feerate_ppm UNNEEDED)
-{ fprintf(stderr, "towire_channel_specific_feerates called!\n"); abort(); }
+/* Generated stub for towire_channeld_dev_memleak */
+u8 *towire_channeld_dev_memleak(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_channeld_dev_memleak called!\n"); abort(); }
+/* Generated stub for towire_channeld_dev_reenable_commit */
+u8 *towire_channeld_dev_reenable_commit(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_channeld_dev_reenable_commit called!\n"); abort(); }
+/* Generated stub for towire_channeld_fail_htlc */
+u8 *towire_channeld_fail_htlc(const tal_t *ctx UNNEEDED, const struct failed_htlc *failed_htlc UNNEEDED)
+{ fprintf(stderr, "towire_channeld_fail_htlc called!\n"); abort(); }
+/* Generated stub for towire_channeld_fulfill_htlc */
+u8 *towire_channeld_fulfill_htlc(const tal_t *ctx UNNEEDED, const struct fulfilled_htlc *fulfilled_htlc UNNEEDED)
+{ fprintf(stderr, "towire_channeld_fulfill_htlc called!\n"); abort(); }
+/* Generated stub for towire_channeld_got_commitsig_reply */
+u8 *towire_channeld_got_commitsig_reply(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_channeld_got_commitsig_reply called!\n"); abort(); }
+/* Generated stub for towire_channeld_got_revoke_reply */
+u8 *towire_channeld_got_revoke_reply(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_channeld_got_revoke_reply called!\n"); abort(); }
+/* Generated stub for towire_channeld_offer_htlc */
+u8 *towire_channeld_offer_htlc(const tal_t *ctx UNNEEDED, struct amount_msat amount_msat UNNEEDED, u32 cltv_expiry UNNEEDED, const struct sha256 *payment_hash UNNEEDED, const u8 onion_routing_packet[1366] UNNEEDED, const struct pubkey *blinding UNNEEDED)
+{ fprintf(stderr, "towire_channeld_offer_htlc called!\n"); abort(); }
+/* Generated stub for towire_channeld_send_shutdown */
+u8 *towire_channeld_send_shutdown(const tal_t *ctx UNNEEDED, const u8 *shutdown_scriptpubkey UNNEEDED)
+{ fprintf(stderr, "towire_channeld_send_shutdown called!\n"); abort(); }
+/* Generated stub for towire_channeld_sending_commitsig_reply */
+u8 *towire_channeld_sending_commitsig_reply(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_channeld_sending_commitsig_reply called!\n"); abort(); }
+/* Generated stub for towire_channeld_specific_feerates */
+u8 *towire_channeld_specific_feerates(const tal_t *ctx UNNEEDED, u32 feerate_base UNNEEDED, u32 feerate_ppm UNNEEDED)
+{ fprintf(stderr, "towire_channeld_specific_feerates called!\n"); abort(); }
 /* Generated stub for towire_connectctl_connect_to_peer */
 u8 *towire_connectctl_connect_to_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u32 seconds_waited UNNEEDED, const struct wireaddr_internal *addrhint UNNEEDED)
 { fprintf(stderr, "towire_connectctl_connect_to_peer called!\n"); abort(); }

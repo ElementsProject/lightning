@@ -10,7 +10,7 @@ channeld-all: lightningd/lightning_channeld
 
 LIGHTNINGD_CHANNEL_HEADERS_GEN :=			\
 	channeld/gen_full_channel_error_names.h		\
-	channeld/gen_channel_wire.h
+	channeld/channeld_wiregen.h
 
 LIGHTNINGD_CHANNEL_HEADERS_NOGEN :=			\
 	channeld/channeld_htlc.h		\
@@ -24,7 +24,7 @@ LIGHTNINGD_CHANNEL_HEADERS := $(LIGHTNINGD_CHANNEL_HEADERS_GEN) $(LIGHTNINGD_CHA
 LIGHTNINGD_CHANNEL_SRC := channeld/channeld.c	\
 	channeld/commit_tx.c			\
 	channeld/full_channel.c			\
-	channeld/gen_channel_wire.c		\
+	channeld/channeld_wiregen.c		\
 	channeld/watchtower.c
 
 LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o)
@@ -97,9 +97,9 @@ CHANNELD_COMMON_OBJS :=				\
 	wire/fromwire.o				\
 	wire/towire.o
 
-LIGHTNINGD_CHANNEL_SRC_GEN := $(filter channeld/gen_%, $(LIGHTNINGD_CHANNEL_SRC))
+LIGHTNINGD_CHANNEL_SRC_GEN := $(filter channeld/%_wiregen.c, $(LIGHTNINGD_CHANNEL_SRC))
 
-LIGHTNINGD_CHANNEL_SRC_NOGEN := $(filter-out channeld/gen_%, $(LIGHTNINGD_CHANNEL_SRC))
+LIGHTNINGD_CHANNEL_SRC_NOGEN := $(filter-out channeld/%_wiregen.c, $(LIGHTNINGD_CHANNEL_SRC))
 
 # Control daemon uses this:
 LIGHTNINGD_CHANNEL_CONTROL_HEADERS := $(LIGHTNINGD_CHANNEL_HEADERS_GEN)
@@ -115,12 +115,6 @@ channeld/gen_full_channel_error_names.h: channeld/full_channel_error.h ccan/ccan
 
 
 $(LIGHTNINGD_CHANNEL_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_GOSSIP_CONTROL_HEADERS)
-
-channeld/gen_channel_wire.h: $(WIRE_GEN) channeld/channel_wire.csv
-	$(WIRE_GEN) --page header $@ channel_wire_type < channeld/channel_wire.csv > $@
-
-channeld/gen_channel_wire.c: $(WIRE_GEN) channeld/channel_wire.csv
-	$(WIRE_GEN) --page impl ${@:.c=.h} channel_wire_type < channeld/channel_wire.csv > $@
 
 LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o)
 

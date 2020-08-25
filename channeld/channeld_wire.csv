@@ -1,0 +1,230 @@
+#include <common/cryptomsg.h>
+#include <common/channel_config.h>
+#include <common/derive_basepoints.h>
+#include <common/features.h>
+#include <common/fee_states.h>
+#include <common/per_peer_state.h>
+
+# Begin!  (passes gossipd-client fd)
+msgtype,channeld_init,1000
+msgdata,channeld_init,chainparams,chainparams,
+msgdata,channeld_init,our_features,feature_set,
+msgdata,channeld_init,funding_txid,bitcoin_txid,
+msgdata,channeld_init,funding_txout,u16,
+msgdata,channeld_init,funding_satoshi,amount_sat,
+msgdata,channeld_init,minimum_depth,u32,
+msgdata,channeld_init,our_config,channel_config,
+msgdata,channeld_init,their_config,channel_config,
+msgdata,channeld_init,fee_states,fee_states,
+msgdata,channeld_init,feerate_min,u32,
+msgdata,channeld_init,feerate_max,u32,
+msgdata,channeld_init,feerate_penalty,u32,
+msgdata,channeld_init,first_commit_sig,bitcoin_signature,
+msgdata,channeld_init,per_peer_state,per_peer_state,
+msgdata,channeld_init,remote_fundingkey,pubkey,
+msgdata,channeld_init,remote_basepoints,basepoints,
+msgdata,channeld_init,remote_per_commit,pubkey,
+msgdata,channeld_init,old_remote_per_commit,pubkey,
+msgdata,channeld_init,opener,enum side,
+msgdata,channeld_init,fee_base,u32,
+msgdata,channeld_init,fee_proportional,u32,
+msgdata,channeld_init,local_msatoshi,amount_msat,
+msgdata,channeld_init,our_basepoints,basepoints,
+msgdata,channeld_init,our_funding_pubkey,pubkey,
+msgdata,channeld_init,local_node_id,node_id,
+msgdata,channeld_init,remote_node_id,node_id,
+msgdata,channeld_init,commit_msec,u32,
+msgdata,channeld_init,cltv_delta,u16,
+msgdata,channeld_init,last_was_revoke,bool,
+msgdata,channeld_init,num_last_sent_commit,u16,
+msgdata,channeld_init,last_sent_commit,changed_htlc,num_last_sent_commit
+msgdata,channeld_init,next_index_local,u64,
+msgdata,channeld_init,next_index_remote,u64,
+msgdata,channeld_init,revocations_received,u64,
+msgdata,channeld_init,next_htlc_id,u64,
+msgdata,channeld_init,num_existing_htlcs,u16,
+msgdata,channeld_init,htlcs,existing_htlc,num_existing_htlcs
+msgdata,channeld_init,local_funding_locked,bool,
+msgdata,channeld_init,remote_funding_locked,bool,
+msgdata,channeld_init,funding_short_id,short_channel_id,
+msgdata,channeld_init,reestablish,bool,
+msgdata,channeld_init,send_shutdown,bool,
+msgdata,channeld_init,remote_shutdown_received,bool,
+msgdata,channeld_init,final_scriptpubkey_len,u16,
+msgdata,channeld_init,final_scriptpubkey,u8,final_scriptpubkey_len
+msgdata,channeld_init,flags,u8,
+msgdata,channeld_init,init_peer_pkt_len,u16,
+msgdata,channeld_init,init_peer_pkt,u8,init_peer_pkt_len
+msgdata,channeld_init,reached_announce_depth,bool,
+msgdata,channeld_init,last_remote_secret,secret,
+msgdata,channeld_init,flen,u16,
+msgdata,channeld_init,their_features,u8,flen
+msgdata,channeld_init,upfront_shutdown_script_len,u16,
+msgdata,channeld_init,upfront_shutdown_script,u8,upfront_shutdown_script_len
+msgdata,channeld_init,remote_ann_node_sig,?secp256k1_ecdsa_signature,
+msgdata,channeld_init,remote_ann_bitcoin_sig,?secp256k1_ecdsa_signature,
+msgdata,channeld_init,option_static_remotekey,bool,
+msgdata,channeld_init,option_anchor_outputs,bool,
+msgdata,channeld_init,dev_fast_gossip,bool,
+msgdata,channeld_init,dev_fail_process_onionpacket,bool,
+msgdata,channeld_init,num_penalty_bases,u32,
+msgdata,channeld_init,pbases,penalty_base,num_penalty_bases
+
+# master->channeld funding hit new depth(funding locked if >= lock depth)
+msgtype,channeld_funding_depth,1002
+msgdata,channeld_funding_depth,short_channel_id,?short_channel_id,
+msgdata,channeld_funding_depth,depth,u32,
+
+# Tell channel to offer this htlc
+msgtype,channeld_offer_htlc,1004
+msgdata,channeld_offer_htlc,amount_msat,amount_msat,
+msgdata,channeld_offer_htlc,cltv_expiry,u32,
+msgdata,channeld_offer_htlc,payment_hash,sha256,
+msgdata,channeld_offer_htlc,onion_routing_packet,u8,1366
+msgdata,channeld_offer_htlc,blinding,?pubkey,
+
+# Reply; synchronous since IDs have to increment.
+msgtype,channeld_offer_htlc_reply,1104
+msgdata,channeld_offer_htlc_reply,id,u64,
+# Empty failure message means success.
+msgdata,channeld_offer_htlc_reply,len,u16,
+msgdata,channeld_offer_htlc_reply,failuremsg,u8,len
+msgdata,channeld_offer_htlc_reply,failurestr,wirestring,
+
+# Main daemon found out the preimage for an HTLC
+#include <bitcoin/preimage.h>
+msgtype,channeld_fulfill_htlc,1005
+msgdata,channeld_fulfill_htlc,fulfilled_htlc,fulfilled_htlc,
+
+# Main daemon says HTLC failed
+msgtype,channeld_fail_htlc,1006
+msgdata,channeld_fail_htlc,failed_htlc,failed_htlc,
+
+# When we receive funding_locked.
+msgtype,channeld_got_funding_locked,1019
+msgdata,channeld_got_funding_locked,next_per_commit_point,pubkey,
+
+#include <common/penalty_base.h>
+
+# When we send a commitment_signed message, tell master.
+msgtype,channeld_sending_commitsig,1020
+msgdata,channeld_sending_commitsig,commitnum,u64,
+msgdata,channeld_sending_commitsig,pbase,?penalty_base,
+msgdata,channeld_sending_commitsig,fee_states,fee_states,
+# SENT_ADD_COMMIT, SENT_REMOVE_ACK_COMMIT, SENT_ADD_ACK_COMMIT, SENT_REMOVE_COMMIT
+msgdata,channeld_sending_commitsig,num_changed,u16,
+msgdata,channeld_sending_commitsig,changed,changed_htlc,num_changed
+msgdata,channeld_sending_commitsig,commit_sig,bitcoin_signature,
+msgdata,channeld_sending_commitsig,num_htlc_sigs,u16,
+msgdata,channeld_sending_commitsig,htlc_sigs,bitcoin_signature,num_htlc_sigs
+
+# Wait for reply, to make sure it's on disk before we send commit.
+msgtype,channeld_sending_commitsig_reply,1120
+
+# When we have a commitment_signed message, tell master to remember.
+msgtype,channeld_got_commitsig,1021
+msgdata,channeld_got_commitsig,commitnum,u64,
+msgdata,channeld_got_commitsig,fee_states,fee_states,
+msgdata,channeld_got_commitsig,signature,bitcoin_signature,
+msgdata,channeld_got_commitsig,num_htlcs,u16,
+msgdata,channeld_got_commitsig,htlc_signature,bitcoin_signature,num_htlcs
+# RCVD_ADD_COMMIT: we're now committed to their new offered HTLCs.
+msgdata,channeld_got_commitsig,num_added,u16,
+msgdata,channeld_got_commitsig,added,added_htlc,num_added
+# RCVD_REMOVE_COMMIT: we're now no longer committed to these HTLCs.
+msgdata,channeld_got_commitsig,num_fulfilled,u16,
+msgdata,channeld_got_commitsig,fulfilled,fulfilled_htlc,num_fulfilled
+msgdata,channeld_got_commitsig,num_failed,u16,
+msgdata,channeld_got_commitsig,failed,failed_htlc,num_failed
+# RCVD_ADD_ACK_COMMIT, RCVD_REMOVE_ACK_COMMIT
+msgdata,channeld_got_commitsig,num_changed,u16,
+msgdata,channeld_got_commitsig,changed,changed_htlc,num_changed
+msgdata,channeld_got_commitsig,tx,bitcoin_tx,
+
+# Wait for reply, to make sure it's on disk before we send revocation.
+msgtype,channeld_got_commitsig_reply,1121
+
+#include <common/htlc_wire.h>
+
+msgtype,channeld_got_revoke,1022
+msgdata,channeld_got_revoke,revokenum,u64,
+msgdata,channeld_got_revoke,per_commitment_secret,secret,
+msgdata,channeld_got_revoke,next_per_commit_point,pubkey,
+# RCVD_ADD_ACK_REVOCATION, RCVD_REMOVE_ACK_REVOCATION, RCVD_ADD_REVOCATION, RCVD_REMOVE_REVOCATION
+msgdata,channeld_got_revoke,fee_states,fee_states,
+msgdata,channeld_got_revoke,num_changed,u16,
+msgdata,channeld_got_revoke,changed,changed_htlc,num_changed
+msgdata,channeld_got_revoke,pbase,?penalty_base,
+msgdata,channeld_got_revoke,penalty_tx,?bitcoin_tx,
+# Wait for reply, to make sure it's on disk before we continue
+# (eg. if we sent another commitment_signed, that would implicitly ack).
+msgtype,channeld_got_revoke_reply,1122
+
+# Tell peer to shut down channel.
+msgtype,channeld_send_shutdown,1023
+msgdata,channeld_send_shutdown,shutdown_len,u16,
+msgdata,channeld_send_shutdown,shutdown_scriptpubkey,u8,shutdown_len
+
+# Peer told us that channel is shutting down
+msgtype,channeld_got_shutdown,1024
+msgdata,channeld_got_shutdown,scriptpubkey_len,u16,
+msgdata,channeld_got_shutdown,scriptpubkey,u8,scriptpubkey_len
+
+# Shutdown is complete, ready for closing negotiation. + peer_fd & gossip_fd.
+msgtype,channeld_shutdown_complete,1025
+msgdata,channeld_shutdown_complete,per_peer_state,per_peer_state,
+
+# Re-enable commit timer.
+msgtype,channeld_dev_reenable_commit,1026
+msgtype,channeld_dev_reenable_commit_reply,1126,
+
+msgtype,channeld_feerates,1027
+msgdata,channeld_feerates,feerate,u32,
+msgdata,channeld_feerates,min_feerate,u32,
+msgdata,channeld_feerates,max_feerate,u32,
+msgdata,channeld_feerates,penalty_feerate,u32,
+
+# master -> channeld: do you have a memleak?
+msgtype,channeld_dev_memleak,1033
+
+msgtype,channeld_dev_memleak_reply,1133
+msgdata,channeld_dev_memleak_reply,leak,bool,
+
+# Peer presented proof it was from the future.
+msgtype,channeld_fail_fallen_behind,1028
+# This is NULL if option_static_remotekey.
+msgdata,channeld_fail_fallen_behind,remote_per_commitment_point,?pubkey,
+
+# Handle a channel specific feerate base ppm configuration
+msgtype,channeld_specific_feerates,1029
+msgdata,channeld_specific_feerates,feerate_base,u32,
+msgdata,channeld_specific_feerates,feerate_ppm,u32,
+
+# When we receive announcement_signatures for channel announce
+msgtype,channeld_got_announcement,1017
+msgdata,channeld_got_announcement,remote_ann_node_sig,secp256k1_ecdsa_signature,
+msgdata,channeld_got_announcement,remote_ann_bitcoin_sig,secp256k1_ecdsa_signature,
+
+# Ask channeld to send a error message. Used in forgetting channel case.
+msgtype,channeld_send_error,1008
+msgdata,channeld_send_error,reason,wirestring,
+
+# Tell master channeld has sent the error message.
+msgtype,channeld_send_error_reply,1108
+
+# Tell lightningd we got a onion message (for us, or to fwd)
+msgtype,got_onionmsg_to_us,1142
+msgdata,got_onionmsg_to_us,reply_blinding,?pubkey,
+msgdata,got_onionmsg_to_us,reply_path_len,u16,
+msgdata,got_onionmsg_to_us,reply_path,onionmsg_path,reply_path_len
+
+msgtype,got_onionmsg_forward,1143
+msgdata,got_onionmsg_forward,next_scid,?short_channel_id,
+msgdata,got_onionmsg_forward,next_node_id,?node_id,
+msgdata,got_onionmsg_forward,next_blinding,?pubkey,
+msgdata,got_onionmsg_forward,next_onion,u8,1366
+
+# Lightningd tells us to send a onion message.
+msgtype,send_onionmsg,1040
+msgdata,send_onionmsg,onion,u8,1366
+msgdata,send_onionmsg,blinding,?pubkey,
