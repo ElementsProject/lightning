@@ -295,6 +295,7 @@ def test_pay_get_error_with_update(node_factory):
     # Make sure that l2 has seen disconnect, considers channel disabled.
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(chanid2)['channels']] == [False, False])
 
+    assert(l1.is_channel_active(chanid2))
     l1.rpc.sendpay(route, inv['payment_hash'])
     with pytest.raises(RpcError, match=r'WIRE_TEMPORARY_CHANNEL_FAILURE'):
         l1.rpc.waitsendpay(inv['payment_hash'])
@@ -306,7 +307,7 @@ def test_pay_get_error_with_update(node_factory):
     l1.daemon.wait_for_log(r'Extracted channel_update 0102.*from onionreply 10070088[0-9a-fA-F]{88}')
 
     # And now monitor for l1 to apply the channel_update we just extracted
-    l1.daemon.wait_for_log(r'Received channel_update for channel {}/. now DISABLED'.format(chanid2))
+    wait_for(lambda: not l1.is_channel_active(chanid2))
 
 
 @unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
