@@ -27,8 +27,7 @@ sending a payment\. Please ensure that this matches your use-case when using
 
 
 The \fBlabel\fR field is used to attach a label to payments, and is returned in \fBlightning-listpays\fR(7) and \fBlightning-listsendpays\fR(7)\.
-The \fBmaxfeepercent\fR limits the money paid in fees, and defaults to \fI0\.5\fR\.
-The \fBmaxfeepercent\fR is a percentage of the amount that is to be paid\.
+The \fBmaxfeepercent\fR limits the money paid in fees as percentage of the total amount that is to be transferred, and defaults to \fI0\.5\fR\.
 The \fBexemptfee\fR option can be used for tiny payments which would be dominated by the fee leveraged by forwarding nodes\.
 Setting \fBexemptfee\fR allows the \fBmaxfeepercent\fR check to be skipped on fees that are smaller than \fIexemptfee\fR (default: 5000 millisatoshi)\.
 
@@ -85,7 +84,7 @@ The following error codes may occur:
 .IP \[bu]
 \fB-1\fR: Catchall nonspecific error\.
 .IP \[bu]
-\fB203\fR: Permanent failure at destination\. The \fBdata\fR field of the error will be routing failure object\.
+\fB203\fR: Permanent failure at destination\. The \fIdata\fR field of the error will be routing failure object\.
 .IP \[bu]
 \fB205\fR: Unable to find a route\.
 .IP \[bu]
