@@ -1383,7 +1383,7 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     c12 = l1.fund_channel(l2, 10**6)
     c23 = l2.fund_channel(l3, 10**6)
     c24 = l2.fund_channel(l4, 10**6)
-    c25 = l2.fund_channel(l5, 10**4 * 2)
+    c25 = l2.fund_channel(l5, 10**4 * 3)
     l6.fund_channel(l1, 10**6)
 
     # Make sure routes finalized.
