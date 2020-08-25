@@ -265,6 +265,9 @@ struct payment {
 
 	/* A unique id for the root of this payment.  */
 	u64 id;
+
+	/* A short description of the route of this payment.  */
+	char *routetxt;
 };
 
 struct payment_modifier {

@@ -32,6 +32,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->temp_exclusion = NULL;
 	p->failroute_retry = false;
 	p->bolt11 = NULL;
+	p->routetxt = NULL;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -875,6 +876,12 @@ handle_final_failure(struct command *cmd,
 		goto nonerror;
 	}
 
+	paymod_log(p, LOG_DBG,
+		   "Final node %s reported %04x (%s) on route %s",
+		   type_to_string(tmpctx, struct node_id, final_id),
+		   failcode, onion_type_name(failcode),
+		   p->routetxt);
+
 	/* We use an exhaustive switch statement here so you get a compile
 	 * warning when new ones are added, and can think about where they go */
 	switch (failcode) {
@@ -968,6 +975,14 @@ handle_intermediate_failure(struct command *cmd,
 			    enum onion_type failcode)
 {
 	struct payment *root = payment_root(p);
+
+	paymod_log(p, LOG_DBG,
+		   "Intermediate node %s reported %04x (%s) at %s on route %s",
+		   type_to_string(tmpctx, struct node_id, errnode),
+		   failcode, onion_type_name(failcode),
+		   type_to_string(tmpctx, struct short_channel_id,
+				  &errchan->channel_id),
+		   p->routetxt);
 
 	/* We use an exhaustive switch statement here so you get a compile
 	 * warning when new ones are added, and can think about where they go */
@@ -1308,6 +1323,8 @@ static void payment_compute_onion_payloads(struct payment *p)
 
 	paymod_log(p, LOG_DBG,
 		   "Created outgoing onion for route: %s", routetxt);
+
+	p->routetxt = tal_steal(p, routetxt);
 
 	/* Now allow all the modifiers to mess with the payloads, before we
 	 * serialize via a call to createonion in the next step. */
