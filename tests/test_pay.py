@@ -1923,7 +1923,7 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     # check if invalid scid raises proper error
     with pytest.raises(RpcError, match=r'-1.*Could not find active channel of peer with that id'):
         result = l1.rpc.setchannelfee(l3.info['id'], 42, 43)
-    with pytest.raises(RpcError, match=r'-32602.*Given id is not a channel ID or short channel ID'):
+    with pytest.raises(RpcError, match=r'-32602.*id: should be a channel ID or short channel ID: invalid token'):
         result = l1.rpc.setchannelfee('f42' + scid[3:], 42, 43)
 
     # check if 'base' unit can be modified to satoshi
@@ -1933,11 +1933,11 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     assert(db_fees[0]['feerate_base'] == 1000)
 
     # check if 'ppm' values greater than u32_max fail
-    with pytest.raises(RpcError, match=r'-32602.*should be an integer, not'):
+    with pytest.raises(RpcError, match=r'-32602.*ppm: should be an integer: invalid token'):
         l1.rpc.setchannelfee(scid, 0, 2**32)
 
-    # check if 'ppm' values greater than u32_max fail
-    with pytest.raises(RpcError, match=r'-32602.*exceeds u32 max'):
+    # check if 'base' values greater than u32_max fail
+    with pytest.raises(RpcError, match=r'-32602.*base: exceeds u32 max: invalid token'):
         l1.rpc.setchannelfee(scid, 2**32)
 
 

@@ -982,12 +982,8 @@ static struct command_result *param_positive_msat_or_any(struct command *cmd,
 	    && !amount_msat_eq(**msat, AMOUNT_MSAT(0)))
 		return NULL;
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be positive millisatoshis or 'any',"
-			    " not '%.*s'",
-			    name,
-			    tok->end - tok->start,
-			    buffer + tok->start);
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be positive msat or 'any'");
 }
 
 /* Parse time with optional suffix, return seconds */
@@ -1026,18 +1022,15 @@ static struct command_result *param_time(struct command *cmd, const char *name,
 	*secs = tal(cmd, uint64_t);
 	if (json_to_u64(buffer, &timetok, *secs)) {
 		if (mul_overflows_u64(**secs, mul)) {
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "'%s' string '%.*s' is too large",
-					    name, tok->end - tok->start,
-					    buffer + tok->start);
+			return command_fail_badparam(cmd, name, buffer, tok,
+						     "value too large");
 		}
 		**secs *= mul;
 		return NULL;
 	}
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a number with optional {s,m,h,d,w} suffix, not '%.*s'",
-			    name, tok->end - tok->start, buffer + tok->start);
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a number with optional {s,m,h,d,w} suffix");
 }
 
 static struct command_result *param_chanhints(struct command *cmd,
@@ -1070,10 +1063,8 @@ static struct command_result *param_chanhints(struct command *cmd,
 		json_for_each_arr(i, t, tok) {
 			if (!json_to_short_channel_id(buffer, t,
 						      &(*chanhints)->hints[i])) {
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "'%s' should be a short channel id, not '%.*s'",
-						    name, json_tok_full_len(t),
-						    json_tok_full(buffer, t));
+				return command_fail_badparam(cmd, name, buffer, t,
+						    "should be a short channel id");
 			}
 		}
 		return NULL;
@@ -1163,8 +1154,9 @@ static struct command_result *json_invoice(struct command *cmd,
 				preimagetok->end - preimagetok->start,
 				&info->payment_preimage,
 				sizeof(info->payment_preimage))) {
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "preimage must be 64 hex digits");
+			return command_fail_badparam(cmd, "preimage",
+						     buffer, preimagetok,
+						     "should be 64 hex digits");
 		}
 	} else
 		/* Generate random secret preimage. */

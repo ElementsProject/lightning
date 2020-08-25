@@ -516,7 +516,7 @@ static void advanced_fail(void)
 			      p_req("msat", param_u64, &msat),
 			      NULL));
 		assert(check_fail());
-		assert(strstr(fail_msg, "'msat' should be an unsigned 64 bit integer, not 'anyx'"));
+		assert(strstr(fail_msg, "msat: should be an unsigned 64 bit integer: invalid token '\"anyx\"'"));
 	}
 }
 

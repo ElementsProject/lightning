@@ -1128,39 +1128,29 @@ param_route_hop(struct command *cmd, const char *name, const char *buffer,
 	if (!idtok) {
 		memset(&res->nodeid, 0, sizeof(struct node_id));
 	} else if (!json_to_node_id(buffer, idtok, &res->nodeid)) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "'%s' should be a node_id, not '%.*s'",
-				    name, tok->end - tok->start,
-				    buffer + tok->start);
+		return command_fail_badparam(cmd, name, buffer, idtok,
+					     "should be a node_id");
 	}
 
 	if (!channeltok) {
 		memset(&res->channel_id, 0, sizeof(struct node_id));
 	} else if (!json_to_short_channel_id(buffer, channeltok, &res->channel_id)) {
-		return command_fail(
-		    cmd, JSONRPC2_INVALID_PARAMS,
-		    "'%s' should be a short_channel_id, not '%.*s'", name,
-		    tok->end - tok->start, buffer + tok->start);
+		return command_fail_badparam(cmd, name, buffer, channeltok,
+					     "should be a short_channel_id");
 	}
 
 	if (directiontok && (!json_to_int(buffer, directiontok, &res->direction) ||
 			     res->direction > 1 || res->direction < 0))
-		return command_fail(
-		    cmd, JSONRPC2_INVALID_PARAMS,
-		    "'%s' should be an integer in [0,1], not '%.*s'", name,
-		    tok->end - tok->start, buffer + tok->start);
+		return command_fail_badparam(cmd, name, buffer, directiontok,
+					     "should be 0 or 1");
 
 	if (!json_to_msat(buffer, amounttok, &res->amount))
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "'%s' should be a valid amount_msat, not '%.*s'",
-				    name, tok->end - tok->start,
-				    buffer + tok->start);
+		return command_fail_badparam(cmd, name, buffer, amounttok,
+					     "should be a valid amount_msat");
 
 	if (!json_to_number(buffer, delaytok, &res->delay) || res->delay < 1)
-		return command_fail(
-		    cmd, JSONRPC2_INVALID_PARAMS,
-		    "'%s' should be a positive, non-zero, number, not '%.*s'",
-		    name, tok->end - tok->start, buffer + tok->start);
+		return command_fail_badparam(cmd, name, buffer, delaytok,
+					     "should be a positive, non-zero, number");
 
 	*hop = res;
 	return NULL;
@@ -1237,10 +1227,8 @@ static struct command_result *param_route_hop_style(struct command *cmd,
 		return NULL;
 	}
 
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a legacy or tlv, not '%.*s'",
-			    name, json_tok_full_len(tok),
-			    json_tok_full(buffer, tok));
+	return command_fail_badparam(cmd, name, buffer, tok,
+			    "should be 'legacy' or 'tlv'");
 }
 
 static struct command_result *param_route_hops(struct command *cmd,

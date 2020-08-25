@@ -415,11 +415,9 @@ static struct command_result *json_getroute(struct command *cmd,
 				struct node_id *node_id = tal(tmpctx, struct node_id);
 
 				if (!json_to_node_id(buffer, t, node_id))
-					return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-							    "%.*s is not a valid"
-							    " short_channel_id/node_id",
-							    t->end - t->start,
-							    buffer + t->start);
+					return command_fail_badparam(cmd, "exclude",
+								     buffer, t,
+								     "should be short_channel_id or node_id");
 
 				entry->type = EXCLUDE_NODE;
 				entry->u.node_id = *node_id;

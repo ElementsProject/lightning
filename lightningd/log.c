@@ -916,12 +916,9 @@ struct command_result *param_loglevel(struct command *cmd,
 	else if (json_tok_streq(buffer, tok, "unusual"))
 		**level = LOG_UNUSUAL;
 	else {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "'%s' should be 'io', 'debug', 'info', or "
-				    "'unusual', not '%.*s'",
-				    name,
-				    json_tok_full_len(tok),
-				    json_tok_full(buffer, tok));
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be 'io', 'debug', 'info', or "
+					     "'unusual'");
 	}
 	return NULL;
 }
