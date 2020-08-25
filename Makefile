@@ -233,7 +233,7 @@ endif
 
 default: show-flags all-programs all-test-programs doc-all
 
-show-flags:
+show-flags: config.vars
 	@$(ECHO) "CC: $(CC) $(CFLAGS) -c -o"
 	@$(ECHO) "LD: $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o"
 
