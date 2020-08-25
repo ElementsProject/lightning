@@ -2349,3 +2349,17 @@ def test_channel_features(node_factory, bitcoind):
 
     # l2 should agree.
     assert only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['features'] == chan['features']
+
+
+@unittest.skipIf(not DEVELOPER, "need dev-force-features")
+def test_nonstatic_channel(node_factory, bitcoind):
+    """Smoke test for a channel without option_static_remotekey"""
+    l1, l2 = node_factory.line_graph(2,
+                                     opts=[{},
+                                           {'dev-force-features': '////'}])
+    chan = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])
+    assert 'option_static_remotekey' not in chan['features']
+    assert 'option_anchor_outputs' not in chan['features']
+
+    l1.pay(l2, 1000)
+    l1.rpc.close(l2.info['id'])
