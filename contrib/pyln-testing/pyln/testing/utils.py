@@ -1139,40 +1139,20 @@ class NodeFactory(object):
             scid = src.get_channel_scid(dst)
             scids.append(scid)
 
-        # We don't want to assume message order here.
-        # Wait for ends:
-        nodes[0].daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
-                                       .format(scids[0]),
-                                       r'update for channel {}/1 now ACTIVE'
-                                       .format(scids[0])])
-        nodes[-1].daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
-                                        .format(scids[-1]),
-                                        r'update for channel {}/1 now ACTIVE'
-                                        .format(scids[-1])])
-        # Now wait for intermediate nodes:
-        for i, n in enumerate(nodes[1:-1]):
-            n.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
-                                    .format(scids[i]),
-                                    r'update for channel {}/1 now ACTIVE'
-                                    .format(scids[i]),
-                                    r'update for channel {}/0 now ACTIVE'
-                                    .format(scids[i + 1]),
-                                    r'update for channel {}/1 now ACTIVE'
-                                    .format(scids[i + 1])])
+        # Wait for all channels to be active (locally)
+        for i, n in enumerate(scids):
+            nodes[i].wait_channel_active(scids[i])
+            nodes[i + 1].wait_channel_active(scids[i])
 
         if not wait_for_announce:
             return
 
         bitcoind.generate_block(5)
 
-        def both_dirs_ready(n, scid):
-            resp = n.rpc.listchannels(scid)
-            return [a['active'] for a in resp['channels']] == [True, True]
-
         # Make sure everyone sees all channels: we can cheat and
         # simply check the ends (since it's a line).
-        wait_for(lambda: both_dirs_ready(nodes[0], scids[-1]))
-        wait_for(lambda: both_dirs_ready(nodes[-1], scids[0]))
+        nodes[0].wait_channel_active(scids[-1])
+        nodes[-1].wait_channel_active(scids[0])
 
         # Make sure we have all node announcements, too (just check ends)
         for n in nodes:
