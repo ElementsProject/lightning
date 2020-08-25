@@ -826,22 +826,24 @@ static struct route_info **unpack_routes(const tal_t *ctx,
 }
 #endif /* DEVELOPER */
 
-static struct command_result *param_msat_or_any(struct command *cmd,
-						const char *name,
-						const char *buffer,
-						const jsmntok_t *tok,
-						struct amount_msat **msat)
+static struct command_result *param_positive_msat_or_any(struct command *cmd,
+							 const char *name,
+							 const char *buffer,
+							 const jsmntok_t *tok,
+							 struct amount_msat **msat)
 {
 	if (json_tok_streq(buffer, tok, "any")) {
 		*msat = NULL;
 		return NULL;
 	}
 	*msat = tal(cmd, struct amount_msat);
-	if (parse_amount_msat(*msat, buffer + tok->start, tok->end - tok->start))
+	if (parse_amount_msat(*msat, buffer + tok->start, tok->end - tok->start)
+	    && !amount_msat_eq(**msat, AMOUNT_MSAT(0)))
 		return NULL;
 
 	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be millisatoshis or 'any', not '%.*s'",
+			    "'%s' should be positive millisatoshis or 'any',"
+			    " not '%.*s'",
 			    name,
 			    tok->end - tok->start,
 			    buffer + tok->start);
@@ -963,7 +965,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	info->cmd = cmd;
 
 	if (!param(cmd, buffer, params,
-		   p_req("msatoshi", param_msat_or_any, &msatoshi_val),
+		   p_req("msatoshi", param_positive_msat_or_any, &msatoshi_val),
 		   p_req("label", param_label, &info->label),
 		   p_req("description", param_escaped_string, &desc_val),
 		   p_opt_def("expiry", param_time, &expiry, 3600*24*7),

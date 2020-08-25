@@ -59,6 +59,26 @@ def test_invoice(node_factory, chainparams):
     l2.rpc.invoice(4294967295, 'inv3', '?')
 
 
+def test_invoice_zeroval(node_factory):
+    """A zero value invoice is unpayable, did you mean 'any'?"""
+    l1 = node_factory.get_node()
+
+    with pytest.raises(RpcError, match=r"positive .* not '0'"):
+        l1.rpc.invoice(0, 'inv', '?')
+
+    with pytest.raises(RpcError, match=r"positive .* not '0msat'"):
+        l1.rpc.invoice('0msat', 'inv', '?')
+
+    with pytest.raises(RpcError, match=r"positive .* not '0sat'"):
+        l1.rpc.invoice('0sat', 'inv', '?')
+
+    with pytest.raises(RpcError, match=r"positive .* not '0.00000000btc'"):
+        l1.rpc.invoice('0.00000000btc', 'inv', '?')
+
+    with pytest.raises(RpcError, match=r"positive .* not '0.00000000000btc'"):
+        l1.rpc.invoice('0.00000000000btc', 'inv', '?')
+
+
 def test_invoice_weirdstring(node_factory):
     l1 = node_factory.get_node()
 
