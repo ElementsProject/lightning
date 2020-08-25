@@ -82,7 +82,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/version.o			\
 	common/wire_error.o			\
 	common/wireaddr.o			\
-	gossipd/gen_gossip_peerd_wire.o		\
+	gossipd/gossipd_peerd_wiregen.o		\
 	lightningd/gossip_msg.o
 
 $(LIGHTNINGD_OPENING_OBJS): $(LIGHTNINGD_HEADERS)

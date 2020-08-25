@@ -73,7 +73,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/version.o			\
 	common/wireaddr.o			\
 	common/wire_error.o			\
-	gossipd/gen_gossip_wire.o		\
+	gossipd/gossipd_wiregen.o		\
 	lightningd/gossip_msg.o			\
 	wire/gen_onion_wire.o
 

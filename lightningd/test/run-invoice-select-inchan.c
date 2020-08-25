@@ -116,9 +116,9 @@ bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNE
 /* Generated stub for fromwire_connect_peer_connected */
 bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **features UNNEEDED)
 { fprintf(stderr, "fromwire_connect_peer_connected called!\n"); abort(); }
-/* Generated stub for fromwire_gossip_get_incoming_channels_reply */
-bool fromwire_gossip_get_incoming_channels_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct route_info **public_route_info UNNEEDED, bool **public_deadends UNNEEDED, struct route_info **private_route_info UNNEEDED, bool **private_deadends UNNEEDED)
-{ fprintf(stderr, "fromwire_gossip_get_incoming_channels_reply called!\n"); abort(); }
+/* Generated stub for fromwire_gossipd_get_incoming_channels_reply */
+bool fromwire_gossipd_get_incoming_channels_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct route_info **public_route_info UNNEEDED, bool **public_deadends UNNEEDED, struct route_info **private_route_info UNNEEDED, bool **private_deadends UNNEEDED)
+{ fprintf(stderr, "fromwire_gossipd_get_incoming_channels_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_get_channel_basepoints_reply */
 bool fromwire_hsmd_get_channel_basepoints_reply(const void *p UNNEEDED, struct basepoints *basepoints UNNEEDED, struct pubkey *funding_pubkey UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_channel_basepoints_reply called!\n"); abort(); }
@@ -487,9 +487,9 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
-/* Generated stub for towire_gossip_get_incoming_channels */
-u8 *towire_gossip_get_incoming_channels(const tal_t *ctx UNNEEDED)
-{ fprintf(stderr, "towire_gossip_get_incoming_channels called!\n"); abort(); }
+/* Generated stub for towire_gossipd_get_incoming_channels */
+u8 *towire_gossipd_get_incoming_channels(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_gossipd_get_incoming_channels called!\n"); abort(); }
 /* Generated stub for towire_hsmd_get_channel_basepoints */
 u8 *towire_hsmd_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct node_id *peerid UNNEEDED, u64 dbid UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_channel_basepoints called!\n"); abort(); }

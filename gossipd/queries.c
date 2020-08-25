@@ -9,9 +9,9 @@
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
-#include <gossipd/gen_gossip_wire.h>
 #include <gossipd/gossip_generation.h>
 #include <gossipd/gossipd.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <gossipd/queries.h>
 #include <gossipd/routing.h>
 #include <gossipd/seeker.h>
@@ -1072,9 +1072,9 @@ struct io_plan *dev_set_max_scids_encode_size(struct io_conn *conn,
 					      struct daemon *daemon,
 					      const u8 *msg)
 {
-	if (!fromwire_gossip_dev_set_max_scids_encode_size(msg,
+	if (!fromwire_gossipd_dev_set_max_scids_encode_size(msg,
 							   &max_encoding_bytes))
-		master_badmsg(WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE, msg);
+		master_badmsg(WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE, msg);
 
 	status_debug("Set max_scids_encode_bytes to %u", max_encoding_bytes);
 	return daemon_conn_read_next(conn, daemon->master);

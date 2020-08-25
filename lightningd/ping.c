@@ -4,7 +4,7 @@
 #include <common/param.h>
 #include <common/sphinx.h>
 #include <common/utils.h>
-#include <gossipd/gen_gossip_wire.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
@@ -60,7 +60,7 @@ void ping_reply(struct subd *subd, const u8 *msg)
 	struct ping_command *pc;
 
 	log_debug(subd->ld->log, "Got ping reply!");
-	ok = fromwire_gossip_ping_reply(msg, &id, &sent, &totlen);
+	ok = fromwire_gossipd_ping_reply(msg, &id, &sent, &totlen);
 
 	pc = find_ping_cmd(subd->ld, &id);
 	assert(pc);
@@ -123,7 +123,7 @@ static struct command_result *json_ping(struct command *cmd,
 	new_ping_command(cmd, cmd->ld, id, cmd);
 
 	/* gossipd handles all pinging, even if it's in another daemon. */
-	msg = towire_gossip_ping(NULL, id, *pongbytes, *len);
+	msg = towire_gossipd_ping(NULL, id, *pongbytes, *len);
 	subd_send_msg(cmd->ld->gossip, take(msg));
 	return command_still_pending(cmd);
 }

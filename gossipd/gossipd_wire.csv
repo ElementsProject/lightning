@@ -1,0 +1,140 @@
+#include <common/cryptomsg.h>
+#include <common/features.h>
+#include <common/wireaddr.h>
+#include <wire/gen_onion_wire.h>
+
+# Initialize the gossip daemon.
+msgtype,gossipd_init,3000
+msgdata,gossipd_init,chainparams,chainparams,
+msgdata,gossipd_init,our_features,feature_set,
+msgdata,gossipd_init,id,node_id,
+msgdata,gossipd_init,rgb,u8,3
+msgdata,gossipd_init,alias,u8,32
+msgdata,gossipd_init,num_announcable,u16,
+msgdata,gossipd_init,announcable,wireaddr,num_announcable
+msgdata,gossipd_init,dev_gossip_time,?u32,
+msgdata,gossipd_init,dev_fast_gossip,bool,
+msgdata,gossipd_init,dev_fast_gossip_prune,bool,
+
+# In developer mode, we can mess with time.
+msgtype,gossipd_dev_set_time,3001
+msgdata,gossipd_dev_set_time,dev_gossip_time,u32,
+
+# Pass JSON-RPC getnodes call through
+msgtype,gossipd_getnodes_request,3005
+msgdata,gossipd_getnodes_request,id,?node_id,
+
+#include <lightningd/gossip_msg.h>
+msgtype,gossipd_getnodes_reply,3105
+msgdata,gossipd_getnodes_reply,num_nodes,u32,
+msgdata,gossipd_getnodes_reply,nodes,gossip_getnodes_entry,num_nodes
+
+# Pass JSON-RPC getroute call through
+msgtype,gossipd_getroute_request,3006
+# Source defaults to "us", and means we don't consider first-hop channel fees
+msgdata,gossipd_getroute_request,source,?node_id,
+msgdata,gossipd_getroute_request,destination,node_id,
+msgdata,gossipd_getroute_request,msatoshi,amount_msat,
+msgdata,gossipd_getroute_request,riskfactor_millionths,u64,
+msgdata,gossipd_getroute_request,final_cltv,u32,
+msgdata,gossipd_getroute_request,fuzz_millionths,u64,
+msgdata,gossipd_getroute_request,num_excluded,u16,
+msgdata,gossipd_getroute_request,excluded,exclude_entry,num_excluded
+msgdata,gossipd_getroute_request,max_hops,u32,
+
+msgtype,gossipd_getroute_reply,3106
+msgdata,gossipd_getroute_reply,num_hops,u16,
+msgdata,gossipd_getroute_reply,hops,route_hop,num_hops
+
+msgtype,gossipd_getchannels_request,3007
+msgdata,gossipd_getchannels_request,short_channel_id,?short_channel_id,
+msgdata,gossipd_getchannels_request,source,?node_id,
+msgdata,gossipd_getchannels_request,prev,?short_channel_id,
+
+msgtype,gossipd_getchannels_reply,3107
+msgdata,gossipd_getchannels_reply,complete,bool,
+msgdata,gossipd_getchannels_reply,num_channels,u32,
+msgdata,gossipd_getchannels_reply,nodes,gossip_getchannels_entry,num_channels
+
+# Ping/pong test.  Waits for a reply if it expects one.
+msgtype,gossipd_ping,3008
+msgdata,gossipd_ping,id,node_id,
+msgdata,gossipd_ping,num_pong_bytes,u16,
+msgdata,gossipd_ping,len,u16,
+
+msgtype,gossipd_ping_reply,3108
+msgdata,gossipd_ping_reply,id,node_id,
+# False if id in gossip_ping was unknown.
+msgdata,gossipd_ping_reply,sent,bool,
+# 0 == no pong expected
+msgdata,gossipd_ping_reply,totlen,u16,
+
+# Set artificial maximum reply_channel_range size.  Master->gossipd
+msgtype,gossipd_dev_set_max_scids_encode_size,3030
+msgdata,gossipd_dev_set_max_scids_encode_size,max,u32,
+
+# Given a short_channel_id, return the latest (stripped) update for error msg.
+msgtype,gossipd_get_stripped_cupdate,3010
+msgdata,gossipd_get_stripped_cupdate,channel_id,short_channel_id,
+
+msgtype,gossipd_get_stripped_cupdate_reply,3110
+msgdata,gossipd_get_stripped_cupdate_reply,stripped_update_len,u16,
+msgdata,gossipd_get_stripped_cupdate_reply,stripped_update,u8,stripped_update_len
+
+# gossipd->master: we're closing this channel.
+msgtype,gossipd_local_channel_close,3027
+msgdata,gossipd_local_channel_close,short_channel_id,short_channel_id,
+
+# Gossipd->master get this tx output please.
+msgtype,gossipd_get_txout,3018
+msgdata,gossipd_get_txout,short_channel_id,short_channel_id,
+
+# master->gossipd here is the output, or empty if none.
+msgtype,gossipd_get_txout_reply,3118
+msgdata,gossipd_get_txout_reply,short_channel_id,short_channel_id,
+msgdata,gossipd_get_txout_reply,satoshis,amount_sat,
+msgdata,gossipd_get_txout_reply,len,u16,
+msgdata,gossipd_get_txout_reply,outscript,u8,len
+
+# master->gossipd an htlc failed with this onion error.
+msgtype,gossipd_payment_failure,3021
+msgdata,gossipd_payment_failure,len,u16,
+msgdata,gossipd_payment_failure,error,u8,len
+
+# master -> gossipd: a potential funding outpoint was spent, please forget the eventual channel
+msgtype,gossipd_outpoint_spent,3024
+msgdata,gossipd_outpoint_spent,short_channel_id,short_channel_id,
+
+# master -> gossipd: stop gossip timers.
+msgtype,gossipd_dev_suppress,3032
+
+# master -> gossipd: do you have a memleak?
+msgtype,gossipd_dev_memleak,3033
+
+msgtype,gossipd_dev_memleak_reply,3133
+msgdata,gossipd_dev_memleak_reply,leak,bool,
+
+# master -> gossipd: please rewrite the gossip_store
+msgtype,gossipd_dev_compact_store,3034
+
+# gossipd -> master: ok
+msgtype,gossipd_dev_compact_store_reply,3134
+msgdata,gossipd_dev_compact_store_reply,success,bool,
+
+#include <common/bolt11.h>
+
+# master -> gossipd: get route_info for our incoming channels
+msgtype,gossipd_get_incoming_channels,3025
+
+# gossipd -> master: here they are.
+msgtype,gossipd_get_incoming_channels_reply,3125
+msgdata,gossipd_get_incoming_channels_reply,num_public,u16,
+msgdata,gossipd_get_incoming_channels_reply,public_route_info,route_info,num_public
+msgdata,gossipd_get_incoming_channels_reply,public_deadends,bool,num_public
+msgdata,gossipd_get_incoming_channels_reply,num_private,u16,
+msgdata,gossipd_get_incoming_channels_reply,private_route_info,route_info,num_private
+msgdata,gossipd_get_incoming_channels_reply,private_deadends,bool,num_private
+
+# master -> gossipd: blockheight increased.
+msgtype,gossipd_new_blockheight,3026
+msgdata,gossipd_new_blockheight,blockheight,u32,

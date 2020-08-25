@@ -58,12 +58,12 @@ devtools/bolt11-cli: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCA
 
 devtools/decodemsg: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/decodemsg.o
 
-devtools/dump-gossipstore: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/dump-gossipstore.o gossipd/gen_gossip_store.o
+devtools/dump-gossipstore: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/dump-gossipstore.o gossipd/gossip_store_wiregen.o
 
-devtools/dump-gossipstore.o: gossipd/gen_gossip_store.h
+devtools/dump-gossipstore.o: gossipd/gossip_store_wiregen.h
 
-devtools/create-gossipstore: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/create-gossipstore.o gossipd/gen_gossip_store.o
-devtools/create-gossipstore.o: gossipd/gen_gossip_store.h
+devtools/create-gossipstore: $(DEVTOOLS_OBJS) $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/create-gossipstore.o gossipd/gossip_store_wiregen.o
+devtools/create-gossipstore.o: gossipd/gossip_store_wiregen.h
 
 devtools/onion.c: ccan/config.h
 

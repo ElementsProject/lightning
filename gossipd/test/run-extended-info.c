@@ -36,9 +36,9 @@ struct short_channel_id *decode_short_ids(const tal_t *ctx UNNEEDED, const u8 *e
 /* Generated stub for fmt_wireaddr_without_port */
 char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
 { fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
-/* Generated stub for fromwire_gossip_dev_set_max_scids_encode_size */
-bool fromwire_gossip_dev_set_max_scids_encode_size(const void *p UNNEEDED, u32 *max UNNEEDED)
-{ fprintf(stderr, "fromwire_gossip_dev_set_max_scids_encode_size called!\n"); abort(); }
+/* Generated stub for fromwire_gossipd_dev_set_max_scids_encode_size */
+bool fromwire_gossipd_dev_set_max_scids_encode_size(const void *p UNNEEDED, u32 *max UNNEEDED)
+{ fprintf(stderr, "fromwire_gossipd_dev_set_max_scids_encode_size called!\n"); abort(); }
 /* Generated stub for get_cupdate_parts */
 void get_cupdate_parts(const u8 *channel_update UNNEEDED,
 		       const u8 *parts[2] UNNEEDED,

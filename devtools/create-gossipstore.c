@@ -9,7 +9,7 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <fcntl.h>
-#include <gossipd/gen_gossip_store.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>

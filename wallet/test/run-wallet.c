@@ -132,9 +132,9 @@ bool fromwire_connect_peer_connected(const tal_t *ctx UNNEEDED, const void *p UN
 /* Generated stub for fromwire_custommsg_in */
 bool fromwire_custommsg_in(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **msg UNNEEDED)
 { fprintf(stderr, "fromwire_custommsg_in called!\n"); abort(); }
-/* Generated stub for fromwire_gossip_get_stripped_cupdate_reply */
-bool fromwire_gossip_get_stripped_cupdate_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **stripped_update UNNEEDED)
-{ fprintf(stderr, "fromwire_gossip_get_stripped_cupdate_reply called!\n"); abort(); }
+/* Generated stub for fromwire_gossipd_get_stripped_cupdate_reply */
+bool fromwire_gossipd_get_stripped_cupdate_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **stripped_update UNNEEDED)
+{ fprintf(stderr, "fromwire_gossipd_get_stripped_cupdate_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_get_output_scriptpubkey_reply */
 bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **script UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_output_scriptpubkey_reply called!\n"); abort(); }
@@ -693,9 +693,9 @@ u8 *towire_final_incorrect_cltv_expiry(const tal_t *ctx UNNEEDED, u32 cltv_expir
 /* Generated stub for towire_final_incorrect_htlc_amount */
 u8 *towire_final_incorrect_htlc_amount(const tal_t *ctx UNNEEDED, struct amount_msat incoming_htlc_amt UNNEEDED)
 { fprintf(stderr, "towire_final_incorrect_htlc_amount called!\n"); abort(); }
-/* Generated stub for towire_gossip_get_stripped_cupdate */
-u8 *towire_gossip_get_stripped_cupdate(const tal_t *ctx UNNEEDED, const struct short_channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "towire_gossip_get_stripped_cupdate called!\n"); abort(); }
+/* Generated stub for towire_gossipd_get_stripped_cupdate */
+u8 *towire_gossipd_get_stripped_cupdate(const tal_t *ctx UNNEEDED, const struct short_channel_id *channel_id UNNEEDED)
+{ fprintf(stderr, "towire_gossipd_get_stripped_cupdate called!\n"); abort(); }
 /* Generated stub for towire_hsmd_get_output_scriptpubkey */
 u8 *towire_hsmd_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_output_scriptpubkey called!\n"); abort(); }

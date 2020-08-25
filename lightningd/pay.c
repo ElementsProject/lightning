@@ -9,7 +9,7 @@
 #include <common/onionreply.h>
 #include <common/param.h>
 #include <common/timeout.h>
-#include <gossipd/gen_gossip_wire.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
@@ -459,7 +459,7 @@ remote_routing_failure(const tal_t *ctx,
 	/* FIXME: sendonion caller should do this, and inform gossipd of any
 	 * permanent errors. */
 	subd_send_msg(ld->gossip,
-		      take(towire_gossip_payment_failure(NULL, failuremsg)));
+		      take(towire_gossipd_payment_failure(NULL, failuremsg)));
 
 	routing_failure->erring_index = (unsigned int) (origin_index + 1);
 	routing_failure->failcode = failcode;

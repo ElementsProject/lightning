@@ -20,7 +20,7 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <errno.h>
-#include <gossipd/gen_gossip_wire.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <hsmd/capabilities.h>
 #include <inttypes.h>
 #include <lightningd/connect_control.h>
@@ -54,7 +54,7 @@ static void got_txout(struct bitcoind *bitcoind,
 
 	subd_send_msg(
 	    bitcoind->ld->gossip,
-	    towire_gossip_get_txout_reply(scid, scid, sat, script));
+	    towire_gossipd_get_txout_reply(scid, scid, sat, script));
 	tal_free(scid);
 }
 
@@ -99,7 +99,7 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 	u32 blockheight;
 	struct chain_topology *topo = gossip->ld->topology;
 
-	if (!fromwire_gossip_get_txout(msg, scid))
+	if (!fromwire_gossipd_get_txout(msg, scid))
 		fatal("Gossip gave bad GOSSIP_GET_TXOUT message %s",
 		      tal_hex(msg, msg));
 
@@ -110,7 +110,7 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 
 	if (op) {
 		subd_send_msg(gossip,
-			      towire_gossip_get_txout_reply(
+			      towire_gossipd_get_txout_reply(
 				  scid, scid, op->sat, op->scriptpubkey));
 		tal_free(scid);
 	} else if (wallet_have_block(gossip->ld->wallet, blockheight)) {
@@ -118,7 +118,7 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 		 * is in the DB. The fact that we don't means that this is
 		 * either a spent outpoint or an invalid one. Return a
 		 * failure. */
-		subd_send_msg(gossip, take(towire_gossip_get_txout_reply(
+		subd_send_msg(gossip, take(towire_gossipd_get_txout_reply(
 						   NULL, scid, AMOUNT_SAT(0), NULL)));
 		tal_free(scid);
 	} else {
@@ -128,42 +128,42 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 
 static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
-	enum gossip_wire_type t = fromwire_peektype(msg);
+	enum gossipd_wire t = fromwire_peektype(msg);
 
 	switch (t) {
 	/* These are messages we send, not them. */
-	case WIRE_GOSSIPCTL_INIT:
-	case WIRE_GOSSIP_GETNODES_REQUEST:
-	case WIRE_GOSSIP_GETROUTE_REQUEST:
-	case WIRE_GOSSIP_GETCHANNELS_REQUEST:
-	case WIRE_GOSSIP_PING:
-	case WIRE_GOSSIP_GET_STRIPPED_CUPDATE:
-	case WIRE_GOSSIP_GET_TXOUT_REPLY:
-	case WIRE_GOSSIP_OUTPOINT_SPENT:
-	case WIRE_GOSSIP_PAYMENT_FAILURE:
-	case WIRE_GOSSIP_GET_INCOMING_CHANNELS:
-	case WIRE_GOSSIP_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
-	case WIRE_GOSSIP_DEV_SUPPRESS:
-	case WIRE_GOSSIP_LOCAL_CHANNEL_CLOSE:
-	case WIRE_GOSSIP_DEV_MEMLEAK:
-	case WIRE_GOSSIP_DEV_COMPACT_STORE:
-	case WIRE_GOSSIP_DEV_SET_TIME:
-	case WIRE_GOSSIP_NEW_BLOCKHEIGHT:
+	case WIRE_GOSSIPD_INIT:
+	case WIRE_GOSSIPD_GETNODES_REQUEST:
+	case WIRE_GOSSIPD_GETROUTE_REQUEST:
+	case WIRE_GOSSIPD_GETCHANNELS_REQUEST:
+	case WIRE_GOSSIPD_PING:
+	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE:
+	case WIRE_GOSSIPD_GET_TXOUT_REPLY:
+	case WIRE_GOSSIPD_OUTPOINT_SPENT:
+	case WIRE_GOSSIPD_PAYMENT_FAILURE:
+	case WIRE_GOSSIPD_GET_INCOMING_CHANNELS:
+	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
+	case WIRE_GOSSIPD_DEV_SUPPRESS:
+	case WIRE_GOSSIPD_LOCAL_CHANNEL_CLOSE:
+	case WIRE_GOSSIPD_DEV_MEMLEAK:
+	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
+	case WIRE_GOSSIPD_DEV_SET_TIME:
+	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
 	/* This is a reply, so never gets through to here. */
-	case WIRE_GOSSIP_GETNODES_REPLY:
-	case WIRE_GOSSIP_GETROUTE_REPLY:
-	case WIRE_GOSSIP_GETCHANNELS_REPLY:
-	case WIRE_GOSSIP_GET_INCOMING_CHANNELS_REPLY:
-	case WIRE_GOSSIP_DEV_MEMLEAK_REPLY:
-	case WIRE_GOSSIP_DEV_COMPACT_STORE_REPLY:
-	case WIRE_GOSSIP_GET_STRIPPED_CUPDATE_REPLY:
+	case WIRE_GOSSIPD_GETNODES_REPLY:
+	case WIRE_GOSSIPD_GETROUTE_REPLY:
+	case WIRE_GOSSIPD_GETCHANNELS_REPLY:
+	case WIRE_GOSSIPD_GET_INCOMING_CHANNELS_REPLY:
+	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
+	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
+	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE_REPLY:
 		break;
 
-	case WIRE_GOSSIP_PING_REPLY:
+	case WIRE_GOSSIPD_PING_REPLY:
 		ping_reply(gossip, msg);
 		break;
 
-	case WIRE_GOSSIP_GET_TXOUT:
+	case WIRE_GOSSIPD_GET_TXOUT:
 		get_txout(gossip, msg);
 		break;
 	}
@@ -177,7 +177,7 @@ void gossip_notify_new_block(struct lightningd *ld, u32 blockheight)
 		return;
 
 	subd_send_msg(ld->gossip,
-		      take(towire_gossip_new_blockheight(NULL, blockheight)));
+		      take(towire_gossipd_new_blockheight(NULL, blockheight)));
 }
 
 static void gossip_topology_synced(struct chain_topology *topo, void *unused)
@@ -196,7 +196,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	hsmfd = hsm_get_global_fd(ld, HSM_CAP_SIGN_GOSSIP);
 
 	ld->gossip = new_global_subd(ld, "lightning_gossipd",
-				     gossip_wire_type_name, gossip_msg,
+				     gossipd_wire_name, gossip_msg,
 				     take(&hsmfd), take(&connectd_fd), NULL);
 	if (!ld->gossip)
 		err(1, "Could not subdaemon gossip");
@@ -205,7 +205,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	topology_add_sync_waiter(ld->gossip, ld->topology,
 				 gossip_topology_synced, NULL);
 
-	msg = towire_gossipctl_init(
+	msg = towire_gossipd_init(
 	    tmpctx,
 	    chainparams,
 	    ld->our_features,
@@ -222,7 +222,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 void gossipd_notify_spend(struct lightningd *ld,
 			  const struct short_channel_id *scid)
 {
-	u8 *msg = towire_gossip_outpoint_spent(tmpctx, scid);
+	u8 *msg = towire_gossipd_outpoint_spent(tmpctx, scid);
 	subd_send_msg(ld->gossip, msg);
 }
 
@@ -234,7 +234,7 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 	struct json_stream *response;
 	size_t i, j;
 
-	if (!fromwire_gossip_getnodes_reply(reply, reply, &nodes)) {
+	if (!fromwire_gossipd_getnodes_reply(reply, reply, &nodes)) {
 		was_pending(command_fail(cmd, LIGHTNINGD,
 					 "Malformed gossip_getnodes response"));
 		return;
@@ -286,7 +286,7 @@ static struct command_result *json_listnodes(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	req = towire_gossip_getnodes_request(cmd, id);
+	req = towire_gossipd_getnodes_request(cmd, id);
 	subd_req(cmd, cmd->ld->gossip, req, -1, 0, json_getnodes_reply, cmd);
 	return command_still_pending(cmd);
 }
@@ -348,7 +348,7 @@ static void json_getroute_reply(struct subd *gossip UNUSED, const u8 *reply, con
 	struct json_stream *response;
 	struct route_hop **hops;
 
-	fromwire_gossip_getroute_reply(reply, reply, &hops);
+	fromwire_gossipd_getroute_reply(reply, reply, &hops);
 
 	if (tal_count(hops) == 0) {
 		was_pending(command_fail(cmd, PAY_ROUTE_NOT_FOUND,
@@ -434,7 +434,7 @@ static struct command_result *json_getroute(struct command *cmd,
 		excluded = NULL;
 	}
 
-	u8 *req = towire_gossip_getroute_request(
+	u8 *req = towire_gossipd_getroute_request(
 	    cmd, source, destination, *msat, *riskfactor_millionths, *cltv,
 	    *fuzz_millionths, excluded, *max_hops);
 	subd_req(ld->gossip, ld->gossip, req, -1, 0, json_getroute_reply, cmd);
@@ -501,7 +501,7 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 	struct gossip_getchannels_entry **entries;
 	bool complete;
 
-	if (!fromwire_gossip_getchannels_reply(reply, reply,
+	if (!fromwire_gossipd_getchannels_reply(reply, reply,
 					       &complete, &entries)) {
 		/* Shouldn't happen: just end json stream. */
 		log_broken(linfo->cmd->ld->log, "Invalid reply from gossipd");
@@ -518,7 +518,7 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 	if (!complete) {
 		u8 *req;
 		assert(tal_count(entries) != 0);
-		req = towire_gossip_getchannels_request(linfo->cmd,
+		req = towire_gossipd_getchannels_request(linfo->cmd,
 							linfo->id,
 							linfo->source,
 							&entries[i-1]
@@ -554,7 +554,7 @@ static struct command_result *json_listchannels(struct command *cmd,
 	linfo->response = json_stream_success(cmd);
 	json_array_start(linfo->response, "channels");
 
-	req = towire_gossip_getchannels_request(cmd, linfo->id, linfo->source,
+	req = towire_gossipd_getchannels_request(cmd, linfo->id, linfo->source,
 						NULL);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 req, -1, 0, json_listchannels_reply, linfo);
@@ -585,7 +585,7 @@ json_dev_set_max_scids_encode_size(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	msg = towire_gossip_dev_set_max_scids_encode_size(NULL, *max);
+	msg = towire_gossipd_dev_set_max_scids_encode_size(NULL, *max);
 	subd_send_msg(cmd->ld->gossip, take(msg));
 
 	return command_success(cmd, json_stream_success(cmd));
@@ -607,7 +607,7 @@ static struct command_result *json_dev_suppress_gossip(struct command *cmd,
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
 
-	subd_send_msg(cmd->ld->gossip, take(towire_gossip_dev_suppress(NULL)));
+	subd_send_msg(cmd->ld->gossip, take(towire_gossipd_dev_suppress(NULL)));
 
 	return command_success(cmd, json_stream_success(cmd));
 }
@@ -627,7 +627,7 @@ static void dev_compact_gossip_store_reply(struct subd *gossip UNUSED,
 {
 	bool success;
 
-	if (!fromwire_gossip_dev_compact_store_reply(reply, &success)) {
+	if (!fromwire_gossipd_dev_compact_store_reply(reply, &success)) {
 		was_pending(command_fail(cmd, LIGHTNINGD,
 					 "Gossip gave bad dev_gossip_compact_store_reply"));
 		return;
@@ -649,7 +649,7 @@ static struct command_result *json_dev_compact_gossip_store(struct command *cmd,
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
 
-	msg = towire_gossip_dev_compact_store(NULL);
+	msg = towire_gossipd_dev_compact_store(NULL);
 	subd_req(cmd->ld->gossip, cmd->ld->gossip,
 		 take(msg), -1, 0, dev_compact_gossip_store_reply, cmd);
 	return command_still_pending(cmd);
@@ -676,7 +676,7 @@ static struct command_result *json_dev_gossip_set_time(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	msg = towire_gossip_dev_set_time(NULL, *time);
+	msg = towire_gossipd_dev_set_time(NULL, *time);
 	subd_send_msg(cmd->ld->gossip, take(msg));
 
 	return command_success(cmd, json_stream_success(cmd));

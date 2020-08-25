@@ -12,7 +12,7 @@
 #include <common/timeout.h>
 #include <connectd/gen_connect_wire.h>
 #include <errno.h>
-#include <gossipd/gen_gossip_wire.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
@@ -227,7 +227,7 @@ static void gossip_dev_memleak_done(struct subd *gossipd,
 {
 	bool found_leak;
 
-	if (!fromwire_gossip_dev_memleak_reply(reply, &found_leak)) {
+	if (!fromwire_gossipd_dev_memleak_reply(reply, &found_leak)) {
 		was_pending(command_fail(cmd, LIGHTNINGD,
 					 "Bad gossip_dev_memleak"));
 		return;
@@ -277,7 +277,7 @@ static void hsm_dev_memleak_done(struct subd *hsmd,
 	}
 
 	/* No leak?  Ask gossipd. */
-	subd_req(ld->gossip, ld->gossip, take(towire_gossip_dev_memleak(NULL)),
+	subd_req(ld->gossip, ld->gossip, take(towire_gossipd_dev_memleak(NULL)),
 		 -1, 0, gossip_dev_memleak_done, cmd);
 }
 
