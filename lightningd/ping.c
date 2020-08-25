@@ -1,4 +1,4 @@
-#include <channeld/gen_channel_wire.h>
+#include <channeld/channeld_wiregen.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
 #include <common/param.h>

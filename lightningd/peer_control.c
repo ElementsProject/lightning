@@ -13,7 +13,7 @@
 #include <ccan/str/str.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
-#include <channeld/gen_channel_wire.h>
+#include <channeld/channeld_wiregen.h>
 #include <common/addr.h>
 #include <common/closing_fee.h>
 #include <common/dev_disconnect.h>
@@ -1435,7 +1435,7 @@ static struct command_result *json_close(struct command *cmd,
 		case CHANNELD_SHUTTING_DOWN:
 			if (channel->owner)
 				subd_send_msg(channel->owner,
-					      take(towire_channel_send_shutdown(NULL,
+					      take(towire_channeld_send_shutdown(NULL,
 						   channel->shutdown_scriptpubkey[LOCAL])));
 			break;
 		case CLOSINGD_SIGEXCHANGE:
@@ -1869,7 +1869,7 @@ static void set_channel_fees(struct command *cmd, struct channel *channel,
 	/* tell channeld to make a send_channel_update */
 	if (channel->owner && streq(channel->owner->name, "channeld"))
 		subd_send_msg(channel->owner,
-				take(towire_channel_specific_feerates(NULL, base, ppm)));
+				take(towire_channeld_specific_feerates(NULL, base, ppm)));
 
 	/* save values to database */
 	wallet_channel_save(cmd->ld->wallet, channel);
@@ -2079,7 +2079,7 @@ static struct command_result *json_dev_reenable_commit(struct command *cmd,
 				    "Peer owned by %s", channel->owner->name);
 	}
 
-	msg = towire_channel_dev_reenable_commit(channel);
+	msg = towire_channeld_dev_reenable_commit(channel);
 	subd_req(peer, channel->owner, take(msg), -1, 0,
 		 dev_reenable_commit_finished, cmd);
 	return command_still_pending(cmd);
@@ -2238,7 +2238,7 @@ static void channeld_memleak_req_done(struct subd *channeld,
 	bool found_leak;
 
 	tal_del_destructor2(channeld, subd_died_forget_memleak, cmd);
-	if (!fromwire_channel_dev_memleak_reply(msg, &found_leak)) {
+	if (!fromwire_channeld_dev_memleak_reply(msg, &found_leak)) {
 		was_pending(command_fail(cmd, LIGHTNINGD,
 					 "Bad channel_dev_memleak"));
 		return;
@@ -2283,7 +2283,7 @@ static void peer_memleak_req_next(struct command *cmd, struct channel *prev)
 			/* Note: closingd does its own checking automatically */
 			if (streq(c->owner->name, "channeld")) {
 				subd_req(c, c->owner,
-					 take(towire_channel_dev_memleak(NULL)),
+					 take(towire_channeld_dev_memleak(NULL)),
 					 -1, 0, channeld_memleak_req_done, cmd);
 				tal_add_destructor2(c->owner,
 						    subd_died_forget_memleak,
