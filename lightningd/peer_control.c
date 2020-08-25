@@ -32,7 +32,7 @@
 #include <common/utils.h>
 #include <common/version.h>
 #include <common/wire_error.h>
-#include <connectd/gen_connect_wire.h>
+#include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <hsmd/hsmd_wiregen.h>
@@ -1007,7 +1007,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 	hook_payload = tal(NULL, struct peer_connected_hook_payload);
 	hook_payload->ld = ld;
-	if (!fromwire_connect_peer_connected(hook_payload, msg,
+	if (!fromwire_connectd_peer_connected(hook_payload, msg,
 					     &id, &hook_payload->addr,
 					     &hook_payload->pps,
 					     &their_features))
@@ -1486,7 +1486,7 @@ static void activate_peer(struct peer *peer, u32 delay)
 						      delay));
 			delay_then_reconnect(channel, delay, &peer->addr);
 		} else {
-			msg = towire_connectctl_connect_to_peer(NULL,
+			msg = towire_connectd_connect_to_peer(NULL,
 								&peer->id, 0,
 								&peer->addr);
 			subd_send_msg(ld->connectd, take(msg));

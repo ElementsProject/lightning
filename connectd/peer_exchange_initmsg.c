@@ -7,7 +7,7 @@
 #include <common/status.h>
 #include <common/wire_error.h>
 #include <connectd/connectd.h>
-#include <connectd/gen_connect_wire.h>
+#include <connectd/connectd_wiregen.h>
 #include <connectd/peer_exchange_initmsg.h>
 #include <wire/peer_wire.h>
 

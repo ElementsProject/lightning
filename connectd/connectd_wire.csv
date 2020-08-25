@@ -1,0 +1,70 @@
+#include <common/cryptomsg.h>
+#include <common/features.h>
+#include <common/per_peer_state.h>
+#include <common/wireaddr.h>
+#include <lightningd/gossip_msg.h>
+
+msgtype,connectd_init,2000
+msgdata,connectd_init,chainparams,chainparams,
+msgdata,connectd_init,our_features,feature_set,
+msgdata,connectd_init,id,node_id,
+msgdata,connectd_init,num_wireaddrs,u16,
+msgdata,connectd_init,wireaddrs,wireaddr_internal,num_wireaddrs
+msgdata,connectd_init,listen_announce,enum addr_listen_announce,num_wireaddrs
+msgdata,connectd_init,tor_proxyaddr,?wireaddr,
+msgdata,connectd_init,use_tor_proxy_always,bool,
+msgdata,connectd_init,dev_allow_localhost,bool,
+msgdata,connectd_init,use_dns,bool,
+msgdata,connectd_init,tor_password,wirestring,
+msgdata,connectd_init,use_v3_autotor,bool,
+
+# Connectd->master, here are the addresses I bound, can announce.
+msgtype,connectd_init_reply,2100
+msgdata,connectd_init_reply,num_bindings,u16,
+msgdata,connectd_init_reply,bindings,wireaddr_internal,num_bindings
+msgdata,connectd_init_reply,num_announcable,u16,
+msgdata,connectd_init_reply,announcable,wireaddr,num_announcable
+
+# Activate the connect daemon, so others can connect.
+msgtype,connectd_activate,2025
+# Do we listen?
+msgdata,connectd_activate,listen,bool,
+
+# Connectd->master, I am ready.
+msgtype,connectd_activate_reply,2125
+
+# connectd->master: disconnect this peer please (due to reconnect).
+msgtype,connectd_reconnected,2112
+msgdata,connectd_reconnected,id,node_id,
+
+# Master -> connectd: connect to a peer.
+msgtype,connectd_connect_to_peer,2001
+msgdata,connectd_connect_to_peer,id,node_id,
+msgdata,connectd_connect_to_peer,seconds_waited,u32,
+msgdata,connectd_connect_to_peer,addrhint,?wireaddr_internal,
+
+# Connectd->master: connect failed.
+msgtype,connectd_connect_failed,2020
+msgdata,connectd_connect_failed,id,node_id,
+msgdata,connectd_connect_failed,failcode,errcode_t,
+msgdata,connectd_connect_failed,failreason,wirestring,
+msgdata,connectd_connect_failed,seconds_to_delay,u32,
+msgdata,connectd_connect_failed,addrhint,?wireaddr_internal,
+
+# Connectd -> master: we got a peer. Three fds: peer, gossip and gossip_store
+msgtype,connectd_peer_connected,2002
+msgdata,connectd_peer_connected,id,node_id,
+msgdata,connectd_peer_connected,addr,wireaddr_internal,
+msgdata,connectd_peer_connected,pps,per_peer_state,
+msgdata,connectd_peer_connected,flen,u16,
+msgdata,connectd_peer_connected,features,u8,flen
+
+# master -> connectd: peer has disconnected.
+msgtype,connectd_peer_disconnected,2015
+msgdata,connectd_peer_disconnected,id,node_id,
+
+# master -> connectd: do you have a memleak?
+msgtype,connectd_dev_memleak,2033
+
+msgtype,connectd_dev_memleak_reply,2133
+msgdata,connectd_dev_memleak_reply,leak,bool,

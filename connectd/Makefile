@@ -7,13 +7,13 @@ connectd-wrongdir:
 default: connectd-all
 
 # Control daemon uses this:
-LIGHTNINGD_CONNECT_CONTROL_HEADERS := connectd/gen_connect_wire.h connectd/gen_connect_gossip_wire.h
-LIGHTNINGD_CONNECT_CONTROL_SRC := connectd/gen_connect_wire.c connectd/gen_connect_gossip_wire.c
+LIGHTNINGD_CONNECT_CONTROL_HEADERS := connectd/connectd_wiregen.h connectd/connectd_gossipd_wiregen.h
+LIGHTNINGD_CONNECT_CONTROL_SRC := connectd/connectd_wiregen.c connectd/connectd_gossipd_wiregen.c
 LIGHTNINGD_CONNECT_CONTROL_OBJS := $(LIGHTNINGD_CONNECT_CONTROL_SRC:.c=.o)
 
 # connectd needs these:
-LIGHTNINGD_CONNECT_HEADERS := connectd/gen_connect_wire.h \
-	connectd/gen_connect_gossip_wire.h		\
+LIGHTNINGD_CONNECT_HEADERS := connectd/connectd_wiregen.h \
+	connectd/connectd_gossipd_wiregen.h		\
 	connectd/connectd.h				\
 	connectd/peer_exchange_initmsg.h		\
 	connectd/handshake.h				\
@@ -26,11 +26,11 @@ LIGHTNINGD_CONNECT_OBJS := $(LIGHTNINGD_CONNECT_SRC:.c=.o)
 # Make sure these depend on everything.
 ALL_OBJS += $(LIGHTNINGD_CONNECT_OBJS)
 ALL_PROGRAMS += lightningd/lightning_connectd
-ALL_GEN_HEADERS += connectd/gen_connect_wire.h connectd/gen_connect_gossip_wire.h
+ALL_GEN_HEADERS += connectd/connectd_wiregen.h connectd/connectd_gossipd_wiregen.h
 
 # For checking
-LIGHTNINGD_CONNECT_ALLSRC_NOGEN := $(filter-out connectd/gen_%, $(LIGHTNINGD_CONNECT_CLIENT_SRC) $(LIGHTNINGD_CONNECT_SRC))
-LIGHTNINGD_CONNECT_ALLHEADERS_NOGEN := $(filter-out connectd/gen_%, $(LIGHTNINGD_CONNECT_CLIENT_HEADERS) $(LIGHTNINGD_CONNECT_HEADERS))
+LIGHTNINGD_CONNECT_ALLSRC_NOGEN := $(filter-out connectd/%wiregen.c, $(LIGHTNINGD_CONNECT_CLIENT_SRC) $(LIGHTNINGD_CONNECT_SRC))
+LIGHTNINGD_CONNECT_ALLHEADERS_NOGEN := $(filter-out connectd/%wiregen.h, $(LIGHTNINGD_CONNECT_CLIENT_HEADERS) $(LIGHTNINGD_CONNECT_HEADERS))
 
 # Add to headers which any object might need.
 LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_CONNECT_HEADERS)
@@ -85,18 +85,6 @@ connectd-all: lightningd/lightning_connectd
 
 lightningd/lightning_connectd: $(LIGHTNINGD_CONNECT_OBJS) $(CONNECTD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
 
-connectd/gen_connect_wire.h: $(WIRE_GEN) connectd/connect_wire.csv
-	$(WIRE_GEN) --page header $@ connect_wire_type < connectd/connect_wire.csv > $@
-
-connectd/gen_connect_wire.c: $(WIRE_GEN) connectd/connect_wire.csv
-	$(WIRE_GEN) --page impl ${@:.c=.h} connect_wire_type < connectd/connect_wire.csv > $@
-
-connectd/gen_connect_gossip_wire.h: $(WIRE_GEN) connectd/connect_gossip_wire.csv
-	$(WIRE_GEN) --page header $@ connect_gossip_wire_type < connectd/connect_gossip_wire.csv > $@
-
-connectd/gen_connect_gossip_wire.c: $(WIRE_GEN) connectd/connect_gossip_wire.csv
-	$(WIRE_GEN) --page impl ${@:.c=.h} connect_gossip_wire_type < connectd/connect_gossip_wire.csv > $@
-
 check-source: $(LIGHTNINGD_CONNECT_ALLSRC_NOGEN:%=check-src-include-order/%) $(LIGHTNINGD_CONNECT_ALLHEADERS_NOGEN:%=check-hdr-include-order/%)
 check-source-bolt: $(LIGHTNINGD_CONNECT_SRC:%=bolt-check/%) $(LIGHTNINGD_CONNECT_HEADERS:%=bolt-check/%)
 check-whitespace: $(LIGHTNINGD_CONNECT_ALLSRC_NOGEN:%=check-whitespace/%) $(LIGHTNINGD_CONNECT_ALLHEADERS_NOGEN:%=check-whitespace/%)
@@ -104,6 +92,6 @@ check-whitespace: $(LIGHTNINGD_CONNECT_ALLSRC_NOGEN:%=check-whitespace/%) $(LIGH
 clean: connectd-clean
 
 connectd-clean:
-	$(RM) $(LIGHTNINGD_CONNECT_OBJS) connectd/gen_*
+	$(RM) $(LIGHTNINGD_CONNECT_OBJS)
 
 -include connectd/test/Makefile

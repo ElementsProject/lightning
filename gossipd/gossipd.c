@@ -41,7 +41,7 @@
 #include <common/version.h>
 #include <common/wire_error.h>
 #include <common/wireaddr.h>
-#include <connectd/gen_connect_gossip_wire.h>
+#include <connectd/connectd_gossipd_wiregen.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/broadcast.h>
@@ -551,7 +551,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	int gossip_store_fd;
 	struct gossip_state *gs;
 
-	if (!fromwire_gossip_new_peer(msg, &peer->id,
+	if (!fromwire_gossipd_new_peer(msg, &peer->id,
 				      &peer->gossip_queries_feature,
 				      &peer->initial_routing_sync_feature)) {
 		status_broken("Bad new_peer msg from connectd: %s",
@@ -564,7 +564,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 		status_broken("Failed to get readonly store fd: %s",
 			      strerror(errno));
 		daemon_conn_send(daemon->connectd,
-				 take(towire_gossip_new_peer_reply(NULL,
+				 take(towire_gossipd_new_peer_reply(NULL,
 								   false,
 								   NULL)));
 		goto done;
@@ -576,7 +576,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 			      strerror(errno));
 		close(gossip_store_fd);
 		daemon_conn_send(daemon->connectd,
-				 take(towire_gossip_new_peer_reply(NULL,
+				 take(towire_gossipd_new_peer_reply(NULL,
 								   false,
 								   NULL)));
 		goto done;
@@ -646,7 +646,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 
 	/* Reply with success, and the new fd and gossip_state. */
 	daemon_conn_send(daemon->connectd,
-			 take(towire_gossip_new_peer_reply(NULL, true, gs)));
+			 take(towire_gossipd_new_peer_reply(NULL, true, gs)));
 	daemon_conn_send_fd(daemon->connectd, fds[1]);
 	daemon_conn_send_fd(daemon->connectd, gossip_store_fd);
 
@@ -665,8 +665,8 @@ static struct io_plan *connectd_get_address(struct io_conn *conn,
 	u8 *features;
 	struct wireaddr *addrs;
 
-	if (!fromwire_gossip_get_addrs(msg, &id)) {
-		status_broken("Bad gossip_get_addrs msg from connectd: %s",
+	if (!fromwire_gossipd_get_addrs(msg, &id)) {
+		status_broken("Bad gossipd_get_addrs msg from connectd: %s",
 			      tal_hex(tmpctx, msg));
 		return io_close(conn);
 	}
@@ -676,7 +676,7 @@ static struct io_plan *connectd_get_address(struct io_conn *conn,
 		addrs = NULL;
 
 	daemon_conn_send(daemon->connectd,
-			 take(towire_gossip_get_addrs_reply(NULL, addrs)));
+			 take(towire_gossipd_get_addrs_reply(NULL, addrs)));
 	return daemon_conn_read_next(conn, daemon->connectd);
 }
 
@@ -685,18 +685,18 @@ static struct io_plan *connectd_req(struct io_conn *conn,
 				    const u8 *msg,
 				    struct daemon *daemon)
 {
-	enum connect_gossip_wire_type t = fromwire_peektype(msg);
+	enum connectd_gossipd_wire t = fromwire_peektype(msg);
 
 	switch (t) {
-	case WIRE_GOSSIP_NEW_PEER:
+	case WIRE_GOSSIPD_NEW_PEER:
 		return connectd_new_peer(conn, daemon, msg);
 
-	case WIRE_GOSSIP_GET_ADDRS:
+	case WIRE_GOSSIPD_GET_ADDRS:
 		return connectd_get_address(conn, daemon, msg);
 
 	/* We send these, don't receive them. */
-	case WIRE_GOSSIP_NEW_PEER_REPLY:
-	case WIRE_GOSSIP_GET_ADDRS_REPLY:
+	case WIRE_GOSSIPD_NEW_PEER_REPLY:
+	case WIRE_GOSSIPD_GET_ADDRS_REPLY:
 		break;
 	}
 

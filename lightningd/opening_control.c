@@ -17,7 +17,7 @@
 #include <common/utils.h>
 #include <common/wallet_tx.h>
 #include <common/wire_error.h>
-#include <connectd/gen_connect_wire.h>
+#include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>
@@ -104,7 +104,7 @@ static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
 					   enum log_level level,
 					   const char *desc)
 {
-	u8 *msg = towire_connectctl_peer_disconnected(tmpctx, &uc->peer->id);
+	u8 *msg = towire_connectd_peer_disconnected(tmpctx, &uc->peer->id);
 	log_(uc->log, level, NULL, false, "%s", desc);
 	subd_send_msg(uc->peer->ld->connectd, msg);
 	if (uc->fc && uc->fc->cmd)
