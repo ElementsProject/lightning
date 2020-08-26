@@ -1,12 +1,12 @@
 DEVTOOLS_SRC := devtools/gen_print_wire.c devtools/gen_print_onion_wire.c devtools/print_wire.c
 DEVTOOLS_OBJS := $(DEVTOOLS_SRC:.c=.o)
-DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/checkchannels devtools/mkquery devtools/lightning-checkmessage
+DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/checkchannels devtools/mkquery devtools/lightning-checkmessage devtools/topology
 ifeq ($(EXPERIMENTAL_FEATURES),1)
 DEVTOOLS += devtools/blindedpath
 endif
 
 DEVTOOLS_TOOL_SRC := $(DEVTOOLS:=.c)
-DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o)
+DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o) devtools/clean_topo.o
 
 DEVTOOLS_BOLT_DEPS += $(BOLT_DEPS) tools/gen/print_impl_template tools/gen/print_header_template
 
@@ -93,9 +93,11 @@ devtools/mkquery: $(DEVTOOLS_COMMON_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/from
 
 devtools/lightning-checkmessage: $(DEVTOOLS_COMMON_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/lightning-checkmessage.o
 
+devtools/topology: $(DEVTOOLS_COMMON_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o common/gossmap.o common/random_select.o common/dijkstra.o common/route.o devtools/clean_topo.o devtools/topology.o
+
 # Make sure these depend on everything.
 ALL_PROGRAMS += $(DEVTOOLS)
-ALL_OBJS += $(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS)
+ALL_OBJS += $(DEVTOOLS_OBJS) $(DEVTOOLS_TOOL_OBJS) 
 
 check-source: $(DEVTOOLS_SRC:%=check-src-include-order/%) $(DEVTOOLS_TOOLS_SRC:%=check-src-include-order/%)
 
