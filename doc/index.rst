@@ -47,12 +47,15 @@ c-lightning Documentation
    lightning-fundchannel_start <lightning-fundchannel_start.7.md>
    lightning-fundpsbt <lightning-fundpsbt.7.md>
    lightning-getinfo <lightning-getinfo.7.md>
+   lightning-getlog <lightning-getlog.7.md>
    lightning-getroute <lightning-getroute.7.md>
    lightning-getsharedsecret <lightning-getsharedsecret.7.md>
+   lightning-help <lightning-help.7.md>
    lightning-hsmtool <lightning-hsmtool.8.md>
    lightning-invoice <lightning-invoice.7.md>
    lightning-keysend <lightning-keysend.7.md>
    lightning-listchannels <lightning-listchannels.7.md>
+   lightning-listconfigs <lightning-listconfigs.7.md>
    lightning-listforwards <lightning-listforwards.7.md>
    lightning-listfunds <lightning-listfunds.7.md>
    lightning-listinvoices <lightning-listinvoices.7.md>
@@ -63,6 +66,7 @@ c-lightning Documentation
    lightning-listtransactions <lightning-listtransactions.7.md>
    lightning-newaddr <lightning-newaddr.7.md>
    lightning-pay <lightning-pay.7.md>
+   lightning-ping <lightning-ping.7.md>
    lightning-plugin <lightning-plugin.7.md>
    lightning-reserveinputs <lightning-reserveinputs.7.md>
    lightning-sendonion <lightning-sendonion.7.md>

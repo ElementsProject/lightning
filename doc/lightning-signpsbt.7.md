@@ -1,5 +1,5 @@
 lightning-signpsbt -- Command to sign a wallet's inputs on a provided bitcoin transaction (PSBT).
-============================================================
+=================================================================================================
 
 SYNOPSIS
 --------
@@ -14,7 +14,7 @@ The **signpsbt** is a low-level RPC command which sign a PSBT.
 - *psbt*: A string that rappresent the hexadecimal of the psbt.
 
 EXAMPLE JSON REQUEST
-------------
+--------------------
 ```json
 {
   "id": 82,
@@ -37,13 +37,13 @@ On failure, one of the following error codes may be returned:
 - -32602. Error in given parameters or there aren't wallet's inputs to sign.
 
 EXAMPLE JSON RESPONSE
------
+---------------------
+
 ```json
 {
     "psbt": "some_psbt"
 }
 ```
-
 
 AUTHOR
 ------

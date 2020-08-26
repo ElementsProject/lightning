@@ -54,12 +54,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-waitblockheight.7 \
 	doc/lightning-waitsendpay.7 \
 	doc/lightning-withdraw.7 \
-	doc/lightning-ping.7 \
-	doc/lihgtning-signpsbt.7 \
-	doc/lightning-sendpsbt.7 \
-	doc/lightning-getinfo.7 \
-	doc/lightning-listtransactions.7 \
-	doc/lightning-listnodes.7
+	doc/lightning-ping.7 
 
 doc-all: $(MANPAGES) doc/index.rst
 
