@@ -208,9 +208,11 @@ bitcoin_block_from_hex(const tal_t *ctx, const struct chainparams *chainparams,
 
 	num = pull_varint(&p, &len);
 	b->tx = tal_arr(b, struct bitcoin_tx *, num);
+	b->txids = tal_arr(b, struct bitcoin_txid, num);
 	for (i = 0; i < num; i++) {
 		b->tx[i] = pull_bitcoin_tx(b->tx, &p, &len);
 		b->tx[i]->chainparams = chainparams;
+		bitcoin_txid(b->tx[i], &b->txids[i]);
 	}
 
 	/* We should end up not overrunning, nor have extra */

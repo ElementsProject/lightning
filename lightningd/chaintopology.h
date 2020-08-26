@@ -62,6 +62,7 @@ struct block {
 
 	/* Full copy of txs (freed in filter_block_txs) */
 	struct bitcoin_tx **full_txs;
+	struct bitcoin_txid *txids;
 };
 
 /* Hash blocks by sha */

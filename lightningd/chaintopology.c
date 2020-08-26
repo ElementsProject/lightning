@@ -91,7 +91,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		}
 
 		owned = AMOUNT_SAT(0);
-		bitcoin_txid(tx, &txid);
+		txid = b->txids[i];
 		if (txfilter_match(topo->bitcoind->ld->owned_txfilter, tx)) {
 			wallet_extract_owned_outputs(topo->bitcoind->ld->wallet,
 						     tx->wtx, &b->height, &owned);
@@ -748,7 +748,7 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 		struct bitcoin_txid txid;
 		struct amount_sat inputs_total = AMOUNT_SAT(0);
 
-		bitcoin_txid(tx, &txid);
+		txid = b->txids[i];
 
 		for (size_t j = 0; j < tx->wtx->num_inputs; j++) {
 			const struct wally_tx_input *input = &tx->wtx->inputs[j];
@@ -843,6 +843,7 @@ static struct block *new_block(struct chain_topology *topo,
 	b->hdr = blk->hdr;
 
 	b->full_txs = tal_steal(b, blk->tx);
+	b->txids = tal_steal(b, blk->txids);
 
 	return b;
 }
