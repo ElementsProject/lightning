@@ -36,6 +36,7 @@ struct bitcoin_block {
 	struct bitcoin_block_hdr hdr;
 	/* tal_count shows now many */
 	struct bitcoin_tx **tx;
+	struct bitcoin_txid *txids;
 };
 
 struct bitcoin_block *
