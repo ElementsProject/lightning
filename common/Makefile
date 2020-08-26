@@ -22,6 +22,7 @@ COMMON_SRC_NOGEN :=				\
 	common/decode_array.c			\
 	common/derive_basepoints.c		\
 	common/dev_disconnect.c			\
+	common/dijkstra.c			\
 	common/ecdh_hsmd.c			\
 	common/features.c			\
 	common/fee_states.c			\
