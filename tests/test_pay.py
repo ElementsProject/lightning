@@ -3471,3 +3471,36 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
     # Both payments should succeed.
     p2.result(TIMEOUT)
     p3.result(TIMEOUT)
+
+
+@pytest.mark.xfail(strict=True)
+def test_large_mpp_presplit(node_factory):
+    """Make sure that ludicrous amounts don't saturate channels
+
+    We aim to have at most PRESPLIT_MAX_SPLITS HTLCs created directly from the
+    `presplit` modifier. The modifier will scale up its target size to
+    guarantee this, while still bucketizing payments that are in the following
+    range:
+
+    ```
+    target_size = PRESPLIT_MAX_SPLITS^{n} + MPP_TARGET_SIZE
+    target_size < amount <= target_size * PRESPLIT_MAX_SPLITS
+    ```
+
+    """
+    PRESPLIT_MAX_SPLITS = 16
+    MPP_TARGET_SIZE = 10 ** 7
+    amt = 400 * MPP_TARGET_SIZE
+
+    l1, l2, l3 = node_factory.line_graph(
+        3, fundamount=10**8, wait_for_announce=True,
+        opts={'wumbo': None}
+    )
+
+    inv = l3.rpc.invoice(amt, 'lbl', 'desc')['bolt11']
+    p = l1.rpc.pay(inv)
+
+    assert(p['parts'] <= PRESPLIT_MAX_SPLITS)
+    inv = l3.rpc.listinvoices()['invoices'][0]
+
+    assert(inv['msatoshi'] == inv['msatoshi_received'])
