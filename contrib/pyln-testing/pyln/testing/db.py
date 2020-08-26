@@ -141,7 +141,8 @@ class PostgresDbProvider(object):
     def start(self):
         passfile = os.path.join(self.directory, "pgpass.txt")
         self.pgdir = os.path.join(self.directory, 'pgsql')
-        # Need to write a tiny file containing the password so `initdb` can pick it up
+        # Need to write a tiny file containing the password so `initdb` can
+        # pick it up
         with open(passfile, 'w') as f:
             f.write('cltest\n')
 
@@ -153,6 +154,10 @@ class PostgresDbProvider(object):
             '--auth=trust',
             '--username=postgres',
         ])
+        conffile = os.path.join(self.pgdir, 'postgresql.conf')
+        with open(conffile, 'a') as f:
+            f.write('max_connections = 1000\nshared_buffers = 240MB\n')
+
         self.port = reserve()
         self.proc = subprocess.Popen([
             postgres,
