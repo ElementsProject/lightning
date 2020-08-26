@@ -2796,6 +2796,12 @@ REGISTER_PAYMENT_MODIFIER(waitblockheight, void *, NULL, waitblockheight_cb);
 #define MPP_TARGET_SIZE (10 * 1000 * 1000)
 #define PRESPLIT_MAX_HTLC_SHARE 3
 
+/* How many parts do we split into before we increase the bucket size. This is
+ * a tradeoff between the number of payments whose parts are identical and the
+ * number of concurrent HTLCs. The larger this amount the more HTLCs we may
+ * end up starting, but the more payments result in the same part sizes.*/
+#define PRESPLIT_MAX_SPLITS 16
+
 static struct presplit_mod_data *presplit_mod_data_init(struct payment *p)
 {
 	struct presplit_mod_data *d;
@@ -2871,6 +2877,15 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		u32 htlcs = payment_max_htlcs(p) / PRESPLIT_MAX_HTLC_SHARE;
 		struct amount_msat target, amt = p->amount;
 		char *partids = tal_strdup(tmpctx, "");
+		u64 target_amount = MPP_TARGET_SIZE;
+
+		/* We aim for at most PRESPLIT_MAX_SPLITS parts, even for
+		 * large values. To achieve this we take the base amount and
+		 * multiply it by the number of targetted parts until the
+		 * total amount divided by part amount gives us at most that
+		 * number of parts. */
+		while (target_amount * PRESPLIT_MAX_SPLITS < p->amount.millisatoshis) /* Raw: Multiplication comparison */
+			target_amount *= PRESPLIT_MAX_SPLITS;
 
 		/* We need to opt-in to the MPP sending facility no matter
 		 * what we do. That means setting all partids to a non-zero
@@ -2888,10 +2903,10 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 			return payment_fail(
 			    p, "Cannot attempt payment, we have no channel to "
 			       "which we can add an HTLC");
-		} else if (p->amount.millisatoshis / MPP_TARGET_SIZE > htlcs) /* Raw: division */
+		} else if (p->amount.millisatoshis / target_amount > htlcs) /* Raw: division */
 			target.millisatoshis = p->amount.millisatoshis / htlcs; /* Raw: division */
 		else
-			target = AMOUNT_MSAT(MPP_TARGET_SIZE);
+			target.millisatoshis = target_amount; /* Raw: init */
 
 		/* If we are already below the target size don't split it
 		 * either. */

@@ -3472,7 +3472,6 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
     p3.result(TIMEOUT)
 
 
-@pytest.mark.xfail(strict=True)
 def test_large_mpp_presplit(node_factory):
     """Make sure that ludicrous amounts don't saturate channels
 
