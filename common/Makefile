@@ -61,6 +61,7 @@ COMMON_SRC_NOGEN :=				\
 	common/pseudorand.c			\
 	common/random_select.c			\
 	common/read_peer_msg.c			\
+	common/route.c				\
 	common/setup.c				\
 	common/socket_close.c			\
 	common/sphinx.c				\
