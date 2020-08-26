@@ -491,30 +491,42 @@ static struct io_plan *plugin_read_json(struct io_conn *conn,
 					struct plugin *plugin)
 {
 	bool success;
+	bool have_full;
 
 	log_io(plugin->log, LOG_IO_IN, NULL, "",
 	       plugin->buffer + plugin->used, plugin->len_read);
+
+	/* Our JSON parser is pretty good at incremental parsing, but
+	 * `getrawblock` gives a giant 2MB token, which forces it to re-parse
+	 * every time until we have all of it. However, we can't complete a
+	 * JSON object without a '}', so we do a cheaper check here.
+	 */
+	have_full = memchr(plugin->buffer + plugin->used, '}',
+			   plugin->len_read);
 
 	plugin->used += plugin->len_read;
 	if (plugin->used == tal_count(plugin->buffer))
 		tal_resize(&plugin->buffer, plugin->used * 2);
 
 	/* Read and process all messages from the connection */
-	do {
-		bool destroyed;
-		const char *err;
-		err = plugin_read_json_one(plugin, &success, &destroyed);
+	if (have_full) {
+		do {
+			bool destroyed;
+			const char *err;
+			err =
+			    plugin_read_json_one(plugin, &success, &destroyed);
 
-		/* If it's destroyed, conn is already freed! */
-		if (destroyed)
-			return io_close(NULL);
+			/* If it's destroyed, conn is already freed! */
+			if (destroyed)
+				return io_close(NULL);
 
-		if (err) {
-			plugin_kill(plugin, err);
-			/* plugin_kill frees plugin */
-			return io_close(NULL);
-		}
-	} while (success);
+			if (err) {
+				plugin_kill(plugin, err);
+				/* plugin_kill frees plugin */
+				return io_close(NULL);
+			}
+		} while (success);
+	}
 
 	/* Now read more from the connection */
 	return io_read_partial(plugin->stdout_conn,
