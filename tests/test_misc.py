@@ -1443,6 +1443,7 @@ def test_ipv4_and_ipv6(node_factory):
         assert int(bind[0]['port']) == port
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Fees on elements are different")
 @unittest.skipIf(
     not DEVELOPER or DEPRECATED_APIS, "Without DEVELOPER=1 we snap to "
     "FEERATE_FLOOR on testnets, and we test the new API."
