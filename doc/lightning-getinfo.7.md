@@ -38,9 +38,9 @@ On success, an object with the following information is returned:
   - *type*: A string that rappresents the type of the address (ipv4 or ipv6).
   - *address*: A string that rappresents the value of the address.
   - *port*: An integer that rappresents the port where the node are listening with this address.
-- *binding*: An array that rappresents all addresses where the node is binded and is ready to receive message. Each object contains the same object type of the address propriety above.
+- *binding*: An array that rappresents all addresses where the node is binded. Each object contains the same object type of the address propriety above.
 - *version*: A string that rappresents the version of the node.
-- *blockheight*: An integera that rappresents the blockchain height.
+- *blockheight*: An integer that rappresents the blockchain height.
 - *network*: A string that rappresents the type of network on the node are working (i.e: bitcoin, testnet, regtest).
 
 On failure, one of the following error codes may be returned:
@@ -97,7 +97,7 @@ Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version o
 SEE ALSO
 ------
 
-lightning-connect(7), lightning-fundchannel(7)
+lightning-connect(7), lightning-fundchannel(7), lightning-listconfigs(7).
 
 RESOURCES
 ---------
