@@ -3379,7 +3379,6 @@ def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor
 
 @unittest.skipIf(not DEVELOPER, "channel setup very slow (~10 minutes) if not DEVELOPER")
 @pytest.mark.slow_test
-@unittest.skipIf(True, "Broken")
 def test_mpp_interference_2(node_factory, bitcoind, executor):
     '''
     We create a "public network" that looks like so.
@@ -3408,7 +3407,7 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
         l2->l4, l2->l6: 6 * unit each
         l3->l7, l3->l6: 6 * unit each
 
-    Finally, l1 issues 6 * unit invoices, simultaneously, to l1 and l2.
+    Finally, l1 issues 6 * unit invoices, simultaneously, to l2 and l3.
     Both of them perform `pay` simultaneously, in order to test if
     they interfere with each other.
 
@@ -3456,9 +3455,10 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
 
     # Now wait for the buyers to learn the entire public network.
     bitcoind.generate_block(5)
+    sync_blockheight(bitcoind, [l1, l2, l3, l4, l5, l6, l7])
     for channel in public_network:
-        wait_for(lambda: len(l2.rpc.listchannels(channel)['channels']) >= 2)
-        wait_for(lambda: len(l3.rpc.listchannels(channel)['channels']) >= 2)
+        wait_for(lambda: len(l2.rpc.listchannels(channel)['channels']) == 2)
+        wait_for(lambda: len(l3.rpc.listchannels(channel)['channels']) == 2)
 
     # Buyers check out some purchaseable stuff from the merchant.
     i2 = l1.rpc.invoice(unit * 6, 'i2', 'i2')['bolt11']
