@@ -30,7 +30,7 @@ static u8 *make_v0_hop(const tal_t *ctx,
 	/* Prepend 0 byte for realm */
 	u8 *buf = tal_arrz(ctx, u8, 1);
 	towire_short_channel_id(&buf, scid);
-	towire_u64(&buf, forward.millisatoshis); /* Raw: low-level serializer */
+	towire_amount_msat(&buf, forward);
 	towire_u32(&buf, outgoing_cltv);
 	towire(&buf, padding, ARRAY_SIZE(padding));
 	assert(tal_bytelen(buf) == 1 + 32);

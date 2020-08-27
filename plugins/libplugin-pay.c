@@ -611,7 +611,7 @@ static u8 *tal_towire_legacy_payload(const tal_t *ctx, const struct legacy_paylo
 	/* Prepend 0 byte for realm */
 	u8 *buf = tal_arrz(ctx, u8, 1);
 	towire_short_channel_id(&buf, &payload->scid);
-	towire_u64(&buf, payload->forward_amt.millisatoshis); /* Raw: low-level serializer */
+	towire_amount_msat(&buf, payload->forward_amt);
 	towire_u32(&buf, payload->outgoing_cltv);
 	towire(&buf, padding, ARRAY_SIZE(padding));
 	assert(tal_bytelen(buf) == 1 + 32);
@@ -2884,7 +2884,8 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		 * multiply it by the number of targetted parts until the
 		 * total amount divided by part amount gives us at most that
 		 * number of parts. */
-		while (target_amount * PRESPLIT_MAX_SPLITS < p->amount.millisatoshis) /* Raw: Multiplication comparison */
+		while (amount_msat_less(amount_msat(target_amount * PRESPLIT_MAX_SPLITS),
+					p->amount))
 			target_amount *= PRESPLIT_MAX_SPLITS;
 
 		/* We need to opt-in to the MPP sending facility no matter
@@ -2904,9 +2905,9 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 			    p, "Cannot attempt payment, we have no channel to "
 			       "which we can add an HTLC");
 		} else if (p->amount.millisatoshis / target_amount > htlcs) /* Raw: division */
-			target.millisatoshis = p->amount.millisatoshis / htlcs; /* Raw: division */
+			target = amount_msat_div(p->amount, htlcs);
 		else
-			target.millisatoshis = target_amount; /* Raw: init */
+			target = amount_msat(target_amount);
 
 		/* If we are already below the target size don't split it
 		 * either. */
