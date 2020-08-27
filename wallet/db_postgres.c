@@ -8,7 +8,7 @@
 
 #if HAVE_POSTGRES
 /* Indented in order not to trigger the inclusion order check */
-  #include <postgresql/libpq-fe.h>
+  #include <libpq-fe.h>
 
 /* Cherry-picked from here: libpq/src/interfaces/ecpg/ecpglib/pg_type.h */
 #define BYTEAOID		17
