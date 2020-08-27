@@ -6,7 +6,7 @@ from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
-    EXPERIMENTAL_FEATURES, env, VALGRIND
+    EXPERIMENTAL_FEATURES, env
 )
 import copy
 import os
@@ -3376,10 +3376,9 @@ def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor
     fut.result(TIMEOUT)
 
 
-@unittest.skipIf(VALGRIND, "runs 7 nodes")
 @unittest.skipIf(not DEVELOPER, "channel setup very slow (~10 minutes) if not DEVELOPER")
 @pytest.mark.slow_test
-@flaky
+@unittest.skipIf(True, "Broken")
 def test_mpp_interference_2(node_factory, bitcoind, executor):
     '''
     We create a "public network" that looks like so.
