@@ -229,8 +229,14 @@ fi
 # Doesn't set a var, but makes sure it exists
 require 'python3-mako' "You need the mako module for python3: see doc/INSTALL.md" python3 -c 'import mako'
 
+POSTGRES_INCLUDE=""
+if command -v pg_config 2> /dev/null; then
+    POSTGRES_INCLUDE="-I$(pg_config --includedir)"
+fi
+
 rm -f $CONFIG_VAR_FILE.$$
-$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -I/usr/local/include -L/usr/local/lib <<EOF
+$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -I/usr/local/include -L/usr/local/lib $POSTGRES_INCLUDE <<EOF
+
 var=HAVE_GOOD_LIBSODIUM
 desc=libsodium with IETF chacha20 variants
 style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
@@ -286,7 +292,7 @@ desc=postgres
 style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
 link=-lpq
 code=
-#include <postgresql/libpq-fe.h>
+#include <libpq-fe.h>
 #include <stdio.h>
 
 int main(void)
@@ -353,6 +359,7 @@ add_var CONFIGURATOR_CC "$CONFIGURATOR_CC"
 add_var CWARNFLAGS "$CWARNFLAGS"
 add_var CDEBUGFLAGS "$CDEBUGFLAGS"
 add_var COPTFLAGS "$COPTFLAGS"
+add_var POSTGRES_INCLUDE "$POSTGRES_INCLUDE"
 add_var VALGRIND "$VALGRIND"
 add_var DEVELOPER "$DEVELOPER" $CONFIG_HEADER
 add_var EXPERIMENTAL_FEATURES "$EXPERIMENTAL_FEATURES" $CONFIG_HEADER
