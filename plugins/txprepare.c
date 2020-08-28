@@ -1,0 +1,305 @@
+#include <bitcoin/chainparams.h>
+#include <bitcoin/feerate.h>
+#include <bitcoin/psbt.h>
+#include <bitcoin/script.h>
+#include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
+#include <ccan/json_out/json_out.h>
+#include <ccan/tal/str/str.h>
+#include <common/addr.h>
+#include <common/amount.h>
+#include <common/features.h>
+#include <common/json_stream.h>
+#include <common/json_tok.h>
+#include <common/pseudorand.h>
+#include <common/type_to_string.h>
+#include <common/utils.h>
+#include <plugins/libplugin.h>
+
+struct tx_output {
+	struct amount_sat amount;
+	const u8 *script;
+};
+
+struct txprepare {
+	struct tx_output *outputs;
+	struct amount_sat output_total;
+	/* Weight for core + outputs */
+	size_t weight;
+
+	/* Which output is 'all', or -1 (not counted in output_total!) */
+	int all_output_idx;
+
+	/* Once we have a PSBT, it goes here. */
+	struct wally_psbt *psbt;
+	u32 feerate;
+
+	/* Once we have reserved all the inputs, this is set. */
+	struct amount_sat change_amount;
+};
+
+
+static struct wally_psbt *json_tok_psbt(const tal_t *ctx,
+					const char *buffer,
+					const jsmntok_t *tok)
+{
+	return psbt_from_b64(ctx, buffer + tok->start, tok->end - tok->start);
+}
+
+static struct command_result *param_outputs(struct command *cmd,
+					    const char *name,
+					    const char *buffer,
+					    const jsmntok_t *tok,
+					    struct txprepare *txp)
+{
+	size_t i;
+	const jsmntok_t *t;
+
+	txp->outputs = tal_arr(txp, struct tx_output, tok->size);
+	txp->output_total = AMOUNT_SAT(0);
+	txp->all_output_idx = -1;
+
+	/* We assume < 253 inputs, and if we're wrong, the fee
+	 * difference is trivial. */
+	txp->weight = bitcoin_tx_core_weight(1, tal_count(txp->outputs));
+
+	json_for_each_arr(i, t, tok) {
+		enum address_parse_result res;
+		struct tx_output *out = &txp->outputs[i];
+
+		/* output format: {destination: amount} */
+		if (t->type != JSMN_OBJECT)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "The output format must be "
+					    "{destination: amount}");
+		res = json_to_address_scriptpubkey(cmd,
+ 						   chainparams,
+						   buffer, &t[1],
+						   &out->script);
+		if (res == ADDRESS_PARSE_UNRECOGNIZED)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Could not parse destination address");
+		else if (res == ADDRESS_PARSE_WRONG_NETWORK)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Destination address is not on network %s",
+					    chainparams->network_name);
+
+		if (!json_to_sat_or_all(buffer, &t[2], &out->amount))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "'%.*s' is a invalid satoshi amount",
+					    t[2].end - t[2].start,
+					    buffer + t[2].start);
+
+		if (amount_sat_eq(out->amount, AMOUNT_SAT(-1ULL))) {
+			if (txp->all_output_idx != -1)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Cannot use 'all' in"
+						    " two outputs");
+			txp->all_output_idx = i;
+		} else {
+			if (!amount_sat_add(&txp->output_total,
+					    txp->output_total,
+					    out->amount))
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Output amount overflow");
+		}
+		txp->weight += bitcoin_tx_output_weight(tal_bytelen(out->script));
+	}
+	return NULL;
+}
+
+static struct command_result *finish_txprepare(struct command *cmd,
+					       struct txprepare *txp)
+{
+	struct json_stream *out;
+	struct wally_tx *tx;
+	struct bitcoin_txid txid;
+
+	/* Add the outputs they gave us */
+	for (size_t i = 0; i < tal_count(txp->outputs); i++) {
+		struct wally_tx_output *out;
+
+		out = wally_tx_output(txp->outputs[i].script,
+				      txp->outputs[i].amount);
+		if (!out)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Invalid output %zi (%s:%s)", i,
+					    tal_hex(tmpctx,
+						    txp->outputs[i].script),
+					    type_to_string(tmpctx,
+							   struct amount_sat,
+							   &txp->outputs[i].amount));
+		psbt_add_output(txp->psbt, out, i);
+	}
+
+	psbt_txid(txp->psbt, &txid, &tx);
+	out = jsonrpc_stream_success(cmd);
+	json_add_hex_talarr(out, "unsigned_tx", linearize_wtx(tmpctx, tx));
+	json_add_txid(out, "txid", &txid);
+	return command_finished(cmd, out);
+}
+
+/* newaddr has given us a change address. */
+static struct command_result *newaddr_done(struct command *cmd,
+					   const char *buf,
+					   const jsmntok_t *result,
+					   struct txprepare *txp)
+{
+	size_t num = tal_count(txp->outputs), pos;
+	const jsmntok_t *addr = json_get_member(buf, result, "bech32");
+
+	/* Insert change in random position in outputs */
+	tal_resize(&txp->outputs, num+1);
+	pos = pseudorand(num+1);
+	memmove(txp->outputs + pos + 1,
+		txp->outputs + pos,
+		sizeof(txp->outputs[0]) * (num - pos));
+
+	txp->outputs[pos].amount = txp->change_amount;
+	if (json_to_address_scriptpubkey(txp, chainparams, buf, addr,
+					 &txp->outputs[pos].script)
+	    != ADDRESS_PARSE_SUCCESS) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Change address '%.*s' unparsable?",
+				    addr->end - addr->start,
+				    buf + addr->start);
+	}
+
+	return finish_txprepare(cmd, txp);
+}
+
+static bool resolve_all_output_amount(struct txprepare *txp,
+				      struct amount_sat excess)
+{
+	if (!amount_sat_greater_eq(excess, chainparams->dust_limit))
+		return false;
+
+	assert(amount_sat_eq(txp->outputs[txp->all_output_idx].amount,
+			     AMOUNT_SAT(-1ULL)));
+	txp->outputs[txp->all_output_idx].amount = excess;
+	return true;
+}
+
+/* fundpsbt gets a viable PSBT for us. */
+static struct command_result *fundpsbt_done(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    struct txprepare *txp)
+{
+	const jsmntok_t *psbttok;
+	struct out_req *req;
+	struct amount_sat excess;
+
+	psbttok = json_get_member(buf, result, "psbt");
+	txp->psbt = json_tok_psbt(txp, buf, psbttok);
+	if (!txp->psbt)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Unparsable psbt: '%.*s'",
+				    psbttok->end - psbttok->start,
+				    buf + psbttok->start);
+
+	if (!json_to_number(buf, json_get_member(buf, result, "feerate_per_kw"),
+			    &txp->feerate))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Unparsable feerate_per_kw: '%.*s'",
+				    result->end - result->start,
+				    buf + result->start);
+
+	if (!json_to_sat(buf, json_get_member(buf, result, "excess_msat"),
+			 &excess))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Unparsable excess_msat: '%.*s'",
+				    result->end - result->start,
+				    buf + result->start);
+
+	/* If we have an "all" output, now we can derive its value: excess
+	 * in this case will be total value after inputs paid for themselves. */
+	if (txp->all_output_idx != -1) {
+		if (!resolve_all_output_amount(txp, excess))
+			return command_fail(cmd, FUND_CANNOT_AFFORD,
+					    "Insufficient funds to make"
+					    " 'all' output");
+
+		/* Never produce change if they asked for all */
+		excess = AMOUNT_SAT(0);
+	}
+
+	/* So, do we need change? */
+	txp->change_amount = change_amount(excess, txp->feerate);
+	if (amount_sat_eq(txp->change_amount, AMOUNT_SAT(0)))
+		return finish_txprepare(cmd, txp);
+
+	/* Ask for a change address */
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "newaddr",
+				    newaddr_done,
+				    /* It would be nice to unreserve inputs,
+				     * but probably won't happen. */
+				    forward_error,
+				    txp);
+	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *json_txprepare(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *params)
+{
+	struct txprepare *txp = tal(cmd, struct txprepare);
+	struct out_req *req;
+	const char *feerate;
+	unsigned int *minconf;
+	const jsmntok_t *utxos;
+
+	if (!param(cmd, buffer, params,
+		   p_req("outputs", param_outputs, txp),
+		   p_opt("feerate", param_string, &feerate),
+		   p_opt_def("minconf", param_number, &minconf, 1),
+		   p_opt("utxos", param_tok, &utxos),
+		   NULL))
+		return command_param_failed();
+
+	/* p_opt_def doesn't compile with strings... */
+	if (!feerate)
+		feerate = "opening";
+
+	if (utxos) {
+		return command_done_err(cmd,
+					JSONRPC2_INVALID_PARAMS,
+					"FIXME: utxos not implemented!",
+					NULL);
+	}
+
+	/* Otherwise, we can now try to gather UTXOs. */
+	req = jsonrpc_request_start(cmd->plugin, cmd, "fundpsbt",
+				    fundpsbt_done, forward_error,
+				    txp);
+
+	if (txp->all_output_idx == -1)
+		json_add_amount_sat_only(req->js, "satoshi", txp->output_total);
+	else
+		json_add_string(req->js, "satoshi", "all");
+
+	json_add_u32(req->js, "startweight", txp->weight);
+
+	/* Pass through feerate and minconf */
+	json_add_string(req->js, "feerate", feerate);
+	json_add_u32(req->js, "minconf", *minconf);
+	return send_outreq(cmd->plugin, req);
+}
+
+static const struct plugin_command commands[] = {
+	{
+		"newtxprepare",
+		"bitcoin",
+		"Create a transaction, with option to spend in future (either txsend and txdiscard)",
+		"Create an unsigned transaction paying {outputs} with optional {feerate}, {minconf} and {utxos}",
+		json_txprepare
+	},
+};
+
+int main(int argc, char *argv[])
+{
+	setup_locale();
+	plugin_main(argv, NULL, PLUGIN_RESTARTABLE, true, NULL, commands,
+		    ARRAY_SIZE(commands), NULL, 0, NULL, 0, NULL);
+}
