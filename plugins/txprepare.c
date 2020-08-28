@@ -180,11 +180,11 @@ static bool resolve_all_output_amount(struct txprepare *txp,
 	return true;
 }
 
-/* fundpsbt gets a viable PSBT for us. */
-static struct command_result *fundpsbt_done(struct command *cmd,
-					    const char *buf,
-					    const jsmntok_t *result,
-					    struct txprepare *txp)
+/* fundpsbt/utxopsbt gets a viable PSBT for us. */
+static struct command_result *psbt_created(struct command *cmd,
+					   const char *buf,
+					   const jsmntok_t *result,
+					   struct txprepare *txp)
 {
 	const jsmntok_t *psbttok;
 	struct out_req *req;
@@ -246,15 +246,14 @@ static struct command_result *json_txprepare(struct command *cmd,
 {
 	struct txprepare *txp = tal(cmd, struct txprepare);
 	struct out_req *req;
-	const char *feerate;
+	const char *feerate, *utxos;
 	unsigned int *minconf;
-	const jsmntok_t *utxos;
 
 	if (!param(cmd, buffer, params,
 		   p_req("outputs", param_outputs, txp),
 		   p_opt("feerate", param_string, &feerate),
 		   p_opt_def("minconf", param_number, &minconf, 1),
-		   p_opt("utxos", param_tok, &utxos),
+		   p_opt("utxos", param_string, &utxos),
 		   NULL))
 		return command_param_failed();
 
@@ -262,17 +261,19 @@ static struct command_result *json_txprepare(struct command *cmd,
 	if (!feerate)
 		feerate = "opening";
 
+	/* These calls are deliberately very similar, but utxopsbt wants utxos,
+	 * and fundpsbt wants minconf */
 	if (utxos) {
-		return command_done_err(cmd,
-					JSONRPC2_INVALID_PARAMS,
-					"FIXME: utxos not implemented!",
-					NULL);
+		req = jsonrpc_request_start(cmd->plugin, cmd, "utxopsbt",
+					    psbt_created, forward_error,
+					    txp);
+		json_add_jsonstr(req->js, "utxos", utxos);
+	} else {
+		req = jsonrpc_request_start(cmd->plugin, cmd, "fundpsbt",
+					    psbt_created, forward_error,
+					    txp);
+		json_add_u32(req->js, "minconf", *minconf);
 	}
-
-	/* Otherwise, we can now try to gather UTXOs. */
-	req = jsonrpc_request_start(cmd->plugin, cmd, "fundpsbt",
-				    fundpsbt_done, forward_error,
-				    txp);
 
 	if (txp->all_output_idx == -1)
 		json_add_amount_sat_only(req->js, "satoshi", txp->output_total);
@@ -281,9 +282,7 @@ static struct command_result *json_txprepare(struct command *cmd,
 
 	json_add_u32(req->js, "startweight", txp->weight);
 
-	/* Pass through feerate and minconf */
 	json_add_string(req->js, "feerate", feerate);
-	json_add_u32(req->js, "minconf", *minconf);
 	return send_outreq(cmd->plugin, req);
 }
 
