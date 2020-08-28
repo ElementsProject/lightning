@@ -22,7 +22,6 @@
 #include <common/derive_basepoints.h>
 #include <common/features.h>
 #include <common/fee_states.h>
-#include <common/funding_tx.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
 #include <common/initial_channel.h>

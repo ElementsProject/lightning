@@ -20,7 +20,6 @@ HSMD_COMMON_OBJS :=				\
 	common/daemon.o				\
 	common/daemon_conn.o			\
 	common/derive_basepoints.o		\
-	common/funding_tx.o			\
 	common/status_wiregen.o			\
 	common/hash_u5.o			\
 	common/key_derive.o			\
