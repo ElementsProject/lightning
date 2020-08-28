@@ -64,63 +64,6 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 	return utxo;
 }
 
-struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
-				     const struct chainparams *chainparams,
-				     const struct utxo **utxos,
-				     const struct ext_key *bip32_base,
-				     bool add_change_output,
-				     size_t num_output,
-				     u32 nlocktime,
-				     u32 nsequence)
-{
-	struct pubkey key;
-	u8 *scriptSig, *redeemscript;
-
-	size_t outcount = add_change_output ? 1 + num_output : num_output;
-	struct bitcoin_tx *tx = bitcoin_tx(ctx, chainparams, tal_count(utxos),
-					   outcount, nlocktime);
-
-	for (size_t i = 0; i < tal_count(utxos); i++) {
-		u32 this_nsequence;
-		if (utxos[i]->is_p2sh && bip32_base) {
-			bip32_pubkey(bip32_base, &key, utxos[i]->keyindex);
-			scriptSig =
-				bitcoin_scriptsig_p2sh_p2wpkh(tmpctx, &key);
-			redeemscript =
-				bitcoin_redeem_p2sh_p2wpkh(tmpctx, &key);
-
-		} else {
-			scriptSig = NULL;
-			redeemscript = NULL;
-		}
-
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
-		 * #### `to_remote` Output
-		 * ...
-		 * The output is spent by a transaction with `nSequence` field
-		 * set to `1` and witness:
-		 */
-		if (utxos[i]->close_info && utxos[i]->close_info->option_anchor_outputs)
-			this_nsequence = 1;
-		else
-			this_nsequence = nsequence;
-
-		bitcoin_tx_add_input(tx, &utxos[i]->txid,
-				     utxos[i]->outnum,
-				     this_nsequence,
-				     scriptSig, utxos[i]->amount,
-				     utxos[i]->scriptPubkey, NULL);
-
-		/* Add redeemscript to the PSBT input */
-		if (redeemscript)
-			psbt_input_set_redeemscript(tx->psbt, i,
-						    redeemscript);
-
-	}
-
-	return tx;
-}
-
 size_t utxo_spend_weight(const struct utxo *utxo)
 {
 	return bitcoin_tx_simple_input_weight(utxo->is_p2sh);

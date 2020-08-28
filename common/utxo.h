@@ -50,16 +50,6 @@ struct utxo {
 void towire_utxo(u8 **pptr, const struct utxo *utxo);
 struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max);
 
-/* Create a tx, and populate inputs from utxos */
-struct bitcoin_tx *tx_spending_utxos(const tal_t *ctx,
-				     const struct chainparams *chainparams,
-				     const struct utxo **utxos,
-				     const struct ext_key *bip32_base,
-				     bool add_change_output,
-				     size_t num_output,
-				     u32 nlocktime,
-				     u32 nsequence);
-
 /* Estimate of (signed) UTXO weight in transaction */
 size_t utxo_spend_weight(const struct utxo *utxo);
 #endif /* LIGHTNING_COMMON_UTXO_H */

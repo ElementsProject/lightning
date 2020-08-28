@@ -34,7 +34,6 @@ OPENINGD_COMMON_OBJS :=				\
 	common/dev_disconnect.o			\
 	common/features.o			\
 	common/fee_states.o			\
-	common/funding_tx.o			\
 	common/status_wiregen.o			\
 	common/peer_status_wiregen.o		\
 	common/gossip_rcvd_filter.o		\
