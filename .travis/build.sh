@@ -22,10 +22,10 @@ mkdir -p dependencies/bin || true
 
 # Download bitcoind and bitcoin-cli 
 if [ ! -f dependencies/bin/bitcoind ]; then
-    wget https://storage.googleapis.com/c-lightning-tests/bitcoin-0.18.1-x86_64-linux-gnu.tar.bz2
-    tar -xjf bitcoin-0.18.1-x86_64-linux-gnu.tar.bz2
-    mv bitcoin-0.18.1/bin/* dependencies/bin
-    rm -rf bitcoin-0.18.1-x86_64-linux-gnu.tar.gz bitcoin-0.18.1
+    wget https://storage.googleapis.com/c-lightning-tests/bitcoin-0.20.1-x86_64-linux-gnu.tar.bz2
+    tar -xjf bitcoin-0.20.1-x86_64-linux-gnu.tar.bz2
+    mv bitcoin-0.20.1/bin/* dependencies/bin
+    rm -rf bitcoin-0.20.1-x86_64-linux-gnu.tar.gz bitcoin-0.20.1
 fi
 
 pyenv global 3.7
