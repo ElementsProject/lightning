@@ -490,7 +490,7 @@ proxy_stat proxy_handle_new_channel(
 	last_message = "";
 	NewChannelRequest req;
 	marshal_node_id(&self_id, req.mutable_node_id());
-	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
+	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce0());
 
 	ClientContext context;
 	NewChannelReply rsp;
@@ -561,7 +561,7 @@ proxy_stat proxy_handle_ready_channel(
 	last_message = "";
 	ReadyChannelRequest req;
 	marshal_node_id(&self_id, req.mutable_node_id());
-	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce());
+	marshal_channel_nonce(peer_id, dbid, req.mutable_channel_nonce0());
 	req.set_is_outbound(is_outbound);
 	req.set_channel_value_sat(channel_value->satoshis);
 	req.set_push_value_msat(push_value->millisatoshis);
