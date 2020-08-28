@@ -12,7 +12,6 @@ from utils import (
 import os
 import pytest
 import subprocess
-import time
 import unittest
 
 
@@ -42,7 +41,7 @@ def test_withdraw(node_factory, bitcoind):
         l1.rpc.withdraw(waddr, 'not an amount')
     with pytest.raises(RpcError):
         l1.rpc.withdraw(waddr, -amount)
-    with pytest.raises(RpcError, match=r'Cannot afford transaction'):
+    with pytest.raises(RpcError, match=r'Could not afford'):
         l1.rpc.withdraw(waddr, amount * 100)
 
     out = l1.rpc.withdraw(waddr, 2 * amount)
@@ -67,15 +66,23 @@ def test_withdraw(node_factory, bitcoind):
     # lightningd uses P2SH-P2WPKH
     waddr = l2.rpc.newaddr('bech32')['bech32']
     l1.rpc.withdraw(waddr, 2 * amount)
+
+    # Now make sure an additional two of them were marked as reserved
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 2
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=1')[0]['c'] == 2
+
+    # They're turned into spent once the node sees them mined.
     bitcoind.generate_block(1)
+    sync_blockheight(l1.bitcoin, [l1, l2])
 
     # Make sure l2 received the withdrawal.
-    wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == 1)
+    assert len(l2.rpc.listfunds()['outputs']) == 1
     outputs = l2.db_query('SELECT value FROM outputs WHERE status=0;')
     assert only_one(outputs)['value'] == 2 * amount
 
     # Now make sure an additional two of them were marked as spent
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 4
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=1')[0]['c'] == 0
 
     # Simple test for withdrawal to P2WPKH
     # Address from: https://bc-2.jp/tools/bech32demo/index.html
@@ -88,6 +95,7 @@ def test_withdraw(node_factory, bitcoind):
         l1.rpc.withdraw('tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxxxxxx', 2 * amount)
     l1.rpc.withdraw(waddr, 2 * amount)
     bitcoind.generate_block(1)
+    sync_blockheight(l1.bitcoin, [l1])
     # Now make sure additional two of them were marked as spent
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 6
 
@@ -102,6 +110,7 @@ def test_withdraw(node_factory, bitcoind):
         l1.rpc.withdraw('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qxxxxxx', 2 * amount)
     l1.rpc.withdraw(waddr, 2 * amount)
     bitcoind.generate_block(1)
+    sync_blockheight(l1.bitcoin, [l1])
     # Now make sure additional two of them were marked as spent
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 8
 
@@ -143,7 +152,7 @@ def test_withdraw(node_factory, bitcoind):
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 0
 
     # This should fail, can't even afford fee.
-    with pytest.raises(RpcError, match=r'Cannot afford transaction'):
+    with pytest.raises(RpcError, match=r'Could not afford'):
         l1.rpc.withdraw(waddr, 'all')
 
     # Add some funds to withdraw
@@ -225,7 +234,7 @@ def test_addfunds_from_block(node_factory, bitcoind):
     addr = l1.rpc.newaddr("bech32")['bech32']
     l1.rpc.withdraw(addr, "all")
     bitcoind.generate_block(1)
-    time.sleep(1)
+    sync_blockheight(bitcoind, [l1])
 
     # The address we detect must match what was paid to.
     output = only_one(l1.rpc.listfunds()['outputs'])

@@ -35,8 +35,7 @@ HSMD_COMMON_OBJS :=				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/utxo.o				\
-	common/version.o			\
-	common/withdraw_tx.o
+	common/version.o
 
 LIGHTNINGD_HSM_CLIENT_OBJS := hsmd/hsmd_wiregen.o
 

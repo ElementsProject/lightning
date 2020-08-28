@@ -935,9 +935,6 @@ int main(int argc, char *argv[])
 		       min_blockheight, max_blockheight);
 
 	db_begin_transaction(ld->wallet->db);
-	/*~ Tell the wallet to start figuring out what to do for any reserved
-	 * unspent outputs we may have crashed with. */
-	wallet_clean_utxos(ld->wallet, ld->topology->bitcoind);
 
 	/*~ Pull peers, channels and HTLCs from db. Needs to happen after the
 	 *  topology is initialized since some decisions rely on being able to
@@ -1045,7 +1042,6 @@ int main(int argc, char *argv[])
 	 * unreserving UTXOs (see #1737) */
 	db_begin_transaction(ld->wallet->db);
 	tal_free(ld->jsonrpc);
-	free_unreleased_txs(ld->wallet);
 	db_commit_transaction(ld->wallet->db);
 
 	/* Clean our our HTLC maps, since they use malloc. */

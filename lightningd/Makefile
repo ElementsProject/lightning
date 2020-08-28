@@ -70,10 +70,8 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/utxo.o				\
 	common/version.o			\
 	common/wallet.o				\
-	common/wallet_tx.o			\
 	common/wire_error.o			\
 	common/wireaddr.o			\
-	common/withdraw_tx.o
 
 LIGHTNINGD_SRC :=				\
 	lightningd/bitcoind.c			\

@@ -6,7 +6,6 @@
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
-#include <common/wallet_tx.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <wallet/wallet.h>
@@ -312,6 +311,21 @@ static struct command_result *finish_psbt(struct command *cmd,
 		reserve_and_report(response, cmd->ld->wallet, current_height,
 				   utxos);
 	return command_success(cmd, response);
+}
+
+static inline u32 minconf_to_maxheight(u32 minconf, struct lightningd *ld)
+{
+	/* No confirmations is special, we need to disable the check in the
+	 * selection */
+	if (minconf == 0)
+		return 0;
+
+	/* Avoid wrapping around and suddenly allowing any confirmed
+	 * outputs. Since we can't have a coinbase output, and 0 is taken for
+	 * the disable case, we can just clamp to 1. */
+	if (minconf >= ld->topology->tip->height)
+		return 1;
+	return ld->topology->tip->height - minconf + 1;
 }
 
 static struct command_result *json_fundpsbt(struct command *cmd,

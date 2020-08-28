@@ -908,7 +908,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	struct utxo u;
 	struct pubkey pk;
 	struct node_id id;
-	struct amount_sat fee_estimate, change_satoshis;
+	struct utxo *one_utxo;
 	const struct utxo **utxos;
 	CHECK(w);
 
@@ -941,19 +941,23 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 		  "wallet_add_utxo with close_info");
 
 	/* Now select them */
-	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(2), 0, 21,
-				    0 /* no confirmations required */,
-				    &fee_estimate, &change_satoshis);
-	CHECK(utxos && tal_count(utxos) == 2);
+	utxos = tal_arr(w, const struct utxo *, 0);
+	while ((one_utxo = wallet_find_utxo(w, w, 0, NULL, 253,
+					    0 /* no confirmations required */,
+					    utxos)) != NULL) {
+		tal_arr_expand(&utxos, one_utxo);
+	}
+	CHECK(tal_count(utxos) == 2);
 
-	u = *utxos[1];
+	if (utxos[0]->close_info)
+		u = *utxos[0];
+	else
+		u = *utxos[1];
+
 	CHECK(u.close_info->channel_id == 42 &&
 	      pubkey_eq(u.close_info->commitment_point, &pk) &&
 	      node_id_eq(&u.close_info->peer_id, &id) &&
 	      u.close_info->option_anchor_outputs == false);
-	/* Now un-reserve them for the tests below */
-	tal_free(utxos);
-
 
 	/* Attempt to reserve the utxo */
 	CHECK_MSG(wallet_update_output_status(w, &u.txid, u.outnum,
@@ -993,12 +997,19 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 		  "wallet_add_utxo with close_info no commitment_point");
 
 	/* Now select it */
-	utxos = wallet_select_coins(w, w, true, AMOUNT_SAT(5), 0, 21,
-				    0 /* no confirmations required */,
-				    &fee_estimate, &change_satoshis);
-	CHECK(utxos && tal_count(utxos) == 2);
+	utxos = tal_arr(w, const struct utxo *, 0);
+	while ((one_utxo = wallet_find_utxo(w, w, 0, NULL, 253,
+					    0 /* no confirmations required */,
+					    utxos)) != NULL) {
+		tal_arr_expand(&utxos, one_utxo);
+	}
+	CHECK(tal_count(utxos) == 2);
 
-	u = *utxos[1];
+	if (utxos[0]->close_info)
+		u = *utxos[0];
+	else
+		u = *utxos[1];
+
 	CHECK(u.close_info->channel_id == 42 &&
 	      u.close_info->commitment_point == NULL &&
 	      node_id_eq(&u.close_info->peer_id, &id) &&
