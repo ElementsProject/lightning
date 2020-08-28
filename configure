@@ -230,8 +230,10 @@ fi
 require 'python3-mako' "You need the mako module for python3: see doc/INSTALL.md" python3 -c 'import mako'
 
 POSTGRES_INCLUDE=""
-if command -v pg_config 2> /dev/null; then
-    POSTGRES_INCLUDE="-I$(pg_config --includedir)"
+POSTGRES_LDLIBS=""
+if command -v "${PG_CONFIG-pg_config}" >/dev/null; then
+    POSTGRES_INCLUDE="-I$("${PG_CONFIG-pg_config}" --includedir)"
+    POSTGRES_LDLIBS="-L$("${PG_CONFIG-pg_config}" --libdir) -lpq"
 fi
 
 rm -f $CONFIG_VAR_FILE.$$
@@ -290,7 +292,7 @@ int main(void)
 var=HAVE_POSTGRES
 desc=postgres
 style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
-link=-lpq
+link=$POSTGRES_LDLIBS
 code=
 #include <libpq-fe.h>
 #include <stdio.h>
@@ -360,6 +362,7 @@ add_var CWARNFLAGS "$CWARNFLAGS"
 add_var CDEBUGFLAGS "$CDEBUGFLAGS"
 add_var COPTFLAGS "$COPTFLAGS"
 add_var POSTGRES_INCLUDE "$POSTGRES_INCLUDE"
+add_var POSTGRES_LDLIBS "$POSTGRES_LDLIBS"
 add_var VALGRIND "$VALGRIND"
 add_var DEVELOPER "$DEVELOPER" $CONFIG_HEADER
 add_var EXPERIMENTAL_FEATURES "$EXPERIMENTAL_FEATURES" $CONFIG_HEADER
