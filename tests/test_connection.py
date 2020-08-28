@@ -716,6 +716,8 @@ def test_funding_change(node_factory, bitcoind):
     assert only_one(outputs)['value'] == 10000000
 
     l1.rpc.fundchannel(l2.info['id'], 1000000)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
     outputs = {r['status']: r['value'] for r in l1.db_query(
         'SELECT status, SUM(value) AS value FROM outputs GROUP BY status;')}
 
@@ -747,10 +749,21 @@ def test_funding_all_too_much(node_factory):
     """
     l1, l2 = node_factory.line_graph(2, fundchannel=False)
 
-    l1.fundwallet(2**24 + 10000)
+    addr, txid = l1.fundwallet(2**24 + 10000)
     l1.rpc.fundchannel(l2.info['id'], "all")
 
-    assert only_one(l1.rpc.listfunds()['outputs'])['status'] == 'unconfirmed'
+    # One reserved, confirmed output spent above, and one change.
+    outputs = l1.rpc.listfunds()['outputs']
+
+    spent = only_one([o for o in outputs if o['status'] == 'confirmed'])
+
+    assert spent['txid'] == txid
+    assert spent['address'] == addr
+    assert spent['reserved'] is True
+
+    pending = only_one([o for o in outputs if o['status'] != 'confirmed'])
+    assert pending['status'] == 'unconfirmed'
+    assert pending['reserved'] is False
     assert only_one(l1.rpc.listfunds()['channels'])['channel_total_sat'] == 2**24 - 1
 
 
@@ -889,6 +902,13 @@ def test_funding_by_utxos(node_factory, bitcoind):
     # Fund a channel from the rest of utxos, with change
     l1.rpc.connect(l3.info["id"], "localhost", l3.port)
     l1.rpc.fundchannel(l3.info["id"], int(0.007 * 10**8), utxos=[utxos[2]])
+
+    # Fund another channel with already reserved utxos
+    with pytest.raises(RpcError, match=r"UTXO.*already reserved"):
+        l1.rpc.fundchannel(l3.info["id"], int(0.01 * 10**8), utxos=utxos)
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
 
     # Fund another channel with already spent utxos
     with pytest.raises(RpcError, match=r"Already spent UTXO "):

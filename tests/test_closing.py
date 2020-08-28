@@ -1543,7 +1543,7 @@ Make sure we show the address.
     channel_id = first_channel_id(l1, l2)
 
     # listfunds will show 1 output change, and channels.
-    assert len(l1.rpc.listfunds()['outputs']) == 1
+    assert len([o for o in l1.rpc.listfunds()['outputs'] if not o['reserved']]) == 1
 
     l1.stop()
     l2.rpc.close(l1.info['id'], unilateraltimeout=1)
