@@ -37,6 +37,9 @@ struct txprepare {
 
 	/* Once we have reserved all the inputs, this is set. */
 	struct amount_sat change_amount;
+
+	/* For withdraw, we actually send immediately. */
+	bool is_withdraw;
 };
 
 struct unreleased_tx {
@@ -191,8 +194,19 @@ static struct command_result *finish_txprepare(struct command *cmd,
 	utx = tal(NULL, struct unreleased_tx);
 	utx->psbt = tal_steal(utx, txp->psbt);
 	psbt_txid(txp->psbt, &utx->txid, &utx->tx);
-	list_add(&unreleased_txs, &utx->list);
 
+	/* If this is a withdraw, we sign and send immediately. */
+	if (txp->is_withdraw) {
+		struct out_req *req;
+
+		req = jsonrpc_request_start(cmd->plugin, cmd, "signpsbt",
+					    signpsbt_done, forward_error,
+					    utx);
+		json_add_psbt(req->js, "psbt", utx->psbt);
+		return send_outreq(cmd->plugin, req);
+	}
+
+	list_add(&unreleased_txs, &utx->list);
 	out = jsonrpc_stream_success(cmd);
 	json_add_hex_talarr(out, "unsigned_tx", linearize_wtx(tmpctx, utx->tx));
 	json_add_txid(out, "txid", &utx->txid);
@@ -300,22 +314,17 @@ static struct command_result *psbt_created(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-static struct command_result *json_txprepare(struct command *cmd,
-					     const char *buffer,
-					     const jsmntok_t *params)
+/* Common point for txprepare and withdraw */
+static struct command_result *txprepare_continue(struct command *cmd,
+						 struct txprepare *txp,
+						 const char *feerate,
+						 unsigned int *minconf,
+						 const char *utxos,
+						 bool is_withdraw)
 {
-	struct txprepare *txp = tal(cmd, struct txprepare);
 	struct out_req *req;
-	const char *feerate, *utxos;
-	unsigned int *minconf;
 
-	if (!param(cmd, buffer, params,
-		   p_req("outputs", param_outputs, txp),
-		   p_opt("feerate", param_string, &feerate),
-		   p_opt_def("minconf", param_number, &minconf, 1),
-		   p_opt("utxos", param_string, &utxos),
-		   NULL))
-		return command_param_failed();
+	txp->is_withdraw = is_withdraw;
 
 	/* p_opt_def doesn't compile with strings... */
 	if (!feerate)
@@ -344,6 +353,25 @@ static struct command_result *json_txprepare(struct command *cmd,
 
 	json_add_string(req->js, "feerate", feerate);
 	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *json_txprepare(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *params)
+{
+	struct txprepare *txp = tal(cmd, struct txprepare);
+	const char *feerate, *utxos;
+	unsigned int *minconf;
+
+	if (!param(cmd, buffer, params,
+		   p_req("outputs", param_outputs, txp),
+		   p_opt("feerate", param_string, &feerate),
+		   p_opt_def("minconf", param_number, &minconf, 1),
+		   p_opt("utxos", param_string, &utxos),
+		   NULL))
+		return command_param_failed();
+
+	return txprepare_continue(cmd, txp, feerate, minconf, utxos, false);
 }
 
 /* Called after we've unreserved the inputs. */
@@ -432,6 +460,44 @@ static struct command_result *json_txsend(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static struct command_result *json_withdraw(struct command *cmd,
+					    const char *buffer,
+					    const jsmntok_t *params)
+{
+	struct txprepare *txp = tal(cmd, struct txprepare);
+	struct amount_sat *amount;
+	const u8 *scriptpubkey;
+	const char *feerate, *utxos;
+	unsigned int *minconf;
+
+	if (!param(cmd, buffer, params,
+		   p_req("destination", param_bitcoin_address,
+			 &scriptpubkey),
+		   p_req("satoshi", param_sat_or_all, &amount),
+		   p_opt("feerate", param_string, &feerate),
+		   p_opt_def("minconf", param_number, &minconf, 1),
+		   p_opt("utxos", param_string, &utxos),
+		   NULL))
+		return command_param_failed();
+
+	/* Convert destination/satoshi into array as txprepare expects */
+	txp->outputs = tal_arr(txp, struct tx_output, 1);
+
+	if (amount_sat_eq(*amount, AMOUNT_SAT(-1ULL))) {
+		txp->all_output_idx = 0;
+		txp->output_total = AMOUNT_SAT(0);
+	} else {
+		txp->all_output_idx = -1;
+		txp->output_total = *amount;
+	}
+	txp->outputs[0].amount = *amount;
+	txp->outputs[0].script = scriptpubkey;
+	txp->weight = bitcoin_tx_core_weight(1, tal_count(txp->outputs))
+		+ bitcoin_tx_output_weight(tal_bytelen(scriptpubkey));
+
+	return txprepare_continue(cmd, txp, feerate, minconf, utxos, true);
+}
+
 static const struct plugin_command commands[] = {
 	{
 		"txprepare",
@@ -453,6 +519,13 @@ static const struct plugin_command commands[] = {
 		"Send a transaction created by txprepare",
 		"Send a transacation by {txid}",
 		json_txsend
+	},
+	{
+		"newwithdraw",
+		"bitcoin",
+		"Send funds to {destination} address",
+		"Send to {destination} {satoshi} (or 'all') at optional {feerate} using utxos from {minconf} or {utxos}.",
+		json_withdraw
 	},
 };
 
