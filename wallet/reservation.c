@@ -324,9 +324,10 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 						   struct amount_sat,
 						   amount),
 				    tal_count(utxos),
-				    type_to_string(tmpctx,
-						   struct amount_sat,
-						   &diff));
+				    all ? "all"
+				    : type_to_string(tmpctx,
+						     struct amount_sat,
+						     &diff));
 	}
 
 	if (all) {
