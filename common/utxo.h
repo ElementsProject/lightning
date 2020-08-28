@@ -41,7 +41,7 @@ struct utxo {
 	const u32 *spendheight;
 
 	/* Block this utxo becomes unreserved, if applicable */
-	u32 *reserved_til;
+	u32 reserved_til;
 
 	/* The scriptPubkey if it is known */
 	u8 *scriptPubkey;
