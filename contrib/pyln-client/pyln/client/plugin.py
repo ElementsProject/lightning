@@ -505,9 +505,12 @@ class Plugin(object):
         Returns the last partial message that was not complete yet.
         """
         for payload in msgs[:-1]:
+            raw_req = payload.decode("utf8")
+            self.log(raw_req, level="io")
+
             # Note that we use function annotations to do Millisatoshi conversions
             # in _exec_func, so we don't use LightningJSONDecoder here.
-            request = self._parse_request(json.loads(payload.decode('utf8')))
+            request = self._parse_request(json.loads(raw_req))
 
             # If this has an 'id'-field, it's a request and returns a
             # result. Otherwise it's a notification and it doesn't
