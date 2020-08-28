@@ -11,7 +11,7 @@
 /**
  * random_select: return true if we should select this one.
  * @weight: weight for this option (use 1.0 if all the same)
- * @tot_wieght: returns with sum of weights (must be initialized to zero)
+ * @tot_weight: returns with sum of weights (must be initialized to zero)
  *
  * This always returns true on the first non-zero weight, and weighted
  * randomly from then on.

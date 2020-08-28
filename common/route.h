@@ -12,7 +12,7 @@ struct route {
 	struct gossmap_chan *c;
 };
 
-/* Can c carrt amount in dir? */
+/* Can c carry amount in dir? */
 bool route_can_carry(const struct gossmap *map,
 		     const struct gossmap_chan *c,
 		     int dir,
