@@ -1,7 +1,11 @@
 /* Dealing with reserving UTXOs */
+#include <bitcoin/psbt.h>
+#include <bitcoin/script.h>
+#include <ccan/mem/mem.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
+#include <common/key_derive.h>
 #include <common/wallet_tx.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -208,6 +212,64 @@ static bool inputs_sufficient(struct amount_sat input,
 	return false;
 }
 
+static struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
+					   struct utxo **utxos,
+					   const struct ext_key *bip32_base,
+					   u32 nlocktime,
+					   u32 nsequence)
+{
+	struct pubkey key;
+	u8 *scriptSig, *scriptPubkey, *redeemscript;
+	struct bitcoin_tx *tx;
+
+	/* FIXME: Currently the easiest way to get a PSBT is via a tx */
+	tx = bitcoin_tx(ctx, chainparams, tal_count(utxos), 0, nlocktime);
+
+	for (size_t i = 0; i < tal_count(utxos); i++) {
+		u32 this_nsequence;
+
+		if (utxos[i]->is_p2sh) {
+			bip32_pubkey(bip32_base, &key, utxos[i]->keyindex);
+			scriptSig = bitcoin_scriptsig_p2sh_p2wpkh(tmpctx, &key);
+			redeemscript = bitcoin_redeem_p2sh_p2wpkh(tmpctx, &key);
+			scriptPubkey = scriptpubkey_p2sh(tmpctx, redeemscript);
+
+			/* Make sure we've got the right info! */
+			if (utxos[i]->scriptPubkey)
+				assert(memeq(utxos[i]->scriptPubkey,
+					     tal_bytelen(utxos[i]->scriptPubkey),
+					     scriptPubkey, tal_bytelen(scriptPubkey)));
+		} else {
+			scriptSig = NULL;
+			redeemscript = NULL;
+			scriptPubkey = utxos[i]->scriptPubkey;
+		}
+
+		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+		 * #### `to_remote` Output
+		 * ...
+		 * The output is spent by a transaction with `nSequence` field
+		 * set to `1` and witness:
+		 */
+		if (utxos[i]->close_info
+		    && utxos[i]->close_info->option_anchor_outputs)
+			this_nsequence = 1;
+		else
+			this_nsequence = nsequence;
+
+		bitcoin_tx_add_input(tx, &utxos[i]->txid, utxos[i]->outnum,
+				     this_nsequence, scriptSig, utxos[i]->amount,
+				     scriptPubkey, NULL);
+
+		/* Add redeemscript to the PSBT input */
+		if (redeemscript)
+			psbt_input_set_redeemscript(tx->psbt, i, redeemscript);
+
+	}
+
+	return tx->psbt;
+}
+
 static struct command_result *finish_psbt(struct command *cmd,
 					  struct utxo **utxos,
 					  u32 feerate_per_kw,
@@ -217,7 +279,7 @@ static struct command_result *finish_psbt(struct command *cmd,
 					  u32 *locktime)
 {
 	struct json_stream *response;
-	struct bitcoin_tx *tx;
+	struct wally_psbt *psbt;
 	u32 current_height = get_block_height(cmd->ld->topology);
 
 	/* Setting the locktime to the next block to be mined has multiple
@@ -238,16 +300,11 @@ static struct command_result *finish_psbt(struct command *cmd,
 			*locktime -= pseudorand(100);
 	}
 
-	/* FIXME: tx_spending_utxos does more than we need, but there
-	 * are other users right now. */
-	tx = tx_spending_utxos(cmd, chainparams,
-			       cast_const2(const struct utxo **, utxos),
-			       cmd->ld->wallet->bip32_base,
-			       false, 0, *locktime,
-			       BITCOIN_TX_RBF_SEQUENCE);
+	psbt = psbt_using_utxos(cmd, utxos, cmd->ld->wallet->bip32_base,
+				*locktime, BITCOIN_TX_RBF_SEQUENCE);
 
 	response = json_stream_success(cmd);
-	json_add_psbt(response, "psbt", tx->psbt);
+	json_add_psbt(response, "psbt", psbt);
 	json_add_num(response, "feerate_per_kw", feerate_per_kw);
 	json_add_num(response, "estimated_final_weight", weight);
 	json_add_amount_sat_only(response, "excess_msat", excess);
