@@ -771,7 +771,7 @@ def test_funding_fail(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # We don't have enough left to cover fees if we try to spend it all.
-    with pytest.raises(RpcError, match=r'Cannot afford transaction'):
+    with pytest.raises(RpcError, match=r'Could not afford'):
         l1.rpc.fundchannel(l2.info['id'], funds)
 
     # Should still be connected.
@@ -863,7 +863,7 @@ def test_funding_by_utxos(node_factory, bitcoind):
     utxos = [utxo["txid"] + ":" + str(utxo["output"]) for utxo in l1.rpc.listfunds()["outputs"]]
 
     # Fund with utxos we don't own
-    with pytest.raises(RpcError, match=r"No matching utxo was found from the wallet"):
+    with pytest.raises(RpcError, match=r"Unknown UTXO "):
         l3.rpc.fundchannel(l2.info["id"], int(0.01 * 10**8), utxos=utxos)
 
     # Fund with an empty array
@@ -878,7 +878,7 @@ def test_funding_by_utxos(node_factory, bitcoind):
     l1.rpc.fundchannel(l3.info["id"], int(0.007 * 10**8), utxos=[utxos[2]])
 
     # Fund another channel with already spent utxos
-    with pytest.raises(RpcError, match=r"No matching utxo was found from the wallet"):
+    with pytest.raises(RpcError, match=r"Already spent UTXO "):
         l1.rpc.fundchannel(l3.info["id"], int(0.01 * 10**8), utxos=utxos)
 
 

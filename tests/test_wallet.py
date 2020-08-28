@@ -341,8 +341,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     # Try passing unconfirmed utxos
     unconfirmed_utxo = l1.rpc.withdraw(l1.rpc.newaddr()["bech32"], 10**5)
     uutxos = [unconfirmed_utxo["txid"] + ":0"]
-    with pytest.raises(RpcError, match=r"Cannot afford transaction .* use "
-                       "confirmed utxos."):
+    with pytest.raises(RpcError, match=r"Could not afford"):
         l1.rpc.txprepare([{addr: Millisatoshi(amount * 3.5 * 1000)}],
                          utxos=uutxos)
 
@@ -357,15 +356,24 @@ def test_txprepare(node_factory, bitcoind, chainparams):
 
     # We should have a change output, so this is exact
     assert len(decode['vout']) == 3 if chainparams['feeoutput'] else 2
-    assert decode['vout'][1]['value'] == Decimal(amount * 3.5) / 10**8
-    assert decode['vout'][1]['scriptPubKey']['type'] == 'witness_v0_keyhash'
-    assert decode['vout'][1]['scriptPubKey']['addresses'] == [addr]
+    # Change output pos is random.
+    for vout in decode['vout']:
+        if vout['scriptPubKey']['addresses'] == [addr]:
+            changeout = vout
+
+    assert changeout['value'] == Decimal(amount * 3.5) / 10**8
+    assert changeout['scriptPubKey']['type'] == 'witness_v0_keyhash'
+    assert changeout['scriptPubKey']['addresses'] == [addr]
 
     # Discard prep4 and get all funds again
     l1.rpc.txdiscard(prep5['txid'])
-    with pytest.raises(RpcError, match=r'this destination wants all satoshi. The count of outputs can\'t be more than 1'):
-        prep5 = l1.rpc.txprepare([{addr: Millisatoshi(amount * 3 * 1000)},
-                                  {addr: 'all'}])
+    # You can have one which is all, but not two.
+    prep5 = l1.rpc.txprepare([{addr: Millisatoshi(amount * 3 * 1000)},
+                              {addr: 'all'}])
+    l1.rpc.txdiscard(prep5['txid'])
+    with pytest.raises(RpcError, match=r"'all'"):
+        prep5 = l1.rpc.txprepare([{addr: 'all'}, {addr: 'all'}])
+
     prep5 = l1.rpc.txprepare([{addr: Millisatoshi(amount * 3 * 500 + 100000)},
                               {addr: Millisatoshi(amount * 3 * 500 - 100000)}])
     decode = bitcoind.rpc.decoderawtransaction(prep5['unsigned_tx'])
