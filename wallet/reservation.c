@@ -219,10 +219,9 @@ static struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 {
 	struct pubkey key;
 	u8 *scriptSig, *scriptPubkey, *redeemscript;
-	struct bitcoin_tx *tx;
+	struct wally_psbt *psbt;
 
-	/* FIXME: Currently the easiest way to get a PSBT is via a tx */
-	tx = bitcoin_tx(ctx, chainparams, tal_count(utxos), 0, nlocktime);
+	psbt = create_psbt(ctx, tal_count(utxos), 0, nlocktime);
 
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		u32 this_nsequence;
@@ -256,17 +255,12 @@ static struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 		else
 			this_nsequence = nsequence;
 
-		bitcoin_tx_add_input(tx, &utxos[i]->txid, utxos[i]->outnum,
-				     this_nsequence, scriptSig, utxos[i]->amount,
-				     scriptPubkey, NULL);
-
-		/* Add redeemscript to the PSBT input */
-		if (redeemscript)
-			psbt_input_set_redeemscript(tx->psbt, i, redeemscript);
-
+		psbt_append_input(psbt, &utxos[i]->txid, utxos[i]->outnum,
+				  this_nsequence, scriptSig, utxos[i]->amount,
+				  scriptPubkey, NULL, redeemscript);
 	}
 
-	return tx->psbt;
+	return psbt;
 }
 
 static struct command_result *finish_psbt(struct command *cmd,
