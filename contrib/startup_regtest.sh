@@ -1,6 +1,6 @@
 #!/bin/sh
 
-## Short script to startup two local nodes with
+## Short script to startup some local nodes with
 ## bitcoind, all running on regtest
 ## Makes it easier to test things out, by hand.
 
@@ -12,7 +12,7 @@
 ##
 ##  Start up the nodeset
 ##
-##  $ start_ln
+##  $ start_ln 3
 ##
 ##  Let's connect the nodes.
 ##
@@ -61,72 +61,76 @@ if [ -z "$PATH_TO_BITCOIN" ]; then
 	fi
 fi
 
-mkdir -p /tmp/l1-regtest /tmp/l2-regtest
-
-# Node one config
-cat << 'EOF' > /tmp/l1-regtest/config
-network=regtest
-log-level=debug
-log-file=/tmp/l1-regtest/log
-addr=localhost:6060
-EOF
-
-cat << 'EOF' > /tmp/l2-regtest/config
-network=regtest
-log-level=debug
-log-file=/tmp/l2-regtest/log
-addr=localhost:9090
-EOF
-
-alias l1-cli='$LCLI --lightning-dir=/tmp/l1-regtest'
-alias l2-cli='$LCLI --lightning-dir=/tmp/l2-regtest'
-alias bt-cli='bitcoin-cli -regtest'
-alias l1-log='less /tmp/l1-regtest/log'
-alias l2-log='less /tmp/l2-regtest/log'
-
 start_ln() {
 	# Start bitcoind in the background
 	test -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
-		bitcoind -daemon -regtest -txindex
+		bitcoind -regtest -txindex -fallbackfee=0.00000253 -daemon
 
 	# Wait for it to start.
-	while ! bt-cli ping 2> /dev/null; do sleep 1; done
+	while ! bitcoin-cli -regtest ping 2> /tmp/null; do echo "awaiting bitcoind..." && sleep 1; done
 
 	# Kick it out of initialblockdownload if necessary
-	if bt-cli getblockchaininfo | grep -q 'initialblockdownload.*true'; then
-		bt-cli generatetoaddress 1 "$(bt-cli getnewaddress)" > /dev/null
+	if bitcoin-cli -regtest getblockchaininfo | grep -q 'initialblockdownload.*true'; then
+		bitcoin-cli -regtest generatetoaddress 1 "$(bitcoin-cli -regtest getnewaddress)" > /dev/null
 	fi
 
-	# Start the lightning nodes
-	test -f /tmp/l1-regtest/lightningd-regtest.pid || \
-		"$LIGHTNINGD" --lightning-dir=/tmp/l1-regtest &
-	test  -f /tmp/l2-regtest/lightningd-regtest.pid || \
-		"$LIGHTNINGD" --lightning-dir=/tmp/l2-regtest &
+	if [ -z "$1" ]
+	then
+		node_count=2
+	else
+		node_count=$1
+	fi
+	if [ "$node_count" -gt 100 ]; then
+		node_count=100
+	fi
 
+	LN_NODES=$node_count
+
+	for i in $(seq $node_count); do
+		socket=$(( 7070 + i * 101))
+		mkdir -p "/tmp/l$i-regtest"
+		# Node config
+		cat <<- EOF > "/tmp/l$i-regtest/config"
+		network=regtest
+		log-level=debug
+		log-file=/tmp/l$i-regtest/log
+		addr=localhost:$socket
+		EOF
+
+		# Start the lightning nodes
+		test -f "/tmp/l$i-regtest/lightningd-regtest.pid" || \
+			"$LIGHTNINGD" "--lightning-dir=/tmp/l$i-regtest" --daemon
+		# shellcheck disable=SC2139 disable=SC2086
+		alias l$i-cli="$LCLI --lightning-dir=/tmp/l$i-regtest"
+		# shellcheck disable=SC2139 disable=SC2086
+		alias l$i-log="less /tmp/l$i-regtest/log"
+	done
+
+	alias bt-cli='bitcoin-cli -regtest'
 	# Give a hint.
-	echo "Commands: l1-cli, l2-cli, l[1|2]-log, bt-cli, stop_ln, cleanup_ln"
+	echo "Commands: "
+	for i in $(seq $node_count); do
+		echo "	l$i-cli, l$i-log,"
+	done
+	echo "	bt-cli, stop_ln, cleanup_ln"
 }
 
 stop_ln() {
-	test ! -f /tmp/l1-regtest/lightningd-regtest.pid || \
-		(kill "$(cat /tmp/l1-regtest/lightningd-regtest.pid)"; \
-		rm /tmp/l1-regtest/lightningd-regtest.pid)
-	test ! -f /tmp/l2-regtest/lightningd-regtest.pid || \
-		(kill "$(cat /tmp/l2-regtest/lightningd-regtest.pid)"; \
-		rm /tmp/l2-regtest/lightningd-regtest.pid)
+	if [ -n "$LN_NODES" ]
+	then
+		for i in $(seq $LN_NODES); do
+			test ! -f "/tmp/l$i-regtest/lightningd-regtest.pid" || \
+				(kill "$(cat "/tmp/l$i-regtest/lightningd-regtest.pid")"; \
+				rm "/tmp/l$i-regtest/lightningd-regtest.pid")
+			unalias "l$i-cli"
+			unalias "l$i-log"
+		done
+	fi
+
 	test ! -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
 		(kill "$(cat "$PATH_TO_BITCOIN/regtest/bitcoind.pid")"; \
 		rm "$PATH_TO_BITCOIN/regtest/bitcoind.pid")
-}
 
-cleanup_ln() {
-	stop_ln
-	unalias l1-cli
-	unalias l2-cli
+	unset LN_NODES
 	unalias bt-cli
-	unalias l1-log
-	unalias l2-log
-	unset -f start_ln
-	unset -f stop_ln
-	unset -f cleanup_ln
 }
