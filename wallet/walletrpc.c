@@ -162,7 +162,7 @@ static struct command_result *broadcast_and_wait(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-/* Common code for withdraw and txprepare.
+/* Parsing code for withdraw.
  *
  * Returns NULL on success, and fills in wtx, output and
  * maybe changekey (owned by cmd).  Otherwise, cmd has failed, so don't
@@ -170,18 +170,15 @@ static struct command_result *broadcast_and_wait(struct command *cmd,
 static struct command_result *json_prepare_tx(struct command *cmd,
 					      const char *buffer,
 					      const jsmntok_t *params,
-					      bool for_withdraw,
-					      struct unreleased_tx **utx,
-					      u32 *feerate)
+					      struct unreleased_tx **utx)
 {
 	u32 *feerate_per_kw = NULL;
 	struct command_result *result;
 	u32 *minconf, maxheight;
 	struct pubkey *changekey;
 	struct bitcoin_tx_output **outputs;
-	const jsmntok_t *outputstok = NULL, *t;
 	const u8 *destination = NULL;
-	size_t out_len, i;
+	size_t out_len;
 	const struct utxo **chosen_utxos = NULL;
 	u32 locktime;
 
@@ -189,139 +186,16 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 	(*utx)->wtx = tal(*utx, struct wallet_tx);
 	wtx_init(cmd, (*utx)->wtx, AMOUNT_SAT(-1ULL));
 
-	if (!for_withdraw) {
-		/* From v0.7.3, the new style for *txprepare* use array of outputs
-		 * to replace original 'destination' and 'satoshi' parameters.*/
-		/* For generating help, give new-style. */
-		if (!params || !deprecated_apis) {
-			if (!param(cmd, buffer, params,
-				   p_req("outputs", param_array, &outputstok),
-				   p_opt("feerate", param_feerate, &feerate_per_kw),
-				   p_opt_def("minconf", param_number, &minconf, 1),
-				   p_opt("utxos", param_utxos, &chosen_utxos),
-				   NULL))
-				return command_param_failed();
-		} else if (params->type == JSMN_ARRAY) {
-			const jsmntok_t *firsttok, *secondtok, *thirdtok, *fourthtok;
-
-			/* FIXME: This change completely destroyes the support for `check`. */
-			if (!param(cmd, buffer, params,
-				   p_req("outputs_or_destination", param_tok, &firsttok),
-				   p_opt("feerate_or_sat", param_tok, &secondtok),
-				   p_opt("minconf_or_feerate", param_tok, &thirdtok),
-				   p_opt("utxos_or_minconf", param_tok, &fourthtok),
-				   NULL))
-				return command_param_failed();
-
-			if (firsttok->type == JSMN_ARRAY) {
-				/* New style:
-				 * *txprepare* 'outputs' ['feerate'] ['minconf'] ['utxos'] */
-
-				/* outputs (required) */
-				outputstok = firsttok;
-
-				/* feerate (optional) */
-				if (secondtok) {
-					result = param_feerate(cmd, "feerate", buffer,
-							       secondtok, &feerate_per_kw);
-					if (result)
-						return result;
-				}
-
-				/* minconf (optional) */
-				if (thirdtok) {
-					result = param_number(cmd, "minconf", buffer,
-							      thirdtok, &minconf);
-					if (result)
-						return result;
-				} else {
-					minconf = tal(cmd, u32);
-					*minconf = 1;
-				}
-
-				/* utxos (optional) */
-				if (fourthtok) {
-					result = param_utxos(cmd, "utxos", buffer,
-							     fourthtok, &chosen_utxos);
-					if (result)
-						return result;
-				}
-			} else {
-				/* Old style:
-				 * *txprepare* 'destination' 'satoshi' ['feerate'] ['minconf'] */
-
-				/* destination (required) */
-				result = param_bitcoin_address(cmd, "destination", buffer,
-							       firsttok, &destination);
-				if (result)
-					return result;
-
-				/* satoshi (required) */
-				if (!secondtok)
-					return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-							    "Need set 'satoshi' field.");
-				result = param_wtx(cmd, "satoshi", buffer,
-						   secondtok, (*utx)->wtx);
-				if (result)
-					return result;
-
-				/* feerate (optional) */
-				if (thirdtok) {
-					result = param_feerate(cmd, "feerate", buffer,
-							       thirdtok, &feerate_per_kw);
-					if (result)
-						return result;
-				}
-
-				/* minconf (optional) */
-				if (fourthtok) {
-					result = param_number(cmd, "minconf", buffer,
-							      fourthtok, &minconf);
-					if (result)
-						return result;
-				} else {
-					minconf = tal(cmd, u32);
-					*minconf = 1;
-				}
-			}
-		} else {
-			const jsmntok_t *satoshitok = NULL;
-			if (!param(cmd, buffer, params,
-				   p_opt("outputs", param_array, &outputstok),
-				   p_opt("destination", param_bitcoin_address,
-					 &destination),
-				   p_opt("satoshi", param_tok, &satoshitok),
-				   p_opt("feerate", param_feerate, &feerate_per_kw),
-				   p_opt_def("minconf", param_number, &minconf, 1),
-				   p_opt("utxos", param_utxos, &chosen_utxos),
-				   NULL))
-				/* If the parameters mixed the new style and the old style,
-				 * fail it. */
-				return command_param_failed();
-
-			if (!outputstok) {
-				if (!destination || !satoshitok)
-					return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-							    "Need set 'outputs' field.");
-
-				result = param_wtx(cmd, "satoshi", buffer,
-						   satoshitok, (*utx)->wtx);
-				if (result)
-					return result;
-			}
-		}
-	} else {
-		/* *withdraw* command still use 'destination' and 'satoshi' as parameters. */
-		if (!param(cmd, buffer, params,
-			   p_req("destination", param_bitcoin_address,
-				 &destination),
-			   p_req("satoshi", param_wtx, (*utx)->wtx),
-			   p_opt("feerate", param_feerate, &feerate_per_kw),
-			   p_opt_def("minconf", param_number, &minconf, 1),
-			   p_opt("utxos", param_utxos, &chosen_utxos),
-			   NULL))
-			return command_param_failed();
-	}
+	/* *withdraw* command still use 'destination' and 'satoshi' as parameters. */
+	if (!param(cmd, buffer, params,
+		   p_req("destination", param_bitcoin_address,
+			 &destination),
+		   p_req("satoshi", param_wtx, (*utx)->wtx),
+		   p_opt("feerate", param_feerate, &feerate_per_kw),
+		   p_opt_def("minconf", param_number, &minconf, 1),
+		   p_opt("utxos", param_utxos, &chosen_utxos),
+		   NULL))
+		return command_param_failed();
 
 	/* Setting the locktime to the next block to be mined has multiple
 	 * benefits:
@@ -348,81 +222,11 @@ static struct command_result *json_prepare_tx(struct command *cmd,
 
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
 
-	/* *withdraw* command or old *txprepare* command.
-	 * Support only one output. */
-	if (destination) {
-		outputs = tal_arr(tmpctx, struct bitcoin_tx_output *, 1);
-		outputs[0] = new_tx_output(outputs, (*utx)->wtx->amount,
-					   destination);
-		out_len = tal_count(outputs[0]->script);
+	outputs = tal_arr(tmpctx, struct bitcoin_tx_output *, 1);
+	outputs[0] = new_tx_output(outputs, (*utx)->wtx->amount,
+				   destination);
+	out_len = tal_count(outputs[0]->script);
 
-		goto create_tx;
-	}
-
-	if (outputstok->size == 0)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Empty outputs");
-
-	outputs = tal_arr(tmpctx, struct bitcoin_tx_output *, outputstok->size);
-	out_len = 0;
-	(*utx)->wtx->all_funds = false;
-	(*utx)->wtx->amount = AMOUNT_SAT(0);
-	json_for_each_arr(i, t, outputstok) {
-		struct amount_sat *amount;
-		const u8 *destination;
-		enum address_parse_result res;
-
-		/* output format: {destination: amount} */
-		if (t->type != JSMN_OBJECT)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "The output format must be "
-					    "{destination: amount}");
-
-		res = json_to_address_scriptpubkey(cmd,
-						   chainparams,
-						   buffer, &t[1],
-						   &destination);
-		if (res == ADDRESS_PARSE_UNRECOGNIZED)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Could not parse destination address");
-		else if (res == ADDRESS_PARSE_WRONG_NETWORK)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Destination address is not on network %s",
-					    chainparams->network_name);
-
-		amount = tal(tmpctx, struct amount_sat);
-		if (!json_to_sat_or_all(buffer, &t[2], amount))
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "'%.*s' is a invalid satoshi amount",
-					    t[2].end - t[2].start, buffer + t[2].start);
-
-		outputs[i] = new_tx_output(outputs, *amount,
-					   cast_const(u8 *, destination));
-		out_len += tal_count(destination);
-
-		/* In fact, the maximum amount of bitcoin satoshi is 2.1e15.
-		 * It can't be equal to/bigger than 2^64.
-		 * On the hand, the maximum amount of litoshi is 8.4e15,
-		 * which also can't overflow. */
-		/* This means this destination need "all" satoshi we have. */
-		if (amount_sat_eq(*amount, AMOUNT_SAT(-1ULL))) {
-			if (outputstok->size > 1)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "outputs[%zi]: this destination wants"
-						    " all satoshi. The count of outputs"
-						    " can't be more than 1. ", i);
-			(*utx)->wtx->all_funds = true;
-			/* `AMOUNT_SAT(-1ULL)` is the max permissible for `wallet_select_all`. */
-			(*utx)->wtx->amount = *amount;
-			break;
-		}
-
-		if (!amount_sat_add(&(*utx)->wtx->amount, (*utx)->wtx->amount, *amount))
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "outputs: The sum of first %zi outputs"
-					    " overflow. ", i);
-	}
-
-create_tx:
 	if (chosen_utxos)
 		result = wtx_from_utxos((*utx)->wtx, *feerate_per_kw,
 					out_len, maxheight,
@@ -464,9 +268,6 @@ create_tx:
 				 locktime);
 
 	bitcoin_txid((*utx)->tx, &(*utx)->txid);
-
-	if (feerate)
-		*feerate = *feerate_per_kw;
 	return NULL;
 }
 
@@ -485,7 +286,7 @@ static struct command_result *json_withdraw(struct command *cmd,
 	struct unreleased_tx *utx;
 	struct command_result *res;
 
-	res = json_prepare_tx(cmd, buffer, params, true, &utx, NULL);
+	res = json_prepare_tx(cmd, buffer, params, &utx);
 	if (res)
 		return res;
 
