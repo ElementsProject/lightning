@@ -704,61 +704,6 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     check_coin_moves(l1, 'wallet', wallet_moves, chainparams)
 
 
-def test_minconf_withdraw(node_factory, bitcoind):
-    """Issue 2518: ensure that ridiculous confirmation levels don't overflow
-
-    The number of confirmations is used to compute a maximum height that is to
-    be accepted. If the current height is smaller than the number of
-    confirmations we wrap around and just select everything. The fix is to
-    clamp the maxheight parameter to a positive small number.
-
-    """
-    amount = 1000000
-    # Don't get any funds from previous runs.
-    l1 = node_factory.get_node(random_hsm=True)
-    addr = l1.rpc.newaddr()['bech32']
-
-    # Add some funds to withdraw later
-    for i in range(10):
-        l1.bitcoin.rpc.sendtoaddress(addr, amount / 10**8 + 0.01)
-
-    bitcoind.generate_block(1)
-
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
-    with pytest.raises(RpcError):
-        l1.rpc.withdraw(destination=addr, satoshi=10000, feerate='normal', minconf=9999999)
-
-
-def test_addfunds_from_block(node_factory, bitcoind):
-    """Send funds to the daemon without telling it explicitly
-    """
-    # Previous runs with same bitcoind can leave funds!
-    l1 = node_factory.get_node(random_hsm=True)
-
-    addr = l1.rpc.newaddr()['bech32']
-    bitcoind.rpc.sendtoaddress(addr, 0.1)
-    bitcoind.generate_block(1)
-
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
-
-    outputs = l1.db_query('SELECT value FROM outputs WHERE status=0;')
-    assert only_one(outputs)['value'] == 10000000
-
-    # The address we detect must match what was paid to.
-    output = only_one(l1.rpc.listfunds()['outputs'])
-    assert output['address'] == addr
-
-    # Send all our money to a P2WPKH address this time.
-    addr = l1.rpc.newaddr("bech32")['bech32']
-    l1.rpc.withdraw(addr, "all")
-    bitcoind.generate_block(1)
-    time.sleep(1)
-
-    # The address we detect must match what was paid to.
-    output = only_one(l1.rpc.listfunds()['outputs'])
-    assert output['address'] == addr
-
-
 def test_io_logging(node_factory, executor):
     l1 = node_factory.get_node(options={'log-level': 'io'})
     l2 = node_factory.get_node()
