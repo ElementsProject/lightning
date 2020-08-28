@@ -54,6 +54,18 @@ def expected_channel_features(wumbo_channels=False, extra=[]):
     return hex_bits(features + extra)
 
 
+def move_matches(exp, mv):
+    if mv['type'] != exp['type']:
+        return False
+    if mv['credit'] != "{}msat".format(exp['credit']):
+        return False
+    if mv['debit'] != "{}msat".format(exp['debit']):
+        return False
+    if mv['tag'] != exp['tag']:
+        return False
+    return True
+
+
 def check_coin_moves(n, account_id, expected_moves, chainparams):
     moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
     node_id = n.info['id']
@@ -64,20 +76,34 @@ def check_coin_moves(n, account_id, expected_moves, chainparams):
                       Millisatoshi(mv['credit']).millisatoshis,
                       Millisatoshi(mv['debit']).millisatoshis,
                       mv['tag']))
-
-    assert len(acct_moves) == len(expected_moves)
-    for mv, exp in list(zip(acct_moves, expected_moves)):
         assert mv['version'] == 1
         assert mv['node_id'] == node_id
-        assert mv['type'] == exp['type']
-        assert mv['credit'] == "{}msat".format(exp['credit'])
-        assert mv['debit'] == "{}msat".format(exp['debit'])
-        assert mv['tag'] == exp['tag']
         assert mv['timestamp'] > 0
         assert mv['coin_type'] == chainparams['bip173_prefix']
         # chain moves should have blockheights
         if mv['type'] == 'chain_mvt':
             assert mv['blockheight'] is not None
+
+    for num, m in enumerate(expected_moves):
+        # They can group things which are in any order.
+        if isinstance(m, list):
+            number_moves = len(m)
+            for acct_move in acct_moves[:number_moves]:
+                found = None
+                for i in range(len(m)):
+                    if move_matches(m[i], acct_move):
+                        found = i
+                        break
+                if found is None:
+                    raise ValueError("Unexpected move {} amongst {}".format(acct_move, m))
+                del m[i]
+            acct_moves = acct_moves[number_moves:]
+        else:
+            if not move_matches(m, acct_moves[0]):
+                raise ValueError("Unexpected move {}: {} != {}".format(num, acct_moves[0], m))
+            acct_moves = acct_moves[1:]
+
+    assert acct_moves == []
 
 
 def check_coin_moves_idx(n):
