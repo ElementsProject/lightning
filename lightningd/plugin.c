@@ -284,6 +284,8 @@ static const char *plugin_log_handle(struct plugin *plugin,
 		level = LOG_UNUSUAL;
 	else if (json_tok_streq(plugin->buffer, leveltok, "error"))
 		level = LOG_BROKEN;
+	else if (json_tok_streq(plugin->buffer, leveltok, "io"))
+		level = LOG_IO_IN;
 	else {
 		return tal_fmt(plugin,
 			       "Unknown log-level %.*s, valid values are "
