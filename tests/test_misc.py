@@ -486,10 +486,17 @@ def test_bech32_funding(node_factory, chainparams):
 
 
 def test_withdraw_misc(node_factory, bitcoind, chainparams):
+    def dont_spend_outputs(n, txid):
+        """Reserve both outputs (we assume there are two!) in case any our ours, so we don't spend change: wrecks accounting checks"""
+        n.rpc.reserveinputs(bitcoind.rpc.createpsbt([{'txid': txid,
+                                                      'vout': 0},
+                                                     {'txid': txid,
+                                                      'vout': 1}], []))
+
     # We track channel balances, to verify that accounting is ok.
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
 
-    amount = 1000000
+    amount = 2000000
     # Don't get any funds from previous runs.
     l1 = node_factory.get_node(random_hsm=True,
                                options={'plugin': coin_mvt_plugin},
@@ -499,7 +506,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
 
     # Add some funds to withdraw later
     for i in range(10):
-        l1.bitcoin.rpc.sendtoaddress(addr, amount / 10**8 + 0.01)
+        l1.bitcoin.rpc.sendtoaddress(addr, amount / 10**8)
 
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10)
@@ -518,7 +525,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     with pytest.raises(RpcError, match=r'Cannot afford transaction'):
         l1.rpc.withdraw(waddr, amount * 100)
 
-    out = l1.rpc.withdraw(waddr, 2 * amount)
+    out = l1.rpc.withdraw(waddr, amount)
 
     # Make sure bitcoind received the withdrawal
     unspent = l1.bitcoin.rpc.listunspent(0)
@@ -526,21 +533,28 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
 
     assert(withdrawal[0]['amount'] == Decimal('0.02'))
 
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
+
     # Now make sure two of them were marked as spent
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 2
+
+    dont_spend_outputs(l1, out['txid'])
 
     # Now send some money to l2.
     # lightningd uses P2SH-P2WPKH
     waddr = l2.rpc.newaddr('bech32')['bech32']
-    l1.rpc.withdraw(waddr, 2 * amount)
+    out = l1.rpc.withdraw(waddr, amount)
     bitcoind.generate_block(1)
 
     # Make sure l2 received the withdrawal.
     wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == 1)
     outputs = l2.db_query('SELECT value FROM outputs WHERE status=0;')
-    assert only_one(outputs)['value'] == 2 * amount
+    assert only_one(outputs)['value'] == amount
 
     # Now make sure an additional two of them were marked as spent
+    sync_blockheight(bitcoind, [l1])
+    dont_spend_outputs(l1, out['txid'])
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 4
 
     if chainparams['name'] != 'regtest':
@@ -550,13 +564,16 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     # Address from: https://bc-2.jp/tools/bech32demo/index.html
     waddr = 'bcrt1qw508d6qejxtdg4y5r3zarvary0c5xw7kygt080'
     with pytest.raises(RpcError):
-        l1.rpc.withdraw('xx1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx', 2 * amount)
+        l1.rpc.withdraw('xx1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx', amount)
     with pytest.raises(RpcError):
-        l1.rpc.withdraw('tb1pw508d6qejxtdg4y5r3zarvary0c5xw7kdl9fad', 2 * amount)
+        l1.rpc.withdraw('tb1pw508d6qejxtdg4y5r3zarvary0c5xw7kdl9fad', amount)
     with pytest.raises(RpcError):
-        l1.rpc.withdraw('tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxxxxxx', 2 * amount)
-    l1.rpc.withdraw(waddr, 2 * amount)
-    bitcoind.generate_block(1)
+        l1.rpc.withdraw('tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxxxxxx', amount)
+    out = l1.rpc.withdraw(waddr, amount)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
+    dont_spend_outputs(l1, out['txid'])
+
     # Now make sure additional two of them were marked as spent
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 6
 
@@ -564,44 +581,53 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     # Address from: https://bc-2.jp/tools/bech32demo/index.html
     waddr = 'bcrt1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qzf4jry'
     with pytest.raises(RpcError):
-        l1.rpc.withdraw('xx1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7', 2 * amount)
+        l1.rpc.withdraw('xx1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7', amount)
     with pytest.raises(RpcError):
-        l1.rpc.withdraw('tb1prp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qsm03tq', 2 * amount)
+        l1.rpc.withdraw('tb1prp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qsm03tq', amount)
     with pytest.raises(RpcError):
-        l1.rpc.withdraw('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qxxxxxx', 2 * amount)
-    l1.rpc.withdraw(waddr, 2 * amount)
-    bitcoind.generate_block(1)
+        l1.rpc.withdraw('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qxxxxxx', amount)
+    out = l1.rpc.withdraw(waddr, amount)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1])
+    dont_spend_outputs(l1, out['txid'])
     # Now make sure additional two of them were marked as spent
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=2')[0]['c'] == 8
 
     # failure testing for invalid SegWit addresses, from BIP173
     # HRP character out of range
     with pytest.raises(RpcError):
-        l1.rpc.withdraw(' 1nwldj5', 2 * amount)
+        l1.rpc.withdraw(' 1nwldj5', amount)
     # overall max length exceeded
     with pytest.raises(RpcError):
-        l1.rpc.withdraw('an84characterslonghumanreadablepartthatcontainsthenumber1andtheexcludedcharactersbio1569pvx', 2 * amount)
+        l1.rpc.withdraw('an84characterslonghumanreadablepartthatcontainsthenumber1andtheexcludedcharactersbio1569pvx', amount)
     # No separator character
     with pytest.raises(RpcError):
-        l1.rpc.withdraw('pzry9x0s0muk', 2 * amount)
+        l1.rpc.withdraw('pzry9x0s0muk', amount)
     # Empty HRP
     with pytest.raises(RpcError):
-        l1.rpc.withdraw('1pzry9x0s0muk', 2 * amount)
+        l1.rpc.withdraw('1pzry9x0s0muk', amount)
     # Invalid witness version
     with pytest.raises(RpcError):
-        l1.rpc.withdraw('BC13W508D6QEJXTDG4Y5R3ZARVARY0C5XW7KN40WF2', 2 * amount)
+        l1.rpc.withdraw('BC13W508D6QEJXTDG4Y5R3ZARVARY0C5XW7KN40WF2', amount)
     # Invalid program length for witness version 0 (per BIP141)
     with pytest.raises(RpcError):
-        l1.rpc.withdraw('BC1QR508D6QEJXTDG4Y5R3ZARVARYV98GJ9P', 2 * amount)
+        l1.rpc.withdraw('BC1QR508D6QEJXTDG4Y5R3ZARVARYV98GJ9P', amount)
     # Mixed case
     with pytest.raises(RpcError):
-        l1.rpc.withdraw('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sL5k7', 2 * amount)
+        l1.rpc.withdraw('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sL5k7', amount)
     # Non-zero padding in 8-to-5 conversion
     with pytest.raises(RpcError):
-        l1.rpc.withdraw('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv', 2 * amount)
+        l1.rpc.withdraw('tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3pjxtptv', amount)
 
-    # Should have 6 outputs available.
-    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 6
+    # Should have 2 outputs available.
+    assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 2
+
+    # Unreserve everything.
+    inputs = []
+    for out in l1.rpc.listfunds()['outputs']:
+        if out['reserved']:
+            inputs += [{'txid': out['txid'], 'vout': out['output']}]
+    l1.rpc.unreserveinputs(bitcoind.rpc.createpsbt(inputs, []))
 
     # Test withdrawal to self.
     l1.rpc.withdraw(l1.rpc.newaddr('bech32')['bech32'], 'all', minconf=0)
@@ -632,26 +658,34 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
         {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 1993745000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 2000000000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 6255000, 'tag': 'chain_fees'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 1993745000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 2000000000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 6255000, 'tag': 'chain_fees'},
-        {'type': 'chain_mvt', 'credit': 1993745000, 'debit': 0, 'tag': 'deposit'},
-        {'type': 'chain_mvt', 'credit': 1993745000, 'debit': 0, 'tag': 'deposit'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 1993745000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 2000000000, 'tag': 'withdrawal'},
+        [
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 2000000000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 1993745000, 'tag': 'withdrawal'},
+        ],
         {'type': 'chain_mvt', 'credit': 0, 'debit': 6255000, 'tag': 'chain_fees'},
         {'type': 'chain_mvt', 'credit': 1993745000, 'debit': 0, 'tag': 'deposit'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 1993385000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 2000000000, 'tag': 'withdrawal'},
+        [
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 2000000000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 1993745000, 'tag': 'withdrawal'},
+        ],
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 6255000, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 1993745000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+        [
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 2000000000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 1993745000, 'tag': 'withdrawal'},
+        ],
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 6255000, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 1993745000, 'debit': 0, 'tag': 'deposit'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+        [
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 1993385000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 2000000000, 'tag': 'withdrawal'},
+        ],
         {'type': 'chain_mvt', 'credit': 0, 'debit': 6615000, 'tag': 'chain_fees'},
         {'type': 'chain_mvt', 'credit': 1993385000, 'debit': 0, 'tag': 'deposit'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
