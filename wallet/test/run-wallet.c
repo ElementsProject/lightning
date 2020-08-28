@@ -961,26 +961,26 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 
 	/* Attempt to reserve the utxo */
 	CHECK_MSG(wallet_update_output_status(w, &u.txid, u.outnum,
-					      output_state_available,
-					      output_state_reserved),
+					      OUTPUT_STATE_AVAILABLE,
+					      OUTPUT_STATE_RESERVED),
 		  "could not reserve available output");
 
 	/* Reserving twice should fail */
 	CHECK_MSG(!wallet_update_output_status(w, &u.txid, u.outnum,
-					       output_state_available,
-					       output_state_reserved),
+					       OUTPUT_STATE_AVAILABLE,
+					       OUTPUT_STATE_RESERVED),
 		  "could reserve already reserved output");
 
 	/* Un-reserving should work */
 	CHECK_MSG(wallet_update_output_status(w, &u.txid, u.outnum,
-					      output_state_reserved,
-					      output_state_available),
+					      OUTPUT_STATE_RESERVED,
+					      OUTPUT_STATE_AVAILABLE),
 		  "could not unreserve reserved output");
 
 	/* Switching from any to something else */
 	CHECK_MSG(wallet_update_output_status(w, &u.txid, u.outnum,
-					      output_state_any,
-					      output_state_spent),
+					      OUTPUT_STATE_ANY,
+					      OUTPUT_STATE_SPENT),
 		  "could not change output state ignoring oldstate");
 
 	/* Attempt to save an UTXO with close_info set, no commitment_point */

@@ -52,34 +52,20 @@ struct wallet {
 	u64 keyscan_gap;
 };
 
-/* Possible states for tracked outputs in the database. Not sure yet
- * whether we really want to have reservations reflected in the
- * database, it would simplify queries at the cost of some IO ops */
-/* /!\ This is a DB ENUM, please do not change the numbering of any
- * already defined elements (adding is ok) /!\ */
-enum output_status {
-	output_state_available= 0,
-	output_state_reserved = 1,
-	output_state_spent = 2,
-	/* Special status used to express that we don't care in
-	 * queries */
-	output_state_any = 255
-};
-
 static inline enum output_status output_status_in_db(enum output_status s)
 {
 	switch (s) {
-	case output_state_available:
-		BUILD_ASSERT(output_state_available == 0);
+	case OUTPUT_STATE_AVAILABLE:
+		BUILD_ASSERT(OUTPUT_STATE_AVAILABLE == 0);
 		return s;
-	case output_state_reserved:
-		BUILD_ASSERT(output_state_reserved == 1);
+	case OUTPUT_STATE_RESERVED:
+		BUILD_ASSERT(OUTPUT_STATE_RESERVED == 1);
 		return s;
-	case output_state_spent:
-		BUILD_ASSERT(output_state_spent == 2);
+	case OUTPUT_STATE_SPENT:
+		BUILD_ASSERT(OUTPUT_STATE_SPENT == 2);
 		return s;
 	/* This one doesn't go into db */
-	case output_state_any:
+	case OUTPUT_STATE_ANY:
 		break;
 	}
 	fatal("%s: %u is invalid", __func__, s);

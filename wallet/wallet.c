@@ -34,7 +34,7 @@
 static void outpointfilters_init(struct wallet *w)
 {
 	struct db_stmt *stmt;
-	struct utxo **utxos = wallet_get_utxos(NULL, w, output_state_any);
+	struct utxo **utxos = wallet_get_utxos(NULL, w, OUTPUT_STATE_ANY);
 	struct bitcoin_txid txid;
 	u32 outnum;
 
@@ -121,7 +121,7 @@ static bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 	db_bind_int(stmt, 1, utxo->outnum);
 	db_bind_amount_sat(stmt, 2, &utxo->amount);
 	db_bind_int(stmt, 3, wallet_output_type_in_db(type));
-	db_bind_int(stmt, 4, output_state_available);
+	db_bind_int(stmt, 4, OUTPUT_STATE_AVAILABLE);
 	db_bind_int(stmt, 5, utxo->keyindex);
 	if (utxo->close_info) {
 		db_bind_u64(stmt, 6, utxo->close_info->channel_id);
@@ -217,7 +217,7 @@ bool wallet_update_output_status(struct wallet *w,
 {
 	struct db_stmt *stmt;
 	size_t changes;
-	if (oldstatus != output_state_any) {
+	if (oldstatus != OUTPUT_STATE_ANY) {
 		stmt = db_prepare_v2(
 		    w->db, SQL("UPDATE outputs SET status=? WHERE status=? AND "
 			       "prev_out_tx=? AND prev_out_index=?"));
@@ -245,7 +245,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 	int i;
 	struct db_stmt *stmt;
 
-	if (state == output_state_any) {
+	if (state == OUTPUT_STATE_ANY) {
 		stmt = db_prepare_v2(w->db, SQL("SELECT"
 						"  prev_out_tx"
 						", prev_out_index"
@@ -378,8 +378,8 @@ bool wallet_unreserve_output(struct wallet *w,
 			     const u32 outnum)
 {
 	return wallet_update_output_status(w, txid, outnum,
-					   output_state_reserved,
-					   output_state_available);
+					   OUTPUT_STATE_RESERVED,
+					   OUTPUT_STATE_AVAILABLE);
 }
 
 /**
@@ -388,8 +388,8 @@ bool wallet_unreserve_output(struct wallet *w,
 static void unreserve_utxo(struct wallet *w, const struct utxo *unres)
 {
 	if (!wallet_update_output_status(w, &unres->txid, unres->outnum,
-					 output_state_reserved,
-					 output_state_available)) {
+					 OUTPUT_STATE_RESERVED,
+					 OUTPUT_STATE_AVAILABLE)) {
 		fatal("Unable to unreserve output");
 	}
 }
@@ -414,7 +414,7 @@ void wallet_confirm_utxos(struct wallet *w, const struct utxo **utxos)
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		if (!wallet_update_output_status(
 			w, &utxos[i]->txid, utxos[i]->outnum,
-			output_state_reserved, output_state_spent)) {
+			OUTPUT_STATE_RESERVED, OUTPUT_STATE_SPENT)) {
 			fatal("Unable to mark output as spent");
 		}
 	}
@@ -424,7 +424,7 @@ static void db_set_utxo(struct db *db, const struct utxo *utxo)
 {
 	struct db_stmt *stmt;
 
-	if (utxo->status == output_state_reserved)
+	if (utxo->status == OUTPUT_STATE_RESERVED)
 		assert(utxo->reserved_til);
 	else
 		assert(!utxo->reserved_til);
@@ -442,12 +442,12 @@ static void db_set_utxo(struct db *db, const struct utxo *utxo)
 bool wallet_reserve_utxo(struct wallet *w, struct utxo *utxo, u32 current_height)
 {
 	switch (utxo->status) {
-	case output_state_spent:
+	case OUTPUT_STATE_SPENT:
 		return false;
-	case output_state_available:
-	case output_state_reserved:
+	case OUTPUT_STATE_AVAILABLE:
+	case OUTPUT_STATE_RESERVED:
 		break;
-	case output_state_any:
+	case OUTPUT_STATE_ANY:
 		abort();
 	}
 
@@ -457,7 +457,7 @@ bool wallet_reserve_utxo(struct wallet *w, struct utxo *utxo, u32 current_height
 	else
 		utxo->reserved_til = current_height + RESERVATION_INC;
 
-	utxo->status = output_state_reserved;
+	utxo->status = OUTPUT_STATE_RESERVED;
 
 	db_set_utxo(w->db, utxo);
 
@@ -466,13 +466,13 @@ bool wallet_reserve_utxo(struct wallet *w, struct utxo *utxo, u32 current_height
 
 void wallet_unreserve_utxo(struct wallet *w, struct utxo *utxo, u32 current_height)
 {
-	if (utxo->status != output_state_reserved)
+	if (utxo->status != OUTPUT_STATE_RESERVED)
 		fatal("UTXO %s:%u is not reserved",
 		      type_to_string(tmpctx, struct bitcoin_txid, &utxo->txid),
 		      utxo->outnum);
 
 	if (utxo->reserved_til <= current_height + RESERVATION_INC) {
-		utxo->status = output_state_available;
+		utxo->status = OUTPUT_STATE_AVAILABLE;
 		utxo->reserved_til = 0;
 	} else
 		utxo->reserved_til -= RESERVATION_INC;
@@ -534,8 +534,8 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 					" WHERE status = ?"
 					" OR (status = ? AND reserved_til <= ?)"
 					"ORDER BY RANDOM();"));
-	db_bind_int(stmt, 0, output_status_in_db(output_state_available));
-	db_bind_int(stmt, 1, output_status_in_db(output_state_reserved));
+	db_bind_int(stmt, 0, output_status_in_db(OUTPUT_STATE_AVAILABLE));
+	db_bind_int(stmt, 1, output_status_in_db(OUTPUT_STATE_RESERVED));
 	db_bind_u64(stmt, 2, current_blockheight);
 
 	/* FIXME: Use feerate + estimate of input cost to establish
@@ -599,7 +599,7 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 	db_bind_int(stmt, 1, outnum);
 	db_bind_amount_sat(stmt, 2, &amount);
 	db_bind_int(stmt, 3, wallet_output_type_in_db(p2wpkh));
-	db_bind_int(stmt, 4, output_state_available);
+	db_bind_int(stmt, 4, OUTPUT_STATE_AVAILABLE);
 	db_bind_int(stmt, 5, 0);
 	db_bind_u64(stmt, 6, channel->dbid);
 	db_bind_node_id(stmt, 7, &channel->peer->id);
@@ -1734,7 +1734,7 @@ int wallet_extract_owned_outputs(struct wallet *w, const struct wally_tx *wtx,
 		utxo->keyindex = index;
 		utxo->is_p2sh = is_p2sh;
 		utxo->amount = amount_asset_to_sat(&asset);
-		utxo->status = output_state_available;
+		utxo->status = OUTPUT_STATE_AVAILABLE;
 		wally_txid(wtx, &utxo->txid);
 		utxo->outnum = output;
 		utxo->close_info = NULL;
@@ -3019,7 +3019,7 @@ wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
 						" AND prev_out_index = ?"));
 
 		db_bind_int(stmt, 0, blockheight);
-		db_bind_int(stmt, 1, output_status_in_db(output_state_spent));
+		db_bind_int(stmt, 1, output_status_in_db(OUTPUT_STATE_SPENT));
 		db_bind_sha256d(stmt, 2, &txid->shad);
 		db_bind_int(stmt, 3, outnum);
 
