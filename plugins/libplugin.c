@@ -1121,6 +1121,9 @@ static bool ld_read_json_one(struct plugin *plugin)
 		return false;
 	}
 
+	plugin_log(plugin, LOG_IO_IN, "%.*s", (int)plugin->len_read,
+	       plugin->buffer + plugin->used);
+
 	/* FIXME: Spark doesn't create proper jsonrpc 2.0!  So we don't
 	 * check for "jsonrpc" here. */
 	ld_command_handle(plugin, cmd, plugin->toks);
