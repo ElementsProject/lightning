@@ -15,7 +15,6 @@
 #include <common/penalty_base.h>
 #include <common/per_peer_state.h>
 #include <common/utils.h>
-#include <common/wallet_tx.h>
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>

@@ -12,7 +12,6 @@
 #include <common/per_peer_state.h>
 #include <common/timeout.h>
 #include <common/utils.h>
-#include <common/wallet_tx.h>
 #include <common/wire_error.h>
 #include <errno.h>
 #include <inttypes.h>

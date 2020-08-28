@@ -8,6 +8,7 @@ struct channel;
 struct crypto_state;
 struct lightningd;
 struct per_peer_state;
+struct peer;
 
 void peer_start_channeld(struct channel *channel,
 			 struct per_peer_state *pps,

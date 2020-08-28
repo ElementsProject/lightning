@@ -522,7 +522,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
         l1.rpc.withdraw(waddr, 'not an amount')
     with pytest.raises(RpcError):
         l1.rpc.withdraw(waddr, -amount)
-    with pytest.raises(RpcError, match=r'Cannot afford transaction'):
+    with pytest.raises(RpcError, match=r'Could not afford'):
         l1.rpc.withdraw(waddr, amount * 100)
 
     out = l1.rpc.withdraw(waddr, amount)
@@ -638,7 +638,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     assert l1.db_query('SELECT COUNT(*) as c FROM outputs WHERE status=0')[0]['c'] == 0
 
     # This should fail, can't even afford fee.
-    with pytest.raises(RpcError, match=r'Cannot afford transaction'):
+    with pytest.raises(RpcError, match=r'Could not afford'):
         l1.rpc.withdraw(waddr, 'all')
 
     bitcoind.generate_block(1)
