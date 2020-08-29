@@ -8,6 +8,13 @@ CONFIG_VAR_FILE=config.vars
 CONFIG_HEADER=ccan/config.h
 BASE_WARNFLAGS="-Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition -Werror"
 
+# You can set PG_CONFIG in the environment to direct configure to call
+# a specific 'pg_config' binary. If you set it to an empty string, then
+# PostgreSQL support will be explicitly disabled, even if a 'pg_config'
+# binary exists in your PATH. If you leave it unset, then the following
+# line enables the automagic detection that most users want.
+: ${PG_CONFIG=pg_config}
+
 usage_with_default()
 {
     if [ $# = 4 ]; then
@@ -231,9 +238,9 @@ require 'python3-mako' "You need the mako module for python3: see doc/INSTALL.md
 
 POSTGRES_INCLUDE=""
 POSTGRES_LDLIBS=""
-if command -v "${PG_CONFIG-pg_config}" >/dev/null; then
-    POSTGRES_INCLUDE="-I$("${PG_CONFIG-pg_config}" --includedir)"
-    POSTGRES_LDLIBS="-L$("${PG_CONFIG-pg_config}" --libdir) -lpq"
+if command -v "${PG_CONFIG}" >/dev/null; then
+    POSTGRES_INCLUDE="-I$("${PG_CONFIG}" --includedir)"
+    POSTGRES_LDLIBS="-L$("${PG_CONFIG}" --libdir) -lpq"
 fi
 
 rm -f $CONFIG_VAR_FILE.$$
