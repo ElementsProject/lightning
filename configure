@@ -8,6 +8,8 @@ CONFIG_VAR_FILE=config.vars
 CONFIG_HEADER=ccan/config.h
 BASE_WARNFLAGS="-Wall -Wundef -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes -Wold-style-definition -Werror"
 
+: ${PKG_CONFIG=pkg-config}
+
 # You can set PG_CONFIG in the environment to direct configure to call
 # a specific 'pg_config' binary. If you set it to an empty string, then
 # PostgreSQL support will be explicitly disabled, even if a 'pg_config'
@@ -236,6 +238,13 @@ fi
 # Doesn't set a var, but makes sure it exists
 require 'python3-mako' "You need the mako module for python3: see doc/INSTALL.md" python3 -c 'import mako'
 
+SQLITE3_CFLAGS=""
+SQLITE3_LDLIBS="-lsqlite3"
+if command -v "${PKG_CONFIG}" >/dev/null; then
+    SQLITE3_CFLAGS="$("${PKG_CONFIG}" --silence-errors --cflags sqlite3 || :)"
+    SQLITE3_LDLIBS="$("${PKG_CONFIG}" --silence-errors --libs sqlite3 || :)"
+fi
+
 POSTGRES_INCLUDE=""
 POSTGRES_LDLIBS=""
 if command -v "${PG_CONFIG}" >/dev/null; then
@@ -244,7 +253,7 @@ if command -v "${PG_CONFIG}" >/dev/null; then
 fi
 
 rm -f $CONFIG_VAR_FILE.$$
-$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -I/usr/local/include -L/usr/local/lib $POSTGRES_INCLUDE <<EOF
+$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -I/usr/local/include -L/usr/local/lib $SQLITE3_CFLAGS $POSTGRES_INCLUDE <<EOF
 
 var=HAVE_GOOD_LIBSODIUM
 desc=libsodium with IETF chacha20 variants
@@ -271,7 +280,7 @@ int main(void)
 var=HAVE_SQLITE3_EXPANDED_SQL
 desc=sqlite3_expanded_sql
 style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
-link=-lsqlite3
+link=$SQLITE3_LDLIBS
 code=
 #include <sqlite3.h>
 #include <stdio.h>
@@ -285,7 +294,7 @@ int main(void)
 var=HAVE_SQLITE3
 desc=sqlite3
 style=DEFINES_EVERYTHING|EXECUTE|MAY_NOT_COMPILE
-link=-lsqlite3
+link=$SQLITE3_LDLIBS
 code=
 #include <sqlite3.h>
 #include <stdio.h>
@@ -368,6 +377,8 @@ add_var CONFIGURATOR_CC "$CONFIGURATOR_CC"
 add_var CWARNFLAGS "$CWARNFLAGS"
 add_var CDEBUGFLAGS "$CDEBUGFLAGS"
 add_var COPTFLAGS "$COPTFLAGS"
+add_var SQLITE3_CFLAGS "$SQLITE3_CFLAGS"
+add_var SQLITE3_LDLIBS "$SQLITE3_LDLIBS"
 add_var POSTGRES_INCLUDE "$POSTGRES_INCLUDE"
 add_var POSTGRES_LDLIBS "$POSTGRES_LDLIBS"
 add_var VALGRIND "$VALGRIND"
