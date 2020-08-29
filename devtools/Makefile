@@ -1,6 +1,9 @@
 DEVTOOLS_SRC := devtools/gen_print_wire.c devtools/gen_print_onion_wire.c devtools/print_wire.c
 DEVTOOLS_OBJS := $(DEVTOOLS_SRC:.c=.o)
-DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/checkchannels devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route
+DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route
+ifeq ($(HAVE_SQLITE3),1)
+DEVTOOLS += devtools/checkchannels
+endif
 ifeq ($(EXPERIMENTAL_FEATURES),1)
 DEVTOOLS += devtools/blindedpath
 endif

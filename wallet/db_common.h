@@ -4,7 +4,6 @@
 #include <ccan/autodata/autodata.h>
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
-#include <sqlite3.h>
 #include <stdbool.h>
 
 /* For testing, we want to catch fatal messages. */

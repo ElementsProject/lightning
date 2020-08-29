@@ -3,7 +3,6 @@
 #include <ccan/ccan/tal/str/str.h>
 #include <ccan/endian/endian.h>
 #include <lightningd/log.h>
-#include <sqlite3.h>
 #include <stdio.h>
 
 #if HAVE_POSTGRES
