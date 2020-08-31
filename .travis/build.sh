@@ -109,7 +109,7 @@ then
     #echo -en 'travis_fold:end:script.3\\r'
 else
     echo -en 'travis_fold:start:script.2\\r'
-    make -j8 > /dev/null
+    make -j8
     echo -en 'travis_fold:end:script.2\\r'
 
     echo -en 'travis_fold:start:script.3\\r'
