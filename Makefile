@@ -256,9 +256,9 @@ config.vars:
 # Git doesn't maintain timestamps, so we only regen if sources actually changed:
 # We place the SHA inside some generated files so we can tell if they need updating.
 # Usage: $(call SHA256STAMP_CHANGED,prefix)
-SHA256STAMP_CHANGED = [ x"`sed -n 's/.*SHA256STAMP://p' $@ 2>/dev/null`" != x"$(1)`cat $^ | sha256sum | cut -c1-64`" ]
+SHA256STAMP_CHANGED = [ x"`sed -n 's/.*SHA256STAMP://p' $@ 2>/dev/null`" != x"$(1)`cat $(filter-out FORCE,$^) | sha256sum | cut -c1-64`" ]
 # Usage: $(call SHA256STAMP,prefix,commentprefix)
-SHA256STAMP = echo '$(2) SHA256STAMP:$(1)'`cat $^ | sha256sum | cut -c1-64` >> $@
+SHA256STAMP = echo '$(2) SHA256STAMP:$(1)'`cat $(filter-out FORCE,$^) | sha256sum | cut -c1-64` >> $@
 
 # generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
 %_wiregen.h: %_wire.csv $(WIRE_GEN_DEPS)
@@ -299,6 +299,10 @@ ALL_NONGEN_SRCFILES := $(filter-out gen%.h %printgen.h %wiregen.h,$(ALL_C_HEADER
 
 # Every single object file.
 ALL_OBJS := $(ALL_C_SOURCES:.c=.o)
+
+# We always regen wiregen and printgen files, since SHA256STAMP protects against
+# spurious rebuilds.
+$(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(ALL_C_HEADERS) $(ALL_C_SOURCES)): FORCE
 
 # Generated from PLUGINS definition in plugins/Makefile
 gen_list_of_builtin_plugins.h : plugins/Makefile Makefile

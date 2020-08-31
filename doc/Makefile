@@ -60,6 +60,8 @@ doc-all: $(MANPAGES) doc/index.rst
 $(MANPAGES): doc/%: doc/%.md
 	@if $(call SHA256STAMP_CHANGED,); then $(call VERBOSE, "mrkd $<", mrkd $< $@ && $(call SHA256STAMP,,\")); else touch $@; fi
 
+$(MANPAGES): FORCE
+
 doc/protocol-%.svg: test/test_protocol
 	test/test_protocol --svg < test/commits/$*.script > $@
 
