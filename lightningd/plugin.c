@@ -605,6 +605,8 @@ char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
 		if (*popt->value->as_int != l)
 			return tal_fmt(tmpctx, "%s does not parse as type %s (overflowed)",
 				       popt->value->as_str, popt->type);
+		tal_free(popt->value->as_str);
+		popt->value->as_str = NULL;
 	} else if (streq(popt->type, "bool")) {
 		/* valid values are 'true', 'True', '1', '0', 'false', 'False', or '' */
 		if (streq(arg, "true") || streq(arg, "True") || streq(arg, "1")) {
@@ -615,6 +617,8 @@ char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
 		} else
 			return tal_fmt(tmpctx, "%s does not parse as type %s",
 				       popt->value->as_str, popt->type);
+		tal_free(popt->value->as_str);
+		popt->value->as_str = NULL;
 	}
 
 	return NULL;
@@ -1422,13 +1426,11 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 			json_add_bool(req->stream, name, *opt->value->as_bool);
 			if (!deprecated_apis)
 				continue;
-		}
-		if (opt->value->as_int) {
+		}else if (opt->value->as_int) {
 			json_add_s64(req->stream, name, *opt->value->as_int);
 			if (!deprecated_apis)
 				continue;
-		}
-		if (opt->value->as_str) {
+		}else if (opt->value->as_str) {
 			json_add_string(req->stream, name, opt->value->as_str);
 		}
 	}
