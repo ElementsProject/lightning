@@ -1,16 +1,56 @@
 #! /usr/bin/make
 
-# Designed to be run one level up
-lightningd-wrongdir:
-	$(MAKE) -C .. lightningd-all
+LIGHTNINGD_SRC :=				\
+	lightningd/bitcoind.c			\
+	lightningd/chaintopology.c		\
+	lightningd/channel.c			\
+	lightningd/channel_control.c		\
+	lightningd/closing_control.c		\
+	lightningd/coin_mvts.c			\
+	lightningd/connect_control.c		\
+	lightningd/onion_message.c		\
+	lightningd/gossip_control.c		\
+	lightningd/gossip_msg.c			\
+	lightningd/hsm_control.c		\
+	lightningd/htlc_end.c			\
+	lightningd/htlc_set.c			\
+	lightningd/invoice.c			\
+	lightningd/io_loop_with_timers.c	\
+	lightningd/json.c			\
+	lightningd/jsonrpc.c			\
+	lightningd/lightningd.c			\
+	lightningd/log.c			\
+	lightningd/log_status.c			\
+	lightningd/memdump.c			\
+	lightningd/notification.c		\
+	lightningd/onchain_control.c		\
+	lightningd/opening_control.c		\
+	lightningd/options.c			\
+	lightningd/pay.c			\
+	lightningd/peer_control.c		\
+	lightningd/peer_htlcs.c			\
+	lightningd/ping.c			\
+	lightningd/plugin.c			\
+	lightningd/plugin_control.c		\
+	lightningd/plugin_hook.c		\
+	lightningd/subd.c			\
+	lightningd/watch.c
 
-LIGHTNINGD_PROGRAM := lightningd/lightningd
+LIGHTNINGD_SRC_NOHDR :=				\
+	lightningd/signmessage.c
 
-ALL_PROGRAMS += $(LIGHTNINGD_PROGRAM)
+LIGHTNINGD_HEADERS :=				\
+	$(LIGHTNINGD_SRC:.c=.h)			\
+	lightningd/channel_state.h		\
+	lightningd/gen_channel_state_names.h
 
-lightningd-all: $(LIGHTNINGD_PROGRAM)
+LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o) $(LIGHTNINGD_SRC_NOHDR:.c=.o)
+$(LIGHTNINGD_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_CONTROL_HEADERS)
 
-default: lightningd-all
+# Make sure these depend on everything.
+ALL_C_SOURCES += $(LIGHTNINGD_SRC)
+ALL_C_HEADERS += $(LIGHTNINGD_HEADERS)
+ALL_PROGRAMS += lightningd/lightningd
 
 # Common source we use.
 LIGHTNINGD_COMMON_OBJS :=			\
@@ -75,89 +115,19 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/wireaddr.o			\
 	common/withdraw_tx.o
 
-LIGHTNINGD_SRC :=				\
-	lightningd/bitcoind.c			\
-	lightningd/chaintopology.c		\
-	lightningd/channel.c			\
-	lightningd/channel_control.c		\
-	lightningd/closing_control.c		\
-	lightningd/coin_mvts.c			\
-	lightningd/connect_control.c		\
-	lightningd/onion_message.c		\
-	lightningd/gossip_control.c		\
-	lightningd/gossip_msg.c			\
-	lightningd/hsm_control.c		\
-	lightningd/htlc_end.c			\
-	lightningd/htlc_set.c			\
-	lightningd/invoice.c			\
-	lightningd/io_loop_with_timers.c	\
-	lightningd/json.c			\
-	lightningd/jsonrpc.c			\
-	lightningd/lightningd.c			\
-	lightningd/log.c			\
-	lightningd/log_status.c			\
-	lightningd/memdump.c			\
-	lightningd/notification.c		\
-	lightningd/onchain_control.c		\
-	lightningd/opening_control.c		\
-	lightningd/options.c			\
-	lightningd/pay.c			\
-	lightningd/peer_control.c		\
-	lightningd/peer_htlcs.c			\
-	lightningd/ping.c			\
-	lightningd/plugin.c			\
-	lightningd/plugin_control.c		\
-	lightningd/plugin_hook.c		\
-	lightningd/subd.c			\
-	lightningd/watch.c
-
-LIGHTNINGD_SRC_NOHDR :=				\
-	lightningd/signmessage.c
-
-LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o) $(LIGHTNINGD_SRC_NOHDR:.c=.o)
-
-# Make sure these depend on everything.
-ALL_OBJS += $(LIGHTNINGD_OBJS)
-
-# We accumulate all lightningd/ headers in these three:
-LIGHTNINGD_HEADERS_NOGEN =			\
-	$(LIGHTNINGD_SRC:.c=.h)			\
-	lightningd/channel_state.h
-
-# Generated headers
-LIGHTNINGD_HEADERS_GEN =			\
-	lightningd/gen_channel_state_names.h
-
-ALL_GEN_HEADERS += $(LIGHTNINGD_HEADERS_GEN)
-
 include wallet/Makefile
 
 # All together in one convenient var
 LIGHTNINGD_HEADERS = $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) $(WALLET_LIB_HEADERS)
 
-$(LIGHTNINGD_OBJS): $(LIGHTNINGD_HEADERS)
+$(LIGHTNINGD_OBJS): $(LIGHTNINGD_HEADERS) $(WALLET_HDRS)
 
 # Only the plugin component needs to depend on this header.
-lightningd/plugin.o : gen_list_of_builtin_plugins.h
+lightningd/plugin.o: gen_list_of_builtin_plugins.h
 
 lightningd/gen_channel_state_names.h: lightningd/channel_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr lightningd/channel_state.h > $@
 
-check-source: $(LIGHTNINGD_SRC:%=check-src-include-order/%) $(LIGHTNINGD_SRC_NOHDR:%=check-src-include-order/%)
-check-source: $(LIGHTNINGD_HEADERS_NOGEN:%=check-hdr-include-order/%)
-check-source-bolt: $(LIGHTNINGD_SRC:%=bolt-check/%) $(LIGHTNINGD_SRC_NOHDR:%=bolt-check/%) $(LIGHTNINGD_HEADERS_NOGEN:%=bolt-check/%)
-
-check-whitespace: $(LIGHTNINGD_SRC:%=check-whitespace/%) $(LIGHTNINGD_SRC_NOHDR:%=check-whitespace/%) $(LIGHTNINGD_HEADERS_NOGEN:%=check-whitespace/%)
-
-check-makefile: check-lightningd-makefile
-check-lightningd-makefile:
-	@for f in lightningd/*.h lightningd/*/*.h; do if ! echo $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) "" | grep -q "$$f "; then echo $$f not mentioned in LIGHTNINGD_HEADERS_NOGEN or LIGHTNINGD_HEADERS_GEN >&2; exit 1; fi; done
-
-lightningd/lightningd: $(LIGHTNINGD_OBJS) $(LIGHTNINGD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(LIGHTNINGD_HANDSHAKE_CONTROL_OBJS) $(LIGHTNINGD_GOSSIP_CONTROL_OBJS) $(LIGHTNINGD_OPENING_CONTROL_OBJS) $(LIGHTNINGD_CHANNEL_CONTROL_OBJS) $(LIGHTNINGD_CLOSING_CONTROL_OBJS) $(LIGHTNINGD_ONCHAIN_CONTROL_OBJS) $(WALLET_LIB_OBJS) $(LIGHTNINGD_CONNECT_CONTROL_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
-
-clean: lightningd-clean
-
-lightningd-clean:
-	$(RM) $(LIGHTNINGD_OBJS) $(LIGHTNINGD_JSMN_OBJS) $(LIGHTNINGD_PROGRAM) lightningd/gen*
+lightningd/lightningd: $(LIGHTNINGD_OBJS) $(WALLET_OBJS) $(LIGHTNINGD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(LIGHTNINGD_CONTROL_OBJS) $(HSMD_CLIENT_OBJS)
 
 include lightningd/test/Makefile

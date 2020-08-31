@@ -41,6 +41,11 @@ PLUGINS :=					\
 	plugins/keysend				\
 	plugins/pay
 
+# Make sure these depend on everything.
+ALL_C_SOURCES += $(PLUGIN_ALL_SRC)
+ALL_C_HEADERS += 
+ALL_PROGRAMS += $(PLUGINS)
+
 PLUGIN_COMMON_OBJS :=				\
 	bitcoin/base58.o			\
 	bitcoin/feerate.o			\
@@ -94,19 +99,3 @@ plugins/keysend: bitcoin/chainparams.o wire/tlvstream.o wire/onion_wiregen.o $(P
 $(PLUGIN_KEYSEND_OBJS): $(PLUGIN_PAY_LIB_HEADER)
 
 $(PLUGIN_ALL_OBJS): $(PLUGIN_LIB_HEADER)
-
-# Make sure these depend on everything.
-ALL_PROGRAMS += $(PLUGINS)
-ALL_OBJS += $(PLUGIN_ALL_OBJS)
-
-check-source: $(PLUGIN_ALL_SRC:%=check-src-include-order/%)
-check-source: $(PLUGIN_ALL_HEADER:%=check-hdr-include-order/%)
-check-source-bolt: $(PLUGIN_ALL_SRC:%=bolt-check/%)
-check-source-bolt: $(PLUGIN_ALL_HEADER:%=bolt-check/%)
-check-whitespace: $(PLUGIN_ALL_SRC:%=check-whitespace/%)
-check-whitespace: $(PLUGIN_ALL_HEADER:%=check-whitespace/%)
-
-clean: plugin-clean
-
-plugin-clean:
-	$(RM) $(PLUGIN_ALL_OBJS)

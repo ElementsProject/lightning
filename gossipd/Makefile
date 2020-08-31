@@ -1,18 +1,6 @@
 #! /usr/bin/make
 
-# Designed to be run one level up
-gossipd-wrongdir:
-	$(MAKE) -C .. gossipd-all
-
-default: gossipd-all
-
-# lightningd uses this:
-LIGHTNINGD_GOSSIP_CONTROL_HEADERS := gossipd/gossipd_wiregen.h
-LIGHTNINGD_GOSSIP_CONTROL_SRC := gossipd/gossipd_wiregen.c
-LIGHTNINGD_GOSSIP_CONTROL_OBJS := $(LIGHTNINGD_GOSSIP_CONTROL_SRC:.c=.o)
-
-# gossipd needs these:
-LIGHTNINGD_GOSSIP_HEADERS_WSRC := gossipd/gossipd_wiregen.h \
+GOSSIPD_HEADERS_WSRC := gossipd/gossipd_wiregen.h \
 	gossipd/gossipd_peerd_wiregen.h			\
 	gossipd/gossip_store_wiregen.h			\
 	gossipd/gossipd.h				\
@@ -21,21 +9,20 @@ LIGHTNINGD_GOSSIP_HEADERS_WSRC := gossipd/gossipd_wiregen.h \
 	gossipd/gossip_generation.h			\
 	gossipd/routing.h				\
 	gossipd/seeker.h
-LIGHTNINGD_GOSSIP_HEADERS := $(LIGHTNINGD_GOSSIP_HEADERS_WSRC) gossipd/broadcast.h
-LIGHTNINGD_GOSSIP_SRC := $(LIGHTNINGD_GOSSIP_HEADERS_WSRC:.h=.c)
-LIGHTNINGD_GOSSIP_OBJS := $(LIGHTNINGD_GOSSIP_SRC:.c=.o)
+GOSSIPD_HEADERS := $(GOSSIPD_HEADERS_WSRC) gossipd/broadcast.h
+
+GOSSIPD_SRC := $(GOSSIPD_HEADERS_WSRC:.h=.c)
+GOSSIPD_OBJS := $(GOSSIPD_SRC:.c=.o)
+$(GOSSIPD_OBJS): $(GOSSIPD_HEADERS)
 
 # Make sure these depend on everything.
-ALL_OBJS += $(LIGHTNINGD_GOSSIP_OBJS)
+ALL_C_SOURCES += $(GOSSIPD_SRC)
+ALL_C_HEADERS += $(GOSSIPD_HEADERS)
 ALL_PROGRAMS += lightningd/lightning_gossipd
-ALL_GEN_HEADERS += $(wildcard gossipd/*wiregen.h)
 
-# For checking
-LIGHTNINGD_GOSSIP_ALLSRC_NOGEN := $(filter-out gossipd/%wiregen.c, $(LIGHTNINGD_GOSSIP_CLIENT_SRC) $(LIGHTNINGD_GOSSIP_SRC))
-LIGHTNINGD_GOSSIP_ALLHEADERS_NOGEN := $(filter-out gossipd/%wiregen.h, $(LIGHTNINGD_GOSSIP_CLIENT_HEADERS) $(LIGHTNINGD_GOSSIP_HEADERS))
-
-# Add to headers which any object might need.
-LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_GOSSIP_HEADERS)
+# Here's what lightningd depends on
+LIGHTNINGD_CONTROL_HEADERS += gossipd/gossipd_wiregen.h
+LIGHTNINGD_CONTROL_OBJS += gossipd/gossipd_wiregen.o
 
 # Common source we use.
 GOSSIPD_COMMON_OBJS :=				\
@@ -81,21 +68,6 @@ GOSSIPD_COMMON_OBJS :=				\
 	lightningd/gossip_msg.o			\
 	wire/onion_wiregen.o
 
-$(LIGHTNINGD_GOSSIP_OBJS) $(LIGHTNINGD_GOSSIP_CLIENT_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_GOSSIP_HEADERS)
+lightningd/lightning_gossipd: $(GOSSIPD_OBJS) $(GOSSIPD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(HSMD_CLIENT_OBJS)
 
-$(LIGHTNINGD_GOSSIP_CONTROL_OBJS) : $(LIGHTNINGD_GOSSIP_CONTROL_HEADERS)
-
-gossipd-all: lightningd/lightning_gossipd $(LIGHTNINGD_GOSSIP_CLIENT_OBJS)
-
-lightningd/lightning_gossipd: $(LIGHTNINGD_GOSSIP_OBJS) $(GOSSIPD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
-
-check-source: $(LIGHTNINGD_GOSSIP_ALLSRC_NOGEN:%=check-src-include-order/%) $(LIGHTNINGD_GOSSIP_ALLHEADERS_NOGEN:%=check-hdr-include-order/%)
-check-source-bolt: $(LIGHTNINGD_GOSSIP_SRC:%=bolt-check/%) $(LIGHTNINGD_GOSSIP_HEADERS:%=bolt-check/%)
-check-whitespace: $(LIGHTNINGD_GOSSIP_ALLSRC_NOGEN:%=check-whitespace/%) $(LIGHTNINGD_GOSSIP_ALLHEADERS_NOGEN:%=check-whitespace/%)
-
-clean: gossipd-clean
-
-gossipd-clean:
-	$(RM) $(LIGHTNINGD_GOSSIP_OBJS)
-
--include gossipd/test/Makefile
+include gossipd/test/Makefile

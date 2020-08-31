@@ -1,38 +1,31 @@
 #! /usr/bin/make
 
-# Designed to be run one level up
-channeld-wrongdir:
-	$(MAKE) -C ../.. lightningd/channel-all
-
-default: channeld-all
-
-channeld-all: lightningd/lightning_channeld
-
-LIGHTNINGD_CHANNEL_HEADERS_GEN :=			\
-	channeld/gen_full_channel_error_names.h		\
-	channeld/channeld_wiregen.h
-
-LIGHTNINGD_CHANNEL_HEADERS_NOGEN :=			\
+CHANNELD_HEADERS :=			\
+	channeld/gen_full_channel_error_names.h	\
+	channeld/channeld_wiregen.h		\
 	channeld/channeld_htlc.h		\
 	channeld/commit_tx.h			\
 	channeld/full_channel.h			\
 	channeld/full_channel_error.h		\
 	channeld/watchtower.h
 
-LIGHTNINGD_CHANNEL_HEADERS := $(LIGHTNINGD_CHANNEL_HEADERS_GEN) $(LIGHTNINGD_CHANNEL_HEADERS_NOGEN)
-
-LIGHTNINGD_CHANNEL_SRC := channeld/channeld.c	\
+CHANNELD_SRC := channeld/channeld.c	\
 	channeld/commit_tx.c			\
 	channeld/full_channel.c			\
 	channeld/channeld_wiregen.c		\
 	channeld/watchtower.c
 
-LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o)
+CHANNELD_OBJS := $(CHANNELD_SRC:.c=.o)
+$(CHANNELD_OBJS): $(CHANNELD_HEADERS)
 
 # Make sure these depend on everything.
-ALL_OBJS += $(LIGHTNINGD_CHANNEL_OBJS)
+ALL_C_SOURCES += $(CHANNELD_SRC)
+ALL_C_HEADERS += $(CHANNELD_HEADERS)
 ALL_PROGRAMS += lightningd/lightning_channeld
-ALL_GEN_HEADERS += $(LIGHTNINGD_CHANNEL_HEADERS_GEN)
+
+# Here's what lightningd depends on
+LIGHTNINGD_CONTROL_HEADERS += channeld/channeld_wiregen.h
+LIGHTNINGD_CONTROL_OBJS += channeld/channeld_wiregen.o
 
 # Common source we use.
 CHANNELD_COMMON_OBJS :=				\
@@ -96,37 +89,9 @@ CHANNELD_COMMON_OBJS :=				\
 	wire/fromwire.o				\
 	wire/towire.o
 
-LIGHTNINGD_CHANNEL_SRC_GEN := $(filter channeld/%_wiregen.c, $(LIGHTNINGD_CHANNEL_SRC))
-
-LIGHTNINGD_CHANNEL_SRC_NOGEN := $(filter-out channeld/%_wiregen.c, $(LIGHTNINGD_CHANNEL_SRC))
-
-# Control daemon uses this:
-LIGHTNINGD_CHANNEL_CONTROL_HEADERS := $(LIGHTNINGD_CHANNEL_HEADERS_GEN)
-LIGHTNINGD_CHANNEL_CONTROL_SRC := $(LIGHTNINGD_CHANNEL_SRC_GEN)
-LIGHTNINGD_CHANNEL_CONTROL_OBJS := $(LIGHTNINGD_CHANNEL_CONTROL_SRC:.c=.o)
-
-# Add to headers which any object might need.
-LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_CHANNEL_HEADERS_GEN)
-LIGHTNINGD_HEADERS_NOGEN += $(LIGHTNINGD_CHANNEL_HEADERS_NOGEN)
-
 channeld/gen_full_channel_error_names.h: channeld/full_channel_error.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr channeld/full_channel_error.h > $@
 
+lightningd/lightning_channeld: $(CHANNELD_OBJS) $(WIRE_ONION_OBJS) $(CHANNELD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)
 
-$(LIGHTNINGD_CHANNEL_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_GOSSIP_CONTROL_HEADERS)
-
-LIGHTNINGD_CHANNEL_OBJS := $(LIGHTNINGD_CHANNEL_SRC:.c=.o)
-
-lightningd/lightning_channeld: $(LIGHTNINGD_CHANNEL_OBJS) $(WIRE_ONION_OBJS) $(CHANNELD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
-
-check-source: $(LIGHTNINGD_CHANNEL_SRC_NOGEN:%=check-src-include-order/%)
-check-source-bolt: $(LIGHTNINGD_CHANNEL_SRC:%=bolt-check/%) $(LIGHTNINGD_CHANNEL_HEADERS:%=bolt-check/%)
-
-check-whitespace: $(LIGHTNINGD_CHANNEL_SRC_NOGEN:%=check-whitespace/%) $(LIGHTNINGD_CHANNEL_HEADERS_NOGEN:%=check-whitespace/%)
-
-clean: lightningd/channel-clean
-
-lightningd/channel-clean:
-	$(RM) $(LIGHTNINGD_CHANNEL_OBJS)
-
--include channeld/test/Makefile
+include channeld/test/Makefile

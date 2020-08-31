@@ -2,8 +2,11 @@
 TOOLS := tools/hsmtool tools/check-bolt
 TOOLS_SRC := $(TOOLS:=.c)
 TOOLS_OBJ := $(TOOLS_SRC:.c=.o)
+
+# Make sure these depend on everything.
+ALL_C_SOURCES += $(TOOLS_SRC)
+ALL_C_HEADERS +=
 ALL_PROGRAMS += $(TOOLS)
-ALL_OBJS += $(TOOLS_OBJ)
 
 TOOLS_COMMON_OBJS = common/utils.o
 
@@ -22,8 +25,6 @@ tools/lightning-hsmtool: tools/hsmtool
 clean: tools-clean
 
 tools-clean:
-	$(RM) tools/check-bolt tools/*.o
 	$(RM) tools/headerversions
-	$(RM) $(TOOLS_OBJ) $(TOOLS) tools/lightning-hsmtool
 
 include tools/test/Makefile

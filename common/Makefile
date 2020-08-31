@@ -104,8 +104,7 @@ $(COMMON_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(EXTERNAL_HEADERS) $(COMMON_
 # Only common/version.c can include this header.
 common/version.o: gen_version.h
 
-ALL_GEN_HEADERS += $(COMMON_HEADERS_GEN)
-ALL_OBJS += $(COMMON_OBJS)
+ALL_C_HEADERS += $(COMMON_HEADERS)
 
 common/gen_htlc_state_names.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr common/htlc_state.h > $@

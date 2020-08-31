@@ -2,6 +2,9 @@ WALLET_TEST_SRC := $(wildcard wallet/test/run-*.c)
 WALLET_TEST_OBJS := $(WALLET_TEST_SRC:.c=.o)
 WALLET_TEST_PROGRAMS := $(WALLET_TEST_OBJS:.o=)
 
+ALL_C_SOURCES += $(WALLET_TEST_SRC)
+ALL_TEST_PROGRAMS += $(WALLET_TEST_PROGRAMS)
+
 WALLET_TEST_COMMON_OBJS :=			\
 	common/amount.o				\
 	common/base32.o				\
@@ -24,17 +27,10 @@ WALLET_TEST_COMMON_OBJS :=			\
 	wire/towire.o				\
 	wire/fromwire.o
 
-# Make sure these depend on everything.
-ALL_TEST_PROGRAMS += $(WALLET_TEST_PROGRAMS)
-ALL_OBJS += $(WALLET_LIB_OBJS) $(WALLET_TEST_OBJS)
-
 $(WALLET_TEST_PROGRAMS): $(BITCOIN_OBJS) $(WALLET_TEST_COMMON_OBJS)
-$(WALLET_TEST_OBJS): $(WALLET_LIB_HEADERS) $(WALLET_LIB_SRC)
+$(WALLET_TEST_OBJS): $(WALLET_HDRS) $(WALLET_SRC)
 
 wallet/tests: $(WALLET_TEST_PROGRAMS:%=unittest/%)
-
-$(WALLET_TEST_PROGRAMS): $(WALLET_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
-$(WALLET_TEST_OBJS): $(WALLET_SRC)
 
 update-mocks: $(WALLET_TEST_SRC:%=update-mocks/%)
 

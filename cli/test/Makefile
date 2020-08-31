@@ -4,8 +4,8 @@ CLI_TEST_SRC := $(wildcard cli/test/run-*.c)
 CLI_TEST_OBJS := $(CLI_TEST_SRC:.c=.o)
 CLI_TEST_PROGRAMS := $(CLI_TEST_OBJS:.o=)
 
+ALL_C_SOURCES += $(CLI_TEST_SRC)
 ALL_TEST_PROGRAMS += $(CLI_TEST_PROGRAMS)
-ALL_OBJS += $(CLI_TEST_OBJS)
 
 CLI_TEST_COMMON_OBJS :=				\
 	common/configdir.o			\

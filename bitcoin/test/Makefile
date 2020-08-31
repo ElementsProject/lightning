@@ -8,7 +8,7 @@ $(BITCOIN_TEST_PROGRAMS): $(CCAN_OBJS) $(BITCOIN_TEST_COMMON_OBJS) bitcoin/chain
 $(BITCOIN_TEST_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(BITCOIN_SRC)
 
 ALL_TEST_PROGRAMS += $(BITCOIN_TEST_PROGRAMS)
-ALL_OBJS += $(BITCOIN_TEST_PROGRAMS:=.o)
+ALL_C_SOURCES += $(BITCOIN_TEST_PROGRAMS:=.c)
 
 # This needs to know what level of optimization we're using.
 bitcoin/test/run-secret_eq_consttime.o: CFLAGS += -DCOPTFLAGS="\"${COPTFLAGS}\""
