@@ -7,7 +7,12 @@
 #include <common/type_to_string.h>
 #include <plugins/libplugin-pay.h>
 
-#define DEFAULT_FINAL_CLTV_DELTA 9
+/* BOLT #11:
+ * * `c` (24): `data_length` variable.
+ *    `min_final_cltv_expiry` to use for the last HTLC in the route.
+ *    Default is 18 if not specified.
+ */
+#define DEFAULT_FINAL_CLTV_DELTA 18
 
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
