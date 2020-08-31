@@ -89,7 +89,7 @@ $(TARGET_DIR)/libjsmn.a: $(TARGET_DIR)/jsmn-build/jsmn.o
 
 # Need separate build dir: changes inside submodule make git think it's dirty.
 $(TARGET_DIR)/libbacktrace.a: external/libbacktrace/backtrace.h
-	@mkdir $(TARGET_DIR)/libbacktrace-build 2>/dev/null || true
+	mkdir -p $(TARGET_DIR)/libbacktrace-build
 	cd $(TARGET_DIR)/libbacktrace-build && $(TOP)/libbacktrace/configure CC="$(CC)" --enable-static=yes $(CROSSCOMPILE_OPTS) --enable-shared=no --prefix=/ --libdir=/ && $(MAKE)
 	$(MAKE) -C $(TARGET_DIR)/libbacktrace-build DESTDIR=$$(pwd)/$(TARGET_DIR) install-exec
 
