@@ -1,5 +1,5 @@
 #include <wallet/db_common.h>
-#include "gen_db_sqlite3.c"
+#include "db_sqlite3_sqlgen.c"
 #include <ccan/ccan/tal/str/str.h>
 #include <lightningd/log.h>
 #include <stdio.h>
