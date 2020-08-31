@@ -8,7 +8,6 @@
 *.gcno
 *.dSYM
 *.rej
-*.po
 *.pyc
 .cppcheck-suppress
 .mypy_cache

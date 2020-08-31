@@ -297,6 +297,9 @@ ALL_GEN_HEADERS := $(filter gen%.h %printgen.h %wiregen.h,$(ALL_C_HEADERS))
 ALL_GEN_SOURCES := $(filter gen%.c %printgen.c %wiregen.c,$(ALL_C_SOURCES))
 ALL_NONGEN_SRCFILES := $(filter-out gen%.h %printgen.h %wiregen.h,$(ALL_C_HEADERS)) $(filter-out gen%.c %printgen.c %wiregen.c,$(ALL_C_SOURCES))
 
+# Don't delete these intermediaries.
+.PRECIOUS: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
+
 # Every single object file.
 ALL_OBJS := $(ALL_C_SOURCES:.c=.o)
 
