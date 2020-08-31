@@ -9,6 +9,7 @@ before_install:
 
 env:
   # These run superficial checks that don't take too long on their own
+  - ARCH=64 TEST_CMD="make" NO_PYTHON=1
   - ARCH=64 TEST_CMD="make check-source check-units installcheck" COPTFLAGS="-O3"
   - ARCH=32 TEST_CMD="make check-source check-units installcheck" DEVELOPER=0
   - ARCH=64 TEST_CMD="make check-source check-units installcheck" DEVELOPER=0 COMPILER=gcc-4.8

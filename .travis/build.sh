@@ -6,12 +6,12 @@ export SLOW_MACHINE=1
 export CC=${COMPILER:-gcc}
 export DEVELOPER=${DEVELOPER:-1}
 export EXPERIMENTAL_FEATURES=${EXPERIMENTAL_FEATURES:-0}
-export SOURCE_CHECK_ONLY=${SOURCE_CHECK_ONLY:-"false"}
 export COMPAT=${COMPAT:-1}
 export PATH=$CWD/dependencies/bin:"$HOME"/.local/bin:"$PATH"
 export PYTEST_PAR=2
 export PYTEST_SENTRY_ALWAYS_REPORT=1
 export BOLTDIR=lightning-rfc
+
 # Allow up to 4 concurrent tests when not under valgrind, which might run out of memory.
 if [ "$VALGRIND" = 0 ]; then
     PYTEST_PAR=4
@@ -28,33 +28,34 @@ if [ ! -f dependencies/bin/bitcoind ]; then
     rm -rf bitcoin-0.20.1-x86_64-linux-gnu.tar.gz bitcoin-0.20.1
 fi
 
-pyenv global 3.7
+if [ "$NO_PYTHON" != 1 ]; then
+    pyenv global 3.7
 
-# Update pip first, may save us the compilation of binary packages in the next call
-pip3 install --user -U --quiet --progress-bar off \
-     pip \
-     pytest-test-groups==1.0.3
+    pip3 install --user -U --quiet --progress-bar off \
+	 pip \
+	 pytest-test-groups==1.0.3
 
-pip3 install --user -U --quiet --progress-bar off \
-     -r requirements.txt \
-     -r contrib/pyln-client/requirements.txt \
-     -r contrib/pyln-proto/requirements.txt \
-     -r contrib/pyln-testing/requirements.txt
+    pip3 install --user -U --quiet --progress-bar off \
+	 -r requirements.txt \
+	 -r contrib/pyln-client/requirements.txt \
+	 -r contrib/pyln-proto/requirements.txt \
+	 -r contrib/pyln-testing/requirements.txt
 
-pip3 install --user -U --quiet --progress-bar off \
-     pytest-sentry \
-     pytest-rerunfailures
+    pip3 install --user -U --quiet --progress-bar off \
+	 pytest-sentry \
+	 pytest-rerunfailures
+
+   cat > pytest.ini << EOF
+[pytest]
+addopts=-p no:logging --color=no --reruns=5
+EOF
+fi
 
 echo "Configuration which is going to be built:"
 echo -en 'travis_fold:start:script.1\\r'
 ./configure CC="$CC"
 cat config.vars
 echo -en 'travis_fold:end:script.1\\r'
-
-cat > pytest.ini << EOF
-[pytest]
-addopts=-p no:logging --color=no --reruns=5
-EOF
 
 git clone https://github.com/lightningnetwork/lightning-rfc.git
 
