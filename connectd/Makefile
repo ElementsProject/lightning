@@ -1,18 +1,6 @@
 #! /usr/bin/make
 
-# Designed to be run one level up
-connectd-wrongdir:
-	$(MAKE) -C .. connectd-all
-
-default: connectd-all
-
-# Control daemon uses this:
-LIGHTNINGD_CONNECT_CONTROL_HEADERS := connectd/connectd_wiregen.h connectd/connectd_gossipd_wiregen.h
-LIGHTNINGD_CONNECT_CONTROL_SRC := connectd/connectd_wiregen.c connectd/connectd_gossipd_wiregen.c
-LIGHTNINGD_CONNECT_CONTROL_OBJS := $(LIGHTNINGD_CONNECT_CONTROL_SRC:.c=.o)
-
-# connectd needs these:
-LIGHTNINGD_CONNECT_HEADERS := connectd/connectd_wiregen.h \
+CONNECTD_HEADERS := connectd/connectd_wiregen.h		\
 	connectd/connectd_gossipd_wiregen.h		\
 	connectd/connectd.h				\
 	connectd/peer_exchange_initmsg.h		\
@@ -20,20 +8,20 @@ LIGHTNINGD_CONNECT_HEADERS := connectd/connectd_wiregen.h \
 	connectd/netaddress.h				\
 	connectd/tor_autoservice.h			\
 	connectd/tor.h
-LIGHTNINGD_CONNECT_SRC := $(LIGHTNINGD_CONNECT_HEADERS:.h=.c)
-LIGHTNINGD_CONNECT_OBJS := $(LIGHTNINGD_CONNECT_SRC:.c=.o)
+
+CONNECTD_SRC := $(CONNECTD_HEADERS:.h=.c) connectd/connectd.c
+
+CONNECTD_OBJS := $(CONNECTD_SRC:.c=.o)
+$(CONNECTD_OBJS): $(CONNECTD_HEADERS)
 
 # Make sure these depend on everything.
-ALL_OBJS += $(LIGHTNINGD_CONNECT_OBJS)
+ALL_C_SOURCES += $(CONNECTD_SRC)
+ALL_C_HEADERS += $(CONNECTD_HEADERS)
 ALL_PROGRAMS += lightningd/lightning_connectd
-ALL_GEN_HEADERS += connectd/connectd_wiregen.h connectd/connectd_gossipd_wiregen.h
 
-# For checking
-LIGHTNINGD_CONNECT_ALLSRC_NOGEN := $(filter-out connectd/%wiregen.c, $(LIGHTNINGD_CONNECT_CLIENT_SRC) $(LIGHTNINGD_CONNECT_SRC))
-LIGHTNINGD_CONNECT_ALLHEADERS_NOGEN := $(filter-out connectd/%wiregen.h, $(LIGHTNINGD_CONNECT_CLIENT_HEADERS) $(LIGHTNINGD_CONNECT_HEADERS))
-
-# Add to headers which any object might need.
-LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_CONNECT_HEADERS)
+# Here's what lightningd depends on
+LIGHTNINGD_CONTROL_HEADERS += connectd/connectd_wiregen.h
+LIGHTNINGD_CONTROL_OBJS += connectd/connectd_wiregen.o
 
 # Common source we use.
 CONNECTD_COMMON_OBJS :=				\
@@ -77,21 +65,6 @@ CONNECTD_COMMON_OBJS :=				\
 	lightningd/gossip_msg.o			\
 	wire/onion_wiregen.o
 
-$(LIGHTNINGD_CONNECT_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_CONNECT_HEADERS)
+lightningd/lightning_connectd: $(CONNECTD_OBJS) $(CONNECTD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(HSMD_CLIENT_OBJS)
 
-$(LIGHTNINGD_CONNECT_CONTROL_OBJS) : $(LIGHTNINGD_CONNECT_CONTROL_HEADERS)
-
-connectd-all: lightningd/lightning_connectd
-
-lightningd/lightning_connectd: $(LIGHTNINGD_CONNECT_OBJS) $(CONNECTD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
-
-check-source: $(LIGHTNINGD_CONNECT_ALLSRC_NOGEN:%=check-src-include-order/%) $(LIGHTNINGD_CONNECT_ALLHEADERS_NOGEN:%=check-hdr-include-order/%)
-check-source-bolt: $(LIGHTNINGD_CONNECT_SRC:%=bolt-check/%) $(LIGHTNINGD_CONNECT_HEADERS:%=bolt-check/%)
-check-whitespace: $(LIGHTNINGD_CONNECT_ALLSRC_NOGEN:%=check-whitespace/%) $(LIGHTNINGD_CONNECT_ALLHEADERS_NOGEN:%=check-whitespace/%)
-
-clean: connectd-clean
-
-connectd-clean:
-	$(RM) $(LIGHTNINGD_CONNECT_OBJS)
-
--include connectd/test/Makefile
+include connectd/test/Makefile

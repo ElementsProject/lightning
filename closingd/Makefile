@@ -1,44 +1,21 @@
 #! /usr/bin/make
 
-# Designed to be run one level up
-closingd-wrongdir:
-	$(MAKE) -C ../.. closingd-all
+CLOSINGD_HEADERS := closingd/closingd_wiregen.h
 
-default: closingd-all
+CLOSINGD_SRC := closingd/closingd.c	\
+	$(CLOSINGD_HEADERS:.h=.c)
 
-closingd-all: lightningd/lightning_closingd
-
-# closingd needs these:
-LIGHTNINGD_CLOSING_HEADERS_GEN :=			\
-	closingd/closingd_wiregen.h
-
-LIGHTNINGD_CLOSING_HEADERS_NOGEN :=
-
-LIGHTNINGD_CLOSING_HEADERS := $(LIGHTNINGD_CLOSING_HEADERS_GEN) $(LIGHTNINGD_CLOSING_HEADERS_NOGEN)
-
-LIGHTNINGD_CLOSING_SRC := closingd/closingd.c	\
-	$(LIGHTNINGD_CLOSING_HEADERS:.h=.c)
-LIGHTNINGD_CLOSING_OBJS := $(LIGHTNINGD_CLOSING_SRC:.c=.o)
+CLOSINGD_OBJS := $(CLOSINGD_SRC:.c=.o)
+$(CLOSINGD_OBJS): $(CLOSINGD_HEADERS)
 
 # Make sure these depend on everything.
-ALL_OBJS += $(LIGHTNINGD_CLOSING_OBJS)
+ALL_C_SOURCES += $(CLOSINGD_SRC)
+ALL_C_HEADERS += $(CLOSINGD_HEADERS)
 ALL_PROGRAMS += lightningd/lightning_closingd
-ALL_GEN_HEADERS += $(LIGHTNINGD_CLOSING_HEADERS_GEN)
 
-# Control daemon uses this:
-LIGHTNINGD_CLOSING_CONTROL_HEADERS := $(LIGHTNINGD_CLOSING_HEADERS)
-LIGHTNINGD_CLOSING_CONTROL_SRC := $(LIGHTNINGD_CLOSING_HEADERS:.h=.c)
-LIGHTNINGD_CLOSING_CONTROL_OBJS := $(LIGHTNINGD_CLOSING_CONTROL_SRC:.c=.o)
-
-LIGHTNINGD_CLOSING_GEN_SRC := $(filter closingd/%wiregen.c, $(LIGHTNINGD_CLOSING_SRC) $(LIGHTNINGD_CLOSING_CONTROL_SRC))
-
-LIGHTNINGD_CLOSING_SRC_NOGEN := $(filter-out closingd/%wiregen.c, $(LIGHTNINGD_CLOSING_SRC))
-
-# Add to headers which any object might need.
-LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_CLOSING_HEADERS_GEN)
-LIGHTNINGD_HEADERS_NOGEN += $(LIGHTNINGD_CLOSING_HEADERS_NOGEN)
-
-$(LIGHTNINGD_CLOSING_OBJS): $(LIGHTNINGD_HEADERS)
+# Here's what lightningd depends on
+LIGHTNINGD_CONTROL_HEADERS += closingd/closingd_wiregen.h
+LIGHTNINGD_CONTROL_OBJS += closingd/closingd_wiregen.o
 
 # Common source we use.
 CLOSINGD_COMMON_OBJS :=				\
@@ -84,18 +61,6 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/wireaddr.o			\
 	gossipd/gossipd_peerd_wiregen.o
 
-LIGHTNINGD_CLOSING_OBJS := $(LIGHTNINGD_CLOSING_SRC:.c=.o) $(LIGHTNINGD_CLOSING_GEN_SRC:.c=.o)
-
-lightningd/lightning_closingd: $(LIGHTNINGD_CLOSING_OBJS) $(WIRE_ONION_OBJS) $(CLOSINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
-
-check-source: $(LIGHTNINGD_CLOSING_SRC_NOGEN:%=check-src-include-order/%)
-check-source-bolt: $(LIGHTNINGD_CLOSING_SRC:%=bolt-check/%) $(LIGHTNINGD_CLOSING_HEADERS:%=bolt-check/%)
-
-check-whitespace: $(LIGHTNINGD_CLOSING_SRC_NOGEN:%=check-whitespace/%) $(LIGHTNINGD_CLOSING_HEADERS_NOGEN:%=check-whitespace/%)
-
-clean: closingd-clean
-
-closingd-clean:
-	$(RM) $(LIGHTNINGD_CLOSING_OBJS)
+lightningd/lightning_closingd: $(CLOSINGD_OBJS) $(WIRE_ONION_OBJS) $(CLOSINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)
 
 -include closingd/test/Makefile

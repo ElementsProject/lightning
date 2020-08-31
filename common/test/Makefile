@@ -9,8 +9,8 @@ COMMON_TEST_COMMON_OBJS :=				\
 $(COMMON_TEST_PROGRAMS): $(COMMON_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
 $(COMMON_TEST_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC)
 
+ALL_C_SOURCES += $(COMMON_TEST_SRC)
 ALL_TEST_PROGRAMS += $(COMMON_TEST_PROGRAMS)
-ALL_OBJS += $(COMMON_TEST_PROGRAMS:=.o)
 
 # Sphinx test wants to decode TLVs.
 common/test/run-sphinx: wire/onion_wiregen.o wire/towire.o wire/fromwire.o

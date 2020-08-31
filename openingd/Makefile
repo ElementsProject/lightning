@@ -1,37 +1,21 @@
 #! /usr/bin/make
 
-# Designed to be run one level up
-opening-wrongdir:
-	$(MAKE) -C ../.. opening-all
+OPENINGD_HEADERS := openingd/openingd_wiregen.h
 
-default: opening-all
+OPENINGD_SRC := openingd/openingd.c	\
+	$(OPENINGD_HEADERS:.h=.c)
 
-opening-all: lightningd/lightning_openingd
+OPENINGD_OBJS := $(OPENINGD_SRC:.c=.o)
+$(OPENINGD_OBJS): $(OPENINGD_HEADERS)
 
-# opening needs these:
-LIGHTNINGD_OPENING_HEADERS_GEN :=			\
-	openingd/openingd_wiregen.h
+# Make sure these depend on everything.
+ALL_C_SOURCES += $(OPENINGD_SRC)
+ALL_C_HEADERS += $(OPENINGD_HEADERS)
+ALL_PROGRAMS += lightningd/lightning_openingd
 
-LIGHTNINGD_OPENING_HEADERS_NOGEN :=
-
-LIGHTNINGD_OPENING_HEADERS := $(LIGHTNINGD_OPENING_HEADERS_GEN) $(LIGHTNINGD_OPENING_HEADERS_NOGEN)
-
-LIGHTNINGD_OPENING_SRC := openingd/openingd.c	\
-	$(LIGHTNINGD_OPENING_HEADERS:.h=.c)
-LIGHTNINGD_OPENING_OBJS := $(LIGHTNINGD_OPENING_SRC:.c=.o)
-
-# Control daemon uses this:
-LIGHTNINGD_OPENING_CONTROL_HEADERS := $(LIGHTNINGD_OPENING_HEADERS)
-LIGHTNINGD_OPENING_CONTROL_SRC := $(LIGHTNINGD_OPENING_HEADERS:.h=.c)
-LIGHTNINGD_OPENING_CONTROL_OBJS := $(LIGHTNINGD_OPENING_CONTROL_SRC:.c=.o)
-
-LIGHTNINGD_OPENING_GEN_SRC := $(filter openingd/%wiregen.c, $(LIGHTNINGD_OPENING_SRC) $(LIGHTNINGD_OPENING_CONTROL_SRC))
-
-LIGHTNINGD_OPENING_SRC_NOGEN := $(filter-out openingd/%wiregen.c, $(LIGHTNINGD_OPENING_SRC))
-
-# Add to headers which any object might need.
-LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_OPENING_HEADERS_GEN)
-LIGHTNINGD_HEADERS_NOGEN += $(LIGHTNINGD_OPENING_HEADERS_NOGEN)
+# Here's what lightningd depends on
+LIGHTNINGD_CONTROL_HEADERS += openingd/openingd_wiregen.h
+LIGHTNINGD_CONTROL_OBJS += openingd/openingd_wiregen.o
 
 # Common source we use.
 OPENINGD_COMMON_OBJS :=				\
@@ -85,25 +69,6 @@ OPENINGD_COMMON_OBJS :=				\
 	gossipd/gossipd_peerd_wiregen.o		\
 	lightningd/gossip_msg.o
 
-$(LIGHTNINGD_OPENING_OBJS): $(LIGHTNINGD_HEADERS)
-
-LIGHTNINGD_OPENING_OBJS := $(LIGHTNINGD_OPENING_SRC:.c=.o) $(LIGHTNINGD_OPENING_GEN_SRC:.c=.o)
-
-# Make sure these depend on everything.
-ALL_OBJS += $(LIGHTNINGD_OPENING_OBJS)
-ALL_PROGRAMS += lightningd/lightning_openingd
-ALL_GEN_HEADERS += $(LIGHTNINGD_OPENING_HEADERS_GEN)
-
-lightningd/lightning_openingd: $(LIGHTNINGD_OPENING_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
-
-check-source: $(LIGHTNINGD_OPENING_SRC_NOGEN:%=check-src-include-order/%)
-check-source-bolt: $(LIGHTNINGD_OPENING_SRC:%=bolt-check/%) $(LIGHTNINGD_OPENING_HEADERS:%=bolt-check/%)
-
-check-whitespace: $(LIGHTNINGD_OPENING_SRC_NOGEN:%=check-whitespace/%) $(LIGHTNINGD_OPENING_HEADERS_NOGEN:%=check-whitespace/%)
-
-clean: opening-clean
-
-opening-clean:
-	$(RM) $(LIGHTNINGD_OPENING_OBJS)
+lightningd/lightning_openingd: $(OPENINGD_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)
 
 -include openingd/test/Makefile

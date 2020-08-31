@@ -1,38 +1,39 @@
 #! /usr/bin/make
 
-# Designed to be run one level up
-wire-wrongdir:
-	$(MAKE) -C .. wire-all
-
-WIRE_HEADERS_NOGEN := wire/onion_defs.h		\
+WIRE_HEADERS :=	wire/onion_defs.h		\
 		wire/peer_wire.h		\
-		wire/tlvstream.h			\
+		wire/tlvstream.h		\
 		wire/wire.h			\
 		wire/wire_sync.h		\
-		wire/wire_io.h
-WIRE_GEN_HEADERS := wire/peer_wiregen.h		\
+		wire/wire_io.h			\
+		wire/peer_wiregen.h		\
 		wire/onion_wiregen.h		\
 		wire/common_wiregen.h		\
 		wire/peer_printgen.h		\
 		wire/onion_printgen.h
 
-WIRE_GEN_SRC := wire/peer_wiregen.c wire/common_wiregen.c
-WIRE_GEN_ONION_SRC := wire/onion_wiregen.c
-WIRE_GEN_PRINT_SRC := wire/peer_printgen.c wire/onion_printgen.c
-
+# We don't include peer_printgen/onion_printgen here since most don't need it.
 WIRE_SRC := wire/wire_sync.c			\
 		wire/wire_io.c			\
 		wire/fromwire.c			\
 		wire/peer_wire.c		\
 		wire/tlvstream.c		\
-		wire/towire.c
-WIRE_HEADERS := $(WIRE_HEADERS_NOGEN) $(WIRE_GEN_HEADERS)
+		wire/towire.c			\
+		wire/common_wiregen.c		\
+		wire/peer_wiregen.c		\
+		wire/onion_wiregen.c	
 
-WIRE_OBJS := $(WIRE_SRC:.c=.o) $(WIRE_GEN_SRC:.c=.o)
-WIRE_ONION_OBJS := $(WIRE_GEN_ONION_SRC:.c=.o)
+WIRE_PRINT_SRC :=				\
+		wire/onion_printgen.c		\
+		wire/peer_printgen.c
 
-ALL_OBJS += $(WIRE_OBJS) $(WIRE_ONION_OBJS)
-ALL_GEN_HEADERS += $(WIRE_GEN_HEADERS)
+WIRE_OBJS := $(WIRE_SRC:.c=.o)
+WIRE_PRINT_OBJS := $(WIRE_PRINT_SRC:.c=.o)
+$(WIRE_OBJS) $(WIRE_PRINT_OBJS): $(WIRE_HEADERS)
+
+# Make sure these depend on everything.
+ALL_C_SOURCES += $(WIRE_SRC) $(WIRE_PRINT_SRC)
+ALL_C_HEADERS += $(WIRE_HEADERS)
 
 # They may not have the bolts.
 BOLT_EXTRACT=$(LOCAL_BOLTDIR)/tools/extract-formats.py
@@ -89,22 +90,9 @@ wire/onion_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='b
 
 wire/onion_wiregen.c_args := -s --expose-tlv-type=tlv_payload
 
-check-source: $(WIRE_SRC:%=check-src-include-order/%) $(WIRE_HEADERS_NOGEN:%=check-hdr-include-order/%)
-
-check-source-bolt: $(WIRE_SRC:%=bolt-check/%) $(WIRE_HEADERS_NOGEN:%=bolt-check/%)
-
-check-whitespace: $(WIRE_SRC:%=check-whitespace/%) $(WIRE_HEADERS_NOGEN:%=check-whitespace/%) check-whitespace/wire/Makefile
-
-clean: wire-clean
-
 maintainer-clean: wire-maintainer-clean
 
 wire-maintainer-clean:
 	$(RM) wire/gen_*_csv wire/extracted_*_experimental_csv
-
-wire-all: $(WIRE_OBJS) $(WIRE_ONION_OBJS)
-
-wire-clean:
-	$(RM) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(WIRE_GEN_SRC) $(WIRE_GEN_ONION_SRC) $(WIRE_GEN_HEADERS) wire/gen_*_wire_csv
 
 include wire/test/Makefile

@@ -6,10 +6,13 @@ ifeq ($(EXPERIMENTAL_FEATURES),1)
 DEVTOOLS += devtools/blindedpath
 endif
 
-DEVTOOLS_TOOL_SRC := $(DEVTOOLS:=.c)
-DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o) devtools/clean_topo.o
+DEVTOOLS_TOOL_SRC := $(DEVTOOLS:=.c) devtools/print_wire.c devtools/clean_topo.c
+DEVTOOLS_TOOL_OBJS := $(DEVTOOLS_TOOL_SRC:.c=.o)
 
-DEVTOOLS_BOLT_DEPS += $(BOLT_DEPS) tools/gen/print_impl_template tools/gen/print_header_template
+# Make sure these depend on everything.
+ALL_C_SOURCES += $(DEVTOOLS_TOOL_SRC)
+ALL_C_HEADERS += 
+ALL_PROGRAMS += $(DEVTOOLS)
 
 DEVTOOLS_COMMON_OBJS :=				\
 	common/amount.o				\
@@ -41,11 +44,9 @@ DEVTOOLS_COMMON_OBJS :=				\
 	wire/onion_wiregen.o			\
 	wire/peer_wiregen.o
 
-devtools-all: $(DEVTOOLS)
-
 devtools/bolt11-cli: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/bolt11-cli.o
 
-devtools/decodemsg: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/peer_printgen.o wire/onion_printgen.o devtools/print_wire.o devtools/decodemsg.o
+devtools/decodemsg: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) $(WIRE_PRINT_OBJS) wire/fromwire.o wire/towire.o devtools/print_wire.o devtools/decodemsg.o
 
 devtools/dump-gossipstore: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/dump-gossipstore.o gossipd/gossip_store_wiregen.o
 
@@ -83,14 +84,3 @@ devtools/lightning-checkmessage: $(DEVTOOLS_COMMON_OBJS) $(CCAN_OBJS) $(BITCOIN_
 devtools/route: $(DEVTOOLS_COMMON_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o common/gossmap.o common/random_select.o common/route.o common/dijkstra.o devtools/clean_topo.o devtools/route.o
 
 devtools/topology: $(DEVTOOLS_COMMON_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o wire/tlvstream.o common/gossmap.o common/random_select.o common/dijkstra.o common/route.o devtools/clean_topo.o devtools/topology.o
-
-# Make sure these depend on everything.
-ALL_PROGRAMS += $(DEVTOOLS)
-ALL_OBJS += $(DEVTOOLS_TOOL_OBJS)
-
-check-source: $(DEVTOOLS_SRC:%=check-src-include-order/%) $(DEVTOOLS_TOOLS_SRC:%=check-src-include-order/%)
-
-clean: devtools-clean
-
-devtools-clean:
-	$(RM) $(DEVTOOLS_TOOL_OBJS) $(DEVTOOLS)

@@ -204,7 +204,11 @@ WIRE_GEN := $(BOLT_GEN)
 # If you use wiregen, you're dependent on the tool, its templates, and Makefile
 WIRE_GEN_DEPS := $(WIRE_GEN) Makefile $(wildcard tools/gen/*_template)
 
-ALL_PROGRAMS =
+# These are filled by individual Makefiles
+ALL_PROGRAMS :=
+ALL_TEST_PROGRAMS :=
+ALL_C_SOURCES :=
+ALL_C_HEADERS := gen_header_versions.h gen_list_of_builtin_plugins.h gen_version.h
 
 CPPFLAGS += -DBINTOPKGLIBEXECDIR="\"$(shell sh tools/rel.sh $(bindir) $(pkglibexecdir))\""
 CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I/usr/local/include $(SQLITE3_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) -DBUILD_ELEMENTS=1
@@ -288,6 +292,14 @@ include tools/Makefile
 include plugins/Makefile
 include tests/plugins/Makefile
 
+# We make pretty much everything depend on these.
+ALL_GEN_HEADERS := $(filter gen%.h %printgen.h %wiregen.h,$(ALL_C_HEADERS))
+ALL_GEN_SOURCES := $(filter gen%.c %printgen.c %wiregen.c,$(ALL_C_SOURCES))
+ALL_NONGEN_SRCFILES := $(filter-out gen%.h %printgen.h %wiregen.h,$(ALL_C_HEADERS)) $(filter-out gen%.c %printgen.c %wiregen.c,$(ALL_C_SOURCES))
+
+# Every single object file.
+ALL_OBJS := $(ALL_C_SOURCES:.c=.o)
+
 # Generated from PLUGINS definition in plugins/Makefile
 gen_list_of_builtin_plugins.h : plugins/Makefile Makefile
 	@echo GEN $@
@@ -353,12 +365,12 @@ LOCAL_BOLTDIR=.tmp.lightningrfc
 bolt-precheck:
 	@[ -d $(BOLTDIR) ] || exit 0; set -e; if [ -z "$(BOLTVERSION)" ]; then rm -rf $(LOCAL_BOLTDIR); ln -sf $(BOLTDIR) $(LOCAL_BOLTDIR); exit 0; fi; [ "$$(git -C $(LOCAL_BOLTDIR) rev-list --max-count=1 HEAD 2>/dev/null)" != "$(BOLTVERSION)" ] || exit 0; rm -rf $(LOCAL_BOLTDIR) && git clone -q $(BOLTDIR) $(LOCAL_BOLTDIR) && cd $(LOCAL_BOLTDIR) && git checkout -q $(BOLTVERSION)
 
-check-source-bolt: $(ALL_TEST_PROGRAMS:%=bolt-check/%.c)
+check-source-bolt: $(ALL_NONGEN_SRCFILES:%=bolt-check/%)
 
 check-whitespace/%: %
 	@if grep -Hn '[ 	]$$' $<; then echo Extraneous whitespace found >&2; exit 1; fi
 
-check-whitespace: check-whitespace/Makefile check-whitespace/tools/check-bolt.c $(ALL_TEST_PROGRAMS:%=check-whitespace/%.c)
+check-whitespace: check-whitespace/Makefile check-whitespace/tools/check-bolt.c $(ALL_NONGEN_SRCFILES:%=check-whitespace/%)
 
 check-markdown:
 	@tools/check-markdown.sh
@@ -440,9 +452,6 @@ gen_version.h: FORCE
 gen_header_versions.h: tools/headerversions
 	@tools/headerversions $@
 
-# Rebuild the world if this changes.
-ALL_GEN_HEADERS += gen_header_versions.h
-
 # All binaries require the external libs, ccan and system library versions.
 $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS): $(EXTERNAL_LIBS) $(CCAN_OBJS)
 
@@ -462,8 +471,8 @@ $(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS) Makefile
 # Except for CCAN, we treat everything else as dependent on external/ bitcoin/ common/ wire/ and all generated headers, and Makefile
 $(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(ALL_GEN_HEADERS) $(EXTERNAL_HEADERS) Makefile
 
-# We generate headers in two ways, so regen when either changes (or Makefile)
-$(ALL_GEN_HEADERS): ccan/ccan/cdump/tools/cdump-enumstr Makefile
+# Regen headers when Makefile changes
+$(ALL_GEN_HEADERS): Makefile
 
 update-ccan:
 	mv ccan ccan.old
@@ -486,11 +495,12 @@ distclean: clean
 maintainer-clean: distclean
 	@echo 'This command is intended for maintainers to use; it'
 	@echo 'deletes files that may need special tools to rebuild.'
+	$(RM) $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 
 clean:
 	$(RM) $(CCAN_OBJS) $(CDUMP_OBJS) $(ALL_OBJS)
-	$(RM) $(ALL_PROGRAMS) $(ALL_PROGRAMS:=.o)
-	$(RM) $(ALL_TEST_PROGRAMS) $(ALL_TEST_PROGRAMS:=.o)
+	$(RM) $(ALL_PROGRAMS)
+	$(RM) $(ALL_TEST_PROGRAMS)
 	$(RM) gen_*.h */gen_* ccan/tools/configurator/configurator
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
 	find . -name '*gcda' -delete

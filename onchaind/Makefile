@@ -1,49 +1,34 @@
 #! /usr/bin/make
 
-# Designed to be run one level up
-onchaind-wrongdir:
-	$(MAKE) -C ../.. onchaind-all
+ONCHAIND_HEADERS :=				\
+	onchaind/onchaind_wiregen.h		\
+	onchaind/gen_onchain_types_names.h	\
+	onchaind/onchain_types.h		\
+	onchaind/onchaind_wire.h
 
-default: onchaind-all
-
-onchaind-all: lightningd/lightning_onchaind
+ONCHAIND_SRC := onchaind/onchaind.c	\
+	onchaind/onchaind_wiregen.c	\
+	onchaind/onchaind_wire.c	\
+	onchaind/onchaind.c
 
 onchaind/gen_onchain_types_names.h: onchaind/onchain_types.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr onchaind/onchain_types.h > $@
 
-# onchaind needs these:
-LIGHTNINGD_ONCHAIN_HEADERS_GEN :=			\
-	onchaind/onchaind_wiregen.h		\
-	onchaind/gen_onchain_types_names.h
+ONCHAIND_OBJS := $(ONCHAIND_SRC:.c=.o)
+$(ONCHAIND_OBJS): $(ONCHAIND_HEADERS)
 
-LIGHTNINGD_ONCHAIN_HEADERS_NOGEN :=			\
-	onchaind/onchain_types.h		\
+# Make sure these depend on everything.
+ALL_C_SOURCES += $(ONCHAIND_SRC)
+ALL_C_HEADERS += $(ONCHAIND_HEADERS)
+ALL_PROGRAMS += lightningd/lightning_onchaind
+
+# Here's what lightningd depends on
+LIGHTNINGD_CONTROL_HEADERS += \
+	onchaind/onchaind_wiregen.h \
 	onchaind/onchaind_wire.h
-
-LIGHTNINGD_ONCHAIN_HEADERS := $(LIGHTNINGD_ONCHAIN_HEADERS_GEN) $(LIGHTNINGD_ONCHAIN_HEADERS_NOGEN)
-
-LIGHTNINGD_ONCHAIN_SRC := onchaind/onchaind.c	\
-	onchaind/onchaind_wiregen.c		\
-	onchaind/onchaind_wire.c
-
-LIGHTNINGD_ONCHAIN_OBJS := $(LIGHTNINGD_ONCHAIN_SRC:.c=.o)
-
-# Control daemon uses this:
-LIGHTNINGD_ONCHAIN_CONTROL_HEADERS :=			\
-	onchaind/onchaind_wiregen.h		\
-	onchaind/onchaind_wire.h
-LIGHTNINGD_ONCHAIN_CONTROL_SRC := $(LIGHTNINGD_ONCHAIN_CONTROL_HEADERS:.h=.c)
-LIGHTNINGD_ONCHAIN_CONTROL_OBJS := $(LIGHTNINGD_ONCHAIN_CONTROL_SRC:.c=.o)
-
-LIGHTNINGD_ONCHAIN_GEN_SRC := $(filter onchaind/%wiregen.c, $(LIGHTNINGD_ONCHAIN_SRC) $(LIGHTNINGD_ONCHAIN_CONTROL_SRC))
-
-LIGHTNINGD_ONCHAIN_SRC_NOGEN := $(filter-out onchaind/%wiregen.c, $(LIGHTNINGD_ONCHAIN_SRC))
-
-# Add to headers which any object might need.
-LIGHTNINGD_HEADERS_GEN += $(LIGHTNINGD_ONCHAIN_HEADERS_GEN)
-LIGHTNINGD_HEADERS_NOGEN += $(LIGHTNINGD_ONCHAIN_HEADERS_NOGEN)
-
-$(LIGHTNINGD_ONCHAIN_OBJS): $(LIGHTNINGD_HEADERS)
+LIGHTNINGD_CONTROL_OBJS += \
+	onchaind/onchaind_wiregen.o \
+	onchaind/onchaind_wire.o
 
 # Common source we use.
 ONCHAIND_COMMON_OBJS :=				\
@@ -78,23 +63,6 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/version.o			\
 	common/wallet.o
 
-LIGHTNINGD_ONCHAIN_OBJS := $(LIGHTNINGD_ONCHAIN_SRC:.c=.o) $(LIGHTNINGD_ONCHAIN_GEN_SRC:.c=.o)
+lightningd/lightning_onchaind: $(ONCHAIND_OBJS) $(WIRE_ONION_OBJS) $(ONCHAIND_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)
 
-# Make sure these depend on everything.
-ALL_OBJS += $(LIGHTNINGD_ONCHAIN_OBJS)
-ALL_PROGRAMS += lightningd/lightning_onchaind
-ALL_GEN_HEADERS += $(LIGHTNINGD_ONCHAIN_HEADERS_GEN)
-
-lightningd/lightning_onchaind: $(LIGHTNINGD_ONCHAIN_OBJS) $(WIRE_ONION_OBJS) $(ONCHAIND_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(LIGHTNINGD_HSM_CLIENT_OBJS)
-
-check-source: $(LIGHTNINGD_ONCHAIN_SRC_NOGEN:%=check-src-include-order/%)
-check-source-bolt: $(LIGHTNINGD_ONCHAIN_SRC:%=bolt-check/%) $(LIGHTNINGD_ONCHAIN_HEADERS:%=bolt-check/%)
-
-check-whitespace: $(LIGHTNINGD_ONCHAIN_SRC_NOGEN:%=check-whitespace/%) $(LIGHTNINGD_ONCHAIN_HEADERS_NOGEN:%=check-whitespace/%)
-
-clean: onchaind-clean
-
-onchaind-clean:
-	$(RM) $(LIGHTNINGD_ONCHAIN_OBJS)
-
--include onchaind/test/Makefile
+include onchaind/test/Makefile
