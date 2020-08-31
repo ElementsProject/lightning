@@ -1,0 +1,72 @@
+.TH "LIGHTNING-PING" "7" "" "" "lightning-ping"
+.SH NAME
+lightning-ping - Command to check if a node is up\.
+.SH SYNOPSIS
+
+\fBping\fR \fIid\fR [len] [pongbytes]
+
+.SH DESCRIPTION
+
+The \fBping\fR command check if the node with id is ready to talk\. It accept the following parameter:
+
+.RS
+.IP \[bu]
+\fIid\fR: A string that rappresent the node id;
+.IP \[bu]
+\fIlen\fR: A integer that rappresent the lenght of {\.\.\.}, by default is 128;
+.IP \[bu]
+\fIpongbytes\fR: An integer that rappresent the lenght of {}, by default is 128\.
+
+.RE
+.SH EXAMPLE JSON REQUEST
+.nf
+.RS
+{
+  "id": 82,
+  "method": "ping",
+  "params": {
+    "len": 128,
+    "pongbytes": 128
+  }
+}
+.RE
+
+.fi
+.SH RETURN VALUE
+
+On success, the command will return an object with a single string\.
+
+.RS
+.IP \[bu]
+\fItotlen\fR: A string that rappresent the answer lenght of {}\.
+
+.RE
+
+On failure, one of the following error codes may be returned:
+
+.RS
+.IP \[bu]
+-32602: Error in given parameters or unknow peer\.
+
+.RE
+.SH EXAMPLE JSON RESPONSE
+.nf
+.RS
+{
+   "totlen": 132
+}
+.RE
+
+.fi
+.SH AUTHOR
+
+Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command\.
+
+.SH SEE ALSO
+
+\fBlightning-connect\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

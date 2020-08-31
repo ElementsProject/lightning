@@ -45,7 +45,7 @@ On success, an object with the following information is returned:
 
 On failure, one of the following error codes may be returned:
 
-- -32602. Error in given parameters or some error happened during the command process.
+- -32602: Error in given parameters or some error happened during the command process.
 
 EXAMPLE JSON RESPONSE
 -----

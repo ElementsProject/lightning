@@ -33,7 +33,7 @@ On success, a object will be return with the following proprieties:
 
 On failure, one of the following error codes may be returned:
 
-- -32602. Error in given parameters.
+- -32602: Error in given parameters.
 
 EXAMPLE JSON RESPONSE
 ---------------------

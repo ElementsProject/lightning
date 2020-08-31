@@ -1,0 +1,34 @@
+.TH "LIGHTNING-STOP" "7" "" "" "lightning-stop"
+.SH NAME
+lightning-stop - Command to shut-off c-lightning node\.
+.SH SYNOPSIS
+
+\fBstop\fR
+
+.SH DESCRIPTION
+
+The \fBstop\fR is a RPC command to shut-off the c-lightning node\.
+
+.SH EXAMPLE JSON REQUEST
+.nf
+.RS
+{
+  "id": 82,
+  "method": "stop",
+  "params": {}
+}
+.RE
+
+.fi
+.SH RETURN VALUE
+
+On success, the command will return a empty object\.
+
+.SH AUTHOR
+
+Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

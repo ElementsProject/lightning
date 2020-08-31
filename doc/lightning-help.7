@@ -1,0 +1,69 @@
+.TH "LIGHTNING-HELP" "7" "" "" "lightning-help"
+.SH NAME
+lightning-help - Command to return all information about RPC commands\.
+.SH SYNOPSIS
+
+\fBhelp\fR
+
+.SH DESCRIPTION
+
+The \fBhelp\fR is a RPC command which is possible consult all information about the RPC commands\.
+
+.SH EXAMPLE JSON REQUEST
+.nf
+.RS
+{
+  "id": 82,
+  "method": "help",
+  "params": {}
+}
+.RE
+
+.fi
+.SH RETURN VALUE
+
+On success, a object will be return with the following proprieties:
+
+.RS
+.IP \[bu]
+\fIcommand\fR: A string that rappresent the stucture of the command\.
+.IP \[bu]
+\fIcategory\fR: A string that rappresent the category\.
+.IP \[bu]
+\fIdescription\fR: A string that rappresent the description\.
+.IP \[bu]
+\fIverbose\fR: A string that rappresent the verbode description\.
+
+.RE
+
+On failure, one of the following error codes may be returned:
+
+.RS
+.IP \[bu]
+-32602: Error in given parameters\.
+
+.RE
+.SH EXAMPLE JSON RESPONSE
+.nf
+.RS
+{
+    "help": [
+      {
+        "command": "autocleaninvoice [cycle_seconds] [expired_by]",
+        "category": "plugin",
+        "description": "Set up autoclean of expired invoices. ",
+        "verbose": "Perform cleanup every {cycle_seconds} (default 3600), or disable autoclean if 0. Clean up expired invoices that have expired for {expired_by} seconds (default 86400). "
+      }
+    ]
+}
+.RE
+
+.fi
+.SH AUTHOR
+
+Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

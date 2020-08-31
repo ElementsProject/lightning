@@ -36,7 +36,8 @@ On success, the command will return an object with a single string.
 - *totlen*: A string that rappresent the answer lenght of {}.
 
 On failure, one of the following error codes may be returned:
- -32602. Error in given parameters or unknow peer.
+
+- -32602: Error in given parameters or unknow peer.
 
 EXAMPLE JSON RESPONSE
 -----

@@ -1,0 +1,122 @@
+.TH "LIGHTNING-GETINFO" "7" "" "" "lightning-getinfo"
+.SH NAME
+lightning-getinfo - Command to receive all information about the c-lightning node\.
+.SH SYNOPSIS
+
+\fBgetinfo\fR
+
+.SH DESCRIPTION
+
+The \fBgetinfo\fR is a RPC command which is possible receive all node informations\.
+
+.SH EXAMPLE JSON REQUEST
+.nf
+.RS
+{
+  "id": 82,
+  "method": "getinfo",
+  "params": {}
+}
+.RE
+
+.fi
+.SH RETURN VALUE
+
+On success, an object with the following information is returned:
+
+.RS
+.IP \[bu]
+\fIid\fR: A string that rappresents the public key of the node\. It will rappresent the node on the public network\.
+.IP \[bu]
+\fIalias\fR: A string that rappresents the alias of the node, by default is calculate from the public key (node id)\.
+.IP \[bu]
+\fIcolor\fR: A string that rappresents the color of the node\.
+.IP \[bu]
+\fInum_peers\fR: An integer that rappresents the number of peer connect to the node\.
+.IP \[bu]
+\fInum_pending_channels\fR: An integer that rappresents the number of channel with pending status\.
+.IP \[bu]
+\fInum_active_channels\fR: A integer that rappresents the number of channel with the active status\.
+.IP \[bu]
+\fInum_inactive_channels\fR: A integer that rappresents the number of channel with the inactive status\.
+.IP \[bu]
+\fIaddress\fR: An array that rappresents all addresses of the node, each object inside the array contains the following proprieties:.RS
+.IP \[bu]
+\fItype\fR: A string that rappresents the type of the address (ipv4 or ipv6)\.
+.IP \[bu]
+\fIaddress\fR: A string that rappresents the value of the address\.
+.IP \[bu]
+\fIport\fR: An integer that rappresents the port where the node are listening with this address\.
+
+.RE
+
+.IP \[bu]
+\fIbinding\fR: An array that rappresents all addresses where the node is binded\. Each object contains the same object type of the address propriety above\.
+.IP \[bu]
+\fIversion\fR: A string that rappresents the version of the node\.
+.IP \[bu]
+\fIblockheight\fR: An integer that rappresents the blockchain height\.
+.IP \[bu]
+\fInetwork\fR: A string that rappresents the type of network on the node are working (i\.e: bitcoin, testnet, regtest)\.
+
+.RE
+
+On failure, one of the following error codes may be returned:
+
+.RS
+.IP \[bu]
+-32602: Error in given parameters or some error happened during the command process\.
+
+.RE
+.SH EXAMPLE JSON RESPONSE
+.nf
+.RS
+{
+   "id": "02bf811f7571754f0b51e6d41a8885f5561041a7b14fac093e4cffb95749de1a8d",
+   "alias": "SLICKERGOPHER",
+   "color": "02bf81",
+   "num_peers": 0,
+   "num_pending_channels": 0,
+   "num_active_channels": 0,
+   "num_inactive_channels": 0,
+   "address": [
+      {
+         "type": "torv3",
+         "address": "fp463inc4w3lamhhduytrwdwq6q6uzugtaeapylqfc43agrdnnqsheyd.onion",
+         "port": 9736
+      },
+      {
+         "type": "torv3",
+         "address": "ifnntp5ak4homxrti2fp6ckyllaqcike447ilqfrgdw64ayrmkyashid.onion",
+         "port": 9736
+      }
+   ],
+   "binding": [
+      {
+         "type": "ipv4",
+         "address": "127.0.0.1",
+         "port": 9736
+      }
+   ],
+   "version": "0.9.0",
+   "blockheight": 644297,
+   "network": "bitcoin",
+   "msatoshi_fees_collected": 0,
+   "fees_collected_msat": "0msat",
+   "lightning-dir": "/media/vincent/Maxtor/C-lightning/node/bitcoin"
+}
+.RE
+
+.fi
+.SH AUTHOR
+
+Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command\.
+
+.SH SEE ALSO
+
+\fBlightning-connect\fR(7), \fBlightning-fundchannel\fR(7), \fBlightning-listconfigs\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
