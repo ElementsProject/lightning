@@ -1,0 +1,67 @@
+.TH "LIGHTNING-SIGNPSBT" "7" "" "" "lightning-signpsbt"
+.SH NAME
+lightning-signpsbt - Command to sign a wallet's inputs on a provided bitcoin transaction (PSBT)\.
+.SH SYNOPSIS
+
+\fBsignpsbt\fR \fIpsbt\fR
+
+.SH DESCRIPTION
+
+The \fBsignpsbt\fR is a low-level RPC command which sign a PSBT\.
+
+.RS
+.IP \[bu]
+\fIpsbt\fR: A string that rappresent the psbt value\.
+
+.RE
+.SH EXAMPLE JSON REQUEST
+.nf
+.RS
+{
+  "id": 82,
+  "method": "signpsbt",
+  "params": {
+    "psbt": "some_psbt"
+  }
+}
+.RE
+
+.fi
+.SH RETURN VALUE
+
+On success, a object will be return with a string\.
+
+.RS
+.IP \[bu]
+\fIpsbt\fR: A string that rappresent the psbt value\.
+
+.RE
+
+On failure, one of the following error codes may be returned:
+
+.RS
+.IP \[bu]
+-32602: Error in given parameters or there aren't wallet's inputs to sign\.
+
+.RE
+.SH EXAMPLE JSON RESPONSE
+.nf
+.RS
+{
+    "psbt": "some_psbt"
+}
+.RE
+
+.fi
+.SH AUTHOR
+
+Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command\.
+
+.SH SEE ALSO
+
+\fBlightning-fundpsbt\fR(7), \fBlightning-sendpsbt\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

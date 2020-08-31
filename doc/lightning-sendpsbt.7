@@ -1,0 +1,70 @@
+.TH "LIGHTNING-SENDPSBT" "7" "" "" "lightning-sendpsbt"
+.SH NAME
+lightning-sendpsbt - Command to finalize, extract and send a partially signed bitcoin transaction (PSBT)\.
+.SH SYNOPSIS
+
+\fBsendpsbt\fR \fIpsbt\fR
+
+.SH DESCRIPTION
+
+The \fBsendpsbt\fR is a low-level RPC command which sent a PSBT\.
+
+.RS
+.IP \[bu]
+\fIpsbt\fR: A string that rappresent psbt value\.
+
+.RE
+.SH EXAMPLE JSON REQUEST
+.nf
+.RS
+{
+  "id": 82,
+  "method": "sendpsbt",
+  "params": {
+    "psbt": "some_psbt"
+  }
+}
+.RE
+
+.fi
+.SH RETURN VALUE
+
+On success, the tx and txid of the transaction are returned, as well as the channel_id of the newly created channel\.
+
+.RS
+.IP \[bu]
+\fItxid\fR: A string that rappresent the hash of transaction\.
+.IP \[bu]
+\fItx\fR: A string that rappresent the hexadecimal dump of the transaction\.
+
+.RE
+
+On failure, one of the following error codes may be returned:
+
+.RS
+.IP \[bu]
+-32602: Error in given parameters or some error happened during the command process\.
+
+.RE
+.SH EXAMPLE JSON RESPONSE
+.nf
+.RS
+{
+    "txid": "05985072bbe20747325e69a159fe08176cc1bbc96d25e8848edad2dddc1165d0",
+    "tx": "02000000027032912651fc25a3e0893acd5f9640598707e2dfef92143bb5a4020e335442800100000017160014a5f48b9aa3cb8ca6cc1040c11e386745bb4dc932ffffffffd229a4b4f78638ebcac10a68b0561585a5d6e4d3b769ad0a909e9b9afaeae24e00000000171600145c83da9b685f9142016c6f5eb5f98a45cfa6f686ffffffff01915a01000000000017a9143a4dfd59e781f9c3018e7d0a9b7a26d58f8d22bf8700000000",
+}
+.RE
+
+.fi
+.SH AUTHOR
+
+Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command\.
+
+.SH SEE ALSO
+
+\fBlightning-fundpsbt\fR(7), \fBlightning-signpsbt\fR(7), \fBlightning-listtransactions\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

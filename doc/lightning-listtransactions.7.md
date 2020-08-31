@@ -42,7 +42,7 @@ On success, the command will return a list of transactions, each object represen
   - *scriptPubKey*: A string that contains the lock script in hexadecimal dump form.
   
 On failure, one of the following error codes may be returned:
- -32602. Error in given parameters.
+- -32602: Error in given parameters.
 
 EXAMPLE JSON RESPONSE
 -----

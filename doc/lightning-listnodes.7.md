@@ -40,7 +40,7 @@ On success, the command will return a list of nodes, each object represents a no
   
 On failure, one of the following error codes may be returned:
  
-- -32602. Error in given parameters.
+- -32602: Error in given parameters.
 
 EXAMPLE JSON RESPONSE
 -----

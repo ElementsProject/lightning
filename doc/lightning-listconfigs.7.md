@@ -73,7 +73,7 @@ On success, an object with the following proprieties is returned:
 - *log-prefix*: A string that rappresent the log prefix.
 On failure, one of the following error codes may be returned:
 
-- -32602. Error in given parameters or field with *config* name doesn't exist.
+- -32602: Error in given parameters or field with *config* name doesn't exist.
 
 EXAMPLE JSON RESPONSE
 ---------------------

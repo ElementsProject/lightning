@@ -1,0 +1,96 @@
+.TH "LIGHTNING-GETLOG" "7" "" "" "lightning-getlog"
+.SH NAME
+lightning-getlog - Command to show logs\.
+.SH SYNOPSIS
+
+\fBgetlog\fR [level]
+
+.SH DESCRIPTION
+
+The \fBgetlog\fR the RPC command to show logs, with optional log \fIlevel\fR\.
+
+.RS
+.IP \[bu]
+\fIlevel\fR: A string that rappresent the log level (info, unusual, debug, io)\.
+
+.RE
+.SH EXAMPLE JSON REQUEST
+.nf
+.RS
+{
+  "id": 82,
+  "method": "getlog",
+  "params": {
+    "level": "debug"
+  }
+}
+.RE
+
+.fi
+.SH RETURN VALUE
+
+On success, a object will be return with the following parameters:
+
+.RS
+.IP \[bu]
+\fIcreated_at\fR: An floating point value that rappresent the {}\. 
+.IP \[bu]
+\fIbytes_used\fR: A string that rappresent the dimension in bytes of the log file\.
+.IP \[bu]
+\fIbytes_max\fR: An integer that rappresent the max dimension in bytes of log file\.
+.IP \[bu]
+\fIlog\fR: An array of object where each elements contains the following proprieties:.RS
+.IP \[bu]
+\fItype\fR: A string that rappresent the log level\. The propriety can have an value equal to SKIPPED\.
+.IP \[bu]
+\fItime\fR: A floating point value that rappresent the time\.
+.IP \[bu]
+\fIsource\fR: A string that rappresent the source of line\.
+.IP \[bu]
+\fIlog\fR: A string that rappresent the content of line\.
+
+.RE
+
+.IP \[bu]
+\fInum_skipped\fR: An integer that it is present only if the log level is equal to SKIPPED\.
+
+.RE
+
+On failure, one of the following error codes may be returned:
+
+.RS
+.IP \[bu]
+-32602: Error in given parameters\.
+
+.RE
+.SH EXAMPLE JSON RESPONSE
+.nf
+.RS
+{
+   "created_at": "1598192543.820753463",
+   "bytes_used": 89285843,
+   "bytes_max": 104857600,
+   "log": [
+      {
+         "type": "SKIPPED",
+         "num_skipped": 45
+      },
+      {
+         "type": "INFO",
+         "time": "0.453627568",
+         "source": "plugin-autopilot.py",
+         "log": "RPC method 'autopilot-run-once' does not have a docstring."
+      }
+   ]
+}
+.RE
+
+.fi
+.SH AUTHOR
+
+Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+

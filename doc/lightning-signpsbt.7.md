@@ -11,7 +11,7 @@ DESCRIPTION
 
 The **signpsbt** is a low-level RPC command which sign a PSBT.
 
-- *psbt*: A string that rappresent the hexadecimal of the psbt.
+- *psbt*: A string that rappresent the psbt value.
 
 EXAMPLE JSON REQUEST
 --------------------
@@ -30,11 +30,11 @@ RETURN VALUE
 
 On success, a object will be return with a string.
 
-- *psbt*: A string that rappresent the hexadecimal dump of the psbt.
+- *psbt*: A string that rappresent the psbt value.
 
 On failure, one of the following error codes may be returned:
 
-- -32602. Error in given parameters or there aren't wallet's inputs to sign.
+- -32602: Error in given parameters or there aren't wallet's inputs to sign.
 
 EXAMPLE JSON RESPONSE
 ---------------------
