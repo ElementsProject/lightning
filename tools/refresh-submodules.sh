@@ -9,8 +9,18 @@ fi
 [ -d .git ] || exit 0
 
 # git submodule can't run in parallel.  Really.
+# Wait for it to finish if in parallel.
 if ! mkdir .refresh-submodules 2>/dev/null ; then
-    exit 0
+    # If we don't make progress in ~60 seconds, force delete and retry.
+    LIMIT=$((50 + $$ % 20))
+    i=0
+    while [ $i -lt $LIMIT ]; do
+	[ -d .refresh-submodules ] || exit 0
+	sleep 1
+	i=$((i + 1))
+    done
+    rmdir .refresh-submodules
+    exec "$0" "$@" || exit 1
 fi
 
 trap "rmdir .refresh-submodules" EXIT
