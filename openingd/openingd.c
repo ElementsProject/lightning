@@ -49,9 +49,9 @@
 #include <secp256k1.h>
 #include <stdio.h>
 #include <wally_bip32.h>
-#include <wire/gen_common_wire.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/common_wiregen.h>
 #include <wire/peer_wire.h>
+#include <wire/peer_wiregen.h>
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
@@ -485,7 +485,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 		 * this could be connectd itself, in fact. */
 		if (is_wrong_channel(msg, &state->channel_id, &actual)) {
 			status_debug("Rejecting %s for unknown channel_id %s",
-				     wire_type_name(fromwire_peektype(msg)),
+				     peer_wire_name(fromwire_peektype(msg)),
 				     type_to_string(tmpctx, struct channel_id,
 						    &actual));
 			sync_crypto_write(state->pps,
@@ -1324,7 +1324,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 static u8 *handle_peer_in(struct state *state)
 {
 	u8 *msg = sync_crypto_read(tmpctx, state->pps);
-	enum wire_type t = fromwire_peektype(msg);
+	enum peer_wire t = fromwire_peektype(msg);
 	struct channel_id channel_id;
 
 	if (t == WIRE_OPEN_CHANNEL)
@@ -1332,8 +1332,8 @@ static u8 *handle_peer_in(struct state *state)
 
 #if DEVELOPER
 	/* Handle custommsgs */
-	enum wire_type type = fromwire_peektype(msg);
-	if (type % 2 == 1 && !wire_type_is_defined(type)) {
+	enum peer_wire type = fromwire_peektype(msg);
+	if (type % 2 == 1 && !peer_wire_is_defined(type)) {
 		/* The message is not part of the messages we know how to
 		 * handle. Assuming this is a custommsg, we just forward it to the
 		 * master. */
@@ -1351,13 +1351,13 @@ static u8 *handle_peer_in(struct state *state)
 			  take(towire_errorfmt(NULL,
 					       extract_channel_id(msg, &channel_id) ? &channel_id : NULL,
 					       "Unexpected message %s: %s",
-					       wire_type_name(t),
+					       peer_wire_name(t),
 					       tal_hex(tmpctx, msg))));
 
 	/* FIXME: We don't actually want master to try to send an
 	 * error, since peer is transient.  This is a hack.
 	 */
-	status_broken("Unexpected message %s", wire_type_name(t));
+	status_broken("Unexpected message %s", peer_wire_name(t));
 	peer_failed_connection_lost();
 }
 
@@ -1483,7 +1483,7 @@ static u8 *handle_master_in(struct state *state)
 	}
 
 	/* Now handle common messages. */
-	switch ((enum common_wire_type)t) {
+	switch ((enum common_wire)t) {
 #if DEVELOPER
 	case WIRE_CUSTOMMSG_OUT:
 		openingd_send_custommsg(state, msg);

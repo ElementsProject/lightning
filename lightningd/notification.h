@@ -17,7 +17,7 @@
 #include <lightningd/pay.h>
 #include <lightningd/plugin.h>
 #include <wallet/wallet.h>
-#include <wire/gen_onion_wire.h>
+#include <wire/onion_wiregen.h>
 
 struct onionreply;
 
@@ -62,7 +62,7 @@ void notify_forward_event(struct lightningd *ld,
 			  /* May be NULL. */
 			  const struct amount_msat *amount_out,
 			  enum forward_status state,
-			  enum onion_type failcode,
+			  enum onion_wire failcode,
 			  struct timeabs *resolved_time);
 
 void notify_sendpay_success(struct lightningd *ld,

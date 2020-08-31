@@ -101,7 +101,7 @@ static void status_peer_io_short(enum log_level iodir,
 {
 	status_peer_debug(peer, "%s %s",
 			  iodir == LOG_IO_OUT ? "peer_out" : "peer_in",
-			  wire_type_name(fromwire_peektype(p)));
+			  peer_wire_name(fromwire_peektype(p)));
 }
 
 void status_peer_io(enum log_level iodir,

@@ -79,7 +79,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/wire_error.o			\
 	connectd/connectd_gossipd_wiregen.o	\
 	lightningd/gossip_msg.o			\
-	wire/gen_onion_wire.o
+	wire/onion_wiregen.o
 
 $(LIGHTNINGD_GOSSIP_OBJS) $(LIGHTNINGD_GOSSIP_CLIENT_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_GOSSIP_HEADERS)
 

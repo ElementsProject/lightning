@@ -36,7 +36,7 @@
 #include <lightningd/subd.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/wallet.h>
-#include <wire/gen_onion_wire.h>
+#include <wire/onion_wiregen.h>
 #include <wire/wire_sync.h>
 
 #ifndef SUPERVERBOSE
@@ -105,7 +105,7 @@ static bool htlc_out_update_state(struct channel *channel,
 
 static struct failed_htlc *mk_failed_htlc_badonion(const tal_t *ctx,
 						   const struct htlc_in *hin,
-						   enum onion_type badonion)
+						   enum onion_wire badonion)
 {
 	struct failed_htlc *f = tal(ctx, struct failed_htlc);
 
@@ -224,7 +224,7 @@ static void fail_in_htlc(struct htlc_in *hin,
 
 /* Immediately fail HTLC with a BADONION code */
 static void local_fail_in_htlc_badonion(struct htlc_in *hin,
-					enum onion_type badonion)
+					enum onion_wire badonion)
 {
 	struct failed_htlc *failed_htlc;
 	assert(!hin->preimage);
@@ -555,7 +555,7 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 		hout->failmsg = tal_steal(hout, failmsg);
 		if (hout->am_origin) {
 			char *localfail = tal_fmt(msg, "%s: %s",
-						  onion_type_name(fromwire_peektype(failmsg)),
+						  onion_wire_name(fromwire_peektype(failmsg)),
 						  failurestr);
 			payment_failed(ld, hout, localfail, NULL);
 
@@ -1119,7 +1119,7 @@ static bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
 static bool peer_accepted_htlc(const tal_t *ctx,
 			       struct channel *channel, u64 id,
 			       bool replay,
-			       enum onion_type *badonion,
+			       enum onion_wire *badonion,
 			       u8 **failmsg)
 {
 	struct htlc_in *hin;
@@ -1185,7 +1185,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 		log_debug(channel->log,
 			  "Rejecting their htlc %"PRIu64
 			  " since onion is unparsable %s",
-			  id, onion_type_name(*badonion));
+			  id, onion_wire_name(*badonion));
 		/* Now we can fail it. */
 		goto fail;
 	}
@@ -1198,7 +1198,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 		log_debug(channel->log,
 			  "Rejecting their htlc %"PRIu64
 			  " since onion is unprocessable %s ss=%s",
-			  id, onion_type_name(*badonion),
+			  id, onion_wire_name(*badonion),
 			  type_to_string(tmpctx, struct secret, hin->shared_secret));
 		goto fail;
 	}
@@ -1433,7 +1433,7 @@ void onchain_failed_our_htlc(const struct channel *channel,
 	if (hout->am_origin) {
 		assert(why != NULL);
 		char *localfail = tal_fmt(channel, "%s: %s",
-					  onion_type_name(WIRE_PERMANENT_CHANNEL_FAILURE),
+					  onion_wire_name(WIRE_PERMANENT_CHANNEL_FAILURE),
 					  why);
 		payment_failed(ld, hout, localfail, NULL);
 		tal_free(localfail);
@@ -1457,7 +1457,7 @@ static void remove_htlc_in(struct channel *channel, struct htlc_in *hin)
 	log_debug(channel->log, "Removing in HTLC %"PRIu64" state %s %s",
 		  hin->key.id, htlc_state_name(hin->hstate),
 		  hin->preimage ? "FULFILLED"
-		  : hin->badonion ? onion_type_name(hin->badonion)
+		  : hin->badonion ? onion_wire_name(hin->badonion)
 		  : "REMOTEFAIL");
 
 	/* If we fulfilled their HTLC, credit us. */
@@ -1503,7 +1503,7 @@ static void remove_htlc_out(struct channel *channel, struct htlc_out *hout)
 	log_debug(channel->log, "Removing out HTLC %"PRIu64" state %s %s",
 		  hout->key.id, htlc_state_name(hout->hstate),
 		  hout->preimage ? "FULFILLED"
-		  : hout->failmsg ? onion_type_name(fromwire_peektype(hout->failmsg))
+		  : hout->failmsg ? onion_wire_name(fromwire_peektype(hout->failmsg))
 		  : "REMOTEFAIL");
 
 	/* If it's failed, now we can forward since it's completely locked-in */
@@ -1777,7 +1777,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 	struct htlc_in *hin;
 	struct secret shared_secret;
 	struct onionpacket op;
-	enum onion_type failcode;
+	enum onion_wire failcode;
 
 	/* BOLT #2:
 	 *
@@ -2042,7 +2042,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	struct secret per_commitment_secret;
 	struct pubkey next_per_commitment_point;
 	struct changed_htlc *changed;
-	enum onion_type *badonions;
+	enum onion_wire *badonions;
 	u8 **failmsgs;
 	size_t i;
 	struct lightningd *ld = channel->peer->ld;
@@ -2069,7 +2069,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 		  revokenum, tal_count(changed));
 
 	/* Save any immediate failures for after we reply. */
-	badonions = tal_arrz(msg, enum onion_type, tal_count(changed));
+	badonions = tal_arrz(msg, enum onion_wire, tal_count(changed));
 	failmsgs = tal_arrz(msg, u8 *, tal_count(changed));
 	for (i = 0; i < tal_count(changed); i++) {
 		/* If we're doing final accept, we need to forward */
@@ -2456,7 +2456,7 @@ void htlcs_resubmit(struct lightningd *ld,
 {
 	struct htlc_in *hin;
 	struct htlc_in_map_iter ini;
-	enum onion_type badonion COMPILER_WANTS_INIT("gcc7.4.0 bad, 8.3 OK");
+	enum onion_wire badonion COMPILER_WANTS_INIT("gcc7.4.0 bad, 8.3 OK");
 	u8 *failmsg;
 
 	/* Now retry any which were stuck. */
@@ -2555,7 +2555,7 @@ void json_format_forwarding_object(struct json_stream *response,
 	if (cur->failcode != 0) {
 		json_add_num(response, "failcode", cur->failcode);
 		json_add_string(response, "failreason",
-				onion_type_name(cur->failcode));
+				onion_wire_name(cur->failcode));
 	}
 
 #ifdef COMPAT_V070

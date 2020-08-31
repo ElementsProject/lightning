@@ -439,7 +439,7 @@ void notify_forward_event(struct lightningd *ld UNNEEDED,
 			  /* May be NULL. */
 			  const struct amount_msat *amount_out UNNEEDED,
 			  enum forward_status state UNNEEDED,
-			  enum onion_type failcode UNNEEDED,
+			  enum onion_wire failcode UNNEEDED,
 			  struct timeabs *resolved_time UNNEEDED)
 { fprintf(stderr, "notify_forward_event called!\n"); abort(); }
 /* Generated stub for onchaind_funding_spent */
@@ -456,9 +456,9 @@ struct onion_payload *onion_decode(const tal_t *ctx UNNEEDED,
 				   u64 *failtlvtype UNNEEDED,
 				   size_t *failtlvpos UNNEEDED)
 { fprintf(stderr, "onion_decode called!\n"); abort(); }
-/* Generated stub for onion_type_name */
-const char *onion_type_name(int e UNNEEDED)
-{ fprintf(stderr, "onion_type_name called!\n"); abort(); }
+/* Generated stub for onion_wire_name */
+const char *onion_wire_name(int e UNNEEDED)
+{ fprintf(stderr, "onion_wire_name called!\n"); abort(); }
 /* Generated stub for outpointfilter_add */
 void outpointfilter_add(struct outpointfilter *of UNNEEDED,
 			const struct bitcoin_txid *txid UNNEEDED, const u32 outnum UNNEEDED)
@@ -544,7 +544,7 @@ struct command_result *param_tok(struct command *cmd UNNEEDED, const char *name 
 				 const jsmntok_t **out UNNEEDED)
 { fprintf(stderr, "param_tok called!\n"); abort(); }
 /* Generated stub for parse_onionpacket */
-enum onion_type parse_onionpacket(const u8 *src UNNEEDED,
+enum onion_wire parse_onionpacket(const u8 *src UNNEEDED,
 				  const size_t srclen UNNEEDED,
 				  struct onionpacket *dest UNNEEDED)
 { fprintf(stderr, "parse_onionpacket called!\n"); abort(); }
@@ -582,6 +582,12 @@ void peer_start_openingd(struct peer *peer UNNEEDED,
 			 struct per_peer_state *pps UNNEEDED,
 			 const u8 *msg UNNEEDED)
 { fprintf(stderr, "peer_start_openingd called!\n"); abort(); }
+/* Generated stub for peer_wire_is_defined */
+bool peer_wire_is_defined(u16 type UNNEEDED)
+{ fprintf(stderr, "peer_wire_is_defined called!\n"); abort(); }
+/* Generated stub for peer_wire_name */
+const char *peer_wire_name(int e UNNEEDED)
+{ fprintf(stderr, "peer_wire_name called!\n"); abort(); }
 /* Generated stub for per_peer_state_set_fds */
 void per_peer_state_set_fds(struct per_peer_state *pps UNNEEDED,
 			    int peer_fd UNNEEDED, int gossip_fd UNNEEDED, int gossip_store_fd UNNEEDED)
@@ -763,12 +769,6 @@ struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 						   size_t input_num UNNEEDED,
 						   const struct block *block))
 { fprintf(stderr, "watch_txo called!\n"); abort(); }
-/* Generated stub for wire_type_is_defined */
-bool wire_type_is_defined(u16 type UNNEEDED)
-{ fprintf(stderr, "wire_type_is_defined called!\n"); abort(); }
-/* Generated stub for wire_type_name */
-const char *wire_type_name(int e UNNEEDED)
-{ fprintf(stderr, "wire_type_name called!\n"); abort(); }
 /* Generated stub for wrap_onionreply */
 struct onionreply *wrap_onionreply(const tal_t *ctx UNNEEDED,
 				   const struct secret *shared_secret UNNEEDED,

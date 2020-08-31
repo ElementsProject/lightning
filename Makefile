@@ -263,6 +263,12 @@ SHA256STAMP = echo '$(2) SHA256STAMP:$(1)'`cat $^ | sha256sum | cut -c1-64` >> $
 %_wiregen.c: %_wire.csv $(WIRE_GEN_DEPS)
 	@if $(call SHA256STAMP_CHANGED,exp-$(EXPERIMENTAL_FEATURES)-); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page impl $($@_args) ${@:.c=.h} `basename $< .csv` < $< > $@ && $(call SHA256STAMP,exp-$(EXPERIMENTAL_FEATURES)-,//)); fi
 
+%_printgen.h: %_wire.csv $(WIRE_GEN_DEPS)
+	@if $(call SHA256STAMP_CHANGED,exp-$(EXPERIMENTAL_FEATURES)-); then $(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page header $($@_args) $@ `basename $< .csv` < $< > $@ && $(call SHA256STAMP,exp-$(EXPERIMENTAL_FEATURES)-,//)); fi
+
+%_printgen.c: %_wire.csv $(WIRE_GEN_DEPS)
+	@if $(call SHA256STAMP_CHANGED,exp-$(EXPERIMENTAL_FEATURES)-); then $(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page impl $($@_args) ${@:.c=.h} `basename $< .csv` < $< > $@ && $(call SHA256STAMP,exp-$(EXPERIMENTAL_FEATURES)-,//)); fi
+
 include external/Makefile
 include bitcoin/Makefile
 include common/Makefile
@@ -485,7 +491,7 @@ clean:
 	$(RM) $(CCAN_OBJS) $(CDUMP_OBJS) $(ALL_OBJS)
 	$(RM) $(ALL_PROGRAMS) $(ALL_PROGRAMS:=.o)
 	$(RM) $(ALL_TEST_PROGRAMS) $(ALL_TEST_PROGRAMS:=.o)
-	$(RM) gen_*.h ccan/tools/configurator/configurator
+	$(RM) gen_*.h */gen_* ccan/tools/configurator/configurator
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
 	find . -name '*gcda' -delete
 	find . -name '*gcno' -delete

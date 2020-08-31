@@ -22,4 +22,4 @@ ALL_TEST_PROGRAMS += $(WIRE_TEST_PROGRAMS)
 
 wire-tests: $(WIRE_TEST_PROGRAMS:%=unittest/%)
 
-wire/test/run-peer-wire: wire/gen_peer_wire.o common/bigsize.o
+wire/test/run-peer-wire: wire/peer_wiregen.o common/bigsize.o

@@ -13,7 +13,7 @@ static const char *reason;
 #include <common/bigsize.c>
 #include <common/node_id.c>
 
-#include <wire/gen_peer_wire.c>
+#include <wire/peer_wiregen.c>
 #include <wire/fromwire.c>
 #include <wire/towire.c>
 

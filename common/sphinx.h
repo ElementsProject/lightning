@@ -10,7 +10,7 @@
 #include <common/hmac.h>
 #include <secp256k1.h>
 #include <sodium/randombytes.h>
-#include <wire/gen_onion_wire.h>
+#include <wire/onion_wiregen.h>
 
 struct node_id;
 
@@ -164,7 +164,7 @@ u8 *serialize_onionpacket(
  * @srclen: length of the @src (must be TOTAL_PACKET_SIZE)
  * @dest: the destination into which we should parse the packet
  */
-enum onion_type parse_onionpacket(const u8 *src,
+enum onion_wire parse_onionpacket(const u8 *src,
 				  const size_t srclen,
 				  struct onionpacket *dest);
 

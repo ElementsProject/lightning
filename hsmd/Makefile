@@ -63,6 +63,6 @@ check-whitespace: $(LIGHTNINGD_HSM_ALLSRC_NOGEN:%=check-whitespace/%) $(LIGHTNIN
 clean: lightningd/hsm-clean
 
 lightningd/hsm-clean:
-	$(RM) $(LIGHTNINGD_HSM_OBJS) hsmd/gen_*
+	$(RM) $(LIGHTNINGD_HSM_OBJS)
 
 -include hsmd/test/Makefile

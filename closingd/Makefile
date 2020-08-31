@@ -96,6 +96,6 @@ check-whitespace: $(LIGHTNINGD_CLOSING_SRC_NOGEN:%=check-whitespace/%) $(LIGHTNI
 clean: closingd-clean
 
 closingd-clean:
-	$(RM) $(LIGHTNINGD_CLOSING_OBJS) closingd/gen_*
+	$(RM) $(LIGHTNINGD_CLOSING_OBJS)
 
 -include closingd/test/Makefile

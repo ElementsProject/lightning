@@ -27,7 +27,7 @@
 #include <lightningd/opening_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 #include <wire/wire_sync.h>
 
 struct connect {

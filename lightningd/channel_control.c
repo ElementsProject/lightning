@@ -26,7 +26,7 @@
 #include <lightningd/onion_message.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
-#include <wire/gen_common_wire.h>
+#include <wire/common_wiregen.h>
 #include <wire/wire_sync.h>
 
 static void update_feerates(struct lightningd *ld, struct channel *channel)
@@ -406,7 +406,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		break;
 	}
 
-	switch ((enum common_wire_type)t) {
+	switch ((enum common_wire)t) {
 #if DEVELOPER
 	case WIRE_CUSTOMMSG_IN:
 		handle_custommsg_in(sd->ld, sd->node_id, msg);

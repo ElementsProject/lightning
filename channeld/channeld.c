@@ -62,8 +62,8 @@
 #include <secp256k1.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <stdio.h>
-#include <wire/gen_common_wire.h>
-#include <wire/gen_onion_wire.h>
+#include <wire/common_wiregen.h>
+#include <wire/onion_wiregen.h>
 #include <wire/peer_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_io.h>
@@ -1736,8 +1736,8 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 static bool channeld_handle_custommsg(const u8 *msg)
 {
 #if DEVELOPER
-	enum wire_type type = fromwire_peektype(msg);
-	if (type % 2 == 1 && !wire_type_is_defined(type)) {
+	enum peer_wire type = fromwire_peektype(msg);
+	if (type % 2 == 1 && !peer_wire_is_defined(type)) {
 		/* The message is not part of the messages we know how to
 		 * handle. Assuming this is a custommsg, we just forward it to the
 		 * master. */
@@ -1755,7 +1755,7 @@ static bool channeld_handle_custommsg(const u8 *msg)
 /* Peer sends onion msg. */
 static void handle_onion_message(struct peer *peer, const u8 *msg)
 {
-	enum onion_type badreason;
+	enum onion_wire badreason;
 	struct onionpacket op;
 	struct secret ss, *blinding_ss;
 	struct pubkey *blinding_in;
@@ -1775,7 +1775,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 	badreason = parse_onionpacket(onion, TOTAL_PACKET_SIZE, &op);
 	if (badreason != 0) {
 		status_debug("onion msg: can't parse onionpacket: %s",
-			     onion_type_name(badreason));
+			     onion_wire_name(badreason));
 		return;
 	}
 
@@ -2031,7 +2031,7 @@ static void handle_unexpected_reestablish(struct peer *peer, const u8 *msg)
 
 static void peer_in(struct peer *peer, const u8 *msg)
 {
-	enum wire_type type = fromwire_peektype(msg);
+	enum peer_wire type = fromwire_peektype(msg);
 
 	/* Only count soft errors if the channel has locked-in already;
 	 * otherwise we can't cancel a channel before it has opened.
@@ -2065,7 +2065,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 			peer_failed(peer->pps,
 				    &peer->channel_id,
 				    "%s (%u) before funding locked",
-				    wire_type_name(type), type);
+				    peer_wire_name(type), type);
 		}
 	}
 
@@ -2136,7 +2136,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	peer_failed(peer->pps,
 		    &peer->channel_id,
 		    "Peer sent unknown message %u (%s)",
-		    type, wire_type_name(type));
+		    type, peer_wire_name(type));
 }
 
 static void resend_revoke(struct peer *peer)
@@ -2475,7 +2475,7 @@ static bool capture_premature_msg(const u8 ***shit_lnd_says, const u8 *msg)
 		return false;
 
 	status_debug("Stashing early %s msg!",
-		     wire_type_name(fromwire_peektype(msg)));
+		     peer_wire_name(fromwire_peektype(msg)));
 
 	tal_arr_expand(shit_lnd_says, tal_steal(*shit_lnd_says, msg));
 	return true;
@@ -2583,7 +2583,7 @@ static void peer_reconnect(struct peer *peer,
 		peer_failed(peer->pps,
 			    &peer->channel_id,
 			    "bad reestablish msg: %s %s",
-			    wire_type_name(fromwire_peektype(msg)),
+			    peer_wire_name(fromwire_peektype(msg)),
 			    tal_hex(msg, msg));
 	}
 
@@ -3162,7 +3162,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	}
 
 	/* Now handle common messages. */
-	switch ((enum common_wire_type)t) {
+	switch ((enum common_wire)t) {
 #if DEVELOPER
 	case WIRE_CUSTOMMSG_OUT:
 		channeld_send_custommsg(peer, msg);

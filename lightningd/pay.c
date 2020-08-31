@@ -25,7 +25,7 @@
 /* Routing failure object */
 struct routing_failure {
 	unsigned int erring_index;
-	enum onion_type failcode;
+	enum onion_wire failcode;
 	const struct node_id *erring_node;
 	const struct short_channel_id *erring_channel;
 	int channel_dir;
@@ -144,13 +144,13 @@ static struct command_result *sendpay_success(struct command *cmd,
 static void
 json_add_routefail_info(struct json_stream *js,
 			unsigned int erring_index,
-			enum onion_type failcode,
+			enum onion_wire failcode,
 			const struct node_id *erring_node,
 			const struct short_channel_id *erring_channel,
 			int channel_dir,
 			const u8 *msg)
 {
-	const char *failcodename = onion_type_name(failcode);
+	const char *failcodename = onion_wire_name(failcode);
 
 	json_add_num(js, "erring_index", erring_index);
 	json_add_num(js, "failcode", failcode);
@@ -201,7 +201,7 @@ static const char *sendpay_errmsg_fmt(const tal_t *ctx, errcode_t pay_errcode,
 	else {
 		assert(fail);
 		errmsg = tal_fmt(ctx, "failed: %s (%s)",
-				 onion_type_name(fail->failcode), details);
+				 onion_wire_name(fail->failcode), details);
 	}
 	return errmsg;
 }
@@ -313,7 +313,7 @@ void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 static struct routing_failure*
 immediate_routing_failure(const tal_t *ctx,
 			  const struct lightningd *ld,
-			  enum onion_type failcode,
+			  enum onion_wire failcode,
 			  const struct short_channel_id *channel0,
 			  const struct node_id *dstid)
 {
@@ -340,7 +340,7 @@ static struct routing_failure*
 local_routing_failure(const tal_t *ctx,
 		      const struct lightningd *ld,
 		      const struct htlc_out *hout,
-		      enum onion_type failcode,
+		      enum onion_wire failcode,
 		      const struct wallet_payment *payment)
 {
 	struct routing_failure *routing_failure;
@@ -366,7 +366,7 @@ local_routing_failure(const tal_t *ctx,
 
 	log_debug(hout->key.channel->log, "local_routing_failure: %u (%s)",
 		  routing_failure->failcode,
-		  onion_type_name(routing_failure->failcode));
+		  onion_wire_name(routing_failure->failcode));
 	return routing_failure;
 }
 
@@ -380,7 +380,7 @@ remote_routing_failure(const tal_t *ctx,
 		       struct log *log,
 		       errcode_t *pay_errcode)
 {
-	enum onion_type failcode = fromwire_peektype(failuremsg);
+	enum onion_wire failcode = fromwire_peektype(failuremsg);
 	struct routing_failure *routing_failure;
 	const struct node_id *route_nodes;
 	const struct node_id *erring_node;
@@ -538,7 +538,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 	/* This gives more details than a generic failure message */
 	if (localfail) {
 		/* Use temporary_channel_failure if failmsg has it */
-		enum onion_type failcode;
+		enum onion_wire failcode;
 		if (failmsg_needs_update)
 			failcode = fromwire_peektype(failmsg_needs_update);
 		else
@@ -583,7 +583,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 			fail = NULL;
 			pay_errcode = PAY_UNPARSEABLE_ONION;
 		} else {
-			enum onion_type failcode;
+			enum onion_wire failcode;
 
 		use_failmsg:
 			failcode = fromwire_peektype(failmsg);
@@ -593,7 +593,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 				 "with code 0x%04x (%s)",
 				 hout->key.id,
 				 origin_index,
-				 failcode, onion_type_name(failcode));
+				 failcode, onion_wire_name(failcode));
 			fail = remote_routing_failure(tmpctx, ld,
 						      payment, failmsg,
 						      origin_index,
@@ -636,7 +636,7 @@ static struct command_result *wait_payment(struct lightningd *ld,
 	struct onionreply *failonionreply;
 	bool faildestperm;
 	int failindex;
-	enum onion_type failcode;
+	enum onion_wire failcode;
 	struct node_id *failnode;
 	struct short_channel_id *failchannel;
 	u8 *failupdate;
@@ -1173,7 +1173,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 {
 	u8 *onion;
 	struct onionpacket packet;
-	enum onion_type failcode;
+	enum onion_wire failcode;
 	struct route_hop *first_hop;
 	struct sha256 *payment_hash;
 	struct lightningd *ld = cmd->ld;

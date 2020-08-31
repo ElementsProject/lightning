@@ -21,7 +21,7 @@
 #include <gossipd/gossipd_peerd_wiregen.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <inttypes.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)
@@ -536,7 +536,7 @@ static void bad_gossip_order(const u8 *msg,
 {
 	status_peer_debug(peer ? &peer->id : NULL,
 			  "Bad gossip order: %s before announcement %s",
-			  wire_type_name(fromwire_peektype(msg)),
+			  peer_wire_name(fromwire_peektype(msg)),
 			  details);
 }
 

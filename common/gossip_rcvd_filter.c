@@ -4,7 +4,7 @@
 #include <common/gossip_rcvd_filter.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 
 static u64 msg_key(const u8 *msg)
 {

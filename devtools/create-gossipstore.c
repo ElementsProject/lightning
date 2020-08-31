@@ -16,7 +16,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 
 
 struct scidsat {
@@ -175,7 +175,7 @@ int main(int argc, char *argv[])
 
 		if (verbose)
 			fprintf(stderr, "%s\n",
-				wire_type_name(fromwire_peektype(inmsg)));
+				peer_wire_name(fromwire_peektype(inmsg)));
 
 		switch (fromwire_peektype(inmsg)) {
 		case WIRE_CHANNEL_ANNOUNCEMENT:
@@ -242,7 +242,7 @@ int main(int argc, char *argv[])
 
 		default:
 			warnx("Unknown message %u (%s)", fromwire_peektype(inmsg),
-			      wire_type_name(fromwire_peektype(inmsg)));
+			      peer_wire_name(fromwire_peektype(inmsg)));
 			tal_free(inmsg);
 			continue;
 		}

@@ -17,7 +17,7 @@
 #include <gossipd/queries.h>
 #include <gossipd/routing.h>
 #include <gossipd/seeker.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 
 #define GOSSIP_SEEKER_INTERVAL(seeker) \
 	DEV_FAST_GOSSIP((seeker)->daemon->rstate->dev_fast_gossip, 5, 60)

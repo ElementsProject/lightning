@@ -57,8 +57,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <wally_bip32.h>
-#include <wire/gen_common_wire.h>
-#include <wire/gen_onion_wire.h>
+#include <wire/common_wiregen.h>
+#include <wire/onion_wiregen.h>
 #include <wire/wire_sync.h>
 
 struct close_command {
@@ -2376,14 +2376,14 @@ static struct command_result *json_sendcustommsg(struct command *cmd,
 		return command_param_failed();
 
 	type = fromwire_peektype(msg);
-	if (wire_type_is_defined(type)) {
+	if (peer_wire_is_defined(type)) {
 		return command_fail(
 		    cmd, JSONRPC2_INVALID_REQUEST,
 		    "Cannot send messages of type %d (%s). It is not possible "
 		    "to send messages that have a type managed internally "
 		    "since that might cause issues with the internal state "
 		    "tracking.",
-		    type, wire_type_name(type));
+		    type, peer_wire_name(type));
 	}
 
 	if (type % 2 == 0) {

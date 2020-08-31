@@ -18,7 +18,7 @@
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <unistd.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 #include <wire/wire.h>
 
 #define GOSSIP_STORE_FILENAME "gossip_store"

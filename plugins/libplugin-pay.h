@@ -4,7 +4,7 @@
 
 #include <common/bolt11.h>
 #include <plugins/libplugin.h>
-#include <wire/gen_onion_wire.h>
+#include <wire/onion_wiregen.h>
 
 struct legacy_payload {
 	struct short_channel_id scid;
@@ -46,7 +46,7 @@ struct payment_result {
 	struct preimage *payment_preimage;
 	u32 code;
 	const char* failcodename;
-	enum onion_type failcode;
+	enum onion_wire failcode;
 	const u8 *raw_message;
 	const char *message;
 	u32 *erring_index;

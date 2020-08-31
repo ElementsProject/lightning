@@ -17,7 +17,7 @@ GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/pseudorand.o			\
 	common/type_to_string.o			\
 	common/utils.o				\
-	wire/gen_peer_wire.o			\
+	wire/peer_wiregen.o			\
 	wire/fromwire.o				\
 	wire/towire.o
 
