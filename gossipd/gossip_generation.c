@@ -14,7 +14,7 @@
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 #include <wire/wire_sync.h>
 
 /* Create a node_announcement with the given signature. It may be NULL in the

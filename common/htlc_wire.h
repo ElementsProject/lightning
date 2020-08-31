@@ -6,7 +6,7 @@
 #include <common/amount.h>
 #include <common/htlc.h>
 #include <common/sphinx.h>
-#include <wire/gen_onion_wire.h>
+#include <wire/onion_wiregen.h>
 
 struct bitcoin_tx;
 struct shachain;
@@ -54,7 +54,7 @@ struct failed_htlc {
 	struct sha256 *sha256_of_onion;
 	/* WIRE_INVALID_ONION_VERSION, WIRE_INVALID_ONION_KEY or
 	 * WIRE_INVALID_ONION_HMAC (ie. must have BADONION) */
-	enum onion_type badonion;
+	enum onion_wire badonion;
 
 	/* Otherwise, this is the onion ready to send to them. */
 	const struct onionreply *onion;

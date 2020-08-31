@@ -1,7 +1,7 @@
 #include <ccan/cast/cast.h>
 #include <common/decode_array.h>
 #include <common/utils.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 #include <wire/wire.h>
 #include <zlib.h>
 

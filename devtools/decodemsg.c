@@ -3,10 +3,10 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <common/decode_array.h>
 #include <common/utils.h>
-#include <devtools/gen_print_onion_wire.h>
-#include <devtools/gen_print_wire.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <wire/onion_printgen.h>
+#include <wire/peer_printgen.h>
 
 int main(int argc, char *argv[])
 {
@@ -37,13 +37,13 @@ int main(int argc, char *argv[])
 
 		if (onion)
 			if (tlv_name)
-				printonion_type_tlv_message(tlv_name, m);
+				printonion_wire_tlv_message(tlv_name, m);
 			else
-				printonion_type_message(m);
+				printonion_wire_message(m);
 		else if (tlv_name)
-			printwire_type_tlv_message(tlv_name, m);
+			printpeer_wire_tlv_message(tlv_name, m);
 		else
-			printwire_type_message(m);
+			printpeer_wire_message(m);
 	} else {
 		u8 *f = grab_fd(NULL, STDIN_FILENO);
 		size_t off = 0;
@@ -64,13 +64,13 @@ int main(int argc, char *argv[])
 			m = tal_dup_arr(f, u8, f + off, be16_to_cpu(len), 0);
 			if (onion)
 				if (tlv_name)
-					printonion_type_tlv_message(tlv_name, m);
+					printonion_wire_tlv_message(tlv_name, m);
 				else
-					printonion_type_message(m);
+					printonion_wire_message(m);
 			else if (tlv_name)
-				printwire_type_tlv_message(tlv_name, m);
+				printpeer_wire_tlv_message(tlv_name, m);
 			else
-				printwire_type_message(m);
+				printpeer_wire_message(m);
 			off += be16_to_cpu(len);
 			tal_free(m);
 		}

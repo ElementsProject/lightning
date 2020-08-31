@@ -7,7 +7,7 @@
 #include <common/amount.h>
 #include <common/htlc_state.h>
 #include <common/sphinx.h>
-#include <wire/gen_onion_wire.h>
+#include <wire/onion_wiregen.h>
 
 /* We look up HTLCs by channel & id */
 struct htlc_key {
@@ -37,7 +37,7 @@ struct htlc_in {
 	struct secret *shared_secret;
 
 	/* If we couldn't decode the onion, this contains the error code.. */
-	enum onion_type badonion;
+	enum onion_wire badonion;
 
 	/* Otherwise, this contains the failure message to send. */
 	const struct onionreply *failonion;

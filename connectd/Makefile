@@ -75,7 +75,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/wire_error.o			\
 	gossipd/gossipd_wiregen.o		\
 	lightningd/gossip_msg.o			\
-	wire/gen_onion_wire.o
+	wire/onion_wiregen.o
 
 $(LIGHTNINGD_CONNECT_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_CONNECT_HEADERS)
 

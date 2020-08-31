@@ -1,7 +1,7 @@
 #ifndef LIGHTNING_LIGHTNINGD_INVOICE_H
 #define LIGHTNING_LIGHTNINGD_INVOICE_H
 #include "config.h"
-#include <wire/gen_onion_wire.h>
+#include <wire/onion_wiregen.h>
 
 struct amount_msat;
 struct htlc_set;

@@ -2,7 +2,7 @@
 #define LIGHTNING_WIRE_PEER_WIRE_H
 #include "config.h"
 #include <stdbool.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 
 /* BOLT #1:
  *

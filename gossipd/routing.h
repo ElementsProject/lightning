@@ -11,7 +11,7 @@
 #include <common/node_id.h>
 #include <gossipd/broadcast.h>
 #include <gossipd/gossip_store.h>
-#include <wire/gen_onion_wire.h>
+#include <wire/onion_wiregen.h>
 #include <wire/wire.h>
 
 struct daemon;

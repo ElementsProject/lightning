@@ -215,7 +215,7 @@ static void forward_event_notification_serialize(struct json_stream *stream,
 						 const struct short_channel_id *scid_out,
 						 const struct amount_msat *amount_out,
 						 enum forward_status state,
-						 enum onion_type failcode,
+						 enum onion_wire failcode,
 						 struct timeabs *resolved_time)
 {
 	/* Here is more neat to initial a forwarding structure than
@@ -256,7 +256,7 @@ void notify_forward_event(struct lightningd *ld,
 			  const struct short_channel_id *scid_out,
 			  const struct amount_msat *amount_out,
 			  enum forward_status state,
-			  enum onion_type failcode,
+			  enum onion_wire failcode,
 			  struct timeabs *resolved_time)
 {
 	void (*serialize)(struct json_stream *,
@@ -264,7 +264,7 @@ void notify_forward_event(struct lightningd *ld,
 			  const struct short_channel_id *,
 			  const struct amount_msat *,
 			  enum forward_status,
-			  enum onion_type,
+			  enum onion_wire,
 			  struct timeabs *) = forward_event_notification_gen.serialize;
 
 	struct jsonrpc_notification *n

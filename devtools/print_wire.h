@@ -3,8 +3,8 @@
 #include <bitcoin/preimage.h>
 #include <bitcoin/tx.h>
 #include <common/wireaddr.h>
-#include <wire/gen_peer_wire.h>
-#include <wire/gen_onion_wire.h>
+#include <wire/peer_wiregen.h>
+#include <wire/onion_wiregen.h>
 
 struct tlv_print_record_type {
 	u64 type;

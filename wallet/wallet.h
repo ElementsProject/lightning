@@ -20,9 +20,8 @@
 #include <lightningd/log.h>
 #include <onchaind/onchaind_wire.h>
 #include <wally_bip32.h>
-#include <wire/gen_onion_wire.h>
+#include <wire/onion_wiregen.h>
 
-enum onion_type;
 struct amount_msat;
 struct invoices;
 struct channel;
@@ -194,7 +193,7 @@ struct forwarding {
 	struct amount_msat msat_in, msat_out, fee;
 	struct sha256 *payment_hash;
 	enum forward_status status;
-	enum onion_type failcode;
+	enum onion_wire failcode;
 	struct timeabs received_time;
 	/* May not be present if the HTLC was not resolved yet. */
 	struct timeabs *resolved_time;
@@ -662,7 +661,7 @@ void wallet_htlc_save_out(struct wallet *wallet,
 void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
 			const struct preimage *payment_key,
-			enum onion_type badonion,
+			enum onion_wire badonion,
 			const struct onionreply *failonion,
 			const u8 *failmsg,
 			bool *we_filled);
@@ -1075,7 +1074,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 struct onionreply **failonionreply,
 				 bool *faildestperm,
 				 int *failindex,
-				 enum onion_type *failcode,
+				 enum onion_wire *failcode,
 				 struct node_id **failnode,
 				 struct short_channel_id **failchannel,
 				 u8 **failupdate,
@@ -1091,7 +1090,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 				 const struct onionreply *failonionreply,
 				 bool faildestperm,
 				 int failindex,
-				 enum onion_type failcode,
+				 enum onion_wire failcode,
 				 const struct node_id *failnode,
 				 const struct short_channel_id *failchannel,
 				 const u8 *failupdate,
@@ -1251,7 +1250,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				  const struct short_channel_id *scid_out,
 				  const struct htlc_out *out,
 				  enum forward_status state,
-				  enum onion_type failcode);
+				  enum onion_wire failcode);
 
 /**
  * Retrieve summary of successful forwarded payments' fees

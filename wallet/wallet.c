@@ -2103,7 +2103,7 @@ void wallet_htlc_save_out(struct wallet *wallet,
 void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
 			const struct preimage *payment_key,
-			enum onion_type badonion,
+			enum onion_wire badonion,
 			const struct onionreply *failonion,
 			const u8 *failmsg,
 			bool *we_filled)
@@ -2210,7 +2210,7 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 		log_broken(channel->log,
 			   "Replacing incoming HTLC %"PRIu64" error "
 			   "%s with WIRE_TEMPORARY_NODE_FAILURE",
-			   in->key.id, onion_type_name(in->badonion));
+			   in->key.id, onion_wire_name(in->badonion));
 		in->badonion = 0;
 		in->failonion = create_onionreply(in,
 						  in->shared_secret,
@@ -2888,7 +2888,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 struct onionreply **failonionreply,
 				 bool *faildestperm,
 				 int *failindex,
-				 enum onion_type *failcode,
+				 enum onion_wire *failcode,
 				 struct node_id **failnode,
 				 struct short_channel_id **failchannel,
 				 u8 **failupdate,
@@ -2919,7 +2919,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 	}
 	*faildestperm = db_column_int(stmt, 1) != 0;
 	*failindex = db_column_int(stmt, 2);
-	*failcode = (enum onion_type) db_column_int(stmt, 3);
+	*failcode = (enum onion_wire) db_column_int(stmt, 3);
 	if (db_column_is_null(stmt, 4))
 		*failnode = NULL;
 	else {
@@ -2958,7 +2958,7 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 				 const struct onionreply *failonionreply,
 				 bool faildestperm,
 				 int failindex,
-				 enum onion_type failcode,
+				 enum onion_wire failcode,
 				 const struct node_id *failnode,
 				 const struct short_channel_id *failchannel,
 				 const u8 *failupdate /*tal_arr*/,
@@ -3724,7 +3724,7 @@ static bool wallet_forwarded_payment_update(struct wallet *w,
 					    const struct htlc_in *in,
 					    const struct htlc_out *out,
 					    enum forward_status state,
-					    enum onion_type failcode,
+					    enum onion_wire failcode,
 					    struct timeabs *resolved_time)
 {
 	struct db_stmt *stmt;
@@ -3777,7 +3777,7 @@ void wallet_forwarded_payment_add(struct wallet *w, const struct htlc_in *in,
 				  const struct short_channel_id *scid_out,
 				  const struct htlc_out *out,
 				  enum forward_status state,
-				  enum onion_type failcode)
+				  enum onion_wire failcode)
 {
 	struct db_stmt *stmt;
 	struct timeabs *resolved_time;

@@ -215,7 +215,7 @@ void fromwire_fulfilled_htlc(const u8 **cursor, size_t *max,
 struct failed_htlc *fromwire_failed_htlc(const tal_t *ctx, const u8 **cursor, size_t *max)
 {
 	struct failed_htlc *failed = tal(ctx, struct failed_htlc);
-	enum onion_type badonion;
+	enum onion_wire badonion;
 
 	failed->id = fromwire_u64(cursor, max);
 	badonion = fromwire_u16(cursor, max);

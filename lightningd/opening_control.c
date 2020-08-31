@@ -34,7 +34,7 @@
 #include <lightningd/subd.h>
 #include <openingd/openingd_wiregen.h>
 #include <string.h>
-#include <wire/gen_common_wire.h>
+#include <wire/common_wiregen.h>
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 
@@ -990,7 +990,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 		break;
 	}
 
-	switch ((enum common_wire_type)t) {
+	switch ((enum common_wire)t) {
 #if DEVELOPER
 	case WIRE_CUSTOMMSG_IN:
 		handle_custommsg_in(openingd->ld, openingd->node_id, msg);

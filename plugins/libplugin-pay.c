@@ -862,7 +862,7 @@ failure_is_blockheight_disagreement(const struct payment *p,
 	return true;
 }
 
-static char *describe_failcode(const tal_t *ctx, enum onion_type failcode)
+static char *describe_failcode(const tal_t *ctx, enum onion_wire failcode)
 {
 	char *rv = tal_strdup(ctx, "");
 	if (failcode & BADONION) {
@@ -889,7 +889,7 @@ static struct command_result *
 handle_final_failure(struct command *cmd,
 		     struct payment *p,
 		     const struct node_id *final_id,
-		     enum onion_type failcode)
+		     enum onion_wire failcode)
 {
 	u32 unused;
 
@@ -905,7 +905,7 @@ handle_final_failure(struct command *cmd,
 	paymod_log(p, LOG_DBG,
 		   "Final node %s reported %04x (%s) on route %s",
 		   type_to_string(tmpctx, struct node_id, final_id),
-		   failcode, onion_type_name(failcode),
+		   failcode, onion_wire_name(failcode),
 		   p->routetxt);
 
 	/* We use an exhaustive switch statement here so you get a compile
@@ -998,14 +998,14 @@ handle_intermediate_failure(struct command *cmd,
 			    struct payment *p,
 			    const struct node_id *errnode,
 			    const struct route_hop *errchan,
-			    enum onion_type failcode)
+			    enum onion_wire failcode)
 {
 	struct payment *root = payment_root(p);
 
 	paymod_log(p, LOG_DBG,
 		   "Intermediate node %s reported %04x (%s) at %s on route %s",
 		   type_to_string(tmpctx, struct node_id, errnode),
-		   failcode, onion_type_name(failcode),
+		   failcode, onion_wire_name(failcode),
 		   type_to_string(tmpctx, struct short_channel_id,
 				  &errchan->channel_id),
 		   p->routetxt);

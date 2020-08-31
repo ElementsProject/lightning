@@ -51,7 +51,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <wally_bip32.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 #include <wire/wire_io.h>
 
 /*~ Each subdaemon is started with stdin connected to lightningd (for status

@@ -11,7 +11,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 
 #if DEVELOPER
 /* We move the fd if and only if we do a disconnect. */
@@ -71,7 +71,7 @@ enum dev_disconnect dev_disconnect(int pkt_type)
 	if (!dev_disconnect_count)
 		next_dev_disconnect();
 
-	if (!streq(wire_type_name(pkt_type), dev_disconnect_line+1))
+	if (!streq(peer_wire_name(pkt_type), dev_disconnect_line+1))
 		return DEV_DISCONNECT_NORMAL;
 
 	if (--dev_disconnect_count != 0) {

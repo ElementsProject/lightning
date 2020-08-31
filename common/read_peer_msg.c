@@ -194,7 +194,7 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 	/* They're talking about a different channel? */
 	if (is_wrong_channel(msg, channel_id, &actual)) {
 		status_debug("Rejecting %s for unknown channel_id %s",
-			     wire_type_name(fromwire_peektype(msg)),
+			     peer_wire_name(fromwire_peektype(msg)),
 			     type_to_string(tmpctx, struct channel_id, &actual));
 		sync_crypto_write(pps,
 				  take(towire_errorfmt(NULL, &actual,

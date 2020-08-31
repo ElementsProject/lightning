@@ -144,7 +144,7 @@ u8 *serialize_onionpacket(
 	return dst;
 }
 
-enum onion_type parse_onionpacket(const u8 *src,
+enum onion_wire parse_onionpacket(const u8 *src,
 				  const size_t srclen,
 				  struct onionpacket *dest)
 {

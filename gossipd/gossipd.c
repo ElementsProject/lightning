@@ -63,7 +63,7 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
@@ -439,7 +439,7 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	bool ok;
 
 	/* These are messages relayed from peer */
-	switch ((enum wire_type)fromwire_peektype(msg)) {
+	switch ((enum peer_wire)fromwire_peektype(msg)) {
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 		err = handle_channel_announcement_msg(peer, msg);
 		goto handled_relay;
@@ -493,7 +493,7 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 #endif
 		status_broken("peer %s: relayed unexpected msg of type %s",
 			      type_to_string(tmpctx, struct node_id, &peer->id),
-			      wire_type_name(fromwire_peektype(msg)));
+			      peer_wire_name(fromwire_peektype(msg)));
 		return io_close(conn);
 	}
 

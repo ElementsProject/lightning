@@ -9,7 +9,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <unistd.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 
 void gossip_setup_timestamp_filter(struct per_peer_state *pps,
 				   u32 first_timestamp,

@@ -3,7 +3,7 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wire_error.h>
-#include <wire/gen_peer_wire.h>
+#include <wire/peer_wiregen.h>
 
 u8 *towire_errorfmtv(const tal_t *ctx,
 		     const struct channel_id *channel,

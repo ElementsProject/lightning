@@ -6,7 +6,7 @@
 #include <common/amount.h>
 #include <common/htlc.h>
 #include <common/pseudorand.h>
-#include <wire/gen_onion_wire.h>
+#include <wire/onion_wiregen.h>
 
 struct htlc {
 	/* What's the status. */

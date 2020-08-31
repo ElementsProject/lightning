@@ -203,7 +203,7 @@ static void do_reconnect(struct per_peer_state *pps,
 					  &next_commitment_point)) {
 		peer_failed(pps, channel_id,
 			    "bad reestablish msg: %s %s",
-			    wire_type_name(fromwire_peektype(channel_reestablish)),
+			    peer_wire_name(fromwire_peektype(channel_reestablish)),
 			    tal_hex(tmpctx, channel_reestablish));
 	}
 	status_debug("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
