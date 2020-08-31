@@ -200,7 +200,9 @@ CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 
 BOLT_GEN := tools/generate-wire.py
 WIRE_GEN := $(BOLT_GEN)
-BOLT_DEPS := $(BOLT_GEN)
+
+# If you use wiregen, you're dependent on the tool, its templates, and Makefile
+WIRE_GEN_DEPS := $(WIRE_GEN) Makefile $(wildcard tools/gen/*_template)
 
 ALL_PROGRAMS =
 
@@ -247,12 +249,19 @@ config.vars:
 %.o: %.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 
-# generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
-%_wiregen.h: %_wire.csv
-	@if $(CHANGED_FROM_GIT); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page header $($@_args) $@ `basename $< .csv` < $< > $@); fi
+# Git doesn't maintain timestamps, so we only regen if sources actually changed:
+# We place the SHA inside some generated files so we can tell if they need updating.
+# Usage: $(call SHA256STAMP_CHANGED,prefix)
+SHA256STAMP_CHANGED = [ x"`sed -n 's/.*SHA256STAMP://p' $@ 2>/dev/null`" != x"$(1)`cat $^ | sha256sum | cut -c1-64`" ]
+# Usage: $(call SHA256STAMP,prefix,commentprefix)
+SHA256STAMP = echo '$(2) SHA256STAMP:$(1)'`cat $^ | sha256sum | cut -c1-64` >> $@
 
-%_wiregen.c: %_wire.csv
-	@if $(CHANGED_FROM_GIT); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page impl $($@_args) ${@:.c=.h} `basename $< .csv` < $< > $@); fi
+# generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
+%_wiregen.h: %_wire.csv $(WIRE_GEN_DEPS)
+	@if $(call SHA256STAMP_CHANGED,exp-$(EXPERIMENTAL_FEATURES)-); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page header $($@_args) $@ `basename $< .csv` < $< > $@ && $(call SHA256STAMP,exp-$(EXPERIMENTAL_FEATURES)-,//)); fi
+
+%_wiregen.c: %_wire.csv $(WIRE_GEN_DEPS)
+	@if $(call SHA256STAMP_CHANGED,exp-$(EXPERIMENTAL_FEATURES)-); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page impl $($@_args) ${@:.c=.h} `basename $< .csv` < $< > $@ && $(call SHA256STAMP,exp-$(EXPERIMENTAL_FEATURES)-,//)); fi
 
 include external/Makefile
 include bitcoin/Makefile
@@ -281,10 +290,6 @@ gen_list_of_builtin_plugins.h : plugins/Makefile Makefile
 	@echo '$(PLUGINS)' | sed 's@plugins/\([^ 	]*\)@"\1",@g'>> $@
 	@echo 'NULL' >> $@
 	@echo '};' >> $@
-
-# Git doesn't maintain timestamps, so we only regen if git says we should.
-# If neither is in git, we generate (note: one combines stderr, one discards)
-CHANGED_FROM_GIT = [ x"`git log $@ 2>&1 | head -n1`" != x"`git log $< 2>/dev/null | head -n1`" -o x"`git diff $<`" != x"" ]
 
 ifneq ($(TEST_GROUP_COUNT),)
 PYTEST_OPTS += --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT)
@@ -452,7 +457,7 @@ $(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS) Makefile
 $(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(ALL_GEN_HEADERS) $(EXTERNAL_HEADERS) Makefile
 
 # We generate headers in two ways, so regen when either changes (or Makefile)
-$(ALL_GEN_HEADERS): ccan/ccan/cdump/tools/cdump-enumstr $(WIRE_GEN) Makefile
+$(ALL_GEN_HEADERS): ccan/ccan/cdump/tools/cdump-enumstr Makefile
 
 update-ccan:
 	mv ccan ccan.old
