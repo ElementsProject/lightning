@@ -101,7 +101,7 @@ static char *find_bolt_ref(const char *prefix, char **p, size_t *len)
 		char *bolt, *end;
 		size_t preflen;
 
-		/* BOLT #X: */
+		/* Quote is of form 'BOLT #X:' */
 		*p = strchr(*p, '*');
 		if (!*p)
 			return NULL;
