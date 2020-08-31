@@ -77,20 +77,18 @@ default_pytest()
     done
 }
 
-require()
+check_command()
 {
     name="$1"
-    resolution="$2"
-    shift 2
+    shift 1
 
     echo -n "checking for $name... "
     if "$@" 2>/dev/null; then
 	echo 'found'
-	return
+	return 0
     fi
     echo 'not found'
-    echo "$resolution" >&2
-    exit 1
+    return 1
 }
 
 default_valgrind_setting()
@@ -235,9 +233,6 @@ if [ "$ASAN" = "1" ]; then
     fi
 fi
 
-# Doesn't set a var, but makes sure it exists
-require 'python3-mako' "You need the mako module for python3: see doc/INSTALL.md" python3 -c 'import mako'
-
 SQLITE3_CFLAGS=""
 SQLITE3_LDLIBS="-lsqlite3"
 if command -v "${PKG_CONFIG}" >/dev/null; then
@@ -362,6 +357,13 @@ int main(void)
 }
 /*END*/
 EOF
+
+if check_command 'python3-mako' python3 -c 'import mako'; then
+    HAVE_PYTHON3_MAKO=1
+else
+    HAVE_PYTHON3_MAKO=0
+fi
+
 mv $CONFIG_VAR_FILE.$$ $CONFIG_VAR_FILE
 
 # Now we can finally set our warning flags
@@ -389,6 +391,7 @@ add_var PYTEST "$PYTEST"
 add_var STATIC "$STATIC"
 add_var ASAN "$ASAN"
 add_var TEST_NETWORK "$TEST_NETWORK"
+add_var HAVE_PYTHON3_MAKO "$HAVE_PYTHON3_MAKO"
 
 # Hack to avoid sha256 name clash with libwally: will be fixed when that
 # becomes a standalone shared lib.

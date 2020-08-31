@@ -5,6 +5,9 @@
 #
 # We generate the files, and then we attempt to compile
 # and run a test case.
+
+# We don't run these at all unless mako is installed.
+ifeq ($(HAVE_PYTHON3_MAKO),1)
 check-units: check-tools
 
 TOOL_TEST_INCL_SRC := tools/test/enum.c
@@ -49,6 +52,7 @@ tools/test/gen_print.c: $(TOOLS_WIRE_DEPS)
 ALL_TEST_PROGRAMS += $(TOOL_TEST_PROGRAMS)
 
 check-tools: $(TOOL_TEST_PROGRAMS:%=unittest/%)
+endif # HAVE_PYTHON3_MAKO
 
 update-mocks: tools-update-mocks
 
