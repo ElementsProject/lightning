@@ -192,4 +192,4 @@ bool fromwire_status_peer_billboard(const tal_t *ctx, const void *p, bool *perm,
 	return cursor != NULL;
 }
 
-// SHA256STAMP:exp-0-4d2dbdbf0583d8c35594ef3c14ec80fc1ad4e8d00ee8f1dca0c57293ac41d17e
+// SHA256STAMP:exp-0-6b371939fcb8fc39758a17167e1b95bae1ac2cf61f207e530711aeba6838eb4f
