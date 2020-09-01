@@ -105,6 +105,7 @@ $(COMMON_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(EXTERNAL_HEADERS) $(COMMON_
 common/version.o: gen_version.h
 
 ALL_C_HEADERS += $(COMMON_HEADERS)
+ALL_C_SOURCES += $(COMMON_SRC)
 
 common/gen_htlc_state_names.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr common/htlc_state.h > $@
