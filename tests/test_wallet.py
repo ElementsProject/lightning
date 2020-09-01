@@ -618,6 +618,8 @@ def test_utxopsbt(node_factory, bitcoind):
                     reservedok=True)
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest',
+                 "See ElementsProject/lightning#3998")
 def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     """
     Tests for the sign + send psbt RPCs
