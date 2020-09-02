@@ -1,9 +1,5 @@
 #! /usr/bin/make
 
-# Designed to be run one level up
-wallet-wrongdir:
-	$(MAKE) -C .. lightningd-all
-
 WALLET_LIB_SRC :=		\
 	wallet/db.c		\
 	wallet/invoices.c	\
@@ -46,7 +42,7 @@ wallet/statements_gettextgen.po: $(SQL_FILES) FORCE
 wallet/db_%_sqlgen.c: wallet/statements_gettextgen.po devtools/sql-rewrite.py FORCE
 	@if $(call SHA256STAMP_CHANGED,); then $(call VERBOSE,"sql-rewrite $@",devtools/sql-rewrite.py wallet/statements.po $* > $@ && $(call SHA256STAMP,,//)); fi
 
-clean: wallet_clean
+clean: wallet-clean
 wallet-clean:
 	$(RM) wallet/statements.po
 	$(RM) wallet/gen_db_sqlite3.c
