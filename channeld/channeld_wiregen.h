@@ -230,4 +230,4 @@ bool fromwire_send_onionmsg(const tal_t *ctx, const void *p, u8 onion[1366], str
 
 #endif /* LIGHTNING_CHANNELD_CHANNELD_WIREGEN_H */
 
-// SHA256STAMP:exp-0-1b6f8d6af6aeb028ca014ecd646ecff1fc72b6b47f4ae04a0d6b24b92efb6eda
+// SHA256STAMP:exp-0-3a681f3ef41ab044c618653409c793a163a7c777181af6c798aff7bc9bef1a77
