@@ -40,7 +40,7 @@ wallet/statements_gettextgen.po: $(SQL_FILES) FORCE
 	@if $(call SHA256STAMP_CHANGED,); then $(call VERBOSE,"xgettext $@",xgettext -kNAMED_SQL -kSQL --add-location --no-wrap --omit-header -o $@ $(SQL_FILES) && $(call SHA256STAMP,,# )); fi
 
 wallet/db_%_sqlgen.c: wallet/statements_gettextgen.po devtools/sql-rewrite.py FORCE
-	@if $(call SHA256STAMP_CHANGED,); then $(call VERBOSE,"sql-rewrite $@",devtools/sql-rewrite.py wallet/statements.po $* > $@ && $(call SHA256STAMP,,//)); fi
+	@if $(call SHA256STAMP_CHANGED,); then $(call VERBOSE,"sql-rewrite $@",devtools/sql-rewrite.py wallet/statements_gettextgen.po $* > $@ && $(call SHA256STAMP,,//)); fi
 
 clean: wallet-clean
 wallet-clean:
