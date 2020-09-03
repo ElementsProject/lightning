@@ -387,16 +387,18 @@ fetch_psbt_changes(struct state *state, const struct wally_psbt *psbt)
 	msg = wire_sync_read(tmpctx, REQ_FD);
 
 	if (fromwire_dual_open_fail(msg, msg, &err))
-		peer_failed(state->pps, &state->channel_id, "%s", err);
+		status_failed(STATUS_FAIL_MASTER_IO, "%s", err);
 	else if (fromwire_dual_open_psbt_changed(state, msg, &unused, &updated_psbt)) {
 		/* Does our PSBT meet requirements? */
 		if (!check_balances(state, updated_psbt,
 				    state->our_role == OPENER,
 				    false, /* peers input/outputs not complete */
 				    state->feerate_per_kw_funding))
-			peer_failed(state->pps, &state->channel_id,
-				    "Peer error updating tx state. "
-				    "Local funds insufficient.");
+			status_failed(STATUS_FAIL_MASTER_IO,
+				      "Peer error updating tx state. "
+				      "Local funds insufficient. %s",
+				      type_to_string(tmpctx, struct wally_psbt,
+						     updated_psbt));
 
 		return updated_psbt;
 	} else
