@@ -218,17 +218,40 @@ class TailableProc(object):
                 self.err_logs.append(line.rstrip().decode('ASCII'))
             self.proc.stderr.close()
 
-    def is_in_log(self, regex, start=0):
-        """Look for `regex` in the logs."""
+    def is_in_log(self, regexs, start=0):
+        """Look for `regexs` in the logs.
 
-        ex = re.compile(regex)
-        for l in self.logs[start:]:
-            if ex.search(l):
-                logging.debug("Found '%s' in logs", regex)
-                return l
+        If regexs is a list, the match order within the log is also checked.
+         - Returns a single match if regexs was a matching string.
+         - Returns an list of matches if all regexs[] matched.
+         - Returns None if not all regexs matched.
+        """
+        was_list = True
+        if not isinstance(regexs, list):
+            was_list = False
+            regexs = [regexs]
 
-        logging.debug("Did not find '%s' in logs", regex)
-        return None
+        results = []
+        pos = start
+        for regex in regexs:
+            ex = re.compile(regex)
+            match = None
+            for l in self.logs[pos:]:
+                pos += 1
+                if ex.search(l):
+                    logging.debug("Found '%s' in logs", regex)
+                    match = l
+                    results += [match]
+                    break
+
+            if not match:
+                logging.debug("Did not find '%s' in logs", regex)
+                return None
+
+        if was_list:
+            return results
+        else:
+            return results[-1]
 
     def is_in_stderr(self, regex):
         """Look for `regex` in stderr."""
