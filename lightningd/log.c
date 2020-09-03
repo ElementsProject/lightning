@@ -106,11 +106,11 @@ static const char *level_prefix(enum log_level level)
 	switch (level) {
 	case LOG_IO_OUT:
 	case LOG_IO_IN:
-		return "IO";
+		return "IO     ";
 	case LOG_DBG:
-		return "DEBUG";
+		return "DEBUG  ";
 	case LOG_INFORM:
-		return "INFO";
+		return "INFO   ";
 	case LOG_UNUSUAL:
 		return "UNUSUAL";
 	case LOG_BROKEN:
