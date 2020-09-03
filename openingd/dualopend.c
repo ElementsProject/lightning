@@ -1048,7 +1048,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 				     a_tlv);
 
 	sync_crypto_write(state->pps, msg);
-	peer_billboard(false, "Channel Opening: accept sent, waiting for reply");
+	peer_billboard(false, "channel open: accept sent, waiting for reply");
 
 	/* Figure out what the funding transaction looks like! */
 	if (!run_tx_interactive(state, &psbt))
