@@ -1236,6 +1236,186 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 }
 #endif /* EXPERIMENTAL_FEATURES */
 
+static u8 *opener_start(struct state *state, u8 *msg)
+{
+	struct tlv_opening_tlvs *open_tlv;
+	struct tlv_accept_tlvs *a_tlv;
+	struct channel_id cid;
+	char *err_reason;
+	struct amount_sat total;
+	struct wally_psbt *psbt;
+	struct wally_psbt_output *funding_out;
+	u8 channel_flags;
+	const u8 *wscript;
+	u16 serial_id;
+	struct sha256 podle;
+
+	if (!fromwire_dual_open_opener_init(state, msg,
+					  &psbt,
+					  &state->opener_funding,
+					  &state->upfront_shutdown_script[LOCAL],
+					  &state->feerate_per_kw,
+					  &state->feerate_per_kw_funding,
+					  &channel_flags))
+		master_badmsg(WIRE_DUAL_OPEN_OPENER_INIT, msg);
+
+	state->our_role = TX_INITIATOR;
+	state->tx_locktime = psbt->tx->locktime;
+	open_tlv = tlv_opening_tlvs_new(tmpctx);
+
+	if (state->upfront_shutdown_script[LOCAL]) {
+		open_tlv->option_upfront_shutdown_script =
+			tal(open_tlv,
+			    struct tlv_opening_tlvs_option_upfront_shutdown_script);
+		open_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey =
+			state->upfront_shutdown_script[LOCAL];
+	}
+
+	/* FIXME: actually set the podle */
+	memset(&podle, 0, sizeof(podle));
+	msg = towire_open_channel2(NULL,
+				   &chainparams->genesis_blockhash,
+				   &podle, /* FIXME: podle H2! */
+				   state->feerate_per_kw_funding,
+				   state->opener_funding,
+				   state->localconf.dust_limit,
+				   state->localconf.max_htlc_value_in_flight,
+				   state->localconf.htlc_minimum,
+				   state->feerate_per_kw,
+				   state->localconf.to_self_delay,
+				   state->localconf.max_accepted_htlcs,
+				   state->tx_locktime,
+				   &state->our_funding_pubkey,
+				   &state->our_points.revocation,
+				   &state->our_points.payment,
+				   &state->our_points.delayed_payment,
+				   &state->our_points.htlc,
+				   &state->first_per_commitment_point[LOCAL],
+				   channel_flags,
+				   open_tlv);
+
+	sync_crypto_write(state->pps, take(msg));
+
+	/* This is usually a very transient state... */
+	peer_billboard(false, "channel open: offered, waiting for accept_channel2");
+
+	/* ... since their reply should be immediate. */
+	msg = opening_negotiate_msg(tmpctx, state, true);
+	if (!msg)
+		return NULL;
+
+	/* Set a cid default value, so on failure it's populated */
+	memset(&cid, 0xFF, sizeof(cid));
+
+	a_tlv = tlv_accept_tlvs_new(state);
+	if (!fromwire_accept_channel2(msg, &cid,
+				      &state->accepter_funding,
+				      &state->remoteconf.dust_limit,
+				      &state->remoteconf.max_htlc_value_in_flight,
+				      &state->remoteconf.htlc_minimum,
+				      &state->minimum_depth,
+				      &state->remoteconf.to_self_delay,
+				      &state->remoteconf.max_accepted_htlcs,
+				      &state->their_funding_pubkey,
+				      &state->their_points.revocation,
+				      &state->their_points.payment,
+				      &state->their_points.delayed_payment,
+				      &state->their_points.htlc,
+				      &state->first_per_commitment_point[REMOTE],
+				      a_tlv))
+		peer_failed(state->pps, &cid,
+			    "Parsing accept_channel2 %s", tal_hex(msg, msg));
+
+	if (a_tlv->option_upfront_shutdown_script) {
+		state->upfront_shutdown_script[REMOTE] = tal_steal(state,
+			a_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey);
+	} else
+		state->upfront_shutdown_script[REMOTE] = NULL;
+
+	derive_channel_id_v2(&state->channel_id,
+			     &state->our_points.revocation,
+			     &state->their_points.revocation);
+
+	if (!channel_id_eq(&cid, &state->channel_id))
+		peer_failed(state->pps, &state->channel_id,
+			    "accept_channel2 ids don't match: expected %s, got %s",
+			    type_to_string(msg, struct channel_id, &state->channel_id),
+			    type_to_string(msg, struct channel_id, &cid));
+
+	/* Check that total funding doesn't overflow */
+	if (!amount_sat_add(&total, state->opener_funding,
+			    state->accepter_funding))
+		peer_failed(state->pps, &state->channel_id,
+			    "Amount overflow. Local sats %s. "
+			    "Remote sats %s",
+			    type_to_string(tmpctx, struct amount_sat,
+					   &state->opener_funding),
+			    type_to_string(tmpctx, struct amount_sat,
+					   &state->accepter_funding));
+
+	/* Check that total funding doesn't exceed allowed channel capacity */
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 * - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support
+	 *   `option_support_large_channel`. */
+	/* We choose to require *negotiation*, not just support! */
+	if (!feature_negotiated(state->our_features, state->their_features,
+				OPT_LARGE_CHANNELS)
+	    && amount_sat_greater(total, chainparams->max_funding)) {
+		negotiation_failed(state, false,
+				   "total funding_satoshis %s too large",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &total));
+		return NULL;
+	}
+
+	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
+	 * The sending node:
+	 *  - if is the `opener`:
+	 *   - MUST send at least one `tx_add_output`,  the channel funding output.
+	 */
+	wscript = bitcoin_redeem_2of2(state,
+				      &state->our_funding_pubkey,
+				      &state->their_funding_pubkey);
+	funding_out = psbt_append_output(psbt,
+					 scriptpubkey_p2wsh(tmpctx, wscript),
+					 total);
+	/* Add a serial_id for this output */
+	serial_id = 0; /* FIXME: generate new serial */
+	psbt_output_add_serial_id(psbt, funding_out, serial_id);
+
+	/* Add all of our inputs/outputs to the changeset */
+	init_changeset(state, psbt);
+
+	/* Now that we know the total of the channel, we can set the reserve */
+	set_reserve(state, total);
+
+	if (!check_config_bounds(tmpctx, total, state->feerate_per_kw,
+				 state->max_to_self_delay,
+				 state->min_effective_htlc_capacity,
+				 &state->remoteconf,
+				 &state->localconf,
+				 true, true, /* v2 means we use anchor outputs */
+				 &err_reason)) {
+		negotiation_failed(state, false, "%s", err_reason);
+		return NULL;
+	}
+
+	/* Send our first message, we're opener we initiate here */
+	if (send_next(state, &psbt))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Must have at least one update to send");
+
+	/* Figure out what the funding transaction looks like! */
+	if (!run_tx_interactive(state, &psbt))
+		return NULL;
+
+	/* FIXME! */
+	return NULL;
+}
+
 /* Memory leak detection is DEVELOPER-only because we go to great lengths to
  * record the backtrace when allocations occur: without that, the leak
  * detection tends to be useless for diagnosing where the leak came from, but
@@ -1321,9 +1501,11 @@ static u8 *handle_master_in(struct state *state)
 		handle_dev_memleak(state, msg);
 		return NULL;
 #endif
+	case WIRE_DUAL_OPEN_OPENER_INIT:
+		return opener_start(state, msg);
 	/* mostly handled inline */
-	case WIRE_DUAL_OPEN_DEV_MEMLEAK_REPLY:
 	case WIRE_DUAL_OPEN_INIT:
+	case WIRE_DUAL_OPEN_DEV_MEMLEAK_REPLY:
 	case WIRE_DUAL_OPEN_FAILED:
 	case WIRE_DUAL_OPEN_FAIL:
 	case WIRE_DUAL_OPEN_GOT_OFFER:

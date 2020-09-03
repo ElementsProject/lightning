@@ -93,9 +93,19 @@ msgdata,dual_open_psbt_changed,psbt,wally_psbt,
 msgtype,dual_open_fail,7003
 msgdata,dual_open_fail,reason,wirestring,
 
-# dualopend->master: we failed to negotiation channel
+# dualopend->master: we failed to negotiate channel
 msgtype,dual_open_failed,7004
 msgdata,dual_open_failed,reason,wirestring,
+
+# master->dualopend: hello, I'd like to start a channel open
+msgtype,dual_open_opener_init,7200
+msgdata,dual_open_opener_init,psbt,wally_psbt,
+msgdata,dual_open_opener_init,funding_amount,amount_sat,
+msgdata,dual_open_opener_init,local_shutdown_len,u16,
+msgdata,dual_open_opener_init,local_shutdown_scriptpubkey,u8,local_shutdown_len
+msgdata,dual_open_opener_init,feerate_per_kw,u32,
+msgdata,dual_open_opener_init,feerate_per_kw_funding,u32,
+msgdata,dual_open_opener_init,channel_flags,u8,
 
 # master -> dualopend: do you have a memleak?
 msgtype,dual_open_dev_memleak,7033

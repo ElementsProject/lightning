@@ -52,6 +52,8 @@ static const errcode_t FUNDING_PEER_NOT_CONNECTED = 305;
 static const errcode_t FUNDING_UNKNOWN_PEER = 306;
 static const errcode_t FUNDING_NOTHING_TO_CANCEL = 307;
 static const errcode_t FUNDING_CANCEL_NOT_SAFE = 308;
+static const errcode_t FUNDING_PSBT_INVALID = 309;
+static const errcode_t FUNDING_V2_NOT_SUPPORTED = 310;
 
 /* `connect` errors */
 static const errcode_t CONNECT_NO_KNOWN_ADDRESS = 400;
