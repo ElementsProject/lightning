@@ -985,6 +985,23 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 			    type_to_string(tmpctx, struct amount_sat,
 					   &state->opener_funding));
 
+	/* Check that total funding doesn't exceed allowed channel capacity */
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 * - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support
+	 *   `option_support_large_channel`. */
+	/* We choose to require *negotiation*, not just support! */
+	if (!feature_negotiated(state->our_features, state->their_features,
+				OPT_LARGE_CHANNELS)
+	    && amount_sat_greater(total, chainparams->max_funding)) {
+		negotiation_failed(state, false,
+				   "total funding_satoshis %s too large",
+				   type_to_string(tmpctx, struct amount_sat,
+						  &total));
+		return NULL;
+	}
 
 	/* Add all of our inputs/outputs to the changeset */
 	init_changeset(state, psbt);
