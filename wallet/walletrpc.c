@@ -594,22 +594,6 @@ static const struct json_command listtransactions_command = {
 };
 AUTODATA(json_command, &listtransactions_command);
 
-struct command_result *param_psbt(struct command *cmd,
-				  const char *name,
-				  const char *buffer,
-				  const jsmntok_t *tok,
-				  struct wally_psbt **psbt)
-{
-	*psbt = psbt_from_b64(cmd, buffer + tok->start, tok->end - tok->start);
-	if (*psbt)
-		return NULL;
-
-	return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			    "'%s' should be a PSBT, not '%.*s'",
-			    name, json_tok_full_len(tok),
-			    json_tok_full(buffer, tok));
-}
-
 static bool in_only_inputs(const u32 *only_inputs, u32 this)
 {
 	for (size_t i = 0; i < tal_count(only_inputs); i++)

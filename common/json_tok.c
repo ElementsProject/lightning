@@ -2,6 +2,7 @@
 #include <bitcoin/base58.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/feerate.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/json_escape/json_escape.h>
@@ -498,4 +499,18 @@ struct command_result *param_bitcoin_address(struct command *cmd,
 		return NULL;
 	}
 	abort();
+}
+
+struct command_result *param_psbt(struct command *cmd,
+				  const char *name,
+				  const char *buffer,
+				  const jsmntok_t *tok,
+				  struct wally_psbt **psbt)
+{
+	*psbt = psbt_from_b64(cmd, buffer + tok->start, tok->end - tok->start);
+	if (*psbt)
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "Expected a PSBT");
 }
