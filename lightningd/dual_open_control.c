@@ -741,6 +741,35 @@ wallet_commit_channel(struct lightningd *ld,
 	return channel;
 }
 
+static void opener_psbt_changed(struct subd *dualopend,
+				struct uncommitted_channel *uc,
+				const u8 *msg)
+{
+	struct channel_id cid;
+	struct wally_psbt *psbt;
+	struct json_stream *response;
+	struct command *cmd = uc->fc->cmd;
+
+	if (!fromwire_dual_open_psbt_changed(cmd, msg,
+					     &cid,
+					     &psbt)) {
+		log_broken(dualopend->log,
+			   "Malformed dual_open_psbt_changed %s",
+			   tal_hex(tmpctx, msg));
+		tal_free(dualopend);
+		return;
+	}
+
+	response = json_stream_success(cmd);
+	json_add_string(response, "channel_id",
+			type_to_string(tmpctx, struct channel_id, &cid));
+	json_add_psbt(response, "psbt", psbt);
+	json_add_bool(response, "commitments_secured", false);
+
+	uc->fc->inflight = true;
+	was_pending(command_success(cmd, response));
+}
+
 static void accepter_commit_received(struct subd *dualopend,
 				     struct uncommitted_channel *uc,
 				     const int *fds,
@@ -923,6 +952,155 @@ static void accepter_got_offer(struct subd *dualopend,
 	plugin_hook_call_openchannel2(dualopend->ld, payload);
 }
 
+static struct command_result *json_open_channel_init(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *obj UNNEEDED,
+						     const jsmntok_t *params)
+{
+	struct funding_channel *fc = tal(cmd, struct funding_channel);
+	struct node_id *id;
+	struct peer *peer;
+	struct channel *channel;
+	bool *announce_channel;
+	u32 *feerate_per_kw_funding;
+	u32 *feerate_per_kw;
+	struct amount_sat *amount, psbt_val;
+	struct wally_psbt *psbt;
+
+	u8 *msg = NULL;
+
+	fc->cmd = cmd;
+	fc->cancels = tal_arr(fc, struct command *, 0);
+	fc->uc = NULL;
+	fc->inflight = false;
+
+	if (!param(fc->cmd, buffer, params,
+		   p_req("id", param_node_id, &id),
+		   p_req("amount", param_sat, &amount),
+		   p_req("initialpsbt", param_psbt, &psbt),
+		   p_opt("commitment_feerate", param_feerate, &feerate_per_kw),
+		   p_opt("funding_feerate", param_feerate, &feerate_per_kw_funding),
+		   p_opt_def("announce", param_bool, &announce_channel, true),
+		   p_opt("close_to", param_bitcoin_address, &fc->our_upfront_shutdown_script),
+		   NULL))
+		return command_param_failed();
+
+	psbt_val = AMOUNT_SAT(0);
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		struct amount_sat in_amt = psbt_input_get_amount(psbt, i);
+		if (!amount_sat_add(&psbt_val, psbt_val, in_amt))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Overflow in adding PSBT input values. %s",
+					    type_to_string(tmpctx, struct wally_psbt, psbt));
+	}
+
+	/* If they don't pass in at least enough in the PSBT to cover
+	 * their amount, nope */
+	if (!amount_sat_greater(psbt_val, *amount))
+		return command_fail(cmd, FUND_CANNOT_AFFORD,
+				    "Provided PSBT cannot afford funding of "
+				    "amount %s. %s",
+				    type_to_string(tmpctx, struct amount_sat, amount),
+				    type_to_string(tmpctx, struct wally_psbt, psbt));
+
+	fc->funding = *amount;
+	if (!feerate_per_kw) {
+		feerate_per_kw = tal(cmd, u32);
+		/* Anchors exist, set the commitment feerate to min */
+		*feerate_per_kw = feerate_min(cmd->ld, NULL);
+	}
+	if (!feerate_per_kw_funding) {
+		feerate_per_kw_funding = tal(cmd, u32);
+		*feerate_per_kw_funding = opening_feerate(cmd->ld->topology);
+		if (!*feerate_per_kw_funding)
+			return command_fail(cmd, LIGHTNINGD,
+					    "`funding_feerate` not specified and fee "
+					    "estimation failed");
+	}
+
+	if (!topology_synced(cmd->ld->topology)) {
+		return command_fail(cmd, FUNDING_STILL_SYNCING_BITCOIN,
+				    "Still syncing with bitcoin network");
+	}
+
+	peer = peer_by_id(cmd->ld, id);
+	if (!peer) {
+		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
+	}
+
+	channel = peer_active_channel(peer);
+	if (channel) {
+		return command_fail(cmd, LIGHTNINGD, "Peer already %s",
+				    channel_state_name(channel));
+	}
+
+	if (!peer->uncommitted_channel) {
+		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+				    "Peer not connected");
+	}
+
+	if (peer->uncommitted_channel->fc) {
+		return command_fail(cmd, LIGHTNINGD, "Already funding channel");
+	}
+
+#if EXPERIMENTAL_FEATURES
+	if (!feature_negotiated(cmd->ld->our_features,
+			        peer->their_features,
+				OPT_DUAL_FUND)) {
+		return command_fail(cmd, FUNDING_V2_NOT_SUPPORTED,
+				    "v2 openchannel not supported "
+				    "by peer");
+	}
+#endif /* EXPERIMENTAL_FEATURES */
+
+	/* BOLT #2:
+	 *  - if both nodes advertised `option_support_large_channel`:
+	 *    - MAY set `funding_satoshis` greater than or equal to 2^24 satoshi.
+	 *  - otherwise:
+	 *    - MUST set `funding_satoshis` to less than 2^24 satoshi.
+	 */
+	if (!feature_negotiated(cmd->ld->our_features,
+				peer->their_features, OPT_LARGE_CHANNELS)
+	    && amount_sat_greater(*amount, chainparams->max_funding))
+		return command_fail(cmd, FUND_MAX_EXCEEDED,
+				    "Amount exceeded %s",
+				    type_to_string(tmpctx, struct amount_sat,
+						   &chainparams->max_funding));
+
+	fc->channel_flags = OUR_CHANNEL_FLAGS;
+	if (!*announce_channel) {
+		fc->channel_flags &= ~CHANNEL_FLAGS_ANNOUNCE_CHANNEL;
+		log_info(peer->ld->log, "Will open private channel with node %s",
+			type_to_string(fc, struct node_id, id));
+	}
+
+	/* Add serials to any input that's missing them */
+	psbt_add_serials(psbt, LOCAL);
+	if (!psbt_has_required_fields(psbt))
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "PSBT is missing required fields %s",
+				    type_to_string(tmpctx, struct wally_psbt,
+						   psbt));
+
+	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
+	fc->uc = peer->uncommitted_channel;
+
+	/* Needs to be stolen away from cmd */
+	if (fc->our_upfront_shutdown_script)
+		fc->our_upfront_shutdown_script
+			= tal_steal(fc, fc->our_upfront_shutdown_script);
+
+	msg = towire_dual_open_opener_init(NULL,
+					   psbt, *amount,
+					   fc->our_upfront_shutdown_script,
+					   *feerate_per_kw,
+					   *feerate_per_kw_funding,
+					   fc->channel_flags);
+
+	subd_send_msg(peer->uncommitted_channel->open_daemon, take(msg));
+	return command_still_pending(cmd);
+}
+
 static unsigned int dual_opend_msg(struct subd *dualopend,
 				   const u8 *msg, const int *fds)
 {
@@ -934,7 +1112,17 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 			accepter_got_offer(dualopend, uc, msg);
 			return 0;
 		case WIRE_DUAL_OPEN_PSBT_CHANGED:
-			accepter_psbt_changed(dualopend, msg);
+			if (uc->fc) {
+				if (!uc->fc->cmd) {
+					log_unusual(dualopend->log,
+						    "Unexpected PSBT_CHANGED %s",
+						    tal_hex(tmpctx, msg));
+					tal_free(dualopend);
+					return 0;
+				}
+				opener_psbt_changed(dualopend, uc, msg);
+			} else
+				accepter_psbt_changed(dualopend, msg);
 			return 0;
 		case WIRE_DUAL_OPEN_COMMIT_RCVD:
 			if (tal_count(fds) != 3)
@@ -946,6 +1134,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 
 		/* Messages we send */
 		case WIRE_DUAL_OPEN_INIT:
+		case WIRE_DUAL_OPEN_OPENER_INIT:
 		case WIRE_DUAL_OPEN_GOT_OFFER_REPLY:
 		case WIRE_DUAL_OPEN_FAIL:
 		case WIRE_DUAL_OPEN_DEV_MEMLEAK:
@@ -970,6 +1159,15 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 	tal_free(dualopend);
 	return 0;
 }
+
+static const struct json_command open_channel_init_command = {
+	"openchannel_init",
+	"channels",
+	json_open_channel_init,
+	"Init an open channel to {id} with {initialpsbt} for {amount} satoshis. "
+	"Returns updated {psbt} with (partial) contributions from peer"
+};
+AUTODATA(json_command, &open_channel_init_command);
 
 void peer_start_dualopend(struct peer *peer,
 			  struct per_peer_state *pps,

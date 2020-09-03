@@ -31,8 +31,10 @@ enum dualopend_wire {
         WIRE_DUAL_OPEN_PSBT_CHANGED = 7107,
         /*  master->dualopend: fail this channel open */
         WIRE_DUAL_OPEN_FAIL = 7003,
-        /*  dualopend->master: we failed to negotiation channel */
+        /*  dualopend->master: we failed to negotiate channel */
         WIRE_DUAL_OPEN_FAILED = 7004,
+        /*  master->dualopend: hello */
+        WIRE_DUAL_OPEN_OPENER_INIT = 7200,
         /*  master -> dualopend: do you have a memleak? */
         WIRE_DUAL_OPEN_DEV_MEMLEAK = 7033,
         WIRE_DUAL_OPEN_DEV_MEMLEAK_REPLY = 7133,
@@ -82,9 +84,14 @@ u8 *towire_dual_open_fail(const tal_t *ctx, const wirestring *reason);
 bool fromwire_dual_open_fail(const tal_t *ctx, const void *p, wirestring **reason);
 
 /* WIRE: DUAL_OPEN_FAILED */
-/*  dualopend->master: we failed to negotiation channel */
+/*  dualopend->master: we failed to negotiate channel */
 u8 *towire_dual_open_failed(const tal_t *ctx, const wirestring *reason);
 bool fromwire_dual_open_failed(const tal_t *ctx, const void *p, wirestring **reason);
+
+/* WIRE: DUAL_OPEN_OPENER_INIT */
+/*  master->dualopend: hello */
+u8 *towire_dual_open_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags);
+bool fromwire_dual_open_opener_init(const tal_t *ctx, const void *p, struct wally_psbt **psbt, struct amount_sat *funding_amount, u8 **local_shutdown_scriptpubkey, u32 *feerate_per_kw, u32 *feerate_per_kw_funding, u8 *channel_flags);
 
 /* WIRE: DUAL_OPEN_DEV_MEMLEAK */
 /*  master -> dualopend: do you have a memleak? */
@@ -97,4 +104,4 @@ bool fromwire_dual_open_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:45ac65939acab987dfb71715f3a03db62863aa2048923666845e2adf45387eba
+// SHA256STAMP:4d357681ca9bea1ad36f3fe4d3482a0a12f808dfe20b71f0b9bee78beed0950e
