@@ -231,7 +231,7 @@ static bool is_openers(const struct wally_map *unknowns)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "PSBTs must have serial_ids set");
 
-	return serial_id % 2 == 0;
+	return serial_id % 2 == TX_INITIATOR;
 }
 
 static size_t psbt_input_weight(struct wally_psbt *psbt,
@@ -560,7 +560,8 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 	}
 }
 
-static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psbt)
+static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psbt,
+			       enum tx_role our_role)
 {
 	/* Opener always sends the first utxo info */
 	bool we_complete = false, they_complete = false;
@@ -576,7 +577,8 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 		 * they have to re-affirm every time  */
 		they_complete = false;
 
-		msg = opening_negotiate_msg(tmpctx, state, false);
+		msg = opening_negotiate_msg(tmpctx, state,
+					    our_role == TX_INITIATOR);
 		if (!msg)
 			return false;
 		t = fromwire_peektype(msg);
@@ -611,7 +613,7 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			 * - it receives a `serial_id` from the peer
 			 *   with the incorrect parity
 			 */
-			if (serial_id % 2 != 0)
+			if (serial_id % 2 == our_role)
 				peer_failed(state->pps, &state->channel_id,
 					    "Invalid serial_id rcvd. %u", serial_id);
 			/*
@@ -706,7 +708,7 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			 * The sending node:
 			 *   - MUST NOT send a `tx_remove_input` for an
 			 *     input which is not theirs */
-			if (serial_id % 2 != 0)
+			if (serial_id % 2 == our_role)
 				peer_failed(state->pps, &state->channel_id,
 					    "Invalid serial_id rcvd. %u", serial_id);
 
@@ -739,7 +741,7 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			 *   ...
 			 *   - it receives a `serial_id` from the peer with the
 			 *      incorrect parity */
-			if (serial_id % 2 != 0)
+			if (serial_id % 2 == our_role)
 				peer_failed(state->pps, &state->channel_id,
 					    "Invalid serial_id rcvd. %u", serial_id);
 
@@ -765,7 +767,7 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			 * The sending node:
 			 *   - MUST NOT send a `tx_remove_ouput` for an
 			 *     input which is not theirs */
-			if (serial_id % 2 != 0)
+			if (serial_id % 2 == our_role)
 				peer_failed(state->pps, &state->channel_id,
 					    "Invalid serial_id rcvd. %u", serial_id);
 
@@ -1057,7 +1059,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 	peer_billboard(false, "channel open: accept sent, waiting for reply");
 
 	/* Figure out what the funding transaction looks like! */
-	if (!run_tx_interactive(state, &psbt))
+	if (!run_tx_interactive(state, &psbt, TX_ACCEPTER))
 		return NULL;
 
 	/* Find the funding transaction txid */
@@ -1409,7 +1411,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 			      "Must have at least one update to send");
 
 	/* Figure out what the funding transaction looks like! */
-	if (!run_tx_interactive(state, &psbt))
+	if (!run_tx_interactive(state, &psbt, TX_INITIATOR))
 		return NULL;
 
 	/* FIXME! */
