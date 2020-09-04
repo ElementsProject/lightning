@@ -141,6 +141,8 @@ class TailableProc(object):
         self.proc = None
         self.outputDir = outputDir
         self.logsearch_start = 0
+        self.logsearch_noblock = 0
+        self.logsearch_end = 0
         self.err_logs = []
 
         # Should we be logging lines we read from stdout?
@@ -248,6 +250,7 @@ class TailableProc(object):
                 logging.debug("Did not find '%s' in logs", regex)
                 return None
 
+        self.logsearch_end = pos
         if was_list:
             return results
         else:
@@ -266,7 +269,7 @@ class TailableProc(object):
         return None
 
     def wait_for_logs(self, regexs, timeout=TIMEOUT):
-        """Look for `regexs` in the logs.
+        """Look and wait for `regexs` in the logs until `timeout`
 
         We tail the stdout of the process and look for each regex in `regexs`,
         starting from last of the previous waited-for log entries (if any).  We
@@ -310,6 +313,19 @@ class TailableProc(object):
         Convenience wrapper for the common case of only seeking a single entry.
         """
         return self.wait_for_logs([regex], timeout)
+
+    def was_in_log(self, regexs):
+        """Look for `regexs` in the logs.
+
+        Unlike wait_for_logs this method does not wait for new logs or timeout.
+        Other than that it offers the same functionality but uses its own
+        internal log pointer `logsearch_noblock`.
+
+        Similar to is_in_log, regexs can be a string or a list of strings.
+        """
+        result = self.is_in_log(regexs, self.logsearch_noblock)
+        self.logsearch_noblock = self.logsearch_end
+        return result
 
 
 class SimpleBitcoinProxy:
