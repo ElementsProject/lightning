@@ -100,7 +100,6 @@ check-manpages: all-programs
 	@tools/check-manpage.sh "lightningd/lightningd --lightning-dir=/tmp/" doc/lightningd-config.5.md
 
 doc-maintainer-clean:
-	$(RM) doc/deployable-lightning.pdf
 	$(RM) $(MANPAGES)
 
 doc-clean:
