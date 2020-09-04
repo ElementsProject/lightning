@@ -42,14 +42,11 @@ wallet/statements_gettextgen.po: $(SQL_FILES) FORCE
 wallet/db_%_sqlgen.c: wallet/statements_gettextgen.po devtools/sql-rewrite.py FORCE
 	@if $(call SHA256STAMP_CHANGED,); then $(call VERBOSE,"sql-rewrite $@",devtools/sql-rewrite.py wallet/statements_gettextgen.po $* > $@ && $(call SHA256STAMP,,//)); fi
 
-clean: wallet-clean
-wallet-clean:
-	$(RM) wallet/statements.po
-	$(RM) wallet/gen_db_sqlite3.c
-	$(RM) wallet/gen_db_postgres.c
-
-maintainer-clean: wallet_maintainer-clean
+maintainer-clean: wallet-maintainer-clean
 wallet-maintainer-clean:
+	$(RM) wallet/statements.po
 	$(RM) wallet/statements_gettextgen.po
+	$(RM) wallet/db_sqlite3_sqlgen.c
+	$(RM) wallet/db_postgres_sqlgen.c
 
 include wallet/test/Makefile
