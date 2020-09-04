@@ -15,7 +15,9 @@ The \fBlistconfigs\fR teh RPC command to list all configuration options, or with
 {
   "id": 82,
   "method": "listconfigs",
-  "params": {}
+  "params": {
+    "config": "network"
+  }
 }
 .RE
 
@@ -28,7 +30,7 @@ On success, an object with the following proprieties is returned:
 .IP \[bu]
 \fI# version\fR: A string that rappresents the version of node\.
 .IP \[bu]
-\fIlightning-di\fR: A string that rappresents the work dir of the node\.
+\fIlightning-dir\fR: A string that rappresents the work dir of the node\.
 .IP \[bu]
 \fInetwork\fR: A string that rappresents the network (e\.g: bitcoin)\.
 .IP \[bu]
@@ -115,16 +117,15 @@ On success, an object with the following proprieties is returned:
 .IP \[bu]
 \fIlog-level\fR: A string that rappresent the level of log\.
 .IP \[bu]
+\fIlog-prefix\fR: A string that rappresent the log prefix\.i
 
-\fIlog-prefix\fR: A string that rappresent the log prefix\.
+.RE
+
 On failure, one of the following error codes may be returned:
 
-
+.RS
 .IP \[bu]
-
 -32602: Error in given parameters or field with \fIconfig\fR name doesn't exist\.
-
-
 
 .RE
 .SH EXAMPLE JSON RESPONSE

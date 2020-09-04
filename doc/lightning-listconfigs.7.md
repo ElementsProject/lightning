@@ -18,7 +18,9 @@ EXAMPLE JSON REQUEST
 {
   "id": 82,
   "method": "listconfigs",
-  "params": {}
+  "params": {
+    "config": "network"
+  }
 }
 ```
 
@@ -28,7 +30,7 @@ RETURN VALUE
 On success, an object with the following proprieties is returned:
 
 - *# version*: A string that rappresents the version of node.
-- *lightning-di*: A string that rappresents the work dir of the node.
+- *lightning-dir*: A string that rappresents the work dir of the node.
 - *network*: A string that rappresents the network (e.g: bitcoin).
 - *allow-deprecated-apis*: A boolean value that rappresent if the deprecated api are avaible on the node.
 - *rpc-file*: A string that rappresent the location of the rpc file.
@@ -70,7 +72,9 @@ On success, an object with the following proprieties is returned:
 - *encrypted-hsm*: A boolean value that rappresent if the wallet is encrypted. 
 - *rpc-file-mode*: A string that rappresent the value rpc-file-mode.
 - *log-level*: A string that rappresent the level of log.
-- *log-prefix*: A string that rappresent the log prefix.
+- *log-prefix*: A string that rappresent the log prefix.i
+
+
 On failure, one of the following error codes may be returned:
 
 - -32602: Error in given parameters or field with *config* name doesn't exist.
