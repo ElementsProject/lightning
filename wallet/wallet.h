@@ -1093,14 +1093,11 @@ bool wallet_have_block(struct wallet *w, u32 blockheight);
  * Given the outpoint (txid, outnum), and the blockheight, mark the
  * corresponding DB entries as spent at the blockheight.
  *
- * @our_spend - set to true if found in our wallet's output set, false otherwise
- * @return scid The short_channel_id corresponding to the spent outpoint, if
- *         any.
+ * @return true if found in our wallet's output set, false otherwise
  */
-const struct short_channel_id *
-wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
-		      const struct bitcoin_txid *txid, const u32 outnum,
-		      bool *our_spend);
+bool wallet_outpoint_spend(struct wallet *w, const tal_t *ctx,
+			   const u32 blockheight,
+			   const struct bitcoin_txid *txid, const u32 outnum);
 
 struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 					  const struct short_channel_id *scid);

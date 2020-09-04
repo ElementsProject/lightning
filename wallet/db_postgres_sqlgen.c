@@ -1467,12 +1467,6 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT blockheight, txindex FROM utxoset WHERE txid = ? AND outnum = ?",
-         .query = "SELECT blockheight, txindex FROM utxoset WHERE txid = $1 AND outnum = $2",
-         .placeholders = 2,
-         .readonly = true,
-    },
-    {
          .name = "INSERT INTO utxoset ( txid, outnum, blockheight, spendheight, txindex, scriptpubkey, satoshis) VALUES(?, ?, ?, ?, ?, ?, ?);",
          .query = "INSERT INTO utxoset ( txid, outnum, blockheight, spendheight, txindex, scriptpubkey, satoshis) VALUES($1, $2, $3, $4, $5, $6, $7);",
          .placeholders = 7,
@@ -1642,10 +1636,10 @@ struct db_query db_postgres_queries[] = {
     },
 };
 
-#define DB_POSTGRES_QUERY_COUNT 272
+#define DB_POSTGRES_QUERY_COUNT 271
 
 #endif /* HAVE_POSTGRES */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:9c0282186a89a37a232b8a4f34dceabaf5b53b7cc5c3bc24eb4e53967662cb6f
+// SHA256STAMP:93c3f12a788012003366f01547f6059bc7894cddd9cf3b046b908f5458452da7
