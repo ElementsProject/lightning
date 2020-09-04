@@ -2414,3 +2414,65 @@ def test_listtransactions(node_factory):
     # The txid of the transaction funding the channel is present, and
     # represented as little endian (like bitcoind and explorers).
     assert wallettxid in txids
+
+
+def test_pyln_loghelpers(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2)
+    bitcoind.generate_block(10)
+    # messages will be like 'Adding block 100: deadbeef...'
+    msg = "Adding block"
+
+    # test negative match
+    assert not l1.daemon.is_in_log('This will never be in a clnd log')
+    assert not l1.daemon.is_in_log(['This will never be in a clnd log'])
+
+    # test single match
+    assert l1.daemon.is_in_log(msg)
+    assert l1.daemon.is_in_log([msg])
+
+    # test is_in_log with list of regexs
+    blocks = l1.daemon.is_in_log([msg, msg + ' .*', msg])
+    assert blocks
+    block0 = int(re.search(msg + ' ([0-9]*):', blocks[0]).group(1))
+    block1 = int(re.search(msg + ' ([0-9]*):', blocks[1]).group(1))
+    block2 = int(re.search(msg + ' ([0-9]*):', blocks[2]).group(1))
+    assert block0 < block1 < block2
+    assert block0 + 1 == block1
+    assert block1 + 1 == block2
+
+    # test wait_for_log(s) and internal log pointer
+    l1.daemon.logsearch_start = 0   # reset logpoiter
+    block0 = l1.daemon.wait_for_log(msg + ' .*')
+    assert block0
+    block0 = int(re.search(msg + ' ([0-9]*):', block0).group(1))
+    assert block0 + 1 == block1
+    block3 = l1.daemon.wait_for_logs([msg, msg + ' .*', msg])
+    # note: wait_for_logs([...]) returns the last match and not a list
+    assert block3
+    block3 = int(re.search(msg + ' ([0-9]*):', block3).group(1))
+    assert block2 + 1 == block3
+
+    # ensure we read enough logs for was_in_log tests below
+    assert l1.daemon.wait_for_log(msg + ' ' + str(block0 + 10))
+
+    # test was_in_log() starting from own internal pointer
+    block0 = l1.daemon.was_in_log(msg + ' [0-9]*')
+    assert block0
+    block0 = int(re.search(msg + ' ([0-9]*):', block0).group(1))
+    assert block0 + 1 == block1
+
+    # test was_in_log([...]) returning the next blocks matches
+    blocks = l1.daemon.was_in_log([msg, msg + ' .*', msg])
+    assert blocks
+    block1 = int(re.search(msg + ' ([0-9]*):', blocks[0]).group(1))
+    block2 = int(re.search(msg + ' ([0-9]*):', blocks[1]).group(1))
+    block3 = int(re.search(msg + ' ([0-9]*):', blocks[2]).group(1))
+    assert block1 == block0 + 1
+    assert block2 == block1 + 1
+    assert block3 == block2 + 1
+
+    # check next was_in_log(msg) call with a single str returns block4
+    block4 = l1.daemon.was_in_log(msg)
+    assert block4
+    block4 = int(re.search(msg + ' ([0-9]*):', block4).group(1))
+    assert block4 == block3 + 1
