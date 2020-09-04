@@ -1467,12 +1467,6 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT blockheight, txindex FROM utxoset WHERE txid = ? AND outnum = ?",
-         .query = "SELECT blockheight, txindex FROM utxoset WHERE txid = ? AND outnum = ?",
-         .placeholders = 2,
-         .readonly = true,
-    },
-    {
          .name = "INSERT INTO utxoset ( txid, outnum, blockheight, spendheight, txindex, scriptpubkey, satoshis) VALUES(?, ?, ?, ?, ?, ?, ?);",
          .query = "INSERT INTO utxoset ( txid, outnum, blockheight, spendheight, txindex, scriptpubkey, satoshis) VALUES(?, ?, ?, ?, ?, ?, ?);",
          .placeholders = 7,
@@ -1642,10 +1636,10 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
-#define DB_SQLITE3_QUERY_COUNT 272
+#define DB_SQLITE3_QUERY_COUNT 271
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:9c0282186a89a37a232b8a4f34dceabaf5b53b7cc5c3bc24eb4e53967662cb6f
+// SHA256STAMP:93c3f12a788012003366f01547f6059bc7894cddd9cf3b046b908f5458452da7

@@ -3002,15 +3002,11 @@ void wallet_blocks_rollback(struct wallet *w, u32 height)
 	db_exec_prepared_v2(take(stmt));
 }
 
-const struct short_channel_id *
-wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
-		      const struct bitcoin_txid *txid, const u32 outnum,
-		      bool *our_spend)
+bool wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
+		      const struct bitcoin_txid *txid, const u32 outnum)
 {
-	struct short_channel_id *scid;
 	struct db_stmt *stmt;
-	bool res;
-	int changes;
+	bool our_spend;
 	if (outpointfilter_matches(w->owned_outpoints, txid, outnum)) {
 		stmt = db_prepare_v2(w->db, SQL("UPDATE outputs "
 						"SET spend_height = ?, "
@@ -3025,9 +3021,9 @@ wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
 
 		db_exec_prepared_v2(take(stmt));
 
-		*our_spend = true;
+		our_spend = true;
 	} else
-		*our_spend = false;
+		our_spend = false;
 
 	if (outpointfilter_matches(w->utxoset_outpoints, txid, outnum)) {
 		stmt = db_prepare_v2(w->db, SQL("UPDATE utxoset "
@@ -3038,38 +3034,10 @@ wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockheight,
 		db_bind_int(stmt, 0, blockheight);
 		db_bind_sha256d(stmt, 1, &txid->shad);
 		db_bind_int(stmt, 2, outnum);
-
 		db_exec_prepared_v2(stmt);
-		changes = db_count_changes(stmt);
 		tal_free(stmt);
-
-		if (changes == 0) {
-			return NULL;
-		}
-
-		/* Now look for the outpoint's short_channel_id */
-		stmt =
-		    db_prepare_v2(w->db, SQL("SELECT "
-					     "blockheight, txindex "
-					     "FROM utxoset "
-					     "WHERE txid = ? AND outnum = ?"));
-		db_bind_sha256d(stmt, 0, &txid->shad);
-		db_bind_int(stmt, 1, outnum);
-		db_query_prepared(stmt);
-
-		res = db_step(stmt);
-		assert(res);
-
-		scid = tal(ctx, struct short_channel_id);
-		if (!mk_short_channel_id(scid, db_column_int(stmt, 0),
-					 db_column_int(stmt, 1), outnum))
-			fatal("wallet_outpoint_spend: invalid scid %u:%u:%u",
-			      db_column_int(stmt, 0),
-			      db_column_int(stmt, 1), outnum);
-		tal_free(stmt);
-		return scid;
 	}
-	return NULL;
+	return our_spend;
 }
 
 void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,

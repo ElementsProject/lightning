@@ -741,7 +741,7 @@ log_fee:
  */
 static void topo_update_spends(struct chain_topology *topo, struct block *b)
 {
-	const struct short_channel_id *scid;
+	const struct short_channel_id *spent_scids;
 	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
 		bool our_tx = true, includes_our_spend = false;
@@ -757,15 +757,9 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 
 			bitcoin_tx_input_get_txid(tx, j, &outpoint_txid);
 
-			scid = wallet_outpoint_spend(topo->ld->wallet, tmpctx,
-						     b->height, &outpoint_txid,
-						     input->index,
-						     &our_spend);
-			if (scid) {
-				gossipd_notify_spend(topo->bitcoind->ld, scid);
-				tal_free(scid);
-			}
-
+			our_spend = wallet_outpoint_spend(
+			    topo->ld->wallet, tmpctx, b->height, &outpoint_txid,
+			    input->index);
 			our_tx &= our_spend;
 			includes_our_spend |= our_spend;
 			if (our_spend) {
@@ -783,6 +777,15 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 			record_tx_outs_and_fees(topo->ld, tx, &txid,
 						b->height, inputs_total, our_tx);
 	}
+	/* Retrieve all potential channel closes from the UTXO set and
+	 * tell gossipd about them. */
+	spent_scids =
+	    wallet_utxoset_get_spent(tmpctx, topo->ld->wallet, b->height);
+
+	for (size_t i=0; i<tal_count(spent_scids); i++) {
+		gossipd_notify_spend(topo->bitcoind->ld, &spent_scids[i]);
+	}
+	tal_free(spent_scids);
 }
 
 static void topo_add_utxos(struct chain_topology *topo, struct block *b)
