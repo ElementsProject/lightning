@@ -206,7 +206,14 @@ simple JSON object containing the options:
   "configuration": {
     "lightning-dir": "/home/user/.lightning/testnet",
     "rpc-file": "lightning-rpc",
-    "startup": true
+    "startup": true,
+    "network": "testnet",
+    "feature_set": {
+        "init": "02aaa2",
+        "node": "8000000002aaa2",
+        "channel": "",
+        "invoice": "028200"
+    }
   }
 }
 ```
