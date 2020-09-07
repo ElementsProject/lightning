@@ -7,7 +7,7 @@ lightning-getinfo - Command to receive all information about the c-lightning nod
 
 .SH DESCRIPTION
 
-The \fBgetinfo\fR is a RPC command which is possible receive all node informations\.
+The \fBgetinfo\fR gives a summary of the current running node\.
 
 .SH EXAMPLE JSON REQUEST
 .nf
@@ -26,38 +26,38 @@ On success, an object with the following information is returned:
 
 .RS
 .IP \[bu]
-\fIid\fR: A string that rappresents the public key of the node\. It will rappresent the node on the public network\.
+\fIid\fR: A string that represents the public key of the node\. It will represents the node on the public network\.
 .IP \[bu]
-\fIalias\fR: A string that rappresents the alias of the node, by default is calculate from the public key (node id)\.
+\fIalias\fR: A string that represents the alias of the node, by default is calculate from the public key (node id)\.  This is just for fun; the name can be anything and is not unique!
 .IP \[bu]
-\fIcolor\fR: A string that rappresents the color of the node\.
+\fIcolor\fR: A string that represents the preferred color of the node\.
 .IP \[bu]
-\fInum_peers\fR: An integer that rappresents the number of peer connect to the node\.
+\fInum_peers\fR: An integer that represents the number of peer connect to the node\.
 .IP \[bu]
-\fInum_pending_channels\fR: An integer that rappresents the number of channel with pending status\.
+\fInum_pending_channels\fR: An integer that represents the number of channel which are still awaiting opening confirmation\.
 .IP \[bu]
-\fInum_active_channels\fR: A integer that rappresents the number of channel with the active status\.
+\fInum_active_channels\fR: A integer that represents the number of channel which are currently open\.
 .IP \[bu]
-\fInum_inactive_channels\fR: A integer that rappresents the number of channel with the inactive status\.
+\fInum_inactive_channels\fR: A integer that represents the number of channel which are closing\.
 .IP \[bu]
-\fIaddress\fR: An array that rappresents all addresses of the node, each object inside the array contains the following proprieties:.RS
+\fIaddress\fR: An array that represents all published addresses of the node, each object inside the array contains the following proprieties:.RS
 .IP \[bu]
-\fItype\fR: A string that rappresents the type of the address (ipv4 or ipv6)\.
+\fItype\fR: A string that represents the type of the address (currently \fBipv4\fR, \fBipv6\fR, \fBtorv3\fR or \fBtorv4\fR)\.
 .IP \[bu]
-\fIaddress\fR: A string that rappresents the value of the address\.
+\fIaddress\fR: A string that represents the value of the address\.
 .IP \[bu]
-\fIport\fR: An integer that rappresents the port where the node are listening with this address\.
+\fIport\fR: An integer that represents the port where the node is listening with this address\.
 
 .RE
 
 .IP \[bu]
-\fIbinding\fR: An array that rappresents all addresses where the node is binded\. Each object contains the same object type of the address propriety above\.
+\fIbinding\fR: An array that represents all addresses where the node is binded\. Each object contains the same object type of the address propriety above\.
 .IP \[bu]
-\fIversion\fR: A string that rappresents the version of the node\.
+\fIversion\fR: A string that represents the version of the node\.
 .IP \[bu]
-\fIblockheight\fR: An integer that rappresents the blockchain height\.
+\fIblockheight\fR: An integer that represents the blockchain height\.
 .IP \[bu]
-\fInetwork\fR: A string that rappresents the type of network on the node are working (i\.e: bitcoin, testnet, regtest)\.
+\fInetwork\fR: A string that represents the type of network on the node are working (e\.g: \fBbitcoin\fR, \fBtestnet\fR, or \fBregtest\fR)\.
 
 .RE
 
@@ -120,3 +120,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
+\" SHA256STAMP:9e6a0e0c25569bfc9d23b07e84392a3f70f6c94a86cd482fbf48c3d668a1796d

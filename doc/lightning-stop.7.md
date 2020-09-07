@@ -1,4 +1,4 @@
-lightning-stop -- Command to shut-off c-lightning node.
+lightning-stop -- Command to shutdown the c-lightning node.
 ============================================================
 
 SYNOPSIS
@@ -9,7 +9,7 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **stop** is a RPC command to shut-off the c-lightning node.
+The **stop** is a RPC command to shut off the c-lightning node.
 
 EXAMPLE JSON REQUEST
 ------------
@@ -24,7 +24,8 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, the command will return a empty object.
+On success, the command will return a empty object.  Once it has returned,
+the daemon has cleaned up completely, and if desired may be restarted.
 
 
 AUTHOR

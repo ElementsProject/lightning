@@ -7,7 +7,7 @@ lightning-listconfigs - Command to list all configuration options\.
 
 .SH DESCRIPTION
 
-The \fBlistconfigs\fR teh RPC command to list all configuration options, or with \fIconfig\fR, just that one\.
+The \fBlistconfigs\fR RPC command to list all configuration options, or with \fIconfig\fR, just that one\.
 
 .SH EXAMPLE JSON REQUEST
 .nf
@@ -24,100 +24,29 @@ The \fBlistconfigs\fR teh RPC command to list all configuration options, or with
 .fi
 .SH RETURN VALUE
 
-On success, an object with the following proprieties is returned:
+On success, an object is returned with members reflecting the
+corresponding \fBlightningd-config\fR(5) options which were specified in
+the configuration file(s) and command line\.
+
+
+Additional members include:
 
 .RS
 .IP \[bu]
-\fI# version\fR: A string that rappresents the version of node\.
+\fI# version\fR: A string that represents the version of node\.
 .IP \[bu]
-\fIlightning-dir\fR: A string that rappresents the work dir of the node\.
+\fIplugins\fR: A array that represents the non-important plugin registered\. Each object contains the following members:.RS
 .IP \[bu]
-\fInetwork\fR: A string that rappresents the network (e\.g: bitcoin)\.
+\fIpath\fR: A string that represents the path of plugin\.
 .IP \[bu]
-\fIallow-deprecated-apis\fR: A boolean value that rappresent if the deprecated api are avaible on the node\.
+\fIname\fR: A string that represents the name of plugin\.
 .IP \[bu]
-\fIrpc-file\fR: A string that rappresent the location of the rpc file\.
-.IP \[bu]
-\fIplugins\fR: A array that rappresent the no important plugin registered\. Each object contains the following proprieties:.RS
-.IP \[bu]
-\fIpath\fR: A string that rappresent the path of plugin\.
-.IP \[bu]
-\fIname\fR: A string that rappresent the name of plugin\.
-.IP \[bu]
-\fIoptions\fR: A object that contains all options accepted from comand line, if the plugin accepted parameters from command line\.
+\fIoptions\fR: A object that contains all options accepted from command line or configuration file, if the plugin has opitions
 
 .RE
 
 .IP \[bu]
-\fIimportant-plugins\fR: An array that rappresent all important pluging registered to the node\. Each object contains the same proprieties of \fIplugin\fR array\.
-.IP \[bu]
-\fIdisable-plugin\fR: An array of string that rappresent the name of plugin disabled\.
-.IP \[bu]
-\fIalways-use-proxy\fR: A boolean value that rappresent if the node utilize always the proxy\.
-.IP \[bu]
-\fIdaemon\fR: A boolean value is the node have the daemon propriety enabled\.
-.IP \[bu]
-\fIwallet\fR: A string that rappresent the location of wallet with database url convention\.
-.IP \[bu]
-\fIwumbo\fR: A boolean value that rappresent the value of wumbo propriety\.
-.IP \[bu]
-\fIrgb\fR: A string that rappresent the color of the node\.
-.IP \[bu]
-\fIalias\fR: A string that rappresent the alias of the node\.
-.IP \[bu]
-\fIpid-file\fR: A string that rappresent the location of the pid file\.
-.IP \[bu]
-\fIignore-fee-limits\fR: A boolean value that rappresent is the node ignore the fee limit\.
-.IP \[bu]
-\fIwatchtime-blocks\fR: An integer that rappresent the watchtime of the blocks\.
-.IP \[bu]
-\fImax-locktime-blocks\fR: A integer that rappresent that max locktime for blocks\.
-.IP \[bu]
-\fIfunding-confirms\fR: An integer that rappresent the number of funding transaction confermation\.
-.IP \[bu]
-\fIcommit-fee-min\fR: A integer that rappresent the minimum commit fee\.
-.IP \[bu]
-\fIcommit-fee-max\fR: A integer that rappresent the maximum commit fee\.
-.IP \[bu]
-\fIcltv-delta\fR: An integer that rappresent the value of cltv delta\.
-.IP \[bu]
-\fIcltv-final\fR: An integer that rappresent the value of cltv final\.
-.IP \[bu]
-\fIcommit-time\fR: An integer that rappresent the value of commit time\.
-.IP \[bu]
-\fIfee-base\fR: A integer that rappresent the value of fee base\.
-.IP \[bu]
-\fIrescan\fR: A integer that rappresent the number of block that the node must rescan before to run\.
-.IP \[bu]
-\fIfee-per-satoshi\fR: An integer that rappresent the fee for satoshi\.
-.IP \[bu]
-\fImax-concurrent-htlcs\fR: A integer that rappresent the number of HTLCs one channel can handle concurrently in each direction\.
-.IP \[bu]
-\fImin-capacity-sat\fR: A integer that rappresent the minimal effective channel capacity in satoshi to accept for channel opening requests\.
-.IP \[bu]
-\fIaddr\fR: A string that rappresent the address where the node are listen\.
-.IP \[bu]
-\fIbind-addr\fR: A string that rappresent the address or UNIX domine socket where the node are listen\.
-.IP \[bu]
-\fIannounce-addr\fR: A string that rappresent the address where the node is annunced\.
-.IP \[bu]
-\fIoffline\fR: A boolean value that rappresent if the node is offline\.
-.IP \[bu]
-\fIautolisten\fR: A boolean value that rappresent if the autolisten is enabled\.
-.IP \[bu]
-\fIproxy\fR: A string that rappresent the proxy address\.
-.IP \[bu]
-\fIdisable-dns\fR: A boolean value that rappresent if the dns is disabled\.
-.IP \[bu]
-\fIenable-autotor-v2-mode\fR: A boolean value that rappresent if the Tor v2 is enabled\.
-.IP \[bu]
-\fIencrypted-hsm\fR: A boolean value that rappresent if the wallet is encrypted\. 
-.IP \[bu]
-\fIrpc-file-mode\fR: A string that rappresent the value rpc-file-mode\.
-.IP \[bu]
-\fIlog-level\fR: A string that rappresent the level of log\.
-.IP \[bu]
-\fIlog-prefix\fR: A string that rappresent the log prefix\.i
+\fIimportant-plugins\fR: An array that represents all important plugins registered to the node\. Each object contains the same members as the \fIplugin\fR array\.
 
 .RE
 
@@ -229,9 +158,10 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 .SH SEE ALSO
 
-\fBlightning-getinfo\fR(7)
+\fBlightning-getinfo\fR(7), \fBlightningd-config\fR(5)
 
 .SH RESOURCES
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
+\" SHA256STAMP:19542af1d9c13e31ec6fada46f85a080433c2c7a863779a8b9e3ac86a5903b48

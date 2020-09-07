@@ -26,19 +26,19 @@ RETURN VALUE
 
 On success, the command will return a list of transactions, each object represents a transaction, with the following details:
 
-- *hash*: A string that rappresents the hash of transaction, which the caller can use to find it on the blockchain.
-- *rawtx*: A string that rappresents the hexadecimal dump of the transaction.
-- *blockheight*: An integer that rappresents the block height that contains the transaction on the blockchain.
-- *txindex*: An integer that rappresent the transaction index inside the block.
-- *locktime*: An integer that rappresent the locktime.
-- *version*: An integer that rappresent the version.
-- *inputs*: A list of spent transaction outputs, each spent transaction output is rappresented with an object with the following properties:
-  - *txid*: A string that rappresent the hash of transaction. This is the output index of the transaction output being spent.
-  - *index*: An integer that rappresent the index of transaction.
-  - *sequence*: An integer that rappresent the sequence number.
-- *outputs*: A list of transactions, each transaction is rappresented with an object with the following proprieties:
-  - *index*: An integer that rappresent the index of transaction.
-  - *satoshis*: A string that rappresent the amount in millisatoshi.
+- *hash*: A string that represents the hash of transaction, which the caller can use to find it on the blockchain.
+- *rawtx*: A string that represents the hexadecimal dump of the transaction.
+- *blockheight*: An integer that represents the block height that contains the transaction on the blockchain.
+- *txindex*: An integer that represents the transaction index inside the block.
+- *locktime*: An integer that represents the nLocktime field.
+- *version*: An integer that represents the nVersion field.
+- *inputs*: A list of spent transaction outputs, each spent transaction output is represented with an object with the following properties:
+  - *txid*: A string that represents the hash of transaction. This is the output index of the transaction output being spent.
+  - *index*: An integer that represents the index of transaction.
+  - *sequence*: An integer that represents the nSequence field.
+- *outputs*: A list of transactions, each transaction is represented with an object with the following proprieties:
+  - *index*: An integer that represents the index of transaction.
+  - *satoshis*: A string that represents the amount in millisatoshi.
   - *scriptPubKey*: A string that contains the lock script in hexadecimal dump form.
   
 On failure, one of the following error codes may be returned:

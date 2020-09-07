@@ -4,12 +4,16 @@ lightning-help -- Command to return all information about RPC commands.
 SYNOPSIS
 --------
 
-**help**
+**help** \[*command\*]
 
 DESCRIPTION
 -----------
 
-The **help** is a RPC command which is possible consult all information about the RPC commands.
+The **help** is a RPC command which is possible consult all information about the RPC commands, or a specific command if *command* is given.
+
+Note that the lightning-cli(1) tool will prefer to list a man page when a
+specific *command* is specified, and will only return the JSON if the man
+page is not found.
 
 EXAMPLE JSON REQUEST
 --------------------
@@ -26,10 +30,10 @@ RETURN VALUE
 
 On success, a object will be return with the following proprieties:
 
-- *command*: A string that rappresent the stucture of the command.
-- *category*: A string that rappresent the category.
-- *description*: A string that rappresent the description.
-- *verbose*: A string that rappresent the verbode description.
+- *command*: A string that represents the stucture of the command.
+- *category*: A string that represents the category.
+- *description*: A string that represents the description.
+- *verbose*: A string that represents the verbode description.
 
 On failure, one of the following error codes may be returned:
 
