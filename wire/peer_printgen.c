@@ -2037,4 +2037,4 @@ void printpeer_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 	}
 }
 
-// SHA256STAMP:exp-0-d5b13db56b4ff42a2866aeb87a3922ceb703b145a1a1be322f7157cac99d7b96
+// SHA256STAMP:387ba235bbb8248b61a18b8fc1b7842f5ad47bbbb53cc8cf2bb2b8f872ce5a0d

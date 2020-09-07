@@ -71,4 +71,4 @@ void printwire_channel_update_checksums(const char *fieldname, const u8 **cursor
 void printwire_channel_update_timestamps(const char *fieldname, const u8 **cursor, size_t *plen);
 #endif /* LIGHTNING_WIRE_PEER_PRINTGEN_H */
 
-// SHA256STAMP:exp-0-d5b13db56b4ff42a2866aeb87a3922ceb703b145a1a1be322f7157cac99d7b96
+// SHA256STAMP:387ba235bbb8248b61a18b8fc1b7842f5ad47bbbb53cc8cf2bb2b8f872ce5a0d

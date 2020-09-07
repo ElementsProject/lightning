@@ -44,4 +44,4 @@ bool fromwire_gossip_store_delete_chan(const void *p, struct short_channel_id *s
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_WIREGEN_H */
 
-// SHA256STAMP:exp-0-e1b5e7cbfeabe064806c71200457814fbc6f987d6b49c7ba8f9d65df67dec958
+// SHA256STAMP:96e087792923799ac0e76d097bbf30972d627228742d69d9b1f90100cae8241a
