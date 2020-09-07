@@ -26,5 +26,6 @@ clean: tools-clean
 
 tools-clean:
 	$(RM) tools/headerversions
+	$(RM) tools/headerversions.o
 
 include tools/test/Makefile
