@@ -201,8 +201,8 @@ CDUMP_OBJS := ccan-cdump.o ccan-strmap.o
 BOLT_GEN := tools/generate-wire.py
 WIRE_GEN := $(BOLT_GEN)
 
-# If you use wiregen, you're dependent on the tool, its templates, and Makefile
-WIRE_GEN_DEPS := $(WIRE_GEN) Makefile $(wildcard tools/gen/*_template)
+# If you use wiregen, you're dependent on the tool and its templates
+WIRE_GEN_DEPS := $(WIRE_GEN) $(wildcard tools/gen/*_template)
 
 # These are filled by individual Makefiles
 ALL_PROGRAMS :=
@@ -255,23 +255,23 @@ config.vars:
 
 # Git doesn't maintain timestamps, so we only regen if sources actually changed:
 # We place the SHA inside some generated files so we can tell if they need updating.
-# Usage: $(call SHA256STAMP_CHANGED,prefix)
-SHA256STAMP_CHANGED = [ x"`sed -n 's/.*SHA256STAMP://p' $@ 2>/dev/null`" != x"$(1)`cat $(filter-out FORCE,$^) | sha256sum | cut -c1-64`" ]
-# Usage: $(call SHA256STAMP,prefix,commentprefix)
-SHA256STAMP = echo '$(2) SHA256STAMP:$(1)'`cat $(filter-out FORCE,$^) | sha256sum | cut -c1-64` >> $@
+# Usage: $(call SHA256STAMP_CHANGED)
+SHA256STAMP_CHANGED = [ x"`sed -n 's/.*SHA256STAMP://p' $@ 2>/dev/null`" != x"`cat $(filter-out FORCE,$^) | sha256sum | cut -c1-64`" ]
+# Usage: $(call SHA256STAMP,commentprefix)
+SHA256STAMP = echo '$(1) SHA256STAMP:'`cat $(filter-out FORCE,$^) | sha256sum | cut -c1-64` >> $@
 
 # generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
 %_wiregen.h: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED,exp-$(EXPERIMENTAL_FEATURES)-); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page header $($@_args) $@ `basename $< .csv` < $< > $@ && $(call SHA256STAMP,exp-$(EXPERIMENTAL_FEATURES)-,//)); fi
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page header $($@_args) $@ `basename $< .csv` < $< > $@ && $(call SHA256STAMP,//)); fi
 
 %_wiregen.c: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED,exp-$(EXPERIMENTAL_FEATURES)-); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page impl $($@_args) ${@:.c=.h} `basename $< .csv` < $< > $@ && $(call SHA256STAMP,exp-$(EXPERIMENTAL_FEATURES)-,//)); fi
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page impl $($@_args) ${@:.c=.h} `basename $< .csv` < $< > $@ && $(call SHA256STAMP,//)); fi
 
 %_printgen.h: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED,exp-$(EXPERIMENTAL_FEATURES)-); then $(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page header $($@_args) $@ `basename $< .csv` < $< > $@ && $(call SHA256STAMP,exp-$(EXPERIMENTAL_FEATURES)-,//)); fi
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page header $($@_args) $@ `basename $< .csv` < $< > $@ && $(call SHA256STAMP,//)); fi
 
 %_printgen.c: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED,exp-$(EXPERIMENTAL_FEATURES)-); then $(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page impl $($@_args) ${@:.c=.h} `basename $< .csv` < $< > $@ && $(call SHA256STAMP,exp-$(EXPERIMENTAL_FEATURES)-,//)); fi
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page impl $($@_args) ${@:.c=.h} `basename $< .csv` < $< > $@ && $(call SHA256STAMP,//)); fi
 
 include external/Makefile
 include bitcoin/Makefile
@@ -477,9 +477,6 @@ $(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS) Makefile
 
 # Except for CCAN, we treat everything else as dependent on external/ bitcoin/ common/ wire/ and all generated headers, and Makefile
 $(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(ALL_GEN_HEADERS) $(EXTERNAL_HEADERS) Makefile
-
-# Regen headers when Makefile changes
-$(ALL_GEN_HEADERS): Makefile
 
 update-ccan:
 	mv ccan ccan.old
