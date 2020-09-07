@@ -7,7 +7,7 @@
 #include <common/amount.h>
 #include <common/pseudorand.h>
 #include <common/utils.h>
-#include <wire/onion_wiregen.h>
+#include <wire/onion_wire.h>
 
 struct htlc_in;
 struct lightningd;

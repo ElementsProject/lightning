@@ -13,7 +13,7 @@ ALL_C_SOURCES += $(COMMON_TEST_SRC)
 ALL_TEST_PROGRAMS += $(COMMON_TEST_PROGRAMS)
 
 # Sphinx test wants to decode TLVs.
-common/test/run-sphinx: wire/onion_wiregen.o wire/towire.o wire/fromwire.o
+common/test/run-sphinx: wire/onion$(EXP)_wiregen.o wire/towire.o wire/fromwire.o
 
 common/test/run-param					\
 common/test/run-json:					\
@@ -25,7 +25,7 @@ common/test/run-json:					\
 	common/wireaddr.o				\
 	common/type_to_string.o				\
 	wire/fromwire.o					\
-	wire/onion_wiregen.o				\
+	wire/onion$(EXP)_wiregen.o			\
 	wire/towire.o
 
 update-mocks: $(COMMON_TEST_SRC:%=update-mocks/%)

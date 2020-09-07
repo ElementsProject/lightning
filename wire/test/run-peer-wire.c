@@ -14,7 +14,7 @@
 #include <common/bigsize.h>
 #include <bitcoin/chainparams.h>
 #include <common/sphinx.h>
-#include <wire/peer_wiregen.h>
+#include <wire/peer_wire.h>
 
 extern secp256k1_context *secp256k1_ctx;
 

@@ -7,7 +7,7 @@
 #include <common/amount.h>
 #include <common/htlc_state.h>
 #include <common/sphinx.h>
-#include <wire/onion_wiregen.h>
+#include <wire/onion_wire.h>
 
 /* We look up HTLCs by channel & id */
 struct htlc_key {

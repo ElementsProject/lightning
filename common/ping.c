@@ -1,7 +1,7 @@
 #include <common/ping.h>
 #include <common/status.h>
 #include <common/version.h>
-#include <wire/peer_wiregen.h>
+#include <wire/peer_wire.h>
 
 bool check_ping_make_pong(const tal_t *ctx, const u8 *ping, u8 **pong)
 {

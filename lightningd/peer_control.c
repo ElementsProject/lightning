@@ -58,7 +58,7 @@
 #include <unistd.h>
 #include <wally_bip32.h>
 #include <wire/common_wiregen.h>
-#include <wire/onion_wiregen.h>
+#include <wire/onion_wire.h>
 #include <wire/wire_sync.h>
 
 struct close_command {

@@ -52,7 +52,6 @@
 #include <wally_bip32.h>
 #include <wire/common_wiregen.h>
 #include <wire/peer_wire.h>
-#include <wire/peer_wiregen.h>
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
 

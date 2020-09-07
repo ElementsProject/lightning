@@ -1,7 +1,7 @@
 #include <common/cryptomsg.h>
 #include <common/features.h>
 #include <common/wireaddr.h>
-#include <wire/onion_wiregen.h>
+#include <wire/onion_wire.h>
 
 # Initialize the gossip daemon.
 msgtype,gossipd_init,3000

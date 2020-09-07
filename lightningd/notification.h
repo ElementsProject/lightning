@@ -17,7 +17,7 @@
 #include <lightningd/pay.h>
 #include <lightningd/plugin.h>
 #include <wallet/wallet.h>
-#include <wire/onion_wiregen.h>
+#include <wire/onion_wire.h>
 
 struct onionreply;
 

@@ -253,6 +253,14 @@ config.vars:
 %.o: %.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 
+# '_exp' inserted before _wiregen.[ch] to demark experimental
+# spec-derived headers, which are *not* committed into git.
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+EXP := _exp
+else
+EXP :=
+endif
+
 # Git doesn't maintain timestamps, so we only regen if sources actually changed:
 # We place the SHA inside some generated files so we can tell if they need updating.
 # Usage: $(call SHA256STAMP_CHANGED)
@@ -262,16 +270,16 @@ SHA256STAMP = echo '$(1) SHA256STAMP:'`cat $(filter-out FORCE,$^) | sha256sum | 
 
 # generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
 %_wiregen.h: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page header $($@_args) $@ `basename $< .csv` < $< > $@ && $(call SHA256STAMP,//)); fi
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page header $($@_args) $@ `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//)); fi
 
 %_wiregen.c: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page impl $($@_args) ${@:.c=.h} `basename $< .csv` < $< > $@ && $(call SHA256STAMP,//)); fi
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE,"wiregen $@",tools/generate-wire.py --page impl $($@_args) ${@:.c=.h} `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//)); fi
 
 %_printgen.h: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page header $($@_args) $@ `basename $< .csv` < $< > $@ && $(call SHA256STAMP,//)); fi
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page header $($@_args) $@ `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//)); fi
 
 %_printgen.c: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page impl $($@_args) ${@:.c=.h} `basename $< .csv` < $< > $@ && $(call SHA256STAMP,//)); fi
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page impl $($@_args) ${@:.c=.h} `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//)); fi
 
 include external/Makefile
 include bitcoin/Makefile

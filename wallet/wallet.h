@@ -20,7 +20,7 @@
 #include <lightningd/log.h>
 #include <onchaind/onchaind_wire.h>
 #include <wally_bip32.h>
-#include <wire/onion_wiregen.h>
+#include <wire/onion_wire.h>
 
 struct amount_msat;
 struct invoices;

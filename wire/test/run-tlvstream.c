@@ -13,7 +13,11 @@ static const char *reason;
 #include <common/bigsize.c>
 #include <common/node_id.c>
 
+#if EXPERIMENTAL_FEATURES
+#include <wire/peer_exp_wiregen.c>
+#else
 #include <wire/peer_wiregen.c>
+#endif
 #include <wire/fromwire.c>
 #include <wire/towire.c>
 
