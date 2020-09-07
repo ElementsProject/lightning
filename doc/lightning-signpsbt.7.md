@@ -4,14 +4,24 @@ lightning-signpsbt -- Command to sign a wallet's inputs on a provided bitcoin tr
 SYNOPSIS
 --------
 
-**signpsbt** *psbt*
+**signpsbt** *psbt* [*signonly*]
 
 DESCRIPTION
 -----------
 
-The **signpsbt** is a low-level RPC command which sign a PSBT.
+**signpsbt** is a low-level RPC command which signs a PSBT as defined by
+BIP-174.
 
-- *psbt*: A string that rappresent the psbt value.
+- *psbt*: A string that represents the PSBT value.
+- *signonly*: An optional array of input numbers to sign.
+
+By default, all known inputs are signed, and others ignored: with
+*signonly*, only those inputs are signed, and an error is returned if
+one of them cannot be signed.
+
+Note that the command will fail if there are no inputs to sign, or
+if the inputs to be signed were not previously reserved.
+
 
 EXAMPLE JSON REQUEST
 --------------------
@@ -28,13 +38,13 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, a object will be return with a string.
+On success, a object will be returned with a string.
 
-- *psbt*: A string that rappresent the psbt value.
+- *psbt*: A string that represents the psbt value with all inputs  signed transaction.
 
 On failure, one of the following error codes may be returned:
 
-- -32602: Error in given parameters or there aren't wallet's inputs to sign.
+- -32602: Error in given parameters, or there aren't wallet's inputs to sign, or we couldn't sign all of *signonly*, or inputs are not reserved.
 
 EXAMPLE JSON RESPONSE
 ---------------------

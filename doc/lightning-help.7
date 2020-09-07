@@ -3,11 +3,16 @@
 lightning-help - Command to return all information about RPC commands\.
 .SH SYNOPSIS
 
-\fBhelp\fR
+\fBhelp\fR [\fIcommand\\\fR]
 
 .SH DESCRIPTION
 
-The \fBhelp\fR is a RPC command which is possible consult all information about the RPC commands\.
+The \fBhelp\fR is a RPC command which is possible consult all information about the RPC commands, or a specific command if \fIcommand\fR is given\.
+
+
+Note that the \fBlightning-cli\fR(1) tool will prefer to list a man page when a
+specific \fIcommand\fR is specified, and will only return the JSON if the man
+page is not found\.
 
 .SH EXAMPLE JSON REQUEST
 .nf
@@ -26,13 +31,13 @@ On success, a object will be return with the following proprieties:
 
 .RS
 .IP \[bu]
-\fIcommand\fR: A string that rappresent the stucture of the command\.
+\fIcommand\fR: A string that represents the stucture of the command\.
 .IP \[bu]
-\fIcategory\fR: A string that rappresent the category\.
+\fIcategory\fR: A string that represents the category\.
 .IP \[bu]
-\fIdescription\fR: A string that rappresent the description\.
+\fIdescription\fR: A string that represents the description\.
 .IP \[bu]
-\fIverbose\fR: A string that rappresent the verbode description\.
+\fIverbose\fR: A string that represents the verbode description\.
 
 .RE
 
@@ -67,3 +72,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
+\" SHA256STAMP:cbd027bd9117d2e71167ab1c9d95a63c90b8e9c556dd75e951d4913a2891cb37

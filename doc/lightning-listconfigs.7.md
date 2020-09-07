@@ -9,7 +9,7 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **listconfigs** teh RPC command to list all configuration options, or with *config*, just that one.
+The **listconfigs** RPC command to list all configuration options, or with *config*, just that one.
 
 EXAMPLE JSON REQUEST
 --------------------
@@ -27,53 +27,18 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, an object with the following proprieties is returned:
+On success, an object is returned with members reflecting the
+corresponding lightningd-config(5) options which were specified in
+the configuration file(s) and command line.
 
-- *# version*: A string that rappresents the version of node.
-- *lightning-dir*: A string that rappresents the work dir of the node.
-- *network*: A string that rappresents the network (e.g: bitcoin).
-- *allow-deprecated-apis*: A boolean value that rappresent if the deprecated api are avaible on the node.
-- *rpc-file*: A string that rappresent the location of the rpc file.
-- *plugins*: A array that rappresent the no important plugin registered. Each object contains the following proprieties:
-   - *path*: A string that rappresent the path of plugin.
-   - *name*: A string that rappresent the name of plugin.
-   - *options*: A object that contains all options accepted from comand line, if the plugin accepted parameters from command line.
-- *important-plugins*: An array that rappresent all important pluging registered to the node. Each object contains the same proprieties of *plugin* array.
-- *disable-plugin*: An array of string that rappresent the name of plugin disabled.
-- *always-use-proxy*: A boolean value that rappresent if the node utilize always the proxy.
-- *daemon*: A boolean value is the node have the daemon propriety enabled.
-- *wallet*: A string that rappresent the location of wallet with database url convention.
-- *wumbo*: A boolean value that rappresent the value of wumbo propriety.
-- *rgb*: A string that rappresent the color of the node.
-- *alias*: A string that rappresent the alias of the node.
-- *pid-file*: A string that rappresent the location of the pid file.
-- *ignore-fee-limits*: A boolean value that rappresent is the node ignore the fee limit.
-- *watchtime-blocks*: An integer that rappresent the watchtime of the blocks.
-- *max-locktime-blocks*: A integer that rappresent that max locktime for blocks.
-- *funding-confirms*: An integer that rappresent the number of funding transaction confermation.
-- *commit-fee-min*: A integer that rappresent the minimum commit fee.
-- *commit-fee-max*: A integer that rappresent the maximum commit fee.
-- *cltv-delta*: An integer that rappresent the value of cltv delta.
-- *cltv-final*: An integer that rappresent the value of cltv final.
-- *commit-time*: An integer that rappresent the value of commit time.
-- *fee-base*: A integer that rappresent the value of fee base.
-- *rescan*: A integer that rappresent the number of block that the node must rescan before to run.
-- *fee-per-satoshi*: An integer that rappresent the fee for satoshi.
-- *max-concurrent-htlcs*: A integer that rappresent the number of HTLCs one channel can handle concurrently in each direction.
-- *min-capacity-sat*: A integer that rappresent the minimal effective channel capacity in satoshi to accept for channel opening requests.
-- *addr*: A string that rappresent the address where the node are listen.
-- *bind-addr*: A string that rappresent the address or UNIX domine socket where the node are listen.
-- *announce-addr*: A string that rappresent the address where the node is annunced.
-- *offline*: A boolean value that rappresent if the node is offline.
-- *autolisten*: A boolean value that rappresent if the autolisten is enabled.
-- *proxy*: A string that rappresent the proxy address.
-- *disable-dns*: A boolean value that rappresent if the dns is disabled.
-- *enable-autotor-v2-mode*: A boolean value that rappresent if the Tor v2 is enabled.
-- *encrypted-hsm*: A boolean value that rappresent if the wallet is encrypted. 
-- *rpc-file-mode*: A string that rappresent the value rpc-file-mode.
-- *log-level*: A string that rappresent the level of log.
-- *log-prefix*: A string that rappresent the log prefix.i
+Additional members include:
 
+- *# version*: A string that represents the version of node.
+- *plugins*: A array that represents the non-important plugin registered. Each object contains the following members:
+   - *path*: A string that represents the path of plugin.
+   - *name*: A string that represents the name of plugin.
+   - *options*: A object that contains all options accepted from command line or configuration file, if the plugin has opitions
+- *important-plugins*: An array that represents all important plugins registered to the node. Each object contains the same members as the *plugin* array.
 
 On failure, one of the following error codes may be returned:
 
@@ -183,7 +148,7 @@ Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version o
 SEE ALSO
 --------
 
-lightning-getinfo(7)
+lightning-getinfo(7), lightningd-config(5)
 
 RESOURCES
 ---------

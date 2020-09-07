@@ -1,4 +1,4 @@
-lightning-listnodes -- Command to get the list of nodes in the own node network.
+lightning-listnodes -- Command to get the list of nodes in the known network.
 ============================================================
 
 SYNOPSIS
@@ -9,7 +9,7 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **listnodes** command returns nodes in the own node network, or a single one if the node *id* was specified.
+The **listnodes** command returns nodes the node has learned about via gossip messages, or a single one if the node *id* was specified.
 
 EXAMPLE JSON REQUEST
 ------------
@@ -28,15 +28,19 @@ RETURN VALUE
 
 On success, the command will return a list of nodes, each object represents a node, with the following details:
 
-- *nodeid*: A string that rappresents the node id.
-- *alias*: A string that rappresents alias of the node on the network.
-- *color*: A string that rappresents the personal color of the node.
-- *last_timestamp*: An integer that rappresent the last timestamp.
-- *features*: A string that rappresent the features value.
-- *addresses*: An array that rappresent the addreses avaible. Each address is rappresented with an object with the following properties:
-  - *type*: A string that rappresent the address type (ipv4 or ipv6).
-  - *address*: A string that rappresent the address value.
-  - *port*: An integer that rappresent the port number where the node are listening.
+- *nodeid*: A string that represents the node id.
+
+For nodes which have sent a node_announcement message, the following
+are also returned:
+
+- *alias*: A string that represents alias of the node on the network.
+- *color*: A string that represents the personal color of the node.
+- *last_timestamp*: An integer that represents the timestamp of the last-received node_announcement message.
+- *features*: A string that represents the features value.
+- *addresses*: An array that represents the addreses avaible. Each address is represented with an object with the following properties:
+  - *type*: A string that represents the address type (ipv4 or ipv6).
+  - *address*: A string that represents the address value.
+  - *port*: An integer that represents the port number where the node are listening.
   
 On failure, one of the following error codes may be returned:
  

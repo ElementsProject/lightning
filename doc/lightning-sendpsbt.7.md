@@ -9,9 +9,9 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **sendpsbt** is a low-level RPC command which sent a PSBT.
+The **sendpsbt** is a low-level RPC command which sends a fully-signed PSBT.
 
-- *psbt*: A string that rappresent psbt value.
+- *psbt*: A string that represents psbt value.
 
 EXAMPLE JSON REQUEST
 --------------------
@@ -29,10 +29,10 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, the tx and txid of the transaction are returned, as well as the channel_id of the newly created channel.
+On success, the tx and txid of the transaction are returned.
 
-- *txid*: A string that rappresent the hash of transaction.
-- *tx*: A string that rappresent the hexadecimal dump of the transaction.
+- *txid*: A string that represents the hash of transaction.
+- *tx*: A string that represents the hexadecimal dump of the transaction.
 
 On failure, one of the following error codes may be returned:
 

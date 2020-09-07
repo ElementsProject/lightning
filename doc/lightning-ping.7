@@ -7,15 +7,15 @@ lightning-ping - Command to check if a node is up\.
 
 .SH DESCRIPTION
 
-The \fBping\fR command check if the node with id is ready to talk\. It accept the following parameter:
+The \fBping\fR command checks if the node with \fIid\fR is ready to talk\. It accepts the following parameters:
 
 .RS
 .IP \[bu]
-\fIid\fR: A string that rappresent the node id;
+\fIid\fR: A string that represents the node id;
 .IP \[bu]
-\fIlen\fR: A integer that rappresent the lenght of {\.\.\.}, by default is 128;
+\fIlen\fR: A integer that represents the length of the ping (default 128);
 .IP \[bu]
-\fIpongbytes\fR: An integer that rappresent the lenght of {}, by default is 128\.
+\fIpongbytes\fR: An integer that represents the length of the reply (default 128)\.
 
 .RE
 .SH EXAMPLE JSON REQUEST
@@ -38,7 +38,7 @@ On success, the command will return an object with a single string\.
 
 .RS
 .IP \[bu]
-\fItotlen\fR: A string that rappresent the answer lenght of {}\.
+\fItotlen\fR: A string that represents the answer length of the reply message (including header)
 
 .RE
 
@@ -46,7 +46,7 @@ On failure, one of the following error codes may be returned:
 
 .RS
 .IP \[bu]
--32602: Error in given parameters or unknow peer\.
+-32602: Error in given parameters or unknown peer\.
 
 .RE
 .SH EXAMPLE JSON RESPONSE
@@ -70,3 +70,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
+\" SHA256STAMP:eac5506bc761a2a9570a92c7e533b4c6ba72c56c4d69dce773887a9f88ea7ac2

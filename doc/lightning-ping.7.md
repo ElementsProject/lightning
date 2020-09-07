@@ -9,11 +9,11 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **ping** command check if the node with id is ready to talk. It accept the following parameter:
+The **ping** command checks if the node with *id* is ready to talk. It accepts the following parameters:
 
-- *id*: A string that rappresent the node id;
-- *len*: A integer that rappresent the lenght of {...}, by default is 128;
-- *pongbytes*: An integer that rappresent the lenght of {}, by default is 128.
+- *id*: A string that represents the node id;
+- *len*: A integer that represents the length of the ping (default 128);
+- *pongbytes*: An integer that represents the length of the reply (default 128).
 
 EXAMPLE JSON REQUEST
 ------------
@@ -33,11 +33,11 @@ RETURN VALUE
 
 On success, the command will return an object with a single string.
 
-- *totlen*: A string that rappresent the answer lenght of {}.
+- *totlen*: A string that represents the answer length of the reply message (including header)
 
 On failure, one of the following error codes may be returned:
 
-- -32602: Error in given parameters or unknow peer.
+- -32602: Error in given parameters or unknown peer.
 
 EXAMPLE JSON RESPONSE
 -----

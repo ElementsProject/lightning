@@ -26,34 +26,34 @@ On success, the command will return a list of transactions, each object represen
 
 .RS
 .IP \[bu]
-\fIhash\fR: A string that rappresents the hash of transaction, which the caller can use to find it on the blockchain\.
+\fIhash\fR: A string that represents the hash of transaction, which the caller can use to find it on the blockchain\.
 .IP \[bu]
-\fIrawtx\fR: A string that rappresents the hexadecimal dump of the transaction\.
+\fIrawtx\fR: A string that represents the hexadecimal dump of the transaction\.
 .IP \[bu]
-\fIblockheight\fR: An integer that rappresents the block height that contains the transaction on the blockchain\.
+\fIblockheight\fR: An integer that represents the block height that contains the transaction on the blockchain\.
 .IP \[bu]
-\fItxindex\fR: An integer that rappresent the transaction index inside the block\.
+\fItxindex\fR: An integer that represents the transaction index inside the block\.
 .IP \[bu]
-\fIlocktime\fR: An integer that rappresent the locktime\.
+\fIlocktime\fR: An integer that represents the nLocktime field\.
 .IP \[bu]
-\fIversion\fR: An integer that rappresent the version\.
+\fIversion\fR: An integer that represents the nVersion field\.
 .IP \[bu]
-\fIinputs\fR: A list of spent transaction outputs, each spent transaction output is rappresented with an object with the following properties:.RS
+\fIinputs\fR: A list of spent transaction outputs, each spent transaction output is represented with an object with the following properties:.RS
 .IP \[bu]
-\fItxid\fR: A string that rappresent the hash of transaction\. This is the output index of the transaction output being spent\.
+\fItxid\fR: A string that represents the hash of transaction\. This is the output index of the transaction output being spent\.
 .IP \[bu]
-\fIindex\fR: An integer that rappresent the index of transaction\.
+\fIindex\fR: An integer that represents the index of transaction\.
 .IP \[bu]
-\fIsequence\fR: An integer that rappresent the sequence number\.
+\fIsequence\fR: An integer that represents the nSequence field\.
 
 .RE
 
 .IP \[bu]
-\fIoutputs\fR: A list of transactions, each transaction is rappresented with an object with the following proprieties:.RS
+\fIoutputs\fR: A list of transactions, each transaction is represented with an object with the following proprieties:.RS
 .IP \[bu]
-\fIindex\fR: An integer that rappresent the index of transaction\.
+\fIindex\fR: An integer that represents the index of transaction\.
 .IP \[bu]
-\fIsatoshis\fR: A string that rappresent the amount in millisatoshi\.
+\fIsatoshis\fR: A string that represents the amount in millisatoshi\.
 .IP \[bu]
 \fIscriptPubKey\fR: A string that contains the lock script in hexadecimal dump form\.
 
@@ -118,3 +118,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
+\" SHA256STAMP:88c68faf136cd7ce305bab0b89813d1c0122b8f31688a2dc9c064f7cba480a1d

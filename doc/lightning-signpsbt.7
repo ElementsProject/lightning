@@ -3,17 +3,29 @@
 lightning-signpsbt - Command to sign a wallet's inputs on a provided bitcoin transaction (PSBT)\.
 .SH SYNOPSIS
 
-\fBsignpsbt\fR \fIpsbt\fR
+\fBsignpsbt\fR \fIpsbt\fR [\fIsignonly\fR]
 
 .SH DESCRIPTION
 
-The \fBsignpsbt\fR is a low-level RPC command which sign a PSBT\.
+\fBsignpsbt\fR is a low-level RPC command which signs a PSBT as defined by
+BIP-174\.
 
 .RS
 .IP \[bu]
-\fIpsbt\fR: A string that rappresent the psbt value\.
+\fIpsbt\fR: A string that represents the PSBT value\.
+.IP \[bu]
+\fIsignonly\fR: An optional array of input numbers to sign\.
 
 .RE
+
+By default, all known inputs are signed, and others ignored: with
+\fIsignonly\fR, only those inputs are signed, and an error is returned if
+one of them cannot be signed\.
+
+
+Note that the command will fail if there are no inputs to sign, or
+if the inputs to be signed were not previously reserved\.
+
 .SH EXAMPLE JSON REQUEST
 .nf
 .RS
@@ -29,11 +41,11 @@ The \fBsignpsbt\fR is a low-level RPC command which sign a PSBT\.
 .fi
 .SH RETURN VALUE
 
-On success, a object will be return with a string\.
+On success, a object will be returned with a string\.
 
 .RS
 .IP \[bu]
-\fIpsbt\fR: A string that rappresent the psbt value\.
+\fIpsbt\fR: A string that represents the psbt value with all inputs  signed transaction\.
 
 .RE
 
@@ -41,7 +53,7 @@ On failure, one of the following error codes may be returned:
 
 .RS
 .IP \[bu]
--32602: Error in given parameters or there aren't wallet's inputs to sign\.
+-32602: Error in given parameters, or there aren't wallet's inputs to sign, or we couldn't sign all of \fIsignonly\fR, or inputs are not reserved\.
 
 .RE
 .SH EXAMPLE JSON RESPONSE
@@ -65,3 +77,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
+\" SHA256STAMP:5d7f12bed20a73dabf41d219ccd960e4e36a4674e8528d95ef26f7c8c55b1a0f

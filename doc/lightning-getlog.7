@@ -3,7 +3,7 @@
 lightning-getlog - Command to show logs\.
 .SH SYNOPSIS
 
-\fBgetlog\fR [level]
+\fBgetlog\fR [\fIlevel\fR]
 
 .SH DESCRIPTION
 
@@ -11,7 +11,7 @@ The \fBgetlog\fR the RPC command to show logs, with optional log \fIlevel\fR\.
 
 .RS
 .IP \[bu]
-\fIlevel\fR: A string that rappresent the log level (info, unusual, debug, io)\.
+\fIlevel\fR: A string that represents the log level (\fIbroken\fR, \fIunusual\fR, \fIinfo\fR, \fIdebug\fR, or \fIio\fR)\.  The default is \fIinfo\fR\.
 
 .RE
 .SH EXAMPLE JSON REQUEST
@@ -33,21 +33,21 @@ On success, a object will be return with the following parameters:
 
 .RS
 .IP \[bu]
-\fIcreated_at\fR: An floating point value that rappresent the {}\. 
+\fIcreated_at\fR: An floating point value that represents the UNIX timestamp when logging began\. 
 .IP \[bu]
-\fIbytes_used\fR: A string that rappresent the dimension in bytes of the log file\.
+\fIbytes_used\fR: A string that represents the dimension in bytes of the log file\.
 .IP \[bu]
-\fIbytes_max\fR: An integer that rappresent the max dimension in bytes of log file\.
+\fIbytes_max\fR: An integer that represents the max dimension in bytes of log file\.
 .IP \[bu]
-\fIlog\fR: An array of object where each elements contains the following proprieties:.RS
+\fIlog\fR: An array of objects where each element contains the following proprieties:.RS
 .IP \[bu]
-\fItype\fR: A string that rappresent the log level\. The propriety can have an value equal to SKIPPED\.
+\fItype\fR: A string that represents the log level\. The propriety can have an value equal to SKIPPED to indicate the existence of omitted entries\.
 .IP \[bu]
-\fItime\fR: A floating point value that rappresent the time\.
+\fItime\fR: A floating point value that represents the time since \fIcreated_at\fR\.
 .IP \[bu]
-\fIsource\fR: A string that rappresent the source of line\.
+\fIsource\fR: A string that represents the source of line\.
 .IP \[bu]
-\fIlog\fR: A string that rappresent the content of line\.
+\fIlog\fR: A string that represents the content of line\.
 
 .RE
 
@@ -94,3 +94,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
+\" SHA256STAMP:789e23927120d0fefd374592a3c655244fd6c28a122368bdd8da2f3cdde66798

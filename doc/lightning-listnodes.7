@@ -1,13 +1,13 @@
 .TH "LIGHTNING-LISTNODES" "7" "" "" "lightning-listnodes"
 .SH NAME
-lightning-listnodes - Command to get the list of nodes in the own node network\.
+lightning-listnodes - Command to get the list of nodes in the known network\.
 .SH SYNOPSIS
 
 \fBlistnodes\fR [id]
 
 .SH DESCRIPTION
 
-The \fBlistnodes\fR command returns nodes in the own node network, or a single one if the node \fIid\fR was specified\.
+The \fBlistnodes\fR command returns nodes the node has learned about via gossip messages, or a single one if the node \fIid\fR was specified\.
 
 .SH EXAMPLE JSON REQUEST
 .nf
@@ -28,23 +28,30 @@ On success, the command will return a list of nodes, each object represents a no
 
 .RS
 .IP \[bu]
-\fInodeid\fR: A string that rappresents the node id\.
+\fInodeid\fR: A string that represents the node id\.
+
+.RE
+
+For nodes which have sent a node_announcement message, the following
+are also returned:
+
+.RS
 .IP \[bu]
-\fIalias\fR: A string that rappresents alias of the node on the network\.
+\fIalias\fR: A string that represents alias of the node on the network\.
 .IP \[bu]
-\fIcolor\fR: A string that rappresents the personal color of the node\.
+\fIcolor\fR: A string that represents the personal color of the node\.
 .IP \[bu]
-\fIlast_timestamp\fR: An integer that rappresent the last timestamp\.
+\fIlast_timestamp\fR: An integer that represents the timestamp of the last-received node_announcement message\.
 .IP \[bu]
-\fIfeatures\fR: A string that rappresent the features value\.
+\fIfeatures\fR: A string that represents the features value\.
 .IP \[bu]
-\fIaddresses\fR: An array that rappresent the addreses avaible\. Each address is rappresented with an object with the following properties:.RS
+\fIaddresses\fR: An array that represents the addreses avaible\. Each address is represented with an object with the following properties:.RS
 .IP \[bu]
-\fItype\fR: A string that rappresent the address type (ipv4 or ipv6)\.
+\fItype\fR: A string that represents the address type (ipv4 or ipv6)\.
 .IP \[bu]
-\fIaddress\fR: A string that rappresent the address value\.
+\fIaddress\fR: A string that represents the address value\.
 .IP \[bu]
-\fIport\fR: An integer that rappresent the port number where the node are listening\.
+\fIport\fR: An integer that represents the port number where the node are listening\.
 
 .RE
 
@@ -94,3 +101,4 @@ FIXME:
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
+\" SHA256STAMP:901b147ccbfe0a18310a44ca848b623e83fa3c68912dacadefd045d4a2095523
