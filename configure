@@ -120,6 +120,7 @@ set_defaults()
     CONFIGURATOR_CC=${CONFIGURATOR_CC-$CC}
     VALGRIND=${VALGRIND:-$(default_valgrind_setting)}
     TEST_NETWORK=${TEST_NETWORK:-regtest}
+    FUZZING=${FUZZING:-0}
 }
 
 usage()
@@ -155,6 +156,7 @@ usage()
     echo "    Static link sqlite3, gmp and zlib libraries"
     usage_with_default "--enable/disable-address-sanitizer" "$ASAN" "enable" "disable"
     echo "    Compile with address-sanitizer"
+    usage_with_default "--enable/disable-fuzzing" "$FUZZING" "enable" "disable"
     exit 1
 }
 
@@ -206,6 +208,8 @@ for opt in "$@"; do
 	--disable-static) STATIC=0;;
 	--enable-address-sanitizer) ASAN=1;;
 	--disable-address-sanitizer) ASAN=0;;
+	--enable-fuzzing) FUZZING=1;;
+	--disable-fuzzing) FUZZING=0;;
 	--help|-h) usage;;
 	*)
 	    echo "Unknown option '$opt'" >&2
@@ -228,6 +232,18 @@ if [ "$ASAN" = "1" ]; then
 	exit 1
     fi
 fi
+
+if [ "$FUZZING" = "1" ]; then
+	case "$CC" in
+		(*"clang"*)
+			;;
+		(*)
+			echo "Fuzzing is currently only supported with clang."
+			exit 1
+			;;
+	esac
+fi
+
 
 SQLITE3_CFLAGS=""
 SQLITE3_LDLIBS="-lsqlite3"
@@ -400,6 +416,7 @@ add_var ASAN "$ASAN"
 add_var TEST_NETWORK "$TEST_NETWORK"
 add_var HAVE_PYTHON3_MAKO "$HAVE_PYTHON3_MAKO"
 add_var SHA256SUM "$SHA256SUM"
+add_var FUZZING "$FUZZING"
 
 # Hack to avoid sha256 name clash with libwally: will be fixed when that
 # becomes a standalone shared lib.

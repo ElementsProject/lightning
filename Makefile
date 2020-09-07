@@ -42,10 +42,14 @@ VG=VALGRIND=1 valgrind -q --error-exitcode=7
 VG_TEST_ARGS = --track-origins=yes --leak-check=full --show-reachable=yes --errors-for-leak-kinds=all
 endif
 
+SANITIZER_FLAGS :=
+
 ifneq ($(ASAN),0)
-SANITIZER_FLAGS=-fsanitize=address
-else
-SANITIZER_FLAGS=
+SANITIZER_FLAGS += -fsanitize=address
+endif
+
+ifneq ($(FUZZING), 0)
+SANITIZER_FLAGS += -fsanitize=fuzzer-no-link
 endif
 
 ifeq ($(DEVELOPER),1)
@@ -208,6 +212,7 @@ WIRE_GEN_DEPS := $(WIRE_GEN) $(wildcard tools/gen/*_template)
 # These are filled by individual Makefiles
 ALL_PROGRAMS :=
 ALL_TEST_PROGRAMS :=
+ALL_FUZZ_TARGETS :=
 ALL_C_SOURCES :=
 ALL_C_HEADERS := gen_header_versions.h gen_version.h
 
@@ -224,6 +229,8 @@ unexport CFLAGS
 CONFIGURATOR_CC := $(CC)
 
 LDFLAGS += $(PIE_LDFLAGS) $(SANITIZER_FLAGS) $(COPTFLAGS)
+CFLAGS += $(SANITIZER_FLAGS)
+
 ifeq ($(STATIC),1)
 # For MacOS, Jacob Rapoport <jacob@rumblemonkey.com> changed this to:
 #  -L/usr/local/lib -Wl,-lgmp -lsqlite3 -lz -Wl,-lm -lpthread -ldl $(COVFLAGS)
@@ -300,6 +307,9 @@ include devtools/Makefile
 include tools/Makefile
 include plugins/Makefile
 include tests/plugins/Makefile
+ifneq ($(FUZZING),0)
+	include tests/fuzz/Makefile
+endif
 
 # We make pretty much everything depend on these.
 ALL_GEN_HEADERS := $(filter gen%.h %printgen.h %wiregen.h,$(ALL_C_HEADERS))
@@ -465,10 +475,10 @@ gen_header_versions.h: tools/headerversions
 	@tools/headerversions $@
 
 # All binaries require the external libs, ccan and system library versions.
-$(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS): $(EXTERNAL_LIBS) $(CCAN_OBJS)
+$(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): $(EXTERNAL_LIBS) $(CCAN_OBJS)
 
 # Each test program depends on its own object.
-$(ALL_TEST_PROGRAMS): %: %.o
+$(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS): %: %.o
 
 # Without this rule, the (built-in) link line contains
 # external/libwallycore.a directly, which causes a symbol clash (it
@@ -476,6 +486,13 @@ $(ALL_TEST_PROGRAMS): %: %.o
 # (as per EXTERNAL_LDLIBS) so we filter them out here.
 $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
 	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o $@)
+
+# We special case the fuzzing target binaries, as they need to link against libfuzzer,
+# which brings its own main().
+FUZZ_LDFLAGS = -fsanitize=fuzzer
+$(ALL_FUZZ_TARGETS):
+	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $(FUZZ_LDFLAGS) -o $@)
+
 
 # Everything depends on the CCAN headers, and Makefile
 $(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS) Makefile
@@ -496,7 +513,7 @@ update-ccan:
 
 # Now ALL_PROGRAMS is fully populated, we can expand it.
 all-programs: $(ALL_PROGRAMS)
-all-test-programs: $(ALL_TEST_PROGRAMS)
+all-test-programs: $(ALL_TEST_PROGRAMS) $(ALL_FUZZ_TARGETS)
 
 distclean: clean
 	$(RM) ccan/config.h config.vars
@@ -510,6 +527,7 @@ clean:
 	$(RM) $(CCAN_OBJS) $(CDUMP_OBJS) $(ALL_OBJS)
 	$(RM) $(ALL_PROGRAMS)
 	$(RM) $(ALL_TEST_PROGRAMS)
+	$(RM) $(ALL_FUZZ_TARGETS)
 	$(RM) gen_*.h */gen_* ccan/tools/configurator/configurator
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
 	find . -name '*gcda' -delete
