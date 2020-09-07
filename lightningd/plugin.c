@@ -6,6 +6,7 @@
 #include <common/features.h>
 #include <common/utils.h>
 #include <common/version.h>
+#include <common/json_helpers.h>
 #include <lightningd/json.h>
 #include <lightningd/notification.h>
 #include <lightningd/options.h>
@@ -1452,6 +1453,11 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 	json_add_string(req->stream, "rpc-file", ld->rpc_filename);
 	json_add_bool(req->stream, "startup", plugin->plugins->startup);
 	json_add_string(req->stream, "network", chainparams->network_name);
+	if (ld->proxyaddr) {
+		json_add_address(req->stream, "proxy", ld->proxyaddr);
+		json_add_bool(req->stream, "torv3-enabled", ld->config.use_v3_autotor);
+		json_add_bool(req->stream, "use_proxy_always", ld->use_proxy_always);
+	}
 	json_object_start(req->stream, "feature_set");
 	for (enum feature_place fp = 0; fp < NUM_FEATURE_PLACE; fp++) {
 		if (feature_place_names[fp]) {
