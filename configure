@@ -223,10 +223,6 @@ $CC ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -o $CONFIGURATOR $CONF
 echo "done"
 
 if [ "$ASAN" = "1" ]; then
-    if [ "$CC" = "clang" ]; then
-	echo "Address sanitizer (ASAN) is currently only supported with gcc"
-	exit 1
-    fi
     if [ "$VALGRIND" = "1" ]; then
 	echo "Address sanitizer (ASAN) and valgrind cannot be enabled at the same time"
 	exit 1
