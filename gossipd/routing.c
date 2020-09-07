@@ -21,7 +21,7 @@
 #include <gossipd/gossipd_peerd_wiregen.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <inttypes.h>
-#include <wire/peer_wiregen.h>
+#include <wire/peer_wire.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)

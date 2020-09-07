@@ -68,7 +68,6 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
-#include <wire/peer_wiregen.h>
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 #include <zlib.h>

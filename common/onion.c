@@ -5,7 +5,7 @@
 #include <common/ecdh.h>
 #include <common/sphinx.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
-#include <wire/onion_wiregen.h>
+#include <wire/onion_wire.h>
 
 /* BOLT #4:
  *

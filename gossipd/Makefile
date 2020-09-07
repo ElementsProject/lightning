@@ -66,7 +66,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/wire_error.o			\
 	connectd/connectd_gossipd_wiregen.o	\
 	lightningd/gossip_msg.o			\
-	wire/onion_wiregen.o
+	wire/onion$(EXP)_wiregen.o
 
 lightningd/lightning_gossipd: $(GOSSIPD_OBJS) $(GOSSIPD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(HSMD_CLIENT_OBJS)
 

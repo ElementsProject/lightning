@@ -10,7 +10,7 @@
 #include <common/hmac.h>
 #include <secp256k1.h>
 #include <sodium/randombytes.h>
-#include <wire/onion_wiregen.h>
+#include <wire/onion_wire.h>
 
 struct node_id;
 

@@ -3,7 +3,7 @@
 #include <ccan/tal/str/str.h>
 #include <plugins/libplugin-pay.h>
 #include <plugins/libplugin.h>
-#include <wire/onion_wiregen.h>
+#include <wire/onion_wire.h>
 
 #define PREIMAGE_TLV_TYPE 5482373484
 #define KEYSEND_FEATUREBIT 55

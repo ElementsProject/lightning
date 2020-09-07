@@ -20,7 +20,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <wire/peer_wiregen.h>
+#include <wire/peer_wire.h>
 
 /* We need this global to decode indexes for hash functions */
 static struct gossmap *map;

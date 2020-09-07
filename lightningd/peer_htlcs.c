@@ -36,7 +36,7 @@
 #include <lightningd/subd.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/wallet.h>
-#include <wire/onion_wiregen.h>
+#include <wire/onion_wire.h>
 #include <wire/wire_sync.h>
 
 #ifndef SUPERVERBOSE

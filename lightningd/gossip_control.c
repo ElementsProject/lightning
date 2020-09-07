@@ -33,7 +33,7 @@
 #include <lightningd/ping.h>
 #include <sodium/randombytes.h>
 #include <string.h>
-#include <wire/peer_wiregen.h>
+#include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
 static void got_txout(struct bitcoind *bitcoind,

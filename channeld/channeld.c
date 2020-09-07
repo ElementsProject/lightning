@@ -63,7 +63,7 @@
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <stdio.h>
 #include <wire/common_wiregen.h>
-#include <wire/onion_wiregen.h>
+#include <wire/onion_wire.h>
 #include <wire/peer_wire.h>
 #include <wire/wire.h>
 #include <wire/wire_io.h>

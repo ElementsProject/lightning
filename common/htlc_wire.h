@@ -6,7 +6,7 @@
 #include <common/amount.h>
 #include <common/htlc.h>
 #include <common/sphinx.h>
-#include <wire/onion_wiregen.h>
+#include <wire/onion_wire.h>
 
 struct bitcoin_tx;
 struct shachain;

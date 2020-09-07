@@ -16,7 +16,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <wire/peer_wiregen.h>
+#include <wire/peer_wire.h>
 
 
 struct scidsat {

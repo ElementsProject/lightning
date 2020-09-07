@@ -4,7 +4,7 @@
 
 #include <common/bolt11.h>
 #include <plugins/libplugin.h>
-#include <wire/onion_wiregen.h>
+#include <wire/onion_wire.h>
 
 struct legacy_payload {
 	struct short_channel_id scid;
