@@ -735,10 +735,10 @@ static void process_check_funding_broadcast(struct bitcoind *bitcoind,
 	/* Peer could have errored out while we were waiting */
 	peer = peer_by_id(bitcoind->ld, &cc->peer);
 	if (!peer)
-		return;
+		goto cleanup;
 	cancel = find_channel_by_id(peer, &cc->cid);
 	if (!cancel)
-		return;
+		goto cleanup;
 
 	if (txout != NULL) {
 		for (size_t i = 0; i < tal_count(cancel->forgets); i++)
@@ -748,13 +748,17 @@ static void process_check_funding_broadcast(struct bitcoind *bitcoind,
 				    "please consider `close` or `dev-fail`! "));
 		tal_free(cancel->forgets);
 		cancel->forgets = tal_arr(cancel, struct command *, 0);
-		return;
+		goto cleanup;
 	}
 
 	char *error_reason = "Cancel channel by our RPC "
 			     "command before funding "
 			     "transaction broadcast.";
 	forget_channel(cancel, error_reason);
+
+cleanup:
+	tal_free(cc);
+	return;
 }
 
 struct command_result *cancel_channel_before_broadcast(struct command *cmd,
@@ -823,7 +827,7 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 			   &cancel_channel->funding_txid,
 			   cancel_channel->funding_outnum,
 			   process_check_funding_broadcast,
-			   notleak(cc));
+			   notleak(tal_steal(NULL, cc)));
 	return command_still_pending(cmd);
 }
 
