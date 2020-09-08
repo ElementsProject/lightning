@@ -44,10 +44,6 @@ struct wallet {
 	 * including all spent ones */
 	struct outpointfilter *owned_outpoints;
 
-	/* Filter matching all outpoints that might be a funding transaction on
-	 * the blockchain. This is currently all P2WSH outputs */
-	struct outpointfilter *utxoset_outpoints;
-
 	/* How many keys should we look ahead at most? */
 	u64 keyscan_gap;
 };
