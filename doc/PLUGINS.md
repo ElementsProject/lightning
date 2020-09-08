@@ -322,6 +322,24 @@ into a block.
 }
 ```
 
+### `channel_state_changed`
+
+A notification for topic `channel_state_changed` is sent every time a channel
+changes its state. The notification includes the peer and channel ids as well
+as the old and the new channel states.
+
+```json
+{
+    "channel_state_changed": {
+        "peer_id": "03bc9337c7a28bb784d67742ebedd30a93bacdf7e4ca16436ef3798000242b2251",
+        "channel_id": "a2d0851832f0e30a0cf778a826d72f077ca86b69f72677e0267f23f63a0599b4",
+        "short_channel_id" : "561820x1020x1",
+        "old_state": "CHANNELD_NORMAL",
+        "new_state": "CHANNELD_SHUTTING_DOWN"
+    }
+}
+```
+
 ### `connect`
 
 A notification for topic `connect` is sent every time a new connection
