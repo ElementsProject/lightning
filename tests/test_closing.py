@@ -996,6 +996,216 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     assert account_balance(l2, channel_id) == 0
 
 
+@unittest.skipIf(not DEVELOPER, "uses dev_sign_last_tx")
+def test_penalty_rbf_normal(node_factory, bitcoind, executor, chainparams):
+    '''
+    Test that penalty transactions are RBFed.
+    '''
+    to_self_delay = 10
+    # l1 is the thief, which causes our honest upstanding lightningd
+    # code to break, so l1 can fail.
+    # Initially, disconnect before the HTLC can be resolved.
+    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
+                               may_fail=True, allow_broken_log=True)
+    l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
+                               options={'watchtime-blocks': to_self_delay})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fund_channel(l2, 10**7)
+
+    # Trigger an HTLC being added.
+    t = executor.submit(l1.pay, l2, 1000000 * 1000)
+
+    # Make sure the channel is still alive.
+    assert len(l1.getactivechannels()) == 2
+    assert len(l2.getactivechannels()) == 2
+
+    # Wait for the disconnection.
+    l1.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
+    l2.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
+    # Make sure l1 gets the new HTLC.
+    l1.daemon.wait_for_log('got commitsig')
+
+    # l1 prepares a theft commitment transaction
+    theft_tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+
+    # Now continue processing until fulfilment.
+    l1.rpc.dev_reenable_commit(l2.info['id'])
+    l2.rpc.dev_reenable_commit(l1.info['id'])
+
+    # Wait for the fulfilment.
+    l1.daemon.wait_for_log('peer_in WIRE_UPDATE_FULFILL_HTLC')
+    l1.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
+    l2.daemon.wait_for_log('peer_out WIRE_UPDATE_FULFILL_HTLC')
+    l1.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
+
+    # Now payment should complete.
+    t.result(timeout=10)
+
+    # l1 goes offline and bribes the miners to censor transactions from l2.
+    l1.rpc.stop()
+
+    def censoring_sendrawtx(r):
+        return {'id': r['id'], 'result': {}}
+
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+
+    # l1 now performs the theft attack!
+    bitcoind.rpc.sendrawtransaction(theft_tx)
+    bitcoind.generate_block(1)
+
+    # l2 notices.
+    l2.daemon.wait_for_log(' to ONCHAIN')
+
+    def get_rbf_tx(self, depth, name, resolve):
+        r = self.daemon.wait_for_log('Broadcasting RBF {} .* to resolve {} depth={}'
+                                     .format(name, resolve, depth))
+        return re.search(r'.* \(([0-9a-fA-F]*)\)', r).group(1)
+
+    rbf_txes = []
+    # Now the censoring miners generate some blocks.
+    for depth in range(2, 8):
+        bitcoind.generate_block(1)
+        sync_blockheight(bitcoind, [l2])
+        # l2 should RBF, twice even, one for the l1 main output,
+        # one for the l1 HTLC output.
+        rbf_txes.append(get_rbf_tx(l2, depth,
+                                   'OUR_PENALTY_TX',
+                                   'THEIR_REVOKED_UNILATERAL/THEIR_HTLC'))
+        rbf_txes.append(get_rbf_tx(l2, depth,
+                                   'OUR_PENALTY_TX',
+                                   'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM'))
+
+    # Now that the transactions have high fees, independent miners
+    # realize they can earn potentially more money by grabbing the
+    # high-fee censored transactions, and fresh, non-censoring
+    # hashpower arises, evicting the censor.
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+
+    # Check that the order in which l2 generated RBF transactions
+    # would be acceptable to Bitcoin.
+    for tx in rbf_txes:
+        # Use the bcli interface as well, so that we also check the
+        # bcli interface.
+        l2.rpc.call('sendrawtransaction', [tx, True])
+
+    # Now the non-censoring miners overpower the censoring miners.
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l2])
+
+    # And l2 should consider it resolved now.
+    l2.daemon.wait_for_log('Resolved THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM by our proposal OUR_PENALTY_TX')
+    l2.daemon.wait_for_log('Resolved THEIR_REVOKED_UNILATERAL/THEIR_HTLC by our proposal OUR_PENALTY_TX')
+
+    # And l2 should consider it in its listfunds.
+    assert(len(l2.rpc.listfunds()['outputs']) >= 1)
+
+
+@unittest.skipIf(not DEVELOPER, "uses dev_sign_last_tx")
+def test_penalty_rbf_burn(node_factory, bitcoind, executor, chainparams):
+    '''
+    Test that penalty transactions are RBFed and we are willing to burn
+    it all up to spite the thief.
+    '''
+    to_self_delay = 10
+    # l1 is the thief, which causes our honest upstanding lightningd
+    # code to break, so l1 can fail.
+    # Initially, disconnect before the HTLC can be resolved.
+    l1 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
+                               may_fail=True, allow_broken_log=True)
+    l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
+                               options={'watchtime-blocks': to_self_delay})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fund_channel(l2, 10**7)
+
+    # Trigger an HTLC being added.
+    t = executor.submit(l1.pay, l2, 1000000 * 1000)
+
+    # Make sure the channel is still alive.
+    assert len(l1.getactivechannels()) == 2
+    assert len(l2.getactivechannels()) == 2
+
+    # Wait for the disconnection.
+    l1.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
+    l2.daemon.wait_for_log('=WIRE_COMMITMENT_SIGNED-nocommit')
+    # Make sure l1 gets the new HTLC.
+    l1.daemon.wait_for_log('got commitsig')
+
+    # l1 prepares a theft commitment transaction
+    theft_tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+
+    # Now continue processing until fulfilment.
+    l1.rpc.dev_reenable_commit(l2.info['id'])
+    l2.rpc.dev_reenable_commit(l1.info['id'])
+
+    # Wait for the fulfilment.
+    l1.daemon.wait_for_log('peer_in WIRE_UPDATE_FULFILL_HTLC')
+    l1.daemon.wait_for_log('peer_out WIRE_REVOKE_AND_ACK')
+    l2.daemon.wait_for_log('peer_out WIRE_UPDATE_FULFILL_HTLC')
+    l1.daemon.wait_for_log('peer_in WIRE_REVOKE_AND_ACK')
+
+    # Now payment should complete.
+    t.result(timeout=10)
+
+    # l1 goes offline and bribes the miners to censor transactions from l2.
+    l1.rpc.stop()
+
+    def censoring_sendrawtx(r):
+        return {'id': r['id'], 'result': {}}
+
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', censoring_sendrawtx)
+
+    # l1 now performs the theft attack!
+    bitcoind.rpc.sendrawtransaction(theft_tx)
+    bitcoind.generate_block(1)
+
+    # l2 notices.
+    l2.daemon.wait_for_log(' to ONCHAIN')
+
+    def get_rbf_tx(self, depth, name, resolve):
+        r = self.daemon.wait_for_log('Broadcasting RBF {} .* to resolve {} depth={}'
+                                     .format(name, resolve, depth))
+        return re.search(r'.* \(([0-9a-fA-F]*)\)', r).group(1)
+
+    rbf_txes = []
+    # Now the censoring miners generate some blocks.
+    for depth in range(2, 10):
+        bitcoind.generate_block(1)
+        sync_blockheight(bitcoind, [l2])
+        # l2 should RBF, twice even, one for the l1 main output,
+        # one for the l1 HTLC output.
+        rbf_txes.append(get_rbf_tx(l2, depth,
+                                   'OUR_PENALTY_TX',
+                                   'THEIR_REVOKED_UNILATERAL/THEIR_HTLC'))
+        rbf_txes.append(get_rbf_tx(l2, depth,
+                                   'OUR_PENALTY_TX',
+                                   'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM'))
+
+    # Now that the transactions have high fees, independent miners
+    # realize they can earn potentially more money by grabbing the
+    # high-fee censored transactions, and fresh, non-censoring
+    # hashpower arises, evicting the censor.
+    l2.daemon.rpcproxy.mock_rpc('sendrawtransaction', None)
+
+    # Check that the last two txes can be broadcast.
+    # These should donate the total amount to miners.
+    rbf_txes = rbf_txes[-2:]
+    for tx in rbf_txes:
+        l2.rpc.call('sendrawtransaction', [tx, True])
+
+    # Now the non-censoring miners overpower the censoring miners.
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l2])
+
+    # And l2 should consider it resolved now.
+    l2.daemon.wait_for_log('Resolved THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM by our proposal OUR_PENALTY_TX')
+    l2.daemon.wait_for_log('Resolved THEIR_REVOKED_UNILATERAL/THEIR_HTLC by our proposal OUR_PENALTY_TX')
+
+    # l2 donated it to the miners, so it owns nothing
+    assert(len(l2.rpc.listfunds()['outputs']) == 0)
+
+
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_onchain_first_commit(node_factory, bitcoind):
     """Onchain handling where opener immediately drops to chain"""
