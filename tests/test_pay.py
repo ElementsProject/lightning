@@ -3460,9 +3460,22 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
         wait_for(lambda: len(l2.rpc.listchannels(channel)['channels']) == 2)
         wait_for(lambda: len(l3.rpc.listchannels(channel)['channels']) == 2)
 
-    # Buyers check out some purchaseable stuff from the merchant.
-    i2 = l1.rpc.invoice(unit * 6, 'i2', 'i2')['bolt11']
-    i3 = l1.rpc.invoice(unit * 6, 'i3', 'i3')['bolt11']
+    # At this point, we have the following incoming channel capacities:
+    # 74094000, 52314000, 30318000, 19318000
+
+    # We *always* rotate through, since we have no published channels,
+    # but we can select badly and get an overlap. e.g. first invoice
+    # takes 30318000, 19318000 and 74094000.  Second will then take
+    # 52314000, and have to reuse 30318000, which gets exhausted by the
+    # first payer, thus leaving them unable to pay 66000000.
+
+    # So we re-do this until we only have 4 or fewer routehints.
+    while True:
+        # Buyers check out some purchaseable stuff from the merchant.
+        i2 = l1.rpc.invoice(unit * 6, ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20)), 'i2')['bolt11']
+        i3 = l1.rpc.invoice(unit * 6, ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(20)), 'i3')['bolt11']
+        if len(l1.rpc.decodepay(i2)['routes'] + l1.rpc.decodepay(i3)['routes']) <= 4:
+            break
 
     # Pay simultaneously!
     p2 = executor.submit(l2.rpc.pay, i2)
