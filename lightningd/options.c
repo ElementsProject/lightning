@@ -1241,7 +1241,7 @@ static void add_config(struct lightningd *ld,
 		} else if (opt->cb == (void *)opt_set_hsm_password) {
 			json_add_bool(response, "encrypted-hsm", ld->encrypted_hsm);
 		} else if (opt->cb == (void *)opt_set_wumbo) {
-			json_add_bool(response, "wumbo",
+			json_add_bool(response, name0,
 				      feature_offered(ld->our_features
 						      ->bits[INIT_FEATURE],
 						      OPT_LARGE_CHANNELS));
@@ -1387,6 +1387,9 @@ static struct command_result *json_listconfigs(struct command *cmd,
 				response = json_stream_success(cmd);
 			add_config(cmd->ld, response, &opt_table[i],
 				   name+1, len-1);
+			/* If we have more than one long name, first
+			 * is preferred */
+			break;
 		}
 	}
 
