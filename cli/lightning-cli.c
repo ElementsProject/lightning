@@ -65,7 +65,7 @@ static size_t human_readable(const char *buffer, const jsmntok_t *t, char term)
 	case JSMN_OBJECT:
 		/* Elide single-field objects */
 		if (t->size == 1)
-			return human_readable(buffer, t + 2, '\n') + 3;
+			return human_readable(buffer, t + 2, '\n') + 2;
 		n = 1;
 		for (i = 0; i < t->size; i++) {
 			n += human_readable(buffer, t + n, '=');
