@@ -1179,8 +1179,11 @@ The plugin must respond to `gettxout` with the following fields:
 
 ### `sendrawtransaction`
 
-This call takes one parameter, a string representing a hex-encoded Bitcoin
-transaction.
+This call takes two parameters,
+a string `tx` representing a hex-encoded Bitcoin transaction,
+and a boolean `allowhighfees`, which if set means suppress
+any high-fees check implemented in the backend, since the given
+transaction may have fees that are very high.
 
 The plugin must broadcast it and respond with the following fields:
     - `success` (boolean), which is `true` if the broadcast succeeded

@@ -218,10 +218,12 @@ static void broadcast_done(struct bitcoind *bitcoind,
 	}
 }
 
-void broadcast_tx(struct chain_topology *topo,
-		  struct channel *channel, const struct bitcoin_tx *tx,
-		  void (*failed_or_success)(struct channel *channel,
-					    bool success, const char *err))
+void broadcast_tx_ahf(struct chain_topology *topo,
+		      struct channel *channel, const struct bitcoin_tx *tx,
+		      bool allowhighfees,
+		      void (*failed)(struct channel *channel,
+				     bool success,
+				     const char *err))
 {
 	/* Channel might vanish: topo owns it to start with. */
 	struct outgoing_tx *otx = tal(topo, struct outgoing_tx);
@@ -230,7 +232,7 @@ void broadcast_tx(struct chain_topology *topo,
 	otx->channel = channel;
 	bitcoin_txid(tx, &otx->txid);
 	otx->hextx = tal_hex(otx, rawtx);
-	otx->failed_or_success = failed_or_success;
+	otx->failed_or_success = failed;
 	tal_free(rawtx);
 	tal_add_destructor2(channel, clear_otx_channel, otx);
 
@@ -238,8 +240,18 @@ void broadcast_tx(struct chain_topology *topo,
 		  type_to_string(tmpctx, struct bitcoin_txid, &otx->txid));
 
 	wallet_transaction_add(topo->ld->wallet, tx->wtx, 0, 0);
-	bitcoind_sendrawtx(topo->bitcoind, otx->hextx, broadcast_done, otx);
+	bitcoind_sendrawtx_ahf(topo->bitcoind, otx->hextx, allowhighfees,
+			       broadcast_done, otx);
 }
+void broadcast_tx(struct chain_topology *topo,
+		  struct channel *channel, const struct bitcoin_tx *tx,
+		  void (*failed)(struct channel *channel,
+				 bool success,
+				 const char *err))
+{
+	return broadcast_tx_ahf(topo, channel, tx, false, failed);
+}
+
 
 static enum watch_result closeinfo_txid_confirmed(struct lightningd *ld,
 						  struct channel *channel,

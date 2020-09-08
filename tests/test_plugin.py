@@ -1280,7 +1280,7 @@ def test_bcli(node_factory, bitcoind, chainparams):
         "vout": fc['outnum']
     })['amount'] is None)
 
-    resp = l1.rpc.call("sendrawtransaction", {"tx": "dummy"})
+    resp = l1.rpc.call("sendrawtransaction", {"tx": "dummy", "allowhighfees": False})
     assert not resp["success"] and "decode failed" in resp["errmsg"]
 
 

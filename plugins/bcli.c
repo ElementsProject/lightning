@@ -753,12 +753,28 @@ static struct command_result *sendrawtransaction(struct command *cmd,
                                                  const jsmntok_t *toks)
 {
 	const char **params = tal_arr(cmd, const char *, 1);
+	bool *allowhighfees;
 
 	/* bitcoin-cli wants strings. */
 	if (!param(cmd, buf, toks,
 	           p_req("tx", param_string, &params[0]),
+		   p_req("allowhighfees", param_bool, &allowhighfees),
 	           NULL))
 		return command_param_failed();
+
+	if (*allowhighfees) {
+		if (bitcoind->version >= 190001)
+			/* Starting in 19.0.1, second argument is
+			 * maxfeerate, which when set to 0 means
+			 * no max feerate.
+			 */
+			tal_arr_expand(&params, "0");
+		else
+			/* in older versions, second arg is allowhighfees,
+			 * set to true to allow high fees.
+			 */
+			tal_arr_expand(&params, "true");
+	}
 
 	start_bitcoin_cli(NULL, cmd, process_sendrawtransaction, true,
 			  BITCOIND_HIGH_PRIO, "sendrawtransaction", params, NULL);
