@@ -3,6 +3,7 @@
 #include <bitcoin/base58.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/asort/asort.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
@@ -34,6 +35,7 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
+#include <lightningd/routehint.h>
 #include <lightningd/subd.h>
 #include <sodium/randombytes.h>
 #include <wire/wire_sync.h>
@@ -445,42 +447,27 @@ static struct command_result *parse_fallback(struct command *cmd,
  * Then use weighted reservoir sampling, which makes probing channel balances
  * harder, to choose one channel from the set of suitable channels. It favors
  * channels that have less balance on our side as fraction of their capacity.
- *
- * [any_offline] is set if the peer of any suitable channel appears offline.
  */
 static struct route_info **select_inchan(const tal_t *ctx,
 					 struct lightningd *ld,
 					 struct amount_msat amount_needed,
-					 const struct route_info *inchans,
-					 const bool *deadends,
-					 bool *any_offline)
+					 const struct routehint_candidate
+					 *candidates)
 {
 	/* BOLT11 struct wants an array of arrays (can provide multiple routes) */
 	struct route_info **r = NULL;
 	double total_weight = 0.0;
 
-	*any_offline = false;
-
 	/* Collect suitable channels and assign each a weight.  */
-	for (size_t i = 0; i < tal_count(inchans); i++) {
-		struct peer *peer;
-		struct channel *c;
-		struct amount_msat capacity_to_pay_us, excess, capacity;
+	for (size_t i = 0; i < tal_count(candidates); i++) {
+		struct amount_msat excess, capacity;
 		struct amount_sat cumulative_reserve;
 		double excess_frac;
 
-		/* Do we know about this peer? */
-		peer = peer_by_id(ld, &inchans[i].pubkey);
-		if (!peer)
-			continue;
-
-		/* Does it have a channel in state CHANNELD_NORMAL */
-		c = peer_normal_channel(peer);
-		if (!c)
-			continue;
-
-		/* Is it a dead-end? */
-		if (deadends[i])
+		/* Does the peer have sufficient balance to pay us,
+		 * even after having taken into account their reserve? */
+		if (!amount_msat_sub(&excess, candidates[i].capacity,
+				     amount_needed))
 			continue;
 
 		/* Channel balance as seen by our node:
@@ -497,27 +484,14 @@ static struct route_info **select_inchan(const tal_t *ctx,
 		0       ^             ^                                ^                funding
 		   our_reserve     our_msat	*/
 
-		capacity_to_pay_us = channel_amount_receivable(c);
-
-		/* Does the peer have sufficient balance to pay us,
-		 * even after having taken into account their reserve? */
-		if (!amount_msat_sub(&excess, capacity_to_pay_us, amount_needed))
-			continue;
-
-		/* Is it offline? */
-		if (c->owner == NULL) {
-			*any_offline = true;
-			continue;
-		}
-
 		/* Find capacity and calculate its excess fraction */
 		if (!amount_sat_add(&cumulative_reserve,
-				c->our_config.channel_reserve,
-				c->channel_info.their_config.channel_reserve)
-			|| !amount_sat_to_msat(&capacity, c->funding)
+				    candidates[i].c->our_config.channel_reserve,
+				    candidates[i].c->channel_info.their_config.channel_reserve)
+			|| !amount_sat_to_msat(&capacity, candidates[i].c->funding)
 			|| !amount_msat_sub_sat(&capacity, capacity, cumulative_reserve)) {
 			log_broken(ld->log, "Channel %s capacity overflow!",
-					type_to_string(tmpctx, struct short_channel_id, c->scid));
+					type_to_string(tmpctx, struct short_channel_id, candidates[i].c->scid));
 			continue;
 		}
 
@@ -525,7 +499,9 @@ static struct route_info **select_inchan(const tal_t *ctx,
 		 * only one!  So bump it by 1 msat */
 		if (!amount_msat_add(&excess, excess, AMOUNT_MSAT(1))) {
 			log_broken(ld->log, "Channel %s excess overflow!",
-					type_to_string(tmpctx, struct short_channel_id, c->scid));
+				   type_to_string(tmpctx,
+						  struct short_channel_id,
+						  candidates[i].c->scid));
 			continue;
 		}
 		excess_frac = amount_msat_ratio(excess, capacity);
@@ -533,11 +509,22 @@ static struct route_info **select_inchan(const tal_t *ctx,
 		if (random_select(excess_frac, &total_weight)) {
 			tal_free(r);
 			r = tal_arr(ctx, struct route_info *, 1);
-			r[0] = tal_dup(r, struct route_info, &inchans[i]);
+			r[0] = tal_dup(r, struct route_info, candidates[i].r);
 		}
 	}
 
 	return r;
+}
+
+static int cmp_rr_number(const struct routehint_candidate *a,
+			 const struct routehint_candidate *b,
+			 void *unused)
+{
+	/* They're unique, so can't be equal */
+	if (a->c->rr_number > b->c->rr_number)
+		return 1;
+	assert(a->c->rr_number < b->c->rr_number);
+	return -1;
 }
 
 /** select_inchan_mpp
@@ -552,82 +539,41 @@ static struct route_info **select_inchan(const tal_t *ctx,
 static struct route_info **select_inchan_mpp(const tal_t *ctx,
 					     struct lightningd *ld,
 					     struct amount_msat amount_needed,
-					     const struct route_info *inchans,
-					     const bool *deadends,
-					     bool *any_offline,
+					     struct routehint_candidate
+					     *candidates,
 					     bool *warning_mpp_capacity)
 {
 	/* The total amount we have gathered for incoming channels.  */
 	struct amount_msat gathered;
-	/* Channels we have already processed.  */
-	struct list_head processed;
 	/* Routehint array.  */
 	struct route_info **routehints;
 
 	gathered = AMOUNT_MSAT(0);
-	list_head_init(&processed);
 	routehints = tal_arr(ctx, struct route_info *, 0);
 
-	while (amount_msat_less(gathered, amount_needed)
-	       && !list_empty(&ld->rr_channels)) {
-		struct channel *c;
-		struct amount_msat capacity_to_pay_us;
-		size_t found_i;
-		const struct route_info *found;
-
-		/* Get a channel and put it in the processed list.  */
-		c = list_pop(&ld->rr_channels, struct channel, rr_list);
-		list_add_tail(&processed, &c->rr_list);
-
-		/* Is the channel even useful?  */
-		if (c->state != CHANNELD_NORMAL)
-			continue;
-		/* SCID should have been set when we locked in, and we
-		 * can only CHANNELD_NORMAL if both us and peer are
-		 * locked in.  */
-		assert(c->scid != NULL);
-
-		/* Is the peer offline?  */
-		if (c->owner == NULL) {
-			*any_offline = true;
-			continue;
-		}
-
-		capacity_to_pay_us = channel_amount_receivable(c);
-
-		/* Is the channel in the inchans input?  */
-		found = NULL;
-		found_i = 0;
-		for (size_t i = 0; i < tal_count(inchans); ++i) {
-			if (short_channel_id_eq(&inchans[i].short_channel_id,
-						c->scid)) {
-				found = &inchans[i];
-				found_i = i;
-				break;
-			}
-		}
-		if (!found)
-			continue;
-
-		/* Is it a deadend?  */
-		if (deadends[found_i])
-			continue;
+	/* Sort by rr_number, so we get fresh channels. */
+	asort(candidates, tal_count(candidates), cmp_rr_number, NULL);
+	for (size_t i = 0; i < tal_count(candidates); i++) {
+		if (amount_msat_greater_eq(gathered, amount_needed))
+			break;
 
 		/* Add to current routehints set.  */
-		if (!amount_msat_add(&gathered, gathered, capacity_to_pay_us)) {
+		if (!amount_msat_add(&gathered, gathered, candidates[i].capacity)) {
 			log_broken(ld->log,
 				   "Gathered channel capacity overflow: "
 				   "%s + %s",
 				   type_to_string(tmpctx, struct amount_msat, &gathered),
-				   type_to_string(tmpctx, struct amount_msat, &capacity_to_pay_us));
+				   type_to_string(tmpctx, struct amount_msat,
+						  &candidates[i].capacity));
 			continue;
 		}
 		tal_arr_expand(&routehints,
-			       tal_dup(routehints, struct route_info, found));
+			       tal_dup(routehints, struct route_info,
+				       candidates[i].r));
+		/* Put to the back of the round-robin list */
+		candidates[i].c->rr_number = ld->rr_counter++;
 	}
 
-	/* Append the processed list back to the rr_channels.  */
-	list_append_list(&ld->rr_channels, &processed);
 	/* Check if we gathered enough.  */
 	*warning_mpp_capacity = amount_msat_less(gathered, amount_needed);
 
@@ -648,114 +594,39 @@ struct invoice_info {
 	struct chanhints *chanhints;
 };
 
-static void append_routes(struct route_info **dst, const struct route_info *src)
-{
-	size_t n = tal_count(*dst);
-
-	tal_resize(dst, n + tal_count(src));
-	memcpy(*dst + n, src, tal_count(src) * sizeof(*src));
-}
-
-static void append_bools(bool **dst, const bool *src)
-{
-	size_t n = tal_count(*dst);
-
-	tal_resize(dst, n + tal_count(src));
-	memcpy(*dst + n, src, tal_count(src) * sizeof(*src));
-}
-
-static bool all_true(const bool *barr, size_t n)
-{
-	for (size_t i = 0; i < n; i++) {
-		if (!barr[i])
-			return false;
-	}
-	return true;
-}
-
-static bool scid_in_arr(const struct short_channel_id *scidarr,
-			const struct short_channel_id *scid)
-{
-	for (size_t i = 0; i < tal_count(scidarr); i++)
-		if (short_channel_id_eq(&scidarr[i], scid))
-			return true;
-
-	return false;
-}
-
 static void gossipd_incoming_channels_reply(struct subd *gossipd,
 					    const u8 *msg,
 					    const int *fs,
 					    struct invoice_info *info)
 {
 	struct json_stream *response;
-	struct route_info *inchans, *private;
-	bool *inchan_deadends, *private_deadends;
 	struct invoice invoice;
 	char *b11enc;
 	const struct invoice_details *details;
 	struct wallet *wallet = info->cmd->ld->wallet;
 	const struct chanhints *chanhints = info->chanhints;
 
-	bool any_offline = false;
+	struct routehint_candidate *candidates;
+	struct amount_msat offline_amt;
 	bool warning_mpp = false;
 	bool warning_mpp_capacity = false;
+	bool deadends;
 	bool node_unpublished;
 
-	if (!fromwire_gossipd_get_incoming_channels_reply(tmpctx, msg,
-							  &inchans,
-							  &inchan_deadends,
-							  &private,
-							  &private_deadends))
-		fatal("Gossip gave bad GOSSIP_GET_INCOMING_CHANNELS_REPLY %s",
-		      tal_hex(msg, msg));
+	candidates = routehint_candidates(tmpctx, info->cmd->ld, msg,
+					  chanhints ? chanhints->expose_all_private : false,
+					  chanhints ? chanhints->hints : NULL,
+					  &node_unpublished,
+					  &deadends,
+					  &offline_amt);
 
-	node_unpublished = (tal_count(inchans) == 0)
-			&& (tal_count(private) > 0);
-
-	/* fromwire explicitly makes empty arrays into NULL */
-	if (!inchans) {
-		inchans = tal_arr(tmpctx, struct route_info, 0);
-		inchan_deadends = tal_arr(tmpctx, bool, 0);
-	}
-
-	if (chanhints && chanhints->expose_all_private) {
-		append_routes(&inchans, private);
-		append_bools(&inchan_deadends, private_deadends);
-	} else if (chanhints && chanhints->hints) {
-		/* Start by considering all channels as candidates */
-		append_routes(&inchans, private);
-		append_bools(&inchan_deadends, private_deadends);
-
-		/* Consider only hints they gave */
-		for (size_t i = 0; i < tal_count(inchans); i++) {
-			if (!scid_in_arr(chanhints->hints,
-					 &inchans[i].short_channel_id)) {
-				tal_arr_remove(&inchans, i);
-				tal_arr_remove(&inchan_deadends, i);
-				i--;
-			} else
-				/* If they specify directly, we don't
-				 * care if it's a deadend */
-				inchan_deadends[i] = false;
-		}
-
-		/* If they told us to use scids and we couldn't, fail. */
-		if (tal_count(inchans) == 0
-		    && tal_count(chanhints->hints) != 0) {
-			was_pending(command_fail(info->cmd,
-						 INVOICE_HINTS_GAVE_NO_ROUTES,
-						 "None of those hints were suitable local channels"));
-			return;
-		}
-	} else {
-		assert(!chanhints);
-		/* By default, only consider private channels if there are
-		 * no public channels *at all* */
-		if (tal_count(inchans) == 0) {
-			append_routes(&inchans, private);
-			append_bools(&inchan_deadends, private_deadends);
-		}
+	/* If they told us to use scids and we couldn't, fail. */
+	if (tal_count(candidates) == 0
+	    && chanhints && tal_count(chanhints->hints) != 0) {
+		was_pending(command_fail(info->cmd,
+					 INVOICE_HINTS_GAVE_NO_ROUTES,
+					 "None of those hints were suitable local channels"));
+		return;
 	}
 
 	if (tal_count(info->b11->routes) == 0) {
@@ -781,24 +652,19 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 			info->b11->routes = select_inchan(info->b11,
 							  info->cmd->ld,
 							  needed,
-							  inchans,
-							  inchan_deadends,
-							  &any_offline);
+							  candidates);
 		/* If we are completely unpublished, or if the above reservoir
 		 * sampling fails, select channels by round-robin.  */
 		if (tal_count(info->b11->routes) == 0) {
 			info->b11->routes = select_inchan_mpp(info->b11,
 							      info->cmd->ld,
 							      needed,
-							      inchans,
-							      inchan_deadends,
-							      &any_offline,
+							      candidates,
 							      &warning_mpp_capacity);
 			warning_mpp = (tal_count(info->b11->routes) > 1);
 		}
 	}
 
-	/* FIXME: add private routes if necessary! */
 	b11enc = bolt11_encode(info, info->b11, false,
 			       hsm_sign_b11, info->cmd->ld);
 
@@ -846,22 +712,23 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 			    ? type_to_string(tmpctx, struct amount_msat,
 					     info->b11->msat)
 			    : "0",
-			    any_offline
+			    amount_msat_greater(offline_amt, AMOUNT_MSAT(0))
 			    ? " (among currently connected peers)" : "");
 
-		if (tal_count(inchans) == 0)
-			json_add_string(response, "warning_capacity",
-					"No channels");
-		else if (all_true(inchan_deadends, tal_count(inchans)))
-			json_add_string(response, "warning_deadends",
-					"No channel with a peer that is not a dead end");
-		else if (any_offline)
+		if (amount_msat_greater(offline_amt, AMOUNT_MSAT(0))) {
 			json_add_string(response, "warning_offline",
 					"No channel with a peer that is currently connected"
 					" has sufficient incoming capacity");
-		else
+		} else if (deadends) {
+			json_add_string(response, "warning_deadends",
+					"No channel with a peer that is not a dead end");
+		} else if (tal_count(candidates) == 0) {
+			json_add_string(response, "warning_capacity",
+					"No channels");
+		} else {
 			json_add_string(response, "warning_capacity",
 					"No channel with a peer that has sufficient incoming capacity");
+		}
 	}
 
 	if (warning_mpp)
