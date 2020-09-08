@@ -58,7 +58,7 @@ MANPAGES := doc/lightning-cli.1 \
 doc-all: $(MANPAGES) doc/index.rst
 
 $(MANPAGES): doc/%: doc/%.md
-	@if $(call SHA256STAMP_CHANGED,); then $(call VERBOSE, "mrkd $<", mrkd $< $@ && $(call SHA256STAMP,,\")); else touch $@; fi
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE, "mrkd $<", mrkd $< $@ && $(call SHA256STAMP,\")); else touch $@; fi
 
 $(MANPAGES): FORCE
 

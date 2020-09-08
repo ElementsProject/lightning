@@ -1455,9 +1455,9 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
-         .name = "UPDATE outputs SET spend_height = ? WHERE prev_out_tx = ? AND prev_out_index = ?",
-         .query = "UPDATE outputs SET spend_height = ? WHERE prev_out_tx = ? AND prev_out_index = ?",
-         .placeholders = 3,
+         .name = "UPDATE outputs SET spend_height = ?,  status = ? WHERE prev_out_tx = ? AND prev_out_index = ?",
+         .query = "UPDATE outputs SET spend_height = ?,  status = ? WHERE prev_out_tx = ? AND prev_out_index = ?",
+         .placeholders = 4,
          .readonly = false,
     },
     {
@@ -1642,4 +1642,4 @@ struct db_query db_sqlite3_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:70da3f4fe74de7abdc4cfd910e203ecd4ded34213384fcb7027a067b4cb56590
+// SHA256STAMP:a4a3f2d9ee677312ff2586432ffae389eedb72f1bf34d36bfb564d37889f8eeb
