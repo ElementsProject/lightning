@@ -288,7 +288,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	/*~ We maintain a round-robin list of channels.
 	 * This round-robin list of channels is used to ensure that
 	 * each invoice we generate has a different set of channels.  */
-	list_head_init(&ld->rr_channels);
+	ld->rr_counter = 0;
 
 	return ld;
 }
