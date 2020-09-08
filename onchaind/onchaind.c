@@ -842,7 +842,8 @@ static void proposal_meets_depth(struct tracked_output *out, bool is_replay)
 	    REQ_FD,
 	    take(towire_onchaind_broadcast_tx(
 		 NULL, out->proposal->tx,
-		 onchain_txtype_to_wallet_txtype(out->proposal->tx_type))));
+		 onchain_txtype_to_wallet_txtype(out->proposal->tx_type),
+		 false)));
 
 	/* Don't wait for this if we're ignoring the tiny payment. */
 	if (out->proposal->tx_type == IGNORING_TINY_PAYMENT) {
