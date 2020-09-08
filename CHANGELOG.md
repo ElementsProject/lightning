@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.9.0] - 2020-07-31: "Rat Poison Squared on Steroids"
 
+This release was named by Sebastian Falbesoner.
+
 ### Added
 
  - plugin: `pay` was rewritten to use the new payment flow. See `legacypay` for old version ([3809](https://github.com/ElementsProject/lightning/pull/3809))
