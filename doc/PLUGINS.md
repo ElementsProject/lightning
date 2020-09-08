@@ -213,13 +213,12 @@ simple JSON object containing the options:
         "node": "8000000002aaa2",
         "channel": "",
         "invoice": "028200"
-    }
-    "startup": true,
+    },
     "proxy": {
         "type": "ipv4",
         "address": "127.0.0.1",
         "port": 9050
-    }
+    },
     "torv3-enabled": true,
     "use_proxy_always": false
   }
