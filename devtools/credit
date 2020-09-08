@@ -8,7 +8,7 @@ if [ x"$1" = x"--verbose" ]; then
 fi
 
 if [ "$#" != 1 ]; then
-    echo "Usage: $0 <last-tag>" >&2
+    echo "Usage: $0 [--verbose] <last-tag>" >&2
     exit 1
 fi
 PREV_TAG="$1"
@@ -18,7 +18,7 @@ if [ -z $(git tag -l "$PREV_TAG") ]; then
     exit 1
 fi
 git log "$PREV_TAG".. --format="%an|%ae" | sort | uniq -c | sort -rn > /tmp/authors.$$
-sed -n 's/.*[Nn]amed by //p' < CHANGELOG.md > /tmp/namers.$$
+sed -n 's/.*[Nn]amed by //p' < CHANGELOG.md | sed 's/(.*)//' | tr -dc '[:alnum:][:space:]' > /tmp/namers.$$
 git log "$PREV_TAG" --format="%an|%ae" | sort -u > /tmp/prev-authors.$$
 
 NAMER=""
@@ -33,6 +33,10 @@ while read LINE; do
     NOTES=""
     if [ $(grep -ci -- "$NAME\|$EMAIL" /tmp/prev-authors.$$) = 0 ]; then
 	NOTES="$NOTES""NEW COMMITTER "
+    fi
+    # ZmnSCPxj gave himself a surname!
+    if [ "${NAME%% *}" = ZmnSCPxj ]; then
+	NAME=ZmnSCPxj
     fi
     if ! grep -qi -- "$NAME" /tmp/namers.$$; then
 	if [ -z "$NAMER" ]; then
