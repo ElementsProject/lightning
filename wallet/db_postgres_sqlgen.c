@@ -987,12 +987,6 @@ struct db_query db_postgres_queries[] = {
          .readonly = true,
     },
     {
-         .name = "SELECT txid, outnum FROM utxoset WHERE spendheight is NULL",
-         .query = "SELECT txid, outnum FROM utxoset WHERE spendheight is NULL",
-         .placeholders = 0,
-         .readonly = true,
-    },
-    {
          .name = "SELECT * from outputs WHERE prev_out_tx=? AND prev_out_index=?",
          .query = "SELECT * from outputs WHERE prev_out_tx=$1 AND prev_out_index=$2",
          .placeholders = 2,
@@ -1419,12 +1413,6 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT txid, outnum FROM utxoset WHERE spendheight < ?",
-         .query = "SELECT txid, outnum FROM utxoset WHERE spendheight < $1",
-         .placeholders = 1,
-         .readonly = true,
-    },
-    {
          .name = "DELETE FROM utxoset WHERE spendheight < ?",
          .query = "DELETE FROM utxoset WHERE spendheight < $1",
          .placeholders = 1,
@@ -1636,10 +1624,10 @@ struct db_query db_postgres_queries[] = {
     },
 };
 
-#define DB_POSTGRES_QUERY_COUNT 271
+#define DB_POSTGRES_QUERY_COUNT 269
 
 #endif /* HAVE_POSTGRES */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:93c3f12a788012003366f01547f6059bc7894cddd9cf3b046b908f5458452da7
+// SHA256STAMP:933e3d44cffab23c051a63163d4b24bcef044ad617ec3db040e6a92f9c55e0c6

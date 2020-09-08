@@ -33,29 +33,13 @@
 
 static void outpointfilters_init(struct wallet *w)
 {
-	struct db_stmt *stmt;
 	struct utxo **utxos = wallet_get_utxos(NULL, w, OUTPUT_STATE_ANY);
-	struct bitcoin_txid txid;
-	u32 outnum;
 
 	w->owned_outpoints = outpointfilter_new(w);
 	for (size_t i = 0; i < tal_count(utxos); i++)
 		outpointfilter_add(w->owned_outpoints, &utxos[i]->txid, utxos[i]->outnum);
 
 	tal_free(utxos);
-
-	w->utxoset_outpoints = outpointfilter_new(w);
-	stmt = db_prepare_v2(
-	    w->db,
-	    SQL("SELECT txid, outnum FROM utxoset WHERE spendheight is NULL"));
-	db_query_prepared(stmt);
-
-	while (db_step(stmt)) {
-		db_column_sha256d(stmt, 0, &txid.shad);
-		outnum = db_column_int(stmt, 1);
-		outpointfilter_add(w->utxoset_outpoints, &txid, outnum);
-	}
-	tal_free(stmt);
 }
 
 struct wallet *wallet_new(struct lightningd *ld, struct timers *timers,
@@ -2938,20 +2922,6 @@ bool wallet_network_check(struct wallet *w)
 static void wallet_utxoset_prune(struct wallet *w, const u32 blockheight)
 {
 	struct db_stmt *stmt;
-	struct bitcoin_txid txid;
-
-	stmt = db_prepare_v2(
-	    w->db,
-	    SQL("SELECT txid, outnum FROM utxoset WHERE spendheight < ?"));
-	db_bind_int(stmt, 0, blockheight - UTXO_PRUNE_DEPTH);
-	db_query_prepared(stmt);
-
-	while (db_step(stmt)) {
-		db_column_sha256d(stmt, 0, &txid.shad);
-		outpointfilter_remove(w->utxoset_outpoints, &txid,
-				      db_column_int(stmt, 1));
-	}
-	tal_free(stmt);
 
 	stmt = db_prepare_v2(w->db,
 			     SQL("DELETE FROM utxoset WHERE spendheight < ?"));
@@ -3025,18 +2995,16 @@ bool wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockhe
 	} else
 		our_spend = false;
 
-	if (outpointfilter_matches(w->utxoset_outpoints, txid, outnum)) {
-		stmt = db_prepare_v2(w->db, SQL("UPDATE utxoset "
-						"SET spendheight = ? "
-						"WHERE txid = ?"
-						" AND outnum = ?"));
+	stmt = db_prepare_v2(w->db, SQL("UPDATE utxoset "
+					"SET spendheight = ? "
+					"WHERE txid = ?"
+					" AND outnum = ?"));
 
-		db_bind_int(stmt, 0, blockheight);
-		db_bind_sha256d(stmt, 1, &txid->shad);
-		db_bind_int(stmt, 2, outnum);
-		db_exec_prepared_v2(stmt);
-		tal_free(stmt);
-	}
+	db_bind_int(stmt, 0, blockheight);
+	db_bind_sha256d(stmt, 1, &txid->shad);
+	db_bind_int(stmt, 2, outnum);
+	db_exec_prepared_v2(stmt);
+	tal_free(stmt);
 	return our_spend;
 }
 
@@ -3066,8 +3034,6 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 	db_bind_talarr(stmt, 5, scriptpubkey);
 	db_bind_amount_sat(stmt, 6, &sat);
 	db_exec_prepared_v2(take(stmt));
-
-	outpointfilter_add(w->utxoset_outpoints, &txid, outnum);
 }
 
 void wallet_filteredblock_add(struct wallet *w, const struct filteredblock *fb)
@@ -3104,8 +3070,6 @@ void wallet_filteredblock_add(struct wallet *w, const struct filteredblock *fb)
 		db_bind_talarr(stmt, 5, o->scriptPubKey);
 		db_bind_amount_sat(stmt, 6, &o->amount);
 		db_exec_prepared_v2(take(stmt));
-
-		outpointfilter_add(w->utxoset_outpoints, &o->txid, o->outnum);
 	}
 }
 
