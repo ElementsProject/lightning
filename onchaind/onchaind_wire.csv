@@ -49,6 +49,8 @@ msgdata,onchaind_init,remote_funding_pubkey,pubkey,
 msgdata,onchaind_init,option_static_remotekey,bool,
 msgdata,onchaind_init,option_anchor_outputs,bool,
 msgdata,onchaind_init,is_replay,bool,
+# We need this for BIP125 rule 4
+msgdata,onchaind_init,min_relay_feerate,u32,
 
 #include <onchaind/onchaind_wire.h>
 # This is all the HTLCs: one per message
