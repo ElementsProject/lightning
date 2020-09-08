@@ -624,13 +624,81 @@ static void subtract_received_htlcs(const struct channel *channel,
 	}
 }
 
+static struct amount_msat channel_amount_spendable(const struct channel *channel)
+{
+	struct amount_msat spendable;
+
+	/* Compute how much we can send via this channel in one payment. */
+	if (!amount_msat_sub_sat(&spendable,
+				 channel->our_msat,
+				 channel->channel_info.their_config.channel_reserve))
+		return AMOUNT_MSAT(0);
+
+	/* Take away any currently-offered HTLCs. */
+	subtract_offered_htlcs(channel, &spendable);
+
+	/* If we're opener, subtract txfees we'll need to spend this */
+	if (channel->opener == LOCAL) {
+		if (!amount_msat_sub_sat(&spendable, spendable,
+					 commit_txfee(channel, spendable,
+						      LOCAL)))
+			return AMOUNT_MSAT(0);
+	}
+
+	/* We can't offer an HTLC less than the other side will accept. */
+	if (amount_msat_less(spendable,
+			     channel->channel_info.their_config.htlc_minimum))
+		return AMOUNT_MSAT(0);
+
+	/* We can't offer an HTLC over the max payment threshold either. */
+	if (amount_msat_greater(spendable, chainparams->max_payment))
+		spendable = chainparams->max_payment;
+
+	return spendable;
+}
+
+struct amount_msat channel_amount_receivable(const struct channel *channel)
+{
+	struct amount_msat their_msat, receivable;
+
+	/* Compute how much we can receive via this channel in one payment */
+	if (!amount_sat_sub_msat(&their_msat, channel->funding, channel->our_msat))
+		their_msat = AMOUNT_MSAT(0);
+
+	if (!amount_msat_sub_sat(&receivable,
+				 their_msat,
+				 channel->our_config.channel_reserve))
+		return AMOUNT_MSAT(0);
+
+	/* Take away any currently-offered HTLCs. */
+	subtract_received_htlcs(channel, &receivable);
+
+	/* If they're opener, subtract txfees they'll need to spend this */
+	if (channel->opener == REMOTE) {
+		if (!amount_msat_sub_sat(&receivable, receivable,
+					 commit_txfee(channel,
+						      receivable, REMOTE)))
+			return AMOUNT_MSAT(0);
+	}
+
+	/* They can't offer an HTLC less than what we will accept. */
+	if (amount_msat_less(receivable, channel->our_config.htlc_minimum))
+		return AMOUNT_MSAT(0);
+
+	/* They can't offer an HTLC over the max payment threshold either. */
+	if (amount_msat_greater(receivable, chainparams->max_payment))
+		receivable = chainparams->max_payment;
+
+	return receivable;
+}
+
 static void json_add_channel(struct lightningd *ld,
 			     struct json_stream *response, const char *key,
 			     const struct channel *channel)
 {
 	struct channel_id cid;
 	struct channel_stats channel_stats;
-	struct amount_msat spendable, receivable, funding_msat, their_msat;
+	struct amount_msat funding_msat;
 	struct peer *p = channel->peer;
 
 	json_object_start(response, key);
@@ -751,65 +819,14 @@ static void json_add_channel(struct lightningd *ld,
 				   "our_channel_reserve_satoshis",
 				   "our_reserve_msat");
 
-	/* Compute how much we can send via this channel in one payment. */
-	if (!amount_msat_sub_sat(&spendable,
-				 channel->our_msat,
-				 channel->channel_info.their_config.channel_reserve))
-		spendable = AMOUNT_MSAT(0);
-
-	/* Take away any currently-offered HTLCs. */
-	subtract_offered_htlcs(channel, &spendable);
-
-	/* If we're opener, subtract txfees we'll need to spend this */
-	if (channel->opener == LOCAL) {
-		if (!amount_msat_sub_sat(&spendable, spendable,
-					 commit_txfee(channel, spendable,
-						      LOCAL)))
-			spendable = AMOUNT_MSAT(0);
-	}
-
-	/* We can't offer an HTLC less than the other side will accept. */
-	if (amount_msat_less(spendable,
-			     channel->channel_info.their_config.htlc_minimum))
-		spendable = AMOUNT_MSAT(0);
-
-	/* We can't offer an HTLC over the max payment threshold either. */
-	if (amount_msat_greater(spendable, chainparams->max_payment))
-		spendable = chainparams->max_payment;
-
 	/* append spendable to JSON output */
-	json_add_amount_msat_compat(response, spendable,
+	json_add_amount_msat_compat(response,
+				    channel_amount_spendable(channel),
 				    "spendable_msatoshi", "spendable_msat");
 
-	/* Compute how much we can receive via this channel in one payment */
-	if (!amount_sat_sub_msat(&their_msat, channel->funding, channel->our_msat))
-		their_msat = AMOUNT_MSAT(0);
-	if (!amount_msat_sub_sat(&receivable,
-				 their_msat,
-				 channel->our_config.channel_reserve))
-		receivable = AMOUNT_MSAT(0);
-
-	/* Take away any currently-offered HTLCs. */
-	subtract_received_htlcs(channel, &receivable);
-
-	/* If they're opener, subtract txfees they'll need to spend this */
-	if (channel->opener == REMOTE) {
-		if (!amount_msat_sub_sat(&receivable, receivable,
-					 commit_txfee(channel,
-						      receivable, REMOTE)))
-			receivable = AMOUNT_MSAT(0);
-	}
-
-	/* They can't offer an HTLC less than what we will accept. */
-	if (amount_msat_less(receivable, channel->our_config.htlc_minimum))
-		receivable = AMOUNT_MSAT(0);
-
-	/* They can't offer an HTLC over the max payment threshold either. */
-	if (amount_msat_greater(receivable, chainparams->max_payment))
-		receivable = chainparams->max_payment;
-
 	/* append receivable to JSON output */
-	json_add_amount_msat_compat(response, receivable,
+	json_add_amount_msat_compat(response,
+				    channel_amount_receivable(channel),
 				    "receivable_msatoshi", "receivable_msat");
 
 	json_add_amount_msat_compat(response,

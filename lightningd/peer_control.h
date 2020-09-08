@@ -87,6 +87,8 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel, bool cooperat
 
 void channel_watch_funding(struct lightningd *ld, struct channel *channel);
 
+struct amount_msat channel_amount_receivable(const struct channel *channel);
+
 /* Pull peers, channels and HTLCs from db, and wire them up.
  * Returns any HTLCs we have to resubmit via htlcs_resubmit. */
 struct htlc_in_map *load_channels_from_wallet(struct lightningd *ld);
