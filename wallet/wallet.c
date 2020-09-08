@@ -3195,6 +3195,37 @@ struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 	return op;
 }
 
+const struct short_channel_id *
+wallet_utxoset_get_spent(const tal_t *ctx, struct wallet *w, u32 blockheight)
+{
+	struct db_stmt *stmt;
+	struct short_channel_id *res;
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					" blockheight,"
+					" txindex,"
+					" outnum "
+					"FROM utxoset "
+					"WHERE spendheight = ?"));
+	db_bind_int(stmt, 0, blockheight);
+	db_query_prepared(stmt);
+
+	res = tal_arr(ctx, struct short_channel_id, 0);
+	while (db_step(stmt)) {
+		struct short_channel_id scid;
+		u64 blocknum, txnum, outnum;
+		bool ok;
+		blocknum = db_column_int(stmt, 0);
+		txnum = db_column_int(stmt, 1);
+		outnum = db_column_int(stmt, 2);
+		ok = mk_short_channel_id(&scid, blocknum, txnum, outnum);
+
+		assert(ok);
+		tal_arr_expand(&res, scid);
+	}
+	tal_free(stmt);
+	return res;
+}
+
 void wallet_transaction_add(struct wallet *w, const struct wally_tx *tx,
 			    const u32 blockheight, const u32 txindex)
 {
