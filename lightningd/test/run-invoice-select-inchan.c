@@ -142,6 +142,9 @@ u32 get_feerate(const struct fee_states *fee_states UNNEEDED,
 		enum side opener UNNEEDED,
 		enum side side UNNEEDED)
 { fprintf(stderr, "get_feerate called!\n"); abort(); }
+/* Generated stub for hash_htlc_key */
+size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
+{ fprintf(stderr, "hash_htlc_key called!\n"); abort(); }
 /* Generated stub for htlc_is_trimmed */
 bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
 		     struct amount_msat htlc_amount UNNEEDED,
@@ -679,13 +682,17 @@ static void add_peer(struct lightningd *ld, int n, enum channel_state state,
 	memset(&peer->id, n, sizeof(peer->id));
 	list_head_init(&peer->channels);
 	list_add_tail(&ld->peers, &peer->list);
+	peer->ld = ld;
 
 	c->state = state;
 	c->owner = connected ? (void *)peer : NULL;
+	c->opener = LOCAL;
+	c->peer = peer;
 	/* Channel has incoming capacity n*1000 - 1 millisatoshi */
 	c->funding.satoshis = n+1;
 	c->our_msat = AMOUNT_MSAT(1);
 	c->our_config.channel_reserve = AMOUNT_SAT(1);
+	c->our_config.htlc_minimum = AMOUNT_MSAT(0);
 	c->channel_info.their_config.channel_reserve = AMOUNT_SAT(0);
 	list_add_tail(&peer->channels, &c->list);
 }
@@ -715,6 +722,8 @@ int main(void)
 	ld = tal(tmpctx, struct lightningd);
 
 	list_head_init(&ld->peers);
+	htlc_in_map_init(&ld->htlcs_in);
+	chainparams = chainparams_for_network("regtest");
 
 	inchans = tal_arr(tmpctx, struct route_info, 0);
 	deadends = tal_arrz(tmpctx, bool, 100);
