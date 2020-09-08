@@ -128,7 +128,6 @@ int main(void)
 	PASS_MSAT(&msat, "1.234567890btc", 123456789000);
 	PASS_MSAT(&msat, "1.2345678901btc", 123456789010);
 	PASS_MSAT(&msat, "1.23456789012btc", 123456789012);
-	FAIL_MSAT(&msat, "1btc");
 	FAIL_MSAT(&msat, "1.000000000000btc");
 	FAIL_MSAT(&msat, "-1.23456789btc");
 	FAIL_MSAT(&msat, "-1.23456789012btc");
@@ -177,7 +176,6 @@ int main(void)
 	PASS_SAT(&sat, "1.2345678btc", 123456780);
 	PASS_SAT(&sat, "1.23456789btc", 123456789);
 	FAIL_SAT(&sat, "1.234567890btc");
-	FAIL_SAT(&sat, "1btc");
 	FAIL_SAT(&sat, "-1.23456789btc");
 
 	/* Overflowingly big. */
