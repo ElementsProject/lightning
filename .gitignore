@@ -37,6 +37,8 @@ test/test_protocol
 test/test_sphinx
 tests/.pytest.restart
 tests/plugins/test_libplugin
+tests/fuzz/fuzz-*
+!tests/fuzz/fuzz-*.c
 gossip_store
 .pytest_cache
 tools/headerversions
