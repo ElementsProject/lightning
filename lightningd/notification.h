@@ -7,9 +7,11 @@
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/time/time.h>
 #include <common/amount.h>
+#include <common/channel_id.h>
 #include <common/coin_mvt.h>
 #include <common/errcode.h>
 #include <common/node_id.h>
+#include <lightningd/channel_state.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -54,6 +56,13 @@ void notify_invoice_creation(struct lightningd *ld, struct amount_msat *amount,
 void notify_channel_opened(struct lightningd *ld, struct node_id *node_id,
 			   struct amount_sat *funding_sat, struct bitcoin_txid *funding_txid,
 			   bool *funding_locked);
+
+void notify_channel_state_changed(struct lightningd *ld,
+				  struct node_id *peer_id,
+				  struct channel_id *cid,
+				  struct short_channel_id *scid,
+				  enum channel_state old_state,
+				  enum channel_state new_state);
 
 void notify_forward_event(struct lightningd *ld,
 			  const struct htlc_in *in,
