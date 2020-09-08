@@ -1491,6 +1491,12 @@ struct db_query db_postgres_queries[] = {
          .readonly = true,
     },
     {
+         .name = "SELECT blockheight, txindex, outnum FROM utxoset WHERE spendheight = ?",
+         .query = "SELECT blockheight, txindex, outnum FROM utxoset WHERE spendheight = $1",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
          .name = "SELECT blockheight FROM transactions WHERE id=?",
          .query = "SELECT blockheight FROM transactions WHERE id=$1",
          .placeholders = 1,
@@ -1636,10 +1642,10 @@ struct db_query db_postgres_queries[] = {
     },
 };
 
-#define DB_POSTGRES_QUERY_COUNT 271
+#define DB_POSTGRES_QUERY_COUNT 272
 
 #endif /* HAVE_POSTGRES */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:fa885142376ef8ac5cae84c02d379d7e1bf97d3b0c69af46a6054316d2e6a1bc
+// SHA256STAMP:9c0282186a89a37a232b8a4f34dceabaf5b53b7cc5c3bc24eb4e53967662cb6f

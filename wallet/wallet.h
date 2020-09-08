@@ -1110,6 +1110,21 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 			const u32 txindex, const u8 *scriptpubkey,
 			struct amount_sat sat);
 
+/**
+ * Retrieve all UTXO entries that were spent by the given blockheight.
+ *
+ * This allows us to retrieve any UTXO entries that were spent by a block,
+ * after the block has been processed. It's main use is to be able to tell
+ * `gossipd` about potential channel outpoints being spent, without having to
+ * track all outpoints in memory.
+ *
+ * In order to return correct results `blockheight` should not be called with
+ * a height below the UTXO set pruning height (see `UTXO_PRUNE_DEPTH` for the
+ * current value).
+ */
+const struct short_channel_id *
+wallet_utxoset_get_spent(const tal_t *ctx, struct wallet *w, u32 blockheight);
+
 void wallet_transaction_add(struct wallet *w, const struct wally_tx *tx,
 			    const u32 blockheight, const u32 txindex);
 
