@@ -18,6 +18,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/notification.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
@@ -384,6 +385,8 @@ void channel_set_state(struct channel *channel,
 		       enum channel_state old_state,
 		       enum channel_state state)
 {
+	struct channel_id cid;
+
 	log_info(channel->log, "State changed from %s to %s",
 		 channel_state_name(channel), channel_state_str(state));
 	if (channel->state != old_state)
@@ -394,6 +397,15 @@ void channel_set_state(struct channel *channel,
 
 	/* TODO(cdecker) Selectively save updated fields to DB */
 	wallet_channel_save(channel->peer->ld->wallet, channel);
+
+	/* plugin notification channel_state_changed */
+	derive_channel_id(&cid, &channel->funding_txid, channel->funding_outnum);
+	notify_channel_state_changed(channel->peer->ld,
+				     &channel->peer->id,
+				     &cid,
+				     channel->scid,
+				     old_state,
+				     state);
 }
 
 void channel_fail_permanent(struct channel *channel, const char *fmt, ...)

@@ -428,6 +428,14 @@ void notify_chain_mvt(struct lightningd *ld UNNEEDED, const struct chain_coin_mv
 /* Generated stub for notify_channel_mvt */
 void notify_channel_mvt(struct lightningd *ld UNNEEDED, const struct channel_coin_mvt *mvt UNNEEDED)
 { fprintf(stderr, "notify_channel_mvt called!\n"); abort(); }
+/* Generated stub for notify_channel_state_changed */
+void notify_channel_state_changed(struct lightningd *ld UNNEEDED,
+				  struct node_id *peer_id UNNEEDED,
+				  struct channel_id *cid UNNEEDED,
+				  struct short_channel_id *scid UNNEEDED,
+				  enum channel_state old_state UNNEEDED,
+				  enum channel_state new_state UNNEEDED)
+{ fprintf(stderr, "notify_channel_state_changed called!\n"); abort(); }
 /* Generated stub for notify_connect */
 void notify_connect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEEDED,
 		    struct wireaddr_internal *addr UNNEEDED)
