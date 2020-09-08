@@ -64,9 +64,13 @@ msgdata,onchaind_htlc,tell_immediately,bool,
 msgtype,onchaind_init_reply,5101
 
 # onchaind->master: Send out a tx.
+# If is_rbf is false then master should rebroadcast the tx.
+# If is_rbf is true then onchaind is responsible for rebroadcasting
+#  it with a higher fee.
 msgtype,onchaind_broadcast_tx,5003
 msgdata,onchaind_broadcast_tx,tx,bitcoin_tx,
 msgdata,onchaind_broadcast_tx,type,enum wallet_tx_type,
+msgdata,onchaind_broadcast_tx,is_rbf,bool,
 
 # master->onchaind: Notifier that an output has been spent by input_num of tx.
 msgtype,onchaind_spent,5004

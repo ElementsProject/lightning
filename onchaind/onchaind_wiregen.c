@@ -259,17 +259,21 @@ bool fromwire_onchaind_init_reply(const void *p)
 
 /* WIRE: ONCHAIND_BROADCAST_TX */
 /* onchaind->master: Send out a tx. */
-u8 *towire_onchaind_broadcast_tx(const tal_t *ctx, const struct bitcoin_tx *tx, enum wallet_tx_type type)
+/* If is_rbf is false then master should rebroadcast the tx. */
+/* If is_rbf is true then onchaind is responsible for rebroadcasting */
+/*  it with a higher fee. */
+u8 *towire_onchaind_broadcast_tx(const tal_t *ctx, const struct bitcoin_tx *tx, enum wallet_tx_type type, bool is_rbf)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
 	towire_u16(&p, WIRE_ONCHAIND_BROADCAST_TX);
 	towire_bitcoin_tx(&p, tx);
 	towire_wallet_tx_type(&p, type);
+	towire_bool(&p, is_rbf);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_onchaind_broadcast_tx(const tal_t *ctx, const void *p, struct bitcoin_tx **tx, enum wallet_tx_type *type)
+bool fromwire_onchaind_broadcast_tx(const tal_t *ctx, const void *p, struct bitcoin_tx **tx, enum wallet_tx_type *type, bool *is_rbf)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
@@ -278,6 +282,7 @@ bool fromwire_onchaind_broadcast_tx(const tal_t *ctx, const void *p, struct bitc
 		return false;
  	*tx = fromwire_bitcoin_tx(ctx, &cursor, &plen);
  	*type = fromwire_wallet_tx_type(&cursor, &plen);
+ 	*is_rbf = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
 
@@ -631,4 +636,4 @@ bool fromwire_onchaind_notify_coin_mvt(const void *p, struct chain_coin_mvt *mvt
 	return cursor != NULL;
 }
 
-// SHA256STAMP:de5e8db17d4d8d22e8a44b27ffaf035a1d16100d2cedde40e0fcf6c44bf2b15b
+// SHA256STAMP:e21aeee2bb2e0c56f77595f7083aaacecdaf2b88b6808b33a63de4adcce58de8

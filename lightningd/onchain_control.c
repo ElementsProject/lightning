@@ -213,17 +213,68 @@ static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
 	tal_free(mvt);
 }
 
-static void handle_onchain_broadcast_tx(struct channel *channel, const u8 *msg)
+/** handle_onchain_broadcast_rbf_tx_cb
+ *
+ * @brief suppresses the rebroadcast of a
+ * transaction.
+ *
+ * @desc when using the `bitcoin_tx` function,
+ * if a callback is not given, the transaction
+ * will be rebroadcast automatically by
+ * chaintopology.
+ * However, in the case of an RBF transaction
+ * from `onchaind`, `onchaind` will periodically
+ * create a new, higher-fee replacement, thus
+ * `onchaind` will trigger rebroadcast (with a
+ * higher fee) by itself, which the `lightningd`
+ * chaintopology should not repeat.
+ * This callback exists to suppress the
+ * rebroadcast behavior of chaintopology.
+ *
+ * @param channel - the channel for which the
+ * transaction was broadcast.
+ * @param success - whether the tx was broadcast.
+ * @param err - the error received from the
+ * underlying sendrawtx.
+ */
+static void handle_onchain_broadcast_rbf_tx_cb(struct channel *channel,
+					       bool success,
+					       const char *err)
+{
+	/* Victory is boring.  */
+	if (success)
+		return;
+
+	/* Failure is unusual but not broken: it is possible that just
+	 * as we were about to broadcast, a new block came in which
+	 * contains a previous version of the transaction, thus
+	 * causing the higher-fee replacement to fail broadcast.
+	 *
+	 * ...or it could be a bug in onchaind which prevents it from
+	 * successfully RBFing out the transaction, in which case we
+	 * should log it for devs to check.
+	 */
+	log_unusual(channel->log,
+		    "Broadcast of RBF tx failed, "
+		    "did a new block just come in? "
+		    "error: %s",
+		    err);
+}
+
+static void handle_onchain_broadcast_tx(struct channel *channel,
+					const u8 *msg)
 {
 	struct bitcoin_tx *tx;
 	struct wallet *w = channel->peer->ld->wallet;
 	struct bitcoin_txid txid;
 	enum wallet_tx_type type;
+	bool is_rbf;
 
-	if (!fromwire_onchaind_broadcast_tx(msg, msg, &tx, &type)) {
+	if (!fromwire_onchaind_broadcast_tx(msg, msg, &tx, &type, &is_rbf)) {
 		channel_internal_error(channel, "Invalid onchain_broadcast_tx");
 		return;
 	}
+
 	tx->chainparams = chainparams;
 
 	bitcoin_txid(tx, &txid);
@@ -231,7 +282,8 @@ static void handle_onchain_broadcast_tx(struct channel *channel, const u8 *msg)
 	wallet_transaction_annotate(w, &txid, type, channel->dbid);
 
 	/* We don't really care if it fails, we'll respond via watch. */
-	broadcast_tx(channel->peer->ld->topology, channel, tx, NULL);
+	broadcast_tx(channel->peer->ld->topology, channel, tx,
+		     is_rbf ? &handle_onchain_broadcast_rbf_tx_cb : NULL);
 }
 
 static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
