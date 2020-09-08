@@ -182,6 +182,14 @@ void broadcast_tx(struct chain_topology *topo,
 		  void (*failed)(struct channel *channel,
 				 bool success,
 				 const char *err));
+/* Like the above, but with an additional `allowhighfees` parameter.
+ * If true, suppress any high-fee checks in the backend.  */
+void broadcast_tx_ahf(struct chain_topology *topo,
+		      struct channel *channel, const struct bitcoin_tx *tx,
+		      bool allowhighfees,
+		      void (*failed)(struct channel *channel,
+				     bool success,
+				     const char *err));
 
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
 void setup_topology(struct chain_topology *topology, struct timers *timers,

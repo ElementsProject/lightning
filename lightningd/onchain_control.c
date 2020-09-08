@@ -282,8 +282,12 @@ static void handle_onchain_broadcast_tx(struct channel *channel,
 	wallet_transaction_annotate(w, &txid, type, channel->dbid);
 
 	/* We don't really care if it fails, we'll respond via watch. */
-	broadcast_tx(channel->peer->ld->topology, channel, tx,
-		     is_rbf ? &handle_onchain_broadcast_rbf_tx_cb : NULL);
+	/* If the onchaind signals this as RBF-able, then we also
+	 * set allowhighfees, as the transaction may be RBFed into
+	 * high feerates as protection against the MAD-HTLC attack.  */
+	broadcast_tx_ahf(channel->peer->ld->topology, channel,
+			 tx, is_rbf,
+			 is_rbf ? &handle_onchain_broadcast_rbf_tx_cb : NULL);
 }
 
 static void handle_onchain_unwatch_tx(struct channel *channel, const u8 *msg)
