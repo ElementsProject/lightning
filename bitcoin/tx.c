@@ -285,7 +285,7 @@ struct amount_asset bitcoin_tx_output_get_amount(const struct bitcoin_tx *tx,
 	return wally_tx_output_get_amount(&tx->wtx->outputs[outnum]);
 }
 
-void bitcoin_tx_output_get_amount_sat(struct bitcoin_tx *tx, int outnum,
+void bitcoin_tx_output_get_amount_sat(const struct bitcoin_tx *tx, int outnum,
 				      struct amount_sat *amount)
 {
 	struct amount_asset asset_amt;
