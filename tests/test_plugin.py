@@ -11,6 +11,7 @@ from utils import (
     check_coin_moves, first_channel_id, check_coin_moves_idx, EXPERIMENTAL_FEATURES
 )
 
+import ast
 import json
 import os
 import pytest
@@ -629,6 +630,130 @@ def test_openchannel_hook_chaining(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'They sent error channel'):
         l1.rpc.fundchannel(l2.info['id'], 100000)
     assert l2.daemon.wait_for_log(hook_msg + "reject on principle")
+
+
+def test_channel_state_changed(node_factory, bitcoind):
+    opts = [{}, {"plugin": os.path.join(os.getcwd(), "tests/plugins/misc_notifications.py")}]
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    peer_id = l1.rpc.getinfo()["id"]
+    cid = l1.get_channel_id(l2)
+    scid = l1.get_channel_scid(l2)
+
+    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
+    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+    assert(event['peer_id'] == peer_id)
+    assert(event['channel_id'] == cid)
+    assert(event['short_channel_id'] == scid)
+    assert(event['old_state'] == "CHANNELD_AWAITING_LOCKIN")
+    assert(event['new_state'] == "CHANNELD_NORMAL")
+
+    # close channel and look for stateful events
+    l1.rpc.close(scid)
+    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
+    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+    assert(event['peer_id'] == peer_id)
+    assert(event['channel_id'] == cid)
+    assert(event['short_channel_id'] == scid)
+    assert(event['old_state'] == "CHANNELD_NORMAL")
+    assert(event['new_state'] == "CHANNELD_SHUTTING_DOWN")
+
+    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
+    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+    assert(event['peer_id'] == peer_id)
+    assert(event['channel_id'] == cid)
+    assert(event['short_channel_id'] == scid)
+    assert(event['old_state'] == "CHANNELD_SHUTTING_DOWN")
+    assert(event['new_state'] == "CLOSINGD_SIGEXCHANGE")
+
+    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
+    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+    assert(event['peer_id'] == peer_id)
+    assert(event['channel_id'] == cid)
+    assert(event['short_channel_id'] == scid)
+    assert(event['old_state'] == "CLOSINGD_SIGEXCHANGE")
+    assert(event['new_state'] == "CLOSINGD_COMPLETE")
+
+    bitcoind.generate_block(100)  # so it gets settled
+
+    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
+    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+    assert(event['peer_id'] == peer_id)
+    assert(event['channel_id'] == cid)
+    assert(event['short_channel_id'] == scid)
+    assert(event['old_state'] == "CLOSINGD_COMPLETE")
+    assert(event['new_state'] == "FUNDING_SPEND_SEEN")
+
+    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
+    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+    assert(event['peer_id'] == peer_id)
+    assert(event['channel_id'] == cid)
+    assert(event['short_channel_id'] == scid)
+    assert(event['old_state'] == "FUNDING_SPEND_SEEN")
+    assert(event['new_state'] == "ONCHAIN")
+
+
+def test_channel_state_changed_unilateral(node_factory, bitcoind):
+    opts = [{}, {"plugin": os.path.join(os.getcwd(), "tests/plugins/misc_notifications.py")}]
+    l1, l2 = node_factory.line_graph(2, opts=opts)
+
+    peer_id = l1.rpc.getinfo()["id"]
+    cid = l1.get_channel_id(l2)
+    scid = l1.get_channel_scid(l2)
+
+    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
+    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+    assert(event['peer_id'] == peer_id)
+    assert(event['channel_id'] == cid)
+    assert(event['short_channel_id'] == scid)
+    assert(event['old_state'] == "CHANNELD_AWAITING_LOCKIN")
+    assert(event['new_state'] == "CHANNELD_NORMAL")
+
+    # close channel unilaterally and look for stateful events
+    l1.rpc.stop()
+    wait_for(lambda: not only_one(l2.rpc.listpeers()['peers'])['connected'])
+    l2.rpc.close(scid, 1)  # 1sec timeout
+    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
+    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+    assert(event['peer_id'] == peer_id)
+    assert(event['channel_id'] == cid)
+    assert(event['short_channel_id'] == scid)
+    assert(event['old_state'] == "CHANNELD_NORMAL")
+    assert(event['new_state'] == "CHANNELD_SHUTTING_DOWN")
+
+    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
+    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+    assert(event['peer_id'] == peer_id)
+    assert(event['channel_id'] == cid)
+    assert(event['short_channel_id'] == scid)
+    assert(event['old_state'] == "CHANNELD_SHUTTING_DOWN")
+    assert(event['new_state'] == "AWAITING_UNILATERAL")
+
+    bitcoind.generate_block(100)  # so it gets settled
+
+    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
+    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+    assert(event['peer_id'] == peer_id)
+    assert(event['channel_id'] == cid)
+    assert(event['short_channel_id'] == scid)
+    assert(event['old_state'] == "AWAITING_UNILATERAL")  # this actually happens
+    assert(event['new_state'] == "AWAITING_UNILATERAL")  # note: same states
+
+    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
+    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+    assert(event['peer_id'] == peer_id)
+    assert(event['channel_id'] == cid)
+    assert(event['short_channel_id'] == scid)
+    assert(event['old_state'] == "AWAITING_UNILATERAL")
+    assert(event['new_state'] == "FUNDING_SPEND_SEEN")
+
+    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
+    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+    assert(event['peer_id'] == peer_id)
+    assert(event['channel_id'] == cid)
+    assert(event['short_channel_id'] == scid)
+    assert(event['old_state'] == "FUNDING_SPEND_SEEN")
+    assert(event['new_state'] == "ONCHAIN")
 
 
 @unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
