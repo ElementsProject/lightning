@@ -626,7 +626,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  &channel->channel_info.remote_fundingkey,
 				  channel->option_static_remotekey,
 				  channel->option_anchor_outputs,
-				  is_replay);
+				  is_replay,
+				  feerate_min(ld, NULL));
 	subd_send_msg(channel->owner, take(msg));
 
 	/* FIXME: Don't queue all at once, use an empty cb... */

@@ -68,9 +68,6 @@ bool feature_set_or(struct feature_set *a UNNEEDED,
 /* Generated stub for free_htlcs */
 void free_htlcs(struct lightningd *ld UNNEEDED, const struct channel *channel UNNEEDED)
 { fprintf(stderr, "free_htlcs called!\n"); abort(); }
-/* Generated stub for free_unreleased_txs */
-void free_unreleased_txs(struct wallet *w UNNEEDED)
-{ fprintf(stderr, "free_unreleased_txs called!\n"); abort(); }
 /* Generated stub for fromwire_bigsize */
 bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_bigsize called!\n"); abort(); }
@@ -243,9 +240,6 @@ void waitblockheight_notify_new_block(struct lightningd *ld UNNEEDED,
 /* Generated stub for wallet_blocks_heights */
 void wallet_blocks_heights(struct wallet *w UNNEEDED, u32 def UNNEEDED, u32 *min UNNEEDED, u32 *max UNNEEDED)
 { fprintf(stderr, "wallet_blocks_heights called!\n"); abort(); }
-/* Generated stub for wallet_clean_utxos */
-void wallet_clean_utxos(struct wallet *w UNNEEDED, struct bitcoind *bitcoind UNNEEDED)
-{ fprintf(stderr, "wallet_clean_utxos called!\n"); abort(); }
 /* Generated stub for wallet_network_check */
 bool wallet_network_check(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_network_check called!\n"); abort(); }

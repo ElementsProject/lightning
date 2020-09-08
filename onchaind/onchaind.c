@@ -88,6 +88,9 @@ static bool option_static_remotekey;
 /* Does option_anchor_outputs apply to this commitment tx? */
 static bool option_anchor_outputs;
 
+/* The minimum relay feerate acceptable to the fullnode.  */
+static u32 min_relay_feerate;
+
 /* If we broadcast a tx, or need a delay to resolve the output. */
 struct proposed_resolution {
 	/* This can be NULL if our proposal is to simply ignore it after depth */
@@ -3378,7 +3381,8 @@ int main(int argc, char *argv[])
 				   &funding_pubkey[REMOTE],
 				   &option_static_remotekey,
 				   &option_anchor_outputs,
-				   &open_is_replay)) {
+				   &open_is_replay,
+				   &min_relay_feerate)) {
 		master_badmsg(WIRE_ONCHAIND_INIT, msg);
 	}
 

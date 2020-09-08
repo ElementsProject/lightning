@@ -71,9 +71,6 @@ u64 fromwire_u64(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for fromwire_u8 */
 u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_u8 called!\n"); abort(); }
-/* Generated stub for node_id_cmp */
-int node_id_cmp(const struct node_id *a UNNEEDED, const struct node_id *b UNNEEDED)
-{ fprintf(stderr, "node_id_cmp called!\n"); abort(); }
 /* Generated stub for siphash_seed */
 const struct siphash_seed *siphash_seed(void)
 { fprintf(stderr, "siphash_seed called!\n"); abort(); }
