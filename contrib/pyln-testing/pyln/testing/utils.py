@@ -800,6 +800,15 @@ class LightningNode(object):
         channel = peers[0]['channels'][0]
         return channel['short_channel_id']
 
+    def get_channel_id(self, other):
+        """Get the channel_id for the channel to the other node.
+        """
+        peers = self.rpc.listpeers(other.info['id'])['peers']
+        if not peers or 'channels' not in peers[0]:
+            return None
+        channel = peers[0]['channels'][0]
+        return channel['channel_id']
+
     def is_channel_active(self, chanid):
         channels = self.rpc.listchannels(chanid)['channels']
         active = [(c['short_channel_id'], c['channel_flags']) for c in channels if c['active']]
