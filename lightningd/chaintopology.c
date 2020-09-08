@@ -350,7 +350,7 @@ static void add_feerate_history(struct chain_topology *topo,
 /* Did the the feerate change since we last estimated it ? */
 static bool feerate_changed(struct chain_topology *topo, u32 old_feerates[])
 {
-	for (enum feerate f = 0; f < NUM_FEERATES; f++) {
+	for (int f = 0; f < NUM_FEERATES; f++) {
 		if (try_get_feerate(topo, f) != old_feerates[f])
 			return true;
 	}
