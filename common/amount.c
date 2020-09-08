@@ -33,6 +33,9 @@ const char *fmt_amount_msat_btc(const tal_t *ctx,
 				const struct amount_msat *msat,
 				bool append_unit)
 {
+	if (msat->millisatoshis == 0)
+		return tal_fmt(ctx, append_unit ? "0btc" : "0");
+
 	return tal_fmt(ctx, "%"PRIu64".%011"PRIu64"%s",
 		       msat->millisatoshis / MSAT_PER_BTC,
 		       msat->millisatoshis % MSAT_PER_BTC,
@@ -49,6 +52,9 @@ const char *fmt_amount_sat_btc(const tal_t *ctx,
 			       const struct amount_sat *sat,
 			       bool append_unit)
 {
+	if (sat->satoshis == 0)
+		return tal_fmt(ctx, append_unit ? "0btc" : "0");
+
 	return tal_fmt(ctx, "%"PRIu64".%08"PRIu64"%s",
 		       sat->satoshis / SAT_PER_BTC,
 		       sat->satoshis % SAT_PER_BTC,
@@ -80,7 +86,8 @@ static bool breakup(const char *str, size_t slen,
 	*suffix_len = 0;
 
 	for (i = 0;; i++) {
-		if (i >= slen)
+		/* The string may be null-terminated. */
+		if (i >= slen || str[i] == '\0')
 			return i != 0;
 		if (cisdigit(str[i]))
 			(*whole_number_len)++;
@@ -93,7 +100,7 @@ static bool breakup(const char *str, size_t slen,
 		*post_decimal_ptr = str + i;
 		for (;; i++) {
 			/* True if > 0 decimals. */
-			if (i >= slen)
+			if (i >= slen || str[i] == '\0')
 				return str + i != *post_decimal_ptr;
 			if (cisdigit(str[i]))
 				(*post_decimal_len)++;
@@ -168,14 +175,18 @@ bool parse_amount_msat(struct amount_msat *msat, const char *s, size_t slen)
 
 	if (!post_decimal_ptr && !suffix_ptr)
 		return from_number(&msat->millisatoshis, s, whole_number_len, 0);
-	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "msat"))
+	if (!post_decimal_ptr && memstarts_str(suffix_ptr, suffix_len, "msat"))
 		return from_number(&msat->millisatoshis, s, whole_number_len, 0);
-	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "sat"))
+	if (!post_decimal_ptr && memstarts_str(suffix_ptr, suffix_len, "sat"))
 		return from_number(&msat->millisatoshis, s, whole_number_len, 3);
-	if (post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "btc"))
-		return from_numbers(&msat->millisatoshis,
-				    s, whole_number_len, 11,
-				    post_decimal_ptr, post_decimal_len);
+	if (memstarts_str(suffix_ptr, suffix_len, "btc")) {
+		if (post_decimal_len > 0)
+			return from_numbers(&msat->millisatoshis,
+					    s, whole_number_len, 11,
+					    post_decimal_ptr, post_decimal_len);
+		return from_number(&msat->millisatoshis, s, whole_number_len, 11);
+	}
+
 	return false;
 }
 
@@ -198,21 +209,24 @@ bool parse_amount_sat(struct amount_sat *sat, const char *s, size_t slen)
 
 	if (!post_decimal_ptr && !suffix_ptr)
 		return from_number(&sat->satoshis, s, whole_number_len, 0);
-	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "sat"))
+	if (!post_decimal_ptr && memstarts_str(suffix_ptr, suffix_len, "sat"))
 		return from_number(&sat->satoshis, s, whole_number_len, 0);
-	if (!post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "msat")) {
+	if (!post_decimal_ptr && memstarts_str(suffix_ptr, suffix_len, "msat")) {
 		if (!memends(s, whole_number_len, "000", strlen("000"))) {
-			if (memeqstr(s, whole_number_len, "0"))
+			if (memstarts_str(s, whole_number_len, "0"))
 				return from_number(&sat->satoshis, s,
 						   whole_number_len, 0);
 			return false;
 		}
 		return from_number(&sat->satoshis, s, whole_number_len - 3, 0);
 	}
-	if (post_decimal_ptr && memeqstr(suffix_ptr, suffix_len, "btc"))
-		return from_numbers(&sat->satoshis,
-				    s, whole_number_len, 8,
-				    post_decimal_ptr, post_decimal_len);
+	if (memstarts_str(suffix_ptr, suffix_len, "btc")) {
+		if (post_decimal_len > 0)
+			return from_numbers(&sat->satoshis,
+					    s, whole_number_len, 8,
+					    post_decimal_ptr, post_decimal_len);
+		return from_number(&sat->satoshis, s, whole_number_len, 8);
+	}
 
 	return false;
 }
