@@ -1,113 +1,260 @@
-# Rusty's Unreliable Guide to The Terrible World of Reproducible Builds
+# Reproducible builds for c-lightning
 
-1. The reproducible build system currently only supports Ubuntu 18.04.1.
-2. It requires manual steps.
-3. The input is a source zipfile, the output is a .tar.xz.
+This document describes the steps involved to build c-lightning in a
+reproducible way. Reproducible builds close the final gap in the lifecycle of
+open-source projects by allowing maintainers to verify and certify that a
+given binary was indeed produced by compiling an unmodified version of the
+publicly available source. In particular the maintainer certifies that the
+binary corresponds a) to the exact version of the and b) that no malicious
+changes have been applied before or after the compilation.
 
-## Step 1: Creating a Build Machine
+c-lightning has provided a manifest of the binaries included in a release,
+along with signatures from the maintainers since version 0.6.2.
 
-Download the Ubuntu Desktop ISO image for 18.04.1.  I got it from
-http://old-releases.ubuntu.com/releases/18.04.1/ubuntu-18.04.1-desktop-amd64.iso
+The steps involved in creating reproducible builds are:
 
-The `sha256sum` of this file should be
-`5748706937539418ee5707bd538c4f5eabae485d17aa49fb13ce2c9b70532433`.
+ - Creation of a known environment in which to build the source code
+ - Removal of variance during the compilation (randomness, timestamps, etc)
+ - Packaging of binaries
+ - Creation of a manifest (`SHA256SUMS` file containing the crytographic
+   hashes of the binaries and packages)
+ - Signing of the manifest by maintainers and volunteers that have reproduced
+   the files in the manifest starting from the source.
 
-Do a standard install, but make sure to *uncheck* 'Download updates
-while installing Ubuntu' in the installer (or simply deprive it of a
-network connection as I do below).  I did the following to install under kvm:
+The bulk of these operations is handled by the [`repro-build.sh`][script]
+script, but some manual operations are required to setup the build
+environment. Since a binary is built against platorm specific libraries we
+also need to replicate the steps once for each OS distribution and
+architecture, so the majority of this guide will describe how to set up those
+starting from a minimal trusted base. This minimal trusted base in most cases
+is the official installation medium from the OS provider.
 
-	qemu-img create ubuntu-18.04.01.raw 10G
-	kvm -m 2G -cdrom ~/Downloads/ubuntu-18.04.1-desktop-amd64.iso ubuntu-18.04.01.raw -nic none
+Note: Since your signature certifies the integrity of the resulting binaries,
+please familiarize youself with both the [`repro-build.sh`][script] script, as
+well as with the setup instructions for the build environments before signing
+anything.
 
-You can choose a 'Minimal installation': it shouldn't matter.
+[script]: https://github.com/ElementsProject/lightning/blob/master/tools/repro-build.sh
 
-Once the installation is over, it'll want to restart.  Then make sure you
-disable updates:
+# Build Environment Setup
 
-1. Left-click on the bottom left 9-dots menu
-2. Type "update"
-3. Click on the "Software & Up.." box icon.
-4. Click on the "Updates" tab at the top of that app.
-5. Uncheck "Important security updates", "Recommended updates" and
-   "Unsupported updates".  You'll have to re-enter your password.
-6. Hit "Close".
-7. If asked, hit "Reload".
+The build environments are a set of docker images that are created directly
+from the installation mediums and repositories from the OS provider. The
+following sections describe how to create those images. Don't worry, you only
+have to create each image once and can then reuse the images for future
+builds.
 
-If you didn't have a network connection, you'll want to add one for
-the next steps; for me, this meant powering off the build machine and restarting:
+## Base image creation
 
-	kvm -m 2G ubuntu-18.04.01.raw -nic user
+Depending on the distribution that we want to build for the instructions to
+create a base image can vary. In the following sections we discuss the
+specific instructions for each distribution, whereas the instructions are
+identical again once we have the base image.
 
-And then ran `sudo apt-get update` after I'd logged in.
+### Debian / Ubuntu and derivative OSs
 
-## Step 2: Create the Source Zipfile
+For operating systems derived from Debian we can use the `debootstrap` tool to
+build a minimal OS image, that can then be transformed into a docker
+image. The packages for the minimal OS image are directly downloaded from the
+installation repositories operated by the OS provider.
 
-Create the source zip that the Build Machine will need, using
+We cannot really use the `debian` and `ubuntu` images from the docker hub,
+mainly because it'd be yet another trusted third party, but it is also
+complicated by the fact that the images have some of the packages updated. The
+latter means that if we disable the `updates` and `security` repositories for
+`apt` we find ourselves in a situation where we can't install any additional
+packages (wrongly updated packages depending on the versions not available in
+the non-updated repos).
 
-	./tools/build-release.sh zipfile
+The following will create that base image:
 
-For testing (ie. when you're not on a proper released version), you
-can use --force-version=, --force-mtime= and even --force-unclean.
-
-The will place a file into `release/`, eg. `clightning-v0.7.0rc2.zip`.
-
-### Example
-
-If you are on the git commit v0.7.0rc2 (1dcc4823507df177bf11ca60ab7da988205139b1):
-```
-$ sha256sum release/clightning-v0.7.0rc2.zip 
-3c980858024b8b429333e7ee5a545c499ac6c25d0f1d11bb45fafce00c99ebba  release/clightning-v0.7.0rc2.zip
-```
-
-## Step 3: Put the Zipfile Onto The Build Machine
-
-You can upload it somewhere and download it into the machine, or
-various virtualization solutions or a USB stick for a physical machine.
-
-I simply started a server on my host, like so:
-
-	cd release && python3 -m http.server --bind 127.0.0.1 8888
-
-Inside my KVM build machine I did:
-
-	wget http://10.0.2.2:8888/clightning-v0.7.0rc2.zip
-
-
-## Step 4: Do the Build
-
-1. `unzip clightning-v0.7.0rc2.zip`
-2. `cd clightning-v0.7.0rc2`
-3. `tools/repro-build.sh` (use the same `--force-mtime` if testing).
-   It will download the packages needed to build, check they're identitcal to the
-   versions we expect, install them then build the binaries and create a tar.xz file.
-4. The output will be in that top-level directory.
-
-### Example:
-
-If you built from our example zipfile:
-```
-$ sha256sum clightning-v0.7.0rc2-Ubuntu-18.04.tar.xz
-c9b4d9530b9b41456f460c58e3ffaa779cdc1c11fb9e3eaeea0f364b62de3d96  clightning-v0.7.0rc2-Ubuntu-18.04.tar.xz
+```bash
+sudo debootstrap bionic bionic
+sudo tar -C bionic -c . | sudo docker import - bionic
 ```
 
+`bionic` in this case is the codename for Ubuntu 18.04 LTS. The following
+table lists the codenames of distributions that we currently support:
 
-## Step 5: Get the Built Result Off the Build Machine
+| Distribution Version | Codename |
+|----------------------|----------|
+| Ubuntu 18.04         | bionic   |
+| Ubuntu 20.04         | focal    |
 
-Again, there are many ways, but for my KVM settings the simplest was:
+Notice that you migh not have `debootstrap` manifests for versions newer than
+your host OS. If one of the `debootstrap` command above complains about a
+script not existing you might need to run `debootstrap` in a docker container
+itself:
 
-On the host:
+```bash
+sudo docker run --rm -v $(pwd):/build ubuntu:20.04 \
+	bash -c "apt update && apt-get install -y debootstrap && debootstrap focal /build/focal"
+sudo tar -C focal -c . | sudo docker import - focal
+```
 
-	nc -l -p 8888 > clightning-v0.7.0rc2-Ubuntu-18.04.tar.xz
+Verify that the image corresponds to our expectation and is runnable:
 
-On the guest:
+```bash
+sudo docker run bionic cat /etc/lsb-release
+```
+Which should result in the following output for `bionic`:
 
-    nc -q0 10.0.2.2 8888 < clightning-v0.7.0rc2-Ubuntu-18.04.tar.xz 
+```text
+DISTRIB_ID=Ubuntu
+DISTRIB_RELEASE=18.04
+DISTRIB_CODENAME=bionic
+DISTRIB_DESCRIPTION="Ubuntu 18.04 LTS"
+```
+
+## Builder image setup
+
+Once we have the clean base image we need to customize it to be able to build
+c-lightning. This includes disabling the update repositories, downloading the
+build dependencies and specifying the steps required to perform the build.
+
+For this purpose we have a number of Dockerfiles in the
+[`contrib/reprobuild`][repro-dir] directory that have the specific
+instructions for each base image.
+
+We can then build the builder image by calling `docker build` and passing it
+the `Dockerfile`:
+
+```bash
+sudo docker build -t cl-repro-bionic - < Dockerfile.bionic
+```
+
+Since we pass the `Dockerfile` through `stdin` the build command will not
+create a context, i.e., the current directory is not passed to `docker` and
+it'll be independent of the currently checked out version. This also means
+that you will be able to reuse the docker image for future builds, and don't
+have to repeat this dance every time. Verifying the `Dockerfile` therefore is
+sufficient to ensure that the resulting `cl-repro-<codename>` image is
+reproducible.
+
+The dockerfiles assume that the base image has the codename as its image name.
 
 
-## Step 5: Tell the World
+[repro-dir]: https://github.com/ElementsProject/lightning/tree/master/contrib/reprobuild
 
-You can find my example artifacts on https://ozlabs.org/~rusty/clightning-repro
-if you want to see why your build produced a different result from mine.
 
-Happy hacking!
-Rusty.
+# Building using the builder image
+
+Finally, after this rather lengthy setup we can perform the actual build.  At
+this point we have a container image that has been prepared to build
+reproducibly. As you can see from the `Dockerfile` above we assume the source
+git repository gets mounted as `/repo` in the docker container. The container
+will clone the repository to an internal path, in order to keep the repository
+clean, build the artifacts there, and then copy them back to
+`/repo/release`. We can simply execute the following command inside the git
+repository (remember to checkout the tag you are trying to build):
+
+```bash
+sudo docker run --rm -v $(pwd):/repo -ti cl-repro-bionic
+```
+
+The last few lines of output also contain the `sha256sum` hashes of all
+artifacts, so if you're just verifying the build those are the lines that are
+of interest to you:
+
+```text
+ee83cf4948228ab1f644dbd9d28541fd8ef7c453a3fec90462b08371a8686df8  /repo/release/clightning-v0.9.0rc1-Ubuntu-18.04.tar.xz
+94bd77f400c332ac7571532c9f85b141a266941057e8fe1bfa04f054918d8c33  /repo/release/clightning-v0.9.0rc1.zip
+```
+
+Repeat this step for each distribution and each architecture you wish to
+sign. Once all the binaries are in the `release/` subdirectory we can sign the
+hashes:
+
+# (Co-)Signing the release manifest
+
+The release captain is in charge of creating the manifest, whereas
+contributors and interested bystanders may contribute their signatures to
+further increase trust in the binaries.
+
+The release captain creates the manifest as follows:
+
+```bash
+cd release/
+sha256sum *v0.9.0* > SHA256SUMS
+gpg -sb --armor SHA256SUMS
+```
+
+Co-maintainers and contributors wishing to add their own signature verify that
+the `SHA256SUMS` and `SHA256SUMS.asc` files created by the release captain
+matches their binaries before also signing the manifest:
+
+```bash
+cd release/
+gpg --verify SHA256SUMS.asc
+sha256sum -c SHA256SUMS
+cat SHA256SUMS | gpg -sb --armor > SHA256SUMS.new
+```
+
+Then send the resulting `SHA256SUMS.new` file to the release captain so it can
+be merged with the other signatures into `SHASUMS.asc`.
+
+# Verifying a reproducible build
+
+You can verify the reproducible build in two ways:
+
+ - Repeating the entire reproducible build, making sure from scratch that the
+   binaries match. Just follow the instructions above for this.
+ - Verifying that the downloaded binaries match match the hashes in
+   `SHA256SUMS` and that the signatures in `SHA256SUMS.asc` are valid.
+
+Assuming you have downloaded the binaries, the manifest and the signatures
+into the same directory, you can verify the signatures with the following:
+
+```bash
+gpg --verify SHA256SUMS.asc
+```
+
+And you should see a list of messages like the following:
+
+```text
+gpg: assuming signed data in 'SHA256SUMS'
+gpg: Signature made Fr 08 Mai 2020 07:46:38 CEST
+gpg:                using RSA key 15EE8D6CAB0E7F0CF999BFCBD9200E6CD1ADB8F1
+gpg: Good signature from "Rusty Russell <rusty@rustcorp.com.au>" [full]
+gpg: Signature made Fr 08 Mai 2020 12:30:10 CEST
+gpg:                using RSA key B7C4BE81184FC203D52C35C51416D83DC4F0E86D
+gpg: Good signature from "Christian Decker <decker.christian@gmail.com>" [ultimate]
+gpg: Signature made Fr 08 Mai 2020 21:35:28 CEST
+gpg:                using RSA key 30DE693AE0DE9E37B3E7EB6BBFF0F67810C1EED1
+gpg: Good signature from "Lisa Neigut <niftynei@gmail.com>" [full]
+```
+
+If there are any issues `gpg` will print `Bad signature`, it might be because
+the signatures in `SHA256SUMS.asc` do not match the `SHA256SUMS` file, and
+could be the result of a filename change. Do not continue using the binaries,
+and contact the maintainers, if this is not the case, a failure here means
+that the verification failed.
+
+Next we verify that the binaries match the ones in the manifest:
+
+```bash
+sha256sum -c SHA256SUMS
+```
+
+Producing output similar to the following:
+```
+sha256sum: clightning-v0.9.0-Fedora-28-amd64.tar.gz: No such file or directory
+clightning-v0.9.0-Fedora-28-amd64.tar.gz: FAILED open or read
+clightning-v0.9.0-Ubuntu-18.04.tar.xz: OK
+clightning-v0.9.0.zip: OK
+sha256sum: WARNING: 1 listed file could not be read
+```
+
+Notice that the two files we downloaded are marked as `OK`, but we're missing
+one file. If you didn't download that file this is to be expected, and is
+nothing to worry about. A failure to verify the hash would give a warning like
+the following:
+
+```text
+sha256sum: WARNING: 1 computed checksum did NOT match
+```
+
+If both the signature verification and the manifest checksum verification
+succeeded, then you have just successfully verified a reproducible build and,
+assuming you trust the maintainers, are good to install and use the
+binaries. Congratulations! 🎉🥳
