@@ -181,7 +181,7 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 				     "estimatefees",
 				     "bad 'result' field");
 
-	for (enum feerate f = 0; f < NUM_FEERATES; f++) {
+	for (int f = 0; f < NUM_FEERATES; f++) {
 		feeratetok = json_get_member(buf, resulttok, feerate_name(f));
 		if (!feeratetok)
 			bitcoin_plugin_error(call->bitcoind, buf, toks,
