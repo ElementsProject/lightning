@@ -7,6 +7,7 @@
 #include <wally_psbt.h>
 #include <wally_transaction.h>
 
+struct channel_id;
 struct wally_tx_input;
 struct wally_tx_output;
 struct wally_psbt;
@@ -22,6 +23,13 @@ struct input_set {
 struct output_set {
 	struct wally_tx_output tx_output;
 	struct wally_psbt_output output;
+};
+
+struct psbt_changeset {
+	struct input_set *added_ins;
+	struct input_set *rm_ins;
+	struct output_set *added_outs;
+	struct output_set *rm_outs;
 };
 
 #define PSBT_TYPE_SERIAL_ID 0x01
@@ -45,31 +53,35 @@ WARN_UNUSED_RESULT bool psbt_get_serial_id(const struct wally_map *map,
  */
 void psbt_sort_by_serial_id(struct wally_psbt *psbt);
 
-/* psbt_has_diff - Returns set of diffs btw orig + new psbt
+/* psbt_get_changeset - Returns set of diffs btw orig + new psbt
  *
  * All inputs+outputs MUST have a serial_id field present before
  * calling this.
  *
- * @ctx - allocation context for returned diffsets
+ * @ctx - allocation context for returned changeset
  * @orig - original psbt
  * @new - updated psbt
- * @added_ins - inputs added {new}
- * @rm_ins - inputs removed {orig}
- * @added_outs - outputs added {new}
- * @rm_outs - outputs removed {orig}
  *
- * Note that the input + output data returned in the diff sets
- * contain references to the originating PSBT; they are not copies.
- *
- * Returns true if changes are found.
+ * Note that the input + output data returned in the changeset
+ * contains references to the originating PSBT; they are not copies.
  */
-bool psbt_has_diff(const tal_t *ctx,
-		   struct wally_psbt *orig,
-		   struct wally_psbt *new,
-		   struct input_set **added_ins,
-		   struct input_set **rm_ins,
-		   struct output_set **added_outs,
-		   struct output_set **rm_outs);
+struct psbt_changeset *psbt_get_changeset(const tal_t *ctx,
+					  struct wally_psbt *orig,
+					  struct wally_psbt *new);
+
+/* psbt_changeset_get_next - Get next message to send
+ *
+ * This generates the next message to send from a changeset for the
+ * interactive transaction protocol.
+ *
+ * @ctx - allocation context of returned msg
+ * @cid - channel_id for the message
+ * @set - changeset to get next update from
+ *
+ * Returns a wire message or NULL if no changes.
+ */
+u8 *psbt_changeset_get_next(const tal_t *ctx, struct channel_id *cid,
+			    struct psbt_changeset *set);
 
 /* psbt_input_add_serial_id - Adds a serial id to given input
  *

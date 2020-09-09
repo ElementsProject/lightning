@@ -389,14 +389,16 @@ static bool psbt_side_contribs_changed(struct wally_psbt *orig,
 				       struct wally_psbt *new,
 				       enum side opener_side)
 {
-	struct input_set *added_in, *rm_in;
-	struct output_set *added_out, *rm_out;
+	struct psbt_changeset *cs;
 	u16 serial_id;
 	bool ok;
 
-	if (!psbt_has_diff(tmpctx, orig, new,
-			   &added_in, &rm_in,
-			   &added_out, &rm_out))
+	cs = psbt_get_changeset(tmpctx, orig, new);
+
+	if (tal_count(cs->added_ins) == 0 &&
+	    tal_count(cs->rm_ins) == 0 &&
+	    tal_count(cs->added_outs) == 0 &&
+	    tal_count(cs->rm_outs) == 0)
 		return false;
 
 	/* If there were *any* changes, then the answer to the 'both sides'
@@ -406,10 +408,10 @@ static bool psbt_side_contribs_changed(struct wally_psbt *orig,
 
 	/* Check that none of the included updates have a serial
 	 * id that's the peer's parity */
-	CHECK_CHANGES(added_in, input);
-	CHECK_CHANGES(rm_in, input);
-	CHECK_CHANGES(added_out, output);
-	CHECK_CHANGES(rm_out, output);
+	CHECK_CHANGES(cs->added_ins, input);
+	CHECK_CHANGES(cs->rm_ins, input);
+	CHECK_CHANGES(cs->added_outs, output);
+	CHECK_CHANGES(cs->rm_outs, output);
 
 	return false;
 }

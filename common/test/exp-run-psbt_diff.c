@@ -55,6 +55,18 @@ void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 /* Generated stub for towire_sha256 */
 void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
 { fprintf(stderr, "towire_sha256 called!\n"); abort(); }
+/* Generated stub for towire_tx_add_input */
+u8 *towire_tx_add_input(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u16 serial_id UNNEEDED, const u8 *prevtx UNNEEDED, u32 prevtx_vout UNNEEDED, u32 sequence UNNEEDED, u16 max_witness_len UNNEEDED, const u8 *script UNNEEDED, const struct tlv_tx_add_input_tlvs *tlvs UNNEEDED)
+{ fprintf(stderr, "towire_tx_add_input called!\n"); abort(); }
+/* Generated stub for towire_tx_add_output */
+u8 *towire_tx_add_output(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u16 serial_id UNNEEDED, u64 sats UNNEEDED, const u8 *script UNNEEDED)
+{ fprintf(stderr, "towire_tx_add_output called!\n"); abort(); }
+/* Generated stub for towire_tx_remove_input */
+u8 *towire_tx_remove_input(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u16 serial_id UNNEEDED)
+{ fprintf(stderr, "towire_tx_remove_input called!\n"); abort(); }
+/* Generated stub for towire_tx_remove_output */
+u8 *towire_tx_remove_output(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u16 serial_id UNNEEDED)
+{ fprintf(stderr, "towire_tx_remove_output called!\n"); abort(); }
 /* Generated stub for towire_u16 */
 void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
 { fprintf(stderr, "towire_u16 called!\n"); abort(); }
@@ -77,19 +89,14 @@ static void diff_count(struct wally_psbt *a,
 		       size_t diff_added,
 		       size_t diff_rm)
 {
-	bool has_diff;
-	struct input_set *added_in, *rm_in;
-	struct output_set *added_out, *rm_out;
+	struct psbt_changeset *set;
 
-	has_diff = psbt_has_diff(tmpctx, a, b,
-				 &added_in, &rm_in,
-				 &added_out, &rm_out);
+	set = psbt_get_changeset(tmpctx, a, b);
 
-	assert(has_diff == (diff_added + diff_rm != 0));
-	assert(tal_count(added_in) == diff_added);
-	assert(tal_count(added_out) == diff_added);
-	assert(tal_count(rm_in) == diff_rm);
-	assert(tal_count(rm_out) == diff_rm);
+	assert(tal_count(set->added_ins) == diff_added);
+	assert(tal_count(set->added_outs) == diff_added);
+	assert(tal_count(set->rm_ins) == diff_rm);
+	assert(tal_count(set->rm_outs) == diff_rm);
 }
 
 static void add_in_out_with_serial(struct wally_psbt *psbt,

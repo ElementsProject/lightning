@@ -117,10 +117,6 @@ void delay_then_reconnect(struct channel *channel UNNEEDED, u32 seconds_delay UN
 /* Generated stub for delete_channel */
 void delete_channel(struct channel *channel STEALS UNNEEDED)
 { fprintf(stderr, "delete_channel called!\n"); abort(); }
-/* Generated stub for derive_channel_id */
-void derive_channel_id(struct channel_id *channel_id UNNEEDED,
-		       const struct bitcoin_txid *txid UNNEEDED, u16 txout UNNEEDED)
-{ fprintf(stderr, "derive_channel_id called!\n"); abort(); }
 /* Generated stub for encode_scriptpubkey_to_addr */
 char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 				  const struct chainparams *chainparams UNNEEDED,
@@ -545,9 +541,6 @@ void towire_node_id(u8 **pptr UNNEEDED, const struct node_id *id UNNEEDED)
 /* Generated stub for towire_onchaind_dev_memleak */
 u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_onchaind_dev_memleak called!\n"); abort(); }
-/* Generated stub for txfilter_add_scriptpubkey */
-void txfilter_add_scriptpubkey(struct txfilter *filter UNNEEDED, const u8 *script TAKES UNNEEDED)
-{ fprintf(stderr, "txfilter_add_scriptpubkey called!\n"); abort(); }
 /* Generated stub for version */
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }
