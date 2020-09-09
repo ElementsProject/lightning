@@ -5,6 +5,7 @@
 #include <ccan/structeq/structeq.h>
 
 struct bitcoin_txid;
+struct pubkey;
 
 /* BOLT #2:
  *
@@ -22,6 +23,9 @@ STRUCTEQ_DEF(channel_id, 0, id);
 void derive_channel_id(struct channel_id *channel_id,
 		       const struct bitcoin_txid *txid, u16 txout);
 
+void derive_channel_id_v2(struct channel_id *channel_id,
+			  const struct pubkey *basepoint_1,
+			  const struct pubkey *basepoint_2);
 /* Marshalling/unmarshalling functions */
 void towire_channel_id(u8 **pptr, const struct channel_id *channel_id);
 void fromwire_channel_id(const u8 **cursor, size_t *max,
