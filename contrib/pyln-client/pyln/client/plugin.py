@@ -97,6 +97,26 @@ class Request(dict):
         self.plugin._write_locked(result)
 
 
+# If a hook call fails we need to coerce it into something the main daemon can
+# handle. Returning an error is not an option since we explicitly do not allow
+# those as a response to the calls, otherwise the only option we have is to
+# crash the main daemon. The goal of these is to present a safe fallback
+# should the hook call fail unexpectedly.
+hook_fallbacks = {
+    'htlc_accepted': {
+        'result': 'fail',
+        'failure_message': '2002'  # Fail with a temporary node failure
+    },
+    'peer_connected': {'result': 'continue'},
+    # commitment_revocation cannot recover from failing, let lightningd crash
+    # db_write cannot recover from failing, let lightningd crash
+    'invoice_payment': {'result': 'continue'},
+    'openchannel': {'result': 'reject'},
+    'rpc_command': {'result': 'continue'},
+    'custommsg': {'result': 'continue'},
+}
+
+
 class Plugin(object):
     """Controls interactions with lightningd, and bundles functionality.
 
@@ -453,7 +473,18 @@ class Plugin(object):
                 # return a result or raise an exception.
                 request.set_result(result)
         except Exception as e:
-            request.set_exception(e)
+            if name in hook_fallbacks:
+                response = hook_fallbacks[name]
+                self.log((
+                    "Hook handler for {name} failed with an exception. "
+                    "Returning safe fallback response {response} to avoid "
+                    "crashing the main daemon. Please contact the plugin "
+                    "author!"
+                ).format(name=name, response=response), level="error")
+
+                request.set_result(response)
+            else:
+                request.set_exception(e)
             self.log(traceback.format_exc())
 
     def _dispatch_notification(self, request):
