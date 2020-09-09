@@ -280,6 +280,16 @@ static struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 				  NULL, redeemscript);
 
 		psbt_input_set_wit_utxo(psbt, i, scriptPubkey, utxos[i]->amount);
+		if (is_elements(chainparams)) {
+			struct amount_asset asset;
+			/* FIXME: persist asset tags */
+			asset = amount_sat_to_asset(&utxos[i]->amount,
+						    chainparams->fee_asset_tag);
+			/* FIXME: persist nonces */
+			psbt_elements_input_set_asset(psbt,
+						      psbt->num_inputs - 1,
+						      &asset);
+		}
 	}
 
 	return psbt;
