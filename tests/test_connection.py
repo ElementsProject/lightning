@@ -1408,6 +1408,78 @@ def test_multifunding_param_failures(node_factory):
         l1.rpc.multifundchannel(destinations)
 
 
+@unittest.skipIf(not DEVELOPER, "disconnect=... needs DEVELOPER=1")
+def test_multifunding_best_effort(node_factory, bitcoind):
+    '''
+    Check that best_effort flag works.
+    '''
+    disconnects = ["-WIRE_INIT",
+                   "-WIRE_ACCEPT_CHANNEL",
+                   "-WIRE_FUNDING_SIGNED"]
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node()
+    l3 = node_factory.get_node(disconnect=disconnects)
+    l4 = node_factory.get_node()
+
+    l1.fundwallet(2000000)
+
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l4.info['id'], l4.port),
+                     "amount": 50000}]
+
+    for i, d in enumerate(disconnects):
+        # Should succeed due to best-effort flag.
+        l1.rpc.multifundchannel(destinations, minchannels=2)
+        bitcoind.generate_block(6, wait_for_mempool=1)
+
+        # Only l3 should fail to have channels.
+        for node in [l1, l2, l4]:
+            node.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+
+        # There should be working channels to l2 and l4.
+        for ldest in [l2, l4]:
+            inv = ldest.rpc.invoice(5000, 'i{}'.format(i), 'i{}'.format(i))['bolt11']
+            l1.rpc.pay(inv)
+
+        # Function to find the SCID of the channel that is
+        # currently open.
+        # Cannot use LightningNode.get_channel_scid since
+        # it assumes the *first* channel found is the one
+        # wanted, but in our case we close channels and
+        # open again, so multiple channels may remain
+        # listed.
+        def get_funded_channel_scid(n1, n2):
+            peers = n1.rpc.listpeers(n2.info['id'])['peers']
+            assert len(peers) == 1
+            peer = peers[0]
+            channels = peer['channels']
+            assert channels
+            for c in channels:
+                state = c['state']
+                if state in ('CHANNELD_AWAITING_LOCKIN', 'CHANNELD_NORMAL'):
+                    return c['short_channel_id']
+            assert False
+
+        # Now close channels to l2 and l4, for the next run.
+        l1.rpc.close(get_funded_channel_scid(l1, l2))
+        l1.rpc.close(get_funded_channel_scid(l1, l4))
+
+        for node in [l1, l2, l4]:
+            node.daemon.wait_for_log(r'to CLOSINGD_COMPLETE')
+
+    # With 2 down, it will fail to fund channel
+    l2.stop()
+    l3.stop()
+    with pytest.raises(RpcError, match=r'Connection refused'):
+        l1.rpc.multifundchannel(destinations, minchannels=2)
+
+    # This works though.
+    l1.rpc.multifundchannel(destinations, minchannels=1)
+
+
 def test_lockin_between_restart(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(options={'funding-confirms': 3},
