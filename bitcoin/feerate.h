@@ -34,6 +34,11 @@
  */
 #define FEERATE_FLOOR 253
 
+/*
+ * This is the net common weight of a transaction.
+ */
+size_t common_weight(size_t num_inputs, size_t num_outputs);
+
 enum feerate_style {
 	FEERATE_PER_KSIPA,
 	FEERATE_PER_KBYTE
