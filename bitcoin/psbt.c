@@ -308,6 +308,51 @@ void psbt_elements_input_set_asset(struct wally_psbt *psbt, size_t in,
 		abort();
 }
 
+void psbt_elements_normalize_fees(struct wally_psbt *psbt)
+{
+	struct amount_asset asset;
+	size_t fee_output_idx = psbt->num_outputs;
+
+	if (!is_elements(chainparams))
+		return;
+
+	/* Elements requires that every input value is accounted for,
+	 * including the fees */
+	struct amount_sat total_in = AMOUNT_SAT(0), val;
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		val = psbt_input_get_amount(psbt, i);
+		if (!amount_sat_add(&total_in, total_in, val))
+			return;
+	}
+	for (size_t i = 0; i < psbt->num_outputs; i++) {
+		asset = wally_tx_output_get_amount(&psbt->tx->outputs[i]);
+		if (elements_wtx_output_is_fee(psbt->tx, i)) {
+			fee_output_idx = i;
+			continue;
+		}
+		if (!amount_asset_is_main(&asset))
+			continue;
+
+		if (!amount_sat_sub(&total_in, total_in,
+				    amount_asset_to_sat(&asset)))
+			return;
+	}
+
+	if (amount_sat_eq(total_in, AMOUNT_SAT(0)))
+		return;
+
+	/* We need to add a fee output */
+	if (fee_output_idx == psbt->num_outputs) {
+		psbt_append_output(psbt, NULL, total_in);
+	} else {
+		u64 sats = total_in.satoshis; /* Raw: wally API */
+		struct wally_tx_output *out = &psbt->tx->outputs[fee_output_idx];
+		if (wally_tx_confidential_value_from_satoshi(
+			sats, out->value, out->value_len) != WALLY_OK)
+			return;
+	}
+}
+
 bool psbt_has_input(struct wally_psbt *psbt,
 		    struct bitcoin_txid *txid,
 		    u32 outnum)

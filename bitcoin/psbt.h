@@ -69,6 +69,14 @@ bool psbt_is_finalized(const struct wally_psbt *psbt);
 void psbt_txid(const struct wally_psbt *psbt, struct bitcoin_txid *txid,
 	       struct wally_tx **wtx);
 
+/* psbt_elements_normalize_fees - Figure out the fee output for a PSET
+ *
+ * Adds a fee output if not present, or updates it to include the diff
+ * between inputs - outputs. Unlike bitcoin, elements requires every
+ * satoshi to be accounted for in an output.
+ */
+void psbt_elements_normalize_fees(struct wally_psbt *psbt);
+
 struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place);
 
 /* psbt_make_key - Create a new, proprietary c-lightning key
