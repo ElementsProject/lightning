@@ -124,24 +124,6 @@ int psbt_find_serial_input(struct wally_psbt *psbt, u16 serial_id);
  */
 int psbt_find_serial_output(struct wally_psbt *psbt, u16 serial_id);
 
-/* psbt_input_add_max_witness_len - Put a max witness len on a thing
- *
- * @input - input to add max-witness-len to
- * @max_witness_len - value
- */
-void psbt_input_add_max_witness_len(struct wally_psbt_input *input,
-				    u16 max_witness_len);
-
-/* psbt_input_get_max_witness_len - Get the max_witness_len
- *
- * @input - psbt input to look for max witness len on
- * @max_witness_len - found length
- *
- * Returns false if key not present */
-WARN_UNUSED_RESULT bool
-psbt_input_get_max_witness_len(const struct wally_psbt_input *input,
-			       u16 *max_witness_len);
-
 /* psbt_has_required_fields - Validates psbt field completion
  *
  * Required fields are:
