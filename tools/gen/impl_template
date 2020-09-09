@@ -296,9 +296,7 @@ bool fromwire_${tlv.name}(const u8 **cursor, size_t *max, struct ${tlv.struct_na
 
 		/* BOLT #1:
 		 *
-		 * A `varint` is a variable-length, unsigned integer encoding
-		 * using the [BigSize](#appendix-a-bigsize-test-vectors)
-		 * format
+		 * The `type` is encoded using the BigSize format.
 		 */
 		field.numtype = fromwire_bigsize(cursor, max);
 
@@ -396,7 +394,9 @@ bool ${tlv.name}_is_valid(const struct ${tlv.struct_name()} *record, size_t *err
 			return false;
 		} else if (!first && f->numtype <= prev_type) {
 			/* BOLT #1:
-			 *  - if decoded `type`s are not monotonically-increasing:
+			 *  - if decoded `type`s are not strictly-increasing
+			 *    (including situations when two or more occurrences
+			 *    of the same `type` are met):
 			 *    - MUST fail to parse the `tlv_stream`.
 			 */
 			if (f->numtype == prev_type)

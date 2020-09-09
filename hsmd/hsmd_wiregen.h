@@ -271,5 +271,4 @@ bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx, const void *p
 
 
 #endif /* LIGHTNING_HSMD_HSMD_WIREGEN_H */
-
-// SHA256STAMP:a5ae76a1418b72d95fbb559fe568596318040de4e3726f2317969b9d9eee7788
+// SHA256STAMP:6f67af9abcc4b8cd7fd2b0580341f72dd7ca323a4f1fa8fc02c97b83d63dec82
