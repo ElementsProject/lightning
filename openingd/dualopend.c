@@ -61,13 +61,6 @@
 #define REQ_FD STDIN_FILENO
 #define HSM_FD 6
 
-struct psbt_changeset {
-	struct input_set *added_ins;
-	struct input_set *rm_ins;
-	struct output_set *added_outs;
-	struct output_set *rm_outs;
-};
-
 /* Global state structure.  This is only for the one specific peer and channel */
 struct state {
 	struct per_peer_state *pps;
@@ -131,100 +124,7 @@ struct state {
 	struct psbt_changeset *changeset;
 };
 
-static struct psbt_changeset *new_changeset(const tal_t *ctx)
-{
-	struct psbt_changeset *set = tal(ctx, struct psbt_changeset);
-
-	set->added_ins = tal_arr(set, struct input_set, 0);
-	set->rm_ins = tal_arr(set, struct input_set, 0);
-	set->added_outs = tal_arr(set, struct output_set, 0);
-	set->rm_outs = tal_arr(set, struct output_set, 0);
-
-	return set;
-}
-
 #if EXPERIMENTAL_FEATURES
-static u8 *changeset_get_next(const tal_t *ctx, struct channel_id *cid,
-			      struct psbt_changeset *set)
-{
-	u16 serial_id;
-	u8 *msg;
-
-	if (tal_count(set->added_ins) != 0) {
-		const struct input_set *in = &set->added_ins[0];
-		u16 max_witness_len;
-		u8 *script;
-
-		if (!psbt_get_serial_id(&in->input.unknowns, &serial_id))
-			abort();
-
-		const u8 *prevtx = linearize_wtx(ctx,
-						 in->input.utxo);
-
-		if (!psbt_input_get_max_witness_len(&in->input,
-						    &max_witness_len))
-			abort();
-
-		if (in->input.redeem_script_len)
-			script = tal_dup_arr(ctx, u8,
-					     in->input.redeem_script,
-					     in->input.redeem_script_len, 0);
-		else
-			script = NULL;
-
-		msg = towire_tx_add_input(ctx, cid, serial_id,
-					  prevtx, in->tx_input.index,
-					  in->tx_input.sequence,
-					  max_witness_len,
-					  script,
-					  NULL);
-
-		tal_arr_remove(&set->added_ins, 0);
-		return msg;
-	}
-	if (tal_count(set->rm_ins) != 0) {
-		if (!psbt_get_serial_id(&set->rm_ins[0].input.unknowns,
-					&serial_id))
-			abort();
-
-		msg = towire_tx_remove_input(ctx, cid, serial_id);
-
-		tal_arr_remove(&set->rm_ins, 0);
-		return msg;
-	}
-	if (tal_count(set->added_outs) != 0) {
-		struct amount_sat sats;
-		struct amount_asset asset_amt;
-
-		const struct output_set *out = &set->added_outs[0];
-		if (!psbt_get_serial_id(&out->output.unknowns, &serial_id))
-			abort();
-
-		asset_amt = wally_tx_output_get_amount(&out->tx_output);
-		sats = amount_asset_to_sat(&asset_amt);
-		const u8 *script = wally_tx_output_get_script(ctx,
-							      &out->tx_output);
-
-		msg = towire_tx_add_output(ctx, cid, serial_id,
-					   sats.satoshis, /* Raw: wire interface */
-					   script);
-
-		tal_arr_remove(&set->added_outs, 0);
-		return msg;
-	}
-	if (tal_count(set->rm_outs) != 0) {
-		if (!psbt_get_serial_id(&set->rm_outs[0].output.unknowns,
-					&serial_id))
-			abort();
-
-		msg = towire_tx_remove_output(ctx, cid, serial_id);
-
-		/* Is this a kosher way to move the list forward? */
-		tal_arr_remove(&set->rm_outs, 0);
-		return msg;
-	}
-	return NULL;
-}
 
 /*~ If we can't agree on parameters, we fail to open the channel.  If we're
  * the opener, we need to tell lightningd, otherwise it never really notices. */
@@ -521,7 +421,7 @@ static bool send_next(struct state *state, struct wally_psbt **psbt)
 	struct psbt_changeset *cs = state->changeset;
 
 	/* First we check our cached changes */
-	msg = changeset_get_next(tmpctx, &state->channel_id, cs);
+	msg = psbt_changeset_get_next(tmpctx, &state->channel_id, cs);
 	if (msg)
 		goto sendmsg;
 
@@ -534,22 +434,21 @@ static bool send_next(struct state *state, struct wally_psbt **psbt)
 		peer_failed(state->pps, &state->channel_id,
 			    "Unable to determine next tx update");
 
-	if (psbt_has_diff(cs, *psbt, updated_psbt,
-			  &cs->added_ins, &cs->rm_ins,
-			  &cs->added_outs, &cs->rm_outs)) {
+	state->changeset = tal_free(state->changeset);
+	state->changeset = psbt_get_changeset(state, *psbt, updated_psbt);
 
-		*psbt = tal_steal(state, updated_psbt);
-		msg = changeset_get_next(tmpctx, &state->channel_id,
-					 state->changeset);
-		assert(msg);
-		goto sendmsg;
-	}
-
+	/* We want this old psbt to be cleaned up when the changeset is freed */
+	tal_steal(state->changeset, *psbt);
+	*psbt = tal_steal(state, updated_psbt);
+	msg = psbt_changeset_get_next(tmpctx, &state->channel_id,
+				      state->changeset);
 	/*
 	 * If there's no more moves, we send tx_complete
 	 * and reply that we're finished */
-	msg = towire_tx_complete(tmpctx, &state->channel_id);
-	finished = true;
+	if (!msg) {
+		msg = towire_tx_complete(tmpctx, &state->channel_id);
+		finished = true;
+	}
 
 sendmsg:
 	sync_crypto_write(state->pps, msg);
@@ -559,13 +458,10 @@ sendmsg:
 
 static void init_changeset(struct state *state, struct wally_psbt *psbt)
 {
-	struct psbt_changeset *cs = state->changeset;
 	/* We need an empty to compare to */
 	struct wally_psbt *empty_psbt = create_psbt(tmpctx, 0, 0, 0);
 
-	psbt_has_diff(cs, empty_psbt, psbt,
-		      &cs->added_ins, &cs->rm_ins,
-		      &cs->added_outs, &cs->rm_outs);
+	state->changeset = psbt_get_changeset(state, empty_psbt, psbt);
 }
 
 /*~ Handle random messages we might get during opening negotiation, (eg. gossip)
@@ -1531,7 +1427,6 @@ int main(int argc, char *argv[])
 	 * handle_peer_gossip_or_error compares this. */
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = NULL;
-	state->changeset = new_changeset(state);
 
 	/*~ We set these to NULL, meaning no requirements on shutdown */
 	state->upfront_shutdown_script[LOCAL]

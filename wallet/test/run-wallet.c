@@ -474,10 +474,6 @@ bool outpointfilter_matches(struct outpointfilter *of UNNEEDED,
 /* Generated stub for outpointfilter_new */
 struct outpointfilter *outpointfilter_new(tal_t *ctx UNNEEDED)
 { fprintf(stderr, "outpointfilter_new called!\n"); abort(); }
-/* Generated stub for outpointfilter_remove */
-void outpointfilter_remove(struct outpointfilter *of UNNEEDED,
-			   const struct bitcoin_txid *txid UNNEEDED, const u32 outnum UNNEEDED)
-{ fprintf(stderr, "outpointfilter_remove called!\n"); abort(); }
 /* Generated stub for param */
 bool param(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
 	   const jsmntok_t params[] UNNEEDED, ...)
