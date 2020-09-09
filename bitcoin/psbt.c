@@ -257,13 +257,29 @@ void psbt_input_set_wit_utxo(struct wally_psbt *psbt, size_t in,
 
 	assert(in < psbt->num_inputs);
 	assert(tal_bytelen(scriptPubkey) > 0);
-	wally_err = wally_tx_output_init(amt.satoshis, /* Raw: type conv */
-					 scriptPubkey,
-					 tal_bytelen(scriptPubkey),
-					 &tx_out);
+	if (is_elements(chainparams)) {
+		u8 value[9];
+		wally_err =
+			wally_tx_confidential_value_from_satoshi(amt.satoshis, /* Raw: wally API */
+								 value,
+								 sizeof(value));
+		assert(wally_err == WALLY_OK);
+		wally_err =
+			wally_tx_elements_output_init(scriptPubkey,
+						      tal_bytelen(scriptPubkey),
+						      chainparams->fee_asset_tag,
+						      ELEMENTS_ASSET_LEN,
+						      value, sizeof(value),
+						      NULL, 0, NULL, 0,
+						      NULL, 0, &tx_out);
+
+	} else
+		wally_err = wally_tx_output_init(amt.satoshis, /* Raw: type conv */
+						 scriptPubkey,
+						 tal_bytelen(scriptPubkey),
+						 &tx_out);
 	assert(wally_err == WALLY_OK);
-	wally_err = wally_psbt_input_set_witness_utxo(&psbt->inputs[in],
-						      &tx_out);
+	wally_err = wally_psbt_input_set_witness_utxo(&psbt->inputs[in], &tx_out);
 	assert(wally_err == WALLY_OK);
 }
 
