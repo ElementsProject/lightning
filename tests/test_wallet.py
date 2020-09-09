@@ -1100,3 +1100,35 @@ def test_withdraw_nlocktime_fuzz(node_factory, bitcoind):
             return
     else:
         raise Exception("No transaction with fuzzed nLockTime !")
+
+
+def test_multiwithdraw_simple(node_factory, bitcoind):
+    """
+    Test simple multiwithdraw usage.
+    """
+    l1, l2, l3 = node_factory.get_nodes(3)
+    l1.fundwallet(10**8)
+
+    addr2 = l2.rpc.newaddr()['bech32']
+    amount2 = Millisatoshi(2222 * 1000)
+    addr3 = l3.rpc.newaddr()['bech32']
+    amount3 = Millisatoshi(3333 * 1000)
+
+    # Multiwithdraw!
+    txid = l1.rpc.multiwithdraw([{addr2: amount2}, {addr3: amount3}])["txid"]
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1, l2, l3])
+
+    # l2 shoulda gotten money.
+    funds2 = l2.rpc.listfunds()['outputs']
+    assert only_one(funds2)["txid"] == txid
+    assert only_one(funds2)["address"] == addr2
+    assert only_one(funds2)["status"] == "confirmed"
+    assert only_one(funds2)["amount_msat"] == amount2
+
+    # l3 shoulda gotten money.
+    funds3 = l3.rpc.listfunds()['outputs']
+    assert only_one(funds3)["txid"] == txid
+    assert only_one(funds3)["address"] == addr3
+    assert only_one(funds3)["status"] == "confirmed"
+    assert only_one(funds3)["amount_msat"] == amount3
