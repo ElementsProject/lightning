@@ -49,6 +49,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/node_id.o			\
 	common/onionreply.o			\
 	common/per_peer_state.o			\
+	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/setup.o				\
 	common/status.o				\

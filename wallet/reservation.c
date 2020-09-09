@@ -6,6 +6,7 @@
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
+#include <common/psbt_open.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <wallet/wallet.h>
@@ -140,6 +141,26 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 		   p_req("psbt", param_psbt, &psbt),
 		   NULL))
 		return command_param_failed();
+
+	/* We should also add the utxo info for these inputs!
+	 * (absolutely required for using this psbt in a dual-funded
+	 * round) */
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		struct bitcoin_tx *utxo_tx;
+		struct bitcoin_txid txid;
+
+		wally_tx_input_get_txid(&psbt->tx->inputs[i], &txid);
+		utxo_tx = wallet_transaction_get(psbt, cmd->ld->wallet,
+						 &txid);
+		if (utxo_tx)
+			wally_psbt_input_set_utxo(&psbt->inputs[i],
+						  utxo_tx->wtx);
+		else
+			log_broken(cmd->ld->log,
+				   "No transaction found for UTXO %s",
+				   type_to_string(tmpctx, struct bitcoin_txid,
+						  &txid));
+	}
 
 	response = json_stream_success(cmd);
 	json_array_start(response, "reservations");
