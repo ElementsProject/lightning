@@ -10,7 +10,7 @@ CONNECTD_TEST_COMMON_OBJS :=			\
 	common/type_to_string.o			\
 	common/utils.o
 
-ALL_C_SOURCES += $(CONNECT_TEST_SRC)
+ALL_C_SOURCES += $(CONNECTD_TEST_SRC)
 ALL_TEST_PROGRAMS += $(CONNECTD_TEST_PROGRAMS)
 
 update-mocks: $(CONNECTD_TEST_SRC:%=update-mocks/%)

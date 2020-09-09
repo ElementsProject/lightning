@@ -19,6 +19,7 @@ LIBWALLY_HEADERS := external/libwally-core/include/wally_bip32.h		\
 			external/libwally-core/include/wally_psbt.h	\
 			external/libwally-core/include/wally_crypto.h
 LIBSECP_HEADERS := external/libwally-core/src/secp256k1/include/secp256k1_ecdh.h		\
+		external/libwally-core/src/secp256k1/include/secp256k1_recovery.h		\
 		external/libwally-core/src/secp256k1/include/secp256k1.h
 JSMN_HEADERS := external/jsmn/jsmn.h
 GHEAP_HEADERS := external/gheap/gheap.h
