@@ -203,9 +203,7 @@ bool fromwire_init_tlvs(const u8 **cursor, size_t *max, struct tlv_init_tlvs *re
 
 		/* BOLT #1:
 		 *
-		 * A `varint` is a variable-length, unsigned integer encoding
-		 * using the [BigSize](#appendix-a-bigsize-test-vectors)
-		 * format
+		 * The `type` is encoded using the BigSize format.
 		 */
 		field.numtype = fromwire_bigsize(cursor, max);
 
@@ -303,7 +301,9 @@ bool init_tlvs_is_valid(const struct tlv_init_tlvs *record, size_t *err_index)
 			return false;
 		} else if (!first && f->numtype <= prev_type) {
 			/* BOLT #1:
-			 *  - if decoded `type`s are not monotonically-increasing:
+			 *  - if decoded `type`s are not strictly-increasing
+			 *    (including situations when two or more occurrences
+			 *    of the same `type` are met):
 			 *    - MUST fail to parse the `tlv_stream`.
 			 */
 			if (f->numtype == prev_type)
@@ -351,7 +351,7 @@ static void fromwire_tlv_n1_tlv1(const u8 **cursor, size_t *plen, void *vrecord)
 	struct tlv_n1 *r = vrecord;
 
 	    r->tlv1 = tal(r, u64);
-    
+
 *r->tlv1 = fromwire_tu64(cursor, plen);
 }
 /* N1 MSG: tlv2 */
@@ -374,7 +374,7 @@ static void fromwire_tlv_n1_tlv2(const u8 **cursor, size_t *plen, void *vrecord)
 	struct tlv_n1 *r = vrecord;
 
 	    r->tlv2 = tal(r, struct short_channel_id);
-    
+
 fromwire_short_channel_id(cursor, plen, &*r->tlv2);
 }
 /* N1 MSG: tlv3 */
@@ -425,7 +425,7 @@ static void fromwire_tlv_n1_tlv4(const u8 **cursor, size_t *plen, void *vrecord)
 	struct tlv_n1 *r = vrecord;
 
 	    r->tlv4 = tal(r, u16);
-    
+
 *r->tlv4 = fromwire_u16(cursor, plen);
 }
 
@@ -475,9 +475,7 @@ bool fromwire_n1(const u8 **cursor, size_t *max, struct tlv_n1 *record)
 
 		/* BOLT #1:
 		 *
-		 * A `varint` is a variable-length, unsigned integer encoding
-		 * using the [BigSize](#appendix-a-bigsize-test-vectors)
-		 * format
+		 * The `type` is encoded using the BigSize format.
 		 */
 		field.numtype = fromwire_bigsize(cursor, max);
 
@@ -575,7 +573,9 @@ bool n1_is_valid(const struct tlv_n1 *record, size_t *err_index)
 			return false;
 		} else if (!first && f->numtype <= prev_type) {
 			/* BOLT #1:
-			 *  - if decoded `type`s are not monotonically-increasing:
+			 *  - if decoded `type`s are not strictly-increasing
+			 *    (including situations when two or more occurrences
+			 *    of the same `type` are met):
 			 *    - MUST fail to parse the `tlv_stream`.
 			 */
 			if (f->numtype == prev_type)
@@ -623,7 +623,7 @@ static void fromwire_tlv_n2_tlv1(const u8 **cursor, size_t *plen, void *vrecord)
 	struct tlv_n2 *r = vrecord;
 
 	    r->tlv1 = tal(r, u64);
-    
+
 *r->tlv1 = fromwire_tu64(cursor, plen);
 }
 /* N2 MSG: tlv2 */
@@ -646,7 +646,7 @@ static void fromwire_tlv_n2_tlv2(const u8 **cursor, size_t *plen, void *vrecord)
 	struct tlv_n2 *r = vrecord;
 
 	    r->tlv2 = tal(r, u32);
-    
+
 *r->tlv2 = fromwire_tu32(cursor, plen);
 }
 
@@ -694,9 +694,7 @@ bool fromwire_n2(const u8 **cursor, size_t *max, struct tlv_n2 *record)
 
 		/* BOLT #1:
 		 *
-		 * A `varint` is a variable-length, unsigned integer encoding
-		 * using the [BigSize](#appendix-a-bigsize-test-vectors)
-		 * format
+		 * The `type` is encoded using the BigSize format.
 		 */
 		field.numtype = fromwire_bigsize(cursor, max);
 
@@ -794,7 +792,9 @@ bool n2_is_valid(const struct tlv_n2 *record, size_t *err_index)
 			return false;
 		} else if (!first && f->numtype <= prev_type) {
 			/* BOLT #1:
-			 *  - if decoded `type`s are not monotonically-increasing:
+			 *  - if decoded `type`s are not strictly-increasing
+			 *    (including situations when two or more occurrences
+			 *    of the same `type` are met):
 			 *    - MUST fail to parse the `tlv_stream`.
 			 */
 			if (f->numtype == prev_type)
@@ -888,9 +888,7 @@ bool fromwire_open_channel_tlvs(const u8 **cursor, size_t *max, struct tlv_open_
 
 		/* BOLT #1:
 		 *
-		 * A `varint` is a variable-length, unsigned integer encoding
-		 * using the [BigSize](#appendix-a-bigsize-test-vectors)
-		 * format
+		 * The `type` is encoded using the BigSize format.
 		 */
 		field.numtype = fromwire_bigsize(cursor, max);
 
@@ -988,7 +986,9 @@ bool open_channel_tlvs_is_valid(const struct tlv_open_channel_tlvs *record, size
 			return false;
 		} else if (!first && f->numtype <= prev_type) {
 			/* BOLT #1:
-			 *  - if decoded `type`s are not monotonically-increasing:
+			 *  - if decoded `type`s are not strictly-increasing
+			 *    (including situations when two or more occurrences
+			 *    of the same `type` are met):
 			 *    - MUST fail to parse the `tlv_stream`.
 			 */
 			if (f->numtype == prev_type)
@@ -1082,9 +1082,7 @@ bool fromwire_accept_channel_tlvs(const u8 **cursor, size_t *max, struct tlv_acc
 
 		/* BOLT #1:
 		 *
-		 * A `varint` is a variable-length, unsigned integer encoding
-		 * using the [BigSize](#appendix-a-bigsize-test-vectors)
-		 * format
+		 * The `type` is encoded using the BigSize format.
 		 */
 		field.numtype = fromwire_bigsize(cursor, max);
 
@@ -1182,7 +1180,9 @@ bool accept_channel_tlvs_is_valid(const struct tlv_accept_channel_tlvs *record, 
 			return false;
 		} else if (!first && f->numtype <= prev_type) {
 			/* BOLT #1:
-			 *  - if decoded `type`s are not monotonically-increasing:
+			 *  - if decoded `type`s are not strictly-increasing
+			 *    (including situations when two or more occurrences
+			 *    of the same `type` are met):
 			 *    - MUST fail to parse the `tlv_stream`.
 			 */
 			if (f->numtype == prev_type)
@@ -1280,9 +1280,7 @@ bool fromwire_query_short_channel_ids_tlvs(const u8 **cursor, size_t *max, struc
 
 		/* BOLT #1:
 		 *
-		 * A `varint` is a variable-length, unsigned integer encoding
-		 * using the [BigSize](#appendix-a-bigsize-test-vectors)
-		 * format
+		 * The `type` is encoded using the BigSize format.
 		 */
 		field.numtype = fromwire_bigsize(cursor, max);
 
@@ -1380,7 +1378,9 @@ bool query_short_channel_ids_tlvs_is_valid(const struct tlv_query_short_channel_
 			return false;
 		} else if (!first && f->numtype <= prev_type) {
 			/* BOLT #1:
-			 *  - if decoded `type`s are not monotonically-increasing:
+			 *  - if decoded `type`s are not strictly-increasing
+			 *    (including situations when two or more occurrences
+			 *    of the same `type` are met):
 			 *    - MUST fail to parse the `tlv_stream`.
 			 */
 			if (f->numtype == prev_type)
@@ -1428,7 +1428,7 @@ static void fromwire_tlv_query_channel_range_tlvs_query_option(const u8 **cursor
 	struct tlv_query_channel_range_tlvs *r = vrecord;
 
 	    r->query_option = tal(r, bigsize);
-    
+
 *r->query_option = fromwire_bigsize(cursor, plen);
 }
 
@@ -1475,9 +1475,7 @@ bool fromwire_query_channel_range_tlvs(const u8 **cursor, size_t *max, struct tl
 
 		/* BOLT #1:
 		 *
-		 * A `varint` is a variable-length, unsigned integer encoding
-		 * using the [BigSize](#appendix-a-bigsize-test-vectors)
-		 * format
+		 * The `type` is encoded using the BigSize format.
 		 */
 		field.numtype = fromwire_bigsize(cursor, max);
 
@@ -1575,7 +1573,9 @@ bool query_channel_range_tlvs_is_valid(const struct tlv_query_channel_range_tlvs
 			return false;
 		} else if (!first && f->numtype <= prev_type) {
 			/* BOLT #1:
-			 *  - if decoded `type`s are not monotonically-increasing:
+			 *  - if decoded `type`s are not strictly-increasing
+			 *    (including situations when two or more occurrences
+			 *    of the same `type` are met):
 			 *    - MUST fail to parse the `tlv_stream`.
 			 */
 			if (f->numtype == prev_type)
@@ -1701,9 +1701,7 @@ bool fromwire_reply_channel_range_tlvs(const u8 **cursor, size_t *max, struct tl
 
 		/* BOLT #1:
 		 *
-		 * A `varint` is a variable-length, unsigned integer encoding
-		 * using the [BigSize](#appendix-a-bigsize-test-vectors)
-		 * format
+		 * The `type` is encoded using the BigSize format.
 		 */
 		field.numtype = fromwire_bigsize(cursor, max);
 
@@ -1801,7 +1799,9 @@ bool reply_channel_range_tlvs_is_valid(const struct tlv_reply_channel_range_tlvs
 			return false;
 		} else if (!first && f->numtype <= prev_type) {
 			/* BOLT #1:
-			 *  - if decoded `type`s are not monotonically-increasing:
+			 *  - if decoded `type`s are not strictly-increasing
+			 *    (including situations when two or more occurrences
+			 *    of the same `type` are met):
 			 *    - MUST fail to parse the `tlv_stream`.
 			 */
 			if (f->numtype == prev_type)
@@ -2750,5 +2750,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
  	*htlc_maximum_msat = fromwire_amount_msat(&cursor, &plen);
 	return cursor != NULL;
 }
-
-// SHA256STAMP:387ba235bbb8248b61a18b8fc1b7842f5ad47bbbb53cc8cf2bb2b8f872ce5a0d
+// SHA256STAMP:521d619f25ebb8f49af991416c17ffbb6c9d2216cca98fe7be50824388d6bcac

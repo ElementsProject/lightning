@@ -537,7 +537,8 @@ class Master(object):
             stuff['messages'] = list(self.messages.values()) + list(self.extension_msgs.values())
         stuff['subtypes'] = subtypes
 
-        print(template.render(**stuff), file=output)
+        for line in template.render(**stuff).splitlines():
+            print(line.rstrip(), file=output)
 
 
 def main(options, args=None, output=sys.stdout, lines=None):

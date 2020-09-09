@@ -112,7 +112,7 @@ static void fromwire_tlv_tlv_payload_amt_to_forward(const u8 **cursor, size_t *p
 	struct tlv_tlv_payload *r = vrecord;
 
 	    r->amt_to_forward = tal(r, u64);
-    
+
 *r->amt_to_forward = fromwire_tu64(cursor, plen);
 }
 /* TLV_PAYLOAD MSG: outgoing_cltv_value */
@@ -135,7 +135,7 @@ static void fromwire_tlv_tlv_payload_outgoing_cltv_value(const u8 **cursor, size
 	struct tlv_tlv_payload *r = vrecord;
 
 	    r->outgoing_cltv_value = tal(r, u32);
-    
+
 *r->outgoing_cltv_value = fromwire_tu32(cursor, plen);
 }
 /* TLV_PAYLOAD MSG: short_channel_id */
@@ -158,7 +158,7 @@ static void fromwire_tlv_tlv_payload_short_channel_id(const u8 **cursor, size_t 
 	struct tlv_tlv_payload *r = vrecord;
 
 	    r->short_channel_id = tal(r, struct short_channel_id);
-    
+
 fromwire_short_channel_id(cursor, plen, &*r->short_channel_id);
 }
 /* TLV_PAYLOAD MSG: payment_data */
@@ -233,9 +233,7 @@ bool fromwire_tlv_payload(const u8 **cursor, size_t *max, struct tlv_tlv_payload
 
 		/* BOLT #1:
 		 *
-		 * A `varint` is a variable-length, unsigned integer encoding
-		 * using the [BigSize](#appendix-a-bigsize-test-vectors)
-		 * format
+		 * The `type` is encoded using the BigSize format.
 		 */
 		field.numtype = fromwire_bigsize(cursor, max);
 
@@ -333,7 +331,9 @@ bool tlv_payload_is_valid(const struct tlv_tlv_payload *record, size_t *err_inde
 			return false;
 		} else if (!first && f->numtype <= prev_type) {
 			/* BOLT #1:
-			 *  - if decoded `type`s are not monotonically-increasing:
+			 *  - if decoded `type`s are not strictly-increasing
+			 *    (including situations when two or more occurrences
+			 *    of the same `type` are met):
 			 *    - MUST fail to parse the `tlv_stream`.
 			 */
 			if (f->numtype == prev_type)
@@ -837,5 +837,4 @@ bool fromwire_mpp_timeout(const void *p)
 		return false;
 	return cursor != NULL;
 }
-
-// SHA256STAMP:ceeead04b6dc0928c189be726bd2ea88561db5e91e69ba610ef76ed1ba9e552e
+// SHA256STAMP:34ee8c689fc4081ab70cb70519583868d14057acdb69d1f3e242c4cfdbbbc39d

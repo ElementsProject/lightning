@@ -105,72 +105,72 @@ void printonion_wire_message(const u8 *msg)
 	printf("UNKNOWN: %s\\n", tal_hex(msg, msg));
 }
 
-  
+
 static void printwire_tlv_tlv_payload_amt_to_forward(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "amt_to_forward");
-	
+
 	printf("amt_to_forward=");
 	u64 amt_to_forward = fromwire_tu64(cursor, plen);
-	
-	printwire_u64(tal_fmt(NULL, "%s.amt_to_forward", fieldname), &amt_to_forward); 
+
+	printwire_u64(tal_fmt(NULL, "%s.amt_to_forward", fieldname), &amt_to_forward);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 static void printwire_tlv_tlv_payload_outgoing_cltv_value(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "outgoing_cltv_value");
-	
+
 	printf("outgoing_cltv_value=");
 	u32 outgoing_cltv_value = fromwire_tu32(cursor, plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.outgoing_cltv_value", fieldname), &outgoing_cltv_value); 
+
+	printwire_u32(tal_fmt(NULL, "%s.outgoing_cltv_value", fieldname), &outgoing_cltv_value);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 static void printwire_tlv_tlv_payload_short_channel_id(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "short_channel_id");
-	
+
 	printf("short_channel_id=");
 	struct short_channel_id short_channel_id;
 	fromwire_short_channel_id(cursor, plen, &short_channel_id);
-	
-	printwire_short_channel_id(tal_fmt(NULL, "%s.short_channel_id", fieldname), &short_channel_id); 
+
+	printwire_short_channel_id(tal_fmt(NULL, "%s.short_channel_id", fieldname), &short_channel_id);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 static void printwire_tlv_tlv_payload_payment_data(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "payment_data");
-	
+
 	printf("payment_secret=");
 	struct secret payment_secret;
 	fromwire_secret(cursor, plen, &payment_secret);
-	
-	printwire_secret(tal_fmt(NULL, "%s.payment_secret", fieldname), &payment_secret); 
+
+	printwire_secret(tal_fmt(NULL, "%s.payment_secret", fieldname), &payment_secret);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("total_msat=");
 	u64 total_msat = fromwire_tu64(cursor, plen);
-	
-	printwire_u64(tal_fmt(NULL, "%s.total_msat", fieldname), &total_msat); 
+
+	printwire_u64(tal_fmt(NULL, "%s.total_msat", fieldname), &total_msat);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 
 static const struct tlv_print_record_type print_tlvs_tlv_payload[] = {
@@ -247,13 +247,13 @@ void printwire_invalid_onion_version(const char *fieldname, const u8 *cursor)
 	printf("sha256_of_onion=");
 	struct sha256 sha256_of_onion;
 	fromwire_sha256(&cursor, &plen, &sha256_of_onion);
-	
-	printwire_sha256(tal_fmt(NULL, "%s.sha256_of_onion", fieldname), &sha256_of_onion); 
+
+	printwire_sha256(tal_fmt(NULL, "%s.sha256_of_onion", fieldname), &sha256_of_onion);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -270,13 +270,13 @@ void printwire_invalid_onion_hmac(const char *fieldname, const u8 *cursor)
 	printf("sha256_of_onion=");
 	struct sha256 sha256_of_onion;
 	fromwire_sha256(&cursor, &plen, &sha256_of_onion);
-	
-	printwire_sha256(tal_fmt(NULL, "%s.sha256_of_onion", fieldname), &sha256_of_onion); 
+
+	printwire_sha256(tal_fmt(NULL, "%s.sha256_of_onion", fieldname), &sha256_of_onion);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -293,13 +293,13 @@ void printwire_invalid_onion_key(const char *fieldname, const u8 *cursor)
 	printf("sha256_of_onion=");
 	struct sha256 sha256_of_onion;
 	fromwire_sha256(&cursor, &plen, &sha256_of_onion);
-	
-	printwire_sha256(tal_fmt(NULL, "%s.sha256_of_onion", fieldname), &sha256_of_onion); 
+
+	printwire_sha256(tal_fmt(NULL, "%s.sha256_of_onion", fieldname), &sha256_of_onion);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -325,7 +325,7 @@ void printwire_temporary_channel_failure(const char *fieldname, const u8 *cursor
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -383,8 +383,8 @@ void printwire_amount_below_minimum(const char *fieldname, const u8 *cursor)
 
 	printf("htlc_msat=");
 	struct amount_msat htlc_msat = fromwire_amount_msat(&cursor, &plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_msat", fieldname), &htlc_msat); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_msat", fieldname), &htlc_msat);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -401,7 +401,7 @@ void printwire_amount_below_minimum(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -417,8 +417,8 @@ void printwire_fee_insufficient(const char *fieldname, const u8 *cursor)
 
 	printf("htlc_msat=");
 	struct amount_msat htlc_msat = fromwire_amount_msat(&cursor, &plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_msat", fieldname), &htlc_msat); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_msat", fieldname), &htlc_msat);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -435,7 +435,7 @@ void printwire_fee_insufficient(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -451,8 +451,8 @@ void printwire_incorrect_cltv_expiry(const char *fieldname, const u8 *cursor)
 
 	printf("cltv_expiry=");
 	u32 cltv_expiry = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.cltv_expiry", fieldname), &cltv_expiry); 
+
+	printwire_u32(tal_fmt(NULL, "%s.cltv_expiry", fieldname), &cltv_expiry);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -469,7 +469,7 @@ void printwire_incorrect_cltv_expiry(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -495,7 +495,7 @@ void printwire_expiry_too_soon(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -511,21 +511,21 @@ void printwire_incorrect_or_unknown_payment_details(const char *fieldname, const
 
 	printf("htlc_msat=");
 	struct amount_msat htlc_msat = fromwire_amount_msat(&cursor, &plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_msat", fieldname), &htlc_msat); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_msat", fieldname), &htlc_msat);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("height=");
 	u32 height = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.height", fieldname), &height); 
+
+	printwire_u32(tal_fmt(NULL, "%s.height", fieldname), &height);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -541,13 +541,13 @@ void printwire_final_incorrect_cltv_expiry(const char *fieldname, const u8 *curs
 
 	printf("cltv_expiry=");
 	u32 cltv_expiry = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.cltv_expiry", fieldname), &cltv_expiry); 
+
+	printwire_u32(tal_fmt(NULL, "%s.cltv_expiry", fieldname), &cltv_expiry);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -563,13 +563,13 @@ void printwire_final_incorrect_htlc_amount(const char *fieldname, const u8 *curs
 
 	printf("incoming_htlc_amt=");
 	struct amount_msat incoming_htlc_amt = fromwire_amount_msat(&cursor, &plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.incoming_htlc_amt", fieldname), &incoming_htlc_amt); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.incoming_htlc_amt", fieldname), &incoming_htlc_amt);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -613,21 +613,21 @@ void printwire_invalid_onion_payload(const char *fieldname, const u8 *cursor)
 
 	printf("type=");
 	bigsize type = fromwire_bigsize(&cursor, &plen);
-	
-	printwire_bigsize(tal_fmt(NULL, "%s.type", fieldname), &type); 
+
+	printwire_bigsize(tal_fmt(NULL, "%s.type", fieldname), &type);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("offset=");
 	u16 offset = fromwire_u16(&cursor, &plen);
-	
-	printwire_u16(tal_fmt(NULL, "%s.offset", fieldname), &offset); 
+
+	printwire_u16(tal_fmt(NULL, "%s.offset", fieldname), &offset);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -653,5 +653,4 @@ void printonion_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_tlv_payload, ARRAY_SIZE(print_tlvs_tlv_payload));
 	}
 }
-
-// SHA256STAMP:ceeead04b6dc0928c189be726bd2ea88561db5e91e69ba610ef76ed1ba9e552e
+// SHA256STAMP:34ee8c689fc4081ab70cb70519583868d14057acdb69d1f3e242c4cfdbbbc39d

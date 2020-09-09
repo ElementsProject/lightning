@@ -129,55 +129,55 @@ void printpeer_wire_message(const u8 *msg)
 	printf("UNKNOWN: %s\\n", tal_hex(msg, msg));
 }
 
-  
+
 void printwire_channel_update_checksums(const char *fieldname, const u8 **cursor, size_t *plen)
 {
-	
+
 	printf("checksum_node_id_1=");
 	u32 checksum_node_id_1 = fromwire_u32(cursor, plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.checksum_node_id_1", fieldname), &checksum_node_id_1); 
+
+	printwire_u32(tal_fmt(NULL, "%s.checksum_node_id_1", fieldname), &checksum_node_id_1);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("checksum_node_id_2=");
 	u32 checksum_node_id_2 = fromwire_u32(cursor, plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.checksum_node_id_2", fieldname), &checksum_node_id_2); 
+
+	printwire_u32(tal_fmt(NULL, "%s.checksum_node_id_2", fieldname), &checksum_node_id_2);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 
 void printwire_channel_update_timestamps(const char *fieldname, const u8 **cursor, size_t *plen)
 {
-	
+
 	printf("timestamp_node_id_1=");
 	u32 timestamp_node_id_1 = fromwire_u32(cursor, plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.timestamp_node_id_1", fieldname), &timestamp_node_id_1); 
+
+	printwire_u32(tal_fmt(NULL, "%s.timestamp_node_id_1", fieldname), &timestamp_node_id_1);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("timestamp_node_id_2=");
 	u32 timestamp_node_id_2 = fromwire_u32(cursor, plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.timestamp_node_id_2", fieldname), &timestamp_node_id_2); 
+
+	printwire_u32(tal_fmt(NULL, "%s.timestamp_node_id_2", fieldname), &timestamp_node_id_2);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 
 static void printwire_tlv_init_tlvs_networks(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "networks");
-	
+
 	printf("chains=");
 	printf("[");
 	for (size_t i = 0; i < *plen; i++) {
@@ -195,7 +195,7 @@ static void printwire_tlv_init_tlvs_networks(const char *fieldname, const u8 **c
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 
 static const struct tlv_print_record_type print_tlvs_init_tlvs[] = {
@@ -205,76 +205,76 @@ static const struct tlv_print_record_type print_tlvs_init_tlvs[] = {
 static void printwire_tlv_n1_tlv1(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "tlv1");
-	
+
 	printf("amount_msat=");
 	u64 amount_msat = fromwire_tu64(cursor, plen);
-	
-	printwire_u64(tal_fmt(NULL, "%s.amount_msat", fieldname), &amount_msat); 
+
+	printwire_u64(tal_fmt(NULL, "%s.amount_msat", fieldname), &amount_msat);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 static void printwire_tlv_n1_tlv2(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "tlv2");
-	
+
 	printf("scid=");
 	struct short_channel_id scid;
 	fromwire_short_channel_id(cursor, plen, &scid);
-	
-	printwire_short_channel_id(tal_fmt(NULL, "%s.scid", fieldname), &scid); 
+
+	printwire_short_channel_id(tal_fmt(NULL, "%s.scid", fieldname), &scid);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 static void printwire_tlv_n1_tlv3(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "tlv3");
-	
+
 	printf("node_id=");
 	struct pubkey node_id;
 	fromwire_pubkey(cursor, plen, &node_id);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.node_id", fieldname), &node_id); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.node_id", fieldname), &node_id);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("amount_msat_1=");
 	struct amount_msat amount_msat_1 = fromwire_amount_msat(cursor, plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.amount_msat_1", fieldname), &amount_msat_1); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.amount_msat_1", fieldname), &amount_msat_1);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("amount_msat_2=");
 	struct amount_msat amount_msat_2 = fromwire_amount_msat(cursor, plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.amount_msat_2", fieldname), &amount_msat_2); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.amount_msat_2", fieldname), &amount_msat_2);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 static void printwire_tlv_n1_tlv4(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "tlv4");
-	
+
 	printf("cltv_delta=");
 	u16 cltv_delta = fromwire_u16(cursor, plen);
-	
-	printwire_u16(tal_fmt(NULL, "%s.cltv_delta", fieldname), &cltv_delta); 
+
+	printwire_u16(tal_fmt(NULL, "%s.cltv_delta", fieldname), &cltv_delta);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 
 static const struct tlv_print_record_type print_tlvs_n1[] = {
@@ -287,30 +287,30 @@ static const struct tlv_print_record_type print_tlvs_n1[] = {
 static void printwire_tlv_n2_tlv1(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "tlv1");
-	
+
 	printf("amount_msat=");
 	u64 amount_msat = fromwire_tu64(cursor, plen);
-	
-	printwire_u64(tal_fmt(NULL, "%s.amount_msat", fieldname), &amount_msat); 
+
+	printwire_u64(tal_fmt(NULL, "%s.amount_msat", fieldname), &amount_msat);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 static void printwire_tlv_n2_tlv2(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "tlv2");
-	
+
 	printf("cltv_expiry=");
 	u32 cltv_expiry = fromwire_tu32(cursor, plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.cltv_expiry", fieldname), &cltv_expiry); 
+
+	printwire_u32(tal_fmt(NULL, "%s.cltv_expiry", fieldname), &cltv_expiry);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 
 static const struct tlv_print_record_type print_tlvs_n2[] = {
@@ -321,7 +321,7 @@ static const struct tlv_print_record_type print_tlvs_n2[] = {
 static void printwire_tlv_open_channel_tlvs_upfront_shutdown_script(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "upfront_shutdown_script");
-	
+
 	printf("shutdown_scriptpubkey=");
 	printwire_u8_array(tal_fmt(NULL, "%s.shutdown_scriptpubkey", fieldname), cursor, plen, *plen);
 
@@ -329,7 +329,7 @@ static void printwire_tlv_open_channel_tlvs_upfront_shutdown_script(const char *
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 
 static const struct tlv_print_record_type print_tlvs_open_channel_tlvs[] = {
@@ -339,7 +339,7 @@ static const struct tlv_print_record_type print_tlvs_open_channel_tlvs[] = {
 static void printwire_tlv_accept_channel_tlvs_upfront_shutdown_script(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "upfront_shutdown_script");
-	
+
 	printf("shutdown_scriptpubkey=");
 	printwire_u8_array(tal_fmt(NULL, "%s.shutdown_scriptpubkey", fieldname), cursor, plen, *plen);
 
@@ -347,7 +347,7 @@ static void printwire_tlv_accept_channel_tlvs_upfront_shutdown_script(const char
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 
 static const struct tlv_print_record_type print_tlvs_accept_channel_tlvs[] = {
@@ -357,11 +357,11 @@ static const struct tlv_print_record_type print_tlvs_accept_channel_tlvs[] = {
 static void printwire_tlv_query_short_channel_ids_tlvs_query_flags(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "query_flags");
-	
+
 	printf("encoding_type=");
 	u8 encoding_type = fromwire_u8(cursor, plen);
-	
-	printwire_u8(tal_fmt(NULL, "%s.encoding_type", fieldname), &encoding_type); 
+
+	printwire_u8(tal_fmt(NULL, "%s.encoding_type", fieldname), &encoding_type);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -373,7 +373,7 @@ static void printwire_tlv_query_short_channel_ids_tlvs_query_flags(const char *f
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 
 static const struct tlv_print_record_type print_tlvs_query_short_channel_ids_tlvs[] = {
@@ -383,16 +383,16 @@ static const struct tlv_print_record_type print_tlvs_query_short_channel_ids_tlv
 static void printwire_tlv_query_channel_range_tlvs_query_option(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "query_option");
-	
+
 	printf("query_option_flags=");
 	bigsize query_option_flags = fromwire_bigsize(cursor, plen);
-	
-	printwire_bigsize(tal_fmt(NULL, "%s.query_option_flags", fieldname), &query_option_flags); 
+
+	printwire_bigsize(tal_fmt(NULL, "%s.query_option_flags", fieldname), &query_option_flags);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 
 static const struct tlv_print_record_type print_tlvs_query_channel_range_tlvs[] = {
@@ -402,11 +402,11 @@ static const struct tlv_print_record_type print_tlvs_query_channel_range_tlvs[] 
 static void printwire_tlv_reply_channel_range_tlvs_timestamps_tlv(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "timestamps_tlv");
-	
+
 	printf("encoding_type=");
 	u8 encoding_type = fromwire_u8(cursor, plen);
-	
-	printwire_u8(tal_fmt(NULL, "%s.encoding_type", fieldname), &encoding_type); 
+
+	printwire_u8(tal_fmt(NULL, "%s.encoding_type", fieldname), &encoding_type);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -418,12 +418,12 @@ static void printwire_tlv_reply_channel_range_tlvs_timestamps_tlv(const char *fi
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 static void printwire_tlv_reply_channel_range_tlvs_checksums_tlv(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "checksums_tlv");
-	
+
 	printf("checksums=");
 	printf("[");
 	for (size_t i = 0; i < *plen; i++) {
@@ -437,7 +437,7 @@ static void printwire_tlv_reply_channel_range_tlvs_checksums_tlv(const char *fie
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 }
 
 static const struct tlv_print_record_type print_tlvs_reply_channel_range_tlvs[] = {
@@ -496,8 +496,8 @@ void printwire_error(const char *fieldname, const u8 *cursor)
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -514,7 +514,7 @@ void printwire_error(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -530,8 +530,8 @@ void printwire_ping(const char *fieldname, const u8 *cursor)
 
 	printf("num_pong_bytes=");
 	u16 num_pong_bytes = fromwire_u16(&cursor, &plen);
-	
-	printwire_u16(tal_fmt(NULL, "%s.num_pong_bytes", fieldname), &num_pong_bytes); 
+
+	printwire_u16(tal_fmt(NULL, "%s.num_pong_bytes", fieldname), &num_pong_bytes);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -548,7 +548,7 @@ void printwire_ping(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -574,7 +574,7 @@ void printwire_pong(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -591,8 +591,8 @@ void printwire_open_channel(const char *fieldname, const u8 *cursor)
 	printf("chain_hash=");
 	struct bitcoin_blkid chain_hash;
 	fromwire_bitcoin_blkid(&cursor, &plen, &chain_hash);
-	
-	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash); 
+
+	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -600,80 +600,80 @@ void printwire_open_channel(const char *fieldname, const u8 *cursor)
  	printf("temporary_channel_id=");
 	struct channel_id temporary_channel_id;
 	fromwire_channel_id(&cursor, &plen, &temporary_channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.temporary_channel_id", fieldname), &temporary_channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.temporary_channel_id", fieldname), &temporary_channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("funding_satoshis=");
 	struct amount_sat funding_satoshis = fromwire_amount_sat(&cursor, &plen);
-	
-	printwire_amount_sat(tal_fmt(NULL, "%s.funding_satoshis", fieldname), &funding_satoshis); 
+
+	printwire_amount_sat(tal_fmt(NULL, "%s.funding_satoshis", fieldname), &funding_satoshis);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("push_msat=");
 	struct amount_msat push_msat = fromwire_amount_msat(&cursor, &plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.push_msat", fieldname), &push_msat); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.push_msat", fieldname), &push_msat);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("dust_limit_satoshis=");
 	struct amount_sat dust_limit_satoshis = fromwire_amount_sat(&cursor, &plen);
-	
-	printwire_amount_sat(tal_fmt(NULL, "%s.dust_limit_satoshis", fieldname), &dust_limit_satoshis); 
+
+	printwire_amount_sat(tal_fmt(NULL, "%s.dust_limit_satoshis", fieldname), &dust_limit_satoshis);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("max_htlc_value_in_flight_msat=");
 	struct amount_msat max_htlc_value_in_flight_msat = fromwire_amount_msat(&cursor, &plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.max_htlc_value_in_flight_msat", fieldname), &max_htlc_value_in_flight_msat); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.max_htlc_value_in_flight_msat", fieldname), &max_htlc_value_in_flight_msat);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("channel_reserve_satoshis=");
 	struct amount_sat channel_reserve_satoshis = fromwire_amount_sat(&cursor, &plen);
-	
-	printwire_amount_sat(tal_fmt(NULL, "%s.channel_reserve_satoshis", fieldname), &channel_reserve_satoshis); 
+
+	printwire_amount_sat(tal_fmt(NULL, "%s.channel_reserve_satoshis", fieldname), &channel_reserve_satoshis);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("htlc_minimum_msat=");
 	struct amount_msat htlc_minimum_msat = fromwire_amount_msat(&cursor, &plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_minimum_msat", fieldname), &htlc_minimum_msat); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_minimum_msat", fieldname), &htlc_minimum_msat);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("feerate_per_kw=");
 	u32 feerate_per_kw = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.feerate_per_kw", fieldname), &feerate_per_kw); 
+
+	printwire_u32(tal_fmt(NULL, "%s.feerate_per_kw", fieldname), &feerate_per_kw);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("to_self_delay=");
 	u16 to_self_delay = fromwire_u16(&cursor, &plen);
-	
-	printwire_u16(tal_fmt(NULL, "%s.to_self_delay", fieldname), &to_self_delay); 
+
+	printwire_u16(tal_fmt(NULL, "%s.to_self_delay", fieldname), &to_self_delay);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("max_accepted_htlcs=");
 	u16 max_accepted_htlcs = fromwire_u16(&cursor, &plen);
-	
-	printwire_u16(tal_fmt(NULL, "%s.max_accepted_htlcs", fieldname), &max_accepted_htlcs); 
+
+	printwire_u16(tal_fmt(NULL, "%s.max_accepted_htlcs", fieldname), &max_accepted_htlcs);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -681,8 +681,8 @@ void printwire_open_channel(const char *fieldname, const u8 *cursor)
  	printf("funding_pubkey=");
 	struct pubkey funding_pubkey;
 	fromwire_pubkey(&cursor, &plen, &funding_pubkey);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.funding_pubkey", fieldname), &funding_pubkey); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.funding_pubkey", fieldname), &funding_pubkey);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -690,8 +690,8 @@ void printwire_open_channel(const char *fieldname, const u8 *cursor)
  	printf("revocation_basepoint=");
 	struct pubkey revocation_basepoint;
 	fromwire_pubkey(&cursor, &plen, &revocation_basepoint);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.revocation_basepoint", fieldname), &revocation_basepoint); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.revocation_basepoint", fieldname), &revocation_basepoint);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -699,8 +699,8 @@ void printwire_open_channel(const char *fieldname, const u8 *cursor)
  	printf("payment_basepoint=");
 	struct pubkey payment_basepoint;
 	fromwire_pubkey(&cursor, &plen, &payment_basepoint);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.payment_basepoint", fieldname), &payment_basepoint); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.payment_basepoint", fieldname), &payment_basepoint);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -708,8 +708,8 @@ void printwire_open_channel(const char *fieldname, const u8 *cursor)
  	printf("delayed_payment_basepoint=");
 	struct pubkey delayed_payment_basepoint;
 	fromwire_pubkey(&cursor, &plen, &delayed_payment_basepoint);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.delayed_payment_basepoint", fieldname), &delayed_payment_basepoint); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.delayed_payment_basepoint", fieldname), &delayed_payment_basepoint);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -717,8 +717,8 @@ void printwire_open_channel(const char *fieldname, const u8 *cursor)
  	printf("htlc_basepoint=");
 	struct pubkey htlc_basepoint;
 	fromwire_pubkey(&cursor, &plen, &htlc_basepoint);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.htlc_basepoint", fieldname), &htlc_basepoint); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.htlc_basepoint", fieldname), &htlc_basepoint);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -726,16 +726,16 @@ void printwire_open_channel(const char *fieldname, const u8 *cursor)
  	printf("first_per_commitment_point=");
 	struct pubkey first_per_commitment_point;
 	fromwire_pubkey(&cursor, &plen, &first_per_commitment_point);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.first_per_commitment_point", fieldname), &first_per_commitment_point); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.first_per_commitment_point", fieldname), &first_per_commitment_point);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("channel_flags=");
 	u8 channel_flags = fromwire_u8(&cursor, &plen);
-	
-	printwire_u8(tal_fmt(NULL, "%s.channel_flags", fieldname), &channel_flags); 
+
+	printwire_u8(tal_fmt(NULL, "%s.channel_flags", fieldname), &channel_flags);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -759,64 +759,64 @@ void printwire_accept_channel(const char *fieldname, const u8 *cursor)
 	printf("temporary_channel_id=");
 	struct channel_id temporary_channel_id;
 	fromwire_channel_id(&cursor, &plen, &temporary_channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.temporary_channel_id", fieldname), &temporary_channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.temporary_channel_id", fieldname), &temporary_channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("dust_limit_satoshis=");
 	struct amount_sat dust_limit_satoshis = fromwire_amount_sat(&cursor, &plen);
-	
-	printwire_amount_sat(tal_fmt(NULL, "%s.dust_limit_satoshis", fieldname), &dust_limit_satoshis); 
+
+	printwire_amount_sat(tal_fmt(NULL, "%s.dust_limit_satoshis", fieldname), &dust_limit_satoshis);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("max_htlc_value_in_flight_msat=");
 	struct amount_msat max_htlc_value_in_flight_msat = fromwire_amount_msat(&cursor, &plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.max_htlc_value_in_flight_msat", fieldname), &max_htlc_value_in_flight_msat); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.max_htlc_value_in_flight_msat", fieldname), &max_htlc_value_in_flight_msat);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("channel_reserve_satoshis=");
 	struct amount_sat channel_reserve_satoshis = fromwire_amount_sat(&cursor, &plen);
-	
-	printwire_amount_sat(tal_fmt(NULL, "%s.channel_reserve_satoshis", fieldname), &channel_reserve_satoshis); 
+
+	printwire_amount_sat(tal_fmt(NULL, "%s.channel_reserve_satoshis", fieldname), &channel_reserve_satoshis);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("htlc_minimum_msat=");
 	struct amount_msat htlc_minimum_msat = fromwire_amount_msat(&cursor, &plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_minimum_msat", fieldname), &htlc_minimum_msat); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_minimum_msat", fieldname), &htlc_minimum_msat);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("minimum_depth=");
 	u32 minimum_depth = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.minimum_depth", fieldname), &minimum_depth); 
+
+	printwire_u32(tal_fmt(NULL, "%s.minimum_depth", fieldname), &minimum_depth);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("to_self_delay=");
 	u16 to_self_delay = fromwire_u16(&cursor, &plen);
-	
-	printwire_u16(tal_fmt(NULL, "%s.to_self_delay", fieldname), &to_self_delay); 
+
+	printwire_u16(tal_fmt(NULL, "%s.to_self_delay", fieldname), &to_self_delay);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("max_accepted_htlcs=");
 	u16 max_accepted_htlcs = fromwire_u16(&cursor, &plen);
-	
-	printwire_u16(tal_fmt(NULL, "%s.max_accepted_htlcs", fieldname), &max_accepted_htlcs); 
+
+	printwire_u16(tal_fmt(NULL, "%s.max_accepted_htlcs", fieldname), &max_accepted_htlcs);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -824,8 +824,8 @@ void printwire_accept_channel(const char *fieldname, const u8 *cursor)
  	printf("funding_pubkey=");
 	struct pubkey funding_pubkey;
 	fromwire_pubkey(&cursor, &plen, &funding_pubkey);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.funding_pubkey", fieldname), &funding_pubkey); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.funding_pubkey", fieldname), &funding_pubkey);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -833,8 +833,8 @@ void printwire_accept_channel(const char *fieldname, const u8 *cursor)
  	printf("revocation_basepoint=");
 	struct pubkey revocation_basepoint;
 	fromwire_pubkey(&cursor, &plen, &revocation_basepoint);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.revocation_basepoint", fieldname), &revocation_basepoint); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.revocation_basepoint", fieldname), &revocation_basepoint);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -842,8 +842,8 @@ void printwire_accept_channel(const char *fieldname, const u8 *cursor)
  	printf("payment_basepoint=");
 	struct pubkey payment_basepoint;
 	fromwire_pubkey(&cursor, &plen, &payment_basepoint);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.payment_basepoint", fieldname), &payment_basepoint); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.payment_basepoint", fieldname), &payment_basepoint);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -851,8 +851,8 @@ void printwire_accept_channel(const char *fieldname, const u8 *cursor)
  	printf("delayed_payment_basepoint=");
 	struct pubkey delayed_payment_basepoint;
 	fromwire_pubkey(&cursor, &plen, &delayed_payment_basepoint);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.delayed_payment_basepoint", fieldname), &delayed_payment_basepoint); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.delayed_payment_basepoint", fieldname), &delayed_payment_basepoint);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -860,8 +860,8 @@ void printwire_accept_channel(const char *fieldname, const u8 *cursor)
  	printf("htlc_basepoint=");
 	struct pubkey htlc_basepoint;
 	fromwire_pubkey(&cursor, &plen, &htlc_basepoint);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.htlc_basepoint", fieldname), &htlc_basepoint); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.htlc_basepoint", fieldname), &htlc_basepoint);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -869,8 +869,8 @@ void printwire_accept_channel(const char *fieldname, const u8 *cursor)
  	printf("first_per_commitment_point=");
 	struct pubkey first_per_commitment_point;
 	fromwire_pubkey(&cursor, &plen, &first_per_commitment_point);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.first_per_commitment_point", fieldname), &first_per_commitment_point); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.first_per_commitment_point", fieldname), &first_per_commitment_point);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -894,8 +894,8 @@ void printwire_funding_created(const char *fieldname, const u8 *cursor)
 	printf("temporary_channel_id=");
 	struct channel_id temporary_channel_id;
 	fromwire_channel_id(&cursor, &plen, &temporary_channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.temporary_channel_id", fieldname), &temporary_channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.temporary_channel_id", fieldname), &temporary_channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -903,16 +903,16 @@ void printwire_funding_created(const char *fieldname, const u8 *cursor)
  	printf("funding_txid=");
 	struct bitcoin_txid funding_txid;
 	fromwire_bitcoin_txid(&cursor, &plen, &funding_txid);
-	
-	printwire_bitcoin_txid(tal_fmt(NULL, "%s.funding_txid", fieldname), &funding_txid); 
+
+	printwire_bitcoin_txid(tal_fmt(NULL, "%s.funding_txid", fieldname), &funding_txid);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("funding_output_index=");
 	u16 funding_output_index = fromwire_u16(&cursor, &plen);
-	
-	printwire_u16(tal_fmt(NULL, "%s.funding_output_index", fieldname), &funding_output_index); 
+
+	printwire_u16(tal_fmt(NULL, "%s.funding_output_index", fieldname), &funding_output_index);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -920,13 +920,13 @@ void printwire_funding_created(const char *fieldname, const u8 *cursor)
  	printf("signature=");
 	secp256k1_ecdsa_signature signature;
 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, &signature);
-	
-	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.signature", fieldname), &signature); 
+
+	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.signature", fieldname), &signature);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -943,8 +943,8 @@ void printwire_funding_signed(const char *fieldname, const u8 *cursor)
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -952,13 +952,13 @@ void printwire_funding_signed(const char *fieldname, const u8 *cursor)
  	printf("signature=");
 	secp256k1_ecdsa_signature signature;
 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, &signature);
-	
-	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.signature", fieldname), &signature); 
+
+	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.signature", fieldname), &signature);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -975,8 +975,8 @@ void printwire_funding_locked(const char *fieldname, const u8 *cursor)
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -984,13 +984,13 @@ void printwire_funding_locked(const char *fieldname, const u8 *cursor)
  	printf("next_per_commitment_point=");
 	struct pubkey next_per_commitment_point;
 	fromwire_pubkey(&cursor, &plen, &next_per_commitment_point);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.next_per_commitment_point", fieldname), &next_per_commitment_point); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.next_per_commitment_point", fieldname), &next_per_commitment_point);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1007,8 +1007,8 @@ void printwire_shutdown(const char *fieldname, const u8 *cursor)
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1025,7 +1025,7 @@ void printwire_shutdown(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1042,16 +1042,16 @@ void printwire_closing_signed(const char *fieldname, const u8 *cursor)
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("fee_satoshis=");
 	struct amount_sat fee_satoshis = fromwire_amount_sat(&cursor, &plen);
-	
-	printwire_amount_sat(tal_fmt(NULL, "%s.fee_satoshis", fieldname), &fee_satoshis); 
+
+	printwire_amount_sat(tal_fmt(NULL, "%s.fee_satoshis", fieldname), &fee_satoshis);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1059,13 +1059,13 @@ void printwire_closing_signed(const char *fieldname, const u8 *cursor)
  	printf("signature=");
 	secp256k1_ecdsa_signature signature;
 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, &signature);
-	
-	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.signature", fieldname), &signature); 
+
+	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.signature", fieldname), &signature);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1082,24 +1082,24 @@ void printwire_update_add_htlc(const char *fieldname, const u8 *cursor)
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("id=");
 	u64 id = fromwire_u64(&cursor, &plen);
-	
-	printwire_u64(tal_fmt(NULL, "%s.id", fieldname), &id); 
+
+	printwire_u64(tal_fmt(NULL, "%s.id", fieldname), &id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("amount_msat=");
 	struct amount_msat amount_msat = fromwire_amount_msat(&cursor, &plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.amount_msat", fieldname), &amount_msat); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.amount_msat", fieldname), &amount_msat);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1107,16 +1107,16 @@ void printwire_update_add_htlc(const char *fieldname, const u8 *cursor)
  	printf("payment_hash=");
 	struct sha256 payment_hash;
 	fromwire_sha256(&cursor, &plen, &payment_hash);
-	
-	printwire_sha256(tal_fmt(NULL, "%s.payment_hash", fieldname), &payment_hash); 
+
+	printwire_sha256(tal_fmt(NULL, "%s.payment_hash", fieldname), &payment_hash);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("cltv_expiry=");
 	u32 cltv_expiry = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.cltv_expiry", fieldname), &cltv_expiry); 
+
+	printwire_u32(tal_fmt(NULL, "%s.cltv_expiry", fieldname), &cltv_expiry);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1128,7 +1128,7 @@ void printwire_update_add_htlc(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1145,16 +1145,16 @@ void printwire_update_fulfill_htlc(const char *fieldname, const u8 *cursor)
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("id=");
 	u64 id = fromwire_u64(&cursor, &plen);
-	
-	printwire_u64(tal_fmt(NULL, "%s.id", fieldname), &id); 
+
+	printwire_u64(tal_fmt(NULL, "%s.id", fieldname), &id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1162,13 +1162,13 @@ void printwire_update_fulfill_htlc(const char *fieldname, const u8 *cursor)
  	printf("payment_preimage=");
 	struct preimage payment_preimage;
 	fromwire_preimage(&cursor, &plen, &payment_preimage);
-	
-	printwire_preimage(tal_fmt(NULL, "%s.payment_preimage", fieldname), &payment_preimage); 
+
+	printwire_preimage(tal_fmt(NULL, "%s.payment_preimage", fieldname), &payment_preimage);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1185,16 +1185,16 @@ void printwire_update_fail_htlc(const char *fieldname, const u8 *cursor)
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("id=");
 	u64 id = fromwire_u64(&cursor, &plen);
-	
-	printwire_u64(tal_fmt(NULL, "%s.id", fieldname), &id); 
+
+	printwire_u64(tal_fmt(NULL, "%s.id", fieldname), &id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1211,7 +1211,7 @@ void printwire_update_fail_htlc(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1228,16 +1228,16 @@ void printwire_update_fail_malformed_htlc(const char *fieldname, const u8 *curso
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("id=");
 	u64 id = fromwire_u64(&cursor, &plen);
-	
-	printwire_u64(tal_fmt(NULL, "%s.id", fieldname), &id); 
+
+	printwire_u64(tal_fmt(NULL, "%s.id", fieldname), &id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1245,21 +1245,21 @@ void printwire_update_fail_malformed_htlc(const char *fieldname, const u8 *curso
  	printf("sha256_of_onion=");
 	struct sha256 sha256_of_onion;
 	fromwire_sha256(&cursor, &plen, &sha256_of_onion);
-	
-	printwire_sha256(tal_fmt(NULL, "%s.sha256_of_onion", fieldname), &sha256_of_onion); 
+
+	printwire_sha256(tal_fmt(NULL, "%s.sha256_of_onion", fieldname), &sha256_of_onion);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("failure_code=");
 	u16 failure_code = fromwire_u16(&cursor, &plen);
-	
-	printwire_u16(tal_fmt(NULL, "%s.failure_code", fieldname), &failure_code); 
+
+	printwire_u16(tal_fmt(NULL, "%s.failure_code", fieldname), &failure_code);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1276,8 +1276,8 @@ void printwire_commitment_signed(const char *fieldname, const u8 *cursor)
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1285,8 +1285,8 @@ void printwire_commitment_signed(const char *fieldname, const u8 *cursor)
  	printf("signature=");
 	secp256k1_ecdsa_signature signature;
 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, &signature);
-	
-	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.signature", fieldname), &signature); 
+
+	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.signature", fieldname), &signature);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1313,7 +1313,7 @@ void printwire_commitment_signed(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1330,8 +1330,8 @@ void printwire_revoke_and_ack(const char *fieldname, const u8 *cursor)
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1339,8 +1339,8 @@ void printwire_revoke_and_ack(const char *fieldname, const u8 *cursor)
  	printf("per_commitment_secret=");
 	struct secret per_commitment_secret;
 	fromwire_secret(&cursor, &plen, &per_commitment_secret);
-	
-	printwire_secret(tal_fmt(NULL, "%s.per_commitment_secret", fieldname), &per_commitment_secret); 
+
+	printwire_secret(tal_fmt(NULL, "%s.per_commitment_secret", fieldname), &per_commitment_secret);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1348,13 +1348,13 @@ void printwire_revoke_and_ack(const char *fieldname, const u8 *cursor)
  	printf("next_per_commitment_point=");
 	struct pubkey next_per_commitment_point;
 	fromwire_pubkey(&cursor, &plen, &next_per_commitment_point);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.next_per_commitment_point", fieldname), &next_per_commitment_point); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.next_per_commitment_point", fieldname), &next_per_commitment_point);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1371,21 +1371,21 @@ void printwire_update_fee(const char *fieldname, const u8 *cursor)
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("feerate_per_kw=");
 	u32 feerate_per_kw = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.feerate_per_kw", fieldname), &feerate_per_kw); 
+
+	printwire_u32(tal_fmt(NULL, "%s.feerate_per_kw", fieldname), &feerate_per_kw);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1402,24 +1402,24 @@ void printwire_channel_reestablish(const char *fieldname, const u8 *cursor)
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("next_commitment_number=");
 	u64 next_commitment_number = fromwire_u64(&cursor, &plen);
-	
-	printwire_u64(tal_fmt(NULL, "%s.next_commitment_number", fieldname), &next_commitment_number); 
+
+	printwire_u64(tal_fmt(NULL, "%s.next_commitment_number", fieldname), &next_commitment_number);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("next_revocation_number=");
 	u64 next_revocation_number = fromwire_u64(&cursor, &plen);
-	
-	printwire_u64(tal_fmt(NULL, "%s.next_revocation_number", fieldname), &next_revocation_number); 
+
+	printwire_u64(tal_fmt(NULL, "%s.next_revocation_number", fieldname), &next_revocation_number);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1427,8 +1427,8 @@ void printwire_channel_reestablish(const char *fieldname, const u8 *cursor)
  	printf("your_last_per_commitment_secret=");
 	struct secret your_last_per_commitment_secret;
 	fromwire_secret(&cursor, &plen, &your_last_per_commitment_secret);
-	
-	printwire_secret(tal_fmt(NULL, "%s.your_last_per_commitment_secret", fieldname), &your_last_per_commitment_secret); 
+
+	printwire_secret(tal_fmt(NULL, "%s.your_last_per_commitment_secret", fieldname), &your_last_per_commitment_secret);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1436,13 +1436,13 @@ void printwire_channel_reestablish(const char *fieldname, const u8 *cursor)
  	printf("my_current_per_commitment_point=");
 	struct pubkey my_current_per_commitment_point;
 	fromwire_pubkey(&cursor, &plen, &my_current_per_commitment_point);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.my_current_per_commitment_point", fieldname), &my_current_per_commitment_point); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.my_current_per_commitment_point", fieldname), &my_current_per_commitment_point);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1459,8 +1459,8 @@ void printwire_announcement_signatures(const char *fieldname, const u8 *cursor)
 	printf("channel_id=");
 	struct channel_id channel_id;
 	fromwire_channel_id(&cursor, &plen, &channel_id);
-	
-	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id); 
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1468,8 +1468,8 @@ void printwire_announcement_signatures(const char *fieldname, const u8 *cursor)
  	printf("short_channel_id=");
 	struct short_channel_id short_channel_id;
 	fromwire_short_channel_id(&cursor, &plen, &short_channel_id);
-	
-	printwire_short_channel_id(tal_fmt(NULL, "%s.short_channel_id", fieldname), &short_channel_id); 
+
+	printwire_short_channel_id(tal_fmt(NULL, "%s.short_channel_id", fieldname), &short_channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1477,8 +1477,8 @@ void printwire_announcement_signatures(const char *fieldname, const u8 *cursor)
  	printf("node_signature=");
 	secp256k1_ecdsa_signature node_signature;
 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, &node_signature);
-	
-	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.node_signature", fieldname), &node_signature); 
+
+	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.node_signature", fieldname), &node_signature);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1486,13 +1486,13 @@ void printwire_announcement_signatures(const char *fieldname, const u8 *cursor)
  	printf("bitcoin_signature=");
 	secp256k1_ecdsa_signature bitcoin_signature;
 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, &bitcoin_signature);
-	
-	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.bitcoin_signature", fieldname), &bitcoin_signature); 
+
+	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.bitcoin_signature", fieldname), &bitcoin_signature);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1509,8 +1509,8 @@ void printwire_channel_announcement(const char *fieldname, const u8 *cursor)
 	printf("node_signature_1=");
 	secp256k1_ecdsa_signature node_signature_1;
 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, &node_signature_1);
-	
-	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.node_signature_1", fieldname), &node_signature_1); 
+
+	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.node_signature_1", fieldname), &node_signature_1);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1518,8 +1518,8 @@ void printwire_channel_announcement(const char *fieldname, const u8 *cursor)
  	printf("node_signature_2=");
 	secp256k1_ecdsa_signature node_signature_2;
 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, &node_signature_2);
-	
-	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.node_signature_2", fieldname), &node_signature_2); 
+
+	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.node_signature_2", fieldname), &node_signature_2);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1527,8 +1527,8 @@ void printwire_channel_announcement(const char *fieldname, const u8 *cursor)
  	printf("bitcoin_signature_1=");
 	secp256k1_ecdsa_signature bitcoin_signature_1;
 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, &bitcoin_signature_1);
-	
-	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.bitcoin_signature_1", fieldname), &bitcoin_signature_1); 
+
+	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.bitcoin_signature_1", fieldname), &bitcoin_signature_1);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1536,8 +1536,8 @@ void printwire_channel_announcement(const char *fieldname, const u8 *cursor)
  	printf("bitcoin_signature_2=");
 	secp256k1_ecdsa_signature bitcoin_signature_2;
 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, &bitcoin_signature_2);
-	
-	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.bitcoin_signature_2", fieldname), &bitcoin_signature_2); 
+
+	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.bitcoin_signature_2", fieldname), &bitcoin_signature_2);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1557,8 +1557,8 @@ void printwire_channel_announcement(const char *fieldname, const u8 *cursor)
  	printf("chain_hash=");
 	struct bitcoin_blkid chain_hash;
 	fromwire_bitcoin_blkid(&cursor, &plen, &chain_hash);
-	
-	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash); 
+
+	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1566,8 +1566,8 @@ void printwire_channel_announcement(const char *fieldname, const u8 *cursor)
  	printf("short_channel_id=");
 	struct short_channel_id short_channel_id;
 	fromwire_short_channel_id(&cursor, &plen, &short_channel_id);
-	
-	printwire_short_channel_id(tal_fmt(NULL, "%s.short_channel_id", fieldname), &short_channel_id); 
+
+	printwire_short_channel_id(tal_fmt(NULL, "%s.short_channel_id", fieldname), &short_channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1575,8 +1575,8 @@ void printwire_channel_announcement(const char *fieldname, const u8 *cursor)
  	printf("node_id_1=");
 	struct node_id node_id_1;
 	fromwire_node_id(&cursor, &plen, &node_id_1);
-	
-	printwire_node_id(tal_fmt(NULL, "%s.node_id_1", fieldname), &node_id_1); 
+
+	printwire_node_id(tal_fmt(NULL, "%s.node_id_1", fieldname), &node_id_1);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1584,8 +1584,8 @@ void printwire_channel_announcement(const char *fieldname, const u8 *cursor)
  	printf("node_id_2=");
 	struct node_id node_id_2;
 	fromwire_node_id(&cursor, &plen, &node_id_2);
-	
-	printwire_node_id(tal_fmt(NULL, "%s.node_id_2", fieldname), &node_id_2); 
+
+	printwire_node_id(tal_fmt(NULL, "%s.node_id_2", fieldname), &node_id_2);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1593,8 +1593,8 @@ void printwire_channel_announcement(const char *fieldname, const u8 *cursor)
  	printf("bitcoin_key_1=");
 	struct pubkey bitcoin_key_1;
 	fromwire_pubkey(&cursor, &plen, &bitcoin_key_1);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.bitcoin_key_1", fieldname), &bitcoin_key_1); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.bitcoin_key_1", fieldname), &bitcoin_key_1);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1602,13 +1602,13 @@ void printwire_channel_announcement(const char *fieldname, const u8 *cursor)
  	printf("bitcoin_key_2=");
 	struct pubkey bitcoin_key_2;
 	fromwire_pubkey(&cursor, &plen, &bitcoin_key_2);
-	
-	printwire_pubkey(tal_fmt(NULL, "%s.bitcoin_key_2", fieldname), &bitcoin_key_2); 
+
+	printwire_pubkey(tal_fmt(NULL, "%s.bitcoin_key_2", fieldname), &bitcoin_key_2);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1625,8 +1625,8 @@ void printwire_node_announcement(const char *fieldname, const u8 *cursor)
 	printf("signature=");
 	secp256k1_ecdsa_signature signature;
 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, &signature);
-	
-	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.signature", fieldname), &signature); 
+
+	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.signature", fieldname), &signature);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1645,8 +1645,8 @@ void printwire_node_announcement(const char *fieldname, const u8 *cursor)
 	}
  	printf("timestamp=");
 	u32 timestamp = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.timestamp", fieldname), &timestamp); 
+
+	printwire_u32(tal_fmt(NULL, "%s.timestamp", fieldname), &timestamp);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1654,8 +1654,8 @@ void printwire_node_announcement(const char *fieldname, const u8 *cursor)
  	printf("node_id=");
 	struct node_id node_id;
 	fromwire_node_id(&cursor, &plen, &node_id);
-	
-	printwire_node_id(tal_fmt(NULL, "%s.node_id", fieldname), &node_id); 
+
+	printwire_node_id(tal_fmt(NULL, "%s.node_id", fieldname), &node_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1686,7 +1686,7 @@ void printwire_node_announcement(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1703,8 +1703,8 @@ void printwire_channel_update(const char *fieldname, const u8 *cursor)
 	printf("signature=");
 	secp256k1_ecdsa_signature signature;
 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, &signature);
-	
-	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.signature", fieldname), &signature); 
+
+	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.signature", fieldname), &signature);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1712,8 +1712,8 @@ void printwire_channel_update(const char *fieldname, const u8 *cursor)
  	printf("chain_hash=");
 	struct bitcoin_blkid chain_hash;
 	fromwire_bitcoin_blkid(&cursor, &plen, &chain_hash);
-	
-	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash); 
+
+	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1721,64 +1721,64 @@ void printwire_channel_update(const char *fieldname, const u8 *cursor)
  	printf("short_channel_id=");
 	struct short_channel_id short_channel_id;
 	fromwire_short_channel_id(&cursor, &plen, &short_channel_id);
-	
-	printwire_short_channel_id(tal_fmt(NULL, "%s.short_channel_id", fieldname), &short_channel_id); 
+
+	printwire_short_channel_id(tal_fmt(NULL, "%s.short_channel_id", fieldname), &short_channel_id);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("timestamp=");
 	u32 timestamp = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.timestamp", fieldname), &timestamp); 
+
+	printwire_u32(tal_fmt(NULL, "%s.timestamp", fieldname), &timestamp);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("message_flags=");
 	u8 message_flags = fromwire_u8(&cursor, &plen);
-	
-	printwire_u8(tal_fmt(NULL, "%s.message_flags", fieldname), &message_flags); 
+
+	printwire_u8(tal_fmt(NULL, "%s.message_flags", fieldname), &message_flags);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("channel_flags=");
 	u8 channel_flags = fromwire_u8(&cursor, &plen);
-	
-	printwire_u8(tal_fmt(NULL, "%s.channel_flags", fieldname), &channel_flags); 
+
+	printwire_u8(tal_fmt(NULL, "%s.channel_flags", fieldname), &channel_flags);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("cltv_expiry_delta=");
 	u16 cltv_expiry_delta = fromwire_u16(&cursor, &plen);
-	
-	printwire_u16(tal_fmt(NULL, "%s.cltv_expiry_delta", fieldname), &cltv_expiry_delta); 
+
+	printwire_u16(tal_fmt(NULL, "%s.cltv_expiry_delta", fieldname), &cltv_expiry_delta);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("htlc_minimum_msat=");
 	struct amount_msat htlc_minimum_msat = fromwire_amount_msat(&cursor, &plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_minimum_msat", fieldname), &htlc_minimum_msat); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_minimum_msat", fieldname), &htlc_minimum_msat);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("fee_base_msat=");
 	u32 fee_base_msat = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.fee_base_msat", fieldname), &fee_base_msat); 
+
+	printwire_u32(tal_fmt(NULL, "%s.fee_base_msat", fieldname), &fee_base_msat);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("fee_proportional_millionths=");
 	u32 fee_proportional_millionths = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.fee_proportional_millionths", fieldname), &fee_proportional_millionths); 
+
+	printwire_u32(tal_fmt(NULL, "%s.fee_proportional_millionths", fieldname), &fee_proportional_millionths);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1788,13 +1788,13 @@ void printwire_channel_update(const char *fieldname, const u8 *cursor)
 	printf("(option_channel_htlc_max):");
 	printf("htlc_maximum_msat=");
 	struct amount_msat htlc_maximum_msat = fromwire_amount_msat(&cursor, &plen);
-	
-	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_maximum_msat", fieldname), &htlc_maximum_msat); 
+
+	printwire_amount_msat(tal_fmt(NULL, "%s.htlc_maximum_msat", fieldname), &htlc_maximum_msat);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1811,8 +1811,8 @@ void printwire_query_short_channel_ids(const char *fieldname, const u8 *cursor)
 	printf("chain_hash=");
 	struct bitcoin_blkid chain_hash;
 	fromwire_bitcoin_blkid(&cursor, &plen, &chain_hash);
-	
-	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash); 
+
+	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1848,21 +1848,21 @@ void printwire_reply_short_channel_ids_end(const char *fieldname, const u8 *curs
 	printf("chain_hash=");
 	struct bitcoin_blkid chain_hash;
 	fromwire_bitcoin_blkid(&cursor, &plen, &chain_hash);
-	
-	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash); 
+
+	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("full_information=");
 	u8 full_information = fromwire_u8(&cursor, &plen);
-	
-	printwire_u8(tal_fmt(NULL, "%s.full_information", fieldname), &full_information); 
+
+	printwire_u8(tal_fmt(NULL, "%s.full_information", fieldname), &full_information);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -1879,24 +1879,24 @@ void printwire_query_channel_range(const char *fieldname, const u8 *cursor)
 	printf("chain_hash=");
 	struct bitcoin_blkid chain_hash;
 	fromwire_bitcoin_blkid(&cursor, &plen, &chain_hash);
-	
-	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash); 
+
+	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("first_blocknum=");
 	u32 first_blocknum = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.first_blocknum", fieldname), &first_blocknum); 
+
+	printwire_u32(tal_fmt(NULL, "%s.first_blocknum", fieldname), &first_blocknum);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("number_of_blocks=");
 	u32 number_of_blocks = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.number_of_blocks", fieldname), &number_of_blocks); 
+
+	printwire_u32(tal_fmt(NULL, "%s.number_of_blocks", fieldname), &number_of_blocks);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1920,32 +1920,32 @@ void printwire_reply_channel_range(const char *fieldname, const u8 *cursor)
 	printf("chain_hash=");
 	struct bitcoin_blkid chain_hash;
 	fromwire_bitcoin_blkid(&cursor, &plen, &chain_hash);
-	
-	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash); 
+
+	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("first_blocknum=");
 	u32 first_blocknum = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.first_blocknum", fieldname), &first_blocknum); 
+
+	printwire_u32(tal_fmt(NULL, "%s.first_blocknum", fieldname), &first_blocknum);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("number_of_blocks=");
 	u32 number_of_blocks = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.number_of_blocks", fieldname), &number_of_blocks); 
+
+	printwire_u32(tal_fmt(NULL, "%s.number_of_blocks", fieldname), &number_of_blocks);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("full_information=");
 	u8 full_information = fromwire_u8(&cursor, &plen);
-	
-	printwire_u8(tal_fmt(NULL, "%s.full_information", fieldname), &full_information); 
+
+	printwire_u8(tal_fmt(NULL, "%s.full_information", fieldname), &full_information);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -1981,29 +1981,29 @@ void printwire_gossip_timestamp_filter(const char *fieldname, const u8 *cursor)
 	printf("chain_hash=");
 	struct bitcoin_blkid chain_hash;
 	fromwire_bitcoin_blkid(&cursor, &plen, &chain_hash);
-	
-	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash); 
+
+	printwire_bitcoin_blkid(tal_fmt(NULL, "%s.chain_hash", fieldname), &chain_hash);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("first_timestamp=");
 	u32 first_timestamp = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.first_timestamp", fieldname), &first_timestamp); 
+
+	printwire_u32(tal_fmt(NULL, "%s.first_timestamp", fieldname), &first_timestamp);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
  	printf("timestamp_range=");
 	u32 timestamp_range = fromwire_u32(&cursor, &plen);
-	
-	printwire_u32(tal_fmt(NULL, "%s.timestamp_range", fieldname), &timestamp_range); 
+
+	printwire_u32(tal_fmt(NULL, "%s.timestamp_range", fieldname), &timestamp_range);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 
+
 
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
@@ -2036,5 +2036,4 @@ void printpeer_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_reply_channel_range_tlvs, ARRAY_SIZE(print_tlvs_reply_channel_range_tlvs));
 	}
 }
-
-// SHA256STAMP:387ba235bbb8248b61a18b8fc1b7842f5ad47bbbb53cc8cf2bb2b8f872ce5a0d
+// SHA256STAMP:521d619f25ebb8f49af991416c17ffbb6c9d2216cca98fe7be50824388d6bcac

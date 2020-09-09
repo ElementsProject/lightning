@@ -70,5 +70,4 @@ void printwire_gossip_timestamp_filter(const char *fieldname, const u8 *cursor);
 void printwire_channel_update_checksums(const char *fieldname, const u8 **cursor, size_t *plen);
 void printwire_channel_update_timestamps(const char *fieldname, const u8 **cursor, size_t *plen);
 #endif /* LIGHTNING_WIRE_PEER_PRINTGEN_H */
-
-// SHA256STAMP:387ba235bbb8248b61a18b8fc1b7842f5ad47bbbb53cc8cf2bb2b8f872ce5a0d
+// SHA256STAMP:521d619f25ebb8f49af991416c17ffbb6c9d2216cca98fe7be50824388d6bcac
