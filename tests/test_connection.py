@@ -355,7 +355,7 @@ def test_reconnect_openingd(node_factory):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # We should get a message about reconnecting.
-    l2.daemon.wait_for_log('Killing openingd: Reconnected')
+    l2.daemon.wait_for_log('Killing opening daemon: Reconnected')
     l2.daemon.wait_for_log('openingd.*Handed peer, entering loop')
 
     # Should work fine.
