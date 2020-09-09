@@ -351,7 +351,7 @@ void psbt_input_add_max_witness_len(struct wally_psbt_input *input,
 }
 
 
-bool psbt_input_get_max_witness_len(struct wally_psbt_input *input,
+bool psbt_input_get_max_witness_len(const struct wally_psbt_input *input,
 				    u16 *max_witness_len)
 {
 	size_t value_len;
