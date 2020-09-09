@@ -43,29 +43,23 @@ WIRE_BOLT_DEPS := $(BOLT_DEPS) tools/gen/impl_template tools/gen/header_template
 
 # Explicit command to re-extract CSV from BOLTs.
 extract-bolt-csv: bolt-precheck
-	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/0[127]*.md > wire/extracted_peer_wire_csv
-	@echo '#include <wire/onion_defs.h>' > wire/extracted_onion_wire_csv
-	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md >> wire/extracted_onion_wire_csv
+	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/0[127]*.md > wire/peer_wire.csv
+	@echo '#include <wire/onion_defs.h>' > wire/onion_wire.csv
+	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md >> wire/onion_wire.csv
 
 # Explicit command to add patchfile for BOLT CSV's
 extract-experimental-bolt-csv: bolt-precheck
-	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/0[127]*.md | diff -u wire/extracted_peer_wire_csv - >wire/extracted_peer_experimental_$(BOLTVERSION) | if [ $$? -lt 0 ];then exit 1;fi
-	@{ echo '#include <wire/onion_defs.h>'; $(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md; } | diff -u wire/extracted_onion_wire_csv - > wire/extracted_onion_experimental_$(BOLTVERSION) | if [ $$? -lt 0 ];then exit 1;fi
-
-wire/extracted_peer_experimental_csv:
-	@touch $@
-
-wire/extracted_onion_experimental_csv:
-	@touch $@
+	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/0[127]*.md | diff -u wire/peer_exp_wire.csv - >wire/extracted_peer_experimental_$(BOLTVERSION) | if [ $$? -lt 0 ];then exit 1;fi
+	@{ echo '#include <wire/onion_defs.h>'; $(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md; } | diff -u wire/onion_exp_wire.csv - > wire/extracted_onion_experimental_$(BOLTVERSION) | if [ $$? -lt 0 ];then exit 1;fi
 
 ifeq ($(EXPERIMENTAL_FEATURES),1)
 EXPERIMENTAL_PEER_PATCHES := $(sort $(wildcard wire/extracted_peer_experimental_*))
 EXPERIMENTAL_ONION_PATCHES := $(sort $(wildcard wire/extracted_onion_experimental_*))
 
-wire/peer_exp_wire.csv: wire/peer_wire_csv $(EXPERIMENTAL_PEER_PATCHES)
+wire/peer_exp_wire.csv: wire/peer_wire.csv $(EXPERIMENTAL_PEER_PATCHES)
 	@set -e; trap "rm -f $@.$$$$" 0; cp $< $@.$$$$; for exp in $(EXPERIMENTAL_PEER_PATCHES); do patch $@.$$$$ $$exp >/dev/null ; done; mv $@.$$$$ $@
 
-wire/onion_exp_wire.csv: wire/onion_wire_csv $(EXPERIMENTAL_ONION_PATCHES)
+wire/onion_exp_wire.csv: wire/onion_wire.csv $(EXPERIMENTAL_ONION_PATCHES)
 	@set -e; trap "rm -f $@.$$$$" 0; cp $< $@.$$$$; for exp in $(EXPERIMENTAL_ONION_PATCHES); do patch $@.$$$$ $$exp; done >/dev/null ; mv $@.$$$$ $@
 endif
 
