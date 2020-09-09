@@ -37,6 +37,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-listpeers.7 \
 	doc/lightning-listsendpays.7 \
 	doc/lightning-multifundchannel.7 \
+	doc/lightning-multiwithdraw.7 \
 	doc/lightning-newaddr.7 \
 	doc/lightning-pay.7 \
 	doc/lightning-plugin.7 \

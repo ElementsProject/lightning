@@ -1,5 +1,6 @@
 #include <common/utils.h>
 #include <plugins/libplugin.h>
+#include <plugins/spender/multiwithdraw.h>
 
 /*~ The spender plugin contains various commands that handle
  * spending from the onchain wallet.  */
@@ -19,6 +20,7 @@ int main(int argc, char **argv)
 
 	commands = tal_arr(owner, struct plugin_command, 0);
 
+	tal_expand(&commands, multiwithdraw_commands, num_multiwithdraw_commands);
 	/* tal_expand(&commands, whatever_commands, num_whatever_commands); */
 
 	plugin_main(argv, &spender_init, PLUGIN_STATIC, true,

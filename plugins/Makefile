@@ -28,8 +28,10 @@ PLUGIN_MULTIFUNDCHANNEL_SRC := plugins/multifundchannel.c
 PLUGIN_MULTIFUNDCHANNEL_OBJS := $(PLUGIN_MULTIFUNDCHANNEL_SRC:.c=.o)
 
 PLUGIN_SPENDER_SRC :=				\
-	plugins/spender/main.c
-PLUGIN_SPENDER_HEADER :=
+	plugins/spender/main.c			\
+	plugins/spender/multiwithdraw.c
+PLUGIN_SPENDER_HEADER :=			\
+	plugins/spender/multiwithdraw.h
 PLUGIN_SPENDER_OBJS := $(PLUGIN_SPENDER_SRC:.c=.o)
 
 PLUGIN_ALL_SRC :=				\
