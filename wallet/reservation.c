@@ -296,6 +296,12 @@ static struct command_result *finish_psbt(struct command *cmd,
 	psbt = psbt_using_utxos(cmd, utxos, cmd->ld->wallet->bip32_base,
 				*locktime, BITCOIN_TX_RBF_SEQUENCE);
 
+	/* Add a fee output if this is elements */
+	if (is_elements(chainparams)) {
+		struct amount_sat est_fee =
+			amount_tx_fee(feerate_per_kw, weight);
+		psbt_append_output(psbt, NULL, est_fee);
+	}
 	response = json_stream_success(cmd);
 	json_add_psbt(response, "psbt", psbt);
 	json_add_num(response, "feerate_per_kw", feerate_per_kw);
