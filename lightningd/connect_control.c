@@ -24,7 +24,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
-#include <lightningd/opening_control.h>
+#include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wire/peer_wire.h>

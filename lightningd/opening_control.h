@@ -18,9 +18,6 @@ void peer_start_openingd(struct peer *peer,
 			 struct per_peer_state *pps,
 			 const u8 *msg);
 
-void kill_uncommitted_channel(struct uncommitted_channel *uc,
-			      const char *why);
-
 #if DEVELOPER
 struct command;
 /* Calls report_leak_info() async. */

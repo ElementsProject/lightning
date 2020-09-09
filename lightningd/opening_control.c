@@ -6,7 +6,6 @@
 #include <common/channel_config.h>
 #include <common/features.h>
 #include <common/fee_states.h>
-#include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
@@ -24,8 +23,8 @@
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
 #include <lightningd/notification.h>
+#include <lightningd/opening_common.h>
 #include <lightningd/opening_control.h>
 #include <lightningd/options.h>
 #include <lightningd/plugin_hook.h>
@@ -35,93 +34,6 @@
 #include <wire/common_wiregen.h>
 #include <wire/wire.h>
 #include <wire/wire_sync.h>
-
-/* Channel we're still opening. */
-struct uncommitted_channel {
-	/* peer->uncommitted_channel == this */
-	struct peer *peer;
-
-	/* openingd which is running now */
-	struct subd *openingd;
-
-	/* Reserved dbid for if we become a real struct channel */
-	u64 dbid;
-
-	/* For logging */
-	struct log *log;
-
-	/* Openingd can tell us stuff. */
-	const char *transient_billboard;
-
-	/* If we offered channel, this contains information, otherwise NULL */
-	struct funding_channel *fc;
-
-	/* Our basepoints for the channel. */
-	struct basepoints local_basepoints;
-
-	/* Public key for funding tx. */
-	struct pubkey local_funding_pubkey;
-
-	/* These are *not* filled in by new_uncommitted_channel: */
-
-	/* Minimum funding depth (if opener == REMOTE). */
-	u32 minimum_depth;
-
-	/* Our channel config. */
-	struct channel_config our_config;
-};
-
-
-struct funding_channel {
-	struct command *cmd; /* Which initially owns us until openingd request */
-
-	struct wallet_tx *wtx;
-	struct amount_msat push;
-	struct amount_sat funding;
-	u8 channel_flags;
-	const u8 *our_upfront_shutdown_script;
-
-	/* Variables we need to compose fields in cmd's response */
-	const char *hextx;
-	struct channel_id cid;
-
-	/* Peer we're trying to reach. */
-	struct pubkey peerid;
-
-	/* Channel, subsequent owner of us */
-	struct uncommitted_channel *uc;
-
-	/* Whether or not this is in the middle of getting funded */
-	bool inflight;
-
-	/* Any commands trying to cancel us. */
-	struct command **cancels;
-};
-
-static void uncommitted_channel_disconnect(struct uncommitted_channel *uc,
-					   enum log_level level,
-					   const char *desc)
-{
-	u8 *msg = towire_connectd_peer_disconnected(tmpctx, &uc->peer->id);
-	log_(uc->log, level, NULL, false, "%s", desc);
-	subd_send_msg(uc->peer->ld->connectd, msg);
-	if (uc->fc && uc->fc->cmd)
-		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
-	notify_disconnect(uc->peer->ld, &uc->peer->id);
-}
-
-void kill_uncommitted_channel(struct uncommitted_channel *uc,
-			      const char *why)
-{
-	log_info(uc->log, "Killing openingd: %s", why);
-
-	/* Close openingd. */
-	subd_release_channel(uc->openingd, uc);
-	uc->openingd = NULL;
-
-	uncommitted_channel_disconnect(uc, LOG_INFORM, why);
-	tal_free(uc);
-}
 
 void json_add_uncommitted_channel(struct json_stream *response,
 				  const struct uncommitted_channel *uc)
@@ -331,7 +243,8 @@ cancel_after_fundchannel_complete_success(struct command *cmd,
 static void funding_success(struct channel *channel)
 {
 	struct json_stream *response;
-	struct funding_channel *fc = channel->peer->uncommitted_channel->fc;
+	struct funding_channel *fc =
+		channel->peer->uncommitted_channel->fc;
 	struct command *cmd = fc->cmd;
 
 	/* Well, those cancels now need to trigger!  */
@@ -403,7 +316,7 @@ static void opening_funder_start_replied(struct subd *openingd, const u8 *resp,
 
 failed:
 	subd_release_channel(openingd, fc->uc);
-	fc->uc->openingd = NULL;
+	fc->uc->open_daemon = NULL;
 	/* Frees fc too, and tmpctx */
 	tal_free(fc->uc);
 }
@@ -495,7 +408,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 
 cleanup:
 	subd_release_channel(openingd, fc->uc);
-	fc->uc->openingd = NULL;
+	fc->uc->open_daemon = NULL;
 	/* Frees fc too, and tmpctx */
 	tal_free(fc->uc);
 }
@@ -606,7 +519,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	peer_start_channeld(channel, pps, funding_signed, false);
 
 	subd_release_channel(openingd, uc);
-	uc->openingd = NULL;
+	uc->open_daemon = NULL;
 	tal_free(uc);
 	return;
 
@@ -649,114 +562,6 @@ static void opening_funder_failed(struct subd *openingd, const u8 *msg,
 	/* Clear uc->fc, so we can try again, and so we don't fail twice
 	 * if they close. */
 	uc->fc = tal_free(uc->fc);
-}
-
-static void opening_channel_errmsg(struct uncommitted_channel *uc,
-				   struct per_peer_state *pps,
-				   const struct channel_id *channel_id UNUSED,
-				   const char *desc,
-				   bool soft_error UNUSED,
-				   const u8 *err_for_them UNUSED)
-{
-	/* Close fds, if any. */
-	tal_free(pps);
-	uncommitted_channel_disconnect(uc, LOG_INFORM, desc);
-	tal_free(uc);
-}
-
-/* There's nothing permanent in an unconfirmed transaction */
-static void opening_channel_set_billboard(struct uncommitted_channel *uc,
-					  bool perm UNUSED,
-					  const char *happenings TAKES)
-{
-	uc->transient_billboard = tal_free(uc->transient_billboard);
-	if (happenings)
-		uc->transient_billboard = tal_strdup(uc, happenings);
-}
-
-static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
-{
-	if (uc->openingd) {
-		struct subd *openingd = uc->openingd;
-		uc->openingd = NULL;
-		subd_release_channel(openingd, uc);
-	}
-
-	/* This is how shutdown_subdaemons tells us not to delete from db! */
-	if (!uc->peer->uncommitted_channel)
-		return;
-
-	uc->peer->uncommitted_channel = NULL;
-
-	maybe_delete_peer(uc->peer);
-}
-
-static struct uncommitted_channel *
-new_uncommitted_channel(struct peer *peer)
-{
-	struct lightningd *ld = peer->ld;
-	struct uncommitted_channel *uc = tal(ld, struct uncommitted_channel);
-
-	uc->peer = peer;
-	assert(!peer->uncommitted_channel);
-
-	uc->transient_billboard = NULL;
-	uc->dbid = wallet_get_channel_dbid(ld->wallet);
-
-	uc->log = new_log(uc, ld->log_book, &uc->peer->id,
-			  "chan#%"PRIu64, uc->dbid);
-
-	uc->fc = NULL;
-	uc->our_config.id = 0;
-
-	get_channel_basepoints(ld, &uc->peer->id, uc->dbid,
-			       &uc->local_basepoints, &uc->local_funding_pubkey);
-
-	uc->peer->uncommitted_channel = uc;
-	tal_add_destructor(uc, destroy_uncommitted_channel);
-
-	return uc;
-}
-
-static void channel_config(struct lightningd *ld,
-			   struct channel_config *ours,
-			   u32 *max_to_self_delay,
-			   struct amount_msat *min_effective_htlc_capacity)
-{
-	/* FIXME: depend on feerate. */
-	*max_to_self_delay = ld->config.locktime_max;
-
-	/* Take minimal effective capacity from config min_capacity_sat */
-	if (!amount_sat_to_msat(min_effective_htlc_capacity,
-				amount_sat(ld->config.min_capacity_sat)))
-		fatal("amount_msat overflow for config.min_capacity_sat");
-
-	/* BOLT #2:
-	 *
-	 * The sending node SHOULD:
-	 *...
-	 *   - set `dust_limit_satoshis` to a sufficient value to allow
-	 *     commitment transactions to propagate through the Bitcoin network.
-	 */
-	ours->dust_limit = chainparams->dust_limit;
-	ours->max_htlc_value_in_flight = AMOUNT_MSAT(UINT64_MAX);
-
-	/* Don't care */
-	ours->htlc_minimum = AMOUNT_MSAT(0);
-
-	/* BOLT #2:
-	 *
-	 * The sending node SHOULD:
-	 *   - set `to_self_delay` sufficient to ensure the sender can
-	 *     irreversibly spend a commitment transaction output, in case of
-	 *     misbehavior by the receiver.
-	 */
-	 ours->to_self_delay = ld->config.locktime_blocks;
-
-	 ours->max_accepted_htlcs = ld->config.max_concurrent_htlcs;
-
-	 /* This is filled in by lightning_openingd, for consistency. */
-	 ours->channel_reserve = AMOUNT_SAT(UINT64_MAX);
 }
 
 struct openchannel_hook_payload {
@@ -1046,18 +851,18 @@ void peer_start_openingd(struct peer *peer,
 				  HSM_CAP_COMMITMENT_POINT
 				  | HSM_CAP_SIGN_REMOTE_TX);
 
-	uc->openingd = new_channel_subd(peer->ld,
+	uc->open_daemon = new_channel_subd(peer->ld,
 					"lightning_openingd",
 					uc, &peer->id, uc->log,
 					true, openingd_wire_name,
 					openingd_msg,
-					opening_channel_errmsg,
-					opening_channel_set_billboard,
+					opend_channel_errmsg,
+					opend_channel_set_billboard,
 					take(&pps->peer_fd),
 					take(&pps->gossip_fd),
 					take(&pps->gossip_store_fd),
 					take(&hsmfd), NULL);
-	if (!uc->openingd) {
+	if (!uc->open_daemon) {
 		uncommitted_channel_disconnect(uc, LOG_BROKEN,
 					       tal_fmt(tmpctx,
 						       "Running lightning_openingd: %s",
@@ -1099,7 +904,7 @@ void peer_start_openingd(struct peer *peer,
 				  send_msg,
 				  IFDEV(peer->ld->dev_force_tmp_channel_id, NULL),
 				  IFDEV(peer->ld->dev_fast_gossip, false));
-	subd_send_msg(uc->openingd, take(msg));
+	subd_send_msg(uc->open_daemon, take(msg));
 }
 
 static struct command_result *json_fund_channel_complete(struct command *cmd,
@@ -1152,7 +957,7 @@ static struct command_result *json_fund_channel_complete(struct command *cmd,
 	msg = towire_openingd_funder_complete(NULL,
 					     funding_txid,
 					     funding_txout);
-	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
+	subd_send_msg(peer->uncommitted_channel->open_daemon, take(msg));
 	return command_still_pending(cmd);
 }
 
@@ -1187,7 +992,7 @@ static struct command_result *json_fund_channel_cancel(struct command *cmd,
 		/* Make sure this gets notified if we succeed or cancel */
 		tal_arr_expand(&peer->uncommitted_channel->fc->cancels, cmd);
 		msg = towire_openingd_funder_cancel(NULL);
-		subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
+		subd_send_msg(peer->uncommitted_channel->open_daemon, take(msg));
 		return command_still_pending(cmd);
 	}
 
@@ -1313,7 +1118,7 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 					  *feerate_per_kw,
 					  fc->channel_flags);
 
-	subd_send_msg(peer->uncommitted_channel->openingd, take(msg));
+	subd_send_msg(peer->uncommitted_channel->open_daemon, take(msg));
 	return command_still_pending(cmd);
 }
 
@@ -1392,11 +1197,11 @@ static void opening_memleak_req_next(struct command *cmd, struct peer *prev)
 			continue;
 
 		subd_req(p,
-			 p->uncommitted_channel->openingd,
+			 p->uncommitted_channel->open_daemon,
 			 take(towire_openingd_dev_memleak(NULL)),
 			 -1, 0, opening_memleak_req_done, cmd);
 		/* Just in case it dies before replying! */
-		tal_add_destructor2(p->uncommitted_channel->openingd,
+		tal_add_destructor2(p->uncommitted_channel->open_daemon,
 				    opening_died_forget_memleak, cmd);
 		return;
 	}
@@ -1417,7 +1222,7 @@ struct subd *peer_get_owning_subd(struct peer *peer)
 	if (channel != NULL) {
 		return channel->owner;
 	} else if (peer->uncommitted_channel != NULL) {
-		return peer->uncommitted_channel->openingd;
+		return peer->uncommitted_channel->open_daemon;
 	}
 	return NULL;
 }
