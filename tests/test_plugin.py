@@ -1743,7 +1743,6 @@ def test_dev_builtin_plugins_unimportant(node_factory):
     n.rpc.plugin_stop(plugin="pay")
 
 
-@pytest.mark.xfail(strict=True)
 def test_htlc_accepted_hook_crash(node_factory, executor):
     """Test that we do not hang incoming HTLCs if the hook plugin crashes.
 
