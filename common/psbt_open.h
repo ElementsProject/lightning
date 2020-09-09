@@ -127,7 +127,7 @@ void psbt_input_add_max_witness_len(struct wally_psbt_input *input,
  *
  * Returns false if key not present */
 WARN_UNUSED_RESULT bool
-psbt_input_get_max_witness_len(struct wally_psbt_input *input,
+psbt_input_get_max_witness_len(const struct wally_psbt_input *input,
 			       u16 *max_witness_len);
 
 /* psbt_has_required_fields - Validates psbt field completion
