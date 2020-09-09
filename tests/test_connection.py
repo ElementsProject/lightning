@@ -1229,6 +1229,53 @@ def test_funding_external_wallet(node_factory, bitcoind):
     l3.rpc.close(l2.info["id"])
 
 
+def test_multifunding_simple(node_factory, bitcoind):
+    '''
+    Simple test for multifundchannel.
+    '''
+    l1, l2, l3, l4 = node_factory.get_nodes(4)
+
+    l1.fundwallet(2000000)
+
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l4.info['id'], l4.port),
+                     "amount": 50000}]
+
+    l1.rpc.multifundchannel(destinations)
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    for node in [l1, l2, l3, l4]:
+        node.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+
+    for ldest in [l2, l3, l4]:
+        inv = ldest.rpc.invoice(5000, 'inv', 'inv')['bolt11']
+        l1.rpc.pay(inv)
+
+
+def test_multifunding_one(node_factory, bitcoind):
+    '''
+    Test that multifunding can still fund to one destination.
+    '''
+    l1, l2 = node_factory.get_nodes(2)
+
+    l1.fundwallet(2000000)
+
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 50000}]
+
+    l1.rpc.multifundchannel(destinations)
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    for node in [l1, l2]:
+        node.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+
+    inv = l2.rpc.invoice(5000, 'inv', 'inv')['bolt11']
+    l1.rpc.pay(inv)
+
+
 def test_lockin_between_restart(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(options={'funding-confirms': 3},
