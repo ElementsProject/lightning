@@ -399,13 +399,15 @@ void channel_set_state(struct channel *channel,
 	wallet_channel_save(channel->peer->ld->wallet, channel);
 
 	/* plugin notification channel_state_changed */
-	derive_channel_id(&cid, &channel->funding_txid, channel->funding_outnum);
-	notify_channel_state_changed(channel->peer->ld,
-				     &channel->peer->id,
-				     &cid,
-				     channel->scid,
-				     old_state,
-				     state);
+	if (state != old_state) {  /* see issue #4029 */
+		derive_channel_id(&cid, &channel->funding_txid, channel->funding_outnum);
+		notify_channel_state_changed(channel->peer->ld,
+					     &channel->peer->id,
+					     &cid,
+					     channel->scid,
+					     old_state,
+					     state);
+	}
 }
 
 void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
