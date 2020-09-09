@@ -72,8 +72,15 @@ static const u8 *linearize_input(const tal_t *ctx,
 
 	/* Sort the inputs, so serializing them is ok */
 	wally_map_sort(&psbt->inputs[0].unknowns, 0);
-	wally_map_sort(&psbt->inputs[0].keypaths, 0);
-	wally_map_sort(&psbt->inputs[0].signatures, 0);
+
+	/* signatures, keypaths, etc - we dont care if they change */
+	psbt->inputs[0].final_witness = NULL;
+	psbt->inputs[0].final_scriptsig_len = 0;
+	psbt->inputs[0].witness_script_len = 0;
+	psbt->inputs[0].redeem_script_len = 0;
+	psbt->inputs[0].keypaths.num_items = 0;
+	psbt->inputs[0].signatures.num_items = 0;
+
 
 	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
 
@@ -102,7 +109,12 @@ static const u8 *linearize_output(const tal_t *ctx,
 	psbt->num_outputs++;
 	/* Sort the outputs, so serializing them is ok */
 	wally_map_sort(&psbt->outputs[0].unknowns, 0);
-	wally_map_sort(&psbt->outputs[0].keypaths, 0);
+
+	/* We don't care if the keypaths change */
+	psbt->outputs[0].keypaths.num_items = 0;
+	/* And you can add scripts, no problem */
+	psbt->outputs[0].witness_script_len = 0;
+	psbt->outputs[0].redeem_script_len = 0;
 
 	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
 

@@ -218,7 +218,7 @@ openchannel2_changed_hook_serialize(struct openchannel2_psbt_payload *payload,
 	json_add_psbt(stream, "psbt", payload->psbt);
 	json_add_string(stream, "channel_id",
 			type_to_string(tmpctx, struct channel_id,
-				       &payload->rcvd->channel->cid));
+				       &payload->rcvd->cid));
 	json_object_end(stream);
 }
 
