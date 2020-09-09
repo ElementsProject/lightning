@@ -27,6 +27,11 @@ PLUGIN_PAY_LIB_OBJS := $(PLUGIN_PAY_LIB_SRC:.c=.o)
 PLUGIN_MULTIFUNDCHANNEL_SRC := plugins/multifundchannel.c
 PLUGIN_MULTIFUNDCHANNEL_OBJS := $(PLUGIN_MULTIFUNDCHANNEL_SRC:.c=.o)
 
+PLUGIN_SPENDER_SRC :=				\
+	plugins/spender/main.c
+PLUGIN_SPENDER_HEADER :=
+PLUGIN_SPENDER_OBJS := $(PLUGIN_SPENDER_SRC:.c=.o)
+
 PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_AUTOCLEAN_SRC)			\
 	$(PLUGIN_BCLI_SRC)			\
@@ -36,10 +41,12 @@ PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_LIB_SRC)			\
 	$(PLUGIN_MULTIFUNDCHANNEL_SRC)		\
 	$(PLUGIN_PAY_LIB_SRC)			\
-	$(PLUGIN_PAY_SRC)
+	$(PLUGIN_PAY_SRC)			\
+	$(PLUGIN_SPENDER_SRC)
 PLUGIN_ALL_HEADER :=				\
 	$(PLUGIN_LIB_HEADER)			\
-	$(PLUGIN_PAY_LIB_HEADER)
+	$(PLUGIN_PAY_LIB_HEADER)		\
+	$(PLUGIN_SPENDER_HEADER)
 PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:.c=.o)
 
 PLUGINS :=					\
@@ -49,7 +56,8 @@ PLUGINS :=					\
 	plugins/keysend				\
 	plugins/pay				\
 	plugins/multifundchannel		\
-	plugins/txprepare
+	plugins/txprepare			\
+	plugins/spenderp
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(PLUGIN_ALL_SRC)
@@ -111,5 +119,7 @@ plugins/keysend: bitcoin/chainparams.o wire/tlvstream.o wire/onion$(EXP)_wiregen
 $(PLUGIN_KEYSEND_OBJS): $(PLUGIN_PAY_LIB_HEADER)
 
 plugins/multifundchannel: bitcoin/chainparams.o common/addr.o $(PLUGIN_MULTIFUNDCHANNEL_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
+
+plugins/spenderp: bitcoin/chainparams.o $(PLUGIN_SPENDER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
 
 $(PLUGIN_ALL_OBJS): $(PLUGIN_LIB_HEADER)
