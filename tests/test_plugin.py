@@ -10,7 +10,6 @@ from utils import (
     expected_channel_features, account_balance,
     check_coin_moves, first_channel_id, check_coin_moves_idx, EXPERIMENTAL_FEATURES
 )
-from pyln.testing.utils import TailableProc
 
 import json
 import os
@@ -1666,24 +1665,43 @@ def test_important_plugin(node_factory):
     # Cache it here.
     pluginsdir = os.path.join(os.path.dirname(__file__), "plugins")
 
-    # Check we fail if we cannot find the important plugin.
     n = node_factory.get_node(options={"important-plugin": os.path.join(pluginsdir, "nonexistent")},
                               may_fail=True, expect_fail=True,
-                              allow_broken_log=True)
-    assert not n.daemon.running
-    assert n.daemon.is_in_stderr(r"error starting plugin '.*nonexistent'")
-
-    # Check we exit if the important plugin dies.
-    n = node_factory.get_node(options={"important-plugin": os.path.join(pluginsdir, "fail_by_itself.py")},
-                              may_fail=True, expect_fail=True,
-                              allow_broken_log=True)
-
-    n.daemon.wait_for_log('fail_by_itself.py: Plugin marked as important, shutting down lightningd')
+                              allow_broken_log=True, start=False)
+    n.daemon.start(wait_for_initialized=False, stderr=subprocess.PIPE)
     wait_for(lambda: not n.daemon.running)
 
+    assert n.daemon.is_in_stderr(r"error starting plugin '.*nonexistent'")
+
+    # We use a log file, since our wait_for_log is unreliable when the
+    # daemon actually dies.
+    def get_logfile_match(logpath, regex):
+        if not os.path.exists(logpath):
+            return None
+        with open(logpath, 'r') as f:
+            for line in f.readlines():
+                m = re.search(regex, line)
+                if m is not None:
+                    return m
+        return None
+
+    logpath = os.path.join(n.daemon.lightning_dir, TEST_NETWORK, 'logfile')
+    n.daemon.opts['log-file'] = 'logfile'
+
+    # Check we exit if the important plugin dies.
+    n.daemon.opts['important-plugin'] = os.path.join(pluginsdir, "fail_by_itself.py")
+
+    n.daemon.start(wait_for_initialized=False)
+    wait_for(lambda: not n.daemon.running)
+
+    assert get_logfile_match(logpath,
+                             r'fail_by_itself.py: Plugin marked as important, shutting down lightningd')
+    os.remove(logpath)
+
     # Check if the important plugin is disabled, we run as normal.
-    n = node_factory.get_node(options=OrderedDict([("important-plugin", os.path.join(pluginsdir, "fail_by_itself.py")),
-                                                   ("disable-plugin", "fail_by_itself.py")]))
+    n.daemon.opts['disable-plugin'] = "fail_by_itself.py"
+    del n.daemon.opts['log-file']
+    n.daemon.start()
     # Make sure we can call into a plugin RPC (this is from `bcli`) even
     # if fail_by_itself.py is disabled.
     n.rpc.call("estimatefees", {})
@@ -1692,34 +1710,31 @@ def test_important_plugin(node_factory):
     n.stop()
 
     # Check if an important plugin dies later, we fail.
-    n = node_factory.get_node(options={"important-plugin": os.path.join(pluginsdir, "suicidal_plugin.py")},
-                              may_fail=True, allow_broken_log=True)
+    del n.daemon.opts['disable-plugin']
+    n.daemon.opts['log-file'] = 'logfile'
+    n.daemon.opts['important-plugin'] = os.path.join(pluginsdir, "suicidal_plugin.py")
+
+    n.daemon.start(wait_for_initialized=False)
+    wait_for(lambda: get_logfile_match(logpath, "Server started with public key"))
+
     with pytest.raises(RpcError):
         n.rpc.call("die", {})
-    n.daemon.wait_for_log('suicidal_plugin.py: Plugin marked as important, shutting down lightningd')
+
     wait_for(lambda: not n.daemon.running)
+    assert get_logfile_match(logpath, 'suicidal_plugin.py: Plugin marked as important, shutting down lightningd')
+    os.remove(logpath)
 
     # Check that if a builtin plugin dies, we fail.
-    n = node_factory.get_node(may_fail=True, allow_broken_log=True,
-                              # The log message with the pay PID is printed
-                              # very early in the logs.
-                              start=False)
-    # Start the daemon directly, not via the node object n.start,
-    # because the normal n.daemon.start and n.start methods will
-    # wait for "Starting server with public key" and will execute
-    # getinfo, both of which are very much after plugins are
-    # started.
-    # And the PIDs of plugins are only seen at plugin startup.
-    TailableProc.start(n.daemon)
-    assert n.daemon.running
-    # Extract the pid of pay.
-    r = n.daemon.wait_for_log(r'started([0-9]*).*plugins/pay')
-    pidstr = re.search(r'.*started\(([0-9]*)\)', r).group(1)
+    n.daemon.start(wait_for_initialized=False)
+
+    wait_for(lambda: get_logfile_match(logpath, r'.*started\(([0-9]*)\).*plugins/pay'))
+    pidstr = get_logfile_match(logpath, r'.*started\(([0-9]*)\).*plugins/pay').group(1)
+
     # Kill pay.
     os.kill(int(pidstr), signal.SIGKILL)
-    # node should die as well.
-    n.daemon.wait_for_log('pay: Plugin marked as important, shutting down lightningd')
     wait_for(lambda: not n.daemon.running)
+
+    assert get_logfile_match(logpath, 'pay: Plugin marked as important, shutting down lightningd')
 
 
 @unittest.skipIf(not DEVELOPER, "tests developer-only option.")
