@@ -8,6 +8,7 @@ wallet/                 @cdecker
 *.py                    @cdecker
 
 wallet/invoices.*       @ZmnSCPxj
+plugins/multifundchannel.c @ZmnSCPxj
 
 common/param.*          @wythe
 common/json.*           @wythe
