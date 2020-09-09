@@ -33,6 +33,7 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/memleak.o			\
 	common/node_id.o			\
 	common/per_peer_state.o			\
+	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/json.o				\
 	common/json_helpers.o			\

@@ -70,6 +70,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
 	common/ping.o				\
+	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/read_peer_msg.o			\
 	common/setup.o				\

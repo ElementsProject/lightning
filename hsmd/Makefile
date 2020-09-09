@@ -31,6 +31,7 @@ HSMD_COMMON_OBJS :=				\
 	common/msg_queue.o			\
 	common/node_id.o			\
 	common/permute_tx.o			\
+	common/psbt_open.o			\
 	common/setup.o				\
 	common/status.o				\
 	common/status_wire.o			\

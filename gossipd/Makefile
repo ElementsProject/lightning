@@ -51,6 +51,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/onionreply.o			\
 	common/per_peer_state.o			\
 	common/ping.o				\
+	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/random_select.o			\
 	common/setup.o				\
