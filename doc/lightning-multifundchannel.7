@@ -1,0 +1,150 @@
+.TH "LIGHTNING-MULTIFUNDCHANNEL" "7" "" "" "lightning-multifundchannel"
+.SH NAME
+lightning-multifundchannel - Command for establishing many lightning channels
+.SH SYNOPSIS
+
+\fBmultifundchannel\fR \fIdestinations\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR]
+
+.SH DESCRIPTION
+
+The \fBmultifundchannel\fR RPC command opens multiple payment channels
+with nodes by committing a single funding transaction to the blockchain
+that is shared by all channels\.
+
+
+If not already connected, \fBmultifundchannel\fR will automatically attempt
+to connect; you may provide a \fI@host:port\fR hint appended to the node ID
+so that c-lightning can learn how to connect to the node;
+see \fBlightning-connect\fR(7)\.
+
+
+Once the transaction is confirmed, normal channel operations may begin\.
+Readiness is indicated by \fBlistpeers\fR reporting a \fIstate\fR of
+\fBCHANNELD_NORMAL\fR for the channel\.
+
+
+\fIdestinations\fR is an array of objects, with the fields:
+
+.RS
+.IP \[bu]
+\fIid\fR is the node ID, with an optional \fI@host:port\fR appended to it
+in a manner understood by \fBconnect\fR; see \fBlightning-connect\fR(7)\.
+Each entry in the \fIdestinations\fR array must have a unique node \fIid\fR\.
+.IP \[bu]
+\fIamount\fR is the amount in satoshis taken from the internal wallet
+to fund the channel\.
+The string \fIall\fR can be used to specify all available funds
+(or 16,777,215 satoshi if more is available and large channels were
+not negotiated with the peer)\.
+Otherwise it is in satoshi precision; it can be
+ a whole number,
+ a whole number ending in \fIsat\fR,
+ a whole number ending in \fI000msat\fR, or
+ a number with 1 to 8 decimal places ending in \fIbtc\fR\.
+The value cannot be less than the dust limit, currently 546 satoshi
+as of this writing, nor more than 16,777,215 satoshi
+(unless large channels were negotiated with the peer)\.
+.IP \[bu]
+\fIannounce\fR is an optional flag that indicates whether to announce
+the channel with this, default \fBtrue\fR\.
+If set to \fBfalse\fR, the channel is unpublished\.
+.IP \[bu]
+\fIpush_msat\fR is the amount of millisatoshis to outright give to the
+node\.
+This is a gift to the peer, and you do not get a proof-of-payment
+out of this\.
+
+.RE
+
+There must be at least one entry in \fIdestinations\fR;
+it cannot be an empty array\.
+
+
+\fIfeerate\fR is an optional feerate used for the opening transaction and as
+initial feerate for commitment and HTLC transactions\. It can be one of
+the strings \fIurgent\fR (aim for next block), \fInormal\fR (next 4 blocks or
+so) or \fIslow\fR (next 100 blocks or so) to use lightningd’s internal
+estimates: \fInormal\fR is the default\.
+
+
+Otherwise, \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means
+the number is interpreted as satoshi-per-kilosipa (weight), and \fIperkb\fR
+means it is interpreted bitcoind-style as satoshi-per-kilobyte\. Omitting
+the suffix is equivalent to \fIperkb\fR\.
+
+
+\fIminconf\fR specifies the minimum number of confirmations that used
+outputs should have\. Default is 1\.
+
+
+\fIutxos\fR specifies the utxos to be used to fund the channel, as an array
+of "txid:vout"\.
+
+.SH RETURN VALUE
+
+On success, the \fItx\fR and \fItxid\fR of the signed and broadcsted funding
+transaction is returned\.
+This command opens multiple channels with a single large transaction,
+thus only one transaction is returned\.
+
+
+An array of \fIchannel_ids\fR is returned;
+each entry of the array is an object,
+ with an \fIid\fR field being the node ID of the peer,
+ an \fIoutnum\fR field being the output number of the transaction
+  that anchors this channel,
+ and \fIchannel_id\fR field being the channel ID with that peer\.
+
+
+On failure, none of the channels are created\.
+
+
+The following error codes may occur:
+
+.RS
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+300: The maximum allowed funding amount is exceeded\.
+.IP \[bu]
+301: There are not enough funds in the internal wallet (including fees) to create the transaction\.
+.IP \[bu]
+302: The output amount is too small, and would be considered dust\.
+.IP \[bu]
+303: Broadcasting of the funding transaction failed, the internal call to bitcoin-cli returned with an error\.
+
+.RE
+
+Failure may also occur if \fBlightningd\fR and the peer cannot agree on
+channel parameters (funding limits, channel reserves, fees, etc\.)\.
+See lightning-fundchannel_\fBstart\fR(7) and lightning-fundchannel_\fBcomplete\fR(7)\.
+
+
+There may be rare edge cases where a communications failure later in
+the channel funding process will cancel the funding locally, but
+the peer thinks the channel is already waiting for funding lockin\.
+In that case, the next time we connect to the peer, our node will
+tell the peer to forget the channel, but some nodes (in particular,
+c-lightning nodes) will disconnect when our node tells them to
+forget the channel\.
+If you immediately \fBmultifundchannel\fR with that peer, it could
+trigger this connect-forget-disconnect behavior, causing the
+second \fBmultifundchannel\fR to fail as well due to disconnection\.
+Doing a \fBconnect\fR with the peers separately, and waiting for a
+few seconds, should help clear this hurdle;
+running \fBmultifundchannel\fR a third time would also clear this\.
+
+.SH AUTHOR
+
+ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-connect\fR(7), lightning-listfunds(), \fBlightning-listpeers\fR(7),
+\fBlightning-fundchannel\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:3f7d15c9b3492535e74ec1f0077be84c385d4c22058756df4df638dd29c25f4c

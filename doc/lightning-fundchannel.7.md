@@ -20,7 +20,7 @@ This auto-connection can fail if C-lightning does not know how to contact
 the target node; see lightning-connect(7).
 Once the
 transaction is confirmed, normal channel operations may begin. Readiness
-is indicated by **listpeers** reporting a *state* of CHANNELD\_NORMAL
+is indicated by **listpeers** reporting a *state* of `CHANNELD_NORMAL`
 for the channel.
 
 *id* is the peer id obtained from **connect**.
@@ -82,7 +82,7 @@ SEE ALSO
 --------
 
 lightning-connect(7), lightning-listfunds(), lightning-listpeers(7),
-lightning-feerates(7)
+lightning-feerates(7), lightning-multifundchannel(7)
 
 RESOURCES
 ---------
