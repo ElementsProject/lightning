@@ -846,6 +846,27 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listsendpays", payload)
 
+    def multifundchannel(self, destinations, feerate=None, minconf=None, utxos=None, best_effort=False, **kwargs):
+        """
+        Fund channels to an array of {destinations},
+        each entry of which is a dict of node {id}
+        and {amount} to fund, and optionally whether
+        to {announce} and how much {push_msat} to
+        give outright to the node.
+        You may optionally specify {feerate},
+        {minconf} depth, and the {utxos} set to use
+        for the single transaction that funds all
+        the channels.
+        """
+        payload = {
+            "destinations": destinations,
+            "feerate": feerate,
+            "minconf": minconf,
+            "utxos": utxos
+        }
+        payload.update({k: v for k, v in kwargs.items()})
+        return self.call("multifundchannel", payload)
+
     def newaddr(self, addresstype=None):
         """Get a new address of type {addresstype} of the internal wallet.
         """
