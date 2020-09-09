@@ -239,14 +239,6 @@ static size_t psbt_input_weight(struct wally_psbt *psbt,
 				size_t in)
 {
 	size_t weight;
-	u16 max_witness_len;
-	bool ok;
-
-	/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
-	 * `max_witness_len` is the total serialized length of the
-	 * witness data that will be supplied (e.g. sizeof(varint) +
-	 * sizeof(witness) for each) in `funding_signed2`.
-	 */
 
 	/* txid + txout + sequence */
 	weight = (32 + 4 + 4) * 4;
@@ -254,10 +246,10 @@ static size_t psbt_input_weight(struct wally_psbt *psbt,
 		(psbt->inputs[in].redeem_script_len +
 			(varint_t) varint_size(psbt->inputs[in].redeem_script_len)) * 4;
 
-	ok = psbt_input_get_max_witness_len(&psbt->inputs[in],
-					    &max_witness_len);
-	assert(ok);
-	weight += max_witness_len;
+	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2
+	 * The minimum witness weight for an input is 110.
+	 */
+	weight += 110;
 	return weight;
 }
 
@@ -590,7 +582,6 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 		switch (t) {
 		case WIRE_TX_ADD_INPUT: {
 			const u8 *tx_bytes, *redeemscript;
-			u16 max_witness_len;
 			u32 outnum, sequence;
 			size_t len;
 			struct bitcoin_tx *tx;
@@ -603,7 +594,6 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 						   &serial_id,
 						   cast_const2(u8 **, &tx_bytes),
 						   &outnum, &sequence,
-						   &max_witness_len,
 						   cast_const2(u8 **, &redeemscript),
 						   add_tlvs))
 				peer_failed(state->pps, &state->channel_id,
@@ -697,7 +687,6 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			}
 
 			psbt_input_add_serial_id(in, serial_id);
-			psbt_input_add_max_witness_len(in, max_witness_len);
 
 			/* FIXME: what's in the tlv? */
 			break;

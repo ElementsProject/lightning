@@ -56,7 +56,7 @@ void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
 { fprintf(stderr, "towire_sha256 called!\n"); abort(); }
 /* Generated stub for towire_tx_add_input */
-u8 *towire_tx_add_input(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u16 serial_id UNNEEDED, const u8 *prevtx UNNEEDED, u32 prevtx_vout UNNEEDED, u32 sequence UNNEEDED, u16 max_witness_len UNNEEDED, const u8 *script UNNEEDED, const struct tlv_tx_add_input_tlvs *tlvs UNNEEDED)
+u8 *towire_tx_add_input(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u16 serial_id UNNEEDED, const u8 *prevtx UNNEEDED, u32 prevtx_vout UNNEEDED, u32 sequence UNNEEDED, const u8 *script UNNEEDED, const struct tlv_tx_add_input_tlvs *tlvs UNNEEDED)
 { fprintf(stderr, "towire_tx_add_input called!\n"); abort(); }
 /* Generated stub for towire_tx_add_output */
 u8 *towire_tx_add_output(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u16 serial_id UNNEEDED, u64 sats UNNEEDED, const u8 *script UNNEEDED)
@@ -180,8 +180,10 @@ int main(int argc, const char *argv[])
 	diff_count(end, start, 1, 1);
 
 	/* Add some extra unknown info to a PSBT */
-	psbt_input_add_max_witness_len(&end->inputs[1], 100);
-	psbt_input_add_max_witness_len(&start->inputs[1], 100);
+	u8 *key = psbt_make_key(tmpctx, 0x05, NULL);
+	char *val = tal_fmt(tmpctx, "hello");
+	psbt_input_add_unknown(&end->inputs[1], key, val, tal_bytelen(val));
+	psbt_input_add_unknown(&start->inputs[1], key, val, tal_bytelen(val));
 
 	/* Swap locations */
 	struct wally_map_item tmp;
@@ -190,7 +192,6 @@ int main(int argc, const char *argv[])
 	end->inputs[1].unknowns.items[1] = tmp;
 
 	/* We expect nothing to change ? */
-	/* FIXME: stable ordering of unknowns ? */
 	diff_count(start, end, 1, 1);
 	diff_count(end, start, 1, 1);
 

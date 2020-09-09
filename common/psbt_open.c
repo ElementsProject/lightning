@@ -324,7 +324,6 @@ u8 *psbt_changeset_get_next(const tal_t *ctx, struct channel_id *cid,
 
 	if (tal_count(set->added_ins) != 0) {
 		const struct input_set *in = &set->added_ins[0];
-		u16 max_witness_len;
 		u8 *script;
 
 		if (!psbt_get_serial_id(&in->input.unknowns, &serial_id))
@@ -332,10 +331,6 @@ u8 *psbt_changeset_get_next(const tal_t *ctx, struct channel_id *cid,
 
 		const u8 *prevtx = linearize_wtx(ctx,
 						 in->input.utxo);
-
-		if (!psbt_input_get_max_witness_len(&in->input,
-						    &max_witness_len))
-			abort();
 
 		if (in->input.redeem_script_len)
 			script = tal_dup_arr(ctx, u8,
@@ -347,7 +342,6 @@ u8 *psbt_changeset_get_next(const tal_t *ctx, struct channel_id *cid,
 		msg = towire_tx_add_input(ctx, cid, serial_id,
 					  prevtx, in->tx_input.index,
 					  in->tx_input.sequence,
-					  max_witness_len,
 					  script,
 					  NULL);
 
@@ -440,47 +434,13 @@ int psbt_find_serial_output(struct wally_psbt *psbt, u16 serial_id)
 	return -1;
 }
 
-void psbt_input_add_max_witness_len(struct wally_psbt_input *input,
-				    u16 max_witness_len)
-{
-	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_MAX_WITNESS_LEN, NULL);
-	beint16_t bev = cpu_to_be16(max_witness_len);
-
-	psbt_input_add_unknown(input, key, &bev, sizeof(bev));
-}
-
-
-bool psbt_input_get_max_witness_len(const struct wally_psbt_input *input,
-				    u16 *max_witness_len)
-{
-	size_t value_len;
-	beint16_t bev;
-	void *result = psbt_get_lightning(&input->unknowns,
-					  PSBT_TYPE_MAX_WITNESS_LEN,
-					  &value_len);
-	if (!result)
-		return false;
-
-	if (value_len != sizeof(bev))
-		return false;
-
-	memcpy(&bev, result, value_len);
-	*max_witness_len = be16_to_cpu(bev);
-	return true;
-}
-
 bool psbt_has_required_fields(struct wally_psbt *psbt)
 {
-	u16 max_witness, serial_id;
+	u16 serial_id;
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		struct wally_psbt_input *input = &psbt->inputs[i];
 
 		if (!psbt_get_serial_id(&input->unknowns, &serial_id))
-			return false;
-
-		/* Inputs had also better have their max_witness_lens
-		 * filled in! */
-		if (!psbt_input_get_max_witness_len(input, &max_witness))
 			return false;
 
 		/* Required because we send the full tx over the wire now */
