@@ -629,6 +629,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
                                feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node()
     addr = chainparams['example_addr']
+    out_total = Millisatoshi(amount * 3 * 1000)
 
     # Add a medley of funds to withdraw later, bech32 + p2sh-p2wpkh
     for i in range(total_outs // 2):
@@ -640,7 +641,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == total_outs)
 
     # Make a PSBT out of our inputs
-    funding = l1.rpc.fundpsbt(satoshi=Millisatoshi(3 * amount * 1000),
+    funding = l1.rpc.fundpsbt(satoshi=out_total,
                               feerate=7500,
                               startweight=42,
                               reserve=True)
@@ -665,10 +666,13 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     # Now we unreserve the singleton, so we can reserve it again
     l1.rpc.unreserveinputs(psbt)
 
-    # Now add an output.
-    output_pbst = bitcoind.rpc.createpsbt([],
-                                          [{addr: 3 * amount / 10**8}])
-    fullpsbt = bitcoind.rpc.joinpsbts([funding['psbt'], output_pbst])
+    # Now add an output. Note, we add the 'excess msat' to the output so
+    # that our feerate is 'correct'. This is of particular importance to elementsd,
+    # who requires that every satoshi be accounted for in a tx.
+    out_1_ms = Millisatoshi(funding['excess_msat'])
+    output_psbt = bitcoind.rpc.createpsbt([],
+                                          [{addr: float((out_total + out_1_ms).to_btc())}])
+    fullpsbt = bitcoind.rpc.joinpsbts([funding['psbt'], output_psbt])
 
     # We re-reserve the first set...
     l1.rpc.reserveinputs(fullpsbt)
@@ -702,7 +706,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     # Create a PSBT using L2
     bitcoind.generate_block(1)
     wait_for(lambda: len(l2.rpc.listfunds()['outputs']) == total_outs)
-    l2_funding = l2.rpc.fundpsbt(satoshi=Millisatoshi(3 * amount * 1000),
+    l2_funding = l2.rpc.fundpsbt(satoshi=out_total,
                                  feerate=7500,
                                  startweight=42,
                                  reserve=True)
@@ -716,7 +720,7 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
         l1.rpc.signpsbt(l2_funding['psbt'], signonly=[0])
 
     # Add some of our own PSBT inputs to it
-    l1_funding = l1.rpc.fundpsbt(satoshi=Millisatoshi(3 * amount * 1000),
+    l1_funding = l1.rpc.fundpsbt(satoshi=out_total,
                                  feerate=7500,
                                  startweight=42,
                                  reserve=True)
@@ -724,8 +728,12 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     l2_num_inputs = len(bitcoind.rpc.decodepsbt(l2_funding['psbt'])['tx']['vin'])
 
     # Join and add an output (reorders!)
+    out_2_ms = Millisatoshi(l1_funding['excess_msat'])
+    out_amt = out_2_ms + Millisatoshi(l2_funding['excess_msat']) + out_total + out_total
+    output_psbt = bitcoind.rpc.createpsbt([],
+                                          [{addr: float(out_amt.to_btc())}])
     joint_psbt = bitcoind.rpc.joinpsbts([l1_funding['psbt'], l2_funding['psbt'],
-                                         output_pbst])
+                                         output_psbt])
 
     # Ask it to sign inputs it doesn't know, it will fail.
     with pytest.raises(RpcError, match=r"is unknown"):
@@ -753,11 +761,14 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log(r'sendrawtx exit 0 .* sendrawtransaction {}'.format(broadcast_tx['tx']))
 
     # Send a PSBT that's not ours
-    l2_funding = l2.rpc.fundpsbt(satoshi=Millisatoshi(3 * amount * 1000),
+    l2_funding = l2.rpc.fundpsbt(satoshi=out_total,
                                  feerate=7500,
                                  startweight=42,
                                  reserve=True)
-    psbt = bitcoind.rpc.joinpsbts([l2_funding['psbt'], output_pbst])
+    out_amt = Millisatoshi(l2_funding['excess_msat'])
+    output_psbt = bitcoind.rpc.createpsbt([],
+                                          [{addr: float((out_total + out_amt).to_btc())}])
+    psbt = bitcoind.rpc.joinpsbts([l2_funding['psbt'], output_psbt])
     l2_signed_psbt = l2.rpc.signpsbt(psbt)['signed_psbt']
     l1.rpc.sendpsbt(l2_signed_psbt)
 
@@ -796,14 +807,14 @@ def test_sign_and_send_psbt(node_factory, bitcoind, chainparams):
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 3000000000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 3000000000 + int(out_1_ms), 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000 - int(out_1_ms), 'tag': 'chain_fees'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
         {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 3000000000, 'tag': 'withdrawal'},
-        {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'chain_fees'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 4000000000, 'tag': 'withdrawal'},
+        {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'chain_fees'},
     ]
 
     check_coin_moves(l1, 'wallet', wallet_coin_mvts, chainparams)
