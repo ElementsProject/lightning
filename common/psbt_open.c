@@ -416,28 +416,28 @@ void psbt_output_add_serial_id(struct wally_psbt_output *output,
 	psbt_output_add_unknown(output, key, &bev, sizeof(bev));
 }
 
-bool psbt_has_serial_input(struct wally_psbt *psbt, u16 serial_id)
+int psbt_find_serial_input(struct wally_psbt *psbt, u16 serial_id)
 {
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		u16 in_serial;
 		if (!psbt_get_serial_id(&psbt->inputs[i].unknowns, &in_serial))
 			continue;
 		if (in_serial == serial_id)
-			return true;
+			return i;
 	}
-	return false;
+	return -1;
 }
 
-bool psbt_has_serial_output(struct wally_psbt *psbt, u16 serial_id)
+int psbt_find_serial_output(struct wally_psbt *psbt, u16 serial_id)
 {
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
 		u16 out_serial;
 		if (!psbt_get_serial_id(&psbt->outputs[i].unknowns, &out_serial))
 			continue;
 		if (out_serial == serial_id)
-			return true;
+			return i;
 	}
-	return false;
+	return -1;
 }
 
 void psbt_input_add_max_witness_len(struct wally_psbt_input *input,

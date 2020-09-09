@@ -428,7 +428,7 @@ static void psbt_add_serials(struct wally_psbt *psbt, enum side opener)
 			continue;
 
 		while ((serial_id = pseudorand(serial_space)) % 2 != opener ||
-			psbt_has_serial_input(psbt, serial_id)) {
+			psbt_find_serial_input(psbt, serial_id) != -1) {
 			/* keep going; */
 		}
 		psbt_input_add_serial_id(&psbt->inputs[i], serial_id);
@@ -439,7 +439,7 @@ static void psbt_add_serials(struct wally_psbt *psbt, enum side opener)
 			continue;
 
 		while ((serial_id = pseudorand(serial_space)) % 2 != opener ||
-			psbt_has_serial_output(psbt, serial_id)) {
+			psbt_find_serial_output(psbt, serial_id) != -1) {
 			/* keep going; */
 		}
 		psbt_output_add_serial_id(&psbt->outputs[i], serial_id);
