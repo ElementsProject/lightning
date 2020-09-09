@@ -3,7 +3,7 @@
 lightning-multifundchannel - Command for establishing many lightning channels
 .SH SYNOPSIS
 
-\fBmultifundchannel\fR \fIdestinations\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR]
+\fBmultifundchannel\fR \fIdestinations\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR] [\fIminchannels\fR]
 
 .SH DESCRIPTION
 
@@ -80,6 +80,12 @@ outputs should have\. Default is 1\.
 \fIutxos\fR specifies the utxos to be used to fund the channel, as an array
 of "txid:vout"\.
 
+
+\fIminchannels\fR, if specified, will re-attempt funding as long as at least
+this many peers remain (must not be zero)\.
+The \fBmultifundchannel\fR command will only fail if too many peers fail
+the funding process\.
+
 .SH RETURN VALUE
 
 On success, the \fItx\fR and \fItxid\fR of the signed and broadcsted funding
@@ -88,12 +94,26 @@ This command opens multiple channels with a single large transaction,
 thus only one transaction is returned\.
 
 
+If \fIminchannels\fR was specified and is less than the number of destinations,
+then it is possible that one or more of the destinations
+do not have a channel even if \fBmultifundchannel\fR succeeded\.
+
+
 An array of \fIchannel_ids\fR is returned;
 each entry of the array is an object,
  with an \fIid\fR field being the node ID of the peer,
  an \fIoutnum\fR field being the output number of the transaction
   that anchors this channel,
  and \fIchannel_id\fR field being the channel ID with that peer\.
+
+
+An array of \fIfailed\fR is returned,
+which contains the destinations that were removed
+due to failures (this can only happen on success if \fIminchannels\fR was specified)\.
+Each entry of the array is an object,
+ with an \fIid\fR field being the node ID of the removed peer,
+ \fImethod\fR field describing what phase of funding the peer failed,
+ and \fIerror\fR field of the exact error returned by the method\.
 
 
 On failure, none of the channels are created\.
@@ -147,4 +167,4 @@ ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:3f7d15c9b3492535e74ec1f0077be84c385d4c22058756df4df638dd29c25f4c
+\" SHA256STAMP:c4bf503a2f8d981131960bedc07e9f08a0b65246964852a34df4292a9a36b663

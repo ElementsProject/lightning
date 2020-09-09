@@ -4,7 +4,7 @@ lightning-multifundchannel -- Command for establishing many lightning channels
 SYNOPSIS
 --------
 
-**multifundchannel** *destinations* \[*feerate*\] \[*minconf*\] \[*utxos*\]
+**multifundchannel** *destinations* \[*feerate*\] \[*minconf*\] \[*utxos*\] \[*minchannels*\]
 
 DESCRIPTION
 -----------
@@ -68,6 +68,11 @@ outputs should have. Default is 1.
 *utxos* specifies the utxos to be used to fund the channel, as an array
 of "txid:vout".
 
+*minchannels*, if specified, will re-attempt funding as long as at least
+this many peers remain (must not be zero).
+The **multifundchannel** command will only fail if too many peers fail
+the funding process.
+
 RETURN VALUE
 ------------
 
@@ -76,12 +81,24 @@ transaction is returned.
 This command opens multiple channels with a single large transaction,
 thus only one transaction is returned.
 
+If *minchannels* was specified and is less than the number of destinations,
+then it is possible that one or more of the destinations
+do not have a channel even if **multifundchannel** succeeded.
+
 An array of *channel\_ids* is returned;
 each entry of the array is an object,
  with an *id* field being the node ID of the peer,
  an *outnum* field being the output number of the transaction
   that anchors this channel,
  and *channel_id* field being the channel ID with that peer.
+
+An array of *failed* is returned,
+which contains the destinations that were removed
+due to failures (this can only happen on success if *minchannels* was specified).
+Each entry of the array is an object,
+ with an *id* field being the node ID of the removed peer,
+ *method* field describing what phase of funding the peer failed,
+ and *error* field of the exact error returned by the method.
 
 On failure, none of the channels are created.
 
