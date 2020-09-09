@@ -191,6 +191,10 @@ static struct command_result *finish_txprepare(struct command *cmd,
 		psbt_add_output(txp->psbt, out, i);
 	}
 
+	/* If this is elements, we should normalize
+	 * the PSBT fee output */
+	psbt_elements_normalize_fees(txp->psbt);
+
 	utx = tal(NULL, struct unreleased_tx);
 	utx->psbt = tal_steal(utx, txp->psbt);
 	psbt_txid(txp->psbt, &utx->txid, &utx->tx);
