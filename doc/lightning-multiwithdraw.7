@@ -1,0 +1,80 @@
+.TH "LIGHTNING-MULTIWITHDRAW" "7" "" "" "lightning-multiwithdraw"
+.SH NAME
+lightning-multiwithdraw - Command for withdrawing to multiple addresses
+.SH SYNOPSIS
+
+\fBmultiwithdraw\fR \fIoutputs\fR  [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR]
+
+.SH DESCRIPTION
+
+The \fBmultiwithdraw\fR RPC command sends funds from c-lightning’s internal
+wallet to the addresses specified in \fIoutputs\fR,
+which is an array containing objects of the form \fB{address: amount}\fR\.
+The \fBamount\fR may be the string \fI"all"\fR, indicating that all onchain funds
+be sent to the specified address\.
+Otherwise, it is in satoshi precision;
+it can be
+a whole number,
+a whole number ending in \fIsat\fR,
+a whole number ending in \fI000msat\fR,
+or a number with 1 to 8 decimal places ending in \fIbtc\fR\.
+
+
+\fIfeerate\fR is an optional feerate to use\. It can be one of the strings
+\fIurgent\fR (aim for next block), \fInormal\fR (next 4 blocks or so) or \fIslow\fR
+(next 100 blocks or so) to use lightningd’s internal estimates: \fInormal\fR
+is the default\.
+
+
+Otherwise, \fIfeerate\fR is a number, with an optional suffix: \fIperkw\fR means
+the number is interpreted as satoshi-per-kilosipa (weight), and \fIperkb\fR
+means it is interpreted bitcoind-style as satoshi-per-kilobyte\. Omitting
+the suffix is equivalent to \fIperkb\fR\.
+
+
+\fIminconf\fR specifies the minimum number of confirmations that used
+outputs should have\. Default is 1\.
+
+
+\fIutxos\fR specifies the utxos to be used to be withdrawn from, as an array
+of "txid:vout"\. These must be drawn from the node's available UTXO set\.
+
+.SH RETURN VALUE
+
+On success, an object with attributes \fItx\fR and \fItxid\fR will be returned\.
+
+
+\fItx\fR represents the raw bitcoin, fully signed, transaction and \fItxid\fR
+represent the bitcoin transaction id\.
+
+
+On failure, an error is reported and the withdrawal transaction is not
+created\.
+
+
+The following error codes may occur:
+
+.RS
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+301: There are not enough funds in the internal wallet (including
+fees) to create the transaction\.
+.IP \[bu]
+302: The dust limit is not met\.
+
+.RE
+.SH AUTHOR
+
+ZmnSCPxj < \fIZmnSCPxj@protonmail.com\fR > is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-listfunds\fR(7), \fBlightning-fundchannel\fR(7), \fBlightning-newaddr\fR(7),
+\fBlightning-txprepare\fR(7), \fBlightning-withdraw\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:2781b462676e158a5532e71259155324a8fd3ee79fcbb2cc7a467948e61b1c1b

@@ -868,6 +868,21 @@ class LightningRpc(UnixDomainSocketRpc):
         payload.update({k: v for k, v in kwargs.items()})
         return self.call("multifundchannel", payload)
 
+    def multiwithdraw(self, outputs, feerate=None, minconf=None, utxos=None, **kwargs):
+        """
+        Send to {outputs}
+        via Bitcoin transaction. Only select outputs
+        with {minconf} confirmations.
+        """
+        payload = {
+            "outputs": outputs,
+            "feerate": feerate,
+            "minconf": minconf,
+            "utxos": utxos,
+        }
+        payload.update({k: v for k, v in kwargs.items()})
+        return self.call("multiwithdraw", payload)
+
     def newaddr(self, addresstype=None):
         """Get a new address of type {addresstype} of the internal wallet.
         """
