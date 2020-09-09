@@ -1259,7 +1259,7 @@ def test_multifunding_one(node_factory, bitcoind):
     '''
     Test that multifunding can still fund to one destination.
     '''
-    l1, l2 = node_factory.get_nodes(2)
+    l1, l2, l3 = node_factory.get_nodes(3)
 
     l1.fundwallet(2000000)
 
@@ -1267,13 +1267,145 @@ def test_multifunding_one(node_factory, bitcoind):
                      "amount": 50000}]
 
     l1.rpc.multifundchannel(destinations)
-    bitcoind.generate_block(6, wait_for_mempool=1)
 
-    for node in [l1, l2]:
+    # Now check if we connect to the node first before
+    # multifundchannel.
+    l1.rpc.connect(l3.info['id'], 'localhost', port=l3.port)
+    # Omit the connect hint.
+    destinations = [{"id": '{}'.format(l3.info['id']),
+                     "amount": 50000}]
+
+    l1.rpc.multifundchannel(destinations, minconf=0)
+
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    for node in [l1, l2, l3]:
         node.daemon.wait_for_log(r'to CHANNELD_NORMAL')
 
-    inv = l2.rpc.invoice(5000, 'inv', 'inv')['bolt11']
-    l1.rpc.pay(inv)
+    for ldest in [l2, l3]:
+        inv = ldest.rpc.invoice(5000, 'inv', 'inv')['bolt11']
+        l1.rpc.pay(inv)
+
+
+@unittest.skipIf(not DEVELOPER, "disconnect=... needs DEVELOPER=1")
+def test_multifunding_disconnect(node_factory):
+    '''
+    Test disconnection during multifundchannel
+    '''
+    # TODO: Note that @WIRE_FUNDING_SIGNED does not
+    # work.
+    # See test_disconnect_half_signed.
+    # If disconnected when the peer believes it sent
+    # WIRE_FUNDING_SIGNED but before we actually
+    # receive it, the peer continues to monitor our
+    # funding tx, but we have forgotten it and will
+    # never send it.
+    disconnects = ["-WIRE_INIT",
+                   "-WIRE_ACCEPT_CHANNEL",
+                   "@WIRE_ACCEPT_CHANNEL",
+                   "+WIRE_ACCEPT_CHANNEL",
+                   "-WIRE_FUNDING_SIGNED"]
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(disconnect=disconnects)
+    l3 = node_factory.get_node()
+
+    l1.fundwallet(2000000)
+
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 50000}]
+
+    # Funding to l2 will fail, and we should properly
+    # inform l3 to back out as well.
+    for d in disconnects:
+        with pytest.raises(RpcError):
+            l1.rpc.multifundchannel(destinations)
+
+    # TODO: failing at the fundchannel_complete phase
+    # (@WIRE_FUNDING_SIGNED +@WIRE_FUNDING_SIGNED)
+    # leaves the peer (l2 in this case) in a state
+    # where it is waiting for an incoming channel,
+    # even though we no longer have a channel going to
+    # that peer.
+    # Reconnecting with the peer will clear up that
+    # confusion, but then the peer will disconnect
+    # after a random amount of time.
+
+    destinations = [{"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 50000}]
+
+    # This should succeed.
+    l1.rpc.multifundchannel(destinations)
+
+
+def test_multifunding_wumbo(node_factory):
+    '''
+    Test wumbo channel imposition in multifundchannel.
+    '''
+    l1, l2, l3 = node_factory.get_nodes(3,
+                                        opts=[{'large-channels': None},
+                                              {'large-channels': None},
+                                              {}])
+
+    l1.fundwallet(1 << 26)
+
+    # This should fail.
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 1 << 24}]
+    with pytest.raises(RpcError, match='Amount exceeded'):
+        l1.rpc.multifundchannel(destinations)
+
+    # This should succeed.
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 1 << 24},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 50000}]
+    l1.rpc.multifundchannel(destinations)
+
+
+def test_multifunding_param_failures(node_factory):
+    '''
+    Test that multifunding handles errors in parameters.
+    '''
+    l1, l2, l3 = node_factory.get_nodes(3)
+
+    l1.fundwallet(1 << 26)
+
+    # No connection hint to unconnected node.
+    destinations = [{"id": '{}'.format(l2.info['id']),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 50000}]
+    with pytest.raises(RpcError):
+        l1.rpc.multifundchannel(destinations)
+
+    # Duplicated destination.
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 50000}]
+    with pytest.raises(RpcError):
+        l1.rpc.multifundchannel(destinations)
+
+    # Empty destinations.
+    with pytest.raises(RpcError):
+        l1.rpc.multifundchannel([])
+
+    # Required destination fields missing.
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port)}]
+    with pytest.raises(RpcError):
+        l1.rpc.multifundchannel(destinations)
+    destinations = [{"amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 50000}]
+    with pytest.raises(RpcError):
+        l1.rpc.multifundchannel(destinations)
 
 
 def test_lockin_between_restart(node_factory, bitcoind):
