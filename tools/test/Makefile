@@ -23,6 +23,10 @@ else
 TOOL_TEST_PROGRAMS :=
 endif
 
+# Get dependencies correct
+ALL_C_SOURCES += $(TOOL_GEN_SRC) $(TOOL_TEST_SRC)
+ALL_C_HEADERS += $(TOOL_GEN_HEADER)
+
 TOOL_TEST_COMMON_OBJS :=		\
 	common/utils.o
 
