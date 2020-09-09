@@ -277,8 +277,10 @@ static struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 			this_nsequence = nsequence;
 
 		psbt_append_input(psbt, &utxos[i]->txid, utxos[i]->outnum,
-				  this_nsequence, scriptSig, utxos[i]->amount,
-				  scriptPubkey, NULL, redeemscript);
+				  this_nsequence, scriptSig,
+				  NULL, redeemscript);
+
+		psbt_input_set_wit_utxo(psbt, i, scriptPubkey, utxos[i]->amount);
 	}
 
 	return psbt;

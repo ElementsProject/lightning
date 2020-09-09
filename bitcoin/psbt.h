@@ -90,10 +90,17 @@ struct wally_psbt_input *psbt_append_input(struct wally_psbt *psbt,
 					   const struct bitcoin_txid *txid,
 					   u32 outnum, u32 sequence,
 					   const u8 *scriptSig,
-					   struct amount_sat amount,
-					   const u8 *scriptPubkey,
 					   const u8 *input_wscript,
 					   const u8 *redeemscript);
+
+/* psbt_input_set_wit_utxo - Set the witness_utxo field for this PSBT */
+void psbt_input_set_wit_utxo(struct wally_psbt *psbt, size_t in,
+			     const u8 *scriptPubkey, struct amount_sat amt);
+
+/* psbt_elements_input_set_asset - Set the asset/value fields for an
+ * 				   Elements PSBT (PSET, technically */
+void psbt_elements_input_set_asset(struct wally_psbt *psbt, size_t in,
+				   struct amount_asset *asset);
 
 void psbt_rm_input(struct wally_psbt *psbt,
 		   size_t remove_at);
@@ -123,13 +130,7 @@ WARN_UNUSED_RESULT bool psbt_input_set_signature(struct wally_psbt *psbt, size_t
 						 const struct pubkey *pubkey,
 						 const struct bitcoin_signature *sig);
 
-void psbt_input_set_prev_utxo(struct wally_psbt *psbt,
-			      size_t in,
-			      const u8 *wscript,
-			      struct amount_sat amt);
-void psbt_input_set_prev_utxo_wscript(struct wally_psbt *psbt, size_t in,
-			              const u8 *wscript,
-				      struct amount_sat amt);
+void psbt_input_set_witscript(struct wally_psbt *psbt, size_t in, const u8 *wscript);
 void psbt_elements_input_init(struct wally_psbt *psbt, size_t in,
 			      const u8 *scriptPubkey,
 			      struct amount_asset *asset,

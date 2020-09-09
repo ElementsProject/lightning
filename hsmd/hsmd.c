@@ -1576,10 +1576,11 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 
 			/* It's actually a P2WSH in this case. */
 			if (utxo->close_info && utxo->close_info->option_anchor_outputs) {
-				psbt_input_set_prev_utxo_wscript(psbt, j,
-								 anchor_to_remote_redeem(tmpctx,
-											 &pubkey),
-								 utxo->amount);
+				const u8 *wscript = anchor_to_remote_redeem(tmpctx, &pubkey);
+				psbt_input_set_witscript(psbt, j, wscript);
+				psbt_input_set_wit_utxo(psbt, j,
+							scriptpubkey_p2wsh(psbt, wscript),
+							utxo->amount);
 			}
 			if (wally_psbt_sign(psbt, privkey.secret.data,
 					    sizeof(privkey.secret.data),

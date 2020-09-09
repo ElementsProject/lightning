@@ -358,7 +358,10 @@ struct bitcoin_tx *htlc_timeout_tx(const tal_t *ctx,
 	assert(tx);
 
 	in_amount = amount_msat_to_sat_round_down(htlc_msatoshi);
-	psbt_input_set_prev_utxo_wscript(tx->psbt, 0, commit_wscript, in_amount);
+	psbt_input_set_wit_utxo(tx->psbt, 0,
+				scriptpubkey_p2wsh(tx->psbt, commit_wscript),
+				in_amount);
+	psbt_input_set_witscript(tx->psbt, 0, commit_wscript);
 	tx->chainparams = chainparams;
 
 	bitcoin_tx_set_locktime(tx, cltv_expiry);
