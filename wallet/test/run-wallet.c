@@ -111,6 +111,10 @@ char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
+/* Generated stub for feature_negotiated */
+bool feature_negotiated(const struct feature_set *our_features UNNEEDED,
+			const u8 *their_features UNNEEDED, size_t f UNNEEDED)
+{ fprintf(stderr, "feature_negotiated called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_dev_memleak_reply */
 bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
@@ -578,6 +582,11 @@ void peer_start_closingd(struct channel *channel UNNEEDED,
 			 bool reconnected UNNEEDED,
 			 const u8 *channel_reestablish UNNEEDED)
 { fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
+/* Generated stub for peer_start_dualopend */
+void peer_start_dualopend(struct peer *peer UNNEEDED,
+			  struct per_peer_state *pps UNNEEDED,
+			  const u8 *send_msg UNNEEDED)
+{ fprintf(stderr, "peer_start_dualopend called!\n"); abort(); }
 /* Generated stub for peer_start_openingd */
 void peer_start_openingd(struct peer *peer UNNEEDED,
 			 struct per_peer_state *pps UNNEEDED,

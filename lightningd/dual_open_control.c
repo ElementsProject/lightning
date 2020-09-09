@@ -658,32 +658,13 @@ wallet_commit_channel(struct lightningd *ld,
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #2:
-	 * 1. type: 35 (`funding_signed`)
-	 * 2. data:
-	 *     * [`channel_id`:`channel_id`]
-	 *     * [`signature`:`signature`]
-	 *
-	 * #### Requirements
-	 *
-	 * Both peers:
-	 *   - if `option_static_remotekey` or `option_anchor_outputs` was negotiated:
-	 *     - `option_static_remotekey` or `option_anchor_outputs` applies to all commitment
-	 *       transactions
-	 *   - otherwise:
-	 *     - `option_static_remotekey` or `option_anchor_outputs` does not apply to any commitment
-	 *        transactions
-	 */
-	/* i.e. We set it now for the channel permanently. */
-	option_static_remotekey
-		= feature_negotiated(ld->our_features,
-				     uc->peer->their_features,
-				     OPT_STATIC_REMOTEKEY);
-
-	option_anchor_outputs
-		= feature_negotiated(ld->our_features,
-				     uc->peer->their_features,
-				     OPT_ANCHOR_OUTPUTS);
+	/* BOLT-7b04b1461739c5036add61782d58ac490842d98b #9
+	 * | 222/223 | `option_dual_fund`
+	 * | Use v2 of channel open, enables dual funding
+	 * | IN9
+	 * | `option_anchor_outputs`    */
+	option_static_remotekey = true;
+	option_anchor_outputs = true;
 
 	channel = new_channel(uc->peer, uc->dbid,
 			      NULL, /* No shachain yet */
