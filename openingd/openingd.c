@@ -696,6 +696,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 	u8 *msg;
 	struct channel_id id_in;
 	const u8 *wscript;
+	struct channel_id cid;
 	char *err_reason;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 
@@ -707,7 +708,11 @@ static bool funder_finalize_channel_setup(struct state *state,
 	 * part (common/initial_channel) which doesn't support HTLCs and is
 	 * enough for us here, and the complete channel support required by
 	 * `channeld` which lives in channeld/full_channel. */
+	derive_channel_id(&cid,
+			  &state->funding_txid, state->funding_txout);
+
 	state->channel = new_initial_channel(state,
+					     &cid,
 					     &state->funding_txid,
 					     state->funding_txout,
 					     state->minimum_depth,
@@ -813,7 +818,6 @@ static bool funder_finalize_channel_setup(struct state *state,
 		peer_failed(state->pps,
 			    &state->channel_id,
 			    "Parsing funding_signed: %s", tal_hex(msg, msg));
-
 	/* BOLT #2:
 	 *
 	 * This message introduces the `channel_id` to identify the channel.
@@ -837,8 +841,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 	 *
 	 * Let this be a lesson: beware premature specification, even if you
 	 * suspect "we'll need it later!". */
-	derive_channel_id(&state->channel_id,
-			  &state->funding_txid, state->funding_txout);
+	state->channel_id = cid;
 
 	if (!channel_id_eq(&id_in, &state->channel_id))
 		peer_failed(state->pps, &id_in,
@@ -1191,6 +1194,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 
 	/* Now we can create the channel structure. */
 	state->channel = new_initial_channel(state,
+					     &state->channel_id,
 					     &state->funding_txid,
 					     state->funding_txout,
 					     state->minimum_depth,

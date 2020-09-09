@@ -28,8 +28,7 @@ const char *mvt_tag_str(enum mvt_tag tag)
 }
 
 struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
-					      struct bitcoin_txid *funding_txid,
-					      u32 funding_outnum,
+					      const struct channel_id *cid,
 					      struct sha256 payment_hash,
 					      u64 *part_id,
 					      struct amount_msat amount,
@@ -38,7 +37,7 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 {
 	struct channel_coin_mvt *mvt = tal(ctx, struct channel_coin_mvt);
 
-	derive_channel_id(&mvt->chan_id, funding_txid, funding_outnum);
+	mvt->chan_id = *cid;
 	mvt->payment_hash = tal_dup(mvt, struct sha256, &payment_hash);
 	mvt->part_id = part_id;
 	mvt->tag = tag;

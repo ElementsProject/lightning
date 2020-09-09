@@ -3212,6 +3212,7 @@ static void init_channel(struct peer *peer)
 	if (!fromwire_channeld_init(peer, msg,
 				   &chainparams,
 				   &peer->our_features,
+				   &peer->channel_id,
 				   &funding_txid, &funding_txout,
 				   &funding,
 				   &minimum_depth,
@@ -3316,10 +3317,7 @@ static void init_channel(struct peer *peer)
 	get_per_commitment_point(peer->next_index[LOCAL],
 				 &peer->next_local_per_commit, NULL);
 
-	/* channel_id is set from funding txout */
-	derive_channel_id(&peer->channel_id, &funding_txid, funding_txout);
-
-	peer->channel = new_full_channel(peer,
+	peer->channel = new_full_channel(peer, &peer->channel_id,
 					 &funding_txid,
 					 funding_txout,
 					 minimum_depth,

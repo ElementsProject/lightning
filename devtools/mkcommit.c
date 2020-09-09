@@ -18,6 +18,7 @@
 #include <ccan/tal/str/str.h>
 #include <channeld/full_channel.h>
 #include <common/amount.h>
+#include <common/channel_id.h>
 #include <common/derive_basepoints.h>
 #include <common/fee_states.h>
 #include <common/htlc_wire.h>
@@ -250,6 +251,7 @@ int main(int argc, char *argv[])
 	struct pubkey funding_localkey, funding_remotekey;
 	u64 commitnum;
 	struct amount_sat funding_amount;
+	struct channel_id cid;
 	struct bitcoin_txid funding_txid;
 	unsigned int funding_outnum;
 	u32 feerate_per_kw;
@@ -386,7 +388,11 @@ int main(int argc, char *argv[])
 			 &remote, &remoteseed,
 			 &remotebase, &funding_remotekey, commitnum);
 
+	/* FIXME: option for v2? */
+	derive_channel_id(&cid, &funding_txid, funding_outnum);
+
 	channel = new_full_channel(NULL,
+				   &cid,
 				   &funding_txid, funding_outnum, 1,
 				   funding_amount,
 				   local_msat,

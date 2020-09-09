@@ -13,6 +13,7 @@
 #include <inttypes.h>
 
 struct channel *new_initial_channel(const tal_t *ctx,
+				    const struct channel_id *cid,
 				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,
 				    u32 minimum_depth,
@@ -32,6 +33,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	struct channel *channel = tal(ctx, struct channel);
 	struct amount_msat remote_msatoshi;
 
+	channel->cid = *cid;
 	channel->funding_txid = *funding_txid;
 	channel->funding_txout = funding_txout;
 	channel->funding = funding;

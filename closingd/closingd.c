@@ -628,6 +628,7 @@ int main(int argc, char *argv[])
 	if (!fromwire_closingd_init(ctx, msg,
 				   &chainparams,
 				   &pps,
+				   &channel_id,
 				   &funding_txid, &funding_txout,
 				   &funding,
 				   &funding_pubkey[LOCAL],
@@ -669,7 +670,6 @@ int main(int argc, char *argv[])
 	status_debug("fee = %s",
 		     type_to_string(tmpctx, struct amount_sat, &offer[LOCAL]));
 	status_debug("fee negotiation step = %s", fee_negotiation_step_str);
-	derive_channel_id(&channel_id, &funding_txid, funding_txout);
 
 	funding_wscript = bitcoin_redeem_2of2(ctx,
 					      &funding_pubkey[LOCAL],

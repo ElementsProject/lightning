@@ -197,7 +197,6 @@ static void watch_tx_and_outputs(struct channel *channel,
 
 static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
 {
-	struct channel_id channel_id;
 	struct chain_coin_mvt *mvt = tal(NULL, struct chain_coin_mvt);
 
 	if (!fromwire_onchaind_notify_coin_mvt(msg, mvt)) {
@@ -205,10 +204,8 @@ static void handle_onchain_log_coin_move(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	derive_channel_id(&channel_id, &channel->funding_txid,
-			  channel->funding_outnum);
 	mvt->account_name =
-		type_to_string(mvt, struct channel_id, &channel_id);
+		type_to_string(mvt, struct channel_id, &channel->cid);
 	notify_chain_mvt(channel->peer->ld, mvt);
 	tal_free(mvt);
 }

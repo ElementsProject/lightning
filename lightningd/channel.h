@@ -2,10 +2,12 @@
 #define LIGHTNING_LIGHTNINGD_CHANNEL_H
 #include "config.h"
 #include <ccan/list/list.h>
+#include <common/channel_id.h>
 #include <lightningd/channel_state.h>
 #include <lightningd/peer_htlcs.h>
 #include <wallet/wallet.h>
 
+struct channel_id;
 struct uncommitted_channel;
 
 struct billboard {
@@ -68,6 +70,8 @@ struct channel {
 	bool remote_funding_locked;
 	/* Channel if locked locally. */
 	struct short_channel_id *scid;
+
+	struct channel_id cid;
 
 	/* Amount going to us, not counting unfinished HTLCs; if we have one. */
 	struct amount_msat our_msat;
@@ -163,6 +167,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool remote_funding_locked,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid STEALS,
+			    struct channel_id *cid,
 			    struct amount_msat our_msatoshi,
 			    struct amount_msat msatoshi_to_us_min,
 			    struct amount_msat msatoshi_to_us_max,

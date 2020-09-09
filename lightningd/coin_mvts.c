@@ -40,8 +40,7 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx,
 						     struct htlc_in *hin,
 						     struct channel *channel)
 {
-	return new_channel_coin_mvt(ctx, &channel->funding_txid,
-				    channel->funding_outnum,
+	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hin->payment_hash, NULL,
 				    hin->msat, INVOICE,
 				    true);
@@ -51,8 +50,7 @@ struct channel_coin_mvt *new_channel_mvt_routed_hin(const tal_t *ctx,
 						    struct htlc_in *hin,
 						    struct channel *channel)
 {
-	return new_channel_coin_mvt(ctx, &channel->funding_txid,
-				    channel->funding_outnum,
+	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hin->payment_hash, NULL,
 				    hin->msat, ROUTED,
 				    true);
@@ -62,8 +60,7 @@ struct channel_coin_mvt *new_channel_mvt_invoice_hout(const tal_t *ctx,
 						      struct htlc_out *hout,
 						      struct channel *channel)
 {
-	return new_channel_coin_mvt(ctx, &channel->funding_txid,
-				    channel->funding_outnum,
+	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hout->payment_hash, &hout->partid,
 				    hout->msat, INVOICE,
 				    false);
@@ -73,8 +70,7 @@ struct channel_coin_mvt *new_channel_mvt_routed_hout(const tal_t *ctx,
 						     struct htlc_out *hout,
 						     struct channel *channel)
 {
-	return new_channel_coin_mvt(ctx, &channel->funding_txid,
-				    channel->funding_outnum,
+	return new_channel_coin_mvt(ctx, &channel->cid,
 				    hout->payment_hash, NULL,
 				    hout->msat, ROUTED,
 				    false);

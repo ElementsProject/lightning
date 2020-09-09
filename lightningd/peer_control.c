@@ -696,7 +696,6 @@ static void json_add_channel(struct lightningd *ld,
 			     struct json_stream *response, const char *key,
 			     const struct channel *channel)
 {
-	struct channel_id cid;
 	struct channel_stats channel_stats;
 	struct amount_msat funding_msat;
 	struct peer *p = channel->peer;
@@ -719,10 +718,8 @@ static void json_add_channel(struct lightningd *ld,
 			     node_id_idx(&ld->id, &channel->peer->id));
 	}
 
-	derive_channel_id(&cid, &channel->funding_txid,
-			  channel->funding_outnum);
 	json_add_string(response, "channel_id",
-			type_to_string(tmpctx, struct channel_id, &cid));
+			type_to_string(tmpctx, struct channel_id, &channel->cid));
 	json_add_txid(response, "funding_txid", &channel->funding_txid);
 
 	if (channel->shutdown_scriptpubkey[LOCAL]) {
@@ -970,13 +967,9 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 
 		/* We consider this "active" but we only send an error */
 		case AWAITING_UNILATERAL: {
-			struct channel_id cid;
-			derive_channel_id(&cid,
-					  &channel->funding_txid,
-					  channel->funding_outnum);
 			/* channel->error is not saved in db, so this can
 			 * happen if we restart. */
-			error = towire_errorfmt(tmpctx, &cid,
+			error = towire_errorfmt(tmpctx, &channel->cid,
 						"Awaiting unilateral close");
 			goto send_error;
 		}
@@ -1279,7 +1272,6 @@ command_find_channel(struct command *cmd,
 {
 	struct lightningd *ld = cmd->ld;
 	struct channel_id cid;
-	struct channel_id channel_cid;
 	struct short_channel_id scid;
 	struct peer *peer;
 
@@ -1288,10 +1280,7 @@ command_find_channel(struct command *cmd,
 			*channel = peer_active_channel(peer);
 			if (!*channel)
 				continue;
-			derive_channel_id(&channel_cid,
-					  &(*channel)->funding_txid,
-					  (*channel)->funding_outnum);
-			if (channel_id_eq(&channel_cid, &cid))
+			if (channel_id_eq(&(*channel)->cid, &cid))
 				return NULL;
 		}
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1879,8 +1868,6 @@ static struct command_result *param_msat_u32(struct command *cmd,
 static void set_channel_fees(struct command *cmd, struct channel *channel,
 		u32 base, u32 ppm, struct json_stream *response)
 {
-	struct channel_id cid;
-
 	/* set new values */
 	channel->feerate_base = base;
 	channel->feerate_ppm = ppm;
@@ -1894,11 +1881,10 @@ static void set_channel_fees(struct command *cmd, struct channel *channel,
 	wallet_channel_save(cmd->ld->wallet, channel);
 
 	/* write JSON response entry */
-	derive_channel_id(&cid, &channel->funding_txid, channel->funding_outnum);
 	json_object_start(response, NULL);
 	json_add_node_id(response, "peer_id", &channel->peer->id);
 	json_add_string(response, "channel_id",
-			type_to_string(tmpctx, struct channel_id, &cid));
+			type_to_string(tmpctx, struct channel_id, &channel->cid));
 	if (channel->scid)
 		json_add_short_channel_id(response, "short_channel_id", channel->scid);
 	json_object_end(response);
@@ -2158,7 +2144,7 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 	struct peer *peer;
 	struct channel *channel;
 	struct short_channel_id *scid;
-	struct channel_id *find_cid, cid;
+	struct channel_id *find_cid;
 	struct dev_forget_channel_cmd *forget = tal(cmd, struct dev_forget_channel_cmd);
 	forget->cmd = cmd;
 
@@ -2182,10 +2168,7 @@ static struct command_result *json_dev_forget_channel(struct command *cmd,
 	list_for_each(&peer->channels, channel, list) {
 		/* Check for channel id first */
 		if (find_cid) {
-			derive_channel_id(&cid, &channel->funding_txid,
-					  channel->funding_outnum);
-
-			if (!channel_id_eq(find_cid, &cid))
+			if (!channel_id_eq(find_cid, &channel->cid))
 				continue;
 		}
 		if (scid) {

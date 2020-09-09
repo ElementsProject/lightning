@@ -1,3 +1,4 @@
+#include "../../common/channel_id.c"
 #include "../../common/fee_states.c"
 #include "../../common/initial_channel.c"
 #include "../../common/keyset.c"
@@ -9,7 +10,6 @@
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
 #include <common/amount.h>
-#include <common/channel_id.h>
 #include <common/setup.h>
 #include <common/sphinx.h>
 #include <common/type_to_string.h>
@@ -20,10 +20,6 @@
 /* Generated stub for fromwire_bigsize */
 bigsize_t fromwire_bigsize(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_bigsize called!\n"); abort(); }
-/* Generated stub for fromwire_channel_id */
-void fromwire_channel_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
-			 struct channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "fromwire_channel_id called!\n"); abort(); }
 /* Generated stub for fromwire_node_id */
 void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "fromwire_node_id called!\n"); abort(); }
@@ -40,9 +36,6 @@ void status_failed(enum status_failreason code UNNEEDED,
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
 { fprintf(stderr, "towire_bigsize called!\n"); abort(); }
-/* Generated stub for towire_channel_id */
-void towire_channel_id(u8 **pptr UNNEEDED, const struct channel_id *channel_id UNNEEDED)
-{ fprintf(stderr, "towire_channel_id called!\n"); abort(); }
 /* Generated stub for towire_node_id */
 void towire_node_id(u8 **pptr UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "towire_node_id called!\n"); abort(); }
@@ -359,6 +352,7 @@ int main(int argc, const char *argv[])
 	struct bitcoin_txid funding_txid;
 	/* We test from both sides. */
 	struct channel *lchannel, *rchannel;
+	struct channel_id cid;
 	struct amount_sat funding_amount;
 	u32 *feerate_per_kw;
 	unsigned int funding_output_index;
@@ -480,7 +474,8 @@ int main(int argc, const char *argv[])
 	to_local = AMOUNT_MSAT(7000000000);
 	to_remote = AMOUNT_MSAT(3000000000);
 	feerate_per_kw[LOCAL] = feerate_per_kw[REMOTE] = 15000;
-	lchannel = new_full_channel(tmpctx,
+	derive_channel_id(&cid, &funding_txid, funding_output_index);
+	lchannel = new_full_channel(tmpctx, &cid,
 				    &funding_txid, funding_output_index, 0,
 				    funding_amount, to_local,
 				    take(new_fee_states(NULL, LOCAL,
@@ -491,7 +486,7 @@ int main(int argc, const char *argv[])
 				    &local_funding_pubkey,
 				    &remote_funding_pubkey,
 				    false, false, LOCAL);
-	rchannel = new_full_channel(tmpctx,
+	rchannel = new_full_channel(tmpctx, &cid,
 				    &funding_txid, funding_output_index, 0,
 				    funding_amount, to_remote,
 				    take(new_fee_states(NULL, REMOTE,
