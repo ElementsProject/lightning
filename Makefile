@@ -580,8 +580,12 @@ PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_gossipd \
 	       lightningd/lightning_hsmd \
 	       lightningd/lightning_onchaind \
-	       lightningd/lightning_openingd \
-	       lightningd/lightning_dualopend
+	       lightningd/lightning_openingd
+
+# Only build dualopend if experimental features is on
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+PKGLIBEXEC_PROGRAMS += lightningd/lightning_dualopend
+endif
 
 # $(PLUGINS) is defined in plugins/Makefile.
 

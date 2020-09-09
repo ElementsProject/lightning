@@ -6,7 +6,6 @@
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
-#include <common/psbt_open.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <wallet/wallet.h>

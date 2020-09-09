@@ -33,7 +33,6 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/memleak.o			\
 	common/node_id.o			\
 	common/per_peer_state.o			\
-	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/json.o				\
 	common/json_helpers.o			\
@@ -44,6 +43,10 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/wireaddr.o			\
 	wire/onion$(EXP)_wiregen.o		\
 	wire/peer$(EXP)_wiregen.o
+
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+DEVTOOLS_COMMON_OBJS += common/psbt_open.o
+endif
 
 devtools/bolt11-cli: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/bolt11-cli.o
 
