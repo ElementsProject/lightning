@@ -846,7 +846,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listsendpays", payload)
 
-    def multifundchannel(self, destinations, feerate=None, minconf=None, utxos=None, best_effort=False, **kwargs):
+    def multifundchannel(self, destinations, feerate=None, minconf=None, utxos=None, minchannels=None, **kwargs):
         """
         Fund channels to an array of {destinations},
         each entry of which is a dict of node {id}
@@ -862,7 +862,8 @@ class LightningRpc(UnixDomainSocketRpc):
             "destinations": destinations,
             "feerate": feerate,
             "minconf": minconf,
-            "utxos": utxos
+            "utxos": utxos,
+            "minchannels": minchannels,
         }
         payload.update({k: v for k, v in kwargs.items()})
         return self.call("multifundchannel", payload)
