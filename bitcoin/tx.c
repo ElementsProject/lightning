@@ -98,11 +98,16 @@ int bitcoin_tx_add_multi_outputs(struct bitcoin_tx *tx,
 	return tx->wtx->num_outputs;
 }
 
+bool elements_wtx_output_is_fee(const struct wally_tx *tx, int outnum)
+{
+	assert(outnum < tx->num_outputs);
+	return chainparams->is_elements &&
+		tx->outputs[outnum].script_len == 0;
+}
+
 bool elements_tx_output_is_fee(const struct bitcoin_tx *tx, int outnum)
 {
-	assert(outnum < tx->wtx->num_outputs);
-	return chainparams->is_elements &&
-	       tx->wtx->outputs[outnum].script_len == 0;
+	return elements_wtx_output_is_fee(tx->wtx, outnum);
 }
 
 struct amount_sat bitcoin_tx_compute_fee_w_inputs(const struct bitcoin_tx *tx,
