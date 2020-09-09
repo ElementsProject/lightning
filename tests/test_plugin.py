@@ -736,14 +736,6 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     assert(event['peer_id'] == peer_id)
     assert(event['channel_id'] == cid)
     assert(event['short_channel_id'] == scid)
-    assert(event['old_state'] == "AWAITING_UNILATERAL")  # this actually happens
-    assert(event['new_state'] == "AWAITING_UNILATERAL")  # note: same states
-
-    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
-    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
-    assert(event['peer_id'] == peer_id)
-    assert(event['channel_id'] == cid)
-    assert(event['short_channel_id'] == scid)
     assert(event['old_state'] == "AWAITING_UNILATERAL")
     assert(event['new_state'] == "FUNDING_SPEND_SEEN")
 
