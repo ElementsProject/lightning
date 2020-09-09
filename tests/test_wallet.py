@@ -534,7 +534,7 @@ def test_fundpsbt(node_factory, bitcoind, chainparams):
         l1.rpc.fundpsbt(amount // 2, feerate, 0)
 
 
-def test_utxopsbt(node_factory, bitcoind):
+def test_utxopsbt(node_factory, bitcoind, chainparams):
     amount = 1000000
     l1 = node_factory.get_node()
 
@@ -550,7 +550,8 @@ def test_utxopsbt(node_factory, bitcoind):
     bitcoind.generate_block(1)
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == len(outputs))
 
-    feerate = '7500perkw'
+    fee_val = 7500
+    feerate = '{}perkw'.format(fee_val)
 
     # Explicitly spend the first output above.
     funding = l1.rpc.utxopsbt(amount // 2, feerate, 0,
@@ -568,13 +569,19 @@ def test_utxopsbt(node_factory, bitcoind):
     assert 'reservations' not in funding
 
     # This should add 99 to the weight, but otherwise be identical except for locktime.
-    funding2 = l1.rpc.utxopsbt(amount // 2, feerate, 99,
+    start_weight = 99
+    funding2 = l1.rpc.utxopsbt(amount // 2, feerate, start_weight,
                                ['{}:{}'.format(outputs[0][0], outputs[0][1])],
                                reserve=False, locktime=bitcoind.rpc.getblockcount() + 1)
     psbt2 = bitcoind.rpc.decodepsbt(funding2['psbt'])
     assert psbt2['tx']['locktime'] == bitcoind.rpc.getblockcount() + 1
     assert psbt2['tx']['vin'] == psbt['tx']['vin']
-    assert psbt2['tx']['vout'] == psbt['tx']['vout']
+    if chainparams['elements']:
+        # elements includes the fee as an output
+        addl_fee = Millisatoshi(fee_val * start_weight // 1000 * 1000)
+        assert psbt2['tx']['vout'][0]['value'] == psbt['tx']['vout'][0]['value'] + addl_fee.to_btc()
+    else:
+        assert psbt2['tx']['vout'] == psbt['tx']['vout']
     assert funding2['excess_msat'] < funding['excess_msat']
     assert funding2['feerate_per_kw'] == 7500
     assert funding2['estimated_final_weight'] == funding['estimated_final_weight'] + 99
