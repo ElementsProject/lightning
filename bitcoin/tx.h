@@ -213,6 +213,11 @@ void bitcoin_tx_finalize(struct bitcoin_tx *tx);
 /**
  * Returns true if the given outnum is a fee output
  */
+bool elements_wtx_output_is_fee(const struct wally_tx *tx, int outnum);
+
+/**
+ * Returns true if the given outnum is a fee output
+ */
 bool elements_tx_output_is_fee(const struct bitcoin_tx *tx, int outnum);
 
 /**
