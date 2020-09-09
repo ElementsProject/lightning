@@ -8,6 +8,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/closing_control.c		\
 	lightningd/coin_mvts.c			\
 	lightningd/connect_control.c		\
+	lightningd/dual_open_control.c		\
 	lightningd/onion_message.c		\
 	lightningd/gossip_control.c		\
 	lightningd/gossip_msg.c			\
@@ -100,6 +101,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/penalty_base.o			\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
+	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/random_select.o			\
 	common/setup.o				\
