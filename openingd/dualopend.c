@@ -629,7 +629,7 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			 *   ...
 			 *  - it recieves a duplicate `serial_id`
 			 */
-			if (psbt_has_serial_input(psbt, serial_id))
+			if (psbt_find_serial_input(psbt, serial_id) != -1)
 				peer_failed(state->pps, &state->channel_id,
 					    "Duplicate serial_id rcvd. %u", serial_id);
 
@@ -703,7 +703,7 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			break;
 		}
 		case WIRE_TX_REMOVE_INPUT: {
-			bool input_found = false;
+			int input_index;
 
 			if (!fromwire_tx_remove_input(msg, &cid, &serial_id))
 				peer_failed(state->pps, &state->channel_id,
@@ -712,24 +712,21 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 
 			check_channel_id(state, &cid, &state->channel_id);
 
-			for (size_t i = 0; i < psbt->num_inputs; i++) {
-				u16 input_serial;
-				if (!psbt_get_serial_id(&psbt->inputs[i].unknowns,
-							&input_serial)) {
-					peer_failed(state->pps, &state->channel_id,
-						    "No input added with serial_id %u",
-						    serial_id);
-				}
-				if (input_serial == serial_id) {
-					psbt_rm_input(psbt, i);
-					input_found = true;
-					break;
-				}
-			}
-			if (!input_found)
+			/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
+			 * The sending node:
+			 *   - MUST NOT send a `tx_remove_input` for an
+			 *     input which is not theirs */
+			if (serial_id % 2 != 0)
+				peer_failed(state->pps, &state->channel_id,
+					    "Invalid serial_id rcvd. %u", serial_id);
+
+			input_index = psbt_find_serial_input(psbt, serial_id);
+			if (input_index == -1)
 				peer_failed(state->pps, &state->channel_id,
 					    "No input added with serial_id %u",
 					    serial_id);
+
+			psbt_rm_input(psbt, input_index);
 			break;
 		}
 		case WIRE_TX_ADD_OUTPUT: {
@@ -745,7 +742,18 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 					    tal_hex(tmpctx, msg));
 			check_channel_id(state, &cid, &state->channel_id);
 
-			if (psbt_has_serial_output(psbt, serial_id))
+			/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
+			 * The receiving node:
+			 *  ...
+			 * - MUST fail the transaction collaboration if:
+			 *   ...
+			 *   - it receives a `serial_id` from the peer with the
+			 *      incorrect parity */
+			if (serial_id % 2 != 0)
+				peer_failed(state->pps, &state->channel_id,
+					    "Invalid serial_id rcvd. %u", serial_id);
+
+			if (psbt_find_serial_output(psbt, serial_id) != -1)
 				peer_failed(state->pps, &state->channel_id,
 					    "Duplicate serial_id rcvd. %u", serial_id);
 			amt = amount_sat(value);
@@ -754,7 +762,7 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			break;
 		}
 		case WIRE_TX_REMOVE_OUTPUT: {
-			bool out_found = false;
+			int output_index;
 
 			if (!fromwire_tx_remove_output(msg, &cid, &serial_id))
 				peer_failed(state->pps, &state->channel_id,
@@ -763,24 +771,20 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 
 			check_channel_id(state, &cid, &state->channel_id);
 
-			for (size_t i = 0; i < psbt->num_outputs; i++) {
-				u16 output_serial;
-				if (!psbt_get_serial_id(&psbt->outputs[i].unknowns,
-							&output_serial)) {
-					peer_failed(state->pps, &state->channel_id,
-						    "No output added with serial_id %u",
-						    serial_id);
-				}
-				if (output_serial == serial_id) {
-					psbt_rm_output(psbt, i);
-					out_found = true;
-					break;
-				}
-			}
-			if (!out_found)
+			/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
+			 * The sending node:
+			 *   - MUST NOT send a `tx_remove_ouput` for an
+			 *     input which is not theirs */
+			if (serial_id % 2 != 0)
+				peer_failed(state->pps, &state->channel_id,
+					    "Invalid serial_id rcvd. %u", serial_id);
+
+			output_index = psbt_find_serial_output(psbt, serial_id);
+			if (output_index == -1)
 				peer_failed(state->pps, &state->channel_id,
 					    "No output added with serial_id %u",
 					    serial_id);
+			psbt_rm_output(psbt, output_index);
 			break;
 		}
 		case WIRE_TX_COMPLETE:

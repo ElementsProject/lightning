@@ -106,23 +106,23 @@ void psbt_output_add_serial_id(struct wally_psbt_output *output,
  */
 void psbt_sort_by_serial_id(struct wally_psbt *psbt);
 
-/* psbt_has_serial_input - Checks inputs for provided serial_id
+/* psbt_find_serial_input - Checks inputs for provided serial_id
  *
  * @psbt - psbt's inputs to check
  * @serial_id - id to look for
- * Returns true if serial_id found.
+ *
+ * Returns index of input with matching serial if found or -1
  */
-WARN_UNUSED_RESULT bool
-psbt_has_serial_input(struct wally_psbt *psbt, u16 serial_id);
+int psbt_find_serial_input(struct wally_psbt *psbt, u16 serial_id);
 
-/* psbt_has_serial_output - Checks outputs for provided serial_id
+/* psbt_find_serial_output - Checks outputs for provided serial_id
  *
  * @psbt - psbt's outputs to check
  * @serial_id - id to look for
- * Returns true if serial_id found.
+ *
+ * Returns index of output with matching serial if found or -1
  */
-WARN_UNUSED_RESULT bool
-psbt_has_serial_output(struct wally_psbt *psbt, u16 serial_id);
+int psbt_find_serial_output(struct wally_psbt *psbt, u16 serial_id);
 
 /* psbt_input_add_max_witness_len - Put a max witness len on a thing
  *
