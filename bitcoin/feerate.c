@@ -1,4 +1,5 @@
 #include <bitcoin/feerate.h>
+#include <bitcoin/varint.h>
 #include <limits.h>
 #include <stdlib.h>
 
@@ -37,4 +38,13 @@ const char *feerate_style_name(enum feerate_style style)
 		return "perkw";
 	}
 	abort();
+}
+
+size_t common_weight(size_t num_inputs, size_t num_outputs)
+{
+	/*(nVersion + num inputs + num outputs + locktime) * 4
+	 *         + SegWit marker + SegWit flag */
+	return (4 + varint_size(num_inputs) +
+		varint_size(num_outputs) + 4) * 4
+		+ 1 + 1;
 }
