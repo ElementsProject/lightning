@@ -15,6 +15,7 @@
 #include <secp256k1_ecdh.h>
 #include <stdbool.h>
 
+struct channel_id;
 struct ext_key;
 struct lightningd;
 struct log;
@@ -107,6 +108,7 @@ void db_bind_sha256d(struct db_stmt *stmt, int pos, const struct sha256_double *
 void db_bind_secret(struct db_stmt *stmt, int pos, const struct secret *s);
 void db_bind_secret_arr(struct db_stmt *stmt, int col, const struct secret *s);
 void db_bind_txid(struct db_stmt *stmt, int pos, const struct bitcoin_txid *t);
+void db_bind_channel_id(struct db_stmt *stmt, int pos, const struct channel_id *id);
 void db_bind_node_id(struct db_stmt *stmt, int pos, const struct node_id *ni);
 void db_bind_node_id_arr(struct db_stmt *stmt, int col,
 			 const struct node_id *ids);
@@ -147,6 +149,7 @@ void db_column_secret(struct db_stmt *stmt, int col, struct secret *s);
 struct secret *db_column_secret_arr(const tal_t *ctx, struct db_stmt *stmt,
 				    int col);
 void db_column_txid(struct db_stmt *stmt, int pos, struct bitcoin_txid *t);
+void db_column_channel_id(struct db_stmt *stmt, int col, struct channel_id *dest);
 void db_column_node_id(struct db_stmt *stmt, int pos, struct node_id *ni);
 struct node_id *db_column_node_id_arr(const tal_t *ctx, struct db_stmt *stmt,
 				      int col);

@@ -172,6 +172,7 @@ void json_add_uncommitted_channel(struct json_stream *response,
 static struct channel *
 wallet_commit_channel(struct lightningd *ld,
 		      struct uncommitted_channel *uc,
+		      struct channel_id *cid,
 		      struct bitcoin_tx *remote_commit,
 		      struct bitcoin_signature *remote_commit_sig,
 		      const struct bitcoin_txid *funding_txid,
@@ -262,6 +263,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      local_funding,
 			      false, /* !remote_funding_locked */
 			      NULL, /* no scid yet */
+			      cid,
 			      /* The three arguments below are msatoshi_to_us,
 			       * msatoshi_to_us_min, and msatoshi_to_us_max.
 			       * Because, this is a newly-funded channel,
@@ -339,7 +341,8 @@ static void funding_success(struct channel *channel)
 
 	response = json_stream_success(cmd);
 	json_add_string(response, "channel_id",
-			type_to_string(tmpctx, struct channel_id, &fc->cid));
+			type_to_string(tmpctx, struct channel_id,
+				       &channel->cid));
 	json_add_bool(response, "commitments_secured", true);
 	was_pending(command_success(cmd, response));
 }
@@ -410,6 +413,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 				    struct funding_channel *fc)
 {
 	struct channel_info channel_info;
+	struct channel_id cid;
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
 	struct bitcoin_signature remote_commit_sig;
@@ -457,8 +461,12 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		  "%s", type_to_string(tmpctx, struct pubkey,
 				       &channel_info.remote_per_commit));
 
+	/* Saved with channel to disk */
+	derive_channel_id(&cid, &funding_txid, funding_txout);
+
 	/* Steals fields from uc */
 	channel = wallet_commit_channel(ld, fc->uc,
+					&cid,
 					remote_commit,
 					&remote_commit_sig,
 					&funding_txid,
@@ -478,9 +486,6 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 
 	/* Watch for funding confirms */
 	channel_watch_funding(ld, channel);
-
-	/* Needed for the success statement */
-	derive_channel_id(&fc->cid, &channel->funding_txid, funding_txout);
 
 	if (pbase)
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
@@ -504,6 +509,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	struct channel_info channel_info;
 	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
+	struct channel_id cid;
 	struct lightningd *ld = openingd->ld;
 	struct bitcoin_txid funding_txid;
 	u16 funding_outnum;
@@ -561,8 +567,11 @@ static void opening_fundee_finished(struct subd *openingd,
 		goto failed;
 	}
 
+	derive_channel_id(&cid, &funding_txid, funding_outnum);
+
 	/* Consumes uc */
 	channel = wallet_commit_channel(ld, uc,
+					&cid,
 					remote_commit,
 					&remote_commit_sig,
 					&funding_txid,

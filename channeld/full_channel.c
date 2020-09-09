@@ -90,6 +90,7 @@ static bool balance_ok(const struct balance *balance,
 }
 
 struct channel *new_full_channel(const tal_t *ctx,
+				 const struct channel_id *cid,
 				 const struct bitcoin_txid *funding_txid,
 				 unsigned int funding_txout,
 				 u32 minimum_depth,
@@ -107,6 +108,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 enum side opener)
 {
 	struct channel *channel = new_initial_channel(ctx,
+						      cid,
 						      funding_txid,
 						      funding_txout,
 						      minimum_depth,

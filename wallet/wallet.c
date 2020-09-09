@@ -937,6 +937,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	bool ok = true;
 	struct channel_info channel_info;
 	struct short_channel_id *scid;
+	struct channel_id cid;
 	struct channel *chan;
 	u64 peer_dbid;
 	struct peer *peer;
@@ -971,15 +972,15 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		scid = NULL;
 	}
 
-	ok &= wallet_shachain_load(w, db_column_u64(stmt, 28), &wshachain);
+	ok &= wallet_shachain_load(w, db_column_u64(stmt, 29), &wshachain);
 
-	remote_shutdown_scriptpubkey = db_column_arr(tmpctx, stmt, 29, u8);
-	local_shutdown_scriptpubkey = db_column_arr(tmpctx, stmt, 48, u8);
+	remote_shutdown_scriptpubkey = db_column_arr(tmpctx, stmt, 30, u8);
+	local_shutdown_scriptpubkey = db_column_arr(tmpctx, stmt, 49, u8);
 
 	/* Do we have a last_sent_commit, if yes, populate */
-	if (!db_column_is_null(stmt, 42)) {
-		const u8 *cursor = db_column_blob(stmt, 42);
-		size_t len = db_column_bytes(stmt, 42);
+	if (!db_column_is_null(stmt, 43)) {
+		const u8 *cursor = db_column_blob(stmt, 43);
+		size_t len = db_column_bytes(stmt, 43);
 		size_t n = 0;
 		last_sent_commit = tal_arr(tmpctx, struct changed_htlc, n);
 		while (len) {
@@ -991,41 +992,42 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		last_sent_commit = NULL;
 
 #ifdef COMPAT_V060
-	if (!last_sent_commit && !db_column_is_null(stmt, 31)) {
+	if (!last_sent_commit && !db_column_is_null(stmt, 32)) {
 		last_sent_commit = tal(tmpctx, struct changed_htlc);
-		last_sent_commit->newstate = db_column_u64(stmt, 31);
-		last_sent_commit->id = db_column_u64(stmt, 32);
+		last_sent_commit->newstate = db_column_u64(stmt, 32);
+		last_sent_commit->id = db_column_u64(stmt, 33);
 	}
 #endif
 
-	if (!db_column_is_null(stmt, 41)) {
+	if (!db_column_is_null(stmt, 42)) {
 		future_per_commitment_point = tal(tmpctx, struct pubkey);
-		db_column_pubkey(stmt, 41, future_per_commitment_point);
+		db_column_pubkey(stmt, 42, future_per_commitment_point);
 	} else
 		future_per_commitment_point = NULL;
 
-	channel_config_id = db_column_u64(stmt, 3);
+	db_column_channel_id(stmt, 3, &cid);
+	channel_config_id = db_column_u64(stmt, 4);
 	ok &= wallet_channel_config_load(w, channel_config_id, &our_config);
-	db_column_sha256d(stmt, 12, &funding_txid.shad);
-	ok &= db_column_signature(stmt, 34, &last_sig.s);
+	db_column_sha256d(stmt, 13, &funding_txid.shad);
+	ok &= db_column_signature(stmt, 35, &last_sig.s);
 	last_sig.sighash_type = SIGHASH_ALL;
 
 	/* Populate channel_info */
-	db_column_pubkey(stmt, 19, &channel_info.remote_fundingkey);
-	db_column_pubkey(stmt, 20, &channel_info.theirbase.revocation);
-	db_column_pubkey(stmt, 21, &channel_info.theirbase.payment);
-	db_column_pubkey(stmt, 22, &channel_info.theirbase.htlc);
-	db_column_pubkey(stmt, 23, &channel_info.theirbase.delayed_payment);
-	db_column_pubkey(stmt, 24, &channel_info.remote_per_commit);
-	db_column_pubkey(stmt, 25, &channel_info.old_remote_per_commit);
+	db_column_pubkey(stmt, 20, &channel_info.remote_fundingkey);
+	db_column_pubkey(stmt, 21, &channel_info.theirbase.revocation);
+	db_column_pubkey(stmt, 22, &channel_info.theirbase.payment);
+	db_column_pubkey(stmt, 23, &channel_info.theirbase.htlc);
+	db_column_pubkey(stmt, 24, &channel_info.theirbase.delayed_payment);
+	db_column_pubkey(stmt, 25, &channel_info.remote_per_commit);
+	db_column_pubkey(stmt, 26, &channel_info.old_remote_per_commit);
 
-	wallet_channel_config_load(w, db_column_u64(stmt, 4),
+	wallet_channel_config_load(w, db_column_u64(stmt, 5),
 				   &channel_info.their_config);
 
 	channel_info.fee_states
 		= wallet_channel_fee_states_load(w,
 						 db_column_u64(stmt, 0),
-						 db_column_int(stmt, 6));
+						 db_column_int(stmt, 7));
 	if (!channel_info.fee_states)
 		ok = false;
 
@@ -1034,7 +1036,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		return NULL;
 	}
 
-	final_key_idx = db_column_u64(stmt, 30);
+	final_key_idx = db_column_u64(stmt, 31);
 	if (final_key_idx < 0) {
 		log_broken(w->log, "%s: Final key < 0", __func__);
 		return NULL;
@@ -1043,60 +1045,61 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	get_channel_basepoints(w->ld, &peer->id, db_column_u64(stmt, 0),
 			       &local_basepoints, &local_funding_pubkey);
 
-	db_column_amount_sat(stmt, 14, &funding_sat);
-	db_column_amount_sat(stmt, 15, &our_funding_sat);
-	db_column_amount_msat(stmt, 17, &push_msat);
-	db_column_amount_msat(stmt, 18, &our_msat);
-	db_column_amount_msat(stmt, 39, &msat_to_us_min);
-	db_column_amount_msat(stmt, 40, &msat_to_us_max);
+	db_column_amount_sat(stmt, 15, &funding_sat);
+	db_column_amount_sat(stmt, 16, &our_funding_sat);
+	db_column_amount_msat(stmt, 18, &push_msat);
+	db_column_amount_msat(stmt, 19, &our_msat);
+	db_column_amount_msat(stmt, 40, &msat_to_us_min);
+	db_column_amount_msat(stmt, 41, &msat_to_us_max);
 
 	/* We want it to take this, rather than copy. */
 	take(channel_info.fee_states);
 	chan = new_channel(peer, db_column_u64(stmt, 0),
 			   &wshachain,
-			   db_column_int(stmt, 5),
 			   db_column_int(stmt, 6),
+			   db_column_int(stmt, 7),
 			   NULL, /* Set up fresh log */
 			   "Loaded from database",
-			   db_column_int(stmt, 7),
-			   &our_config,
 			   db_column_int(stmt, 8),
-			   db_column_u64(stmt, 9),
+			   &our_config,
+			   db_column_int(stmt, 9),
 			   db_column_u64(stmt, 10),
 			   db_column_u64(stmt, 11),
+			   db_column_u64(stmt, 12),
 			   &funding_txid,
-			   db_column_int(stmt, 13),
+			   db_column_int(stmt, 14),
 			   funding_sat,
 			   push_msat,
 			   our_funding_sat,
-			   db_column_int(stmt, 16) != 0,
+			   db_column_int(stmt, 17) != 0,
 			   scid,
+			   &cid,
 			   our_msat,
 			   msat_to_us_min, /* msatoshi_to_us_min */
 			   msat_to_us_max, /* msatoshi_to_us_max */
-			   db_column_psbt_to_tx(tmpctx, stmt, 33),
+			   db_column_psbt_to_tx(tmpctx, stmt, 34),
 			   &last_sig,
 			   wallet_htlc_sigs_load(tmpctx, w,
 						 db_column_u64(stmt, 0),
-						 db_column_int(stmt, 47)),
+						 db_column_int(stmt, 48)),
 			   &channel_info,
 			   remote_shutdown_scriptpubkey,
 			   local_shutdown_scriptpubkey,
 			   final_key_idx,
-			   db_column_int(stmt, 35) != 0,
+			   db_column_int(stmt, 36) != 0,
 			   last_sent_commit,
-			   db_column_u64(stmt, 36),
-			   db_column_int(stmt, 37),
+			   db_column_u64(stmt, 37),
 			   db_column_int(stmt, 38),
+			   db_column_int(stmt, 39),
 			   /* Not connected */
 			   false,
 			   &local_basepoints, &local_funding_pubkey,
 			   future_per_commitment_point,
-			   db_column_int(stmt, 43),
 			   db_column_int(stmt, 44),
-			   db_column_arr(tmpctx, stmt, 45, u8),
-			   db_column_int(stmt, 46),
-			   db_column_int(stmt, 47));
+			   db_column_int(stmt, 45),
+			   db_column_arr(tmpctx, stmt, 46, u8),
+			   db_column_int(stmt, 47),
+			   db_column_int(stmt, 48));
 
 	return chan;
 }
@@ -1126,6 +1129,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					"  id"
 					", peer_id"
 					", short_channel_id"
+					", full_channel_id"
 					", channel_config_local"
 					", channel_config_remote"
 					", state"
@@ -1149,7 +1153,6 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", delayed_payment_basepoint_remote"
 					", per_commit_remote"
 					", old_per_commit_remote"
-					/* FIXME: We don't use these two: */
 					", local_feerate_per_kw"
 					", remote_feerate_per_kw"
 					", shachain_remote_id"
@@ -1410,6 +1413,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	stmt = db_prepare_v2(w->db, SQL("UPDATE channels SET"
 					"  shachain_remote_id=?,"
 					"  short_channel_id=?,"
+					"  full_channel_id=?,"
 					"  state=?,"
 					"  funder=?,"
 					"  channel_flags=?,"
@@ -1445,42 +1449,43 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_short_channel_id(stmt, 1, chan->scid);
 	else
 		db_bind_null(stmt, 1);
-	db_bind_int(stmt, 2, chan->state);
-	db_bind_int(stmt, 3, chan->opener);
-	db_bind_int(stmt, 4, chan->channel_flags);
-	db_bind_int(stmt, 5, chan->minimum_depth);
 
-	db_bind_u64(stmt, 6, chan->next_index[LOCAL]);
-	db_bind_u64(stmt, 7, chan->next_index[REMOTE]);
-	db_bind_u64(stmt, 8, chan->next_htlc_id);
+	db_bind_channel_id(stmt, 2, &chan->cid);
+	db_bind_int(stmt, 3, chan->state);
+	db_bind_int(stmt, 4, chan->opener);
+	db_bind_int(stmt, 5, chan->channel_flags);
+	db_bind_int(stmt, 6, chan->minimum_depth);
 
-	db_bind_sha256d(stmt, 9, &chan->funding_txid.shad);
+	db_bind_u64(stmt, 7, chan->next_index[LOCAL]);
+	db_bind_u64(stmt, 8, chan->next_index[REMOTE]);
+	db_bind_u64(stmt, 9, chan->next_htlc_id);
 
-	db_bind_int(stmt, 10, chan->funding_outnum);
-	db_bind_amount_sat(stmt, 11, &chan->funding);
-	db_bind_amount_sat(stmt, 12, &chan->our_funds);
-	db_bind_int(stmt, 13, chan->remote_funding_locked);
-	db_bind_amount_msat(stmt, 14, &chan->push);
-	db_bind_amount_msat(stmt, 15, &chan->our_msat);
+	db_bind_sha256d(stmt, 10, &chan->funding_txid.shad);
 
-	db_bind_talarr(stmt, 16, chan->shutdown_scriptpubkey[REMOTE]);
+	db_bind_int(stmt, 11, chan->funding_outnum);
+	db_bind_amount_sat(stmt, 12, &chan->funding);
+	db_bind_amount_sat(stmt, 13, &chan->our_funds);
+	db_bind_int(stmt, 14, chan->remote_funding_locked);
+	db_bind_amount_msat(stmt, 15, &chan->push);
+	db_bind_amount_msat(stmt, 16, &chan->our_msat);
 
-	db_bind_u64(stmt, 17, chan->final_key_idx);
-	db_bind_u64(stmt, 18, chan->our_config.id);
-	db_bind_psbt(stmt, 19, chan->last_tx->psbt);
-	db_bind_signature(stmt, 20, &chan->last_sig.s);
-	db_bind_int(stmt, 21, chan->last_was_revoke);
-	db_bind_int(stmt, 22, chan->min_possible_feerate);
-	db_bind_int(stmt, 23, chan->max_possible_feerate);
-	db_bind_amount_msat(stmt, 24, &chan->msat_to_us_min);
-	db_bind_amount_msat(stmt, 25, &chan->msat_to_us_max);
-	db_bind_int(stmt, 26, chan->feerate_base);
-	db_bind_int(stmt, 27, chan->feerate_ppm);
-	db_bind_talarr(stmt, 28, chan->remote_upfront_shutdown_script);
-	db_bind_int(stmt, 29, chan->option_static_remotekey);
-	db_bind_int(stmt, 30, chan->option_anchor_outputs);
-	db_bind_talarr(stmt, 31, chan->shutdown_scriptpubkey[LOCAL]);
-	db_bind_u64(stmt, 32, chan->dbid);
+	db_bind_talarr(stmt, 17, chan->shutdown_scriptpubkey[REMOTE]);
+	db_bind_u64(stmt, 18, chan->final_key_idx);
+	db_bind_u64(stmt, 19, chan->our_config.id);
+	db_bind_psbt(stmt, 20, chan->last_tx->psbt);
+	db_bind_signature(stmt, 21, &chan->last_sig.s);
+	db_bind_int(stmt, 22, chan->last_was_revoke);
+	db_bind_int(stmt, 23, chan->min_possible_feerate);
+	db_bind_int(stmt, 24, chan->max_possible_feerate);
+	db_bind_amount_msat(stmt, 25, &chan->msat_to_us_min);
+	db_bind_amount_msat(stmt, 26, &chan->msat_to_us_max);
+	db_bind_int(stmt, 27, chan->feerate_base);
+	db_bind_int(stmt, 28, chan->feerate_ppm);
+	db_bind_talarr(stmt, 29, chan->remote_upfront_shutdown_script);
+	db_bind_int(stmt, 30, chan->option_static_remotekey);
+	db_bind_int(stmt, 31, chan->option_anchor_outputs);
+	db_bind_talarr(stmt, 32, chan->shutdown_scriptpubkey[LOCAL]);
+	db_bind_u64(stmt, 33, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
 	wallet_channel_config_save(w, &chan->channel_info.their_config);

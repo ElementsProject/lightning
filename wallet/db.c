@@ -5,6 +5,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/channel_id.h>
 #include <common/derive_basepoints.h>
 #include <common/key_derive.h>
 #include <common/node_id.h>
@@ -40,6 +41,9 @@ static void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db,
 
 static void fillin_missing_scriptpubkeys(struct lightningd *ld, struct db *db,
 					 const struct ext_key *bip32_base);
+
+static void fillin_missing_channel_id(struct lightningd *ld, struct db *db,
+				      const struct ext_key *bip32_base);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -640,6 +644,7 @@ static struct migration dbmigrations[] = {
     /* We need to know if it was option_anchor_outputs to spend to_remote */
     {SQL("ALTER TABLE outputs ADD option_anchor_outputs INTEGER"
 	 " DEFAULT 0;"), NULL},
+    {SQL("ALTER TABLE channels ADD full_channel_id BLOB DEFAULT NULL;"), fillin_missing_channel_id},
 };
 
 /* Leak tracking. */
@@ -1223,6 +1228,49 @@ void fillin_missing_scriptpubkeys(struct lightningd *ld, struct db *db,
 	tal_free(stmt);
 }
 
+/*
+ * V2 channel open has a different channel_id format than v1. prior to this, we
+ * could simply derive the channel_id whenever it was required, but since there
+ * are now two ways to do it, we save the derived channel id.
+ */
+static void fillin_missing_channel_id(struct lightningd *ld, struct db *db,
+				      const struct ext_key *bip32_base)
+{
+
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("SELECT"
+				     " id"
+				     ", funding_tx_id"
+				     ", funding_tx_outnum"
+				     " FROM channels;"));
+
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		struct db_stmt *update_stmt;
+		size_t id;
+		struct bitcoin_txid funding_txid;
+		struct channel_id cid;
+		u32 outnum;
+
+		id = db_column_int(stmt, 0);
+		db_column_txid(stmt, 1, &funding_txid);
+		outnum = db_column_int(stmt, 2);
+		derive_channel_id(&cid, &funding_txid, outnum);
+
+		update_stmt = db_prepare_v2(db, SQL("UPDATE channels"
+						    " SET full_channel_id = ?"
+						    " WHERE id = ?;"));
+		db_bind_channel_id(update_stmt, 0, &cid);
+		db_bind_int(update_stmt, 1, id);
+
+		db_exec_prepared_v2(update_stmt);
+		tal_free(update_stmt);
+	}
+
+	tal_free(stmt);
+}
+
 /* We're moving everything over to PSBTs from tx's, particularly our last_tx's
  * which are commitment transactions for channels.
  * This migration loads all of the last_tx's and 're-formats' them into psbts,
@@ -1386,6 +1434,11 @@ void db_bind_txid(struct db_stmt *stmt, int pos, const struct bitcoin_txid *t)
 	db_bind_sha256d(stmt, pos, &t->shad);
 }
 
+void db_bind_channel_id(struct db_stmt *stmt, int pos, const struct channel_id *id)
+{
+	db_bind_blob(stmt, pos, id->id, sizeof(id->id));
+}
+
 void db_bind_node_id(struct db_stmt *stmt, int pos, const struct node_id *id)
 {
 	db_bind_blob(stmt, pos, id->k, sizeof(id->k));
@@ -1503,6 +1556,12 @@ void db_column_preimage(struct db_stmt *stmt, int col,
 	assert(db_column_bytes(stmt, col) == size);
 	raw = db_column_blob(stmt, col);
 	memcpy(preimage, raw, size);
+}
+
+void db_column_channel_id(struct db_stmt *stmt, int col, struct channel_id *dest)
+{
+	assert(db_column_bytes(stmt, col) == sizeof(dest->id));
+	memcpy(dest->id, db_column_blob(stmt, col), sizeof(dest->id));
 }
 
 void db_column_node_id(struct db_stmt *stmt, int col, struct node_id *dest)

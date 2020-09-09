@@ -1,5 +1,6 @@
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
+#include <common/channel_id.h>
 #include <common/derive_basepoints.h>
 #include <common/features.h>
 #include <common/fee_states.h>
@@ -9,6 +10,7 @@
 msgtype,channeld_init,1000
 msgdata,channeld_init,chainparams,chainparams,
 msgdata,channeld_init,our_features,feature_set,
+msgdata,channeld_init,channel_id,channel_id,
 msgdata,channeld_init,funding_txid,bitcoin_txid,
 msgdata,channeld_init,funding_txout,u16,
 msgdata,channeld_init,funding_satoshi,amount_sat,

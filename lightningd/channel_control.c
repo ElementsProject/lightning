@@ -2,6 +2,7 @@
 #include <bitcoin/script.h>
 #include <ccan/cast/cast.h>
 #include <channeld/channeld_wiregen.h>
+#include <common/channel_id.h>
 #include <common/coin_mvt.h>
 #include <common/features.h>
 #include <common/gossip_constants.h>
@@ -77,16 +78,11 @@ void notify_feerate_change(struct lightningd *ld)
 
 static void record_channel_open(struct channel *channel)
 {
-	struct channel_id channel_id;
 	struct chain_coin_mvt *mvt;
 	struct amount_msat channel_open_amt;
 	u32 blockheight;
 
 	u8 *ctx = tal(NULL, u8);
-
-	/* figure out the 'account name' */
-	derive_channel_id(&channel_id, &channel->funding_txid,
-			  channel->funding_outnum);
 
 	blockheight = short_channel_id_blocknum(channel->scid);
 
@@ -101,7 +97,7 @@ static void record_channel_open(struct channel *channel)
 		if (amount_msat_greater(channel->push, AMOUNT_MSAT(0))) {
 			mvt = new_coin_pushed(ctx, type_to_string(tmpctx,
 								  struct channel_id,
-								  &channel_id),
+								  &channel->cid),
 					      &channel->funding_txid,
 					      blockheight, channel->push);
 			notify_chain_mvt(channel->peer->ld, mvt);
@@ -115,7 +111,7 @@ static void record_channel_open(struct channel *channel)
 
 	mvt = new_coin_deposit(ctx,
 			       type_to_string(tmpctx, struct channel_id,
-					      &channel_id),
+					      &channel->cid),
 			       &channel->funding_txid,
 			       channel->funding_outnum,
 			       blockheight, channel_open_amt);
@@ -321,11 +317,7 @@ static void handle_error_channel(struct channel *channel,
 
 void forget_channel(struct channel *channel, const char *why)
 {
-	struct channel_id cid;
-
-	derive_channel_id(&cid, &channel->funding_txid,
-			  channel->funding_outnum);
-	channel->error = towire_errorfmt(channel, &cid, "%s", why);
+	channel->error = towire_errorfmt(channel, &channel->cid, "%s", why);
 
 	/* If the peer is connected, we let them know. Otherwise
 	 * we just directly remove the channel */
@@ -522,6 +514,7 @@ void peer_start_channeld(struct channel *channel,
 	initmsg = towire_channeld_init(tmpctx,
 				      chainparams,
  				      ld->our_features,
+				      &channel->cid,
 				      &channel->funding_txid,
 				      channel->funding_outnum,
 				      channel->funding,
@@ -713,11 +706,7 @@ static struct channel *find_channel_by_id(const struct peer *peer,
 	struct channel *c;
 
 	list_for_each(&peer->channels, c, list) {
-		struct channel_id this_cid;
-
-		derive_channel_id(&this_cid,
-				  &c->funding_txid, c->funding_outnum);
-		if (channel_id_eq(&this_cid, cid))
+		if (channel_id_eq(&c->cid, cid))
 			return c;
 	}
 	return NULL;
@@ -796,9 +785,7 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 				    "peer_id %s",
 				    type_to_string(tmpctx, struct node_id,
 						   &peer->id));
-	derive_channel_id(&cc->cid,
-			  &cancel_channel->funding_txid,
-			  cancel_channel->funding_outnum);
+	cc->cid = cancel_channel->cid;
 
 	if (cancel_channel->opener == REMOTE)
 		return command_fail(cmd, FUNDING_CANCEL_NOT_SAFE,

@@ -163,6 +163,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool remote_funding_locked,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid,
+			    struct channel_id *cid,
 			    struct amount_msat our_msat,
 			    struct amount_msat msat_to_us_min,
 			    struct amount_msat msat_to_us_max,
@@ -232,6 +233,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->our_funds = our_funds;
 	channel->remote_funding_locked = remote_funding_locked;
 	channel->scid = tal_steal(channel, scid);
+	channel->cid = *cid;
 	channel->our_msat = our_msat;
 	channel->msat_to_us_min = msat_to_us_min;
 	channel->msat_to_us_max = msat_to_us_max;
@@ -399,7 +401,6 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	struct lightningd *ld = channel->peer->ld;
 	va_list ap;
 	char *why;
-	struct channel_id cid;
 
 	va_start(ap, fmt);
 	why = tal_vfmt(tmpctx, fmt, ap);
@@ -409,12 +410,9 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 		    channel_state_name(channel), why);
 
 	/* We can have multiple errors, eg. onchaind failures. */
-	if (!channel->error) {
-		derive_channel_id(&cid,
-				  &channel->funding_txid,
-				  channel->funding_outnum);
-		channel->error = towire_errorfmt(channel, &cid, "%s", why);
-	}
+	if (!channel->error)
+		channel->error = towire_errorfmt(channel,
+						 &channel->cid, "%s", why);
 
 	channel_set_owner(channel, NULL);
 	/* Drop non-cooperatively (unilateral) to chain. */
@@ -430,7 +428,6 @@ void channel_fail_forget(struct channel *channel, const char *fmt, ...)
 {
 	va_list ap;
 	char *why;
-	struct channel_id cid;
 
 	assert(channel->opener == REMOTE &&
 	       channel->state == CHANNELD_AWAITING_LOCKIN);
@@ -442,12 +439,9 @@ void channel_fail_forget(struct channel *channel, const char *fmt, ...)
 		    "forget channel",
 		    channel_state_name(channel), why);
 
-	if (!channel->error) {
-		derive_channel_id(&cid,
-				  &channel->funding_txid,
-				  channel->funding_outnum);
-		channel->error = towire_errorfmt(channel, &cid, "%s", why);
-	}
+	if (!channel->error)
+		channel->error = towire_errorfmt(channel,
+						 &channel->cid, "%s", why);
 
 	delete_channel(channel);
 	tal_free(why);

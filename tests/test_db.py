@@ -249,6 +249,18 @@ def test_backfill_scriptpubkeys(node_factory, bitcoind):
     for exp, actual in zip(script_map_2, scripts):
         assert exp == actual
 
+    # Also check that the full_channel_id has been filled in
+    results = l2.db_query('SELECT hex(full_channel_id) AS cid, hex(funding_tx_id) as txid, funding_tx_outnum FROM channels')
+
+    def _chan_id(txid, outnum):
+        chanid = bytearray.fromhex(txid)
+        chanid[-1] ^= outnum % 256
+        chanid[-2] ^= outnum // 256
+        return chanid.hex()
+
+    for row in results:
+        assert _chan_id(row['txid'], row['funding_tx_outnum']) == row['cid'].lower()
+
 
 @unittest.skipIf(VALGRIND and not DEVELOPER, "Without developer valgrind will complain about debug symbols missing")
 def test_optimistic_locking(node_factory, bitcoind):
