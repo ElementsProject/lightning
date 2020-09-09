@@ -367,6 +367,8 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert len(decode['vout']) == 3 if chainparams['feeoutput'] else 2
     # Change output pos is random.
     for vout in decode['vout']:
+        if vout['scriptPubKey']['type'] == 'fee':
+            continue
         if vout['scriptPubKey']['addresses'] == [addr]:
             changeout = vout
 
