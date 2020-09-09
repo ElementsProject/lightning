@@ -1858,3 +1858,33 @@ def test_important_plugin(node_factory):
 def test_dev_builtin_plugins_unimportant(node_factory):
     n = node_factory.get_node(options={"dev-builtin-plugins-unimportant": None})
     n.rpc.plugin_stop(plugin="pay")
+
+
+@pytest.mark.xfail(strict=True)
+def test_htlc_accepted_hook_crash(node_factory, executor):
+    """Test that we do not hang incoming HTLCs if the hook plugin crashes.
+
+    Reproduces #3748.
+    """
+    plugin = os.path.join(os.getcwd(), 'tests/plugins/htlc_accepted-crash.py')
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(
+        options={'plugin': plugin},
+        allow_broken_log=True
+    )
+    l1.connect(l2)
+    l1.fund_channel(l2, 10**6)
+
+    i = l2.rpc.invoice(500, "crashpls", "crashpls")['bolt11']
+
+    # This should still succeed
+
+    f = executor.submit(l1.rpc.pay, i)
+
+    l2.daemon.wait_for_log(r'Crashing on purpose...')
+    l2.daemon.wait_for_log(
+        r'Hook handler for htlc_accepted failed with an exception.'
+    )
+
+    with pytest.raises(RpcError, match=r'failed: WIRE_TEMPORARY_NODE_FAILURE'):
+        f.result(10)
