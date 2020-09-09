@@ -138,6 +138,10 @@ void   fatal(const char *fmt UNNEEDED, ...)
 /* Generated stub for feature_is_set */
 bool feature_is_set(const u8 *features UNNEEDED, size_t bit UNNEEDED)
 { fprintf(stderr, "feature_is_set called!\n"); abort(); }
+/* Generated stub for feature_negotiated */
+bool feature_negotiated(const struct feature_set *our_features UNNEEDED,
+			const u8 *their_features UNNEEDED, size_t f UNNEEDED)
+{ fprintf(stderr, "feature_negotiated called!\n"); abort(); }
 /* Generated stub for fixup_htlcs_out */
 void fixup_htlcs_out(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "fixup_htlcs_out called!\n"); abort(); }
@@ -471,6 +475,11 @@ void peer_start_closingd(struct channel *channel UNNEEDED,
 			 bool reconnected UNNEEDED,
 			 const u8 *channel_reestablish UNNEEDED)
 { fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
+/* Generated stub for peer_start_dualopend */
+void peer_start_dualopend(struct peer *peer UNNEEDED,
+			  struct per_peer_state *pps UNNEEDED,
+			  const u8 *send_msg UNNEEDED)
+{ fprintf(stderr, "peer_start_dualopend called!\n"); abort(); }
 /* Generated stub for peer_start_openingd */
 void peer_start_openingd(struct peer *peer UNNEEDED,
 			 struct per_peer_state *pps UNNEEDED,

@@ -78,6 +78,12 @@ static const struct feature_style feature_styles[] = {
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [BOLT11_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_REPRESENT_AS_OPTIONAL} },
+
+	{ OPT_DUAL_FUND,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [BOLT11_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
 #endif
 };
 
@@ -106,6 +112,12 @@ static const struct dependency feature_deps[] = {
 	 */
 #if EXPERIMENTAL_FEATURES
 	{ OPT_ANCHOR_OUTPUTS, OPT_STATIC_REMOTEKEY },
+	/* BOLT-7b04b1461739c5036add61782d58ac490842d98b #9:
+	 * Name                | Description  | Context  | Dependencies  |
+	 * ...
+	 * `option_dual_fund`  | ...          | ...      | `option_anchor_outputs`
+	 */
+	{ OPT_DUAL_FUND, OPT_ANCHOR_OUTPUTS },
 #endif
 };
 

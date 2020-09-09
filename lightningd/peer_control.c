@@ -42,6 +42,7 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/connect_control.h>
+#include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
@@ -1004,7 +1005,14 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 	error = NULL;
 
 send_error:
-	peer_start_openingd(peer, payload->pps, error);
+#if EXPERIMENTAL_FEATURES
+	if (feature_negotiated(ld->our_features,
+			       peer->their_features,
+			       OPT_DUAL_FUND)) {
+		peer_start_dualopend(peer, payload->pps, error);
+	} else
+#endif /* EXPERIMENTAL_FEATURES */
+		peer_start_openingd(peer, payload->pps, error);
 	tal_free(payload);
 }
 
@@ -1258,6 +1266,7 @@ static struct command_result *json_listpeers(struct command *cmd,
 	return command_success(cmd, response);
 }
 
+/* Magic marker: remove at your own peril! */
 static const struct json_command listpeers_command = {
 	"listpeers",
 	"network",
@@ -1468,7 +1477,6 @@ static struct command_result *json_close(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-/* Magic marker: remove at your own peril! */
 static const struct json_command close_command = {
 	"close",
 	"channels",
