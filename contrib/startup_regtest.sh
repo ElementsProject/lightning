@@ -28,7 +28,6 @@
 ##  When you're finished, clean up or stop
 ##
 ##  $ stop_ln  # stops the services, keeps the aliases
-##  $ cleanup_ln # stops and cleans up aliases
 ##
 
 # Do the Right Thing if we're currently in top of srcdir.
@@ -61,6 +60,50 @@ if [ -z "$PATH_TO_BITCOIN" ]; then
 	fi
 fi
 
+start_nodes() {
+	if [ -z "$1" ]; then
+		node_count=2
+	else
+		node_count=$1
+	fi
+	if [ "$node_count" -gt 100 ]; then
+		node_count=100
+	fi
+	if [ -z "$2" ]; then
+		network=regtest
+	else
+		network=$2
+	fi
+
+	LN_NODES=$node_count
+
+	for i in $(seq $node_count); do
+		socket=$(( 7070 + i * 101))
+		mkdir -p "/tmp/l$i-$network"
+		# Node config
+		cat <<- EOF > "/tmp/l$i-$network/config"
+		network=$network
+		log-level=debug
+		log-file=/tmp/l$i-$network/log
+		addr=localhost:$socket
+		EOF
+
+		# Start the lightning nodes
+		test -f "/tmp/l$i-$network/lightningd-$network.pid" || \
+			"$LIGHTNINGD" "--lightning-dir=/tmp/l$i-$network" --daemon
+		# shellcheck disable=SC2139 disable=SC2086
+		alias l$i-cli="$LCLI --lightning-dir=/tmp/l$i-$network"
+		# shellcheck disable=SC2139 disable=SC2086
+		alias l$i-log="less /tmp/l$i-$network/log"
+	done
+
+	# Give a hint.
+	echo "Commands: "
+	for i in $(seq $node_count); do
+		echo "	l$i-cli, l$i-log,"
+	done
+}
+
 start_ln() {
 	# Start bitcoind in the background
 	test -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
@@ -73,64 +116,82 @@ start_ln() {
 	if bitcoin-cli -regtest getblockchaininfo | grep -q 'initialblockdownload.*true'; then
 		bitcoin-cli -regtest generatetoaddress 1 "$(bitcoin-cli -regtest getnewaddress)" > /dev/null
 	fi
-
-	if [ -z "$1" ]
-	then
-		node_count=2
-	else
-		node_count=$1
-	fi
-	if [ "$node_count" -gt 100 ]; then
-		node_count=100
-	fi
-
-	LN_NODES=$node_count
-
-	for i in $(seq $node_count); do
-		socket=$(( 7070 + i * 101))
-		mkdir -p "/tmp/l$i-regtest"
-		# Node config
-		cat <<- EOF > "/tmp/l$i-regtest/config"
-		network=regtest
-		log-level=debug
-		log-file=/tmp/l$i-regtest/log
-		addr=localhost:$socket
-		EOF
-
-		# Start the lightning nodes
-		test -f "/tmp/l$i-regtest/lightningd-regtest.pid" || \
-			"$LIGHTNINGD" "--lightning-dir=/tmp/l$i-regtest" --daemon
-		# shellcheck disable=SC2139 disable=SC2086
-		alias l$i-cli="$LCLI --lightning-dir=/tmp/l$i-regtest"
-		# shellcheck disable=SC2139 disable=SC2086
-		alias l$i-log="less /tmp/l$i-regtest/log"
-	done
-
 	alias bt-cli='bitcoin-cli -regtest'
-	# Give a hint.
-	echo "Commands: "
-	for i in $(seq $node_count); do
-		echo "	l$i-cli, l$i-log,"
-	done
-	echo "	bt-cli, stop_ln, cleanup_ln"
+
+	if [ -z "$1" ]; then
+		nodes=2
+	else
+		nodes="$1"
+	fi
+	start_nodes "$nodes" regtest
+	echo "	bt-cli, stop_ln"
 }
 
-stop_ln() {
-	if [ -n "$LN_NODES" ]
-	then
+stop_nodes() {
+	if [ -z "$2" ]; then
+		network=regtest
+	else
+		network="$2"
+	fi
+	if [ -n "$LN_NODES" ]; then
 		for i in $(seq $LN_NODES); do
-			test ! -f "/tmp/l$i-regtest/lightningd-regtest.pid" || \
-				(kill "$(cat "/tmp/l$i-regtest/lightningd-regtest.pid")"; \
-				rm "/tmp/l$i-regtest/lightningd-regtest.pid")
+			test ! -f "/tmp/l$i-$network/lightningd-$network.pid" || \
+				(kill "$(cat "/tmp/l$i-$network/lightningd-$network.pid")"; \
+				rm "/tmp/l$i-$network/lightningd-$network.pid")
 			unalias "l$i-cli"
 			unalias "l$i-log"
 		done
 	fi
+}
 
+stop_ln() {
+	stop_nodes "$1" regtest
 	test ! -f "$PATH_TO_BITCOIN/regtest/bitcoind.pid" || \
 		(kill "$(cat "$PATH_TO_BITCOIN/regtest/bitcoind.pid")"; \
 		rm "$PATH_TO_BITCOIN/regtest/bitcoind.pid")
 
 	unset LN_NODES
 	unalias bt-cli
+}
+
+start_elem() {
+	if [ -z "$PATH_TO_ELEMENTS" ]; then
+		if [ -d "$HOME/.elements" ]; then
+			PATH_TO_ELEMENTS="$HOME/.elements"
+		else
+			echo "\$PATH_TO_ELEMENTS not set to a .elements dir" >&2
+			return
+		fi
+	fi
+
+	test -f "$PATH_TO_ELEMENTS/liquid-regtest/bitcoin.pid" || \
+		elementsd -chain=liquid-regtest -printtoconsole -logtimestamps -nolisten -validatepegin=0 -con_blocksubsidy=5000000000 -daemon
+
+	# Wait for it to start.
+	while ! elements-cli -chain=liquid-regtest ping 2> /tmp/null; do echo "awaiting elementsd..." && sleep 1; done
+
+	# Kick it out of initialblockdownload if necessary
+	if elements-cli -chain=liquid-regtest getblockchaininfo | grep -q 'initialblockdownload.*true'; then
+		elements-cli -chain=liquid-regtest generatetoaddress 1 "$(elements-cli -chain=liquid-regtest getnewaddress)" > /dev/null
+	fi
+	alias et-cli='elements-cli -chain=liquid-regtest'
+
+	if [ -z "$1" ]; then
+		nodes=2
+	else
+		nodes="$1"
+	fi
+	start_nodes "$nodes" liquid-regtest
+	echo "	et-cli, stop_elem"
+}
+
+
+stop_elem() {
+	stop_nodes "$1" liquid-regtest
+	test ! -f "$PATH_TO_ELEMENTS/liquid-regtest/bitcoind.pid" || \
+		(kill "$(cat "$PATH_TO_ELEMENTS/liquid-regtest/bitcoind.pid")"; \
+		rm "$PATH_TO_ELEMENTS/liquid-regtest/bitcoind.pid")
+
+	unset LN_NODES
+	unalias et-cli
 }
