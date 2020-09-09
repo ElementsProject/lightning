@@ -12,7 +12,7 @@ struct peer;
 
 void peer_start_channeld(struct channel *channel,
 			 struct per_peer_state *pps,
-			 const u8 *funding_signed,
+			 const u8 **fwd_msgs,
 			 bool reconnected);
 
 /* Returns true if subd told, otherwise false. */
