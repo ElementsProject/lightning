@@ -777,15 +777,9 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			 * The receiving node:
 			 *  - MUST add all received inputs to the funding transaction
 			 */
-			/* FIXME: elements! */
-			bitcoin_tx_output_get_amount_sat(tx, outnum, &amt);
-
 			struct wally_psbt_input *in =
 				psbt_append_input(psbt, &txid, outnum,
 						  sequence, NULL,
-						  amt,
-						  bitcoin_tx_output_get_script(tmpctx,
-									       tx, outnum),
 						  NULL,
 						  redeemscript);
 			if (!in)
@@ -793,6 +787,19 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 					    "Unable to add input");
 
 			wally_psbt_input_set_utxo(in, tx->wtx);
+
+			if (is_elements(chainparams)) {
+				struct amount_asset asset;
+
+				bitcoin_tx_output_get_amount_sat(tx, outnum, &amt);
+
+				/* FIXME: persist asset tags */
+				asset = amount_sat_to_asset(&amt,
+							    chainparams->fee_asset_tag);
+				/* FIXME: persist nonces */
+				psbt_elements_input_set_asset(psbt, outnum, &asset);
+			}
+
 			psbt_input_add_serial_id(in, serial_id);
 			psbt_input_add_max_witness_len(in, max_witness_len);
 

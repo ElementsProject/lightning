@@ -191,14 +191,31 @@ int bitcoin_tx_add_input(struct bitcoin_tx *tx, const struct bitcoin_txid *txid,
 	int input_num = tx->wtx->num_inputs;
 
 	psbt_append_input(tx->psbt, txid, outnum, sequence, scriptSig,
-			  amount, scriptPubkey, input_wscript, NULL);
+			  input_wscript, NULL);
+
+	if (input_wscript) {
+		scriptPubkey = scriptpubkey_p2wsh(tx->psbt, input_wscript);
+	}
+
+	assert(scriptPubkey);
+	psbt_input_set_wit_utxo(tx->psbt, input_num,
+				scriptPubkey, amount);
 	wally_err = wally_tx_add_input(tx->wtx,
 				       &tx->psbt->tx->inputs[input_num]);
 	assert(wally_err == WALLY_OK);
-	/* scriptsig isn't actually store in psbt input, so add that now */
+
+	/* scriptsig isn't actually stored in psbt input, so add that now */
 	wally_tx_set_input_script(tx->wtx, input_num,
 				  scriptSig, tal_bytelen(scriptSig));
 
+	if (is_elements(chainparams)) {
+		struct amount_asset asset;
+		/* FIXME: persist asset tags */
+		asset = amount_sat_to_asset(&amount,
+					    chainparams->fee_asset_tag);
+		/* FIXME: persist nonces */
+		psbt_elements_input_set_asset(tx->psbt, input_num, &asset);
+	}
 	return input_num;
 }
 

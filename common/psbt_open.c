@@ -100,7 +100,7 @@ static const u8 *linearize_output(const tal_t *ctx,
 
 	/* Add a 'fake' input so this will linearize the tx */
 	memset(&txid, 0, sizeof(txid));
-	psbt_append_input(psbt, &txid, 0, 0, NULL, AMOUNT_SAT(0), NULL, NULL, NULL);
+	psbt_append_input(psbt, &txid, 0, 0, NULL, NULL, NULL);
 
 	if (wally_tx_add_output(psbt->tx, tx_out) != WALLY_OK)
 		abort();

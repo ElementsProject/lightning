@@ -602,7 +602,7 @@ msgstr ""
 msgid "SELECT   c.id, p.node_id, c.last_tx, c.funding_satoshi, c.fundingkey_remote, c.last_sig FROM channels c  LEFT OUTER JOIN peers p  ON p.id = c.peer_id;"
 msgstr ""
 
-#: wallet/db.c:1350
+#: wallet/db.c:1351
 msgid "UPDATE channels SET last_tx = ? WHERE id = ?;"
 msgstr ""
 
@@ -1085,4 +1085,4 @@ msgstr ""
 #: wallet/test/run-wallet.c:1355
 msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
-#  SHA256STAMP:a2c4fd6e26d81d871d9ee5201a844e09d94b4ea50c3690060dea4dd640ef007b
+#  SHA256STAMP:c0605983e2071b5f504b2bcbfd747ca305658f7a8b4f9df4176ffd0815bf7bff
