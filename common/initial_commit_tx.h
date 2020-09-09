@@ -10,6 +10,7 @@
 
 struct bitcoin_txid;
 struct keyset;
+struct wally_tx_output;
 
 /* BOLT #3:
  *

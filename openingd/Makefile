@@ -1,6 +1,8 @@
 #! /usr/bin/make
 
-OPENINGD_HEADERS := openingd/openingd_wiregen.h
+OPENINGD_HEADERS := 				\
+	openingd/common.h			\
+	openingd/openingd_wiregen.h
 
 OPENINGD_SRC := openingd/openingd.c	\
 	$(OPENINGD_HEADERS:.h=.c)

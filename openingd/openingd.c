@@ -44,6 +44,7 @@
 #include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
+#include <openingd/common.h>
 #include <openingd/openingd_wiregen.h>
 #include <poll.h>
 #include <secp256k1.h>
@@ -193,192 +194,6 @@ static void negotiation_failed(struct state *state, bool am_opener,
 	sync_crypto_write(state->pps, take(msg));
 
 	negotiation_aborted(state, am_opener, errmsg);
-}
-
-/*~ This is the key function that checks that their configuration is reasonable:
- * it applied for both the case where they're trying to open a channel, and when
- * they've accepted our open. */
-static bool check_config_bounds(struct state *state,
-				const struct channel_config *remoteconf,
-				bool am_opener)
-{
-	struct amount_sat capacity;
-	struct amount_sat reserve;
-	struct amount_sat fee;
-
-	/* BOLT #2:
-	 *
-	 * The receiving node MUST fail the channel if:
-	 *...
-	 *  - `to_self_delay` is unreasonably large.
-	 */
-	if (remoteconf->to_self_delay > state->max_to_self_delay) {
-		negotiation_failed(state, am_opener,
-				   "to_self_delay %u larger than %u",
-				   remoteconf->to_self_delay,
-				   state->max_to_self_delay);
-		return false;
-	}
-
-	/* BOLT #2:
-	 *
-	 * The receiving node MAY fail the channel if:
-	 *...
-	 *   - `funding_satoshis` is too small.
-	 *   - it considers `htlc_minimum_msat` too large.
-	 *   - it considers `max_htlc_value_in_flight_msat` too small.
-	 *   - it considers `channel_reserve_satoshis` too large.
-	 *   - it considers `max_accepted_htlcs` too small.
-	 */
-	/* We accumulate this into an effective bandwidth minimum. */
-
-	/* Add both reserves to deduct from capacity. */
-	if (!amount_sat_add(&reserve,
-			    remoteconf->channel_reserve,
-			    state->localconf.channel_reserve)) {
-		negotiation_failed(state, am_opener,
-				   "channel_reserve_satoshis %s"
-				   " too large",
-				   type_to_string(tmpctx, struct amount_sat,
-						  &remoteconf->channel_reserve));
-		return false;
-	}
-
-	/* BOLT #2:
-	 *  - if `option_anchor_outputs` applies to this commitment
-	 *    transaction and the sending node is the funder:
-	 *   - MUST be able to additionally pay for `to_local_anchor` and
-	 *    `to_remote_anchor` above its reserve.
-	 */
-	/* We simply include in "reserve" here. */
-	if (state->option_anchor_outputs
-	    && !amount_sat_add(&reserve, reserve, AMOUNT_SAT(660))) {
-		negotiation_failed(state, am_opener,
-				   "cannot add anchors to reserve %s",
-				   type_to_string(tmpctx, struct amount_sat,
-						  &reserve));
-		return false;
-	}
-
-	/* If reserves are larger than total sat, we fail. */
-	if (!amount_sat_sub(&capacity, state->funding, reserve)) {
-		negotiation_failed(state, am_opener,
-				   "channel_reserve_satoshis %s"
-				   " and %s too large for funding %s",
-				   type_to_string(tmpctx, struct amount_sat,
-						  &remoteconf->channel_reserve),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->localconf.channel_reserve),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->funding));
-		return false;
-	}
-
-	/* They have to pay for fees, too.  Assuming HTLC is dust, though,
-	 * we don't account for an HTLC output. */
-	fee = commit_tx_base_fee(state->feerate_per_kw, 0,
-				 state->option_anchor_outputs);
-	if (!amount_sat_sub(&capacity, capacity, fee)) {
-		negotiation_failed(state, am_opener,
-				   "channel_reserve_satoshis %s"
-				   " and %s plus fee %s too large for funding %s",
-				   type_to_string(tmpctx, struct amount_sat,
-						  &remoteconf->channel_reserve),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->localconf.channel_reserve),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &fee),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->funding));
-		return false;
-	}
-
-	/* If they set the max HTLC value to less than that number, it caps
-	 * the channel capacity. */
-	if (amount_sat_greater(capacity,
-			       amount_msat_to_sat_round_down(remoteconf->max_htlc_value_in_flight)))
-		capacity = amount_msat_to_sat_round_down(remoteconf->max_htlc_value_in_flight);
-
-	/* If the minimum htlc is greater than the capacity, the channel is
-	 * useless. */
-	if (amount_msat_greater_sat(remoteconf->htlc_minimum, capacity)) {
-		negotiation_failed(state, am_opener,
-				   "htlc_minimum_msat %s"
-				   " too large for funding %s"
-				   " capacity_msat %s",
-				   type_to_string(tmpctx, struct amount_msat,
-						  &remoteconf->htlc_minimum),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->funding),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &capacity));
-		return false;
-	}
-
-	/* If the resulting channel doesn't meet our minimum "effective capacity"
-	 * set by lightningd, don't bother opening it. */
-	if (amount_msat_greater_sat(state->min_effective_htlc_capacity,
-				    capacity)) {
-		negotiation_failed(state, am_opener,
-				   "channel capacity with funding %s,"
-				   " reserves %s/%s,"
-				   " max_htlc_value_in_flight_msat is %s,"
-				   " channel capacity is %s, which is below %s",
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->funding),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &remoteconf->channel_reserve),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &state->localconf.channel_reserve),
-				   type_to_string(tmpctx, struct amount_msat,
-						  &remoteconf->max_htlc_value_in_flight),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &capacity),
-				   type_to_string(tmpctx, struct amount_msat,
-						  &state->min_effective_htlc_capacity));
-		return false;
-	}
-
-	/* We don't worry about how many HTLCs they accept, as long as > 0! */
-	if (remoteconf->max_accepted_htlcs == 0) {
-		negotiation_failed(state, am_opener,
-				   "max_accepted_htlcs %u invalid",
-				   remoteconf->max_accepted_htlcs);
-		return false;
-	}
-
-	/* BOLT #2:
-	 *
-	 * The receiving node MUST fail the channel if:
-	 *...
-	 *  - `max_accepted_htlcs` is greater than 483.
-	 */
-	if (remoteconf->max_accepted_htlcs > 483) {
-		negotiation_failed(state, am_opener,
-				   "max_accepted_htlcs %u too large",
-				   remoteconf->max_accepted_htlcs);
-		return false;
-	}
-
-	/* BOLT #2:
-	 *
-	 * The receiving node MUST fail the channel if:
-	 *...
-	 *  - `dust_limit_satoshis` is greater than `channel_reserve_satoshis`.
-	 */
-	if (amount_sat_greater(remoteconf->dust_limit,
-			       remoteconf->channel_reserve)) {
-		negotiation_failed(state, am_opener,
-				   "dust_limit_satoshis %s"
-				   " too large for channel_reserve_satoshis %s",
-				   type_to_string(tmpctx, struct amount_sat,
-						  &remoteconf->dust_limit),
-				   type_to_string(tmpctx, struct amount_sat,
-						  &remoteconf->channel_reserve));
-		return false;
-	}
-
-	return true;
 }
 
 /* We always set channel_reserve_satoshis to 1%, rounded down. */
@@ -567,6 +382,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	struct channel_id id_in;
 	struct tlv_open_channel_tlvs *open_tlvs;
 	struct tlv_accept_channel_tlvs *accept_tlvs;
+	char *err_reason;
 
 	if (!setup_channel_funder(state))
 		return NULL;
@@ -665,8 +481,18 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 		return NULL;
 	}
 
-	if (!check_config_bounds(state, &state->remoteconf, true))
+	if (!check_config_bounds(tmpctx, state->funding,
+				 state->feerate_per_kw,
+				 state->max_to_self_delay,
+				 state->min_effective_htlc_capacity,
+				 &state->remoteconf,
+				 &state->localconf,
+				 true,
+				 state->option_anchor_outputs,
+				 &err_reason)) {
+		negotiation_failed(state, true, "%s", err_reason);
 		return NULL;
+	}
 
 	funding_output_script =
 		scriptpubkey_p2wsh(tmpctx,
@@ -1100,8 +926,18 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	}
 
 	/* These checks are the same whether we're opener or accepter... */
-	if (!check_config_bounds(state, &state->remoteconf, false))
+	if (!check_config_bounds(tmpctx, state->funding,
+				 state->feerate_per_kw,
+				 state->max_to_self_delay,
+				 state->min_effective_htlc_capacity,
+				 &state->remoteconf,
+				 &state->localconf,
+				 false,
+				 state->option_anchor_outputs,
+				 &err_reason)) {
+		negotiation_failed(state, false, "%s", err_reason);
 		return NULL;
+	}
 
 	/* Check with lightningd that we can accept this?  In particular,
 	 * if we have an existing channel, we don't support it. */
