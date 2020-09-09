@@ -404,7 +404,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
 
 	funding_success(channel);
-	peer_start_channeld(channel, pps, NULL, false);
+	peer_start_channeld(channel, pps, NULL, NULL, false);
 
 cleanup:
 	subd_release_channel(openingd, fc->uc);
@@ -418,7 +418,7 @@ static void opening_fundee_finished(struct subd *openingd,
 				    const int *fds,
 				    struct uncommitted_channel *uc)
 {
-	const u8 *msgs[1];
+	const u8 *fwd_msg;
 	struct channel_info channel_info;
 	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_tx *remote_commit;
@@ -458,7 +458,7 @@ static void opening_fundee_finished(struct subd *openingd,
 				     &push,
 				     &channel_flags,
 				     &feerate,
-				     cast_const2(u8 **, msgs),
+				     cast_const2(u8 **, &fwd_msg),
 				     &uc->our_config.channel_reserve,
 				     &local_upfront_shutdown_script,
 				     &remote_upfront_shutdown_script)) {
@@ -516,7 +516,7 @@ static void opening_fundee_finished(struct subd *openingd,
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
 
 	/* On to normal operation! */
-	peer_start_channeld(channel, pps, msgs, false);
+	peer_start_channeld(channel, pps, fwd_msg, NULL, false);
 
 	subd_release_channel(openingd, uc);
 	uc->open_daemon = NULL;
