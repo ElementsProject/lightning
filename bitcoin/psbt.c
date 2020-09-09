@@ -183,6 +183,18 @@ struct wally_psbt_output *psbt_append_output(struct wally_psbt *psbt,
 	wally_tx_output_free(tx_out);
 	return out;
 }
+struct wally_psbt_output *psbt_insert_output(struct wally_psbt *psbt,
+					     const u8 *script,
+					     struct amount_sat amount,
+					     size_t insert_at)
+{
+	struct wally_psbt_output *out;
+	struct wally_tx_output *tx_out = wally_tx_output(script, amount);
+
+	out = psbt_add_output(psbt, tx_out, insert_at);
+	wally_tx_output_free(tx_out);
+	return out;
+}
 
 void psbt_rm_output(struct wally_psbt *psbt,
 		    size_t remove_at)
