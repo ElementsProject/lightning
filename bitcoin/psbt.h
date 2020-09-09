@@ -17,6 +17,16 @@ struct bitcoin_signature;
 struct bitcoin_txid;
 struct pubkey;
 
+/** psbt_destroy - Destroy a PSBT that is not tal-allocated
+ *
+ * @psbt - the PSBT to destroy
+ *
+ * WARNING Do NOT call this function directly if you got the
+ * PSBT from create_psbt, new_psbt, psbt_from_bytes,
+ * psbt_from_b64, or fromwire_wally_psbt.
+ * Those functions register this function as a `tal_destructor`
+ * automatically.
+ */
 void psbt_destroy(struct wally_psbt *psbt);
 
 /**
