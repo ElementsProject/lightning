@@ -461,7 +461,8 @@ struct channel *peer_normal_channel(struct peer *peer UNNEEDED)
 /* Generated stub for peer_start_channeld */
 void peer_start_channeld(struct channel *channel UNNEEDED,
 			 struct per_peer_state *pps UNNEEDED,
-			 const u8 **fwd_msgs UNNEEDED,
+			 const u8 *fwd_msg_1 UNNEEDED,
+			 const u8 *fwd_msg_2 UNNEEDED,
 			 bool reconnected UNNEEDED)
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
 /* Generated stub for peer_start_closingd */

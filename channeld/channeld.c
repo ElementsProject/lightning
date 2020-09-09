@@ -3205,7 +3205,7 @@ static void init_channel(struct peer *peer)
 	enum side opener;
 	struct existing_htlc **htlcs;
 	bool reconnected;
-	u8 *funding_signed;
+	u8 *fwd_msg_1, *fwd_msg_2;
 	const u8 *msg;
 	struct fee_states *fee_states;
 	u32 minimum_depth;
@@ -3266,7 +3266,8 @@ static void init_channel(struct peer *peer)
 				   &peer->shutdown_sent[REMOTE],
 				   &peer->final_scriptpubkey,
 				   &peer->channel_flags,
-				   &funding_signed,
+				   &fwd_msg_1,
+				   &fwd_msg_2,
 				   &peer->announce_depth_reached,
 				   &last_remote_per_commit_secret,
 				   &peer->their_features,
@@ -3368,9 +3369,11 @@ static void init_channel(struct peer *peer)
 	if (reconnected)
 		peer_reconnect(peer, &last_remote_per_commit_secret);
 
-	/* If we have a funding_signed message, send that immediately */
-	if (funding_signed)
-		sync_crypto_write(peer->pps, take(funding_signed));
+	/* If we have a messages to send, send them immediately */
+	if (fwd_msg_1)
+		sync_crypto_write(peer->pps, take(fwd_msg_1));
+	if (fwd_msg_2)
+		sync_crypto_write(peer->pps, take(fwd_msg_2));
 
 	/* Reenable channel */
 	channel_announcement_negotiate(peer);

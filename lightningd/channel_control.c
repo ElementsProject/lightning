@@ -415,7 +415,8 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 
 void peer_start_channeld(struct channel *channel,
 			 struct per_peer_state *pps,
-			 const u8 **fwd_msgs,
+			 const u8 *fwd_msg_1,
+			 const u8 *fwd_msg_2,
 			 bool reconnected)
 {
 	u8 *initmsg;
@@ -556,8 +557,8 @@ void peer_start_channeld(struct channel *channel,
 				      channel->shutdown_scriptpubkey[REMOTE] != NULL,
 				      channel->shutdown_scriptpubkey[LOCAL],
 				      channel->channel_flags,
-				      /* FIXME: pass set of msgs */
-				      fwd_msgs ? fwd_msgs[0] : NULL,
+				      fwd_msg_1,
+				      fwd_msg_2,
 				      reached_announce_depth,
 				      &last_remote_per_commit_secret,
 				      channel->peer->their_features,
