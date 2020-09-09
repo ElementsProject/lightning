@@ -2104,8 +2104,11 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_ONION_MESSAGE:
 		handle_onion_message(peer, msg);
 		return;
-	/* FIXME: handle this here */
+	case WIRE_TX_SIGNATURES:
+		/* FIXME: verify sigs + weights, broadcast funding tx */
+		return;
 	case WIRE_INIT_RBF:
+	/* FIXME: handle this here */
 		break;
 #endif
 
@@ -2121,7 +2124,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_TX_ADD_OUTPUT:
 	case WIRE_TX_REMOVE_OUTPUT:
 	case WIRE_TX_COMPLETE:
-	case WIRE_TX_SIGNATURES:
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_BLACKLIST_PODLE:
