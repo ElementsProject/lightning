@@ -3,7 +3,6 @@
 #include "../routehint.c"
 #include <ccan/alignof/alignof.h>
 #include <common/errcode.h>
-#include <common/psbt_open.h>
 
 bool deprecated_apis = false;
 

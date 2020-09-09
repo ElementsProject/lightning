@@ -49,7 +49,6 @@ CONNECTD_COMMON_OBJS :=				\
 	common/node_id.o			\
 	common/onionreply.o			\
 	common/per_peer_state.o			\
-	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/setup.o				\
 	common/status.o				\
@@ -65,6 +64,10 @@ CONNECTD_COMMON_OBJS :=				\
 	gossipd/gossipd_wiregen.o		\
 	lightningd/gossip_msg.o			\
 	wire/onion$(EXP)_wiregen.o
+
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+CONNECTD_COMMON_OBJS += common/psbt_open.o
+endif
 
 lightningd/lightning_connectd: $(CONNECTD_OBJS) $(CONNECTD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(HSMD_CLIENT_OBJS)
 

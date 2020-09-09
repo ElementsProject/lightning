@@ -30,7 +30,6 @@
 #include <wire/common_wiregen.h>
 #include <wire/peer_wire.h>
 
-#if EXPERIMENTAL_FEATURES
 struct commit_rcvd {
 	struct channel *channel;
 	struct channel_id cid;
@@ -1016,4 +1015,3 @@ void peer_start_dualopend(struct peer *peer,
 				  send_msg);
 	subd_send_msg(uc->open_daemon, take(msg));
 }
-#endif /* EXPERIMENTAL_FEATURES */

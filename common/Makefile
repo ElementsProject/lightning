@@ -56,7 +56,6 @@ COMMON_SRC_NOGEN :=				\
 	common/peer_failed.c			\
 	common/permute_tx.c			\
 	common/ping.c				\
-	common/psbt_open.c			\
 	common/pseudorand.c			\
 	common/random_select.c			\
 	common/read_peer_msg.c			\
@@ -75,6 +74,11 @@ COMMON_SRC_NOGEN :=				\
 	common/wallet.c				\
 	common/wireaddr.c			\
 	common/wire_error.c
+
+
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+COMMON_SRC_NOGEN += common/psbt_open.c
+endif
 
 COMMON_SRC_GEN := common/status_wiregen.c common/peer_status_wiregen.c
 
@@ -108,11 +112,6 @@ common/gen_htlc_state_names.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-e
 	ccan/ccan/cdump/tools/cdump-enumstr common/htlc_state.h > $@
 
 common/gossip_store.o: gossipd/gossip_store_wiregen.h
-
-check-makefile: check-common-makefile
-
-check-common-makefile:
-	if [ x"`LC_ALL=C ls common/*.h | grep -v ^common/gen_ | grep -v '^common/.*wiregen'`" != x"`echo $(COMMON_HEADERS_NOGEN) | tr ' ' '\n' | LC_ALL=C sort`" ]; then echo COMMON_HEADERS_NOGEN incorrect; exit 1; fi
 
 check-source-bolt: $(COMMON_SRC_NOGEN:%=bolt-check/%) $(COMMON_HEADERS:%=bolt-check/%)
 check-whitespace: $(COMMON_SRC_NOGEN:%=check-whitespace/%) $(COMMON_HEADERS:%=check-whitespace/%)

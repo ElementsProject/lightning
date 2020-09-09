@@ -8,7 +8,6 @@ LIGHTNINGD_SRC :=				\
 	lightningd/closing_control.c		\
 	lightningd/coin_mvts.c			\
 	lightningd/connect_control.c		\
-	lightningd/dual_open_control.c		\
 	lightningd/onion_message.c		\
 	lightningd/gossip_control.c		\
 	lightningd/gossip_msg.c			\
@@ -38,6 +37,12 @@ LIGHTNINGD_SRC :=				\
 	lightningd/routehint.c			\
 	lightningd/subd.c			\
 	lightningd/watch.c
+
+
+# Only build dualopend if experimental features is on
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+LIGHTNINGD_SRC += lightningd/dual_open_control.c
+endif
 
 LIGHTNINGD_SRC_NOHDR :=				\
 	lightningd/signmessage.c
@@ -101,7 +106,6 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/penalty_base.o			\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
-	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/random_select.o			\
 	common/setup.o				\
@@ -115,6 +119,10 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/wallet.o				\
 	common/wire_error.o			\
 	common/wireaddr.o			\
+
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+LIGHTNINGD_COMMON_OBJS += common/psbt_open.o
+endif
 
 include wallet/Makefile
 
