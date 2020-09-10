@@ -14,6 +14,7 @@ struct wally_psbt;
 struct wally_psbt_input;
 struct wally_psbt_output;
 struct wally_map;
+struct witness_element;
 
 struct input_set {
 	struct wally_tx_input tx_input;
@@ -140,4 +141,11 @@ int psbt_find_serial_output(struct wally_psbt *psbt, u16 serial_id);
  */
 bool psbt_has_required_fields(struct wally_psbt *psbt);
 
+/* psbt_input_set_final_witness_stack - Set the witness stack for PSBT input
+ *
+ * @in - input to set final_witness for
+ * @witness_element - elements to add to witness stack
+ */
+void psbt_input_set_final_witness_stack(struct wally_psbt_input *in,
+					const struct witness_element **elements);
 #endif /* LIGHTNING_COMMON_PSBT_OPEN_H */
