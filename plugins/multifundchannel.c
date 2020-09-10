@@ -1362,9 +1362,10 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 			/* Funding outpoint.  */
 			struct multifundchannel_destination *dest;
 			dest = deck[outnum];
-			(void) psbt_append_output(mfc->psbt,
+			(void) psbt_insert_output(mfc->psbt,
 						  dest->funding_script,
-						  dest->amount);
+						  dest->amount,
+						  outnum);
 			dest->outnum = outnum;
 			tal_append_fmt(&content, "%s: %s",
 				       type_to_string(tmpctx, struct node_id,
@@ -1375,9 +1376,10 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 		} else {
 			/* Change output.  */
 			assert(mfc->change_needed);
-			(void) psbt_append_output(mfc->psbt,
+			(void) psbt_insert_output(mfc->psbt,
 						  mfc->change_scriptpubkey,
-						  mfc->change_amount);
+						  mfc->change_amount,
+						  outnum);
 			tal_append_fmt(&content, "change: %s",
 				       type_to_string(tmpctx,
 						      struct amount_sat,
@@ -1386,30 +1388,7 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 	}
 
 	/* Elements requires a fee output.  */
-	if (chainparams->is_elements) {
-		struct amount_sat inputs = AMOUNT_SAT(0);
-		struct amount_sat outputs = AMOUNT_SAT(0);
-		struct amount_sat fees;
-		for (size_t i = 0; i < mfc->psbt->num_inputs; ++i)
-			if (!amount_sat_add(&inputs,
-					    inputs,
-					    psbt_input_get_amount(mfc->psbt,
-								  i)))
-				plugin_err(mfc->cmd->plugin,
-					   "Overflow while adding inputs");
-		for (size_t i = 0; i < mfc->psbt->num_outputs; ++i)
-			if (!amount_sat_add(&outputs,
-					    outputs,
-					    psbt_output_get_amount(mfc->psbt,
-								   i)))
-				plugin_err(mfc->cmd->plugin,
-					   "Overflow while adding outputs");
-		if (!amount_sat_sub(&fees, inputs, outputs))
-			fees = AMOUNT_SAT(0);
-		/* If there is any fee at all, add the fee output.  */
-		if (!amount_sat_eq(fees, AMOUNT_SAT(0)))
-			(void) psbt_append_output(mfc->psbt, NULL, fees);
-	}
+	psbt_elements_normalize_fees(mfc->psbt);
 
 	/* Generate the TXID.  */
 	mfc->txid = tal(mfc, struct bitcoin_txid);
