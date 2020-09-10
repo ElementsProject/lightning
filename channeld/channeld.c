@@ -1978,6 +1978,81 @@ static void send_onionmsg(struct peer *peer, const u8 *msg)
 						    onion_routing_packet,
 						    tlvs)));
 }
+
+static void handle_tx_sigs(struct peer *peer, const u8 *msg)
+{
+	struct channel_id cid;
+	struct bitcoin_txid txid;
+	const struct witness_stack **ws;
+	const struct wally_tx *wtx;
+	size_t j = 0;
+
+	if (!fromwire_tx_signatures(tmpctx, msg, &cid, &txid,
+				    cast_const3(
+					 struct witness_stack ***,
+					 &ws)))
+		peer_failed(peer->pps,
+			    &peer->channel_id,
+			    "Bad tx_signatures %s", tal_hex(msg, msg));
+
+	/* Check that we're in the right spot for this channel to have gotten
+	 * this message */
+	if (peer->funding_locked[LOCAL] || peer->funding_locked[REMOTE]) {
+		/* FIXME: should we fail here instead? */
+		status_unusual("Got WIRE_TX_SIGNATURES after funding locked "
+			       "for channel %s, ignoring: %s",
+			       type_to_string(tmpctx, struct channel_id,
+					      &peer->channel_id),
+			       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (!peer->psbt) {
+		status_broken("Got WIRE_TX_SIGNATURES with no PSBT "
+			       "for channel %s, ignoring: %s",
+			       type_to_string(tmpctx, struct channel_id,
+					      &peer->channel_id),
+			       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	/* We put the PSBT + sigs all together */
+	for (size_t i = 0; i < peer->psbt->num_inputs; i++) {
+		struct wally_psbt_input *in =
+			&peer->psbt->inputs[i];
+		const struct witness_element **elem;
+		/* Really we should check serial parity, but we can
+		 * cheat and only check that the final witness
+		 * stack hasn't been set yet */
+		if (in->final_witness)
+			continue;
+
+		if (j == tal_count(ws))
+			peer_failed(peer->pps, &peer->channel_id,
+				    "Mismatch witness stack count %s",
+				    tal_hex(msg, msg));
+
+		elem = cast_const2(const struct witness_element **,
+				   ws[j++]->witness_element);
+		psbt_input_set_final_witness_stack(in, elem);
+	}
+
+	/* Then we broadcast it, and let the command know we did it */
+	if (!psbt_finalize(peer->psbt))
+		peer_failed(peer->pps, &peer->channel_id,
+			    "Unable to finalize PSBT %s",
+			    type_to_string(tmpctx, struct wally_psbt, peer->psbt));
+
+	wtx = psbt_final_tx(tmpctx, peer->psbt);
+	if (!wtx)
+		peer_failed(peer->pps, &peer->channel_id,
+			    "Unable to extract funding_tx from finalized PSBT %s",
+			    type_to_string(tmpctx, struct wally_psbt, peer->psbt));
+
+	/* FIXME: when a channel gets locked, check if there's a PSBT
+	 * or open_channel hanging out for it! */
+	peer->psbt = tal_free(peer->psbt);
+}
 #endif /* EXPERIMENTAL_FEATURES */
 
 static void handle_unexpected_reestablish(struct peer *peer, const u8 *msg)
@@ -2110,7 +2185,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		handle_onion_message(peer, msg);
 		return;
 	case WIRE_TX_SIGNATURES:
-		/* FIXME: verify sigs + weights, broadcast funding tx */
+		handle_tx_sigs(peer, msg);
 		return;
 	case WIRE_INIT_RBF:
 	/* FIXME: handle this here */
