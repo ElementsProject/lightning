@@ -1488,8 +1488,10 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
         l2_wallet_mvts = [
             {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
-            {'type': 'chain_mvt', 'credit': 0, 'debit': 991900000, 'tag': 'withdrawal'},
-            {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
+            [
+                {'type': 'chain_mvt', 'credit': 0, 'debit': 991900000, 'tag': 'withdrawal'},
+                {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
+            ],
             {'type': 'chain_mvt', 'credit': 0, 'debit': 8100000, 'tag': 'chain_fees'},
             {'type': 'chain_mvt', 'credit': 991900000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
