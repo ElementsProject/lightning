@@ -416,8 +416,7 @@ static bool psbt_side_contribs_changed(struct wally_psbt *orig,
 	return false;
 }
 
-/* Adds serials indiscriminately to any input/output that doesn't
- * have one yet */
+/* Adds serials to our inputs + outputs that don't have one yet */
 static void psbt_add_serials(struct wally_psbt *psbt, enum side opener)
 {
 	u16 serial_id;
