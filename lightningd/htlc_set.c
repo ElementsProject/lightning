@@ -182,10 +182,11 @@ void htlc_set_add(struct lightningd *ld,
 	}
 
 	log_debug(ld->log,
-		  "HTLC set contains %zu HTLCs, for a total of %s out of %s",
+		  "HTLC set contains %zu HTLCs, for a total of %s out of %s (%spayment_secret)",
 		  tal_count(set->htlcs),
 		  type_to_string(tmpctx, struct amount_msat, &set->so_far),
-		  type_to_string(tmpctx, struct amount_msat, &total_msat)
+		  type_to_string(tmpctx, struct amount_msat, &total_msat),
+		  payment_secret ? "" : "no "
 		);
 
 	if (amount_msat_eq(set->so_far, total_msat)) {
