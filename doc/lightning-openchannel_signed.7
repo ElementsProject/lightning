@@ -1,0 +1,68 @@
+.TH "LIGHTNING-OPENCHANNEL_SIGNED" "7" "" "" "lightning-openchannel_signed"
+.SH NAME
+lightning-openchannel_signed - Command to conclude a channel open
+.SH SYNOPSIS
+
+\fBopenchannel_signed\fR \fIid\fR \fIsigned_psbt\fR
+
+.SH DESCRIPTION
+
+\fBopenchannel_signed\fR is a low level RPC command which concludes a channel
+open with the specified peer\. It uses the v2 openchannel protocol, which
+allows for interactive transaction construction\.
+
+
+This command should be called after \fBopenchannel_update\fR returns
+\fIcommitments_secured\fR \fBtrue\fR\.
+
+
+This command will broadcast the finalized funding transaction,
+if we receive valid signatures from the peer\.
+
+
+\fIid\fR is the node id of the remote peer\.
+
+
+\fIsigned_psbt\fR is the PSBT returned from \fBopenchannel_update\fR (where
+\fIcommitments_secured\fR was true) with partial signatures or finalized
+witness stacks included for every input that we contributed to the
+PSBT\.
+
+.SH RETURN VALUE
+
+On success, returns the \fIchannel_id\fR for this channel; hex \fItx\fR of the
+published funding transaction; and \fItxid\fR of the funding transaction\.
+
+
+On error, the returned object will contain \fBcode\fR and \fBmessage\fR properties,
+with \fBcode\fR being one of the following:
+
+.RS
+.IP \[bu]
+-32602: If the given parameters are wrong\.
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+303: Funding transaction broadcast failed\.
+.IP \[bu]
+306: Unknown peer id\.
+.IP \[bu]
+309: PSBT missing required fields\.
+
+.RE
+.SH SEE ALSO
+
+lightning-openchannel_\fBupdate\fR(7), lightning-openchannel_\fBsigned\fR(7),
+lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcomplete\fR(7),
+\fBlightning-fundchannel\fR(7), \fBlightning-fundpsbt\fR(7), \fBlightning-utxopsbt\fR(7),
+\fBlightning-multifundchannel\fR(7)
+
+.SH AUTHOR
+
+@niftynei \fI<niftynei@gmail.com\fR> is mainly responsible\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:68fb78430a5ee3707fdb1324ba46373dd3dfaf325fe4e1bd3dcdc1589d80435c

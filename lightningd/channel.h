@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/list/list.h>
 #include <common/channel_id.h>
+#include <common/per_peer_state.h>
 #include <lightningd/channel_state.h>
 #include <lightningd/peer_htlcs.h>
 #include <wallet/wallet.h>
@@ -146,6 +147,13 @@ struct channel {
 
 	/* Our position in the round-robin list.  */
 	u64 rr_number;
+
+	/* PSBT, for v2 channels. Saved until it's sent */
+	const struct wally_psbt *psbt;
+
+	/* Stashed pps, saved until channeld is started.
+	 * Needed only for v2 channel open flow */
+	struct per_peer_state *pps;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,

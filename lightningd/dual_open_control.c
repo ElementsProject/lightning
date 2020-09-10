@@ -703,6 +703,7 @@ static void opener_psbt_changed(struct subd *dualopend,
 	json_add_bool(response, "commitments_secured", false);
 
 	uc->fc->inflight = true;
+	uc->fc->cmd = NULL;
 	was_pending(command_success(cmd, response));
 }
 
@@ -918,6 +919,7 @@ static void opener_commit_received(struct subd *dualopend,
 		goto failed;
 	}
 
+	channel->pps = tal_steal(channel, pps);
 	if (pbase)
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
 
@@ -1003,6 +1005,128 @@ static void accepter_got_offer(struct subd *dualopend,
 	tal_add_destructor2(dualopend, openchannel2_remove_dualopend, payload);
 	plugin_hook_call_openchannel2(dualopend->ld, payload);
 }
+
+static struct command_result *json_open_channel_signed(struct command *cmd,
+						       const char *buffer,
+						       const jsmntok_t *obj UNNEEDED,
+						       const jsmntok_t *params)
+{
+	struct wally_psbt *psbt;
+	struct node_id *id;
+	struct peer *peer;
+	struct channel *channel;
+	struct bitcoin_txid txid;
+
+	if (!param(cmd, buffer, params,
+		   p_req("id", param_node_id, &id),
+		   p_req("signed_psbt", param_psbt, &psbt),
+		   NULL))
+		return command_param_failed();
+
+	peer = peer_by_id(cmd->ld, id);
+	if (!peer)
+		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
+
+	channel = peer_active_channel(peer);
+	if (!channel)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Peer has no active channel");
+
+	if (!channel->pps)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Missing per-peer-state for channel, "
+				    "are you in the right state to call "
+				    "this method?");
+
+	if (channel->psbt)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Already have a finalized PSBT for "
+				    "this channel");
+
+	/* Verify that the psbt's txid matches that of the
+	 * funding txid for this channel */
+	psbt_txid(NULL, psbt, &txid, NULL);
+	if (!bitcoin_txid_eq(&txid, &channel->funding_txid))
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "Txid for passed in PSBT does not match"
+				    " funding txid for channel. Expected %s, "
+				    "received %s",
+				    type_to_string(tmpctx, struct bitcoin_txid,
+						   &channel->funding_txid),
+				    type_to_string(tmpctx, struct bitcoin_txid,
+						   &txid));
+
+
+	/* Go ahead and try to finalize things, or what we can */
+	psbt_finalize(psbt);
+
+	/* Check that all of *our* outputs are finalized */
+	if (!psbt_side_finalized(cmd->ld->log, psbt, LOCAL))
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "Local PSBT input(s) not finalized");
+
+	channel_watch_funding(cmd->ld, channel);
+
+	register_open_command(cmd->ld, cmd, channel);
+	peer_start_channeld(channel, channel->pps,
+			    NULL, psbt, false);
+	channel->pps = tal_free(channel->pps);
+
+	return command_still_pending(cmd);
+}
+
+static struct command_result *json_open_channel_update(struct command *cmd,
+						       const char *buffer,
+						       const jsmntok_t *obj UNNEEDED,
+						       const jsmntok_t *params)
+{
+	struct wally_psbt *psbt;
+	struct node_id *id;
+	struct peer *peer;
+	struct channel *channel;
+	struct channel_id chan_id_unused;
+	u8 *msg;
+
+	if (!param(cmd, buffer, params,
+		   p_req("id", param_node_id, &id),
+		   p_req("psbt", param_psbt, &psbt),
+		   NULL))
+		return command_param_failed();
+
+	peer = peer_by_id(cmd->ld, id);
+	if (!peer)
+		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
+
+	channel = peer_active_channel(peer);
+	if (channel)
+		return command_fail(cmd, LIGHTNINGD, "Peer already %s",
+				    channel_state_name(channel));
+
+	if (!peer->uncommitted_channel)
+		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+				    "Peer not connected");
+
+	if (!peer->uncommitted_channel->fc || !peer->uncommitted_channel->fc->inflight)
+		return command_fail(cmd, LIGHTNINGD, "No channel funding in progress");
+
+	if (peer->uncommitted_channel->fc->cmd)
+		return command_fail(cmd, LIGHTNINGD, "Channel funding in progress");
+
+	/* Add serials to PSBT */
+	psbt_add_serials(psbt, LOCAL);
+	if (!psbt_has_required_fields(psbt))
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "PSBT is missing required fields %s",
+				    type_to_string(tmpctx, struct wally_psbt, psbt));
+
+	peer->uncommitted_channel->fc->cmd = cmd;
+
+	memset(&chan_id_unused, 0, sizeof(chan_id_unused));
+	msg = towire_dual_open_psbt_changed(NULL, &chan_id_unused, psbt);
+	subd_send_msg(peer->uncommitted_channel->open_daemon, take(msg));
+	return command_still_pending(cmd);
+}
+
 
 static struct command_result *json_open_channel_init(struct command *cmd,
 						     const char *buffer,
@@ -1231,7 +1355,28 @@ static const struct json_command open_channel_init_command = {
 	"Init an open channel to {id} with {initialpsbt} for {amount} satoshis. "
 	"Returns updated {psbt} with (partial) contributions from peer"
 };
+
+static const struct json_command open_channel_update_command = {
+	"openchannel_update",
+	"channels",
+	json_open_channel_update,
+	"Update {channel_id} with {psbt}. "
+	"Returns updated {psbt} with (partial) contributions from peer. "
+	"If {commitments_secured} is true, next call should be to openchannel_signed"
+};
+
+static const struct json_command open_channel_signed_command = {
+	"openchannel_signed",
+	"channels",
+	json_open_channel_signed,
+	"Finish opening {channel_id} with {signed_psbt}. "
+};
+
+#if EXPERIMENTAL_FEATURES
 AUTODATA(json_command, &open_channel_init_command);
+AUTODATA(json_command, &open_channel_update_command);
+AUTODATA(json_command, &open_channel_signed_command);
+#endif /* EXPERIMENTAL_FEATURES */
 
 void peer_start_dualopend(struct peer *peer,
 			  struct per_peer_state *pps,
