@@ -45,6 +45,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		assert(cmd == NULL);
 		tal_arr_expand(&parent->children, p);
 		p->destination = parent->destination;
+		p->destination_has_tlv = parent->destination_has_tlv;
 		p->amount = parent->amount;
 		p->label = parent->label;
 		p->payment_hash = parent->payment_hash;
@@ -1266,6 +1267,7 @@ static void payment_add_hop_onion_payload(struct payment *p,
 					  struct route_hop *node,
 					  struct route_hop *next,
 					  bool final,
+					  bool force_tlv,
 					  struct secret *payment_secret)
 {
 	struct createonion_request *cr = p->createonion_request;
@@ -1279,9 +1281,11 @@ static void payment_add_hop_onion_payload(struct payment *p,
 	 * `next` are the instructions to include in the payload, which is
 	 * basically the channel going to the next node. */
 	dst->style = node->style;
+	if (force_tlv)
+		dst->style = ROUTE_HOP_TLV;
 	dst->pubkey = node->nodeid;
 
-	switch (node->style) {
+	switch (dst->style) {
 	case ROUTE_HOP_LEGACY:
 		dst->legacy_payload = tal(cr->hops, struct legacy_payload);
 		dst->legacy_payload->forward_amt = next->amount;
@@ -1338,7 +1342,8 @@ static void payment_compute_onion_payloads(struct payment *p)
 		/* The message is destined for hop i, but contains fields for
 		 * i+1 */
 		payment_add_hop_onion_payload(p, &cr->hops[i], &p->route[i],
-					      &p->route[i + 1], false, NULL);
+					      &p->route[i + 1], false, false,
+					      NULL);
 		tal_append_fmt(&routetxt, "%s -> ",
 			       type_to_string(tmpctx, struct short_channel_id,
 					      &p->route[i].channel_id));
@@ -1347,7 +1352,8 @@ static void payment_compute_onion_payloads(struct payment *p)
 	/* Final hop */
 	payment_add_hop_onion_payload(
 	    p, &cr->hops[hopcount - 1], &p->route[hopcount - 1],
-	    &p->route[hopcount - 1], true, root->payment_secret);
+	    &p->route[hopcount - 1], true, root->destination_has_tlv,
+	    root->payment_secret);
 	tal_append_fmt(&routetxt, "%s",
 		       type_to_string(tmpctx, struct short_channel_id,
 				      &p->route[hopcount - 1].channel_id));
@@ -2281,7 +2287,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 			}
 
 			hop.nodeid = *route_pubkey(p, routehint, i + 1);
-			hop.style = ROUTE_HOP_TLV;
+			hop.style = ROUTE_HOP_LEGACY;
 			hop.channel_id = routehint[i].short_channel_id;
 			hop.amount = dest_amount;
 			hop.delay = route_cltv(d->final_cltv, routehint + i + 1,
@@ -2665,7 +2671,7 @@ static void direct_pay_override(struct payment *p) {
 		p->route[0].channel_id = hint->scid.scid;
 		p->route[0].direction = hint->scid.dir;
 		p->route[0].nodeid = *p->destination;
-		p->route[0].style = ROUTE_HOP_TLV;
+		p->route[0].style = p->destination_has_tlv ? ROUTE_HOP_TLV : ROUTE_HOP_LEGACY;
 		paymod_log(p, LOG_DBG,
 			   "Found a direct channel (%s) with sufficient "
 			   "capacity, skipping route computation.",

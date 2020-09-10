@@ -52,17 +52,8 @@ static struct keysend_data *keysend_init(struct payment *p)
 }
 
 static void keysend_cb(struct keysend_data *d, struct payment *p) {
-	struct route_hop *last_hop;
 	struct createonion_hop *last_payload;
 	size_t hopcount;
-
-	if (p->step == PAYMENT_STEP_GOT_ROUTE) {
-		/* Force the last step to be a TLV, we might not have an
-		 * announcement and it still supports it. Required later when
-		 * we adjust the payload. */
-		last_hop = &p->route[tal_count(p->route) - 1];
-		last_hop->style = ROUTE_HOP_TLV;
-	}
 
 	if (p->step != PAYMENT_STEP_ONION_PAYLOAD)
 		return payment_continue(p);
@@ -143,6 +134,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->json_buffer = tal_steal(p, buf);
 	p->json_toks = params;
 	p->destination = tal_steal(p, destination);
+	p->destination_has_tlv = true;
 	p->payment_secret = NULL;
 	p->amount = *msat;
 	p->invoice = NULL;

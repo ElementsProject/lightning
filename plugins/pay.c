@@ -2021,6 +2021,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	p->json_buffer = tal_steal(p, buf);
 	p->json_toks = params;
 	p->destination = &b11->receiver_id;
+	p->destination_has_tlv = feature_offered(b11->features, OPT_VAR_ONION);
 	p->payment_hash = tal_dup(p, struct sha256, &b11->payment_hash);
 	p->payment_secret = b11->payment_secret
 				? tal_dup(p, struct secret, b11->payment_secret)
