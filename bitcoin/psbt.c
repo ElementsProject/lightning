@@ -327,7 +327,13 @@ void psbt_elements_normalize_fees(struct wally_psbt *psbt)
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
 		asset = wally_tx_output_get_amount(&psbt->tx->outputs[i]);
 		if (elements_wtx_output_is_fee(psbt->tx, i)) {
-			fee_output_idx = i;
+			if (fee_output_idx == psbt->num_outputs) {
+				fee_output_idx = i;
+				continue;
+			}
+			/* We already have at least one fee output,
+			 * remove this one */
+			psbt_rm_output(psbt, i--);
 			continue;
 		}
 		if (!amount_asset_is_main(&asset))
