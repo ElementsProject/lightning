@@ -526,6 +526,32 @@ static void openchannel2_psbt_remove_dualopend(struct subd *dualopend,
 	payload->dualopend = NULL;
 }
 
+static bool
+openchannel2_changed_deserialize(struct openchannel2_psbt_payload *payload,
+				 const char *buffer, const jsmntok_t *toks)
+{
+	struct subd *dualopend = payload->dualopend;
+	struct wally_psbt *psbt;
+
+	if (!hook_extract_psbt(NULL, dualopend, buffer,
+			       toks, "openchannel2_sign",
+			       false, &psbt))
+		return false;
+
+	/* Add serials to PSBT, before checking for required fields */
+	psbt_add_serials(psbt, REMOTE);
+
+	if (!psbt_has_required_fields(psbt))
+		fatal("Plugin supplied PSBT that's missing required fields. %s",
+		      type_to_string(tmpctx, struct wally_psbt, psbt));
+
+	if (payload->psbt)
+		tal_free(payload->psbt);
+
+	payload->psbt = tal_steal(payload, psbt);
+	return true;
+}
+
 static void
 openchannel2_changed_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 {
@@ -549,8 +575,8 @@ openchannel2_changed_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 }
 
 static bool
-openchannel2_psbt_deserialize(struct openchannel2_psbt_payload *payload,
-			      const char *buffer, const jsmntok_t *toks)
+openchannel2_signed_deserialize(struct openchannel2_psbt_payload *payload,
+				const char *buffer, const jsmntok_t *toks)
 {
 	struct subd *dualopend = payload->dualopend;
 	struct wally_psbt *psbt;
@@ -606,13 +632,13 @@ REGISTER_PLUGIN_HOOK(openchannel2,
 		     struct openchannel2_payload *);
 
 REGISTER_PLUGIN_HOOK(openchannel2_changed,
-		     openchannel2_psbt_deserialize,
+		     openchannel2_changed_deserialize,
 		     openchannel2_changed_hook_cb,
 		     openchannel2_changed_hook_serialize,
 		     struct openchannel2_psbt_payload *);
 
 REGISTER_PLUGIN_HOOK(openchannel2_sign,
-		     openchannel2_psbt_deserialize,
+		     openchannel2_signed_deserialize,
 		     openchannel2_sign_hook_cb,
 		     openchannel2_sign_hook_serialize,
 		     struct openchannel2_psbt_payload *);
