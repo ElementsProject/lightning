@@ -1102,8 +1102,9 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 			     tal_hex(tmpctx, msg));
 
 	if (!amount_sat_to_msat(&our_msats, state->accepter_funding))
-		peer_failed(state->pps, &state->channel_id,
-			    "Rounding error on client.");
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Overflow converting accepter_funding "
+			      "to msats");
 
 	state->channel = new_initial_channel(state,
 					     &state->channel_id,
