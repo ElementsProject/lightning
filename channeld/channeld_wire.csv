@@ -1,3 +1,4 @@
+#include <bitcoin/psbt.h>
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>
@@ -57,8 +58,6 @@ msgdata,channeld_init,final_scriptpubkey,u8,final_scriptpubkey_len
 msgdata,channeld_init,flags,u8,
 msgdata,channeld_init,init_peer_pkt_len,u16,
 msgdata,channeld_init,init_peer_pkt,u8,init_peer_pkt_len
-msgdata,channeld_init,init_peer_pkt_two_len,u16,
-msgdata,channeld_init,init_peer_pkt_two,u8,init_peer_pkt_two_len
 msgdata,channeld_init,reached_announce_depth,bool,
 msgdata,channeld_init,last_remote_secret,secret,
 msgdata,channeld_init,flen,u16,
@@ -73,6 +72,7 @@ msgdata,channeld_init,dev_fast_gossip,bool,
 msgdata,channeld_init,dev_fail_process_onionpacket,bool,
 msgdata,channeld_init,num_penalty_bases,u32,
 msgdata,channeld_init,pbases,penalty_base,num_penalty_bases
+msgdata,channeld_init,psbt,wally_psbt,
 
 # master->channeld funding hit new depth(funding locked if >= lock depth)
 msgtype,channeld_funding_depth,1002

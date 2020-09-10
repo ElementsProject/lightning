@@ -38,57 +38,6 @@ struct commit_rcvd {
 	struct uncommitted_channel *uc;
 };
 
-static const struct witness_stack **
-psbt_to_witness_stacks(const tal_t *ctx, struct log *log,
-		       const struct wally_psbt *psbt, enum side opener)
-{
-	size_t stack_index;
-	u16 serial_id;
-	const struct witness_stack **stacks
-		= tal_arr(ctx, const struct witness_stack *, psbt->num_inputs);
-
-	stack_index = 0;
-	for (size_t i = 0; i < psbt->num_inputs; i++) {
-		if (!psbt_get_serial_id(&psbt->inputs[i].unknowns, &serial_id)) {
-			log_broken(log, "dual funding PSBT must have serial_id for each "
-				   "input, none found for input %zu", i);
-			return NULL;
-		}
-
-
-		if (serial_id % 2 == opener) {
-			struct wally_tx_witness_stack *wtx_s =
-				psbt->inputs[i].final_witness;
-			struct witness_stack *stack =
-				tal(stacks, struct witness_stack);
-			/* Convert the wally_tx_witness_stack to
-			 * a witness_stack entry */
-			stack->witness_element =
-				tal_arr(stack, struct witness_element *,
-					wtx_s->num_items);
-			for (size_t j = 0; j < tal_count(stack->witness_element); j++) {
-				stack->witness_element[j] = tal(stack,
-								struct witness_element);
-				stack->witness_element[j]->witness =
-					tal_dup_arr(stack, u8,
-						    wtx_s->items[j].witness,
-						    wtx_s->items[j].witness_len,
-						    0);
-
-			}
-
-			stacks[stack_index++] = stack;
-		}
-
-	}
-
-	if (stack_index == 0)
-		return tal_free(stacks);
-
-	tal_resize(&stacks, stack_index);
-	return stacks;
-}
-
 static bool psbt_side_finalized(struct log *log, struct wally_psbt *psbt, enum side opener)
 {
 	u16 serial_id;
@@ -116,26 +65,13 @@ static void handle_signed_psbt(struct lightningd *ld,
 			       const struct wally_psbt *psbt,
 			       struct commit_rcvd *rcvd)
 {
-	const struct witness_stack **ws =
-		psbt_to_witness_stacks(tmpctx, ld->log, psbt, REMOTE);
-
-	const u8 *fwd_msg_2;
-
-	/* We've already confirmed that all of the supplied info is good,
-	 * so now go ahead and create a tx_signatures msg.
-	 * We'll pass the tx_sigs msg and the already-created
-	 * commitment_signed tx to channeld, who will send
-	 * both of them to the peer. */
-	fwd_msg_2 = towire_tx_signatures(rcvd, &rcvd->channel->cid,
-					 &rcvd->channel->funding_txid,
-					 ws);
-
 	channel_watch_funding(ld, rcvd->channel);
 
 	peer_start_channeld(rcvd->channel,
 			    rcvd->pps,
 			    rcvd->commitment_msg,
-			    fwd_msg_2, false);
+			    psbt, false);
+	tal_free(rcvd->uc);
 }
 
 /* ~Map of the Territory~
