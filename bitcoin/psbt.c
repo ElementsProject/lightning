@@ -748,16 +748,20 @@ void psbt_txid(const tal_t *ctx,
 	wally_tx_clone_alloc(psbt->tx, 0, &tx);
 
 	for (size_t i = 0; i < tx->num_inputs; i++) {
-		u8 *script;
-		if (!psbt->inputs[i].redeem_script)
-			continue;
+		if (psbt->inputs[i].final_scriptsig) {
+			wally_tx_set_input_script(tx, i,
+						  psbt->inputs[i].final_scriptsig,
+						  psbt->inputs[i].final_scriptsig_len);
+		} else if (psbt->inputs[i].redeem_script) {
+			u8 *script;
 
-		/* P2SH requires push of the redeemscript, from libwally src */
-		script = tal_arr(tmpctx, u8, 0);
-		script_push_bytes(&script,
-				  psbt->inputs[i].redeem_script,
-				  psbt->inputs[i].redeem_script_len);
-		wally_tx_set_input_script(tx, i, script, tal_bytelen(script));
+			/* P2SH requires push of the redeemscript, from libwally src */
+			script = tal_arr(tmpctx, u8, 0);
+			script_push_bytes(&script,
+					  psbt->inputs[i].redeem_script,
+					  psbt->inputs[i].redeem_script_len);
+			wally_tx_set_input_script(tx, i, script, tal_bytelen(script));
+		}
 	}
 	tal_gather_wally(tal_steal(ctx, tx));
 
