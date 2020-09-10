@@ -74,6 +74,10 @@ struct funding_channel {
 
 	/* Any commands trying to cancel us. */
 	struct command **cancels;
+
+	/* Place to stash the per-peer-state while we wait
+	 * for them to get back to us with signatures */
+	struct per_peer_state *pps;
 };
 
 struct uncommitted_channel *

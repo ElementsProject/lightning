@@ -957,6 +957,36 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("pay", payload)
 
+    def openchannel_init(self, node_id, channel_amount, psbt, feerate=None, funding_feerate=None, announce=True, close_to=None, *args, **kwargs):
+        """Initiate an openchannel with a peer """
+        payload = {
+            "id": node_id,
+            "amount": channel_amount,
+            "initialpsbt": psbt,
+            "commitment_feerate": feerate,
+            "funding_feerate": funding_feerate,
+            "announce": announce,
+            "close_to": close_to,
+        }
+        return self.call("openchannel_init", payload)
+
+    def openchannel_signed(self, channel_id, signed_psbt, *args, **kwargs):
+        """ Send the funding transaction signatures to the peer, finish
+            the channel open """
+        payload = {
+            "channel_id": channel_id,
+            "signed_psbt": signed_psbt,
+        }
+        return self.call("openchannel_signed", payload)
+
+    def openchannel_update(self, channel_id, psbt, *args, **kwargs):
+        """Update an openchannel with a peer """
+        payload = {
+            "channel_id": channel_id,
+            "psbt": psbt,
+        }
+        return self.call("openchannel_update", payload)
+
     def paystatus(self, bolt11=None):
         """Detail status of attempts to pay {bolt11} or any."""
         payload = {
