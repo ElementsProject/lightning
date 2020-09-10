@@ -74,6 +74,17 @@ struct close_command {
 	bool force;
 };
 
+struct open_command {
+	/* Inside struct lightningd open_commands. */
+	struct list_node list;
+	/* Command structure. This is the parent of the open command. */
+	struct command *cmd;
+	/* Channel being opened. */
+	struct channel *channel;
+	/* PSBT in flight */
+	struct wally_psbt *psbt;
+};
+
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->ld->peers, &peer->list);
@@ -322,6 +333,68 @@ register_close_command(struct lightningd *ld,
 	if (timeout)
 		new_reltimer(ld->timers, cc, time_from_sec(*timeout),
 			     &close_command_timeout, cc);
+}
+
+/* Destroy the open command structure in reaction to the
+ * channel being destroyed. */
+static void
+destroy_open_command_on_channel_destroy(struct channel *_ UNUSED,
+					struct open_command *oc)
+{
+	/* The oc has the command as parent, so resolving the
+	 * command destroys the oc and triggers destroy_open_command.
+	 * Clear the oc->channel first so that we will not try to
+	 * remove a destructor. */
+	oc->channel = NULL;
+	was_pending(command_fail(oc->cmd, LIGHTNINGD,
+				 "Channel forgotten before open concluded."));
+}
+
+/* Destroy the open command structure. */
+static void
+destroy_open_command(struct open_command *oc)
+{
+	list_del(&oc->list);
+	/* If destroy_close_command_on_channel_destroy was
+	 * triggered beforehand, it will have cleared
+	 * the channel field, preventing us from removing it
+	 * from an already-destroyed channel. */
+	if (!oc->channel)
+		return;
+	tal_del_destructor2(oc->channel,
+			    &destroy_open_command_on_channel_destroy,
+			    oc);
+}
+
+struct open_command *find_open_command(struct lightningd *ld,
+				       struct channel *channel)
+{
+	struct open_command *oc, *n;
+
+	list_for_each_safe (&ld->open_commands, oc, n, list) {
+		if (oc->channel != channel)
+			continue;
+		return oc;
+	}
+
+	return NULL;
+}
+
+void register_open_command(struct lightningd *ld,
+			   struct command *cmd,
+			   struct channel *channel)
+{
+	struct open_command *oc;
+	assert(channel);
+
+	oc = tal(cmd, struct open_command);
+	list_add_tail(&ld->open_commands, &oc->list);
+	oc->cmd = cmd;
+	oc->channel = channel;
+	tal_add_destructor(oc, &destroy_open_command);
+	tal_add_destructor2(channel,
+			    &destroy_open_command_on_channel_destroy,
+			    oc);
 }
 
 static bool invalid_last_tx(const struct bitcoin_tx *tx)
