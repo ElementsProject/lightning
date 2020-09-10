@@ -14,24 +14,3 @@ char *b64_encode(const tal_t *ctx, const u8 *data, size_t len)
 								len, sodium_base64_VARIANT_ORIGINAL);
 	return str;
 }
-
-u8 *b64_decode(const tal_t *ctx, const char *str, size_t len)
-{
-	size_t bin_len = len + 1;
-
-	u8 *ret = tal_arr(ctx, u8, bin_len);
-
-	if (!sodium_base642bin(ret,
-				tal_count(ret),
-				(const char * const)str,
-				len,
-				NULL,
-				&bin_len,
-				NULL,
-				sodium_base64_VARIANT_ORIGINAL))
-			return tal_free(ret);
-
-	ret[bin_len] = 0;
-	tal_resize(&ret, bin_len + 1);
-	return ret;
-}
