@@ -47,6 +47,7 @@
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/ping.h>
+#include <common/psbt_open.h>
 #include <common/read_peer_msg.h>
 #include <common/sphinx.h>
 #include <common/status.h>
@@ -180,6 +181,9 @@ struct peer {
 
 	/* Penalty bases for this channel / peer. */
 	struct penalty_base **pbases;
+
+	/* PSBT, waiting for peer's tx_sigs */
+	struct wally_psbt *psbt;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -3227,7 +3231,7 @@ static void init_channel(struct peer *peer)
 	enum side opener;
 	struct existing_htlc **htlcs;
 	bool reconnected;
-	u8 *fwd_msg_1, *fwd_msg_2;
+	u8 *fwd_msg;
 	const u8 *msg;
 	struct fee_states *fee_states;
 	u32 minimum_depth;
@@ -3288,8 +3292,7 @@ static void init_channel(struct peer *peer)
 				   &peer->shutdown_sent[REMOTE],
 				   &peer->final_scriptpubkey,
 				   &peer->channel_flags,
-				   &fwd_msg_1,
-				   &fwd_msg_2,
+				   &fwd_msg,
 				   &peer->announce_depth_reached,
 				   &last_remote_per_commit_secret,
 				   &peer->their_features,
@@ -3300,7 +3303,8 @@ static void init_channel(struct peer *peer)
 				   &option_anchor_outputs,
 				   &dev_fast_gossip,
 				   &dev_fail_process_onionpacket,
-				   &pbases)) {
+				   &pbases,
+				   &peer->psbt)) {
 		master_badmsg(WIRE_CHANNELD_INIT, msg);
 	}
 
@@ -3392,10 +3396,8 @@ static void init_channel(struct peer *peer)
 		peer_reconnect(peer, &last_remote_per_commit_secret);
 
 	/* If we have a messages to send, send them immediately */
-	if (fwd_msg_1)
-		sync_crypto_write(peer->pps, take(fwd_msg_1));
-	if (fwd_msg_2)
-		sync_crypto_write(peer->pps, take(fwd_msg_2));
+	if (fwd_msg)
+		sync_crypto_write(peer->pps, take(fwd_msg));
 
 	/* Reenable channel */
 	channel_announcement_negotiate(peer);

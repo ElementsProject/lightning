@@ -415,8 +415,8 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 
 void peer_start_channeld(struct channel *channel,
 			 struct per_peer_state *pps,
-			 const u8 *fwd_msg_1,
-			 const u8 *fwd_msg_2,
+			 const u8 *fwd_msg,
+			 const struct wally_psbt *psbt,
 			 bool reconnected)
 {
 	u8 *initmsg;
@@ -557,8 +557,7 @@ void peer_start_channeld(struct channel *channel,
 				      channel->shutdown_scriptpubkey[REMOTE] != NULL,
 				      channel->shutdown_scriptpubkey[LOCAL],
 				      channel->channel_flags,
-				      fwd_msg_1,
-				      fwd_msg_2,
+				      fwd_msg,
 				      reached_announce_depth,
 				      &last_remote_per_commit_secret,
 				      channel->peer->their_features,
@@ -571,7 +570,8 @@ void peer_start_channeld(struct channel *channel,
 				      channel->option_anchor_outputs,
 				      IFDEV(ld->dev_fast_gossip, false),
 				      IFDEV(dev_fail_process_onionpacket, false),
-				      pbases);
+				      pbases,
+				      psbt);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));

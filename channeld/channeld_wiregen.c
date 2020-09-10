@@ -98,13 +98,12 @@ bool channeld_wire_is_defined(u16 type)
 
 /* WIRE: CHANNELD_INIT */
 /* Begin!  (passes gossipd-client fd) */
-u8 *towire_channeld_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_features, const struct channel_id *channel_id, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshi, u32 minimum_depth, const struct channel_config *our_config, const struct channel_config *their_config, const struct fee_states *fee_states, u32 feerate_min, u32 feerate_max, u32 feerate_penalty, const struct bitcoin_signature *first_commit_sig, const struct per_peer_state *per_peer_state, const struct pubkey *remote_fundingkey, const struct basepoints *remote_basepoints, const struct pubkey *remote_per_commit, const struct pubkey *old_remote_per_commit, enum side opener, u32 fee_base, u32 fee_proportional, struct amount_msat local_msatoshi, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, const struct node_id *local_node_id, const struct node_id *remote_node_id, u32 commit_msec, u16 cltv_delta, bool last_was_revoke, const struct changed_htlc *last_sent_commit, u64 next_index_local, u64 next_index_remote, u64 revocations_received, u64 next_htlc_id, const struct existing_htlc **htlcs, bool local_funding_locked, bool remote_funding_locked, const struct short_channel_id *funding_short_id, bool reestablish, bool send_shutdown, bool remote_shutdown_received, const u8 *final_scriptpubkey, u8 flags, const u8 *init_peer_pkt, const u8 *init_peer_pkt_two, bool reached_announce_depth, const struct secret *last_remote_secret, const u8 *their_features, const u8 *upfront_shutdown_script, const secp256k1_ecdsa_signature *remote_ann_node_sig, const secp256k1_ecdsa_signature *remote_ann_bitcoin_sig, bool option_static_remotekey, bool option_anchor_outputs, bool dev_fast_gossip, bool dev_fail_process_onionpacket, const struct penalty_base *pbases)
+u8 *towire_channeld_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_features, const struct channel_id *channel_id, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshi, u32 minimum_depth, const struct channel_config *our_config, const struct channel_config *their_config, const struct fee_states *fee_states, u32 feerate_min, u32 feerate_max, u32 feerate_penalty, const struct bitcoin_signature *first_commit_sig, const struct per_peer_state *per_peer_state, const struct pubkey *remote_fundingkey, const struct basepoints *remote_basepoints, const struct pubkey *remote_per_commit, const struct pubkey *old_remote_per_commit, enum side opener, u32 fee_base, u32 fee_proportional, struct amount_msat local_msatoshi, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, const struct node_id *local_node_id, const struct node_id *remote_node_id, u32 commit_msec, u16 cltv_delta, bool last_was_revoke, const struct changed_htlc *last_sent_commit, u64 next_index_local, u64 next_index_remote, u64 revocations_received, u64 next_htlc_id, const struct existing_htlc **htlcs, bool local_funding_locked, bool remote_funding_locked, const struct short_channel_id *funding_short_id, bool reestablish, bool send_shutdown, bool remote_shutdown_received, const u8 *final_scriptpubkey, u8 flags, const u8 *init_peer_pkt, bool reached_announce_depth, const struct secret *last_remote_secret, const u8 *their_features, const u8 *upfront_shutdown_script, const secp256k1_ecdsa_signature *remote_ann_node_sig, const secp256k1_ecdsa_signature *remote_ann_bitcoin_sig, bool option_static_remotekey, bool option_anchor_outputs, bool dev_fast_gossip, bool dev_fail_process_onionpacket, const struct penalty_base *pbases, const struct wally_psbt *psbt)
 {
 	u16 num_last_sent_commit = tal_count(last_sent_commit);
 	u16 num_existing_htlcs = tal_count(htlcs);
 	u16 final_scriptpubkey_len = tal_count(final_scriptpubkey);
 	u16 init_peer_pkt_len = tal_count(init_peer_pkt);
-	u16 init_peer_pkt_two_len = tal_count(init_peer_pkt_two);
 	u16 flen = tal_count(their_features);
 	u16 upfront_shutdown_script_len = tal_count(upfront_shutdown_script);
 	u32 num_penalty_bases = tal_count(pbases);
@@ -162,8 +161,6 @@ u8 *towire_channeld_init(const tal_t *ctx, const struct chainparams *chainparams
 	towire_u8(&p, flags);
 	towire_u16(&p, init_peer_pkt_len);
 	towire_u8_array(&p, init_peer_pkt, init_peer_pkt_len);
-	towire_u16(&p, init_peer_pkt_two_len);
-	towire_u8_array(&p, init_peer_pkt_two, init_peer_pkt_two_len);
 	towire_bool(&p, reached_announce_depth);
 	towire_secret(&p, last_remote_secret);
 	towire_u16(&p, flen);
@@ -189,16 +186,16 @@ u8 *towire_channeld_init(const tal_t *ctx, const struct chainparams *chainparams
 	towire_u32(&p, num_penalty_bases);
 	for (size_t i = 0; i < num_penalty_bases; i++)
 		towire_penalty_base(&p, pbases + i);
+	towire_wally_psbt(&p, psbt);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_channeld_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_features, struct channel_id *channel_id, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshi, u32 *minimum_depth, struct channel_config *our_config, struct channel_config *their_config, struct fee_states **fee_states, u32 *feerate_min, u32 *feerate_max, u32 *feerate_penalty, struct bitcoin_signature *first_commit_sig, struct per_peer_state **per_peer_state, struct pubkey *remote_fundingkey, struct basepoints *remote_basepoints, struct pubkey *remote_per_commit, struct pubkey *old_remote_per_commit, enum side *opener, u32 *fee_base, u32 *fee_proportional, struct amount_msat *local_msatoshi, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, struct node_id *local_node_id, struct node_id *remote_node_id, u32 *commit_msec, u16 *cltv_delta, bool *last_was_revoke, struct changed_htlc **last_sent_commit, u64 *next_index_local, u64 *next_index_remote, u64 *revocations_received, u64 *next_htlc_id, struct existing_htlc ***htlcs, bool *local_funding_locked, bool *remote_funding_locked, struct short_channel_id *funding_short_id, bool *reestablish, bool *send_shutdown, bool *remote_shutdown_received, u8 **final_scriptpubkey, u8 *flags, u8 **init_peer_pkt, u8 **init_peer_pkt_two, bool *reached_announce_depth, struct secret *last_remote_secret, u8 **their_features, u8 **upfront_shutdown_script, secp256k1_ecdsa_signature **remote_ann_node_sig, secp256k1_ecdsa_signature **remote_ann_bitcoin_sig, bool *option_static_remotekey, bool *option_anchor_outputs, bool *dev_fast_gossip, bool *dev_fail_process_onionpacket, struct penalty_base **pbases)
+bool fromwire_channeld_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_features, struct channel_id *channel_id, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshi, u32 *minimum_depth, struct channel_config *our_config, struct channel_config *their_config, struct fee_states **fee_states, u32 *feerate_min, u32 *feerate_max, u32 *feerate_penalty, struct bitcoin_signature *first_commit_sig, struct per_peer_state **per_peer_state, struct pubkey *remote_fundingkey, struct basepoints *remote_basepoints, struct pubkey *remote_per_commit, struct pubkey *old_remote_per_commit, enum side *opener, u32 *fee_base, u32 *fee_proportional, struct amount_msat *local_msatoshi, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, struct node_id *local_node_id, struct node_id *remote_node_id, u32 *commit_msec, u16 *cltv_delta, bool *last_was_revoke, struct changed_htlc **last_sent_commit, u64 *next_index_local, u64 *next_index_remote, u64 *revocations_received, u64 *next_htlc_id, struct existing_htlc ***htlcs, bool *local_funding_locked, bool *remote_funding_locked, struct short_channel_id *funding_short_id, bool *reestablish, bool *send_shutdown, bool *remote_shutdown_received, u8 **final_scriptpubkey, u8 *flags, u8 **init_peer_pkt, bool *reached_announce_depth, struct secret *last_remote_secret, u8 **their_features, u8 **upfront_shutdown_script, secp256k1_ecdsa_signature **remote_ann_node_sig, secp256k1_ecdsa_signature **remote_ann_bitcoin_sig, bool *option_static_remotekey, bool *option_anchor_outputs, bool *dev_fast_gossip, bool *dev_fail_process_onionpacket, struct penalty_base **pbases, struct wally_psbt **psbt)
 {
 	u16 num_last_sent_commit;
 	u16 num_existing_htlcs;
 	u16 final_scriptpubkey_len;
 	u16 init_peer_pkt_len;
-	u16 init_peer_pkt_two_len;
 	u16 flen;
 	u16 upfront_shutdown_script_len;
 	u32 num_penalty_bases;
@@ -267,10 +264,6 @@ bool fromwire_channeld_init(const tal_t *ctx, const void *p, const struct chainp
  	// 2nd case init_peer_pkt
 	*init_peer_pkt = init_peer_pkt_len ? tal_arr(ctx, u8, init_peer_pkt_len) : NULL;
 	fromwire_u8_array(&cursor, &plen, *init_peer_pkt, init_peer_pkt_len);
- 	init_peer_pkt_two_len = fromwire_u16(&cursor, &plen);
- 	// 2nd case init_peer_pkt_two
-	*init_peer_pkt_two = init_peer_pkt_two_len ? tal_arr(ctx, u8, init_peer_pkt_two_len) : NULL;
-	fromwire_u8_array(&cursor, &plen, *init_peer_pkt_two, init_peer_pkt_two_len);
  	*reached_announce_depth = fromwire_bool(&cursor, &plen);
  	fromwire_secret(&cursor, &plen, last_remote_secret);
  	flen = fromwire_u16(&cursor, &plen);
@@ -302,6 +295,7 @@ bool fromwire_channeld_init(const tal_t *ctx, const void *p, const struct chainp
 	*pbases = num_penalty_bases ? tal_arr(ctx, struct penalty_base, num_penalty_bases) : NULL;
 	for (size_t i = 0; i < num_penalty_bases; i++)
 		fromwire_penalty_base(&cursor, &plen, *pbases + i);
+ 	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
 
@@ -1194,4 +1188,4 @@ bool fromwire_send_onionmsg(const tal_t *ctx, const void *p, u8 onion[1366], str
 	}
 	return cursor != NULL;
 }
-// SHA256STAMP:51cb93dbaf723c888a9ac8f99222c4e85b64bfdefcd374ae62f6557e9d628d8b
+// SHA256STAMP:8ba694ae5e240ca5622d6860d1fa2b5116e44b2b8d5bfe0a77d88d4aab979906
