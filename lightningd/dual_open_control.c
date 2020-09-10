@@ -889,6 +889,122 @@ failed:
 	tal_free(uc);
 }
 
+static void opener_commit_received(struct subd *dualopend,
+				   struct uncommitted_channel *uc,
+				   const int *fds,
+				   const u8 *msg)
+{
+	struct lightningd *ld = dualopend->ld;
+	struct channel_info channel_info;
+	struct bitcoin_tx *remote_commit;
+	struct bitcoin_signature remote_commit_sig;
+	struct channel_id cid;
+	struct bitcoin_txid funding_txid;
+	struct per_peer_state *pps;
+	struct json_stream *response;
+	u16 funding_outnum;
+	u32 feerate;
+	struct amount_sat total_funding, funding_ours, channel_reserve;
+	u8 channel_flags, *remote_upfront_shutdown_script,
+	   *local_upfront_shutdown_script, *commitment_msg;
+	struct penalty_base *pbase;
+	struct wally_psbt *psbt;
+	struct channel *channel;
+	char *err_reason;
+
+	/* This is a new channel_info.their_config so set its ID to 0 */
+	channel_info.their_config.id = 0;
+
+	if (!fromwire_dual_open_commit_rcvd(tmpctx, msg,
+					    &channel_info.their_config,
+					    &remote_commit,
+					    &pbase,
+					    &remote_commit_sig,
+					    &psbt,
+					    &cid,
+					    &pps,
+					    &channel_info.theirbase.revocation,
+					    &channel_info.theirbase.payment,
+					    &channel_info.theirbase.htlc,
+					    &channel_info.theirbase.delayed_payment,
+					    &channel_info.remote_per_commit,
+					    &channel_info.remote_fundingkey,
+					    &funding_txid,
+					    &funding_outnum,
+					    &total_funding,
+					    &funding_ours,
+					    &channel_flags,
+					    &feerate,
+					    &commitment_msg,
+					    &channel_reserve,
+					    &local_upfront_shutdown_script,
+					    &remote_upfront_shutdown_script)) {
+		log_broken(uc->log, "bad WIRE_DUAL_OPEN_COMMIT_RCVD %s",
+			   tal_hex(msg, msg));
+		err_reason = "bad WIRE_DUAL_OPEN_COMMIT_RCVD";
+		uncommitted_channel_disconnect(uc, LOG_BROKEN, err_reason);
+		close(fds[0]);
+		close(fds[1]);
+		close(fds[3]);
+		goto failed;
+	}
+
+	/* We shouldn't have a commitment message, this is an
+	 * accepter flow item */
+	assert(!commitment_msg);
+
+	per_peer_state_set_fds_arr(pps, fds);
+	if (peer_active_channel(uc->peer)) {
+		err_reason = "already have active channel";
+		uncommitted_channel_disconnect(uc, LOG_BROKEN, err_reason);
+		goto failed;
+	}
+
+	/* Our end game is to save the channel to the database, and return the
+	 * command with 'commitments_secured' set to true */
+	channel = wallet_commit_channel(ld, uc, &cid,
+					remote_commit,
+					&remote_commit_sig,
+					&funding_txid,
+					funding_outnum,
+					total_funding,
+					funding_ours,
+					channel_flags,
+					&channel_info,
+					feerate,
+					LOCAL,
+					local_upfront_shutdown_script,
+					remote_upfront_shutdown_script);
+
+	if (!channel) {
+		err_reason = "commit channel failed";
+		uncommitted_channel_disconnect(uc, LOG_BROKEN, err_reason);
+		goto failed;
+	}
+
+	if (pbase)
+		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
+
+	response = json_stream_success(uc->fc->cmd);
+	json_add_string(response, "channel_id",
+			type_to_string(tmpctx, struct channel_id, &cid));
+	json_add_psbt(response, "psbt", psbt);
+	json_add_bool(response, "commitments_secured", true);
+	was_pending(command_success(uc->fc->cmd, response));
+
+	subd_release_channel(dualopend, uc);
+	uc->open_daemon = NULL;
+	tal_free(uc);
+	return;
+
+failed:
+	was_pending(command_fail(uc->fc->cmd, LIGHTNINGD,
+				   "%s", err_reason));
+	subd_release_channel(dualopend, uc);
+	uc->open_daemon = NULL;
+	tal_free(uc);
+}
+
 static void accepter_psbt_changed(struct subd *dualopend,
 				  const u8 *msg)
 {
@@ -1127,7 +1243,19 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUAL_OPEN_COMMIT_RCVD:
 			if (tal_count(fds) != 3)
 				return 3;
-			accepter_commit_received(dualopend, uc, fds, msg);
+			if (uc->fc) {
+				if (!uc->fc->cmd) {
+					log_unusual(dualopend->log,
+						    "Unexpected COMMIT_RCVD %s",
+						    tal_hex(tmpctx, msg));
+					tal_free(dualopend);
+					return 0;
+				}
+				opener_commit_received(dualopend,
+						       uc, fds, msg);
+			} else
+				accepter_commit_received(dualopend,
+							 uc, fds, msg);
 			return 0;
 		case WIRE_DUAL_OPEN_FAILED:
 		case WIRE_DUAL_OPEN_DEV_MEMLEAK_REPLY:

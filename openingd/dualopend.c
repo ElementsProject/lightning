@@ -1245,12 +1245,18 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	struct channel_id cid;
 	char *err_reason;
 	struct amount_sat total;
+	struct amount_msat our_msats;
 	struct wally_psbt *psbt;
 	struct wally_psbt_output *funding_out;
-	u8 channel_flags;
-	const u8 *wscript;
 	u16 serial_id;
 	struct sha256 podle;
+	struct wally_tx_output *direct_outputs[NUM_SIDES];
+	struct penalty_base *pbase;
+	u8 channel_flags;
+	const u8 *wscript;
+	struct bitcoin_tx *remote_commit, *local_commit;
+	struct bitcoin_signature remote_sig, local_sig;
+	secp256k1_ecdsa_signature *htlc_sigs;
 
 	if (!fromwire_dual_open_opener_init(state, msg,
 					  &psbt,
@@ -1407,15 +1413,201 @@ static u8 *opener_start(struct state *state, u8 *msg)
 
 	/* Send our first message, we're opener we initiate here */
 	if (send_next(state, &psbt))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Must have at least one update to send");
+		negotiation_failed(state, true,
+				   "Peer error, no updates to send");
 
 	/* Figure out what the funding transaction looks like! */
 	if (!run_tx_interactive(state, &psbt, TX_INITIATOR))
 		return NULL;
 
-	/* FIXME! */
-	return NULL;
+	psbt_txid(NULL, psbt, &state->funding_txid, NULL);
+
+	/* Figure out the txout */
+	if (!find_txout(psbt, scriptpubkey_p2wsh(tmpctx, wscript),
+			&state->funding_txout))
+		peer_failed(state->pps, &state->channel_id,
+			    "Expected output %s not found on funding tx %s",
+			    tal_hex(tmpctx, scriptpubkey_p2wsh(tmpctx, wscript)),
+			    type_to_string(tmpctx, struct wally_psbt, psbt));
+
+	/* Check that their amounts are sane */
+	if (!check_balances(state, psbt, true, true,
+			    state->feerate_per_kw_funding))
+		negotiation_failed(state, true, "Insufficient funds");
+
+	if (!amount_sat_to_msat(&our_msats, state->opener_funding))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Rounding error, can't convert opener_funding %s"
+			      " to msats",
+			      type_to_string(tmpctx, struct amount_sat,
+					     &state->opener_funding));
+
+	/* Ok, we're mostly good now? Let's do this */
+	state->channel = new_initial_channel(state,
+					     &cid,
+					     &state->funding_txid,
+					     state->funding_txout,
+					     state->minimum_depth,
+					     total,
+					     our_msats,
+					     take(new_fee_states(NULL, LOCAL,
+								 &state->feerate_per_kw)),
+					     &state->localconf,
+					     &state->remoteconf,
+					     &state->our_points,
+					     &state->their_points,
+					     &state->our_funding_pubkey,
+					     &state->their_funding_pubkey,
+					     true, true,
+					     /* Opener is local */
+					     LOCAL);
+
+	remote_commit = initial_channel_tx(state, &wscript,
+					   state->channel,
+					   &state->first_per_commitment_point[REMOTE],
+					   REMOTE, direct_outputs, &err_reason);
+
+	if (!remote_commit) {
+		negotiation_failed(state, true,
+				   "Could not meet their fees and reserve: %s",
+				   err_reason);
+		return NULL;
+	}
+
+
+	/* We ask the HSM to sign their commitment transaction for us: it knows
+	 * our funding key, it just needs the remote funding key to create the
+	 * witness script.  It also needs the amount of the funding output,
+	 * as segwit signatures commit to that as well, even though it doesn't
+	 * explicitly appear in the transaction itself. */
+	msg = towire_hsmd_sign_remote_commitment_tx(NULL,
+						   remote_commit,
+						   &state->channel->funding_pubkey[REMOTE],
+						   &state->first_per_commitment_point[REMOTE],
+						   true);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_sign_tx_reply(msg, &local_sig))
+		status_failed(STATUS_FAIL_HSM_IO, "Bad sign_tx_reply %s",
+			      tal_hex(tmpctx, msg));
+
+	/* You can tell this has been a problem before, since there's a debug
+	 * message here: */
+	status_debug("signature %s on tx %s using key %s",
+		     type_to_string(tmpctx, struct bitcoin_signature, &local_sig),
+		     type_to_string(tmpctx, struct bitcoin_tx, remote_commit),
+		     type_to_string(tmpctx, struct pubkey,
+				    &state->our_funding_pubkey));
+
+	assert(local_sig.sighash_type == SIGHASH_ALL);
+	msg = towire_commitment_signed(tmpctx, &state->channel_id,
+				       &local_sig.s,
+				       NULL);
+	sync_crypto_write(state->pps, msg);
+	peer_billboard(false, "channel open: commitment sent, waiting for reply");
+
+	/* Wait for the peer to send us our commitment tx signature */
+	msg = opening_negotiate_msg(tmpctx, state, true);
+	if (!msg)
+		return NULL;
+
+	remote_sig.sighash_type = SIGHASH_ALL;
+	if (!fromwire_commitment_signed(tmpctx, msg, &cid,
+					&remote_sig.s,
+					&htlc_sigs))
+		peer_failed(state->pps, &state->channel_id,
+			    "Parsing commitment signed %s",
+			    tal_hex(tmpctx, msg));
+
+	if (htlc_sigs != NULL)
+		peer_failed(state->pps, &state->channel_id,
+			    "Must not send HTLCs with first"
+			     " commitment. %s",
+			     tal_hex(tmpctx, msg));
+
+	local_commit = initial_channel_tx(state, &wscript, state->channel,
+					  &state->first_per_commitment_point[LOCAL],
+					  LOCAL, NULL, &err_reason);
+
+
+	/* This shouldn't happen either, AFAICT. */
+	if (!local_commit) {
+		negotiation_failed(state, false,
+				   "Could not meet our fees and reserve: %s",
+				   err_reason);
+		return NULL;
+	}
+
+	/* BOLT #2:
+	 *
+	 * The recipient:
+	 *   - if `signature` is incorrect:
+	 *     - MUST fail the channel.
+	 */
+	if (!check_tx_sig(local_commit, 0, NULL, wscript, &state->their_funding_pubkey,
+			  &remote_sig)) {
+		/* BOLT #1:
+		 *
+		 * ### The `error` Message
+		 *...
+		 * - when failure was caused by an invalid signature check:
+		 *    - SHOULD include the raw, hex-encoded transaction in reply
+		 *      to a `funding_created`, `funding_signed`,
+		 *      `closing_signed`, or `commitment_signed` message.
+		 */
+		/*~ This verbosity is not only useful for our own testing, but
+		 * a courtesy to other implementaters whose brains may be so
+		 * twisted by coding in Go, Scala and Rust that they can no
+		 * longer read C code. */
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Bad signature %s on tx %s using key %s (funding txid %s, psbt %s)",
+			    type_to_string(tmpctx, struct bitcoin_signature,
+					   &remote_sig),
+			    type_to_string(tmpctx, struct bitcoin_tx, local_commit),
+			    type_to_string(tmpctx, struct pubkey,
+					   &state->their_funding_pubkey),
+			    /* This is the first place we'd discover the funding tx
+			     * doesn't match up */
+			    type_to_string(tmpctx, struct bitcoin_txid,
+					   &state->funding_txid),
+			    type_to_string(tmpctx, struct wally_psbt,
+					   psbt));
+	}
+
+	if (direct_outputs[LOCAL])
+		pbase = penalty_base_new(state, 0, remote_commit,
+					 direct_outputs[LOCAL]);
+	else
+		pbase = NULL;
+
+	peer_billboard(false, "channel open: commitment received, "
+		       "sending to lightningd to save");
+	return towire_dual_open_commit_rcvd(state,
+					    &state->remoteconf,
+					    remote_commit,
+					    pbase,
+					    &remote_sig,
+					    psbt,
+					    &state->channel_id,
+					    state->pps,
+					    &state->their_points.revocation,
+					    &state->their_points.payment,
+					    &state->their_points.htlc,
+					    &state->their_points.delayed_payment,
+					    &state->first_per_commitment_point[REMOTE],
+					    &state->their_funding_pubkey,
+					    &state->funding_txid,
+					    state->funding_txout,
+					    total,
+					    state->opener_funding,
+					    channel_flags,
+					    state->feerate_per_kw,
+					    NULL,
+					    state->localconf.channel_reserve,
+					    state->upfront_shutdown_script[LOCAL],
+					    state->upfront_shutdown_script[REMOTE]);
+
 }
 
 /* Memory leak detection is DEVELOPER-only because we go to great lengths to
