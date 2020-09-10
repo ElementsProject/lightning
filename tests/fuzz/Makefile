@@ -11,6 +11,7 @@ FUZZ_COMMON_OBJS :=					\
 	common/amount.o					\
 	common/addr.o					\
 	common/base32.o					\
+	common/base64.o					\
 	common/bech32.o					\
 	common/bigsize.o				\
 	common/json.o					\
