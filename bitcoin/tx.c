@@ -547,32 +547,45 @@ struct bitcoin_tx *bitcoin_tx_with_psbt(const tal_t *ctx, struct wally_psbt *psb
 	return tx;
 }
 
-struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
-				   size_t *max)
+static struct wally_tx *pull_wtx(const tal_t *ctx,
+				 const u8 **cursor,
+				 size_t *max)
 {
 	int flags = WALLY_TX_FLAG_USE_WITNESS;
-	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
+	struct wally_tx *wtx;
 
 	if (chainparams->is_elements)
 		flags |= WALLY_TX_FLAG_USE_ELEMENTS;
 
 	tal_wally_start();
-	if (wally_tx_from_bytes(*cursor, *max, flags, &tx->wtx) != WALLY_OK) {
+	if (wally_tx_from_bytes(*cursor, *max, flags, &wtx) != WALLY_OK) {
 		fromwire_fail(cursor, max);
-		tx = tal_free(tx);
+		wtx = tal_free(wtx);
 	}
-	tal_wally_end(tx);
+	tal_wally_end(tal_steal(ctx, wtx));
 
-	if (tx) {
+	if (wtx) {
 		size_t wsize;
-		tal_add_destructor(tx, bitcoin_tx_destroy);
-		tx->chainparams = chainparams;
-		tx->psbt = new_psbt(tx, tx->wtx);
-
-		wally_tx_get_length(tx->wtx, flags, &wsize);
+		wally_tx_get_length(wtx, flags, &wsize);
 		*cursor += wsize;
 		*max -= wsize;
 	}
+
+	return wtx;
+}
+
+struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx, const u8 **cursor,
+				   size_t *max)
+{
+	struct bitcoin_tx *tx = tal(ctx, struct bitcoin_tx);
+	tx->wtx = pull_wtx(tx, cursor, max);
+	if (!tx->wtx)
+		return tal_free(tx);
+
+	tal_add_destructor(tx, bitcoin_tx_destroy);
+	tx->chainparams = chainparams;
+	tx->psbt = new_psbt(tx, tx->wtx);
+
 	return tx;
 }
 
@@ -691,6 +704,16 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 	return tx;
 }
 
+struct wally_tx *fromwire_wally_tx(const tal_t *ctx,
+				   const u8 **cursor, size_t *max)
+{
+	struct wally_tx *wtx;
+	wtx = pull_wtx(ctx, cursor, max);
+	if (!wtx)
+		return fromwire_fail(cursor, max);
+	return wtx;
+}
+
 void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid)
 {
 	towire_sha256_double(pptr, &txid->shad);
@@ -702,6 +725,12 @@ void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 	towire_u8_array(pptr, lin, tal_count(lin));
 
 	towire_wally_psbt(pptr, tx->psbt);
+}
+
+void towire_wally_tx(u8 **pptr, const struct wally_tx *wtx)
+{
+	u8 *lin = linearize_wtx(tmpctx, wtx);
+	towire_u8_array(pptr, lin, tal_count(lin));
 }
 
 struct bitcoin_tx_output *fromwire_bitcoin_tx_output(const tal_t *ctx,

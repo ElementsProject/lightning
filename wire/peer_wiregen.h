@@ -595,4 +595,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
 
 
 #endif /* LIGHTNING_WIRE_PEER_WIREGEN_H */
-// SHA256STAMP:c950ebb221bc14a97d377d804daa828196be344fa4addae32351ec8a135ed45a
+// SHA256STAMP:cb418f8296955fdcd26b9f06259a0c120007b543bc167f486989ac289a48c4af
