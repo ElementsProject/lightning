@@ -1,4 +1,5 @@
 #include <bitcoin/psbt.h>
+#include <bitcoin/tx.h>
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>
@@ -73,6 +74,9 @@ msgdata,channeld_init,dev_fail_process_onionpacket,bool,
 msgdata,channeld_init,num_penalty_bases,u32,
 msgdata,channeld_init,pbases,penalty_base,num_penalty_bases
 msgdata,channeld_init,psbt,wally_psbt,
+
+msgtype,channeld_funding_tx,1010
+msgdata,channeld_funding_tx,funding_tx,wally_tx,
 
 # master->channeld funding hit new depth(funding locked if >= lock depth)
 msgtype,channeld_funding_depth,1002

@@ -2049,8 +2049,11 @@ static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 			    "Unable to extract funding_tx from finalized PSBT %s",
 			    type_to_string(tmpctx, struct wally_psbt, peer->psbt));
 
-	/* FIXME: when a channel gets locked, check if there's a PSBT
-	 * or open_channel hanging out for it! */
+
+	/* We need the peer controller to broadcast the tx for us */
+	wire_sync_write(MASTER_FD,
+			take(towire_channeld_funding_tx(NULL, wtx)));
+
 	peer->psbt = tal_free(peer->psbt);
 }
 #endif /* EXPERIMENTAL_FEATURES */
@@ -3256,6 +3259,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_DEV_MEMLEAK:
 #endif /* DEVELOPER */
 	case WIRE_CHANNELD_INIT:
+	case WIRE_CHANNELD_FUNDING_TX:
 	case WIRE_CHANNELD_OFFER_HTLC_REPLY:
 	case WIRE_CHANNELD_SENDING_COMMITSIG:
 	case WIRE_CHANNELD_GOT_COMMITSIG:
