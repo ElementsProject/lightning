@@ -955,6 +955,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	struct pubkey *future_per_commitment_point;
 	struct amount_sat funding_sat, our_funding_sat;
 	struct amount_msat push_msat, our_msat, msat_to_us_min, msat_to_us_max;
+	struct wally_psbt *psbt;
 
 	peer_dbid = db_column_u64(stmt, 1);
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -1053,6 +1054,11 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	db_column_amount_msat(stmt, 40, &msat_to_us_min);
 	db_column_amount_msat(stmt, 41, &msat_to_us_max);
 
+	if (!db_column_is_null(stmt, 50)) {
+		psbt = db_column_psbt(tmpctx, stmt, 50);
+	} else
+		psbt = NULL;
+
 	chan = new_channel(peer, db_column_u64(stmt, 0),
 			   &wshachain,
 			   db_column_int(stmt, 6),
@@ -1099,7 +1105,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_column_int(stmt, 45),
 			   db_column_arr(tmpctx, stmt, 46, u8),
 			   db_column_int(stmt, 47),
-			   db_column_int(stmt, 48));
+			   db_column_int(stmt, 48),
+			   psbt);
 
 	return chan;
 }
@@ -1176,6 +1183,7 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", option_static_remotekey"
 					", option_anchor_outputs"
 					", shutdown_scriptpubkey_local"
+					", funding_psbt"
 					" FROM channels WHERE state < ?;"));
 	db_bind_int(stmt, 0, CLOSED);
 	db_query_prepared(stmt);
@@ -1442,7 +1450,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  remote_upfront_shutdown_script=?,"
 					"  option_static_remotekey=?,"
 					"  option_anchor_outputs=?,"
-					"  shutdown_scriptpubkey_local=?"
+					"  shutdown_scriptpubkey_local=?,"
+					"  funding_psbt=?"
 					" WHERE id=?"));
 	db_bind_u64(stmt, 0, chan->their_shachain.id);
 	if (chan->scid)
@@ -1485,7 +1494,11 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_int(stmt, 30, chan->option_static_remotekey);
 	db_bind_int(stmt, 31, chan->option_anchor_outputs);
 	db_bind_talarr(stmt, 32, chan->shutdown_scriptpubkey[LOCAL]);
-	db_bind_u64(stmt, 33, chan->dbid);
+	if (chan->psbt)
+		db_bind_psbt(stmt, 33, chan->psbt);
+	else
+		db_bind_null(stmt, 33);
+	db_bind_u64(stmt, 34, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
 	wallet_channel_config_save(w, &chan->channel_info.their_config);
