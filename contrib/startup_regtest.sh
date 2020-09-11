@@ -86,6 +86,8 @@ start_nodes() {
 		log-level=debug
 		log-file=/tmp/l$i-$network/log
 		addr=localhost:$socket
+		dev-fast-gossip
+		dev-bitcoind-poll=5
 		EOF
 
 		# Start the lightning nodes
