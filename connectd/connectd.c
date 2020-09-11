@@ -518,7 +518,9 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 /*~ If the timer goes off, we simply free everything, which hangs up. */
 static void conn_timeout(struct io_conn *conn)
 {
-	tal_free(conn);
+	status_debug("conn timed out");
+	errno = ETIMEDOUT;
+	io_close(conn);
 }
 
 /*~ When we get a connection in we set up its network address then call
@@ -1672,9 +1674,11 @@ int main(int argc, char *argv[])
 	 * status_failed on error. */
 	ecdh_hsmd_setup(HSM_FD, status_failed);
 
-	/* Should never exit. */
-	io_loop(NULL, NULL);
-	abort();
+	for (;;) {
+		struct timer *expired;
+		io_loop(&daemon->timers, &expired);
+		timer_expired(daemon, expired);
+	}
 }
 
 /*~ Getting bored?  This was a pretty simple daemon!
