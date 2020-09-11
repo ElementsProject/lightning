@@ -69,6 +69,9 @@ struct config {
 
 	/* This is the key we use to encrypt `hsm_secret`. */
 	struct secret *keypass;
+
+	/* How long before we give up waiting for INIT msg */
+	u32 connection_timeout_secs;
 };
 
 typedef STRMAP(const char *) alt_subdaemon_map;

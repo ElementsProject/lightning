@@ -593,6 +593,9 @@ static void dev_register_opts(struct lightningd *ld)
 				 "Make builtin plugins unimportant so you can plugin stop them.");
 	opt_register_arg("--dev-force-features", opt_force_featureset, NULL, ld,
 			 "Force the init/globalinit/node_announce/channel/bolt11 features, each comma-separated bitnumbers");
+	opt_register_arg("--dev-timeout-secs", opt_set_u32, opt_show_u32,
+			 &ld->config.connection_timeout_secs,
+			 "Seconds to timeout if we don't receive INIT from peer");
 }
 #endif /* DEVELOPER */
 
@@ -638,6 +641,9 @@ static const struct config testnet_config = {
 	.min_capacity_sat = 10000,
 
 	.use_v3_autotor = true,
+
+	/* 1 minute should be enough for anyone! */
+	.connection_timeout_secs = 60,
 };
 
 /* aka. "Dude, where's my coins?" */
@@ -694,6 +700,9 @@ static const struct config mainnet_config = {
 
 	/* Allow to define the default behavior of tor services calls*/
 	.use_v3_autotor = true,
+
+	/* 1 minute should be enough for anyone! */
+	.connection_timeout_secs = 60,
 };
 
 static void check_config(struct lightningd *ld)

@@ -24,6 +24,7 @@
 #include <ccan/str/str.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/timer/timer.h>
 #include <common/bech32.h>
 #include <common/bech32_util.h>
 #include <common/cryptomsg.h>
@@ -38,6 +39,7 @@
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
+#include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/version.h>
@@ -120,6 +122,10 @@ struct daemon {
 
 	/* pubkey equivalent. */
 	struct pubkey mykey;
+
+	/* Base for timeout timers, and how long to wait for init msg */
+	struct timers timers;
+	u32 timeout_secs;
 
 	/* Peers that we've handed to `lightningd`, which it hasn't told us
 	 * have disconnected. */
@@ -509,6 +515,12 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 				     cs, &id, addr);
 }
 
+/*~ If the timer goes off, we simply free everything, which hangs up. */
+static void conn_timeout(struct io_conn *conn)
+{
+	tal_free(conn);
+}
+
 /*~ When we get a connection in we set up its network address then call
  * handshake.c to set up the crypto state. */
 static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon)
@@ -544,7 +556,11 @@ static struct io_plan *connection_in(struct io_conn *conn, struct daemon *daemon
 		return io_close(conn);
 	}
 
-	/* FIXME: Timeout */
+	/* If they don't complete handshake in reasonable time, hang up */
+	notleak(new_reltimer(&daemon->timers, conn,
+			     time_from_sec(daemon->timeout_secs),
+			     conn_timeout, conn));
+
 	/*~ The crypto handshake differs depending on whether you received or
 	 * initiated the socket connection, so there are two entry points.
 	 * Note, again, the notleak() to avoid our simplistic leak detection
@@ -583,7 +599,10 @@ struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
 		return io_close(conn);
 	}
 
-	/* FIXME: Timeout */
+	/* If they don't complete handshake in reasonable time, hang up */
+	notleak(new_reltimer(&connect->daemon->timers, conn,
+			     time_from_sec(connect->daemon->timeout_secs),
+			     conn_timeout, conn));
 	status_peer_debug(&connect->id, "Connected out, starting crypto");
 
 	connect->connstate = "Cryptographic handshake";
@@ -1243,7 +1262,8 @@ static struct io_plan *connect_init(struct io_conn *conn,
 		&proxyaddr, &daemon->use_proxy_always,
 		&daemon->dev_allow_localhost, &daemon->use_dns,
 		&tor_password,
-		&daemon->use_v3_autotor)) {
+		&daemon->use_v3_autotor,
+		    &daemon->timeout_secs)) {
 		/* This is a helper which prints the type expected and the actual
 		 * message, then exits (it should never be called!). */
 		master_badmsg(WIRE_CONNECTD_INIT, msg);
@@ -1638,6 +1658,7 @@ int main(int argc, char *argv[])
 	memleak_add_helper(daemon, memleak_daemon_cb);
 	list_head_init(&daemon->connecting);
 	daemon->listen_fds = tal_arr(daemon, struct listen_fd, 0);
+	timers_init(&daemon->timers, time_mono());
 	/* stdin == control */
 	daemon->master = daemon_conn_new(daemon, STDIN_FILENO, recv_req, NULL,
 					 daemon);

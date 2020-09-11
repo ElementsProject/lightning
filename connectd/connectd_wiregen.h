@@ -49,8 +49,8 @@ bool connectd_wire_is_defined(u16 type);
 
 
 /* WIRE: CONNECTD_INIT */
-u8 *towire_connectd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_features, const struct node_id *id, const struct wireaddr_internal *wireaddrs, const enum addr_listen_announce *listen_announce, const struct wireaddr *tor_proxyaddr, bool use_tor_proxy_always, bool dev_allow_localhost, bool use_dns, const wirestring *tor_password, bool use_v3_autotor);
-bool fromwire_connectd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_features, struct node_id *id, struct wireaddr_internal **wireaddrs, enum addr_listen_announce **listen_announce, struct wireaddr **tor_proxyaddr, bool *use_tor_proxy_always, bool *dev_allow_localhost, bool *use_dns, wirestring **tor_password, bool *use_v3_autotor);
+u8 *towire_connectd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_features, const struct node_id *id, const struct wireaddr_internal *wireaddrs, const enum addr_listen_announce *listen_announce, const struct wireaddr *tor_proxyaddr, bool use_tor_proxy_always, bool dev_allow_localhost, bool use_dns, const wirestring *tor_password, bool use_v3_autotor, u32 timeout_secs);
+bool fromwire_connectd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_features, struct node_id *id, struct wireaddr_internal **wireaddrs, enum addr_listen_announce **listen_announce, struct wireaddr **tor_proxyaddr, bool *use_tor_proxy_always, bool *dev_allow_localhost, bool *use_dns, wirestring **tor_password, bool *use_v3_autotor, u32 *timeout_secs);
 
 /* WIRE: CONNECTD_INIT_REPLY */
 /*  Connectd->master */
@@ -103,4 +103,4 @@ bool fromwire_connectd_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_CONNECTD_CONNECTD_WIREGEN_H */
-// SHA256STAMP:ae6ae82d79526abc039896e90f677549a6acb73c0a2cd171f6658849025318b5
+// SHA256STAMP:48e50860685655b8ae8e12dd3f07d1c1cceea48934fe3846c7d276d93c70b211
