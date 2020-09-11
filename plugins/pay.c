@@ -1719,7 +1719,8 @@ static void add_amount_sent(struct plugin *p,
 
 	/* If this is an unannotated partial payment we drop out estimate for
 	 * all parts. */
-	if (msattok == NULL) {
+	/* FIXME: with deprecated_apis, amount_msat can be 'null' */
+	if (msattok == NULL || !json_to_msat(buf, msattok, &recv)) {
 		mpp->amount = tal_free(mpp->amount);
 		return;
 	}
@@ -1730,7 +1731,6 @@ static void add_amount_sent(struct plugin *p,
 	if (mpp->amount == NULL)
 		return;
 
-	json_to_msat(buf, msattok, &recv);
 	if (!amount_msat_add(mpp->amount, *mpp->amount, recv))
 		plugin_log(p, LOG_BROKEN,
 			   "Cannot add amount_msat for %s: %s + %s",
