@@ -267,8 +267,9 @@ class LightningConnection(object):
             raise ValueError("Unsupported handshake version {}, only version "
                              "0 is supported.".format(v))
         rs = decryptWithAD(self.temp_k2, self.nonce(1), h.digest(), c)
+        self.remote_pubkey = PublicKey(rs)
         h.update(c)
-        se = ecdh(self.handshake['e'], PublicKey(rs))
+        se = ecdh(self.handshake['e'], self.remote_pubkey)
 
         self.chaining_key, self.temp_k3 = hkdf_two_keys(
             se.raw, self.chaining_key
