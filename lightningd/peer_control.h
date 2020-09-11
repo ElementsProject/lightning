@@ -52,6 +52,15 @@ struct peer {
 #endif
 };
 
+struct open_command {
+	/* Inside struct lightningd open_commands. */
+	struct list_node list;
+	/* Command structure. This is the parent of the open command. */
+	struct command *cmd;
+	/* Channel being opened. */
+	struct channel *channel;
+};
+
 struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid);
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
@@ -92,7 +101,7 @@ struct amount_msat channel_amount_receivable(const struct channel *channel);
 
 /* Find the open command that was registered for this channel */
 struct open_command *find_open_command(struct lightningd *ld,
-				       struct channel *channel);
+				       const struct channel *channel);
 
 /* Save an `openchannel_signed` command */
 void register_open_command(struct lightningd *ld,

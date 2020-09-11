@@ -74,17 +74,6 @@ struct close_command {
 	bool force;
 };
 
-struct open_command {
-	/* Inside struct lightningd open_commands. */
-	struct list_node list;
-	/* Command structure. This is the parent of the open command. */
-	struct command *cmd;
-	/* Channel being opened. */
-	struct channel *channel;
-	/* PSBT in flight */
-	struct wally_psbt *psbt;
-};
-
 static void destroy_peer(struct peer *peer)
 {
 	list_del_from(&peer->ld->peers, &peer->list);
@@ -367,7 +356,7 @@ destroy_open_command(struct open_command *oc)
 }
 
 struct open_command *find_open_command(struct lightningd *ld,
-				       struct channel *channel)
+				       const struct channel *channel)
 {
 	struct open_command *oc, *n;
 
