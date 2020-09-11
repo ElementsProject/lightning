@@ -2634,3 +2634,20 @@ def test_nonstatic_channel(node_factory, bitcoind):
 
     l1.pay(l2, 1000)
     l1.rpc.close(l2.info['id'])
+
+
+@unittest.skipIf(not DEVELOPER, "needs --dev-timeout-secs")
+def test_connection_timeout(node_factory):
+    # l1 hears nothing back after sending INIT, should time out.
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts=[{'dev-timeout-secs': 1,
+                                           'disconnect': ['0WIRE_INIT', '0WIRE_INIT']},
+                                          {}])
+
+    with pytest.raises(RpcError, match='timed out'):
+        l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
+    l1.daemon.wait_for_log('conn timed out')
+
+    with pytest.raises(RpcError, match='reset by peer'):
+        l2.rpc.connect(l1.info['id'], 'localhost', port=l1.port)
+    l1.daemon.wait_for_log('conn timed out')
