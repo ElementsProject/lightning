@@ -117,4 +117,4 @@ bool fromwire_gossip_store_delete_chan(const void *p, struct short_channel_id *s
  	fromwire_short_channel_id(&cursor, &plen, scid);
 	return cursor != NULL;
 }
-// SHA256STAMP:66a6b3bbee03d9cac4e8b665b66463b4c859f39cd62589595b824e50e47dde93
+// SHA256STAMP:f6c526c196880b46255eec167cd2dccccfc2e8cfae312683889dc67418a2d0b4

@@ -1194,4 +1194,4 @@ bool fromwire_send_onionmsg(const tal_t *ctx, const void *p, u8 onion[1366], str
 	}
 	return cursor != NULL;
 }
-// SHA256STAMP:196c40ae481aa8f2608224504803e3c2ad1b56a67621afecddc2d0a4cee7b5ab
+// SHA256STAMP:51cb93dbaf723c888a9ac8f99222c4e85b64bfdefcd374ae62f6557e9d628d8b

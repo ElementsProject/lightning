@@ -201,4 +201,4 @@ bool fromwire_closingd_complete(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:664db8fb57633e011ada21807fd769629695c05674062176ac7de1a286b0ffaa
+// SHA256STAMP:c9a8c207d4b03e4a8a63e24b8cf04bdcdce031f05ce238c23d66861736d38093

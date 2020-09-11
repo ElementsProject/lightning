@@ -857,4 +857,4 @@ bool fromwire_gossipd_new_blockheight(const void *p, u32 *blockheight)
  	*blockheight = fromwire_u32(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:6ce3071ebd5a33eb293acbf27affcc9c0b567eff243a2a5d7abc0cb3d78be865
+// SHA256STAMP:9b93deed184d5f5c0d5a9e649fae6449645501ded555b63350bfa3ce8eef70ba
