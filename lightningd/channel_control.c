@@ -315,6 +315,103 @@ static void handle_error_channel(struct channel *channel,
 	forget(channel);
 }
 
+struct channel_send {
+	struct wally_tx *wtx;
+	struct channel *channel;
+};
+
+static void sendfunding_done(struct bitcoind *bitcoind UNUSED,
+			     bool success, const char *msg,
+			     struct channel_send *cs)
+{
+	struct lightningd *ld = cs->channel->peer->ld;
+	struct channel *channel = cs->channel;
+	struct wally_tx *wtx = cs->wtx;
+	struct json_stream *response;
+	struct bitcoin_txid txid;
+	struct open_command *oc;
+	struct amount_sat unused;
+	int num_utxos;
+
+	oc = find_open_command(ld, channel);
+	if (!oc && channel->opener == LOCAL) {
+		log_broken(channel->log,
+			   "No outstanding command for channel %s,"
+			   " funding sent was success? %d",
+			   type_to_string(tmpctx, struct channel_id,
+					  &channel->cid),
+			   success);
+	}
+
+	if (!success) {
+		if (oc)
+			was_pending(command_fail(oc->cmd,
+						 FUNDING_BROADCAST_FAIL,
+						 "Error broadcasting funding "
+						 "tx: %s. Unsent tx discarded "
+						 "%s.",
+						 msg,
+						 type_to_string(tmpctx,
+								struct wally_tx,
+								wtx)));
+		log_unusual(channel->log,
+			    "Error broadcasting funding "
+			    "tx: %s. Unsent tx discarded "
+			    "%s.",
+			    msg,
+			    type_to_string(tmpctx, struct wally_tx, wtx));
+		tal_free(cs);
+		return;
+	}
+
+	/* This might have spent UTXOs from our wallet */
+	num_utxos = wallet_extract_owned_outputs(ld->wallet,
+						 wtx, NULL,
+						 &unused);
+	if (num_utxos) {
+		wallet_transaction_add(ld->wallet, wtx, 0, 0);
+	}
+
+	if (oc) {
+		response = json_stream_success(oc->cmd);
+		wally_txid(wtx, &txid);
+		json_add_hex_talarr(response, "tx", linearize_wtx(tmpctx, wtx));
+		json_add_txid(response, "txid", &txid);
+		json_add_string(response, "channel_id",
+				type_to_string(tmpctx, struct channel_id,
+					       &channel->cid));
+		was_pending(command_success(oc->cmd, response));
+	}
+
+	tal_free(cs);
+}
+
+static void handle_funding_tx(struct channel *channel,
+			      const u8 *msg)
+{
+	struct channel_send *cs;
+	struct lightningd *ld = channel->peer->ld;
+
+	cs = tal(channel, struct channel_send);
+	cs->channel = channel;
+
+	if (!fromwire_channeld_funding_tx(tmpctx, msg, &cs->wtx)) {
+		channel_internal_error(channel,
+				       "bad channeld_funding_tx: %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	log_debug(channel->log,
+		  "Broadcasting funding tx for channel %s. %s",
+		  type_to_string(tmpctx, struct channel_id, &channel->cid),
+		  type_to_string(tmpctx, struct wally_tx, cs->wtx));
+
+	bitcoind_sendrawtx(ld->topology->bitcoind,
+			   tal_hex(tmpctx, linearize_wtx(tmpctx, cs->wtx)),
+			   sendfunding_done, cs);
+}
+
 void forget_channel(struct channel *channel, const char *why)
 {
 	channel->error = towire_errorfmt(channel, &channel->cid, "%s", why);
@@ -362,6 +459,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 		break;
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
+		break;
+	case WIRE_CHANNELD_FUNDING_TX:
+		handle_funding_tx(sd->channel, msg);
 		break;
 #if EXPERIMENTAL_FEATURES
 	case WIRE_GOT_ONIONMSG_TO_US:

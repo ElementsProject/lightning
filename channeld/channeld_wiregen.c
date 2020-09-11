@@ -21,6 +21,7 @@ const char *channeld_wire_name(int e)
 
 	switch ((enum channeld_wire)e) {
 	case WIRE_CHANNELD_INIT: return "WIRE_CHANNELD_INIT";
+	case WIRE_CHANNELD_FUNDING_TX: return "WIRE_CHANNELD_FUNDING_TX";
 	case WIRE_CHANNELD_FUNDING_DEPTH: return "WIRE_CHANNELD_FUNDING_DEPTH";
 	case WIRE_CHANNELD_OFFER_HTLC: return "WIRE_CHANNELD_OFFER_HTLC";
 	case WIRE_CHANNELD_OFFER_HTLC_REPLY: return "WIRE_CHANNELD_OFFER_HTLC_REPLY";
@@ -59,6 +60,7 @@ bool channeld_wire_is_defined(u16 type)
 {
 	switch ((enum channeld_wire)type) {
 	case WIRE_CHANNELD_INIT:;
+	case WIRE_CHANNELD_FUNDING_TX:;
 	case WIRE_CHANNELD_FUNDING_DEPTH:;
 	case WIRE_CHANNELD_OFFER_HTLC:;
 	case WIRE_CHANNELD_OFFER_HTLC_REPLY:;
@@ -296,6 +298,27 @@ bool fromwire_channeld_init(const tal_t *ctx, const void *p, const struct chainp
 	for (size_t i = 0; i < num_penalty_bases; i++)
 		fromwire_penalty_base(&cursor, &plen, *pbases + i);
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	return cursor != NULL;
+}
+
+/* WIRE: CHANNELD_FUNDING_TX */
+u8 *towire_channeld_funding_tx(const tal_t *ctx, const struct wally_tx *funding_tx)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_CHANNELD_FUNDING_TX);
+	towire_wally_tx(&p, funding_tx);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_channeld_funding_tx(const tal_t *ctx, const void *p, struct wally_tx **funding_tx)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_CHANNELD_FUNDING_TX)
+		return false;
+ 	*funding_tx = fromwire_wally_tx(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
 
@@ -1188,4 +1211,4 @@ bool fromwire_send_onionmsg(const tal_t *ctx, const void *p, u8 onion[1366], str
 	}
 	return cursor != NULL;
 }
-// SHA256STAMP:8ba694ae5e240ca5622d6860d1fa2b5116e44b2b8d5bfe0a77d88d4aab979906
+// SHA256STAMP:5614b61d80352e94f974d018c391102579d76c5db11648d18ed0dd198ab6838a
