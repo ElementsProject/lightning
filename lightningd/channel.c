@@ -193,7 +193,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u32 feerate_ppm,
 			    const u8 *remote_upfront_shutdown_script,
 			    bool option_static_remotekey,
-			    bool option_anchor_outputs)
+			    bool option_anchor_outputs,
+			    struct wally_psbt *psbt STEALS)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 
@@ -276,6 +277,12 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->option_static_remotekey = option_static_remotekey;
 	channel->option_anchor_outputs = option_anchor_outputs;
 	channel->forgets = tal_arr(channel, struct command *, 0);
+
+	/* If we're already locked in, we no longer need the PSBT */
+	if (!remote_funding_locked && psbt)
+		channel->psbt = tal_steal(channel, psbt);
+	else
+		channel->psbt = tal_free(psbt);
 
 	list_add_tail(&peer->channels, &channel->list);
 	channel->rr_number = peer->ld->rr_counter++;

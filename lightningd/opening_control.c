@@ -203,7 +203,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      ld->config.fee_per_satoshi,
 			      remote_upfront_shutdown_script,
 			      option_static_remotekey,
-			      option_anchor_outputs);
+			      option_anchor_outputs,
+			      NULL);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);

@@ -65,6 +65,10 @@ static void handle_signed_psbt(struct lightningd *ld,
 			       const struct wally_psbt *psbt,
 			       struct commit_rcvd *rcvd)
 {
+	/* Now that we've got the signed PSBT, save it */
+	rcvd->channel->psbt = tal_steal(rcvd->channel, psbt);
+	wallet_channel_save(ld->wallet, rcvd->channel);
+
 	channel_watch_funding(ld, rcvd->channel);
 
 	peer_start_channeld(rcvd->channel,
@@ -669,7 +673,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      ld->config.fee_per_satoshi,
 			      remote_upfront_shutdown_script,
 			      option_static_remotekey,
-			      option_anchor_outputs);
+			      option_anchor_outputs,
+			      NULL);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
@@ -1064,6 +1069,10 @@ static struct command_result *json_open_channel_signed(struct command *cmd,
 	if (!psbt_side_finalized(cmd->ld->log, psbt, LOCAL))
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "Local PSBT input(s) not finalized");
+
+	/* Now that we've got the signed PSBT, save it */
+	channel->psbt = tal_steal(channel, psbt);
+	wallet_channel_save(cmd->ld->wallet, channel);
 
 	channel_watch_funding(cmd->ld, channel);
 

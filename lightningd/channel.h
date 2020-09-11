@@ -10,6 +10,7 @@
 
 struct channel_id;
 struct uncommitted_channel;
+struct wally_psbt;
 
 struct billboard {
 	/* Status information to display on listpeers */
@@ -207,7 +208,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    const u8 *remote_upfront_shutdown_script STEALS,
 			    bool option_static_remotekey,
-			    bool option_anchor_outputs);
+			    bool option_anchor_outputs,
+			    struct wally_psbt *psbt STEALS);
 
 void delete_channel(struct channel *channel STEALS);
 
