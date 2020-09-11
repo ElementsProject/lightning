@@ -182,7 +182,8 @@ struct peer {
 	/* Penalty bases for this channel / peer. */
 	struct penalty_base **pbases;
 
-	/* PSBT, waiting for peer's tx_sigs */
+	/* PSBT. For v2 openchannel set until we are waiting
+	 * for peer's tx_sigs */
 	struct wally_psbt *psbt;
 };
 
@@ -254,6 +255,21 @@ static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 
 	return msg;
 }
+
+#if EXPERIMENTAL_FEATURES
+static const u8 *psbt_to_tx_sigs_msg(const tal_t *ctx,
+				     struct channel *channel,
+				     const struct wally_psbt *psbt)
+{
+	const struct witness_stack **ws =
+		psbt_to_witness_stacks(tmpctx, psbt,
+				       channel->opener);
+
+	return towire_tx_signatures(ctx, &channel->cid,
+				   &channel->funding_txid,
+				   ws);
+}
+#endif /* EXPERIMENTAL_FEATURES */
 
 /*
  * The maximum msat that this node will accept for an htlc.
@@ -1995,17 +2011,21 @@ static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 			    &peer->channel_id,
 			    "Bad tx_signatures %s", tal_hex(msg, msg));
 
-	/* Check that we're in the right spot for this channel to have gotten
-	 * this message */
-	if (peer->funding_locked[LOCAL] || peer->funding_locked[REMOTE]) {
-		/* FIXME: should we fail here instead? */
-		status_unusual("Got WIRE_TX_SIGNATURES after funding locked "
+	/* Maybe they didn't get our funding_locked message ? */
+	if (peer->funding_locked[LOCAL]) {
+		status_broken("Got WIRE_TX_SIGNATURES after funding locked "
 			       "for channel %s, ignoring: %s",
 			       type_to_string(tmpctx, struct channel_id,
 					      &peer->channel_id),
 			       tal_hex(tmpctx, msg));
 		return;
 	}
+
+	if (peer->funding_locked[REMOTE])
+		peer_failed(peer->pps,
+			    &peer->channel_id,
+			    "tx_signatures sent after funding_locked %s",
+			    tal_hex(msg, msg));
 
 	if (!peer->psbt) {
 		status_broken("Got WIRE_TX_SIGNATURES with no PSBT "
@@ -2142,6 +2162,10 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		if (type != WIRE_FUNDING_LOCKED
 		    && type != WIRE_PONG
 		    && type != WIRE_SHUTDOWN
+#if EXPERIMENTAL_FEATURES
+		    /* We expect these for v2 !! */
+		    && type != WIRE_TX_SIGNATURES
+#endif /* EXPERIMENTAL_FEATURES */
 		    /* lnd sends these early; it's harmless. */
 		    && type != WIRE_UPDATE_FEE
 		    && type != WIRE_ANNOUNCEMENT_SIGNATURES) {
@@ -2709,6 +2733,15 @@ static void peer_reconnect(struct peer *peer,
 		     next_commitment_number,
 		     next_revocation_number);
 
+#if EXPERIMENTAL_FEATURES
+	/* Send our tx_sigs again */
+	if (peer->psbt && !peer->funding_locked[REMOTE]) {
+		sync_crypto_write(peer->pps,
+			take(psbt_to_tx_sigs_msg(NULL, peer->channel,
+						 peer->psbt)));
+	}
+#endif /* EXPERIMENTAL_FEATURES */
+
 	/* BOLT #2:
 	 *
 	 *   - if `next_commitment_number` is 1 in both the
@@ -2900,6 +2933,13 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 					    &depth))
 		master_badmsg(WIRE_CHANNELD_FUNDING_DEPTH, msg);
 
+	/* We were waiting for them to send us their
+	 * `tx_signatures`, but they never did. As a
+	 * result we'll still have the psbt */
+	if (peer->psbt) {
+		return;
+	}
+
 	/* Too late, we're shutting down! */
 	if (peer->shutdown_sent[LOCAL])
 		return;
@@ -2914,7 +2954,6 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 		peer->short_channel_ids[LOCAL] = *scid;
 
 		if (!peer->funding_locked[LOCAL]) {
-
 			status_debug("funding_locked: sending commit index %"PRIu64": %s",
 						peer->next_index[LOCAL],
 						type_to_string(tmpctx, struct pubkey,
@@ -3395,6 +3434,11 @@ static void init_channel(struct peer *peer)
 			       tal_dup(peer, struct penalty_base, &pbases[i]));
 	tal_free(pbases);
 
+	/* Once the peer has sent locked, we no longer need to re-send
+	 * tx_signatures, hence the PSBT can be free'd */
+	if (peer->funding_locked[REMOTE])
+		peer->psbt = tal_free(peer->psbt);
+
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
 	per_peer_state_set_fds(peer->pps, 3, 4, 5);
 
@@ -3477,6 +3521,15 @@ static void init_channel(struct peer *peer)
 	/* If we have a messages to send, send them immediately */
 	if (fwd_msg)
 		sync_crypto_write(peer->pps, take(fwd_msg));
+
+#if EXPERIMENTAL_FEATURES
+	/* peer_reconnect does this if needed */
+	if (!reconnected && peer->psbt) {
+		sync_crypto_write(peer->pps,
+			take(psbt_to_tx_sigs_msg(NULL, peer->channel,
+						 peer->psbt)));
+	}
+#endif /* EXPERIMENTAL_FEATURES */
 
 	/* Reenable channel */
 	channel_announcement_negotiate(peer);
