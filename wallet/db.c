@@ -1647,12 +1647,16 @@ struct bitcoin_tx *db_column_tx(const tal_t *ctx, struct db_stmt *stmt, int col)
 	return pull_bitcoin_tx(ctx, &src, &len);
 }
 
-struct bitcoin_tx *db_column_psbt_to_tx(const tal_t *ctx, struct db_stmt *stmt, int col)
+struct wally_psbt *db_column_psbt(const tal_t *ctx, struct db_stmt *stmt, int col)
 {
-	struct wally_psbt *psbt;
 	const u8 *src = db_column_blob(stmt, col);
 	size_t len = db_column_bytes(stmt, col);
-	psbt = psbt_from_bytes(ctx, src, len);
+	return psbt_from_bytes(ctx, src, len);
+}
+
+struct bitcoin_tx *db_column_psbt_to_tx(const tal_t *ctx, struct db_stmt *stmt, int col)
+{
+	struct wally_psbt *psbt = db_column_psbt(ctx, stmt, col);
 	if (!psbt)
 		return NULL;
 	return bitcoin_tx_with_psbt(ctx, psbt);

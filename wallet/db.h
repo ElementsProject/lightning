@@ -24,6 +24,7 @@ struct onionreply;
 struct db_stmt;
 struct db;
 struct wally_psbt;
+struct wally_tx;
 
 /**
  * Macro to annotate a named SQL query.
@@ -162,6 +163,7 @@ bool db_column_signature(struct db_stmt *stmt, int col,
 			 secp256k1_ecdsa_signature *sig);
 struct timeabs db_column_timeabs(struct db_stmt *stmt, int col);
 struct bitcoin_tx *db_column_tx(const tal_t *ctx, struct db_stmt *stmt, int col);
+struct wally_psbt *db_column_psbt(const tal_t *ctx, struct db_stmt *stmt, int col);
 struct bitcoin_tx *db_column_psbt_to_tx(const tal_t *ctx, struct db_stmt *stmt, int col);
 
 struct onionreply *db_column_onionreply(const tal_t *ctx,
