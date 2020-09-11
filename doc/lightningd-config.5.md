@@ -406,7 +406,7 @@ this to *false* disables that.
 
  **proxy**=*IPADDRESS\[:PORT\]*
 Set a socks proxy to use to connect to Tor nodes (or for all connections
-if **always-use-proxy** is set).
+if **always-use-proxy** is set).  The port defaults to 9050 if not specified.
 
  **always-use-proxy**=*BOOL*
 Always use the **proxy**, even to connect to normal IP addresses (you
