@@ -17,6 +17,7 @@ msgdata,connectd_init,dev_allow_localhost,bool,
 msgdata,connectd_init,use_dns,bool,
 msgdata,connectd_init,tor_password,wirestring,
 msgdata,connectd_init,use_v3_autotor,bool,
+msgdata,connectd_init,timeout_secs,u32,
 
 # Connectd->master, here are the addresses I bound, can announce.
 msgtype,connectd_init_reply,2100
