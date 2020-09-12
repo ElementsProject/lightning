@@ -1295,7 +1295,7 @@ void plugins_add_default_dir(struct plugins *plugins)
 const char *plugin_send_getmanifest(struct plugin *p)
 {
 	char **cmd;
-	int stdin, stdout;
+	int stdinfd, stdoutfd;
 	struct jsonrpc_request *req;
 	bool debug = false;
 
@@ -1308,7 +1308,7 @@ const char *plugin_send_getmanifest(struct plugin *p)
 	cmd[0] = p->cmd;
 	if (debug)
 		cmd[1] = "--debugger";
-	p->pid = pipecmdarr(&stdin, &stdout, &pipecmd_preserve, cmd);
+	p->pid = pipecmdarr(&stdinfd, &stdoutfd, &pipecmd_preserve, cmd);
 	if (p->pid == -1)
 		return tal_fmt(p, "opening pipe: %s", strerror(errno));
 
@@ -1319,8 +1319,8 @@ const char *plugin_send_getmanifest(struct plugin *p)
 
 	/* Create two connections, one read-only on top of p->stdout, and one
 	 * write-only on p->stdin */
-	p->stdout_conn = io_new_conn(p, stdout, plugin_stdout_conn_init, p);
-	p->stdin_conn = io_new_conn(p, stdin, plugin_stdin_conn_init, p);
+	p->stdout_conn = io_new_conn(p, stdoutfd, plugin_stdout_conn_init, p);
+	p->stdin_conn = io_new_conn(p, stdinfd, plugin_stdin_conn_init, p);
 	req = jsonrpc_request_start(p, "getmanifest", p->log,
 				    plugin_manifest_cb, p);
 	/* Adding allow-deprecated-apis is part of the deprecation cycle! */
