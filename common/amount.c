@@ -303,7 +303,9 @@ WARN_UNUSED_RESULT bool amount_msat_scale(struct amount_msat *val,
 {
 	double scaled = sat.millisatoshis * scale;
 
-	if (scaled > UINT64_MAX)
+	/* If mantissa is < 64 bits, a naive "if (scaled >
+	 * UINT64_MAX)" doesn't work.  Stick to powers of 2. */
+	if (scaled >= (double)((u64)1 << 63) * 2)
 		return false;
 	val->millisatoshis = scaled;
 	return true;
