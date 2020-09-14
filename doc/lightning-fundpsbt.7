@@ -50,10 +50,10 @@ Let's assume the caller is trying to produce a 100,000 satoshi output\.
 
 First, the caller estimates the weight of the core (typically 42) and
 known outputs of the transaction (typically (9 + scriptlen) * 4)\.  For
-a simple P2WPKH it's a 22 byte scriptpubkey, so that's 164 weight\.
+a simple P2WPKH it's a 22 byte scriptpubkey, so that's 124 weight\.
 
 
-It calls "\fIfundpsbt\fR 100000sat slow 206", which succeeds, and returns
+It calls "\fIfundpsbt\fR 100000sat slow 166", which succeeds, and returns
 the \fIpsbt\fR and \fIfeerate_per_kw\fR it used, the \fIestimated_final_weight\fR
 and any \fIexcess_msat\fR\.
 
@@ -61,9 +61,9 @@ and any \fIexcess_msat\fR\.
 If \fIexcess_msat\fR is greater than the cost of adding a change output,
 the caller adds a change output randomly to position 0 or 1 in the
 PSBT\.  Say \fIfeerate_per_kw\fR is 253, and the change output is a P2WPKH
-(weight 164), that would cost the cost is around 41 sats\.  With the
-dust limit disallowing payments below 546 satoshis, we would only create
-a change output if \fIexcess_msat\fR was greater or equal to 41 + 546\.
+(weight 124), the cost is around 31 sats\.  With the dust limit disallowing
+payments below 546 satoshis, we would only create a change output
+if \fIexcess_msat\fR was greater or equal to 31 + 546\.
 
 .SH RETURN VALUE
 
@@ -104,4 +104,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:0a80505110887fe165580fd6420d681b7cdcdae89d5c45d863510f1405d70040
+\" SHA256STAMP:8eb6970e2d625198db9b8e5ab7f90f9fb141744a837f58ee68ef54d28c7066b0
