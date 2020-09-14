@@ -1,6 +1,4 @@
 #include "log.h"
-#include <backtrace-supported.h>
-#include <backtrace.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/htable/htable_type.h>
@@ -19,16 +17,12 @@
 #include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
-#include <lightningd/options.h>
 #include <signal.h>
 #include <stdio.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 /* What logging level to use if they didn't specify */
@@ -54,6 +48,7 @@ struct log_book {
 	enum log_level *default_print_level;
 	struct timeabs init_time;
 	FILE *outf;
+	bool echo;
 
 	struct log_entry *log;
 
@@ -126,7 +121,8 @@ static void log_to_file(const char *prefix,
 			const char *str,
 			const u8 *io,
 			size_t io_len,
-			FILE *logf)
+			FILE *logf,
+			bool echo)
 {
 	char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ")];
 	strftime(iso8601_msec_fmt, sizeof(iso8601_msec_fmt), "%FT%T.%%03dZ", gmtime(&time->ts.tv_sec));
@@ -156,6 +152,10 @@ static void log_to_file(const char *prefix,
 				prefix, str);
 	}
 	fflush(logf);
+
+	/* also echo to stdout */
+	if (echo && logf != stdout)
+		log_to_file(prefix, level, node_id, time, str, io, io_len, stdout, false);
 }
 
 static size_t mem_used(const struct log_entry *e)
@@ -250,6 +250,7 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 	lr->num_entries = 0;
 	lr->max_mem = max_mem;
 	lr->outf = stdout;
+	lr->echo = true; /* todo: only if not ld --daemon */
 	lr->default_print_level = NULL;
 	list_head_init(&lr->print_filters);
 	lr->init_time = time_now();
@@ -378,7 +379,8 @@ static void maybe_print(struct log *log, const struct log_entry *l)
 		log_to_file(log->prefix, l->level,
 			    l->nc ? &l->nc->node_id : NULL,
 			    &l->time, l->log,
-			    l->io, tal_bytelen(l->io), log->lr->outf);
+			    l->io, tal_bytelen(l->io),
+			    log->lr->outf, log->lr->echo);
 }
 
 void logv(struct log *log, enum log_level level,
@@ -426,7 +428,7 @@ void log_io(struct log *log, enum log_level dir,
 		log_to_file(log->prefix, l->level,
 			    l->nc ? &l->nc->node_id : NULL,
 			    &l->time, str,
-			    data, len, log->lr->outf);
+			    data, len, log->lr->outf, log->lr->echo);
 
 	/* Save a tal header, by using raw malloc. */
 	l->log = strdup(str);
@@ -714,7 +716,7 @@ void opt_register_logging(struct lightningd *ld)
 			       ld->log,
 			       "log prefix");
 	opt_register_early_arg("--log-file=<file>", arg_log_to_file, NULL, ld,
-			       "log to file instead of stdout");
+			       "also log to file instead of just stdout");
 }
 
 void logging_options_parsed(struct log_book *lr)
@@ -733,7 +735,8 @@ void logging_options_parsed(struct log_book *lr)
 			log_to_file(l->prefix, l->level,
 				    l->nc ? &l->nc->node_id : NULL,
 				    &l->time, l->log,
-				    l->io, tal_bytelen(l->io), lr->outf);
+				    l->io, tal_bytelen(l->io),
+				    lr->outf, lr->echo);
 	}
 }
 
