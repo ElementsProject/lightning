@@ -1130,7 +1130,7 @@ void handle_early_opts(struct lightningd *ld, int argc, char *argv[])
 	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
 
 	/* Finalize the logging subsystem now. */
-	logging_options_parsed(ld->log_book);
+	logging_options_parsed(ld->log_book, ld);
 }
 
 void handle_opts(struct lightningd *ld, int argc, char *argv[])

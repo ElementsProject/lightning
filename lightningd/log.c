@@ -250,7 +250,7 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 	lr->num_entries = 0;
 	lr->max_mem = max_mem;
 	lr->outf = stdout;
-	lr->echo = true; /* todo: only if not ld --daemon */
+	lr->echo = false;
 	lr->default_print_level = NULL;
 	list_head_init(&lr->print_filters);
 	lr->init_time = time_now();
@@ -719,8 +719,10 @@ void opt_register_logging(struct lightningd *ld)
 			       "also log to file instead of just stdout");
 }
 
-void logging_options_parsed(struct log_book *lr)
+void logging_options_parsed(struct log_book *lr, struct lightningd *ld)
 {
+	lr->echo = ld->daemon_parent_fd == -1;
+
 	/* If they didn't set an explicit level, set to info */
 	if (!lr->default_print_level) {
 		lr->default_print_level = tal(lr, enum log_level);
