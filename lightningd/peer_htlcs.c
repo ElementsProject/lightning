@@ -987,17 +987,6 @@ static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
 	if (p->payload) {
 		switch (p->payload->type) {
 		case ONION_V0_PAYLOAD:
-			if (deprecated_apis) {
-				json_object_start(s, "per_hop_v0");
-				json_add_string(s, "realm", "00");
-				json_add_short_channel_id(s, "short_channel_id",
-							  p->payload->forward_channel);
-				json_add_amount_msat_only(s, "forward_amount",
-							  p->payload->amt_to_forward);
-				json_add_u64(s, "outgoing_cltv_value",
-					     p->payload->outgoing_cltv);
-				json_object_end(s);
-			}
 			json_add_string(s, "type", "legacy");
 			break;
 
