@@ -122,6 +122,10 @@ struct wally_psbt_input *psbt_append_input(struct wally_psbt *psbt,
 void psbt_input_set_wit_utxo(struct wally_psbt *psbt, size_t in,
 			     const u8 *scriptPubkey, struct amount_sat amt);
 
+/* psbt_input_set_utxo - Set the non-witness utxo field for this PSBT input */
+void psbt_input_set_utxo(struct wally_psbt *psbt, size_t in,
+			 const struct wally_tx *prev_tx);
+
 /* psbt_elements_input_set_asset - Set the asset/value fields for an
  * 				   Elements PSBT (PSET, technically */
 void psbt_elements_input_set_asset(struct wally_psbt *psbt, size_t in,
