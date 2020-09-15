@@ -1391,7 +1391,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 					 scriptpubkey_p2wsh(tmpctx, wscript),
 					 total);
 	/* Add a serial_id for this output */
-	serial_id = 0; /* FIXME: generate new serial */
+	serial_id = psbt_new_input_serial(psbt, TX_INITIATOR);
 	psbt_output_add_serial_id(psbt, funding_out, serial_id);
 
 	/* Add all of our inputs/outputs to the changeset */

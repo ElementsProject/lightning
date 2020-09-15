@@ -7,6 +7,7 @@
 #include <ccan/ccan/endian/endian.h>
 #include <ccan/ccan/mem/mem.h>
 #include <common/channel_id.h>
+#include <common/pseudorand.h>
 #include <common/utils.h>
 #include <wire/peer_wire.h>
 
@@ -439,6 +440,35 @@ int psbt_find_serial_output(struct wally_psbt *psbt, u16 serial_id)
 			return i;
 	}
 	return -1;
+}
+
+static u16 get_random_serial(enum tx_role role)
+{
+	return pseudorand(1 << 15) << 1 | role;
+}
+
+u16 psbt_new_input_serial(struct wally_psbt *psbt, enum tx_role role)
+{
+	u16 serial_id;
+
+	while ((serial_id = get_random_serial(role)) &&
+		psbt_find_serial_input(psbt, serial_id) != -1) {
+		/* keep going; */
+	}
+
+	return serial_id;
+}
+
+u16 psbt_new_output_serial(struct wally_psbt *psbt, enum tx_role role)
+{
+	u16 serial_id;
+
+	while ((serial_id = get_random_serial(role)) &&
+		psbt_find_serial_output(psbt, serial_id) != -1) {
+		/* keep going; */
+	}
+
+	return serial_id;
 }
 
 bool psbt_has_required_fields(struct wally_psbt *psbt)
