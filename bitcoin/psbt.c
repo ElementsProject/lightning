@@ -314,6 +314,17 @@ void psbt_input_set_wit_utxo(struct wally_psbt *psbt, size_t in,
 	tal_wally_end(psbt);
 }
 
+void psbt_input_set_utxo(struct wally_psbt *psbt, size_t in,
+			 const struct wally_tx *prev_tx)
+{
+	int wally_err;
+	tal_wally_start();
+	wally_err = wally_psbt_input_set_utxo(&psbt->inputs[in],
+					      prev_tx);
+	tal_wally_end(psbt);
+	assert(wally_err == WALLY_OK);
+}
+
 void psbt_input_set_witscript(struct wally_psbt *psbt, size_t in, const u8 *wscript)
 {
 	int wally_err;
