@@ -712,28 +712,6 @@ rpc_command_hook_callback(struct rpc_command_hook_payload *p STEALS,
 	    return was_pending(command_exec(p->cmd->jcon, p->cmd, p->buffer,
 		                                p->request, params));
 
-#ifdef COMPAT_V080
-	if (deprecated_apis) {
-		const jsmntok_t *tok_continue;
-		bool exec;
-		tok_continue = json_get_member(buffer, resulttok, "continue");
-		if (tok_continue && json_to_bool(buffer, tok_continue, &exec) && exec) {
-			static bool warned = false;
-			if (!warned) {
-				warned = true;
-				log_unusual(p->cmd->ld->log,
-					    "Plugin returned 'continue' : true "
-					    "to rpc_command hook.  "
-					    "This is now deprecated and "
-					    "you should return with "
-					    "{'result': 'continue'} instead.");
-			}
-			return was_pending(command_exec(p->cmd->jcon, p->cmd, p->buffer,
-			                                p->request, params));
-		}
-	}
-#endif /* defined(COMPAT_V080) */
-
 	innerresulttok = json_get_member(buffer, resulttok, "result");
 	if (innerresulttok) {
 		if (json_tok_streq(buffer, innerresulttok, "continue")) {
