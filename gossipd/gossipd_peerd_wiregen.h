@@ -76,4 +76,4 @@ bool fromwire_gossipd_local_channel_announcement(const tal_t *ctx, const void *p
 
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_PEERD_WIREGEN_H */
-// SHA256STAMP:1ce1a60212ceeda5de7592f21328824690a16a1b6e59a4fc14e08fab9d355736
+// SHA256STAMP:4a051b84f9c7bf5033cce47837e80b64aad358218b02a2b5f8e93f52e8c41423
