@@ -42,6 +42,9 @@ u64 fromwire_u64(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for fromwire_u8 */
 u8 fromwire_u8(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_u8 called!\n"); abort(); }
+/* Generated stub for pseudorand */
+uint64_t pseudorand(uint64_t max UNNEEDED)
+{ fprintf(stderr, "pseudorand called!\n"); abort(); }
 /* Generated stub for towire */
 void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 { fprintf(stderr, "towire called!\n"); abort(); }

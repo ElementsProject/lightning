@@ -86,7 +86,8 @@ OPENINGD_COMMON_OBJS :=				\
 	lightningd/gossip_msg.o
 
 ifeq ($(EXPERIMENTAL_FEATURES),1)
-OPENINGD_COMMON_OBJS += common/psbt_open.o
+OPENINGD_COMMON_OBJS += common/psbt_open.o	\
+	common/pseudorand.o
 endif
 
 lightningd/lightning_openingd: $(OPENINGD_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)

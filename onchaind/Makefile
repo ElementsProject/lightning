@@ -64,7 +64,8 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/wallet.o
 
 ifeq ($(EXPERIMENTAL_FEATURES),1)
-ONCHAIND_COMMON_OBJS += common/psbt_open.o
+ONCHAIND_COMMON_OBJS += common/psbt_open.o	\
+	common/pseudorand.o
 endif
 
 lightningd/lightning_onchaind: $(ONCHAIND_OBJS) $(WIRE_ONION_OBJS) $(ONCHAIND_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)

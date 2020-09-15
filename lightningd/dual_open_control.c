@@ -359,16 +359,12 @@ static bool psbt_side_contribs_changed(struct wally_psbt *orig,
 static void psbt_add_serials(struct wally_psbt *psbt, enum tx_role role)
 {
 	u16 serial_id;
-	const u64 serial_space = 100000;
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		/* Skip ones that already have a serial id */
 		if (psbt_get_serial_id(&psbt->inputs[i].unknowns, &serial_id))
 			continue;
 
-		while ((serial_id = pseudorand(serial_space)) % 2 != role ||
-			psbt_find_serial_input(psbt, serial_id) != -1) {
-			/* keep going; */
-		}
+		serial_id = psbt_new_input_serial(psbt, role);
 		psbt_input_add_serial_id(psbt, &psbt->inputs[i], serial_id);
 	}
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
@@ -376,10 +372,7 @@ static void psbt_add_serials(struct wally_psbt *psbt, enum tx_role role)
 		if (psbt_get_serial_id(&psbt->outputs[i].unknowns, &serial_id))
 			continue;
 
-		while ((serial_id = pseudorand(serial_space)) % 2 != role ||
-			psbt_find_serial_output(psbt, serial_id) != -1) {
-			/* keep going; */
-		}
+		serial_id = psbt_new_output_serial(psbt, role);
 		psbt_output_add_serial_id(psbt, &psbt->outputs[i], serial_id);
 	}
 }

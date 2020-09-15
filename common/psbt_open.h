@@ -130,6 +130,24 @@ int psbt_find_serial_input(struct wally_psbt *psbt, u16 serial_id);
  */
 int psbt_find_serial_output(struct wally_psbt *psbt, u16 serial_id);
 
+/* psbt_new_input_serial - Generate a new serial for an input for {role}
+ *
+ * @psbt - psbt to get a new serial for
+ * @role - which tx role to generate the serial for
+ *
+ * Returns a new, unique serial of the correct parity for the specified {role}
+ */
+u16 psbt_new_input_serial(struct wally_psbt *psbt, enum tx_role role);
+
+/* psbt_new_output_serial - Generate a new serial for an output for {role}
+ *
+ * @psbt - psbt to get a new serial for
+ * @role - which tx role to generate the serial for
+ *
+ * Returns a new, unique serial of the correct parity for the specified {role}
+ */
+u16 psbt_new_output_serial(struct wally_psbt *psbt, enum tx_role role);
+
 /* psbt_has_required_fields - Validates psbt field completion
  *
  * Required fields are:
