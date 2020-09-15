@@ -114,10 +114,6 @@ plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
 				                    plugin_name);
 			plugin_kill(p, "stopped by lightningd via RPC");
 			response = json_stream_success(cmd);
-			if (deprecated_apis)
-				json_add_string(response, "",
-			                    take(tal_fmt(NULL, "Successfully stopped %s.",
-			                                 plugin_name)));
 			json_add_string(response, "result",
 			                take(tal_fmt(NULL, "Successfully stopped %s.",
 			                             plugin_name)));
