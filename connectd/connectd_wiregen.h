@@ -103,4 +103,4 @@ bool fromwire_connectd_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_CONNECTD_CONNECTD_WIREGEN_H */
-// SHA256STAMP:48e50860685655b8ae8e12dd3f07d1c1cceea48934fe3846c7d276d93c70b211
+// SHA256STAMP:9fd9243147219385908fdb38926d8f65b968e0787f9c11bdb39f05879b23fdb7

@@ -1214,4 +1214,4 @@ bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx, const void *p
 	fromwire_u8_array(&cursor, &plen, *script, script_len);
 	return cursor != NULL;
 }
-// SHA256STAMP:6f67af9abcc4b8cd7fd2b0580341f72dd7ca323a4f1fa8fc02c97b83d63dec82
+// SHA256STAMP:d6f98ef7795553b98254a57650fd3793895e38b84e924439acc5b42f56830c55
