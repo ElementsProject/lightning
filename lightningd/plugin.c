@@ -1223,24 +1223,10 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir, bool error_ok)
 	struct plugin *p;
 
 	if (!d) {
-		if (deprecated_apis && !path_is_abs(dir)) {
-			dir = path_join(tmpctx,
-					plugins->ld->original_directory, dir);
-			d = opendir(dir);
-			if (d) {
-				log_unusual(plugins->log, "DEPRECATED WARNING:"
-					    " plugin-dir is now relative to"
-					    " lightning-dir, please change to"
-					    " plugin-dir=%s",
-					    dir);
-			}
-		}
-		if (!d) {
-			if (!error_ok && errno == ENOENT)
-				return NULL;
-			return tal_fmt(NULL, "Failed to open plugin-dir %s: %s",
-				       dir, strerror(errno));
-		}
+		if (!error_ok && errno == ENOENT)
+			return NULL;
+		return tal_fmt(NULL, "Failed to open plugin-dir %s: %s",
+			       dir, strerror(errno));
 	}
 
 	while ((di = readdir(d)) != NULL) {
