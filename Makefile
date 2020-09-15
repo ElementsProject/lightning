@@ -264,9 +264,9 @@ endif
 # Git doesn't maintain timestamps, so we only regen if sources actually changed:
 # We place the SHA inside some generated files so we can tell if they need updating.
 # Usage: $(call SHA256STAMP_CHANGED)
-SHA256STAMP_CHANGED = [ x"`sed -n 's/.*SHA256STAMP://p' $@ 2>/dev/null`" != x"`cat $(filter-out FORCE,$^) | sha256sum | cut -c1-64`" ]
+SHA256STAMP_CHANGED = [ x"`sed -n 's/.*SHA256STAMP://p' $@ 2>/dev/null`" != x"`cat $(sort $(filter-out FORCE,$^)) | sha256sum | cut -c1-64`" ]
 # Usage: $(call SHA256STAMP,commentprefix)
-SHA256STAMP = echo '$(1) SHA256STAMP:'`cat $(filter-out FORCE,$^) | sha256sum | cut -c1-64` >> $@
+SHA256STAMP = echo '$(1) SHA256STAMP:'`cat $(sort $(filter-out FORCE,$^)) | sha256sum | cut -c1-64` >> $@
 
 # generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
 %_wiregen.h: %_wire.csv $(WIRE_GEN_DEPS)
