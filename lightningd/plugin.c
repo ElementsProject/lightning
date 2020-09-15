@@ -1559,18 +1559,8 @@ void json_add_opt_plugins_array(struct json_stream *response,
 void json_add_opt_plugins(struct json_stream *response,
 			  const struct plugins *plugins)
 {
-	struct plugin *p;
-
 	json_add_opt_plugins_array(response, "plugins", plugins, false);
 	json_add_opt_plugins_array(response, "important-plugins", plugins, true);
-
-	/* DEPRECATED: duplicated JSON "plugin" entries */
-	if (deprecated_apis) {
-		list_for_each(&plugins->plugins, p, list) {
-			json_add_string(response, p->important ? "important-plugin" : "plugin", p->cmd);
-		}
-	}
-
 }
 
 void json_add_opt_disable_plugins(struct json_stream *response,
