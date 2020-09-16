@@ -8,6 +8,8 @@
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
+#include <openingd/dualopend_wiregen.h>
+#include <openingd/openingd_wiregen.h>
 #include <wallet/wallet.h>
 
 static void destroy_uncommitted_channel(struct uncommitted_channel *uc)
@@ -144,3 +146,82 @@ void channel_config(struct lightningd *ld,
 	 /* This is filled in by lightning_openingd, for consistency. */
 	 ours->channel_reserve = AMOUNT_SAT(UINT64_MAX);
 }
+
+#if DEVELOPER
+ /* Indented to avoid include ordering check */
+ #include <lightningd/memdump.h>
+
+static void opening_died_forget_memleak(struct subd *open_daemon,
+					struct command *cmd)
+{
+	/* FIXME: We ignore the remaining opening daemons in this case. */
+	opening_memleak_done(cmd, NULL);
+}
+
+/* Mutual recursion */
+static void opening_memleak_req_next(struct command *cmd, struct peer *prev);
+static void opening_memleak_req_done(struct subd *open_daemon,
+				     const u8 *msg, const int *fds UNUSED,
+				     struct command *cmd)
+{
+	bool found_leak;
+	struct uncommitted_channel *uc = open_daemon->channel;
+
+	tal_del_destructor2(open_daemon, opening_died_forget_memleak, cmd);
+	if (!fromwire_openingd_dev_memleak_reply(msg, &found_leak) &&
+			!fromwire_dual_open_dev_memleak_reply(msg,
+							      &found_leak)) {
+		was_pending(command_fail(cmd, LIGHTNINGD,
+					 "Bad opening_dev_memleak"));
+		return;
+	}
+
+	if (found_leak) {
+		opening_memleak_done(cmd, open_daemon);
+		return;
+	}
+	opening_memleak_req_next(cmd, uc->peer);
+}
+
+static void opening_memleak_req_next(struct command *cmd, struct peer *prev)
+{
+	struct peer *p;
+	u8 *msg;
+
+	list_for_each(&cmd->ld->peers, p, list) {
+		struct subd *open_daemon;
+
+		if (!p->uncommitted_channel)
+			continue;
+		if (p == prev) {
+			prev = NULL;
+			continue;
+		}
+		if (prev != NULL)
+			continue;
+
+		open_daemon = p->uncommitted_channel->open_daemon;
+
+		if (!open_daemon)
+			continue;
+
+		if (streq(open_daemon->name, "dualopend"))
+			msg = towire_dual_open_dev_memleak(NULL);
+		else
+			msg = towire_openingd_dev_memleak(NULL);
+
+		subd_req(p, open_daemon, take(msg), -1, 0,
+			 opening_memleak_req_done, cmd);
+		/* Just in case it dies before replying! */
+		tal_add_destructor2(p->uncommitted_channel->open_daemon,
+				    opening_died_forget_memleak, cmd);
+		return;
+	}
+	opening_memleak_done(cmd, NULL);
+}
+
+void opening_dev_memleak(struct command *cmd)
+{
+	opening_memleak_req_next(cmd, NULL);
+}
+#endif /* DEVELOPER */
