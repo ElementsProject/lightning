@@ -819,6 +819,27 @@ def test_funding_toolarge(node_factory, bitcoind):
     l1.rpc.fundchannel(l2.info['id'], amount)
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual-funding is experimental only")
+@unittest.skipIf(True, "df_opener.py requires wallycore")
+def test_v2_open(node_factory, bitcoind, chainparams):
+    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(),
+                                        'tests/plugins/df_opener.py')})
+    l2 = node_factory.get_node()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    amount = 2**24
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+    # Wait for it to arrive.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    l1.rpc.openchannelv2(l2.info['id'], 100000)
+
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1])
+    l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+
 def test_funding_push(node_factory, bitcoind, chainparams):
     """ Try to push peer some sats """
     # We track balances, to verify that accounting is ok.
