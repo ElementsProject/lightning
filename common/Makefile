@@ -91,7 +91,8 @@ COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/json_command.h				\
 	common/jsonrpc_errors.h				\
 	common/overflows.h				\
-	common/status_levels.h
+	common/status_levels.h				\
+	common/tx_roles.h
 COMMON_HEADERS_GEN := common/gen_htlc_state_names.h common/status_wiregen.h common/peer_status_wiregen.h
 
 COMMON_HEADERS := $(COMMON_HEADERS_GEN) $(COMMON_HEADERS_NOGEN)

@@ -11,7 +11,6 @@
  * new and improved, two-party opening protocol, which allows bother peers to
  * contribute inputs to the transaction
  */
-#include "dual_fund_roles.h"
 #include <bitcoin/feerate.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
@@ -44,6 +43,7 @@
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/type_to_string.h>
+#include <common/tx_roles.h>
 #include <common/utils.h>
 #include <common/version.h>
 #include <common/wire_error.h>
@@ -97,7 +97,7 @@ struct state {
 	u32 tx_locktime;
 
 	struct sha256 opening_podle_h2;
-	enum dual_fund_roles our_role;
+	enum tx_role our_role;
 
 	u32 feerate_per_kw_funding;
 	u32 feerate_per_kw;
@@ -390,7 +390,7 @@ fetch_psbt_changes(struct state *state, const struct wally_psbt *psbt)
 	else if (fromwire_dual_open_psbt_changed(state, msg, &unused, &updated_psbt)) {
 		/* Does our PSBT meet requirements? */
 		if (!check_balances(state, updated_psbt,
-				    state->our_role == OPENER,
+				    state->our_role == TX_INITIATOR,
 				    false, /* peers input/outputs not complete */
 				    state->feerate_per_kw_funding))
 			status_failed(STATUS_FAIL_MASTER_IO,
@@ -856,7 +856,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 	struct amount_sat total;
 	enum dualopend_wire msg_type;
 
-	state->our_role = ACCEPTER;
+	state->our_role = TX_ACCEPTER;
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
 
 	if (!fromwire_open_channel2(oc2_msg, &chain_hash,
