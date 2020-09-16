@@ -1516,7 +1516,6 @@ int main(int argc, char *argv[])
 
 	/* This frees the entire tal tree. */
 	tal_free(state);
-	common_shutdown();
 	daemon_shutdown();
 	return 0;
 }
