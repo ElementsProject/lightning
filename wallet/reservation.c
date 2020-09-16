@@ -234,6 +234,7 @@ static bool inputs_sufficient(struct amount_sat input,
 }
 
 static struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
+					   struct wallet *wallet,
 					   struct utxo **utxos,
 					   const struct ext_key *bip32_base,
 					   u32 nlocktime,
@@ -247,6 +248,7 @@ static struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 
 	for (size_t i = 0; i < tal_count(utxos); i++) {
 		u32 this_nsequence;
+		struct bitcoin_tx *tx;
 
 		if (utxos[i]->is_p2sh) {
 			bip32_pubkey(bip32_base, &key, utxos[i]->keyindex);
@@ -292,6 +294,14 @@ static struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 						      psbt->num_inputs - 1,
 						      &asset);
 		}
+
+		/* If we have the transaction for this utxo,
+		 * add it to the PSBT as the non-witness-utxo field.
+		 * Dual-funded channels and some hardware wallets
+		 * require this */
+		tx = wallet_transaction_get(ctx, wallet, &utxos[i]->txid);
+		if (tx)
+			psbt_input_set_utxo(psbt, i, tx->wtx);
 	}
 
 	return psbt;
@@ -327,7 +337,8 @@ static struct command_result *finish_psbt(struct command *cmd,
 			*locktime -= pseudorand(100);
 	}
 
-	psbt = psbt_using_utxos(cmd, utxos, cmd->ld->wallet->bip32_base,
+	psbt = psbt_using_utxos(cmd, cmd->ld->wallet, utxos,
+				cmd->ld->wallet->bip32_base,
 				*locktime, BITCOIN_TX_RBF_SEQUENCE);
 
 	/* Add a fee output if this is elements */
