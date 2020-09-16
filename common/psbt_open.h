@@ -3,6 +3,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
+#include <common/tx_roles.h>
 #include <stdbool.h>
 #include <wally_psbt.h>
 #include <wally_transaction.h>
@@ -148,4 +149,16 @@ bool psbt_has_required_fields(struct wally_psbt *psbt);
  */
 void psbt_input_set_final_witness_stack(struct wally_psbt_input *in,
 					const struct witness_element **elements);
+
+/* psbt_to_witness_stacks - Take all sigs on a PSBT and copy to a
+ * 			    witness_stack
+ *
+ * @ctx - allocation context
+ * @psbt - PSBT to copy sigs from
+ * @opener - which side initiated this tx
+ */
+const struct witness_stack **
+psbt_to_witness_stacks(const tal_t *ctx,
+		       const struct wally_psbt *psbt,
+		       enum tx_role side_to_stack);
 #endif /* LIGHTNING_COMMON_PSBT_OPEN_H */
