@@ -997,16 +997,16 @@ void peer_start_dualopend(struct peer *peer,
 				  | HSM_CAP_SIGN_REMOTE_TX);
 
 	uc->open_daemon = new_channel_subd(peer->ld,
-					 "lightning_dualopend",
-					 uc, &peer->id, uc->log,
-					 true, dualopend_wire_name,
-					 dual_opend_msg,
-					 opend_channel_errmsg,
-					 opend_channel_set_billboard,
-					 take(&pps->peer_fd),
-					 take(&pps->gossip_fd),
-					 take(&pps->gossip_store_fd),
-					 take(&hsmfd), NULL);
+					   "lightning_dualopend",
+					   uc, &peer->id, uc->log,
+					   true, dualopend_wire_name,
+					   dual_opend_msg,
+					   opend_channel_errmsg,
+					   opend_channel_set_billboard,
+					   take(&pps->peer_fd),
+					   take(&pps->gossip_fd),
+					   take(&pps->gossip_store_fd),
+					   take(&hsmfd), NULL);
 	if (!uc->open_daemon) {
 		uncommitted_channel_disconnect(uc, LOG_BROKEN,
 					       tal_fmt(tmpctx,
