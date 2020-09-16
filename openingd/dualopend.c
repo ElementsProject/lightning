@@ -935,6 +935,13 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 		return NULL;
 	}
 
+	if (state->feerate_per_kw_funding > state->max_feerate) {
+		negotiation_failed(state, false,
+				   "feerate_per_kw_funding %u above maximum %u",
+				   state->feerate_per_kw_funding, state->max_feerate);
+		return NULL;
+	}
+
 	/* We can figure out the channel id now */
 	derive_channel_id_v2(&state->channel_id,
 			     &state->our_points.revocation,
