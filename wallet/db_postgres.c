@@ -17,7 +17,24 @@
 
 static bool db_postgres_setup(struct db *db)
 {
-	db->conn = PQconnectdb(db->filename);
+	size_t prefix_len = strlen("postgres://");
+
+	/* We attempt to parse the connection string without the `postgres://`
+	prefix first, so we can correctly handle the key-value-pair style of
+	DSN that postgresql supports. If that fails we try with the full
+	string, which matches the `scheme://user:password@host:port/dbname`
+	style of DSNs. The call to `PQconninfoParse` here is just to verify
+	`PQconnectdb` would be able to parse it correctly, that's why the
+	result is discarded again immediately. */
+	PQconninfoOption *info =
+	    PQconninfoParse(db->filename + prefix_len, NULL);
+
+	if (info != NULL) {
+		PQconninfoFree(info);
+		db->conn = PQconnectdb(db->filename + prefix_len);
+	} else {
+		db->conn = PQconnectdb(db->filename);
+	}
 
 	if (PQstatus(db->conn) != CONNECTION_OK) {
 		db->error = tal_fmt(db, "Could not connect to %s: %s", db->filename, PQerrorMessage(db->conn));
