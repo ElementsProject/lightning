@@ -26,7 +26,6 @@ msgdata,dual_open_init,our_funding_pubkey,pubkey,
 msgdata,dual_open_init,minimum_depth,u32,
 msgdata,dual_open_init,min_feerate,u32,
 msgdata,dual_open_init,max_feerate,u32,
-msgdata,dual_open_init,option_anchor_outputs,bool,
 # Optional msg to send.
 msgdata,dual_open_init,len,u16,
 msgdata,dual_open_init,msg,u8,len

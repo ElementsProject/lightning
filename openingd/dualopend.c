@@ -118,7 +118,6 @@ struct state {
 	struct channel *channel;
 
 	struct feature_set *our_features;
-	bool option_anchor_outputs;
 
 	/* Set of pending changes to send to peer */
 	struct psbt_changeset *changeset;
@@ -1121,8 +1120,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 					     &state->our_points, &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
-					     true,
-					     state->option_anchor_outputs,
+					     true, true,
 					     REMOTE);
 
 	local_commit = initial_channel_tx(state, &wscript, state->channel,
@@ -1426,7 +1424,6 @@ int main(int argc, char *argv[])
 				     &state->our_funding_pubkey,
 				     &state->minimum_depth,
 				     &state->min_feerate, &state->max_feerate,
-				     &state->option_anchor_outputs,
 				     &inner))
 		master_badmsg(WIRE_DUAL_OPEN_INIT, msg);
 

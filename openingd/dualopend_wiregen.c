@@ -57,7 +57,7 @@ bool dualopend_wire_is_defined(u16 type)
 
 
 /* WIRE: DUAL_OPEN_INIT */
-u8 *towire_dual_open_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_feature_set, const u8 *their_init_features, const struct channel_config *our_config, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, bool option_anchor_outputs, const u8 *msg)
+u8 *towire_dual_open_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_feature_set, const u8 *their_init_features, const struct channel_config *our_config, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, const u8 *msg)
 {
 	u16 their_init_features_len = tal_count(their_init_features);
 	u16 len = tal_count(msg);
@@ -81,14 +81,13 @@ u8 *towire_dual_open_init(const tal_t *ctx, const struct chainparams *chainparam
 	towire_u32(&p, minimum_depth);
 	towire_u32(&p, min_feerate);
 	towire_u32(&p, max_feerate);
-	towire_bool(&p, option_anchor_outputs);
 	/* Optional msg to send. */
 	towire_u16(&p, len);
 	towire_u8_array(&p, msg, len);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dual_open_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_feature_set, u8 **their_init_features, struct channel_config *our_config, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, bool *option_anchor_outputs, u8 **msg)
+bool fromwire_dual_open_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_feature_set, u8 **their_init_features, struct channel_config *our_config, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, u8 **msg)
 {
 	u16 their_init_features_len;
 	u16 len;
@@ -117,7 +116,6 @@ bool fromwire_dual_open_init(const tal_t *ctx, const void *p, const struct chain
 	*minimum_depth = fromwire_u32(&cursor, &plen);
  	*min_feerate = fromwire_u32(&cursor, &plen);
  	*max_feerate = fromwire_u32(&cursor, &plen);
- 	*option_anchor_outputs = fromwire_bool(&cursor, &plen);
  	/* Optional msg to send. */
 	len = fromwire_u16(&cursor, &plen);
  	// 2nd case msg
@@ -415,4 +413,4 @@ bool fromwire_dual_open_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:05607d3abf4cb9831ce6e8a2be24cb6e446a949cd8e5fe69620556a2dbbdb772
+// SHA256STAMP:45ac65939acab987dfb71715f3a03db62863aa2048923666845e2adf45387eba

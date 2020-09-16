@@ -1034,9 +1034,6 @@ void peer_start_dualopend(struct peer *peer,
 				  uc->minimum_depth,
 				  feerate_min(peer->ld, NULL),
 				  feerate_max(peer->ld, NULL),
-				  feature_negotiated(peer->ld->our_features,
-						     peer->their_features,
-						     OPT_ANCHOR_OUTPUTS),
 				  send_msg);
 	subd_send_msg(uc->open_daemon, take(msg));
 }
