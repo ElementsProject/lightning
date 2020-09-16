@@ -351,8 +351,8 @@ static bool psbt_side_contribs_changed(struct wally_psbt *orig,
 	return false;
 }
 
-/* Adds serials to our inputs + outputs that don't have one yet */
-static void psbt_add_serials(struct wally_psbt *psbt, enum side opener)
+/* Adds serials to inputs + outputs that don't have one yet */
+static void psbt_add_serials(struct wally_psbt *psbt, enum tx_role role)
 {
 	u16 serial_id;
 	const u64 serial_space = 100000;
@@ -361,7 +361,7 @@ static void psbt_add_serials(struct wally_psbt *psbt, enum side opener)
 		if (psbt_get_serial_id(&psbt->inputs[i].unknowns, &serial_id))
 			continue;
 
-		while ((serial_id = pseudorand(serial_space)) % 2 != opener ||
+		while ((serial_id = pseudorand(serial_space)) % 2 != role ||
 			psbt_find_serial_input(psbt, serial_id) != -1) {
 			/* keep going; */
 		}
@@ -372,7 +372,7 @@ static void psbt_add_serials(struct wally_psbt *psbt, enum side opener)
 		if (psbt_get_serial_id(&psbt->outputs[i].unknowns, &serial_id))
 			continue;
 
-		while ((serial_id = pseudorand(serial_space)) % 2 != opener ||
+		while ((serial_id = pseudorand(serial_space)) % 2 != role ||
 			psbt_find_serial_output(psbt, serial_id) != -1) {
 			/* keep going; */
 		}
@@ -410,7 +410,7 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 
 	/* Add a serial_id to everything that doesn't have one yet */
 	if (payload->psbt)
-		psbt_add_serials(payload->psbt, REMOTE);
+		psbt_add_serials(payload->psbt, TX_ACCEPTER);
 
 	if (payload->psbt && !psbt_has_required_fields(payload->psbt))
 		fatal("Plugin supplied PSBT that's missing required fields. %s",
@@ -1113,7 +1113,7 @@ static struct command_result *json_open_channel_update(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Channel funding in progress");
 
 	/* Add serials to PSBT */
-	psbt_add_serials(psbt, LOCAL);
+	psbt_add_serials(psbt, TX_INITIATOR);
 	if (!psbt_has_required_fields(psbt))
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "PSBT is missing required fields %s",
@@ -1251,7 +1251,7 @@ static struct command_result *json_open_channel_init(struct command *cmd,
 	}
 
 	/* Add serials to any input that's missing them */
-	psbt_add_serials(psbt, LOCAL);
+	psbt_add_serials(psbt, TX_INITIATOR);
 	if (!psbt_has_required_fields(psbt))
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "PSBT is missing required fields %s",
