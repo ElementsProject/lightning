@@ -101,4 +101,11 @@ void channel_config(struct lightningd *ld,
 		    struct channel_config *ours,
 		    u32 *max_to_self_delay,
 		    struct amount_msat *min_effective_htlc_capacity);
+
+#if DEVELOPER
+struct command;
+/* Calls report_leak_info() async. */
+void opening_dev_memleak(struct command *cmd);
+#endif
+
 #endif /* LIGHTNING_LIGHTNINGD_OPENING_COMMON_H */

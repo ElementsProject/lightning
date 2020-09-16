@@ -18,12 +18,6 @@ void peer_start_openingd(struct peer *peer,
 			 struct per_peer_state *pps,
 			 const u8 *msg);
 
-#if DEVELOPER
-struct command;
-/* Calls report_leak_info() async. */
-void opening_dev_memleak(struct command *cmd);
-#endif
-
 struct subd *peer_get_owning_subd(struct peer *peer);
 
 #endif /* LIGHTNING_LIGHTNINGD_OPENING_CONTROL_H */
