@@ -699,7 +699,8 @@ static void json_add_channel(struct lightningd *ld,
 			     const struct channel *channel)
 {
 	struct channel_stats channel_stats;
-	struct amount_msat funding_msat;
+	struct amount_msat funding_msat, peer_msats, our_msats;
+	struct amount_sat peer_funded_sats;
 	struct peer *p = channel->peer;
 
 	json_object_start(response, key);
@@ -745,36 +746,45 @@ static void json_add_channel(struct lightningd *ld,
 		json_add_string(response, NULL, "option_anchor_outputs");
 	json_array_end(response);
 
-	// FIXME @conscott : Modify this when dual-funded channels
-	// are implemented
-	json_object_start(response, "funding_allocation_msat");
-	if (channel->opener == LOCAL) {
-		json_add_u64(response, node_id_to_hexstr(tmpctx, &p->id), 0);
-		json_add_u64(response, node_id_to_hexstr(tmpctx, &ld->id),
-			     channel->funding.satoshis * 1000); /* Raw: raw JSON field */
-	} else {
-		json_add_u64(response, node_id_to_hexstr(tmpctx, &ld->id), 0);
-		json_add_u64(response, node_id_to_hexstr(tmpctx, &p->id),
-			     channel->funding.satoshis * 1000); /* Raw: raw JSON field */
+	if (!amount_sat_sub(&peer_funded_sats, channel->funding,
+			    channel->our_funds)) {
+		log_broken(channel->log,
+			   "Overflow subtracing funding %s, our funds %s",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &channel->funding),
+			   type_to_string(tmpctx, struct amount_sat,
+					  &channel->our_funds));
+		peer_funded_sats = AMOUNT_SAT(0);
 	}
+	if (!amount_sat_to_msat(&peer_msats, peer_funded_sats)) {
+		log_broken(channel->log,
+			   "Overflow converting peer sats %s to msat",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &peer_funded_sats));
+		peer_msats = AMOUNT_MSAT(0);
+	}
+	if (!amount_sat_to_msat(&our_msats, channel->our_funds)) {
+		log_broken(channel->log,
+			   "Overflow converting peer sats %s to msat",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &channel->our_funds));
+		our_msats = AMOUNT_MSAT(0);
+	}
+
+	json_object_start(response, "funding_allocation_msat");
+	json_add_u64(response, node_id_to_hexstr(tmpctx, &p->id),
+		     peer_msats.millisatoshis); /* Raw: JSON field */
+	json_add_u64(response, node_id_to_hexstr(tmpctx, &ld->id),
+		     our_msats.millisatoshis); /* Raw: JSON field */
 	json_object_end(response);
 
 	json_object_start(response, "funding_msat");
-	if (channel->opener == LOCAL) {
-		json_add_sat_only(response,
-				  node_id_to_hexstr(tmpctx, &p->id),
-				  AMOUNT_SAT(0));
-		json_add_sat_only(response,
-				  node_id_to_hexstr(tmpctx, &ld->id),
-				  channel->funding);
-	} else {
-		json_add_sat_only(response,
-				  node_id_to_hexstr(tmpctx, &ld->id),
-				  AMOUNT_SAT(0));
-		json_add_sat_only(response,
-				  node_id_to_hexstr(tmpctx, &p->id),
-				  channel->funding);
-	}
+	json_add_sat_only(response,
+			  node_id_to_hexstr(tmpctx, &p->id),
+			  peer_funded_sats);
+	json_add_sat_only(response,
+			  node_id_to_hexstr(tmpctx, &ld->id),
+			  channel->our_funds);
 	json_object_end(response);
 
 	if (!amount_sat_to_msat(&funding_msat, channel->funding)) {
