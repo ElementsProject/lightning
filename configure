@@ -165,7 +165,7 @@ add_var()
     else
         echo "$1 not found"
     fi
-    echo "$1=$2" >> $CONFIG_VAR_FILE
+    echo "$1=$2" >> $CONFIG_VAR_FILE.$$
     [ -z "$3" ] || echo "#define $1 $2" >> "$3"
 }
 
@@ -364,13 +364,11 @@ else
     HAVE_PYTHON3_MAKO=0
 fi
 
-mv $CONFIG_VAR_FILE.$$ $CONFIG_VAR_FILE
-
 # Now we can finally set our warning flags
 if [ -z ${CWARNFLAGS+x} ]; then
     CWARNFLAGS=$(default_cwarnflags "$COPTFLAGS" \
-		    $(sed -n 's/^HAVE_GCC=//p' < $CONFIG_VAR_FILE) \
-		    $(sed -n 's/^HAVE_MODERN_GCC=//p' < $CONFIG_VAR_FILE) )
+		    $(sed -n 's/^HAVE_GCC=//p' < $CONFIG_VAR_FILE.$$) \
+		    $(sed -n 's/^HAVE_MODERN_GCC=//p' < $CONFIG_VAR_FILE.$$) )
 fi
 
 add_var PREFIX "$PREFIX"
@@ -396,3 +394,16 @@ add_var HAVE_PYTHON3_MAKO "$HAVE_PYTHON3_MAKO"
 # Hack to avoid sha256 name clash with libwally: will be fixed when that
 # becomes a standalone shared lib.
 echo '#include "ccan_compat.h"' >> $CONFIG_HEADER
+
+# Now we set them all and check.
+while IFS='=' read VAR VAL; do
+    eval $VAR=\"$VAL\"
+done < $CONFIG_VAR_FILE.$$
+
+if [ "$HAVE_SQLITE3" = 0 -a "$HAVE_POSTGRES" = 0 ]; then
+    # I have no database yet I must schema!)
+    echo "*** We need a database, but neither sqlite3 nor postgres found" >&2
+    exit 1
+fi
+
+mv $CONFIG_VAR_FILE.$$ $CONFIG_VAR_FILE
