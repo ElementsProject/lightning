@@ -446,7 +446,7 @@ static bool send_next(struct state *state, struct wally_psbt **psbt)
 sendmsg:
 	sync_crypto_write(state->pps, msg);
 
-	return finished;
+	return !finished;
 }
 
 static void init_changeset(struct state *state, struct wally_psbt *psbt)
@@ -828,7 +828,7 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 		}
 
 		if (!(we_complete && they_complete))
-			we_complete = send_next(state, &psbt);
+			we_complete = !send_next(state, &psbt);
 	}
 
 	/* Sort psbt! */
@@ -1412,7 +1412,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	}
 
 	/* Send our first message, we're opener we initiate here */
-	if (send_next(state, &psbt))
+	if (!send_next(state, &psbt))
 		negotiation_failed(state, true,
 				   "Peer error, no updates to send");
 
