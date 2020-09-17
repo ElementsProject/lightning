@@ -25,6 +25,7 @@ const char *dualopend_wire_name(int e)
 	case WIRE_DUAL_OPEN_GOT_OFFER_REPLY: return "WIRE_DUAL_OPEN_GOT_OFFER_REPLY";
 	case WIRE_DUAL_OPEN_COMMIT_RCVD: return "WIRE_DUAL_OPEN_COMMIT_RCVD";
 	case WIRE_DUAL_OPEN_PSBT_CHANGED: return "WIRE_DUAL_OPEN_PSBT_CHANGED";
+	case WIRE_DUAL_OPEN_PSBT_UPDATED: return "WIRE_DUAL_OPEN_PSBT_UPDATED";
 	case WIRE_DUAL_OPEN_FAIL: return "WIRE_DUAL_OPEN_FAIL";
 	case WIRE_DUAL_OPEN_FAILED: return "WIRE_DUAL_OPEN_FAILED";
 	case WIRE_DUAL_OPEN_OPENER_INIT: return "WIRE_DUAL_OPEN_OPENER_INIT";
@@ -44,6 +45,7 @@ bool dualopend_wire_is_defined(u16 type)
 	case WIRE_DUAL_OPEN_GOT_OFFER_REPLY:;
 	case WIRE_DUAL_OPEN_COMMIT_RCVD:;
 	case WIRE_DUAL_OPEN_PSBT_CHANGED:;
+	case WIRE_DUAL_OPEN_PSBT_UPDATED:;
 	case WIRE_DUAL_OPEN_FAIL:;
 	case WIRE_DUAL_OPEN_FAILED:;
 	case WIRE_DUAL_OPEN_OPENER_INIT:;
@@ -308,7 +310,6 @@ bool fromwire_dual_open_commit_rcvd(const tal_t *ctx, const void *p, struct chan
 
 /* WIRE: DUAL_OPEN_PSBT_CHANGED */
 /* dualopend->master: peer updated the psbt */
-/* master->dualopend: response from hook when asking for next moves */
 u8 *towire_dual_open_psbt_changed(const tal_t *ctx, const struct channel_id *channel_id, const struct wally_psbt *psbt)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
@@ -327,6 +328,28 @@ bool fromwire_dual_open_psbt_changed(const tal_t *ctx, const void *p, struct cha
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_PSBT_CHANGED)
 		return false;
  	fromwire_channel_id(&cursor, &plen, channel_id);
+ 	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	return cursor != NULL;
+}
+
+/* WIRE: DUAL_OPEN_PSBT_UPDATED */
+/* master->dualopend: we updated the psbt */
+u8 *towire_dual_open_psbt_updated(const tal_t *ctx, const struct wally_psbt *psbt)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUAL_OPEN_PSBT_UPDATED);
+	towire_wally_psbt(&p, psbt);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dual_open_psbt_updated(const tal_t *ctx, const void *p, struct wally_psbt **psbt)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_PSBT_UPDATED)
+		return false;
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
@@ -454,4 +477,4 @@ bool fromwire_dual_open_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:4d357681ca9bea1ad36f3fe4d3482a0a12f808dfe20b71f0b9bee78beed0950e
+// SHA256STAMP:37f122e865f6e2432cffb5ae82c77ca2f8a3714baed0c9724a92541092f3aa54

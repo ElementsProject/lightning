@@ -376,7 +376,6 @@ fetch_psbt_changes(struct state *state, const struct wally_psbt *psbt)
 {
 	u8 *msg;
 	char *err;
-	struct channel_id unused;
 	struct wally_psbt *updated_psbt;
 
 	/* Go ask lightningd what other changes we've got */
@@ -387,7 +386,7 @@ fetch_psbt_changes(struct state *state, const struct wally_psbt *psbt)
 
 	if (fromwire_dual_open_fail(msg, msg, &err))
 		status_failed(STATUS_FAIL_MASTER_IO, "%s", err);
-	else if (fromwire_dual_open_psbt_changed(state, msg, &unused, &updated_psbt)) {
+	else if (fromwire_dual_open_psbt_updated(state, msg, &updated_psbt)) {
 		/* Does our PSBT meet requirements? */
 		if (!check_balances(state, updated_psbt,
 				    state->our_role == TX_INITIATOR,
@@ -1706,6 +1705,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUAL_OPEN_GOT_OFFER_REPLY:
 	case WIRE_DUAL_OPEN_COMMIT_RCVD:
 	case WIRE_DUAL_OPEN_PSBT_CHANGED:
+	case WIRE_DUAL_OPEN_PSBT_UPDATED:
 		break;
 	}
 

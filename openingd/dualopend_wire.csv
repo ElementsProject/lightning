@@ -84,10 +84,13 @@ msgdata,dual_open_commit_rcvd,remote_shutdown_len,u16,
 msgdata,dual_open_commit_rcvd,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
 
 # dualopend->master: peer updated the psbt
-# master->dualopend: response from hook when asking for next moves
 msgtype,dual_open_psbt_changed,7107
 msgdata,dual_open_psbt_changed,channel_id,channel_id,
 msgdata,dual_open_psbt_changed,psbt,wally_psbt,
+
+# master->dualopend: we updated the psbt
+msgtype,dual_open_psbt_updated,7108
+msgdata,dual_open_psbt_updated,psbt,wally_psbt,
 
 # master->dualopend: fail this channel open
 msgtype,dual_open_fail,7003
