@@ -699,6 +699,7 @@ static void opener_psbt_changed(struct subd *dualopend,
 	json_add_psbt(response, "psbt", psbt);
 	json_add_bool(response, "commitments_secured", false);
 
+	uc->cid = cid;
 	uc->fc->inflight = true;
 	uc->fc->cmd = NULL;
 	was_pending(command_success(cmd, response));
@@ -1009,32 +1010,25 @@ static struct command_result *json_open_channel_signed(struct command *cmd,
 						       const jsmntok_t *params)
 {
 	struct wally_psbt *psbt;
-	struct node_id *id;
-	struct peer *peer;
+	struct channel_id *cid;
 	struct channel *channel;
 	struct bitcoin_txid txid;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &id),
+		   p_req("channel_id", param_channel_id, &cid),
 		   p_req("signed_psbt", param_psbt, &psbt),
 		   NULL))
 		return command_param_failed();
 
-	peer = peer_by_id(cmd->ld, id);
-	if (!peer)
-		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
-
-	channel = peer_active_channel(peer);
+	channel = channel_by_cid(cmd->ld, cid, NULL);
 	if (!channel)
-		return command_fail(cmd, LIGHTNINGD,
-				    "Peer has no active channel");
-
+		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
+				    "Unknown channel");
 	if (!channel->pps)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Missing per-peer-state for channel, "
 				    "are you in the right state to call "
 				    "this method?");
-
 	if (channel->psbt)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Already have a finalized PSBT for "
@@ -1052,7 +1046,6 @@ static struct command_result *json_open_channel_signed(struct command *cmd,
 						   &channel->funding_txid),
 				    type_to_string(tmpctx, struct bitcoin_txid,
 						   &txid));
-
 
 	/* Go ahead and try to finalize things, or what we can */
 	psbt_finalize(psbt);
@@ -1082,47 +1075,48 @@ static struct command_result *json_open_channel_update(struct command *cmd,
 						       const jsmntok_t *params)
 {
 	struct wally_psbt *psbt;
-	struct node_id *id;
-	struct peer *peer;
+	struct channel_id *cid;
 	struct channel *channel;
+	struct uncommitted_channel *uc;
 	u8 *msg;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &id),
+		   p_req("channel_id", param_channel_id, &cid),
 		   p_req("psbt", param_psbt, &psbt),
 		   NULL))
 		return command_param_failed();
 
-	peer = peer_by_id(cmd->ld, id);
-	if (!peer)
-		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
-
-	channel = peer_active_channel(peer);
+	/* We expect this to return NULL, as the channel hasn't been
+	 * created yet. Instead, the uncommitted channel is populated */
+	channel = channel_by_cid(cmd->ld, cid, &uc);
 	if (channel)
-		return command_fail(cmd, LIGHTNINGD, "Peer already %s",
+		return command_fail(cmd, LIGHTNINGD, "Channel already %s",
 				    channel_state_name(channel));
 
-	if (!peer->uncommitted_channel)
-		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-				    "Peer not connected");
+	if (!uc)
+		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
+				    "Unknown channel");
 
-	if (!peer->uncommitted_channel->fc || !peer->uncommitted_channel->fc->inflight)
-		return command_fail(cmd, LIGHTNINGD, "No channel funding in progress");
+	if (!uc->fc || !uc->fc->inflight)
+		return command_fail(cmd, LIGHTNINGD,
+				    "No channel funding in progress");
 
-	if (peer->uncommitted_channel->fc->cmd)
-		return command_fail(cmd, LIGHTNINGD, "Channel funding in progress");
+	if (uc->fc->cmd)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Channel funding in progress");
 
 	/* Add serials to PSBT */
 	psbt_add_serials(psbt, TX_INITIATOR);
 	if (!psbt_has_required_fields(psbt))
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "PSBT is missing required fields %s",
-				    type_to_string(tmpctx, struct wally_psbt, psbt));
+				    type_to_string(tmpctx, struct wally_psbt,
+						   psbt));
 
-	peer->uncommitted_channel->fc->cmd = cmd;
+	uc->fc->cmd = cmd;
 
 	msg = towire_dual_open_psbt_updated(NULL, psbt);
-	subd_send_msg(peer->uncommitted_channel->open_daemon, take(msg));
+	subd_send_msg(uc->open_daemon, take(msg));
 	return command_still_pending(cmd);
 }
 

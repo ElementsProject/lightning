@@ -3,7 +3,7 @@
 lightning-openchannel_signed - Command to conclude a channel open
 .SH SYNOPSIS
 
-\fBopenchannel_signed\fR \fIid\fR \fIsigned_psbt\fR
+\fBopenchannel_signed\fR \fIchannel_id\fR \fIsigned_psbt\fR
 
 .SH DESCRIPTION
 
@@ -20,7 +20,7 @@ This command will broadcast the finalized funding transaction,
 if we receive valid signatures from the peer\.
 
 
-\fIid\fR is the node id of the remote peer\.
+\fIchannel_id\fR is the id of the channel\.
 
 
 \fIsigned_psbt\fR is the PSBT returned from \fBopenchannel_update\fR (where
@@ -45,9 +45,9 @@ with \fBcode\fR being one of the following:
 .IP \[bu]
 303: Funding transaction broadcast failed\.
 .IP \[bu]
-306: Unknown peer id\.
-.IP \[bu]
 309: PSBT missing required fields\.
+.IP \[bu]
+311: Unknown channel id\.
 
 .RE
 .SH SEE ALSO
@@ -65,4 +65,4 @@ lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcomplete\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:68fb78430a5ee3707fdb1324ba46373dd3dfaf325fe4e1bd3dcdc1589d80435c
+\" SHA256STAMP:93ad9dfed532d0de1481a2f5d3b2030dbaf2f67df69dfcc3724e934d86d332b5

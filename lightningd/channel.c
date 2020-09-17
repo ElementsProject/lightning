@@ -20,6 +20,7 @@
 #include <lightningd/log.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_control.h>
+#include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wire/wire_sync.h>
@@ -375,6 +376,35 @@ struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid)
 	}
 	return NULL;
 }
+
+struct channel *channel_by_cid(struct lightningd *ld,
+			       const struct channel_id *cid,
+			       struct uncommitted_channel **uc)
+{
+	struct peer *p;
+	struct channel *channel;
+
+	list_for_each(&ld->peers, p, list) {
+		if (p->uncommitted_channel) {
+			if (channel_id_eq(&p->uncommitted_channel->cid, cid)) {
+				if (uc)
+					*uc = p->uncommitted_channel;
+				return NULL;
+			}
+		}
+		list_for_each(&p->channels, channel, list) {
+			if (channel_id_eq(&channel->cid, cid)) {
+				if (uc)
+					*uc = p->uncommitted_channel;
+				return channel;
+			}
+		}
+	}
+	if (uc)
+		*uc = NULL;
+	return NULL;
+}
+
 
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,

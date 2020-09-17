@@ -3,12 +3,12 @@
 lightning-openchannel_update - Command to update a collab channel open
 .SH SYNOPSIS
 
-\fBopenchannel_update\fR \fIid\fR \fIpsbt\fR
+\fBopenchannel_update\fR \fIchannel_id\fR \fIpsbt\fR
 
 .SH DESCRIPTION
 
 \fBopenchannel_update\fR is a low level RPC command which continues an open
-channel with peer, as specified by \fIid\fR\. An updated  \fIpsbt\fR is passed in; any
+channel, as specified by \fIchannel_id\fR\. An updated  \fIpsbt\fR is passed in; any
 changes from the PSBT last returned (either from \fBopenchannel_init\fR or
 a previous call to \fBopenchannel_update\fR) will be communicated to the peer\.
 
@@ -21,7 +21,7 @@ Must be called until \fIcommitments_secured\fR is returned as true, at which poi
 returned by the last call to \fBopenchannel_update\fR\.
 
 
-\fIid\fR is the node id of the remote peer\.
+\fIchannel_id\fR is the id of the channel\.
 
 
 \fIpsbt\fR is the updated PSBT to be sent to the peer\. May be identical to
@@ -43,9 +43,9 @@ returned PSBT and calling \fBopenchannel_signed\fR to complete the channel open\
 .IP \[bu]
 305: Peer is not connected\.
 .IP \[bu]
-306: Unknown peer id\.
-.IP \[bu]
 309: PSBT missing required fields
+.IP \[bu]
+311: Unknown channel id\.
 
 .RE
 .SH SEE ALSO
@@ -63,4 +63,4 @@ lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcomplete\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:dcf253e7b1658e71a9721fccee76a6bb07af7579ca4b0413428d2a1e8c9613bc
+\" SHA256STAMP:ab3d19be91c8b2e651a6f4a23552f21323c4f0096ceda8026bb2450c2f9c616c

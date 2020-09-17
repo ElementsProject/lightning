@@ -4,13 +4,13 @@ lightning-openchannel\_update -- Command to update a collab channel open
 SYNOPSIS
 --------
 
-**openchannel_update** *id* *psbt*
+**openchannel_update** *channel_id* *psbt*
 
 DESCRIPTION
 -----------
 
 `openchannel_update` is a low level RPC command which continues an open
-channel with peer, as specified by *id*. An updated  *psbt* is passed in; any
+channel, as specified by *channel_id*. An updated  *psbt* is passed in; any
 changes from the PSBT last returned (either from `openchannel_init` or
 a previous call to `openchannel_update`) will be communicated to the peer.
 
@@ -20,7 +20,7 @@ Must be called until *commitments_secured* is returned as true, at which point
 `openchannel_signed` should be called with a signed version of the PSBT
 returned by the last call to `openchannel_update`.
 
-*id* is the node id of the remote peer.
+*channel_id* is the id of the channel.
 
 *psbt* is the updated PSBT to be sent to the peer. May be identical to
 the PSBT last returned by either `openchannel_init` or `openchannel_update`.
@@ -37,8 +37,8 @@ returned PSBT and calling `openchannel_signed` to complete the channel open.
 - -32602: If the given parameters are wrong.
 - -1: Catchall nonspecific error.
 - 305: Peer is not connected.
-- 306: Unknown peer id.
 - 309: PSBT missing required fields
+- 311: Unknown channel id.
 
 SEE ALSO
 --------
