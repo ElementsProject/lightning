@@ -500,8 +500,7 @@ openchannel2_changed_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 			    payload);
 
 	subd_send_msg(dualopend,
-		      take(towire_dual_open_psbt_changed(NULL,
-							 &payload->rcvd->cid,
+		      take(towire_dual_open_psbt_updated(NULL,
 							 payload->psbt)));
 }
 
@@ -1086,7 +1085,6 @@ static struct command_result *json_open_channel_update(struct command *cmd,
 	struct node_id *id;
 	struct peer *peer;
 	struct channel *channel;
-	struct channel_id chan_id_unused;
 	u8 *msg;
 
 	if (!param(cmd, buffer, params,
@@ -1123,8 +1121,7 @@ static struct command_result *json_open_channel_update(struct command *cmd,
 
 	peer->uncommitted_channel->fc->cmd = cmd;
 
-	memset(&chan_id_unused, 0, sizeof(chan_id_unused));
-	msg = towire_dual_open_psbt_changed(NULL, &chan_id_unused, psbt);
+	msg = towire_dual_open_psbt_updated(NULL, psbt);
 	subd_send_msg(peer->uncommitted_channel->open_daemon, take(msg));
 	return command_still_pending(cmd);
 }
@@ -1327,6 +1324,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUAL_OPEN_OPENER_INIT:
 		case WIRE_DUAL_OPEN_GOT_OFFER_REPLY:
 		case WIRE_DUAL_OPEN_FAIL:
+		case WIRE_DUAL_OPEN_PSBT_UPDATED:
 		case WIRE_DUAL_OPEN_DEV_MEMLEAK:
 			break;
 	}

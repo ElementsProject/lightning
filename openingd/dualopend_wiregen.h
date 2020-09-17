@@ -27,8 +27,9 @@ enum dualopend_wire {
         /*                     get some signatures for the funding_tx. */
         WIRE_DUAL_OPEN_COMMIT_RCVD = 7007,
         /*  dualopend->master: peer updated the psbt */
-        /*  master->dualopend: response from hook when asking for next moves */
         WIRE_DUAL_OPEN_PSBT_CHANGED = 7107,
+        /*  master->dualopend: we updated the psbt */
+        WIRE_DUAL_OPEN_PSBT_UPDATED = 7108,
         /*  master->dualopend: fail this channel open */
         WIRE_DUAL_OPEN_FAIL = 7003,
         /*  dualopend->master: we failed to negotiate channel */
@@ -74,9 +75,13 @@ bool fromwire_dual_open_commit_rcvd(const tal_t *ctx, const void *p, struct chan
 
 /* WIRE: DUAL_OPEN_PSBT_CHANGED */
 /*  dualopend->master: peer updated the psbt */
-/*  master->dualopend: response from hook when asking for next moves */
 u8 *towire_dual_open_psbt_changed(const tal_t *ctx, const struct channel_id *channel_id, const struct wally_psbt *psbt);
 bool fromwire_dual_open_psbt_changed(const tal_t *ctx, const void *p, struct channel_id *channel_id, struct wally_psbt **psbt);
+
+/* WIRE: DUAL_OPEN_PSBT_UPDATED */
+/*  master->dualopend: we updated the psbt */
+u8 *towire_dual_open_psbt_updated(const tal_t *ctx, const struct wally_psbt *psbt);
+bool fromwire_dual_open_psbt_updated(const tal_t *ctx, const void *p, struct wally_psbt **psbt);
 
 /* WIRE: DUAL_OPEN_FAIL */
 /*  master->dualopend: fail this channel open */
@@ -104,4 +109,4 @@ bool fromwire_dual_open_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:4d357681ca9bea1ad36f3fe4d3482a0a12f808dfe20b71f0b9bee78beed0950e
+// SHA256STAMP:37f122e865f6e2432cffb5ae82c77ca2f8a3714baed0c9724a92541092f3aa54
