@@ -47,6 +47,8 @@ new_uncommitted_channel(struct peer *peer)
 	uc->fc = NULL;
 	uc->our_config.id = 0;
 
+	memset(&uc->cid, 0xFF, sizeof(uc->cid));
+
 	get_channel_basepoints(ld, &uc->peer->id, uc->dbid,
 			       &uc->local_basepoints, &uc->local_funding_pubkey);
 

@@ -4,6 +4,7 @@
 #include <bitcoin/pubkey.h>
 #include <common/amount.h>
 #include <common/channel_config.h>
+#include <common/channel_id.h>
 #include <common/derive_basepoints.h>
 #include <common/status_levels.h>
 
@@ -26,6 +27,9 @@ struct uncommitted_channel {
 
 	/* Reserved dbid for if we become a real struct channel */
 	u64 dbid;
+
+	/* Channel id, v2 opens only */
+	struct channel_id cid;
 
 	/* For logging */
 	struct log *log;

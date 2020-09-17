@@ -69,14 +69,15 @@ def openchannel_v2(plugin, node_id, amount):
                                        commitment_feerate=feerate,
                                        funding_feerate=feerate)
 
+    cid = resp['channel_id']
     # We don't have an updates, so we send update until our peer is also
     # finished
     while not resp['commitments_secured']:
-        resp = plugin.rpc.openchannel_update(node_id, resp['psbt'])
+        resp = plugin.rpc.openchannel_update(cid, resp['psbt'])
 
     # fixme: pass in array of our input indexes to signonly
     signed = plugin.rpc.signpsbt(resp['psbt'])
-    return plugin.rpc.openchannel_signed(node_id, signed['signed_psbt'])
+    return plugin.rpc.openchannel_signed(cid, signed['signed_psbt'])
 
 
 @plugin.init()
