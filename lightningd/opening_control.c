@@ -376,6 +376,9 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	/* Saved with channel to disk */
 	derive_channel_id(&cid, &funding_txid, funding_txout);
 
+	/* old_remote_per_commit not valid yet, copy valid one. */
+	channel_info.old_remote_per_commit = channel_info.remote_per_commit;
+
 	/* Steals fields from uc */
 	channel = wallet_commit_channel(ld, fc->uc,
 					&cid,
@@ -480,6 +483,9 @@ static void opening_fundee_finished(struct subd *openingd,
 	}
 
 	derive_channel_id(&cid, &funding_txid, funding_outnum);
+
+	/* old_remote_per_commit not valid yet, copy valid one. */
+	channel_info.old_remote_per_commit = channel_info.remote_per_commit;
 
 	/* Consumes uc */
 	channel = wallet_commit_channel(ld, uc,
