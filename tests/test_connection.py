@@ -819,6 +819,7 @@ def test_funding_toolarge(node_factory, bitcoind):
     l1.rpc.fundchannel(l2.info['id'], amount)
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual-funding is experimental only")
 @unittest.skipIf(True, "df_opener.py requires wallycore")
 def test_v2_open(node_factory, bitcoind, chainparams):
