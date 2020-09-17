@@ -452,7 +452,7 @@ static void json_add_htlcs(struct lightningd *ld,
 	struct htlc_in_map_iter ini;
 	const struct htlc_out *hout;
 	struct htlc_out_map_iter outi;
-	u32 local_feerate = get_feerate(channel->channel_info.fee_states,
+	u32 local_feerate = get_feerate(channel->fee_states,
 					channel->opener, LOCAL);
 
 	/* FIXME: Add more fields. */
@@ -527,7 +527,7 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 	struct htlc_out_map_iter outi;
 	struct lightningd *ld = channel->peer->ld;
 	size_t num_untrimmed_htlcs = 0;
-	u32 feerate = get_feerate(channel->channel_info.fee_states,
+	u32 feerate = get_feerate(channel->fee_states,
 				  channel->opener, side);
 	struct amount_sat dust_limit;
 	struct amount_sat fee;

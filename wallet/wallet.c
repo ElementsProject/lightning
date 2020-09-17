@@ -936,6 +936,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 {
 	bool ok = true;
 	struct channel_info channel_info;
+	struct fee_states *fee_states;
 	struct short_channel_id *scid;
 	struct channel_id cid;
 	struct channel *chan;
@@ -1024,15 +1025,15 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	wallet_channel_config_load(w, db_column_u64(stmt, 5),
 				   &channel_info.their_config);
 
-	channel_info.fee_states
+	fee_states
 		= wallet_channel_fee_states_load(w,
 						 db_column_u64(stmt, 0),
 						 db_column_int(stmt, 7));
-	if (!channel_info.fee_states)
+	if (!fee_states)
 		ok = false;
 
 	if (!ok) {
-		tal_free(channel_info.fee_states);
+		tal_free(fee_states);
 		return NULL;
 	}
 
@@ -1052,8 +1053,6 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	db_column_amount_msat(stmt, 40, &msat_to_us_min);
 	db_column_amount_msat(stmt, 41, &msat_to_us_max);
 
-	/* We want it to take this, rather than copy. */
-	take(channel_info.fee_states);
 	chan = new_channel(peer, db_column_u64(stmt, 0),
 			   &wshachain,
 			   db_column_int(stmt, 6),
@@ -1083,6 +1082,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 						 db_column_u64(stmt, 0),
 						 db_column_int(stmt, 48)),
 			   &channel_info,
+			   take(fee_states),
 			   remote_shutdown_scriptpubkey,
 			   local_shutdown_scriptpubkey,
 			   final_key_idx,
@@ -1522,15 +1522,15 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_exec_prepared_v2(take(stmt));
 
 	for (enum htlc_state i = 0;
-	     i < ARRAY_SIZE(chan->channel_info.fee_states->feerate);
+	     i < ARRAY_SIZE(chan->fee_states->feerate);
 	     i++) {
-		if (!chan->channel_info.fee_states->feerate[i])
+		if (!chan->fee_states->feerate[i])
 			continue;
 		stmt = db_prepare_v2(w->db, SQL("INSERT INTO channel_feerates "
 						" VALUES(?, ?, ?)"));
 		db_bind_u64(stmt, 0, chan->dbid);
 		db_bind_int(stmt, 1, i);
-		db_bind_int(stmt, 2, *chan->channel_info.fee_states->feerate[i]);
+		db_bind_int(stmt, 2, *chan->fee_states->feerate[i]);
 		db_exec_prepared_v2(take(stmt));
 	}
 

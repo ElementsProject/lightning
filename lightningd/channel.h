@@ -91,6 +91,9 @@ struct channel {
 	/* Keys for channel */
 	struct channel_info channel_info;
 
+	/* Fee status */
+	const struct fee_states *fee_states;
+
 	/* Our local basepoints */
 	struct basepoints local_basepoints;
 
@@ -176,6 +179,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    const struct bitcoin_signature *last_htlc_sigs STEALS,
 			    const struct channel_info *channel_info,
+			    const struct fee_states *fee_states TAKES,
 			    /* NULL or stolen */
 			    u8 *remote_shutdown_scriptpubkey STEALS,
 			    const u8 *local_shutdown_scriptpubkey,

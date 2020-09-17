@@ -174,6 +174,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    const struct bitcoin_signature *last_htlc_sigs,
 			    const struct channel_info *channel_info,
+			    const struct fee_states *fee_states TAKES,
 			    /* NULL or stolen */
 			    u8 *remote_shutdown_scriptpubkey,
 			    const u8 *local_shutdown_scriptpubkey,
@@ -244,8 +245,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->last_sig = *last_sig;
 	channel->last_htlc_sigs = tal_steal(channel, last_htlc_sigs);
 	channel->channel_info = *channel_info;
-	channel->channel_info.fee_states
-		= dup_fee_states(channel, channel_info->fee_states);
+	channel->fee_states = dup_fee_states(channel, fee_states);
 	channel->shutdown_scriptpubkey[REMOTE]
 		= tal_steal(channel, remote_shutdown_scriptpubkey);
 	channel->final_key_idx = final_key_idx;

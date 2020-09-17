@@ -1735,8 +1735,8 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 
 	/* FIXME: We could detect if this changed, and adjust bounds and write
 	 * it to db iff it has. */
-	tal_free(channel->channel_info.fee_states);
-	channel->channel_info.fee_states = tal_steal(channel, fee_states);
+	tal_free(channel->fee_states);
+	channel->fee_states = tal_steal(channel, fee_states);
 	adjust_channel_feerate_bounds(channel,
 				      get_feerate(fee_states,
 						  channel->opener,
@@ -1955,8 +1955,8 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 		}
 	}
 
-	tal_free(channel->channel_info.fee_states);
-	channel->channel_info.fee_states = tal_steal(channel, fee_states);
+	tal_free(channel->fee_states);
+	channel->fee_states = tal_steal(channel, fee_states);
 	adjust_channel_feerate_bounds(channel,
 				      get_feerate(fee_states,
 						  channel->opener,
@@ -2106,8 +2106,8 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	tal_free(channel->channel_info.fee_states);
-	channel->channel_info.fee_states = tal_steal(channel, fee_states);
+	tal_free(channel->fee_states);
+	channel->fee_states = tal_steal(channel, fee_states);
 
 	/* FIXME: Check per_commitment_secret -> per_commit_point */
 	update_per_commit_point(channel, &next_per_commitment_point);

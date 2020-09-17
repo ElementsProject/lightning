@@ -216,7 +216,7 @@ void peer_start_closingd(struct channel *channel,
 	 *    fee of the final commitment transaction, as calculated in
 	 *    [BOLT #3](03-transactions.md#fee-calculation).
 	 */
-	final_commit_feerate = get_feerate(channel->channel_info.fee_states,
+	final_commit_feerate = get_feerate(channel->fee_states,
 					   channel->opener, LOCAL);
 	feelimit = commit_tx_base_fee(final_commit_feerate, 0,
 				      channel->option_anchor_outputs);
