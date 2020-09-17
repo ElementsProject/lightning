@@ -654,7 +654,7 @@ wallet_commit_channel(struct lightningd *ld,
 		      struct amount_sat total_funding,
 		      struct amount_sat our_funding,
 		      u8 channel_flags,
-		      struct channel_info *channel_info,
+		      const struct channel_info *channel_info,
 		      u32 feerate,
 		      enum side opener,
 		      const u8 *our_upfront_shutdown_script,
@@ -677,9 +677,6 @@ wallet_commit_channel(struct lightningd *ld,
 		log_broken(uc->log, "Unable to convert funds");
 		return NULL;
 	}
-
-	/* old_remote_per_commit not valid yet, copy valid one. */
-	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
 	/* BOLT-7b04b1461739c5036add61782d58ac490842d98b #9
 	 * | 222/223 | `option_dual_fund`
@@ -815,6 +812,9 @@ static void accepter_commit_received(struct subd *dualopend,
 		uncommitted_channel_disconnect(uc, LOG_BROKEN, "already have active channel");
 		goto failed;
 	}
+
+	/* old_remote_per_commit not valid yet, copy valid one. */
+	channel_info.old_remote_per_commit = channel_info.remote_per_commit;
 
 	payload->rcvd->channel =
 		wallet_commit_channel(ld, uc,
