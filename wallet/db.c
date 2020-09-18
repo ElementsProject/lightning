@@ -1253,7 +1253,7 @@ static void fillin_missing_channel_id(struct lightningd *ld, struct db *db,
 		struct channel_id cid;
 		u32 outnum;
 
-		id = db_column_int(stmt, 0);
+		id = db_column_u64(stmt, 0);
 		db_column_txid(stmt, 1, &funding_txid);
 		outnum = db_column_int(stmt, 2);
 		derive_channel_id(&cid, &funding_txid, outnum);
@@ -1262,7 +1262,7 @@ static void fillin_missing_channel_id(struct lightningd *ld, struct db *db,
 						    " SET full_channel_id = ?"
 						    " WHERE id = ?;"));
 		db_bind_channel_id(update_stmt, 0, &cid);
-		db_bind_int(update_stmt, 1, id);
+		db_bind_u64(update_stmt, 1, id);
 
 		db_exec_prepared_v2(update_stmt);
 		tal_free(update_stmt);
