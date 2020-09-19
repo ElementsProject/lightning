@@ -1537,11 +1537,42 @@ def test_gossip_no_backtalk(node_factory):
 
 @unittest.skipIf(not DEVELOPER, "Needs --dev-gossip")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Channel announcement contains genesis hash, receiving node discards on mismatch")
-def test_gossip_ratelimit(node_factory):
-    l1, l2, l3 = node_factory.get_nodes(3,
-                                        opts=[{}, {}, {'dev-gossip-time': 1568096251}])
-    # These make the channel exist, but we use our own gossip.
-    node_factory.join_nodes([l1, l2], wait_for_announce=True)
+def test_gossip_ratelimit(node_factory, bitcoind):
+    """Check that we ratelimit incoming gossip.
+
+    We create a partitioned network, in which the first partition consisting
+    of l1 and l2 is used to create an on-chain footprint and twe then feed
+    canned gossip to the other partition consisting of l3. l3 should ratelimit
+    the incoming gossip.
+
+    """
+    l3, = node_factory.get_nodes(
+        1,
+        opts=[{'dev-gossip-time': 1568096251}]
+    )
+
+    # Bump to block 102, so the following tx ends up in 103x1:
+    bitcoind.generate_block(1)
+
+    # We don't actually need to start l1 and l2, they're just there to create
+    # an unspent outpoint matching the expected script. This is also more
+    # stable against output ordering issues.
+    tx = bitcoind.rpc.createrawtransaction(
+        [],
+        [
+            # Fundrawtransaction will fill in the first output with the change
+            {"bcrt1qtwxd8wg5eanumk86vfeujvp48hfkgannf77evggzct048wggsrxsum2pmm": 0.01000000}
+        ]
+    )
+    tx = bitcoind.rpc.fundrawtransaction(tx, {'changePosition': 0})['hex']
+    tx = bitcoind.rpc.signrawtransactionwithwallet(tx)['hex']
+    txid = bitcoind.rpc.sendrawtransaction(tx)
+    wait_for(lambda: txid in bitcoind.rpc.getrawmempool())
+
+    # Make the tx gossipable:
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l3, ])
+
 
     # Here are some ones I generated earlier (by removing gossip
     # ratelimiting)
