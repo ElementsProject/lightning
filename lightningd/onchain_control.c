@@ -564,7 +564,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	channel_fail_permanent(channel, "Funding transaction spent");
 
 	/* We could come from almost any state. */
-	channel_set_state(channel, channel->state, FUNDING_SPEND_SEEN);
+	if (channel->state != FUNDING_SPEND_SEEN)
+		channel_set_state(channel, channel->state, FUNDING_SPEND_SEEN);
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,

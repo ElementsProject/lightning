@@ -387,11 +387,15 @@ void channel_set_state(struct channel *channel,
 {
 	struct channel_id cid;
 
+	/* log and sanity checks */
 	log_info(channel->log, "State changed from %s to %s",
 		 channel_state_name(channel), channel_state_str(state));
 	if (channel->state != old_state)
 		fatal("channel state %s should be %s",
 		      channel_state_name(channel), channel_state_str(old_state));
+	if (state == old_state)
+		log_broken(channel->log, "Set same state multiple times: %s",
+					 channel_state_str(state));
 
 	channel->state = state;
 
@@ -399,15 +403,13 @@ void channel_set_state(struct channel *channel,
 	wallet_channel_save(channel->peer->ld->wallet, channel);
 
 	/* plugin notification channel_state_changed */
-	if (state != old_state) {  /* see issue #4029 */
-		derive_channel_id(&cid, &channel->funding_txid, channel->funding_outnum);
-		notify_channel_state_changed(channel->peer->ld,
-					     &channel->peer->id,
-					     &cid,
-					     channel->scid,
-					     old_state,
-					     state);
-	}
+	derive_channel_id(&cid, &channel->funding_txid, channel->funding_outnum);
+	notify_channel_state_changed(channel->peer->ld,
+				     &channel->peer->id,
+				     &cid,
+				     channel->scid,
+				     old_state,
+				     state);
 }
 
 void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
@@ -432,7 +434,7 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	/* Drop non-cooperatively (unilateral) to chain. */
 	drop_to_chain(ld, channel, false);
 
-	if (channel_active(channel))
+	if (channel_active(channel) && channel->state != AWAITING_UNILATERAL)
 		channel_set_state(channel, channel->state, AWAITING_UNILATERAL);
 
 	tal_free(why);
