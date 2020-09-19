@@ -748,21 +748,31 @@ class LightningNode(object):
     def fundchannel(self, l2, amount, wait_for_active=True, announce_channel=True):
         # Give yourself some funds to work with
         addr = self.rpc.newaddr()['bech32']
+
+        def has_funds_on_addr(addr):
+            """Check if the given address has funds in the internal wallet.
+            """
+            outs = self.rpc.listfunds()['outputs']
+            addrs = [o['address'] for o in outs]
+            return addr in addrs
+
+        # We should not have funds on that address yet, we just generated it.
+        assert(not has_funds_on_addr(addr))
+
         self.bitcoin.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
-        numfunds = len(self.rpc.listfunds()['outputs'])
         self.bitcoin.generate_block(1)
-        wait_for(lambda: len(self.rpc.listfunds()['outputs']) > numfunds)
+
+        # Now we should.
+        wait_for(lambda: has_funds_on_addr(addr))
 
         # Now go ahead and open a channel
-        num_tx = len(self.bitcoin.rpc.getrawmempool())
-        tx = self.rpc.fundchannel(l2.info['id'], amount, announce=announce_channel)['tx']
-
-        wait_for(lambda: len(self.bitcoin.rpc.getrawmempool()) == num_tx + 1)
+        res = self.rpc.fundchannel(l2.info['id'], amount, announce=announce_channel)
+        wait_for(lambda: res['txid'] in self.bitcoin.rpc.getrawmempool())
         self.bitcoin.generate_block(1)
 
         # Hacky way to find our output.
         scid = "{}x1x{}".format(self.bitcoin.rpc.getblockcount(),
-                                get_tx_p2wsh_outnum(self.bitcoin, tx, amount))
+                                get_tx_p2wsh_outnum(self.bitcoin, res['tx'], amount))
 
         if wait_for_active:
             self.wait_channel_active(scid)
