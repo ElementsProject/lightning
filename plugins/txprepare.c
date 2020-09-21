@@ -150,7 +150,7 @@ static struct command_result *signpsbt_done(struct command *cmd,
 	tal_free(utx->tx);
 
 	/* The txid from the final should match our expectation. */
-	psbt_txid(utx->psbt, &txid, &utx->tx);
+	psbt_txid(utx, utx->psbt, &txid, &utx->tx);
 	if (!bitcoin_txid_eq(&txid, &utx->txid)) {
 		return command_fail(cmd, LIGHTNINGD,
 				    "Signed tx changed txid? Had '%s' now '%s'",
@@ -197,7 +197,7 @@ static struct command_result *finish_txprepare(struct command *cmd,
 
 	utx = tal(NULL, struct unreleased_tx);
 	utx->psbt = tal_steal(utx, txp->psbt);
-	psbt_txid(txp->psbt, &utx->txid, &utx->tx);
+	psbt_txid(utx, txp->psbt, &utx->txid, &utx->tx);
 
 	/* If this is a withdraw, we sign and send immediately. */
 	if (txp->is_withdraw) {
