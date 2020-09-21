@@ -79,7 +79,8 @@ void psbt_txid(const tal_t *ctx,
  */
 void psbt_elements_normalize_fees(struct wally_psbt *psbt);
 
-struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place);
+struct wally_tx *psbt_finalize(const tal_t *ctx,
+			       struct wally_psbt *psbt, bool finalize_in_place);
 
 /* psbt_make_key - Create a new, proprietary c-lightning key
  *
