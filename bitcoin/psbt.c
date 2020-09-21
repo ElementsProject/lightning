@@ -706,7 +706,8 @@ struct wally_psbt *fromwire_wally_psbt(const tal_t *ctx,
 }
 
 /* This only works on a non-final psbt because we're ALL SEGWIT! */
-void psbt_txid(const struct wally_psbt *psbt, struct bitcoin_txid *txid,
+void psbt_txid(const tal_t *ctx,
+	       const struct wally_psbt *psbt, struct bitcoin_txid *txid,
 	       struct wally_tx **wtx)
 {
 	struct wally_tx *tx;
@@ -732,7 +733,7 @@ void psbt_txid(const struct wally_psbt *psbt, struct bitcoin_txid *txid,
 
 	wally_txid(tx, txid);
 	if (wtx)
-		*wtx = tx;
+		*wtx = tal_steal(ctx, tx);
 	else
 		wally_tx_free(tx);
 }

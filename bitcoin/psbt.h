@@ -62,11 +62,13 @@ bool psbt_is_finalized(const struct wally_psbt *psbt);
 
 /**
  * psbt_txid - get the txid of the psbt (what it would be after finalization)
+ * @ctx: the context to allocate wtx off, if *@wtx isn't NULL.
  * @psbt: the psbt.
  * @txid: the transaction id (output)
  * @wtx: if non-NULL, returns a copy of the transaction (caller must wally_tx_free).
  */
-void psbt_txid(const struct wally_psbt *psbt, struct bitcoin_txid *txid,
+void psbt_txid(const tal_t *ctx,
+	       const struct wally_psbt *psbt, struct bitcoin_txid *txid,
 	       struct wally_tx **wtx);
 
 /* psbt_elements_normalize_fees - Figure out the fee output for a PSET

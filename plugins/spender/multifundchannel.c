@@ -1392,7 +1392,7 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 
 	/* Generate the TXID.  */
 	mfc->txid = tal(mfc, struct bitcoin_txid);
-	psbt_txid(mfc->psbt, mfc->txid, NULL);
+	psbt_txid(NULL, mfc->psbt, mfc->txid, NULL);
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64": funding tx %s: %s",
