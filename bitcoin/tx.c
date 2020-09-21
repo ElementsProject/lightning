@@ -502,7 +502,7 @@ struct bitcoin_tx *bitcoin_tx_with_psbt(const tal_t *ctx, struct wally_psbt *psb
 					   psbt->tx->num_outputs,
 					   psbt->tx->locktime);
 	wally_tx_free(tx->wtx);
-	tx->wtx = psbt_finalize(psbt, false);
+	tx->wtx = psbt_finalize(tx, psbt, false);
 	if (!tx->wtx && wally_tx_clone_alloc(psbt->tx, 0, &tx->wtx) != WALLY_OK)
 		return NULL;
 

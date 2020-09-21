@@ -524,7 +524,8 @@ static void wally_tx_destroy(struct wally_tx *wtx)
 	wally_tx_free(wtx);
 }
 
-struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
+struct wally_tx *psbt_finalize(const tal_t *ctx,
+			       struct wally_psbt *psbt, bool finalize_in_place)
 {
 	struct wally_psbt *tmppsbt;
 	struct wally_tx *wtx;
@@ -585,6 +586,7 @@ struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 
 	if (psbt_is_finalized(tmppsbt)
 		&& wally_psbt_extract(tmppsbt, &wtx) == WALLY_OK) {
+		tal_steal(ctx, wtx);
 		tal_add_destructor(wtx, wally_tx_destroy);
 		if (!finalize_in_place)
 			wally_psbt_free(tmppsbt);
