@@ -281,3 +281,20 @@ def test_optimistic_locking(node_factory, bitcoind):
         l1.rpc.newaddr()
 
     assert(l1.daemon.is_in_log(r'Optimistic lock on the database failed'))
+
+
+@unittest.skipIf(os.environ.get('TEST_DB_PROVIDER', None) != 'postgres', "Only applicable to postgres")
+def test_psql_key_value_dsn(node_factory, db_provider, monkeypatch):
+    from pyln.testing.db import PostgresDb
+
+    # Override get_dsn method to use the key-value style DSN
+    def get_dsn(self):
+        print("hello")
+        return "postgres://host=127.0.0.1 port={port} user=postgres password=password dbname={dbname}".format(
+            port=self.port, dbname=self.dbname
+        )
+
+    monkeypatch.setattr(PostgresDb, "get_dsn", get_dsn)
+    l1 = node_factory.get_node()
+    opt = [o for o in l1.daemon.cmd_line if '--wallet' in o][0]
+    assert('host=127.0.0.1' in opt)
