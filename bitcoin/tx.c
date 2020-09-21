@@ -26,7 +26,8 @@ struct bitcoin_tx_output *new_tx_output(const tal_t *ctx,
 	return output;
 }
 
-struct wally_tx_output *wally_tx_output(const u8 *script,
+struct wally_tx_output *wally_tx_output(const tal_t *ctx,
+					const u8 *script,
 					struct amount_sat amount)
 {
 	u64 satoshis = amount.satoshis; /* Raw: wally API */
@@ -53,7 +54,7 @@ struct wally_tx_output *wally_tx_output(const u8 *script,
 		if (ret != WALLY_OK)
 			return NULL;
 	}
-	return output;
+	return tal_steal(ctx, output);
 }
 
 int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
@@ -69,7 +70,7 @@ int bitcoin_tx_add_output(struct bitcoin_tx *tx, const u8 *script,
 	assert(tx->wtx != NULL);
 	assert(chainparams);
 
-	output = wally_tx_output(script, amount);
+	output = wally_tx_output(NULL, script, amount);
 	assert(output);
 	ret = wally_tx_add_output(tx->wtx, output);
 	assert(ret == WALLY_OK);
