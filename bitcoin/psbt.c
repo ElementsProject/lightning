@@ -359,8 +359,8 @@ void psbt_elements_normalize_fees(struct wally_psbt *psbt)
 	}
 }
 
-bool psbt_has_input(struct wally_psbt *psbt,
-		    struct bitcoin_txid *txid,
+bool psbt_has_input(const struct wally_psbt *psbt,
+		    const struct bitcoin_txid *txid,
 		    u32 outnum)
 {
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
@@ -388,7 +388,7 @@ bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
 	return wally_err == WALLY_OK;
 }
 
-struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
+struct amount_sat psbt_input_get_amount(const struct wally_psbt *psbt,
 					size_t in)
 {
 	struct amount_sat val;
@@ -408,7 +408,7 @@ struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
 	return val;
 }
 
-struct amount_sat psbt_output_get_amount(struct wally_psbt *psbt,
+struct amount_sat psbt_output_get_amount(const struct wally_psbt *psbt,
 					 size_t out)
 {
 	struct amount_asset asset;

@@ -201,7 +201,7 @@ void psbt_output_add_unknown(struct wally_psbt_output *out,
  * @psbt - psbt
  * @in - index of input whose value you're returning
  * */
-struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
+struct amount_sat psbt_input_get_amount(const struct wally_psbt *psbt,
 					size_t in);
 
 /* psbt_output_get_amount - Returns the value of this output
@@ -209,7 +209,7 @@ struct amount_sat psbt_input_get_amount(struct wally_psbt *psbt,
  * @psbt - psbt
  * @out -index of output whose value you're returning
  */
-struct amount_sat psbt_output_get_amount(struct wally_psbt *psbt,
+struct amount_sat psbt_output_get_amount(const struct wally_psbt *psbt,
 					 size_t out);
 
 /* psbt_has_input - Is this input present on this psbt
@@ -218,8 +218,8 @@ struct amount_sat psbt_output_get_amount(struct wally_psbt *psbt,
  * @txid - txid of input
  * @outnum - output index of input
  */
-bool psbt_has_input(struct wally_psbt *psbt,
-		    struct bitcoin_txid *txid,
+bool psbt_has_input(const struct wally_psbt *psbt,
+		    const struct bitcoin_txid *txid,
 		    u32 outnum);
 
 struct wally_psbt *psbt_from_b64(const tal_t *ctx,
