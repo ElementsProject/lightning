@@ -83,7 +83,8 @@ struct bitcoin_tx *pull_bitcoin_tx(const tal_t *ctx,
 /* Helper to create a wally_tx_output: make sure to wally_tx_output_free!
  * Returns NULL if amount is extreme (wally doesn't like).
  */
-struct wally_tx_output *wally_tx_output(const u8 *script,
+struct wally_tx_output *wally_tx_output(const tal_t *ctx,
+					const u8 *script,
 					struct amount_sat amount);
 
 /* Add one output to tx. */

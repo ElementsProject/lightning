@@ -178,7 +178,7 @@ static struct command_result *finish_txprepare(struct command *cmd,
 	for (size_t i = 0; i < tal_count(txp->outputs); i++) {
 		struct wally_tx_output *out;
 
-		out = wally_tx_output(txp->outputs[i].script,
+		out = wally_tx_output(NULL, txp->outputs[i].script,
 				      txp->outputs[i].amount);
 		if (!out)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -189,6 +189,7 @@ static struct command_result *finish_txprepare(struct command *cmd,
 							   struct amount_sat,
 							   &txp->outputs[i].amount));
 		psbt_add_output(txp->psbt, out, i);
+		wally_tx_output_free(out);
 	}
 
 	/* If this is elements, we should normalize
