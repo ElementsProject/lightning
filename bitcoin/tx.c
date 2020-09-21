@@ -346,7 +346,7 @@ void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
 	if (stack)
 		wally_tx_witness_stack_free(stack);
 	if (taken(witness))
-	    tal_free(witness);
+		tal_free(witness);
 }
 
 void bitcoin_tx_input_set_script(struct bitcoin_tx *tx, int innum, u8 *script)
@@ -478,12 +478,10 @@ struct bitcoin_tx *bitcoin_tx(const tal_t *ctx,
 	if (chainparams->is_elements)
 		output_count += 1;
 
-	wally_tx_init_alloc(WALLY_TX_VERSION_2, 0, input_count, output_count,
+	wally_tx_init_alloc(WALLY_TX_VERSION_2, nlocktime, input_count, output_count,
 			    &tx->wtx);
 	tal_add_destructor(tx, bitcoin_tx_destroy);
 
-	tx->wtx->locktime = nlocktime;
-	tx->wtx->version = 2;
 	tx->chainparams = chainparams;
 	tx->psbt = new_psbt(tx, tx->wtx);
 
