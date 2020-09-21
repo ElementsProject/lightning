@@ -49,6 +49,7 @@ struct wally_psbt *create_psbt(const tal_t *ctx, size_t num_inputs, size_t num_o
 
 	wally_err = wally_psbt_set_global_tx(psbt, wtx);
 	assert(wally_err == WALLY_OK);
+	wally_tx_free(wtx);
 	return psbt;
 }
 
@@ -252,7 +253,7 @@ bool psbt_input_set_signature(struct wally_psbt *psbt, size_t in,
 void psbt_input_set_wit_utxo(struct wally_psbt *psbt, size_t in,
 			     const u8 *scriptPubkey, struct amount_sat amt)
 {
-	struct wally_tx_output tx_out;
+	struct wally_tx_output *tx_out;
 	int wally_err;
 
 	assert(in < psbt->num_inputs);
@@ -265,7 +266,7 @@ void psbt_input_set_wit_utxo(struct wally_psbt *psbt, size_t in,
 								 sizeof(value));
 		assert(wally_err == WALLY_OK);
 		wally_err =
-			wally_tx_elements_output_init(scriptPubkey,
+			wally_tx_elements_output_init_alloc(scriptPubkey,
 						      tal_bytelen(scriptPubkey),
 						      chainparams->fee_asset_tag,
 						      ELEMENTS_ASSET_LEN,
@@ -274,12 +275,13 @@ void psbt_input_set_wit_utxo(struct wally_psbt *psbt, size_t in,
 						      NULL, 0, &tx_out);
 
 	} else
-		wally_err = wally_tx_output_init(amt.satoshis, /* Raw: type conv */
+		wally_err = wally_tx_output_init_alloc(amt.satoshis, /* Raw: type conv */
 						 scriptPubkey,
 						 tal_bytelen(scriptPubkey),
 						 &tx_out);
 	assert(wally_err == WALLY_OK);
-	wally_err = wally_psbt_input_set_witness_utxo(&psbt->inputs[in], &tx_out);
+	wally_err = wally_psbt_input_set_witness_utxo(&psbt->inputs[in], tx_out);
+	wally_tx_output_free(tx_out);
 	assert(wally_err == WALLY_OK);
 }
 
@@ -516,6 +518,12 @@ void psbt_output_add_unknown(struct wally_psbt_output *out,
 		abort();
 }
 
+/* Use the destructor to free the wally_tx */
+static void wally_tx_destroy(struct wally_tx *wtx)
+{
+	wally_tx_free(wtx);
+}
+
 struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 {
 	struct wally_psbt *tmppsbt;
@@ -527,6 +535,7 @@ struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 	if (!finalize_in_place) {
 		if (wally_psbt_clone_alloc(psbt, 0, &tmppsbt) != WALLY_OK)
 			return NULL;
+		tal_add_destructor(tmppsbt, psbt_destroy);
 	} else
 		tmppsbt = cast_const(struct wally_psbt *, psbt);
 
@@ -576,6 +585,7 @@ struct wally_tx *psbt_finalize(struct wally_psbt *psbt, bool finalize_in_place)
 
 	if (psbt_is_finalized(tmppsbt)
 		&& wally_psbt_extract(tmppsbt, &wtx) == WALLY_OK) {
+		tal_add_destructor(wtx, wally_tx_destroy);
 		if (!finalize_in_place)
 			wally_psbt_free(tmppsbt);
 		return wtx;
