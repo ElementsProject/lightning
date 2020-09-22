@@ -360,7 +360,7 @@ struct command_result *param_feerate_val(struct command *cmd,
  *
  * This processes the address and returns a string if it is a Bech32
  * address specified by BIP173. The string is set whether it is
- * testnet ("tb"),  mainnet ("bc"), regtest ("bcrt"), or signet ("sb")
+ * testnet or signet (both "tb"),  mainnet ("bc"), regtest ("bcrt")
  * It does not check, witness version and program size restrictions.
  *
  *  Out: witness_version: Pointer to an int that will be updated to contain
