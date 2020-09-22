@@ -242,7 +242,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	max = tal_bytelen(rawpayload);
 	payload = tlv_tlv_payload_new(cmd);
 
-	s = fromwire_varint(&rawpayload, &max);
+	s = fromwire_bigsize(&rawpayload, &max);
 	if (s != max) {
 		return htlc_accepted_continue(cmd, NULL);
 	}
