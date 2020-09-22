@@ -853,7 +853,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 	struct penalty_base *pbase;
 	struct amount_msat our_msats;
 	struct amount_sat total;
-	u8 msg_type;
+	enum dualopend_wire msg_type;
 
 	state->our_role = ACCEPTER;
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
