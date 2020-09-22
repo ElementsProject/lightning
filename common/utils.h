@@ -84,6 +84,9 @@ void setup_tmpctx(void);
 /* Free any children of tmpctx. */
 void clean_tmpctx(void);
 
+/* Steal any wally allocations onto this context. */
+void tal_gather_wally(const tal_t *ctx);
+
 /* Define sha256_eq. */
 STRUCTEQ_DEF(sha256, 0, u);
 
@@ -105,5 +108,8 @@ STRUCTEQ_DEF(ripemd160, 0, u);
 #else
 #define IFDEV(dev, nondev) (nondev)
 #endif
+
+/* Context which all wally allocations use (see common/setup.c) */
+extern const tal_t *wally_tal_ctx;
 
 #endif /* LIGHTNING_COMMON_UTILS_H */

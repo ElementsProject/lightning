@@ -5,8 +5,6 @@
 #include <sodium.h>
 #include <wally_core.h>
 
-static const tal_t *wally_tal_ctx;
-
 static void *wally_tal(size_t size)
 {
 	return tal_arr_label(wally_tal_ctx, u8, size, "wally_notleak");
