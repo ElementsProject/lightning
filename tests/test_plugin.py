@@ -587,7 +587,7 @@ def test_openchannel_hook_error_handling(node_factory, bitcoind):
     # next fundchannel should fail fatal() for l2
     with pytest.raises(RpcError, match=r'Owning subdaemon openingd died'):
         l1.rpc.fundchannel(l2.info['id'], 100004)
-    assert l2.daemon.is_in_log("Plugin rejected openchannel but also set close_to")
+    assert l2.daemon.is_in_log("BROKEN.*Plugin rejected openchannel but also set close_to")
 
 
 def test_openchannel_hook_chaining(node_factory, bitcoind):
