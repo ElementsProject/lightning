@@ -5,6 +5,7 @@
 #include <ccan/tal/str/str.h>
 #include <locale.h>
 
+const tal_t *wally_tal_ctx;
 secp256k1_context *secp256k1_ctx;
 const tal_t *tmpctx;
 
@@ -13,6 +14,15 @@ const struct chainparams *chainparams;
 bool is_elements(const struct chainparams *chainparams)
 {
 	return chainparams->is_elements;
+}
+
+/* Steal any wally allocations onto this context. */
+void tal_gather_wally(const tal_t *ctx)
+{
+	tal_t *p;
+	assert(tal_first(wally_tal_ctx));
+	while ((p = tal_first(wally_tal_ctx)) != NULL)
+		tal_steal(ctx, p);
 }
 
 #if DEVELOPER
