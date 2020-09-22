@@ -683,9 +683,9 @@ openchannel_hook_deserialize(struct openchannel_hook_payload *payload,
 	if (t_closeto) {
 		/* First plugin can set close_to. Log others. */
 		if (payload->our_upfront_shutdown_script != NULL) {
-			log_unusual(openingd->ld->log,
-				    "openchannel_hook close_to address was"
-				    " already set by other plugin. Ignoring!");
+			log_broken(openingd->ld->log,
+				   "openchannel_hook close_to address was"
+				   " already set by other plugin. Ignoring!");
 			return true;
 		}
 		switch (json_to_address_scriptpubkey(tmpctx, chainparams,
