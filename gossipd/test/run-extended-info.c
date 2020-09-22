@@ -341,7 +341,7 @@ static u8 *test_query_channel_range(const char *test_vector, const jsmntok_t *ob
 	json_for_each_arr(i, t, opt) {
 		assert(json_tok_streq(test_vector, t,
 				      "WANT_TIMESTAMPS | WANT_CHECKSUMS"));
-		tlvs->query_option = tal(tlvs, varint);
+		tlvs->query_option = tal(tlvs, bigsize_t);
 		*tlvs->query_option =
 			QUERY_ADD_TIMESTAMPS | QUERY_ADD_CHECKSUMS;
 	}

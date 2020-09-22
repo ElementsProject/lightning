@@ -21,11 +21,6 @@ size_t bigsize_len(bigsize_t v);
 /* Used for wire generation */
 typedef bigsize_t bigsize;
 
-/* FIXME: Some versions of spec using 'varint' for bigsize' */
-typedef bigsize varint;
-#define fromwire_varint fromwire_bigsize
-#define towire_varint towire_bigsize
-
 /* marshal/unmarshal functions */
 void towire_bigsize(u8 **pptr, const bigsize_t val);
 bigsize_t fromwire_bigsize(const u8 **cursor, size_t *max);
