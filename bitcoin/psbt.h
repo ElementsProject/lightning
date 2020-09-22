@@ -157,12 +157,14 @@ void psbt_elements_input_init_witness(struct wally_psbt *psbt, size_t in,
 bool psbt_input_set_redeemscript(struct wally_psbt *psbt, size_t in,
 				 const u8 *redeemscript);
 /* psbt_input_add_unknown - Add the given Key-Value to the psbt's input keymap
+ * @ctx - tal context for allocations
  * @in - psbt input to add key-value to
  * @key - key for key-value pair
  * @value - value to add
  * @value_len - length of {@value}
  */
-void psbt_input_add_unknown(struct wally_psbt_input *in,
+void psbt_input_add_unknown(const tal_t *ctx,
+			    struct wally_psbt_input *in,
 			    const u8 *key,
 			    const void *value,
 			    size_t value_len);
@@ -190,12 +192,14 @@ void *psbt_get_lightning(const struct wally_map *map,
 
 /* psbt_output_add_unknown - Add the given Key-Value to the psbt's output keymap
  *
+ * @ctx - tal context for allocations
  * @out - psbt output to add key-value to
  * @key - key for key-value pair
  * @value - value to add
  * @value_len - length of {@value}
  */
-void psbt_output_add_unknown(struct wally_psbt_output *out,
+void psbt_output_add_unknown(const tal_t *ctx,
+			     struct wally_psbt_output *out,
 			     const u8 *key, const void *value,
 			     size_t value_len);
 

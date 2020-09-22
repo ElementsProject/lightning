@@ -85,17 +85,21 @@ u8 *psbt_changeset_get_next(const tal_t *ctx, struct channel_id *cid,
 
 /* psbt_input_add_serial_id - Adds a serial id to given input
  *
+ * @ctx - tal context for allocations
  * @input - to add serial_id to
  * @serial_id - to add
  */
-void psbt_input_add_serial_id(struct wally_psbt_input *input,
-			       u16 serial_id);
+void psbt_input_add_serial_id(const tal_t *ctx,
+			      struct wally_psbt_input *input,
+			      u16 serial_id);
 /* psbt_output_add_serial_id - Adds a serial id to given output
  *
+ * @ctx - tal context for allocations
  * @output - to add serial_id to
  * @serial_id - to add
  */
-void psbt_output_add_serial_id(struct wally_psbt_output *output,
+void psbt_output_add_serial_id(const tal_t *ctx,
+			       struct wally_psbt_output *output,
 			       u16 serial_id);
 
 /* psbt_sort_by_serial_id - Sorts the inputs + outputs by serial_id

@@ -464,7 +464,8 @@ u8 *psbt_make_key(const tal_t *ctx, u8 key_subtype, const u8 *key_data)
 	return key;
 }
 
-void psbt_input_add_unknown(struct wally_psbt_input *in,
+void psbt_input_add_unknown(const tal_t *ctx,
+			    struct wally_psbt_input *in,
 			    const u8 *key,
 			    const void *value,
 			    size_t value_len)
@@ -506,7 +507,8 @@ void *psbt_get_lightning(const struct wally_map *map,
 }
 
 
-void psbt_output_add_unknown(struct wally_psbt_output *out,
+void psbt_output_add_unknown(const tal_t *ctx,
+			     struct wally_psbt_output *out,
 			     const u8 *key,
 			     const void *value,
 			     size_t value_len)
@@ -626,8 +628,6 @@ char *psbt_to_b64(const tal_t *ctx, const struct wally_psbt *psbt)
 	wally_free_string(serialized_psbt);
 	return ret_val;
 }
-
-/* Do not remove this line, it is magic */
 REGISTER_TYPE_TO_STRING(wally_psbt, psbt_to_b64);
 
 const u8 *psbt_get_bytes(const tal_t *ctx, const struct wally_psbt *psbt,

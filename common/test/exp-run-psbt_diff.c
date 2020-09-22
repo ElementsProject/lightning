@@ -114,7 +114,7 @@ static void add_in_out_with_serial(struct wally_psbt *psbt,
 			       NULL, NULL, NULL);
 	if (!in)
 		abort();
-	psbt_input_add_serial_id(in, serial_id);
+	psbt_input_add_serial_id(psbt, in, serial_id);
 
 	script = tal_arr(tmpctx, u8, 20);
 	memset(script, default_value, 20);
@@ -122,7 +122,7 @@ static void add_in_out_with_serial(struct wally_psbt *psbt,
 	out = psbt_append_output(psbt, script, sat);
 	if (!out)
 		abort();
-	psbt_output_add_serial_id(out, serial_id);
+	psbt_output_add_serial_id(psbt, out, serial_id);
 }
 
 int main(int argc, const char *argv[])
@@ -182,8 +182,8 @@ int main(int argc, const char *argv[])
 	/* Add some extra unknown info to a PSBT */
 	u8 *key = psbt_make_key(tmpctx, 0x05, NULL);
 	char *val = tal_fmt(tmpctx, "hello");
-	psbt_input_add_unknown(&end->inputs[1], key, val, tal_bytelen(val));
-	psbt_input_add_unknown(&start->inputs[1], key, val, tal_bytelen(val));
+	psbt_input_add_unknown(end, &end->inputs[1], key, val, tal_bytelen(val));
+	psbt_input_add_unknown(start, &start->inputs[1], key, val, tal_bytelen(val));
 
 	/* Swap locations */
 	struct wally_map_item tmp;
