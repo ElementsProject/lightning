@@ -392,22 +392,24 @@ u8 *psbt_changeset_get_next(const tal_t *ctx, struct channel_id *cid,
 	return NULL;
 }
 
-void psbt_input_add_serial_id(struct wally_psbt_input *input,
+void psbt_input_add_serial_id(const tal_t *ctx,
+			      struct wally_psbt_input *input,
 			      u16 serial_id)
 {
 	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_SERIAL_ID, NULL);
 	beint16_t bev = cpu_to_be16(serial_id);
 
-	psbt_input_add_unknown(input, key, &bev, sizeof(bev));
+	psbt_input_add_unknown(ctx, input, key, &bev, sizeof(bev));
 }
 
 
-void psbt_output_add_serial_id(struct wally_psbt_output *output,
+void psbt_output_add_serial_id(const tal_t *ctx,
+			      struct wally_psbt_output *output,
 			       u16 serial_id)
 {
 	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_SERIAL_ID, NULL);
 	beint16_t bev = cpu_to_be16(serial_id);
-	psbt_output_add_unknown(output, key, &bev, sizeof(bev));
+	psbt_output_add_unknown(ctx, output, key, &bev, sizeof(bev));
 }
 
 int psbt_find_serial_input(struct wally_psbt *psbt, u16 serial_id)

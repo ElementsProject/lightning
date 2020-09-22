@@ -431,7 +431,7 @@ static void psbt_add_serials(struct wally_psbt *psbt, enum side opener)
 			psbt_find_serial_input(psbt, serial_id) != -1) {
 			/* keep going; */
 		}
-		psbt_input_add_serial_id(&psbt->inputs[i], serial_id);
+		psbt_input_add_serial_id(psbt, &psbt->inputs[i], serial_id);
 	}
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
 		/* Skip ones that already have a serial id */
@@ -442,7 +442,7 @@ static void psbt_add_serials(struct wally_psbt *psbt, enum side opener)
 			psbt_find_serial_output(psbt, serial_id) != -1) {
 			/* keep going; */
 		}
-		psbt_output_add_serial_id(&psbt->outputs[i], serial_id);
+		psbt_output_add_serial_id(psbt, &psbt->outputs[i], serial_id);
 	}
 }
 
