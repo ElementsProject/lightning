@@ -1,6 +1,6 @@
 #! /usr/bin/make
-VERSION_NAME="Still Scaling the Ethereum Blockchain"
-VERSION=0.8.2.1
+VERSION_NAME="The Antiguan BTC Maximalist Society"
+VERSION=0.9.1
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
