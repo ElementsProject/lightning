@@ -584,11 +584,13 @@ class LightningNode(object):
             # Don't run --version on every subdaemon if we're valgrinding and slow.
             if SLOW_MACHINE and VALGRIND:
                 self.daemon.opts["dev-no-version-checks"] = None
-            self.daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
             if os.getenv("DEBUG_SUBD"):
                 self.daemon.opts["dev-debugger"] = os.getenv("DEBUG_SUBD")
             if valgrind:
                 self.daemon.env["LIGHTNINGD_DEV_NO_BACKTRACE"] = "1"
+            else:
+                # Under valgrind, scanning can access uninitialized mem.
+                self.daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
             if not may_reconnect:
                 self.daemon.opts["dev-no-reconnect"] = None
 
