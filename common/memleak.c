@@ -256,11 +256,13 @@ struct htable *memleak_enter_allocations(const tal_t *ctx,
 	struct htable *memtable = tal(ctx, struct htable);
 	htable_init(memtable, hash_ptr, NULL);
 
-	/* First, add all pointers off NULL to table. */
-	children_into_htable(exclude1, exclude2, memtable, NULL);
+	if (memleak_track) {
+		/* First, add all pointers off NULL to table. */
+		children_into_htable(exclude1, exclude2, memtable, NULL);
 
-	/* Iterate and call helpers to eliminate hard-to-get references. */
-	call_memleak_helpers(memtable, NULL);
+		/* Iterate and call helpers to eliminate hard-to-get references. */
+		call_memleak_helpers(memtable, NULL);
+	}
 
 	tal_add_destructor(memtable, htable_clear);
 	return memtable;
