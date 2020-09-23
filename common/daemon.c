@@ -81,10 +81,19 @@ void send_backtrace(const char *why)
 int daemon_poll(struct pollfd *fds, nfds_t nfds, int timeout)
 {
 	const char *t;
+	char *wally_leak;
 
 	t = taken_any();
 	if (t)
 		errx(1, "Outstanding taken pointers: %s", t);
+
+	wally_leak = tal_first(wally_tal_ctx);
+	if (wally_leak) {
+		/* Trigger valgrind to tell us about this! */
+		tal_free(wally_leak);
+		*wally_leak = 0;
+		errx(1, "Outstanding wally allocations");
+	}
 
 	clean_tmpctx();
 
