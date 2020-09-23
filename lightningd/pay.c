@@ -1485,7 +1485,8 @@ static struct command_result *json_listsendpays(struct command *cmd,
 		struct bolt11 *b11;
 		char *fail;
 
-		b11 = bolt11_decode(cmd, b11str, cmd->ld->our_features, NULL, &fail);
+		b11 = bolt11_decode(cmd, b11str, cmd->ld->our_features, NULL,
+				    chainparams, &fail);
 		if (!b11) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Invalid bolt11: %s", fail);

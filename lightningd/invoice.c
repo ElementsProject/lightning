@@ -1325,7 +1325,8 @@ static struct command_result *json_decodepay(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	b11 = bolt11_decode(cmd, str, cmd->ld->our_features, desc, &fail);
+	b11 = bolt11_decode(cmd, str, cmd->ld->our_features, desc, NULL,
+			    &fail);
 
 	if (!b11) {
 		return command_fail(cmd, LIGHTNINGD, "Invalid bolt11: %s", fail);

@@ -22,7 +22,9 @@ void bitcoind_getutxout_(struct bitcoind *bitcoind UNNEEDED,
 /* Generated stub for bolt11_decode */
 struct bolt11 *bolt11_decode(const tal_t *ctx UNNEEDED, const char *str UNNEEDED,
 			     const struct feature_set *our_features UNNEEDED,
-			     const char *description UNNEEDED, char **fail UNNEEDED)
+			     const char *description UNNEEDED,
+			     const struct chainparams *must_be_chain UNNEEDED,
+			     char **fail UNNEEDED)
 { fprintf(stderr, "bolt11_decode called!\n"); abort(); }
 /* Generated stub for bolt11_encode_ */
 char *bolt11_encode_(const tal_t *ctx UNNEEDED,

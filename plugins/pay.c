@@ -1317,7 +1317,7 @@ static struct command_result *json_pay(struct command *cmd,
 		return command_param_failed();
 
 	b11 = bolt11_decode(cmd, b11str, plugin_feature_set(cmd->plugin),
-			    NULL, &fail);
+			    NULL, chainparams, &fail);
 	if (!b11) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Invalid bolt11: %s", fail);
@@ -1983,7 +1983,7 @@ static struct command_result *json_paymod(struct command *cmd,
 		return command_param_failed();
 
 	b11 = bolt11_decode(cmd, b11str, plugin_feature_set(cmd->plugin),
-			    NULL, &fail);
+			    NULL, chainparams, &fail);
 	if (!b11)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Invalid bolt11: %s", fail);
