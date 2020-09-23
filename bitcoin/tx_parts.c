@@ -39,8 +39,9 @@ static struct wally_tx_input *clone_input(const tal_t *ctx,
 	}
 	assert(ret == WALLY_OK);
 
+	tal_gather_wally(tal_steal(ctx, in));
 	tal_add_destructor(in, destroy_wally_tx_input);
-	return tal_steal(ctx, in);
+	return in;
 }
 
 static void destroy_wally_tx_output(struct wally_tx_output *out)
@@ -70,8 +71,9 @@ static struct wally_tx_output *clone_output(const tal_t *ctx,
 	}
 	assert(ret == WALLY_OK);
 
+	tal_gather_wally(tal_steal(ctx, out));
 	tal_add_destructor(out, destroy_wally_tx_output);
-	return tal_steal(ctx, out);
+	return out;
 }
 
 struct tx_parts *tx_parts_from_wally_tx(const tal_t *ctx,
@@ -97,6 +99,11 @@ struct tx_parts *tx_parts_from_wally_tx(const tal_t *ctx,
 	}
 
 	return txp;
+}
+
+static void destroy_wally_tx_witness_stack(struct wally_tx_witness_stack *ws)
+{
+	wally_tx_witness_stack_free(ws);
 }
 
 /* FIXME: If libwally exposed their linearization code, we could use it */
@@ -131,6 +138,8 @@ fromwire_wally_tx_witness_stack(const tal_t *ctx,
 		}
 	}
 
+	tal_gather_wally(tal_steal(ctx, ws));
+	tal_add_destructor(ws, destroy_wally_tx_witness_stack);
 	return ws;
 }
 
@@ -225,8 +234,9 @@ static struct wally_tx_input *fromwire_wally_tx_input(const tal_t *ctx,
 		return NULL;
 	}
 
+	tal_gather_wally(tal_steal(ctx, in));
 	tal_add_destructor(in, destroy_wally_tx_input);
-	return tal_steal(ctx, in);
+	return in;
 }
 
 static struct wally_tx_output *fromwire_wally_tx_output(const tal_t *ctx,
@@ -278,8 +288,9 @@ static struct wally_tx_output *fromwire_wally_tx_output(const tal_t *ctx,
 		return NULL;
 	}
 
+	tal_gather_wally(tal_steal(ctx, out));
 	tal_add_destructor(out, destroy_wally_tx_output);
-	return tal_steal(ctx, out);
+	return out;
 }
 
 static void towire_wally_tx_input(u8 **pptr, const struct wally_tx_input *in)
