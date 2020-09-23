@@ -1594,6 +1594,7 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 
 		}
 	}
+	tal_gather_wally(psbt);
 }
 
 /*~ lightningd asks us to sign a withdrawal; same as above but in theory
