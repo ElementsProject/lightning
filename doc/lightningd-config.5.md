@@ -194,7 +194,7 @@ The following is an example of a postgresql wallet DSN:
 --wallet=postgres://user:pass@localhost:5432/db_name
 ```
 
-This will connect to a the DB server running on `localhost` port `5432`,
+This will connect to a DB server running on `localhost` port `5432`,
 authenticate with username `user` and password `pass`, and then use the
 database `db_name`. The database must exist, but the schema will be managed
 automatically by `lightningd`.
