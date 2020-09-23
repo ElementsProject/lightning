@@ -1,6 +1,7 @@
 from ephemeral_port_reserve import reserve
 from glob import glob
 
+import itertools
 import logging
 import os
 import psycopg2
@@ -140,11 +141,19 @@ class PostgresDbProvider(object):
 
     def start(self):
         passfile = os.path.join(self.directory, "pgpass.txt")
-        self.pgdir = os.path.join(self.directory, 'pgsql')
         # Need to write a tiny file containing the password so `initdb` can
         # pick it up
         with open(passfile, 'w') as f:
             f.write('cltest\n')
+
+        # Look for a postgres directory that isn't taken yet. Not locking
+        # since this is run in a single-threaded context, at the start of each
+        # test. Multiple workers have separate directories, so they can't
+        # trample each other either.
+        for i in itertools.count():
+            self.pgdir = os.path.join(self.directory, 'pgsql-{}'.format(i))
+            if not os.path.exists(self.pgdir):
+                break
 
         initdb, postgres = self.locate_path()
         subprocess.check_call([
