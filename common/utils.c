@@ -16,13 +16,25 @@ bool is_elements(const struct chainparams *chainparams)
 	return chainparams->is_elements;
 }
 
-/* Steal any wally allocations onto this context. */
-void tal_gather_wally(const tal_t *ctx)
+void tal_wally_start(void)
+{
+	if (wally_tal_ctx) {
+		/* This makes valgrind show us backtraces! */
+		*(u8 *)wally_tal_ctx = '\0';
+		abort();
+	}
+
+	wally_tal_ctx = tal_arr(NULL, char, 0);
+}
+
+void tal_wally_end(const tal_t *parent)
 {
 	tal_t *p;
-	assert(tal_first(wally_tal_ctx));
-	while ((p = tal_first(wally_tal_ctx)) != NULL)
-		tal_steal(ctx, p);
+	while ((p = tal_first(wally_tal_ctx)) != NULL) {
+		if (p != parent)
+			tal_steal(parent, p);
+	}
+	wally_tal_ctx = tal_free(wally_tal_ctx);
 }
 
 #if DEVELOPER

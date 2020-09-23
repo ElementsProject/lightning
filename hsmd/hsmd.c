@@ -1582,6 +1582,7 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 							scriptpubkey_p2wsh(psbt, wscript),
 							utxo->amount);
 			}
+			tal_wally_start();
 			if (wally_psbt_sign(psbt, privkey.secret.data,
 					    sizeof(privkey.secret.data),
 					    EC_FLAG_GRIND_R) != WALLY_OK)
@@ -1591,10 +1592,9 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 							     &pubkey),
 					      type_to_string(tmpctx, struct wally_psbt,
 							     psbt));
-
+			tal_wally_end(psbt);
 		}
 	}
-	tal_gather_wally(psbt);
 }
 
 /*~ lightningd asks us to sign a withdrawal; same as above but in theory
