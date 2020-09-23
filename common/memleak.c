@@ -77,10 +77,6 @@ static void children_into_htable(const void *exclude1, const void *exclude2,
 			if (strends(name, "struct io_plan *[]") && !tal_parent(i))
 				continue;
 
-			/* Other notleak internals. */
-			if (strends(name, "_notleak"))
-				continue;
-
 			/* Don't add tmpctx. */
 			if (streq(name, "tmpctx"))
 				continue;
@@ -244,6 +240,9 @@ static void call_memleak_helpers(struct htable *memtable, const tal_t *p)
 			else
 				pointer_referenced(memtable, p);
 			memleak_scan_region(memtable, p, tal_bytelen(p));
+		} else if (name && strends(name, "_notleak")) {
+			pointer_referenced(memtable, i);
+			call_memleak_helpers(memtable, i);
 		} else {
 			call_memleak_helpers(memtable, i);
 		}
