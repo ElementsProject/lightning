@@ -1,3 +1,24 @@
+/* Hello friends!
+ *
+ * You found me!  This is the inner, deep magic.  Right here.
+ *
+ * To help development, we have a complete set of routines to scan for
+ * tal-memory leaks (valgrind will detect non-tal memory leaks at exit,
+ * but tal hierarchies tends to get freed at exit, so we need something
+ * more sophisticated).
+ *
+ * Memleak detection is only active if DEVELOPER is set.  It does several
+ * things:
+ * 1. attaches a backtrace list to every allocation, so we can tell
+ *    where it came from.
+ * 2. when memleak_find_allocations() is called, walks the entire tal
+ *    tree and saves a pointer to all the objects it finds, with
+ *    a few internal exceptions (including everything under 'tmpctx').
+ *    It then calls registered helpers, which can remove opaque things
+ *    and handles notleak() objects.
+ * 3. provides a routine to access any remaining pointers in the
+ *    table: these are the leaks.
+ */
 #include <assert.h>
 #include <backtrace.h>
 #include <ccan/crypto/siphash24/siphash24.h>
@@ -102,8 +123,8 @@ static void scan_for_pointers(struct htable *memtable,
 	}
 }
 
-void memleak_scan_region(struct htable *memtable,
-			 const void *ptr, size_t bytelen)
+void memleak_remove_region(struct htable *memtable,
+			   const void *ptr, size_t bytelen)
 {
 	pointer_referenced(memtable, ptr);
 	scan_for_pointers(memtable, ptr, bytelen);
@@ -118,15 +139,6 @@ static void remove_with_children(struct htable *memtable, const tal_t *p)
 		remove_with_children(memtable, i);
 }
 
-void memleak_remove_referenced(struct htable *memtable, const void *root)
-{
-	/* Now delete the ones which are referenced. */
-	memleak_scan_region(memtable, root, tal_bytelen(root));
-
-	/* Remove memtable itself */
-	pointer_referenced(memtable, memtable);
-}
-
 /* memleak can't see inside hash tables, so do them manually */
 void memleak_remove_htable(struct htable *memtable, const struct htable *ht)
 {
@@ -134,7 +146,7 @@ void memleak_remove_htable(struct htable *memtable, const struct htable *ht)
 	const void *p;
 
 	for (p = htable_first(ht, &i); p; p = htable_next(ht, &i))
-		memleak_scan_region(memtable, p, tal_bytelen(p));
+		memleak_remove_region(memtable, p, tal_bytelen(p));
 }
 
 /* FIXME: If uintmap used tal, this wouldn't be necessary! */
@@ -144,7 +156,7 @@ void memleak_remove_intmap_(struct htable *memtable, const struct intmap *m)
 	intmap_index_t i;
 
 	for (p = intmap_first_(m, &i); p; p = intmap_after_(m, &i))
-		memleak_scan_region(memtable, p, tal_bytelen(p));
+		memleak_remove_region(memtable, p, tal_bytelen(p));
 }
 
 static bool ptr_match(const void *candidate, void *ptr)
@@ -156,6 +168,9 @@ const void *memleak_get(struct htable *memtable, const uintptr_t **backtrace)
 {
 	struct htable_iter it;
 	const tal_t *i, *p;
+
+	/* Remove memtable itself */
+	pointer_referenced(memtable, memtable);
 
 	i = htable_first(memtable, &it);
 	if (!i)
@@ -239,7 +254,7 @@ static void call_memleak_helpers(struct htable *memtable, const tal_t *p)
 				remove_with_children(memtable, p);
 			else
 				pointer_referenced(memtable, p);
-			memleak_scan_region(memtable, p, tal_bytelen(p));
+			memleak_remove_region(memtable, p, tal_bytelen(p));
 		} else if (name && strends(name, "_notleak")) {
 			pointer_referenced(memtable, i);
 			call_memleak_helpers(memtable, i);
@@ -249,9 +264,9 @@ static void call_memleak_helpers(struct htable *memtable, const tal_t *p)
 	}
 }
 
-struct htable *memleak_enter_allocations(const tal_t *ctx,
-					 const void *exclude1,
-					 const void *exclude2)
+struct htable *memleak_find_allocations(const tal_t *ctx,
+					const void *exclude1,
+					const void *exclude2)
 {
 	struct htable *memtable = tal(ctx, struct htable);
 	htable_init(memtable, hash_ptr, NULL);

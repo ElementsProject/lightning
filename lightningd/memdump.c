@@ -132,7 +132,7 @@ static bool handle_strmap(const char *member, void *p, void *memtable_)
 {
 	struct htable *memtable = memtable_;
 
-	memleak_scan_region(memtable, p, tal_bytelen(p));
+	memleak_remove_region(memtable, p, tal_bytelen(p));
 
 	/* Keep going */
 	return true;
@@ -154,7 +154,7 @@ static void scan_mem(struct command *cmd,
 	const uintptr_t *backtrace;
 
 	/* Enter everything, except this cmd and its jcon */
-	memtable = memleak_enter_allocations(cmd, cmd, cmd->jcon);
+	memtable = memleak_find_allocations(cmd, cmd, cmd->jcon);
 
 	/* First delete known false positives. */
 	memleak_remove_htable(memtable, &ld->topology->txwatches.raw);
@@ -164,7 +164,7 @@ static void scan_mem(struct command *cmd,
 	memleak_remove_htable(memtable, &ld->htlc_sets.raw);
 
 	/* Now delete ld and those which it has pointers to. */
-	memleak_remove_referenced(memtable, ld);
+	memleak_remove_region(memtable, ld, sizeof(*ld));
 
 	json_array_start(response, "leaks");
 	while ((i = memleak_get(memtable, &backtrace)) != NULL) {

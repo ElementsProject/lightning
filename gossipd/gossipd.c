@@ -1346,10 +1346,10 @@ static struct io_plan *dev_gossip_memleak(struct io_conn *conn,
 	struct htable *memtable;
 	bool found_leak;
 
-	memtable = memleak_enter_allocations(tmpctx, msg, msg);
+	memtable = memleak_find_allocations(tmpctx, msg, msg);
 
 	/* Now delete daemon and those which it has pointers to. */
-	memleak_remove_referenced(memtable, daemon);
+	memleak_remove_region(memtable, daemon, sizeof(*daemon));
 
 	found_leak = dump_memleak(memtable);
 	daemon_conn_send(daemon->master,

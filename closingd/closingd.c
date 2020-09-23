@@ -581,14 +581,12 @@ static void closing_dev_memleak(const tal_t *ctx,
 {
 	struct htable *memtable;
 
-	memtable = memleak_enter_allocations(tmpctx,
-					     scriptpubkey[LOCAL],
-					     scriptpubkey[REMOTE]);
+	memtable = memleak_find_allocations(tmpctx, NULL, NULL);
 
-	/* Now delete known pointers (these aren't really roots, just
-	 * pointers we know are referenced).*/
-	memleak_remove_referenced(memtable, ctx);
-	memleak_remove_referenced(memtable, funding_wscript);
+	memleak_remove_pointer(memtable, ctx);
+	memleak_remove_pointer(memtable, scriptpubkey[LOCAL]);
+	memleak_remove_pointer(memtable, scriptpubkey[REMOTE]);
+	memleak_remove_pointer(memtable, funding_wscript);
 
 	dump_memleak(memtable);
 }
@@ -653,7 +651,7 @@ int main(int argc, char *argv[])
 		master_badmsg(WIRE_CLOSINGD_INIT, msg);
 
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = hsmd */
-	per_peer_state_set_fds(pps, 3, 4, 5);
+	per_peer_state_set_fds(notleak(pps), 3, 4, 5);
 
 	snprintf(fee_negotiation_step_str, sizeof(fee_negotiation_step_str),
 		 "%" PRIu64 "%s", fee_negotiation_step,

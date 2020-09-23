@@ -3088,10 +3088,10 @@ static void handle_dev_memleak(struct peer *peer, const u8 *msg)
 	struct htable *memtable;
 	bool found_leak;
 
-	memtable = memleak_enter_allocations(tmpctx, msg, msg);
+	memtable = memleak_find_allocations(tmpctx, msg, msg);
 
 	/* Now delete peer and things it has pointers to. */
-	memleak_remove_referenced(memtable, peer);
+	memleak_remove_region(memtable, peer, tal_bytelen(peer));
 
 	found_leak = dump_memleak(memtable);
 	wire_sync_write(MASTER_FD,
