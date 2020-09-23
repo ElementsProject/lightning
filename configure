@@ -83,7 +83,7 @@ check_command()
     shift 1
 
     echo -n "checking for $name... "
-    if "$@" 2>/dev/null; then
+    if "$@" >/dev/null 2>&1; then
 	echo 'found'
 	return 0
     fi
@@ -366,6 +366,15 @@ else
     HAVE_PYTHON3_MAKO=0
 fi
 
+if echo | check_command sha256sum sha256sum; then
+    SHA256SUM=sha256sum
+elif echo | check_command "shasum -a 256" shasum -a 256; then
+    SHA256SUM="shasum -a 256"
+else
+    echo "*** We need sha256sum or shasum -a 256!" >&2
+    exit 1
+fi
+
 # Now we can finally set our warning flags
 if [ -z ${CWARNFLAGS+x} ]; then
     CWARNFLAGS=$(default_cwarnflags "$COPTFLAGS" \
@@ -392,6 +401,7 @@ add_var STATIC "$STATIC"
 add_var ASAN "$ASAN"
 add_var TEST_NETWORK "$TEST_NETWORK"
 add_var HAVE_PYTHON3_MAKO "$HAVE_PYTHON3_MAKO"
+add_var SHA256SUM "$SHA256SUM"
 
 # Hack to avoid sha256 name clash with libwally: will be fixed when that
 # becomes a standalone shared lib.
