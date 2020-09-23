@@ -66,8 +66,11 @@ static const u8 *linearize_input(const tal_t *ctx,
 	struct wally_psbt *psbt = create_psbt(NULL, 1, 0, 0);
 	size_t byte_len;
 
+	tal_wally_start();
 	if (wally_tx_add_input(psbt->tx, tx_in) != WALLY_OK)
 		abort();
+	tal_wally_end(psbt->tx);
+
 	psbt->inputs[0] = *in;
 	psbt->num_inputs++;
 
@@ -104,8 +107,10 @@ static const u8 *linearize_output(const tal_t *ctx,
 	memset(&txid, 0, sizeof(txid));
 	psbt_append_input(psbt, &txid, 0, 0, NULL, NULL, NULL);
 
+	tal_wally_start();
 	if (wally_tx_add_output(psbt->tx, tx_out) != WALLY_OK)
 		abort();
+	tal_wally_end(psbt->tx);
 
 	psbt->outputs[0] = *out;
 	psbt->num_outputs++;

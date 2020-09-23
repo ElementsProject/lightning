@@ -84,8 +84,11 @@ void setup_tmpctx(void);
 /* Free any children of tmpctx. */
 void clean_tmpctx(void);
 
-/* Steal any wally allocations onto this context. */
-void tal_gather_wally(const tal_t *ctx);
+/* Call this before any libwally function which allocates. */
+void tal_wally_start(void);
+/* Then call this to reparent everything onto this parent (which must
+ * have been tal_steal() if it was allocated by libwally here) */
+void tal_wally_end(const tal_t *parent);
 
 /* Define sha256_eq. */
 STRUCTEQ_DEF(sha256, 0, u);

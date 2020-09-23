@@ -9,8 +9,7 @@ static void destroy_wally_tx_input(struct wally_tx_input *in)
 	wally_tx_input_free(in);
 }
 
-static struct wally_tx_input *clone_input(const tal_t *ctx,
-					  const struct wally_tx_input *src)
+static struct wally_tx_input *clone_input(const struct wally_tx_input *src)
 {
 	struct wally_tx_input *in;
 	int ret;
@@ -39,7 +38,6 @@ static struct wally_tx_input *clone_input(const tal_t *ctx,
 	}
 	assert(ret == WALLY_OK);
 
-	tal_gather_wally(tal_steal(ctx, in));
 	tal_add_destructor(in, destroy_wally_tx_input);
 	return in;
 }
@@ -49,8 +47,7 @@ static void destroy_wally_tx_output(struct wally_tx_output *out)
 	wally_tx_output_free(out);
 }
 
-static struct wally_tx_output *clone_output(const tal_t *ctx,
-					  const struct wally_tx_output *src)
+static struct wally_tx_output *clone_output(const struct wally_tx_output *src)
 {
 	struct wally_tx_output *out;
 	int ret;
@@ -71,7 +68,6 @@ static struct wally_tx_output *clone_output(const tal_t *ctx,
 	}
 	assert(ret == WALLY_OK);
 
-	tal_gather_wally(tal_steal(ctx, out));
 	tal_add_destructor(out, destroy_wally_tx_output);
 	return out;
 }
@@ -86,17 +82,19 @@ struct tx_parts *tx_parts_from_wally_tx(const tal_t *ctx,
 	txp->inputs = tal_arrz(txp, struct wally_tx_input *, wtx->num_inputs);
 	txp->outputs = tal_arrz(txp, struct wally_tx_output *, wtx->num_outputs);
 
+	tal_wally_start();
 	for (size_t i = 0; i < wtx->num_inputs; i++) {
 		if (input != -1 && input != i)
 			continue;
-		txp->inputs[i] = clone_input(txp->inputs, &wtx->inputs[i]);
+		txp->inputs[i] = clone_input(&wtx->inputs[i]);
 	}
 
 	for (size_t i = 0; i < wtx->num_outputs; i++) {
 		if (output != -1 && output != i)
 			continue;
-		txp->outputs[i] = clone_output(txp->outputs, &wtx->outputs[i]);
+		txp->outputs[i] = clone_output(&wtx->outputs[i]);
 	}
+	tal_wally_end(txp);
 
 	return txp;
 }
@@ -120,6 +118,7 @@ fromwire_wally_tx_witness_stack(const tal_t *ctx,
 	if (num == 0)
 		return NULL;
 
+	tal_wally_start();
 	ret = wally_tx_witness_stack_init_alloc(num, &ws);
 	if (ret != WALLY_OK) {
 		fromwire_fail(cursor, max);
@@ -134,12 +133,14 @@ fromwire_wally_tx_witness_stack(const tal_t *ctx,
 		if (ret != WALLY_OK) {
 			wally_tx_witness_stack_free(ws);
 			fromwire_fail(cursor, max);
-			return NULL;
+			ws = NULL;
+			goto out;
 		}
 	}
 
-	tal_gather_wally(tal_steal(ctx, ws));
 	tal_add_destructor(ws, destroy_wally_tx_witness_stack);
+out:
+	tal_wally_end(tal_steal(ctx, ws));
 	return ws;
 }
 
@@ -181,6 +182,7 @@ static struct wally_tx_input *fromwire_wally_tx_input(const tal_t *ctx,
 		script = tal_free(script);
 	ws = fromwire_wally_tx_witness_stack(tmpctx, cursor, max);
 
+	tal_wally_start();
 	if (is_elements(chainparams)) {
 		u8 *blinding_nonce, *entropy, *issuance_amount,
 			*inflation_keys, *issuance_amount_rangeproof,
@@ -231,11 +233,12 @@ static struct wally_tx_input *fromwire_wally_tx_input(const tal_t *ctx,
 	}
 	if (ret != WALLY_OK) {
 		fromwire_fail(cursor, max);
-		return NULL;
+		in = NULL;
+	} else {
+		tal_add_destructor(in, destroy_wally_tx_input);
 	}
 
-	tal_gather_wally(tal_steal(ctx, in));
-	tal_add_destructor(in, destroy_wally_tx_input);
+	tal_wally_end(tal_steal(ctx, in));
 	return in;
 }
 
@@ -250,6 +253,7 @@ static struct wally_tx_output *fromwire_wally_tx_output(const tal_t *ctx,
 	script = fromwire_tal_arrn(tmpctx,
 				   cursor, max, fromwire_u32(cursor, max));
 
+	tal_wally_start();
 	if (is_elements(chainparams)) {
 		u8 *asset, *value, *nonce, *surjectionproof, *rangeproof;
 
@@ -285,11 +289,12 @@ static struct wally_tx_output *fromwire_wally_tx_output(const tal_t *ctx,
 	}
 	if (ret != WALLY_OK) {
 		fromwire_fail(cursor, max);
-		return NULL;
+		out = NULL;
+	} else {
+		tal_add_destructor(out, destroy_wally_tx_output);
 	}
+	tal_wally_end(tal_steal(ctx, out));
 
-	tal_gather_wally(tal_steal(ctx, out));
-	tal_add_destructor(out, destroy_wally_tx_output);
 	return out;
 }
 

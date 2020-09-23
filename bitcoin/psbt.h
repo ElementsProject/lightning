@@ -79,8 +79,22 @@ void psbt_txid(const tal_t *ctx,
  */
 void psbt_elements_normalize_fees(struct wally_psbt *psbt);
 
-struct wally_tx *psbt_finalize(const tal_t *ctx,
-			       struct wally_psbt *psbt, bool finalize_in_place);
+/**
+ * psbt_finalize - finalize this psbt.
+ *
+ * Returns false if we can't, otherwise returns true and psbt_is_finalized()
+ * is true.
+ */
+bool psbt_finalize(struct wally_psbt *psbt);
+
+/**
+ * psbt_final_tx - extract transaction from finalized psbt.
+ * @ctx: context to tallocate return
+ * @psbt: psbt to extract.
+ *
+ * If @psbt isn't final, or we can't extract tx, returns NULL.
+ */
+struct wally_tx *psbt_final_tx(const tal_t *ctx, const struct wally_psbt *psbt);
 
 /* psbt_make_key - Create a new, proprietary c-lightning key
  *

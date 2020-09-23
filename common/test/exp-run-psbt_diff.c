@@ -136,8 +136,10 @@ int main(int argc, const char *argv[])
 
 	/* Create two psbts! */
 	end = create_psbt(tmpctx, 1, 1, 0);
+	tal_wally_start();
 	if (wally_psbt_clone_alloc(end, flags, &start) != WALLY_OK)
 		abort();
+	tal_wally_end(tmpctx);
 	diff_count(start, end, 0, 0);
 	diff_count(end, start, 0, 0);
 
@@ -147,22 +149,28 @@ int main(int argc, const char *argv[])
 	diff_count(end, start, 0, 1);
 
 	/* Add another one, before previous */
+	tal_wally_start();
 	if (wally_psbt_clone_alloc(end, flags, &start) != WALLY_OK)
 		abort();
+	tal_wally_end(tmpctx);
 	add_in_out_with_serial(end, 5, 2);
 	diff_count(start, end, 1, 0);
 	diff_count(end, start, 0, 1);
 
 	/* Add another, at end */
+	tal_wally_start();
 	if (wally_psbt_clone_alloc(end, flags, &start) != WALLY_OK)
 		abort();
+	tal_wally_end(tmpctx);
 	add_in_out_with_serial(end, 15, 3);
 	diff_count(start, end, 1, 0);
 	diff_count(end, start, 0, 1);
 
 	/* Add another, in middle */
+	tal_wally_start();
 	if (wally_psbt_clone_alloc(end, flags, &start) != WALLY_OK)
 		abort();
+	tal_wally_end(tmpctx);
 	add_in_out_with_serial(end, 11, 4);
 	diff_count(start, end, 1, 0);
 	diff_count(end, start, 0, 1);
@@ -171,8 +179,10 @@ int main(int argc, const char *argv[])
 	 * (we accomplish this by removing and then
 	 * readding an input/output with the same serial_id
 	 * but different value) */
+	tal_wally_start();
 	if (wally_psbt_clone_alloc(end, flags, &start) != WALLY_OK)
 		abort();
+	tal_wally_end(tmpctx);
 	psbt_rm_output(end, 0);
 	psbt_rm_input(end, 0);
 	add_in_out_with_serial(end, 5, 5);

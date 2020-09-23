@@ -812,7 +812,9 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 
 	sending = tal(cmd, struct sending_psbt);
 	sending->cmd = cmd;
-	sending->wtx = psbt_finalize(sending, psbt, true);
+
+	psbt_finalize(psbt);
+	sending->wtx = psbt_final_tx(sending, psbt);
 	if (!sending->wtx)
 		return command_fail(cmd, LIGHTNINGD,
 				    "PSBT not finalizeable %s",

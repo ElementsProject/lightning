@@ -614,7 +614,7 @@ openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 	tal_steal(tmpctx, payload);
 
 	/* Finalize it, if not already. It shouldn't work entirely */
-	psbt_finalize(tmpctx, payload->psbt, true);
+	psbt_finalize(payload->psbt);
 
 	if (!psbt_side_finalized(payload->ld->log, payload->psbt, REMOTE))
 		fatal("Plugin must return a 'psbt' with signatures for their inputs"

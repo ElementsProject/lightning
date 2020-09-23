@@ -151,10 +151,12 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 		wally_tx_input_get_txid(&psbt->tx->inputs[i], &txid);
 		utxo_tx = wallet_transaction_get(psbt, cmd->ld->wallet,
 						 &txid);
-		if (utxo_tx)
+		if (utxo_tx) {
+			tal_wally_start();
 			wally_psbt_input_set_utxo(&psbt->inputs[i],
 						  utxo_tx->wtx);
-		else
+			tal_wally_end(psbt);
+		} else
 			log_broken(cmd->ld->log,
 				   "No transaction found for UTXO %s",
 				   type_to_string(tmpctx, struct bitcoin_txid,
