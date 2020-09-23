@@ -15,10 +15,13 @@ FUZZ_COMMON_OBJS :=					\
 	common/bech32.o					\
 	common/bip32.o					\
 	common/bigsize.o				\
+	common/close_tx.o				\
 	common/channel_id.o				\
+	common/permute_tx.o				\
 	common/json.o					\
 	common/json_stream.o				\
 	common/wireaddr.o				\
+	common/setup.o					\
 	common/type_to_string.o				\
 	common/utils.o					\
 	wire/fromwire.o					\
