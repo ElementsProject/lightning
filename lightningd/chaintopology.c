@@ -108,6 +108,7 @@ static void filter_block_txs(struct chain_topology *topo, struct block *b)
 		txwatch_inform(topo, &txid, tx);
 	}
 	b->full_txs = tal_free(b->full_txs);
+	b->txids = tal_free(b->txids);
 }
 
 size_t get_tx_depth(const struct chain_topology *topo,
