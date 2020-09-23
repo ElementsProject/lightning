@@ -7,7 +7,7 @@
 
 static void *wally_tal(size_t size)
 {
-	return tal_arr_label(wally_tal_ctx, u8, size, "wally_notleak");
+	return tal_arr_label(wally_tal_ctx, u8, size, "wally_tal");
 }
 
 static void wally_free(void *ptr)
