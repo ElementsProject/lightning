@@ -78,10 +78,14 @@ struct bolt11 {
 /* Decodes and checks signature; returns NULL on error; description is
  * (optional) out-of-band description of payment, for `h` field.
  * fset is NULL to accept any features (usually not desirable!).
+ *
+ * if @must_be_chain is not NULL, fails unless it's this chain.
  */
 struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 			     const struct feature_set *our_features,
-			     const char *description, char **fail);
+			     const char *description,
+			     const struct chainparams *must_be_chain,
+			     char **fail);
 
 /* Initialize an empty bolt11 struct with optional amount */
 struct bolt11 *new_bolt11(const tal_t *ctx,

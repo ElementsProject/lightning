@@ -549,7 +549,9 @@ struct bolt11 *new_bolt11(const tal_t *ctx,
 /* Decodes and checks signature; returns NULL on error. */
 struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 			     const struct feature_set *our_features,
-			     const char *description, char **fail)
+			     const char *description,
+			     const struct chainparams *must_be_chain,
+			     char **fail)
 {
 	char *hrp, *amountstr, *prefix;
 	u5 *data;
@@ -602,9 +604,21 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 		return decode_fail(b11, fail,
 				   "Prefix '%s' does not start with ln", prefix);
 
-	b11->chain = chainparams_by_bip173(prefix + 2);
-	if (!b11->chain)
-		return decode_fail(b11, fail, "Unknown chain %s", prefix + 2);
+	/* Signet chose to use prefix 'tb', just like testnet.  So we tread
+	 * carefully here: */
+	if (must_be_chain) {
+		if (streq(prefix + 2, must_be_chain->bip173_name))
+			b11->chain = must_be_chain;
+		else
+			return decode_fail(b11, fail, "Prefix %s is not for %s",
+					   prefix + 2,
+					   must_be_chain->network_name);
+	} else {
+		b11->chain = chainparams_by_bip173(prefix + 2);
+		if (!b11->chain)
+			return decode_fail(b11, fail, "Unknown chain %s",
+					   prefix + 2);
+	}
 
 	/* BOLT #11:
 	 *
