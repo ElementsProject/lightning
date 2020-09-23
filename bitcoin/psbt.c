@@ -645,15 +645,13 @@ struct wally_psbt *psbt_from_b64(const tal_t *ctx,
 
 char *psbt_to_b64(const tal_t *ctx, const struct wally_psbt *psbt)
 {
-	char *serialized_psbt, *ret_val;
+	char *serialized_psbt;
 	int ret;
 
 	ret = wally_psbt_to_base64(psbt, 0, &serialized_psbt);
 	assert(ret == WALLY_OK);
 
-	ret_val = tal_strdup(ctx, serialized_psbt);
-	wally_free_string(serialized_psbt);
-	return ret_val;
+	return tal_steal(ctx, serialized_psbt);
 }
 REGISTER_TYPE_TO_STRING(wally_psbt, psbt_to_b64);
 
