@@ -24,13 +24,12 @@ static char *to_base58(const tal_t *ctx, u8 version,
 	buf[0] = version;
 	memcpy(buf + 1, rmd, sizeof(*rmd));
 
-	if (wally_base58_from_bytes((const unsigned char *) buf, total_length, BASE58_FLAG_CHECKSUM, &out) != WALLY_OK) {
-		return NULL;
-	}else{
-		char *res = tal_strdup(ctx, out);
-		wally_free_string(out);
-		return res;
-	}
+	if (wally_base58_from_bytes((const unsigned char *) buf,
+				    total_length, BASE58_FLAG_CHECKSUM, &out)
+	    != WALLY_OK)
+		out = NULL;
+
+	return tal_steal(ctx, out);
 }
 
 char *bitcoin_to_base58(const tal_t *ctx, const struct chainparams *chainparams,
