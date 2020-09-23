@@ -112,18 +112,15 @@ struct bitcoin_tx *htlc_success_tx(const tal_t *ctx UNNEEDED,
 /* Generated stub for master_badmsg */
 void master_badmsg(u32 type_expected UNNEEDED, const u8 *msg)
 { fprintf(stderr, "master_badmsg called!\n"); abort(); }
-/* Generated stub for memleak_enter_allocations */
-struct htable *memleak_enter_allocations(const tal_t *ctx UNNEEDED,
-					 const void *exclude1 UNNEEDED,
-					 const void *exclude2 UNNEEDED)
-{ fprintf(stderr, "memleak_enter_allocations called!\n"); abort(); }
-/* Generated stub for memleak_remove_referenced */
-void memleak_remove_referenced(struct htable *memtable UNNEEDED, const void *root UNNEEDED)
-{ fprintf(stderr, "memleak_remove_referenced called!\n"); abort(); }
-/* Generated stub for memleak_scan_region */
-void memleak_scan_region(struct htable *memtable UNNEEDED,
-			 const void *p UNNEEDED, size_t bytelen UNNEEDED)
-{ fprintf(stderr, "memleak_scan_region called!\n"); abort(); }
+/* Generated stub for memleak_find_allocations */
+struct htable *memleak_find_allocations(const tal_t *ctx UNNEEDED,
+					const void *exclude1 UNNEEDED,
+					const void *exclude2 UNNEEDED)
+{ fprintf(stderr, "memleak_find_allocations called!\n"); abort(); }
+/* Generated stub for memleak_remove_region */
+void memleak_remove_region(struct htable *memtable UNNEEDED,
+			   const void *p UNNEEDED, size_t bytelen UNNEEDED)
+{ fprintf(stderr, "memleak_remove_region called!\n"); abort(); }
 /* Generated stub for new_coin_chain_fees */
 struct chain_coin_mvt *new_coin_chain_fees(const tal_t *ctx UNNEEDED,
 					   const char *account_name UNNEEDED,
