@@ -122,6 +122,9 @@ static void parse_include(const char *filename, bool must_exist, bool early,
 			/* Only valid forms are "foo" and "foo=bar" */
 			all_args[i] = tal_fmt(all_args, "--%s", lines[i]);
 		}
+		/* This isn't a leak either */
+		if (all_args[i])
+			tal_set_name(all_args[i], TAL_LABEL(config_notleak, ""));
 	}
 
 	/*
