@@ -15,6 +15,7 @@ FUZZ_COMMON_OBJS :=					\
 	common/bech32.o					\
 	common/bip32.o					\
 	common/bigsize.o				\
+	common/channel_id.o				\
 	common/json.o					\
 	common/json_stream.o				\
 	common/wireaddr.o				\
