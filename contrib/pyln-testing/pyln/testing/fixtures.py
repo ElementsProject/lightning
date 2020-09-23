@@ -26,8 +26,16 @@ def test_base_dir():
 
     yield directory
 
-    if os.listdir(directory) == []:
+    # Now check if any test directory is left because the corresponding test
+    # failed. If there are no such tests we can clean up the root test
+    # directory.
+    contents = [d for d in os.listdir(directory) if os.path.isdir(d) and d.startswith('test_')]
+    if contents == []:
         shutil.rmtree(directory)
+    else:
+        print("Leaving base_dir {} intact, it still has test sub-directories with failure details: {}".format(
+            directory, contents
+        ))
 
 
 @pytest.fixture(autouse=True)
