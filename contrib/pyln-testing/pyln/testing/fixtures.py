@@ -316,7 +316,7 @@ providers = {
 }
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def db_provider(test_base_dir):
     provider = providers[os.getenv('TEST_DB_PROVIDER', 'sqlite3')](test_base_dir)
     provider.start()
