@@ -1889,3 +1889,42 @@ def test_htlc_accepted_hook_crash(node_factory, executor):
 
     with pytest.raises(RpcError, match=r'failed: WIRE_TEMPORARY_NODE_FAILURE'):
         f.result(10)
+
+
+def test_htlc_accepted_hook_failcodes(node_factory):
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-failcode.py')
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'plugin': plugin}])
+
+    # First let's test the newer failure_message, which should get passed
+    # through without being mapped.
+    tests = {
+        '2002': 'WIRE_TEMPORARY_NODE_FAILURE',
+        '400F' + 12 * '00': 'WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS',
+        '4009': 'WIRE_REQUIRED_CHANNEL_FEATURE_MISSING',
+        '4016' + 3 * '00': 'WIRE_INVALID_ONION_PAYLOAD',
+    }
+
+    for failmsg, expected in tests.items():
+        l2.rpc.setfailcode(msg=failmsg)
+        inv = l2.rpc.invoice(42, 'failmsg{}'.format(failmsg), '')['bolt11']
+        with pytest.raises(RpcError, match=r'failcodename.: .{}.'.format(expected)):
+            l1.rpc.pay(inv)
+
+    # And now test the older failcode return value. This is deprecated and can
+    # be removed once we have removed the failcode correction code in
+    # peer_htlcs.c. The following ones get remapped
+    tests.update({
+        '400F': 'WIRE_TEMPORARY_NODE_FAILURE',
+        '4009': 'WIRE_TEMPORARY_NODE_FAILURE',
+        '4016': 'WIRE_TEMPORARY_NODE_FAILURE',
+    })
+
+    for failcode, expected in tests.items():
+        # Do not attempt with full messages
+        if len(failcode) > 4:
+            continue
+
+        l2.rpc.setfailcode(code=failcode)
+        inv = l2.rpc.invoice(42, 'failcode{}'.format(failcode), '')['bolt11']
+        with pytest.raises(RpcError, match=r'failcodename.: .{}.'.format(expected)):
+            l1.rpc.pay(inv)
