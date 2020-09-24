@@ -211,7 +211,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # Attach public channel to l1 so it doesn't look like a dead-end.
     l0 = node_factory.get_node()
     l0.rpc.connect(l1.info['id'], 'localhost', l1.port)
-    scid_dummy = l0.fund_channel(l1, 2 * (10**5))
+    scid_dummy = l0.fundchannel(l1, 2 * (10**5))
     bitcoind.generate_block(5)
 
     # Make sure channel is totally public.
@@ -267,7 +267,7 @@ def test_invoice_routeboost_private(node_factory, bitcoind):
     # The existence of a public channel, even without capacity, will suppress
     # the exposure of private channels.
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    scid2 = l3.fund_channel(l2, (10**5))
+    scid2 = l3.fundchannel(l2, (10**5))
     bitcoind.generate_block(5)
 
     # Make sure channel is totally public.

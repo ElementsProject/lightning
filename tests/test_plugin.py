@@ -1874,7 +1874,7 @@ def test_htlc_accepted_hook_crash(node_factory, executor):
         allow_broken_log=True
     )
     l1.connect(l2)
-    l1.fund_channel(l2, 10**6)
+    l1.fundchannel(l2, 10**6)
 
     i = l2.rpc.invoice(500, "crashpls", "crashpls")['bolt11']
 
