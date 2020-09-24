@@ -843,7 +843,7 @@ msgid "DELETE FROM shachains WHERE id IN (  SELECT shachain_remote_id   FROM cha
 msgstr ""
 
 #: wallet/wallet.c:1653
-msgid "UPDATE channels SET state=?, peer_id=?WHERE channels.id=?"
+msgid "UPDATE channels SET state=?, peer_id=? WHERE channels.id=?"
 msgstr ""
 
 #: wallet/wallet.c:1667
@@ -1089,4 +1089,4 @@ msgstr ""
 #: wallet/test/run-wallet.c:1359
 msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
-#  SHA256STAMP:c44c0588e8f2139e6530e926acbd3186bbbd65bec871d5274c8480fd8dcbd519
+#  SHA256STAMP:b5142a6c1570a9fdf0745214134e54ff79e3d91408a91a1555cdb0a546fb0c7b
