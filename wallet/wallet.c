@@ -414,7 +414,7 @@ static void db_set_utxo(struct db *db, const struct utxo *utxo)
 		assert(!utxo->reserved_til);
 
 	stmt = db_prepare_v2(
-		db, SQL("UPDATE outputs SET status=?, reserved_til=?"
+		db, SQL("UPDATE outputs SET status=?, reserved_til=? "
 			"WHERE prev_out_tx=? AND prev_out_index=?"));
 	db_bind_int(stmt, 0, output_status_in_db(utxo->status));
 	db_bind_int(stmt, 1, utxo->reserved_til);
