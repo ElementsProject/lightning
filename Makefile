@@ -208,7 +208,7 @@ WIRE_GEN_DEPS := $(WIRE_GEN) $(wildcard tools/gen/*_template)
 ALL_PROGRAMS :=
 ALL_TEST_PROGRAMS :=
 ALL_C_SOURCES :=
-ALL_C_HEADERS := gen_header_versions.h gen_list_of_builtin_plugins.h gen_version.h
+ALL_C_HEADERS := gen_header_versions.h gen_version.h
 
 CPPFLAGS += -DBINTOPKGLIBEXECDIR="\"$(shell sh tools/rel.sh $(bindir) $(pkglibexecdir))\""
 CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I/usr/local/include $(SQLITE3_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) -DBUILD_ELEMENTS=1
@@ -314,15 +314,6 @@ ALL_OBJS := $(ALL_C_SOURCES:.c=.o)
 # We always regen wiregen and printgen files, since SHA256STAMP protects against
 # spurious rebuilds.
 $(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(ALL_C_HEADERS) $(ALL_C_SOURCES)): FORCE
-
-# Generated from PLUGINS definition in plugins/Makefile
-gen_list_of_builtin_plugins.h : plugins/Makefile Makefile
-	@echo GEN $@
-	@rm -f $@ || true
-	@echo 'static const char *list_of_builtin_plugins[] = {' >> $@
-	@echo '$(PLUGINS)' | sed 's@plugins/\([^ 	]*\)@"\1",@g'>> $@
-	@echo 'NULL' >> $@
-	@echo '};' >> $@
 
 ifneq ($(TEST_GROUP_COUNT),)
 PYTEST_OPTS += --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT)
