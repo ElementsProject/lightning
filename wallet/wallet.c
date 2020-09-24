@@ -72,8 +72,8 @@ static bool wallet_add_utxo(struct wallet *w, struct utxo *utxo,
 {
 	struct db_stmt *stmt;
 
-	stmt = db_prepare_v2(w->db, SQL("SELECT * from outputs WHERE "
-					"prev_out_tx=? AND prev_out_index=?"));
+	stmt = db_prepare_v2(w->db, SQL("SELECT * from outputs WHERE"
+					" prev_out_tx=? AND prev_out_index=?"));
 	db_bind_txid(stmt, 0, &utxo->txid);
 	db_bind_int(stmt, 1, utxo->outnum);
 	db_query_prepared(stmt);
@@ -203,16 +203,17 @@ bool wallet_update_output_status(struct wallet *w,
 	size_t changes;
 	if (oldstatus != OUTPUT_STATE_ANY) {
 		stmt = db_prepare_v2(
-		    w->db, SQL("UPDATE outputs SET status=? WHERE status=? AND "
-			       "prev_out_tx=? AND prev_out_index=?"));
+		    w->db, SQL("UPDATE outputs SET status=? WHERE status=? AND"
+			       " prev_out_tx=? AND prev_out_index=?"));
 		db_bind_int(stmt, 0, output_status_in_db(newstatus));
 		db_bind_int(stmt, 1, output_status_in_db(oldstatus));
 		db_bind_txid(stmt, 2, txid);
 		db_bind_int(stmt, 3, outnum);
 	} else {
 		stmt = db_prepare_v2(w->db,
-				     SQL("UPDATE outputs SET status=? WHERE "
-					 "prev_out_tx=? AND prev_out_index=?"));
+				     SQL("UPDATE outputs SET status=?"
+					 " WHERE prev_out_tx=?"
+					 " AND prev_out_index=?"));
 		db_bind_int(stmt, 0, output_status_in_db(newstatus));
 		db_bind_txid(stmt, 1, txid);
 		db_bind_int(stmt, 2, outnum);
@@ -243,9 +244,9 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", option_anchor_outputs"
 						", confirmation_height"
 						", spend_height"
-						", scriptpubkey "
-						", reserved_til "
-						"FROM outputs"));
+						", scriptpubkey"
+						", reserved_til"
+						" FROM outputs"));
 	} else {
 		stmt = db_prepare_v2(w->db, SQL("SELECT"
 						"  prev_out_tx"
@@ -260,10 +261,10 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", option_anchor_outputs"
 						", confirmation_height"
 						", spend_height"
-						", scriptpubkey "
-						", reserved_til "
-						"FROM outputs "
-						"WHERE status= ? "));
+						", scriptpubkey"
+						", reserved_til"
+						" FROM outputs"
+						" WHERE status= ?"));
 		db_bind_int(stmt, 0, output_status_in_db(state));
 	}
 	db_query_prepared(stmt);
@@ -301,8 +302,8 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 					", scriptpubkey"
 					", reserved_til"
 					" FROM outputs"
-					" WHERE channel_id IS NOT NULL AND "
-					"confirmation_height IS NULL"));
+					" WHERE channel_id IS NOT NULL AND"
+					" confirmation_height IS NULL"));
 	db_query_prepared(stmt);
 
 	results = tal_arr(ctx, struct utxo *, 0);
@@ -415,7 +416,7 @@ static void db_set_utxo(struct db *db, const struct utxo *utxo)
 
 	stmt = db_prepare_v2(
 		db, SQL("UPDATE outputs SET status=?, reserved_til=?"
-			"WHERE prev_out_tx=? AND prev_out_index=?"));
+			" WHERE prev_out_tx=? AND prev_out_index=?"));
 	db_bind_int(stmt, 0, output_status_in_db(utxo->status));
 	db_bind_int(stmt, 1, utxo->reserved_til);
 	db_bind_txid(stmt, 2, &utxo->txid);
@@ -517,7 +518,7 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 					" FROM outputs"
 					" WHERE status = ?"
 					" OR (status = ? AND reserved_til <= ?)"
-					"ORDER BY RANDOM();"));
+					" ORDER BY RANDOM();"));
 	db_bind_int(stmt, 0, output_status_in_db(OUTPUT_STATE_AVAILABLE));
 	db_bind_int(stmt, 1, output_status_in_db(OUTPUT_STATE_RESERVED));
 	db_bind_u64(stmt, 2, current_blockheight);
@@ -550,8 +551,9 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 {
 	struct db_stmt *stmt;
 
-	stmt = db_prepare_v2(w->db, SQL("SELECT * from outputs WHERE "
-					"prev_out_tx=? AND prev_out_index=?"));
+	stmt = db_prepare_v2(w->db, SQL("SELECT * from outputs"
+					" WHERE prev_out_tx=?"
+					" AND prev_out_index=?"));
 	db_bind_txid(stmt, 0, txid);
 	db_bind_int(stmt, 1, outnum);
 	db_query_prepared(stmt);
@@ -719,8 +721,8 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 	db_exec_prepared_v2(take(stmt));
 
 	stmt = db_prepare_v2(wallet->db,
-			     SQL("UPDATE shachain_known SET idx=?, hash=? "
-				 "WHERE shachain_id=? AND pos=?"));
+			     SQL("UPDATE shachain_known SET idx=?, hash=?"
+				 " WHERE shachain_id=? AND pos=?"));
 	db_bind_u64(stmt, 0, index);
 	db_bind_secret(stmt, 1, hash);
 	db_bind_u64(stmt, 2, chain->id);
@@ -731,8 +733,8 @@ bool wallet_shachain_add_hash(struct wallet *wallet,
 
 	if (!updated) {
 		stmt = db_prepare_v2(
-		    wallet->db, SQL("INSERT INTO shachain_known (shachain_id, "
-				    "pos, idx, hash) VALUES (?, ?, ?, ?);"));
+		    wallet->db, SQL("INSERT INTO shachain_known (shachain_id,"
+				    " pos, idx, hash) VALUES (?, ?, ?, ?);"));
 		db_bind_u64(stmt, 0, chain->id);
 		db_bind_int(stmt, 1, pos);
 		db_bind_u64(stmt, 2, index);
@@ -768,8 +770,8 @@ bool wallet_shachain_load(struct wallet *wallet, u64 id,
 
 	/* Load shachain known entries */
 	stmt = db_prepare_v2(wallet->db,
-			     SQL("SELECT idx, hash, pos FROM shachain_known "
-				 "WHERE shachain_id=?"));
+			     SQL("SELECT idx, hash, pos FROM shachain_known"
+				 " WHERE shachain_id=?"));
 	db_bind_u64(stmt, 0, id);
 	db_query_prepared(stmt);
 
@@ -900,7 +902,9 @@ static struct fee_states *wallet_channel_fee_states_load(struct wallet *w,
 	struct fee_states *fee_states;
 	struct db_stmt *stmt;
 
-	stmt = db_prepare_v2(w->db, SQL("SELECT hstate, feerate_per_kw FROM channel_feerates WHERE channel_id = ?"));
+	stmt = db_prepare_v2(w->db, SQL("SELECT hstate, feerate_per_kw"
+					" FROM channel_feerates"
+					" WHERE channel_id = ?"));
 	db_bind_u64(stmt, 0, id);
 	db_query_prepared(stmt);
 
@@ -1108,7 +1112,8 @@ static void set_max_channel_dbid(struct wallet *w)
 {
 	struct db_stmt *stmt;
 
-	stmt = db_prepare_v2(w->db, SQL("SELECT id FROM channels ORDER BY id DESC LIMIT 1;"));
+	stmt = db_prepare_v2(w->db, SQL("SELECT id FROM channels"
+					" ORDER BY id DESC LIMIT 1;"));
 	db_query_prepared(stmt);
 	w->max_channel_dbid = 0;
 
@@ -1299,7 +1304,9 @@ void wallet_channel_stats_load(struct wallet *w,
 void wallet_blocks_heights(struct wallet *w, u32 def, u32 *min, u32 *max)
 {
 	assert(min != NULL && max != NULL);
-	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("SELECT MIN(height), MAX(height) FROM blocks;"));
+	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("SELECT MIN(height),"
+							" MAX(height)"
+							" FROM blocks;"));
 	db_query_prepared(stmt);
 	*min = def;
 	*max = def;
@@ -1321,7 +1328,8 @@ static void wallet_channel_config_insert(struct wallet *w,
 
 	assert(cc->id == 0);
 
-	stmt = db_prepare_v2(w->db, SQL("INSERT INTO channel_configs DEFAULT VALUES;"));
+	stmt = db_prepare_v2(w->db, SQL("INSERT INTO channel_configs"
+					" DEFAULT VALUES;"));
 	db_exec_prepared_v2(stmt);
 	cc->id = db_last_insert_id_v2(stmt);
 	tal_free(stmt);
@@ -1357,9 +1365,9 @@ bool wallet_channel_config_load(struct wallet *w, const u64 id,
 	bool ok = true;
 	int col = 1;
 	const char *query = SQL(
-	    "SELECT id, dust_limit_satoshis, max_htlc_value_in_flight_msat, "
-	    "channel_reserve_satoshis, htlc_minimum_msat, to_self_delay, "
-	    "max_accepted_htlcs FROM channel_configs WHERE id= ? ;");
+	    "SELECT id, dust_limit_satoshis, max_htlc_value_in_flight_msat,"
+	    " channel_reserve_satoshis, htlc_minimum_msat, to_self_delay,"
+	    " max_accepted_htlcs FROM channel_configs WHERE id= ? ;");
 	struct db_stmt *stmt = db_prepare_v2(w->db, query);
 	db_bind_u64(stmt, 0, id);
 	db_query_prepared(stmt);
@@ -1516,8 +1524,8 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_exec_prepared_v2(take(stmt));
 
 	/* FIXME: Updates channel_feerates by discarding and rewriting. */
-	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_feerates "
-					"WHERE channel_id=?"));
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_feerates"
+					" WHERE channel_id=?"));
 	db_bind_u64(stmt, 0, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
@@ -1526,7 +1534,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	     i++) {
 		if (!chan->fee_states->feerate[i])
 			continue;
-		stmt = db_prepare_v2(w->db, SQL("INSERT INTO channel_feerates "
+		stmt = db_prepare_v2(w->db, SQL("INSERT INTO channel_feerates"
 						" VALUES(?, ?, ?)"));
 		db_bind_u64(stmt, 0, chan->dbid);
 		db_bind_int(stmt, 1, i);
@@ -1578,7 +1586,8 @@ static void wallet_peer_save(struct wallet *w, struct peer *peer)
 		/* Unknown peer, create it from scratch */
 		tal_free(stmt);
 		stmt = db_prepare_v2(w->db,
-				     SQL("INSERT INTO peers (node_id, address) VALUES (?, ?);")
+				     SQL("INSERT INTO peers (node_id, address)"
+				         " VALUES (?, ?);")
 			);
 		db_bind_node_id(stmt, 0, &peer->id);
 		db_bind_text(stmt, 1,addr);
@@ -1596,8 +1605,8 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 
 	/* Insert a stub, that we update, unifies INSERT and UPDATE paths */
 	stmt = db_prepare_v2(
-	    w->db, SQL("INSERT INTO channels ("
-		       "peer_id, first_blocknum, id) VALUES (?, ?, ?);"));
+	    w->db, SQL("INSERT INTO channels"
+		       " (peer_id, first_blocknum, id) VALUES (?, ?, ?);"));
 	db_bind_u64(stmt, 0, chan->peer->dbid);
 	db_bind_int(stmt, 1, chan->first_blocknum);
 	db_bind_int(stmt, 2, chan->dbid);
@@ -1622,37 +1631,37 @@ void wallet_channel_close(struct wallet *w, u64 wallet_id)
 	struct db_stmt *stmt;
 
 	/* Delete entries from `channel_htlcs` */
-	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_htlcs "
-					"WHERE channel_id=?"));
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_htlcs"
+					" WHERE channel_id=?"));
 	db_bind_u64(stmt, 0, wallet_id);
 	db_exec_prepared_v2(take(stmt));
 
 	/* Delete entries from `htlc_sigs` */
-	stmt = db_prepare_v2(w->db, SQL("DELETE FROM htlc_sigs "
-					"WHERE channelid=?"));
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM htlc_sigs"
+					" WHERE channelid=?"));
 	db_bind_u64(stmt, 0, wallet_id);
 	db_exec_prepared_v2(take(stmt));
 
 	/* Delete entries from `htlc_sigs` */
-	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channeltxs "
-					"WHERE channel_id=?"));
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channeltxs"
+					" WHERE channel_id=?"));
 	db_bind_u64(stmt, 0, wallet_id);
 	db_exec_prepared_v2(take(stmt));
 
 	/* Delete shachains */
-	stmt = db_prepare_v2(w->db, SQL("DELETE FROM shachains "
-					"WHERE id IN ("
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM shachains"
+					" WHERE id IN ("
 					"  SELECT shachain_remote_id "
 					"  FROM channels "
 					"  WHERE channels.id=?"
-					")"));
+					" )"));
 	db_bind_u64(stmt, 0, wallet_id);
 	db_exec_prepared_v2(take(stmt));
 
 	/* Set the channel to closed and disassociate with peer */
-	stmt = db_prepare_v2(w->db, SQL("UPDATE channels "
-					"SET state=?, peer_id=?"
-					"WHERE channels.id=?"));
+	stmt = db_prepare_v2(w->db, SQL("UPDATE channels"
+					" SET state=?, peer_id=?"
+					" WHERE channels.id=?"));
 	db_bind_u64(stmt, 0, CLOSED);
 	db_bind_null(stmt, 1);
 	db_bind_u64(stmt, 2, wallet_id);
@@ -1664,7 +1673,8 @@ void wallet_peer_delete(struct wallet *w, u64 peer_dbid)
 	struct db_stmt *stmt;
 
 	/* Must not have any channels still using this peer */
-	stmt = db_prepare_v2(w->db, SQL("SELECT * FROM channels WHERE peer_id = ?;"));
+	stmt = db_prepare_v2(w->db, SQL("SELECT * FROM channels"
+					" WHERE peer_id = ?;"));
 	db_bind_u64(stmt, 0, peer_dbid);
 	db_query_prepared(stmt);
 
@@ -1683,9 +1693,9 @@ void wallet_confirm_tx(struct wallet *w,
 {
 	struct db_stmt *stmt;
 	assert(confirmation_height > 0);
-	stmt = db_prepare_v2(w->db, SQL("UPDATE outputs "
-					"SET confirmation_height = ? "
-					"WHERE prev_out_tx = ?"));
+	stmt = db_prepare_v2(w->db, SQL("UPDATE outputs"
+					" SET confirmation_height = ?"
+					" WHERE prev_out_tx = ?"));
 	db_bind_int(stmt, 0, confirmation_height);
 	db_bind_sha256d(stmt, 1, &txid->shad);
 
@@ -1797,8 +1807,8 @@ void wallet_htlc_save_in(struct wallet *wallet,
 				 " hstate,"
 				 " shared_secret,"
 				 " routing_onion,"
-				 " received_time) VALUES "
-				 "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 " received_time) VALUES"
+				 " (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, chan->dbid);
 	db_bind_u64(stmt, 1, in->key.id);
@@ -1899,9 +1909,9 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 	 * `wallet_htlc_save_*` */
 	assert(htlc_dbid);
 	stmt = db_prepare_v2(
-	    wallet->db, SQL("UPDATE channel_htlcs SET hstate=?, payment_key=?, "
-			    "malformed_onion=?, failuremsg=?, localfailmsg=?, "
-			    "we_filled=?"
+	    wallet->db, SQL("UPDATE channel_htlcs SET hstate=?, payment_key=?,"
+			    " malformed_onion=?, failuremsg=?, localfailmsg=?,"
+			    " we_filled=?"
 			    " WHERE id=?"));
 
 	/* FIXME: htlc_state_in_db */
@@ -2292,9 +2302,9 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(wallet->db,
-			     SQL("SELECT channel_id, direction, cltv_expiry, "
-				 "channel_htlc_id, payment_hash "
-				 "FROM channel_htlcs WHERE channel_id = ?;"));
+			     SQL("SELECT channel_id, direction, cltv_expiry,"
+				 " channel_htlc_id, payment_hash"
+				 " FROM channel_htlcs WHERE channel_id = ?;"));
 
 	db_bind_u64(stmt, 0, chan->dbid);
 	db_query_prepared(stmt);
@@ -2638,8 +2648,8 @@ void wallet_payment_set_status(struct wallet *wallet,
 	}
 
 	stmt = db_prepare_v2(wallet->db,
-			     SQL("UPDATE payments SET status=? "
-				 "WHERE payment_hash=? AND partid=?"));
+			     SQL("UPDATE payments SET status=?"
+				 " WHERE payment_hash=? AND partid=?"));
 
 	db_bind_int(stmt, 0, wallet_payment_status_in_db(newstatus));
 	db_bind_sha256(stmt, 1, payment_hash);
@@ -2648,8 +2658,9 @@ void wallet_payment_set_status(struct wallet *wallet,
 
 	if (preimage) {
 		stmt = db_prepare_v2(wallet->db,
-				     SQL("UPDATE payments SET payment_preimage=? "
-					 "WHERE payment_hash=? AND partid=?"));
+				     SQL("UPDATE payments"
+					 " SET payment_preimage=?"
+					 " WHERE payment_hash=? AND partid=?"));
 
 		db_bind_preimage(stmt, 0, preimage);
 		db_bind_sha256(stmt, 1, payment_hash);
@@ -2694,7 +2705,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 ", failindex, failcode"
 				 ", failnode, failchannel"
 				 ", failupdate, faildetail, faildirection"
-				 "  FROM payments"
+				 " FROM payments"
 				 " WHERE payment_hash=? AND partid=?;"));
 	db_bind_sha256(stmt, 0, payment_hash);
 	db_bind_u64(stmt, 1, partid);
@@ -2924,8 +2935,10 @@ bool wallet_network_check(struct wallet *w)
 		tal_free(stmt);
 		/* Still a pristine wallet, claim it for the chain
 		 * that we are running */
-		stmt = db_prepare_v2(w->db, SQL("INSERT INTO vars (name, blobval) "
-						"VALUES ('genesis_hash', ?);"));
+		stmt = db_prepare_v2(w->db, SQL("INSERT INTO vars ("
+						" name, blobval)"
+						" VALUES"
+						" ('genesis_hash', ?);"));
 		db_bind_sha256d(stmt, 0, &chainparams->genesis_blockhash.shad);
 		db_exec_prepared_v2(take(stmt));
 	}
@@ -2948,9 +2961,9 @@ static void wallet_utxoset_prune(struct wallet *w, const u32 blockheight)
 void wallet_block_add(struct wallet *w, struct block *b)
 {
 	struct db_stmt *stmt =
-	    db_prepare_v2(w->db, SQL("INSERT INTO blocks "
-				     "(height, hash, prev_hash) "
-				     "VALUES (?, ?, ?);"));
+	    db_prepare_v2(w->db, SQL("INSERT INTO blocks"
+				     " (height, hash, prev_hash)"
+				     " VALUES (?, ?, ?);"));
 	db_bind_int(stmt, 0, b->height);
 	db_bind_sha256d(stmt, 1, &b->blkid.shad);
 	if (b->prev) {
@@ -2982,8 +2995,8 @@ void wallet_block_remove(struct wallet *w, struct block *b)
 
 void wallet_blocks_rollback(struct wallet *w, u32 height)
 {
-	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("DELETE FROM blocks "
-							"WHERE height > ?"));
+	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("DELETE FROM blocks"
+							" WHERE height > ?"));
 	db_bind_int(stmt, 0, height);
 	db_exec_prepared_v2(take(stmt));
 }
@@ -2994,10 +3007,10 @@ bool wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockhe
 	struct db_stmt *stmt;
 	bool our_spend;
 	if (outpointfilter_matches(w->owned_outpoints, txid, outnum)) {
-		stmt = db_prepare_v2(w->db, SQL("UPDATE outputs "
-						"SET spend_height = ?, "
-						" status = ? "
-						"WHERE prev_out_tx = ?"
+		stmt = db_prepare_v2(w->db, SQL("UPDATE outputs"
+						" SET spend_height = ?,"
+						" status = ?"
+						" WHERE prev_out_tx = ?"
 						" AND prev_out_index = ?"));
 
 		db_bind_int(stmt, 0, blockheight);
@@ -3011,9 +3024,9 @@ bool wallet_outpoint_spend(struct wallet *w, const tal_t *ctx, const u32 blockhe
 	} else
 		our_spend = false;
 
-	stmt = db_prepare_v2(w->db, SQL("UPDATE utxoset "
-					"SET spendheight = ? "
-					"WHERE txid = ?"
+	stmt = db_prepare_v2(w->db, SQL("UPDATE utxoset"
+					" SET spendheight = ?"
+					" WHERE txid = ?"
 					" AND outnum = ?"));
 
 	db_bind_int(stmt, 0, blockheight);
@@ -3058,9 +3071,9 @@ void wallet_filteredblock_add(struct wallet *w, const struct filteredblock *fb)
 	if (wallet_have_block(w, fb->height))
 		return;
 
-	stmt = db_prepare_v2(w->db, SQL("INSERT INTO blocks "
-					"(height, hash, prev_hash) "
-					"VALUES (?, ?, ?);"));
+	stmt = db_prepare_v2(w->db, SQL("INSERT INTO blocks"
+					" (height, hash, prev_hash)"
+					" VALUES (?, ?, ?);"));
 	db_bind_int(stmt, 0, fb->height);
 	db_bind_sha256d(stmt, 1, &fb->id.shad);
 	db_bind_sha256d(stmt, 2, &fb->prev_hash.shad);
@@ -3151,9 +3164,9 @@ wallet_utxoset_get_spent(const tal_t *ctx, struct wallet *w, u32 blockheight)
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
 					" blockheight,"
 					" txindex,"
-					" outnum "
-					"FROM utxoset "
-					"WHERE spendheight = ?"));
+					" outnum"
+					" FROM utxoset"
+					" WHERE spendheight = ?"));
 	db_bind_int(stmt, 0, blockheight);
 	db_query_prepared(stmt);
 
@@ -3210,9 +3223,10 @@ void wallet_transaction_add(struct wallet *w, const struct wally_tx *tx,
 		if (blockheight) {
 			/* We know about the transaction, update */
 			stmt = db_prepare_v2(w->db,
-					     SQL("UPDATE transactions "
-						 "SET blockheight = ?, txindex = ? "
-						 "WHERE id = ?"));
+					     SQL("UPDATE transactions SET"
+						 "  blockheight = ?"
+						 ", txindex = ?"
+						 " WHERE id = ?"));
 			db_bind_int(stmt, 0, blockheight);
 			db_bind_int(stmt, 1, txindex);
 			db_bind_txid(stmt, 2, &txid);
@@ -3227,9 +3241,10 @@ static void wallet_annotation_add(struct wallet *w, const struct bitcoin_txid *t
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(
-		w->db,SQL("INSERT INTO transaction_annotations "
-			  "(txid, idx, location, type, channel) "
-			  "VALUES (?, ?, ?, ?, ?) ON CONFLICT(txid,idx) DO NOTHING;"));
+		w->db,SQL("INSERT INTO transaction_annotations"
+			  " (txid, idx, location, type, channel)"
+			  " VALUES (?, ?, ?, ?, ?)"
+			  " ON CONFLICT(txid,idx) DO NOTHING;"));
 
 	db_bind_txid(stmt, 0, txid);
 	db_bind_int(stmt, 1, num);
@@ -3275,10 +3290,10 @@ void wallet_transaction_annotate(struct wallet *w,
 
 	tal_free(stmt);
 
-	stmt = db_prepare_v2(w->db, SQL("UPDATE transactions "
-					"SET type = ?"
-					", channel_id = ? "
-					"WHERE id = ?"));
+	stmt = db_prepare_v2(w->db, SQL("UPDATE transactions SET"
+					"  type = ?"
+					", channel_id = ?"
+					" WHERE id = ?"));
 
 	db_bind_u64(stmt, 0, type);
 
@@ -3294,7 +3309,9 @@ void wallet_transaction_annotate(struct wallet *w,
 bool wallet_transaction_type(struct wallet *w, const struct bitcoin_txid *txid,
 			     enum wallet_tx_type *type)
 {
-	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("SELECT type FROM transactions WHERE id=?"));
+	struct db_stmt *stmt = db_prepare_v2(w->db, SQL("SELECT type"
+							" FROM transactions"
+							" WHERE id=?"));
 	db_bind_sha256(stmt, 0, &txid->shad.sha);
 	db_query_prepared(stmt);
 
@@ -3363,7 +3380,8 @@ struct txlocator *wallet_transaction_locate(const tal_t *ctx, struct wallet *w,
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(
-		w->db, SQL("SELECT blockheight, txindex FROM transactions WHERE id=?"));
+		w->db, SQL("SELECT blockheight, txindex FROM transactions"
+			   " WHERE id=?"));
 	db_bind_txid(stmt, 0, txid);
 	db_query_prepared(stmt);
 
@@ -3461,11 +3479,11 @@ struct channeltx *wallet_channeltxs_get(struct wallet *w, const tal_t *ctx,
 		       ", t.rawtx"
 		       ", c.input_num"
 		       ", c.blockheight - t.blockheight + 1 AS depth"
-		       ", t.id as txid "
-		       "FROM channeltxs c "
-		       "JOIN transactions t ON t.id = c.transaction_id "
-		       "WHERE c.channel_id = ? "
-		       "ORDER BY c.id ASC;"));
+		       ", t.id as txid"
+		       " FROM channeltxs c"
+		       " JOIN transactions t ON t.id = c.transaction_id"
+		       " WHERE c.channel_id = ?"
+		       " ORDER BY c.id ASC;"));
 	db_bind_int(stmt, 0, channel_id);
 	db_query_prepared(stmt);
 
@@ -3618,9 +3636,11 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 	bool res;
 
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
-					" CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)"
-					"FROM forwarded_payments "
-					"WHERE state = ?;"));
+					" CAST(COALESCE("
+					"  SUM(in_msatoshi - out_msatoshi)"
+					", 0) AS BIGINT)"
+					" FROM forwarded_payments"
+					" WHERE state = ?;"));
 	db_bind_int(stmt, 0, wallet_forward_status_in_db(FORWARD_SETTLED));
 	db_query_prepared(stmt);
 
@@ -3650,9 +3670,9 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 		", out_channel_scid"
 		", f.received_time"
 		", f.resolved_time"
-		", f.failcode "
-		"FROM forwarded_payments f "
-		"LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id)"));
+		", f.failcode"
+		" FROM forwarded_payments f"
+		" LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id)"));
 	db_query_prepared(stmt);
 
 	for (count=0; db_step(stmt); count++) {
@@ -3744,8 +3764,8 @@ struct wallet_transaction *wallet_transactions_get(struct wallet *w, const tal_t
 		"  transactions t LEFT JOIN"
 		"  transaction_annotations a ON (a.txid = t.id) LEFT JOIN"
 		"  channels c ON (a.channel = c.id) LEFT JOIN"
-		"  channels c2 ON (t.channel_id = c2.id) "
-		"ORDER BY t.blockheight, t.txindex ASC"));
+		"  channels c2 ON (t.channel_id = c2.id)"
+		" ORDER BY t.blockheight, t.txindex ASC"));
 	db_query_prepared(stmt);
 
 	for (count = 0; db_step(stmt); count++) {
@@ -3848,9 +3868,9 @@ struct penalty_base *wallet_penalty_base_load_for_channel(const tal_t *ctx,
 	struct penalty_base *res = tal_arr(ctx, struct penalty_base, 0);
 	stmt = db_prepare_v2(
 		w->db,
-		SQL("SELECT commitnum, txid, outnum, amount "
-		    "FROM penalty_bases "
-		    "WHERE channel_id = ?"));
+		SQL("SELECT commitnum, txid, outnum, amount"
+		    " FROM penalty_bases"
+		    " WHERE channel_id = ?"));
 
 	db_bind_u64(stmt, 0, chan_id);
 	db_query_prepared(stmt);
@@ -3872,8 +3892,8 @@ void wallet_penalty_base_delete(struct wallet *w, u64 chan_id, u64 commitnum)
 	struct db_stmt *stmt;
 	stmt = db_prepare_v2(
 		w->db,
-		SQL("DELETE FROM penalty_bases "
-		    "WHERE channel_id = ? AND commitnum = ?"));
+		SQL("DELETE FROM penalty_bases"
+		    " WHERE channel_id = ? AND commitnum = ?"));
 	db_bind_u64(stmt, 0, chan_id);
 	db_bind_u64(stmt, 1, commitnum);
 	db_exec_prepared_v2(take(stmt));
