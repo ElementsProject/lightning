@@ -1053,8 +1053,8 @@ struct db_query db_postgres_queries[] = {
          .readonly = true,
     },
     {
-         .name = "UPDATE outputs SET status=?, reserved_til=?WHERE prev_out_tx=? AND prev_out_index=?",
-         .query = "UPDATE outputs SET status=$1, reserved_til=$2WHERE prev_out_tx=$3 AND prev_out_index=$4",
+         .name = "UPDATE outputs SET status=?, reserved_til=? WHERE prev_out_tx=? AND prev_out_index=?",
+         .query = "UPDATE outputs SET status=$1, reserved_til=$2 WHERE prev_out_tx=$3 AND prev_out_index=$4",
          .placeholders = 4,
          .readonly = false,
     },
@@ -1654,4 +1654,4 @@ struct db_query db_postgres_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:fa191e6b54c56b2d4e85a24ca83bc0d41dddec5dbde948e2bc5d627426089ade
+// SHA256STAMP:5fa02e1dbf8ea4e155e08671e9f36b66c8a5b8ad04226e6695eacf2ea423b8bd
