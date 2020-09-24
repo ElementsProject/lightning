@@ -79,7 +79,7 @@ def test_reconnect_channel_peers(node_factory, executor):
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    l1.fund_channel(l2, 10**6)
+    l1.fundchannel(l2, 10**6)
     l2.restart()
 
     # Should reconnect.
@@ -181,23 +181,23 @@ def test_opening_tiny_channel(node_factory):
     l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
 
     with pytest.raises(RpcError, match=r'They sent error.*channel capacity is .*, which is below .*msat'):
-        l1.fund_channel(l2, l2_min_capacity + overhead - 1)
-    l1.fund_channel(l2, l2_min_capacity + overhead)
+        l1.fundchannel(l2, l2_min_capacity + overhead - 1)
+    l1.fundchannel(l2, l2_min_capacity + overhead)
 
     with pytest.raises(RpcError, match=r'They sent error.*channel capacity is .*, which is below .*msat'):
-        l1.fund_channel(l3, l3_min_capacity + overhead - 1)
-    l1.fund_channel(l3, l3_min_capacity + overhead)
+        l1.fundchannel(l3, l3_min_capacity + overhead - 1)
+    l1.fundchannel(l3, l3_min_capacity + overhead)
 
     with pytest.raises(RpcError, match=r'They sent error.*channel capacity is .*, which is below .*msat'):
-        l1.fund_channel(l4, l4_min_capacity + overhead - 1)
-    l1.fund_channel(l4, l4_min_capacity + overhead)
+        l1.fundchannel(l4, l4_min_capacity + overhead - 1)
+    l1.fundchannel(l4, l4_min_capacity + overhead)
 
     # Note that this check applies locally too, so you can't open it if
     # you would reject it.
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
     with pytest.raises(RpcError, match=r"'message': 'channel capacity.* is .*, which is below .*msat"):
-        l3.fund_channel(l2, l3_min_capacity + overhead - 1)
-    l3.fund_channel(l2, l3_min_capacity + overhead)
+        l3.fundchannel(l2, l3_min_capacity + overhead - 1)
+    l3.fundchannel(l2, l3_min_capacity + overhead)
 
 
 def test_second_channel(node_factory):
@@ -205,8 +205,8 @@ def test_second_channel(node_factory):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    l1.fund_channel(l2, 10**6)
-    l1.fund_channel(l3, 10**6)
+    l1.fundchannel(l2, 10**6)
+    l1.fundchannel(l3, 10**6)
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -401,7 +401,7 @@ def test_reconnect_no_update(node_factory, executor):
 
     # For channeld reconnection
     l1.rpc.connect(l2.info["id"], "localhost", l2.port)
-    fundchannel_exec = executor.submit(l1.fund_channel, l2, 10**6, False)
+    fundchannel_exec = executor.submit(l1.fundchannel, l2, 10**6, False)
     l1.daemon.wait_for_log(r"channeld.* Retransmitting funding_locked for channel")
     l1.stop()
 
@@ -465,7 +465,7 @@ def test_reconnect_normal(node_factory):
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    l1.fund_channel(l2, 10**6)
+    l1.fundchannel(l2, 10**6)
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
@@ -482,7 +482,7 @@ def test_reconnect_sender_add1(node_factory):
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    l1.fund_channel(l2, 10**6)
+    l1.fundchannel(l2, 10**6)
 
     amt = 200000000
     rhash = l2.rpc.invoice(amt, 'test_reconnect_sender_add1', 'desc')['payment_hash']
@@ -517,7 +517,7 @@ def test_reconnect_sender_add(node_factory):
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    l1.fund_channel(l2, 10**6)
+    l1.fundchannel(l2, 10**6)
 
     amt = 200000000
     rhash = l2.rpc.invoice(amt, 'testpayment', 'desc')['payment_hash']
@@ -546,7 +546,7 @@ def test_reconnect_receiver_add(node_factory):
                                may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    l1.fund_channel(l2, 10**6)
+    l1.fundchannel(l2, 10**6)
 
     amt = 200000000
     rhash = l2.rpc.invoice(amt, 'testpayment2', 'desc')['payment_hash']
@@ -578,7 +578,7 @@ def test_reconnect_receiver_fulfill(node_factory):
                                may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    l1.fund_channel(l2, 10**6)
+    l1.fundchannel(l2, 10**6)
 
     amt = 200000000
     rhash = l2.rpc.invoice(amt, 'testpayment2', 'desc')['payment_hash']
@@ -602,7 +602,7 @@ def test_shutdown_reconnect(node_factory):
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    chan = l1.fund_channel(l2, 10**6)
+    chan = l1.fundchannel(l2, 10**6)
     l1.pay(l2, 200000000)
 
     assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
@@ -1540,7 +1540,7 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     for n in (l1, l2):
         assert(n.db_query('SELECT COUNT(id) as count FROM channels;')[0]['count'] == 0)
 
-    l1.fund_channel(l2, 100000)
+    l1.fundchannel(l2, 100000)
 
     peers = l1.rpc.listpeers()['peers']
     assert(only_one(peers[0]['channels'])['state'] == 'CHANNELD_NORMAL')
@@ -1703,7 +1703,7 @@ def test_fee_limits(node_factory, bitcoind):
     # Trying to open a channel with too low a fee-rate is denied
     l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
     with pytest.raises(RpcError, match='They sent error .* feerate_per_kw 253 below minimum'):
-        l1.fund_channel(l4, 10**6)
+        l1.fundchannel(l4, 10**6)
 
     # Restore to normal.
     l1.stop()
@@ -1712,7 +1712,7 @@ def test_fee_limits(node_factory, bitcoind):
 
     # Try with node which sets --ignore-fee-limits
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    chan = l1.fund_channel(l3, 10**6)
+    chan = l1.fundchannel(l3, 10**6)
 
     # Kick off fee adjustment using HTLC.
     l1.pay(l3, 1000)
@@ -1745,7 +1745,7 @@ def test_update_fee_reconnect(node_factory, bitcoind):
     l2 = node_factory.get_node(may_reconnect=True,
                                feerates=(14000, 15000, 14000, 3750))
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    chan = l1.fund_channel(l2, 10**6)
+    chan = l1.fundchannel(l2, 10**6)
 
     # Make an HTLC just to get us to do feechanges.
     l1.pay(l2, 1000)
@@ -1795,7 +1795,7 @@ def test_multiple_channels(node_factory):
 
         l1.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
         l2.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
-        chan = l1.fund_channel(l2, 10**6)
+        chan = l1.fundchannel(l2, 10**6)
 
         l1.rpc.close(chan)
 
@@ -1846,7 +1846,7 @@ def test_peerinfo(node_factory, bitcoind):
     assert l1.rpc.getpeer(l2.info['id'])['features'] == lfeatures
 
     # Fund a channel to force a node announcement
-    chan = l1.fund_channel(l2, 10**6)
+    chan = l1.fundchannel(l2, 10**6)
     # Now proceed to funding-depth and do a full gossip round
     bitcoind.generate_block(5)
     l1.daemon.wait_for_logs(['Received node_announcement for node ' + l2.info['id']])
@@ -1912,7 +1912,7 @@ def test_disconnectpeer(node_factory, bitcoind):
         l2.rpc.disconnect(l1.info['id'])
 
     # Fund channel l1 -> l3
-    l1.fund_channel(l3, 10**6)
+    l1.fundchannel(l3, 10**6)
     bitcoind.generate_block(5)
 
     # disconnecting a non gossiping peer results in error
@@ -2011,7 +2011,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
 
     # But can accept incoming connections.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l2.fund_channel(l1, 10**6)
+    l2.fundchannel(l1, 10**6)
 
     # Can do HTLCs.
     l2.pay(l1, 10**5)
@@ -2023,7 +2023,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
 
     # Can do unilateral close.
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
-    l2.fund_channel(l1, 10**6)
+    l2.fundchannel(l1, 10**6)
     l2.pay(l1, 10**9 // 2)
     l1.rpc.dev_fail(l2.info['id'])
     l1.daemon.wait_for_log('Failing due to dev-fail command')
@@ -2052,7 +2052,7 @@ def test_opener_feerate_reconnect(node_factory, bitcoind):
                                feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=disconnects, may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.fund_channel(l2, 10**6)
+    l1.fundchannel(l2, 10**6)
 
     # Need a payment otherwise it won't update fee.
     l1.pay(l2, 10**9 // 2)
@@ -2076,7 +2076,7 @@ def test_opener_simple_reconnect(node_factory, bitcoind):
                                feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.fund_channel(l2, 10**6)
+    l1.fundchannel(l2, 10**6)
 
     l1.rpc.disconnect(l2.info['id'], True)
 
@@ -2104,7 +2104,7 @@ def test_dataloss_protection(node_factory, bitcoind):
                            + format(len(lf) // 2, '04x')
                            + lf)
 
-    l1.fund_channel(l2, 10**6)
+    l1.fundchannel(l2, 10**6)
     l2.stop()
 
     # Save copy of the db.
@@ -2357,7 +2357,7 @@ def test_fail_unconfirmed(node_factory, bitcoind, executor):
 
     # First one, we close by mutual agreement.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.fund_channel(l2, 200000, wait_for_active=True)
+    l1.fundchannel(l2, 200000, wait_for_active=True)
     l1.rpc.close(l2.info['id'])
 
     # Make sure it's closed
@@ -2390,7 +2390,7 @@ def test_fail_unconfirmed(node_factory, bitcoind, executor):
     l1.start()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.fund_channel(l2, 200000, wait_for_active=True)
+    l1.fundchannel(l2, 200000, wait_for_active=True)
 
 
 def test_change_chaining(node_factory, bitcoind):

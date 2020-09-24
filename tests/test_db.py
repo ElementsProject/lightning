@@ -27,7 +27,7 @@ def test_db_dangling_peer_fix(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # Make sure l2 has register connection
     l2.daemon.wait_for_log('Handed peer, entering loop')
-    l2.fund_channel(l1, 200000, wait_for_active=True)
+    l2.fundchannel(l1, 200000, wait_for_active=True)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Address is network specific")
