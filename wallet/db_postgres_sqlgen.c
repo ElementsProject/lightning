@@ -1275,8 +1275,8 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "UPDATE channels SET state=?, peer_id=?WHERE channels.id=?",
-         .query = "UPDATE channels SET state=$1, peer_id=$2WHERE channels.id=$3",
+         .name = "UPDATE channels SET state=?, peer_id=? WHERE channels.id=?",
+         .query = "UPDATE channels SET state=$1, peer_id=$2 WHERE channels.id=$3",
          .placeholders = 3,
          .readonly = false,
     },
@@ -1654,4 +1654,4 @@ struct db_query db_postgres_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:5fa02e1dbf8ea4e155e08671e9f36b66c8a5b8ad04226e6695eacf2ea423b8bd
+// SHA256STAMP:b58d5903df88487b84515e511c1cd98e5fb15f86cf9676e3125ab56a27c27877

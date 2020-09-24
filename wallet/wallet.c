@@ -1651,7 +1651,7 @@ void wallet_channel_close(struct wallet *w, u64 wallet_id)
 
 	/* Set the channel to closed and disassociate with peer */
 	stmt = db_prepare_v2(w->db, SQL("UPDATE channels "
-					"SET state=?, peer_id=?"
+					"SET state=?, peer_id=? "
 					"WHERE channels.id=?"));
 	db_bind_u64(stmt, 0, CLOSED);
 	db_bind_null(stmt, 1);
