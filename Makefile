@@ -393,13 +393,12 @@ PYLN_PATH=$(shell pwd)/lightningd:$(PATH)
 check-pyln-%:  $(BIN_PROGRAMS)
 	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(MAKE) check)
 
-check-python: check-pyln-client
+check-python: check-pyln-client check-pyln-testing
 	@# E501 line too long (N > 79 characters)
 	@# E731 do not assign a lambda expression, use a def
 	@# W503: line break before binary operator
 	@flake8 --ignore=E501,E731,W503 ${PYSRC}
 
-	PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(PYTEST) contrib/pyln-testing/tests/
 	PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
 
 check-includes:
