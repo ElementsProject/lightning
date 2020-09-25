@@ -386,14 +386,20 @@ check-spelling:
 
 PYSRC=$(shell git ls-files "*.py" | grep -v /text.py) contrib/pylightning/lightning-pay
 
-check-python:
+# Some tests in pyln will need to find lightningd to run, so have a PATH that
+# allows it to find that
+PYLN_PATH=$(shell pwd)/lightningd:$(PATH)
+check-pyln-%:  $(BIN_PROGRAMS)
+	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(MAKE) check)
+
+check-python: check-pyln-client
 	@# E501 line too long (N > 79 characters)
 	@# E731 do not assign a lambda expression, use a def
 	@# W503: line break before binary operator
 	@flake8 --ignore=E501,E731,W503 ${PYSRC}
 
-	PYTHONPATH=contrib/pyln-client:$$PYTHONPATH $(PYTEST) contrib/pyln-client/
-	PYTHONPATH=contrib/pyln-proto:$$PYTHONPATH $(PYTEST) contrib/pyln-proto/
+	PYTHONPATH=$(PYTHONPATH) $(PYTEST) contrib/pyln-testing/tests/
+	PYTHONPATH=$(PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
 
 check-includes:
 	@tools/check-includes.sh
