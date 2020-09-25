@@ -1,4 +1,4 @@
-import bitstring
+import bitstring  # type: ignore
 
 
 zbase32_chars = b'ybndrfg8ejkmcpqxot1uwisza345h769'
