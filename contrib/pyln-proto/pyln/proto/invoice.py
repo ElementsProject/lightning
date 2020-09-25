@@ -59,20 +59,20 @@ def unshorten_amount(amount):
 
 
 # Bech32 spits out array of 5-bit values.  Shim here.
-def u5_to_bitarray(arr):
+def u5_to_bitarray(arr: bytes):
     ret = bitstring.BitArray()
     for a in arr:
         ret += bitstring.pack("uint:5", a)
     return ret
 
 
-def bitarray_to_u5(barr):
+def bitarray_to_u5(barr) -> bytes:
     assert barr.len % 5 == 0
     ret = []
     s = bitstring.ConstBitStream(barr)
     while s.pos != s.len:
         ret.append(s.read(5).uint)
-    return ret
+    return bytes(ret)
 
 
 def encode_fallback(fallback, currency):

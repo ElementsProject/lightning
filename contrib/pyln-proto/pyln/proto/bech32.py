@@ -19,12 +19,13 @@
 # THE SOFTWARE.
 
 """Reference implementation for Bech32 and segwit addresses."""
+from typing import Tuple
 
 
 CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
 
-def bech32_polymod(values):
+def bech32_polymod(values: bytes) -> int:
     """Internal function that computes the Bech32 checksum."""
     generator = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3]
     chk = 1
@@ -36,43 +37,47 @@ def bech32_polymod(values):
     return chk
 
 
-def bech32_hrp_expand(hrp):
+def bech32_hrp_expand(hrp: str) -> bytes:
     """Expand the HRP into values for checksum computation."""
-    return [ord(x) >> 5 for x in hrp] + [0] + [ord(x) & 31 for x in hrp]
+    return bytes([ord(x) >> 5 for x in hrp] + [0] + [ord(x) & 31 for x in hrp])
 
 
-def bech32_verify_checksum(hrp, data):
+def bech32_verify_checksum(hrp: str, data: bytes) -> bool:
     """Verify a checksum given HRP and converted data characters."""
     return bech32_polymod(bech32_hrp_expand(hrp) + data) == 1
 
 
-def bech32_create_checksum(hrp, data):
+def bech32_create_checksum(hrp: str, data: bytes) -> bytes:
     """Compute the checksum values given HRP and data."""
     values = bech32_hrp_expand(hrp) + data
-    polymod = bech32_polymod(values + [0, 0, 0, 0, 0, 0]) ^ 1
-    return [(polymod >> 5 * (5 - i)) & 31 for i in range(6)]
+    polymod = bech32_polymod(values + bytes([0, 0, 0, 0, 0, 0])) ^ 1
+    return bytes([(polymod >> 5 * (5 - i)) & 31 for i in range(6)])
 
 
-def bech32_encode(hrp, data):
+def bech32_encode(hrp: str, data: bytes) -> str:
     """Compute a Bech32 string given HRP and data values."""
     combined = data + bech32_create_checksum(hrp, data)
     return hrp + '1' + ''.join([CHARSET[d] for d in combined])
 
 
-def bech32_decode(bech):
+def bech32_decode(bech: str) -> Tuple[str, bytes]:
     """Validate a Bech32 string, and determine HRP and data."""
     if ((any(ord(x) < 33 or ord(x) > 126 for x in bech)) or (bech.lower() != bech and bech.upper() != bech)):
-        return (None, None)
+        raise ValueError("Not a bech32-encoded string: {}".format(bech))
+
     bech = bech.lower()
     pos = bech.rfind('1')
     if pos < 1 or pos + 7 > len(bech):
-        return (None, None)
+        raise ValueError("Could not locate hrp separator '1' in {}".format(bech))
+
     if not all(x in CHARSET for x in bech[pos + 1:]):
-        return (None, None)
+        raise ValueError("Non-bech32 character found in {}".format(bech))
+
     hrp = bech[:pos]
-    data = [CHARSET.find(x) for x in bech[pos + 1:]]
+    data = bytes([CHARSET.find(x) for x in bech[pos + 1:]])
     if not bech32_verify_checksum(hrp, data):
-        return (None, None)
+        raise ValueError("Checksum verification failed for {}".format(bech))
+
     return (hrp, data[:-6])
 
 
