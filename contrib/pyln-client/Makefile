@@ -1,7 +1,7 @@
 #!/usr/bin/make
 
 .PHONY: bdist sdist release check check-source check-flake8 check-mypy
-PKG=proto
+PKG=client
 VERSION = $(shell python3 -c 'from pyln import ${PKG};print(${PKG}.__version__)')
 
 # You can set these variables from the command line.
@@ -25,7 +25,7 @@ check-pytest:
 	pytest tests
 
 check-mypy:
-	mypy --namespace-packages tests pyln
+	MYPYPATH=$(PYTHONPATH) mypy --namespace-packages tests pyln
 
 $(SDIST_FILE):
 	python3 setup.py sdist
