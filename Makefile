@@ -71,6 +71,7 @@ endif
 # Timeout shortly before the 600 second travis silence timeout
 # (method=thread to support xdist)
 PYTEST_OPTS := -v --timeout=550 --timeout_method=thread -p no:logging
+PYTHONPATH=$(shell pwd)/contrib/pyln-client:$(shell pwd)/contrib/pyln-testing:$(shell pwd)/contrib/pyln-proto/
 
 # This is where we add new features as bitcoin adds them.
 FEATURES :=
@@ -339,7 +340,7 @@ ifeq ($(PYTEST),)
 	exit 1
 else
 # Explicitly hand DEVELOPER and VALGRIND so you can override on make cmd line.
-	PYTHONPATH=`pwd`/contrib/pyln-client:`pwd`/contrib/pyln-testing:`pwd`/contrib/pyln-proto/:$(PYTHONPATH) TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) VALGRIND=$(VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
+	PYTHONPATH=$(PYTHONPATH) TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) VALGRIND=$(VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
 endif
 
 # Keep includes in alpha order.
@@ -398,8 +399,8 @@ check-python: check-pyln-client
 	@# W503: line break before binary operator
 	@flake8 --ignore=E501,E731,W503 ${PYSRC}
 
-	PYTHONPATH=$(PYTHONPATH) $(PYTEST) contrib/pyln-testing/tests/
-	PYTHONPATH=$(PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
+	PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(PYTEST) contrib/pyln-testing/tests/
+	PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
 
 check-includes:
 	@tools/check-includes.sh
