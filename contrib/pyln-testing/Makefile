@@ -25,7 +25,7 @@ check-pytest:
 	pytest tests
 
 check-mypy:
-	mypy --namespace-packages tests pyln
+	MYPYPATH=$(PYTHONPATH) mypy --namespace-packages tests pyln
 
 $(SDIST_FILE):
 	python3 setup.py sdist
