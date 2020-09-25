@@ -69,6 +69,7 @@ class Request(dict):
         self.plugin = plugin
         self.state = RequestState.PENDING
         self.id = req_id
+        self.termination_tb: Optional[str] = None
 
     def getattr(self, key: str) -> Union[Method, Any, int]:
         if key == "params":
@@ -84,21 +85,27 @@ class Request(dict):
 
     def set_result(self, result: Any) -> None:
         if self.state != RequestState.PENDING:
+            assert(self.termination_tb is not None)
             raise ValueError(
                 "Cannot set the result of a request that is not pending, "
-                "current state is {state}".format(state=self.state))
+                "current state is {state}. Request previously terminated at\n"
+                "{tb}".format(state=self.state, tb=self.termination_tb))
         self.result = result
         self._write_result({
             'jsonrpc': '2.0',
             'id': self.id,
             'result': self.result
         })
+        self.state = RequestState.FINISHED
+        self.termination_tb = "".join(traceback.extract_stack().format()[:-1])
 
     def set_exception(self, exc: Exception) -> None:
         if self.state != RequestState.PENDING:
+            assert(self.termination_tb is not None)
             raise ValueError(
                 "Cannot set the exception of a request that is not pending, "
-                "current state is {state}".format(state=self.state))
+                "current state is {state}. Request previously terminated at\n"
+                "{tb}".format(state=self.state, tb=self.termination_tb))
         self.exc = exc
         self._write_result({
             'jsonrpc': '2.0',
@@ -111,6 +118,8 @@ class Request(dict):
                 "traceback": traceback.format_exc(),
             },
         })
+        self.state = RequestState.FAILED
+        self.termination_tb = "".join(traceback.extract_stack().format()[:-1])
 
     def _write_result(self, result: dict) -> None:
         self.plugin._write_locked(result)

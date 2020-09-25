@@ -362,3 +362,43 @@ def test_argument_coercion():
 
     ba = p._bind_pos(test1, ["100msat"], None)
     test1(*ba.args, **ba.kwargs)
+
+
+def test_duplicate_result():
+    p = Plugin(autopatch=False)
+
+    def test1(request):
+        request.set_result(1)     # MARKER1
+        request.set_result(1)
+
+    req = Request(p, req_id=1, method="test1", params=[])
+    ba = p._bind_kwargs(test1, {}, req)
+    with pytest.raises(ValueError, match=r'current state is RequestState\.FINISHED(.*\n.*)*MARKER1'):
+        test1(*ba.args)
+
+    def test2(request):
+        request.set_exception(1)  # MARKER2
+        request.set_exception(1)
+
+    req = Request(p, req_id=2, method="test2", params=[])
+    ba = p._bind_kwargs(test2, {}, req)
+    with pytest.raises(ValueError, match=r'current state is RequestState\.FAILED(.*\n*.*)*MARKER2'):
+        test2(*ba.args)
+
+    def test3(request):
+        request.set_exception(1)  # MARKER3
+        request.set_result(1)
+
+    req = Request(p, req_id=3, method="test3", params=[])
+    ba = p._bind_kwargs(test3, {}, req)
+    with pytest.raises(ValueError, match=r'current state is RequestState\.FAILED(.*\n*.*)*MARKER3'):
+        test3(*ba.args)
+
+    def test4(request):
+        request.set_result(1)     # MARKER4
+        request.set_exception(1)
+
+    req = Request(p, req_id=4, method="test4", params=[])
+    ba = p._bind_kwargs(test4, {}, req)
+    with pytest.raises(ValueError, match=r'current state is RequestState\.FINISHED(.*\n*.*)*MARKER4'):
+        test4(*ba.args)
