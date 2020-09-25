@@ -1,10 +1,10 @@
-from ephemeral_port_reserve import reserve
+from ephemeral_port_reserve import reserve  # type: ignore
 from glob import glob
 
 import itertools
 import logging
 import os
-import psycopg2
+import psycopg2  # type: ignore
 import random
 import re
 import shutil
@@ -13,18 +13,19 @@ import sqlite3
 import string
 import subprocess
 import time
+from typing import Dict, List, Optional, Union
 
 
 class Sqlite3Db(object):
-    def __init__(self, path):
+    def __init__(self, path: str) -> None:
         self.path = path
 
-    def get_dsn(self):
+    def get_dsn(self) -> None:
         """SQLite3 doesn't provide a DSN, resulting in no CLI-option.
         """
         return None
 
-    def query(self, query):
+    def query(self, query: str) -> Union[List[Dict[str, Union[int, bytes]]], List[Dict[str, Optional[int]]], List[Dict[str, str]], List[Dict[str, Union[str, int]]], List[Dict[str, int]]]:
         orig = os.path.join(self.path)
         copy = self.path + ".copy"
         shutil.copyfile(orig, copy)
@@ -44,7 +45,7 @@ class Sqlite3Db(object):
         db.close()
         return result
 
-    def execute(self, query):
+    def execute(self, query: str) -> None:
         db = sqlite3.connect(self.path)
         c = db.cursor()
         c.execute(query)
@@ -91,20 +92,20 @@ class PostgresDb(object):
 
 
 class SqliteDbProvider(object):
-    def __init__(self, directory):
+    def __init__(self, directory: str) -> None:
         self.directory = directory
 
-    def start(self):
+    def start(self) -> None:
         pass
 
-    def get_db(self, node_directory, testname, node_id):
+    def get_db(self, node_directory: str, testname: str, node_id: int) -> Sqlite3Db:
         path = os.path.join(
             node_directory,
             'lightningd.sqlite3'
         )
         return Sqlite3Db(path)
 
-    def stop(self):
+    def stop(self) -> None:
         pass
 
 

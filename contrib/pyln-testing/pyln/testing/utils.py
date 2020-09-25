@@ -1,10 +1,10 @@
-from bitcoin.core import COIN
-from bitcoin.rpc import RawProxy as BitcoinProxy
+from bitcoin.core import COIN  # type: ignore
+from bitcoin.rpc import RawProxy as BitcoinProxy  # type: ignore
 from pyln.client import RpcError
 from pyln.testing.btcproxy import BitcoinRpcProxy
 from collections import OrderedDict
 from decimal import Decimal
-from ephemeral_port_reserve import reserve
+from ephemeral_port_reserve import reserve  # type: ignore
 from pyln.client import LightningRpc
 from pyln.client import Millisatoshi
 
