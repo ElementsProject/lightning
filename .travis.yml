@@ -46,5 +46,8 @@ cache:
     - external/arm-linux-gnueabihf
     - dependencies
 
+# Spawn .travis/build.sh as child of tka.sh (travis-keep-alive)
+# and print a new line and parsable message every 60 seconds to
+# keep Travis happy. If stuck, exit after 77 minutes (4620 seconds).
 script:
-  .travis/build.sh
+  .travis/tka.sh 4620 .travis/build.sh
