@@ -5,7 +5,7 @@ from typing import Dict
 
 import logging
 import os
-import pytest
+import pytest  # type: ignore
 import re
 import shutil
 import sys
