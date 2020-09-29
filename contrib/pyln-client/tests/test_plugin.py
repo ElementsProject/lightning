@@ -1,7 +1,7 @@
 from pyln.client import Plugin
 from pyln.client.plugin import Request, Millisatoshi
 import itertools
-import pytest
+import pytest  # type: ignore
 
 
 def test_simple_methods():
