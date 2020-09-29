@@ -8,6 +8,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import inspect
 import io
 import json
+import logging
 import math
 import os
 import re
@@ -209,6 +210,13 @@ class Plugin(object):
         self.child_init: Optional[Callable[..., None]] = None
 
         self.write_lock = RLock()
+
+        # Initialize the logging system with a handler that passes the logs to
+        # lightning for display.
+        log_handler = PluginLogHandler(self)
+        formatter = logging.Formatter('%(name)-12s: %(message)s')
+        log_handler.setFormatter(formatter)
+        logging.getLogger('').addHandler(log_handler)
 
     def add_method(self, name: str, func: Callable[..., Any],
                    background: bool = False,
@@ -790,3 +798,43 @@ def monkey_patch(plugin: Plugin, stdout: bool = True,
         setattr(sys, "stdout", PluginStream(plugin, level="info"))
     if stderr:
         setattr(sys, "stderr", PluginStream(plugin, level="warn"))
+
+
+class PluginLogHandler(logging.StreamHandler):
+    def __init__(self, plugin: Plugin) -> None:
+        logging.StreamHandler.__init__(self, stream=None)
+        self.plugin = plugin
+
+        # Map the numeric levels to the string levels lightningd understands.
+        self.levels = {
+            logging.CRITICAL: 'error',
+            logging.ERROR: 'error',
+            logging.WARNING: 'info',
+            logging.INFO: 'info',
+            logging.DEBUG: 'debug',
+            logging.NOTSET: 'debug',
+        }
+
+    def emit(self, record: logging.LogRecord) -> None:
+        """Emit a record.
+
+        If a formatter is specified, it is used to format the record. Numeric
+        levels are translated into strings that lightningd understands. If
+        exception information is present, it is formatted using
+        traceback.print_exception and appended to the stream.
+
+        """
+        try:
+            msg = self.format(record)
+            level = self.levels.get(record.levelno, 'info')
+            self.plugin.log(msg, level=level)
+        except RecursionError:  # See issue https://bugs.python.org/issue36272
+            raise
+        except Exception:
+            self.handleError(record)  # Writes errors in logging system to stderr
+        pass
+
+    def flush(self) -> None:
+        """Flushing is a no-op since each message is written as it comes in.
+        """
+        pass
