@@ -18,7 +18,7 @@ export TEST_NETWORK=${NETWORK:-"regtest"}
 if [ "$VALGRIND" = 0 ]; then
     PYTEST_PAR=4
 fi
-export TEST_CMD=${TEST_CMD:-"make -j $PYTEST_PAR pytest"}
+export TEST_CMD=${TEST_CMD:-"make -j $PYTEST_PAR TIMEOUT=2800 pytest"}
 
 mkdir -p dependencies/bin || true
 
