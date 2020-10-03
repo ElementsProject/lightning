@@ -51,6 +51,7 @@ if [ "$NO_PYTHON" != 1 ]; then
 	 -r contrib/pyln-testing/requirements.txt
 
     pip3 install --user -U --quiet --progress-bar off \
+	 blinker \
 	 pytest-sentry \
 	 pytest-rerunfailures
 
