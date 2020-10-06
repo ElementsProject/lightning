@@ -2125,7 +2125,7 @@ def test_dataloss_protection(node_factory, bitcoind):
                            # be zero)
                            "[0-9a-f]{64}"
                            # my_current_per_commitment_point
-                           "0[23][0-9a-f]{64}'$")
+                           "0[23][0-9a-f]{64}")
 
     # After an htlc, we should get different results (two more commits)
     l1.pay(l2, 200000000)
@@ -2148,7 +2148,7 @@ def test_dataloss_protection(node_factory, bitcoind):
                            # your_last_per_commitment_secret
                            "[0-9a-f]{64}"
                            # my_current_per_commitment_point
-                           "0[23][0-9a-f]{64}'$")
+                           "0[23][0-9a-f]{64}")
 
     # Now, move l2 back in time.
     l2.stop()

@@ -20,6 +20,7 @@ import sqlite3
 import string
 import struct
 import subprocess
+import sys
 import threading
 import time
 import warnings
@@ -202,15 +203,22 @@ class TailableProc(object):
         for line in iter(self.proc.stdout.readline, ''):
             if len(line) == 0:
                 break
-            if self.log_filter(line.decode('ASCII')):
+
+            line = line.decode('ASCII').rstrip()
+
+            if self.log_filter(line):
                 continue
+
             if self.verbose:
-                logging.debug("%s: %s", self.prefix, line.decode().rstrip())
+                sys.stdout.write("{}: {}\n".format(self.prefix, line))
+
             with self.logs_cond:
-                self.logs.append(str(line.rstrip()))
+                self.logs.append(line)
                 self.logs_cond.notifyAll()
+
         self.running = False
         self.proc.stdout.close()
+
         if self.proc.stderr:
             for line in iter(self.proc.stderr.readline, ''):
                 if len(line) == 0:
