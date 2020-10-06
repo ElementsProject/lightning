@@ -177,9 +177,14 @@ class PostgresDbProvider(object):
             '-F',
             '-i',
         ])
-        # Hacky but seems to work ok (might want to make the postgres proc a TailableProc as well if too flaky).
-        time.sleep(1)
-        self.conn = psycopg2.connect("dbname=template1 user=postgres host=localhost port={}".format(self.port))
+        # Hacky but seems to work ok (might want to make the postgres proc a
+        # TailableProc as well if too flaky).
+        for i in range(30):
+            try:
+                self.conn = psycopg2.connect("dbname=template1 user=postgres host=localhost port={}".format(self.port))
+                break
+            except Exception:
+                time.sleep(0.5)
 
         # Required for CREATE DATABASE to work
         self.conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
