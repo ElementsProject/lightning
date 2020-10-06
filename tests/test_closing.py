@@ -864,22 +864,33 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     # We track channel balances, to verify that accounting is ok.
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
 
-    l1, l2, l3, l4, l5 = node_factory.get_nodes(5,
-                                                opts=[{'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC'],
-                                                       'may_reconnect': True,
-                                                       'dev-no-reconnect': None},
-                                                      {'plugin': coin_mvt_plugin,
-                                                       'dev-no-reconnect': None,
-                                                       'may_reconnect': True,
-                                                       'allow_broken_log': True},
-                                                      {'plugin': coin_mvt_plugin,
-                                                       'dev-no-reconnect': None,
-                                                       'may_reconnect': True,
-                                                       'allow_broken_log': True},
-                                                      {'dev-no-reconnect': None},
-                                                      {'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC'],
-                                                       'may_reconnect': True,
-                                                       'dev-no-reconnect': None}])
+    l1, l2, l3, l4, l5 = node_factory.get_nodes(
+        5,
+        opts=[
+            {
+                'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC'],
+                'may_reconnect': True,
+                'dev-no-reconnect': None,
+            }, {
+                'plugin': coin_mvt_plugin,
+                'dev-no-reconnect': None,
+                'may_reconnect': True,
+                'allow_broken_log': True,
+            }, {
+                'plugin': coin_mvt_plugin,
+                'dev-no-reconnect': None,
+                'may_reconnect': True,
+                'allow_broken_log': True,
+            }, {
+                'dev-no-reconnect': None,
+            }, {
+                'disconnect': ['-WIRE_UPDATE_FULFILL_HTLC'],
+                'may_reconnect': True,
+                'dev-no-reconnect': None,
+                'allow_broken_log': True,
+            }
+        ]
+    )
 
     node_factory.join_nodes([l1, l2, l3, l4], wait_for_announce=True)
     node_factory.join_nodes([l3, l5], wait_for_announce=True)
