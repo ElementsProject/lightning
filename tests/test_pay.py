@@ -2034,6 +2034,10 @@ def test_setchannelfee_routing(node_factory, bitcoind):
     assert route[0]['msatoshi'] == 5002020
     assert route[1]['msatoshi'] == 4999999
 
+    # In case l3 includes a routehint, we need to make sure they also know
+    # about the new fees, otherwise we may end up with the old feerate
+    wait_for(lambda: [(c['base_fee_millisatoshi'], c['fee_per_millionth'], c['active']) for c in l3.rpc.listchannels(scid)['channels']] == [(1337, 137, True), (DEF_BASE, DEF_PPM, True)])
+
     # do and check actual payment
     inv = l3.rpc.invoice(4999999, 'test_setchannelfee_1', 'desc')['bolt11']
     result = l1.rpc.dev_pay(inv, use_shadow=False)
@@ -2053,6 +2057,10 @@ def test_setchannelfee_routing(node_factory, bitcoind):
     assert len(route) == 2
     assert route[0]['msatoshi'] == 5000049
     assert route[1]['msatoshi'] == 4999999
+
+    # In case l3 includes a routehint, we need to make sure they also know
+    # about the new fees, otherwise we may end up with the old feerate
+    wait_for(lambda: [(c['base_fee_millisatoshi'], c['fee_per_millionth'], c['active']) for c in l3.rpc.listchannels(scid)['channels']] == [(DEF_BASE, DEF_PPM, True), (DEF_BASE, DEF_PPM, True)])
 
     # do and check actual payment
     inv = l3.rpc.invoice(4999999, 'test_setchannelfee_2', 'desc')['bolt11']
@@ -2090,6 +2098,10 @@ def test_setchannelfee_zero(node_factory, bitcoind):
     assert len(route) == 2
     assert route[0]['msatoshi'] == 4999999
     assert route[1]['msatoshi'] == 4999999
+
+    # Wait for l3 to know about our low-balling, otherwise they'll add a wrong
+    # routehint to the invoice.
+    wait_for(lambda: [(c['base_fee_millisatoshi'], c['fee_per_millionth'], c['active']) for c in l3.rpc.listchannels(scid)['channels']] == [(0, 0, True), (DEF_BASE, DEF_PPM, True)])
 
     # do and check actual payment
     inv = l3.rpc.invoice(4999999, 'test_setchannelfee_3', 'desc')['bolt11']
@@ -2131,6 +2143,10 @@ def test_setchannelfee_restart(node_factory, bitcoind):
 
     # l1 wait for channel update from l2
     wait_for(lambda: [(c['base_fee_millisatoshi'], c['fee_per_millionth'], c['active']) for c in l1.rpc.listchannels(scid23)['channels']] == [(1337, 137, True), (DEF_BASE, DEF_PPM, True)])
+
+    # In case l3 includes a routehint, we need to make sure they also know
+    # about the new fees, otherwise we may end up with the old feerate
+    wait_for(lambda: [(c['base_fee_millisatoshi'], c['fee_per_millionth'], c['active']) for c in l3.rpc.listchannels(scid23)['channels']] == [(1337, 137, True), (DEF_BASE, DEF_PPM, True)])
 
     # l1 can make payment to l3 with custom fees being applied
     # Note: BOLT #7 math works out to 2021 msat fees
