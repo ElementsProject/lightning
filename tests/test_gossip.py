@@ -354,7 +354,7 @@ def test_gossip_weirdalias(node_factory, bitcoind):
         {'alias': normal_name}
     ]
     l1, l2 = node_factory.get_nodes(2, opts=opts)
-    weird_name_json = json.encoder.JSONEncoder().encode(weird_name)[1:-1].replace('\\', '\\\\')
+    weird_name_json = json.encoder.JSONEncoder().encode(weird_name)[1:-1]
     aliasline = l1.daemon.is_in_log('Server started with public key .* alias')
     assert weird_name_json in str(aliasline)
     assert l2.daemon.is_in_log('Server started with public key .* alias {}'
