@@ -2657,6 +2657,6 @@ def test_connection_timeout(node_factory):
         l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
     l1.daemon.wait_for_log('conn timed out')
 
-    with pytest.raises(RpcError, match='reset by peer'):
+    with pytest.raises(RpcError, match=r'(reset by peer|peer closed connection)'):
         l2.rpc.connect(l1.info['id'], 'localhost', port=l1.port)
     l1.daemon.wait_for_log('conn timed out')
