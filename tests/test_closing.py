@@ -19,7 +19,7 @@ import unittest
 def test_closing(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.line_graph(2)
     chan = l1.get_channel_scid(l2)
-    fee = basic_fee(7500) if not chainparams['elements'] else 8955
+    fee = basic_fee(3750) if not chainparams['elements'] else 4477
 
     l1.pay(l2, 200000000)
 
