@@ -912,8 +912,10 @@ def test_transaction_annotations(node_factory, bitcoind):
     l1.connect(l2)
     fundingtx = l1.rpc.fundchannel(l2.info['id'], 10**5)
 
-    # We should have one output available, and it should be unconfirmed
+    # We should have one output unreserved, and it should be unconfirmed
     outputs = l1.rpc.listfunds()['outputs']
+    assert len(outputs) == 2
+    outputs = [o for o in outputs if not o['reserved']]
     assert(len(outputs) == 1 and outputs[0]['status'] == 'unconfirmed')
 
     # It should also match the funding txid:
