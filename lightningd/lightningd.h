@@ -26,12 +26,6 @@ struct config {
 	/* How many confirms until we consider an anchor "settled". */
 	u32 anchor_confirms;
 
-	/* Maximum percent of fee rate we'll accept. */
-	u32 commitment_fee_max_percent;
-
-	/* Minimum percent of fee rate we'll accept. */
-	u32 commitment_fee_min_percent;
-
 	/* Minimum CLTV to subtract from incoming HTLCs to outgoing */
 	u32 cltv_expiry_delta;
 
