@@ -280,13 +280,6 @@ opens a channel before the channel is usable.
 The percentage of *estimatesmartfee 2/CONSERVATIVE* to use for the commitment
 transactions: default is 100.
 
- **commit-fee-min**=*PERCENT*
- **commit-fee-max**=*PERCENT*
-Limits on what onchain fee range we’ll allow when a node opens a channel
-with us, as a percentage of *estimatesmartfee 2*. If they’re outside
-this range, we abort their opening attempt. Note that **commit-fee-max**
-can (should!) be greater than 100.
-
  **max-concurrent-htlcs**=*INTEGER*
 Number of HTLCs one channel can handle concurrently in each direction.
 Should be between 1 and 483 (default 30).

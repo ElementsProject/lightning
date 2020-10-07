@@ -343,14 +343,6 @@ The percentage of \fIestimatesmartfee 2/CONSERVATIVE\fR to use for the commitmen
 transactions: default is 100\.
 
 
- \fBcommit-fee-min\fR=\fIPERCENT\fR
- \fBcommit-fee-max\fR=\fIPERCENT\fR
-Limits on what onchain fee range we’ll allow when a node opens a channel
-with us, as a percentage of \fIestimatesmartfee 2\fR\. If they’re outside
-this range, we abort their opening attempt\. Note that \fBcommit-fee-max\fR
-can (should!) be greater than 100\.
-
-
  \fBmax-concurrent-htlcs\fR=\fIINTEGER\fR
 Number of HTLCs one channel can handle concurrently in each direction\.
 Should be between 1 and 483 (default 30)\.
@@ -589,4 +581,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license\.
 
-\" SHA256STAMP:8e80667950a40a059a3a320a095c2313bc99b00de06bb892c47f22cf458d6493
+\" SHA256STAMP:9d72136e5abae6cb8f36899ebaeed6644ea566e95ec1a6f8b13cc911ed64a294
