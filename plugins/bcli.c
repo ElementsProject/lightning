@@ -498,7 +498,7 @@ static struct command_result *estimatefees_final_step(struct bitcoin_cli *bcli)
 
 	response = jsonrpc_stream_success(bcli->cmd);
 	json_add_u64(response, "opening", stash->normal);
-	json_add_u64(response, "mutual_close", stash->normal);
+	json_add_u64(response, "mutual_close", stash->slow);
 	json_add_u64(response, "unilateral_close",
 		     stash->very_urgent * bitcoind->commit_fee_percent / 100);
 	json_add_u64(response, "delayed_to_us", stash->normal);
