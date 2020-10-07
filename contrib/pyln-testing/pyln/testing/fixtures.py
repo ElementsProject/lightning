@@ -40,14 +40,25 @@ def test_base_dir():
 
 @pytest.fixture(autouse=True)
 def setup_logging():
-    logger = logging.getLogger()
-    before_handlers = list(logger.handlers)
+    """Enable logging before a test, and remove all handlers afterwards.
 
+    This "fixes" the issue with pytest swapping out sys.stdout and sys.stderr
+    in order to capture the output, but then doesn't wait for the handlers to
+    terminate before closing the buffers. It just iterates through all
+    loggers, and removes any handlers that might be pointing at sys.stdout or
+    sys.stderr.
+
+    """
     if TEST_DEBUG:
         logging.basicConfig(level=logging.DEBUG, stream=sys.stdout)
 
     yield
-    logger.handlers = before_handlers
+
+    loggers = [logging.getLogger()] + list(logging.Logger.manager.loggerDict.values())
+    for logger in loggers:
+        handlers = getattr(logger, 'handlers', [])
+        for handler in handlers:
+            logger.removeHandler(handler)
 
 
 @pytest.fixture
