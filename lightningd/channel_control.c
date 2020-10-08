@@ -25,6 +25,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <lightningd/notification.h>
 #include <lightningd/onion_message.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
@@ -449,6 +450,10 @@ static void peer_tx_sigs_msg(struct channel *channel, const u8 *msg)
 	}
 
 	wallet_channel_save(ld->wallet, channel);
+
+	/* Send notification with peer's signed PSBT */
+	notify_openchannel_peer_sigs(ld, &channel->cid,
+				     channel->psbt);
 }
 
 void forget_channel(struct channel *channel, const char *why)

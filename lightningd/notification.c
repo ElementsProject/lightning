@@ -467,3 +467,31 @@ void notify_coin_mvt(struct lightningd *ld,
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
+
+static void openchannel_peer_sigs_serialize(struct json_stream *stream,
+					    const struct channel_id *cid,
+					    const struct wally_psbt *psbt)
+{
+	json_object_start(stream, "openchannel_peer_sigs");
+	json_add_channel_id(stream, "channel_id", cid);
+	json_add_psbt(stream, "signed_psbt", psbt);
+	json_object_end(stream);
+}
+
+REGISTER_NOTIFICATION(openchannel_peer_sigs,
+		      openchannel_peer_sigs_serialize);
+
+void notify_openchannel_peer_sigs(struct lightningd *ld,
+				  const struct channel_id *cid,
+				  const struct wally_psbt *psbt)
+{
+	void (*serialize)(struct json_stream *,
+			  const struct channel_id *cid,
+			  const struct wally_psbt *) = openchannel_peer_sigs_notification_gen.serialize;
+
+	struct jsonrpc_notification *n =
+		jsonrpc_notification_start(NULL, "openchannel_peer_sigs");
+	serialize(n->stream, cid, psbt);
+	jsonrpc_notification_end(n);
+	plugins_notify(ld->plugins, take(n));
+}

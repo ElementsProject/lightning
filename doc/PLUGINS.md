@@ -653,6 +653,22 @@ at the time lightningd broadcasts the notification.
 
 `coin_type` is the BIP173 name for the coin which moved.
 
+### `openchannel_peer_sigs`
+
+When opening a channel with a peer using the collaborative transaction protocol
+(`opt_dual_fund`), this notification is fired when the peer sends us their funding
+transaction signatures, `tx_signatures`. We update the in-progress PSBT and return it
+here, with the peer's signatures attached.
+
+```json
+{
+	"openchannel_peer_sigs": {
+		"channel_id": "<hex of a channel id (note, v2 format)>",
+		"signed_psbt": "<Base64 serialized PSBT of funding transaction,
+				with peer's sigs>"
+	}
+}
+```
 
 ## Hooks
 
