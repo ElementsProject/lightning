@@ -55,6 +55,8 @@ new_uncommitted_channel(struct peer *peer)
 	uc->peer->uncommitted_channel = uc;
 	tal_add_destructor(uc, destroy_uncommitted_channel);
 
+	uc->got_offer = false;
+
 	return uc;
 }
 

@@ -46,6 +46,11 @@ struct uncommitted_channel {
 	/* Public key for funding tx. */
 	struct pubkey local_funding_pubkey;
 
+	/* If true, we are already in fundee-mode and any future
+	 * `fundchannel_start` on our end should fail.
+	 */
+	bool got_offer;
+
 	/* These are *not* filled in by new_uncommitted_channel: */
 
 	/* Minimum funding depth (if opener == REMOTE). */
