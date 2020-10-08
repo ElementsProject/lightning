@@ -270,7 +270,7 @@ void json_add_tx(struct json_stream *result,
 
 void json_add_psbt(struct json_stream *stream,
 		   const char *fieldname,
-		   struct wally_psbt *psbt)
+		   const struct wally_psbt *psbt)
 {
 	const char *psbt_b64;
 	psbt_b64 = psbt_to_b64(NULL, psbt);
