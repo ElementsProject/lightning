@@ -104,6 +104,11 @@ wallet_commit_channel(struct lightningd *ld,
 	bool option_static_remotekey;
 	bool option_anchor_outputs;
 
+	/* We cannot both be the fundee *and* have a `fundchannel_start`
+	 * command running!
+	 */
+	assert(!(uc->got_offer && uc->fc));
+
 	/* Get a key to use for closing outputs from this tx */
 	final_key_idx = wallet_get_newindex(ld);
 	if (final_key_idx == -1) {
@@ -538,6 +543,14 @@ failed:
 	tal_free(uc);
 }
 
+/* These two functions used to be a single function, pre-declaring
+ * here in order to reduce review load since the original function
+ * is not really changed at all in its operation, just need access
+ * to the cleanup part in a separate piece of code.
+ */
+static void
+opening_funder_failed_cancel_commands(struct uncommitted_channel *uc,
+				      const char *desc);
 static void opening_funder_failed(struct subd *openingd, const u8 *msg,
 				  struct uncommitted_channel *uc)
 {
@@ -554,6 +567,16 @@ static void opening_funder_failed(struct subd *openingd, const u8 *msg,
 		return;
 	}
 
+	opening_funder_failed_cancel_commands(uc, desc);
+}
+static void
+opening_funder_failed_cancel_commands(struct uncommitted_channel *uc,
+				      const char *desc)
+{
+	/* If no funding command(s) pending, do nothing.  */
+	if (!uc->fc)
+		return;
+
 	/* Tell anyone who was trying to cancel */
 	for (size_t i = 0; i < tal_count(uc->fc->cancels); i++) {
 		struct json_stream *response;
@@ -568,12 +591,17 @@ static void opening_funder_failed(struct subd *openingd, const u8 *msg,
 		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
 
 	/* Clear uc->fc, so we can try again, and so we don't fail twice
-	 * if they close. */
+	 * if they close.
+	 * This code is also used in the case where we turn out to already
+	 * be the fundee, in which case we should not have any `fc` at all,
+	 * so we definitely should clear this.
+	 */
 	uc->fc = tal_free(uc->fc);
 }
 
 struct openchannel_hook_payload {
 	struct subd *openingd;
+	struct uncommitted_channel* uc;
 	struct amount_sat funding_satoshis;
 	struct amount_msat push_msat;
 	struct amount_sat dust_limit_satoshis;
@@ -631,6 +659,7 @@ openchannel_hook_final(struct openchannel_hook_payload *payload STEALS)
 	struct subd *openingd = payload->openingd;
 	const u8 *our_upfront_shutdown_script = payload->our_upfront_shutdown_script;
 	const char *errmsg = payload->errmsg;
+	struct uncommitted_channel* uc = payload->uc;
 
 	/* We want to free this, whatever happens. */
 	tal_steal(tmpctx, payload);
@@ -640,6 +669,16 @@ openchannel_hook_final(struct openchannel_hook_payload *payload STEALS)
 		return;
 
 	tal_del_destructor2(openingd, openchannel_payload_remove_openingd, payload);
+
+	if (!errmsg) {
+		/* Plugins accepted the offer, cancel any of our
+		 * funder-side commands.  */
+		opening_funder_failed_cancel_commands(uc,
+						      "Have in-progress "
+						      "`open_channel` from "
+						      "peer");
+		uc->got_offer = true;
+	}
 
 	subd_send_msg(openingd,
 		      take(towire_openingd_got_offer_reply(NULL, errmsg,
@@ -739,6 +778,7 @@ static void opening_got_offer(struct subd *openingd,
 
 	payload = tal(openingd, struct openchannel_hook_payload);
 	payload->openingd = openingd;
+	payload->uc = uc;
 	payload->our_upfront_shutdown_script = NULL;
 	payload->errmsg = NULL;
 	if (!fromwire_openingd_got_offer(payload, msg,
@@ -1087,6 +1127,13 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 
 	if (peer->uncommitted_channel->fc) {
 		return command_fail(cmd, LIGHTNINGD, "Already funding channel");
+	}
+
+	if (peer->uncommitted_channel->got_offer) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Have in-progress "
+				    "`open_channel` from "
+				    "peer");
 	}
 
 	/* BOLT #2:

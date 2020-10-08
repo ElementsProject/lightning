@@ -2761,7 +2761,6 @@ def test_channel_opener(node_factory):
     assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'remote')
 
 
-@pytest.mark.xfail(strict=True)
 def test_fundchannel_start_alternate(node_factory, executor):
     ''' Test to see what happens if two nodes start channeling to
     each other alternately.
