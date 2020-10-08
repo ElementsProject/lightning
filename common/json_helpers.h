@@ -157,6 +157,6 @@ void json_add_tx(struct json_stream *result,
 /* '"fieldname" : "cHNidP8BAJoCAAAAAljo..." or "cHNidP8BAJoCAAAAAljo..." if fieldname is NULL */
 void json_add_psbt(struct json_stream *stream,
 		   const char *fieldname,
-		   struct wally_psbt *psbt);
+		   const struct wally_psbt *psbt);
 
 #endif /* LIGHTNING_COMMON_JSON_HELPERS_H */
