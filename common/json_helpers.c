@@ -142,6 +142,13 @@ void json_add_node_id(struct json_stream *response,
 	json_add_hex(response, fieldname, id->k, sizeof(id->k));
 }
 
+void json_add_channel_id(struct json_stream *response,
+			 const char *fieldname,
+			 const struct channel_id *cid)
+{
+	json_add_hex(response, fieldname, cid->id, sizeof(cid->id));
+}
+
 void json_add_pubkey(struct json_stream *response,
 		     const char *fieldname,
 		     const struct pubkey *key)

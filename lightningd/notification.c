@@ -219,8 +219,7 @@ static void channel_state_changed_notification_serialize(struct json_stream *str
 {
 	json_object_start(stream, "channel_state_changed");
 	json_add_node_id(stream, "peer_id", peer_id);
-	json_add_string(stream, "channel_id",
-			type_to_string(tmpctx, struct channel_id, cid));
+	json_add_channel_id(stream, "channel_id", cid);
 	if (scid)
 		json_add_short_channel_id(stream, "short_channel_id", scid);
 	else
