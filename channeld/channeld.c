@@ -2009,6 +2009,9 @@ static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 	const struct witness_stack **ws;
 	const struct wally_tx *wtx;
 	size_t j = 0;
+	enum tx_role role = peer->channel->opener == REMOTE
+		? TX_INITIATOR : TX_ACCEPTER;
+
 
 	if (!fromwire_tx_signatures(tmpctx, msg, &cid, &txid,
 				    cast_const3(
@@ -2047,11 +2050,17 @@ static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 	for (size_t i = 0; i < peer->psbt->num_inputs; i++) {
 		struct wally_psbt_input *in =
 			&peer->psbt->inputs[i];
+		u16 in_serial;
 		const struct witness_element **elem;
-		/* Really we should check serial parity, but we can
-		 * cheat and only check that the final witness
-		 * stack hasn't been set yet */
-		if (in->final_witness)
+
+		if (!psbt_get_serial_id(&in->unknowns, &in_serial)) {
+			status_broken("PSBT input %zu missing serial_id %s",
+				      i, type_to_string(tmpctx,
+							struct wally_psbt,
+							peer->psbt));
+			return;
+		}
+		if (in_serial % 2 != role)
 			continue;
 
 		if (j == tal_count(ws))
