@@ -106,6 +106,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/penalty_base.o			\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
+	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/random_select.o			\
 	common/setup.o				\
@@ -119,10 +120,6 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/wallet.o				\
 	common/wire_error.o			\
 	common/wireaddr.o			\
-
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-LIGHTNINGD_COMMON_OBJS += common/psbt_open.o
-endif
 
 include wallet/Makefile
 

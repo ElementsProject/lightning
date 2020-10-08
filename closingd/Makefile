@@ -46,6 +46,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/peer_failed.o			\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
+	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/read_peer_msg.o			\
 	common/setup.o				\
@@ -60,10 +61,6 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/wire_error.o			\
 	common/wireaddr.o			\
 	gossipd/gossipd_peerd_wiregen.o
-
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-CLOSINGD_COMMON_OBJS += common/psbt_open.o
-endif
 
 lightningd/lightning_closingd: $(CLOSINGD_OBJS) $(WIRE_ONION_OBJS) $(CLOSINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)
 

@@ -58,18 +58,6 @@ void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 /* Generated stub for towire_sha256 */
 void towire_sha256(u8 **pptr UNNEEDED, const struct sha256 *sha256 UNNEEDED)
 { fprintf(stderr, "towire_sha256 called!\n"); abort(); }
-/* Generated stub for towire_tx_add_input */
-u8 *towire_tx_add_input(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u16 serial_id UNNEEDED, const u8 *prevtx UNNEEDED, u32 prevtx_vout UNNEEDED, u32 sequence UNNEEDED, const u8 *script UNNEEDED, const struct tlv_tx_add_input_tlvs *tlvs UNNEEDED)
-{ fprintf(stderr, "towire_tx_add_input called!\n"); abort(); }
-/* Generated stub for towire_tx_add_output */
-u8 *towire_tx_add_output(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u16 serial_id UNNEEDED, u64 sats UNNEEDED, const u8 *script UNNEEDED)
-{ fprintf(stderr, "towire_tx_add_output called!\n"); abort(); }
-/* Generated stub for towire_tx_remove_input */
-u8 *towire_tx_remove_input(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u16 serial_id UNNEEDED)
-{ fprintf(stderr, "towire_tx_remove_input called!\n"); abort(); }
-/* Generated stub for towire_tx_remove_output */
-u8 *towire_tx_remove_output(const tal_t *ctx UNNEEDED, const struct channel_id *channel_id UNNEEDED, u16 serial_id UNNEEDED)
-{ fprintf(stderr, "towire_tx_remove_output called!\n"); abort(); }
 /* Generated stub for towire_u16 */
 void towire_u16(u8 **pptr UNNEEDED, u16 v UNNEEDED)
 { fprintf(stderr, "towire_u16 called!\n"); abort(); }
