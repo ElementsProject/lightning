@@ -75,8 +75,13 @@ msgdata,channeld_init,num_penalty_bases,u32,
 msgdata,channeld_init,pbases,penalty_base,num_penalty_bases
 msgdata,channeld_init,psbt,wally_psbt,
 
-msgtype,channeld_funding_tx,1010
-msgdata,channeld_funding_tx,funding_tx,wally_tx,
+# channeld->master received tx_sigs from peer
+msgtype,channeld_funding_sigs,1010
+msgdata,channeld_funding_sigs,signed_psbt,wally_psbt,
+
+# master->channeld send our tx_sigs to peer
+msgtype,channeld_send_tx_sigs,1011
+msgdata,channeld_send_tx_sigs,signed_psbt,wally_psbt,
 
 # master->channeld funding hit new depth(funding locked if >= lock depth)
 msgtype,channeld_funding_depth,1002

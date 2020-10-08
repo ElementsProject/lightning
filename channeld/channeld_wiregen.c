@@ -21,7 +21,8 @@ const char *channeld_wire_name(int e)
 
 	switch ((enum channeld_wire)e) {
 	case WIRE_CHANNELD_INIT: return "WIRE_CHANNELD_INIT";
-	case WIRE_CHANNELD_FUNDING_TX: return "WIRE_CHANNELD_FUNDING_TX";
+	case WIRE_CHANNELD_FUNDING_SIGS: return "WIRE_CHANNELD_FUNDING_SIGS";
+	case WIRE_CHANNELD_SEND_TX_SIGS: return "WIRE_CHANNELD_SEND_TX_SIGS";
 	case WIRE_CHANNELD_FUNDING_DEPTH: return "WIRE_CHANNELD_FUNDING_DEPTH";
 	case WIRE_CHANNELD_OFFER_HTLC: return "WIRE_CHANNELD_OFFER_HTLC";
 	case WIRE_CHANNELD_OFFER_HTLC_REPLY: return "WIRE_CHANNELD_OFFER_HTLC_REPLY";
@@ -60,7 +61,8 @@ bool channeld_wire_is_defined(u16 type)
 {
 	switch ((enum channeld_wire)type) {
 	case WIRE_CHANNELD_INIT:;
-	case WIRE_CHANNELD_FUNDING_TX:;
+	case WIRE_CHANNELD_FUNDING_SIGS:;
+	case WIRE_CHANNELD_SEND_TX_SIGS:;
 	case WIRE_CHANNELD_FUNDING_DEPTH:;
 	case WIRE_CHANNELD_OFFER_HTLC:;
 	case WIRE_CHANNELD_OFFER_HTLC_REPLY:;
@@ -301,24 +303,47 @@ bool fromwire_channeld_init(const tal_t *ctx, const void *p, const struct chainp
 	return cursor != NULL;
 }
 
-/* WIRE: CHANNELD_FUNDING_TX */
-u8 *towire_channeld_funding_tx(const tal_t *ctx, const struct wally_tx *funding_tx)
+/* WIRE: CHANNELD_FUNDING_SIGS */
+/* channeld->master received tx_sigs from peer */
+u8 *towire_channeld_funding_sigs(const tal_t *ctx, const struct wally_psbt *signed_psbt)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
-	towire_u16(&p, WIRE_CHANNELD_FUNDING_TX);
-	towire_wally_tx(&p, funding_tx);
+	towire_u16(&p, WIRE_CHANNELD_FUNDING_SIGS);
+	towire_wally_psbt(&p, signed_psbt);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_channeld_funding_tx(const tal_t *ctx, const void *p, struct wally_tx **funding_tx)
+bool fromwire_channeld_funding_sigs(const tal_t *ctx, const void *p, struct wally_psbt **signed_psbt)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
-	if (fromwire_u16(&cursor, &plen) != WIRE_CHANNELD_FUNDING_TX)
+	if (fromwire_u16(&cursor, &plen) != WIRE_CHANNELD_FUNDING_SIGS)
 		return false;
- 	*funding_tx = fromwire_wally_tx(ctx, &cursor, &plen);
+ 	*signed_psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	return cursor != NULL;
+}
+
+/* WIRE: CHANNELD_SEND_TX_SIGS */
+/* master->channeld send our tx_sigs to peer */
+u8 *towire_channeld_send_tx_sigs(const tal_t *ctx, const struct wally_psbt *signed_psbt)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_CHANNELD_SEND_TX_SIGS);
+	towire_wally_psbt(&p, signed_psbt);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_channeld_send_tx_sigs(const tal_t *ctx, const void *p, struct wally_psbt **signed_psbt)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_CHANNELD_SEND_TX_SIGS)
+		return false;
+ 	*signed_psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
 
@@ -1211,4 +1236,4 @@ bool fromwire_send_onionmsg(const tal_t *ctx, const void *p, u8 onion[1366], str
 	}
 	return cursor != NULL;
 }
-// SHA256STAMP:5614b61d80352e94f974d018c391102579d76c5db11648d18ed0dd198ab6838a
+// SHA256STAMP:0ddc4d686d50049ed4c8500919e415dde43baea52adc651b8a606765b09ab001

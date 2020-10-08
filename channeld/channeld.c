@@ -1996,12 +1996,46 @@ static void send_onionmsg(struct peer *peer, const u8 *msg)
 						    tlvs)));
 }
 
+static void handle_send_tx_sigs(struct peer *peer, const u8 *msg)
+{
+	struct wally_psbt *psbt;
+	struct bitcoin_txid txid;
+
+	if (!fromwire_channeld_send_tx_sigs(tmpctx, msg, &psbt))
+		master_badmsg(WIRE_CHANNELD_SEND_TX_SIGS, msg);
+
+	/* Check that we've got the same / correct PSBT */
+	psbt_txid(NULL, psbt, &txid, NULL);
+	if (!bitcoin_txid_eq(&txid, &peer->channel->funding_txid))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Txid for passed in PSBT does not match"
+			      " funding txid for channel. Expected %s, "
+			      "received %s",
+			      type_to_string(tmpctx, struct bitcoin_txid,
+					     &peer->channel->funding_txid),
+			      type_to_string(tmpctx, struct bitcoin_txid,
+					     &txid));
+
+	tal_wally_start();
+	if (wally_psbt_combine(peer->psbt, psbt) != WALLY_OK) {
+		tal_wally_end(tal_free(peer->psbt));
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Unable to combine PSBTs");
+	}
+	tal_wally_end(tal_steal(peer, peer->psbt));
+#if EXPERIMENTAL_FEATURES
+	sync_crypto_write(peer->pps,
+		take(psbt_to_tx_sigs_msg(NULL, peer->channel,
+					 psbt)));
+#endif /* EXPERIMENTAL_FEATURES */
+}
+
 static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 {
 	struct channel_id cid;
 	struct bitcoin_txid txid;
 	const struct witness_stack **ws;
-	const struct wally_tx *wtx;
+
 	size_t j = 0;
 	enum tx_role role = peer->channel->opener == REMOTE
 		? TX_INITIATOR : TX_ACCEPTER;
@@ -2067,22 +2101,10 @@ static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 		psbt_input_set_final_witness_stack(peer->psbt, in, elem);
 	}
 
-	/* Then we broadcast it, and let the command know we did it */
-	if (!psbt_finalize(peer->psbt))
-		peer_failed(peer->pps, &peer->channel_id,
-			    "Unable to finalize PSBT %s",
-			    type_to_string(tmpctx, struct wally_psbt, peer->psbt));
-
-	wtx = psbt_final_tx(tmpctx, peer->psbt);
-	if (!wtx)
-		peer_failed(peer->pps, &peer->channel_id,
-			    "Unable to extract funding_tx from finalized PSBT %s",
-			    type_to_string(tmpctx, struct wally_psbt, peer->psbt));
-
-
-	/* We need the peer controller to broadcast the tx for us */
+	/* Send to the peer controller, who will broadcast the funding_tx
+	 * as soon as we've got our sigs */
 	wire_sync_write(MASTER_FD,
-			take(towire_channeld_funding_tx(NULL, wtx)));
+			take(towire_channeld_funding_sigs(NULL, peer->psbt)));
 
 	peer->psbt = tal_free(peer->psbt);
 }
@@ -3291,6 +3313,14 @@ static void req_in(struct peer *peer, const u8 *msg)
 		handle_send_error(peer, msg);
 		return;
 #if EXPERIMENTAL_FEATURES
+	case WIRE_CHANNELD_SEND_TX_SIGS:
+		handle_send_tx_sigs(peer, msg);
+		return;
+#else
+	case WIRE_CHANNELD_SEND_TX_SIGS:
+		break;
+#endif /* !EXPERIMENTAL_FEATURES */
+#if EXPERIMENTAL_FEATURES
 	case WIRE_SEND_ONIONMSG:
 		send_onionmsg(peer, msg);
 		return;
@@ -3310,7 +3340,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_DEV_MEMLEAK:
 #endif /* DEVELOPER */
 	case WIRE_CHANNELD_INIT:
-	case WIRE_CHANNELD_FUNDING_TX:
+	case WIRE_CHANNELD_FUNDING_SIGS:
 	case WIRE_CHANNELD_OFFER_HTLC_REPLY:
 	case WIRE_CHANNELD_SENDING_COMMITSIG:
 	case WIRE_CHANNELD_GOT_COMMITSIG:
