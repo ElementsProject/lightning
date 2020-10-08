@@ -861,7 +861,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listnodes", payload)
 
-    def listpayments(self, bolt11=None, payment_hash=None):
+    def listpays(self, bolt11=None, payment_hash=None):
         """
         Show outgoing payments, regarding {bolt11} or {payment_hash} if set
         Can only specify one of {bolt11} or {payment_hash}.
@@ -871,7 +871,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "bolt11": bolt11,
             "payment_hash": payment_hash
         }
-        return self.call("listpayments", payload)
+        return self.call("listpays", payload)
 
     def listpeers(self, peerid=None, level=None):
         """
