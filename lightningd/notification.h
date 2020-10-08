@@ -19,9 +19,11 @@
 #include <lightningd/pay.h>
 #include <lightningd/plugin.h>
 #include <wallet/wallet.h>
+#include <wally_psbt.h>
 #include <wire/onion_wire.h>
 
 struct onionreply;
+struct wally_psbt;
 
 bool notifications_have_topic(const char *topic);
 
@@ -86,4 +88,8 @@ void notify_sendpay_failure(struct lightningd *ld,
 
 void notify_coin_mvt(struct lightningd *ld,
 		     const struct coin_mvt *mvt);
+
+void notify_openchannel_peer_sigs(struct lightningd *ld,
+				  const struct channel_id *cid,
+				  const struct wally_psbt *psbt);
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */
