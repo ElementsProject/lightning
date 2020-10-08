@@ -567,3 +567,20 @@ psbt_to_witness_stacks(const tal_t *ctx,
 	tal_resize(&stacks, stack_index);
 	return stacks;
 }
+
+bool psbt_side_finalized(const struct wally_psbt *psbt, enum tx_role role)
+{
+	u16 serial_id;
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		if (!psbt_get_serial_id(&psbt->inputs[i].unknowns,
+					&serial_id)) {
+			return false;
+		}
+		if (serial_id % 2 == role) {
+			if (!psbt->inputs[i].final_witness ||
+					psbt->inputs[i].final_witness->num_items == 0)
+				return false;
+		}
+	}
+	return true;
+}
