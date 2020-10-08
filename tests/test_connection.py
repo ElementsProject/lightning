@@ -2759,3 +2759,20 @@ def test_channel_opener(node_factory):
     l1.rpc.close(l2.rpc.getinfo()["id"])
     assert(l1.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'local')
     assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'remote')
+
+
+@pytest.mark.xfail(strict=True)
+def test_fundchannel_start_alternate(node_factory, executor):
+    ''' Test to see what happens if two nodes start channeling to
+    each other alternately.
+    Issue #4108
+    '''
+    l1, l2 = node_factory.get_nodes(2)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    l1.rpc.fundchannel_start(l2.info['id'], 100000)
+
+    fut = executor.submit(l2.rpc.fundchannel_start, l1.info['id'], 100000)
+    with pytest.raises(RpcError):
+        fut.result(10)
