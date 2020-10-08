@@ -151,10 +151,6 @@ struct channel {
 
 	/* PSBT, for v2 channels. Saved until it's sent */
 	struct wally_psbt *psbt;
-
-	/* Stashed pps, saved until channeld is started.
-	 * Needed only for v2 channel open flow */
-	struct per_peer_state *pps;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,

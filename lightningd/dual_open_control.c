@@ -879,7 +879,6 @@ static void opener_commit_received(struct subd *dualopend,
 		goto failed;
 	}
 
-	channel->pps = tal_steal(channel, pps);
 	if (pbase)
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
 
@@ -890,14 +889,18 @@ static void opener_commit_received(struct subd *dualopend,
 	json_add_bool(response, "commitments_secured", true);
 	was_pending(command_success(uc->fc->cmd, response));
 
-	subd_release_channel(dualopend, uc);
-	uc->open_daemon = NULL;
-	tal_free(uc);
-	return;
+	/* Now that we've got the final PSBT, save it */
+	channel->psbt = tal_steal(channel, psbt);
+	wallet_channel_save(uc->fc->cmd->ld->wallet, channel);
+
+	peer_start_channeld(channel, pps,
+			    NULL, psbt, false);
+	goto cleanup;
 
 failed:
 	was_pending(command_fail(uc->fc->cmd, LIGHTNINGD,
 				   "%s", err_reason));
+cleanup:
 	subd_release_channel(dualopend, uc);
 	uc->open_daemon = NULL;
 	tal_free(uc);
@@ -968,71 +971,6 @@ static void accepter_got_offer(struct subd *dualopend,
 	plugin_hook_call_openchannel2(dualopend->ld, payload);
 }
 
-static struct command_result *json_open_channel_signed(struct command *cmd,
-						       const char *buffer,
-						       const jsmntok_t *obj UNNEEDED,
-						       const jsmntok_t *params)
-{
-	struct wally_psbt *psbt;
-	struct channel_id *cid;
-	struct channel *channel;
-	struct bitcoin_txid txid;
-
-	if (!param(cmd, buffer, params,
-		   p_req("channel_id", param_channel_id, &cid),
-		   p_req("signed_psbt", param_psbt, &psbt),
-		   NULL))
-		return command_param_failed();
-
-	channel = channel_by_cid(cmd->ld, cid, NULL);
-	if (!channel)
-		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
-				    "Unknown channel");
-	if (!channel->pps)
-		return command_fail(cmd, LIGHTNINGD,
-				    "Missing per-peer-state for channel, "
-				    "are you in the right state to call "
-				    "this method?");
-	if (channel->psbt)
-		return command_fail(cmd, LIGHTNINGD,
-				    "Already have a finalized PSBT for "
-				    "this channel");
-
-	/* Verify that the psbt's txid matches that of the
-	 * funding txid for this channel */
-	psbt_txid(NULL, psbt, &txid, NULL);
-	if (!bitcoin_txid_eq(&txid, &channel->funding_txid))
-		return command_fail(cmd, FUNDING_PSBT_INVALID,
-				    "Txid for passed in PSBT does not match"
-				    " funding txid for channel. Expected %s, "
-				    "received %s",
-				    type_to_string(tmpctx, struct bitcoin_txid,
-						   &channel->funding_txid),
-				    type_to_string(tmpctx, struct bitcoin_txid,
-						   &txid));
-
-	/* Go ahead and try to finalize things, or what we can */
-	psbt_finalize(psbt);
-
-	/* Check that all of *our* outputs are finalized */
-	if (!psbt_side_finalized(psbt, TX_INITIATOR))
-		return command_fail(cmd, FUNDING_PSBT_INVALID,
-				    "Local PSBT input(s) not finalized");
-
-	/* Now that we've got the signed PSBT, save it */
-	channel->psbt = tal_steal(channel, psbt);
-	wallet_channel_save(cmd->ld->wallet, channel);
-
-	channel_watch_funding(cmd->ld, channel);
-
-	register_open_command(cmd->ld, cmd, channel);
-	peer_start_channeld(channel, channel->pps,
-			    NULL, psbt, false);
-	channel->pps = tal_free(channel->pps);
-
-	return command_still_pending(cmd);
-}
-
 static struct command_result *json_open_channel_update(struct command *cmd,
 						       const char *buffer,
 						       const jsmntok_t *obj UNNEEDED,
@@ -1085,7 +1023,6 @@ static struct command_result *json_open_channel_update(struct command *cmd,
 	subd_send_msg(uc->open_daemon, take(msg));
 	return command_still_pending(cmd);
 }
-
 
 static struct command_result *json_open_channel_init(struct command *cmd,
 						     const char *buffer,
@@ -1325,17 +1262,9 @@ static const struct json_command open_channel_update_command = {
 	"If {commitments_secured} is true, next call should be to openchannel_signed"
 };
 
-static const struct json_command open_channel_signed_command = {
-	"openchannel_signed",
-	"channels",
-	json_open_channel_signed,
-	"Finish opening {channel_id} with {signed_psbt}. "
-};
-
 #if EXPERIMENTAL_FEATURES
 AUTODATA(json_command, &open_channel_init_command);
 AUTODATA(json_command, &open_channel_update_command);
-AUTODATA(json_command, &open_channel_signed_command);
 #endif /* EXPERIMENTAL_FEATURES */
 
 void peer_start_dualopend(struct peer *peer,
