@@ -322,81 +322,6 @@ struct psbt_changeset *psbt_get_changeset(const tal_t *ctx,
 	return set;
 }
 
-u8 *psbt_changeset_get_next(const tal_t *ctx, struct channel_id *cid,
-			    struct psbt_changeset *set)
-{
-	u16 serial_id;
-	u8 *msg;
-
-	if (tal_count(set->added_ins) != 0) {
-		const struct input_set *in = &set->added_ins[0];
-		u8 *script;
-
-		if (!psbt_get_serial_id(&in->input.unknowns, &serial_id))
-			abort();
-
-		const u8 *prevtx = linearize_wtx(ctx,
-						 in->input.utxo);
-
-		if (in->input.redeem_script_len)
-			script = tal_dup_arr(ctx, u8,
-					     in->input.redeem_script,
-					     in->input.redeem_script_len, 0);
-		else
-			script = NULL;
-
-		msg = towire_tx_add_input(ctx, cid, serial_id,
-					  prevtx, in->tx_input.index,
-					  in->tx_input.sequence,
-					  script,
-					  NULL);
-
-		tal_arr_remove(&set->added_ins, 0);
-		return msg;
-	}
-	if (tal_count(set->rm_ins) != 0) {
-		if (!psbt_get_serial_id(&set->rm_ins[0].input.unknowns,
-					&serial_id))
-			abort();
-
-		msg = towire_tx_remove_input(ctx, cid, serial_id);
-
-		tal_arr_remove(&set->rm_ins, 0);
-		return msg;
-	}
-	if (tal_count(set->added_outs) != 0) {
-		struct amount_sat sats;
-		struct amount_asset asset_amt;
-
-		const struct output_set *out = &set->added_outs[0];
-		if (!psbt_get_serial_id(&out->output.unknowns, &serial_id))
-			abort();
-
-		asset_amt = wally_tx_output_get_amount(&out->tx_output);
-		sats = amount_asset_to_sat(&asset_amt);
-		const u8 *script = wally_tx_output_get_script(ctx,
-							      &out->tx_output);
-
-		msg = towire_tx_add_output(ctx, cid, serial_id,
-					   sats.satoshis, /* Raw: wire interface */
-					   script);
-
-		tal_arr_remove(&set->added_outs, 0);
-		return msg;
-	}
-	if (tal_count(set->rm_outs) != 0) {
-		if (!psbt_get_serial_id(&set->rm_outs[0].output.unknowns,
-					&serial_id))
-			abort();
-
-		msg = towire_tx_remove_output(ctx, cid, serial_id);
-
-		/* Is this a kosher way to move the list forward? */
-		tal_arr_remove(&set->rm_outs, 0);
-		return msg;
-	}
-	return NULL;
-}
 
 void psbt_input_set_serial_id(const tal_t *ctx,
 			      struct wally_psbt_input *input,
@@ -500,6 +425,82 @@ bool psbt_has_required_fields(struct wally_psbt *psbt)
 	}
 
 	return true;
+}
+
+u8 *psbt_changeset_get_next(const tal_t *ctx, struct channel_id *cid,
+			    struct psbt_changeset *set)
+{
+	u16 serial_id;
+	u8 *msg;
+
+	if (tal_count(set->added_ins) != 0) {
+		const struct input_set *in = &set->added_ins[0];
+		u8 *script;
+
+		if (!psbt_get_serial_id(&in->input.unknowns, &serial_id))
+			abort();
+
+		const u8 *prevtx = linearize_wtx(ctx,
+						 in->input.utxo);
+
+		if (in->input.redeem_script_len)
+			script = tal_dup_arr(ctx, u8,
+					     in->input.redeem_script,
+					     in->input.redeem_script_len, 0);
+		else
+			script = NULL;
+
+		msg = towire_tx_add_input(ctx, cid, serial_id,
+					  prevtx, in->tx_input.index,
+					  in->tx_input.sequence,
+					  script,
+					  NULL);
+
+		tal_arr_remove(&set->added_ins, 0);
+		return msg;
+	}
+	if (tal_count(set->rm_ins) != 0) {
+		if (!psbt_get_serial_id(&set->rm_ins[0].input.unknowns,
+					&serial_id))
+			abort();
+
+		msg = towire_tx_remove_input(ctx, cid, serial_id);
+
+		tal_arr_remove(&set->rm_ins, 0);
+		return msg;
+	}
+	if (tal_count(set->added_outs) != 0) {
+		struct amount_sat sats;
+		struct amount_asset asset_amt;
+
+		const struct output_set *out = &set->added_outs[0];
+		if (!psbt_get_serial_id(&out->output.unknowns, &serial_id))
+			abort();
+
+		asset_amt = wally_tx_output_get_amount(&out->tx_output);
+		sats = amount_asset_to_sat(&asset_amt);
+		const u8 *script = wally_tx_output_get_script(ctx,
+							      &out->tx_output);
+
+		msg = towire_tx_add_output(ctx, cid, serial_id,
+					   sats.satoshis, /* Raw: wire interface */
+					   script);
+
+		tal_arr_remove(&set->added_outs, 0);
+		return msg;
+	}
+	if (tal_count(set->rm_outs) != 0) {
+		if (!psbt_get_serial_id(&set->rm_outs[0].output.unknowns,
+					&serial_id))
+			abort();
+
+		msg = towire_tx_remove_output(ctx, cid, serial_id);
+
+		/* Is this a kosher way to move the list forward? */
+		tal_arr_remove(&set->rm_outs, 0);
+		return msg;
+	}
+	return NULL;
 }
 
 void psbt_input_set_final_witness_stack(struct wally_psbt_input *in,
