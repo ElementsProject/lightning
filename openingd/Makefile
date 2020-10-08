@@ -70,6 +70,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/peer_billboard.o			\
 	common/peer_failed.o			\
 	common/permute_tx.o			\
+	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/read_peer_msg.o			\
 	common/setup.o				\
@@ -84,11 +85,6 @@ OPENINGD_COMMON_OBJS :=				\
 	common/wireaddr.o			\
 	gossipd/gossipd_peerd_wiregen.o		\
 	lightningd/gossip_msg.o
-
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-OPENINGD_COMMON_OBJS += common/psbt_open.o	\
-	common/pseudorand.o
-endif
 
 lightningd/lightning_openingd: $(OPENINGD_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)
 

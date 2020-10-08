@@ -47,6 +47,7 @@
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/ping.h>
+#include <common/psbt_internal.h>
 #include <common/psbt_open.h>
 #include <common/read_peer_msg.h>
 #include <common/sphinx.h>
@@ -2054,7 +2055,7 @@ static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 
 		elem = cast_const2(const struct witness_element **,
 				   ws[j++]->witness_element);
-		psbt_input_set_final_witness_stack(in, elem);
+		psbt_input_set_final_witness_stack(peer->psbt, in, elem);
 	}
 
 	/* Then we broadcast it, and let the command know we did it */

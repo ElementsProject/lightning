@@ -56,6 +56,7 @@ COMMON_SRC_NOGEN :=				\
 	common/peer_failed.c			\
 	common/permute_tx.c			\
 	common/ping.c				\
+	common/psbt_open.c			\
 	common/pseudorand.c			\
 	common/random_select.c			\
 	common/read_peer_msg.c			\
@@ -77,7 +78,7 @@ COMMON_SRC_NOGEN :=				\
 
 
 ifeq ($(EXPERIMENTAL_FEATURES),1)
-COMMON_SRC_NOGEN += common/psbt_open.c
+COMMON_SRC_NOGEN += common/psbt_internal.c
 endif
 
 COMMON_SRC_GEN := common/status_wiregen.c common/peer_status_wiregen.c

@@ -70,6 +70,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
 	common/ping.o				\
+	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/read_peer_msg.o			\
 	common/setup.o				\
@@ -90,7 +91,7 @@ CHANNELD_COMMON_OBJS :=				\
 	wire/towire.o
 
 ifeq ($(EXPERIMENTAL_FEATURES),1)
-CHANNELD_COMMON_OBJS += common/psbt_open.o
+CHANNELD_COMMON_OBJS += common/psbt_internal.o
 endif
 
 channeld/gen_full_channel_error_names.h: channeld/full_channel_error.h ccan/ccan/cdump/tools/cdump-enumstr

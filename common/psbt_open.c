@@ -6,10 +6,8 @@
 #include <ccan/asort/asort.h>
 #include <ccan/ccan/endian/endian.h>
 #include <ccan/ccan/mem/mem.h>
-#include <common/channel_id.h>
 #include <common/pseudorand.h>
 #include <common/utils.h>
-#include <wire/peer_wire.h>
 
 bool psbt_get_serial_id(const struct wally_map *map, u16 *serial_id)
 {
@@ -425,148 +423,6 @@ bool psbt_has_required_fields(struct wally_psbt *psbt)
 	}
 
 	return true;
-}
-
-u8 *psbt_changeset_get_next(const tal_t *ctx, struct channel_id *cid,
-			    struct psbt_changeset *set)
-{
-	u16 serial_id;
-	u8 *msg;
-
-	if (tal_count(set->added_ins) != 0) {
-		const struct input_set *in = &set->added_ins[0];
-		u8 *script;
-
-		if (!psbt_get_serial_id(&in->input.unknowns, &serial_id))
-			abort();
-
-		const u8 *prevtx = linearize_wtx(ctx,
-						 in->input.utxo);
-
-		if (in->input.redeem_script_len)
-			script = tal_dup_arr(ctx, u8,
-					     in->input.redeem_script,
-					     in->input.redeem_script_len, 0);
-		else
-			script = NULL;
-
-		msg = towire_tx_add_input(ctx, cid, serial_id,
-					  prevtx, in->tx_input.index,
-					  in->tx_input.sequence,
-					  script,
-					  NULL);
-
-		tal_arr_remove(&set->added_ins, 0);
-		return msg;
-	}
-	if (tal_count(set->rm_ins) != 0) {
-		if (!psbt_get_serial_id(&set->rm_ins[0].input.unknowns,
-					&serial_id))
-			abort();
-
-		msg = towire_tx_remove_input(ctx, cid, serial_id);
-
-		tal_arr_remove(&set->rm_ins, 0);
-		return msg;
-	}
-	if (tal_count(set->added_outs) != 0) {
-		struct amount_sat sats;
-		struct amount_asset asset_amt;
-
-		const struct output_set *out = &set->added_outs[0];
-		if (!psbt_get_serial_id(&out->output.unknowns, &serial_id))
-			abort();
-
-		asset_amt = wally_tx_output_get_amount(&out->tx_output);
-		sats = amount_asset_to_sat(&asset_amt);
-		const u8 *script = wally_tx_output_get_script(ctx,
-							      &out->tx_output);
-
-		msg = towire_tx_add_output(ctx, cid, serial_id,
-					   sats.satoshis, /* Raw: wire interface */
-					   script);
-
-		tal_arr_remove(&set->added_outs, 0);
-		return msg;
-	}
-	if (tal_count(set->rm_outs) != 0) {
-		if (!psbt_get_serial_id(&set->rm_outs[0].output.unknowns,
-					&serial_id))
-			abort();
-
-		msg = towire_tx_remove_output(ctx, cid, serial_id);
-
-		/* Is this a kosher way to move the list forward? */
-		tal_arr_remove(&set->rm_outs, 0);
-		return msg;
-	}
-	return NULL;
-}
-
-void psbt_input_set_final_witness_stack(struct wally_psbt_input *in,
-					const struct witness_element **elements)
-{
-	wally_tx_witness_stack_init_alloc(tal_count(elements),
-					  &in->final_witness);
-
-	for (size_t i = 0; i < tal_count(elements); i++)
-		wally_tx_witness_stack_add(in->final_witness,
-					   elements[i]->witness,
-					   tal_bytelen(elements[i]->witness));
-}
-
-const struct witness_stack **
-psbt_to_witness_stacks(const tal_t *ctx,
-		       const struct wally_psbt *psbt,
-		       enum tx_role side_to_stack)
-{
-	size_t stack_index;
-	u16 serial_id;
-	const struct witness_stack **stacks
-		= tal_arr(ctx, const struct witness_stack *, psbt->num_inputs);
-
-	stack_index = 0;
-	for (size_t i = 0; i < psbt->num_inputs; i++) {
-		if (!psbt_get_serial_id(&psbt->inputs[i].unknowns,
-					&serial_id))
-			/* FIXME: throw an error ? */
-			return NULL;
-
-		/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
-		 * - if is the `initiator`:
-		 *   - MUST send even `serial_id`s
-		 */
-		if (serial_id % 2 == side_to_stack) {
-			struct wally_tx_witness_stack *wtx_s =
-				psbt->inputs[i].final_witness;
-			struct witness_stack *stack =
-				tal(stacks, struct witness_stack);
-			/* Convert the wally_tx_witness_stack to
-			 * a witness_stack entry */
-			stack->witness_element =
-				tal_arr(stack, struct witness_element *,
-					wtx_s->num_items);
-			for (size_t j = 0; j < tal_count(stack->witness_element); j++) {
-				stack->witness_element[j] = tal(stack,
-								struct witness_element);
-				stack->witness_element[j]->witness =
-					tal_dup_arr(stack, u8,
-						    wtx_s->items[j].witness,
-						    wtx_s->items[j].witness_len,
-						    0);
-
-			}
-
-			stacks[stack_index++] = stack;
-		}
-
-	}
-
-	if (stack_index == 0)
-		return tal_free(stacks);
-
-	tal_resize(&stacks, stack_index);
-	return stacks;
 }
 
 bool psbt_side_finalized(const struct wally_psbt *psbt, enum tx_role role)

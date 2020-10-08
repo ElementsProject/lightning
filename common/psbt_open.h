@@ -15,7 +15,6 @@ struct wally_psbt;
 struct wally_psbt_input;
 struct wally_psbt_output;
 struct wally_map;
-struct witness_element;
 
 struct input_set {
 	struct wally_tx_input tx_input;
@@ -70,20 +69,6 @@ void psbt_sort_by_serial_id(struct wally_psbt *psbt);
 struct psbt_changeset *psbt_get_changeset(const tal_t *ctx,
 					  struct wally_psbt *orig,
 					  struct wally_psbt *new);
-
-/* psbt_changeset_get_next - Get next message to send
- *
- * This generates the next message to send from a changeset for the
- * interactive transaction protocol.
- *
- * @ctx - allocation context of returned msg
- * @cid - channel_id for the message
- * @set - changeset to get next update from
- *
- * Returns a wire message or NULL if no changes.
- */
-u8 *psbt_changeset_get_next(const tal_t *ctx, struct channel_id *cid,
-			    struct psbt_changeset *set);
 
 /* psbt_input_set_serial_id - Sets a serial id on given input
  *
@@ -159,26 +144,6 @@ u16 psbt_new_output_serial(struct wally_psbt *psbt, enum tx_role role);
  * Returns true if all required fields are present
  */
 bool psbt_has_required_fields(struct wally_psbt *psbt);
-
-/* psbt_input_set_final_witness_stack - Set the witness stack for PSBT input
- *
- * @in - input to set final_witness for
- * @witness_element - elements to add to witness stack
- */
-void psbt_input_set_final_witness_stack(struct wally_psbt_input *in,
-					const struct witness_element **elements);
-
-/* psbt_to_witness_stacks - Take all sigs on a PSBT and copy to a
- * 			    witness_stack
- *
- * @ctx - allocation context
- * @psbt - PSBT to copy sigs from
- * @opener - which side initiated this tx
- */
-const struct witness_stack **
-psbt_to_witness_stacks(const tal_t *ctx,
-		       const struct wally_psbt *psbt,
-		       enum tx_role side_to_stack);
 
 /* psbt_side_finalized - True if designated role has all signature data */
 bool psbt_side_finalized(const struct wally_psbt *psbt,
