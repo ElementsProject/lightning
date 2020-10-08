@@ -38,29 +38,6 @@ struct commit_rcvd {
 	struct uncommitted_channel *uc;
 };
 
-static bool psbt_side_finalized(struct log *log, struct wally_psbt *psbt, enum side opener)
-{
-	u16 serial_id;
-	for (size_t i = 0; i < psbt->num_inputs; i++) {
-		if (!psbt_get_serial_id(&psbt->inputs[i].unknowns, &serial_id)) {
-			log_broken(log, "dual funding PSBT must have serial_id for each "
-				   "input, none found for input %zu", i);
-			return false;
-		}
-		/* It's our input if parity matches -- this shorthand
-		 * works because LOCAL == 0. If the parity is even and
-		 * we're the opener then it's ours; if the parity is odd
-		 * and the REMOTE's the opener (opener == 1), then it's also
-		 * ours. */
-		if (serial_id % 2 == opener) {
-			if (!psbt->inputs[i].final_witness ||
-					psbt->inputs[i].final_witness->num_items == 0)
-				return false;
-		}
-	}
-	return true;
-}
-
 static void handle_signed_psbt(struct lightningd *ld,
 			       const struct wally_psbt *psbt,
 			       struct commit_rcvd *rcvd)
@@ -548,9 +525,10 @@ openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 	/* Finalize it, if not already. It shouldn't work entirely */
 	psbt_finalize(payload->psbt);
 
-	if (!psbt_side_finalized(payload->ld->log, payload->psbt, REMOTE))
-		fatal("Plugin must return a 'psbt' with signatures for their inputs"
-		      " %s", type_to_string(tmpctx, struct wally_psbt, payload->psbt));
+	if (!psbt_side_finalized(payload->psbt, TX_ACCEPTER))
+		fatal("Plugin must return a 'psbt' with signatures "
+		      "for their inputs %s",
+		      type_to_string(tmpctx, struct wally_psbt, payload->psbt));
 
 	handle_signed_psbt(payload->ld, payload->psbt, payload->rcvd);
 }
@@ -1051,7 +1029,7 @@ static struct command_result *json_open_channel_signed(struct command *cmd,
 	psbt_finalize(psbt);
 
 	/* Check that all of *our* outputs are finalized */
-	if (!psbt_side_finalized(cmd->ld->log, psbt, LOCAL))
+	if (!psbt_side_finalized(psbt, TX_INITIATOR))
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "Local PSBT input(s) not finalized");
 

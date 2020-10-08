@@ -179,4 +179,8 @@ const struct witness_stack **
 psbt_to_witness_stacks(const tal_t *ctx,
 		       const struct wally_psbt *psbt,
 		       enum tx_role side_to_stack);
+
+/* psbt_side_finalized - True if designated role has all signature data */
+bool psbt_side_finalized(const struct wally_psbt *psbt,
+			 enum tx_role role);
 #endif /* LIGHTNING_COMMON_PSBT_OPEN_H */
