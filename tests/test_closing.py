@@ -1736,6 +1736,7 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind):
     l2.bitcoin.generate_block(9)
     l1.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TO_US',
                                    'THEIR_UNILATERAL/OUR_HTLC')
+    l2.daemon.wait_for_log('Ignoring output .*_UNILATERAL/THEIR_HTLC')
 
     err = q.get(timeout=10)
     if err:
