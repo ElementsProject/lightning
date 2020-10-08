@@ -2012,14 +2012,14 @@ static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 	enum tx_role role = peer->channel->opener == REMOTE
 		? TX_INITIATOR : TX_ACCEPTER;
 
-
 	if (!fromwire_tx_signatures(tmpctx, msg, &cid, &txid,
 				    cast_const3(
 					 struct witness_stack ***,
 					 &ws)))
 		peer_failed(peer->pps,
 			    &peer->channel_id,
-			    "Bad tx_signatures %s", tal_hex(msg, msg));
+			    "Bad tx_signatures %s",
+			    tal_hex(msg, msg));
 
 	/* Maybe they didn't get our funding_locked message ? */
 	if (peer->funding_locked[LOCAL]) {
@@ -2751,11 +2751,13 @@ static void peer_reconnect(struct peer *peer,
 
 #if EXPERIMENTAL_FEATURES
 	/* Send our tx_sigs again */
-	if (peer->psbt && !peer->funding_locked[REMOTE]) {
+	enum tx_role role = peer->channel->opener == LOCAL
+		? TX_INITIATOR : TX_ACCEPTER;
+	if (peer->psbt && psbt_side_finalized(peer->psbt, role)
+		&& !peer->funding_locked[REMOTE])
 		sync_crypto_write(peer->pps,
 			take(psbt_to_tx_sigs_msg(NULL, peer->channel,
 						 peer->psbt)));
-	}
 #endif /* EXPERIMENTAL_FEATURES */
 
 	/* BOLT #2:
@@ -3539,12 +3541,14 @@ static void init_channel(struct peer *peer)
 		sync_crypto_write(peer->pps, take(fwd_msg));
 
 #if EXPERIMENTAL_FEATURES
+	enum tx_role role;
+	role = opener == LOCAL ? TX_INITIATOR : TX_ACCEPTER;
 	/* peer_reconnect does this if needed */
-	if (!reconnected && peer->psbt) {
+	if (!reconnected && peer->psbt &&
+			psbt_side_finalized(peer->psbt, role))
 		sync_crypto_write(peer->pps,
 			take(psbt_to_tx_sigs_msg(NULL, peer->channel,
 						 peer->psbt)));
-	}
 #endif /* EXPERIMENTAL_FEATURES */
 
 	/* Reenable channel */
