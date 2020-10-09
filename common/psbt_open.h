@@ -85,22 +85,22 @@ struct psbt_changeset *psbt_get_changeset(const tal_t *ctx,
 u8 *psbt_changeset_get_next(const tal_t *ctx, struct channel_id *cid,
 			    struct psbt_changeset *set);
 
-/* psbt_input_add_serial_id - Adds a serial id to given input
+/* psbt_input_set_serial_id - Sets a serial id on given input
  *
  * @ctx - tal context for allocations
- * @input - to add serial_id to
- * @serial_id - to add
+ * @input - to set serial_id on
+ * @serial_id - to set
  */
-void psbt_input_add_serial_id(const tal_t *ctx,
+void psbt_input_set_serial_id(const tal_t *ctx,
 			      struct wally_psbt_input *input,
-			      u16 serial_id);
-/* psbt_output_add_serial_id - Adds a serial id to given output
+			       u16 serial_id);
+/* psbt_output_set_serial_id - Sets a serial id on given output
  *
  * @ctx - tal context for allocations
- * @output - to add serial_id to
- * @serial_id - to add
+ * @output - to set serial_id on
+ * @serial_id - to set
  */
-void psbt_output_add_serial_id(const tal_t *ctx,
+void psbt_output_set_serial_id(const tal_t *ctx,
 			       struct wally_psbt_output *output,
 			       u16 serial_id);
 

@@ -688,7 +688,7 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 				psbt_elements_input_set_asset(psbt, outnum, &asset);
 			}
 
-			psbt_input_add_serial_id(psbt, in, serial_id);
+			psbt_input_set_serial_id(psbt, in, serial_id);
 
 			/* FIXME: what's in the tlv? */
 			break;
@@ -749,7 +749,7 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 					    "Duplicate serial_id rcvd. %u", serial_id);
 			amt = amount_sat(value);
 			out = psbt_append_output(psbt, scriptpubkey, amt);
-			psbt_output_add_serial_id(psbt, out, serial_id);
+			psbt_output_set_serial_id(psbt, out, serial_id);
 			break;
 		}
 		case WIRE_TX_REMOVE_OUTPUT: {
@@ -1391,7 +1391,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 					 total);
 	/* Add a serial_id for this output */
 	serial_id = psbt_new_input_serial(psbt, TX_INITIATOR);
-	psbt_output_add_serial_id(psbt, funding_out, serial_id);
+	psbt_output_set_serial_id(psbt, funding_out, serial_id);
 
 	/* Add all of our inputs/outputs to the changeset */
 	init_changeset(state, psbt);

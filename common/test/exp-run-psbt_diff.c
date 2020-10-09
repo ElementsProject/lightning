@@ -117,7 +117,7 @@ static void add_in_out_with_serial(struct wally_psbt *psbt,
 			       NULL, NULL, NULL);
 	if (!in)
 		abort();
-	psbt_input_add_serial_id(psbt, in, serial_id);
+	psbt_input_set_serial_id(psbt, in, serial_id);
 
 	script = tal_arr(tmpctx, u8, 20);
 	memset(script, default_value, 20);
@@ -125,7 +125,25 @@ static void add_in_out_with_serial(struct wally_psbt *psbt,
 	out = psbt_append_output(psbt, script, sat);
 	if (!out)
 		abort();
-	psbt_output_add_serial_id(psbt, out, serial_id);
+	psbt_output_set_serial_id(psbt, out, serial_id);
+}
+
+/* Try changing up the serial ids */
+static void change_serials(void)
+{
+	struct wally_psbt *psbt;
+
+	psbt = create_psbt(tmpctx, 1, 1, 0);
+	add_in_out_with_serial(psbt, 10, 1);
+
+	psbt_output_set_serial_id(psbt, &psbt->outputs[0], 2);
+	assert(psbt_find_serial_output(psbt, 2) == 0);
+	assert(psbt_find_serial_output(psbt, 10) == -1);
+
+	psbt_input_set_serial_id(psbt, &psbt->inputs[0], 4);
+	assert(psbt_find_serial_input(psbt, 4) == 0);
+	assert(psbt_find_serial_input(psbt, 10) == -1);
+
 }
 
 int main(int argc, const char *argv[])
@@ -195,8 +213,8 @@ int main(int argc, const char *argv[])
 	/* Add some extra unknown info to a PSBT */
 	u8 *key = psbt_make_key(tmpctx, 0x05, NULL);
 	char *val = tal_fmt(tmpctx, "hello");
-	psbt_input_add_unknown(end, &end->inputs[1], key, val, tal_bytelen(val));
-	psbt_input_add_unknown(start, &start->inputs[1], key, val, tal_bytelen(val));
+	psbt_input_set_unknown(end, &end->inputs[1], key, val, tal_bytelen(val));
+	psbt_input_set_unknown(start, &start->inputs[1], key, val, tal_bytelen(val));
 
 	/* Swap locations */
 	struct wally_map_item tmp;
@@ -207,6 +225,8 @@ int main(int argc, const char *argv[])
 	/* We expect nothing to change ? */
 	diff_count(start, end, 1, 1);
 	diff_count(end, start, 1, 1);
+
+	change_serials();
 
 	/* No memory leaks please */
 	common_shutdown();

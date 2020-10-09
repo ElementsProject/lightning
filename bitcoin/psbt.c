@@ -509,19 +509,49 @@ u8 *psbt_make_key(const tal_t *ctx, u8 key_subtype, const u8 *key_data)
 	return key;
 }
 
-void psbt_input_add_unknown(const tal_t *ctx,
+static bool wally_map_set_unknown(const tal_t *ctx,
+				  struct wally_map *map,
+				  const u8 *key,
+				  const void *value,
+				  size_t value_len)
+{
+	size_t exists_at;
+	struct wally_map_item *item;
+
+	assert(value_len != 0);
+	if (wally_map_find(map,
+			   cast_const(unsigned char *, key), tal_bytelen(key),
+			   &exists_at) != WALLY_OK)
+		return false;
+
+	/* If not exists, add */
+	if (exists_at == 0) {
+		bool ok;
+		tal_wally_start();
+		ok = wally_map_add(map, cast_const(unsigned char *, key), tal_bytelen(key),
+			      (unsigned char *) memcheck(value, value_len), value_len)
+			== WALLY_OK;
+		tal_wally_end(ctx);
+		return ok;
+	}
+
+	/* Already in map, update entry */
+	item = &map->items[exists_at - 1];
+	tal_resize(&item->value, value_len);
+	memcpy(item->value, memcheck(value, value_len), value_len);
+	item->value_len = value_len;
+
+	return true;
+}
+
+void psbt_input_set_unknown(const tal_t *ctx,
 			    struct wally_psbt_input *in,
 			    const u8 *key,
 			    const void *value,
 			    size_t value_len)
 {
-	tal_wally_start();
-	if (wally_map_add(&in->unknowns,
-			  cast_const(unsigned char *, key), tal_bytelen(key),
-			  (unsigned char *) memcheck(value, value_len), value_len)
-			!= WALLY_OK)
+	if (!wally_map_set_unknown(ctx, &in->unknowns, key, value, value_len))
 		abort();
-	tal_wally_end(ctx);
 }
 
 void *psbt_get_unknown(const struct wally_map *map,
@@ -554,19 +584,14 @@ void *psbt_get_lightning(const struct wally_map *map,
 }
 
 
-void psbt_output_add_unknown(const tal_t *ctx,
+void psbt_output_set_unknown(const tal_t *ctx,
 			     struct wally_psbt_output *out,
 			     const u8 *key,
 			     const void *value,
 			     size_t value_len)
 {
-	tal_wally_start();
-	if (wally_map_add(&out->unknowns,
-			  cast_const(unsigned char *, key), tal_bytelen(key),
-			  (unsigned char *) memcheck(value, value_len), value_len)
-			!= WALLY_OK)
+	if (!wally_map_set_unknown(ctx, &out->unknowns, key, value, value_len))
 		abort();
-	tal_wally_end(ctx);
 }
 
 /* Use the destructor to free the wally_tx */
