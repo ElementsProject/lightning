@@ -365,7 +365,7 @@ static void psbt_add_serials(struct wally_psbt *psbt, enum tx_role role)
 			continue;
 
 		serial_id = psbt_new_input_serial(psbt, role);
-		psbt_input_add_serial_id(psbt, &psbt->inputs[i], serial_id);
+		psbt_input_set_serial_id(psbt, &psbt->inputs[i], serial_id);
 	}
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
 		/* Skip ones that already have a serial id */
@@ -373,7 +373,7 @@ static void psbt_add_serials(struct wally_psbt *psbt, enum tx_role role)
 			continue;
 
 		serial_id = psbt_new_output_serial(psbt, role);
-		psbt_output_add_serial_id(psbt, &psbt->outputs[i], serial_id);
+		psbt_output_set_serial_id(psbt, &psbt->outputs[i], serial_id);
 	}
 }
 
