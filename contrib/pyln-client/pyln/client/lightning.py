@@ -316,17 +316,26 @@ class UnixDomainSocketRpc(object):
 
         # FIXME: we open a new socket for every readobj call...
         sock = UnixSocket(self.socket_path)
+        this_id = self.next_id
         self._writeobj(sock, {
             "jsonrpc": "2.0",
             "method": method,
             "params": payload,
-            "id": self.next_id,
+            "id": this_id,
         })
         self.next_id += 1
-        resp, _ = self._readobj(sock)
-        sock.close()
+        buf = b''
+        while True:
+            resp, buf = self._readobj(sock, buf)
+            # FIXME: We should offer a callback for notifications.
+            if 'method' not in resp or 'id' in resp:
+                break
 
         self.logger.debug("Received response for %s call: %r", method, resp)
+        if 'id' in resp and resp['id'] != this_id:
+            raise ValueError("Malformed response, id is not {}: {}.".format(this_id, resp))
+        sock.close()
+
         if not isinstance(resp, dict):
             raise ValueError("Malformed response, response is not a dictionary %s." % resp)
         elif "error" in resp:
