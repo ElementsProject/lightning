@@ -1,0 +1,112 @@
+.TH "LIGHTNING-NOTIFICATIONS" "7" "" "" "lightning-notifications"
+.SH NAME
+lightning-notifications - Command to set up notifications\.
+.SH SYNOPSIS
+
+\fBnotifications\fR \fIenable\fR
+
+.SH DESCRIPTION
+
+The \fBnotifications\fR the RPC command enabled notifications for this JSON-RPC
+connection\.  By default (and for backwards-compatibility) notifications are
+disabled\.
+
+
+Various commands, especially complex and slow ones, offer
+notifications which indicate their progress\.
+
+.RS
+.IP \[bu]
+\fIenable\fR: \fItrue\fR to enable notifications, \fIfalse\fR to disable them\.
+
+.RE
+.SH EXAMPLE JSON REQUEST
+.nf
+.RS
+{
+  "id": 82,
+  "method": "notifications",
+  "params": {
+    "enable": true
+  }
+}
+.RE
+
+.fi
+.SH NOTIFICATIONS
+
+Notifications are JSON-RPC objects without an \fIid\fR field\.  \fIlightningd\fR sends
+notifications (once enabled with this \fInotifications\fR command) with a \fIparams\fR
+\fIid\fR field indicating which command the notification refers to\.
+
+
+Implementations should ignore notifications without an \fIid\fR parameter, or
+unknown \fImethod\fR\.
+
+
+Common \fImethod\fRs include:
+
+.RS
+.IP \[bu]
+\fImessage\fR: param \fImessage\fR: a descriptional string indicating something
+which occurred relating to the command\. Param \fIlevel\fR indicates the level,
+as per \fBlightning-getlog\fR(7): \fIinfo\fR and \fIdebug\fR are typical\.
+.IP \[bu]
+\fIprogress\fR: param \fInum\fR and \fItotal\fR, where \fInum\fR starts at 0 and is always
+less than \fItotal\fR\. Optional param \fIstage\fR with fields \fInum\fR and \fItotal\fR,
+indicating what stage we are progressing through\.
+
+.RE
+.SH RETURN VALUE
+
+On success, an empty object will be returned, and if the level was
+\fItrue\fR, notifications will be forwarded from then on\.
+
+
+On failure, one of the following error codes may be returned:
+
+.RS
+.IP \[bu]
+-32602: Error in given parameters\.
+
+.RE
+.SH EXAMPLE NOTIFICATIONS
+.nf
+.RS
+{
+   "method": "message",
+   "params": {
+       "id": 83,
+       "message": "This is a test message",
+       "level": "DEBUG"
+   }
+}
+.RE
+
+.fi
+.nf
+.RS
+{
+   "method": "progress",
+   "params": {
+       "id": 83,
+       "num": 0,
+       "total": 30
+       "stage": {
+           "num": 0,
+           "total": 2
+       }
+   }
+}
+.RE
+
+.fi
+.SH AUTHOR
+
+Rusty Russell \fI<rusty@blockstream.com\fR> wrote the initial version of this man page\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:2b6e9c8a814cb8de7b15e70de3563be5311e232e974f546d79c546aec641c3fe
