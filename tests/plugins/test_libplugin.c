@@ -18,6 +18,7 @@ static struct command_result *json_helloworld(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
+	plugin_notify_message(cmd, LOG_INFORM, "Notification from %s", "json_helloworld");
 	if (!name)
 		name = name_option ? name_option : tal_strdup(tmpctx, "world");
 

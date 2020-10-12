@@ -1891,6 +1891,68 @@ def test_htlc_accepted_hook_crash(node_factory, executor):
         f.result(10)
 
 
+def test_notify(node_factory):
+    """Test that notifications from plugins get ignored"""
+    plugins = [os.path.join(os.getcwd(), 'tests/plugins/notify.py'),
+               os.path.join(os.getcwd(), 'tests/plugins/notify2.py')]
+    l1 = node_factory.get_node(options={'plugin': plugins})
+
+    assert l1.rpc.call('make_notify') == 'This worked'
+    assert l1.rpc.call('call_make_notify') == 'This worked'
+
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   'make_notify']).decode('utf-8').splitlines(keepends=True)
+    assert out[0] == '# Beginning stage 1\n'
+    assert out[1] == '\r'
+    for i in range(100):
+        assert out[2 + i].startswith("# Stage 1/2 {:>3}/100 |".format(1 + i))
+        if i == 99:
+            assert out[2 + i].endswith("|\n")
+        else:
+            assert out[2 + i].endswith("|\r")
+    assert out[102] == '\r'
+    for i in range(10):
+        assert out[103 + i].startswith("# Stage 2/2 {:>2}/10 |".format(1 + i))
+        if i == 9:
+            assert out[103 + i].endswith("|\n")
+        else:
+            assert out[103 + i].endswith("|\r")
+    assert out[113] == '"This worked"\n'
+    assert len(out) == 114
+
+    # At debug level, we get the second prompt.
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   '-N', 'debug',
+                                   'make_notify']).decode('utf-8').splitlines()
+    assert out[0] == '# Beginning stage 1'
+    assert out[1] == ''
+    for i in range(100):
+        assert out[2 + i].startswith("# Stage 1/2 {:>3}/100 |".format(1 + i))
+        assert out[2 + i].endswith("|")
+    assert out[102] == '# Beginning stage 2'
+    assert out[103] == ''
+    for i in range(10):
+        assert out[104 + i].startswith("# Stage 2/2 {:>2}/10 |".format(1 + i))
+        assert out[104 + i].endswith("|")
+    assert out[114] == '"This worked"'
+    assert len(out) == 115
+
+    # none suppresses
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   '--notifications=none',
+                                   'make_notify']).decode('utf-8').splitlines()
+    assert out == ['"This worked"']
+
+
 def test_htlc_accepted_hook_failcodes(node_factory):
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-failcode.py')
     l1, l2 = node_factory.line_graph(2, opts=[{}, {'plugin': plugin}])
