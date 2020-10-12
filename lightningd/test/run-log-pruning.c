@@ -60,6 +60,13 @@ void json_stream_log_suppress_for_cmd(struct json_stream *js UNNEEDED,
 /* Generated stub for json_stream_success */
 struct json_stream *json_stream_success(struct command *cmd UNNEEDED)
 { fprintf(stderr, "json_stream_success called!\n"); abort(); }
+/* Generated stub for log_level_name */
+const char *log_level_name(enum log_level level UNNEEDED)
+{ fprintf(stderr, "log_level_name called!\n"); abort(); }
+/* Generated stub for log_level_parse */
+bool log_level_parse(const char *levelstr UNNEEDED, size_t len UNNEEDED,
+		     enum log_level *level UNNEEDED)
+{ fprintf(stderr, "log_level_parse called!\n"); abort(); }
 /* Generated stub for node_id_to_hexstr */
 char *node_id_to_hexstr(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "node_id_to_hexstr called!\n"); abort(); }

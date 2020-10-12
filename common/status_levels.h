@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_STATUS_LEVELS_H
 #define LIGHTNING_COMMON_STATUS_LEVELS_H
 #include "config.h"
+#include <ccan/tal/tal.h>
 
 enum log_level {
 	/* Logging all IO. */
@@ -16,6 +17,10 @@ enum log_level {
 	LOG_BROKEN
 };
 #define LOG_LEVEL_MAX LOG_BROKEN
+
+const char *log_level_name(enum log_level level);
+bool log_level_parse(const char *levelstr, size_t len,
+		     enum log_level *level);
 
 /*
  * These errors shouldn't happen:
