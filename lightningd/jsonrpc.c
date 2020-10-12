@@ -531,6 +531,10 @@ struct json_stream *json_stream_raw_for_cmd(struct command *cmd)
 {
 	struct json_stream *js;
 
+	/* Might have already opened it for a notification */
+	if (cmd->json_stream)
+		return cmd->json_stream;
+
 	/* If they still care about the result, attach it to them. */
 	if (cmd->jcon)
 		js = jcon_new_json_stream(cmd, cmd->jcon, cmd);
@@ -806,6 +810,7 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	 * the connection since the command may outlive `conn`. */
 	c = tal(jcon->ld->jsonrpc, struct command);
 	c->jcon = jcon;
+	c->send_notifications = jcon->notifications_enabled;
 	c->ld = jcon->ld;
 	c->pending = false;
 	c->json_stream = NULL;
@@ -1200,6 +1205,11 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n)
 
 struct jsonrpc_request *jsonrpc_request_start_(
     const tal_t *ctx, const char *method, struct log *log,
+    void (*notify_cb)(const char *buffer,
+		      const jsmntok_t *methodtok,
+		      const jsmntok_t *paramtoks,
+		      const jsmntok_t *idtok,
+		      void *),
     void (*response_cb)(const char *buffer, const jsmntok_t *toks,
 			const jsmntok_t *idtok, void *),
     void *response_cb_arg)
@@ -1207,6 +1217,7 @@ struct jsonrpc_request *jsonrpc_request_start_(
 	struct jsonrpc_request *r = tal(ctx, struct jsonrpc_request);
 	static u64 next_request_id = 0;
 	r->id = next_request_id++;
+	r->notify_cb = notify_cb;
 	r->response_cb = response_cb;
 	r->response_cb_arg = response_cb_arg;
 	r->method = NULL;

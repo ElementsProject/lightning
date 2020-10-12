@@ -231,6 +231,7 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 
 	req = jsonrpc_request_start(NULL, hook->name,
 				    plugin_get_log(ph_req->plugin),
+				    NULL,
 				    plugin_hook_callback, ph_req);
 
 	hook->serialize_payload(ph_req->cb_arg, req->stream);
@@ -328,7 +329,8 @@ void plugin_hook_db_sync(struct db *db)
 
 	ph_req = notleak(tal(hook->plugins, struct plugin_hook_request));
 	/* FIXME: do IO logging for this! */
-	req = jsonrpc_request_start(NULL, hook->name, NULL, db_hook_response,
+	req = jsonrpc_request_start(NULL, hook->name, NULL, NULL,
+				    db_hook_response,
 				    ph_req);
 
 	ph_req->hook = hook;
