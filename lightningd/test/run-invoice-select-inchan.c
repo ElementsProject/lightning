@@ -277,6 +277,12 @@ void json_array_start(struct json_stream *js UNNEEDED, const char *fieldname UNN
 char *json_member_direct(struct json_stream *js UNNEEDED,
 			 const char *fieldname UNNEEDED, size_t extra UNNEEDED)
 { fprintf(stderr, "json_member_direct called!\n"); abort(); }
+/* Generated stub for json_notify_fmt */
+void json_notify_fmt(struct command *cmd UNNEEDED,
+		     enum log_level level UNNEEDED,
+		     const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "json_notify_fmt called!\n"); abort(); }
 /* Generated stub for json_object_end */
 void json_object_end(struct json_stream *js UNNEEDED)
 { fprintf(stderr, "json_object_end called!\n"); abort(); }

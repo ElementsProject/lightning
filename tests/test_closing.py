@@ -4,13 +4,14 @@ from pyln.client import RpcError
 from shutil import copyfile
 from utils import (
     only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT,
-    account_balance, first_channel_id, basic_fee
+    account_balance, first_channel_id, basic_fee, TEST_NETWORK,
 )
 
 import os
 import queue
 import pytest
 import re
+import subprocess
 import threading
 import unittest
 
@@ -124,6 +125,25 @@ def test_closing_while_disconnected(node_factory, bitcoind, executor):
     bitcoind.generate_block(101)
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 0)
     wait_for(lambda: len(l2.rpc.listchannels()['channels']) == 0)
+
+
+def test_closing_disconnected_notify(node_factory, bitcoind, executor):
+    l1, l2 = node_factory.line_graph(2)
+
+    l1.pay(l2, 200000000)
+    l2.stop()
+    wait_for(lambda: not only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
+
+    out = subprocess.check_output(['cli/lightning-cli',
+                                   '--network={}'.format(TEST_NETWORK),
+                                   '--lightning-dir={}'
+                                   .format(l1.daemon.lightning_dir),
+                                   'close',
+                                   l2.info['id'],
+                                   '5']).decode('utf-8').splitlines()
+    assert out[0] == '# peer is offline, will negotiate once they reconnect (5 seconds before unilateral close).'
+    assert out[1] == '# Timed out, forcing close.'
+    assert not any([line.startswith('#') for line in out[2:]])
 
 
 def test_closing_id(node_factory):

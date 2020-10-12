@@ -284,6 +284,9 @@ close_command_timeout(struct close_command *cc)
 	/* This will trigger drop_to_chain, which will trigger
 	 * resolution of the command and destruction of the
 	 * close_command. */
+	if (!deprecated_apis)
+		json_notify_fmt(cc->cmd, LOG_INFORM,
+				"Timed out, forcing close.");
 	channel_fail_permanent(cc->channel,
 			       "Forcibly closed by 'close' command timeout");
 }
@@ -306,6 +309,14 @@ register_close_command(struct lightningd *ld,
 	tal_add_destructor2(channel,
 			    &destroy_close_command_on_channel_destroy,
 			    cc);
+
+	if (!deprecated_apis && !channel->owner) {
+		char *msg = tal_strdup(tmpctx, "peer is offline, will negotiate once they reconnect");
+		if (timeout)
+			tal_append_fmt(&msg, " (%u seconds before unilateral close)",
+				       timeout);
+		json_notify_fmt(cmd, LOG_INFORM, "%s.", msg);
+	}
 	log_debug(ld->log, "close_command: timeout = %u", timeout);
 	if (timeout)
 		new_reltimer(ld->timers, cc, time_from_sec(timeout),
