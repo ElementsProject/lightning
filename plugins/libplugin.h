@@ -232,6 +232,21 @@ struct plugin_timer *plugin_timer_(struct plugin *p,
 /* Log something */
 void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...) PRINTF_FMT(3, 4);
 
+/* Notify the caller of something. */
+struct json_stream *plugin_notify_start(struct command *cmd, const char *method);
+void plugin_notify_end(struct command *cmd, struct json_stream *js);
+
+/* Convenience wrapper for notify "message" */
+void plugin_notify_message(struct command *cmd,
+			   enum log_level level,
+			   const char *fmt, ...)
+	PRINTF_FMT(3, 4);
+
+/* Convenience wrapper for progress: num_stages is normally 0. */
+void plugin_notify_progress(struct command *cmd,
+			    u32 num_stages, u32 stage,
+			    u32 num_progress, u32 progress);
+
 /* Macro to define arguments */
 #define plugin_option_(name, type, description, set, arg, deprecated)	\
 	(name),								\
