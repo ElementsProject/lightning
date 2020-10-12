@@ -7,6 +7,7 @@
 #include <common/errcode.h>
 #include <common/json.h>
 #include <common/json_stream.h>
+#include <common/status_levels.h>
 #include <stdarg.h>
 
 struct jsonrpc;
@@ -153,6 +154,12 @@ static inline void was_pending(const struct command_result *res)
 static inline void fixme_ignore(const struct command_result *res)
 {
 }
+
+/* Notifier to the caller. */
+void json_notify_fmt(struct command *cmd,
+		     enum log_level level,
+		     const char *fmt, ...)
+	PRINTF_FMT(3, 4);
 
 /* FIXME: For the few cases where return value is indeterminate */
 struct command_result *command_its_complicated(const char *why);
