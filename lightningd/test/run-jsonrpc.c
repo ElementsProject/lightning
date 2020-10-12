@@ -68,6 +68,11 @@ struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 bool param(struct command *cmd UNNEEDED, const char *buffer UNNEEDED,
 	   const jsmntok_t params[] UNNEEDED, ...)
 { fprintf(stderr, "param called!\n"); abort(); }
+/* Generated stub for param_bool */
+struct command_result *param_bool(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				  const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				  bool **b UNNEEDED)
+{ fprintf(stderr, "param_bool called!\n"); abort(); }
 /* Generated stub for param_feerate_estimate */
 struct command_result *param_feerate_estimate(struct command *cmd UNNEEDED,
 					      u32 **feerate_per_kw UNNEEDED,

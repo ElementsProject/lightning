@@ -96,6 +96,9 @@ struct json_connection {
 	/* Our commands */
 	struct list_head commands;
 
+	/* Are notifications enabled? */
+	bool notifications_enabled;
+
 	/* Our json_streams (owned by the commands themselves while running).
 	 * Since multiple streams could start returning data at once, we
 	 * always service these in order, freeing once empty. */
@@ -973,6 +976,7 @@ static struct io_plan *jcon_connected(struct io_conn *conn,
 	jcon->len_read = 0;
 	jsmn_init(&jcon->input_parser);
 	jcon->input_toks = toks_alloc(jcon);
+	jcon->notifications_enabled = false;
 	list_head_init(&jcon->commands);
 
 	/* We want to log on destruction, so we free this in destructor. */
@@ -1292,3 +1296,28 @@ static const struct json_command check_command = {
 };
 
 AUTODATA(json_command, &check_command);
+
+static struct command_result *json_notifications(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *obj UNNEEDED,
+						 const jsmntok_t *params)
+{
+	bool *enable;
+
+	if (!param(cmd, buffer, params,
+		   p_req("enable", param_bool, &enable),
+		   NULL))
+		return command_param_failed();
+
+	cmd->jcon->notifications_enabled = *enable;
+	return command_success(cmd, json_stream_success(cmd));
+}
+
+static const struct json_command notifications_command = {
+	"notifications",
+	"utility",
+	json_notifications,
+	"Enable notifications for {level} (or 'false' to disable)",
+};
+
+AUTODATA(json_command, &notifications_command);
