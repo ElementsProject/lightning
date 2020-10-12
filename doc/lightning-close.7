@@ -66,6 +66,12 @@ Prior to 0\.7\.2, \fBclose\fR took two parameters: \fIforce\fR and \fItimeout\fR
 an RPC error (default)\. Even after the timeout, the channel would be
 closed if the peer reconnected\.
 
+.SH NOTIFICATIONS
+
+If \fBallow-deprecated-apis\fR is false, notifications may be returned
+indicating what is going on, especially if the peer is offline and we
+are waiting\.  This will be enabled by default in future!
+
 .SH RETURN VALUE
 
 On success, an object with fields \fItx\fR and \fItxid\fR containing the closing
@@ -95,4 +101,4 @@ ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:3763db99c82aebedf40e1ef39407f2970d0408601f9250ec9c52995956da621b
+\" SHA256STAMP:d16e185f9a781f23987dfb65aaa1eae8dab19796975433c69e16f1f6b18751c5

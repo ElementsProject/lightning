@@ -57,6 +57,12 @@ Prior to 0.7.2, **close** took two parameters: *force* and *timeout*.
 an RPC error (default). Even after the timeout, the channel would be
 closed if the peer reconnected.
 
+NOTIFICATIONS
+-------------
+If `allow-deprecated-apis` is false, notifications may be returned
+indicating what is going on, especially if the peer is offline and we
+are waiting.  This will be enabled by default in future!
+
 RETURN VALUE
 ------------
 
