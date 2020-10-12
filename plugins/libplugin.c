@@ -447,13 +447,18 @@ static const jsmntok_t *read_rpc_reply(const tal_t *ctx,
 {
 	const jsmntok_t *toks;
 
-	*reqlen = read_json_from_rpc(plugin);
+	do {
+		*reqlen = read_json_from_rpc(plugin);
 
-	toks = json_parse_simple(ctx,
-				 membuf_elems(&plugin->rpc_conn->mb), *reqlen);
-	if (!toks)
-		plugin_err(plugin, "Malformed JSON reply '%.*s'",
-			   *reqlen, membuf_elems(&plugin->rpc_conn->mb));
+		toks = json_parse_simple(ctx,
+					 membuf_elems(&plugin->rpc_conn->mb),
+					 *reqlen);
+		if (!toks)
+			plugin_err(plugin, "Malformed JSON reply '%.*s'",
+				   *reqlen, membuf_elems(&plugin->rpc_conn->mb));
+		/* FIXME: Don't simply ignore notifications here! */
+	} while (!json_get_member(membuf_elems(&plugin->rpc_conn->mb), toks,
+				  "id"));
 
 	*contents = json_get_member(membuf_elems(&plugin->rpc_conn->mb), toks, "error");
 	if (*contents)
@@ -525,9 +530,9 @@ static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
 
 	idtok = json_get_member(plugin->rpc_buffer, toks, "id");
 	if (!idtok)
-		plugin_err(plugin, "JSON reply without id '%.*s'",
-			   json_tok_full_len(toks),
-			   json_tok_full(plugin->rpc_buffer, toks));
+		/* FIXME: Don't simply ignore notifications! */
+		return;
+
 	if (!json_to_u64(plugin->rpc_buffer, idtok, &id))
 		plugin_err(plugin, "JSON reply without numeric id '%.*s'",
 			   json_tok_full_len(toks),
