@@ -70,8 +70,6 @@ struct close_command {
 	struct command *cmd;
 	/* Channel being closed. */
 	struct channel *channel;
-	/* Should we force the close on timeout? */
-	bool force;
 };
 
 static void destroy_peer(struct peer *peer)
@@ -283,18 +281,11 @@ destroy_close_command(struct close_command *cc)
 static void
 close_command_timeout(struct close_command *cc)
 {
-	if (cc->force)
-		/* This will trigger drop_to_chain, which will trigger
-		 * resolution of the command and destruction of the
-		 * close_command. */
-		channel_fail_permanent(cc->channel,
-				       "Forcibly closed by 'close' command timeout");
-	else
-		/* Fail the command directly, which will resolve the
-		 * command and destroy the close_command. */
-		was_pending(command_fail(cc->cmd, LIGHTNINGD,
-					 "Channel close negotiation not finished "
-					 "before timeout"));
+	/* This will trigger drop_to_chain, which will trigger
+	 * resolution of the command and destruction of the
+	 * close_command. */
+	channel_fail_permanent(cc->channel,
+			       "Forcibly closed by 'close' command timeout");
 }
 
 /* Construct a close command structure and add to ld. */
@@ -302,8 +293,7 @@ static void
 register_close_command(struct lightningd *ld,
 		       struct command *cmd,
 		       struct channel *channel,
-		       unsigned int *timeout,
-		       bool force)
+		       unsigned int timeout)
 {
 	struct close_command *cc;
 	assert(channel);
@@ -312,15 +302,13 @@ register_close_command(struct lightningd *ld,
 	list_add_tail(&ld->close_commands, &cc->list);
 	cc->cmd = cmd;
 	cc->channel = channel;
-	cc->force = force;
 	tal_add_destructor(cc, &destroy_close_command);
 	tal_add_destructor2(channel,
 			    &destroy_close_command_on_channel_destroy,
 			    cc);
-	log_debug(ld->log, "close_command: force = %u, timeout = %i",
-		  force, timeout ? *timeout : -1);
+	log_debug(ld->log, "close_command: timeout = %u", timeout);
 	if (timeout)
-		new_reltimer(ld->timers, cc, time_from_sec(*timeout),
+		new_reltimer(ld->timers, cc, time_from_sec(timeout),
 			     &close_command_timeout, cc);
 }
 
@@ -1393,9 +1381,7 @@ static struct command_result *json_close(struct command *cmd,
 	const jsmntok_t *idtok;
 	struct peer *peer;
 	struct channel *channel COMPILER_WANTS_INIT("gcc 7.3.0 fails, 8.3 OK");
-	unsigned int *timeout = NULL;
-	bool force = true;
-	bool do_timeout;
+	unsigned int *timeout;
 	const u8 *close_to_script = NULL;
 	bool close_script_set;
 	const char *fee_negotiation_step_str;
@@ -1410,8 +1396,6 @@ static struct command_result *json_close(struct command *cmd,
 			 &fee_negotiation_step_str),
 		   NULL))
 		return command_param_failed();
-
-	do_timeout = (*timeout != 0);
 
 	peer = peer_from_json(cmd->ld, buffer, idtok);
 	if (peer)
@@ -1539,8 +1523,7 @@ static struct command_result *json_close(struct command *cmd,
 	}
 
 	/* Register this command for later handling. */
-	register_close_command(cmd->ld, cmd, channel,
-			       do_timeout ? timeout : NULL, force);
+	register_close_command(cmd->ld, cmd, channel, *timeout);
 
 	/* If we set `channel->shutdown_scriptpubkey[LOCAL]`, save it. */
 	if (close_script_set)
