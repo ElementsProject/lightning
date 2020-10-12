@@ -61,6 +61,12 @@ This is useful for simple scripts which want to find a specific output
 field without parsing JSON\.
 
 
+ \fB--notifications\fR/\fB-N\fR=\fILEVEL\fR
+If \fILEVEL\fR is 'none', then never print out notifications\.  Otherwise,
+print out notifications of \fILEVEL\fR or above (one of \fBio\fR, \fBdebug\fR,
+\fBinfo\fR (the default), \fBunusual\fR or \fBbroken\fR: they are prefixed with \fB#\fR\.
+
+
  \fB--help\fR/\fB-h\fR
 Pretty-print summary of options to standard output and exit\.  The format can
 be changed using -F, -R, -J, -H etc\.
@@ -118,4 +124,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license\.
 
-\" SHA256STAMP:0269a00171f6ff2bbcb772b9367e05787345faf6457e75141978999fc0103d4a
+\" SHA256STAMP:b626a2499bd231acc33bf1c279c62de2a7ad2046c6c63965b97f74ec4e861365

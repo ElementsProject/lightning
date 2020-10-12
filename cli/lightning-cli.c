@@ -15,6 +15,7 @@
 #include <common/json.h>
 #include <common/json_command.h>
 #include <common/memleak.h>
+#include <common/status_levels.h>
 #include <common/utils.h>
 #include <common/version.h>
 #include <libgen.h>
@@ -470,6 +471,135 @@ static enum format choose_format(const char *resp,
 	return format;
 }
 
+static bool handle_notify(const char *buf, jsmntok_t *toks,
+			  enum log_level notification_level,
+			  bool *last_was_progress)
+{
+	const jsmntok_t *id, *method, *params;
+
+	if (toks->type != JSMN_OBJECT)
+		return false;
+
+	id = json_get_member(buf, toks, "id");
+	if (id)
+		return false;
+
+	method = json_get_member(buf, toks, "method");
+	if (!method)
+		return false;
+
+	params = json_get_member(buf, toks, "params");
+	if (!params)
+		return false;
+
+	/* Print nothing if --notifications=none */
+	if (notification_level == LOG_LEVEL_MAX + 1)
+		return true;
+
+	/* We try to be robust if malformed */
+	if (json_tok_streq(buf, method, "message")) {
+		const jsmntok_t *message, *leveltok;
+		enum log_level level;
+
+		leveltok = json_get_member(buf, params, "level");
+		if (!leveltok
+		    || !log_level_parse(buf + leveltok->start,
+					leveltok->end - leveltok->start,
+					&level)
+		    || level < notification_level)
+			return true;
+
+		if (*last_was_progress)
+			printf("\n");
+		*last_was_progress = false;
+		message = json_get_member(buf, params, "message");
+		if (!message)
+			return true;
+
+		printf("# %.*s\n",
+		       message->end - message->start,
+		       buf + message->start);
+	} else if (json_tok_streq(buf, method, "progress")) {
+		const jsmntok_t *num, *total, *stage;
+		u32 n, tot;
+		char bar[60 + 1];
+		char totstr[STR_MAX_CHARS(u32)];
+
+		num = json_get_member(buf, params, "num");
+		total = json_get_member(buf, params, "total");
+		if (!num || !total)
+			return true;
+		if (!json_to_u32(buf, num, &n)
+		    || !json_to_u32(buf, total, &tot))
+			return true;
+
+		/* Ph3ar my gui skillz! */
+		printf("\r# ");
+		stage = json_get_member(buf, params, "stage");
+		if (stage) {
+			u32 stage_num, stage_total;
+			json_to_u32(buf, json_get_member(buf, stage, "num"),
+				    &stage_num);
+			json_to_u32(buf, json_get_member(buf, stage, "total"),
+				    &stage_total);
+			snprintf(totstr, sizeof(totstr), "%u", stage_total);
+			printf("Stage %*u/%s ",
+			       (int)strlen(totstr), stage_num+1, totstr);
+		}
+		snprintf(totstr, sizeof(totstr), "%u", tot);
+		printf("%*u/%s ", (int)strlen(totstr), n+1, totstr);
+		memset(bar, ' ', sizeof(bar)-1);
+		memset(bar, '=', (double)strlen(bar) / (tot-1) * n);
+		bar[sizeof(bar)-1] = '\0';
+		printf("|%s|", bar);
+		/* Leave bar there if it's finished. */
+		if (n+1 == tot) {
+			printf("\n");
+			*last_was_progress = false;
+		} else {
+			fflush(stdout);
+			*last_was_progress = true;
+		}
+	}
+
+	return true;
+}
+
+static void enable_notifications(int fd)
+{
+	const char *enable = "{ \"jsonrpc\": \"2.0\", \"method\": \"notifications\", \"id\": 0, \"params\": { \"enable\": true } }";
+	char rbuf[100];
+
+	if (!write_all(fd, enable, strlen(enable)))
+		err(ERROR_TALKING_TO_LIGHTNINGD, "Writing enable command");
+
+	/* We get a very simple response, ending in \n\n. */
+	memset(rbuf, 0, sizeof(rbuf));
+	while (!strends(rbuf, "\n\n")) {
+		size_t len = strlen(rbuf);
+		if (read(fd, rbuf + len, sizeof(rbuf) - len) < 0)
+			err(ERROR_TALKING_TO_LIGHTNINGD,
+			    "Reading enable response");
+	}
+}
+
+static char *opt_set_level(const char *arg, enum log_level *level)
+{
+	if (streq(arg, "none"))
+		*level = LOG_LEVEL_MAX + 1;
+	else if (!log_level_parse(arg, strlen(arg), level))
+		return "Invalid level";
+	return NULL;
+}
+
+static void opt_show_level(char buf[OPT_SHOW_LEN], const enum log_level *level)
+{
+	if (*level == LOG_LEVEL_MAX + 1)
+		strncpy(buf, "none", OPT_SHOW_LEN-1);
+	else
+		strncpy(buf, log_level_name(*level), OPT_SHOW_LEN-1);
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -487,6 +617,8 @@ int main(int argc, char *argv[])
 	int parserr;
 	enum format format = DEFAULT_FORMAT;
 	enum input input = DEFAULT_INPUT;
+	enum log_level notification_level = LOG_INFORM;
+	bool last_was_progress = false;
 	char *command = NULL;
 
 	err_set_progname(argv[0]);
@@ -514,6 +646,9 @@ int main(int argc, char *argv[])
 			   "Use format key=value for <params>");
 	opt_register_noarg("-o|--order", opt_set_ordered, &input,
 			   "Use params in order for <params>");
+	opt_register_arg("-N|--notifications", opt_set_level,
+			 opt_show_level, &notification_level,
+			 "Set notification level, or none");
 
 	opt_register_version();
 
@@ -567,6 +702,10 @@ int main(int argc, char *argv[])
 		    "Connecting to '%s'", rpc_filename);
 
 	idstr = tal_fmt(ctx, "lightning-cli-%i", getpid());
+
+	if (notification_level <= LOG_LEVEL_MAX)
+		enable_notifications(fd);
+
 	cmd = tal_fmt(ctx,
 		      "{ \"jsonrpc\" : \"2.0\", \"method\" : \"%s\", \"id\" : \"%s\", \"params\" :",
 		      json_escape(ctx, method)->s, idstr);
@@ -607,6 +746,7 @@ int main(int argc, char *argv[])
 	/* Start with 1000 characters, 100 tokens. */
 	resp = tal_arr(ctx, char, 1000);
 	toks = tal_arr(ctx, jsmntok_t, 100);
+	toks[0].type = JSMN_UNDEFINED;
 
 	off = 0;
 	parserr = 0;
@@ -632,19 +772,34 @@ int main(int argc, char *argv[])
 		case JSMN_ERROR_INVAL:
 			errx(ERROR_TALKING_TO_LIGHTNINGD,
 			     "Malformed response '%s'", resp);
-		case JSMN_ERROR_NOMEM: {
+		case JSMN_ERROR_NOMEM:
 			/* Need more tokens, double it */
 			if (!tal_resize(&toks, tal_count(toks) * 2))
 				oom_dump(fd, resp, off);
 			break;
-		}
 		case JSMN_ERROR_PART:
-			/* Need more data: make room if necessary */
-			if (off == tal_bytelen(resp) - 1) {
-				if (!tal_resize(&resp, tal_count(resp) * 2))
-					oom_dump(fd, resp, off);
+			/* We may actually have a complete token! */
+			if (toks[0].type == JSMN_UNDEFINED || toks[0].end == -1) {
+				/* Need more data: make room if necessary */
+				if (off == tal_bytelen(resp) - 1) {
+					if (!tal_resize(&resp, tal_count(resp) * 2))
+						oom_dump(fd, resp, off);
+				}
+				break;
 			}
-			break;
+			/* Otherwise fall through... */
+		default:
+			if (handle_notify(resp, toks, notification_level,
+					  &last_was_progress)) {
+				/* +2 for \n\n */
+				size_t len = toks[0].end - toks[0].start + 2;
+				memmove(resp, resp + len, off - len);
+				off -= len;
+				jsmn_init(&parser);
+				toks[0].type = JSMN_UNDEFINED;
+				/* Don't force another read! */
+				parserr = JSMN_ERROR_NOMEM;
+			}
 		}
 	}
 
@@ -652,7 +807,10 @@ int main(int argc, char *argv[])
 		errx(ERROR_TALKING_TO_LIGHTNINGD,
 		     "Non-object response '%s'", resp);
 
-	/* This can rellocate toks, so call before getting pointers to tokens */
+	if (last_was_progress)
+		printf("\n");
+
+	/* This can reallocate toks, so call before getting pointers to tokens */
 	format = choose_format(resp, &toks, method, command, format);
 	result = json_get_member(resp, toks, "result");
 	error = json_get_member(resp, toks, "error");

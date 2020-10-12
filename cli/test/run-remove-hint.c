@@ -93,6 +93,13 @@ void json_add_member(struct json_stream *js UNNEEDED,
 char *json_member_direct(struct json_stream *js UNNEEDED,
 			 const char *fieldname UNNEEDED, size_t extra UNNEEDED)
 { fprintf(stderr, "json_member_direct called!\n"); abort(); }
+/* Generated stub for log_level_name */
+const char *log_level_name(enum log_level level UNNEEDED)
+{ fprintf(stderr, "log_level_name called!\n"); abort(); }
+/* Generated stub for log_level_parse */
+bool log_level_parse(const char *levelstr UNNEEDED, size_t len UNNEEDED,
+		     enum log_level *level UNNEEDED)
+{ fprintf(stderr, "log_level_parse called!\n"); abort(); }
 /* Generated stub for towire_amount_msat */
 void towire_amount_msat(u8 **pptr UNNEEDED, const struct amount_msat msat UNNEEDED)
 { fprintf(stderr, "towire_amount_msat called!\n"); abort(); }
@@ -168,10 +175,10 @@ int main(int argc UNUSED, char *argv[])
 {
 	setup_locale();
 
-	char *fake_argv[] = { argv[0], "--lightning-dir=/tmp/", "test", NULL };
+	char *fake_argv[] = { argv[0], "--lightning-dir=/tmp/", "test", "-N", "none", NULL };
 
 	output = tal_strdup(NULL, "");
-	assert(test_main(3, fake_argv) == 0);
+	assert(test_main(5, fake_argv) == 0);
 
 	assert(streq(output, "channels=\n"
 		     "\n"
