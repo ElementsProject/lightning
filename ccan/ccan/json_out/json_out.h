@@ -177,9 +177,12 @@ bool json_out_add_splice(struct json_out *jout,
  * @jout: the json_out object written to.
  *
  * This simply causes internal assertions that all arrays and objects are
- * finished.  It needs CCAN_JSON_OUT_DEBUG defined to have any effect.
+ * finished. If CCAN_JSON_OUT_DEBUG is defined, it does sanity checks.
+ *
+ * This also resets the empty flag, so there will be no comma added if
+ * another JSON object is written.
  */
-void json_out_finished(const struct json_out *jout);
+void json_out_finished(struct json_out *jout);
 
 /**
  * json_out_contents - read contents from json_out stream.
