@@ -608,6 +608,26 @@ class Plugin(object):
         for line in message.split('\n'):
             self.notify('log', {'level': level, 'message': line})
 
+    def notify_message(self, request: Request, message: str,
+                       level: str = 'info') -> None:
+        """Send a notification message to sender of this request"""
+        self.notify("message", {"id": request.id,
+                                "level": level,
+                                "message": message})
+
+    def notify_progress(self, request: Request,
+                        progress: int, progress_total: int,
+                        stage: Optional[int] = None,
+                        stage_total: Optional[int] = None) -> None:
+        """Send a progerss message to sender of this request: if more than one stage, set stage and stage_total"""
+        d: Dict[str, Any] = {"id": request.id,
+                             "num": progress,
+                             "total": progress_total}
+        if stage_total is not None:
+            d['stage'] = {"num": stage, "total": stage_total}
+
+        self.notify("progress", d)
+
     def _parse_request(self, jsrequest: Dict[str, JSONType]) -> Request:
         i = jsrequest.get('id', None)
         if not isinstance(i, int) and i is not None:
