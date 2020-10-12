@@ -10,6 +10,7 @@ LIGHTNING_CLI_COMMON_OBJS :=			\
 	common/configdir.o			\
 	common/json.o				\
 	common/json_stream.o			\
+	common/status_levels.o			\
 	common/utils.o				\
 	common/version.o
 

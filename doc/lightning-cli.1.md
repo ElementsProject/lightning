@@ -54,6 +54,12 @@ Return JSON result in flattened one-per-line output, e.g. `{ "help":
 This is useful for simple scripts which want to find a specific output
 field without parsing JSON.
 
+ **--notifications**/**-N**=*LEVEL*
+If *LEVEL* is 'none', then never print out notifications.  Otherwise,
+print out notifications of *LEVEL* or above (one of `io`, `debug`,
+`info` (the default), `unusual` or `broken`: they are prefixed with `#
+`.
+
  **--help**/**-h**
 Pretty-print summary of options to standard output and exit.  The format can
 be changed using -F, -R, -J, -H etc.
