@@ -985,6 +985,65 @@ static void plugin_logv(struct plugin *p, enum log_level l,
 	jsonrpc_finish_and_send(p, js);
 }
 
+struct json_stream *plugin_notify_start(struct command *cmd, const char *method)
+{
+	struct json_stream *js = new_json_stream(cmd, NULL, NULL);
+
+	json_object_start(js, NULL);
+	json_add_string(js, "jsonrpc", "2.0");
+	json_add_string(js, "method", method);
+
+	json_object_start(js, "params");
+	json_add_u64(js, "id", *cmd->id);
+
+	return js;
+}
+
+void plugin_notify_end(struct command *cmd, struct json_stream *js)
+{
+	json_object_end(js);
+
+	jsonrpc_finish_and_send(cmd->plugin, js);
+}
+
+/* Convenience wrapper for notify with "message" */
+void plugin_notify_message(struct command *cmd,
+			   enum log_level level,
+			   const char *fmt, ...)
+{
+	va_list ap;
+	struct json_stream *js = plugin_notify_start(cmd, "message");
+
+	va_start(ap, fmt);
+	json_add_string(js, "level", log_level_name(level));
+
+	/* In case we're OOM */
+	if (js->jout)
+		json_out_addv(js->jout, "message", true, fmt, ap);
+	va_end(ap);
+
+	plugin_notify_end(cmd, js);
+}
+
+void plugin_notify_progress(struct command *cmd,
+			    u32 num_stages, u32 stage,
+			    u32 num_progress, u32 progress)
+{
+	struct json_stream *js = plugin_notify_start(cmd, "progress");
+
+	assert(progress < num_progress);
+	json_add_u32(js, "num", progress);
+	json_add_u32(js, "total", num_progress);
+	if (num_stages > 0) {
+		assert(stage < num_stages);
+		json_object_start(js, "stage");
+		json_add_u32(js, "num", stage);
+		json_add_u32(js, "total", num_stages);
+		json_object_end(js);
+	}
+	plugin_notify_end(cmd, js);
+}
+
 void NORETURN plugin_err(struct plugin *p, const char *fmt, ...)
 {
 	va_list ap;
