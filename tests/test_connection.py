@@ -1080,9 +1080,18 @@ def test_funding_close_upfront(node_factory, bitcoind):
 
     remote_valid_addr = 'bcrt1q7gtnxmlaly9vklvmfj06amfdef3rtnrdazdsvw'
 
+    def has_normal_channels(l1, l2):
+        return any([c['state'] == 'CHANNELD_AWAITING_LOCKIN'
+                    or c['state'] == 'CHANNELD_NORMAL'
+                    for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels']])
+
     def _fundchannel(l1, l2, amount, close_to):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         assert(l1.rpc.listpeers()['peers'][0]['id'] == l2.info['id'])
+
+        # Make sure both consider any previous channels closed.
+        wait_for(lambda: not has_normal_channels(l1, l2))
+        wait_for(lambda: not has_normal_channels(l2, l1))
 
         resp = l1.rpc.fundchannel_start(l2.info['id'], amount, close_to=close_to)
         address = resp['funding_address']
