@@ -82,6 +82,31 @@ void json_stream_append(struct json_stream *js,
 	memcpy(dest, str, len);
 }
 
+/* We promise it will end in '\n\n' */
+void json_stream_double_cr(struct json_stream *js)
+{
+	const char *contents;
+	size_t len, cr_needed;
+
+	if (!js->jout)
+		return;
+
+	/* Must be well-formed at this point! */
+	json_out_finished(js->jout);
+
+	contents = json_out_contents(js->jout, &len);
+	/* It's an object (with an id!): definitely can't be less that "{}" */
+	assert(len >= 2);
+	if (contents[len-1] == '\n') {
+		if (contents[len-2] == '\n')
+			return;
+		cr_needed = 1;
+	} else
+		cr_needed = 2;
+
+	json_stream_append(js, "\n\n", cr_needed);
+}
+
 void json_stream_close(struct json_stream *js, struct command *writer)
 {
 	/* FIXME: We use writer == NULL for malformed: make writer a void *?
@@ -89,8 +114,7 @@ void json_stream_close(struct json_stream *js, struct command *writer)
 	assert(js->writer == writer);
 
 	/* Should be well-formed at this point! */
-	json_out_finished(js->jout);
-	json_stream_append(js, "\n\n", strlen("\n\n"));
+	json_stream_double_cr(js);
 	json_stream_flush(js);
 	js->writer = NULL;
 }

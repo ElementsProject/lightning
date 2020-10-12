@@ -160,6 +160,8 @@ struct io_plan *json_stream_output_(struct json_stream *js,
 							  void *arg),
 				    void *arg);
 
+/* Ensure there's a double \n after a JSON response. */
+void json_stream_double_cr(struct json_stream *js);
 void json_stream_flush(struct json_stream *js);
 
 #endif /* LIGHTNING_COMMON_JSON_STREAM_H */

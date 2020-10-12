@@ -774,14 +774,6 @@ static void json_stream_forward_change_id(struct json_stream *stream,
 	json_stream_append(stream, new_id, strlen(new_id));
 	json_stream_append(stream, buffer + idtok->end + offset,
 			   toks->end - idtok->end - offset);
-
-	/* We promise it will end in '\n\n' */
-	/* It's an object (with an id!): definitely can't be less that "{}" */
-	assert(toks->end - toks->start >= 2);
-	if (buffer[toks->end-1] != '\n')
-		json_stream_append(stream, "\n\n", 2);
-	else if (buffer[toks->end-2] != '\n')
-		json_stream_append(stream, "\n", 1);
 }
 
 static void plugin_rpcmethod_cb(const char *buffer,
@@ -794,6 +786,7 @@ static void plugin_rpcmethod_cb(const char *buffer,
 
 	response = json_stream_raw_for_cmd(cmd);
 	json_stream_forward_change_id(response, buffer, toks, idtok, cmd->id);
+	json_stream_double_cr(response);
 	command_raw_complete(cmd, response);
 
 	list_del(&call->list);
@@ -851,6 +844,7 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	snprintf(id, ARRAY_SIZE(id), "%"PRIu64, req->id);
 
 	json_stream_forward_change_id(req->stream, buffer, toks, idtok, id);
+	json_stream_double_cr(req->stream);
 	plugin_request_send(plugin, req);
 	req->stream = NULL;
 
