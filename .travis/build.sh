@@ -13,6 +13,7 @@ export PYTEST_SENTRY_ALWAYS_REPORT=1
 export BOLTDIR=lightning-rfc
 export TEST_DB_PROVIDER=${DB:-"sqlite3"}
 export TEST_NETWORK=${NETWORK:-"regtest"}
+export PYTEST_OPTS="--reruns=2 --maxfail=5 ${PYTEST_OPTS}"
 
 # Allow up to 4 concurrent tests when not under valgrind, which might run out of memory.
 if [ "$VALGRIND" = 0 ]; then
@@ -54,11 +55,6 @@ if [ "$NO_PYTHON" != 1 ]; then
 	 blinker \
 	 pytest-sentry \
 	 pytest-rerunfailures
-
-   cat > pytest.ini << EOF
-[pytest]
-addopts=-p no:logging --color=no --reruns=2 -x
-EOF
 fi
 
 echo "Configuration which is going to be built:"
