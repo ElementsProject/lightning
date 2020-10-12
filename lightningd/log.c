@@ -543,57 +543,24 @@ static void log_one_line(unsigned int skipped,
 	data->prefix = "\n";
 }
 
-static const struct level {
-	const char *name;
-	enum log_level level;
-} log_levels[] = {
-	{ "IO", LOG_IO_OUT },
-	{ "DEBUG", LOG_DBG },
-	{ "INFO", LOG_INFORM },
-	{ "UNUSUAL", LOG_UNUSUAL },
-	{ "BROKEN", LOG_BROKEN }
-};
-
-static const struct level *str_to_level(const char *str, size_t len)
-{
-	for (size_t i = 0; i < ARRAY_SIZE(log_levels); i++) {
-		if (strlen(log_levels[i].name) != len)
-			continue;
-		if (strncasecmp(str, log_levels[i].name, len) != 0)
-			continue;
-		return &log_levels[i];
-	}
-	return NULL;
-}
-
-static const char *level_to_str(enum log_level level)
-{
-	for (size_t i = 0; i < ARRAY_SIZE(log_levels); i++) {
-		if (level == log_levels[i].level)
-			return log_levels[i].name;
-	}
-	return NULL;
-}
-
 char *opt_log_level(const char *arg, struct log *log)
 {
-	const struct level *level;
+	enum log_level level;
 	int len;
 
 	len = strcspn(arg, ":");
-	level = str_to_level(arg, len);
-	if (!level)
+	if (!log_level_parse(arg, len, &level))
 		return tal_fmt(NULL, "unknown log level %.*s", len, arg);
 
 	if (arg[len]) {
 		struct print_filter *f = tal(log->lr, struct print_filter);
 		f->prefix = arg + len + 1;
-		f->level = level->level;
+		f->level = level;
 		list_add_tail(&log->lr->print_filters, &f->list);
 	} else {
 		tal_free(log->lr->default_print_level);
 		log->lr->default_print_level = tal(log->lr, enum log_level);
-		*log->lr->default_print_level = level->level;
+		*log->lr->default_print_level = level;
 	}
 	return NULL;
 }
@@ -604,7 +571,7 @@ void json_add_opt_log_levels(struct json_stream *response, struct log *log)
 
 	list_for_each(&log->lr->print_filters, i, list) {
 		json_add_member(response, "log-level", true, "%s:%s",
-				level_to_str(i->level), i->prefix);
+				log_level_name(i->level), i->prefix);
 	}
 }
 
@@ -616,7 +583,7 @@ static void show_log_level(char buf[OPT_SHOW_LEN], const struct log *log)
 		l = *log->lr->default_print_level;
 	else
 		l = DEFAULT_LOGLEVEL;
-	strncpy(buf, level_to_str(l), OPT_SHOW_LEN-1);
+	strncpy(buf, log_level_name(l), OPT_SHOW_LEN-1);
 }
 
 static char *arg_log_prefix(const char *arg, struct log *log)
@@ -907,20 +874,12 @@ struct command_result *param_loglevel(struct command *cmd,
 				      enum log_level **level)
 {
 	*level = tal(cmd, enum log_level);
-	if (json_tok_streq(buffer, tok, "io"))
-		**level = LOG_IO_OUT;
-	else if (json_tok_streq(buffer, tok, "debug"))
-		**level = LOG_DBG;
-	else if (json_tok_streq(buffer, tok, "info"))
-		**level = LOG_INFORM;
-	else if (json_tok_streq(buffer, tok, "unusual"))
-		**level = LOG_UNUSUAL;
-	else {
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     "should be 'io', 'debug', 'info', or "
-					     "'unusual'");
-	}
-	return NULL;
+	if (log_level_parse(buffer + tok->start, tok->end - tok->start, *level))
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be 'io', 'debug', 'info', or "
+				     "'unusual'");
 }
 
 static struct command_result *json_getlog(struct command *cmd,

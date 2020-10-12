@@ -277,15 +277,14 @@ static const char *plugin_log_handle(struct plugin *plugin,
 			       "a string \"message\" field");
 	}
 
-	if (!leveltok || json_tok_streq(plugin->buffer, leveltok, "info"))
+	if (!leveltok)
 		level = LOG_INFORM;
-	else if (json_tok_streq(plugin->buffer, leveltok, "debug"))
-		level = LOG_DBG;
-	else if (json_tok_streq(plugin->buffer, leveltok, "warn"))
-		level = LOG_UNUSUAL;
-	else if (json_tok_streq(plugin->buffer, leveltok, "error"))
-		level = LOG_BROKEN;
-	else {
+	else if (!log_level_parse(plugin->buffer + leveltok->start,
+				  leveltok->end - leveltok->start,
+				  &level)
+		 /* FIXME: Allow io logging? */
+		 || level == LOG_IO_IN
+		 || level == LOG_IO_OUT) {
 		return tal_fmt(plugin,
 			       "Unknown log-level %.*s, valid values are "
 			       "\"debug\", \"info\", \"warn\", or \"error\".",

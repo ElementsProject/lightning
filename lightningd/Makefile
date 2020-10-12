@@ -83,6 +83,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/features.o			\
 	common/fee_states.o			\
 	common/peer_status_wiregen.o		\
+	common/status_levels.o			\
 	common/status_wiregen.o			\
 	common/gossip_rcvd_filter.o		\
 	common/hash_u5.o			\
