@@ -887,6 +887,8 @@ static void opener_commit_received(struct subd *dualopend,
 			type_to_string(tmpctx, struct channel_id, &cid));
 	json_add_psbt(response, "psbt", psbt);
 	json_add_bool(response, "commitments_secured", true);
+	/* For convenience sake, we include the funding outnum */
+	json_add_num(response, "funding_outnum", funding_outnum);
 	was_pending(command_success(uc->fc->cmd, response));
 
 	/* Now that we've got the final PSBT, save it */
