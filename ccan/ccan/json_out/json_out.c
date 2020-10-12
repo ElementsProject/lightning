@@ -337,11 +337,12 @@ char *json_out_direct(struct json_out *jout, size_t len)
 	return p;
 }
 
-void json_out_finished(const struct json_out *jout)
+void json_out_finished(struct json_out *jout)
 {
 #ifdef CCAN_JSON_OUT_DEBUG
 	assert(tal_count(jout->wrapping) == 0);
 #endif
+	jout->empty = true;
 }
 
 const char *json_out_contents(const struct json_out *jout, size_t *len)
