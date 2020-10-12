@@ -527,6 +527,33 @@ static void json_command_malformed(struct json_connection *jcon,
 	json_stream_close(js, NULL);
 }
 
+void json_notify_fmt(struct command *cmd,
+		     enum log_level level,
+		     const char *fmt, ...)
+{
+	va_list ap;
+	struct json_stream *js;
+
+	if (!cmd->send_notifications)
+		return;
+
+	js = json_stream_raw_for_cmd(cmd);
+
+	va_start(ap, fmt);
+	json_object_start(js, NULL);
+	json_add_string(js, "jsonrpc", "2.0");
+	json_add_string(js, "method", "message");
+	json_object_start(js, "params");
+	json_add_string(js, "id", cmd->id);
+	json_add_string(js, "level", log_level_name(level));
+	json_add_string(js, "message", tal_vfmt(tmpctx, fmt, ap));
+	json_object_end(js);
+	json_object_end(js);
+
+	json_stream_double_cr(js);
+	json_stream_flush(js);
+}
+
 struct json_stream *json_stream_raw_for_cmd(struct command *cmd)
 {
 	struct json_stream *js;
