@@ -34,6 +34,8 @@ struct command {
 	const struct json_command *json_cmd;
 	/* The connection, or NULL if it closed. */
 	struct json_connection *jcon;
+	/* Does this want notifications? */
+	bool send_notifications;
 	/* Have we been marked by command_still_pending?  For debugging... */
 	bool pending;
 	/* Tell param() how to process the command */
@@ -72,6 +74,11 @@ struct jsonrpc_request {
 	u64 id;
 	const char *method;
 	struct json_stream *stream;
+	void (*notify_cb)(const char *buffer,
+			  const jsmntok_t *idtok,
+			  const jsmntok_t *methodtok,
+			  const jsmntok_t *paramtoks,
+			  void *);
 	void (*response_cb)(const char *buffer, const jsmntok_t *toks,
 			    const jsmntok_t *idtok, void *);
 	void *response_cb_arg;
@@ -193,9 +200,14 @@ struct jsonrpc_notification *jsonrpc_notification_start(const tal_t *ctx, const 
  */
 void jsonrpc_notification_end(struct jsonrpc_notification *n);
 
-#define jsonrpc_request_start(ctx, method, log, response_cb, response_cb_arg) \
+#define jsonrpc_request_start(ctx, method, log, notify_cb, response_cb, response_cb_arg) \
 	jsonrpc_request_start_(					\
 		(ctx), (method), (log),					\
+	    typesafe_cb_preargs(void, void *, (notify_cb), (response_cb_arg),	\
+				const char *buffer,		\
+				const jsmntok_t *idtok,		\
+				const jsmntok_t *methodtok,	\
+				const jsmntok_t *paramtoks),	\
 	    typesafe_cb_preargs(void, void *, (response_cb), (response_cb_arg),	\
 				const char *buffer,		\
 				const jsmntok_t *toks,		\
@@ -204,6 +216,11 @@ void jsonrpc_notification_end(struct jsonrpc_notification *n);
 
 struct jsonrpc_request *jsonrpc_request_start_(
     const tal_t *ctx, const char *method, struct log *log,
+    void (*notify_cb)(const char *buffer,
+		      const jsmntok_t *idtok,
+		      const jsmntok_t *methodtok,
+		      const jsmntok_t *paramtoks,
+		      void *),
     void (*response_cb)(const char *buffer, const jsmntok_t *toks,
 			const jsmntok_t *idtok, void *),
     void *response_cb_arg);

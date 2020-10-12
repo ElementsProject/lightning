@@ -299,6 +299,35 @@ static const char *plugin_log_handle(struct plugin *plugin,
 	return NULL;
 }
 
+static const char *plugin_notify_handle(struct plugin *plugin,
+					const jsmntok_t *methodtok,
+					const jsmntok_t *paramstok)
+{
+	const jsmntok_t *idtok;
+	u64 id;
+	struct jsonrpc_request *request;
+
+	/* id inside params tells us which id to redirect to. */
+	idtok = json_get_member(plugin->buffer, paramstok, "id");
+	if (!idtok || !json_to_u64(plugin->buffer, idtok, &id)) {
+		return tal_fmt(plugin,
+			       "JSON-RPC notify \"id\"-field is not a u64");
+	}
+
+	request = uintmap_get(&plugin->plugins->pending_requests, id);
+	if (!request) {
+		return tal_fmt(
+			plugin,
+			"Received a JSON-RPC notify for non-existent request");
+	}
+
+	/* Ignore if they don't have a callback */
+	if (request->notify_cb)
+		request->notify_cb(plugin->buffer, methodtok, paramstok, idtok,
+				   request->response_cb_arg);
+	return NULL;
+}
+
 /* Returns the error string, or NULL */
 static const char *plugin_notification_handle(struct plugin *plugin,
 					      const jsmntok_t *toks)
@@ -326,6 +355,9 @@ static const char *plugin_notification_handle(struct plugin *plugin,
 	 * register notification handlers in a variety of places. */
 	if (json_tok_streq(plugin->buffer, methtok, "log")) {
 		return plugin_log_handle(plugin, paramstok);
+	} else if (json_tok_streq(plugin->buffer, methtok, "message")
+		   || json_tok_streq(plugin->buffer, methtok, "progress")) {
+		return plugin_notify_handle(plugin, methtok, paramstok);
 	} else {
 		return tal_fmt(plugin, "Unknown notification method %.*s",
 			       json_tok_full_len(methtok),
@@ -793,6 +825,31 @@ static void plugin_rpcmethod_cb(const char *buffer,
 	tal_free(call);
 }
 
+static void plugin_notify_cb(const char *buffer,
+			     const jsmntok_t *methodtok,
+			     const jsmntok_t *paramtoks,
+			     const jsmntok_t *idtok,
+			     struct plugin_rpccall *call)
+{
+	struct command *cmd = call->cmd;
+	struct json_stream *response;
+
+	if (!cmd->jcon || !cmd->send_notifications)
+		return;
+
+	response = json_stream_raw_for_cmd(cmd);
+	json_object_start(response, NULL);
+	json_add_string(response, "jsonrpc", "2.0");
+	json_add_tok(response, "method", methodtok, buffer);
+	json_stream_append(response, ",\"params\":", strlen(",\"params\":"));
+	json_stream_forward_change_id(response, buffer,
+				      paramtoks, idtok, cmd->id);
+	json_object_end(response);
+
+	json_stream_double_cr(response);
+	json_stream_flush(response);
+}
+
 struct plugin *find_plugin_for_command(struct lightningd *ld,
 				       const char *cmd_name)
 {
@@ -836,6 +893,7 @@ static struct command_result *plugin_rpcmethod_dispatch(struct command *cmd,
 	call->cmd = cmd;
 
 	req = jsonrpc_request_start(plugin, NULL, plugin->log,
+				    plugin_notify_cb,
 				    plugin_rpcmethod_cb, call);
 	call->request = req;
 	call->plugin = plugin;
@@ -1301,7 +1359,7 @@ const char *plugin_send_getmanifest(struct plugin *p)
 	p->stdout_conn = io_new_conn(p, stdoutfd, plugin_stdout_conn_init, p);
 	p->stdin_conn = io_new_conn(p, stdinfd, plugin_stdin_conn_init, p);
 	req = jsonrpc_request_start(p, "getmanifest", p->log,
-				    plugin_manifest_cb, p);
+				    NULL, plugin_manifest_cb, p);
 	/* Adding allow-deprecated-apis is part of the deprecation cycle! */
 	if (!deprecated_apis)
 		json_add_bool(req->stream, "allow-deprecated-apis", deprecated_apis);
@@ -1455,7 +1513,7 @@ plugin_config(struct plugin *plugin)
 	struct jsonrpc_request *req;
 
 	req = jsonrpc_request_start(plugin, "init", plugin->log,
-	                            plugin_config_cb, plugin);
+	                            NULL, plugin_config_cb, plugin);
 	plugin_populate_init_request(plugin, req);
 	jsonrpc_request_end(req);
 	plugin_request_send(plugin, req);
