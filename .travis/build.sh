@@ -54,7 +54,7 @@ if [ "$NO_PYTHON" != 1 ]; then
     pip3 install --user -U --quiet --progress-bar off \
 	 blinker \
 	 pytest-sentry \
-	 pytest-rerunfailures
+	 pytest-rerunfailures==9.1
 fi
 
 echo "Configuration which is going to be built:"
