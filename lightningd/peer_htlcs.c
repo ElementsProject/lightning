@@ -141,7 +141,7 @@ static void tell_channeld_htlc_failed(const struct htlc_in *hin,
 		return;
 
 	/* onchaind doesn't care, it can't do anything but wait */
-	if (channel_on_chain(hin->key.channel))
+	if (!channel_active(hin->key.channel))
 		return;
 
 	subd_send_msg(hin->key.channel->owner,
