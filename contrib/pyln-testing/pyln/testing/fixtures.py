@@ -29,7 +29,7 @@ def test_base_dir():
     # Now check if any test directory is left because the corresponding test
     # failed. If there are no such tests we can clean up the root test
     # directory.
-    contents = [d for d in os.listdir(directory) if os.path.isdir(d) and d.startswith('test_')]
+    contents = [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d)) and d.startswith('test_')]
     if contents == []:
         shutil.rmtree(directory)
     else:
