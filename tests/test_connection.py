@@ -2661,3 +2661,39 @@ def test_connection_timeout(node_factory):
     with pytest.raises(RpcError, match=r'(reset by peer|peer closed connection)'):
         l2.rpc.connect(l1.info['id'], 'localhost', port=l1.port)
     l1.daemon.wait_for_log('conn timed out')
+
+
+@unittest.skip("Broken")
+@unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
+def test_htlc_retransmit_order(node_factory, executor):
+    NUM_HTLCS = 10
+    l1, l2 = node_factory.line_graph(2,
+                                     opts=[{'may_reconnect': True,
+                                            'feerates': (7500, 7500, 7500, 7500),
+                                            'disconnect': ['=WIRE_UPDATE_ADD_HTLC-nocommit',
+                                                           '=WIRE_UPDATE_ADD_HTLC*' + str(NUM_HTLCS - 1),
+                                                           '-WIRE_COMMITMENT_SIGNED']},
+                                           {'may_reconnect': True}])
+    payment_hashes = [l2.rpc.invoice(1000, str(x), str(x))['payment_hash'] for x in range(NUM_HTLCS)]
+
+    routestep = {
+        'msatoshi': 1000,
+        'id': l2.info['id'],
+        'delay': 5,
+        'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments
+    }
+    for p in payment_hashes:
+        executor.submit(l1.rpc.sendpay, [routestep], p)
+
+    l1.daemon.wait_for_logs(['dev_disconnect'] * 2)
+    l1.rpc.call('dev-reenable-commit', [l2.info['id']])
+    l1.daemon.wait_for_log('dev_disconnect')
+
+    # Now reconnect.
+    l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
+
+    for p in payment_hashes:
+        result = l1.rpc.waitsendpay(p)
+        assert(result['status'] == 'complete')
+
+    # If order was wrong, we'll get a LOG_BROKEN and fixtures will complain.
