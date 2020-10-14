@@ -48,6 +48,10 @@ ifneq ($(ASAN),0)
 SANITIZER_FLAGS += -fsanitize=address
 endif
 
+ifneq ($(UBSAN),0)
+SANITIZER_FLAGS += -fsanitize=undefined
+endif
+
 ifneq ($(FUZZING), 0)
 SANITIZER_FLAGS += -fsanitize=fuzzer-no-link
 endif
