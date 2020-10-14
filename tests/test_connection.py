@@ -2193,7 +2193,6 @@ def test_dataloss_protection(node_factory, bitcoind):
     assert (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l2.rpc.listfunds()['outputs']])
 
 
-@unittest.skip("Broken")
 @unittest.skipIf(not DEVELOPER, "needs dev_disconnect")
 def test_restart_multi_htlc_rexmit(node_factory, bitcoind, executor):
     # l1 disables commit timer once we send first htlc, dies on commit
@@ -2663,7 +2662,6 @@ def test_connection_timeout(node_factory):
     l1.daemon.wait_for_log('conn timed out')
 
 
-@unittest.skip("Broken")
 @unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
 def test_htlc_retransmit_order(node_factory, executor):
     NUM_HTLCS = 10
