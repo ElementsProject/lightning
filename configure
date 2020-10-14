@@ -115,6 +115,7 @@ set_defaults()
     COMPAT=${COMPAT:-1}
     STATIC=${STATIC:-0}
     ASAN=${ASAN:-0}
+    UBSAN=${UBSAN:-0}
     PYTEST=${PYTEST-$(default_pytest)}
     COPTFLAGS=${COPTFLAGS-$(default_coptflags "$DEVELOPER")}
     CONFIGURATOR_CC=${CONFIGURATOR_CC-$CC}
@@ -156,6 +157,8 @@ usage()
     echo "    Static link sqlite3, gmp and zlib libraries"
     usage_with_default "--enable/disable-address-sanitizer" "$ASAN" "enable" "disable"
     echo "    Compile with address-sanitizer"
+    usage_with_default "--enable/disable-ub-sanitizer" "$UBSAN" "enable" "disable"
+    echo "    Compile with undefined behaviour sanitizer"
     usage_with_default "--enable/disable-fuzzing" "$FUZZING" "enable" "disable"
     exit 1
 }
@@ -208,6 +211,8 @@ for opt in "$@"; do
 	--disable-static) STATIC=0;;
 	--enable-address-sanitizer) ASAN=1;;
 	--disable-address-sanitizer) ASAN=0;;
+	--enable-ub-sanitizer) UBSAN=1;;
+	--disable-ub-sanitize) UBSAN=0;;
 	--enable-fuzzing) FUZZING=1;;
 	--disable-fuzzing) FUZZING=0;;
 	--help|-h) usage;;
@@ -413,6 +418,7 @@ add_var COMPAT "$COMPAT" $CONFIG_HEADER
 add_var PYTEST "$PYTEST"
 add_var STATIC "$STATIC"
 add_var ASAN "$ASAN"
+add_var UBSAN "$UBSAN"
 add_var TEST_NETWORK "$TEST_NETWORK"
 add_var HAVE_PYTHON3_MAKO "$HAVE_PYTHON3_MAKO"
 add_var SHA256SUM "$SHA256SUM"
