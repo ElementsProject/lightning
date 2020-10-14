@@ -366,8 +366,10 @@ if echo | check_command sha256sum sha256sum; then
     SHA256SUM=sha256sum
 elif echo | check_command "shasum -a 256" shasum -a 256; then
     SHA256SUM="shasum -a 256"
+elif echo | check_command sha256 sha256; then
+    SHA256SUM=sha256
 else
-    echo "*** We need sha256sum or shasum -a 256!" >&2
+    echo "*** We need sha256sum, shasum -a 256, or sha256!" >&2
     exit 1
 fi
 
