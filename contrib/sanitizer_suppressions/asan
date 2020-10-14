@@ -1,3 +1,0 @@
-# process_check_funding_broadcast is racy as it operates on a data that may be
-# freed under its feet
-interceptor_via_fun:process_check_funding_broadcast
