@@ -15,6 +15,7 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
 #include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
@@ -2190,7 +2191,20 @@ static void send_fail_or_fulfill(struct peer *peer, const struct htlc *h)
 	sync_crypto_write(peer->pps, take(msg));
 }
 
-static void resend_commitment(struct peer *peer, const struct changed_htlc *last)
+static int cmp_changed_htlc_id(const struct changed_htlc *a,
+			       const struct changed_htlc *b,
+			       void *unused)
+{
+	/* ids can be the same (sender and receiver are indep) but in
+	 * that case we don't care about order. */
+	if (a->id > b->id)
+		return 1;
+	else if (a->id < b->id)
+		return -1;
+	return 0;
+}
+
+static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 {
 	size_t i;
 	struct bitcoin_signature commit_sig, *htlc_sigs;
@@ -2203,6 +2217,12 @@ static void resend_commitment(struct peer *peer, const struct changed_htlc *last
 	status_debug("Retransmitting commitment, feerate LOCAL=%u REMOTE=%u",
 		     channel_feerate(peer->channel, LOCAL),
 		     channel_feerate(peer->channel, REMOTE));
+
+	/* Note that HTLCs must be *added* in order.  Simplest thing to do
+	 * is to sort them all into ascending ID order here (we could do
+	 * this when we save them in channel_sending_commit, but older versions
+	 * won't have them sorted in the db, so doing it here is better). */
+	asort(last, tal_count(last), cmp_changed_htlc_id, NULL);
 
 	/* BOLT #2:
 	 *
