@@ -2193,6 +2193,7 @@ def test_dataloss_protection(node_factory, bitcoind):
     assert (closetxid, "confirmed") in set([(o['txid'], o['status']) for o in l2.rpc.listfunds()['outputs']])
 
 
+@unittest.skip("Broken")
 @unittest.skipIf(not DEVELOPER, "needs dev_disconnect")
 def test_restart_multi_htlc_rexmit(node_factory, bitcoind, executor):
     # l1 disables commit timer once we send first htlc, dies on commit

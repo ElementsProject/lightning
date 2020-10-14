@@ -758,6 +758,13 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 	else
 		state = RCVD_ADD_HTLC;
 
+	/* BOLT #2:
+	 * - MUST increase the value of `id` by 1 for each successive offer.
+	 */
+	/* This is a weak (bit cheap) check: */
+	if (htlc_get(channel->htlcs, id+1, sender))
+		status_broken("Peer sent out-of-order HTLC ids (is that you, old c-lightning node?)");
+
 	return add_htlc(channel, state, id, amount, cltv_expiry,
 			payment_hash, routing, blinding,
 			htlcp, true, htlc_fee);
