@@ -378,7 +378,7 @@ void initial_config_opts(const tal_t *ctx,
 	opt_register_early_arg("--network", opt_set_network, opt_show_network,
 			       NULL,
 			       "Select the network parameters (bitcoin, testnet,"
-			       " regtest, litecoin or litecoin-testnet)");
+			       " signet, regtest, litecoin or litecoin-testnet)");
 	opt_register_early_noarg("--testnet",
 				 opt_set_specific_network, "testnet",
 				 "Alias for --network=testnet");
@@ -437,7 +437,7 @@ void initial_config_opts(const tal_t *ctx,
 			       opt_restricted_toplevel, opt_show_network,
 			       NULL,
 			       "Select the network parameters (bitcoin, testnet,"
-			       " regtest, litecoin or litecoin-testnet)");
+			       " signet, regtest, litecoin or litecoin-testnet)");
 	opt_register_early_noarg("--testnet",
 				 opt_restricted_toplevel_noarg, NULL,
 				 "Alias for --network=testnet");
