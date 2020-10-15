@@ -69,7 +69,6 @@ bool check_config_bounds(const tal_t *ctx,
 	 */
 	/* (We simply include in "reserve" here if they opened). */
 	if (option_anchor_outputs
-	    && !am_opener
 	    && !amount_sat_add(&reserve, reserve, AMOUNT_SAT(660))) {
 		*err_reason = tal_fmt(ctx,
 				      "cannot add anchors to reserve %s",
