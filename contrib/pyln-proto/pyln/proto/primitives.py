@@ -2,7 +2,7 @@ import coincurve
 import struct
 
 
-def varint_encode(i, w):
+def compactsize_encode(i, w):
     """Encode an integer `i` into the writer `w`
     """
     if i < 0xFD:
@@ -15,7 +15,7 @@ def varint_encode(i, w):
         w.write(struct.pack("!BQ", 0xFF, i))
 
 
-def varint_decode(r):
+def compactsize_decode(r):
     """Decode an integer from reader `r`
     """
     raw = r.read(1)
@@ -31,6 +31,14 @@ def varint_decode(r):
         return struct.unpack("!L", r.read(4))[0]
     else:
         return struct.unpack("!Q", r.read(8))[0]
+
+
+def varint_encode(i, w):
+    return compactsize_encode(i, w)
+
+
+def varint_decode(r):
+    return compactsize_decode(r)
 
 
 class ShortChannelId(object):
