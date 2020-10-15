@@ -63,14 +63,14 @@ Bitcoin control options:
 Select the network parameters (*bitcoin*, *testnet*, *signet*, or *regtest*).
 This is not valid within the per-network configuration file.
 
+ **mainnet**
+Alias for *network=bitcoin*.
+
  **testnet**
 Alias for *network=testnet*.
 
  **signet**
 Alias for *network=signet*.
-
- **mainnet**
-Alias for *network=bitcoin*.
 
  **bitcoin-cli**=*PATH*
 The name of *bitcoin-cli* executable to run.
