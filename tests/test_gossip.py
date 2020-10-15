@@ -34,8 +34,8 @@ def test_gossip_pruning(node_factory, bitcoind):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
-    scid1 = l1.fundchannel(l2, 10**6)
-    scid2 = l2.fundchannel(l3, 10**6)
+    scid1, _ = l1.fundchannel(l2, 10**6)
+    scid2, _ = l2.fundchannel(l3, 10**6)
 
     bitcoind.generate_block(6)
 
@@ -80,7 +80,7 @@ def test_gossip_disable_channels(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2, opts=opts)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    scid = l1.fundchannel(l2, 10**6)
+    scid, _ = l1.fundchannel(l2, 10**6)
     bitcoind.generate_block(5)
 
     def count_active(node):
@@ -121,7 +121,7 @@ def test_announce_address(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2, opts=[opts, {}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    scid = l1.fundchannel(l2, 10**6)
+    scid, _ = l1.fundchannel(l2, 10**6)
     bitcoind.generate_block(5)
 
     l1.wait_channel_active(scid)
@@ -146,7 +146,7 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
     before_anything = int(time.time())
 
     # Make a public channel.
-    chan12 = l1.fundchannel(l2, 10**5)
+    chan12, _ = l1.fundchannel(l2, 10**5)
     bitcoind.generate_block(5)
 
     l3.wait_for_channel_updates([chan12])
@@ -154,7 +154,7 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
 
     # Make another one, different timestamp.
     time.sleep(1)
-    chan23 = l2.fundchannel(l3, 10**5)
+    chan23, _ = l2.fundchannel(l3, 10**5)
     bitcoind.generate_block(5)
 
     l1.wait_for_channel_updates([chan23])
@@ -229,7 +229,7 @@ def test_connect_by_gossip(node_factory, bitcoind):
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
     # Nodes are gossiped only if they have channels
-    chanid = l2.fundchannel(l3, 10**6)
+    chanid, _ = l2.fundchannel(l3, 10**6)
     bitcoind.generate_block(5)
 
     # Let channel reach announcement depth
@@ -391,12 +391,12 @@ def test_gossip_persistence(node_factory, bitcoind):
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
 
-    scid12 = l1.fundchannel(l2, 10**6)
-    scid23 = l2.fundchannel(l3, 10**6)
+    scid12, _ = l1.fundchannel(l2, 10**6)
+    scid23, _ = l2.fundchannel(l3, 10**6)
 
     # Make channels public, except for l3 -> l4, which is kept local-only for now
     bitcoind.generate_block(5)
-    scid34 = l3.fundchannel(l4, 10**6)
+    scid34, _ = l3.fundchannel(l4, 10**6)
     bitcoind.generate_block(1)
 
     def active(node):
@@ -727,7 +727,7 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
     assert len(msgs) == 8
 
     # This should actually be large enough for zlib to kick in!
-    scid34 = l3.fundchannel(l4, 10**5)
+    scid34, _ = l3.fundchannel(l4, 10**5)
     bitcoind.generate_block(5)
     l2.daemon.wait_for_log('Received node_announcement for node ' + l4.info['id'])
 
@@ -780,7 +780,7 @@ def test_report_routing_failure(node_factory, bitcoind):
 
     def fund_from_to_payer(lsrc, ldst, lpayer):
         lsrc.rpc.connect(ldst.info['id'], 'localhost', ldst.port)
-        c = lsrc.fundchannel(ldst, 10000000)
+        c, _ = lsrc.fundchannel(ldst, 10000000)
         bitcoind.generate_block(5)
         lpayer.wait_for_channel_updates([c])
 
@@ -798,7 +798,8 @@ def test_report_routing_failure(node_factory, bitcoind):
         src.rpc.connect(dst.info['id'], 'localhost', dst.port)
         print("src={}, dst={}".format(src.daemon.lightning_dir,
                                       dst.daemon.lightning_dir))
-        channels.append(src.fundchannel(dst, 10**6))
+        c, _ = src.fundchannel(dst, 10**6)
+        channels.append(c)
     bitcoind.generate_block(5)
 
     for c in channels:
@@ -833,8 +834,8 @@ def test_query_short_channel_id(node_factory, bitcoind, chainparams):
     assert msgs[0] == '0106{}01'.format(chain_hash)
 
     # Make channels public.
-    scid12 = l1.fundchannel(l2, 10**5)
-    scid23 = l2.fundchannel(l3, 10**5)
+    scid12, _ = l1.fundchannel(l2, 10**5)
+    scid23, _ = l2.fundchannel(l3, 10**5)
     bitcoind.generate_block(5)
 
     # It will know about everything.
@@ -1196,7 +1197,7 @@ def test_getroute_exclude(node_factory, bitcoind):
 
     # Now, create an alternate (better) route.
     l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
-    scid = l2.fundchannel(l4, 1000000, wait_for_active=False)
+    scid, _ = l2.fundchannel(l4, 1000000, wait_for_active=False)
     bitcoind.generate_block(5)
 
     # We don't wait above, because we care about it hitting l1.
@@ -1231,9 +1232,9 @@ def test_getroute_exclude(node_factory, bitcoind):
         l1.rpc.getroute(l4.info['id'], 1, 1, exclude=[l3.info['id'], chan_l2l4])
 
     l1.rpc.connect(l5.info['id'], 'localhost', l5.port)
-    scid15 = l1.fundchannel(l5, 1000000, wait_for_active=False)
+    scid15, _ = l1.fundchannel(l5, 1000000, wait_for_active=False)
     l5.rpc.connect(l4.info['id'], 'localhost', l4.port)
-    scid54 = l5.fundchannel(l4, 1000000, wait_for_active=False)
+    scid54, _ = l5.fundchannel(l4, 1000000, wait_for_active=False)
     bitcoind.generate_block(5)
 
     # We don't wait above, because we care about it hitting l1.
@@ -1315,7 +1316,7 @@ def setup_gossip_store_test(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=False)
 
     # Create channel.
-    scid23 = l2.fundchannel(l3, 10**6)
+    scid23, _ = l2.fundchannel(l3, 10**6)
 
     # Have that channel announced.
     bitcoind.generate_block(5)
@@ -1328,7 +1329,7 @@ def setup_gossip_store_test(node_factory, bitcoind):
     wait_for(lambda: sum([c['base_fee_millisatoshi'] for c in l2.rpc.listchannels()['channels']]) == 21)
 
     # Create another channel, which will stay private.
-    scid12 = l1.fundchannel(l2, 10**6)
+    scid12, _ = l1.fundchannel(l2, 10**6)
 
     # Now insert channel_update for previous channel; now they're both past the
     # node announcements.

@@ -790,7 +790,7 @@ class LightningNode(object):
             self.wait_channel_active(scid)
             l2.wait_channel_active(scid)
 
-        return scid
+        return scid, res
 
     def subd_pid(self, subd, peerid=None):
         """Get the process id of the given subdaemon, eg channeld or gossipd"""

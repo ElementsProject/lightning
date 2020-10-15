@@ -306,9 +306,9 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
 
-    chan12 = l1.fundchannel(l2, 10**6)
-    chan13 = l1.fundchannel(l3, 10**6)
-    chan14 = l1.fundchannel(l4, 10**6)
+    chan12, _ = l1.fundchannel(l2, 10**6)
+    chan13, _ = l1.fundchannel(l3, 10**6)
+    chan14, _ = l1.fundchannel(l4, 10**6)
 
     l1.pay(l2, 100000000)
     l1.pay(l3, 100000000)
@@ -1536,7 +1536,7 @@ def test_onchain_middleman(node_factory, bitcoind):
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l2.fundchannel(l1, 10**6)
-    c23 = l2.fundchannel(l3, 10**6)
+    c23, _ = l2.fundchannel(l3, 10**6)
     channel_id = first_channel_id(l1, l2)
 
     # Make sure routes finalized.
@@ -1626,7 +1626,7 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind):
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
     l2.fundchannel(l1, 10**6)
-    c23 = l2.fundchannel(l3, 10**6)
+    c23, _ = l2.fundchannel(l3, 10**6)
     channel_id = first_channel_id(l1, l2)
 
     # Make sure routes finalized.

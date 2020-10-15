@@ -406,7 +406,7 @@ def test_reconnect_no_update(node_factory, executor):
     l1.stop()
 
     # For closingd reconnection
-    scid = fundchannel_exec.result()
+    scid, _ = fundchannel_exec.result()
     l1.daemon.start()
     executor.submit(l1.rpc.close, scid, 0)
     l2.daemon.wait_for_log(r"closingd.* Retransmitting funding_locked for channel")
@@ -602,7 +602,7 @@ def test_shutdown_reconnect(node_factory):
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    chan = l1.fundchannel(l2, 10**6)
+    chan, _ = l1.fundchannel(l2, 10**6)
     l1.pay(l2, 200000000)
 
     assert l1.bitcoin.rpc.getmempoolinfo()['size'] == 0
@@ -1721,7 +1721,7 @@ def test_fee_limits(node_factory, bitcoind):
 
     # Try with node which sets --ignore-fee-limits
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    chan = l1.fundchannel(l3, 10**6)
+    chan, _ = l1.fundchannel(l3, 10**6)
 
     # Kick off fee adjustment using HTLC.
     l1.pay(l3, 1000)
@@ -1754,7 +1754,7 @@ def test_update_fee_reconnect(node_factory, bitcoind):
     l2 = node_factory.get_node(may_reconnect=True,
                                feerates=(14000, 15000, 14000, 3750))
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    chan = l1.fundchannel(l2, 10**6)
+    chan, _ = l1.fundchannel(l2, 10**6)
 
     # Make an HTLC just to get us to do feechanges.
     l1.pay(l2, 1000)
@@ -1804,7 +1804,7 @@ def test_multiple_channels(node_factory):
 
         l1.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
         l2.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
-        chan = l1.fundchannel(l2, 10**6)
+        chan, _ = l1.fundchannel(l2, 10**6)
 
         l1.rpc.close(chan)
 
@@ -1855,7 +1855,7 @@ def test_peerinfo(node_factory, bitcoind):
     assert l1.rpc.getpeer(l2.info['id'])['features'] == lfeatures
 
     # Fund a channel to force a node announcement
-    chan = l1.fundchannel(l2, 10**6)
+    chan, _ = l1.fundchannel(l2, 10**6)
     # Now proceed to funding-depth and do a full gossip round
     bitcoind.generate_block(5)
     l1.daemon.wait_for_logs(['Received node_announcement for node ' + l2.info['id']])
