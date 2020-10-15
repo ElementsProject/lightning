@@ -678,7 +678,7 @@ static void accepter_commit_received(struct subd *dualopend,
 	struct per_peer_state *pps;
 	u16 funding_outnum;
 	u32 feerate;
-	struct amount_sat total_funding, funding_ours, channel_reserve;
+	struct amount_sat total_funding, funding_ours;
 	u8 channel_flags, *remote_upfront_shutdown_script,
 	   *local_upfront_shutdown_script, *commitment_msg;
 	struct penalty_base *pbase;
@@ -711,7 +711,7 @@ static void accepter_commit_received(struct subd *dualopend,
 					    &channel_flags,
 					    &feerate,
 					    &commitment_msg,
-					    &channel_reserve,
+					    &uc->our_config.channel_reserve,
 					    &local_upfront_shutdown_script,
 					    &remote_upfront_shutdown_script)) {
 		log_broken(uc->log, "bad WIRE_DUAL_OPEN_COMMIT_RCVD %s",
@@ -796,7 +796,7 @@ static void opener_commit_received(struct subd *dualopend,
 	struct json_stream *response;
 	u16 funding_outnum;
 	u32 feerate;
-	struct amount_sat total_funding, funding_ours, channel_reserve;
+	struct amount_sat total_funding, funding_ours;
 	u8 channel_flags, *remote_upfront_shutdown_script,
 	   *local_upfront_shutdown_script, *commitment_msg;
 	struct penalty_base *pbase;
@@ -828,7 +828,7 @@ static void opener_commit_received(struct subd *dualopend,
 					    &channel_flags,
 					    &feerate,
 					    &commitment_msg,
-					    &channel_reserve,
+					    &uc->our_config.channel_reserve,
 					    &local_upfront_shutdown_script,
 					    &remote_upfront_shutdown_script)) {
 		log_broken(uc->log, "bad WIRE_DUAL_OPEN_COMMIT_RCVD %s",
@@ -844,6 +844,9 @@ static void opener_commit_received(struct subd *dualopend,
 	/* We shouldn't have a commitment message, this is an
 	 * accepter flow item */
 	assert(!commitment_msg);
+
+	/* old_remote_per_commit not valid yet, copy valid one. */
+	channel_info.old_remote_per_commit = channel_info.remote_per_commit;
 
 	per_peer_state_set_fds_arr(pps, fds);
 	if (peer_active_channel(uc->peer)) {
