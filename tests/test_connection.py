@@ -1068,13 +1068,13 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
 def test_funding_close_upfront(node_factory, bitcoind):
-    l1 = node_factory.get_node()
-
     opts = {'plugin': os.path.join(os.getcwd(), 'tests/plugins/openchannel_hook_accepter.py')}
+
+    l1 = node_factory.get_node()
     l2 = node_factory.get_node(options=opts)
 
-    # The 'accepter_close_to' plugin uses the channel funding amount to determine
-    # whether or not to include a 'close_to' address
+    # The 'accepter_close_to' plugin uses the channel funding amount
+    # to determine whether or not to include a 'close_to' address
     amt_normal = 100000     # continues without returning a close_to
     amt_addr = 100003       # returns valid regtest address
 
@@ -1093,43 +1093,13 @@ def test_funding_close_upfront(node_factory, bitcoind):
         wait_for(lambda: not has_normal_channels(l1, l2))
         wait_for(lambda: not has_normal_channels(l2, l1))
 
-        resp = l1.rpc.fundchannel_start(l2.info['id'], amount, close_to=close_to)
-        address = resp['funding_address']
-
+        _, resp = l1.fundchannel(l2, amount, close_to=close_to)
         if close_to:
             assert resp['close_to']
         else:
             assert 'close_to' not in resp
 
-        peer = l1.rpc.listpeers()['peers'][0]
-        # Peer should still be connected and in state waiting for funding_txid
-        assert peer['id'] == l2.info['id']
-        r = re.compile('Funding channel start: awaiting funding_txid with output to .*')
-        assert any(r.match(line) for line in peer['channels'][0]['status'])
-        assert 'OPENINGD' in peer['channels'][0]['state']
-
-        # 'Externally' fund the address from fundchannel_start
-        addr_scriptpubkey = bitcoind.rpc.getaddressinfo(address)['scriptPubKey']
-        txout = CMutableTxOut(amount, bytearray.fromhex(addr_scriptpubkey))
-        unfunded_tx = CMutableTransaction([], [txout])
-        hextx = binascii.hexlify(unfunded_tx.serialize()).decode('utf8')
-
-        funded_tx_obj = bitcoind.rpc.fundrawtransaction(hextx)
-        raw_funded_tx = funded_tx_obj['hex']
-        txid = bitcoind.rpc.decoderawtransaction(raw_funded_tx)['txid']
-        txout = 1 if funded_tx_obj['changepos'] == 0 else 0
-
-        assert l1.rpc.fundchannel_complete(l2.info['id'], txid, txout)['commitments_secured']
-
-        # Broadcast the transaction manually and confirm that channel locks in
-        signed_tx = bitcoind.rpc.signrawtransactionwithwallet(raw_funded_tx)['hex']
-        assert txid == bitcoind.rpc.decoderawtransaction(signed_tx)['txid']
-
-        bitcoind.rpc.sendrawtransaction(signed_tx)
-        bitcoind.generate_block(1)
-
         for node in [l1, l2]:
-            node.daemon.wait_for_log(r'State changed from CHANNELD_AWAITING_LOCKIN to CHANNELD_NORMAL')
             channel = node.rpc.listpeers()['peers'][0]['channels'][-1]
             assert amount * 1000 == channel['msatoshi_total']
 
