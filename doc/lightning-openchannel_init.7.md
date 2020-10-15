@@ -45,7 +45,9 @@ RETURN VALUE
 On success, returns the *channel_id* for this channel; an updated
 incomplete *initialpsbt* for this funding transaction; and the flag
 *commitments_secured*, which indiciates the completeness of the 
-passed back *psbt*. (Will always be false).
+passed back *psbt*. (Will always be false). Also returns the
+*funding_serial*, indicating the serial\_id of the funding output
+in the *psbt*.
 
 If the peer does not support `option_dual_fund`, this command
 will return an error.
