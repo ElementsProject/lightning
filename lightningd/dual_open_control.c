@@ -1057,7 +1057,9 @@ static struct command_result *json_open_channel_update(struct command *cmd,
 
 	if (!uc)
 		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
-				    "Unknown channel");
+				    "Unknown channel %s",
+				    type_to_string(tmpctx, struct channel_id,
+						   cid));
 
 	if (!uc->fc || !uc->fc->inflight)
 		return command_fail(cmd, LIGHTNINGD,
