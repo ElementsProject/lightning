@@ -332,28 +332,6 @@ static bool psbt_side_contribs_changed(struct wally_psbt *orig,
 	return false;
 }
 
-/* Adds serials to inputs + outputs that don't have one yet */
-static void psbt_add_serials(struct wally_psbt *psbt, enum tx_role role)
-{
-	u16 serial_id;
-	for (size_t i = 0; i < psbt->num_inputs; i++) {
-		/* Skip ones that already have a serial id */
-		if (psbt_get_serial_id(&psbt->inputs[i].unknowns, &serial_id))
-			continue;
-
-		serial_id = psbt_new_input_serial(psbt, role);
-		psbt_input_set_serial_id(psbt, &psbt->inputs[i], serial_id);
-	}
-	for (size_t i = 0; i < psbt->num_outputs; i++) {
-		/* Skip ones that already have a serial id */
-		if (psbt_get_serial_id(&psbt->outputs[i].unknowns, &serial_id))
-			continue;
-
-		serial_id = psbt_new_output_serial(psbt, role);
-		psbt_output_set_serial_id(psbt, &psbt->outputs[i], serial_id);
-	}
-}
-
 /* dualopend dies?  Remove dualopend ptr from payload */
 static void openchannel2_remove_dualopend(struct subd *dualopend,
 					  struct openchannel2_payload *payload)
