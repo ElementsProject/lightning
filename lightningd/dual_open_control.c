@@ -889,14 +889,14 @@ static void opener_commit_received(struct subd *dualopend,
 	json_add_bool(response, "commitments_secured", true);
 	/* For convenience sake, we include the funding outnum */
 	json_add_num(response, "funding_outnum", funding_outnum);
-	was_pending(command_success(uc->fc->cmd, response));
-
 	/* Now that we've got the final PSBT, save it */
 	channel->psbt = tal_steal(channel, psbt);
 	wallet_channel_save(uc->fc->cmd->ld->wallet, channel);
 
 	peer_start_channeld(channel, pps,
 			    NULL, psbt, false);
+
+	was_pending(command_success(uc->fc->cmd, response));
 	goto cleanup;
 
 failed:
