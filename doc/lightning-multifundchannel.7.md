@@ -47,6 +47,10 @@ Readiness is indicated by **listpeers** reporting a *state* of
   node.
   This is a gift to the peer, and you do not get a proof-of-payment
   out of this.
+* *close_to* is a Bitcoin address to which the channel funds should be sent to
+  on close. Only valid if both peers have negotiated
+  `option_upfront_shutdown_script`.  Returns `close_to` set to
+  closing script iff is negotiated.
 
 There must be at least one entry in *destinations*;
 it cannot be an empty array.

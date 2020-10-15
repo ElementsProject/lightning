@@ -71,6 +71,14 @@ struct multifundchannel_destination {
 	const u8 *funding_script;
 	const char *funding_addr;
 
+	/* The bitcoin address to close to */
+	const char *close_to_str;
+
+	/* The scriptpubkey we will close to. Only set if
+	 * peer supports opt_upfront_shutdownscript and
+	 * we passsed in a valid close_to_str */
+	const u8 *close_to_script;
+
 	/* The amount to be funded for this destination.
 	If the specified amount is "all" then the `all`
 	flag is set, and the amount is initially 0 until
@@ -516,6 +524,11 @@ param_destinations_array(struct command *cmd, const char *name,
 			   p_opt_def("announce", param_bool, &announce, true),
 			   p_opt_def("push_msat", param_msat, &push_msat,
 				     AMOUNT_MSAT(0)),
+			   /* FIXME: do address validation here?
+			    * Note that it will fail eventually (when
+			    * passed in to fundchannel_start) if invalid*/
+			   p_opt("close_to", param_string,
+				 &dest->close_to_str),
 			   NULL))
 			return command_param_failed();
 
@@ -1156,6 +1169,8 @@ fundchannel_start_dest(struct multifundchannel_destination *dest)
 	json_add_bool(req->js, "announce", dest->announce);
 	json_add_string(req->js, "push_msat",
 			fmt_amount_msat(tmpctx, &dest->push_msat));
+	if (dest->close_to_str)
+		json_add_string(req->js, "close_to", dest->close_to_str);
 
 	send_outreq(cmd->plugin, req);
 }
@@ -1172,6 +1187,7 @@ fundchannel_start_ok(struct command *cmd,
 	struct multifundchannel_command *mfc = dest->mfc;
 	const jsmntok_t *address_tok;
 	const jsmntok_t *script_tok;
+	const jsmntok_t *close_to_tok;
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: fundchannel_start %s done.",
@@ -1203,6 +1219,16 @@ fundchannel_start_ok(struct command *cmd,
 			   "return parseable 'scriptpubkey': %.*s",
 			   json_tok_full_len(script_tok),
 			   json_tok_full(buf, script_tok));
+
+	close_to_tok = json_get_member(buf, result, "close_to");
+	/* Only returned if a) we requested and b) peer supports
+	 * opt_upfront_shutdownscript */
+	if (close_to_tok) {
+		dest->close_to_script =
+			json_tok_bin_from_hex(dest->mfc, buf, close_to_tok);
+	} else
+		dest->close_to_script = NULL;
+
 
 	dest->state = MULTIFUNDCHANNEL_STARTED;
 
@@ -1773,6 +1799,9 @@ multifundchannel_finished(struct multifundchannel_command *mfc)
 		json_add_node_id(out, "id", &mfc->destinations[i].id);
 		json_add_string(out, "channel_id", mfc->destinations[i].channel_id);
 		json_add_num(out, "outnum", mfc->destinations[i].outnum);
+		if (mfc->destinations[i].close_to_script)
+			json_add_hex_talarr(out, "close_to",
+				mfc->destinations[i].close_to_script);
 		json_object_end(out);
 	}
 	json_array_end(out);
