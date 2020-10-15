@@ -4,7 +4,7 @@ lightning-fundchannel - Command for establishing a lightning channel
 .SH SYNOPSIS
 
 \fBfundchannel\fR \fIid\fR \fIamount\fR [\fIfeerate\fR \fIannounce\fR] [\fIminconf\fR]
-[\fIutxos\fR] [\fIpush_msat\fR]
+[\fIutxos\fR] [\fIpush_msat\fR] [\fIclose_to\fR]
 
 .SH DESCRIPTION
 
@@ -66,12 +66,22 @@ open\. Note that this is a gift to the peer -- these satoshis are
 added to the initial balance of the peer at channel start and are largely
 unrecoverable once pushed\.
 
+
+\fIclose_to\fR is a Bitcoin address to which the channel funds should be sent to
+on close\. Only valid if both peers have negotiated \fBoption_upfront_shutdown_script\fR\.
+Returns \fBclose_to\fR set to closing script iff is negotiated\.
+
 .SH RETURN VALUE
 
 On success, the \fItx\fR and \fItxid\fR of the transaction is returned, as well
 as the \fIoutnum\fR indicating the output index which creates the channel, as well
 as the \fIchannel_id\fR of the newly created channel\. On failure, an error
 is reported and the channel is not funded\.
+
+
+If a \fBclose_to\fR address was provided, will close to this address
+iff the \fBclose_to\fR script is returned in the response\. Otherwise,
+the peer does not support \fBoption_upfront_shutdownscript\fR\.
 
 
 The following error codes may occur:
@@ -102,4 +112,4 @@ channel parameters (funding limits, channel reserves, fees, etc\.)\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:f885008c6e60738b1ec9c5def19cc0877b0f9a72498ffa60e9fb3277ed9d9919
+\" SHA256STAMP:05dff04e52740da20760c2501ed7958d646750284f6a55904ca39c4ca69c46fc
