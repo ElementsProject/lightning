@@ -60,7 +60,7 @@ page.
 Bitcoin control options:
 
  **network**=*NETWORK*
-Select the network parameters (*bitcoin*, *testnet*, or *regtest*).
+Select the network parameters (*bitcoin*, *testnet*, *signet*, or *regtest*).
 This is not valid within the per-network configuration file.
 
  **testnet**
