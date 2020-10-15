@@ -52,7 +52,6 @@ static void handle_signed_psbt(struct lightningd *ld,
 			    rcvd->pps,
 			    rcvd->commitment_msg,
 			    psbt, false);
-	tal_free(rcvd->uc);
 }
 
 /* ~Map of the Territory~
