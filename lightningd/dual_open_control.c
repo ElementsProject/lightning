@@ -635,12 +635,13 @@ static void opener_psbt_changed(struct subd *dualopend,
 				const u8 *msg)
 {
 	struct channel_id cid;
+	u16 funding_serial;
 	struct wally_psbt *psbt;
 	struct json_stream *response;
 	struct command *cmd = uc->fc->cmd;
 
 	if (!fromwire_dual_open_psbt_changed(cmd, msg,
-					     &cid,
+					     &cid, &funding_serial,
 					     &psbt)) {
 		log_broken(dualopend->log,
 			   "Malformed dual_open_psbt_changed %s",
@@ -654,6 +655,7 @@ static void opener_psbt_changed(struct subd *dualopend,
 			type_to_string(tmpctx, struct channel_id, &cid));
 	json_add_psbt(response, "psbt", psbt);
 	json_add_bool(response, "commitments_secured", false);
+	json_add_num(response, "funding_serial", funding_serial);
 
 	uc->cid = cid;
 	uc->fc->inflight = true;
@@ -900,6 +902,7 @@ failed:
 static void accepter_psbt_changed(struct subd *dualopend,
 				  const u8 *msg)
 {
+	u16 unused;
 	struct openchannel2_psbt_payload *payload =
 		tal(dualopend, struct openchannel2_psbt_payload);
 	payload->dualopend = dualopend;
@@ -908,6 +911,7 @@ static void accepter_psbt_changed(struct subd *dualopend,
 
 	if (!fromwire_dual_open_psbt_changed(payload, msg,
 					     &payload->rcvd->cid,
+					     &unused,
 					     &payload->psbt)) {
 		log_broken(dualopend->log, "Malformed dual_open_psbt_changed %s",
 			   tal_hex(tmpctx, msg));

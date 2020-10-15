@@ -75,8 +75,8 @@ bool fromwire_dual_open_commit_rcvd(const tal_t *ctx, const void *p, struct chan
 
 /* WIRE: DUAL_OPEN_PSBT_CHANGED */
 /*  dualopend->master: peer updated the psbt */
-u8 *towire_dual_open_psbt_changed(const tal_t *ctx, const struct channel_id *channel_id, const struct wally_psbt *psbt);
-bool fromwire_dual_open_psbt_changed(const tal_t *ctx, const void *p, struct channel_id *channel_id, struct wally_psbt **psbt);
+u8 *towire_dual_open_psbt_changed(const tal_t *ctx, const struct channel_id *channel_id, u16 funding_serial, const struct wally_psbt *psbt);
+bool fromwire_dual_open_psbt_changed(const tal_t *ctx, const void *p, struct channel_id *channel_id, u16 *funding_serial, struct wally_psbt **psbt);
 
 /* WIRE: DUAL_OPEN_PSBT_UPDATED */
 /*  master->dualopend: we updated the psbt */
@@ -109,4 +109,4 @@ bool fromwire_dual_open_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:37f122e865f6e2432cffb5ae82c77ca2f8a3714baed0c9724a92541092f3aa54
+// SHA256STAMP:ed548e8b85302ef620646a1aab503b1279fece3b9d9aeedd47a371fa2a9fbe56

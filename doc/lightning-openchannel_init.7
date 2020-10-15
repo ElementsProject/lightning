@@ -48,7 +48,9 @@ sent on close\. Only valid if both peers have negotiated
 On success, returns the \fIchannel_id\fR for this channel; an updated
 incomplete \fIinitialpsbt\fR for this funding transaction; and the flag
 \fIcommitments_secured\fR, which indiciates the completeness of the 
-passed back \fIpsbt\fR\. (Will always be false)\.
+passed back \fIpsbt\fR\. (Will always be false)\. Also returns the
+\fIfunding_serial\fR, indicating the serial_id of the funding output
+in the \fIpsbt\fR\.
 
 
 If the peer does not support \fBoption_dual_fund\fR, this command
@@ -94,4 +96,4 @@ lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcomplete\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:a06dc67176c3c9863e4fc3048de7d0172eb79d091479415eb639335b3d096860
+\" SHA256STAMP:d73cf35c01e641d80688352058111421d9213b0a23043e9cdc807398442efd7a

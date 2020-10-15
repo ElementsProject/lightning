@@ -121,6 +121,9 @@ struct state {
 
 	/* Set of pending changes to send to peer */
 	struct psbt_changeset *changeset;
+
+	/* The serial_id of the funding output */
+	u16 funding_serial;
 };
 
 #if EXPERIMENTAL_FEATURES
@@ -602,7 +605,9 @@ fetch_psbt_changes(struct state *state, const struct wally_psbt *psbt)
 	struct wally_psbt *updated_psbt;
 
 	/* Go ask lightningd what other changes we've got */
-	msg = towire_dual_open_psbt_changed(NULL, &state->channel_id, psbt);
+	msg = towire_dual_open_psbt_changed(NULL, &state->channel_id,
+					    state->funding_serial,
+					    psbt);
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
@@ -1287,6 +1292,10 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 	sync_crypto_write(state->pps, msg);
 	peer_billboard(false, "channel open: accept sent, waiting for reply");
 
+	/* This is unused in this flow. We re-use
+	 * the wire method between accepter + opener, so we set it
+	 * to an invalid number, 1 (initiator sets; valid is even) */
+	state->funding_serial = 1;
 	/* Figure out what the funding transaction looks like! */
 	if (!run_tx_interactive(state, &psbt, TX_ACCEPTER))
 		return NULL;
@@ -1484,7 +1493,6 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	struct amount_msat our_msats;
 	struct wally_psbt *psbt;
 	struct wally_psbt_output *funding_out;
-	u16 serial_id;
 	struct sha256 podle;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct penalty_base *pbase;
@@ -1631,8 +1639,8 @@ static u8 *opener_start(struct state *state, u8 *msg)
 							    wscript),
 					 total);
 	/* Add a serial_id for this output */
-	serial_id = psbt_new_input_serial(psbt, TX_INITIATOR);
-	psbt_output_set_serial_id(psbt, funding_out, serial_id);
+	state->funding_serial = psbt_new_input_serial(psbt, TX_INITIATOR);
+	psbt_output_set_serial_id(psbt, funding_out, state->funding_serial);
 
 	/* Add all of our inputs/outputs to the changeset */
 	init_changeset(state, psbt);
