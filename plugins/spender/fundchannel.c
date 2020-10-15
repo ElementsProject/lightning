@@ -41,6 +41,7 @@ json_fundchannel(struct command *cmd,
 	const jsmntok_t *minconf;
 	const jsmntok_t *utxos;
 	const jsmntok_t *push_msat;
+	const jsmntok_t *close_to;
 
 	struct out_req *req;
 
@@ -52,6 +53,7 @@ json_fundchannel(struct command *cmd,
 		   p_opt("minconf", param_tok, &minconf),
 		   p_opt("utxos", param_tok, &utxos),
 		   p_opt("push_msat", param_tok, &push_msat),
+		   p_opt("close_to", param_tok, &close_to),
 		   NULL))
 		return command_param_failed();
 
@@ -67,6 +69,8 @@ json_fundchannel(struct command *cmd,
 		json_add_tok(req->js, "announce", announce, buf);
 	if (push_msat)
 		json_add_tok(req->js, "push_msat", push_msat, buf);
+	if (close_to)
+		json_add_tok(req->js, "close_to", close_to, buf);
 	json_object_end(req->js);
 	json_array_end(req->js);
 	if (feerate)
@@ -92,6 +96,7 @@ fundchannel_get_result(struct command *cmd,
 	const jsmntok_t *channel_ids_obj;
 	const jsmntok_t *channel_id;
 	const jsmntok_t *outnum;
+	const jsmntok_t *close_to_script;
 
 	struct json_stream *out;
 
@@ -108,6 +113,10 @@ fundchannel_get_result(struct command *cmd,
 	ok = ok && channel_id;
 	outnum = ok ? json_get_member(buf, channel_ids_obj, "outnum") : NULL;
 	ok = ok && outnum;
+	close_to_script = ok ? json_get_member(buf, channel_ids_obj,
+					       "close_to")
+			     : NULL;
+
 
 	if (!ok)
 		plugin_err(cmd->plugin,
@@ -120,5 +129,7 @@ fundchannel_get_result(struct command *cmd,
 	json_add_tok(out, "txid", txid, buf);
 	json_add_tok(out, "channel_id", channel_id, buf);
 	json_add_tok(out, "outnum", outnum, buf);
+	if (close_to_script)
+		json_add_tok(out, "close_to", close_to_script, buf);
 	return command_finished(cmd, out);
 }

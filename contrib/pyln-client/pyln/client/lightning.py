@@ -657,12 +657,13 @@ class LightningRpc(UnixDomainSocketRpc):
         Only select outputs with {minconf} confirmations.
         If {utxos} is specified (as a list of 'txid:vout' strings),
         fund a channel from these specifics utxos.
+        {close_to} is a valid Bitcoin address.
         """
 
         if 'satoshi' in kwargs:
             return self._deprecated_fundchannel(node_id, *args, **kwargs)
 
-        def _fundchannel(node_id, amount, feerate=None, announce=True, minconf=None, utxos=None, push_msat=None):
+        def _fundchannel(node_id, amount, feerate=None, announce=True, minconf=None, utxos=None, push_msat=None, close_to=None):
             payload = {
                 "id": node_id,
                 "amount": amount,
@@ -670,7 +671,8 @@ class LightningRpc(UnixDomainSocketRpc):
                 "announce": announce,
                 "minconf": minconf,
                 "utxos": utxos,
-                "push_msat": push_msat
+                "push_msat": push_msat,
+                "close_to": close_to,
             }
             return self.call("fundchannel", payload)
 
