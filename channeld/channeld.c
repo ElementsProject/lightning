@@ -518,6 +518,20 @@ static void announce_channel(struct peer *peer)
 	send_channel_update(peer, 0);
 }
 
+#if EXPERIMENTAL_FEATURES
+static enum tx_role our_tx_role(const struct peer *peer)
+{
+	return peer->channel->opener == LOCAL ?
+		TX_INITIATOR : TX_ACCEPTER;
+}
+#endif
+
+static enum tx_role their_tx_role(const struct peer *peer)
+{
+	return peer->channel->opener == LOCAL ?
+		TX_ACCEPTER : TX_INITIATOR;
+}
+
 static void channel_announcement_negotiate(struct peer *peer)
 {
 	/* Don't do any announcement work if we're shutting down */
@@ -598,6 +612,13 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 	if (peer->shutdown_sent[LOCAL])
 		return;
 
+	if (peer->psbt && !psbt_side_finalized(peer->psbt,
+					       their_tx_role(peer)))
+		peer_failed(peer->pps,
+			    &peer->channel_id,
+			    "Rcvd `funding_locked` from peer but "
+			    "have not received `tx_signatures`");
+
 	peer->old_remote_per_commit = peer->remote_per_commit;
 	if (!fromwire_funding_locked(msg, &chanid,
 				     &peer->remote_per_commit))
@@ -614,6 +635,7 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 					   &peer->channel_id));
 
 	peer->funding_locked[REMOTE] = true;
+	peer->psbt = tal_free(peer->psbt);
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_got_funding_locked(NULL,
 						&peer->remote_per_commit)));
@@ -2043,8 +2065,7 @@ static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 	const struct witness_stack **ws;
 
 	size_t j = 0;
-	enum tx_role role = peer->channel->opener == REMOTE
-		? TX_INITIATOR : TX_ACCEPTER;
+	enum tx_role their_role = their_tx_role(peer);
 
 	if (!fromwire_tx_signatures(tmpctx, msg, &cid, &txid,
 				    cast_const3(
@@ -2080,6 +2101,15 @@ static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 		return;
 	}
 
+	/* This check only works if they've got inputs we need sigs for.
+	 * In the case where they send duplicate tx_sigs but have no
+	 * sigs, we'll end up re-notifying */
+	if (tal_count(ws) && psbt_side_finalized(peer->psbt, their_role)) {
+		status_info("Got duplicate WIRE_TX_SIGNATURES, "
+			    "already have their sigs. Ignoring");
+		return;
+	}
+
 	/* We put the PSBT + sigs all together */
 	for (size_t i = 0; i < peer->psbt->num_inputs; i++) {
 		struct wally_psbt_input *in =
@@ -2094,7 +2124,7 @@ static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 							peer->psbt));
 			return;
 		}
-		if (in_serial % 2 != role)
+		if (in_serial % 2 != their_role)
 			continue;
 
 		if (j == tal_count(ws))
@@ -2111,8 +2141,6 @@ static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 	 * as soon as we've got our sigs */
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_funding_sigs(NULL, peer->psbt)));
-
-	peer->psbt = tal_free(peer->psbt);
 }
 #endif /* EXPERIMENTAL_FEATURES */
 
@@ -2773,9 +2801,8 @@ static void peer_reconnect(struct peer *peer,
 
 #if EXPERIMENTAL_FEATURES
 	/* Send our tx_sigs again */
-	enum tx_role role = peer->channel->opener == LOCAL
-		? TX_INITIATOR : TX_ACCEPTER;
-	if (peer->psbt && psbt_side_finalized(peer->psbt, role)
+	if (peer->psbt && psbt_side_finalized(peer->psbt,
+					      our_tx_role(peer))
 		&& !peer->funding_locked[REMOTE])
 		sync_crypto_write(peer->pps,
 			take(psbt_to_tx_sigs_msg(NULL, peer->channel,
@@ -2973,13 +3000,6 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 					    &depth))
 		master_badmsg(WIRE_CHANNELD_FUNDING_DEPTH, msg);
 
-	/* We were waiting for them to send us their
-	 * `tx_signatures`, but they never did. As a
-	 * result we'll still have the psbt */
-	if (peer->psbt) {
-		return;
-	}
-
 	/* Too late, we're shutting down! */
 	if (peer->shutdown_sent[LOCAL])
 		return;
@@ -2988,6 +3008,18 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 		peer->depth_togo = peer->channel->minimum_depth - depth;
 
 	} else {
+		/* We were waiting for them to send us their
+		 * `tx_signatures`, but they never did. As a
+		 * result we'll still have the psbt */
+		if (peer->psbt && !psbt_side_finalized(peer->psbt,
+						       their_tx_role(peer))) {
+			peer_failed(peer->pps, &peer->channel_id,
+				    "Funding tx reached funding depth %d "
+				    "but we haven't received peer's "
+				    "tx_signatures",
+				    depth);
+		}
+
 		peer->depth_togo = 0;
 
 		assert(scid);
@@ -3571,11 +3603,9 @@ static void init_channel(struct peer *peer)
 		sync_crypto_write(peer->pps, take(fwd_msg));
 
 #if EXPERIMENTAL_FEATURES
-	enum tx_role role;
-	role = opener == LOCAL ? TX_INITIATOR : TX_ACCEPTER;
 	/* peer_reconnect does this if needed */
 	if (!reconnected && peer->psbt &&
-			psbt_side_finalized(peer->psbt, role))
+			psbt_side_finalized(peer->psbt, our_tx_role(peer)))
 		sync_crypto_write(peer->pps,
 			take(psbt_to_tx_sigs_msg(NULL, peer->channel,
 						 peer->psbt)));
