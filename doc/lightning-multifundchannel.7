@@ -3,7 +3,7 @@
 lightning-multifundchannel - Command for establishing many lightning channels
 .SH SYNOPSIS
 
-\fBmultifundchannel\fR \fIdestinations\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR] [\fIminchannels\fR]
+\fBmultifundchannel\fR \fIdestinations\fR [\fIfeerate\fR] [\fIminconf\fR] [\fIutxos\fR] [\fIminchannels\fR] [\fIcommitment_feerate\fR]
 
 .SH DESCRIPTION
 
@@ -65,8 +65,9 @@ There must be at least one entry in \fIdestinations\fR;
 it cannot be an empty array\.
 
 
-\fIfeerate\fR is an optional feerate used for the opening transaction and as
-initial feerate for commitment and HTLC transactions\. It can be one of
+\fIfeerate\fR is an optional feerate used for the opening transaction and, if
+\fIcommitment_feerate\fR is not set, as the initial feerate for
+commitment and HTLC transactions\. It can be one of
 the strings \fIurgent\fR (aim for next block), \fInormal\fR (next 4 blocks or
 so) or \fIslow\fR (next 100 blocks or so) to use lightningd’s internal
 estimates: \fInormal\fR is the default\.
@@ -90,6 +91,10 @@ of "txid:vout"\.
 this many peers remain (must not be zero)\.
 The \fBmultifundchannel\fR command will only fail if too many peers fail
 the funding process\.
+
+
+\fIcommitment_feerate\fR is the initial feerate for commitment and HTLC
+transactions\. See \fIfeerate\fR for valid values\.
 
 .SH RETURN VALUE
 
@@ -172,4 +177,4 @@ ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:70be8ab919df4a69f18103dcf3d1067e4b1d7466eb69ca474ffae3ea1f8d0ae1
+\" SHA256STAMP:45015c53c73dc4d84850c84cb753d62739288365746b47f0403fb67e5f65d582

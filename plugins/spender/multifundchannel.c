@@ -147,8 +147,17 @@ struct multifundchannel_command {
 	*/
 	size_t pending;
 
-	/* The feerate desired by the user.  */
+	/* The feerate desired by the user.
+	 * If cmtmt_feerate_str is present, will only be used
+	 * for the funding transaction. */
 	const char *feerate_str;
+
+	/* The feerate desired by the user for
+	 * the channel commitment and HTLC txs.
+	 * If not provided, defaults to the feerate_str
+	 * value. */
+	const char *cmtmt_feerate_str;
+
 	/* The minimum number of confirmations for owned
 	UTXOs to be selected.
 	*/
@@ -1164,7 +1173,9 @@ fundchannel_start_dest(struct multifundchannel_destination *dest)
 	json_add_string(req->js, "amount",
 			fmt_amount_sat(tmpctx, &dest->amount));
 
-	if (mfc->feerate_str)
+	if (mfc->cmtmt_feerate_str)
+		json_add_string(req->js, "feerate", mfc->cmtmt_feerate_str);
+	else if (mfc->feerate_str)
 		json_add_string(req->js, "feerate", mfc->feerate_str);
 	json_add_bool(req->js, "announce", dest->announce);
 	json_add_string(req->js, "push_msat",
@@ -1988,7 +1999,7 @@ json_multifundchannel(struct command *cmd,
 		      const jsmntok_t *params)
 {
 	struct multifundchannel_destination *dests;
-	const char *feerate_str;
+	const char *feerate_str, *cmtmt_feerate_str;
 	u32 *minconf;
 	const jsmntok_t *utxos_tok;
 	u32 *minchannels;
@@ -2001,6 +2012,7 @@ json_multifundchannel(struct command *cmd,
 		   p_opt_def("minconf", param_number, &minconf, 1),
 		   p_opt("utxos", param_tok, &utxos_tok),
 		   p_opt("minchannels", param_positive_number, &minchannels),
+		   p_opt("commitment_feerate", param_string, &cmtmt_feerate_str),
 		   NULL))
 		return command_param_failed();
 
@@ -2017,6 +2029,7 @@ json_multifundchannel(struct command *cmd,
 		mfc->destinations[i].mfc = mfc;
 
 	mfc->feerate_str = feerate_str;
+	mfc->cmtmt_feerate_str = cmtmt_feerate_str;
 	mfc->minconf = *minconf;
 	if (utxos_tok)
 		mfc->utxos_str = tal_strndup(mfc, json_tok_full(buf, utxos_tok),
