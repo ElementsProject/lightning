@@ -886,13 +886,10 @@ perform_fundpsbt(struct multifundchannel_command *mfc)
 		 * inputs, that estimation should be correct.
 		 */
 		startweight = bitcoin_tx_core_weight(1, num_outs)
-			    + ( bitcoin_tx_output_weight( 1 /* OP_0 */
-							+ 1 /* OP_PUSHDATA */
-							+ 32 /* P2WSH */
-							)
+			    + ( bitcoin_tx_output_weight(
+					BITCOIN_SCRIPTPUBKEY_P2WSH_LEN)
 			      * num_outs
-			      )
-			    ;
+			      );
 		json_add_string(req->js, "startweight",
 				tal_fmt(tmpctx, "%zu", startweight));
 	}
@@ -1023,10 +1020,8 @@ handle_mfc_change(struct multifundchannel_command *mfc)
 	 * Get the weight of a change output and how much it
 	 * costs.
 	 */
-	change_weight = bitcoin_tx_output_weight( 1 /* OP_0 */
-						+ 1 /* OP_PUSHDATA */
-						+ 20 /* P2WPKH */
-						);
+	change_weight = bitcoin_tx_output_weight(
+				BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
 	change_fee = amount_tx_fee(mfc->feerate_per_kw, change_weight);
 	/* The limit is equal to the change_fee plus the dust limit.  */
 	if (!amount_sat_add(&change_min_limit,
