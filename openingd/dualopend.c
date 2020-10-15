@@ -902,7 +902,9 @@ static bool run_tx_interactive(struct state *state,
 				peer_failed(state->pps, &state->channel_id,
 					    "Unable to add input");
 
+			tal_wally_start();
 			wally_psbt_input_set_utxo(in, tx->wtx);
+			tal_wally_end(psbt);
 
 			if (is_elements(chainparams)) {
 				struct amount_asset asset;
