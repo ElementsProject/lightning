@@ -112,9 +112,9 @@ struct state {
 	 * indicate the restrictions each side places on the channel. */
 	struct channel_config localconf, remoteconf;
 
-	/* The channel structure, as defined in common/initial_channel.h.  While
-	 * the structure has room for HTLCs, those routines are channeld-specific
-	 * as initial channels never have HTLCs. */
+	/* The channel structure, as defined in common/initial_channel.h. While
+	 * the structure has room for HTLCs, those routines are
+	 * channeld-specific as initial channels never have HTLCs. */
 	struct channel *channel;
 
 	struct feature_set *our_features;
@@ -648,7 +648,8 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 	}
 }
 
-static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psbt,
+static bool run_tx_interactive(struct state *state,
+			       struct wally_psbt **orig_psbt,
 			       enum tx_role our_role)
 {
 	/* Opener always sends the first utxo info */
@@ -683,9 +684,11 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 
 			if (!fromwire_tx_add_input(tmpctx, msg, &cid,
 						   &serial_id,
-						   cast_const2(u8 **, &tx_bytes),
+						   cast_const2(u8 **,
+							       &tx_bytes),
 						   &outnum, &sequence,
-						   cast_const2(u8 **, &redeemscript),
+						   cast_const2(u8 **,
+							       &redeemscript),
 						   add_tlvs))
 				peer_failed(state->pps, &state->channel_id,
 					    "Parsing tx_add_input %s",
@@ -703,7 +706,8 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			 */
 			if (serial_id % 2 == our_role)
 				peer_failed(state->pps, &state->channel_id,
-					    "Invalid serial_id rcvd. %u", serial_id);
+					    "Invalid serial_id rcvd. %u",
+					    serial_id);
 			/*
 			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
 			 * - MUST fail the transaction collaboration if:
@@ -731,28 +735,35 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			 *  - it receives an input that would create a
 			 *    malleable transaction id (e.g. pre-Segwit)
 			 */
-			if (!is_segwit_output(&tx->wtx->outputs[outnum], redeemscript))
+			if (!is_segwit_output(&tx->wtx->outputs[outnum],
+					      redeemscript))
 				peer_failed(state->pps, &state->channel_id,
 					    "Invalid tx sent. Not SegWit %s",
-					    type_to_string(tmpctx, struct bitcoin_tx, tx));
+					    type_to_string(tmpctx,
+							   struct bitcoin_tx,
+							   tx));
 
 			/*
 			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
-			 *  - MUST NOT re-transmit inputs it has already received from the peer
+			 *  - MUST NOT re-transmit inputs it has already
+			 *    received from the peer
 			 *  ...
 			 * - MUST fail the transaction collaboration if:
 			 *   ...
-			 *  - it receives a duplicate input to one it sent previously
+			 *  - it receives a duplicate input to one it
+			 *    sent previously
 			 */
 			bitcoin_txid(tx, &txid);
 			if (psbt_has_input(psbt, &txid, outnum))
 				peer_failed(state->pps, &state->channel_id,
-					    "Unable to add input");
+					    "Unable to add input - "
+					    "already present");
 
 			/*
 			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
 			 * The receiving node:
-			 *  - MUST add all received inputs to the funding transaction
+			 *  - MUST add all received inputs to the funding
+			 *    transaction
 			 */
 			struct wally_psbt_input *in =
 				psbt_append_input(psbt, &txid, outnum,
@@ -768,13 +779,16 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			if (is_elements(chainparams)) {
 				struct amount_asset asset;
 
-				bitcoin_tx_output_get_amount_sat(tx, outnum, &amt);
+				bitcoin_tx_output_get_amount_sat(tx, outnum,
+								 &amt);
 
 				/* FIXME: persist asset tags */
 				asset = amount_sat_to_asset(&amt,
-							    chainparams->fee_asset_tag);
+						chainparams->fee_asset_tag);
 				/* FIXME: persist nonces */
-				psbt_elements_input_set_asset(psbt, outnum, &asset);
+				psbt_elements_input_set_asset(psbt,
+							      outnum,
+							      &asset);
 			}
 
 			psbt_input_set_serial_id(psbt, in, serial_id);
@@ -798,7 +812,8 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			 *     input which is not theirs */
 			if (serial_id % 2 == our_role)
 				peer_failed(state->pps, &state->channel_id,
-					    "Invalid serial_id rcvd. %u", serial_id);
+					    "Invalid serial_id rcvd. %u",
+					    serial_id);
 
 			input_index = psbt_find_serial_input(psbt, serial_id);
 			if (input_index == -1)
@@ -831,11 +846,13 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			 *      incorrect parity */
 			if (serial_id % 2 == our_role)
 				peer_failed(state->pps, &state->channel_id,
-					    "Invalid serial_id rcvd. %u", serial_id);
+					    "Invalid serial_id rcvd. %u",
+					    serial_id);
 
 			if (psbt_find_serial_output(psbt, serial_id) != -1)
 				peer_failed(state->pps, &state->channel_id,
-					    "Duplicate serial_id rcvd. %u", serial_id);
+					    "Duplicate serial_id rcvd. %u",
+					    serial_id);
 			amt = amount_sat(value);
 			out = psbt_append_output(psbt, scriptpubkey, amt);
 			psbt_output_set_serial_id(psbt, out, serial_id);
@@ -857,7 +874,8 @@ static bool run_tx_interactive(struct state *state, struct wally_psbt **orig_psb
 			 *     input which is not theirs */
 			if (serial_id % 2 == our_role)
 				peer_failed(state->pps, &state->channel_id,
-					    "Invalid serial_id rcvd. %u", serial_id);
+					    "Invalid serial_id rcvd. %u",
+					    serial_id);
 
 			output_index = psbt_find_serial_output(psbt, serial_id);
 			if (output_index == -1)
@@ -1434,8 +1452,10 @@ static u8 *opener_start(struct state *state, u8 *msg)
 
 	if (!channel_id_eq(&cid, &state->channel_id))
 		peer_failed(state->pps, &state->channel_id,
-			    "accept_channel2 ids don't match: expected %s, got %s",
-			    type_to_string(msg, struct channel_id, &state->channel_id),
+			    "accept_channel2 ids don't match: "
+			    "expected %s, got %s",
+			    type_to_string(msg, struct channel_id,
+					   &state->channel_id),
 			    type_to_string(msg, struct channel_id, &cid));
 
 	/* Check that total funding doesn't overflow */
@@ -1454,8 +1474,8 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	 *
 	 * The receiving node MUST fail the channel if:
 	 *...
-	 * - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support
-	 *   `option_support_large_channel`. */
+	 * - `funding_satoshis` is greater than or equal to 2^24 and
+	 *    the receiver does not support `option_support_large_channel`. */
 	/* We choose to require *negotiation*, not just support! */
 	if (!feature_negotiated(state->our_features, state->their_features,
 				OPT_LARGE_CHANNELS)
@@ -1470,13 +1490,15 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
 	 * The sending node:
 	 *  - if is the `opener`:
-	 *   - MUST send at least one `tx_add_output`,  the channel funding output.
+	 *   - MUST send at least one `tx_add_output`,  the channel
+	 *     funding output.
 	 */
 	wscript = bitcoin_redeem_2of2(state,
 				      &state->our_funding_pubkey,
 				      &state->their_funding_pubkey);
 	funding_out = psbt_append_output(psbt,
-					 scriptpubkey_p2wsh(tmpctx, wscript),
+					 scriptpubkey_p2wsh(tmpctx,
+							    wscript),
 					 total);
 	/* Add a serial_id for this output */
 	serial_id = psbt_new_input_serial(psbt, TX_INITIATOR);
@@ -1485,7 +1507,8 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	/* Add all of our inputs/outputs to the changeset */
 	init_changeset(state, psbt);
 
-	/* Now that we know the total of the channel, we can set the reserve */
+	/* Now that we know the total of the channel, we can
+	 * set the reserve */
 	set_reserve(state, total);
 
 	if (!check_config_bounds(tmpctx, total, state->feerate_per_kw,
@@ -1835,8 +1858,8 @@ static u8 *handle_peer_in(struct state *state)
 	enum peer_wire type = fromwire_peektype(msg);
 	if (type % 2 == 1 && !peer_wire_is_defined(type)) {
 		/* The message is not part of the messages we know how to
-		 * handle. Assuming this is a custommsg, we just forward it to the
-		 * master. */
+		 * handle. Assuming this is a custommsg, we just
+		 * forward it to master. */
 		wire_sync_write(REQ_FD, take(towire_custommsg_in(NULL, msg)));
 		return NULL;
 	}
@@ -1849,7 +1872,9 @@ static u8 *handle_peer_in(struct state *state)
 
 	sync_crypto_write(state->pps,
 			  take(towire_errorfmt(NULL,
-					       extract_channel_id(msg, &channel_id) ? &channel_id : NULL,
+					       extract_channel_id(msg,
+								  &channel_id) ?
+							&channel_id : NULL,
 					       "Unexpected message %s: %s",
 					       peer_wire_name(t),
 					       tal_hex(tmpctx, msg))));
