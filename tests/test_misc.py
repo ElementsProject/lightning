@@ -347,7 +347,7 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     l2 = node_factory.get_node()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    chanid = l1.fundchannel(l2, 10**6)
+    chanid, _ = l1.fundchannel(l2, 10**6)
 
     # Wait for route propagation.
     l1.wait_channel_active(chanid)
@@ -414,7 +414,7 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
     l2 = node_factory.get_node()
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    chanid = l1.fundchannel(l2, 10**6)
+    chanid, _ = l1.fundchannel(l2, 10**6)
 
     l1.wait_channel_active(chanid)
     sync_blockheight(bitcoind, [l1, l2])

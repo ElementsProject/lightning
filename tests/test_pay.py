@@ -175,9 +175,9 @@ def test_pay_exclude_node(node_factory, bitcoind):
     l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
     l4.rpc.connect(l5.info['id'], 'localhost', l5.port)
     l5.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    scid14 = l1.fundchannel(l4, 10**6, wait_for_active=False)
-    scid45 = l4.fundchannel(l5, 10**6, wait_for_active=False)
-    scid53 = l5.fundchannel(l3, 10**6, wait_for_active=False)
+    scid14, _ = l1.fundchannel(l4, 10**6, wait_for_active=False)
+    scid45, _ = l4.fundchannel(l5, 10**6, wait_for_active=False)
+    scid53, _ = l5.fundchannel(l3, 10**6, wait_for_active=False)
     bitcoind.generate_block(5)
 
     l1.daemon.wait_for_logs([r'update for channel {}/0 now ACTIVE'
@@ -349,7 +349,7 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
     l2 = node_factory.get_node(may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    chanid = l1.fundchannel(l2, 100000)
+    chanid, _ = l1.fundchannel(l2, 100000)
 
     inv1 = l2.rpc.invoice(1000, 'inv1', 'inv1')
 
@@ -1109,8 +1109,8 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     l2.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
     l3.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
 
-    c1 = l1.fundchannel(l2, 10**6)
-    c2 = l2.fundchannel(l3, 10**6)
+    c1, _ = l1.fundchannel(l2, 10**6)
+    c2, _ = l2.fundchannel(l3, 10**6)
     bitcoind.generate_block(5)
 
     # Make sure l1 has seen announce for all channels.
@@ -1215,8 +1215,8 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     l2.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
     l3.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
 
-    c1 = l1.fundchannel(l2, 10**6)
-    c2 = l2.fundchannel(l3, 10**6)
+    c1, _ = l1.fundchannel(l2, 10**6)
+    c2, _ = l2.fundchannel(l3, 10**6)
     bitcoind.generate_block(5)
 
     # Make sure l1 has seen announce for all channels.
@@ -1380,10 +1380,10 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
     l2.rpc.connect(l5.info['id'], 'localhost', l5.port)
     l6.rpc.connect(l1.info['id'], 'localhost', l1.port)
-    c12 = l1.fundchannel(l2, 10**6)
-    c23 = l2.fundchannel(l3, 10**6)
-    c24 = l2.fundchannel(l4, 10**6)
-    c25 = l2.fundchannel(l5, 10**4 * 3)
+    c12, _ = l1.fundchannel(l2, 10**6)
+    c23, _ = l2.fundchannel(l3, 10**6)
+    c24, _ = l2.fundchannel(l4, 10**6)
+    c25, _ = l2.fundchannel(l5, 10**4 * 3)
     l6.fundchannel(l1, 10**6)
 
     # Make sure routes finalized.
@@ -1653,14 +1653,14 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     l2.fundchannel(l3, 10**6, wait_for_active=False)
     # scid34
     l3.fundchannel(l4, 10**6, wait_for_active=False)
-    scid45 = l4.fundchannel(l5, 10**6, wait_for_active=False)
+    scid45, _ = l4.fundchannel(l5, 10**6, wait_for_active=False)
 
     l1.rpc.connect(l5.info['id'], 'localhost', l5.port)
-    scid15 = l1.fundchannel(l5, 10**6, wait_for_active=False)
+    scid15, _ = l1.fundchannel(l5, 10**6, wait_for_active=False)
     l2.rpc.connect(l5.info['id'], 'localhost', l5.port)
-    scid25 = l2.fundchannel(l5, 10**6, wait_for_active=False)
+    scid25, _ = l2.fundchannel(l5, 10**6, wait_for_active=False)
     l3.rpc.connect(l5.info['id'], 'localhost', l5.port)
-    scid35 = l3.fundchannel(l5, 10**6, wait_for_active=False)
+    scid35, _ = l3.fundchannel(l5, 10**6, wait_for_active=False)
 
     # Make sure l1 sees all 7 channels
     bitcoind.generate_block(5)
@@ -1719,7 +1719,7 @@ def test_pay_routeboost(node_factory, bitcoind, compat):
         l1.rpc.pay(l5.rpc.invoice(10**8, 'test_retry', 'test_retry')['bolt11'])
 
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    scidl2l3 = l2.fundchannel(l3, 10**6)
+    scidl2l3, _ = l2.fundchannel(l3, 10**6)
 
     # Make sure l1 knows about the 2->3 channel.
     bitcoind.generate_block(5)
@@ -1787,7 +1787,7 @@ def test_pay_routeboost(node_factory, bitcoind, compat):
         # Finally, it should fall back to second routehint if first fails.
         # (Note, this is not public because it's not 6 deep)
         l3.rpc.connect(l5.info['id'], 'localhost', l5.port)
-        scid35 = l3.fundchannel(l5, 10**6)
+        scid35, _ = l3.fundchannel(l5, 10**6)
         l4.stop()
         routel3l5 = [{'id': l3.info['id'],
                       'short_channel_id': scid35,
@@ -1959,7 +1959,7 @@ def test_setchannelfee_state(node_factory, bitcoind):
     l0.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l0.fundchannel(l1, 1000000, wait_for_active=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    scid = l1.fundchannel(l2, 1000000, wait_for_active=False)
+    scid, _ = l1.fundchannel(l2, 1000000, wait_for_active=False)
 
     # try setting the fee in state AWAITING_LOCKIN should be possible
     # assert(l1.channel_state(l2) == "CHANNELD_AWAITING_LOCKIN")
@@ -2601,9 +2601,9 @@ def test_partial_payment(node_factory, bitcoind, executor):
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.fundchannel(l3, 100000)
     l2.rpc.connect(l4.info['id'], 'localhost', l4.port)
-    scid24 = l2.fundchannel(l4, 100000)
+    scid24, _ = l2.fundchannel(l4, 100000)
     l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
-    scid34 = l3.fundchannel(l4, 100000)
+    scid34, _ = l3.fundchannel(l4, 100000)
     bitcoind.generate_block(5)
 
     # Wait until l1 knows about all channels.
@@ -3263,7 +3263,7 @@ def test_mpp_presplit_routehint_conflict(node_factory, bitcoind):
     l1, l2, l3 = node_factory.get_nodes(3)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1l2 = l1.fundchannel(l2, 10**7, announce_channel=True)
+    l1l2, _ = l1.fundchannel(l2, 10**7, announce_channel=True)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l2.fundchannel(l3, 10**7, announce_channel=False)
 
@@ -3416,7 +3416,7 @@ def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor
     l1, l2, l3 = node_factory.get_nodes(3)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1l2 = l1.fundchannel(l2, 10**7, announce_channel=True)
+    l1l2, _ = l1.fundchannel(l2, 10**7, announce_channel=True)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l2.fundchannel(l3, 10**7, announce_channel=False)
 
