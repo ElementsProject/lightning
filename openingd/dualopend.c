@@ -279,7 +279,8 @@ static bool check_balances(struct state *state,
 	if (check_opener_balance) {
 		u8 *funding_wscript;
 
-		weight = common_weight(psbt->num_inputs, psbt->num_outputs);
+		weight = bitcoin_tx_core_weight(psbt->num_inputs,
+						psbt->num_outputs);
 		funding_wscript = bitcoin_redeem_2of2(tmpctx,
 						      &state->our_funding_pubkey,
 						      &state->their_funding_pubkey);
