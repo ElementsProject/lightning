@@ -183,4 +183,15 @@ psbt_to_witness_stacks(const tal_t *ctx,
 /* psbt_side_finalized - True if designated role has all signature data */
 bool psbt_side_finalized(const struct wally_psbt *psbt,
 			 enum tx_role role);
+
+/* psbt_add_serials - Add serials to inputs/outputs that are missing them
+ *
+ * Adds a serial of the correct parity for the designated {role} to all
+ * inputs and outputs of this PSBT that do not currently have a serial_id
+ * set.
+ *
+ * @psbt - the psbt to add serials to
+ * @role - the role we should use to select serial parity
+ */
+void psbt_add_serials(struct wally_psbt *psbt, enum tx_role role);
 #endif /* LIGHTNING_COMMON_PSBT_OPEN_H */
