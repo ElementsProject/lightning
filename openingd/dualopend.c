@@ -340,6 +340,13 @@ static size_t psbt_input_weight(struct wally_psbt *psbt,
 	return weight;
 }
 
+static size_t psbt_output_weight(struct wally_psbt *psbt,
+				 size_t outnum)
+{
+	return (8 + psbt->tx->outputs[outnum].script_len +
+		varint_size(psbt->tx->outputs[outnum].script_len)) * 4;
+}
+
 static bool find_txout(struct wally_psbt *psbt, const u8 *wscript, u16 *funding_txout)
 {
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
@@ -352,100 +359,227 @@ static bool find_txout(struct wally_psbt *psbt, const u8 *wscript, u16 *funding_
 	return false;
 }
 
-static bool check_balances(struct state *state,
-			   struct wally_psbt *psbt,
-			   bool check_opener_balance,
-			   bool do_full_tx_check,
-			   u32 feerate_per_kw_funding)
+static char *check_balances(const tal_t *ctx,
+			    struct state *state,
+			    struct wally_psbt *psbt,
+			    u32 feerate_per_kw_funding)
 {
-	struct amount_sat side_input_amt, side_output_amt,
-			  input_amt, output_amt, fee, diff;
-	size_t weight, input_count = 0, output_count = 0;
+	struct amount_sat initiator_inputs, initiator_outs,
+			  accepter_inputs, accepter_outs,
+			  tot_input_amt, tot_output_amt,
+			  initiator_fee, accepter_fee,
+			  initiator_diff, accepter_diff;
+
 	bool ok;
 	u16 funding_outnum = psbt->num_outputs;
+	size_t accepter_weight = 0;
 
-	if (check_opener_balance) {
-		u8 *funding_wscript;
 
-		weight = bitcoin_tx_core_weight(psbt->num_inputs,
-						psbt->num_outputs);
-		funding_wscript = bitcoin_redeem_2of2(tmpctx,
-						      &state->our_funding_pubkey,
-						      &state->their_funding_pubkey);
-		find_txout(psbt, scriptpubkey_p2wsh(tmpctx, funding_wscript), &funding_outnum);
-	} else
-		weight = 0;
+	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
+	 * The initiator is responsible for paying the fees
+	 * for the following fields, to be referred to as
+	 * the `common fields`.
+	 *   - version
+	 *   - segwit marker + flag
+	 *   - input count
+	 *   - output count
+	 *   - locktime */
+	size_t initiator_weight =
+		bitcoin_tx_core_weight(psbt->num_inputs,
+				       psbt->num_outputs);
 
-	/* Find the total input and output sums for this participant */
-	input_amt = AMOUNT_SAT(0);
-	side_input_amt = AMOUNT_SAT(0);
+	u8 *funding_wscript =
+		bitcoin_redeem_2of2(tmpctx,
+				    &state->our_funding_pubkey,
+				    &state->their_funding_pubkey);
+
+	/* Find funding output, check balance */
+	if (find_txout(psbt,
+		       scriptpubkey_p2wsh(tmpctx, funding_wscript),
+		       &funding_outnum)) {
+		struct amount_sat output_val, total_funding;
+
+		output_val = psbt_output_get_amount(psbt,
+						    funding_outnum);
+		if (!amount_sat_add(&total_funding,
+				    state->accepter_funding,
+				    state->opener_funding)) {
+			return "overflow adding desired funding";
+		}
+
+		/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
+		 * The receiving node:
+		 *   ...
+		 *   - MUST fail the channel if:
+		 *   	...
+		 *     - the value of the funding output is incorrect
+		 */
+		if (!amount_sat_eq(total_funding, output_val)) {
+			return "total desired funding != "
+			       "funding output";
+		}
+
+		/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
+		 * The receiving node:
+		 *   ...
+		 *   - MUST fail the channel if:
+		 *   	...
+		 *   	- if the `funding_output` of the resulting
+		 *   	transaction is less than the `dust_limit`
+		 */
+		if (!amount_sat_greater(output_val,
+				state->remoteconf.dust_limit) ||
+		    !amount_sat_greater(output_val,
+				state->localconf.dust_limit)) {
+			return "funding output is dust";
+		}
+	} else {
+		/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
+		 * The receiving node:
+		 *   ...
+		 *   - MUST fail the channel if:
+		 *     - no funding output is received, identified by
+		 *       the `script`
+		 */
+		return "funding output not present";
+	}
+
+	/* Find the total input and output sums */
+	tot_input_amt = AMOUNT_SAT(0);
+	initiator_inputs = AMOUNT_SAT(0);
+	accepter_inputs = AMOUNT_SAT(0);
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
-		struct amount_sat amt = psbt_input_get_amount(psbt, i);
+		struct amount_sat amt =
+			psbt_input_get_amount(psbt, i);
 
 		/* Add to total balance check */
-		if (!amount_sat_add(&input_amt, input_amt, amt))
-			return false;
+		if (!amount_sat_add(&tot_input_amt,
+				    tot_input_amt, amt)) {
+			return "overflow adding input total";
+		}
 
-		if (is_openers(&psbt->inputs[i].unknowns) == check_opener_balance) {
-			/* If the above additon passed, this should also */
-			ok = amount_sat_add(&side_input_amt, side_input_amt, amt);
+		if (is_openers(&psbt->inputs[i].unknowns)) {
+			/* If the above additon passed,
+			 * this should also */
+			ok = amount_sat_add(&initiator_inputs,
+					    initiator_inputs, amt);
 			assert(ok);
 
-			weight += psbt_input_weight(psbt, i);
-			input_count++;
+			initiator_weight +=
+				psbt_input_weight(psbt, i);
+		} else {
+			ok = amount_sat_add(&accepter_inputs,
+					    accepter_inputs, amt);
+			assert(ok);
+
+			accepter_weight +=
+				psbt_input_weight(psbt, i);
 		}
 	}
-	output_amt = AMOUNT_SAT(0);
-	side_output_amt = AMOUNT_SAT(0);
+	tot_output_amt = AMOUNT_SAT(0);
+	initiator_outs = state->opener_funding;
+	accepter_outs = state->accepter_funding;
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
-		struct amount_sat amt = psbt_output_get_amount(psbt, i);
-		/* Add to total balance check */
-		if (!amount_sat_add(&output_amt, output_amt, amt))
-			return false;
+		struct amount_sat amt =
+			psbt_output_get_amount(psbt, i);
 
-		if (is_openers(&psbt->outputs[i].unknowns) == check_opener_balance) {
-			/* Don't add the total funding balance to the amount */
+		/* Add to total balance check */
+		if (!amount_sat_add(&tot_output_amt,
+				    tot_output_amt, amt)) {
+			return "overflow adding output total";
+		}
+
+		/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
+		 * The sending node:
+		 *   - MUST specify a `sats` value greater
+		 *     than the dust limit
+		 */
+		if (!amount_sat_greater(amt,
+				state->remoteconf.dust_limit) ||
+		    !amount_sat_greater(amt,
+				state->localconf.dust_limit)) {
+			return "output is dust";
+		}
+
+		if (is_openers(&psbt->outputs[i].unknowns)) {
+			/* Don't add the funding output to
+			 * the amount */
 			if (i != funding_outnum) {
-				/* If the above additon passed, this should also */
-				ok = amount_sat_add(&side_output_amt, side_output_amt, amt);
+				/* If the above additon passed,
+				 * this should also */
+				ok = amount_sat_add(&initiator_outs,
+						    initiator_outs,
+						    amt);
 				assert(ok);
 			}
 
-			weight += (8 + psbt->tx->outputs[i].script_len +
-					varint_size(psbt->tx->outputs[i].script_len)) * 4;
-			output_count++;
+			initiator_weight +=
+				psbt_output_weight(psbt, i);
+		} else {
+			ok = amount_sat_add(&accepter_outs,
+					    accepter_outs, amt);
+			assert(ok);
+			accepter_weight +=
+				psbt_output_weight(psbt, i);
 		}
 	}
 
-	/* Inputs must exceed outputs */
-	if (do_full_tx_check && !amount_sat_greater(input_amt, output_amt))
-		return false;
+	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
+	 * The receiving node: ...
+	 * - MUST fail the channel if:
+	 *   ...
+	 *   - the total satoshis of the inputs is less than
+	 *     the outputs
+	 */
+	if (!amount_sat_greater_eq(tot_input_amt, tot_output_amt)) {
+		return "inputs less than total outputs";
+	}
 
-	/* No inputs, no outputs. Nothing to see here */
-	if (input_count + output_count == 0)
-		return true;
+	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
+	 * The receiving node: ...
+	 * - MUST fail the channel if:
+	 *   ...
+	 *   - the peer's paid feerate does not meet or exceed
+	 *   the agreed `feerate`, (based on the miminum fee).
+	 *   - the `initiator`'s fees do not cover the `common`
+	 *     fields
+	 */
+	if (!amount_sat_sub(&accepter_diff, accepter_inputs,
+			    accepter_outs)) {
+		return "accepter inputs less than outputs";
+	}
 
-	/* We need to add the 'funding' amount of the side's total, to check
-	 * that they can cover what they've promised */
-	struct amount_sat promised_funding;
-	if (check_opener_balance)
-		promised_funding = state->opener_funding;
-	else
-		promised_funding = state->accepter_funding;
+	if (!amount_sat_sub(&initiator_diff, initiator_inputs,
+			    initiator_outs)) {
+		return "initiator inputs less than outputs";
+	}
 
-	/* This shouldn't happen !? */
-	if (!amount_sat_add(&side_output_amt, side_output_amt, promised_funding))
-		return false;
+	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
+	 * Each party to the transaction is responsible for
+	 * paying the fees for their input, output,
+	 * and witness at the agreed `feerate`. */
+	accepter_fee = amount_tx_fee(feerate_per_kw_funding,
+				     accepter_weight);
+	initiator_fee = amount_tx_fee(feerate_per_kw_funding,
+				      initiator_weight);
 
-	/* Find difference, or fail if too small */
-	if (!amount_sat_sub(&diff, side_input_amt, side_output_amt))
-		return false;
+	if (!amount_sat_greater_eq(accepter_diff, accepter_fee)) {
+		return "accepter fee not covered";
+	}
 
-	/* Figure out the fee for their side */
-	fee = amount_tx_fee(feerate_per_kw_funding, weight);
+	if (!amount_sat_greater_eq(initiator_diff, initiator_fee)) {
+		return tal_fmt(ctx,
+			       "initiator fee %s not covered %s",
+			       type_to_string(ctx,
+					      struct amount_sat,
+					      &initiator_fee),
+			       type_to_string(ctx,
+					      struct amount_sat,
+					      &initiator_diff));
 
-	/* Can they cover their fee? */
-	return amount_sat_greater_eq(diff, fee);
+	}
+
+	return NULL;
 }
 
 static bool is_segwit_output(struct wally_tx_output *output,
@@ -476,17 +610,6 @@ fetch_psbt_changes(struct state *state, const struct wally_psbt *psbt)
 	if (fromwire_dual_open_fail(msg, msg, &err))
 		status_failed(STATUS_FAIL_MASTER_IO, "%s", err);
 	else if (fromwire_dual_open_psbt_updated(state, msg, &updated_psbt)) {
-		/* Does our PSBT meet requirements? */
-		if (!check_balances(state, updated_psbt,
-				    state->our_role == TX_INITIATOR,
-				    false, /* peers input/outputs not complete */
-				    state->feerate_per_kw_funding))
-			status_failed(STATUS_FAIL_MASTER_IO,
-				      "Peer error updating tx state. "
-				      "Local funds insufficient. %s",
-				      type_to_string(tmpctx, struct wally_psbt,
-						     updated_psbt));
-
 		return updated_psbt;
 	} else
 		master_badmsg(fromwire_peektype(msg), msg);
@@ -1182,11 +1305,18 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 			    tal_hex(tmpctx, scriptpubkey_p2wsh(tmpctx, wscript)),
 			    type_to_string(tmpctx, struct wally_psbt, psbt));
 
-	/* Check that their amounts are sane */
-	if (!check_balances(state, psbt, true, true,
-			    state->feerate_per_kw_funding))
-		peer_failed(state->pps, &state->channel_id,
-			    "Insufficient funds");
+	/* Check tx funds are sane */
+	err_reason = check_balances(tmpctx, state,
+				    psbt,
+				    state->feerate_per_kw_funding);
+	if (err_reason)
+		negotiation_failed(state, false,
+				   "Insufficiently funded funding "
+				   "tx, %s. %s",
+				   err_reason,
+				   type_to_string(tmpctx,
+						  struct wally_psbt,
+						  psbt));
 
 	/* Wait for the peer to send us our commitment tx signature */
 	msg = opening_negotiate_msg(tmpctx, state, false);
@@ -1541,10 +1671,18 @@ static u8 *opener_start(struct state *state, u8 *msg)
 			    tal_hex(tmpctx, scriptpubkey_p2wsh(tmpctx, wscript)),
 			    type_to_string(tmpctx, struct wally_psbt, psbt));
 
-	/* Check that their amounts are sane */
-	if (!check_balances(state, psbt, true, true,
-			    state->feerate_per_kw_funding))
-		negotiation_failed(state, true, "Insufficient funds");
+	/* Check tx funds are sane */
+	err_reason = check_balances(tmpctx, state,
+				    psbt,
+				    state->feerate_per_kw_funding);
+	if (err_reason)
+		negotiation_failed(state, true,
+				   "Insufficiently funded funding "
+				   "tx, %s. %s",
+				   err_reason,
+				   type_to_string(tmpctx,
+						  struct wally_psbt,
+						  psbt));
 
 	if (!amount_sat_to_msat(&our_msats, state->opener_funding))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
