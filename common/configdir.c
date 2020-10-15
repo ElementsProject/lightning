@@ -438,15 +438,15 @@ void initial_config_opts(const tal_t *ctx,
 			       NULL,
 			       "Select the network parameters (bitcoin, testnet,"
 			       " signet, regtest, litecoin or litecoin-testnet)");
+	opt_register_early_noarg("--mainnet",
+				 opt_restricted_toplevel_noarg, NULL,
+				 "Alias for --network=bitcoin");
 	opt_register_early_noarg("--testnet",
 				 opt_restricted_toplevel_noarg, NULL,
 				 "Alias for --network=testnet");
 	opt_register_early_noarg("--signet",
 				 opt_restricted_toplevel_noarg, NULL,
 				 "Alias for --network=signet");
-	opt_register_early_noarg("--mainnet",
-				 opt_restricted_toplevel_noarg, NULL,
-				 "Alias for --network=bitcoin");
 
 	/* They can set this later, it's just less effective. */
 	opt_register_early_arg("--allow-deprecated-apis",
