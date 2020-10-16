@@ -175,7 +175,7 @@ OS version: OpenBSD 6.7
 Install dependencies:
 ```
 pkg_add git python gmake py3-pip libtool gmp
-pkg_add automake (select highest version, automake1.16.2 at time of writing)
+pkg_add automake # (select highest version, automake1.16.2 at time of writing)
 pkg_add autoconf (select highest version, autoconf-2.69p2 at time of writing)
 ```
 Install `mako` and `mrkd` otherwise we run into build errors:
