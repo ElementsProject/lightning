@@ -150,7 +150,7 @@ struct channel {
 	u64 rr_number;
 
 	/* PSBT, for v2 channels. Saved until it's sent */
-	const struct wally_psbt *psbt;
+	struct wally_psbt *psbt;
 
 	/* Stashed pps, saved until channeld is started.
 	 * Needed only for v2 channel open flow */
