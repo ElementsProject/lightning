@@ -754,7 +754,8 @@ class LightningNode(object):
                       "LightningNode.fundchannel", category=DeprecationWarning)
         return self.fundchannel(l2, amount, wait_for_active, announce_channel)
 
-    def fundchannel(self, l2, amount, wait_for_active=True, announce_channel=True):
+    def fundchannel(self, l2, amount, wait_for_active=True,
+                    announce_channel=True, **kwargs):
         # Give yourself some funds to work with
         addr = self.rpc.newaddr()['bech32']
 
@@ -775,7 +776,9 @@ class LightningNode(object):
         wait_for(lambda: has_funds_on_addr(addr))
 
         # Now go ahead and open a channel
-        res = self.rpc.fundchannel(l2.info['id'], amount, announce=announce_channel)
+        res = self.rpc.fundchannel(l2.info['id'], amount,
+                                   announce=announce_channel,
+                                   **kwargs)
         wait_for(lambda: res['txid'] in self.bitcoin.rpc.getrawmempool())
         self.bitcoin.generate_block(1)
 
