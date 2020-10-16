@@ -572,7 +572,10 @@ proxy_stat proxy_handle_ready_channel(
 			   req.mutable_remote_basepoints());
 	req.set_remote_to_self_delay(remote_to_self_delay);
 	marshal_script(remote_shutdown_script, req.mutable_remote_shutdown_script());
-	req.set_option_static_remotekey(option_static_remotekey);
+	req.set_commitment_type(
+		option_static_remotekey ?
+		ReadyChannelRequest_CommitmentType_STATIC_REMOTEKEY :
+		ReadyChannelRequest_CommitmentType_LEGACY);
 
 	ClientContext context;
 	ReadyChannelReply rsp;

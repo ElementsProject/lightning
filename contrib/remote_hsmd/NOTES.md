@@ -3,8 +3,8 @@ c-lightning
 
 Setup
 
-    cd contrib/remote_hsmd && \
-    ln -s /path/to/rust-lightning-signer/src/server/remotesigner.proto
+    (cd contrib/remote_hsmd && \
+    ln -s ../../../rust-lightning-signer/src/server/remotesigner.proto)
 
 Building
 
@@ -20,6 +20,10 @@ https://github.com/golemfactory/golem/issues/2168 for background.
     pip3 install --user base58
     pip3 install --user bitstring
     pip3 install --user secp256k1
+    pip3 install --user mrkd
+    
+    # in c-lightning root:
+    pip3 install --user -r requirements.txt
 
 Run all of the integration tests:
 
@@ -83,14 +87,3 @@ rust-lightning-signer
 ----------------------------------------------------------------
 
     cargo run --bin server |& tee log3
-
-Signing Formats
-```
-rust-lightning  c-lightning     rust-lightning-signer
-p2pkh                           P2PKH
-p2sh
-p2wpkh          p2wpkh          P2WPKH
-p2shwpkh        p2sh-p2wpkh     P2SH_P2WPKH
-p2wsh
-p2shwsh
-```
