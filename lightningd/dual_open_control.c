@@ -43,7 +43,9 @@ static void handle_signed_psbt(struct lightningd *ld,
 			       struct commit_rcvd *rcvd)
 {
 	/* Now that we've got the signed PSBT, save it */
-	rcvd->channel->psbt = tal_steal(rcvd->channel, psbt);
+	rcvd->channel->psbt =
+		tal_steal(rcvd->channel,
+			  cast_const(struct wally_psbt *, psbt));
 	wallet_channel_save(ld->wallet, rcvd->channel);
 
 	channel_watch_funding(ld, rcvd->channel);
