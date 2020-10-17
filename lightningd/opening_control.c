@@ -543,32 +543,6 @@ failed:
 	tal_free(uc);
 }
 
-/* These two functions used to be a single function, pre-declaring
- * here in order to reduce review load since the original function
- * is not really changed at all in its operation, just need access
- * to the cleanup part in a separate piece of code.
- */
-static void
-opening_funder_failed_cancel_commands(struct uncommitted_channel *uc,
-				      const char *desc);
-static void opening_funder_failed(struct subd *openingd, const u8 *msg,
-				  struct uncommitted_channel *uc)
-{
-	char *desc;
-
-	if (!fromwire_openingd_funder_failed(msg, msg, &desc)) {
-		log_broken(uc->log,
-			   "bad OPENING_FUNDER_FAILED %s",
-			   tal_hex(tmpctx, msg));
-		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD,
-					 "bad OPENING_FUNDER_FAILED %s",
-					 tal_hex(uc->fc->cmd, msg)));
-		tal_free(uc);
-		return;
-	}
-
-	opening_funder_failed_cancel_commands(uc, desc);
-}
 static void
 opening_funder_failed_cancel_commands(struct uncommitted_channel *uc,
 				      const char *desc)
@@ -597,6 +571,24 @@ opening_funder_failed_cancel_commands(struct uncommitted_channel *uc,
 	 * so we definitely should clear this.
 	 */
 	uc->fc = tal_free(uc->fc);
+}
+static void opening_funder_failed(struct subd *openingd, const u8 *msg,
+				  struct uncommitted_channel *uc)
+{
+	char *desc;
+
+	if (!fromwire_openingd_funder_failed(msg, msg, &desc)) {
+		log_broken(uc->log,
+			   "bad OPENING_FUNDER_FAILED %s",
+			   tal_hex(tmpctx, msg));
+		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD,
+					 "bad OPENING_FUNDER_FAILED %s",
+					 tal_hex(uc->fc->cmd, msg)));
+		tal_free(uc);
+		return;
+	}
+
+	opening_funder_failed_cancel_commands(uc, desc);
 }
 
 struct openchannel_hook_payload {
