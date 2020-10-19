@@ -5,13 +5,14 @@ Install
 2. [Ubuntu](#to-build-on-ubuntu)
 3. [Fedora](#to-build-on-fedora)
 4. [FreeBSD](#to-build-on-freebsd)
-5. [NixOS](#to-build-on-nixos)
-6. [macOS](#to-build-on-macos)
-7. [Android](#to-cross-compile-for-android)
-8. [Raspberry Pi](#to-cross-compile-for-raspberry-pi)
-9. [Armbian](#to-compile-for-armbian)
-10. [Alpine](#to-compile-for-alpine)
-11. [Additional steps](#additional-steps)
+5. [OpenBSD](#to-build-on-openbsd)
+6. [NixOS](#to-build-on-nixos)
+7. [macOS](#to-build-on-macos)
+8. [Android](#to-cross-compile-for-android)
+9. [Raspberry Pi](#to-cross-compile-for-raspberry-pi)
+10. [Armbian](#to-compile-for-armbian)
+11. [Alpine](#to-compile-for-alpine)
+12. [Additional steps](#additional-steps)
 
 Library Requirements
 --------------------
@@ -165,6 +166,39 @@ Configure lightningd: copy `/usr/local/etc/lightningd-bitcoin.conf.sample` to
     # service bitcoind start
     # service lightningd start
     # lightning-cli --rpc-file /var/db/c-lightning/bitcoin/lightning-rpc --lightning-dir=/var/db/c-lightning help
+
+To Build on OpenBSD
+--------------------
+
+OS version: OpenBSD 6.7 
+
+Install dependencies:
+```
+pkg_add git python gmake py3-pip libtool gmp
+pkg_add automake # (select highest version, automake1.16.2 at time of writing)
+pkg_add autoconf # (select highest version, autoconf-2.69p2 at time of writing)
+```
+Install `mako` and `mrkd` otherwise we run into build errors:
+```
+pip3.7 install --user mako
+pip3.7 install --user mrkd
+```
+
+Add `/home/<username>/.local/bin` to your path:
+
+`export PATH=$PATH:/home/<username>/.local/bin`
+
+Needed for `configure`:
+```
+export AUTOCONF_VERSION=2.69
+export AUTOMAKE_VERSION=1.16
+./configure
+```
+
+Finally, build `c-lightning`:
+
+`gmake`
+
 
 To Build on NixOS
 --------------------
