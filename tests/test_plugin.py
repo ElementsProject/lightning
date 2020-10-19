@@ -1606,11 +1606,11 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
             {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
             [
-                {'type': 'chain_mvt', 'credit': 0, 'debit': 991900000, 'tag': 'withdrawal'},
+                {'type': 'chain_mvt', 'credit': 0, 'debit': 991908000, 'tag': 'withdrawal'},
                 {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
             ],
-            {'type': 'chain_mvt', 'credit': 0, 'debit': 8100000, 'tag': 'chain_fees'},
-            {'type': 'chain_mvt', 'credit': 991900000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 8092000, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 991908000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'chain_mvt', 'credit': 945523000, 'debit': 0, 'tag': 'deposit'},
         ]
@@ -1629,11 +1629,11 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
             {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
             # Could go in either order
             [
-                {'type': 'chain_mvt', 'credit': 0, 'debit': 995425000, 'tag': 'withdrawal'},
+                {'type': 'chain_mvt', 'credit': 0, 'debit': 995433000, 'tag': 'withdrawal'},
                 {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
             ],
-            {'type': 'chain_mvt', 'credit': 0, 'debit': 4575000, 'tag': 'chain_fees'},
-            {'type': 'chain_mvt', 'credit': 995425000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 4567000, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 995433000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'chain_mvt', 'credit': 945785000, 'debit': 0, 'tag': 'deposit'},
         ]
@@ -1651,11 +1651,11 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
             {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
             # Could go in either order
             [
-                {'type': 'chain_mvt', 'credit': 0, 'debit': 995425000, 'tag': 'withdrawal'},
+                {'type': 'chain_mvt', 'credit': 0, 'debit': 995433000, 'tag': 'withdrawal'},
                 {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
             ],
-            {'type': 'chain_mvt', 'credit': 0, 'debit': 4575000, 'tag': 'chain_fees'},
-            {'type': 'chain_mvt', 'credit': 995425000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 4567000, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 995433000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'chain_mvt', 'credit': 947285000, 'debit': 0, 'tag': 'deposit'},
         ]

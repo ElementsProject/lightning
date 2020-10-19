@@ -578,7 +578,7 @@ def test_utxopsbt(node_factory, bitcoind, chainparams):
     assert psbt2['tx']['vin'] == psbt['tx']['vin']
     if chainparams['elements']:
         # elements includes the fee as an output
-        addl_fee = Millisatoshi(fee_val * start_weight // 1000 * 1000)
+        addl_fee = Millisatoshi((fee_val * start_weight + 999) // 1000 * 1000)
         assert psbt2['tx']['vout'][0]['value'] == psbt['tx']['vout'][0]['value'] + addl_fee.to_btc()
     else:
         assert psbt2['tx']['vout'] == psbt['tx']['vout']

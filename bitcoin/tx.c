@@ -835,10 +835,10 @@ size_t bitcoin_tx_output_weight(size_t outscript_len)
 	return weight;
 }
 
-/* We grind signatures to get them down to 71 bytes (+1 for sighash flags) */
+/* We grind signatures to get them down to 71 bytes */
 size_t bitcoin_tx_input_sig_weight(void)
 {
-	return 1 + 71 + 1;
+	return 1 + 71;
 }
 
 /* We only do segwit inputs, and we assume witness is sig + key  */
