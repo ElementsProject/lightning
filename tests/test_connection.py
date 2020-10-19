@@ -1366,6 +1366,61 @@ def test_multifunding_wumbo(node_factory):
     l1.rpc.multifundchannel(destinations)
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Fees on elements are different")
+@unittest.skipIf(not DEVELOPER, "uses dev-fail")
+def test_multifunding_feerates(node_factory, bitcoind):
+    '''
+    Test feerate parameters for multifundchannel
+    '''
+    funding_tx_feerate = '10000perkw'
+    commitment_tx_feerate = '2000perkw'
+
+    l1, l2, l3 = node_factory.get_nodes(3, opts={'log-level': 'debug'})
+
+    l1.fundwallet(1 << 26)
+
+    def _connect_str(node):
+        return '{}@localhost:{}'.format(node.info['id'], node.port)
+
+    destinations = [{"id": _connect_str(l2), 'amount': 50000}]
+
+    res = l1.rpc.multifundchannel(destinations, feerate=funding_tx_feerate,
+                                  commitment_feerate=commitment_tx_feerate)
+
+    entry = bitcoind.rpc.getmempoolentry(res['txid'])
+    weight = entry['weight']
+
+    expected_fee = int(funding_tx_feerate[:-5]) * weight // 1000
+    assert expected_fee == entry['fees']['base'] * 10 ** 8
+
+    # We get the expected close txid, force close the channel, then fish
+    # the details about the transaction out of the mempoool entry
+    close_txid = only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['scratch_txid']
+    l1.rpc.dev_fail(l2.info['id'])
+    l1.wait_for_channel_onchain(l2.info['id'])
+    entry = bitcoind.rpc.getmempoolentry(close_txid)
+
+    # Because of how the anchor outputs protocol is designed,
+    # we *always* pay for 2 anchor outs and their weight
+    if EXPERIMENTAL_FEATURES:  # opt_anchor_outputs
+        weight = 1124
+    else:
+        # the commitment transactions' feerate is calculated off
+        # of this fixed weight
+        weight = 724
+
+    expected_fee = int(commitment_tx_feerate[:-5]) * weight // 1000
+
+    # At this point we only have one anchor output on the
+    # tx, but we subtract out the extra anchor output amount
+    # from the to_us output, so it ends up inflating
+    # our fee by that much.
+    if EXPERIMENTAL_FEATURES:  # opt_anchor_outputs
+        expected_fee += 330
+
+    assert expected_fee == entry['fees']['base'] * 10 ** 8
+
+
 def test_multifunding_param_failures(node_factory):
     '''
     Test that multifunding handles errors in parameters.
