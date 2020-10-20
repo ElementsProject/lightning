@@ -16,7 +16,7 @@
 
 /* gossip_store messages: messages persisted in the gossip_store */
 /* We store raw messages here */
-/* 256/257/258 or gossipd_local_add_channel (3503) */
+/* 256/257/258. */
 
 const char *gossip_store_wire_name(int e)
 {
@@ -24,8 +24,10 @@ const char *gossip_store_wire_name(int e)
 
 	switch ((enum gossip_store_wire)e) {
 	case WIRE_GOSSIP_STORE_CHANNEL_AMOUNT: return "WIRE_GOSSIP_STORE_CHANNEL_AMOUNT";
+	case WIRE_GOSSIP_STORE_PRIVATE_CHANNEL: return "WIRE_GOSSIP_STORE_PRIVATE_CHANNEL";
 	case WIRE_GOSSIP_STORE_PRIVATE_UPDATE: return "WIRE_GOSSIP_STORE_PRIVATE_UPDATE";
 	case WIRE_GOSSIP_STORE_DELETE_CHAN: return "WIRE_GOSSIP_STORE_DELETE_CHAN";
+	case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL_OBS: return "WIRE_GOSSIPD_LOCAL_ADD_CHANNEL_OBS";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -36,8 +38,10 @@ bool gossip_store_wire_is_defined(u16 type)
 {
 	switch ((enum gossip_store_wire)type) {
 	case WIRE_GOSSIP_STORE_CHANNEL_AMOUNT:;
+	case WIRE_GOSSIP_STORE_PRIVATE_CHANNEL:;
 	case WIRE_GOSSIP_STORE_PRIVATE_UPDATE:;
 	case WIRE_GOSSIP_STORE_DELETE_CHAN:;
+	case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL_OBS:;
 	      return true;
 	}
 	return false;
@@ -48,7 +52,7 @@ bool gossip_store_wire_is_defined(u16 type)
 
 
 /* WIRE: GOSSIP_STORE_CHANNEL_AMOUNT */
-/* This always follows the channel_announce. */
+/* This always follows the channel_announce / private_announce */
 u8 *towire_gossip_store_channel_amount(const tal_t *ctx, struct amount_sat satoshis)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
@@ -66,6 +70,37 @@ bool fromwire_gossip_store_channel_amount(const void *p, struct amount_sat *sato
 	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIP_STORE_CHANNEL_AMOUNT)
 		return false;
  	*satoshis = fromwire_amount_sat(&cursor, &plen);
+	return cursor != NULL;
+}
+
+/* WIRE: GOSSIP_STORE_PRIVATE_CHANNEL */
+/* Mimics a channel_announce */
+u8 *towire_gossip_store_private_channel(const tal_t *ctx, struct amount_sat satoshis, const u8 *announcement)
+{
+	u16 len = tal_count(announcement);
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_GOSSIP_STORE_PRIVATE_CHANNEL);
+	towire_amount_sat(&p, satoshis);
+	towire_u16(&p, len);
+	towire_u8_array(&p, announcement, len);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_gossip_store_private_channel(const tal_t *ctx, const void *p, struct amount_sat *satoshis, u8 **announcement)
+{
+	u16 len;
+
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIP_STORE_PRIVATE_CHANNEL)
+		return false;
+ 	*satoshis = fromwire_amount_sat(&cursor, &plen);
+ 	len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case announcement
+	*announcement = len ? tal_arr(ctx, u8, len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *announcement, len);
 	return cursor != NULL;
 }
 
@@ -117,4 +152,39 @@ bool fromwire_gossip_store_delete_chan(const void *p, struct short_channel_id *s
  	fromwire_short_channel_id(&cursor, &plen, scid);
 	return cursor != NULL;
 }
-// SHA256STAMP:f6c526c196880b46255eec167cd2dccccfc2e8cfae312683889dc67418a2d0b4
+
+/* WIRE: GOSSIPD_LOCAL_ADD_CHANNEL_OBS */
+/* FIXME: Here for COMPAT with v0.9.0 and before only. */
+u8 *towire_gossipd_local_add_channel_obs(const tal_t *ctx, const struct short_channel_id *short_channel_id, const struct node_id *remote_node_id, struct amount_sat satoshis, const u8 *features)
+{
+	u16 flen = tal_count(features);
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_GOSSIPD_LOCAL_ADD_CHANNEL_OBS);
+	towire_short_channel_id(&p, short_channel_id);
+	towire_node_id(&p, remote_node_id);
+	towire_amount_sat(&p, satoshis);
+	towire_u16(&p, flen);
+	towire_u8_array(&p, features, flen);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_gossipd_local_add_channel_obs(const tal_t *ctx, const void *p, struct short_channel_id *short_channel_id, struct node_id *remote_node_id, struct amount_sat *satoshis, u8 **features)
+{
+	u16 flen;
+
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_LOCAL_ADD_CHANNEL_OBS)
+		return false;
+ 	fromwire_short_channel_id(&cursor, &plen, short_channel_id);
+ 	fromwire_node_id(&cursor, &plen, remote_node_id);
+ 	*satoshis = fromwire_amount_sat(&cursor, &plen);
+ 	flen = fromwire_u16(&cursor, &plen);
+ 	// 2nd case features
+	*features = flen ? tal_arr(ctx, u8, flen) : NULL;
+	fromwire_u8_array(&cursor, &plen, *features, flen);
+	return cursor != NULL;
+}
+// SHA256STAMP:41597b4d43114d650fc300cd4df2c4f7f993a09d9ff427f3f6c0c7248a4b47cd

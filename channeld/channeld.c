@@ -49,6 +49,7 @@
 #include <common/ping.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
+#include <common/private_channel_announcement.h>
 #include <common/read_peer_msg.h>
 #include <common/sphinx.h>
 #include <common/status.h>
@@ -60,6 +61,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossipd_peerd_wiregen.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <secp256k1.h>
@@ -380,16 +382,20 @@ static const u8 *get_local_channel_update(const tal_t *ctx, struct peer *peer)
 static void make_channel_local_active(struct peer *peer)
 {
 	u8 *msg;
+	const u8 *ann;
 	const u8 *annfeatures = get_agreed_channelfeatures(tmpctx,
 							   peer->our_features,
 							   peer->their_features);
 
+	ann = private_channel_announcement(tmpctx,
+					   &peer->short_channel_ids[LOCAL],
+					   &peer->node_ids[LOCAL],
+					   &peer->node_ids[REMOTE],
+					   annfeatures);
+
 	/* Tell gossipd about local channel. */
-	msg = towire_gossipd_local_add_channel(NULL,
-					       &peer->short_channel_ids[LOCAL],
-					       &peer->node_ids[REMOTE],
-					       peer->channel->funding,
-					       annfeatures);
+	msg = towire_gossip_store_private_channel(NULL,
+						  peer->channel->funding, ann);
  	wire_sync_write(peer->pps->gossip_fd, take(msg));
 
 	/* Tell gossipd and the other side what parameters we expect should

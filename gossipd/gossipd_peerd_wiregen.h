@@ -9,7 +9,6 @@
 #include <wire/wire.h>
 #include <bitcoin/short_channel_id.h>
 #include <common/amount.h>
-#include <common/node_id.h>
 
 enum gossipd_peerd_wire {
         /*  Channel daemon can ask for updates for a specific channel */
@@ -17,10 +16,6 @@ enum gossipd_peerd_wire {
         WIRE_GOSSIPD_GET_UPDATE = 3501,
         /*  If channel isn't known */
         WIRE_GOSSIPD_GET_UPDATE_REPLY = 3601,
-        /*  Both sides have seen the funding tx being locked */
-        /*  yet reached the announcement depth. So we add the channel locally so */
-        /*  we (and peer) can update it already. */
-        WIRE_GOSSIPD_LOCAL_ADD_CHANNEL = 3503,
         /*  Send this channel_update. */
         WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE = 3504,
         /*  Update your gossip_store fd: + gossip_store_fd */
@@ -52,13 +47,6 @@ bool fromwire_gossipd_get_update(const void *p, struct short_channel_id *short_c
 u8 *towire_gossipd_get_update_reply(const tal_t *ctx, const u8 *update);
 bool fromwire_gossipd_get_update_reply(const tal_t *ctx, const void *p, u8 **update);
 
-/* WIRE: GOSSIPD_LOCAL_ADD_CHANNEL */
-/*  Both sides have seen the funding tx being locked */
-/*  yet reached the announcement depth. So we add the channel locally so */
-/*  we (and peer) can update it already. */
-u8 *towire_gossipd_local_add_channel(const tal_t *ctx, const struct short_channel_id *short_channel_id, const struct node_id *remote_node_id, struct amount_sat satoshis, const u8 *features);
-bool fromwire_gossipd_local_add_channel(const tal_t *ctx, const void *p, struct short_channel_id *short_channel_id, struct node_id *remote_node_id, struct amount_sat *satoshis, u8 **features);
-
 /* WIRE: GOSSIPD_LOCAL_CHANNEL_UPDATE */
 /*  Send this channel_update. */
 u8 *towire_gossipd_local_channel_update(const tal_t *ctx, const struct short_channel_id *short_channel_id, bool disable, u16 cltv_expiry_delta, struct amount_msat htlc_minimum_msat, u32 fee_base_msat, u32 fee_proportional_millionths, struct amount_msat htlc_maximum_msat);
@@ -76,4 +64,4 @@ bool fromwire_gossipd_local_channel_announcement(const tal_t *ctx, const void *p
 
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_PEERD_WIREGEN_H */
-// SHA256STAMP:b7bd26d45b133237284bcea72ab584555716c57d414abebe71026279924cb4f2
+// SHA256STAMP:c4575b41c403e4760d2a8674edfa45476e15fd8945be672b0e4c120d330e96aa

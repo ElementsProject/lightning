@@ -57,6 +57,7 @@ COMMON_SRC_NOGEN :=				\
 	common/permute_tx.c			\
 	common/ping.c				\
 	common/psbt_open.c			\
+	common/private_channel_announcement.c	\
 	common/pseudorand.c			\
 	common/random_select.c			\
 	common/read_peer_msg.c			\

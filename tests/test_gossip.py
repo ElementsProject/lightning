@@ -918,7 +918,7 @@ def test_gossip_store_load(node_factory):
     """Make sure we can read canned gossip store"""
     l1 = node_factory.get_node(start=False)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("08"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("09"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -950,7 +950,7 @@ def test_gossip_store_load_announce_before_update(node_factory):
     """Make sure we can read canned gossip store with node_announce before update.  This happens when a channel_update gets replaced, leaving node_announce before it"""
     l1 = node_factory.get_node(start=False)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("08"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("09"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -993,7 +993,7 @@ def test_gossip_store_load_amount_truncated(node_factory):
     """Make sure we can read canned gossip store with truncated amount"""
     l1 = node_factory.get_node(start=False, allow_broken_log=True)
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("08"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("09"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -1342,9 +1342,10 @@ def setup_gossip_store_test(node_factory, bitcoind):
     wait_for(lambda: [c['base_fee_millisatoshi'] for c in l2.rpc.listchannels(scid12)['channels']] == [20, 20])
 
     # Records in store now looks (something) like:
-    #    DELETED: local-add-channel (scid23)
+    #    DELETED: private channel_announcement (scid23)
     #    DELETED: private channel_update (scid23/0)
     #    DELETED: private channel_update (scid23/1)
+    #  delete channel (scid23)
     #  channel_announcement (scid23)
     #  channel_amount
     #    DELETED: channel_update (scid23/0)
@@ -1352,7 +1353,7 @@ def setup_gossip_store_test(node_factory, bitcoind):
     #  node_announcement
     #  node_announcement
     #  channel_update (scid23)
-    #  local_add_channel (scid12)
+    #  private channel_announcement (scid12)
     #    DELETED: private channel_update (scid12/0)
     #    DELETED: private channel_update (scid12/1)
     #  channel_update (scid23)
@@ -1419,7 +1420,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
 
     # A channel announcement with no channel_update.
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), 'wb') as f:
-        f.write(bytearray.fromhex("08"        # GOSSIP_STORE_VERSION
+        f.write(bytearray.fromhex("09"        # GOSSIP_STORE_VERSION
                                   "000001b0"  # len
                                   "fea676e8"  # csum
                                   "5b8d9b44"  # timestamp
@@ -1446,7 +1447,7 @@ def test_gossip_store_load_no_channel_update(node_factory):
     l1.rpc.call('dev-compact-gossip-store')
 
     with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'gossip_store'), "rb") as f:
-        assert bytearray(f.read()) == bytearray.fromhex("08")
+        assert bytearray(f.read()) == bytearray.fromhex("09")
 
 
 @unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
@@ -1457,7 +1458,7 @@ def test_gossip_store_compact_on_load(node_factory, bitcoind):
 
     wait_for(lambda: l2.daemon.is_in_log(r'gossip_store_compact_offline: [5-8] deleted, 9 copied'))
 
-    wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 1/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in [0-9]* bytes'))
+    wait_for(lambda: l2.daemon.is_in_log(r'gossip_store: Read 2/4/2/0 cannounce/cupdate/nannounce/cdelete from store \(0 deleted\) in [0-9]* bytes'))
 
 
 def test_gossip_announce_invalid_block(node_factory, bitcoind):

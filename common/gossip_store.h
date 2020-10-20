@@ -10,7 +10,7 @@ struct per_peer_state;
 /**
  * gossip_store -- On-disk storage related information
  */
-#define GOSSIP_STORE_VERSION 8
+#define GOSSIP_STORE_VERSION 9
 
 /**
  * Bit of length we use to mark a deleted record.

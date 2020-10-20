@@ -478,10 +478,9 @@ bool routing_add_node_announcement(struct routing_state *rstate,
  * is the case for private channels or channels that have not yet reached
  * `announce_depth`.
  */
-bool handle_local_add_channel(struct routing_state *rstate,
-			      const struct peer *peer,
-			      const u8 *msg,
-			      u64 index);
+bool routing_add_private_channel(struct routing_state *rstate,
+				 const struct peer *peer,
+				 const u8 *msg, u64 index);
 
 /**
  * Get the local time.
