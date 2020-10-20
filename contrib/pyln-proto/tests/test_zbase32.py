@@ -73,6 +73,10 @@ def test_is_zbase32_encoded():
 
 
 def test_encode():
+    message = '1f76e8acd54afbf23610b7166ba689afcc9e8ec3c44e442e765012dfc1d299958827d0205f7e4e1a12620e7fc8ce1c7d3651acefde899c33f12b6958d3304106a0'
+    zbase32_message = b'd75qtmgijm79rpooshmgzjwji9gj7dsdat8remuskyjp9oq1ugkaoj6orbxzhuo4njtyh96e3aq84p1tiuz77nchgxa1s4ka4carnbiy'
+    assert(zbase32.encode(bytes.fromhex(message)) == zbase32_message)
+
     for message, expected_zbase32_message in zip(messages, zbase32_messages):
         zbase32_message = zbase32.encode(message)
         assert isinstance(zbase32_message, bytes)
@@ -87,6 +91,10 @@ def test_encode_wrong_inputs():
 
 
 def test_decode():
+    zbase32_message = b'd75qtmgijm79rpooshmgzjwji9gj7dsdat8remuskyjp9oq1ugkaoj6orbxzhuo4njtyh96e3aq84p1tiuz77nchgxa1s4ka4carnbiy'
+    message = '1f76e8acd54afbf23610b7166ba689afcc9e8ec3c44e442e765012dfc1d299958827d0205f7e4e1a12620e7fc8ce1c7d3651acefde899c33f12b6958d3304106a0'
+    assert(zbase32.decode(zbase32_message) == bytes.fromhex(message))
+
     for expected_message, zbase32_message in zip(messages, zbase32_messages):
         message = zbase32.decode(zbase32_message)
         assert isinstance(message, bytes)
