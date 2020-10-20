@@ -61,15 +61,19 @@ u64 route_score_cheaper(u32 distance,
 	return (costs << 32) + distance;
 }
 
-struct route **route_from_dijkstra(const struct gossmap *map,
+struct route **route_from_dijkstra(const tal_t *ctx,
+				   const struct gossmap *map,
 				   const struct dijkstra *dij,
 				   const struct gossmap_node *cur)
 {
-	struct route **path = tal_arr(map, struct route *, 0);
+	struct route **path = tal_arr(ctx, struct route *, 0);
 	u32 curidx = gossmap_node_idx(map, cur);
 
 	while (dijkstra_distance(dij, curidx) != 0) {
 		struct route *r;
+
+		if (dijkstra_distance(dij, curidx) == UINT_MAX)
+			return tal_free(path);
 
 		r = tal(path, struct route);
 		r->c = dijkstra_best_chan(dij, curidx);

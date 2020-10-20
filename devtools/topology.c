@@ -209,7 +209,7 @@ static bool measure_least_cost(struct gossmap *map,
 		return false;
 	}
 
-	path = route_from_dijkstra(map, dij, src);
+	path = route_from_dijkstra(map, map, dij, src);
 	printf("# path length %zu\n", tal_count(path));
 	if (!amount_msat_sub(&fee, dijkstra_amount(dij, srcidx), sent))
 		abort();

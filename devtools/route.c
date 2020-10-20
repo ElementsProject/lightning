@@ -69,7 +69,7 @@ static struct route **least_cost(struct gossmap *map,
 		return NULL;
 	}
 
-	path = route_from_dijkstra(map, dij, src);
+	path = route_from_dijkstra(map, map, dij, src);
 	printf("# path length %zu\n", tal_count(path));
 	/* We don't pay fee on first hop! */
 	if (!amount_msat_sub(&fee,
