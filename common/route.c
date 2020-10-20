@@ -37,43 +37,28 @@ bool route_can_carry(const struct gossmap *map,
 	return route_can_carry_even_disabled(map, c, dir, amount, arg);
 }
 
-bool route_path_shorter(u32 old_distance, u32 new_distance,
-			struct amount_msat old_cost,
-			struct amount_msat new_cost,
-			struct amount_msat old_risk,
-			struct amount_msat new_risk,
-			void *unused)
+/* Prioritize distance over costs */
+u64 route_score_shorter(u32 distance,
+			struct amount_msat cost,
+			struct amount_msat risk)
 {
-	if (new_distance > old_distance)
-		return false;
-	if (new_distance < old_distance)
-		return true;
+	u64 costs = cost.millisatoshis + risk.millisatoshis; /* Raw: score */
+	if (costs > 0xFFFFFFFF)
+		costs = 0xFFFFFFFF;
 
-	/* Tiebreak by cost */
-	if (!amount_msat_add(&old_cost, old_cost, old_risk)
-	    || !amount_msat_add(&new_cost, new_cost, new_risk))
-		return false;
-	return amount_msat_less(new_cost, old_cost);
+	return costs + ((u64)distance << 32);
 }
 
-bool route_path_cheaper(u32 old_distance, u32 new_distance,
-			struct amount_msat old_cost,
-			struct amount_msat new_cost,
-			struct amount_msat old_risk,
-			struct amount_msat new_risk,
-			void *unused)
+/* Prioritize costs over distance */
+u64 route_score_cheaper(u32 distance,
+			struct amount_msat cost,
+			struct amount_msat risk)
 {
-	if (!amount_msat_add(&old_cost, old_cost, old_risk)
-	    || !amount_msat_add(&new_cost, new_cost, new_risk))
-		return false;
+	u64 costs = cost.millisatoshis + risk.millisatoshis; /* Raw: score */
+	if (costs > 0xFFFFFFFF)
+		costs = 0xFFFFFFFF;
 
-	if (amount_msat_greater(new_cost, old_cost))
-		return false;
-	if (amount_msat_less(new_cost, old_cost))
-		return true;
-
-	/* Tiebreak by distance */
-	return new_distance < old_distance;
+	return (costs << 32) + distance;
 }
 
 struct route **route_from_dijkstra(const struct gossmap *map,

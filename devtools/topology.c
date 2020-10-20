@@ -55,7 +55,7 @@ static size_t count_possible_sources(const struct gossmap *map,
 	size_t distance_budget, num;
 
 	dij = dijkstra(tmpctx, map, n, AMOUNT_MSAT(0), 0,
-		       channel_usable_to_excl, route_path_shorter, exclude);
+		       channel_usable_to_excl, route_score_shorter, exclude);
 
 	if (is_last_node)
 		distance_budget = ROUTING_MAX_HOPS - 1;
@@ -132,7 +132,7 @@ static size_t count_possible_destinations(const struct gossmap *map,
 	size_t distance_budget, num;
 
 	dij = dijkstra(tmpctx, map, start, AMOUNT_MSAT(0), 0,
-		       channel_usable_from_excl, route_path_shorter, exclude);
+		       channel_usable_from_excl, route_score_shorter, exclude);
 
 	if (is_first_node)
 		distance_budget = ROUTING_MAX_HOPS - 1;
@@ -191,7 +191,7 @@ static bool measure_least_cost(struct gossmap *map,
 	tstart = time_mono();
 	dij = dijkstra(tmpctx, map, dst,
 		       sent, riskfactor, channel_usable,
-		       route_path_cheaper, NULL);
+		       route_score_cheaper, NULL);
 	tstop = time_mono();
 
 	printf("# Time to find path: %"PRIu64" usec\n",

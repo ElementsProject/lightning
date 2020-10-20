@@ -27,20 +27,14 @@ bool route_can_carry_even_disabled(const struct gossmap *map,
 				   void *unused);
 
 /* Shortest path, with lower amount tiebreak */
-bool route_path_shorter(u32 old_distance, u32 new_distance,
-			struct amount_msat old_cost,
-			struct amount_msat new_cost,
-			struct amount_msat old_risk,
-			struct amount_msat new_risk,
-			void *unused);
+u64 route_score_shorter(u32 distance,
+			struct amount_msat cost,
+			struct amount_msat risk);
 
 /* Cheapest path, with shorter path tiebreak */
-bool route_path_cheaper(u32 old_distance, u32 new_distance,
-			struct amount_msat old_cost,
-			struct amount_msat new_cost,
-			struct amount_msat old_risk,
-			struct amount_msat new_risk,
-			void *unused);
+u64 route_score_cheaper(u32 distance,
+			struct amount_msat cost,
+			struct amount_msat risk);
 
 /* Extract route tal_arr from completed dijkstra */
 struct route **route_from_dijkstra(const struct gossmap *map,
