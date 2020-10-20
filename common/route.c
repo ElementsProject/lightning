@@ -37,16 +37,22 @@ bool route_can_carry(const struct gossmap *map,
 	return route_can_carry_even_disabled(map, c, dir, amount, arg);
 }
 
+/* Squeeze total costs into a u32 */
+static u32 costs_to_score(struct amount_msat cost,
+			  struct amount_msat risk)
+{
+	u64 costs = cost.millisatoshis + risk.millisatoshis; /* Raw: score */
+	if (costs > 0xFFFFFFFF)
+		costs = 0xFFFFFFFF;
+	return costs;
+}
+
 /* Prioritize distance over costs */
 u64 route_score_shorter(u32 distance,
 			struct amount_msat cost,
 			struct amount_msat risk)
 {
-	u64 costs = cost.millisatoshis + risk.millisatoshis; /* Raw: score */
-	if (costs > 0xFFFFFFFF)
-		costs = 0xFFFFFFFF;
-
-	return costs + ((u64)distance << 32);
+	return costs_to_score(cost, risk) + ((u64)distance << 32);
 }
 
 /* Prioritize costs over distance */
@@ -54,11 +60,7 @@ u64 route_score_cheaper(u32 distance,
 			struct amount_msat cost,
 			struct amount_msat risk)
 {
-	u64 costs = cost.millisatoshis + risk.millisatoshis; /* Raw: score */
-	if (costs > 0xFFFFFFFF)
-		costs = 0xFFFFFFFF;
-
-	return (costs << 32) + distance;
+	return ((u64)costs_to_score(cost, risk) << 32) + distance;
 }
 
 struct route **route_from_dijkstra(const tal_t *ctx,

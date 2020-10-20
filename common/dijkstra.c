@@ -22,7 +22,7 @@ struct dijkstra {
 	/* NULL means it's been visited already. */
 	const struct gossmap_node **heapptr;
 
-	/* How we decide "best" */
+	/* How we decide "best", lower is better */
 	u64 score;
 
 	/* We could re-evaluate to determine this, but keeps it simple */

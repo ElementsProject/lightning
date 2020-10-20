@@ -130,16 +130,25 @@ static void map_nodeid(const struct gossmap *map, size_t offset,
 	map_copy(map, offset, id, sizeof(*id));
 }
 
-static bool map_feature_set(const struct gossmap *map, int bit,
+/* Returns optional or compulsory feature if set, otherwise -1 */
+static int map_feature_test(const struct gossmap *map,
+			    int compulsory_bit,
 			    size_t offset, size_t len)
 {
-	size_t bytenum = bit / 8;
+	size_t bytenum = compulsory_bit / 8;
+	u8 bits;
 
+	assert(COMPULSORY_FEATURE(compulsory_bit) == compulsory_bit);
 	if (bytenum >= len)
 		return false;
 
 	/* Note reversed! */
-	return map_u8(map, offset + len - 1 - bytenum) & (1 << (bit % 8));
+	bits = map_u8(map, offset + len - 1 - bytenum);
+	if (bits & (1 << (compulsory_bit % 8)))
+		return compulsory_bit;
+	if (bits & (1 << (OPTIONAL_FEATURE(compulsory_bit) % 8)))
+		return OPTIONAL_FEATURE(compulsory_bit);
+	return -1;
 }
 
 /* These values can change across calls to gossmap_check. */
@@ -877,13 +886,8 @@ int gossmap_chan_has_feature(const struct gossmap *map,
 
 	feature_len = map_be16(map, c->cann_off + feature_len_off);
 
-	if (map_feature_set(map, OPTIONAL_FEATURE(fbit),
-			    c->cann_off + feature_len_off + 2, feature_len))
-		return OPTIONAL_FEATURE(fbit);
-	if (map_feature_set(map, COMPULSORY_FEATURE(fbit),
-			    c->cann_off + feature_len_off + 2, feature_len))
-		return COMPULSORY_FEATURE(fbit);
-	return -1;
+	return map_feature_test(map, COMPULSORY_FEATURE(fbit),
+				c->cann_off + feature_len_off + 2, feature_len);
 }
 
 /* BOLT #7:
@@ -911,11 +915,6 @@ int gossmap_node_has_feature(const struct gossmap *map,
 
 	feature_len = map_be16(map, n->nann_off + feature_len_off);
 
-	if (map_feature_set(map, OPTIONAL_FEATURE(fbit),
-			    n->nann_off + feature_len_off + 2, feature_len))
-		return OPTIONAL_FEATURE(fbit);
-	if (map_feature_set(map, COMPULSORY_FEATURE(fbit),
-			    n->nann_off + feature_len_off + 2, feature_len))
-		return COMPULSORY_FEATURE(fbit);
-	return -1;
+	return map_feature_test(map, COMPULSORY_FEATURE(fbit),
+				n->nann_off + feature_len_off + 2, feature_len);
 }
