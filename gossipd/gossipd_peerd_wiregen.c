@@ -23,7 +23,6 @@ const char *gossipd_peerd_wire_name(int e)
 	switch ((enum gossipd_peerd_wire)e) {
 	case WIRE_GOSSIPD_GET_UPDATE: return "WIRE_GOSSIPD_GET_UPDATE";
 	case WIRE_GOSSIPD_GET_UPDATE_REPLY: return "WIRE_GOSSIPD_GET_UPDATE_REPLY";
-	case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL: return "WIRE_GOSSIPD_LOCAL_ADD_CHANNEL";
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE: return "WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE";
 	case WIRE_GOSSIPD_NEW_STORE_FD: return "WIRE_GOSSIPD_NEW_STORE_FD";
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT: return "WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT";
@@ -38,7 +37,6 @@ bool gossipd_peerd_wire_is_defined(u16 type)
 	switch ((enum gossipd_peerd_wire)type) {
 	case WIRE_GOSSIPD_GET_UPDATE:;
 	case WIRE_GOSSIPD_GET_UPDATE_REPLY:;
-	case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL:;
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:;
 	case WIRE_GOSSIPD_NEW_STORE_FD:;
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT:;
@@ -100,43 +98,6 @@ bool fromwire_gossipd_get_update_reply(const tal_t *ctx, const void *p, u8 **upd
  	// 2nd case update
 	*update = len ? tal_arr(ctx, u8, len) : NULL;
 	fromwire_u8_array(&cursor, &plen, *update, len);
-	return cursor != NULL;
-}
-
-/* WIRE: GOSSIPD_LOCAL_ADD_CHANNEL */
-/* Both sides have seen the funding tx being locked */
-/* yet reached the announcement depth. So we add the channel locally so */
-/* we (and peer) can update it already. */
-u8 *towire_gossipd_local_add_channel(const tal_t *ctx, const struct short_channel_id *short_channel_id, const struct node_id *remote_node_id, struct amount_sat satoshis, const u8 *features)
-{
-	u16 flen = tal_count(features);
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_GOSSIPD_LOCAL_ADD_CHANNEL);
-	towire_short_channel_id(&p, short_channel_id);
-	towire_node_id(&p, remote_node_id);
-	towire_amount_sat(&p, satoshis);
-	towire_u16(&p, flen);
-	towire_u8_array(&p, features, flen);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_gossipd_local_add_channel(const tal_t *ctx, const void *p, struct short_channel_id *short_channel_id, struct node_id *remote_node_id, struct amount_sat *satoshis, u8 **features)
-{
-	u16 flen;
-
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_LOCAL_ADD_CHANNEL)
-		return false;
- 	fromwire_short_channel_id(&cursor, &plen, short_channel_id);
- 	fromwire_node_id(&cursor, &plen, remote_node_id);
- 	*satoshis = fromwire_amount_sat(&cursor, &plen);
- 	flen = fromwire_u16(&cursor, &plen);
- 	// 2nd case features
-	*features = flen ? tal_arr(ctx, u8, flen) : NULL;
-	fromwire_u8_array(&cursor, &plen, *features, flen);
 	return cursor != NULL;
 }
 
@@ -226,4 +187,4 @@ bool fromwire_gossipd_local_channel_announcement(const tal_t *ctx, const void *p
 	fromwire_u8_array(&cursor, &plen, *cannount, len);
 	return cursor != NULL;
 }
-// SHA256STAMP:b7bd26d45b133237284bcea72ab584555716c57d414abebe71026279924cb4f2
+// SHA256STAMP:c4575b41c403e4760d2a8674edfa45476e15fd8945be672b0e4c120d330e96aa

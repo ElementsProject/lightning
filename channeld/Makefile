@@ -71,6 +71,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/permute_tx.o			\
 	common/ping.o				\
 	common/psbt_open.o			\
+	common/private_channel_announcement.o	\
 	common/pseudorand.o			\
 	common/read_peer_msg.o			\
 	common/setup.o				\
@@ -86,6 +87,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/wire_error.o			\
 	common/wireaddr.o			\
 	gossipd/gossipd_peerd_wiregen.o		\
+	gossipd/gossip_store_wiregen.o		\
 	lightningd/gossip_msg.o			\
 	wire/fromwire.o				\
 	wire/towire.o

@@ -1,5 +1,6 @@
 #include "gossip_store.h"
 
+#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/endian/endian.h>
@@ -7,7 +8,9 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossip_store.h>
+#include <common/private_channel_announcement.h>
 #include <common/status.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -117,20 +120,62 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp,
 }
 
 #ifdef COMPAT_V082
+static u8 *mk_private_channelmsg(const tal_t *ctx,
+				 struct routing_state *rstate,
+				 const struct short_channel_id *scid,
+				 const struct node_id *remote_node_id,
+				 struct amount_sat sat,
+				 const u8 *features)
+{
+	const u8 *ann = private_channel_announcement(tmpctx, scid,
+						     &rstate->local_id,
+						     remote_node_id,
+						     features);
+
+	return towire_gossip_store_private_channel(ctx, sat, ann);
+}
+
 /* The upgrade from version 7 is trivial */
 static bool can_upgrade(u8 oldversion)
 {
-	return oldversion == 7;
+	return oldversion == 7 || oldversion == 8;
 }
 
-static bool upgrade_field(u8 oldversion, u8 **msg)
+static bool upgrade_field(u8 oldversion,
+			  struct routing_state *rstate,
+			  u8 **msg)
 {
 	assert(can_upgrade(oldversion));
 
-	/* We only need to upgrade this */
-	if (fromwire_peektype(*msg) == WIRE_GOSSIPD_LOCAL_ADD_CHANNEL) {
+	if (fromwire_peektype(*msg) == WIRE_GOSSIPD_LOCAL_ADD_CHANNEL_OBS
+	    && oldversion == 7) {
 		/* Append two 0 bytes, for (empty) feature bits */
 		tal_resizez(msg, tal_bytelen(*msg) + 2);
+	}
+
+	/* We turn these (v8) into a WIRE_GOSSIP_STORE_PRIVATE_CHANNEL */
+	if (fromwire_peektype(*msg) == WIRE_GOSSIPD_LOCAL_ADD_CHANNEL_OBS) {
+		struct short_channel_id scid;
+		struct node_id remote_node_id;
+		struct amount_sat satoshis;
+		u8 *features;
+		u8 *storemsg;
+
+		if (!fromwire_gossipd_local_add_channel_obs(tmpctx, *msg,
+							&scid,
+							&remote_node_id,
+							&satoshis,
+							&features))
+			return false;
+
+		storemsg = mk_private_channelmsg(tal_parent(*msg),
+						 rstate,
+						 &scid,
+						 &remote_node_id,
+						 satoshis,
+						 features);
+		tal_free(*msg);
+		*msg = storemsg;
 	}
 	return true;
 }
@@ -140,7 +185,9 @@ static bool can_upgrade(u8 oldversion)
 	return false;
 }
 
-static bool upgrade_field(u8 oldversion, u8 **msg)
+static bool upgrade_field(u8 oldversion,
+			  struct routing_state *rstate,
+			  u8 **msg)
 {
 	abort();
 }
@@ -148,7 +195,7 @@ static bool upgrade_field(u8 oldversion, u8 **msg)
 
 /* Read gossip store entries, copy non-deleted ones.  This code is written
  * as simply and robustly as possible! */
-static u32 gossip_store_compact_offline(void)
+static u32 gossip_store_compact_offline(struct routing_state *rstate)
 {
 	size_t count = 0, deleted = 0;
 	int old_fd, new_fd;
@@ -206,7 +253,7 @@ static u32 gossip_store_compact_offline(void)
 		}
 
 		if (oldversion != version) {
-			if (!upgrade_field(oldversion, &msg)) {
+			if (!upgrade_field(oldversion, rstate, &msg)) {
 				tal_free(msg);
 				goto close_and_delete;
 			}
@@ -263,7 +310,7 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate,
 	struct gossip_store *gs = tal(rstate, struct gossip_store);
 	gs->count = gs->deleted = 0;
 	gs->writable = true;
-	gs->timestamp = gossip_store_compact_offline();
+	gs->timestamp = gossip_store_compact_offline(rstate);
 	gs->fd = open(GOSSIP_STORE_FILENAME, O_RDWR|O_CREAT, 0600);
 	if (gs->fd < 0)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -464,7 +511,7 @@ bool gossip_store_compact(struct gossip_store *gs)
 			goto unlink_disable;
 
 		/* We track location of all these message types. */
-		if (msgtype == WIRE_GOSSIPD_LOCAL_ADD_CHANNEL
+		if (msgtype == WIRE_GOSSIP_STORE_PRIVATE_CHANNEL
 		    || msgtype == WIRE_GOSSIP_STORE_PRIVATE_UPDATE
 		    || msgtype == WIRE_CHANNEL_ANNOUNCEMENT
 		    || msgtype == WIRE_CHANNEL_UPDATE
@@ -709,7 +756,7 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 	const char *bad;
 	size_t stats[] = {0, 0, 0, 0};
 	struct timeabs start = time_now();
-	const u8 *chan_ann = NULL;
+	u8 *chan_ann = NULL;
 	u64 chan_ann_off = 0; /* Spurious gcc-9 (Ubuntu 9-20190402-1ubuntu1) 9.0.1 20190402 (experimental) warning */
 
 	gs->writable = false;
@@ -737,6 +784,14 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		}
 
 		switch (fromwire_peektype(msg)) {
+		case WIRE_GOSSIP_STORE_PRIVATE_CHANNEL:
+			if (!routing_add_private_channel(rstate, NULL, msg,
+							 gs->len)) {
+				bad = "Bad add_private_channel";
+				goto badmsg;
+			}
+			stats[0]++;
+			break;
 		case WIRE_GOSSIP_STORE_CHANNEL_AMOUNT:
 			if (!fromwire_gossip_store_channel_amount(msg,
 								  &satoshis)) {
@@ -789,13 +844,6 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 				goto badmsg;
 			}
 			stats[2]++;
-			break;
-		case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL:
-			if (!handle_local_add_channel(rstate, NULL,
-						      msg, gs->len)) {
-				bad = "Bad local_add_channel";
-				goto badmsg;
-			}
 			break;
 		default:
 			bad = "Unknown message";

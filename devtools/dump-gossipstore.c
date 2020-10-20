@@ -53,6 +53,7 @@ int main(int argc, char *argv[])
 
 	while (read(fd, &hdr, sizeof(hdr)) == sizeof(hdr)) {
 		struct amount_sat sat;
+		struct short_channel_id scid;
 		u32 msglen = be32_to_cpu(hdr.len);
 		u8 *msg, *inner;
 		bool deleted, push;
@@ -92,13 +93,19 @@ int main(int argc, char *argv[])
 			printf("t=%u node_announcement: %s\n",
 			       be32_to_cpu(hdr.timestamp),
 			       tal_hex(msg, msg));
-		} else if (fromwire_peektype(msg) == WIRE_GOSSIPD_LOCAL_ADD_CHANNEL) {
-			printf("local_add_channel: %s\n",
-			       tal_hex(msg, msg));
+		} else if (fromwire_gossip_store_private_channel(msg, msg, &sat,
+								 &inner)) {
+			printf("private channel_announcement: %s %s\n",
+			       type_to_string(tmpctx, struct amount_sat, &sat),
+			       tal_hex(msg, inner));
 		} else if (fromwire_gossip_store_private_update(msg, msg,
 								&inner)) {
 			printf("private channel_update: %s\n",
 			       tal_hex(msg, inner));
+		} else if (fromwire_gossip_store_delete_chan(msg, &scid)) {
+			printf("delete channel: %s\n",
+			       type_to_string(tmpctx, struct short_channel_id,
+					      &scid));
 		} else {
 			warnx("Unknown message %u",
 			      fromwire_peektype(msg));

@@ -40,12 +40,15 @@ char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr
 /* Generated stub for fromwire_gossip_store_channel_amount */
 bool fromwire_gossip_store_channel_amount(const void *p UNNEEDED, struct amount_sat *satoshis UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_channel_amount called!\n"); abort(); }
+/* Generated stub for fromwire_gossip_store_private_channel */
+bool fromwire_gossip_store_private_channel(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct amount_sat *satoshis UNNEEDED, u8 **announcement UNNEEDED)
+{ fprintf(stderr, "fromwire_gossip_store_private_channel called!\n"); abort(); }
 /* Generated stub for fromwire_gossip_store_private_update */
 bool fromwire_gossip_store_private_update(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **update UNNEEDED)
 { fprintf(stderr, "fromwire_gossip_store_private_update called!\n"); abort(); }
-/* Generated stub for fromwire_gossipd_local_add_channel */
-bool fromwire_gossipd_local_add_channel(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct node_id *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED, u8 **features UNNEEDED)
-{ fprintf(stderr, "fromwire_gossipd_local_add_channel called!\n"); abort(); }
+/* Generated stub for fromwire_gossipd_local_add_channel_obs */
+bool fromwire_gossipd_local_add_channel_obs(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct short_channel_id *short_channel_id UNNEEDED, struct node_id *remote_node_id UNNEEDED, struct amount_sat *satoshis UNNEEDED, u8 **features UNNEEDED)
+{ fprintf(stderr, "fromwire_gossipd_local_add_channel_obs called!\n"); abort(); }
 /* Generated stub for fromwire_wireaddr */
 bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
 { fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
@@ -79,6 +82,13 @@ void *notleak_(const void *ptr UNNEEDED, bool plus_children UNNEEDED)
 /* Generated stub for peer_supplied_good_gossip */
 void peer_supplied_good_gossip(struct peer *peer UNNEEDED, size_t amount UNNEEDED)
 { fprintf(stderr, "peer_supplied_good_gossip called!\n"); abort(); }
+/* Generated stub for private_channel_announcement */
+const u8 *private_channel_announcement(const tal_t *ctx UNNEEDED,
+				       const struct short_channel_id *scid UNNEEDED,
+				       const struct node_id *local_node_id UNNEEDED,
+				       const struct node_id *remote_node_id UNNEEDED,
+				       const u8 *features UNNEEDED)
+{ fprintf(stderr, "private_channel_announcement called!\n"); abort(); }
 /* Generated stub for sanitize_error */
 char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,
 		     struct channel_id *channel_id UNNEEDED)
@@ -98,6 +108,9 @@ u8 *towire_gossip_store_channel_amount(const tal_t *ctx UNNEEDED, struct amount_
 /* Generated stub for towire_gossip_store_delete_chan */
 u8 *towire_gossip_store_delete_chan(const tal_t *ctx UNNEEDED, const struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_delete_chan called!\n"); abort(); }
+/* Generated stub for towire_gossip_store_private_channel */
+u8 *towire_gossip_store_private_channel(const tal_t *ctx UNNEEDED, struct amount_sat satoshis UNNEEDED, const u8 *announcement UNNEEDED)
+{ fprintf(stderr, "towire_gossip_store_private_channel called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_private_update */
 u8 *towire_gossip_store_private_update(const tal_t *ctx UNNEEDED, const u8 *update UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_private_update called!\n"); abort(); }

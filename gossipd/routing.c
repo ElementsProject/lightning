@@ -295,9 +295,9 @@ struct routing_state *new_routing_state(const tal_t *ctx,
 {
 	struct routing_state *rstate = tal(ctx, struct routing_state);
 	rstate->nodes = new_node_map(rstate);
-	rstate->gs = gossip_store_new(rstate, peers);
 	rstate->timers = timers;
 	rstate->local_id = *local_id;
+	rstate->gs = gossip_store_new(rstate, peers);
 	rstate->local_channel_announced = false;
 	rstate->last_timestamp = 0;
 
@@ -2261,11 +2261,11 @@ void remove_channel_from_store(struct routing_state *rstate,
 	if (is_chan_public(chan)) {
 		update_type = WIRE_CHANNEL_UPDATE;
 		announcment_type = WIRE_CHANNEL_ANNOUNCEMENT;
-		gossip_store_mark_channel_deleted(rstate->gs, &chan->scid);
 	} else {
 		update_type = WIRE_GOSSIP_STORE_PRIVATE_UPDATE;
-		announcment_type = WIRE_GOSSIPD_LOCAL_ADD_CHANNEL;
+		announcment_type = WIRE_GOSSIP_STORE_PRIVATE_CHANNEL;
 	}
+	gossip_store_mark_channel_deleted(rstate->gs, &chan->scid);
 
 	/* If these aren't in the store, these are noops. */
 	gossip_store_delete(rstate->gs,
@@ -2815,23 +2815,37 @@ void route_prune(struct routing_state *rstate)
 	}
 }
 
-bool handle_local_add_channel(struct routing_state *rstate,
-			      const struct peer *peer,
-			      const u8 *msg, u64 index)
+bool routing_add_private_channel(struct routing_state *rstate,
+				 const struct peer *peer,
+				 const u8 *msg, u64 index)
 {
 	struct short_channel_id scid;
-	struct node_id remote_node_id;
+	struct node_id node_id[2];
+	struct pubkey ignorekey;
 	struct amount_sat sat;
 	struct chan *chan;
-	u8 *features;
+	u8 *features, *chan_ann;
+	secp256k1_ecdsa_signature ignoresig;
+	struct bitcoin_blkid chain_hash;
 
-	if (!fromwire_gossipd_local_add_channel(msg, msg, &scid, &remote_node_id,
-						&sat, &features)) {
-		status_peer_broken(peer ? &peer->id : NULL,
-				  "Unable to parse local_add_channel message: %s",
-				   tal_hex(msg, msg));
+	if (!fromwire_gossip_store_private_channel(tmpctx, msg,
+						   &sat, &chan_ann))
 		return false;
-	}
+
+
+	if (!fromwire_channel_announcement(tmpctx, chan_ann,
+					   &ignoresig,
+					   &ignoresig,
+					   &ignoresig,
+					   &ignoresig,
+					   &features,
+					   &chain_hash,
+					   &scid,
+					   &node_id[0],
+					   &node_id[1],
+					   &ignorekey,
+					   &ignorekey))
+		return false;
 
 	/* Can happen on channeld restart. */
 	if (get_channel(rstate, &scid)) {
@@ -2845,7 +2859,7 @@ bool handle_local_add_channel(struct routing_state *rstate,
 			  type_to_string(tmpctx, struct short_channel_id, &scid));
 
 	/* Create new (unannounced) channel */
-	chan = new_chan(rstate, &scid, &rstate->local_id, &remote_node_id, sat,
+	chan = new_chan(rstate, &scid, &node_id[0], &node_id[1], sat,
 			features);
 	if (!index)
 		index = gossip_store_add(rstate->gs, msg, 0, false, NULL);
