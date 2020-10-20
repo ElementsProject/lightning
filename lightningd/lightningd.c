@@ -147,8 +147,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 *
 	 * You declare them as a `struct list_head` (or use the LIST_HEAD()
 	 * macro which doesn't work on dynamically-allocated objects like `ld`
-	 * here).  The item which will go into the list must declared a
-	 * `struct list_node` for each list it can be in.
+	 * here).  The item which will go into the list must be declared
+	 * a `struct list_node` for each list it can be in.
 	 *
 	 * The most common operations are list_head_init(), list_add(),
 	 * list_del() and list_for_each().
@@ -203,7 +203,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * elements, which can be accessed with tal_count() (or tal_bytelen()
 	 * for raw bytecount).  It's common for simple arrays to use
 	 * tal_resize() (or tal_arr_expand) to expand, which does not work on
-	 * NULL.  So we start with an zero-length array. */
+	 * NULL.  So we start with a zero-length array. */
 	ld->proposed_wireaddr = tal_arr(ld, struct wireaddr_internal, 0);
 	ld->proposed_listen_announce = tal_arr(ld, enum addr_listen_announce, 0);
 	ld->portnum = DEFAULT_PORT;
@@ -385,7 +385,7 @@ void test_subdaemons(const struct lightningd *ld)
 
 		/*~ Our logging system: spam goes in at log_debug level, but
 		 * logging is mainly added by developer necessity and removed
-		 * by developer/user complaints .  The only strong convention
+		 * by developer/user complaints.  The only strong convention
 		 * is that log_broken() is used for "should never happen".
 		 *
 		 * Note, however, that logging takes care to preserve the
