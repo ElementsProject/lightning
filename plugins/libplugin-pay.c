@@ -8,6 +8,7 @@
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/random_select.h>
+#include <common/route.h>
 #include <common/type_to_string.h>
 #include <errno.h>
 #include <plugins/libplugin-pay.h>
@@ -505,75 +506,6 @@ static void payment_chanhints_apply_route(struct payment *p, bool remove)
 	}
 }
 
-static struct command_result *payment_getroute_result(struct command *cmd,
-						      const char *buffer,
-						      const jsmntok_t *toks,
-						      struct payment *p)
-{
-	const jsmntok_t *rtok = json_get_member(buffer, toks, "route");
-	struct amount_msat fee;
-	assert(rtok != NULL);
-	p->route = json_to_route(p, buffer, rtok);
-	p->step = PAYMENT_STEP_GOT_ROUTE;
-
-	fee = payment_route_fee(p);
-
-	/* Ensure that our fee and CLTV budgets are respected. */
-	if (amount_msat_greater(fee, p->constraints.fee_budget)) {
-		payment_exclude_most_expensive(p);
-		p->route = tal_free(p->route);
-		payment_fail(
-		    p, "Fee exceeds our fee budget: %s > %s, discarding route",
-		    type_to_string(tmpctx, struct amount_msat, &fee),
-		    type_to_string(tmpctx, struct amount_msat,
-				   &p->constraints.fee_budget));
-		return command_still_pending(cmd);
-	}
-
-	if (p->route[0].delay > p->constraints.cltv_budget) {
-		u32 delay = p->route[0].delay;
-		payment_exclude_longest_delay(p);
-		p->route = tal_free(p->route);
-		payment_fail(p, "CLTV delay exceeds our CLTV budget: %d > %d",
-			     delay, p->constraints.cltv_budget);
-		return command_still_pending(cmd);
-	}
-
-	/* Now update the constraints in fee_budget and cltv_budget so
-	 * modifiers know what constraints they need to adhere to. */
-	if (!payment_constraints_update(&p->constraints, fee, p->route[0].delay)) {
-		paymod_log(p, LOG_BROKEN,
-			   "Could not update constraints.");
-		abort();
-	}
-
-	/* Allow modifiers to modify the route, before
-	 * payment_compute_onion_payloads uses the route to generate the
-	 * onion_payloads */
-	payment_continue(p);
-	return command_still_pending(cmd);
-}
-
-static struct command_result *payment_getroute_error(struct command *cmd,
-						     const char *buffer,
-						     const jsmntok_t *toks,
-						     struct payment *p)
-{
-	int code;
-	const jsmntok_t *codetok = json_get_member(buffer, toks, "code"),
-			*msgtok = json_get_member(buffer, toks, "message");
-	json_to_int(buffer, codetok, &code);
-	p->route = NULL;
-
-	payment_fail(
-	    p, "Error computing a route to %s: %.*s (%d)",
-	    type_to_string(tmpctx, struct node_id, p->getroute->destination),
-	    json_tok_full_len(msgtok), json_tok_full(buffer, msgtok), code);
-
-	/* Let payment_finished_ handle this, so we mark it as pending */
-	return command_still_pending(cmd);
-}
-
 static const struct short_channel_id_dir *
 payment_get_excluded_channels(const tal_t *ctx, struct payment *p)
 {
@@ -608,49 +540,256 @@ static const struct node_id *payment_get_excluded_nodes(const tal_t *ctx,
 	return root->excluded_nodes;
 }
 
-/* Iterate through the channel_hints and exclude any channel that we are
- * confident will not be able to handle this payment. */
-static void payment_getroute_add_excludes(struct payment *p,
-					  struct json_stream *js)
+/* FIXME: This is slow! */
+static const struct channel_hint *find_hint(const struct channel_hint *hints,
+					    const struct short_channel_id *scid,
+					    int dir)
 {
-	const struct node_id *nodes;
-	const struct short_channel_id_dir *chans;
-
-	json_array_start(js, "exclude");
-
-	/* Collect and exclude all channels that are disabled or we know have
-	 * insufficient capacity. */
-	chans = payment_get_excluded_channels(tmpctx, p);
-	for (size_t i=0; i<tal_count(chans); i++)
-		json_add_short_channel_id_dir(js, NULL, &chans[i]);
-
-	/* Now also exclude nodes that we think have failed. */
-	nodes = payment_get_excluded_nodes(tmpctx, p);
-	for (size_t i=0; i<tal_count(nodes); i++)
-		json_add_node_id(js, NULL, &nodes[i]);
-
-	/* And make sure we don't route in a circle via the routehint! */
-	if (p->temp_exclusion)
-		for (size_t i = 0; i < tal_count(p->temp_exclusion); ++i)
-			json_add_string(js, NULL, p->temp_exclusion[i]);
-
-	json_array_end(js);
+	for (size_t i = 0; i < tal_count(hints); i++) {
+		if (short_channel_id_eq(scid, &hints[i].scid.scid)
+		    && dir == hints[i].scid.dir)
+			return &hints[i];
+	}
+	return NULL;
 }
 
-static void payment_getroute(struct payment *p)
+/* FIXME: This is slow! */
+static bool dst_is_excluded(const struct gossmap *gossmmap,
+			    const struct gossmap_chan *c,
+			    int dir,
+			    const struct node_id *nodes)
 {
-	struct out_req *req;
-	req = jsonrpc_request_start(p->plugin, NULL, "getroute",
-				    payment_getroute_result,
-				    payment_getroute_error, p);
-	json_add_node_id(req->js, "id", p->getroute->destination);
-	json_add_amount_msat_only(req->js, "msatoshi", p->getroute->amount);
-	json_add_num(req->js, "cltv", p->getroute->cltv);
-	json_add_num(req->js, "maxhops", p->getroute->max_hops);
-	json_add_member(req->js, "riskfactor", false, "%lf",
-			p->getroute->riskfactorppm / 1000000.0);
-	payment_getroute_add_excludes(p, req->js);
-	send_outreq(p->plugin, req);
+	struct node_id dstid;
+
+	/* Premature optimization */
+	if (!tal_count(nodes))
+		return false;
+
+	gossmap_node_get_id(gossmap, gossmap_nth_node(gossmap, c, !dir),
+			    &dstid);
+	for (size_t i = 0; i < tal_count(nodes); i++) {
+		if (node_id_eq(&dstid, &nodes[i]))
+			return true;
+	}
+	return false;
+}
+
+static bool payment_route_check(const struct gossmap *gossmap,
+				const struct gossmap_chan *c,
+				int dir,
+				struct amount_msat amount,
+				struct payment *p)
+{
+	struct short_channel_id scid;
+	const struct channel_hint *hint;
+
+	if (dst_is_excluded(gossmap, c, dir, payment_root(p)->excluded_nodes))
+		return false;
+
+	if (dst_is_excluded(gossmap, c, dir, p->temp_exclusion))
+		return false;
+
+	scid = gossmap_chan_scid(gossmap, c);
+	hint = find_hint(payment_root(p)->channel_hints, &scid, dir);
+	if (!hint)
+		return true;
+
+	if (!hint->enabled)
+		return false;
+
+	if (amount_msat_greater_eq(amount, hint->estimated_capacity))
+		/* We exclude on equality because we've set the
+		 * estimate to the smallest failed attempt. */
+		return false;
+
+	if (hint->local && hint->htlc_budget == 0)
+		/* If we cannot add any HTLCs to the channel we
+		 * shouldn't look for a route through that channel */
+		return false;
+
+	return true;
+}
+
+static bool payment_route_can_carry(const struct gossmap *map,
+				    const struct gossmap_chan *c,
+				    int dir,
+				    struct amount_msat amount,
+				    struct payment *p)
+{
+	if (!route_can_carry(map, c, dir, amount, p))
+		return false;
+
+	return payment_route_check(map, c, dir, amount, p);
+}
+
+static bool payment_route_can_carry_even_disabled(const struct gossmap *map,
+						  const struct gossmap_chan *c,
+						  int dir,
+						  struct amount_msat amount,
+						  struct payment *p)
+{
+	if (!route_can_carry_even_disabled(map, c, dir, amount, p))
+		return false;
+
+	return payment_route_check(map, c, dir, amount, p);
+}
+
+static struct route_hop *route_hops_from_route(const tal_t *ctx,
+					       struct payment *p,
+					       struct route **r)
+{
+	struct route_hop *hops = tal_arr(ctx, struct route_hop, tal_count(r));
+	struct amount_msat amt;
+	u32 delay;
+
+	for (size_t i = 0; i < tal_count(hops); i++) {
+		const struct gossmap_node *dst;
+
+		hops[i].channel_id = gossmap_chan_scid(gossmap, r[i]->c);
+		hops[i].direction = r[i]->dir;
+		hops[i].blinding = NULL;
+
+		/* nodeid is nodeid of *dst* */
+		dst = gossmap_nth_node(gossmap, r[i]->c, !r[i]->dir);
+		gossmap_node_get_id(gossmap, dst, &hops[i].nodeid);
+		if (gossmap_node_has_feature(gossmap, dst, OPT_VAR_ONION) != -1)
+			hops[i].style = ROUTE_HOP_TLV;
+		else
+			hops[i].style = ROUTE_HOP_LEGACY;
+	}
+
+	/* Now iterate backwards to derive amount and delay. */
+	amt = p->getroute->amount;
+	delay = p->getroute->cltv;
+	for (int i = tal_count(hops) - 1; i >= 0; i--) {
+		const struct half_chan *h = &r[i]->c->half[r[i]->dir];
+
+		hops[i].amount = amt;
+		hops[i].delay = delay;
+
+		if (!amount_msat_add_fee(&amt,
+					 h->base_fee, h->proportional_fee))
+			abort();
+		delay += h->delay;
+	}
+
+	return hops;
+}
+
+static struct command_result *payment_getroute(struct payment *p)
+{
+	const struct dijkstra *dij;
+	const struct gossmap_node *dst, *src;
+	struct route **r;
+	struct amount_msat fee;
+	bool (*can_carry)(const struct gossmap *,
+			  const struct gossmap_chan *,
+			  int,
+			  struct amount_msat,
+			  struct payment *);
+
+	/* Make sure we're up-to-date with any new entries */
+	gossmap_refresh(gossmap);
+
+	dst = gossmap_find_node(gossmap, p->getroute->destination);
+	if (!dst) {
+		payment_fail(
+			p, "Unknown destination %s",
+			type_to_string(tmpctx, struct node_id,
+				       p->getroute->destination));
+
+		/* Let payment_finished_ handle this, so we mark it as pending */
+		return command_still_pending(p->cmd);
+	}
+
+	/* If we don't exist in gossip, routing can't happen. */
+	src = gossmap_find_node(gossmap, p->local_id);
+	if (!src) {
+		payment_fail(p, "We don't have any channels");
+
+		/* Let payment_finished_ handle this, so we mark it as pending */
+		return command_still_pending(p->cmd);
+	}
+
+	can_carry = payment_route_can_carry;
+	dij = dijkstra(tmpctx, gossmap, dst, p->getroute->amount,
+		       p->getroute->riskfactorppm / 1000000.0,
+		       can_carry, route_score_cheaper, p);
+	r = route_from_dijkstra(tmpctx, gossmap, dij, src);
+	if (!r) {
+		/* Try using disabled channels too */
+		/* FIXME: is there somewhere we can annotate this for paystatus? */
+		can_carry = payment_route_can_carry_even_disabled;
+		dij = dijkstra(tmpctx, gossmap, dst, p->getroute->amount,
+			       p->getroute->riskfactorppm / 1000000.0,
+			       can_carry, route_score_cheaper, p);
+		r = route_from_dijkstra(tmpctx, gossmap, dij, src);
+		if (!r) {
+			payment_fail(p, "No path found");
+			return command_still_pending(p->cmd);
+		}
+	}
+
+	/* If it's too far, fall back to using shortest path. */
+	if (tal_count(r) > p->getroute->max_hops) {
+		/* FIXME: is there somewhere we can annotate this for paystatus? */
+		dij = dijkstra(tmpctx, gossmap, dst, p->getroute->amount,
+			       p->getroute->riskfactorppm / 1000000.0,
+			       can_carry, route_score_shorter, p);
+		r = route_from_dijkstra(tmpctx, gossmap, dij, src);
+		if (!r) {
+			payment_fail(p, "No path found");
+			return command_still_pending(p->cmd);
+		}
+
+		/* If it's still too far, fail. */
+		if (tal_count(r) > p->getroute->max_hops) {
+			payment_fail(p, "Shortest path found was length %zu",
+				     tal_count(p->route));
+			return command_still_pending(p->cmd);
+		}
+	}
+
+	/* OK, now we *have* a route */
+	p->step = PAYMENT_STEP_GOT_ROUTE;
+	p->route = route_hops_from_route(p, p, r);
+
+	fee = payment_route_fee(p);
+
+	/* Ensure that our fee and CLTV budgets are respected. */
+	if (amount_msat_greater(fee, p->constraints.fee_budget)) {
+		payment_exclude_most_expensive(p);
+		p->route = tal_free(p->route);
+		payment_fail(
+		    p, "Fee exceeds our fee budget: %s > %s, discarding route",
+		    type_to_string(tmpctx, struct amount_msat, &fee),
+		    type_to_string(tmpctx, struct amount_msat,
+				   &p->constraints.fee_budget));
+		return command_still_pending(p->cmd);
+	}
+
+	if (p->route[0].delay > p->constraints.cltv_budget) {
+		u32 delay = p->route[0].delay;
+		payment_exclude_longest_delay(p);
+		p->route = tal_free(p->route);
+		payment_fail(p, "CLTV delay exceeds our CLTV budget: %d > %d",
+			     delay, p->constraints.cltv_budget);
+		return command_still_pending(p->cmd);
+	}
+
+	/* Now update the constraints in fee_budget and cltv_budget so
+	 * modifiers know what constraints they need to adhere to. */
+	if (!payment_constraints_update(&p->constraints, fee, p->route[0].delay)) {
+		paymod_log(p, LOG_BROKEN,
+			   "Could not update constraints.");
+		abort();
+	}
+
+	/* Allow modifiers to modify the route, before
+	 * payment_compute_onion_payloads uses the route to generate the
+	 * onion_payloads */
+	payment_continue(p);
+	return command_still_pending(p->cmd);
 }
 
 static u8 *tal_towire_legacy_payload(const tal_t *ctx, const struct legacy_payload *payload)
@@ -2144,30 +2283,25 @@ static u32 route_cltv(u32 cltv,
  * `excludes` parameter of `getroute`.
  */
 static
-const char **routehint_generate_exclusion_list(const tal_t *ctx,
-					       struct route_info *routehint,
-					       struct payment *payment)
+struct node_id *routehint_generate_exclusion_list(const tal_t *ctx,
+						  struct route_info *routehint,
+						  struct payment *payment)
 {
-	const char **exc;
-	size_t i;
+	struct node_id *exc;
 
 	if (!routehint || tal_count(routehint) == 0)
 		/* Nothing to exclude.  */
 		return NULL;
 
-	exc = tal_arr(ctx, const char *, 0);
+	exc = tal_arr(ctx, struct node_id, tal_count(routehint));
 	/* Exclude every node except the first, because the first is
 	 * the entry point to the routehint.  */
-	for (i = 1 /* Skip the first! */; i < tal_count(routehint); ++i)
-		tal_arr_expand(&exc,
-			       type_to_string(exc, struct node_id,
-					      &routehint[i].pubkey));
+	for (size_t i = 1 /* Skip the first! */; i < tal_count(routehint); ++i)
+		exc[i-1] = routehint[i].pubkey;
+
 	/* Also exclude the destination, because it would be foolish to
 	 * pass through it and *then* go to the routehint entry point.  */
-	tal_arr_expand(&exc,
-		       type_to_string(exc, struct node_id,
-				      payment->destination));
-
+	exc[tal_count(routehint)-1] = *payment->destination;
 	return exc;
 }
 
