@@ -218,6 +218,13 @@ static u32 gossip_store_compact_offline(void)
 						      msg, msglen));
 		}
 
+		/* Don't write out old tombstones */
+		if (fromwire_peektype(msg) == WIRE_GOSSIP_STORE_DELETE_CHAN) {
+			deleted++;
+			tal_free(msg);
+			continue;
+		}
+
 		if (!write_all(new_fd, &hdr, sizeof(hdr))
 		    || !write_all(new_fd, msg, msglen)) {
 			status_broken("gossip_store_compact_offline: writing msg len %zu to new store: %s",
@@ -789,9 +796,6 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 				bad = "Bad local_add_channel";
 				goto badmsg;
 			}
-			break;
-		case WIRE_GOSSIP_STORE_DELETE_CHAN:
-			/* No need to copy these */
 			break;
 		default:
 			bad = "Unknown message";
