@@ -235,7 +235,7 @@ struct payment {
 	struct node_id *excluded_nodes;
 
 	/* Optional temporarily excluded channels/nodes (i.e. this routehint) */
-	const char **temp_exclusion;
+	struct node_id *temp_exclusion;
 
 	struct payment_result *result;
 
