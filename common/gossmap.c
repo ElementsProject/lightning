@@ -823,8 +823,14 @@ u8 *gossmap_node_get_announce(const tal_t *ctx,
 			      const struct gossmap *map,
 			      const struct gossmap_node *n)
 {
-	u16 len = map_be16(map, n->nann_off);
-	u8 *msg = tal_arr(ctx, u8, len);
+	u16 len;
+	u8 *msg;
+
+	if (n->nann_off == 0)
+		return NULL;
+
+	len = map_be16(map, n->nann_off);
+	msg = tal_arr(ctx, u8, len);
 
 	map_copy(map, n->nann_off, msg, len);
 	return msg;
