@@ -1,12 +1,18 @@
 #include <bitcoin/preimage.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
+#include <common/dijkstra.h>
+#include <common/gossmap.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/random_select.h>
 #include <common/type_to_string.h>
+#include <errno.h>
 #include <plugins/libplugin-pay.h>
+
+static struct gossmap *gossmap;
 
 /* BOLT #11:
  * * `c` (24): `data_length` variable.
@@ -22,6 +28,15 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	struct payment *p = tal(ctx, struct payment);
 
 	static u64 next_id = 0;
+
+	/* Now we're actually creating a payment, load gossip store */
+	if (!gossmap) {
+		gossmap = notleak_with_children(gossmap_load(NULL,
+							     GOSSIP_STORE_FILENAME));
+		if (!gossmap)
+			plugin_err(cmd->plugin, "Could not load gossmap %s: %s",
+				   GOSSIP_STORE_FILENAME, strerror(errno));
+	}
 
 	p->children = tal_arr(p, struct payment *, 0);
 	p->parent = parent;

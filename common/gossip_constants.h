@@ -78,4 +78,7 @@
 #define GOSSIP_TOKEN_TIME(dev_fast_gossip_flag) \
 	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 1, 3600)
 
+/* This is where we keep our gossip */
+#define GOSSIP_STORE_FILENAME "gossip_store"
+
 #endif /* LIGHTNING_COMMON_GOSSIP_CONSTANTS_H */

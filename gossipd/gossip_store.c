@@ -24,7 +24,6 @@
 #include <wire/peer_wire.h>
 #include <wire/wire.h>
 
-#define GOSSIP_STORE_FILENAME "gossip_store"
 #define GOSSIP_STORE_TEMP_FILENAME "gossip_store.tmp"
 
 struct gossip_store {
