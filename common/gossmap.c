@@ -7,6 +7,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/ptrint/ptrint.h>
 #include <ccan/tal/str/str.h>
+#include <common/features.h>
 #include <common/gossip_store.h>
 #include <common/gossmap.h>
 #include <common/node_id.h>
@@ -127,6 +128,18 @@ static void map_nodeid(const struct gossmap *map, size_t offset,
 		       struct node_id *id)
 {
 	map_copy(map, offset, id, sizeof(*id));
+}
+
+static bool map_feature_set(const struct gossmap *map, int bit,
+			    size_t offset, size_t len)
+{
+	size_t bytenum = bit / 8;
+
+	if (bytenum >= len)
+		return false;
+
+	/* Note reversed! */
+	return map_u8(map, offset + len - 1 - bytenum) & (1 << (bit % 8));
 }
 
 /* These values can change across calls to gossmap_check. */
@@ -834,4 +847,71 @@ u8 *gossmap_node_get_announce(const tal_t *ctx,
 
 	map_copy(map, n->nann_off, msg, len);
 	return msg;
+}
+
+/* BOLT #7:
+ * 1. type: 256 (`channel_announcement`)
+ * 2. data:
+ *     * [`signature`:`node_signature_1`]
+ *     * [`signature`:`node_signature_2`]
+ *     * [`signature`:`bitcoin_signature_1`]
+ *     * [`signature`:`bitcoin_signature_2`]
+ *     * [`u16`:`len`]
+ *     * [`len*byte`:`features`]
+ *     * [`chain_hash`:`chain_hash`]
+ *     * [`short_channel_id`:`short_channel_id`]
+ *     * [`point`:`node_id_1`]
+ *     * [`point`:`node_id_2`]
+ */
+int gossmap_chan_has_feature(const struct gossmap *map,
+			     const struct gossmap_chan *c,
+			     int fbit)
+{
+	/* Note that first two bytes are message type */
+	const size_t feature_len_off = 2 + (64 + 64 + 64 + 64);
+	size_t feature_len;
+
+	feature_len = map_be16(map, c->cann_off + feature_len_off);
+
+	if (map_feature_set(map, OPTIONAL_FEATURE(fbit),
+			    c->cann_off + feature_len_off + 2, feature_len))
+		return OPTIONAL_FEATURE(fbit);
+	if (map_feature_set(map, COMPULSORY_FEATURE(fbit),
+			    c->cann_off + feature_len_off + 2, feature_len))
+		return COMPULSORY_FEATURE(fbit);
+	return -1;
+}
+
+/* BOLT #7:
+ * 1. type: 257 (`node_announcement`)
+ * 2. data:
+ *    * [`signature`:`signature`]
+ *    * [`u16`:`flen`]
+ *    * [`flen*byte`:`features`]
+ *    * [`u32`:`timestamp`]
+ *    * [`point`:`node_id`]
+ *    * [`3*byte`:`rgb_color`]
+ *    * [`32*byte`:`alias`]
+ *    * [`u16`:`addrlen`]
+ *    * [`addrlen*byte`:`addresses`]
+ */
+int gossmap_node_has_feature(const struct gossmap *map,
+			     const struct gossmap_node *n,
+			     int fbit)
+{
+	const size_t feature_len_off = 2 + 64;
+	size_t feature_len;
+
+	if (n->nann_off == 0)
+		return -1;
+
+	feature_len = map_be16(map, n->nann_off + feature_len_off);
+
+	if (map_feature_set(map, OPTIONAL_FEATURE(fbit),
+			    n->nann_off + feature_len_off + 2, feature_len))
+		return OPTIONAL_FEATURE(fbit);
+	if (map_feature_set(map, COMPULSORY_FEATURE(fbit),
+			    n->nann_off + feature_len_off + 2, feature_len))
+		return COMPULSORY_FEATURE(fbit);
+	return -1;
 }
