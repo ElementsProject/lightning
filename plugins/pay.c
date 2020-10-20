@@ -1960,8 +1960,6 @@ static struct command_result *json_paymod(struct command *cmd,
 	bool *use_shadow;
 #endif
 
-	p = payment_new(NULL, cmd, NULL /* No parent */, paymod_mods);
-
 	/* If any of the modifiers need to add params to the JSON-RPC call we
 	 * would add them to the `param()` call below, and have them be
 	 * initialized directly that way. */
@@ -1981,6 +1979,8 @@ static struct command_result *json_paymod(struct command *cmd,
 #endif
 		      NULL))
 		return command_param_failed();
+
+	p = payment_new(cmd, cmd, NULL /* No parent */, paymod_mods);
 
 	b11 = bolt11_decode(cmd, b11str, plugin_feature_set(cmd->plugin),
 			    NULL, chainparams, &fail);
@@ -2057,6 +2057,8 @@ static struct command_result *json_paymod(struct command *cmd,
 	p->label = tal_steal(p, label);
 	payment_start(p);
 	list_add_tail(&payments, &p->list);
+	/* We're keeping this around now */
+	tal_steal(cmd->plugin, p);
 
 	return command_still_pending(cmd);
 }
