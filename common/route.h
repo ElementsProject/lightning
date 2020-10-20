@@ -36,8 +36,9 @@ u64 route_score_cheaper(u32 distance,
 			struct amount_msat cost,
 			struct amount_msat risk);
 
-/* Extract route tal_arr from completed dijkstra */
-struct route **route_from_dijkstra(const struct gossmap *map,
+/* Extract route tal_arr from completed dijkstra: NULL if none. */
+struct route **route_from_dijkstra(const tal_t *ctx,
+				   const struct gossmap *map,
 				   const struct dijkstra *dij,
 				   const struct gossmap_node *cur);
 #endif /* LIGHTNING_COMMON_ROUTE_H */
