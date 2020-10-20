@@ -21,28 +21,19 @@ dijkstra_(const tal_t *ctx,
 			     int dir,
 			     struct amount_msat amount,
 			     void *arg),
-	  bool (*path_better)(u32 old_distance,
-			      u32 new_distance,
-			      struct amount_msat old_cost,
-			      struct amount_msat new_cost,
-			      struct amount_msat old_risk,
-			      struct amount_msat new_risk,
-			      void *arg),
+	  u64 (*path_score)(u32 distance,
+			    struct amount_msat cost,
+			    struct amount_msat risk),
 	  void *arg);
 
 #define dijkstra(ctx, map, start, amount, riskfactor, channel_ok,	\
-		 path_better, arg)					\
+		 path_score, arg)					\
 	dijkstra_((ctx), (map), (start), (amount), (riskfactor),	\
 		  typesafe_cb_preargs(bool, void *, (channel_ok), (arg), \
 				      const struct gossmap *,		\
 				      const struct gossmap_chan *,	\
 				      int, struct amount_msat),		\
-		  typesafe_cb_preargs(bool, void *, (path_better), (arg), \
-				      u32, u32,				\
-				      struct amount_msat,		\
-				      struct amount_msat,		\
-				      struct amount_msat,		\
-				      struct amount_msat),		\
+		  (path_score),						\
 		  (arg))
 
 /* Returns UINT_MAX if unreachable. */

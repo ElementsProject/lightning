@@ -22,6 +22,9 @@ struct dijkstra {
 	/* NULL means it's been visited already. */
 	const struct gossmap_node **heapptr;
 
+	/* How we decide "best" */
+	u64 score;
+
 	/* We could re-evaluate to determine this, but keeps it simple */
 	struct gossmap_chan *best_chan;
 };
@@ -67,9 +70,9 @@ static int less_comparer(const void *const ctx,
 			 const void *const b)
 {
 	return get_dijkstra(global_dijkstra, global_map,
-			    *(struct gossmap_node **)a)->distance
+			    *(struct gossmap_node **)a)->score
 		> get_dijkstra(global_dijkstra, global_map,
-			       *(struct gossmap_node **)b)->distance;
+			       *(struct gossmap_node **)b)->score;
 }
 
 static void item_mover(void *const dst, const void *const src)
@@ -101,6 +104,7 @@ static const struct gossmap_node **mkheap(const tal_t *ctx,
 			d->distance = 0;
 			d->total_delay = 0;
 			d->cost = sent;
+			d->score = 0;
 			i--;
 		} else {
 			heap[i] = n;
@@ -108,6 +112,7 @@ static const struct gossmap_node **mkheap(const tal_t *ctx,
 			d->distance = UINT_MAX;
 			d->cost = AMOUNT_MSAT(-1ULL);
 			d->total_delay = 0;
+			d->score = -1ULL;
 		}
 	}
 	assert(i == tal_count(heap));
@@ -142,13 +147,9 @@ dijkstra_(const tal_t *ctx,
 			     int dir,
 			     struct amount_msat amount,
 			     void *arg),
-	  bool (*path_better)(u32 old_distance,
-			      u32 new_distance,
-			      struct amount_msat old_cost,
-			      struct amount_msat new_cost,
-			      struct amount_msat old_risk,
-			      struct amount_msat new_risk,
-			      void *arg),
+	  u64 (*path_score)(u32 distance,
+			    struct amount_msat cost,
+			    struct amount_msat risk),
 	  void *arg)
 {
 	struct dijkstra *dij;
@@ -229,7 +230,8 @@ dijkstra_(const tal_t *ctx,
 			int which_half;
 			struct gossmap_chan *c;
 			struct dijkstra *d;
-			struct amount_msat cost, new_risk, old_risk;
+			struct amount_msat cost, risk;
+			u64 score;
 
 			c = gossmap_nth_chan(map, cur, i, &which_half);
 			neighbor = gossmap_nth_node(map, c, !which_half);
@@ -251,20 +253,11 @@ dijkstra_(const tal_t *ctx,
 				continue;
 
 			/* cltv_delay can't overflow: only 20 bits per hop. */
-			new_risk = risk_price(cost, riskfactor,
-					      cur_d->total_delay
-					      + c->half[!which_half].delay);
-
-			old_risk = risk_price(d->cost, riskfactor,
-					      d->total_delay);
-
-			if (!path_better(d->distance,
-					 cur_d->distance + 1,
-					 d->cost,
-					 cost,
-					 old_risk,
-					 new_risk,
-					 arg))
+			risk = risk_price(cost, riskfactor,
+					  cur_d->total_delay
+					  + c->half[!which_half].delay);
+			score = path_score(cur_d->distance + 1, cost, risk);
+			if (score >= d->score)
 				continue;
 
 			d->distance = cur_d->distance + 1;
@@ -272,6 +265,7 @@ dijkstra_(const tal_t *ctx,
 				+ c->half[!which_half].delay;
 			d->cost = cost;
 			d->best_chan = c;
+			d->score = score;
 			gheap_restore_heap_after_item_increase(&gheap_ctx,
 							       heap, heapsize,
 							       d->heapptr - heap);
