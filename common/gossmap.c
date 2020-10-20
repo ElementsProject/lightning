@@ -602,8 +602,12 @@ static bool map_catchup(struct gossmap *map)
 		type = map_be16(map, off);
 		if (type == WIRE_CHANNEL_ANNOUNCEMENT)
 			add_channel(map, off);
+		else if (type == WIRE_GOSSIP_STORE_PRIVATE_CHANNEL)
+			add_channel(map, off + 2 + 8 + 2);
 		else if (type == WIRE_CHANNEL_UPDATE)
 			update_channel(map, off);
+		else if (type == WIRE_GOSSIP_STORE_PRIVATE_UPDATE)
+			update_channel(map, off + 2 + 2);
 		else if (type == WIRE_GOSSIP_STORE_DELETE_CHAN)
 			remove_channel_by_deletemsg(map, off);
 		else if (type == WIRE_NODE_ANNOUNCEMENT)

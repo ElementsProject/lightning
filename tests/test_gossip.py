@@ -1777,7 +1777,6 @@ def test_gossip_store_upgrade_v7_v8(node_factory):
          'features': '80000000000000000000000000'}]
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(not DEVELOPER, "devtools are for devs anyway")
 def test_routetool(node_factory):
     """Test that route tool can see unpublished channels"""
