@@ -197,7 +197,7 @@ static void negotiation_failed(struct state *state, bool am_opener,
 }
 
 /* We always set channel_reserve_satoshis to 1%, rounded down. */
-static void set_reserve(struct state *state)
+static void set_reserve(struct state *state, const struct amount_sat dust_limit)
 {
 	state->localconf.channel_reserve = amount_sat_div(state->funding, 100);
 
@@ -206,12 +206,12 @@ static void set_reserve(struct state *state)
 	 * The sending node:
 	 *...
 	 * - MUST set `channel_reserve_satoshis` greater than or equal to
-         *   `dust_limit_satoshis`.
+         *   `dust_limit_satoshis` from the `open_channel` message.
 	 */
-	if (amount_sat_greater(state->localconf.dust_limit,
+	if (amount_sat_greater(dust_limit,
 			       state->localconf.channel_reserve))
 		state->localconf.channel_reserve
-			= state->localconf.dust_limit;
+			= dust_limit;
 }
 
 /* BOLT #2:
@@ -338,7 +338,7 @@ static bool setup_channel_funder(struct state *state)
 {
 	/*~ For symmetry, we calculate our own reserve even though lightningd
 	 * could do it for the we-are-funding case. */
-	set_reserve(state);
+	set_reserve(state, state->localconf.dust_limit);
 
 	/*~ Grab a random ID until the funding tx is created (we can't do that
 	 * until we know their funding_pubkey) */
@@ -891,7 +891,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	}
 
 	/* This reserves 1% of the channel (rounded up) */
-	set_reserve(state);
+	set_reserve(state, state->remoteconf.dust_limit);
 
 	/* BOLT #2:
 	 *
