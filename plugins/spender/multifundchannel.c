@@ -16,200 +16,16 @@
 #include <common/json_tok.h>
 #include <common/jsonrpc_errors.h>
 #include <common/node_id.h>
+#include <common/psbt_open.h>
 #include <common/pseudorand.h>
+#include <common/tx_roles.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <plugins/spender/multifundchannel.h>
+#include <plugins/spender/openchannel.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-
-/* Current state of the funding process.  */
-enum multifundchannel_state {
-	/* We have not yet performed `fundchannel_start`.  */
-	MULTIFUNDCHANNEL_START_NOT_YET = 0,
-	/* The `connect` command failed.  `*/
-	MULTIFUNDCHANNEL_CONNECT_FAILED,
-	/* The `fundchannel_start` command succeeded.  */
-	MULTIFUNDCHANNEL_STARTED,
-	/* The `fundchannel_start` command failed.  */
-	MULTIFUNDCHANNEL_START_FAILED,
-	/* The `fundchannel_complete` command failed.  */
-	MULTIFUNDCHANNEL_COMPLETE_FAILED,
-	/* The transaction might now be broadcasted.  */
-	MULTIFUNDCHANNEL_DONE
-};
-
-/* The object for a single destination.  */
-struct multifundchannel_destination {
-	/* The overall multifundchannel command object.  */
-	struct multifundchannel_command *mfc;
-
-	/* The overall multifundchannel_command contains an
-	array of multifundchannel_destinations.
-	This provides the index within the array.
-
-	This is used in debug printing.
-	*/
-	unsigned int index;
-
-	/* ID for this destination.  */
-	struct node_id id;
-	/* Address hint for this destination, NULL if not
-	specified.
-	*/
-	const char *addrhint;
-	/* The features this destination has.  */
-	const u8 *their_features;
-
-	/* Whether we have `fundchannel_start`, failed `connect` or
-	`fundchannel_complete`, etc.
-	*/
-	enum multifundchannel_state state;
-
-	/* The actual target script and address.  */
-	const u8 *funding_script;
-	const char *funding_addr;
-
-	/* The bitcoin address to close to */
-	const char *close_to_str;
-
-	/* The scriptpubkey we will close to. Only set if
-	 * peer supports opt_upfront_shutdownscript and
-	 * we passsed in a valid close_to_str */
-	const u8 *close_to_script;
-
-	/* The amount to be funded for this destination.
-	If the specified amount is "all" then the `all`
-	flag is set, and the amount is initially 0 until
-	we have figured out how much exactly "all" is,
-	after the dryrun stage.
-	*/
-	bool all;
-	struct amount_sat amount;
-
-	/* The output index for this destination.  */
-	unsigned int outnum;
-
-	/* Whether the channel to this destination will
-	be announced.
-	*/
-	bool announce;
-	/* How much of the initial funding to push to
-	the destination.
-	*/
-	struct amount_msat push_msat;
-
-	/* The actual channel_id.  */
-	const char *channel_id;
-
-	/* Any error messages.  */
-	const char *error;
-	errcode_t code;
-};
-
-/* Stores a destination that was removed due to some failure.  */
-struct multifundchannel_removed {
-	/* The destination we removed.  */
-	struct node_id id;
-	/* The method that failed:
-	connect, fundchannel_start, fundchannel_complete.
-	*/
-	const char *method;
-	/* The error that caused this destination to be removed, in JSON.  */
-	const char *error;
-	errcode_t code;
-};
-
-/* The object for a single multifundchannel command.  */
-struct multifundchannel_command {
-	/* A unique numeric identifier for this particular
-	multifundchannel execution.
-
-	This is used for debug logs; we want to be able to
-	identify *which* multifundchannel is being described
-	in the debug logs, especially if the user runs
-	multiple `multifundchannel` commands in parallel, or
-	in very close sequence, which might confuse us with
-	*which* debug message belongs with *which* command.
-
-	We actually just reuse the id from the cmd.
-	Store it here for easier access.
-	*/
-	u64 id;
-
-	/* The plugin-level command.  */
-	struct command *cmd;
-	/* An array of destinations.  */
-	struct multifundchannel_destination *destinations;
-	/* Number of pending parallel fundchannel_start or
-	fundchannel_complete.
-	*/
-	size_t pending;
-
-	/* The feerate desired by the user.
-	 * If cmtmt_feerate_str is present, will only be used
-	 * for the funding transaction. */
-	const char *feerate_str;
-
-	/* The feerate desired by the user for
-	 * the channel commitment and HTLC txs.
-	 * If not provided, defaults to the feerate_str
-	 * value. */
-	const char *cmtmt_feerate_str;
-
-	/* The minimum number of confirmations for owned
-	UTXOs to be selected.
-	*/
-	u32 minconf;
-	/* The set of utxos to be used.  */
-	const char *utxos_str;
-	/* How long should we keep going if things fail. */
-	size_t minchannels;
-	/* Array of destinations that were removed in a best-effort
-	attempt to fund as many channels as possible.
-	*/
-	struct multifundchannel_removed *removeds;
-
-	/* The PSBT of the funding transaction we are building.
-	Prior to `fundchannel_start` completing for all destinations,
-	this contains an unsigned incomplete transaction that is just a
-	reservation of the inputs.
-	After `fundchannel_start`, this contains an unsigned transaction
-	with complete outputs.
-	After `fundchannel_complete`, this contains a signed, finalized
-	transaction.
-	*/
-	struct wally_psbt *psbt;
-	/* The actual feerate of the PSBT.  */
-	u32 feerate_per_kw;
-	/* The expected weight of the PSBT after adding in all the outputs.
-	 * In weight units (sipa).  */
-	u32 estimated_final_weight;
-	/* Excess satoshi from the PSBT.
-	 * If "all" this is the entire amount; if not "all" this is the
-	 * proposed change amount, which if dusty should be donated to
-	 * the miners.
-	 */
-	struct amount_sat excess_sat;
-
-	/* A convenient change address. NULL at the start, filled in
-	 * if we detect we need it.  */
-	const u8 *change_scriptpubkey;
-	/* Whether we need a change output.  */
-	bool change_needed;
-	/* The change amount.  */
-	struct amount_sat change_amount;
-
-	/* The txid of the final funding transaction.  */
-	struct bitcoin_txid *txid;
-
-	/* The actual tx of the actual final funding transaction
-	that was broadcast.
-	*/
-	const char *final_tx;
-	const char *final_txid;
-};
 
 extern const struct chainparams *chainparams;
 
@@ -367,14 +183,6 @@ mfc_cleanup_complete(struct multifundchannel_cleanup *cleanup)
 static struct command_result *
 mfc_fail(struct multifundchannel_command *, errcode_t code,
 	 const char *fmt, ...);
-/* Use this instead of forward_error.  */
-static struct command_result *
-mfc_forward_error(struct command *cmd,
-		  const char *buf, const jsmntok_t *error,
-		  struct multifundchannel_command *);
-/* Use this instead of command_finished.  */
-static struct command_result *
-mfc_finished(struct multifundchannel_command *, struct json_stream *response);
 /* Use this instead of command_err_raw.  */
 static struct command_result *
 mfc_err_raw(struct multifundchannel_command *, const char *json_string);
@@ -443,7 +251,7 @@ mfc_err_raw_complete(struct mfc_err_raw_object *obj)
 		   "mfc %"PRIu64": cleanup done, failing raw.", obj->mfc->id);
 	return command_err_raw(obj->mfc->cmd, obj->error);
 }
-static struct command_result *
+struct command_result *
 mfc_forward_error(struct command *cmd,
 		  const char *buf, const jsmntok_t *error,
 		  struct multifundchannel_command *mfc)
@@ -461,7 +269,7 @@ struct mfc_finished_object {
 };
 static struct command_result *
 mfc_finished_complete(struct mfc_finished_object *obj);
-static struct command_result *
+struct command_result *
 mfc_finished(struct multifundchannel_command *mfc,
 	     struct json_stream *response)
 {
@@ -569,8 +377,9 @@ param_destinations_array(struct command *cmd, const char *name,
 		dest->amount = dest->all ? AMOUNT_SAT(0) : *amount;
 		dest->announce = *announce;
 		dest->push_msat = *push_msat;
-		dest->channel_id = NULL;
 		dest->error = NULL;
+		dest->psbt = NULL;
+		dest->updated_psbt = NULL;
 
 		/* Only one destination can have "all" indicator.  */
 		if (dest->all) {
@@ -1086,11 +895,15 @@ after_newaddr(struct command *cmd,
 }
 
 static struct command_result *
-perform_fundchannel_start(struct multifundchannel_command *mfc);
+perform_channel_start(struct multifundchannel_command *mfc);
 static struct command_result *
 mfc_psbt_acquired(struct multifundchannel_command *mfc)
 {
-	return perform_fundchannel_start(mfc);
+	/* Add serials to all of our input/outputs, so they're stable
+	 * for the life of the tx */
+	psbt_add_serials(mfc->psbt, TX_INITIATOR);
+
+	return perform_channel_start(mfc);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -1116,17 +929,30 @@ steps if we take too long before running
 static void
 fundchannel_start_dest(struct multifundchannel_destination *dest);
 static struct command_result *
-perform_fundchannel_start(struct multifundchannel_command *mfc)
+perform_channel_start(struct multifundchannel_command *mfc)
 {
 	unsigned int i;
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": fundchannel_start parallel.", mfc->id);
+		   "mfc %"PRIu64": fundchannel_start parallel "
+		   "with PSBT %s",
+		   mfc->id,
+		   type_to_string(tmpctx, struct wally_psbt, mfc->psbt));
 
 	mfc->pending = tal_count(mfc->destinations);
 
-	for (i = 0; i < tal_count(mfc->destinations); ++i)
-		fundchannel_start_dest(&mfc->destinations[i]);
+	/* Since v2 is now available, we branch depending
+	 * on the capability of the peer and our feaures */
+	for (i = 0; i < tal_count(mfc->destinations); ++i) {
+#if EXPERIMENTAL_FEATURES
+		if (feature_negotiated(plugin_feature_set(mfc->cmd->plugin),
+				       mfc->destinations[i].their_features,
+				       OPT_DUAL_FUND)) {
+			openchannel_init_dest(&mfc->destinations[i]);
+		} else
+#endif /* EXPERIMENTAL_FEATURES */
+			fundchannel_start_dest(&mfc->destinations[i]);
+	}
 
 	assert(mfc->pending != 0);
 	return command_still_pending(mfc->cmd);
@@ -1240,6 +1066,7 @@ fundchannel_start_ok(struct command *cmd,
 
 	return fundchannel_start_done(dest);
 }
+
 static struct command_result *
 fundchannel_start_err(struct command *cmd,
 		      const char *buf,
@@ -1546,7 +1373,7 @@ fundchannel_complete_ok(struct command *cmd,
 			   "fundchannel_complete no channel_id: %.*s",
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result));
-	dest->channel_id = json_strdup(mfc, buf, channel_id_tok);
+	json_to_channel_id(buf, channel_id_tok, &dest->channel_id);
 
 	return fundchannel_complete_done(dest);
 }
@@ -1803,7 +1630,8 @@ multifundchannel_finished(struct multifundchannel_command *mfc)
 	for (i = 0; i < tal_count(mfc->destinations); ++i) {
 		json_object_start(out, NULL);
 		json_add_node_id(out, "id", &mfc->destinations[i].id);
-		json_add_string(out, "channel_id", mfc->destinations[i].channel_id);
+		json_add_channel_id(out, "channel_id",
+				    &mfc->destinations[i].channel_id);
 		json_add_num(out, "outnum", mfc->destinations[i].outnum);
 		if (mfc->destinations[i].close_to_script)
 			json_add_hex_talarr(out, "close_to",
@@ -1869,6 +1697,11 @@ static bool dest_failed(struct multifundchannel_destination *dest)
 	case MULTIFUNDCHANNEL_START_FAILED:
 	case MULTIFUNDCHANNEL_COMPLETE_FAILED:
 		return true;
+	case MULTIFUNDCHANNEL_FAILED:
+	case MULTIFUNDCHANNEL_SECURED:
+	case MULTIFUNDCHANNEL_UPDATED:
+	case MULTIFUNDCHANNEL_SIGNED:
+		abort(); // FIXME, for openchannel
 	}
 	abort();
 }
@@ -2060,4 +1893,3 @@ const struct plugin_command multifundchannel_commands[] = {
 };
 const size_t num_multifundchannel_commands =
 	ARRAY_SIZE(multifundchannel_commands);
-
