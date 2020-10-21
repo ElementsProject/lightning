@@ -2134,7 +2134,7 @@ static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 
 		elem = cast_const2(const struct witness_element **,
 				   ws[j++]->witness_element);
-		psbt_input_set_final_witness_stack(peer->psbt, in, elem);
+		psbt_finalize_input(peer->psbt, in, elem);
 	}
 
 	/* Send to the peer controller, who will broadcast the funding_tx

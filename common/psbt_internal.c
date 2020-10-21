@@ -1,12 +1,15 @@
 #include "common/psbt_internal.h"
+#include <bitcoin/script.h>
+#include <ccan/ccan/tal/tal.h>
 #include <common/psbt_open.h>
 #include <wally_psbt.h>
 #include <wire/peer_wire.h>
 
 #if EXPERIMENTAL_FEATURES
-void psbt_input_set_final_witness_stack(const tal_t *ctx,
-					struct wally_psbt_input *in,
-					const struct witness_element **elements)
+static void
+psbt_input_set_final_witness_stack(const tal_t *ctx,
+				   struct wally_psbt_input *in,
+				   const struct witness_element **elements)
 {
 	tal_wally_start();
 	wally_tx_witness_stack_init_alloc(tal_count(elements),
@@ -17,6 +20,34 @@ void psbt_input_set_final_witness_stack(const tal_t *ctx,
 					   elements[i]->witness,
 					   tal_bytelen(elements[i]->witness));
 	tal_wally_end(ctx);
+}
+
+void psbt_finalize_input(const tal_t *ctx,
+			 struct wally_psbt_input *in,
+			 const struct witness_element **elements)
+{
+	psbt_input_set_final_witness_stack(ctx, in, elements);
+
+	/* There's this horrible edgecase where we set the final_witnesses
+	 * directly onto the PSBT, but the input is a P2SH-wrapped input
+	 * (which has redeemscripts that belong in the scriptsig). Because
+	 * of how the internal libwally stuff works calling 'finalize'
+	 * on these just .. ignores it!? Murder. Anyway, here we do a final
+	 * scriptsig check -- if there's a redeemscript field still around we
+	 * just go ahead and mush it into the final_scriptsig field. */
+	if (in->redeem_script) {
+		u8 *redeemscript = tal_dup_arr(NULL, u8,
+					       in->redeem_script,
+					       in->redeem_script_len, 0);
+		in->final_scriptsig =
+			bitcoin_scriptsig_redeem(NULL,
+						 take(redeemscript));
+		in->final_scriptsig_len =
+			tal_bytelen(in->final_scriptsig);
+
+		in->redeem_script = tal_free(in->redeem_script);
+		in->redeem_script_len = 0;
+	}
 }
 
 const struct witness_stack **
