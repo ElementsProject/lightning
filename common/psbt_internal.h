@@ -12,15 +12,17 @@ struct witness_element;
 #endif /* EXPERIMENTAL_FEATURES */
 
 #if EXPERIMENTAL_FEATURES
-/* psbt_input_set_final_witness_stack - Set the witness stack for PSBT input
+/* psbt_finalize_input - Finalize an input with a given witness stack
  *
+ * Sets the given witness elements onto the PSBT. Also finalizes
+ * the redeem_script, if any.
  * @ctx - the context to allocate onto
  * @in - input to set final_witness for
  * @witness_element - elements to add to witness stack
  */
-void psbt_input_set_final_witness_stack(const tal_t *ctx,
-					struct wally_psbt_input *in,
-					const struct witness_element **elements);
+void psbt_finalize_input(const tal_t *ctx,
+			 struct wally_psbt_input *in,
+			 const struct witness_element **elements);
 /* psbt_to_witness_stacks - Take all sigs on a PSBT and copy to a
  * 			    witness_stack
  *
