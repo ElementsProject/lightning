@@ -50,7 +50,7 @@ LIGHTNINGD_SRC_NOHDR :=				\
 LIGHTNINGD_HEADERS :=				\
 	$(LIGHTNINGD_SRC:.c=.h)			\
 	lightningd/channel_state.h		\
-	lightningd/gen_channel_state_names.h
+	lightningd/channel_state_names_gen.h
 
 LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o) $(LIGHTNINGD_SRC_NOHDR:.c=.o)
 $(LIGHTNINGD_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_CONTROL_HEADERS)
@@ -129,9 +129,9 @@ LIGHTNINGD_HEADERS = $(LIGHTNINGD_HEADERS_NOGEN) $(LIGHTNINGD_HEADERS_GEN) $(WAL
 $(LIGHTNINGD_OBJS): $(LIGHTNINGD_HEADERS) $(WALLET_HDRS)
 
 # Only the plugin component needs to depend on this header.
-lightningd/plugin.o: plugins/gen_list_of_builtin_plugins.h
+lightningd/plugin.o: plugins/list_of_builtin_plugins_gen.h
 
-lightningd/gen_channel_state_names.h: lightningd/channel_state.h ccan/ccan/cdump/tools/cdump-enumstr
+lightningd/channel_state_names_gen.h: lightningd/channel_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr lightningd/channel_state.h > $@
 
 lightningd/lightningd: $(LIGHTNINGD_OBJS) $(WALLET_OBJS) $(LIGHTNINGD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(WIRE_ONION_OBJS) $(LIGHTNINGD_CONTROL_OBJS) $(HSMD_CLIENT_OBJS)

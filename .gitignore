@@ -15,7 +15,8 @@ TAGS
 tags
 ccan/tools/configurator/configurator
 ccan/ccan/cdump/tools/cdump-enumstr
-gen_*
+*_gen.c
+*_gen.h
 cli/lightning-cli
 tools/check-bolt
 tools/hsmtool

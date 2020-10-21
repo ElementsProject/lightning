@@ -1,5 +1,5 @@
-#include "gen_test.h"
-#include "gen_print.h"
+#include "test_gen.h"
+#include "print_gen.h"
 
 #include <assert.h>
 #include <stdio.h>

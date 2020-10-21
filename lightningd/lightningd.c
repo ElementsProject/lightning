@@ -66,7 +66,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <gen_header_versions.h>
+#include <header_versions_gen.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>

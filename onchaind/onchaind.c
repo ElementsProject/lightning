@@ -29,7 +29,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <wire/wire_sync.h>
-  #include "gen_onchain_types_names.h"
+  #include "onchain_types_names_gen.h"
 
 /* stdin == requests */
 #define REQ_FD STDIN_FILENO

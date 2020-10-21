@@ -218,7 +218,7 @@ ALL_PROGRAMS :=
 ALL_TEST_PROGRAMS :=
 ALL_FUZZ_TARGETS :=
 ALL_C_SOURCES :=
-ALL_C_HEADERS := gen_header_versions.h gen_version.h
+ALL_C_HEADERS := header_versions_gen.h version_gen.h
 
 CPPFLAGS += -DBINTOPKGLIBEXECDIR="\"$(shell sh tools/rel.sh $(bindir) $(pkglibexecdir))\""
 CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I/usr/local/include $(SQLITE3_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) -DBUILD_ELEMENTS=1
@@ -324,9 +324,11 @@ ifneq ($(FUZZING),0)
 endif
 
 # We make pretty much everything depend on these.
-ALL_GEN_HEADERS := $(filter gen%.h %printgen.h %wiregen.h,$(ALL_C_HEADERS))
-ALL_GEN_SOURCES := $(filter gen%.c %printgen.c %wiregen.c,$(ALL_C_SOURCES))
-ALL_NONGEN_SRCFILES := $(filter-out gen%.h %printgen.h %wiregen.h,$(ALL_C_HEADERS)) $(filter-out gen%.c %printgen.c %wiregen.c,$(ALL_C_SOURCES))
+ALL_GEN_HEADERS := $(filter %gen.h,$(ALL_C_HEADERS))
+ALL_GEN_SOURCES := $(filter %gen.c,$(ALL_C_SOURCES))
+ALL_NONGEN_HEADERS := $(filter-out %gen.h,$(ALL_C_HEADERS))
+ALL_NONGEN_SOURCES := $(filter-out %gen.c,$(ALL_C_SOURCES))
+ALL_NONGEN_SRCFILES := $(ALL_NONGEN_HEADERS) $(ALL_NONGEN_SOURCES)
 
 # Don't delete these intermediaries.
 .PRECIOUS: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
@@ -478,12 +480,12 @@ ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 # Can't add to ALL_OBJS, as that makes a circular dep.
 ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS) Makefile
 
-gen_version.h: FORCE
+version_gen.h: FORCE
 	@(echo "#define VERSION \"$(VERSION)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
 	@if cmp $@.new $@ >/dev/null 2>&1; then rm -f $@.new; else mv $@.new $@; $(ECHO) Version updated; fi
 
 # That forces this rule to be run every time, too.
-gen_header_versions.h: tools/headerversions
+header_versions_gen.h: tools/headerversions
 	@tools/headerversions $@
 
 # All binaries require the external libs, ccan and system library versions.
@@ -535,12 +537,16 @@ maintainer-clean: distclean
 	@echo 'deletes files that may need special tools to rebuild.'
 	$(RM) $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 
-clean:
+# We used to have gen_ files, now we have _gen files.
+obsclean:
+	$(RM) gen_*.h */gen_*.[ch] */*/gen_*.[ch]
+
+clean: obsclean
 	$(RM) $(CCAN_OBJS) $(CDUMP_OBJS) $(ALL_OBJS)
 	$(RM) $(ALL_PROGRAMS)
 	$(RM) $(ALL_TEST_PROGRAMS)
 	$(RM) $(ALL_FUZZ_TARGETS)
-	$(RM) gen_*.h */gen_* ccan/tools/configurator/configurator
+	$(RM) ccan/tools/configurator/configurator
 	$(RM) ccan/ccan/cdump/tools/cdump-enumstr.o
 	find . -name '*gcda' -delete
 	find . -name '*gcno' -delete

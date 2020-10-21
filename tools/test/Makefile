@@ -11,9 +11,9 @@ ifeq ($(HAVE_PYTHON3_MAKO),1)
 check-units: check-tools
 
 TOOL_TEST_INCL_SRC := tools/test/enum.c
-TOOL_GEN_SRC := tools/test/gen_test.c tools/test/gen_print.c
+TOOL_GEN_SRC := tools/test/test_gen.c tools/test/print_gen.c
 TOOL_GEN_OBJS := $(TOOL_GEN_SRC:.c=.o)
-TOOL_GEN_HEADER := tools/test/gen_test.h tools/test/gen_print.h
+TOOL_GEN_HEADER := tools/test/test_gen.h tools/test/print_gen.h
 TOOL_TEST_SRC := $(wildcard tools/test/run-*.c)
 TOOL_TEST_OBJS := $(TOOL_TEST_SRC:.c=.o)
 # Don't require update-mocks hack unless developer mode.
@@ -35,22 +35,22 @@ TOOLS_WIRE_DEPS := $(BOLT_DEPS) tools/test/test_cases $(wildcard tools/gen/*_tem
 $(TOOL_TEST_OBJS) $(TOOL_GEN_OBJS): $(TOOL_GEN_HEADER)
 $(TOOL_TEST_PROGRAMS): $(TOOL_TEST_COMMON_OBJS) $(TOOL_GEN_SRC:.c=.o) tools/test/enum.o
 
-tools/test/gen_test.h: $(TOOLS_WIRE_DEPS) tools/test/Makefile
+tools/test/test_gen.h: $(TOOLS_WIRE_DEPS) tools/test/Makefile
 	$(BOLT_GEN) --page header $@ test_type < tools/test/test_cases > $@
 
-.INTERMEDIATE: tools/test/gen_test.c.tmp.c
+.INTERMEDIATE: tools/test/test_gen.c.tmp.c
 # Parallel make sometimes tries to use file before update-mocks, so split.
-tools/test/gen_test.c.tmp.c: $(TOOLS_WIRE_DEPS)
-	$(BOLT_GEN) --page impl tools/test/gen_test.h test_type < tools/test/test_cases > $@
+tools/test/test_gen.c.tmp.c: $(TOOLS_WIRE_DEPS)
+	$(BOLT_GEN) --page impl tools/test/test_gen.h test_type < tools/test/test_cases > $@
 
-tools/test/gen_test.c: tools/test/gen_test.c.tmp.c $(EXTERNAL_HEADERS) tools/test/gen_test.h
+tools/test/test_gen.c: tools/test/test_gen.c.tmp.c $(EXTERNAL_HEADERS) tools/test/test_gen.h
 	@MAKE=$(MAKE) tools/update-mocks.sh "$<" $(SUPPRESS_OUTPUT) && mv "$<" "$@"
 
-tools/test/gen_print.h: wire/onion$(EXP)_wiregen.h $(TOOLS_WIRE_DEPS)
+tools/test/print_gen.h: wire/onion$(EXP)_wiregen.h $(TOOLS_WIRE_DEPS)
 	$(BOLT_GEN) -P --page header $@ test_type < tools/test/test_cases > $@
 
-tools/test/gen_print.c: $(TOOLS_WIRE_DEPS)
-	echo '#include "gen_test.h"' > $@
+tools/test/print_gen.c: $(TOOLS_WIRE_DEPS)
+	echo '#include "test_gen.h"' > $@
 	$(BOLT_GEN) -P --page impl ${@:.c=.h} test_type < tools/test/test_cases >> $@
 
 ALL_TEST_PROGRAMS += $(TOOL_TEST_PROGRAMS)

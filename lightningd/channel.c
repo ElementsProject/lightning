@@ -12,8 +12,8 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>
+#include <lightningd/channel_state_names_gen.h>
 #include <lightningd/connect_control.h>
-#include <lightningd/gen_channel_state_names.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>

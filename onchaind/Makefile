@@ -2,7 +2,7 @@
 
 ONCHAIND_HEADERS :=				\
 	onchaind/onchaind_wiregen.h		\
-	onchaind/gen_onchain_types_names.h	\
+	onchaind/onchain_types_names_gen.h	\
 	onchaind/onchain_types.h		\
 	onchaind/onchaind_wire.h
 
@@ -11,7 +11,7 @@ ONCHAIND_SRC := onchaind/onchaind.c	\
 	onchaind/onchaind_wire.c	\
 	onchaind/onchaind.c
 
-onchaind/gen_onchain_types_names.h: onchaind/onchain_types.h ccan/ccan/cdump/tools/cdump-enumstr
+onchaind/onchain_types_names_gen.h: onchaind/onchain_types.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr onchaind/onchain_types.h > $@
 
 ONCHAIND_OBJS := $(ONCHAIND_SRC:.c=.o)
