@@ -282,22 +282,22 @@ SHA256STAMP = echo '$(1) SHA256STAMP:'`cat $(sort $(filter-out FORCE,$^)) | $(SH
 
 # generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
 %_wiregen.h: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED); then if [ "$$NO_PYTHON" == 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
+	@if $(call SHA256STAMP_CHANGED); then if [ "$$NO_PYTHON" = 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
 		$(call VERBOSE,"wiregen $@",tools/generate-wire.py --page header $($@_args) $@ `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//)); \
 	fi
 
 %_wiregen.c: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED); then if [ "$$NO_PYTHON" == 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
+	@if $(call SHA256STAMP_CHANGED); then if [ "$$NO_PYTHON" = 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
 		$(call VERBOSE,"wiregen $@",tools/generate-wire.py --page impl $($@_args) ${@:.c=.h} `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//)); \
 	fi
 
 %_printgen.h: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED); then if [ "$$NO_PYTHON" == 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
+	@if $(call SHA256STAMP_CHANGED); then if [ "$$NO_PYTHON" = 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
 		$(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page header $($@_args) $@ `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//)); \
 	fi
 
 %_printgen.c: %_wire.csv $(WIRE_GEN_DEPS)
-	@if $(call SHA256STAMP_CHANGED); then  if [ "$$NO_PYTHON" == 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
+	@if $(call SHA256STAMP_CHANGED); then  if [ "$$NO_PYTHON" = 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
 		$(call VERBOSE,"printgen $@",tools/generate-wire.py -s -P --page impl $($@_args) ${@:.c=.h} `basename $< .csv | sed 's/_exp_/_/'` < $< > $@ && $(call SHA256STAMP,//)); \
 	fi
 

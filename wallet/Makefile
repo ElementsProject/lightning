@@ -37,12 +37,12 @@ SQL_FILES := 				\
 	wallet/test/run-wallet.c	\
 
 wallet/statements_gettextgen.po: $(SQL_FILES) FORCE
-	@if $(call SHA256STAMP_CHANGED); then if [ "$$NO_PYTHON" == 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
+	@if $(call SHA256STAMP_CHANGED); then if [ "$$NO_PYTHON" = 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
 		$(call VERBOSE,"xgettext $@",xgettext -kNAMED_SQL -kSQL --add-location --no-wrap --omit-header -o $@ $(SQL_FILES) && $(call SHA256STAMP,# )); \
 	fi
 
 wallet/db_%_sqlgen.c: wallet/statements_gettextgen.po devtools/sql-rewrite.py FORCE
-	@if $(call SHA256STAMP_CHANGED); then if [ "$$NO_PYTHON" == 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
+	@if $(call SHA256STAMP_CHANGED); then if [ "$$NO_PYTHON" = 1 ]; then echo "Error: NO_PYTHON on $@"; exit 1; fi; \
 		$(call VERBOSE,"sql-rewrite $@",devtools/sql-rewrite.py wallet/statements_gettextgen.po $* > $@ && $(call SHA256STAMP,//)); \
 	fi
 
