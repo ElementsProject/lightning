@@ -95,7 +95,7 @@ COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/overflows.h				\
 	common/status_levels.h				\
 	common/tx_roles.h
-COMMON_HEADERS_GEN := common/gen_htlc_state_names.h common/status_wiregen.h common/peer_status_wiregen.h
+COMMON_HEADERS_GEN := common/htlc_state_names_gen.h common/status_wiregen.h common/peer_status_wiregen.h
 
 COMMON_HEADERS := $(COMMON_HEADERS_GEN) $(COMMON_HEADERS_NOGEN)
 COMMON_SRC := $(COMMON_SRC_NOGEN) $(COMMON_SRC_GEN)
@@ -106,12 +106,12 @@ COMMON_OBJS := $(COMMON_SRC:.c=.o)
 $(COMMON_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(EXTERNAL_HEADERS) $(COMMON_HEADERS_GEN)
 
 # Only common/version.c can include this header.
-common/version.o: gen_version.h
+common/version.o: version_gen.h
 
 ALL_C_HEADERS += $(COMMON_HEADERS)
 ALL_C_SOURCES += $(COMMON_SRC)
 
-common/gen_htlc_state_names.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
+common/htlc_state_names_gen.h: common/htlc_state.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr common/htlc_state.h > $@
 
 common/gossip_store.o: gossipd/gossip_store_wiregen.h

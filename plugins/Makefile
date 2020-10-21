@@ -118,6 +118,6 @@ plugins/spenderp: bitcoin/chainparams.o $(PLUGIN_SPENDER_OBJS) $(PLUGIN_LIB_OBJS
 $(PLUGIN_ALL_OBJS): $(PLUGIN_LIB_HEADER)
 
 # Generated from PLUGINS definition in plugins/Makefile
-ALL_C_HEADERS += plugins/gen_list_of_builtin_plugins.h
-plugins/gen_list_of_builtin_plugins.h: plugins/Makefile Makefile
+ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h
+plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile
 	@$(call VERBOSE,GEN $@,echo "static const char *list_of_builtin_plugins[] = { $(foreach d,$(notdir $(PLUGINS)),\"$d\",) NULL };" > $@)

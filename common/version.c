@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 /* Only common/version.c can safely include this.  */
-# include "gen_version.h"
+# include "version_gen.h"
 
 const char *version(void)
 {

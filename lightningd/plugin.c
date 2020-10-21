@@ -18,7 +18,7 @@
 #include <sys/types.h>
 
 /* Only this file can include this generated header! */
-# include <plugins/gen_list_of_builtin_plugins.h>
+# include <plugins/list_of_builtin_plugins_gen.h>
 
 /* How many seconds may the plugin take to reply to the `getmanifest`
  * call? This is the maximum delay to `lightningd --help` and until

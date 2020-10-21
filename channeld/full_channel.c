@@ -26,7 +26,7 @@
 #include <stdio.h>
 #include <string.h>
   /* Needs to be at end, since it doesn't include its own hdrs */
-  #include "gen_full_channel_error_names.h"
+  #include "full_channel_error_names_gen.h"
 
 #if DEVELOPER
 static void memleak_help_htlcmap(struct htable *memtable,
