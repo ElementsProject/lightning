@@ -13,4 +13,8 @@ openchannel_init_dest(struct multifundchannel_destination *dest);
 
 void openchannel_init(struct plugin *p, const char *b,
 		      const jsmntok_t *t);
+
+struct command_result *
+perform_openchannel_update(struct multifundchannel_command *mfc);
+
 #endif /* LIGHTNING_PLUGINS_SPENDER_OPENCHANNEL_H */

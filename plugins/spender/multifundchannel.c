@@ -1192,9 +1192,6 @@ of its arguments, so we shuffle the outputs.
 */
 
 static struct command_result *
-perform_fundchannel_complete(struct multifundchannel_command *mfc);
-
-static struct command_result *
 perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 {
 	struct multifundchannel_destination **deck;
@@ -1305,7 +1302,7 @@ the transaction.
 static void
 fundchannel_complete_dest(struct multifundchannel_destination *dest);
 
-static struct command_result *
+struct command_result *
 perform_fundchannel_complete(struct multifundchannel_command *mfc)
 {
 	unsigned int i;
