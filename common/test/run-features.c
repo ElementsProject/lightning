@@ -179,6 +179,39 @@ static void test_feature_set_or(void)
 	}
 }
 
+static void test_feature_trim(void)
+{
+	struct feature_set *f;
+	for (size_t i = 0; i < ARRAY_SIZE(f->bits); i++) {
+		f = talz(tmpctx, struct feature_set);
+
+		f->bits[i] = tal_arr(f, u8, 0);
+		set_feature_bit(&f->bits[i], 255);
+		assert(tal_bytelen(f->bits[i]) == 32);
+		clear_feature_bit(f->bits[i], 255);
+		trim_features(&f->bits[i]);
+		assert(tal_bytelen(f->bits[i]) == 0);
+
+		set_feature_bit(&f->bits[i], 7);
+		assert(tal_bytelen(f->bits[i]) == 1);
+		set_feature_bit(&f->bits[i], 255);
+		assert(tal_bytelen(f->bits[i]) == 32);
+		clear_feature_bit(f->bits[i], 255);
+		trim_features(&f->bits[i]);
+		assert(tal_bytelen(f->bits[i]) == 1);
+		clear_feature_bit(f->bits[i], 7);
+		trim_features(&f->bits[i]);
+		assert(tal_bytelen(f->bits[i]) == 0);
+
+		set_feature_bit(&f->bits[i], 8);
+		set_feature_bit(&f->bits[i], 10);
+		assert(tal_bytelen(f->bits[i]) == 2);
+		clear_feature_bit(f->bits[i], 10);
+		trim_features(&f->bits[i]);
+		assert(tal_bytelen(f->bits[i]) == 2);
+	}
+}
+
 int main(void)
 {
 	u8 *bits;
@@ -265,6 +298,7 @@ int main(void)
 
 	test_featurebits_or();
 	test_feature_set_or();
+	test_feature_trim();
 
 	wally_cleanup(0);
 	tal_free(tmpctx);
