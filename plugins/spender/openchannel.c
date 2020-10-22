@@ -926,9 +926,9 @@ after_openchannel_init(struct multifundchannel_command *mfc)
 		dest = &mfc->destinations[i];
 
 		assert(dest->state == MULTIFUNDCHANNEL_STARTED
-		    || dest->state == MULTIFUNDCHANNEL_START_FAILED);
+		    || dest->state == MULTIFUNDCHANNEL_FAILED);
 
-		if (dest->state != MULTIFUNDCHANNEL_START_FAILED)
+		if (dest->state != MULTIFUNDCHANNEL_FAILED)
 			continue;
 
 		/* One of them failed, oh no. */

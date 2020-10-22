@@ -544,6 +544,7 @@ connect_ok(struct command *cmd,
 			   json_tok_full_len(features_tok),
 			   json_tok_full(buf, features_tok));
 
+	dest->state = MULTIFUNDCHANNEL_CONNECTED;
 	return connect_done(dest);
 }
 static struct command_result *
@@ -613,10 +614,10 @@ after_multiconnect(struct multifundchannel_command *mfc)
 
 		dest = &mfc->destinations[i];
 
-		assert(dest->state == MULTIFUNDCHANNEL_START_NOT_YET
-		    || dest->state == MULTIFUNDCHANNEL_CONNECT_FAILED);
+		assert(dest->state == MULTIFUNDCHANNEL_CONNECTED
+		    || dest->state == MULTIFUNDCHANNEL_FAILED);
 
-		if (dest->state != MULTIFUNDCHANNEL_CONNECT_FAILED)
+		if (dest->state != MULTIFUNDCHANNEL_FAILED)
 			continue;
 
 		/* One of them failed, oh no. */
@@ -1162,9 +1163,9 @@ after_fundchannel_start(struct multifundchannel_command *mfc)
 		dest = &mfc->destinations[i];
 
 		assert(dest->state == MULTIFUNDCHANNEL_STARTED
-		    || dest->state == MULTIFUNDCHANNEL_START_FAILED);
+		    || dest->state == MULTIFUNDCHANNEL_FAILED);
 
-		if (dest->state != MULTIFUNDCHANNEL_START_FAILED)
+		if (dest->state != MULTIFUNDCHANNEL_FAILED)
 			continue;
 
 		/* One of them failed, oh no.  */
@@ -1384,6 +1385,7 @@ fundchannel_complete_ok(struct command *cmd,
 			   json_tok_full(buf, result));
 	json_to_channel_id(buf, channel_id_tok, &dest->channel_id);
 
+	dest->state = MULTIFUNDCHANNEL_COMPLETED;
 	return fundchannel_complete_done(dest);
 }
 static struct command_result *
@@ -1454,10 +1456,10 @@ after_fundchannel_complete(struct multifundchannel_command *mfc)
 
 		dest = &mfc->destinations[i];
 
-		assert(dest->state == MULTIFUNDCHANNEL_STARTED
-		    || dest->state == MULTIFUNDCHANNEL_COMPLETE_FAILED);
+		assert(dest->state == MULTIFUNDCHANNEL_COMPLETED
+		    || dest->state == MULTIFUNDCHANNEL_FAILED);
 
-		if (dest->state != MULTIFUNDCHANNEL_COMPLETE_FAILED)
+		if (dest->state != MULTIFUNDCHANNEL_FAILED)
 			continue;
 
 		/* One of them failed, oh no.  */
@@ -1694,23 +1696,7 @@ redo_multifundchannel(struct multifundchannel_command *mfc,
 /* Return true if this destination failed, false otherwise.  */
 static bool dest_failed(struct multifundchannel_destination *dest)
 {
-	switch (dest->state) {
-	case MULTIFUNDCHANNEL_START_NOT_YET:
-	case MULTIFUNDCHANNEL_STARTED:
-	case MULTIFUNDCHANNEL_DONE:
-		return false;
-
-	case MULTIFUNDCHANNEL_CONNECT_FAILED:
-	case MULTIFUNDCHANNEL_START_FAILED:
-	case MULTIFUNDCHANNEL_COMPLETE_FAILED:
-		return true;
-	case MULTIFUNDCHANNEL_FAILED:
-	case MULTIFUNDCHANNEL_SECURED:
-	case MULTIFUNDCHANNEL_UPDATED:
-	case MULTIFUNDCHANNEL_SIGNED:
-		abort(); // FIXME, for openchannel
-	}
-	abort();
+	return dest->state == MULTIFUNDCHANNEL_FAILED;
 }
 
 void fail_destination(struct multifundchannel_destination *dest,
