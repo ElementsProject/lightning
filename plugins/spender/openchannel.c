@@ -2,6 +2,7 @@
 #include <bitcoin/psbt.h>
 #include <ccan/ccan/array_size/array_size.h>
 #include <ccan/ccan/cast/cast.h>
+#include <ccan/ccan/mem/mem.h>
 #include <ccan/ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <common/psbt_open.h>
@@ -677,9 +678,53 @@ static void json_peer_sigs(struct command *cmd,
  *~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*
  */
 
-/* We call it circularly, til finished */
 static struct command_result *
-perform_openchannel_update(struct multifundchannel_command *mfc);
+funding_transaction_established(struct multifundchannel_command *mfc)
+{
+	/* Elements requires a fee output.  */
+	/* FIXME: v2 on liquid */
+	psbt_elements_normalize_fees(mfc->psbt);
+
+	/* Generate the TXID.  */
+	mfc->txid = tal(mfc, struct bitcoin_txid);
+	psbt_txid(NULL, mfc->psbt, mfc->txid, NULL);
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": funding tx %s",
+		   mfc->id,
+		   type_to_string(tmpctx, struct bitcoin_txid,
+				  mfc->txid));
+
+	/* If all we've got is v2 destinations, we're just waiting
+	 * for all of our peers to send us their sigs.
+	 * That callback triggers separately, so we just return
+	 * a 'still pending' here */
+	if (dest_count(mfc, FUND_CHANNEL) == 0)
+		return command_still_pending(mfc->cmd);
+
+	/* For any v1 destination, we need to update the destination
+	 * outnum with the correct outnum on the now-known
+	 * funding transaction */
+	for (size_t i = 0; i < tal_count(mfc->destinations); i++) {
+		struct multifundchannel_destination *dest;
+		if (mfc->destinations[i].protocol == OPEN_CHANNEL)
+			continue;
+
+		dest = &mfc->destinations[i];
+		dest->outnum = mfc->psbt->num_outputs;
+		for (size_t j = 0; j < mfc->psbt->num_outputs; j++) {
+			if (memeq(dest->funding_script,
+				  tal_bytelen(dest->funding_script),
+				  mfc->psbt->tx->outputs[j].script,
+				  mfc->psbt->tx->outputs[j].script_len))
+				dest->outnum = j;
+		}
+		if (dest->outnum == mfc->psbt->num_outputs)
+			abort();
+		assert(dest->outnum < mfc->psbt->num_outputs);
+	}
+
+	return perform_fundchannel_complete(mfc);
+}
 
 static struct command_result *
 openchannel_update_returned(struct multifundchannel_destination *dest)
@@ -830,7 +875,7 @@ openchannel_update_dest(struct multifundchannel_destination *dest)
 	send_outreq(cmd->plugin, req);
 }
 
-static struct command_result *
+struct command_result *
 perform_openchannel_update(struct multifundchannel_command *mfc)
 {
 	size_t i, ready_count = 0;
@@ -848,8 +893,6 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 			return redo_multifundchannel(mfc,
 						     "openchannel_update");
 
-		/* If any *one* is secured or signed, they should all
-		 * be done.  */
 		if (dest->state == MULTIFUNDCHANNEL_SECURED ||
 			dest->state == MULTIFUNDCHANNEL_SIGNED) {
 			ready_count++;
@@ -860,15 +903,18 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 			dest->state == MULTIFUNDCHANNEL_STARTED);
 	}
 
-	// FIXME: how many is the total count here?
-	if (ready_count == tal_count(mfc->destinations)) {
-		return command_still_pending(mfc->cmd);
-	}
+	/* Check if we can stop doing this and move to the next
+	 * phase */
+	if (ready_count == dest_count(mfc, OPEN_CHANNEL))
+		return funding_transaction_established(mfc);
 
 	/* Then, we update the parent with every node's result */
 	for (i = 0; i < tal_count(mfc->destinations); i++) {
 		struct multifundchannel_destination *dest;
 		dest = &mfc->destinations[i];
+
+		if (dest->protocol == FUND_CHANNEL)
+			continue;
 
 		if (!update_parent_psbt(mfc, dest, dest->psbt,
 					dest->updated_psbt,
@@ -891,6 +937,10 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 	for (i = 0; i < tal_count(mfc->destinations); i++) {
 		struct multifundchannel_destination *dest;
 		dest = &mfc->destinations[i];
+
+		/* We don't *have* psbts for v1 destinations */
+		if (dest->protocol == FUND_CHANNEL)
+			continue;
 
 		if (!update_node_psbt(mfc, mfc->psbt, &dest->psbt)) {
 			fail_destination(dest, "Unable to node PSBT"
