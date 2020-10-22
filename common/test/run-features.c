@@ -179,6 +179,38 @@ static void test_feature_set_or(void)
 	}
 }
 
+static void test_feature_set_sub(void)
+{
+	struct feature_set *f1, *f2, *control;
+	for (size_t i = 0; i < ARRAY_SIZE(f1->bits); i++) {
+		f1 = talz(tmpctx, struct feature_set);
+		f2 = talz(tmpctx, struct feature_set);
+		control = talz(tmpctx, struct feature_set);
+
+		f1->bits[i] = tal_arr(f1, u8, 0);
+		f2->bits[i] = tal_arr(f2, u8, 0);
+		control->bits[i] = tal_arr(control, u8, 0);
+
+		/* sub with nothing is a nop */
+		set_feature_bit(&f1->bits[i], 0);
+		set_feature_bit(&control->bits[i], 0);
+		assert(feature_set_eq(f1, control));
+		assert(feature_set_sub(f1, f2));
+
+		/* can't sub feature bit that's not set */
+		set_feature_bit(&f2->bits[i], 2);
+		assert(!feature_set_sub(f1, f2));
+		assert(feature_set_eq(f1, control));
+		assert(!feature_set_sub(f2, f1));
+
+		/* sub does the right thing */
+		set_feature_bit(&f1->bits[i], 2);
+		assert(feature_set_sub(f1, f2));
+		assert(feature_set_eq(f1, control));
+		assert(!feature_set_sub(f1, f2));
+	}
+}
+
 static void test_feature_trim(void)
 {
 	struct feature_set *f;
@@ -299,6 +331,7 @@ int main(void)
 	test_featurebits_or();
 	test_feature_set_or();
 	test_feature_trim();
+	test_feature_set_sub();
 
 	wally_cleanup(0);
 	tal_free(tmpctx);
