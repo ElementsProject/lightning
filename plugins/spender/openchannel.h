@@ -8,6 +8,10 @@ struct wally_psbt;
 extern const struct plugin_notification openchannel_notifs[];
 extern const size_t num_openchannel_notifs;
 
+/* register_mfc - Register to listen for incoming
+ * 		  peer signature notifications */
+void register_mfc(struct multifundchannel_command *mfc);
+
 struct command_result *
 openchannel_init_dest(struct multifundchannel_destination *dest);
 
