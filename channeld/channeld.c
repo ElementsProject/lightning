@@ -47,9 +47,9 @@
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/ping.h>
+#include <common/private_channel_announcement.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
-#include <common/private_channel_announcement.h>
 #include <common/read_peer_msg.h>
 #include <common/sphinx.h>
 #include <common/status.h>
@@ -60,8 +60,8 @@
 #include <common/wire_error.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <gossipd/gossipd_peerd_wiregen.h>
 #include <gossipd/gossip_store_wiregen.h>
+#include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <secp256k1.h>

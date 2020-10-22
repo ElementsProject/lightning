@@ -380,6 +380,11 @@ check-hdr-include-order/%: %
 check-makefile:
 	@if [ x"$(CCANDIR)/config.h `find $(CCANDIR)/ccan -name '*.h' | grep -v /test/ | $(SORT) | tr '\n' ' '`" != x"$(CCAN_HEADERS) " ]; then echo CCAN_HEADERS incorrect; exit 1; fi
 
+# We exclude test files, which need to do weird include tricks!
+SRC_TO_CHECK := $(filter-out $(ALL_TEST_PROGRAMS:=.c), $(ALL_NONGEN_SOURCES))
+check-src-includes: $(SRC_TO_CHECK:%=check-src-include-order/%)
+check-hdr-includes: $(ALL_NONGEN_HEADERS:%=check-hdr-include-order/%)
+
 # Experimental quotes quote the exact version.
 ifeq ($(EXPERIMENTAL_FEATURES),1)
 CHECK_BOLT_PREFIX=--prefix="BOLT-$(BOLTVERSION)"
@@ -425,7 +430,7 @@ check-python: check-pyln-client check-pyln-testing
 
 	PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
 
-check-includes:
+check-includes: check-src-includes check-hdr-includes
 	@tools/check-includes.sh
 
 # cppcheck gets confused by list_for_each(head, i, list): thinks i is uninit.

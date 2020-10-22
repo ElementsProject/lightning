@@ -6,11 +6,11 @@
 #include <stdio.h>
 #include <unistd.h>
 #if EXPERIMENTAL_FEATURES
-#include <wire/onion_exp_printgen.h>
-#include <wire/peer_exp_printgen.h>
+  #include <wire/onion_exp_printgen.h>
+  #include <wire/peer_exp_printgen.h>
 #else
-#include <wire/onion_printgen.h>
-#include <wire/peer_printgen.h>
+  #include <wire/onion_printgen.h>
+  #include <wire/peer_printgen.h>
 #endif
 
 int main(int argc, char *argv[])

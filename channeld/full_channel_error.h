@@ -1,6 +1,7 @@
 /* Error enums separated out for easy autogen of names*/
 #ifndef LIGHTNING_CHANNELD_FULL_CHANNEL_ERROR_H
 #define LIGHTNING_CHANNELD_FULL_CHANNEL_ERROR_H
+#include "config.h"
 
 enum channel_add_err {
 	/* All OK! */

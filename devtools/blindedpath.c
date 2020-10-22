@@ -15,8 +15,8 @@
 #include <common/version.h>
 #include <secp256k1.h>
 #include <secp256k1_ecdh.h>
-#include <sodium/crypto_auth_hmacsha256.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
+#include <sodium/crypto_auth_hmacsha256.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>

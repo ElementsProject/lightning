@@ -19,8 +19,8 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/notification.h>
-#include <lightningd/opening_control.h>
 #include <lightningd/opening_common.h>
+#include <lightningd/opening_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wire/wire_sync.h>
