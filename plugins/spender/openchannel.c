@@ -13,6 +13,7 @@
 
 static struct list_head mfc_commands;
 
+/* unused for now, will return soon!
 static void
 destroy_mfc(struct multifundchannel_command *mfc)
 {
@@ -26,6 +27,7 @@ static void register_mfc(struct multifundchannel_command *mfc)
 	list_add_tail(&mfc_commands, &mfc->list);
 	tal_add_destructor(mfc, &destroy_mfc);
 }
+*/
 
 static struct multifundchannel_destination *
 find_dest_by_channel_id(struct channel_id *cid)
@@ -909,59 +911,13 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 }
 
 static struct command_result *
-after_openchannel_init(struct multifundchannel_command *mfc)
-{
-	unsigned int i;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": parallel openchannel_init done.",
-		   mfc->id);
-
-	/* Check if any openchannel_init failed.  */
-	for (i = 0; i < tal_count(mfc->destinations); ++i) {
-		struct multifundchannel_destination *dest;
-
-		dest = &mfc->destinations[i];
-
-		assert(dest->state == MULTIFUNDCHANNEL_STARTED
-		    || dest->state == MULTIFUNDCHANNEL_FAILED);
-
-		if (dest->state != MULTIFUNDCHANNEL_FAILED)
-			continue;
-
-		/* One of them failed, oh no. */
-		return redo_multifundchannel(mfc, "openchannel_init");
-	}
-
-	/* We need to add the change output here, for now. Will
-	 * remove when fundchannel flow is merged */
-	if (mfc->change_needed) {
-		struct wally_psbt_output *out;
-		u16 serial_id;
-
-		out = psbt_append_output(mfc->psbt,
-					 mfc->change_scriptpubkey,
-					 mfc->change_amount);
-
-		serial_id = psbt_new_output_serial(mfc->psbt, TX_INITIATOR);
-		psbt_output_set_serial_id(mfc->psbt, out, serial_id);
-	}
-
-	/* Now we stash the 'mfc' command, so when/if
-	 * signature notifications start coming in, we'll catch them. */
-	register_mfc(mfc);
-
-	return perform_openchannel_update(mfc);
-}
-
-static struct command_result *
 openchannel_init_done(struct multifundchannel_destination *dest)
 {
 	struct multifundchannel_command *mfc = dest->mfc;
 
 	--mfc->pending;
 	if (mfc->pending == 0)
-		return after_openchannel_init(mfc);
+		return after_channel_start(mfc);
 	else
 		return command_still_pending(mfc->cmd);
 }
