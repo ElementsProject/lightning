@@ -20,21 +20,28 @@ enum channel_protocol {
 enum multifundchannel_state {
 	/* We have not yet performed `fundchannel_start`.  */
 	MULTIFUNDCHANNEL_START_NOT_YET = 0,
-	/* The `connect` command failed.  `*/
-	MULTIFUNDCHANNEL_CONNECT_FAILED,
-	/* The `fundchannel_start` command succeeded.  */
+	/* The `connect` command succeeded.  `*/
+	MULTIFUNDCHANNEL_CONNECTED,
+
+	/* The `fundchannel_start` or `openchannel_init` command
+	 * succeeded.  */
 	MULTIFUNDCHANNEL_STARTED,
-	/* The `fundchannel_start` command failed.  */
-	MULTIFUNDCHANNEL_START_FAILED,
-	/* The `fundchannel_complete` command failed.  */
-	MULTIFUNDCHANNEL_COMPLETE_FAILED,
+
+	/* V1 states */
+	/* The `fundchannel_complete` command succeeded.  */
+	MULTIFUNDCHANNEL_COMPLETED,
+
+	/* V2 states */
+	/* The `openchannel_update` command succeeded.  */
+	MULTIFUNDCHANNEL_UPDATED,
+	/* The commitments for this destinations have been secured */
+	MULTIFUNDCHANNEL_SECURED,
+	/* We've recieved the peer sigs for this destination */
+	MULTIFUNDCHANNEL_SIGNED,
+
 	/* The transaction might now be broadcasted.  */
 	MULTIFUNDCHANNEL_DONE,
-
-	/* FIXME: clean up for interleaved handling */
-	MULTIFUNDCHANNEL_UPDATED,
-	MULTIFUNDCHANNEL_SECURED,
-	MULTIFUNDCHANNEL_SIGNED,
+	/* Global fail state. Oops */
 	MULTIFUNDCHANNEL_FAILED,
 };
 
