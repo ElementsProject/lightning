@@ -1,3 +1,6 @@
+https://github.com/ElementsProject/libwally-core/releases/download/release_0.8.0/wallycore-0.8.0-cp36-cp36m-linux_x86_64.whl; 'linux' in sys_platform and python_version == '3.6'
+https://github.com/ElementsProject/libwally-core/releases/download/release_0.8.0/wallycore-0.8.0-cp37-cp37m-linux_x86_64.whl; 'linux' in sys_platform and python_version == '3.7'
+https://github.com/ElementsProject/libwally-core/releases/download/release_0.8.0/wallycore-0.8.0-cp37-cp37m-macosx_10_14_x86_64.whl; sys_platform == 'darwin' and python_version == '3.7'
 Flask==1.1.1
 Sphinx==1.8.4
 base58==1.0.2

@@ -1254,6 +1254,80 @@ def test_funding_external_wallet(node_factory, bitcoind):
     l3.rpc.close(l2.info["id"])
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "requires opt_dual_fund")
+@unittest.skipIf(not DEVELOPER, "requires dev-force-features")
+def test_multifunding_v2_v1_mixed(node_factory, bitcoind):
+    '''
+    Simple test for multifundchannel, using v1 + v2
+    '''
+    accepter_plugin = os.path.join(os.path.dirname(__file__),
+                                   'plugins/df_accepter.py')
+    options = [{'dev-force-features': '+223'},
+               {'plugin': accepter_plugin, 'dev-force-features': '+223'},
+               {'plugin': accepter_plugin, 'dev-force-features': '+223'},
+               {}]
+
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=options)
+
+    l1.fundwallet(2000000)
+    l2.fundwallet(2000000)
+    l3.fundwallet(2000000)
+
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l4.info['id'], l4.port),
+                     "amount": 50000}]
+
+    l1.rpc.multifundchannel(destinations)
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    for node in [l1, l2, l3, l4]:
+        node.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+
+    for ldest in [l2, l3, l4]:
+        inv = ldest.rpc.invoice(5000, 'inv', 'inv')['bolt11']
+        l1.rpc.pay(inv)
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "requires opt_dual_fund")
+@unittest.skipIf(not DEVELOPER, "requires dev-force-features")
+def test_multifunding_v2_exclusive(node_factory, bitcoind):
+    '''
+    Simple test for multifundchannel, using v2
+    '''
+    accepter_plugin = os.path.join(os.path.dirname(__file__),
+                                   'plugins/df_accepter.py')
+    # Two of three will reply with inputs of their own
+    options = [{'dev-force-features': '+223'},
+               {'plugin': accepter_plugin, 'dev-force-features': '+223'},
+               {'plugin': accepter_plugin, 'dev-force-features': '+223'},
+               {'dev-force-features': '+223'}]
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=options)
+
+    l1.fundwallet(2000000)
+    l2.fundwallet(2000000)
+    l3.fundwallet(2000000)
+
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l4.info['id'], l4.port),
+                     "amount": 50000}]
+
+    l1.rpc.multifundchannel(destinations)
+    bitcoind.generate_block(6, wait_for_mempool=1)
+
+    for node in [l1, l2, l3, l4]:
+        node.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+
+    for ldest in [l2, l3, l4]:
+        inv = ldest.rpc.invoice(5000, 'inv', 'inv')['bolt11']
+        l1.rpc.pay(inv)
+
+
 def test_multifunding_simple(node_factory, bitcoind):
     '''
     Simple test for multifundchannel.
