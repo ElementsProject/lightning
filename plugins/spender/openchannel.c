@@ -329,41 +329,9 @@ static bool update_node_psbt(const tal_t *ctx,
 static struct command_result *
 openchannel_finished(struct multifundchannel_command *mfc)
 {
-	struct json_stream *out;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": done.", mfc->id);
-
-	out = jsonrpc_stream_success(mfc->cmd);
-	json_add_string(out, "tx", mfc->final_tx);
-	json_add_string(out, "txid", mfc->final_txid);
-	json_array_start(out, "channel_ids");
-	for (size_t i = 0; i < tal_count(mfc->destinations); i++) {
-		struct multifundchannel_destination *dest =
-			&mfc->destinations[i];
-
-		json_object_start(out, NULL);
-		json_add_node_id(out, "id", &dest->id);
-		json_add_channel_id(out, "channel_id", &dest->channel_id);
-		json_add_num(out, "outnum", dest->outnum);
-		json_object_end(out);
-	}
-	json_array_end(out);
-
-	json_array_start(out, "failed");
-	for (size_t i = 0; i < tal_count(mfc->removeds); i++) {
-		struct multifundchannel_removed *rm =
-			&mfc->removeds[i];
-		json_object_start(out, NULL);
-		json_add_node_id(out, "id", &rm->id);
-		json_add_string(out, "method", rm->method);
-		json_add_jsonstr(out, "error", rm->error);
-		json_object_end(out);
-	}
-	json_array_end(out);
 
 	mfc->psbt = tal_free(mfc->psbt);
-	return mfc_finished(mfc, out);
+	return multifundchannel_finished(mfc);
 }
 
 static struct command_result *

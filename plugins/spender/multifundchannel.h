@@ -263,6 +263,9 @@ struct command_result *
 perform_signpsbt(struct multifundchannel_command *mfc);
 
 struct command_result *
+multifundchannel_finished(struct multifundchannel_command *mfc);
+
+struct command_result *
 redo_multifundchannel(struct multifundchannel_command *mfc,
 		      const char *failing_method);
 #endif /* LIGHTNING_PLUGINS_SPENDER_MULTIFUNDCHANNEL_H */
