@@ -650,6 +650,10 @@ fetch_psbt_changes(struct state *state, const struct wally_psbt *psbt)
 		status_failed(STATUS_FAIL_MASTER_IO, "%s", err);
 	else if (fromwire_dual_open_psbt_updated(state, msg, &updated_psbt)) {
 		return updated_psbt;
+#if DEVELOPER
+	} else if (fromwire_dual_open_dev_memleak(msg)) {
+		handle_dev_memleak(state, msg);
+#endif /* DEVELOPER */
 	} else
 		master_badmsg(fromwire_peektype(msg), msg);
 
@@ -1953,8 +1957,8 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUAL_OPEN_DEV_MEMLEAK:
 #if DEVELOPER
 		handle_dev_memleak(state, msg);
-		return NULL;
 #endif
+		return NULL;
 	case WIRE_DUAL_OPEN_OPENER_INIT:
 		return opener_start(state, msg);
 	/* mostly handled inline */
@@ -1975,8 +1979,8 @@ static u8 *handle_master_in(struct state *state)
 #if DEVELOPER
 	case WIRE_CUSTOMMSG_OUT:
 		dualopend_send_custommsg(state, msg);
-		return NULL;
 #else
+		return NULL;
 	case WIRE_CUSTOMMSG_OUT:
 #endif
 	/* We send these. */
