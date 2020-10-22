@@ -1468,9 +1468,6 @@ fundchannel_complete_done(struct multifundchannel_destination *dest)
 }
 
 static struct command_result *
-perform_signpsbt(struct multifundchannel_command *mfc);
-
-static struct command_result *
 after_fundchannel_complete(struct multifundchannel_command *mfc)
 {
 	unsigned int i;
@@ -1515,14 +1512,17 @@ after_signpsbt(struct command *cmd,
 	       const jsmntok_t *result,
 	       struct multifundchannel_command *mfc);
 
-static struct command_result *
+struct command_result *
 perform_signpsbt(struct multifundchannel_command *mfc)
 {
 	struct out_req *req;
 
+	/* Now we sign our inputs. You do remember which inputs
+	 * are yours, right? */
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64": signpsbt.", mfc->id);
 
+	/* FIXME: indicate our inputs with signonly */
 	req = jsonrpc_request_start(mfc->cmd->plugin, mfc->cmd,
 				    "signpsbt",
 				    &after_signpsbt,
@@ -1910,6 +1910,8 @@ json_multifundchannel(struct command *cmd,
 	mfc->txid = NULL;
 	mfc->final_tx = NULL;
 	mfc->final_txid = NULL;
+
+	mfc->sigs_collected = false;
 
 	return perform_multifundchannel(mfc);
 }

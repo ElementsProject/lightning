@@ -477,7 +477,7 @@ openchannel_signed_dest(struct multifundchannel_destination *dest)
 	send_outreq(cmd->plugin, req);
 }
 
-static struct command_result *
+struct command_result *
 perform_openchannel_signed(struct multifundchannel_command *mfc)
 {
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
@@ -515,46 +515,16 @@ perform_openchannel_signed(struct multifundchannel_command *mfc)
 }
 
 static struct command_result *
-after_psbt_signed(struct command *cmd,
-		  const char *buf,
-		  const jsmntok_t *result,
-		  struct multifundchannel_command *mfc)
-{
-	const jsmntok_t *field;
-	struct wally_psbt *signed_psbt;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": `signpsbt` completed",
-		   mfc->id);
-
-	field = json_get_member(buf, result, "signed_psbt");
-	if (!field)
-		plugin_err(mfc->cmd->plugin,
-			   "`signpsbt` did not return 'signed_psbt'? %.*s",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-	if (!json_to_psbt(tmpctx, buf, field, &signed_psbt))
-		plugin_err(mfc->cmd->plugin,
-			   "`signpsbt` returned invalid 'signed_psbt' %.*s",
-			   json_tok_full_len(field),
-			   json_tok_full(buf, field));
-
-	tal_free(mfc->psbt);
-	mfc->psbt = tal_steal(mfc, signed_psbt);
-
-	return perform_openchannel_signed(mfc);
-}
-
-static struct command_result *
 collect_sigs(struct multifundchannel_command *mfc)
 {
-	/* We need to sign the PSBT, we also need to
-	 * wait for all of the sigs to come in */
-	struct out_req *req;
-	struct bitcoin_txid mfc_txid;
-	psbt_txid(NULL, mfc->psbt, &mfc_txid, NULL);
+	/* There's a very small chance that we'll get a
+	 * race condition between when a signature arrives
+	 * and all of the fundchannel_completes return.
+	 * This flag helps us avoid invoking this twice.*/
+	if (mfc->sigs_collected)
+		return NULL;
 
-
+	mfc->sigs_collected = true;
 	/* But first! we sanity check that everyone's
 	 * expecting the same funding txid */
 	for (size_t i = 0; i < tal_count(mfc->destinations); i++) {
@@ -562,37 +532,42 @@ collect_sigs(struct multifundchannel_command *mfc)
 		struct bitcoin_txid dest_txid;
 		dest = &mfc->destinations[i];
 
-		assert(dest->state == MULTIFUNDCHANNEL_SECURED ||
-			dest->state == MULTIFUNDCHANNEL_SIGNED);
+		if (dest->protocol == FUND_CHANNEL) {
+			/* Since we're here, double check that
+			 * every v1 has their commitment txs */
+			assert(dest->state == MULTIFUNDCHANNEL_COMPLETED);
+			continue;
+		}
+
+		assert(dest->state == MULTIFUNDCHANNEL_SIGNED);
 		psbt_txid(NULL, dest->psbt, &dest_txid, NULL);
 
-		assert(bitcoin_txid_eq(&mfc_txid, &dest_txid));
+		assert(bitcoin_txid_eq(mfc->txid, &dest_txid));
 	}
 
-	/* Now we sign our inputs. You do remember which inputs
-	 * are yours, right? */
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": signpsbt.", mfc->id);
-
-	req = jsonrpc_request_start(mfc->cmd->plugin, mfc->cmd,
-				    "signpsbt",
-				    &after_psbt_signed,
-				    &mfc_forward_error,
-				    mfc);
-	json_add_psbt(req->js, "psbt", mfc->psbt);
-	return send_outreq(mfc->cmd->plugin, req);
+	return perform_signpsbt(mfc);
 }
 
 struct command_result *
 check_sigs_ready(struct multifundchannel_command *mfc)
 {
+	static struct command_result *result;
 	bool ready = true;
-	for (size_t i = 0; i < tal_count(mfc->destinations); i++)
-		ready &= mfc->destinations[i].state ==
-			MULTIFUNDCHANNEL_SIGNED;
 
-	if (ready)
-		collect_sigs(mfc);
+	for (size_t i = 0; i < tal_count(mfc->destinations); i++) {
+		enum multifundchannel_state state =
+			mfc->destinations[i].protocol == OPEN_CHANNEL ?
+				MULTIFUNDCHANNEL_SIGNED :
+				MULTIFUNDCHANNEL_COMPLETED;
+
+			ready &= mfc->destinations[i].state == state;
+	}
+
+	if (ready) {
+		result = collect_sigs(mfc);
+		if (result)
+			return result;
+	}
 
 	return command_still_pending(mfc->cmd);
 }

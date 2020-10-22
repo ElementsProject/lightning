@@ -229,6 +229,9 @@ struct multifundchannel_command {
 
 	/* V2 things */
 	struct list_node list;
+
+	/* V2 channel opens use this flag to gate PSBT signing */
+	bool sigs_collected;
 };
 
 /* Use this instead of forward_error.  */
@@ -255,6 +258,9 @@ after_channel_start(struct multifundchannel_command *mfc);
 
 struct command_result *
 perform_fundchannel_complete(struct multifundchannel_command *mfc);
+
+struct command_result *
+perform_signpsbt(struct multifundchannel_command *mfc);
 
 struct command_result *
 redo_multifundchannel(struct multifundchannel_command *mfc,

@@ -24,4 +24,7 @@ perform_openchannel_update(struct multifundchannel_command *mfc);
 struct command_result *
 check_sigs_ready(struct multifundchannel_command *mfc);
 
+struct command_result *
+perform_openchannel_signed(struct multifundchannel_command *mfc);
+
 #endif /* LIGHTNING_PLUGINS_SPENDER_OPENCHANNEL_H */
