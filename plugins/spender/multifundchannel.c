@@ -39,6 +39,17 @@ static bool has_all(const struct multifundchannel_command *mfc)
 	return false;
 }
 
+size_t dest_count(const struct multifundchannel_command *mfc,
+		  enum channel_protocol protocol)
+{
+	size_t count = 0, i;
+	for (i = 0; i < tal_count(mfc->destinations); i++) {
+		if (mfc->destinations[i].protocol == protocol)
+			count++;
+	}
+	return count;
+}
+
 /*-----------------------------------------------------------------------------
 Command Cleanup
 -----------------------------------------------------------------------------*/
@@ -380,6 +391,7 @@ param_destinations_array(struct command *cmd, const char *name,
 		dest->error = NULL;
 		dest->psbt = NULL;
 		dest->updated_psbt = NULL;
+		dest->protocol = FUND_CHANNEL;
 
 		/* Only one destination can have "all" indicator.  */
 		if (dest->all) {
@@ -946,6 +958,7 @@ perform_channel_start(struct multifundchannel_command *mfc)
 		if (feature_negotiated(plugin_feature_set(mfc->cmd->plugin),
 				       mfc->destinations[i].their_features,
 				       OPT_DUAL_FUND)) {
+			mfc->destinations[i].protocol = OPEN_CHANNEL;
 			openchannel_init_dest(&mfc->destinations[i]);
 		} else
 #endif /* EXPERIMENTAL_FEATURES */
