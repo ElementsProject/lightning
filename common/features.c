@@ -121,6 +121,16 @@ static const struct dependency feature_deps[] = {
 #endif
 };
 
+static void clear_feature_bit(u8 *features, u32 bit)
+{
+	size_t bytenum = bit / 8, bitnum = bit % 8, len = tal_count(features);
+
+	if (bytenum >= len)
+		return;
+
+	features[len - 1 - bytenum] &= ~(1 << bitnum);
+}
+
 static enum feature_copy_style feature_copy_style(u32 f, enum feature_place p)
 {
 	for (size_t i = 0; i < ARRAY_SIZE(feature_styles); i++) {
@@ -202,16 +212,6 @@ static bool test_bit(const u8 *features, size_t byte, unsigned int bit)
 {
 	assert(byte < tal_count(features));
 	return features[tal_count(features) - 1 - byte] & (1 << (bit % 8));
-}
-
-static void clear_feature_bit(u8 *features, u32 bit)
-{
-	size_t bytenum = bit / 8, bitnum = bit % 8, len = tal_count(features);
-
-	if (bytenum >= len)
-		return;
-
-	features[len - 1 - bytenum] &= ~(1 << bitnum);
 }
 
 /* BOLT #7:
