@@ -1128,16 +1128,13 @@ fundchannel_start_err(struct command *cmd,
 }
 
 static struct command_result *
-after_fundchannel_start(struct multifundchannel_command *mfc);
-
-static struct command_result *
 fundchannel_start_done(struct multifundchannel_destination *dest)
 {
 	struct multifundchannel_command *mfc = dest->mfc;
 
 	--mfc->pending;
 	if (mfc->pending == 0)
-		return after_fundchannel_start(mfc);
+		return after_channel_start(mfc);
 	else
 		return command_still_pending(mfc->cmd);
 }
@@ -1145,19 +1142,19 @@ fundchannel_start_done(struct multifundchannel_destination *dest)
 static struct command_result *
 perform_funding_tx_finalize(struct multifundchannel_command *mfc);
 
-/* All fundchannel_start commands have returned with either
-success or failure.
+/* All fundchannel_start/openchannel_init commands have returned
+ * with either success or failure.
 */
-static struct command_result *
-after_fundchannel_start(struct multifundchannel_command *mfc)
+struct command_result *
+after_channel_start(struct multifundchannel_command *mfc)
 {
 	unsigned int i;
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": parallel fundchannel_start done.",
+		   "mfc %"PRIu64": parallel channel starts done.",
 		   mfc->id);
 
-	/* Check if any fundchannel_start failed.  */
+	/* Check if any channel start failed.  */
 	for (i = 0; i < tal_count(mfc->destinations); ++i) {
 		struct multifundchannel_destination *dest;
 
