@@ -110,9 +110,9 @@ def on_tx_sign(openchannel2_sign, plugin, **kwargs):
     # We only sign the ones with our parity of a serial_id
     # FIXME: find the inputs with an odd-serial, these are ours
     # the key for a serial_id ::
-    our_inputs = [1]
+    # our_inputs = [1]
 
-    signed_psbt = plugin.rpc.signpsbt(psbt, signonly=our_inputs)['signed_psbt']
+    signed_psbt = plugin.rpc.signpsbt(psbt)['signed_psbt']
     return {'result': 'continue', 'psbt': signed_psbt}
 
 
