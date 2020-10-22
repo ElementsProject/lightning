@@ -597,6 +597,40 @@ static bool is_segwit_output(struct wally_tx_output *output,
 	return is_p2wsh(wit_prog, NULL) || is_p2wpkh(wit_prog, NULL);
 }
 
+/* Memory leak detection is DEVELOPER-only because we go to great lengths to
+ * record the backtrace when allocations occur: without that, the leak
+ * detection tends to be useless for diagnosing where the leak came from, but
+ * it has significant overhead. */
+#if DEVELOPER
+static void handle_dev_memleak(struct state *state, const u8 *msg)
+{
+	struct htable *memtable;
+	bool found_leak;
+
+	/* Populate a hash table with all our allocations (except msg, which
+	 * is in use right now). */
+	memtable = memleak_find_allocations(tmpctx, msg, msg);
+
+	/* Now delete state and things it has pointers to. */
+	memleak_remove_region(memtable, state, tal_bytelen(state));
+
+	/* If there's anything left, dump it to logs, and return true. */
+	found_leak = dump_memleak(memtable);
+	wire_sync_write(REQ_FD,
+			take(towire_dual_open_dev_memleak_reply(NULL,
+							        found_leak)));
+}
+
+/* We were told to send a custommsg to the peer by `lightningd`. All the
+ * verification is done on the side of `lightningd` so we should be good to
+ * just forward it here. */
+static void dualopend_send_custommsg(struct state *state, const u8 *msg)
+{
+	sync_crypto_write(state->pps, take(msg));
+}
+#endif
+
+
 static struct wally_psbt *
 fetch_psbt_changes(struct state *state, const struct wally_psbt *psbt)
 {
@@ -1868,39 +1902,6 @@ static u8 *opener_start(struct state *state, u8 *msg)
 					    state->upfront_shutdown_script[REMOTE]);
 
 }
-
-/* Memory leak detection is DEVELOPER-only because we go to great lengths to
- * record the backtrace when allocations occur: without that, the leak
- * detection tends to be useless for diagnosing where the leak came from, but
- * it has significant overhead. */
-#if DEVELOPER
-static void handle_dev_memleak(struct state *state, const u8 *msg)
-{
-	struct htable *memtable;
-	bool found_leak;
-
-	/* Populate a hash table with all our allocations (except msg, which
-	 * is in use right now). */
-	memtable = memleak_find_allocations(tmpctx, msg, msg);
-
-	/* Now delete state and things it has pointers to. */
-	memleak_remove_region(memtable, state, tal_bytelen(state));
-
-	/* If there's anything left, dump it to logs, and return true. */
-	found_leak = dump_memleak(memtable);
-	wire_sync_write(REQ_FD,
-			take(towire_dual_open_dev_memleak_reply(NULL,
-							        found_leak)));
-}
-
-/* We were told to send a custommsg to the peer by `lightningd`. All the
- * verification is done on the side of `lightningd` so we should be good to
- * just forward it here. */
-static void dualopend_send_custommsg(struct state *state, const u8 *msg)
-{
-	sync_crypto_write(state->pps, take(msg));
-}
-#endif
 
 /*~ If we see the gossip_fd readable, we read a whole message.  Sure, we might
  * block, but we trust gossipd. */
