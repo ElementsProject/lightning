@@ -205,6 +205,35 @@ bool feature_set_or(struct feature_set *a,
 	return true;
 }
 
+bool feature_set_sub(struct feature_set *a,
+		     const struct feature_set *b TAKES)
+{
+	/* Check first, before we change anything! */
+	for (size_t i = 0; i < ARRAY_SIZE(b->bits); i++) {
+		for (size_t j = 0; j < tal_bytelen(b->bits[i])*8; j++) {
+			if (feature_is_set(b->bits[i], j)
+			    && !feature_offered(a->bits[i], j)) {
+				if (taken(b))
+					tal_free(b);
+				return false;
+			}
+		}
+	}
+
+	for (size_t i = 0; i < ARRAY_SIZE(a->bits); i++) {
+		for (size_t j = 0; j < tal_bytelen(b->bits[i])*8; j++) {
+			if (feature_is_set(b->bits[i], j))
+				clear_feature_bit(a->bits[i], j);
+		}
+		trim_features(&a->bits[i]);
+	}
+
+
+	if (taken(b))
+		tal_free(b);
+	return true;
+}
+
 /* BOLT #1:
  *
  * All data fields are unsigned big-endian unless otherwise specified.

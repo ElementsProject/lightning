@@ -32,6 +32,10 @@ void towire_feature_set(u8 **pptr, const struct feature_set *fset);
 bool feature_set_or(struct feature_set *a,
 		    const struct feature_set *b TAKES);
 
+/* a - b, or returns false if features not already in a */
+bool feature_set_sub(struct feature_set *a,
+		     const struct feature_set *b TAKES);
+
 /* Returns -1 if we're OK with all these offered features, otherwise first
  * unsupported (even) feature. */
 int features_unsupported(const struct feature_set *our_features,
