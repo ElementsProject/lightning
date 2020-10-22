@@ -91,7 +91,10 @@ Here's a list of parts, with notes:
 Debugging
 ---------
 
-You can build c-lightning with DEVELOPER=1 to use dev commands listed in ``cli/lightning-cli help``. ``./configure --enable-developer`` will do that. You can log console messages with log_info() in lightningd and status_debug() in other subdaemons.
+You can build c-lightning with DEVELOPER=1 to use dev commands listed in
+``cli/lightning-cli help``. ``./configure --enable-developer`` will do that.
+You can log console messages with log_info() in lightningd and status_debug()
+in other subdaemons.
 
 You can debug crashing subdaemons with the argument
 `--dev-debugger=channeld`, where `channeld` is the subdaemon name.  It
@@ -155,8 +158,8 @@ Each address generated after `bip32_max_index` is not included as
 lightning funds.
 
 
-Testing
--------
+Build and Development
+---------------------
 Install `valgrind` and the python dependencies for best results:
 
 ```
@@ -168,12 +171,16 @@ pip3 install --user \
          -r contrib/pyln-testing/requirements.txt
 ```
 
-Re-run `configure` for the python dependencies
+Re-run `configure` for the python dependencies and build using `make`.
 
 ```
 ./configure --enable-developer
+make -j$(nproc)
 ```
 
+
+Testing
+-------
 Tests are run with: `make check [flags]` where the pertinent flags are:
 
 ```
@@ -225,6 +232,20 @@ There are three kinds of tests:
 Our Travis CI instance (see `.travis.yml`) runs all these for each
 pull request.
 
+#### Additional Environment Variables
+
+```
+TEST_CHECK_DBSTMTS=[0|1]            - When running blackbox tests, this will
+                                      load a plugin that logs all compiled
+                                      and expanded database statements.
+                                      Note: Only SQLite3.
+TEST_DB_PROVIDER=[sqlite3|postgres] - Selects the database to use when running
+                                      blackbox tests.
+NO_PYTHON=[0|1]                     - Disables the usage of python when using
+                                      `make`. Useful to discover if regeneration
+                                      of e.g. `wallet/db_sqlite3_sqlgen.c` would
+                                      be required to build the source correctly.
+```
 
 Making BOLT Modifications
 -------------------------
