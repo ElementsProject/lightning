@@ -44,16 +44,6 @@ find_dest_by_channel_id(struct channel_id *cid)
 	return NULL;
 }
 
-static struct command_result *
-redo_multiopenchannel(struct multifundchannel_command *mfc,
-		      const char *failing_method)
-{
-	// FIXME
-	plugin_err(mfc->cmd->plugin,
-		   "REDO CALLED AT %s", failing_method);
-	return NULL;
-}
-
 /* There's a few ground rules here about how we store/keep
  * the PSBT input/outputs in such a way that we can Do The
  * Right Thing for each of our peers.
@@ -499,7 +489,7 @@ perform_openchannel_signed(struct multifundchannel_command *mfc)
 		dest = &mfc->destinations[i];
 		if (dest->state != MULTIFUNDCHANNEL_SIGNED) {
 			// FIXME: these channels are all borked.
-			redo_multiopenchannel(mfc, "openchannel_signed");
+			redo_multifundchannel(mfc, "openchannel_signed");
 		}
 	}
 
@@ -853,7 +843,7 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 		dest = &mfc->destinations[i];
 
 		if (dest->state == MULTIFUNDCHANNEL_FAILED)
-			return redo_multiopenchannel(mfc,
+			return redo_multifundchannel(mfc,
 						     "openchannel_update");
 
 		/* If any *one* is secured or signed, they should all
@@ -880,9 +870,12 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 
 		if (!update_parent_psbt(mfc, dest, dest->psbt,
 					dest->updated_psbt,
-					&mfc->psbt))
-			return redo_multiopenchannel(mfc,
+					&mfc->psbt)) {
+			fail_destination(dest, "Unable to update parent "
+					 "with node's PSBT");
+			return redo_multifundchannel(mfc,
 						     "openchannel_init_parent");
+		}
 		/* Get everything sorted correctly */
 		psbt_sort_by_serial_id(mfc->psbt);
 
@@ -897,14 +890,19 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 		struct multifundchannel_destination *dest;
 		dest = &mfc->destinations[i];
 
-		if (!update_node_psbt(mfc, mfc->psbt, &dest->psbt))
-			return redo_multiopenchannel(mfc,
+		if (!update_node_psbt(mfc, mfc->psbt, &dest->psbt)) {
+			fail_destination(dest, "Unable to node PSBT"
+					 " with parent PSBT");
+			return redo_multifundchannel(mfc,
 						     "openchannel_init_node");
+		}
 	}
 
-	mfc->pending = tal_count(mfc->destinations);
-	for (i = 0; i < tal_count(mfc->destinations); i++)
-		openchannel_update_dest(&mfc->destinations[i]);
+	mfc->pending = dest_count(mfc, OPEN_CHANNEL);
+	for (i = 0; i < tal_count(mfc->destinations); i++) {
+		if (mfc->destinations[i].protocol == OPEN_CHANNEL)
+			openchannel_update_dest(&mfc->destinations[i]);
+	}
 
 	assert(mfc->pending != 0);
 	return command_still_pending(mfc->cmd);
@@ -932,7 +930,7 @@ after_openchannel_init(struct multifundchannel_command *mfc)
 			continue;
 
 		/* One of them failed, oh no. */
-		return redo_multiopenchannel(mfc, "openchannel_init");
+		return redo_multifundchannel(mfc, "openchannel_init");
 	}
 
 	/* We need to add the change output here, for now. Will

@@ -115,8 +115,13 @@ mfc_cleanup_(struct multifundchannel_command *mfc,
 		struct multifundchannel_destination *dest;
 		dest = &mfc->destinations[i];
 
-		/* If not started, nothing to clean up.  */
-		if (dest->state != MULTIFUNDCHANNEL_STARTED)
+		// FIXME: openchannel_abort??
+		if (dest->protocol == OPEN_CHANNEL)
+			continue;
+
+		/* If not started/completed, nothing to clean up.  */
+		if (dest->state != MULTIFUNDCHANNEL_STARTED &&
+			dest->state != MULTIFUNDCHANNEL_COMPLETED)
 			continue;
 
 		plugin_log(mfc->cmd->plugin, LOG_DBG,
@@ -423,10 +428,6 @@ Command Processing
 
 /* Function to redo multifundchannel after a failure.
 */
-static struct command_result *
-redo_multifundchannel(struct multifundchannel_command *mfc,
-		      const char *failing_method);
-
 static struct command_result *
 perform_multiconnect(struct multifundchannel_command *mfc);
 
@@ -1169,7 +1170,10 @@ after_fundchannel_start(struct multifundchannel_command *mfc)
 			continue;
 
 		/* One of them failed, oh no.  */
-		return redo_multifundchannel(mfc, "fundchannel_start");
+		return redo_multifundchannel(mfc,
+					     dest->protocol == OPEN_CHANNEL ?
+					     "openchannel_init" :
+					     "fundchannel_start");
 	}
 
 	/* Next step.  */
@@ -1673,7 +1677,7 @@ struct multifundchannel_redo {
 static struct command_result *
 post_cleanup_redo_multifundchannel(struct multifundchannel_redo *redo);
 
-static struct command_result *
+struct command_result *
 redo_multifundchannel(struct multifundchannel_command *mfc,
 		      const char *failing_method)
 {
