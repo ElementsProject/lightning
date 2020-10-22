@@ -516,8 +516,29 @@ static char *opt_force_featureset(const char *optarg,
 				  struct lightningd *ld)
 {
 	char **parts = tal_strsplit(tmpctx, optarg, "/", STR_EMPTY_OK);
-	if (tal_count(parts) != NUM_FEATURE_PLACE)
-		return "Expected 5 feature sets (init, globalinit, node_announce, channel, bolt11) separated by /";
+	if (tal_count(parts) != NUM_FEATURE_PLACE) {
+		if (!strstarts(optarg, "-") && !strstarts(optarg, "+"))
+			return "Expected 5 feature sets (init, globalinit,"
+			       " node_announce, channel, bolt11) separated"
+			       " by / OR +/-<feature_num>";
+
+		char *endp;
+		long int n = strtol(optarg + 1, &endp, 10);
+		const struct feature_set *f;
+		if (*endp || endp == optarg + 1)
+			return "Invalid feature number";
+
+		f = feature_set_for_feature(NULL, n);
+		if (strstarts(optarg, "-")
+		    && !feature_set_sub(ld->our_features, take(f)))
+			return "Feature unknown";
+
+		if (strstarts(optarg, "+")
+		    && !feature_set_or(ld->our_features, take(f)))
+			return "Feature already flagged-on";
+
+		return NULL;
+	}
 	for (size_t i = 0; parts[i]; i++) {
 		char **bits = tal_strsplit(tmpctx, parts[i], ",", STR_EMPTY_OK);
 		tal_resize(&ld->our_features->bits[i], 0);
