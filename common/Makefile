@@ -119,9 +119,6 @@ common/gossip_store.o: gossipd/gossip_store_wiregen.h
 check-source-bolt: $(COMMON_SRC_NOGEN:%=bolt-check/%) $(COMMON_HEADERS:%=bolt-check/%)
 check-whitespace: $(COMMON_SRC_NOGEN:%=check-whitespace/%) $(COMMON_HEADERS:%=check-whitespace/%)
 
-check-source: $(COMMON_SRC_NOGEN:%=check-src-include-order/%)		\
-	$(COMMON_HEADERS_NOGEN:%=check-hdr-include-order/%)
-
 clean: common-clean
 
 common-clean:

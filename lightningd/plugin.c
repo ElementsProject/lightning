@@ -4,9 +4,9 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
 #include <common/features.h>
+#include <common/json_helpers.h>
 #include <common/utils.h>
 #include <common/version.h>
-#include <common/json_helpers.h>
 #include <lightningd/json.h>
 #include <lightningd/notification.h>
 #include <lightningd/options.h>

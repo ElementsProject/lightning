@@ -11,8 +11,8 @@
 #include <common/gossip_constants.h>
 #include <common/utils.h>
 #include <inttypes.h>
-#include <wire/peer_wire.h>
 #include <stdio.h>
+#include <wire/peer_wire.h>
 
 static void usage(void)
 {

@@ -58,7 +58,7 @@ PLUGINS :=					\
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(PLUGIN_ALL_SRC)
-ALL_C_HEADERS += 
+ALL_C_HEADERS += $(PLUGIN_ALL_HEADER)
 ALL_PROGRAMS += $(PLUGINS)
 
 PLUGIN_COMMON_OBJS :=				\

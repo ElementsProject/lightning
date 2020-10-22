@@ -1,12 +1,12 @@
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
+#include <common/gossip_store.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <fcntl.h>
-#include <common/gossip_store.h>
-#include <gossipd/gossipd_peerd_wiregen.h>
 #include <gossipd/gossip_store_wiregen.h>
+#include <gossipd/gossipd_peerd_wiregen.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <sys/stat.h>

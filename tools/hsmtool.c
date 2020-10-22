@@ -3,8 +3,8 @@
 #include <ccan/err/err.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
-#include <ccan/tal/path/path.h>
 #include <ccan/str/str.h>
+#include <ccan/tal/path/path.h>
 #include <common/bech32.h>
 #include <common/derive_basepoints.h>
 #include <common/node_id.h>

@@ -38,20 +38,15 @@ BITCOIN_HEADERS := bitcoin/address.h		\
 	bitcoin/tx_parts.h			\
 	bitcoin/varint.h
 
-check-source: $(BITCOIN_SRC:%=check-src-include-order/%)		\
-	$(BITCOIN_HEADERS:%=check-hdr-include-order/%)
-
 # Bitcoin objects depends on bitcoin/ external/ and ccan
 $(BITCOIN_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(EXTERNAL_HEADERS)
-
-check-source-bolt: $(BITCOIN_SRC:%=bolt-check/%) $(BITCOIN_HEADERS:%=bolt-check/%)
 
 check-makefile: check-bitcoin-makefile
 
 check-bitcoin-makefile:
 	@if [ "`echo bitcoin/*.h`" != "$(BITCOIN_HEADERS)" ]; then echo BITCOIN_HEADERS incorrect; exit 1; fi
 
-check-whitespace: $(BITCOIN_SRC:%=check-whitespace/%) $(BITCOIN_HEADERS:%=check-whitespace/%) check-whitespace/bitcoin/Makefile
+check-whitespace: check-whitespace/bitcoin/Makefile
 
 clean: bitcoin-clean
 

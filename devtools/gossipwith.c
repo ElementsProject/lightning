@@ -42,7 +42,7 @@ static struct io_plan *simple_close(struct io_conn *conn)
 	return NULL;
 }
 
-#include "../connectd/handshake.c"
+  #include "../connectd/handshake.c"
 
 /* This makes the handshake prototypes work. */
 struct io_conn {

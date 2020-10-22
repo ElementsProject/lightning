@@ -1,9 +1,9 @@
-#include <wallet/db_common.h>
 #include "db_postgres_sqlgen.c"
 #include <ccan/ccan/tal/str/str.h>
 #include <ccan/endian/endian.h>
 #include <lightningd/log.h>
 #include <stdio.h>
+#include <wallet/db_common.h>
 
 #if HAVE_POSTGRES
 /* Indented in order not to trigger the inclusion order check */

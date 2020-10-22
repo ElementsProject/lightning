@@ -1,8 +1,8 @@
 #include <common/utils.h>
 #include <plugins/libplugin.h>
-#include <plugins/spender/multiwithdraw.h>
 #include <plugins/spender/fundchannel.h>
 #include <plugins/spender/multifundchannel.h>
+#include <plugins/spender/multiwithdraw.h>
 
 /*~ The spender plugin contains various commands that handle
  * spending from the onchain wallet.  */

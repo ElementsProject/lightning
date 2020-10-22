@@ -8,8 +8,8 @@
 #include <ccan/tal/str/str.h>
 #include <ccan/tal/tal.h>
 #include <common/utils.h>
-#include <sys/types.h>
 #include <dirent.h>
+#include <sys/types.h>
 
 static bool verbose = false;
 

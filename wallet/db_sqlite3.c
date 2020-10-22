@@ -1,11 +1,11 @@
-#include <wallet/db_common.h>
 #include "db_sqlite3_sqlgen.c"
 #include <ccan/ccan/tal/str/str.h>
 #include <lightningd/log.h>
 #include <stdio.h>
+#include <wallet/db_common.h>
 
 #if HAVE_SQLITE3
-#include <sqlite3.h>
+  #include <sqlite3.h>
 
 #if !HAVE_SQLITE3_EXPANDED_SQL
 /* Prior to sqlite3 v3.14, we have to use tracing to dump statements */
