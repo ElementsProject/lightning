@@ -1636,9 +1636,6 @@ after_signpsbt(struct command *cmd,
 }
 
 static struct command_result *
-multifundchannel_finished(struct multifundchannel_command *mfc);
-
-static struct command_result *
 after_sendpsbt(struct command *cmd,
 	       const char *buf,
 	       const jsmntok_t *result,
@@ -1677,7 +1674,7 @@ after_sendpsbt(struct command *cmd,
 And finally we are done.
 */
 
-static struct command_result *
+struct command_result *
 multifundchannel_finished(struct multifundchannel_command *mfc)
 {
 	unsigned int i;
