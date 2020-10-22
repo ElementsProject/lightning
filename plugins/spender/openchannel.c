@@ -14,21 +14,19 @@
 
 static struct list_head mfc_commands;
 
-/* unused for now, will return soon!
 static void
 destroy_mfc(struct multifundchannel_command *mfc)
 {
 	list_del(&mfc->list);
 }
 
-static void register_mfc(struct multifundchannel_command *mfc)
+void register_mfc(struct multifundchannel_command *mfc)
 {
 	assert(mfc);
 
 	list_add_tail(&mfc_commands, &mfc->list);
 	tal_add_destructor(mfc, &destroy_mfc);
 }
-*/
 
 static struct multifundchannel_destination *
 find_dest_by_channel_id(struct channel_id *cid)

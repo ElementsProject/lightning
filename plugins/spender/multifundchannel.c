@@ -1196,6 +1196,9 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 {
 	struct multifundchannel_destination **deck;
 	char *content = tal_strdup(tmpctx, "");
+	size_t v1_dest_count = dest_count(mfc, FUND_CHANNEL);
+	size_t v2_dest_count = dest_count(mfc, OPEN_CHANNEL);
+	size_t i, deck_i;
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64": Creating funding tx.",
@@ -1203,15 +1206,23 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 
 	/* Construct a deck of destinations.  */
 	deck = tal_arr(tmpctx, struct multifundchannel_destination *,
-		       tal_count(mfc->destinations) + mfc->change_needed);
-	for (size_t i = 0; i < tal_count(mfc->destinations); ++i)
-		deck[i] = &mfc->destinations[i];
+		       v1_dest_count + mfc->change_needed);
+
+	deck_i = 0;
+	for (i = 0; i < tal_count(mfc->destinations); i++) {
+		if (mfc->destinations[i].protocol == OPEN_CHANNEL)
+			continue;
+
+		assert(deck_i < tal_count(deck));
+		deck[deck_i++] = &mfc->destinations[i];
+	}
+
 	/* Add a NULL into the deck as a proxy for change output, if
 	 * needed.  */
 	if (mfc->change_needed)
-		deck[tal_count(mfc->destinations)] = NULL;
+		deck[v1_dest_count] = NULL;
 	/* Fisher-Yates shuffle.  */
-	for (size_t i = tal_count(deck); i > 1; --i) {
+	for (i = tal_count(deck); i > 1; --i) {
 		size_t j = pseudorand(i);
 		if (j == i - 1)
 			continue;
@@ -1221,7 +1232,7 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 		deck[i - 1] = tmp;
 	}
 
-	/* Now that we have the outputs shuffled, add outputs to the PSBT.  */
+	/* Now that we have our outputs shuffled, add outputs to the PSBT.  */
 	for (unsigned int outnum = 0; outnum < tal_count(deck); ++outnum) {
 		if (outnum != 0)
 			tal_append_fmt(&content, ", ");
@@ -1233,7 +1244,10 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 						  dest->funding_script,
 						  dest->amount,
 						  outnum);
-			dest->outnum = outnum;
+			/* The actual output index will be based on the
+			 * serial_id if this contains any v2 outputs */
+			if (v2_dest_count == 0)
+				dest->outnum = outnum;
 			tal_append_fmt(&content, "%s: %s",
 				       type_to_string(tmpctx, struct node_id,
 						      &dest->id),
@@ -1254,6 +1268,21 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 		}
 	}
 
+	if (v2_dest_count > 0) {
+		/* Add serial_ids to all the new outputs */
+		psbt_add_serials(mfc->psbt, TX_INITIATOR);
+
+		/* Now we stash the 'mfc' command, so when/if
+		 * signature notifications start coming
+		 * in, we'll catch them. */
+		register_mfc(mfc);
+
+		/* Take a side-quest to finish filling out
+		 * the funding tx */
+		return perform_openchannel_update(mfc);
+	}
+
+	/* We've only got v1 destinations, move onward */
 	/* Elements requires a fee output.  */
 	psbt_elements_normalize_fees(mfc->psbt);
 
