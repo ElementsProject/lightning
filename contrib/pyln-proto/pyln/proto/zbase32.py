@@ -24,6 +24,7 @@ zbase32_revchars = [
 
 
 def _message_to_bitarray(message):
+    """Encodes a message as a bitarray with length multiple of 5."""
     barr = bitstring.ConstBitStream(message)
     padding_len = 5 - (len(barr) % 5)
     if padding_len < 5:
@@ -33,6 +34,7 @@ def _message_to_bitarray(message):
 
 
 def _bitarray_to_message(barr):
+    """Decodes a bitarray with length multiple of 5 to a byte message (removing the padded zeros if found)."""
     padding_len = len(barr) % 8
     if padding_len > 0:
         return bitstring.Bits(bin=barr.bin[:-padding_len]).bytes
@@ -41,6 +43,7 @@ def _bitarray_to_message(barr):
 
 
 def _bitarray_to_u5(barr):
+    """Converts a bitarray in a list of uint5."""
     ret = []
     while barr.pos != barr.len:
         ret.append(barr.read(5).uint)
@@ -48,6 +51,7 @@ def _bitarray_to_u5(barr):
 
 
 def _u5_to_bitarray(arr):
+    """Converts a list of uint5 values to a bitarray."""
     ret = bitstring.BitArray()
     for a in arr:
         ret += bitstring.pack("uint:5", a)
@@ -55,6 +59,7 @@ def _u5_to_bitarray(arr):
 
 
 def is_zbase32_encoded(message):
+    """Checks if a message is zbase32 encoded."""
     if isinstance(message, str):
         message = message.encode("ASCII")
     elif not isinstance(message, bytes):
@@ -63,6 +68,7 @@ def is_zbase32_encoded(message):
 
 
 def encode(message):
+    """Encodes a message (str or bytes) to zbase32."""
     if isinstance(message, str):
         message = message.encode('ASCII')
     elif not isinstance(message, bytes):
@@ -75,6 +81,7 @@ def encode(message):
 
 
 def decode(message):
+    """Decodes a message (str or bytes) from zbase32."""
     if isinstance(message, str):
         message = message.encode('ASCII')
     elif not isinstance(message, bytes):
