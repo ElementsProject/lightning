@@ -28,7 +28,7 @@ ending in *sat*, or a number with 1 to 11 decimal places ending in
 
 *ppm* is an optional value that is added proportionally per-millionths
 to any routed payment volume in satoshi. For example, if ppm is 1,000
-and 1,000,000 satoshi is being routed trhough the channel, an
+and 1,000,000 satoshi is being routed through the channel, an
 proportional fee of 1,000 satoshi is added, resulting in a 0.1% fee. If
 the parameter is left out, the global config value will be used again.
 
