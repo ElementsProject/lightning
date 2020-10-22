@@ -121,6 +121,21 @@ static const struct dependency feature_deps[] = {
 #endif
 };
 
+static void trim_features(u8 **features)
+{
+	size_t trim, len = tal_bytelen(*features);
+
+	/* Don't try to tal_resize a NULL array */
+	if (len == 0)
+		return;
+
+	/* Big-endian bitfields are weird, but it means we trim
+	 * from the front: */
+	for (trim = 0; trim < len && (*features)[trim] == 0; trim++);
+	memmove(*features, *features + trim, len - trim);
+	tal_resize(features, len - trim);
+}
+
 static void clear_feature_bit(u8 *features, u32 bit)
 {
 	size_t bytenum = bit / 8, bitnum = bit % 8, len = tal_count(features);
@@ -234,6 +249,7 @@ u8 *get_agreed_channelfeatures(const tal_t *ctx,
 		if (!feature_offered(their_features, i)) {
 			clear_feature_bit(f, COMPULSORY_FEATURE(i));
 			clear_feature_bit(f, OPTIONAL_FEATURE(i));
+			trim_features(&f);
 			continue;
 		}
 		max_len = (i / 8) + 1;
