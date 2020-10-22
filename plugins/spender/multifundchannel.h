@@ -250,4 +250,7 @@ size_t dest_count(const struct multifundchannel_command *mfc,
 struct command_result *
 mfc_finished(struct multifundchannel_command *, struct json_stream *response);
 
+struct command_result *
+redo_multifundchannel(struct multifundchannel_command *mfc,
+		      const char *failing_method);
 #endif /* LIGHTNING_PLUGINS_SPENDER_MULTIFUNDCHANNEL_H */
