@@ -468,7 +468,7 @@ openchannel2_changed_deserialize(struct openchannel2_psbt_payload *payload,
 		return false;
 
 	/* Add serials to PSBT, before checking for required fields */
-	psbt_add_serials(psbt, REMOTE);
+	psbt_add_serials(psbt, TX_ACCEPTER);
 
 	if (!psbt_has_required_fields(psbt))
 		fatal("Plugin supplied PSBT that's missing required fields. %s",
