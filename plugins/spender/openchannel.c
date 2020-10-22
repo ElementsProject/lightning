@@ -583,8 +583,8 @@ collect_sigs(struct multifundchannel_command *mfc)
 	return send_outreq(mfc->cmd->plugin, req);
 }
 
-static void
-openchannel_dest_signed(struct multifundchannel_command *mfc)
+struct command_result *
+check_sigs_ready(struct multifundchannel_command *mfc)
 {
 	bool ready = true;
 	for (size_t i = 0; i < tal_count(mfc->destinations); i++)
@@ -593,6 +593,8 @@ openchannel_dest_signed(struct multifundchannel_command *mfc)
 
 	if (ready)
 		collect_sigs(mfc);
+
+	return command_still_pending(mfc->cmd);
 }
 
 static void json_peer_sigs(struct command *cmd,
@@ -667,7 +669,7 @@ static void json_peer_sigs(struct command *cmd,
 
 	tal_wally_end(dest->mfc->psbt);
 	dest->state = MULTIFUNDCHANNEL_SIGNED;
-	openchannel_dest_signed(dest->mfc);
+	check_sigs_ready(dest->mfc);
 }
 
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*

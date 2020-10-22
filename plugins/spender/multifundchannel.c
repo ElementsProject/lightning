@@ -1340,10 +1340,12 @@ perform_fundchannel_complete(struct multifundchannel_command *mfc)
 		   "mfc %"PRIu64": parallel fundchannel_complete.",
 		   mfc->id);
 
-	mfc->pending = tal_count(mfc->destinations);
+	mfc->pending = dest_count(mfc, FUND_CHANNEL);
 
-	for (i = 0; i < tal_count(mfc->destinations); ++i)
-		fundchannel_complete_dest(&mfc->destinations[i]);
+	for (i = 0; i < tal_count(mfc->destinations); ++i) {
+		if (mfc->destinations[i].protocol == FUND_CHANNEL)
+			fundchannel_complete_dest(&mfc->destinations[i]);
+	}
 
 	assert(mfc->pending != 0);
 	return command_still_pending(mfc->cmd);
@@ -1466,7 +1468,7 @@ fundchannel_complete_done(struct multifundchannel_destination *dest)
 }
 
 static struct command_result *
-perform_sendpsbt(struct multifundchannel_command *mfc);
+perform_signpsbt(struct multifundchannel_command *mfc);
 
 static struct command_result *
 after_fundchannel_complete(struct multifundchannel_command *mfc)
@@ -1482,6 +1484,8 @@ after_fundchannel_complete(struct multifundchannel_command *mfc)
 		struct multifundchannel_destination *dest;
 
 		dest = &mfc->destinations[i];
+		if (dest->protocol != FUND_CHANNEL)
+			continue;
 
 		assert(dest->state == MULTIFUNDCHANNEL_COMPLETED
 		    || dest->state == MULTIFUNDCHANNEL_FAILED);
@@ -1493,7 +1497,10 @@ after_fundchannel_complete(struct multifundchannel_command *mfc)
 		return redo_multifundchannel(mfc, "fundchannel_complete");
 	}
 
-	return perform_sendpsbt(mfc);
+	if (dest_count(mfc, OPEN_CHANNEL) > 0)
+		return check_sigs_ready(mfc);
+
+	return perform_signpsbt(mfc);
 }
 
 /*---------------------------------------------------------------------------*/
@@ -1509,7 +1516,7 @@ after_signpsbt(struct command *cmd,
 	       struct multifundchannel_command *mfc);
 
 static struct command_result *
-perform_sendpsbt(struct multifundchannel_command *mfc)
+perform_signpsbt(struct multifundchannel_command *mfc)
 {
 	struct out_req *req;
 
