@@ -484,25 +484,10 @@ perform_openchannel_signed(struct multifundchannel_command *mfc)
 		   "mfc %"PRIu64": parallel `openchannel_signed`.",
 		   mfc->id);
 
-	/* Check that every dest is in the right state */
+	mfc->pending = dest_count(mfc, OPEN_CHANNEL);
 	for (size_t i = 0; i < tal_count(mfc->destinations); i++) {
-		struct multifundchannel_destination *dest;
-		dest = &mfc->destinations[i];
-		if (dest->state != MULTIFUNDCHANNEL_SIGNED) {
-			// FIXME: these channels are all borked.
-			redo_multifundchannel(mfc, "openchannel_signed");
-		}
-	}
-
-	if (!psbt_finalize(mfc->psbt))
-		plugin_err(mfc->cmd->plugin,
-			   "mfc %"PRIu64": Unable to finalize parent PSBT "
-			   "%s",
-			   type_to_string(tmpctx, struct wally_psbt,
-					  mfc->psbt));
-
-	mfc->pending = tal_count(mfc->destinations);
-	for (size_t i = 0; i < tal_count(mfc->destinations); i++) {
+		if (mfc->destinations[i].protocol == FUND_CHANNEL)
+			continue;
 		/* We need to 'port' all of the sigs down to the
 		 * destination PSBTs */
 		update_node_psbt(mfc, mfc->psbt,

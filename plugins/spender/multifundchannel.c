@@ -1566,6 +1566,13 @@ after_signpsbt(struct command *cmd,
 			   json_tok_full_len(field),
 			   json_tok_full(buf, field));
 
+	if (!psbt_finalize(psbt))
+		plugin_err(mfc->cmd->plugin,
+			   "mfc %"PRIu64": Signed PSBT won't finalize"
+			   "%s", mfc->id,
+			   type_to_string(tmpctx, struct wally_psbt, psbt));
+
+
 	/* Replace the PSBT.  */
 	tal_free(mfc->psbt);
 	mfc->psbt = tal_steal(mfc, psbt);
@@ -1599,8 +1606,21 @@ after_signpsbt(struct command *cmd,
 	*/
 	for (size_t i = 0; i < tal_count(mfc->destinations); ++i) {
 		struct multifundchannel_destination *dest;
+		enum multifundchannel_state expected_state;
+
 		dest = &mfc->destinations[i];
+
+		/* Check that every dest is in the right state */
+		expected_state = dest->protocol == OPEN_CHANNEL ?
+			MULTIFUNDCHANNEL_SIGNED : MULTIFUNDCHANNEL_COMPLETED;
+		assert(dest->state == expected_state);
+
 		dest->state = MULTIFUNDCHANNEL_DONE;
+	}
+
+	/* If there's any v2's, we send the tx via `openchannel_signed` */
+	if (dest_count(mfc, OPEN_CHANNEL) > 0) {
+		return perform_openchannel_signed(mfc);
 	}
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
