@@ -564,9 +564,7 @@ connect_err(struct command *cmd,
 			   json_tok_full_len(code_tok),
 			   json_tok_full(buf, code_tok));
 
-	dest->state = MULTIFUNDCHANNEL_CONNECT_FAILED;
-	dest->error = json_strdup(mfc, buf, error);
-
+	fail_destination(dest, take(json_strdup(NULL, buf, error)));
 	return connect_done(dest);
 }
 
@@ -1110,9 +1108,7 @@ fundchannel_start_err(struct command *cmd,
 	completed, we can then fail.
 	*/
 
-	dest->state = MULTIFUNDCHANNEL_START_FAILED;
-	dest->error = json_strdup(dest->mfc, buf, error);
-
+	fail_destination(dest, take(json_strdup(NULL, buf, error)));
 	return fundchannel_start_done(dest);
 }
 
@@ -1408,9 +1404,7 @@ fundchannel_complete_err(struct command *cmd,
 			   json_tok_full_len(error),
 			   json_tok_full(buf, error));
 
-	dest->state = MULTIFUNDCHANNEL_COMPLETE_FAILED;
-	dest->error = json_strdup(mfc, buf, error);
-
+	fail_destination(dest, take(json_strdup(NULL, buf, error)));
 	return fundchannel_complete_done(dest);
 }
 
@@ -1704,6 +1698,17 @@ static bool dest_failed(struct multifundchannel_destination *dest)
 		abort(); // FIXME, for openchannel
 	}
 	abort();
+}
+
+void fail_destination(struct multifundchannel_destination *dest,
+		      char *error TAKES)
+{
+	dest->fail_state = dest->state;
+	dest->state = MULTIFUNDCHANNEL_FAILED;
+	if (taken(error))
+		dest->error = tal_steal(dest->mfc, error);
+	else
+		dest->error = tal_strdup(dest->mfc, error);
 }
 
 /* Filter the failing destinations.  */

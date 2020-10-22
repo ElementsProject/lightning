@@ -2,6 +2,7 @@
 #include <bitcoin/psbt.h>
 #include <ccan/ccan/array_size/array_size.h>
 #include <ccan/ccan/cast/cast.h>
+#include <ccan/ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <common/psbt_open.h>
 #include <common/type_to_string.h>
@@ -455,8 +456,7 @@ openchannel_signed_err(struct command *cmd,
 			   json_tok_full_len(code_tok),
 			   json_tok_full(buf, code_tok));
 
-	dest->state = MULTIFUNDCHANNEL_FAILED;
-	dest->error = json_strdup(dest->mfc, buf, error);
+	fail_destination(dest, take(json_strdup(NULL, buf, error)));
 	return after_openchannel_signed(mfc);
 }
 
@@ -808,9 +808,7 @@ openchannel_update_err(struct command *cmd,
 			   json_tok_full_len(error),
 			   json_tok_full(buf, error));
 
-	dest->state = MULTIFUNDCHANNEL_FAILED;
-	dest->error = json_strdup(mfc, buf, error);
-
+	fail_destination(dest, take(json_strdup(NULL, buf, error)));
 	return openchannel_update_returned(dest);
 }
 
@@ -1025,8 +1023,9 @@ openchannel_init_ok(struct command *cmd,
 	/* Port any updates onto 'parent' PSBT */
 	if (!update_parent_psbt(dest->mfc, dest, dest->psbt,
 				dest->updated_psbt, &mfc->psbt)) {
-		dest->state = MULTIFUNDCHANNEL_FAILED;
-		dest->error = "Unable to update parent with node's PSBT";
+		fail_destination(dest,
+				 take(tal_fmt(NULL, "Unable to update parent"
+					      " with node's PSBT")));
 	}
 
 	/* Clone updated-psbt to psbt, so original changeset
@@ -1069,9 +1068,7 @@ openchannel_init_err(struct command *cmd,
 			   json_tok_full_len(code_tok),
 			   json_tok_full(buf, code_tok));
 
-	dest->state = MULTIFUNDCHANNEL_START_FAILED;
-	dest->error = json_strdup(dest->mfc, buf, error);
-
+	fail_destination(dest, take(json_strdup(NULL, buf, error)));
 	return openchannel_init_done(dest);
 }
 
