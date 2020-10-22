@@ -273,15 +273,16 @@ static enum tx_role our_tx_role(const struct peer *peer)
 }
 
 static const u8 *psbt_to_tx_sigs_msg(const tal_t *ctx,
-				     struct channel *channel,
+				     const struct peer *peer,
 				     const struct wally_psbt *psbt)
 {
-	const struct witness_stack **ws =
-		psbt_to_witness_stacks(tmpctx, psbt,
-				       channel->opener);
+	const struct witness_stack **ws;
 
-	return towire_tx_signatures(ctx, &channel->cid,
-				   &channel->funding_txid,
+	ws = psbt_to_witness_stacks(tmpctx, psbt,
+				    our_tx_role(peer));
+
+	return towire_tx_signatures(ctx, &peer->channel->cid,
+				   &peer->channel->funding_txid,
 				   ws);
 }
 #endif /* EXPERIMENTAL_FEATURES */
@@ -2051,8 +2052,7 @@ static void handle_send_tx_sigs(struct peer *peer, const u8 *msg)
 	tal_wally_end(tal_steal(peer, peer->psbt));
 #if EXPERIMENTAL_FEATURES
 	sync_crypto_write(peer->pps,
-		take(psbt_to_tx_sigs_msg(NULL, peer->channel,
-					 psbt)));
+		take(psbt_to_tx_sigs_msg(NULL, peer, psbt)));
 #endif /* EXPERIMENTAL_FEATURES */
 }
 
@@ -2803,8 +2803,7 @@ static void peer_reconnect(struct peer *peer,
 					      our_tx_role(peer))
 		&& !peer->funding_locked[REMOTE])
 		sync_crypto_write(peer->pps,
-			take(psbt_to_tx_sigs_msg(NULL, peer->channel,
-						 peer->psbt)));
+			take(psbt_to_tx_sigs_msg(NULL, peer, peer->psbt)));
 #endif /* EXPERIMENTAL_FEATURES */
 
 	/* BOLT #2:
@@ -3605,8 +3604,7 @@ static void init_channel(struct peer *peer)
 	if (!reconnected && peer->psbt &&
 			psbt_side_finalized(peer->psbt, our_tx_role(peer)))
 		sync_crypto_write(peer->pps,
-			take(psbt_to_tx_sigs_msg(NULL, peer->channel,
-						 peer->psbt)));
+			take(psbt_to_tx_sigs_msg(NULL, peer, peer->psbt)));
 #endif /* EXPERIMENTAL_FEATURES */
 
 	/* Reenable channel */
