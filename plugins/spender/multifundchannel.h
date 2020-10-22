@@ -71,6 +71,9 @@ struct multifundchannel_destination {
 	*/
 	enum multifundchannel_state state;
 
+	/* Last known state before failure */
+	enum multifundchannel_state fail_state;
+
 	/* the actual target script and address.  */
 	const u8 *funding_script;
 	const char *funding_addr;
@@ -212,6 +215,11 @@ struct command_result *
 mfc_forward_error(struct command *cmd,
 		  const char *buf, const jsmntok_t *error,
 		  struct multifundchannel_command *);
+
+/* When a destination fails, we record the furthest state
+ * reached, and the error message for the failure */
+void fail_destination(struct multifundchannel_destination *dest,
+		      char *error TAKES);
 
 /* Use this instead of command_finished.  */
 struct command_result *
