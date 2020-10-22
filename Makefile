@@ -330,6 +330,27 @@ ALL_NONGEN_HEADERS := $(filter-out %gen.h,$(ALL_C_HEADERS))
 ALL_NONGEN_SOURCES := $(filter-out %gen.c,$(ALL_C_SOURCES))
 ALL_NONGEN_SRCFILES := $(ALL_NONGEN_HEADERS) $(ALL_NONGEN_SOURCES)
 
+# Programs to install in bindir and pkglibexecdir.
+# TODO: $(EXEEXT) support for Windows?  Needs more coding for
+# the individual Makefiles, however.
+BIN_PROGRAMS = \
+	       cli/lightning-cli \
+	       lightningd/lightningd \
+	       tools/lightning-hsmtool
+PKGLIBEXEC_PROGRAMS = \
+	       lightningd/lightning_channeld \
+	       lightningd/lightning_closingd \
+	       lightningd/lightning_connectd \
+	       lightningd/lightning_gossipd \
+	       lightningd/lightning_hsmd \
+	       lightningd/lightning_onchaind \
+	       lightningd/lightning_openingd
+
+# Only build dualopend if experimental features is on
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+PKGLIBEXEC_PROGRAMS += lightningd/lightning_dualopend
+endif
+
 # Don't delete these intermediaries.
 .PRECIOUS: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
 
@@ -419,7 +440,7 @@ PYSRC=$(shell git ls-files "*.py" | grep -v /text.py) contrib/pylightning/lightn
 # Some tests in pyln will need to find lightningd to run, so have a PATH that
 # allows it to find that
 PYLN_PATH=$(shell pwd)/lightningd:$(PATH)
-check-pyln-%:  $(BIN_PROGRAMS)
+check-pyln-%: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS)
 	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(MAKE) check)
 
 check-python: check-pyln-client check-pyln-testing
@@ -603,27 +624,6 @@ installdirs:
 	$(MKDIR_P) $(DESTDIR)$(man7dir)
 	$(MKDIR_P) $(DESTDIR)$(man8dir)
 	$(MKDIR_P) $(DESTDIR)$(docdir)
-
-# Programs to install in bindir and pkglibexecdir.
-# TODO: $(EXEEXT) support for Windows?  Needs more coding for
-# the individual Makefiles, however.
-BIN_PROGRAMS = \
-	       cli/lightning-cli \
-	       lightningd/lightningd \
-	       tools/lightning-hsmtool
-PKGLIBEXEC_PROGRAMS = \
-	       lightningd/lightning_channeld \
-	       lightningd/lightning_closingd \
-	       lightningd/lightning_connectd \
-	       lightningd/lightning_gossipd \
-	       lightningd/lightning_hsmd \
-	       lightningd/lightning_onchaind \
-	       lightningd/lightning_openingd
-
-# Only build dualopend if experimental features is on
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-PKGLIBEXEC_PROGRAMS += lightningd/lightning_dualopend
-endif
 
 # $(PLUGINS) is defined in plugins/Makefile.
 
