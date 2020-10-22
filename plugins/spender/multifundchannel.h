@@ -9,6 +9,13 @@
 extern const struct plugin_command multifundchannel_commands[];
 extern const size_t num_multifundchannel_commands;
 
+/* Which protocol this channel open is using.
+ * OPEN_CHANNEL implies opt_dual_fund  */
+enum channel_protocol {
+	FUND_CHANNEL,
+	OPEN_CHANNEL,
+};
+
 /* Current state of the funding process.  */
 enum multifundchannel_state {
 	/* We have not yet performed `fundchannel_start`.  */
@@ -114,9 +121,16 @@ struct multifundchannel_destination {
 	const char *error;
 	errcode_t code;
 
-	/* yarr v2, ahoy! */
+	/* what channel protocol this destination is using */
+	enum channel_protocol protocol;
+
+	/* PSBT for the inflight channel open (OPEN_CHANNEL) */
 	struct wally_psbt *psbt;
+
+	/* PSBT for the inflight channel open, updated (OPEN_CHANNEL) */
 	struct wally_psbt *updated_psbt;
+
+	/* serial of the funding output for this channel (OPEN_CHANNEL) */
 	u64 funding_serial;
 };
 
@@ -220,6 +234,10 @@ mfc_forward_error(struct command *cmd,
  * reached, and the error message for the failure */
 void fail_destination(struct multifundchannel_destination *dest,
 		      char *error TAKES);
+
+/* dest_count - Returns count of destinations using given protocol version */
+size_t dest_count(const struct multifundchannel_command *mfc,
+		  enum channel_protocol);
 
 /* Use this instead of command_finished.  */
 struct command_result *
