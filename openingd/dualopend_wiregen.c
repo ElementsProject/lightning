@@ -310,18 +310,18 @@ bool fromwire_dual_open_commit_rcvd(const tal_t *ctx, const void *p, struct chan
 
 /* WIRE: DUAL_OPEN_PSBT_CHANGED */
 /* dualopend->master: peer updated the psbt */
-u8 *towire_dual_open_psbt_changed(const tal_t *ctx, const struct channel_id *channel_id, u16 funding_serial, const struct wally_psbt *psbt)
+u8 *towire_dual_open_psbt_changed(const tal_t *ctx, const struct channel_id *channel_id, u64 funding_serial, const struct wally_psbt *psbt)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
 	towire_u16(&p, WIRE_DUAL_OPEN_PSBT_CHANGED);
 	towire_channel_id(&p, channel_id);
-	towire_u16(&p, funding_serial);
+	towire_u64(&p, funding_serial);
 	towire_wally_psbt(&p, psbt);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dual_open_psbt_changed(const tal_t *ctx, const void *p, struct channel_id *channel_id, u16 *funding_serial, struct wally_psbt **psbt)
+bool fromwire_dual_open_psbt_changed(const tal_t *ctx, const void *p, struct channel_id *channel_id, u64 *funding_serial, struct wally_psbt **psbt)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
@@ -329,7 +329,7 @@ bool fromwire_dual_open_psbt_changed(const tal_t *ctx, const void *p, struct cha
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_PSBT_CHANGED)
 		return false;
  	fromwire_channel_id(&cursor, &plen, channel_id);
- 	*funding_serial = fromwire_u16(&cursor, &plen);
+ 	*funding_serial = fromwire_u64(&cursor, &plen);
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
@@ -479,4 +479,4 @@ bool fromwire_dual_open_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:ed548e8b85302ef620646a1aab503b1279fece3b9d9aeedd47a371fa2a9fbe56
+// SHA256STAMP:b1bf5b7fc522f2b0d940704f6f9e1699db093da76ca88d3ce7c925d40569ab14

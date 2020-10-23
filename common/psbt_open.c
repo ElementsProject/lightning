@@ -9,10 +9,10 @@
 #include <common/pseudorand.h>
 #include <common/utils.h>
 
-bool psbt_get_serial_id(const struct wally_map *map, u16 *serial_id)
+bool psbt_get_serial_id(const struct wally_map *map, u64 *serial_id)
 {
 	size_t value_len;
-	beint16_t bev;
+	beint64_t bev;
 	void *result = psbt_get_lightning(map, PSBT_TYPE_SERIAL_ID, &value_len);
 	if (!result)
 		return false;
@@ -21,14 +21,14 @@ bool psbt_get_serial_id(const struct wally_map *map, u16 *serial_id)
 		return false;
 
 	memcpy(&bev, result, value_len);
-	*serial_id = be16_to_cpu(bev);
+	*serial_id = be64_to_cpu(bev);
 	return true;
 }
 
 static int compare_serials(const struct wally_map *map_a,
 			   const struct wally_map *map_b)
 {
-	u16 serial_left, serial_right;
+	u64 serial_left, serial_right;
 	bool ok;
 
 	ok = psbt_get_serial_id(map_a, &serial_left);
@@ -324,10 +324,10 @@ struct psbt_changeset *psbt_get_changeset(const tal_t *ctx,
 
 void psbt_input_set_serial_id(const tal_t *ctx,
 			      struct wally_psbt_input *input,
-			      u16 serial_id)
+			      u64 serial_id)
 {
 	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_SERIAL_ID, NULL);
-	beint16_t bev = cpu_to_be16(serial_id);
+	beint64_t bev = cpu_to_be64(serial_id);
 
 	psbt_input_set_unknown(ctx, input, key, &bev, sizeof(bev));
 }
@@ -335,17 +335,17 @@ void psbt_input_set_serial_id(const tal_t *ctx,
 
 void psbt_output_set_serial_id(const tal_t *ctx,
 			       struct wally_psbt_output *output,
-			       u16 serial_id)
+			       u64 serial_id)
 {
 	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_SERIAL_ID, NULL);
-	beint16_t bev = cpu_to_be16(serial_id);
+	beint64_t bev = cpu_to_be64(serial_id);
 	psbt_output_set_unknown(ctx, output, key, &bev, sizeof(bev));
 }
 
-int psbt_find_serial_input(struct wally_psbt *psbt, u16 serial_id)
+int psbt_find_serial_input(struct wally_psbt *psbt, u64 serial_id)
 {
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
-		u16 in_serial;
+		u64 in_serial;
 		if (!psbt_get_serial_id(&psbt->inputs[i].unknowns, &in_serial))
 			continue;
 		if (in_serial == serial_id)
@@ -354,10 +354,10 @@ int psbt_find_serial_input(struct wally_psbt *psbt, u16 serial_id)
 	return -1;
 }
 
-int psbt_find_serial_output(struct wally_psbt *psbt, u16 serial_id)
+int psbt_find_serial_output(struct wally_psbt *psbt, u64 serial_id)
 {
 	for (size_t i = 0; i < psbt->num_outputs; i++) {
-		u16 out_serial;
+		u64 out_serial;
 		if (!psbt_get_serial_id(&psbt->outputs[i].unknowns, &out_serial))
 			continue;
 		if (out_serial == serial_id)
@@ -366,14 +366,14 @@ int psbt_find_serial_output(struct wally_psbt *psbt, u16 serial_id)
 	return -1;
 }
 
-static u16 get_random_serial(enum tx_role role)
+static u64 get_random_serial(enum tx_role role)
 {
-	return pseudorand(1 << 15) << 1 | role;
+	return pseudorand_u64() << 1 | role;
 }
 
-u16 psbt_new_input_serial(struct wally_psbt *psbt, enum tx_role role)
+u64 psbt_new_input_serial(struct wally_psbt *psbt, enum tx_role role)
 {
-	u16 serial_id;
+	u64 serial_id;
 
 	while ((serial_id = get_random_serial(role)) &&
 		psbt_find_serial_input(psbt, serial_id) != -1) {
@@ -383,9 +383,9 @@ u16 psbt_new_input_serial(struct wally_psbt *psbt, enum tx_role role)
 	return serial_id;
 }
 
-u16 psbt_new_output_serial(struct wally_psbt *psbt, enum tx_role role)
+u64 psbt_new_output_serial(struct wally_psbt *psbt, enum tx_role role)
 {
-	u16 serial_id;
+	u64 serial_id;
 
 	while ((serial_id = get_random_serial(role)) &&
 		psbt_find_serial_output(psbt, serial_id) != -1) {
@@ -397,7 +397,7 @@ u16 psbt_new_output_serial(struct wally_psbt *psbt, enum tx_role role)
 
 bool psbt_has_required_fields(struct wally_psbt *psbt)
 {
-	u16 serial_id;
+	u64 serial_id;
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		struct wally_psbt_input *input = &psbt->inputs[i];
 
@@ -428,7 +428,7 @@ bool psbt_has_required_fields(struct wally_psbt *psbt)
 
 bool psbt_side_finalized(const struct wally_psbt *psbt, enum tx_role role)
 {
-	u16 serial_id;
+	u64 serial_id;
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		if (!psbt_get_serial_id(&psbt->inputs[i].unknowns,
 					&serial_id)) {
@@ -446,7 +446,7 @@ bool psbt_side_finalized(const struct wally_psbt *psbt, enum tx_role role)
 /* Adds serials to inputs + outputs that don't have one yet */
 void psbt_add_serials(struct wally_psbt *psbt, enum tx_role role)
 {
-	u16 serial_id;
+	u64 serial_id;
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		/* Skip ones that already have a serial id */
 		if (psbt_get_serial_id(&psbt->inputs[i].unknowns, &serial_id))

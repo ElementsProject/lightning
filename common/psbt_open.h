@@ -48,7 +48,7 @@ struct psbt_changeset {
  * Returns false if serial_id is not present
  */
 WARN_UNUSED_RESULT bool psbt_get_serial_id(const struct wally_map *map,
-					   u16 *serial_id);
+					   u64 *serial_id);
 
 /* psbt_sort_by_serial_id - Sort PSBT by serial_ids
  *
@@ -82,7 +82,7 @@ struct psbt_changeset *psbt_get_changeset(const tal_t *ctx,
  */
 void psbt_input_set_serial_id(const tal_t *ctx,
 			      struct wally_psbt_input *input,
-			       u16 serial_id);
+			       u64 serial_id);
 /* psbt_output_set_serial_id - Sets a serial id on given output
  *
  * @ctx - tal context for allocations
@@ -91,7 +91,7 @@ void psbt_input_set_serial_id(const tal_t *ctx,
  */
 void psbt_output_set_serial_id(const tal_t *ctx,
 			       struct wally_psbt_output *output,
-			       u16 serial_id);
+			       u64 serial_id);
 
 /* psbt_sort_by_serial_id - Sorts the inputs + outputs by serial_id
  *
@@ -108,7 +108,7 @@ void psbt_sort_by_serial_id(struct wally_psbt *psbt);
  *
  * Returns index of input with matching serial if found or -1
  */
-int psbt_find_serial_input(struct wally_psbt *psbt, u16 serial_id);
+int psbt_find_serial_input(struct wally_psbt *psbt, u64 serial_id);
 
 /* psbt_find_serial_output - Checks outputs for provided serial_id
  *
@@ -117,7 +117,7 @@ int psbt_find_serial_input(struct wally_psbt *psbt, u16 serial_id);
  *
  * Returns index of output with matching serial if found or -1
  */
-int psbt_find_serial_output(struct wally_psbt *psbt, u16 serial_id);
+int psbt_find_serial_output(struct wally_psbt *psbt, u64 serial_id);
 
 /* psbt_new_input_serial - Generate a new serial for an input for {role}
  *
@@ -126,7 +126,7 @@ int psbt_find_serial_output(struct wally_psbt *psbt, u16 serial_id);
  *
  * Returns a new, unique serial of the correct parity for the specified {role}
  */
-u16 psbt_new_input_serial(struct wally_psbt *psbt, enum tx_role role);
+u64 psbt_new_input_serial(struct wally_psbt *psbt, enum tx_role role);
 
 /* psbt_new_output_serial - Generate a new serial for an output for {role}
  *
@@ -135,7 +135,7 @@ u16 psbt_new_input_serial(struct wally_psbt *psbt, enum tx_role role);
  *
  * Returns a new, unique serial of the correct parity for the specified {role}
  */
-u16 psbt_new_output_serial(struct wally_psbt *psbt, enum tx_role role);
+u64 psbt_new_output_serial(struct wally_psbt *psbt, enum tx_role role);
 
 /* psbt_has_required_fields - Validates psbt field completion
  *
