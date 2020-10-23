@@ -307,7 +307,7 @@ static bool psbt_side_contribs_changed(struct wally_psbt *orig,
 				       enum side opener_side)
 {
 	struct psbt_changeset *cs;
-	u16 serial_id;
+	u64 serial_id;
 	bool ok;
 
 	cs = psbt_get_changeset(tmpctx, orig, new);
@@ -636,7 +636,7 @@ static void opener_psbt_changed(struct subd *dualopend,
 				const u8 *msg)
 {
 	struct channel_id cid;
-	u16 funding_serial;
+	u64 funding_serial;
 	struct wally_psbt *psbt;
 	struct json_stream *response;
 	struct command *cmd = uc->fc->cmd;
@@ -656,7 +656,7 @@ static void opener_psbt_changed(struct subd *dualopend,
 			type_to_string(tmpctx, struct channel_id, &cid));
 	json_add_psbt(response, "psbt", psbt);
 	json_add_bool(response, "commitments_secured", false);
-	json_add_num(response, "funding_serial", funding_serial);
+	json_add_u64(response, "funding_serial", funding_serial);
 
 	uc->cid = cid;
 	uc->fc->inflight = true;
@@ -911,7 +911,7 @@ cleanup:
 static void accepter_psbt_changed(struct subd *dualopend,
 				  const u8 *msg)
 {
-	u16 unused;
+	u64 unused;
 	struct openchannel2_psbt_payload *payload =
 		tal(dualopend, struct openchannel2_psbt_payload);
 	payload->dualopend = dualopend;

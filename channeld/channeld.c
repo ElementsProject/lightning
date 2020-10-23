@@ -2114,7 +2114,7 @@ static void handle_tx_sigs(struct peer *peer, const u8 *msg)
 	for (size_t i = 0; i < peer->psbt->num_inputs; i++) {
 		struct wally_psbt_input *in =
 			&peer->psbt->inputs[i];
-		u16 in_serial;
+		u64 in_serial;
 		const struct witness_element **elem;
 
 		if (!psbt_get_serial_id(&in->unknowns, &in_serial)) {

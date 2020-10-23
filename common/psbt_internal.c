@@ -25,7 +25,7 @@ psbt_to_witness_stacks(const tal_t *ctx,
 		       enum tx_role side_to_stack)
 {
 	size_t stack_index;
-	u16 serial_id;
+	u64 serial_id;
 	const struct witness_stack **stacks
 		= tal_arr(ctx, const struct witness_stack *, psbt->num_inputs);
 

@@ -86,7 +86,7 @@ msgdata,dual_open_commit_rcvd,remote_shutdown_scriptpubkey,u8,remote_shutdown_le
 # dualopend->master: peer updated the psbt
 msgtype,dual_open_psbt_changed,7107
 msgdata,dual_open_psbt_changed,channel_id,channel_id,
-msgdata,dual_open_psbt_changed,funding_serial,u16,
+msgdata,dual_open_psbt_changed,funding_serial,u64,
 msgdata,dual_open_psbt_changed,psbt,wally_psbt,
 
 # master->dualopend: we updated the psbt

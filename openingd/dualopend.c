@@ -123,7 +123,7 @@ struct state {
 	struct psbt_changeset *changeset;
 
 	/* The serial_id of the funding output */
-	u16 funding_serial;
+	u64 funding_serial;
 };
 
 #if EXPERIMENTAL_FEATURES
@@ -142,7 +142,7 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 				   struct channel_id *cid,
 				   struct psbt_changeset *set)
 {
-	u16 serial_id;
+	u64 serial_id;
 	u8 *msg;
 
 	if (tal_count(set->added_ins) != 0) {
@@ -317,7 +317,7 @@ static bool is_openers(const struct wally_map *unknowns)
 	 *   ...
 	 *     - MUST send odd `serial_id`s
 	 */
-	u16 serial_id;
+	u64 serial_id;
 	if (!psbt_get_serial_id(unknowns, &serial_id))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "PSBTs must have serial_ids set");
@@ -788,7 +788,7 @@ static bool run_tx_interactive(struct state *state,
 	while (!(we_complete && they_complete)) {
 		struct channel_id cid;
 		enum peer_wire t;
-		u16 serial_id;
+		u64 serial_id;
 
 		/* Reset their_complete to false every round,
 		 * they have to re-affirm every time  */
@@ -834,7 +834,7 @@ static bool run_tx_interactive(struct state *state,
 			 */
 			if (serial_id % 2 == our_role)
 				peer_failed(state->pps, &state->channel_id,
-					    "Invalid serial_id rcvd. %u",
+					    "Invalid serial_id rcvd. %"PRIu64,
 					    serial_id);
 			/*
 			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
@@ -844,7 +844,8 @@ static bool run_tx_interactive(struct state *state,
 			 */
 			if (psbt_find_serial_input(psbt, serial_id) != -1)
 				peer_failed(state->pps, &state->channel_id,
-					    "Duplicate serial_id rcvd. %u", serial_id);
+					    "Duplicate serial_id rcvd."
+					    " %"PRIu64, serial_id);
 
 			/* Convert tx_bytes to a tx! */
 			len = tal_bytelen(tx_bytes);
@@ -942,14 +943,14 @@ static bool run_tx_interactive(struct state *state,
 			 *     input which is not theirs */
 			if (serial_id % 2 == our_role)
 				peer_failed(state->pps, &state->channel_id,
-					    "Invalid serial_id rcvd. %u",
+					    "Invalid serial_id rcvd. %"PRIu64,
 					    serial_id);
 
 			input_index = psbt_find_serial_input(psbt, serial_id);
 			if (input_index == -1)
 				peer_failed(state->pps, &state->channel_id,
-					    "No input added with serial_id %u",
-					    serial_id);
+					    "No input added with serial_id"
+					    " %"PRIu64, serial_id);
 
 			psbt_rm_input(psbt, input_index);
 			break;
@@ -976,13 +977,13 @@ static bool run_tx_interactive(struct state *state,
 			 *      incorrect parity */
 			if (serial_id % 2 == our_role)
 				peer_failed(state->pps, &state->channel_id,
-					    "Invalid serial_id rcvd. %u",
+					    "Invalid serial_id rcvd. %"PRIu64,
 					    serial_id);
 
 			if (psbt_find_serial_output(psbt, serial_id) != -1)
 				peer_failed(state->pps, &state->channel_id,
-					    "Duplicate serial_id rcvd. %u",
-					    serial_id);
+					    "Duplicate serial_id rcvd."
+					    " %"PRIu64, serial_id);
 			amt = amount_sat(value);
 			out = psbt_append_output(psbt, scriptpubkey, amt);
 			psbt_output_set_serial_id(psbt, out, serial_id);
@@ -1004,14 +1005,14 @@ static bool run_tx_interactive(struct state *state,
 			 *     input which is not theirs */
 			if (serial_id % 2 == our_role)
 				peer_failed(state->pps, &state->channel_id,
-					    "Invalid serial_id rcvd. %u",
-					    serial_id);
+					    "Invalid serial_id rcvd."
+					    " %"PRIu64, serial_id);
 
 			output_index = psbt_find_serial_output(psbt, serial_id);
 			if (output_index == -1)
 				peer_failed(state->pps, &state->channel_id,
-					    "No output added with serial_id %u",
-					    serial_id);
+					    "No output added with serial_id"
+					    " %"PRIu64, serial_id);
 			psbt_rm_output(psbt, output_index);
 			break;
 		}
@@ -1093,13 +1094,16 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 	struct amount_msat our_msats;
 	struct amount_sat total;
 	enum dualopend_wire msg_type;
+	u32 feerate_min, feerate_max, feerate_best;
 
 	state->our_role = TX_ACCEPTER;
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
 
 	if (!fromwire_open_channel2(oc2_msg, &chain_hash,
 				    &state->opening_podle_h2,
-				    &state->feerate_per_kw_funding,
+				    &feerate_max,
+				    &feerate_min,
+				    &feerate_best,
 				    &state->opener_funding,
 				    &state->remoteconf.dust_limit,
 				    &state->remoteconf.max_htlc_value_in_flight,
@@ -1185,6 +1189,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 			     &state->their_points.revocation);
 
 	/* FIXME: pass the podle back also */
+	/* FIXME: pass back the feerate options */
 	msg = towire_dual_open_got_offer(NULL,
 					 state->opener_funding,
 					 state->remoteconf.dust_limit,
@@ -1275,8 +1280,11 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 				    tal_count(state->upfront_shutdown_script[LOCAL]), 0);
 	}
 
+	/* FIXME: actually look up a good feerate */
+	state->feerate_per_kw_funding = feerate_best;
 	msg = towire_accept_channel2(tmpctx, &state->channel_id,
 				     state->accepter_funding,
+				     state->feerate_per_kw_funding,
 				     state->localconf.dust_limit,
 				     state->localconf.max_htlc_value_in_flight,
 				     state->localconf.htlc_minimum,
@@ -1503,7 +1511,9 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	struct bitcoin_tx *remote_commit, *local_commit;
 	struct bitcoin_signature remote_sig, local_sig;
 	secp256k1_ecdsa_signature *htlc_sigs;
+	u32 feerate_min, feerate_max, feerate_best;
 
+	/* FIXME: get these from opener !? */
 	if (!fromwire_dual_open_opener_init(state, msg,
 					  &psbt,
 					  &state->opener_funding,
@@ -1516,6 +1526,10 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	state->our_role = TX_INITIATOR;
 	state->tx_locktime = psbt->tx->locktime;
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
+
+	feerate_min = state->feerate_per_kw_funding - 1;
+	feerate_max = state->feerate_per_kw_funding + 1;
+	feerate_best = state->feerate_per_kw_funding;
 
 	if (state->upfront_shutdown_script[LOCAL]) {
 		open_tlv->option_upfront_shutdown_script =
@@ -1530,7 +1544,9 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	msg = towire_open_channel2(NULL,
 				   &chainparams->genesis_blockhash,
 				   &podle, /* FIXME: podle H2! */
-				   state->feerate_per_kw_funding,
+				   feerate_max,
+				   feerate_min,
+				   feerate_best,
 				   state->opener_funding,
 				   state->localconf.dust_limit,
 				   state->localconf.max_htlc_value_in_flight,
@@ -1564,6 +1580,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	a_tlv = tlv_accept_tlvs_new(state);
 	if (!fromwire_accept_channel2(msg, &cid,
 				      &state->accepter_funding,
+				      &state->feerate_per_kw_funding,
 				      &state->remoteconf.dust_limit,
 				      &state->remoteconf.max_htlc_value_in_flight,
 				      &state->remoteconf.htlc_minimum,
@@ -1597,6 +1614,20 @@ static u8 *opener_start(struct state *state, u8 *msg)
 			    type_to_string(msg, struct channel_id,
 					   &state->channel_id),
 			    type_to_string(msg, struct channel_id, &cid));
+
+	/* BOLT-5fcbda56901af9e3b1d057cc41d0c5cfa60a2b94 #2:
+	 * The receiving node:
+	 * - if the `feerate_funding` is less than the `feerate_funding_min`
+	 *   or above the `feerate_funding_max`
+	 *   - MUST error.
+	 */
+	if (feerate_min > state->feerate_per_kw_funding
+	    || feerate_max < state->feerate_per_kw_funding)
+		peer_failed(state->pps, &state->channel_id,
+			    "Invalid feerate %d chosen. Valid min %d,"
+			    " valid max %d", state->feerate_per_kw_funding,
+			    feerate_min, feerate_max);
+
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, state->opener_funding,
