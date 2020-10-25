@@ -103,7 +103,7 @@ external-clean:
 	if [ -f ${TARGET_DIR}/libsodium-build/Makefile ]; then make -C ${TARGET_DIR}/libsodium-build clean; fi
 	if [ -f ${TARGET_DIR}/libwally-core-build/Makefile ]; then make -C ${TARGET_DIR}/libwally-core-build clean; fi
 	if [ -f ${TARGET_DIR}/libwally-core-build/src/Makefile ]; then make -C ${TARGET_DIR}/libwally-core-build/src clean; fi
-	if [ -f ${TARGET_DIR}/libacktrace-build/Makefile ]; then make -C ${TARGET_DIR}/libbacktrace-build/src clean; fi
+	if [ -f ${TARGET_DIR}/libbacktrace-build/Makefile ]; then make -C ${TARGET_DIR}/libbacktrace-build clean; fi
 
 external-distclean:
 	make -C external/libsodium distclean || true
