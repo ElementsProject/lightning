@@ -34,6 +34,14 @@ complete *psbt* for this channel's funding transaction; and the flag
 If *commitments_secured* is true, caller should proceed with signing the
 returned PSBT and calling `openchannel_signed` to complete the channel open.
 
+If *commitments_secured* is true, will also return:
+- The derived *channel_id*.
+- A *close_to* script, iff a `close_to` address was provided to
+  `openchannel_init` and the peer supports `option_upfront_shutdownscript`.
+- The *funding_outnum*, the index of the funding output for this channel
+  in the funding transaction.
+
+
 - -32602: If the given parameters are wrong.
 - -1: Catchall nonspecific error.
 - 305: Peer is not connected.

@@ -35,6 +35,20 @@ complete \fIpsbt\fR for this channel's funding transaction; and the flag
 If \fIcommitments_secured\fR is true, caller should proceed with signing the
 returned PSBT and calling \fBopenchannel_signed\fR to complete the channel open\.
 
+
+If \fIcommitments_secured\fR is true, will also return:
+
+.RS
+.IP \[bu]
+The derived \fIchannel_id\fR\.
+.IP \[bu]
+A \fIclose_to\fR script, iff a \fBclose_to\fR address was provided to
+\fBopenchannel_init\fR and the peer supports \fBoption_upfront_shutdownscript\fR\.
+.IP \[bu]
+The \fIfunding_outnum\fR, the index of the funding output for this channel
+in the funding transaction\.
+
+.RE
 .RS
 .IP \[bu]
 -32602: If the given parameters are wrong\.
@@ -63,4 +77,4 @@ lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcomplete\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:ab3d19be91c8b2e651a6f4a23552f21323c4f0096ceda8026bb2450c2f9c616c
+\" SHA256STAMP:de370bb6e61a0390a50a85e97f533238f379c908cddd822436d0ac4c72b43d6e

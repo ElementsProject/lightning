@@ -715,7 +715,7 @@ openchannel_update_ok(struct command *cmd,
 			   json_tok_full(buf, result));
 
 	if (done) {
-		const jsmntok_t *outnum_tok;
+		const jsmntok_t *outnum_tok, *close_to_tok;
 
 		outnum_tok = json_get_member(buf, result, "funding_outnum");
 		if (!outnum_tok)
@@ -731,6 +731,14 @@ openchannel_update_ok(struct command *cmd,
 			   "'funding_outnum': %.*s",
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result));
+
+		close_to_tok = json_get_member(buf, result, "close_to");
+		if (close_to_tok)
+			dest->close_to_script =
+				json_tok_bin_from_hex(dest->mfc, buf,
+						      close_to_tok);
+		else
+			dest->close_to_script = NULL;
 
 		/* It's possible they beat us to the SIGNED flag,
 		 * in which case we just let that be the more senior
