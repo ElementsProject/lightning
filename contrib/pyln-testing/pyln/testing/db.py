@@ -1,12 +1,10 @@
 from ephemeral_port_reserve import reserve  # type: ignore
-from glob import glob
 
 import itertools
 import logging
 import os
 import psycopg2  # type: ignore
 import random
-import re
 import shutil
 import signal
 import sqlite3
@@ -117,28 +115,23 @@ class PostgresDbProvider(object):
         print("Starting PostgresDbProvider")
 
     def locate_path(self):
-        prefix = '/usr/lib/postgresql/*'
-        matches = glob(prefix)
+        # Use `pg_config` to determine correct PostgreSQL installation
+        pg_config = shutil.which('pg_config')
+        if not pg_config:
+            raise ValueError("Could not find `pg_config` to determine PostgreSQL binaries. Is PostgreSQL installed?")
 
-        candidates = {}
-        for m in matches:
-            g = re.search(r'([0-9]+[\.0-9]*)', m)
-            if not g:
-                continue
-            candidates[float(g.group(1))] = m
+        bindir = subprocess.check_output([pg_config, '--bindir']).decode().rstrip()
+        if not os.path.isdir(bindir):
+            raise ValueError("Error: `pg_config --bindir` didn't return a proper path: {}".format(bindir))
 
-        if len(candidates) == 0:
-            raise ValueError("Could not find `postgres` and `initdb` binaries in {}. Is postgresql installed?".format(prefix))
-
-        # Now iterate in reverse order through matches
-        for k, v in sorted(candidates.items())[::-1]:
-            initdb = os.path.join(v, 'bin', 'initdb')
-            postgres = os.path.join(v, 'bin', 'postgres')
-            if os.path.isfile(initdb) and os.path.isfile(postgres):
-                logging.info("Found `postgres` and `initdb` in {}".format(os.path.join(v, 'bin')))
+        initdb = os.path.join(bindir, 'initdb')
+        postgres = os.path.join(bindir, 'postgres')
+        if os.path.isfile(initdb) and os.path.isfile(postgres):
+            if os.access(initdb, os.X_OK) and os.access(postgres, os.X_OK):
+                logging.info("Found `postgres` and `initdb` in {}".format(bindir))
                 return initdb, postgres
 
-        raise ValueError("Could not find `postgres` and `initdb` in any of the possible paths: {}".format(candidates.values()))
+        raise ValueError("Could not find `postgres` and `initdb` binaries in {}".format(bindir))
 
     def start(self):
         passfile = os.path.join(self.directory, "pgpass.txt")
