@@ -1200,40 +1200,20 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 		return NULL;
 	}
 
-	/* BOLT #2:
-	 *
-	 * The receiving node MUST fail the channel if:
-	 *...
-	 *  - it considers `feerate_per_kw` too small for timely processing or
-	 *    unreasonably large.
-	 */
-	if (state->feerate_per_kw_funding < state->min_feerate) {
-		negotiation_failed(state, false,
-				   "feerate_per_kw_funding %u below minimum %u",
-				   state->feerate_per_kw_funding, state->min_feerate);
-		return NULL;
-	}
-
-	if (state->feerate_per_kw_funding > state->max_feerate) {
-		negotiation_failed(state, false,
-				   "feerate_per_kw_funding %u above maximum %u",
-				   state->feerate_per_kw_funding, state->max_feerate);
-		return NULL;
-	}
-
 	/* We can figure out the channel id now */
 	derive_channel_id_v2(&state->channel_id,
 			     &state->our_points.revocation,
 			     &state->their_points.revocation);
 
 	/* FIXME: pass the podle back also */
-	/* FIXME: pass back the feerate options */
 	msg = towire_dual_open_got_offer(NULL,
 					 state->opener_funding,
 					 state->remoteconf.dust_limit,
 					 state->remoteconf.max_htlc_value_in_flight,
 					 state->remoteconf.htlc_minimum,
-					 state->feerate_per_kw_funding,
+					 feerate_max,
+					 feerate_min,
+					 feerate_best,
 					 state->feerate_per_kw,
 					 state->remoteconf.to_self_delay,
 					 state->remoteconf.max_accepted_htlcs,
@@ -1254,7 +1234,9 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 		return NULL;
 	}
 	if (!fromwire_dual_open_got_offer_reply(state, msg,
-						&state->accepter_funding, &psbt,
+						&state->accepter_funding,
+						&state->feerate_per_kw_funding,
+						&psbt,
 						&state->upfront_shutdown_script[LOCAL]))
 		master_badmsg(WIRE_DUAL_OPEN_GOT_OFFER_REPLY, msg);
 
@@ -1318,8 +1300,6 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 				    tal_count(state->upfront_shutdown_script[LOCAL]), 0);
 	}
 
-	/* FIXME: actually look up a good feerate */
-	state->feerate_per_kw_funding = feerate_best;
 	msg = towire_accept_channel2(tmpctx, &state->channel_id,
 				     state->accepter_funding,
 				     state->feerate_per_kw_funding,
@@ -1551,7 +1531,6 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	secp256k1_ecdsa_signature *htlc_sigs;
 	u32 feerate_min, feerate_max, feerate_best;
 
-	/* FIXME: get these from opener !? */
 	if (!fromwire_dual_open_opener_init(state, msg,
 					  &psbt,
 					  &state->opener_funding,
@@ -1565,8 +1544,26 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	state->tx_locktime = psbt->tx->locktime;
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
 
-	feerate_min = state->feerate_per_kw_funding - 1;
-	feerate_max = state->feerate_per_kw_funding + 1;
+	feerate_min = state->min_feerate;
+	feerate_max = state->max_feerate;
+	if (state->feerate_per_kw_funding > state->max_feerate) {
+		status_info("Selected funding feerate %d is greater than"
+			    " current suggested max %d, adjusing max upwards"
+			    " to match.",
+			    state->feerate_per_kw_funding,
+			    state->max_feerate);
+
+		feerate_max = state->feerate_per_kw_funding;
+	}
+	if (state->feerate_per_kw_funding < state->min_feerate) {
+		status_info("Selected funding feerate %d is less than"
+			    " current suggested min %d, adjusing min downwards"
+			    " to match.",
+			    state->feerate_per_kw_funding,
+			    state->min_feerate);
+
+		feerate_min = state->feerate_per_kw_funding;
+	}
 	feerate_best = state->feerate_per_kw_funding;
 
 	if (state->upfront_shutdown_script[LOCAL]) {

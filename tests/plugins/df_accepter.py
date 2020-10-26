@@ -44,12 +44,37 @@ def get_script(bech_addr):
     return bytes([wit_ver + 0x50 if wit_ver > 0 else wit_ver, len(wprog)] + wprog)
 
 
+def find_feerate(best, their_min, their_max, our_min, our_max):
+    if best >= our_min and best <= our_max:
+        return best
+
+    if their_max < our_min or their_min > our_max:
+        return False
+
+    if best < our_min:
+        return our_min
+
+    # best > our_max:
+    return our_max
+
+
 @plugin.hook('openchannel2')
 def on_openchannel(openchannel2, plugin, **kwargs):
-    # We mirror what the peer does, wrt to funding amount
+    # We mirror what the peer does, wrt to funding amount ...
     amount = openchannel2['their_funding']
-    feerate = openchannel2['feerate_per_kw_funding']
     locktime = openchannel2['locktime']
+
+    # ...unless they send us totally unacceptable feerates.
+    feerate = find_feerate(openchannel2['funding_feerate_best'],
+                           openchannel2['funding_feerate_min'],
+                           openchannel2['funding_feerate_max'],
+                           openchannel2['feerate_our_min'],
+                           openchannel2['feerate_our_max'])
+
+    # Their feerate range is out of bounds, we're not going to
+    # participate.
+    if not feerate:
+        return {'result': 'continue'}
 
     funding = plugin.rpc.fundpsbt(amount, ''.join([str(feerate), 'perkw']), 0, reserve=True,
                                   locktime=locktime)
@@ -65,7 +90,8 @@ def on_openchannel(openchannel2, plugin, **kwargs):
         psbt_add_output_at(psbt_obj, 0, 0, output)
 
     return {'result': 'continue', 'psbt': psbt_to_base64(psbt_obj, 0),
-            'accepter_funding_msat': amount}
+            'accepter_funding_msat': amount,
+            'funding_feerate': feerate}
 
 
 @plugin.hook('openchannel2_changed')
