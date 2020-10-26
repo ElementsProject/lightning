@@ -933,6 +933,9 @@ static void opener_commit_received(struct subd *dualopend,
 	json_add_bool(response, "commitments_secured", true);
 	/* For convenience sake, we include the funding outnum */
 	json_add_num(response, "funding_outnum", funding_outnum);
+	if (local_upfront_shutdown_script)
+		json_add_hex_talarr(response, "close_to",
+				    local_upfront_shutdown_script);
 	/* Now that we've got the final PSBT, save it */
 	channel->psbt = tal_steal(channel, psbt);
 	wallet_channel_save(uc->fc->cmd->ld->wallet, channel);
