@@ -100,7 +100,7 @@ struct state {
 	enum tx_role our_role;
 
 	u32 feerate_per_kw_funding;
-	u32 feerate_per_kw;
+	u32 feerate_per_kw_commitment;
 
 	struct bitcoin_txid funding_txid;
 	u16 funding_txout;
@@ -1108,7 +1108,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 				    &state->remoteconf.dust_limit,
 				    &state->remoteconf.max_htlc_value_in_flight,
 				    &state->remoteconf.htlc_minimum,
-				    &state->feerate_per_kw,
+				    &state->feerate_per_kw_commitment,
 				    &state->remoteconf.to_self_delay,
 				    &state->remoteconf.max_accepted_htlcs,
 				    &state->tx_locktime,
@@ -1176,7 +1176,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 					 feerate_max,
 					 feerate_min,
 					 feerate_best,
-					 state->feerate_per_kw,
+					 state->feerate_per_kw_commitment,
 					 state->remoteconf.to_self_delay,
 					 state->remoteconf.max_accepted_htlcs,
 					 channel_flags,
@@ -1240,7 +1240,8 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 	/* Now that we know the total of the channel, we can set the reserve */
 	set_reserve(state, total);
 
-	if (!check_config_bounds(tmpctx, total, state->feerate_per_kw,
+	if (!check_config_bounds(tmpctx, total,
+				 state->feerate_per_kw_commitment,
 				 state->max_to_self_delay,
 				 state->min_effective_htlc_capacity,
 				 &state->remoteconf,
@@ -1352,7 +1353,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 					     our_msats,
 					     take(new_fee_states(
 							     NULL, REMOTE,
-							     &state->feerate_per_kw)),
+							     &state->feerate_per_kw_commitment)),
 					     &state->localconf,
 					     &state->remoteconf,
 					     &state->our_points, &state->their_points,
@@ -1465,7 +1466,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 					    total,
 					    state->accepter_funding,
 					    channel_flags,
-					    state->feerate_per_kw,
+					    state->feerate_per_kw_commitment,
 					    msg,
 					    state->localconf.channel_reserve,
 					    state->upfront_shutdown_script[LOCAL],
@@ -1497,7 +1498,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 					  &psbt,
 					  &state->opener_funding,
 					  &state->upfront_shutdown_script[LOCAL],
-					  &state->feerate_per_kw,
+					  &state->feerate_per_kw_commitment,
 					  &state->feerate_per_kw_funding,
 					  &channel_flags))
 		master_badmsg(WIRE_DUAL_OPEN_OPENER_INIT, msg);
@@ -1548,7 +1549,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 				   state->localconf.dust_limit,
 				   state->localconf.max_htlc_value_in_flight,
 				   state->localconf.htlc_minimum,
-				   state->feerate_per_kw,
+				   state->feerate_per_kw_commitment,
 				   state->localconf.to_self_delay,
 				   state->localconf.max_accepted_htlcs,
 				   state->tx_locktime,
@@ -1679,7 +1680,8 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	 * set the reserve */
 	set_reserve(state, total);
 
-	if (!check_config_bounds(tmpctx, total, state->feerate_per_kw,
+	if (!check_config_bounds(tmpctx, total,
+				 state->feerate_per_kw_commitment,
 				 state->max_to_self_delay,
 				 state->min_effective_htlc_capacity,
 				 &state->remoteconf,
@@ -1738,7 +1740,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 					     total,
 					     our_msats,
 					     take(new_fee_states(NULL, LOCAL,
-								 &state->feerate_per_kw)),
+								 &state->feerate_per_kw_commitment)),
 					     &state->localconf,
 					     &state->remoteconf,
 					     &state->our_points,
@@ -1889,7 +1891,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 					    total,
 					    state->opener_funding,
 					    channel_flags,
-					    state->feerate_per_kw,
+					    state->feerate_per_kw_commitment,
 					    NULL,
 					    state->localconf.channel_reserve,
 					    state->upfront_shutdown_script[LOCAL],
