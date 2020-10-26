@@ -76,7 +76,9 @@ def on_openchannel(openchannel2, plugin, **kwargs):
     if not feerate:
         return {'result': 'continue'}
 
-    funding = plugin.rpc.fundpsbt(amount, ''.join([str(feerate), 'perkw']), 0, reserve=True,
+    funding = plugin.rpc.fundpsbt(amount,
+                                  '{}perkw'.format(feerate),
+                                  0, reserve=True,
                                   locktime=locktime)
     psbt_obj = psbt_from_base64(funding['psbt'])
 
