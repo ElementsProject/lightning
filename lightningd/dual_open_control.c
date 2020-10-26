@@ -77,8 +77,12 @@ struct openchannel2_payload {
 	struct amount_sat dust_limit_satoshis;
 	struct amount_msat max_htlc_value_in_flight_msat;
 	struct amount_msat htlc_minimum_msat;
-	u32 feerate_per_kw_funding;
-	u32 feerate_per_kw;
+	u32 funding_feerate_max;
+	u32 funding_feerate_min;
+	u32 funding_feerate_best;
+	u32 feerate_our_max;
+	u32 feerate_our_min;
+	u32 commitment_feerate_per_kw;
 	u16 to_self_delay;
 	u16 max_accepted_htlcs;
 	u8 channel_flags;
@@ -87,6 +91,7 @@ struct openchannel2_payload {
 	/* FIXME: include the podle? */
 
 	struct amount_sat accepter_funding;
+	u32 funding_feerate_per_kw;
 	struct wally_psbt *psbt;
 	const u8 *our_shutdown_scriptpubkey;
 };
@@ -105,9 +110,18 @@ openchannel2_hook_serialize(struct openchannel2_payload *payload,
 				  payload->max_htlc_value_in_flight_msat);
 	json_add_amount_msat_only(stream, "htlc_minimum_msat",
 				  payload->htlc_minimum_msat);
-	json_add_num(stream, "feerate_per_kw_funding",
-		     payload->feerate_per_kw_funding);
-	json_add_num(stream, "feerate_per_kw", payload->feerate_per_kw);
+	json_add_num(stream, "funding_feerate_max",
+		     payload->funding_feerate_max);
+	json_add_num(stream, "funding_feerate_min",
+		     payload->funding_feerate_min);
+	json_add_num(stream, "funding_feerate_best",
+		     payload->funding_feerate_best);
+	json_add_num(stream, "feerate_our_max",
+		     payload->feerate_our_max);
+	json_add_num(stream, "feerate_our_min",
+		     payload->feerate_our_min);
+	json_add_num(stream, "commitment_feerate_per_kw",
+		     payload->commitment_feerate_per_kw);
 	json_add_num(stream, "to_self_delay", payload->to_self_delay);
 	json_add_num(stream, "max_accepted_htlcs", payload->max_accepted_htlcs);
 	json_add_num(stream, "channel_flags", payload->channel_flags);
@@ -369,9 +383,30 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 		fatal("Plugin supplied PSBT that's missing required fields. %s",
 		      type_to_string(tmpctx, struct wally_psbt, payload->psbt));
 
-	if (!hook_extract_amount(dualopend, buffer, toks, "accepter_funding_msat",
+	if (!hook_extract_amount(dualopend, buffer, toks,
+				 "accepter_funding_msat",
 				 &payload->accepter_funding))
 		fatal("Plugin failed to supply accepter_funding_msat field");
+
+	const jsmntok_t *t = json_get_member(buffer, toks, "funding_feerate");
+	/* If they don't return a feerate, we use the best */
+	if (!t)
+		payload->funding_feerate_per_kw = payload->funding_feerate_best;
+	else {
+		if (!json_to_number(buffer, t,
+				    &payload->funding_feerate_per_kw))
+			fatal("Unable to parse 'funding-feerate'");
+		if (payload->funding_feerate_per_kw
+				< payload->funding_feerate_min
+		    || payload->funding_feerate_per_kw
+				> payload->funding_feerate_max)
+			/* FIXME: return an error instead of failing? */
+			fatal("Plugin supplied invalid funding feerate %d."
+			      " Outside valid range %d - %d",
+			      payload->funding_feerate_per_kw,
+			      payload->funding_feerate_min,
+			      payload->funding_feerate_max);
+	}
 
 	if (!payload->psbt &&
 		!amount_sat_eq(payload->accepter_funding, AMOUNT_SAT(0))) {
@@ -386,6 +421,7 @@ static void
 openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 {
 	struct subd *dualopend = payload->dualopend;
+	u8 *msg;
 
 	/* Free payload regardless of what happens next */
 	tal_steal(tmpctx, payload);
@@ -396,13 +432,19 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 
 	tal_del_destructor2(dualopend, openchannel2_remove_dualopend, payload);
 
+	/* If there's no plugin, the funding_feerate_per_kw will be zero.
+	 * In this case, we set the funding_feerate_per_kw to the default,
+	 * the 'best' */
+	if (payload->funding_feerate_per_kw == 0)
+		payload->funding_feerate_per_kw = payload->funding_feerate_best;
+
 	/* If there's no plugin, the psbt will be NULL. We should pass an empty
 	 * PSBT over, in this case */
-	subd_send_msg(dualopend,
-		      take(towire_dual_open_got_offer_reply(NULL,
-							    payload->accepter_funding,
-							    payload->psbt,
-							    payload->our_shutdown_scriptpubkey)));
+	msg = towire_dual_open_got_offer_reply(NULL, payload->accepter_funding,
+					       payload->funding_feerate_per_kw,
+					       payload->psbt,
+					       payload->our_shutdown_scriptpubkey);
+	subd_send_msg(dualopend, take(msg));
 }
 
 /* dualopend dies?  Remove dualopend ptr from payload */
@@ -956,8 +998,10 @@ static void accepter_got_offer(struct subd *dualopend,
 					  &payload->dust_limit_satoshis,
 					  &payload->max_htlc_value_in_flight_msat,
 					  &payload->htlc_minimum_msat,
-					  &payload->feerate_per_kw_funding,
-					  &payload->feerate_per_kw,
+					  &payload->funding_feerate_max,
+					  &payload->funding_feerate_min,
+					  &payload->funding_feerate_best,
+					  &payload->commitment_feerate_per_kw,
 					  &payload->to_self_delay,
 					  &payload->max_accepted_htlcs,
 					  &payload->channel_flags,
@@ -968,6 +1012,17 @@ static void accepter_got_offer(struct subd *dualopend,
 		tal_free(dualopend);
 		return;
 	}
+
+	/* As a convenience to the plugin, we provide our current known
+	 * min + max feerates. Ideally, the plugin will fail to
+	 * contribute funds if the peer's feerate range is outside of
+	 * this acceptable range, but we delegate that decision to
+	 * the plugin's logic */
+	payload->feerate_our_min = feerate_min(dualopend->ld, NULL);
+	payload->feerate_our_max = feerate_max(dualopend->ld, NULL);
+
+	/* Set the inital to feerate to zero, in case there is no plugin */
+	payload->funding_feerate_per_kw = 0;
 
 	tal_add_destructor2(dualopend, openchannel2_remove_dualopend, payload);
 	plugin_hook_call_openchannel2(dualopend->ld, payload);

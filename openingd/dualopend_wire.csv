@@ -36,7 +36,9 @@ msgdata,dual_open_got_offer,opener_funding,amount_sat,
 msgdata,dual_open_got_offer,dust_limit_satoshis,amount_sat,
 msgdata,dual_open_got_offer,max_htlc_value_in_flight_msat,amount_msat,
 msgdata,dual_open_got_offer,htlc_minimum_msat,amount_msat,
-msgdata,dual_open_got_offer,feerate_per_kw_funding,u32,
+msgdata,dual_open_got_offer,feerate_funding_max,u32,
+msgdata,dual_open_got_offer,feerate_funding_min,u32,
+msgdata,dual_open_got_offer,feerate_funding_best,u32,
 msgdata,dual_open_got_offer,feerate_per_kw,u32,
 msgdata,dual_open_got_offer,to_self_delay,u16,
 msgdata,dual_open_got_offer,max_accepted_htlcs,u16,
@@ -48,6 +50,7 @@ msgdata,dual_open_got_offer,shutdown_scriptpubkey,u8,shutdown_len
 # master->dualopend: reply back with our first funding info/contribs
 msgtype,dual_open_got_offer_reply,7105
 msgdata,dual_open_got_offer_reply,accepter_funding,amount_sat,
+msgdata,dual_open_got_offer_reply,feerate_funding,u32,
 msgdata,dual_open_got_offer_reply,psbt,wally_psbt,
 msgdata,dual_open_got_offer_reply,shutdown_len,u16,
 msgdata,dual_open_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len
