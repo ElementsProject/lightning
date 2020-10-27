@@ -652,7 +652,7 @@ static struct route_hop *route_hops_from_route(const tal_t *ctx,
 		/* nodeid is nodeid of *dst* */
 		dst = gossmap_nth_node(gossmap, r[i]->c, !r[i]->dir);
 		gossmap_node_get_id(gossmap, dst, &hops[i].nodeid);
-		if (gossmap_node_has_feature(gossmap, dst, OPT_VAR_ONION) != -1)
+		if (gossmap_node_get_feature(gossmap, dst, OPT_VAR_ONION) != -1)
 			hops[i].style = ROUTE_HOP_TLV;
 		else
 			hops[i].style = ROUTE_HOP_LEGACY;

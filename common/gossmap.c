@@ -140,7 +140,7 @@ static int map_feature_test(const struct gossmap *map,
 
 	assert(COMPULSORY_FEATURE(compulsory_bit) == compulsory_bit);
 	if (bytenum >= len)
-		return false;
+		return -1;
 
 	/* Note reversed! */
 	bits = map_u8(map, offset + len - 1 - bytenum);
@@ -876,7 +876,7 @@ u8 *gossmap_node_get_announce(const tal_t *ctx,
  *     * [`point`:`node_id_1`]
  *     * [`point`:`node_id_2`]
  */
-int gossmap_chan_has_feature(const struct gossmap *map,
+int gossmap_chan_get_feature(const struct gossmap *map,
 			     const struct gossmap_chan *c,
 			     int fbit)
 {
@@ -903,7 +903,7 @@ int gossmap_chan_has_feature(const struct gossmap *map,
  *    * [`u16`:`addrlen`]
  *    * [`addrlen*byte`:`addresses`]
  */
-int gossmap_node_has_feature(const struct gossmap *map,
+int gossmap_node_get_feature(const struct gossmap *map,
 			     const struct gossmap_node *n,
 			     int fbit)
 {
