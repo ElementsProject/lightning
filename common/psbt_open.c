@@ -464,3 +464,20 @@ void psbt_add_serials(struct wally_psbt *psbt, enum tx_role role)
 		psbt_output_set_serial_id(psbt, &psbt->outputs[i], serial_id);
 	}
 }
+
+void psbt_input_mark_ours(const tal_t *ctx,
+			  struct wally_psbt_input *input)
+{
+	u8 *key = psbt_make_key(tmpctx, PSBT_TYPE_INPUT_MARKER, NULL);
+	beint16_t bev = cpu_to_be16(1);
+
+	psbt_input_set_unknown(ctx, input, key, &bev, sizeof(bev));
+}
+
+bool psbt_input_is_ours(const struct wally_psbt_input *input)
+{
+	size_t unused;
+	void *result = psbt_get_lightning(&input->unknowns,
+					  PSBT_TYPE_INPUT_MARKER, &unused);
+	return !(!result);
+}

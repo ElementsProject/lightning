@@ -38,7 +38,7 @@ struct psbt_changeset {
 };
 
 #define PSBT_TYPE_SERIAL_ID 0x01
-#define PSBT_TYPE_MAX_WITNESS_LEN 0x02
+#define PSBT_TYPE_INPUT_MARKER 0x02
 
 /* psbt_get_serial_id - Returns the serial_id from an unknowns map
  *
@@ -163,4 +163,15 @@ bool psbt_side_finalized(const struct wally_psbt *psbt,
  * @role - the role we should use to select serial parity
  */
 void psbt_add_serials(struct wally_psbt *psbt, enum tx_role role);
+
+/* psbt_input_mark_ours - Sets the PSBT_TYPE_INPUT_MARKER on this input
+ */
+void psbt_input_mark_ours(const tal_t *ctx,
+			  struct wally_psbt_input *input);
+
+/* psbt_input_is_ours  - Returns true if this psbt input has
+ * 			 the PSBT_TYPE_INPUT_MARKER set on it.
+ */
+bool psbt_input_is_ours(const struct wally_psbt_input *input);
+
 #endif /* LIGHTNING_COMMON_PSBT_OPEN_H */
