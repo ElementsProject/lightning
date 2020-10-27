@@ -90,12 +90,12 @@ u8 *gossmap_node_get_announce(const tal_t *ctx,
 			      const struct gossmap_node *n);
 
 /* Return the feature bit (odd or even), or -1 if neither. */
-int gossmap_chan_has_feature(const struct gossmap *map,
+int gossmap_chan_get_feature(const struct gossmap *map,
 			     const struct gossmap_chan *c,
 			     int fbit);
 
 /* Return the feature bit (odd or even), or -1 if neither (or no announcement) */
-int gossmap_node_has_feature(const struct gossmap *map,
+int gossmap_node_get_feature(const struct gossmap *map,
 			     const struct gossmap_node *n,
 			     int fbit);
 
