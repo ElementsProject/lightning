@@ -259,7 +259,19 @@ static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
 	return msg;
 }
 
+static enum tx_role their_tx_role(const struct peer *peer)
+{
+	return peer->channel->opener == LOCAL ?
+		TX_ACCEPTER : TX_INITIATOR;
+}
+
 #if EXPERIMENTAL_FEATURES
+static enum tx_role our_tx_role(const struct peer *peer)
+{
+	return peer->channel->opener == LOCAL ?
+		TX_INITIATOR : TX_ACCEPTER;
+}
+
 static const u8 *psbt_to_tx_sigs_msg(const tal_t *ctx,
 				     struct channel *channel,
 				     const struct wally_psbt *psbt)
@@ -516,20 +528,6 @@ static void announce_channel(struct peer *peer)
 			take(towire_gossipd_local_channel_announcement(NULL,
 								       cannounce)));
 	send_channel_update(peer, 0);
-}
-
-#if EXPERIMENTAL_FEATURES
-static enum tx_role our_tx_role(const struct peer *peer)
-{
-	return peer->channel->opener == LOCAL ?
-		TX_INITIATOR : TX_ACCEPTER;
-}
-#endif
-
-static enum tx_role their_tx_role(const struct peer *peer)
-{
-	return peer->channel->opener == LOCAL ?
-		TX_ACCEPTER : TX_INITIATOR;
 }
 
 static void channel_announcement_negotiate(struct peer *peer)
