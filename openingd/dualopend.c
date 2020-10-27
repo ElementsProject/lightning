@@ -61,6 +61,21 @@
 #define REQ_FD STDIN_FILENO
 #define HSM_FD 6
 
+/* tx_add_input, tx_add_output, tx_rm_input, tx_rm_output */
+#define NUM_TX_MSGS (TX_RM_OUTPUT + 1)
+enum tx_msgs {
+	TX_ADD_INPUT,
+	TX_ADD_OUTPUT,
+	TX_RM_INPUT,
+	TX_RM_OUTPUT,
+};
+
+/*
+ * BOLT-544bda7144d91b3f51856189b8932610649f9e93 #2:
+  - MUST NOT send more than 2^12 ... messages
+ */
+#define MAX_TX_MSG_RCVD (1 << 12)
+
 /* Global state structure.  This is only for the one specific peer and channel */
 struct state {
 	struct per_peer_state *pps;
@@ -124,6 +139,9 @@ struct state {
 
 	/* The serial_id of the funding output */
 	u64 funding_serial;
+
+	/* Track how many of each tx collab msg we receive */
+	u16 tx_msg_count[NUM_TX_MSGS];
 };
 
 #if EXPERIMENTAL_FEATURES
@@ -861,6 +879,17 @@ static bool run_tx_interactive(struct state *state,
 					    tal_hex(tmpctx, msg));
 
 			check_channel_id(state, &cid, &state->channel_id);
+
+			/*
+			 * BOLT-544bda7144d91b3f51856189b8932610649f9e93 #2:
+			 * The receiving node:
+			 * - MUST fail the transaction collaboration if:
+			 *   - it receives more than 2^12 `tx_add_input`
+			 *   messages */
+			if (++state->tx_msg_count[TX_ADD_INPUT] > MAX_TX_MSG_RCVD)
+				peer_failed(state->pps, &state->channel_id,
+					    "Too many `tx_add_input`s"
+					    " received");
 			/*
 			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
 			 * - if is the `initiator`:
@@ -975,6 +1004,17 @@ static bool run_tx_interactive(struct state *state,
 
 			check_channel_id(state, &cid, &state->channel_id);
 
+			/*
+			 * BOLT-544bda7144d91b3f51856189b8932610649f9e93 #2:
+			 * The receiving node:
+			 * - MUST fail the transaction collaboration if:
+			 *   - it receives more than 2^12 `tx_rm_input`
+			 *   messages */
+			if (++state->tx_msg_count[TX_RM_INPUT] > MAX_TX_MSG_RCVD)
+				peer_failed(state->pps, &state->channel_id,
+					    "Too many `tx_rm_input`s"
+					    " received");
+
 			/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
 			 * The sending node:
 			 *   - MUST NOT send a `tx_remove_input` for an
@@ -1006,6 +1046,17 @@ static bool run_tx_interactive(struct state *state,
 					    tal_hex(tmpctx, msg));
 			check_channel_id(state, &cid, &state->channel_id);
 
+			/*
+			 * BOLT-544bda7144d91b3f51856189b8932610649f9e93 #2:
+			 * The receiving node:
+			 * - MUST fail the transaction collaboration if:
+			 *   - it receives more than 2^12 `tx_add_output`
+			 *   messages */
+			if (++state->tx_msg_count[TX_ADD_OUTPUT] > MAX_TX_MSG_RCVD)
+				peer_failed(state->pps, &state->channel_id,
+					    "Too many `tx_add_output`s"
+					    " received");
+
 			/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
 			 * The receiving node:
 			 *  ...
@@ -1036,6 +1087,17 @@ static bool run_tx_interactive(struct state *state,
 					    tal_hex(tmpctx, msg));
 
 			check_channel_id(state, &cid, &state->channel_id);
+
+			/*
+			 * BOLT-544bda7144d91b3f51856189b8932610649f9e93 #2:
+			 * The receiving node:
+			 * - MUST fail the transaction collaboration if:
+			 *   - it receives more than 2^12 `tx_rm_output`
+			 *   messages */
+			if (++state->tx_msg_count[TX_RM_OUTPUT] > MAX_TX_MSG_RCVD)
+				peer_failed(state->pps, &state->channel_id,
+					    "Too many `tx_rm_output`s"
+					    " received");
 
 			/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
 			 * The sending node:
@@ -2116,6 +2178,8 @@ int main(int argc, char *argv[])
 	 * handle_peer_gossip_or_error compares this. */
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = NULL;
+	for (size_t i = 0; i < NUM_TX_MSGS; i++)
+		state->tx_msg_count[i] = 0;
 
 	/*~ We set these to NULL, meaning no requirements on shutdown */
 	state->upfront_shutdown_script[LOCAL]
