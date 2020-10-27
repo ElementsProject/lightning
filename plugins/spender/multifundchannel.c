@@ -915,6 +915,11 @@ mfc_psbt_acquired(struct multifundchannel_command *mfc)
 	 * for the life of the tx */
 	psbt_add_serials(mfc->psbt, TX_INITIATOR);
 
+	/* We also mark all of our inputs as *ours*, so we
+	 * can easily identify them for `signpsbt`, later */
+	for (size_t i = 0; i < mfc->psbt->num_inputs; i++)
+		psbt_input_mark_ours(mfc->psbt, &mfc->psbt->inputs[i]);
+
 	return perform_channel_start(mfc);
 }
 
@@ -1522,13 +1527,21 @@ perform_signpsbt(struct multifundchannel_command *mfc)
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64": signpsbt.", mfc->id);
 
-	/* FIXME: indicate our inputs with signonly */
 	req = jsonrpc_request_start(mfc->cmd->plugin, mfc->cmd,
 				    "signpsbt",
 				    &after_signpsbt,
 				    &mfc_forward_error,
 				    mfc);
 	json_add_psbt(req->js, "psbt", mfc->psbt);
+
+	/* Use input markers to identify which inputs
+	 * are ours, only sign those */
+	json_array_start(req->js, "signonly");
+	for (size_t i = 0; i < mfc->psbt->num_inputs; i++) {
+		if (psbt_input_is_ours(&mfc->psbt->inputs[i]))
+			json_add_num(req->js, NULL, i);
+	}
+	json_array_end(req->js);
 	return send_outreq(mfc->cmd->plugin, req);
 }
 
