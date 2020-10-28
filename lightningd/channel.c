@@ -430,6 +430,7 @@ void channel_set_state(struct channel *channel,
 		       char *why)
 {
 	struct channel_id cid;
+	struct timeabs timestamp;
 
 	/* set closer, if known */
 	if (state > CHANNELD_NORMAL && channel->closer == NUM_SIDES) {
@@ -457,11 +458,13 @@ void channel_set_state(struct channel *channel,
 
 	/* plugin notification channel_state_changed */
 	if (state != old_state) {  /* see issue #4029 */
+		timestamp = time_now();
 		derive_channel_id(&cid, &channel->funding_txid, channel->funding_outnum);
 		notify_channel_state_changed(channel->peer->ld,
 					     &channel->peer->id,
 					     &cid,
 					     channel->scid,
+					     &timestamp,
 					     old_state,
 					     state,
 					     reason,

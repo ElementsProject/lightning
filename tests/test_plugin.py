@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from datetime import datetime
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky  # noqa: F401
 from hashlib import sha256
@@ -667,6 +668,10 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
     assert(event2['new_state'] == "CHANNELD_NORMAL")
     assert(event2['cause'] == "remote")
     assert(event2['message'] == "Lockin complete")
+
+    # also test the correctness of timestamps once
+    assert(datetime.fromisoformat(event1['timestamp'].replace('Z', '+00:00')))
+    assert(datetime.fromisoformat(event2['timestamp'].replace('Z', '+00:00')))
 
     # close channel and look for stateful events
     l1.rpc.close(scid)
