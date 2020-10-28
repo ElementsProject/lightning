@@ -211,7 +211,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const u8 *remote_upfront_shutdown_script STEALS,
 			    bool option_static_remotekey,
 			    bool option_anchor_outputs,
-			    struct wally_psbt *psbt STEALS);
+			    struct wally_psbt *psbt STEALS,
+			    enum side closer,
+			    enum state_change reason);
 
 void delete_channel(struct channel *channel STEALS);
 

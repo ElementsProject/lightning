@@ -1106,7 +1106,9 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_column_arr(tmpctx, stmt, 46, u8),
 			   db_column_int(stmt, 47),
 			   db_column_int(stmt, 48),
-			   psbt);
+			   psbt,
+			   db_column_int(stmt, 51),
+			   db_column_int(stmt, 52));
 
 	return chan;
 }
@@ -1184,6 +1186,8 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", option_anchor_outputs"
 					", shutdown_scriptpubkey_local"
 					", funding_psbt"
+					", closer"
+					", state_change_reason"
 					" FROM channels WHERE state < ?;"));
 	db_bind_int(stmt, 0, CLOSED);
 	db_query_prepared(stmt);
@@ -1451,7 +1455,9 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  option_static_remotekey=?,"
 					"  option_anchor_outputs=?,"
 					"  shutdown_scriptpubkey_local=?,"
-					"  funding_psbt=?"
+					"  funding_psbt=?,"
+					"  closer=?,"
+					"  state_change_reason=?"
 					" WHERE id=?"));
 	db_bind_u64(stmt, 0, chan->their_shachain.id);
 	if (chan->scid)
@@ -1498,7 +1504,9 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_psbt(stmt, 33, chan->psbt);
 	else
 		db_bind_null(stmt, 33);
-	db_bind_u64(stmt, 34, chan->dbid);
+	db_bind_int(stmt, 34, chan->closer);
+	db_bind_int(stmt, 35, chan->state_change_cause);
+	db_bind_u64(stmt, 36, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
 	wallet_channel_config_save(w, &chan->channel_info.their_config);

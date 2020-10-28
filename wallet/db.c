@@ -646,6 +646,9 @@ static struct migration dbmigrations[] = {
 	 " DEFAULT 0;"), NULL},
     {SQL("ALTER TABLE channels ADD full_channel_id BLOB DEFAULT NULL;"), fillin_missing_channel_id},
     {SQL("ALTER TABLE channels ADD funding_psbt BLOB DEFAULT NULL;"), NULL},
+    /* Channel closure reason */
+    {SQL("ALTER TABLE channels ADD closer INTEGER DEFAULT 2;"), NULL},
+    {SQL("ALTER TABLE channels ADD state_change_reason INTEGER DEFAULT 0;"), NULL},
 };
 
 /* Leak tracking. */

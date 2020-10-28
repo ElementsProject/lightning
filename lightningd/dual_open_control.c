@@ -665,7 +665,9 @@ wallet_commit_channel(struct lightningd *ld,
 			      remote_upfront_shutdown_script,
 			      option_static_remotekey,
 			      option_anchor_outputs,
-			      NULL);
+			      NULL,
+			      NUM_SIDES, /* closer not yet known */
+			      opener == LOCAL ? REASON_USER : REASON_REMOTE);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);

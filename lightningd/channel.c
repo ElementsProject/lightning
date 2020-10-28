@@ -195,7 +195,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const u8 *remote_upfront_shutdown_script,
 			    bool option_static_remotekey,
 			    bool option_anchor_outputs,
-			    struct wally_psbt *psbt STEALS)
+			    struct wally_psbt *psbt STEALS,
+			    enum side closer,
+			    enum state_change reason)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 
@@ -289,10 +291,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->rr_number = peer->ld->rr_counter++;
 	tal_add_destructor(channel, destroy_channel);
 
-	channel->closer = NUM_SIDES;
-	channel->state_change_cause = REASON_USER;
-	if (opener == REMOTE)
-		channel->state_change_cause = REASON_REMOTE;
+	channel->closer = closer;
+	channel->state_change_cause = reason;
 
 	/* Make sure we see any spends using this key */
 	txfilter_add_scriptpubkey(peer->ld->owned_txfilter,
