@@ -48,6 +48,9 @@ and is usually no greater than the number of channels that the node has
 ever had.
 Specify *password* if the `hsm_secret` is encrypted.
 
+**generatehsm** *hsm\_secret\_path*
+Generates a new hsm_secret using BIP39.
+
 BUGS
 ----
 
