@@ -830,271 +830,275 @@ msgstr ""
 msgid "INSERT INTO channel_state_changes (  channel_id, timestamp, old_state, new_state, cause, message) VALUES (?, ?, ?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:1610
+#: wallet/wallet.c:1614
+msgid "SELECT timestamp, old_state, new_state, cause, message FROM channel_state_changes WHERE channel_id = ? ORDER BY timestamp ASC;"
+msgstr ""
+
+#: wallet/wallet.c:1643
 msgid "SELECT id FROM peers WHERE node_id = ?"
 msgstr ""
 
-#: wallet/wallet.c:1622
+#: wallet/wallet.c:1655
 msgid "UPDATE peers SET address = ? WHERE id = ?"
 msgstr ""
 
-#: wallet/wallet.c:1631
+#: wallet/wallet.c:1664
 msgid "INSERT INTO peers (node_id, address) VALUES (?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:1649
+#: wallet/wallet.c:1682
 msgid "INSERT INTO channels (peer_id, first_blocknum, id) VALUES (?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:1675
+#: wallet/wallet.c:1708
 msgid "DELETE FROM channel_htlcs WHERE channel_id=?"
 msgstr ""
 
-#: wallet/wallet.c:1681
+#: wallet/wallet.c:1714
 msgid "DELETE FROM htlc_sigs WHERE channelid=?"
 msgstr ""
 
-#: wallet/wallet.c:1687
+#: wallet/wallet.c:1720
 msgid "DELETE FROM channeltxs WHERE channel_id=?"
 msgstr ""
 
-#: wallet/wallet.c:1693
+#: wallet/wallet.c:1726
 msgid "DELETE FROM shachains WHERE id IN (  SELECT shachain_remote_id   FROM channels   WHERE channels.id=?)"
 msgstr ""
 
-#: wallet/wallet.c:1703
+#: wallet/wallet.c:1736
 msgid "UPDATE channels SET state=?, peer_id=? WHERE channels.id=?"
 msgstr ""
 
-#: wallet/wallet.c:1717
+#: wallet/wallet.c:1750
 msgid "SELECT * FROM channels WHERE peer_id = ?;"
 msgstr ""
 
-#: wallet/wallet.c:1725
+#: wallet/wallet.c:1758
 msgid "DELETE FROM peers WHERE id=?"
 msgstr ""
 
-#: wallet/wallet.c:1736
+#: wallet/wallet.c:1769
 msgid "UPDATE outputs SET confirmation_height = ? WHERE prev_out_tx = ?"
 msgstr ""
 
-#: wallet/wallet.c:1839
+#: wallet/wallet.c:1872
 msgid "INSERT INTO channel_htlcs ( channel_id, channel_htlc_id,  direction, msatoshi, cltv_expiry, payment_hash,  payment_key, hstate, shared_secret, routing_onion, received_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:1892
+#: wallet/wallet.c:1925
 msgid "INSERT INTO channel_htlcs ( channel_id, channel_htlc_id, direction, origin_htlc, msatoshi, cltv_expiry, payment_hash, payment_key, hstate, routing_onion, partid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:1952
+#: wallet/wallet.c:1985
 msgid "UPDATE channel_htlcs SET hstate=?, payment_key=?, malformed_onion=?, failuremsg=?, localfailmsg=?, we_filled=? WHERE id=?"
 msgstr ""
 
-#: wallet/wallet.c:2168
+#: wallet/wallet.c:2201
 msgid "SELECT  id, channel_htlc_id, msatoshi, cltv_expiry, hstate, payment_hash, payment_key, routing_onion, failuremsg, malformed_onion, origin_htlc, shared_secret, received_time, we_filled FROM channel_htlcs WHERE direction= ? AND channel_id= ? AND hstate != ?"
 msgstr ""
 
-#: wallet/wallet.c:2215
+#: wallet/wallet.c:2248
 msgid "SELECT  id, channel_htlc_id, msatoshi, cltv_expiry, hstate, payment_hash, payment_key, routing_onion, failuremsg, malformed_onion, origin_htlc, shared_secret, received_time, partid, localfailmsg FROM channel_htlcs WHERE direction = ? AND channel_id = ? AND hstate != ?"
 msgstr ""
 
-#: wallet/wallet.c:2345
+#: wallet/wallet.c:2378
 msgid "SELECT channel_id, direction, cltv_expiry, channel_htlc_id, payment_hash FROM channel_htlcs WHERE channel_id = ?;"
 msgstr ""
 
-#: wallet/wallet.c:2379
+#: wallet/wallet.c:2412
 msgid "DELETE FROM channel_htlcs WHERE direction = ? AND origin_htlc = ? AND payment_hash = ? AND partid = ?;"
 msgstr ""
 
-#: wallet/wallet.c:2432
+#: wallet/wallet.c:2465
 msgid "SELECT status FROM payments WHERE payment_hash=? AND partid = ?;"
 msgstr ""
 
-#: wallet/wallet.c:2450
+#: wallet/wallet.c:2483
 msgid "INSERT INTO payments (  status,  payment_hash,  destination,  msatoshi,  timestamp,  path_secrets,  route_nodes,  route_channels,  msatoshi_sent,  description,  bolt11,  total_msat,  partid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:2533
+#: wallet/wallet.c:2566
 msgid "DELETE FROM payments WHERE payment_hash = ? AND partid = ?"
 msgstr ""
 
-#: wallet/wallet.c:2547
+#: wallet/wallet.c:2580
 msgid "DELETE FROM payments WHERE payment_hash = ?"
 msgstr ""
 
-#: wallet/wallet.c:2642
+#: wallet/wallet.c:2675
 msgid "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid FROM payments WHERE payment_hash = ? AND partid = ?"
 msgstr ""
 
-#: wallet/wallet.c:2691
+#: wallet/wallet.c:2724
 msgid "UPDATE payments SET status=? WHERE payment_hash=? AND partid=?"
 msgstr ""
 
-#: wallet/wallet.c:2701
+#: wallet/wallet.c:2734
 msgid "UPDATE payments SET payment_preimage=? WHERE payment_hash=? AND partid=?"
 msgstr ""
 
-#: wallet/wallet.c:2711
+#: wallet/wallet.c:2744
 msgid "UPDATE payments   SET path_secrets = NULL     , route_nodes = NULL     , route_channels = NULL WHERE payment_hash = ? AND partid = ?;"
 msgstr ""
 
-#: wallet/wallet.c:2743
+#: wallet/wallet.c:2776
 msgid "SELECT failonionreply, faildestperm, failindex, failcode, failnode, failchannel, failupdate, faildetail, faildirection  FROM payments WHERE payment_hash=? AND partid=?;"
 msgstr ""
 
-#: wallet/wallet.c:2810
+#: wallet/wallet.c:2843
 msgid "UPDATE payments   SET failonionreply=?     , faildestperm=?     , failindex=?     , failcode=?     , failnode=?     , failchannel=?     , failupdate=?     , faildetail=?     , faildirection=? WHERE payment_hash=? AND partid=?;"
 msgstr ""
 
-#: wallet/wallet.c:2869
+#: wallet/wallet.c:2902
 msgid "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid FROM payments WHERE payment_hash = ?;"
 msgstr ""
 
-#: wallet/wallet.c:2890
+#: wallet/wallet.c:2923
 msgid "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid FROM payments ORDER BY id;"
 msgstr ""
 
-#: wallet/wallet.c:2934
+#: wallet/wallet.c:2967
 msgid "DELETE FROM htlc_sigs WHERE channelid = ?"
 msgstr ""
 
-#: wallet/wallet.c:2941
+#: wallet/wallet.c:2974
 msgid "INSERT INTO htlc_sigs (channelid, signature) VALUES (?, ?)"
 msgstr ""
 
-#: wallet/wallet.c:2953
+#: wallet/wallet.c:2986
 msgid "SELECT blobval FROM vars WHERE name='genesis_hash'"
 msgstr ""
 
-#: wallet/wallet.c:2977
+#: wallet/wallet.c:3010
 msgid "INSERT INTO vars (name, blobval) VALUES ('genesis_hash', ?);"
 msgstr ""
 
-#: wallet/wallet.c:2993
+#: wallet/wallet.c:3026
 msgid "DELETE FROM utxoset WHERE spendheight < ?"
 msgstr ""
 
-#: wallet/wallet.c:3001 wallet/wallet.c:3111
+#: wallet/wallet.c:3034 wallet/wallet.c:3144
 msgid "INSERT INTO blocks (height, hash, prev_hash) VALUES (?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:3020
+#: wallet/wallet.c:3053
 msgid "DELETE FROM blocks WHERE hash = ?"
 msgstr ""
 
-#: wallet/wallet.c:3026
+#: wallet/wallet.c:3059
 msgid "SELECT * FROM blocks WHERE height >= ?;"
 msgstr ""
 
-#: wallet/wallet.c:3035
+#: wallet/wallet.c:3068
 msgid "DELETE FROM blocks WHERE height > ?"
 msgstr ""
 
-#: wallet/wallet.c:3047
+#: wallet/wallet.c:3080
 msgid "UPDATE outputs SET spend_height = ?,  status = ? WHERE prev_out_tx = ? AND prev_out_index = ?"
 msgstr ""
 
-#: wallet/wallet.c:3064
+#: wallet/wallet.c:3097
 msgid "UPDATE utxoset SET spendheight = ? WHERE txid = ? AND outnum = ?"
 msgstr ""
 
-#: wallet/wallet.c:3086 wallet/wallet.c:3122
+#: wallet/wallet.c:3119 wallet/wallet.c:3155
 msgid "INSERT INTO utxoset ( txid, outnum, blockheight, spendheight, txindex, scriptpubkey, satoshis) VALUES(?, ?, ?, ?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:3146
+#: wallet/wallet.c:3179
 msgid "SELECT height FROM blocks WHERE height = ?"
 msgstr ""
 
-#: wallet/wallet.c:3159
+#: wallet/wallet.c:3192
 msgid "SELECT txid, spendheight, scriptpubkey, satoshis FROM utxoset WHERE blockheight = ? AND txindex = ? AND outnum = ? AND spendheight IS NULL"
 msgstr ""
 
-#: wallet/wallet.c:3201
+#: wallet/wallet.c:3234
 msgid "SELECT blockheight, txindex, outnum FROM utxoset WHERE spendheight = ?"
 msgstr ""
 
-#: wallet/wallet.c:3232 wallet/wallet.c:3392
+#: wallet/wallet.c:3265 wallet/wallet.c:3425
 msgid "SELECT blockheight FROM transactions WHERE id=?"
 msgstr ""
 
-#: wallet/wallet.c:3242
+#: wallet/wallet.c:3275
 msgid "INSERT INTO transactions (  id, blockheight, txindex, rawtx) VALUES (?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:3263
+#: wallet/wallet.c:3296
 msgid "UPDATE transactions SET blockheight = ?, txindex = ? WHERE id = ?"
 msgstr ""
 
-#: wallet/wallet.c:3280
+#: wallet/wallet.c:3313
 msgid "INSERT INTO transaction_annotations (txid, idx, location, type, channel) VALUES (?, ?, ?, ?, ?) ON CONFLICT(txid,idx) DO NOTHING;"
 msgstr ""
 
-#: wallet/wallet.c:3312
+#: wallet/wallet.c:3345
 msgid "SELECT type, channel_id FROM transactions WHERE id=?"
 msgstr ""
 
-#: wallet/wallet.c:3328
+#: wallet/wallet.c:3361
 msgid "UPDATE transactions SET type = ?, channel_id = ? WHERE id = ?"
 msgstr ""
 
-#: wallet/wallet.c:3347
+#: wallet/wallet.c:3380
 msgid "SELECT type FROM transactions WHERE id=?"
 msgstr ""
 
-#: wallet/wallet.c:3370
+#: wallet/wallet.c:3403
 msgid "SELECT rawtx FROM transactions WHERE id=?"
 msgstr ""
 
-#: wallet/wallet.c:3416
+#: wallet/wallet.c:3449
 msgid "SELECT blockheight, txindex FROM transactions WHERE id=?"
 msgstr ""
 
-#: wallet/wallet.c:3444
+#: wallet/wallet.c:3477
 msgid "SELECT id FROM transactions WHERE blockheight=?"
 msgstr ""
 
-#: wallet/wallet.c:3463
+#: wallet/wallet.c:3496
 msgid "INSERT INTO channeltxs (  channel_id, type, transaction_id, input_num, blockheight) VALUES (?, ?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:3487
+#: wallet/wallet.c:3520
 msgid "SELECT DISTINCT(channel_id) FROM channeltxs WHERE type = ?;"
 msgstr ""
 
-#: wallet/wallet.c:3508
+#: wallet/wallet.c:3541
 msgid "SELECT  c.type, c.blockheight, t.rawtx, c.input_num, c.blockheight - t.blockheight + 1 AS depth, t.id as txid FROM channeltxs c JOIN transactions t ON t.id = c.transaction_id WHERE c.channel_id = ? ORDER BY c.id ASC;"
 msgstr ""
 
-#: wallet/wallet.c:3553
+#: wallet/wallet.c:3586
 msgid "UPDATE forwarded_payments SET  in_msatoshi=?, out_msatoshi=?, state=?, resolved_time=?, failcode=? WHERE in_htlc_id=?"
 msgstr ""
 
-#: wallet/wallet.c:3611
+#: wallet/wallet.c:3644
 msgid "INSERT INTO forwarded_payments (  in_htlc_id, out_htlc_id, in_channel_scid, out_channel_scid, in_msatoshi, out_msatoshi, state, received_time, resolved_time, failcode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:3670
+#: wallet/wallet.c:3703
 msgid "SELECT CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)FROM forwarded_payments WHERE state = ?;"
 msgstr ""
 
-#: wallet/wallet.c:3694
+#: wallet/wallet.c:3727
 msgid "SELECT  f.state, in_msatoshi, out_msatoshi, hin.payment_hash as payment_hash, in_channel_scid, out_channel_scid, f.received_time, f.resolved_time, f.failcode FROM forwarded_payments f LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id)"
 msgstr ""
 
-#: wallet/wallet.c:3782
+#: wallet/wallet.c:3815
 msgid "SELECT  t.id, t.rawtx, t.blockheight, t.txindex, t.type as txtype, c2.short_channel_id as txchan, a.location, a.idx as ann_idx, a.type as annotation_type, c.short_channel_id FROM  transactions t LEFT JOIN  transaction_annotations a ON (a.txid = t.id) LEFT JOIN  channels c ON (a.channel = c.id) LEFT JOIN  channels c2 ON (t.channel_id = c2.id) ORDER BY t.blockheight, t.txindex ASC"
 msgstr ""
 
-#: wallet/wallet.c:3876
+#: wallet/wallet.c:3909
 msgid "INSERT INTO penalty_bases (  channel_id, commitnum, txid, outnum, amount) VALUES (?, ?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:3901
+#: wallet/wallet.c:3934
 msgid "SELECT commitnum, txid, outnum, amount FROM penalty_bases WHERE channel_id = ?"
 msgstr ""
 
-#: wallet/wallet.c:3925
+#: wallet/wallet.c:3958
 msgid "DELETE FROM penalty_bases WHERE channel_id = ? AND commitnum = ?"
 msgstr ""
 
@@ -1106,7 +1110,7 @@ msgstr ""
 msgid "not a valid SQL statement"
 msgstr ""
 
-#: wallet/test/run-wallet.c:1371
+#: wallet/test/run-wallet.c:1376
 msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
-#  SHA256STAMP:419d2f0d03ce748b3e54bd380834b1fc721c823e38f2ce38fc87df73671743ef
+#  SHA256STAMP:8fd4a9d444c885db744f98790817b0b580f3e39e36be393e578cc05418d25323

@@ -765,6 +765,7 @@ static void json_add_channel(struct lightningd *ld,
 	struct amount_msat funding_msat, peer_msats, our_msats;
 	struct amount_sat peer_funded_sats;
 	struct peer *p = channel->peer;
+	struct state_change_entry *state_changes;
 
 	json_object_start(response, key);
 	json_add_string(response, "state", channel_state_name(channel));
@@ -926,6 +927,23 @@ static void json_add_channel(struct lightningd *ld,
 		     channel->channel_info.their_config.to_self_delay);
 	json_add_num(response, "max_accepted_htlcs",
 		     channel->our_config.max_accepted_htlcs);
+
+	state_changes = wallet_state_change_get(ld->wallet, response, channel->dbid);
+	json_array_start(response, "state_changes");
+	for (size_t i = 0; i < tal_count(state_changes); i++) {
+		json_object_start(response, NULL);
+		json_add_timeiso(response, "timestamp",
+				 &state_changes[i].timestamp);
+		json_add_string(response, "old_state",
+				channel_state_str(state_changes[i].old_state));
+		json_add_string(response, "new_state",
+				channel_state_str(state_changes[i].new_state));
+		json_add_string(response, "cause",
+				channel_change_state_reason_str(state_changes[i].cause));
+		json_add_string(response, "message", state_changes[i].message);
+		json_object_end(response);
+	}
+	json_array_end(response);
 
 	json_array_start(response, "status");
 	for (size_t i = 0; i < ARRAY_SIZE(channel->billboard.permanent); i++) {
