@@ -632,120 +632,176 @@ def test_openchannel_hook_chaining(node_factory, bitcoind):
     assert l2.daemon.wait_for_log(hook_msg + "reject on principle")
 
 
-def test_channel_state_changed(node_factory, bitcoind):
-    opts = [{}, {"plugin": os.path.join(os.getcwd(), "tests/plugins/misc_notifications.py")}]
+def test_channel_state_changed_bilateral(node_factory, bitcoind):
+    """ We open and close a channel and check notifications both sides.
+
+    The misc_notifications.py plugin logs `channel_state_changed` events.
+    """
+    opts = {"plugin": os.path.join(os.getcwd(), "tests/plugins/misc_notifications.py")}
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
-    peer_id = l1.rpc.getinfo()["id"]
+    l1_id = l1.rpc.getinfo()["id"]
+    l2_id = l2.rpc.getinfo()["id"]
     cid = l1.get_channel_id(l2)
     scid = l1.get_channel_scid(l2)
 
-    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
-    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
-    assert(event['peer_id'] == peer_id)
-    assert(event['channel_id'] == cid)
-    assert(event['short_channel_id'] == scid)
-    assert(event['old_state'] == "CHANNELD_AWAITING_LOCKIN")
-    assert(event['new_state'] == "CHANNELD_NORMAL")
+    # a helper that gives us the next channel_state_changed log entry
+    def wait_for_event(node):
+        msg = node.daemon.wait_for_log("channel_state_changed.*new_state.*")
+        event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+        return event
+
+    event1 = wait_for_event(l1)
+    assert(event1['peer_id'] == l2_id)  # we only test these IDs the first time
+    assert(event1['channel_id'] == cid)
+    assert(event1['short_channel_id'] == scid)
+    assert(event1['old_state'] == "CHANNELD_AWAITING_LOCKIN")
+    assert(event1['new_state'] == "CHANNELD_NORMAL")
+    assert(event1['cause'] == "user")
+    assert(event1['message'] == "Lockin complete")
+    event2 = wait_for_event(l2)
+    assert(event2['peer_id'] == l1_id)
+    assert(event2['channel_id'] == cid)
+    assert(event2['short_channel_id'] == scid)
+    assert(event2['old_state'] == "CHANNELD_AWAITING_LOCKIN")
+    assert(event2['new_state'] == "CHANNELD_NORMAL")
+    assert(event2['cause'] == "remote")
+    assert(event2['message'] == "Lockin complete")
 
     # close channel and look for stateful events
     l1.rpc.close(scid)
-    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
-    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
-    assert(event['peer_id'] == peer_id)
-    assert(event['channel_id'] == cid)
-    assert(event['short_channel_id'] == scid)
-    assert(event['old_state'] == "CHANNELD_NORMAL")
-    assert(event['new_state'] == "CHANNELD_SHUTTING_DOWN")
 
-    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
-    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
-    assert(event['peer_id'] == peer_id)
-    assert(event['channel_id'] == cid)
-    assert(event['short_channel_id'] == scid)
-    assert(event['old_state'] == "CHANNELD_SHUTTING_DOWN")
-    assert(event['new_state'] == "CLOSINGD_SIGEXCHANGE")
+    event1 = wait_for_event(l1)
+    assert(event1['old_state'] == "CHANNELD_NORMAL")
+    assert(event1['new_state'] == "CHANNELD_SHUTTING_DOWN")
+    assert(event1['cause'] == "user")
+    assert(event1['message'] == "User or plugin invoked close command")
+    event2 = wait_for_event(l2)
+    assert(event2['old_state'] == "CHANNELD_NORMAL")
+    assert(event2['new_state'] == "CHANNELD_SHUTTING_DOWN")
+    assert(event2['cause'] == "remote")
+    assert(event2['message'] == "Peer closes channel")
 
-    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
-    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
-    assert(event['peer_id'] == peer_id)
-    assert(event['channel_id'] == cid)
-    assert(event['short_channel_id'] == scid)
-    assert(event['old_state'] == "CLOSINGD_SIGEXCHANGE")
-    assert(event['new_state'] == "CLOSINGD_COMPLETE")
+    event1 = wait_for_event(l1)
+    assert(event1['old_state'] == "CHANNELD_SHUTTING_DOWN")
+    assert(event1['new_state'] == "CLOSINGD_SIGEXCHANGE")
+    assert(event1['cause'] == "user")
+    assert(event1['message'] == "Start closingd")
+    event2 = wait_for_event(l2)
+    assert(event2['old_state'] == "CHANNELD_SHUTTING_DOWN")
+    assert(event2['new_state'] == "CLOSINGD_SIGEXCHANGE")
+    assert(event2['cause'] == "remote")
+    assert(event2['message'] == "Start closingd")
+
+    event1 = wait_for_event(l1)
+    assert(event1['old_state'] == "CLOSINGD_SIGEXCHANGE")
+    assert(event1['new_state'] == "CLOSINGD_COMPLETE")
+    assert(event1['cause'] == "user")
+    assert(event1['message'] == "Closing complete")
+    event2 = wait_for_event(l2)
+    assert(event2['old_state'] == "CLOSINGD_SIGEXCHANGE")
+    assert(event2['new_state'] == "CLOSINGD_COMPLETE")
+    assert(event2['cause'] == "remote")
+    assert(event2['message'] == "Closing complete")
 
     bitcoind.generate_block(100)  # so it gets settled
 
-    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
-    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
-    assert(event['peer_id'] == peer_id)
-    assert(event['channel_id'] == cid)
-    assert(event['short_channel_id'] == scid)
-    assert(event['old_state'] == "CLOSINGD_COMPLETE")
-    assert(event['new_state'] == "FUNDING_SPEND_SEEN")
+    event1 = wait_for_event(l1)
+    assert(event1['old_state'] == "CLOSINGD_COMPLETE")
+    assert(event1['new_state'] == "FUNDING_SPEND_SEEN")
+    assert(event1['cause'] == "user")
+    assert(event1['message'] == "Onchain funding spend")
+    event2 = wait_for_event(l2)
+    assert(event2['old_state'] == "CLOSINGD_COMPLETE")
+    assert(event2['new_state'] == "FUNDING_SPEND_SEEN")
+    assert(event2['cause'] == "remote")
+    assert(event2['message'] == "Onchain funding spend")
 
-    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
-    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
-    assert(event['peer_id'] == peer_id)
-    assert(event['channel_id'] == cid)
-    assert(event['short_channel_id'] == scid)
-    assert(event['old_state'] == "FUNDING_SPEND_SEEN")
-    assert(event['new_state'] == "ONCHAIN")
+    event1 = wait_for_event(l1)
+    assert(event1['old_state'] == "FUNDING_SPEND_SEEN")
+    assert(event1['new_state'] == "ONCHAIN")
+    assert(event1['cause'] == "user")
+    assert(event1['message'] == "Onchain init reply")
+    event2 = wait_for_event(l2)
+    assert(event2['old_state'] == "FUNDING_SPEND_SEEN")
+    assert(event2['new_state'] == "ONCHAIN")
+    assert(event2['cause'] == "remote")
+    assert(event2['message'] == "Onchain init reply")
 
 
 def test_channel_state_changed_unilateral(node_factory, bitcoind):
-    opts = [{}, {"plugin": os.path.join(os.getcwd(), "tests/plugins/misc_notifications.py")}]
+    """ We open, disconnect, force-close a channel and check for notifications.
+
+    The misc_notifications.py plugin logs `channel_state_changed` events.
+    """
+    opts = {"plugin": os.path.join(os.getcwd(), "tests/plugins/misc_notifications.py")}
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
-    peer_id = l1.rpc.getinfo()["id"]
+    l1_id = l1.rpc.getinfo()["id"]
     cid = l1.get_channel_id(l2)
     scid = l1.get_channel_scid(l2)
 
-    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
-    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
-    assert(event['peer_id'] == peer_id)
-    assert(event['channel_id'] == cid)
-    assert(event['short_channel_id'] == scid)
-    assert(event['old_state'] == "CHANNELD_AWAITING_LOCKIN")
-    assert(event['new_state'] == "CHANNELD_NORMAL")
+    # a helper that gives us the next channel_state_changed log entry
+    def wait_for_event(node):
+        msg = node.daemon.wait_for_log("channel_state_changed.*new_state.*")
+        event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
+        return event
+
+    event2 = wait_for_event(l2)
+    assert(event2['peer_id'] == l1_id)  # we only test these IDs the first time
+    assert(event2['channel_id'] == cid)
+    assert(event2['short_channel_id'] == scid)
+    assert(event2['old_state'] == "CHANNELD_AWAITING_LOCKIN")
+    assert(event2['new_state'] == "CHANNELD_NORMAL")
+    assert(event2['cause'] == "remote")
+    assert(event2['message'] == "Lockin complete")
 
     # close channel unilaterally and look for stateful events
     l1.rpc.stop()
     wait_for(lambda: not only_one(l2.rpc.listpeers()['peers'])['connected'])
-    l2.rpc.close(scid, 1)  # 1sec timeout
-    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
-    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
-    assert(event['peer_id'] == peer_id)
-    assert(event['channel_id'] == cid)
-    assert(event['short_channel_id'] == scid)
-    assert(event['old_state'] == "CHANNELD_NORMAL")
-    assert(event['new_state'] == "CHANNELD_SHUTTING_DOWN")
+    l2.rpc.close(scid, 1)  # force close after 1sec timeout
 
-    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
-    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
-    assert(event['peer_id'] == peer_id)
-    assert(event['channel_id'] == cid)
-    assert(event['short_channel_id'] == scid)
-    assert(event['old_state'] == "CHANNELD_SHUTTING_DOWN")
-    assert(event['new_state'] == "AWAITING_UNILATERAL")
+    event2 = wait_for_event(l2)
+    assert(event2['old_state'] == "CHANNELD_NORMAL")
+    assert(event2['new_state'] == "CHANNELD_SHUTTING_DOWN")
+    assert(event2['cause'] == "user")
+    assert(event2['message'] == "User or plugin invoked close command")
+    event2 = wait_for_event(l2)
+    assert(event2['old_state'] == "CHANNELD_SHUTTING_DOWN")
+    assert(event2['new_state'] == "AWAITING_UNILATERAL")
+    assert(event2['cause'] == "user")
+    assert(event2['message'] == "Forcibly closed by `close` command timeout")
 
     bitcoind.generate_block(100)  # so it gets settled
 
-    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
-    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
-    assert(event['peer_id'] == peer_id)
-    assert(event['channel_id'] == cid)
-    assert(event['short_channel_id'] == scid)
-    assert(event['old_state'] == "AWAITING_UNILATERAL")
-    assert(event['new_state'] == "FUNDING_SPEND_SEEN")
+    event2 = wait_for_event(l2)
+    assert(event2['old_state'] == "AWAITING_UNILATERAL")
+    assert(event2['new_state'] == "FUNDING_SPEND_SEEN")
+    assert(event2['cause'] == "user")
+    assert(event2['message'] == "Onchain funding spend")
+    event2 = wait_for_event(l2)
+    assert(event2['old_state'] == "FUNDING_SPEND_SEEN")
+    assert(event2['new_state'] == "ONCHAIN")
+    assert(event2['cause'] == "user")
+    assert(event2['message'] == "Onchain init reply")
 
-    msg = l2.daemon.wait_for_log("channel_state_changed.*new_state.*")
-    event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
-    assert(event['peer_id'] == peer_id)
-    assert(event['channel_id'] == cid)
-    assert(event['short_channel_id'] == scid)
-    assert(event['old_state'] == "FUNDING_SPEND_SEEN")
-    assert(event['new_state'] == "ONCHAIN")
+    # finally restart l1 and check if he sees ONCHAIN reasons for his channel
+    l1.restart()
+    event1 = wait_for_event(l1)
+    assert(event1['old_state'] == "CHANNELD_NORMAL")
+    assert(event1['new_state'] == "AWAITING_UNILATERAL")
+    assert(event1['cause'] == "onchain")
+    assert(event1['message'] == "Funding transaction spent")
+    event1 = wait_for_event(l1)
+    assert(event1['old_state'] == "AWAITING_UNILATERAL")
+    assert(event1['new_state'] == "FUNDING_SPEND_SEEN")
+    assert(event1['cause'] == "onchain")
+    assert(event1['message'] == "Onchain funding spend")
+    event1 = wait_for_event(l1)
+    assert(event1['old_state'] == "FUNDING_SPEND_SEEN")
+    assert(event1['new_state'] == "ONCHAIN")
+    assert(event1['cause'] == "onchain")
+    assert(event1['message'] == "Onchain init reply")
 
 
 @unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
