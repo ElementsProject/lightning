@@ -809,6 +809,30 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     assert(event1['message'] == "Onchain init reply")
 
 
+def test_channel_state_change_history(node_factory, bitcoind):
+    """ We open and close a channel and check for state_canges entries.
+
+    """
+    l1, l2 = node_factory.line_graph(2)
+    scid = l1.get_channel_scid(l2)
+
+    l1.rpc.close(scid)
+    bitcoind.generate_block(100)  # so it gets settled
+    bitcoind.generate_block(100)  # so it gets settled
+
+    history = l1.rpc.listpeers()['peers'][0]['channels'][0]['state_changes']
+    assert(history[0]['cause'] == "user")
+    assert(history[0]['old_state'] == "CHANNELD_AWAITING_LOCKIN")
+    assert(history[0]['new_state'] == "CHANNELD_NORMAL")
+    assert(history[1]['cause'] == "user")
+    assert(history[1]['new_state'] == "CHANNELD_SHUTTING_DOWN")
+    assert(history[2]['cause'] == "user")
+    assert(history[2]['new_state'] == "CLOSINGD_SIGEXCHANGE")
+    assert(history[3]['cause'] == "user")
+    assert(history[3]['new_state'] == "CLOSINGD_COMPLETE")
+    assert(history[3]['message'] == "Closing complete")
+
+
 @unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
 def test_htlc_accepted_hook_fail(node_factory):
     """Send payments from l1 to l2, but l2 just declines everything.
