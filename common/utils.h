@@ -47,9 +47,9 @@ void clear_softref_(const tal_t *outer, size_t outersize, void **ptr);
 /* Note: p is never a complex expression, otherwise this multi-evaluates! */
 #define tal_arr_expand(p, s)						\
 	do {								\
-		size_t n = tal_count(*(p));				\
-		tal_resize((p), n+1);					\
-		(*(p))[n] = (s);					\
+		size_t n_ = tal_count(*(p));				\
+		tal_resize((p), n_+1);					\
+		(*(p))[n_] = (s);					\
 	} while(0)
 
 /**
