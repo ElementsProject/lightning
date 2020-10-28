@@ -802,6 +802,16 @@ static void json_add_channel(struct lightningd *ld,
 	    response, "private",
 	    !(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL));
 
+	/* opener and closer */
+	assert(channel->opener != NUM_SIDES);
+	json_add_string(response, "opener", channel->opener == LOCAL ?
+					    "local" : "remote");
+	if (channel->closer != NUM_SIDES)
+		json_add_string(response, "closer", channel->closer == LOCAL ?
+						    "local" : "remote");
+	else
+		json_add_null(response, "closer");
+
 	json_array_start(response, "features");
 	if (channel->option_static_remotekey)
 		json_add_string(response, NULL, "option_static_remotekey");
