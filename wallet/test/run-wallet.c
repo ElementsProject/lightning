@@ -287,6 +287,9 @@ void json_add_node_id(struct json_stream *response UNNEEDED,
 				const char *fieldname UNNEEDED,
 				const struct node_id *id UNNEEDED)
 { fprintf(stderr, "json_add_node_id called!\n"); abort(); }
+/* Generated stub for json_add_null */
+void json_add_null(struct json_stream *stream UNNEEDED, const char *fieldname UNNEEDED)
+{ fprintf(stderr, "json_add_null called!\n"); abort(); }
 /* Generated stub for json_add_num */
 void json_add_num(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  unsigned int value UNNEEDED)
