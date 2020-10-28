@@ -649,6 +649,14 @@ static struct migration dbmigrations[] = {
     /* Channel closure reason */
     {SQL("ALTER TABLE channels ADD closer INTEGER DEFAULT 2;"), NULL},
     {SQL("ALTER TABLE channels ADD state_change_reason INTEGER DEFAULT 0;"), NULL},
+    {SQL("CREATE TABLE channel_state_changes ("
+	 "  channel_id BIGINT REFERENCES channels(id) ON DELETE CASCADE,"
+	 "  timestamp BIGINT,"
+	 "  old_state INTEGER,"
+	 "  new_state INTEGER,"
+	 "  cause INTEGER,"
+	 "  message TEXT"
+	 ");"), NULL},
 };
 
 /* Leak tracking. */

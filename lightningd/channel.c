@@ -456,9 +456,16 @@ void channel_set_state(struct channel *channel,
 	/* TODO(cdecker) Selectively save updated fields to DB */
 	wallet_channel_save(channel->peer->ld->wallet, channel);
 
-	/* plugin notification channel_state_changed */
+	/* plugin notification channel_state_changed and DB entry */
 	if (state != old_state) {  /* see issue #4029 */
 		timestamp = time_now();
+		wallet_state_change_add(channel->peer->ld->wallet,
+					channel->dbid,
+					&timestamp,
+					old_state,
+					state,
+					reason,
+					why);
 		derive_channel_id(&cid, &channel->funding_txid, channel->funding_outnum);
 		notify_channel_state_changed(channel->peer->ld,
 					     &channel->peer->id,

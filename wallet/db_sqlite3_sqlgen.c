@@ -843,6 +843,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "CREATE TABLE channel_state_changes (  channel_id BIGINT REFERENCES channels(id) ON DELETE CASCADE,  timestamp BIGINT,  old_state INTEGER,  new_state INTEGER,  cause INTEGER,  message TEXT);",
+         .query = "CREATE TABLE channel_state_changes (  channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE,  timestamp INTEGER,  old_state INTEGER,  new_state INTEGER,  cause INTEGER,  message TEXT);",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
          .name = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .query = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .placeholders = 1,
@@ -1242,6 +1248,12 @@ struct db_query db_sqlite3_queries[] = {
          .name = "UPDATE channels SET  last_sent_commit=? WHERE id=?",
          .query = "UPDATE channels SET  last_sent_commit=? WHERE id=?",
          .placeholders = 2,
+         .readonly = false,
+    },
+    {
+         .name = "INSERT INTO channel_state_changes (  channel_id, timestamp, old_state, new_state, cause, message) VALUES (?, ?, ?, ?, ?, ?);",
+         .query = "INSERT INTO channel_state_changes (  channel_id, timestamp, old_state, new_state, cause, message) VALUES (?, ?, ?, ?, ?, ?);",
+         .placeholders = 6,
          .readonly = false,
     },
     {
@@ -1666,10 +1678,10 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
-#define DB_SQLITE3_QUERY_COUNT 276
+#define DB_SQLITE3_QUERY_COUNT 278
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:5f01b4eb0c1df3e18b6d3f7af23a509d584b12b8b0a637451576d2ef80bed04f
+// SHA256STAMP:9ed50e3cbb14e9bb979a6b0f8754f1cb2412a7adc032f0a71e88cd534b3828d4
