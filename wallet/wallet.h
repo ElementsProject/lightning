@@ -30,6 +30,8 @@ struct node_id;
 struct oneshot;
 struct peer;
 struct timers;
+enum channel_state;
+enum state_change;
 
 struct wallet {
 	struct lightningd *ld;
@@ -492,6 +494,17 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan);
  * After fully resolving a channel, only keep a lightweight stub
  */
 void wallet_channel_close(struct wallet *w, u64 wallet_id);
+
+/**
+ * Adds a channel state change history entry into the database
+ */
+void wallet_state_change_add(struct wallet *w,
+			     const u64 channel_id,
+			     struct timeabs *timestamp,
+			     enum channel_state old_state,
+			     enum channel_state new_state,
+			     enum state_change cause,
+			     char *message);
 
 /**
  * wallet_peer_delete -- After no more channels in peer, forget about it

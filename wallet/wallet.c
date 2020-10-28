@@ -1573,6 +1573,35 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	tal_free(stmt);
 }
 
+void wallet_state_change_add(struct wallet *w,
+			     const u64 channel_id,
+			     struct timeabs *timestamp,
+			     enum channel_state old_state,
+			     enum channel_state new_state,
+			     enum state_change cause,
+			     char *message)
+{
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(w->db,
+			     SQL("INSERT INTO channel_state_changes ("
+				 "  channel_id"
+				 ", timestamp"
+				 ", old_state"
+				 ", new_state"
+				 ", cause"
+				 ", message"
+				 ") VALUES (?, ?, ?, ?, ?, ?);"));
+
+	db_bind_u64(stmt, 0, channel_id);
+	db_bind_timeabs(stmt, 1, *timestamp);
+	db_bind_int(stmt, 2, old_state);
+	db_bind_int(stmt, 3, new_state);
+	db_bind_int(stmt, 4, cause);
+	db_bind_text(stmt, 5, message);
+
+	db_exec_prepared_v2(take(stmt));
+}
+
 static void wallet_peer_save(struct wallet *w, struct peer *peer)
 {
 	const char *addr =
