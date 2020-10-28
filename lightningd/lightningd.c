@@ -599,7 +599,7 @@ static void init_txfilter(struct wallet *w, struct txfilter *filter)
  *
  * But we define every path relative to our (~/.lightning) data dir, so we
  * make sure we stay there.  The rest of this is taken from ccan/daemonize,
- * which was based on W. Richard Steven's advice in Programming in The Unix
+ * which was based on W. Richard Stevens' advice in Programming in The Unix
  * Environment.
  */
 static void complete_daemonize(struct lightningd *ld)
