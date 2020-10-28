@@ -319,6 +319,11 @@ void json_add_string(struct json_stream *result UNNEEDED, const char *fieldname 
 void json_add_timeabs(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		      struct timeabs t UNNEEDED)
 { fprintf(stderr, "json_add_timeabs called!\n"); abort(); }
+/* Generated stub for json_add_timeiso */
+void json_add_timeiso(struct json_stream *result UNNEEDED,
+		      const char *fieldname UNNEEDED,
+		      struct timeabs *time UNNEEDED)
+{ fprintf(stderr, "json_add_timeiso called!\n"); abort(); }
 /* Generated stub for json_add_tx */
 void json_add_tx(struct json_stream *result UNNEEDED,
 		 const char *fieldname UNNEEDED,

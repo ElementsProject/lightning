@@ -42,6 +42,9 @@ void broadcast_tx(struct chain_topology *topo UNNEEDED,
 				 bool success UNNEEDED,
 				 const char *err))
 { fprintf(stderr, "broadcast_tx called!\n"); abort(); }
+/* Generated stub for channel_change_state_reason_str */
+const char *channel_change_state_reason_str(enum state_change reason UNNEEDED)
+{ fprintf(stderr, "channel_change_state_reason_str called!\n"); abort(); }
 /* Generated stub for channel_fail_forget */
 void channel_fail_forget(struct channel *channel UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "channel_fail_forget called!\n"); abort(); }
@@ -82,6 +85,9 @@ void channel_set_state(struct channel *channel UNNEEDED,
 /* Generated stub for channel_state_name */
 const char *channel_state_name(const struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_state_name called!\n"); abort(); }
+/* Generated stub for channel_state_str */
+const char *channel_state_str(enum channel_state state UNNEEDED)
+{ fprintf(stderr, "channel_state_str called!\n"); abort(); }
 /* Generated stub for channel_tell_depth */
 bool channel_tell_depth(struct lightningd *ld UNNEEDED,
 				 struct channel *channel UNNEEDED,
@@ -657,6 +663,11 @@ void wallet_invoice_waitone(const tal_t *ctx UNNEEDED,
 /* Generated stub for wallet_peer_delete */
 void wallet_peer_delete(struct wallet *w UNNEEDED, u64 peer_dbid UNNEEDED)
 { fprintf(stderr, "wallet_peer_delete called!\n"); abort(); }
+/* Generated stub for wallet_state_change_get */
+struct state_change_entry *wallet_state_change_get(struct wallet *w UNNEEDED,
+						   const tal_t *ctx UNNEEDED,
+						   u64 channel_id UNNEEDED)
+{ fprintf(stderr, "wallet_state_change_get called!\n"); abort(); }
 /* Generated stub for wallet_total_forward_fees */
 struct amount_msat wallet_total_forward_fees(struct wallet *w UNNEEDED)
 { fprintf(stderr, "wallet_total_forward_fees called!\n"); abort(); }

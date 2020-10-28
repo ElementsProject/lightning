@@ -507,6 +507,13 @@ void wallet_state_change_add(struct wallet *w,
 			     char *message);
 
 /**
+ * Gets all state change history entries for a channel from the database
+ */
+struct state_change_entry *wallet_state_change_get(struct wallet *w,
+						   const tal_t *ctx,
+						   u64 channel_id);
+
+/**
  * wallet_peer_delete -- After no more channels in peer, forget about it
  */
 void wallet_peer_delete(struct wallet *w, u64 peer_dbid);
