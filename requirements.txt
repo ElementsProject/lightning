@@ -5,7 +5,7 @@ bitstring==3.1.6
 cheroot==8.2.1
 coincurve==13.0.0
 commonmark==0.8.1
-cryptography==2.8
+cryptography==3.2
 ephemeral-port-reserve==1.1.1
 flake8==3.7.8
 flaky==3.6.1
