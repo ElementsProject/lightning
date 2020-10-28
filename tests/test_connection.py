@@ -2742,3 +2742,20 @@ def test_htlc_retransmit_order(node_factory, executor):
         assert(result['status'] == 'complete')
 
     # If order was wrong, we'll get a LOG_BROKEN and fixtures will complain.
+
+
+def test_channel_opener(node_factory):
+    """ Simply checks for 'opener' and 'closer' attributes on `listpeers` channels """
+    l1, l2 = node_factory.line_graph(2)
+
+    assert(l1.rpc.listpeers()['peers'][0]['channels'][0]['opener'] == 'local')
+    assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['opener'] == 'remote')
+
+    # 'closer' should be null initially
+    assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] is None)
+    assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] is None)
+
+    # close and check for 'closer'
+    l1.rpc.close(l2.rpc.getinfo()["id"])
+    assert(l1.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'local')
+    assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'remote')
