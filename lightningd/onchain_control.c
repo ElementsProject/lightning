@@ -72,7 +72,11 @@ static void onchaind_tell_fulfill(struct channel *channel)
 static void handle_onchain_init_reply(struct channel *channel, const u8 *msg UNUSED)
 {
 	/* FIXME: We may already be ONCHAIN state when we implement restart! */
-	channel_set_state(channel, FUNDING_SPEND_SEEN, ONCHAIN);
+	channel_set_state(channel,
+			  FUNDING_SPEND_SEEN,
+			  ONCHAIN,
+			  REASON_UNKNOWN,
+			  "Onchain init reply");
 }
 
 /**
@@ -560,11 +564,22 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	struct pubkey final_key;
 	int hsmfd;
 	u32 feerates[3];
+	enum state_change reason;
 
-	channel_fail_permanent(channel, "Funding transaction spent");
+	/* use REASON_ONCHAIN or closer's reason, if known */
+	reason = REASON_ONCHAIN;
+	if (channel->closer != NUM_SIDES)
+		reason = REASON_UNKNOWN;  /* will use last cause as reason */
+
+	channel_fail_permanent(channel, reason, "Funding transaction spent");
 
 	/* We could come from almost any state. */
-	channel_set_state(channel, channel->state, FUNDING_SPEND_SEEN);
+	/* NOTE(mschmoock) above comment is wrong, since we failed above! */
+	channel_set_state(channel,
+			  channel->state,
+			  FUNDING_SPEND_SEEN,
+			  reason,
+			  "Onchain funding spend");
 
 	hsmfd = hsm_get_client_fd(ld, &channel->peer->id,
 				  channel->dbid,

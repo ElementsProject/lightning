@@ -2099,10 +2099,11 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 				      shachain_index(revokenum),
 				      &per_commitment_secret)) {
 		channel_fail_permanent(channel,
-				    "Bad per_commitment_secret %s for %"PRIu64,
-				    type_to_string(msg, struct secret,
-						   &per_commitment_secret),
-				    revokenum);
+				       REASON_PROTOCOL,
+				       "Bad per_commitment_secret %s for %"PRIu64,
+				       type_to_string(msg, struct secret,
+						      &per_commitment_secret),
+				       revokenum);
 		return;
 	}
 
@@ -2320,11 +2321,12 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 				continue;
 
 			channel_fail_permanent(hout->key.channel,
-					    "Offered HTLC %"PRIu64
-					    " %s cltv %u hit deadline",
-					    hout->key.id,
-					    htlc_state_name(hout->hstate),
-					    hout->cltv_expiry);
+					       REASON_PROTOCOL,
+					       "Offered HTLC %"PRIu64
+					       " %s cltv %u hit deadline",
+					       hout->key.id,
+					       htlc_state_name(hout->hstate),
+					       hout->cltv_expiry);
 			removed = true;
 		}
 	/* Iteration while removing is safe, but can skip entries! */
@@ -2368,11 +2370,12 @@ void htlcs_notify_new_block(struct lightningd *ld, u32 height)
 				continue;
 
 			channel_fail_permanent(channel,
-					    "Fulfilled HTLC %"PRIu64
-					    " %s cltv %u hit deadline",
-					    hin->key.id,
-					    htlc_state_name(hin->hstate),
-					    hin->cltv_expiry);
+					       REASON_PROTOCOL,
+					       "Fulfilled HTLC %"PRIu64
+					       " %s cltv %u hit deadline",
+					       hin->key.id,
+					       htlc_state_name(hin->hstate),
+					       hin->cltv_expiry);
 			removed = true;
 		}
 	/* Iteration while removing is safe, but can skip entries! */

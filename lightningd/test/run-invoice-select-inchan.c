@@ -46,7 +46,10 @@ void broadcast_tx(struct chain_topology *topo UNNEEDED,
 void channel_fail_forget(struct channel *channel UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "channel_fail_forget called!\n"); abort(); }
 /* Generated stub for channel_fail_permanent */
-void channel_fail_permanent(struct channel *channel UNNEEDED, const char *fmt UNNEEDED, ...)
+void channel_fail_permanent(struct channel *channel UNNEEDED,
+			    enum state_change reason UNNEEDED,
+			    const char *fmt UNNEEDED,
+			    ...)
 { fprintf(stderr, "channel_fail_permanent called!\n"); abort(); }
 /* Generated stub for channel_fail_reconnect */
 void channel_fail_reconnect(struct channel *channel UNNEEDED,
@@ -72,7 +75,9 @@ void channel_set_billboard(struct channel *channel UNNEEDED, bool perm UNNEEDED,
 /* Generated stub for channel_set_state */
 void channel_set_state(struct channel *channel UNNEEDED,
 		       enum channel_state old_state UNNEEDED,
-		       enum channel_state state UNNEEDED)
+		       enum channel_state state UNNEEDED,
+		       enum state_change reason UNNEEDED,
+		       char *why UNNEEDED)
 { fprintf(stderr, "channel_set_state called!\n"); abort(); }
 /* Generated stub for channel_state_name */
 const char *channel_state_name(const struct channel *channel UNNEEDED)

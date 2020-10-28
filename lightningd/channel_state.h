@@ -33,4 +33,25 @@ enum channel_state {
 };
 #define CHANNEL_STATE_MAX CLOSED
 
+enum state_change {
+	/* Anything other than the reasons below. Should not happen. */
+	REASON_UNKNOWN,
+
+	/* Unconscious internal reasons, e.g. dev fail of a channel. */
+	REASON_LOCAL,
+
+	/* The operator or a plugin opened or closed a channel by intention. */
+	REASON_USER,
+
+	/* The remote closed or funded a channel with us by intention. */
+	REASON_REMOTE,
+
+	/* E.g. We need to close a channel because of bad signatures and such. */
+	REASON_PROTOCOL,
+
+	/* A channel was closed onchain, while we were offline. */
+	/* Note: This is very likely a conscious remote decision. */
+	REASON_ONCHAIN
+};
+
 #endif /* LIGHTNING_LIGHTNINGD_CHANNEL_STATE_H */

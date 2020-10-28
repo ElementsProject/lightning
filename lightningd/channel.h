@@ -151,6 +151,12 @@ struct channel {
 
 	/* PSBT, for v2 channels. Saved until it's sent */
 	struct wally_psbt *psbt;
+
+	/* the one that initiated a bilateral close, NUM_SIDES if unknown. */
+	enum side closer;
+
+	/* Last known state_change cause */
+	enum state_change state_change_cause;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
@@ -222,7 +228,10 @@ void channel_fail_reconnect_later(struct channel *channel,
 				  const char *fmt,...) PRINTF_FMT(2,3);
 
 /* Channel has failed, give up on it. */
-void channel_fail_permanent(struct channel *channel, const char *fmt, ...);
+void channel_fail_permanent(struct channel *channel,
+			    enum state_change reason,
+			    const char *fmt,
+			    ...);
 /* Forget the channel. This is only used for the case when we "receive" error
  * during CHANNELD_AWAITING_LOCKIN if we are "fundee". */
 void channel_fail_forget(struct channel *channel, const char *fmt, ...);
@@ -231,7 +240,11 @@ void channel_internal_error(struct channel *channel, const char *fmt, ...);
 
 void channel_set_state(struct channel *channel,
 		       enum channel_state old_state,
-		       enum channel_state state);
+		       enum channel_state state,
+		       enum state_change reason,
+		       char *why);
+
+const char *channel_change_state_reason_str(enum state_change reason);
 
 /* Find a channel which is not onchain, if any */
 struct channel *peer_active_channel(struct peer *peer);
