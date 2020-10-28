@@ -84,6 +84,11 @@ The objects in the *channels* array will have at least these fields:
     peer, or a theft attempt).
   * `"CLOSED"`: The channel closure has been confirmed deeply.
     The channel will eventually be removed from this array.
+* *state_changes*: An array of objects describing prior state change events.
+* *opener*: A string `"local"` or `"remote`" describing which side opened this
+  channel.
+* *closer*: A string `"local"` or `"remote`" describing which side
+  closed this channel or `null` if the channel is not (being) closed yet.
 * *status*: An array of strings containing the most important log messages
   relevant to this channel.
   Also known as the "billboard".
@@ -211,7 +216,7 @@ Objects in the *htlcs* array will contain these fields:
 * *payment\_hash*: The payment hash, whose preimage must be revealed to
   successfully claim this HTLC.
 * *state*: A string describing whether the HTLC has been communicated to
-  or from the peer, whether it has been signed in a new commitment, whether 
+  or from the peer, whether it has been signed in a new commitment, whether
   the previous commitment (that does not contain it) has been revoked, as
   well as when the HTLC is fulfilled or failed offchain.
 * *local\_trimmed*: A boolean, existing and `true` if the HTLC is not

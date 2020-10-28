@@ -325,8 +325,8 @@ into a block.
 ### `channel_state_changed`
 
 A notification for topic `channel_state_changed` is sent every time a channel
-changes its state. The notification includes the peer and channel ids as well
-as the old and the new channel states.
+changes its state. The notification includes the `peer_id` and `channel_id`, the
+old and new channel states, the type of `cause` and a `message`.
 
 ```json
 {
@@ -335,10 +335,34 @@ as the old and the new channel states.
         "channel_id": "a2d0851832f0e30a0cf778a826d72f077ca86b69f72677e0267f23f63a0599b4",
         "short_channel_id" : "561820x1020x1",
         "old_state": "CHANNELD_NORMAL",
-        "new_state": "CHANNELD_SHUTTING_DOWN"
+        "new_state": "CHANNELD_SHUTTING_DOWN",
+        "cause" : "remote",
+        "message" : "Peer closes channel"
     }
 }
 ```
+
+A `cause` can have the following values:
+ - "unknown"   Anything other than the reasons below. Should not happen.
+ - "local"     Unconscious internal reasons, e.g. dev fail of a channel.
+ - "user"      The operator or a plugin opened or closed a channel by intention.
+ - "remote"    The remote closed or funded a channel with us by intention.
+ - "protocol"  We need to close a channel because of bad signatures and such.
+ - "onchain"   A channel was closed onchain, while we were offline.
+
+Most state changes are caused subsequentially for a prior state change, e.g.
+"CLOSINGD_COMPLETE" is followed by "FUNDING_SPEND_SEEN". Because of this, the
+`cause` reflects the last known reason in terms of local or remote user
+interaction, protocol reasons, etc. More specifically, a `new_state`
+"FUNDING_SPEND_SEEN" will likely _not_ have "onchain" as a `cause` but some
+value such as "REMOTE" or "LOCAL" depending on who initiated the closing of a
+channel.
+
+Note: If the channel is not closed or being closed yet, the `cause` will reflect
+which side "remote" or "local" opened the channel.
+
+Note: If the cause is "onchain" this was very likely a conscious decision of the
+remote peer, but we have been offline.
 
 ### `connect`
 

@@ -115,6 +115,14 @@ The channel will eventually be removed from this array\.
 .RE
 
 .IP \[bu]
+\fIstate_changes\fR: An array of objects describing prior state change events\.
+.IP \[bu]
+\fIopener\fR: A string \fB"local"\fR or \fB"remote\fR" describing which side opened this
+channel\.
+.IP \[bu]
+\fIcloser\fR: A string \fB"local"\fR or \fB"remote\fR" describing which side
+closed this channel or \fBnull\fR if the channel is not (being) closed yet\.
+.IP \[bu]
 \fIstatus\fR: An array of strings containing the most important log messages
 relevant to this channel\.
 Also known as the "billboard"\.
@@ -285,7 +293,7 @@ channel in order to enforce the timeout onchain\.
 successfully claim this HTLC\.
 .IP \[bu]
 \fIstate\fR: A string describing whether the HTLC has been communicated to
-or from the peer, whether it has been signed in a new commitment, whether 
+or from the peer, whether it has been signed in a new commitment, whether
 the previous commitment (that does not contain it) has been revoked, as
 well as when the HTLC is fulfilled or failed offchain\.
 .IP \[bu]
@@ -319,4 +327,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR Lightning
 RFC site (BOLT #9):
 \fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md\fR
 
-\" SHA256STAMP:c1ed65bd0e15a1056e3785cf8162ae11d4817fef3c1c12a85c46bab82ab32d0e
+\" SHA256STAMP:8f6fbdc92e59d5efb2e9e8fa113651badb8aacddaea29d81798ecb598fbaad01
