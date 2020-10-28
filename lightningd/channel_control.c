@@ -136,7 +136,11 @@ static void lockin_complete(struct channel *channel)
 		return;
 	}
 
-	channel_set_state(channel, CHANNELD_AWAITING_LOCKIN, CHANNELD_NORMAL);
+	channel_set_state(channel,
+			  CHANNELD_AWAITING_LOCKIN,
+			  CHANNELD_NORMAL,
+			  REASON_UNKNOWN,
+			  "Lockin complete");
 
 	/* Fees might have changed (and we use IMMEDIATE once we're funded),
 	 * so update now. */
@@ -224,7 +228,9 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	 */
 	if (!is_p2pkh(scriptpubkey, NULL) && !is_p2sh(scriptpubkey, NULL)
 	    && !is_p2wpkh(scriptpubkey, NULL) && !is_p2wsh(scriptpubkey, NULL)) {
-		channel_fail_permanent(channel, "Bad shutdown scriptpubkey %s",
+		channel_fail_permanent(channel,
+				       REASON_PROTOCOL,
+				       "Bad shutdown scriptpubkey %s",
 				       tal_hex(channel, scriptpubkey));
 		return;
 	}
@@ -232,7 +238,10 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	/* If we weren't already shutting down, we are now */
 	if (channel->state != CHANNELD_SHUTTING_DOWN)
 		channel_set_state(channel,
-				  channel->state, CHANNELD_SHUTTING_DOWN);
+				  channel->state,
+				  CHANNELD_SHUTTING_DOWN,
+				  REASON_REMOTE,
+				  "Peer closes channel");
 
 	/* TODO(cdecker) Selectively save updated fields to DB */
 	wallet_channel_save(ld->wallet, channel);
@@ -265,7 +274,9 @@ static void channel_fail_fallen_behind(struct channel *channel, const u8 *msg)
 	}
 
 	/* Peer sees this, so send a generic msg about unilateral close. */
-	channel_fail_permanent(channel,	"Awaiting unilateral close");
+	channel_fail_permanent(channel,
+			       REASON_LOCAL,
+			       "Awaiting unilateral close");
 }
 
 static void peer_start_closingd_after_shutdown(struct channel *channel,
@@ -283,7 +294,11 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 
 	/* This sets channel->owner, closes down channeld. */
 	peer_start_closingd(channel, pps, false, NULL);
-	channel_set_state(channel, CHANNELD_SHUTTING_DOWN, CLOSINGD_SIGEXCHANGE);
+	channel_set_state(channel,
+			  CHANNELD_SHUTTING_DOWN,
+			  CLOSINGD_SIGEXCHANGE,
+			  REASON_UNKNOWN,
+			  "Start closingd");
 }
 
 static void forget(struct channel *channel)
@@ -638,6 +653,7 @@ void peer_start_channeld(struct channel *channel,
 				      num_revocations-1,
 				      &last_remote_per_commit_secret)) {
 		channel_fail_permanent(channel,
+				       REASON_LOCAL,
 				       "Could not get revocation secret %"PRIu64,
 				       num_revocations-1);
 		return;

@@ -289,6 +289,11 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->rr_number = peer->ld->rr_counter++;
 	tal_add_destructor(channel, destroy_channel);
 
+	channel->closer = NUM_SIDES;
+	channel->state_change_cause = REASON_USER;
+	if (opener == REMOTE)
+		channel->state_change_cause = REASON_REMOTE;
+
 	/* Make sure we see any spends using this key */
 	txfilter_add_scriptpubkey(peer->ld->owned_txfilter,
 				  take(p2wpkh_for_keyidx(NULL, peer->ld,
@@ -420,9 +425,24 @@ void channel_set_last_tx(struct channel *channel,
 
 void channel_set_state(struct channel *channel,
 		       enum channel_state old_state,
-		       enum channel_state state)
+		       enum channel_state state,
+		       enum state_change reason,
+		       char *why)
 {
 	struct channel_id cid;
+
+	/* set closer, if known */
+	if (state > CHANNELD_NORMAL && channel->closer == NUM_SIDES) {
+		if (reason == REASON_LOCAL)  channel->closer = LOCAL;
+		if (reason == REASON_USER)   channel->closer = LOCAL;
+		if (reason == REASON_REMOTE) channel->closer = REMOTE;
+	}
+
+	/* use or update state_change_cause, if known */
+	if (reason != REASON_UNKNOWN)
+		channel->state_change_cause = reason;
+	else
+		reason = channel->state_change_cause;
 
 	log_info(channel->log, "State changed from %s to %s",
 		 channel_state_name(channel), channel_state_str(state));
@@ -443,11 +463,29 @@ void channel_set_state(struct channel *channel,
 					     &cid,
 					     channel->scid,
 					     old_state,
-					     state);
+					     state,
+					     reason,
+					     why);
 	}
 }
 
-void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
+const char *channel_change_state_reason_str(enum state_change reason)
+{
+	switch (reason) {
+		case REASON_UNKNOWN:  return "unknown";
+		case REASON_LOCAL:    return "local";
+		case REASON_USER:     return "user";
+		case REASON_REMOTE:   return "remote";
+		case REASON_PROTOCOL: return "protocol";
+		case REASON_ONCHAIN:  return "onchain";
+	}
+	abort();
+}
+
+void channel_fail_permanent(struct channel *channel,
+			    enum state_change reason,
+			    const char *fmt,
+			    ...)
 {
 	struct lightningd *ld = channel->peer->ld;
 	va_list ap;
@@ -470,7 +508,11 @@ void channel_fail_permanent(struct channel *channel, const char *fmt, ...)
 	drop_to_chain(ld, channel, false);
 
 	if (channel_active(channel))
-		channel_set_state(channel, channel->state, AWAITING_UNILATERAL);
+		channel_set_state(channel,
+				  channel->state,
+				  AWAITING_UNILATERAL,
+				  reason,
+				  why);
 
 	tal_free(why);
 }
@@ -512,9 +554,9 @@ void channel_internal_error(struct channel *channel, const char *fmt, ...)
 
 	/* Don't expose internal error causes to remove unless doing dev */
 #if DEVELOPER
-	channel_fail_permanent(channel, "Internal error: %s", why);
+	channel_fail_permanent(channel, REASON_LOCAL, "Internal error: %s", why);
 #else
-	channel_fail_permanent(channel, "Internal error");
+	channel_fail_permanent(channel, REASON_LOCAL, "Internal error");
 #endif
 	tal_free(why);
 }
@@ -545,7 +587,9 @@ static void err_and_reconnect(struct channel *channel,
 
 #if DEVELOPER
 	if (dev_disconnect_permanent(channel->peer->ld)) {
-		channel_fail_permanent(channel, "dev_disconnect permfail");
+		channel_fail_permanent(channel,
+				       REASON_LOCAL,
+				       "dev_disconnect permfail");
 		return;
 	}
 #endif

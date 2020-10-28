@@ -287,8 +287,8 @@ close_command_timeout(struct close_command *cc)
 	if (!deprecated_apis)
 		json_notify_fmt(cc->cmd, LOG_INFORM,
 				"Timed out, forcing close.");
-	channel_fail_permanent(cc->channel,
-			       "Forcibly closed by 'close' command timeout");
+	channel_fail_permanent(cc->channel, REASON_USER,
+			       "Forcibly closed by `close` command timeout");
 }
 
 /* Construct a close command structure and add to ld. */
@@ -491,7 +491,9 @@ void channel_errmsg(struct channel *channel,
 				    channel->owner->name,
 				    err_for_them ? "sent" : "received", desc);
 	else
-		channel_fail_permanent(channel, "%s: %s ERROR %s",
+		channel_fail_permanent(channel,
+				       err_for_them ? REASON_LOCAL : REASON_PROTOCOL,
+				       "%s: %s ERROR %s",
 				       channel->owner->name,
 				       err_for_them ? "sent" : "received", desc);
 }
@@ -1022,6 +1024,7 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 #if DEVELOPER
 		if (dev_disconnect_permanent(ld)) {
 			channel_fail_permanent(channel,
+					       REASON_LOCAL,
 					       "dev_disconnect permfail");
 			error = channel->error;
 			goto send_error;
@@ -1199,7 +1202,9 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 		if (!mk_short_channel_id(&scid,
 					 loc->blkheight, loc->index,
 					 channel->funding_outnum)) {
-			channel_fail_permanent(channel, "Invalid funding scid %u:%u:%u",
+			channel_fail_permanent(channel,
+					       REASON_LOCAL,
+					       "Invalid funding scid %u:%u:%u",
 					       loc->blkheight, loc->index,
 					       channel->funding_outnum);
 			return DELETE_WATCH;
@@ -1518,7 +1523,9 @@ static struct command_result *json_close(struct command *cmd,
 		case CHANNELD_NORMAL:
 		case CHANNELD_AWAITING_LOCKIN:
 			channel_set_state(channel,
-					  channel->state, CHANNELD_SHUTTING_DOWN);
+					  channel->state, CHANNELD_SHUTTING_DOWN,
+					  REASON_USER,
+					  "User or plugin invoked close command");
 			/* fallthrough */
 		case CHANNELD_SHUTTING_DOWN:
 			if (channel->owner)
@@ -2104,7 +2111,9 @@ static struct command_result *json_dev_fail(struct command *cmd,
 				    "Could not find active channel with peer");
 	}
 
-	channel_fail_permanent(channel, "Failing due to dev-fail command");
+	channel_fail_permanent(channel,
+			       REASON_USER,
+			       "Failing due to dev-fail command");
 	return command_success(cmd, json_stream_success(cmd));
 }
 

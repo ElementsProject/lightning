@@ -215,7 +215,9 @@ static void channel_state_changed_notification_serialize(struct json_stream *str
 							 struct channel_id *cid,
 							 struct short_channel_id *scid,
 							 enum channel_state old_state,
-							 enum channel_state new_state)
+							 enum channel_state new_state,
+							 enum state_change cause,
+							 char *message)
 {
 	json_object_start(stream, "channel_state_changed");
 	json_add_node_id(stream, "peer_id", peer_id);
@@ -226,6 +228,11 @@ static void channel_state_changed_notification_serialize(struct json_stream *str
 		json_add_null(stream, "short_channel_id");
 	json_add_string(stream, "old_state", channel_state_str(old_state));
 	json_add_string(stream, "new_state", channel_state_str(new_state));
+	json_add_string(stream, "cause", channel_change_state_reason_str(cause));
+	if (message != NULL)
+		json_add_string(stream, "message", message);
+	else
+		json_add_null(stream, "message");
 	json_object_end(stream);
 }
 
@@ -238,18 +245,22 @@ void notify_channel_state_changed(struct lightningd *ld,
 				  struct channel_id *cid,
 				  struct short_channel_id *scid,
 				  enum channel_state old_state,
-				  enum channel_state new_state)
+				  enum channel_state new_state,
+				  enum state_change cause,
+				  char *message)
 {
 	void (*serialize)(struct json_stream *,
 			  struct node_id *,
 			  struct channel_id *,
 			  struct short_channel_id *,
 			  enum channel_state,
-			  enum channel_state) = channel_state_changed_notification_gen.serialize;
+			  enum channel_state,
+			  enum state_change,
+			  char *message) = channel_state_changed_notification_gen.serialize;
 
 	struct jsonrpc_notification *n
 		= jsonrpc_notification_start(NULL, channel_state_changed_notification_gen.topic);
-	serialize(n->stream, peer_id, cid, scid, old_state, new_state);
+	serialize(n->stream, peer_id, cid, scid, old_state, new_state, cause, message);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }

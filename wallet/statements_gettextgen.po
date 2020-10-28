@@ -1090,7 +1090,7 @@ msgstr ""
 msgid "not a valid SQL statement"
 msgstr ""
 
-#: wallet/test/run-wallet.c:1365
+#: wallet/test/run-wallet.c:1367
 msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
-#  SHA256STAMP:9d0158f039940ef277ed6fc3a27b3695dec7f9869ea11e0f9eea8313a5849f08
+#  SHA256STAMP:1ad776f09062dbee2206b358b64812c1a5bf4a4e2a1de08c1c5dc659481df667
