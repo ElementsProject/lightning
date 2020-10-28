@@ -207,7 +207,7 @@ their code is futureproof.  In 6 months remove it (Changelog-Removed).
 
 Changing existing input parameters is harder, and should generally be
 avoided.  Adding input parameters is possible, but should be done
-cautiously as too many parameters gets unwieldy quickly.
+cautiously as too many parameters get unwieldy quickly.
 
 ## Github Workflows
 
