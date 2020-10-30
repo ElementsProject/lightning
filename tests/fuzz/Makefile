@@ -21,6 +21,7 @@ FUZZ_COMMON_OBJS := \
 	common/daemon.o					\
 	common/daemon_conn.o				\
 	common/derive_basepoints.o			\
+	common/descriptor_checksum.o			\
 	common/fee_states.o				\
 	common/htlc_state.o				\
 	common/permute_tx.o				\
