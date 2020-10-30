@@ -118,9 +118,14 @@ static const struct plugin_command commands[] = { {
 	}
 };
 
+static const char *before[] = { "dummy", NULL };
+static const char *after[] = { "dummy", NULL };
+
 static const struct plugin_hook hooks[] = { {
 		"peer_connected",
 		json_peer_connected,
+		before,
+		after
 	}
 };
 

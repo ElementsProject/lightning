@@ -93,6 +93,8 @@ struct plugin_hook {
 	struct command_result *(*handle)(struct command *cmd,
 	                                 const char *buf,
 	                                 const jsmntok_t *params);
+	/* If non-NULL, these are NULL-terminated arrays of deps */
+	const char **before, **after;
 };
 
 /* Return the feature set of the current lightning node */
