@@ -1078,9 +1078,12 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 			name = json_strdup(tmpctx, buffer, nametok);
 			beforetok = json_get_member(buffer, t, "before");
 			aftertok = json_get_member(buffer, t, "after");
-		} else {
+		} else if (deprecated_apis) {
 			name = json_strdup(tmpctx, plugin->buffer, t);
 			beforetok = aftertok = NULL;
+		} else {
+			return tal_fmt(plugin,
+				    "hooks must be an array of objects");
 		}
 
 		hook = plugin_hook_register(plugin, name);
