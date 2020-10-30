@@ -93,8 +93,8 @@ example:
     "disconnect"
   ],
   "hooks": [
-    "openchannel",
-    "htlc_accepted"
+    { "name": "openchannel", "before": ["another_plugin"] },
+    { "name": "htlc_accepted" }
   ],
   "features": {
     "node": "D0000000",
@@ -702,13 +702,20 @@ declares that it'd like to be consulted on what to do next for certain
 events in the daemon. A hook can then decide how `lightningd` should
 react to the given event.
 
+When hooks are registered, they can optionally specify "before" and
+"after" arrays of plugin names, which control what order they will be
+called in.  If a plugin name is unknown, it is ignored, otherwise if the
+hook calls cannot be ordered to satisfy the specifications of all
+plugin hooks, the plugin registration will fail.
+
 The call semantics of the hooks, i.e., when and how hooks are called, depend
 on the hook type. Most hooks are currently set to `single`-mode. In this mode
 only a single plugin can register the hook, and that plugin will get called
 for each event of that type. If a second plugin attempts to register the hook
 it gets killed and a corresponding log entry will be added to the logs. In
 `chain`-mode multiple plugins can register for the hook type and they are
-called sequentially if a matching event is triggered. Each plugin can then
+called in any order which meets their `before` and `after` requirements
+if a matching event is triggered. Each plugin can then
 handle the event or defer by returning a `continue` result like the following:
 
 ```json

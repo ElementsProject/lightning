@@ -117,7 +117,6 @@ static void destroy_plugin(struct plugin *p)
 {
 	struct plugin_rpccall *call;
 
-	plugin_hook_unregister_all(p);
 	list_del(&p->list);
 
 	/* Terminate all pending RPC calls with an error. */
@@ -1057,20 +1056,43 @@ static const char *plugin_subscriptions_add(struct plugin *plugin,
 static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 				    const jsmntok_t *resulttok)
 {
-	const jsmntok_t *hookstok = json_get_member(buffer, resulttok, "hooks");
+	const jsmntok_t *t, *hookstok, *beforetok, *aftertok;
+	size_t i;
+
+	hookstok = json_get_member(buffer, resulttok, "hooks");
 	if (!hookstok)
 		return NULL;
 
-	for (int i = 0; i < hookstok->size; i++) {
-		char *name = json_strdup(tmpctx, plugin->buffer,
-					 json_get_arr(hookstok, i));
-		if (!plugin_hook_register(plugin, name)) {
+	json_for_each_arr(i, t, hookstok) {
+		char *name;
+		struct plugin_hook *hook;
+
+		if (t->type == JSMN_OBJECT) {
+			const jsmntok_t *nametok;
+
+			nametok = json_get_member(buffer, t, "name");
+			if (!nametok)
+				return tal_fmt(plugin, "no name in hook obj %.*s",
+					       json_tok_full_len(t),
+					       json_tok_full(buffer, t));
+			name = json_strdup(tmpctx, buffer, nametok);
+			beforetok = json_get_member(buffer, t, "before");
+			aftertok = json_get_member(buffer, t, "after");
+		} else {
+			name = json_strdup(tmpctx, plugin->buffer, t);
+			beforetok = aftertok = NULL;
+		}
+
+		hook = plugin_hook_register(plugin, name);
+		if (!hook) {
 			return tal_fmt(plugin,
 				    "could not register hook '%s', either the "
 				    "name doesn't exist or another plugin "
 				    "already registered it.",
 				    name);
 		}
+
+		plugin_hook_add_deps(hook, plugin, buffer, beforetok, aftertok);
 		tal_free(name);
 	}
 	return NULL;

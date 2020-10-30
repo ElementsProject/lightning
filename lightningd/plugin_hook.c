@@ -18,6 +18,14 @@ struct plugin_hook_request {
 	struct lightningd *ld;
 };
 
+struct hook_instance {
+	/* What plugin registered */
+	struct plugin *plugin;
+
+	/* Dependencies it asked for. */
+	const char **before, **after;
+};
+
 /* A link in the plugin_hook call chain (there's a joke in there about
  * computer scientists and naming...). The purpose is to act both as a list
  * from which elements can be popped off as we progress along the chain as
@@ -43,61 +51,52 @@ static struct plugin_hook *plugin_hook_by_name(const char *name)
 	return NULL;
 }
 
-bool plugin_hook_register(struct plugin *plugin, const char *method)
+/* When we destroy a plugin, we remove its hooks */
+static void destroy_hook_instance(struct hook_instance *h,
+				  struct plugin_hook *hook)
 {
+	for (size_t i = 0; i < tal_count(hook->hooks); i++) {
+		if (h == hook->hooks[i]) {
+			tal_arr_remove(&hook->hooks, i);
+			return;
+		}
+	}
+	abort();
+}
+
+struct plugin_hook *plugin_hook_register(struct plugin *plugin, const char *method)
+{
+	struct hook_instance *h;
 	struct plugin_hook *hook = plugin_hook_by_name(method);
 	if (!hook) {
 		/* No such hook name registered */
-		return false;
+		return NULL;
 	}
 
-	/* Make sure the plugins array is initialized. */
-	if (hook->plugins == NULL)
-		hook->plugins = notleak(tal_arr(NULL, struct plugin *, 0));
+	/* Make sure the hook_elements array is initialized. */
+	if (hook->hooks == NULL)
+		hook->hooks = notleak(tal_arr(NULL, struct hook_instance *, 0));
 
 	/* If this is a single type hook and we have a plugin registered we
 	 * must fail this attempt to add the plugin to the hook. */
-	if (hook->type == PLUGIN_HOOK_SINGLE && tal_count(hook->plugins) > 0)
-		return false;
+	if (hook->type == PLUGIN_HOOK_SINGLE && tal_count(hook->hooks) > 0)
+		return NULL;
 
 	/* Ensure we don't register the same plugin multple times. */
-	for (size_t i=0; i<tal_count(hook->plugins); i++)
-		if (hook->plugins[i] == plugin)
-			return true;
+	for (size_t i=0; i<tal_count(hook->hooks); i++)
+		if (hook->hooks[i]->plugin == plugin)
+			return NULL;
 
 	/* Ok, we're sure they can register and they aren't yet registered, so
 	 * register them. */
-	tal_arr_expand(&hook->plugins, plugin);
-	return true;
-}
+	h = tal(plugin, struct hook_instance);
+	h->plugin = plugin;
+	h->before = tal_arr(h, const char *, 0);
+	h->after = tal_arr(h, const char *, 0);
+	tal_add_destructor2(h, destroy_hook_instance, hook);
 
-bool plugin_hook_unregister(struct plugin *plugin, const char *method)
-{
-	struct plugin_hook *hook = plugin_hook_by_name(method);
-
-	if (!hook || !hook->plugins) {
-		/* No such hook name registered */
-		return false;
-	}
-
-	for (size_t i = 0; i < tal_count(hook->plugins); i++) {
-		if (hook->plugins[i] == plugin) {
-			tal_arr_remove(&hook->plugins, i);
-			return true;
-		}
-	}
-	return false;
-}
-
-void plugin_hook_unregister_all(struct plugin *plugin)
-{
-	static struct plugin_hook **hooks = NULL;
-	static size_t num_hooks;
-	if (!hooks)
-		hooks = autodata_get(hooks, &num_hooks);
-
-	for (size_t i = 0; i < num_hooks; i++)
-		plugin_hook_unregister(plugin, hooks[i]->name);
+	tal_arr_expand(&hook->hooks, h);
+	return hook;
 }
 
 /* Mutual recursion */
@@ -244,23 +243,24 @@ bool plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 {
 	struct plugin_hook_request *ph_req;
 	struct plugin_hook_call_link *link;
-	if (tal_count(hook->plugins)) {
+	if (tal_count(hook->hooks)) {
 		/* If we have a plugin that has registered for this
 		 * hook, serialize and call it */
 		/* FIXME: technically this is a leak, but we don't
 		 * currently have a list to store these. We might want
 		 * to eventually to inspect in-flight requests. */
-		ph_req = notleak(tal(hook->plugins, struct plugin_hook_request));
+		ph_req = notleak(tal(hook->hooks, struct plugin_hook_request));
 		ph_req->hook = hook;
 		ph_req->cb_arg = tal_steal(ph_req, cb_arg);
 		ph_req->db = ld->wallet->db;
 		ph_req->ld = ld;
 
 		list_head_init(&ph_req->call_chain);
-		for (size_t i=0; i<tal_count(hook->plugins); i++) {
+		for (size_t i=0; i<tal_count(hook->hooks); i++) {
 			/* We allocate this off of the plugin so we get notified if the plugin dies. */
-			link = tal(hook->plugins[i], struct plugin_hook_call_link);
-			link->plugin = hook->plugins[i];
+			link = tal(hook->hooks[i]->plugin,
+				   struct plugin_hook_call_link);
+			link->plugin = hook->hooks[i]->plugin;
 			link->req = ph_req;
 			tal_add_destructor(link, plugin_hook_killed);
 			list_add_tail(&ph_req->call_chain, &link->list);
@@ -324,10 +324,10 @@ void plugin_hook_db_sync(struct db *db)
 	struct plugin *plugin;
 
 	const char **changes = db_changes(db);
-	if (tal_count(hook->plugins) == 0)
+	if (tal_count(hook->hooks) == 0)
 		return;
 
-	ph_req = notleak(tal(hook->plugins, struct plugin_hook_request));
+	ph_req = notleak(tal(hook->hooks, struct plugin_hook_request));
 	/* FIXME: do IO logging for this! */
 	req = jsonrpc_request_start(NULL, hook->name, NULL, NULL,
 				    db_hook_response,
@@ -335,7 +335,7 @@ void plugin_hook_db_sync(struct db *db)
 
 	ph_req->hook = hook;
 	ph_req->db = db;
-	plugin = ph_req->plugin = hook->plugins[0];
+	plugin = ph_req->plugin = hook->hooks[0]->plugin;
 
 	json_add_num(req->stream, "data_version", db_data_version_get(db));
 
@@ -356,4 +356,39 @@ void plugin_hook_db_sync(struct db *db)
 		assert(ret2 == ph_req);
 		io_break(ret);
 	}
+}
+
+static void add_deps(const char ***arr,
+		     const char *buffer,
+		     const jsmntok_t *arrtok)
+{
+	const jsmntok_t *t;
+	size_t i;
+
+	if (!arrtok)
+		return;
+
+	json_for_each_arr(i, t, arrtok)
+		tal_arr_expand(arr, json_strdup(*arr, buffer, t));
+}
+
+void plugin_hook_add_deps(struct plugin_hook *hook,
+			  struct plugin *plugin,
+			  const char *buffer,
+			  const jsmntok_t *before,
+			  const jsmntok_t *after)
+{
+	struct hook_instance *h = NULL;
+
+	/* We just added this, it must exist */
+	for (size_t i = 0; i < tal_count(hook->hooks); i++) {
+		if (hook->hooks[i]->plugin == plugin) {
+			h = hook->hooks[i];
+			break;
+		}
+	}
+	assert(h);
+
+	add_deps(&h->before, buffer, before);
+	add_deps(&h->after, buffer, after);
 }
