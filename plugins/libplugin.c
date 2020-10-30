@@ -628,8 +628,25 @@ handle_getmanifest(struct command *getmanifest_cmd,
 	json_array_end(params);
 
 	json_array_start(params, "hooks");
-	for (size_t i = 0; i < p->num_hook_subs; i++)
-		json_add_string(params, NULL, p->hook_subs[i].name);
+	for (size_t i = 0; i < p->num_hook_subs; i++) {
+		json_object_start(params, NULL);
+		json_add_string(params, "name", p->hook_subs[i].name);
+		if (p->hook_subs[i].before) {
+			json_array_start(params, "before");
+			for (size_t j = 0; p->hook_subs[i].before[j]; j++)
+				json_add_string(params, NULL,
+						p->hook_subs[i].before[j]);
+			json_array_end(params);
+		}
+		if (p->hook_subs[i].after) {
+			json_array_start(params, "after");
+			for (size_t j = 0; p->hook_subs[i].after[j]; j++)
+				json_add_string(params, NULL,
+						p->hook_subs[i].after[j]);
+			json_array_end(params);
+		}
+		json_object_end(params);
+	}
 	json_array_end(params);
 
 	if (p->our_features != NULL) {
