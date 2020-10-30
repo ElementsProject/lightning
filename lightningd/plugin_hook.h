@@ -77,7 +77,7 @@ struct plugin_hook {
 
 	/* Which plugins have registered this hook? This is a `tal_arr`
 	 * initialized at creation. */
-	struct plugin **plugins;
+	struct hook_instance **hooks;
 };
 AUTODATA_TYPE(hooks, struct plugin_hook);
 
@@ -155,15 +155,17 @@ bool plugin_hook_continue(void *arg, const char *buffer, const jsmntok_t *toks);
 	AUTODATA(hooks, &name##_hook_gen);                                     \
 	PLUGIN_HOOK_CALL_DEF(name, cb_arg_type)
 
-bool plugin_hook_register(struct plugin *plugin, const char *method);
-
-/* Unregister a hook a plugin has registered for */
-bool plugin_hook_unregister(struct plugin *plugin, const char *method);
-
-/* Unregister all hooks a plugin has registered for */
-void plugin_hook_unregister_all(struct plugin *plugin);
+struct plugin_hook *plugin_hook_register(struct plugin *plugin,
+					 const char *method);
 
 /* Special sync plugin hook for db. */
 void plugin_hook_db_sync(struct db *db);
+
+/* Add dependencies for this hook. */
+void plugin_hook_add_deps(struct plugin_hook *hook,
+			  struct plugin *plugin,
+			  const char *buffer,
+			  const jsmntok_t *before,
+			  const jsmntok_t *after);
 
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_HOOK_H */
