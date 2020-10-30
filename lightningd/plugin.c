@@ -1064,7 +1064,7 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 		return NULL;
 
 	json_for_each_arr(i, t, hookstok) {
-		char *name;
+		char *name, *depfail;
 		struct plugin_hook *hook;
 
 		if (t->type == JSMN_OBJECT) {
@@ -1093,6 +1093,12 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 		}
 
 		plugin_hook_add_deps(hook, plugin, buffer, beforetok, aftertok);
+		depfail = plugin_hook_make_ordered(tmpctx, hook);
+		if (depfail)
+			return tal_fmt(plugin,
+				       "Cannot correctly order hook %s:"
+				       "conflicts in %s",
+				       name, depfail);
 		tal_free(name);
 	}
 	return NULL;

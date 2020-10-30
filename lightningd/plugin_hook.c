@@ -392,3 +392,125 @@ void plugin_hook_add_deps(struct plugin_hook *hook,
 	add_deps(&h->before, buffer, before);
 	add_deps(&h->after, buffer, after);
 }
+
+/* From https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm
+ * (https://creativecommons.org/licenses/by-sa/3.0/):
+ * L ← Empty list that will contain the sorted elements
+ * S ← Set of all nodes with no incoming edge
+ *
+ * while S is not empty do
+ *     remove a node n from S
+ *     add n to L
+ *     for each node m with an edge e from n to m do
+ *         remove edge e from the graph
+ *         if m has no other incoming edges then
+ *             insert m into S
+ *
+ * if graph has edges then
+ *     return error   (graph has at least one cycle)
+ * else
+ *     return L   (a topologically sorted order)
+ */
+struct hook_node {
+	struct hook_instance *hook;
+	size_t num_incoming;
+	struct hook_node **outgoing;
+};
+
+static struct hook_node *find_hook(struct hook_node *graph, const char *name)
+{
+	for (size_t i = 0; i < tal_count(graph); i++) {
+		if (plugin_paths_match(graph[i].hook->plugin->cmd, name))
+			return graph + i;
+	}
+	return NULL;
+}
+
+char *plugin_hook_make_ordered(const tal_t *ctx, struct plugin_hook *hook)
+{
+	struct hook_node *graph;
+	struct hook_node **l, **s;
+	char *ret;
+
+	/* Populate graph nodes */
+	graph = tal_arr(tmpctx, struct hook_node, tal_count(hook->hooks));
+	for (size_t i = 0; i < tal_count(graph); i++) {
+		graph[i].hook = hook->hooks[i];
+		graph[i].num_incoming = 0;
+		graph[i].outgoing = tal_arr(graph, struct hook_node *, 0);
+	}
+
+	/* Add edges. */
+	for (size_t i = 0; i < tal_count(graph); i++) {
+		for (size_t j = 0; j < tal_count(graph[i].hook->before); j++) {
+			struct hook_node *n = find_hook(graph,
+							graph[i].hook->before[j]);
+			if (!n) {
+				/* This is useful for typos! */
+				log_debug(graph[i].hook->plugin->log,
+					  "hook %s before unknown plugin %s",
+					  hook->name,
+					  graph[i].hook->before[j]);
+				continue;
+			}
+			tal_arr_expand(&graph[i].outgoing, n);
+			n->num_incoming++;
+		}
+		for (size_t j = 0; j < tal_count(graph[i].hook->after); j++) {
+			struct hook_node *n = find_hook(graph,
+							graph[i].hook->after[j]);
+			if (!n) {
+				/* This is useful for typos! */
+				log_debug(graph[i].hook->plugin->log,
+					  "hook %s after unknown plugin %s",
+					  hook->name,
+					  graph[i].hook->after[j]);
+				continue;
+			}
+			tal_arr_expand(&n->outgoing, &graph[i]);
+			graph[i].num_incoming++;
+		}
+	}
+
+	/* Populate array of ready-to-go nodes. */
+	s = tal_arr(graph, struct hook_node *, 0);
+	for (size_t i = 0; i < tal_count(graph); i++) {
+		if (graph[i].num_incoming == 0)
+			tal_arr_expand(&s, &graph[i]);
+	}
+
+	l = tal_arr(graph, struct hook_node *, 0);
+	while (tal_count(s)) {
+		struct hook_node *n = s[0];
+		tal_arr_expand(&l, n);
+		tal_arr_remove(&s, 0);
+
+		/* for each node m with an edge e from n to m do
+		 *     remove edge e from the graph
+		 *     if m has no other incoming edges then
+		 *         insert m into S
+		 */
+		for (size_t i = 0; i < tal_count(n->outgoing); i++) {
+			if (--n->outgoing[i]->num_incoming == 0)
+				tal_arr_expand(&s, n->outgoing[i]);
+		}
+	}
+
+	/* Check for any left over */
+	ret = tal_strdup(ctx, "");
+	for (size_t i = 0; i < tal_count(graph); i++) {
+		if (graph[i].num_incoming)
+			tal_append_fmt(&ret, "%s ", graph[i].hook->plugin->cmd);
+	}
+
+	if (strlen(ret) == 0) {
+		/* Success!  Write them back in order. */
+		assert(tal_count(l) == tal_count(hook->hooks));
+		for (size_t i = 0; i < tal_count(hook->hooks); i++)
+			hook->hooks[i] = l[i]->hook;
+
+		return tal_free(ret);
+	}
+
+	return ret;
+}
