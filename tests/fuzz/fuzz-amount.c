@@ -21,10 +21,7 @@ void run(const uint8_t *data, size_t size)
 
 	/* We should not crash when parsing any string. */
 
-	string = tal_arr(NULL, char, size);
-	for (size_t i = 0; i < size; i++)
-		string[i] = (char) data[i] % (CHAR_MAX + 1);
-
+	string = to_string(NULL, data, size);
 	parse_amount_msat(&msat, string, tal_count(string));
 	parse_amount_sat(&sat, string, tal_count(string));
 	tal_free(string);
