@@ -27,12 +27,6 @@ struct tlv_field {
 	u8 *value;
 };
 
-/* Append a stream of tlvs: types[] must be in increasing type order! */
-void towire_tlvs(u8 **pptr,
-		 const struct tlv_record_type types[],
-		 size_t num_types,
-		 const void *record);
-
 /* Given any tlvstream serialize the raw fields (untyped ones). */
 void towire_tlvstream_raw(u8 **pptr, const struct tlv_field *fields);
 
