@@ -21,6 +21,7 @@ COMMON_SRC_NOGEN :=				\
 	common/daemon_conn.c			\
 	common/decode_array.c			\
 	common/derive_basepoints.c		\
+	common/descriptor_checksum.c		\
 	common/dev_disconnect.c			\
 	common/dijkstra.c			\
 	common/ecdh_hsmd.c			\
