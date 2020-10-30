@@ -57,6 +57,8 @@ class Method(object):
         self.desc = desc
         self.long_desc = long_desc
         self.deprecated = deprecated
+        self.before: List[str] = []
+        self.after: List[str] = []
 
 
 class Request(dict):
@@ -405,7 +407,9 @@ class Plugin(object):
         return decorator
 
     def add_hook(self, name: str, func: Callable[..., JSONType],
-                 background: bool = False) -> None:
+                 background: bool = False,
+                 before: Optional[List[str]] = None,
+                 after: Optional[List[str]] = None) -> None:
         """Register a hook that is called synchronously by lightningd on events
         """
         if name in self.methods:
@@ -427,15 +431,23 @@ class Plugin(object):
 
         method = Method(name, func, MethodType.HOOK)
         method.background = background
+        method.before = []
+        if before:
+            method.before = before
+        method.after = []
+        if after:
+            method.after = after
         self.methods[name] = method
 
-    def hook(self, method_name: str) -> JsonDecoratorType:
+    def hook(self, method_name: str,
+             before: List[str] = None,
+             after: List[str] = None) -> JsonDecoratorType:
         """Decorator to add a plugin hook to the dispatch table.
 
         Internally uses add_hook.
         """
         def decorator(f: Callable[..., JSONType]) -> Callable[..., JSONType]:
-            self.add_hook(method_name, f, background=False)
+            self.add_hook(method_name, f, background=False, before=before, after=after)
             return f
         return decorator
 
@@ -689,7 +701,9 @@ class Plugin(object):
                 continue
 
             if method.mtype == MethodType.HOOK:
-                hooks.append(method.name)
+                hooks.append({'name': method.name,
+                              'before': method.before,
+                              'after': method.after})
                 continue
 
             doc = inspect.getdoc(method.func)
