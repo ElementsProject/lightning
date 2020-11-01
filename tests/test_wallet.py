@@ -1045,6 +1045,36 @@ def test_hsmtool_secret_decryption(node_factory):
     assert node_id == l1.rpc.getinfo()["id"]
 
 
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', '')
+def test_hsmtool_dump_descriptors(node_factory, bitcoind):
+    l1 = node_factory.get_node()
+    l1.fundwallet(10**6)
+
+    # Get a tpub descriptor of lightningd's wallet
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
+    cmd_line = ["tools/hsmtool", "dumponchaindescriptors", hsm_path, "",
+                "testnet"]
+    out = subprocess.check_output(cmd_line).decode("utf8").split("\n")
+    descriptor = [l for l in out if l.startswith("wpkh(tpub")][0]
+
+    # Import the descriptor to bitcoind
+    # FIXME: if we update the testsuite to use the upcoming 0.21 we could use
+    # importdescriptors instead.
+    bitcoind.rpc.importmulti([{
+        "desc": descriptor,
+        # No need to rescan, we'll transact afterward
+        "timestamp": "now",
+        # The default
+        "range": [0, 99]
+    }])
+
+    # Funds sent to lightningd can be retrieved by bitcoind
+    addr = l1.rpc.newaddr()["bech32"]
+    txid = l1.rpc.withdraw(addr, 10**3)["txid"]
+    bitcoind.generate_block(1, txid)
+    assert len(bitcoind.rpc.listunspent(1, 1, [addr])) == 1
+
+
 # this test does a 'listtransactions' on a yet unconfirmed channel
 def test_fundchannel_listtransaction(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2)
