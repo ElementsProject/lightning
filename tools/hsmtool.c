@@ -41,7 +41,8 @@ static void show_usage(const char *progname)
 	printf("	- guesstoremote <P2WPKH address> <node id> <tries> "
 	       "<path/to/hsm_secret> [hsm_secret password]\n");
 	printf("	- generatehsm <path/to/new//hsm_secret>\n");
-	printf("	- dumponchaindescriptors <path/to/hsm_secret> <password>\n");
+	printf("	- dumponchaindescriptors <path/to/hsm_secret> [password] "
+		"[network]\n");
 	exit(0);
 }
 
@@ -516,11 +517,14 @@ static int generate_hsm(const char *hsm_secret_path)
 	return 0;
 }
 
-static int dumponchaindescriptors(const char *hsm_secret_path, const char *passwd)
+static int dumponchaindescriptors(const char *hsm_secret_path, const char *passwd,
+				  const bool is_testnet)
 {
 	struct secret hsm_secret;
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
 	u32 salt = 0;
+	u32 version = is_testnet ?
+		BIP32_VER_TEST_PRIVATE : BIP32_VER_MAIN_PRIVATE;
 	struct ext_key master_extkey;
 	char *enc_xpub, *descriptor;
 	struct descriptor_checksum checksum;
@@ -541,9 +545,7 @@ static int dumponchaindescriptors(const char *hsm_secret_path, const char *passw
 		salt++;
 		/* ..Which is used to derive m/ */
 	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
-				     /* An xpub can easily be converted to a tpub */
-				     BIP32_VER_MAIN_PRIVATE,
-				     0, &master_extkey) != WALLY_OK);
+				     version, 0, &master_extkey) != WALLY_OK);
 
 	if (bip32_key_to_base58(&master_extkey, BIP32_FLAG_KEY_PUBLIC, &enc_xpub) != WALLY_OK)
 		errx(ERROR_LIBWALLY, "Can't encode xpub");
@@ -629,10 +631,23 @@ int main(int argc, char *argv[])
 	}
 
 	if (streq(method, "dumponchaindescriptors")) {
+		bool is_testnet;
 		if (argc < 3)
 			show_usage(argv[0]);
 
-		return dumponchaindescriptors(argv[2], argc > 3 ? argv[3] : NULL);
+		if (argc > 4) {
+			is_testnet = streq(argv[4], "testnet");
+			if (!is_testnet && !streq(argv[4], "bitcoin"))
+				errx(ERROR_USAGE, "Network '%s' not supported."
+				     " Supported networks: bitcoin (default),"
+				     " testnet",
+				     argv[4]);
+		} else
+			is_testnet = false;
+
+		return dumponchaindescriptors(argv[2],
+					      argc > 3 && !streq(argv[3], "") ? argv[3] : NULL,
+					      is_testnet);
 	}
 
 	show_usage(argv[0]);
