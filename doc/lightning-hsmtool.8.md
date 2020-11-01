@@ -51,6 +51,16 @@ Specify *password* if the `hsm_secret` is encrypted.
 **generatehsm** *hsm\_secret\_path*
 Generates a new hsm_secret using BIP39.
 
+ **dumponchaindescriptors** *hsm_secret* \[*password*\] \[*network*\]
+Dump output descriptors for our onchain wallet.
+The descriptors can be used by external services to be able to generate
+addresses for our onchain wallet. (for example on `bitcoind` using the
+`importmulti` or `importdescriptors` RPC calls)
+We need the path to the hsm_secret containing the wallet seed, and an optional
+(skip using `""`) password if it was encrypted.
+To generate descriptors using testnet master keys, you may specify *testnet* as
+the last parameter. By default, mainnet-encoded keys are generated.
+
 BUGS
 ----
 
