@@ -108,7 +108,6 @@ C-lightning has an internal bitcoin wallet, which you can use to make "on-chain"
 transactions, (see [withdraw](https://lightning.readthedocs.io/lightning-withdraw.7.html).
 These on-chain funds are backed up via the HD wallet seed, stored in byte-form in `hsm_secret`.
 
-and which you can backup thanks to a seed stored in the `hsm_secret`.
 `lightningd` also stores information for funds locked in Lightning Network channels, which are stored
 in a database. This database is required for on-going channel updates as well as channel closure.
 There is no single-seed backup for funds locked in channels.
