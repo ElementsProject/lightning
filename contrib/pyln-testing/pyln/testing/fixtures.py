@@ -138,6 +138,14 @@ def bitcoind(directory, teardown_checks):
         raise ValueError("elementsd is too old. At least version 160000 (v0.16.0)"
                          " is needed, current version is {}".format(info['version']))
 
+    # Make sure we have a wallet, starting with 0.21 there is no default wallet
+    # anymore.
+    # FIXME: if we update the testsuite to use the upcoming 0.21 release we
+    # could switch to descriptor wallets and speed bitcoind operations
+    # consequently.
+    if not bitcoind.rpc.listwallets():
+        bitcoind.rpc.createwallet("lightningd-tests")
+
     info = bitcoind.rpc.getblockchaininfo()
     # Make sure we have some spendable funds
     if info['blocks'] < 101:
