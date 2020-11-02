@@ -2031,3 +2031,28 @@ def test_hook_dep(node_factory):
     # Complaints about unknown plugin a, but nothing else
     assert l1.daemon.is_in_log("unknown plugin dep_a.py")
     assert not l1.daemon.is_in_log("unknown plugin (?!dep_a.py)")
+
+
+@pytest.mark.xfail(strict=True)
+def test_hook_dep_stable(node_factory):
+    # Load in order A, D, E, B.
+    # A says it has to be before B, D says it has to be before E.
+    # It should load in the order specified.
+
+    dep_a = os.path.join(os.path.dirname(__file__), 'plugins/dep_a.py')
+    dep_b = os.path.join(os.path.dirname(__file__), 'plugins/dep_b.py')
+    dep_d = os.path.join(os.path.dirname(__file__), 'plugins/dep_d.py')
+    dep_e = os.path.join(os.path.dirname(__file__), 'plugins/dep_e.py')
+    l1, l2 = node_factory.line_graph(2, opts=[{},
+                                              {'plugin': [dep_a, dep_d, dep_e, dep_b]}])
+
+    # dep_a mentions deb_c, but nothing else should be unknown.
+    assert l2.daemon.is_in_log("unknown plugin dep_c.py")
+    assert not l2.daemon.is_in_log("unknown plugin (?!|dep_c.py)")
+
+    l1.pay(l2, 100000)
+    # They must be called in this order!
+    l2.daemon.wait_for_log(r"dep_a.py: htlc_accepted called")
+    l2.daemon.wait_for_log(r"dep_d.py: htlc_accepted called")
+    l2.daemon.wait_for_log(r"dep_e.py: htlc_accepted called")
+    l2.daemon.wait_for_log(r"dep_b.py: htlc_accepted called")
