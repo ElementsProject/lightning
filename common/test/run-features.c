@@ -182,6 +182,8 @@ static void test_feature_set_or(void)
 static void test_feature_set_sub(void)
 {
 	struct feature_set *f1, *f2, *control;
+
+	/* cppcheck-suppress uninitvar - false positive on f1->bits */
 	for (size_t i = 0; i < ARRAY_SIZE(f1->bits); i++) {
 		f1 = talz(tmpctx, struct feature_set);
 		f2 = talz(tmpctx, struct feature_set);
@@ -214,6 +216,8 @@ static void test_feature_set_sub(void)
 static void test_feature_trim(void)
 {
 	struct feature_set *f;
+
+	/* cppcheck-suppress uninitvar - false positive on f->bits */
 	for (size_t i = 0; i < ARRAY_SIZE(f->bits); i++) {
 		f = talz(tmpctx, struct feature_set);
 
