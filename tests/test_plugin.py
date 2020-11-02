@@ -2077,15 +2077,30 @@ def test_htlc_accepted_hook_failcodes(node_factory):
             l1.rpc.pay(inv)
 
 
+@pytest.mark.xfail(strict=True)
 def test_hook_dep(node_factory):
     dep_a = os.path.join(os.path.dirname(__file__), 'plugins/dep_a.py')
     dep_b = os.path.join(os.path.dirname(__file__), 'plugins/dep_b.py')
     dep_c = os.path.join(os.path.dirname(__file__), 'plugins/dep_c.py')
-    l1, l2 = node_factory.line_graph(2, opts=[{}, {'plugin': dep_b}])
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{},
+                                                  {'plugin': dep_b},
+                                                  {'plugin': [dep_a, dep_b]}])
+
+    # l2 complains about the two unknown plugins, only.
+    assert l2.daemon.is_in_log("unknown plugin dep_a.py")
+    assert l2.daemon.is_in_log("unknown plugin dep_c.py")
+    assert not l2.daemon.is_in_log("unknown plugin (?!dep_a.py|dep_c.py)")
+    logstart = l2.daemon.logsearch_start
+
+    # l3 complains about the dep_c, only.
+    assert l3.daemon.is_in_log("unknown plugin dep_c.py")
+    assert not l3.daemon.is_in_log("unknown plugin (?!dep_c.py)")
 
     # A says it has to be before B.
     l2.rpc.plugin_start(plugin=dep_a)
     l2.daemon.wait_for_log(r"started.*dep_a.py")
+    # Still doesn't know about c.
+    assert l2.daemon.is_in_log("unknown plugin dep_c.py", logstart)
 
     l1.pay(l2, 100000)
     # They must be called in this order!
@@ -2093,8 +2108,12 @@ def test_hook_dep(node_factory):
     l2.daemon.wait_for_log(r"dep_b.py: htlc_accepted called")
 
     # But depc will not load, due to cyclical dep
-    with pytest.raises(RpcError, match=r'Cannot correctly order hook htlc_accepted'):
+    with pytest.raises(RpcError, match=r'Cannot meet required hook dependencies'):
         l2.rpc.plugin_start(plugin=dep_c)
 
     l1.rpc.plugin_start(plugin=dep_c)
     l1.daemon.wait_for_log(r"started.*dep_c.py")
+
+    # Complaints about unknown plugin a, but nothing else
+    assert l1.daemon.is_in_log("unknown plugin dep_a.py")
+    assert not l1.daemon.is_in_log("unknown plugin (?!dep_a.py)")
