@@ -688,11 +688,15 @@ The call semantics of the hooks, i.e., when and how hooks are called, depend
 on the hook type. Most hooks are currently set to `single`-mode. In this mode
 only a single plugin can register the hook, and that plugin will get called
 for each event of that type. If a second plugin attempts to register the hook
-it gets killed and a corresponding log entry will be added to the logs. In
-`chain`-mode multiple plugins can register for the hook type and they are
-called in any order which meets their `before` and `after` requirements
-if a matching event is triggered. Each plugin can then
-handle the event or defer by returning a `continue` result like the following:
+it gets killed and a corresponding log entry will be added to the logs.
+
+In `chain`-mode multiple plugins can register for the hook type and
+they are called in any order they are loaded (i.e. cmdline order
+first, configuration order file second: though note that the order of
+plugin directories is implementation-dependent), overriden only by
+`before` and `after` requirements the plugin's hook registrations specify.
+Each plugin can then handle the event or defer by returning a
+`continue` result like the following:
 
 ```json
 {

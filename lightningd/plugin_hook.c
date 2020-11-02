@@ -1,3 +1,4 @@
+#include <ccan/asort/asort.h>
 #include <ccan/io/io.h>
 #include <ccan/list/list.h>
 #include <common/configdir.h>
@@ -401,25 +402,9 @@ void plugin_hook_add_deps(struct plugin_hook *hook,
 	add_deps(&h->after, buffer, after);
 }
 
-/* From https://en.wikipedia.org/wiki/Topological_sorting#Kahn's_algorithm
- * (https://creativecommons.org/licenses/by-sa/3.0/):
- * L ← Empty list that will contain the sorted elements
- * S ← Set of all nodes with no incoming edge
- *
- * while S is not empty do
- *     remove a node n from S
- *     add n to L
- *     for each node m with an edge e from n to m do
- *         remove edge e from the graph
- *         if m has no other incoming edges then
- *             insert m into S
- *
- * if graph has edges then
- *     return error   (graph has at least one cycle)
- * else
- *     return L   (a topologically sorted order)
- */
 struct hook_node {
+	/* Is this copied into the ordered array yet? */
+	bool finished;
 	struct hook_instance *hook;
 	size_t num_incoming;
 	struct hook_node **outgoing;
@@ -434,16 +419,33 @@ static struct hook_node *find_hook(struct hook_node *graph, const char *name)
 	return NULL;
 }
 
+/* Sometimes naive is best. */
+static struct hook_node *get_best_candidate(struct hook_node *graph)
+{
+	struct hook_node *best = NULL;
+
+	for (size_t i = 0; i < tal_count(graph); i++) {
+		if (graph[i].finished)
+			continue;
+		if (graph[i].num_incoming != 0)
+			continue;
+		if (!best
+		    || best->hook->plugin->index > graph[i].hook->plugin->index)
+			best = &graph[i];
+	}
+	return best;
+}
+
 static struct plugin **plugin_hook_make_ordered(const tal_t *ctx,
 						struct plugin_hook *hook)
 {
-	struct hook_node *graph;
-	struct hook_node **l, **s;
-	struct plugin **ret;
+	struct hook_node *graph, *n;
+	struct hook_instance **done;
 
 	/* Populate graph nodes */
 	graph = tal_arr(tmpctx, struct hook_node, tal_count(hook->hooks));
 	for (size_t i = 0; i < tal_count(graph); i++) {
+		graph[i].finished = false;
 		graph[i].hook = hook->hooks[i];
 		graph[i].num_incoming = 0;
 		graph[i].outgoing = tal_arr(graph, struct hook_node *, 0);
@@ -481,45 +483,26 @@ static struct plugin **plugin_hook_make_ordered(const tal_t *ctx,
 		}
 	}
 
-	/* Populate array of ready-to-go nodes. */
-	s = tal_arr(graph, struct hook_node *, 0);
-	for (size_t i = 0; i < tal_count(graph); i++) {
-		if (graph[i].num_incoming == 0)
-			tal_arr_expand(&s, &graph[i]);
+	done = tal_arr(tmpctx, struct hook_instance *, 0);
+	while ((n = get_best_candidate(graph)) != NULL) {
+		tal_arr_expand(&done, n->hook);
+		n->finished = true;
+		for (size_t i = 0; i < tal_count(n->outgoing); i++)
+			n->outgoing[i]->num_incoming--;
 	}
 
-	l = tal_arr(graph, struct hook_node *, 0);
-	while (tal_count(s)) {
-		struct hook_node *n = s[0];
-		tal_arr_expand(&l, n);
-		tal_arr_remove(&s, 0);
-
-		/* for each node m with an edge e from n to m do
-		 *     remove edge e from the graph
-		 *     if m has no other incoming edges then
-		 *         insert m into S
-		 */
-		for (size_t i = 0; i < tal_count(n->outgoing); i++) {
-			if (--n->outgoing[i]->num_incoming == 0)
-				tal_arr_expand(&s, n->outgoing[i]);
+	if (tal_count(done) != tal_count(hook->hooks)) {
+		struct plugin **ret = tal_arr(ctx, struct plugin *, 0);
+		for (size_t i = 0; i < tal_count(graph); i++) {
+			if (!graph[i].finished)
+				tal_arr_expand(&ret, graph[i].hook->plugin);
 		}
-	}
-
-	/* Check for any left over: these cannot be loaded. */
-	ret = tal_arr(ctx, struct plugin *, 0);
-	for (size_t i = 0; i < tal_count(graph); i++) {
-		if (graph[i].num_incoming)
-			tal_arr_expand(&ret, graph[i].hook->plugin);
-	}
-	if (tal_count(ret) != 0)
 		return ret;
+	}
 
-	/* Success!  Write them back in order. */
-	assert(tal_count(l) == tal_count(hook->hooks));
-	for (size_t i = 0; i < tal_count(hook->hooks); i++)
-		hook->hooks[i] = l[i]->hook;
-
-	return tal_free(ret);
+	/* Success!  Copy ordered hooks back. */
+	memcpy(hook->hooks, done, tal_bytelen(hook->hooks));
+	return NULL;
 }
 
 /* Plugins could fail due to multiple hooks, but only add once. */

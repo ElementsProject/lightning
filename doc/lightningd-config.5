@@ -519,14 +519,17 @@ additional paths too:
 
  \fBplugin\fR=\fIPATH\fR
 Specify a plugin to run as part of c-lightning\. This can be specified
-multiple times to add multiple plugins\.
+multiple times to add multiple plugins\.  Note that unless plugins themselves
+specify ordering requirements for being called on various hooks, plugins will
+be ordered by commandline, then config file\.
 
 
  \fBplugin-dir\fR=\fIDIRECTORY\fR
 Specify a directory to look for plugins; all executable files not
 containing punctuation (other than \fI\.\fR, \fI-\fR or \fI_) in 'DIRECTORY\fR are
 loaded\. \fIDIRECTORY\fR must exist; this can be specified multiple times to
-add multiple directories\.
+add multiple directories\.  The ordering of plugins within a directory
+is currently unspecified\.
 
 
  \fBclear-plugins\fR
@@ -581,4 +584,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license\.
 
-\" SHA256STAMP:6b275a3227db6565ad3c5369b95d3eefe9472864b8ed9e6c5c768981cdf23b8f
+\" SHA256STAMP:c927bd3afb61288bb67d941d113cdeefe1363b0c7a28936ef30d43af3ce66098

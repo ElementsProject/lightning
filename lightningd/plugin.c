@@ -58,6 +58,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->json_cmds = tal_arr(p, struct command *, 0);
 	p->blacklist = tal_arr(p, const char *, 0);
 	p->shutdown = false;
+	p->plugin_idx = 0;
 #if DEVELOPER
 	p->dev_builtin_plugins_unimportant = false;
 #endif /* DEVELOPER */
@@ -199,6 +200,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p->used = 0;
 	p->subscriptions = NULL;
 	p->dynamic = false;
+	p->index = plugins->plugin_idx++;
 
 	p->log = new_log(p, plugins->log_book, NULL, "plugin-%s",
 			 path_basename(tmpctx, p->cmd));

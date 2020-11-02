@@ -2033,7 +2033,6 @@ def test_hook_dep(node_factory):
     assert not l1.daemon.is_in_log("unknown plugin (?!dep_a.py)")
 
 
-@pytest.mark.xfail(strict=True)
 def test_hook_dep_stable(node_factory):
     # Load in order A, D, E, B.
     # A says it has to be before B, D says it has to be before E.
