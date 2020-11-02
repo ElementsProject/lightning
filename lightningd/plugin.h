@@ -50,6 +50,9 @@ struct plugin {
 
 	enum plugin_state plugin_state;
 
+	/* Our unique index, which is default hook ordering. */
+	u64 index;
+
 	/* If this plugin can be restarted without restarting lightningd */
 	bool dynamic;
 
@@ -112,6 +115,9 @@ struct plugins {
 
 	/* Whether we are shutting down (`plugins_free` is called) */
 	bool shutdown;
+
+	/* Index to show what order they were added in */
+	u64 plugin_idx;
 
 #if DEVELOPER
 	/* Whether builtin plugins should be overridden as unimportant.  */
