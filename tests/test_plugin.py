@@ -613,18 +613,9 @@ def test_openchannel_hook_chaining(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'They sent error channel'):
         l1.rpc.fundchannel(l2.info['id'], 100005)
 
-    # Note: hook chain order is currently undefined, because hooks are registerd
-    #       as a result of the getmanifest call, which may take some random time.
-    #       We need to workaround that fact, so test can be stable
-    correct_order = l2.daemon.is_in_log(hook_msg + "reject for a reason")
-    if correct_order:
-        assert l2.daemon.wait_for_log(hook_msg + "reject for a reason")
-        # the other plugin must not be called
-        assert not l2.daemon.is_in_log("reject on principle")
-    else:
-        assert l2.daemon.wait_for_log(hook_msg + "reject on principle")
-        # the other plugin must not be called
-        assert not l2.daemon.is_in_log("reject for a reason")
+    assert l2.daemon.wait_for_log(hook_msg + "reject for a reason")
+    # the third plugin must now not be called anymore
+    assert not l2.daemon.is_in_log("reject on principle")
 
     # 100000sat is good for hook_accepter, so it should fail 'on principle'
     # at third hook openchannel_reject.py
