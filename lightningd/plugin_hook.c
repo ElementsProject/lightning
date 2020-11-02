@@ -38,12 +38,20 @@ struct plugin_hook_call_link {
 	struct plugin_hook_request *req;
 };
 
-static struct plugin_hook *plugin_hook_by_name(const char *name)
+static struct plugin_hook **get_hooks(size_t *num)
 {
 	static struct plugin_hook **hooks = NULL;
 	static size_t num_hooks;
 	if (!hooks)
 		hooks = autodata_get(hooks, &num_hooks);
+	*num = num_hooks;
+	return hooks;
+}
+
+static struct plugin_hook *plugin_hook_by_name(const char *name)
+{
+	size_t num_hooks;
+	struct plugin_hook **hooks = get_hooks(&num_hooks);
 
 	for (size_t i=0; i<num_hooks; i++)
 		if (streq(hooks[i]->name, name))
@@ -426,11 +434,12 @@ static struct hook_node *find_hook(struct hook_node *graph, const char *name)
 	return NULL;
 }
 
-char *plugin_hook_make_ordered(const tal_t *ctx, struct plugin_hook *hook)
+static struct plugin **plugin_hook_make_ordered(const tal_t *ctx,
+						struct plugin_hook *hook)
 {
 	struct hook_node *graph;
 	struct hook_node **l, **s;
-	char *ret;
+	struct plugin **ret;
 
 	/* Populate graph nodes */
 	graph = tal_arr(tmpctx, struct hook_node, tal_count(hook->hooks));
@@ -496,20 +505,43 @@ char *plugin_hook_make_ordered(const tal_t *ctx, struct plugin_hook *hook)
 		}
 	}
 
-	/* Check for any left over */
-	ret = tal_strdup(ctx, "");
+	/* Check for any left over: these cannot be loaded. */
+	ret = tal_arr(ctx, struct plugin *, 0);
 	for (size_t i = 0; i < tal_count(graph); i++) {
 		if (graph[i].num_incoming)
-			tal_append_fmt(&ret, "%s ", graph[i].hook->plugin->cmd);
+			tal_arr_expand(&ret, graph[i].hook->plugin);
 	}
+	if (tal_count(ret) != 0)
+		return ret;
 
-	if (strlen(ret) == 0) {
-		/* Success!  Write them back in order. */
-		assert(tal_count(l) == tal_count(hook->hooks));
-		for (size_t i = 0; i < tal_count(hook->hooks); i++)
-			hook->hooks[i] = l[i]->hook;
+	/* Success!  Write them back in order. */
+	assert(tal_count(l) == tal_count(hook->hooks));
+	for (size_t i = 0; i < tal_count(hook->hooks); i++)
+		hook->hooks[i] = l[i]->hook;
 
-		return tal_free(ret);
+	return tal_free(ret);
+}
+
+/* Plugins could fail due to multiple hooks, but only add once. */
+static void append_plugin_once(struct plugin ***ret, struct plugin *p)
+{
+	for (size_t i = 0; i < tal_count(*ret); i++) {
+		if ((*ret)[i] == p)
+			return;
+	}
+	tal_arr_expand(ret, p);
+}
+
+struct plugin **plugin_hooks_make_ordered(const tal_t *ctx)
+{
+	size_t num_hooks;
+	struct plugin_hook **hooks = get_hooks(&num_hooks);
+	struct plugin **ret = tal_arr(ctx, struct plugin *, 0);
+
+	for (size_t i=0; i<num_hooks; i++) {
+		struct plugin **these = plugin_hook_make_ordered(ctx, hooks[i]);
+		for (size_t j = 0; j < tal_count(these); j++)
+			append_plugin_once(&ret, these[j]);
 	}
 
 	return ret;

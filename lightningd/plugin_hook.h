@@ -168,7 +168,7 @@ void plugin_hook_add_deps(struct plugin_hook *hook,
 			  const jsmntok_t *before,
 			  const jsmntok_t *after);
 
-/* Returns NULL on success, error string allocated off ctx on failure. */
-char *plugin_hook_make_ordered(const tal_t *ctx, struct plugin_hook *hook);
+/* Returns array of plugins which cannot be ordered (empty on success) */
+struct plugin **plugin_hooks_make_ordered(const tal_t *ctx);
 
 #endif /* LIGHTNING_LIGHTNINGD_PLUGIN_HOOK_H */
