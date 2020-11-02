@@ -83,24 +83,46 @@ void plugins_free(struct plugins *plugins)
 	tal_free(plugins);
 }
 
-static void check_plugins_resolved(struct plugins *plugins)
+/* Once they've all replied with their manifests, we can order them. */
+static void check_plugins_manifests(struct plugins *plugins)
 {
-	/* As startup, we break out once all getmanifest are returned */
-	if (plugins->startup) {
-		if (!plugins_any_in_state(plugins, AWAITING_GETMANIFEST_RESPONSE))
-			io_break(plugins);
-	/* Otherwise we wait until all finished. */
-	} else if (plugins_all_in_state(plugins, INIT_COMPLETE)) {
-		struct command **json_cmds;
+	struct plugin **depfail;
 
-		/* Clear commands first, in case callbacks add new ones.
-		 * Paranoia, but wouldn't that be a nasty bug to find? */
-		json_cmds = plugins->json_cmds;
-		plugins->json_cmds = tal_arr(plugins, struct command *, 0);
-		for (size_t i = 0; i < tal_count(json_cmds); i++)
-			plugin_cmd_all_complete(plugins, json_cmds[i]);
-		tal_free(json_cmds);
+	if (plugins_any_in_state(plugins, AWAITING_GETMANIFEST_RESPONSE))
+		return;
+
+	/* Now things are settled, try to order hooks. */
+	depfail = plugin_hooks_make_ordered(tmpctx);
+	for (size_t i = 0; i < tal_count(depfail); i++) {
+		/* Only complain and free plugins! */
+		if (depfail[i]->plugin_state != NEEDS_INIT)
+			continue;
+		plugin_kill(depfail[i],
+			    "Cannot meet required hook dependencies");
 	}
+
+	/* As startup, we break out once all getmanifest are returned */
+	if (plugins->startup)
+		io_break(plugins);
+	else
+		/* Otherwise we go straight into configuring them */
+		plugins_config(plugins);
+}
+
+static void check_plugins_initted(struct plugins *plugins)
+{
+	struct command **json_cmds;
+
+	if (!plugins_all_in_state(plugins, INIT_COMPLETE))
+		return;
+
+	/* Clear commands first, in case callbacks add new ones.
+	 * Paranoia, but wouldn't that be a nasty bug to find? */
+	json_cmds = plugins->json_cmds;
+	plugins->json_cmds = tal_arr(plugins, struct command *, 0);
+	for (size_t i = 0; i < tal_count(json_cmds); i++)
+		plugin_cmd_all_complete(plugins, json_cmds[i]);
+	tal_free(json_cmds);
 }
 
 struct command_result *plugin_register_all_complete(struct lightningd *ld,
@@ -125,10 +147,16 @@ static void destroy_plugin(struct plugin *p)
 		    call->cmd, PLUGIN_TERMINATED,
 		    "Plugin terminated before replying to RPC call."));
 	}
+	/* Reset, so calls below don't try to fail it again! */
+	list_head_init(&p->pending_rpccalls);
 
-	/* Don't call this if we're still parsing options! */
-	if (p->plugin_state != UNCONFIGURED)
-		check_plugins_resolved(p->plugins);
+	/* If this was last one manifests were waiting for, handle deps */
+	if (p->plugin_state == AWAITING_GETMANIFEST_RESPONSE)
+		check_plugins_manifests(p->plugins);
+
+	/* If this was the last one init was waiting for, handle cmd replies */
+	if (p->plugin_state == AWAITING_INIT_RESPONSE)
+		check_plugins_initted(p->plugins);
 
 	/* If we are shutting down, do not continue to checking if
 	 * the dying plugin is important.  */
@@ -1064,7 +1092,7 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 		return NULL;
 
 	json_for_each_arr(i, t, hookstok) {
-		char *name, *depfail;
+		char *name;
 		struct plugin_hook *hook;
 
 		if (t->type == JSMN_OBJECT) {
@@ -1096,12 +1124,6 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 		}
 
 		plugin_hook_add_deps(hook, plugin, buffer, beforetok, aftertok);
-		depfail = plugin_hook_make_ordered(tmpctx, hook);
-		if (depfail)
-			return tal_fmt(plugin,
-				       "Cannot correctly order hook %s:"
-				       "conflicts in %s",
-				       name, depfail);
 		tal_free(name);
 	}
 	return NULL;
@@ -1223,9 +1245,6 @@ bool plugins_all_in_state(const struct plugins *plugins, enum plugin_state state
 	return true;
 }
 
-/* FIXME: Forward declaration to reduce patch noise */
-static void plugin_config(struct plugin *plugin);
-
 /**
  * Callback for the plugin_manifest request.
  */
@@ -1242,20 +1261,13 @@ static void plugin_manifest_cb(const char *buffer,
 		return;
 	}
 
-	/* At startup, we want to io_break once all getmanifests are done */
-	check_plugins_resolved(plugin->plugins);
+	/* Reset timer, it'd kill us otherwise. */
+	plugin->timeout_timer = tal_free(plugin->timeout_timer);
 
-	if (plugin->plugins->startup) {
-		/* Reset timer, it'd kill us otherwise. */
-		plugin->timeout_timer = tal_free(plugin->timeout_timer);
-	} else {
-		/* Note: here 60 second timer continues through init */
-		/* After startup, automatically call init after getmanifest */
-		if (!plugin->dynamic)
-			plugin_kill(plugin, "Not a dynamic plugin");
-		else
-			plugin_config(plugin);
-	}
+	if (!plugin->plugins->startup && !plugin->dynamic)
+		plugin_kill(plugin, "Not a dynamic plugin");
+	else
+		check_plugins_manifests(plugin->plugins);
 }
 
 /* If this is a valid plugin return full path name, otherwise NULL */
@@ -1360,6 +1372,27 @@ void plugins_add_default_dir(struct plugins *plugins)
 	}
 }
 
+static void plugin_set_timeout(struct plugin *p)
+{
+	bool debug = false;
+
+#if DEVELOPER
+	if (p->plugins->ld->dev_debug_subprocess
+	    && strends(p->cmd, p->plugins->ld->dev_debug_subprocess))
+		debug = true;
+#endif
+
+	/* Don't timeout if they're running a debugger. */
+	if (debug)
+		p->timeout_timer = NULL;
+	else {
+		p->timeout_timer
+			= new_reltimer(p->plugins->ld->timers, p,
+				       time_from_sec(PLUGIN_MANIFEST_TIMEOUT),
+				       plugin_manifest_timeout, p);
+	}
+}
+
 const char *plugin_send_getmanifest(struct plugin *p)
 {
 	char **cmd;
@@ -1398,16 +1431,7 @@ const char *plugin_send_getmanifest(struct plugin *p)
 	plugin_request_send(p, req);
 	p->plugin_state = AWAITING_GETMANIFEST_RESPONSE;
 
-	/* Don't timeout if they're running a debugger. */
-	if (debug)
-		p->timeout_timer = NULL;
-	else {
-		p->timeout_timer
-			= new_reltimer(p->plugins->ld->timers, p,
-				       time_from_sec(PLUGIN_MANIFEST_TIMEOUT),
-				       plugin_manifest_timeout, p);
-	}
-
+	plugin_set_timeout(p);
 	return NULL;
 }
 
@@ -1479,7 +1503,7 @@ static void plugin_config_cb(const char *buffer,
 		plugin_cmd_succeeded(plugin->start_cmd, plugin);
 		plugin->start_cmd = NULL;
 	}
-	check_plugins_resolved(plugin->plugins);
+	check_plugins_initted(plugin->plugins);
 }
 
 void
@@ -1543,6 +1567,7 @@ plugin_config(struct plugin *plugin)
 {
 	struct jsonrpc_request *req;
 
+	plugin_set_timeout(plugin);
 	req = jsonrpc_request_start(plugin, "init", plugin->log,
 	                            NULL, plugin_config_cb, plugin);
 	plugin_populate_init_request(plugin, req);

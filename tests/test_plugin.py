@@ -1992,7 +1992,6 @@ def test_htlc_accepted_hook_failcodes(node_factory):
             l1.rpc.pay(inv)
 
 
-@pytest.mark.xfail(strict=True)
 def test_hook_dep(node_factory):
     dep_a = os.path.join(os.path.dirname(__file__), 'plugins/dep_a.py')
     dep_b = os.path.join(os.path.dirname(__file__), 'plugins/dep_b.py')
