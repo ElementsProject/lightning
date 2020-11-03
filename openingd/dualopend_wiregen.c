@@ -29,6 +29,8 @@ const char *dualopend_wire_name(int e)
 	case WIRE_DUALOPEND_FAIL: return "WIRE_DUALOPEND_FAIL";
 	case WIRE_DUALOPEND_FAILED: return "WIRE_DUALOPEND_FAILED";
 	case WIRE_DUALOPEND_OPENER_INIT: return "WIRE_DUALOPEND_OPENER_INIT";
+	case WIRE_DUALOPEND_FUNDING_SIGS: return "WIRE_DUALOPEND_FUNDING_SIGS";
+	case WIRE_DUALOPEND_SEND_TX_SIGS: return "WIRE_DUALOPEND_SEND_TX_SIGS";
 	case WIRE_DUALOPEND_DEV_MEMLEAK: return "WIRE_DUALOPEND_DEV_MEMLEAK";
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY: return "WIRE_DUALOPEND_DEV_MEMLEAK_REPLY";
 	}
@@ -49,6 +51,8 @@ bool dualopend_wire_is_defined(u16 type)
 	case WIRE_DUALOPEND_FAIL:;
 	case WIRE_DUALOPEND_FAILED:;
 	case WIRE_DUALOPEND_OPENER_INIT:;
+	case WIRE_DUALOPEND_FUNDING_SIGS:;
+	case WIRE_DUALOPEND_SEND_TX_SIGS:;
 	case WIRE_DUALOPEND_DEV_MEMLEAK:;
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:;
 	      return true;
@@ -445,6 +449,50 @@ bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wall
 	return cursor != NULL;
 }
 
+/* WIRE: DUALOPEND_FUNDING_SIGS */
+/* dualopend->master received tx_sigs from peer */
+u8 *towire_dualopend_funding_sigs(const tal_t *ctx, const struct wally_psbt *signed_psbt)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_FUNDING_SIGS);
+	towire_wally_psbt(&p, signed_psbt);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_funding_sigs(const tal_t *ctx, const void *p, struct wally_psbt **signed_psbt)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_FUNDING_SIGS)
+		return false;
+ 	*signed_psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	return cursor != NULL;
+}
+
+/* WIRE: DUALOPEND_SEND_TX_SIGS */
+/* master->dualopend send our tx_sigs to peer */
+u8 *towire_dualopend_send_tx_sigs(const tal_t *ctx, const struct wally_psbt *signed_psbt)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_SEND_TX_SIGS);
+	towire_wally_psbt(&p, signed_psbt);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_send_tx_sigs(const tal_t *ctx, const void *p, struct wally_psbt **signed_psbt)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_SEND_TX_SIGS)
+		return false;
+ 	*signed_psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	return cursor != NULL;
+}
+
 /* WIRE: DUALOPEND_DEV_MEMLEAK */
 /* master -> dualopend: do you have a memleak? */
 u8 *towire_dualopend_dev_memleak(const tal_t *ctx)
@@ -485,4 +533,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:435564ffcea3302152e316a659eb30091a72b0d81f0959bea22ecb7e11f23223
+// SHA256STAMP:b050a7cf375aa2cfbc25f86556d06acaa7f1ed96170adaa912e5ba994a2879c2

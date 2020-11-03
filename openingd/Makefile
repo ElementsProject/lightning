@@ -86,6 +86,10 @@ OPENINGD_COMMON_OBJS :=				\
 	gossipd/gossipd_peerd_wiregen.o		\
 	lightningd/gossip_msg.o
 
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+OPENINGD_COMMON_OBJS += common/psbt_internal.o
+endif
+
 lightningd/lightning_openingd: $(OPENINGD_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)
 
 lightningd/lightning_dualopend: $(DUALOPEND_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)

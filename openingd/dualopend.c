@@ -37,6 +37,7 @@
 #include <common/peer_failed.h>
 #include <common/penalty_base.h>
 #include <common/per_peer_state.h>
+#include <common/psbt_internal.h>
 #include <common/psbt_open.h>
 #include <common/read_peer_msg.h>
 #include <common/setup.h>
@@ -142,6 +143,10 @@ struct state {
 
 	/* Track how many of each tx collab msg we receive */
 	u16 tx_msg_count[NUM_TX_MSGS];
+
+	bool funding_locked[NUM_SIDES];
+
+	struct wally_psbt *psbt;
 };
 
 #if EXPERIMENTAL_FEATURES
@@ -655,6 +660,124 @@ static void dualopend_send_custommsg(struct state *state, const u8 *msg)
 }
 #endif
 
+static u8 *psbt_to_tx_sigs_msg(const tal_t *ctx,
+				     struct state *state,
+				     const struct wally_psbt *psbt)
+{
+	const struct witness_stack **ws =
+		psbt_to_witness_stacks(tmpctx, psbt,
+				       state->our_role);
+
+	return towire_tx_signatures(ctx, &state->channel_id,
+				    &state->funding_txid,
+				    ws);
+}
+
+static void handle_tx_sigs(struct state *state, const u8 *msg)
+{
+	struct channel_id cid;
+	struct bitcoin_txid txid;
+	const struct witness_stack **ws;
+	size_t j = 0;
+	enum tx_role their_role = state->our_role == TX_INITIATOR ?
+		TX_ACCEPTER : TX_INITIATOR;
+
+	if (!fromwire_tx_signatures(tmpctx, msg, &cid, &txid,
+				    cast_const3(
+					 struct witness_stack ***,
+					 &ws)))
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Bad tx_signatures %s",
+			    tal_hex(msg, msg));
+
+	/* Maybe they didn't get our funding_locked message ? */
+	if (state->funding_locked[LOCAL]) {
+		status_broken("Got WIRE_TX_SIGNATURES after funding locked "
+			       "for channel %s, ignoring: %s",
+			       type_to_string(tmpctx, struct channel_id,
+					      &state->channel_id),
+			       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (state->funding_locked[REMOTE])
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "tx_signatures sent after funding_locked %s",
+			    tal_hex(msg, msg));
+
+	/* This check only works if they've got inputs we need sigs for.
+	 * In the case where they send duplicate tx_sigs but have no
+	 * sigs, we'll end up re-notifying */
+	if (tal_count(ws) && psbt_side_finalized(state->psbt, their_role)) {
+		status_info("Got duplicate WIRE_TX_SIGNATURES, "
+			    "already have their sigs. Ignoring");
+		return;
+	}
+
+	/* We put the PSBT + sigs all together */
+	for (size_t i = 0; i < state->psbt->num_inputs; i++) {
+		struct wally_psbt_input *in =
+			&state->psbt->inputs[i];
+		u64 in_serial;
+		const struct witness_element **elem;
+
+		if (!psbt_get_serial_id(&in->unknowns, &in_serial)) {
+			status_broken("PSBT input %zu missing serial_id %s",
+				      i, type_to_string(tmpctx,
+							struct wally_psbt,
+							state->psbt));
+			return;
+		}
+		if (in_serial % 2 != their_role)
+			continue;
+
+		if (j == tal_count(ws))
+			peer_failed(state->pps, &state->channel_id,
+				    "Mismatch witness stack count %s",
+				    tal_hex(msg, msg));
+
+		elem = cast_const2(const struct witness_element **,
+				   ws[j++]->witness_element);
+		psbt_finalize_input(state->psbt, in, elem);
+	}
+
+	/* Send to the controller, who will broadcast the funding_tx
+	 * as soon as we've got our sigs */
+	wire_sync_write(REQ_FD,
+			take(towire_dualopend_funding_sigs(NULL, state->psbt)));
+}
+
+static u8 *handle_send_tx_sigs(struct state *state, const u8 *msg)
+{
+	struct wally_psbt *psbt;
+	struct bitcoin_txid txid;
+
+	if (!fromwire_dualopend_send_tx_sigs(tmpctx, msg, &psbt))
+		master_badmsg(WIRE_DUALOPEND_SEND_TX_SIGS, msg);
+
+	/* Check that we've got the same / correct PSBT */
+	psbt_txid(NULL, psbt, &txid, NULL);
+	if (!bitcoin_txid_eq(&txid, &state->funding_txid))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Txid for passed in PSBT does not match"
+			      " funding txid for channel. Expected %s, "
+			      "received %s",
+			      type_to_string(tmpctx, struct bitcoin_txid,
+					     &state->funding_txid),
+			      type_to_string(tmpctx, struct bitcoin_txid,
+					     &txid));
+
+	tal_wally_start();
+	if (wally_psbt_combine(state->psbt, psbt) != WALLY_OK) {
+		tal_wally_end(tal_free(state->psbt));
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Unable to combine PSBTs");
+	}
+	tal_wally_end(tal_steal(state, state->psbt));
+	return psbt_to_tx_sigs_msg(tmpctx, state, psbt);
+}
 
 static struct wally_psbt *
 fetch_psbt_changes(struct state *state, const struct wally_psbt *psbt)
@@ -2060,8 +2183,11 @@ static u8 *handle_master_in(struct state *state)
 		return NULL;
 	case WIRE_DUALOPEND_OPENER_INIT:
 		return opener_start(state, msg);
+	case WIRE_DUALOPEND_SEND_TX_SIGS:
+		return handle_send_tx_sigs(state, msg);
 	/* mostly handled inline */
 	case WIRE_DUALOPEND_INIT:
+	case WIRE_DUALOPEND_FUNDING_SIGS:
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
 	case WIRE_DUALOPEND_FAILED:
 	case WIRE_DUALOPEND_FAIL:
@@ -2092,7 +2218,7 @@ static u8 *handle_master_in(struct state *state)
 }
 
 /*~ Standard "peer sent a message, handle it" demuxer.  Though it really only
- * handles one message, we use the standard form as principle of least
+ * handles a few messages, we use the standard form as principle of least
  * surprise. */
 static u8 *handle_peer_in(struct state *state)
 {
@@ -2100,10 +2226,12 @@ static u8 *handle_peer_in(struct state *state)
 	enum peer_wire t = fromwire_peektype(msg);
 	struct channel_id channel_id;
 
-#if EXPERIMENTAL_FEATURES
 	if (t == WIRE_OPEN_CHANNEL2)
 		return accepter_start(state, msg);
-#endif
+	if (t == WIRE_TX_SIGNATURES) {
+		handle_tx_sigs(state, msg);
+		return NULL;
+	}
 
 #if DEVELOPER
 	/* Handle custommsgs */
