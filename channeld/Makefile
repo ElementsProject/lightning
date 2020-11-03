@@ -92,10 +92,6 @@ CHANNELD_COMMON_OBJS :=				\
 	wire/fromwire.o				\
 	wire/towire.o
 
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-CHANNELD_COMMON_OBJS += common/psbt_internal.o
-endif
-
 channeld/full_channel_error_names_gen.h: channeld/full_channel_error.h ccan/ccan/cdump/tools/cdump-enumstr
 	ccan/ccan/cdump/tools/cdump-enumstr channeld/full_channel_error.h > $@
 

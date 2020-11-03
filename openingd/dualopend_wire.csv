@@ -114,6 +114,14 @@ msgdata,dualopend_opener_init,feerate_per_kw,u32,
 msgdata,dualopend_opener_init,feerate_per_kw_funding,u32,
 msgdata,dualopend_opener_init,channel_flags,u8,
 
+# dualopend->master received tx_sigs from peer
+msgtype,dualopend_funding_sigs,7010
+msgdata,dualopend_funding_sigs,signed_psbt,wally_psbt,
+
+# master->dualopend send our tx_sigs to peer
+msgtype,dualopend_send_tx_sigs,7011
+msgdata,dualopend_send_tx_sigs,signed_psbt,wally_psbt,
+
 # master -> dualopend: do you have a memleak?
 msgtype,dualopend_dev_memleak,7033
 

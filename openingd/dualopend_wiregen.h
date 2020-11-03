@@ -36,6 +36,10 @@ enum dualopend_wire {
         WIRE_DUALOPEND_FAILED = 7004,
         /*  master->dualopend: hello */
         WIRE_DUALOPEND_OPENER_INIT = 7200,
+        /*  dualopend->master received tx_sigs from peer */
+        WIRE_DUALOPEND_FUNDING_SIGS = 7010,
+        /*  master->dualopend send our tx_sigs to peer */
+        WIRE_DUALOPEND_SEND_TX_SIGS = 7011,
         /*  master -> dualopend: do you have a memleak? */
         WIRE_DUALOPEND_DEV_MEMLEAK = 7033,
         WIRE_DUALOPEND_DEV_MEMLEAK_REPLY = 7133,
@@ -98,6 +102,16 @@ bool fromwire_dualopend_failed(const tal_t *ctx, const void *p, wirestring **rea
 u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags);
 bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wally_psbt **psbt, struct amount_sat *funding_amount, u8 **local_shutdown_scriptpubkey, u32 *feerate_per_kw, u32 *feerate_per_kw_funding, u8 *channel_flags);
 
+/* WIRE: DUALOPEND_FUNDING_SIGS */
+/*  dualopend->master received tx_sigs from peer */
+u8 *towire_dualopend_funding_sigs(const tal_t *ctx, const struct wally_psbt *signed_psbt);
+bool fromwire_dualopend_funding_sigs(const tal_t *ctx, const void *p, struct wally_psbt **signed_psbt);
+
+/* WIRE: DUALOPEND_SEND_TX_SIGS */
+/*  master->dualopend send our tx_sigs to peer */
+u8 *towire_dualopend_send_tx_sigs(const tal_t *ctx, const struct wally_psbt *signed_psbt);
+bool fromwire_dualopend_send_tx_sigs(const tal_t *ctx, const void *p, struct wally_psbt **signed_psbt);
+
 /* WIRE: DUALOPEND_DEV_MEMLEAK */
 /*  master -> dualopend: do you have a memleak? */
 u8 *towire_dualopend_dev_memleak(const tal_t *ctx);
@@ -109,4 +123,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:435564ffcea3302152e316a659eb30091a72b0d81f0959bea22ecb7e11f23223
+// SHA256STAMP:b050a7cf375aa2cfbc25f86556d06acaa7f1ed96170adaa912e5ba994a2879c2

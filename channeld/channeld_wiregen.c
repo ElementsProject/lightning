@@ -21,8 +21,6 @@ const char *channeld_wire_name(int e)
 
 	switch ((enum channeld_wire)e) {
 	case WIRE_CHANNELD_INIT: return "WIRE_CHANNELD_INIT";
-	case WIRE_CHANNELD_FUNDING_SIGS: return "WIRE_CHANNELD_FUNDING_SIGS";
-	case WIRE_CHANNELD_SEND_TX_SIGS: return "WIRE_CHANNELD_SEND_TX_SIGS";
 	case WIRE_CHANNELD_FUNDING_DEPTH: return "WIRE_CHANNELD_FUNDING_DEPTH";
 	case WIRE_CHANNELD_OFFER_HTLC: return "WIRE_CHANNELD_OFFER_HTLC";
 	case WIRE_CHANNELD_OFFER_HTLC_REPLY: return "WIRE_CHANNELD_OFFER_HTLC_REPLY";
@@ -58,8 +56,6 @@ bool channeld_wire_is_defined(u16 type)
 {
 	switch ((enum channeld_wire)type) {
 	case WIRE_CHANNELD_INIT:;
-	case WIRE_CHANNELD_FUNDING_SIGS:;
-	case WIRE_CHANNELD_SEND_TX_SIGS:;
 	case WIRE_CHANNELD_FUNDING_DEPTH:;
 	case WIRE_CHANNELD_OFFER_HTLC:;
 	case WIRE_CHANNELD_OFFER_HTLC_REPLY:;
@@ -294,50 +290,6 @@ bool fromwire_channeld_init(const tal_t *ctx, const void *p, const struct chainp
 	for (size_t i = 0; i < num_penalty_bases; i++)
 		fromwire_penalty_base(&cursor, &plen, *pbases + i);
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
-	return cursor != NULL;
-}
-
-/* WIRE: CHANNELD_FUNDING_SIGS */
-/* channeld->master received tx_sigs from peer */
-u8 *towire_channeld_funding_sigs(const tal_t *ctx, const struct wally_psbt *signed_psbt)
-{
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_CHANNELD_FUNDING_SIGS);
-	towire_wally_psbt(&p, signed_psbt);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_channeld_funding_sigs(const tal_t *ctx, const void *p, struct wally_psbt **signed_psbt)
-{
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_CHANNELD_FUNDING_SIGS)
-		return false;
- 	*signed_psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
-	return cursor != NULL;
-}
-
-/* WIRE: CHANNELD_SEND_TX_SIGS */
-/* master->channeld send our tx_sigs to peer */
-u8 *towire_channeld_send_tx_sigs(const tal_t *ctx, const struct wally_psbt *signed_psbt)
-{
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_CHANNELD_SEND_TX_SIGS);
-	towire_wally_psbt(&p, signed_psbt);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_channeld_send_tx_sigs(const tal_t *ctx, const void *p, struct wally_psbt **signed_psbt)
-{
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_CHANNELD_SEND_TX_SIGS)
-		return false;
- 	*signed_psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
 
@@ -1096,4 +1048,4 @@ bool fromwire_channeld_send_error_reply(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:58b780dc0bd7296e837407e362f2364f70104199c6a6b01382bb9278696688ae
+// SHA256STAMP:5182d9117cb264ac1142590962c9fc293b2bfee060a47c2f47c894f9d7bee9df
