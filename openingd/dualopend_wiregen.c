@@ -20,17 +20,17 @@ const char *dualopend_wire_name(int e)
 	static char invalidbuf[sizeof("INVALID ") + STR_MAX_CHARS(e)];
 
 	switch ((enum dualopend_wire)e) {
-	case WIRE_DUAL_OPEN_INIT: return "WIRE_DUAL_OPEN_INIT";
-	case WIRE_DUAL_OPEN_GOT_OFFER: return "WIRE_DUAL_OPEN_GOT_OFFER";
-	case WIRE_DUAL_OPEN_GOT_OFFER_REPLY: return "WIRE_DUAL_OPEN_GOT_OFFER_REPLY";
-	case WIRE_DUAL_OPEN_COMMIT_RCVD: return "WIRE_DUAL_OPEN_COMMIT_RCVD";
-	case WIRE_DUAL_OPEN_PSBT_CHANGED: return "WIRE_DUAL_OPEN_PSBT_CHANGED";
-	case WIRE_DUAL_OPEN_PSBT_UPDATED: return "WIRE_DUAL_OPEN_PSBT_UPDATED";
-	case WIRE_DUAL_OPEN_FAIL: return "WIRE_DUAL_OPEN_FAIL";
-	case WIRE_DUAL_OPEN_FAILED: return "WIRE_DUAL_OPEN_FAILED";
-	case WIRE_DUAL_OPEN_OPENER_INIT: return "WIRE_DUAL_OPEN_OPENER_INIT";
-	case WIRE_DUAL_OPEN_DEV_MEMLEAK: return "WIRE_DUAL_OPEN_DEV_MEMLEAK";
-	case WIRE_DUAL_OPEN_DEV_MEMLEAK_REPLY: return "WIRE_DUAL_OPEN_DEV_MEMLEAK_REPLY";
+	case WIRE_DUALOPEND_INIT: return "WIRE_DUALOPEND_INIT";
+	case WIRE_DUALOPEND_GOT_OFFER: return "WIRE_DUALOPEND_GOT_OFFER";
+	case WIRE_DUALOPEND_GOT_OFFER_REPLY: return "WIRE_DUALOPEND_GOT_OFFER_REPLY";
+	case WIRE_DUALOPEND_COMMIT_RCVD: return "WIRE_DUALOPEND_COMMIT_RCVD";
+	case WIRE_DUALOPEND_PSBT_CHANGED: return "WIRE_DUALOPEND_PSBT_CHANGED";
+	case WIRE_DUALOPEND_PSBT_UPDATED: return "WIRE_DUALOPEND_PSBT_UPDATED";
+	case WIRE_DUALOPEND_FAIL: return "WIRE_DUALOPEND_FAIL";
+	case WIRE_DUALOPEND_FAILED: return "WIRE_DUALOPEND_FAILED";
+	case WIRE_DUALOPEND_OPENER_INIT: return "WIRE_DUALOPEND_OPENER_INIT";
+	case WIRE_DUALOPEND_DEV_MEMLEAK: return "WIRE_DUALOPEND_DEV_MEMLEAK";
+	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY: return "WIRE_DUALOPEND_DEV_MEMLEAK_REPLY";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -40,17 +40,17 @@ const char *dualopend_wire_name(int e)
 bool dualopend_wire_is_defined(u16 type)
 {
 	switch ((enum dualopend_wire)type) {
-	case WIRE_DUAL_OPEN_INIT:;
-	case WIRE_DUAL_OPEN_GOT_OFFER:;
-	case WIRE_DUAL_OPEN_GOT_OFFER_REPLY:;
-	case WIRE_DUAL_OPEN_COMMIT_RCVD:;
-	case WIRE_DUAL_OPEN_PSBT_CHANGED:;
-	case WIRE_DUAL_OPEN_PSBT_UPDATED:;
-	case WIRE_DUAL_OPEN_FAIL:;
-	case WIRE_DUAL_OPEN_FAILED:;
-	case WIRE_DUAL_OPEN_OPENER_INIT:;
-	case WIRE_DUAL_OPEN_DEV_MEMLEAK:;
-	case WIRE_DUAL_OPEN_DEV_MEMLEAK_REPLY:;
+	case WIRE_DUALOPEND_INIT:;
+	case WIRE_DUALOPEND_GOT_OFFER:;
+	case WIRE_DUALOPEND_GOT_OFFER_REPLY:;
+	case WIRE_DUALOPEND_COMMIT_RCVD:;
+	case WIRE_DUALOPEND_PSBT_CHANGED:;
+	case WIRE_DUALOPEND_PSBT_UPDATED:;
+	case WIRE_DUALOPEND_FAIL:;
+	case WIRE_DUALOPEND_FAILED:;
+	case WIRE_DUALOPEND_OPENER_INIT:;
+	case WIRE_DUALOPEND_DEV_MEMLEAK:;
+	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:;
 	      return true;
 	}
 	return false;
@@ -60,14 +60,14 @@ bool dualopend_wire_is_defined(u16 type)
 
 
 
-/* WIRE: DUAL_OPEN_INIT */
-u8 *towire_dual_open_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_feature_set, const u8 *their_init_features, const struct channel_config *our_config, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, const u8 *msg)
+/* WIRE: DUALOPEND_INIT */
+u8 *towire_dualopend_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_feature_set, const u8 *their_init_features, const struct channel_config *our_config, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, const u8 *msg)
 {
 	u16 their_init_features_len = tal_count(their_init_features);
 	u16 len = tal_count(msg);
 	u8 *p = tal_arr(ctx, u8, 0);
 
-	towire_u16(&p, WIRE_DUAL_OPEN_INIT);
+	towire_u16(&p, WIRE_DUALOPEND_INIT);
 	/* Which network are we configured for? */
 	towire_chainparams(&p, chainparams);
 	towire_feature_set(&p, our_feature_set);
@@ -91,7 +91,7 @@ u8 *towire_dual_open_init(const tal_t *ctx, const struct chainparams *chainparam
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dual_open_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_feature_set, u8 **their_init_features, struct channel_config *our_config, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, u8 **msg)
+bool fromwire_dualopend_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_feature_set, u8 **their_init_features, struct channel_config *our_config, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, u8 **msg)
 {
 	u16 their_init_features_len;
 	u16 len;
@@ -99,7 +99,7 @@ bool fromwire_dual_open_init(const tal_t *ctx, const void *p, const struct chain
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_INIT)
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_INIT)
 		return false;
  	/* Which network are we configured for? */
 	fromwire_chainparams(&cursor, &plen, chainparams);
@@ -128,14 +128,14 @@ bool fromwire_dual_open_init(const tal_t *ctx, const void *p, const struct chain
 	return cursor != NULL;
 }
 
-/* WIRE: DUAL_OPEN_GOT_OFFER */
+/* WIRE: DUALOPEND_GOT_OFFER */
 /* dualopend->master: they offered channel */
-u8 *towire_dual_open_got_offer(const tal_t *ctx, struct amount_sat opener_funding, struct amount_sat dust_limit_satoshis, struct amount_msat max_htlc_value_in_flight_msat, struct amount_msat htlc_minimum_msat, u32 feerate_funding_max, u32 feerate_funding_min, u32 feerate_funding_best, u32 feerate_per_kw, u16 to_self_delay, u16 max_accepted_htlcs, u8 channel_flags, u32 locktime, const u8 *shutdown_scriptpubkey)
+u8 *towire_dualopend_got_offer(const tal_t *ctx, struct amount_sat opener_funding, struct amount_sat dust_limit_satoshis, struct amount_msat max_htlc_value_in_flight_msat, struct amount_msat htlc_minimum_msat, u32 feerate_funding_max, u32 feerate_funding_min, u32 feerate_funding_best, u32 feerate_per_kw, u16 to_self_delay, u16 max_accepted_htlcs, u8 channel_flags, u32 locktime, const u8 *shutdown_scriptpubkey)
 {
 	u16 shutdown_len = tal_count(shutdown_scriptpubkey);
 	u8 *p = tal_arr(ctx, u8, 0);
 
-	towire_u16(&p, WIRE_DUAL_OPEN_GOT_OFFER);
+	towire_u16(&p, WIRE_DUALOPEND_GOT_OFFER);
 	towire_amount_sat(&p, opener_funding);
 	towire_amount_sat(&p, dust_limit_satoshis);
 	towire_amount_msat(&p, max_htlc_value_in_flight_msat);
@@ -153,14 +153,14 @@ u8 *towire_dual_open_got_offer(const tal_t *ctx, struct amount_sat opener_fundin
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dual_open_got_offer(const tal_t *ctx, const void *p, struct amount_sat *opener_funding, struct amount_sat *dust_limit_satoshis, struct amount_msat *max_htlc_value_in_flight_msat, struct amount_msat *htlc_minimum_msat, u32 *feerate_funding_max, u32 *feerate_funding_min, u32 *feerate_funding_best, u32 *feerate_per_kw, u16 *to_self_delay, u16 *max_accepted_htlcs, u8 *channel_flags, u32 *locktime, u8 **shutdown_scriptpubkey)
+bool fromwire_dualopend_got_offer(const tal_t *ctx, const void *p, struct amount_sat *opener_funding, struct amount_sat *dust_limit_satoshis, struct amount_msat *max_htlc_value_in_flight_msat, struct amount_msat *htlc_minimum_msat, u32 *feerate_funding_max, u32 *feerate_funding_min, u32 *feerate_funding_best, u32 *feerate_per_kw, u16 *to_self_delay, u16 *max_accepted_htlcs, u8 *channel_flags, u32 *locktime, u8 **shutdown_scriptpubkey)
 {
 	u16 shutdown_len;
 
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_GOT_OFFER)
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_GOT_OFFER)
 		return false;
  	*opener_funding = fromwire_amount_sat(&cursor, &plen);
  	*dust_limit_satoshis = fromwire_amount_sat(&cursor, &plen);
@@ -181,14 +181,14 @@ bool fromwire_dual_open_got_offer(const tal_t *ctx, const void *p, struct amount
 	return cursor != NULL;
 }
 
-/* WIRE: DUAL_OPEN_GOT_OFFER_REPLY */
+/* WIRE: DUALOPEND_GOT_OFFER_REPLY */
 /* master->dualopend: reply back with our first funding info/contribs */
-u8 *towire_dual_open_got_offer_reply(const tal_t *ctx, struct amount_sat accepter_funding, u32 feerate_funding, const struct wally_psbt *psbt, const u8 *our_shutdown_scriptpubkey)
+u8 *towire_dualopend_got_offer_reply(const tal_t *ctx, struct amount_sat accepter_funding, u32 feerate_funding, const struct wally_psbt *psbt, const u8 *our_shutdown_scriptpubkey)
 {
 	u16 shutdown_len = tal_count(our_shutdown_scriptpubkey);
 	u8 *p = tal_arr(ctx, u8, 0);
 
-	towire_u16(&p, WIRE_DUAL_OPEN_GOT_OFFER_REPLY);
+	towire_u16(&p, WIRE_DUALOPEND_GOT_OFFER_REPLY);
 	towire_amount_sat(&p, accepter_funding);
 	towire_u32(&p, feerate_funding);
 	towire_wally_psbt(&p, psbt);
@@ -197,14 +197,14 @@ u8 *towire_dual_open_got_offer_reply(const tal_t *ctx, struct amount_sat accepte
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dual_open_got_offer_reply(const tal_t *ctx, const void *p, struct amount_sat *accepter_funding, u32 *feerate_funding, struct wally_psbt **psbt, u8 **our_shutdown_scriptpubkey)
+bool fromwire_dualopend_got_offer_reply(const tal_t *ctx, const void *p, struct amount_sat *accepter_funding, u32 *feerate_funding, struct wally_psbt **psbt, u8 **our_shutdown_scriptpubkey)
 {
 	u16 shutdown_len;
 
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_GOT_OFFER_REPLY)
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_GOT_OFFER_REPLY)
 		return false;
  	*accepter_funding = fromwire_amount_sat(&cursor, &plen);
  	*feerate_funding = fromwire_u32(&cursor, &plen);
@@ -216,17 +216,17 @@ bool fromwire_dual_open_got_offer_reply(const tal_t *ctx, const void *p, struct 
 	return cursor != NULL;
 }
 
-/* WIRE: DUAL_OPEN_COMMIT_RCVD */
+/* WIRE: DUALOPEND_COMMIT_RCVD */
 /* dualopend->master: ready to commit channel open to database and */
 /*                    get some signatures for the funding_tx. */
-u8 *towire_dual_open_commit_rcvd(const tal_t *ctx, const struct channel_config *their_config, const struct bitcoin_tx *remote_first_commit, const struct penalty_base *pbase, const struct bitcoin_signature *first_commit_sig, const struct wally_psbt *psbt, const struct channel_id *channel_id, const struct per_peer_state *pps, const struct pubkey *revocation_basepoint, const struct pubkey *payment_basepoint, const struct pubkey *htlc_basepoint, const struct pubkey *delayed_payment_basepoint, const struct pubkey *their_per_commit_point, const struct pubkey *remote_fundingkey, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshis, struct amount_sat our_funding_sats, u8 channel_flags, u32 feerate_per_kw, const u8 *commitment_msg, struct amount_sat our_channel_reserve_satoshis, const u8 *local_shutdown_scriptpubkey, const u8 *remote_shutdown_scriptpubkey)
+u8 *towire_dualopend_commit_rcvd(const tal_t *ctx, const struct channel_config *their_config, const struct bitcoin_tx *remote_first_commit, const struct penalty_base *pbase, const struct bitcoin_signature *first_commit_sig, const struct wally_psbt *psbt, const struct channel_id *channel_id, const struct per_peer_state *pps, const struct pubkey *revocation_basepoint, const struct pubkey *payment_basepoint, const struct pubkey *htlc_basepoint, const struct pubkey *delayed_payment_basepoint, const struct pubkey *their_per_commit_point, const struct pubkey *remote_fundingkey, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshis, struct amount_sat our_funding_sats, u8 channel_flags, u32 feerate_per_kw, const u8 *commitment_msg, struct amount_sat our_channel_reserve_satoshis, const u8 *local_shutdown_scriptpubkey, const u8 *remote_shutdown_scriptpubkey)
 {
 	u16 msglen = tal_count(commitment_msg);
 	u16 local_shutdown_len = tal_count(local_shutdown_scriptpubkey);
 	u16 remote_shutdown_len = tal_count(remote_shutdown_scriptpubkey);
 	u8 *p = tal_arr(ctx, u8, 0);
 
-	towire_u16(&p, WIRE_DUAL_OPEN_COMMIT_RCVD);
+	towire_u16(&p, WIRE_DUALOPEND_COMMIT_RCVD);
 	towire_channel_config(&p, their_config);
 	towire_bitcoin_tx(&p, remote_first_commit);
 	if (!pbase)
@@ -262,7 +262,7 @@ u8 *towire_dual_open_commit_rcvd(const tal_t *ctx, const struct channel_config *
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dual_open_commit_rcvd(const tal_t *ctx, const void *p, struct channel_config *their_config, struct bitcoin_tx **remote_first_commit, struct penalty_base **pbase, struct bitcoin_signature *first_commit_sig, struct wally_psbt **psbt, struct channel_id *channel_id, struct per_peer_state **pps, struct pubkey *revocation_basepoint, struct pubkey *payment_basepoint, struct pubkey *htlc_basepoint, struct pubkey *delayed_payment_basepoint, struct pubkey *their_per_commit_point, struct pubkey *remote_fundingkey, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshis, struct amount_sat *our_funding_sats, u8 *channel_flags, u32 *feerate_per_kw, u8 **commitment_msg, struct amount_sat *our_channel_reserve_satoshis, u8 **local_shutdown_scriptpubkey, u8 **remote_shutdown_scriptpubkey)
+bool fromwire_dualopend_commit_rcvd(const tal_t *ctx, const void *p, struct channel_config *their_config, struct bitcoin_tx **remote_first_commit, struct penalty_base **pbase, struct bitcoin_signature *first_commit_sig, struct wally_psbt **psbt, struct channel_id *channel_id, struct per_peer_state **pps, struct pubkey *revocation_basepoint, struct pubkey *payment_basepoint, struct pubkey *htlc_basepoint, struct pubkey *delayed_payment_basepoint, struct pubkey *their_per_commit_point, struct pubkey *remote_fundingkey, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshis, struct amount_sat *our_funding_sats, u8 *channel_flags, u32 *feerate_per_kw, u8 **commitment_msg, struct amount_sat *our_channel_reserve_satoshis, u8 **local_shutdown_scriptpubkey, u8 **remote_shutdown_scriptpubkey)
 {
 	u16 msglen;
 	u16 local_shutdown_len;
@@ -271,7 +271,7 @@ bool fromwire_dual_open_commit_rcvd(const tal_t *ctx, const void *p, struct chan
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_COMMIT_RCVD)
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_COMMIT_RCVD)
 		return false;
  	fromwire_channel_config(&cursor, &plen, their_config);
  	*remote_first_commit = fromwire_bitcoin_tx(ctx, &cursor, &plen);
@@ -314,25 +314,25 @@ bool fromwire_dual_open_commit_rcvd(const tal_t *ctx, const void *p, struct chan
 	return cursor != NULL;
 }
 
-/* WIRE: DUAL_OPEN_PSBT_CHANGED */
+/* WIRE: DUALOPEND_PSBT_CHANGED */
 /* dualopend->master: peer updated the psbt */
-u8 *towire_dual_open_psbt_changed(const tal_t *ctx, const struct channel_id *channel_id, u64 funding_serial, const struct wally_psbt *psbt)
+u8 *towire_dualopend_psbt_changed(const tal_t *ctx, const struct channel_id *channel_id, u64 funding_serial, const struct wally_psbt *psbt)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
-	towire_u16(&p, WIRE_DUAL_OPEN_PSBT_CHANGED);
+	towire_u16(&p, WIRE_DUALOPEND_PSBT_CHANGED);
 	towire_channel_id(&p, channel_id);
 	towire_u64(&p, funding_serial);
 	towire_wally_psbt(&p, psbt);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dual_open_psbt_changed(const tal_t *ctx, const void *p, struct channel_id *channel_id, u64 *funding_serial, struct wally_psbt **psbt)
+bool fromwire_dualopend_psbt_changed(const tal_t *ctx, const void *p, struct channel_id *channel_id, u64 *funding_serial, struct wally_psbt **psbt)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_PSBT_CHANGED)
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_PSBT_CHANGED)
 		return false;
  	fromwire_channel_id(&cursor, &plen, channel_id);
  	*funding_serial = fromwire_u64(&cursor, &plen);
@@ -340,80 +340,80 @@ bool fromwire_dual_open_psbt_changed(const tal_t *ctx, const void *p, struct cha
 	return cursor != NULL;
 }
 
-/* WIRE: DUAL_OPEN_PSBT_UPDATED */
+/* WIRE: DUALOPEND_PSBT_UPDATED */
 /* master->dualopend: we updated the psbt */
-u8 *towire_dual_open_psbt_updated(const tal_t *ctx, const struct wally_psbt *psbt)
+u8 *towire_dualopend_psbt_updated(const tal_t *ctx, const struct wally_psbt *psbt)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
-	towire_u16(&p, WIRE_DUAL_OPEN_PSBT_UPDATED);
+	towire_u16(&p, WIRE_DUALOPEND_PSBT_UPDATED);
 	towire_wally_psbt(&p, psbt);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dual_open_psbt_updated(const tal_t *ctx, const void *p, struct wally_psbt **psbt)
+bool fromwire_dualopend_psbt_updated(const tal_t *ctx, const void *p, struct wally_psbt **psbt)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_PSBT_UPDATED)
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_PSBT_UPDATED)
 		return false;
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
 
-/* WIRE: DUAL_OPEN_FAIL */
+/* WIRE: DUALOPEND_FAIL */
 /* master->dualopend: fail this channel open */
-u8 *towire_dual_open_fail(const tal_t *ctx, const wirestring *reason)
+u8 *towire_dualopend_fail(const tal_t *ctx, const wirestring *reason)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
-	towire_u16(&p, WIRE_DUAL_OPEN_FAIL);
+	towire_u16(&p, WIRE_DUALOPEND_FAIL);
 	towire_wirestring(&p, reason);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dual_open_fail(const tal_t *ctx, const void *p, wirestring **reason)
+bool fromwire_dualopend_fail(const tal_t *ctx, const void *p, wirestring **reason)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_FAIL)
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_FAIL)
 		return false;
  	*reason = fromwire_wirestring(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
 
-/* WIRE: DUAL_OPEN_FAILED */
+/* WIRE: DUALOPEND_FAILED */
 /* dualopend->master: we failed to negotiate channel */
-u8 *towire_dual_open_failed(const tal_t *ctx, const wirestring *reason)
+u8 *towire_dualopend_failed(const tal_t *ctx, const wirestring *reason)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
-	towire_u16(&p, WIRE_DUAL_OPEN_FAILED);
+	towire_u16(&p, WIRE_DUALOPEND_FAILED);
 	towire_wirestring(&p, reason);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dual_open_failed(const tal_t *ctx, const void *p, wirestring **reason)
+bool fromwire_dualopend_failed(const tal_t *ctx, const void *p, wirestring **reason)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_FAILED)
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_FAILED)
 		return false;
  	*reason = fromwire_wirestring(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
 
-/* WIRE: DUAL_OPEN_OPENER_INIT */
+/* WIRE: DUALOPEND_OPENER_INIT */
 /* master->dualopend: hello */
-u8 *towire_dual_open_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags)
+u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags)
 {
 	u16 local_shutdown_len = tal_count(local_shutdown_scriptpubkey);
 	u8 *p = tal_arr(ctx, u8, 0);
 
-	towire_u16(&p, WIRE_DUAL_OPEN_OPENER_INIT);
+	towire_u16(&p, WIRE_DUALOPEND_OPENER_INIT);
 	towire_wally_psbt(&p, psbt);
 	towire_amount_sat(&p, funding_amount);
 	towire_u16(&p, local_shutdown_len);
@@ -424,14 +424,14 @@ u8 *towire_dual_open_opener_init(const tal_t *ctx, const struct wally_psbt *psbt
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dual_open_opener_init(const tal_t *ctx, const void *p, struct wally_psbt **psbt, struct amount_sat *funding_amount, u8 **local_shutdown_scriptpubkey, u32 *feerate_per_kw, u32 *feerate_per_kw_funding, u8 *channel_flags)
+bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wally_psbt **psbt, struct amount_sat *funding_amount, u8 **local_shutdown_scriptpubkey, u32 *feerate_per_kw, u32 *feerate_per_kw_funding, u8 *channel_flags)
 {
 	u16 local_shutdown_len;
 
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_OPENER_INIT)
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_OPENER_INIT)
 		return false;
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
  	*funding_amount = fromwire_amount_sat(&cursor, &plen);
@@ -445,44 +445,44 @@ bool fromwire_dual_open_opener_init(const tal_t *ctx, const void *p, struct wall
 	return cursor != NULL;
 }
 
-/* WIRE: DUAL_OPEN_DEV_MEMLEAK */
+/* WIRE: DUALOPEND_DEV_MEMLEAK */
 /* master -> dualopend: do you have a memleak? */
-u8 *towire_dual_open_dev_memleak(const tal_t *ctx)
+u8 *towire_dualopend_dev_memleak(const tal_t *ctx)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
-	towire_u16(&p, WIRE_DUAL_OPEN_DEV_MEMLEAK);
+	towire_u16(&p, WIRE_DUALOPEND_DEV_MEMLEAK);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dual_open_dev_memleak(const void *p)
+bool fromwire_dualopend_dev_memleak(const void *p)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_DEV_MEMLEAK)
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_DEV_MEMLEAK)
 		return false;
 	return cursor != NULL;
 }
 
-/* WIRE: DUAL_OPEN_DEV_MEMLEAK_REPLY */
-u8 *towire_dual_open_dev_memleak_reply(const tal_t *ctx, bool leak)
+/* WIRE: DUALOPEND_DEV_MEMLEAK_REPLY */
+u8 *towire_dualopend_dev_memleak_reply(const tal_t *ctx, bool leak)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
-	towire_u16(&p, WIRE_DUAL_OPEN_DEV_MEMLEAK_REPLY);
+	towire_u16(&p, WIRE_DUALOPEND_DEV_MEMLEAK_REPLY);
 	towire_bool(&p, leak);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dual_open_dev_memleak_reply(const void *p, bool *leak)
+bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUAL_OPEN_DEV_MEMLEAK_REPLY)
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_DEV_MEMLEAK_REPLY)
 		return false;
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:f08f0c25f359d5c8f843d78c94eca9b0543b39e62a34983f6572adf92ff02aaa
+// SHA256STAMP:c00536896059d3bd16cd8e1512674abcda83fd680e171dfc016a796f7b4be522
