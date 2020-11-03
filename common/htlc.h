@@ -10,10 +10,10 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/str/str.h>
 
+#define NUM_SIDES (REMOTE + 1)
 enum side {
 	LOCAL,
 	REMOTE,
-	NUM_SIDES
 };
 
 /* What are we doing: adding or removing? */
@@ -69,7 +69,6 @@ static inline const char *side_to_str(enum side side)
 	switch (side) {
 	case LOCAL: return "LOCAL";
 	case REMOTE: return "REMOTE";
-	case NUM_SIDES: break;
 	}
 	abort();
 }
