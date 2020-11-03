@@ -183,7 +183,7 @@ static const u8 *hook_extract_shutdown_script(struct subd* dualopend,
 	if (!json_tok_streq(buffer, t, "continue")) {
 		char *errmsg = "Client error. Unable to continue";
 		subd_send_msg(dualopend,
-			      take(towire_dual_open_fail(NULL, errmsg)));
+			      take(towire_dualopend_fail(NULL, errmsg)));
 		return NULL;
 	}
 
@@ -234,7 +234,7 @@ hook_extract_psbt(const tal_t *ctx, struct subd *dualopend, const char *buffer,
 		if (dualopend) {
 			char *errmsg = "Client error. Unable to continue";
 			subd_send_msg(dualopend,
-				      take(towire_dual_open_fail(NULL, errmsg)));
+				      take(towire_dualopend_fail(NULL, errmsg)));
 		}
 		return false;
 	}
@@ -285,7 +285,7 @@ hook_extract_amount(struct subd *dualopend,
 	if (!json_tok_streq(buffer, t, "continue")) {
 		char *errmsg = "Client error. Unable to continue";
 		subd_send_msg(dualopend,
-			      take(towire_dual_open_fail(NULL, errmsg)));
+			      take(towire_dualopend_fail(NULL, errmsg)));
 		return false;
 	}
 
@@ -440,7 +440,7 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 
 	/* If there's no plugin, the psbt will be NULL. We should pass an empty
 	 * PSBT over, in this case */
-	msg = towire_dual_open_got_offer_reply(NULL, payload->accepter_funding,
+	msg = towire_dualopend_got_offer_reply(NULL, payload->accepter_funding,
 					       payload->funding_feerate_per_kw,
 					       payload->psbt,
 					       payload->our_shutdown_scriptpubkey);
@@ -498,7 +498,7 @@ openchannel2_changed_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 			    payload);
 
 	subd_send_msg(dualopend,
-		      take(towire_dual_open_psbt_updated(NULL,
+		      take(towire_dualopend_psbt_updated(NULL,
 							 payload->psbt)));
 }
 
@@ -685,7 +685,7 @@ static void opener_psbt_changed(struct subd *dualopend,
 	struct json_stream *response;
 	struct command *cmd = uc->fc->cmd;
 
-	if (!fromwire_dual_open_psbt_changed(cmd, msg,
+	if (!fromwire_dualopend_psbt_changed(cmd, msg,
 					     &cid, &funding_serial,
 					     &psbt)) {
 		log_broken(dualopend->log,
@@ -736,7 +736,7 @@ static void accepter_commit_received(struct subd *dualopend,
 	/* This is a new channel_info.their_config so set its ID to 0 */
 	channel_info.their_config.id = 0;
 
-	if (!fromwire_dual_open_commit_rcvd(tmpctx, msg,
+	if (!fromwire_dualopend_commit_rcvd(tmpctx, msg,
 					    &channel_info.their_config,
 					    &remote_commit,
 					    &pbase,
@@ -760,9 +760,9 @@ static void accepter_commit_received(struct subd *dualopend,
 					    &uc->our_config.channel_reserve,
 					    &local_upfront_shutdown_script,
 					    &remote_upfront_shutdown_script)) {
-		log_broken(uc->log, "bad WIRE_DUAL_OPEN_COMMIT_RCVD %s",
+		log_broken(uc->log, "bad WIRE_DUALOPEND_COMMIT_RCVD %s",
 			   tal_hex(msg, msg));
-		uncommitted_channel_disconnect(uc, LOG_BROKEN, "bad WIRE_DUAL_OPEN_COMMIT_RCVD");
+		uncommitted_channel_disconnect(uc, LOG_BROKEN, "bad WIRE_DUALOPEND_COMMIT_RCVD");
 		close(fds[0]);
 		close(fds[1]);
 		close(fds[3]);
@@ -853,7 +853,7 @@ static void opener_commit_received(struct subd *dualopend,
 	/* This is a new channel_info.their_config so set its ID to 0 */
 	channel_info.their_config.id = 0;
 
-	if (!fromwire_dual_open_commit_rcvd(tmpctx, msg,
+	if (!fromwire_dualopend_commit_rcvd(tmpctx, msg,
 					    &channel_info.their_config,
 					    &remote_commit,
 					    &pbase,
@@ -877,9 +877,9 @@ static void opener_commit_received(struct subd *dualopend,
 					    &uc->our_config.channel_reserve,
 					    &local_upfront_shutdown_script,
 					    &remote_upfront_shutdown_script)) {
-		log_broken(uc->log, "bad WIRE_DUAL_OPEN_COMMIT_RCVD %s",
+		log_broken(uc->log, "bad WIRE_DUALOPEND_COMMIT_RCVD %s",
 			   tal_hex(msg, msg));
-		err_reason = "bad WIRE_DUAL_OPEN_COMMIT_RCVD";
+		err_reason = "bad WIRE_DUALOPEND_COMMIT_RCVD";
 		uncommitted_channel_disconnect(uc, LOG_BROKEN, err_reason);
 		close(fds[0]);
 		close(fds[1]);
@@ -965,7 +965,7 @@ static void accepter_psbt_changed(struct subd *dualopend,
 	payload->psbt = NULL;
 	payload->rcvd = tal(payload, struct commit_rcvd);
 
-	if (!fromwire_dual_open_psbt_changed(payload, msg,
+	if (!fromwire_dualopend_psbt_changed(payload, msg,
 					     &payload->rcvd->cid,
 					     &unused,
 					     &payload->psbt)) {
@@ -987,7 +987,7 @@ static void accepter_got_offer(struct subd *dualopend,
 
 	if (peer_active_channel(uc->peer)) {
 		subd_send_msg(dualopend,
-				take(towire_dual_open_fail(NULL, "Already have active channel")));
+				take(towire_dualopend_fail(NULL, "Already have active channel")));
 		return;
 	}
 
@@ -998,7 +998,7 @@ static void accepter_got_offer(struct subd *dualopend,
 	payload->our_shutdown_scriptpubkey = NULL;
 	payload->peer_id = uc->peer->id;
 
-	if (!fromwire_dual_open_got_offer(payload, msg,
+	if (!fromwire_dualopend_got_offer(payload, msg,
 					  &payload->their_funding,
 					  &payload->dust_limit_satoshis,
 					  &payload->max_htlc_value_in_flight_msat,
@@ -1081,7 +1081,7 @@ static struct command_result *json_open_channel_update(struct command *cmd,
 
 	uc->fc->cmd = cmd;
 
-	msg = towire_dual_open_psbt_updated(NULL, psbt);
+	msg = towire_dualopend_psbt_updated(NULL, psbt);
 	subd_send_msg(uc->open_daemon, take(msg));
 	return command_still_pending(cmd);
 }
@@ -1224,7 +1224,7 @@ static struct command_result *json_open_channel_init(struct command *cmd,
 		fc->our_upfront_shutdown_script
 			= tal_steal(fc, fc->our_upfront_shutdown_script);
 
-	msg = towire_dual_open_opener_init(NULL,
+	msg = towire_dualopend_opener_init(NULL,
 					   psbt, *amount,
 					   fc->our_upfront_shutdown_script,
 					   *feerate_per_kw,
@@ -1242,10 +1242,10 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 	struct uncommitted_channel *uc = dualopend->channel;
 
 	switch (t) {
-		case WIRE_DUAL_OPEN_GOT_OFFER:
+		case WIRE_DUALOPEND_GOT_OFFER:
 			accepter_got_offer(dualopend, uc, msg);
 			return 0;
-		case WIRE_DUAL_OPEN_PSBT_CHANGED:
+		case WIRE_DUALOPEND_PSBT_CHANGED:
 			if (uc->fc) {
 				if (!uc->fc->cmd) {
 					log_unusual(dualopend->log,
@@ -1258,7 +1258,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 			} else
 				accepter_psbt_changed(dualopend, msg);
 			return 0;
-		case WIRE_DUAL_OPEN_COMMIT_RCVD:
+		case WIRE_DUALOPEND_COMMIT_RCVD:
 			if (tal_count(fds) != 3)
 				return 3;
 			if (uc->fc) {
@@ -1275,16 +1275,16 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 				accepter_commit_received(dualopend,
 							 uc, fds, msg);
 			return 0;
-		case WIRE_DUAL_OPEN_FAILED:
-		case WIRE_DUAL_OPEN_DEV_MEMLEAK_REPLY:
+		case WIRE_DUALOPEND_FAILED:
+		case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
 
 		/* Messages we send */
-		case WIRE_DUAL_OPEN_INIT:
-		case WIRE_DUAL_OPEN_OPENER_INIT:
-		case WIRE_DUAL_OPEN_GOT_OFFER_REPLY:
-		case WIRE_DUAL_OPEN_FAIL:
-		case WIRE_DUAL_OPEN_PSBT_UPDATED:
-		case WIRE_DUAL_OPEN_DEV_MEMLEAK:
+		case WIRE_DUALOPEND_INIT:
+		case WIRE_DUALOPEND_OPENER_INIT:
+		case WIRE_DUALOPEND_GOT_OFFER_REPLY:
+		case WIRE_DUALOPEND_FAIL:
+		case WIRE_DUALOPEND_PSBT_UPDATED:
+		case WIRE_DUALOPEND_DEV_MEMLEAK:
 			break;
 	}
 
@@ -1380,7 +1380,7 @@ void peer_start_dualopend(struct peer *peer,
 	 */
 	uc->minimum_depth = peer->ld->config.anchor_confirms;
 
-	msg = towire_dual_open_init(NULL,
+	msg = towire_dualopend_init(NULL,
 				  chainparams,
 				  peer->ld->our_features,
 				  peer->their_features,

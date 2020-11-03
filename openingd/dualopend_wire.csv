@@ -8,114 +8,114 @@
 #include <common/penalty_base.h>
 #include <common/per_peer_state.h>
 
-msgtype,dual_open_init,7000
+msgtype,dualopend_init,7000
 # Which network are we configured for?
-msgdata,dual_open_init,chainparams,chainparams,
-msgdata,dual_open_init,our_feature_set,feature_set,
-msgdata,dual_open_init,their_init_features_len,u16,
-msgdata,dual_open_init,their_init_features,u8,their_init_features_len
+msgdata,dualopend_init,chainparams,chainparams,
+msgdata,dualopend_init,our_feature_set,feature_set,
+msgdata,dualopend_init,their_init_features_len,u16,
+msgdata,dualopend_init,their_init_features,u8,their_init_features_len
 # Base configuration we'll offer
-msgdata,dual_open_init,our_config,channel_config,
+msgdata,dualopend_init,our_config,channel_config,
 # Minimum/maximum configuration values we'll accept
-msgdata,dual_open_init,max_to_self_delay,u32,
-msgdata,dual_open_init,min_effective_htlc_capacity_msat,amount_msat,
-msgdata,dual_open_init,pps,per_peer_state,
-msgdata,dual_open_init,our_basepoints,basepoints,
-msgdata,dual_open_init,our_funding_pubkey,pubkey,
+msgdata,dualopend_init,max_to_self_delay,u32,
+msgdata,dualopend_init,min_effective_htlc_capacity_msat,amount_msat,
+msgdata,dualopend_init,pps,per_peer_state,
+msgdata,dualopend_init,our_basepoints,basepoints,
+msgdata,dualopend_init,our_funding_pubkey,pubkey,
 # Constraints in case the other end tries to open a channel.
-msgdata,dual_open_init,minimum_depth,u32,
-msgdata,dual_open_init,min_feerate,u32,
-msgdata,dual_open_init,max_feerate,u32,
+msgdata,dualopend_init,minimum_depth,u32,
+msgdata,dualopend_init,min_feerate,u32,
+msgdata,dualopend_init,max_feerate,u32,
 # Optional msg to send.
-msgdata,dual_open_init,len,u16,
-msgdata,dual_open_init,msg,u8,len
+msgdata,dualopend_init,len,u16,
+msgdata,dualopend_init,msg,u8,len
 
 # dualopend->master: they offered channel, should we continue?
-msgtype,dual_open_got_offer,7005
-msgdata,dual_open_got_offer,opener_funding,amount_sat,
-msgdata,dual_open_got_offer,dust_limit_satoshis,amount_sat,
-msgdata,dual_open_got_offer,max_htlc_value_in_flight_msat,amount_msat,
-msgdata,dual_open_got_offer,htlc_minimum_msat,amount_msat,
-msgdata,dual_open_got_offer,feerate_funding_max,u32,
-msgdata,dual_open_got_offer,feerate_funding_min,u32,
-msgdata,dual_open_got_offer,feerate_funding_best,u32,
-msgdata,dual_open_got_offer,feerate_per_kw,u32,
-msgdata,dual_open_got_offer,to_self_delay,u16,
-msgdata,dual_open_got_offer,max_accepted_htlcs,u16,
-msgdata,dual_open_got_offer,channel_flags,u8,
-msgdata,dual_open_got_offer,locktime,u32,
-msgdata,dual_open_got_offer,shutdown_len,u16,
-msgdata,dual_open_got_offer,shutdown_scriptpubkey,u8,shutdown_len
+msgtype,dualopend_got_offer,7005
+msgdata,dualopend_got_offer,opener_funding,amount_sat,
+msgdata,dualopend_got_offer,dust_limit_satoshis,amount_sat,
+msgdata,dualopend_got_offer,max_htlc_value_in_flight_msat,amount_msat,
+msgdata,dualopend_got_offer,htlc_minimum_msat,amount_msat,
+msgdata,dualopend_got_offer,feerate_funding_max,u32,
+msgdata,dualopend_got_offer,feerate_funding_min,u32,
+msgdata,dualopend_got_offer,feerate_funding_best,u32,
+msgdata,dualopend_got_offer,feerate_per_kw,u32,
+msgdata,dualopend_got_offer,to_self_delay,u16,
+msgdata,dualopend_got_offer,max_accepted_htlcs,u16,
+msgdata,dualopend_got_offer,channel_flags,u8,
+msgdata,dualopend_got_offer,locktime,u32,
+msgdata,dualopend_got_offer,shutdown_len,u16,
+msgdata,dualopend_got_offer,shutdown_scriptpubkey,u8,shutdown_len
 
 # master->dualopend: reply back with our first funding info/contribs
-msgtype,dual_open_got_offer_reply,7105
-msgdata,dual_open_got_offer_reply,accepter_funding,amount_sat,
-msgdata,dual_open_got_offer_reply,feerate_funding,u32,
-msgdata,dual_open_got_offer_reply,psbt,wally_psbt,
-msgdata,dual_open_got_offer_reply,shutdown_len,u16,
-msgdata,dual_open_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len
+msgtype,dualopend_got_offer_reply,7105
+msgdata,dualopend_got_offer_reply,accepter_funding,amount_sat,
+msgdata,dualopend_got_offer_reply,feerate_funding,u32,
+msgdata,dualopend_got_offer_reply,psbt,wally_psbt,
+msgdata,dualopend_got_offer_reply,shutdown_len,u16,
+msgdata,dualopend_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len
 
 # dualopend->master: ready to commit channel open to database and
 #                    get some signatures for the funding_tx.
-msgtype,dual_open_commit_rcvd,7007
-msgdata,dual_open_commit_rcvd,their_config,channel_config,
-msgdata,dual_open_commit_rcvd,remote_first_commit,bitcoin_tx,
-msgdata,dual_open_commit_rcvd,pbase,?penalty_base,
-msgdata,dual_open_commit_rcvd,first_commit_sig,bitcoin_signature,
-msgdata,dual_open_commit_rcvd,psbt,wally_psbt,
-msgdata,dual_open_commit_rcvd,channel_id,channel_id,
-msgdata,dual_open_commit_rcvd,pps,per_peer_state,
-msgdata,dual_open_commit_rcvd,revocation_basepoint,pubkey,
-msgdata,dual_open_commit_rcvd,payment_basepoint,pubkey,
-msgdata,dual_open_commit_rcvd,htlc_basepoint,pubkey,
-msgdata,dual_open_commit_rcvd,delayed_payment_basepoint,pubkey,
-msgdata,dual_open_commit_rcvd,their_per_commit_point,pubkey,
-msgdata,dual_open_commit_rcvd,remote_fundingkey,pubkey,
-msgdata,dual_open_commit_rcvd,funding_txid,bitcoin_txid,
-msgdata,dual_open_commit_rcvd,funding_txout,u16,
-msgdata,dual_open_commit_rcvd,funding_satoshis,amount_sat,
-msgdata,dual_open_commit_rcvd,our_funding_sats,amount_sat,
-msgdata,dual_open_commit_rcvd,channel_flags,u8,
-msgdata,dual_open_commit_rcvd,feerate_per_kw,u32,
+msgtype,dualopend_commit_rcvd,7007
+msgdata,dualopend_commit_rcvd,their_config,channel_config,
+msgdata,dualopend_commit_rcvd,remote_first_commit,bitcoin_tx,
+msgdata,dualopend_commit_rcvd,pbase,?penalty_base,
+msgdata,dualopend_commit_rcvd,first_commit_sig,bitcoin_signature,
+msgdata,dualopend_commit_rcvd,psbt,wally_psbt,
+msgdata,dualopend_commit_rcvd,channel_id,channel_id,
+msgdata,dualopend_commit_rcvd,pps,per_peer_state,
+msgdata,dualopend_commit_rcvd,revocation_basepoint,pubkey,
+msgdata,dualopend_commit_rcvd,payment_basepoint,pubkey,
+msgdata,dualopend_commit_rcvd,htlc_basepoint,pubkey,
+msgdata,dualopend_commit_rcvd,delayed_payment_basepoint,pubkey,
+msgdata,dualopend_commit_rcvd,their_per_commit_point,pubkey,
+msgdata,dualopend_commit_rcvd,remote_fundingkey,pubkey,
+msgdata,dualopend_commit_rcvd,funding_txid,bitcoin_txid,
+msgdata,dualopend_commit_rcvd,funding_txout,u16,
+msgdata,dualopend_commit_rcvd,funding_satoshis,amount_sat,
+msgdata,dualopend_commit_rcvd,our_funding_sats,amount_sat,
+msgdata,dualopend_commit_rcvd,channel_flags,u8,
+msgdata,dualopend_commit_rcvd,feerate_per_kw,u32,
 # our commitment signatures, for the peer
-msgdata,dual_open_commit_rcvd,msglen,u16,
-msgdata,dual_open_commit_rcvd,commitment_msg,u8,msglen
-msgdata,dual_open_commit_rcvd,our_channel_reserve_satoshis,amount_sat,
-msgdata,dual_open_commit_rcvd,local_shutdown_len,u16,
-msgdata,dual_open_commit_rcvd,local_shutdown_scriptpubkey,u8,local_shutdown_len
-msgdata,dual_open_commit_rcvd,remote_shutdown_len,u16,
-msgdata,dual_open_commit_rcvd,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
+msgdata,dualopend_commit_rcvd,msglen,u16,
+msgdata,dualopend_commit_rcvd,commitment_msg,u8,msglen
+msgdata,dualopend_commit_rcvd,our_channel_reserve_satoshis,amount_sat,
+msgdata,dualopend_commit_rcvd,local_shutdown_len,u16,
+msgdata,dualopend_commit_rcvd,local_shutdown_scriptpubkey,u8,local_shutdown_len
+msgdata,dualopend_commit_rcvd,remote_shutdown_len,u16,
+msgdata,dualopend_commit_rcvd,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
 
 # dualopend->master: peer updated the psbt
-msgtype,dual_open_psbt_changed,7107
-msgdata,dual_open_psbt_changed,channel_id,channel_id,
-msgdata,dual_open_psbt_changed,funding_serial,u64,
-msgdata,dual_open_psbt_changed,psbt,wally_psbt,
+msgtype,dualopend_psbt_changed,7107
+msgdata,dualopend_psbt_changed,channel_id,channel_id,
+msgdata,dualopend_psbt_changed,funding_serial,u64,
+msgdata,dualopend_psbt_changed,psbt,wally_psbt,
 
 # master->dualopend: we updated the psbt
-msgtype,dual_open_psbt_updated,7108
-msgdata,dual_open_psbt_updated,psbt,wally_psbt,
+msgtype,dualopend_psbt_updated,7108
+msgdata,dualopend_psbt_updated,psbt,wally_psbt,
 
 # master->dualopend: fail this channel open
-msgtype,dual_open_fail,7003
-msgdata,dual_open_fail,reason,wirestring,
+msgtype,dualopend_fail,7003
+msgdata,dualopend_fail,reason,wirestring,
 
 # dualopend->master: we failed to negotiate channel
-msgtype,dual_open_failed,7004
-msgdata,dual_open_failed,reason,wirestring,
+msgtype,dualopend_failed,7004
+msgdata,dualopend_failed,reason,wirestring,
 
 # master->dualopend: hello, I'd like to start a channel open
-msgtype,dual_open_opener_init,7200
-msgdata,dual_open_opener_init,psbt,wally_psbt,
-msgdata,dual_open_opener_init,funding_amount,amount_sat,
-msgdata,dual_open_opener_init,local_shutdown_len,u16,
-msgdata,dual_open_opener_init,local_shutdown_scriptpubkey,u8,local_shutdown_len
-msgdata,dual_open_opener_init,feerate_per_kw,u32,
-msgdata,dual_open_opener_init,feerate_per_kw_funding,u32,
-msgdata,dual_open_opener_init,channel_flags,u8,
+msgtype,dualopend_opener_init,7200
+msgdata,dualopend_opener_init,psbt,wally_psbt,
+msgdata,dualopend_opener_init,funding_amount,amount_sat,
+msgdata,dualopend_opener_init,local_shutdown_len,u16,
+msgdata,dualopend_opener_init,local_shutdown_scriptpubkey,u8,local_shutdown_len
+msgdata,dualopend_opener_init,feerate_per_kw,u32,
+msgdata,dualopend_opener_init,feerate_per_kw_funding,u32,
+msgdata,dualopend_opener_init,channel_flags,u8,
 
 # master -> dualopend: do you have a memleak?
-msgtype,dual_open_dev_memleak,7033
+msgtype,dualopend_dev_memleak,7033
 
-msgtype,dual_open_dev_memleak_reply,7133
-msgdata,dual_open_dev_memleak_reply,leak,bool,
+msgtype,dualopend_dev_memleak_reply,7133
+msgdata,dualopend_dev_memleak_reply,leak,bool,

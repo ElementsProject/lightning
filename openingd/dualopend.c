@@ -250,7 +250,7 @@ static void negotiation_aborted(struct state *state, bool am_opener,
 
 	/* If necessary, tell master that funding failed. */
 	if (am_opener) {
-		u8 *msg = towire_dual_open_failed(NULL, why);
+		u8 *msg = towire_dualopend_failed(NULL, why);
 		wire_sync_write(REQ_FD, take(msg));
 	}
 
@@ -635,7 +635,7 @@ static void handle_dev_memleak(struct state *state, const u8 *msg)
 	/* If there's anything left, dump it to logs, and return true. */
 	found_leak = dump_memleak(memtable);
 	wire_sync_write(REQ_FD,
-			take(towire_dual_open_dev_memleak_reply(NULL,
+			take(towire_dualopend_dev_memleak_reply(NULL,
 							        found_leak)));
 }
 
@@ -657,19 +657,19 @@ fetch_psbt_changes(struct state *state, const struct wally_psbt *psbt)
 	struct wally_psbt *updated_psbt;
 
 	/* Go ask lightningd what other changes we've got */
-	msg = towire_dual_open_psbt_changed(NULL, &state->channel_id,
+	msg = towire_dualopend_psbt_changed(NULL, &state->channel_id,
 					    state->funding_serial,
 					    psbt);
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
 
-	if (fromwire_dual_open_fail(msg, msg, &err))
+	if (fromwire_dualopend_fail(msg, msg, &err))
 		status_failed(STATUS_FAIL_MASTER_IO, "%s", err);
-	else if (fromwire_dual_open_psbt_updated(state, msg, &updated_psbt)) {
+	else if (fromwire_dualopend_psbt_updated(state, msg, &updated_psbt)) {
 		return updated_psbt;
 #if DEVELOPER
-	} else if (fromwire_dual_open_dev_memleak(msg)) {
+	} else if (fromwire_dualopend_dev_memleak(msg)) {
 		handle_dev_memleak(state, msg);
 #endif /* DEVELOPER */
 	} else
@@ -795,7 +795,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 			/* Close connection on all_channels error. */
 			if (all_channels) {
 				if (am_opener) {
-					msg = towire_dual_open_failed(NULL, err);
+					msg = towire_dualopend_failed(NULL, err);
 					wire_sync_write(REQ_FD, take(msg));
 				}
 				peer_failed_received_errmsg(state->pps, err,
@@ -1268,7 +1268,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 			     &state->their_points.revocation);
 
 	/* FIXME: pass the podle back also */
-	msg = towire_dual_open_got_offer(NULL,
+	msg = towire_dualopend_got_offer(NULL,
 					 state->opener_funding,
 					 state->remoteconf.dust_limit,
 					 state->remoteconf.max_htlc_value_in_flight,
@@ -1286,8 +1286,8 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
 
-	if ((msg_type = fromwire_peektype(msg)) == WIRE_DUAL_OPEN_FAIL) {
-		if (!fromwire_dual_open_fail(msg, msg, &err_reason))
+	if ((msg_type = fromwire_peektype(msg)) == WIRE_DUALOPEND_FAIL) {
+		if (!fromwire_dualopend_fail(msg, msg, &err_reason))
 			master_badmsg(msg_type, msg);
 
 		u8 *errmsg = towire_errorfmt(tmpctx, &state->channel_id,
@@ -1295,12 +1295,12 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 		sync_crypto_write(state->pps, take(errmsg));
 		return NULL;
 	}
-	if (!fromwire_dual_open_got_offer_reply(state, msg,
+	if (!fromwire_dualopend_got_offer_reply(state, msg,
 						&state->accepter_funding,
 						&state->feerate_per_kw_funding,
 						&psbt,
 						&state->upfront_shutdown_script[LOCAL]))
-		master_badmsg(WIRE_DUAL_OPEN_GOT_OFFER_REPLY, msg);
+		master_badmsg(WIRE_DUALOPEND_GOT_OFFER_REPLY, msg);
 
 	if (!psbt)
 		psbt = create_psbt(state, 0, 0, state->tx_locktime);
@@ -1547,7 +1547,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 
 	/* Send the commitment_signed controller; will save to db
 	 * and pass messages along to channeld to send along! */
-	return towire_dual_open_commit_rcvd(state,
+	return towire_dualopend_commit_rcvd(state,
 					    &state->remoteconf,
 					    remote_commit,
 					    pbase,
@@ -1594,14 +1594,14 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	secp256k1_ecdsa_signature *htlc_sigs;
 	u32 feerate_min, feerate_max, feerate_best;
 
-	if (!fromwire_dual_open_opener_init(state, msg,
+	if (!fromwire_dualopend_opener_init(state, msg,
 					  &psbt,
 					  &state->opener_funding,
 					  &state->upfront_shutdown_script[LOCAL],
 					  &state->feerate_per_kw_commitment,
 					  &state->feerate_per_kw_funding,
 					  &channel_flags))
-		master_badmsg(WIRE_DUAL_OPEN_OPENER_INIT, msg);
+		master_badmsg(WIRE_DUALOPEND_OPENER_INIT, msg);
 
 	state->our_role = TX_INITIATOR;
 	state->tx_locktime = psbt->tx->locktime;
@@ -1972,7 +1972,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 
 	peer_billboard(false, "channel open: commitment received, "
 		       "sending to lightningd to save");
-	return towire_dual_open_commit_rcvd(state,
+	return towire_dualopend_commit_rcvd(state,
 					    &state->remoteconf,
 					    remote_commit,
 					    pbase,
@@ -2046,23 +2046,23 @@ static u8 *handle_master_in(struct state *state)
 	enum dualopend_wire t = fromwire_peektype(msg);
 
 	switch (t) {
-	case WIRE_DUAL_OPEN_DEV_MEMLEAK:
+	case WIRE_DUALOPEND_DEV_MEMLEAK:
 #if DEVELOPER
 		handle_dev_memleak(state, msg);
 #endif
 		return NULL;
-	case WIRE_DUAL_OPEN_OPENER_INIT:
+	case WIRE_DUALOPEND_OPENER_INIT:
 		return opener_start(state, msg);
 	/* mostly handled inline */
-	case WIRE_DUAL_OPEN_INIT:
-	case WIRE_DUAL_OPEN_DEV_MEMLEAK_REPLY:
-	case WIRE_DUAL_OPEN_FAILED:
-	case WIRE_DUAL_OPEN_FAIL:
-	case WIRE_DUAL_OPEN_GOT_OFFER:
-	case WIRE_DUAL_OPEN_GOT_OFFER_REPLY:
-	case WIRE_DUAL_OPEN_COMMIT_RCVD:
-	case WIRE_DUAL_OPEN_PSBT_CHANGED:
-	case WIRE_DUAL_OPEN_PSBT_UPDATED:
+	case WIRE_DUALOPEND_INIT:
+	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
+	case WIRE_DUALOPEND_FAILED:
+	case WIRE_DUALOPEND_FAIL:
+	case WIRE_DUALOPEND_GOT_OFFER:
+	case WIRE_DUALOPEND_GOT_OFFER_REPLY:
+	case WIRE_DUALOPEND_COMMIT_RCVD:
+	case WIRE_DUALOPEND_PSBT_CHANGED:
+	case WIRE_DUALOPEND_PSBT_UPDATED:
 		break;
 	}
 
@@ -2148,7 +2148,7 @@ int main(int argc, char *argv[])
 
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
-	if (!fromwire_dual_open_init(state, msg,
+	if (!fromwire_dualopend_init(state, msg,
 				     &chainparams,
 				     &state->our_features,
 				     &state->their_features,
@@ -2161,7 +2161,7 @@ int main(int argc, char *argv[])
 				     &state->minimum_depth,
 				     &state->min_feerate, &state->max_feerate,
 				     &inner))
-		master_badmsg(WIRE_DUAL_OPEN_INIT, msg);
+		master_badmsg(WIRE_DUALOPEND_INIT, msg);
 
 	/* 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */
 	per_peer_state_set_fds(state->pps, 3, 4, 5);
