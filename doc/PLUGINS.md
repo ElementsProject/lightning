@@ -944,10 +944,10 @@ The payload of the hook call has the following format:
     "type": "legacy",
     "short_channel_id": "1x2x3",
     "forward_amount": "42msat",
-    "outgoing_cltv_value": 500014
+    "outgoing_cltv_value": 500014,
+    "shared_secret": "0000000000000000000000000000000000000000000000000000000000000000",
+    "next_onion": "[1365bytes of serialized onion]"
   },
-  "next_onion": "[1365bytes of serialized onion]",
-  "shared_secret": "0000000000000000000000000000000000000000000000000000000000000000",
   "htlc": {
     "amount": "43msat",
     "cltv_expiry": 500028,
@@ -959,23 +959,24 @@ The payload of the hook call has the following format:
 
 For detailed information about each field please refer to [BOLT 04 of the specification][bolt4], the following is just a brief summary:
 
- - `onion.payload` contains the unparsed payload that was sent to us from the
+ - `onion`:
+   - `payload` contains the unparsed payload that was sent to us from the
    sender of the payment.
- - `onion.type` is `legacy` for realm 0 payments, `tlv` for realm > 1.
- - `short_channel_id` determines the channel that the sender is hinting
-     should be used next.  Not present if we're the final destination.
- - `forward_amount` is the amount we should be forwarding to the next hop,
-     and should match the incoming funds in case we are the recipient.
- - `outgoing_cltv_value` determines what the CLTV value for the HTLC that we
-     forward to the next hop should be.
- - `total_msat` specifies the total amount to pay, if present.
- - `payment_secret` specifies the payment secret (which the payer should have obtained from the invoice), if present.
- - `next_onion` is the fully processed onion that we should be sending to the
-   next hop as part of the outgoing HTLC. Processed in this case means that we
-   took the incoming onion, decrypted it, extracted the payload destined for
-   us, and serialized the resulting onion again.
- - `shared_secret` is the shared secret we used to decrypt the incoming
-   onion. It is shared with the sender that constructed the onion.
+   - `type` is `legacy` for realm 0 payments, `tlv` for realm > 1.
+   - `short_channel_id` determines the channel that the sender is hinting
+       should be used next.  Not present if we're the final destination.
+   - `forward_amount` is the amount we should be forwarding to the next hop,
+       and should match the incoming funds in case we are the recipient.
+   - `outgoing_cltv_value` determines what the CLTV value for the HTLC that we
+       forward to the next hop should be.
+   - `total_msat` specifies the total amount to pay, if present.
+   - `payment_secret` specifies the payment secret (which the payer should have obtained from the invoice), if present.
+   - `next_onion` is the fully processed onion that we should be sending to the
+     next hop as part of the outgoing HTLC. Processed in this case means that we
+     took the incoming onion, decrypted it, extracted the payload destined for
+     us, and serialized the resulting onion again.
+   - `shared_secret` is the shared secret we used to decrypt the incoming
+     onion. It is shared with the sender that constructed the onion.
  - `htlc`:
    - `amount` is the amount that we received with the HTLC. This amount minus
      the `forward_amount` is the fee that will stay with us.
