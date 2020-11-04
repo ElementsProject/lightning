@@ -127,9 +127,15 @@ def bitcoind(directory, teardown_checks):
 
     info = bitcoind.rpc.getnetworkinfo()
 
-    if info['version'] < 160000:
+    # FIXME: include liquid-regtest in this check after elementsd has been
+    # updated
+    if info['version'] < 200100 and env('TEST_NETWORK') != 'liquid-regtest':
         bitcoind.rpc.stop()
-        raise ValueError("bitcoind is too old. At least version 16000 (v0.16.0)"
+        raise ValueError("bitcoind is too old. At least version 20100 (v0.20.1)"
+                         " is needed, current version is {}".format(info['version']))
+    elif info['version'] < 160000:
+        bitcoind.rpc.stop()
+        raise ValueError("elementsd is too old. At least version 160000 (v0.16.0)"
                          " is needed, current version is {}".format(info['version']))
 
     info = bitcoind.rpc.getblockchaininfo()
