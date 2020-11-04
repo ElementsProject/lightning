@@ -127,6 +127,8 @@ void bitcoin_tx_hash_for_sig(const struct bitcoin_tx *tx, unsigned int in,
 	input_amt = psbt_input_get_amount(tx->psbt, in);
 	input_val_sats = input_amt.satoshis; /* Raw: type conversion */
 
+	/* Wally can allocate here, iff tx doesn't fit on stack */
+	tal_wally_start();
 	if (is_elements(chainparams)) {
 		ret = wally_tx_confidential_value_from_satoshi(input_val_sats, value, sizeof(value));
 		assert(ret == WALLY_OK);
@@ -141,6 +143,7 @@ void bitcoin_tx_hash_for_sig(const struct bitcoin_tx *tx, unsigned int in,
 		    sighash_type, flags, dest->sha.u.u8, sizeof(*dest));
 		assert(ret == WALLY_OK);
 	}
+	tal_wally_end(tx->wtx);
 }
 
 void sign_tx_input(const struct bitcoin_tx *tx,
