@@ -888,8 +888,8 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 	struct htlc_in *hin = request->hin;
 	struct lightningd *ld = request->ld;
 	struct preimage payment_preimage;
-	const jsmntok_t *resulttok, *paykeytok, *payloadtok;
-	u8 *payload;
+	const jsmntok_t *resulttok, *paykeytok, *payloadtok, *failoniontok;
+	u8 *payload, *failonion;
 
 	if (!toks || !buffer)
 		return true;
@@ -940,6 +940,16 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 				      " hook: %.*s",
 				      failmsgtok->end - failmsgtok->start,
 				      buffer + failmsgtok->start);
+		} else if ((failoniontok = json_get_member(buffer, toks,
+							       "failure_onion"))) {
+			failonion = json_tok_bin_from_hex(NULL, buffer, failoniontok);
+			if (!failonion)
+				fatal("Bad failure_onion for htlc_accepted"
+				      " hook: %.*s",
+				      failoniontok->end -  failoniontok->start,
+				      buffer + failoniontok->start);
+			fail_in_htlc(hin, take(new_onionreply(tmpctx, failonion)));
+			return false;
 		} else if (deprecated_apis
 			   && (failcodetok = json_get_member(buffer, toks,
 							     "failure_code"))) {
