@@ -1347,7 +1347,9 @@ static struct command_result *json_notifications(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	cmd->jcon->notifications_enabled = *enable;
+	/* Catch the case where they sent this command then hung up. */
+	if (cmd->jcon)
+		cmd->jcon->notifications_enabled = *enable;
 	return command_success(cmd, json_stream_success(cmd));
 }
 
