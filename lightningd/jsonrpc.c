@@ -192,9 +192,16 @@ static struct command_result *json_stop(struct command *cmd,
 	if (!param(cmd, buffer, params, NULL))
 		return command_param_failed();
 
-	/* This can't have closed yet! */
-	cmd->ld->stop_conn = cmd->jcon->conn;
 	log_unusual(cmd->ld->log, "JSON-RPC shutdown");
+
+	/* With rpc_command_hook, jcon might have closed in the meantime! */
+	if (!cmd->jcon) {
+		/* Return us to toplevel lightningd.c */
+		io_break(cmd->ld);
+		return command_still_pending(cmd);
+	}
+
+	cmd->ld->stop_conn = cmd->jcon->conn;
 
 	/* This is the one place where result is a literal string. */
 	jout = json_out_new(tmpctx);
