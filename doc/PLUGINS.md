@@ -1053,7 +1053,25 @@ onion fields which a plugin doesn't want lightningd to consider.
 ```
 
 `fail` will tell `lightningd` to fail the HTLC with a given hex-encoded
-`failure_message` (please refer to the [spec][bolt4-failure-messages] for details: `incorrect_or_unknown_payment_details` is the most common).
+`failure_message` (please refer to the [spec][bolt4-failure-messages] for
+details: `incorrect_or_unknown_payment_details` is the most common).
+
+
+```json
+{
+  "result": "fail",
+  "failure_onion": "[serialized error packet]"
+}
+```
+
+Instead of `failure_message` the response can contain a hex-encoded
+`failure_onion` that will be used instead (please refer to the
+[spec][bolt4-failure-onion] for details). This can be used, for example,
+if you're writing a bridge between two Lightning Networks. Note that
+`lightningd` will apply the obfuscation step to the value returned here
+with its own shared secret (and key type `ammag`) before returning it to
+the previous hop.
+
 
 ```json
 {
@@ -1263,6 +1281,7 @@ The plugin must broadcast it and respond with the following fields:
 [jsonrpc-notification-spec]: https://www.jsonrpc.org/specification#notification
 [bolt4]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
 [bolt4-failure-messages]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md#failure-messages
+[bolt4-failure-onion]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md#returning-errors
 [bolt2-open-channel]: https://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md#the-open_channel-message
 [sendcustommsg]: lightning-dev-sendcustommsg.7.html
 [oddok]: https://github.com/lightningnetwork/lightning-rfc/blob/master/00-introduction.md#its-ok-to-be-odd
