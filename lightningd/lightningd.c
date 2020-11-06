@@ -1021,12 +1021,13 @@ int main(int argc, char *argv[])
 	assert(io_loop_ret == ld);
 	ld->state = LD_STATE_SHUTDOWN;
 
+	stop_fd = -1;
+	stop_response = NULL;
+
 	/* Were we exited via `lightningd_exit`?  */
 	if (ld->exit_code) {
 		exit_code = *ld->exit_code;
-		stop_fd = -1;
-		stop_response = NULL;
-	} else {
+	} else if (ld->stop_conn) {
 		/* Keep this fd around, to write final response at the end. */
 		stop_fd = io_conn_fd(ld->stop_conn);
 		io_close_taken_fd(ld->stop_conn);
