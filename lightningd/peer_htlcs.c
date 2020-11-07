@@ -1775,7 +1775,8 @@ static bool channel_added_their_htlc(struct channel *channel,
 	 */
 	if (amount_msat_eq(added->amount, AMOUNT_MSAT(0))
 	    || amount_msat_less(added->amount, channel->our_config.htlc_minimum)) {
-		channel_internal_error(channel,
+		channel_fail_permanent(channel,
+				       REASON_PROTOCOL,
 				       "trying to add HTLC amount %s"
 				       " but minimum is %s",
 				       type_to_string(tmpctx,
