@@ -700,8 +700,8 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                            0, 1000000,
                            filters=['0109'])
     # It should definitely have split
-    l2.daemon.wait_for_log('queue_channel_ranges full: splitting')
-    # Turns out it sends: 0+53, 53+26, 79+13, 92+7, 99+3, 102+2, 104+1, 105+999895
+    l2.daemon.wait_for_log('reply_channel_range: splitting 0-1 of 2')
+
     start = 0
     scids = '00'
     for m in msgs:
@@ -719,12 +719,12 @@ def test_gossip_query_channel_range(node_factory, bitcoind, chainparams):
                              stdout=subprocess.PIPE).stdout.strip().decode()
     assert scids == encoded
 
-    # Test overflow case doesn't split forever; should still only get 8 for this
+    # Test overflow case doesn't split forever; should still only get 2 for this
     msgs = l2.query_gossip('query_channel_range',
                            genesis_blockhash,
                            1, 429496000,
                            filters=['0109'])
-    assert len(msgs) == 8
+    assert len(msgs) == 2
 
     # This should actually be large enough for zlib to kick in!
     scid34, _ = l3.fundchannel(l4, 10**5)
