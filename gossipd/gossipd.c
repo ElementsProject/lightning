@@ -606,7 +606,7 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	peer->scid_query_nodes = NULL;
 	peer->scid_query_nodes_idx = 0;
 	peer->scid_query_outstanding = false;
-	peer->query_channel_blocks = NULL;
+	peer->query_channel_scids = NULL;
 	peer->query_channel_range_cb = NULL;
 	peer->num_pings_outstanding = 0;
 

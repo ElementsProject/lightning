@@ -296,7 +296,7 @@ static bool peer_has_gossip_queries(const struct peer *peer)
 static bool peer_can_take_range_query(const struct peer *peer)
 {
 	return peer->gossip_queries_feature
-		&& !peer->query_channel_blocks;
+		&& !peer->query_channel_scids;
 }
 
 static bool peer_can_take_scid_query(const struct peer *peer)

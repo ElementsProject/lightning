@@ -639,7 +639,6 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	struct short_channel_id *scids;
 	struct channel_update_timestamps *ts;
 	size_t n;
-	unsigned long b;
 	void (*cb)(struct peer *peer,
 		   u32 first_blocknum, u32 number_of_blocks,
 		   const struct short_channel_id *scids,
@@ -662,7 +661,7 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 				       tal_hex(tmpctx, msg));
 	}
 
-	if (!peer->query_channel_blocks) {
+	if (!peer->query_channel_scids) {
 		return towire_errorfmt(peer, NULL,
 				       "reply_channel_range without query: %s",
 				       tal_hex(tmpctx, msg));
@@ -733,26 +732,19 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	    && first_blocknum + number_of_blocks == peer->range_end_blocknum
 	    && !complete
 	    && tal_bytelen(msg) == 64046) {
-		status_debug("LND reply_channel_range detected: futzing");
-	} else {
-		/* We keep a bitmap of what blocks have been covered by replies: bit 0
-		 * represents block peer->range_first_blocknum */
-		b = bitmap_ffs(peer->query_channel_blocks,
-			       start - peer->range_first_blocknum,
-			       end - peer->range_first_blocknum);
-		if (b != end - peer->range_first_blocknum) {
-			return towire_errorfmt(peer, NULL,
-					       "reply_channel_range %u+%u already have block %lu",
-					       first_blocknum, number_of_blocks,
-					       peer->range_first_blocknum + b);
-		}
-
-		/* Mark that short_channel_ids for this block have been received */
-		bitmap_fill_range(peer->query_channel_blocks,
-				  start - peer->range_first_blocknum,
-				  end - peer->range_first_blocknum);
-		peer->range_blocks_remaining -= end - start;
+		status_unusual("Old LND reply_channel_range detected: result will be truncated!");
 	}
+
+	/* They're supposed to send them in order, but LND actually
+	 * can overlap. */
+	if (first_blocknum != peer->range_prev_end_blocknum + 1
+	    && first_blocknum != peer->range_prev_end_blocknum) {
+		return towire_errorfmt(peer, NULL,
+				       "reply_channel_range %u+%u previous end was block %u",
+				       first_blocknum, number_of_blocks,
+				       peer->range_prev_end_blocknum);
+	}
+	peer->range_prev_end_blocknum = end;
 
 	/* Add scids */
 	n = tal_count(peer->query_channel_scids);
@@ -782,18 +774,16 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	memcpy(peer->query_channel_timestamps + n, ts, tal_bytelen(ts));
 
 	/* Still more to go? */
-	if (peer->range_blocks_remaining)
+	if (peer->range_prev_end_blocknum < peer->range_end_blocknum)
 		return NULL;
 
 	/* Clear these immediately in case cb want to queue more */
 	scids = tal_steal(tmpctx, peer->query_channel_scids);
 	ts = tal_steal(tmpctx, peer->query_channel_timestamps);
 	cb = peer->query_channel_range_cb;
-	tal_steal(tmpctx, peer->query_channel_blocks);
 
 	peer->query_channel_scids = NULL;
 	peer->query_channel_timestamps = NULL;
-	peer->query_channel_blocks = NULL;
 	peer->query_channel_range_cb = NULL;
 
 	cb(peer, first_blocknum, number_of_blocks, scids, ts, complete);
@@ -1028,15 +1018,8 @@ bool query_channel_range(struct daemon *daemon,
 
 	assert((qflags & ~(QUERY_ADD_TIMESTAMPS|QUERY_ADD_CHECKSUMS)) == 0);
 	assert(peer->gossip_queries_feature);
-	assert(!peer->query_channel_blocks);
+	assert(!peer->query_channel_scids);
 	assert(!peer->query_channel_range_cb);
-
-	/* Check for overflow on 32-bit machines! */
-	if (BITMAP_NWORDS(number_of_blocks) < number_of_blocks / BITMAP_WORD_BITS) {
-		status_broken("query_channel_range: huge number_of_blocks (%u) not supported",
-			      number_of_blocks);
-		return false;
-	}
 
 	if (qflags) {
 		tlvs = tlv_query_channel_range_tlvs_new(tmpctx);
@@ -1054,9 +1037,7 @@ bool query_channel_range(struct daemon *daemon,
 	queue_peer_msg(peer, take(msg));
 	peer->range_first_blocknum = first_blocknum;
 	peer->range_end_blocknum = first_blocknum + number_of_blocks;
-	peer->range_blocks_remaining = number_of_blocks;
-	peer->query_channel_blocks = tal_arrz(peer, bitmap,
-					      BITMAP_NWORDS(number_of_blocks));
+	peer->range_prev_end_blocknum = first_blocknum-1;
 	peer->query_channel_scids = tal_arr(peer, struct short_channel_id, 0);
 	peer->query_channel_timestamps
 		= tal_arr(peer, struct channel_update_timestamps, 0);
