@@ -296,7 +296,7 @@ static bool peer_has_gossip_queries(const struct peer *peer)
 static bool peer_can_take_range_query(const struct peer *peer)
 {
 	return peer->gossip_queries_feature
-		&& !peer->query_channel_scids;
+		&& !peer->range_replies;
 }
 
 static bool peer_can_take_scid_query(const struct peer *peer)
@@ -643,8 +643,7 @@ static void check_timestamps(struct seeker *seeker,
 
 static void process_scid_probe(struct peer *peer,
 			       u32 first_blocknum, u32 number_of_blocks,
-			       const struct short_channel_id *scids,
-			       const struct channel_update_timestamps *ts,
+			       const struct range_query_reply *replies,
 			       bool complete)
 {
 	struct seeker *seeker = peer->daemon->seeker;
@@ -656,15 +655,16 @@ static void process_scid_probe(struct peer *peer,
 
 	clear_softref(seeker, &seeker->random_peer_softref);
 
-	for (size_t i = 0; i < tal_count(scids); i++) {
-		struct chan *c = get_channel(seeker->daemon->rstate, &scids[i]);
+	for (size_t i = 0; i < tal_count(replies); i++) {
+		struct chan *c = get_channel(seeker->daemon->rstate,
+					     &replies[i].scid);
 		if (c) {
-			if (ts)
-				check_timestamps(seeker, c, ts+i, peer);
+			check_timestamps(seeker, c, &replies[i].ts, peer);
 			continue;
 		}
 
-		new_unknown_scids |= add_unknown_scid(seeker, &scids[i], peer);
+		new_unknown_scids |= add_unknown_scid(seeker, &replies[i].scid,
+						      peer);
 	}
 
 	/* No new unknown scids, or no more to ask?  We give some wiggle

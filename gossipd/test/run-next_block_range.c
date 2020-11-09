@@ -39,8 +39,7 @@ bool query_channel_range(struct daemon *daemon UNNEEDED,
 			 enum query_option_flags qflags UNNEEDED,
 			 void (*cb)(struct peer *peer UNNEEDED,
 				    u32 first_blocknum UNNEEDED, u32 number_of_blocks UNNEEDED,
-				    const struct short_channel_id *scids UNNEEDED,
-				    const struct channel_update_timestamps * UNNEEDED,
+				    const struct range_query_reply *replies UNNEEDED,
 				    bool complete))
 { fprintf(stderr, "query_channel_range called!\n"); abort(); }
 /* Generated stub for query_short_channel_ids */

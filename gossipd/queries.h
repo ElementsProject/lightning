@@ -42,8 +42,7 @@ bool query_channel_range(struct daemon *daemon,
 			 enum query_option_flags qflags,
 			 void (*cb)(struct peer *peer,
 				    u32 first_blocknum, u32 number_of_blocks,
-				    const struct short_channel_id *scids,
-				    const struct channel_update_timestamps *,
+				    const struct range_query_reply *replies,
 				    bool complete));
 
 /* Ask this peer for info about an array of scids, with optional query_flags */
