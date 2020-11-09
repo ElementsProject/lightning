@@ -2,7 +2,6 @@
 #define LIGHTNING_GOSSIPD_GOSSIPD_H
 #include "config.h"
 #include <bitcoin/block.h>
-#include <ccan/bitmap/bitmap.h>
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/timer/timer.h>
@@ -95,11 +94,9 @@ struct peer {
 	/* How many pongs are we expecting? */
 	size_t num_pings_outstanding;
 
-	/* Map of outstanding channel_range requests. */
-	bitmap *query_channel_blocks;
 	/* What we're querying: [range_first_blocknum, range_end_blocknum) */
 	u32 range_first_blocknum, range_end_blocknum;
-	u32 range_blocks_remaining;
+	u32 range_prev_end_blocknum;
 	struct short_channel_id *query_channel_scids;
 	struct channel_update_timestamps *query_channel_timestamps;
 	void (*query_channel_range_cb)(struct peer *peer,
