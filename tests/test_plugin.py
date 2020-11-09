@@ -1992,8 +1992,10 @@ def test_hook_dep(node_factory):
                                                   {'plugin': [dep_a, dep_b]}])
 
     # l2 complains about the two unknown plugins, only.
-    assert l2.daemon.is_in_log("unknown plugin dep_a.py")
-    assert l2.daemon.is_in_log("unknown plugin dep_c.py")
+    # (Could be already past)
+    l2.daemon.logsearch_start = 0
+    l2.daemon.wait_for_logs(["unknown plugin dep_a.py",
+                             "unknown plugin dep_c.py"])
     assert not l2.daemon.is_in_log("unknown plugin (?!dep_a.py|dep_c.py)")
     logstart = l2.daemon.logsearch_start
 
@@ -2037,7 +2039,9 @@ def test_hook_dep_stable(node_factory):
                                               {'plugin': [dep_a, dep_d, dep_e, dep_b]}])
 
     # dep_a mentions deb_c, but nothing else should be unknown.
-    assert l2.daemon.is_in_log("unknown plugin dep_c.py")
+    # (Could be already past)
+    l2.daemon.logsearch_start = 0
+    l2.daemon.wait_for_log("unknown plugin dep_c.py")
     assert not l2.daemon.is_in_log("unknown plugin (?!|dep_c.py)")
 
     l1.pay(l2, 100000)
