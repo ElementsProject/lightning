@@ -693,12 +693,15 @@ static u8 *append_range_reply(struct peer *peer,
 	u16 i, old_num, added;
 	const struct channel_update_timestamps *ts;
 	/* Zero means "no timestamp" */
-	const static struct channel_update_timestamps zero_ts;
+	const static struct channel_update_timestamps zero_ts = { 0, 0 };
 
 	if (timestamps_tlv) {
 		ts = decode_channel_update_timestamps(tmpctx,
 						      timestamps_tlv);
-		if (!ts || tal_count(ts) != tal_count(scids)) {
+		if (!ts)
+			return towire_errorfmt(peer, NULL,
+					       "reply_channel_range can't decode timestamps.");
+		if (tal_count(ts) != tal_count(scids)) {
 			return towire_errorfmt(peer, NULL,
 					       "reply_channel_range %zu timestamps when %zu scids?",
 					       tal_count(ts),
