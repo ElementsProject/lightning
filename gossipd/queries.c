@@ -628,6 +628,43 @@ const u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 	return NULL;
 }
 
+/* Append these scids (and optional timestamps) to our pending replies */
+static u8 *append_range_reply(struct peer *peer,
+			      const struct short_channel_id *scids,
+			      const struct tlv_reply_channel_range_tlvs_timestamps_tlv
+			      *timestamps_tlv)
+{
+	u16 i, old_num, added;
+	const struct channel_update_timestamps *ts;
+	/* Zero means "no timestamp" */
+	const static struct channel_update_timestamps zero_ts;
+
+	if (timestamps_tlv) {
+		ts = decode_channel_update_timestamps(tmpctx,
+						      timestamps_tlv);
+		if (!ts || tal_count(ts) != tal_count(scids)) {
+			return towire_errorfmt(peer, NULL,
+					       "reply_channel_range %zu timestamps when %zu scids?",
+					       tal_count(ts),
+					       tal_count(scids));
+		}
+	} else
+		ts = NULL;
+
+	old_num = tal_count(peer->range_replies);
+	added = tal_count(scids);
+	for (i = 0; i < added; i++) {
+		tal_resize(&peer->range_replies, old_num + i + 1);
+		peer->range_replies[old_num + i].scid = scids[i];
+		if (ts)
+			peer->range_replies[old_num + i].ts = ts[i];
+		else
+			peer->range_replies[old_num + i].ts = zero_ts;
+	}
+
+	return NULL;
+}
+
 /*~ This is the reply we get when we send query_channel_range; we keep
  * expecting them until the entire range we asked for is covered. */
 const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
@@ -637,12 +674,11 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	u32 first_blocknum, number_of_blocks, start, end;
 	u8 *encoded;
 	struct short_channel_id *scids;
-	struct channel_update_timestamps *ts;
-	size_t n;
+	const struct range_query_reply *replies;
+	const u8 *err;
 	void (*cb)(struct peer *peer,
 		   u32 first_blocknum, u32 number_of_blocks,
-		   const struct short_channel_id *scids,
-		   const struct channel_update_timestamps *ts,
+		   const struct range_query_reply *replies,
 		   bool complete);
 	struct tlv_reply_channel_range_tlvs *tlvs
 		= tlv_reply_channel_range_tlvs_new(tmpctx);
@@ -661,7 +697,7 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 				       tal_hex(tmpctx, msg));
 	}
 
-	if (!peer->query_channel_scids) {
+	if (!peer->range_replies) {
 		return towire_errorfmt(peer, NULL,
 				       "reply_channel_range without query: %s",
 				       tal_hex(tmpctx, msg));
@@ -746,47 +782,26 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	}
 	peer->range_prev_end_blocknum = end;
 
-	/* Add scids */
-	n = tal_count(peer->query_channel_scids);
-	tal_resize(&peer->query_channel_scids, n + tal_count(scids));
-	memcpy(peer->query_channel_scids + n, scids, tal_bytelen(scids));
+	err = append_range_reply(peer, scids, tlvs->timestamps_tlv);
+	if (err)
+		return err;
 
 	/* Credit peer for answering gossip, so seeker doesn't get upset:
 	 * since scids are only 8 bytes, use a discount over normal gossip. */
 	peer_supplied_good_gossip(peer, tal_count(scids) / 20);
-
-	/* Add timestamps (if any), or zeroes */
-	if (tlvs->timestamps_tlv) {
-		ts = decode_channel_update_timestamps(tlvs,
-						      tlvs->timestamps_tlv);
-		if (!ts || tal_count(ts) != tal_count(scids)) {
-			return towire_errorfmt(peer, NULL,
-					       "reply_channel_range %zu timestamps when %zu scids?",
-					       tal_count(ts),
-					       tal_count(scids));
-		}
-	} else {
-		ts = tal_arrz(tlvs, struct channel_update_timestamps,
-			      tal_count(scids));
-	}
-	n = tal_count(peer->query_channel_timestamps);
-	tal_resize(&peer->query_channel_timestamps, n + tal_count(ts));
-	memcpy(peer->query_channel_timestamps + n, ts, tal_bytelen(ts));
 
 	/* Still more to go? */
 	if (peer->range_prev_end_blocknum < peer->range_end_blocknum)
 		return NULL;
 
 	/* Clear these immediately in case cb want to queue more */
-	scids = tal_steal(tmpctx, peer->query_channel_scids);
-	ts = tal_steal(tmpctx, peer->query_channel_timestamps);
+	replies = tal_steal(tmpctx, peer->range_replies);
 	cb = peer->query_channel_range_cb;
 
-	peer->query_channel_scids = NULL;
-	peer->query_channel_timestamps = NULL;
+	peer->range_replies = NULL;
 	peer->query_channel_range_cb = NULL;
 
-	cb(peer, first_blocknum, number_of_blocks, scids, ts, complete);
+	cb(peer, first_blocknum, number_of_blocks, replies, complete);
 	return NULL;
 }
 
@@ -1009,8 +1024,7 @@ bool query_channel_range(struct daemon *daemon,
 			 enum query_option_flags qflags,
 			 void (*cb)(struct peer *peer,
 				    u32 first_blocknum, u32 number_of_blocks,
-				    const struct short_channel_id *scids,
-				    const struct channel_update_timestamps *,
+				    const struct range_query_reply *replies,
 				    bool complete))
 {
 	u8 *msg;
@@ -1018,7 +1032,7 @@ bool query_channel_range(struct daemon *daemon,
 
 	assert((qflags & ~(QUERY_ADD_TIMESTAMPS|QUERY_ADD_CHECKSUMS)) == 0);
 	assert(peer->gossip_queries_feature);
-	assert(!peer->query_channel_scids);
+	assert(!peer->range_replies);
 	assert(!peer->query_channel_range_cb);
 
 	if (qflags) {
@@ -1038,9 +1052,7 @@ bool query_channel_range(struct daemon *daemon,
 	peer->range_first_blocknum = first_blocknum;
 	peer->range_end_blocknum = first_blocknum + number_of_blocks;
 	peer->range_prev_end_blocknum = first_blocknum-1;
-	peer->query_channel_scids = tal_arr(peer, struct short_channel_id, 0);
-	peer->query_channel_timestamps
-		= tal_arr(peer, struct channel_update_timestamps, 0);
+	peer->range_replies = tal_arr(peer, struct range_query_reply, 0);
 	peer->query_channel_range_cb = cb;
 
 	return true;

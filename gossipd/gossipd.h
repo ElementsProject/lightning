@@ -7,6 +7,7 @@
 #include <ccan/timer/timer.h>
 #include <common/bigsize.h>
 #include <common/node_id.h>
+#include <wire/peer_wire.h>
 
 /* We talk to `hsmd` to sign our gossip messages with the node key */
 #define HSM_FD 3
@@ -61,6 +62,11 @@ struct daemon {
 	struct feature_set *our_features;
 };
 
+struct range_query_reply {
+	struct short_channel_id scid;
+	struct channel_update_timestamps ts;
+};
+
 /* This represents each peer we're gossiping with */
 struct peer {
 	/* daemon->peers */
@@ -97,12 +103,10 @@ struct peer {
 	/* What we're querying: [range_first_blocknum, range_end_blocknum) */
 	u32 range_first_blocknum, range_end_blocknum;
 	u32 range_prev_end_blocknum;
-	struct short_channel_id *query_channel_scids;
-	struct channel_update_timestamps *query_channel_timestamps;
+	struct range_query_reply *range_replies;
 	void (*query_channel_range_cb)(struct peer *peer,
 				       u32 first_blocknum, u32 number_of_blocks,
-				       const struct short_channel_id *scids,
-				       const struct channel_update_timestamps *,
+				       const struct range_query_reply *replies,
 				       bool complete);
 
 	/* The daemon_conn used to queue messages to/from the peer. */
