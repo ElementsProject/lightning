@@ -931,17 +931,28 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 		u8 *failmsg;
 		const jsmntok_t *failoniontok, *failmsgtok, *failcodetok;
 
-		if ((failoniontok = json_get_member(buffer, toks, "failure_onion"))) {
-			failonion = json_tok_bin_from_hex(NULL, buffer, failoniontok);
+		failoniontok = json_get_member(buffer, toks, "failure_onion");
+		failmsgtok = json_get_member(buffer, toks, "failure_message");
+
+		if (failoniontok) {
+			failonion = json_tok_bin_from_hex(tmpctx, buffer,
+							  failoniontok);
 			if (!failonion)
 				fatal("Bad failure_onion for htlc_accepted"
 				      " hook: %.*s",
 				      failoniontok->end -  failoniontok->start,
 				      buffer + failoniontok->start);
-			fail_in_htlc(hin, take(new_onionreply(tmpctx, failonion)));
+
+			if (failmsgtok)
+				log_broken(ld->log, "Both 'failure_onion' and"
+					   "'failure_message' provided."
+					   " Ignoring 'failure_message'.");
+
+			fail_in_htlc(hin, take(new_onionreply(NULL,
+							      failonion)));
 			return false;
 		}
-		if ((failmsgtok = json_get_member(buffer, toks, "failure_message"))) {
+		if (failmsgtok) {
 			failmsg = json_tok_bin_from_hex(NULL, buffer,
 							failmsgtok);
 			if (!failmsg)
