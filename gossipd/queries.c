@@ -348,8 +348,8 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 static void send_reply_channel_range(struct peer *peer,
 				     u32 first_blocknum, u32 number_of_blocks,
 				     const struct short_channel_id *scids,
-				     struct channel_update_timestamps *tstamps,
-				     struct channel_update_checksums *csums,
+				     const struct channel_update_timestamps *tstamps,
+				     const struct channel_update_checksums *csums,
 				     size_t num_scids)
 {
 	/* BOLT #7:
@@ -386,7 +386,11 @@ static void send_reply_channel_range(struct peer *peer,
 			= tal_steal(tlvs, encoded_timestamps);
 	}
 
-	tlvs->checksums_tlv = csums;
+	/* Must be a tal object! */
+	if (csums)
+		tlvs->checksums_tlv = tal_dup_arr(tlvs,
+						  struct channel_update_checksums,
+						  csums, num_scids, 0);
 
 	u8 *msg = towire_reply_channel_range(NULL,
 					     &chainparams->genesis_blockhash,
@@ -434,9 +438,9 @@ static void get_checksum_and_timestamp(struct routing_state *rstate,
 }
 
 /* FIXME: This assumes that the tlv type encodes into 1 byte! */
-static size_t tlv_len(size_t num_entries, size_t size)
+static size_t tlv_overhead(size_t num_entries, size_t size)
 {
-	return 1 + bigsize_len(num_entries * size) + num_entries * size;
+	return 1 + bigsize_len(num_entries * size);
 }
 
 /* How many entries can I fit in a reply? */
@@ -464,14 +468,14 @@ static size_t max_entries(enum query_option_flags query_option_flags)
 
 	/* If we add timestamps, we need to encode tlv */
 	if (query_option_flags & QUERY_ADD_TIMESTAMPS) {
-		max_encoded_bytes -= tlv_len(max_num,
-					     sizeof(struct channel_update_timestamps));
+		max_encoded_bytes -= tlv_overhead(max_num,
+						  sizeof(struct channel_update_timestamps));
 		per_entry_size += sizeof(struct channel_update_timestamps);
 	}
 
 	if (query_option_flags & QUERY_ADD_CHECKSUMS) {
-		max_encoded_bytes -= tlv_len(max_num,
-					     sizeof(struct channel_update_checksums));
+		max_encoded_bytes -= tlv_overhead(max_num,
+						  sizeof(struct channel_update_checksums));
 		per_entry_size += sizeof(struct channel_update_checksums);
 	}
 
