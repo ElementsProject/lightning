@@ -16,3 +16,8 @@ def pytest_runtest_makereport(item, call):
     # be "setup", "call", "teardown"
 
     setattr(item, "rep_" + rep.when, rep)
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers",
+                            "slow_test: slow tests aren't run under Valgrind")
