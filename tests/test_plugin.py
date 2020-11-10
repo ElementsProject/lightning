@@ -2135,3 +2135,14 @@ def test_hook_dep_stable(node_factory):
     l2.daemon.wait_for_log(r"dep_d.py: htlc_accepted called")
     l2.daemon.wait_for_log(r"dep_e.py: htlc_accepted called")
     l2.daemon.wait_for_log(r"dep_b.py: htlc_accepted called")
+
+
+def test_htlc_accepted_hook_failonion(node_factory):
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/htlc_accepted-failonion.py')
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'plugin': plugin}])
+
+    # an invalid onion
+    l2.rpc.setfailonion('0' * (292 * 2))
+    inv = l2.rpc.invoice(42, 'failonion000', '')['bolt11']
+    with pytest.raises(RpcError):
+        l1.rpc.pay(inv)
