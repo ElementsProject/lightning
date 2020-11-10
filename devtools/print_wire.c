@@ -187,6 +187,11 @@ void printwire_tlvs(const char *fieldname, const u8 **cursor, size_t *plen,
 		if (!*cursor)
 			goto fail;
 
+		if (length > *plen) {
+			*plen = 0;
+			goto fail;
+		}
+
 		ptype = find_print_record_type(type, types, num_types);
 		if (ptype) {
 			size_t tlvlen = length;
@@ -195,9 +200,9 @@ void printwire_tlvs(const char *fieldname, const u8 **cursor, size_t *plen,
 			if (!*cursor)
 				goto fail;
 			printf("}\n");
-			*plen -= length;
 		} else
 			printf("**TYPE #%"PRIu64" UNKNOWN for TLV %s**\n", type, fieldname);
+		*plen -= length;
 	}
 	return;
 
