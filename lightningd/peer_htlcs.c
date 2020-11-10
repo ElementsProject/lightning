@@ -888,7 +888,7 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 	struct htlc_in *hin = request->hin;
 	struct lightningd *ld = request->ld;
 	struct preimage payment_preimage;
-	const jsmntok_t *resulttok, *paykeytok, *payloadtok, *failoniontok;
+	const jsmntok_t *resulttok, *paykeytok, *payloadtok;
 	u8 *payload, *failonion;
 
 	if (!toks || !buffer)
@@ -929,19 +929,9 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 
 	if (json_tok_streq(buffer, resulttok, "fail")) {
 		u8 *failmsg;
-		const jsmntok_t *failmsgtok, *failcodetok;
+		const jsmntok_t *failoniontok, *failmsgtok, *failcodetok;
 
-		failmsgtok = json_get_member(buffer, toks, "failure_message");
-		if (failmsgtok) {
-			failmsg = json_tok_bin_from_hex(NULL, buffer,
-							failmsgtok);
-			if (!failmsg)
-				fatal("Bad failure_message for htlc_accepted"
-				      " hook: %.*s",
-				      failmsgtok->end - failmsgtok->start,
-				      buffer + failmsgtok->start);
-		} else if ((failoniontok = json_get_member(buffer, toks,
-							       "failure_onion"))) {
+		if ((failoniontok = json_get_member(buffer, toks, "failure_onion"))) {
 			failonion = json_tok_bin_from_hex(NULL, buffer, failoniontok);
 			if (!failonion)
 				fatal("Bad failure_onion for htlc_accepted"
@@ -949,6 +939,17 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 				      failoniontok->end -  failoniontok->start,
 				      buffer + failoniontok->start);
 			fail_in_htlc(hin, take(new_onionreply(tmpctx, failonion)));
+			return false;
+		}
+		if ((failmsgtok = json_get_member(buffer, toks, "failure_message"))) {
+			failmsg = json_tok_bin_from_hex(NULL, buffer,
+							failmsgtok);
+			if (!failmsg)
+				fatal("Bad failure_message for htlc_accepted"
+				      " hook: %.*s",
+				      failmsgtok->end - failmsgtok->start,
+				      buffer + failmsgtok->start);
+			local_fail_in_htlc(hin, take(failmsg));
 			return false;
 		} else if (deprecated_apis
 			   && (failcodetok = json_get_member(buffer, toks,
@@ -961,10 +962,13 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 				      - failcodetok->start,
 				      buffer + failcodetok->start);
 			failmsg = convert_failcode(NULL, ld, failcode);
-		} else
+			local_fail_in_htlc(hin, take(failmsg));
+			return false;
+		} else {
 			failmsg = towire_temporary_node_failure(NULL);
-		local_fail_in_htlc(hin, take(failmsg));
-		return false;
+			local_fail_in_htlc(hin, take(failmsg));
+			return false;
+		}
 	} else if (json_tok_streq(buffer, resulttok, "resolve")) {
 		paykeytok = json_get_member(buffer, toks, "payment_key");
 		if (!paykeytok)
