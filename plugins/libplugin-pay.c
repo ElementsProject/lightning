@@ -1364,8 +1364,6 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	struct route_hop *first = &p->route[0];
 	struct secret *secrets;
 
-	payment_chanhints_apply_route(p, false);
-
 	p->createonion_response = json_to_createonion_response(p, buffer, toks);
 
 	req = jsonrpc_request_start(p->plugin, NULL, "sendonion",
@@ -1485,6 +1483,8 @@ static void payment_compute_onion_payloads(struct payment *p)
 
 	p->step = PAYMENT_STEP_ONION_PAYLOAD;
 	hopcount = tal_count(p->route);
+
+	payment_chanhints_apply_route(p, false);
 
 	/* Now compute the payload we're about to pass to `createonion` */
 	cr = p->createonion_request = tal(p, struct createonion_request);
