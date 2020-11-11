@@ -1525,7 +1525,18 @@ static void payment_compute_onion_payloads(struct payment *p)
 	p->step = PAYMENT_STEP_ONION_PAYLOAD;
 	hopcount = tal_count(p->route);
 
-	payment_chanhints_apply_route(p, false);
+	/* Now that we are about to fix the route parameters by
+	 * encoding them in an onion is the right time to update the
+	 * channel hints. */
+	if (!payment_chanhints_apply_route(p, false)) {
+		/* We can still end up with a failed channel_hints
+		 * update, either because a plugin changed the route,
+		 * or because a modifier was not synchronous, allowing
+		 * for multiple concurrent routes being built. If that
+		 * is the case, discard this route and retry. */
+		payment_set_step(p, PAYMENT_STEP_RETRY_GETROUTE);
+		return payment_continue(p);
+	}
 
 	/* Now compute the payload we're about to pass to `createonion` */
 	cr = p->createonion_request = tal(p, struct createonion_request);
@@ -1873,6 +1884,7 @@ void payment_continue(struct payment *p)
 		p->current_modifier = -1;
 		switch (p->step) {
 		case PAYMENT_STEP_INITIALIZED:
+		case PAYMENT_STEP_RETRY_GETROUTE:
 			payment_getroute(p);
 			return;
 

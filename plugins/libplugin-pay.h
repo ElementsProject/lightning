@@ -94,6 +94,11 @@ enum payment_step {
 	 * to amend the route. */
 	PAYMENT_STEP_GOT_ROUTE = 2,
 
+	/* Something went wrong with the route returned by the
+	previous step, so retry, but do not rerun the INITIALIZED
+	modifiers. */
+	PAYMENT_STEP_RETRY_GETROUTE = 3,
+
 	/* We just computed the onion payload, allow modifiers to amend,
 	 * before constructing the onion packet. */
 	PAYMENT_STEP_ONION_PAYLOAD = 4,
