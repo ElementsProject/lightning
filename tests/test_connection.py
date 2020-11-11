@@ -111,6 +111,30 @@ def test_reconnect_channel_peers(node_factory, executor):
     fut3.result(10)
 
 
+def test_connection_moved(node_factory, executor):
+    slow_start = os.path.join(os.getcwd(), 'tests/plugins/slow_start.py')
+    options = {'may_reconnect': True, 'plugin': slow_start}
+    l1, l2 = node_factory.get_nodes(2, opts=options)
+
+    # Set up the plugin to wait for a connection
+    executor.submit(l1.rpc.waitconn)
+    log = l1.daemon.wait_for_log('listening for connections')
+    match = re.search(r'on port (\d*)', log)
+    assert match and len(match.groups()) == 1
+    hang_port = match.groups()[0]
+
+    # Attempt connection
+    fut_hang = executor.submit(l1.rpc.connect, l2.info['id'],
+                               'localhost', hang_port)
+    l1.daemon.wait_for_log('connection from')
+
+    # Provide correct connection details
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # If we failed to update the connection, this call will error
+    fut_hang.result(TIMEOUT)
+
+
 def test_balance(node_factory):
     l1, l2 = node_factory.line_graph(2, fundchannel=True)
     p1 = only_one(l1.rpc.getpeer(peer_id=l2.info['id'], level='info')['channels'])

@@ -1457,8 +1457,17 @@ static void try_connect_peer(struct daemon *daemon,
 		return;
 
 	/* If we're trying to connect it right now, that's OK. */
-	if (find_connecting(daemon, id))
+	if ((connect = find_connecting(daemon, id))) {
+		/* If we've been passed in new connection details
+		 * for this connection, update our addrhint + add
+		 * to addresses to check */
+		if (addrhint) {
+			connect->addrhint = tal_steal(connect, addrhint);
+			tal_arr_expand(&connect->addrs, *addrhint);
+		}
+
 		return;
+	}
 
 	/* Start an array of addresses to try. */
 	addrs = tal_arr(tmpctx, struct wireaddr_internal, 0);
