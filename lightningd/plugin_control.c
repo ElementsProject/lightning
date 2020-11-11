@@ -141,6 +141,7 @@ plugin_dynamic_rescan_plugins(struct command *cmd)
 	if (res)
 		return res;
 
+	plugins_send_getmanifest(cmd->ld->plugins);
 	return command_still_pending(cmd);
 }
 
