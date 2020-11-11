@@ -444,6 +444,21 @@ payment_constraints_update(struct payment_constraints *cons,
 	return true;
 }
 
+static struct channel_hint *payment_chanhints_get(struct payment *p,
+						  struct route_hop *h)
+{
+	struct payment *root = payment_root(p);
+	struct channel_hint *curhint;
+	for (size_t j = 0; j < tal_count(root->channel_hints); j++) {
+		curhint = &root->channel_hints[j];
+		if (short_channel_id_eq(&curhint->scid.scid, &h->channel_id) &&
+		    curhint->scid.dir == h->direction) {
+			return curhint;
+		}
+	}
+	return NULL;
+}
+
 /* Given a route and a couple of channel hints, apply the route to the channel
  * hints, so we have a better estimation of channel's capacity. We apply a
  * route to a channel hint before calling `sendonion` so subsequent `route`
@@ -453,57 +468,83 @@ payment_constraints_update(struct payment_constraints *cons,
  * through, since the balances really changed in that case. The `remove`
  * argument indicates whether we want to apply (`remove=false`), or clear a
  * prior application (`remove=true`). */
-static void payment_chanhints_apply_route(struct payment *p, bool remove)
+static bool payment_chanhints_apply_route(struct payment *p, bool remove)
 {
 	struct route_hop *curhop;
 	struct channel_hint *curhint;
 	struct payment *root = payment_root(p);
 	assert(p->route != NULL);
+
+	/* No need to check for applicability if we increase
+	 * capacity and budgets. */
+	if (remove)
+		goto apply_changes;
+
+	/* First round: make sure we can cleanly apply the update. */
 	for (size_t i = 0; i < tal_count(p->route); i++) {
 		curhop = &p->route[i];
-		for (size_t j = 0; j < tal_count(root->channel_hints); j++) {
-			curhint = &root->channel_hints[j];
-			if (short_channel_id_eq(&curhint->scid.scid,
-						&curhop->channel_id) &&
-			    curhint->scid.dir == curhop->direction) {
+		curhint = payment_chanhints_get(root, curhop);
 
-				/* Update the number of htlcs for any local
-				 * channel in the route */
-				if (curhint->local && remove)
-					curhint->htlc_budget++;
-				else if (curhint->local)
-					curhint->htlc_budget--;
+		/* If we don't have a hint we can't fail updating it. */
+		if (!curhint)
+			continue;
 
-				if (remove && !amount_msat_add(
-						  &curhint->estimated_capacity,
-						  curhint->estimated_capacity,
-						  curhop->amount)) {
-					/* This should never happen, it'd mean
-					 * that we unapply a route that would
-					 * result in a msatoshi
-					 * wrap-around. */
-					abort();
-				} else if (!amount_msat_sub(
-					       &curhint->estimated_capacity,
-					       curhint->estimated_capacity,
-					       curhop->amount)) {
-					/* This can happen in case of multipl
-					 * concurrent getroute calls using the
-					 * same channel_hints, no biggy, it's
-					 * an estimation anyway. */
-					paymod_log(
-					    p, LOG_UNUSUAL,
-					    "Could not update the channel hint "
-					    "for %s. Could be a concurrent "
-					    "`getroute` call.",
-					    type_to_string(
-						tmpctx,
-						struct short_channel_id_dir,
-						&curhint->scid));
-				}
-			}
+		/* A failure can happen if we add an HTLC, and either
+		 * the local htlc_budget is exhausted, or the capacity
+		 * is exceeded. */
+		if ((curhint->local && curhint->htlc_budget <= 0) ||
+		    amount_msat_greater(curhop->amount,
+					curhint->estimated_capacity)) {
+			/* This can happen in case of multiple
+			 * concurrent getroute calls using the
+			 * same channel_hints, no biggy, it's
+			 * an estimation anyway. */
+			paymod_log(p, LOG_DBG,
+				   "Could not update the channel hint "
+				   "for %s. Could be a concurrent "
+				   "`getroute` call.",
+				   type_to_string(tmpctx,
+						  struct short_channel_id_dir,
+						  &curhint->scid));
+			return false;
 		}
 	}
+
+apply_changes:
+	/* Second round: apply the changes, now that we know they'll succeed. */
+	for (size_t i = 0; i < tal_count(p->route); i++) {
+		curhop = &p->route[i];
+		curhint = payment_chanhints_get(root, curhop);
+		if (!curhint)
+			continue;
+
+		/* Update the number of htlcs for any local
+		 * channel in the route */
+		if (curhint->local && remove)
+			curhint->htlc_budget++;
+		else if (curhint->local)
+			curhint->htlc_budget--;
+
+		if (remove && !amount_msat_add(
+			    &curhint->estimated_capacity,
+			    curhint->estimated_capacity,
+			    curhop->amount)) {
+			/* This should never happen, it'd mean
+			 * that we unapply a route that would
+			 * result in a msatoshi
+			 * wrap-around. */
+			abort();
+		} else if (!amount_msat_sub(
+				   &curhint->estimated_capacity,
+				   curhint->estimated_capacity,
+				   curhop->amount)) {
+			/* Given our preemptive test
+			 * above, this should never
+			 * happen either. */
+			abort();
+		}
+	}
+	return true;
 }
 
 static const struct short_channel_id_dir *
