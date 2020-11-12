@@ -144,7 +144,7 @@ void marshal_pubkey(struct pubkey const *pp, PubKey *o_pp)
 
 void marshal_utxo(struct utxo const *up, InputDescriptor *idesc)
 {
-	idesc->mutable_key_loc()->set_key_index(up->keyindex);
+	idesc->mutable_key_loc()->add_key_path(up->keyindex);
 	idesc->mutable_prev_output()->set_value_sat(up->amount.satoshis);
 	idesc->set_spend_type(up->is_p2sh
 			      ? SpendType::P2SH_P2WPKH
