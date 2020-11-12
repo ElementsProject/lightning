@@ -2757,6 +2757,10 @@ def test_channel_opener(node_factory):
 
     # close and check for 'closer'
     l1.rpc.close(l2.rpc.getinfo()["id"])
+    l1.daemon.wait_for_log("State changed from CHANNELD_NORMAL to")
+    l2.daemon.wait_for_log("State changed from CHANNELD_NORMAL to")
+
+    # 'closer' should now be set accordingly
     assert(l1.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'local')
     assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'remote')
 
