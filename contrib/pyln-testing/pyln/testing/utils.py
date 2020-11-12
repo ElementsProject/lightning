@@ -146,6 +146,7 @@ class TailableProc(object):
         self.outputDir = outputDir
         self.logsearch_start = 0
         self.err_logs = []
+        self.prefix = ""
 
         # Should we be logging lines we read from stdout?
         self.verbose = verbose
