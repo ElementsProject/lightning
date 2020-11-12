@@ -768,7 +768,14 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     assert(event2['cause'] == "user")
     assert(event2['message'] == "Forcibly closed by `close` command timeout")
 
-    bitcoind.generate_block(100)  # so it gets settled
+    # restart l1 early, as the test gets flaky when done after generate_block(100)
+    l1.restart()
+    wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 1)
+    # check 'closer' on l2 while the peer is not yet forgotten
+    assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'local')
+
+    # settle the channel closure
+    bitcoind.generate_block(100)
 
     event2 = wait_for_event(l2)
     assert(event2['old_state'] == "AWAITING_UNILATERAL")
@@ -781,9 +788,11 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     assert(event2['cause'] == "user")
     assert(event2['message'] == "Onchain init reply")
 
-    # finally restart l1 and check if he sees ONCHAIN reasons for his channel
-    l1.restart()
+    # Check 'closer' on l1 while the peer is not yet forgotten
     event1 = wait_for_event(l1)
+    assert(l1.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'remote')
+
+    # check if l1 sees ONCHAIN reasons for his channel
     assert(event1['old_state'] == "CHANNELD_NORMAL")
     assert(event1['new_state'] == "AWAITING_UNILATERAL")
     assert(event1['cause'] == "onchain")
