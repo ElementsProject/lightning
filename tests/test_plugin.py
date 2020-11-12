@@ -267,7 +267,7 @@ def test_plugin_command(node_factory):
 
     # Test that we can add a directory with more than one new plugin in it.
     try:
-        n.rpc.plugin_startdir(os.path.join(os.getcwd(), "tests/plugins"))
+        n.rpc.plugin_startdir(os.path.join(os.getcwd(), "contrib/plugins"))
     except RpcError:
         pass
 
