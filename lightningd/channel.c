@@ -434,9 +434,10 @@ void channel_set_state(struct channel *channel,
 
 	/* set closer, if known */
 	if (state > CHANNELD_NORMAL && channel->closer == NUM_SIDES) {
-		if (reason == REASON_LOCAL)  channel->closer = LOCAL;
-		if (reason == REASON_USER)   channel->closer = LOCAL;
-		if (reason == REASON_REMOTE) channel->closer = REMOTE;
+		if (reason == REASON_LOCAL)   channel->closer = LOCAL;
+		if (reason == REASON_USER)    channel->closer = LOCAL;
+		if (reason == REASON_REMOTE)  channel->closer = REMOTE;
+		if (reason == REASON_ONCHAIN) channel->closer = REMOTE;
 	}
 
 	/* use or update state_change_cause, if known */
