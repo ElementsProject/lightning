@@ -643,6 +643,13 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
         event = ast.literal_eval(re.findall(".*({.*}).*", msg)[0])
         return event
 
+    # check channel 'opener' and 'closer' within this testcase ...
+    assert(l1.rpc.listpeers()['peers'][0]['channels'][0]['opener'] == 'local')
+    assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['opener'] == 'remote')
+    # the 'closer' should be null initially
+    assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] is None)
+    assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] is None)
+
     event1 = wait_for_event(l1)
     assert(event1['peer_id'] == l2_id)  # we only test these IDs the first time
     assert(event1['channel_id'] == cid)
@@ -677,6 +684,10 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
     assert(event2['new_state'] == "CHANNELD_SHUTTING_DOWN")
     assert(event2['cause'] == "remote")
     assert(event2['message'] == "Peer closes channel")
+
+    # 'closer' should now be set accordingly ...
+    assert(l1.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'local')
+    assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'remote')
 
     event1 = wait_for_event(l1)
     assert(event1['old_state'] == "CHANNELD_SHUTTING_DOWN")
