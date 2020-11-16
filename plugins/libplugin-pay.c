@@ -470,6 +470,7 @@ static struct channel_hint *payment_chanhints_get(struct payment *p,
  * prior application (`remove=true`). */
 static bool payment_chanhints_apply_route(struct payment *p, bool remove)
 {
+	bool apply;
 	struct route_hop *curhop;
 	struct channel_hint *curhint;
 	struct payment *root = payment_root(p);
@@ -489,12 +490,17 @@ static bool payment_chanhints_apply_route(struct payment *p, bool remove)
 		if (!curhint)
 			continue;
 
-		/* A failure can happen if we add an HTLC, and either
-		 * the local htlc_budget is exhausted, or the capacity
-		 * is exceeded. */
-		if ((curhint->local && curhint->htlc_budget <= 0) ||
-		    amount_msat_greater(curhop->amount,
-					curhint->estimated_capacity)) {
+		/* For local channels we check that we don't overwhelm
+		 * them with too many HTLCs. */
+		apply = (!curhint->local) || curhint->htlc_budget > 0;
+
+		/* For all channels we check that they have a
+		 * sufficiently large estimated capacity to have some
+		 * chance of succeeding. */
+		apply &= amount_msat_greater(curhint->estimated_capacity,
+					     curhop->amount);
+
+		if (!apply) {
 			/* This can happen in case of multiple
 			 * concurrent getroute calls using the
 			 * same channel_hints, no biggy, it's
