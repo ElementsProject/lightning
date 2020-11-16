@@ -694,8 +694,8 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
     assert(event2['message'] == "Lockin complete")
 
     # also test the correctness of timestamps once
-    assert(datetime.fromisoformat(event1['timestamp'].replace('Z', '+00:00')))
-    assert(datetime.fromisoformat(event2['timestamp'].replace('Z', '+00:00')))
+    assert(datetime.strptime(event1['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ'))
+    assert(datetime.strptime(event2['timestamp'], '%Y-%m-%dT%H:%M:%S.%fZ'))
 
     # close channel and look for stateful events
     l1.rpc.close(scid)
