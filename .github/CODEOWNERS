@@ -9,6 +9,7 @@ wallet/                 @cdecker
 
 wallet/invoices.*       @ZmnSCPxj
 plugins/multifundchannel.c @ZmnSCPxj
+doc/BACKUP.md           @ZmnSCPxj @cdecker
 
 common/param.*          @wythe
 common/json.*           @wythe

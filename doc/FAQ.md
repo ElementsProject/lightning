@@ -101,7 +101,11 @@ Effort has been made to get `lightningd` running on Android,
 
 ### How to "backup my wallet" ?
 
-As a Bitcoin user, one may be familiar with a file or a seed (or some mnemonics) from which
+See [BACKUP.md](https://lightning.readthedocs.io/BACKUP.html) for a more
+comprehensive discussion of your options.
+
+In summary: as a Bitcoin user, one may be familiar with a file or a seed
+(or some mnemonics) from which
 it can recover all its funds.
 
 C-lightning has an internal bitcoin wallet, which you can use to make "on-chain"
