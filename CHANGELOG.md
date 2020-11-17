@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.2rc1] - 2020-11-10: T.B.D.
+## [0.9.2rc2] - 2020-11-10: T.B.D.
 
 This release named by Sergi Delgado Segura.
 
@@ -942,7 +942,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
-[0.9.2rc1]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.2rc1
+[0.9.2rc2]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.2rc2
 [0.9.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.1
 [0.9.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.0
 [0.8.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.8.2
