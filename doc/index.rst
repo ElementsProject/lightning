@@ -8,6 +8,7 @@ c-lightning Documentation
    INSTALL.md
    TOR.md
    FAQ <FAQ.md>
+   Backups <BACKUP.md>
 
 .. toctree::
    :maxdepth: 2
