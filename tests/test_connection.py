@@ -453,7 +453,7 @@ def test_connect_stresstest(node_factory, executor):
     # We fire off random connect/disconnect commands.
     actions = [
         (l2.rpc.connect, l1.info['id'], 'localhost', l1.port),
-        (l3.rpc.connect, l1.info['id'], 'localhost', l3.port),
+        (l3.rpc.connect, l1.info['id'], 'localhost', l1.port),
         (l1.rpc.connect, l2.info['id'], 'localhost', l2.port),
         (l1.rpc.connect, l3.info['id'], 'localhost', l3.port),
         (l1.rpc.disconnect, l2.info['id'])
