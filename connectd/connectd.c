@@ -173,6 +173,8 @@ struct connecting {
 
 	struct daemon *daemon;
 
+	struct io_conn *conn;
+
 	/* The ID of the peer (not necessarily unique, in transit!) */
 	struct node_id id;
 
@@ -276,16 +278,26 @@ static void connected_to_peer(struct daemon *daemon,
 			      struct io_conn *conn,
 			      const struct node_id *id)
 {
-	/* Don't call destroy_io_conn */
-	io_set_finish(conn, NULL, NULL);
+	struct connecting *outgoing;
 
 	/* We allocate 'conn' as a child of 'connect': we don't want to free
 	 * it just yet though.  tal_steal() it onto the permanent 'daemon'
 	 * struct. */
 	tal_steal(daemon, conn);
 
-	/* Now free the 'connecting' struct. */
-	tal_free(find_connecting(daemon, id));
+	/* This is either us (if conn is an outgoing connection), or
+	 * NULL or a separate attempt (if we're an incoming): in
+	 * that case, kill the outgoing in favor of our successful
+	 * incoming connection. */
+	outgoing = find_connecting(daemon, id);
+	if (outgoing) {
+		/* Don't call destroy_io_conn, since we're done. */
+		if (outgoing->conn)
+			io_set_finish(outgoing->conn, NULL, NULL);
+
+		/* Now free the 'connecting' struct. */
+		tal_free(outgoing);
+	}
 }
 
 /*~ Every per-peer daemon needs a connection to the gossip daemon; this allows
@@ -669,7 +681,7 @@ void add_errors_to_error_list(struct connecting *connect, const char *error)
 		       "%s. ", error);
 }
 
-/*~ This is the destructor for the (unsuccessful) connection.  We accumulate
+/*~ This is the destructor for the (unsuccessful) outgoing connection.  We accumulate
  * the errors which occurred, so we can report to lightningd properly in case
  * they all fail, and try the next address.
  *
@@ -782,6 +794,9 @@ static void try_connect_one_addr(struct connecting *connect)
 	bool use_proxy = connect->daemon->use_proxy_always;
 	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
 
+	/* In case we fail without a connection, make destroy_io_conn happy */
+	connect->conn = NULL;
+
 	/* Out of addresses? */
 	if (connect->addrnum == tal_count(connect->addrs)) {
 		connect_failed(connect->daemon, &connect->id,
@@ -860,9 +875,9 @@ static void try_connect_one_addr(struct connecting *connect)
 	/* This creates the new connection using our fd, with the initialization
 	 * function one of the above. */
 	if (use_proxy)
-		notleak(io_new_conn(connect, fd, conn_proxy_init, connect));
+		connect->conn = io_new_conn(connect, fd, conn_proxy_init, connect);
 	else
-		notleak(io_new_conn(connect, fd, conn_init, connect));
+		connect->conn = io_new_conn(connect, fd, conn_init, connect);
 }
 
 /*~ connectd is responsible for incoming connections, but it's the process of
