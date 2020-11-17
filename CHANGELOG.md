@@ -43,7 +43,6 @@ This release named by Sergi Delgado Segura.
 
 Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
- - Plugins: hooks should now be specified using objects, not raw names. ([4168](https://github.com/ElementsProject/lightning/pull/4168))
  - cli: scripts should filter out '^# ' or use `-N none`, as commands will start returning notifications soon ([4046](https://github.com/ElementsProject/lightning/pull/4046))
 
 ### Removed
