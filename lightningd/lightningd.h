@@ -83,8 +83,6 @@ struct lightningd {
 	 * -1. */
 	int daemon_parent_fd;
 
-	int pid_fd;
-
 	/* Our config basedir, network directory, and rpc file */
 	char *config_basedir, *config_netdir;
 
