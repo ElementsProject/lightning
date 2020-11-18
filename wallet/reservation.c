@@ -386,7 +386,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 {
 	struct utxo **utxos;
 	u32 *feerate_per_kw;
-	u32 *minconf, *weight;
+	u32 *minconf, *weight, *min_witness_weight;
 	struct amount_sat *amount, input, diff;
 	bool all, *reserve;
 	u32 *locktime, maxheight;
@@ -398,6 +398,8 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 		   p_opt_def("minconf", param_number, &minconf, 1),
 		   p_opt_def("reserve", param_bool, &reserve, true),
 		   p_opt("locktime", param_number, &locktime),
+		   p_opt_def("min_witness_weight", param_number,
+			     &min_witness_weight, 0),
 		   NULL))
 		return command_param_failed();
 
@@ -427,7 +429,9 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 						    "impossible UTXO value");
 
 			/* But also adds weight */
-			*weight += utxo_spend_weight(utxo);
+			fprintf(stderr, "min_witness_weight is %u\n",
+					*min_witness_weight);
+			*weight += utxo_spend_weight(utxo, *min_witness_weight);
 			continue;
 		}
 
@@ -555,7 +559,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 					    const jsmntok_t *params)
 {
 	struct utxo **utxos;
-	u32 *feerate_per_kw, *weight;
+	u32 *feerate_per_kw, *weight, *min_witness_weight;
 	bool all, *reserve, *reserved_ok;
 	struct amount_sat *amount, input, excess;
 	u32 current_height, *locktime;
@@ -568,6 +572,8 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 		   p_opt_def("reserve", param_bool, &reserve, true),
 		   p_opt_def("reservedok", param_bool, &reserved_ok, false),
 		   p_opt("locktime", param_number, &locktime),
+		   p_opt_def("min_witness_weight", param_number,
+			     &min_witness_weight, 0),
 		   NULL))
 		return command_param_failed();
 
@@ -592,7 +598,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 					    "impossible UTXO value");
 
 		/* But also adds weight */
-		*weight += utxo_spend_weight(utxo);
+		*weight += utxo_spend_weight(utxo, *min_witness_weight);
 	}
 
 	/* For all, anything above 0 is "excess" */
