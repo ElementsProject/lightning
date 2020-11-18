@@ -845,11 +845,10 @@ def test_funding_toolarge(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual-funding is experimental only")
-@unittest.skipIf(True, "df_opener.py requires wallycore")
 def test_v2_open(node_factory, bitcoind, chainparams):
-    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(),
-                                        'tests/plugins/df_opener.py')})
-    l2 = node_factory.get_node()
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts=[{'dev-force-features': '+223'},
+                                          {'dev-force-features': '+223'}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -858,7 +857,7 @@ def test_v2_open(node_factory, bitcoind, chainparams):
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
 
-    l1.rpc.openchannelv2(l2.info['id'], 100000)
+    l1.rpc.fundchannel(l2.info['id'], 100000)
 
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
