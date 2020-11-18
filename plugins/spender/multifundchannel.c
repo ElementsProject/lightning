@@ -545,6 +545,14 @@ connect_ok(struct command *cmd,
 			   json_tok_full_len(features_tok),
 			   json_tok_full(buf, features_tok));
 
+	/* Set the open protocol to use now */
+#if EXPERIMENTAL_FEATURES
+	if (feature_negotiated(plugin_feature_set(mfc->cmd->plugin),
+			       dest->their_features,
+			       OPT_DUAL_FUND))
+		dest->protocol = OPEN_CHANNEL;
+#endif /* EXPERIMENTAL_FEATURES */
+
 	dest->state = MULTIFUNDCHANNEL_CONNECTED;
 	return connect_done(dest);
 }
@@ -961,14 +969,9 @@ perform_channel_start(struct multifundchannel_command *mfc)
 	/* Since v2 is now available, we branch depending
 	 * on the capability of the peer and our feaures */
 	for (i = 0; i < tal_count(mfc->destinations); ++i) {
-#if EXPERIMENTAL_FEATURES
-		if (feature_negotiated(plugin_feature_set(mfc->cmd->plugin),
-				       mfc->destinations[i].their_features,
-				       OPT_DUAL_FUND)) {
-			mfc->destinations[i].protocol = OPEN_CHANNEL;
+		if (mfc->destinations[i].protocol == OPEN_CHANNEL)
 			openchannel_init_dest(&mfc->destinations[i]);
-		} else
-#endif /* EXPERIMENTAL_FEATURES */
+		else
 			fundchannel_start_dest(&mfc->destinations[i]);
 	}
 
