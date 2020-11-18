@@ -64,7 +64,14 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 	return utxo;
 }
 
-size_t utxo_spend_weight(const struct utxo *utxo)
+size_t utxo_spend_weight(const struct utxo *utxo, size_t min_witness_weight)
 {
-	return bitcoin_tx_simple_input_weight(utxo->is_p2sh);
+	size_t wit_weight = bitcoin_tx_simple_input_witness_weight();
+	/* If the min is less than what we'd use for a 'normal' tx,
+	 * we return the value with the greater added/calculated */
+	if (wit_weight < min_witness_weight)
+		return bitcoin_tx_input_weight(utxo->is_p2sh,
+					       min_witness_weight);
+
+	return bitcoin_tx_input_weight(utxo->is_p2sh, wit_weight);
 }

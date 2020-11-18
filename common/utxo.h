@@ -74,5 +74,5 @@ void towire_utxo(u8 **pptr, const struct utxo *utxo);
 struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max);
 
 /* Estimate of (signed) UTXO weight in transaction */
-size_t utxo_spend_weight(const struct utxo *utxo);
+size_t utxo_spend_weight(const struct utxo *utxo, size_t min_witness_weight);
 #endif /* LIGHTNING_COMMON_UTXO_H */

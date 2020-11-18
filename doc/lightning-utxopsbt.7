@@ -3,7 +3,7 @@
 lightning-utxopsbt - Command to populate PSBT inputs from given UTXOs
 .SH SYNOPSIS
 
-\fButxopsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR \fIutxos\fR [\fIreserve\fR] [\fIreservedok\fR] [\fIlocktime\fR]
+\fButxopsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR \fIutxos\fR [\fIreserve\fR] [\fIreservedok\fR] [\fIlocktime\fR] [\fImin_witness_weight\fR]
 
 .SH DESCRIPTION
 
@@ -30,6 +30,11 @@ if any of the \fIutxos\fR are already reserved\.
 
 \fIlocktime\fR is an optional locktime: if not set, it is set to a recent
 block height\.
+
+
+\fImin_witness_weight\fR is an optional minimum weight to use for a UTXO's
+witness\. If the actual witness weight is greater than the provided minimum,
+the actual witness weight will be used\.
 
 .SH RETURN VALUE
 
@@ -70,4 +75,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:e47331be08a0911c74e142f2255bf62a83b70b818c1cf39a9314aab8c17a6e47
+\" SHA256STAMP:777710bb963f435193e92a55344c740c123d7aa4d54bf573c99a616f59eeee54

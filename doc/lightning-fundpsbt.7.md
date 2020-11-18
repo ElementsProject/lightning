@@ -4,7 +4,7 @@ lightning-fundpsbt -- Command to populate PSBT inputs from the wallet
 SYNOPSIS
 --------
 
-**fundpsbt** *satoshi* *feerate* *startweight* \[*minconf*\] \[*reserve*\] \[*locktime*\]
+**fundpsbt** *satoshi* *feerate* *startweight* \[*minconf*\] \[*reserve*\] \[*locktime*\] \[*min_witness_weight*\]
 
 DESCRIPTION
 -----------
@@ -38,6 +38,10 @@ called (successfully, with *exclusive* true) on the returned PSBT.
 
 *locktime* is an optional locktime: if not set, it is set to a recent
 block height.
+
+*min_witness_weight* is an optional minimum weight to use for a UTXO's
+witness. If the actual witness weight is greater than the provided minimum,
+the actual witness weight will be used.
 
 EXAMPLE USAGE
 -------------

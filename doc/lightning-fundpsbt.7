@@ -3,7 +3,7 @@
 lightning-fundpsbt - Command to populate PSBT inputs from the wallet
 .SH SYNOPSIS
 
-\fBfundpsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR [\fIminconf\fR] [\fIreserve\fR] [\fIlocktime\fR]
+\fBfundpsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR [\fIminconf\fR] [\fIreserve\fR] [\fIlocktime\fR] [\fImin_witness_weight\fR]
 
 .SH DESCRIPTION
 
@@ -42,6 +42,11 @@ called (successfully, with \fIexclusive\fR true) on the returned PSBT\.
 
 \fIlocktime\fR is an optional locktime: if not set, it is set to a recent
 block height\.
+
+
+\fImin_witness_weight\fR is an optional minimum weight to use for a UTXO's
+witness\. If the actual witness weight is greater than the provided minimum,
+the actual witness weight will be used\.
 
 .SH EXAMPLE USAGE
 
@@ -104,4 +109,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:8eb6970e2d625198db9b8e5ab7f90f9fb141744a837f58ee68ef54d28c7066b0
+\" SHA256STAMP:a8b9705274638127c2f5ec4e97ed94e6d7f6b6b10a76c2248e8bc8b36dd804ff
