@@ -145,6 +145,31 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 					       const char *),		\
 			  __VA_ARGS__)
 
+/* subd_swap_channel - Swap the daemon's channel out */
+#define subd_swap_channel(subd, channel, errcb, billboardcb)		\
+	subd_swap_channel_((subd), (channel),				\
+			   typesafe_cb_postargs(void, void *,		\
+						(errcb),		\
+						(channel),		\
+						struct per_peer_state *,\
+						const struct channel_id *, \
+						const char *, bool,	\
+						const u8 *),		\
+			   typesafe_cb_postargs(void, void *, (billboardcb), \
+						(channel), bool,	\
+						const char *))
+
+void subd_swap_channel_(struct subd *daemon, void *channel,
+			void (*errcb)(void *channel,
+				      struct per_peer_state *pps,
+				      const struct channel_id *channel_id,
+				      const char *desc,
+				      bool soft_error,
+				      const u8 *err_for_them),
+			void (*billboardcb)(void *channel, bool perm,
+					    const char *happenings));
+
+
 /**
  * subd_send_msg - queue a message to the subdaemon.
  * @sd: subdaemon to request
