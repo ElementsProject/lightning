@@ -69,6 +69,54 @@ Uncomment those in, then restart `tor` (usually `systemctl restart tor`  or
 Debian and Ubuntu, or just restart the entire computer if you cannot figure
 it out).
 
+On some systems (such as Arch Linux), you may also need to add the following
+setting:
+
+```
+DataDirectoryGroupReadable 1
+```
+
+You also need to make your user a member of the Tor group.
+"Your user" here is whatever user will run `lightningd`.
+On Debian-derived systems, the Tor group will most likely be `debian-tor`.
+You can try listing all groups with the below command, and check for a
+`debian-tor` or `tor` groupname.
+
+```
+getent group | cut -d: -f1 | sort
+```
+
+Alternately, you could check the group of the cookie file directly.
+Usually, on most Linux systems, that would be `/run/tor/control.authcookie`:
+
+```
+stat -c '%G' /run/tor/control.authcookie
+```
+
+Once you have determined the `${TORGROUP}` and selected the
+`${LIGHTNINGUSER}` that will run `lightningd`, run this as root:
+
+```
+usermod -a -G ${TORGROUP} ${LIGHTNINGUSER}
+```
+
+Then restart the computer (logging out and logging in again should also
+work).
+Confirm that `${LIGHTNINGUSER}` is in `${TORGROUP}` by running the
+`groups` command as `${LIGHTNINGUSER}` and checking `${TORGROUP}` is listed.
+
+If the `/run/tor/control.authcookie` exists in your system, then log in as
+the user that will run `lightningd` and check this command:
+
+```
+cat /run/tor/control.authcookie > /dev/null
+```
+
+If the above prints nothing and returns, then C-Lightning "should" work
+with your Tor.
+If it prints an error, some configuration problem will likely prevent
+C-Lightning from working with your Tor.
+
 Then make sure these are in your `${LIGHTNING_DIR}/config` or other C-Lightning configuration
 (or prepend `--` to each of them and add them to your `lightningd` invocation
 command line):
