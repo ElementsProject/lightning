@@ -73,7 +73,6 @@ msgdata,channeld_init,dev_fast_gossip,bool,
 msgdata,channeld_init,dev_fail_process_onionpacket,bool,
 msgdata,channeld_init,num_penalty_bases,u32,
 msgdata,channeld_init,pbases,penalty_base,num_penalty_bases
-msgdata,channeld_init,psbt,wally_psbt,
 
 # master->channeld funding hit new depth(funding locked if >= lock depth)
 msgtype,channeld_funding_depth,1002
