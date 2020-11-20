@@ -576,8 +576,7 @@ void peer_start_channeld(struct channel *channel,
 				      channel->option_anchor_outputs,
 				      IFDEV(ld->dev_fast_gossip, false),
 				      IFDEV(dev_fail_process_onionpacket, false),
-				      pbases,
-				      psbt);
+				      pbases);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));

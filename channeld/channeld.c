@@ -184,10 +184,6 @@ struct peer {
 
 	/* Penalty bases for this channel / peer. */
 	struct penalty_base **pbases;
-
-	/* PSBT. For v2 openchannel set until we are waiting
-	 * for peer's tx_sigs */
-	struct wally_psbt *psbt;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -600,7 +596,6 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 					   &peer->channel_id));
 
 	peer->funding_locked[REMOTE] = true;
-	peer->psbt = tal_free(peer->psbt);
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_got_funding_locked(NULL,
 						&peer->remote_per_commit)));
@@ -2624,11 +2619,11 @@ static void handle_funding_depth(struct peer *peer, const u8 *msg)
 		peer->short_channel_ids[LOCAL] = *scid;
 
 		if (!peer->funding_locked[LOCAL]) {
-			status_debug("funding_locked: sending commit index %"PRIu64": %s",
-						peer->next_index[LOCAL],
-						type_to_string(tmpctx, struct pubkey,
-					&peer->next_local_per_commit));
-
+			status_debug("funding_locked: sending commit index"
+				     " %"PRIu64": %s",
+				     peer->next_index[LOCAL],
+				     type_to_string(tmpctx, struct pubkey,
+						    &peer->next_local_per_commit));
 			msg = towire_funding_locked(NULL,
 						    &peer->channel_id,
 						    &peer->next_local_per_commit);
@@ -3080,8 +3075,7 @@ static void init_channel(struct peer *peer)
 				   &option_anchor_outputs,
 				   &dev_fast_gossip,
 				   &dev_fail_process_onionpacket,
-				   &pbases,
-				   &peer->psbt)) {
+				   &pbases)) {
 		master_badmsg(WIRE_CHANNELD_INIT, msg);
 	}
 
@@ -3092,11 +3086,6 @@ static void init_channel(struct peer *peer)
 		tal_arr_expand(&peer->pbases,
 			       tal_dup(peer, struct penalty_base, &pbases[i]));
 	tal_free(pbases);
-
-	/* Once the peer has sent locked, we no longer need to re-send
-	 * tx_signatures, hence the PSBT can be free'd */
-	if (peer->funding_locked[REMOTE])
-		peer->psbt = tal_free(peer->psbt);
 
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */
 	per_peer_state_set_fds(peer->pps, 3, 4, 5);
