@@ -96,7 +96,7 @@ example:
     { "name": "openchannel", "before": ["another_plugin"] },
     { "name": "htlc_accepted" }
   ],
-  "features": {
+  "featurebits": {
     "node": "D0000000",
     "channel": "D0000000",
     "init": "0E000000",
