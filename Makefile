@@ -221,7 +221,7 @@ ALL_C_SOURCES :=
 ALL_C_HEADERS := header_versions_gen.h version_gen.h
 
 CPPFLAGS += -DBINTOPKGLIBEXECDIR="\"$(shell sh tools/rel.sh $(bindir) $(pkglibexecdir))\""
-CFLAGS = $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I/usr/local/include $(SQLITE3_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) -DBUILD_ELEMENTS=1
+CFLAGS = ${FUZZING_CFLAGS} $(CPPFLAGS) $(CWARNFLAGS) $(CDEBUGFLAGS) $(COPTFLAGS) -I $(CCANDIR) $(EXTERNAL_INCLUDE_FLAGS) -I . -I/usr/local/include $(SQLITE3_CFLAGS) $(POSTGRES_INCLUDE) $(FEATURES) $(COVFLAGS) $(DEV_CFLAGS) -DSHACHAIN_BITS=48 -DJSMN_PARENT_LINKS $(PIE_CFLAGS) $(COMPAT_CFLAGS) -DBUILD_ELEMENTS=1
 # If CFLAGS is already set in the environment of make (to whatever value, it
 # does not matter) then it would export it to subprocesses with the above value
 # we set, including CWARNFLAGS which by default contains -Wall -Werror. This
@@ -232,8 +232,12 @@ unexport CFLAGS
 # We can get configurator to run a different compile cmd to cross-configure.
 CONFIGURATOR_CC := $(CC)
 
+ifneq ($(OSS_FUZZ),0)
+LDFLAGS += $(PIE_LDFLAGS) ${CFLAGS} $(COPTFLAGS)
+else
 LDFLAGS += $(PIE_LDFLAGS) $(SANITIZER_FLAGS) $(COPTFLAGS)
 CFLAGS += $(SANITIZER_FLAGS)
+endif
 
 ifeq ($(STATIC),1)
 # For MacOS, Jacob Rapoport <jacob@rumblemonkey.com> changed this to:
@@ -529,7 +533,11 @@ $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
 
 # We special case the fuzzing target binaries, as they need to link against libfuzzer,
 # which brings its own main().
+ifneq($(OSS_FUZZ),0)
+FUZZ_LDFLAGS = ${LIB_FUZZING_ENGINE}
+else
 FUZZ_LDFLAGS = -fsanitize=fuzzer
+endif
 $(ALL_FUZZ_TARGETS):
 	@$(call VERBOSE, "ld $@", $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) $(FUZZ_LDFLAGS) -o $@)
 
