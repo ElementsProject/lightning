@@ -897,6 +897,14 @@ to error without
 committing to the database!
 This is the expected way to halt and catch fire.
 
+`db_write` is a parallel-chained hook, i.e., multiple plugins can
+register it, and all of them will be invoked simultaneously without
+regard for order of registration.
+The hook is considered handled if all registered plugins return
+`{"result": "continue"}`.
+If any plugin returns anything else, `lightningd` will error without
+committing to the database.
+
 ### `invoice_payment`
 
 This hook is called whenever a valid payment for an unpaid invoice has arrived.
