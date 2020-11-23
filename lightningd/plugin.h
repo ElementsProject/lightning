@@ -304,12 +304,16 @@ void json_add_opt_disable_plugins(struct json_stream *response,
 				  const struct plugins *plugins);
 
 /**
- * Used by db hooks which can't have any other I/O while talking to plugin.
+ * Used by db hooks which can't have any other I/O while talking to
+ * hooked plugins.
  *
- * Returns output of io_loop() (ie. whatever gets passed to io_break()
+ * @param plugins - a `tal`-allocated array of plugins that are the
+ * only ones we talk to.
+ *
+ * @return output of io_loop() (ie. whatever gets passed to io_break()
  * to end exclusive loop).
  */
-void *plugin_exclusive_loop(struct plugin *plugin);
+void *plugins_exclusive_loop(struct plugin **plugins);
 
 /**
  * Add a directory to the plugin path to automatically load plugins.
