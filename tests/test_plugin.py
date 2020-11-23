@@ -478,6 +478,32 @@ def test_db_hook(node_factory, executor):
     assert [x for x in db1.iterdump()] == [x for x in db2.iterdump()]
 
 
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Only sqlite3 implements the db_write_hook currently")
+def test_db_hook_multiple(node_factory, executor):
+    """This tests the db hook for multiple-plugin case."""
+    dbfile = os.path.join(node_factory.directory, "dblog.sqlite3")
+    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/dblog.py'),
+                                        'important-plugin': os.path.join(os.getcwd(), 'tests/plugins/dbdummy.py'),
+                                        'dblog-file': dbfile})
+
+    # It should see the db being created, and sometime later actually get
+    # initted.
+    # This precedes startup, so needle already past
+    assert l1.daemon.is_in_log(r'plugin-dblog.py: deferring \d+ commands')
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log('plugin-dblog.py: replaying pre-init data:')
+    l1.daemon.wait_for_log('plugin-dblog.py: CREATE TABLE version \\(version INTEGER\\)')
+    l1.daemon.wait_for_log("plugin-dblog.py: initialized.* 'startup': True")
+
+    l1.stop()
+
+    # Databases should be identical.
+    db1 = sqlite3.connect(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'lightningd.sqlite3'))
+    db2 = sqlite3.connect(dbfile)
+
+    assert [x for x in db1.iterdump()] == [x for x in db2.iterdump()]
+
+
 def test_utf8_passthrough(node_factory, executor):
     l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/utf8.py'),
                                         'log-level': 'io'})
