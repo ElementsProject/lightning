@@ -330,11 +330,17 @@ void plugin_hook_db_sync(struct db *db)
 	struct jsonrpc_request *req;
 	struct plugin_hook_request *ph_req;
 	void *ret;
-	struct plugin *plugin;
+	struct plugin **plugins;
+	size_t i;
 
 	const char **changes = db_changes(db);
 	if (tal_count(hook->hooks) == 0)
 		return;
+
+	plugins = notleak(tal_arr(NULL, struct plugin *,
+				  tal_count(hook->hooks)));
+	for (i = 0; i < tal_count(hook->hooks); ++i)
+		plugins[i] = hook->hooks[i]->plugin;
 
 	ph_req = notleak(tal(hook->hooks, struct plugin_hook_request));
 	/* FIXME: do IO logging for this! */
@@ -344,7 +350,7 @@ void plugin_hook_db_sync(struct db *db)
 
 	ph_req->hook = hook;
 	ph_req->db = db;
-	plugin = ph_req->plugin = hook->hooks[0]->plugin;
+	ph_req->plugin = hook->hooks[0]->plugin;
 
 	json_add_num(req->stream, "data_version", db_data_version_get(db));
 
@@ -359,12 +365,13 @@ void plugin_hook_db_sync(struct db *db)
 	/* We can be called on way out of an io_loop, which is already breaking.
 	 * That will make this immediately return; save the break value and call
 	 * again, then hand it onwards. */
-	ret = plugin_exclusive_loop(plugin);
+	ret = plugins_exclusive_loop(plugins);
 	if (ret != ph_req) {
-		void *ret2 = plugin_exclusive_loop(plugin);
+		void *ret2 = plugins_exclusive_loop(plugins);
 		assert(ret2 == ph_req);
 		io_break(ret);
 	}
+	tal_free(plugins);
 }
 
 static void add_deps(const char ***arr,
