@@ -24,13 +24,18 @@ char *billboard_message(const tal_t *ctx,
 	else if (!funding_locked[LOCAL] && funding_locked[REMOTE])
 		funding_status = "They've confirmed funding, we haven't yet.";
 
-	if (have_sigs[LOCAL] && have_sigs[REMOTE])
-		announce_status = " Channel announced.";
-	else if (have_sigs[LOCAL] && !have_sigs[REMOTE])
-		announce_status = " Waiting for their announcement signatures.";
-	else if (!have_sigs[LOCAL] && have_sigs[REMOTE])
-		announce_status = " They need our announcement signatures.";
-	else if (!have_sigs[LOCAL] && !have_sigs[REMOTE])
+	if (have_sigs) {
+		if (have_sigs[LOCAL] && have_sigs[REMOTE])
+			announce_status = " Channel announced.";
+		else if (have_sigs[LOCAL] && !have_sigs[REMOTE])
+			announce_status = " Waiting for their"
+					  " announcement signatures.";
+		else if (!have_sigs[LOCAL] && have_sigs[REMOTE])
+			announce_status = " They need our announcement"
+					  " signatures.";
+		else if (!have_sigs[LOCAL] && !have_sigs[REMOTE])
+			announce_status = "";
+	} else
 		announce_status = "";
 
 	if (!shutdown_sent[LOCAL] && !shutdown_sent[REMOTE])

@@ -39,6 +39,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/amount.o				\
 	common/base32.o				\
 	common/bigsize.o			\
+	common/billboard.o			\
 	common/bip32.o				\
 	common/channel_config.o			\
 	common/channel_id.o			\

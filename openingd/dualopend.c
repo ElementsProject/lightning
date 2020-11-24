@@ -23,6 +23,7 @@
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/short_types/short_types.h>
 #include <common/amount.h>
+#include <common/billboard.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>
 #include <common/crypto_sync.h>
@@ -153,8 +154,8 @@ struct state {
 	/* Peer sends this to us in the funding_locked msg */
 	struct pubkey remote_per_commit;
 
-	/* Are we shutting this channel down? */
-	bool shutting_down;
+	/* Are we shutting down? */
+	bool shutdown_sent[NUM_SIDES];
 };
 
 /* psbt_changeset_get_next - Get next message to send
@@ -295,6 +296,16 @@ static void negotiation_failed(struct state *state, bool am_opener,
 	sync_crypto_write(state->pps, take(msg));
 
 	negotiation_aborted(state, am_opener, errmsg);
+}
+
+static void billboard_update(struct state *state)
+{
+	const char *update = billboard_message(tmpctx, state->funding_locked,
+					       NULL,
+					       state->shutdown_sent,
+					       0, /* Always zero? */
+					       0);
+	peer_billboard(false, update);
 }
 
 static void check_channel_id(struct state *state,
@@ -2187,7 +2198,7 @@ static u8 *handle_funding_locked(struct state *state, u8 *msg)
 			    type_to_string(msg, struct channel_id, &cid));
 
 	state->funding_locked[REMOTE] = true;
-	// FIXME: update billboard!
+	billboard_update(state);
 	if (state->funding_locked[LOCAL])
 		return towire_dualopend_channel_locked(state, state->pps,
 						       &state->remote_per_commit);
@@ -2220,7 +2231,7 @@ static u8 *handle_funding_depth(struct state *state, u8 *msg)
 		master_badmsg(WIRE_DUALOPEND_DEPTH_REACHED, msg);
 
 	/* Too late, shutting down already */
-	if (state->shutting_down)
+	if (state->shutdown_sent[LOCAL])
 		return NULL;
 
 	/* We check this before we arrive here, but for sanity */
@@ -2235,7 +2246,7 @@ static u8 *handle_funding_depth(struct state *state, u8 *msg)
 	sync_crypto_write(state->pps, take(msg));
 
 	state->funding_locked[LOCAL] = true;
-	// FIXME: update billboard!
+	billboard_update(state);
 	if (state->funding_locked[REMOTE])
 		return towire_dualopend_channel_locked(state,
 						       state->pps,
@@ -2438,7 +2449,7 @@ int main(int argc, char *argv[])
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = NULL;
 	state->funding_locked[LOCAL] = state->funding_locked[REMOTE] = false;
-	state->shutting_down = false;
+	state->shutdown_sent[LOCAL]= state->shutdown_sent[REMOTE] = false;
 
 	for (size_t i = 0; i < NUM_TX_MSGS; i++)
 		state->tx_msg_count[i] = 0;
