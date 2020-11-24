@@ -313,8 +313,9 @@ static void set_reserve(struct state *state, struct amount_sat funding_total)
 	/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
 	 *
 	 * The channel reserve is fixed at 1% of the total channel balance
-	 * rounded down (sum of `funding_satoshis` from `open_channel2` and `accept_channel2`)
-	 * or the `dust_limit_satoshis`, whichever is greater.
+	 * rounded down (sum of `funding_satoshis` from `open_channel2`
+	 * and `accept_channel2`) or the `dust_limit_satoshis`, whichever
+	 * is greater.
 	 */
 	reserve = amount_sat_div(funding_total, 100);
 
@@ -1610,8 +1611,8 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 	 *   - if `signature` is incorrect:
 	 *     - MUST fail the channel.
 	 */
-	if (!check_tx_sig(local_commit, 0, NULL, wscript, &state->their_funding_pubkey,
-			  &remote_sig)) {
+	if (!check_tx_sig(local_commit, 0, NULL, wscript,
+			  &state->their_funding_pubkey, &remote_sig)) {
 		/* BOLT #1:
 		 *
 		 * ### The `error` Message
@@ -1627,14 +1628,16 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 		 * longer read C code. */
 		peer_failed(state->pps,
 			    &state->channel_id,
-			    "Bad signature %s on tx %s using key %s (funding txid %s, psbt %s)",
+			    "Bad signature %s on tx %s using key %s"
+			    " (funding txid %s, psbt %s)",
 			    type_to_string(tmpctx, struct bitcoin_signature,
 					   &remote_sig),
-			    type_to_string(tmpctx, struct bitcoin_tx, local_commit),
+			    type_to_string(tmpctx, struct bitcoin_tx,
+					   local_commit),
 			    type_to_string(tmpctx, struct pubkey,
 					   &state->their_funding_pubkey),
-			    /* This is the first place we'd discover the funding tx
-			     * doesn't match up */
+			    /* This is the first place we'd discover
+			     * the funding tx doesn't match up */
 			    type_to_string(tmpctx, struct bitcoin_txid,
 					   &state->funding_txid),
 			    type_to_string(tmpctx, struct wally_psbt,
@@ -1725,12 +1728,12 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	u32 feerate_min, feerate_max, feerate_best;
 
 	if (!fromwire_dualopend_opener_init(state, msg,
-					  &psbt,
-					  &state->opener_funding,
-					  &state->upfront_shutdown_script[LOCAL],
-					  &state->feerate_per_kw_commitment,
-					  &state->feerate_per_kw_funding,
-					  &channel_flags))
+					    &psbt,
+					    &state->opener_funding,
+					    &state->upfront_shutdown_script[LOCAL],
+					    &state->feerate_per_kw_commitment,
+					    &state->feerate_per_kw_funding,
+					    &channel_flags))
 		master_badmsg(WIRE_DUALOPEND_OPENER_INIT, msg);
 
 	state->our_role = TX_INITIATOR;
@@ -2080,14 +2083,16 @@ static u8 *opener_start(struct state *state, u8 *msg)
 		 * longer read C code. */
 		peer_failed(state->pps,
 			    &state->channel_id,
-			    "Bad signature %s on tx %s using key %s (funding txid %s, psbt %s)",
+			    "Bad signature %s on tx %s using key %s "
+			    "(funding txid %s, psbt %s)",
 			    type_to_string(tmpctx, struct bitcoin_signature,
 					   &remote_sig),
-			    type_to_string(tmpctx, struct bitcoin_tx, local_commit),
+			    type_to_string(tmpctx, struct bitcoin_tx,
+					   local_commit),
 			    type_to_string(tmpctx, struct pubkey,
 					   &state->their_funding_pubkey),
-			    /* This is the first place we'd discover the funding tx
-			     * doesn't match up */
+			    /* This is the first place we'd discover the
+			     * funding tx doesn't match up */
 			    type_to_string(tmpctx, struct bitcoin_txid,
 					   &state->funding_txid),
 			    type_to_string(tmpctx, struct wally_psbt,
