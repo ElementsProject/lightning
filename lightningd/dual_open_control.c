@@ -722,16 +722,15 @@ static void accepter_commit_received(struct subd *dualopend,
 	struct bitcoin_signature remote_commit_sig;
 	struct channel_id cid;
 	struct bitcoin_txid funding_txid;
-	struct per_peer_state *pps;
 	u16 funding_outnum;
 	u32 feerate;
 	struct amount_sat total_funding, funding_ours;
 	u8 channel_flags, *remote_upfront_shutdown_script,
-	   *local_upfront_shutdown_script, *commitment_msg;
+	   *local_upfront_shutdown_script;
 	struct penalty_base *pbase;
 	struct wally_psbt *psbt;
 
-	payload = tal(uc, struct openchannel2_psbt_payload);
+	payload = tal(dualopend, struct openchannel2_psbt_payload);
 	payload->rcvd = tal(payload, struct commit_rcvd);
 
 	/* This is a new channel_info.their_config so set its ID to 0 */
@@ -744,7 +743,6 @@ static void accepter_commit_received(struct subd *dualopend,
 					    &remote_commit_sig,
 					    &psbt,
 					    &cid,
-					    &pps,
 					    &channel_info.theirbase.revocation,
 					    &channel_info.theirbase.payment,
 					    &channel_info.theirbase.htlc,
@@ -757,23 +755,20 @@ static void accepter_commit_received(struct subd *dualopend,
 					    &funding_ours,
 					    &channel_flags,
 					    &feerate,
-					    &commitment_msg,
 					    &uc->our_config.channel_reserve,
 					    &local_upfront_shutdown_script,
 					    &remote_upfront_shutdown_script)) {
 		log_broken(uc->log, "bad WIRE_DUALOPEND_COMMIT_RCVD %s",
 			   tal_hex(msg, msg));
-		uncommitted_channel_disconnect(uc, LOG_BROKEN, "bad WIRE_DUALOPEND_COMMIT_RCVD");
-		close(fds[0]);
-		close(fds[1]);
-		close(fds[3]);
+		uncommitted_channel_disconnect(uc, LOG_BROKEN, "bad"
+					       " WIRE_DUALOPEND_COMMIT_RCVD");
 		goto failed;
 	}
 
-	per_peer_state_set_fds_arr(pps, fds);
+	payload->dualopend = dualopend;
+	tal_add_destructor2(dualopend, openchannel2_psbt_remove_dualopend,
+			    payload);
 	payload->psbt = tal_steal(payload, psbt);
-	payload->rcvd->pps = tal_steal(payload, pps);
-	payload->rcvd->commitment_msg = tal_steal(payload, commitment_msg);
 	payload->ld = ld;
 
 	if (peer_active_channel(uc->peer)) {
@@ -812,22 +807,19 @@ static void accepter_commit_received(struct subd *dualopend,
 					payload->rcvd->channel->dbid,
 					pbase);
 
-	/* dualopend is going away! */
-	/* We steal onto `NULL` because `payload` is tal'd off of `uc`;
-	 * we free `uc` at the end though */
-	payload->rcvd->uc = tal_steal(NULL, uc);
+	subd_swap_channel(uc->open_daemon, payload->rcvd->channel,
+			  channel_errmsg, channel_set_billboard);
+	payload->rcvd->channel->owner = dualopend;
+	/* We don't have a command, so set to NULL here */
+	payload->rcvd->channel->openchannel_signed_cmd = NULL;
+	uc->open_daemon = NULL;
+	tal_free(uc);
 
 	/* We call out to our hook friend who will provide signatures for us! */
 	plugin_hook_call_openchannel2_sign(ld, payload);
-
-	/* We release the things here; dualopend is going away ?? */
-	subd_release_channel(dualopend, uc);
-	uc->open_daemon = NULL;
 	return;
 
 failed:
-	subd_release_channel(dualopend, uc);
-	uc->open_daemon = NULL;
 	tal_free(uc);
 }
 
@@ -842,13 +834,12 @@ static void opener_commit_received(struct subd *dualopend,
 	struct bitcoin_signature remote_commit_sig;
 	struct channel_id cid;
 	struct bitcoin_txid funding_txid;
-	struct per_peer_state *pps;
 	struct json_stream *response;
 	u16 funding_outnum;
 	u32 feerate;
 	struct amount_sat total_funding, funding_ours;
 	u8 channel_flags, *remote_upfront_shutdown_script,
-	   *local_upfront_shutdown_script, *commitment_msg;
+	   *local_upfront_shutdown_script;
 	struct penalty_base *pbase;
 	struct wally_psbt *psbt;
 	struct channel *channel;
@@ -864,7 +855,6 @@ static void opener_commit_received(struct subd *dualopend,
 					    &remote_commit_sig,
 					    &psbt,
 					    &cid,
-					    &pps,
 					    &channel_info.theirbase.revocation,
 					    &channel_info.theirbase.payment,
 					    &channel_info.theirbase.htlc,
@@ -877,7 +867,6 @@ static void opener_commit_received(struct subd *dualopend,
 					    &funding_ours,
 					    &channel_flags,
 					    &feerate,
-					    &commitment_msg,
 					    &uc->our_config.channel_reserve,
 					    &local_upfront_shutdown_script,
 					    &remote_upfront_shutdown_script)) {
@@ -885,20 +874,12 @@ static void opener_commit_received(struct subd *dualopend,
 			   tal_hex(msg, msg));
 		err_reason = "bad WIRE_DUALOPEND_COMMIT_RCVD";
 		uncommitted_channel_disconnect(uc, LOG_BROKEN, err_reason);
-		close(fds[0]);
-		close(fds[1]);
-		close(fds[3]);
 		goto failed;
 	}
-
-	/* We shouldn't have a commitment message, this is an
-	 * accepter flow item */
-	assert(!commitment_msg);
 
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info.old_remote_per_commit = channel_info.remote_per_commit;
 
-	per_peer_state_set_fds_arr(pps, fds);
 	if (peer_active_channel(uc->peer)) {
 		err_reason = "already have active channel";
 		uncommitted_channel_disconnect(uc, LOG_BROKEN, err_reason);
@@ -944,17 +925,19 @@ static void opener_commit_received(struct subd *dualopend,
 	channel->psbt = tal_steal(channel, psbt);
 	wallet_channel_save(uc->fc->cmd->ld->wallet, channel);
 
-	peer_start_channeld(channel, pps,
-			    NULL, false);
-
 	was_pending(command_success(uc->fc->cmd, response));
+
+	subd_swap_channel(uc->open_daemon, channel,
+			  channel_errmsg, channel_set_billboard);
+	channel->owner = dualopend;
 	goto cleanup;
 
 failed:
 	was_pending(command_fail(uc->fc->cmd, LIGHTNINGD,
 				   "%s", err_reason));
-cleanup:
 	subd_release_channel(dualopend, uc);
+
+cleanup:
 	uc->open_daemon = NULL;
 	tal_free(uc);
 }
@@ -1493,8 +1476,6 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 				accepter_psbt_changed(dualopend, msg);
 			return 0;
 		case WIRE_DUALOPEND_COMMIT_RCVD:
-			if (tal_count(fds) != 3)
-				return 3;
 			if (uc->fc) {
 				if (!uc->fc->cmd) {
 					log_unusual(dualopend->log,
