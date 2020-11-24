@@ -29,6 +29,9 @@ void channel_notify_new_block(struct lightningd *ld,
 struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 						       struct peer *peer);
 
+/* Update the channel info on funding locked */
+bool channel_on_funding_locked(struct channel *channel,
+			       struct pubkey *next_per_commitment_point);
 /* Forget a channel. Deletes the channel and handles all
  * associated waiting commands, if present. Notifies peer if available */
 void forget_channel(struct channel *channel, const char *err_msg);
