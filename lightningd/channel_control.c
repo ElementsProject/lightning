@@ -149,6 +149,22 @@ static void lockin_complete(struct channel *channel)
 	record_channel_open(channel);
 }
 
+bool channel_on_funding_locked(struct channel *channel,
+			       struct pubkey *next_per_commitment_point)
+{
+	if (channel->remote_funding_locked) {
+		channel_internal_error(channel,
+				       "channel_got_funding_locked twice");
+		return false;
+	}
+	update_per_commit_point(channel, next_per_commitment_point);
+
+	log_debug(channel->log, "Got funding_locked");
+	channel->remote_funding_locked = true;
+
+	return true;
+}
+
 /* We were informed by channeld that it announced the channel and sent
  * an update, so we can now start sending a node_announcement. The
  * first step is to build the provisional announcement and ask the HSM
@@ -166,15 +182,8 @@ static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
 		return;
 	}
 
-	if (channel->remote_funding_locked) {
-		channel_internal_error(channel,
-				       "channel_got_funding_locked twice");
+	if (!channel_on_funding_locked(channel, &next_per_commitment_point))
 		return;
-	}
-	update_per_commit_point(channel, &next_per_commitment_point);
-
-	log_debug(channel->log, "Got funding_locked");
-	channel->remote_funding_locked = true;
 
 	if (channel->scid)
 		lockin_complete(channel);
