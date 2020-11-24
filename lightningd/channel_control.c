@@ -78,7 +78,7 @@ void notify_feerate_change(struct lightningd *ld)
 	}
 }
 
-static void record_channel_open(struct channel *channel)
+void channel_record_open(struct channel *channel)
 {
 	struct chain_coin_mvt *mvt;
 	struct amount_msat channel_open_amt;
@@ -146,7 +146,7 @@ static void lockin_complete(struct channel *channel)
 	/* Fees might have changed (and we use IMMEDIATE once we're funded),
 	 * so update now. */
 	try_update_feerates(channel->peer->ld, channel);
-	record_channel_open(channel);
+	channel_record_open(channel);
 }
 
 bool channel_on_funding_locked(struct channel *channel,
