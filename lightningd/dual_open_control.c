@@ -1148,9 +1148,11 @@ void dualopen_tell_depth(struct subd *dualopend,
 		assert(channel->scid);
 		msg = towire_dualopend_depth_reached(NULL, depth);
 		subd_send_msg(dualopend, take(msg));
-	}
-
-	// FIXME: update billboard. needs to_go counter!
+	} else
+		channel_set_billboard(channel, false,
+				      tal_fmt(tmpctx, "Funding needs %d more"
+					      " confirmations for lockin.",
+					      to_go));
 }
 
 static void accepter_psbt_changed(struct subd *dualopend,
