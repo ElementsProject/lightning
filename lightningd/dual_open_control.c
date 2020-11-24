@@ -942,84 +942,6 @@ cleanup:
 	tal_free(uc);
 }
 
-static void accepter_psbt_changed(struct subd *dualopend,
-				  const u8 *msg)
-{
-	u64 unused;
-	struct openchannel2_psbt_payload *payload =
-		tal(dualopend, struct openchannel2_psbt_payload);
-	payload->dualopend = dualopend;
-	payload->psbt = NULL;
-	payload->rcvd = tal(payload, struct commit_rcvd);
-
-	if (!fromwire_dualopend_psbt_changed(payload, msg,
-					     &payload->rcvd->cid,
-					     &unused,
-					     &payload->psbt)) {
-		log_broken(dualopend->log, "Malformed dual_open_psbt_changed %s",
-			   tal_hex(tmpctx, msg));
-		tal_free(dualopend);
-		return;
-	}
-
-	tal_add_destructor2(dualopend, openchannel2_psbt_remove_dualopend, payload);
-	plugin_hook_call_openchannel2_changed(dualopend->ld, payload);
-}
-
-static void accepter_got_offer(struct subd *dualopend,
-			       struct uncommitted_channel *uc,
-			       const u8 *msg)
-{
-	struct openchannel2_payload *payload;
-
-	if (peer_active_channel(uc->peer)) {
-		subd_send_msg(dualopend,
-				take(towire_dualopend_fail(NULL, "Already have active channel")));
-		return;
-	}
-
-	payload = tal(dualopend, struct openchannel2_payload);
-	payload->dualopend = dualopend;
-	payload->psbt = NULL;
-	payload->accepter_funding = AMOUNT_SAT(0);
-	payload->our_shutdown_scriptpubkey = NULL;
-	payload->peer_id = uc->peer->id;
-
-	if (!fromwire_dualopend_got_offer(payload, msg,
-					  &payload->their_funding,
-					  &payload->dust_limit_satoshis,
-					  &payload->max_htlc_value_in_flight_msat,
-					  &payload->htlc_minimum_msat,
-					  &payload->funding_feerate_max,
-					  &payload->funding_feerate_min,
-					  &payload->funding_feerate_best,
-					  &payload->commitment_feerate_per_kw,
-					  &payload->to_self_delay,
-					  &payload->max_accepted_htlcs,
-					  &payload->channel_flags,
-					  &payload->locktime,
-					  &payload->shutdown_scriptpubkey)) {
-		log_broken(uc->log, "Malformed dual_open_got_offer %s",
-			   tal_hex(tmpctx, msg));
-		tal_free(dualopend);
-		return;
-	}
-
-	/* As a convenience to the plugin, we provide our current known
-	 * min + max feerates. Ideally, the plugin will fail to
-	 * contribute funds if the peer's feerate range is outside of
-	 * this acceptable range, but we delegate that decision to
-	 * the plugin's logic */
-	payload->feerate_our_min = feerate_min(dualopend->ld, NULL);
-	payload->feerate_our_max = feerate_max(dualopend->ld, NULL);
-
-	/* Set the inital to feerate to zero, in case there is no plugin */
-	payload->funding_feerate_per_kw = 0;
-
-	tal_add_destructor2(dualopend, openchannel2_remove_dualopend, payload);
-	plugin_hook_call_openchannel2(dualopend->ld, payload);
-}
-
 struct channel_send {
 	const struct wally_tx *wtx;
 	struct channel *channel;
@@ -1116,6 +1038,84 @@ static void send_funding_tx(struct channel *channel,
 	bitcoind_sendrawtx(ld->topology->bitcoind,
 			   tal_hex(tmpctx, linearize_wtx(tmpctx, cs->wtx)),
 			   sendfunding_done, cs);
+}
+
+static void accepter_psbt_changed(struct subd *dualopend,
+				  const u8 *msg)
+{
+	u64 unused;
+	struct openchannel2_psbt_payload *payload =
+		tal(dualopend, struct openchannel2_psbt_payload);
+	payload->dualopend = dualopend;
+	payload->psbt = NULL;
+	payload->rcvd = tal(payload, struct commit_rcvd);
+
+	if (!fromwire_dualopend_psbt_changed(payload, msg,
+					     &payload->rcvd->cid,
+					     &unused,
+					     &payload->psbt)) {
+		log_broken(dualopend->log, "Malformed dual_open_psbt_changed %s",
+			   tal_hex(tmpctx, msg));
+		tal_free(dualopend);
+		return;
+	}
+
+	tal_add_destructor2(dualopend, openchannel2_psbt_remove_dualopend, payload);
+	plugin_hook_call_openchannel2_changed(dualopend->ld, payload);
+}
+
+static void accepter_got_offer(struct subd *dualopend,
+			       struct uncommitted_channel *uc,
+			       const u8 *msg)
+{
+	struct openchannel2_payload *payload;
+
+	if (peer_active_channel(uc->peer)) {
+		subd_send_msg(dualopend,
+				take(towire_dualopend_fail(NULL, "Already have active channel")));
+		return;
+	}
+
+	payload = tal(dualopend, struct openchannel2_payload);
+	payload->dualopend = dualopend;
+	payload->psbt = NULL;
+	payload->accepter_funding = AMOUNT_SAT(0);
+	payload->our_shutdown_scriptpubkey = NULL;
+	payload->peer_id = uc->peer->id;
+
+	if (!fromwire_dualopend_got_offer(payload, msg,
+					  &payload->their_funding,
+					  &payload->dust_limit_satoshis,
+					  &payload->max_htlc_value_in_flight_msat,
+					  &payload->htlc_minimum_msat,
+					  &payload->funding_feerate_max,
+					  &payload->funding_feerate_min,
+					  &payload->funding_feerate_best,
+					  &payload->commitment_feerate_per_kw,
+					  &payload->to_self_delay,
+					  &payload->max_accepted_htlcs,
+					  &payload->channel_flags,
+					  &payload->locktime,
+					  &payload->shutdown_scriptpubkey)) {
+		log_broken(uc->log, "Malformed dual_open_got_offer %s",
+			   tal_hex(tmpctx, msg));
+		tal_free(dualopend);
+		return;
+	}
+
+	/* As a convenience to the plugin, we provide our current known
+	 * min + max feerates. Ideally, the plugin will fail to
+	 * contribute funds if the peer's feerate range is outside of
+	 * this acceptable range, but we delegate that decision to
+	 * the plugin's logic */
+	payload->feerate_our_min = feerate_min(dualopend->ld, NULL);
+	payload->feerate_our_max = feerate_max(dualopend->ld, NULL);
+
+	/* Set the inital to feerate to zero, in case there is no plugin */
+	payload->funding_feerate_per_kw = 0;
+
+	tal_add_destructor2(dualopend, openchannel2_remove_dualopend, payload);
+	plugin_hook_call_openchannel2(dualopend->ld, payload);
 }
 
 static void peer_tx_sigs_msg(struct subd *dualopend,
