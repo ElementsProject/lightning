@@ -144,10 +144,17 @@ struct state {
 	/* Track how many of each tx collab msg we receive */
 	u16 tx_msg_count[NUM_TX_MSGS];
 
+	/* Tally of which sides are locked, or not */
 	bool funding_locked[NUM_SIDES];
 
 	/* PSBT of the funding tx */
 	struct wally_psbt *psbt;
+
+	/* Peer sends this to us in the funding_locked msg */
+	struct pubkey remote_per_commit;
+
+	/* Are we shutting this channel down? */
+	bool shutting_down;
 };
 
 /* psbt_changeset_get_next - Get next message to send
@@ -750,7 +757,7 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 			take(towire_dualopend_funding_sigs(NULL, state->psbt)));
 }
 
-static u8 *handle_send_tx_sigs(struct state *state, const u8 *msg)
+static void handle_send_tx_sigs(struct state *state, const u8 *msg)
 {
 	struct wally_psbt *psbt;
 	struct bitcoin_txid txid;
@@ -774,10 +781,21 @@ static u8 *handle_send_tx_sigs(struct state *state, const u8 *msg)
 	if (wally_psbt_combine(state->psbt, psbt) != WALLY_OK) {
 		tal_wally_end(tal_free(state->psbt));
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Unable to combine PSBTs");
+			      "Unable to combine PSBTs. received %s\n"
+			      "local %s",
+			      type_to_string(tmpctx, struct wally_psbt,
+					     psbt),
+			      type_to_string(tmpctx, struct wally_psbt,
+					     state->psbt));
 	}
-	tal_wally_end(tal_steal(state, state->psbt));
-	return psbt_to_tx_sigs_msg(tmpctx, state, psbt);
+	tal_wally_end(state->psbt);
+
+	/*  Send our sigs to peer */
+	msg = psbt_to_tx_sigs_msg(tmpctx, state, state->psbt);
+	sync_crypto_write(state->pps, take(msg));
+
+	/* Notify lightningd that we've sent sigs */
+	wire_sync_write(REQ_FD, take(towire_dualopend_tx_sigs_sent(NULL)));
 }
 
 static struct wally_psbt *
@@ -2151,6 +2169,81 @@ static void opener_start(struct state *state, u8 *msg)
 	wire_sync_write(REQ_FD, take(msg));
 }
 
+static u8 *handle_funding_locked(struct state *state, u8 *msg)
+{
+	struct channel_id cid;
+
+	if (!fromwire_funding_locked(msg, &cid,
+				     &state->remote_per_commit))
+		peer_failed(state->pps, &state->channel_id,
+			    "Bad funding_locked %s", tal_hex(msg, msg));
+
+	if (!channel_id_eq(&cid, &state->channel_id))
+		peer_failed(state->pps, &state->channel_id,
+			    "funding_locked ids don't match: "
+			    "expected %s, got %s",
+			    type_to_string(msg, struct channel_id,
+					   &state->channel_id),
+			    type_to_string(msg, struct channel_id, &cid));
+
+	state->funding_locked[REMOTE] = true;
+	// FIXME: update billboard!
+	if (state->funding_locked[LOCAL])
+		return towire_dualopend_channel_locked(state, state->pps,
+						       &state->remote_per_commit);
+
+	return NULL;
+}
+
+static void hsm_per_commitment_point(u64 index, struct pubkey *point)
+{
+	struct secret *s;
+	const u8 *msg;
+
+	msg = towire_hsmd_get_per_commitment_point(NULL, index);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+
+	if (!fromwire_hsmd_get_per_commitment_point_reply(tmpctx, msg,
+							  point, &s))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Bad per_commitment_point reply %s",
+			      tal_hex(tmpctx, msg));
+}
+
+static u8 *handle_funding_depth(struct state *state, u8 *msg)
+{
+	u32 depth;
+	struct pubkey next_local_per_commit;
+
+	if (!fromwire_dualopend_depth_reached(msg, &depth))
+		master_badmsg(WIRE_DUALOPEND_DEPTH_REACHED, msg);
+
+	/* Too late, shutting down already */
+	if (state->shutting_down)
+		return NULL;
+
+	/* We check this before we arrive here, but for sanity */
+	assert(state->minimum_depth <= depth);
+
+	/* Figure out the next local commit */
+	hsm_per_commitment_point(1, &next_local_per_commit);
+
+	msg = towire_funding_locked(NULL,
+				    &state->channel_id,
+				    &next_local_per_commit);
+	sync_crypto_write(state->pps, take(msg));
+
+	state->funding_locked[LOCAL] = true;
+	// FIXME: update billboard!
+	if (state->funding_locked[REMOTE])
+		return towire_dualopend_channel_locked(state,
+						       state->pps,
+						       &state->remote_per_commit);
+
+	return NULL;
+}
+
 /*~ If we see the gossip_fd readable, we read a whole message.  Sure, we might
  * block, but we trust gossipd. */
 static void handle_gossip_in(struct state *state)
@@ -2209,7 +2302,11 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_SEND_TX_SIGS:
 		handle_send_tx_sigs(state, msg);
 		return NULL;
+	case WIRE_DUALOPEND_DEPTH_REACHED:
+		return handle_funding_depth(state, msg);
 	/* mostly handled inline */
+	case WIRE_DUALOPEND_TX_SIGS_SENT:
+	case WIRE_DUALOPEND_CHANNEL_LOCKED:
 	case WIRE_DUALOPEND_INIT:
 	case WIRE_DUALOPEND_FUNDING_SIGS:
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
@@ -2256,6 +2353,8 @@ static u8 *handle_peer_in(struct state *state)
 	} else if (t == WIRE_TX_SIGNATURES) {
 		handle_tx_sigs(state, msg);
 		return NULL;
+	} else if (t == WIRE_FUNDING_LOCKED) {
+		return handle_funding_locked(state, msg);
 	}
 
 #if DEVELOPER
@@ -2338,6 +2437,9 @@ int main(int argc, char *argv[])
 	 * handle_peer_gossip_or_error compares this. */
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = NULL;
+	state->funding_locked[LOCAL] = state->funding_locked[REMOTE] = false;
+	state->shutting_down = false;
+
 	for (size_t i = 0; i < NUM_TX_MSGS; i++)
 		state->tx_msg_count[i] = 0;
 

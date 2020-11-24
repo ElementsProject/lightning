@@ -631,7 +631,11 @@ bool channel_tell_depth(struct lightningd *ld,
 			return true;
 		}
 
-		// FIXME: pass to dualopend here!
+#if EXPERIMENTAL_FEATURES
+		dualopen_tell_depth(channel->owner, channel, depth);
+		// FIXME: lockin complete?
+		return true;
+#endif /* EXPERIMENTAL_FEATURES */
 	} else if (channel->state != CHANNELD_AWAITING_LOCKIN
 	    && channel->state != CHANNELD_NORMAL) {
 		/* If not awaiting lockin/announce, it doesn't

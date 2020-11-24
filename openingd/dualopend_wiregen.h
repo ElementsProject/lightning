@@ -40,6 +40,12 @@ enum dualopend_wire {
         WIRE_DUALOPEND_FUNDING_SIGS = 7010,
         /*  master->dualopend send our tx_sigs to peer */
         WIRE_DUALOPEND_SEND_TX_SIGS = 7011,
+        /*  dualopend->master tx sigs transmitted to peer */
+        WIRE_DUALOPEND_TX_SIGS_SENT = 7012,
+        /*  dualopend->master this channel has been locked */
+        WIRE_DUALOPEND_CHANNEL_LOCKED = 7019,
+        /*  master->dualopend funding reached depth; tell peer */
+        WIRE_DUALOPEND_DEPTH_REACHED = 7020,
         /*  master -> dualopend: do you have a memleak? */
         WIRE_DUALOPEND_DEV_MEMLEAK = 7033,
         WIRE_DUALOPEND_DEV_MEMLEAK_REPLY = 7133,
@@ -112,6 +118,21 @@ bool fromwire_dualopend_funding_sigs(const tal_t *ctx, const void *p, struct wal
 u8 *towire_dualopend_send_tx_sigs(const tal_t *ctx, const struct wally_psbt *signed_psbt);
 bool fromwire_dualopend_send_tx_sigs(const tal_t *ctx, const void *p, struct wally_psbt **signed_psbt);
 
+/* WIRE: DUALOPEND_TX_SIGS_SENT */
+/*  dualopend->master tx sigs transmitted to peer */
+u8 *towire_dualopend_tx_sigs_sent(const tal_t *ctx);
+bool fromwire_dualopend_tx_sigs_sent(const void *p);
+
+/* WIRE: DUALOPEND_CHANNEL_LOCKED */
+/*  dualopend->master this channel has been locked */
+u8 *towire_dualopend_channel_locked(const tal_t *ctx, const struct per_peer_state *pps, const struct pubkey *remote_per_commit);
+bool fromwire_dualopend_channel_locked(const tal_t *ctx, const void *p, struct per_peer_state **pps, struct pubkey *remote_per_commit);
+
+/* WIRE: DUALOPEND_DEPTH_REACHED */
+/*  master->dualopend funding reached depth; tell peer */
+u8 *towire_dualopend_depth_reached(const tal_t *ctx, u32 depth);
+bool fromwire_dualopend_depth_reached(const void *p, u32 *depth);
+
 /* WIRE: DUALOPEND_DEV_MEMLEAK */
 /*  master -> dualopend: do you have a memleak? */
 u8 *towire_dualopend_dev_memleak(const tal_t *ctx);
@@ -123,4 +144,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:b209a8683f1e9cbdc9f64302b70b86b2d66ac8fa917e3f1e482fda64f92c20a2
+// SHA256STAMP:420b9d30d0ecd89f962dee16c410c54f9ac7852dd5ab02c05730ab07ebc6bece
