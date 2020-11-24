@@ -31,9 +31,17 @@ enum channel_state {
 	ONCHAIN,
 
 	/* Final state after we have fully settled on-chain */
-	CLOSED
+	CLOSED,
+
+	/* For dual-funded channels, we start at a different state.
+	 * We transition to 'awaiting lockin' after sigs have
+	 * been exchanged */
+	DUALOPEND_OPEN_INIT,
+
+	/* Dual-funded channel, waiting for lock-in */
+	DUALOPEND_AWAITING_LOCKIN,
 };
-#define CHANNEL_STATE_MAX CLOSED
+#define CHANNEL_STATE_MAX DUALOPEND_AWAITING_LOCKIN
 
 enum state_change {
 	/* Anything other than the reasons below. Should not happen. */

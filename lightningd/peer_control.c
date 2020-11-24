@@ -1021,6 +1021,10 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 						"Awaiting unilateral close");
 			goto send_error;
 		}
+		case DUALOPEND_OPEN_INIT:
+		case DUALOPEND_AWAITING_LOCKIN:
+			/* FIXME: open dualopend */
+			abort();
 
 		case CHANNELD_AWAITING_LOCKIN:
 		case CHANNELD_NORMAL:
