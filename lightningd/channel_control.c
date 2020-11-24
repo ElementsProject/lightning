@@ -31,6 +31,10 @@
 #include <wire/common_wiregen.h>
 #include <wire/wire_sync.h>
 
+#if EXPERIMENTAL_FEATURES
+ #include <lightningd/dual_open_control.h>
+#endif
+
 static void update_feerates(struct lightningd *ld, struct channel *channel)
 {
 	u8 *msg;
@@ -610,20 +614,32 @@ bool channel_tell_depth(struct lightningd *ld,
 
 	txidstr = type_to_string(tmpctx, struct bitcoin_txid, txid);
 
-	/* If not awaiting lockin/announce, it doesn't care any more */
-	if (channel->state != CHANNELD_AWAITING_LOCKIN
-	    && channel->state != CHANNELD_NORMAL) {
-		log_debug(channel->log,
-			  "Funding tx %s confirmed, but peer in state %s",
-			  txidstr, channel_state_name(channel));
-		return true;
-	}
-
 	if (!channel->owner) {
 		log_debug(channel->log,
 			  "Funding tx %s confirmed, but peer disconnected",
 			  txidstr);
 		return false;
+	}
+
+	if (streq(channel->owner->name, "dualopend")) {
+		if (channel->state != DUALOPEND_AWAITING_LOCKIN
+		    && channel->state != CHANNELD_NORMAL) {
+			log_debug(channel->log,
+				  "Funding tx %s confirmed, but peer in"
+				  " state %s",
+				  txidstr, channel_state_name(channel));
+			return true;
+		}
+
+		// FIXME: pass to dualopend here!
+	} else if (channel->state != CHANNELD_AWAITING_LOCKIN
+	    && channel->state != CHANNELD_NORMAL) {
+		/* If not awaiting lockin/announce, it doesn't
+		 * care any more */
+		log_debug(channel->log,
+			  "Funding tx %s confirmed, but peer in state %s",
+			  txidstr, channel_state_name(channel));
+		return true;
 	}
 
 	subd_send_msg(channel->owner,

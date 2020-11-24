@@ -56,6 +56,10 @@ LIGHTNINGD_HEADERS :=				\
 	lightningd/channel_state.h		\
 	lightningd/channel_state_names_gen.h
 
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+LIGHTNINGD_HEADERS += lightningd/dual_open_control.h
+endif
+
 LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o) $(LIGHTNINGD_SRC_NOHDR:.c=.o)
 $(LIGHTNINGD_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_CONTROL_HEADERS)
 
