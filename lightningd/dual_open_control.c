@@ -1051,23 +1051,22 @@ static void sendfunding_done(struct bitcoind *bitcoind UNUSED,
 	const struct wally_tx *wtx = cs->wtx;
 	struct json_stream *response;
 	struct bitcoin_txid txid;
-	struct open_command *oc;
 	struct amount_sat unused;
 	int num_utxos;
+	struct command *cmd = channel->openchannel_signed_cmd;
+	channel->openchannel_signed_cmd = NULL;
 
-	oc = find_open_command(ld, channel);
-	if (!oc && channel->opener == LOCAL) {
+	if (!cmd && channel->opener == LOCAL)
 		log_broken(channel->log,
 			   "No outstanding command for channel %s,"
 			   " funding sent was success? %d",
 			   type_to_string(tmpctx, struct channel_id,
 					  &channel->cid),
 			   success);
-	}
 
 	if (!success) {
-		if (oc)
-			was_pending(command_fail(oc->cmd,
+		if (cmd)
+			was_pending(command_fail(cmd,
 						 FUNDING_BROADCAST_FAIL,
 						 "Error broadcasting funding "
 						 "tx: %s. Unsent tx discarded "
@@ -1090,23 +1089,23 @@ static void sendfunding_done(struct bitcoind *bitcoind UNUSED,
 	num_utxos = wallet_extract_owned_outputs(ld->wallet,
 						 wtx, NULL,
 						 &unused);
-	if (num_utxos) {
+	if (num_utxos)
 		wallet_transaction_add(ld->wallet, wtx, 0, 0);
-	}
 
-	if (oc) {
-		response = json_stream_success(oc->cmd);
+	if (cmd) {
+		response = json_stream_success(cmd);
 		wally_txid(wtx, &txid);
 		json_add_hex_talarr(response, "tx", linearize_wtx(tmpctx, wtx));
 		json_add_txid(response, "txid", &txid);
 		json_add_string(response, "channel_id",
 				type_to_string(tmpctx, struct channel_id,
 					       &channel->cid));
-		was_pending(command_success(oc->cmd, response));
+		was_pending(command_success(cmd, response));
 	}
 
 	tal_free(cs);
 }
+
 
 static void send_funding_tx(struct channel *channel,
 			    const struct wally_tx *wtx TAKES)
@@ -1211,6 +1210,10 @@ json_openchannel_signed(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD,
 				    "Already have a finalized PSBT for "
 				    "this channel");
+	if (channel->openchannel_signed_cmd)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Already sent sigs, waiting for"
+				    " peer's");
 
 	/* Verify that the psbt's txid matches that of the
 	 * funding txid for this channel */
@@ -1247,9 +1250,6 @@ json_openchannel_signed(struct command *cmd,
 	wallet_channel_save(cmd->ld->wallet, channel);
 	channel_watch_funding(cmd->ld, channel);
 
-	/* Return when the transaction is broadcast */
-	register_open_command(cmd->ld, cmd, channel);
-
 	/* Send our tx_sigs to the peer */
 	subd_send_msg(channel->owner,
 		      take(towire_dualopend_send_tx_sigs(NULL, channel->psbt)));
@@ -1260,6 +1260,7 @@ json_openchannel_signed(struct command *cmd,
 			send_funding_tx(channel, take(wtx));
 	}
 
+	channel->openchannel_signed_cmd = tal_steal(channel, cmd);
 	return command_still_pending(cmd);
 }
 
