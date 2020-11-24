@@ -448,8 +448,9 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 }
 
 /* dualopend dies?  Remove dualopend ptr from payload */
-static void openchannel2_psbt_remove_dualopend(struct subd *dualopend,
-					       struct openchannel2_psbt_payload *payload)
+static void
+openchannel2_psbt_remove_dualopend(struct subd *dualopend,
+				   struct openchannel2_psbt_payload *payload)
 {
 	assert(payload->dualopend == dualopend);
 	payload->dualopend = NULL;
@@ -776,7 +777,8 @@ static void accepter_commit_received(struct subd *dualopend,
 	payload->ld = ld;
 
 	if (peer_active_channel(uc->peer)) {
-		uncommitted_channel_disconnect(uc, LOG_BROKEN, "already have active channel");
+		uncommitted_channel_disconnect(uc, LOG_BROKEN,
+					       "already have active channel");
 		goto failed;
 	}
 
@@ -800,12 +802,14 @@ static void accepter_commit_received(struct subd *dualopend,
 				      remote_upfront_shutdown_script);
 
 	if (!payload->rcvd->channel) {
-		uncommitted_channel_disconnect(uc, LOG_BROKEN, "commit channel failed");
+		uncommitted_channel_disconnect(uc, LOG_BROKEN,
+					       "commit channel failed");
 		goto failed;
 	}
 
 	if (pbase)
-		wallet_penalty_base_add(ld->wallet, payload->rcvd->channel->dbid,
+		wallet_penalty_base_add(ld->wallet,
+					payload->rcvd->channel->dbid,
 					pbase);
 
 	/* dualopend is going away! */
@@ -1176,10 +1180,11 @@ static void peer_tx_sigs_msg(struct subd *dualopend,
 }
 
 
-static struct command_result *json_openchannel_signed(struct command *cmd,
-						       const char *buffer,
-						       const jsmntok_t *obj UNNEEDED,
-						       const jsmntok_t *params)
+static struct command_result *
+json_openchannel_signed(struct command *cmd,
+			 const char *buffer,
+			 const jsmntok_t *obj UNNEEDED,
+			 const jsmntok_t *params)
 {
 	struct wally_psbt *psbt;
 	const struct wally_tx *wtx;

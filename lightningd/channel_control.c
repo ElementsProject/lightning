@@ -95,19 +95,21 @@ static void record_channel_open(struct channel *channel)
 			      type_to_string(tmpctx, struct amount_sat,
 					     &channel->funding));
 
-		/* if we pushed sats, we should decrement that from the channel balance */
+		/* if we pushed sats, we should decrement that
+		 * from the channel balance */
 		if (amount_msat_greater(channel->push, AMOUNT_MSAT(0))) {
-			mvt = new_coin_pushed(ctx, type_to_string(tmpctx,
-								  struct channel_id,
-								  &channel->cid),
+			mvt = new_coin_pushed(ctx,
+					      type_to_string(tmpctx,
+							     struct channel_id,
+							     &channel->cid),
 					      &channel->funding_txid,
 					      blockheight, channel->push);
 			notify_chain_mvt(channel->peer->ld, mvt);
 		}
 	} else {
-		/* we're not the funder, we record our 'opening balance' anyway
-		 * (there's a small chance we were pushed some satoshis, otherwise
-		 * it's zero) */
+		/* we're not the funder, we record our 'opening balance'
+		 * anyway (there's a small chance we were pushed some
+		 * satoshis, otherwise it's zero) */
 		channel_open_amt = channel->our_msat;
 	}
 
@@ -313,7 +315,9 @@ static void forget(struct channel *channel)
 
 		struct json_stream *response;
 		response = json_stream_success(forgets[i]);
-		json_add_string(response, "cancelled", "Channel open canceled by RPC(after fundchannel_complete)");
+		json_add_string(response, "cancelled",
+				"Channel open canceled by RPC(after"
+				" fundchannel_complete)");
 		was_pending(command_success(forgets[i], response));
 	}
 
@@ -508,10 +512,13 @@ void peer_start_channeld(struct channel *channel,
 	if (ld->config.ignore_fee_limits)
 		log_debug(channel->log, "Ignoring fee limits!");
 
-	if (!wallet_remote_ann_sigs_load(tmpctx, channel->peer->ld->wallet, channel->dbid,
-				       &remote_ann_node_sig, &remote_ann_bitcoin_sig)) {
+	if (!wallet_remote_ann_sigs_load(tmpctx, channel->peer->ld->wallet,
+					 channel->dbid,
+					 &remote_ann_node_sig,
+					 &remote_ann_bitcoin_sig)) {
 		channel_internal_error(channel,
-				       "Could not load remote announcement signatures");
+				       "Could not load remote announcement"
+				       " signatures");
 		return;
 	}
 
@@ -587,9 +594,9 @@ void peer_start_channeld(struct channel *channel,
 }
 
 bool channel_tell_depth(struct lightningd *ld,
-				 struct channel *channel,
-				 const struct bitcoin_txid *txid,
-				 u32 depth)
+			struct channel *channel,
+			const struct bitcoin_txid *txid,
+			u32 depth)
 {
 	const char *txidstr;
 
@@ -803,23 +810,24 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 				    "Cannot cancel channel that was "
 				    "initiated by peer");
 
-	/* Check if we broadcast the transaction. (We store the transaction type into DB
-	 * before broadcast). */
+	/* Check if we broadcast the transaction. (We store the transaction
+	 * type into DB before broadcast). */
 	enum wallet_tx_type type;
 	if (wallet_transaction_type(cmd->ld->wallet,
 				   &cancel_channel->funding_txid,
 				   &type))
 		return command_fail(cmd, FUNDING_CANCEL_NOT_SAFE,
-				    "Has the funding transaction been broadcast? "
-				    "Please use `close` or `dev-fail` instead.");
+				    "Has the funding transaction been"
+				    " broadcast? Please use `close` or"
+				    " `dev-fail` instead.");
 
 	if (channel_has_htlc_out(cancel_channel) ||
 	    channel_has_htlc_in(cancel_channel)) {
 		return command_fail(cmd, FUNDING_CANCEL_NOT_SAFE,
-				    "This channel has HTLCs attached and it is "
-				    "not safe to cancel. Has the funding transaction "
-				    "been broadcast? Please use `close` or `dev-fail` "
-				    "instead.");
+				    "This channel has HTLCs attached and it"
+				    " is not safe to cancel. Has the funding"
+				    " transaction been broadcast? Please use"
+				    " `close` or `dev-fail` instead.");
 	}
 
 	tal_arr_expand(&cancel_channel->forgets, cmd);
@@ -827,7 +835,8 @@ struct command_result *cancel_channel_before_broadcast(struct command *cmd,
 	/* Check if the transaction is onchain. */
 	/* Note: The above check and this check can't completely ensure that
 	 * the funding transaction isn't broadcast. We can't know if the funding
-	 * is broadcast by external wallet and the transaction hasn't been onchain. */
+	 * is broadcast by external wallet and the transaction hasn't
+	 * been onchain. */
 	bitcoind_getutxout(cmd->ld->topology->bitcoind,
 			   &cancel_channel->funding_txid,
 			   cancel_channel->funding_outnum,
@@ -864,9 +873,10 @@ static struct command_result *json_dev_feerate(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Peer bad state");
 
 	msg = towire_channeld_feerates(NULL, *feerate,
-				      feerate_min(cmd->ld, NULL),
-				      feerate_max(cmd->ld, NULL),
-				      try_get_feerate(cmd->ld->topology, FEERATE_PENALTY));
+				       feerate_min(cmd->ld, NULL),
+				       feerate_max(cmd->ld, NULL),
+				       try_get_feerate(cmd->ld->topology,
+						       FEERATE_PENALTY));
 	subd_send_msg(channel->owner, take(msg));
 
 	response = json_stream_success(cmd);
