@@ -26,7 +26,6 @@
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/plugin_hook.h>
-#include <lightningd/subd.h>
 #include <openingd/dualopend_wiregen.h>
 #include <wire/common_wiregen.h>
 #include <wire/peer_wire.h>
@@ -34,12 +33,11 @@
 struct commit_rcvd {
 	struct channel *channel;
 	struct channel_id cid;
-	struct per_peer_state *pps;
-	u8 *commitment_msg;
 	struct uncommitted_channel *uc;
 };
 
 static void handle_signed_psbt(struct lightningd *ld,
+			       struct subd *dualopend,
 			       const struct wally_psbt *psbt,
 			       struct commit_rcvd *rcvd)
 {
@@ -51,10 +49,9 @@ static void handle_signed_psbt(struct lightningd *ld,
 
 	channel_watch_funding(ld, rcvd->channel);
 
-	peer_start_channeld(rcvd->channel,
-			    rcvd->pps,
-			    rcvd->commitment_msg,
-			    false);
+	/* Send peer our signatures */
+	subd_send_msg(dualopend,
+		      take(towire_dualopend_send_tx_sigs(NULL, psbt)));
 }
 
 /* ~Map of the Territory~
@@ -534,6 +531,7 @@ openchannel2_signed_deserialize(struct openchannel2_psbt_payload *payload,
 
 	if (payload->psbt)
 		tal_free(payload->psbt);
+
 	payload->psbt = tal_steal(payload, psbt);
 	return true;
 }
@@ -541,8 +539,18 @@ openchannel2_signed_deserialize(struct openchannel2_psbt_payload *payload,
 static void
 openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 {
-	/* Free payload regardless of what happens next */
+	/* Whatever happens, we free the payload */
 	tal_steal(tmpctx, payload);
+
+	if (!payload->dualopend) {
+		log_broken(payload->ld->log, "dualopend daemon died"
+			   " before signed PSBT returned");
+		channel_internal_error(payload->rcvd->channel, "daemon died");
+		return;
+	}
+	tal_del_destructor2(payload->dualopend,
+			    openchannel2_psbt_remove_dualopend,
+			    payload);
 
 	/* Finalize it, if not already. It shouldn't work entirely */
 	psbt_finalize(payload->psbt);
@@ -552,7 +560,8 @@ openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 		      "for their inputs %s",
 		      type_to_string(tmpctx, struct wally_psbt, payload->psbt));
 
-	handle_signed_psbt(payload->ld, payload->psbt, payload->rcvd);
+	handle_signed_psbt(payload->ld, payload->dualopend,
+			   payload->psbt, payload->rcvd);
 }
 
 REGISTER_PLUGIN_HOOK(openchannel2,
@@ -620,7 +629,7 @@ wallet_commit_channel(struct lightningd *ld,
 
 	channel = new_channel(uc->peer, uc->dbid,
 			      NULL, /* No shachain yet */
-			      CHANNELD_AWAITING_LOCKIN,
+			      DUALOPEND_OPEN_INIT,
 			      opener,
 			      uc->log,
 			      take(uc->transient_billboard),
@@ -1040,6 +1049,110 @@ static void send_funding_tx(struct channel *channel,
 			   sendfunding_done, cs);
 }
 
+static void handle_peer_tx_sigs_sent(struct subd *dualopend,
+				     const int *fds,
+				     const u8 *msg)
+{
+	struct channel *channel = dualopend->channel;
+	const struct wally_tx *wtx;
+
+	if (!fromwire_dualopend_tx_sigs_sent(msg)) {
+		channel_internal_error(channel,
+				       "bad WIRE_DUALOPEND_TX_SIGS_SENT %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (psbt_finalize(cast_const(struct wally_psbt *, channel->psbt))) {
+		wtx = psbt_final_tx(NULL, channel->psbt);
+		if (!wtx) {
+			channel_internal_error(channel,
+					       "Unable to extract final tx"
+					       " from PSBT %s",
+					       type_to_string(tmpctx,
+							      struct wally_psbt,
+							      channel->psbt));
+			return;
+		}
+
+		send_funding_tx(channel, take(wtx));
+
+		channel_set_state(channel, DUALOPEND_OPEN_INIT,
+				  DUALOPEND_AWAITING_LOCKIN,
+				  REASON_UNKNOWN,
+				  "Sigs exchanged, waiting for lock-in");
+	}
+}
+
+static void handle_channel_locked(struct subd *dualopend,
+				  const int *fds,
+				  const u8 *msg)
+{
+	struct channel *channel = dualopend->channel;
+	struct pubkey remote_per_commit;
+	struct per_peer_state *pps;
+
+	if (!fromwire_dualopend_channel_locked(tmpctx, msg, &pps,
+					       &remote_per_commit)) {
+		log_broken(dualopend->log,
+			   "bad WIRE_DUALOPEND_CHANNEL_LOCKED %s",
+			   tal_hex(msg, msg));
+		close(fds[0]);
+		close(fds[1]);
+		close(fds[2]);
+		goto cleanup;
+	}
+	per_peer_state_set_fds_arr(pps, fds);
+
+	/* Updates channel with the next per-commit point etc */
+	if (!channel_on_funding_locked(channel, &remote_per_commit))
+		goto cleanup;
+
+	assert(channel->scid);
+	assert(channel->remote_funding_locked);
+
+	if (channel->state != DUALOPEND_AWAITING_LOCKIN) {
+		log_debug(channel->log, "Lockin complete, but state %s",
+			  channel_state_name(channel));
+	} else {
+		channel_set_state(channel,
+				  DUALOPEND_AWAITING_LOCKIN,
+				  CHANNELD_NORMAL,
+				  REASON_UNKNOWN,
+				  "Lockin complete");
+		channel_record_open(channel);
+	}
+
+	/* FIXME: LND sigs/update_fee msgs? */
+	peer_start_channeld(channel, pps, NULL, false);
+	return;
+
+cleanup:
+	subd_release_channel(dualopend, channel);
+}
+
+void dualopen_tell_depth(struct subd *dualopend,
+			 struct channel *channel,
+			 u32 depth)
+{
+	const u8 *msg;
+	u32 to_go;
+
+	if (depth < channel->minimum_depth)
+		to_go = channel->minimum_depth - depth;
+	else
+		to_go = 0;
+
+	/* Are we there yet? */
+	if (to_go == 0) {
+		assert(channel->scid);
+		msg = towire_dualopend_depth_reached(NULL, depth);
+		subd_send_msg(dualopend, take(msg));
+	}
+
+	// FIXME: update billboard. needs to_go counter!
+}
+
 static void accepter_psbt_changed(struct subd *dualopend,
 				  const u8 *msg)
 {
@@ -1118,8 +1231,8 @@ static void accepter_got_offer(struct subd *dualopend,
 	plugin_hook_call_openchannel2(dualopend->ld, payload);
 }
 
-static void peer_tx_sigs_msg(struct subd *dualopend,
-			     const u8 *msg)
+static void handle_peer_tx_sigs_msg(struct subd *dualopend,
+				    const u8 *msg)
 {
 	struct wally_psbt *psbt;
 	const struct wally_tx *wtx;
@@ -1150,8 +1263,21 @@ static void peer_tx_sigs_msg(struct subd *dualopend,
 
 	if (psbt_finalize(cast_const(struct wally_psbt *, channel->psbt))) {
 		wtx = psbt_final_tx(NULL, channel->psbt);
-		if (wtx)
-			send_funding_tx(channel, take(wtx));
+		if (!wtx) {
+			channel_internal_error(channel,
+					       "Unable to extract final tx"
+					       " from PSBT %s",
+					       type_to_string(tmpctx,
+							      struct wally_psbt,
+							      channel->psbt));
+			return;
+		}
+		send_funding_tx(channel, take(wtx));
+
+		channel_set_state(channel, DUALOPEND_OPEN_INIT,
+				  DUALOPEND_AWAITING_LOCKIN,
+				  REASON_UNKNOWN,
+				  "Sigs exchanged, waiting for lock-in");
 	}
 
 	wallet_channel_save(ld->wallet, channel);
@@ -1169,7 +1295,6 @@ json_openchannel_signed(struct command *cmd,
 			 const jsmntok_t *params)
 {
 	struct wally_psbt *psbt;
-	const struct wally_tx *wtx;
 	struct uncommitted_channel *uc;
 	struct channel_id *cid;
 	struct channel *channel;
@@ -1236,12 +1361,6 @@ json_openchannel_signed(struct command *cmd,
 	/* Send our tx_sigs to the peer */
 	subd_send_msg(channel->owner,
 		      take(towire_dualopend_send_tx_sigs(NULL, channel->psbt)));
-
-	if (psbt_finalize(cast_const(struct wally_psbt *, channel->psbt))) {
-		wtx = psbt_final_tx(NULL, channel->psbt);
-		if (wtx)
-			send_funding_tx(channel, take(wtx));
-	}
 
 	channel->openchannel_signed_cmd = tal_steal(channel, cmd);
 	return command_still_pending(cmd);
@@ -1491,7 +1610,15 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 							 uc, fds, msg);
 			return 0;
 		case WIRE_DUALOPEND_FUNDING_SIGS:
-			peer_tx_sigs_msg(dualopend, msg);
+			handle_peer_tx_sigs_msg(dualopend, msg);
+			return 0;
+		case WIRE_DUALOPEND_TX_SIGS_SENT:
+			handle_peer_tx_sigs_sent(dualopend, fds, msg);
+			return 0;
+		case WIRE_DUALOPEND_CHANNEL_LOCKED:
+			if (tal_count(fds) != 3)
+				return 3;
+			handle_channel_locked(dualopend, fds, msg);
 			return 0;
 		case WIRE_DUALOPEND_FAILED:
 		case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
@@ -1503,6 +1630,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_FAIL:
 		case WIRE_DUALOPEND_PSBT_UPDATED:
 		case WIRE_DUALOPEND_SEND_TX_SIGS:
+		case WIRE_DUALOPEND_DEPTH_REACHED:
 		case WIRE_DUALOPEND_DEV_MEMLEAK:
 			break;
 	}

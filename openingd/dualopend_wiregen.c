@@ -31,6 +31,9 @@ const char *dualopend_wire_name(int e)
 	case WIRE_DUALOPEND_OPENER_INIT: return "WIRE_DUALOPEND_OPENER_INIT";
 	case WIRE_DUALOPEND_FUNDING_SIGS: return "WIRE_DUALOPEND_FUNDING_SIGS";
 	case WIRE_DUALOPEND_SEND_TX_SIGS: return "WIRE_DUALOPEND_SEND_TX_SIGS";
+	case WIRE_DUALOPEND_TX_SIGS_SENT: return "WIRE_DUALOPEND_TX_SIGS_SENT";
+	case WIRE_DUALOPEND_CHANNEL_LOCKED: return "WIRE_DUALOPEND_CHANNEL_LOCKED";
+	case WIRE_DUALOPEND_DEPTH_REACHED: return "WIRE_DUALOPEND_DEPTH_REACHED";
 	case WIRE_DUALOPEND_DEV_MEMLEAK: return "WIRE_DUALOPEND_DEV_MEMLEAK";
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY: return "WIRE_DUALOPEND_DEV_MEMLEAK_REPLY";
 	}
@@ -53,6 +56,9 @@ bool dualopend_wire_is_defined(u16 type)
 	case WIRE_DUALOPEND_OPENER_INIT:;
 	case WIRE_DUALOPEND_FUNDING_SIGS:;
 	case WIRE_DUALOPEND_SEND_TX_SIGS:;
+	case WIRE_DUALOPEND_TX_SIGS_SENT:;
+	case WIRE_DUALOPEND_CHANNEL_LOCKED:;
+	case WIRE_DUALOPEND_DEPTH_REACHED:;
 	case WIRE_DUALOPEND_DEV_MEMLEAK:;
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:;
 	      return true;
@@ -481,6 +487,72 @@ bool fromwire_dualopend_send_tx_sigs(const tal_t *ctx, const void *p, struct wal
 	return cursor != NULL;
 }
 
+/* WIRE: DUALOPEND_TX_SIGS_SENT */
+/* dualopend->master tx sigs transmitted to peer */
+u8 *towire_dualopend_tx_sigs_sent(const tal_t *ctx)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_TX_SIGS_SENT);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_tx_sigs_sent(const void *p)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_TX_SIGS_SENT)
+		return false;
+	return cursor != NULL;
+}
+
+/* WIRE: DUALOPEND_CHANNEL_LOCKED */
+/* dualopend->master this channel has been locked */
+u8 *towire_dualopend_channel_locked(const tal_t *ctx, const struct per_peer_state *pps, const struct pubkey *remote_per_commit)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_CHANNEL_LOCKED);
+	towire_per_peer_state(&p, pps);
+	towire_pubkey(&p, remote_per_commit);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_channel_locked(const tal_t *ctx, const void *p, struct per_peer_state **pps, struct pubkey *remote_per_commit)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_CHANNEL_LOCKED)
+		return false;
+ 	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
+ 	fromwire_pubkey(&cursor, &plen, remote_per_commit);
+	return cursor != NULL;
+}
+
+/* WIRE: DUALOPEND_DEPTH_REACHED */
+/* master->dualopend funding reached depth; tell peer */
+u8 *towire_dualopend_depth_reached(const tal_t *ctx, u32 depth)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_DEPTH_REACHED);
+	towire_u32(&p, depth);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_depth_reached(const void *p, u32 *depth)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_DEPTH_REACHED)
+		return false;
+ 	*depth = fromwire_u32(&cursor, &plen);
+	return cursor != NULL;
+}
+
 /* WIRE: DUALOPEND_DEV_MEMLEAK */
 /* master -> dualopend: do you have a memleak? */
 u8 *towire_dualopend_dev_memleak(const tal_t *ctx)
@@ -521,4 +593,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:b209a8683f1e9cbdc9f64302b70b86b2d66ac8fa917e3f1e482fda64f92c20a2
+// SHA256STAMP:420b9d30d0ecd89f962dee16c410c54f9ac7852dd5ab02c05730ab07ebc6bece
