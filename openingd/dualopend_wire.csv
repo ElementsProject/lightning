@@ -64,7 +64,6 @@ msgdata,dualopend_commit_rcvd,pbase,?penalty_base,
 msgdata,dualopend_commit_rcvd,first_commit_sig,bitcoin_signature,
 msgdata,dualopend_commit_rcvd,psbt,wally_psbt,
 msgdata,dualopend_commit_rcvd,channel_id,channel_id,
-msgdata,dualopend_commit_rcvd,pps,per_peer_state,
 msgdata,dualopend_commit_rcvd,revocation_basepoint,pubkey,
 msgdata,dualopend_commit_rcvd,payment_basepoint,pubkey,
 msgdata,dualopend_commit_rcvd,htlc_basepoint,pubkey,
@@ -77,9 +76,6 @@ msgdata,dualopend_commit_rcvd,funding_satoshis,amount_sat,
 msgdata,dualopend_commit_rcvd,our_funding_sats,amount_sat,
 msgdata,dualopend_commit_rcvd,channel_flags,u8,
 msgdata,dualopend_commit_rcvd,feerate_per_kw,u32,
-# our commitment signatures, for the peer
-msgdata,dualopend_commit_rcvd,msglen,u16,
-msgdata,dualopend_commit_rcvd,commitment_msg,u8,msglen
 msgdata,dualopend_commit_rcvd,our_channel_reserve_satoshis,amount_sat,
 msgdata,dualopend_commit_rcvd,local_shutdown_len,u16,
 msgdata,dualopend_commit_rcvd,local_shutdown_scriptpubkey,u8,local_shutdown_len

@@ -146,10 +146,10 @@ struct state {
 
 	bool funding_locked[NUM_SIDES];
 
+	/* PSBT of the funding tx */
 	struct wally_psbt *psbt;
 };
 
-#if EXPERIMENTAL_FEATURES
 /* psbt_changeset_get_next - Get next message to send
  *
  * This generates the next message to send from a changeset for the
@@ -1307,12 +1307,11 @@ static bool run_tx_interactive(struct state *state,
 	return true;
 }
 
-static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
+static void accepter_start(struct state *state, const u8 *oc2_msg)
 {
 	struct bitcoin_blkid chain_hash;
 	struct tlv_opening_tlvs *open_tlv;
 	u8 channel_flags;
-	struct wally_psbt *psbt;
 	char *err_reason;
 	const u8 *wscript;
 	struct channel_id cid;
@@ -1373,7 +1372,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 				   type_to_string(tmpctx,
 						  struct bitcoin_blkid,
 						  &chain_hash));
-		return NULL;
+		return;
 	}
 
 	/* BOLT #2:
@@ -1390,7 +1389,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 				   "opener's funding_satoshis %s too large",
 				   type_to_string(tmpctx, struct amount_sat,
 						  &state->opener_funding));
-		return NULL;
+		return;
 	}
 
 	/* We can figure out the channel id now */
@@ -1424,17 +1423,17 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 		u8 *errmsg = towire_errorfmt(tmpctx, &state->channel_id,
 					     "%s", err_reason);
 		sync_crypto_write(state->pps, take(errmsg));
-		return NULL;
+		return;
 	}
 	if (!fromwire_dualopend_got_offer_reply(state, msg,
 						&state->accepter_funding,
 						&state->feerate_per_kw_funding,
-						&psbt,
+						&state->psbt,
 						&state->upfront_shutdown_script[LOCAL]))
 		master_badmsg(WIRE_DUALOPEND_GOT_OFFER_REPLY, msg);
 
-	if (!psbt)
-		psbt = create_psbt(state, 0, 0, state->tx_locktime);
+	if (!state->psbt)
+		state->psbt = create_psbt(state, 0, 0, state->tx_locktime);
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, state->opener_funding,
@@ -1462,11 +1461,11 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 				   "total funding_satoshis %s too large",
 				   type_to_string(tmpctx, struct amount_sat,
 						  &total));
-		return NULL;
+		return;
 	}
 
 	/* Add all of our inputs/outputs to the changeset */
-	init_changeset(state, psbt);
+	init_changeset(state, state->psbt);
 
 	/* Now that we know the total of the channel, we can set the reserve */
 	set_reserve(state, total);
@@ -1481,7 +1480,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 				 true, /* v2 means we use anchor outputs */
 				 &err_reason)) {
 		negotiation_failed(state, false, "%s", err_reason);
-		return NULL;
+		return;
 	}
 
 	/* If we have an upfront shutdown script, send it to our peer */
@@ -1519,26 +1518,29 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 	 * to an invalid number, 1 (initiator sets; valid is even) */
 	state->funding_serial = 1;
 	/* Figure out what the funding transaction looks like! */
-	if (!run_tx_interactive(state, &psbt, TX_ACCEPTER))
-		return NULL;
+	if (!run_tx_interactive(state, &state->psbt, TX_ACCEPTER))
+		return;
 
 	/* Find the funding transaction txid */
-	psbt_txid(NULL, psbt, &state->funding_txid, NULL);
+	psbt_txid(NULL, state->psbt, &state->funding_txid, NULL);
 
 	wscript = bitcoin_redeem_2of2(state,
 				      &state->our_funding_pubkey,
 				      &state->their_funding_pubkey);
 
 	/* Figure out the txout */
-	if (!find_txout(psbt, scriptpubkey_p2wsh(tmpctx, wscript), &state->funding_txout))
+	if (!find_txout(state->psbt,
+			scriptpubkey_p2wsh(tmpctx, wscript),
+			&state->funding_txout))
 		peer_failed(state->pps, &state->channel_id,
 			    "Expected output %s not found on funding tx %s",
 			    tal_hex(tmpctx, scriptpubkey_p2wsh(tmpctx, wscript)),
-			    type_to_string(tmpctx, struct wally_psbt, psbt));
+			    type_to_string(tmpctx, struct wally_psbt,
+					   state->psbt));
 
 	/* Check tx funds are sane */
 	err_reason = check_balances(tmpctx, state,
-				    psbt,
+				    state->psbt,
 				    state->feerate_per_kw_funding);
 	if (err_reason)
 		negotiation_failed(state, false,
@@ -1547,12 +1549,12 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 				   err_reason,
 				   type_to_string(tmpctx,
 						  struct wally_psbt,
-						  psbt));
+						  state->psbt));
 
 	/* Wait for the peer to send us our commitment tx signature */
 	msg = opening_negotiate_msg(tmpctx, state, false);
 	if (!msg)
-		return NULL;
+		return;
 
 	remote_sig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_commitment_signed(tmpctx, msg, &cid,
@@ -1602,7 +1604,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 		negotiation_failed(state, false,
 				   "Could not meet our fees and reserve: %s",
 				   err_reason);
-		return NULL;
+		return;
 	}
 
 	/* BOLT #2:
@@ -1641,7 +1643,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 			    type_to_string(tmpctx, struct bitcoin_txid,
 					   &state->funding_txid),
 			    type_to_string(tmpctx, struct wally_psbt,
-					   psbt));
+					   state->psbt));
 	}
 
 	/* Create commitment tx signatures for remote */
@@ -1652,7 +1654,7 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 	if (!remote_commit) {
 		negotiation_failed(state, false,
 				   "Could not meet their fees and reserve: %s", err_reason);
-		return NULL;
+		return;
 	}
 
 	/* Make HSM sign it */
@@ -1668,46 +1670,56 @@ static u8 *accepter_start(struct state *state, const u8 *oc2_msg)
 			      "Bad sign_tx_reply %s", tal_hex(tmpctx, msg));
 
 	assert(local_sig.sighash_type == SIGHASH_ALL);
-	msg = towire_commitment_signed(tmpctx, &state->channel_id,
-				       &local_sig.s,
-				       NULL);
-
 	if (direct_outputs[LOCAL])
 		pbase = penalty_base_new(tmpctx, 0, remote_commit,
 					 direct_outputs[LOCAL]);
 	else
 		pbase = NULL;
 
-	/* Send the commitment_signed controller; will save to db
-	 * and pass messages along to channeld to send along! */
-	return towire_dualopend_commit_rcvd(state,
-					    &state->remoteconf,
-					    remote_commit,
-					    pbase,
-					    &remote_sig,
-					    psbt,
-					    &state->channel_id,
-					    state->pps,
-					    &state->their_points.revocation,
-					    &state->their_points.payment,
-					    &state->their_points.htlc,
-					    &state->their_points.delayed_payment,
-					    &state->first_per_commitment_point[REMOTE],
-					    &state->their_funding_pubkey,
-					    &state->funding_txid,
-					    state->funding_txout,
-					    total,
-					    state->accepter_funding,
-					    channel_flags,
-					    state->feerate_per_kw_commitment,
-					    msg,
-					    state->localconf.channel_reserve,
-					    state->upfront_shutdown_script[LOCAL],
-					    state->upfront_shutdown_script[REMOTE]);
-}
-#endif /* EXPERIMENTAL_FEATURES */
+	/* Send the commitment_signed controller; will save to db,
+	 * then wait to get our sigs back */
+	msg = towire_dualopend_commit_rcvd(state,
+					   &state->remoteconf,
+					   remote_commit,
+					   pbase,
+					   &remote_sig,
+					   state->psbt,
+					   &state->channel_id,
+					   &state->their_points.revocation,
+					   &state->their_points.payment,
+					   &state->their_points.htlc,
+					   &state->their_points.delayed_payment,
+					   &state->first_per_commitment_point[REMOTE],
+					   &state->their_funding_pubkey,
+					   &state->funding_txid,
+					   state->funding_txout,
+					   total,
+					   state->accepter_funding,
+					   channel_flags,
+					   state->feerate_per_kw_commitment,
+					   state->localconf.channel_reserve,
+					   state->upfront_shutdown_script[LOCAL],
+					   state->upfront_shutdown_script[REMOTE]);
+	/* Normally we would end dualopend here (and in fact this
+	 * is where openingd ends). However, now we wait for both our peer
+	 * to send us the tx sigs *and* for master to send us the tx sigs. */
+	wire_sync_write(REQ_FD, take(msg));
+	msg = wire_sync_read(tmpctx, REQ_FD);
 
-static u8 *opener_start(struct state *state, u8 *msg)
+	if (fromwire_peektype(msg) != WIRE_DUALOPEND_SEND_TX_SIGS)
+		master_badmsg(WIRE_DUALOPEND_SEND_TX_SIGS, msg);
+
+	/* Send our commitment sigs over now */
+	sync_crypto_write(state->pps,
+			  take(towire_commitment_signed(NULL,
+							&state->channel_id,
+							&local_sig.s, NULL)));
+
+	/* Finally, send our funding tx sigs */
+	handle_send_tx_sigs(state, msg);
+}
+
+static void opener_start(struct state *state, u8 *msg)
 {
 	struct tlv_opening_tlvs *open_tlv;
 	struct tlv_accept_tlvs *a_tlv;
@@ -1715,7 +1727,6 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	char *err_reason;
 	struct amount_sat total;
 	struct amount_msat our_msats;
-	struct wally_psbt *psbt;
 	struct wally_psbt_output *funding_out;
 	struct sha256 podle;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
@@ -1728,7 +1739,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	u32 feerate_min, feerate_max, feerate_best;
 
 	if (!fromwire_dualopend_opener_init(state, msg,
-					    &psbt,
+					    &state->psbt,
 					    &state->opener_funding,
 					    &state->upfront_shutdown_script[LOCAL],
 					    &state->feerate_per_kw_commitment,
@@ -1737,7 +1748,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 		master_badmsg(WIRE_DUALOPEND_OPENER_INIT, msg);
 
 	state->our_role = TX_INITIATOR;
-	state->tx_locktime = psbt->tx->locktime;
+	state->tx_locktime = state->psbt->tx->locktime;
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
 
 	feerate_min = state->min_feerate;
@@ -1803,7 +1814,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	/* ... since their reply should be immediate. */
 	msg = opening_negotiate_msg(tmpctx, state, true);
 	if (!msg)
-		return NULL;
+		return;
 
 	/* Set a cid default value, so on failure it's populated */
 	memset(&cid, 0xFF, sizeof(cid));
@@ -1886,7 +1897,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 				   "total funding_satoshis %s too large",
 				   type_to_string(tmpctx, struct amount_sat,
 						  &total));
-		return NULL;
+		return;
 	}
 
 	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
@@ -1898,16 +1909,19 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	wscript = bitcoin_redeem_2of2(state,
 				      &state->our_funding_pubkey,
 				      &state->their_funding_pubkey);
-	funding_out = psbt_append_output(psbt,
+	funding_out = psbt_append_output(state->psbt,
 					 scriptpubkey_p2wsh(tmpctx,
 							    wscript),
 					 total);
 	/* Add a serial_id for this output */
-	state->funding_serial = psbt_new_input_serial(psbt, TX_INITIATOR);
-	psbt_output_set_serial_id(psbt, funding_out, state->funding_serial);
+	state->funding_serial = psbt_new_input_serial(state->psbt,
+						      TX_INITIATOR);
+	psbt_output_set_serial_id(state->psbt,
+				  funding_out,
+				  state->funding_serial);
 
 	/* Add all of our inputs/outputs to the changeset */
-	init_changeset(state, psbt);
+	init_changeset(state, state->psbt);
 
 	/* Now that we know the total of the channel, we can
 	 * set the reserve */
@@ -1922,31 +1936,31 @@ static u8 *opener_start(struct state *state, u8 *msg)
 				 true, true, /* v2 means we use anchor outputs */
 				 &err_reason)) {
 		negotiation_failed(state, false, "%s", err_reason);
-		return NULL;
+		return;
 	}
 
 	/* Send our first message, we're opener we initiate here */
-	if (!send_next(state, &psbt))
+	if (!send_next(state, &state->psbt))
 		negotiation_failed(state, true,
 				   "Peer error, no updates to send");
 
 	/* Figure out what the funding transaction looks like! */
-	if (!run_tx_interactive(state, &psbt, TX_INITIATOR))
-		return NULL;
+	if (!run_tx_interactive(state, &state->psbt, TX_INITIATOR))
+		return;
 
-	psbt_txid(NULL, psbt, &state->funding_txid, NULL);
+	psbt_txid(NULL, state->psbt, &state->funding_txid, NULL);
 
 	/* Figure out the txout */
-	if (!find_txout(psbt, scriptpubkey_p2wsh(tmpctx, wscript),
+	if (!find_txout(state->psbt, scriptpubkey_p2wsh(tmpctx, wscript),
 			&state->funding_txout))
 		peer_failed(state->pps, &state->channel_id,
 			    "Expected output %s not found on funding tx %s",
 			    tal_hex(tmpctx, scriptpubkey_p2wsh(tmpctx, wscript)),
-			    type_to_string(tmpctx, struct wally_psbt, psbt));
+			    type_to_string(tmpctx, struct wally_psbt,
+					   state->psbt));
 
 	/* Check tx funds are sane */
-	err_reason = check_balances(tmpctx, state,
-				    psbt,
+	err_reason = check_balances(tmpctx, state, state->psbt,
 				    state->feerate_per_kw_funding);
 	if (err_reason)
 		negotiation_failed(state, true,
@@ -1955,7 +1969,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 				   err_reason,
 				   type_to_string(tmpctx,
 						  struct wally_psbt,
-						  psbt));
+						  state->psbt));
 
 	if (!amount_sat_to_msat(&our_msats, state->opener_funding))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1993,7 +2007,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 		negotiation_failed(state, true,
 				   "Could not meet their fees and reserve: %s",
 				   err_reason);
-		return NULL;
+		return;
 	}
 
 
@@ -2031,7 +2045,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 	/* Wait for the peer to send us our commitment tx signature */
 	msg = opening_negotiate_msg(tmpctx, state, true);
 	if (!msg)
-		return NULL;
+		return;
 
 	remote_sig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_commitment_signed(tmpctx, msg, &cid,
@@ -2057,7 +2071,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 		negotiation_failed(state, false,
 				   "Could not meet our fees and reserve: %s",
 				   err_reason);
-		return NULL;
+		return;
 	}
 
 	/* BOLT #2:
@@ -2096,7 +2110,7 @@ static u8 *opener_start(struct state *state, u8 *msg)
 			    type_to_string(tmpctx, struct bitcoin_txid,
 					   &state->funding_txid),
 			    type_to_string(tmpctx, struct wally_psbt,
-					   psbt));
+					   state->psbt));
 	}
 
 	if (direct_outputs[LOCAL])
@@ -2107,31 +2121,34 @@ static u8 *opener_start(struct state *state, u8 *msg)
 
 	peer_billboard(false, "channel open: commitment received, "
 		       "sending to lightningd to save");
-	return towire_dualopend_commit_rcvd(state,
-					    &state->remoteconf,
-					    remote_commit,
-					    pbase,
-					    &remote_sig,
-					    psbt,
-					    &state->channel_id,
-					    state->pps,
-					    &state->their_points.revocation,
-					    &state->their_points.payment,
-					    &state->their_points.htlc,
-					    &state->their_points.delayed_payment,
-					    &state->first_per_commitment_point[REMOTE],
-					    &state->their_funding_pubkey,
-					    &state->funding_txid,
-					    state->funding_txout,
-					    total,
-					    state->opener_funding,
-					    channel_flags,
-					    state->feerate_per_kw_commitment,
-					    NULL,
-					    state->localconf.channel_reserve,
-					    state->upfront_shutdown_script[LOCAL],
-					    state->upfront_shutdown_script[REMOTE]);
 
+	msg = towire_dualopend_commit_rcvd(NULL,
+					   &state->remoteconf,
+					   remote_commit,
+					   pbase,
+					   &remote_sig,
+					   state->psbt,
+					   &state->channel_id,
+					   &state->their_points.revocation,
+					   &state->their_points.payment,
+					   &state->their_points.htlc,
+					   &state->their_points.delayed_payment,
+					   &state->first_per_commitment_point[REMOTE],
+					   &state->their_funding_pubkey,
+					   &state->funding_txid,
+					   state->funding_txout,
+					   total,
+					   state->opener_funding,
+					   channel_flags,
+					   state->feerate_per_kw_commitment,
+					   state->localconf.channel_reserve,
+					   state->upfront_shutdown_script[LOCAL],
+					   state->upfront_shutdown_script[REMOTE]);
+
+	/* Normally we would end dualopend here (and in fact this
+	 * is where openingd ends). However, now we wait for both our peer
+	 * to send us the tx sigs *and* for master to send us the tx sigs. */
+	wire_sync_write(REQ_FD, take(msg));
 }
 
 /*~ If we see the gossip_fd readable, we read a whole message.  Sure, we might
@@ -2187,9 +2204,11 @@ static u8 *handle_master_in(struct state *state)
 #endif
 		return NULL;
 	case WIRE_DUALOPEND_OPENER_INIT:
-		return opener_start(state, msg);
+		opener_start(state, msg);
+		return NULL;
 	case WIRE_DUALOPEND_SEND_TX_SIGS:
-		return handle_send_tx_sigs(state, msg);
+		handle_send_tx_sigs(state, msg);
+		return NULL;
 	/* mostly handled inline */
 	case WIRE_DUALOPEND_INIT:
 	case WIRE_DUALOPEND_FUNDING_SIGS:
@@ -2231,9 +2250,10 @@ static u8 *handle_peer_in(struct state *state)
 	enum peer_wire t = fromwire_peektype(msg);
 	struct channel_id channel_id;
 
-	if (t == WIRE_OPEN_CHANNEL2)
-		return accepter_start(state, msg);
-	if (t == WIRE_TX_SIGNATURES) {
+	if (t == WIRE_OPEN_CHANNEL2) {
+		accepter_start(state, msg);
+		return NULL;
+	} else if (t == WIRE_TX_SIGNATURES) {
 		handle_tx_sigs(state, msg);
 		return NULL;
 	}
