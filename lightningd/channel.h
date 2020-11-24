@@ -157,6 +157,9 @@ struct channel {
 
 	/* Last known state_change cause */
 	enum state_change state_change_cause;
+
+	/* Outstanding command for this channel, v2 only */
+	struct command *openchannel_signed_cmd;
 };
 
 struct channel *new_channel(struct peer *peer, u64 dbid,

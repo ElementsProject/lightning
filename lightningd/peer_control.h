@@ -52,15 +52,6 @@ struct peer {
 #endif
 };
 
-struct open_command {
-	/* Inside struct lightningd open_commands. */
-	struct list_node list;
-	/* Command structure. This is the parent of the open command. */
-	struct command *cmd;
-	/* Channel being opened. */
-	struct channel *channel;
-};
-
 struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid);
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
@@ -98,16 +89,6 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel, bool cooperat
 void channel_watch_funding(struct lightningd *ld, struct channel *channel);
 
 struct amount_msat channel_amount_receivable(const struct channel *channel);
-
-/* Find the open command that was registered for this channel */
-struct open_command *find_open_command(struct lightningd *ld,
-				       const struct channel *channel);
-
-/* Save an `openchannel_signed` command */
-void register_open_command(struct lightningd *ld,
-			   struct command *cmd,
-			   struct channel *channel);
-
 
 /* Pull peers, channels and HTLCs from db, and wire them up.
  * Returns any HTLCs we have to resubmit via htlcs_resubmit. */

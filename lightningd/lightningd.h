@@ -179,8 +179,6 @@ struct lightningd {
 	struct list_head sendpay_commands;
 	/* Outstanding close commands. */
 	struct list_head close_commands;
-	/* Outstanding openchannel_signed commands. */
-	struct list_head open_commands;
 	/* Outstanding ping commands. */
 	struct list_head ping_commands;
 
