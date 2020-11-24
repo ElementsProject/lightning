@@ -464,7 +464,7 @@ openchannel2_changed_deserialize(struct openchannel2_psbt_payload *payload,
 	struct wally_psbt *psbt;
 
 	if (!hook_extract_psbt(NULL, dualopend, buffer,
-			       toks, "openchannel2_sign",
+			       toks, "openchannel2_changed",
 			       false, &psbt))
 		return false;
 
