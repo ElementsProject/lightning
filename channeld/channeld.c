@@ -30,6 +30,7 @@
 #include <channeld/commit_tx.h>
 #include <channeld/full_channel.h>
 #include <channeld/watchtower.h>
+#include <common/billboard.h>
 #include <common/blinding.h>
 #include <common/coin_mvt.h>
 #include <common/crypto_sync.h>
@@ -191,48 +192,13 @@ static void start_commit_timer(struct peer *peer);
 
 static void billboard_update(const struct peer *peer)
 {
-	const char *funding_status, *announce_status,
-		*shutdown_status COMPILER_WANTS_INIT("gcc 8.3.0");
+	const char *update = billboard_message(tmpctx, peer->funding_locked,
+					       peer->have_sigs,
+					       peer->shutdown_sent,
+					       peer->depth_togo,
+					       num_channel_htlcs(peer->channel));
 
-	if (peer->funding_locked[LOCAL] && peer->funding_locked[REMOTE])
-		funding_status = "Funding transaction locked.";
-	else if (!peer->funding_locked[LOCAL] && !peer->funding_locked[REMOTE])
-		funding_status = tal_fmt(tmpctx,
-					"Funding needs %d more confirmations for lockin.",
-					peer->depth_togo);
-	else if (peer->funding_locked[LOCAL] && !peer->funding_locked[REMOTE])
-		funding_status = "We've confirmed funding, they haven't yet.";
-	else if (!peer->funding_locked[LOCAL] && peer->funding_locked[REMOTE])
-		funding_status = "They've confirmed funding, we haven't yet.";
-
-	if (peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE])
-		announce_status = " Channel announced.";
-	else if (peer->have_sigs[LOCAL] && !peer->have_sigs[REMOTE])
-		announce_status = " Waiting for their announcement signatures.";
-	else if (!peer->have_sigs[LOCAL] && peer->have_sigs[REMOTE])
-		announce_status = " They need our announcement signatures.";
-	else if (!peer->have_sigs[LOCAL] && !peer->have_sigs[REMOTE])
-		announce_status = "";
-
-	if (!peer->shutdown_sent[LOCAL] && !peer->shutdown_sent[REMOTE])
-		shutdown_status = "";
-	else if (peer->shutdown_sent[LOCAL] && !peer->shutdown_sent[REMOTE])
-		shutdown_status = " We've send shutdown, waiting for theirs";
-	else if (!peer->shutdown_sent[LOCAL] && peer->shutdown_sent[REMOTE])
-		shutdown_status = " They've sent shutdown, waiting for ours";
-	else if (peer->shutdown_sent[LOCAL] && peer->shutdown_sent[REMOTE]) {
-		size_t num_htlcs = num_channel_htlcs(peer->channel);
-		if (num_htlcs)
-			shutdown_status = tal_fmt(tmpctx,
-						  " Shutdown messages exchanged,"
-						  " waiting for %zu HTLCs to complete.",
-						  num_htlcs);
-		else
-			shutdown_status = tal_fmt(tmpctx,
-						  " Shutdown messages exchanged.");
-	}
-	peer_billboard(false, "%s%s%s", funding_status,
-		       announce_status, shutdown_status);
+	peer_billboard(false, update);
 }
 
 static const u8 *hsm_req(const tal_t *ctx, const u8 *req TAKES)
