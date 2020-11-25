@@ -280,6 +280,9 @@ static void connected_to_peer(struct daemon *daemon,
 {
 	struct connecting *outgoing;
 
+	/* Don't call destroy_io_conn */
+	io_set_finish(conn, NULL, NULL);
+
 	/* We allocate 'conn' as a child of 'connect': we don't want to free
 	 * it just yet though.  tal_steal() it onto the permanent 'daemon'
 	 * struct. */
