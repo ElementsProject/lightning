@@ -163,6 +163,13 @@ const jsmntok_t *json_delve(const char *buffer,
  */
 void json_add_string(struct json_stream *result, const char *fieldname, const char *value);
 
+/* '"fieldname" : "value[:value_len]"' or '"value[:value_len]"' if
+ * fieldname is NULL.  Turns any non-printable chars into JSON
+ * escapes, but leaves existing escapes alone.
+ */
+void json_add_stringn(struct json_stream *result, const char *fieldname,
+		      const char *value TAKES, size_t value_len);
+
 /* '"fieldname" : "value"' or '"value"' if fieldname is NULL.  String must
  * already be JSON escaped as necessary. */
 void json_add_escaped_string(struct json_stream *result,

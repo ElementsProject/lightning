@@ -784,11 +784,17 @@ void json_add_literal(struct json_stream *result, const char *fieldname,
 		memcpy(dest, literal, strlen(literal));
 }
 
-void json_add_string(struct json_stream *result, const char *fieldname, const char *value TAKES)
+void json_add_stringn(struct json_stream *result, const char *fieldname,
+		      const char *value TAKES, size_t value_len)
 {
-	json_add_member(result, fieldname, true, "%s", value);
+	json_add_member(result, fieldname, true, "%.*s", (int)value_len, value);
 	if (taken(value))
 		tal_free(value);
+}
+
+void json_add_string(struct json_stream *result, const char *fieldname, const char *value TAKES)
+{
+	json_add_stringn(result, fieldname, value, strlen(value));
 }
 
 void json_add_bool(struct json_stream *result, const char *fieldname, bool value)
