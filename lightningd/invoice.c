@@ -233,42 +233,20 @@ static const u8 *hook_gives_failmsg(const tal_t *ctx,
 }
 
 static void
-invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload STEALS,
-			const char *buffer,
-			const jsmntok_t *toks)
+invoice_payment_hooks_done(struct invoice_payment_hook_payload *payload STEALS)
 {
-	struct lightningd *ld = payload->ld;
 	struct invoice invoice;
-	const u8 *failmsg;
-
-	/* We notify here to benefit from the payload and because the hook callback is
-	 * called even if the hook is not registered. */
-	notify_invoice_payment(ld, payload->msat, payload->preimage, payload->label);
+	struct lightningd *ld = payload->ld;
 
 	tal_del_destructor2(payload->set, invoice_payload_remove_set, payload);
 	/* We want to free this, whatever happens. */
 	tal_steal(tmpctx, payload);
-
-	/* If peer dies or something, this can happen. */
-	if (!payload->set) {
-		log_debug(ld->log, "invoice '%s' paying htlc_in has gone!",
-			  payload->label->s);
-		return;
-	}
 
 	/* If invoice gets paid meanwhile (plugin responds out-of-order?) then
 	 * we can also fail */
 	if (!wallet_invoice_find_by_label(ld->wallet, &invoice, payload->label)) {
 		htlc_set_fail(payload->set, take(failmsg_incorrect_or_unknown(
 							 NULL, ld, payload->set->htlcs[0])));
-		return;
-	}
-
-	/* Did we have a hook result? */
-	failmsg = hook_gives_failmsg(NULL, ld,
-				     payload->set->htlcs[0], buffer, toks);
-	if (failmsg) {
-		htlc_set_fail(payload->set, take(failmsg));
 		return;
 	}
 
@@ -280,10 +258,36 @@ invoice_payment_hook_cb(struct invoice_payment_hook_payload *payload STEALS,
 	htlc_set_fulfill(payload->set, &payload->preimage);
 }
 
-REGISTER_SINGLE_PLUGIN_HOOK(invoice_payment,
-			    invoice_payment_hook_cb,
-			    invoice_payment_serialize,
-			    struct invoice_payment_hook_payload *);
+static bool
+invoice_payment_deserialize(struct invoice_payment_hook_payload *payload,
+			    const char *buffer,
+			    const jsmntok_t *toks)
+{
+	struct lightningd *ld = payload->ld;
+	const u8 *failmsg;
+
+	/* If peer dies or something, this can happen. */
+	if (!payload->set) {
+		log_debug(ld->log, "invoice '%s' paying htlc_in has gone!",
+			  payload->label->s);
+		return false;
+	}
+
+	/* Did we have a hook result? */
+	failmsg = hook_gives_failmsg(NULL, ld,
+				     payload->set->htlcs[0], buffer, toks);
+	if (failmsg) {
+		htlc_set_fail(payload->set, take(failmsg));
+		return false;
+	}
+	return true;
+}
+
+REGISTER_PLUGIN_HOOK(invoice_payment,
+		     invoice_payment_deserialize,
+		     invoice_payment_hooks_done,
+		     invoice_payment_serialize,
+		     struct invoice_payment_hook_payload *);
 
 const struct invoice_details *
 invoice_check_payment(const tal_t *ctx,
@@ -392,6 +396,8 @@ void invoice_try_pay(struct lightningd *ld,
 	payload->preimage = details->r;
 	payload->set = set;
 	tal_add_destructor2(set, invoice_payload_remove_set, payload);
+
+	notify_invoice_payment(ld, payload->msat, payload->preimage, payload->label);
 
 	plugin_hook_call_invoice_payment(ld, payload);
 }
