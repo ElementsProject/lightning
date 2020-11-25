@@ -41,6 +41,28 @@ bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str)
 	return strncmp(buffer + tok->start, str, tok->end - tok->start) == 0;
 }
 
+bool json_tok_startswith(const char *buffer, const jsmntok_t *tok,
+			 const char *prefix)
+{
+	if (tok->type != JSMN_STRING)
+		return false;
+	if (tok->end - tok->start < strlen(prefix))
+		return false;
+	return memcmp(buffer + tok->start,
+		      prefix, strlen(prefix)) == 0;
+}
+
+bool json_tok_endswith(const char *buffer, const jsmntok_t *tok,
+		       const char *suffix)
+{
+	if (tok->type != JSMN_STRING)
+		return false;
+	if (tok->end - tok->start < strlen(suffix))
+		return false;
+	return memcmp(buffer + tok->end - strlen(suffix),
+		      suffix, strlen(suffix)) == 0;
+}
+
 char *json_strdup(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
 {
 	return tal_strndup(ctx, buffer + tok->start, tok->end - tok->start);

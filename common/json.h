@@ -26,6 +26,14 @@ int json_tok_full_len(const jsmntok_t *t);
 /* Is this a string equal to str? */
 bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str);
 
+/* Does this string token start with prefix? */
+bool json_tok_startswith(const char *buffer, const jsmntok_t *tok,
+			 const char *prefix);
+
+/* Does this string token end with suffix? */
+bool json_tok_endswith(const char *buffer, const jsmntok_t *tok,
+		       const char *suffix);
+
 /* Allocate a tal string copy */
 char *json_strdup(const tal_t *ctx, const char *buffer, const jsmntok_t *tok);
 
