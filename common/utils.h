@@ -72,6 +72,12 @@ void tal_arr_remove_(void *p, size_t elemsize, size_t n);
 void *tal_dup_talarr_(const tal_t *ctx, const tal_t *src TAKES,
 		      const char *label);
 
+/* Check for valid UTF-8 */
+bool utf8_check(const void *buf, size_t buflen);
+
+/* Check it's UTF-8, return copy (or same if TAKES), or NULL if not valid. */
+char *utf8_str(const tal_t *ctx, const u8 *buf TAKES, size_t buflen);
+
 /* Use the POSIX C locale. */
 void setup_locale(void);
 

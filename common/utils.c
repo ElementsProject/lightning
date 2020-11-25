@@ -3,6 +3,8 @@
 #include <ccan/list/list.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
+#include <ccan/utf8/utf8.h>
+#include <errno.h>
 #include <locale.h>
 
 const tal_t *wally_tal_ctx;
@@ -172,4 +174,39 @@ void *tal_dup_talarr_(const tal_t *ctx, const tal_t *src TAKES, const char *labe
 		return NULL;
 	}
 	return tal_dup_(ctx, src, 1, tal_bytelen(src), 0, label);
+}
+
+/* Check for valid UTF-8 */
+bool utf8_check(const void *vbuf, size_t buflen)
+{
+	const u8 *buf = vbuf;
+	struct utf8_state utf8_state = UTF8_STATE_INIT;
+	bool need_more = false;
+
+	for (size_t i = 0; i < buflen; i++) {
+		if (!utf8_decode(&utf8_state, buf[i])) {
+			need_more = true;
+			continue;
+		}
+		need_more = false;
+		if (errno != 0)
+			return false;
+	}
+	return !need_more;
+}
+
+char *utf8_str(const tal_t *ctx, const u8 *buf TAKES, size_t buflen)
+{
+	char *ret;
+
+	if (!utf8_check(buf, buflen)) {
+		if (taken(buf))
+			tal_free(buf);
+		return NULL;
+	}
+
+	/* Add one for nul term */
+	ret = tal_dup_arr(ctx, char, (const char *)buf, buflen, 1);
+	ret[buflen] = '\0';
+	return ret;
 }
