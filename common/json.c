@@ -325,7 +325,7 @@ JSMN Result Validation Starts
  * This part of the code performs some filtering so
  * that at least some of the invalid JSON that
  * LIBJSMN accepts, will be rejected by
- * json_parse_input.
+ * json_parse_input.  It also checks that strings are valid UTF-8.
  */
 
 /*~ These functions are used in JSMN validation.
@@ -360,7 +360,8 @@ JSMN Result Validation Starts
  */
 /* Validate a *single* datum.  */
 static const jsmntok_t *
-validate_jsmn_datum(const jsmntok_t *p,
+validate_jsmn_datum(const char *buf,
+		    const jsmntok_t *p,
 		    const jsmntok_t *end,
 		    bool *valid);
 /*~ Validate a key-value pair.
@@ -384,12 +385,14 @@ validate_jsmn_datum(const jsmntok_t *p,
  * is to reject such improper arrays and objects.
  */
 static const jsmntok_t *
-validate_jsmn_keyvalue(const jsmntok_t *p,
+validate_jsmn_keyvalue(const char *buf,
+		       const jsmntok_t *p,
 		       const jsmntok_t *end,
 		       bool *valid);
 
 static const jsmntok_t *
-validate_jsmn_datum(const jsmntok_t *p,
+validate_jsmn_datum(const char *buf,
+		    const jsmntok_t *p,
 		    const jsmntok_t *end,
 		    bool *valid)
 {
@@ -402,8 +405,11 @@ validate_jsmn_datum(const jsmntok_t *p,
 	}
 
 	switch (p->type) {
-	case JSMN_UNDEFINED:
 	case JSMN_STRING:
+		if (!utf8_check(buf + p->start, p->end - p->start))
+			*valid = false;
+		/* Fall thru */
+	case JSMN_UNDEFINED:
 	case JSMN_PRIMITIVE:
 		/* These types should not have sub-datums.  */
 		if (p->size != 0)
@@ -418,7 +424,7 @@ validate_jsmn_datum(const jsmntok_t *p,
 		++p;
 		for (i = 0; i < sz; ++i) {
 			/* Arrays should only contain standard JSON datums.  */
-			p = validate_jsmn_datum(p, end, valid);
+			p = validate_jsmn_datum(buf, p, end, valid);
 			if (!*valid)
 				break;
 		}
@@ -430,7 +436,7 @@ validate_jsmn_datum(const jsmntok_t *p,
 		++p;
 		for (i = 0; i < sz; ++i) {
 			/* Objects should only contain key-value pairs.  */
-			p = validate_jsmn_keyvalue(p, end, valid);
+			p = validate_jsmn_keyvalue(buf, p, end, valid);
 			if (!*valid)
 				break;
 		}
@@ -445,7 +451,8 @@ validate_jsmn_datum(const jsmntok_t *p,
 }
 /* Key-value pairs *must* be strings with size 1.  */
 static inline const jsmntok_t *
-validate_jsmn_keyvalue(const jsmntok_t *p,
+validate_jsmn_keyvalue(const char *buf,
+		       const jsmntok_t *p,
 		       const jsmntok_t *end,
 		       bool *valid)
 {
@@ -472,13 +479,14 @@ validate_jsmn_keyvalue(const jsmntok_t *p,
 	 * incidentally rejects that non-standard
 	 * JSON.
 	 */
-	if (p->type != JSMN_STRING || p->size != 1) {
+	if (p->type != JSMN_STRING || p->size != 1
+	    || !utf8_check(buf + p->start, p->end - p->start)) {
 		*valid = false;
 		return p;
 	}
 
 	++p;
-	return validate_jsmn_datum(p, end, valid);
+	return validate_jsmn_datum(buf, p, end, valid);
 }
 
 /** validate_jsmn_parse_output
@@ -525,12 +533,13 @@ validate_jsmn_keyvalue(const jsmntok_t *p,
  * `jsmn_parse`, false otherwise.
  */
 static bool
-validate_jsmn_parse_output(const jsmntok_t *p, const jsmntok_t *end)
+validate_jsmn_parse_output(const char *buf,
+			   const jsmntok_t *p, const jsmntok_t *end)
 {
 	bool valid = true;
 
 	while (p < end && valid)
-		p = validate_jsmn_datum(p, end, &valid);
+		p = validate_jsmn_datum(buf, p, end, &valid);
 
 	return valid;
 }
@@ -583,7 +592,7 @@ again:
 	 * element. */
 	ret = json_next(*toks) - *toks;
 
-	if (!validate_jsmn_parse_output(*toks, *toks + ret))
+	if (!validate_jsmn_parse_output(input, *toks, *toks + ret))
 		return false;
 
 	/* Cut to length and return. */
