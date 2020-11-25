@@ -186,6 +186,10 @@ command_success(struct command *cmd, const struct json_out *result);
 struct command_result *WARN_UNUSED_RESULT
 command_success_str(struct command *cmd, const char *str);
 
+/* End a hook normally (with "result": "continue") */
+struct command_result *WARN_UNUSED_RESULT
+command_hook_success(struct command *cmd);
+
 /* Synchronous helper to send command and extract single field from
  * response; can only be used in init callback. */
 const char *rpc_delve(const tal_t *ctx,
