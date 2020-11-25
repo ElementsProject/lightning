@@ -868,7 +868,7 @@ static struct command_result *
 handle_mfc_change(struct multifundchannel_command *mfc)
 {
 	size_t change_weight;
-	struct amount_sat change_fee;
+	struct amount_sat change_fee, fee_paid, total_fee;
 	struct amount_sat change_min_limit;
 
 	/* Determine if adding a change output is worth it.
@@ -877,7 +877,18 @@ handle_mfc_change(struct multifundchannel_command *mfc)
 	 */
 	change_weight = bitcoin_tx_output_weight(
 				BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
-	change_fee = amount_tx_fee(mfc->feerate_per_kw, change_weight);
+
+	/* To avoid 'off-by-one' errors due to rounding down
+	 * (which we do in `amount_tx_fee`), we find the total calculated
+	 * fees (estimated_weight + change weight @ feerate) and subtract
+	 * the originally calculated fees (estimated_weight @ feerate) */
+	fee_paid = amount_tx_fee(mfc->feerate_per_kw,
+				 mfc->estimated_final_weight);
+	total_fee = amount_tx_fee(mfc->feerate_per_kw,
+				  mfc->estimated_final_weight + change_weight);
+	if (!amount_sat_sub(&change_fee, total_fee, fee_paid))
+		abort();
+
 	/* The limit is equal to the change_fee plus the dust limit.  */
 	if (!amount_sat_add(&change_min_limit,
 			    change_fee, chainparams->dust_limit))
