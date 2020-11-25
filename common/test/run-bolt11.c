@@ -585,8 +585,50 @@ int main(void)
 	assert(!bolt11_decode(tmpctx, "lnbc2500000001p1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5xysxxatsyp3k7enxv4jsxqzpu7hqtk93pkf7sw55rdv4k9z2vj050rxdr6za9ekfs3nlt5lr89jqpdmxsmlj9urqumg0h9wzpqecw7th56tdms40p2ny9q4ddvjsedzcplva53s", NULL, NULL, NULL, &fail));
 	assert(streq(fail, "Invalid sub-millisatoshi amount '2500000001p'"));
 
+	/* Invalid UTF-8 tests. */
+	/* Description: Bad UTF-8: 0xC0" */
+	assert(!bolt11_decode(tmpctx, "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5gfskggz423rz6wp6yrqqcqpjkkrsmq07c4ht7qgjdmf2a8savsafcy8lqn4av4gs80gz88ff2y780tdcve7sxp80kd4vk7hajt5mskcsegz2qfll4jywfwhap2q2n6cqyz5tv4", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "d: invalid utf8"));
+
+	/* Description: Bad UTF-8: 0xC020" */
+	assert(!bolt11_decode(tmpctx, "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq4gfskggz423rz6wp6yrqzqcqpj30cjfyveywx7wk4gl45ua4g3hcsd9hp0qqtudua0529gfd5cp7kytnttu6dw0yp24v9aefvxamsdvrks9rsqr53ukrexf0vqp8fffusql6q3x4", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "d: invalid utf8"));
+
+	/* Description: Bad UTF-8: 0xE0" */
+	assert(!bolt11_decode(tmpctx, "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5gfskggz423rz6wp6yrsqcqpjw6tys4p5m7nxw8ykl6pfqvms4pcnjky9san7rvxvyg9vf9symke49rqfrqdcrtn33qnxpt738crh3arm2dqwqkk00324me6dzcqfrdcpj2echr", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "d: invalid utf8"));
+
+	/* Description: Bad UTF-8: 0xE0A0" */
+	assert(!bolt11_decode(tmpctx, "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq4gfskggz423rz6wp6yrs2qcqpjmhm55ful0ms5m77rvv2mkld2s9cx2d9syyva5gwc5y7xdtsjwxl8f9nwdftdc64fqwgczxmn00zftry9wj9gsw5tqm9m4nwr75sw9dsq85re9l", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "d: invalid utf8"));
+
+	/* Description: Bad UTF-8: 0xE0A020" */
+	assert(!bolt11_decode(tmpctx, "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdqhgfskggz423rz6wp6yrs2qgqcqpjwm32zdhpftqqp03lsmj27uf5y5pj9e9e8wc2n6nywe5ckwm95wq5z5k2drytjrn4wdwym73qr877u7uajvs88t78xnu2tltt9nsftlqpetnz7k", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "d: invalid utf8"));
+
+	/* Description: Bad UTF-8: 0xF0" */
+	assert(!bolt11_decode(tmpctx, "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq5gfskggz423rz6wp6yrcqcqpjg8ca44f2u2vw4df6zvata2p23v9dyzfjyyremz2f9t0xuzrzznrqcqm4pkmh36vj96qg0v93y0jvrp0u2607lgmc6gdes5lvpr42x9qptekthk", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "d: invalid utf8"));
+
+	/* Description: Bad UTF-8: 0xF0A0" */
+	assert(!bolt11_decode(tmpctx, "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdq4gfskggz423rz6wp6yrc2qcqpj5pj85e6uazujup7pv8n7kwg36lll3uhfguxlwydzznll4nm8ntsy72shgrq042d7md02whd3yzx72t7sf83cah5lfk3xf84ucvt2f8gqc7u33r", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "d: invalid utf8"));
+
+	/* Description: Bad UTF-8: 0xF0A020" */
+	assert(!bolt11_decode(tmpctx, "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdqhgfskggz423rz6wp6yrc2pgqcqpjt284ywasepdes2akvekh7anra3txezksmdmxav84a5nhzdkx84jrmwydasl6ynydse66pnl9mh0wd6t9fk5j8vftuf0hwt2pt6rrqccp4qamj4", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "d: invalid utf8"));
+
+	/* Description: Bad UTF-8: 0xF0A0A0" */
+	assert(!bolt11_decode(tmpctx, "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdqhgfskggz423rz6wp6yrc2pgqcqpjt284ywasepdes2akvekh7anra3txezksmdmxav84a5nhzdkx84jrmwydasl6ynydse66pnl9mh0wd6t9fk5j8vftuf0hwt2pt6rrqccp4qamj4", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "d: invalid utf8"));
+
+	/* Description: Bad UTF-8: 0xF0A0A020" */
+	assert(!bolt11_decode(tmpctx, "lnbc1pvjluezpp5qqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqqqsyqcyq5rqwzqfqypqdqcgfskggz423rz6wp6yrc2pgpqcqpjmyveg8ccprmlssyae9l33an2m0qz3qcfcavt7wdzrdqyx5q7hqmp7ne08uvwlwaaqwt4lxgmjh5gce3hv0m8tzwkzfshpdv9d5p9pcsp5v86r0", NULL, NULL, NULL, &fail));
+	assert(streq(fail, "d: invalid utf8"));
+
 	/* FIXME: Test the others! */
 	wally_cleanup(0);
 	tal_free(tmpctx);
+	take_cleanup();
 	return 0;
 }
