@@ -443,12 +443,15 @@ PYLN_PATH=$(shell pwd)/lightningd:$(PATH)
 check-pyln-%: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS)
 	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(MAKE) check)
 
-check-python: check-pyln-client check-pyln-testing
+check-python: check-python-flake8 check-pytest-pyln-proto check-pyln-client check-pyln-testing
+
+check-python-flake8:
 	@# E501 line too long (N > 79 characters)
 	@# E731 do not assign a lambda expression, use a def
 	@# W503: line break before binary operator
 	@flake8 --ignore=E501,E731,W503 ${PYSRC}
 
+check-pytest-pyln-proto:
 	PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
 
 check-includes: check-src-includes check-hdr-includes
