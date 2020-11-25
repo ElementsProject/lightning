@@ -1,6 +1,7 @@
 #include "../json_helpers.c"
 #include <assert.h>
 #include <ccan/mem/mem.h>
+#include <ccan/tal/str/str.h>
 #include <common/json.h>
 #include <common/utils.h>
 #include <inttypes.h>
@@ -258,6 +259,34 @@ static void test_json_delve(void)
 	assert(json_tok_streq(buf, t, "lightning-rpc"));
 }
 
+static void test_json_bad_utf8(void)
+{
+	const jsmntok_t *toks;
+	char *buf;
+
+	buf = tal_strdup(tmpctx, "{\"1\":\"one\", \"2\":\"two\", \"3\":[\"three\", {\"deeper\": 17}]}");
+	toks = json_parse_simple(tmpctx, buf, strlen(buf));
+	assert(toks);
+	assert(toks->size == 3);
+
+	assert(json_tok_streq(buf, &toks[1], "1"));
+	buf[toks[1].start] = 0xC0;
+	assert(!json_parse_simple(tmpctx, buf, strlen(buf)));
+	buf[toks[1].start] = '1';
+
+	assert(json_tok_streq(buf, &toks[2], "one"));
+	buf[toks[2].start] = 0xC0;
+	assert(!json_parse_simple(tmpctx, buf, strlen(buf)));
+	buf[toks[2].start] = 'o';
+
+	assert(json_tok_streq(buf, &toks[7], "three"));
+	buf[toks[7].start] = 0xC0;
+	assert(!json_parse_simple(tmpctx, buf, strlen(buf)));
+	buf[toks[7].start] = 't';
+
+	assert(json_parse_simple(tmpctx, buf, strlen(buf)));
+}
+
 int main(void)
 {
 	setup_locale();
@@ -267,6 +296,7 @@ int main(void)
 	test_json_tok_bitcoin_amount();
 	test_json_tok_millionths();
 	test_json_delve();
+	test_json_bad_utf8();
 	assert(!taken_any());
 	take_cleanup();
 	tal_free(tmpctx);

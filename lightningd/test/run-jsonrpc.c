@@ -156,8 +156,8 @@ static int test_json_filter(void)
 	toks = toks_alloc(str);
 	jsmn_init(&parser);
 	valid = json_parse_input(&parser, &toks, str, strlen(str), &complete);
-	assert(valid);
-	assert(complete);
+	/* Fails to parse because it's not valid UTF8 */
+	assert(!valid);
 
 	assert(toks[0].type == JSMN_OBJECT);
 	x = json_get_member(str, toks, "x");
