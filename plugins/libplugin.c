@@ -1595,3 +1595,11 @@ struct route_hop *json_to_route(const tal_t *ctx, const char *buffer,
 	}
 	return hops;
 }
+
+struct command_result *WARN_UNUSED_RESULT
+command_hook_success(struct command *cmd)
+{
+	struct json_stream *response = jsonrpc_stream_success(cmd);
+	json_add_string(response, "result", "continue");
+	return command_finished(cmd, response);
+}
