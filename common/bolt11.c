@@ -173,20 +173,24 @@ static void decode_p(struct bolt11 *b11,
  * `d` (13): `data_length` variable.  Short description of purpose of payment
  * (UTF-8), e.g. '1 cup of coffee' or 'ナンセンス 1杯'
  */
-static void decode_d(struct bolt11 *b11,
-		     struct hash_u5 *hu5,
-		     u5 **data, size_t *data_len,
-		     size_t data_length, bool *have_d)
+static char *decode_d(struct bolt11 *b11,
+		      struct hash_u5 *hu5,
+		      u5 **data, size_t *data_len,
+		      size_t data_length, bool *have_d)
 {
-	if (*have_d) {
-		unknown_field(b11, hu5, data, data_len, 'd', data_length);
-		return;
-	}
+	u8 *desc;
+	if (*have_d)
+		return unknown_field(b11, hu5, data, data_len, 'd', data_length);
 
-	b11->description = tal_arrz(b11, char, num_u8(data_length) + 1);
-	pull_bits_certain(hu5, data, data_len, (u8 *)b11->description,
-			  data_length*5, false);
+	desc = tal_arr(NULL, u8, data_length * 5 / 8);
+	pull_bits_certain(hu5, data, data_len, desc, data_length*5, false);
+
 	*have_d = true;
+	b11->description = utf8_str(b11, take(desc), tal_bytelen(desc));
+	if (b11->description)
+		return NULL;
+
+	return tal_fmt(b11, "d: invalid utf8");
 }
 
 /* BOLT #11:
@@ -721,8 +725,8 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 			break;
 
 		case 'd':
-			decode_d(b11, &hu5, &data, &data_len, data_length,
-				 &have_d);
+			problem = decode_d(b11, &hu5, &data, &data_len,
+					   data_length, &have_d);
 			break;
 
 		case 'h':
