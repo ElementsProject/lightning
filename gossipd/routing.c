@@ -1721,6 +1721,9 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 		goto malformed;
 	}
 
+	/* We don't use features */
+	tal_free(features);
+
 	/* If we know the blockheight, and it's in the future, reject
 	 * out-of-hand.  Remember, it should be 6 deep before they tell us
 	 * anyway. */
