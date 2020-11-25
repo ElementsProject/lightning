@@ -1474,11 +1474,6 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 				    type_to_string(tmpctx, struct wally_psbt, psbt));
 
 	fc->funding = *amount;
-	if (!feerate_per_kw) {
-		feerate_per_kw = tal(cmd, u32);
-		/* Anchors exist, set the commitment feerate to min */
-		*feerate_per_kw = feerate_min(cmd->ld, NULL);
-	}
 	if (!feerate_per_kw_funding) {
 		feerate_per_kw_funding = tal(cmd, u32);
 		*feerate_per_kw_funding = opening_feerate(cmd->ld->topology);
@@ -1486,6 +1481,12 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 			return command_fail(cmd, LIGHTNINGD,
 					    "`funding_feerate` not specified and fee "
 					    "estimation failed");
+	}
+	if (!feerate_per_kw) {
+		feerate_per_kw = tal(cmd, u32);
+		/* FIXME: Anchors are on by default, we should use the lowest
+		 * possible feerate */
+		*feerate_per_kw = *feerate_per_kw_funding;
 	}
 
 	if (!topology_synced(cmd->ld->topology)) {
