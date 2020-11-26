@@ -353,18 +353,9 @@ void bitcoin_tx_input_set_witness(struct bitcoin_tx *tx, int innum,
 	tal_wally_end(tx->wtx);
 
 	/* Also add to the psbt */
-	if (stack) {
-		tal_wally_start();
-		wally_psbt_input_set_final_witness(&tx->psbt->inputs[innum], stack);
-		tal_wally_end(tx->psbt);
-	} else {
-		/* FIXME: libwally-psbt doesn't allow 'unsetting' of witness via
-		 * the set method at the moment, so we do it manually*/
-		struct wally_psbt_input *in = &tx->psbt->inputs[innum];
-		if (in->final_witness)
-			wally_tx_witness_stack_free(in->final_witness);
-		in->final_witness = NULL;
-	}
+	tal_wally_start();
+	wally_psbt_input_set_final_witness(&tx->psbt->inputs[innum], stack);
+	tal_wally_end(tx->psbt);
 
 	if (taken(witness))
 		tal_free(witness);
