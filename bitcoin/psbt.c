@@ -4,7 +4,6 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
 #include <bitcoin/signature.h>
-#include <ccan/cast/cast.h>
 #include <ccan/ccan/array_size/array_size.h>
 #include <ccan/ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
@@ -519,16 +518,14 @@ static bool wally_map_set_unknown(const tal_t *ctx,
 	struct wally_map_item *item;
 
 	assert(value_len != 0);
-	if (wally_map_find(map,
-			   cast_const(unsigned char *, key), tal_bytelen(key),
-			   &exists_at) != WALLY_OK)
+	if (wally_map_find(map, key, tal_bytelen(key), &exists_at) != WALLY_OK)
 		return false;
 
 	/* If not exists, add */
 	if (exists_at == 0) {
 		bool ok;
 		tal_wally_start();
-		ok = wally_map_add(map, cast_const(unsigned char *, key), tal_bytelen(key),
+		ok = wally_map_add(map, key, tal_bytelen(key),
 			      (unsigned char *) memcheck(value, value_len), value_len)
 			== WALLY_OK;
 		tal_wally_end(ctx);
