@@ -3373,7 +3373,7 @@ def test_listpay_result_with_paymod(node_factory, bitcoind):
 
     amount_sat = 10 ** 6
 
-    l1, l2, l3 = node_factory.line_graph(3)
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
     invl2 = l2.rpc.invoice(amount_sat * 2, "inv_l2", "inv_l2")
     l1.rpc.pay(invl2['bolt11'])
