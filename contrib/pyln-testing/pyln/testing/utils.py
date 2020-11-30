@@ -42,6 +42,8 @@ LIGHTNINGD_CONFIG = OrderedDict({
     'disable-dns': None,
 })
 
+FUNDAMOUNT = 10**6
+
 
 def env(name, default=None):
     """Access to environment variables
@@ -627,7 +629,7 @@ class LightningNode(object):
     def is_connected(self, remote_node):
         return remote_node.info['id'] in [p['id'] for p in self.rpc.listpeers()['peers']]
 
-    def openchannel(self, remote_node, capacity, addrtype="p2sh-segwit", confirm=True, wait_for_announce=True, connect=True):
+    def openchannel(self, remote_node, capacity=FUNDAMOUNT, addrtype="p2sh-segwit", confirm=True, wait_for_announce=True, connect=True):
         addr, wallettxid = self.fundwallet(10 * capacity, addrtype)
 
         if connect and not self.is_connected(remote_node):
@@ -754,7 +756,7 @@ class LightningNode(object):
                       "LightningNode.fundchannel", category=DeprecationWarning)
         return self.fundchannel(l2, amount, wait_for_active, announce_channel)
 
-    def fundchannel(self, l2, amount, wait_for_active=True,
+    def fundchannel(self, l2, amount=FUNDAMOUNT, wait_for_active=True,
                     announce_channel=True, **kwargs):
         # Give yourself some funds to work with
         addr = self.rpc.newaddr()['bech32']
@@ -1130,7 +1132,7 @@ class NodeFactory(object):
                 raise
         return node
 
-    def join_nodes(self, nodes, fundchannel=True, fundamount=10**6, wait_for_announce=False, announce_channels=True) -> None:
+    def join_nodes(self, nodes, fundchannel=True, fundamount=FUNDAMOUNT, wait_for_announce=False, announce_channels=True) -> None:
         """Given nodes, connect them in a line, optionally funding a channel"""
         assert not (wait_for_announce and not announce_channels), "You've asked to wait for an announcement that's not coming. (wait_for_announce=True,announce_channels=False)"
         connections = [(nodes[i], nodes[i + 1]) for i in range(len(nodes) - 1)]
@@ -1187,7 +1189,7 @@ class NodeFactory(object):
             for end in (nodes[0], nodes[-1]):
                 wait_for(lambda: 'alias' in only_one(end.rpc.listnodes(n.info['id'])['nodes']))
 
-    def line_graph(self, num_nodes, fundchannel=True, fundamount=10**6, wait_for_announce=False, opts=None, announce_channels=True):
+    def line_graph(self, num_nodes, fundchannel=True, fundamount=FUNDAMOUNT, wait_for_announce=False, opts=None, announce_channels=True):
         """ Create nodes, connect them and optionally fund channels.
         """
         nodes = self.get_nodes(num_nodes, opts=opts)
