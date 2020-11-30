@@ -1093,8 +1093,8 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
         {'disconnect': disconnects}])
 
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
-    l2.openchannel(l4, 10**6, wait_for_announce=False)
-    l2.openchannel(l5, 10**6, wait_for_announce=True)
+    l2.openchannel(l4, wait_for_announce=False)
+    l2.openchannel(l5, wait_for_announce=True)
 
     bitcoind.generate_block(5)
 
@@ -1996,7 +1996,7 @@ def test_htlc_accepted_hook_crash(node_factory, executor):
         allow_broken_log=True
     )
     l1.connect(l2)
-    l1.fundchannel(l2, 10**6)
+    l1.fundchannel(l2)
 
     i = l2.rpc.invoice(500, "crashpls", "crashpls")['bolt11']
 
