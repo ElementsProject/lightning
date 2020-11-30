@@ -5,8 +5,8 @@ if [ $# = 0 ]; then
     exit 1
 fi
 
-# If no git dir, forget it.
-[ -d .git ] || exit 0
+# If no git dir (or, if we're a submodule, git file), forget it.
+[ -e .git ] || exit 0
 
 # git submodule can't run in parallel.  Really.
 # Wait for it to finish if in parallel.
