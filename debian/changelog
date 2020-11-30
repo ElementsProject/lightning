@@ -1,3 +1,49 @@
+lightningd (0.9.2) stable; urgency=medium
+
+  * Note: PSBTs now require bitcoind v0.20.1 or above
+  * Added (JSON-RPC): Added 'state_changes' history to listpeers channels ([4126](https://github.com/ElementsProject/lightning/pull/4126))
+  * Added (JSON-RPC): Added 'opener' and 'closer' to listpeers channels ([4126](https://github.com/ElementsProject/lightning/pull/4126))
+  * Added (JSON-RPC): `close` now sends notifications for slow closes (if `allow-deprecated-apis`=false) ([4046](https://github.com/ElementsProject/lightning/pull/4046))
+  * Added (JSON-RPC): `notifications` command to enable notifications. ([4046](https://github.com/ElementsProject/lightning/pull/4046))
+  * Added (JSON-RPC): `multifundchannel` has a new optional argument, 'commitment_feerate', which can be used to differentiate between the funding feerate and the channel's initial commitment feerate ([4139](https://github.com/ElementsProject/lightning/pull/4139))
+  * Added (JSON-RPC) `fundchannel` now accepts an optional 'close_to' param, a bitcoin address that the channel funding should be sent to on close. Requires `opt_upfront_shutdownscript` ([4132](https://github.com/ElementsProject/lightning/pull/4132))
+  * Added (Plugins): Channel closure resaon/cause to channel_state_changed notification ([4126](https://github.com/ElementsProject/lightning/pull/4126))
+  * Added (Plugins): `htlc_accepted` hook can now return custom `failure_onion`. ([4187](https://github.com/ElementsProject/lightning/pull/4187))
+  * Added (Plugins): hooks can now specify that they must be called 'before' or 'after' other plugins. ([4168](https://github.com/ElementsProject/lightning/pull/4168))
+  * Added (hsmtool): a new command was added to hsmtool for dumping descriptors of the onchain wallet ([4171](https://github.com/ElementsProject/lightning/pull/4171))
+  * Added (hsmtool): `hsm_secret` generation from a seed-phrase following BIP39. ([4065](https://github.com/ElementsProject/lightning/pull/4065))
+  * Added (cli): print notifications and progress bars if commands provide them. ([4046](https://github.com/ElementsProject/lightning/pull/4046))
+  * Added (pyln-client): pyln.client handles and can send progress notifications. ([4046](https://github.com/ElementsProject/lightning/pull/4046))
+  * Added (pyln-client): Plugin method and hook requests prevent the plugin developer from accidentally setting the result multiple times, and will raise an exception detailing where the result was first set. ([4094](https://github.com/ElementsProject/lightning/pull/4094))
+  * Added (pyln-client): Plugins have been integrated with the `logging` module for easier debugging and error reporting. ([4101](https://github.com/ElementsProject/lightning/pull/4101))
+  * Added (pyln-proto): Added pure python implementation of the sphinx onion creation and processing functionality. ([4056](https://github.com/ElementsProject/lightning/pull/4056))
+  * Added (libplugin): routines to send notification updates and progress. ([4046](https://github.com/ElementsProject/lightning/pull/4046))
+  * Added (build): clang build now supports --enable-address-sanitizer . ([4013](https://github.com/ElementsProject/lightning/pull/4013))
+  * Added (db): Added support for key-value DSNs for postgresql, allowing for a wider variety of configurations and environments. ([4072](https://github.com/ElementsProject/lightning/pull/4072))
+  * Changed (Plugins): `pay` will now try disabled channels as a last resort. ([4093](https://github.com/ElementsProject/lightning/pull/4093))
+  * Changed (Protocol): mutual closing feerate reduced to "slow" to avoid overpaying. ([4113](https://github.com/ElementsProject/lightning/pull/4113))
+  * Changed In-memory log buffer reduced from 100MB to 10MB ([4087](https://github.com/ElementsProject/lightning/pull/4087))
+  * Deprecated (cli): scripts should filter out '^# ' or use `-N none`, as commands will start returning notifications soon ([4046](https://github.com/ElementsProject/lightning/pull/4046))
+  * Removed (Protocol): Support for receiving full gossip from ancient LND nodes. ([4184](https://github.com/ElementsProject/lightning/pull/4184))
+  * Removed (JSON-RPC): `plugin stop` result with an empty ("") key (deprecated 0.8.1) ([4049](https://github.com/ElementsProject/lightning/pull/4049))
+  * Removed (JSON-RPC): The hook `rpc_command` returning `{"continue": true}` (deprecated 0.8.1) ([4049](https://github.com/ElementsProject/lightning/pull/4049))
+  * Removed (JSON-RPC): The hook `db_write` can no longer return `true` (deprecated in 0.8.1) ([4049](https://github.com/ElementsProject/lightning/pull/4049))
+  * Removed (JSON-RPC): `htlc_accepted` hook `per_hop_v0` object removed (deprecated 0.8.0) ([4049](https://github.com/ElementsProject/lightning/pull/4049))
+  * Removed (JSON-RPC): `listconfigs` duplicated "plugin" paths (deprecated 0.8.0) ([4049](https://github.com/ElementsProject/lightning/pull/4049))
+  * Removed (Plugin): Relative plugin paths are not relative to startup (deprecated v0.7.2.1) ([4049](https://github.com/ElementsProject/lightning/pull/4049))
+  * Fixed (Network): Fixed a race condition when us and a peer attempt to make channels to each other at nearly the same time. ([4116](https://github.com/ElementsProject/lightning/pull/4116))
+  * Fixed (Protocol): fixed retransmission order of multiple new HTLCs (causing channel close with LND) ([4124](https://github.com/ElementsProject/lightning/pull/4124))
+  * Fixed (Protocol): `signet` is now compatible with the final bitcoin-core version ([4078](https://github.com/ElementsProject/lightning/pull/4078))
+  * Fixed (Crash): assertion fail at restart when source and destination channels of an HTLC are both onchain. ([4122](https://github.com/ElementsProject/lightning/pull/4122))
+  * Fixed We are now able to parse any amount string (XXXmsat, XX.XXXbtc, ..) we create. ([4129](https://github.com/ElementsProject/lightning/pull/4129))
+  * Fixed Some memory leaks in transaction and PSBT manipulate closed. ([4071](https://github.com/ElementsProject/lightning/pull/4071))
+  * Fixed openingd now uses the correct dust limit for determining the allowable floor for a channel open (affects fundee only) ([4141](https://github.com/ElementsProject/lightning/pull/4141))
+  * Fixed (Plugin): Regression with SQL statement expansion that could result in invalid statements being passed to the `db_write` hook. ([4090](https://github.com/ElementsProject/lightning/pull/4090))
+  * Fixed (build): no longer spuriously regenerates generated sources due to differences in `readdir`(3) sort order. ([4053](https://github.com/ElementsProject/lightning/pull/4053))
+  * Fixed (db): Fixed a broken migration on postgres DBs that had really old channels. ([4064](https://github.com/ElementsProject/lightning/pull/4064))
+
+ -- Christian Decker <decker.christian@gmail.com>  Mon, 30 Nov 2020 12:19:01 +0100
+
 lightningd (0.9.1) stable; urgency=medium
 
   * Added (JSON-RPC): `multiwithdraw` command to batch multiple onchain sends in a single transaction.  Note it shuffles inputs and outputs, does not use BIP69.

@@ -1,6 +1,6 @@
 #! /usr/bin/make
-VERSION_NAME="The Antiguan BTC Maximalist Society"
-VERSION=0.9.1
+VERSION_NAME="Now with 0-of-N Multisig"
+VERSION=0.9.2
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
