@@ -1969,7 +1969,8 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 
 	if (channel
 	    && channel->state != CHANNELD_NORMAL
-	    && channel->state != CHANNELD_AWAITING_LOCKIN)
+	    && channel->state != CHANNELD_AWAITING_LOCKIN
+	    && channel->state != DUALOPEND_AWAITING_LOCKIN)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Channel is in state %s", channel_state_name(channel));
 
@@ -1986,7 +1987,8 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 			if (!channel)
 				continue;
 			if (channel->state != CHANNELD_NORMAL &&
-			    channel->state != CHANNELD_AWAITING_LOCKIN)
+			    channel->state != CHANNELD_AWAITING_LOCKIN &&
+			    channel->state != DUALOPEND_AWAITING_LOCKIN)
 				continue;
 			set_channel_fees(cmd, channel, *base, *ppm, response);
 		}
