@@ -1234,7 +1234,7 @@ class NodeFactory(object):
         # getpeers.
         if not fundchannel:
             for src, dst in connections:
-                dst.daemon.wait_for_log(r'{}-.*openingd-chan#[0-9]*: Handed peer, entering loop'.format(src.info['id']))
+                dst.daemon.wait_for_log(r'{}-.*-chan#[0-9]*: Handed peer, entering loop'.format(src.info['id']))
             return
 
         bitcoind = nodes[0].bitcoin

@@ -361,7 +361,7 @@ def test_gossip_weirdalias(node_factory, bitcoind):
                                .format(normal_name))
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l2.daemon.wait_for_log('openingd-chan#1: Handed peer, entering loop')
+    l2.daemon.wait_for_log('Handed peer, entering loop')
     l2.fundchannel(l1, 10**6)
     bitcoind.generate_block(6)
 

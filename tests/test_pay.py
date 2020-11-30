@@ -1100,14 +1100,14 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     assert ret['id'] == l2.info['id']
 
-    l1.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
-    l2.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
+    l1.daemon.wait_for_log('Handed peer, entering loop')
+    l2.daemon.wait_for_log('Handed peer, entering loop')
 
     ret = l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     assert ret['id'] == l3.info['id']
 
-    l2.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
-    l3.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
+    l2.daemon.wait_for_log('Handed peer, entering loop')
+    l3.daemon.wait_for_log('Handed peer, entering loop')
 
     c1, _ = l1.fundchannel(l2, 10**6)
     c2, _ = l2.fundchannel(l3, 10**6)
@@ -1206,14 +1206,14 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     assert ret['id'] == l2.info['id']
 
-    l1.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
-    l2.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
+    l1.daemon.wait_for_log('Handed peer, entering loop')
+    l2.daemon.wait_for_log('Handed peer, entering loop')
 
     ret = l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     assert ret['id'] == l3.info['id']
 
-    l2.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
-    l3.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
+    l2.daemon.wait_for_log('Handed peer, entering loop')
+    l3.daemon.wait_for_log('Handed peer, entering loop')
 
     c1, _ = l1.fundchannel(l2, 10**6)
     c2, _ = l2.fundchannel(l3, 10**6)

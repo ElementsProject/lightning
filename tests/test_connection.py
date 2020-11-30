@@ -154,8 +154,8 @@ def test_bad_opening(node_factory):
 
     assert ret['id'] == l2.info['id']
 
-    l1.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
-    l2.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
+    l1.daemon.wait_for_log('Handed peer, entering loop')
+    l2.daemon.wait_for_log('Handed peer, entering loop')
 
     l1.fundwallet(10**6 + 1000000)
     with pytest.raises(RpcError):
@@ -381,7 +381,7 @@ def test_reconnect_openingd(node_factory):
 
     # We should get a message about reconnecting.
     l2.daemon.wait_for_log('Killing opening daemon: Reconnected')
-    l2.daemon.wait_for_log('openingd.*Handed peer, entering loop')
+    l2.daemon.wait_for_log('Handed peer, entering loop')
 
     # Should work fine.
     l1.rpc.fundchannel(l2.info['id'], 25000)
@@ -818,7 +818,7 @@ def test_funding_fail(node_factory, bitcoind):
 
     # Should still be connected.
     assert only_one(l1.rpc.listpeers()['peers'])['connected']
-    l2.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
+    l2.daemon.wait_for_log('Handed peer, entering loop')
     assert only_one(l2.rpc.listpeers()['peers'])['connected']
 
     # This works.
@@ -1952,8 +1952,8 @@ def test_multiple_channels(node_factory):
         ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         assert ret['id'] == l2.info['id']
 
-        l1.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
-        l2.daemon.wait_for_log('openingd-.*: Handed peer, entering loop')
+        l1.daemon.wait_for_log('Handed peer, entering loop')
+        l2.daemon.wait_for_log('Handed peer, entering loop')
         chan, _ = l1.fundchannel(l2, 10**6)
 
         l1.rpc.close(chan)
