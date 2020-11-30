@@ -2990,12 +2990,21 @@ def test_excluded_adjacent_routehint(node_factory, bitcoind, compat):
 
 def test_keysend(node_factory):
     amt = 10000
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    l1, l2, l3, l4 = node_factory.line_graph(
+        4,
+        wait_for_announce=True,
+        opts=[{}, {}, {}, {'disable-plugin': 'keysend'}]
+    )
 
     # The keysend featurebit must be set in the announcement, i.e., l1 should
     # learn that l3 supports keysends.
     features = l1.rpc.listnodes(l3.info['id'])['nodes'][0]['features']
     assert(int(features, 16) >> 55 & 0x01 == 1)
+
+    # If we disable keysend, then the featurebit must not be set,
+    # i.e., l4 doesn't support it.
+    features = l1.rpc.listnodes(l4.info['id'])['nodes'][0]['features']
+    assert(int(features, 16) >> 55 & 0x01 == 0)
 
     # Send an indirect one from l1 to l3
     l1.rpc.keysend(l3.info['id'], amt)
@@ -3013,6 +3022,11 @@ def test_keysend(node_factory):
 
     inv = invs[0]
     assert(inv['msatoshi_received'] >= amt)
+
+    # And finally try to send a keysend payment to l4, which doesn't
+    # support it. It MUST fail.
+    with pytest.raises(RpcError, match=r"Recipient [0-9a-f]{66} does not support keysend payments"):
+        l3.rpc.keysend(l4.info['id'], amt)
 
 
 def test_invalid_onion_channel_update(node_factory):
