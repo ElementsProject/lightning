@@ -49,19 +49,19 @@ class Millisatoshi:
         """
         if isinstance(v, str):
             if v.endswith("msat"):
-                self.millisatoshis = int(v[0:-4])
+                parsed = Decimal(v[0:-4])
             elif v.endswith("sat"):
-                self.millisatoshis = int(v[0:-3]) * 1000
+                parsed = Decimal(v[0:-3]) * 1000
             elif v.endswith("btc"):
-                self.millisatoshis = int(v[0:-3]) * 1000 * 10**8
+                parsed = Decimal(v[0:-3]) * 1000 * 10**8
             else:
                 raise TypeError(
                     "Millisatoshi must be string with msat/sat/btc suffix or"
                     " int"
                 )
-            if self.millisatoshis != int(self.millisatoshis):
+            if parsed != int(parsed):
                 raise ValueError("Millisatoshi must be a whole number")
-            self.millisatoshis = int(self.millisatoshis)
+            self.millisatoshis = int(parsed)
 
         elif isinstance(v, Millisatoshi):
             self.millisatoshis = v.millisatoshis
