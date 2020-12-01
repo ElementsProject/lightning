@@ -306,15 +306,16 @@ hook_extract_amount(struct subd *dualopend,
 	return true;
 }
 
-#define CHECK_CHANGES(set, dir) 						\
-	do {		   							\
-	for (size_t i = 0; i < tal_count(set); i++) { 				\
-		ok = psbt_get_serial_id(&set[i].dir.unknowns, &serial_id); 	\
-		assert(ok); 							\
-		if (serial_id % 2 != opener_side)				\
-			return true;						\
-	}									\
-	} while (false)								\
+#define CHECK_CHANGES(set, dir) 					\
+	do {		   						\
+		for (size_t i = 0; i < tal_count(set); i++) { 		\
+			ok = psbt_get_serial_id(&set[i].dir.unknowns,	\
+						&serial_id); 		\
+			assert(ok); 					\
+			if (serial_id % 2 != opener_side)		\
+				return true;				\
+		}							\
+	} while (false)
 
 static bool psbt_side_contribs_changed(struct wally_psbt *orig,
 				       struct wally_psbt *new,
