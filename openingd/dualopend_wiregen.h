@@ -46,6 +46,12 @@ enum dualopend_wire {
         WIRE_DUALOPEND_CHANNEL_LOCKED = 7019,
         /*  master->dualopend funding reached depth; tell peer */
         WIRE_DUALOPEND_DEPTH_REACHED = 7020,
+        /*  Tell peer to shut down channel. */
+        WIRE_DUALOPEND_SEND_SHUTDOWN = 7023,
+        /*  Peer told us that channel is shutting down */
+        WIRE_DUALOPEND_GOT_SHUTDOWN = 7024,
+        /*  Shutdown is complete */
+        WIRE_DUALOPEND_SHUTDOWN_COMPLETE = 7025,
         /*  master -> dualopend: do you have a memleak? */
         WIRE_DUALOPEND_DEV_MEMLEAK = 7033,
         WIRE_DUALOPEND_DEV_MEMLEAK_REPLY = 7133,
@@ -133,6 +139,21 @@ bool fromwire_dualopend_channel_locked(const tal_t *ctx, const void *p, struct p
 u8 *towire_dualopend_depth_reached(const tal_t *ctx, u32 depth);
 bool fromwire_dualopend_depth_reached(const void *p, u32 *depth);
 
+/* WIRE: DUALOPEND_SEND_SHUTDOWN */
+/*  Tell peer to shut down channel. */
+u8 *towire_dualopend_send_shutdown(const tal_t *ctx, const u8 *shutdown_scriptpubkey);
+bool fromwire_dualopend_send_shutdown(const tal_t *ctx, const void *p, u8 **shutdown_scriptpubkey);
+
+/* WIRE: DUALOPEND_GOT_SHUTDOWN */
+/*  Peer told us that channel is shutting down */
+u8 *towire_dualopend_got_shutdown(const tal_t *ctx, const u8 *scriptpubkey);
+bool fromwire_dualopend_got_shutdown(const tal_t *ctx, const void *p, u8 **scriptpubkey);
+
+/* WIRE: DUALOPEND_SHUTDOWN_COMPLETE */
+/*  Shutdown is complete */
+u8 *towire_dualopend_shutdown_complete(const tal_t *ctx, const struct per_peer_state *per_peer_state);
+bool fromwire_dualopend_shutdown_complete(const tal_t *ctx, const void *p, struct per_peer_state **per_peer_state);
+
 /* WIRE: DUALOPEND_DEV_MEMLEAK */
 /*  master -> dualopend: do you have a memleak? */
 u8 *towire_dualopend_dev_memleak(const tal_t *ctx);
@@ -144,4 +165,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:420b9d30d0ecd89f962dee16c410c54f9ac7852dd5ab02c05730ab07ebc6bece
+// SHA256STAMP:5b6ccfff2f6cc43eee53e4aed8767fc7ae539d548277bda1c628c51f3191dfe4

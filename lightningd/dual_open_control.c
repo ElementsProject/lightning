@@ -3,6 +3,7 @@
  * saves and funding tx watching for a channel open */
 
 #include <bitcoin/psbt.h>
+#include <bitcoin/script.h>
 #include <ccan/ccan/take/take.h>
 #include <ccan/short_types/short_types.h>
 #include <common/amount.h>
@@ -20,6 +21,7 @@
 #include <hsmd/capabilities.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>
+#include <lightningd/closing_control.h>
 #include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
@@ -683,6 +685,106 @@ wallet_commit_channel(struct lightningd *ld,
 	wallet_channel_insert(ld->wallet, channel);
 
 	return channel;
+}
+
+static void handle_peer_wants_to_close(struct subd *dualopend,
+				       const u8 *msg)
+{
+	u8 *scriptpubkey;
+	struct lightningd *ld = dualopend->ld;
+	struct channel *channel;
+	char *errmsg;
+
+	/* We shouldn't get this message while we're waiting to finish */
+	if (dualopend->ctype == UNCOMMITTED) {
+		log_broken(dualopend->ld->log, "Channel in wrong state for"
+		           " shutdown, still has uncommitted"
+		           " channel pending.");
+
+		errmsg = "Channel not established yet, shutdown invalid";
+		subd_send_msg(dualopend,
+			      take(towire_dualopend_fail(NULL, errmsg)));
+		return;
+	}
+
+	channel = dualopend->channel;
+
+	if (!fromwire_dualopend_got_shutdown(channel, msg, &scriptpubkey)) {
+		channel_internal_error(channel, "bad channel_got_shutdown %s",
+				       tal_hex(msg, msg));
+		return;
+	}
+
+
+	tal_free(channel->shutdown_scriptpubkey[REMOTE]);
+	channel->shutdown_scriptpubkey[REMOTE] = scriptpubkey;
+
+	/* BOLT #2:
+	 *
+	 * 1. `OP_DUP` `OP_HASH160` `20` 20-bytes `OP_EQUALVERIFY` `OP_CHECKSIG`
+	 *   (pay to pubkey hash), OR
+	 * 2. `OP_HASH160` `20` 20-bytes `OP_EQUAL` (pay to script hash), OR
+	 * 3. `OP_0` `20` 20-bytes (version 0 pay to witness pubkey), OR
+	 * 4. `OP_0` `32` 32-bytes (version 0 pay to witness script hash)
+	 *
+	 * A receiving node:
+	 *...
+	 *  - if the `scriptpubkey` is not in one of the above forms:
+	 *    - SHOULD fail the connection.
+	 */
+	if (!is_p2pkh(scriptpubkey, NULL) && !is_p2sh(scriptpubkey, NULL)
+	    && !is_p2wpkh(scriptpubkey, NULL) && !is_p2wsh(scriptpubkey, NULL)) {
+		channel_fail_permanent(channel,
+				       REASON_PROTOCOL,
+				       "Bad shutdown scriptpubkey %s",
+				       tal_hex(channel, scriptpubkey));
+		return;
+	}
+
+	/* If we weren't already shutting down, we are now */
+	if (channel->state != CHANNELD_SHUTTING_DOWN)
+		channel_set_state(channel,
+				  channel->state,
+				  CHANNELD_SHUTTING_DOWN,
+				  REASON_REMOTE,
+				  "Peer closes channel");
+
+	/* TODO(cdecker) Selectively save updated fields to DB */
+	wallet_channel_save(ld->wallet, channel);
+
+	/* Now we send back our scriptpubkey to close with */
+	subd_send_msg(dualopend, take(towire_dualopend_send_shutdown(NULL,
+				      channel->shutdown_scriptpubkey[LOCAL])));
+
+}
+
+static void handle_channel_closed(struct subd *dualopend,
+				  const int *fds,
+				  const u8 *msg)
+{
+	struct per_peer_state *pps;
+	struct channel *channel;
+
+	if (!fromwire_dualopend_shutdown_complete(tmpctx, msg, &pps)) {
+		channel_internal_error(dualopend->channel,
+				       "bad shutdown_complete: %s",
+				       tal_hex(msg, msg));
+		close(fds[0]);
+		close(fds[1]);
+		close(fds[2]);
+		return;
+	}
+
+	per_peer_state_set_fds_arr(pps, fds);
+
+	assert(dualopend->ctype == CHANNEL);
+	channel = dualopend->channel;
+	peer_start_closingd(channel, pps, false, NULL);
+	channel_set_state(channel,
+			  CHANNELD_SHUTTING_DOWN,
+			  CLOSINGD_SIGEXCHANGE,
+			  REASON_UNKNOWN,
+			  "Start closingd");
 }
 
 static void opener_psbt_changed(struct subd *dualopend,
@@ -1661,6 +1763,14 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 				return 3;
 			handle_channel_locked(dualopend, fds, msg);
 			return 0;
+		case WIRE_DUALOPEND_GOT_SHUTDOWN:
+			handle_peer_wants_to_close(dualopend, msg);
+			return 0;
+		case WIRE_DUALOPEND_SHUTDOWN_COMPLETE:
+			if (tal_count(fds) != 3)
+				return 3;
+			handle_channel_closed(dualopend, fds, msg);
+			return 0;
 		case WIRE_DUALOPEND_FAILED:
 			open_failed(dualopend, msg);
 			return 0;
@@ -1673,6 +1783,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_FAIL:
 		case WIRE_DUALOPEND_PSBT_UPDATED:
 		case WIRE_DUALOPEND_SEND_TX_SIGS:
+		case WIRE_DUALOPEND_SEND_SHUTDOWN:
 		case WIRE_DUALOPEND_DEPTH_REACHED:
 		case WIRE_DUALOPEND_DEV_MEMLEAK:
 			break;

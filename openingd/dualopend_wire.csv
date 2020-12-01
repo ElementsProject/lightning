@@ -130,6 +130,20 @@ msgdata,dualopend_channel_locked,remote_per_commit,pubkey,
 msgtype,dualopend_depth_reached,7020
 msgdata,dualopend_depth_reached,depth,u32,
 
+# Tell peer to shut down channel.
+msgtype,dualopend_send_shutdown,7023
+msgdata,dualopend_send_shutdown,shutdown_scriptpubkey_len,u16,
+msgdata,dualopend_send_shutdown,shutdown_scriptpubkey,u8,shutdown_scriptpubkey_len
+
+# Peer told us that channel is shutting down
+msgtype,dualopend_got_shutdown,7024
+msgdata,dualopend_got_shutdown,scriptpubkey_len,u16,
+msgdata,dualopend_got_shutdown,scriptpubkey,u8,scriptpubkey_len
+
+# Shutdown is complete, ready for closing negotiation. + peer_fd & gossip_fd.
+msgtype,dualopend_shutdown_complete,7025
+msgdata,dualopend_shutdown_complete,per_peer_state,per_peer_state,
+
 # master -> dualopend: do you have a memleak?
 msgtype,dualopend_dev_memleak,7033
 

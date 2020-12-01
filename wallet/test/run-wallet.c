@@ -715,6 +715,9 @@ u8 *towire_connectd_peer_disconnected(const tal_t *ctx UNNEEDED, const struct no
 /* Generated stub for towire_custommsg_out */
 u8 *towire_custommsg_out(const tal_t *ctx UNNEEDED, const u8 *msg UNNEEDED)
 { fprintf(stderr, "towire_custommsg_out called!\n"); abort(); }
+/* Generated stub for towire_dualopend_send_shutdown */
+u8 *towire_dualopend_send_shutdown(const tal_t *ctx UNNEEDED, const u8 *shutdown_scriptpubkey UNNEEDED)
+{ fprintf(stderr, "towire_dualopend_send_shutdown called!\n"); abort(); }
 /* Generated stub for towire_errorfmt */
 u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 		    const struct channel_id *channel UNNEEDED,
