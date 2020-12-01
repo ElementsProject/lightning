@@ -246,7 +246,6 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 	return NULL;
 }
 
-
 /*~ If we can't agree on parameters, we fail to open the channel.  If we're
  * the opener, we need to tell lightningd, otherwise it never really notices. */
 static void negotiation_aborted(struct state *state, bool am_opener,
@@ -306,6 +305,62 @@ static void billboard_update(struct state *state)
 					       0, /* Always zero? */
 					       0);
 	peer_billboard(false, update);
+}
+
+static void send_shutdown(struct state *state, const u8 *final_scriptpubkey)
+{
+	u8 *msg;
+
+	msg = towire_shutdown(NULL, &state->channel_id,
+			      final_scriptpubkey);
+	sync_crypto_write(state->pps, take(msg));
+	state->shutdown_sent[LOCAL] = true;
+}
+
+static void handle_peer_shutdown(struct state *state, u8 *msg)
+{
+	u8 *scriptpubkey;
+	struct channel_id cid;
+
+	if (!fromwire_shutdown(tmpctx, msg, &cid, &scriptpubkey))
+		peer_failed(state->pps, &state->channel_id,
+			    "Bad shutdown %s", tal_hex(msg, msg));
+
+	if (tal_count(state->upfront_shutdown_script[REMOTE])
+	    && !memeq(scriptpubkey, tal_count(scriptpubkey),
+		      state->upfront_shutdown_script[REMOTE],
+		      tal_count(state->upfront_shutdown_script[REMOTE])))
+		peer_failed(state->pps, &state->channel_id,
+			    "scriptpubkey %s is not as agreed upfront (%s)",
+			    tal_hex(state, scriptpubkey),
+			    tal_hex(state,
+				    state->upfront_shutdown_script[REMOTE]));
+
+	wire_sync_write(REQ_FD,
+			take(towire_dualopend_got_shutdown(NULL,
+							   scriptpubkey)));
+	msg = wire_sync_read(tmpctx, REQ_FD);
+	if (!fromwire_dualopend_send_shutdown(tmpctx, msg, &scriptpubkey))
+		master_badmsg(fromwire_peektype(msg), msg);
+
+	state->shutdown_sent[REMOTE] = true;
+	if (!state->shutdown_sent[LOCAL])
+		send_shutdown(state, scriptpubkey);
+
+	billboard_update(state);
+}
+
+static void handle_our_shutdown(struct state *state, u8 *msg)
+{
+	u8 *scriptpubkey;
+
+	if (!fromwire_dualopend_send_shutdown(tmpctx, msg, &scriptpubkey))
+		master_badmsg(fromwire_peektype(msg), msg);
+
+	if (!state->shutdown_sent[LOCAL])
+		send_shutdown(state, scriptpubkey);
+
+	billboard_update(state);
 }
 
 static void check_channel_id(struct state *state,
@@ -2316,19 +2371,27 @@ static u8 *handle_master_in(struct state *state)
 		return NULL;
 	case WIRE_DUALOPEND_DEPTH_REACHED:
 		return handle_funding_depth(state, msg);
-	/* mostly handled inline */
+	case WIRE_DUALOPEND_SEND_SHUTDOWN:
+		handle_our_shutdown(state, msg);
+		return NULL;
+
+	/* Handled inline */
+	case WIRE_DUALOPEND_INIT:
+	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
+	case WIRE_DUALOPEND_FAIL:
+	case WIRE_DUALOPEND_PSBT_UPDATED:
+	case WIRE_DUALOPEND_GOT_OFFER_REPLY:
+
+	/* Messages we send */
+	case WIRE_DUALOPEND_GOT_OFFER:
+	case WIRE_DUALOPEND_PSBT_CHANGED:
+	case WIRE_DUALOPEND_COMMIT_RCVD:
+	case WIRE_DUALOPEND_FUNDING_SIGS:
 	case WIRE_DUALOPEND_TX_SIGS_SENT:
 	case WIRE_DUALOPEND_CHANNEL_LOCKED:
-	case WIRE_DUALOPEND_INIT:
-	case WIRE_DUALOPEND_FUNDING_SIGS:
-	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
+	case WIRE_DUALOPEND_GOT_SHUTDOWN:
+	case WIRE_DUALOPEND_SHUTDOWN_COMPLETE:
 	case WIRE_DUALOPEND_FAILED:
-	case WIRE_DUALOPEND_FAIL:
-	case WIRE_DUALOPEND_GOT_OFFER:
-	case WIRE_DUALOPEND_GOT_OFFER_REPLY:
-	case WIRE_DUALOPEND_COMMIT_RCVD:
-	case WIRE_DUALOPEND_PSBT_CHANGED:
-	case WIRE_DUALOPEND_PSBT_UPDATED:
 		break;
 	}
 
@@ -2367,6 +2430,9 @@ static u8 *handle_peer_in(struct state *state)
 		return NULL;
 	} else if (t == WIRE_FUNDING_LOCKED) {
 		return handle_funding_locked(state, msg);
+	} else if (t == WIRE_SHUTDOWN) {
+		handle_peer_shutdown(state, msg);
+		return NULL;
 	}
 
 #if DEVELOPER
@@ -2400,6 +2466,12 @@ static u8 *handle_peer_in(struct state *state)
 	 */
 	status_broken("Unexpected message %s", peer_wire_name(t));
 	peer_failed_connection_lost();
+}
+
+static bool shutdown_complete(const struct state *state)
+{
+	return state->shutdown_sent[LOCAL]
+		&& state->shutdown_sent[REMOTE];
 }
 
 int main(int argc, char *argv[])
@@ -2518,6 +2590,10 @@ int main(int argc, char *argv[])
 		else
 			try_read_gossip_store(state);
 
+		/* If we've shutdown, we're done */
+		if (shutdown_complete(state))
+			msg = towire_dualopend_shutdown_complete(state,
+								 state->pps);
 		/* Since we're the top-level event loop, we clean up */
 		clean_tmpctx();
 	}

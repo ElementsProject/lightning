@@ -56,6 +56,7 @@
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
 #include <limits.h>
+#include <openingd/dualopend_wiregen.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <wally_bip32.h>
@@ -1496,16 +1497,26 @@ static struct command_result *json_close(struct command *cmd,
 	switch (channel->state) {
 		case CHANNELD_NORMAL:
 		case CHANNELD_AWAITING_LOCKIN:
+		case DUALOPEND_AWAITING_LOCKIN:
 			channel_set_state(channel,
 					  channel->state, CHANNELD_SHUTTING_DOWN,
 					  REASON_USER,
 					  "User or plugin invoked close command");
 			/* fallthrough */
 		case CHANNELD_SHUTTING_DOWN:
-			if (channel->owner)
-				subd_send_msg(channel->owner,
-					      take(towire_channeld_send_shutdown(NULL,
-						   channel->shutdown_scriptpubkey[LOCAL])));
+			if (channel->owner) {
+				u8 *msg;
+				if (streq(channel->owner->name, "dualopend")) {
+					msg = towire_dualopend_send_shutdown(
+						NULL,
+						channel->shutdown_scriptpubkey[LOCAL]);
+				} else
+					msg = towire_channeld_send_shutdown(
+						NULL,
+						channel->shutdown_scriptpubkey[LOCAL]);
+				subd_send_msg(channel->owner, take(msg));
+			}
+
 			break;
 		case CLOSINGD_SIGEXCHANGE:
 			break;

@@ -34,6 +34,9 @@ const char *dualopend_wire_name(int e)
 	case WIRE_DUALOPEND_TX_SIGS_SENT: return "WIRE_DUALOPEND_TX_SIGS_SENT";
 	case WIRE_DUALOPEND_CHANNEL_LOCKED: return "WIRE_DUALOPEND_CHANNEL_LOCKED";
 	case WIRE_DUALOPEND_DEPTH_REACHED: return "WIRE_DUALOPEND_DEPTH_REACHED";
+	case WIRE_DUALOPEND_SEND_SHUTDOWN: return "WIRE_DUALOPEND_SEND_SHUTDOWN";
+	case WIRE_DUALOPEND_GOT_SHUTDOWN: return "WIRE_DUALOPEND_GOT_SHUTDOWN";
+	case WIRE_DUALOPEND_SHUTDOWN_COMPLETE: return "WIRE_DUALOPEND_SHUTDOWN_COMPLETE";
 	case WIRE_DUALOPEND_DEV_MEMLEAK: return "WIRE_DUALOPEND_DEV_MEMLEAK";
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY: return "WIRE_DUALOPEND_DEV_MEMLEAK_REPLY";
 	}
@@ -59,6 +62,9 @@ bool dualopend_wire_is_defined(u16 type)
 	case WIRE_DUALOPEND_TX_SIGS_SENT:;
 	case WIRE_DUALOPEND_CHANNEL_LOCKED:;
 	case WIRE_DUALOPEND_DEPTH_REACHED:;
+	case WIRE_DUALOPEND_SEND_SHUTDOWN:;
+	case WIRE_DUALOPEND_GOT_SHUTDOWN:;
+	case WIRE_DUALOPEND_SHUTDOWN_COMPLETE:;
 	case WIRE_DUALOPEND_DEV_MEMLEAK:;
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:;
 	      return true;
@@ -553,6 +559,86 @@ bool fromwire_dualopend_depth_reached(const void *p, u32 *depth)
 	return cursor != NULL;
 }
 
+/* WIRE: DUALOPEND_SEND_SHUTDOWN */
+/* Tell peer to shut down channel. */
+u8 *towire_dualopend_send_shutdown(const tal_t *ctx, const u8 *shutdown_scriptpubkey)
+{
+	u16 shutdown_scriptpubkey_len = tal_count(shutdown_scriptpubkey);
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_SEND_SHUTDOWN);
+	towire_u16(&p, shutdown_scriptpubkey_len);
+	towire_u8_array(&p, shutdown_scriptpubkey, shutdown_scriptpubkey_len);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_send_shutdown(const tal_t *ctx, const void *p, u8 **shutdown_scriptpubkey)
+{
+	u16 shutdown_scriptpubkey_len;
+
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_SEND_SHUTDOWN)
+		return false;
+ 	shutdown_scriptpubkey_len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case shutdown_scriptpubkey
+	*shutdown_scriptpubkey = shutdown_scriptpubkey_len ? tal_arr(ctx, u8, shutdown_scriptpubkey_len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *shutdown_scriptpubkey, shutdown_scriptpubkey_len);
+	return cursor != NULL;
+}
+
+/* WIRE: DUALOPEND_GOT_SHUTDOWN */
+/* Peer told us that channel is shutting down */
+u8 *towire_dualopend_got_shutdown(const tal_t *ctx, const u8 *scriptpubkey)
+{
+	u16 scriptpubkey_len = tal_count(scriptpubkey);
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_GOT_SHUTDOWN);
+	towire_u16(&p, scriptpubkey_len);
+	towire_u8_array(&p, scriptpubkey, scriptpubkey_len);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_got_shutdown(const tal_t *ctx, const void *p, u8 **scriptpubkey)
+{
+	u16 scriptpubkey_len;
+
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_GOT_SHUTDOWN)
+		return false;
+ 	scriptpubkey_len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case scriptpubkey
+	*scriptpubkey = scriptpubkey_len ? tal_arr(ctx, u8, scriptpubkey_len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *scriptpubkey, scriptpubkey_len);
+	return cursor != NULL;
+}
+
+/* WIRE: DUALOPEND_SHUTDOWN_COMPLETE */
+/* Shutdown is complete */
+u8 *towire_dualopend_shutdown_complete(const tal_t *ctx, const struct per_peer_state *per_peer_state)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_SHUTDOWN_COMPLETE);
+	towire_per_peer_state(&p, per_peer_state);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_shutdown_complete(const tal_t *ctx, const void *p, struct per_peer_state **per_peer_state)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_SHUTDOWN_COMPLETE)
+		return false;
+ 	*per_peer_state = fromwire_per_peer_state(ctx, &cursor, &plen);
+	return cursor != NULL;
+}
+
 /* WIRE: DUALOPEND_DEV_MEMLEAK */
 /* master -> dualopend: do you have a memleak? */
 u8 *towire_dualopend_dev_memleak(const tal_t *ctx)
@@ -593,4 +679,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:420b9d30d0ecd89f962dee16c410c54f9ac7852dd5ab02c05730ab07ebc6bece
+// SHA256STAMP:5b6ccfff2f6cc43eee53e4aed8767fc7ae539d548277bda1c628c51f3191dfe4
