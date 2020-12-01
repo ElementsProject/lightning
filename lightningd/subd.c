@@ -606,6 +606,7 @@ static struct io_plan *msg_setup(struct io_conn *conn, struct subd *sd)
 static struct subd *new_subd(struct lightningd *ld,
 			     const char *name,
 			     void *channel,
+			     enum channel_type ctype,
 			     const struct node_id *node_id,
 			     struct log *base_log,
 			     bool talks_to_peer,
@@ -678,6 +679,7 @@ static struct subd *new_subd(struct lightningd *ld,
 	tal_add_destructor(sd, destroy_subd);
 	list_head_init(&sd->reqs);
 	sd->channel = channel;
+	sd->ctype = ctype;
 	if (node_id)
 		sd->node_id = tal_dup(sd, struct node_id, node_id);
 	else
@@ -706,7 +708,8 @@ struct subd *new_global_subd(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, msgcb);
-	sd = new_subd(ld, name, NULL, NULL, NULL, false, msgname, msgcb, NULL, NULL, &ap);
+	sd = new_subd(ld, name, NULL, NONE, NULL, NULL, false,
+		      msgname, msgcb, NULL, NULL, &ap);
 	va_end(ap);
 
 	sd->must_not_exit = true;
@@ -716,6 +719,7 @@ struct subd *new_global_subd(struct lightningd *ld,
 struct subd *new_channel_subd_(struct lightningd *ld,
 			       const char *name,
 			       void *channel,
+			       enum channel_type ctype,
 			       const struct node_id *node_id,
 			       struct log *base_log,
 			       bool talks_to_peer,
@@ -736,8 +740,8 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 	struct subd *sd;
 
 	va_start(ap, billboardcb);
-	sd = new_subd(ld, name, channel, node_id, base_log, talks_to_peer,
-		      msgname, msgcb, errcb, billboardcb, &ap);
+	sd = new_subd(ld, name, channel, ctype, node_id, base_log,
+		      talks_to_peer, msgname, msgcb, errcb, billboardcb, &ap);
 	va_end(ap);
 	return sd;
 }
@@ -823,16 +827,18 @@ void subd_release_channel(struct subd *owner, void *channel)
 }
 
 void subd_swap_channel_(struct subd *daemon, void *channel,
-		       void (*errcb)(void *channel,
-				     struct per_peer_state *pps,
-				     const struct channel_id *channel_id,
-				     const char *desc,
-				     bool soft_error,
-				     const u8 *err_for_them),
+			enum channel_type ctype,
+			void (*errcb)(void *channel,
+				      struct per_peer_state *pps,
+				      const struct channel_id *channel_id,
+				      const char *desc,
+				      bool soft_error,
+				      const u8 *err_for_them),
 			void (*billboardcb)(void *channel, bool perm,
 					    const char *happenings))
 {
 	daemon->channel = channel;
+	daemon->ctype = ctype;
 	daemon->errcb = errcb;
 	daemon->billboardcb = billboardcb;
 }
