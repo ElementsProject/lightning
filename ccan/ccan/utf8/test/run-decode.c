@@ -117,7 +117,7 @@ test_unicode_scalar_value(void) {
   char src[4];
 
   /* Unicode scalar value [U+0000, U+007F] */
-  for (ord = 0x0000; ord <= 0x007F; ord++) {
+  for (ord = 0x0001; ord <= 0x007F; ord++) {
     encode_ord(ord, 1, src);
     TEST_UTF8(src, 1, ord ? 0 : ERANGE);
   }
@@ -255,7 +255,7 @@ test_continuations(void) {
 int
 main(int argc, char **argv)
 {
-  plan_tests(2190906);
+  plan_tests(2190906 - 1);
   test_unicode_scalar_value();
   test_surrogates();
   test_non_shortest_form();

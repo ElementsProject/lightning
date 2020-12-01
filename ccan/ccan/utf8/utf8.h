@@ -33,7 +33,7 @@ static inline void utf8_state_init(struct utf8_state *utf8_state)
  * Otherwise returns true, @utf8_state can be reused without initializeation,
  * and sets errno:
  * 0: success
- * EINVAL: bad encoding.
+ * EINVAL: bad encoding (including a NUL character).
  * EFBIG: not a minimal encoding.
  * ERANGE: encoding of invalid character.
  *
