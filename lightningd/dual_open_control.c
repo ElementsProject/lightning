@@ -951,6 +951,44 @@ cleanup:
 	tal_free(uc);
 }
 
+static void
+opening_failed_cancel_commands(struct uncommitted_channel *uc,
+			       const char *desc)
+{
+	if (!uc->fc)
+		return;
+
+	/* FIXME: cancels? */
+
+	if (uc->fc->cmd)
+		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
+
+	uc->fc = tal_free(uc->fc);
+}
+
+static void open_failed(struct subd *dualopend, const u8 *msg)
+{
+	char *desc;
+	struct uncommitted_channel *uc;
+
+	assert(dualopend->ctype == UNCOMMITTED);
+	uc = dualopend->channel;
+
+	if (!fromwire_dualopend_failed(msg, msg, &desc)) {
+		log_broken(uc->log,
+			   "Bad DUALOPEND_FAILED %s",
+			   tal_hex(msg, msg));
+		if (uc->fc && uc->fc->cmd)
+			was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s",
+						 tal_hex(uc->fc->cmd, msg)));
+
+		tal_free(uc);
+	}
+
+	opening_failed_cancel_commands(uc, desc);
+}
+
+
 struct channel_send {
 	const struct wally_tx *wtx;
 	struct channel *channel;
@@ -1624,6 +1662,8 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 			handle_channel_locked(dualopend, fds, msg);
 			return 0;
 		case WIRE_DUALOPEND_FAILED:
+			open_failed(dualopend, msg);
+			return 0;
 		case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
 
 		/* Messages we send */

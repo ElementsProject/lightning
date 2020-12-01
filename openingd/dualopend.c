@@ -1452,6 +1452,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		u8 *errmsg = towire_errorfmt(tmpctx, &state->channel_id,
 					     "%s", err_reason);
 		sync_crypto_write(state->pps, take(errmsg));
+		status_failed(STATUS_FAIL_MASTER_IO, "%s", errmsg);
 		return;
 	}
 	if (!fromwire_dualopend_got_offer_reply(state, msg,
