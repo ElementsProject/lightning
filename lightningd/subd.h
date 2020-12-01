@@ -18,6 +18,12 @@ struct per_peer_state;
 /* And reply failures are requests + 200 */
 #define SUBD_REPLYFAIL_OFFSET 200
 
+enum channel_type {
+	UNCOMMITTED,
+	CHANNEL,
+	NONE,
+};
+
 /* One of our subds. */
 struct subd {
 	/* Name, like John, or "lightning_hsmd" */
@@ -31,6 +37,7 @@ struct subd {
 
 	/* If we are associated with a single channel, this points to it. */
 	void *channel;
+	enum channel_type ctype;
 
 	/* For logging */
 	struct log *log;
@@ -98,6 +105,7 @@ struct subd *new_global_subd(struct lightningd *ld,
  * @ld: global state
  * @name: basename of daemon
  * @channel: channel to associate.
+ * @ctype: type of @channel struct.
  * @node_id: node_id of peer, for logging.
  * @base_log: log to use (actually makes a copy so it has name in prefix)
  * @msgname: function to get name from messages
@@ -114,6 +122,7 @@ struct subd *new_global_subd(struct lightningd *ld,
 struct subd *new_channel_subd_(struct lightningd *ld,
 			       const char *name,
 			       void *channel,
+			       enum channel_type ctype,
 			       const struct node_id *node_id,
 			       struct log *base_log,
 			       bool talks_to_peer,
@@ -130,10 +139,11 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 						   const char *happenings),
 			       ...);
 
-#define new_channel_subd(ld, name, channel, node_id, log, talks_to_peer, \
-			 msgname, msgcb, errcb, billboardcb, ...)	\
-	new_channel_subd_((ld), (name), (channel), (node_id), (log),	\
-			  (talks_to_peer),				\
+#define new_channel_subd(ld, name, channel, ctype, node_id, log, 	\
+			 talks_to_peer, msgname, msgcb, errcb, 		\
+			 billboardcb, ...)				\
+	new_channel_subd_((ld), (name), (channel), (ctype), (node_id), 	\
+			  (log), (talks_to_peer),			\
 			  (msgname), (msgcb),				\
 			  typesafe_cb_postargs(void, void *, (errcb),	\
 					       (channel),		\
@@ -146,8 +156,8 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 			  __VA_ARGS__)
 
 /* subd_swap_channel - Swap the daemon's channel out */
-#define subd_swap_channel(subd, channel, errcb, billboardcb)		\
-	subd_swap_channel_((subd), (channel),				\
+#define subd_swap_channel(subd, channel, ctype, errcb, billboardcb)	\
+	subd_swap_channel_((subd), (channel), (ctype),			\
 			   typesafe_cb_postargs(void, void *,		\
 						(errcb),		\
 						(channel),		\
@@ -160,6 +170,7 @@ struct subd *new_channel_subd_(struct lightningd *ld,
 						const char *))
 
 void subd_swap_channel_(struct subd *daemon, void *channel,
+			enum channel_type ctype,
 			void (*errcb)(void *channel,
 				      struct per_peer_state *pps,
 				      const struct channel_id *channel_id,

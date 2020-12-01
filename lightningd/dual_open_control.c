@@ -816,7 +816,7 @@ static void accepter_commit_received(struct subd *dualopend,
 					payload->rcvd->channel->dbid,
 					pbase);
 
-	subd_swap_channel(uc->open_daemon, payload->rcvd->channel,
+	subd_swap_channel(uc->open_daemon, payload->rcvd->channel, CHANNEL,
 			  channel_errmsg, channel_set_billboard);
 	payload->rcvd->channel->owner = dualopend;
 	/* We don't have a command, so set to NULL here */
@@ -936,7 +936,7 @@ static void opener_commit_received(struct subd *dualopend,
 
 	was_pending(command_success(uc->fc->cmd, response));
 
-	subd_swap_channel(uc->open_daemon, channel,
+	subd_swap_channel(uc->open_daemon, channel, CHANNEL,
 			  channel_errmsg, channel_set_billboard);
 	channel->owner = dualopend;
 	goto cleanup;
@@ -1708,7 +1708,8 @@ void peer_start_dualopend(struct peer *peer,
 
 	uc->open_daemon = new_channel_subd(peer->ld,
 					   "lightning_dualopend",
-					   uc, &peer->id, uc->log,
+					   uc, UNCOMMITTED, &peer->id,
+					   uc->log,
 					   true, dualopend_wire_name,
 					   dual_opend_msg,
 					   opend_channel_errmsg,
