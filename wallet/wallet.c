@@ -2337,11 +2337,11 @@ wallet_invoice_iterator_deref(const tal_t *ctx, struct wallet *wallet,
 {
 	return invoices_iterator_deref(ctx, wallet->invoices, it);
 }
-void wallet_invoice_resolve(struct wallet *wallet,
+bool wallet_invoice_resolve(struct wallet *wallet,
 			    struct invoice invoice,
 			    struct amount_msat msatoshi_received)
 {
-	invoices_resolve(wallet->invoices, invoice, msatoshi_received);
+	return invoices_resolve(wallet->invoices, invoice, msatoshi_received);
 }
 void wallet_invoice_waitany(const tal_t *ctx,
 			    struct wallet *wallet,

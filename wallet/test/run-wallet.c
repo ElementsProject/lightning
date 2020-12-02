@@ -220,7 +220,7 @@ struct invoices *invoices_new(const tal_t *ctx UNNEEDED,
 			      struct timers *timers UNNEEDED)
 { fprintf(stderr, "invoices_new called!\n"); abort(); }
 /* Generated stub for invoices_resolve */
-void invoices_resolve(struct invoices *invoices UNNEEDED,
+bool invoices_resolve(struct invoices *invoices UNNEEDED,
 		      struct invoice invoice UNNEEDED,
 		      struct amount_msat received UNNEEDED)
 { fprintf(stderr, "invoices_resolve called!\n"); abort(); }

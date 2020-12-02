@@ -174,10 +174,9 @@ const struct invoice_details *invoices_iterator_deref(
  * @invoice - the invoice to mark as paid.
  * @received - the actual amount received.
  *
- * Precondition: the invoice must not yet be expired (invoices
- * does not check).
+ * If the invoice is not UNPAID, returns false.
  */
-void invoices_resolve(struct invoices *invoices,
+bool invoices_resolve(struct invoices *invoices,
 		      struct invoice invoice,
 		      struct amount_msat received);
 
