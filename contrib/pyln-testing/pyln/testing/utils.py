@@ -1,5 +1,6 @@
 from bitcoin.core import COIN  # type: ignore
 from bitcoin.rpc import RawProxy as BitcoinProxy  # type: ignore
+from bitcoin.rpc import JSONRPCError
 from pyln.client import RpcError
 from pyln.testing.btcproxy import BitcoinRpcProxy
 from collections import OrderedDict
@@ -351,7 +352,7 @@ class BitcoinD(TailableProc):
             '-logtimestamps',
             '-nolisten',
             '-txindex',
-            '-wallet="test"',
+            '-nowallet',
             '-addresstype=bech32'
         ]
         # For up to and including 0.16.1, this needs to be in main section.
@@ -369,6 +370,10 @@ class BitcoinD(TailableProc):
         self.wait_for_log("Done loading", timeout=TIMEOUT)
 
         logging.info("BitcoinD started")
+        try:
+            self.rpc.createwallet("lightningd-tests")
+        except JSONRPCError:
+            self.rpc.loadwallet("lightningd-tests")
 
     def stop(self):
         for p in self.proxies:
@@ -461,6 +466,7 @@ class ElementsD(BitcoinD):
             '-server',
             '-logtimestamps',
             '-nolisten',
+            '-nowallet',
             '-validatepegin=0',
             '-con_blocksubsidy=5000000000',
         ]
