@@ -195,7 +195,8 @@ static void start_commit_timer(struct peer *peer);
 
 static void billboard_update(const struct peer *peer)
 {
-	const char *funding_status, *announce_status, *shutdown_status;
+	const char *funding_status, *announce_status,
+		*shutdown_status COMPILER_WANTS_INIT("gcc 8.3.0");
 
 	if (peer->funding_locked[LOCAL] && peer->funding_locked[REMOTE])
 		funding_status = "Funding transaction locked.";
