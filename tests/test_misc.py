@@ -1532,7 +1532,6 @@ def test_feerates(node_factory):
         assert htlc_success_cost == htlc_feerate * 703 // 1000
 
 
-@pytest.mark.xfail(strict=True)
 def test_logging(node_factory):
     # Since we redirect, node.start() will fail: do manually.
     l1 = node_factory.get_node(options={'log-file': 'logfile'}, start=False)

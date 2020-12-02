@@ -642,7 +642,23 @@ static void setup_log_rotation(struct lightningd *ld)
 	io_fd_block(signalfds[1], false);
 	memset(&act, 0, sizeof(act));
 	act.sa_handler = handle_sighup;
-	act.sa_flags = SA_RESETHAND;
+	/* We do not need any particular flags; the sigaction
+	 * default behavior (EINTR any system calls, pass only
+	 * the signo to the handler, retain the same signal
+	 * handler throughout) is fine with us.
+	 */
+	act.sa_flags = 0;
+	/* Block all signals while handling SIGHUP.
+	 * Without this, e.g. an inopportune SIGCHLD while we
+	 * are doing a `write` to the SIGHUP signal pipe could
+	 * prevent us from sending the byte and performing the
+	 * log rotation in the main loop.
+	 *
+	 * The SIGHUP handler does very little anyway, and
+	 * the blocked signals will get delivered soon after
+	 * the SIGHUP handler returns.
+	 */
+	sigfillset(&act.sa_mask);
 
 	if (sigaction(SIGHUP, &act, NULL) != 0)
 		err(1, "Setting up SIGHUP handler");
