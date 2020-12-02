@@ -666,15 +666,15 @@ msgstr ""
 msgid "SELECT state FROM invoices WHERE id = ?;"
 msgstr ""
 
-#: wallet/invoices.c:515
+#: wallet/invoices.c:516
 msgid "UPDATE invoices   SET state=?     , pay_index=?     , msatoshi_received=?     , paid_timestamp=? WHERE id=?;"
 msgstr ""
 
-#: wallet/invoices.c:571
+#: wallet/invoices.c:573
 msgid "SELECT id  FROM invoices WHERE pay_index IS NOT NULL   AND pay_index > ? ORDER BY pay_index ASC LIMIT 1;"
 msgstr ""
 
-#: wallet/invoices.c:620
+#: wallet/invoices.c:622
 msgid "SELECT  state, payment_key, payment_hash, label, msatoshi, expiry_time, pay_index, msatoshi_received, paid_timestamp, bolt11, description, features FROM invoices WHERE id = ?;"
 msgstr ""
 
@@ -1113,4 +1113,4 @@ msgstr ""
 #: wallet/test/run-wallet.c:1376
 msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
-#  SHA256STAMP:a63bd31a3977b161d8245ffddf5de3a03c972a60436eb8cbc1bb23f0ffb03405
+#  SHA256STAMP:8f226711a58166b481aaa7b8c0593c7159711bee623737e3b4750f6c154d4f65

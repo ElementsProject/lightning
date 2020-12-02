@@ -643,7 +643,7 @@ const struct invoice_details *wallet_invoice_iterator_deref(const tal_t *ctx UNN
 			      const struct invoice_iterator *it UNNEEDED)
 { fprintf(stderr, "wallet_invoice_iterator_deref called!\n"); abort(); }
 /* Generated stub for wallet_invoice_resolve */
-void wallet_invoice_resolve(struct wallet *wallet UNNEEDED,
+bool wallet_invoice_resolve(struct wallet *wallet UNNEEDED,
 			    struct invoice invoice UNNEEDED,
 			    struct amount_msat received UNNEEDED)
 { fprintf(stderr, "wallet_invoice_resolve called!\n"); abort(); }

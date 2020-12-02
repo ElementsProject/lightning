@@ -496,7 +496,7 @@ static enum invoice_status invoice_get_status(struct invoices *invoices, struct 
 	return state;
 }
 
-void invoices_resolve(struct invoices *invoices,
+bool invoices_resolve(struct invoices *invoices,
 		      struct invoice invoice,
 		      struct amount_msat received)
 {
@@ -505,7 +505,8 @@ void invoices_resolve(struct invoices *invoices,
 	u64 paid_timestamp;
 	enum invoice_status state = invoice_get_status(invoices, invoice);
 
-	assert(state == UNPAID);
+	if (state != UNPAID)
+		return false;
 
 	/* Assign a pay-index. */
 	pay_index = get_next_pay_index(invoices->db);
@@ -527,6 +528,7 @@ void invoices_resolve(struct invoices *invoices,
 
 	/* Tell all the waiters about the paid invoice. */
 	trigger_invoice_waiter_resolve(invoices, invoice.id, &invoice);
+	return true;
 }
 
 /* Called when an invoice waiter is destructed. */

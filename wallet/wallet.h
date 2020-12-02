@@ -883,10 +883,9 @@ const struct invoice_details *wallet_invoice_iterator_deref(const tal_t *ctx,
  * @invoice - the invoice to mark as paid.
  * @received - the actual amount received.
  *
- * Precondition: the invoice must not yet be expired (wallet
- * does not check!).
+ * If the invoice is not UNPAID, returns false.
  */
-void wallet_invoice_resolve(struct wallet *wallet,
+bool wallet_invoice_resolve(struct wallet *wallet,
 			    struct invoice invoice,
 			    struct amount_msat received);
 

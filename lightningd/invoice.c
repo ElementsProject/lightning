@@ -250,11 +250,17 @@ invoice_payment_hooks_done(struct invoice_payment_hook_payload *payload STEALS)
 		return;
 	}
 
+	/* Paid or expired in the meantime. */
+	if (!wallet_invoice_resolve(ld->wallet, invoice, payload->msat)) {
+		htlc_set_fail(payload->set, take(failmsg_incorrect_or_unknown(
+							 NULL, ld, payload->set->htlcs[0])));
+		return;
+	}
+
 	log_info(ld->log, "Resolved invoice '%s' with amount %s in %zu htlcs",
 		 payload->label->s,
 		 type_to_string(tmpctx, struct amount_msat, &payload->msat),
 		 tal_count(payload->set->htlcs));
-	wallet_invoice_resolve(ld->wallet, invoice, payload->msat);
 	htlc_set_fulfill(payload->set, &payload->preimage);
 }
 
