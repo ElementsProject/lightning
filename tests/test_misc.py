@@ -1532,6 +1532,7 @@ def test_feerates(node_factory):
         assert htlc_success_cost == htlc_feerate * 703 // 1000
 
 
+@pytest.mark.xfail(strict=True)
 def test_logging(node_factory):
     # Since we redirect, node.start() will fail: do manually.
     l1 = node_factory.get_node(options={'log-file': 'logfile'}, start=False)
@@ -1552,6 +1553,16 @@ def test_logging(node_factory):
     def check_new_log():
         log2 = open(logpath).readlines()
         return len(log2) > 0 and log2[0].endswith("Started log due to SIGHUP\n")
+    wait_for(check_new_log)
+
+    # Issue #4240
+    # Repeated SIGHUP should just re-open the log file
+    # and not terminate the daemon.
+    logpath_moved_2 = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'logfile_moved_2')
+    shutil.move(logpath, logpath_moved_2)
+    l1.daemon.proc.send_signal(signal.SIGHUP)
+    wait_for(lambda: os.path.exists(logpath_moved_2))
+    wait_for(lambda: os.path.exists(logpath))
     wait_for(check_new_log)
 
 
