@@ -1,6 +1,7 @@
 #include "../routing.c"
 #include "../gossip_store.c"
 #include <common/json_stream.h>
+#include <common/setup.h>
 #include <stdio.h>
 
 void status_fmt(enum log_level level UNUSED,
@@ -136,18 +137,14 @@ static void node_id_from_privkey(const struct privkey *p, struct node_id *id)
 /* We create an arrangement of nodes, each node N connected to N+1 and
  * to node 1.  The cost for each N to N+1 route is 1, for N to 1 is
  * 2^N.  That means it's always cheapest to go the longer route */
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
-
 	struct routing_state *rstate;
 	struct node_id ids[NUM_NODES];
 	struct chan **route;
 	struct amount_msat last_fee;
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
+	common_setup(argv[0]);
 
 	for (size_t i = 0; i < NUM_NODES; i++) {
 		struct privkey tmp;
@@ -221,7 +218,6 @@ int main(void)
 		last_fee = fee;
 	}
 
-	tal_free(tmpctx);
-	secp256k1_context_destroy(secp256k1_ctx);
+	common_shutdown();
 	return 0;
 }

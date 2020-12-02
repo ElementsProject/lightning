@@ -1,6 +1,7 @@
 #include "../gossip_rcvd_filter.c"
 #include "../pseudorand.c"
 #include "../../wire/fromwire.c"
+#include <common/setup.h>
 #include <common/utils.h>
 #include <stdio.h>
 
@@ -86,13 +87,13 @@ static u8 *mkgossip(const tal_t *ctx, const char *str)
 	return tal_hexdata(ctx, str, strlen(str));
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	const tal_t *ctx = tal(NULL, char);
 	struct gossip_rcvd_filter *f = new_gossip_rcvd_filter(ctx);
 	const u8 *msg[3], *badmsg;
 
-	setup_locale();
+	common_setup(argv[0]);
 
 	msg[0] = mkgossip(ctx, "0100231024fcd59aa58ca8e2ed8f71e07843fc576dd6b2872681960ce64f5f3cd3b5386211a103736bf1de2c03a74f5885d50ea30d21a82e4389339ad13149ac7f52942e6ff0778952b7cb001350d1e2edd25cee80c4c64d624a0273be5436923f5524f1f7e4586007203b2f2c47d6863052529321ebb8e0a171ed013c889bbeaa7a462e9826861c608428509804eb4dd5f75dc5e6baa03205933759fd7abcb2e0304b1a895abb7de3d24e92ade99a6a14f51ac9852ef3daf68b8ad40459d8a6124f23e1271537347b6a1bc9bff1f3e6f60e93177b3bf1d53e76771be9c974ba6b1c6d4916762c0867c13f3617e4893f6272c64fa360aaf6c2a94af7739c498bab3600006fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d619000000000008a8090000510000020cf679b34b5819dfbaf68663bdd636c92117b6c04981940e878818b736c0cdb702809e936f0e82dfce13bcc47c77112db068f569e1db29e7bf98bcdd68b838ee8402590349bcd37d04b81022e52bd65d5119a43e0d7b78f526971ede38d2cd1c0d9e02eec6ac38e4acad847cd42b0946977896527b9e1f7dd59525a1a1344a3cea7fa3");
 	msg[1] = mkgossip(ctx, "0102ccc0a84e4ce09f522f7765db7c30b822ebb346eb17dda92612d03cc8e53ee1454b6c9a918a60ac971e623fd056687f17a01d3c7e805723f7b68be0e8544013546fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d619000000000008a80900005100005d06bacc0102009000000000000003e8000003e8000000010000000005e69ec0");
@@ -192,5 +193,6 @@ int main(void)
 		   && tal_next(f->cur) == NULL));
 
 	tal_free(ctx);
+	common_shutdown();
 	return 0;
 }

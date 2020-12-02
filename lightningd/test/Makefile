@@ -19,6 +19,7 @@ LIGHTNINGD_TEST_COMMON_OBJS :=			\
 	common/random_select.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
+	common/setup.o				\
 	common/utils.o				\
 	common/utxo.o				\
 	common/type_to_string.o			\

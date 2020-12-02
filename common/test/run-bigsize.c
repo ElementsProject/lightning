@@ -4,6 +4,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/json.c>
+#include <common/setup.h>
 #include <common/utils.h>
 #include <wire/wire.h>
 
@@ -336,8 +337,7 @@ int main(int argc, char *argv[])
 	char **lines, *json = NULL;
 	int test_count = 0;
 
-	setup_locale();
-	setup_tmpctx();
+	common_setup(argv[0]);
 
 	lines = tal_strsplit(tmpctx, grab_file(tmpctx, tal_fmt(tmpctx, "%s.c",
 							       argv[0])),
@@ -375,5 +375,5 @@ int main(int argc, char *argv[])
 			tal_append_fmt(&json, "%s", l);
 	}
 	assert(test_count == 2);
-	tal_free(tmpctx);
+	common_shutdown();
 }

@@ -3,6 +3,7 @@
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/json.h>
+#include <common/setup.h>
 #include <common/utils.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -287,17 +288,15 @@ static void test_json_bad_utf8(void)
 	assert(json_parse_simple(tmpctx, buf, strlen(buf)));
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
-	setup_tmpctx();
+	common_setup(argv[0]);
 
 	test_json_tok_size();
 	test_json_tok_bitcoin_amount();
 	test_json_tok_millionths();
 	test_json_delve();
 	test_json_bad_utf8();
-	assert(!taken_any());
-	take_cleanup();
-	tal_free(tmpctx);
+
+	common_shutdown();
 }

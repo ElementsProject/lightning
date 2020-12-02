@@ -1,4 +1,5 @@
 #include "../amount.c"
+#include <common/setup.h>
 #include <common/utils.h>
 #include <stdio.h>
 #include <wire/wire.h>
@@ -82,13 +83,12 @@ void towire_u8_array(u8 **pptr UNNEEDED, const u8 *arr UNNEEDED, size_t num UNNE
 		assert((satp)->satoshis == val);			\
 	} while (0)
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	struct amount_msat msat;
 	struct amount_sat sat;
 
-	setup_locale();
-	setup_tmpctx();
+	common_setup(argv[0]);
 
 	/* Grossly malformed */
 	FAIL_MSAT(&msat, "x");
@@ -233,5 +233,5 @@ int main(void)
 		assert(sat.satoshis == i);
 	}
 
-	tal_free(tmpctx);
+	common_shutdown();
 }

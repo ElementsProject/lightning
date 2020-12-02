@@ -3,6 +3,7 @@
 #include "../routehint.c"
 #include <ccan/alignof/alignof.h>
 #include <common/errcode.h>
+#include <common/setup.h>
 
 bool deprecated_apis = false;
 
@@ -768,17 +769,14 @@ STRUCTEQ_DEF(route_info,
 	     fee_base_msat,
 	     fee_proportional_millionths);
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	struct lightningd *ld;
 	struct routehint_candidate *candidates;
 	struct route_info **ret;
 	size_t n;
 
-	setup_locale();
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
+	common_setup(argv[0]);
 	ld = tal(tmpctx, struct lightningd);
 
 	list_head_init(&ld->peers);
@@ -856,9 +854,7 @@ int main(void)
 	       n, 1000 - n);
 	assert(n > 250 - 50 && n < 250 + 50);
 
-	/* No memory leaks please */
-	secp256k1_context_destroy(secp256k1_ctx);
-	tal_free(tmpctx);
+	common_shutdown();
 
 	/* FIXME: Do BOLT comparison! */
 	return 0;

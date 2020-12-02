@@ -3,6 +3,7 @@
 #include <ccan/err/err.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
+#include <common/setup.h>
 #include <common/utils.h>
 #include <stdio.h>
 #include <wally_core.h>
@@ -248,15 +249,12 @@ static void test_feature_trim(void)
 	}
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	u8 *bits;
 	struct feature_set *fset;
 
-	setup_locale();
-	wally_init(0);
-	secp256k1_ctx = wally_get_secp_context();
-	setup_tmpctx();
+	common_setup(argv[0]);
 
 	/* Just some bits to set. */
 	fset = feature_set_for_feature(tmpctx,
@@ -337,8 +335,6 @@ int main(void)
 	test_feature_trim();
 	test_feature_set_sub();
 
-	wally_cleanup(0);
-	tal_free(tmpctx);
-	take_cleanup();
+	common_shutdown();
 	return 0;
 }

@@ -5,6 +5,7 @@
 #include <ccan/err/err.h>
 #include <common/errcode.h>
 #include <common/json.h>
+#include <common/setup.h>
 #include <setjmp.h>
 #include <signal.h>
 #include <unistd.h>
@@ -590,10 +591,9 @@ static void usage(void)
 	cmd->mode = CMD_NORMAL;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
-	setup_tmpctx();
+	common_setup(argv[0]);
 	cmd = tal(tmpctx, struct command);
 	cmd->mode = CMD_NORMAL;
 	fail_msg = tal_arr(cmd, char, 10000);
@@ -615,6 +615,6 @@ int main(void)
 	param_tests();
 	usage();
 
-	tal_free(tmpctx);
 	printf("run-params ok\n");
+	common_shutdown();
 }

@@ -15,6 +15,7 @@ GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/json.o				\
 	common/json_helpers.o			\
 	common/pseudorand.o			\
+	common/setup.o				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	wire/peer$(EXP)_wiregen.o		\

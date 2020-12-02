@@ -9,6 +9,7 @@
 #include <common/blinding.h>
 #include <common/ecdh.h>
 #include <common/hmac.h>
+#include <common/setup.h>
 #include <common/sphinx.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -52,10 +53,7 @@ int main(int argc, char **argv)
 {
 	bool first = false;
 
-	setup_locale();
-
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY |
-						 SECP256K1_CONTEXT_SIGN);
+	common_setup(argv[0]);
 
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
@@ -69,7 +67,6 @@ int main(int argc, char **argv)
 	opt_register_version();
 
 	opt_parse(&argc, argv, opt_log_stderr_exit);
-	setup_tmpctx();
 
 	if (argc < 2)
 		errx(1, "You must specify create or unwrap");
@@ -315,4 +312,6 @@ int main(int argc, char **argv)
 		printf("Next onion: %s\n", tal_hex(tmpctx, serialize_onionpacket(tmpctx, rs->next)));
 	} else
 		errx(1, "Either create or unwrap!");
+
+	common_shutdown();
 }

@@ -1057,10 +1057,7 @@ int main(int argc, const char *argv[])
 		break;
 	}
 
-	/* No memory leaks please */
-	take_cleanup();
 	common_shutdown();
-
 
 	/* FIXME: Do BOLT comparison! */
 	return 0;
