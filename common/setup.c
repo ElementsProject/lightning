@@ -44,6 +44,10 @@ void common_setup(const char *argv0)
 
 void common_shutdown(void)
 {
+	const char *p = taken_any();
+	if (p)
+		errx(1, "outstanding taken(): %s", p);
+	take_cleanup();
 	tal_free(tmpctx);
 	wally_cleanup(0);
 	tal_free(wally_tal_ctx);
