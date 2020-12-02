@@ -8,6 +8,7 @@
 #include <ccan/io/io.h>
 #include <common/amount.h>
 #include <common/memleak.h>
+#include <common/setup.h>
 #include <common/status.h>
 #include <wire/wire.h>
 
@@ -283,9 +284,7 @@ static struct io_plan *success(struct io_conn *conn UNUSED,
 	assert(secret_eq_str(&cs->sk, expect_sk));
 	assert(secret_eq_str(&cs->rk, expect_rk));
 
-	/* No memory leaks please */
-	secp256k1_context_destroy(secp256k1_ctx);
-	tal_free(tmpctx);
+	common_shutdown();
 	exit(0);
 }
 
@@ -296,16 +295,11 @@ void ecdh(const struct pubkey *point, struct secret *ss)
 		abort();
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
-
 	struct wireaddr_internal dummy;
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
-
+	common_setup(argv[0]);
 
 	/* BOLT #8:
 	 *

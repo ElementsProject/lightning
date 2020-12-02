@@ -670,8 +670,6 @@ int main(int argc, const char *argv[])
 		txs_must_be_eq(txs, txs2);
 	}
 
-	/* No memory leaks please */
-	take_cleanup();
 	common_shutdown();
 
 	/* FIXME: Do BOLT comparison! */

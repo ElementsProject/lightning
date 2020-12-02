@@ -2,6 +2,7 @@
 #include <ccan/io/io.h>
 #include <ccan/short_types/short_types.h>
 #include <common/amount.h>
+#include <common/setup.h>
 #include <common/utils.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -215,12 +216,11 @@ static bool test_multi_write(const tal_t *ctx)
 	return true;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	bool ok = true;
-	setup_locale();
-	setup_tmpctx();
+	common_setup(argv[0]);
 	ok &= test_multi_write(tmpctx);
-	tal_free(tmpctx);
+	common_shutdown();
 	return !ok;
 }

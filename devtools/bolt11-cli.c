@@ -13,6 +13,7 @@
 #include <common/bech32.h>
 #include <common/bolt11.h>
 #include <common/features.h>
+#include <common/setup.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
 #include <inttypes.h>
@@ -56,8 +57,6 @@ static char *fmt_time(const tal_t *ctx, u64 time)
 
 int main(int argc, char *argv[])
 {
-	setup_locale();
-
 	const tal_t *ctx = tal(NULL, char);
 	const char *method;
 	struct bolt11 *b11;
@@ -65,9 +64,7 @@ int main(int argc, char *argv[])
 	size_t i;
 	char *fail, *description = NULL;
 
-	err_set_progname(argv[0]);
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
+	common_setup(argv[0]);
 
 	opt_set_alloc(opt_allocfn, tal_reallocfn, tal_freefn);
 	opt_register_noarg("--help|-h", opt_usage_and_exit,
@@ -186,5 +183,6 @@ int main(int argc, char *argv[])
 	printf("signature: %s\n",
 	       type_to_string(ctx, secp256k1_ecdsa_signature, &b11->sig));
 	tal_free(ctx);
+	common_shutdown();
 	return NO_ERROR;
 }

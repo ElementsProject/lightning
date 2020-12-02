@@ -2,6 +2,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/dev_disconnect.h>
+#include <common/setup.h>
 #include <common/status.h>
 #include <stdio.h>
 #include <wire/peer_wire.h>
@@ -135,16 +136,14 @@ static void check_result(const u8 *msg, const char *hex)
 	assert(streq(hex, tal_hex(tmpctx, msg)));
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
-
 	struct crypto_state cs_out, cs_in;
 	struct secret sk, rk, ck;
 	const void *msg;
 	size_t i;
 
-	setup_tmpctx();
+	common_setup(argv[0]);
 	msg = tal_dup_arr(tmpctx, char, "hello", 5, 0);
 
 	/* BOLT #8:
@@ -217,6 +216,6 @@ int main(void)
 		dec = cryptomsg_decrypt_body(enc, &cs_in, enc);
 		assert(memeq(dec, tal_bytelen(dec), msg, tal_bytelen(msg)));
 	}
-	tal_free(tmpctx);
+	common_shutdown();
 	return 0;
 }

@@ -1,6 +1,7 @@
 #include "../routing.c"
 #include "../gossip_store.c"
 #include <common/json_stream.h>
+#include <common/setup.h>
 #include <stdio.h>
 
 void status_fmt(enum log_level level UNUSED,
@@ -214,10 +215,8 @@ static bool channel_is_between(const struct chan *chan,
 	return false;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
-
 	struct routing_state *rstate;
 	struct node_id a, b, c, d;
 	struct privkey tmp;
@@ -225,9 +224,7 @@ int main(void)
 	struct chan **route;
 	const double riskfactor = 1.0 / BLOCKS_PER_YEAR / 10000;
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
+	common_setup(argv[0]);
 
 	memset(&tmp, 'a', sizeof(tmp));
 	node_id_from_privkey(&tmp, &a);
@@ -301,7 +298,6 @@ int main(void)
 	assert(channel_is_between(route[1], &d, &c));
 	assert(amount_msat_eq(fee, AMOUNT_MSAT(0 + 6)));
 
-	tal_free(tmpctx);
-	secp256k1_context_destroy(secp256k1_ctx);
+	common_shutdown();
 	return 0;
 }

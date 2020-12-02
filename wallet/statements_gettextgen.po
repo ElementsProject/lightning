@@ -1102,15 +1102,15 @@ msgstr ""
 msgid "DELETE FROM penalty_bases WHERE channel_id = ? AND commitnum = ?"
 msgstr ""
 
-#: wallet/test/run-db.c:119
+#: wallet/test/run-db.c:120
 msgid "SELECT name FROM sqlite_master WHERE type='table';"
 msgstr ""
 
-#: wallet/test/run-db.c:124
+#: wallet/test/run-db.c:125
 msgid "not a valid SQL statement"
 msgstr ""
 
 #: wallet/test/run-wallet.c:1376
 msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
-#  SHA256STAMP:8fd4a9d444c885db744f98790817b0b580f3e39e36be393e578cc05418d25323
+#  SHA256STAMP:a63bd31a3977b161d8245ffddf5de3a03c972a60436eb8cbc1bb23f0ffb03405

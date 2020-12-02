@@ -4,6 +4,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/structeq/structeq.h>
 #include <common/amount.h>
+#include <common/setup.h>
 #include <common/utils.h>
 #include <stdio.h>
 #include <wally_core.h>
@@ -139,15 +140,12 @@ static struct info *new_info(const tal_t *ctx)
 	return info;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
-
 	const tal_t *ctx = tal(NULL, char);
 	struct info *baseline, *info;
 
-	wally_init(0);
-	secp256k1_ctx = wally_get_secp_context();
+	common_setup(argv[0]);
 	baseline = new_info(ctx);
 	assert(derive_basepoints(&baseline->seed, &baseline->funding_pubkey,
 				 &baseline->basepoints,
@@ -263,6 +261,6 @@ int main(void)
 				   &info->secrets.htlc_basepoint_secret));
 
 	tal_free(ctx);
-	wally_cleanup(0);
+	common_shutdown();
 	return 0;
 }

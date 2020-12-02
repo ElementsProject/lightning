@@ -2,6 +2,7 @@
 #include <bitcoin/privkey.c>
 #include <ccan/err/err.h>
 #include <ccan/time/time.h>
+#include <common/setup.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -106,17 +107,18 @@ static bool secret_time_test(struct timerel (*test)(struct secret *s1,
 
 #define ITERATIONS 1000
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	const char *v;
 	int const_success, nonconst_success = ITERATIONS, i;
 	double load;
-	setup_locale();
+
+	common_setup(argv[0]);
 
 	/* no point running this under valgrind. */
 	v = getenv("VALGRIND");
 	if (v && atoi(v) == 1)
-		exit(0);
+		goto exit;
 
 	s1 = calloc(RUNS, sizeof(*s1));
 	s2 = calloc(RUNS, sizeof(*s2));
@@ -142,16 +144,20 @@ int main(void)
 
 	/* Now, check loadavg: if we weren't alone, that could explain results */
 	getloadavg(&load, 1);
-	if (load > 1.0)
-		errx(0, "Load %.2f: too high, ignoring", load);
+	if (load > 1.0) {
+		warnx("Load %.2f: too high, ignoring", load);
+	} else {
+		if (const_success < ITERATIONS / 2)
+			errx(1, "Only const time %u/%u?", const_success, i);
 
-	if (const_success < ITERATIONS / 2)
-		errx(1, "Only const time %u/%u?", const_success, i);
-
-	if (nonconst_success < ITERATIONS / 2)
-		errx(1, "memcmp seemed const time %u/%u?", nonconst_success, i);
+		if (nonconst_success < ITERATIONS / 2)
+			errx(1, "memcmp seemed const time %u/%u?",
+			     nonconst_success, i);
+	}
 	free(s1);
 	free(s2);
 
+exit:
+	common_shutdown();
 	return 0;
 }

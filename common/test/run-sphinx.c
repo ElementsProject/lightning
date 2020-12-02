@@ -3,11 +3,11 @@
 #include "../onionreply.c"
 #include "../sphinx.c"
 #include <secp256k1.h>
-#include <ccan/opt/opt.h>
 #include <ccan/short_types/short_types.h>
 #include <string.h>
 #include <ccan/str/hex/hex.h>
 #include <common/ecdh.h>
+#include <common/setup.h>
 #include <common/sphinx.h>
 #include <common/utils.h>
 #include <err.h>
@@ -208,16 +208,9 @@ static void run_unit_tests(void)
 
 int main(int argc, char **argv)
 {
-	setup_locale();
-
-	secp256k1_ctx = secp256k1_context_create(
-		SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
-
+	common_setup(argv[0]);
 	run_unit_tests();
 
-	secp256k1_context_destroy(secp256k1_ctx);
-	opt_free_table();
-	tal_free(tmpctx);
+	common_shutdown();
 	return 0;
 }

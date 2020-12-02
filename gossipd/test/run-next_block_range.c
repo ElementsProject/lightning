@@ -109,7 +109,7 @@ static void test_block_range(struct seeker *seeker,
 	va_end(ap);
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	struct seeker *seeker = tal(NULL, struct seeker);
 

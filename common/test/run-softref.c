@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <ccan/short_types/short_types.h>
 #include <common/amount.h>
+#include <common/setup.h>
 #include <common/utils.h>
 #include <stdio.h>
 #include <wire/wire.h>
@@ -109,13 +110,13 @@ struct objtype {
 	char *c_softref, *c_softref2;
 };
 
-int main(void)
+int main(int argc, char *argv[])
 {
 	const void *ctx = tal(NULL, char);
 	struct objtype *o;
 	char *c;
 
-	setup_locale();
+	common_setup(argv[0]);
 
 	/* Simple test: freeing obj NULLs softref */
 	o = tal(ctx, struct objtype);
@@ -159,4 +160,5 @@ int main(void)
 	tal_free(o);
 
 	tal_free(ctx);
+	common_shutdown();
 }

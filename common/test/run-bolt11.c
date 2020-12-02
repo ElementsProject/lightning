@@ -11,6 +11,7 @@
 #include <ccan/err/err.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
+#include <common/setup.h>
 #include <stdio.h>
 #include <wally_core.h>
 
@@ -134,10 +135,8 @@ static void test_b11(const char *b11str,
 	assert(strlen(reproduce) == strlen(b11str));
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
-
 	struct bolt11 *b11;
 	struct node_id node;
 	struct amount_msat msatoshi;
@@ -146,9 +145,7 @@ int main(void)
 	char *fail;
 	struct feature_set *fset;
 
-	wally_init(0);
-	secp256k1_ctx = wally_get_secp_context();
-	setup_tmpctx();
+	common_setup(argv[0]);
 
 	/* BOLT #11:
 	 *
@@ -627,8 +624,5 @@ int main(void)
 	assert(streq(fail, "d: invalid utf8"));
 
 	/* FIXME: Test the others! */
-	wally_cleanup(0);
-	tal_free(tmpctx);
-	take_cleanup();
-	return 0;
+	common_shutdown();
 }

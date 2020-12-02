@@ -14,6 +14,7 @@ static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const s
 
 #include <common/amount.h>
 #include <common/memleak.h>
+#include <common/setup.h>
 #include <stdio.h>
 #include <unistd.h>
 
@@ -162,14 +163,13 @@ static bool test_vars(struct lightningd *ld)
 	return true;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
-	setup_tmpctx();
-
 	bool ok = true;
 	/* Dummy for migration hooks */
 	struct lightningd *ld = tal(NULL, struct lightningd);
+
+	common_setup(argv[0]);
 	ld->config = test_config;
 
 	ok &= test_empty_db_migrate(ld);
@@ -177,6 +177,6 @@ int main(void)
 	ok &= test_primitives();
 
 	tal_free(ld);
-	tal_free(tmpctx);
+	common_shutdown();
 	return !ok;
 }

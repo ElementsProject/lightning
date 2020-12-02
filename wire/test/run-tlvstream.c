@@ -12,6 +12,7 @@ static const char *reason;
 #include <common/amount.c>
 #include <common/bigsize.c>
 #include <common/node_id.c>
+#include <common/setup.h>
 
 #if EXPERIMENTAL_FEATURES
 #include <wire/peer_exp_wiregen.c>
@@ -445,13 +446,9 @@ static bool ignored_fields(const struct tlv_n1 *tlv_n1)
 		&& tlv_n1->tlv4 == NULL;
 }
 
-int main(void)
+int main(int argc, char *argv[])
 {
-	setup_locale();
-	wally_init(0);
-	secp256k1_ctx = wally_get_secp_context();
-
-	setup_tmpctx();
+	common_setup(argv[0]);
 
 	if (!pubkey_from_hexstr("023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb", 66, &tlv3_node_id.node_id))
 		abort();
@@ -636,6 +633,5 @@ int main(void)
 				     p2, tal_count(p2)));
 		}
 	}
-	tal_free(tmpctx);
-	wally_cleanup(0);
+	common_shutdown();
 }

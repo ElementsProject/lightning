@@ -6,6 +6,7 @@
 #include <ccan/time/time.h>
 #include <common/json_stream.h>
 #include <common/pseudorand.h>
+#include <common/setup.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <stdio.h>
@@ -224,8 +225,6 @@ static void run(const char *name)
 
 int main(int argc, char *argv[])
 {
-	setup_locale();
-
 	struct routing_state *rstate;
 	size_t num_nodes = 100, num_runs = 1;
 	struct timemono start, end;
@@ -236,9 +235,7 @@ int main(int argc, char *argv[])
 	const double riskfactor = 0.01 / BLOCKS_PER_YEAR / 10000;
 	struct siphash_seed base_seed;
 
-	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
-						 | SECP256K1_CONTEXT_SIGN);
-	setup_tmpctx();
+	common_setup(argv[0]);
 
 	me = nodeid(0);
 	rstate = new_routing_state(tmpctx, &me, NULL, NULL, NULL,
@@ -302,8 +299,7 @@ int main(int argc, char *argv[])
 		if (route_lengths[i])
 			printf(" Length %zu: %zu\n", i, route_lengths[i]);
 
-	tal_free(tmpctx);
-	secp256k1_context_destroy(secp256k1_ctx);
+	common_shutdown();
 	opt_free_table();
 	return 0;
 }
