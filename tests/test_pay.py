@@ -1832,7 +1832,9 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     # - check values in local nodes listchannels output
     # - json throws exception on negative values
     # - checks if peer id can be used instead of scid
+    # - checks fee_base_msat and fee_proportional_millionths in `listpeers` out
     DEF_BASE = 10
+    DEF_BASE_MSAT = Millisatoshi(DEF_BASE)
     DEF_PPM = 100
 
     l1, l2, l3 = node_factory.get_nodes(3,
@@ -1852,6 +1854,10 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     db_fees = l1.db_query('SELECT feerate_base, feerate_ppm FROM channels;')
     assert(db_fees[0]['feerate_base'] == DEF_BASE)
     assert(db_fees[0]['feerate_ppm'] == DEF_PPM)
+    # this is also what listpeers should return
+    peers = l1.rpc.listpeers()['peers']
+    assert peers[0]['channels'][0]['fee_base_msat'] == DEF_BASE_MSAT
+    assert peers[0]['channels'][0]['fee_proportional_millionths'] == DEF_PPM
 
     # custom setchannelfee scid <base> <ppm>
     result = l1.rpc.setchannelfee(scid, 1337, 137)
@@ -1868,6 +1874,10 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     db_fees = channel_get_fees(scid)
     assert(db_fees[0]['feerate_base'] == 1337)
     assert(db_fees[0]['feerate_ppm'] == 137)
+    # also check for updated values in `listpeers`
+    peers = l1.rpc.listpeers()['peers']
+    assert peers[0]['channels'][0]['fee_base_msat'] == Millisatoshi(1337)
+    assert peers[0]['channels'][0]['fee_proportional_millionths'] == 137
 
     # wait for gossip and check if l1 sees new fees in listchannels
     wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid)['channels']] == [DEF_BASE, 1337])
@@ -1899,6 +1909,10 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     db_fees = channel_get_fees(scid)
     assert(db_fees[0]['feerate_base'] == 0)
     assert(db_fees[0]['feerate_ppm'] == 0)
+    # also check for updated values in `listpeers`
+    peers = l1.rpc.listpeers()['peers']
+    assert peers[0]['channels'][0]['fee_base_msat'] == Millisatoshi(0)
+    assert peers[0]['channels'][0]['fee_proportional_millionths'] == 0
 
     # disable and check for global values to be returned
     result = l1.rpc.setchannelfee(scid)
@@ -1908,6 +1922,10 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     db_fees = channel_get_fees(scid)
     assert(db_fees[0]['feerate_base'] == DEF_BASE)
     assert(db_fees[0]['feerate_ppm'] == DEF_PPM)
+    # also check for updated values in `listpeers`
+    peers = l1.rpc.listpeers()['peers']
+    assert peers[0]['channels'][0]['fee_base_msat'] == DEF_BASE_MSAT
+    assert peers[0]['channels'][0]['fee_proportional_millionths'] == DEF_PPM
 
     # check also peer id can be used
     result = l1.rpc.setchannelfee(l2.info['id'], 42, 43)
