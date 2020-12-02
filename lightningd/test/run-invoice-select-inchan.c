@@ -224,6 +224,12 @@ void json_add_amount_msat_compat(struct json_stream *result UNNEEDED,
 				 const char *msatfieldname)
 
 { fprintf(stderr, "json_add_amount_msat_compat called!\n"); abort(); }
+/* Generated stub for json_add_amount_msat_only */
+void json_add_amount_msat_only(struct json_stream *result UNNEEDED,
+			  const char *msatfieldname UNNEEDED,
+			  struct amount_msat msat)
+
+{ fprintf(stderr, "json_add_amount_msat_only called!\n"); abort(); }
 /* Generated stub for json_add_amount_sat_compat */
 void json_add_amount_sat_compat(struct json_stream *result UNNEEDED,
 				struct amount_sat sat UNNEEDED,

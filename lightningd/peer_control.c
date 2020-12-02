@@ -877,6 +877,12 @@ static void json_add_channel(struct lightningd *ld,
 	json_add_amount_msat_compat(response, funding_msat,
 				    "msatoshi_total", "total_msat");
 
+	/* routing fees */
+	json_add_amount_msat_only(response, "fee_base_msat",
+				  amount_msat(channel->feerate_base));
+	json_add_u32(response, "fee_proportional_millionths",
+		     channel->feerate_ppm);
+
 	/* channel config */
 	json_add_amount_sat_compat(response,
 				   channel->our_config.dust_limit,
