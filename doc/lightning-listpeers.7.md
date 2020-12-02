@@ -100,6 +100,10 @@ The objects in the *channels* array will have at least these fields:
   a number followed by a string unit.
 * *total\_msat*: A string describing the total capacity of the channel;
   a number followed by a string unit.
+* *fee_base_msat*: The fixed routing fee we charge for forwards going out over
+  this channel, regardless of payment size.
+* *fee_proportional_millionths*: The proportional routing fees in ppm (parts-
+  per-millionths) we charge for forwards going out over this channel.
 * *features*: An array of feature names supported by this channel.
 
 These fields may exist if the channel has gotten beyond the `"OPENINGD"`
@@ -238,7 +242,8 @@ Michael Hawkins <<michael.hawkins@protonmail.com>>.
 SEE ALSO
 --------
 
-lightning-connect(7), lightning-fundchannel\_start(7)
+lightning-connect(7), lightning-fundchannel\_start(7),
+lightning-setchannelfee(7)
 
 RESOURCES
 ---------

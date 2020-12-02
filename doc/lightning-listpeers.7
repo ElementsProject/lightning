@@ -138,6 +138,12 @@ a number followed by a string unit\.
 \fItotal_msat\fR: A string describing the total capacity of the channel;
 a number followed by a string unit\.
 .IP \[bu]
+\fIfee_base_msat\fR: The fixed routing fee we charge for forwards going out over
+this channel, regardless of payment size\.
+.IP \[bu]
+\fIfee_proportional_millionths\fR: The proportional routing fees in ppm (parts-
+per-millionths) we charge for forwards going out over this channel\.
+.IP \[bu]
 \fIfeatures\fR: An array of feature names supported by this channel\.
 
 .RE
@@ -319,7 +325,8 @@ Michael Hawkins \fI<michael.hawkins@protonmail.com\fR>\.
 
 .SH SEE ALSO
 
-\fBlightning-connect\fR(7), lightning-fundchannel_\fBstart\fR(7)
+\fBlightning-connect\fR(7), lightning-fundchannel_\fBstart\fR(7),
+\fBlightning-setchannelfee\fR(7)
 
 .SH RESOURCES
 
@@ -327,4 +334,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR Lightning
 RFC site (BOLT #9):
 \fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md\fR
 
-\" SHA256STAMP:8f6fbdc92e59d5efb2e9e8fa113651badb8aacddaea29d81798ecb598fbaad01
+\" SHA256STAMP:9e2ed8ce1612c02a6251db7da1d62e2d12f8e0648a54888687f177f0784ef2e6
