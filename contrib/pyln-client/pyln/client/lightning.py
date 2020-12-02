@@ -177,7 +177,7 @@ class Millisatoshi:
         return Millisatoshi(int(self) - int(other))
 
     def __mul__(self, other: int) -> 'Millisatoshi':
-        return Millisatoshi(self.millisatoshis * other)
+        return Millisatoshi(int(self.millisatoshis * other))
 
     def __truediv__(self, other: Union[int, float]) -> 'Millisatoshi':
         return Millisatoshi(int(self.millisatoshis / other))

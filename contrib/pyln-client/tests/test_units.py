@@ -93,7 +93,6 @@ def test_zero():
     assert int(amount) == 0
 
 
-@pytest.mark.xfail
 def test_round_zero():
     # everything below 1msat should round down to zero
     amount = Millisatoshi("1msat") * 0.9
@@ -151,7 +150,6 @@ def test_round_zero():
     assert int(amount) == 0
 
 
-@pytest.mark.xfail
 def test_round_down():
     # sub msat significatns should be floored
     amount = Millisatoshi("2msat") * 0.9
