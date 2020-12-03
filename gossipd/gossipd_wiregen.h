@@ -199,4 +199,4 @@ bool fromwire_gossipd_new_blockheight(const void *p, u32 *blockheight);
 
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_WIREGEN_H */
-// SHA256STAMP:9b93deed184d5f5c0d5a9e649fae6449645501ded555b63350bfa3ce8eef70ba
+// SHA256STAMP:9a3085a0900af1be982379d809293c95374675211d9b254f0471ac62ecc6a40c

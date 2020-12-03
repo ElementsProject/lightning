@@ -194,8 +194,7 @@ const struct tlv_record_type tlvs_tlv_payload[] = {
 	{ 8, towire_tlv_tlv_payload_payment_data, fromwire_tlv_tlv_payload_payment_data },
 };
 
-void towire_tlv_payload(u8 **pptr,
-			const void *record)
+void towire_tlv_payload(u8 **pptr, const struct tlv_tlv_payload *record)
 {
 	size_t num_types = 4;
 	const struct tlv_record_type *types = tlvs_tlv_payload;
@@ -837,4 +836,4 @@ bool fromwire_mpp_timeout(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:6f34c3287d2f8abec14ecd33fe8340b82298a34959e96a752f8dafc0762b8f65
+// SHA256STAMP:9e9fd8224814641537178262b21b7ea3c898d5d9282066228938f69236a9df2c

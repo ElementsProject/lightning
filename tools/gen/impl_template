@@ -257,8 +257,7 @@ ${static}const struct tlv_record_type tlvs_${tlv.name}[] = {
     % endfor
 };
 
-void towire_${tlv.name}(u8 **pptr,
-			const void *record)
+void towire_${tlv.name}(u8 **pptr, const struct ${tlv.struct_name()} *record)
 {
 	size_t num_types = ${len(tlv.messages)};
 	const struct tlv_record_type *types = tlvs_${tlv.name};

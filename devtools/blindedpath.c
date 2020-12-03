@@ -147,11 +147,12 @@ int main(int argc, char **argv)
 			u8 *p;
 			u8 buf[BIGSIZE_MAX_LEN];
 			const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-			struct tlv_onionmsg_payload *inner, *outer;
+			struct tlv_onionmsg_payload *outer;
+			struct tlv_encmsg_tlvs *inner;
 			int ret;
 
 			/* Inner is encrypted */
-			inner = tlv_onionmsg_payload_new(tmpctx);
+			inner = tlv_encmsg_tlvs_new(tmpctx);
 			/* Use scid if they provided one */
 			if (scids[i]) {
 				inner->next_short_channel_id
