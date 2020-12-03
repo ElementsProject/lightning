@@ -14,6 +14,13 @@
 /* We only have 10 bits for the field length, meaning < 640 bytes */
 #define BOLT11_FIELD_BYTE_LIMIT ((1 << 10) * 5 / 8)
 
+/* BOLT #11:
+ * * `c` (24): `data_length` variable.
+ *    `min_final_cltv_expiry` to use for the last HTLC in the route.
+ *    Default is 18 if not specified.
+ */
+#define DEFAULT_FINAL_CLTV_DELTA 18
+
 struct feature_set;
 
 struct bolt11_field {

@@ -137,7 +137,9 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->destination_has_tlv = true;
 	p->payment_secret = NULL;
 	p->amount = *msat;
-	p->invoice = NULL;
+	p->routes = NULL;
+	p->min_final_cltv_expiry = DEFAULT_FINAL_CLTV_DELTA;
+	p->features = NULL;
 	p->bolt11 = NULL;
 	p->why = "Initial attempt";
 	p->constraints.cltv_budget = *maxdelay;
