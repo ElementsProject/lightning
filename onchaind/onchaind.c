@@ -1,6 +1,7 @@
 #include <bitcoin/feerate.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
+#include <ccan/asort/asort.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
@@ -2263,6 +2264,12 @@ static size_t resolve_our_htlc_ourcommit(struct tracked_output *out,
 	/* These htlcs are all possibilities, but signature will only match
 	 * one with the correct cltv: check which that is. */
 	for (i = 0; i < tal_count(matches); i++) {
+		/* Skip over duplicate HTLCs, since we only need one. */
+		if (i > 0
+		    && (htlcs[matches[i]].cltv_expiry
+			== htlcs[matches[i-1]].cltv_expiry))
+			continue;
+
 		/* BOLT #5:
 		 *
 		 * ## HTLC Output Handling: Local Commitment, Local Offers
@@ -3640,6 +3647,16 @@ search_done:
 	wait_for_resolved(outs);
 }
 
+static int cmp_htlc_cltv(const struct htlc_stub *a,
+			 const struct htlc_stub *b, void *unused)
+{
+	if (a->cltv_expiry < b->cltv_expiry)
+		return -1;
+	else if (a->cltv_expiry > b->cltv_expiry)
+		return 1;
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -3730,6 +3747,9 @@ int main(int argc, char *argv[])
 					   &tell_immediately[i]))
 			master_badmsg(WIRE_ONCHAIND_HTLC, msg);
 	}
+
+	/* Sort by CLTV, so matches are in CLTV order (and easy to skip dups) */
+	asort(htlcs, tal_count(htlcs), cmp_htlc_cltv, NULL);
 
 	outs = tal_arr(ctx, struct tracked_output *, 0);
 	wally_tx_input_get_txid(tx->inputs[0], &tmptxid);
