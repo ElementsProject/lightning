@@ -324,6 +324,9 @@ static void fail_out_htlc(struct htlc_out *hout,
 							      hout->failmsg);
 			fail_in_htlc(hout->in, failonion);
 		}
+	} else {
+		if (taken(failmsg_needs_update))
+			tal_free(failmsg_needs_update);
 	}
 }
 
