@@ -2022,13 +2022,15 @@ static struct command_result *json_paymod(struct command *cmd,
 	p->local_id = &my_id;
 	p->json_buffer = tal_steal(p, buf);
 	p->json_toks = params;
-	p->destination = &b11->receiver_id;
+	p->destination = tal_dup(p, struct node_id, &b11->receiver_id);
 	p->destination_has_tlv = feature_offered(b11->features, OPT_VAR_ONION);
 	p->payment_hash = tal_dup(p, struct sha256, &b11->payment_hash);
 	p->payment_secret = b11->payment_secret
 				? tal_dup(p, struct secret, b11->payment_secret)
 				: NULL;
-	p->invoice = tal_steal(p, b11);
+	p->routes = tal_steal(p, b11->routes);
+	p->min_final_cltv_expiry = b11->min_final_cltv_expiry;
+	p->features = tal_steal(p, b11->features);
 	p->bolt11 = tal_steal(p, b11str);
 	p->why = "Initial attempt";
 	p->constraints.cltv_budget = *maxdelay;

@@ -232,7 +232,10 @@ struct payment {
 	void **modifier_data;
 	int current_modifier;
 
-	struct bolt11 *invoice;
+	/* Information from the invoice. */
+	u32 min_final_cltv_expiry;
+	struct route_info **routes;
+	const u8 *features;
 
 	/* tal_arr of channel_hints we incrementally learn while performing
 	 * payment attempts. */
