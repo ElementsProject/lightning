@@ -196,157 +196,18 @@ const struct tlv_record_type tlvs_tlv_payload[] = {
 
 void towire_tlv_payload(u8 **pptr, const struct tlv_tlv_payload *record)
 {
-	size_t num_types = 4;
-	const struct tlv_record_type *types = tlvs_tlv_payload;
-	if (!record)
-		return;
-
-	for (size_t i = 0; i < num_types; i++) {
-		u8 *val;
-		if (i != 0)
-			assert(types[i].type > types[i-1].type);
-		val = types[i].towire(NULL, record);
-		if (!val)
-			continue;
-
-		/* BOLT #1:
-		 *
-		 * The sending node:
-		 ...
-		 *  - MUST minimally encode `type` and `length`.
-		 */
-		towire_bigsize(pptr, types[i].type);
-		towire_bigsize(pptr, tal_bytelen(val));
-		towire(pptr, val, tal_bytelen(val));
-		tal_free(val);
-	}
+	towire_tlv(pptr, tlvs_tlv_payload, 4, record);
 }
 
 
 bool fromwire_tlv_payload(const u8 **cursor, size_t *max, struct tlv_tlv_payload *record)
 {
-	size_t num_types = 4;
-	const struct tlv_record_type *types = tlvs_tlv_payload;
-	while (*max > 0) {
-		struct tlv_field field;
-
-		/* BOLT #1:
-		 *
-		 * The `type` is encoded using the BigSize format.
-		 */
-		field.numtype = fromwire_bigsize(cursor, max);
-
-		/* BOLT #1:
-		 *  - if a `type` or `length` is not minimally encoded:
-		 *    - MUST fail to parse the `tlv_stream`.
-		 */
-		if (!*cursor) {
-			SUPERVERBOSE("type");
-			goto fail;
-		}
-		field.length = fromwire_bigsize(cursor, max);
-
-		/* BOLT #1:
-		 *  - if a `type` or `length` is not minimally encoded:
-		 *    - MUST fail to parse the `tlv_stream`.
-		 */
-		if (!*cursor) {
-			SUPERVERBOSE("length");
-			goto fail;
-		}
-
-		/* BOLT #1:
-		 *  - if `length` exceeds the number of bytes remaining in the
-		 *    message:
-		 *    - MUST fail to parse the `tlv_stream`.
-		 */
-		if (field.length > *max) {
-			SUPERVERBOSE("value");
-			goto fail;
-		}
-		field.value = tal_dup_arr(record, u8, *cursor, field.length, 0);
-
-		/* BOLT #1:
-		 * - if `type` is known:
-		 *   - MUST decode the next `length` bytes using the known
-		 *     encoding for `type`.
-		 */
-		field.meta = NULL;
-		for (size_t i = 0; i < num_types; i++) {
-			if (types[i].type == field.numtype)
-				field.meta = &types[i];
-		}
-
-		if (field.meta) {
-			/* Length of message can't exceed 16 bits anyway. */
-			size_t tlvlen = field.length;
-			field.meta->fromwire(cursor, &tlvlen, record);
-
-			if (!*cursor)
-				goto fail;
-
-			/* BOLT #1:
-			 *  - if `length` is not exactly equal to that required
-			 *    for the known encoding for `type`:
-			 *    - MUST fail to parse the `tlv_stream`.
-			 */
-			if (tlvlen != 0) {
-				SUPERVERBOSE("greater than encoding length");
-				goto fail;
-			}
-		} else {
-			/* We didn't read from *cursor through a fromwire, so
-			 * update manually. */
-			*cursor += field.length;
-		}
-		/* We've read bytes in ->fromwire, so update max */
-		*max -= field.length;
-		tal_arr_expand(&record->fields, field);
-	}
-	return true;
-fail:
-	fromwire_fail(cursor, max);
-	return false;
+	return fromwire_tlv(cursor, max, tlvs_tlv_payload, 4, record, &record->fields);
 }
 
 bool tlv_payload_is_valid(const struct tlv_tlv_payload *record, size_t *err_index)
 {
-	size_t numfields = tal_count(record->fields);
-	bool first = true;
-	u64 prev_type = 0;
-	for (int i=0; i<numfields; i++) {
-		struct tlv_field *f = &record->fields[i];
-		if (f->numtype % 2 == 0 && f->meta == NULL) {
-			/* BOLT #1:
-			 * - otherwise, if `type` is unknown:
-			 *   - if `type` is even:
-			 *     - MUST fail to parse the `tlv_stream`.
-			 *   - otherwise, if `type` is odd:
-			 *     - MUST discard the next `length` bytes.
-			 */
-			SUPERVERBOSE("unknown even");
-			if (err_index != NULL)
-				*err_index = i;
-			return false;
-		} else if (!first && f->numtype <= prev_type) {
-			/* BOLT #1:
-			 *  - if decoded `type`s are not strictly-increasing
-			 *    (including situations when two or more occurrences
-			 *    of the same `type` are met):
-			 *    - MUST fail to parse the `tlv_stream`.
-			 */
-			if (f->numtype == prev_type)
-				SUPERVERBOSE("duplicate tlv type");
-			else
-				SUPERVERBOSE("invalid ordering");
-			if (err_index != NULL)
-				*err_index = i;
-			return false;
-		}
-		first = false;
-		prev_type = f->numtype;
-	}
-	return true;
+	return tlv_fields_valid(record->fields, err_index);
 }
 
 
@@ -836,4 +697,4 @@ bool fromwire_mpp_timeout(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:9e9fd8224814641537178262b21b7ea3c898d5d9282066228938f69236a9df2c
+// SHA256STAMP:3edc0ac5906e013377cc195c01e5cb67274c2a7560f51b946ff5149d755d36bd

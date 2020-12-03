@@ -20,6 +20,7 @@ GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/utils.o				\
 	wire/peer$(EXP)_wiregen.o		\
 	wire/fromwire.o				\
+	wire/tlvstream.o			\
 	wire/towire.o
 
 ALL_C_SOURCES += $(GOSSIPD_TEST_SRC)
