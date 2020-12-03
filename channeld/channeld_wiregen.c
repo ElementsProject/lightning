@@ -1105,12 +1105,18 @@ bool fromwire_channeld_send_error_reply(const void *p)
 
 /* WIRE: GOT_ONIONMSG_TO_US */
 /* Tell lightningd we got a onion message (for us */
-u8 *towire_got_onionmsg_to_us(const tal_t *ctx, const struct pubkey *reply_blinding, const struct onionmsg_path **reply_path)
+u8 *towire_got_onionmsg_to_us(const tal_t *ctx, const struct pubkey *blinding_in, const struct pubkey *reply_blinding, const struct onionmsg_path **reply_path)
 {
 	u16 reply_path_len = tal_count(reply_path);
 	u8 *p = tal_arr(ctx, u8, 0);
 
 	towire_u16(&p, WIRE_GOT_ONIONMSG_TO_US);
+	if (!blinding_in)
+		towire_bool(&p, false);
+	else {
+		towire_bool(&p, true);
+		towire_pubkey(&p, blinding_in);
+	}
 	if (!reply_blinding)
 		towire_bool(&p, false);
 	else {
@@ -1123,7 +1129,7 @@ u8 *towire_got_onionmsg_to_us(const tal_t *ctx, const struct pubkey *reply_blind
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_got_onionmsg_to_us(const tal_t *ctx, const void *p, struct pubkey **reply_blinding, struct onionmsg_path ***reply_path)
+bool fromwire_got_onionmsg_to_us(const tal_t *ctx, const void *p, struct pubkey **blinding_in, struct pubkey **reply_blinding, struct onionmsg_path ***reply_path)
 {
 	u16 reply_path_len;
 
@@ -1132,6 +1138,12 @@ bool fromwire_got_onionmsg_to_us(const tal_t *ctx, const void *p, struct pubkey 
 
 	if (fromwire_u16(&cursor, &plen) != WIRE_GOT_ONIONMSG_TO_US)
 		return false;
+ 	if (!fromwire_bool(&cursor, &plen))
+		*blinding_in = NULL;
+	else {
+		*blinding_in = tal(ctx, struct pubkey);
+		fromwire_pubkey(&cursor, &plen, *blinding_in);
+	}
  	if (!fromwire_bool(&cursor, &plen))
 		*reply_blinding = NULL;
 	else {
@@ -1236,4 +1248,4 @@ bool fromwire_send_onionmsg(const tal_t *ctx, const void *p, u8 onion[1366], str
 	}
 	return cursor != NULL;
 }
-// SHA256STAMP:0ddc4d686d50049ed4c8500919e415dde43baea52adc651b8a606765b09ab001
+// SHA256STAMP:c520ab3f9f3c5e7a7b1cdd7535bd95ee82a7b352602da56eb37d603a1890fd46

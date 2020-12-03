@@ -10,6 +10,7 @@
 #if EXPERIMENTAL_FEATURES
 struct onion_message_hook_payload {
 	/* Optional */
+	struct pubkey *blinding_in;
 	struct pubkey *reply_blinding;
 	struct onionmsg_path **reply_path;
 
@@ -21,6 +22,8 @@ onion_message_serialize(struct onion_message_hook_payload *payload,
 			   struct json_stream *stream)
 {
 	json_object_start(stream, "onion_message");
+	if (payload->blinding_in)
+		json_add_pubkey(stream, "blinding_in", payload->blinding_in);
 	if (payload->reply_path) {
 		json_array_start(stream, "reply_path");
 		for (size_t i = 0; i < tal_count(payload->reply_path); i++) {
@@ -93,6 +96,7 @@ void handle_onionmsg_to_us(struct channel *channel, const u8 *msg)
 	payload = tal(ld, struct onion_message_hook_payload);
 
 	if (!fromwire_got_onionmsg_to_us(payload, msg,
+					 &payload->blinding_in,
 					 &payload->reply_blinding,
 					 &payload->reply_path)) {
 		channel_internal_error(channel, "bad got_onionmsg_tous: %s",
