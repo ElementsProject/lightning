@@ -16,6 +16,7 @@
 #include <common/setup.h>
 #include <common/sphinx.h>
 #include <wire/peer_wire.h>
+#include <wire/tlvstream.c>
 
 extern secp256k1_context *secp256k1_ctx;
 

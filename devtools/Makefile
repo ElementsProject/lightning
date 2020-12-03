@@ -44,7 +44,8 @@ DEVTOOLS_COMMON_OBJS :=				\
 	common/version.o			\
 	common/wireaddr.o			\
 	wire/onion$(EXP)_wiregen.o		\
-	wire/peer$(EXP)_wiregen.o
+	wire/peer$(EXP)_wiregen.o		\
+	wire/tlvstream.o
 
 devtools/bolt11-cli: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/bolt11-cli.o
 
