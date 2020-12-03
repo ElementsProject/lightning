@@ -57,4 +57,4 @@ void printwire_mpp_timeout(const char *fieldname, const u8 *cursor);
 
 
 #endif /* LIGHTNING_WIRE_ONION_PRINTGEN_H */
-// SHA256STAMP:6f34c3287d2f8abec14ecd33fe8340b82298a34959e96a752f8dafc0762b8f65
+// SHA256STAMP:9e9fd8224814641537178262b21b7ea3c898d5d9282066228938f69236a9df2c

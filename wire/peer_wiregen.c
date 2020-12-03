@@ -164,8 +164,7 @@ static const struct tlv_record_type tlvs_init_tlvs[] = {
 	{ 1, towire_tlv_init_tlvs_networks, fromwire_tlv_init_tlvs_networks },
 };
 
-void towire_init_tlvs(u8 **pptr,
-			const void *record)
+void towire_init_tlvs(u8 **pptr, const struct tlv_init_tlvs *record)
 {
 	size_t num_types = 1;
 	const struct tlv_record_type *types = tlvs_init_tlvs;
@@ -436,8 +435,7 @@ const struct tlv_record_type tlvs_n1[] = {
 	{ 254, towire_tlv_n1_tlv4, fromwire_tlv_n1_tlv4 },
 };
 
-void towire_n1(u8 **pptr,
-			const void *record)
+void towire_n1(u8 **pptr, const struct tlv_n1 *record)
 {
 	size_t num_types = 4;
 	const struct tlv_record_type *types = tlvs_n1;
@@ -655,8 +653,7 @@ const struct tlv_record_type tlvs_n2[] = {
 	{ 11, towire_tlv_n2_tlv2, fromwire_tlv_n2_tlv2 },
 };
 
-void towire_n2(u8 **pptr,
-			const void *record)
+void towire_n2(u8 **pptr, const struct tlv_n2 *record)
 {
 	size_t num_types = 2;
 	const struct tlv_record_type *types = tlvs_n2;
@@ -849,8 +846,7 @@ static const struct tlv_record_type tlvs_open_channel_tlvs[] = {
 	{ 0, towire_tlv_open_channel_tlvs_upfront_shutdown_script, fromwire_tlv_open_channel_tlvs_upfront_shutdown_script },
 };
 
-void towire_open_channel_tlvs(u8 **pptr,
-			const void *record)
+void towire_open_channel_tlvs(u8 **pptr, const struct tlv_open_channel_tlvs *record)
 {
 	size_t num_types = 1;
 	const struct tlv_record_type *types = tlvs_open_channel_tlvs;
@@ -1043,8 +1039,7 @@ static const struct tlv_record_type tlvs_accept_channel_tlvs[] = {
 	{ 0, towire_tlv_accept_channel_tlvs_upfront_shutdown_script, fromwire_tlv_accept_channel_tlvs_upfront_shutdown_script },
 };
 
-void towire_accept_channel_tlvs(u8 **pptr,
-			const void *record)
+void towire_accept_channel_tlvs(u8 **pptr, const struct tlv_accept_channel_tlvs *record)
 {
 	size_t num_types = 1;
 	const struct tlv_record_type *types = tlvs_accept_channel_tlvs;
@@ -1241,8 +1236,7 @@ static const struct tlv_record_type tlvs_query_short_channel_ids_tlvs[] = {
 	{ 1, towire_tlv_query_short_channel_ids_tlvs_query_flags, fromwire_tlv_query_short_channel_ids_tlvs_query_flags },
 };
 
-void towire_query_short_channel_ids_tlvs(u8 **pptr,
-			const void *record)
+void towire_query_short_channel_ids_tlvs(u8 **pptr, const struct tlv_query_short_channel_ids_tlvs *record)
 {
 	size_t num_types = 1;
 	const struct tlv_record_type *types = tlvs_query_short_channel_ids_tlvs;
@@ -1436,8 +1430,7 @@ static const struct tlv_record_type tlvs_query_channel_range_tlvs[] = {
 	{ 1, towire_tlv_query_channel_range_tlvs_query_option, fromwire_tlv_query_channel_range_tlvs_query_option },
 };
 
-void towire_query_channel_range_tlvs(u8 **pptr,
-			const void *record)
+void towire_query_channel_range_tlvs(u8 **pptr, const struct tlv_query_channel_range_tlvs *record)
 {
 	size_t num_types = 1;
 	const struct tlv_record_type *types = tlvs_query_channel_range_tlvs;
@@ -1662,8 +1655,7 @@ static const struct tlv_record_type tlvs_reply_channel_range_tlvs[] = {
 	{ 3, towire_tlv_reply_channel_range_tlvs_checksums_tlv, fromwire_tlv_reply_channel_range_tlvs_checksums_tlv },
 };
 
-void towire_reply_channel_range_tlvs(u8 **pptr,
-			const void *record)
+void towire_reply_channel_range_tlvs(u8 **pptr, const struct tlv_reply_channel_range_tlvs *record)
 {
 	size_t num_types = 2;
 	const struct tlv_record_type *types = tlvs_reply_channel_range_tlvs;
@@ -2750,4 +2742,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
  	*htlc_maximum_msat = fromwire_amount_msat(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:cb418f8296955fdcd26b9f06259a0c120007b543bc167f486989ac289a48c4af
+// SHA256STAMP:c38a17eb3c7f3c12612754d5419f2ed44c0114be7252eece347fcb2902aaf9f4

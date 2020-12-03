@@ -104,7 +104,7 @@ bool fromwire_${tlv.name}(const u8 **cursor, size_t *max,
  * ensures that the resulting stream is valid according to
  * `${tlv.name}_is_valid`.
  */
-void towire_${tlv.name}(u8 **pptr, const void *record);
+void towire_${tlv.name}(u8 **pptr, const struct ${tlv.struct_name()} *record);
 
 /**
  * Check that the TLV stream is valid.

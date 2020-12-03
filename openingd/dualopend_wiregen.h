@@ -109,4 +109,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:c00536896059d3bd16cd8e1512674abcda83fd680e171dfc016a796f7b4be522
+// SHA256STAMP:880d3ebf21b58a7c545945c97269534c55cafe5583a21e3b6d6a441be01edd86
