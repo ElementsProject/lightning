@@ -13,7 +13,26 @@
 #include <errno.h>
 #include <plugins/libplugin-pay.h>
 
-static struct gossmap *gossmap;
+static struct gossmap *global_gossmap;
+
+static void init_gossmap(struct plugin *plugin)
+{
+	global_gossmap
+		= notleak_with_children(gossmap_load(NULL,
+						     GOSSIP_STORE_FILENAME));
+	if (!global_gossmap)
+		plugin_err(plugin, "Could not load gossmap %s: %s",
+			   GOSSIP_STORE_FILENAME, strerror(errno));
+}
+
+struct gossmap *get_gossmap(struct plugin *plugin)
+{
+	if (!global_gossmap)
+		init_gossmap(plugin);
+	else
+		gossmap_refresh(global_gossmap);
+	return global_gossmap;
+}
 
 struct payment *payment_new(tal_t *ctx, struct command *cmd,
 			    struct payment *parent,
@@ -22,15 +41,6 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	struct payment *p = tal(ctx, struct payment);
 
 	static u64 next_id = 0;
-
-	/* Now we're actually creating a payment, load gossip store */
-	if (!gossmap) {
-		gossmap = notleak_with_children(gossmap_load(NULL,
-							     GOSSIP_STORE_FILENAME));
-		if (!gossmap)
-			plugin_err(cmd->plugin, "Could not load gossmap %s: %s",
-				   GOSSIP_STORE_FILENAME, strerror(errno));
-	}
 
 	p->children = tal_arr(p, struct payment *, 0);
 	p->parent = parent;
@@ -593,7 +603,7 @@ static const struct channel_hint *find_hint(const struct channel_hint *hints,
 }
 
 /* FIXME: This is slow! */
-static bool dst_is_excluded(const struct gossmap *gossmmap,
+static bool dst_is_excluded(const struct gossmap *gossmap,
 			    const struct gossmap_chan *c,
 			    int dir,
 			    const struct node_id *nodes)
@@ -679,6 +689,7 @@ static struct route_hop *route_hops_from_route(const tal_t *ctx,
 {
 	struct route_hop *hops = tal_arr(ctx, struct route_hop, tal_count(r));
 	struct amount_msat amt;
+	struct gossmap *gossmap = get_gossmap(p->plugin);
 	u32 delay;
 
 	for (size_t i = 0; i < tal_count(hops); i++) {
@@ -721,14 +732,14 @@ static struct command_result *payment_getroute(struct payment *p)
 	const struct gossmap_node *dst, *src;
 	struct route **r;
 	struct amount_msat fee;
+	struct gossmap *gossmap;
 	bool (*can_carry)(const struct gossmap *,
 			  const struct gossmap_chan *,
 			  int,
 			  struct amount_msat,
 			  struct payment *);
 
-	/* Make sure we're up-to-date with any new entries */
-	gossmap_refresh(gossmap);
+	gossmap = get_gossmap(p->plugin);
 
 	dst = gossmap_find_node(gossmap, p->getroute->destination);
 	if (!dst) {

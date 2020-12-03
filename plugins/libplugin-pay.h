@@ -435,4 +435,7 @@ void payment_fail(struct payment *p, const char *fmt, ...) PRINTF_FMT(2,3);
 struct payment *payment_root(struct payment *p);
 struct payment_tree_result payment_collect_result(struct payment *p);
 
+/* For special effects, like inspecting your own routes. */
+struct gossmap *get_gossmap(struct plugin *plugin);
+
 #endif /* LIGHTNING_PLUGINS_LIBPLUGIN_PAY_H */
