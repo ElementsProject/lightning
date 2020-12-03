@@ -1949,11 +1949,6 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 		return;
 	}
 
-	if (om->enctlv) {
-		status_broken("FIXME: Handle enctlv!");
-		return;
-	}
-
 	if (rs->nextcase == ONION_END) {
 		struct pubkey *blinding;
 		const struct onionmsg_path **path;
@@ -1968,6 +1963,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 		}
 		wire_sync_write(MASTER_FD,
 				take(towire_got_onionmsg_to_us(NULL,
+							       blinding_in,
 							       blinding,
 							       path)));
 	} else {

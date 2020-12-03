@@ -227,6 +227,7 @@ msgtype,channeld_send_error_reply,1108
 
 # Tell lightningd we got a onion message (for us, or to fwd)
 msgtype,got_onionmsg_to_us,1142
+msgdata,got_onionmsg_to_us,blinding_in,?pubkey,
 msgdata,got_onionmsg_to_us,reply_blinding,?pubkey,
 msgdata,got_onionmsg_to_us,reply_path_len,u16,
 msgdata,got_onionmsg_to_us,reply_path,onionmsg_path,reply_path_len
