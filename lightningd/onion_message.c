@@ -51,7 +51,15 @@ onion_message_hook_cb(struct onion_message_hook_payload *payload STEALS)
 	tal_free(payload);
 }
 
+/* Two hooks, because it's critical we only accept blinding if we expect that
+ * exact blinding key.  Otherwise, we can be probed using old blinded paths. */
 REGISTER_PLUGIN_HOOK(onion_message,
+		     plugin_hook_continue,
+		     onion_message_hook_cb,
+		     onion_message_serialize,
+		     struct onion_message_hook_payload *);
+
+REGISTER_PLUGIN_HOOK(onion_message_blinded,
 		     plugin_hook_continue,
 		     onion_message_hook_cb,
 		     onion_message_serialize,
@@ -113,7 +121,11 @@ void handle_onionmsg_to_us(struct channel *channel, const u8 *msg)
 	log_debug(channel->log, "Got onionmsg%s%s",
 		  payload->reply_blinding ? " reply_blinding": "",
 		  payload->reply_path ? " reply_path": "");
-	plugin_hook_call_onion_message(ld, payload);
+
+	if (payload->blinding_in)
+		plugin_hook_call_onion_message_blinded(ld, payload);
+	else
+		plugin_hook_call_onion_message(ld, payload);
 }
 
 void handle_onionmsg_forward(struct channel *channel, const u8 *msg)
