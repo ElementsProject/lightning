@@ -21,6 +21,21 @@ update-mocks: $(ONCHAIND_TEST_SRC:%=update-mocks/%)
 
 $(ONCHAIND_TEST_PROGRAMS): $(ONCHAIND_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
 
+# This needs many more objs:
+onchaind/test/run-onchainstress:		\
+	common/htlc_tx.o			\
+	common/derive_basepoints.o		\
+	common/daemon.o				\
+	common/htlc_wire.o			\
+	common/initial_commit_tx.o		\
+	common/key_derive.o			\
+	common/keyset.o				\
+	common/permute_tx.o			\
+	common/subdaemon.o			\
+	common/wallet.o				\
+	wire/towire.o				\
+	wire/fromwire.o
+
 # Test objects depend on ../ src and headers.
 $(ONCHAIND_TEST_OBJS): $(ONCHAIND_HEADERS) $(ONCHAIND_SRC)
 
