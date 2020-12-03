@@ -256,6 +256,7 @@ bool bitcoin_tx_check(const struct bitcoin_tx *tx)
 	if (written != tal_bytelen(newtx))
 		return false;
 
+	tal_free(newtx);
 	return true;
 }
 
