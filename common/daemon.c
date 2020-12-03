@@ -119,6 +119,12 @@ static void add_steal_notifiers(const tal_t *root)
 	for (const tal_t *i = tal_first(root); i; i = tal_next(i))
 		add_steal_notifiers(i);
 }
+
+static void remove_steal_notifiers(void)
+{
+	/* We remove this from root, assuming everything else freed. */
+	tal_del_notifier(NULL, add_steal_notifier);
+}
 #endif
 
 void daemon_setup(const char *argv0,
@@ -155,6 +161,10 @@ void daemon_setup(const char *argv0,
 void daemon_shutdown(void)
 {
 	common_shutdown();
+
+#if DEVELOPER && BACKTRACE_SUPPORTED
+	remove_steal_notifiers();
+#endif
 }
 
 void daemon_maybe_debug(char *argv[])
