@@ -1173,3 +1173,55 @@ def test_multiwithdraw_simple(node_factory, bitcoind):
     assert only_one(funds3)["address"] == addr3
     assert only_one(funds3)["status"] == "confirmed"
     assert only_one(funds3)["amount_msat"] == amount3
+
+
+@unittest.skipIf(
+    TEST_NETWORK == 'liquid-regtest',
+    'Blinded elementsd addresses are not recognized')
+def test_repro_4258(node_factory, bitcoind):
+    """Reproduces issue #4258, invalid output encoding for txprepare.
+    """
+    l1 = node_factory.get_node()
+    addr = l1.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 1)
+    bitcoind.generate_block(1)
+
+    wait_for(lambda: l1.rpc.listfunds()['outputs'] != [])
+    out = l1.rpc.listfunds()['outputs'][0]
+
+    addr = bitcoind.rpc.getnewaddress()
+
+    # Missing array parentheses for outputs
+    with pytest.raises(RpcError, match=r"Expected an array of outputs"):
+        l1.rpc.txprepare(
+            outputs="{addr}:all".format(addr=addr),
+            feerate="slow",
+            minconf=1,
+            utxos=["{txid}:{output}".format(**out)]
+        )
+
+    # Missing parentheses on the utxos array
+    with pytest.raises(RpcError, match=r"Could not decode the outpoint array for utxos"):
+        l1.rpc.txprepare(
+            outputs=[{addr: "all"}],
+            feerate="slow",
+            minconf=1,
+            utxos="{txid}:{output}".format(**out)
+        )
+
+    tx = l1.rpc.txprepare(
+        outputs=[{addr: "all"}],
+        feerate="slow",
+        minconf=1,
+        utxos=["{txid}:{output}".format(**out)]
+    )
+
+    tx = bitcoind.rpc.decoderawtransaction(tx['unsigned_tx'])
+
+    assert(len(tx['vout']) == 1)
+    o0 = tx['vout'][0]
+    assert(o0['scriptPubKey']['addresses'] == [addr])
+
+    assert(len(tx['vin']) == 1)
+    i0 = tx['vin'][0]
+    assert([i0['txid'], i0['vout']] == [out['txid'], out['output']])
