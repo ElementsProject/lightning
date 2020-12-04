@@ -121,7 +121,7 @@ bool ${tlv.name}_is_valid(const struct ${tlv.struct_name()} *record,
 			  size_t *err_index);
 
 % if tlv.name in options.expose_tlv_type:
-#define TLVS_${tlv.name.upper()}_ARRAY_SIZE ${len(tlv.messages)}
+#define TLVS_ARRAY_SIZE_${tlv.name} ${len(tlv.messages)}
 extern const struct tlv_record_type tlvs_${tlv.name}[];
 
 <%!

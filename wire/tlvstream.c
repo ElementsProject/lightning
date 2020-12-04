@@ -271,3 +271,27 @@ void towire_tlv(u8 **pptr,
 		tal_free(val);
 	}
 }
+
+struct tlv_field *tlv_make_fields_(const struct tlv_record_type *types,
+				   size_t num_types,
+				   const void *record)
+{
+	struct tlv_field *fields = tal_arr(record, struct tlv_field, 0);
+
+	for (size_t i = 0; i < num_types; i++) {
+		struct tlv_field f;
+		u8 *val;
+		if (i != 0)
+			assert(types[i].type > types[i-1].type);
+		val = types[i].towire(NULL, record);
+		if (!val)
+			continue;
+
+		f.meta = &types[i];
+		f.numtype = types[i].type;
+		f.length = tal_bytelen(val);
+		f.value = tal_steal(fields, val);
+		tal_arr_expand(&fields, f);
+	}
+	return fields;
+}
