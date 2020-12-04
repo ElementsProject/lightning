@@ -25,6 +25,17 @@ static u8 liquid_regtest_fee_asset[] = {
     0x05, 0x71, 0x49, 0x9c, 0x03, 0x62, 0x8a, 0x38, 0x51, 0xb8, 0xce,
 };
 
+static const u64 SAT_PER_COIN = 100 * 1000 * 1000;
+static const u64 MSAT_PER_COIN = SAT_PER_COIN * 1000;
+
+static const u64 BITCOIN_MAX_COINS = 21000 * 1000;
+static const u64 BITCOIN_MAX_SAT = BITCOIN_MAX_COINS * SAT_PER_COIN;
+static const u64 BITCOIN_MAX_MSAT = BITCOIN_MAX_COINS * MSAT_PER_COIN;
+
+static const u64 LITECOIN_MAX_COINS = 84000 * 1000;
+static const u64 LITECOIN_MAX_SAT = LITECOIN_MAX_COINS * SAT_PER_COIN;
+static const u64 LITECOIN_MAX_MSAT = LITECOIN_MAX_COINS * MSAT_PER_COIN;
+
 const struct chainparams networks[] = {
     {.network_name = "bitcoin",
      .bip173_name = "bc",
@@ -45,8 +56,8 @@ const struct chainparams networks[] = {
       *...
       *   - MUST set `funding_satoshis` to less than 2^24 satoshi.
       */
-     .max_funding = AMOUNT_SAT_INIT((1 << 24) - 1),
-     .max_payment = AMOUNT_MSAT_INIT(0xFFFFFFFFULL),
+     .max_funding = AMOUNT_SAT_INIT(BITCOIN_MAX_SAT),
+     .max_payment = AMOUNT_MSAT_INIT(BITCOIN_MAX_MSAT),
      /* "Lightning Charge Powers Developers & Blockstream Store" */
      .when_lightning_became_cool = 504500,
      .p2pkh_version = 0,
@@ -69,8 +80,8 @@ const struct chainparams networks[] = {
      .cli_args = "-regtest",
      .cli_min_supported_version = 150000,
      .dust_limit = { 546 },
-     .max_funding = AMOUNT_SAT_INIT((1 << 24) - 1),
-     .max_payment = AMOUNT_MSAT_INIT(0xFFFFFFFFULL),
+     .max_funding = AMOUNT_SAT_INIT(BITCOIN_MAX_SAT),
+     .max_payment = AMOUNT_MSAT_INIT(BITCOIN_MAX_MSAT),
      .when_lightning_became_cool = 1,
      .p2pkh_version = 111,
      .p2sh_version = 196,
@@ -93,8 +104,8 @@ const struct chainparams networks[] = {
      .cli_args = "-signet",
      .cli_min_supported_version = 150000,
      .dust_limit = { 546 },
-     .max_funding = AMOUNT_SAT_INIT((1 << 24) - 1),
-     .max_payment = AMOUNT_MSAT_INIT(0xFFFFFFFFULL),
+     .max_funding = AMOUNT_SAT_INIT(BITCOIN_MAX_SAT),
+     .max_payment = AMOUNT_MSAT_INIT(BITCOIN_MAX_MSAT),
      .when_lightning_became_cool = 1,
      .p2pkh_version = 111,
      .p2sh_version = 196,
@@ -115,8 +126,8 @@ const struct chainparams networks[] = {
      .cli_args = "-testnet",
      .cli_min_supported_version = 150000,
      .dust_limit = { 546 },
-     .max_funding = AMOUNT_SAT_INIT((1 << 24) - 1),
-     .max_payment = AMOUNT_MSAT_INIT(0xFFFFFFFFULL),
+     .max_funding = AMOUNT_SAT_INIT(BITCOIN_MAX_SAT),
+     .max_payment = AMOUNT_MSAT_INIT(BITCOIN_MAX_MSAT),
      .p2pkh_version = 111,
      .p2sh_version = 196,
      .testnet = true,
@@ -137,8 +148,8 @@ const struct chainparams networks[] = {
      .cli_args = NULL,
      .cli_min_supported_version = 150000,
      .dust_limit = { 100000 },
-     .max_funding = AMOUNT_SAT_INIT(60 * ((1 << 24) - 1)),
-     .max_payment = AMOUNT_MSAT_INIT(60 * 0xFFFFFFFFULL),
+     .max_funding = AMOUNT_SAT_INIT(LITECOIN_MAX_SAT),
+     .max_payment = AMOUNT_MSAT_INIT(LITECOIN_MAX_MSAT),
      .when_lightning_became_cool = 1320000,
      .p2pkh_version = 48,
      .p2sh_version = 50,
@@ -160,8 +171,8 @@ const struct chainparams networks[] = {
      .cli_args = "-testnet",
      .cli_min_supported_version = 150000,
      .dust_limit = { 100000 },
-     .max_funding = AMOUNT_SAT_INIT(60 * ((1 << 24) - 1)),
-     .max_payment = AMOUNT_MSAT_INIT(60 * 0xFFFFFFFFULL),
+     .max_funding = AMOUNT_SAT_INIT(LITECOIN_MAX_SAT),
+     .max_payment = AMOUNT_MSAT_INIT(LITECOIN_MAX_MSAT),
      .when_lightning_became_cool = 1,
      .p2pkh_version = 111,
      .p2sh_version = 58,
@@ -182,8 +193,8 @@ const struct chainparams networks[] = {
      .cli = "elements-cli",
      .cli_args = "-chain=liquid-regtest",
      .dust_limit = {546},
-     .max_funding = AMOUNT_SAT_INIT((1 << 24) - 1),
-     .max_payment = AMOUNT_MSAT_INIT(0xFFFFFFFFULL),
+     .max_funding = AMOUNT_SAT_INIT(BITCOIN_MAX_SAT),
+     .max_payment = AMOUNT_MSAT_INIT(BITCOIN_MAX_MSAT),
      .when_lightning_became_cool = 1,
      .p2pkh_version = 91,
      .p2sh_version = 75,
@@ -204,8 +215,8 @@ const struct chainparams networks[] = {
      .cli = "elements-cli",
      .cli_args = "-chain=liquidv1",
      .dust_limit = {546},
-     .max_funding = AMOUNT_SAT_INIT((1 << 24) - 1),
-     .max_payment = AMOUNT_MSAT_INIT(0xFFFFFFFFULL),
+     .max_funding = AMOUNT_SAT_INIT(BITCOIN_MAX_SAT),
+     .max_payment = AMOUNT_MSAT_INIT(BITCOIN_MAX_MSAT),
      .when_lightning_became_cool = 1,
      .p2pkh_version = 57,
      .p2sh_version = 39,
