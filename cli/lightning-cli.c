@@ -740,6 +740,14 @@ int main(int argc, char *argv[])
 		tal_append_fmt(&cmd, "] }");
 	}
 
+	toks = json_parse_simple(ctx, cmd, strlen(cmd));
+	if (toks == NULL)
+		errx(ERROR_USAGE,
+		     "Some parameters are malformed, cannot create a valid "
+		     "JSON-RPC request: %s",
+		     cmd);
+	tal_free(toks);
+
 	if (!write_all(fd, cmd, strlen(cmd)))
 		err(ERROR_TALKING_TO_LIGHTNINGD, "Writing command");
 
