@@ -93,6 +93,31 @@ bool json_to_txid(const char *buffer, const jsmntok_t *tok,
 				     tok->end - tok->start, txid);
 }
 
+bool json_to_outpoint(const char *buffer, const jsmntok_t *tok,
+		      struct bitcoin_outpoint *op)
+{
+	size_t len = tok->end - tok->start;
+	char str[len + 1];
+
+	if (len < 66)
+		return NULL;
+
+	memcpy(str, buffer+tok->start, len);
+	str[len] = 0x00;
+
+	if (str[64] != ':')
+		return NULL;
+
+	if (!bitcoin_txid_from_hex(str, 64, &op->txid))
+		return false;
+
+	op->n = atoi(str + 65);
+	if (op->n < 0)
+		return false;
+
+	return true;
+}
+
 bool json_to_channel_id(const char *buffer, const jsmntok_t *tok,
 			struct channel_id *cid)
 {
