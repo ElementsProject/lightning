@@ -67,6 +67,13 @@ static struct command_result *param_outputs(struct command *cmd,
 	size_t i;
 	const jsmntok_t *t;
 
+	if (tok->type != JSMN_ARRAY) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Expected an array of outputs in the "
+				    "format '[{\"txid\":0}, ...]', got \"%s\"",
+				    json_strdup(tmpctx, buffer, tok));
+	}
+
 	txp->outputs = tal_arr(txp, struct tx_output, tok->size);
 	txp->output_total = AMOUNT_SAT(0);
 	txp->all_output_idx = -1;
