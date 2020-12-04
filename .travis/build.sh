@@ -13,7 +13,7 @@ export PYTEST_SENTRY_ALWAYS_REPORT=1
 export BOLTDIR=lightning-rfc
 export TEST_DB_PROVIDER=${DB:-"sqlite3"}
 export TEST_NETWORK=${NETWORK:-"regtest"}
-export PYTEST_OPTS="--reruns=2 --maxfail=5 ${PYTEST_OPTS}"
+export PYTEST_OPTS="${PYTEST_OPTS} --duration=0"
 
 # Allow up to 4 concurrent tests when not under valgrind, which might run out of memory.
 if [ "$VALGRIND" = 0 ]; then
