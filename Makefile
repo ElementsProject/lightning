@@ -533,7 +533,7 @@ $(ALL_PROGRAMS) $(ALL_TEST_PROGRAMS):
 
 # We special case the fuzzing target binaries, as they need to link against libfuzzer,
 # which brings its own main().
-ifneq($(OSS_FUZZ),0)
+ifneq ($(OSS_FUZZ),0)
 FUZZ_LDFLAGS = ${LIB_FUZZING_ENGINE}
 else
 FUZZ_LDFLAGS = -fsanitize=fuzzer
