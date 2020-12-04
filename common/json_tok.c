@@ -501,3 +501,32 @@ struct command_result *param_psbt(struct command *cmd,
 	return command_fail_badparam(cmd, name, buffer, tok,
 				     "Expected a PSBT");
 }
+
+struct command_result *param_outpoint_arr(struct command *cmd,
+					  const char *name,
+					  const char *buffer,
+					  const jsmntok_t *tok,
+					  struct bitcoin_outpoint **outpoints)
+{
+	size_t i;
+	const jsmntok_t *curr;
+	if (tok->type != JSMN_ARRAY) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Could not decode the outpoint array for %s: "
+				    "\"%s\" is not a valid outpoint array.",
+				    name, json_strdup(tmpctx, buffer, tok));
+	}
+
+	*outpoints = tal_arr(cmd, struct bitcoin_outpoint, tok->size);
+
+	json_for_each_arr(i, curr, tok) {
+		struct bitcoin_outpoint op;
+		if (!json_to_outpoint(buffer, curr, &op))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Could not decode outpoint \"%.*s\", "
+					    "expected format: txid:output",
+					    json_tok_full_len(curr), json_tok_full(buffer, curr));
+		(*outpoints)[i] = op;
+	}
+	return NULL;
+}

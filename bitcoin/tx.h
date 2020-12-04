@@ -21,6 +21,12 @@ struct wally_psbt;
 struct bitcoin_txid {
 	struct sha256_double shad;
 };
+
+struct bitcoin_outpoint {
+	struct bitcoin_txid txid;
+	u16 n;
+};
+
 /* Define bitcoin_txid_eq */
 STRUCTEQ_DEF(bitcoin_txid, 0, shad.sha.u);
 

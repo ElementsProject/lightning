@@ -11,6 +11,7 @@
 struct amount_msat;
 struct amount_sat;
 struct bitcoin_txid;
+struct bitcoin_outpoint;
 struct channel_id;
 struct command;
 struct command_result;
@@ -172,4 +173,13 @@ struct command_result *param_psbt(struct command *cmd,
 				  const char *buffer,
 				  const jsmntok_t *tok,
 				  struct wally_psbt **psbt);
+
+/**
+ * Parse a list of `txid:output` outpoints.
+ */
+struct command_result *param_outpoint_arr(struct command *cmd,
+					  const char *name,
+					  const char *buffer,
+					  const jsmntok_t *tok,
+					  struct bitcoin_outpoint **outpoints);
 #endif /* LIGHTNING_COMMON_JSON_TOK_H */

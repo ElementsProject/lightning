@@ -52,6 +52,10 @@ bool json_to_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEED
 bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			       struct node_id *id UNNEEDED)
 { fprintf(stderr, "json_to_node_id called!\n"); abort(); }
+/* Generated stub for json_to_outpoint */
+bool json_to_outpoint(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		      struct bitcoin_outpoint *op UNNEEDED)
+{ fprintf(stderr, "json_to_outpoint called!\n"); abort(); }
 /* Generated stub for json_to_pubkey */
 bool json_to_pubkey(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		    struct pubkey *pubkey UNNEEDED)
