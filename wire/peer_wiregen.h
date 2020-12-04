@@ -223,7 +223,7 @@ void towire_n1(u8 **pptr, const struct tlv_n1 *record);
 bool n1_is_valid(const struct tlv_n1 *record,
 			  size_t *err_index);
 
-#define TLVS_N1_ARRAY_SIZE 4
+#define TLVS_ARRAY_SIZE_n1 4
 extern const struct tlv_record_type tlvs_n1[];
 
 
@@ -273,7 +273,7 @@ void towire_n2(u8 **pptr, const struct tlv_n2 *record);
 bool n2_is_valid(const struct tlv_n2 *record,
 			  size_t *err_index);
 
-#define TLVS_N2_ARRAY_SIZE 2
+#define TLVS_ARRAY_SIZE_n2 2
 extern const struct tlv_record_type tlvs_n2[];
 
 
@@ -595,4 +595,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
 
 
 #endif /* LIGHTNING_WIRE_PEER_WIREGEN_H */
-// SHA256STAMP:a2fdacbfaf7025bcb919b426f2e17fdc317a0bc6a80fe3c05f5dedac30f00256
+// SHA256STAMP:cda6c1b9f5b71e94ce4d2791a16dfeddc52ea3b2ad09ce4915101fe6e41dfc92

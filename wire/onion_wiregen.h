@@ -104,7 +104,7 @@ void towire_tlv_payload(u8 **pptr, const struct tlv_tlv_payload *record);
 bool tlv_payload_is_valid(const struct tlv_tlv_payload *record,
 			  size_t *err_index);
 
-#define TLVS_TLV_PAYLOAD_ARRAY_SIZE 4
+#define TLVS_ARRAY_SIZE_tlv_payload 4
 extern const struct tlv_record_type tlvs_tlv_payload[];
 
 
@@ -207,4 +207,4 @@ bool fromwire_mpp_timeout(const void *p);
 
 
 #endif /* LIGHTNING_WIRE_ONION_WIREGEN_H */
-// SHA256STAMP:3edc0ac5906e013377cc195c01e5cb67274c2a7560f51b946ff5149d755d36bd
+// SHA256STAMP:c330a3a671d28980727dc42fb48b8f9051ee609c96445333105b7d5ab15d0ede
