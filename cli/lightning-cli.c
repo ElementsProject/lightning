@@ -823,8 +823,9 @@ int main(int argc, char *argv[])
 		     "Missing 'id' in response '%s'", resp);
 	if (!json_tok_streq(resp, id, idstr))
 		errx(ERROR_TALKING_TO_LIGHTNINGD,
-		     "Incorrect 'id' in response: %.*s",
-		     json_tok_full_len(id), json_tok_full(resp, id));
+		     "Incorrect 'id' (%.*s) in response: %.*s",
+		     json_tok_full_len(id), json_tok_full(resp, id),
+		     json_tok_full_len(toks), json_tok_full(resp, toks));
 
 	if (!error || json_tok_is_null(resp, error)) {
 		switch (format) {
