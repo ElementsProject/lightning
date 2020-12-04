@@ -102,6 +102,10 @@ void json_add_channel_id(struct json_stream *response,
 void json_add_txid(struct json_stream *result, const char *fieldname,
 		   const struct bitcoin_txid *txid);
 
+/* '"fieldname" : "txid:n" */
+void json_add_outpoint(struct json_stream *result, const char *fieldname,
+		       const struct bitcoin_outpoint *out);
+
 /* '"fieldname" : "1234:5:6"' */
 void json_add_short_channel_id(struct json_stream *response,
 			       const char *fieldname,

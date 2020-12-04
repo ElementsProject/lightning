@@ -324,7 +324,7 @@ static struct command_result *txprepare_continue(struct command *cmd,
 						 struct txprepare *txp,
 						 const char *feerate,
 						 unsigned int *minconf,
-						 const char *utxos,
+						 struct bitcoin_outpoint *utxos,
 						 bool is_withdraw)
 {
 	struct out_req *req;
@@ -341,7 +341,11 @@ static struct command_result *txprepare_continue(struct command *cmd,
 		req = jsonrpc_request_start(cmd->plugin, cmd, "utxopsbt",
 					    psbt_created, forward_error,
 					    txp);
-		json_add_jsonstr(req->js, "utxos", utxos);
+		json_array_start(req->js, "utxos");
+		for (size_t i = 0; i < tal_count(utxos); i++) {
+			json_add_outpoint(req->js, NULL, &utxos[i]);
+		}
+		json_array_end(req->js);
 	} else {
 		req = jsonrpc_request_start(cmd->plugin, cmd, "fundpsbt",
 					    psbt_created, forward_error,
@@ -365,14 +369,15 @@ static struct command_result *json_txprepare(struct command *cmd,
 					     const jsmntok_t *params)
 {
 	struct txprepare *txp = tal(cmd, struct txprepare);
-	const char *feerate, *utxos;
+	const char *feerate;
+	struct bitcoin_outpoint *utxos;
 	unsigned int *minconf;
 
 	if (!param(cmd, buffer, params,
 		   p_req("outputs", param_outputs, txp),
 		   p_opt("feerate", param_string, &feerate),
 		   p_opt_def("minconf", param_number, &minconf, 1),
-		   p_opt("utxos", param_string, &utxos),
+		   p_opt("utxos", param_outpoint_arr, &utxos),
 		   NULL))
 		return command_param_failed();
 
@@ -472,7 +477,8 @@ static struct command_result *json_withdraw(struct command *cmd,
 	struct txprepare *txp = tal(cmd, struct txprepare);
 	struct amount_sat *amount;
 	const u8 *scriptpubkey;
-	const char *feerate, *utxos;
+	const char *feerate;
+	struct bitcoin_outpoint *utxos;
 	unsigned int *minconf;
 
 	if (!param(cmd, buffer, params,
@@ -481,7 +487,7 @@ static struct command_result *json_withdraw(struct command *cmd,
 		   p_req("satoshi", param_sat_or_all, &amount),
 		   p_opt("feerate", param_string, &feerate),
 		   p_opt_def("minconf", param_number, &minconf, 1),
-		   p_opt("utxos", param_string, &utxos),
+		   p_opt("utxos", param_outpoint_arr, &utxos),
 		   NULL))
 		return command_param_failed();
 
