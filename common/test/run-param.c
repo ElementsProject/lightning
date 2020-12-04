@@ -8,6 +8,7 @@
 #include <common/setup.h>
 #include <setjmp.h>
 #include <signal.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <wire/wire.h>
 

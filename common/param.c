@@ -262,8 +262,6 @@ static struct command_result *param_arr(struct command *cmd, const char *buffer,
 			    "Expected array or object for params");
 }
 
-#include <stdio.h>
-
 const char *param_subcommand(struct command *cmd, const char *buffer,
 			     const jsmntok_t tokens[],
 			     const char *name, ...)
