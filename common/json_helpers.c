@@ -193,6 +193,14 @@ void json_add_txid(struct json_stream *result, const char *fieldname,
 	json_add_string(result, fieldname, hex);
 }
 
+void json_add_outpoint(struct json_stream *result, const char *fieldname,
+		       const struct bitcoin_outpoint *out)
+{
+	char hex[hex_str_size(sizeof(out->txid))];
+	bitcoin_txid_to_hex(&out->txid, hex, sizeof(hex));
+	json_add_member(result, fieldname, true, "%s:%d", hex, out->n);
+}
+
 void json_add_short_channel_id(struct json_stream *response,
 			       const char *fieldname,
 			       const struct short_channel_id *scid)
