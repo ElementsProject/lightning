@@ -956,8 +956,10 @@ static struct io_plan *read_json(struct io_conn *conn,
 	if (!json_parse_input(&jcon->input_parser, &jcon->input_toks,
 			      jcon->buffer, jcon->used,
 			      &complete)) {
-		json_command_malformed(jcon, "null",
-				       "Invalid token in json input");
+		json_command_malformed(
+		    jcon, "null",
+		    tal_fmt(tmpctx, "Invalid token in json input: '%s'",
+			    tal_strndup(tmpctx, jcon->buffer, jcon->used)));
 		return io_halfclose(conn);
 	}
 
