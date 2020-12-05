@@ -1914,6 +1914,110 @@ static const struct json_command waitblockheight_command = {
 };
 AUTODATA(json_command, &waitblockheight_command);
 
+static struct command_result *param_channel(struct command *cmd,
+					     const char *name,
+					     const char *buffer,
+					     const jsmntok_t *tok,
+					     struct channel **channel)
+{
+	struct command_result *res;
+	struct peer *peer;
+
+	/* Find channel by peer_id */
+	peer = peer_from_json(cmd->ld, buffer, tok);
+	if (peer) {
+		*channel = peer_active_channel(peer);
+		if (!*channel)
+			return command_fail(cmd, LIGHTNINGD,
+					"Could not find active channel of peer with that id");
+		return NULL;
+
+	/* Find channel by id or scid */
+	} else {
+		res = command_find_channel(cmd, buffer, tok, channel);
+		if (res)
+			return res;
+		/* check channel is found and in valid state */
+		if (!*channel)
+			return command_fail(cmd, LIGHTNINGD,
+					"Could not find channel with that id");
+		return NULL;
+	}
+}
+
+static struct command_result *json_listchannelfee(struct command *cmd,
+					 const char *buffer,
+					 const jsmntok_t *obj UNNEEDED,
+					 const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct peer *peer;
+	struct channel *channel;
+
+	/* Parse the JSON command */
+	if (!param(cmd, buffer, params,
+		   p_opt("id", param_channel, &channel),
+		   NULL))
+		return command_param_failed();
+
+	/* Open JSON response object for later (potential) iteration */
+	response = json_stream_success(cmd);
+	json_array_start(response, "channel_fees");
+
+	/* If the user did not specify a channel, iterate over all channels */
+	if (channel == NULL) {
+		list_for_each(&cmd->ld->peers, peer, list) {
+			channel = peer_active_channel(peer);
+			if (!channel)
+				continue;
+			if (channel->state != CHANNELD_NORMAL &&
+			    channel->state != CHANNELD_AWAITING_LOCKIN)
+				continue;
+			if (!channel->scid)
+				continue;
+			json_object_start(response, NULL);
+			json_add_node_id(response, "peer", &peer->id);
+			json_add_short_channel_id(response,
+						  "short_channel_id",
+						  channel->scid);
+			json_add_amount_msat_only(response, "fee_base_msat", amount_msat((u64)channel->feerate_base));
+			json_add_num(response, "ppm", channel->feerate_ppm);
+			json_object_end(response);
+		}
+	/* return feerates of a specific channel */
+	} else {
+		if (channel->state != CHANNELD_NORMAL &&
+			channel->state != CHANNELD_AWAITING_LOCKIN)
+			return command_fail(cmd, LIGHTNINGD,
+					"Channel is in state %s", channel_state_name(channel));
+		if (!channel->scid)
+			return command_fail(cmd, LIGHTNINGD,
+					"Channel does not have a short_channel_id");
+		json_object_start(response, NULL);
+		json_add_node_id(response, "peer", &channel->peer->id);
+		json_add_short_channel_id(response,
+					  "short_channel_id",
+					  channel->scid);
+		json_add_amount_msat_only(response, "fee_base_msat", amount_msat((u64)channel->feerate_base));
+		json_add_num(response, "ppm", channel->feerate_ppm);
+		json_object_end(response);
+	}
+
+	/* Close and return response */
+	json_array_end(response);
+	return command_success(cmd, response);
+}
+
+static const struct json_command listchannelfee_command = {
+	"listchannelfee",
+	"channels",
+	json_listchannelfee,
+	"Gets local routing fees for the channel with {id} "
+	"(either peer ID, channel ID, short channel ID), or for "
+	"all channels if {id} is omitted. "
+};
+AUTODATA(json_command, &listchannelfee_command);
+
 static struct command_result *param_channel_or_all(struct command *cmd,
 					     const char *name,
 					     const char *buffer,

@@ -1093,6 +1093,18 @@ class LightningRpc(UnixDomainSocketRpc):
 
         return _sendpay(route, payment_hash, *args, **kwargs)
 
+    def listchannelfee(self, id=None):
+        """
+        Get local routing fees for a channel/peer {id} (or all channels if {id} is not specified).
+        """
+        if id is not None:
+            payload = {
+                "id": id
+            }
+            return self.call("listchannelfee", payload)
+        else:
+            return self.call("listchannelfee")
+
     def setchannelfee(self, id, base=None, ppm=None):
         """
         Set routing fees for a channel/peer {id} (or 'all'). {base} is a value in millisatoshi
