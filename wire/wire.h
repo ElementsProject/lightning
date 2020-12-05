@@ -75,14 +75,8 @@ void fromwire_siphash_seed(const u8 **cursor, size_t *max,
 /* Stubs, as this subtype is only defined when EXPERIMENTAL_FEATURES */
 struct onionmsg_path;
 
-static inline void towire_onionmsg_path(u8 **p, const struct onionmsg_path *onionmsg_path)
-{
-}
-
-static inline struct onionmsg_path *
-fromwire_onionmsg_path(const tal_t *ctx, const u8 **cursor, size_t *plen)
-{
-	return NULL;
-}
+void towire_onionmsg_path(u8 **p, const struct onionmsg_path *onionmsg_path);
+struct onionmsg_path *
+fromwire_onionmsg_path(const tal_t *ctx, const u8 **cursor, size_t *plen);
 #endif /* EXPERIMENTAL_FEATURES */
 #endif /* LIGHTNING_WIRE_WIRE_H */
