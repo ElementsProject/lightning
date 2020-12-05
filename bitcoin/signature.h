@@ -131,4 +131,11 @@ void towire_bitcoin_signature(u8 **pptr, const struct bitcoin_signature *sig);
 void fromwire_bitcoin_signature(const u8 **cursor, size_t *max,
 				struct bitcoin_signature *sig);
 
+/* Schnorr */
+struct bip340sig {
+	u8 u8[64];
+};
+void towire_bip340sig(u8 **pptr, const struct bip340sig *bip340sig);
+void fromwire_bip340sig(const u8 **cursor, size_t *max,
+			struct bip340sig *bip340sig);
 #endif /* LIGHTNING_BITCOIN_SIGNATURE_H */

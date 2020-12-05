@@ -348,3 +348,15 @@ void towire_bitcoin_signature(u8 **pptr, const struct bitcoin_signature *sig)
 	towire_secp256k1_ecdsa_signature(pptr, &sig->s);
 	towire_u8(pptr, sig->sighash_type);
 }
+
+void towire_bip340sig(u8 **pptr, const struct bip340sig *bip340sig)
+{
+	towire_u8_array(pptr, bip340sig->u8, sizeof(bip340sig->u8));
+}
+
+void fromwire_bip340sig(const u8 **cursor, size_t *max,
+			struct bip340sig *bip340sig)
+{
+	fromwire_u8_array(cursor, max, bip340sig->u8, sizeof(bip340sig->u8));
+}
+REGISTER_TYPE_TO_HEXSTR(bip340sig);
