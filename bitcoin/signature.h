@@ -2,10 +2,12 @@
 #define LIGHTNING_BITCOIN_SIGNATURE_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <ccan/tal/tal.h>
 #include <secp256k1.h>
 #include <stdbool.h>
 
 struct sha256_double;
+struct sha256_ctx;
 struct bitcoin_tx;
 struct pubkey;
 struct privkey;
@@ -138,4 +140,14 @@ struct bip340sig {
 void towire_bip340sig(u8 **pptr, const struct bip340sig *bip340sig);
 void fromwire_bip340sig(const u8 **cursor, size_t *max,
 			struct bip340sig *bip340sig);
+
+/* Get a hex string sig */
+char *fmt_bip340sig(const tal_t *ctx, const struct bip340sig *bip340sig);
+
+/* For caller convenience, we hand in tag in parts (any can be "") */
+void bip340_sighash_init(struct sha256_ctx *sctx,
+			 const char *tag1,
+			 const char *tag2,
+			 const char *tag3);
+
 #endif /* LIGHTNING_BITCOIN_SIGNATURE_H */
