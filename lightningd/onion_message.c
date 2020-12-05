@@ -14,7 +14,7 @@ struct onion_message_hook_payload {
 	struct pubkey *reply_blinding;
 	struct onionmsg_path **reply_path;
 
-	/* FIXME: Include other TLV fields here! */
+	struct tlv_onionmsg_payload *om;
 };
 
 static void
@@ -40,6 +40,29 @@ onion_message_serialize(struct onion_message_hook_payload *payload,
 		}
 		json_array_end(stream);
 	}
+	/* Common convenience fields */
+	if (payload->om->invoice_request)
+		json_add_hex_talarr(stream, "invoice_request",
+				    payload->om->invoice_request);
+	if (payload->om->invoice)
+		json_add_hex_talarr(stream, "invoice", payload->om->invoice);
+
+	if (payload->om->invoice_error)
+		json_add_hex_talarr(stream, "invoice_error",
+				    payload->om->invoice_error);
+
+	json_array_start(stream, "unknown_fields");
+	for (size_t i = 0; i < tal_count(payload->om->fields); i++) {
+		if (payload->om->fields[i].meta)
+			continue;
+		json_object_start(stream, NULL);
+		json_add_u64(stream, "number", payload->om->fields[i].numtype);
+		json_add_hex(stream, "value",
+			     payload->om->fields[i].value,
+			     payload->om->fields[i].length);
+		json_object_end(stream);
+	}
+	json_array_end(stream);
 	json_object_end(stream);
 }
 
@@ -100,14 +123,25 @@ void handle_onionmsg_to_us(struct channel *channel, const u8 *msg)
 {
 	struct lightningd *ld = channel->peer->ld;
 	struct onion_message_hook_payload *payload;
+	u8 *submsg;
+	size_t submsglen;
 
 	payload = tal(ld, struct onion_message_hook_payload);
+	payload->om = tlv_onionmsg_payload_new(payload);
 
 	if (!fromwire_got_onionmsg_to_us(payload, msg,
 					 &payload->blinding_in,
 					 &payload->reply_blinding,
-					 &payload->reply_path)) {
+					 &payload->reply_path,
+					 &submsg)) {
 		channel_internal_error(channel, "bad got_onionmsg_tous: %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+	submsglen = tal_bytelen(submsg);
+	if (!fromwire_onionmsg_payload(cast_const2(const u8 **, &submsg),
+				       &submsglen, payload->om)) {
+		channel_internal_error(channel, "bad got_onionmsg_tous om: %s",
 				       tal_hex(tmpctx, msg));
 		return;
 	}

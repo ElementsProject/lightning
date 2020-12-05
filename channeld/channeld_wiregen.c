@@ -1105,9 +1105,10 @@ bool fromwire_channeld_send_error_reply(const void *p)
 
 /* WIRE: GOT_ONIONMSG_TO_US */
 /* Tell lightningd we got a onion message (for us */
-u8 *towire_got_onionmsg_to_us(const tal_t *ctx, const struct pubkey *blinding_in, const struct pubkey *reply_blinding, const struct onionmsg_path **reply_path)
+u8 *towire_got_onionmsg_to_us(const tal_t *ctx, const struct pubkey *blinding_in, const struct pubkey *reply_blinding, const struct onionmsg_path **reply_path, const u8 *rawmsg)
 {
 	u16 reply_path_len = tal_count(reply_path);
+	u16 rawmsg_len = tal_count(rawmsg);
 	u8 *p = tal_arr(ctx, u8, 0);
 
 	towire_u16(&p, WIRE_GOT_ONIONMSG_TO_US);
@@ -1126,12 +1127,15 @@ u8 *towire_got_onionmsg_to_us(const tal_t *ctx, const struct pubkey *blinding_in
 	towire_u16(&p, reply_path_len);
 	for (size_t i = 0; i < reply_path_len; i++)
 		towire_onionmsg_path(&p, reply_path[i]);
+	towire_u16(&p, rawmsg_len);
+	towire_u8_array(&p, rawmsg, rawmsg_len);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_got_onionmsg_to_us(const tal_t *ctx, const void *p, struct pubkey **blinding_in, struct pubkey **reply_blinding, struct onionmsg_path ***reply_path)
+bool fromwire_got_onionmsg_to_us(const tal_t *ctx, const void *p, struct pubkey **blinding_in, struct pubkey **reply_blinding, struct onionmsg_path ***reply_path, u8 **rawmsg)
 {
 	u16 reply_path_len;
+	u16 rawmsg_len;
 
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
@@ -1155,6 +1159,10 @@ bool fromwire_got_onionmsg_to_us(const tal_t *ctx, const void *p, struct pubkey 
 	*reply_path = reply_path_len ? tal_arr(ctx, struct onionmsg_path *, reply_path_len) : NULL;
 	for (size_t i = 0; i < reply_path_len; i++)
 		(*reply_path)[i] = fromwire_onionmsg_path(*reply_path, &cursor, &plen);
+ 	rawmsg_len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case rawmsg
+	*rawmsg = rawmsg_len ? tal_arr(ctx, u8, rawmsg_len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *rawmsg, rawmsg_len);
 	return cursor != NULL;
 }
 
@@ -1248,4 +1256,4 @@ bool fromwire_send_onionmsg(const tal_t *ctx, const void *p, u8 onion[1366], str
 	}
 	return cursor != NULL;
 }
-// SHA256STAMP:5fc565464be5cacb6e6ef163e41b1eee4ca3276848a30a3892f6f808f1b4c480
+// SHA256STAMP:564860d28225780e0746b0f9e6944d691a342d12bd9d0400bb962577fab64067

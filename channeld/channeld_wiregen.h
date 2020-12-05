@@ -232,8 +232,8 @@ bool fromwire_channeld_send_error_reply(const void *p);
 
 /* WIRE: GOT_ONIONMSG_TO_US */
 /*  Tell lightningd we got a onion message (for us */
-u8 *towire_got_onionmsg_to_us(const tal_t *ctx, const struct pubkey *blinding_in, const struct pubkey *reply_blinding, const struct onionmsg_path **reply_path);
-bool fromwire_got_onionmsg_to_us(const tal_t *ctx, const void *p, struct pubkey **blinding_in, struct pubkey **reply_blinding, struct onionmsg_path ***reply_path);
+u8 *towire_got_onionmsg_to_us(const tal_t *ctx, const struct pubkey *blinding_in, const struct pubkey *reply_blinding, const struct onionmsg_path **reply_path, const u8 *rawmsg);
+bool fromwire_got_onionmsg_to_us(const tal_t *ctx, const void *p, struct pubkey **blinding_in, struct pubkey **reply_blinding, struct onionmsg_path ***reply_path, u8 **rawmsg);
 
 /* WIRE: GOT_ONIONMSG_FORWARD */
 u8 *towire_got_onionmsg_forward(const tal_t *ctx, const struct short_channel_id *next_scid, const struct node_id *next_node_id, const struct pubkey *next_blinding, const u8 next_onion[1366]);
@@ -246,4 +246,4 @@ bool fromwire_send_onionmsg(const tal_t *ctx, const void *p, u8 onion[1366], str
 
 
 #endif /* LIGHTNING_CHANNELD_CHANNELD_WIREGEN_H */
-// SHA256STAMP:5fc565464be5cacb6e6ef163e41b1eee4ca3276848a30a3892f6f808f1b4c480
+// SHA256STAMP:564860d28225780e0746b0f9e6944d691a342d12bd9d0400bb962577fab64067

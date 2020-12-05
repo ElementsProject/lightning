@@ -67,6 +67,9 @@
 #include <secp256k1.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <stdio.h>
+#if EXPERIMENTAL_FEATURES
+#include <wire/bolt12_exp_wiregen.h>
+#endif
 #include <wire/common_wiregen.h>
 #include <wire/onion_wire.h>
 #include <wire/peer_wire.h>
@@ -1953,6 +1956,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 	if (rs->nextcase == ONION_END) {
 		struct pubkey *blinding;
 		const struct onionmsg_path **path;
+		u8 *omsg;
 
 		if (om->reply_path) {
 			blinding = &om->reply_path->blinding;
@@ -1962,11 +1966,16 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 			blinding = NULL;
 			path = NULL;
 		}
+
+		/* We re-marshall here by policy, before handing to lightningd */
+		omsg = tal_arr(tmpctx, u8, 0);
+		towire_tlvstream_raw(&omsg, om->fields);
 		wire_sync_write(MASTER_FD,
 				take(towire_got_onionmsg_to_us(NULL,
 							       blinding_in,
 							       blinding,
-							       path)));
+							       path,
+							       omsg)));
 	} else {
 		struct pubkey *next_blinding;
 		struct node_id *next_node;
