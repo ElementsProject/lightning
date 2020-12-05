@@ -164,6 +164,9 @@ struct hop {
 	struct short_channel_id *scid;
 	struct pubkey *blinding;
 	u8 *enctlv;
+	u8 *invoice;
+	u8 *invoice_req;
+	u8 *invoice_err;
 	u8 *rawtlv;
 };
 
@@ -182,7 +185,8 @@ static struct command_result *param_hops(struct command *cmd,
 
 	*hops = tal_arr(cmd, struct hop, tok->size);
 	json_for_each_arr(i, t, tok) {
-		const jsmntok_t *tid, *tscid, *tblinding, *tenctlv, *trawtlv;
+		const jsmntok_t *tid, *tscid, *tblinding, *tenctlv, *trawtlv,
+			*tinvoice, *tinvoicereq, *tinvoiceerr;
 
 		tid = json_get_member(buffer, t, "id");
 		if (!tid)
@@ -192,12 +196,15 @@ static struct command_result *param_hops(struct command *cmd,
 		tscid = json_get_member(buffer, t, "short_channel_id");
 		tblinding = json_get_member(buffer, t, "blinding");
 		tenctlv = json_get_member(buffer, t, "enctlv");
+		tinvoice = json_get_member(buffer, t, "invoice");
+		tinvoicereq = json_get_member(buffer, t, "invoice_request");
+		tinvoiceerr = json_get_member(buffer, t, "invoice_error");
 		trawtlv = json_get_member(buffer, t, "rawtlv");
 
-		if (trawtlv && (tscid || tblinding || tenctlv))
-		    return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					"%s[%zu] has 'rawtlv' with other fields",
-					name, i);
+		if (trawtlv && (tscid || tblinding || tenctlv || tinvoice || tinvoicereq))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "%s[%zu] has 'rawtlv' with other fields",
+					    name, i);
 
 		if (tblinding) {
 			(*hops)[i].blinding = tal(*hops, struct pubkey);
@@ -228,6 +235,33 @@ static struct command_result *param_hops(struct command *cmd,
 						    "%s[%zu] 'enctlv' is invalid", name, i);
 		} else
 			(*hops)[i].enctlv = NULL;
+
+		if (tinvoice) {
+			(*hops)[i].invoice =
+				json_tok_bin_from_hex(*hops, buffer, tinvoice);
+			if (!(*hops)[i].invoice)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "%s[%zu] 'invoice' is invalid", name, i);
+		} else
+			(*hops)[i].invoice = NULL;
+
+		if (tinvoicereq) {
+			(*hops)[i].invoice_req =
+				json_tok_bin_from_hex(*hops, buffer, tinvoicereq);
+			if (!(*hops)[i].invoice_req)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "%s[%zu] 'invoice_request' is invalid", name, i);
+		} else
+			(*hops)[i].invoice_req = NULL;
+
+		if (tinvoiceerr) {
+			(*hops)[i].invoice_err =
+				json_tok_bin_from_hex(*hops, buffer, tinvoiceerr);
+			if (!(*hops)[i].invoice_err)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "%s[%zu] 'invoice_request' is invalid", name, i);
+		} else
+			(*hops)[i].invoice_err = NULL;
 
 		if (trawtlv) {
 			(*hops)[i].rawtlv =
@@ -329,6 +363,11 @@ static void populate_tlvs(struct hop *hops,
 		}
 		/* Note: tal_dup_talarr returns NULL for NULL */
 		tlv->enctlv = tal_dup_talarr(tlv, u8, hops[i].enctlv);
+		tlv->invoice = tal_dup_talarr(tlv, u8, hops[i].invoice);
+		tlv->invoice_request = tal_dup_talarr(tlv, u8,
+						      hops[i].invoice_req);
+		tlv->invoice_error = tal_dup_talarr(tlv, u8,
+						    hops[i].invoice_err);
 
 		if (i == tal_count(hops)-1 && reply_path)
 			tlv->reply_path = reply_path;
@@ -392,7 +431,7 @@ static const struct json_command send_onion_message_command = {
 	"sendonionmessage",
 	"utility",
 	json_send_onion_message,
-	"Send message over {hops} (id, [short_channel_id], [blinding], [enctlv], [rawtlv]) with optional {reply_path} (blinding, path[id, enctlv])"
+	"Send message over {hops} (id, [short_channel_id], [blinding], [enctlv], [invoice], [invoice_request], [invoice_error], [rawtlv]) with optional {reply_path} (blinding, path[id, enctlv])"
 };
 AUTODATA(json_command, &send_onion_message_command);
 #endif /* EXPERIMENTAL_FEATURES */
