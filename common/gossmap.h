@@ -6,6 +6,7 @@
 #include <common/amount.h>
 
 struct node_id;
+struct pubkey32;
 
 /* 5 bit exponent, 11 bit mantissa approximations of min/max */
 typedef u16 fp16_t;
@@ -136,5 +137,11 @@ size_t gossmap_num_chans(const struct gossmap *map);
 struct gossmap_chan *gossmap_first_chan(const struct gossmap *map);
 struct gossmap_chan *gossmap_next_chan(const struct gossmap *map,
 				       struct gossmap_chan *prev);
+
+/* Each x-only pubkey has two possible values: we can figure out which by
+ * examining the gossmap. */
+void gossmap_guess_node_id(const struct gossmap *map,
+			   const struct pubkey32 *pubkey32,
+			   struct node_id *id);
 
 #endif /* LIGHTNING_COMMON_GOSSMAP_H */
