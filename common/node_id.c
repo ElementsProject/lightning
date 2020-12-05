@@ -25,6 +25,16 @@ bool pubkey_from_node_id(struct pubkey *key, const struct node_id *id)
 					 sizeof(id->k));
 }
 
+WARN_UNUSED_RESULT
+bool pubkey32_from_node_id(struct pubkey32 *key, const struct node_id *id)
+{
+	struct pubkey k;
+	if (!pubkey_from_node_id(&k, id))
+		return false;
+	return secp256k1_xonly_pubkey_from_pubkey(secp256k1_ctx, &key->pubkey,
+						  NULL, &k.pubkey) == 1;
+}
+
 /* It's valid if we can convert to a real pubkey. */
 bool node_id_valid(const struct node_id *id)
 {

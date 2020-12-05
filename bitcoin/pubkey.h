@@ -7,6 +7,7 @@
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
 #include <secp256k1.h>
+#include <secp256k1_extrakeys.h>
 
 struct privkey;
 struct secret;
@@ -19,6 +20,13 @@ struct pubkey {
 };
 /* Define pubkey_eq (no padding) */
 STRUCTEQ_DEF(pubkey, 0, pubkey.data);
+
+struct pubkey32 {
+	/* Unpacked pubkey (as used by libsecp256k1 internally) */
+	secp256k1_xonly_pubkey pubkey;
+};
+/* Define pubkey_eq (no padding) */
+STRUCTEQ_DEF(pubkey32, 0, pubkey.data);
 
 /* Convert from hex string of DER (scriptPubKey from validateaddress) */
 bool pubkey_from_hexstr(const char *derstr, size_t derlen, struct pubkey *key);
@@ -60,4 +68,9 @@ void pubkey_to_hash160(const struct pubkey *pk, struct ripemd160 *hash);
 void towire_pubkey(u8 **pptr, const struct pubkey *pubkey);
 void fromwire_pubkey(const u8 **cursor, size_t *max, struct pubkey *pubkey);
 
+/* marshal/unmarshal functions */
+void towire_pubkey32(u8 **pptr, const struct pubkey32 *pubkey);
+void fromwire_pubkey32(const u8 **cursor, size_t *max, struct pubkey32 *pubkey);
+
+char *pubkey32_to_hexstr(const tal_t *ctx, const struct pubkey32 *pubkey32);
 #endif /* LIGHTNING_BITCOIN_PUBKEY_H */

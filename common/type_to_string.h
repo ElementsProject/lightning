@@ -9,6 +9,7 @@
 /* This must match the type_to_string_ cases. */
 union printable_types {
 	const struct pubkey *pubkey;
+	const struct pubkey32 *pubkey32;
 	const struct node_id *node_id;
 	const struct bitcoin_txid *bitcoin_txid;
 	const struct bitcoin_blkid *bitcoin_blkid;
@@ -31,6 +32,7 @@ union printable_types {
 	const struct privkey *privkey;
 	const secp256k1_ecdsa_signature *secp256k1_ecdsa_signature;
 	const struct bitcoin_signature *bitcoin_signature;
+	const struct bip340sig *bip340sig;
 	const struct channel *channel;
 	const struct amount_msat *amount_msat;
 	const struct amount_sat *amount_sat;
