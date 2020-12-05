@@ -16,6 +16,7 @@ WIRE_HEADERS :=	wire/onion_defs.h		\
 # We don't include peer_printgen/onion_printgen here since most don't need it.
 WIRE_SRC := wire/wire_sync.c			\
 		wire/wire_io.c			\
+		wire/wire_dummy.c		\
 		wire/fromwire.c			\
 		wire/peer_wire.c		\
 		wire/tlvstream.c		\
@@ -27,6 +28,11 @@ WIRE_SRC := wire/wire_sync.c			\
 WIRE_PRINT_SRC :=				\
 		wire/onion$(EXP)_printgen.c	\
 		wire/peer$(EXP)_printgen.c
+
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+WIRE_HEADERS += wire/bolt12$(EXP)_wiregen.h
+WIRE_SRC += wire/bolt12$(EXP)_wiregen.c
+endif
 
 WIRE_OBJS := $(WIRE_SRC:.c=.o)
 WIRE_PRINT_OBJS := $(WIRE_PRINT_SRC:.c=.o)
@@ -46,6 +52,13 @@ extract-bolt-csv: bolt-precheck
 	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/0[127]*.md > wire/peer_wire.csv
 	@echo '#include <wire/onion_defs.h>' > wire/onion_wire.csv
 	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md >> wire/onion_wire.csv
+
+extract-bolt12-csv: bolt-precheck
+	$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/12*.md > wire/bolt12_exp_wire.csv
+
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+extract-bolt-csv: extract-bolt12-csv
+endif
 
 # Explicit command to add patchfile for BOLT CSV's
 extract-experimental-bolt-csv: bolt-precheck
@@ -80,6 +93,11 @@ wire/peer_exp_wiregen.h_args := $(wire/peer_wiregen.h_args)
 wire/peer_exp_wiregen.c_args := $(wire/peer_wiregen.c_args)
 wire/onion_exp_wiregen.h_args := $(wire/onion_wiregen.h_args)
 wire/onion_exp_wiregen.c_args := $(wire/onion_wiregen.c_args)
+
+wire/bolt12_exp_wiregen.c_args := -s --expose-tlv-type=blinded_path
+wire/bolt12_exp_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/signature.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h'  --include='wire/onion_wire.h' $(wire/bolt12_exp_wiregen.c_args)
+
+wire/peer_wiregen.h_args := --include='common/channel_id.h' --include='bitcoin/tx.h' --include='bitcoin/preimage.h' --include='bitcoin/short_channel_id.h' --include='common/node_id.h' --include='common/bigsize.h' --include='bitcoin/block.h' --include='bitcoin/privkey.h' -s --expose-tlv-type=n1 --expose-tlv-type=n2
 
 maintainer-clean: wire-maintainer-clean
 
