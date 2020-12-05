@@ -918,3 +918,19 @@ int gossmap_node_get_feature(const struct gossmap *map,
 	return map_feature_test(map, COMPULSORY_FEATURE(fbit),
 				n->nann_off + feature_len_off + 2, feature_len);
 }
+
+/* There are two 33-byte pubkeys possible: choose the one which appears
+ * in the graph (otherwise payment will fail anyway). */
+void gossmap_guess_node_id(const struct gossmap *map,
+			   const struct pubkey32 *pubkey32,
+			   struct node_id *id)
+{
+	id->k[0] = SECP256K1_TAG_PUBKEY_EVEN;
+	secp256k1_xonly_pubkey_serialize(secp256k1_ctx,
+					 id->k + 1,
+					 &pubkey32->pubkey);
+
+	/* If we don't find this, let's assume it's odd. */
+	if (!gossmap_find_node(map, id))
+		id->k[0] = SECP256K1_TAG_PUBKEY_ODD;
+}
