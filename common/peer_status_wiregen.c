@@ -80,4 +80,4 @@ bool fromwire_status_peer_error(const tal_t *ctx, const void *p, struct channel_
 	fromwire_u8_array(&cursor, &plen, *error_for_them, len);
 	return cursor != NULL;
 }
-// SHA256STAMP:612d608c07fc296757d24389b7a459a3f9b72285fafe342a5c8cd42fd3ec88af
+// SHA256STAMP:3190167a077593b13e10bab07e02e8e9666ea73f136a2860eca9618e1771593f

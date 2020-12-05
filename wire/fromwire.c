@@ -207,6 +207,13 @@ void fromwire_u8_array(const u8 **cursor, size_t *max, u8 *arr, size_t num)
 	fromwire(cursor, max, arr, num);
 }
 
+void fromwire_utf8_array(const u8 **cursor, size_t *max, char *arr, size_t num)
+{
+	fromwire(cursor, max, arr, num);
+	if (!utf8_check(arr, num))
+		fromwire_fail(cursor, max);
+}
+
 u8 *fromwire_tal_arrn(const tal_t *ctx,
 		      const u8 **cursor, size_t *max, size_t num)
 {
