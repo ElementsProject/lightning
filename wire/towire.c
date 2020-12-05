@@ -123,6 +123,12 @@ void towire_u8_array(u8 **pptr, const u8 *arr, size_t num)
 	towire(pptr, arr, num);
 }
 
+void towire_utf8_array(u8 **pptr, const char *arr, size_t num)
+{
+	assert(utf8_check(arr, num));
+	towire(pptr, arr, num);
+}
+
 void towire_pad(u8 **pptr, size_t num)
 {
 	/* Simply insert zeros. */

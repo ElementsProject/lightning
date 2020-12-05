@@ -406,4 +406,4 @@ bool fromwire_connectd_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:3874bf7cdd0e406217e6e59e43fab1e287f61e1e027009e352646c24baab0568
+// SHA256STAMP:f9c15e7c9b2eb072f2489fa3db3b993b2fd8cbed7d0d24d9b1ca200d04de8d3d
