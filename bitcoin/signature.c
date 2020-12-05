@@ -359,4 +359,41 @@ void fromwire_bip340sig(const u8 **cursor, size_t *max,
 {
 	fromwire_u8_array(cursor, max, bip340sig->u8, sizeof(bip340sig->u8));
 }
+
+char *fmt_bip340sig(const tal_t *ctx, const struct bip340sig *bip340sig)
+{
+	return tal_hexstr(ctx, bip340sig->u8, sizeof(bip340sig->u8));
+}
+
 REGISTER_TYPE_TO_HEXSTR(bip340sig);
+
+/* BIP-340:
+ *
+ * This proposal suggests to include the tag by prefixing the hashed
+ * data with ''SHA256(tag) || SHA256(tag)''. Because this is a 64-byte
+ * long context-specific constant and the ''SHA256'' block size is
+ * also 64 bytes, optimized implementations are possible (identical to
+ * SHA256 itself, but with a modified initial state). Using SHA256 of
+ * the tag name itself is reasonably simple and efficient for
+ * implementations that don't choose to use the optimization.
+ */
+
+/* For caller convenience, we hand in tag in parts (any can be "") */
+void bip340_sighash_init(struct sha256_ctx *sctx,
+			 const char *tag1,
+			 const char *tag2,
+			 const char *tag3)
+{
+	struct sha256 taghash;
+
+	sha256_init(sctx);
+	sha256_update(sctx, memcheck(tag1, strlen(tag1)), strlen(tag1));
+	sha256_update(sctx, memcheck(tag2, strlen(tag2)), strlen(tag2));
+	sha256_update(sctx, memcheck(tag3, strlen(tag3)), strlen(tag3));
+	sha256_done(sctx, &taghash);
+
+	sha256_init(sctx);
+	sha256_update(sctx, &taghash, sizeof(taghash));
+	sha256_update(sctx, &taghash, sizeof(taghash));
+}
+
