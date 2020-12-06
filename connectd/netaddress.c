@@ -235,6 +235,7 @@ bool guess_address(struct wireaddr *addr)
     switch (addr->type) {
     case ADDR_TYPE_IPV4: {
         struct sockaddr_in sin;
+        memset(&sin, 0, sizeof(sin));
 	sin.sin_port = htons(53);
         /* 8.8.8.8 */
 	sin.sin_addr.s_addr = 0x08080808;
@@ -246,6 +247,7 @@ bool guess_address(struct wireaddr *addr)
     }
     case ADDR_TYPE_IPV6: {
         struct sockaddr_in6 sin6;
+        memset(&sin6, 0, sizeof(sin6));
         /* 2001:4860:4860::8888 */
         static const unsigned char pchGoogle[16]
                 = {0x20,0x01,0x48,0x60,0x48,0x60,0,0,0,0,0,0,8,8,8,8};
