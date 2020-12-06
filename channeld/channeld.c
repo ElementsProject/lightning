@@ -220,9 +220,9 @@ static void billboard_update(const struct peer *peer)
 
 	if (!peer->shutdown_sent[LOCAL] && !peer->shutdown_sent[REMOTE])
 		shutdown_status = "";
-	else if (!peer->shutdown_sent[LOCAL] && peer->shutdown_sent[REMOTE])
-		shutdown_status = " We've send shutdown, waiting for theirs";
 	else if (peer->shutdown_sent[LOCAL] && !peer->shutdown_sent[REMOTE])
+		shutdown_status = " We've send shutdown, waiting for theirs";
+	else if (!peer->shutdown_sent[LOCAL] && peer->shutdown_sent[REMOTE])
 		shutdown_status = " They've sent shutdown, waiting for ours";
 	else if (peer->shutdown_sent[LOCAL] && peer->shutdown_sent[REMOTE]) {
 		size_t num_htlcs = num_channel_htlcs(peer->channel);
