@@ -177,13 +177,13 @@ class Millisatoshi:
         return Millisatoshi(int(self) - int(other))
 
     def __mul__(self, other: int) -> 'Millisatoshi':
-        return Millisatoshi(int(self.millisatoshis * other))
+        return Millisatoshi(floor(self.millisatoshis * other))
 
     def __truediv__(self, other: Union[int, float]) -> 'Millisatoshi':
-        return Millisatoshi(int(self.millisatoshis / other))
+        return Millisatoshi(floor(self.millisatoshis / other))
 
     def __floordiv__(self, other: Union[int, float]) -> 'Millisatoshi':
-        return Millisatoshi(int(self.millisatoshis // float(other)))
+        return Millisatoshi(floor(self.millisatoshis // float(other)))
 
     def __mod__(self, other: Union[float, int]) -> 'Millisatoshi':
         return Millisatoshi(int(self.millisatoshis % other))
