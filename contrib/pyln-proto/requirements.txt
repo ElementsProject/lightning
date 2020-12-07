@@ -3,3 +3,4 @@ cryptography==3.2
 coincurve==13.0.0
 base58==1.0.2
 mypy
+pysocks==1.7.*

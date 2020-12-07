@@ -6,9 +6,11 @@ from cryptography.hazmat.primitives.ciphers.aead import ChaCha20Poly1305
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from .primitives import Secret, PrivateKey, PublicKey
 from hashlib import sha256
+from typing import Tuple
 import coincurve
 import os
 import socket
+import socks
 import struct
 import threading
 
@@ -318,7 +320,8 @@ class LightningServerSocket(socket.socket):
         return (lconn, address)
 
 
-def connect(local_privkey, node_id, host, port=9735):
+def connect(local_privkey, node_id, host: str, port: int = 9735,
+            socks_addr: Tuple[str, int] = None):
     if isinstance(node_id, bytes) and len(node_id) == 33:
         remote_pubkey = PublicKey(node_id)
     elif isinstance(node_id, ec.EllipticCurvePublicKey):
@@ -329,7 +332,13 @@ def connect(local_privkey, node_id, host, port=9735):
         raise ValueError(
             "node_id must be either a 33 byte array, or a PublicKey"
         )
-    conn = socket.create_connection((host, port))
+
+    if socks_addr is None:
+        conn = socket.create_connection((host, port))
+    else:
+        socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, *socks_addr, True)
+        conn = socks.socksocket()
+        conn.connect((host, port))
     lconn = LightningConnection(conn, remote_pubkey, local_privkey,
                                 is_initiator=True)
     lconn.shake()
