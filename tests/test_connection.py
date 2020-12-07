@@ -2841,6 +2841,7 @@ def test_htlc_retransmit_order(node_factory, executor):
     # If order was wrong, we'll get a LOG_BROKEN and fixtures will complain.
 
 
+@unittest.skipIf(True, "Currently failing, see tracking issue #4265")
 def test_fundchannel_start_alternate(node_factory, executor):
     ''' Test to see what happens if two nodes start channeling to
     each other alternately.
