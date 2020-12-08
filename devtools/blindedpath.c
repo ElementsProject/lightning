@@ -206,7 +206,7 @@ int main(int argc, char **argv)
 		struct privkey privkey;
 		struct pubkey blinding;
 		u8 onion[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)], *dec;
-		struct onionpacket op;
+		struct onionpacket *op;
 		struct secret ss, onion_ss;
 		struct secret hmac, rho;
 		struct route_step *rs;
@@ -216,6 +216,7 @@ int main(int argc, char **argv)
 		struct pubkey res;
 		struct sha256 h;
 		int ret;
+		enum onion_wire failcode;
 		const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 		if (argc != 5)
@@ -232,7 +233,8 @@ int main(int argc, char **argv)
 		if (!pubkey_from_hexstr(argv[4], strlen(argv[4]), &blinding))
 			errx(1, "Invalid blinding %s", argv[4]);
 
-		if (parse_onionpacket(onion, sizeof(onion), &op) != 0)
+		op = parse_onionpacket(tmpctx, onion, sizeof(onion), &failcode);
+		if (!op)
 			errx(1, "Unparsable onion");
 
 		/*   ss(r) = H(k(r) * E(r)) */
@@ -249,7 +251,7 @@ int main(int argc, char **argv)
 		 * and use our raw privkey: this models how lightningd
 		 * will do it, since hsmd knows only how to ECDH with
 		 * our real key */
-		res = op.ephemeralkey;
+		res = op->ephemeralkey;
 		if (!first) {
 			if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
 							  &res.pubkey,
@@ -262,7 +264,7 @@ int main(int argc, char **argv)
 				   privkey.secret.data, NULL, NULL) != 1)
 			abort();
 
-		rs = process_onionpacket(tmpctx, &op, &onion_ss, NULL, 0, false);
+		rs = process_onionpacket(tmpctx, op, &onion_ss, NULL, 0, false);
 		if (!rs)
 			errx(1, "Could not process onionpacket");
 

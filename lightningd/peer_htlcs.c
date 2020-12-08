@@ -1141,7 +1141,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 {
 	struct htlc_in *hin;
 	struct route_step *rs;
-	struct onionpacket op;
+	struct onionpacket *op;
 	struct lightningd *ld = channel->peer->ld;
 	struct htlc_accepted_hook_payload *hook_payload;
 
@@ -1195,10 +1195,10 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 	 * a subset of the cltv check done in handle_localpay and
 	 * forward_htlc. */
 
-	*badonion = parse_onionpacket(hin->onion_routing_packet,
-				      sizeof(hin->onion_routing_packet),
-				      &op);
-	if (*badonion) {
+	op = parse_onionpacket(tmpctx, hin->onion_routing_packet,
+			       sizeof(hin->onion_routing_packet),
+			       badonion);
+	if (!op) {
 		log_debug(channel->log,
 			  "Rejecting their htlc %"PRIu64
 			  " since onion is unparsable %s",
@@ -1207,7 +1207,7 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 		goto fail;
 	}
 
-	rs = process_onionpacket(tmpctx, &op, hin->shared_secret,
+	rs = process_onionpacket(tmpctx, op, hin->shared_secret,
 				 hin->payment_hash.u.u8,
 				 sizeof(hin->payment_hash), true);
 	if (!rs) {
@@ -1793,7 +1793,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 	struct lightningd *ld = channel->peer->ld;
 	struct htlc_in *hin;
 	struct secret shared_secret;
-	struct onionpacket op;
+	struct onionpacket *op;
 	enum onion_wire failcode;
 
 	/* BOLT #2:
@@ -1817,11 +1817,11 @@ static bool channel_added_their_htlc(struct channel *channel,
 
 	/* Do the work of extracting shared secret now if possible. */
 	/* FIXME: We do this *again* in peer_accepted_htlc! */
-	failcode = parse_onionpacket(added->onion_routing_packet,
-				     sizeof(added->onion_routing_packet),
-				     &op);
-	if (!failcode) {
-		if (!ecdh_maybe_blinding(&op.ephemeralkey,
+	op = parse_onionpacket(tmpctx, added->onion_routing_packet,
+			       sizeof(added->onion_routing_packet),
+			       &failcode);
+	if (op) {
+		if (!ecdh_maybe_blinding(&op->ephemeralkey,
 					 added->blinding, &added->blinding_ss,
 					 &shared_secret)) {
 			log_debug(channel->log, "htlc %"PRIu64
@@ -1834,7 +1834,7 @@ static bool channel_added_their_htlc(struct channel *channel,
 	 * part of the current commitment. */
 	hin = new_htlc_in(channel, channel, added->id, added->amount,
 			  added->cltv_expiry, &added->payment_hash,
-			  failcode ? NULL : &shared_secret,
+			  op ? &shared_secret : NULL,
 			  added->blinding, &added->blinding_ss,
 			  added->onion_routing_packet);
 

@@ -28,8 +28,8 @@ struct onionpacket {
 	struct hmac hmac;
 	struct pubkey ephemeralkey;
 
-	/* Encrypted information */
-	u8 routinginfo[ROUTING_INFO_SIZE];
+	/* Encrypted information (tal arr)*/
+	u8 *routinginfo;
 };
 
 struct sphinx_compressed_onion {
@@ -99,18 +99,14 @@ struct route_step {
  * over a path of intermediate nodes.
  *
  * @ctx: tal context to allocate from
- * @path: public keys of nodes along the path.
- * @hoppayloads: payloads destined for individual hosts (limited to
- *    HOP_PAYLOAD_SIZE bytes)
- * @num_hops: path length in nodes
- * @sessionkey: 32 byte random session key to derive secrets from
- * @assocdata: associated data to commit to in HMACs
- * @assocdatalen: length of the assocdata
- * @path_secrets: (out) shared secrets generated for the entire path
+ * @sphinx_path: path to encode along.
+ * @fixed_size: the size of the onion packet eg ROUTING_INFO_SIZE (fails if input is larger)
+ * @secrets: (out) shared secrets generated for the entire path
  */
 struct onionpacket *create_onionpacket(
 	const tal_t * ctx,
 	struct sphinx_path *sp,
+	size_t fixed_size,
 	struct secret **path_secrets
 	);
 
@@ -160,13 +156,15 @@ u8 *serialize_onionpacket(
 /**
  * parse_onionpacket - Parse an onionpacket from a buffer.
  *
+ * @ctx: the context to allocate return value from.
  * @src: buffer to read the packet from
  * @srclen: length of the @src (must be TOTAL_PACKET_SIZE)
- * @dest: the destination into which we should parse the packet
+ * @failcode: the failure code (set iff this returns NULL)
  */
-enum onion_wire parse_onionpacket(const u8 *src,
-				  const size_t srclen,
-				  struct onionpacket *dest);
+struct onionpacket *parse_onionpacket(const tal_t *ctx,
+				      const u8 *src,
+				      const size_t srclen,
+				      enum onion_wire *failcode);
 
 /**
  * create_onionreply - Format a failure message so we can return it

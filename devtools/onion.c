@@ -102,7 +102,7 @@ static void do_generate(int argc, char **argv,
 		}
 	}
 
-	packet = create_onionpacket(ctx, sp, &shared_secrets);
+	packet = create_onionpacket(ctx, sp, ROUTING_INFO_SIZE, &shared_secrets);
 
 	if (rvnode_id != NULL) {
 		comp = sphinx_compress(ctx, packet, sp);
@@ -123,21 +123,21 @@ static struct route_step *decode_with_privkey(const tal_t *ctx, const u8 *onion,
 {
 	struct privkey seckey;
 	struct route_step *step;
-	struct onionpacket packet;
+	struct onionpacket *packet;
 	enum onion_wire why_bad;
 	struct secret shared_secret;
 	if (!hex_decode(hexprivkey, strlen(hexprivkey), &seckey, sizeof(seckey)))
 		errx(1, "Invalid private key hex '%s'", hexprivkey);
 
-	why_bad = parse_onionpacket(onion, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE), &packet);
+	packet = parse_onionpacket(tmpctx, onion, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE), &why_bad);
 
-	if (why_bad != 0)
+	if (!packet)
 		errx(1, "Error parsing message: %s", onion_wire_name(why_bad));
 
-	if (!onion_shared_secret(&shared_secret, &packet, &seckey))
+	if (!onion_shared_secret(&shared_secret, packet, &seckey))
 		errx(1, "Error creating shared secret.");
 
-	step = process_onionpacket(ctx, &packet, &shared_secret, assocdata,
+	step = process_onionpacket(ctx, packet, &shared_secret, assocdata,
 				   tal_bytelen(assocdata), true);
 	return step;
 
@@ -257,7 +257,7 @@ static void runtest(const char *filename)
 		}
 		sphinx_add_hop(path, &pubkey, full);
 	}
-	res = create_onionpacket(ctx, path, &shared_secrets);
+	res = create_onionpacket(ctx, path, ROUTING_INFO_SIZE, &shared_secrets);
 	serialized = serialize_onionpacket(ctx, res);
 
 	if (!serialized)
