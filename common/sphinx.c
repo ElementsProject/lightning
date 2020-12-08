@@ -197,11 +197,18 @@ static void xor_cipher_stream(void *dst, const struct secret *k, size_t dstlen)
 	crypto_stream_chacha20_xor(dst, dst, dstlen, nonce, k->data);
 }
 
-static void compute_hmac(const u8 *src, size_t slen,
-			 const struct secret *key,
-			 struct hmac *h)
+/* Convenience function: s2/s2len can be NULL/0 if unwanted */
+static void compute_hmac(const struct secret *key,
+			 const u8 *s1, size_t s1len,
+			 const u8 *s2, size_t s2len,
+			 struct hmac *hmac)
 {
-	hmac(src, slen, key->data, sizeof(key->data), h);
+	crypto_auth_hmacsha256_state state;
+
+	hmac_start(&state, key->data, sizeof(key->data));
+	hmac_update(&state, s1, s1len);
+	hmac_update(&state, s2, s2len);
+	hmac_done(&state, hmac);
 }
 
 static void compute_packet_hmac(const struct onionpacket *packet,
@@ -209,14 +216,10 @@ static void compute_packet_hmac(const struct onionpacket *packet,
 				const struct secret *mukey,
 				struct hmac *hmac)
 {
-	u8 mactemp[ROUTING_INFO_SIZE + assocdatalen];
-	int pos = 0;
-
-	write_buffer(mactemp, packet->routinginfo, ROUTING_INFO_SIZE, &pos);
-	write_buffer(mactemp, assocdata, assocdatalen, &pos);
-	assert(pos == sizeof(mactemp));
-
-	compute_hmac(mactemp, sizeof(mactemp), mukey, hmac);
+	compute_hmac(mukey,
+		     packet->routinginfo, ROUTING_INFO_SIZE,
+		     assocdata, assocdatalen,
+		     hmac);
 }
 
 static void generate_header_padding(void *dst, size_t dstlen,
@@ -648,7 +651,7 @@ struct onionreply *create_onionreply(const tal_t *ctx,
 	 */
 	subkey_from_hmac("um", shared_secret, &key);
 
-	compute_hmac(payload, tal_count(payload), &key, &hmac);
+	compute_hmac(&key, payload, tal_count(payload), NULL, 0, &hmac);
 	reply->contents = tal_arr(reply, u8, 0),
 	towire_hmac(&reply->contents, &hmac);
 
@@ -708,9 +711,9 @@ u8 *unwrap_onionreply(const tal_t *ctx,
 		/* Check if the HMAC matches, this means that this is
 		 * the origin */
 		subkey_from_hmac("um", &shared_secrets[i], &key);
-		compute_hmac(r->contents + sizeof(hmac.bytes),
+		compute_hmac(&key, r->contents + sizeof(hmac.bytes),
 			     tal_count(r->contents) - sizeof(hmac.bytes),
-			     &key, &hmac);
+			     NULL, 0, &hmac);
 		if (memcmp(hmac.bytes, r->contents, sizeof(hmac.bytes)) == 0) {
 			*origin_index = i;
 			break;
