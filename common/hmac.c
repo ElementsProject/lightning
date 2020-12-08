@@ -4,15 +4,33 @@
 #include <common/hmac.h>
 #include <wire/wire.h>
 
+void hmac_start(crypto_auth_hmacsha256_state *state,
+		const void *key, size_t klen)
+{
+	crypto_auth_hmacsha256_init(state, memcheck(key, klen), klen);
+}
+
+void hmac_update(crypto_auth_hmacsha256_state *state,
+		 const void *src, size_t slen)
+{
+	crypto_auth_hmacsha256_update(state, memcheck(src, slen), slen);
+}
+
+void hmac_done(crypto_auth_hmacsha256_state *state,
+	       struct hmac *hmac)
+{
+	crypto_auth_hmacsha256_final(state, hmac->bytes);
+}
+
 void hmac(const void *src, size_t slen,
 	  const void *key, size_t klen,
 	  struct hmac *hmac)
 {
 	crypto_auth_hmacsha256_state state;
 
-	crypto_auth_hmacsha256_init(&state, memcheck(key, klen), klen);
-	crypto_auth_hmacsha256_update(&state, memcheck(src, slen), slen);
-	crypto_auth_hmacsha256_final(&state, hmac->bytes);
+	hmac_start(&state, key, klen);
+	hmac_update(&state, src, slen);
+	hmac_done(&state, hmac);
 }
 
 void subkey_from_hmac(const char *prefix,

@@ -16,6 +16,15 @@ void hmac(const void *src, size_t slen,
 	  const void *key, size_t klen,
 	  struct hmac *hmac);
 
+void hmac_start(crypto_auth_hmacsha256_state *state,
+		const void *key, size_t klen);
+
+void hmac_update(crypto_auth_hmacsha256_state *state,
+		 const void *src, size_t slen);
+
+void hmac_done(crypto_auth_hmacsha256_state *state,
+	       struct hmac *hmac);
+
 /* Common style: hmac to derive key using fixed string prefix. */
 void subkey_from_hmac(const char *prefix,
 		      const struct secret *base,
