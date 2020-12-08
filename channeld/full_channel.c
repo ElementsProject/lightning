@@ -477,7 +477,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 				     struct amount_msat amount,
 				     u32 cltv_expiry,
 				     const struct sha256 *payment_hash,
-				     const u8 routing[TOTAL_PACKET_SIZE],
+				     const u8 routing[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
 				     const struct pubkey *blinding TAKES,
 				     struct htlc **htlcp,
 				     bool enforce_aggregate_limits,
@@ -517,7 +517,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		htlc->blinding = NULL;
 	htlc->failed = NULL;
 	htlc->r = NULL;
-	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE, 0);
+	htlc->routing = tal_dup_arr(htlc, u8, routing, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE), 0);
 
 	old = htlc_get(channel->htlcs, htlc->id, htlc_owner(htlc));
 	if (old) {
@@ -746,7 +746,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      struct amount_msat amount,
 				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
-				      const u8 routing[TOTAL_PACKET_SIZE],
+				      const u8 routing[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
 				      const struct pubkey *blinding TAKES,
 				      struct htlc **htlcp,
 				      struct amount_sat *htlc_fee)

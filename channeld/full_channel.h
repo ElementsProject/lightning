@@ -112,7 +112,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      struct amount_msat msatoshi,
 				      u32 cltv_expiry,
 				      const struct sha256 *payment_hash,
-				      const u8 routing[TOTAL_PACKET_SIZE],
+				      const u8 routing[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
 				      const struct pubkey *blinding TAKES,
 				      struct htlc **htlcp,
 				      struct amount_sat *htlc_fee);

@@ -131,7 +131,7 @@ u8 *serialize_onionpacket(
 	const tal_t *ctx,
 	const struct onionpacket *m)
 {
-	u8 *dst = tal_arr(ctx, u8, TOTAL_PACKET_SIZE);
+	u8 *dst = tal_arr(ctx, u8, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE));
 
 	u8 der[PUBKEY_CMPR_LEN];
 	int p = 0;
@@ -151,7 +151,7 @@ enum onion_wire parse_onionpacket(const u8 *src,
 	const u8 *cursor = src;
 	size_t max = srclen;
 
-	assert(srclen == TOTAL_PACKET_SIZE);
+	assert(srclen == TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE));
 
 	dest->version = fromwire_u8(&cursor, &max);
 	if (dest->version != 0x00) {
@@ -833,7 +833,7 @@ sphinx_compressed_onion_deserialize(const tal_t *ctx, const u8 *src)
 	    tal(ctx, struct sphinx_compressed_onion);
 
 	/* This is not a compressed onion, so let's not parse it. */
-	if (max > TOTAL_PACKET_SIZE)
+	if (max > TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE))
 		return tal_free(dst);
 
 	dst->version = fromwire_u8(&cursor, &max);

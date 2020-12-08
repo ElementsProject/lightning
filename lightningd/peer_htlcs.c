@@ -678,7 +678,7 @@ static void forward_htlc(struct htlc_in *hin,
 			 struct amount_msat amt_to_forward,
 			 u32 outgoing_cltv_value,
 			 const struct short_channel_id *scid,
-			 const u8 next_onion[TOTAL_PACKET_SIZE],
+			 const u8 next_onion[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
 			 const struct pubkey *next_blinding)
 {
 	const u8 *failmsg;

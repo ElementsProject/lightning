@@ -205,7 +205,7 @@ int main(int argc, char **argv)
 	} else if (streq(argv[1], "unwrap")) {
 		struct privkey privkey;
 		struct pubkey blinding;
-		u8 onion[TOTAL_PACKET_SIZE], *dec;
+		u8 onion[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)], *dec;
 		struct onionpacket op;
 		struct secret ss, onion_ss;
 		struct secret hmac, rho;
