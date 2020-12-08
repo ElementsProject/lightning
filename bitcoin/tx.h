@@ -24,7 +24,7 @@ struct bitcoin_txid {
 
 struct bitcoin_outpoint {
 	struct bitcoin_txid txid;
-	u16 n;
+	u32 n;
 };
 
 /* Define bitcoin_txid_eq */
