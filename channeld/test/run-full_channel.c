@@ -136,7 +136,7 @@ static const struct htlc **include_htlcs(struct channel *channel, enum side side
 	int i;
 	const struct htlc **htlcs = tal_arr(channel, const struct htlc *, 5);
 	const struct htlc **changed_htlcs;
-	u8 *dummy_routing = tal_arr(htlcs, u8, TOTAL_PACKET_SIZE);
+	u8 *dummy_routing = tal_arr(htlcs, u8, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE));
 	bool ret;
 
 	for (i = 0; i < 5; i++) {
@@ -257,7 +257,7 @@ static void send_and_fulfill_htlc(struct channel *channel,
 {
 	struct preimage r;
 	struct sha256 rhash;
-	u8 *dummy_routing = tal_arr(channel, u8, TOTAL_PACKET_SIZE);
+	u8 *dummy_routing = tal_arr(channel, u8, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE));
 	bool ret;
 	const struct htlc **changed_htlcs;
 

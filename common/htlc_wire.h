@@ -17,7 +17,7 @@ struct added_htlc {
 	struct amount_msat amount;
 	struct sha256 payment_hash;
 	u32 cltv_expiry;
-	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
 
 	/* If this is non-NULL, secret is the resulting shared secret */
 	struct pubkey *blinding;
@@ -31,7 +31,7 @@ struct existing_htlc {
 	struct amount_msat amount;
 	struct sha256 payment_hash;
 	u32 cltv_expiry;
-	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
 	/* If this is non-NULL, this is blinding to send with (outgoing) HTLC */
 	struct pubkey *blinding;
 	/* If fulfilled, this is non-NULL */
@@ -71,7 +71,7 @@ struct existing_htlc *new_existing_htlc(const tal_t *ctx,
 					struct amount_msat amount,
 					const struct sha256 *payment_hash,
 					u32 cltv_expiry,
-					const u8 onion_routing_packet[TOTAL_PACKET_SIZE],
+					const u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
 					const struct pubkey *blinding TAKES,
 					const struct preimage *preimage TAKES,
 					const struct failed_htlc *failed TAKES);

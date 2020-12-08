@@ -681,7 +681,7 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 	struct amount_msat amount;
 	u32 cltv_expiry;
 	struct sha256 payment_hash;
-	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
 	enum channel_add_err add_err;
 	struct htlc *htlc;
 #if EXPERIMENTAL_FEATURES
@@ -1810,7 +1810,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 	struct secret ss, *blinding_ss;
 	struct pubkey *blinding_in;
 	struct route_step *rs;
-	u8 onion[TOTAL_PACKET_SIZE];
+	u8 onion[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
 	const u8 *cursor;
 	size_t max, maxlen;
 	struct tlv_onionmsg_payload *om;
@@ -1822,7 +1822,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 			    "Bad onion_message %s", tal_hex(peer, msg));
 
 	/* We unwrap the onion now. */
-	badreason = parse_onionpacket(onion, TOTAL_PACKET_SIZE, &op);
+	badreason = parse_onionpacket(onion, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE), &op);
 	if (badreason != 0) {
 		status_debug("onion msg: can't parse onionpacket: %s",
 			     onion_wire_name(badreason));
@@ -2005,7 +2005,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 /* We send onion msg. */
 static void send_onionmsg(struct peer *peer, const u8 *msg)
 {
-	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
 	struct pubkey *blinding;
 	struct tlv_onion_message_tlvs *tlvs = tlv_onion_message_tlvs_new(msg);
 
@@ -3048,7 +3048,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	u32 cltv_expiry;
 	struct amount_msat amount;
 	struct sha256 payment_hash;
-	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
 	enum channel_add_err e;
 	const u8 *failwiremsg;
 	const char *failstr;

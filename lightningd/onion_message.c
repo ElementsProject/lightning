@@ -134,7 +134,7 @@ void handle_onionmsg_forward(struct channel *channel, const u8 *msg)
 	struct short_channel_id *next_scid;
 	struct node_id *next_node;
 	struct pubkey *next_blinding;
-	u8 onion[TOTAL_PACKET_SIZE];
+	u8 onion[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
 	struct channel *outchan;
 
 	if (!fromwire_got_onionmsg_forward(msg, msg, &next_scid, &next_node,

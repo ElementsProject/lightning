@@ -20,7 +20,7 @@ struct node_id;
 #define PUBKEY_SIZE 33
 #define FRAME_SIZE 65
 #define ROUTING_INFO_SIZE 1300
-#define TOTAL_PACKET_SIZE (VERSION_SIZE + PUBKEY_SIZE + HMAC_SIZE + ROUTING_INFO_SIZE)
+#define TOTAL_PACKET_SIZE(payload) (VERSION_SIZE + PUBKEY_SIZE + (payload) + HMAC_SIZE)
 
 struct onionpacket {
 	/* Cleartext information */

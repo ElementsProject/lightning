@@ -31,7 +31,7 @@ struct htlc_in {
 	enum htlc_state hstate;
 
 	/* Onion information */
-	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
 
 	/* Shared secret for us to send any failure message (NULL if malformed) */
 	struct secret *shared_secret;
@@ -70,7 +70,7 @@ struct htlc_out {
 	enum htlc_state hstate;
 
 	/* Onion information */
-	u8 onion_routing_packet[TOTAL_PACKET_SIZE];
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
 
 	/* If a local error, this is non-NULL. */
 	const u8 *failmsg;
