@@ -520,13 +520,11 @@ struct command_result *param_outpoint_arr(struct command *cmd,
 	*outpoints = tal_arr(cmd, struct bitcoin_outpoint, tok->size);
 
 	json_for_each_arr(i, curr, tok) {
-		struct bitcoin_outpoint op;
-		if (!json_to_outpoint(buffer, curr, &op))
+		if (!json_to_outpoint(buffer, curr, &(*outpoints)[i]))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Could not decode outpoint \"%.*s\", "
 					    "expected format: txid:output",
 					    json_tok_full_len(curr), json_tok_full(buffer, curr));
-		(*outpoints)[i] = op;
 	}
 	return NULL;
 }
