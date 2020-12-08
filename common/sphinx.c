@@ -152,9 +152,6 @@ struct onionpacket *parse_onionpacket(const tal_t *ctx,
 	const u8 *cursor = src;
 	size_t max = srclen;
 
-	/* FIXME: Allow parsing other sizes! */
-	assert(srclen == TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE));
-
 	dest->version = fromwire_u8(&cursor, &max);
 	if (dest->version != 0x00) {
 		// FIXME add logging
