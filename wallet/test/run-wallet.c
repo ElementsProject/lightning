@@ -569,9 +569,10 @@ struct command_result *param_tok(struct command *cmd UNNEEDED, const char *name 
 				 const jsmntok_t **out UNNEEDED)
 { fprintf(stderr, "param_tok called!\n"); abort(); }
 /* Generated stub for parse_onionpacket */
-enum onion_wire parse_onionpacket(const u8 *src UNNEEDED,
-				  const size_t srclen UNNEEDED,
-				  struct onionpacket *dest UNNEEDED)
+struct onionpacket *parse_onionpacket(const tal_t *ctx UNNEEDED,
+				      const u8 *src UNNEEDED,
+				      const size_t srclen UNNEEDED,
+				      enum onion_wire *failcode UNNEEDED)
 { fprintf(stderr, "parse_onionpacket called!\n"); abort(); }
 /* Generated stub for payment_failed */
 void payment_failed(struct lightningd *ld UNNEEDED, const struct htlc_out *hout UNNEEDED,

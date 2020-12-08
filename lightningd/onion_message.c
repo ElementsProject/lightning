@@ -447,7 +447,7 @@ static struct command_result *json_send_onion_message(struct command *cmd,
 				hops[i].rawtlv, tal_bytelen(hops[i].rawtlv));
 		sphinx_add_hop(sphinx_path, &hops[i].id, take(tlv_with_len));
 	}
-	op = create_onionpacket(tmpctx, sphinx_path, &path_secrets);
+	op = create_onionpacket(tmpctx, sphinx_path, ROUTING_INFO_SIZE, &path_secrets);
 	if (!op)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Creating onion failed (tlvs too long?)");

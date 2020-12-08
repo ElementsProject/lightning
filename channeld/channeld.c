@@ -1809,7 +1809,7 @@ static bool channeld_handle_custommsg(const u8 *msg)
 static void handle_onion_message(struct peer *peer, const u8 *msg)
 {
 	enum onion_wire badreason;
-	struct onionpacket op;
+	struct onionpacket *op;
 	struct secret ss, *blinding_ss;
 	struct pubkey *blinding_in;
 	struct route_step *rs;
@@ -1825,7 +1825,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 			    "Bad onion_message %s", tal_hex(peer, msg));
 
 	/* We unwrap the onion now. */
-	badreason = parse_onionpacket(onion, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE), &op);
+	op = parse_onionpacket(tmpctx, onion, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE), &badreason);
 	if (badreason != 0) {
 		status_debug("onion msg: can't parse onionpacket: %s",
 			     onion_wire_name(badreason));
@@ -1849,7 +1849,7 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 		 * our normal privkey: since hsmd knows only how to ECDH with
 		 * our real key */
 		if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
-						  &op.ephemeralkey.pubkey,
+						  &op->ephemeralkey.pubkey,
 						  hmac.data) != 1) {
 			status_debug("onion msg: can't tweak pubkey");
 			return;
@@ -1859,11 +1859,11 @@ static void handle_onion_message(struct peer *peer, const u8 *msg)
 		blinding_in = NULL;
 	}
 
-	ecdh(&op.ephemeralkey, &ss);
+	ecdh(&op->ephemeralkey, &ss);
 
 	/* We make sure we can parse onion packet, so we know if shared secret
 	 * is actually valid (this checks hmac). */
-	rs = process_onionpacket(tmpctx, &op, &ss, NULL, 0, false);
+	rs = process_onionpacket(tmpctx, op, &ss, NULL, 0, false);
 	if (!rs) {
 		status_debug("onion msg: can't process onionpacket ss=%s",
 			     type_to_string(tmpctx, struct secret, &ss));

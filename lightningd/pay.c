@@ -1113,7 +1113,7 @@ send_payment(struct lightningd *ld,
 	log_info(ld->log, "Sending %s over %zu hops to deliver %s",
 		 type_to_string(tmpctx, struct amount_msat, &route[0].amount),
 		 n_hops, type_to_string(tmpctx, struct amount_msat, &msat));
-	packet = create_onionpacket(tmpctx, path, &path_secrets);
+	packet = create_onionpacket(tmpctx, path, ROUTING_INFO_SIZE, &path_secrets);
 	return send_payment_core(ld, cmd, rhash, partid, &route[0],
 				 msat, total_msat, label, b11str,
 				 packet, &ids[n_hops - 1], ids,
@@ -1192,7 +1192,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 					     const jsmntok_t *params)
 {
 	u8 *onion;
-	struct onionpacket packet;
+	struct onionpacket *packet;
 	enum onion_wire failcode;
 	struct route_hop *first_hop;
 	struct sha256 *payment_hash;
@@ -1216,9 +1216,9 @@ static struct command_result *json_sendonion(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	failcode = parse_onionpacket(onion, tal_bytelen(onion), &packet);
+	packet = parse_onionpacket(cmd, onion, tal_bytelen(onion), &failcode);
 
-	if (failcode != 0)
+	if (!packet)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Could not parse the onion. Parsing failed "
 				    "with failcode=%d",
@@ -1226,7 +1226,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 
 	return send_payment_core(ld, cmd, payment_hash, *partid,
 				 first_hop, *msat, AMOUNT_MSAT(0),
-				 label, b11str, &packet, destination, NULL, NULL,
+				 label, b11str, packet, destination, NULL, NULL,
 				 path_secrets);
 }
 
@@ -1616,7 +1616,7 @@ static struct command_result *json_createonion(struct command *cmd,
 		    cmd, JSONRPC2_INVALID_PARAMS,
 		    "Payloads exceed maximum onion packet size.");
 
-	packet = create_onionpacket(cmd, sp, &shared_secrets);
+	packet = create_onionpacket(cmd, sp, ROUTING_INFO_SIZE, &shared_secrets);
 	if (!packet)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could not create onion packet");
