@@ -170,14 +170,6 @@ enum onion_wire parse_onionpacket(const u8 *src,
 	return 0;
 }
 
-static void xorbytes(uint8_t *d, const uint8_t *a, const uint8_t *b, size_t len)
-{
-	size_t i;
-
-	for (i = 0; i < len; i++)
-		d[i] = a[i] ^ b[i];
-}
-
 /*
  * Generate a pseudo-random byte stream of length `dstlen` from key `k` and
  * store it in `dst`. `dst must be at least `dstlen` bytes long.
@@ -195,6 +187,45 @@ static void xor_cipher_stream(void *dst, const struct secret *k, size_t dstlen)
 	const u8 nonce[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
 	crypto_stream_chacha20_xor(dst, dst, dstlen, nonce, k->data);
+}
+
+#define CHACHA20_BLOCK_BYTES 64
+
+static void xor_cipher_stream_off(const struct secret *k,
+				  size_t off,
+				  void *dst, size_t dstlen)
+{
+	const u8 nonce[8] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+	u8 block[CHACHA20_BLOCK_BYTES];
+	size_t block_off;
+	size_t ic = off / CHACHA20_BLOCK_BYTES;
+
+	/* From https://libsodium.gitbook.io/doc/advanced/stream_ciphers/chacha20:
+	 *
+	 * The crypto_stream_chacha20_xor_ic() function is similar to
+	 * crypto_stream_chacha20_xor() but adds the ability to set
+	 * the initial value of the block counter to a non-zero value,
+	 * ic.
+	 *
+	 * This permits direct access to any block without having to
+	 * compute the previous ones.
+	 */
+	block_off = (off % CHACHA20_BLOCK_BYTES);
+	if (block_off != 0) {
+		size_t rem = CHACHA20_BLOCK_BYTES - block_off;
+		if (rem > dstlen)
+			rem = dstlen;
+		memcpy(block + block_off, dst, rem);
+		crypto_stream_chacha20_xor_ic(block, block, block_off + rem,
+					      nonce,
+					      ic,
+					      k->data);
+		ic++;
+		memcpy(dst, block + block_off, rem);
+		dst = (char *)dst + rem;
+		dstlen -= rem;
+	}
+	crypto_stream_chacha20_xor_ic(dst, dst, dstlen, nonce, ic, k->data);
 }
 
 /* Convenience function: s2/s2len can be NULL/0 if unwanted */
@@ -226,15 +257,12 @@ static void generate_header_padding(void *dst, size_t dstlen,
 				    const struct sphinx_path *path,
 				    struct hop_params *params)
 {
-	u8 stream[2 * ROUTING_INFO_SIZE];
 	struct secret key;
 	size_t fillerStart, fillerEnd, fillerSize;
 
 	memset(dst, 0, dstlen);
 	for (int i = 0; i < tal_count(path->hops) - 1; i++) {
 		subkey_from_hmac("rho", &params[i].secret, &key);
-
-		generate_cipher_stream(stream, &key, sizeof(stream));
 
 		/* Sum up how many bytes have been used by previous hops,
 		 * that gives us the start in the stream */
@@ -250,8 +278,8 @@ static void generate_header_padding(void *dst, size_t dstlen,
 
 		/* Apply the cipher-stream to the part of the filler that'll
 		 * be added by this hop */
-		xorbytes(dst, dst, stream + fillerStart,
-			 fillerEnd - fillerStart);
+		xor_cipher_stream_off(&key, fillerStart,
+				      dst, fillerEnd - fillerStart);
 	}
 }
 
@@ -259,15 +287,12 @@ static void generate_prefill(void *dst, size_t dstlen,
 			     const struct sphinx_path *path,
 			     struct hop_params *params)
 {
-	u8 stream[2 * ROUTING_INFO_SIZE];
 	struct secret key;
 	size_t fillerStart, fillerSize;
 
 	memset(dst, 0, dstlen);
 	for (int i = 0; i < tal_count(path->hops); i++) {
 		subkey_from_hmac("rho", &params[i].secret, &key);
-
-		generate_cipher_stream(stream, &key, sizeof(stream));
 
 		/* Sum up how many bytes have been used by previous hops,
 		 * that gives us the start in the stream */
@@ -278,7 +303,7 @@ static void generate_prefill(void *dst, size_t dstlen,
 
 		/* Apply the cipher-stream to the part of the filler that'll
 		 * be added by this hop */
-		xorbytes(dst, dst, stream + fillerStart, dstlen);
+		xor_cipher_stream_off(&key, fillerStart, dst, dstlen);
 	}
 }
 
