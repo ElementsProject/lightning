@@ -1765,7 +1765,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	 * then wait to get our sigs back */
 	msg = towire_dualopend_commit_rcvd(state,
 					   &state->remoteconf,
-					   remote_commit,
+					   local_commit,
 					   pbase,
 					   &remote_sig,
 					   state->psbt,
@@ -2209,7 +2209,7 @@ static void opener_start(struct state *state, u8 *msg)
 
 	msg = towire_dualopend_commit_rcvd(NULL,
 					   &state->remoteconf,
-					   remote_commit,
+					   local_commit,
 					   pbase,
 					   &remote_sig,
 					   state->psbt,
