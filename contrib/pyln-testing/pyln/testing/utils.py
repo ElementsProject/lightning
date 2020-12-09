@@ -919,13 +919,16 @@ class LightningNode(object):
     # This helper sends all money to a peer until even 1 msat can't get through.
     def drain(self, peer):
         total = 0
-        msat = 16**9
+        msat = 4294967295  # Max payment size in some configs
         while msat != 0:
             try:
+                logging.debug("Drain step with size={}".format(msat))
                 self.pay(peer, msat)
                 total += msat
-            except RpcError:
+            except RpcError as e:
+                logging.debug("Got an exception while draining channel: {}".format(e))
                 msat //= 2
+        logging.debug("Draining complete after sending a total of {}msats".format(total))
         return total
 
     # Note: this feeds through the smoother in update_feerate, so changing

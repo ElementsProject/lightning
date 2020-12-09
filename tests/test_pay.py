@@ -2374,6 +2374,7 @@ def test_lockup_drain(node_factory, bitcoind):
     # But if feerate increase just a little more, l2 should not be able to send
     # non-fust HTLC to l1
     l1.force_feerates(30002)  # TODO: Why does 30001 fail? off by one in C code?
+    wait_for(lambda: l1.rpc.listpeers()['peers'][0]['connected'])
     with pytest.raises(RpcError, match=r".*Capacity exceeded.*"):
         l2.pay(l1, total // 2)
 
