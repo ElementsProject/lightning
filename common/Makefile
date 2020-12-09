@@ -83,6 +83,7 @@ COMMON_SRC_NOGEN :=				\
 
 ifeq ($(EXPERIMENTAL_FEATURES),1)
 COMMON_SRC_NOGEN += common/psbt_internal.c
+COMMON_SRC_NOGEN += common/blindedpath.c
 endif
 
 COMMON_SRC_GEN := common/status_wiregen.c common/peer_status_wiregen.c
