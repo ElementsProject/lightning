@@ -98,6 +98,7 @@ COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/errcode.h				\
 	common/gossip_constants.h			\
 	common/htlc.h					\
+	common/iso4217.h				\
 	common/json_command.h				\
 	common/jsonrpc_errors.h				\
 	common/overflows.h				\
