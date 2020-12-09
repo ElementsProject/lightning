@@ -198,3 +198,13 @@ msgdata,hsmd_get_output_scriptpubkey,commitment_point,?pubkey,
 msgtype,hsmd_get_output_scriptpubkey_reply,124
 msgdata,hsmd_get_output_scriptpubkey_reply,script_len,u16,
 msgdata,hsmd_get_output_scriptpubkey_reply,script,u8,script_len
+
+# Sign a bolt12-style merkle hash
+msgtype,hsmd_sign_bolt12,25
+msgdata,hsmd_sign_bolt12,messagename,wirestring,
+msgdata,hsmd_sign_bolt12,fieldname,wirestring,
+msgdata,hsmd_sign_bolt12,merkleroot,sha256,
+
+msgtype,hsmd_sign_bolt12_reply,125
+msgdata,hsmd_sign_bolt12_reply,sig,bip340sig,
+

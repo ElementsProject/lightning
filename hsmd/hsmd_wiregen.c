@@ -60,6 +60,8 @@ const char *hsmd_wire_name(int e)
 	case WIRE_HSMD_SIGN_MESSAGE_REPLY: return "WIRE_HSMD_SIGN_MESSAGE_REPLY";
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY: return "WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY";
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY: return "WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY";
+	case WIRE_HSMD_SIGN_BOLT12: return "WIRE_HSMD_SIGN_BOLT12";
+	case WIRE_HSMD_SIGN_BOLT12_REPLY: return "WIRE_HSMD_SIGN_BOLT12_REPLY";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -108,6 +110,8 @@ bool hsmd_wire_is_defined(u16 type)
 	case WIRE_HSMD_SIGN_MESSAGE_REPLY:;
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:;
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY:;
+	case WIRE_HSMD_SIGN_BOLT12:;
+	case WIRE_HSMD_SIGN_BOLT12_REPLY:;
 	      return true;
 	}
 	return false;
@@ -1214,4 +1218,51 @@ bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx, const void *p
 	fromwire_u8_array(&cursor, &plen, *script, script_len);
 	return cursor != NULL;
 }
-// SHA256STAMP:02b3951c8bdb27997f5a30ebcf2e174cb99d6089d889b94da925fd674fca653f
+
+/* WIRE: HSMD_SIGN_BOLT12 */
+/* Sign a bolt12-style merkle hash */
+u8 *towire_hsmd_sign_bolt12(const tal_t *ctx, const wirestring *messagename, const wirestring *fieldname, const struct sha256 *merkleroot)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_HSMD_SIGN_BOLT12);
+	towire_wirestring(&p, messagename);
+	towire_wirestring(&p, fieldname);
+	towire_sha256(&p, merkleroot);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_hsmd_sign_bolt12(const tal_t *ctx, const void *p, wirestring **messagename, wirestring **fieldname, struct sha256 *merkleroot)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_HSMD_SIGN_BOLT12)
+		return false;
+ 	*messagename = fromwire_wirestring(ctx, &cursor, &plen);
+ 	*fieldname = fromwire_wirestring(ctx, &cursor, &plen);
+ 	fromwire_sha256(&cursor, &plen, merkleroot);
+	return cursor != NULL;
+}
+
+/* WIRE: HSMD_SIGN_BOLT12_REPLY */
+u8 *towire_hsmd_sign_bolt12_reply(const tal_t *ctx, const struct bip340sig *sig)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_HSMD_SIGN_BOLT12_REPLY);
+	towire_bip340sig(&p, sig);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_hsmd_sign_bolt12_reply(const void *p, struct bip340sig *sig)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_HSMD_SIGN_BOLT12_REPLY)
+		return false;
+ 	fromwire_bip340sig(&cursor, &plen, sig);
+	return cursor != NULL;
+}
+// SHA256STAMP:cb033b99e13d9bdd06582a34132ba7cd311f4cf074298da1addcdad06b3fdf8f

@@ -42,6 +42,10 @@ HSMD_COMMON_OBJS :=				\
 	common/utxo.o				\
 	common/version.o
 
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+HSMD_COMMON_OBJS += common/bolt12_merkle.o
+endif
+
 lightningd/lightning_hsmd: $(HSMD_OBJS) $(HSMD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS)
 
 -include hsmd/test/Makefile
