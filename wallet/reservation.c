@@ -429,8 +429,6 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 						    "impossible UTXO value");
 
 			/* But also adds weight */
-			fprintf(stderr, "min_witness_weight is %u\n",
-					*min_witness_weight);
 			*weight += utxo_spend_weight(utxo, *min_witness_weight);
 			continue;
 		}
