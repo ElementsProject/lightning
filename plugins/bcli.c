@@ -601,8 +601,10 @@ static struct command_result *process_sendrawtransaction(struct bitcoin_cli *bcl
 	response = jsonrpc_stream_success(bcli->cmd);
 	json_add_bool(response, "success", *bcli->exitstatus == 0);
 	json_add_string(response, "errmsg",
-			bcli->exitstatus ? tal_strndup(bcli->cmd, bcli->output,
-						       bcli->output_bytes-1) : "");
+			*bcli->exitstatus ?
+			tal_strndup(bcli->cmd,
+				    bcli->output, bcli->output_bytes-1)
+			: "");
 
 	return command_finished(bcli->cmd, response);
 }
