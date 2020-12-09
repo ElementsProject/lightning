@@ -595,8 +595,12 @@ static struct command_result *process_sendrawtransaction(struct bitcoin_cli *bcl
 
 	/* This is useful for functional tests. */
 	if (bcli->exitstatus)
-		plugin_log(bcli->cmd->plugin, LOG_DBG, "sendrawtx exit %i (%s)",
-			   *bcli->exitstatus, bcli_args(bcli));
+		plugin_log(bcli->cmd->plugin, LOG_DBG,
+			   "sendrawtx exit %i (%s) %.*s",
+			   *bcli->exitstatus, bcli_args(bcli),
+			   *bcli->exitstatus ?
+				(u32)bcli->output_bytes-1 : 0,
+				bcli->output);
 
 	response = jsonrpc_stream_success(bcli->cmd);
 	json_add_bool(response, "success", *bcli->exitstatus == 0);
