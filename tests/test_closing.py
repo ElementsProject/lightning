@@ -1677,6 +1677,7 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind):
     t.start()
 
     # l1 will drop to chain.
+    l1.daemon.wait_for_log(' to AWAITING_UNILATERAL')
     l1.daemon.wait_for_log('sendrawtx exit 0')
     l1.bitcoin.generate_block(1)
     l2.daemon.wait_for_log(' to ONCHAIN')
@@ -1746,6 +1747,7 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind):
     t.start()
 
     # l2 will drop to chain.
+    l2.daemon.wait_for_log(' to AWAITING_UNILATERAL')
     l2.daemon.wait_for_log('sendrawtx exit 0')
     l2.bitcoin.generate_block(1)
     l1.daemon.wait_for_log(' to ONCHAIN')
