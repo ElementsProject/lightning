@@ -633,8 +633,7 @@ bool channel_tell_depth(struct lightningd *ld,
 	}
 
 	if (streq(channel->owner->name, "dualopend")) {
-		if (channel->state != DUALOPEND_AWAITING_LOCKIN
-		    && channel->state != CHANNELD_NORMAL) {
+		if (channel->state != DUALOPEND_AWAITING_LOCKIN) {
 			log_debug(channel->log,
 				  "Funding tx %s confirmed, but peer in"
 				  " state %s",
