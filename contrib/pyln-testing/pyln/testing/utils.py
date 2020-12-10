@@ -1043,6 +1043,13 @@ class LightningNode(object):
             out = out[2 + length:]
         return msgs
 
+    def config(self, config_name):
+        try:
+            opt = self.rpc.listconfigs(config_name)
+            return opt[config_name]
+        except RpcError:
+            return None
+
 
 class Throttler(object):
     """Throttles the creation of system-processes to avoid overload.
