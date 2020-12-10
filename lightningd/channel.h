@@ -70,6 +70,7 @@ struct channel {
 
 	struct amount_msat push;
 	bool remote_funding_locked;
+	bool remote_tx_sigs;
 	/* Channel if locked locally. */
 	struct short_channel_id *scid;
 
@@ -182,6 +183,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct amount_msat push,
 			    struct amount_sat our_funds,
 			    bool remote_funding_locked,
+                            bool remote_tx_sigs,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid STEALS,
 			    struct channel_id *cid,
