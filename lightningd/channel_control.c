@@ -191,6 +191,9 @@ static void peer_got_funding_locked(struct channel *channel, const u8 *msg)
 
 	if (channel->scid)
 		lockin_complete(channel);
+	else
+		/* Remember that we got the lockin */
+		wallet_channel_save(channel->peer->ld->wallet, channel);
 }
 
 static void peer_got_announcement(struct channel *channel, const u8 *msg)
