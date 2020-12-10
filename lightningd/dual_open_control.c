@@ -645,6 +645,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      AMOUNT_MSAT(0),
 			      our_funding,
 			      false, /* !remote_funding_locked */
+                              false, /* !remote_tx_sigs */
 			      NULL, /* no scid yet */
 			      cid,
 			      /* The three arguments below are msatoshi_to_us,
@@ -1388,6 +1389,10 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 		return;
 	}
 
+	/* Save that we've gotten their sigs. Sometimes
+	 * the peer doesn't send any sigs (no inputs), otherwise
+	 * we could just check the PSBT was finalized */
+	channel->remote_tx_sigs = true;
 	tal_wally_start();
 	if (wally_psbt_combine(channel->psbt, psbt) != WALLY_OK) {
 		channel_internal_error(channel,
