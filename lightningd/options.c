@@ -791,6 +791,14 @@ static char *opt_set_wumbo(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_dual_fund(struct lightningd *ld)
+{
+	feature_set_or(ld->our_features,
+		       take(feature_set_for_feature(NULL,
+						    OPTIONAL_FEATURE(OPT_DUAL_FUND))));
+	return NULL;
+}
+
 static void register_opts(struct lightningd *ld)
 {
 	/* This happens before plugins started */
@@ -831,6 +839,13 @@ static void register_opts(struct lightningd *ld)
 	opt_register_early_noarg("--large-channels|--wumbo",
 				 opt_set_wumbo, ld,
 				 "Allow channels larger than 0.16777215 BTC");
+
+	opt_register_early_noarg("--experimental-dual-fund",
+				 opt_set_dual_fund, ld,
+				 "experimental: Advertise dual-funding"
+				 " and allow peers to establish channels"
+				 " via v2 channel open protocol");
+
 
 	opt_register_noarg("--help|-h", opt_lightningd_usage, ld,
 				 "Print this message.");
@@ -1242,6 +1257,11 @@ static void add_config(struct lightningd *ld,
 				      feature_offered(ld->our_features
 						      ->bits[INIT_FEATURE],
 						      OPT_LARGE_CHANNELS));
+		} else if (opt->cb == (void *)opt_set_dual_fund) {
+			json_add_bool(response, name0,
+				      feature_offered(ld->our_features
+						      ->bits[INIT_FEATURE],
+						      OPT_DUAL_FUND));
 		} else if (opt->cb == (void *)plugin_opt_flag_set) {
 			/* Noop, they will get added below along with the
 			 * OPT_HASARG options. */
