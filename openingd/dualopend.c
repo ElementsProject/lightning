@@ -154,9 +154,6 @@ struct state {
 	/* PSBT of the funding tx */
 	struct wally_psbt *psbt;
 
-	/* Peer sends this to us in the funding_locked msg */
-	struct pubkey remote_per_commit;
-
 	/* Are we shutting down? */
 	bool shutdown_sent[NUM_SIDES];
 
@@ -781,16 +778,15 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 		return;
 	}
 
-	if (state->funding_locked[REMOTE])
+	/* On reconnect, we expect them to resend tx_sigs if they haven't
+	 * gotten our funding_locked yet */
+	if (state->funding_locked[REMOTE] && !state->reconnected)
 		peer_failed(state->pps,
 			    &state->channel_id,
 			    "tx_signatures sent after funding_locked %s",
 			    tal_hex(msg, msg));
 
-	/* This check only works if they've got inputs we need sigs for.
-	 * In the case where they send duplicate tx_sigs but have no
-	 * sigs, we'll end up re-notifying */
-	if (tal_count(ws) && psbt_side_finalized(state->psbt, their_role)) {
+	if (state->remote_funding_sigs_rcvd) {
 		status_info("Got duplicate WIRE_TX_SIGNATURES, "
 			    "already have their sigs. Ignoring");
 		return;
@@ -823,6 +819,7 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 		psbt_finalize_input(state->psbt, in, elem);
 	}
 
+	state->remote_funding_sigs_rcvd = true;
 	/* Send to the controller, who will broadcast the funding_tx
 	 * as soon as we've got our sigs */
 	wire_sync_write(REQ_FD,
@@ -2249,9 +2246,9 @@ static void opener_start(struct state *state, u8 *msg)
 static u8 *handle_funding_locked(struct state *state, u8 *msg)
 {
 	struct channel_id cid;
+	struct pubkey remote_per_commit;
 
-	if (!fromwire_funding_locked(msg, &cid,
-				     &state->remote_per_commit))
+	if (!fromwire_funding_locked(msg, &cid, &remote_per_commit))
 		peer_failed(state->pps, &state->channel_id,
 			    "Bad funding_locked %s", tal_hex(msg, msg));
 
@@ -2263,11 +2260,24 @@ static u8 *handle_funding_locked(struct state *state, u8 *msg)
 					   &state->channel_id),
 			    type_to_string(msg, struct channel_id, &cid));
 
+	/* If we haven't gotten their tx_sigs yet, this is a protocol error */
+	if (!state->remote_funding_sigs_rcvd) {
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "funding_locked sent before tx_signatures %s",
+			    tal_hex(msg, msg));
+	}
+
 	state->funding_locked[REMOTE] = true;
 	billboard_update(state);
+
+	/* We save when the peer locks, so we do the right
+	 * thing on reconnects */
+	msg = towire_dualopend_peer_locked(NULL, &remote_per_commit);
+	wire_sync_write(REQ_FD, take(msg));
+
 	if (state->funding_locked[LOCAL])
-		return towire_dualopend_channel_locked(state, state->pps,
-						       &state->remote_per_commit);
+		return towire_dualopend_channel_locked(state, state->pps);
 
 	return NULL;
 }
@@ -2288,20 +2298,10 @@ static void hsm_per_commitment_point(u64 index, struct pubkey *point)
 			      tal_hex(tmpctx, msg));
 }
 
-static u8 *handle_funding_depth(struct state *state, u8 *msg)
+static void send_funding_locked(struct state *state)
 {
-	u32 depth;
+	u8 *msg;
 	struct pubkey next_local_per_commit;
-
-	if (!fromwire_dualopend_depth_reached(msg, &depth))
-		master_badmsg(WIRE_DUALOPEND_DEPTH_REACHED, msg);
-
-	/* Too late, shutting down already */
-	if (state->shutdown_sent[LOCAL])
-		return NULL;
-
-	/* We check this before we arrive here, but for sanity */
-	assert(state->minimum_depth <= depth);
 
 	/* Figure out the next local commit */
 	hsm_per_commitment_point(1, &next_local_per_commit);
@@ -2313,10 +2313,26 @@ static u8 *handle_funding_depth(struct state *state, u8 *msg)
 
 	state->funding_locked[LOCAL] = true;
 	billboard_update(state);
+}
+
+static u8 *handle_funding_depth(struct state *state, u8 *msg)
+{
+	u32 depth;
+
+	if (!fromwire_dualopend_depth_reached(msg, &depth))
+		master_badmsg(WIRE_DUALOPEND_DEPTH_REACHED, msg);
+
+	/* Too late, shutting down already */
+	if (state->shutdown_sent[LOCAL])
+		return NULL;
+
+	/* We check this before we arrive here, but for sanity */
+	assert(state->minimum_depth <= depth);
+
+	send_funding_locked(state);
 	if (state->funding_locked[REMOTE])
 		return towire_dualopend_channel_locked(state,
-						       state->pps,
-						       &state->remote_per_commit);
+						       state->pps);
 
 	return NULL;
 }
@@ -2399,9 +2415,11 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_COMMIT_RCVD:
 	case WIRE_DUALOPEND_FUNDING_SIGS:
 	case WIRE_DUALOPEND_TX_SIGS_SENT:
+	case WIRE_DUALOPEND_PEER_LOCKED:
 	case WIRE_DUALOPEND_CHANNEL_LOCKED:
 	case WIRE_DUALOPEND_GOT_SHUTDOWN:
 	case WIRE_DUALOPEND_SHUTDOWN_COMPLETE:
+	case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:
 	case WIRE_DUALOPEND_FAILED:
 		break;
 	}

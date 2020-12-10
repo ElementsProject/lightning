@@ -1245,16 +1245,36 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 	}
 }
 
+static void handle_peer_locked(struct subd *dualopend, const u8 *msg)
+{
+	struct pubkey remote_per_commit;
+	struct channel *channel;
+
+	assert(dualopend->ctype == CHANNEL);
+	channel = dualopend->channel;
+
+	if (!fromwire_dualopend_peer_locked(msg, &remote_per_commit))
+		channel_internal_error(channel,
+				       "bad WIRE_DUALOPEND_PEER_LOCKED %s",
+				       tal_hex(msg, msg));
+
+	/* Updates channel with the next per-commit point etc */
+	if (!channel_on_funding_locked(channel, &remote_per_commit))
+		channel_internal_error(channel,
+				       "Got funding_locked twice");
+
+	/* Remember that we got the lock-in */
+	wallet_channel_save(dualopend->ld->wallet, channel);
+}
+
 static void handle_channel_locked(struct subd *dualopend,
 				  const int *fds,
 				  const u8 *msg)
 {
 	struct channel *channel = dualopend->channel;
-	struct pubkey remote_per_commit;
 	struct per_peer_state *pps;
 
-	if (!fromwire_dualopend_channel_locked(tmpctx, msg, &pps,
-					       &remote_per_commit)) {
+	if (!fromwire_dualopend_channel_locked(tmpctx, msg, &pps)) {
 		log_broken(dualopend->log,
 			   "bad WIRE_DUALOPEND_CHANNEL_LOCKED %s",
 			   tal_hex(msg, msg));
@@ -1264,10 +1284,6 @@ static void handle_channel_locked(struct subd *dualopend,
 		goto cleanup;
 	}
 	per_peer_state_set_fds_arr(pps, fds);
-
-	/* Updates channel with the next per-commit point etc */
-	if (!channel_on_funding_locked(channel, &remote_per_commit))
-		goto cleanup;
 
 	assert(channel->scid);
 	assert(channel->remote_funding_locked);
@@ -1737,6 +1753,24 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+static void
+channel_fail_fallen_behind(struct subd* dualopend, const u8 *msg)
+{
+	struct channel *channel;
+
+	assert(dualopend->ctype == CHANNEL);
+	channel = dualopend->channel;
+
+	if (!fromwire_dualopend_fail_fallen_behind(msg)) {
+		channel_internal_error(channel,
+				       "bad dualopen_fail_fallen_behind %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+        channel_fallen_behind(channel, msg);
+}
+
 static unsigned int dual_opend_msg(struct subd *dualopend,
 				   const u8 *msg, const int *fds)
 {
@@ -1783,6 +1817,9 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_TX_SIGS_SENT:
 			handle_peer_tx_sigs_sent(dualopend, fds, msg);
 			return 0;
+		case WIRE_DUALOPEND_PEER_LOCKED:
+			handle_peer_locked(dualopend, msg);
+			return 0;
 		case WIRE_DUALOPEND_CHANNEL_LOCKED:
 			if (tal_count(fds) != 3)
 				return 3;
@@ -1795,6 +1832,9 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 			if (tal_count(fds) != 3)
 				return 3;
 			handle_channel_closed(dualopend, fds, msg);
+			return 0;
+		case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:
+			channel_fail_fallen_behind(dualopend, msg);
 			return 0;
 		case WIRE_DUALOPEND_FAILED:
 			open_failed(dualopend, msg);
