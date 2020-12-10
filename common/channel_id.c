@@ -1,6 +1,7 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/tx.h>
 #include <common/channel_id.h>
+#include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <wire/wire.h>
 
@@ -45,6 +46,23 @@ void derive_channel_id_v2(struct channel_id *channel_id,
 	BUILD_ASSERT(sizeof(*channel_id) == sizeof(sha));
 	memcpy(channel_id, &sha, sizeof(*channel_id));
 }
+
+/* BOLT #2:
+ *
+ * The sending node:
+ *...
+ *  - MUST ensure `temporary_channel_id` is unique from any other channel ID
+ *    with the same peer.
+ */
+void temporary_channel_id(struct channel_id *channel_id)
+{
+	size_t i;
+
+	/* Randomness FTW. */
+	for (i = 0; i < sizeof(*channel_id); i++)
+		channel_id->id[i] = pseudorand(256);
+}
+
 
 void towire_channel_id(u8 **pptr, const struct channel_id *channel_id)
 {

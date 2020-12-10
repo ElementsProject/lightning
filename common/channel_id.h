@@ -26,6 +26,8 @@ void derive_channel_id(struct channel_id *channel_id,
 void derive_channel_id_v2(struct channel_id *channel_id,
 			  const struct pubkey *basepoint_1,
 			  const struct pubkey *basepoint_2);
+
+void temporary_channel_id(struct channel_id *channel_id);
 /* Marshalling/unmarshalling functions */
 void towire_channel_id(u8 **pptr, const struct channel_id *channel_id);
 void fromwire_channel_id(const u8 **cursor, size_t *max,

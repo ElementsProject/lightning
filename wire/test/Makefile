@@ -10,6 +10,7 @@ ALL_C_SOURCES += $(WIRE_TEST_SRC)
 ALL_TEST_PROGRAMS += $(WIRE_TEST_PROGRAMS)
 
 WIRE_TEST_COMMON_OBJS :=		\
+	common/pseudorand.o		\
 	common/setup.o			\
 	common/utils.o
 
