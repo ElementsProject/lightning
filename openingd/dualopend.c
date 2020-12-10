@@ -1507,12 +1507,10 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		if (!fromwire_dualopend_fail(msg, msg, &err_reason))
 			master_badmsg(msg_type, msg);
 
-		u8 *errmsg = towire_errorfmt(tmpctx, &state->channel_id,
-					     "%s", err_reason);
-		sync_crypto_write(state->pps, take(errmsg));
-		status_failed(STATUS_FAIL_MASTER_IO, "%s", errmsg);
+		negotiation_failed(state, false, "%s", err_reason);
 		return;
 	}
+
 	if (!fromwire_dualopend_got_offer_reply(state, msg,
 						&state->accepter_funding,
 						&state->feerate_per_kw_funding,
