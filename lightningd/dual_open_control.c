@@ -434,8 +434,29 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 	/* If there's no plugin, the funding_feerate_per_kw will be zero.
 	 * In this case, we set the funding_feerate_per_kw to the default,
 	 * the 'best' */
-	if (payload->funding_feerate_per_kw == 0)
-		payload->funding_feerate_per_kw = payload->funding_feerate_best;
+	if (payload->funding_feerate_per_kw == 0) {
+		u32 best_feerate
+			= payload->funding_feerate_per_kw
+			= payload->funding_feerate_best;
+
+		/* We use the old checks here now, against the base feerate */
+		if (best_feerate < payload->feerate_our_min) {
+			msg = towire_dualopend_fail(NULL, tal_fmt(tmpctx,
+						    "feerate_per_kw %u below"
+						    " minimum %u",
+						    best_feerate,
+						    payload->feerate_our_min));
+			return subd_send_msg(dualopend, take(msg));
+		}
+		if (best_feerate > payload->feerate_our_max) {
+			msg = towire_dualopend_fail(NULL, tal_fmt(tmpctx,
+						    "feerate_per_kw %u above"
+						    " maximum %u",
+						    best_feerate,
+						    payload->feerate_our_max));
+			return subd_send_msg(dualopend, take(msg));
+		}
+	}
 
 	/* If there's no plugin, the psbt will be NULL. We should pass an empty
 	 * PSBT over, in this case */
@@ -443,6 +464,7 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 					       payload->funding_feerate_per_kw,
 					       payload->psbt,
 					       payload->our_shutdown_scriptpubkey);
+
 	subd_send_msg(dualopend, take(msg));
 }
 
