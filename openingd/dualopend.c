@@ -2358,6 +2358,186 @@ static void try_read_gossip_store(struct state *state)
 		sync_crypto_write(state->pps, take(msg));
 }
 
+/* Try to handle a custommsg Returns true if it was a custom message and has
+ * been handled, false if the message was not handled.
+ */
+static bool dualopend_handle_custommsg(const u8 *msg)
+{
+#if DEVELOPER
+	enum peer_wire type = fromwire_peektype(msg);
+	if (type % 2 == 1 && !peer_wire_is_defined(type)) {
+		/* The message is not part of the messages we know how to
+		 * handle. Assuming this is a custommsg, we just forward it to the
+		 * master. */
+		wire_sync_write(REQ_FD, take(towire_custommsg_in(NULL, msg)));
+		return true;
+	} else {
+		return false;
+	}
+#else
+	return false;
+#endif
+}
+
+/* BOLT #2:
+ *
+ * A receiving node:
+ *  - if `option_static_remotekey` applies to the commitment transaction:
+ *    - if `next_revocation_number` is greater than expected above, AND
+ *    `your_last_per_commitment_secret` is correct for that
+ *    `next_revocation_number` minus 1:
+ *...
+ *  - otherwise, if it supports `option_data_loss_protect`:
+ *    - if `next_revocation_number` is greater than expected above,
+ *      AND `your_last_per_commitment_secret` is correct for that
+ *     `next_revocation_number` minus 1:
+ */
+static void
+check_future_dataloss_fields(struct state *state,
+			     u64 next_revocation_number,
+			     const struct secret *last_local_per_commit_secret)
+{
+	const u8 *msg;
+	bool correct;
+
+	/* We're always at zero in dualopend */
+	assert(next_revocation_number > 0);
+
+	msg = towire_hsmd_check_future_secret(NULL,
+					      next_revocation_number - 1,
+					      last_local_per_commit_secret);
+	wire_sync_write(HSM_FD, take(msg));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+
+	if (!fromwire_hsmd_check_future_secret_reply(msg, &correct))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Bad hsm_check_future_secret_reply: %s",
+			      tal_hex(tmpctx, msg));
+
+	if (!correct)
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "bad future last_local_per_commit_secret: %"PRIu64
+			    " vs %d",
+			    next_revocation_number, 0);
+
+	/* Oh shit, they really are from the future! */
+	peer_billboard(true, "They have future commitment number %"PRIu64
+		       " vs our %d. We must wait for them to close!",
+		       next_revocation_number, 0);
+
+
+	/* BOLT #2:
+	 * - MUST NOT broadcast its commitment transaction.
+	 * - SHOULD fail the channel.
+	 */
+	wire_sync_write(REQ_FD,
+			take(towire_dualopend_fail_fallen_behind(NULL)));
+
+	/* We have to send them an error to trigger dropping to chain. */
+	peer_failed(state->pps, &state->channel_id,
+		    "Awaiting unilateral close");
+}
+
+
+static void do_reconnect_dance(struct state *state)
+{
+	u8 *msg;
+	struct channel_id cid;
+	/* Note: BOLT #2 uses these names! */
+	u64 next_commitment_number, next_revocation_number;
+	struct secret last_local_per_commit_secret,
+		last_remote_per_commit_secret;
+	struct pubkey remote_current_per_commit_point;
+
+	/* BOLT #2:
+	 *     - if `next_revocation_number` equals 0:
+	 *       - MUST set `your_last_per_commitment_secret` to all zeroes
+	 */
+	/* We always have no revocations in dualopend */
+	memset(&last_remote_per_commit_secret, 0,
+	       sizeof(last_remote_per_commit_secret));
+
+	/* We always send reconnect/reestablish */
+	msg = towire_channel_reestablish
+		(NULL, &state->channel_id, 1, 0,
+		 &last_remote_per_commit_secret,
+		 &state->first_per_commitment_point[LOCAL]);
+	sync_crypto_write(state->pps, take(msg));
+
+	peer_billboard(false, "Sent reestablish, waiting for theirs");
+	bool soft_error = state->funding_locked[REMOTE]
+		|| state->funding_locked[LOCAL];
+
+	/* Read until they say something interesting (don't forward
+	 * gossip *to* them yet: we might try sending channel_update
+	 * before we've reestablished channel). */
+	do {
+		clean_tmpctx();
+		msg = sync_crypto_read(tmpctx, state->pps);
+	} while (dualopend_handle_custommsg(msg)
+		 || handle_peer_gossip_or_error(state->pps,
+						&state->channel_id,
+						soft_error, msg));
+
+	if (!fromwire_channel_reestablish
+			(msg, &cid,
+			 &next_commitment_number,
+			 &next_revocation_number,
+			 &last_local_per_commit_secret,
+			 &remote_current_per_commit_point))
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "Bad reestablish msg: %s %s",
+			    peer_wire_name(fromwire_peektype(msg)),
+			    tal_hex(msg, msg));
+
+	check_channel_id(state, &cid, &state->channel_id);
+
+	status_debug("Got dualopend reestablish commit=%"PRIu64
+		     " revoke=%"PRIu64,
+		     next_commitment_number,
+		     next_revocation_number);
+
+	/* BOLT #2:
+	 *    - if it has not sent `revoke_and_ack`, AND
+	 *      `next_revocation_number` is not equal to 0:
+	 *      - SHOULD fail the channel.
+	 */
+	/* It's possible that we've opened an outdated copy of the
+	 * database, and the peer is very much ahead of us.
+	 */
+	if (next_revocation_number != 0) {
+		/* Remote claims it's ahead of us: can it prove it?
+		 * Does not return. */
+		check_future_dataloss_fields(state,
+					     next_revocation_number,
+					     &last_local_per_commit_secret);
+	}
+
+	if (next_commitment_number != 1)
+		peer_failed(state->pps,
+			    &state->channel_id,
+			    "bad reestablish commitment_number: %"PRIu64
+			    " vs %d",
+			    next_commitment_number, 1);
+
+	/* It's possible we sent our sigs, but they didn't get them.
+	 * Resend our signatures, just in case */
+	if (psbt_side_finalized(state->psbt, state->our_role)
+	    && !state->funding_locked[REMOTE]) {
+		msg = psbt_to_tx_sigs_msg(NULL, state, state->psbt);
+		sync_crypto_write(state->pps, take(msg));
+	}
+
+	if (state->funding_locked[LOCAL]) {
+		status_debug("we've got locked, sending locked");
+		send_funding_locked(state);
+	}
+
+	peer_billboard(true, "Reconnected, and reestablished.");
+}
+
 /*~ Is this message of type `error` with the special zero-id
  * "fail-everything"?  If lightningd asked us to send such a thing, we're
  * done. */
@@ -2663,6 +2843,12 @@ int main(int argc, char *argv[])
 	pollfd[1].events = POLLIN;
 	pollfd[2].fd = state->pps->peer_fd;
 	pollfd[2].events = POLLIN;
+
+	/* Do reconnect, if need be */
+	if (state->channel) {
+		do_reconnect_dance(state);
+		state->reconnected = true;
+	}
 
 	/* We exit when we get a conclusion to write to lightningd: either
 	 * opening_funder_reply or opening_fundee. */
