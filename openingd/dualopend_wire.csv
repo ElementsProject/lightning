@@ -163,10 +163,13 @@ msgdata,dualopend_send_tx_sigs,signed_psbt,wally_psbt,
 # dualopend->master tx sigs transmitted to peer
 msgtype,dualopend_tx_sigs_sent,7012
 
+# dualopend->peer peer locked channel
+msgtype,dualopend_peer_locked,7018
+msgdata,dualopend_peer_locked,remote_per_commit,pubkey,
+
 # dualopend->master this channel has been locked
 msgtype,dualopend_channel_locked,7019
 msgdata,dualopend_channel_locked,pps,per_peer_state,
-msgdata,dualopend_channel_locked,remote_per_commit,pubkey,
 
 # master->dualopend funding reached depth; tell peer
 msgtype,dualopend_depth_reached,7020
@@ -181,6 +184,9 @@ msgdata,dualopend_send_shutdown,shutdown_scriptpubkey,u8,shutdown_scriptpubkey_l
 msgtype,dualopend_got_shutdown,7024
 msgdata,dualopend_got_shutdown,scriptpubkey_len,u16,
 msgdata,dualopend_got_shutdown,scriptpubkey,u8,scriptpubkey_len
+
+# Peer presented proof it was from the future.
+msgtype,dualopend_fail_fallen_behind,1028
 
 # Shutdown is complete, ready for closing negotiation. + peer_fd & gossip_fd.
 msgtype,dualopend_shutdown_complete,7025
