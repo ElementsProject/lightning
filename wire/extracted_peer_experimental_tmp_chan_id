@@ -1,0 +1,10 @@
+--- wire/peer_exp_wire.csv	2020-11-19 17:11:03.375890549 -0600
++++ -	2020-12-10 15:56:19.617197279 -0600
+@@ -124,6 +124,7 @@
+ msgdata,funding_locked,next_per_commitment_point,point,
+ msgtype,open_channel2,64
+ msgdata,open_channel2,chain_hash,chain_hash,
++msgdata,open_channel2,temporary_channel_id,byte,32
+ msgdata,open_channel2,podle_h2,sha256,
+ msgdata,open_channel2,feerate_funding_max,u32,
+ msgdata,open_channel2,feerate_funding_min,u32,

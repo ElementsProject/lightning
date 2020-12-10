@@ -1417,6 +1417,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
 
 	if (!fromwire_open_channel2(oc2_msg, &chain_hash,
+				    &state->channel_id,
 				    &state->opening_podle_h2,
 				    &feerate_max,
 				    &feerate_min,
@@ -1479,11 +1480,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		return;
 	}
 
-	/* We can figure out the channel id now */
-	derive_channel_id_v2(&state->channel_id,
-			     &state->our_points.revocation,
-			     &state->their_points.revocation);
-
 	/* FIXME: pass the podle back also */
 	msg = towire_dualopend_got_offer(NULL,
 					 state->opener_funding,
@@ -1517,6 +1513,11 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 						&state->psbt,
 						&state->upfront_shutdown_script[LOCAL]))
 		master_badmsg(WIRE_DUALOPEND_GOT_OFFER_REPLY, msg);
+
+	/* We can figure out the channel id now */
+	derive_channel_id_v2(&state->channel_id,
+			     &state->our_points.revocation,
+			     &state->their_points.revocation);
 
 	if (!state->psbt)
 		state->psbt = create_psbt(state, 0, 0, state->tx_locktime);
@@ -1838,6 +1839,12 @@ static void opener_start(struct state *state, u8 *msg)
 	state->tx_locktime = state->psbt->tx->locktime;
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
 
+	/* Set the channel_id to a temporary id, we'll update
+	 * this as soon as we hear back from accept, but if they
+	 * send us an error in the meantime, we need to be able to
+	 * understand it */
+	temporary_channel_id(&state->channel_id);
+
 	feerate_min = state->min_feerate;
 	feerate_max = state->max_feerate;
 	if (state->feerate_per_kw_funding > state->max_feerate) {
@@ -1872,6 +1879,7 @@ static void opener_start(struct state *state, u8 *msg)
 	memset(&podle, 0, sizeof(podle));
 	msg = towire_open_channel2(NULL,
 				   &chainparams->genesis_blockhash,
+				   &state->channel_id,
 				   &podle, /* FIXME: podle H2! */
 				   feerate_max,
 				   feerate_min,
@@ -1904,9 +1912,6 @@ static void opener_start(struct state *state, u8 *msg)
 	if (!msg)
 		return;
 
-	/* Set a cid default value, so on failure it's populated */
-	memset(&cid, 0xFF, sizeof(cid));
-
 	a_tlv = tlv_accept_tlvs_new(state);
 	if (!fromwire_accept_channel2(msg, &cid,
 				      &state->accepter_funding,
@@ -1924,7 +1929,7 @@ static void opener_start(struct state *state, u8 *msg)
 				      &state->their_points.htlc,
 				      &state->first_per_commitment_point[REMOTE],
 				      a_tlv))
-		peer_failed(state->pps, &cid,
+		peer_failed(state->pps, &state->channel_id,
 			    "Parsing accept_channel2 %s", tal_hex(msg, msg));
 
 	if (a_tlv->option_upfront_shutdown_script) {
@@ -1935,6 +1940,7 @@ static void opener_start(struct state *state, u8 *msg)
 	} else
 		state->upfront_shutdown_script[REMOTE] = NULL;
 
+	/* Now we can set the 'real channel id' */
 	derive_channel_id_v2(&state->channel_id,
 			     &state->our_points.revocation,
 			     &state->their_points.revocation);
