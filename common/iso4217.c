@@ -1,6 +1,6 @@
 #include <ccan/array_size/array_size.h>
+#include <ccan/mem/mem.h>
 #include <common/iso4217.h>
-#include <string.h>
 
 /* Wikipedia leads me to: https://www.currency-iso.org/en/home/tables/table-a1.html
 
@@ -191,10 +191,12 @@ static const struct iso4217_name_and_divisor iso4217[] = {
 	{ "ZWL", 2 },
 };
 
-const struct iso4217_name_and_divisor *find_iso4217(const char *prefix)
+const struct iso4217_name_and_divisor *find_iso4217(const utf8 *prefix,
+						    size_t len)
 {
 	for (size_t i = 0; i < ARRAY_SIZE(iso4217); i++) {
-		if (memcmp(iso4217[i].name, prefix, ISO4217_NAMELEN) == 0)
+		if (memeq(iso4217[i].name, strlen(iso4217[i].name),
+			  prefix, len))
 			return &iso4217[i];
 	}
 	return NULL;
