@@ -185,6 +185,9 @@ struct peer {
 
 	/* Penalty bases for this channel / peer. */
 	struct penalty_base **pbases;
+
+	/* We allow a 'tx-sigs' message between reconnect + funding_locked */
+	bool tx_sigs_allowed;
 };
 
 static u8 *create_channel_announcement(const tal_t *ctx, struct peer *peer);
@@ -561,6 +564,7 @@ static void handle_peer_funding_locked(struct peer *peer, const u8 *msg)
 			    type_to_string(msg, struct channel_id,
 					   &peer->channel_id));
 
+	peer->tx_sigs_allowed = false;
 	peer->funding_locked[REMOTE] = true;
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_got_funding_locked(NULL,
@@ -1727,6 +1731,34 @@ static bool channeld_handle_custommsg(const u8 *msg)
 #endif
 }
 
+#if EXPERIMENTAL_FEATURES
+static void handle_unexpected_tx_sigs(struct peer *peer, const u8 *msg)
+{
+	const struct witness_stack **ws;
+	struct channel_id cid;
+	struct bitcoin_txid txid;
+
+	/* In a rare case, a v2 peer may re-send a tx_sigs message.
+	 * This happens when they've/we've exchanged funding_locked,
+	 * but they did not receive our funding_locked. */
+	if (!fromwire_tx_signatures(tmpctx, msg, &cid, &txid,
+				    cast_const3(struct witness_stack ***, &ws)))
+		peer_failed(peer->pps,
+			    &peer->channel_id,
+			    "Bad tx_signatures %s",
+			    tal_hex(msg, msg));
+
+	status_info("Unexpected `tx_signatures` from peer. %s",
+		    peer->tx_sigs_allowed ? "Allowing." : "Failing.");
+
+	if (!peer->tx_sigs_allowed)
+		peer_failed(peer->pps, &peer->channel_id,
+			    "Unexpected `tx_signatures`");
+
+	peer->tx_sigs_allowed = false;
+}
+#endif /* EXPERIMENTAL_FEATURES */
+
 static void handle_unexpected_reestablish(struct peer *peer, const u8 *msg)
 {
 	struct channel_id channel_id;
@@ -1877,6 +1909,8 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_TX_SIGNATURES:
+		handle_unexpected_tx_sigs(peer, msg);
+		return;
 	case WIRE_BLACKLIST_PODLE:
 #endif
 		break;
@@ -2543,6 +2577,8 @@ static void peer_reconnect(struct peer *peer,
 			send_fail_or_fulfill(peer, htlc);
 	}
 
+	/* We allow peer to send us tx-sigs, until funding locked received */
+	peer->tx_sigs_allowed = true;
 	peer_billboard(true, "Reconnected, and reestablished.");
 
 	/* BOLT #2:
