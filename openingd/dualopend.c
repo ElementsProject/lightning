@@ -279,6 +279,10 @@ static void negotiation_aborted(struct state *state, bool am_opener,
 	* failed. */
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = tal_free(state->channel);
+	state->changeset = tal_free(state->changeset);
+
+	for (size_t i = 0; i < NUM_TX_MSGS; i++)
+		state->tx_msg_count[i] = 0;
 }
 
 /*~ For negotiation failures: we tell them the parameter we didn't like. */
