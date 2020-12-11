@@ -2539,7 +2539,10 @@ static void do_reconnect_dance(struct state *state)
 	}
 
 	if (state->funding_locked[LOCAL]) {
-		status_debug("we've got locked, sending locked");
+		status_debug("Retransmitting funding_locked for channel %s",
+		             type_to_string(tmpctx,
+					    struct channel_id,
+					    &state->channel_id));
 		send_funding_locked(state);
 	}
 

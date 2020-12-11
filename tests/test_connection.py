@@ -427,7 +427,11 @@ def test_reconnect_no_update(node_factory, executor):
     # For channeld reconnection
     l1.rpc.connect(l2.info["id"], "localhost", l2.port)
     fundchannel_exec = executor.submit(l1.fundchannel, l2, 10**6, False)
-    l1.daemon.wait_for_log(r"channeld.* Retransmitting funding_locked for channel")
+    if l1.config('experimental-dual-fund'):
+        l2.daemon.wait_for_log(r"Unexpected `tx_signatures` from peer. Allowing.")
+        l1.daemon.wait_for_log(r"dualopend.* Retransmitting funding_locked for channel")
+    else:
+        l1.daemon.wait_for_log(r"channeld.* Retransmitting funding_locked for channel")
     l1.stop()
 
     # For closingd reconnection
