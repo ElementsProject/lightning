@@ -416,14 +416,6 @@ openchannel_signed_err(struct command *cmd,
 	struct multifundchannel_command *mfc = dest->mfc;
 	const jsmntok_t *code_tok;
 
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64", dest %u: "
-		   "failed! openchannel_signed %s: %.*s.",
-		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id),
-		   json_tok_full_len(error),
-		   json_tok_full(buf, error));
-
 	code_tok = json_get_member(buf, error, "code");
 	if (!code_tok)
 		plugin_err(cmd->plugin,
@@ -780,15 +772,7 @@ openchannel_update_err(struct command *cmd,
 		       const jsmntok_t *error,
 		       struct multifundchannel_destination *dest)
 {
-	struct multifundchannel_command *mfc = dest->mfc;
 	const jsmntok_t *code_tok;
-
-	plugin_err(mfc->cmd->plugin,
-		   "mfc %"PRIu64", dest %u: "
-		   "failed! `openchannel_update` %s: %.*s",
-		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id),
-		   json_tok_full_len(error), json_tok_full(buf, error));
 
 	code_tok = json_get_member(buf, error, "code");
 	if (!code_tok)
@@ -1006,16 +990,7 @@ openchannel_init_err(struct command *cmd,
 		     const jsmntok_t *error,
 		     struct multifundchannel_destination *dest)
 {
-	struct multifundchannel_command *mfc = dest->mfc;
 	const jsmntok_t *code_tok;
-
-	plugin_err(mfc->cmd->plugin,
-		   "mfc %"PRIu64", dest %u: "
-		   "failed! openchannel_init %s: %.*s.",
-		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id),
-		   json_tok_full_len(error),
-		   json_tok_full(buf, error));
 
 	code_tok = json_get_member(buf, error, "code");
 	if (!code_tok)
