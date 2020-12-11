@@ -1161,8 +1161,10 @@ def test_funding_reorg_private(node_factory, bitcoind):
 
     l1.rpc.fundchannel(l2.info['id'], "all", announce=False)
     bitcoind.generate_block(1)                      # height 106
+
+    daemon = 'DUALOPEND' if l1.config('experimental-dual-fund') else 'CHANNELD'
     wait_for(lambda: only_one(l1.rpc.listpeers()['peers'][0]['channels'])['status']
-             == ['CHANNELD_AWAITING_LOCKIN:Funding needs 1 more confirmations for lockin.'])
+             == ['{}_AWAITING_LOCKIN:Funding needs 1 more confirmations for lockin.'.format(daemon)])
     bitcoind.generate_block(1)                      # height 107
     l1.wait_channel_active('106x1x0')
     l1.stop()
