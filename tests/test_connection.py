@@ -1260,16 +1260,17 @@ def test_funding_external_wallet(node_factory, bitcoind):
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "requires opt_dual_fund")
-@unittest.skipIf(not DEVELOPER, "requires dev-force-features")
 def test_multifunding_v2_v1_mixed(node_factory, bitcoind):
     '''
     Simple test for multifundchannel, using v1 + v2
     '''
     accepter_plugin = os.path.join(os.path.dirname(__file__),
                                    'plugins/df_accepter.py')
-    options = [{'dev-force-features': '+223'},
-               {'plugin': accepter_plugin, 'dev-force-features': '+223'},
-               {'plugin': accepter_plugin, 'dev-force-features': '+223'},
+    options = [{'experimental-dual-fund': None},
+               {'plugin': accepter_plugin,
+                'experimental-dual-fund': None},
+               {'plugin': accepter_plugin,
+                'experimental-dual-fund': None},
                {}]
 
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=options)
