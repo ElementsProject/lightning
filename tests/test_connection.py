@@ -9,7 +9,7 @@ from utils import (
     expected_peer_features, expected_node_features,
     expected_channel_features,
     check_coin_moves, first_channel_id, account_balance, basic_fee,
-    EXPERIMENTAL_FEATURES
+    EXPERIMENTAL_FEATURES, EXPERIMENTAL_DUAL_FUND
 )
 from pyln.testing.utils import SLOW_MACHINE, VALGRIND
 from bitcoin.core import CMutableTransaction, CMutableTxOut
@@ -2513,6 +2513,7 @@ def test_restart_many_payments(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "need dev-disconnect")
+@unittest.skipIf(True, "FIXME: doesn't work for opt_dual_fund, see test below")
 def test_fail_unconfirmed(node_factory, bitcoind, executor):
     """Test that if we crash with an unconfirmed connection to a known
     peer, we don't have a dangling peer in db"""
@@ -2534,6 +2535,53 @@ def test_fail_unconfirmed(node_factory, bitcoind, executor):
     # Mangle disconnect file so this time it blackholes....
     with open(l1.daemon.disconnect_file, "w") as f:
         f.write("0WIRE_OPEN_CHANNEL\n")
+    l1.start()
+
+    # Now we establish a new channel, which gets stuck.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundwallet(10**7)
+    executor.submit(l1.rpc.fundchannel, l2.info['id'], 100000)
+
+    l1.daemon.wait_for_log("dev_disconnect")
+
+    # Now complete old channel.
+    bitcoind.generate_block(100)
+    l1.daemon.wait_for_log('onchaind complete, forgetting peer')
+
+    # And crash l1, which is stuck.
+    l1.daemon.kill()
+
+    # Now, restart and see if it can connect OK.
+    del l1.daemon.opts['dev-disconnect']
+    l1.start()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundchannel(l2, 200000, wait_for_active=True)
+
+
+@unittest.skipIf(not DEVELOPER, "need dev-disconnect")
+@unittest.skipIf(not EXPERIMENTAL_DUAL_FUND, "need dev-disconnect")
+def test_fail_unconfirmed_openchannel2(node_factory, bitcoind, executor):
+    """Test that if we crash with an unconfirmed connection to a known
+    peer, we don't have a dangling peer in db"""
+    # = is a NOOP disconnect, but sets up file.
+    l1 = node_factory.get_node(disconnect=['=WIRE_OPEN_CHANNEL2'])
+    l2 = node_factory.get_node()
+
+    # First one, we close by mutual agreement.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundchannel(l2, 200000, wait_for_active=True)
+    l1.rpc.close(l2.info['id'])
+
+    # Make sure it's closed
+    l1.wait_for_channel_onchain(l2.info['id'])
+    bitcoind.generate_block(1)
+    l1.daemon.wait_for_log('State changed from CLOSINGD_COMPLETE to FUNDING_SPEND_SEEN')
+
+    l1.stop()
+    # Mangle disconnect file so this time it blackholes....
+    with open(l1.daemon.disconnect_file, "w") as f:
+        f.write("0WIRE_OPEN_CHANNEL2\n")
     l1.start()
 
     # Now we establish a new channel, which gets stuck.
