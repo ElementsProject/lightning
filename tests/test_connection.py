@@ -2256,6 +2256,8 @@ def test_dataloss_protection(node_factory, bitcoind):
                                feerates=(7500, 7500, 7500, 7500), allow_broken_log=True)
 
     lf = expected_peer_features()
+    if l1.config('experimental-dual-fund'):
+        lf = expected_peer_features(extra=[223])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 should send out WIRE_INIT (0010)
@@ -2324,7 +2326,8 @@ def test_dataloss_protection(node_factory, bitcoind):
 
     # l2 must NOT drop to chain.
     l2.daemon.wait_for_log("Cannot broadcast our commitment tx: they have a future one")
-    assert not l2.daemon.is_in_log('sendrawtx exit 0')
+    assert not l2.daemon.is_in_log('sendrawtx exit 0',
+                                   start=l2.daemon.logsearch_start)
 
     closetxid = only_one(bitcoind.rpc.getrawmempool(False))
 
