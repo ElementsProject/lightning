@@ -1,6 +1,6 @@
 from concurrent import futures
 from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
-from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER, LightningNode, TEST_DEBUG
+from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER, LightningNode, TEST_DEBUG, Throttler
 from typing import Dict
 
 import logging
@@ -198,7 +198,12 @@ def teardown_checks(request):
 
 
 @pytest.fixture
-def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks, node_cls):
+def throttler():
+    yield Throttler()
+
+
+@pytest.fixture
+def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks, node_cls, throttler):
     nf = NodeFactory(
         request,
         test_name,
@@ -206,7 +211,8 @@ def node_factory(request, directory, test_name, bitcoind, executor, db_provider,
         executor,
         directory=directory,
         db_provider=db_provider,
-        node_cls=node_cls
+        node_cls=node_cls,
+        throttler=throttler,
     )
 
     yield nf
