@@ -12,40 +12,58 @@
 """
 
 from pyln.client import Plugin, Millisatoshi
+from pyln.testing.utils import env
 
 plugin = Plugin()
 
 
-@plugin.hook('openchannel')
-def on_openchannel(openchannel, plugin, **kwargs):
+EXPERIMENTAL_FEATURES = env("EXPERIMENTAL_FEATURES", "0") == "1"
+
+
+def run_openchannel(funding_sats_str, plugin):
+    # Convert from string to satoshis
+    funding_sats = Millisatoshi(funding_sats_str).to_satoshi()
+
     # - 100005sat: we reject correctly w/o close_to
-    if Millisatoshi(openchannel['funding_satoshis']).to_satoshi() == 100005:
+    if funding_sats == 100005:
         msg = "reject for a reason"
         plugin.log(msg)
         return {'result': 'reject', 'error_message': msg}
 
     # - 100004sat: we reject invalid by setting a close_to
-    if Millisatoshi(openchannel['funding_satoshis']).to_satoshi() == 100004:
+    if funding_sats == 100004:
         msg = "I am a broken plugin"
         plugin.log(msg)
         return {'result': 'reject', 'error_message': msg,
                 'close_to': "bcrt1q7gtnxmlaly9vklvmfj06amfdef3rtnrdazdsvw"}
 
     # - 100003sat: we send back a valid address (regtest)
-    if Millisatoshi(openchannel['funding_satoshis']).to_satoshi() == 100003:
+    if funding_sats == 100003:
         return {'result': 'continue', 'close_to': 'bcrt1q7gtnxmlaly9vklvmfj06amfdef3rtnrdazdsvw'}
 
     # - 100002sat: we send back an empty address
-    if Millisatoshi(openchannel['funding_satoshis']).to_satoshi() == 100002:
+    if funding_sats == 100002:
         return {'result': 'continue', 'close_to': ''}
 
     # - 100001sat: we send back an address for the wrong chain (mainnet)
-    if Millisatoshi(openchannel['funding_satoshis']).to_satoshi() == 100001:
+    if funding_sats == 100001:
         return {'result': 'continue', 'close_to': 'bc1qlq8srqnz64wgklmqvurv7qnr4rvtq2u96hhfg2'}
 
     # - otherwise: accept and don't include the close_to
     plugin.log("accept by design")
     return {'result': 'continue'}
+
+
+@plugin.hook('openchannel')
+def on_openchannel(openchannel, plugin, **kwargs):
+    return run_openchannel(openchannel['funding_satoshis'], plugin)
+
+
+if EXPERIMENTAL_FEATURES:
+    @plugin.hook('openchannel2')
+    def on_openchannel2(openchannel2, plugin, **kwargs):
+        """ Support for v2 channel opens """
+        return run_openchannel(openchannel2['their_funding'], plugin)
 
 
 plugin.run()
