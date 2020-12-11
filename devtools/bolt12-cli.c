@@ -112,14 +112,14 @@ static bool print_amount(const struct bitcoin_blkid *chains,
 		minor_unit = 11;
 	} else {
 		const struct iso4217_name_and_divisor *iso;
-		currency = tal_strndup(tmpctx, iso4217, tal_bytelen(iso4217));
-		iso = find_iso4217(currency);
-		if (iso)
+		iso = find_iso4217(iso4217, tal_bytelen(iso4217));
+		if (iso) {
 			minor_unit = iso->minor_unit;
-		else {
+			currency = iso->name;
+		} else {
 			minor_unit = 0;
-			currency = tal_fmt(tmpctx, "%s (UNKNOWN CURRENCY)",
-					   currency);
+			currency = tal_fmt(tmpctx, "%.*s (UNKNOWN CURRENCY)",
+					   (int)tal_bytelen(iso4217), iso4217);
 			ok = false;
 		}
 	}
