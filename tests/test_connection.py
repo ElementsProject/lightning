@@ -699,8 +699,10 @@ def test_shutdown_awaiting_lockin(node_factory, bitcoind):
 
     l1.rpc.close(chanid)
 
-    l1.daemon.wait_for_log('CHANNELD_AWAITING_LOCKIN to CHANNELD_SHUTTING_DOWN')
-    l2.daemon.wait_for_log('CHANNELD_AWAITING_LOCKIN to CHANNELD_SHUTTING_DOWN')
+    l1_state = 'DUALOPEND' if l1.config('experimental-dual-fund') else 'CHANNELD'
+    l2_state = 'DUALOPEND' if l1.config('experimental-dual-fund') else 'CHANNELD'
+    l1.daemon.wait_for_log('{}_AWAITING_LOCKIN to CHANNELD_SHUTTING_DOWN'.format(l1_state))
+    l2.daemon.wait_for_log('{}_AWAITING_LOCKIN to CHANNELD_SHUTTING_DOWN'.format(l2_state))
 
     l1.daemon.wait_for_log('CHANNELD_SHUTTING_DOWN to CLOSINGD_SIGEXCHANGE')
     l2.daemon.wait_for_log('CHANNELD_SHUTTING_DOWN to CLOSINGD_SIGEXCHANGE')
