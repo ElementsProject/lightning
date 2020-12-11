@@ -329,7 +329,30 @@ static bool update_node_psbt(const tal_t *ctx,
 static struct command_result *
 openchannel_finished(struct multifundchannel_command *mfc)
 {
+	for (size_t i = 0; i < tal_count(mfc->destinations); i++) {
+		struct multifundchannel_destination *dest;
+		dest = &mfc->destinations[i];
 
+		/* If there's a single failure, we have to
+		 * return the failure to the user. */
+		if (dest->state == MULTIFUNDCHANNEL_FAILED) {
+			struct json_stream *out;
+
+			plugin_log(mfc->cmd->plugin, LOG_DBG,
+				   "mfc %"PRIu64": %u failed, failing.",
+				   mfc->id, dest->index);
+
+			out = jsonrpc_stream_fail_data(mfc->cmd,
+						       dest->code,
+						       dest->error);
+			json_add_node_id(out, "id", &dest->id);
+			json_add_string(out, "method", "openchannel_signed");
+			json_add_jsonstr(out, "error", dest->error);
+			json_object_end(out);
+
+			return mfc_finished(mfc, out);
+		}
+	}
 	mfc->psbt = tal_free(mfc->psbt);
 	return multifundchannel_finished(mfc);
 }
