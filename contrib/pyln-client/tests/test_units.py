@@ -312,3 +312,26 @@ def test_div():
     assert amount == 14
     amount = Millisatoshi(42) // Millisatoshi(4)
     assert amount == 10
+
+
+def test_init():
+    # Note: Ongoing Discussion, hence the `with pytest.raises`.
+    # https://github.com/ElementsProject/lightning/pull/4273#discussion_r540369093
+    #
+    # Initialization with a float should be possible:
+    # Millisatoshi(5) / 2 currently works, and removes the half msat.
+    # So Millisatoshi(5 / 2) should be the same.
+    amount = Millisatoshi(5) / 2
+    assert amount == Millisatoshi(2)
+    with pytest.raises(TypeError, match="Millisatoshi by float is currently not supported"):
+        assert amount == Millisatoshi(5 / 2)
+
+    ratio = Millisatoshi(8) / Millisatoshi(5)
+    assert isinstance(ratio, float)
+    with pytest.raises(TypeError, match="Millisatoshi by float is currently not supported"):
+        assert Millisatoshi(ratio) == Millisatoshi(8 / 5)
+
+    # Check that init by a round float is allowed.
+    # Required by some existing tests: tests/test_wallet.py::test_txprepare
+    amount = Millisatoshi(42.0)
+    assert amount == 42

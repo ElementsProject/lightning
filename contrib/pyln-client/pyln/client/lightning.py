@@ -68,6 +68,10 @@ class Millisatoshi:
 
         elif int(v) == v:
             self.millisatoshis = int(v)
+
+        elif isinstance(v, float):
+            raise TypeError("Millisatoshi by float is currently not supported")
+
         else:
             raise TypeError(
                 "Millisatoshi must be string with msat/sat/btc suffix or int"
