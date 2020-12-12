@@ -269,3 +269,46 @@ def test_nonegative():
         Millisatoshi("1sat") // -1
     with pytest.raises(ValueError, match='Millisatoshi must be >= 0'):
         Millisatoshi("1btc") // -1
+
+
+def test_mul():
+    # msat * num := msat
+    amount = Millisatoshi(21) * 2
+    assert isinstance(amount, Millisatoshi)
+    assert amount == Millisatoshi(42)
+    amount = Millisatoshi(21) * 2.5
+    assert amount == Millisatoshi(52)
+
+    # msat * msat := msat^2  (which is not supported)
+    with pytest.raises(TypeError, match="not supported"):
+        Millisatoshi(21) * Millisatoshi(2)
+
+
+def test_div():
+    # msat / num := msat
+    amount = Millisatoshi(42) / 2
+    assert isinstance(amount, Millisatoshi)
+    assert amount == Millisatoshi(21)
+    amount = Millisatoshi(42) / 2.6
+    assert amount == Millisatoshi(16)
+
+    # msat / msat := num   (float ratio)
+    amount = Millisatoshi(42) / Millisatoshi(2)
+    assert isinstance(amount, float)
+    assert amount == 21.0
+    amount = Millisatoshi(8) / Millisatoshi(5)
+    assert amount == 1.6
+
+    # msat // num := msat
+    amount = Millisatoshi(42) // 2
+    assert isinstance(amount, Millisatoshi)
+    assert amount == Millisatoshi(21)
+
+    # msat // msat := num
+    amount = Millisatoshi(42) // Millisatoshi(3)
+    assert isinstance(amount, int)
+    assert amount == 14
+    amount = Millisatoshi(42) // Millisatoshi(3)
+    assert amount == 14
+    amount = Millisatoshi(42) // Millisatoshi(4)
+    assert amount == 10
