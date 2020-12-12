@@ -176,13 +176,19 @@ class Millisatoshi:
     def __sub__(self, other: 'Millisatoshi') -> 'Millisatoshi':
         return Millisatoshi(int(self) - int(other))
 
-    def __mul__(self, other: int) -> 'Millisatoshi':
+    def __mul__(self, other: Union[int, float]) -> 'Millisatoshi':
+        if isinstance(other, Millisatoshi):
+            raise TypeError("Resulting unit msat^2 is not supported")
         return Millisatoshi(floor(self.millisatoshis * other))
 
-    def __truediv__(self, other: Union[int, float]) -> 'Millisatoshi':
+    def __truediv__(self, other: Union[int, float, 'Millisatoshi']) -> Union['Millisatoshi', float]:
+        if isinstance(other, Millisatoshi):
+            return self.millisatoshis / other.millisatoshis
         return Millisatoshi(floor(self.millisatoshis / other))
 
-    def __floordiv__(self, other: Union[int, float]) -> 'Millisatoshi':
+    def __floordiv__(self, other: Union[int, float, 'Millisatoshi']) -> Union['Millisatoshi', int]:
+        if isinstance(other, Millisatoshi):
+            return self.millisatoshis // other.millisatoshis
         return Millisatoshi(floor(self.millisatoshis // float(other)))
 
     def __mod__(self, other: Union[float, int]) -> 'Millisatoshi':
