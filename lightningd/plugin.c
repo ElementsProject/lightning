@@ -646,49 +646,72 @@ struct io_plan *plugin_stdout_conn_init(struct io_conn *conn,
 			       plugin_read_json, plugin);
 }
 
+
+/* Returns NULL if invalid value for that type */
+static struct plugin_opt_value *plugin_opt_value(const tal_t *ctx,
+						 const char *type,
+						 const char *arg)
+{
+	struct plugin_opt_value *v = tal(ctx, struct plugin_opt_value);
+
+	v->as_str = tal_strdup(v, arg);
+	if (streq(type, "int")) {
+		long long l;
+		char *endp;
+
+		errno = 0;
+		l = strtoll(arg, &endp, 0);
+		if (errno || *endp)
+			return tal_free(v);
+		v->as_int = l;
+
+		/* Check if the number did not fit in `s64` (in case `long long`
+		 * is a bigger type). */
+		if (v->as_int != l)
+			return tal_free(v);
+	} else if (streq(type, "bool")) {
+		/* valid values are 'true', 'True', '1', '0', 'false', 'False', or '' */
+		if (streq(arg, "true") || streq(arg, "True") || streq(arg, "1")) {
+			v->as_bool = true;
+		} else if (streq(arg, "false") || streq(arg, "False")
+				|| streq(arg, "0")) {
+			v->as_bool = false;
+		} else
+			return tal_free(v);
+	} else if (streq(type, "flag")) {
+		v->as_bool = true;
+	}
+
+	return v;
+}
+
 char *plugin_opt_flag_set(struct plugin_opt *popt)
 {
 	/* A set flag is a true */
-	*popt->value->as_bool = true;
+	tal_free(popt->values);
+	popt->values = tal_arr(popt, struct plugin_opt_value *, 1);
+	popt->values[0] = plugin_opt_value(popt->values, popt->type, "true");
 	return NULL;
 }
 
 char *plugin_opt_set(const char *arg, struct plugin_opt *popt)
 {
-	char *endp;
-	long long l;
+	struct plugin_opt_value *v;
 
 	/* Warn them that this is deprecated */
 	if (popt->deprecated && !deprecated_apis)
 		return tal_fmt(tmpctx, "deprecated option (will be removed!)");
 
-	tal_free(popt->value->as_str);
-
-	popt->value->as_str = tal_strdup(popt, arg);
-	if (streq(popt->type, "int")) {
-		errno = 0;
-		l = strtoll(arg, &endp, 0);
-		if (errno || *endp)
-			return tal_fmt(tmpctx, "%s does not parse as type %s",
-				       popt->value->as_str, popt->type);
-		*popt->value->as_int = l;
-
-		/* Check if the number did not fit in `s64` (in case `long long`
-		 * is a bigger type). */
-		if (*popt->value->as_int != l)
-			return tal_fmt(tmpctx, "%s does not parse as type %s (overflowed)",
-				       popt->value->as_str, popt->type);
-	} else if (streq(popt->type, "bool")) {
-		/* valid values are 'true', 'True', '1', '0', 'false', 'False', or '' */
-		if (streq(arg, "true") || streq(arg, "True") || streq(arg, "1")) {
-			*popt->value->as_bool = true;
-		} else if (streq(arg, "false") || streq(arg, "False")
-				|| streq(arg, "0")) {
-			*popt->value->as_bool = false;
-		} else
-			return tal_fmt(tmpctx, "%s does not parse as type %s",
-				       popt->value->as_str, popt->type);
+	if (!popt->multi) {
+		tal_free(popt->values);
+		popt->values = tal_arr(popt, struct plugin_opt_value *, 0);
 	}
+
+	v = plugin_opt_value(popt->values, popt->type, arg);
+	if (!v)
+		return tal_fmt(tmpctx, "%s does not parse as type %s",
+			       arg, popt->type);
+	tal_arr_expand(&popt->values, v);
 
 	return NULL;
 }
@@ -705,13 +728,14 @@ static void destroy_plugin_opt(struct plugin_opt *opt)
 static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 				  const jsmntok_t *opt)
 {
-	const jsmntok_t *nametok, *typetok, *defaulttok, *desctok, *deptok;
+	const jsmntok_t *nametok, *typetok, *defaulttok, *desctok, *deptok, *multitok;
 	struct plugin_opt *popt;
 	nametok = json_get_member(buffer, opt, "name");
 	typetok = json_get_member(buffer, opt, "type");
 	desctok = json_get_member(buffer, opt, "description");
 	defaulttok = json_get_member(buffer, opt, "default");
 	deptok = json_get_member(buffer, opt, "deprecated");
+	multitok = json_get_member(buffer, opt, "multi");
 
 	if (!typetok || !nametok || !desctok) {
 		return tal_fmt(plugin,
@@ -719,7 +743,7 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 	}
 
 	popt = tal(plugin, struct plugin_opt);
-	popt->value = talz(popt, struct plugin_opt_value);
+	popt->values = tal_arr(popt, struct plugin_opt_value *, 0);
 
 	popt->name = tal_fmt(popt, "--%.*s", nametok->end - nametok->start,
 			     buffer + nametok->start);
@@ -734,43 +758,44 @@ static const char *plugin_opt_add(struct plugin *plugin, const char *buffer,
 	} else
 		popt->deprecated = false;
 
+	if (multitok) {
+		if (!json_to_bool(buffer, multitok, &popt->multi))
+			return tal_fmt(plugin,
+				       "%s: invalid \"multi\" field %.*s",
+				       popt->name,
+				       multitok->end - multitok->start,
+				       buffer + multitok->start);
+	} else
+		popt->multi = false;
+
+	popt->def = NULL;
 	if (json_tok_streq(buffer, typetok, "string")) {
 		popt->type = "string";
-		if (defaulttok) {
-			popt->value->as_str = json_strdup(popt, buffer, defaulttok);
-			popt->description = tal_fmt(
-					popt, "%.*s (default: %s)", desctok->end - desctok->start,
-					buffer + desctok->start, popt->value->as_str);
-		}
 	} else if (json_tok_streq(buffer, typetok, "int")) {
 		popt->type = "int";
-		popt->value->as_int = talz(popt->value, s64);
-		if (defaulttok) {
-			json_to_s64(buffer, defaulttok, popt->value->as_int);
-			popt->value->as_str = tal_fmt(popt->value, "%"PRIu64, *popt->value->as_int);
-			popt->description = tal_fmt(
-					popt, "%.*s (default: %"PRIu64")", desctok->end - desctok->start,
-					buffer + desctok->start, *popt->value->as_int);
-		}
-	} else if (json_tok_streq(buffer, typetok, "bool")) {
-		popt->type = "bool";
-		popt->value->as_bool = talz(popt->value, bool);
-		if (defaulttok) {
-			json_to_bool(buffer, defaulttok, popt->value->as_bool);
-			popt->value->as_str = tal_fmt(popt->value, *popt->value->as_bool ? "true" : "false");
-			popt->description = tal_fmt(
-					popt, "%.*s (default: %s)", desctok->end - desctok->start,
-					buffer + desctok->start, *popt->value->as_bool ? "true" : "false");
-		}
-	} else if (json_tok_streq(buffer, typetok, "flag")) {
-		popt->type = "flag";
-		popt->value->as_bool = talz(popt->value, bool);
+	} else if (json_tok_streq(buffer, typetok, "bool")
+		   || json_tok_streq(buffer, typetok, "flag")) {
+		popt->type = json_strdup(popt, buffer, typetok);
+		if (popt->multi)
+			return tal_fmt(plugin,
+				       "%s type \"%s\" cannot have multi",
+				       popt->name, popt->type);
 		/* We default flags to false, the default token is ignored */
-		*popt->value->as_bool = false;
-
+		if (json_tok_streq(buffer, typetok, "flag"))
+			defaulttok = NULL;
 	} else {
 		return tal_fmt(plugin,
 			       "Only \"string\", \"int\", \"bool\", and \"flag\" options are supported");
+	}
+
+	if (defaulttok) {
+		popt->def = plugin_opt_value(popt, popt->type,
+					     json_strdup(tmpctx, buffer, defaulttok));
+		if (!popt->def)
+			return tal_fmt(tmpctx, "default %.*s is not a valid %s",
+				       json_tok_full_len(defaulttok),
+				       json_tok_full(buffer, defaulttok),
+				       popt->type);
 	}
 
 	if (!popt->description)
@@ -1506,6 +1531,25 @@ static void plugin_config_cb(const char *buffer,
 	check_plugins_initted(plugin->plugins);
 }
 
+static void json_add_plugin_opt(struct json_stream *stream,
+				const char *name,
+				const char *type,
+				const struct plugin_opt_value *value)
+{
+	if (streq(type, "flag")) {
+		/* We don't include 'flag' types if they're not
+		 * flagged on */
+		if (value->as_bool)
+			json_add_bool(stream, name, value->as_bool);
+	} else if (streq(type, "bool")) {
+		json_add_bool(stream, name, value->as_bool);
+	} else if (streq(type, "string")) {
+		json_add_string(stream, name, value->as_str);
+	} else if (streq(type, "int")) {
+		json_add_s64(stream, name, value->as_int);
+	}
+}
+
 void
 plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 {
@@ -1518,17 +1562,24 @@ plugin_populate_init_request(struct plugin *plugin, struct jsonrpc_request *req)
 	list_for_each(&plugin->plugin_opts, opt, list) {
 		/* Trim the `--` that we added before */
 		name = opt->name + 2;
-		if (opt->value->as_bool) {
-			/* We don't include 'flag' types if they're not
-			 * flagged on */
-			if (streq(opt->type, "flag") && !*opt->value->as_bool)
-				continue;
 
-			json_add_bool(req->stream, name, *opt->value->as_bool);
-		} else if (opt->value->as_int) {
-			json_add_s64(req->stream, name, *opt->value->as_int);
-		} else if (opt->value->as_str) {
-			json_add_string(req->stream, name, opt->value->as_str);
+		/* If no values, assign default (if any!) */
+		if (tal_count(opt->values) == 0) {
+			if (opt->def)
+				tal_arr_expand(&opt->values, opt->def);
+			else
+				continue;
+		}
+
+		if (opt->multi) {
+			json_array_start(req->stream, name);
+			for (size_t i = 0; i < tal_count(opt->values); i++)
+				json_add_plugin_opt(req->stream, NULL,
+						    opt->type, opt->values[i]);
+			json_array_end(req->stream);
+		} else {
+			json_add_plugin_opt(req->stream, name,
+					    opt->type, opt->values[0]);
 		}
 	}
 	json_object_end(req->stream); /* end of .params.options */
@@ -1626,12 +1677,19 @@ void json_add_opt_plugins_array(struct json_stream *response,
 
 				/* Trim the `--` that we added before */
 				opt_name = opt->name + 2;
-				if (opt->value->as_bool) {
-					json_add_bool(response, opt_name, *opt->value->as_bool);
-				} else if (opt->value->as_int) {
-					json_add_s64(response, opt_name, *opt->value->as_int);
-				} else if (opt->value->as_str) {
-					json_add_string(response, opt_name, opt->value->as_str);
+				if (opt->multi) {
+					json_array_start(response, opt_name);
+					for (size_t i = 0; i < tal_count(opt->values); i++)
+						json_add_plugin_opt(response,
+								    NULL,
+								    opt->type,
+								    opt->values[i]);
+					json_array_end(response);
+				} else if (tal_count(opt->values)) {
+					json_add_plugin_opt(response,
+							    opt_name,
+							    opt->type,
+							    opt->values[0]);
 				} else {
 					json_add_null(response, opt_name);
 				}
