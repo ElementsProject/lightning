@@ -563,18 +563,39 @@ def test_openchannel_hook(node_factory, bitcoind):
     l1.rpc.fundchannel(l2.info['id'], 100000)
 
     # Make sure plugin got all the vars we expect
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: 11 VARS')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: channel_flags=1')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: channel_reserve_satoshis=1000000msat')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: dust_limit_satoshis=546000msat')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: feerate_per_kw=7500')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: funding_satoshis=100000000msat')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: htlc_minimum_msat=0msat')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: id={}'.format(l1.info['id']))
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: max_accepted_htlcs=483')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: max_htlc_value_in_flight_msat=18446744073709551615msat')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: push_msat=0msat')
-    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: to_self_delay=5')
+    expected = {
+        'channel_flags': '1',
+        'dust_limit_satoshis': '546000msat',
+        'htlc_minimum_msat': '0msat',
+        'id': l1.info['id'],
+        'max_accepted_htlcs': '483',
+        'max_htlc_value_in_flight_msat': '18446744073709551615msat',
+        'to_self_delay': '5',
+    }
+
+    if l2.config('experimental-dual-fund'):
+        # openchannel2 var checks
+        expected.update({
+            'commitment_feerate_per_kw': '750',
+            'feerate_our_max': '150000',
+            'feerate_our_min': '1875',
+            'funding_feerate_best': '7500',
+            'funding_feerate_max': '150000',
+            'funding_feerate_min': '1875',
+            'locktime': '.*',
+            'their_funding': '100000000msat',
+        })
+    else:
+        expected.update({
+            'channel_reserve_satoshis': '1000000msat',
+            'feerate_per_kw': '7500',
+            'funding_satoshis': '100000000msat',
+            'push_msat': '0msat',
+        })
+
+    l2.daemon.wait_for_log('reject_odd_funding_amounts.py: {} VARS'.format(len(expected)))
+    for k, v in expected.items():
+        assert l2.daemon.is_in_log('reject_odd_funding_amounts.py: {}={}'.format(k, v))
 
     # Close it.
     txid = l1.rpc.close(l2.info['id'])['txid']
