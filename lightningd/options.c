@@ -348,7 +348,7 @@ static char *opt_add_plugin(const char *arg, struct lightningd *ld)
 		log_info(ld->log, "%s: disabled via disable-plugin", arg);
 		return NULL;
 	}
-	plugin_register(ld->plugins, arg, NULL, false);
+	plugin_register(ld->plugins, arg, NULL, false, NULL, NULL);
 	return NULL;
 }
 
@@ -375,7 +375,7 @@ static char *opt_important_plugin(const char *arg, struct lightningd *ld)
 		log_info(ld->log, "%s: disabled via disable-plugin", arg);
 		return NULL;
 	}
-	plugin_register(ld->plugins, arg, NULL, true);
+	plugin_register(ld->plugins, arg, NULL, true, NULL, NULL);
 	return NULL;
 }
 

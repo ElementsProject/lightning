@@ -2182,3 +2182,18 @@ def test_htlc_accepted_hook_failonion(node_factory):
     inv = l2.rpc.invoice(42, 'failonion000', '')['bolt11']
     with pytest.raises(RpcError):
         l1.rpc.pay(inv)
+
+
+def test_dynamic_args(node_factory):
+    plugin_path = os.path.join(os.getcwd(), 'contrib/plugins/helloworld.py')
+
+    l1 = node_factory.get_node()
+    l1.rpc.plugin_start(plugin_path, greeting='Test arg parsing')
+
+    assert l1.rpc.call("hello") == "Test arg parsing world"
+    plugin = only_one([p for p in l1.rpc.listconfigs()['plugins'] if p['path'] == plugin_path])
+    assert plugin['options']['greeting'] == 'Test arg parsing'
+
+    l1.rpc.plugin_stop(plugin_path)
+
+    assert [p for p in l1.rpc.listconfigs()['plugins'] if p['path'] == plugin_path] == []

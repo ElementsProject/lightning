@@ -56,9 +56,10 @@ struct command_result *plugin_cmd_all_complete(struct plugins *plugins,
  * will give a result 60 seconds later at the most (once init completes).
  */
 static struct command_result *
-plugin_dynamic_start(struct command *cmd, const char *plugin_path)
+plugin_dynamic_start(struct command *cmd, const char *plugin_path,
+		     const char *buffer, const jsmntok_t *params)
 {
-	struct plugin *p = plugin_register(cmd->ld->plugins, plugin_path, cmd, false);
+	struct plugin *p = plugin_register(cmd->ld->plugins, plugin_path, cmd, false, buffer, params);
 	const char *err;
 
 	if (!p)
@@ -173,15 +174,35 @@ static struct command_result *json_plugin_control(struct command *cmd,
 		return plugin_dynamic_stop(cmd, plugin_name);
 	} else if (streq(subcmd, "start")) {
 		const char *plugin_path;
+		jsmntok_t *mod_params;
 
 		if (!param(cmd, buffer, params,
 			   p_req("subcommand", param_ignore, cmd),
 			   p_req("plugin", param_string, &plugin_path),
+			   p_opt_any(),
 			   NULL))
 			return command_param_failed();
 
+		/* Manually parse any remaining options (only for objects,
+		 * since plugin options must be explicitly named!). */
+		if (params->type == JSMN_ARRAY) {
+			if (params->size != 2)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Extra parameters must be in object");
+			mod_params = NULL;
+		} else {
+			mod_params = json_tok_copy(cmd, params);
+
+			json_tok_remove(&mod_params, mod_params,
+					json_get_member(buffer, mod_params,
+							"subcommand") - 1, 1);
+			json_tok_remove(&mod_params, mod_params,
+					json_get_member(buffer, mod_params,
+							"plugin") - 1, 1);
+		}
 		if (access(plugin_path, X_OK) == 0)
-			return plugin_dynamic_start(cmd, plugin_path);
+			return plugin_dynamic_start(cmd, plugin_path,
+						    buffer, mod_params);
 		else
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						   "%s is not executable: %s",

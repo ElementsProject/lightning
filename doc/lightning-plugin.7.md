@@ -15,9 +15,10 @@ restart lightningd. It takes 1 to 3 parameters: a command
 optionally one or two parameters which describes the plugin on which the
 action has to be taken.
 
-The *start* command takes a path as the first parameter and will load the
-plugin available from this path. It will wait for the plugin to complete
-the handshake with `lightningd` for 20 seconds at the most.
+The *start* command takes a path as the first parameter and will load
+the plugin available from this path.  Any additional parameters are
+passed to the plugin. It will wait for the plugin to complete the
+handshake with `lightningd` for 20 seconds at the most.
 
 The *stop* command takes a plugin name as parameter. It will kill and
 unload the specified plugin.
