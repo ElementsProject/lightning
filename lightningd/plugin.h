@@ -131,8 +131,8 @@ struct plugins {
  */
 struct plugin_opt_value {
 	char *as_str;
-	s64 *as_int;
-	bool *as_bool;
+	s64 as_int;
+	bool as_bool;
 };
 
 /**
@@ -144,7 +144,10 @@ struct plugin_opt {
 	const char *name;
 	const char *type;
 	const char *description;
-	struct plugin_opt_value *value;
+	struct plugin_opt_value **values;
+	/* Might be NULL if no default */
+	struct plugin_opt_value *def;
+	bool multi;
 	bool deprecated;
 };
 

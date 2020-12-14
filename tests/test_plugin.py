@@ -120,6 +120,16 @@ def test_option_types(node_factory):
     assert not n.daemon.running
     assert n.daemon.is_in_stderr("--flag_opt: doesn't allow an argument")
 
+    n = node_factory.get_node(options={
+        'plugin': plugin_path,
+        'str_optm': ['ok', 'ok2'],
+        'int_optm': [11, 12, 13],
+    })
+
+    assert n.daemon.is_in_log(r"option str_optm \['ok', 'ok2'\] <class 'list'>")
+    assert n.daemon.is_in_log(r"option int_optm \[11, 12, 13\] <class 'list'>")
+    n.stop()
+
 
 def test_millisatoshi_passthrough(node_factory):
     """ Ensure that Millisatoshi arguments and return work.

@@ -157,6 +157,10 @@ There are currently four supported option 'types':
   - int: parsed as a signed integer (64-bit)
   - flag: no-arg flag option. Is boolean under the hood. Defaults to false.
 
+In addition, string and int types can specify `"multi": true` to indicate
+they can be specified multiple times.  These will always be represented in
+`init` as a (possibly empty) JSON array.
+
 Nota bene: if a `flag` type option is not set, it will not appear
 in the options set that is passed to the plugin.
 
@@ -187,6 +191,13 @@ Here's an example option set, as sent in response to `getmanifest`
       "type": "int",
       "default": 6666,
       "description": "Port to use to connect to 3rd-party service"
+    },
+    {
+      "name": "number",
+      "type": "int",
+      "default": 0,
+      "description": "Another number to add",
+	  "multi": true
     }
   ],
 ```
@@ -201,7 +212,8 @@ simple JSON object containing the options:
 ```json
 {
   "options": {
-    "greeting": "World"
+    "greeting": "World",
+	"number": [0]
   },
   "configuration": {
     "lightning-dir": "/home/user/.lightning/testnet",

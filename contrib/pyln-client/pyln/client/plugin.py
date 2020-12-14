@@ -326,7 +326,8 @@ class Plugin(object):
 
     def add_option(self, name: str, default: Optional[str],
                    description: Optional[str],
-                   opt_type: str = "string", deprecated: bool = False) -> None:
+                   opt_type: str = "string", deprecated: bool = False,
+                   multi: bool = False) -> None:
         """Add an option that we'd like to register with lightningd.
 
         Needs to be called before `Plugin.run`, otherwise we might not
@@ -349,6 +350,7 @@ class Plugin(object):
             'description': description,
             'type': opt_type,
             'value': None,
+            'multi': multi,
             'deprecated': deprecated,
         }
 

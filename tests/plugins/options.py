@@ -18,4 +18,8 @@ plugin.add_option('str_opt', 'i am a string', 'an example string option')
 plugin.add_option('int_opt', 7, 'an example int type option', opt_type='int')
 plugin.add_option('bool_opt', True, 'an example bool type option', opt_type='bool')
 plugin.add_flag_option('flag_opt', 'an example flag type option')
+
+plugin.add_option('str_optm', None, 'an example string option', multi=True)
+plugin.add_option('int_optm', 7, 'an example int type option', opt_type='int', multi=True)
+
 plugin.run()
