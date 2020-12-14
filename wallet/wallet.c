@@ -2494,8 +2494,9 @@ void wallet_payment_store(struct wallet *wallet,
 		    "  description,"
 		    "  bolt11,"
 		    "  total_msat,"
-		    "  partid"
-		    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+		    "  partid,"
+		    "  local_offer_id"
+		    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_int(stmt, 0, payment->status);
 	db_bind_sha256(stmt, 1, &payment->payment_hash);
@@ -2536,6 +2537,11 @@ void wallet_payment_store(struct wallet *wallet,
 
 	db_bind_amount_msat(stmt, 11, &payment->total_msat);
 	db_bind_u64(stmt, 12, payment->partid);
+
+	if (payment->local_offer_id != NULL)
+		db_bind_sha256(stmt, 13, payment->local_offer_id);
+	else
+		db_bind_null(stmt, 13);
 
 	db_exec_prepared_v2(stmt);
 	payment->id = db_last_insert_id_v2(stmt);
@@ -2657,6 +2663,12 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	else
 		payment->partid = 0;
 
+	if (!db_column_is_null(stmt, 16)) {
+		payment->local_offer_id = tal(payment, struct sha256);
+		db_column_sha256(stmt, 16, payment->local_offer_id);
+	} else
+		payment->local_offer_id = NULL;
+
 	return payment;
 }
 
@@ -2690,6 +2702,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 					     ", failonionreply"
 					     ", total_msat"
 					     ", partid"
+					     ", local_offer_id"
 					     " FROM payments"
 					     " WHERE payment_hash = ?"
 					     " AND partid = ?"));
@@ -2917,6 +2930,7 @@ wallet_payment_list(const tal_t *ctx,
 						  ", failonionreply"
 						  ", total_msat"
 						  ", partid"
+						  ", local_offer_id"
 						  " FROM payments"
 						  " WHERE payment_hash = ?;"));
 		db_bind_sha256(stmt, 0, payment_hash);
@@ -2938,6 +2952,7 @@ wallet_payment_list(const tal_t *ctx,
 						     ", failonionreply"
 						     ", total_msat"
 						     ", partid"
+						     ", local_offer_id"
 						     " FROM payments"
 						     " ORDER BY id;"));
 	}
@@ -2952,6 +2967,57 @@ wallet_payment_list(const tal_t *ctx,
 	/* Now attach payments not yet in db. */
 	list_for_each(&wallet->unstored_payments, p, list) {
 		if (payment_hash && !sha256_eq(&p->payment_hash, payment_hash))
+			continue;
+		tal_resize(&payments, i+1);
+		payments[i++] = p;
+	}
+
+	return payments;
+}
+
+const struct wallet_payment **
+wallet_payments_by_offer(const tal_t *ctx,
+			 struct wallet *wallet,
+			 const struct sha256 *local_offer_id)
+{
+	const struct wallet_payment **payments;
+	struct db_stmt *stmt;
+	struct wallet_payment *p;
+	size_t i;
+
+	payments = tal_arr(ctx, const struct wallet_payment *, 0);
+	stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+					     "  id"
+					     ", status"
+					     ", destination"
+					     ", msatoshi"
+					     ", payment_hash"
+					     ", timestamp"
+					     ", payment_preimage"
+					     ", path_secrets"
+					     ", route_nodes"
+					     ", route_channels"
+					     ", msatoshi_sent"
+					     ", description"
+					     ", bolt11"
+					     ", failonionreply"
+					     ", total_msat"
+					     ", partid"
+					     ", local_offer_id"
+					     " FROM payments"
+					     " WHERE local_offer_id = ?;"));
+	db_bind_sha256(stmt, 0, local_offer_id);
+	db_query_prepared(stmt);
+
+	for (i = 0; db_step(stmt); i++) {
+		tal_resize(&payments, i+1);
+		payments[i] = wallet_stmt2payment(payments, stmt);
+	}
+	tal_free(stmt);
+
+	/* Now attach payments not yet in db. */
+	list_for_each(&wallet->unstored_payments, p, list) {
+		if (!p->local_offer_id || !sha256_eq(p->local_offer_id, local_offer_id))
 			continue;
 		tal_resize(&payments, i+1);
 		payments[i++] = p;
@@ -4083,8 +4149,8 @@ static void offer_status_update(struct db *db,
 	stmt = db_prepare_v2(db, SQL("UPDATE invoices"
 				     " SET state=?"
 				     " WHERE state=? AND local_offer_id = ?;"));
-	db_bind_int(stmt, 0, invoice_status_in_db(UNPAID));
-	db_bind_int(stmt, 1, invoice_status_in_db(EXPIRED));
+	db_bind_int(stmt, 0, invoice_status_in_db(EXPIRED));
+	db_bind_int(stmt, 1, invoice_status_in_db(UNPAID));
 	db_bind_sha256(stmt, 2, offer_id);
 	db_exec_prepared_v2(take(stmt));
 }

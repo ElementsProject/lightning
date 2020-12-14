@@ -334,6 +334,10 @@ void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 					 hout->partid);
 	assert(payment);
 
+#if EXPERIMENTAL_FEATURES
+	if (payment->local_offer_id)
+		wallet_offer_mark_used(ld->wallet->db, payment->local_offer_id);
+#endif
 	tell_waiters_success(ld, &hout->payment_hash, payment);
 }
 
@@ -789,6 +793,60 @@ static const u8 *send_onion(const tal_t *ctx, struct lightningd *ld,
 			     &dont_care_about_channel_update);
 }
 
+#if EXPERIMENTAL_FEATURES
+static struct command_result *check_offer_usage(struct command *cmd,
+						const struct sha256 *local_offer_id)
+{
+	enum offer_status status;
+	const struct wallet_payment **payments;
+
+	if (!local_offer_id)
+		return NULL;
+
+	if (!wallet_offer_find(tmpctx, cmd->ld->wallet, local_offer_id,
+			       NULL, &status))
+		return command_fail(cmd, PAY_OFFER_INVALID,
+				    "Unknown offer %s",
+				    type_to_string(tmpctx, struct sha256,
+						   local_offer_id));
+
+	if (!offer_status_active(status))
+		return command_fail(cmd, PAY_OFFER_INVALID,
+				    "Inactive offer %s",
+				    type_to_string(tmpctx, struct sha256,
+						   local_offer_id));
+
+	if (!offer_status_single(status))
+		return NULL;
+
+	/* OK, we must not attempt more than one payment at once for
+	 * single_use offer */
+	payments = wallet_payments_by_offer(tmpctx, cmd->ld->wallet, local_offer_id);
+	for (size_t i = 0; i < tal_count(payments); i++) {
+		switch (payments[i]->status) {
+		case PAYMENT_COMPLETE:
+			return command_fail(cmd, PAY_OFFER_INVALID,
+					    "Single-use offer already paid"
+					    " with %s",
+					    type_to_string(tmpctx, struct sha256,
+							   &payments[i]
+							   ->payment_hash));
+		case PAYMENT_PENDING:
+			return command_fail(cmd, PAY_OFFER_INVALID,
+					    "Single-use offer already"
+					    " in progress with %s",
+					    type_to_string(tmpctx, struct sha256,
+							   &payments[i]
+							   ->payment_hash));
+		case PAYMENT_FAILED:
+			break;
+		}
+	}
+
+	return NULL;
+}
+#endif /* EXPERIMENTAL_FEATURES */
+
 /* destination/route_channels/route_nodes are NULL (and path_secrets may be NULL)
  * if we're sending a raw onion. */
 static struct command_result *
@@ -805,7 +863,8 @@ send_payment_core(struct lightningd *ld,
 		  const struct node_id *destination,
 		  struct node_id *route_nodes TAKES,
 		  struct short_channel_id *route_channels TAKES,
-		  struct secret *path_secrets)
+		  struct secret *path_secrets,
+		  const struct sha256 *local_offer_id)
 {
 	const struct wallet_payment **payments, *old_payment = NULL;
 	struct channel *channel;
@@ -942,6 +1001,13 @@ send_payment_core(struct lightningd *ld,
 						   &total_msat));
 	}
 
+#if EXPERIMENTAL_FEATURES
+	struct command_result *offer_err;
+	offer_err = check_offer_usage(cmd, local_offer_id);
+	if (offer_err)
+		return offer_err;
+#endif
+
 	channel = active_channel_by_id(ld, &first_hop->nodeid, NULL);
 	if (!channel) {
 		struct json_stream *data
@@ -1016,6 +1082,10 @@ send_payment_core(struct lightningd *ld,
 		payment->bolt11 = tal_strdup(payment, b11str);
 	else
 		payment->bolt11 = NULL;
+	if (local_offer_id)
+		payment->local_offer_id = tal_dup(payment, struct sha256, local_offer_id);
+	else
+		payment->local_offer_id = NULL;
 
 	/* We write this into db when HTLC is actually sent. */
 	wallet_payment_setup(ld->wallet, payment);
@@ -1034,6 +1104,7 @@ send_payment(struct lightningd *ld,
 	     struct amount_msat total_msat,
 	     const char *label TAKES,
 	     const char *b11str TAKES,
+	     const struct sha256 *local_offer_id,
 	     const struct secret *payment_secret)
 {
 	unsigned int base_expiry;
@@ -1117,7 +1188,7 @@ send_payment(struct lightningd *ld,
 	return send_payment_core(ld, cmd, rhash, partid, &route[0],
 				 msat, total_msat, label, b11str,
 				 packet, &ids[n_hops - 1], ids,
-				 channels, path_secrets);
+				 channels, path_secrets, local_offer_id);
 }
 
 static struct command_result *
@@ -1202,6 +1273,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 	struct secret *path_secrets;
 	struct amount_msat *msat;
 	u64 *partid;
+	struct sha256 *local_offer_id = NULL;
 
 	if (!param(cmd, buffer, params,
 		   p_req("onion", param_bin_from_hex, &onion),
@@ -1213,6 +1285,9 @@ static struct command_result *json_sendonion(struct command *cmd,
 		   p_opt("bolt11", param_string, &b11str),
 		   p_opt_def("msatoshi", param_msat, &msat, AMOUNT_MSAT(0)),
 		   p_opt("destination", param_node_id, &destination),
+#if EXPERIMENTAL_FEATURES
+		   p_opt("local_offer_id", param_sha256, &local_offer_id),
+#endif
 		   NULL))
 		return command_param_failed();
 
@@ -1227,7 +1302,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 	return send_payment_core(ld, cmd, payment_hash, *partid,
 				 first_hop, *msat, AMOUNT_MSAT(0),
 				 label, b11str, packet, destination, NULL, NULL,
-				 path_secrets);
+				 path_secrets, local_offer_id);
 }
 
 static const struct json_command sendonion_command = {
@@ -1353,6 +1428,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 	const char *b11str, *label;
 	u64 *partid;
 	struct secret *payment_secret;
+	struct sha256 *local_offer_id = NULL;
 
 	/* For generating help, give new-style. */
 	if (!param(cmd, buffer, params,
@@ -1363,6 +1439,9 @@ static struct command_result *json_sendpay(struct command *cmd,
 		   p_opt("bolt11", param_string, &b11str),
 		   p_opt("payment_secret", param_secret, &payment_secret),
 		   p_opt_def("partid", param_u64, &partid, 0),
+#if EXPERIMENTAL_FEATURES
+		   p_opt("local_offer_id", param_sha256, &local_offer_id),
+#endif
 		   NULL))
 		return command_param_failed();
 
@@ -1406,7 +1485,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 			    route,
 			    final_amount,
 			    msat ? *msat : final_amount,
-			    label, b11str, payment_secret);
+			    label, b11str, local_offer_id, payment_secret);
 }
 
 static const struct json_command sendpay_command = {
