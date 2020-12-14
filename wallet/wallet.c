@@ -2530,8 +2530,8 @@ void wallet_payment_store(struct wallet *wallet,
 	else
 		db_bind_null(stmt, 9);
 
-	if (payment->bolt11 != NULL)
-		db_bind_text(stmt, 10, payment->bolt11);
+	if (payment->invstring != NULL)
+		db_bind_text(stmt, 10, payment->invstring);
 	else
 		db_bind_null(stmt, 10);
 
@@ -2641,10 +2641,10 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 		payment->label = NULL;
 
 	if (!db_column_is_null(stmt, 12) && db_column_text(stmt, 12) != NULL)
-		payment->bolt11 = tal_strdup(
+		payment->invstring = tal_strdup(
 		    payment, (const char *)db_column_text(stmt, 12));
 	else
-		payment->bolt11 = NULL;
+		payment->invstring = NULL;
 
 	if (!db_column_is_null(stmt, 13))
 		payment->failonion =

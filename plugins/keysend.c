@@ -159,7 +159,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->routes = NULL;
 	p->min_final_cltv_expiry = DEFAULT_FINAL_CLTV_DELTA;
 	p->features = NULL;
-	p->bolt11 = NULL;
+	p->invstring = NULL;
 	p->why = "Initial attempt";
 	p->constraints.cltv_budget = *maxdelay;
 	p->deadline = timeabs_add(time_now(), time_from_sec(*retryfor));

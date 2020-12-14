@@ -236,8 +236,8 @@ struct wallet_payment {
 	struct secret *path_secrets;
 	struct node_id *route_nodes;
 	struct short_channel_id *route_channels;
-	/* bolt11 string; NULL for old payments. */
-	const char *bolt11;
+	/* bolt11/bolt12 string; NULL for old payments. */
+	const char *invstring;
 
 	/* The label of the payment. Must support `tal_len` */
 	const char *label;

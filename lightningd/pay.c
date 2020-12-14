@@ -2,6 +2,10 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/bolt11.h>
+#if EXPERIMENTAL_FEATURES
+#include <common/bolt12.h>
+#include <common/bolt12_merkle.h>
+#endif
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
@@ -151,8 +155,14 @@ void json_add_payment_fields(struct json_stream *response,
                     t->payment_preimage);
 	if (t->label)
 		json_add_string(response, "label", t->label);
-	if (t->bolt11)
-		json_add_string(response, "bolt11", t->bolt11);
+	if (t->invstring) {
+#if EXPERIMENTAL_FEATURES
+		if (strstarts(t->invstring, "lni"))
+			json_add_string(response, "bolt12", t->invstring);
+		else
+#endif
+			json_add_string(response, "bolt11", t->invstring);
+	}
 
 	if (t->failonion)
 		json_add_hex(response, "erroronion", t->failonion,
@@ -858,7 +868,7 @@ send_payment_core(struct lightningd *ld,
 		  struct amount_msat msat,
 		  struct amount_msat total_msat,
 		  const char *label TAKES,
-		  const char *b11str TAKES,
+		  const char *invstring TAKES,
 		  const struct onionpacket *packet,
 		  const struct node_id *destination,
 		  struct node_id *route_nodes TAKES,
@@ -1078,10 +1088,10 @@ send_payment_core(struct lightningd *ld,
 		payment->label = tal_strdup(payment, label);
 	else
 		payment->label = NULL;
-	if (b11str != NULL)
-		payment->bolt11 = tal_strdup(payment, b11str);
+	if (invstring != NULL)
+		payment->invstring = tal_strdup(payment, invstring);
 	else
-		payment->bolt11 = NULL;
+		payment->invstring = NULL;
 	if (local_offer_id)
 		payment->local_offer_id = tal_dup(payment, struct sha256, local_offer_id);
 	else
@@ -1103,7 +1113,7 @@ send_payment(struct lightningd *ld,
 	     struct amount_msat msat,
 	     struct amount_msat total_msat,
 	     const char *label TAKES,
-	     const char *b11str TAKES,
+	     const char *invstring TAKES,
 	     const struct sha256 *local_offer_id,
 	     const struct secret *payment_secret)
 {
@@ -1186,7 +1196,7 @@ send_payment(struct lightningd *ld,
 		 n_hops, type_to_string(tmpctx, struct amount_msat, &msat));
 	packet = create_onionpacket(tmpctx, path, ROUTING_INFO_SIZE, &path_secrets);
 	return send_payment_core(ld, cmd, rhash, partid, &route[0],
-				 msat, total_msat, label, b11str,
+				 msat, total_msat, label, invstring,
 				 packet, &ids[n_hops - 1], ids,
 				 channels, path_secrets, local_offer_id);
 }
@@ -1268,7 +1278,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 	struct route_hop *first_hop;
 	struct sha256 *payment_hash;
 	struct lightningd *ld = cmd->ld;
-	const char *label, *b11str;
+	const char *label, *invstring;
 	struct node_id *destination;
 	struct secret *path_secrets;
 	struct amount_msat *msat;
@@ -1282,7 +1292,8 @@ static struct command_result *json_sendonion(struct command *cmd,
 		   p_opt("label", param_escaped_string, &label),
 		   p_opt("shared_secrets", param_secrets_array, &path_secrets),
 		   p_opt_def("partid", param_u64, &partid, 0),
-		   p_opt("bolt11", param_string, &b11str),
+		   /* FIXME: paramter should be invstring now */
+		   p_opt("bolt11", param_string, &invstring),
 		   p_opt_def("msatoshi", param_msat, &msat, AMOUNT_MSAT(0)),
 		   p_opt("destination", param_node_id, &destination),
 #if EXPERIMENTAL_FEATURES
@@ -1301,7 +1312,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 
 	return send_payment_core(ld, cmd, payment_hash, *partid,
 				 first_hop, *msat, AMOUNT_MSAT(0),
-				 label, b11str, packet, destination, NULL, NULL,
+				 label, invstring, packet, destination, NULL, NULL,
 				 path_secrets, local_offer_id);
 }
 
@@ -1425,7 +1436,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 	struct sha256 *rhash;
 	struct route_hop *route;
 	struct amount_msat *msat;
-	const char *b11str, *label;
+	const char *invstring, *label;
 	u64 *partid;
 	struct secret *payment_secret;
 	struct sha256 *local_offer_id = NULL;
@@ -1436,7 +1447,8 @@ static struct command_result *json_sendpay(struct command *cmd,
 		   p_req("payment_hash", param_sha256, &rhash),
 		   p_opt("label", param_escaped_string, &label),
 		   p_opt("msatoshi", param_msat, &msat),
-		   p_opt("bolt11", param_string, &b11str),
+		   /* FIXME: paramter should be invstring now */
+		   p_opt("bolt11", param_string, &invstring),
 		   p_opt("payment_secret", param_secret, &payment_secret),
 		   p_opt_def("partid", param_u64, &partid, 0),
 #if EXPERIMENTAL_FEATURES
@@ -1485,7 +1497,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 			    route,
 			    final_amount,
 			    msat ? *msat : final_amount,
-			    label, b11str, local_offer_id, payment_secret);
+			    label, invstring, local_offer_id, payment_secret);
 }
 
 static const struct json_command sendpay_command = {
@@ -1546,31 +1558,43 @@ static struct command_result *json_listsendpays(struct command *cmd,
 	const struct wallet_payment **payments;
 	struct json_stream *response;
 	struct sha256 *rhash;
-	const char *b11str;
+	const char *invstring;
 
 	if (!param(cmd, buffer, params,
-		   p_opt("bolt11", param_string, &b11str),
+		   /* FIXME: paramter should be invstring now */
+		   p_opt("bolt11", param_string, &invstring),
 		   p_opt("payment_hash", param_sha256, &rhash),
 		   NULL))
 		return command_param_failed();
 
-	if (rhash && b11str) {
+	if (rhash && invstring) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Can only specify one of"
 				    " {bolt11} or {payment_hash}");
 	}
 
-	if (b11str) {
+	if (invstring) {
 		struct bolt11 *b11;
 		char *fail;
 
-		b11 = bolt11_decode(cmd, b11str, cmd->ld->our_features, NULL,
+		b11 = bolt11_decode(cmd, invstring, cmd->ld->our_features, NULL,
 				    chainparams, &fail);
-		if (!b11) {
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Invalid bolt11: %s", fail);
+		if (b11) {
+			rhash = &b11->payment_hash;
+		} else {
+#if EXPERIMENTAL_FEATURES
+			struct tlv_invoice *b12;
+
+			b12 = invoice_decode(cmd, invstring, strlen(invstring),
+					     cmd->ld->our_features,
+					     chainparams, &fail);
+			if (b12 && b12->payment_hash)
+				rhash = b12->payment_hash;
+			else
+#endif
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Invalid invstring: %s", fail);
 		}
-		rhash = &b11->payment_hash;
 	}
 
 	payments = wallet_payment_list(cmd, cmd->ld->wallet, rhash);
