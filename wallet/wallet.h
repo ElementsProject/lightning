@@ -1428,23 +1428,23 @@ char *wallet_offer_find(const tal_t *ctx,
  * @offer_id: the first offer id (if returns non-NULL)
  *
  * Returns pointer to hand as @stmt to wallet_offer_next(), or NULL.
- * If you choose not to call wallet_offer_next() you must free it!
+ * If you choose not to call wallet_offer_id_next() you must free it!
  */
-struct db_stmt *wallet_offer_first(struct wallet *w,
-				   struct sha256 *offer_id);
+struct db_stmt *wallet_offer_id_first(struct wallet *w,
+				      struct sha256 *offer_id);
 
 /**
  * Iterate through all the offers.
  * @w: the wallet
- * @stmt: return from wallet_offer_first() or previous wallet_offer_next()
+ * @stmt: return from wallet_offer_id_first() or previous wallet_offer_id_next()
  * @offer_id: the next offer id (if returns non-NULL)
  *
  * Returns NULL once we're out of offers.  If you choose not to call
- * wallet_offer_next() again you must free return.
+ * wallet_offer_id_next() again you must free return.
  */
-struct db_stmt *wallet_offer_next(struct wallet *w,
-				  struct db_stmt *stmt,
-				  struct sha256 *offer_id);
+struct db_stmt *wallet_offer_id_next(struct wallet *w,
+				     struct db_stmt *stmt,
+				     struct sha256 *offer_id);
 
 /**
  * Disable an offer in the database.

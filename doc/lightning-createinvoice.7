@@ -3,7 +3,7 @@
 lightning-createinvoice - Low-level invoice creation
 .SH SYNOPSIS
 
-\fBcreateinvoice\fR \fIinvstring\fR \fIpreimage\fR \fIlabel\fR
+\fBcreateinvoice\fR \fIinvstring\fR \fIlabel\fR \fIpreimage\fR
 
 .SH DESCRIPTION
 
@@ -15,14 +15,14 @@ The \fIinvstring\fR parameter is of bolt11 form, but without the final
 signature appended\.  Minimal sanity checks are done\.
 
 
-The \fIpreimage\fR is the preimage to supply upon successful payment of
-the invoice\.
-
-
 The \fIlabel\fR must be a unique string or number (which is treated as a
 string, so "01" is different from "1"); it is never revealed to other
 nodes on the lightning network, but it can be used to query the status
 of this invoice\.
+
+
+The \fIpreimage\fR is the preimage to supply upon successful payment of
+the invoice\.
 
 .SH RETURN VALUE
 
@@ -57,4 +57,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:1b6598e430d416615867dc09604574c62a8ecb47c51a370711da75359ff80ef3
+\" SHA256STAMP:e9abfb1d376a1a5103cb4da2ce7d9d79d0ad6e23683ab1d68423ea4ea4a99f2f

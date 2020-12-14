@@ -855,14 +855,14 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "ALTER TABLE invoices ADD COLUMN local_offer_id BLOB DEFAULT NULL;",
-         .query = "ALTER TABLE invoices ADD COLUMN local_offer_id BYTEA DEFAULT NULL;",
+         .name = "ALTER TABLE invoices ADD COLUMN local_offer_id BLOB DEFAULT NULL REFERENCES offers(offer_id);",
+         .query = "ALTER TABLE invoices ADD COLUMN local_offer_id BYTEA DEFAULT NULL REFERENCES offers(offer_id);",
          .placeholders = 0,
          .readonly = false,
     },
     {
-         .name = "ALTER TABLE payments ADD COLUMN local_offer_id BLOB DEFAULT NULL;",
-         .query = "ALTER TABLE payments ADD COLUMN local_offer_id BYTEA DEFAULT NULL;",
+         .name = "ALTER TABLE payments ADD COLUMN local_offer_id BLOB DEFAULT NULL REFERENCES offers(offer_id);",
+         .query = "ALTER TABLE payments ADD COLUMN local_offer_id BYTEA DEFAULT NULL REFERENCES offers(offer_id);",
          .placeholders = 0,
          .readonly = false,
     },
@@ -1762,4 +1762,4 @@ struct db_query db_postgres_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:774d5116e102d98351730072b4aa0b48d27b05c364680fc406f8b12bf4c7e293
+// SHA256STAMP:26bbd985dc45de765f06b8c2644ecd76c098532ff71a33c8f71608890631d726

@@ -20,8 +20,7 @@ static void json_populate_offer(struct json_stream *response,
 	json_add_bool(response, "active", offer_status_active(status));
 	json_add_bool(response, "single_use", offer_status_single(status));
 	json_add_string(response, "bolt12", b12);
-	if (status == OFFER_USED)
-		json_add_bool(response, "used", true);
+	json_add_bool(response, "used", status == OFFER_USED);
 	if (label)
 		json_add_escaped_string(response, "label", label);
 }
@@ -143,9 +142,9 @@ static struct command_result *json_listoffers(struct command *cmd,
 		struct db_stmt *stmt;
 		struct sha256 id;
 
-		for (stmt = wallet_offer_first(cmd->ld->wallet, &id);
+		for (stmt = wallet_offer_id_first(cmd->ld->wallet, &id);
 		     stmt;
-		     stmt = wallet_offer_next(cmd->ld->wallet, stmt, &id)) {
+		     stmt = wallet_offer_id_next(cmd->ld->wallet, stmt, &id)) {
 			b12 = wallet_offer_find(tmpctx, wallet, &id,
 						&label, &status);
 			if (offer_status_active(status) >= *active_only) {

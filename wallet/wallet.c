@@ -4080,7 +4080,6 @@ char *wallet_offer_find(const tal_t *ctx,
 	struct db_stmt *stmt;
 	char *bolt12;
 
-	/* Test if already exists. */
 	stmt = db_prepare_v2(w->db, SQL("SELECT bolt12, label, status"
 					"  FROM offers"
 					" WHERE offer_id = ?;"));
@@ -4105,19 +4104,19 @@ char *wallet_offer_find(const tal_t *ctx,
 	return bolt12;
 }
 
-struct db_stmt *wallet_offer_first(struct wallet *w, struct sha256 *offer_id)
+struct db_stmt *wallet_offer_id_first(struct wallet *w, struct sha256 *offer_id)
 {
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(w->db, SQL("SELECT offer_id FROM offers;"));
 	db_query_prepared(stmt);
 
-	return wallet_offer_next(w, stmt, offer_id);
+	return wallet_offer_id_next(w, stmt, offer_id);
 }
 
-struct db_stmt *wallet_offer_next(struct wallet *w,
-				  struct db_stmt *stmt,
-				  struct sha256 *offer_id)
+struct db_stmt *wallet_offer_id_next(struct wallet *w,
+				     struct db_stmt *stmt,
+				     struct sha256 *offer_id)
 {
 	if (!db_step(stmt))
 		return tal_free(stmt);
@@ -4180,14 +4179,16 @@ void wallet_offer_mark_used(struct db *db, const struct sha256 *offer_id)
 	db_bind_sha256(stmt, 0, offer_id);
 	db_query_prepared(stmt);
 	if (!db_step(stmt))
-		fatal("Unknown stats offer_id %s",
+		fatal("%s: unknown offer_id %s",
+		      __func__,
 		      type_to_string(tmpctx, struct sha256, offer_id));
 
 	status = offer_status_in_db(db_column_int(stmt, 0));
 	tal_free(stmt);
 
 	if (!offer_status_active(status))
-		fatal("offer_id %s status %i",
+		fatal("%s: offer_id %s not active: status %i",
+		      __func__,
 		      type_to_string(tmpctx, struct sha256, offer_id),
 		      status);
 

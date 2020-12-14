@@ -563,11 +563,11 @@ msgid "CREATE TABLE offers (  offer_id BLOB, bolt12 TEXT, label TEXT, status INT
 msgstr ""
 
 #: wallet/db.c:668
-msgid "ALTER TABLE invoices ADD COLUMN local_offer_id BLOB DEFAULT NULL;"
+msgid "ALTER TABLE invoices ADD COLUMN local_offer_id BLOB DEFAULT NULL REFERENCES offers(offer_id);"
 msgstr ""
 
 #: wallet/db.c:670
-msgid "ALTER TABLE payments ADD COLUMN local_offer_id BLOB DEFAULT NULL;"
+msgid "ALTER TABLE payments ADD COLUMN local_offer_id BLOB DEFAULT NULL REFERENCES offers(offer_id);"
 msgstr ""
 
 #: wallet/db.c:897
@@ -1130,23 +1130,23 @@ msgstr ""
 msgid "INSERT INTO offers (  offer_id, bolt12, label, status) VALUES (?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:4084
+#: wallet/wallet.c:4083
 msgid "SELECT bolt12, label, status  FROM offers WHERE offer_id = ?;"
 msgstr ""
 
-#: wallet/wallet.c:4112
+#: wallet/wallet.c:4111
 msgid "SELECT offer_id FROM offers;"
 msgstr ""
 
-#: wallet/wallet.c:4138
+#: wallet/wallet.c:4137
 msgid "UPDATE offers SET status=? WHERE offer_id = ?;"
 msgstr ""
 
-#: wallet/wallet.c:4149
+#: wallet/wallet.c:4148
 msgid "UPDATE invoices SET state=? WHERE state=? AND local_offer_id = ?;"
 msgstr ""
 
-#: wallet/wallet.c:4177
+#: wallet/wallet.c:4176
 msgid "SELECT status  FROM offers WHERE offer_id = ?;"
 msgstr ""
 
@@ -1161,4 +1161,4 @@ msgstr ""
 #: wallet/test/run-wallet.c:1378
 msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
-#  SHA256STAMP:50622dd1a8b0f2fe71efa1c1d175f7ad130f3042db84e0c9547f849a328e8f5d
+#  SHA256STAMP:1e8fd669b4322c65584b19aa1613b74ac1daa8d80a5c02e0dc1381e2b9e08f9e
