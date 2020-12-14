@@ -244,6 +244,9 @@ struct wallet_payment {
 
 	/* If we could not decode the fail onion, just add it here. */
 	const u8 *failonion;
+
+	/* If we are associated with an internal offer */
+	struct sha256 *local_offer_id;
 };
 
 struct outpoint {
@@ -1077,6 +1080,13 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
 						  struct wallet *wallet,
 						  const struct sha256 *payment_hash);
+
+/**
+ * wallet_payments_by_offer - Retrieve a list of payments for this local_offer_id
+ */
+const struct wallet_payment **wallet_payments_by_offer(const tal_t *ctx,
+						       struct wallet *wallet,
+						       const struct sha256 *local_offer_id);
 
 /**
  * wallet_htlc_sigs_save - Store the latest HTLC sigs for the channel
