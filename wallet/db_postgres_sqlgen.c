@@ -861,6 +861,12 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
+         .name = "ALTER TABLE payments ADD COLUMN local_offer_id BLOB DEFAULT NULL;",
+         .query = "ALTER TABLE payments ADD COLUMN local_offer_id BYTEA DEFAULT NULL;",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
          .name = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .query = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = $1",
          .placeholders = 1,
@@ -1401,9 +1407,9 @@ struct db_query db_postgres_queries[] = {
          .readonly = true,
     },
     {
-         .name = "INSERT INTO payments (  status,  payment_hash,  destination,  msatoshi,  timestamp,  path_secrets,  route_nodes,  route_channels,  msatoshi_sent,  description,  bolt11,  total_msat,  partid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
-         .query = "INSERT INTO payments (  status,  payment_hash,  destination,  msatoshi,  timestamp,  path_secrets,  route_nodes,  route_channels,  msatoshi_sent,  description,  bolt11,  total_msat,  partid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);",
-         .placeholders = 13,
+         .name = "INSERT INTO payments (  status,  payment_hash,  destination,  msatoshi,  timestamp,  path_secrets,  route_nodes,  route_channels,  msatoshi_sent,  description,  bolt11,  total_msat,  partid,  local_offer_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+         .query = "INSERT INTO payments (  status,  payment_hash,  destination,  msatoshi,  timestamp,  path_secrets,  route_nodes,  route_channels,  msatoshi_sent,  description,  bolt11,  total_msat,  partid,  local_offer_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);",
+         .placeholders = 14,
          .readonly = false,
     },
     {
@@ -1419,8 +1425,8 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid FROM payments WHERE payment_hash = ? AND partid = ?",
-         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid FROM payments WHERE payment_hash = $1 AND partid = $2",
+         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = ? AND partid = ?",
+         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = $1 AND partid = $2",
          .placeholders = 2,
          .readonly = true,
     },
@@ -1455,15 +1461,21 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid FROM payments WHERE payment_hash = ?;",
-         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid FROM payments WHERE payment_hash = $1;",
+         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = ?;",
+         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = $1;",
          .placeholders = 1,
          .readonly = true,
     },
     {
-         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid FROM payments ORDER BY id;",
-         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid FROM payments ORDER BY id;",
+         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments ORDER BY id;",
+         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments ORDER BY id;",
          .placeholders = 0,
+         .readonly = true,
+    },
+    {
+         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE local_offer_id = ?;",
+         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE local_offer_id = $1;",
+         .placeholders = 1,
          .readonly = true,
     },
     {
@@ -1744,10 +1756,10 @@ struct db_query db_postgres_queries[] = {
     },
 };
 
-#define DB_POSTGRES_QUERY_COUNT 289
+#define DB_POSTGRES_QUERY_COUNT 291
 
 #endif /* HAVE_POSTGRES */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:83a4b63d1c5566db35ab00e9da60f6c98c04f8bd30800e51cce294dfcb49c9ec
+// SHA256STAMP:682d4f3ac081ef003be6eba257a5e5e023fee5169592c760c8878288ee12f212
