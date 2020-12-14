@@ -71,6 +71,8 @@ static void json_add_invoice(struct json_stream *response,
 		json_add_string(response, "description", inv->description);
 
 	json_add_u64(response, "expires_at", inv->expiry_time);
+	if (inv->local_offer_id)
+		json_add_sha256(response, "local_offer_id", inv->local_offer_id);
 }
 
 static struct command_result *tell_waiter(struct command *cmd,
@@ -698,7 +700,8 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 				   info->b11->description,
 				   info->b11->features,
 				   &info->payment_preimage,
-				   &info->b11->payment_hash)) {
+				   &info->b11->payment_hash,
+				   NULL)) {
 		was_pending(command_fail(info->cmd, INVOICE_LABEL_ALREADY_EXISTS,
 					 "Duplicate label '%s'",
 					 info->label->s));

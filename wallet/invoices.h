@@ -52,7 +52,8 @@ bool invoices_create(struct invoices *invoices,
 		     const char *description,
 		     const u8 *features,
 		     const struct preimage *r,
-		     const struct sha256 *rhash);
+		     const struct sha256 *rhash,
+		     const struct sha256 *local_offer_id);
 
 /**
  * invoices_find_by_label - Search for an invoice by label
