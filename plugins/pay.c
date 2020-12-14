@@ -9,9 +9,14 @@
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/bolt11.h>
+#if EXPERIMENTAL_FEATURES
+#include <common/bolt12.h>
+#include <common/bolt12_merkle.h>
+#endif
 #include <common/errcode.h>
 #include <common/features.h>
 #include <common/gossip_constants.h>
+#include <common/gossmap.h>
 #include <common/json_stream.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
@@ -1881,7 +1886,7 @@ static struct command_result *json_listpays(struct command *cmd,
 
 	/* FIXME: would be nice to parse as a bolt11 so check worked in future */
 	if (!param(cmd, buf, params,
-		   /* FIXME: paramter should be invstring now */
+		   /* FIXME: parameter should be invstring now */
 		   p_opt("bolt11", param_string, &invstring),
 		   p_opt("payment_hash", param_sha256, &payment_hash),
 		   NULL))
@@ -1962,8 +1967,11 @@ static struct command_result *json_paymod(struct command *cmd,
 	unsigned int *retryfor;
 	u64 *riskfactor_millionths;
 	struct shadow_route_data *shadow_route;
+	struct amount_msat *invmsat;
+	u64 invexpiry;
 #if EXPERIMENTAL_FEATURES
 	struct sha256 *local_offer_id;
+	const struct tlv_invoice *b12;
 #endif
 #if DEVELOPER
 	bool *use_shadow;
@@ -1972,7 +1980,9 @@ static struct command_result *json_paymod(struct command *cmd,
 	/* If any of the modifiers need to add params to the JSON-RPC call we
 	 * would add them to the `param()` call below, and have them be
 	 * initialized directly that way. */
-	if (!param(cmd, buf, params, p_req("bolt11", param_string, &b11str),
+	if (!param(cmd, buf, params,
+		   /* FIXME: parameter should be invstring now */
+		   p_req("bolt11", param_string, &b11str),
 		   p_opt("msatoshi", param_msat, &msat),
 		   p_opt("label", param_string, &label),
 		   p_opt_def("riskfactor", param_millionths,
@@ -1993,28 +2003,104 @@ static struct command_result *json_paymod(struct command *cmd,
 		return command_param_failed();
 
 	p = payment_new(cmd, cmd, NULL /* No parent */, paymod_mods);
+	p->invstring = tal_steal(p, b11str);
 
 	b11 = bolt11_decode(cmd, b11str, plugin_feature_set(cmd->plugin),
 			    NULL, chainparams, &fail);
-	if (!b11)
+	if (b11) {
+		invmsat = b11->msat;
+		invexpiry = b11->timestamp + b11->expiry;
+
+		p->destination = tal_dup(p, struct node_id, &b11->receiver_id);
+		p->destination_has_tlv = feature_offered(b11->features,
+							 OPT_VAR_ONION);
+		p->payment_hash = tal_dup(p, struct sha256, &b11->payment_hash);
+		p->payment_secret = b11->payment_secret
+			? tal_dup(p, struct secret, b11->payment_secret)
+			: NULL;
+		p->routes = tal_steal(p, b11->routes);
+		p->min_final_cltv_expiry = b11->min_final_cltv_expiry;
+		p->features = tal_steal(p, b11->features);
+		/* Sanity check */
+		if (feature_offered(b11->features, OPT_VAR_ONION)
+		    && !b11->payment_secret)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Invalid bolt11:"
+					    " sets feature var_onion with no secret");
+#if EXPERIMENTAL_FEATURES
+	} else if ((b12 = invoice_decode(cmd, b11str, strlen(b11str),
+					 plugin_feature_set(cmd->plugin),
+					 chainparams, &fail)) != NULL) {
+		p->features = tal_steal(p, b12->features);
+
+		if (!b12->node_id)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "invoice missing node_id");
+		if (!b12->payment_hash)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "invoice missing payment_hash");
+		if (!b12->timestamp)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "invoice missing timestamp");
+		if (b12->amount) {
+			invmsat = tal(cmd, struct amount_msat);
+			*invmsat = amount_msat(*b12->amount);
+		} else
+			invmsat = NULL;
+
+		/* FIXME: gossmap should store as pubkey32 */
+		p->destination = tal(p, struct node_id);
+		gossmap_guess_node_id(get_gossmap(cmd->plugin),
+				      b12->node_id,
+				      p->destination);
+		p->destination_has_tlv = true;
+		p->payment_hash = tal_dup(p, struct sha256, b12->payment_hash);
+		if (b12->recurrence_counter && !label)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "recurring invoice requires a label");
+		/* FIXME payment_secret should be signature! */
+		{
+			struct sha256 merkle;
+
+			p->payment_secret = tal(p, struct secret);
+			merkle_tlv(b12->fields, &merkle);
+			memcpy(p->payment_secret, &merkle, sizeof(merkle));
+			BUILD_ASSERT(sizeof(*p->payment_secret) == sizeof(merkle));
+		}
+		p->routes = NULL;
+		/* FIXME: paths! */
+		if (b12->cltv)
+			p->min_final_cltv_expiry = *b12->cltv;
+		else
+			p->min_final_cltv_expiry = 18;
+		/* BOLT-offers #12:
+		 * - if `relative_expiry` is present:
+		 *   - MUST reject the invoice if the current time since
+		 *     1970-01-01 UTC is greater than `timestamp` plus
+		 *     `seconds_from_timestamp`.
+		 * - otherwise:
+		 *   - MUST reject the invoice if the current time since
+		 *     1970-01-01 UTC is greater than `timestamp` plus 7200.
+		 */
+		if (b12->relative_expiry)
+			invexpiry = *b12->timestamp + *b12->relative_expiry;
+		else
+			invexpiry = *b12->timestamp + 7200;
+		p->local_offer_id = tal_steal(p, local_offer_id);
+#endif /* EXPERIMENTAL_FEATURES */
+	} else
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Invalid bolt11: %s", fail);
 
-	if (!b11->chain)
-		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "Invoice is for an unknown network");
-
-	if (b11->chain != chainparams)
-		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "Invoice is for another network %s", b11->chain->network_name);
-
-	if (time_now().ts.tv_sec > b11->timestamp + b11->expiry)
+	if (time_now().ts.tv_sec > invexpiry)
 		return command_fail(cmd, PAY_INVOICE_EXPIRED, "Invoice expired");
 
-	if (b11->msat) {
+	if (invmsat) {
 		if (msat) {
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "msatoshi parameter unnecessary");
 		}
-		p->amount = *b11->msat;
+		p->amount = *invmsat;
 
 	} else {
 		if (!msat) {
@@ -2024,26 +2110,9 @@ static struct command_result *json_paymod(struct command *cmd,
 		p->amount = *msat;
 	}
 
-	/* Sanity check */
-	if (feature_offered(b11->features, OPT_VAR_ONION)
-	    && !b11->payment_secret)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Invalid bolt11:"
-				    " sets feature var_onion with no secret");
-
 	p->local_id = &my_id;
 	p->json_buffer = tal_steal(p, buf);
 	p->json_toks = params;
-	p->destination = tal_dup(p, struct node_id, &b11->receiver_id);
-	p->destination_has_tlv = feature_offered(b11->features, OPT_VAR_ONION);
-	p->payment_hash = tal_dup(p, struct sha256, &b11->payment_hash);
-	p->payment_secret = b11->payment_secret
-				? tal_dup(p, struct secret, b11->payment_secret)
-				: NULL;
-	p->routes = tal_steal(p, b11->routes);
-	p->min_final_cltv_expiry = b11->min_final_cltv_expiry;
-	p->features = tal_steal(p, b11->features);
-	p->invstring = tal_steal(p, b11str);
 	p->why = "Initial attempt";
 	p->constraints.cltv_budget = *maxdelay;
 	p->deadline = timeabs_add(time_now(), time_from_sec(*retryfor));
