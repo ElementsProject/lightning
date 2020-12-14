@@ -94,6 +94,16 @@ struct bolt11 *bolt11_decode(const tal_t *ctx, const char *str,
 			     const struct chainparams *must_be_chain,
 			     char **fail);
 
+/* Extracts signature but does not check it. */
+struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
+				   const struct feature_set *our_features,
+				   const char *description,
+				   const struct chainparams *must_be_chain,
+				   struct sha256 *hash,
+				   u5 **sig,
+				   bool *have_n,
+				   char **fail);
+
 /* Initialize an empty bolt11 struct with optional amount */
 struct bolt11 *new_bolt11(const tal_t *ctx,
 			  const struct amount_msat *msat TAKES);
