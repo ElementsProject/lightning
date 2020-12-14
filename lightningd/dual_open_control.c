@@ -94,6 +94,7 @@ struct openchannel2_payload {
 	u32 funding_feerate_per_kw;
 	struct wally_psbt *psbt;
 	const u8 *our_shutdown_scriptpubkey;
+	char *err_msg;
 };
 
 static void
@@ -369,6 +370,11 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 
 	tal_del_destructor2(dualopend, openchannel2_remove_dualopend, payload);
 
+	if (payload->err_msg) {
+		msg = towire_dualopend_fail(NULL, payload->err_msg);
+		return subd_send_msg(dualopend, take(msg));
+	}
+
 	/* If there's no plugin, the funding_feerate_per_kw will be zero.
 	 * In this case, we set the funding_feerate_per_kw to the default,
 	 * the 'best' */
@@ -417,6 +423,29 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 		tal_free(payload);
 		return false;
 	}
+
+	const jsmntok_t *t_result = json_get_member(buffer, toks, "result");
+	if (!t_result)
+		fatal("Plugin returned an invalid response to the"
+		      " openchannel2 hook: %.*s",
+		      json_tok_full_len(toks),
+		      json_tok_full(buffer, toks));
+
+	if (json_tok_streq(buffer, t_result, "reject")) {
+		const jsmntok_t *t_errmsg = json_get_member(buffer, toks,
+							    "error_message");
+		if (t_errmsg)
+			payload->err_msg = json_strdup(payload,
+						       buffer, t_errmsg);
+		else
+			payload->err_msg = "";
+
+		openchannel2_hook_cb(payload);
+		return false;
+	} else if (!json_tok_streq(buffer, t_result, "continue"))
+		fatal("Plugin returned an invalid response to the"
+		      " openchannel2 hook: %.*s",
+		      toks[0].end - toks[0].start, buffer + toks[0].start);
 
 	if (!hook_extract_psbt(payload, dualopend, buffer, toks,
 			       "openchannel2", true, &payload->psbt))
@@ -1375,6 +1404,7 @@ static void accepter_got_offer(struct subd *dualopend,
 	payload->accepter_funding = AMOUNT_SAT(0);
 	payload->our_shutdown_scriptpubkey = NULL;
 	payload->peer_id = uc->peer->id;
+	payload->err_msg = NULL;
 
 	if (!fromwire_dualopend_got_offer(payload, msg,
 					  &payload->their_funding,
