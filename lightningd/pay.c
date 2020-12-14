@@ -1292,7 +1292,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 		   p_opt("label", param_escaped_string, &label),
 		   p_opt("shared_secrets", param_secrets_array, &path_secrets),
 		   p_opt_def("partid", param_u64, &partid, 0),
-		   /* FIXME: paramter should be invstring now */
+		   /* FIXME: parameter should be invstring now */
 		   p_opt("bolt11", param_string, &invstring),
 		   p_opt_def("msatoshi", param_msat, &msat, AMOUNT_MSAT(0)),
 		   p_opt("destination", param_node_id, &destination),
@@ -1447,12 +1447,12 @@ static struct command_result *json_sendpay(struct command *cmd,
 		   p_req("payment_hash", param_sha256, &rhash),
 		   p_opt("label", param_escaped_string, &label),
 		   p_opt("msatoshi", param_msat, &msat),
-		   /* FIXME: paramter should be invstring now */
+		   /* FIXME: parameter should be invstring now */
 		   p_opt("bolt11", param_string, &invstring),
 		   p_opt("payment_secret", param_secret, &payment_secret),
 		   p_opt_def("partid", param_u64, &partid, 0),
 #if EXPERIMENTAL_FEATURES
-		   p_opt("local_offer_id", param_sha256, &local_offer_id),
+		   p_opt("localofferid", param_sha256, &local_offer_id),
 #endif
 		   NULL))
 		return command_param_failed();
@@ -1561,7 +1561,7 @@ static struct command_result *json_listsendpays(struct command *cmd,
 	const char *invstring;
 
 	if (!param(cmd, buffer, params,
-		   /* FIXME: paramter should be invstring now */
+		   /* FIXME: parameter should be invstring now */
 		   p_opt("bolt11", param_string, &invstring),
 		   p_opt("payment_hash", param_sha256, &rhash),
 		   NULL))

@@ -1994,7 +1994,7 @@ static struct command_result *json_paymod(struct command *cmd,
 			     maxdelay_default),
 		   p_opt_def("exemptfee", param_msat, &exemptfee, AMOUNT_MSAT(5000)),
 #if EXPERIMENTAL_FEATURES
-		   p_opt("local_offer_id", param_sha256, &local_offer_id),
+		   p_opt("localofferid", param_sha256, &local_offer_id),
 #endif
 #if DEVELOPER
 		   p_opt_def("use_shadow", param_bool, &use_shadow, true),
@@ -2085,7 +2085,7 @@ static struct command_result *json_paymod(struct command *cmd,
 		if (b12->relative_expiry)
 			invexpiry = *b12->timestamp + *b12->relative_expiry;
 		else
-			invexpiry = *b12->timestamp + 7200;
+			invexpiry = *b12->timestamp + BOLT12_DEFAULT_REL_EXPIRY;
 		p->local_offer_id = tal_steal(p, local_offer_id);
 #endif /* EXPERIMENTAL_FEATURES */
 	} else

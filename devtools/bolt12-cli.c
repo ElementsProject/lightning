@@ -405,8 +405,9 @@ static void print_relative_expiry(u64 *timestamp, u32 *relative)
 	 *      is greater than `timestamp` plus 7200.
 	 */
 	if (!relative)
-		printf("relative_expiry: %u (%s) (default)\n", 7200,
-		       fmt_time(tmpctx, *timestamp + 7200));
+		printf("relative_expiry: %u (%s) (default)\n",
+		       BOLT12_DEFAULT_REL_EXPIRY,
+		       fmt_time(tmpctx, *timestamp + BOLT12_DEFAULT_REL_EXPIRY));
 	else
 		printf("relative_expiry: %u (%s)\n", *relative,
 		       fmt_time(tmpctx, *timestamp + *relative));

@@ -1515,8 +1515,8 @@ static struct command_result *json_createinvoice(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_req("invstring", param_string, &invstring),
-		   p_req("preimage", param_preimage, &preimage),
 		   p_req("label", param_label, &label),
+		   p_req("preimage", param_preimage, &preimage),
 		   NULL))
 		return command_param_failed();
 
@@ -1536,6 +1536,10 @@ static struct command_result *json_createinvoice(struct command *cmd,
 		if (!b11->expiry)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Missing expiry in invoice");
+
+		if (!sha256_eq(&payment_hash, &b11->payment_hash))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Incorrect preimage");
 
 		if (!wallet_invoice_create(cmd->ld->wallet,
 					   &invoice,
@@ -1588,7 +1592,14 @@ static struct command_result *json_createinvoice(struct command *cmd,
 			if (inv->relative_expiry)
 				expiry = *inv->relative_expiry;
 			else
-				expiry = 7200;
+				expiry = BOLT12_DEFAULT_REL_EXPIRY;
+
+			if (!inv->payment_hash)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Missing payment_hash in invoice");
+			if (!sha256_eq(&payment_hash, inv->payment_hash))
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Incorrect preimage");
 
 			if (!inv->description)
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,

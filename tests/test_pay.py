@@ -1883,7 +1883,7 @@ def test_setchannelfee_usage(node_factory, bitcoind):
     wait_for(lambda: [c['base_fee_millisatoshi'] for c in l1.rpc.listchannels(scid)['channels']] == [DEF_BASE, 1337])
     wait_for(lambda: [c['fee_per_millionth'] for c in l1.rpc.listchannels(scid)['channels']] == [DEF_PPM, 137])
 
-    # also test with named and missing paramters
+    # also test with named and missing parameters
     result = l1.rpc.setchannelfee(ppm=42, id=scid)
     assert(result['base'] == DEF_BASE)
     assert(result['ppm'] == 42)

@@ -1453,7 +1453,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 		json_add_node_id(req->js, "destination", p->destination);
 
 	if (p->local_offer_id)
-		json_add_sha256(req->js, "local_offer_id", p->local_offer_id);
+		json_add_sha256(req->js, "localofferid", p->local_offer_id);
 
 	send_outreq(p->plugin, req);
 	return command_still_pending(cmd);

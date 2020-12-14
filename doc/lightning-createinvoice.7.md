@@ -4,7 +4,7 @@ lightning-createinvoice -- Low-level invoice creation
 SYNOPSIS
 --------
 
-**createinvoice** *invstring* *preimage* *label*
+**createinvoice** *invstring* *label* *preimage*
 
 DESCRIPTION
 -----------
@@ -15,14 +15,13 @@ database.
 The *invstring* parameter is of bolt11 form, but without the final
 signature appended.  Minimal sanity checks are done.
 
-The *preimage* is the preimage to supply upon successful payment of
-the invoice.
-
 The *label* must be a unique string or number (which is treated as a
 string, so "01" is different from "1"); it is never revealed to other
 nodes on the lightning network, but it can be used to query the status
 of this invoice.
 
+The *preimage* is the preimage to supply upon successful payment of
+the invoice.
 
 RETURN VALUE
 ------------

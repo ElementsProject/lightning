@@ -5,6 +5,16 @@
 
 struct feature_set;
 
+/* BOLT-offers #12:
+ * - if `relative_expiry` is present:
+ *   - MUST reject the invoice if the current time since 1970-01-01 UTC
+ *     is greater than `timestamp` plus `seconds_from_timestamp`.
+ *  - otherwise:
+ *    - MUST reject the invoice if the current time since 1970-01-01 UTC
+ *      is greater than `timestamp` plus 7200.
+ */
+#define BOLT12_DEFAULT_REL_EXPIRY 7200
+
 /**
  * offer_encode - encode this complete bolt12 offer TLV into text.
  */
