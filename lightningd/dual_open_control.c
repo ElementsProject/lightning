@@ -373,6 +373,9 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 	tal_del_destructor2(dualopend, openchannel2_remove_dualopend, payload);
 
 	if (payload->err_msg) {
+		log_debug(dualopend->ld->log,
+			  "openchannel2_hook rejects and says '%s'",
+			  payload->err_msg);
 		msg = towire_dualopend_fail(NULL, payload->err_msg);
 		return subd_send_msg(dualopend, take(msg));
 	}
