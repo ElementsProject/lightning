@@ -354,6 +354,57 @@ static void openchannel2_remove_dualopend(struct subd *dualopend,
 	payload->dualopend = NULL;
 }
 
+static void
+openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
+{
+	struct subd *dualopend = payload->dualopend;
+	u8 *msg;
+
+	/* Free payload regardless of what happens next */
+	tal_steal(tmpctx, payload);
+
+	/* If our daemon died, we're done */
+	if (!dualopend)
+		return;
+
+	tal_del_destructor2(dualopend, openchannel2_remove_dualopend, payload);
+
+	/* If there's no plugin, the funding_feerate_per_kw will be zero.
+	 * In this case, we set the funding_feerate_per_kw to the default,
+	 * the 'best' */
+	if (payload->funding_feerate_per_kw == 0) {
+		u32 best_feerate
+			= payload->funding_feerate_per_kw
+			= payload->funding_feerate_best;
+
+		/* We use the old checks here now, against the base feerate */
+		if (best_feerate < payload->feerate_our_min) {
+			msg = towire_dualopend_fail(NULL, tal_fmt(tmpctx,
+						    "feerate_per_kw %u below"
+						    " minimum %u",
+						    best_feerate,
+						    payload->feerate_our_min));
+			return subd_send_msg(dualopend, take(msg));
+		}
+		if (best_feerate > payload->feerate_our_max) {
+			msg = towire_dualopend_fail(NULL, tal_fmt(tmpctx,
+						    "feerate_per_kw %u above"
+						    " maximum %u",
+						    best_feerate,
+						    payload->feerate_our_max));
+			return subd_send_msg(dualopend, take(msg));
+		}
+	}
+
+	msg = towire_dualopend_got_offer_reply(NULL, payload->accepter_funding,
+					       payload->funding_feerate_per_kw,
+					       payload->psbt,
+					       payload->our_shutdown_scriptpubkey);
+
+	subd_send_msg(dualopend, take(msg));
+}
+
+
 static bool
 openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 			      const char *buffer,
@@ -414,56 +465,6 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 	}
 
 	return true;
-}
-
-static void
-openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
-{
-	struct subd *dualopend = payload->dualopend;
-	u8 *msg;
-
-	/* Free payload regardless of what happens next */
-	tal_steal(tmpctx, payload);
-
-	/* If our daemon died, we're done */
-	if (!dualopend)
-		return;
-
-	tal_del_destructor2(dualopend, openchannel2_remove_dualopend, payload);
-
-	/* If there's no plugin, the funding_feerate_per_kw will be zero.
-	 * In this case, we set the funding_feerate_per_kw to the default,
-	 * the 'best' */
-	if (payload->funding_feerate_per_kw == 0) {
-		u32 best_feerate
-			= payload->funding_feerate_per_kw
-			= payload->funding_feerate_best;
-
-		/* We use the old checks here now, against the base feerate */
-		if (best_feerate < payload->feerate_our_min) {
-			msg = towire_dualopend_fail(NULL, tal_fmt(tmpctx,
-						    "feerate_per_kw %u below"
-						    " minimum %u",
-						    best_feerate,
-						    payload->feerate_our_min));
-			return subd_send_msg(dualopend, take(msg));
-		}
-		if (best_feerate > payload->feerate_our_max) {
-			msg = towire_dualopend_fail(NULL, tal_fmt(tmpctx,
-						    "feerate_per_kw %u above"
-						    " maximum %u",
-						    best_feerate,
-						    payload->feerate_our_max));
-			return subd_send_msg(dualopend, take(msg));
-		}
-	}
-
-	msg = towire_dualopend_got_offer_reply(NULL, payload->accepter_funding,
-					       payload->funding_feerate_per_kw,
-					       payload->psbt,
-					       payload->our_shutdown_scriptpubkey);
-
-	subd_send_msg(dualopend, take(msg));
 }
 
 /* dualopend dies?  Remove dualopend ptr from payload */
