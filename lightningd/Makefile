@@ -47,6 +47,10 @@ endif
 LIGHTNINGD_SRC_NOHDR :=				\
 	lightningd/signmessage.c
 
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+LIGHTNINGD_SRC_NOHDR += lightningd/offer.c
+endif
+
 LIGHTNINGD_HEADERS :=				\
 	$(LIGHTNINGD_SRC:.c=.h)			\
 	lightningd/channel_state.h		\
@@ -121,6 +125,10 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/wallet.o				\
 	common/wire_error.o			\
 	common/wireaddr.o			\
+
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+LIGHTNINGD_COMMON_OBJS += common/bolt12.o common/bolt12_merkle.o
+endif
 
 include wallet/Makefile
 
