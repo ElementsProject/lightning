@@ -57,7 +57,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->route = NULL;
 	p->temp_exclusion = NULL;
 	p->failroute_retry = false;
-	p->bolt11 = NULL;
+	p->invstring = NULL;
 	p->routetxt = NULL;
 	p->max_htlcs = UINT32_MAX;
 
@@ -82,6 +82,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->features = parent->features;
 		p->id = parent->id;
 		p->local_id = parent->local_id;
+		p->local_offer_id = parent->local_offer_id;
 	} else {
 		assert(cmd != NULL);
 		p->partid = 0;
@@ -92,6 +93,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->id = next_id++;
 		/* Caller must set this.  */
 		p->local_id = NULL;
+		p->local_offer_id = NULL;
 	}
 
 	/* Initialize all modifier data so we can point to the fields when
@@ -1443,11 +1445,15 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	if (p->label)
 		json_add_string(req->js, "label", p->label);
 
-	if (p->bolt11)
-		json_add_string(req->js, "bolt11", p->bolt11);
+	if (p->invstring)
+		/* FIXME: rename parameter to invstring */
+		json_add_string(req->js, "bolt11", p->invstring);
 
 	if (p->destination)
 		json_add_node_id(req->js, "destination", p->destination);
+
+	if (p->local_offer_id)
+		json_add_sha256(req->js, "local_offer_id", p->local_offer_id);
 
 	send_outreq(p->plugin, req);
 	return command_still_pending(cmd);
@@ -1805,8 +1811,8 @@ static void payment_finished(struct payment *p)
 			json_add_string(ret, "failcodename",
 					failure->failcodename);
 
-			if (p->bolt11)
-				json_add_string(ret, "bolt11", p->bolt11);
+			if (p->invstring)
+				json_add_invstring(ret, p->invstring);
 
 			json_add_hex_talarr(ret, "raw_message",
 					    result.failure->raw_message);
@@ -3265,7 +3271,7 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 			/* Annotate the subpayments with the bolt11 string,
 			 * they'll be used when aggregating the payments
 			 * again. */
-			c->bolt11 = tal_strdup(c, p->bolt11);
+			c->invstring = tal_strdup(c, p->invstring);
 
 			/* Get ~ target, but don't exceed amt */
 			c->amount = fuzzed_near(target, amt);

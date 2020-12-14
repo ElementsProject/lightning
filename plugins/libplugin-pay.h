@@ -254,9 +254,13 @@ struct payment {
 	 * true. Set only on the root payment. */
 	bool abort;
 
-	/* Serialized bolt11 string, kept attachd to the root so we can filter
+	/* Serialized bolt11/12 string, kept attachd to the root so we can filter
 	 * by the invoice. */
-	const char *bolt11;
+	const char *invstring;
+
+	/* If this is paying a local offer, this is the one (sendpay ensures we
+	 * don't pay twice for single-use offers) */
+	struct sha256 *local_offer_id;
 
 	/* Textual explanation of why this payment was attempted. */
 	const char *why;
