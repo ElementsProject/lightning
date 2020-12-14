@@ -76,4 +76,8 @@ static const errcode_t INVOICE_STATUS_UNEXPECTED = 906;
 /* Errors from HSM crypto operations. */
 static const errcode_t HSM_ECDH_FAILED = 800;
 
+/* Errors from `offer` commands */
+static const errcode_t OFFER_ALREADY_EXISTS = 1000;
+static const errcode_t OFFER_ALREADY_DISABLED = 1001;
+
 #endif /* LIGHTNING_COMMON_JSONRPC_ERRORS_H */
