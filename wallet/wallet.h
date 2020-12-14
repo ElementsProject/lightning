@@ -726,6 +726,8 @@ struct invoice_details {
 	char *description;
 	/* The features, if any (tal_arr) */
 	u8 *features;
+	/* The offer this refers to, if any. */
+	struct sha256 *local_offer_id;
 };
 
 /* An object that handles iteration over the set of invoices */
@@ -768,7 +770,8 @@ bool wallet_invoice_create(struct wallet *wallet,
 			   const char *description,
 			   const u8 *features,
 			   const struct preimage *r,
-			   const struct sha256 *rhash);
+			   const struct sha256 *rhash,
+			   const struct sha256 *local_offer_id);
 
 /**
  * wallet_invoice_find_by_label - Search for an invoice by label

@@ -664,6 +664,8 @@ static struct migration dbmigrations[] = {
 	 ", status INTEGER"
 	 ", PRIMARY KEY (offer_id)"
 	 ");"), NULL},
+    /* A reference into our own offers table, if it was made from one */
+    {SQL("ALTER TABLE invoices ADD COLUMN local_offer_id BLOB DEFAULT NULL;"), NULL},
 };
 
 /* Leak tracking. */

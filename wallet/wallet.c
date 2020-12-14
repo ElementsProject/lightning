@@ -2295,9 +2295,10 @@ bool wallet_invoice_create(struct wallet *wallet,
 			   const char *description,
 			   const u8 *features,
 			   const struct preimage *r,
-			   const struct sha256 *rhash)
+			   const struct sha256 *rhash,
+			   const struct sha256 *local_offer_id)
 {
-	return invoices_create(wallet->invoices, pinvoice, msat, label, expiry, b11enc, description, features, r, rhash);
+	return invoices_create(wallet->invoices, pinvoice, msat, label, expiry, b11enc, description, features, r, rhash, local_offer_id);
 }
 bool wallet_invoice_find_by_label(struct wallet *wallet,
 				  struct invoice *pinvoice,
@@ -4081,7 +4082,7 @@ static void offer_status_update(struct db *db,
 
 	stmt = db_prepare_v2(db, SQL("UPDATE invoices"
 				     " SET state=?"
-				     " WHERE state=? AND offer_id = ?;"));
+				     " WHERE state=? AND local_offer_id = ?;"));
 	db_bind_int(stmt, 0, invoice_status_in_db(UNPAID));
 	db_bind_int(stmt, 1, invoice_status_in_db(EXPIRED));
 	db_bind_sha256(stmt, 2, offer_id);

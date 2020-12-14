@@ -855,6 +855,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "ALTER TABLE invoices ADD COLUMN local_offer_id BLOB DEFAULT NULL;",
+         .query = "ALTER TABLE invoices ADD COLUMN local_offer_id BLOB DEFAULT NULL;",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
          .name = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .query = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .placeholders = 1,
@@ -969,9 +975,9 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = true,
     },
     {
-         .name = "INSERT INTO invoices            ( payment_hash, payment_key, state            , msatoshi, label, expiry_time            , pay_index, msatoshi_received            , paid_timestamp, bolt11, description, features)     VALUES ( ?, ?, ?            , ?, ?, ?            , NULL, NULL            , NULL, ?, ?, ?);",
-         .query = "INSERT INTO invoices            ( payment_hash, payment_key, state            , msatoshi, label, expiry_time            , pay_index, msatoshi_received            , paid_timestamp, bolt11, description, features)     VALUES ( ?, ?, ?            , ?, ?, ?            , NULL, NULL            , NULL, ?, ?, ?);",
-         .placeholders = 9,
+         .name = "INSERT INTO invoices            ( payment_hash, payment_key, state            , msatoshi, label, expiry_time            , pay_index, msatoshi_received            , paid_timestamp, bolt11, description, features, local_offer_id)     VALUES ( ?, ?, ?            , ?, ?, ?            , NULL, NULL            , NULL, ?, ?, ?, ?);",
+         .query = "INSERT INTO invoices            ( payment_hash, payment_key, state            , msatoshi, label, expiry_time            , pay_index, msatoshi_received            , paid_timestamp, bolt11, description, features, local_offer_id)     VALUES ( ?, ?, ?            , ?, ?, ?            , NULL, NULL            , NULL, ?, ?, ?, ?);",
+         .placeholders = 10,
          .readonly = false,
     },
     {
@@ -1017,6 +1023,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = true,
     },
     {
+         .name = "SELECT local_offer_id FROM invoices WHERE id = ?;",
+         .query = "SELECT local_offer_id FROM invoices WHERE id = ?;",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
          .name = "UPDATE invoices   SET state=?     , pay_index=?     , msatoshi_received=?     , paid_timestamp=? WHERE id=?;",
          .query = "UPDATE invoices   SET state=?     , pay_index=?     , msatoshi_received=?     , paid_timestamp=? WHERE id=?;",
          .placeholders = 5,
@@ -1029,8 +1041,8 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = true,
     },
     {
-         .name = "SELECT  state, payment_key, payment_hash, label, msatoshi, expiry_time, pay_index, msatoshi_received, paid_timestamp, bolt11, description, features FROM invoices WHERE id = ?;",
-         .query = "SELECT  state, payment_key, payment_hash, label, msatoshi, expiry_time, pay_index, msatoshi_received, paid_timestamp, bolt11, description, features FROM invoices WHERE id = ?;",
+         .name = "SELECT  state, payment_key, payment_hash, label, msatoshi, expiry_time, pay_index, msatoshi_received, paid_timestamp, bolt11, description, features, local_offer_id FROM invoices WHERE id = ?;",
+         .query = "SELECT  state, payment_key, payment_hash, label, msatoshi, expiry_time, pay_index, msatoshi_received, paid_timestamp, bolt11, description, features, local_offer_id FROM invoices WHERE id = ?;",
          .placeholders = 1,
          .readonly = true,
     },
@@ -1701,8 +1713,8 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
-         .name = "UPDATE invoices SET state=? WHERE state=? AND offer_id = ?;",
-         .query = "UPDATE invoices SET state=? WHERE state=? AND offer_id = ?;",
+         .name = "UPDATE invoices SET state=? WHERE state=? AND local_offer_id = ?;",
+         .query = "UPDATE invoices SET state=? WHERE state=? AND local_offer_id = ?;",
          .placeholders = 3,
          .readonly = false,
     },
@@ -1732,10 +1744,10 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
-#define DB_SQLITE3_QUERY_COUNT 287
+#define DB_SQLITE3_QUERY_COUNT 289
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:94af743741cd2a2d8725371af12e130a692334a118b52386fb901fadfe25d4cd
+// SHA256STAMP:83a4b63d1c5566db35ab00e9da60f6c98c04f8bd30800e51cce294dfcb49c9ec

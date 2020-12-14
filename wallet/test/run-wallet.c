@@ -175,7 +175,8 @@ bool invoices_create(struct invoices *invoices UNNEEDED,
 		     const char *description UNNEEDED,
 		     const u8 *features UNNEEDED,
 		     const struct preimage *r UNNEEDED,
-		     const struct sha256 *rhash UNNEEDED)
+		     const struct sha256 *rhash UNNEEDED,
+		     const struct sha256 *local_offer_id UNNEEDED)
 { fprintf(stderr, "invoices_create called!\n"); abort(); }
 /* Generated stub for invoices_delete */
 bool invoices_delete(struct invoices *invoices UNNEEDED,
