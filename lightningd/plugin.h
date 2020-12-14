@@ -88,6 +88,10 @@ struct plugin {
 	/* If set, the plugin is so important that if it terminates early,
 	 * C-lightning should terminate as well.  */
 	bool important;
+
+	/* Parameters for dynamically-started plugins. */
+	const char *parambuf;
+	const jsmntok_t *params;
 };
 
 /**
@@ -200,6 +204,8 @@ void plugins_free(struct plugins *plugins);
  * @param path: The path of the executable for this plugin
  * @param start_cmd: The optional JSON command which caused this.
  * @param important: The plugin is important.
+ * @param parambuf: NULL, or the JSON buffer for extra parameters.
+ * @param params: NULL, or the tokens for extra parameters.
  *
  * If @start_cmd, then plugin_cmd_killed or plugin_cmd_succeeded will be called
  * on it eventually.
@@ -207,7 +213,10 @@ void plugins_free(struct plugins *plugins);
 struct plugin *plugin_register(struct plugins *plugins,
 			       const char* path TAKES,
 			       struct command *start_cmd,
-			       bool important);
+			       bool important,
+			       const char *parambuf STEALS,
+			       const jsmntok_t *params STEALS);
+
 
 /**
  * Returns true if the provided name matches a plugin command

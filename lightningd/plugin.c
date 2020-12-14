@@ -1,5 +1,6 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/list/list.h>
+#include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
@@ -174,7 +175,9 @@ static void destroy_plugin(struct plugin *p)
 }
 
 struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
-			       struct command *start_cmd, bool important)
+			       struct command *start_cmd, bool important,
+			       const char *parambuf STEALS,
+			       const jsmntok_t *params STEALS)
 {
 	struct plugin *p, *p_temp;
 
@@ -212,6 +215,8 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	list_head_init(&p->pending_rpccalls);
 
 	p->important = important;
+	p->parambuf = tal_steal(p, parambuf);
+	p->params = tal_steal(p, params);
 	return p;
 }
 
@@ -1154,6 +1159,48 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 	return NULL;
 }
 
+static struct plugin_opt *plugin_opt_find(struct plugin *plugin,
+					  const char *name, size_t namelen)
+{
+	struct plugin_opt *opt;
+
+	list_for_each(&plugin->plugin_opts, opt, list) {
+		/* Trim the `--` that we added before */
+		if (memeqstr(name, namelen, opt->name + 2))
+			return opt;
+	}
+	return NULL;
+}
+
+/* start command might have included plugin-specific parameters */
+static const char *plugin_add_params(struct plugin *plugin)
+{
+	size_t i;
+	const jsmntok_t *t;
+
+	if (!plugin->params)
+		return NULL;
+
+	json_for_each_obj(i, t, plugin->params) {
+		struct plugin_opt *popt;
+		char *err;
+
+		popt = plugin_opt_find(plugin,
+				       plugin->parambuf + t->start,
+				       t->end - t->start);
+		if (!popt) {
+			return tal_fmt(plugin, "unknown parameter %.*s",
+				       json_tok_full_len(t),
+				       json_tok_full(plugin->parambuf, t));
+		}
+		err = plugin_opt_set(json_strdup(tmpctx, plugin->parambuf,
+						 t + 1), popt);
+		if (err)
+			return err;
+	}
+	return NULL;
+}
+
 static void plugin_manifest_timeout(struct plugin *plugin)
 {
 	bool startup = plugin->plugins->startup;
@@ -1243,6 +1290,8 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 		err = plugin_subscriptions_add(plugin, buffer, resulttok);
 	if (!err)
 		err = plugin_hooks_add(plugin, buffer, resulttok);
+	if (!err)
+		err = plugin_add_params(plugin);
 
 	plugin->plugin_state = NEEDS_INIT;
 	return err;
@@ -1360,7 +1409,8 @@ char *add_plugin_dir(struct plugins *plugins, const char *dir, bool error_ok)
 			log_info(plugins->log, "%s: disabled via disable-plugin",
 				 fullpath);
 		} else {
-			p = plugin_register(plugins, fullpath, NULL, false);
+			p = plugin_register(plugins, fullpath, NULL, false,
+					    NULL, NULL);
 			if (!p && !error_ok)
 				return tal_fmt(NULL, "Failed to register %s: %s",
 				               fullpath, strerror(errno));
@@ -1807,7 +1857,8 @@ void plugins_set_builtin_plugins_dir(struct plugins *plugins,
 				take(path_join(NULL, dir,
 					       list_of_builtin_plugins[i])),
 				NULL,
-				/* important = */ true);
+				/* important = */ true,
+				NULL, NULL);
 }
 
 struct plugin_destroyed {

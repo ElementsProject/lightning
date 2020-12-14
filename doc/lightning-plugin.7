@@ -14,9 +14,10 @@ optionally one or two parameters which describes the plugin on which the
 action has to be taken\.
 
 
-The \fIstart\fR command takes a path as the first parameter and will load the
-plugin available from this path\. It will wait for the plugin to complete
-the handshake with \fBlightningd\fR for 20 seconds at the most\.
+The \fIstart\fR command takes a path as the first parameter and will load
+the plugin available from this path\.  Any additional parameters are
+passed to the plugin\. It will wait for the plugin to complete the
+handshake with \fBlightningd\fR for 20 seconds at the most\.
 
 
 The \fIstop\fR command takes a plugin name as parameter\. It will kill and
@@ -54,4 +55,4 @@ Antoine Poinsot \fI<darosior@protonmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:a8d7488cb0a731e794aeed1d2d30448cef27204d9ec0374610faf2a84a401762
+\" SHA256STAMP:f4b405aa5a5bb8dde3b8947b7d6152ba5ac88108cde43c1375121e5c24555d30

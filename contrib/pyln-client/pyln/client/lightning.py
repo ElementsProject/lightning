@@ -1024,14 +1024,15 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("ping", payload)
 
-    def plugin_start(self, plugin):
+    def plugin_start(self, plugin, **kwargs):
         """
         Adds a plugin to lightningd.
         """
         payload = {
             "subcommand": "start",
-            "plugin": plugin
+            "plugin": plugin,
         }
+        payload.update({k: v for k, v in kwargs.items()})
         return self.call("plugin", payload)
 
     def plugin_startdir(self, directory):
