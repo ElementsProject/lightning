@@ -57,7 +57,7 @@ static void json_add_invoice(struct json_stream *response,
 			     const struct invoice_details *inv)
 {
 	json_add_escaped_string(response, "label", inv->label);
-	json_add_string(response, "bolt11", inv->bolt11);
+	json_add_invstring(response, inv->invstring);
 	json_add_sha256(response, "payment_hash", &inv->rhash);
 	if (inv->msat)
 		json_add_amount_msat_compat(response, *inv->msat,
@@ -741,7 +741,7 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	response = json_stream_success(info->cmd);
 	json_add_sha256(response, "payment_hash", &details->rhash);
 	json_add_u64(response, "expires_at", details->expiry_time);
-	json_add_string(response, "bolt11", details->bolt11);
+	json_add_string(response, "bolt11", details->invstring);
 
 	notify_invoice_creation(info->cmd->ld, info->b11->msat,
 				info->payment_preimage, info->label);

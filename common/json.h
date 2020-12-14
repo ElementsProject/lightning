@@ -229,5 +229,7 @@ void json_add_tok(struct json_stream *result, const char *fieldname,
 void json_add_errcode(struct json_stream *result, const char *fieldname,
 		      errcode_t code);
 
+/* Add "bolt11" or "bolt12" field, depending on invstring. */
+void json_add_invstring(struct json_stream *result, const char *invstring);
 
 #endif /* LIGHTNING_COMMON_JSON_H */
