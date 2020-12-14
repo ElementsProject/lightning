@@ -107,8 +107,8 @@ static struct invoice_details *wallet_stmt2invoice_details(const tal_t *ctx,
 		dtl->paid_timestamp = db_column_u64(stmt, 8);
 	}
 
-	dtl->bolt11 = tal_strndup(dtl, db_column_blob(stmt, 9),
-				  db_column_bytes(stmt, 9));
+	dtl->invstring = tal_strndup(dtl, db_column_blob(stmt, 9),
+				     db_column_bytes(stmt, 9));
 
 	if (!db_column_is_null(stmt, 10))
 		dtl->description = tal_strdup(

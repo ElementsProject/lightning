@@ -722,8 +722,8 @@ struct invoice_details {
 	struct amount_msat received;
 	/* Set if state == PAID; time paid */
 	u64 paid_timestamp;
-	/* BOLT11 encoding for this invoice */
-	const char *bolt11;
+	/* BOLT11 or BOLT12 encoding for this invoice */
+	const char *invstring;
 
 	/* The description of the payment. */
 	char *description;
