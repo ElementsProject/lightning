@@ -52,7 +52,6 @@ def test_option_passthrough(node_factory, directory):
     n.stop()
 
 
-@unittest.skipIf(DEPRECATED_APIS, "We test the new API.")
 def test_option_types(node_factory):
     """Ensure that desired types of options are
        respected in output """
@@ -120,25 +119,6 @@ def test_option_types(node_factory):
     # the node should fail to start, and we get a stderr msg
     assert not n.daemon.running
     assert n.daemon.is_in_stderr("--flag_opt: doesn't allow an argument")
-
-    plugin_path = os.path.join(os.getcwd(), 'tests/plugins/options.py')
-    n = node_factory.get_node(options={
-        'plugin': plugin_path,
-        'str_opt': 'ok',
-        'int_opt': 22,
-        'bool_opt': 1,
-        'flag_opt': None,
-        'allow-deprecated-apis': True
-    })
-
-    # because of how the python json parser works, since we're adding the deprecated
-    # string option after the 'typed' option in the JSON, the string option overwrites
-    # the earlier typed option in JSON parsing, resulting in a option set of only strings
-    assert n.daemon.is_in_log(r"option str_opt ok <class 'str'>")
-    assert n.daemon.is_in_log(r"option int_opt 22 <class 'str'>")
-    assert n.daemon.is_in_log(r"option bool_opt 1 <class 'str'>")
-    assert n.daemon.is_in_log(r"option flag_opt True <class 'bool'>")
-    n.stop()
 
 
 def test_millisatoshi_passthrough(node_factory):
