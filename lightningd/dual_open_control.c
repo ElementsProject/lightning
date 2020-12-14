@@ -437,8 +437,23 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 		      json_tok_full(buffer, toks));
 
 	if (json_tok_streq(buffer, t_result, "reject")) {
+		/* Should not have set any other fields if 'reject'ing */
+		if (json_get_member(buffer, toks, "close_to"))
+			fatal("Plugin rejected openchannel2 but"
+			      " also set close_to");
+		if (json_get_member(buffer, toks, "psbt"))
+			fatal("Plugin rejected openchannel2 but"
+			      " also set `psbt`");
+		if (json_get_member(buffer, toks, "accepter_funding_msat"))
+			fatal("Plugin rejected openchannel2 but"
+			      " also set `accepter_funding_psbt`");
+		if (json_get_member(buffer, toks, "funding_feerate"))
+			fatal("Plugin rejected openchannel2 but"
+			      " also set `funding_feerate`");
+
 		const jsmntok_t *t_errmsg = json_get_member(buffer, toks,
 							    "error_message");
+
 		if (t_errmsg)
 			payload->err_msg = json_strdup(payload,
 						       buffer, t_errmsg);
