@@ -277,6 +277,8 @@ static void negotiation_aborted(struct state *state, const char *why)
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = tal_free(state->channel);
 	state->changeset = tal_free(state->changeset);
+	if (state->psbt)
+		tal_free(state->psbt);
 
 	for (size_t i = 0; i < NUM_TX_MSGS; i++)
 		state->tx_msg_count[i] = 0;
@@ -2710,6 +2712,7 @@ int main(int argc, char *argv[])
 	/*~ This makes status_failed, status_debug etc work synchronously by
 	 * writing to REQ_FD */
 	status_setup_sync(REQ_FD);
+	state->psbt = NULL;
 
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
