@@ -1331,4 +1331,127 @@ struct penalty_base *wallet_penalty_base_load_for_channel(const tal_t *ctx,
  */
 void wallet_penalty_base_delete(struct wallet *w, u64 chan_id, u64 commitnum);
 
+/* /!\ This is a DB ENUM, please do not change the numbering of any
+ * already defined elements (adding is ok) /!\ */
+#define OFFER_STATUS_ACTIVE_F  0x1
+#define OFFER_STATUS_SINGLE_F  0x2
+#define OFFER_STATUS_USED_F    0x4
+enum offer_status {
+	OFFER_MULTIPLE_USE = OFFER_STATUS_ACTIVE_F,
+	OFFER_SINGLE_USE = OFFER_STATUS_ACTIVE_F|OFFER_STATUS_SINGLE_F,
+	OFFER_USED = OFFER_STATUS_SINGLE_F|OFFER_STATUS_USED_F,
+	OFFER_SINGLE_DISABLED = OFFER_STATUS_SINGLE_F,
+	OFFER_MULTIPLE_DISABLED = 0,
+};
+
+static inline enum offer_status offer_status_in_db(enum offer_status s)
+{
+	switch (s) {
+	case OFFER_MULTIPLE_USE:
+		BUILD_ASSERT(OFFER_MULTIPLE_USE == 1);
+		return s;
+	case OFFER_SINGLE_USE:
+		BUILD_ASSERT(OFFER_SINGLE_USE == 3);
+		return s;
+	case OFFER_USED:
+		BUILD_ASSERT(OFFER_USED == 6);
+		return s;
+	case OFFER_SINGLE_DISABLED:
+		BUILD_ASSERT(OFFER_SINGLE_DISABLED == 2);
+		return s;
+	case OFFER_MULTIPLE_DISABLED:
+		BUILD_ASSERT(OFFER_MULTIPLE_DISABLED == 0);
+		return s;
+	}
+	fatal("%s: %u is invalid", __func__, s);
+}
+
+static inline bool offer_status_active(enum offer_status s)
+{
+	return s & OFFER_STATUS_ACTIVE_F;
+}
+
+static inline bool offer_status_single(enum offer_status s)
+{
+	return s & OFFER_STATUS_SINGLE_F;
+}
+
+/**
+ * Store an offer in the database.
+ * @w: the wallet
+ * @offer_id: the merkle root, as used for signing (must be unique)
+ * @bolt12: offer as text.
+ * @label: optional label for this offer.
+ * @status: OFFER_SINGLE_USE or OFFER_MULTIPLE_USE
+ */
+bool wallet_offer_create(struct wallet *w,
+			 const struct sha256 *offer_id,
+			 const char *bolt12,
+			 const struct json_escape *label,
+			 enum offer_status status)
+	NON_NULL_ARGS(1,2,3);
+
+/**
+ * Retrieve an offer from the database.
+ * @ctx: the tal context to allocate return from.
+ * @w: the wallet
+ * @offer_id: the merkle root, as used for signing (must be unique)
+ * @label: the label of the offer, set to NULL if none (or NULL)
+ * @status: set if succeeds (or NULL)
+ *
+ * If @offer_id is found, returns the bolt12 text, sets @label and
+ * @state.  Otherwise returns NULL.
+ */
+char *wallet_offer_find(const tal_t *ctx,
+			struct wallet *w,
+			const struct sha256 *offer_id,
+			const struct json_escape **label,
+			enum offer_status *status)
+	NON_NULL_ARGS(1,2,3);
+
+/**
+ * Iterate through all the offers.
+ * @w: the wallet
+ * @offer_id: the first offer id (if returns non-NULL)
+ *
+ * Returns pointer to hand as @stmt to wallet_offer_next(), or NULL.
+ * If you choose not to call wallet_offer_next() you must free it!
+ */
+struct db_stmt *wallet_offer_first(struct wallet *w,
+				   struct sha256 *offer_id);
+
+/**
+ * Iterate through all the offers.
+ * @w: the wallet
+ * @stmt: return from wallet_offer_first() or previous wallet_offer_next()
+ * @offer_id: the next offer id (if returns non-NULL)
+ *
+ * Returns NULL once we're out of offers.  If you choose not to call
+ * wallet_offer_next() again you must free return.
+ */
+struct db_stmt *wallet_offer_next(struct wallet *w,
+				  struct db_stmt *stmt,
+				  struct sha256 *offer_id);
+
+/**
+ * Disable an offer in the database.
+ * @w: the wallet
+ * @offer_id: the merkle root, as used for signing (must be unique)
+ * @s: the current status (must be active).
+ *
+ * Must exist.  Returns new status. */
+enum offer_status wallet_offer_disable(struct wallet *w,
+				       const struct sha256 *offer_id,
+				       enum offer_status s)
+	NO_NULL_ARGS;
+
+/**
+ * Mark an offer in the database used.
+ * @w: the wallet
+ * @offer_id: the merkle root, as used for signing (must be unique)
+ *
+ * Must exist and be active.
+ */
+void wallet_offer_mark_used(struct db *db, const struct sha256 *offer_id)
+	NO_NULL_ARGS;
 #endif /* LIGHTNING_WALLET_WALLET_H */

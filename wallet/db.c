@@ -657,6 +657,13 @@ static struct migration dbmigrations[] = {
 	 "  cause INTEGER,"
 	 "  message TEXT"
 	 ");"), NULL},
+    {SQL("CREATE TABLE offers ("
+	 "  offer_id BLOB"
+	 ", bolt12 TEXT"
+	 ", label TEXT"
+	 ", status INTEGER"
+	 ", PRIMARY KEY (offer_id)"
+	 ");"), NULL},
 };
 
 /* Leak tracking. */

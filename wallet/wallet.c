@@ -3961,3 +3961,169 @@ void wallet_penalty_base_delete(struct wallet *w, u64 chan_id, u64 commitnum)
 	db_bind_u64(stmt, 1, commitnum);
 	db_exec_prepared_v2(take(stmt));
 }
+
+bool wallet_offer_create(struct wallet *w,
+			 const struct sha256 *offer_id,
+			 const char *bolt12,
+			 const struct json_escape *label,
+			 enum offer_status status)
+{
+	struct db_stmt *stmt;
+
+	assert(offer_status_active(status));
+
+	/* Test if already exists. */
+	stmt = db_prepare_v2(w->db, SQL("SELECT 1"
+					"  FROM offers"
+					" WHERE offer_id = ?;"));
+	db_bind_sha256(stmt, 0, offer_id);
+	db_query_prepared(stmt);
+
+	if (db_step(stmt)) {
+		tal_free(stmt);
+		return false;
+	}
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("INSERT INTO offers ("
+				 "  offer_id"
+				 ", bolt12"
+				 ", label"
+				 ", status"
+				 ") VALUES (?, ?, ?, ?);"));
+
+	db_bind_sha256(stmt, 0, offer_id);
+	db_bind_text(stmt, 1, bolt12);
+	if (label)
+		db_bind_json_escape(stmt, 2, label);
+	else
+		db_bind_null(stmt, 2);
+	db_bind_int(stmt, 3, offer_status_in_db(status));
+	db_exec_prepared_v2(take(stmt));
+	return true;
+}
+
+char *wallet_offer_find(const tal_t *ctx,
+			struct wallet *w,
+			const struct sha256 *offer_id,
+			const struct json_escape **label,
+			enum offer_status *status)
+{
+	struct db_stmt *stmt;
+	char *bolt12;
+
+	/* Test if already exists. */
+	stmt = db_prepare_v2(w->db, SQL("SELECT bolt12, label, status"
+					"  FROM offers"
+					" WHERE offer_id = ?;"));
+	db_bind_sha256(stmt, 0, offer_id);
+	db_query_prepared(stmt);
+
+	if (!db_step(stmt)) {
+		tal_free(stmt);
+		return NULL;
+	}
+
+	bolt12 = tal_strdup(ctx, cast_signed(const char *, db_column_text(stmt, 0)));
+	if (label) {
+		if (db_column_is_null(stmt, 1))
+			*label = NULL;
+		else
+			*label = db_column_json_escape(ctx, stmt, 1);
+	}
+	if (status)
+		*status = offer_status_in_db(db_column_int(stmt, 2));
+	tal_free(stmt);
+	return bolt12;
+}
+
+struct db_stmt *wallet_offer_first(struct wallet *w, struct sha256 *offer_id)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT offer_id FROM offers;"));
+	db_query_prepared(stmt);
+
+	return wallet_offer_next(w, stmt, offer_id);
+}
+
+struct db_stmt *wallet_offer_next(struct wallet *w,
+				  struct db_stmt *stmt,
+				  struct sha256 *offer_id)
+{
+	if (!db_step(stmt))
+		return tal_free(stmt);
+
+	db_column_sha256(stmt, 0, offer_id);
+	return stmt;
+}
+
+/* If we make an offer inactive, this also expires all invoices
+ * which we issued for it. */
+static void offer_status_update(struct db *db,
+				const struct sha256 *offer_id,
+				enum offer_status oldstatus,
+				enum offer_status newstatus)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(db, SQL("UPDATE offers"
+				     " SET status=?"
+				     " WHERE offer_id = ?;"));
+	db_bind_int(stmt, 0, offer_status_in_db(newstatus));
+	db_bind_sha256(stmt, 1, offer_id);
+	db_exec_prepared_v2(take(stmt));
+
+	if (!offer_status_active(oldstatus)
+	    || offer_status_active(newstatus))
+		return;
+
+	stmt = db_prepare_v2(db, SQL("UPDATE invoices"
+				     " SET state=?"
+				     " WHERE state=? AND offer_id = ?;"));
+	db_bind_int(stmt, 0, invoice_status_in_db(UNPAID));
+	db_bind_int(stmt, 1, invoice_status_in_db(EXPIRED));
+	db_bind_sha256(stmt, 2, offer_id);
+	db_exec_prepared_v2(take(stmt));
+}
+
+enum offer_status wallet_offer_disable(struct wallet *w,
+				       const struct sha256 *offer_id,
+				       enum offer_status s)
+{
+	enum offer_status newstatus;
+
+	assert(offer_status_active(s));
+
+	newstatus = offer_status_in_db(s &= ~OFFER_STATUS_ACTIVE_F);
+	offer_status_update(w->db, offer_id, s, newstatus);
+
+	return newstatus;
+}
+
+void wallet_offer_mark_used(struct db *db, const struct sha256 *offer_id)
+{
+	struct db_stmt *stmt;
+	enum offer_status status;
+
+	stmt = db_prepare_v2(db, SQL("SELECT status"
+				     "  FROM offers"
+				     " WHERE offer_id = ?;"));
+	db_bind_sha256(stmt, 0, offer_id);
+	db_query_prepared(stmt);
+	if (!db_step(stmt))
+		fatal("Unknown stats offer_id %s",
+		      type_to_string(tmpctx, struct sha256, offer_id));
+
+	status = offer_status_in_db(db_column_int(stmt, 0));
+	tal_free(stmt);
+
+	if (!offer_status_active(status))
+		fatal("offer_id %s status %i",
+		      type_to_string(tmpctx, struct sha256, offer_id),
+		      status);
+
+	if (status == OFFER_SINGLE_USE)
+		offer_status_update(db, offer_id, status, OFFER_USED);
+}

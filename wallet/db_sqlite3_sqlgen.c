@@ -849,6 +849,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "CREATE TABLE offers (  offer_id BLOB, bolt12 TEXT, label TEXT, status INTEGER, PRIMARY KEY (offer_id));",
+         .query = "CREATE TABLE offers (  offer_id BLOB, bolt12 TEXT, label TEXT, status INTEGER, PRIMARY KEY (offer_id));",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
          .name = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .query = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .placeholders = 1,
@@ -1665,6 +1671,48 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "SELECT 1  FROM offers WHERE offer_id = ?;",
+         .query = "SELECT 1  FROM offers WHERE offer_id = ?;",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
+         .name = "INSERT INTO offers (  offer_id, bolt12, label, status) VALUES (?, ?, ?, ?);",
+         .query = "INSERT INTO offers (  offer_id, bolt12, label, status) VALUES (?, ?, ?, ?);",
+         .placeholders = 4,
+         .readonly = false,
+    },
+    {
+         .name = "SELECT bolt12, label, status  FROM offers WHERE offer_id = ?;",
+         .query = "SELECT bolt12, label, status  FROM offers WHERE offer_id = ?;",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
+         .name = "SELECT offer_id FROM offers;",
+         .query = "SELECT offer_id FROM offers;",
+         .placeholders = 0,
+         .readonly = true,
+    },
+    {
+         .name = "UPDATE offers SET status=? WHERE offer_id = ?;",
+         .query = "UPDATE offers SET status=? WHERE offer_id = ?;",
+         .placeholders = 2,
+         .readonly = false,
+    },
+    {
+         .name = "UPDATE invoices SET state=? WHERE state=? AND offer_id = ?;",
+         .query = "UPDATE invoices SET state=? WHERE state=? AND offer_id = ?;",
+         .placeholders = 3,
+         .readonly = false,
+    },
+    {
+         .name = "SELECT status  FROM offers WHERE offer_id = ?;",
+         .query = "SELECT status  FROM offers WHERE offer_id = ?;",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
          .name = "SELECT name FROM sqlite_master WHERE type='table';",
          .query = "SELECT name FROM sqlite_master WHERE type='table';",
          .placeholders = 0,
@@ -1684,10 +1732,10 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
-#define DB_SQLITE3_QUERY_COUNT 279
+#define DB_SQLITE3_QUERY_COUNT 287
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:a51ae4928fd56f2b22d0dd8f498f1288e2c3df7be872ddf1240f4b8fded6fd22
+// SHA256STAMP:94af743741cd2a2d8725371af12e130a692334a118b52386fb901fadfe25d4cd
