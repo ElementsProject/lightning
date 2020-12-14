@@ -72,6 +72,7 @@ static const errcode_t INVOICE_EXPIRED_DURING_WAIT = 903;
 static const errcode_t INVOICE_WAIT_TIMED_OUT = 904;
 static const errcode_t INVOICE_NOT_FOUND = 905;
 static const errcode_t INVOICE_STATUS_UNEXPECTED = 906;
+static const errcode_t INVOICE_OFFER_INACTIVE = 907;
 
 /* Errors from HSM crypto operations. */
 static const errcode_t HSM_ECDH_FAILED = 800;

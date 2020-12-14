@@ -10,6 +10,10 @@
 #include <common/amount.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
+#if EXPERIMENTAL_FEATURES
+#include <common/bolt12.h>
+#include <common/bolt12_merkle.h>
+#endif
 #include <common/configdir.h>
 #include <common/features.h>
 #include <common/json_command.h>
@@ -427,6 +431,29 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 
 	return true;
 }
+
+#if EXPERIMENTAL_FEATURES
+static void hsm_sign_b12_invoice(struct lightningd *ld,
+				 struct tlv_invoice *invoice)
+{
+	struct sha256 merkle;
+	u8 *msg;
+
+	assert(!invoice->signature);
+
+ 	merkle_tlv(invoice->fields, &merkle);
+	msg = towire_hsmd_sign_bolt12(NULL, "invoice", "signature", &merkle);
+
+	if (!wire_sync_write(ld->hsm_fd, take(msg)))
+		fatal("Could not write to HSM: %s", strerror(errno));
+
+	msg = wire_sync_read(tmpctx, ld->hsm_fd);
+	invoice->signature = tal(invoice, struct bip340sig);
+        if (!fromwire_hsmd_sign_bolt12_reply(msg, invoice->signature))
+		fatal("HSM gave bad sign_invoice_reply %s",
+		      tal_hex(msg, msg));
+}
+#endif /* EXPERIMENTAL_FEATURES */
 
 static struct command_result *parse_fallback(struct command *cmd,
 					     const char *buffer,
@@ -920,13 +947,27 @@ static struct command_result *param_chanhints(struct command *cmd,
 				      &(*chanhints)->hints);
 }
 
+static struct command_result *param_preimage(struct command *cmd,
+					     const char *name,
+					     const char *buffer,
+					     const jsmntok_t *tok,
+					     struct preimage **preimage)
+{
+	*preimage = tal(cmd, struct preimage);
+	if (!hex_decode(buffer + tok->start, tok->end - tok->start,
+			*preimage, sizeof(**preimage)))
+		return command_fail_badparam(cmd, "preimage",
+					     buffer, tok,
+					     "should be 64 hex digits");
+	return NULL;
+}
+
 static struct command_result *json_invoice(struct command *cmd,
 					   const char *buffer,
 					   const jsmntok_t *obj UNNEEDED,
 					   const jsmntok_t *params)
 {
 	const jsmntok_t *fallbacks;
-	const jsmntok_t *preimagetok;
 	struct amount_msat *msatoshi_val;
 	struct invoice_info *info;
 	const char *desc_val;
@@ -934,6 +975,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	u64 *expiry;
 	struct sha256 rhash;
 	struct secret payment_secret;
+	struct preimage *preimage;
 #if DEVELOPER
 	const jsmntok_t *routes;
 #endif
@@ -947,7 +989,7 @@ static struct command_result *json_invoice(struct command *cmd,
 		   p_req("description", param_escaped_string, &desc_val),
 		   p_opt_def("expiry", param_time, &expiry, 3600*24*7),
 		   p_opt("fallbacks", param_array, &fallbacks),
-		   p_opt("preimage", param_tok, &preimagetok),
+		   p_opt("preimage", param_preimage, &preimage),
 		   p_opt("exposeprivatechannels", param_chanhints,
 			 &info->chanhints),
 #if DEVELOPER
@@ -993,17 +1035,9 @@ static struct command_result *json_invoice(struct command *cmd,
 		}
 	}
 
-	if (preimagetok) {
-		/* Get secret preimage from user. */
-		if (!hex_decode(buffer + preimagetok->start,
-				preimagetok->end - preimagetok->start,
-				&info->payment_preimage,
-				sizeof(info->payment_preimage))) {
-			return command_fail_badparam(cmd, "preimage",
-						     buffer, preimagetok,
-						     "should be 64 hex digits");
-		}
-	} else
+	if (preimage)
+		info->payment_preimage = *preimage;
+	else
 		/* Generate random secret preimage. */
 		randombytes_buf(&info->payment_preimage,
 				sizeof(info->payment_preimage));
@@ -1441,3 +1475,162 @@ static const struct json_command decodepay_command = {
 	"Decode {bolt11}, using {description} if necessary"
 };
 AUTODATA(json_command, &decodepay_command);
+
+/* If we fail because it exists, we also return the clashing invoice */
+static struct command_result *fail_exists(struct command *cmd,
+					  const struct json_escape *label)
+{
+	struct json_stream *data;
+	struct invoice invoice;
+	struct wallet *wallet = cmd->ld->wallet;
+
+	data = json_stream_fail(cmd, INVOICE_LABEL_ALREADY_EXISTS,
+				"Duplicate label");
+	if (!wallet_invoice_find_by_label(wallet, &invoice, label))
+		fatal("Duplicate invoice %s not found any more?",
+		      label->s);
+
+	json_add_invoice(data, wallet_invoice_details(cmd, wallet, invoice));
+	json_object_end(data);
+
+	return command_failed(cmd, data);
+}
+
+static struct command_result *json_createinvoice(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *obj UNNEEDED,
+						 const jsmntok_t *params)
+{
+	const char *invstring;
+	struct json_escape *label;
+	struct preimage *preimage;
+	struct invoice invoice;
+	struct sha256 payment_hash;
+	struct json_stream *response;
+	struct bolt11 *b11;
+	struct sha256 hash;
+	u5 *sig;
+	bool have_n;
+	char *fail;
+
+	if (!param(cmd, buffer, params,
+		   p_req("invstring", param_string, &invstring),
+		   p_req("preimage", param_preimage, &preimage),
+		   p_req("label", param_label, &label),
+		   NULL))
+		return command_param_failed();
+
+	sha256(&payment_hash, preimage, sizeof(*preimage));
+	b11 = bolt11_decode_nosig(cmd, invstring, cmd->ld->our_features,
+				  NULL, chainparams, &hash, &sig, &have_n,
+				  &fail);
+	if (b11) {
+		/* This adds the signature */
+		char *b11enc = bolt11_encode(cmd, b11, have_n,
+					     hsm_sign_b11, cmd->ld);
+
+		if (!b11->description)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Missing description in invoice");
+
+		if (!b11->expiry)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Missing expiry in invoice");
+
+		if (!wallet_invoice_create(cmd->ld->wallet,
+					   &invoice,
+					   b11->msat,
+					   label,
+					   b11->expiry,
+					   b11enc,
+					   b11->description,
+					   b11->features,
+					   preimage,
+					   &payment_hash,
+					   NULL))
+			return fail_exists(cmd, label);
+
+		notify_invoice_creation(cmd->ld, b11->msat, *preimage, label);
+	} else {
+#if EXPERIMENTAL_FEATURES
+		struct tlv_invoice *inv;
+		struct sha256 *local_offer_id;
+
+		inv = invoice_decode_nosig(cmd, invstring, strlen(invstring),
+					   cmd->ld->our_features, chainparams,
+					   &fail);
+		if (inv) {
+			char *b12enc;
+			struct amount_msat msat;
+			const char *desc;
+			u32 expiry;
+			enum offer_status status;
+
+			if (inv->signature)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "invoice already signed");
+			hsm_sign_b12_invoice(cmd->ld, inv);
+			b12enc = invoice_encode(cmd, inv);
+
+			if (inv->offer_id
+			    && wallet_offer_find(tmpctx, cmd->ld->wallet,
+						 inv->offer_id, NULL, &status)) {
+				if (!offer_status_active(status))
+					return command_fail(cmd, INVOICE_OFFER_INACTIVE,
+							    "offer not active");
+				local_offer_id = inv->offer_id;
+			} else
+				local_offer_id = NULL;
+
+			if (inv->amount)
+				msat = amount_msat(*inv->amount);
+
+			if (inv->relative_expiry)
+				expiry = *inv->relative_expiry;
+			else
+				expiry = 7200;
+
+			if (!inv->description)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Missing description in invoice");
+			desc = tal_strndup(cmd,
+					   cast_signed(char *, inv->description),
+					   tal_bytelen(inv->description));
+
+			if (!wallet_invoice_create(cmd->ld->wallet,
+						   &invoice,
+						   inv->amount ? &msat : NULL,
+						   label,
+						   expiry,
+						   b12enc,
+						   desc,
+						   inv->features,
+						   preimage,
+						   &payment_hash,
+						   local_offer_id))
+				return fail_exists(cmd, label);
+
+			notify_invoice_creation(cmd->ld,
+						inv->amount ? &msat : NULL,
+						*preimage, label);
+		} else
+#endif /* EXPERIMENTAL_FEATURES */
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Unparsable invoice '%s': %s",
+					    invstring, fail);
+	}
+
+	response = json_stream_success(cmd);
+	json_add_invoice(response,
+			 wallet_invoice_details(cmd, cmd->ld->wallet, invoice));
+	return command_success(cmd, response);
+}
+
+static const struct json_command createinvoice_command = {
+	"createinvoice",
+	"payment",
+	json_createinvoice,
+	"Lowlevel command to sign and create invoice {invstring}, resolved with {preimage}, using unique {label}."
+};
+AUTODATA(json_command, &createinvoice_command);
+

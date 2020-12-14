@@ -27,6 +27,16 @@ struct bolt11 *bolt11_decode(const tal_t *ctx UNNEEDED, const char *str UNNEEDED
 			     const struct chainparams *must_be_chain UNNEEDED,
 			     char **fail UNNEEDED)
 { fprintf(stderr, "bolt11_decode called!\n"); abort(); }
+/* Generated stub for bolt11_decode_nosig */
+struct bolt11 *bolt11_decode_nosig(const tal_t *ctx UNNEEDED, const char *str UNNEEDED,
+				   const struct feature_set *our_features UNNEEDED,
+				   const char *description UNNEEDED,
+				   const struct chainparams *must_be_chain UNNEEDED,
+				   struct sha256 *hash UNNEEDED,
+				   u5 **sig UNNEEDED,
+				   bool *have_n UNNEEDED,
+				   char **fail UNNEEDED)
+{ fprintf(stderr, "bolt11_decode_nosig called!\n"); abort(); }
 /* Generated stub for bolt11_encode_ */
 char *bolt11_encode_(const tal_t *ctx UNNEEDED,
 		     const struct bolt11 *b11 UNNEEDED, bool n_field UNNEEDED,
@@ -171,6 +181,9 @@ bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p U
 /* Generated stub for fromwire_gossipd_get_incoming_channels_reply */
 bool fromwire_gossipd_get_incoming_channels_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct route_info **public_route_info UNNEEDED, bool **public_deadends UNNEEDED, struct route_info **private_route_info UNNEEDED, bool **private_deadends UNNEEDED)
 { fprintf(stderr, "fromwire_gossipd_get_incoming_channels_reply called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_sign_bolt12_reply */
+bool fromwire_hsmd_sign_bolt12_reply(const void *p UNNEEDED, struct bip340sig *sig UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_sign_bolt12_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_sign_commitment_tx_reply */
 bool fromwire_hsmd_sign_commitment_tx_reply(const void *p UNNEEDED, struct bitcoin_signature *sig UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_sign_commitment_tx_reply called!\n"); abort(); }
@@ -555,6 +568,9 @@ u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
 /* Generated stub for towire_gossipd_get_incoming_channels */
 u8 *towire_gossipd_get_incoming_channels(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_gossipd_get_incoming_channels called!\n"); abort(); }
+/* Generated stub for towire_hsmd_sign_bolt12 */
+u8 *towire_hsmd_sign_bolt12(const tal_t *ctx UNNEEDED, const wirestring *messagename UNNEEDED, const wirestring *fieldname UNNEEDED, const struct sha256 *merkleroot UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_sign_bolt12 called!\n"); abort(); }
 /* Generated stub for towire_hsmd_sign_commitment_tx */
 u8 *towire_hsmd_sign_commitment_tx(const tal_t *ctx UNNEEDED, const struct node_id *peer_id UNNEEDED, u64 channel_dbid UNNEEDED, const struct bitcoin_tx *tx UNNEEDED, const struct pubkey *remote_funding_key UNNEEDED)
 { fprintf(stderr, "towire_hsmd_sign_commitment_tx called!\n"); abort(); }
@@ -668,6 +684,14 @@ void wallet_invoice_waitone(const tal_t *ctx UNNEEDED,
 			    void (*cb)(const struct invoice * UNNEEDED, void*) UNNEEDED,
 			    void *cbarg UNNEEDED)
 { fprintf(stderr, "wallet_invoice_waitone called!\n"); abort(); }
+/* Generated stub for wallet_offer_find */
+char *wallet_offer_find(const tal_t *ctx UNNEEDED,
+			struct wallet *w UNNEEDED,
+			const struct sha256 *offer_id UNNEEDED,
+			const struct json_escape **label UNNEEDED,
+			enum offer_status *status)
+
+{ fprintf(stderr, "wallet_offer_find called!\n"); abort(); }
 /* Generated stub for wallet_peer_delete */
 void wallet_peer_delete(struct wallet *w UNNEEDED, u64 peer_dbid UNNEEDED)
 { fprintf(stderr, "wallet_peer_delete called!\n"); abort(); }
@@ -720,6 +744,22 @@ struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "dev_disconnect_permanent called!\n"); abort(); }
+#endif
+
+#if EXPERIMENTAL_FEATURES
+/* Generated stub for merkle_tlv */
+void merkle_tlv(const struct tlv_field *fields UNNEEDED, struct sha256 *merkle UNNEEDED)
+{ fprintf(stderr, "merkle_tlv called!\n"); abort(); }
+/* Generated stub for invoice_decode_nosig */
+struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx UNNEEDED,
+					 const char *b12 UNNEEDED, size_t b12len UNNEEDED,
+					 const struct feature_set *our_features UNNEEDED,
+					 const struct chainparams *must_be_chain UNNEEDED,
+					 char **fail UNNEEDED)
+{ fprintf(stderr, "invoice_decode_nosig called!\n"); abort(); }
+/* Generated stub for invoice_encode */
+char *invoice_encode(const tal_t *ctx UNNEEDED, const struct tlv_invoice *bolt12_tlv UNNEEDED)
+{ fprintf(stderr, "invoice_encode called!\n"); abort(); }
 #endif
 
 static void add_candidate(struct routehint_candidate **candidates, int n,

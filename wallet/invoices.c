@@ -306,7 +306,10 @@ bool invoices_create(struct invoices *invoices,
 	db_bind_json_escape(stmt, 4, label);
 	db_bind_u64(stmt, 5, expiry_time);
 	db_bind_text(stmt, 6, b11enc);
-	db_bind_text(stmt, 7, description);
+	if (!description)
+		db_bind_null(stmt, 7);
+	else
+		db_bind_text(stmt, 7, description);
 	db_bind_talarr(stmt, 8, features);
 	if (local_offer_id)
 		db_bind_sha256(stmt, 9, local_offer_id);
