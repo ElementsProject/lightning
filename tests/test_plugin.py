@@ -871,16 +871,31 @@ def test_channel_state_change_history(node_factory, bitcoind):
     bitcoind.generate_block(100)  # so it gets settled
 
     history = l1.rpc.listpeers()['peers'][0]['channels'][0]['state_changes']
-    assert(history[0]['cause'] == "user")
-    assert(history[0]['old_state'] == "CHANNELD_AWAITING_LOCKIN")
-    assert(history[0]['new_state'] == "CHANNELD_NORMAL")
-    assert(history[1]['cause'] == "user")
-    assert(history[1]['new_state'] == "CHANNELD_SHUTTING_DOWN")
-    assert(history[2]['cause'] == "user")
-    assert(history[2]['new_state'] == "CLOSINGD_SIGEXCHANGE")
-    assert(history[3]['cause'] == "user")
-    assert(history[3]['new_state'] == "CLOSINGD_COMPLETE")
-    assert(history[3]['message'] == "Closing complete")
+    if l1.config('experimental-dual-fund'):
+        assert(history[0]['cause'] == "user")
+        assert(history[0]['old_state'] == "DUALOPEND_OPEN_INIT")
+        assert(history[0]['new_state'] == "DUALOPEND_AWAITING_LOCKIN")
+        assert(history[1]['cause'] == "user")
+        assert(history[1]['old_state'] == "DUALOPEND_AWAITING_LOCKIN")
+        assert(history[1]['new_state'] == "CHANNELD_NORMAL")
+        assert(history[2]['cause'] == "user")
+        assert(history[2]['new_state'] == "CHANNELD_SHUTTING_DOWN")
+        assert(history[3]['cause'] == "user")
+        assert(history[3]['new_state'] == "CLOSINGD_SIGEXCHANGE")
+        assert(history[4]['cause'] == "user")
+        assert(history[4]['new_state'] == "CLOSINGD_COMPLETE")
+        assert(history[4]['message'] == "Closing complete")
+    else:
+        assert(history[0]['cause'] == "user")
+        assert(history[0]['old_state'] == "CHANNELD_AWAITING_LOCKIN")
+        assert(history[0]['new_state'] == "CHANNELD_NORMAL")
+        assert(history[1]['cause'] == "user")
+        assert(history[1]['new_state'] == "CHANNELD_SHUTTING_DOWN")
+        assert(history[2]['cause'] == "user")
+        assert(history[2]['new_state'] == "CLOSINGD_SIGEXCHANGE")
+        assert(history[3]['cause'] == "user")
+        assert(history[3]['new_state'] == "CLOSINGD_COMPLETE")
+        assert(history[3]['message'] == "Closing complete")
 
 
 @unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
