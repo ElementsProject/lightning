@@ -72,11 +72,11 @@ struct onionmsg_path **make_blindedpath(const tal_t *ctx,
 
 	for (size_t i = 0; i < num - 1; i++) {
 		const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-		struct tlv_onionmsg_payload *inner;
+		struct tlv_encmsg_tlvs *inner;
 		int ret;
 
 		/* Inner is encrypted */
-		inner = tlv_onionmsg_payload_new(tmpctx);
+		inner = tlv_encmsg_tlvs_new(tmpctx);
 		/* FIXME: We could support scids, too */
 		inner->next_node_id = cast_const(struct pubkey *, &route[i+1]);
 
