@@ -4,7 +4,7 @@
 #include <bitcoin/pubkey.h>
 #include <common/node_id.h>
 #include <common/private_channel_announcement.h>
-#include <wire/peer_wiregen.h>
+#include <wire/peer_wire.h>
 
 const u8 *private_channel_announcement(const tal_t *ctx,
 				       const struct short_channel_id *scid,
