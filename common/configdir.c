@@ -10,9 +10,6 @@
 #include <common/utils.h>
 #include <common/version.h>
 #include <errno.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 bool deprecated_apis = true;
 
@@ -293,34 +290,6 @@ void parse_config_files(const char *config_filename,
 	parse_state = CMDLINE;
 }
 
-/* Could be a yet-to-be-upgraded dir (definitely testnet), or could be
- * it's been upgraded to testnet. */
-static bool smells_like_old_testnet(const char *config_basedir)
-{
-	struct stat st;
-	/* Doubles as convenient top-level ctx for this function */
-	const char *base = default_base_configdir(NULL);
-
-	if (!config_basedir)
-		config_basedir = base;
-
-	/* If it doesn't exist, it's not testnet. */
-	if (stat(config_basedir, &st) != 0) {
-		tal_free(base);
-		return false;
-	}
-
-	/* Does it have a bitcoin/ subdir and no testnet/ subdir? */
-	if (stat(path_join(base, config_basedir, "bitcoin"), &st) == 0
-	    && stat(path_join(base, config_basedir, "testnet"), &st) != 0) {
-		tal_free(base);
-		return false;
-	}
-
-	tal_free(base);
-	return true;
-}
-
 void initial_config_opts(const tal_t *ctx,
 			 int argc, char *argv[],
 			 char **config_filename,
@@ -401,15 +370,8 @@ void initial_config_opts(const tal_t *ctx,
 	opt_early_parse_incomplete(argc, argv, opt_log_stderr_exit);
 
 	/* We use a global (in common/utils.h) for the chainparams. */
-	if (!chainparams) {
-		/* Use bitcoin default on new installations. */
-		if (deprecated_apis && smells_like_old_testnet(*config_basedir)) {
-			warnx("WARNING: default network changing in 2020:"
-			      " please set network=testnet in config!");
-			chainparams = chainparams_for_network("testnet");
-		} else
-			chainparams = chainparams_for_network("bitcoin");
-	}
+	if (!chainparams)
+		chainparams = chainparams_for_network("bitcoin");
 
 	if (!*config_basedir)
 		*config_basedir = default_base_configdir(ctx);
