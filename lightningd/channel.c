@@ -440,7 +440,6 @@ void channel_set_state(struct channel *channel,
 		       enum state_change reason,
 		       char *why)
 {
-	struct channel_id cid;
 	struct timeabs timestamp;
 
 	/* set closer, if known */
@@ -478,10 +477,9 @@ void channel_set_state(struct channel *channel,
 					state,
 					reason,
 					why);
-		derive_channel_id(&cid, &channel->funding_txid, channel->funding_outnum);
 		notify_channel_state_changed(channel->peer->ld,
 					     &channel->peer->id,
-					     &cid,
+					     &channel->cid,
 					     channel->scid,
 					     &timestamp,
 					     old_state,
