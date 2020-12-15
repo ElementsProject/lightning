@@ -1295,6 +1295,16 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 				  DUALOPEND_AWAITING_LOCKIN,
 				  REASON_UNKNOWN,
 				  "Sigs exchanged, waiting for lock-in");
+
+		/* Mimic the old behavior, notify a channel has been opened,
+		 * for the accepter side */
+		if (channel->opener == REMOTE)
+			/* Tell plugins about the success */
+			notify_channel_opened(dualopend->ld,
+					      &channel->peer->id,
+					      &channel->funding,
+					      &channel->funding_txid,
+					      &channel->remote_funding_locked);
 	}
 }
 
@@ -1516,6 +1526,16 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 				  DUALOPEND_AWAITING_LOCKIN,
 				  REASON_UNKNOWN,
 				  "Sigs exchanged, waiting for lock-in");
+
+		/* Mimic the old behavior, notify a channel has been opened,
+		 * for the accepter side */
+		if (channel->opener == REMOTE)
+			/* Tell plugins about the success */
+			notify_channel_opened(dualopend->ld,
+					      &channel->peer->id,
+					      &channel->funding,
+					      &channel->funding_txid,
+					      &channel->remote_funding_locked);
 	}
 
 	wallet_channel_save(ld->wallet, channel);
