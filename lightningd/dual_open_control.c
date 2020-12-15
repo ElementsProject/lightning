@@ -1001,7 +1001,7 @@ static void opener_commit_received(struct subd *dualopend,
 	u32 feerate;
 	struct amount_sat total_funding, funding_ours;
 	u8 channel_flags, *remote_upfront_shutdown_script,
-	   *local_upfront_shutdown_script;
+	   *unused_script;
 	struct penalty_base *pbase;
 	struct wally_psbt *psbt;
 	struct channel *channel;
@@ -1030,7 +1030,7 @@ static void opener_commit_received(struct subd *dualopend,
 					    &channel_flags,
 					    &feerate,
 					    &uc->our_config.channel_reserve,
-					    &local_upfront_shutdown_script,
+					    &unused_script,
 					    &remote_upfront_shutdown_script)) {
 		log_broken(uc->log, "bad WIRE_DUALOPEND_COMMIT_RCVD %s",
 			   tal_hex(msg, msg));
@@ -1061,7 +1061,7 @@ static void opener_commit_received(struct subd *dualopend,
 					&channel_info,
 					feerate,
 					LOCAL,
-					local_upfront_shutdown_script,
+					uc->fc->our_upfront_shutdown_script,
 					remote_upfront_shutdown_script);
 
 	if (!channel) {
@@ -1080,9 +1080,9 @@ static void opener_commit_received(struct subd *dualopend,
 	json_add_bool(response, "commitments_secured", true);
 	/* For convenience sake, we include the funding outnum */
 	json_add_num(response, "funding_outnum", funding_outnum);
-	if (local_upfront_shutdown_script)
+	if (uc->fc->our_upfront_shutdown_script)
 		json_add_hex_talarr(response, "close_to",
-				    local_upfront_shutdown_script);
+				    uc->fc->our_upfront_shutdown_script);
 	/* Now that we've got the final PSBT, save it */
 	channel->psbt = tal_steal(channel, psbt);
 	wallet_channel_save(uc->fc->cmd->ld->wallet, channel);
