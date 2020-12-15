@@ -92,6 +92,13 @@ class Millisatoshi:
         """
         return Decimal(self.millisatoshis) / 1000
 
+    def to_whole_satoshi(self) -> int:
+        """
+        Return an int respresenting the number of satoshis;
+        rounded up to the nearest satoshi
+        """
+        return (self.millisatoshis + 999) // 1000
+
     def to_btc(self) -> Decimal:
         """
         Return a Decimal representing the number of bitcoin.
