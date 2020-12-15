@@ -1573,12 +1573,20 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 
 	/* If we have an upfront shutdown script, send it to our peer */
 	struct tlv_accept_tlvs *a_tlv = tlv_accept_tlvs_new(state);
-	if (state->upfront_shutdown_script[LOCAL]) {
-		a_tlv->option_upfront_shutdown_script = tal(a_tlv,
-				struct tlv_accept_tlvs_option_upfront_shutdown_script);
-		a_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey =
-			tal_dup_arr(a_tlv, u8, state->upfront_shutdown_script[LOCAL],
-				    tal_count(state->upfront_shutdown_script[LOCAL]), 0);
+	if (!state->upfront_shutdown_script[LOCAL])
+		state->upfront_shutdown_script[LOCAL]
+			= no_upfront_shutdown_script(state,
+						     state->our_features,
+						     state->their_features);
+
+	if (tal_bytelen(state->upfront_shutdown_script[LOCAL])) {
+		a_tlv->option_upfront_shutdown_script
+			= tal(a_tlv, struct tlv_accept_tlvs_option_upfront_shutdown_script);
+		a_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey
+			= tal_dup_arr(a_tlv, u8,
+				      state->upfront_shutdown_script[LOCAL],
+				      tal_count(state->upfront_shutdown_script[LOCAL]),
+				      0);
 	}
 
 	msg = towire_accept_channel2(tmpctx, &state->channel_id,
@@ -1868,7 +1876,13 @@ static void opener_start(struct state *state, u8 *msg)
 	}
 	feerate_best = state->feerate_per_kw_funding;
 
-	if (state->upfront_shutdown_script[LOCAL]) {
+	if (!state->upfront_shutdown_script[LOCAL])
+		state->upfront_shutdown_script[LOCAL]
+			= no_upfront_shutdown_script(state,
+						     state->our_features,
+						     state->their_features);
+
+	if (tal_bytelen(state->upfront_shutdown_script[LOCAL])) {
 		open_tlv->option_upfront_shutdown_script =
 			tal(open_tlv,
 			    struct tlv_opening_tlvs_option_upfront_shutdown_script);

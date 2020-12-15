@@ -1,6 +1,7 @@
 #include <ccan/ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/channel_config.h>
+#include <common/features.h>
 #include <common/initial_commit_tx.h>
 #include <common/type_to_string.h>
 #include <openingd/common.h>
@@ -193,4 +194,31 @@ bool check_config_bounds(const tal_t *ctx,
 	}
 
 	return true;
+}
+
+u8 *no_upfront_shutdown_script(const tal_t *ctx,
+			       struct feature_set *our_features,
+			       const u8 *their_features)
+{
+#if DEVELOPER
+	/* This is a hack, for feature testing */
+	const char *e = getenv("DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT");
+	if (e)
+		return tal_hexdata(ctx, e, strlen(e));
+#endif
+
+	/* BOLT #2:
+	 *
+	 * - if both nodes advertised the `option_upfront_shutdown_script`
+	 *   feature:
+	 *   - MUST include `upfront_shutdown_script` with either a valid
+	 *     `shutdown_scriptpubkey` as required by `shutdown`
+	 *     `scriptpubkey`, or a zero-length `shutdown_scriptpubkey`
+	 *     (ie. `0x0000`).
+	 */
+	if (feature_negotiated(our_features, their_features,
+			       OPT_UPFRONT_SHUTDOWN_SCRIPT))
+		return tal_arr(ctx, u8, 0);
+
+	return NULL;
 }
