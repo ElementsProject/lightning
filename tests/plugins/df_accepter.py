@@ -84,12 +84,12 @@ def on_openchannel(openchannel2, plugin, **kwargs):
     psbt_obj = psbt_from_base64(funding['psbt'])
 
     excess = Millisatoshi(funding['excess_msat'])
-    change_cost = Millisatoshi(124 * feerate // 1000 * 1000)
+    change_cost = Millisatoshi(124 * feerate)
     dust_limit = Millisatoshi(253 * 1000)
     if excess > (dust_limit + change_cost):
         addr = plugin.rpc.newaddr()['bech32']
         change = excess - change_cost
-        output = tx_output_init(int(change.to_satoshi()), get_script(addr))
+        output = tx_output_init(change.to_whole_satoshi(), get_script(addr))
         psbt_add_output_at(psbt_obj, 0, 0, output)
 
     return {'result': 'continue', 'psbt': psbt_to_base64(psbt_obj, 0),
