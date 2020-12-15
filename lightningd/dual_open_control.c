@@ -1611,6 +1611,9 @@ json_openchannel_signed(struct command *cmd,
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "Failed adding sigs");
 	}
+
+	/* Make memleak happy, (otherwise cleaned up with `cmd`) */
+	tal_free(psbt);
 	tal_wally_end(tal_steal(channel, channel->psbt));
 
 	wallet_channel_save(cmd->ld->wallet, channel);
