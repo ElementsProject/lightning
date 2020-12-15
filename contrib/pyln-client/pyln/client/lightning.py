@@ -1244,7 +1244,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("unreserveinputs", payload)
 
-    def fundpsbt(self, satoshi, feerate, startweight, minconf=None, reserve=True, locktime=None):
+    def fundpsbt(self, satoshi, feerate, startweight, minconf=None, reserve=True, locktime=None, min_witness_weight=None):
         """
         Create a PSBT with inputs sufficient to give an output of satoshi.
         """
@@ -1255,10 +1255,11 @@ class LightningRpc(UnixDomainSocketRpc):
             "minconf": minconf,
             "reserve": reserve,
             "locktime": locktime,
+            "min_witness_weight": min_witness_weight,
         }
         return self.call("fundpsbt", payload)
 
-    def utxopsbt(self, satoshi, feerate, startweight, utxos, reserve=True, reservedok=False, locktime=None):
+    def utxopsbt(self, satoshi, feerate, startweight, utxos, reserve=True, reservedok=False, locktime=None, min_witness_weight=None):
         """
         Create a PSBT with given inputs, to give an output of satoshi.
         """
@@ -1270,6 +1271,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "reserve": reserve,
             "reservedok": reservedok,
             "locktime": locktime,
+            "min_witness_weight": min_witness_weight,
         }
         return self.call("utxopsbt", payload)
 
