@@ -1822,6 +1822,19 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
         {'may_reconnect': True},
     ], wait_for_announce=True)
 
+    # Special case for dual-funded channel opens
+    if l2.config('experimental-dual-fund'):
+        l2_wallet_mvts = [
+            {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 995410000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 1000000000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 4590000, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 995410000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 945785000, 'debit': 0, 'tag': 'deposit'},
+        ]
+
     bitcoind.generate_block(5)
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
     amount = 10**8
