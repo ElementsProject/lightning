@@ -227,7 +227,7 @@ class TailableProc(object):
 
         if self.proc.stderr:
             for line in iter(self.proc.stderr.readline, ''):
-                if len(line) == 0:
+                if line is None or len(line) == 0:
                     break
                 self.err_logs.append(line.rstrip().decode('UTF-8', 'replace')).rstrip()
             self.proc.stderr.close()
