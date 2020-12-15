@@ -78,6 +78,9 @@ def hello(plugin, name="world"):
     It gets reported as the description when registering the function
     as a method with `lightningd`.
 
+    If this returns (a dict), that's the JSON "result" returned.  If
+    it raises an exception, that causes a JSON "error" return (raising
+    pyln.client.RpcException allows finer control over the return).
     """
     greeting = plugin.get_option('greeting')
     s = '{} {}'.format(greeting, name)
