@@ -1616,8 +1616,10 @@ def test_feature_set(node_factory):
     l1 = node_factory.get_node(options={"plugin": plugin})
 
     fs = l1.rpc.call('getfeatureset')
-    assert fs['init'] == expected_peer_features()
-    assert fs['node'] == expected_node_features()
+    extra = [233] if l1.config('experimental-dual-fund') else []
+
+    assert fs['init'] == expected_peer_features(extra=extra)
+    assert fs['node'] == expected_node_features(extra=extra)
     assert fs['channel'] == expected_channel_features()
     assert 'invoice' in fs
 
