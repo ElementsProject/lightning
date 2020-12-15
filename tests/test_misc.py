@@ -712,13 +712,10 @@ def test_io_logging(node_factory, executor):
     # Fundchannel manually so we get channeld pid.
     l1.fundwallet(10**6 + 1000000)
     l1.rpc.fundchannel(l2.info['id'], 10**6)['tx']
-    pid1 = l1.subd_pid('channeld')
 
     l1.daemon.wait_for_log('sendrawtx exit 0')
     l1.bitcoin.generate_block(1)
     l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
-
-    pid2 = l2.subd_pid('channeld')
     l2.daemon.wait_for_log(' to CHANNELD_NORMAL')
 
     fut = executor.submit(l1.pay, l2, 200000000)
@@ -730,6 +727,7 @@ def test_io_logging(node_factory, executor):
     fut.result(10)
 
     # Send it sigusr1: should turn off logging.
+    pid1 = l1.subd_pid('channeld')
     subprocess.run(['kill', '-USR1', pid1])
 
     l1.pay(l2, 200000000)
@@ -745,6 +743,7 @@ def test_io_logging(node_factory, executor):
                    for l in peerlog)
 
     # Turn on in l2 channel logging.
+    pid2 = l2.subd_pid('channeld')
     subprocess.run(['kill', '-USR1', pid2])
     l1.pay(l2, 200000000)
 
