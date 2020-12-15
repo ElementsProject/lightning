@@ -1,5 +1,5 @@
 from pyln.client import Plugin
-from pyln.client.plugin import Request, Millisatoshi
+from pyln.client.plugin import Request, Millisatoshi, RpcException
 import itertools
 import pytest  # type: ignore
 
@@ -170,6 +170,39 @@ def test_methods_errors():
     with pytest.raises(TypeError):
         p._exec_func(test1, request)
     assert call_list == []
+
+
+def test_method_exceptions():
+    """A bunch of tests that should fail calling the methods."""
+    p = Plugin(autopatch=False)
+
+    def fake_write_result(resultdict):
+        global result_dict
+        result_dict = resultdict
+
+    @p.method("test_raise")
+    def test_raise():
+        raise RpcException("testing RpcException", code=-1000)
+
+    req = Request(p, 1, "test_raise", {})
+    req._write_result = fake_write_result
+    p._dispatch_request(req)
+    assert result_dict['jsonrpc'] == '2.0'
+    assert result_dict['id'] == 1
+    assert result_dict['error']['code'] == -1000
+    assert result_dict['error']['message'] == "testing RpcException"
+
+    @p.method("test_raise2")
+    def test_raise2():
+        raise Exception("normal exception")
+
+    req = Request(p, 1, "test_raise2", {})
+    req._write_result = fake_write_result
+    p._dispatch_request(req)
+    assert result_dict['jsonrpc'] == '2.0'
+    assert result_dict['id'] == 1
+    assert result_dict['error']['code'] == -32600
+    assert result_dict['error']['message'] == "Error while processing test_raise2: normal exception"
 
 
 def test_positional_inject():

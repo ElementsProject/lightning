@@ -61,6 +61,14 @@ class Method(object):
         self.after: List[str] = []
 
 
+class RpcException(Exception):
+    # -32600 == "Invalid Request"
+    def __init__(self, message: str, code: int = -32600):
+        self.code = code
+        self.message = message
+        super().__init__("RpcException: {}".format(message))
+
+
 class Request(dict):
     """A request object that wraps params and allows async return
     """
@@ -102,7 +110,7 @@ class Request(dict):
         self.state = RequestState.FINISHED
         self.termination_tb = "".join(traceback.extract_stack().format()[:-1])
 
-    def set_exception(self, exc: Exception) -> None:
+    def set_exception(self, exc: Union[Exception, RpcException]) -> None:
         if self.state != RequestState.PENDING:
             assert(self.termination_tb is not None)
             raise ValueError(
@@ -110,13 +118,19 @@ class Request(dict):
                 "current state is {state}. Request previously terminated at\n"
                 "{tb}".format(state=self.state, tb=self.termination_tb))
         self.exc = exc
+        if isinstance(exc, RpcException):
+            code = exc.code
+            message = exc.message
+        else:
+            code = -32600  # "Invalid Request"
+            message = ("Error while processing {method}: {exc}"
+                       .format(method=self.method, exc=str(exc)))
         self._write_result({
             'jsonrpc': '2.0',
             'id': self.id,
             "error": {
-                "code": -32600,  # "Invalid Request"
-                "message": "Error while processing {method}: {exc}"
-                           .format(method=self.method, exc=str(exc)),
+                "code": code,
+                "message": message,
                 # 'data' field "may be omitted."
                 "traceback": traceback.format_exc(),
             },
