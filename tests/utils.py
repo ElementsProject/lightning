@@ -5,6 +5,7 @@ from pyln.client import Millisatoshi
 
 EXPERIMENTAL_FEATURES = env("EXPERIMENTAL_FEATURES", "0") == "1"
 COMPAT = env("COMPAT", "1") == "1"
+EXPERIMENTAL_DUAL_FUND = env("EXPERIMENTAL_DUAL_FUND", "0") == "1"
 
 
 def hex_bits(features):
