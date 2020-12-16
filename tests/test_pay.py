@@ -3842,3 +3842,27 @@ def test_offer(node_factory, bitcoind):
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
     assert 'recurrence: every 600 seconds paywindow -10 to +600 (pay proportional)\n' in output
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "offers are experimental")
+def test_fetchinvoice(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+
+    # Simple offer first.
+    offer = l3.rpc.call('offer', {'amount': '1msat',
+                                  'description': 'simple test'})['bolt12']
+    print(offer)
+
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer})
+    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer})
+    assert inv1 != inv2
+
+    # Single-use invoice can be fetched multiple times, only paid once.
+    offer = l3.rpc.call('offer', {'amount': '1msat',
+                                  'description': 'single-use test',
+                                  'single_use': True})['bolt12']
+    print(offer)
+
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer})
+    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer})
+    assert inv1 != inv2
