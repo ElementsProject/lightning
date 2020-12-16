@@ -99,4 +99,15 @@ struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx,
 bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 			 const struct chainparams *must_be_chain);
 
+/* Given a basetime, when does period N start? */
+u64 offer_period_start(u64 basetime, size_t n,
+		       const struct tlv_offer_recurrence *recurrence);
+
+/* Get the start and end of the payment window for period N. */
+void offer_period_paywindow(const struct tlv_offer_recurrence *recurrence,
+			    const struct tlv_offer_recurrence_paywindow *recurrence_paywindow,
+			    const struct tlv_offer_recurrence_base *recurrence_base,
+			    u64 basetime, u64 period_idx,
+			    u64 *period_start, u64 *period_end);
+
 #endif /* LIGHTNING_COMMON_BOLT12_H */
