@@ -698,19 +698,32 @@ class LightningNode(object):
             total_capacity = int(total_capacity)
 
         self.fundwallet(total_capacity + 10000)
+
+        if remote_node.config('experimental-dual-fund'):
+            remote_node.fundwallet(total_capacity + 10000)
+            # We cut the total_capacity in half, since the peer's
+            # expected to contribute that same amount
+            chan_capacity = total_capacity // 2
+            total_capacity = chan_capacity * 2
+        else:
+            chan_capacity = total_capacity
+
         self.rpc.connect(remote_node.info['id'], 'localhost', remote_node.port)
 
         # Make sure the fundchannel is confirmed.
         num_tx = len(self.bitcoin.rpc.getrawmempool())
-        tx = self.rpc.fundchannel(remote_node.info['id'], total_capacity, feerate='slow', minconf=0, announce=announce, push_msat=Millisatoshi(total_capacity * 500))['tx']
+        tx = self.rpc.fundchannel(remote_node.info['id'], chan_capacity, feerate='slow', minconf=0, announce=announce, push_msat=Millisatoshi(chan_capacity * 500))['tx']
         wait_for(lambda: len(self.bitcoin.rpc.getrawmempool()) == num_tx + 1)
         self.bitcoin.generate_block(1)
 
         # Generate the scid.
         # NOTE This assumes only the coinbase and the fundchannel is
         # confirmed in the block.
-        return '{}x1x{}'.format(self.bitcoin.rpc.getblockcount(),
-                                get_tx_p2wsh_outnum(self.bitcoin, tx, total_capacity))
+        outnum = get_tx_p2wsh_outnum(self.bitcoin, tx, total_capacity)
+        if outnum is None:
+            raise ValueError("no outnum found. capacity {} tx {}".format(total_capacity, tx))
+
+        return '{}x1x{}'.format(self.bitcoin.rpc.getblockcount(), outnum)
 
     def getactivechannels(self):
         return [c for c in self.rpc.listchannels()['channels'] if c['active']]
