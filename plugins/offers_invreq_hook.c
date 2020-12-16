@@ -1,5 +1,6 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
+#include <ccan/cast/cast.h>
 #include <common/bech32_util.h>
 #include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
@@ -25,6 +26,68 @@ struct invreq {
 	struct preimage preimage;
 };
 
+static struct command_result *finished(struct command *cmd,
+				       const char *buf,
+				       const jsmntok_t *result,
+				       void *unused)
+{
+	return command_hook_success(cmd);
+}
+
+/* If we get an error trying to reply, don't try again! */
+static struct command_result *error_noloop(struct command *cmd,
+					   const char *buf,
+					   const jsmntok_t *err,
+					   void *unused)
+{
+	plugin_log(cmd->plugin, LOG_BROKEN,
+		   "sendoniomessage gave JSON error: %.*s",
+		   json_tok_full_len(err),
+		   json_tok_full(buf, err));
+	return command_hook_success(cmd);
+}
+
+static struct command_result *WARN_UNUSED_RESULT
+send_onion_reply(struct command *cmd,
+		 const struct invreq *ir,
+		 const char *replyfield,
+		 const u8 *replydata)
+{
+	struct out_req *req;
+	size_t i;
+	const jsmntok_t *t;
+
+	plugin_log(cmd->plugin, LOG_DBG, "sending reply %s = %s",
+		   replyfield, tal_hex(tmpctx, replydata));
+
+	/* Send to requester, using return route. */
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
+				    finished, error_noloop, NULL);
+
+	/* Add reply into last hop. */
+	json_array_start(req->js, "hops");
+	json_for_each_arr(i, t, ir->replytok) {
+		size_t j;
+		const jsmntok_t *t2;
+
+		plugin_log(cmd->plugin, LOG_DBG, "hops[%zu/%i]",
+			   i, ir->replytok->size);
+		json_object_start(req->js, NULL);
+		json_for_each_obj(j, t2, t)
+			json_add_tok(req->js,
+				     json_strdup(tmpctx, ir->buf, t2),
+				     t2+1, ir->buf);
+		if (i == ir->replytok->size - 1) {
+			plugin_log(cmd->plugin, LOG_DBG, "... adding %s",
+				   replyfield);
+			json_add_hex_talarr(req->js, replyfield, replydata);
+		}
+		json_object_end(req->js);
+	}
+	json_array_end(req->js);
+	return send_outreq(cmd->plugin, req);
+}
+
 static struct command_result *WARN_UNUSED_RESULT
 fail_invreq_level(struct command *cmd,
 		  const struct invreq *invreq,
@@ -32,6 +95,8 @@ fail_invreq_level(struct command *cmd,
 		  const char *fmt, va_list ap)
 {
 	char *full_fmt, *msg;
+	struct tlv_invoice_error *err;
+	u8 *errdata;
 
 	full_fmt = tal_fmt(tmpctx, "Failed invoice_request %s",
 			   invrequest_encode(tmpctx, invreq->invreq));
@@ -44,8 +109,18 @@ fail_invreq_level(struct command *cmd,
 	msg = tal_vfmt(tmpctx, full_fmt, ap);
 	plugin_log(cmd->plugin, l, "%s", msg);
 
-	/* FIXME: send reply */
-	return command_hook_success(cmd);
+	/* Don't send back internal error details. */
+	if (l == LOG_BROKEN)
+		msg = "Internal error";
+
+	err = tlv_invoice_error_new(cmd);
+	/* Remove NUL terminator */
+	err->error = tal_dup_arr(err, char, msg, strlen(msg), 0);
+	/* FIXME: Add suggested_value / erroneous_field! */
+
+	errdata = tal_arr(cmd, u8, 0);
+	towire_invoice_error(&errdata, err);
+	return send_onion_reply(cmd, invreq, "invoice_error", errdata);
 }
 
 static struct command_result *WARN_UNUSED_RESULT
@@ -130,14 +205,6 @@ static void json_add_label(struct json_stream *js,
 	json_add_string(js, "label", label);
 }
 
-static struct command_result *finished(struct command *cmd,
-				       const char *buf,
-				       const jsmntok_t *result,
-				       void *unused)
-{
-	return command_hook_success(cmd);
-}
-
 /* Note: this can actually happen if a single-use offer is already
  * used at the same time between the check and now.
  */
@@ -159,8 +226,6 @@ static struct command_result *createinvoice_done(struct command *cmd,
 {
 	char *hrp;
 	u8 *rawinv;
-	struct out_req *req;
-	size_t i;
 	const jsmntok_t *t;
 
 	/* We have a signed invoice, use it as a reply. */
@@ -173,27 +238,7 @@ static struct command_result *createinvoice_done(struct command *cmd,
 					json_tok_full(buf, t));
 	}
 
-	/* Now, send invoice to requester, using return route. */
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
-				    finished, error, ir);
-
-	/* Add invoice into last hop. */
-	json_array_start(req->js, "hops");
-	json_for_each_arr(i, t, ir->replytok) {
-		size_t j;
-		const jsmntok_t *t2;
-
-		json_object_start(req->js, NULL);
-		json_for_each_obj(j, t2, t)
-			json_add_tok(req->js,
-				     json_strdup(tmpctx, ir->buf, t2),
-				     t2+1, ir->buf);
-		if (i == ir->replytok->size - 1)
-			json_add_hex_talarr(req->js, "invoice", rawinv);
-		json_object_end(req->js);
-	}
-	json_array_end(req->js);
-	return send_outreq(cmd->plugin, req);
+	return send_onion_reply(cmd, ir, "invoice", rawinv);
 }
 
 static struct command_result *create_invoicereq(struct command *cmd,
