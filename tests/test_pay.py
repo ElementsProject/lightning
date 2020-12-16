@@ -1402,6 +1402,7 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     l1.wait_channel_active(c23)
     l1.wait_channel_active(c24)
     l1.wait_channel_active(c25)
+    l6.wait_channel_active(c24)
 
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 10)
 
