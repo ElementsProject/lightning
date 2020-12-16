@@ -5,8 +5,15 @@
 from pyln.client import Plugin, Millisatoshi
 from pyln.proto import bech32_decode
 from typing import Iterable, List, Optional
-from wallycore import psbt_add_output_at, psbt_from_base64, psbt_to_base64, tx_output_init
-
+from wallycore import (
+    psbt_add_output_at,
+    psbt_find_input_unknown,
+    psbt_from_base64,
+    psbt_get_input_unknown,
+    psbt_get_num_inputs,
+    psbt_to_base64,
+    tx_output_init,
+)
 
 plugin = Plugin()
 
@@ -56,6 +63,26 @@ def find_feerate(best, their_min, their_max, our_min, our_max):
 
     # best > our_max:
     return our_max
+
+
+def find_inputs(b64_psbt):
+    serial_id_key = bytes.fromhex('fc096c696768746e696e6701')
+    psbt = psbt_from_base64(b64_psbt)
+    input_idxs = []
+
+    for i in range(psbt_get_num_inputs(psbt)):
+        idx = psbt_find_input_unknown(psbt, i, serial_id_key)
+        if idx == 0:
+            continue
+        # returned index is off by one, so 0 can be 'not found'
+        serial_bytes = psbt_get_input_unknown(psbt, i, idx - 1)
+        serial_id = int.from_bytes(serial_bytes, byteorder='big', signed=False)
+
+        # We're the accepter, so our inputs have odd serials
+        if serial_id % 2:
+            input_idxs.append(i)
+
+    return input_idxs
 
 
 @plugin.hook('openchannel2')
@@ -109,12 +136,13 @@ def on_tx_sign(openchannel2_sign, plugin, **kwargs):
     psbt = openchannel2_sign['psbt']
 
     # We only sign the ones with our parity of a serial_id
-    # FIXME: find the inputs with an odd-serial, these are ours
-    # the key for a serial_id ::
-    # our_inputs = [1]
+    input_idxs = find_inputs(psbt)
+    if len(input_idxs) > 0:
+        final_psbt = plugin.rpc.signpsbt(psbt, signonly=input_idxs)['signed_psbt']
+    else:
+        final_psbt = psbt
 
-    signed_psbt = plugin.rpc.signpsbt(psbt)['signed_psbt']
-    return {'result': 'continue', 'psbt': signed_psbt}
+    return {'result': 'continue', 'psbt': final_psbt}
 
 
 plugin.run()
