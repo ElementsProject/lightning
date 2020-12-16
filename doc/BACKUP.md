@@ -361,7 +361,7 @@ than having *no* backups at all.
 Even if you have one of the better options above, you might still want to do
 this as a worst-case fallback, as long as you:
 
-* Attempt to recover using the other backup options below first.
+* Attempt to recover using the other backup options above first.
   Any one of them will be better than this backup option.
 * Recover by this method **ONLY** as a ***last*** resort.
 * Recover using the most recent backup you can find.
