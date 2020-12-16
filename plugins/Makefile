@@ -25,8 +25,9 @@ PLUGIN_PAY_LIB_SRC := plugins/libplugin-pay.c
 PLUGIN_PAY_LIB_HEADER := plugins/libplugin-pay.h
 PLUGIN_PAY_LIB_OBJS := $(PLUGIN_PAY_LIB_SRC:.c=.o)
 
-PLUGIN_OFFERS_SRC := plugins/offers.c
+PLUGIN_OFFERS_SRC := plugins/offers.c plugins/offers_offer.c
 PLUGIN_OFFERS_OBJS := $(PLUGIN_OFFERS_SRC:.c=.o)
+PLUGIN_OFFERS_HEADER := plugins/offers_offer.h
 
 PLUGIN_SPENDER_SRC :=				\
 	plugins/spender/fundchannel.c		\
@@ -59,6 +60,7 @@ endif
 PLUGIN_ALL_HEADER :=				\
 	$(PLUGIN_LIB_HEADER)			\
 	$(PLUGIN_PAY_LIB_HEADER)		\
+	$(PLUGIN_OFFERS_HEADER)			\
 	$(PLUGIN_SPENDER_HEADER)
 PLUGIN_ALL_OBJS := $(PLUGIN_ALL_SRC:.c=.o)
 
@@ -134,7 +136,7 @@ $(PLUGIN_KEYSEND_OBJS): $(PLUGIN_PAY_LIB_HEADER)
 
 plugins/spenderp: bitcoin/chainparams.o bitcoin/psbt.o common/psbt_open.o $(PLUGIN_SPENDER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
 
-plugins/offers: bitcoin/chainparams.o $(PLUGIN_OFFERS_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) common/bolt12.o common/bolt12_merkle.o wire/bolt12_exp_wiregen.o $(WIRE_OBJS) bitcoin/block.o common/channel_id.o bitcoin/preimage.o $(JSMN_OBJS) $(CCAN_OBJS)
+plugins/offers: bitcoin/chainparams.o $(PLUGIN_OFFERS_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) common/bolt12.o common/bolt12_merkle.o common/iso4217.o wire/bolt12_exp_wiregen.o $(WIRE_OBJS) bitcoin/block.o common/channel_id.o bitcoin/preimage.o $(JSMN_OBJS) $(CCAN_OBJS)
 
 $(PLUGIN_ALL_OBJS): $(PLUGIN_LIB_HEADER)
 

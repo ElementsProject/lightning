@@ -3686,3 +3686,159 @@ def test_mpp_overload_payee(node_factory, bitcoind):
 
     # pay.
     l1.rpc.pay(inv)
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "offers are experimental")
+def test_offer(node_factory, bitcoind):
+    l1 = node_factory.get_node()
+
+    bolt12tool = os.path.join(os.path.dirname(__file__), "..", "devtools", "bolt12-cli")
+    # Try different amount strings
+    for amount in ['1msat', '0.1btc', 'any', '1USD', '1.10AUD']:
+        ret = l1.rpc.call('offer', {'amount': amount,
+                                    'description': 'test for ' + amount})
+        offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+
+        assert offer['bolt12'] == ret['bolt12']
+        assert offer['offer_id'] == ret['offer_id']
+
+        output = subprocess.check_output([bolt12tool, 'decode',
+                                          offer['bolt12']]).decode('ASCII')
+        if amount == 'any':
+            assert 'amount' not in output
+        else:
+            assert 'amount' in output
+
+    # Try wrong amount precision:
+    with pytest.raises(RpcError, match='Currency AUD requires 2 minor units'):
+        l1.rpc.call('offer', {'amount': '1.100AUD',
+                              'description': 'test for invalid amount'})
+
+    with pytest.raises(RpcError, match='Currency AUD requires 2 minor units'):
+        l1.rpc.call('offer', {'amount': '1.1AUD',
+                              'description': 'test for invalid amount'})
+
+    # Test label and description
+    weird_label = 'label \\ " \t \n'
+    weird_desc = 'description \\ " \t \n ナンセンス 1杯'
+    ret = l1.rpc.call('offer', {'amount': '0.1btc',
+                                'description': weird_desc,
+                                'label': weird_label})
+    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+    assert offer['label'] == weird_label
+
+    output = subprocess.check_output([bolt12tool, 'decode',
+                                      offer['bolt12']]).decode('UTF-8')
+    assert 'description: ' + weird_desc in output
+
+    # Test vendor
+    weird_vendor = 'description \\ " \t \n ナンセンス 1杯'
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': 'vendor test',
+                                'vendor': weird_vendor})
+    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+
+    output = subprocess.check_output([bolt12tool, 'decode',
+                                      offer['bolt12']]).decode('UTF-8')
+    assert 'vendor: ' + weird_vendor in output
+
+    # Test quantity min/max
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': 'quantity_min test',
+                                'quantity_min': 1})
+    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+    output = subprocess.check_output([bolt12tool, 'decode',
+                                      offer['bolt12']]).decode('UTF-8')
+    assert 'quantity_min: 1' in output
+
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': 'quantity_max test',
+                                'quantity_max': 2})
+    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+    output = subprocess.check_output([bolt12tool, 'decode',
+                                      offer['bolt12']]).decode('UTF-8')
+    assert 'quantity_max: 2' in output
+
+    # Test absolute_expiry
+    exp = int(time.time() + 2)
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': 'quantity_max test',
+                                'absolute_expiry': exp})
+    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+    output = subprocess.check_output([bolt12tool, 'decode',
+                                      offer['bolt12']]).decode('UTF-8')
+    assert 'absolute_expiry: {}'.format(exp) in output
+
+    # Recurrence tests!
+    for r in [['1second', 'seconds', 1],
+              ['10seconds', 'seconds', 10],
+              ['1minute', 'seconds', 60],
+              ['10minutes', 'seconds', 600],
+              ['1hour', 'seconds', 3600],
+              ['10hours', 'seconds', 36000],
+              ['1day', 'days', 1],
+              ['10days', 'days', 10],
+              ['1week', 'days', 7],
+              ['10weeks', 'days', 70],
+              ['1month', 'months', 1],
+              ['10months', 'months', 10],
+              ['1year', 'years', 1],
+              ['10years', 'years', 10]]:
+        ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                    'description': 'quantity_max test',
+                                    'recurrence': r[0]})
+        offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+        output = subprocess.check_output([bolt12tool, 'decode',
+                                          offer['bolt12']]).decode('UTF-8')
+        assert 'recurrence: every {} {}\n'.format(r[2], r[1]) in output
+
+    # Test limit
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': 'quantity_max test',
+                                'recurrence': '10minutes',
+                                'recurrence_limit': 5})
+    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+    output = subprocess.check_output([bolt12tool, 'decode',
+                                      offer['bolt12']]).decode('UTF-8')
+    assert 'recurrence: every 600 seconds limit 5\n' in output
+
+    # Test base
+    # (1456740000 == 10:00:00 (am) UTC on 29 February, 2016)
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': 'quantity_max test',
+                                'recurrence': '10minutes',
+                                'recurrence_base': '@1456740000'})
+    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+    output = subprocess.check_output([bolt12tool, 'decode',
+                                      offer['bolt12']]).decode('UTF-8')
+    assert 'recurrence: every 600 seconds start 1456740000' in output
+    assert '(can start any period)' not in output
+
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': 'quantity_max test',
+                                'recurrence': '10minutes',
+                                'recurrence_base': 1456740000})
+    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+    output = subprocess.check_output([bolt12tool, 'decode',
+                                      offer['bolt12']]).decode('UTF-8')
+    assert 'recurrence: every 600 seconds start 1456740000' in output
+    assert '(can start any period)' in output
+
+    # Test paywindow
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': 'quantity_max test',
+                                'recurrence': '10minutes',
+                                'recurrence_paywindow': '-10+20'})
+    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+    output = subprocess.check_output([bolt12tool, 'decode',
+                                      offer['bolt12']]).decode('UTF-8')
+    assert 'recurrence: every 600 seconds paywindow -10 to +20\n' in output
+
+    ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                'description': 'quantity_max test',
+                                'recurrence': '10minutes',
+                                'recurrence_paywindow': '-10+600%'})
+    offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
+    output = subprocess.check_output([bolt12tool, 'decode',
+                                      offer['bolt12']]).decode('UTF-8')
+    assert 'recurrence: every 600 seconds paywindow -10 to +600 (pay proportional)\n' in output
