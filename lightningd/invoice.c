@@ -135,6 +135,31 @@ static void invoice_secret(const struct preimage *payment_preimage,
 	memcpy(payment_secret->data, secret.u.u8, sizeof(secret.u.u8));
 }
 
+#if EXPERIMENTAL_FEATURES
+/* FIXME: This is a hack.  The real secret should be a signature of some
+ * onion key, using the payer_id */
+static void invoice_secret_bolt12(struct lightningd *ld,
+				  const char *invstring,
+				  struct secret *payment_secret)
+{
+	char *fail;
+	struct tlv_invoice *inv;
+	struct sha256 merkle;
+
+	inv = invoice_decode(tmpctx, invstring, strlen(invstring),
+			     NULL, NULL, &fail);
+	if (!inv) {
+		log_broken(ld->log, "Unable to decode our invoice %s",
+			   invstring);
+		return;
+	}
+
+	merkle_tlv(inv->fields, &merkle);
+	BUILD_ASSERT(sizeof(*payment_secret) == sizeof(merkle));
+	memcpy(payment_secret, &merkle, sizeof(merkle));
+}
+#endif /* EXPERIMENTAL_FEATURES */
+
 struct invoice_payment_hook_payload {
 	struct lightningd *ld;
 	/* Set to NULL if it is deleted while waiting for plugin */
@@ -348,6 +373,11 @@ invoice_check_payment(const tal_t *ctx,
 	if (payment_secret) {
 		struct secret expected;
 
+#if EXPERIMENTAL_FEATURES
+		if (details->invstring && strstarts(details->invstring, "lni1"))
+			invoice_secret_bolt12(ld, details->invstring, &expected);
+		else
+#endif /* EXPERIMENTAL_FEATURES */
 		invoice_secret(&details->r, &expected);
 		if (!secret_eq_consttime(payment_secret, &expected)) {
 			log_debug(ld->log, "Attept to pay %s with wrong secret",
