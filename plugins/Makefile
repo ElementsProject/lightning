@@ -25,6 +25,9 @@ PLUGIN_PAY_LIB_SRC := plugins/libplugin-pay.c
 PLUGIN_PAY_LIB_HEADER := plugins/libplugin-pay.h
 PLUGIN_PAY_LIB_OBJS := $(PLUGIN_PAY_LIB_SRC:.c=.o)
 
+PLUGIN_OFFERS_SRC := plugins/offers.c
+PLUGIN_OFFERS_OBJS := $(PLUGIN_OFFERS_SRC:.c=.o)
+
 PLUGIN_SPENDER_SRC :=				\
 	plugins/spender/fundchannel.c		\
 	plugins/spender/main.c			\
@@ -48,6 +51,11 @@ PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_PAY_LIB_SRC)			\
 	$(PLUGIN_PAY_SRC)			\
 	$(PLUGIN_SPENDER_SRC)
+
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+PLUGIN_ALL_SRC += $(PLUGIN_OFFERS_SRC)
+endif
+
 PLUGIN_ALL_HEADER :=				\
 	$(PLUGIN_LIB_HEADER)			\
 	$(PLUGIN_PAY_LIB_HEADER)		\
@@ -61,6 +69,10 @@ PLUGINS :=					\
 	plugins/pay				\
 	plugins/txprepare			\
 	plugins/spenderp
+
+ifeq ($(EXPERIMENTAL_FEATURES),1)
+PLUGINS += plugins/offers
+endif
 
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(PLUGIN_ALL_SRC)
@@ -121,6 +133,8 @@ plugins/keysend: bitcoin/chainparams.o wire/tlvstream.o wire/onion$(EXP)_wiregen
 $(PLUGIN_KEYSEND_OBJS): $(PLUGIN_PAY_LIB_HEADER)
 
 plugins/spenderp: bitcoin/chainparams.o bitcoin/psbt.o common/psbt_open.o $(PLUGIN_SPENDER_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
+
+plugins/offers: bitcoin/chainparams.o $(PLUGIN_OFFERS_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) common/bolt12.o common/bolt12_merkle.o wire/bolt12_exp_wiregen.o $(WIRE_OBJS) bitcoin/block.o common/channel_id.o bitcoin/preimage.o $(JSMN_OBJS) $(CCAN_OBJS)
 
 $(PLUGIN_ALL_OBJS): $(PLUGIN_LIB_HEADER)
 
