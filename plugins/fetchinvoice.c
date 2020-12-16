@@ -201,6 +201,15 @@ static struct command_result *recv_onion_message(struct command *cmd,
 		expected_amount = NULL;
 
 	/* BOLT-offers #12:
+	 * - if the offer contained `recurrence`:
+	 *   - MUST reject the invoice if `recurrence_basetime` is not set.
+	 */
+	if (sent->invreq->recurrence_counter && !inv->recurrence_basetime) {
+		badfield = "recurrence_basetime";
+		goto badinv;
+	}
+
+	/* BOLT-offers #12:
 	 * - SHOULD confirm authorization if the `description` does not exactly
 	 *   match the `offer`
 	 *   - MAY highlight if `description` has simply had a change appended.
@@ -251,6 +260,44 @@ static struct command_result *recv_onion_message(struct command *cmd,
 		json_add_amount_msat_only(out, "msat",
 					  amount_msat(*inv->amount));
 	json_object_end(out);
+
+	/* We tell them about next period at this point, if any. */
+	if (sent->offer->recurrence) {
+		u64 next_counter, next_period_idx;
+		u64 paywindow_start, paywindow_end;
+
+		next_counter = *sent->invreq->recurrence_counter + 1;
+		if (sent->invreq->recurrence_start)
+			next_period_idx = *sent->invreq->recurrence_start
+				+ next_counter;
+		else
+			next_period_idx = next_counter;
+
+		/* If this was the last, don't tell them about a next! */
+		if (!sent->offer->recurrence_limit
+		    || next_period_idx <= *sent->offer->recurrence_limit) {
+			json_object_start(out, "next_period");
+			json_add_u64(out, "counter", next_counter);
+			json_add_u64(out, "starttime",
+				     offer_period_start(*inv->recurrence_basetime,
+							next_period_idx,
+							sent->offer->recurrence));
+			json_add_u64(out, "endtime",
+				     offer_period_start(*inv->recurrence_basetime,
+							next_period_idx + 1,
+							sent->offer->recurrence) - 1);
+
+			offer_period_paywindow(sent->offer->recurrence,
+					       sent->offer->recurrence_paywindow,
+					       sent->offer->recurrence_base,
+					       *inv->recurrence_basetime,
+					       next_period_idx,
+					       &paywindow_start, &paywindow_end);
+			json_add_u64(out, "paywindow_start", paywindow_start);
+			json_add_u64(out, "paywindow_end", paywindow_end);
+			json_object_end(out);
+		}
+	}
 
 	discard_result(command_finished(sent->cmd, out));
 	return command_hook_success(cmd);

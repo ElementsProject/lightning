@@ -3856,6 +3856,8 @@ def test_fetchinvoice(node_factory, bitcoind):
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer})
     inv2 = l1.rpc.call('fetchinvoice', {'offer': offer})
     assert inv1 != inv2
+    assert 'next_period' not in inv1
+    assert 'next_period' not in inv2
     l1.rpc.pay(inv1['invoice'])
     l1.rpc.pay(inv2['invoice'])
 
@@ -3868,6 +3870,8 @@ def test_fetchinvoice(node_factory, bitcoind):
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer})
     inv2 = l1.rpc.call('fetchinvoice', {'offer': offer})
     assert inv1 != inv2
+    assert 'next_period' not in inv1
+    assert 'next_period' not in inv2
 
     l1.rpc.pay(inv1['invoice'])
 
@@ -3890,6 +3894,11 @@ def test_fetchinvoice(node_factory, bitcoind):
                                        'recurrence_counter': 0,
                                        'recurrence_label': 'test recurrence'})
     print(ret)
+    period1 = ret['next_period']
+    assert period1['counter'] == 1
+    assert period1['endtime'] == period1['starttime'] + 59
+    assert period1['paywindow_start'] == period1['starttime'] - 60
+    assert period1['paywindow_end'] == period1['endtime']
 
     l1.rpc.pay(ret['invoice'], label='test recurrence')
 
@@ -3897,5 +3906,11 @@ def test_fetchinvoice(node_factory, bitcoind):
                                        'recurrence_counter': 1,
                                        'recurrence_label': 'test recurrence'})
     print(ret)
+    period2 = ret['next_period']
+    assert period2['counter'] == 2
+    assert period2['starttime'] == period1['endtime'] + 1
+    assert period2['endtime'] == period2['starttime'] + 59
+    assert period2['paywindow_start'] == period2['starttime'] - 60
+    assert period2['paywindow_end'] == period2['endtime']
 
     l1.rpc.pay(ret['invoice'], label='test recurrence')
