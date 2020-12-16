@@ -99,6 +99,9 @@ wire/bolt12_exp_wiregen.h_args := --include='bitcoin/short_channel_id.h' --inclu
 
 wire/peer_wiregen.h_args := --include='common/channel_id.h' --include='bitcoin/tx.h' --include='bitcoin/preimage.h' --include='bitcoin/short_channel_id.h' --include='common/node_id.h' --include='common/bigsize.h' --include='bitcoin/block.h' --include='bitcoin/privkey.h' -s --expose-tlv-type=n1 --expose-tlv-type=n2
 
+# All generated wire/ files depend on this Makefile
+$(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(WIRE_SRC) $(WIRE_PRINT_SRC) $(WIRE_HEADERS)): wire/Makefile
+
 maintainer-clean: wire-maintainer-clean
 
 wire-maintainer-clean:
