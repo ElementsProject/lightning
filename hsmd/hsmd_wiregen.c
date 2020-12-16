@@ -239,17 +239,18 @@ bool fromwire_hsmd_init(const tal_t *ctx, const void *p, struct bip32_key_versio
 }
 
 /* WIRE: HSMD_INIT_REPLY */
-u8 *towire_hsmd_init_reply(const tal_t *ctx, const struct node_id *node_id, const struct ext_key *bip32)
+u8 *towire_hsmd_init_reply(const tal_t *ctx, const struct node_id *node_id, const struct ext_key *bip32, const struct pubkey32 *bolt12)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
 	towire_u16(&p, WIRE_HSMD_INIT_REPLY);
 	towire_node_id(&p, node_id);
 	towire_ext_key(&p, bip32);
+	towire_pubkey32(&p, bolt12);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_hsmd_init_reply(const void *p, struct node_id *node_id, struct ext_key *bip32)
+bool fromwire_hsmd_init_reply(const void *p, struct node_id *node_id, struct ext_key *bip32, struct pubkey32 *bolt12)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
@@ -258,6 +259,7 @@ bool fromwire_hsmd_init_reply(const void *p, struct node_id *node_id, struct ext
 		return false;
  	fromwire_node_id(&cursor, &plen, node_id);
  	fromwire_ext_key(&cursor, &plen, bip32);
+ 	fromwire_pubkey32(&cursor, &plen, bolt12);
 	return cursor != NULL;
 }
 
@@ -1221,19 +1223,25 @@ bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx, const void *p
 
 /* WIRE: HSMD_SIGN_BOLT12 */
 /* Sign a bolt12-style merkle hash */
-u8 *towire_hsmd_sign_bolt12(const tal_t *ctx, const wirestring *messagename, const wirestring *fieldname, const struct sha256 *merkleroot)
+u8 *towire_hsmd_sign_bolt12(const tal_t *ctx, const wirestring *messagename, const wirestring *fieldname, const struct sha256 *merkleroot, const u8 *publictweak)
 {
+	u16 publictweaklen = tal_count(publictweak);
 	u8 *p = tal_arr(ctx, u8, 0);
 
 	towire_u16(&p, WIRE_HSMD_SIGN_BOLT12);
 	towire_wirestring(&p, messagename);
 	towire_wirestring(&p, fieldname);
 	towire_sha256(&p, merkleroot);
+	/* This is for invreq payer_id (temporary keys) */
+	towire_u16(&p, publictweaklen);
+	towire_u8_array(&p, publictweak, publictweaklen);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_hsmd_sign_bolt12(const tal_t *ctx, const void *p, wirestring **messagename, wirestring **fieldname, struct sha256 *merkleroot)
+bool fromwire_hsmd_sign_bolt12(const tal_t *ctx, const void *p, wirestring **messagename, wirestring **fieldname, struct sha256 *merkleroot, u8 **publictweak)
 {
+	u16 publictweaklen;
+
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
@@ -1242,6 +1250,11 @@ bool fromwire_hsmd_sign_bolt12(const tal_t *ctx, const void *p, wirestring **mes
  	*messagename = fromwire_wirestring(ctx, &cursor, &plen);
  	*fieldname = fromwire_wirestring(ctx, &cursor, &plen);
  	fromwire_sha256(&cursor, &plen, merkleroot);
+ 	/* This is for invreq payer_id (temporary keys) */
+	publictweaklen = fromwire_u16(&cursor, &plen);
+ 	// 2nd case publictweak
+	*publictweak = publictweaklen ? tal_arr(ctx, u8, publictweaklen) : NULL;
+	fromwire_u8_array(&cursor, &plen, *publictweak, publictweaklen);
 	return cursor != NULL;
 }
 
@@ -1265,4 +1278,4 @@ bool fromwire_hsmd_sign_bolt12_reply(const void *p, struct bip340sig *sig)
  	fromwire_bip340sig(&cursor, &plen, sig);
 	return cursor != NULL;
 }
-// SHA256STAMP:cb033b99e13d9bdd06582a34132ba7cd311f4cf074298da1addcdad06b3fdf8f
+// SHA256STAMP:bba9aa92e35397eb79f9518bbc058ccac4b51c3e48039f29205703f8bc20111e

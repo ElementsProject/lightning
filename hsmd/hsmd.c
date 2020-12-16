@@ -63,10 +63,11 @@
 #define REQ_FD 3
 
 /*~ Nobody will ever find it here!  hsm_secret is our root secret, the bip32
- * tree is derived from that, and cached here. */
+ * tree and bolt12 payer_id keys are derived from that, and cached here. */
 static struct {
 	struct secret hsm_secret;
 	struct ext_key bip32;
+	secp256k1_keypair bolt12;
 } secretstuff;
 
 /* Version codes for BIP32 extended keys in libwally-core.
@@ -490,6 +491,38 @@ static void populate_secretstuff(void)
 				  &secretstuff.bip32) != WALLY_OK)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Can't derive private bip32 key");
+
+	/* BIP 33:
+	 *
+	 * We propose the first level of BIP32 tree structure to be used as
+	 * "purpose". This purpose determines the further structure beneath
+	 * this node.
+	 *
+	 *  m / purpose' / *
+	 *
+	 * Apostrophe indicates that BIP32 hardened derivation is used.
+	 *
+	 * We encourage different schemes to apply for assigning a separate
+	 * BIP number and use the same number for purpose field, so addresses
+	 * won't be generated from overlapping BIP32 spaces.
+	 *
+	 * Example: Scheme described in BIP44 should use 44' (or 0x8000002C)
+	 * as purpose.
+	 */
+	/* Clearly, we should use 9735, the unicode point for lightning! */
+	if (bip32_key_from_parent(&master_extkey,
+				  BIP32_INITIAL_HARDENED_CHILD|9735,
+				  BIP32_FLAG_KEY_PRIVATE,
+				  &child_extkey) != WALLY_OK)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't derive bolt12 bip32 key");
+
+	/* libwally says: The private key with prefix byte 0; remove it
+	 * for libsecp256k1. */
+	if (secp256k1_keypair_create(secp256k1_ctx, &secretstuff.bolt12,
+				     child_extkey.priv_key+1) != 1)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Can't derive bolt12 keypair");
 }
 
 /*~ Get the keys for this given BIP32 index: if privkey is NULL, we
@@ -706,6 +739,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 {
 	struct node_id node_id;
 	struct pubkey key;
+	struct pubkey32 bolt12;
 	struct privkey *privkey;
 	struct secret *seed;
 	struct secrets *secrets;
@@ -756,12 +790,19 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	node_key(NULL, &key);
 	node_id_from_pubkey(&node_id, &key);
 
+	/* We also give it the base key for bolt12 payerids */
+	if (secp256k1_keypair_xonly_pub(secp256k1_ctx, &bolt12.pubkey, NULL,
+					&secretstuff.bolt12) != 1)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+		              "Could derive bolt12 public key.");
+
 	/*~ Note: marshalling a bip32 tree only marshals the public side,
 	 * not the secrets!  So we're not actually handing them out here!
 	 */
 	return req_reply(conn, c,
 			 take(towire_hsmd_init_reply(NULL, &node_id,
-						    &secretstuff.bip32)));
+						     &secretstuff.bip32,
+						     &bolt12)));
 }
 
 /*~ The client has asked us to extract the shared secret from an EC Diffie
@@ -1830,18 +1871,44 @@ static struct io_plan *handle_sign_bolt12(struct io_conn *conn,
 	char *messagename, *fieldname;
 	struct sha256 merkle, sha;
 	struct bip340sig sig;
-	secp256k1_keypair node_kp;
+	secp256k1_keypair kp;
+	u8 *publictweak;
 
 	if (!fromwire_hsmd_sign_bolt12(tmpctx, msg_in,
-				       &messagename, &fieldname, &merkle))
+				       &messagename, &fieldname, &merkle,
+				       &publictweak))
 		return bad_req(conn, c, msg_in);
 
 	sighash_from_merkle(messagename, fieldname, &merkle, &sha);
 
-	node_schnorrkey(&node_kp, NULL);
+	if (!publictweak) {
+		node_schnorrkey(&kp, NULL);
+	} else {
+		/* If we're tweaking key, we use bolt12 key */
+		struct pubkey32 bolt12;
+		struct sha256 tweak;
+
+		if (secp256k1_keypair_xonly_pub(secp256k1_ctx,
+						&bolt12.pubkey, NULL,
+						&secretstuff.bolt12) != 1)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Could not derive bolt12 public key.");
+		payer_key_tweak(&bolt12, publictweak, tal_bytelen(publictweak),
+				&tweak);
+
+		kp = secretstuff.bolt12;
+
+		if (secp256k1_keypair_xonly_tweak_add(secp256k1_ctx,
+						      &kp,
+						      tweak.u.u8) != 1) {
+			return bad_req_fmt(conn, c, msg_in,
+					   "Failed to get tweak key");
+		}
+	}
+
 	if (!secp256k1_schnorrsig_sign(secp256k1_ctx, sig.u8,
 				       sha.u.u8,
-				       &node_kp,
+				       &kp,
 				       NULL, NULL)) {
 		return bad_req_fmt(conn, c, msg_in, "Failed to sign bolt12");
 	}

@@ -104,8 +104,8 @@ u8 *towire_hsmd_init(const tal_t *ctx, const struct bip32_key_version *bip32_key
 bool fromwire_hsmd_init(const tal_t *ctx, const void *p, struct bip32_key_version *bip32_key_version, const struct chainparams **chainparams, struct secret **hsm_encryption_key, struct privkey **dev_force_privkey, struct secret **dev_force_bip32_seed, struct secrets **dev_force_channel_secrets, struct sha256 **dev_force_channel_secrets_shaseed);
 
 /* WIRE: HSMD_INIT_REPLY */
-u8 *towire_hsmd_init_reply(const tal_t *ctx, const struct node_id *node_id, const struct ext_key *bip32);
-bool fromwire_hsmd_init_reply(const void *p, struct node_id *node_id, struct ext_key *bip32);
+u8 *towire_hsmd_init_reply(const tal_t *ctx, const struct node_id *node_id, const struct ext_key *bip32, const struct pubkey32 *bolt12);
+bool fromwire_hsmd_init_reply(const void *p, struct node_id *node_id, struct ext_key *bip32, struct pubkey32 *bolt12);
 
 /* WIRE: HSMD_CLIENT_HSMFD */
 /*  Get a new HSM FD */
@@ -274,8 +274,8 @@ bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx, const void *p
 
 /* WIRE: HSMD_SIGN_BOLT12 */
 /*  Sign a bolt12-style merkle hash */
-u8 *towire_hsmd_sign_bolt12(const tal_t *ctx, const wirestring *messagename, const wirestring *fieldname, const struct sha256 *merkleroot);
-bool fromwire_hsmd_sign_bolt12(const tal_t *ctx, const void *p, wirestring **messagename, wirestring **fieldname, struct sha256 *merkleroot);
+u8 *towire_hsmd_sign_bolt12(const tal_t *ctx, const wirestring *messagename, const wirestring *fieldname, const struct sha256 *merkleroot, const u8 *publictweak);
+bool fromwire_hsmd_sign_bolt12(const tal_t *ctx, const void *p, wirestring **messagename, wirestring **fieldname, struct sha256 *merkleroot, u8 **publictweak);
 
 /* WIRE: HSMD_SIGN_BOLT12_REPLY */
 u8 *towire_hsmd_sign_bolt12_reply(const tal_t *ctx, const struct bip340sig *sig);
@@ -283,4 +283,4 @@ bool fromwire_hsmd_sign_bolt12_reply(const void *p, struct bip340sig *sig);
 
 
 #endif /* LIGHTNING_HSMD_HSMD_WIREGEN_H */
-// SHA256STAMP:cb033b99e13d9bdd06582a34132ba7cd311f4cf074298da1addcdad06b3fdf8f
+// SHA256STAMP:bba9aa92e35397eb79f9518bbc058ccac4b51c3e48039f29205703f8bc20111e

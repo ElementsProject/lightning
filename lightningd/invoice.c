@@ -442,7 +442,7 @@ static void hsm_sign_b12_invoice(struct lightningd *ld,
 	assert(!invoice->signature);
 
  	merkle_tlv(invoice->fields, &merkle);
-	msg = towire_hsmd_sign_bolt12(NULL, "invoice", "signature", &merkle);
+	msg = towire_hsmd_sign_bolt12(NULL, "invoice", "signature", &merkle, NULL);
 
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));

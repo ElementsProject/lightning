@@ -111,6 +111,9 @@ struct lightningd {
 	/* This is us. */
 	struct node_id id;
 
+	/* The public base for our payer_id keys */
+	struct pubkey32 bolt12_base;
+
 	/* Feature set we offer. */
 	struct feature_set *our_features;
 
