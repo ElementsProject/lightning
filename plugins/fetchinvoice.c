@@ -1,6 +1,7 @@
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_out/json_out.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
 #include <common/blindedpath.h>
@@ -11,29 +12,274 @@
 #include <common/gossmap.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
+#include <common/overflows.h>
 #include <common/route.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <plugins/libplugin.h>
+#include <secp256k1_schnorrsig.h>
 
 static struct gossmap *global_gossmap;
 static struct node_id local_id;
+static LIST_HEAD(sent_list);
 
 struct sent {
+	/* We're in sent_invreqs, awaiting reply. */
+	struct list_node list;
+	/* The blinding factor used by reply. */
+	struct pubkey reply_blinding;
+	/* The command which sent us. */
+	struct command *cmd;
 	/* The offer we are trying to get an invoice for. */
 	struct tlv_offer *offer;
 	/* The invreq we sent. */
 	struct tlv_invoice_request *invreq;
 };
 
+static struct sent *find_sent(const struct pubkey *blinding)
+{
+	struct sent *i;
+
+	list_for_each(&sent_list, i, list) {
+		if (pubkey_eq(&i->reply_blinding, blinding))
+			return i;
+	}
+	return NULL;
+}
+
+static const char *field_diff_(const tal_t *a, const tal_t *b,
+			       const char *fieldname)
+{
+	/* One is set and the other isn't? */
+	if ((a == NULL) != (b == NULL))
+		return fieldname;
+	if (!memeq(a, tal_bytelen(a), b, tal_bytelen(b)))
+		return fieldname;
+	return NULL;
+}
+
+#define field_diff(a, b, fieldname) \
+	field_diff_(a->fieldname, b->fieldname, #fieldname)
+
+/* Returns true if b is a with something appended. */
+static bool description_is_appended(const char *a, const char *b)
+{
+	if (!a || !b)
+		return false;
+	if (tal_bytelen(b) < tal_bytelen(a))
+		return false;
+	return memeq(a, tal_bytelen(a), b, tal_bytelen(a));
+}
+
+/* Hack to suppress warnings when we finish a different command */
+static void discard_result(struct command_result *ret)
+{
+}
+
+static struct command_result *recv_onion_message(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *params)
+{
+	const jsmntok_t *om, *invtok, *blindingtok;
+	const u8 *invbin;
+	size_t len;
+	struct tlv_invoice *inv;
+	struct sent *sent;
+	struct sha256 merkle, sighash;
+	struct json_stream *out;
+	const char *badfield;
+	struct pubkey blinding;
+	u64 *expected_amount;
+
+	plugin_log(cmd->plugin, LOG_INFORM, "Received onion message: %.*s",
+		   json_tok_full_len(params),
+		   json_tok_full(buf, params));
+
+	om = json_get_member(buf, params, "onion_message");
+	invtok = json_get_member(buf, om, "invoice");
+	if (!invtok)
+		return command_hook_success(cmd);
+	blindingtok = json_get_member(buf, om, "blinding_in");
+	if (!blindingtok || !json_to_pubkey(buf, blindingtok, &blinding))
+		return command_hook_success(cmd);
+
+	sent = find_sent(&blinding);
+	if (!sent) {
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "No match for received invoice %.*s",
+			   json_tok_full_len(invtok),
+			   json_tok_full(buf, invtok));
+		return command_hook_success(cmd);
+	}
+
+	/* From here on, we know it's genuine, so we will fail the
+	 * fetchinvoice command if the invoice is invalid */
+	invbin = json_tok_bin_from_hex(cmd, buf, invtok);
+	len = tal_bytelen(invbin);
+	inv = tlv_invoice_new(cmd);
+ 	if (!fromwire_invoice(&invbin, &len, inv)) {
+		badfield = "invoice";
+		goto badinv;
+	}
+
+	/* BOLT-offers #12:
+	 * - MUST reject the invoice unless `node_id` is equal to the offer.
+	 */
+	if (!pubkey32_eq(sent->offer->node_id, inv->node_id)) {
+		badfield = "node_id";
+		goto badinv;
+	}
+
+	/* BOLT-offers #12:
+	 *   - MUST reject the invoice if `signature` is not a valid signature
+	 *      using `node_id` as described in [Signature Calculation]
+	 */
+	merkle_tlv(inv->fields, &merkle);
+	sighash_from_merkle("invoice", "signature", &merkle, &sighash);
+
+	if (!inv->signature
+	    || secp256k1_schnorrsig_verify(secp256k1_ctx, inv->signature->u8,
+					   sighash.u.u8, &inv->node_id->pubkey) != 1) {
+		badfield = "signature";
+		goto badinv;
+	}
+
+	/* BOLT-offers #12:
+	 * - MUST reject the invoice if `msat` is not present.
+	 */
+	if (!inv->amount) {
+		badfield = "amount";
+		goto badinv;
+	}
+
+	/* BOLT-offers #12:
+	 * - MUST reject the invoice unless `offer_id` is equal to the id of the
+	 *   offer.
+	 */
+	if ((badfield = field_diff(sent->invreq, inv, offer_id)))
+		goto badinv;
+
+	/* BOLT-offers #12:
+	 * - if the invoice is a reply to an `invoice_request`:
+	 *...
+	 *   - MUST reject the invoice unless the following fields are equal or
+	 *     unset exactly as they are in the `invoice_request:`
+	 *     - `quantity`
+	 *     - `recurrence_counter`
+	 *     - `recurrence_start`
+	 *     - `payer_key`
+	 *     - `payer_info`
+	 */
+	if ((badfield = field_diff(sent->invreq, inv, quantity)))
+		goto badinv;
+	if ((badfield = field_diff(sent->invreq, inv, recurrence_counter)))
+		goto badinv;
+	if ((badfield = field_diff(sent->invreq, inv, recurrence_start)))
+		goto badinv;
+	if ((badfield = field_diff(sent->invreq, inv, payer_key)))
+		goto badinv;
+	if ((badfield = field_diff(sent->invreq, inv, payer_info)))
+		goto badinv;
+
+	/* Get the amount we expected. */
+	if (sent->offer->amount && !sent->offer->currency) {
+		expected_amount = tal(tmpctx, u64);
+
+		*expected_amount = *sent->offer->amount;
+		if (sent->invreq->quantity) {
+			/* We should never have sent this! */
+			if (mul_overflows_u64(*expected_amount,
+					      *sent->invreq->quantity)) {
+				badfield = "quantity overflow";
+				goto badinv;
+			}
+			*expected_amount *= *sent->invreq->quantity;
+		}
+	} else
+		expected_amount = NULL;
+
+	/* BOLT-offers #12:
+	 * - SHOULD confirm authorization if the `description` does not exactly
+	 *   match the `offer`
+	 *   - MAY highlight if `description` has simply had a change appended.
+	 */
+	/* We highlight these changes to the caller, for them to handle */
+	out = jsonrpc_stream_success(sent->cmd);
+	json_add_string(out, "invoice", invoice_encode(tmpctx, inv));
+	json_object_start(out, "changes");
+	if (field_diff(sent->offer, inv, description)) {
+		/* Did they simply append? */
+		if (description_is_appended(sent->offer->description,
+					    inv->description)) {
+			size_t off = tal_bytelen(sent->offer->description);
+			json_add_stringn(out, "description_appended",
+					 inv->description + off,
+					 tal_bytelen(inv->description) - off);
+		} else if (!inv->description)
+			json_add_stringn(out, "description_removed",
+					 sent->offer->description,
+					 tal_bytelen(sent->offer->description));
+		else
+			json_add_stringn(out, "description",
+					 inv->description,
+					 tal_bytelen(inv->description));
+	}
+
+	/* BOLT-offers #12:
+	 * - SHOULD confirm authorization if `vendor` does not exactly
+	 *   match the `offer`
+	 */
+	if (field_diff(sent->offer, inv, vendor)) {
+		if (!inv->vendor)
+			json_add_stringn(out, "vendor_removed",
+					 sent->offer->vendor,
+					 tal_bytelen(sent->offer->vendor));
+		else
+			json_add_stringn(out, "vendor",
+					 inv->vendor,
+					 tal_bytelen(inv->vendor));
+	}
+	/* BOLT-offers #12:
+	 *   - SHOULD confirm authorization if `msat` is not within the amount
+	 *     range authorized.
+	 */
+	/* We always tell them this unless it's trivial to calc and
+	 * exactly as expected. */
+	if (!expected_amount || *inv->amount != *expected_amount)
+		json_add_amount_msat_only(out, "msat",
+					  amount_msat(*inv->amount));
+	json_object_end(out);
+
+	discard_result(command_finished(sent->cmd, out));
+	return command_hook_success(cmd);
+
+badinv:
+	plugin_log(cmd->plugin, LOG_DBG, "Failed invoice due to %s", badfield);
+	discard_result(command_fail(sent->cmd,
+				    OFFER_BAD_INVREQ_REPLY,
+				    "Incorrect %s field in %.*s",
+				    badfield,
+				    json_tok_full_len(invtok),
+				    json_tok_full(buf, invtok)));
+	return command_hook_success(cmd);
+}
+
+static void destroy_sent(struct sent *sent)
+{
+	list_del(&sent->list);
+}
+
 static struct command_result *sendonionmsg_done(struct command *cmd,
 						const char *buf UNUSED,
 						const jsmntok_t *result UNUSED,
 						struct sent *sent)
 {
-	/* FIXME: Now wait for reply. */
+	/* FIXME: timeout! */
+	sent->cmd = cmd;
+	list_add_tail(&sent_list, &sent->list);
+	tal_add_destructor(sent, destroy_sent);
 	return command_still_pending(cmd);
 }
 
@@ -149,7 +395,7 @@ static struct command_result *send_message(struct command *cmd,
 	struct gossmap *gossmap = get_gossmap(cmd->plugin);
 	const struct pubkey *backwards;
 	struct onionmsg_path **path;
-	struct pubkey blinding, reply_blinding;
+	struct pubkey blinding;
 	struct out_req *req;
 	struct node_id dstid;
 
@@ -179,7 +425,8 @@ static struct command_result *send_message(struct command *cmd,
 
 	/* Ok, now make reply for onion_message */
 	backwards = route_backwards(tmpctx, gossmap, r);
-	path = make_blindedpath(tmpctx, backwards, &blinding, &reply_blinding);
+	path = make_blindedpath(tmpctx, backwards, &blinding,
+				&sent->reply_blinding);
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
 				    &sendonionmsg_done,
@@ -464,6 +711,13 @@ static void init(struct plugin *p, const char *buf UNUSED,
 		plugin_err(p, "getinfo didn't contain valid id: '%s'", field);
 }
 
+static const struct plugin_hook hooks[] = {
+	{
+		"onion_message_blinded",
+		recv_onion_message
+	},
+};
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -471,8 +725,7 @@ int main(int argc, char *argv[])
 		    commands, ARRAY_SIZE(commands),
 		    /* No notifications */
 	            NULL, 0,
-		    /* No hooks */
-		    NULL, 0,
+		    hooks, ARRAY_SIZE(hooks),
 		    /* No options */
 		    NULL);
 }
