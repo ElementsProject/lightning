@@ -125,7 +125,8 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	bip32_base = tal(ld, struct ext_key);
 	msg = wire_sync_read(tmpctx, ld->hsm_fd);
 	if (!fromwire_hsmd_init_reply(msg,
-				     &ld->id, bip32_base)) {
+				      &ld->id, bip32_base,
+				      &ld->bolt12_base)) {
 		if (ld->config.keypass)
 			errx(1, "Wrong password for encrypted hsm_secret.");
 		errx(1, "HSM did not give init reply");

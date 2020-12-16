@@ -49,7 +49,7 @@ static void hsm_sign_b12_offer(struct lightningd *ld,
 {
 	u8 *msg;
 
-	msg = towire_hsmd_sign_bolt12(NULL, "offer", "signature", merkle);
+	msg = towire_hsmd_sign_bolt12(NULL, "offer", "signature", merkle, NULL);
 
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
