@@ -1,14 +1,9 @@
 /* This plugin covers both sending and receiving offers */
-#include <bitcoin/chainparams.h>
-#include <bitcoin/preimage.h>
 #include <ccan/array_size/array_size.h>
-#include <common/bolt12.h>
-#include <common/bolt12_merkle.h>
-#include <common/json_stream.h>
-#include <common/overflows.h>
-#include <common/type_to_string.h>
 #include <plugins/libplugin.h>
-#include <wire/onion_wire.h>
+#include <plugins/offers_offer.h>
+
+struct pubkey32 id;
 
 static const struct plugin_hook hooks[] = {
 };
@@ -17,9 +12,28 @@ static void init(struct plugin *p,
 		 const char *buf UNUSED,
 		 const jsmntok_t *config UNUSED)
 {
+	const char *field;
+	struct pubkey k;
+
+	field =
+	    rpc_delve(tmpctx, p, "getinfo",
+		      take(json_out_obj(NULL, NULL, NULL)),
+		      ".id");
+	if (!pubkey_from_hexstr(field, strlen(field), &k))
+		abort();
+	if (secp256k1_xonly_pubkey_from_pubkey(secp256k1_ctx, &id.pubkey,
+					       NULL, &k.pubkey) != 1)
+		abort();
 }
 
 static const struct plugin_command commands[] = {
+    {
+	    "offer",
+	    "payment",
+	    "Create an offer",
+            "Create an offer for invoices of {amount} with {destination}, optional {vendor}, {quantity_min}, {quantity_max}, {absolute_expiry}, {recurrence}, {recurrence_base}, {recurrence_paywindow}, {recurrence_limit} and {single_use}",
+            json_offer
+    },
 };
 
 int main(int argc, char *argv[])
