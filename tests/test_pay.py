@@ -3542,7 +3542,15 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
     to the payee, and the public network is perfectly balanced
     with more than sufficient capacity, as well.
     '''
-    l1, l2, l3, l4, l5, l6, l7 = node_factory.get_nodes(7, opts={'feerates': (1000, 1000, 1000, 1000)})
+    opts = {'feerates': (1000, 1000, 1000, 1000)}
+    if EXPERIMENTAL_DUAL_FUND:
+        # fundbalancedchannel doesn't work for opt_dual_fund
+        # because we've removed push_msat
+        accepter_plugin = os.path.join(os.path.dirname(__file__),
+                                       'plugins/df_accepter.py')
+        opts['plugin'] = accepter_plugin
+
+    l1, l2, l3, l4, l5, l6, l7 = node_factory.get_nodes(7, opts=opts)
 
     # Unit
     unit = Millisatoshi(11000 * 1000)
@@ -3559,6 +3567,13 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
     l5.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l6.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l7.rpc.connect(l1.info['id'], 'localhost', l1.port)
+
+    # If we're 'dual-funding', turn off the reciprocal funding
+    # so that we can fund channels without making them balanced
+    if EXPERIMENTAL_DUAL_FUND:
+        for n in [l1, l2, l3, l4, l5, l6, l7]:
+            n.rpc.setacceptfundingmax('0msat')
+
     # The order in which the routes are built should not matter so
     # shuffle them.
     incoming_builders = [lambda: l5.fundchannel(l1, int((unit * 7).to_satoshi()), announce_channel=False),
@@ -3658,6 +3673,13 @@ def test_mpp_overload_payee(node_factory, bitcoind):
     # default limit in the future, so explicitly put this value here, since
     # that is what our test assumes.
     opts = {'max-concurrent-htlcs': 30}
+    if EXPERIMENTAL_DUAL_FUND:
+        # fundbalancedchannel doesn't work for opt_dual_fund
+        # because we've removed push_msat
+        accepter_plugin = os.path.join(os.path.dirname(__file__),
+                                       'plugins/df_accepter.py')
+        opts['plugin'] = accepter_plugin
+
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts)
 
     # Respect wumbo.
