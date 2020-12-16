@@ -3856,6 +3856,8 @@ def test_fetchinvoice(node_factory, bitcoind):
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer})
     inv2 = l1.rpc.call('fetchinvoice', {'offer': offer})
     assert inv1 != inv2
+    l1.rpc.pay(inv1['invoice'])
+    l1.rpc.pay(inv2['invoice'])
 
     # Single-use invoice can be fetched multiple times, only paid once.
     offer = l3.rpc.call('offer', {'amount': '1msat',
@@ -3866,3 +3868,34 @@ def test_fetchinvoice(node_factory, bitcoind):
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer})
     inv2 = l1.rpc.call('fetchinvoice', {'offer': offer})
     assert inv1 != inv2
+
+    l1.rpc.pay(inv1['invoice'])
+
+    # FIXME: We don't report failure yet.
+#    # We can't pay the other one now.
+#    with pytest.raises(RpcError, match='???'):
+#        l1.rpc.pay(inv2['invoice'])
+#
+#    # We can't reuse the offer, either.
+#    with pytest.raises(RpcError, match='???'):
+#        l1.rpc.call('fetchinvoice', {'offer': offer})
+
+    # Recurring offer.
+    offer = l2.rpc.call('offer', {'amount': '1msat',
+                                  'description': 'recurring test',
+                                  'recurrence': '1minutes'})['bolt12']
+    print(offer)
+
+    ret = l1.rpc.call('fetchinvoice', {'offer': offer,
+                                       'recurrence_counter': 0,
+                                       'recurrence_label': 'test recurrence'})
+    print(ret)
+
+    l1.rpc.pay(ret['invoice'], label='test recurrence')
+
+    ret = l1.rpc.call('fetchinvoice', {'offer': offer,
+                                       'recurrence_counter': 1,
+                                       'recurrence_label': 'test recurrence'})
+    print(ret)
+
+    l1.rpc.pay(ret['invoice'], label='test recurrence')
