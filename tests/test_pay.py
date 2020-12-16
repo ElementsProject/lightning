@@ -3875,14 +3875,13 @@ def test_fetchinvoice(node_factory, bitcoind):
 
     l1.rpc.pay(inv1['invoice'])
 
-    # FIXME: We don't report failure yet.
-#    # We can't pay the other one now.
-#    with pytest.raises(RpcError, match='???'):
-#        l1.rpc.pay(inv2['invoice'])
-#
-#    # We can't reuse the offer, either.
-#    with pytest.raises(RpcError, match='???'):
-#        l1.rpc.call('fetchinvoice', {'offer': offer})
+    # We can't pay the other one now.
+    with pytest.raises(RpcError, match="INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS.*'erring_node': '{}'".format(l3.info['id'])):
+        l1.rpc.pay(inv2['invoice'])
+
+    # We can't reuse the offer, either.
+    with pytest.raises(RpcError, match='Offer no longer available'):
+        l1.rpc.call('fetchinvoice', {'offer': offer})
 
     # Recurring offer.
     offer = l2.rpc.call('offer', {'amount': '1msat',
@@ -3913,4 +3912,24 @@ def test_fetchinvoice(node_factory, bitcoind):
     assert period2['paywindow_start'] == period2['starttime'] - 60
     assert period2['paywindow_end'] == period2['endtime']
 
+    # Can't request 2 before paying 1.
+    with pytest.raises(RpcError, match='previous invoice has not been paid'):
+        l1.rpc.call('fetchinvoice', {'offer': offer,
+                                     'recurrence_counter': 2,
+                                     'recurrence_label': 'test recurrence'})
+
     l1.rpc.pay(ret['invoice'], label='test recurrence')
+
+    # Now we can, but it's too early:
+    with pytest.raises(RpcError, match='Remote node sent failure message.*too early'):
+        l1.rpc.call('fetchinvoice', {'offer': offer,
+                                     'recurrence_counter': 2,
+                                     'recurrence_label': 'test recurrence'})
+
+    # Wait until the correct moment.
+    while time.time() < period1['starttime']:
+        time.sleep(1)
+
+    l1.rpc.call('fetchinvoice', {'offer': offer,
+                                 'recurrence_counter': 2,
+                                 'recurrence_label': 'test recurrence'})

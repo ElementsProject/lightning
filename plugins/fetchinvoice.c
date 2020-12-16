@@ -2,8 +2,10 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/mem/mem.h>
+#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
+#include <ccan/utf8/utf8.h>
 #include <common/blindedpath.h>
 #include <common/bolt11.h>
 #include <common/bolt12.h>
@@ -82,7 +84,7 @@ static struct command_result *recv_onion_message(struct command *cmd,
 						 const char *buf,
 						 const jsmntok_t *params)
 {
-	const jsmntok_t *om, *invtok, *blindingtok;
+	const jsmntok_t *om, *invtok, *errtok, *blindingtok;
 	const u8 *invbin;
 	size_t len;
 	struct tlv_invoice *inv;
@@ -98,9 +100,6 @@ static struct command_result *recv_onion_message(struct command *cmd,
 		   json_tok_full(buf, params));
 
 	om = json_get_member(buf, params, "onion_message");
-	invtok = json_get_member(buf, om, "invoice");
-	if (!invtok)
-		return command_hook_success(cmd);
 	blindingtok = json_get_member(buf, om, "blinding_in");
 	if (!blindingtok || !json_to_pubkey(buf, blindingtok, &blinding))
 		return command_hook_success(cmd);
@@ -108,14 +107,74 @@ static struct command_result *recv_onion_message(struct command *cmd,
 	sent = find_sent(&blinding);
 	if (!sent) {
 		plugin_log(cmd->plugin, LOG_DBG,
-			   "No match for received invoice %.*s",
-			   json_tok_full_len(invtok),
-			   json_tok_full(buf, invtok));
+			   "No match for onion %.*s",
+			   json_tok_full_len(om),
+			   json_tok_full(buf, om));
 		return command_hook_success(cmd);
 	}
 
 	/* From here on, we know it's genuine, so we will fail the
 	 * fetchinvoice command if the invoice is invalid */
+	errtok = json_get_member(buf, om, "invoice_error");
+	if (errtok) {
+		const u8 *data = json_tok_bin_from_hex(cmd, buf, errtok);
+		size_t dlen = tal_bytelen(data);
+		struct tlv_invoice_error *err = tlv_invoice_error_new(cmd);
+		struct json_out *details = json_out_new(cmd);
+
+		plugin_log(cmd->plugin, LOG_DBG, "errtok = %.*s",
+			   json_tok_full_len(errtok),
+			   json_tok_full(buf, errtok));
+		json_out_start(details, NULL, '{');
+		if (!fromwire_invoice_error(&data, &dlen, err)) {
+			plugin_log(cmd->plugin, LOG_DBG,
+				   "Invalid invoice_error %.*s",
+				   json_tok_full_len(errtok),
+				   json_tok_full(buf, errtok));
+			json_out_addstr(details, "invoice_error_hex",
+					tal_strndup(tmpctx,
+						    buf + errtok->start,
+						    errtok->end - errtok->start));
+		} else {
+			char *failstr;
+
+			/* FIXME: with a bit more generate-wire.py support,
+			 * we could have fieldnames and even types. */
+			if (err->erroneous_field)
+				json_out_add(details, "erroneous_field", false,
+					     "%"PRIu64, *err->erroneous_field);
+			if (err->suggested_value)
+				json_out_addstr(details, "suggested_value",
+						tal_hex(tmpctx,
+							err->suggested_value));
+			/* If they don't include this, it'll be empty */
+			failstr = tal_strndup(tmpctx,
+					      err->error,
+					      tal_bytelen(err->error));
+			json_out_addstr(details, "error", failstr);
+		}
+		json_out_end(details, '}');
+		discard_result(command_done_err(sent->cmd,
+						OFFER_BAD_INVREQ_REPLY,
+						"Remote node sent failure message",
+						details));
+		return command_hook_success(cmd);
+	}
+
+	invtok = json_get_member(buf, om, "invoice");
+	if (!invtok) {
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "Neither invoice nor invoice_request_failed in reply %.*s",
+			   json_tok_full_len(om),
+			   json_tok_full(buf, om));
+		discard_result(command_fail(sent->cmd,
+					    OFFER_BAD_INVREQ_REPLY,
+					    "Neither invoice nor invoice_request_failed in reply %.*s",
+					    json_tok_full_len(om),
+					    json_tok_full(buf, om)));
+		return command_hook_success(cmd);
+	}
+
 	invbin = json_tok_bin_from_hex(cmd, buf, invtok);
 	len = tal_bytelen(invbin);
 	inv = tlv_invoice_new(cmd);
