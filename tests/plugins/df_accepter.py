@@ -85,11 +85,33 @@ def find_inputs(b64_psbt):
     return input_idxs
 
 
+@plugin.init()
+def init(configuration, options, plugin):
+    # this is the max channel size, pre-wumbo
+    plugin.max_fund = Millisatoshi((2 ** 24 - 1) * 1000)
+    plugin.log('max funding set to {}'.format(plugin.max_fund))
+
+
+@plugin.method("setacceptfundingmax")
+def set_accept_funding_max(plugin, max_sats, **kwargs):
+    plugin.max_fund = Millisatoshi(max_sats)
+
+    return {'accepter_max_funding': plugin.max_fund}
+
+
 @plugin.hook('openchannel2')
 def on_openchannel(openchannel2, plugin, **kwargs):
     # We mirror what the peer does, wrt to funding amount ...
-    amount = openchannel2['their_funding']
+    amount = Millisatoshi(openchannel2['their_funding'])
     locktime = openchannel2['locktime']
+
+    if amount > plugin.max_fund:
+        plugin.log("amount adjusted from {} to {}".format(amount, plugin.max_fund))
+        amount = plugin.max_fund
+
+    if amount == 0:
+        plugin.log("accepter_max_funding set to zero")
+        return {'result': 'continue'}
 
     # ...unless they send us totally unacceptable feerates.
     feerate = find_feerate(openchannel2['funding_feerate_best'],
@@ -101,12 +123,15 @@ def on_openchannel(openchannel2, plugin, **kwargs):
     # Their feerate range is out of bounds, we're not going to
     # participate.
     if not feerate:
+        plugin.log("Declining to fund, no feerate found.")
         return {'result': 'continue'}
 
-    funding = plugin.rpc.fundpsbt(amount,
+    funding = plugin.rpc.fundpsbt(int(amount.to_satoshi()),
                                   '{}perkw'.format(feerate),
-                                  0, reserve=True,
+                                  0,  # because we're the accepter!!
+                                  reserve=True,
                                   locktime=locktime,
+                                  minconf=0,
                                   min_witness_weight=110)
     psbt_obj = psbt_from_base64(funding['psbt'])
 
@@ -119,6 +144,7 @@ def on_openchannel(openchannel2, plugin, **kwargs):
         output = tx_output_init(change.to_whole_satoshi(), get_script(addr))
         psbt_add_output_at(psbt_obj, 0, 0, output)
 
+    plugin.log("contributing {} at feerate {}".format(amount, feerate))
     return {'result': 'continue', 'psbt': psbt_to_base64(psbt_obj, 0),
             'accepter_funding_msat': amount,
             'funding_feerate': feerate}
