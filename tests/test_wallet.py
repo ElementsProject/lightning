@@ -12,6 +12,7 @@ from utils import (
 import os
 import pytest
 import subprocess
+import sys
 import unittest
 
 
@@ -946,6 +947,7 @@ def test_transaction_annotations(node_factory, bitcoind):
 
 
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
+@unittest.skipIf(not sys.stdout.isatty(), "Cannot")
 def test_hsm_secret_encryption(node_factory):
     l1 = node_factory.get_node(may_fail=True)  # May fail when started without key
     password = "reckful\n"
