@@ -585,7 +585,14 @@ static char *check_balances(const tal_t *ctx,
 				      initiator_weight);
 
 	if (!amount_sat_greater_eq(accepter_diff, accepter_fee)) {
-		return "accepter fee not covered";
+		return tal_fmt(ctx, "accepter fee not covered"
+			       " (need %s > have %s)",
+			       type_to_string(ctx,
+					      struct amount_sat,
+					      &accepter_fee),
+			       type_to_string(ctx,
+					      struct amount_sat,
+					      &accepter_diff));
 	}
 
 	if (!amount_sat_greater_eq(initiator_diff, initiator_fee)) {
