@@ -2027,6 +2027,12 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
+	if (channel
+	    && channel->state != CHANNELD_NORMAL
+	    && channel->state != CHANNELD_AWAITING_LOCKIN)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Channel is in state %s", channel_state_name(channel));
+
 	/* Open JSON response object for later iteration */
 	response = json_stream_success(cmd);
 	json_add_num(response, "base", *base);
@@ -2047,10 +2053,6 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 
 	/* single channel should be updated */
 	} else {
-		if (channel->state != CHANNELD_NORMAL &&
-			channel->state != CHANNELD_AWAITING_LOCKIN)
-			return command_fail(cmd, LIGHTNINGD,
-					"Channel is in state %s", channel_state_name(channel));
 		set_channel_fees(cmd, channel, *base, *ppm, response);
 	}
 
