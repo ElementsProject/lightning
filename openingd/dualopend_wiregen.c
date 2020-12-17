@@ -263,12 +263,13 @@ bool fromwire_dualopend_reinit(const tal_t *ctx, const void *p, const struct cha
 
 /* WIRE: DUALOPEND_GOT_OFFER */
 /* dualopend->master: they offered channel */
-u8 *towire_dualopend_got_offer(const tal_t *ctx, struct amount_sat opener_funding, struct amount_sat dust_limit_satoshis, struct amount_msat max_htlc_value_in_flight_msat, struct amount_msat htlc_minimum_msat, u32 feerate_funding_max, u32 feerate_funding_min, u32 feerate_funding_best, u32 feerate_per_kw, u16 to_self_delay, u16 max_accepted_htlcs, u8 channel_flags, u32 locktime, const u8 *shutdown_scriptpubkey)
+u8 *towire_dualopend_got_offer(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat opener_funding, struct amount_sat dust_limit_satoshis, struct amount_msat max_htlc_value_in_flight_msat, struct amount_msat htlc_minimum_msat, u32 feerate_funding_max, u32 feerate_funding_min, u32 feerate_funding_best, u32 feerate_per_kw, u16 to_self_delay, u16 max_accepted_htlcs, u8 channel_flags, u32 locktime, const u8 *shutdown_scriptpubkey)
 {
 	u16 shutdown_len = tal_count(shutdown_scriptpubkey);
 	u8 *p = tal_arr(ctx, u8, 0);
 
 	towire_u16(&p, WIRE_DUALOPEND_GOT_OFFER);
+	towire_channel_id(&p, channel_id);
 	towire_amount_sat(&p, opener_funding);
 	towire_amount_sat(&p, dust_limit_satoshis);
 	towire_amount_msat(&p, max_htlc_value_in_flight_msat);
@@ -286,7 +287,7 @@ u8 *towire_dualopend_got_offer(const tal_t *ctx, struct amount_sat opener_fundin
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dualopend_got_offer(const tal_t *ctx, const void *p, struct amount_sat *opener_funding, struct amount_sat *dust_limit_satoshis, struct amount_msat *max_htlc_value_in_flight_msat, struct amount_msat *htlc_minimum_msat, u32 *feerate_funding_max, u32 *feerate_funding_min, u32 *feerate_funding_best, u32 *feerate_per_kw, u16 *to_self_delay, u16 *max_accepted_htlcs, u8 *channel_flags, u32 *locktime, u8 **shutdown_scriptpubkey)
+bool fromwire_dualopend_got_offer(const tal_t *ctx, const void *p, struct channel_id *channel_id, struct amount_sat *opener_funding, struct amount_sat *dust_limit_satoshis, struct amount_msat *max_htlc_value_in_flight_msat, struct amount_msat *htlc_minimum_msat, u32 *feerate_funding_max, u32 *feerate_funding_min, u32 *feerate_funding_best, u32 *feerate_per_kw, u16 *to_self_delay, u16 *max_accepted_htlcs, u8 *channel_flags, u32 *locktime, u8 **shutdown_scriptpubkey)
 {
 	u16 shutdown_len;
 
@@ -295,6 +296,7 @@ bool fromwire_dualopend_got_offer(const tal_t *ctx, const void *p, struct amount
 
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_GOT_OFFER)
 		return false;
+ 	fromwire_channel_id(&cursor, &plen, channel_id);
  	*opener_funding = fromwire_amount_sat(&cursor, &plen);
  	*dust_limit_satoshis = fromwire_amount_sat(&cursor, &plen);
  	*max_htlc_value_in_flight_msat = fromwire_amount_msat(&cursor, &plen);
@@ -836,4 +838,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:4410d5ca881f7d981e8eebf77c0acf69f5a5113eaec626251d51f21d8f16a649
+// SHA256STAMP:a98345c38c5c28d10d403397332690a49b630fe6b214bcad10162010efa97a7c

@@ -1484,8 +1484,14 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		return;
 	}
 
+	/* We can figure out the channel id now */
+	derive_channel_id_v2(&cid,
+			     &state->our_points.revocation,
+			     &state->their_points.revocation);
+
 	/* FIXME: pass the podle back also */
 	msg = towire_dualopend_got_offer(NULL,
+					 &cid,
 					 state->opener_funding,
 					 state->remoteconf.dust_limit,
 					 state->remoteconf.max_htlc_value_in_flight,
@@ -1518,10 +1524,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 						&state->upfront_shutdown_script[LOCAL]))
 		master_badmsg(WIRE_DUALOPEND_GOT_OFFER_REPLY, msg);
 
-	/* We can figure out the channel id now */
-	derive_channel_id_v2(&state->channel_id,
-			     &state->our_points.revocation,
-			     &state->their_points.revocation);
+	/* Set the channel id now */
+	state->channel_id = cid;
 
 	if (!state->psbt)
 		state->psbt = create_psbt(state, 0, 0, state->tx_locktime);
