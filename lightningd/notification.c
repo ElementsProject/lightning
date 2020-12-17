@@ -511,3 +511,27 @@ void notify_openchannel_peer_sigs(struct lightningd *ld,
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
+
+static void channel_open_failed_serialize(struct json_stream *stream,
+					  const struct channel_id *cid)
+{
+	json_object_start(stream, "channel_open_failed");
+	json_add_channel_id(stream, "channel_id", cid);
+	json_object_end(stream);
+}
+
+REGISTER_NOTIFICATION(channel_open_failed,
+		      channel_open_failed_serialize);
+
+void notify_channel_open_failed(struct lightningd *ld,
+				const struct channel_id *cid)
+{
+	void (*serialize)(struct json_stream *,
+			  const struct channel_id *) = channel_open_failed_notification_gen.serialize;
+
+	struct jsonrpc_notification *n =
+		jsonrpc_notification_start(NULL, "channel_open_failed");
+	serialize(n->stream, cid);
+	jsonrpc_notification_end(n);
+	plugins_notify(ld->plugins, take(n));
+}
