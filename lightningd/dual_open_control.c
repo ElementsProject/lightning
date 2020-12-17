@@ -73,6 +73,7 @@ static void handle_signed_psbt(struct lightningd *ld,
 struct openchannel2_payload {
 	struct subd *dualopend;
 	struct node_id peer_id;
+	struct channel_id channel_id;
 	struct amount_sat their_funding;
 	struct amount_sat dust_limit_satoshis;
 	struct amount_msat max_htlc_value_in_flight_msat;
@@ -103,6 +104,7 @@ openchannel2_hook_serialize(struct openchannel2_payload *payload,
 {
 	json_object_start(stream, "openchannel2");
 	json_add_node_id(stream, "id", &payload->peer_id);
+	json_add_channel_id(stream, "channel_id", &payload->channel_id);
 	json_add_amount_sat_only(stream, "their_funding",
 				 payload->their_funding);
 	json_add_amount_sat_only(stream, "dust_limit_satoshis",
@@ -1407,6 +1409,7 @@ static void accepter_got_offer(struct subd *dualopend,
 	payload->err_msg = NULL;
 
 	if (!fromwire_dualopend_got_offer(payload, msg,
+					  &payload->channel_id,
 					  &payload->their_funding,
 					  &payload->dust_limit_satoshis,
 					  &payload->max_htlc_value_in_flight_msat,

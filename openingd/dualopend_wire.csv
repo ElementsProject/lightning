@@ -74,6 +74,7 @@ msgdata,dualopend_reinit,msg,u8,len
 
 # dualopend->master: they offered channel, should we continue?
 msgtype,dualopend_got_offer,7005
+msgdata,dualopend_got_offer,channel_id,channel_id,
 msgdata,dualopend_got_offer,opener_funding,amount_sat,
 msgdata,dualopend_got_offer,dust_limit_satoshis,amount_sat,
 msgdata,dualopend_got_offer,max_htlc_value_in_flight_msat,amount_msat,

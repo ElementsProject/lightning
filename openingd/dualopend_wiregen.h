@@ -88,8 +88,8 @@ bool fromwire_dualopend_reinit(const tal_t *ctx, const void *p, const struct cha
 
 /* WIRE: DUALOPEND_GOT_OFFER */
 /*  dualopend->master: they offered channel */
-u8 *towire_dualopend_got_offer(const tal_t *ctx, struct amount_sat opener_funding, struct amount_sat dust_limit_satoshis, struct amount_msat max_htlc_value_in_flight_msat, struct amount_msat htlc_minimum_msat, u32 feerate_funding_max, u32 feerate_funding_min, u32 feerate_funding_best, u32 feerate_per_kw, u16 to_self_delay, u16 max_accepted_htlcs, u8 channel_flags, u32 locktime, const u8 *shutdown_scriptpubkey);
-bool fromwire_dualopend_got_offer(const tal_t *ctx, const void *p, struct amount_sat *opener_funding, struct amount_sat *dust_limit_satoshis, struct amount_msat *max_htlc_value_in_flight_msat, struct amount_msat *htlc_minimum_msat, u32 *feerate_funding_max, u32 *feerate_funding_min, u32 *feerate_funding_best, u32 *feerate_per_kw, u16 *to_self_delay, u16 *max_accepted_htlcs, u8 *channel_flags, u32 *locktime, u8 **shutdown_scriptpubkey);
+u8 *towire_dualopend_got_offer(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat opener_funding, struct amount_sat dust_limit_satoshis, struct amount_msat max_htlc_value_in_flight_msat, struct amount_msat htlc_minimum_msat, u32 feerate_funding_max, u32 feerate_funding_min, u32 feerate_funding_best, u32 feerate_per_kw, u16 to_self_delay, u16 max_accepted_htlcs, u8 channel_flags, u32 locktime, const u8 *shutdown_scriptpubkey);
+bool fromwire_dualopend_got_offer(const tal_t *ctx, const void *p, struct channel_id *channel_id, struct amount_sat *opener_funding, struct amount_sat *dust_limit_satoshis, struct amount_msat *max_htlc_value_in_flight_msat, struct amount_msat *htlc_minimum_msat, u32 *feerate_funding_max, u32 *feerate_funding_min, u32 *feerate_funding_best, u32 *feerate_per_kw, u16 *to_self_delay, u16 *max_accepted_htlcs, u8 *channel_flags, u32 *locktime, u8 **shutdown_scriptpubkey);
 
 /* WIRE: DUALOPEND_GOT_OFFER_REPLY */
 /*  master->dualopend: reply back with our first funding info/contribs */
@@ -188,4 +188,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:4410d5ca881f7d981e8eebf77c0acf69f5a5113eaec626251d51f21d8f16a649
+// SHA256STAMP:a98345c38c5c28d10d403397332690a49b630fe6b214bcad10162010efa97a7c
