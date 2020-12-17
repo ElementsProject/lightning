@@ -290,11 +290,13 @@ void json_add_tx(struct json_stream *result,
 
 void json_add_psbt(struct json_stream *stream,
 		   const char *fieldname,
-		   const struct wally_psbt *psbt)
+		   const struct wally_psbt *psbt TAKES)
 {
 	const char *psbt_b64;
 	psbt_b64 = psbt_to_b64(NULL, psbt);
 	json_add_string(stream, fieldname, take(psbt_b64));
+	if (taken(psbt))
+		tal_free(psbt);
 }
 
 void json_add_amount_msat_compat(struct json_stream *result,
