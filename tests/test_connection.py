@@ -268,6 +268,20 @@ def test_disconnect_opener(node_factory):
                    '+WIRE_OPEN_CHANNEL',
                    '-WIRE_FUNDING_CREATED',
                    '@WIRE_FUNDING_CREATED']
+    if EXPERIMENTAL_DUAL_FUND:
+        disconnects = ['-WIRE_OPEN_CHANNEL2',
+                       '@WIRE_OPEN_CHANNEL2',
+                       '+WIRE_OPEN_CHANNEL2',
+                       '-WIRE_TX_ADD_INPUT',
+                       '@WIRE_TX_ADD_INPUT',
+                       '+WIRE_TX_ADD_INPUT',
+                       '-WIRE_TX_ADD_OUTPUT',
+                       '@WIRE_TX_ADD_OUTPUT',
+                       '+WIRE_TX_ADD_OUTPUT',
+                       '-WIRE_TX_COMPLETE',
+                       '@WIRE_TX_COMPLETE',
+                       '+WIRE_TX_COMPLETE']
+
     l1 = node_factory.get_node(disconnect=disconnects)
     l2 = node_factory.get_node()
 
