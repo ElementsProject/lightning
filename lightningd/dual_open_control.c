@@ -1133,13 +1133,16 @@ static void open_failed(struct subd *dualopend, const u8 *msg)
 		log_broken(uc->log,
 			   "Bad DUALOPEND_FAILED %s",
 			   tal_hex(msg, msg));
+
 		if (uc->fc && uc->fc->cmd)
 			was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s",
 						 tal_hex(uc->fc->cmd, msg)));
 
+		notify_channel_open_failed(dualopend->ld, &uc->cid);
 		tal_free(uc);
 	}
 
+	notify_channel_open_failed(dualopend->ld, &uc->cid);
 	opening_failed_cancel_commands(uc, desc);
 }
 

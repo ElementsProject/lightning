@@ -95,4 +95,7 @@ void notify_coin_mvt(struct lightningd *ld,
 void notify_openchannel_peer_sigs(struct lightningd *ld,
 				  const struct channel_id *cid,
 				  const struct wally_psbt *psbt);
+
+void notify_channel_open_failed(struct lightningd *ld,
+                                const struct channel_id *cid);
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */

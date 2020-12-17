@@ -251,8 +251,7 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 
 /*~ If we can't agree on parameters, we fail to open the channel.  If we're
  * the opener, we need to tell lightningd, otherwise it never really notices. */
-static void negotiation_aborted(struct state *state, bool am_opener,
-				const char *why)
+static void negotiation_aborted(struct state *state, const char *why)
 {
 	status_debug("aborted opening negotiation: %s", why);
 	/*~ The "billboard" (exposed as "status" in the JSON listpeers RPC
@@ -263,11 +262,9 @@ static void negotiation_aborted(struct state *state, bool am_opener,
 	 * status. */
 	peer_billboard(true, why);
 
-	/* If necessary, tell master that funding failed. */
-	if (am_opener) {
-		u8 *msg = towire_dualopend_failed(NULL, why);
-		wire_sync_write(REQ_FD, take(msg));
-	}
+	/* Tell master that funding failed. */
+	u8 *msg = towire_dualopend_failed(NULL, why);
+	wire_sync_write(REQ_FD, take(msg));
 
 	/* Default is no shutdown_scriptpubkey: free any leftover ones. */
 	state->upfront_shutdown_script[LOCAL]
@@ -286,7 +283,7 @@ static void negotiation_aborted(struct state *state, bool am_opener,
 }
 
 /*~ For negotiation failures: we tell them the parameter we didn't like. */
-static void negotiation_failed(struct state *state, bool am_opener,
+static void negotiation_failed(struct state *state,
 			       const char *fmt, ...)
 {
 	va_list ap;
@@ -301,7 +298,7 @@ static void negotiation_failed(struct state *state, bool am_opener,
 			      "You gave bad parameters: %s", errmsg);
 	sync_crypto_write(state->pps, take(msg));
 
-	negotiation_aborted(state, am_opener, errmsg);
+	negotiation_aborted(state, errmsg);
 }
 
 static void billboard_update(struct state *state)
@@ -953,8 +950,7 @@ static void init_changeset(struct state *state, struct wally_psbt *psbt)
 
 /*~ Handle random messages we might get during opening negotiation, (eg. gossip)
  * returning the first non-handled one, or NULL if we aborted negotiation. */
-static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
-				 bool am_opener)
+static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 {
 	/* This is an event loop of its own.  That's generally considered poor
 	 * form, but we use it in a very limited way. */
@@ -1016,14 +1012,12 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 			}
 			/* Close connection on all_channels error. */
 			if (all_channels) {
-				if (am_opener) {
-					msg = towire_dualopend_failed(NULL, err);
-					wire_sync_write(REQ_FD, take(msg));
-				}
+				msg = towire_dualopend_failed(NULL, err);
+				wire_sync_write(REQ_FD, take(msg));
 				peer_failed_received_errmsg(state->pps, err,
 							    NULL, false);
 			}
-			negotiation_aborted(state, am_opener,
+			negotiation_aborted(state,
 					    tal_fmt(tmpctx, "They sent error %s",
 						    err));
 			/* Return NULL so caller knows to stop negotiating. */
@@ -1072,8 +1066,7 @@ static bool run_tx_interactive(struct state *state,
 		 * they have to re-affirm every time  */
 		they_complete = false;
 
-		msg = opening_negotiate_msg(tmpctx, state,
-					    our_role == TX_INITIATOR);
+		msg = opening_negotiate_msg(tmpctx, state);
 		if (!msg)
 			return false;
 		t = fromwire_peektype(msg);
@@ -1459,8 +1452,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	 *  that is unknown to the receiver.
 	 */
 	if (!bitcoin_blkid_eq(&chain_hash, &chainparams->genesis_blockhash)) {
-		negotiation_failed(state, false,
-				   "Unknown chain-hash %s",
+		negotiation_failed(state, "Unknown chain-hash %s",
 				   type_to_string(tmpctx,
 						  struct bitcoin_blkid,
 						  &chain_hash));
@@ -1477,7 +1469,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	if (!feature_negotiated(state->our_features, state->their_features,
 				OPT_LARGE_CHANNELS)
 	    && amount_sat_greater(state->opener_funding, chainparams->max_funding)) {
-		negotiation_failed(state, false,
+		negotiation_failed(state,
 				   "opener's funding_satoshis %s too large",
 				   type_to_string(tmpctx, struct amount_sat,
 						  &state->opener_funding));
@@ -1513,7 +1505,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		if (!fromwire_dualopend_fail(msg, msg, &err_reason))
 			master_badmsg(msg_type, msg);
 
-		negotiation_failed(state, false, "%s", err_reason);
+		negotiation_failed(state, "%s", err_reason);
 		return;
 	}
 
@@ -1552,8 +1544,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	if (!feature_negotiated(state->our_features, state->their_features,
 				OPT_LARGE_CHANNELS)
 	    && amount_sat_greater(total, chainparams->max_funding)) {
-		negotiation_failed(state, false,
-				   "total funding_satoshis %s too large",
+		negotiation_failed(state, "total funding_satoshis %s too large",
 				   type_to_string(tmpctx, struct amount_sat,
 						  &total));
 		return;
@@ -1574,7 +1565,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				 false,
 				 true, /* v2 means we use anchor outputs */
 				 &err_reason)) {
-		negotiation_failed(state, false, "%s", err_reason);
+		negotiation_failed(state, "%s", err_reason);
 		return;
 	}
 
@@ -1638,8 +1629,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				    state->psbt,
 				    state->feerate_per_kw_funding);
 	if (err_reason)
-		negotiation_failed(state, false,
-				   "Insufficiently funded funding "
+		negotiation_failed(state, "Insufficiently funded funding "
 				   "tx, %s. %s",
 				   err_reason,
 				   type_to_string(tmpctx,
@@ -1647,7 +1637,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 						  state->psbt));
 
 	/* Wait for the peer to send us our commitment tx signature */
-	msg = opening_negotiate_msg(tmpctx, state, false);
+	msg = opening_negotiate_msg(tmpctx, state);
 	if (!msg)
 		return;
 
@@ -1697,7 +1687,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 
 	/* This shouldn't happen either, AFAICT. */
 	if (!local_commit) {
-		negotiation_failed(state, false,
+		negotiation_failed(state,
 				   "Could not meet our fees and reserve: %s",
 				   err_reason);
 		return;
@@ -1748,8 +1738,9 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					   REMOTE, direct_outputs, &err_reason);
 
 	if (!remote_commit) {
-		negotiation_failed(state, false,
-				   "Could not meet their fees and reserve: %s", err_reason);
+		negotiation_failed(state, "Could not meet their"
+				   " fees and reserve: %s",
+				   err_reason);
 		return;
 	}
 
@@ -1916,7 +1907,7 @@ static void opener_start(struct state *state, u8 *msg)
 		       " accept_channel2");
 
 	/* ... since their reply should be immediate. */
-	msg = opening_negotiate_msg(tmpctx, state, true);
+	msg = opening_negotiate_msg(tmpctx, state);
 	if (!msg)
 		return;
 
@@ -1997,7 +1988,7 @@ static void opener_start(struct state *state, u8 *msg)
 	if (!feature_negotiated(state->our_features, state->their_features,
 				OPT_LARGE_CHANNELS)
 	    && amount_sat_greater(total, chainparams->max_funding)) {
-		negotiation_failed(state, false,
+		negotiation_failed(state,
 				   "total funding_satoshis %s too large",
 				   type_to_string(tmpctx, struct amount_sat,
 						  &total));
@@ -2039,14 +2030,13 @@ static void opener_start(struct state *state, u8 *msg)
 				 &state->localconf,
 				 true, true, /* v2 means we use anchor outputs */
 				 &err_reason)) {
-		negotiation_failed(state, false, "%s", err_reason);
+		negotiation_failed(state, "%s", err_reason);
 		return;
 	}
 
 	/* Send our first message, we're opener we initiate here */
 	if (!send_next(state, &state->psbt))
-		negotiation_failed(state, true,
-				   "Peer error, no updates to send");
+		negotiation_failed(state, "Peer error, no updates to send");
 
 	/* Figure out what the funding transaction looks like! */
 	if (!run_tx_interactive(state, &state->psbt, TX_INITIATOR))
@@ -2067,8 +2057,7 @@ static void opener_start(struct state *state, u8 *msg)
 	err_reason = check_balances(tmpctx, state, state->psbt,
 				    state->feerate_per_kw_funding);
 	if (err_reason)
-		negotiation_failed(state, true,
-				   "Insufficiently funded funding "
+		negotiation_failed(state, "Insufficiently funded funding "
 				   "tx, %s. %s",
 				   err_reason,
 				   type_to_string(tmpctx,
@@ -2108,7 +2097,7 @@ static void opener_start(struct state *state, u8 *msg)
 					   REMOTE, direct_outputs, &err_reason);
 
 	if (!remote_commit) {
-		negotiation_failed(state, true,
+		negotiation_failed(state,
 				   "Could not meet their fees and reserve: %s",
 				   err_reason);
 		return;
@@ -2147,7 +2136,7 @@ static void opener_start(struct state *state, u8 *msg)
 	peer_billboard(false, "channel open: commitment sent, waiting for reply");
 
 	/* Wait for the peer to send us our commitment tx signature */
-	msg = opening_negotiate_msg(tmpctx, state, true);
+	msg = opening_negotiate_msg(tmpctx, state);
 	if (!msg)
 		return;
 
@@ -2172,7 +2161,7 @@ static void opener_start(struct state *state, u8 *msg)
 
 	/* This shouldn't happen either, AFAICT. */
 	if (!local_commit) {
-		negotiation_failed(state, false,
+		negotiation_failed(state,
 				   "Could not meet our fees and reserve: %s",
 				   err_reason);
 		return;
