@@ -150,19 +150,35 @@ mfc_cleanup_done(struct command *cmd,
 	else
 		return command_still_pending(cmd);
 }
+
 /* Cleans up a txid by doing `txdiscard` on it.  */
 static void
 mfc_cleanup_psbt(struct command *cmd,
 		 struct multifundchannel_cleanup *cleanup,
 		 struct wally_psbt *psbt)
 {
+	struct wally_psbt *pruned_psbt;
 	struct out_req *req = jsonrpc_request_start(cmd->plugin,
 						    cmd,
 						    "unreserveinputs",
 						    &mfc_cleanup_done,
 						    &mfc_cleanup_done,
 						    cleanup);
-	json_add_psbt(req->js, "psbt", psbt);
+
+	/* We might have peer's inputs on this, get rid of them */
+	tal_wally_start();
+	if (wally_psbt_clone_alloc(psbt, 0, &pruned_psbt) != WALLY_OK)
+		abort();
+	tal_wally_end(tal_steal(NULL, pruned_psbt));
+
+	for (size_t i = pruned_psbt->num_inputs - 1;
+	     i < pruned_psbt->num_inputs;
+	     i--) {
+		if (!psbt_input_is_ours(&pruned_psbt->inputs[i]))
+			psbt_rm_input(pruned_psbt, i);
+	}
+
+	json_add_psbt(req->js, "psbt", take(pruned_psbt));
 	send_outreq(cmd->plugin, req);
 }
 /* Cleans up a `fundchannel_start` by doing `fundchannel_cancel` on
