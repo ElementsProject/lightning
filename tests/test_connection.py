@@ -308,10 +308,59 @@ def test_disconnect_fundee(node_factory):
     disconnects = ['-WIRE_ACCEPT_CHANNEL',
                    '@WIRE_ACCEPT_CHANNEL',
                    '+WIRE_ACCEPT_CHANNEL']
+    if EXPERIMENTAL_DUAL_FUND:
+        disconnects = ['-WIRE_ACCEPT_CHANNEL2',
+                       '@WIRE_ACCEPT_CHANNEL2',
+                       '+WIRE_ACCEPT_CHANNEL2',
+                       '-WIRE_TX_COMPLETE',
+                       '@WIRE_TX_COMPLETE',
+                       '+WIRE_TX_COMPLETE']
+
     l1 = node_factory.get_node()
     l2 = node_factory.get_node(disconnect=disconnects)
 
     l1.fundwallet(2000000)
+
+    for d in disconnects:
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        with pytest.raises(RpcError):
+            l1.rpc.fundchannel(l2.info['id'], 25000)
+        assert l1.rpc.getpeer(l2.info['id']) is None
+
+    # This one will succeed.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], 25000)
+
+    # Should still only have one peer!
+    assert len(l1.rpc.listpeers()) == 1
+    assert len(l2.rpc.listpeers()) == 1
+
+
+@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@unittest.skipIf(not EXPERIMENTAL_DUAL_FUND, "needs OPT_DUAL_FUND")
+def test_disconnect_fundee_v2(node_factory):
+    # Now error on fundee side during channel open, with them funding
+    disconnects = ['-WIRE_ACCEPT_CHANNEL2',
+                   '@WIRE_ACCEPT_CHANNEL2',
+                   '+WIRE_ACCEPT_CHANNEL2',
+                   '-WIRE_TX_ADD_INPUT',
+                   '@WIRE_TX_ADD_INPUT',
+                   '+WIRE_TX_ADD_INPUT',
+                   '-WIRE_TX_ADD_OUTPUT',
+                   '@WIRE_TX_ADD_OUTPUT',
+                   '+WIRE_TX_ADD_OUTPUT',
+                   '-WIRE_TX_COMPLETE',
+                   '@WIRE_TX_COMPLETE',
+                   '+WIRE_TX_COMPLETE']
+
+    accepter_plugin = os.path.join(os.path.dirname(__file__),
+                                   'plugins/df_accepter.py')
+    l1 = node_factory.get_node()
+    l2 = node_factory.get_node(disconnect=disconnects,
+                               options={'plugin': accepter_plugin})
+
+    l1.fundwallet(2000000)
+    l2.fundwallet(2000000)
 
     for d in disconnects:
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
@@ -2527,12 +2576,15 @@ def test_restart_many_payments(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "need dev-disconnect")
-@unittest.skipIf(True, "FIXME: doesn't work for opt_dual_fund, see test below")
 def test_fail_unconfirmed(node_factory, bitcoind, executor):
     """Test that if we crash with an unconfirmed connection to a known
     peer, we don't have a dangling peer in db"""
+    if EXPERIMENTAL_DUAL_FUND:
+        disconnect = ['=WIRE_OPEN_CHANNEL2']
+    else:
+        disconnect = ['=WIRE_OPEN_CHANNEL']
     # = is a NOOP disconnect, but sets up file.
-    l1 = node_factory.get_node(disconnect=['=WIRE_OPEN_CHANNEL'])
+    l1 = node_factory.get_node(disconnect=disconnect)
     l2 = node_factory.get_node()
 
     # First one, we close by mutual agreement.

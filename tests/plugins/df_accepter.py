@@ -89,6 +89,7 @@ def find_inputs(b64_psbt):
 def init(configuration, options, plugin):
     # this is the max channel size, pre-wumbo
     plugin.max_fund = Millisatoshi((2 ** 24 - 1) * 1000)
+    plugin.inflight = {}
     plugin.log('max funding set to {}'.format(plugin.max_fund))
 
 
@@ -97,6 +98,35 @@ def set_accept_funding_max(plugin, max_sats, **kwargs):
     plugin.max_fund = Millisatoshi(max_sats)
 
     return {'accepter_max_funding': plugin.max_fund}
+
+
+def add_inflight(plugin, peerid, chanid, psbt):
+    if peerid in plugin.inflight:
+        chans = plugin.inflight[peerid]
+    else:
+        chans = {}
+        plugin.inflight[peerid] = chans
+
+    if chanid in chans:
+        raise ValueError("channel {} already in flight (peer {})".format(chanid, peerid))
+    chans[chanid] = psbt
+
+
+def cleanup_inflight(plugin, chanid):
+    for peer, chans in plugin.inflight.items():
+        if chanid in chans:
+            psbt = chans[chanid]
+            del chans[chanid]
+            return psbt
+    return None
+
+
+def cleanup_inflight_peer(plugin, peerid):
+    if peerid in plugin.inflight:
+        chans = plugin.inflight[peerid]
+        for chanid, psbt in chans.items():
+            plugin.rpc.unreserveinputs(psbt)
+        del plugin.inflight[peerid]
 
 
 @plugin.hook('openchannel2')
@@ -144,8 +174,12 @@ def on_openchannel(openchannel2, plugin, **kwargs):
         output = tx_output_init(change.to_whole_satoshi(), get_script(addr))
         psbt_add_output_at(psbt_obj, 0, 0, output)
 
+    psbt = psbt_to_base64(psbt_obj, 0)
+    add_inflight(plugin, openchannel2['id'],
+                 openchannel2['channel_id'], psbt)
     plugin.log("contributing {} at feerate {}".format(amount, feerate))
-    return {'result': 'continue', 'psbt': psbt_to_base64(psbt_obj, 0),
+
+    return {'result': 'continue', 'psbt': psbt,
             'accepter_funding_msat': amount,
             'funding_feerate': feerate}
 
@@ -168,7 +202,23 @@ def on_tx_sign(openchannel2_sign, plugin, **kwargs):
     else:
         final_psbt = psbt
 
+    cleanup_inflight(plugin, openchannel2_sign['channel_id'])
     return {'result': 'continue', 'psbt': final_psbt}
+
+
+@plugin.subscribe("channel_open_failed")
+def on_open_failed(channel_open_failed, plugin, **kwargs):
+    channel_id = channel_open_failed['channel_id']
+    psbt = cleanup_inflight(plugin, channel_id)
+    if psbt:
+        plugin.log("failed to open channel {}, unreserving".format(channel_id))
+        plugin.rpc.unreserveinputs(psbt)
+
+
+@plugin.subscribe("disconnect")
+def on_peer_disconnect(id, plugin, **kwargs):
+    plugin.log("peer {} disconnected, removing inflights".format(id))
+    cleanup_inflight_peer(plugin, id)
 
 
 plugin.run()
