@@ -487,12 +487,18 @@ def test_reconnect_gossiping(node_factory):
     l2.daemon.wait_for_log('processing now old peer gone')
 
 
+@flaky
 @unittest.skipIf(not DEVELOPER, "needs dev-disconnect")
-def test_reconnect_no_update(node_factory, executor):
-    """
+def test_reconnect_no_update(node_factory, executor, bitcoind):
+    """Test that funding_locked is retransmitted on reconnect if new channel
+
     This tests if the `funding_locked` is sent if we receive a
-    `channel_reestablish` message with `next_commitment_number` == 1 and
-    our `next_commitment_number` == 1.
+    `channel_reestablish` message with `next_commitment_number` == 1
+    and our `next_commitment_number` == 1.
+
+    This test makes extensive use of disconnects followed by automatic
+    reconnects. See comments for details.
+
     """
     disconnects = ["@WIRE_FUNDING_LOCKED", "@WIRE_SHUTDOWN"]
     # Allow bad gossip because it might receive WIRE_CHANNEL_UPDATE before
@@ -502,18 +508,26 @@ def test_reconnect_no_update(node_factory, executor):
 
     # For channeld reconnection
     l1.rpc.connect(l2.info["id"], "localhost", l2.port)
+
+    # LightningNode.fundchannel will fund the channel and generate a
+    # block. The block triggers the funding_locked message, which
+    # causes a disconnect. The retransmission is then caused by the
+    # automatic retry.
     fundchannel_exec = executor.submit(l1.fundchannel, l2, 10**6, False)
     if l1.config('experimental-dual-fund'):
         l2.daemon.wait_for_log(r"Unexpected `tx_signatures` from peer. Allowing.")
         l1.daemon.wait_for_log(r"dualopend.* Retransmitting funding_locked for channel")
     else:
         l1.daemon.wait_for_log(r"channeld.* Retransmitting funding_locked for channel")
+    sync_blockheight(bitcoind, [l1, l2])
+    fundchannel_exec.result()
     l1.stop()
 
     # For closingd reconnection
-    scid, _ = fundchannel_exec.result()
     l1.daemon.start()
-    executor.submit(l1.rpc.close, scid, 0)
+    # Close will trigger the @WIRE_SHUTDOWN and we then wait for the
+    # automatic reconnection to trigger the retransmission.
+    l1.rpc.close(l2.info['id'], 0)
     l2.daemon.wait_for_log(r"closingd.* Retransmitting funding_locked for channel")
     l1.daemon.wait_for_log(r"CLOSINGD_COMPLETE")
 
