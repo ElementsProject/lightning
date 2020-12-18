@@ -321,7 +321,16 @@ class SimpleBitcoinProxy:
         proxy = BitcoinProxy(btc_conf_file=self.__btc_conf_file__)
 
         def f(*args):
-            return proxy._call(name, *args)
+            logging.debug("Calling {name} with arguments {args}".format(
+                name=name,
+                args=args
+            ))
+            res = proxy._call(name, *args)
+            logging.debug("Result for {name} call: {res}".format(
+                name=name,
+                res=res,
+            ))
+            return res
 
         # Make debuggers show <function bitcoin.rpc.name> rather than <function
         # bitcoin.rpc.<lambda>>
