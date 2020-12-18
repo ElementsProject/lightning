@@ -602,6 +602,9 @@ def test_reconnect_sender_add(node_factory):
                    '-WIRE_REVOKE_AND_ACK',
                    '@WIRE_REVOKE_AND_ACK',
                    '+WIRE_REVOKE_AND_ACK']
+    if EXPERIMENTAL_DUAL_FUND:
+        disconnects = ['=WIRE_COMMITMENT_SIGNED'] + disconnects
+
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True,
@@ -1022,6 +1025,7 @@ def test_funding_by_utxos(node_factory, bitcoind):
 
 
 @unittest.skipIf(not DEVELOPER, "needs dev_forget_channel")
+@unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "Uses fundchannel_start")
 def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(may_reconnect=True)
@@ -1117,6 +1121,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 
 
 @unittest.skipIf(SLOW_MACHINE and not VALGRIND, "Way too taxing on CI machines")
+@unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "requires fundchannel_start")
 def test_funding_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
 
@@ -1265,6 +1270,7 @@ def test_funding_close_upfront(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
+@unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "v2 doesn't work with fundchannel_start")
 def test_funding_external_wallet(node_factory, bitcoind):
     l1, l2, l3 = node_factory.get_nodes(3, opts=[{'funding-confirms': 2},
                                                  {'funding-confirms': 2}, {}])

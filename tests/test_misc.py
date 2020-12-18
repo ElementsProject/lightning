@@ -7,7 +7,7 @@ from pyln.client import RpcError
 from threading import Event
 from pyln.testing.utils import (
     DEVELOPER, TIMEOUT, VALGRIND, DEPRECATED_APIS, sync_blockheight, only_one,
-    wait_for, TailableProc, env
+    wait_for, TailableProc, env, EXPERIMENTAL_DUAL_FUND
 )
 from utils import (
     check_coin_moves, account_balance
@@ -161,6 +161,7 @@ def test_bitcoin_ibd(node_factory, bitcoind):
     assert 'warning_bitcoind_sync' not in l1.rpc.getinfo()
 
 
+@unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "Requires fundchannel_start")
 def test_lightningd_still_loading(node_factory, bitcoind, executor):
     """Test that we recognize we haven't got all blocks from bitcoind"""
 
