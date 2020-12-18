@@ -984,12 +984,12 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     l2.daemon.wait_for_log('Propose handling OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
 
     # after 5 blocks, l2 reclaims both their DELAYED_OUTPUT_TO_US and their delayed output
-    bitcoind.generate_block(5)
+    bitcoind.generate_block(5, wait_for_mempool=0)
     sync_blockheight(bitcoind, [l2])
     l2.daemon.wait_for_logs(['Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_HTLC_SUCCESS_TX/DELAYED_OUTPUT_TO_US',
                              'Broadcasting OUR_DELAYED_RETURN_TO_WALLET .* to resolve OUR_UNILATERAL/DELAYED_OUTPUT_TO_US'])
 
-    bitcoind.generate_block(10)
+    bitcoind.generate_block(10, wait_for_mempool=2)
     l2.wait_for_onchaind_broadcast('OUR_HTLC_TIMEOUT_TX',
                                    'OUR_UNILATERAL/OUR_HTLC')
 
@@ -1013,7 +1013,7 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
                              'by THEIR_DELAYED_CHEAT',
                              'Resolved THEIR_REVOKED_UNILATERAL/THEIR_HTLC by THEIR_HTLC_TIMEOUT_TO_THEM',
                              'Propose handling THEIR_HTLC_TIMEOUT_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM by OUR_PENALTY_TX'])
-    bitcoind.generate_block(1)
+    bitcoind.generate_block(1, wait_for_mempool=2)  # OUR_PENALTY_TX + OUR_HTLC_TIMEOUT_TO_US
     l3.daemon.wait_for_log('Resolved THEIR_HTLC_TIMEOUT_TO_THEM/DELAYED_CHEAT_OUTPUT_TO_THEM '
                            'by our proposal OUR_PENALTY_TX')
     l2.daemon.wait_for_log('Unknown spend of OUR_HTLC_TIMEOUT_TX/DELAYED_OUTPUT_TO_US')
