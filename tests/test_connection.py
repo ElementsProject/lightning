@@ -1755,10 +1755,14 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     # mysteriously die while committing the first HTLC so we can
     # check that HTLCs reloaded from the DB work.
     # Feerates identical so we don't get gratuitous commit to update them
+    disconnect = ['=WIRE_COMMITMENT_SIGNED-nocommit']
+
+    if EXPERIMENTAL_DUAL_FUND:
+        disconnect = ['=WIRE_COMMITMENT_SIGNED'] + disconnect
+
     l1 = node_factory.get_node(may_reconnect=True, feerates=(7500, 7500, 7500,
                                                              7500))
-    l2 = node_factory.get_node(disconnect=['=WIRE_COMMITMENT_SIGNED-nocommit'],
-                               may_reconnect=True)
+    l2 = node_factory.get_node(disconnect=disconnect, may_reconnect=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # Neither node should have a channel open, they are just connected
@@ -1777,6 +1781,7 @@ def test_channel_persistence(node_factory, bitcoind, executor):
     # Fire off a sendpay request, it'll get interrupted by a restart
     executor.submit(l1.pay, l2, 10000)
     # Wait for it to be committed to, i.e., stored in the DB
+    l1.daemon.wait_for_log('peer_in WIRE_FUNDING_LOCKED')
     l1.daemon.wait_for_log('peer_in WIRE_COMMITMENT_SIGNED')
 
     # Stop l2, l1 will reattempt to connect
@@ -2600,7 +2605,10 @@ def test_fail_unconfirmed(node_factory, bitcoind, executor):
     l1.stop()
     # Mangle disconnect file so this time it blackholes....
     with open(l1.daemon.disconnect_file, "w") as f:
-        f.write("0WIRE_OPEN_CHANNEL\n")
+        if EXPERIMENTAL_DUAL_FUND:
+            f.write("0WIRE_OPEN_CHANNEL2\n")
+        else:
+            f.write("0WIRE_OPEN_CHANNEL\n")
     l1.start()
 
     # Now we establish a new channel, which gets stuck.
@@ -2974,6 +2982,7 @@ def test_htlc_retransmit_order(node_factory, executor):
 
 
 @unittest.skipIf(True, "Currently failing, see tracking issue #4265")
+@unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "fundchannel_start not available")
 def test_fundchannel_start_alternate(node_factory, executor):
     ''' Test to see what happens if two nodes start channeling to
     each other alternately.
