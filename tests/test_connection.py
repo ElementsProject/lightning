@@ -382,6 +382,8 @@ def test_disconnect_half_signed(node_factory):
     # Now, these are the corner cases.  Fundee sends funding_signed,
     # but opener doesn't receive it.
     disconnects = ['@WIRE_FUNDING_SIGNED']
+    if EXPERIMENTAL_DUAL_FUND:
+        disconnects = ['@WIRE_COMMITMENT_SIGNED']
     l1 = node_factory.get_node()
     l2 = node_factory.get_node(disconnect=disconnects)
 
@@ -400,6 +402,9 @@ def test_disconnect_half_signed(node_factory):
 def test_reconnect_signed(node_factory):
     # This will fail *after* both sides consider channel opening.
     disconnects = ['+WIRE_FUNDING_SIGNED']
+    if EXPERIMENTAL_DUAL_FUND:
+        disconnects = ['+WIRE_COMMITMENT_SIGNED']
+
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True)
@@ -414,8 +419,12 @@ def test_reconnect_signed(node_factory):
     assert l2.rpc.getpeer(l1.info['id'])['id'] == l1.info['id']
 
     # Technically, this is async to fundchannel (and could reconnect first)
-    l1.daemon.wait_for_logs(['sendrawtx exit 0',
-                             'Peer has reconnected, state CHANNELD_AWAITING_LOCKIN'])
+    if EXPERIMENTAL_DUAL_FUND:
+        l1.daemon.wait_for_logs(['sendrawtx exit 0',
+                                 'Peer has reconnected, state DUALOPEND_OPEN_INIT'])
+    else:
+        l1.daemon.wait_for_logs(['sendrawtx exit 0',
+                                 'Peer has reconnected, state CHANNELD_AWAITING_LOCKIN'])
 
     l1.bitcoin.generate_block(6)
 
