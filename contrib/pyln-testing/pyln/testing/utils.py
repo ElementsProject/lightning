@@ -401,6 +401,14 @@ class BitcoinD(TailableProc):
                 wait_for(lambda: all(txid in self.rpc.getrawmempool() for txid in wait_for_mempool))
             else:
                 wait_for(lambda: len(self.rpc.getrawmempool()) >= wait_for_mempool)
+
+        mempool = self.rpc.getrawmempool()
+        logging.debug("Generating {numblocks}, confirming {lenmempool} transactions: {mempool}".format(
+            numblocks=numblocks,
+            mempool=mempool,
+            lenmempool=len(mempool),
+        ))
+
         # As of 0.16, generate() is removed; use generatetoaddress.
         return self.rpc.generatetoaddress(numblocks, self.rpc.getnewaddress())
 
