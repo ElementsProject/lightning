@@ -427,6 +427,10 @@ def test_reconnect_signed(node_factory):
 def test_reconnect_openingd(node_factory):
     # Openingd thinks we're still opening; opener reconnects..
     disconnects = ['0WIRE_ACCEPT_CHANNEL']
+
+    if EXPERIMENTAL_DUAL_FUND:
+        disconnects = ['0WIRE_ACCEPT_CHANNEL2']
+
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True)
