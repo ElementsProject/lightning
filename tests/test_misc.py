@@ -7,7 +7,7 @@ from pyln.client import RpcError
 from threading import Event
 from pyln.testing.utils import (
     DEVELOPER, TIMEOUT, VALGRIND, DEPRECATED_APIS, sync_blockheight, only_one,
-    wait_for, TailableProc, env, EXPERIMENTAL_DUAL_FUND
+    wait_for, TailableProc, env
 )
 from utils import (
     check_coin_moves, account_balance
@@ -161,7 +161,6 @@ def test_bitcoin_ibd(node_factory, bitcoind):
     assert 'warning_bitcoind_sync' not in l1.rpc.getinfo()
 
 
-@unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "Requires fundchannel_start")
 def test_lightningd_still_loading(node_factory, bitcoind, executor):
     """Test that we recognize we haven't got all blocks from bitcoind"""
 
@@ -217,7 +216,11 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     # Can't fund a new channel.
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     with pytest.raises(RpcError, match=r'304'):
-        l1.rpc.fundchannel_start(l3.info['id'], '10000sat')
+        if l1.config('experimental-dual-fund'):
+            psbt = l1.rpc.fundpsbt('10000sat', '253perkw', 250)['psbt']
+            l1.rpc.openchannel_init(l3.info['id'], '10000sat', psbt)
+        else:
+            l1.rpc.fundchannel_start(l3.info['id'], '10000sat')
 
     # Attempting to fund an extremely large transaction should fail
     # with a 'unsynced' error
