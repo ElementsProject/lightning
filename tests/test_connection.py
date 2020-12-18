@@ -2068,8 +2068,14 @@ def test_forget_channel(node_factory):
 
 def test_peerinfo(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
-    lfeatures = expected_peer_features()
-    nfeatures = expected_node_features()
+
+    if l1.config('experimental-dual-fund'):
+        lfeatures = expected_peer_features(extra=[223])
+        nfeatures = expected_node_features(extra=[223])
+    else:
+        lfeatures = expected_peer_features()
+        nfeatures = expected_node_features()
+
     # Gossiping but no node announcement yet
     assert l1.rpc.getpeer(l2.info['id'])['connected']
     assert len(l1.rpc.getpeer(l2.info['id'])['channels']) == 0
