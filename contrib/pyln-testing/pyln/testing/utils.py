@@ -227,9 +227,13 @@ class TailableProc(object):
 
         if self.proc.stderr:
             for line in iter(self.proc.stderr.readline, ''):
+
                 if line is None or len(line) == 0:
                     break
-                self.err_logs.append(line.rstrip().decode('UTF-8', 'replace')).rstrip()
+
+                line = line.rstrip().decode('UTF-8', 'replace')
+                self.err_logs.append(line)
+
             self.proc.stderr.close()
 
     def is_in_log(self, regex, start=0):
