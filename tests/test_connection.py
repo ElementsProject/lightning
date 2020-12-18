@@ -632,6 +632,10 @@ def test_reconnect_receiver_add(node_factory):
                    '-WIRE_REVOKE_AND_ACK',
                    '@WIRE_REVOKE_AND_ACK',
                    '+WIRE_REVOKE_AND_ACK']
+
+    if EXPERIMENTAL_DUAL_FUND:
+        disconnects = ['=WIRE_COMMITMENT_SIGNED'] + disconnects
+
     # Feerates identical so we don't get gratuitous commit to update them
     l1 = node_factory.get_node(may_reconnect=True, feerates=(7500, 7500, 7500, 7500))
     l2 = node_factory.get_node(disconnect=disconnects,
