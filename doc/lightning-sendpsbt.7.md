@@ -11,7 +11,7 @@ DESCRIPTION
 
 The **sendpsbt** is a low-level RPC command which sends a fully-signed PSBT.
 
-- *psbt*: A string that represents psbt value.
+- *psbt*: A base64-encoded string of the PSBT.
 
 EXAMPLE JSON REQUEST
 --------------------
@@ -21,7 +21,7 @@ EXAMPLE JSON REQUEST
   "id": 82,
   "method": "sendpsbt",
   "params": {
-    "psbt": "some_psbt"
+    "psbt": "cHNidP8BAHQBAAAAAcEKbzkcVvItfXURLb6PtIlar9N9jVKBZuxm34PsxGxgAAAAAAD/////AuQGAAAAAAAAFgAUNiXEouqXR2CoFjaP0V3ncVlEdueU1wUqAQAAABl2qRRxMMXp8bpyw7zzcTTnkjHukFng14isAAAAAAABAIUCAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////wNSAQH/////AgDyBSoBAAAAF6kU8Lg4vWyj9numjGv33kmU8Xj7+XiHAAAAAAAAAAAmaiSqIant4vYcP3HR3v0/qZnfo2lTdVxpBol5mWK0i+vYNpdOjPkAAAAAAQEgAPIFKgEAAAAXqRTwuDi9bKP2e6aMa/feSZTxePv5eIcBBxcWABT3We/RPg4o3h4maqWGMKzDVE01JQEIawJHMEQCIDFf4Y8vEDgQEkYVPOMyZas7eDpL1In8OSqKhrYftufXAiAdGOETFcD4Ge/y5e9BAwJZYueRvfUnmCzFQhmA5F9oOwEhA5EQC8GjcXM6YayF40YJviaUnNI2O7BMaUHZOWS7qJAoAAAiAgMAI5tx4a99gMvc9XHlmZjIpfz56hXBUrCTKexXf1CyURDRNMcTAAAAgAAAAIAsAACAAA=="
   }
 }
 ```
@@ -31,8 +31,8 @@ RETURN VALUE
 
 On success, the tx and txid of the transaction are returned.
 
-- *txid*: A string that represents the hash of transaction.
-- *tx*: A string that represents the hexadecimal dump of the transaction.
+- *txid*: Hex-encoded hash of transaction.
+- *tx*: Hex-encoded serialized transaction.
 
 On failure, one of the following error codes may be returned:
 

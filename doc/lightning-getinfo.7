@@ -26,38 +26,38 @@ On success, an object with the following information is returned:
 
 .RS
 .IP \[bu]
-\fIid\fR: A string that represents the public key of the node\. It will represents the node on the public network\.
+\fIid\fR: Hex-encoded public key of the node\. It will represents the node on the public network\.
 .IP \[bu]
-\fIalias\fR: A string that represents the alias of the node, by default is calculate from the public key (node id)\.  This is just for fun; the name can be anything and is not unique!
+\fIalias\fR: User-chosen node name, by default is calculated from the public key (node id)\. This is just for fun; the name can be anything and is not unique!
 .IP \[bu]
-\fIcolor\fR: A string that represents the preferred color of the node\.
+\fIcolor\fR: User-chosen node color as a hexadecimal string\. Like the alias, this is just for fun\.
 .IP \[bu]
-\fInum_peers\fR: An integer that represents the number of peer connect to the node\.
+\fInum_peers\fR: Number of peer connected\.
 .IP \[bu]
-\fInum_pending_channels\fR: An integer that represents the number of channel which are still awaiting opening confirmation\.
+\fInum_pending_channels\fR: Number of channels which are still awaiting opening confirmation\.
 .IP \[bu]
-\fInum_active_channels\fR: A integer that represents the number of channel which are currently open\.
+\fInum_active_channels\fR: Number of channels which are currently open\.
 .IP \[bu]
-\fInum_inactive_channels\fR: A integer that represents the number of channel which are closing\.
+\fInum_inactive_channels\fR: Number of channels which are closing\.
 .IP \[bu]
-\fIaddress\fR: An array that represents all published addresses of the node, each object inside the array contains the following proprieties:.RS
+\fIaddress\fR: An array with the published addresses of the node as objects, each object contains the following properties:.RS
 .IP \[bu]
-\fItype\fR: A string that represents the type of the address (currently \fBipv4\fR, \fBipv6\fR, \fBtorv3\fR or \fBtorv4\fR)\.
+\fItype\fR: Address type (\fB"ipv4"\fR, \fB"ipv6"\fR, \fB"torv2"\fR or \fB"torv3"\fR)\.
 .IP \[bu]
-\fIaddress\fR: A string that represents the value of the address\.
+\fIaddress\fR: IP or \fB.onion\fR hidden service address as a string\.
 .IP \[bu]
-\fIport\fR: An integer that represents the port where the node is listening with this address\.
+\fIport\fR: Port number as an integer\.
 
 .RE
 
 .IP \[bu]
-\fIbinding\fR: An array that represents all addresses where the node is binded\. Each object contains the same object type of the address propriety above\.
+\fIbinding\fR: An array with addresses to which the node is bound\. Properties of the objects are the same as above\.
 .IP \[bu]
-\fIversion\fR: A string that represents the version of the node\.
+\fIversion\fR: Version of the lightningd software currently running\.
 .IP \[bu]
-\fIblockheight\fR: An integer that represents the blockchain height\.
+\fIblockheight\fR: Height of the last Bitcoin block processed by the node\.
 .IP \[bu]
-\fInetwork\fR: A string that represents the type of network on the node are working (e\.g: \fBbitcoin\fR, \fBtestnet\fR, or \fBregtest\fR)\.
+\fInetwork\fR: Bitcoin network the node is currently running on (e\.g: \fBbitcoin\fR, \fBtestnet\fR, or \fBregtest\fR)\.
 
 .RE
 
@@ -120,4 +120,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:9e6a0e0c25569bfc9d23b07e84392a3f70f6c94a86cd482fbf48c3d668a1796d
+\" SHA256STAMP:9168066f50de0a43855d1d257931e800fd5d3cb5d02f3ea995582acd6e3e0818

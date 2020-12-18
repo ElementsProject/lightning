@@ -26,34 +26,34 @@ On success, the command will return a list of transactions, each object represen
 
 .RS
 .IP \[bu]
-\fIhash\fR: A string that represents the hash of transaction, which the caller can use to find it on the blockchain\.
+\fIhash\fR: The transaction id, a hex-encoded hash of the transaction, which the caller can use to find it on the blockchain\.
 .IP \[bu]
-\fIrawtx\fR: A string that represents the hexadecimal dump of the transaction\.
+\fIrawtx\fR: Hex-encoded serialized transaction\.
 .IP \[bu]
-\fIblockheight\fR: An integer that represents the block height that contains the transaction on the blockchain\.
+\fIblockheight\fR: Height of the block that contains the transaction on the blockchain\.
 .IP \[bu]
-\fItxindex\fR: An integer that represents the transaction index inside the block\.
+\fItxindex\fR: The transaction index inside the block\.
 .IP \[bu]
-\fIlocktime\fR: An integer that represents the nLocktime field\.
+\fIlocktime\fR: The nLocktime field as an integer\.
 .IP \[bu]
-\fIversion\fR: An integer that represents the nVersion field\.
+\fIversion\fR: The nVersion field as an integer\.
 .IP \[bu]
 \fIinputs\fR: A list of spent transaction outputs, each spent transaction output is represented with an object with the following properties:.RS
 .IP \[bu]
-\fItxid\fR: A string that represents the hash of transaction\. This is the output index of the transaction output being spent\.
+\fItxid\fR: The transaction id of the output being spent\.
 .IP \[bu]
-\fIindex\fR: An integer that represents the index of transaction\.
+\fIindex\fR: Index of this output on the transaction id above\.
 .IP \[bu]
-\fIsequence\fR: An integer that represents the nSequence field\.
+\fIsequence\fR: The nSequence value of this input\.
 
 .RE
 
 .IP \[bu]
 \fIoutputs\fR: A list of transactions, each transaction is represented with an object with the following proprieties:.RS
 .IP \[bu]
-\fIindex\fR: An integer that represents the index of transaction\.
+\fIindex\fR: Index of this output\.
 .IP \[bu]
-\fIsatoshis\fR: A string that represents the amount in millisatoshi\.
+\fIsatoshis\fR: Output amount in satoshis\.
 .IP \[bu]
 \fIscriptPubKey\fR: A string that contains the lock script in hexadecimal dump form\.
 
@@ -118,4 +118,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:88c68faf136cd7ce305bab0b89813d1c0122b8f31688a2dc9c064f7cba480a1d
+\" SHA256STAMP:55d85f8090b4d640bc5cf1b4b251637ffa9829f2c65d2e0668089a25214144ac

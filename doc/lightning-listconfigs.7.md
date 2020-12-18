@@ -33,12 +33,12 @@ the configuration file(s) and command line.
 
 Additional members include:
 
-- *# version*: A string that represents the version of node.
-- *plugins*: A array that represents the non-important plugin registered. Each object contains the following members:
-   - *path*: A string that represents the path of plugin.
-   - *name*: A string that represents the name of plugin.
+- *# version*: Version of lightningd software that is currently running.
+- *plugins*: A array of the non-important plugin currently running. Each object contains the following members:
+   - *path*: Path of the plugin executable.
+   - *name*: The plugin name.
    - *options*: A object that contains all options accepted from command line or configuration file, if the plugin has opitions
-- *important-plugins*: An array that represents all important plugins registered to the node. Each object contains the same members as the *plugin* array.
+- *important-plugins*: An array of the important plugins currently running. Each object contains the same members as the *plugin* array.
 
 On failure, one of the following error codes may be returned:
 

@@ -12,7 +12,7 @@ BIP-174\.
 
 .RS
 .IP \[bu]
-\fIpsbt\fR: A string that represents the PSBT value\.
+\fIpsbt\fR: A base64-encoded string of the PSBT\.
 .IP \[bu]
 \fIsignonly\fR: An optional array of input numbers to sign\.
 
@@ -33,7 +33,7 @@ if the inputs to be signed were not previously reserved\.
   "id": 82,
   "method": "signpsbt",
   "params": {
-    "psbt": "some_psbt"
+    "psbt": "cHNidP8BAHEBAAAAAZ+dQXWMU0UUQW5guh1gAqRk6qV1EfswIxDz/l6pI4BYAAAAAAD/////AuQGAAAAAAAAFgAUNiXEouqXR2CoFjaP0V3ncVlEdue0RKASAAAAABYAFKswhKbTAJ6fHwhnBttaS62vUkitAAAAAAAAAAA="
   }
 }
 .RE
@@ -45,7 +45,7 @@ On success, a object will be returned with a string\.
 
 .RS
 .IP \[bu]
-\fIpsbt\fR: A string that represents the psbt value with all inputs  signed transaction\.
+\fIpsbt\fR: A base64-PSBT with the specified inputs signed\.
 
 .RE
 
@@ -60,14 +60,14 @@ On failure, one of the following error codes may be returned:
 .nf
 .RS
 {
-    "psbt": "some_psbt"
+  "psbt": "cHNidP8BAHQBAAAAAcEKbzkcVvItfXURLb6PtIlar9N9jVKBZuxm34PsxGxgAAAAAAD/////AuQGAAAAAAAAFgAUNiXEouqXR2CoFjaP0V3ncVlEdueU1wUqAQAAABl2qRRxMMXp8bpyw7zzcTTnkjHukFng14isAAAAAAABAIUCAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////wNSAQH/////AgDyBSoBAAAAF6kU8Lg4vWyj9numjGv33kmU8Xj7+XiHAAAAAAAAAAAmaiSqIant4vYcP3HR3v0/qZnfo2lTdVxpBol5mWK0i+vYNpdOjPkAAAAAAQEgAPIFKgEAAAAXqRTwuDi9bKP2e6aMa/feSZTxePv5eIcBBxcWABT3We/RPg4o3h4maqWGMKzDVE01JQEIawJHMEQCIDFf4Y8vEDgQEkYVPOMyZas7eDpL1In8OSqKhrYftufXAiAdGOETFcD4Ge/y5e9BAwJZYueRvfUnmCzFQhmA5F9oOwEhA5EQC8GjcXM6YayF40YJviaUnNI2O7BMaUHZOWS7qJAoAAAiAgMAI5tx4a99gMvc9XHlmZjIpfz56hXBUrCTKexXf1CyURDRNMcTAAAAgAAAAIAsAACAAA=="
 }
 .RE
 
 .fi
 .SH AUTHOR
 
-Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this rpc command\.
+Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial version of this man page, but many others did the hard work of actually implementing this RPC command\.
 
 .SH SEE ALSO
 
@@ -77,4 +77,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:5d7f12bed20a73dabf41d219ccd960e4e36a4674e8528d95ef26f7c8c55b1a0f
+\" SHA256STAMP:f6463fb4a57eac3950a8d3876bd2c9bcd298f378f6fb98af0a1001b14161746e

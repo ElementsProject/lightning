@@ -28,22 +28,22 @@ RETURN VALUE
 
 On success, the command will return a list of nodes, each object represents a node, with the following details:
 
-- *nodeid*: A string that represents the node id.
+- *nodeid*: Hex-encoded pubkey of the node.
 
 For nodes which have sent a node_announcement message, the following
 are also returned:
 
-- *alias*: A string that represents alias of the node on the network.
-- *color*: A string that represents the personal color of the node.
-- *last_timestamp*: An integer that represents the timestamp of the last-received node_announcement message.
-- *features*: A string that represents the features value.
-- *addresses*: An array that represents the addreses avaible. Each address is represented with an object with the following properties:
-  - *type*: A string that represents the address type (ipv4 or ipv6).
-  - *address*: A string that represents the address value.
-  - *port*: An integer that represents the port number where the node are listening.
-  
+- *alias*: The user-chosen node name as a string.
+- *color*: The user-chosen node color as a hexadecimal string.
+- *last_timestamp*: The last-received node_announcement message as a UNIX timestamp integer.
+- *features*: Hex-encoded features bitstring.
+- *addresses*: An array of the node's public addresses. Each address is represented by an object with the following properties:
+  - *type*: Address type (`"ipv4"`, `"ipv6"`, `"torv2"` or `"torv3"`).
+  - *address*: IP or `.onion` hidden service address as a string.
+  - *port*: Port number as an integer.
+
 On failure, one of the following error codes may be returned:
- 
+
 - -32602: Error in given parameters.
 
 EXAMPLE JSON RESPONSE
@@ -78,7 +78,7 @@ Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version o
 SEE ALSO
 --------
 
-FIXME: 
+FIXME:
 
 RESOURCES
 ---------

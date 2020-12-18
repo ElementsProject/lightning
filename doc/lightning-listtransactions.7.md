@@ -26,21 +26,21 @@ RETURN VALUE
 
 On success, the command will return a list of transactions, each object represents a transaction, with the following details:
 
-- *hash*: A string that represents the hash of transaction, which the caller can use to find it on the blockchain.
-- *rawtx*: A string that represents the hexadecimal dump of the transaction.
-- *blockheight*: An integer that represents the block height that contains the transaction on the blockchain.
-- *txindex*: An integer that represents the transaction index inside the block.
-- *locktime*: An integer that represents the nLocktime field.
-- *version*: An integer that represents the nVersion field.
+- *hash*: The transaction id, a hex-encoded hash of the transaction, which the caller can use to find it on the blockchain.
+- *rawtx*: Hex-encoded serialized transaction.
+- *blockheight*: Height of the block that contains the transaction on the blockchain.
+- *txindex*: The transaction index inside the block.
+- *locktime*: The nLocktime field as an integer.
+- *version*: The nVersion field as an integer.
 - *inputs*: A list of spent transaction outputs, each spent transaction output is represented with an object with the following properties:
-  - *txid*: A string that represents the hash of transaction. This is the output index of the transaction output being spent.
-  - *index*: An integer that represents the index of transaction.
-  - *sequence*: An integer that represents the nSequence field.
+  - *txid*: The transaction id of the output being spent.
+  - *index*: Index of this output on the transaction id above.
+  - *sequence*: The nSequence value of this input.
 - *outputs*: A list of transactions, each transaction is represented with an object with the following proprieties:
-  - *index*: An integer that represents the index of transaction.
-  - *satoshis*: A string that represents the amount in millisatoshi.
+  - *index*: Index of this output.
+  - *satoshis*: Output amount in satoshis.
   - *scriptPubKey*: A string that contains the lock script in hexadecimal dump form.
-  
+
 On failure, one of the following error codes may be returned:
 - -32602: Error in given parameters.
 

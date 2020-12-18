@@ -27,21 +27,21 @@ RETURN VALUE
 
 On success, an object with the following information is returned:
 
-- *id*: A string that represents the public key of the node. It will represents the node on the public network.
-- *alias*: A string that represents the alias of the node, by default is calculate from the public key (node id).  This is just for fun; the name can be anything and is not unique!
-- *color*: A string that represents the preferred color of the node.
-- *num_peers*: An integer that represents the number of peer connect to the node.
-- *num_pending_channels*: An integer that represents the number of channel which are still awaiting opening confirmation.
-- *num_active_channels*: A integer that represents the number of channel which are currently open.
-- *num_inactive_channels*: A integer that represents the number of channel which are closing.
-- *address*: An array that represents all published addresses of the node, each object inside the array contains the following proprieties:
-  - *type*: A string that represents the type of the address (currently `ipv4`, `ipv6`, `torv3` or `torv4`).
-  - *address*: A string that represents the value of the address.
-  - *port*: An integer that represents the port where the node is listening with this address.
-- *binding*: An array that represents all addresses where the node is binded. Each object contains the same object type of the address propriety above.
-- *version*: A string that represents the version of the node.
-- *blockheight*: An integer that represents the blockchain height.
-- *network*: A string that represents the type of network on the node are working (e.g: `bitcoin`, `testnet`, or `regtest`).
+- *id*: Hex-encoded public key of the node. It will represents the node on the public network.
+- *alias*: User-chosen node name, by default is calculated from the public key (node id). This is just for fun; the name can be anything and is not unique!
+- *color*: User-chosen node color as a hexadecimal string. Like the alias, this is just for fun.
+- *num_peers*: Number of peer connected.
+- *num_pending_channels*: Number of channels which are still awaiting opening confirmation.
+- *num_active_channels*: Number of channels which are currently open.
+- *num_inactive_channels*: Number of channels which are closing.
+- *address*: An array with the published addresses of the node as objects, each object contains the following properties:
+  - *type*: Address type (`"ipv4"`, `"ipv6"`, `"torv2"` or `"torv3"`).
+  - *address*: IP or `.onion` hidden service address as a string.
+  - *port*: Port number as an integer.
+- *binding*: An array with addresses to which the node is bound. Properties of the objects are the same as above.
+- *version*: Version of the lightningd software currently running.
+- *blockheight*: Height of the last Bitcoin block processed by the node.
+- *network*: Bitcoin network the node is currently running on (e.g: `bitcoin`, `testnet`, or `regtest`).
 
 On failure, one of the following error codes may be returned:
 

@@ -11,7 +11,7 @@ DESCRIPTION
 
 The **ping** command checks if the node with *id* is ready to talk. It accepts the following parameters:
 
-- *id*: A string that represents the node id;
+- *id*: Hex-encoded pubkey of the target node;
 - *len*: A integer that represents the length of the ping (default 128);
 - *pongbytes*: An integer that represents the length of the reply (default 128).
 
@@ -33,7 +33,7 @@ RETURN VALUE
 
 On success, the command will return an object with a single string.
 
-- *totlen*: A string that represents the answer length of the reply message (including header)
+- *totlen*: The length of the reply message (including header)
 
 On failure, one of the following error codes may be returned:
 

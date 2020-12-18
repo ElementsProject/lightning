@@ -33,20 +33,20 @@ Additional members include:
 
 .RS
 .IP \[bu]
-\fI# version\fR: A string that represents the version of node\.
+\fI# version\fR: Version of lightningd software that is currently running\.
 .IP \[bu]
-\fIplugins\fR: A array that represents the non-important plugin registered\. Each object contains the following members:.RS
+\fIplugins\fR: A array of the non-important plugin currently running\. Each object contains the following members:.RS
 .IP \[bu]
-\fIpath\fR: A string that represents the path of plugin\.
+\fIpath\fR: Path of the plugin executable\.
 .IP \[bu]
-\fIname\fR: A string that represents the name of plugin\.
+\fIname\fR: The plugin name\.
 .IP \[bu]
 \fIoptions\fR: A object that contains all options accepted from command line or configuration file, if the plugin has opitions
 
 .RE
 
 .IP \[bu]
-\fIimportant-plugins\fR: An array that represents all important plugins registered to the node\. Each object contains the same members as the \fIplugin\fR array\.
+\fIimportant-plugins\fR: An array of the important plugins currently running\. Each object contains the same members as the \fIplugin\fR array\.
 
 .RE
 
@@ -164,4 +164,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:19542af1d9c13e31ec6fada46f85a080433c2c7a863779a8b9e3ac86a5903b48
+\" SHA256STAMP:731429885d3a8d6cf3b0f8f982ffaf3658a850b238b21727ab0184949488ca9b

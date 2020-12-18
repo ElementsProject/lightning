@@ -11,7 +11,7 @@ The \fBsendpsbt\fR is a low-level RPC command which sends a fully-signed PSBT\.
 
 .RS
 .IP \[bu]
-\fIpsbt\fR: A string that represents psbt value\.
+\fIpsbt\fR: A base64-encoded string of the PSBT\.
 
 .RE
 .SH EXAMPLE JSON REQUEST
@@ -21,7 +21,7 @@ The \fBsendpsbt\fR is a low-level RPC command which sends a fully-signed PSBT\.
   "id": 82,
   "method": "sendpsbt",
   "params": {
-    "psbt": "some_psbt"
+    "psbt": "cHNidP8BAHQBAAAAAcEKbzkcVvItfXURLb6PtIlar9N9jVKBZuxm34PsxGxgAAAAAAD/////AuQGAAAAAAAAFgAUNiXEouqXR2CoFjaP0V3ncVlEdueU1wUqAQAAABl2qRRxMMXp8bpyw7zzcTTnkjHukFng14isAAAAAAABAIUCAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/////wNSAQH/////AgDyBSoBAAAAF6kU8Lg4vWyj9numjGv33kmU8Xj7+XiHAAAAAAAAAAAmaiSqIant4vYcP3HR3v0/qZnfo2lTdVxpBol5mWK0i+vYNpdOjPkAAAAAAQEgAPIFKgEAAAAXqRTwuDi9bKP2e6aMa/feSZTxePv5eIcBBxcWABT3We/RPg4o3h4maqWGMKzDVE01JQEIawJHMEQCIDFf4Y8vEDgQEkYVPOMyZas7eDpL1In8OSqKhrYftufXAiAdGOETFcD4Ge/y5e9BAwJZYueRvfUnmCzFQhmA5F9oOwEhA5EQC8GjcXM6YayF40YJviaUnNI2O7BMaUHZOWS7qJAoAAAiAgMAI5tx4a99gMvc9XHlmZjIpfz56hXBUrCTKexXf1CyURDRNMcTAAAAgAAAAIAsAACAAA=="
   }
 }
 .RE
@@ -33,9 +33,9 @@ On success, the tx and txid of the transaction are returned\.
 
 .RS
 .IP \[bu]
-\fItxid\fR: A string that represents the hash of transaction\.
+\fItxid\fR: Hex-encoded hash of transaction\.
 .IP \[bu]
-\fItx\fR: A string that represents the hexadecimal dump of the transaction\.
+\fItx\fR: Hex-encoded serialized transaction\.
 
 .RE
 
@@ -68,4 +68,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:795058b68607af4148d2866faa88b3743269e1641725c95efcabdbe82c886420
+\" SHA256STAMP:bdd6f15eb7603939bf8e2e356a18112027b4aab29cdabcfbf3d67544ec253ca1

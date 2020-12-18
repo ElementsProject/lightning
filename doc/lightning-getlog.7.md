@@ -11,7 +11,7 @@ DESCRIPTION
 
 The **getlog** the RPC command to show logs, with optional log *level*.
 
-- *level*: A string that represents the log level (*broken*, *unusual*, *info*, *debug*, or *io*).  The default is *info*.
+- *level*: Desired log level (*broken*, *unusual*, *info*, *debug*, or *io*) to filter on. The default is *info*.
 
 EXAMPLE JSON REQUEST
 --------------------
@@ -30,16 +30,16 @@ RETURN VALUE
 
 On success, a object will be return with the following parameters:
 
-- *created_at*: An floating point value that represents the UNIX timestamp when logging began. 
-- *bytes_used*: A string that represents the dimension in bytes of the log file.
-- *bytes_max*: An integer that represents the max dimension in bytes of log file.
+- *created_at*: The UNIX timestamp of when the logging began as a float.
+- *bytes_used*: Size in bytes of the log file.
+- *bytes_max*: Maximum size in bytes of the log file.
 - *log*: An array of objects where each element contains the following proprieties:
- - *type*: A string that represents the log level. The propriety can have an value equal to SKIPPED to indicate the existence of omitted entries.
- - *time*: A floating point value that represents the time since *created_at*.
- - *source*: A string that represents the source of line.
- - *log*: A string that represents the content of line.
+ - *type*: The log level of this entry. This property can have a value equal to `"SKIPPED"` to indicate the existence of omitted entries.
+ - *time*: A floating point value that represents the time passed since *created_at*.
+ - *source*: The file that emitted this log entry.
+ - *log*: The log contents.
 - *num_skipped*: An integer that it is present only if the log level is equal to SKIPPED.
- 
+
 
 On failure, one of the following error codes may be returned:
 

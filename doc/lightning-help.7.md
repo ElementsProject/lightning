@@ -31,9 +31,9 @@ RETURN VALUE
 On success, a object will be return with the following proprieties:
 
 - *command*: A string that represents the stucture of the command.
-- *category*: A string that represents the category.
-- *description*: A string that represents the description.
-- *verbose*: A string that represents the verbode description.
+- *category*: Command category.
+- *description*: A short description of the command and its basic parameters.
+- *verbose*: A longer description of what the command does.
 
 On failure, one of the following error codes may be returned:
 

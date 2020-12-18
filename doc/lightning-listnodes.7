@@ -28,7 +28,7 @@ On success, the command will return a list of nodes, each object represents a no
 
 .RS
 .IP \[bu]
-\fInodeid\fR: A string that represents the node id\.
+\fInodeid\fR: Hex-encoded pubkey of the node\.
 
 .RE
 
@@ -37,21 +37,21 @@ are also returned:
 
 .RS
 .IP \[bu]
-\fIalias\fR: A string that represents alias of the node on the network\.
+\fIalias\fR: The user-chosen node name as a string\.
 .IP \[bu]
-\fIcolor\fR: A string that represents the personal color of the node\.
+\fIcolor\fR: The user-chosen node color as a hexadecimal string\.
 .IP \[bu]
-\fIlast_timestamp\fR: An integer that represents the timestamp of the last-received node_announcement message\.
+\fIlast_timestamp\fR: The last-received node_announcement message as a UNIX timestamp integer\.
 .IP \[bu]
-\fIfeatures\fR: A string that represents the features value\.
+\fIfeatures\fR: Hex-encoded features bitstring\.
 .IP \[bu]
-\fIaddresses\fR: An array that represents the addreses avaible\. Each address is represented with an object with the following properties:.RS
+\fIaddresses\fR: An array of the node's public addresses\. Each address is represented by an object with the following properties:.RS
 .IP \[bu]
-\fItype\fR: A string that represents the address type (ipv4 or ipv6)\.
+\fItype\fR: Address type (\fB"ipv4"\fR, \fB"ipv6"\fR, \fB"torv2"\fR or \fB"torv3"\fR)\.
 .IP \[bu]
-\fIaddress\fR: A string that represents the address value\.
+\fIaddress\fR: IP or \fB.onion\fR hidden service address as a string\.
 .IP \[bu]
-\fIport\fR: An integer that represents the port number where the node are listening\.
+\fIport\fR: Port number as an integer\.
 
 .RE
 
@@ -95,10 +95,10 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 .SH SEE ALSO
 
-FIXME: 
+FIXME:
 
 .SH RESOURCES
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:901b147ccbfe0a18310a44ca848b623e83fa3c68912dacadefd045d4a2095523
+\" SHA256STAMP:b9e69c3b1db9430c998dff00a3221c0a7da0bd7af45dfcf4e26d12adf9656836
