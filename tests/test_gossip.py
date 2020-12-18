@@ -510,6 +510,11 @@ def test_routing_gossip(node_factory, bitcoind):
         src.rpc.connect(dst.info['id'], 'localhost', dst.port)
         src.openchannel(dst, 25000)
 
+    # Avoid "bad gossip" caused by future announcements (a node below
+    # confirmation height receiving and ignoring the announcement,
+    # thus marking followup messages as bad).
+    sync_blockheight(bitcoind, nodes)
+
     # Allow announce messages.
     bitcoind.generate_block(5)
 
