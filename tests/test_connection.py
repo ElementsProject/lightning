@@ -3026,3 +3026,24 @@ def test_fundchannel_start_alternate(node_factory, executor):
     fut = executor.submit(l2.rpc.fundchannel_start, l1.info['id'], 100000)
     with pytest.raises(RpcError):
         fut.result(10)
+
+
+@unittest.skipIf(not EXPERIMENTAL_DUAL_FUND, "openchannel_init not available")
+def test_openchannel_init_alternate(node_factory, executor):
+    ''' Test to see what happens if two nodes start channeling to
+    each other alternately.
+    '''
+    l1, l2 = node_factory.get_nodes(2)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    l1.fundwallet(2000000)
+    l2.fundwallet(2000000)
+
+    psbt1 = l1.rpc.fundpsbt('1000000msat', '253perkw', 250)['psbt']
+    psbt2 = l2.rpc.fundpsbt('1000000msat', '253perkw', 250)['psbt']
+    l1.rpc.openchannel_init(l2.info['id'], 100000, psbt1)
+
+    fut = executor.submit(l2.rpc.openchannel_init, l1.info['id'], '1000000msat', psbt2)
+    with pytest.raises(RpcError):
+        fut.result(10)

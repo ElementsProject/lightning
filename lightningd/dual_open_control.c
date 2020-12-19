@@ -361,6 +361,7 @@ static void
 openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 {
 	struct subd *dualopend = payload->dualopend;
+	struct uncommitted_channel *uc;
 	u8 *msg;
 
 	/* Free payload regardless of what happens next */
@@ -369,6 +370,18 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 	/* If our daemon died, we're done */
 	if (!dualopend)
 		return;
+
+	assert(dualopend->ctype == UNCOMMITTED);
+	uc = dualopend->channel;
+
+	/* Channel open is currently in progress elsewhere! */
+	if (uc->fc || uc->got_offer) {
+		msg = towire_dualopend_fail(NULL, "Already initiated channel"
+					    " open");
+		log_debug(dualopend->ld->log,
+			  "Our open in progress, denying their offer");
+		return subd_send_msg(dualopend, take(msg));
+	}
 
 	tal_del_destructor2(dualopend, openchannel2_remove_dualopend, payload);
 
@@ -407,6 +420,7 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 		}
 	}
 
+	uc->got_offer = true;
 	msg = towire_dualopend_got_offer_reply(NULL, payload->accepter_funding,
 					       payload->funding_feerate_per_kw,
 					       payload->psbt,
@@ -1146,6 +1160,7 @@ static void open_failed(struct subd *dualopend, const u8 *msg)
 
 	assert(dualopend->ctype == UNCOMMITTED);
 	uc = dualopend->channel;
+	uc->got_offer = false;
 
 	if (!fromwire_dualopend_failed(msg, msg, &desc)) {
 		log_broken(uc->log,
@@ -1427,7 +1442,15 @@ static void accepter_got_offer(struct subd *dualopend,
 
 	if (peer_active_channel(uc->peer)) {
 		subd_send_msg(dualopend,
-				take(towire_dualopend_fail(NULL, "Already have active channel")));
+				take(towire_dualopend_fail(NULL,
+					"Already have active channel")));
+		return;
+	}
+
+	if (uc->fc) {
+		subd_send_msg(dualopend,
+				take(towire_dualopend_fail(NULL,
+					"Already initiated channel open")));
 		return;
 	}
 
@@ -1771,6 +1794,11 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 
 	if (peer->uncommitted_channel->fc) {
 		return command_fail(cmd, LIGHTNINGD, "Already funding channel");
+	}
+
+	if (peer->uncommitted_channel->got_offer) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Channel open in progress");
 	}
 
 #if EXPERIMENTAL_FEATURES
