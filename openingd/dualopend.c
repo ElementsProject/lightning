@@ -277,16 +277,13 @@ static void negotiation_aborted(struct state *state, const char *why)
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = tal_free(state->channel);
 	state->changeset = tal_free(state->changeset);
-	if (state->psbt)
-		tal_free(state->psbt);
 
 	for (size_t i = 0; i < NUM_TX_MSGS; i++)
 		state->tx_msg_count[i] = 0;
 }
 
-/*~ For negotiation failures: we tell them the parameter we didn't like. */
-static void negotiation_failed(struct state *state,
-			       const char *fmt, ...)
+static void open_error(struct state *state,
+		       const char *fmt, ...)
 {
 	va_list ap;
 	const char *errmsg;
@@ -297,10 +294,25 @@ static void negotiation_failed(struct state *state,
 	va_end(ap);
 
 	msg = towire_errorfmt(NULL, &state->channel_id,
-			      "You gave bad parameters: %s", errmsg);
+			      "%s", errmsg);
 	sync_crypto_write(state->pps, take(msg));
 
 	negotiation_aborted(state, errmsg);
+}
+
+
+/*~ For negotiation failures: we tell them the parameter we didn't like. */
+static void negotiation_failed(struct state *state,
+			       const char *fmt, ...)
+{
+	va_list ap;
+	const char *errmsg;
+
+	va_start(ap, fmt);
+	errmsg = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
+
+	open_error(state, "You gave bad parameters: %s", errmsg);
 }
 
 static void billboard_update(struct state *state)
@@ -885,9 +897,9 @@ fetch_psbt_changes(struct state *state, const struct wally_psbt *psbt)
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
 
-	if (fromwire_dualopend_fail(msg, msg, &err))
-		status_failed(STATUS_FAIL_MASTER_IO, "%s", err);
-	else if (fromwire_dualopend_psbt_updated(state, msg, &updated_psbt)) {
+	if (fromwire_dualopend_fail(msg, msg, &err)) {
+		open_error(state, "%s", err);
+	} else if (fromwire_dualopend_psbt_updated(state, msg, &updated_psbt)) {
 		return updated_psbt;
 #if DEVELOPER
 	} else if (fromwire_dualopend_dev_memleak(msg)) {
@@ -1507,7 +1519,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		if (!fromwire_dualopend_fail(msg, msg, &err_reason))
 			master_badmsg(msg_type, msg);
 
-		negotiation_failed(state, "%s", err_reason);
+		open_error(state, "%s", err_reason);
 		return;
 	}
 
@@ -1927,7 +1939,7 @@ static void opener_start(struct state *state, u8 *msg)
 	if (!msg)
 		return;
 
-	a_tlv = tlv_accept_tlvs_new(state);
+	a_tlv = notleak(tlv_accept_tlvs_new(state));
 	if (!fromwire_accept_channel2(msg, &cid,
 				      &state->accepter_funding,
 				      &state->feerate_per_kw_funding,
@@ -2017,9 +2029,11 @@ static void opener_start(struct state *state, u8 *msg)
 	 *   - MUST send at least one `tx_add_output`,  the channel
 	 *     funding output.
 	 */
-	wscript = bitcoin_redeem_2of2(state,
-				      &state->our_funding_pubkey,
-				      &state->their_funding_pubkey);
+	/* If fails before returning from `send_next`, this will
+	 * be marked as a memleak */
+	wscript = notleak(bitcoin_redeem_2of2(state,
+					      &state->our_funding_pubkey,
+					      &state->their_funding_pubkey));
 	funding_out = psbt_append_output(state->psbt,
 					 scriptpubkey_p2wsh(tmpctx,
 							    wscript),
@@ -2052,7 +2066,7 @@ static void opener_start(struct state *state, u8 *msg)
 
 	/* Send our first message, we're opener we initiate here */
 	if (!send_next(state, &state->psbt))
-		negotiation_failed(state, "Peer error, no updates to send");
+		open_error(state, "Peer error, no updates to send");
 
 	/* Figure out what the funding transaction looks like! */
 	if (!run_tx_interactive(state, &state->psbt, TX_INITIATOR))
