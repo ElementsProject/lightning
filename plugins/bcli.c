@@ -13,6 +13,7 @@
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
+#include <common/json_stream.h>
 #include <common/json_helpers.h>
 #include <common/memleak.h>
 #include <common/utils.h>
@@ -431,6 +432,26 @@ static struct command_result *process_getblockchaininfo(struct bitcoin_cli *bcli
 	return command_finished(bcli->cmd, response);
 }
 
+static struct command_result *process_getrawtransaction(struct bitcoin_cli *bcli)
+{
+	const jsmntok_t *tokens = NULL;
+	struct json_stream *response;
+
+	tokens = json_parse_simple(bcli->output,
+				   bcli->output, bcli->output_bytes);
+	if (!tokens) {
+		return command_err_bcli_badjson(bcli, "cannot parse");
+	}
+
+	if (tokens[0].type != JSMN_OBJECT) {
+		return command_err_bcli_badjson(bcli, "non-object");
+	}
+
+	response = jsonrpc_stream_success(bcli->cmd);
+
+	json_stream_append(response, bcli->output + tokens[0].start + 1, tokens[0].end - 2);
+	return command_finished(bcli->cmd, response);
+}
 
 struct estimatefees_stash {
 	/* FIXME: We use u64 but lightningd will store them as u32. */
@@ -801,6 +822,27 @@ static struct command_result *getutxout(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+/*  Get raw transaction data as JSON*/
+static struct command_result *getrawtransaction(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *toks)
+{
+	const char **params = tal_arr(cmd, const char *, 1);
+	
+	/* bitcoin-cli wants strings. */
+	if (!param(cmd, buf, toks,
+	           p_req("txid", param_string, &params[0]),
+	           NULL))
+		return command_param_failed();
+
+	tal_arr_expand(&params, "true");
+	
+	start_bitcoin_cli(NULL, cmd, process_getrawtransaction, true,
+			  BITCOIND_HIGH_PRIO, "getrawtransaction", params, NULL);
+
+	return command_still_pending(cmd);
+}
+
 static void bitcoind_failure(struct plugin *p, const char *error_message)
 {
 	const char **cmd = gather_args(bitcoind, "echo", NULL);
@@ -812,6 +854,7 @@ static void bitcoind_failure(struct plugin *p, const char *error_message)
 		      "    $ %s 'hello world'\n", error_message,
 		      args_string(cmd, cmd));
 }
+
 
 /* Do some sanity checks on bitcoind based on the output of `getnetworkinfo`. */
 static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
@@ -959,6 +1002,14 @@ static const struct plugin_command commands[] = {
 		"",
 		getutxout
 	},
+	{
+		"getrawtransaction",
+		"bitcoin",
+		"Get raw transaction data identified by a {txid}",
+		"",
+		getrawtransaction
+	},
+	
 };
 
 static struct bitcoind *new_bitcoind(const tal_t *ctx)
