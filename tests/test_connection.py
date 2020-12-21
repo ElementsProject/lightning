@@ -11,6 +11,7 @@ from utils import (
     check_coin_moves, first_channel_id, account_balance, basic_fee,
     EXPERIMENTAL_FEATURES
 )
+from pyln.testing.utils import SLOW_MACHINE, VALGRIND
 from bitcoin.core import CMutableTransaction, CMutableTxOut
 
 import binascii
@@ -1042,6 +1043,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1.rpc.close(l2.info['id'])
 
 
+@unittest.skipIf(SLOW_MACHINE and not VALGRIND, "Way too taxing on CI machines")
 def test_funding_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
 
