@@ -27,7 +27,7 @@ RETURN VALUE
 
 On success, an object with the following information is returned:
 
-- *id*: Hex-encoded public key of the node. It will represents the node on the public network.
+- *id*: Hex-encoded public key of the node. It represents the node on the public network.
 - *alias*: User-chosen node name, by default is calculated from the public key (node id). This is just for fun; the name can be anything and is not unique!
 - *color*: User-chosen node color as a hexadecimal string. Like the alias, this is just for fun.
 - *num_peers*: Number of peer connected.
