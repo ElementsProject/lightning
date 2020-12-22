@@ -851,11 +851,16 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self.call("listforwards")
 
-    def listfunds(self):
+    def listfunds(self, spent=False):
         """
-        Show funds available for opening channels.
+        Show funds available for opening channels
+        or both unspent and spent funds if {spent} is True.
         """
-        return self.call("listfunds")
+
+        payload = {
+            "spent": spent
+        }
+        return self.call("listfunds", payload)
 
     def listtransactions(self):
         """
