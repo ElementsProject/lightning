@@ -1085,12 +1085,6 @@ htlc_accepted_hook_final(struct htlc_accepted_hook_payload *request STEALS)
 	tal_free(request);
 }
 
-REGISTER_PLUGIN_HOOK(htlc_accepted,
-		     htlc_accepted_hook_deserialize,
-		     htlc_accepted_hook_final,
-		     htlc_accepted_hook_serialize,
-		     struct htlc_accepted_hook_payload *);
-
 /* Apply tweak to ephemeral key if blinding is non-NULL, then do ECDH */
 static bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
 				const struct pubkey *blinding,
@@ -1119,6 +1113,14 @@ static bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
 	ecdh(&point, ss);
 	return true;
 }
+
+/* AUTODATA wants a different line number */
+REGISTER_PLUGIN_HOOK(htlc_accepted,
+		     htlc_accepted_hook_deserialize,
+		     htlc_accepted_hook_final,
+		     htlc_accepted_hook_serialize,
+		     struct htlc_accepted_hook_payload *);
+
 
 /**
  * Everyone is committed to this htlc of theirs
