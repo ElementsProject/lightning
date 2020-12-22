@@ -308,18 +308,28 @@ static struct command_result *json_listfunds(struct command *cmd,
 {
 	struct json_stream *response;
 	struct peer *p;
-	struct utxo **utxos, **reserved_utxos;
+	struct utxo **utxos, **reserved_utxos, **spent_utxos;
+	bool *spent;
 
-	if (!param(cmd, buffer, params, NULL))
+	if (!param(cmd, buffer, params,
+		   p_opt_def("spent", param_bool, &spent, false),
+		   NULL))
 		return command_param_failed();
 
 	response = json_stream_success(cmd);
 
 	utxos = wallet_get_utxos(cmd, cmd->ld->wallet, OUTPUT_STATE_AVAILABLE);
 	reserved_utxos = wallet_get_utxos(cmd, cmd->ld->wallet, OUTPUT_STATE_RESERVED);
+
 	json_array_start(response, "outputs");
 	json_add_utxos(response, cmd->ld->wallet, utxos);
 	json_add_utxos(response, cmd->ld->wallet, reserved_utxos);
+
+	if (*spent) {
+		spent_utxos = wallet_get_utxos(cmd, cmd->ld->wallet, OUTPUT_STATE_SPENT);
+		json_add_utxos(response, cmd->ld->wallet, spent_utxos);
+	}
+
 	json_array_end(response);
 
 	/* Add funds that are allocated to channels */
@@ -364,7 +374,10 @@ static const struct json_command listfunds_command = {
 	json_listfunds,
 	"Show available funds from the internal wallet",
 	false,
-	"Returns a list of funds (outputs) that can be used by the internal wallet to open new channels or can be withdrawn, using the `withdraw` command, to another wallet."
+	"Returns a list of funds (outputs) that can be used "
+	"by the internal wallet to open new channels "
+	"or can be withdrawn, using the `withdraw` command, to another wallet. "
+	"Includes spent outputs if {spent} is set to true."
 };
 AUTODATA(json_command, &listfunds_command);
 
