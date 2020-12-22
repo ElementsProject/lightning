@@ -2410,3 +2410,24 @@ def test_listtransactions(node_factory):
     # The txid of the transaction funding the channel is present, and
     # represented as little endian (like bitcoind and explorers).
     assert wallettxid in txids
+
+
+def test_listfunds(node_factory):
+    """Test listfunds command."""
+    l1, l2 = node_factory.get_nodes(2, opts=[{}, {}])
+
+    open_txid = l1.openchannel(l2, 10**5)["wallettxid"]
+
+    # unspent outputs
+    utxos = l1.rpc.listfunds()["outputs"]
+
+    # only 1 unspent output should be available
+    assert len(utxos) == 1
+
+    # both unspent and spent outputs
+    all_outputs = l1.rpc.listfunds(spent=True)["outputs"]
+    txids = [output['txid'] for output in all_outputs]
+
+    # 1 spent output (channel opening) and 1 unspent output
+    assert len(all_outputs) == 2
+    assert open_txid in txids
