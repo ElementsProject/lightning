@@ -1056,6 +1056,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 
 	final_key_idx = db_column_u64(stmt, 32);
 	if (final_key_idx < 0) {
+		tal_free(fee_states);
 		log_broken(w->log, "%s: Final key < 0", __func__);
 		return NULL;
 	}
