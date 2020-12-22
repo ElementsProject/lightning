@@ -3,13 +3,17 @@
 lightning-listfunds - Command showing all funds currently managed by the c-lightning node
 .SH SYNOPSIS
 
-\fBlistfunds\fR
+\fBlistfunds\fR [\fIspent\fR]
 
 .SH DESCRIPTION
 
 The \fBlistfunds\fR RPC command displays all funds available, either in
 unspent outputs (UTXOs) in the internal wallet or funds locked in
 currently open channels\.
+
+
+\fIspent\fR is a boolean: if true, then the \fIoutputs\fR will include spent outputs
+in addition to the unspent ones\. Default is false\.
 
 .SH RETURN VALUE
 
@@ -88,4 +92,4 @@ Felix \fI<fixone@gmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:d7b4a30a1ca19e772529fbe517fb73e8c0d5c07ec3c05969ab614a4abc1865a4
+\" SHA256STAMP:b59a2bed131c291e9650a6e330526b890f1e18182ccacd33aef60311f6ce2caa
