@@ -1516,7 +1516,7 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
 
     # It should fail.
     with pytest.raises(RpcError, match=r'WIRE_PERMANENT_CHANNEL_FAILURE: timed out'):
-        payfuture.result(5)
+        payfuture.result(TIMEOUT)
 
     # 2 later, l1 spends HTLC (5 blocks total).
     bitcoind.generate_block(2)
