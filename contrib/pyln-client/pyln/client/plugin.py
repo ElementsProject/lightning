@@ -550,7 +550,13 @@ class Plugin(object):
         elif 'request' in params:
             del params['request']
 
-        ba = sig.bind(**params)
+        try:
+            ba = sig.bind(**params)
+        except TypeError as e:
+            self.log((
+                "Error binding {}{}"
+            ).format(getattr(func, '__name__', 'unknown'), sig), level="error")
+            raise e
         self._coerce_arguments(func, ba)
         return ba
 
