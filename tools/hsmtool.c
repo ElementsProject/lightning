@@ -504,53 +504,21 @@ static void read_mnemonic(char *mnemonic) {
 	}
 }
 
-static void read_passphrase(char **passphrase) {
-	struct termios current_term, temp_term;
-	printf("Warning: remember that different passphrases yield different "
-	       "bitcoin wallets.\n");
-	printf("If left empty, no password is used (echo is "
-	       "disabled now).\n");
-	printf("Enter your passphrase: \n");
-
-	/* Change terminal options so we do not echo the passphrase */
-	if (tcgetattr(fileno(stdin), &current_term) != 0)
-		errx(ERROR_USAGE, "Could not get current terminal options.");
-	temp_term = current_term;
-	temp_term.c_lflag &= ~ECHO;
-	if (tcsetattr(fileno(stdin), TCSAFLUSH, &temp_term) != 0)
-		errx(ERROR_USAGE, "Could not disable passphrase echoing.");
-	/* If we don't flush we might end up being buffered and we might seem
-	 * to hang while we wait for the password. */
-	fflush(stdout);
-
-	size_t passphrase_size = 0;
-	size_t characters = getline(passphrase, &passphrase_size, stdin);
-	if (characters < 0)
-		errx(ERROR_USAGE, "Could not read passphrase from stdin.");
-
-	/* Newline is not part of the valid passphrase */
-	if ( (*passphrase)[characters-1] == '\n' ) {
-		(*passphrase)[characters-1] = '\0';
-	}
-
-	/* If the user did not introduce any password, we want to set passphrase
-	 * to NULL not to '\0' for libwally */
-	if (strlen(*passphrase) == 0) {
-		free(*passphrase);
-		*passphrase = NULL;
-	}
-
-	if (tcsetattr(fileno(stdin), TCSAFLUSH, &current_term) != 0)
-		errx(ERROR_USAGE, "Could not restore terminal options.");
-}
-
 static int generate_hsm(const char *hsm_secret_path)
 {
 	char mnemonic[BIP39_WORDLIST_LEN];
-	read_mnemonic(mnemonic);
+	char *passphrase;
 
-	char *passphrase = NULL;
-	read_passphrase(&passphrase);
+	read_mnemonic(mnemonic);
+	printf("Warning: remember that different passphrases yield different "
+	       "bitcoin wallets.\n");
+	printf("If left empty, no password is used (echo is disabled).\n");
+	printf("Enter your passphrase: \n");
+	passphrase = read_stdin_pass();
+	if (strlen(passphrase) == 0) {
+		free(passphrase);
+		passphrase = NULL;
+	}
 
 	u8 bip32_seed[BIP39_SEED_LEN_512];
 	size_t bip32_seed_len;
