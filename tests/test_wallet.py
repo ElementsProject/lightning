@@ -1097,6 +1097,39 @@ def test_hsmtool_dump_descriptors(node_factory, bitcoind):
     assert len(bitcoind.rpc.listunspent(1, 1, [addr])) == 1
 
 
+@pytest.mark.xfail(strict=True)
+@unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
+def test_hsmtool_generatehsm(node_factory):
+    l1 = node_factory.get_node()
+    l1.stop()
+    hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK,
+                            "hsm_secret")
+    master_fd, slave_fd = os.openpty()
+
+    hsmtool = HsmTool("generatehsm", hsm_path)
+    # You cannot re-generate an already existing hsm_secret
+    hsmtool.start(stdin=slave_fd, stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE)
+    assert hsmtool.proc.wait(5) == 2
+    os.remove(hsm_path)
+
+    # We can generate a valid hsm_secret from a wordlist and a "passphrase"
+    hsmtool.start(stdin=slave_fd, stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE)
+    hsmtool.wait_for_log(r"Select your language:")
+    os.write(master_fd, "0\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Introduce your BIP39 word list")
+    os.write(master_fd, "ritual idle hat sunny universe pluck key alpha wing "
+                        "cake have wedding\n".encode("utf-8"))
+    hsmtool.wait_for_log(r"Enter your passphrase:")
+    os.write(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
+    hsmtool.proc.wait(5)
+    hsmtool.is_in_log(r"New hsm_secret file created")
+
+    # We can start the node with this hsm_secret
+    l1.start()
+
+
 # this test does a 'listtransactions' on a yet unconfirmed channel
 def test_fundchannel_listtransaction(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2)
