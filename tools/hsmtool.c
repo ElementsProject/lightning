@@ -532,7 +532,9 @@ static int generate_hsm(const char *hsm_secret_path)
 	if (fd < 0) {
 		errx(ERROR_USAGE, "Unable to create hsm_secret file");
 	}
-	if (!write_all(fd, bip32_seed, bip32_seed_len))
+	/* Write only the first 32 bytes, length of the (plaintext) seed in the
+	 * hsm_secret. */
+	if (!write_all(fd, bip32_seed, 32))
 		errx(ERROR_USAGE, "Error writing secret to hsm_secret file");
 
 	if (fsync(fd) != 0)
