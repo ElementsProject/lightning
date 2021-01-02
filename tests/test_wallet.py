@@ -1097,7 +1097,6 @@ def test_hsmtool_dump_descriptors(node_factory, bitcoind):
     assert len(bitcoind.rpc.listunspent(1, 1, [addr])) == 1
 
 
-@pytest.mark.xfail(strict=True)
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_hsmtool_generatehsm(node_factory):
     l1 = node_factory.get_node()
