@@ -2202,3 +2202,28 @@ def test_dynamic_args(node_factory):
     l1.rpc.plugin_stop(plugin_path)
 
     assert [p for p in l1.rpc.listconfigs()['plugins'] if p['path'] == plugin_path] == []
+
+
+def test_pyln_request_notify(node_factory):
+    """Test that pyln-client plugins can send notifications.
+    """
+    plugin_path = os.path.join(
+        os.path.dirname(__file__), 'plugins/countdown.py'
+    )
+    l1 = node_factory.get_node(options={'plugin': plugin_path})
+    notifications = []
+
+    def n(*args, message, **kwargs):
+        print("Got a notification:", message)
+        notifications.append(message)
+
+    with l1.rpc.notify(n):
+        l1.rpc.countdown(10)
+
+    expected = ['{}/10'.format(i) for i in range(10)]
+    assert expected == notifications
+
+    # Calling without the context manager we should not get any notifications
+    notifications = []
+    l1.rpc.countdown(10)
+    assert notifications == []
