@@ -141,6 +141,47 @@ class Request(dict):
     def _write_result(self, result: dict) -> None:
         self.plugin._write_locked(result)
 
+    def _notify(self, method: str, params: JSONType) -> None:
+        """Send a notification to the caller.
+
+        Can contain a variety of things, but is usually used to report
+        progress or command status.
+
+        """
+        self._write_result({
+            'jsonrpc': '2.0',
+            'params': params,
+            "method": method,
+        })
+
+    def notify(self, message: str, level: str = 'info') -> None:
+        """Send a message notification to the caller.
+        """
+        self._notify(
+            "message",
+            params={
+                'id': self.id,
+                'level': level,
+                'message': message,
+            }
+        )
+
+    def progress(self,
+                 progress: int,
+                 total: int,
+                 stage: Optional[int] = None,
+                 stage_total: Optional[int] = None
+                 ) -> None:
+        d: Dict[str, JSONType] = {
+            "id": self.id,
+            "num": progress,
+            "total": total,
+        }
+        if stage is not None and stage_total is not None:
+            d['stage'] = {"num": stage, "total": stage_total}
+
+        self._notify("progress", d)
+
 
 # If a hook call fails we need to coerce it into something the main daemon can
 # handle. Returning an error is not an option since we explicitly do not allow
@@ -639,22 +680,14 @@ class Plugin(object):
     def notify_message(self, request: Request, message: str,
                        level: str = 'info') -> None:
         """Send a notification message to sender of this request"""
-        self.notify("message", {"id": request.id,
-                                "level": level,
-                                "message": message})
+        request.notify(message=message)
 
     def notify_progress(self, request: Request,
                         progress: int, progress_total: int,
                         stage: Optional[int] = None,
                         stage_total: Optional[int] = None) -> None:
-        """Send a progerss message to sender of this request: if more than one stage, set stage and stage_total"""
-        d: Dict[str, Any] = {"id": request.id,
-                             "num": progress,
-                             "total": progress_total}
-        if stage_total is not None:
-            d['stage'] = {"num": stage, "total": stage_total}
-
-        self.notify("progress", d)
+        """Send a progress message to sender of this request: if more than one stage, set stage and stage_total"""
+        request.progress(progress, progress_total, stage, stage_total)
 
     def _parse_request(self, jsrequest: Dict[str, JSONType]) -> Request:
         i = jsrequest.get('id', None)
