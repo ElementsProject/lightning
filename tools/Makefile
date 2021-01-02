@@ -17,7 +17,7 @@ tools/headerversions: FORCE tools/headerversions.o $(CCAN_OBJS)
 
 tools/check-bolt: tools/check-bolt.o $(CCAN_OBJS) $(TOOLS_COMMON_OBJS)
 
-tools/hsmtool: tools/hsmtool.o $(CCAN_OBJS) $(TOOLS_COMMON_OBJS) $(BITCOIN_OBJS) common/amount.o common/bech32.o common/bigsize.o common/derive_basepoints.o common/descriptor_checksum.o common/node_id.o common/type_to_string.o wire/fromwire.o wire/towire.o
+tools/hsmtool: tools/hsmtool.o $(CCAN_OBJS) $(TOOLS_COMMON_OBJS) $(BITCOIN_OBJS) common/amount.o common/bech32.o common/bigsize.o common/configdir.o common/derive_basepoints.o common/descriptor_checksum.o common/node_id.o common/type_to_string.o common/version.o wire/fromwire.o wire/towire.o
 
 tools/lightning-hsmtool: tools/hsmtool
 	cp $< $@
