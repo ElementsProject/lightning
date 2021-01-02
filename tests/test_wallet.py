@@ -6,7 +6,7 @@ from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES,
-    VALGRIND, check_coin_moves
+    VALGRIND, check_coin_moves, TailableProc
 )
 
 import os
@@ -985,6 +985,14 @@ def test_hsm_secret_encryption(node_factory):
     assert id == l1.rpc.getinfo()["id"]
 
 
+class HsmTool(TailableProc):
+    """Helper for testing the hsmtool as a subprocess"""
+    def __init__(self, *args):
+        TailableProc.__init__(self)
+        assert hasattr(self, "env")
+        self.cmd_line = ["tools/hsmtool", *args]
+
+
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_hsmtool_secret_decryption(node_factory):
     l1 = node_factory.get_node()
@@ -1004,13 +1012,20 @@ def test_hsmtool_secret_decryption(node_factory):
     l1.stop()
 
     # We can't use a wrong password !
-    cmd_line = ["tools/hsmtool", "decrypt", hsm_path, "A wrong pass"]
-    with pytest.raises(subprocess.CalledProcessError):
-        subprocess.check_call(cmd_line)
+    hsmtool = HsmTool("decrypt", hsm_path)
+    hsmtool.start(stdin=slave_fd,
+                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    hsmtool.wait_for_log(r"Enter hsm_secret password:")
+    os.write(master_fd, "A wrong pass\n\n".encode("utf-8"))
+    hsmtool.proc.wait(5)
+    hsmtool.is_in_log(r"Wrong password")
 
     # Decrypt it with hsmtool
-    cmd_line[3] = password[:-1]
-    subprocess.check_call(cmd_line)
+    hsmtool.start(stdin=slave_fd,
+                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    hsmtool.wait_for_log(r"Enter hsm_secret password:")
+    os.write(master_fd, password.encode("utf-8"))
+    assert hsmtool.proc.wait(5) == 0
     # Then test we can now start it without password
     l1.daemon.opts.pop("encrypted-hsm")
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=True)
@@ -1018,11 +1033,14 @@ def test_hsmtool_secret_decryption(node_factory):
     l1.stop()
 
     # Test we can encrypt it offline
-    cmd_line[1] = "encrypt"
-    subprocess.check_call(cmd_line)
+    hsmtool = HsmTool("encrypt", hsm_path)
+    hsmtool.start(stdin=slave_fd,
+                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    hsmtool.wait_for_log(r"Enter hsm_secret password:")
+    os.write(master_fd, password.encode("utf-8"))
+    assert hsmtool.proc.wait(5) == 0
     # Now we need to pass the encrypted-hsm startup option
     l1.stop()
-
     with pytest.raises(subprocess.CalledProcessError, match=r'returned non-zero exit status 1'):
         subprocess.check_call(l1.daemon.cmd_line)
 
@@ -1034,12 +1052,17 @@ def test_hsmtool_secret_decryption(node_factory):
     l1.daemon.wait_for_log(r'The hsm_secret is encrypted')
     os.write(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
+    print(node_id, l1.rpc.getinfo()["id"])
     assert node_id == l1.rpc.getinfo()["id"]
     l1.stop()
 
     # And finally test that we can also decrypt if encrypted with hsmtool
-    cmd_line[1] = "decrypt"
-    subprocess.check_call(cmd_line)
+    hsmtool = HsmTool("decrypt", hsm_path)
+    hsmtool.start(stdin=slave_fd,
+                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    hsmtool.wait_for_log(r"Enter hsm_secret password:")
+    os.write(master_fd, password.encode("utf-8"))
+    assert hsmtool.proc.wait(5) == 0
     l1.daemon.opts.pop("encrypted-hsm")
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=True)
     assert node_id == l1.rpc.getinfo()["id"]
@@ -1052,8 +1075,7 @@ def test_hsmtool_dump_descriptors(node_factory, bitcoind):
 
     # Get a tpub descriptor of lightningd's wallet
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
-    cmd_line = ["tools/hsmtool", "dumponchaindescriptors", hsm_path, "",
-                "testnet"]
+    cmd_line = ["tools/hsmtool", "dumponchaindescriptors", hsm_path, "testnet"]
     out = subprocess.check_output(cmd_line).decode("utf8").split("\n")
     descriptor = [l for l in out if l.startswith("wpkh(tpub")][0]
 
