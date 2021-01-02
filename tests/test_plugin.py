@@ -2027,15 +2027,18 @@ def test_notify(node_factory):
             assert out[2 + i].endswith("|\n")
         else:
             assert out[2 + i].endswith("|\r")
-    assert out[102] == '\r'
+
+    assert out[102] == '# Beginning stage 2\n'
+    assert out[103] == '\r'
+
     for i in range(10):
-        assert out[103 + i].startswith("# Stage 2/2 {:>2}/10 |".format(1 + i))
+        assert out[104 + i].startswith("# Stage 2/2 {:>2}/10 |".format(1 + i))
         if i == 9:
-            assert out[103 + i].endswith("|\n")
+            assert out[104 + i].endswith("|\n")
         else:
-            assert out[103 + i].endswith("|\r")
-    assert out[113] == '"This worked"\n'
-    assert len(out) == 114
+            assert out[104 + i].endswith("|\r")
+    assert out[114] == '"This worked"\n'
+    assert len(out) == 115
 
     # At debug level, we get the second prompt.
     out = subprocess.check_output(['cli/lightning-cli',
