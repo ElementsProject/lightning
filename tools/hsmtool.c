@@ -461,6 +461,7 @@ static void get_words(struct words **words) {
 		printf("  %zu) %s (%s)\n", i, languages[i].name, languages[i].abbr);
 	}
 	printf("Select [0-%zu]: ", ARRAY_SIZE(languages));
+	fflush(stdout);
 
 	char *selected = NULL;
 	size_t size = 0;
@@ -483,6 +484,7 @@ static void get_mnemonic(char *mnemonic) {
 	size_t line_size = 0;
 
 	printf("Introduce your BIP39 word list separated by space:\n");
+	fflush(stdout);
 	size_t characters = getline(&line, &line_size, stdin);
 	if (characters < 0)
 		errx(ERROR_USAGE, "Could not read line from stdin.");
