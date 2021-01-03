@@ -388,7 +388,7 @@ static char *opt_important_plugin(const char *arg, struct lightningd *ld)
 static char *opt_set_hsm_password(struct lightningd *ld)
 {
 	struct termios current_term, temp_term;
-	char *passwd = NULL;
+	char *passwd = NULL, *passwd_confirmation = NULL;
 	size_t passwd_size = 0;
 	u8 salt[16] = "c-lightning\0\0\0\0\0";
 	ld->encrypted_hsm = true;
@@ -408,12 +408,18 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 		return "Could not disable password echoing.";
 	printf("The hsm_secret is encrypted with a password. In order to "
 	       "decrypt it and start the node you must provide the password.\n");
-	printf("Enter hsm_secret password: ");
+	printf("Enter hsm_secret password:\n");
 	/* If we don't flush we might end up being buffered and we might seem
 	 * to hang while we wait for the password. */
 	fflush(stdout);
 	if (getline(&passwd, &passwd_size, stdin) < 0)
 		return "Could not read password from stdin.";
+	printf("Confirm hsm_secret password:\n");
+	fflush(stdout);
+	if (getline(&passwd_confirmation, &passwd_size, stdin) < 0)
+		return "Could not read password confirmation from stdin.";
+	if (!streq(passwd, passwd_confirmation))
+		return "Password confirmation mismatch.";
 	if (passwd[strlen(passwd) - 1] == '\n')
 		passwd[strlen(passwd) - 1] = '\0';
 	if (tcsetattr(fileno(stdin), TCSAFLUSH, &current_term) != 0)
@@ -434,6 +440,7 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	                  crypto_pwhash_ALG_ARGON2ID13) != 0)
 		return "Could not derive a key from the password.";
 	free(passwd);
+	free(passwd_confirmation);
 	return NULL;
 }
 

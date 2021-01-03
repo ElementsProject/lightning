@@ -956,8 +956,9 @@ def test_hsm_secret_encryption(node_factory):
     l1.stop()
     l1.daemon.opts.update({"encrypted-hsm": None})
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
-    l1.daemon.wait_for_log(r'The hsm_secret is encrypted')
-
+    l1.daemon.wait_for_log(r'Enter hsm_secret password')
+    os.write(master_fd, password.encode("utf-8"))
+    l1.daemon.wait_for_log(r'Confirm hsm_secret password')
     os.write(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
     id = l1.rpc.getinfo()["id"]
@@ -972,7 +973,9 @@ def test_hsm_secret_encryption(node_factory):
     l1.daemon.opts.update({"encrypted-hsm": None})
     l1.daemon.start(stdin=slave_fd, stderr=subprocess.STDOUT,
                     wait_for_initialized=False)
-    l1.daemon.wait_for_log(r'The hsm_secret is encrypted')
+    l1.daemon.wait_for_log(r'Enter hsm_secret password')
+    os.write(master_fd, password[2:].encode("utf-8"))
+    l1.daemon.wait_for_log(r'Confirm hsm_secret password')
     os.write(master_fd, password[2:].encode("utf-8"))
     assert(l1.daemon.proc.wait() == 1)
     assert(l1.daemon.is_in_log("Wrong password for encrypted hsm_secret."))
@@ -980,6 +983,8 @@ def test_hsm_secret_encryption(node_factory):
     # Test we can restore the same wallet with the same password
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
     l1.daemon.wait_for_log(r'The hsm_secret is encrypted')
+    os.write(master_fd, password.encode("utf-8"))
+    l1.daemon.wait_for_log(r'Confirm hsm_secret password')
     os.write(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
     assert id == l1.rpc.getinfo()["id"]
@@ -1005,7 +1010,9 @@ def test_hsmtool_secret_decryption(node_factory):
     l1.stop()
     l1.daemon.opts.update({"encrypted-hsm": None})
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
-    l1.daemon.wait_for_log(r'The hsm_secret is encrypted')
+    l1.daemon.wait_for_log(r'Enter hsm_secret password')
+    os.write(master_fd, password.encode("utf-8"))
+    l1.daemon.wait_for_log(r'Confirm hsm_secret password')
     os.write(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
     node_id = l1.rpc.getinfo()["id"]
@@ -1038,6 +1045,8 @@ def test_hsmtool_secret_decryption(node_factory):
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hsmtool.wait_for_log(r"Enter hsm_secret password:")
     os.write(master_fd, password.encode("utf-8"))
+    hsmtool.wait_for_log(r"Confirm hsm_secret password:")
+    os.write(master_fd, password.encode("utf-8"))
     assert hsmtool.proc.wait(5) == 0
     # Now we need to pass the encrypted-hsm startup option
     l1.stop()
@@ -1050,6 +1059,8 @@ def test_hsmtool_secret_decryption(node_factory):
                     wait_for_initialized=False)
 
     l1.daemon.wait_for_log(r'The hsm_secret is encrypted')
+    os.write(master_fd, password.encode("utf-8"))
+    l1.daemon.wait_for_log(r'Confirm hsm_secret password')
     os.write(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
     print(node_id, l1.rpc.getinfo()["id"])

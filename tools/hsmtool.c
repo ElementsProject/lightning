@@ -253,7 +253,7 @@ static int encrypt_hsm(const char *hsm_secret_path)
 {
 	int fd;
 	struct secret key, hsm_secret;
-	char *passwd;
+	char *passwd, *passwd_confirmation;
 	u8 salt[16] = "c-lightning\0\0\0\0\0";
 	crypto_secretstream_xchacha20poly1305_state crypto_state;
 	u8 header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
@@ -266,8 +266,11 @@ static int encrypt_hsm(const char *hsm_secret_path)
 		errx(ERROR_USAGE, "hsm_secret is already encrypted");
 
 	printf("Enter hsm_secret password:\n");
-	/* TODO: make the user double check the password. */
 	passwd = read_stdin_pass();
+	printf("Confirm hsm_secret password:\n");
+	passwd_confirmation = read_stdin_pass();
+	if (!streq(passwd, passwd_confirmation))
+		errx(ERROR_USAGE, "Passwords confirmation mismatch.");
 	get_hsm_secret(&hsm_secret, hsm_secret_path);
 
 	dir = path_dirname(NULL, hsm_secret_path);
@@ -296,6 +299,8 @@ static int encrypt_hsm(const char *hsm_secret_path)
 	/* Once the encryption key derived, we don't need it anymore. */
 	if (passwd)
 		free(passwd);
+	if (passwd_confirmation)
+		free(passwd_confirmation);
 
 	/* Create a backup file, "just in case". */
 	rename(hsm_secret_path, backup);
