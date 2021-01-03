@@ -19,4 +19,11 @@ char *hsm_secret_encryption_key(const char *pass, struct secret *encryption_key)
  */
 void discard_key(struct secret *key TAKES);
 
+/** Read hsm_secret encryption pass from stdin, disabling echoing.
+ * @reason: if NULL is returned, will point to the human-readable error.
+ *
+ * Caller must free the string as it does tal-reallocate getline's output.
+ */
+char *read_stdin_pass(char **reason);
+
 #endif /* LIGHTNING_COMMON_HSM_ENCRYPTION_H */

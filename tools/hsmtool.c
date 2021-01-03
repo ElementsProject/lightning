@@ -21,7 +21,6 @@
 #include <limits.h>
 #include <sodium.h>
 #include <sys/stat.h>
-#include <termios.h>
 #include <unistd.h>
 #include <wally_bip39.h>
 
@@ -168,46 +167,21 @@ static bool hsm_secret_is_encrypted(const char *hsm_secret_path)
 	return st.st_size > 32;
 }
 
-/* Read a pass from stdin, disabling echoing as done in lightning/options for the
- * --encrypted-hsm startup option.
- * Caller must free the returned string. */
-static char *read_stdin_pass(void)
-{
-	struct termios current_term, temp_term;
-	char *passwd = NULL;
-	size_t passwd_size = 0;
-
-	if (tcgetattr(fileno(stdin), &current_term) != 0)
-		errx(ERROR_TERM, "Could not get current terminal options.");
-	temp_term = current_term;
-	temp_term.c_lflag &= ~ECHO;
-	if (tcsetattr(fileno(stdin), TCSAFLUSH, &temp_term) != 0)
-		errx(ERROR_TERM, "Could not disable pass echoing.");
-	/* If we don't flush we might end up being buffered and we might seem
-	 * to hang while we wait for the password. */
-	fflush(stdout);
-	if (getline(&passwd, &passwd_size, stdin) < 0)
-		errx(ERROR_TERM, "Could not read pass from stdin.");
-	if (passwd[strlen(passwd) - 1] == '\n')
-		passwd[strlen(passwd) - 1] = '\0';
-	if (tcsetattr(fileno(stdin), TCSAFLUSH, &current_term) != 0)
-		errx(ERROR_TERM, "Could not restore terminal options.");
-
-	return passwd;
-}
-
 static int decrypt_hsm(const char *hsm_secret_path)
 {
 	int fd;
 	struct secret hsm_secret;
-	char *passwd;
+	char *passwd, *err;
 	const char *dir, *backup;
 
 	/* This checks the file existence, too. */
 	if (!hsm_secret_is_encrypted(hsm_secret_path))
 		errx(ERROR_USAGE, "hsm_secret is not encrypted");
 	printf("Enter hsm_secret password:\n");
-	passwd = read_stdin_pass();
+	fflush(stdout);
+	passwd = read_stdin_pass(&err);
+	if (!passwd)
+		errx(ERROR_TERM, "%s", err);
 
 	if (sodium_init() == -1)
 		errx(ERROR_LIBSODIUM,
@@ -265,9 +239,15 @@ static int encrypt_hsm(const char *hsm_secret_path)
 		errx(ERROR_USAGE, "hsm_secret is already encrypted");
 
 	printf("Enter hsm_secret password:\n");
-	passwd = read_stdin_pass();
+	fflush(stdout);
+	passwd = read_stdin_pass(&err);
+	if (!passwd)
+		errx(ERROR_TERM, "%s", err);
 	printf("Confirm hsm_secret password:\n");
-	passwd_confirmation = read_stdin_pass();
+	fflush(stdout);
+	passwd_confirmation = read_stdin_pass(&err);
+	if (!passwd_confirmation)
+		errx(ERROR_TERM, "%s", err);
 	if (!streq(passwd, passwd_confirmation))
 		errx(ERROR_USAGE, "Passwords confirmation mismatch.");
 	get_hsm_secret(&hsm_secret, hsm_secret_path);
@@ -295,10 +275,8 @@ static int encrypt_hsm(const char *hsm_secret_path)
 		errx(ERROR_LIBSODIUM, "Could not encrypt the seed.");
 
 	/* Once the encryption key derived, we don't need it anymore. */
-	if (passwd)
-		free(passwd);
-	if (passwd_confirmation)
-		free(passwd_confirmation);
+	free(passwd);
+	free(passwd_confirmation);
 
 	/* Create a backup file, "just in case". */
 	rename(hsm_secret_path, backup);
@@ -335,7 +313,7 @@ static int dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 	struct sha256 shaseed;
 	struct secret hsm_secret, channel_seed, per_commitment_secret;
 	struct pubkey per_commitment_point;
-	char *passwd;
+	char *passwd, *err;
 
 	secp256k1_ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY
 	                                         | SECP256K1_CONTEXT_SIGN);
@@ -343,7 +321,10 @@ static int dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 	/* This checks the file existence, too. */
 	if (hsm_secret_is_encrypted(hsm_secret_path)) {
 		printf("Enter hsm_secret password:\n");
-		passwd = read_stdin_pass();
+		fflush(stdout);
+		passwd = read_stdin_pass(&err);
+		if (!passwd)
+			errx(ERROR_TERM, "%s", err);
 		get_encrypted_hsm_secret(&hsm_secret, hsm_secret_path, passwd);
 		free(passwd);
 	} else
@@ -388,7 +369,7 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
                            u64 tries, char *hsm_secret_path)
 {
 	struct secret hsm_secret, channel_seed, basepoint_secret;
-	char *passwd;
+	char *passwd, *err;
 	struct pubkey basepoint;
 	struct ripemd160 pubkeyhash;
 	/* We only support P2WPKH, hence 20. */
@@ -410,7 +391,10 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
 	/* This checks the file existence, too. */
 	if (hsm_secret_is_encrypted(hsm_secret_path)) {
 		printf("Enter hsm_secret password:\n");
-		passwd = read_stdin_pass();
+		fflush(stdout);
+		passwd = read_stdin_pass(&err);
+		if (!passwd)
+			errx(ERROR_TERM, "%s", err);
 		get_encrypted_hsm_secret(&hsm_secret, hsm_secret_path, passwd);
 		free(passwd);
 	} else
@@ -512,14 +496,17 @@ static void read_mnemonic(char *mnemonic) {
 static int generate_hsm(const char *hsm_secret_path)
 {
 	char mnemonic[BIP39_WORDLIST_LEN];
-	char *passphrase;
+	char *passphrase, *err;
 
 	read_mnemonic(mnemonic);
 	printf("Warning: remember that different passphrases yield different "
 	       "bitcoin wallets.\n");
 	printf("If left empty, no password is used (echo is disabled).\n");
 	printf("Enter your passphrase: \n");
-	passphrase = read_stdin_pass();
+	fflush(stdout);
+	passphrase = read_stdin_pass(&err);
+	if (!passphrase)
+		errx(ERROR_TERM, "%s", err);
 	if (strlen(passphrase) == 0) {
 		free(passphrase);
 		passphrase = NULL;
@@ -558,7 +545,7 @@ static int dumponchaindescriptors(const char *hsm_secret_path, const char *old_p
 				  const bool is_testnet)
 {
 	struct secret hsm_secret;
-	char *passwd;
+	char *passwd, *err;
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
 	u32 salt = 0;
 	u32 version = is_testnet ?
@@ -570,7 +557,10 @@ static int dumponchaindescriptors(const char *hsm_secret_path, const char *old_p
 	/* This checks the file existence, too. */
 	if (hsm_secret_is_encrypted(hsm_secret_path)) {
 		printf("Enter hsm_secret password:\n");
-		passwd = read_stdin_pass();
+		fflush(stdout);
+		passwd = read_stdin_pass(&err);
+		if (!passwd)
+			errx(ERROR_TERM, "%s", err);
 		get_encrypted_hsm_secret(&hsm_secret, hsm_secret_path, passwd);
 		free(passwd);
 	} else

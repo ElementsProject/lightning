@@ -389,8 +389,7 @@ static char *opt_important_plugin(const char *arg, struct lightningd *ld)
 static char *opt_set_hsm_password(struct lightningd *ld)
 {
 	struct termios current_term, temp_term;
-	char *passwd = NULL, *passwd_confirmation = NULL, *err;
-	size_t passwd_size = 0;
+	char *passwd, *passwd_confirmation, *err;
 
 	/* Get the password from stdin, but don't echo it. */
 	if (tcgetattr(fileno(stdin), &current_term) != 0)
@@ -405,18 +404,14 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 	/* If we don't flush we might end up being buffered and we might seem
 	 * to hang while we wait for the password. */
 	fflush(stdout);
-	if (getline(&passwd, &passwd_size, stdin) < 0)
-		return "Could not read password from stdin.";
+	passwd = read_stdin_pass(&err);
+	if (!passwd)
+		return err;
 	printf("Confirm hsm_secret password:\n");
 	fflush(stdout);
-	if (getline(&passwd_confirmation, &passwd_size, stdin) < 0)
-		return "Could not read password confirmation from stdin.";
-	if (!streq(passwd, passwd_confirmation))
-		return "Password confirmation mismatch.";
-	if (passwd[strlen(passwd) - 1] == '\n')
-		passwd[strlen(passwd) - 1] = '\0';
-	if (tcsetattr(fileno(stdin), TCSAFLUSH, &current_term) != 0)
-		return "Could not restore terminal options.";
+	passwd_confirmation = read_stdin_pass(&err);
+	if (!passwd_confirmation)
+		return err;
 	printf("\n");
 
 	ld->config.keypass = tal(NULL, struct secret);

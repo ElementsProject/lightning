@@ -1,6 +1,8 @@
+#include <ccan/tal/str/str.h>
 #include <common/hsm_encryption.h>
 #include <sodium.h>
 #include <sodium/utils.h>
+#include <termios.h>
 
 
 char *hsm_secret_encryption_key(const char *pass, struct secret *key)
@@ -35,4 +37,40 @@ void discard_key(struct secret *key TAKES)
 	sodium_munlock(key->data, sizeof(key->data));
 	if (taken(key))
 		tal_free(key);
+}
+
+char *read_stdin_pass(char **reason)
+{
+	struct termios current_term, temp_term;
+	char *passwd = NULL;
+	size_t passwd_size = 0;
+
+	/* Set a temporary term, same as current but with ECHO disabled. */
+	if (tcgetattr(fileno(stdin), &current_term) != 0) {
+		*reason = "Could not get current terminal options.";
+		return NULL;
+	}
+	temp_term = current_term;
+	temp_term.c_lflag &= ~ECHO;
+	if (tcsetattr(fileno(stdin), TCSAFLUSH, &temp_term) != 0) {
+		*reason = "Could not disable pass echoing.";
+		return NULL;
+	}
+
+	/* Read the password, do not take the newline character into account. */
+	if (getline(&passwd, &passwd_size, stdin) < 0) {
+		*reason = "Could not read pass from stdin.";
+		return NULL;
+	}
+	if (passwd[strlen(passwd) - 1] == '\n')
+		passwd[strlen(passwd) - 1] = '\0';
+
+	/* Restore the original terminal */
+	if (tcsetattr(fileno(stdin), TCSAFLUSH, &current_term) != 0) {
+		*reason = "Could not restore terminal options.";
+		free(passwd);
+		return NULL;
+	}
+
+	return passwd;
 }
