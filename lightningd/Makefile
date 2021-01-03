@@ -92,6 +92,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/gossip_rcvd_filter.o		\
 	common/hash_u5.o			\
 	common/hmac.o				\
+	common/hsm_encryption.o			\
 	common/htlc_state.o			\
 	common/htlc_trim.o			\
 	common/htlc_wire.o			\

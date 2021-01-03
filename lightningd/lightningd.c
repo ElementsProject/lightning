@@ -59,6 +59,7 @@
 #include <common/daemon.h>
 #include <common/ecdh_hsmd.h>
 #include <common/features.h>
+#include <common/hsm_encryption.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
 #include <common/utils.h>
@@ -878,7 +879,7 @@ int main(int argc, char *argv[])
 	/*~ If hsm_secret is encrypted, we don't need its encryption key
 	 * anymore. Note that sodium_munlock() also zeroes the memory.*/
 	if (ld->config.keypass)
-		sodium_munlock(ld->config.keypass->data, sizeof(ld->config.keypass->data));
+		discard_key(take(ld->config.keypass));
 
 	/*~ Our default color and alias are derived from our node id, so we
 	 * can only set those now (if not set by config options). */

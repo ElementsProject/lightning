@@ -11,6 +11,7 @@
 #include <common/configdir.h>
 #include <common/derive_basepoints.h>
 #include <common/descriptor_checksum.h>
+#include <common/hsm_encryption.h>
 #include <common/node_id.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -91,7 +92,7 @@ static void get_encrypted_hsm_secret(struct secret *hsm_secret,
 {
 	int fd;
 	struct secret key;
-	u8 salt[16] = "c-lightning\0\0\0\0\0";
+	char *err;
 	crypto_secretstream_xchacha20poly1305_state crypto_state;
 	u8 header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
 	/* The cipher size is static with xchacha20poly1305. */
@@ -106,14 +107,13 @@ static void get_encrypted_hsm_secret(struct secret *hsm_secret,
 	if (!read_all(fd, cipher, sizeof(cipher)))
 		errx(ERROR_HSM_FILE, "Could not read cipher body");
 
-	if (crypto_pwhash(key.data, sizeof(key.data), passwd, strlen(passwd), salt,
-	                  crypto_pwhash_argon2id_OPSLIMIT_MODERATE,
-	                  crypto_pwhash_argon2id_MEMLIMIT_MODERATE,
-	                  crypto_pwhash_ALG_ARGON2ID13) != 0)
-		errx(ERROR_LIBSODIUM, "Could not derive a key from the password.");
+	err = hsm_secret_encryption_key(passwd, &key);
+	if (err)
+		errx(ERROR_LIBSODIUM, "%s", err);
 	if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state, header,
-	                                                    key.data) != 0)
+							    key.data) != 0)
 		errx(ERROR_LIBSODIUM, "Could not initialize the crypto state");
+	discard_key(&key);
 	if (crypto_secretstream_xchacha20poly1305_pull(&crypto_state, hsm_secret->data,
 	                                               NULL, 0, cipher, sizeof(cipher),
 	                                               NULL, 0) != 0)
@@ -253,8 +253,7 @@ static int encrypt_hsm(const char *hsm_secret_path)
 {
 	int fd;
 	struct secret key, hsm_secret;
-	char *passwd, *passwd_confirmation;
-	u8 salt[16] = "c-lightning\0\0\0\0\0";
+	char *passwd, *passwd_confirmation, *err;
 	crypto_secretstream_xchacha20poly1305_state crypto_state;
 	u8 header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
 	/* The cipher size is static with xchacha20poly1305. */
@@ -282,14 +281,13 @@ static int encrypt_hsm(const char *hsm_secret_path)
 
 	/* Derive the encryption key from the password provided, and try to encrypt
 	 * the seed. */
-	if (crypto_pwhash(key.data, sizeof(key.data), passwd, strlen(passwd), salt,
-	                  crypto_pwhash_argon2id_OPSLIMIT_MODERATE,
-	                  crypto_pwhash_argon2id_MEMLIMIT_MODERATE,
-	                  crypto_pwhash_ALG_ARGON2ID13) != 0)
-		errx(ERROR_LIBSODIUM, "Could not derive a key from the password.");
+	err = hsm_secret_encryption_key(passwd, &key);
+	if (err)
+		errx(ERROR_LIBSODIUM, "%s", err);
 	if (crypto_secretstream_xchacha20poly1305_init_push(&crypto_state, header,
 	                                                    key.data) != 0)
 		errx(ERROR_LIBSODIUM, "Could not initialize the crypto state");
+	discard_key(&key);
 	if (crypto_secretstream_xchacha20poly1305_push(&crypto_state, cipher,
 	                                               NULL, hsm_secret.data,
 	                                               sizeof(hsm_secret.data),
