@@ -227,11 +227,8 @@ static int encrypt_hsm(const char *hsm_secret_path)
 {
 	int fd;
 	struct secret key, hsm_secret;
+	struct encrypted_hsm_secret encrypted_hsm_secret;
 	char *passwd, *passwd_confirmation, *err;
-	crypto_secretstream_xchacha20poly1305_state crypto_state;
-	u8 header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
-	/* The cipher size is static with xchacha20poly1305. */
-	u8 cipher[sizeof(struct secret) + crypto_secretstream_xchacha20poly1305_ABYTES];
 	const char *dir, *backup;
 
 	/* This checks the file existence, too. */
@@ -264,15 +261,8 @@ static int encrypt_hsm(const char *hsm_secret_path)
 	err = hsm_secret_encryption_key(passwd, &key);
 	if (err)
 		errx(ERROR_LIBSODIUM, "%s", err);
-	if (crypto_secretstream_xchacha20poly1305_init_push(&crypto_state, header,
-	                                                    key.data) != 0)
-		errx(ERROR_LIBSODIUM, "Could not initialize the crypto state");
-	discard_key(&key);
-	if (crypto_secretstream_xchacha20poly1305_push(&crypto_state, cipher,
-	                                               NULL, hsm_secret.data,
-	                                               sizeof(hsm_secret.data),
-	                                               NULL, 0, 0) != 0)
-		errx(ERROR_LIBSODIUM, "Could not encrypt the seed.");
+	if (!encrypt_hsm_secret(&key, &hsm_secret, &encrypted_hsm_secret))
+		errx(ERROR_LIBSODIUM, "Could not encrypt the hsm_secret seed.");
 
 	/* Once the encryption key derived, we don't need it anymore. */
 	free(passwd);
@@ -285,8 +275,8 @@ static int encrypt_hsm(const char *hsm_secret_path)
 		errx(ERROR_HSM_FILE, "Could not open new hsm_secret");
 
 	/* Write the encrypted hsm_secret. */
-	if (!write_all(fd, header, sizeof(header))
-		|| !write_all(fd, cipher, sizeof(cipher))) {
+	if (!write_all(fd, encrypted_hsm_secret.data,
+		       sizeof(encrypted_hsm_secret.data))) {
 		unlink_noerr(hsm_secret_path);
 		close(fd);
 		rename(backup, hsm_secret_path);
