@@ -563,28 +563,16 @@ static void bitcoin_key(struct privkey *privkey, struct pubkey *pubkey,
  */
 static void create_encrypted_hsm(int fd, const struct secret *encryption_key)
 {
-	crypto_secretstream_xchacha20poly1305_state crypto_state;
-	u8 header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
-	/* The cipher size is static with xchacha20poly1305 */
-	u8 cipher[sizeof(struct secret) + crypto_secretstream_xchacha20poly1305_ABYTES];
+	struct encrypted_hsm_secret cipher;
 
-	crypto_secretstream_xchacha20poly1305_init_push(&crypto_state, header,
-	                                                encryption_key->data);
-	crypto_secretstream_xchacha20poly1305_push(&crypto_state, cipher,
-	                                           NULL,
-	                                           secretstuff.hsm_secret.data,
-	                                           sizeof(secretstuff.hsm_secret.data),
-	                                           /* Additional data and tag */
-	                                           NULL, 0, 0);
-	if (!write_all(fd, header, sizeof(header))) {
+	if (!encrypt_hsm_secret(encryption_key, &secretstuff.hsm_secret,
+				&cipher))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Encrypting hsm_secret");
+	if (!write_all(fd, cipher.data, ENCRYPTED_HSM_SECRET_LEN)) {
 		unlink_noerr("hsm_secret");
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		              "Writing header of encrypted secret: %s", strerror(errno));
-	}
-	if (!write_all(fd, cipher, sizeof(cipher))) {
-		unlink_noerr("hsm_secret");
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		              "Writing encrypted secret: %s", strerror(errno));
+		              "Writing encrypted hsm_secret: %s", strerror(errno));
 	}
 }
 

@@ -1,9 +1,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/hsm_encryption.h>
-#include <sodium.h>
 #include <sodium/utils.h>
 #include <termios.h>
-
 
 char *hsm_secret_encryption_key(const char *pass, struct secret *key)
 {
@@ -29,6 +27,26 @@ char *hsm_secret_encryption_key(const char *pass, struct secret *key)
 		return "Could not derive a key from the password.";
 
 	return NULL;
+}
+
+bool encrypt_hsm_secret(const struct secret *encryption_key,
+			const struct secret *hsm_secret,
+			struct encrypted_hsm_secret *output)
+{
+	crypto_secretstream_xchacha20poly1305_state crypto_state;
+
+	if (crypto_secretstream_xchacha20poly1305_init_push(&crypto_state, output->data,
+							    encryption_key->data) != 0)
+		return false;
+	if (crypto_secretstream_xchacha20poly1305_push(&crypto_state,
+						       output->data + HS_HEADER_LEN,
+						       NULL, hsm_secret->data,
+						       sizeof(hsm_secret->data),
+						       /* Additional data and tag */
+						       NULL, 0, 0))
+		return false;
+
+	return true;
 }
 
 void discard_key(struct secret *key TAKES)
