@@ -49,6 +49,27 @@ bool encrypt_hsm_secret(const struct secret *encryption_key,
 	return true;
 }
 
+bool decrypt_hsm_secret(const struct secret *encryption_key,
+			const struct encrypted_hsm_secret *cipher,
+			struct secret *output)
+{
+	crypto_secretstream_xchacha20poly1305_state crypto_state;
+
+	/* The header part */
+	if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state, cipher->data,
+							    encryption_key->data) != 0)
+		return false;
+	/* The ciphertext part */
+	if (crypto_secretstream_xchacha20poly1305_pull(&crypto_state, output->data,
+						       NULL, 0,
+						       cipher->data + HS_HEADER_LEN,
+						       HS_CIPHERTEXT_LEN,
+						       NULL, 0) != 0)
+		return false;
+
+	return true;
+}
+
 void discard_key(struct secret *key TAKES)
 {
 	/* sodium_munlock() also zeroes the memory. */

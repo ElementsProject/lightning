@@ -38,6 +38,17 @@ bool encrypt_hsm_secret(const struct secret *encryption_key,
 			const struct secret *hsm_secret,
 			struct encrypted_hsm_secret *output);
 
+/** Decrypt the hsm_secret using a previously derived encryption key.
+ * @encryption_key: the key derived from the passphrase.
+ * @cipher: the encrypted hsm_secret to decrypt.
+ * @output: the resulting hsm_secret.
+ *
+ * Return false on decryption failure.
+ */
+bool decrypt_hsm_secret(const struct secret *encryption_key,
+			const struct encrypted_hsm_secret *cipher,
+			struct secret *output);
+
 /** Unlock and zeroize the encryption key memory after use.
  * @key: the encryption key. If taken, it will be tal_free'd
  */
