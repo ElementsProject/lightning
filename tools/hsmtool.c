@@ -77,9 +77,9 @@ static void get_hsm_secret(struct secret *hsm_secret,
 
 	fd = open(hsm_secret_path, O_RDONLY);
 	if (fd < 0)
-		err(ERROR_HSM_FILE, "Could not open hsm_secret");
+		errx(ERROR_HSM_FILE, "Could not open hsm_secret");
 	if (!read_all(fd, hsm_secret, sizeof(*hsm_secret)))
-		err(ERROR_HSM_FILE, "Could not read hsm_secret");
+		errx(ERROR_HSM_FILE, "Could not read hsm_secret");
 	close(fd);
 }
 
@@ -99,25 +99,25 @@ static void get_encrypted_hsm_secret(struct secret *hsm_secret,
 
 	fd = open(hsm_secret_path, O_RDONLY);
 	if (fd < 0)
-		err(ERROR_HSM_FILE, "Could not open hsm_secret");
+		errx(ERROR_HSM_FILE, "Could not open hsm_secret");
 
 	if (!read_all(fd, header, crypto_secretstream_xchacha20poly1305_HEADERBYTES))
-		err(ERROR_HSM_FILE, "Could not read cipher header");
+		errx(ERROR_HSM_FILE, "Could not read cipher header");
 	if (!read_all(fd, cipher, sizeof(cipher)))
-		err(ERROR_HSM_FILE, "Could not read cipher body");
+		errx(ERROR_HSM_FILE, "Could not read cipher body");
 
 	if (crypto_pwhash(key.data, sizeof(key.data), passwd, strlen(passwd), salt,
 	                  crypto_pwhash_argon2id_OPSLIMIT_MODERATE,
 	                  crypto_pwhash_argon2id_MEMLIMIT_MODERATE,
 	                  crypto_pwhash_ALG_ARGON2ID13) != 0)
-		err(ERROR_LIBSODIUM, "Could not derive a key from the password.");
+		errx(ERROR_LIBSODIUM, "Could not derive a key from the password.");
 	if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state, header,
 	                                                    key.data) != 0)
-		err(ERROR_LIBSODIUM, "Could not initialize the crypto state");
+		errx(ERROR_LIBSODIUM, "Could not initialize the crypto state");
 	if (crypto_secretstream_xchacha20poly1305_pull(&crypto_state, hsm_secret->data,
 	                                               NULL, 0, cipher, sizeof(cipher),
 	                                               NULL, 0) != 0)
-		err(ERROR_LIBSODIUM, "Could not retrieve the seed. Wrong password ?");
+		errx(ERROR_LIBSODIUM, "Could not retrieve the seed. Wrong password ?");
 
 	close(fd);
 }
@@ -210,7 +210,7 @@ static int decrypt_hsm(const char *hsm_secret_path)
 	passwd = read_stdin_pass();
 
 	if (sodium_init() == -1)
-		err(ERROR_LIBSODIUM,
+		errx(ERROR_LIBSODIUM,
 		    "Could not initialize libsodium. Not enough entropy ?");
 
 	dir = path_dirname(NULL, hsm_secret_path);
@@ -225,13 +225,13 @@ static int decrypt_hsm(const char *hsm_secret_path)
 	rename(hsm_secret_path, backup);
 	fd = open(hsm_secret_path, O_CREAT|O_EXCL|O_WRONLY, 0400);
 	if (fd < 0)
-		err(ERROR_HSM_FILE, "Could not open new hsm_secret");
+		errx(ERROR_HSM_FILE, "Could not open new hsm_secret");
 
 	if (!write_all(fd, &hsm_secret, sizeof(hsm_secret))) {
 		unlink_noerr(hsm_secret_path);
 		close(fd);
 		rename("hsm_secret.backup", hsm_secret_path);
-		err(ERROR_HSM_FILE,
+		errx(ERROR_HSM_FILE,
 		    "Failure writing plaintext seed to hsm_secret.");
 	}
 
@@ -239,7 +239,7 @@ static int decrypt_hsm(const char *hsm_secret_path)
 	if (!ensure_hsm_secret_exists(fd, hsm_secret_path)) {
 		unlink_noerr(hsm_secret_path);
 		rename(backup, hsm_secret_path);
-		err(ERROR_HSM_FILE,
+		errx(ERROR_HSM_FILE,
 		    "Could not ensure hsm_secret existence.");
 	}
 	unlink_noerr(backup);
@@ -274,7 +274,7 @@ static int encrypt_hsm(const char *hsm_secret_path)
 	backup = path_join(dir, dir, "hsm_secret.backup");
 
 	if (sodium_init() == -1)
-		err(ERROR_LIBSODIUM,
+		errx(ERROR_LIBSODIUM,
 		    "Could not initialize libsodium. Not enough entropy ?");
 
 	/* Derive the encryption key from the password provided, and try to encrypt
@@ -283,15 +283,15 @@ static int encrypt_hsm(const char *hsm_secret_path)
 	                  crypto_pwhash_argon2id_OPSLIMIT_MODERATE,
 	                  crypto_pwhash_argon2id_MEMLIMIT_MODERATE,
 	                  crypto_pwhash_ALG_ARGON2ID13) != 0)
-		err(ERROR_LIBSODIUM, "Could not derive a key from the password.");
+		errx(ERROR_LIBSODIUM, "Could not derive a key from the password.");
 	if (crypto_secretstream_xchacha20poly1305_init_push(&crypto_state, header,
 	                                                    key.data) != 0)
-		err(ERROR_LIBSODIUM, "Could not initialize the crypto state");
+		errx(ERROR_LIBSODIUM, "Could not initialize the crypto state");
 	if (crypto_secretstream_xchacha20poly1305_push(&crypto_state, cipher,
 	                                               NULL, hsm_secret.data,
 	                                               sizeof(hsm_secret.data),
 	                                               NULL, 0, 0) != 0)
-		err(ERROR_LIBSODIUM, "Could not encrypt the seed.");
+		errx(ERROR_LIBSODIUM, "Could not encrypt the seed.");
 
 	/* Once the encryption key derived, we don't need it anymore. */
 	if (passwd)
@@ -301,7 +301,7 @@ static int encrypt_hsm(const char *hsm_secret_path)
 	rename(hsm_secret_path, backup);
 	fd = open(hsm_secret_path, O_CREAT|O_EXCL|O_WRONLY, 0400);
 	if (fd < 0)
-		err(ERROR_HSM_FILE, "Could not open new hsm_secret");
+		errx(ERROR_HSM_FILE, "Could not open new hsm_secret");
 
 	/* Write the encrypted hsm_secret. */
 	if (!write_all(fd, header, sizeof(header))
@@ -309,14 +309,14 @@ static int encrypt_hsm(const char *hsm_secret_path)
 		unlink_noerr(hsm_secret_path);
 		close(fd);
 		rename(backup, hsm_secret_path);
-		err(ERROR_HSM_FILE, "Failure writing cipher to hsm_secret.");
+		errx(ERROR_HSM_FILE, "Failure writing cipher to hsm_secret.");
 	}
 
 	/* Be as paranoïd as in hsmd with the file state on disk. */
 	if (!ensure_hsm_secret_exists(fd, hsm_secret_path)) {
 		unlink_noerr(hsm_secret_path);
 		rename(backup, hsm_secret_path);
-		err(ERROR_HSM_FILE, "Could not ensure hsm_secret existence.");
+		errx(ERROR_HSM_FILE, "Could not ensure hsm_secret existence.");
 	}
 	unlink_noerr(backup);
 	tal_free(dir);
@@ -352,12 +352,12 @@ static int dump_commitments_infos(struct node_id *node_id, u64 channel_id,
 	printf("shaseed: %s\n", type_to_string(tmpctx, struct sha256, &shaseed));
 	for (u64 i = 0; i < depth; i++) {
 		if (!per_commit_secret(&shaseed, &per_commitment_secret, i))
-			err(ERROR_KEYDERIV, "Could not derive secret #%"PRIu64, i);
+			errx(ERROR_KEYDERIV, "Could not derive secret #%"PRIu64, i);
 		printf("commit secret #%"PRIu64": %s\n",
 		       i, tal_hexstr(tmpctx, per_commitment_secret.data,
 		                     sizeof(per_commitment_secret.data)));
 		if (!per_commit_point(&shaseed, &per_commitment_point, i))
-			err(ERROR_KEYDERIV, "Could not derive point #%"PRIu64, i);
+			errx(ERROR_KEYDERIV, "Could not derive point #%"PRIu64, i);
 		printf("commit point #%"PRIu64": %s\n",
 		       i, type_to_string(tmpctx, struct pubkey, &per_commitment_point));
 	}
@@ -634,7 +634,7 @@ int main(int argc, char *argv[])
 			show_usage(argv[0]);
 		struct node_id node_id;
 		if (!node_id_from_hexstr(argv[2], strlen(argv[2]), &node_id))
-			err(ERROR_USAGE, "Bad node id");
+			errx(ERROR_USAGE, "Bad node id");
 		return dump_commitments_infos(&node_id, atol(argv[3]), atol(argv[4]),
 		                              argv[5]);
 	}
