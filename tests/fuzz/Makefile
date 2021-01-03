@@ -23,6 +23,7 @@ FUZZ_COMMON_OBJS := \
 	common/derive_basepoints.o			\
 	common/descriptor_checksum.o			\
 	common/fee_states.o				\
+	common/hsm_encryption.o				\
 	common/htlc_state.o				\
 	common/permute_tx.o				\
 	common/initial_channel.o			\
