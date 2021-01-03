@@ -19,7 +19,6 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
-#include <sodium.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <wally_bip39.h>
@@ -91,31 +90,20 @@ static void get_encrypted_hsm_secret(struct secret *hsm_secret,
 {
 	int fd;
 	struct secret key;
+	struct encrypted_hsm_secret encrypted_secret;
 	char *err;
-	crypto_secretstream_xchacha20poly1305_state crypto_state;
-	u8 header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
-	/* The cipher size is static with xchacha20poly1305. */
-	u8 cipher[sizeof(struct secret) + crypto_secretstream_xchacha20poly1305_ABYTES];
 
 	fd = open(hsm_secret_path, O_RDONLY);
 	if (fd < 0)
 		errx(ERROR_HSM_FILE, "Could not open hsm_secret");
 
-	if (!read_all(fd, header, crypto_secretstream_xchacha20poly1305_HEADERBYTES))
-		errx(ERROR_HSM_FILE, "Could not read cipher header");
-	if (!read_all(fd, cipher, sizeof(cipher)))
-		errx(ERROR_HSM_FILE, "Could not read cipher body");
+	if (!read_all(fd, encrypted_secret.data, ENCRYPTED_HSM_SECRET_LEN))
+		errx(ERROR_HSM_FILE, "Could not read encrypted hsm_secret");
 
 	err = hsm_secret_encryption_key(passwd, &key);
 	if (err)
 		errx(ERROR_LIBSODIUM, "%s", err);
-	if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state, header,
-							    key.data) != 0)
-		errx(ERROR_LIBSODIUM, "Could not initialize the crypto state");
-	discard_key(&key);
-	if (crypto_secretstream_xchacha20poly1305_pull(&crypto_state, hsm_secret->data,
-	                                               NULL, 0, cipher, sizeof(cipher),
-	                                               NULL, 0) != 0)
+	if (!decrypt_hsm_secret(&key, &encrypted_secret, hsm_secret))
 		errx(ERROR_LIBSODIUM, "Could not retrieve the seed. Wrong password ?");
 
 	close(fd);

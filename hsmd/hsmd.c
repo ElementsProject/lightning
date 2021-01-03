@@ -689,25 +689,13 @@ static void load_hsm(const struct secret *encryption_key)
 	/*~ If an encryption key was passed and the `hsm_secret` is stored
 	 * encrypted, recover the seed from the cipher. */
 	if (encryption_key && st.st_size > 32) {
-		crypto_secretstream_xchacha20poly1305_state crypto_state;
-		u8 header[crypto_secretstream_xchacha20poly1305_HEADERBYTES];
-		/* The cipher size is static with xchacha20poly1305 */
-		u8 cipher[sizeof(struct secret) + crypto_secretstream_xchacha20poly1305_ABYTES];
+		struct encrypted_hsm_secret encrypted_secret;
 
-		if (!read_all(fd, &header, crypto_secretstream_xchacha20poly1305_HEADERBYTES))
+		if (!read_all(fd, encrypted_secret.data, ENCRYPTED_HSM_SECRET_LEN))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			              "Reading xchacha20 header: %s", strerror(errno));
-		if (!read_all(fd, cipher, sizeof(cipher)))
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			              "Reading encrypted secret: %s", strerror(errno));
-		if (crypto_secretstream_xchacha20poly1305_init_pull(&crypto_state, header,
-		                                                    encryption_key->data) != 0)
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			              "Initializing the crypto state: %s", strerror(errno));
-		if (crypto_secretstream_xchacha20poly1305_pull(&crypto_state,
-		                                               secretstuff.hsm_secret.data,
-		                                               NULL, 0, cipher, sizeof(cipher),
-		                                               NULL, 0) != 0) {
+			              "Reading encrypted hsm_secret: %s", strerror(errno));
+		if (!decrypt_hsm_secret(encryption_key, &encrypted_secret,
+					&secretstuff.hsm_secret)) {
 			/* Exit but don't throw a backtrace when the user made a mistake in typing
 			 * its password. Instead exit and `lightningd` will be able to give
 			 * an error message. */
