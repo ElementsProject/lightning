@@ -34,10 +34,11 @@ const uint8_t **get_chunks(const void *ctx, const uint8_t *data,
 
 char *to_string(const tal_t *ctx, const u8 *data, size_t data_size)
 {
-	char *string = tal_arr(ctx, char, data_size);
+	char *string = tal_arr(ctx, char, data_size + 1);
 
 	for (size_t i = 0; i < data_size; i++)
 		string[i] = (char) data[i] % (CHAR_MAX + 1);
+	string[data_size] = '\0';
 
 	return string;
 }
