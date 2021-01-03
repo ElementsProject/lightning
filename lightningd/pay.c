@@ -1163,7 +1163,7 @@ param_route_hop(struct command *cmd, const char *name, const char *buffer,
 	}
 
 	if (!channeltok) {
-		memset(&res->channel_id, 0, sizeof(struct node_id));
+		memset(&res->channel_id, 0, sizeof(struct short_channel_id));
 	} else if (!json_to_short_channel_id(buffer, channeltok, &res->channel_id)) {
 		return command_fail_badparam(cmd, name, buffer, channeltok,
 					     "should be a short_channel_id");
