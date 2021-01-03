@@ -666,7 +666,7 @@ static void load_hsm(const struct secret *encryption_key)
 		              "stating: %s", strerror(errno));
 
 	/* If the seed is stored in clear. */
-	if (st.st_size <= 32) {
+	if (st.st_size == 32) {
 		if (!read_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret)))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			              "reading: %s", strerror(errno));
@@ -686,10 +686,13 @@ static void load_hsm(const struct secret *encryption_key)
 				              "opening: %s", strerror(errno));
 		}
 	}
-	/*~ If an encryption key was passed and the `hsm_secret` is stored
+	/* If an encryption key was passed and the `hsm_secret` is stored
 	 * encrypted, recover the seed from the cipher. */
-	if (encryption_key && st.st_size > 32) {
+	else if (st.st_size == ENCRYPTED_HSM_SECRET_LEN) {
 		struct encrypted_hsm_secret encrypted_secret;
+
+		/* hsm_control must have checked it! */
+		assert(encryption_key);
 
 		if (!read_all(fd, encrypted_secret.data, ENCRYPTED_HSM_SECRET_LEN))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -702,7 +705,10 @@ static void load_hsm(const struct secret *encryption_key)
 			exit(1);
 		}
 	}
-	/* else { handled in hsm_control } */
+	else
+		status_failed(STATUS_FAIL_INTERNAL_ERROR, "Invalid hsm_secret, "
+							  "no plaintext nor encrypted"
+							  " seed.");
 	close(fd);
 
 	populate_secretstuff();

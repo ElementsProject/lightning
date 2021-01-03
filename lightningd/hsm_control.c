@@ -6,6 +6,7 @@
 #include <ccan/io/io.h>
 #include <ccan/take/take.h>
 #include <common/ecdh.h>
+#include <common/hsm_encryption.h>
 #include <common/json.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
@@ -106,7 +107,8 @@ struct ext_key *hsm_init(struct lightningd *ld)
 	 * actual secret. */
 	if (!ld->config.keypass) {
 		struct stat st;
-		if (stat("hsm_secret", &st) == 0 && st.st_size > 32)
+		if (stat("hsm_secret", &st) == 0 &&
+			 st.st_size == ENCRYPTED_HSM_SECRET_LEN)
 			errx(1, "hsm_secret is encrypted, you need to pass the "
 			        "--encrypted-hsm startup option.");
 	}

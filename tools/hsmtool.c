@@ -145,14 +145,19 @@ static void get_channel_seed(struct secret *channel_seed, struct node_id *peer_i
 	            info, strlen(info));
 }
 
-/* We detect an encrypted hsm_secret as a hsm_secret which is larger than
- * the plaintext seed. */
+/* We detect an encrypted hsm_secret as a hsm_secret which is 73-bytes long. */
 static bool hsm_secret_is_encrypted(const char *hsm_secret_path)
 {
 	struct stat st;
+
 	if (stat(hsm_secret_path, &st) != 0)
 		errx(ERROR_HSM_FILE, "Could not stat hsm_secret");
-	return st.st_size > 32;
+
+	if (st.st_size != 32 && st.st_size != ENCRYPTED_HSM_SECRET_LEN)
+		errx(ERROR_HSM_FILE, "Invalid hsm_secret (neither plaintext "
+				     "nor encrypted).");
+
+	return st.st_size == ENCRYPTED_HSM_SECRET_LEN;
 }
 
 static int decrypt_hsm(const char *hsm_secret_path)
