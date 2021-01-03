@@ -13,6 +13,7 @@
 #include <common/channel_id.h>
 #include <common/derive_basepoints.h>
 #include <common/features.h>
+#include <common/hsm_encryption.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
@@ -388,16 +389,8 @@ static char *opt_important_plugin(const char *arg, struct lightningd *ld)
 static char *opt_set_hsm_password(struct lightningd *ld)
 {
 	struct termios current_term, temp_term;
-	char *passwd = NULL, *passwd_confirmation = NULL;
+	char *passwd = NULL, *passwd_confirmation = NULL, *err;
 	size_t passwd_size = 0;
-	u8 salt[16] = "c-lightning\0\0\0\0\0";
-	ld->encrypted_hsm = true;
-
-	ld->config.keypass = tal(NULL, struct secret);
-	/* Don't swap the encryption key ! */
-	if (sodium_mlock(ld->config.keypass->data,
-	                 sizeof(ld->config.keypass->data)) != 0)
-		return "Could not lock hsm_secret encryption key memory.";
 
 	/* Get the password from stdin, but don't echo it. */
 	if (tcgetattr(fileno(stdin), &current_term) != 0)
@@ -426,21 +419,14 @@ static char *opt_set_hsm_password(struct lightningd *ld)
 		return "Could not restore terminal options.";
 	printf("\n");
 
-	/* Derive the key from the password. */
-	if (strlen(passwd) < crypto_pwhash_argon2id_PASSWD_MIN)
-		return "Password too short to be able to derive a key from it.";
-	if (strlen(passwd) > crypto_pwhash_argon2id_PASSWD_MAX)
-		return "Password too long to be able to derive a key from it.";
-	if (crypto_pwhash(ld->config.keypass->data, sizeof(ld->config.keypass->data),
-	                  passwd, strlen(passwd), salt,
-	                  /* INTERACTIVE needs 64 MiB of RAM, MODERATE needs 256,
-	                   * and SENSITIVE needs 1024. */
-	                  crypto_pwhash_argon2id_OPSLIMIT_MODERATE,
-	                  crypto_pwhash_argon2id_MEMLIMIT_MODERATE,
-	                  crypto_pwhash_ALG_ARGON2ID13) != 0)
-		return "Could not derive a key from the password.";
+	ld->config.keypass = tal(NULL, struct secret);
+	err = hsm_secret_encryption_key(passwd, ld->config.keypass);
+	if (err)
+		return err;
+	ld->encrypted_hsm = true;
 	free(passwd);
 	free(passwd_confirmation);
+
 	return NULL;
 }
 

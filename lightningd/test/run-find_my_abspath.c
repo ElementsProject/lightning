@@ -50,6 +50,9 @@ s64 db_get_intvar(struct db *db UNNEEDED, char *varname UNNEEDED, s64 defval UNN
 /* Generated stub for db_in_transaction */
 bool db_in_transaction(struct db *db UNNEEDED)
 { fprintf(stderr, "db_in_transaction called!\n"); abort(); }
+/* Generated stub for discard_key */
+void discard_key(struct secret *key TAKES UNNEEDED)
+{ fprintf(stderr, "discard_key called!\n"); abort(); }
 /* Generated stub for ecdh_hsmd_setup */
 void ecdh_hsmd_setup(int hsm_fd UNNEEDED,
 		     void (*failed)(enum status_failreason UNNEEDED,

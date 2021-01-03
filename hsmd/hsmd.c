@@ -31,6 +31,7 @@
 #include <common/daemon_conn.h>
 #include <common/derive_basepoints.h>
 #include <common/hash_u5.h>
+#include <common/hsm_encryption.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>
 #include <common/node_id.h>
@@ -779,12 +780,9 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	maybe_create_new_hsm(hsm_encryption_key, true);
 	load_hsm(hsm_encryption_key);
 
-	/*~ We don't need the hsm_secret encryption key anymore.
-	 * Note that sodium_munlock() also zeroes the memory. */
-	if (hsm_encryption_key) {
-		sodium_munlock(hsm_encryption_key, sizeof(*hsm_encryption_key));
-		tal_free(hsm_encryption_key);
-	}
+	/*~ We don't need the hsm_secret encryption key anymore. */
+	if (hsm_encryption_key)
+		discard_key(take(hsm_encryption_key));
 
 	/*~ We tell lightning our node id and (public) bip32 seed. */
 	node_key(NULL, &key);
