@@ -46,6 +46,7 @@ FUZZ_COMMON_OBJS := \
 	wire/onion_wiregen.o				\
 	wire/peer_wire.o				\
 	wire/peer_wiregen.o				\
+	wire/tlvstream.o				\
 	wire/towire.o					\
 	wire/wire_io.o					\
 	wire/wire_sync.o
