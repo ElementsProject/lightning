@@ -413,7 +413,7 @@ class RoutingOnion(object):
             )
 
 
-KeySet = namedtuple('KeySet', ['rho', 'mu', 'um', 'pad', 'gamma', 'pi'])
+KeySet = namedtuple('KeySet', ['rho', 'mu', 'um', 'pad', 'gamma', 'pi', 'ammag'])
 
 
 def xor_inplace(d: Union[bytearray, memoryview],
