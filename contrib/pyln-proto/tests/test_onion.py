@@ -100,6 +100,7 @@ def test_generate_keyset():
         pad=bytes.fromhex('3c348715f933c32b5571e2c9136b17c4da2e8fd13e35b7092deff56650eea958'),
         gamma=bytes.fromhex('c5b96917bc536aff7c2d6584bd60cf3b99151ccac18f173133f1fd0bdcae08b5'),
         pi=bytes.fromhex('3a70333f46a4fd1b3f72acae87760b147b07fe4923131066906a4044d4f1ddd1'),
+        ammag=bytes.fromhex('3761ba4d3e726d8abb16cba5950ee976b84937b61b7ad09e741724d7dee12eb5'),
     )
     assert(keys == expected)
 
