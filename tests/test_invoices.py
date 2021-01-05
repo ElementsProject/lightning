@@ -634,3 +634,50 @@ def test_amountless_invoice(node_factory):
     assert(i[0]['msatoshi_received'] == 1337)
     assert(i[0]['amount_received_msat'] == Millisatoshi(1337))
     assert(i[0]['status'] == 'paid')
+
+
+def test_listinvoices_filter(node_factory):
+    """ Test the optional query arguments to listinvoices
+    """
+
+    l1 = node_factory.get_node()
+
+    invoices = [l1.rpc.invoice(42, 'label{}'.format(i), 'desc') for i in range(10)]
+
+    def match(node, query, invoice):
+        r1 = l1.rpc.listinvoices(**query)['invoices']
+        assert len(r1) == 1
+        assert r1[0]['payment_hash'] == inv['payment_hash']
+        assert r1[0]['bolt11'] == inv['bolt11']
+
+    for i, inv in enumerate(invoices):
+        match(l1, {'label': "label{}".format(i)}, inv)
+        match(l1, {'payment_hash': inv['payment_hash']}, inv)
+        match(l1, {'invstring': inv['bolt11']}, inv)
+
+    # Now test for failures
+
+    inv = invoices[0]
+    queries = [
+        {"payment_hash": inv['payment_hash'], "label": "label0"},
+        {"invstring": inv['bolt11'], "label": "label0"},
+        {"payment_hash": inv['payment_hash'], "label": "label0"},
+    ]
+
+    for q in queries:
+        with pytest.raises(
+                RpcError,
+                match=r'Can only specify one of {label}, {invstring} or {payment_hash}'
+        ):
+            l1.rpc.listinvoices(**q)
+
+    # Test querying for non-existent invoices
+    queries = [
+        {'label': 'doesnt exist'},
+        {'payment_hash': 'AA' * 32},
+        {'invstring': 'lnbcrt420p1p0lfrl6pp5w4zsagnfqu08s93rd44z93s8tt920hd9jec2yph969wluwkzrwpqdq8v3jhxccxqyjw5qcqp9sp52kw0kp75f6v2jusd8nsg2nfmdr82pqj0gf3jc8tqp7a2j48rzweq9qy9qsqtlu8eslmd4yxqrtrz75v8vmqrwknnk64sm79cj4asxhgndnj22r3g2a6axdvfdkhw966zw63cy3uzzn5hxad9ja8amqpp3wputl3ffcpallm2g'},
+    ]
+
+    for q in queries:
+        r = l1.rpc.listinvoices(**q)
+        assert len(r['invoices']) == 0
