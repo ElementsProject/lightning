@@ -56,7 +56,7 @@ default_cwarnflags()
 
 default_pytest()
 {
-    PYTEST_BINS="pytest-3 pytest3 pytest py.test"
+    PYTEST_BINS="pytest py.test pytest3 pytest-3"
     for p in $PYTEST_BINS; do
 	if [ "$(which $p)" != "" ] ; then
 	    "$p" --version 2>&1 | grep -q "python3" || continue
