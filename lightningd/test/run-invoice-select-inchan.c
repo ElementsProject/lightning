@@ -463,6 +463,11 @@ struct command_result *param_number(struct command *cmd UNNEEDED, const char *na
 				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 				    unsigned int **num UNNEEDED)
 { fprintf(stderr, "param_number called!\n"); abort(); }
+/* Generated stub for param_sha256 */
+struct command_result *param_sha256(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				    const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				    struct sha256 **hash UNNEEDED)
+{ fprintf(stderr, "param_sha256 called!\n"); abort(); }
 /* Generated stub for param_short_channel_id */
 struct command_result *param_short_channel_id(struct command *cmd UNNEEDED,
 					      const char *name UNNEEDED,

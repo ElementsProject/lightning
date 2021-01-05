@@ -1119,29 +1119,41 @@ AUTODATA(json_command, &invoice_command);
 
 static void json_add_invoices(struct json_stream *response,
 			      struct wallet *wallet,
-			      const struct json_escape *label)
+			      const struct json_escape *label,
+			      const struct sha256 *payment_hash)
 {
 	struct invoice_iterator it;
 	const struct invoice_details *details;
+	struct invoice invoice;
 
 	/* Don't iterate entire db if we're just after one. */
 	if (label) {
-		struct invoice invoice;
 		if (wallet_invoice_find_by_label(wallet, &invoice, label)) {
-			details = wallet_invoice_details(response, wallet, invoice);
+			details =
+			    wallet_invoice_details(response, wallet, invoice);
 			json_object_start(response, NULL);
 			json_add_invoice(response, details);
 			json_object_end(response);
 		}
-		return;
-	}
+	} else if (payment_hash != NULL) {
+		if (wallet_invoice_find_by_rhash(wallet, &invoice,
+						 payment_hash)) {
+			json_object_start(response, NULL);
+			json_add_invoice(
+			    response,
+			    wallet_invoice_details(response, wallet, invoice));
+			json_object_end(response);
+		}
 
-	memset(&it, 0, sizeof(it));
-	while (wallet_invoice_iterate(wallet, &it)) {
-		details = wallet_invoice_iterator_deref(response, wallet, &it);
-		json_object_start(response, NULL);
-		json_add_invoice(response, details);
-		json_object_end(response);
+	} else {
+		memset(&it, 0, sizeof(it));
+		while (wallet_invoice_iterate(wallet, &it)) {
+			details = wallet_invoice_iterator_deref(response,
+								wallet, &it);
+			json_object_start(response, NULL);
+			json_add_invoice(response, details);
+			json_object_end(response);
+		}
 	}
 }
 
@@ -1153,13 +1165,35 @@ static struct command_result *json_listinvoices(struct command *cmd,
 	struct json_escape *label;
 	struct json_stream *response;
 	struct wallet *wallet = cmd->ld->wallet;
+	const char *invstring;
+	struct sha256 *payment_hash;
+	char *fail;
+	struct bolt11 *b11;
+
 	if (!param(cmd, buffer, params,
 		   p_opt("label", param_label, &label),
+		   p_opt("invstring", param_string, &invstring),
+		   p_opt("payment_hash", param_sha256, &payment_hash),
 		   NULL))
 		return command_param_failed();
+
+	if ((label && invstring) || (label && payment_hash) ||
+	    (invstring && payment_hash)) {
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Can only specify one of"
+				    " {label}, {invstring} or {payment_hash}");
+	}
+
+	/* Extract the payment_hash from the invoice. */
+	if (invstring != NULL) {
+		b11 = bolt11_decode(cmd, invstring, cmd->ld->our_features, NULL,
+				    NULL, &fail);
+		payment_hash = &b11->payment_hash;
+	}
+
 	response = json_stream_success(cmd);
 	json_array_start(response, "invoices");
-	json_add_invoices(response, wallet, label);
+	json_add_invoices(response, wallet, label, payment_hash);
 	json_array_end(response);
 	return command_success(cmd, response);
 }
@@ -1168,7 +1202,8 @@ static const struct json_command listinvoices_command = {
 	"listinvoices",
 	"payment",
 	json_listinvoices,
-	"Show invoice {label} (or all, if no {label})"
+	"Show invoice matching {label}, {invstring} or {payment_hash} (or all, if "
+	"no query parameter specified)"
 };
 AUTODATA(json_command, &listinvoices_command);
 
