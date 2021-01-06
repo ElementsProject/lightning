@@ -782,11 +782,14 @@ static bool handle_percent(const char *buffer,
 	}
 }
 
-/* GUIDE := OBJ | '%'
+/* GUIDE := OBJ | ARRAY | '%'
  * OBJ := '{' FIELDLIST '}'
  * FIELDLIST := FIELD [',' FIELD]*
  * FIELD := LITERAL ':' FIELDVAL
- * FIELDVAL := OBJ | LITERAL | '%'
+ * FIELDVAL := OBJ | ARRAY | LITERAL | '%'
+ * ARRAY := '[' ARRLIST ']'
+ * ARRLIST := ARRELEM [',' ARRELEM]*
+ * ARRELEM := NUMBER ':' FIELDVAL
  */
 
 /* Returns NULL on failure, or offset into guide */
@@ -803,8 +806,30 @@ static const char *parse_literal(const char *guide,
 	return guide + *len;
 }
 
+static const char *parse_number(const char *guide, u32 *number)
+{
+	char *endp;
+	long int l;
+
+	l = strtol(guide, &endp, 10);
+	if (endp == guide || errno == ERANGE)
+		return NULL;
+
+	/* Test for overflow */
+	*number = l;
+	if (*number != l)
+		return NULL;
+
+	return endp;
+}
+
 /* Recursion */
 static const char *parse_obj(const char *buffer,
+			     const jsmntok_t *tok,
+			     const char *guide,
+			     va_list *ap);
+
+static const char *parse_arr(const char *buffer,
 			     const jsmntok_t *tok,
 			     const char *guide,
 			     va_list *ap);
@@ -819,6 +844,12 @@ static const char *parse_guide(const char *buffer,
 		if (!guide)
 			return NULL;
 		assert(*guide == '}');
+		return guide + 1;
+	} else if (*guide == '[') {
+		guide = parse_arr(buffer, tok, guide, ap);
+		if (!guide)
+			return NULL;
+		assert(*guide == ']');
 		return guide + 1;
 	} else {
 		assert(*guide == '%');
@@ -838,6 +869,12 @@ static const char *parse_fieldval(const char *buffer,
 		if (!guide)
 			return NULL;
 		assert(*guide == '}');
+		return guide + 1;
+	} else if (*guide == '[') {
+		guide = parse_arr(buffer, tok, guide, ap);
+		if (!guide)
+			return NULL;
+		assert(*guide == ']');
 		return guide + 1;
 	} else if (*guide == '%') {
 		if (!handle_percent(buffer, tok, ap))
@@ -902,6 +939,55 @@ static const char *parse_obj(const char *buffer,
 		return NULL;
 
 	guide = parse_fieldlist(buffer, tok, guide + 1, ap);
+	if (!guide)
+		return NULL;
+	return guide;
+}
+
+static const char *parse_arrelem(const char *buffer,
+				 const jsmntok_t *tok,
+				 const char *guide,
+				 va_list *ap)
+{
+	const jsmntok_t *member;
+	u32 idx;
+
+	guide = parse_number(guide, &idx);
+	assert(*guide == ':');
+
+	member = json_get_arr(tok, idx);
+	if (!member)
+		return NULL;
+
+	return parse_fieldval(buffer, member, guide + 1, ap);
+}
+
+static const char *parse_arrlist(const char *buffer,
+				   const jsmntok_t *tok,
+				   const char *guide,
+				   va_list *ap)
+{
+	for (;;) {
+		guide = parse_arrelem(buffer, tok, guide, ap);
+		if (!guide)
+			return NULL;
+		if (*guide != ',')
+			break;
+		guide++;
+	}
+	return guide;
+}
+static const char *parse_arr(const char *buffer,
+			     const jsmntok_t *tok,
+			     const char *guide,
+			     va_list *ap)
+{
+	assert(*guide == '[');
+
+	if (tok->type != JSMN_ARRAY)
+		return NULL;
+
+	guide = parse_arrlist(buffer, tok, guide + 1, ap);
 	if (!guide)
 		return NULL;
 	return guide;
