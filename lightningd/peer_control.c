@@ -1850,7 +1850,7 @@ timeout_waitblockheight_waiter(struct waitblockheight_waiter *w)
 	list_del(&w->list);
 	w->removed = true;
 	tal_steal(tmpctx, w);
-	was_pending(command_fail(w->cmd, LIGHTNINGD,
+	was_pending(command_fail(w->cmd, WAIT_TIMEOUT,
 				 "Timed out."));
 }
 /* Called by lightningd at each new block.  */

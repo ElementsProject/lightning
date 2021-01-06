@@ -84,4 +84,7 @@ static const errcode_t OFFER_EXPIRED = 1002;
 static const errcode_t OFFER_ROUTE_NOT_FOUND = 1003;
 static const errcode_t OFFER_BAD_INVREQ_REPLY = 1004;
 
+/* Errors from wait* commands */
+static const errcode_t WAIT_TIMEOUT = 2000;
+
 #endif /* LIGHTNING_COMMON_JSONRPC_ERRORS_H */
