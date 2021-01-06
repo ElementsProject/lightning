@@ -3003,27 +3003,44 @@ static struct command_result *waitblockheight_rpc_cb(struct command *cmd,
 						     const jsmntok_t *toks,
 						     struct payment *p)
 {
-	const jsmntok_t *blockheighttok =
-		json_get_member(buffer, toks, "blockheight");
+	const jsmntok_t *blockheighttok, *codetok;
+
 	u32 blockheight;
+	int code;
 	struct payment *subpayment;
 
-	if (!blockheighttok
-	 || !json_to_number(buffer, blockheighttok, &blockheight))
-		plugin_err(p->plugin,
-			   "Unexpected result from waitblockheight: %.*s",
-			   json_tok_full_len(toks),
-			   json_tok_full(buffer, toks));
+	blockheighttok = json_get_member(buffer, toks, "blockheight");
 
-	subpayment = payment_new(p, NULL, p, p->modifiers);
-	payment_start_at_blockheight(subpayment, blockheight);
-	payment_set_step(p, PAYMENT_STEP_RETRY);
-	subpayment->why =
-		tal_fmt(subpayment, "Retrying after waiting for blockchain sync.");
-	paymod_log(p, LOG_DBG,
-		   "Retrying after waitblockheight, new partid %"PRIu32,
-		   subpayment->partid);
-	payment_continue(p);
+	if (!blockheighttok ||
+	    !json_to_number(buffer, blockheighttok, &blockheight)) {
+		codetok = json_get_member(buffer, toks, "code");
+		json_to_int(buffer, codetok, &code);
+		if (code == WAIT_TIMEOUT) {
+			payment_fail(
+			    p,
+			    "Timed out while attempting to sync to blockheight "
+			    "returned by destination. Please finish syncing "
+			    "with the blockchain and try again.");
+
+		} else {
+			plugin_err(
+			    p->plugin,
+			    "Unexpected result from waitblockheight: %.*s",
+			    json_tok_full_len(toks),
+			    json_tok_full(buffer, toks));
+		}
+	} else {
+		subpayment = payment_new(p, NULL, p, p->modifiers);
+		payment_start_at_blockheight(subpayment, blockheight);
+		payment_set_step(p, PAYMENT_STEP_RETRY);
+		subpayment->why = tal_fmt(
+		    subpayment, "Retrying after waiting for blockchain sync.");
+		paymod_log(
+		    p, LOG_DBG,
+		    "Retrying after waitblockheight, new partid %" PRIu32,
+		    subpayment->partid);
+		payment_continue(p);
+	}
 	return command_still_pending(cmd);
 }
 
@@ -3040,10 +3057,12 @@ static void waitblockheight_cb(void *d, struct payment *p)
 	if (p->result == NULL)
 		return payment_continue(p);
 
-	if (time_after(now, p->deadline))
-		return payment_continue(p);
-
+	/* Check if we'd be waiting more than 0 seconds. If we have
+	 * less than a second then waitblockheight would return
+	 * immediately resulting in a loop. */
 	remaining = time_between(p->deadline, now);
+	if (time_to_sec(remaining) < 1)
+		return payment_continue(p);
 
 	/* *Was* it a blockheight disagreement that caused the failure?  */
 	if (!failure_is_blockheight_disagreement(p, &blockheight))
