@@ -394,20 +394,14 @@ execute_waitblockheight(struct command *cmd,
 static u32
 get_remote_block_height(const char *buf, const jsmntok_t *error)
 {
-	const jsmntok_t *raw_message_tok;
 	const u8 *raw_message;
 	size_t raw_message_len;
 	u16 type;
 
 	/* Is there even a raw_message?  */
-	raw_message_tok = json_delve(buf, error, ".data.raw_message");
-	if (!raw_message_tok)
-		return 0;
-	if (raw_message_tok->type != JSMN_STRING)
-		return 0;
-
-	raw_message = json_tok_bin_from_hex(tmpctx, buf, raw_message_tok);
-	if (!raw_message)
+	if (!json_scan(buf, error, "{data:{raw_message:%}}",
+		       JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
+				     &raw_message)))
 		return 0;
 
 	/* BOLT #4:
@@ -435,21 +429,19 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 						struct pay_command *pc)
 {
 	struct pay_attempt *attempt = current_attempt(pc);
-	const jsmntok_t *codetok, *failcodetok, *nodeidtok, *scidtok, *dirtok;
 	errcode_t code;
 	int failcode;
-	bool node_err = false;
 
 	attempt_failed_tok(pc, "waitsendpay", buf, error);
 
-	codetok = json_get_member(buf, error, "code");
-	if (!json_to_errcode(buf, codetok, &code))
+	if (!json_scan(buf, error, "{code:%}",
+		       JSON_SCAN(json_to_errcode, &code)))
 		plugin_err(cmd->plugin, "waitsendpay error gave no 'code'? '%.*s'",
 			   error->end - error->start, buf + error->start);
 
 	if (code != PAY_UNPARSEABLE_ONION) {
-		failcodetok = json_delve(buf, error, ".data.failcode");
-		if (!json_to_int(buf, failcodetok, &failcode))
+		if (!json_scan(buf, error, "{data:{failcode:%}}",
+			       JSON_SCAN(json_to_int, &failcode)))
 			plugin_err(cmd->plugin, "waitsendpay error gave no 'failcode'? '%.*s'",
 				   error->end - error->start, buf + error->start);
 	}
@@ -512,57 +504,54 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 		return forward_error(cmd, buf, error, pc);
 	}
 
-	if (failcode & NODE) {
-		nodeidtok = json_delve(buf, error, ".data.erring_node");
-		if (!nodeidtok)
-			plugin_err(cmd->plugin, "waitsendpay error no erring_node '%.*s'",
-				   error->end - error->start, buf + error->start);
-		node_err = true;
-	} else {
-		scidtok = json_delve(buf, error, ".data.erring_channel");
-		if (!scidtok)
-			plugin_err(cmd->plugin, "waitsendpay error no erring_channel '%.*s'",
-				   error->end - error->start, buf + error->start);
-		dirtok = json_delve(buf, error, ".data.erring_direction");
-		if (!dirtok)
-			plugin_err(cmd->plugin, "waitsendpay error no erring_direction '%.*s'",
-				   error->end - error->start, buf + error->start);
-	}
-
 	if (time_after(time_now(), pc->stoptime)) {
 		return waitsendpay_expired(cmd, pc);
 	}
 
-	if (node_err) {
+	if (failcode & NODE) {
+		struct node_id id;
+		const char *idstr;
+
+		if (!json_scan(buf, error, "{data:{erring_node:%}}",
+			       JSON_SCAN(json_to_node_id, &id)))
+			plugin_err(cmd->plugin, "waitsendpay error no erring_node '%.*s'",
+				   error->end - error->start, buf + error->start);
+
+		/* FIXME: Keep as node_id, don't use strings. */
+		idstr = node_id_to_hexstr(tmpctx, &id);
+
 		/* If failure is in routehint part, try next one */
 		if (node_or_channel_in_routehint(pc->plugin, pc->current_routehint,
-						 buf + nodeidtok->start,
-						 nodeidtok->end - nodeidtok->start))
+						 idstr, strlen(idstr)))
 			return next_routehint(cmd, pc);
 
 		/* Otherwise, add erring channel to exclusion list. */
-		tal_arr_expand(&pc->excludes,
-			       tal_fmt(pc->excludes, "%.*s",
-			       nodeidtok->end - nodeidtok->start,
-			       buf + nodeidtok->start));
+		tal_arr_expand(&pc->excludes, tal_steal(pc->excludes, idstr));
 	} else {
+		struct short_channel_id scid;
+		u32 dir;
+		const char *scidstr;
+
+		if (!json_scan(buf, error, "{data:{erring_channel:%,erring_direction:%}}",
+			       JSON_SCAN(json_to_short_channel_id, &scid),
+			       JSON_SCAN(json_to_number, &dir)))
+			plugin_err(cmd->plugin, "waitsendpay error no erring_channel/direction '%.*s'",
+				   error->end - error->start, buf + error->start);
+
+		scidstr = short_channel_id_to_str(tmpctx, &scid);
 		/* If failure is in routehint part, try next one */
 		if (node_or_channel_in_routehint(pc->plugin, pc->current_routehint,
-						 buf + scidtok->start,
-						 scidtok->end - scidtok->start))
+						 scidstr, strlen(scidstr)))
 			return next_routehint(cmd, pc);
 
 		/* Otherwise, add erring channel to exclusion list. */
 		tal_arr_expand(&pc->excludes,
-			       tal_fmt(pc->excludes, "%.*s/%c",
-			       scidtok->end - scidtok->start,
-			       buf + scidtok->start,
-			       buf[dirtok->start]));
+			       tal_fmt(pc->excludes, "%s/%u", scidstr, dir));
 	}
 
 	/* Try again. */
 	return start_pay_attempt(cmd, pc, "Excluded %s %s",
-				 node_err ? "node" : "channel",
+				 failcode & NODE ? "node" : "channel",
 				 pc->excludes[tal_count(pc->excludes)-1]);
 }
 
@@ -765,16 +754,10 @@ static struct command_result *getroute_done(struct command *cmd,
 	} else
 		attempt->route = json_strdup(pc->ps->attempts, buf, t);
 
-	if (!json_to_msat(buf, json_delve(buf, t, "[0].msatoshi"), &fee))
-		plugin_err(cmd->plugin, "getroute with invalid msatoshi? %.*s",
-			   result->end - result->start, buf);
-	if (!amount_msat_sub(&fee, fee, pc->msat))
-		plugin_err(cmd->plugin, "final amount %s less than paid %s",
-			   type_to_string(tmpctx, struct amount_msat, &fee),
-			   type_to_string(tmpctx, struct amount_msat, &pc->msat));
-
-	if (!json_to_number(buf, json_delve(buf, t, "[0].delay"), &delay))
-		plugin_err(cmd->plugin, "getroute with invalid delay? %.*s",
+	if (!json_scan(buf, t, "[0:{msatoshi:%,delay:%}]",
+		       JSON_SCAN(json_to_msat, &fee),
+		       JSON_SCAN(json_to_number, &delay)))
+		plugin_err(cmd->plugin, "getroute with invalid msatoshi/delay? %.*s",
 			   result->end - result->start, buf);
 
 	if (pc->maxfee_pct_millionths / 100 > UINT32_MAX)
