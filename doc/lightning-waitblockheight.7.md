@@ -24,7 +24,7 @@ an object with the single field *blockheight* is returned, which is
 the block height at the time the command returns.
 
 If *timeout* seconds is reached without the specified blockheight
-being reached, this command will fail.
+being reached, this command will fail with a code of `2000`.
 
 AUTHOR
 ------
