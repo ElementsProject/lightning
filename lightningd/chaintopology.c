@@ -136,10 +136,7 @@ static void broadcast_remainder(struct bitcoind *bitcoind,
 				bool success, const char *msg,
 				struct txs_to_broadcast *txs)
 {
-	/* These are expected. */
-	if (strstr(msg, "txn-mempool-conflict")
-	    || strstr(msg, "transaction already in block chain")
-	    || !success)
+	if (!success)
 		log_debug(bitcoind->log,
 			  "Expected error broadcasting tx %s: %s",
 			  txs->txs[txs->cursor], msg);
