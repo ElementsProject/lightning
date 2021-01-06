@@ -3933,3 +3933,22 @@ def test_fetchinvoice(node_factory, bitcoind):
     l1.rpc.call('fetchinvoice', {'offer': offer,
                                  'recurrence_counter': 2,
                                  'recurrence_label': 'test recurrence'})
+
+
+@pytest.mark.xfail(strict=True)
+def test_pay_waitblockheight_timeout(node_factory, bitcoind):
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins', 'endlesswaitblockheight.py')
+    l1, l2 = node_factory.line_graph(2, opts=[{}, {'plugin': plugin}])
+
+    sync_blockheight(bitcoind, [l1, l2])
+    inv = l2.rpc.invoice(42, 'lbl', 'desc')['bolt11']
+
+    with pytest.raises(RpcError, match=r'WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
+        l1.rpc.pay(inv)
+
+    # Post mortem checks that we tried only once.
+    status = l1.rpc.paystatus(inv)
+
+    # Should have only one attempt that triggered the wait, which then failed.
+    assert len(status['pay']) == 1
+    assert len(status['pay'][0]['attempts']) == 1
