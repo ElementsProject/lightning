@@ -6,7 +6,7 @@ from pyln.testing.btcproxy import BitcoinRpcProxy
 from collections import OrderedDict
 from decimal import Decimal
 from ephemeral_port_reserve import reserve  # type: ignore
-from filelock import FileLock
+from filelock import FileLock  # type: ignore
 from pyln.client import LightningRpc
 from pyln.client import Millisatoshi
 
