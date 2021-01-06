@@ -544,38 +544,17 @@ static void json_peer_sigs(struct command *cmd,
 			   const char *buf,
 			   const jsmntok_t *params)
 {
-	const jsmntok_t *cid_tok, *psbt_tok;
 	struct channel_id cid;
 	const struct wally_psbt *psbt;
 	struct multifundchannel_destination *dest;
 
-	cid_tok = json_delve(buf, params, ".openchannel_peer_sigs.channel_id");
-	if (!cid_tok)
+	if (!json_scan(buf, params,
+		       "{openchannel_peer_sigs:"
+		       "{channel_id:%,signed_psbt:%}}",
+		       JSON_SCAN(json_to_channel_id, &cid),
+		       JSON_SCAN_TAL(cmd, json_to_psbt, &psbt)))
 		plugin_err(cmd->plugin,
-			   "`openchannel_peer_sigs` notification did not "
-			   "send 'channel_id'? %.*s",
-			   json_tok_full_len(params),
-			   json_tok_full(buf, params));
-	if (!json_to_channel_id(buf, cid_tok, &cid))
-		plugin_err(cmd->plugin,
-			   "Unable to parse openchannel_peer_sigs.channel_id "
-			   "%.*s",
-			   json_tok_full_len(params),
-			   json_tok_full(buf, params));
-
-	psbt_tok= json_delve(buf, params, ".openchannel_peer_sigs.signed_psbt");
-	if (!psbt_tok)
-		plugin_err(cmd->plugin,
-			   "`openchannel_peer_sigs` notification did not "
-			   "include 'signed_psbt'? %.*s",
-			   json_tok_full_len(params),
-			   json_tok_full(buf, params));
-
-	psbt = json_to_psbt(cmd, buf, psbt_tok);
-	if (!psbt)
-		plugin_err(cmd->plugin,
-			   "Unable to parse openchannel_peer_sigs.signed_psbt "
-			   "%.*s",
+			   "`openchannel_peer_sigs` did not scan",
 			   json_tok_full_len(params),
 			   json_tok_full(buf, params));
 
