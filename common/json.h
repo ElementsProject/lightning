@@ -152,11 +152,6 @@ jsmntok_t *json_tok_copy(const tal_t *ctx, const jsmntok_t *tok);
 void json_tok_remove(jsmntok_t **tokens,
 		     jsmntok_t *obj_or_array, const jsmntok_t *tok, size_t num);
 
-/* Guide is a string with . for members, [] around indexes. */
-const jsmntok_t *json_delve(const char *buffer,
-			    const jsmntok_t *tok,
-			    const char *guide);
-
 /* Guide is % for a token: each must be followed by JSON_SCAN(). */
 bool json_scan(const char *buffer,
 	       const jsmntok_t *tok,
