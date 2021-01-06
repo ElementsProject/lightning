@@ -323,7 +323,7 @@ static struct command_result *command_err_bcli_badjson(struct bitcoin_cli *bcli,
 
 static struct command_result *process_getutxout(struct bitcoin_cli *bcli)
 {
-	const jsmntok_t *tokens, *valuetok, *scriptpubkeytok, *hextok;
+	const jsmntok_t *tokens;
 	struct json_stream *response;
 	struct bitcoin_tx_output output;
 
@@ -343,35 +343,13 @@ static struct command_result *process_getutxout(struct bitcoin_cli *bcli)
 		return command_err_bcli_badjson(bcli, "cannot parse");
 	}
 
-	if (tokens[0].type != JSMN_OBJECT) {
-		return command_err_bcli_badjson(bcli, "non-object");
-	}
-
-	valuetok = json_get_member(bcli->output, tokens, "value");
-	if (!valuetok) {
-		return command_err_bcli_badjson(bcli, "no value member");
-	}
-
-	if (!json_to_bitcoin_amount(bcli->output, valuetok, &output.amount.satoshis)) {/* Raw: talking to bitcoind */
-		return command_err_bcli_badjson(bcli, "bad value member");
-	}
-
-	scriptpubkeytok = json_get_member(bcli->output, tokens, "scriptPubKey");
-	if (!scriptpubkeytok) {
-		return command_err_bcli_badjson(bcli, "no scriptPubkey member");
-	}
-
-	hextok = json_get_member(bcli->output, scriptpubkeytok, "hex");
-	if (!hextok) {
-		return command_err_bcli_badjson(bcli,
-						"no scriptPubkey.hex member");
-	}
-
-	output.script = tal_hexdata(bcli, bcli->output + hextok->start,
-	                            hextok->end - hextok->start);
-	if (!output.script) {
-		return command_err_bcli_badjson(bcli,
-						"scriptPubkey.hex invalid hex");
+	if (!json_scan(bcli->output, tokens,
+		       "{value:%,scriptPubKey:{hex:%}}",
+		       JSON_SCAN(json_to_bitcoin_amount,
+				 &output.amount.satoshis), /* Raw: bitcoind */
+		       JSON_SCAN_TAL(bcli, json_tok_bin_from_hex,
+				     &output.script))) {
+		return command_err_bcli_badjson(bcli, "cannot scan");
 	}
 
 	response = jsonrpc_stream_success(bcli->cmd);
@@ -383,10 +361,11 @@ static struct command_result *process_getutxout(struct bitcoin_cli *bcli)
 
 static struct command_result *process_getblockchaininfo(struct bitcoin_cli *bcli)
 {
-	const jsmntok_t *tokens, *chaintok, *headerstok, *blockstok, *ibdtok;
+	const jsmntok_t *tokens;
 	struct json_stream *response;
 	bool ibd;
 	u32 headers, blocks;
+	const char *chain;
 
 	tokens = json_parse_simple(bcli->output,
 				   bcli->output, bcli->output_bytes);
@@ -394,36 +373,17 @@ static struct command_result *process_getblockchaininfo(struct bitcoin_cli *bcli
 		return command_err_bcli_badjson(bcli, "cannot parse");
 	}
 
-	if (tokens[0].type != JSMN_OBJECT) {
-		return command_err_bcli_badjson(bcli, "non-object");
-	}
-
-	chaintok = json_get_member(bcli->output, tokens, "chain");
-	if (!chaintok) {
-		return command_err_bcli_badjson(bcli, "missing chain member");
-	}
-
-	headerstok = json_get_member(bcli->output, tokens, "headers");
-	if (!headerstok || !json_to_number(bcli->output, headerstok, &headers)) {
-		return command_err_bcli_badjson(bcli,
-						"missing/bad headers member");
-	}
-
-	blockstok = json_get_member(bcli->output, tokens, "blocks");
-	if (!blockstok || !json_to_number(bcli->output, blockstok, &blocks)) {
-		return command_err_bcli_badjson(bcli,
-						"missing/bad blocks member");
-	}
-
-	ibdtok = json_get_member(bcli->output, tokens, "initialblockdownload");
-	if (!ibdtok || !json_to_bool(bcli->output, ibdtok, &ibd)) {
-		return command_err_bcli_badjson(bcli,
-						"missing/bad initialblockdownload member");
+	if (!json_scan(bcli->output, tokens,
+		       "{chain:%,headers:%,blocks:%,initialblockdownload:%}",
+		       JSON_SCAN_TAL(tmpctx, json_strdup, &chain),
+		       JSON_SCAN(json_to_number, &headers),
+		       JSON_SCAN(json_to_number, &blocks),
+		       JSON_SCAN(json_to_bool, &ibd))) {
+		return command_err_bcli_badjson(bcli, "cannot scan");
 	}
 
 	response = jsonrpc_stream_success(bcli->cmd);
-	json_add_string(response, "chain",
-			json_strdup(response, bcli->output, chaintok));
+	json_add_string(response, "chain", chain);
 	json_add_u32(response, "headercount", headers);
 	json_add_u32(response, "blockcount", blocks);
 	json_add_bool(response, "ibd", ibd);
@@ -457,7 +417,7 @@ estimatefees_null_response(struct bitcoin_cli *bcli)
 static struct command_result *
 estimatefees_parse_feerate(struct bitcoin_cli *bcli, u64 *feerate)
 {
-	const jsmntok_t *tokens, *feeratetok = NULL;
+	const jsmntok_t *tokens;
 
 	tokens = json_parse_simple(bcli->output,
 				   bcli->output, bcli->output_bytes);
@@ -465,18 +425,15 @@ estimatefees_parse_feerate(struct bitcoin_cli *bcli, u64 *feerate)
 		return command_err_bcli_badjson(bcli, "cannot parse");
 	}
 
-	if (tokens[0].type != JSMN_OBJECT) {
-		return command_err_bcli_badjson(bcli, "non-object");
-	}
-
-	feeratetok = json_get_member(bcli->output, tokens, "feerate");
-	if (feeratetok &&
-	    !json_to_bitcoin_amount(bcli->output, feeratetok, feerate)) {
-		return command_err_bcli_badjson(bcli, "bad feerate");
-	} else if (!feeratetok)
+	if (!json_scan(bcli->output, tokens, "{feerate:%}",
+		       JSON_SCAN(json_to_bitcoin_amount, feerate))) {
+		/* Paranoia: if it had a feerate, but was malformed: */
+		if (json_get_member(bcli->output, tokens, "feerate"))
+			return command_err_bcli_badjson(bcli, "cannot scan");
 		/* We return null if estimation failed, and bitcoin-cli will
 		 * exit with 0 but no feerate field on failure. */
 		return estimatefees_null_response(bcli);
+	}
 
 	return NULL;
 }
@@ -822,7 +779,7 @@ static void bitcoind_failure(struct plugin *p, const char *error_message)
 /* Do some sanity checks on bitcoind based on the output of `getnetworkinfo`. */
 static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 {
-	const jsmntok_t *result, *versiontok, *relaytok;
+	const jsmntok_t *result;
 	bool tx_relay;
 	u32 min_version = 160000;
 
@@ -833,14 +790,10 @@ static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
 
 	/* Check that we have a fully-featured `estimatesmartfee`. */
-	versiontok = json_get_member(buf, result, "version");
-	if (!versiontok)
-		plugin_err(p, "No 'version' in '%s' ? Got '%s'. Can not"
-			      " continue without proceeding to sanity checks.",
-			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
-
-	if (!json_to_u32(buf, versiontok, &bitcoind->version))
-		plugin_err(p, "Invalid 'version' in '%s' ? Got '%s'. Can not"
+	if (!json_scan(buf, result, "{version:%,localrelay:%}",
+		       JSON_SCAN(json_to_u32, &bitcoind->version),
+		       JSON_SCAN(json_to_bool, &tx_relay)))
+		plugin_err(p, "No 'version' or localrelay in '%s' ? Got '%s'. Can not"
 			      " continue without proceeding to sanity checks.",
 			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
 
@@ -850,12 +803,6 @@ static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 
 	/* We don't support 'blocksonly', as we rely on transaction relay for fee
 	 * estimates. */
-	relaytok = json_get_member(buf, result, "localrelay");
-	if (!relaytok || !json_to_bool(buf, relaytok, &tx_relay))
-		plugin_err(p, "No 'localrelay' in '%s' ? Got '%s'. Can not"
-			      " continue without proceeding to sanity checks.",
-			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
-
 	if (!tx_relay)
 		plugin_err(p, "The 'blocksonly' mode of bitcoind, or any option "
 			      "deactivating transaction relay is not supported.");
