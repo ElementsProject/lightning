@@ -13,7 +13,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -754,6 +753,190 @@ const jsmntok_t *json_delve(const char *buffer,
        }
 
        return tok;
+}
+
+/* talfmt take a ctx pointer and return NULL or a valid pointer.
+ * fmt takes the argument, and returns a bool. */
+static bool handle_percent(const char *buffer,
+			   const jsmntok_t *tok,
+			   va_list *ap)
+{
+	void *ctx;
+
+	/* This is set to (dummy) json_scan if it's a non-tal fmt */
+	ctx = va_arg(*ap, void *);
+	if (ctx != json_scan) {
+		void *(*talfmt)(void *, const char *, const jsmntok_t *);
+		void **p;
+		p = va_arg(*ap, void **);
+		talfmt = va_arg(*ap, void *(*)(void *, const char *, const jsmntok_t *));
+		*p = talfmt(ctx, buffer, tok);
+		return *p != NULL;
+	} else {
+		bool (*fmt)(const char *, const jsmntok_t *, void *);
+		void *p;
+
+		p = va_arg(*ap, void *);
+		fmt = va_arg(*ap, bool (*)(const char *, const jsmntok_t *, void *));
+		return fmt(buffer, tok, p);
+	}
+}
+
+/* GUIDE := OBJ | '%'
+ * OBJ := '{' FIELDLIST '}'
+ * FIELDLIST := FIELD [',' FIELD]*
+ * FIELD := LITERAL ':' FIELDVAL
+ * FIELDVAL := OBJ | LITERAL | '%'
+ */
+
+/* Returns NULL on failure, or offset into guide */
+static const char *parse_literal(const char *guide,
+				 const char **literal,
+				 size_t *len)
+{
+	*literal = guide;
+	*len = strspn(guide,
+		      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+		      "abcdefghijklmnopqrstuvwxyz"
+		      "0123456789"
+		      "_-");
+	return guide + *len;
+}
+
+/* Recursion */
+static const char *parse_obj(const char *buffer,
+			     const jsmntok_t *tok,
+			     const char *guide,
+			     va_list *ap);
+
+static const char *parse_guide(const char *buffer,
+			       const jsmntok_t *tok,
+			       const char *guide,
+			       va_list *ap)
+{
+	if (*guide == '{') {
+		guide = parse_obj(buffer, tok, guide, ap);
+		if (!guide)
+			return NULL;
+		assert(*guide == '}');
+		return guide + 1;
+	} else {
+		assert(*guide == '%');
+		if (!handle_percent(buffer, tok, ap))
+			return NULL;
+		return guide + 1;
+	}
+}
+
+static const char *parse_fieldval(const char *buffer,
+				  const jsmntok_t *tok,
+				  const char *guide,
+				  va_list *ap)
+{
+	if (*guide == '{') {
+		guide = parse_obj(buffer, tok, guide, ap);
+		if (!guide)
+			return NULL;
+		assert(*guide == '}');
+		return guide + 1;
+	} else if (*guide == '%') {
+		if (!handle_percent(buffer, tok, ap))
+			return NULL;
+		return guide + 1;
+	} else {
+		const char *literal;
+		size_t len;
+
+		/* Literal must match exactly */
+		guide = parse_literal(guide, &literal, &len);
+		if (!memeq(buffer + tok->start, tok->end - tok->start,
+			   literal, len))
+			return NULL;
+		return guide;
+	}
+}
+
+static const char *parse_field(const char *buffer,
+			       const jsmntok_t *tok,
+			       const char *guide,
+			       va_list *ap)
+{
+	const jsmntok_t *member;
+	size_t len;
+	const char *memname;
+
+	guide = parse_literal(guide, &memname, &len);
+	assert(*guide == ':');
+
+	member = json_get_membern(buffer, tok, memname, guide - memname);
+	if (!member)
+		return NULL;
+
+	return parse_fieldval(buffer, member, guide + 1, ap);
+}
+
+static const char *parse_fieldlist(const char *buffer,
+				   const jsmntok_t *tok,
+				   const char *guide,
+				   va_list *ap)
+{
+	for (;;) {
+		guide = parse_field(buffer, tok, guide, ap);
+		if (!guide)
+			return NULL;
+		if (*guide != ',')
+			break;
+		guide++;
+	}
+	return guide;
+}
+
+static const char *parse_obj(const char *buffer,
+			     const jsmntok_t *tok,
+			     const char *guide,
+			     va_list *ap)
+{
+	assert(*guide == '{');
+
+	if (tok->type != JSMN_OBJECT)
+		return NULL;
+
+	guide = parse_fieldlist(buffer, tok, guide + 1, ap);
+	if (!guide)
+		return NULL;
+	return guide;
+}
+
+bool json_scanv(const char *buffer,
+		const jsmntok_t *tok,
+		const char *guide,
+		va_list ap)
+{
+	va_list cpy;
+
+	/* We need this, since &ap doesn't work on some platforms... */
+	va_copy(cpy, ap);
+	guide = parse_guide(buffer, tok, guide, &cpy);
+	va_end(cpy);
+
+	if (!guide)
+		return false;
+	assert(guide[0] == '\0');
+	return true;
+}
+
+bool json_scan(const char *buffer,
+	       const jsmntok_t *tok,
+	       const char *guide,
+	       ...)
+{
+	va_list ap;
+	bool ret;
+
+	va_start(ap, guide);
+	ret = json_scanv(buffer, tok, guide, ap);
+	va_end(ap);
+	return ret;
 }
 
 void json_add_num(struct json_stream *result, const char *fieldname, unsigned int value)
