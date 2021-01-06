@@ -3935,7 +3935,6 @@ def test_fetchinvoice(node_factory, bitcoind):
                                  'recurrence_label': 'test recurrence'})
 
 
-@pytest.mark.xfail(strict=True)
 def test_pay_waitblockheight_timeout(node_factory, bitcoind):
     plugin = os.path.join(os.path.dirname(__file__), 'plugins', 'endlesswaitblockheight.py')
     l1, l2 = node_factory.line_graph(2, opts=[{}, {'plugin': plugin}])
