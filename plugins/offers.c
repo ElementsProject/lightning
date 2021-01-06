@@ -42,24 +42,18 @@ static void init(struct plugin *p,
 		 const char *buf UNUSED,
 		 const jsmntok_t *config UNUSED)
 {
-	const char *field;
 	struct pubkey k;
 
-	field =
-	    rpc_delve(tmpctx, p, "getinfo",
-		      take(json_out_obj(NULL, NULL, NULL)),
-		      ".id");
-	if (!pubkey_from_hexstr(field, strlen(field), &k))
-		abort();
+	rpc_scan(p, "getinfo",
+		 take(json_out_obj(NULL, NULL, NULL)),
+		 "{id:%}", JSON_SCAN(json_to_pubkey, &k));
 	if (secp256k1_xonly_pubkey_from_pubkey(secp256k1_ctx, &id.pubkey,
 					       NULL, &k.pubkey) != 1)
 		abort();
 
-	field =
-	    rpc_delve(tmpctx, p, "listconfigs",
-		      take(json_out_obj(NULL, "config", "cltv-final")),
-		      ".cltv-final");
-	cltv_final = atoi(field);
+	rpc_scan(p, "listconfigs",
+		 take(json_out_obj(NULL, "config", "cltv-final")),
+		 "{cltv-final:%}", JSON_SCAN(json_to_number, &cltv_final));
 }
 
 static const struct plugin_command commands[] = {
