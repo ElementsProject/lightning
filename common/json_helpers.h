@@ -26,8 +26,8 @@ bool json_to_preimage(const char *buffer, const jsmntok_t *tok, struct preimage 
 bool json_to_secret(const char *buffer, const jsmntok_t *tok, struct secret *dest);
 
 /* Extract a psbt from this. */
-bool json_to_psbt(const tal_t *ctx, const char *buffer,
-		  const jsmntok_t *tok, struct wally_psbt **dest);
+struct wally_psbt *json_to_psbt(const tal_t *ctx, const char *buffer,
+				const jsmntok_t *tok);
 
 /* Extract a pubkey from this */
 bool json_to_pubkey(const char *buffer, const jsmntok_t *tok,

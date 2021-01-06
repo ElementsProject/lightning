@@ -218,8 +218,6 @@ hook_extract_psbt(const tal_t *ctx, struct subd *dualopend, const char *buffer,
 		  bool allow_empty,
 		  struct wally_psbt **out)
 {
-	struct wally_psbt *returned_psbt;
-
 	if (!buffer)
 		fatal("Plugin must return a valid response to %s", hook_name);
 
@@ -250,13 +248,13 @@ hook_extract_psbt(const tal_t *ctx, struct subd *dualopend, const char *buffer,
 		return true;
 	}
 
-	if (!json_to_psbt(ctx, buffer, psbt_tok, &returned_psbt))
+	*out = json_to_psbt(ctx, buffer, psbt_tok);
+	if (!*out)
 		fatal("Plugin must return a valid 'psbt' to a 'continue'd"
 		      "%s %.*s", hook_name,
 		      toks[0].end - toks[0].start,
 		      buffer + toks[0].start);
 
-	*out = returned_psbt;
 	return true;
 }
 

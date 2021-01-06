@@ -571,8 +571,8 @@ static void json_peer_sigs(struct command *cmd,
 			   json_tok_full_len(params),
 			   json_tok_full(buf, params));
 
-	if (!json_to_psbt(cmd, buf, psbt_tok,
-			  cast_const2(struct wally_psbt **, &psbt)))
+	psbt = json_to_psbt(cmd, buf, psbt_tok);
+	if (!psbt)
 		plugin_err(cmd->plugin,
 			   "Unable to parse openchannel_peer_sigs.signed_psbt "
 			   "%.*s",
@@ -705,7 +705,8 @@ openchannel_update_ok(struct command *cmd,
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result));
 
-	if (!json_to_psbt(dest->mfc, buf, psbt_tok, &dest->updated_psbt))
+	dest->updated_psbt = json_to_psbt(dest->mfc, buf, psbt_tok);
+	if (!dest->updated_psbt)
 		plugin_err(cmd->plugin,
 			   "`openchannel_update` returned invalid "
 			   "'psbt': %.*s",
@@ -939,7 +940,8 @@ openchannel_init_ok(struct command *cmd,
 			   "'psbt': %.*s",
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result));
-	if (!json_to_psbt(dest->mfc, buf, psbt_tok, &dest->updated_psbt))
+	dest->updated_psbt = json_to_psbt(dest->mfc, buf, psbt_tok);
+	if (!dest->updated_psbt)
 		plugin_err(cmd->plugin,
 			   "openchannel_init returned invalid "
 			   "'psbt': %.*s",
