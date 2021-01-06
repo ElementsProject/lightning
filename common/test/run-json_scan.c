@@ -140,16 +140,19 @@ int main(int argc, char *argv[])
 
 	common_setup(argv[0]);
 
-	buf = tal_strdup(tmpctx, "{\"1\":\"one\", \"2\":\"two\", \"3\":{\"three\": {\"deeper\": 17}}}");
+	buf = tal_strdup(tmpctx, "{\"1\":\"one\", \"2\":\"two\", \"3\":{\"three\": {\"deeper\": 17}}, \"arr\": [{\"1\": \"arrone\"}, 2, [3, 4]]}");
 	toks = json_parse_simple(tmpctx, buf, strlen(buf));
 	assert(toks);
-	assert(toks->size == 3);
+	assert(toks->size == 4);
 
 	/* These are direct matches, and they work. */
 	assert(json_scan(buf, toks, "{1:one}"));
 	assert(json_scan(buf, toks, "{1:one,2:two}"));
 	assert(json_scan(buf, toks, "{2:two,1:one}"));
 	assert(json_scan(buf, toks, "{2:two,1:one,3:{three:{deeper:17}}}"));
+	assert(json_scan(buf, toks, "{2:two,1:one,3:{three:{deeper:17}},arr:[0:{1:arrone}]}"));
+	assert(json_scan(buf, toks, "{2:two,1:one,3:{three:{deeper:17}},arr:[1:2]}"));
+	assert(json_scan(buf, toks, "{2:two,1:one,3:{three:{deeper:17}},arr:[1:2,2:[0:3,1:4]]}"));
 
 	/* These do not match */
 	assert(!json_scan(buf, toks, "{2:one}"));
@@ -159,6 +162,12 @@ int main(int argc, char *argv[])
 	assert(!json_scan(buf, toks, "{2:two,1:one,3:three}"));
 	assert(!json_scan(buf, toks, "{3:{three:deeper}}"));
 	assert(!json_scan(buf, toks, "{3:{three:{deeper:{}}}}"));
+	assert(!json_scan(buf, toks, "{arr:{}}"));
+	assert(!json_scan(buf, toks, "{arr:[0:1]}"));
+	assert(!json_scan(buf, toks, "{arr:[4:0]}"));
+	assert(!json_scan(buf, toks, "{arr:[0:{1:arrtwo}]}"));
+	assert(!json_scan(buf, toks, "{arr:[1:3]}"));
+	assert(!json_scan(buf, toks, "{arr:[2:[0:1]]}"));
 
 	/* These capture simple values. */
 	assert(json_scan(buf, toks, "{3:{three:{deeper:%}}}",
@@ -176,6 +185,17 @@ int main(int argc, char *argv[])
 
 	assert(json_scan(buf, toks, "{3:%}", JSON_SCAN(json_to_tok, &t)));
 	assert(t == &toks[6]);
+
+	assert(json_scan(buf, toks, "{arr:%}", JSON_SCAN(json_to_tok, &t)));
+	assert(t == &toks[12]);
+
+	assert(json_scan(buf, toks, "{arr:[1:%]}",
+			 JSON_SCAN(json_to_number, &u32val)));
+	assert(u32val == 2);
+
+	assert(json_scan(buf, toks, "{arr:[2:[1:%]]}",
+			 JSON_SCAN(json_to_number, &u32val)));
+	assert(u32val == 4);
 
 	common_shutdown();
 }
