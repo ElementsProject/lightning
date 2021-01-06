@@ -265,31 +265,24 @@ static void sendrawtx_callback(const char *buf, const jsmntok_t *toks,
 			       const jsmntok_t *idtok,
 			       struct sendrawtx_call *call)
 {
-	const jsmntok_t *resulttok, *successtok, *errtok;
+	const char *errmsg = NULL;
 	bool success = false;
 
-	resulttok = json_get_member(buf, toks, "result");
-	if (!resulttok)
+	if (!json_scan(buf, toks, "{result:{success:%}}",
+		       JSON_SCAN(json_to_bool, &success))) {
 		bitcoin_plugin_error(call->bitcoind, buf, toks,
 				     "sendrawtransaction",
 				     "bad 'result' field");
-
-	successtok = json_get_member(buf, resulttok, "success");
-	if (!successtok || !json_to_bool(buf, successtok, &success))
-		bitcoin_plugin_error(call->bitcoind, buf, toks,
-				     "sendrawtransaction",
-				     "bad 'success' field");
-
-	errtok = json_get_member(buf, resulttok, "errmsg");
-	if (!success && !errtok)
-		bitcoin_plugin_error(call->bitcoind, buf, toks,
-				     "sendrawtransaction",
-				     "bad 'errmsg' field");
+	} else if (!success) {
+		if (!json_scan(buf, toks, "{result:{errmsg:%}}",
+			       JSON_SCAN_TAL(tmpctx, json_strdup, &errmsg)))
+			bitcoin_plugin_error(call->bitcoind, buf, toks,
+					     "sendrawtransaction",
+					     "bad 'errmsg' field");
+	}
 
 	db_begin_transaction(call->bitcoind->ld->wallet->db);
-	call->cb(call->bitcoind, success,
-		 errtok ? json_strdup(tmpctx, buf, errtok) : NULL,
-		 call->cb_arg);
+	call->cb(call->bitcoind, success, errmsg, call->cb_arg);
 	db_commit_transaction(call->bitcoind->ld->wallet->db);
 
 	tal_free(call);
@@ -305,9 +298,6 @@ static void sendrawtx_compatv090_callback(const char *buf,
 					  const jsmntok_t *idtok,
 					  struct sendrawtx_call *call)
 {
-	const jsmntok_t *errtok;
-	const jsmntok_t *codetok;
-	errcode_t code;
 	struct jsonrpc_request *req;
 
 	static bool warned = false;
@@ -321,19 +311,10 @@ static void sendrawtx_compatv090_callback(const char *buf,
 	 * because it is an old plugin which does not support the
 	 * new `allowhighfees` parameter.
 	 */
-	errtok = json_get_member(buf, toks, "error");
-	if (!errtok)
+	if (!json_scan(buf, toks, "{error:{code:"
+		       stringify(JSONRPC2_INVALID_PARAMS)"}}")) {
 		goto fallback;
-
-	codetok = json_get_member(buf, errtok, "code");
-	if (!codetok)
-		goto fallback;
-
-	if (!json_to_errcode(buf, codetok, &code))
-		goto fallback;
-
-	if (code != JSONRPC2_INVALID_PARAMS)
-		goto fallback;
+	}
 
 	/* Possibly it is because `allowhighfees` is not understood
 	 * by the plugin.  */
@@ -426,42 +407,26 @@ getrawblockbyheight_callback(const char *buf, const jsmntok_t *toks,
 			     const jsmntok_t *idtok,
 			     struct getrawblockbyheight_call *call)
 {
-	const jsmntok_t *resulttok, *blockhashtok, *blocktok;
-	const char *block_str, *blockhash_str;
+	const char *block_str;
 	struct bitcoin_blkid blkid;
 	struct bitcoin_block *blk;
 
-	resulttok = json_get_member(buf, toks, "result");
-	if (!resulttok)
-		bitcoin_plugin_error(call->bitcoind, buf, toks,
-				     "getrawblockbyheight",
-				     "bad 'result' field");
-
-	blockhashtok = json_get_member(buf, resulttok, "blockhash");
-	if (!blockhashtok)
-		bitcoin_plugin_error(call->bitcoind, buf, toks,
-				     "getrawblockbyheight",
-				     "bad 'blockhash' field");
 	/* If block hash is `null`, this means not found! Call the callback
 	 * with NULL values. */
-	if (json_tok_is_null(buf, blockhashtok)) {
+	if (json_scan(buf, toks, "{result:{blockhash:null}}")) {
 		db_begin_transaction(call->bitcoind->ld->wallet->db);
 		call->cb(call->bitcoind, NULL, NULL, call->cb_arg);
 		db_commit_transaction(call->bitcoind->ld->wallet->db);
 		goto clean;
 	}
-	blockhash_str = json_strdup(tmpctx, buf, blockhashtok);
-	if (!bitcoin_blkid_from_hex(blockhash_str, strlen(blockhash_str), &blkid))
-		bitcoin_plugin_error(call->bitcoind, buf, toks,
-				     "getrawblockbyheight",
-				     "bad block hash");
 
-	blocktok = json_get_member(buf, resulttok, "block");
-	if (!blocktok)
+	if (!json_scan(buf, toks, "{result:{blockhash:%,block:%}}",
+		       JSON_SCAN(json_to_sha256, &blkid.shad.sha),
+		       JSON_SCAN_TAL(tmpctx, json_strdup, &block_str)))
 		bitcoin_plugin_error(call->bitcoind, buf, toks,
 				     "getrawblockbyheight",
-				     "bad 'block' field");
-	block_str = json_strdup(tmpctx, buf, blocktok);
+				     "bad 'result' field");
+
 	blk = bitcoin_block_from_hex(tmpctx, chainparams, block_str,
 				     strlen(block_str));
 	if (!blk)
@@ -534,39 +499,22 @@ static void getchaininfo_callback(const char *buf, const jsmntok_t *toks,
 				  const jsmntok_t *idtok,
 				  struct getchaininfo_call *call)
 {
-	const jsmntok_t *resulttok, *chaintok, *headerstok, *blktok, *ibdtok;
-	u32 headers = 0;
-	u32 blocks = 0;
-	bool ibd = false;
+	const char *chain;
+	u32 headers, blocks;
+	bool ibd;
 
-	resulttok = json_get_member(buf, toks, "result");
-	if (!resulttok)
+	if (!json_scan(buf, toks,
+		       "{result:{chain:%,headercount:%,blockcount:%,ibd:%}}",
+		       JSON_SCAN_TAL(tmpctx, json_strdup, &chain),
+		       JSON_SCAN(json_to_number, &headers),
+		       JSON_SCAN(json_to_number, &blocks),
+		       JSON_SCAN(json_to_bool, &ibd)))
 		bitcoin_plugin_error(call->bitcoind, buf, toks, "getchaininfo",
 				     "bad 'result' field");
 
-	chaintok = json_get_member(buf, resulttok, "chain");
-	if (!chaintok)
-		bitcoin_plugin_error(call->bitcoind, buf, toks, "getchaininfo",
-				     "bad 'chain' field");
-
-	headerstok = json_get_member(buf, resulttok, "headercount");
-	if (!headerstok || !json_to_number(buf, headerstok, &headers))
-		bitcoin_plugin_error(call->bitcoind, buf, toks, "getchaininfo",
-				     "bad 'headercount' field");
-
-	blktok = json_get_member(buf, resulttok, "blockcount");
-	if (!blktok || !json_to_number(buf, blktok, &blocks))
-		bitcoin_plugin_error(call->bitcoind, buf, toks, "getchaininfo",
-				     "bad 'blockcount' field");
-
-	ibdtok = json_get_member(buf, resulttok, "ibd");
-	if (!ibdtok || !json_to_bool(buf, ibdtok, &ibd))
-		bitcoin_plugin_error(call->bitcoind, buf, toks, "getchaininfo",
-				     "bad 'ibd' field");
-
 	db_begin_transaction(call->bitcoind->ld->wallet->db);
-	call->cb(call->bitcoind, json_strdup(tmpctx, buf, chaintok), headers,
-		 blocks, ibd, call->first_call, call->cb_arg);
+	call->cb(call->bitcoind, chain, headers, blocks, ibd,
+		 call->first_call, call->cb_arg);
 	db_commit_transaction(call->bitcoind->ld->wallet->db);
 
 	tal_free(call);
@@ -622,33 +570,21 @@ static void getutxout_callback(const char *buf, const jsmntok_t *toks,
 			      const jsmntok_t *idtok,
 			      struct getutxout_call *call)
 {
-	const jsmntok_t *resulttok, *amounttok, *scripttok;
 	struct bitcoin_tx_output txout;
 
-	resulttok = json_get_member(buf, toks, "result");
-	if (!resulttok)
-		bitcoin_plugin_error(call->bitcoind, buf, toks, "getutxout",
-				     "bad 'result' field");
-
-	scripttok = json_get_member(buf, resulttok, "script");
-	if (!scripttok)
-		bitcoin_plugin_error(call->bitcoind, buf, toks, "getutxout",
-				     "bad 'script' field");
-	if (json_tok_is_null(buf, scripttok)) {
+	if (json_scan(buf, toks, "{result:{script:null}}")) {
 		db_begin_transaction(call->bitcoind->ld->wallet->db);
 		call->cb(call->bitcoind, NULL, call->cb_arg);
 		db_commit_transaction(call->bitcoind->ld->wallet->db);
 		goto clean;
 	}
-	txout.script = json_tok_bin_from_hex(tmpctx, buf, scripttok);
 
-	amounttok = json_get_member(buf, resulttok, "amount");
-	if (!amounttok)
+	if (!json_scan(buf, toks, "{result:{script:%,amount:%}}",
+		       JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
+				     &txout.script),
+		       JSON_SCAN(json_to_sat, &txout.amount)))
 		bitcoin_plugin_error(call->bitcoind, buf, toks, "getutxout",
-				     "bad 'amount' field");
-	if (!json_to_sat(buf, amounttok, &txout.amount))
-		bitcoin_plugin_error(call->bitcoind, buf, toks, "getutxout",
-				     "bad sats amount");
+				     "bad 'result' field");
 
 	db_begin_transaction(call->bitcoind->ld->wallet->db);
 	call->cb(call->bitcoind, &txout, call->cb_arg);
