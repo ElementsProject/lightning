@@ -95,18 +95,13 @@ REGISTER_PAYMENT_MODIFIER(keysend, struct keysend_data *, keysend_init,
 static void init(struct plugin *p, const char *buf UNUSED,
 		 const jsmntok_t *config UNUSED)
 {
-	const char *field;
+	rpc_scan(p, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
+		 "{id:%}", JSON_SCAN(json_to_node_id, &my_id));
 
-	field = rpc_delve(tmpctx, p, "getinfo",
-			  take(json_out_obj(NULL, NULL, NULL)), ".id");
-	if (!node_id_from_hexstr(field, strlen(field), &my_id))
-		plugin_err(p, "getinfo didn't contain valid id: '%s'", field);
-
-	field =
-	    rpc_delve(tmpctx, p, "listconfigs",
-		      take(json_out_obj(NULL, "config", "max-locktime-blocks")),
-		      ".max-locktime-blocks");
-	maxdelay_default = atoi(field);
+	rpc_scan(p, "listconfigs",
+		 take(json_out_obj(NULL, "config", "max-locktime-blocks")),
+		 "{max-locktime-blocks:%}",
+		 JSON_SCAN(json_to_number, &maxdelay_default));
 }
 
 struct payment_modifier *pay_mods[8] = {

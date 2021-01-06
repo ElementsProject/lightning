@@ -809,12 +809,9 @@ static const struct plugin_command commands[] = { {
 static void init(struct plugin *p, const char *buf UNUSED,
 		 const jsmntok_t *config UNUSED)
 {
-	const char *field;
-
-	field = rpc_delve(tmpctx, p, "getinfo",
-			  take(json_out_obj(NULL, NULL, NULL)), ".id");
-	if (!node_id_from_hexstr(field, strlen(field), &local_id))
-		plugin_err(p, "getinfo didn't contain valid id: '%s'", field);
+	rpc_scan(p, "getinfo",
+		 take(json_out_obj(NULL, NULL, NULL)),
+		 "{id:%}", JSON_SCAN(json_to_node_id, &local_id));
 }
 
 static const struct plugin_hook hooks[] = {

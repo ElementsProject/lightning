@@ -490,18 +490,19 @@ static struct json_out *start_json_request(const tal_t *ctx,
 	return jout;
 }
 
-/* Synchronous routine to send command and extract single field from response */
-const char *rpc_delve(const tal_t *ctx,
-		      struct plugin *plugin,
-		      const char *method,
-		      const struct json_out *params TAKES,
-		      const char *guide)
+/* Synchronous routine to send command and extract fields from response */
+void rpc_scan(struct plugin *plugin,
+	      const char *method,
+	      const struct json_out *params TAKES,
+	      const char *guide,
+	      ...)
 {
 	bool error;
-	const jsmntok_t *contents, *t;
+	const jsmntok_t *contents;
 	int reqlen;
-	const char *ret;
+	const char *p;
 	struct json_out *jout;
+	va_list ap;
 
 	jout = start_json_request(tmpctx, 0, method, params);
 	finish_and_send_json(plugin->rpc_conn->fd, jout);
@@ -511,14 +512,15 @@ const char *rpc_delve(const tal_t *ctx,
 		plugin_err(plugin, "Got error reply to %s: '%.*s'",
 		     method, reqlen, membuf_elems(&plugin->rpc_conn->mb));
 
-	t = json_delve(membuf_elems(&plugin->rpc_conn->mb), contents, guide);
-	if (!t)
-		plugin_err(plugin, "Could not find %s in reply to %s: '%.*s'",
-			   guide, method, reqlen, membuf_elems(&plugin->rpc_conn->mb));
+	p = membuf_consume(&plugin->rpc_conn->mb, reqlen);
 
-	ret = json_strdup(ctx, membuf_elems(&plugin->rpc_conn->mb), t);
-	membuf_consume(&plugin->rpc_conn->mb, reqlen);
-	return ret;
+	va_start(ap, guide);
+	error = !json_scanv(p, contents, guide, ap);
+	va_end(ap);
+
+	if (error)
+		plugin_err(plugin, "Could not parse %s in reply to %s: '%.*s'",
+			   guide, method, reqlen, membuf_elems(&plugin->rpc_conn->mb));
 }
 
 static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
