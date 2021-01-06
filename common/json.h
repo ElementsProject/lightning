@@ -26,6 +26,10 @@ int json_tok_full_len(const jsmntok_t *t);
 /* Is this a string equal to str? */
 bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str);
 
+/* Is this a string equal to str of length len? */
+bool json_tok_strneq(const char *buffer, const jsmntok_t *tok,
+		     const char *str, size_t len);
+
 /* Does this string token start with prefix? */
 bool json_tok_startswith(const char *buffer, const jsmntok_t *tok,
 			 const char *prefix);
@@ -89,6 +93,10 @@ const jsmntok_t *json_next(const jsmntok_t *tok);
 /* Get top-level member. */
 const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 				 const char *label);
+
+/* Get top-level member, with explicit label length */
+const jsmntok_t *json_get_membern(const char *buffer, const jsmntok_t tok[],
+				  const char *label, size_t len);
 
 /* Get index'th array member. */
 const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index);

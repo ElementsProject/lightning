@@ -32,13 +32,17 @@ int json_tok_full_len(const jsmntok_t *t)
 	return t->end - t->start;
 }
 
-bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str)
+bool json_tok_strneq(const char *buffer, const jsmntok_t *tok,
+		     const char *str, size_t len)
 {
 	if (tok->type != JSMN_STRING)
 		return false;
-	if (tok->end - tok->start != strlen(str))
-		return false;
-	return strncmp(buffer + tok->start, str, tok->end - tok->start) == 0;
+	return memeq(buffer + tok->start, tok->end - tok->start, str, len);
+}
+
+bool json_tok_streq(const char *buffer, const jsmntok_t *tok, const char *str)
+{
+	return json_tok_strneq(buffer, tok, str, strlen(str));
 }
 
 bool json_tok_startswith(const char *buffer, const jsmntok_t *tok,
@@ -299,8 +303,8 @@ const jsmntok_t *json_next(const jsmntok_t *tok)
 	return t;
 }
 
-const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
-				 const char *label)
+const jsmntok_t *json_get_membern(const char *buffer, const jsmntok_t tok[],
+				  const char *label, size_t len)
 {
 	const jsmntok_t *t;
 	size_t i;
@@ -309,10 +313,16 @@ const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
 		return NULL;
 
 	json_for_each_obj(i, t, tok)
-		if (json_tok_streq(buffer, t, label))
+		if (json_tok_strneq(buffer, t, label, len))
 			return t + 1;
 
 	return NULL;
+}
+
+const jsmntok_t *json_get_member(const char *buffer, const jsmntok_t tok[],
+				 const char *label)
+{
+	return json_get_membern(buffer, tok, label, strlen(label));
 }
 
 const jsmntok_t *json_get_arr(const jsmntok_t tok[], size_t index)
