@@ -178,101 +178,6 @@ static void test_json_tok_size(void)
 	assert(!toks);
 }
 
-static void test_json_delve(void)
-{
-	const jsmntok_t *toks, *t;
-	char *buf;
-
-	buf = "{\"1\":\"one\", \"2\":\"two\", \"3\":[\"three\", {\"deeper\": 17}]}";
-	toks = json_parse_simple(tmpctx, buf, strlen(buf));
-	assert(toks);
-	assert(toks->size == 3);
-
-	t = json_delve(buf, toks, ".1");
-	assert(t);
-	assert(t->type == JSMN_STRING);
-	assert(json_tok_streq(buf, t, "one"));
-	assert(t == toks+2);
-
-	t = json_delve(buf, toks, ".2");
-	assert(t);
-	assert(t->type == JSMN_STRING);
-	assert(json_tok_streq(buf, t, "two"));
-	assert(t == toks+4);
-
-	t = json_delve(buf, toks, ".3");
-	assert(t);
-	assert(t->type == JSMN_ARRAY);
-	assert(t == toks+6);
-	assert(t->size == 2);
-
-	t = json_delve(buf, toks, ".3[0]");
-	assert(t);
-	assert(t->type == JSMN_STRING);
-	assert(json_tok_streq(buf, t, "three"));
-	assert(t == toks+7);
-
-	t = json_delve(buf, toks, ".3[1]");
-	assert(t);
-	assert(t->type == JSMN_OBJECT);
-	assert(t == toks+8);
-	assert(t->size == 1);
-
-	t = json_delve(buf, toks, ".3[1].deeper");
-	assert(t);
-	assert(t->type == JSMN_PRIMITIVE);
-	assert(memeq(buf + t->start, t->end - t->start, "17", strlen("17")));
-	assert(t == toks+10);
-
-	t = json_delve(buf, toks, ".4");
-	assert(!t);
-	t = json_delve(buf, toks, "[0]");
-	assert(!t);
-	t = json_delve(buf, toks, ".deeper");
-	assert(!t);
-	t = json_delve(buf, toks, ".3[2]");
-	assert(!t);
-	t = json_delve(buf, toks, ".3[2].deeper");
-	assert(!t);
-	t = json_delve(buf, toks, ".3[0].deeper");
-	assert(!t);
-	t = json_delve(buf, toks, ".3[1].deeper[0]");
-	assert(!t);
-	t = json_delve(buf, toks, ".3[1][0]");
-	assert(!t);
-
-	/* Now a real example. */
-	buf = "{\n"
-		"  \"jsonrpc\": \"2.0\", \n"
-		"  \"method\": \"init\", \n"
-		"  \"id\": 1, \n"
-		"  \"params\": {\n"
-		"    \"options\": {\n"
-		"    }, \n"
-		"    \"configuration\": {\n"
-		"      \"lightning-dir\": \"/tmp/ltests-n2hyd543/test_pay_plugin_1/lightning-2/\", \n"
-		"      \"rpc-file\": \"lightning-rpc\"\n"
-		"    }\n"
-		"  }\n"
-		"}\n"
-		"\n";
-	toks = json_parse_simple(tmpctx, buf, strlen(buf));
-	assert(toks);
-	assert(toks->size == 4);
-
-	t = json_delve(buf, toks, ".rpcfile");
-	assert(!t);
-	t = json_delve(buf, toks, ".configuration.rpc-file");
-	assert(!t);
-	t = json_delve(buf, toks, ".params.configuration");
-	assert(t);
-	assert(t->size == 2);
-	t = json_delve(buf, toks, ".params.configuration.rpc-file");
-	assert(t);
-	assert(t->type == JSMN_STRING);
-	assert(json_tok_streq(buf, t, "lightning-rpc"));
-}
-
 static void test_json_bad_utf8(void)
 {
 	const jsmntok_t *toks;
@@ -308,7 +213,6 @@ int main(int argc, char *argv[])
 	test_json_tok_size();
 	test_json_tok_bitcoin_amount();
 	test_json_tok_millionths();
-	test_json_delve();
 	test_json_bad_utf8();
 
 	common_shutdown();

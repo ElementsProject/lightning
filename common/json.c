@@ -719,42 +719,6 @@ void json_tok_remove(jsmntok_t **tokens,
 	tal_resize(tokens, tal_count(*tokens) - remove_count);
 }
 
-const jsmntok_t *json_delve(const char *buffer,
-			    const jsmntok_t *tok,
-			    const char *guide)
-{
-       while (*guide) {
-	       const char *key;
-	       size_t len = strcspn(guide+1, ".[]");
-
-	       key = tal_strndup(tmpctx, guide+1, len);
-	       switch (guide[0]) {
-	       case '.':
-		       if (tok->type != JSMN_OBJECT)
-			       return NULL;
-		       tok = json_get_member(buffer, tok, key);
-		       if (!tok)
-			       return NULL;
-		       break;
-	       case '[':
-		       if (tok->type != JSMN_ARRAY)
-			       return NULL;
-		       tok = json_get_arr(tok, atol(key));
-		       if (!tok)
-			       return NULL;
-		       /* Must be terminated */
-		       assert(guide[1+strlen(key)] == ']');
-		       len++;
-		       break;
-	       default:
-		       abort();
-	       }
-	       guide += len + 1;
-       }
-
-       return tok;
-}
-
 /* talfmt take a ctx pointer and return NULL or a valid pointer.
  * fmt takes the argument, and returns a bool. */
 static bool handle_percent(const char *buffer,
