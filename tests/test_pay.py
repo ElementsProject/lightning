@@ -3930,6 +3930,13 @@ def test_fetchinvoice(node_factory, bitcoind):
                                  'recurrence_counter': 2,
                                  'recurrence_label': 'test recurrence'})
 
+    # Check we can request invoice without a channel.
+    l4 = node_factory.get_node()
+    l4.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    ret = l4.rpc.call('fetchinvoice', {'offer': offer3,
+                                       'recurrence_counter': 0,
+                                       'recurrence_label': 'test nochannel'})
+
     # Test timeout.
     l3.stop()
     with pytest.raises(RpcError, match='Timeout waiting for response'):

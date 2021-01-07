@@ -548,42 +548,61 @@ static struct command_result *send_message(struct command *cmd,
 					    const jsmntok_t *result UNUSED,
 					    struct sent *sent))
 {
-	const struct dijkstra *dij;
-	const struct gossmap_node *dst, *src;
-	struct route **r;
+	const struct gossmap_node *dst;
 	struct gossmap *gossmap = get_gossmap(cmd->plugin);
 	const struct pubkey *backwards;
 	struct onionmsg_path **path;
 	struct pubkey blinding;
 	struct out_req *req;
-	struct node_id dstid;
+	struct node_id dstid, *nodes;
 
 	/* FIXME: Use blinded path if avail. */
 	gossmap_guess_node_id(gossmap, sent->offer->node_id, &dstid);
 	dst = gossmap_find_node(gossmap, &dstid);
-	if (!dst)
-		return command_fail(cmd, LIGHTNINGD,
-				    "Unknown destination %s",
-				    type_to_string(tmpctx, struct node_id,
-						   &dstid));
+	if (!dst) {
+		/* Try direct. */
+		struct pubkey *us = tal_arr(tmpctx, struct pubkey, 1);
+		if (!pubkey_from_node_id(&us[0], &local_id))
+			abort();
+		backwards = us;
 
-	/* If we don't exist in gossip, routing can't happen. */
-	src = gossmap_find_node(gossmap, &local_id);
-	if (!src)
-		return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
-				    "We don't have any channels");
+		nodes = tal_arr(tmpctx, struct node_id, 1);
+		/* We don't know the pubkey y-sign, but sendonionmessage will
+		 * fix it up if we guess wrong. */
+		nodes[0].k[0] = SECP256K1_TAG_PUBKEY_EVEN;
+		secp256k1_xonly_pubkey_serialize(secp256k1_ctx,
+						 nodes[0].k+1,
+						 &sent->offer->node_id->pubkey);
+	} else {
+		struct route **r;
+		const struct dijkstra *dij;
+		const struct gossmap_node *src;
 
-	dij = dijkstra(tmpctx, gossmap, dst, AMOUNT_MSAT(0), 0,
-		       can_carry_onionmsg, route_score_shorter, NULL);
+		/* If we don't exist in gossip, routing can't happen. */
+		src = gossmap_find_node(gossmap, &local_id);
+		if (!src)
+			return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
+					    "We don't have any channels");
 
-	r = route_from_dijkstra(tmpctx, gossmap, dij, src);
-	if (!r)
-		/* FIXME: We need to retry kind of like keysend here... */
-		return command_fail(cmd, OFFER_ROUTE_NOT_FOUND,
-				    "Can't find route");
+		dij = dijkstra(tmpctx, gossmap, dst, AMOUNT_MSAT(0), 0,
+			       can_carry_onionmsg, route_score_shorter, NULL);
+
+		r = route_from_dijkstra(tmpctx, gossmap, dij, src);
+		if (!r)
+			/* FIXME: try connecting directly. */
+			return command_fail(cmd, OFFER_ROUTE_NOT_FOUND,
+					    "Can't find route");
+
+		backwards = route_backwards(tmpctx, gossmap, r);
+		nodes = tal_arr(tmpctx, struct node_id, tal_count(r));
+		for (size_t i = 0; i < tal_count(r); i++) {
+			gossmap_node_get_id(gossmap,
+					    gossmap_nth_node(gossmap, r[i]->c, !r[i]->dir),
+					    &nodes[i]);
+		}
+	}
 
 	/* Ok, now make reply for onion_message */
-	backwards = route_backwards(tmpctx, gossmap, r);
 	path = make_blindedpath(tmpctx, backwards, &blinding,
 				&sent->reply_blinding);
 
@@ -592,15 +611,10 @@ static struct command_result *send_message(struct command *cmd,
 				    forward_error,
 				    sent);
 	json_array_start(req->js, "hops");
-	for (size_t i = 0; i < tal_count(r); i++) {
-		struct node_id id;
-
+	for (size_t i = 0; i < tal_count(nodes); i++) {
 		json_object_start(req->js, NULL);
-		gossmap_node_get_id(gossmap,
-				    gossmap_nth_node(gossmap, r[i]->c, !r[i]->dir),
-				    &id);
-		json_add_node_id(req->js, "id", &id);
-		if (i == tal_count(r) - 1)
+		json_add_node_id(req->js, "id", &nodes[i]);
+		if (i == tal_count(nodes) - 1)
 			json_add_hex_talarr(req->js, msgfield, msgval);
 		json_object_end(req->js);
 	}
