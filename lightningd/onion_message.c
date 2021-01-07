@@ -92,6 +92,7 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	struct onion_message_hook_payload *payload;
 	u8 *submsg;
 	size_t submsglen;
+	const u8 *subptr;
 
 	payload = tal(ld, struct onion_message_hook_payload);
 	payload->om = tlv_onionmsg_payload_new(payload);
@@ -106,12 +107,15 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 		return;
 	}
 	submsglen = tal_bytelen(submsg);
-	if (!fromwire_onionmsg_payload(cast_const2(const u8 **, &submsg),
+	subptr = submsg;
+	if (!fromwire_onionmsg_payload(&subptr,
 				       &submsglen, payload->om)) {
+		tal_free(payload);
 		log_broken(ld->log, "bad got_onionmsg_tous om: %s",
 			   tal_hex(tmpctx, msg));
 		return;
 	}
+	tal_free(submsg);
 
 	if (payload->reply_path && !payload->reply_blinding) {
 		log_broken(ld->log,
