@@ -1297,7 +1297,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 		   p_opt_def("msatoshi", param_msat, &msat, AMOUNT_MSAT(0)),
 		   p_opt("destination", param_node_id, &destination),
 #if EXPERIMENTAL_FEATURES
-		   p_opt("local_offer_id", param_sha256, &local_offer_id),
+		   p_opt("localofferid", param_sha256, &local_offer_id),
 #endif
 		   NULL))
 		return command_param_failed();
