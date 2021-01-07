@@ -1591,7 +1591,7 @@ json_openchannel_signed(struct command *cmd,
 	if (uc)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Commitments for this channel not "
-				    "yet secured, see `openchannl_update`");
+				    "yet secured, see `openchannel_update`");
 	if (!channel)
 		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
 				    "Unknown channel");
