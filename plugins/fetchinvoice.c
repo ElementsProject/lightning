@@ -45,7 +45,7 @@ struct sent {
 	struct preimage inv_preimage;
 	struct json_escape *inv_label;
 	/* How long to wait for response before giving up. */
-	u32 inv_wait_timeout;
+	u32 wait_timeout;
 };
 
 static struct sent *find_sent(const struct pubkey *blinding)
@@ -415,12 +415,22 @@ static void destroy_sent(struct sent *sent)
 	list_del(&sent->list);
 }
 
+/* We've received neither a reply nor a payment; return failure. */
+static void timeout_sent_invreq(struct sent *sent)
+{
+	/* This will free sent! */
+	discard_result(command_fail(sent->cmd, OFFER_TIMEOUT,
+				    "Timeout waiting for response"));
+}
+
 static struct command_result *sendonionmsg_done(struct command *cmd,
 						const char *buf UNUSED,
 						const jsmntok_t *result UNUSED,
 						struct sent *sent)
 {
-	/* FIXME: timeout! */
+	tal_steal(cmd, plugin_timer(cmd->plugin,
+				    time_from_sec(sent->wait_timeout),
+				    timeout_sent_invreq, sent));
 	sent->cmd = cmd;
 	list_add_tail(&sent_list, &sent->list);
 	tal_add_destructor(sent, destroy_sent);
@@ -631,7 +641,7 @@ static struct command_result *prepare_inv_timeout(struct command *cmd,
 						  struct sent *sent)
 {
 	tal_steal(cmd, plugin_timer(cmd->plugin,
-				    time_from_sec(sent->inv_wait_timeout),
+				    time_from_sec(sent->wait_timeout),
 				    timeout_sent_inv, sent));
 	return sendonionmsg_done(cmd, buf, result, sent);
 }
@@ -639,16 +649,11 @@ static struct command_result *prepare_inv_timeout(struct command *cmd,
 static struct command_result *invreq_done(struct command *cmd,
 					  const char *buf,
 					  const jsmntok_t *result,
-					  struct tlv_offer *offer)
+					  struct sent *sent)
 {
 	const jsmntok_t *t;
-	struct sent *sent;
 	char *fail;
 	u8 *rawinvreq;
-
-	/* We need to remember both offer and invreq to check reply. */
-	sent = tal(cmd, struct sent);
-	sent->offer = tal_steal(sent, offer);
 
 	/* Get invoice request */
 	t = json_get_member(buf, result, "bolt12");
@@ -688,16 +693,16 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 						const char *buffer,
 						const jsmntok_t *params)
 {
-	struct tlv_offer *offer;
 	struct amount_msat *msat;
 	const char *rec_label;
 	struct out_req *req;
 	struct tlv_invoice_request *invreq;
+	struct sent *sent = tal(cmd, struct sent);
+	u32 *timeout;
 
-	invreq = tlv_invoice_request_new(cmd);
-
+	invreq = tlv_invoice_request_new(sent);
 	if (!param(cmd, buffer, params,
-		   p_req("offer", param_offer, &offer),
+		   p_req("offer", param_offer, &sent->offer),
 		   p_opt("msatoshi", param_msat, &msat),
 		   p_opt("quantity", param_u64, &invreq->quantity),
 		   p_opt("recurrence_counter", param_number,
@@ -705,18 +710,21 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 		   p_opt("recurrence_start", param_number,
 			 &invreq->recurrence_start),
 		   p_opt("recurrence_label", param_string, &rec_label),
+		   p_opt_def("timeout", param_number, &timeout, 60),
 		   NULL))
 		return command_param_failed();
+
+	sent->wait_timeout = *timeout;
 
 	/* BOLT-offers #12:
 	 *  - MUST set `offer_id` to the merkle root of the offer as described
 	 *    in [Signature Calculation](#signature-calculation).
 	 */
 	invreq->offer_id = tal(invreq, struct sha256);
-	merkle_tlv(offer->fields, invreq->offer_id);
+	merkle_tlv(sent->offer->fields, invreq->offer_id);
 
 	/* Check if they are trying to send us money. */
-	if (offer->send_invoice)
+	if (sent->offer->send_invoice)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Offer wants an invoice, not invoice_request");
 
@@ -724,8 +732,8 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	 * - SHOULD not respond to an offer if the current time is after
 	 *   `absolute_expiry`.
 	 */
-	if (offer->absolute_expiry
-	    && time_now().ts.tv_sec > *offer->absolute_expiry)
+	if (sent->offer->absolute_expiry
+	    && time_now().ts.tv_sec > *sent->offer->absolute_expiry)
 		return command_fail(cmd, OFFER_EXPIRED, "Offer expired");
 
 	/* BOLT-offers #12:
@@ -736,7 +744,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	 * - otherwise:
 	 *   - MUST NOT set `amount`
 	 */
-	if (offer->amount) {
+	if (sent->offer->amount) {
 		if (msat)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "msatoshi parameter unnecessary");
@@ -755,20 +763,20 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	 *   - otherwise:
 	 *     - MUST NOT set `quantity`
 	 */
-	if (offer->quantity_min || offer->quantity_max) {
+	if (sent->offer->quantity_min || sent->offer->quantity_max) {
 		if (!invreq->quantity)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "quantity parameter required");
-		if (offer->quantity_min
-		    && *invreq->quantity < *offer->quantity_min)
+		if (sent->offer->quantity_min
+		    && *invreq->quantity < *sent->offer->quantity_min)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "quantity must be >= %"PRIu64,
-					    *offer->quantity_min);
-		if (offer->quantity_max
-		    && *invreq->quantity > *offer->quantity_max)
+					    *sent->offer->quantity_min);
+		if (sent->offer->quantity_max
+		    && *invreq->quantity > *sent->offer->quantity_max)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "quantity must be <= %"PRIu64,
-					    *offer->quantity_max);
+					    *sent->offer->quantity_max);
 	} else {
 		if (invreq->quantity)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -778,7 +786,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	/* BOLT-offers #12:
 	 * - if the offer contained `recurrence`:
 	 */
-	if (offer->recurrence) {
+	if (sent->offer->recurrence) {
 		/* BOLT-offers #12:
 		 *    - for the initial request:
 		 *...
@@ -802,8 +810,8 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 		 *    - otherwise:
 		 *      - MUST NOT include `recurrence_start`
 		 */
-		if (offer->recurrence_base
-		    && offer->recurrence_base->start_any_period) {
+		if (sent->offer->recurrence_base
+		    && sent->offer->recurrence_base->start_any_period) {
 			if (!invreq->recurrence_start)
 				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						    "needs recurrence_start");
@@ -860,7 +868,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	req = jsonrpc_request_start(cmd->plugin, cmd, "createinvoicerequest",
 				    &invreq_done,
 				    &forward_error,
-				    offer);
+				    sent);
 	json_add_string(req->js, "bolt12", invrequest_encode(tmpctx, invreq));
 	if (rec_label)
 		json_add_string(req->js, "recurrence_label", rec_label);
@@ -1090,7 +1098,7 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 		return command_param_failed();
 
 	/* This is how long we'll wait for a reply for. */
-	sent->inv_wait_timeout = *timeout;
+	sent->wait_timeout = *timeout;
 
 	/* Check they are really trying to send us money. */
 	if (!sent->offer->send_invoice)
