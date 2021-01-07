@@ -498,6 +498,7 @@ void rpc_scan(struct plugin *plugin,
 	      ...)
 {
 	bool error;
+	const char *err;
 	const jsmntok_t *contents;
 	int reqlen;
 	const char *p;
@@ -515,12 +516,13 @@ void rpc_scan(struct plugin *plugin,
 	p = membuf_consume(&plugin->rpc_conn->mb, reqlen);
 
 	va_start(ap, guide);
-	error = !json_scanv(p, contents, guide, ap);
+	err = json_scanv(tmpctx, p, contents, guide, ap);
 	va_end(ap);
 
-	if (error)
-		plugin_err(plugin, "Could not parse %s in reply to %s: '%.*s'",
-			   guide, method, reqlen, membuf_elems(&plugin->rpc_conn->mb));
+	if (err)
+		plugin_err(plugin, "Could not parse %s in reply to %s: %s: '%.*s'",
+			   guide, method, err,
+			   reqlen, membuf_elems(&plugin->rpc_conn->mb));
 }
 
 static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
@@ -810,19 +812,21 @@ static struct command_result *handle_init(struct command *cmd,
 	char *dir, *network;
 	struct plugin *p = cmd->plugin;
 	bool with_rpc = p->rpc_conn != NULL;
+	const char *err;
 
 	configtok = json_get_member(buf, params, "configuration");
-	if (!json_scan(buf, configtok,
-		       "{lightning-dir:%"
-		       ",network:%"
-		       ",feature_set:%"
-		       ",rpc-file:%}",
-		       JSON_SCAN_TAL(tmpctx, json_strdup, &dir),
-		       JSON_SCAN_TAL(tmpctx, json_strdup, &network),
-		       JSON_SCAN_TAL(p, json_to_feature_set, &p->our_features),
-		       JSON_SCAN_TAL(p, json_strdup, &p->rpc_location)))
-		plugin_err(p, "cannot scan init params: %.*s",
-			   json_tok_full_len(params),
+	err = json_scan(tmpctx, buf, configtok,
+			"{lightning-dir:%"
+			",network:%"
+			",feature_set:%"
+			",rpc-file:%}",
+			JSON_SCAN_TAL(tmpctx, json_strdup, &dir),
+			JSON_SCAN_TAL(tmpctx, json_strdup, &network),
+			JSON_SCAN_TAL(p, json_to_feature_set, &p->our_features),
+			JSON_SCAN_TAL(p, json_strdup, &p->rpc_location));
+	if (err)
+		plugin_err(p, "cannot scan init params: %s: %.*s",
+			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
 
 	/* Move into lightning directory: other files are relative */

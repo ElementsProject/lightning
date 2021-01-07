@@ -399,9 +399,9 @@ get_remote_block_height(const char *buf, const jsmntok_t *error)
 	u16 type;
 
 	/* Is there even a raw_message?  */
-	if (!json_scan(buf, error, "{data:{raw_message:%}}",
-		       JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
-				     &raw_message)))
+	if (json_scan(tmpctx, buf, error, "{data:{raw_message:%}}",
+		      JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
+				    &raw_message)) != NULL)
 		return 0;
 
 	/* BOLT #4:
@@ -431,19 +431,24 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 	struct pay_attempt *attempt = current_attempt(pc);
 	errcode_t code;
 	int failcode;
+	const char *err;
 
 	attempt_failed_tok(pc, "waitsendpay", buf, error);
 
-	if (!json_scan(buf, error, "{code:%}",
-		       JSON_SCAN(json_to_errcode, &code)))
-		plugin_err(cmd->plugin, "waitsendpay error gave no 'code'? '%.*s'",
-			   error->end - error->start, buf + error->start);
+	err = json_scan(tmpctx, buf, error, "{code:%}",
+			JSON_SCAN(json_to_errcode, &code));
+	if (err)
+		plugin_err(cmd->plugin, "waitsendpay error %s? '%.*s'",
+			   err,
+			   json_tok_full_len(error), json_tok_full(buf, error));
 
 	if (code != PAY_UNPARSEABLE_ONION) {
-		if (!json_scan(buf, error, "{data:{failcode:%}}",
-			       JSON_SCAN(json_to_int, &failcode)))
-			plugin_err(cmd->plugin, "waitsendpay error gave no 'failcode'? '%.*s'",
-				   error->end - error->start, buf + error->start);
+		err = json_scan(tmpctx, buf, error, "{data:{failcode:%}}",
+				JSON_SCAN(json_to_int, &failcode));
+		if (err)
+			plugin_err(cmd->plugin, "waitsendpay failcode error %s '%.*s'",
+				   err,
+				   json_tok_full_len(error), json_tok_full(buf, error));
 	}
 
 	/* Special case for WIRE_INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS.
@@ -510,12 +515,15 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 
 	if (failcode & NODE) {
 		struct node_id id;
-		const char *idstr;
+		const char *idstr, *err;
 
-		if (!json_scan(buf, error, "{data:{erring_node:%}}",
-			       JSON_SCAN(json_to_node_id, &id)))
-			plugin_err(cmd->plugin, "waitsendpay error no erring_node '%.*s'",
-				   error->end - error->start, buf + error->start);
+		err = json_scan(tmpctx, buf, error, "{data:{erring_node:%}}",
+				JSON_SCAN(json_to_node_id, &id));
+		if (err)
+			plugin_err(cmd->plugin, "waitsendpay error %s '%.*s'",
+				   err,
+				   json_tok_full_len(error),
+				   json_tok_full(buf, error));
 
 		/* FIXME: Keep as node_id, don't use strings. */
 		idstr = node_id_to_hexstr(tmpctx, &id);
@@ -530,13 +538,17 @@ static struct command_result *waitsendpay_error(struct command *cmd,
 	} else {
 		struct short_channel_id scid;
 		u32 dir;
-		const char *scidstr;
+		const char *scidstr, *err;
 
-		if (!json_scan(buf, error, "{data:{erring_channel:%,erring_direction:%}}",
-			       JSON_SCAN(json_to_short_channel_id, &scid),
-			       JSON_SCAN(json_to_number, &dir)))
-			plugin_err(cmd->plugin, "waitsendpay error no erring_channel/direction '%.*s'",
-				   error->end - error->start, buf + error->start);
+		err = json_scan(tmpctx, buf, error,
+				"{data:{erring_channel:%,erring_direction:%}}",
+				JSON_SCAN(json_to_short_channel_id, &scid),
+				JSON_SCAN(json_to_number, &dir));
+		if (err)
+			plugin_err(cmd->plugin, "waitsendpay error %s '%.*s'",
+				   err,
+				   json_tok_full_len(error),
+				   json_tok_full(buf, error));
 
 		scidstr = short_channel_id_to_str(tmpctx, &scid);
 		/* If failure is in routehint part, try next one */
@@ -736,6 +748,7 @@ static struct command_result *getroute_done(struct command *cmd,
 	struct amount_msat max_fee;
 	u32 delay;
 	struct out_req *req;
+	const char *err;
 
 	if (!t)
 		plugin_err(cmd->plugin, "getroute gave no 'route'? '%.*s'",
@@ -754,11 +767,13 @@ static struct command_result *getroute_done(struct command *cmd,
 	} else
 		attempt->route = json_strdup(pc->ps->attempts, buf, t);
 
-	if (!json_scan(buf, t, "[0:{msatoshi:%,delay:%}]",
-		       JSON_SCAN(json_to_msat, &fee),
-		       JSON_SCAN(json_to_number, &delay)))
-		plugin_err(cmd->plugin, "getroute with invalid msatoshi/delay? %.*s",
-			   result->end - result->start, buf);
+	err = json_scan(tmpctx, buf, t, "[0:{msatoshi:%,delay:%}]",
+			JSON_SCAN(json_to_msat, &fee),
+			JSON_SCAN(json_to_number, &delay));
+	if (err)
+		plugin_err(cmd->plugin, "getroute %s? %.*s",
+			   err,
+			   json_tok_full_len(result), json_tok_full(buf, result));
 
 	if (pc->maxfee_pct_millionths / 100 > UINT32_MAX)
 		plugin_err(cmd->plugin, "max fee percent too large: %lf",

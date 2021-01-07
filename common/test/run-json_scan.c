@@ -137,6 +137,7 @@ int main(int argc, char *argv[])
 	char *s;
 	u32 u32val;
 	u8 *hex;
+	const char *err;
 
 	common_setup(argv[0]);
 
@@ -146,55 +147,70 @@ int main(int argc, char *argv[])
 	assert(toks->size == 4);
 
 	/* These are direct matches, and they work. */
-	assert(json_scan(buf, toks, "{1:one}"));
-	assert(json_scan(buf, toks, "{1:one,2:two}"));
-	assert(json_scan(buf, toks, "{2:two,1:one}"));
-	assert(json_scan(buf, toks, "{2:two,1:one,3:{three:{deeper:17}}}"));
-	assert(json_scan(buf, toks, "{2:two,1:one,3:{three:{deeper:17}},arr:[0:{1:arrone}]}"));
-	assert(json_scan(buf, toks, "{2:two,1:one,3:{three:{deeper:17}},arr:[1:2]}"));
-	assert(json_scan(buf, toks, "{2:two,1:one,3:{three:{deeper:17}},arr:[1:2,2:[0:3,1:4]]}"));
+	assert(!json_scan(tmpctx, buf, toks, "{1:one}"));
+	assert(!json_scan(tmpctx, buf, toks, "{1:one,2:two}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2:two,1:one}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2:two,1:one,3:{three:{deeper:17}}}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2:two,1:one,3:{three:{deeper:17}},arr:[0:{1:arrone}]}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2:two,1:one,3:{three:{deeper:17}},arr:[1:2]}"));
+	assert(!json_scan(tmpctx, buf, toks, "{2:two,1:one,3:{three:{deeper:17}},arr:[1:2,2:[0:3,1:4]]}"));
 
 	/* These do not match */
-	assert(!json_scan(buf, toks, "{2:one}"));
-	assert(!json_scan(buf, toks, "{1:one,2:tw}"));
-	assert(!json_scan(buf, toks, "{1:one,2:twoo}"));
-	assert(!json_scan(buf, toks, "{4:one}"));
-	assert(!json_scan(buf, toks, "{2:two,1:one,3:three}"));
-	assert(!json_scan(buf, toks, "{3:{three:deeper}}"));
-	assert(!json_scan(buf, toks, "{3:{three:{deeper:{}}}}"));
-	assert(!json_scan(buf, toks, "{arr:{}}"));
-	assert(!json_scan(buf, toks, "{arr:[0:1]}"));
-	assert(!json_scan(buf, toks, "{arr:[4:0]}"));
-	assert(!json_scan(buf, toks, "{arr:[0:{1:arrtwo}]}"));
-	assert(!json_scan(buf, toks, "{arr:[1:3]}"));
-	assert(!json_scan(buf, toks, "{arr:[2:[0:1]]}"));
+	err = json_scan(tmpctx, buf, toks, "{2:one}");
+	assert(streq(err, "Parsing '{2:one': \"two\" does not match expected one"));
+	err = json_scan(tmpctx, buf, toks, "{1:one,2:tw}");
+	assert(streq(err, "Parsing '{1:one,2:tw': \"two\" does not match expected tw"));
+	err = json_scan(tmpctx, buf, toks, "{1:one,2:twoo}");
+	assert(streq(err, "Parsing '{1:one,2:twoo': \"two\" does not match expected twoo"));
+	err = json_scan(tmpctx, buf, toks, "{4:one}");
+	assert(streq(err, "Parsing '{4:': object does not have member 4"));
+	err = json_scan(tmpctx, buf, toks, "{2:two,1:one,3:three}");
+	assert(streq(err, "Parsing '{2:two,1:one,3:three': {\"three\": {\"deeper\": 17}} does not match expected three"));
+	err = json_scan(tmpctx, buf, toks, "{3:{three:deeper}}");
+	assert(streq(err, "Parsing '{3:{three:deeper': {\"deeper\": 17} does not match expected deeper"));
+	err = json_scan(tmpctx, buf, toks, "{3:{three:{deeper:{}}}}");
+	assert(streq(err, "Parsing '{3:{three:{deeper:{': token is not an object: 17"));
+	err = json_scan(tmpctx, buf, toks, "{arr:{}}");
+	assert(streq(err, "Parsing '{arr:{': token is not an object: [{\"1\": \"arrone\"}, 2, [3, 4]]"));
+	err = json_scan(tmpctx, buf, toks, "{arr:[0:1]}");
+	assert(streq(err, "Parsing '{arr:[0:1': {\"1\": \"arrone\"} does not match expected 1"));
+	err = json_scan(tmpctx, buf, toks, "{arr:[4:0]}");
+	assert(streq(err, "Parsing '{arr:[4:': token has no index 4: [{\"1\": \"arrone\"}, 2, [3, 4]]"));
+	err = json_scan(tmpctx, buf, toks, "{arr:[0:{1:arrtwo}]}");
+	assert(streq(err, "Parsing '{arr:[0:{1:arrtwo': \"arrone\" does not match expected arrtwo"));
+	err = json_scan(tmpctx, buf, toks, "{arr:[1:3]}");
+	assert(streq(err, "Parsing '{arr:[1:3': 2 does not match expected 3"));
+	err = json_scan(tmpctx, buf, toks, "{arr:[2:[0:1]]}");
+	assert(streq(err, "Parsing '{arr:[2:[0:1': 3 does not match expected 1"));
 
 	/* These capture simple values. */
-	assert(json_scan(buf, toks, "{3:{three:{deeper:%}}}",
-			 JSON_SCAN(json_to_number, &u32val)));
+	assert(!json_scan(tmpctx, buf, toks, "{3:{three:{deeper:%}}}",
+			  JSON_SCAN(json_to_number, &u32val)));
 	assert(u32val == 17);
-	assert(!json_scan(buf, toks, "{1:%}",
-			 JSON_SCAN(json_to_number, &u32val)));
-	assert(json_scan(buf, toks, "{1:%}",
-			 JSON_SCAN_TAL(tmpctx, json_strdup, &s)));
+	err = json_scan(tmpctx, buf, toks, "{1:%}",
+			JSON_SCAN(json_to_number, &u32val));
+	assert(streq(err, "Parsing '{1:%': json_to_number could not parse \"one\""));
+	assert(!json_scan(tmpctx, buf, toks, "{1:%}",
+			  JSON_SCAN_TAL(tmpctx, json_strdup, &s)));
 	assert(tal_parent(s) == tmpctx);
 	assert(streq(s, "one"));
 
-	assert(!json_scan(buf, toks, "{1:%}",
-			  JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &hex)));
+	err = json_scan(tmpctx, buf, toks, "{1:%}",
+			JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex, &hex));
+	assert(streq(err, "Parsing '{1:%': json_tok_bin_from_hex could not parse \"one\""));
 
-	assert(json_scan(buf, toks, "{3:%}", JSON_SCAN(json_to_tok, &t)));
+	assert(!json_scan(tmpctx, buf, toks, "{3:%}", JSON_SCAN(json_to_tok, &t)));
 	assert(t == &toks[6]);
 
-	assert(json_scan(buf, toks, "{arr:%}", JSON_SCAN(json_to_tok, &t)));
+	assert(!json_scan(tmpctx, buf, toks, "{arr:%}", JSON_SCAN(json_to_tok, &t)));
 	assert(t == &toks[12]);
 
-	assert(json_scan(buf, toks, "{arr:[1:%]}",
-			 JSON_SCAN(json_to_number, &u32val)));
+	assert(!json_scan(tmpctx, buf, toks, "{arr:[1:%]}",
+			  JSON_SCAN(json_to_number, &u32val)));
 	assert(u32val == 2);
 
-	assert(json_scan(buf, toks, "{arr:[2:[1:%]]}",
-			 JSON_SCAN(json_to_number, &u32val)));
+	assert(!json_scan(tmpctx, buf, toks, "{arr:[2:[1:%]]}",
+			  JSON_SCAN(json_to_number, &u32val)));
 	assert(u32val == 4);
 
 	common_shutdown();
