@@ -4003,6 +4003,18 @@ def test_sendinvoice(node_factory, bitcoind):
     out = l2.rpc.call('sendinvoice', {'offer': offer,
                                       'label': 'test sendinvoice 1'})
     print(out)
+    assert out['label'] == 'test sendinvoice 1'
+    assert out['description'] == 'simple test'
+    assert 'bolt12' in out
+    assert 'payment_hash' in out
+    assert out['status'] == 'paid'
+    assert 'payment_preimage' in out
+    assert 'expires_at' in out
+    assert out['msatoshi'] == 100000000
+    assert out['amount_msat'] == Millisatoshi(100000000)
+    assert 'pay_index' in out
+    assert out['msatoshi_received'] == 100000000
+    assert out['amount_received_msat'] == Millisatoshi(100000000)
 
     # Note, if we're slow, this fails with "Offer no longer available",
     # *but* if it hasn't heard about payment success yet, l2 will fail

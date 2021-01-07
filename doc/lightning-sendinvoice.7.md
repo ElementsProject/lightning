@@ -37,10 +37,7 @@ but the invoice will still be valid, and the caller should monitor it.
 RETURN VALUE
 ------------
 
-On success, an object as follows is returned:
-
-* *invstring*: the bolt12-encoded invoice string we sent (now paid), starting with "lni1".
-* *msat*: the amount they paid.
+On success, an object as per lightning-waitinvoice(7).
 
 The following error codes may occur:
 - -1: Catchall nonspecific error.
