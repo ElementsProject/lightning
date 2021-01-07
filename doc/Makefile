@@ -44,6 +44,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-newaddr.7 \
 	doc/lightning-notifications.7 \
 	doc/lightning-offer.7 \
+	doc/lightning-offerout.7 \
 	doc/lightning-openchannel_init.7 \
 	doc/lightning-openchannel_signed.7 \
 	doc/lightning-openchannel_update.7 \

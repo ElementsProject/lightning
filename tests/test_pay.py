@@ -3991,9 +3991,8 @@ def test_sendinvoice(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
 
     # Simple offer to send money (balances channel a little)
-    offer = l1.rpc.call('offer', {'amount': '100000sat',
-                                  'description': 'simple test',
-                                  'send_invoice': True})['bolt12']
+    offer = l1.rpc.call('offerout', {'amount': '100000sat',
+                                     'description': 'simple test'})['bolt12']
     print(offer)
 
     # Fetchinvoice will refuse, since you're supposed to send an invoice.
@@ -4019,9 +4018,9 @@ def test_sendinvoice(node_factory, bitcoind):
     inv = l1.rpc.call('fetchinvoice', {'offer': offer})
     l1.rpc.pay(inv['invoice'])
 
-    refund = l2.rpc.call('offer', {'amount': '100msat',
-                                   'description': 'refund test',
-                                   'refund_for': inv['invoice']})['bolt12']
+    refund = l2.rpc.call('offerout', {'amount': '100msat',
+                                      'description': 'refund test',
+                                      'refund_for': inv['invoice']})['bolt12']
 
     l1.rpc.call('sendinvoice', {'offer': refund,
                                 'label': 'test sendinvoice refund'})
