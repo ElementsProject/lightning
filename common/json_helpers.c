@@ -170,6 +170,23 @@ void json_add_pubkey(struct json_stream *response,
 	json_add_hex(response, fieldname, der, sizeof(der));
 }
 
+void json_add_pubkey32(struct json_stream *response,
+		       const char *fieldname,
+		       const struct pubkey32 *key)
+{
+	u8 output[32];
+
+	secp256k1_xonly_pubkey_serialize(secp256k1_ctx, output, &key->pubkey);
+	json_add_hex(response, fieldname, output, sizeof(output));
+}
+
+void json_add_bip340sig(struct json_stream *response,
+			const char *fieldname,
+			const struct bip340sig *sig)
+{
+	json_add_hex(response, fieldname, sig->u8, sizeof(sig->u8));
+}
+
 void json_add_txid(struct json_stream *result, const char *fieldname,
 		   const struct bitcoin_txid *txid)
 {

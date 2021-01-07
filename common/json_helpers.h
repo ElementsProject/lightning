@@ -9,10 +9,12 @@
 
 struct amount_msat;
 struct amount_sat;
+struct bip340sig;
 struct channel_id;
 struct node_id;
 struct preimage;
 struct pubkey;
+struct pubkey32;
 struct secret;
 struct short_channel_id;
 struct wireaddr;
@@ -82,6 +84,16 @@ bool split_tok(const char *buffer, const jsmntok_t *tok,
 void json_add_pubkey(struct json_stream *response,
 		     const char *fieldname,
 		     const struct pubkey *key);
+
+/* '"fieldname" : "89abcdef..."' or "89abcdef..." if fieldname is NULL */
+void json_add_pubkey32(struct json_stream *response,
+		       const char *fieldname,
+		       const struct pubkey32 *key);
+
+/* '"fieldname" : "89abcdef..."' or "89abcdef..." if fieldname is NULL */
+void json_add_bip340sig(struct json_stream *response,
+			const char *fieldname,
+			const struct bip340sig *sig);
 
 /* '"fieldname" : "89abcdef..."' or "89abcdef..." if fieldname is NULL */
 void json_add_secret(struct json_stream *response,
