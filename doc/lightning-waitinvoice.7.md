@@ -16,7 +16,7 @@ RETURN VALUE
 ------------
 
 On success, an invoice description will be returned as per
-lightning-listinvoice(7). The *status* field will be *paid*.
+lightning-listinvoice(7). The *status* field will be *paid* or *expired*.
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
