@@ -3952,3 +3952,18 @@ def test_pay_waitblockheight_timeout(node_factory, bitcoind):
     # Should have only one attempt that triggered the wait, which then failed.
     assert len(status['pay']) == 1
     assert len(status['pay'][0]['attempts']) == 1
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "offers are experimental")
+def test_sendinvoice(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+
+    # Simple offer to send money (balances channel a little)
+    offer = l1.rpc.call('offer', {'amount': '100000sat',
+                                  'description': 'simple test',
+                                  'send_invoice': True})['bolt12']
+    print(offer)
+
+    # Fetchinvoice will refuse, since you're supposed to send an invoice.
+    with pytest.raises(RpcError, match='Offer wants an invoice, not invoice_request'):
+        l2.rpc.call('fetchinvoice', {'offer': offer})
