@@ -682,6 +682,70 @@ static struct command_result *invreq_done(struct command *cmd,
 				    json_tok_full(buf, t),
 				    fail);
 
+	/* Now that's given us the previous base, check this is an OK time
+	 * to request an invoice. */
+	if (sent->invreq->recurrence_counter) {
+		u64 *base;
+		const jsmntok_t *pbtok;
+		u64 period_idx = *sent->invreq->recurrence_counter;
+
+		if (sent->invreq->recurrence_start)
+			period_idx += *sent->invreq->recurrence_start;
+
+		/* BOLT-offers #12:
+		 * - if the offer contained `recurrence_limit`:
+		 *   - MUST NOT send an `invoice_request` for a period greater
+		 *     than `max_period`
+		 */
+		if (sent->offer->recurrence_limit
+		    && period_idx > *sent->offer->recurrence_limit)
+			return command_fail(cmd, LIGHTNINGD,
+					    "Can't send invreq for period %"
+					    PRIu64" (limit %u)",
+					    period_idx,
+					    *sent->offer->recurrence_limit);
+
+		/* BOLT-offers #12:
+		 * - SHOULD NOT send an `invoice_request` for a period which has
+		 *   already passed.
+		 */
+		/* If there's no recurrence_base, we need a previous payment
+		 * for this: fortunately createinvoicerequest does that
+		 * lookup. */
+		pbtok = json_get_member(buf, result, "previous_basetime");
+		if (pbtok) {
+			base = tal(tmpctx, u64);
+			json_to_u64(buf, pbtok, base);
+		} else if (sent->offer->recurrence_base)
+			base = &sent->offer->recurrence_base->basetime;
+		else {
+			/* happens with *recurrence_base == 0 */
+			assert(*sent->invreq->recurrence_counter == 0);
+			base = NULL;
+		}
+
+		if (base) {
+			u64 period_start, period_end, now = time_now().ts.tv_sec;
+			offer_period_paywindow(sent->offer->recurrence,
+					       sent->offer->recurrence_paywindow,
+					       sent->offer->recurrence_base,
+					       *base, period_idx,
+					       &period_start, &period_end);
+			if (now < period_start)
+				return command_fail(cmd, LIGHTNINGD,
+						    "Too early: can't send until time %"
+						    PRIu64" (in %"PRIu64" secs)",
+						    period_start,
+						    period_start - now);
+			if (now > period_end)
+				return command_fail(cmd, LIGHTNINGD,
+						    "Too late: expired time %"
+						    PRIu64" (%"PRIu64" secs ago)",
+						    period_end,
+						    now - period_end);
+		}
+	}
+
 	rawinvreq = tal_arr(tmpctx, u8, 0);
 	towire_invoice_request(&rawinvreq, sent->invreq);
 	return send_message(cmd, sent, "invoice_request", rawinvreq,
@@ -826,14 +890,6 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 		if (!rec_label)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "needs recurrence_label");
-
-		/* FIXME! */
-		/* BOLT-offers #12:
-		 * - SHOULD NOT send an `invoice_request` for a period which has
-		 *   already passed.
-		 */
-		/* If there's no recurrence_base, we need the initial payment
-		 * for this... */
 	} else {
 		/* BOLT-offers #12:
 		 * - otherwise:

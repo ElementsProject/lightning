@@ -134,7 +134,7 @@ static const struct plugin_command commands[] = {
 	    "offer",
 	    "payment",
 	    "Create an offer",
-            "Create an offer for invoices of {amount} with {destination}, optional {vendor}, {quantity_min}, {quantity_max}, {absolute_expiry}, {recurrence}, {recurrence_base}, {recurrence_paywindow}, {recurrence_limit} and {single_use}",
+            "Create an offer for invoices of {amount} with {description}, optional {vendor}, {quantity_min}, {quantity_max}, {absolute_expiry}, {recurrence}, {recurrence_base}, {recurrence_paywindow}, {recurrence_limit} and {single_use}",
             json_offer
     },
 };

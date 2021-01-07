@@ -3917,7 +3917,7 @@ def test_fetchinvoice(node_factory, bitcoind):
     l1.rpc.pay(ret['invoice'], label='test recurrence')
 
     # Now we can, but it's too early:
-    with pytest.raises(RpcError, match='Remote node sent failure message.*too early'):
+    with pytest.raises(RpcError, match="Too early: can't send until time {}".format(period1['starttime'])):
         l1.rpc.call('fetchinvoice', {'offer': offer3,
                                      'recurrence_counter': 2,
                                      'recurrence_label': 'test recurrence'})
@@ -3934,6 +3934,31 @@ def test_fetchinvoice(node_factory, bitcoind):
     l3.stop()
     with pytest.raises(RpcError, match='Timeout waiting for response'):
         l1.rpc.call('fetchinvoice', {'offer': offer1, 'timeout': 10})
+
+    # Now try an offer with a more complex paywindow (only 10 seconds before)
+    offer = l2.rpc.call('offer', {'amount': '1msat',
+                                  'description': 'paywindow test',
+                                  'recurrence': '20seconds',
+                                  'recurrence_paywindow': '-10+0'})['bolt12']
+
+    ret = l1.rpc.call('fetchinvoice', {'offer': offer,
+                                       'recurrence_counter': 0,
+                                       'recurrence_label': 'test paywindow'})
+    period3 = ret['next_period']
+    assert period3['counter'] == 1
+    assert period3['endtime'] == period3['starttime'] + 19
+    assert period3['paywindow_start'] == period3['starttime'] - 10
+    assert period3['paywindow_end'] == period3['starttime']
+    l1.rpc.pay(ret['invoice'], label='test paywindow')
+
+    # Wait until too late!
+    while int(time.time()) <= period3['paywindow_end']:
+        time.sleep(1)
+
+    with pytest.raises(RpcError, match="Too late: expired time {}".format(period3['paywindow_end'])):
+        l1.rpc.call('fetchinvoice', {'offer': offer,
+                                     'recurrence_counter': 1,
+                                     'recurrence_label': 'test paywindow'})
 
 
 def test_pay_waitblockheight_timeout(node_factory, bitcoind):
