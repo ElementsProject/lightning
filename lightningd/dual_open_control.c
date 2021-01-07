@@ -1176,7 +1176,7 @@ static void peer_tx_sigs_msg(struct subd *dualopend,
 }
 
 
-static struct command_result *json_open_channel_signed(struct command *cmd,
+static struct command_result *json_openchannel_signed(struct command *cmd,
 						       const char *buffer,
 						       const jsmntok_t *obj UNNEEDED,
 						       const jsmntok_t *params)
@@ -1259,7 +1259,7 @@ static struct command_result *json_open_channel_signed(struct command *cmd,
 }
 
 
-static struct command_result *json_open_channel_update(struct command *cmd,
+static struct command_result *json_openchannel_update(struct command *cmd,
 						       const char *buffer,
 						       const jsmntok_t *obj UNNEEDED,
 						       const jsmntok_t *params)
@@ -1312,7 +1312,7 @@ static struct command_result *json_open_channel_update(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-static struct command_result *json_open_channel_init(struct command *cmd,
+static struct command_result *json_openchannel_init(struct command *cmd,
 						     const char *buffer,
 						     const jsmntok_t *obj UNNEEDED,
 						     const jsmntok_t *params)
@@ -1539,34 +1539,34 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 	return 0;
 }
 
-static const struct json_command open_channel_init_command = {
+static const struct json_command openchannel_init_command = {
 	"openchannel_init",
 	"channels",
-	json_open_channel_init,
+	json_openchannel_init,
 	"Init an open channel to {id} with {initialpsbt} for {amount} satoshis. "
 	"Returns updated {psbt} with (partial) contributions from peer"
 };
 
-static const struct json_command open_channel_update_command = {
+static const struct json_command openchannel_update_command = {
 	"openchannel_update",
 	"channels",
-	json_open_channel_update,
+	json_openchannel_update,
 	"Update {channel_id} with {psbt}. "
 	"Returns updated {psbt} with (partial) contributions from peer. "
 	"If {commitments_secured} is true, next call should be to openchannel_signed"
 };
 
-static const struct json_command open_channel_signed_command = {
+static const struct json_command openchannel_signed_command = {
 	"openchannel_signed",
 	"channels",
-	json_open_channel_signed,
+	json_openchannel_signed,
 	"Send our {signed_psbt}'s tx sigs for {channel_id}."
 };
 
 #if EXPERIMENTAL_FEATURES
-AUTODATA(json_command, &open_channel_init_command);
-AUTODATA(json_command, &open_channel_update_command);
-AUTODATA(json_command, &open_channel_signed_command);
+AUTODATA(json_command, &openchannel_init_command);
+AUTODATA(json_command, &openchannel_update_command);
+AUTODATA(json_command, &openchannel_signed_command);
 #endif /* EXPERIMENTAL_FEATURES */
 
 void peer_start_dualopend(struct peer *peer,
