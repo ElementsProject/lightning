@@ -19,11 +19,13 @@ query parameters can be used at once\.
 .SH RETURN VALUE
 
 On success, an array \fIinvoices\fR of objects is returned\. Each object contains
-\fIlabel\fR, \fIpayment_hash\fR, \fIstatus\fR (one of \fIunpaid\fR, \fIpaid\fR or \fIexpired\fR),
-\fIpayment_preimage\fR (for paid invoices), and \fIexpiry_time\fR (a UNIX
+\fIlabel\fR, \fIdescription\fR, \fIpayment_hash\fR, \fIstatus\fR (one of \fIunpaid\fR, \fIpaid\fR or \fIexpired\fR),
+\fIpayment_preimage\fR (for paid invoices), and \fIexpires_at\fR (a UNIX
 timestamp)\.  If the \fImsatoshi\fR argument to \fBlightning-invoice\fR(7) was not "any",
 there will be an \fImsatoshi\fR field as a number, and \fIamount_msat\fR as the same
-number ending in \fImsat\fR\. If the invoice \fIstatus\fR is \fIpaid\fR, there will be a
+number ending in \fImsat\fR\.  If the invoice was created with a bolt11 string,
+there will be a \fIbolt11\fR field\.
+If the invoice \fIstatus\fR is \fIpaid\fR, there will be a
 \fIpay_index\fR field and an \fImsatoshi_received\fR field (which may be slightly
 greater than \fImsatoshi\fR as some overpaying is permitted to allow clients to
 obscure payment paths); there will also be an \fIamount_received_msat\fR field
@@ -41,4 +43,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:24dc46a53eed1dd689d7fb371a3da52242f306126d54bba3d8c6ba5a75b6b795
+\" SHA256STAMP:3d3cef4fa52635fa5c515959718e017173c3fffdc32ca7066fea3b82cf93758d
