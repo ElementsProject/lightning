@@ -62,6 +62,9 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_REPLY_CHANNEL_RANGE:
 	case WIRE_PING:
 	case WIRE_PONG:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_ONION_MESSAGE:
+#endif
 		return true;
 	case WIRE_INIT:
 	case WIRE_ERROR:
@@ -83,7 +86,6 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
 #if EXPERIMENTAL_FEATURES
-	case WIRE_ONION_MESSAGE:
 	case WIRE_TX_ADD_INPUT:
 	case WIRE_TX_REMOVE_INPUT:
 	case WIRE_TX_ADD_OUTPUT:

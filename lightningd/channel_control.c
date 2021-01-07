@@ -26,7 +26,6 @@
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
 #include <lightningd/notification.h>
-#include <lightningd/onion_message.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
 #include <wire/common_wiregen.h>
@@ -522,17 +521,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
 		break;
-#if EXPERIMENTAL_FEATURES
-	case WIRE_GOT_ONIONMSG_TO_US:
-		handle_onionmsg_to_us(sd->channel, msg);
-		break;
-	case WIRE_GOT_ONIONMSG_FORWARD:
-		handle_onionmsg_forward(sd->channel, msg);
-		break;
-#else
-	case WIRE_GOT_ONIONMSG_TO_US:
-	case WIRE_GOT_ONIONMSG_FORWARD:
-#endif
 	/* And we never get these from channeld. */
 	case WIRE_CHANNELD_INIT:
 	case WIRE_CHANNELD_SEND_TX_SIGS:
@@ -548,7 +536,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_FEERATES:
 	case WIRE_CHANNELD_SPECIFIC_FEERATES:
 	case WIRE_CHANNELD_DEV_MEMLEAK:
-	case WIRE_SEND_ONIONMSG:
 		/* Replies go to requests. */
 	case WIRE_CHANNELD_OFFER_HTLC_REPLY:
 	case WIRE_CHANNELD_DEV_REENABLE_COMMIT_REPLY:
