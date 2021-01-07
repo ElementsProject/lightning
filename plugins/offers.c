@@ -3,6 +3,7 @@
 #include <common/json_stream.h>
 #include <plugins/libplugin.h>
 #include <plugins/offers.h>
+#include <plugins/offers_inv_hook.h>
 #include <plugins/offers_invreq_hook.h>
 #include <plugins/offers_offer.h>
 
@@ -75,7 +76,7 @@ static struct command_result *onion_message_call(struct command *cmd,
 						 const char *buf,
 						 const jsmntok_t *params)
 {
-	const jsmntok_t *om, *invreqtok;
+	const jsmntok_t *om, *invreqtok, *invtok;
 
 	om = json_get_member(buf, params, "onion_message");
 
@@ -90,6 +91,14 @@ static struct command_result *onion_message_call(struct command *cmd,
 		else
 			plugin_log(cmd->plugin, LOG_DBG,
 				   "invoice_request without reply_path");
+	}
+
+	invtok = json_get_member(buf, om, "invoice");
+	if (invtok) {
+		const jsmntok_t *replytok;
+
+		replytok = json_get_member(buf, om, "reply_path");
+		return handle_invoice(cmd, buf, invtok, replytok);
 	}
 
 	return command_hook_success(cmd);
