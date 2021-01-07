@@ -6,7 +6,7 @@ lightning-sendinvoice - Command for send an invoice for an offer
 \fIEXPERIMENTAL_FEATURES only\fR
 
 
-\fBsendinvoice\fR \fIoffer\fR [\fIlabel\fR] [\fImsatoshi\fR] [\fItimeout\fR] [\fIinvoice_timeout\fR] [\fIquantity\fR]
+\fBsendinvoice\fR \fIoffer\fR [\fIlabel\fR] [\fImsatoshi\fR] [\fItimeout\fR] [\fIquantity\fR]
 
 .SH DESCRIPTION
 
@@ -28,12 +28,8 @@ amount contained in the offer (multiplied by \fIquantity\fR if any)\.
 
 
 \fItimeout\fR is how many seconds to wait for the offering node to pay the
-invoice or return an error, default 90 seconds\.
-
-
-\fIinvoice_timeout\fR can be set to greater than \fItimeout\fR, to give the
-offering node longer to pay; in this case \fIsendinvoice\fR will time out
-but the invoice will still be valid, and the caller should monitor it\.
+invoice or return an error, default 90 seconds\.  This will also be the
+timeout on the invoice that is sent\.
 
 
 \fIquantity\fR is optional: it is required if the \fIoffer\fR specifies
@@ -71,4 +67,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:403f142342802de658c6721a5caed11a9753fb1b437feceb19bcae30c79a4615
+\" SHA256STAMP:cfb235f88de77288c3a757f9d7252591cb61adb773d7a88062464011a6586753

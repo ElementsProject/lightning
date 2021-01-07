@@ -643,9 +643,7 @@ static void timeout_sent_inv(struct sent *sent)
 	json_out_addstr(details, "invstring", invoice_encode(tmpctx, sent->inv));
 	/* This will free sent! */
 	discard_result(command_done_err(sent->cmd, OFFER_TIMEOUT,
-					"Timeout waiting for response"
-					" (but use waitinvoice if invoice_timeout"
-					" was greater)",
+					"Failed: timeout waiting for response",
 					details));
 }
 
@@ -1148,7 +1146,7 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 {
 	struct amount_msat *msat;
 	struct out_req *req;
-	u32 *timeout, *invoice_timeout;
+	u32 *timeout;
 	struct sent *sent = tal(cmd, struct sent);
 
 	sent->inv = tlv_invoice_new(cmd);
@@ -1161,7 +1159,6 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 		   p_req("label", param_label, &sent->inv_label),
 		   p_opt("msatoshi", param_msat, &msat),
 		   p_opt_def("timeout", param_number, &timeout, 90),
-		   p_opt("invoice_timeout", param_number, &invoice_timeout),
 		   p_opt("quantity", param_u64, &sent->inv->quantity),
 		   NULL))
 		return command_param_failed();
@@ -1259,15 +1256,6 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 	sent->inv->timestamp = tal(sent->inv, u64);
 	*sent->inv->timestamp = time_now().ts.tv_sec;
 
-	/* If they don't specify an invoice_timeout, make it the same as we're
-	 * prepare to wait. */
-	if (!invoice_timeout)
-		invoice_timeout = timeout;
-	else if (*invoice_timeout < *timeout)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "invoice_timeout %u must be >= timeout %u",
-				    *invoice_timeout, *timeout);
-
 	/* BOLT-offers #12:
 	 * - if the expiry for accepting payment is not 7200 seconds after
 	 *   `timestamp`:
@@ -1275,9 +1263,9 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 	 *     of seconds after `timestamp` that payment of this invoice should
 	 *     not be attempted.
 	 */
-	if (*invoice_timeout != 7200) {
+	if (sent->wait_timeout != 7200) {
 		sent->inv->relative_expiry = tal(sent->inv, u32);
-		*sent->inv->relative_expiry = *invoice_timeout;
+		*sent->inv->relative_expiry = sent->wait_timeout;
 	}
 
 	/* BOLT-offers #12:
