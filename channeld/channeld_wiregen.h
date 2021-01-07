@@ -74,11 +74,6 @@ enum channeld_wire {
         WIRE_CHANNELD_SEND_ERROR = 1008,
         /*  Tell master channeld has sent the error message. */
         WIRE_CHANNELD_SEND_ERROR_REPLY = 1108,
-        /*  Tell lightningd we got a onion message (for us */
-        WIRE_GOT_ONIONMSG_TO_US = 1142,
-        WIRE_GOT_ONIONMSG_FORWARD = 1143,
-        /*  Lightningd tells us to send a onion message. */
-        WIRE_SEND_ONIONMSG = 1040,
 };
 
 const char *channeld_wire_name(int e);
@@ -230,20 +225,6 @@ bool fromwire_channeld_send_error(const tal_t *ctx, const void *p, wirestring **
 u8 *towire_channeld_send_error_reply(const tal_t *ctx);
 bool fromwire_channeld_send_error_reply(const void *p);
 
-/* WIRE: GOT_ONIONMSG_TO_US */
-/*  Tell lightningd we got a onion message (for us */
-u8 *towire_got_onionmsg_to_us(const tal_t *ctx, const struct pubkey *blinding_in, const struct pubkey *reply_blinding, const struct onionmsg_path **reply_path, const u8 *rawmsg);
-bool fromwire_got_onionmsg_to_us(const tal_t *ctx, const void *p, struct pubkey **blinding_in, struct pubkey **reply_blinding, struct onionmsg_path ***reply_path, u8 **rawmsg);
-
-/* WIRE: GOT_ONIONMSG_FORWARD */
-u8 *towire_got_onionmsg_forward(const tal_t *ctx, const struct short_channel_id *next_scid, const struct node_id *next_node_id, const struct pubkey *next_blinding, const u8 next_onion[1366]);
-bool fromwire_got_onionmsg_forward(const tal_t *ctx, const void *p, struct short_channel_id **next_scid, struct node_id **next_node_id, struct pubkey **next_blinding, u8 next_onion[1366]);
-
-/* WIRE: SEND_ONIONMSG */
-/*  Lightningd tells us to send a onion message. */
-u8 *towire_send_onionmsg(const tal_t *ctx, const u8 onion[1366], const struct pubkey *blinding);
-bool fromwire_send_onionmsg(const tal_t *ctx, const void *p, u8 onion[1366], struct pubkey **blinding);
-
 
 #endif /* LIGHTNING_CHANNELD_CHANNELD_WIREGEN_H */
-// SHA256STAMP:564860d28225780e0746b0f9e6944d691a342d12bd9d0400bb962577fab64067
+// SHA256STAMP:58b780dc0bd7296e837407e362f2364f70104199c6a6b01382bb9278696688ae

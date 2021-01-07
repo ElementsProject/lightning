@@ -51,7 +51,6 @@
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
 #include <common/read_peer_msg.h>
-#include <common/sphinx.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
@@ -65,7 +64,6 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <secp256k1.h>
-#include <sodium/crypto_aead_chacha20poly1305.h>
 #include <stdio.h>
 #if EXPERIMENTAL_FEATURES
 #include <wire/bolt12_exp_wiregen.h>
@@ -1805,230 +1803,6 @@ static bool channeld_handle_custommsg(const u8 *msg)
 }
 
 #if EXPERIMENTAL_FEATURES
-/* Peer sends onion msg. */
-static void handle_onion_message(struct peer *peer, const u8 *msg)
-{
-	enum onion_wire badreason;
-	struct onionpacket *op;
-	struct secret ss, *blinding_ss;
-	struct pubkey *blinding_in;
-	struct route_step *rs;
-	u8 onion[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
-	const u8 *cursor;
-	size_t max, maxlen;
-	struct tlv_onionmsg_payload *om;
-	struct tlv_onion_message_tlvs *tlvs = tlv_onion_message_tlvs_new(msg);
-
-	if (!fromwire_onion_message(msg, onion, tlvs))
-		peer_failed(peer->pps,
-			    &peer->channel_id,
-			    "Bad onion_message %s", tal_hex(peer, msg));
-
-	/* We unwrap the onion now. */
-	op = parse_onionpacket(tmpctx, onion, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE), &badreason);
-	if (badreason != 0) {
-		status_debug("onion msg: can't parse onionpacket: %s",
-			     onion_wire_name(badreason));
-		return;
-	}
-
-	if (tlvs->blinding) {
-		struct secret hmac;
-
-		/* E(i) */
-		blinding_in = tal_dup(msg, struct pubkey, tlvs->blinding);
-		status_debug("blinding in = %s",
-			     type_to_string(tmpctx, struct pubkey, blinding_in));
-		blinding_ss = tal(msg, struct secret);
-		ecdh(blinding_in, blinding_ss);
-
-		/* b(i) = HMAC256("blinded_node_id", ss(i)) * k(i) */
-		subkey_from_hmac("blinded_node_id", blinding_ss, &hmac);
-
-		/* We instead tweak the *ephemeral* key from the onion and use
-		 * our normal privkey: since hsmd knows only how to ECDH with
-		 * our real key */
-		if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
-						  &op->ephemeralkey.pubkey,
-						  hmac.data) != 1) {
-			status_debug("onion msg: can't tweak pubkey");
-			return;
-		}
-	} else {
-		blinding_ss = NULL;
-		blinding_in = NULL;
-	}
-
-	ecdh(&op->ephemeralkey, &ss);
-
-	/* We make sure we can parse onion packet, so we know if shared secret
-	 * is actually valid (this checks hmac). */
-	rs = process_onionpacket(tmpctx, op, &ss, NULL, 0, false);
-	if (!rs) {
-		status_debug("onion msg: can't process onionpacket ss=%s",
-			     type_to_string(tmpctx, struct secret, &ss));
-		return;
-	}
-
-	/* The raw payload is prepended with length in the TLV world. */
-	cursor = rs->raw_payload;
-	max = tal_bytelen(rs->raw_payload);
-	maxlen = fromwire_bigsize(&cursor, &max);
-	if (!cursor) {
-		status_debug("onion msg: Invalid hop payload %s",
-			     tal_hex(tmpctx, rs->raw_payload));
-		return;
-	}
-	if (maxlen > max) {
-		status_debug("onion msg: overlong hop payload %s",
-			     tal_hex(tmpctx, rs->raw_payload));
-		return;
-	}
-
-	om = tlv_onionmsg_payload_new(msg);
-	if (!fromwire_onionmsg_payload(&cursor, &maxlen, om)) {
-		status_debug("onion msg: invalid onionmsg_payload %s",
-			     tal_hex(tmpctx, rs->raw_payload));
-		return;
-	}
-
-	/* If we weren't given a blinding factor, tlv can provide one. */
-	if (om->blinding && !blinding_ss) {
-		/* E(i) */
-		blinding_in = tal_dup(msg, struct pubkey, om->blinding);
-		blinding_ss = tal(msg, struct secret);
-
-		ecdh(blinding_in, blinding_ss);
-	}
-
-	if (om->enctlv) {
-		const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-		u8 *dec;
-		struct secret rho;
-		int ret;
-
-		if (!blinding_ss) {
-			status_debug("enctlv but no blinding?");
-			return;
-		}
-
-		/* We need this to decrypt enctlv */
-		subkey_from_hmac("rho", blinding_ss, &rho);
-
-		/* Overrides next_scid / next_node */
-		if (tal_bytelen(om->enctlv)
-		    < crypto_aead_chacha20poly1305_ietf_ABYTES) {
-			status_debug("enctlv too short for mac");
-			return;
-		}
-
-		dec = tal_arr(msg, u8,
-			      tal_bytelen(om->enctlv)
-			      - crypto_aead_chacha20poly1305_ietf_ABYTES);
-		ret = crypto_aead_chacha20poly1305_ietf_decrypt(dec, NULL,
-								NULL,
-								om->enctlv,
-								tal_bytelen(om->enctlv),
-								NULL, 0,
-								npub,
-								rho.data);
-		if (ret != 0)
-			errx(1, "Failed to decrypt enctlv field");
-
-		status_debug("enctlv -> %s", tal_hex(tmpctx, dec));
-
-		/* Replace onionmsg with one from enctlv */
-		cursor = dec;
-		maxlen = tal_bytelen(dec);
-
-		om = tlv_onionmsg_payload_new(msg);
-		if (!fromwire_onionmsg_payload(&cursor, &maxlen, om)) {
-			status_debug("onion msg: invalid enctlv onionmsg_payload %s",
-				     tal_hex(tmpctx, dec));
-			return;
-		}
-	} else if (blinding_ss && rs->nextcase != ONION_END) {
-		status_debug("Onion had %s, but not enctlv?",
-			     tlvs->blinding ? "blinding" : "om blinding");
-		return;
-	}
-
-	if (rs->nextcase == ONION_END) {
-		struct pubkey *blinding;
-		const struct onionmsg_path **path;
-		u8 *omsg;
-
-		if (om->reply_path) {
-			blinding = &om->reply_path->blinding;
-			path = cast_const2(const struct onionmsg_path **,
-					   om->reply_path->path);
-		} else {
-			blinding = NULL;
-			path = NULL;
-		}
-
-		/* We re-marshall here by policy, before handing to lightningd */
-		omsg = tal_arr(tmpctx, u8, 0);
-		towire_tlvstream_raw(&omsg, om->fields);
-		wire_sync_write(MASTER_FD,
-				take(towire_got_onionmsg_to_us(NULL,
-							       blinding_in,
-							       blinding,
-							       path,
-							       omsg)));
-	} else {
-		struct pubkey *next_blinding;
-		struct node_id *next_node;
-
-		/* This *MUST* have instructions on where to go next. */
-		if (!om->next_short_channel_id && !om->next_node_id) {
-			status_debug("onion msg: no next field in %s",
-				     tal_hex(tmpctx, rs->raw_payload));
-			return;
-		}
-
-		if (blinding_ss) {
-			/* E(i-1) = H(E(i) || ss(i)) * E(i) */
-			struct sha256 h;
-			blinding_hash_e_and_ss(blinding_in, blinding_ss, &h);
-			next_blinding = tal(msg, struct pubkey);
-			blinding_next_pubkey(blinding_in, &h, next_blinding);
-		} else
-			next_blinding = NULL;
-
-		if (om->next_node_id) {
-			next_node = tal(tmpctx, struct node_id);
-			node_id_from_pubkey(next_node, om->next_node_id);
-		} else
-			next_node = NULL;
-
-		wire_sync_write(MASTER_FD,
-				take(towire_got_onionmsg_forward(NULL,
-								 om->next_short_channel_id,
-								 next_node,
-								 next_blinding,
-								 serialize_onionpacket(tmpctx, rs->next))));
-	}
-}
-
-/* We send onion msg. */
-static void send_onionmsg(struct peer *peer, const u8 *msg)
-{
-	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
-	struct pubkey *blinding;
-	struct tlv_onion_message_tlvs *tlvs = tlv_onion_message_tlvs_new(msg);
-
-	if (!fromwire_send_onionmsg(msg, msg, onion_routing_packet, &blinding))
-		master_badmsg(WIRE_SEND_ONIONMSG, msg);
-
-	if (blinding)
-		tlvs->blinding = tal_dup(tlvs, struct pubkey, blinding);
-	sync_crypto_write(peer->pps,
-			  take(towire_onion_message(NULL,
-						    onion_routing_packet,
-						    tlvs)));
-}
-
 static void handle_send_tx_sigs(struct peer *peer, const u8 *msg)
 {
 	struct wally_psbt *psbt;
@@ -2278,9 +2052,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		handle_peer_shutdown(peer, msg);
 		return;
 #if EXPERIMENTAL_FEATURES
-	case WIRE_ONION_MESSAGE:
-		handle_onion_message(peer, msg);
-		return;
 	case WIRE_TX_SIGNATURES:
 		handle_tx_sigs(peer, msg);
 		return;
@@ -2323,6 +2094,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_PING:
 	case WIRE_PONG:
 	case WIRE_ERROR:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_ONION_MESSAGE:
+#endif
 		abort();
 	}
 
@@ -3361,14 +3135,6 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_SEND_TX_SIGS:
 		break;
 #endif /* !EXPERIMENTAL_FEATURES */
-#if EXPERIMENTAL_FEATURES
-	case WIRE_SEND_ONIONMSG:
-		send_onionmsg(peer, msg);
-		return;
-#else
-	case WIRE_SEND_ONIONMSG:
-		break;
-#endif /* !EXPERIMENTAL_FEATURES */
 #if DEVELOPER
 	case WIRE_CHANNELD_DEV_REENABLE_COMMIT:
 		handle_dev_reenable_commit(peer);
@@ -3397,8 +3163,6 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_FAIL_FALLEN_BEHIND:
 	case WIRE_CHANNELD_DEV_MEMLEAK_REPLY:
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
-	case WIRE_GOT_ONIONMSG_TO_US:
-	case WIRE_GOT_ONIONMSG_FORWARD:
 		break;
 	}
 

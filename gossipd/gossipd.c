@@ -27,12 +27,15 @@
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bech32_util.h>
+#include <common/blinding.h>
 #include <common/cryptomsg.h>
 #include <common/daemon_conn.h>
+#include <common/ecdh_hsmd.h>
 #include <common/features.h>
 #include <common/memleak.h>
 #include <common/ping.h>
 #include <common/pseudorand.h>
+#include <common/sphinx.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
@@ -58,12 +61,16 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <secp256k1_ecdh.h>
+#include <sodium/crypto_aead_chacha20poly1305.h>
 #include <sodium/randombytes.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
+#if EXPERIMENTAL_FEATURES
+#include <wire/bolt12_exp_wiregen.h>
+#endif
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
@@ -428,6 +435,263 @@ static bool handle_local_channel_announcement(struct daemon *daemon,
 	return true;
 }
 
+#if EXPERIMENTAL_FEATURES
+/* Peer sends onion msg. */
+static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
+{
+	enum onion_wire badreason;
+	struct onionpacket *op;
+	struct secret ss, *blinding_ss;
+	struct pubkey *blinding_in;
+	struct route_step *rs;
+	u8 onion[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
+	const u8 *cursor;
+	size_t max, maxlen;
+	struct tlv_onionmsg_payload *om;
+	struct tlv_onion_message_tlvs *tlvs = tlv_onion_message_tlvs_new(msg);
+
+	/* FIXME: ratelimit! */
+	if (!fromwire_onion_message(msg, onion, tlvs))
+		return towire_errorfmt(peer, NULL, "Bad onion_message");
+
+	/* We unwrap the onion now. */
+	op = parse_onionpacket(tmpctx, onion, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE), &badreason);
+	if (!op) {
+		status_debug("peer %s: onion msg: can't parse onionpacket: %s",
+			     type_to_string(tmpctx, struct node_id, &peer->id),
+			     onion_wire_name(badreason));
+		return NULL;
+	}
+
+	if (tlvs->blinding) {
+		struct secret hmac;
+
+		/* E(i) */
+		blinding_in = tal_dup(msg, struct pubkey, tlvs->blinding);
+		status_debug("peer %s: blinding in = %s",
+			     type_to_string(tmpctx, struct node_id, &peer->id),
+			     type_to_string(tmpctx, struct pubkey, blinding_in));
+		blinding_ss = tal(msg, struct secret);
+		ecdh(blinding_in, blinding_ss);
+
+		/* b(i) = HMAC256("blinded_node_id", ss(i)) * k(i) */
+		subkey_from_hmac("blinded_node_id", blinding_ss, &hmac);
+
+		/* We instead tweak the *ephemeral* key from the onion and use
+		 * our normal privkey: since hsmd knows only how to ECDH with
+		 * our real key */
+		if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
+						  &op->ephemeralkey.pubkey,
+						  hmac.data) != 1) {
+			status_debug("peer %s: onion msg: can't tweak pubkey",
+				     type_to_string(tmpctx, struct node_id, &peer->id));
+			return NULL;
+		}
+	} else {
+		blinding_ss = NULL;
+		blinding_in = NULL;
+	}
+
+	ecdh(&op->ephemeralkey, &ss);
+
+	/* We make sure we can parse onion packet, so we know if shared secret
+	 * is actually valid (this checks hmac). */
+	rs = process_onionpacket(tmpctx, op, &ss, NULL, 0, false);
+	if (!rs) {
+		status_debug("peer %s: onion msg: can't process onionpacket ss=%s",
+			     type_to_string(tmpctx, struct node_id, &peer->id),
+			     type_to_string(tmpctx, struct secret, &ss));
+		return NULL;
+	}
+
+	/* The raw payload is prepended with length in the TLV world. */
+	cursor = rs->raw_payload;
+	max = tal_bytelen(rs->raw_payload);
+	maxlen = fromwire_bigsize(&cursor, &max);
+	if (!cursor) {
+		status_debug("peer %s: onion msg: Invalid hop payload %s",
+			     type_to_string(tmpctx, struct node_id, &peer->id),
+			     tal_hex(tmpctx, rs->raw_payload));
+		return NULL;
+	}
+	if (maxlen > max) {
+		status_debug("peer %s: onion msg: overlong hop payload %s",
+			     type_to_string(tmpctx, struct node_id, &peer->id),
+			     tal_hex(tmpctx, rs->raw_payload));
+		return NULL;
+	}
+
+	om = tlv_onionmsg_payload_new(msg);
+	if (!fromwire_onionmsg_payload(&cursor, &maxlen, om)) {
+		status_debug("peer %s: onion msg: invalid onionmsg_payload %s",
+			     type_to_string(tmpctx, struct node_id, &peer->id),
+			     tal_hex(tmpctx, rs->raw_payload));
+		return NULL;
+	}
+
+	/* If we weren't given a blinding factor, tlv can provide one. */
+	if (om->blinding && !blinding_ss) {
+		/* E(i) */
+		blinding_in = tal_dup(msg, struct pubkey, om->blinding);
+		blinding_ss = tal(msg, struct secret);
+
+		ecdh(blinding_in, blinding_ss);
+	}
+
+	if (om->enctlv) {
+		const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+		u8 *dec;
+		struct secret rho;
+		int ret;
+
+		if (!blinding_ss) {
+			status_debug("peer %s: enctlv but no blinding?",
+				     type_to_string(tmpctx, struct node_id, &peer->id));
+			return NULL;
+		}
+
+		/* We need this to decrypt enctlv */
+		subkey_from_hmac("rho", blinding_ss, &rho);
+
+		/* Overrides next_scid / next_node */
+		if (tal_bytelen(om->enctlv)
+		    < crypto_aead_chacha20poly1305_ietf_ABYTES) {
+			status_debug("peer %s: enctlv too short for mac",
+				     type_to_string(tmpctx, struct node_id, &peer->id));
+			return NULL;
+		}
+
+		dec = tal_arr(msg, u8,
+			      tal_bytelen(om->enctlv)
+			      - crypto_aead_chacha20poly1305_ietf_ABYTES);
+		ret = crypto_aead_chacha20poly1305_ietf_decrypt(dec, NULL,
+								NULL,
+								om->enctlv,
+								tal_bytelen(om->enctlv),
+								NULL, 0,
+								npub,
+								rho.data);
+		if (ret != 0) {
+			status_debug("peer %s: Failed to decrypt enctlv field",
+				     type_to_string(tmpctx, struct node_id, &peer->id));
+			return NULL;
+		}
+
+		status_debug("peer %s: enctlv -> %s",
+			     type_to_string(tmpctx, struct node_id, &peer->id),
+			     tal_hex(tmpctx, dec));
+
+		/* Replace onionmsg with one from enctlv */
+		cursor = dec;
+		maxlen = tal_bytelen(dec);
+
+		om = tlv_onionmsg_payload_new(msg);
+		if (!fromwire_onionmsg_payload(&cursor, &maxlen, om)) {
+			status_debug("peer %s: onion msg: invalid enctlv onionmsg_payload %s",
+				     type_to_string(tmpctx, struct node_id, &peer->id),
+				     tal_hex(tmpctx, dec));
+			return NULL;
+		}
+	} else if (blinding_ss && rs->nextcase != ONION_END) {
+		status_debug("peer %s: Onion had %s, but not enctlv?",
+			     type_to_string(tmpctx, struct node_id, &peer->id),
+			     tlvs->blinding ? "blinding" : "om blinding");
+		return NULL;
+	}
+
+	if (rs->nextcase == ONION_END) {
+		struct pubkey *blinding;
+		const struct onionmsg_path **path;
+		u8 *omsg;
+
+		if (om->reply_path) {
+			blinding = &om->reply_path->blinding;
+			path = cast_const2(const struct onionmsg_path **,
+					   om->reply_path->path);
+		} else {
+			blinding = NULL;
+			path = NULL;
+		}
+
+		/* We re-marshall here by policy, before handing to lightningd */
+		omsg = tal_arr(tmpctx, u8, 0);
+		towire_tlvstream_raw(&omsg, om->fields);
+		daemon_conn_send(peer->daemon->master,
+				 take(towire_gossipd_got_onionmsg_to_us(NULL,
+							blinding_in,
+							blinding,
+							path,
+							omsg)));
+	} else {
+		struct pubkey *next_blinding;
+		struct node_id *next_node;
+
+		/* This *MUST* have instructions on where to go next. */
+		if (!om->next_short_channel_id && !om->next_node_id) {
+			status_debug("peer %s: onion msg: no next field in %s",
+				     type_to_string(tmpctx, struct node_id, &peer->id),
+				     tal_hex(tmpctx, rs->raw_payload));
+			return NULL;
+		}
+
+		if (blinding_ss) {
+			/* E(i-1) = H(E(i) || ss(i)) * E(i) */
+			struct sha256 h;
+			blinding_hash_e_and_ss(blinding_in, blinding_ss, &h);
+			next_blinding = tal(msg, struct pubkey);
+			blinding_next_pubkey(blinding_in, &h, next_blinding);
+		} else
+			next_blinding = NULL;
+
+		if (om->next_node_id) {
+			next_node = tal(tmpctx, struct node_id);
+			node_id_from_pubkey(next_node, om->next_node_id);
+		} else
+			next_node = NULL;
+
+		daemon_conn_send(peer->daemon->master,
+				 take(towire_gossipd_got_onionmsg_forward(NULL,
+						  om->next_short_channel_id,
+						  next_node,
+						  next_blinding,
+						  serialize_onionpacket(tmpctx, rs->next))));
+	}
+	return NULL;
+}
+
+/* We send onion msg. */
+static struct io_plan *onionmsg_req(struct io_conn *conn, struct daemon *daemon,
+				    const u8 *msg)
+{
+	struct node_id id;
+	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
+	struct pubkey *blinding;
+	struct peer *peer;
+
+	if (!fromwire_gossipd_send_onionmsg(msg, msg, &id, onion_routing_packet,
+					    &blinding))
+		master_badmsg(WIRE_GOSSIPD_SEND_ONIONMSG, msg);
+
+	/* Even if lightningd were to check for valid ids, there's a race
+	 * where it might vanish before we read this command; cleaner to
+	 * handle it here with 'sent' = false. */
+	peer = find_peer(daemon, &id);
+	if (peer) {
+		struct tlv_onion_message_tlvs *tlvs;
+
+		tlvs = tlv_onion_message_tlvs_new(msg);
+		if (blinding)
+			tlvs->blinding = tal_dup(tlvs, struct pubkey, blinding);
+
+		queue_peer_msg(peer,
+			       take(towire_onion_message(NULL,
+							 onion_routing_packet,
+							 tlvs)));
+	}
+	return daemon_conn_read_next(conn, daemon->master);
+}
+#endif /* EXPERIMENTAL_FEATURES */
+
 /*~ This is where the per-peer daemons send us messages.  It's either forwarded
  * gossip, or a request for information.  We deliberately use non-overlapping
  * message types so we can distinguish them. */
@@ -467,6 +731,11 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_PONG:
 		err = handle_pong(peer, msg);
 		goto handled_relay;
+#if EXPERIMENTAL_FEATURES
+	case WIRE_ONION_MESSAGE:
+		err = handle_onion_message(peer, msg);
+		goto handled_relay;
+#endif
 
 	/* These are non-gossip messages (!is_msg_for_gossipd()) */
 	case WIRE_INIT:
@@ -489,7 +758,6 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
 #if EXPERIMENTAL_FEATURES
-	case WIRE_ONION_MESSAGE:
 	case WIRE_TX_ADD_INPUT:
 	case WIRE_TX_REMOVE_INPUT:
 	case WIRE_TX_ADD_OUTPUT:
@@ -1662,6 +1930,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		break;
 #endif /* !DEVELOPER */
 
+	case WIRE_GOSSIPD_SEND_ONIONMSG:
+#if EXPERIMENTAL_FEATURES
+		return onionmsg_req(conn, daemon, msg);
+#endif
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPD_GETNODES_REPLY:
 	case WIRE_GOSSIPD_GETROUTE_REPLY:
@@ -1672,6 +1944,8 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_GET_TXOUT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
+	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
+	case WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD:
 		break;
 	}
 
@@ -1702,6 +1976,9 @@ int main(int argc, char *argv[])
 	daemon->deferred_txouts = tal_arr(daemon, struct short_channel_id, 0);
 	daemon->node_announce_timer = NULL;
 	daemon->current_blockheight = 0; /* i.e. unknown */
+
+	/* Tell the ecdh() function how to talk to hsmd */
+	ecdh_hsmd_setup(HSM_FD, status_failed);
 
 	/* Note the use of time_mono() here.  That's a monotonic clock, which
 	 * is really useful: it can only be used to measure relative events

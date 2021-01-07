@@ -138,3 +138,24 @@ msgdata,gossipd_get_incoming_channels_reply,private_deadends,bool,num_private
 # master -> gossipd: blockheight increased.
 msgtype,gossipd_new_blockheight,3026
 msgdata,gossipd_new_blockheight,blockheight,u32,
+
+# Tell lightningd we got a onion message (for us, or to fwd)
+msgtype,gossipd_got_onionmsg_to_us,3142
+msgdata,gossipd_got_onionmsg_to_us,blinding_in,?pubkey,
+msgdata,gossipd_got_onionmsg_to_us,reply_blinding,?pubkey,
+msgdata,gossipd_got_onionmsg_to_us,reply_path_len,u16,
+msgdata,gossipd_got_onionmsg_to_us,reply_path,onionmsg_path,reply_path_len
+msgdata,gossipd_got_onionmsg_to_us,rawmsg_len,u16,
+msgdata,gossipd_got_onionmsg_to_us,rawmsg,u8,rawmsg_len
+
+msgtype,gossipd_got_onionmsg_forward,3143
+msgdata,gossipd_got_onionmsg_forward,next_scid,?short_channel_id,
+msgdata,gossipd_got_onionmsg_forward,next_node_id,?node_id,
+msgdata,gossipd_got_onionmsg_forward,next_blinding,?pubkey,
+msgdata,gossipd_got_onionmsg_forward,next_onion,u8,1366
+
+# Lightningd tells us to send a onion message.
+msgtype,gossipd_send_onionmsg,3040
+msgdata,gossipd_send_onionmsg,id,node_id,
+msgdata,gossipd_send_onionmsg,onion,u8,1366
+msgdata,gossipd_send_onionmsg,blinding,?pubkey,

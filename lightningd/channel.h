@@ -263,6 +263,8 @@ struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid);
 
 struct channel *active_channel_by_scid(struct lightningd *ld,
 				       const struct short_channel_id *scid);
+struct channel *any_channel_by_scid(struct lightningd *ld,
+				    const struct short_channel_id *scid);
 
 /* Get channel by channel_id, optionally returning uncommitted_channel. */
 struct channel *channel_by_cid(struct lightningd *ld,

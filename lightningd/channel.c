@@ -356,12 +356,20 @@ struct channel *active_channel_by_id(struct lightningd *ld,
 struct channel *active_channel_by_scid(struct lightningd *ld,
 				       const struct short_channel_id *scid)
 {
+	struct channel *chan = any_channel_by_scid(ld, scid);
+	if (chan && !channel_active(chan))
+		chan = NULL;
+	return chan;
+}
+
+struct channel *any_channel_by_scid(struct lightningd *ld,
+				    const struct short_channel_id *scid)
+{
 	struct peer *p;
 	struct channel *chan;
 	list_for_each(&ld->peers, p, list) {
 		list_for_each(&p->channels, chan, list) {
-			if (channel_active(chan)
-			    && chan->scid
+			if (chan->scid
 			    && short_channel_id_eq(scid, chan->scid))
 				return chan;
 		}

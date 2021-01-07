@@ -48,9 +48,6 @@ const char *channeld_wire_name(int e)
 	case WIRE_CHANNELD_GOT_ANNOUNCEMENT: return "WIRE_CHANNELD_GOT_ANNOUNCEMENT";
 	case WIRE_CHANNELD_SEND_ERROR: return "WIRE_CHANNELD_SEND_ERROR";
 	case WIRE_CHANNELD_SEND_ERROR_REPLY: return "WIRE_CHANNELD_SEND_ERROR_REPLY";
-	case WIRE_GOT_ONIONMSG_TO_US: return "WIRE_GOT_ONIONMSG_TO_US";
-	case WIRE_GOT_ONIONMSG_FORWARD: return "WIRE_GOT_ONIONMSG_FORWARD";
-	case WIRE_SEND_ONIONMSG: return "WIRE_SEND_ONIONMSG";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -88,9 +85,6 @@ bool channeld_wire_is_defined(u16 type)
 	case WIRE_CHANNELD_GOT_ANNOUNCEMENT:;
 	case WIRE_CHANNELD_SEND_ERROR:;
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:;
-	case WIRE_GOT_ONIONMSG_TO_US:;
-	case WIRE_GOT_ONIONMSG_FORWARD:;
-	case WIRE_SEND_ONIONMSG:;
 	      return true;
 	}
 	return false;
@@ -1102,158 +1096,4 @@ bool fromwire_channeld_send_error_reply(const void *p)
 		return false;
 	return cursor != NULL;
 }
-
-/* WIRE: GOT_ONIONMSG_TO_US */
-/* Tell lightningd we got a onion message (for us */
-u8 *towire_got_onionmsg_to_us(const tal_t *ctx, const struct pubkey *blinding_in, const struct pubkey *reply_blinding, const struct onionmsg_path **reply_path, const u8 *rawmsg)
-{
-	u16 reply_path_len = tal_count(reply_path);
-	u16 rawmsg_len = tal_count(rawmsg);
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_GOT_ONIONMSG_TO_US);
-	if (!blinding_in)
-		towire_bool(&p, false);
-	else {
-		towire_bool(&p, true);
-		towire_pubkey(&p, blinding_in);
-	}
-	if (!reply_blinding)
-		towire_bool(&p, false);
-	else {
-		towire_bool(&p, true);
-		towire_pubkey(&p, reply_blinding);
-	}
-	towire_u16(&p, reply_path_len);
-	for (size_t i = 0; i < reply_path_len; i++)
-		towire_onionmsg_path(&p, reply_path[i]);
-	towire_u16(&p, rawmsg_len);
-	towire_u8_array(&p, rawmsg, rawmsg_len);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_got_onionmsg_to_us(const tal_t *ctx, const void *p, struct pubkey **blinding_in, struct pubkey **reply_blinding, struct onionmsg_path ***reply_path, u8 **rawmsg)
-{
-	u16 reply_path_len;
-	u16 rawmsg_len;
-
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_GOT_ONIONMSG_TO_US)
-		return false;
- 	if (!fromwire_bool(&cursor, &plen))
-		*blinding_in = NULL;
-	else {
-		*blinding_in = tal(ctx, struct pubkey);
-		fromwire_pubkey(&cursor, &plen, *blinding_in);
-	}
- 	if (!fromwire_bool(&cursor, &plen))
-		*reply_blinding = NULL;
-	else {
-		*reply_blinding = tal(ctx, struct pubkey);
-		fromwire_pubkey(&cursor, &plen, *reply_blinding);
-	}
- 	reply_path_len = fromwire_u16(&cursor, &plen);
- 	// 2nd case reply_path
-	*reply_path = reply_path_len ? tal_arr(ctx, struct onionmsg_path *, reply_path_len) : NULL;
-	for (size_t i = 0; i < reply_path_len; i++)
-		(*reply_path)[i] = fromwire_onionmsg_path(*reply_path, &cursor, &plen);
- 	rawmsg_len = fromwire_u16(&cursor, &plen);
- 	// 2nd case rawmsg
-	*rawmsg = rawmsg_len ? tal_arr(ctx, u8, rawmsg_len) : NULL;
-	fromwire_u8_array(&cursor, &plen, *rawmsg, rawmsg_len);
-	return cursor != NULL;
-}
-
-/* WIRE: GOT_ONIONMSG_FORWARD */
-u8 *towire_got_onionmsg_forward(const tal_t *ctx, const struct short_channel_id *next_scid, const struct node_id *next_node_id, const struct pubkey *next_blinding, const u8 next_onion[1366])
-{
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_GOT_ONIONMSG_FORWARD);
-	if (!next_scid)
-		towire_bool(&p, false);
-	else {
-		towire_bool(&p, true);
-		towire_short_channel_id(&p, next_scid);
-	}
-	if (!next_node_id)
-		towire_bool(&p, false);
-	else {
-		towire_bool(&p, true);
-		towire_node_id(&p, next_node_id);
-	}
-	if (!next_blinding)
-		towire_bool(&p, false);
-	else {
-		towire_bool(&p, true);
-		towire_pubkey(&p, next_blinding);
-	}
-	towire_u8_array(&p, next_onion, 1366);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_got_onionmsg_forward(const tal_t *ctx, const void *p, struct short_channel_id **next_scid, struct node_id **next_node_id, struct pubkey **next_blinding, u8 next_onion[1366])
-{
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_GOT_ONIONMSG_FORWARD)
-		return false;
- 	if (!fromwire_bool(&cursor, &plen))
-		*next_scid = NULL;
-	else {
-		*next_scid = tal(ctx, struct short_channel_id);
-		fromwire_short_channel_id(&cursor, &plen, *next_scid);
-	}
- 	if (!fromwire_bool(&cursor, &plen))
-		*next_node_id = NULL;
-	else {
-		*next_node_id = tal(ctx, struct node_id);
-		fromwire_node_id(&cursor, &plen, *next_node_id);
-	}
- 	if (!fromwire_bool(&cursor, &plen))
-		*next_blinding = NULL;
-	else {
-		*next_blinding = tal(ctx, struct pubkey);
-		fromwire_pubkey(&cursor, &plen, *next_blinding);
-	}
- 	fromwire_u8_array(&cursor, &plen, next_onion, 1366);
-	return cursor != NULL;
-}
-
-/* WIRE: SEND_ONIONMSG */
-/* Lightningd tells us to send a onion message. */
-u8 *towire_send_onionmsg(const tal_t *ctx, const u8 onion[1366], const struct pubkey *blinding)
-{
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_SEND_ONIONMSG);
-	towire_u8_array(&p, onion, 1366);
-	if (!blinding)
-		towire_bool(&p, false);
-	else {
-		towire_bool(&p, true);
-		towire_pubkey(&p, blinding);
-	}
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_send_onionmsg(const tal_t *ctx, const void *p, u8 onion[1366], struct pubkey **blinding)
-{
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_SEND_ONIONMSG)
-		return false;
- 	fromwire_u8_array(&cursor, &plen, onion, 1366);
- 	if (!fromwire_bool(&cursor, &plen))
-		*blinding = NULL;
-	else {
-		*blinding = tal(ctx, struct pubkey);
-		fromwire_pubkey(&cursor, &plen, *blinding);
-	}
-	return cursor != NULL;
-}
-// SHA256STAMP:564860d28225780e0746b0f9e6944d691a342d12bd9d0400bb962577fab64067
+// SHA256STAMP:58b780dc0bd7296e837407e362f2364f70104199c6a6b01382bb9278696688ae

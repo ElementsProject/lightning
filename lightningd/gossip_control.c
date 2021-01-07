@@ -29,6 +29,7 @@
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/log.h>
+#include <lightningd/onion_message.h>
 #include <lightningd/options.h>
 #include <lightningd/ping.h>
 #include <sodium/randombytes.h>
@@ -149,6 +150,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE:
 	case WIRE_GOSSIPD_DEV_SET_TIME:
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
+	case WIRE_GOSSIPD_SEND_ONIONMSG:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_GOSSIPD_GETNODES_REPLY:
 	case WIRE_GOSSIPD_GETROUTE_REPLY:
@@ -159,6 +161,18 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE_REPLY:
 		break;
 
+#if EXPERIMENTAL_FEATURES
+	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
+		handle_onionmsg_to_us(gossip->ld, msg);
+		break;
+	case WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD:
+		handle_onionmsg_forward(gossip->ld, msg);
+		break;
+#else
+	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
+	case WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD:
+		break;
+#endif
 	case WIRE_GOSSIPD_PING_REPLY:
 		ping_reply(gossip, msg);
 		break;
@@ -193,7 +207,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	u8 *msg;
 	int hsmfd;
 
-	hsmfd = hsm_get_global_fd(ld, HSM_CAP_SIGN_GOSSIP);
+	hsmfd = hsm_get_global_fd(ld, HSM_CAP_ECDH|HSM_CAP_SIGN_GOSSIP);
 
 	ld->gossip = new_global_subd(ld, "lightning_gossipd",
 				     gossipd_wire_name, gossip_msg,
