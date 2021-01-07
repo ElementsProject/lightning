@@ -3850,12 +3850,11 @@ def test_fetchinvoice(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
     # Simple offer first.
-    offer = l3.rpc.call('offer', {'amount': '1msat',
-                                  'description': 'simple test'})['bolt12']
-    print(offer)
+    offer1 = l3.rpc.call('offer', {'amount': '1msat',
+                                   'description': 'simple test'})['bolt12']
 
-    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer})
-    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer})
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1})
+    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer1})
     assert inv1 != inv2
     assert 'next_period' not in inv1
     assert 'next_period' not in inv2
@@ -3863,13 +3862,12 @@ def test_fetchinvoice(node_factory, bitcoind):
     l1.rpc.pay(inv2['invoice'])
 
     # Single-use invoice can be fetched multiple times, only paid once.
-    offer = l3.rpc.call('offer', {'amount': '1msat',
-                                  'description': 'single-use test',
-                                  'single_use': True})['bolt12']
-    print(offer)
+    offer2 = l3.rpc.call('offer', {'amount': '1msat',
+                                   'description': 'single-use test',
+                                   'single_use': True})['bolt12']
 
-    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer})
-    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer})
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer2})
+    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer2})
     assert inv1 != inv2
     assert 'next_period' not in inv1
     assert 'next_period' not in inv2
@@ -3882,18 +3880,16 @@ def test_fetchinvoice(node_factory, bitcoind):
 
     # We can't reuse the offer, either.
     with pytest.raises(RpcError, match='Offer no longer available'):
-        l1.rpc.call('fetchinvoice', {'offer': offer})
+        l1.rpc.call('fetchinvoice', {'offer': offer2})
 
     # Recurring offer.
-    offer = l2.rpc.call('offer', {'amount': '1msat',
-                                  'description': 'recurring test',
-                                  'recurrence': '1minutes'})['bolt12']
-    print(offer)
+    offer3 = l2.rpc.call('offer', {'amount': '1msat',
+                                   'description': 'recurring test',
+                                   'recurrence': '1minutes'})['bolt12']
 
-    ret = l1.rpc.call('fetchinvoice', {'offer': offer,
+    ret = l1.rpc.call('fetchinvoice', {'offer': offer3,
                                        'recurrence_counter': 0,
                                        'recurrence_label': 'test recurrence'})
-    print(ret)
     period1 = ret['next_period']
     assert period1['counter'] == 1
     assert period1['endtime'] == period1['starttime'] + 59
@@ -3902,10 +3898,9 @@ def test_fetchinvoice(node_factory, bitcoind):
 
     l1.rpc.pay(ret['invoice'], label='test recurrence')
 
-    ret = l1.rpc.call('fetchinvoice', {'offer': offer,
+    ret = l1.rpc.call('fetchinvoice', {'offer': offer3,
                                        'recurrence_counter': 1,
                                        'recurrence_label': 'test recurrence'})
-    print(ret)
     period2 = ret['next_period']
     assert period2['counter'] == 2
     assert period2['starttime'] == period1['endtime'] + 1
@@ -3915,7 +3910,7 @@ def test_fetchinvoice(node_factory, bitcoind):
 
     # Can't request 2 before paying 1.
     with pytest.raises(RpcError, match='previous invoice has not been paid'):
-        l1.rpc.call('fetchinvoice', {'offer': offer,
+        l1.rpc.call('fetchinvoice', {'offer': offer3,
                                      'recurrence_counter': 2,
                                      'recurrence_label': 'test recurrence'})
 
@@ -3923,7 +3918,7 @@ def test_fetchinvoice(node_factory, bitcoind):
 
     # Now we can, but it's too early:
     with pytest.raises(RpcError, match='Remote node sent failure message.*too early'):
-        l1.rpc.call('fetchinvoice', {'offer': offer,
+        l1.rpc.call('fetchinvoice', {'offer': offer3,
                                      'recurrence_counter': 2,
                                      'recurrence_label': 'test recurrence'})
 
@@ -3931,9 +3926,14 @@ def test_fetchinvoice(node_factory, bitcoind):
     while time.time() < period1['starttime']:
         time.sleep(1)
 
-    l1.rpc.call('fetchinvoice', {'offer': offer,
+    l1.rpc.call('fetchinvoice', {'offer': offer3,
                                  'recurrence_counter': 2,
                                  'recurrence_label': 'test recurrence'})
+
+    # Test timeout.
+    l3.stop()
+    with pytest.raises(RpcError, match='Timeout waiting for response'):
+        l1.rpc.call('fetchinvoice', {'offer': offer1, 'timeout': 10})
 
 
 def test_pay_waitblockheight_timeout(node_factory, bitcoind):
