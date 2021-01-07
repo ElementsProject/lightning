@@ -3967,3 +3967,29 @@ def test_sendinvoice(node_factory, bitcoind):
     # Fetchinvoice will refuse, since you're supposed to send an invoice.
     with pytest.raises(RpcError, match='Offer wants an invoice, not invoice_request'):
         l2.rpc.call('fetchinvoice', {'offer': offer})
+
+    # sendinvoice should work.
+    out = l2.rpc.call('sendinvoice', {'offer': offer,
+                                      'label': 'test sendinvoice 1'})
+    print(out)
+
+    # Note, if we're slow, this fails with "Offer no longer available",
+    # *but* if it hasn't heard about payment success yet, l2 will fail
+    # simply because payments are already pending.
+    with pytest.raises(RpcError, match='Offer no longer available|pay attempt failed'):
+        l2.rpc.call('sendinvoice', {'offer': offer,
+                                    'label': 'test sendinvoice 2'})
+
+    # Now try a refund.
+    offer = l2.rpc.call('offer', {'amount': '100msat',
+                                  'description': 'simple test'})['bolt12']
+
+    inv = l1.rpc.call('fetchinvoice', {'offer': offer})
+    l1.rpc.pay(inv['invoice'])
+
+    refund = l2.rpc.call('offer', {'amount': '100msat',
+                                   'description': 'refund test',
+                                   'refund_for': inv['invoice']})['bolt12']
+
+    l1.rpc.call('sendinvoice', {'offer': refund,
+                                'label': 'test sendinvoice refund'})

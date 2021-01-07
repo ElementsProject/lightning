@@ -44,6 +44,8 @@ struct sent {
 	struct tlv_invoice *inv;
 	struct preimage inv_preimage;
 	struct json_escape *inv_label;
+	/* How long to wait for response before giving up. */
+	u32 inv_wait_timeout;
 };
 
 static struct sent *find_sent(const struct pubkey *blinding)
@@ -371,15 +373,6 @@ badinv:
 	return command_hook_success(cmd);
 }
 
-static struct command_result *handle_inv_response(struct command *cmd,
-						  struct sent *sent,
-						  const char *buf,
-						  const jsmntok_t *om)
-{
-	/* FIXME: Report error. */
-	return command_hook_success(cmd);
-}
-
 static struct command_result *recv_onion_message(struct command *cmd,
 						 const char *buf,
 						 const jsmntok_t *params)
@@ -413,10 +406,8 @@ static struct command_result *recv_onion_message(struct command *cmd,
 
 	if (sent->invreq)
 		return handle_invreq_response(cmd, sent, buf, om);
-	else {
-		assert(sent->inv);
-		return handle_inv_response(cmd, sent, buf, om);
-	}
+
+	return command_hook_success(cmd);
 }
 
 static void destroy_sent(struct sent *sent)
@@ -618,6 +609,31 @@ static struct command_result *send_message(struct command *cmd,
 	json_array_end(req->js);
 	json_object_end(req->js);
 	return send_outreq(cmd->plugin, req);
+}
+
+/* We've received neither a reply nor a payment; return failure. */
+static void timeout_sent_inv(struct sent *sent)
+{
+	struct json_out *details = json_out_new(sent);
+
+	json_out_addstr(details, "invstring", invoice_encode(tmpctx, sent->inv));
+	/* This will free sent! */
+	discard_result(command_done_err(sent->cmd, OFFER_TIMEOUT,
+					"Timeout waiting for response"
+					" (but use waitinvoice if invoice_timeout"
+					" was greater)",
+					details));
+}
+
+static struct command_result *prepare_inv_timeout(struct command *cmd,
+						  const char *buf UNUSED,
+						  const jsmntok_t *result UNUSED,
+						  struct sent *sent)
+{
+	tal_steal(cmd, plugin_timer(cmd->plugin,
+				    time_from_sec(sent->inv_wait_timeout),
+				    timeout_sent_inv, sent));
+	return sendonionmsg_done(cmd, buf, result, sent);
 }
 
 static struct command_result *invreq_done(struct command *cmd,
@@ -851,6 +867,54 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+/* FIXME: Using a hook here is not ideal: technically it doesn't mean
+ * it's actually hit the db!  But using waitinvoice is also suboptimal
+ * because we don't have libplugin infra to cancel a pending req (and I
+ * want to rewrite our wait* API anyway) */
+static struct command_result *invoice_payment(struct command *cmd,
+					      const char *buf,
+					      const jsmntok_t *params)
+{
+	struct sent *i;
+	const jsmntok_t *ptok, *preimagetok, *msattok;
+	struct preimage preimage;
+	struct amount_msat msat;
+
+	ptok = json_get_member(buf, params, "payment");
+	preimagetok = json_get_member(buf, ptok, "preimage");
+	msattok = json_get_member(buf, ptok, "msat");
+	if (!preimagetok || !msattok)
+		plugin_err(cmd->plugin,
+			   "Invalid invoice_payment %.*s",
+			   json_tok_full_len(params),
+			   json_tok_full(buf, params));
+
+	hex_decode(buf + preimagetok->start,
+		   preimagetok->end - preimagetok->start,
+		   &preimage, sizeof(preimage));
+	json_to_msat(buf, msattok, &msat);
+
+	list_for_each(&sent_list, i, list) {
+		struct json_stream *out;
+
+		if (!i->inv)
+			continue;
+		if (!preimage_eq(&preimage, &i->inv_preimage))
+			continue;
+
+		/* It was paid!  Success. */
+		/* FIXME: Return as per waitinvoice */
+		out = jsonrpc_stream_success(i->cmd);
+		json_add_string(out, "invstring", invoice_encode(tmpctx, i->inv));
+		json_add_string(out, "msat",
+				type_to_string(tmpctx, struct amount_msat,
+					       &msat));
+		discard_result(command_finished(i->cmd, out));
+		break;
+	}
+	return command_hook_success(cmd);
+}
+
 static struct command_result *createinvoice_done(struct command *cmd,
 						 const char *buf,
 						 const jsmntok_t *result,
@@ -880,7 +944,7 @@ static struct command_result *createinvoice_done(struct command *cmd,
 
 	rawinv = tal_arr(tmpctx, u8, 0);
 	towire_invoice(&rawinv, sent->inv);
-	return send_message(cmd, sent, "invoice", rawinv, sendonionmsg_done);
+	return send_message(cmd, sent, "invoice", rawinv, prepare_inv_timeout);
 }
 
 static struct command_result *sign_invoice(struct command *cmd,
@@ -1007,6 +1071,7 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 {
 	struct amount_msat *msat;
 	struct out_req *req;
+	u32 *timeout, *invoice_timeout;
 	struct sent *sent = tal(cmd, struct sent);
 
 	sent->inv = tlv_invoice_new(cmd);
@@ -1018,9 +1083,14 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 		   p_req("offer", param_offer, &sent->offer),
 		   p_req("label", param_label, &sent->inv_label),
 		   p_opt("msatoshi", param_msat, &msat),
+		   p_opt_def("timeout", param_number, &timeout, 90),
+		   p_opt("invoice_timeout", param_number, &invoice_timeout),
 		   p_opt("quantity", param_u64, &sent->inv->quantity),
 		   NULL))
 		return command_param_failed();
+
+	/* This is how long we'll wait for a reply for. */
+	sent->inv_wait_timeout = *timeout;
 
 	/* Check they are really trying to send us money. */
 	if (!sent->offer->send_invoice)
@@ -1103,6 +1173,34 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 		if (sent->inv->quantity)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "quantity parameter unnecessary");
+	}
+
+	/* BOLT-offers #12:
+	 *   - MUST set `timestamp` to the number of seconds since Midnight 1
+	 *    January 1970, UTC.
+	 */
+	sent->inv->timestamp = tal(sent->inv, u64);
+	*sent->inv->timestamp = time_now().ts.tv_sec;
+
+	/* If they don't specify an invoice_timeout, make it the same as we're
+	 * prepare to wait. */
+	if (!invoice_timeout)
+		invoice_timeout = timeout;
+	else if (*invoice_timeout < *timeout)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "invoice_timeout %u must be >= timeout %u",
+				    *invoice_timeout, *timeout);
+
+	/* BOLT-offers #12:
+	 * - if the expiry for accepting payment is not 7200 seconds after
+	 *   `timestamp`:
+	 *   - MUST set `relative_expiry` `seconds_from_timestamp` to the number
+	 *     of seconds after `timestamp` that payment of this invoice should
+	 *     not be attempted.
+	 */
+	if (*invoice_timeout != 7200) {
+		sent->inv->relative_expiry = tal(sent->inv, u32);
+		*sent->inv->relative_expiry = *invoice_timeout;
 	}
 
 	/* BOLT-offers #12:
@@ -1190,6 +1288,10 @@ static const struct plugin_hook hooks[] = {
 	{
 		"onion_message_blinded",
 		recv_onion_message
+	},
+	{
+		"invoice_payment",
+		invoice_payment,
 	},
 };
 
