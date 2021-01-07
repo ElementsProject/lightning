@@ -1377,7 +1377,6 @@ static struct command_result *json_listpeers(struct command *cmd,
 	return command_success(cmd, response);
 }
 
-/* Magic marker: remove at your own peril! */
 static const struct json_command listpeers_command = {
 	"listpeers",
 	"network",

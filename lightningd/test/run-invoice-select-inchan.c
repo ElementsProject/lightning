@@ -250,6 +250,10 @@ void json_add_amount_sat_compat(struct json_stream *result UNNEEDED,
 				const char *msatfieldname)
 
 { fprintf(stderr, "json_add_amount_sat_compat called!\n"); abort(); }
+/* Generated stub for json_add_bolt11 */
+void json_add_bolt11(struct json_stream *response UNNEEDED,
+		     const struct bolt11 *b11 UNNEEDED)
+{ fprintf(stderr, "json_add_bolt11 called!\n"); abort(); }
 /* Generated stub for json_add_log */
 void json_add_log(struct json_stream *result UNNEEDED,
 		  const struct log_book *lr UNNEEDED,
@@ -271,11 +275,6 @@ void json_add_node_id(struct json_stream *response UNNEEDED,
 void json_add_preimage(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		     const struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "json_add_preimage called!\n"); abort(); }
-/* Generated stub for json_add_secret */
-void json_add_secret(struct json_stream *response UNNEEDED,
-		     const char *fieldname UNNEEDED,
-		     const struct secret *secret UNNEEDED)
-{ fprintf(stderr, "json_add_secret called!\n"); abort(); }
 /* Generated stub for json_add_sha256 */
 void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		     const struct sha256 *hash UNNEEDED)
