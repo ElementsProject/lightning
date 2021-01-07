@@ -6,14 +6,13 @@ lightning-offer - Command for accepting payments
 \fIEXPERIMENTAL_FEATURES only\fR
 
 
-\fBoffer\fR \fIamount\fR \fIdescription\fR [\fIsend_invoice\fR] [\fIlabel\fR] [\fIvendor\fR] [\fIquantity_min\fR] [\fIquantity_max\fR] [\fIabsolute_expiry\fR] [\fIrecurrence\fR] [\fIrecurrence_base\fR] [\fIrecurrence_paywindow\fR] [\fIrecurrence_limit\fR] [\fIrefund_for\fR] [\fIsingle_use\fR]
+\fBoffer\fR \fIamount\fR \fIdescription\fR [\fIvendor\fR] [\fIlabel\fR] [\fIquantity_min\fR] [\fIquantity_max\fR] [\fIabsolute_expiry\fR] [\fIrecurrence\fR] [\fIrecurrence_base\fR] [\fIrecurrence_paywindow\fR] [\fIrecurrence_limit\fR] [\fIsingle_use\fR]
 
 .SH DESCRIPTION
 
 The \fBoffer\fR RPC command creates an offer, which is a precursor to
-one or more invoices\.  It automatically enables the accepting of
-corresponding invoice_request or invoice messages (depending on
-\fIsend_invoice\fR)\.
+creating one or more invoices\.  It automatically enables the processing of
+an incoming invoice_request, and issuing of invoices\.
 
 
 The \fIamount\fR parameter can be the string "any", which creates an offer
@@ -36,13 +35,6 @@ cannot use \fI\u\fR JSON escape codes\.
 
 The \fIvendor\fR is another (optional) field exposed in the offer, and
 reflects who is issuing this offer (i\.e\. you) if appropriate\.
-
-
-The \fIsend_invoice\fR boolean (default false unless \fIsingle_use\fR) creates
-an offer to send money: the user of the offer will send an invoice,
-rather than an invoice_request\.  This is encoded in the offer\.  Note
-that \fIrecurrence\fR and ISO 4217 currencies are not currently
-well-supported for this case!
 
 
 The \fIlabel\fR field is an internal-use name for the offer, which can
@@ -100,13 +92,9 @@ This implies \fIsend_invoice\fR and \fIsingle_use\fR\.  This is encoded in the
 offer\.
 
 
-\fIsingle_use\fR (default false, unless \fIrefund_for\fR) indicates that the
-invoice associated with the offer is only valid once; for a
-\fIsend_invoice\fR offer many invoices can be accepted until one is
-successfully paid (and we will only attempt to pay one at any time)\.
-For a non-\fIsingle-use\fR offer, we will issue any number of invoices as
-requested, until one is paid, at which time we will expire all the
-other invoices for this offer and issue no more\.
+\fIsingle_use\fR (default false) indicates that the offer is only valid
+once; we may issue multiple invoices, but as soon as one is paid all other
+invoices will be expired (i\.e\. only one person can pay this offer)\.
 
 .SH RETURN VALUE
 
@@ -118,7 +106,7 @@ On success, an object as follows is returned:
 .IP \[bu]
 \fIactive\fR: true
 .IP \[bu]
-\fIsingle_use\fR: true if \fIsingle_use\fR was specified or implied\.
+\fIsingle_use\fR: true if \fIsingle_use\fR was specified\.
 .IP \[bu]
 \fIbolt12\fR: the bolt12 offer, starting with "lno1"
 
@@ -153,10 +141,10 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 .SH SEE ALSO
 
-\fBlightning-listoffers\fR(7), \fBlightning-deloffer\fR(7)\.
+\fBlightning-offerout\fR(7), \fBlightning-listoffers\fR(7), \fBlightning-deloffer\fR(7)\.
 
 .SH RESOURCES
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:88a1e0515adae79cdeef661b6462879d7fb0d666a7731ffdb131053c15c1b9de
+\" SHA256STAMP:54947f0571c064b5190b672f79dd8c4b4555aad3e93007c28deab37c9a0566c1

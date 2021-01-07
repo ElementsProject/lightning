@@ -6,15 +6,14 @@ SYNOPSIS
 
 *EXPERIMENTAL_FEATURES only*
 
-**offer** *amount* *description* \[*send_invoice*\] \[*label*\] \[*vendor*\] \[*quantity_min*\] \[*quantity_max*\] \[*absolute_expiry*\] \[*recurrence*\] \[*recurrence_base*\] \[*recurrence_paywindow*\] \[*recurrence_limit*\] \[*refund_for*\] \[*single_use*\]
+**offer** *amount* *description* \[*vendor*\] \[*label*\] \[*quantity_min*\] \[*quantity_max*\] \[*absolute_expiry*\] \[*recurrence*\] \[*recurrence_base*\] \[*recurrence_paywindow*\] \[*recurrence_limit*\] \[*single_use*\]
 
 DESCRIPTION
 -----------
 
 The **offer** RPC command creates an offer, which is a precursor to
-one or more invoices.  It automatically enables the accepting of
-corresponding invoice_request or invoice messages (depending on
-*send_invoice*).
+creating one or more invoices.  It automatically enables the processing of
+an incoming invoice_request, and issuing of invoices.
 
 The *amount* parameter can be the string "any", which creates an offer
 that can be paid with any amount (e.g. a donation).  Otherwise it can
@@ -33,12 +32,6 @@ cannot use *\\u* JSON escape codes.
 
 The *vendor* is another (optional) field exposed in the offer, and
 reflects who is issuing this offer (i.e. you) if appropriate.
-
-The *send_invoice* boolean (default false unless *single_use*) creates
-an offer to send money: the user of the offer will send an invoice,
-rather than an invoice_request.  This is encoded in the offer.  Note
-that *recurrence* and ISO 4217 currencies are not currently
-well-supported for this case!
 
 The *label* field is an internal-use name for the offer, which can
 be any UTF-8 string.
@@ -87,13 +80,9 @@ period which exists.  eg. "12" means there are 13 periods, from 0 to
 This implies *send_invoice* and *single_use*.  This is encoded in the
 offer.
 
-*single_use* (default false, unless *refund_for*) indicates that the
-invoice associated with the offer is only valid once; for a
-*send_invoice* offer many invoices can be accepted until one is
-successfully paid (and we will only attempt to pay one at any time).
-For a non-*single-use* offer, we will issue any number of invoices as
-requested, until one is paid, at which time we will expire all the
-other invoices for this offer and issue no more.
+*single_use* (default false) indicates that the offer is only valid
+once; we may issue multiple invoices, but as soon as one is paid all other
+invoices will be expired (i.e. only one person can pay this offer).
 
 RETURN VALUE
 ------------
@@ -102,7 +91,7 @@ On success, an object as follows is returned:
 
 * *offer_id*: the hash of the offer.
 * *active*: true
-* *single_use*: true if *single_use* was specified or implied.
+* *single_use*: true if *single_use* was specified.
 * *bolt12*: the bolt12 offer, starting with "lno1"
 
 Optionally:
@@ -125,7 +114,7 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-listoffers(7), lightning-deloffer(7).
+lightning-offerout(7), lightning-listoffers(7), lightning-deloffer(7).
 
 RESOURCES
 ---------

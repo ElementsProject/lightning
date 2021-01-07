@@ -7,25 +7,49 @@
 #include <plugins/offers_offer.h>
 #include <wire/onion_wire.h>
 
+static bool msat_or_any(const char *buffer,
+			const jsmntok_t *tok,
+			struct tlv_offer *offer)
+{
+	struct amount_msat msat;
+	if (json_tok_streq(buffer, tok, "any"))
+		return true;
+
+	if (!parse_amount_msat(&msat,
+			       buffer + tok->start, tok->end - tok->start))
+		return false;
+
+	offer->amount = tal_dup(offer, u64,
+				&msat.millisatoshis); /* Raw: other currencies */
+	return true;
+}
+
+static struct command_result *param_msat_or_any(struct command *cmd,
+						const char *name,
+						const char *buffer,
+						const jsmntok_t *tok,
+						struct tlv_offer *offer)
+{
+	if (msat_or_any(buffer, tok, offer))
+		return NULL;
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be 'any' or msatoshis");
+}
+
 static struct command_result *param_amount(struct command *cmd,
 					   const char *name,
 					   const char *buffer,
 					   const jsmntok_t *tok,
 					   struct tlv_offer *offer)
 {
-	struct amount_msat msat;
 	const struct iso4217_name_and_divisor *isocode;
 	jsmntok_t number, whole, frac;
 	u64 cents;
 
-	if (json_tok_streq(buffer, tok, "any"))
+	if (msat_or_any(buffer, tok, offer))
 		return NULL;
 
 	offer->amount = tal(offer, u64);
-	if (parse_amount_msat(&msat, buffer + tok->start, tok->end - tok->start)) {
-		*offer->amount = msat.millisatoshis; /* Raw: other currencies */
-		return NULL;
-	}
 
 	/* BOLT-offers #12:
 	 *
@@ -232,16 +256,15 @@ struct command_result *json_offer(struct command *cmd,
 	const char *desc, *vendor, *label;
 	struct tlv_offer *offer;
 	struct out_req *req;
-	bool *single_use, *send_invoice;
+	bool *single_use;
 
 	offer = tlv_offer_new(cmd);
 
 	if (!param(cmd, buffer, params,
 		   p_req("amount", param_amount, offer),
 		   p_req("description", param_escaped_string, &desc),
-		   p_opt("send_invoice", param_bool, &send_invoice),
-		   p_opt("label", param_escaped_string, &label),
 		   p_opt("vendor", param_escaped_string, &vendor),
+		   p_opt("label", param_escaped_string, &label),
 		   p_opt("quantity_min", param_u64, &offer->quantity_min),
 		   p_opt("quantity_max", param_u64, &offer->quantity_max),
 		   p_opt("absolute_expiry", param_u64, &offer->absolute_expiry),
@@ -255,8 +278,7 @@ struct command_result *json_offer(struct command *cmd,
 		   p_opt("recurrence_limit",
 			 param_number,
 			 &offer->recurrence_limit),
-		   p_opt("refund_for", param_invoice_payment_hash, &offer->refund_for),
-		   p_opt("single_use", param_bool, &single_use),
+		   p_opt_def("single_use", param_bool, &single_use, false),
 		   /* FIXME: hints support! */
 		   NULL))
 		return command_param_failed();
@@ -271,32 +293,6 @@ struct command_result *json_offer(struct command *cmd,
 	if (!streq(chainparams->network_name, "bitcoin")) {
 		offer->chains = tal_arr(offer, struct bitcoin_blkid, 1);
 		offer->chains[0] = chainparams->genesis_blockhash;
-	}
-
-	/* If refund_for, send_invoice is true. */
-	if (offer->refund_for) {
-		if (!send_invoice) {
-			send_invoice = tal(cmd, bool);
-			*send_invoice = true;
-		}
-		if (!*send_invoice)
-			return command_fail_badparam(cmd, "refund_for",
-						     buffer, params,
-						     "needs send_invoice=true");
-	} else {
-		if (!send_invoice) {
-			send_invoice = tal(cmd, bool);
-			*send_invoice = false;
-		}
-	}
-
-	if (*send_invoice)
-		offer->send_invoice = tal(offer, struct tlv_offer_send_invoice);
-
-	/* single_use defaults to 'true' for send_invoices, false otherwise */
-	if (!single_use) {
-		single_use = tal(cmd, bool);
-		*single_use = offer->send_invoice ? true : false;
 	}
 
 	if (!offer->recurrence) {
@@ -330,6 +326,60 @@ struct command_result *json_offer(struct command *cmd,
 	if (label)
 		json_add_string(req->js, "label", label);
 	json_add_bool(req->js, "single_use", *single_use);
+
+	return send_outreq(cmd->plugin, req);
+}
+
+struct command_result *json_offerout(struct command *cmd,
+				     const char *buffer,
+				     const jsmntok_t *params)
+{
+	const char *desc, *vendor, *label;
+	struct tlv_offer *offer;
+	struct out_req *req;
+
+	offer = tlv_offer_new(cmd);
+
+	if (!param(cmd, buffer, params,
+		   p_req("amount", param_msat_or_any, offer),
+		   p_req("description", param_escaped_string, &desc),
+		   p_opt("vendor", param_escaped_string, &vendor),
+		   p_opt("label", param_escaped_string, &label),
+		   p_opt("absolute_expiry", param_u64, &offer->absolute_expiry),
+		   p_opt("refund_for", param_invoice_payment_hash, &offer->refund_for),
+		   /* FIXME: hints support! */
+		   NULL))
+		return command_param_failed();
+
+	offer->send_invoice = tal(offer, struct tlv_offer_send_invoice);
+
+	/* BOLT-offers #12:
+	 *
+	 * - if the chain for the invoice is not solely bitcoin:
+	 *   - MUST specify `chains` the offer is valid for.
+	 * - otherwise:
+	 *   - the bitcoin chain is implied as the first and only entry.
+	 */
+	if (!streq(chainparams->network_name, "bitcoin")) {
+		offer->chains = tal_arr(offer, struct bitcoin_blkid, 1);
+		offer->chains[0] = chainparams->genesis_blockhash;
+	}
+
+	offer->description = tal_dup_arr(offer, char, desc, strlen(desc), 0);
+	if (vendor)
+		offer->vendor = tal_dup_arr(offer, char,
+					    vendor, strlen(vendor), 0);
+
+	offer->node_id = tal_dup(offer, struct pubkey32, &id);
+
+	/* We simply pass this through. */
+	req = jsonrpc_request_start(cmd->plugin, cmd, "createoffer",
+				    forward_result, forward_error,
+				    offer);
+	json_add_string(req->js, "bolt12", offer_encode(tmpctx, offer));
+	if (label)
+		json_add_string(req->js, "label", label);
+	json_add_bool(req->js, "single_use", true);
 
 	return send_outreq(cmd->plugin, req);
 }

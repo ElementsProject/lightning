@@ -73,6 +73,7 @@ c-lightning Documentation
    lightning-newaddr <lightning-newaddr.7.md>
    lightning-notifications <lightning-notifications.7.md>
    lightning-offer <lightning-offer.7.md>
+   lightning-offerout <lightning-offerout.7.md>
    lightning-openchannel_init <lightning-openchannel_init.7.md>
    lightning-openchannel_signed <lightning-openchannel_signed.7.md>
    lightning-openchannel_update <lightning-openchannel_update.7.md>
