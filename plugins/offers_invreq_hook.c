@@ -7,6 +7,7 @@
 #include <common/json_stream.h>
 #include <common/overflows.h>
 #include <common/type_to_string.h>
+#include <plugins/offers.h>
 #include <plugins/offers_invreq_hook.h>
 #include <secp256k1_schnorrsig.h>
 
@@ -25,68 +26,6 @@ struct invreq {
 	/* The preimage for the invoice. */
 	struct preimage preimage;
 };
-
-static struct command_result *finished(struct command *cmd,
-				       const char *buf,
-				       const jsmntok_t *result,
-				       void *unused)
-{
-	return command_hook_success(cmd);
-}
-
-/* If we get an error trying to reply, don't try again! */
-static struct command_result *error_noloop(struct command *cmd,
-					   const char *buf,
-					   const jsmntok_t *err,
-					   void *unused)
-{
-	plugin_log(cmd->plugin, LOG_BROKEN,
-		   "sendoniomessage gave JSON error: %.*s",
-		   json_tok_full_len(err),
-		   json_tok_full(buf, err));
-	return command_hook_success(cmd);
-}
-
-static struct command_result *WARN_UNUSED_RESULT
-send_onion_reply(struct command *cmd,
-		 const struct invreq *ir,
-		 const char *replyfield,
-		 const u8 *replydata)
-{
-	struct out_req *req;
-	size_t i;
-	const jsmntok_t *t;
-
-	plugin_log(cmd->plugin, LOG_DBG, "sending reply %s = %s",
-		   replyfield, tal_hex(tmpctx, replydata));
-
-	/* Send to requester, using return route. */
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
-				    finished, error_noloop, NULL);
-
-	/* Add reply into last hop. */
-	json_array_start(req->js, "hops");
-	json_for_each_arr(i, t, ir->replytok) {
-		size_t j;
-		const jsmntok_t *t2;
-
-		plugin_log(cmd->plugin, LOG_DBG, "hops[%zu/%i]",
-			   i, ir->replytok->size);
-		json_object_start(req->js, NULL);
-		json_for_each_obj(j, t2, t)
-			json_add_tok(req->js,
-				     json_strdup(tmpctx, ir->buf, t2),
-				     t2+1, ir->buf);
-		if (i == ir->replytok->size - 1) {
-			plugin_log(cmd->plugin, LOG_DBG, "... adding %s",
-				   replyfield);
-			json_add_hex_talarr(req->js, replyfield, replydata);
-		}
-		json_object_end(req->js);
-	}
-	json_array_end(req->js);
-	return send_outreq(cmd->plugin, req);
-}
 
 static struct command_result *WARN_UNUSED_RESULT
 fail_invreq_level(struct command *cmd,
@@ -120,7 +59,8 @@ fail_invreq_level(struct command *cmd,
 
 	errdata = tal_arr(cmd, u8, 0);
 	towire_invoice_error(&errdata, err);
-	return send_onion_reply(cmd, invreq, "invoice_error", errdata);
+	return send_onion_reply(cmd, invreq->buf, invreq->replytok,
+				"invoice_error", errdata);
 }
 
 static struct command_result *WARN_UNUSED_RESULT
@@ -238,7 +178,7 @@ static struct command_result *createinvoice_done(struct command *cmd,
 					json_tok_full(buf, t));
 	}
 
-	return send_onion_reply(cmd, ir, "invoice", rawinv);
+	return send_onion_reply(cmd, ir->buf, ir->replytok, "invoice", rawinv);
 }
 
 static struct command_result *create_invoicereq(struct command *cmd,
