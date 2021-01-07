@@ -326,6 +326,7 @@ static struct command_result *process_getutxout(struct bitcoin_cli *bcli)
 	const jsmntok_t *tokens;
 	struct json_stream *response;
 	struct bitcoin_tx_output output;
+	const char *err;
 
 	/* As of at least v0.15.1.0, bitcoind returns "success" but an empty
 	   string on a spent txout. */
@@ -343,14 +344,14 @@ static struct command_result *process_getutxout(struct bitcoin_cli *bcli)
 		return command_err_bcli_badjson(bcli, "cannot parse");
 	}
 
-	if (!json_scan(bcli->output, tokens,
+	err = json_scan(tmpctx, bcli->output, tokens,
 		       "{value:%,scriptPubKey:{hex:%}}",
 		       JSON_SCAN(json_to_bitcoin_amount,
 				 &output.amount.satoshis), /* Raw: bitcoind */
 		       JSON_SCAN_TAL(bcli, json_tok_bin_from_hex,
-				     &output.script))) {
-		return command_err_bcli_badjson(bcli, "cannot scan");
-	}
+				     &output.script));
+	if (err)
+		return command_err_bcli_badjson(bcli, err);
 
 	response = jsonrpc_stream_success(bcli->cmd);
 	json_add_amount_sat_only(response, "amount", output.amount);
@@ -365,7 +366,7 @@ static struct command_result *process_getblockchaininfo(struct bitcoin_cli *bcli
 	struct json_stream *response;
 	bool ibd;
 	u32 headers, blocks;
-	const char *chain;
+	const char *chain, *err;
 
 	tokens = json_parse_simple(bcli->output,
 				   bcli->output, bcli->output_bytes);
@@ -373,14 +374,14 @@ static struct command_result *process_getblockchaininfo(struct bitcoin_cli *bcli
 		return command_err_bcli_badjson(bcli, "cannot parse");
 	}
 
-	if (!json_scan(bcli->output, tokens,
-		       "{chain:%,headers:%,blocks:%,initialblockdownload:%}",
-		       JSON_SCAN_TAL(tmpctx, json_strdup, &chain),
-		       JSON_SCAN(json_to_number, &headers),
-		       JSON_SCAN(json_to_number, &blocks),
-		       JSON_SCAN(json_to_bool, &ibd))) {
-		return command_err_bcli_badjson(bcli, "cannot scan");
-	}
+	err = json_scan(tmpctx, bcli->output, tokens,
+			"{chain:%,headers:%,blocks:%,initialblockdownload:%}",
+			JSON_SCAN_TAL(tmpctx, json_strdup, &chain),
+			JSON_SCAN(json_to_number, &headers),
+			JSON_SCAN(json_to_number, &blocks),
+			JSON_SCAN(json_to_bool, &ibd));
+	if (err)
+		return command_err_bcli_badjson(bcli, err);
 
 	response = jsonrpc_stream_success(bcli->cmd);
 	json_add_string(response, "chain", chain);
@@ -425,8 +426,8 @@ estimatefees_parse_feerate(struct bitcoin_cli *bcli, u64 *feerate)
 		return command_err_bcli_badjson(bcli, "cannot parse");
 	}
 
-	if (!json_scan(bcli->output, tokens, "{feerate:%}",
-		       JSON_SCAN(json_to_bitcoin_amount, feerate))) {
+	if (json_scan(tmpctx, bcli->output, tokens, "{feerate:%}",
+		      JSON_SCAN(json_to_bitcoin_amount, feerate)) != NULL) {
 		/* Paranoia: if it had a feerate, but was malformed: */
 		if (json_get_member(bcli->output, tokens, "feerate"))
 			return command_err_bcli_badjson(bcli, "cannot scan");
@@ -782,6 +783,7 @@ static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 	const jsmntok_t *result;
 	bool tx_relay;
 	u32 min_version = 160000;
+	const char *err;
 
 	result = json_parse_simple(NULL, buf, strlen(buf));
 	if (!result)
@@ -790,12 +792,14 @@ static void parse_getnetworkinfo_result(struct plugin *p, const char *buf)
 			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
 
 	/* Check that we have a fully-featured `estimatesmartfee`. */
-	if (!json_scan(buf, result, "{version:%,localrelay:%}",
-		       JSON_SCAN(json_to_u32, &bitcoind->version),
-		       JSON_SCAN(json_to_bool, &tx_relay)))
-		plugin_err(p, "No 'version' or localrelay in '%s' ? Got '%s'. Can not"
-			      " continue without proceeding to sanity checks.",
-			      gather_args(bitcoind, "getnetworkinfo", NULL), buf);
+	err = json_scan(tmpctx, buf, result, "{version:%,localrelay:%}",
+			JSON_SCAN(json_to_u32, &bitcoind->version),
+			JSON_SCAN(json_to_bool, &tx_relay));
+	if (err)
+		plugin_err(p, "%s.  Got '%s'. Can not"
+			   " continue without proceeding to sanity checks.",
+			   err,
+			   gather_args(bitcoind, "getnetworkinfo", NULL), buf);
 
 	if (bitcoind->version < min_version)
 		plugin_err(p, "Unsupported bitcoind version %"PRIu32", at least"

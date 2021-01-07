@@ -251,10 +251,13 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	struct keysend_in *ki;
 	struct out_req *req;
 	struct timeabs now = time_now();
+	const char *err;
 
-	if (!json_scan(buf, params, "{onion:{payload:%},htlc:{payment_hash:%}}",
-		       JSON_SCAN_TAL(cmd, json_tok_bin_from_hex, &rawpayload),
-		       JSON_SCAN(json_to_sha256, &payment_hash)))
+	err = json_scan(tmpctx, buf, params,
+			"{onion:{payload:%},htlc:{payment_hash:%}}",
+			JSON_SCAN_TAL(cmd, json_tok_bin_from_hex, &rawpayload),
+			JSON_SCAN(json_to_sha256, &payment_hash));
+	if (err)
 		return htlc_accepted_continue(cmd, NULL);
 
 	max = tal_bytelen(rawpayload);

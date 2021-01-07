@@ -152,15 +152,18 @@ jsmntok_t *json_tok_copy(const tal_t *ctx, const jsmntok_t *tok);
 void json_tok_remove(jsmntok_t **tokens,
 		     jsmntok_t *obj_or_array, const jsmntok_t *tok, size_t num);
 
-/* Guide is % for a token: each must be followed by JSON_SCAN(). */
-bool json_scan(const char *buffer,
-	       const jsmntok_t *tok,
-	       const char *guide,
-	       ...);
+/* Guide is % for a token: each must be followed by JSON_SCAN().
+ * Returns NULL on error (asserts() on bad guide). */
+const char *json_scan(const tal_t *ctx,
+		      const char *buffer,
+		      const jsmntok_t *tok,
+		      const char *guide,
+		      ...);
 
 /* eg. JSON_SCAN(json_to_bool, &boolvar) */
 #define JSON_SCAN(fmt, var)						\
 	json_scan,							\
+	stringify(fmt),							\
 	((var) + 0*sizeof(fmt((const char *)NULL,			\
 			      (const jsmntok_t *)NULL, var) == true)),	\
 	(fmt)
@@ -168,16 +171,18 @@ bool json_scan(const char *buffer,
 /* eg. JSON_SCAN_TAL(tmpctx, json_strdup, &charvar) */
 #define JSON_SCAN_TAL(ctx, fmt, var)					\
 	(ctx),								\
+	stringify(fmt),							\
 	((var) + 0*sizeof((*var) = fmt((ctx),				\
 				       (const char *)NULL,		\
 				       (const jsmntok_t *)NULL))),	\
 	(fmt)
 
 /* Already-have-varargs version */
-bool json_scanv(const char *buffer,
-		const jsmntok_t *tok,
-		const char *guide,
-		va_list ap);
+const char *json_scanv(const tal_t *ctx,
+		       const char *buffer,
+		       const jsmntok_t *tok,
+		       const char *guide,
+		       va_list ap);
 
 /* Iterator macro for array: i is counter, t is token ptr, arr is JSMN_ARRAY */
 #define json_for_each_arr(i, t, arr) \

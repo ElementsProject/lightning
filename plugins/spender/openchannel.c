@@ -547,15 +547,17 @@ static void json_peer_sigs(struct command *cmd,
 	struct channel_id cid;
 	const struct wally_psbt *psbt;
 	struct multifundchannel_destination *dest;
+	const char *err;
 
-	if (!json_scan(buf, params,
-		       "{openchannel_peer_sigs:"
-		       "{channel_id:%,signed_psbt:%}}",
-		       JSON_SCAN(json_to_channel_id, &cid),
-		       JSON_SCAN_TAL(cmd, json_to_psbt, &psbt)))
+	err = json_scan(tmpctx, buf, params,
+			"{openchannel_peer_sigs:"
+			"{channel_id:%,signed_psbt:%}}",
+			JSON_SCAN(json_to_channel_id, &cid),
+			JSON_SCAN_TAL(cmd, json_to_psbt, &psbt));
+	if (err)
 		plugin_err(cmd->plugin,
-			   "`openchannel_peer_sigs` did not scan",
-			   json_tok_full_len(params),
+			   "`openchannel_peer_sigs` did not scan: %s",
+			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
 
 	/* Find the destination that's got this channel_id on it! */

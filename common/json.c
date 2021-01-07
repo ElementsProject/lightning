@@ -720,30 +720,42 @@ void json_tok_remove(jsmntok_t **tokens,
 }
 
 /* talfmt take a ctx pointer and return NULL or a valid pointer.
- * fmt takes the argument, and returns a bool. */
-static bool handle_percent(const char *buffer,
-			   const jsmntok_t *tok,
-			   va_list *ap)
+ * fmt takes the argument, and returns a bool.
+ *
+ * This function returns NULL on success, or errmsg on failure.
+*/
+static const char *handle_percent(const char *buffer,
+				  const jsmntok_t *tok,
+				  va_list *ap)
 {
 	void *ctx;
+	const char *fmtname;
 
 	/* This is set to (dummy) json_scan if it's a non-tal fmt */
 	ctx = va_arg(*ap, void *);
+	fmtname = va_arg(*ap, const char *);
 	if (ctx != json_scan) {
 		void *(*talfmt)(void *, const char *, const jsmntok_t *);
 		void **p;
 		p = va_arg(*ap, void **);
 		talfmt = va_arg(*ap, void *(*)(void *, const char *, const jsmntok_t *));
 		*p = talfmt(ctx, buffer, tok);
-		return *p != NULL;
+		if (*p != NULL)
+			return NULL;
 	} else {
 		bool (*fmt)(const char *, const jsmntok_t *, void *);
 		void *p;
 
 		p = va_arg(*ap, void *);
 		fmt = va_arg(*ap, bool (*)(const char *, const jsmntok_t *, void *));
-		return fmt(buffer, tok, p);
+		if (fmt(buffer, tok, p))
+			return NULL;
 	}
+
+	return tal_fmt(tmpctx, "%s could not parse %.*s",
+		       fmtname,
+		       json_tok_full_len(tok),
+		       json_tok_full(buffer, tok));
 }
 
 /* GUIDE := OBJ | ARRAY | '%'
@@ -756,235 +768,280 @@ static bool handle_percent(const char *buffer,
  * ARRELEM := NUMBER ':' FIELDVAL
  */
 
-/* Returns NULL on failure, or offset into guide */
-static const char *parse_literal(const char *guide,
-				 const char **literal,
-				 size_t *len)
+static void parse_literal(const char **guide,
+			  const char **literal,
+			  size_t *len)
 {
-	*literal = guide;
-	*len = strspn(guide,
+	*literal = *guide;
+	*len = strspn(*guide,
 		      "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 		      "abcdefghijklmnopqrstuvwxyz"
 		      "0123456789"
 		      "_-");
-	return guide + *len;
+	*guide += *len;
 }
 
-static const char *parse_number(const char *guide, u32 *number)
+static void parse_number(const char **guide, u32 *number)
 {
 	char *endp;
 	long int l;
 
-	l = strtol(guide, &endp, 10);
-	if (endp == guide || errno == ERANGE)
-		return NULL;
+	l = strtol(*guide, &endp, 10);
+	assert(endp != *guide);
+	assert(errno != ERANGE);
 
 	/* Test for overflow */
 	*number = l;
-	if (*number != l)
-		return NULL;
+	assert(*number == l);
 
-	return endp;
+	*guide = endp;
 }
 
-/* Recursion */
+static char guide_consume_one(const char **guide)
+{
+	char c = **guide;
+	(*guide)++;
+	return c;
+}
+
+static void guide_must_be(const char **guide, char c)
+{
+	char actual = guide_consume_one(guide);
+	assert(actual == c);
+}
+
+/* Recursion: return NULL on success, errmsg on fail */
 static const char *parse_obj(const char *buffer,
 			     const jsmntok_t *tok,
-			     const char *guide,
+			     const char **guide,
 			     va_list *ap);
 
 static const char *parse_arr(const char *buffer,
 			     const jsmntok_t *tok,
-			     const char *guide,
+			     const char **guide,
 			     va_list *ap);
 
 static const char *parse_guide(const char *buffer,
 			       const jsmntok_t *tok,
-			       const char *guide,
+			       const char **guide,
 			       va_list *ap)
 {
-	if (*guide == '{') {
-		guide = parse_obj(buffer, tok, guide, ap);
-		if (!guide)
-			return NULL;
-		assert(*guide == '}');
-		return guide + 1;
-	} else if (*guide == '[') {
-		guide = parse_arr(buffer, tok, guide, ap);
-		if (!guide)
-			return NULL;
-		assert(*guide == ']');
-		return guide + 1;
+	const char *errmsg;
+
+	if (**guide == '{') {
+		errmsg = parse_obj(buffer, tok, guide, ap);
+		if (errmsg)
+			return errmsg;
+	} else if (**guide == '[') {
+		errmsg = parse_arr(buffer, tok, guide, ap);
+		if (errmsg)
+			return errmsg;
 	} else {
-		assert(*guide == '%');
-		if (!handle_percent(buffer, tok, ap))
-			return NULL;
-		return guide + 1;
+		guide_must_be(guide, '%');
+		errmsg = handle_percent(buffer, tok, ap);
+		if (errmsg)
+			return errmsg;
 	}
+	return NULL;
 }
 
 static const char *parse_fieldval(const char *buffer,
 				  const jsmntok_t *tok,
-				  const char *guide,
+				  const char **guide,
 				  va_list *ap)
 {
-	if (*guide == '{') {
-		guide = parse_obj(buffer, tok, guide, ap);
-		if (!guide)
-			return NULL;
-		assert(*guide == '}');
-		return guide + 1;
-	} else if (*guide == '[') {
-		guide = parse_arr(buffer, tok, guide, ap);
-		if (!guide)
-			return NULL;
-		assert(*guide == ']');
-		return guide + 1;
-	} else if (*guide == '%') {
-		if (!handle_percent(buffer, tok, ap))
-			return NULL;
-		return guide + 1;
+	const char *errmsg;
+
+	if (**guide == '{') {
+		errmsg = parse_obj(buffer, tok, guide, ap);
+		if (errmsg)
+			return errmsg;
+	} else if (**guide == '[') {
+		errmsg = parse_arr(buffer, tok, guide, ap);
+		if (errmsg)
+			return errmsg;
+	} else if (**guide == '%') {
+		guide_consume_one(guide);
+		errmsg = handle_percent(buffer, tok, ap);
+		if (errmsg)
+			return errmsg;
 	} else {
 		const char *literal;
 		size_t len;
 
-		/* Literal must match exactly */
-		guide = parse_literal(guide, &literal, &len);
+		/* Literal must match exactly (modulo quotes for strings) */
+		parse_literal(guide, &literal, &len);
 		if (!memeq(buffer + tok->start, tok->end - tok->start,
-			   literal, len))
-			return NULL;
-		return guide;
+			   literal, len)) {
+			return tal_fmt(tmpctx,
+				       "%.*s does not match expected %.*s",
+				       json_tok_full_len(tok),
+				       json_tok_full(buffer, tok),
+				       (int)len, literal);
+		}
 	}
+	return NULL;
 }
 
 static const char *parse_field(const char *buffer,
 			       const jsmntok_t *tok,
-			       const char *guide,
+			       const char **guide,
 			       va_list *ap)
 {
 	const jsmntok_t *member;
 	size_t len;
 	const char *memname;
 
-	guide = parse_literal(guide, &memname, &len);
-	assert(*guide == ':');
+	parse_literal(guide, &memname, &len);
+	guide_must_be(guide, ':');
 
-	member = json_get_membern(buffer, tok, memname, guide - memname);
-	if (!member)
-		return NULL;
+	member = json_get_membern(buffer, tok, memname, len);
+	if (!member) {
+		return tal_fmt(tmpctx, "object does not have member %.*s",
+			       (int)len, memname);
+	}
 
-	return parse_fieldval(buffer, member, guide + 1, ap);
+	return parse_fieldval(buffer, member, guide, ap);
 }
 
 static const char *parse_fieldlist(const char *buffer,
 				   const jsmntok_t *tok,
-				   const char *guide,
+				   const char **guide,
 				   va_list *ap)
 {
 	for (;;) {
-		guide = parse_field(buffer, tok, guide, ap);
-		if (!guide)
-			return NULL;
-		if (*guide != ',')
+		const char *errmsg;
+
+		errmsg = parse_field(buffer, tok, guide, ap);
+		if (errmsg)
+			return errmsg;
+		if (**guide != ',')
 			break;
-		guide++;
+		guide_consume_one(guide);
 	}
-	return guide;
+	return NULL;
 }
 
 static const char *parse_obj(const char *buffer,
 			     const jsmntok_t *tok,
-			     const char *guide,
+			     const char **guide,
 			     va_list *ap)
 {
-	assert(*guide == '{');
+	const char *errmsg;
 
-	if (tok->type != JSMN_OBJECT)
-		return NULL;
+	guide_must_be(guide, '{');
 
-	guide = parse_fieldlist(buffer, tok, guide + 1, ap);
-	if (!guide)
-		return NULL;
-	return guide;
+	if (tok->type != JSMN_OBJECT) {
+		return tal_fmt(tmpctx, "token is not an object: %.*s",
+			       json_tok_full_len(tok),
+			       json_tok_full(buffer, tok));
+	}
+
+	errmsg = parse_fieldlist(buffer, tok, guide, ap);
+	if (errmsg)
+		return errmsg;
+
+	guide_must_be(guide, '}');
+	return NULL;
 }
 
 static const char *parse_arrelem(const char *buffer,
 				 const jsmntok_t *tok,
-				 const char *guide,
+				 const char **guide,
 				 va_list *ap)
 {
 	const jsmntok_t *member;
 	u32 idx;
 
-	guide = parse_number(guide, &idx);
-	assert(*guide == ':');
+	parse_number(guide, &idx);
+	guide_must_be(guide, ':');
 
 	member = json_get_arr(tok, idx);
-	if (!member)
-		return NULL;
+	if (!member) {
+		return tal_fmt(tmpctx, "token has no index %u: %.*s",
+			       idx,
+			       json_tok_full_len(tok),
+			       json_tok_full(buffer, tok));
+	}
 
-	return parse_fieldval(buffer, member, guide + 1, ap);
+	return parse_fieldval(buffer, member, guide, ap);
 }
 
 static const char *parse_arrlist(const char *buffer,
-				   const jsmntok_t *tok,
-				   const char *guide,
-				   va_list *ap)
+				 const jsmntok_t *tok,
+				 const char **guide,
+				 va_list *ap)
 {
+	const char *errmsg;
+
 	for (;;) {
-		guide = parse_arrelem(buffer, tok, guide, ap);
-		if (!guide)
-			return NULL;
-		if (*guide != ',')
+		errmsg = parse_arrelem(buffer, tok, guide, ap);
+		if (errmsg)
+			return errmsg;
+		if (**guide != ',')
 			break;
-		guide++;
+		guide_consume_one(guide);
 	}
-	return guide;
+	return NULL;
 }
+
 static const char *parse_arr(const char *buffer,
 			     const jsmntok_t *tok,
-			     const char *guide,
+			     const char **guide,
 			     va_list *ap)
 {
-	assert(*guide == '[');
+	const char *errmsg;
 
-	if (tok->type != JSMN_ARRAY)
-		return NULL;
+	guide_must_be(guide, '[');
 
-	guide = parse_arrlist(buffer, tok, guide + 1, ap);
-	if (!guide)
-		return NULL;
-	return guide;
+	if (tok->type != JSMN_ARRAY) {
+		return tal_fmt(tmpctx, "token is not an array: %.*s",
+			       json_tok_full_len(tok),
+			       json_tok_full(buffer, tok));
+	}
+
+	errmsg = parse_arrlist(buffer, tok, guide, ap);
+	if (errmsg)
+		return errmsg;
+
+	guide_must_be(guide, ']');
+	return NULL;
 }
 
-bool json_scanv(const char *buffer,
-		const jsmntok_t *tok,
-		const char *guide,
-		va_list ap)
+const char *json_scanv(const tal_t *ctx,
+		       const char *buffer,
+		       const jsmntok_t *tok,
+		       const char *guide,
+		       va_list ap)
 {
 	va_list cpy;
+	const char *orig_guide = guide, *errmsg;
 
 	/* We need this, since &ap doesn't work on some platforms... */
 	va_copy(cpy, ap);
-	guide = parse_guide(buffer, tok, guide, &cpy);
+	errmsg = parse_guide(buffer, tok, &guide, &cpy);
 	va_end(cpy);
 
-	if (!guide)
-		return false;
+	if (errmsg) {
+		return tal_fmt(ctx, "Parsing '%.*s': %s",
+			       (int)(guide - orig_guide), orig_guide,
+			       errmsg);
+	}
 	assert(guide[0] == '\0');
-	return true;
+	return NULL;
 }
 
-bool json_scan(const char *buffer,
-	       const jsmntok_t *tok,
-	       const char *guide,
-	       ...)
+const char *json_scan(const tal_t *ctx,
+		      const char *buffer,
+		      const jsmntok_t *tok,
+		      const char *guide,
+		      ...)
 {
 	va_list ap;
-	bool ret;
+	const char *ret;
 
 	va_start(ap, guide);
-	ret = json_scanv(buffer, tok, guide, ap);
+	ret = json_scanv(ctx, buffer, tok, guide, ap);
 	va_end(ap);
 	return ret;
 }
