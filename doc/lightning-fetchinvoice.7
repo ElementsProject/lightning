@@ -1,0 +1,129 @@
+.TH "LIGHTNING-FETCHINVOICE" "7" "" "" "lightning-fetchinvoice"
+.SH NAME
+lightning-fetchinvoice - Command for fetch an invoice for an offer
+.SH SYNOPSIS
+
+\fIEXPERIMENTAL_FEATURES only\fR
+
+
+\fBfetchinvoice\fR \fIoffer\fR [\fImsatoshi\fR] [\fIquantity\fR] [\fIrecurrence_counter\fR] [\fIrecurrence_start\fR] [\fIrecurrence_label\fR] [\fItimeout\fR]
+
+.SH DESCRIPTION
+
+The \fBfetchinvoice\fR RPC command contacts the issuer of an \fIoffer\fR to get
+an actual invoice that can be paid\.  It highlights any changes between the
+offer and the returned invoice\.
+
+
+The offer must not contain \fIsend_invoice\fR; see \fBlightning-sendinvoice\fR(7)\.
+
+
+\fImsatoshi\fR is required if the \fIoffer\fR does not specify
+an amount at all, otherwise it is not allowed\.
+
+
+\fIquantity\fR is is required if the \fIoffer\fR specifies
+\fIquantity_min\fR or \fIquantity_max\fR, otherwise it is not allowed\.
+
+
+\fIrecurrence_counter\fR is required if the \fIoffer\fR
+specifies \fIrecurrence\fR, otherwise it is not allowed\.
+\fIrecurrence_counter\fR should first be set to 0, and incremented for
+each successive invoice in a given series\.
+
+
+\fIrecurrence_start\fR is required if the \fIoffer\fR
+specifies \fIrecurrence_base\fR with \fIstart_any_period\fR set, otherwise it
+is not allowed\.  It indicates what period number to start at\.
+
+
+\fIrecurrence_label\fR is required if \fIrecurrence_counter\fR is set, and
+otherwise is not allowed\.  It must be the same as prior fetchinvoice
+calls for the same recurrence, as it is used to link them together\.
+
+
+\fItimeout\fR is an optional timeout; if we don't get a reply before this
+we fail (default, 60 seconds)\.
+
+.SH RETURN VALUE
+
+On success, an object as follows is returned:
+
+.RS
+.IP \[bu]
+\fIinvoice\fR: the bolt12-encoded invoice string, starting with "lni1"\.
+.IP \[bu]
+\fIchanges\fR: an object detailing changes between the offer and invoice\.
+
+.RE
+
+Optionally:
+
+.RS
+.IP \[bu]
+\fInext_period\fR: an object returned for recurring invoices if the next 
+period is under the recurrence_limit (if any)\.
+
+.RE
+
+The \fIchanges\fR object can have and of the following members:
+
+.RS
+.IP \[bu]
+\fIdescription_appended\fR: extra characters appended to the \fIdescription\fR field\.
+.IP \[bu]
+\fIdescription\fR: a completely replaced \fIdescription\fR field\.
+.IP \[bu]
+\fIvendor_removed\fR": the offer vendor field, which has been omitted from the invoice\.
+.IP \[bu]
+\fIvendor\fR": the offer vendor field, which has changed from the invoice\.
+.IP \[bu]
+\fImsat\fR": the amount, if different from the offer amount multiplied
+by any \fIquantity\fR (or the offer had no amount, or was not in BTC)\.
+
+.RE
+
+The \fInext_period\fR object has at least the following members:
+
+.RS
+.IP \[bu]
+\fIcounter\fR: the index of the next period to be fetchinvoice\.
+.IP \[bu]
+\fIstarttime\fR: the time that the next period starts (seconds since 1970)
+.IP \[bu]
+\fIendtime\fR: the time that the next period ends (seconds since 1970)
+.IP \[bu]
+\fIpaywindow_start\fR: the earliest time that the next invoice can be fetched (seconds since 1970)
+.IP \[bu]
+\fIpaywindow_end\fR: the latest time that the next invoice can be fetched (seconds since 1970)
+
+.RE
+
+The following error codes may occur:
+
+.RS
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+1002: Offer has expired\.
+.IP \[bu]
+1003: Cannot find a route to the node making the offer\.
+.IP \[bu]
+1004: The node making the offer returned an error message\.
+.IP \[bu]
+1005: We timed out trying to fetch an invoice\.
+
+.RE
+.SH AUTHOR
+
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-sendinvoice\fR(7), \fBlightning-pay\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:d891c6471a81b3b73109b19d1bc6a393bc60b5df804d6b14d330e2d8dca47f4e

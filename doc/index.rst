@@ -44,6 +44,7 @@ c-lightning Documentation
    lightning-dev-sendcustommsg <lightning-dev-sendcustommsg.7.md>
    lightning-disconnect <lightning-disconnect.7.md>
    lightning-feerates <lightning-feerates.7.md>
+   lightning-fetchinvoice <lightning-fetchinvoice.7.md>
    lightning-fundchannel <lightning-fundchannel.7.md>
    lightning-fundchannel_cancel <lightning-fundchannel_cancel.7.md>
    lightning-fundchannel_complete <lightning-fundchannel_complete.7.md>
@@ -71,6 +72,7 @@ c-lightning Documentation
    lightning-multiwithdraw <lightning-multiwithdraw.7.md>
    lightning-newaddr <lightning-newaddr.7.md>
    lightning-notifications <lightning-notifications.7.md>
+   lightning-offer <lightning-offer.7.md>
    lightning-openchannel_init <lightning-openchannel_init.7.md>
    lightning-openchannel_signed <lightning-openchannel_signed.7.md>
    lightning-openchannel_update <lightning-openchannel_update.7.md>
@@ -78,6 +80,7 @@ c-lightning Documentation
    lightning-ping <lightning-ping.7.md>
    lightning-plugin <lightning-plugin.7.md>
    lightning-reserveinputs <lightning-reserveinputs.7.md>
+   lightning-sendinvoice <lightning-sendinvoice.7.md>
    lightning-sendonion <lightning-sendonion.7.md>
    lightning-sendpay <lightning-sendpay.7.md>
    lightning-sendpsbt <lightning-sendpsbt.7.md>
