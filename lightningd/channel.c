@@ -372,6 +372,18 @@ struct channel *peer_active_channel(struct peer *peer)
 	return NULL;
 }
 
+struct channel_inflight *channel_inflight_find(struct channel *channel,
+					       const struct bitcoin_txid *txid)
+{
+	struct channel_inflight *inflight;
+	list_for_each(&channel->inflights, inflight, list) {
+		if (bitcoin_txid_eq(txid, &inflight->funding->txid))
+			return inflight;
+	}
+
+	return NULL;
+}
+
 struct channel *peer_normal_channel(struct peer *peer)
 {
 	struct channel *channel;
