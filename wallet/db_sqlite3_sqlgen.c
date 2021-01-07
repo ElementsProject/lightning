@@ -1053,6 +1053,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = true,
     },
     {
+         .name = "SELECT txid, outnum FROM utxoset WHERE spendheight is NULL",
+         .query = "SELECT txid, outnum FROM utxoset WHERE spendheight is NULL",
+         .placeholders = 0,
+         .readonly = true,
+    },
+    {
          .name = "SELECT * from outputs WHERE prev_out_tx=? AND prev_out_index=?",
          .query = "SELECT * from outputs WHERE prev_out_tx=? AND prev_out_index=?",
          .placeholders = 2,
@@ -1503,6 +1509,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "SELECT txid, outnum FROM utxoset WHERE spendheight < ?",
+         .query = "SELECT txid, outnum FROM utxoset WHERE spendheight < ?",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
          .name = "DELETE FROM utxoset WHERE spendheight < ?",
          .query = "DELETE FROM utxoset WHERE spendheight < ?",
          .placeholders = 1,
@@ -1756,10 +1768,10 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
-#define DB_SQLITE3_QUERY_COUNT 291
+#define DB_SQLITE3_QUERY_COUNT 293
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:26bbd985dc45de765f06b8c2644ecd76c098532ff71a33c8f71608890631d726
+// SHA256STAMP:62ee429e3f1823a6f5db9358e3bd25b0b48f1dc7cf78bd22b921f601cde15950
