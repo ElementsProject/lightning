@@ -229,7 +229,8 @@ AUTODATA(json_command, &disableoffer_command);
  * but our main purpose is to fill in invreq->payer_info tweak. */
 static struct command_result *prev_payment(struct command *cmd,
 					   const char *label,
-					   struct tlv_invoice_request *invreq)
+					   struct tlv_invoice_request *invreq,
+					   u64 **prev_basetime)
 {
 	const struct wallet_payment **payments;
 	bool prev_paid = false;
@@ -294,9 +295,15 @@ static struct command_result *prev_payment(struct command *cmd,
 				prev_paid = true;
 		}
 
-		if (inv->payer_info)
+		if (inv->payer_info) {
 			invreq->payer_info
 				= tal_dup_talarr(invreq, u8, inv->payer_info);
+			*prev_basetime = tal_dup(cmd, u64,
+						 inv->recurrence_basetime);
+		}
+
+		if (prev_paid && inv->payer_info)
+			break;
 	}
 
 	if (!invreq->payer_info)
@@ -363,6 +370,7 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	struct tlv_invoice_request *invreq;
 	const char *label;
 	struct json_stream *response;
+	u64 *prev_basetime = NULL;
 
 	if (!param(cmd, buffer, params,
 		   p_req("bolt12", param_b12_invreq, &invreq),
@@ -377,7 +385,8 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 
 		if (*invreq->recurrence_counter != 0) {
 			struct command_result *err
-				= prev_payment(cmd, label, invreq);
+				= prev_payment(cmd, label, invreq,
+					       &prev_basetime);
 			if (err)
 				return err;
 		}
@@ -430,6 +439,8 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	if (label)
 		json_add_escaped_string(response, "recurrence_label",
 					take(json_escape(NULL, label)));
+	if (prev_basetime)
+		json_add_u64(response, "previous_basetime", *prev_basetime);
 	return command_success(cmd, response);
 }
 
