@@ -258,6 +258,10 @@ new_inflight(struct channel *channel,
 	     struct bitcoin_tx *last_tx STEALS,
 	     const struct bitcoin_signature last_sig);
 
+/* Given a txid, find an inflight channel stub. Returns NULL if none found */
+struct channel_inflight *channel_inflight_find(struct channel *channel,
+					       const struct bitcoin_txid *txid);
+
 void delete_channel(struct channel *channel STEALS);
 
 const char *channel_state_name(const struct channel *channel);

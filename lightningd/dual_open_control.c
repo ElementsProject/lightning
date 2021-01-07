@@ -1392,6 +1392,7 @@ cleanup:
 
 void dualopen_tell_depth(struct subd *dualopend,
 			 struct channel *channel,
+			 const struct bitcoin_txid *txid,
 			 u32 depth)
 {
 	const u8 *msg;
@@ -1405,6 +1406,34 @@ void dualopen_tell_depth(struct subd *dualopend,
 	/* Are we there yet? */
 	if (to_go == 0) {
 		assert(channel->scid);
+
+		/* Update the channel's info to the correct tx, if we need to */
+		if (!bitcoin_txid_eq(&channel->funding_txid, txid)) {
+			struct channel_inflight *inf;
+			inf = channel_inflight_find(channel, txid);
+			if (!inf)
+				channel_internal_error(channel,
+					"Txid %s for channel"
+					" not found in available inflights."
+					"  (peer %s)",
+					type_to_string(tmpctx,
+						       struct bitcoin_txid,
+						       txid),
+					type_to_string(tmpctx,
+						       struct node_id,
+						       &channel->peer->id));
+
+			channel->funding_txid = inf->funding_txid;
+			channel->funding_outnum = inf->funding_outnum;
+			channel->funding = inf->funding;
+			channel->our_funds = inf->our_funds;
+			channel->psbt = clone_psbt(channel, inf->funding_psbt);
+			channel->last_tx = tal_steal(channel, inf->last_tx);
+			channel->last_sig = inf->last_sig;
+
+			wallet_channel_save(dualopend->ld->wallet, channel);
+			/* FIXME: delete inflights */
+		}
 		msg = towire_dualopend_depth_reached(NULL, depth);
 		subd_send_msg(dualopend, take(msg));
 	} else
