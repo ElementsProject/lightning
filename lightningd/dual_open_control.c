@@ -1157,6 +1157,7 @@ static void peer_tx_sigs_msg(struct subd *dualopend,
 				       type_to_string(tmpctx,
 						      struct wally_psbt,
 						      psbt));
+		tal_wally_end(channel->psbt);
 		return;
 	}
 	tal_wally_end(channel->psbt);
