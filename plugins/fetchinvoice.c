@@ -1,4 +1,5 @@
 #include <bitcoin/chainparams.h>
+#include <bitcoin/preimage.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/mem/mem.h>
@@ -34,10 +35,15 @@ struct sent {
 	struct pubkey reply_blinding;
 	/* The command which sent us. */
 	struct command *cmd;
-	/* The offer we are trying to get an invoice for. */
+	/* The offer we are trying to get an invoice/payment for. */
 	struct tlv_offer *offer;
-	/* The invreq we sent. */
+
+	/* The invreq we sent, OR the invoice we sent */
 	struct tlv_invoice_request *invreq;
+
+	struct tlv_invoice *inv;
+	struct preimage inv_preimage;
+	struct json_escape *inv_label;
 };
 
 static struct sent *find_sent(const struct pubkey *blinding)
@@ -80,86 +86,79 @@ static void discard_result(struct command_result *ret)
 {
 }
 
-static struct command_result *recv_onion_message(struct command *cmd,
-						 const char *buf,
-						 const jsmntok_t *params)
+/* Returns NULL if it wasn't an error. */
+static struct command_result *handle_error(struct command *cmd,
+					   struct sent *sent,
+					   const char *buf,
+					   const jsmntok_t *om)
 {
-	const jsmntok_t *om, *invtok, *errtok, *blindingtok;
+	const u8 *data;
+	size_t dlen;
+	struct tlv_invoice_error *err;
+	struct json_out *details;
+	const jsmntok_t *errtok;
+
+	errtok = json_get_member(buf, om, "invoice_error");
+	if (!errtok)
+		return NULL;
+
+	data = json_tok_bin_from_hex(cmd, buf, errtok);
+	dlen = tal_bytelen(data);
+	err = tlv_invoice_error_new(cmd);
+	details = json_out_new(cmd);
+
+	plugin_log(cmd->plugin, LOG_DBG, "errtok = %.*s",
+		   json_tok_full_len(errtok),
+		   json_tok_full(buf, errtok));
+	json_out_start(details, NULL, '{');
+	if (!fromwire_invoice_error(&data, &dlen, err)) {
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "Invalid invoice_error %.*s",
+			   json_tok_full_len(errtok),
+			   json_tok_full(buf, errtok));
+		json_out_addstr(details, "invoice_error_hex",
+				tal_strndup(tmpctx,
+					    buf + errtok->start,
+					    errtok->end - errtok->start));
+	} else {
+		char *failstr;
+
+		/* FIXME: with a bit more generate-wire.py support,
+		 * we could have fieldnames and even types. */
+		if (err->erroneous_field)
+			json_out_add(details, "erroneous_field", false,
+				     "%"PRIu64, *err->erroneous_field);
+		if (err->suggested_value)
+			json_out_addstr(details, "suggested_value",
+					tal_hex(tmpctx,
+						err->suggested_value));
+		/* If they don't include this, it'll be empty */
+		failstr = tal_strndup(tmpctx,
+				      err->error,
+				      tal_bytelen(err->error));
+		json_out_addstr(details, "error", failstr);
+	}
+	json_out_end(details, '}');
+	discard_result(command_done_err(sent->cmd,
+					OFFER_BAD_INVREQ_REPLY,
+					"Remote node sent failure message",
+						details));
+	return command_hook_success(cmd);
+}
+
+static struct command_result *handle_invreq_response(struct command *cmd,
+						     struct sent *sent,
+						     const char *buf,
+						     const jsmntok_t *om)
+{
 	const u8 *invbin;
+	const jsmntok_t *invtok;
 	size_t len;
 	struct tlv_invoice *inv;
-	struct sent *sent;
 	struct sha256 merkle, sighash;
 	struct json_stream *out;
 	const char *badfield;
-	struct pubkey blinding;
 	u64 *expected_amount;
-
-	plugin_log(cmd->plugin, LOG_INFORM, "Received onion message: %.*s",
-		   json_tok_full_len(params),
-		   json_tok_full(buf, params));
-
-	om = json_get_member(buf, params, "onion_message");
-	blindingtok = json_get_member(buf, om, "blinding_in");
-	if (!blindingtok || !json_to_pubkey(buf, blindingtok, &blinding))
-		return command_hook_success(cmd);
-
-	sent = find_sent(&blinding);
-	if (!sent) {
-		plugin_log(cmd->plugin, LOG_DBG,
-			   "No match for onion %.*s",
-			   json_tok_full_len(om),
-			   json_tok_full(buf, om));
-		return command_hook_success(cmd);
-	}
-
-	/* From here on, we know it's genuine, so we will fail the
-	 * fetchinvoice command if the invoice is invalid */
-	errtok = json_get_member(buf, om, "invoice_error");
-	if (errtok) {
-		const u8 *data = json_tok_bin_from_hex(cmd, buf, errtok);
-		size_t dlen = tal_bytelen(data);
-		struct tlv_invoice_error *err = tlv_invoice_error_new(cmd);
-		struct json_out *details = json_out_new(cmd);
-
-		plugin_log(cmd->plugin, LOG_DBG, "errtok = %.*s",
-			   json_tok_full_len(errtok),
-			   json_tok_full(buf, errtok));
-		json_out_start(details, NULL, '{');
-		if (!fromwire_invoice_error(&data, &dlen, err)) {
-			plugin_log(cmd->plugin, LOG_DBG,
-				   "Invalid invoice_error %.*s",
-				   json_tok_full_len(errtok),
-				   json_tok_full(buf, errtok));
-			json_out_addstr(details, "invoice_error_hex",
-					tal_strndup(tmpctx,
-						    buf + errtok->start,
-						    errtok->end - errtok->start));
-		} else {
-			char *failstr;
-
-			/* FIXME: with a bit more generate-wire.py support,
-			 * we could have fieldnames and even types. */
-			if (err->erroneous_field)
-				json_out_add(details, "erroneous_field", false,
-					     "%"PRIu64, *err->erroneous_field);
-			if (err->suggested_value)
-				json_out_addstr(details, "suggested_value",
-						tal_hex(tmpctx,
-							err->suggested_value));
-			/* If they don't include this, it'll be empty */
-			failstr = tal_strndup(tmpctx,
-					      err->error,
-					      tal_bytelen(err->error));
-			json_out_addstr(details, "error", failstr);
-		}
-		json_out_end(details, '}');
-		discard_result(command_done_err(sent->cmd,
-						OFFER_BAD_INVREQ_REPLY,
-						"Remote node sent failure message",
-						details));
-		return command_hook_success(cmd);
-	}
 
 	invtok = json_get_member(buf, om, "invoice");
 	if (!invtok) {
@@ -372,6 +371,54 @@ badinv:
 	return command_hook_success(cmd);
 }
 
+static struct command_result *handle_inv_response(struct command *cmd,
+						  struct sent *sent,
+						  const char *buf,
+						  const jsmntok_t *om)
+{
+	/* FIXME: Report error. */
+	return command_hook_success(cmd);
+}
+
+static struct command_result *recv_onion_message(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *params)
+{
+	const jsmntok_t *om, *blindingtok;
+	struct sent *sent;
+	struct pubkey blinding;
+	struct command_result *err;
+
+	om = json_get_member(buf, params, "onion_message");
+	blindingtok = json_get_member(buf, om, "blinding_in");
+	if (!blindingtok || !json_to_pubkey(buf, blindingtok, &blinding))
+		return command_hook_success(cmd);
+
+	sent = find_sent(&blinding);
+	if (!sent) {
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "No match for onion %.*s",
+			   json_tok_full_len(om),
+			   json_tok_full(buf, om));
+		return command_hook_success(cmd);
+	}
+
+	plugin_log(cmd->plugin, LOG_DBG, "Received onion message: %.*s",
+		   json_tok_full_len(params),
+		   json_tok_full(buf, params));
+
+	err = handle_error(cmd, sent, buf, om);
+	if (err)
+		return err;
+
+	if (sent->invreq)
+		return handle_invreq_response(cmd, sent, buf, om);
+	else {
+		assert(sent->inv);
+		return handle_inv_response(cmd, sent, buf, om);
+	}
+}
+
 static void destroy_sent(struct sent *sent)
 {
 	list_del(&sent->list);
@@ -493,7 +540,12 @@ static const struct pubkey *route_backwards(const tal_t *ctx,
 static struct command_result *send_message(struct command *cmd,
 					   struct sent *sent,
 					   const char *msgfield,
-					   const u8 *msgval)
+					   const u8 *msgval,
+					   struct command_result *(*done)
+					   (struct command *cmd,
+					    const char *buf UNUSED,
+					    const jsmntok_t *result UNUSED,
+					    struct sent *sent))
 {
 	const struct dijkstra *dij;
 	const struct gossmap_node *dst, *src;
@@ -535,8 +587,8 @@ static struct command_result *send_message(struct command *cmd,
 				&sent->reply_blinding);
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
-				    &sendonionmsg_done,
-				    &forward_error,
+				    done,
+				    forward_error,
 				    sent);
 	json_array_start(req->js, "hops");
 	for (size_t i = 0; i < tal_count(r); i++) {
@@ -595,6 +647,7 @@ static struct command_result *invreq_done(struct command *cmd,
 		   json_tok_full_len(t),
 		   json_tok_full(buf, t));
 
+	sent->inv = NULL;
 	sent->invreq = invrequest_decode(sent,
 					 buf + t->start,
 					 t->end - t->start,
@@ -610,7 +663,8 @@ static struct command_result *invreq_done(struct command *cmd,
 
 	rawinvreq = tal_arr(tmpctx, u8, 0);
 	towire_invoice_request(&rawinvreq, sent->invreq);
-	return send_message(cmd, sent, "invoice_request", rawinvreq);
+	return send_message(cmd, sent, "invoice_request", rawinvreq,
+			    sendonionmsg_done);
 }
 
 /* Fetches an invoice for this offer, and makes sure it corresponds. */
@@ -797,13 +851,331 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-static const struct plugin_command commands[] = { {
-	"fetchinvoice",
-	"payment",
-	"Request remote node for an invoice for this {offer}, with {amount}, {quanitity}, {recurrence_counter}, {recurrence_start} and {recurrence_label} iff required.",
-	NULL,
-	json_fetchinvoice,
+static struct command_result *createinvoice_done(struct command *cmd,
+						 const char *buf,
+						 const jsmntok_t *result,
+						 struct sent *sent)
+{
+	const jsmntok_t *invtok = json_get_member(buf, result, "bolt12");
+	char *fail;
+	u8 *rawinv;
+
+	/* Replace invoice with signed one */
+	tal_free(sent->inv);
+	sent->inv = invoice_decode(sent,
+				   buf + invtok->start,
+				   invtok->end - invtok->start,
+				   plugin_feature_set(cmd->plugin),
+				   chainparams,
+				   &fail);
+	if (!sent->inv) {
+		plugin_log(cmd->plugin, LOG_BROKEN,
+			   "Bad createinvoice %.*s: %s",
+			   json_tok_full_len(invtok),
+			   json_tok_full(buf, invtok),
+			   fail);
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Bad createinvoice response %s", fail);
 	}
+
+	rawinv = tal_arr(tmpctx, u8, 0);
+	towire_invoice(&rawinv, sent->inv);
+	return send_message(cmd, sent, "invoice", rawinv, sendonionmsg_done);
+}
+
+static struct command_result *sign_invoice(struct command *cmd,
+					   struct sent *sent)
+{
+	struct out_req *req;
+
+	/* Get invoice signature and put in db so we can receive payment */
+	req = jsonrpc_request_start(cmd->plugin, cmd, "createinvoice",
+				    &createinvoice_done,
+				    &forward_error,
+				    sent);
+	json_add_string(req->js, "invstring", invoice_encode(tmpctx, sent->inv));
+	json_add_preimage(req->js, "preimage", &sent->inv_preimage);
+	json_add_escaped_string(req->js, "label", sent->inv_label);
+	return send_outreq(cmd->plugin, req);
+}
+
+static bool json_to_bip340sig(const char *buffer, const jsmntok_t *tok,
+			      struct bip340sig *sig)
+{
+	return hex_decode(buffer + tok->start, tok->end - tok->start,
+			  sig->u8, sizeof(sig->u8));
+}
+
+static struct command_result *payersign_done(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     struct sent *sent)
+{
+	const jsmntok_t *sig;
+
+	sent->inv->refund_signature = tal(sent->inv, struct bip340sig);
+	sig = json_get_member(buf, result, "signature");
+	json_to_bip340sig(buf, sig, sent->inv->refund_signature);
+
+	return sign_invoice(cmd, sent);
+}
+
+/* They're offering a refund, so we need to sign with same key as used
+ * in initial payment. */
+static struct command_result *listsendpays_done(struct command *cmd,
+						const char *buf,
+						const jsmntok_t *result,
+						struct sent *sent)
+{
+	const jsmntok_t *t, *arr = json_get_member(buf, result, "payments");
+	size_t i;
+	const u8 *public_tweak = NULL, *p;
+	u8 *msg;
+	size_t len;
+	struct sha256 merkle;
+	struct out_req *req;
+
+	/* Linearize populates ->fields */
+	msg = tal_arr(tmpctx, u8, 0);
+	towire_invoice(&msg, sent->inv);
+	p = msg;
+	len = tal_bytelen(msg);
+	sent->inv = tlv_invoice_new(cmd);
+	if (!fromwire_invoice(&p, &len, sent->inv))
+		plugin_err(cmd->plugin,
+			   "Could not remarshall %s", tal_hex(tmpctx, msg));
+
+	merkle_tlv(sent->inv->fields, &merkle);
+
+	json_for_each_arr(i, t, arr) {
+		const jsmntok_t *b12tok;
+		struct tlv_invoice *inv;
+		char *fail;
+
+		b12tok = json_get_member(buf, t, "bolt12");
+		if (!b12tok) {
+			/* This could happen if they try to refund a bolt11 */
+			plugin_log(cmd->plugin, LOG_UNUSUAL,
+				   "Not bolt12 string in %.*s?",
+				   json_tok_full_len(t),
+				   json_tok_full(buf, t));
+			continue;
+		}
+
+		inv = invoice_decode(tmpctx, buf + b12tok->start,
+				     b12tok->end - b12tok->start,
+				     plugin_feature_set(cmd->plugin),
+				     chainparams,
+				     &fail);
+		if (!inv) {
+			plugin_log(cmd->plugin, LOG_BROKEN,
+				   "Bad bolt12 string in %.*s?",
+				   json_tok_full_len(t),
+				   json_tok_full(buf, t));
+			continue;
+		}
+
+		public_tweak = inv->payer_info;
+		break;
+	}
+
+	if (!public_tweak)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot find invoice %s for refund",
+				    type_to_string(tmpctx, struct sha256,
+						   sent->offer->refund_for));
+
+	/* BOLT-offers #12:
+	 * - MUST set `refund_signature` to the signature of the
+	 *   `refunded_payment_hash` using prefix `refund_signature` and the
+	 *   `payer_key` from the to-be-refunded invoice.
+	 */
+	req = jsonrpc_request_start(cmd->plugin, cmd, "payersign",
+				    &payersign_done,
+				    &forward_error,
+				    sent);
+	json_add_string(req->js, "messagename", "invoice");
+	json_add_string(req->js, "fieldname", "refund_signature");
+	json_add_sha256(req->js, "merkle", &merkle);
+	json_add_hex_talarr(req->js, "tweak", public_tweak);
+	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *json_sendinvoice(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *params)
+{
+	struct amount_msat *msat;
+	struct out_req *req;
+	struct sent *sent = tal(cmd, struct sent);
+
+	sent->inv = tlv_invoice_new(cmd);
+	sent->invreq = NULL;
+	sent->cmd = cmd;
+
+	/* FIXME: Support recurring send_invoice offers? */
+	if (!param(cmd, buffer, params,
+		   p_req("offer", param_offer, &sent->offer),
+		   p_req("label", param_label, &sent->inv_label),
+		   p_opt("msatoshi", param_msat, &msat),
+		   p_opt("quantity", param_u64, &sent->inv->quantity),
+		   NULL))
+		return command_param_failed();
+
+	/* Check they are really trying to send us money. */
+	if (!sent->offer->send_invoice)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Offer wants an invoice_request, not invoice");
+
+	/* If they don't tell us how much, base it on offer. */
+	if (!msat) {
+		if (sent->offer->currency)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Offer in different currency: need amount");
+		if (!sent->offer->amount)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Offer did not specify: need amount");
+		sent->inv->amount = tal_dup(sent->inv, u64, sent->offer->amount);
+		if (sent->inv->quantity)
+			*sent->inv->amount *= *sent->inv->quantity;
+	} else
+		sent->inv->amount = tal_dup(sent->inv, u64,
+					    &msat->millisatoshis); /* Raw: tlv */
+
+	/* FIXME: Support blinded paths, in which case use fake nodeid */
+
+	/* BOLT-offers #12:
+	 * - otherwise (responding to a `send_invoice` offer):
+	 *   - MUST set `node_id` to the id of the node to send payment to.
+	 *   - MUST set `description` the same as the offer.
+	 */
+	sent->inv->node_id = tal(sent->inv, struct pubkey32);
+	if (!pubkey32_from_node_id(sent->inv->node_id, &local_id))
+		plugin_err(cmd->plugin, "Invalid local_id %s?",
+			   type_to_string(tmpctx, struct node_id, &local_id));
+
+	sent->inv->description
+		= tal_dup_talarr(sent->inv, char, sent->offer->description);
+
+	/* BOLT-offers #12:
+	 *   - MUST set (or not set) `send_invoice` the same as the offer.
+	 */
+	sent->inv->send_invoice = tal(sent->inv, struct tlv_invoice_send_invoice);
+
+	/* BOLT-offers #12:
+	 * - MUST set `offer_id` to the id of the offer.
+	 */
+	sent->inv->offer_id = tal(sent->inv, struct sha256);
+	merkle_tlv(sent->offer->fields, sent->inv->offer_id);
+
+	/* BOLT-offers #12:
+	 * - SHOULD not respond to an offer if the current time is after
+	 *   `absolute_expiry`.
+	 */
+	if (sent->offer->absolute_expiry
+	    && time_now().ts.tv_sec > *sent->offer->absolute_expiry)
+		return command_fail(cmd, OFFER_EXPIRED, "Offer expired");
+
+	/* BOLT-offers #12:
+	 * - otherwise (responding to a `send_invoice` offer):
+	 *...
+	 *   - if the offer had a `quantity_min` or `quantity_max` field:
+	 *     - MUST set `quantity`
+	 *     - MUST set it within that (inclusive) range.
+	 *   - otherwise:
+	 *     - MUST NOT set `quantity`
+	 */
+	if (sent->offer->quantity_min || sent->offer->quantity_max) {
+		if (!sent->inv->quantity)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "quantity parameter required");
+		if (sent->offer->quantity_min
+		    && *sent->inv->quantity < *sent->offer->quantity_min)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "quantity must be >= %"PRIu64,
+					    *sent->offer->quantity_min);
+		if (sent->offer->quantity_max
+		    && *sent->inv->quantity > *sent->offer->quantity_max)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "quantity must be <= %"PRIu64,
+					    *sent->offer->quantity_max);
+	} else {
+		if (sent->inv->quantity)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "quantity parameter unnecessary");
+	}
+
+	/* BOLT-offers #12:
+	 * - MUST set `payer_key` to the `node_id` of the offer.
+	 */
+	sent->inv->payer_key = sent->offer->node_id;
+
+	/* BOLT-offers #12:
+	 *     - FIXME: recurrence!
+	 */
+	if (sent->offer->recurrence)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "FIXME: handle recurring send_invoice offer!");
+
+	/* BOLT-offers #12:
+	 *
+	 * - if the chain for the invoice is not solely bitcoin:
+	 *   - MUST specify `chains` the offer is valid for.
+	 * - otherwise:
+	 *   - the bitcoin chain is implied as the first and only entry.
+	 */
+	if (!streq(chainparams->network_name, "bitcoin")) {
+		sent->inv->chains = tal_arr(sent->inv, struct bitcoin_blkid, 1);
+		sent->inv->chains[0] = chainparams->genesis_blockhash;
+	}
+
+	sent->inv->features
+		= plugin_feature_set(cmd->plugin)->bits[BOLT11_FEATURE];
+
+	randombytes_buf(&sent->inv_preimage, sizeof(sent->inv_preimage));
+	sent->inv->payment_hash = tal(sent->inv, struct sha256);
+	sha256(sent->inv->payment_hash,
+	       &sent->inv_preimage, sizeof(sent->inv_preimage));
+
+	/* BOLT-offers #12:
+	 * - MUST set (or not set) `refund_for` exactly as the offer did.
+	 *   - if it sets `refund_for`:
+	 *      - MUST set `refund_signature` to the signature of the
+	 *        `refunded_payment_hash` using prefix `refund_signature` and
+	 *         the `payer_key` from the to-be-refunded invoice.
+	 *    - otherwise:
+	 *      - MUST NOT set `refund_signature`
+	 */
+	if (sent->offer->refund_for) {
+		sent->inv->refund_for = sent->offer->refund_for;
+		/* Find original payment invoice */
+		req = jsonrpc_request_start(cmd->plugin, cmd, "listsendpays",
+					    &listsendpays_done,
+					    &forward_error,
+					    sent);
+		json_add_sha256(req->js, "payment_hash",
+				sent->offer->refund_for);
+		return send_outreq(cmd->plugin, req);
+	}
+
+	return sign_invoice(cmd, sent);
+}
+
+static const struct plugin_command commands[] = {
+	{
+		"fetchinvoice",
+		"payment",
+		"Request remote node for an invoice for this {offer}, with {amount}, {quanitity}, {recurrence_counter}, {recurrence_start} and {recurrence_label} iff required.",
+		NULL,
+		json_fetchinvoice,
+	},
+	{
+		"sendinvoice",
+		"payment",
+		"Request remote node for to pay this send_invoice {offer}, with {amount}, {quanitity}, {recurrence_counter}, {recurrence_start} and {recurrence_label} iff required.",
+		NULL,
+		json_sendinvoice,
+	},
 };
 
 static void init(struct plugin *p, const char *buf UNUSED,
