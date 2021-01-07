@@ -1591,8 +1591,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					" WHERE id=?"));
 	db_bind_talarr(stmt, 0, last_sent_commit);
 	db_bind_u64(stmt, 1, chan->dbid);
-	db_exec_prepared_v2(stmt);
-	tal_free(stmt);
+	db_exec_prepared_v2(take(stmt));
 }
 
 void wallet_state_change_add(struct wallet *w,
