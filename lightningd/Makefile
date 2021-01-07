@@ -76,6 +76,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/bip32.o				\
 	common/blinding.o			\
 	common/bolt11.o				\
+	common/bolt11_json.o			\
 	common/channel_id.o			\
 	common/channel_config.o			\
 	common/coin_mvt.o			\

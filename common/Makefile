@@ -9,6 +9,7 @@ COMMON_SRC_NOGEN :=				\
 	common/bip32.c				\
 	common/blinding.c			\
 	common/bolt11.c				\
+	common/bolt11_json.c			\
 	common/bolt12.c				\
 	common/channel_config.c			\
 	common/channel_id.c			\

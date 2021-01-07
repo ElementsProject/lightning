@@ -297,8 +297,7 @@ static char *decode_n(struct bolt11 *b11,
 			  data_length * 5, false);
 	if (!node_id_valid(&b11->receiver_id))
 		return tal_fmt(b11, "n: invalid pubkey %s",
-			       type_to_string(tmpctx, struct node_id,
-					      &b11->receiver_id));
+			       node_id_to_hexstr(tmpctx, &b11->receiver_id));
 
 	*have_n = true;
 	return NULL;
