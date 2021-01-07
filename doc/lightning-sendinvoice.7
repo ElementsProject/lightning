@@ -1,0 +1,81 @@
+.TH "LIGHTNING-SENDINVOICE" "7" "" "" "lightning-sendinvoice"
+.SH NAME
+lightning-sendinvoice - Command for send an invoice for an offer
+.SH SYNOPSIS
+
+\fIEXPERIMENTAL_FEATURES only\fR
+
+
+\fBsendinvoice\fR \fIoffer\fR [\fIlabel\fR] [\fImsatoshi\fR] [\fItimeout\fR] [\fIinvoice_timeout\fR] [\fIquantity\fR]
+
+.SH DESCRIPTION
+
+The \fBsendinvoice\fR RPC command creates and sends an invoice to the
+issuer of an \fIoffer\fR for it to pay: the offer must contain
+\fIsend_invoice\fR; see \fBlightning-fetchinvoice\fR(7)\.
+
+
+\fIoffer\fR is the bolt12 offer string beginning with "lno1"\.
+
+
+\fIlabel\fR is the unique label to use for this invoice\.
+
+
+\fImsatoshi\fR is optional: it is required if the \fIoffer\fR does not specify
+an amount at all, or specifies it in a different currency\.  Otherwise
+you may set it (e\.g\. to provide a tip), and if not it defaults to the
+amount contained in the offer (multiplied by \fIquantity\fR if any)\.
+
+
+\fItimeout\fR is how many seconds to wait for the offering node to pay the
+invoice or return an error, default 90 seconds\.
+
+
+\fIinvoice_timeout\fR can be set to greater than \fItimeout\fR, to give the
+offering node longer to pay; in this case \fIsendinvoice\fR will time out
+but the invoice will still be valid, and the caller should monitor it\.
+
+
+\fIquantity\fR is optional: it is required if the \fIoffer\fR specifies
+\fIquantity_min\fR or \fIquantity_max\fR, otherwise it is not allowed\.
+
+.SH RETURN VALUE
+
+On success, an object as follows is returned:
+
+.RS
+.IP \[bu]
+\fIinvstring\fR: the bolt12-encoded invoice string we sent (now paid), starting with "lni1"\.
+.IP \[bu]
+\fImsat\fR: the amount they paid\.
+
+.RE
+
+The following error codes may occur:
+
+.RS
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+1002: Offer has expired\.
+.IP \[bu]
+1003: Cannot find a route to the node making the offer\.
+.IP \[bu]
+1004: The node making the offer returned an error message\.
+.IP \[bu]
+1005: We timed out waiting for the invoice to be paid
+
+.RE
+.SH AUTHOR
+
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-fetchinvoice\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:0ffd4c0967f4aa7ffb2f14ed4658dbe4ef79926a08acf0534db47fdd8bd1b6bc

@@ -1,0 +1,162 @@
+.TH "LIGHTNING-OFFER" "7" "" "" "lightning-offer"
+.SH NAME
+lightning-offer - Command for accepting payments
+.SH SYNOPSIS
+
+\fIEXPERIMENTAL_FEATURES only\fR
+
+
+\fBoffer\fR \fIamount\fR \fIdescription\fR [\fIsend_invoice\fR] [\fIlabel\fR] [\fIvendor\fR] [\fIquantity_min\fR] [\fIquantity_max\fR] [\fIabsolute_expiry\fR] [\fIrecurrence\fR] [\fIrecurrence_base\fR] [\fIrecurrence_paywindow\fR] [\fIrecurrence_limit\fR] [\fIrefund_for\fR] [\fIsingle_use\fR]
+
+.SH DESCRIPTION
+
+The \fBoffer\fR RPC command creates an offer, which is a precursor to
+one or more invoices\.  It automatically enables the accepting of
+corresponding invoice_request or invoice messages (depending on
+\fIsend_invoice\fR)\.
+
+
+The \fIamount\fR parameter can be the string "any", which creates an offer
+that can be paid with any amount (e\.g\. a donation)\.  Otherwise it can
+be a positive value in millisatoshi precision; it can be a whole
+number, or a whole number ending in \fImsat\fR or \fIsat\fR, or a number with
+three decimal places ending in \fIsat\fR, or a number with 1 to 11 decimal
+places ending in \fIbtc\fR\.
+
+
+\fIamount\fR can also have an ISO 4217 postfix (i\.e\. USD), in which case
+currency conversion will need to be done for the invoice itself\.
+
+
+The \fIdescription\fR is a short description of purpose of the offer,
+e\.g\. \fIcoffee\fR\. This value is encoded into the resulting offer and is
+viewable by anyone you expose this offer to\. It must be UTF-8, and
+cannot use \fI\u\fR JSON escape codes\.
+
+
+The \fIvendor\fR is another (optional) field exposed in the offer, and
+reflects who is issuing this offer (i\.e\. you) if appropriate\.
+
+
+The \fIsend_invoice\fR boolean (default false unless \fIsingle_use\fR) creates
+an offer to send money: the user of the offer will send an invoice,
+rather than an invoice_request\.  This is encoded in the offer\.  Note
+that \fIrecurrence\fR and ISO 4217 currencies are not currently
+well-supported for this case!
+
+
+The \fIlabel\fR field is an internal-use name for the offer, which can
+be any UTF-8 string\.
+
+
+The present of \fIquantity_min\fR or \fIquantity_max\fR indicates that the
+invoice can specify more than one of the items within this (inclusive)
+range\.  The \fIamount\fR for the invoice will need to be multiplied
+accordingly\.  These are encoded in the offer\.
+
+
+The \fIabsolute_expiry\fR is optionally the time the offer is valid until,
+in seconds since the first day of 1970 UTC\.  If not set, the offer
+remains valid (though it can be deactivated by the issuer of course)\.
+This is encoded in the offer\.
+
+
+\fIrecurrence\fR means that an invoice is expected at regular intervals\.
+The argument is a positive number followed by one of "seconds",
+"minutes", "hours", "days", "weeks", "months" or "years" (variants
+without the trailing "s" are also permitted)\.  This is encoded in the
+offer\.  The semantics of recurrence is fairly predictable, but fully
+documented in BOLT 12\.  e\.g\. "4weeks"\.
+
+
+\fIrecurrence_base\fR is an optional time in seconds since the first day
+of 1970 UTC, optionally with a "@" prefix\.  This indicates when the
+first period begins; without this, the recurrence periods start from
+the first invoice\.  The "@" prefix means that the invoice must start
+by paying the first period; otherwise it is permitted to start at any
+period\.  This is encoded in the offer\.  e\.g\. "@1609459200" indicates
+you must start paying on the 1st January 2021\.
+
+
+\fIrecurrence_paywindow\fR is an optional argument of form
+'-time+time[%]'\.  The first time is the number of seconds before the
+start of a period in which an invoice and payment is valid, the second
+time is the number of seconds after the start of the period\.  For
+example \fI-604800+86400\fR means you can fetch an pay the invoice 4 weeks
+before the given period starts, and up to 1 day afterwards\.  The
+optional \fI%\fR indicates that the amount of the invoice will be scaled
+by the time remaining in the period\.  If this is not specified, the
+default is that payment is allowed during the current and previous
+periods\.  This is encoded in the offer\.
+
+
+\fIrecurrence_limit\fR is an optional argument to indicate the maximum
+period which exists\.  eg\. "12" means there are 13 periods, from 0 to
+12 inclusive\.  This is encoded in the offer\.
+
+
+\fIrefund_for\fR is the payment_preimage of a previous (paid) invoice\.
+This implies \fIsend_invoice\fR and \fIsingle_use\fR\.  This is encoded in the
+offer\.
+
+
+\fIsingle_use\fR (default false, unless \fIrefund_for\fR) indicates that the
+invoice associated with the offer is only valid once; for a
+\fIsend_invoice\fR offer many invoices can be accepted until one is
+successfully paid (and we will only attempt to pay one at any time)\.
+For a non-\fIsingle-use\fR offer, we will issue any number of invoices as
+requested, until one is paid, at which time we will expire all the
+other invoices for this offer and issue no more\.
+
+.SH RETURN VALUE
+
+On success, an object as follows is returned:
+
+.RS
+.IP \[bu]
+\fIoffer_id\fR: the hash of the offer\.
+.IP \[bu]
+\fIactive\fR: true
+.IP \[bu]
+\fIsingle_use\fR: true if \fIsingle_use\fR was specified or implied\.
+.IP \[bu]
+\fIbolt12\fR: the bolt12 offer, starting with "lno1"
+
+.RE
+
+Optionally:
+
+.RS
+.IP \[bu]
+\fIlabel\fR: the user-specified label\.
+
+.RE
+
+On failure, an error is returned and no offer is created\. If the
+lightning process fails before responding, the caller should use
+\fBlightning-listoffers\fR(7) to query whether this offer was created or
+not\.
+
+
+The following error codes may occur:
+
+.RS
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+1000: Offer with this offer_id already exists\.
+
+.RE
+.SH AUTHOR
+
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-listoffers\fR(7), \fBlightning-deloffer\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:88a1e0515adae79cdeef661b6462879d7fb0d666a7731ffdb131053c15c1b9de
