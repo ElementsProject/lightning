@@ -405,8 +405,17 @@ static struct command_result *json_send_onion_message(struct command *cmd,
 
 	/* Sanity check first; gossipd doesn't bother telling us if peer
 	 * can't be reached. */
-	if (!peer_by_id(cmd->ld, &first_id))
-		return command_fail(cmd, LIGHTNINGD, "Unknown first peer");
+	if (!peer_by_id(cmd->ld, &first_id)) {
+		/* Nasty hack: maybe we didn't know y-parity? */
+		first_id.k[0] = SECP256K1_TAG_PUBKEY_ODD;
+		if (!peer_by_id(cmd->ld, &first_id))
+			return command_fail(cmd, LIGHTNINGD,
+					    "Unknown first peer");
+		/* Fixup first hop parity. */
+		if (!pubkey_from_node_id(&hops[0].id, &first_id))
+			return command_fail(cmd, LIGHTNINGD,
+					    "Could not convert parity!");
+	}
 
 	/* Create an onion which encodes this. */
 	populate_tlvs(hops, reply_path);
