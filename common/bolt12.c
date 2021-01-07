@@ -71,6 +71,22 @@ static char *check_features_and_chain(const tal_t *ctx,
 	return NULL;
 }
 
+bool bolt12_check_signature(const struct tlv_field *fields,
+			    const char *messagename,
+			    const char *fieldname,
+			    const struct pubkey32 *key,
+			    const struct bip340sig *sig)
+{
+	struct sha256 m, shash;
+
+	merkle_tlv(fields, &m);
+	sighash_from_merkle(messagename, fieldname, &m, &shash);
+	return secp256k1_schnorrsig_verify(secp256k1_ctx,
+					   sig->u8,
+					   shash.u.u8,
+					   &key->pubkey) == 1;
+}
+
 static char *check_signature(const tal_t *ctx,
 			     const struct tlv_field *fields,
 			     const char *messagename,
@@ -78,19 +94,13 @@ static char *check_signature(const tal_t *ctx,
 			     const struct pubkey32 *node_id,
 			     const struct bip340sig *sig)
 {
-	struct sha256 m, shash;
-
 	if (!node_id)
 		return tal_fmt(ctx, "Missing node_id");
 	if (!sig)
 		return tal_fmt(ctx, "Missing signature");
 
-	merkle_tlv(fields, &m);
-	sighash_from_merkle(messagename, fieldname, &m, &shash);
-	if (secp256k1_schnorrsig_verify(secp256k1_ctx,
-					sig->u8,
-					shash.u.u8,
-					&node_id->pubkey) != 1)
+	if (!bolt12_check_signature(fields,
+				    messagename, fieldname, node_id, sig))
 		return tal_fmt(ctx, "Invalid signature");
 	return NULL;
 }

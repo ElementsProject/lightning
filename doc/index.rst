@@ -37,6 +37,7 @@ c-lightning Documentation
    lightning-connect <lightning-connect.7.md>
    lightning-createinvoice <lightning-createinvoice.7.md>
    lightning-createonion <lightning-createonion.7.md>
+   lightning-decode <lightning-decode.7.md>
    lightning-decodepay <lightning-decodepay.7.md>
    lightning-delexpiredinvoice <lightning-delexpiredinvoice.7.md>
    lightning-delinvoice <lightning-delinvoice.7.md>

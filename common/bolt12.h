@@ -95,6 +95,14 @@ struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx,
 					 const struct chainparams *must_be_chain,
 					 char **fail);
 
+/* Check a bolt12-style signature. */
+bool bolt12_check_signature(const struct tlv_field *fields,
+			    const char *messagename,
+			    const char *fieldname,
+			    const struct pubkey32 *key,
+			    const struct bip340sig *sig)
+	NO_NULL_ARGS;
+
 /* Given a tal_arr of chains, does it contain this chain? */
 bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 			 const struct chainparams *must_be_chain);
