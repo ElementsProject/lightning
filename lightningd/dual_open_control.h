@@ -17,5 +17,6 @@ void peer_restart_dualopend(struct peer *peer,
 
 void dualopen_tell_depth(struct subd *dualopend,
 			 struct channel *channel,
+			 const struct bitcoin_txid *txid,
 			 u32 depth);
 #endif /* LIGHTNING_LIGHTNINGD_DUAL_OPEN_CONTROL_H */
