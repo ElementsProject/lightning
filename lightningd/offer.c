@@ -7,6 +7,7 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <secp256k1_schnorrsig.h>
 #include <wallet/wallet.h>
 #include <wire/wire_sync.h>
 
@@ -43,14 +44,19 @@ static struct command_result *param_b12_offer(struct command *cmd,
 	return NULL;
 }
 
-static void hsm_sign_b12_offer(struct lightningd *ld,
-			       const struct sha256 *merkle,
-			       struct bip340sig *sig)
+static void hsm_sign_b12(struct lightningd *ld,
+			 const char *messagename,
+			 const char *fieldname,
+			 const struct sha256 *merkle,
+			 const u8 *publictweak,
+			 const struct pubkey32 *key,
+			 struct bip340sig *sig)
 {
 	u8 *msg;
+	struct sha256 sighash;
 
-	msg = towire_hsmd_sign_bolt12(NULL, "offer", "signature", merkle, NULL);
-
+	msg = towire_hsmd_sign_bolt12(NULL, messagename, fieldname, merkle,
+				      publictweak);
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
 
@@ -58,6 +64,14 @@ static void hsm_sign_b12_offer(struct lightningd *ld,
         if (!fromwire_hsmd_sign_bolt12_reply(msg, sig))
 		fatal("HSM gave bad sign_offer_reply %s",
 		      tal_hex(msg, msg));
+
+	/* Now we sanity-check! */
+	sighash_from_merkle(messagename, fieldname, merkle, &sighash);
+	if (secp256k1_schnorrsig_verify(secp256k1_ctx, sig->u8,
+					sighash.u.u8, &key->pubkey) != 1)
+		fatal("HSM gave bad signature %s for pubkey %s",
+		      type_to_string(tmpctx, struct bip340sig, sig),
+		      type_to_string(tmpctx, struct pubkey32, key));
 }
 
 static struct command_result *json_createoffer(struct command *cmd,
@@ -72,6 +86,7 @@ static struct command_result *json_createoffer(struct command *cmd,
 	const char *b12str;
 	bool *single_use;
 	enum offer_status status;
+	struct pubkey32 key;
 
 	if (!param(cmd, buffer, params,
 		   p_req("bolt12", param_b12_offer, &offer),
@@ -86,7 +101,10 @@ static struct command_result *json_createoffer(struct command *cmd,
 		status = OFFER_MULTIPLE_USE;
  	merkle_tlv(offer->fields, &merkle);
 	offer->signature = tal(offer, struct bip340sig);
-	hsm_sign_b12_offer(cmd->ld, &merkle, offer->signature);
+	if (!pubkey32_from_node_id(&key, &cmd->ld->id))
+		fatal("invalid own node_id?");
+	hsm_sign_b12(cmd->ld, "offer", "signature", &merkle, NULL, &key,
+		     offer->signature);
 	b12str = offer_encode(cmd, offer);
 	if (!wallet_offer_create(cmd->ld->wallet, &merkle, b12str, label,
 				 status)) {
@@ -315,6 +333,28 @@ static struct command_result *param_b12_invreq(struct command *cmd,
 	return NULL;
 }
 
+static bool payer_key(struct lightningd *ld,
+		      const u8 *public_tweak, size_t public_tweak_len,
+		      struct pubkey32 *key)
+{
+	struct sha256 tweakhash;
+	secp256k1_pubkey tweaked;
+
+	payer_key_tweak(&ld->bolt12_base, public_tweak, public_tweak_len,
+			&tweakhash);
+
+	/* Tweaking gives a not-x-only pubkey, must then convert. */
+	if (secp256k1_xonly_pubkey_tweak_add(secp256k1_ctx,
+					     &tweaked,
+					     &ld->bolt12_base.pubkey,
+					     tweakhash.u.u8) != 1)
+		return false;
+
+	return secp256k1_xonly_pubkey_from_pubkey(secp256k1_ctx,
+						   &key->pubkey,
+						   NULL, &tweaked) == 1;
+}
+
 static struct command_result *json_createinvoicerequest(struct command *cmd,
 							const char *buffer,
 							const jsmntok_t *obj,
@@ -322,9 +362,7 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 {
 	struct tlv_invoice_request *invreq;
 	const char *label;
-	struct sha256 tweakhash;
 	struct json_stream *response;
-	secp256k1_pubkey tweaked;
 
 	if (!param(cmd, buffer, params,
 		   p_req("bolt12", param_b12_invreq, &invreq),
@@ -360,24 +398,12 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 				tal_bytelen(invreq->payer_info));
 	}
 
-	payer_key_tweak(&cmd->ld->bolt12_base,
-			invreq->payer_info, tal_bytelen(invreq->payer_info),
-			&tweakhash);
-
-	/* Tweaking gives a not-x-only pubkey, must then convert. */
-	if (secp256k1_xonly_pubkey_tweak_add(secp256k1_ctx,
-					     &tweaked,
-					     &cmd->ld->bolt12_base.pubkey,
-					     tweakhash.u.u8) != 1) {
+	invreq->payer_key = tal(invreq, struct pubkey32);
+	if (!payer_key(cmd->ld,
+		       invreq->payer_info, tal_bytelen(invreq->payer_info),
+		       invreq->payer_key)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Invalid tweak");
-	}
-	invreq->payer_key = tal(invreq, struct pubkey32);
-	if (secp256k1_xonly_pubkey_from_pubkey(secp256k1_ctx,
-					       &invreq->payer_key->pubkey,
-					       NULL, &tweaked) != 1) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Invalid tweaked key");
 	}
 
 	/* BOLT-offers #12:
@@ -389,27 +415,14 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	 */
 	if (invreq->recurrence_counter) {
 		struct sha256 merkle;
-		u8 *msg;
 
 		/* This populates the ->fields from our entries */
 		invreq->fields = tlv_make_fields(invreq, invoice_request);
 		merkle_tlv(invreq->fields, &merkle);
-
-		msg = towire_hsmd_sign_bolt12(NULL,
-					      "invoice_request",
-					      "recurrence_signature",
-					      &merkle, invreq->payer_info);
-		if (!wire_sync_write(cmd->ld->hsm_fd, take(msg)))
-			fatal("Could not write to HSM: %s", strerror(errno));
-
-		msg = wire_sync_read(tmpctx, cmd->ld->hsm_fd);
 		invreq->recurrence_signature = tal(invreq, struct bip340sig);
-		if (!fromwire_hsmd_sign_bolt12_reply(msg,
-						     invreq->recurrence_signature))
-			fatal("HSM gave bad sign_offer_reply %s",
-			      tal_hex(msg, msg));
-
-		/* FIXME: Validate signature! */
+		hsm_sign_b12(cmd->ld, "invoice_request", "recurrence_signature",
+			     &merkle, invreq->payer_info, invreq->payer_key,
+			     invreq->recurrence_signature);
 	}
 
 	response = json_stream_success(cmd);
@@ -427,3 +440,40 @@ static const struct json_command createinvreq_command = {
 	"Create and sign an invoice_request {bolt12}, with {recurrence_label} if recurring, filling in payer_info and payer_key."
 };
 AUTODATA(json_command, &createinvreq_command);
+
+static struct command_result *json_payersign(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *obj UNNEEDED,
+					     const jsmntok_t *params)
+{
+	struct json_stream *response;
+	struct sha256 *merkle;
+	u8 *tweak;
+	struct bip340sig sig;
+	const char *messagename, *fieldname;
+	struct pubkey32 key;
+
+	if (!param(cmd, buffer, params,
+		   p_req("messagename", param_string, &messagename),
+		   p_req("fieldname", param_string, &fieldname),
+		   p_req("merkle", param_sha256, &merkle),
+		   p_req("tweak", param_bin_from_hex, &tweak),
+		   NULL))
+		return command_param_failed();
+
+	payer_key(cmd->ld, tweak, tal_bytelen(tweak), &key);
+	hsm_sign_b12(cmd->ld, messagename, fieldname, merkle,
+		     tweak, &key, &sig);
+
+	response = json_stream_success(cmd);
+	json_add_string(response, "signature", fmt_bip340sig(tmpctx, &sig));
+	return command_success(cmd, response);
+}
+
+static const struct json_command payersign_command = {
+	"payersign",
+	"payment",
+	json_payersign,
+	"Sign {messagename} {fieldname} {merkle} (a 32-byte hex string) using public {tweak}",
+};
+AUTODATA(json_command, &payersign_command);
