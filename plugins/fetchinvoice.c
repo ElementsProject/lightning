@@ -973,21 +973,20 @@ static struct command_result *invoice_payment(struct command *cmd,
 	json_to_msat(buf, msattok, &msat);
 
 	list_for_each(&sent_list, i, list) {
-		struct json_stream *out;
+		struct out_req *req;
 
 		if (!i->inv)
 			continue;
 		if (!preimage_eq(&preimage, &i->inv_preimage))
 			continue;
 
-		/* It was paid!  Success. */
-		/* FIXME: Return as per waitinvoice */
-		out = jsonrpc_stream_success(i->cmd);
-		json_add_string(out, "invstring", invoice_encode(tmpctx, i->inv));
-		json_add_string(out, "msat",
-				type_to_string(tmpctx, struct amount_msat,
-					       &msat));
-		discard_result(command_finished(i->cmd, out));
+		/* It was paid!  Success.  Return as per waitinvoice. */
+		req = jsonrpc_request_start(cmd->plugin, i->cmd, "waitinvoice",
+					    &forward_result,
+					    &forward_error,
+					    i);
+		json_add_escaped_string(req->js, "label", i->inv_label);
+		discard_result(send_outreq(cmd->plugin, req));
 		break;
 	}
 	return command_hook_success(cmd);

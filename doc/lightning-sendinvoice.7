@@ -41,15 +41,8 @@ but the invoice will still be valid, and the caller should monitor it\.
 
 .SH RETURN VALUE
 
-On success, an object as follows is returned:
+On success, an object as per \fBlightning-waitinvoice\fR(7)\.
 
-.RS
-.IP \[bu]
-\fIinvstring\fR: the bolt12-encoded invoice string we sent (now paid), starting with "lni1"\.
-.IP \[bu]
-\fImsat\fR: the amount they paid\.
-
-.RE
 
 The following error codes may occur:
 
@@ -78,4 +71,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:0ffd4c0967f4aa7ffb2f14ed4658dbe4ef79926a08acf0534db47fdd8bd1b6bc
+\" SHA256STAMP:403f142342802de658c6721a5caed11a9753fb1b437feceb19bcae30c79a4615
