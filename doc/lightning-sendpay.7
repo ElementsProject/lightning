@@ -102,8 +102,10 @@ the error\. 0 for the local node, 1 for the first hop, and so on\.
 \fIerring_node\fR\. The hex string of the pubkey id of the node that
 reported the error\.
 .IP \[bu]
-\fIerring_channel\fR\. The short channel ID of the channel that has the
-error, or \fI0:0:0\fR if the destination node raised the error\.
+\fIerring_channel\fR\. The short channel ID of the channel that has
+the error, or \fI0:0:0\fR if the destination node raised the error\. In
+addition \fIerring_direction\fR will indicate which direction of the
+channel caused the failure\.
 .IP \[bu]
 \fIfailcode\fR\. The failure code, as per BOLT #4\.
 .IP \[bu]
@@ -127,4 +129,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:ad0330702e519f55a65c7ef3b5e532114ec66cc4a2a34c7d3a9e0663085cd052
+\" SHA256STAMP:4ba54086e62a5f3ee820d71fdd07c66c084a8921c370e470139d81f501e6bf2f
