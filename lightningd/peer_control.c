@@ -1151,30 +1151,58 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	plugin_hook_call_peer_connected(ld, hook_payload);
 }
 
+static bool check_funding_details(const struct bitcoin_tx *tx,
+				  const u8 *wscript,
+				  struct amount_sat funding,
+				  u32 funding_outnum)
+{
+	struct amount_asset asset =
+	    bitcoin_tx_output_get_amount(tx, funding_outnum);
+
+	if (!amount_asset_is_main(&asset))
+		return false;
+
+	if (funding_outnum >= tx->wtx->num_outputs)
+		return false;
+
+	if (!amount_sat_eq(amount_asset_to_sat(&asset), funding))
+		return false;
+
+	return scripteq(scriptpubkey_p2wsh(tmpctx, wscript),
+			bitcoin_tx_output_get_script(tmpctx, tx,
+						     funding_outnum));
+}
+
+
 /* FIXME: Unify our watch code so we get notified by txout, instead, like
  * the wallet code does. */
 static bool check_funding_tx(const struct bitcoin_tx *tx,
 			     const struct channel *channel)
 {
-	u8 *wscript;
-	struct amount_asset asset =
-	    bitcoin_tx_output_get_amount(tx, channel->funding_outnum);
-
-	if (!amount_asset_is_main(&asset))
-		return false;
-
-	if (channel->funding_outnum >= tx->wtx->num_outputs)
-		return false;
-
-	if (!amount_sat_eq(amount_asset_to_sat(&asset), channel->funding))
-		return false;
-
+	struct channel_inflight *inflight;
+	const u8 *wscript;
 	wscript = bitcoin_redeem_2of2(tmpctx,
 				      &channel->local_funding_pubkey,
 				      &channel->channel_info.remote_fundingkey);
-	return scripteq(scriptpubkey_p2wsh(tmpctx, wscript),
-			bitcoin_tx_output_get_script(tmpctx, tx,
-						     channel->funding_outnum));
+
+	/* Since we've enabled "RBF" for funding transactions,
+	 * it's possible that it's one of "inflights".
+	 * Worth noting that this check was added to prevent
+	 * a peer from sending us a 'bogus' transaction id (that didn't
+	 * actually contain the funding output). As of v2 (where
+	 * RBF is introduced), this isn't a problem so much as
+	 * both sides have full access to the funding transaction */
+	if (check_funding_details(tx, wscript, channel->funding,
+				    channel->funding_outnum))
+		return true;
+
+	list_for_each(&channel->inflights, inflight, list) {
+		if (check_funding_details(tx, wscript,
+					  inflight->funding->total_funds,
+					  inflight->funding->outnum))
+			return true;
+	}
+	return false;
 }
 
 static enum watch_result funding_depth_cb(struct lightningd *ld,
