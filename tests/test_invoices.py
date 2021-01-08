@@ -30,6 +30,7 @@ def test_invoice(node_factory, chainparams):
     assert b11['fallbacks'][0]['type'] == 'P2WPKH'
     assert b11['fallbacks'][1]['addr'] == addr2
     assert b11['fallbacks'][1]['type'] == 'P2SH'
+    assert b11['min_final_cltv_expiry'] == 5
     # There's no incoming channel, so no routeboost
     assert 'routes' not in b11
     assert 'warning_capacity' in inv
@@ -57,6 +58,11 @@ def test_invoice(node_factory, chainparams):
     with pytest.raises(RpcError, match=r'msatoshi cannot exceed 4294967295msat'):
         l2.rpc.invoice(4294967295 + 1, 'inv3', '?')
     l2.rpc.invoice(4294967295, 'inv3', '?')
+
+    # Test cltv option.
+    inv = l1.rpc.invoice(123000, 'label3', 'description', '3700', cltv=99)
+    b11 = l1.rpc.decodepay(inv['bolt11'])
+    assert b11['min_final_cltv_expiry'] == 99
 
 
 def test_invoice_zeroval(node_factory):

@@ -5,7 +5,7 @@ SYNOPSIS
 --------
 
 **invoice** *msatoshi* *label* *description* \[*expiry*\]
-\[*fallbacks*\] \[*preimage*\] \[*exposeprivatechannels*\]
+\[*fallbacks*\] \[*preimage*\] \[*exposeprivatechannels*\] \[*cltv*\]
 
 DESCRIPTION
 -----------
@@ -64,6 +64,9 @@ normal, the peer is connected and not a dead end (i.e. has at least one
 other public channel). The selection uses some randomness to prevent
 probing, but favors channels that become more balanced after the
 payment.
+
+If specified, *cltv* sets the *min_final_cltv_expiry* for the invoice.
+Otherwise, it's set to the parameter **cltv-final**.
 
 RETURN VALUE
 ------------

@@ -1006,6 +1006,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	struct sha256 rhash;
 	struct secret payment_secret;
 	struct preimage *preimage;
+	u32 *cltv;
 #if DEVELOPER
 	const jsmntok_t *routes;
 #endif
@@ -1022,6 +1023,8 @@ static struct command_result *json_invoice(struct command *cmd,
 		   p_opt("preimage", param_preimage, &preimage),
 		   p_opt("exposeprivatechannels", param_chanhints,
 			 &info->chanhints),
+		   p_opt_def("cltv", param_number, &cltv,
+			     cmd->ld->config.cltv_final),
 #if DEVELOPER
 		   p_opt("dev-routes", param_array, &routes),
 #endif
@@ -1081,7 +1084,7 @@ static struct command_result *json_invoice(struct command *cmd,
 	info->b11->timestamp = time_now().ts.tv_sec;
 	info->b11->payment_hash = rhash;
 	info->b11->receiver_id = cmd->ld->id;
-	info->b11->min_final_cltv_expiry = cmd->ld->config.cltv_final;
+	info->b11->min_final_cltv_expiry = *cltv;
 	info->b11->expiry = *expiry;
 	info->b11->description = tal_steal(info->b11, desc_val);
 	info->b11->description_hash = NULL;

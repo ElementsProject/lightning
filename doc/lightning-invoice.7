@@ -4,7 +4,7 @@ lightning-invoice - Command for accepting payments
 .SH SYNOPSIS
 
 \fBinvoice\fR \fImsatoshi\fR \fIlabel\fR \fIdescription\fR [\fIexpiry\fR]
-[\fIfallbacks\fR] [\fIpreimage\fR] [\fIexposeprivatechannels\fR]
+[\fIfallbacks\fR] [\fIpreimage\fR] [\fIexposeprivatechannels\fR] [\fIcltv\fR]
 
 .SH DESCRIPTION
 
@@ -71,6 +71,10 @@ other public channel)\. The selection uses some randomness to prevent
 probing, but favors channels that become more balanced after the
 payment\.
 
+
+If specified, \fIcltv\fR sets the \fImin_final_cltv_expiry\fR for the invoice\.
+Otherwise, it's set to the parameter \fBcltv-final\fR\.
+
 .SH RETURN VALUE
 
 On success, a hash is returned as \fIpayment_hash\fR to be given to the
@@ -124,4 +128,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:9a361884baa1bdceffb9861839ce4728cf38eaf5d08b3437ad4b3f5b9b42d8db
+\" SHA256STAMP:5a7792cb739f34adf7db346f3bd615816915230fcb8343af1b742336a677dbc2
