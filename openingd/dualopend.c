@@ -148,6 +148,9 @@ struct state {
 	/* Tally of which sides are locked, or not */
 	bool funding_locked[NUM_SIDES];
 
+	/* Have we gotten the peer's tx-sigs yet? */
+	bool remote_funding_sigs_rcvd;
+
 	/* PSBT of the funding tx */
 	struct wally_psbt *psbt;
 
@@ -156,6 +159,9 @@ struct state {
 
 	/* Are we shutting down? */
 	bool shutdown_sent[NUM_SIDES];
+
+	/* Were we reconnected at start ? */
+	bool reconnected;
 };
 
 /* psbt_changeset_get_next - Get next message to send
@@ -766,7 +772,7 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 			    tal_hex(msg, msg));
 
 	/* Maybe they didn't get our funding_locked message ? */
-	if (state->funding_locked[LOCAL]) {
+	if (state->funding_locked[LOCAL] && !state->reconnected) {
 		status_broken("Got WIRE_TX_SIGNATURES after funding locked "
 			       "for channel %s, ignoring: %s",
 			       type_to_string(tmpctx, struct channel_id,
@@ -2381,6 +2387,7 @@ static u8 *handle_master_in(struct state *state)
 
 	/* Handled inline */
 	case WIRE_DUALOPEND_INIT:
+	case WIRE_DUALOPEND_REINIT:
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
 	case WIRE_DUALOPEND_FAIL:
 	case WIRE_DUALOPEND_PSBT_UPDATED:
@@ -2427,6 +2434,11 @@ static u8 *handle_peer_in(struct state *state)
 	struct channel_id channel_id;
 
 	if (t == WIRE_OPEN_CHANNEL2) {
+		if (state->channel) {
+			status_broken("Unexpected message %s",
+				      peer_wire_name(t));
+			peer_failed_connection_lost();
+		}
 		accepter_start(state, msg);
 		return NULL;
 	} else if (t == WIRE_TX_SIGNATURES) {
@@ -2485,7 +2497,11 @@ int main(int argc, char *argv[])
 	struct pollfd pollfd[3];
 	struct state *state = tal(NULL, struct state);
 	struct secret *none;
+	struct fee_states *fee_states;
+	enum side opener;
 	u8 *msg, *inner;
+	struct amount_sat total_funding;
+	struct amount_msat our_msat;
 
 	subdaemon_setup(argc, argv);
 
@@ -2495,20 +2511,99 @@ int main(int argc, char *argv[])
 
 	/*~ The very first thing we read from lightningd is our init msg */
 	msg = wire_sync_read(tmpctx, REQ_FD);
-	if (!fromwire_dualopend_init(state, msg,
-				     &chainparams,
-				     &state->our_features,
-				     &state->their_features,
-				     &state->localconf,
-				     &state->max_to_self_delay,
-				     &state->min_effective_htlc_capacity,
-				     &state->pps,
-				     &state->our_points,
-				     &state->our_funding_pubkey,
-				     &state->minimum_depth,
-				     &state->min_feerate, &state->max_feerate,
-				     &inner))
-		master_badmsg(WIRE_DUALOPEND_INIT, msg);
+	if (fromwire_dualopend_init(state, msg,
+				    &chainparams,
+				    &state->our_features,
+				    &state->their_features,
+				    &state->localconf,
+				    &state->max_to_self_delay,
+				    &state->min_effective_htlc_capacity,
+				    &state->pps,
+				    &state->our_points,
+				    &state->our_funding_pubkey,
+				    &state->minimum_depth,
+				    &state->min_feerate,
+				    &state->max_feerate,
+				    &inner)) {
+		/*~ Initially we're not associated with a channel, but
+		 * handle_peer_gossip_or_error compares this. */
+		memset(&state->channel_id, 0, sizeof(state->channel_id));
+		state->channel = NULL;
+		state->remote_funding_sigs_rcvd = false;
+
+		/*~ We set these to NULL, meaning no requirements on shutdown */
+		state->upfront_shutdown_script[LOCAL]
+			= state->upfront_shutdown_script[REMOTE]
+			= NULL;
+
+		/*~ We're not locked or shutting down quite yet */
+		state->funding_locked[LOCAL]
+			= state->funding_locked[REMOTE]
+			= false;
+		state->shutdown_sent[LOCAL]
+			= state->shutdown_sent[REMOTE]
+			= false;
+
+	} else if (fromwire_dualopend_reinit(state, msg,
+					     &chainparams,
+					     &state->our_features,
+					     &state->their_features,
+					     &state->localconf,
+					     &state->remoteconf,
+					     &state->channel_id,
+					     &state->max_to_self_delay,
+					     &state->min_effective_htlc_capacity,
+					     &state->pps,
+					     &state->our_points,
+					     &state->our_funding_pubkey,
+					     &state->their_funding_pubkey,
+					     &state->minimum_depth,
+					     &state->min_feerate,
+					     &state->max_feerate,
+					     &state->funding_txid,
+					     &state->funding_txout,
+					     &total_funding,
+					     &our_msat,
+					     &state->their_points,
+					     &state->first_per_commitment_point[REMOTE],
+					     &state->psbt,
+					     &opener,
+					     &state->funding_locked[LOCAL],
+					     &state->funding_locked[REMOTE],
+					     &state->shutdown_sent[LOCAL],
+					     &state->shutdown_sent[REMOTE],
+					     &state->upfront_shutdown_script[LOCAL],
+					     &state->upfront_shutdown_script[REMOTE],
+					     &state->remote_funding_sigs_rcvd,
+					     &fee_states,
+					     &inner)) {
+
+		/*~ We only reconnect on channels that the
+		 * saved the the database (exchanged commitment sigs) */
+		state->channel = new_initial_channel(state,
+						     &state->channel_id,
+						     &state->funding_txid,
+						     state->funding_txout,
+						     state->minimum_depth,
+						     total_funding,
+						     our_msat,
+						     fee_states,
+						     &state->localconf,
+						     &state->remoteconf,
+						     &state->our_points,
+						     &state->their_points,
+						     &state->our_funding_pubkey,
+						     &state->their_funding_pubkey,
+						     true, true, opener);
+
+		if (opener == LOCAL)
+			state->our_role = TX_INITIATOR;
+		else
+			state->our_role = TX_ACCEPTER;
+	} else
+		master_badmsg(fromwire_peektype(msg), msg);
+
+
 
 	/* 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */
 	per_peer_state_set_fds(state->pps, 3, 4, 5);
@@ -2521,20 +2616,8 @@ int main(int argc, char *argv[])
 		tal_free(inner);
 	}
 
-	/*~ Initially we're not associated with a channel, but
-	 * handle_peer_gossip_or_error compares this. */
-	memset(&state->channel_id, 0, sizeof(state->channel_id));
-	state->channel = NULL;
-	state->funding_locked[LOCAL] = state->funding_locked[REMOTE] = false;
-	state->shutdown_sent[LOCAL]= state->shutdown_sent[REMOTE] = false;
-
 	for (size_t i = 0; i < NUM_TX_MSGS; i++)
 		state->tx_msg_count[i] = 0;
-
-	/*~ We set these to NULL, meaning no requirements on shutdown */
-	state->upfront_shutdown_script[LOCAL]
-		= state->upfront_shutdown_script[REMOTE]
-		= NULL;
 
 	/*~ We need an initial per-commitment point whether we're funding or
 	 * they are, and lightningd has reserved a unique dbid for us already,

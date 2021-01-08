@@ -1803,6 +1803,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 
 		/* Messages we send */
 		case WIRE_DUALOPEND_INIT:
+		case WIRE_DUALOPEND_REINIT:
 		case WIRE_DUALOPEND_OPENER_INIT:
 		case WIRE_DUALOPEND_GOT_OFFER_REPLY:
 		case WIRE_DUALOPEND_FAIL:
@@ -1862,6 +1863,85 @@ AUTODATA(json_command, &openchannel_init_command);
 AUTODATA(json_command, &openchannel_update_command);
 AUTODATA(json_command, &openchannel_signed_command);
 #endif /* EXPERIMENTAL_FEATURES */
+
+void peer_restart_dualopend(struct peer *peer,
+			    struct per_peer_state *pps,
+			    struct channel *channel,
+			    const u8 *send_msg)
+{
+	u32 max_to_self_delay;
+	struct amount_msat min_effective_htlc_capacity;
+	struct channel_config unused_config;
+        int hsmfd;
+	u8 *msg;
+
+	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->dbid,
+				  HSM_CAP_COMMITMENT_POINT
+				  | HSM_CAP_SIGN_REMOTE_TX);
+
+	channel_set_owner(channel,
+			  new_channel_subd(peer->ld, "lightning_dualopend",
+					   channel, CHANNEL,
+					   &peer->id,
+					   channel->log, true,
+					   dualopend_wire_name,
+					   dual_opend_msg,
+					   channel_errmsg,
+					   channel_set_billboard,
+					   take(&pps->peer_fd),
+					   take(&pps->gossip_fd),
+					   take(&pps->gossip_store_fd),
+					   take(&hsmfd), NULL));
+	if (!channel->owner) {
+		log_broken(channel->log, "Could not subdaemon channel: %s",
+			   strerror(errno));
+		channel_fail_reconnect_later(channel,
+					     "Failed to subdaemon channel");
+		return;
+	}
+
+	/* Find the max self delay and min htlc capacity */
+	channel_config(peer->ld, &unused_config,
+		       &max_to_self_delay,
+		       &min_effective_htlc_capacity);
+
+	msg = towire_dualopend_reinit(NULL,
+				      chainparams,
+				      peer->ld->our_features,
+				      peer->their_features,
+				      &channel->our_config,
+				      &channel->channel_info.their_config,
+				      &channel->cid,
+				      max_to_self_delay,
+				      min_effective_htlc_capacity,
+				      pps,
+				      &channel->local_basepoints,
+				      &channel->local_funding_pubkey,
+				      &channel->channel_info.remote_fundingkey,
+				      channel->minimum_depth,
+				      feerate_min(peer->ld, NULL),
+				      feerate_max(peer->ld, NULL),
+				      &channel->funding_txid,
+				      channel->funding_outnum,
+				      channel->funding,
+				      channel->our_msat,
+				      &channel->channel_info.theirbase,
+				      &channel->channel_info.remote_per_commit,
+				      channel->psbt,
+				      channel->opener,
+				      channel->scid != NULL,
+				      channel->remote_funding_locked,
+				      channel->state == CHANNELD_SHUTTING_DOWN,
+				      channel->shutdown_scriptpubkey[REMOTE] != NULL,
+				      channel->shutdown_scriptpubkey[LOCAL],
+				      channel->remote_upfront_shutdown_script,
+				      channel->remote_tx_sigs,
+                                      channel->fee_states,
+				      send_msg);
+
+
+	subd_send_msg(channel->owner, take(msg));
+}
 
 void peer_start_dualopend(struct peer *peer,
 			  struct per_peer_state *pps,

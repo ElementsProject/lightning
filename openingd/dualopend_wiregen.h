@@ -14,11 +14,15 @@
 #include <common/channel_id.h>
 #include <common/derive_basepoints.h>
 #include <common/features.h>
+#include <common/fee_states.h>
+#include <common/htlc_wire.h>
 #include <common/penalty_base.h>
 #include <common/per_peer_state.h>
 
 enum dualopend_wire {
         WIRE_DUALOPEND_INIT = 7000,
+        /*  master-dualopend: peer has reconnected */
+        WIRE_DUALOPEND_REINIT = 7001,
         /*  dualopend->master: they offered channel */
         WIRE_DUALOPEND_GOT_OFFER = 7005,
         /*  master->dualopend: reply back with our first funding info/contribs */
@@ -72,6 +76,11 @@ bool dualopend_wire_is_defined(u16 type);
 /* WIRE: DUALOPEND_INIT */
 u8 *towire_dualopend_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_feature_set, const u8 *their_init_features, const struct channel_config *our_config, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, const u8 *msg);
 bool fromwire_dualopend_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_feature_set, u8 **their_init_features, struct channel_config *our_config, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, u8 **msg);
+
+/* WIRE: DUALOPEND_REINIT */
+/*  master-dualopend: peer has reconnected */
+u8 *towire_dualopend_reinit(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_feature_set, const u8 *their_init_features, const struct channel_config *our_config, const struct channel_config *their_config, const struct channel_id *channel_id, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, const struct pubkey *their_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshi, struct amount_msat our_funding, const struct basepoints *their_basepoints, const struct pubkey *remote_per_commit, const struct wally_psbt *funding_psbt, enum side opener, bool local_funding_locked, bool remote_funding_locked, bool send_shutdown, bool remote_shutdown_received, const u8 *local_shutdown_scriptpubkey, const u8 *remote_shutdown_scriptpubkey, bool remote_funding_sigs_received, const struct fee_states *fee_states, const u8 *msg);
+bool fromwire_dualopend_reinit(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_feature_set, u8 **their_init_features, struct channel_config *our_config, struct channel_config *their_config, struct channel_id *channel_id, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, struct pubkey *their_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshi, struct amount_msat *our_funding, struct basepoints *their_basepoints, struct pubkey *remote_per_commit, struct wally_psbt **funding_psbt, enum side *opener, bool *local_funding_locked, bool *remote_funding_locked, bool *send_shutdown, bool *remote_shutdown_received, u8 **local_shutdown_scriptpubkey, u8 **remote_shutdown_scriptpubkey, bool *remote_funding_sigs_received, struct fee_states **fee_states, u8 **msg);
 
 /* WIRE: DUALOPEND_GOT_OFFER */
 /*  dualopend->master: they offered channel */
@@ -165,4 +174,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:5b6ccfff2f6cc43eee53e4aed8767fc7ae539d548277bda1c628c51f3191dfe4
+// SHA256STAMP:02f28abef3ab5503d52f776543a85f6d5682637a8e9f8494beae16ff44896442

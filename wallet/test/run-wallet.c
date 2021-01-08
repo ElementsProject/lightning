@@ -596,6 +596,12 @@ struct subd *peer_get_owning_subd(struct peer *peer UNNEEDED)
 /* Generated stub for peer_memleak_done */
 void peer_memleak_done(struct command *cmd UNNEEDED, struct subd *leaker UNNEEDED)
 { fprintf(stderr, "peer_memleak_done called!\n"); abort(); }
+/* Generated stub for peer_restart_dualopend */
+void peer_restart_dualopend(struct peer *peer UNNEEDED,
+			    struct per_peer_state *pps UNNEEDED,
+			    struct channel *channel UNNEEDED,
+			    const u8 *send_msg UNNEEDED)
+{ fprintf(stderr, "peer_restart_dualopend called!\n"); abort(); }
 /* Generated stub for peer_start_channeld */
 void peer_start_channeld(struct channel *channel UNNEEDED,
 			 struct per_peer_state *pps UNNEEDED,
