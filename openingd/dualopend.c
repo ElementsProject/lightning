@@ -761,7 +761,7 @@ static u8 *handle_send_tx_sigs(struct state *state, const u8 *msg)
 	psbt_txid(NULL, psbt, &txid, NULL);
 	if (!bitcoin_txid_eq(&txid, &state->funding_txid))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Txid for passed in PSBT does not match"
+			      "TXID for passed in PSBT does not match"
 			      " funding txid for channel. Expected %s, "
 			      "received %s",
 			      type_to_string(tmpctx, struct bitcoin_txid,
