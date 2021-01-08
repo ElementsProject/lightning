@@ -2354,6 +2354,7 @@ def test_channel_spendable_receivable_capped(node_factory, bitcoind):
     assert l2.rpc.listpeers()['peers'][0]['channels'][0]['receivable_msat'] == Millisatoshi(0xFFFFFFFF)
 
 
+@unittest.skipIf(True, "Test is extremely flaky")
 @unittest.skipIf(not DEVELOPER and VALGRIND, "Doesn't raise exception, needs better sync")
 def test_lockup_drain(node_factory, bitcoind):
     """Try to get channel into a state where opener can't afford fees on additional HTLC, so peer can't add HTLC"""
