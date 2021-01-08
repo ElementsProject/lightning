@@ -735,8 +735,8 @@ static void dualopend_send_custommsg(struct state *state, const u8 *msg)
 #endif
 
 static u8 *psbt_to_tx_sigs_msg(const tal_t *ctx,
-				     struct state *state,
-				     const struct wally_psbt *psbt)
+			       struct state *state,
+			       const struct wally_psbt *psbt)
 {
 	const struct witness_stack **ws =
 		psbt_to_witness_stacks(tmpctx, psbt,
@@ -1674,7 +1674,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 							     &state->feerate_per_kw_commitment)),
 					     &state->localconf,
 					     &state->remoteconf,
-					     &state->our_points, &state->their_points,
+					     &state->our_points,
+					     &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
 					     true, true,
@@ -1894,7 +1895,8 @@ static void opener_start(struct state *state, u8 *msg)
 	sync_crypto_write(state->pps, take(msg));
 
 	/* This is usually a very transient state... */
-	peer_billboard(false, "channel open: offered, waiting for accept_channel2");
+	peer_billboard(false, "channel open: offered, waiting for"
+		       " accept_channel2");
 
 	/* ... since their reply should be immediate. */
 	msg = opening_negotiate_msg(tmpctx, state, true);
@@ -1925,8 +1927,10 @@ static void opener_start(struct state *state, u8 *msg)
 			    "Parsing accept_channel2 %s", tal_hex(msg, msg));
 
 	if (a_tlv->option_upfront_shutdown_script) {
-		state->upfront_shutdown_script[REMOTE] = tal_steal(state,
-			a_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey);
+		state->upfront_shutdown_script[REMOTE]
+			= tal_steal(state,
+				    a_tlv->option_upfront_shutdown_script
+					 ->shutdown_scriptpubkey);
 	} else
 		state->upfront_shutdown_script[REMOTE] = NULL;
 
