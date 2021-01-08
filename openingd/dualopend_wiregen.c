@@ -21,6 +21,7 @@ const char *dualopend_wire_name(int e)
 
 	switch ((enum dualopend_wire)e) {
 	case WIRE_DUALOPEND_INIT: return "WIRE_DUALOPEND_INIT";
+	case WIRE_DUALOPEND_REINIT: return "WIRE_DUALOPEND_REINIT";
 	case WIRE_DUALOPEND_GOT_OFFER: return "WIRE_DUALOPEND_GOT_OFFER";
 	case WIRE_DUALOPEND_GOT_OFFER_REPLY: return "WIRE_DUALOPEND_GOT_OFFER_REPLY";
 	case WIRE_DUALOPEND_COMMIT_RCVD: return "WIRE_DUALOPEND_COMMIT_RCVD";
@@ -49,6 +50,7 @@ bool dualopend_wire_is_defined(u16 type)
 {
 	switch ((enum dualopend_wire)type) {
 	case WIRE_DUALOPEND_INIT:;
+	case WIRE_DUALOPEND_REINIT:;
 	case WIRE_DUALOPEND_GOT_OFFER:;
 	case WIRE_DUALOPEND_GOT_OFFER_REPLY:;
 	case WIRE_DUALOPEND_COMMIT_RCVD:;
@@ -136,6 +138,117 @@ bool fromwire_dualopend_init(const tal_t *ctx, const void *p, const struct chain
 	*minimum_depth = fromwire_u32(&cursor, &plen);
  	*min_feerate = fromwire_u32(&cursor, &plen);
  	*max_feerate = fromwire_u32(&cursor, &plen);
+ 	/* Optional msg to send. */
+	len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case msg
+	*msg = len ? tal_arr(ctx, u8, len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *msg, len);
+	return cursor != NULL;
+}
+
+/* WIRE: DUALOPEND_REINIT */
+/* master-dualopend: peer has reconnected */
+u8 *towire_dualopend_reinit(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_feature_set, const u8 *their_init_features, const struct channel_config *our_config, const struct channel_config *their_config, const struct channel_id *channel_id, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, const struct pubkey *their_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshi, struct amount_msat our_funding, const struct basepoints *their_basepoints, const struct pubkey *remote_per_commit, const struct wally_psbt *funding_psbt, enum side opener, bool local_funding_locked, bool remote_funding_locked, bool send_shutdown, bool remote_shutdown_received, const u8 *local_shutdown_scriptpubkey, const u8 *remote_shutdown_scriptpubkey, bool remote_funding_sigs_received, const struct fee_states *fee_states, const u8 *msg)
+{
+	u16 their_init_features_len = tal_count(their_init_features);
+	u16 local_shutdown_len = tal_count(local_shutdown_scriptpubkey);
+	u16 remote_shutdown_len = tal_count(remote_shutdown_scriptpubkey);
+	u16 len = tal_count(msg);
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_REINIT);
+	towire_chainparams(&p, chainparams);
+	towire_feature_set(&p, our_feature_set);
+	towire_u16(&p, their_init_features_len);
+	towire_u8_array(&p, their_init_features, their_init_features_len);
+	towire_channel_config(&p, our_config);
+	towire_channel_config(&p, their_config);
+	towire_channel_id(&p, channel_id);
+	towire_u32(&p, max_to_self_delay);
+	towire_amount_msat(&p, min_effective_htlc_capacity_msat);
+	towire_per_peer_state(&p, pps);
+	towire_basepoints(&p, our_basepoints);
+	towire_pubkey(&p, our_funding_pubkey);
+	towire_pubkey(&p, their_funding_pubkey);
+	towire_u32(&p, minimum_depth);
+	towire_u32(&p, min_feerate);
+	towire_u32(&p, max_feerate);
+	towire_bitcoin_txid(&p, funding_txid);
+	towire_u16(&p, funding_txout);
+	towire_amount_sat(&p, funding_satoshi);
+	towire_amount_msat(&p, our_funding);
+	towire_basepoints(&p, their_basepoints);
+	towire_pubkey(&p, remote_per_commit);
+	towire_wally_psbt(&p, funding_psbt);
+	towire_side(&p, opener);
+	towire_bool(&p, local_funding_locked);
+	towire_bool(&p, remote_funding_locked);
+	towire_bool(&p, send_shutdown);
+	towire_bool(&p, remote_shutdown_received);
+	towire_u16(&p, local_shutdown_len);
+	towire_u8_array(&p, local_shutdown_scriptpubkey, local_shutdown_len);
+	towire_u16(&p, remote_shutdown_len);
+	towire_u8_array(&p, remote_shutdown_scriptpubkey, remote_shutdown_len);
+	towire_bool(&p, remote_funding_sigs_received);
+	towire_fee_states(&p, fee_states);
+	/* Optional msg to send. */
+	towire_u16(&p, len);
+	towire_u8_array(&p, msg, len);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_reinit(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_feature_set, u8 **their_init_features, struct channel_config *our_config, struct channel_config *their_config, struct channel_id *channel_id, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, struct pubkey *their_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshi, struct amount_msat *our_funding, struct basepoints *their_basepoints, struct pubkey *remote_per_commit, struct wally_psbt **funding_psbt, enum side *opener, bool *local_funding_locked, bool *remote_funding_locked, bool *send_shutdown, bool *remote_shutdown_received, u8 **local_shutdown_scriptpubkey, u8 **remote_shutdown_scriptpubkey, bool *remote_funding_sigs_received, struct fee_states **fee_states, u8 **msg)
+{
+	u16 their_init_features_len;
+	u16 local_shutdown_len;
+	u16 remote_shutdown_len;
+	u16 len;
+
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_REINIT)
+		return false;
+ 	fromwire_chainparams(&cursor, &plen, chainparams);
+ 	*our_feature_set = fromwire_feature_set(ctx, &cursor, &plen);
+ 	their_init_features_len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case their_init_features
+	*their_init_features = their_init_features_len ? tal_arr(ctx, u8, their_init_features_len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *their_init_features, their_init_features_len);
+ 	fromwire_channel_config(&cursor, &plen, our_config);
+ 	fromwire_channel_config(&cursor, &plen, their_config);
+ 	fromwire_channel_id(&cursor, &plen, channel_id);
+ 	*max_to_self_delay = fromwire_u32(&cursor, &plen);
+ 	*min_effective_htlc_capacity_msat = fromwire_amount_msat(&cursor, &plen);
+ 	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
+ 	fromwire_basepoints(&cursor, &plen, our_basepoints);
+ 	fromwire_pubkey(&cursor, &plen, our_funding_pubkey);
+ 	fromwire_pubkey(&cursor, &plen, their_funding_pubkey);
+ 	*minimum_depth = fromwire_u32(&cursor, &plen);
+ 	*min_feerate = fromwire_u32(&cursor, &plen);
+ 	*max_feerate = fromwire_u32(&cursor, &plen);
+ 	fromwire_bitcoin_txid(&cursor, &plen, funding_txid);
+ 	*funding_txout = fromwire_u16(&cursor, &plen);
+ 	*funding_satoshi = fromwire_amount_sat(&cursor, &plen);
+ 	*our_funding = fromwire_amount_msat(&cursor, &plen);
+ 	fromwire_basepoints(&cursor, &plen, their_basepoints);
+ 	fromwire_pubkey(&cursor, &plen, remote_per_commit);
+ 	*funding_psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+ 	*opener = fromwire_side(&cursor, &plen);
+ 	*local_funding_locked = fromwire_bool(&cursor, &plen);
+ 	*remote_funding_locked = fromwire_bool(&cursor, &plen);
+ 	*send_shutdown = fromwire_bool(&cursor, &plen);
+ 	*remote_shutdown_received = fromwire_bool(&cursor, &plen);
+ 	local_shutdown_len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case local_shutdown_scriptpubkey
+	*local_shutdown_scriptpubkey = local_shutdown_len ? tal_arr(ctx, u8, local_shutdown_len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *local_shutdown_scriptpubkey, local_shutdown_len);
+ 	remote_shutdown_len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case remote_shutdown_scriptpubkey
+	*remote_shutdown_scriptpubkey = remote_shutdown_len ? tal_arr(ctx, u8, remote_shutdown_len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *remote_shutdown_scriptpubkey, remote_shutdown_len);
+ 	*remote_funding_sigs_received = fromwire_bool(&cursor, &plen);
+ 	*fee_states = fromwire_fee_states(ctx, &cursor, &plen);
  	/* Optional msg to send. */
 	len = fromwire_u16(&cursor, &plen);
  	// 2nd case msg
@@ -679,4 +792,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:5b6ccfff2f6cc43eee53e4aed8767fc7ae539d548277bda1c628c51f3191dfe4
+// SHA256STAMP:02f28abef3ab5503d52f776543a85f6d5682637a8e9f8494beae16ff44896442

@@ -1024,9 +1024,18 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 		}
 		case DUALOPEND_OPEN_INIT:
 		case DUALOPEND_AWAITING_LOCKIN:
-			/* FIXME: open dualopend */
-			abort();
+#if EXPERIMENTAL_FEATURES
+			assert(!channel->owner);
 
+			channel->peer->addr = addr;
+			peer_restart_dualopend(peer, payload->pps,
+				               channel, NULL);
+
+			tal_free(payload);
+			return;
+#else
+			abort();
+#endif /* EXPERIMENTAL_FEATURES */
 		case CHANNELD_AWAITING_LOCKIN:
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
@@ -1060,7 +1069,18 @@ send_error:
 	if (feature_negotiated(ld->our_features,
 			       peer->their_features,
 			       OPT_DUAL_FUND)) {
-		peer_start_dualopend(peer, payload->pps, error);
+		/* if we have a channel, we're actually restarting
+		 * dualopend. we only get here if there's an error  */
+		if (channel) {
+			assert(!channel->owner);
+
+			assert(channel->state == DUALOPEND_OPEN_INIT
+			       || channel->state == DUALOPEND_AWAITING_LOCKIN);
+			channel->peer->addr = addr;
+			peer_restart_dualopend(peer, payload->pps,
+				               channel, error);
+		} else
+			peer_start_dualopend(peer, payload->pps, error);
 	} else
 #endif /* EXPERIMENTAL_FEATURES */
 		peer_start_openingd(peer, payload->pps, error);
