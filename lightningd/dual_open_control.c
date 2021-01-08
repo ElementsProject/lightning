@@ -458,8 +458,6 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 		}
 	}
 
-	/* If there's no plugin, the psbt will be NULL. We should pass an empty
-	 * PSBT over, in this case */
 	msg = towire_dualopend_got_offer_reply(NULL, payload->accepter_funding,
 					       payload->funding_feerate_per_kw,
 					       payload->psbt,
@@ -1877,18 +1875,17 @@ void peer_start_dualopend(struct peer *peer,
 	const u8 *msg;
 
 	assert(!peer->uncommitted_channel);
-
 	uc = peer->uncommitted_channel = new_uncommitted_channel(peer);
 
-	hsmfd = hsm_get_client_fd(peer->ld, &uc->peer->id, uc->dbid,
+	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, uc->dbid,
 				  HSM_CAP_COMMITMENT_POINT
 				  | HSM_CAP_SIGN_REMOTE_TX);
 
 	uc->open_daemon = new_channel_subd(peer->ld,
 					   "lightning_dualopend",
 					   uc, UNCOMMITTED, &peer->id,
-					   uc->log,
-					   true, dualopend_wire_name,
+					   uc->log, true,
+					   dualopend_wire_name,
 					   dual_opend_msg,
 					   opend_channel_errmsg,
 					   opend_channel_set_billboard,
@@ -1896,11 +1893,13 @@ void peer_start_dualopend(struct peer *peer,
 					   take(&pps->gossip_fd),
 					   take(&pps->gossip_store_fd),
 					   take(&hsmfd), NULL);
+
 	if (!uc->open_daemon) {
-		uncommitted_channel_disconnect(uc, LOG_BROKEN,
-					       tal_fmt(tmpctx,
-						       "Running lightning_dualopend: %s",
-						       strerror(errno)));
+		char *errmsg;
+		errmsg = tal_fmt(tmpctx,
+				 "Running lightning_dualopend: %s",
+				 strerror(errno));
+		uncommitted_channel_disconnect(uc, LOG_BROKEN, errmsg);
 		tal_free(uc);
 		return;
 	}
@@ -1912,23 +1911,23 @@ void peer_start_dualopend(struct peer *peer,
 	/* BOLT #2:
 	 *
 	 * The sender:
-	 *   - SHOULD set `minimum_depth` to a number of blocks it considers
-	 *     reasonable to avoid double-spending of the funding transaction.
+	 *   - SHOULD set `minimum_depth` to a number of blocks it
+	 *     considers reasonable to avoid double-spending of the
+	 *     funding transaction.
 	 */
 	uc->minimum_depth = peer->ld->config.anchor_confirms;
 
-	msg = towire_dualopend_init(NULL,
-				  chainparams,
-				  peer->ld->our_features,
-				  peer->their_features,
-				  &uc->our_config,
-				  max_to_self_delay,
-				  min_effective_htlc_capacity,
-				  pps, &uc->local_basepoints,
-				  &uc->local_funding_pubkey,
-				  uc->minimum_depth,
-				  feerate_min(peer->ld, NULL),
-				  feerate_max(peer->ld, NULL),
-				  send_msg);
+	msg = towire_dualopend_init(NULL, chainparams,
+				    peer->ld->our_features,
+				    peer->their_features,
+				    &uc->our_config,
+				    max_to_self_delay,
+				    min_effective_htlc_capacity,
+				    pps, &uc->local_basepoints,
+				    &uc->local_funding_pubkey,
+				    uc->minimum_depth,
+				    feerate_min(peer->ld, NULL),
+				    feerate_max(peer->ld, NULL),
+				    send_msg);
 	subd_send_msg(uc->open_daemon, take(msg));
 }
