@@ -414,7 +414,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
 
 	funding_success(channel);
-	peer_start_channeld(channel, pps, NULL, NULL, false);
+	peer_start_channeld(channel, pps, NULL, false);
 
 cleanup:
 	subd_release_channel(openingd, fc->uc);
@@ -529,7 +529,7 @@ static void opening_fundee_finished(struct subd *openingd,
 		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
 
 	/* On to normal operation! */
-	peer_start_channeld(channel, pps, fwd_msg, NULL, false);
+	peer_start_channeld(channel, pps, fwd_msg, false);
 
 	subd_release_channel(openingd, uc);
 	uc->open_daemon = NULL;

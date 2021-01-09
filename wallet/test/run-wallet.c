@@ -600,7 +600,6 @@ void peer_memleak_done(struct command *cmd UNNEEDED, struct subd *leaker UNNEEDE
 void peer_start_channeld(struct channel *channel UNNEEDED,
 			 struct per_peer_state *pps UNNEEDED,
 			 const u8 *fwd_msg UNNEEDED,
-			 const struct wally_psbt *psbt UNNEEDED,
 			 bool reconnected UNNEEDED)
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
 /* Generated stub for peer_start_closingd */

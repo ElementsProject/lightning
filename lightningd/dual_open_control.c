@@ -54,7 +54,7 @@ static void handle_signed_psbt(struct lightningd *ld,
 	peer_start_channeld(rcvd->channel,
 			    rcvd->pps,
 			    rcvd->commitment_msg,
-			    psbt, false);
+			    false);
 }
 
 /* ~Map of the Territory~
@@ -945,7 +945,7 @@ static void opener_commit_received(struct subd *dualopend,
 	wallet_channel_save(uc->fc->cmd->ld->wallet, channel);
 
 	peer_start_channeld(channel, pps,
-			    NULL, psbt, false);
+			    NULL, false);
 
 	was_pending(command_success(uc->fc->cmd, response));
 	goto cleanup;

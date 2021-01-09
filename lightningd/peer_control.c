@@ -1091,8 +1091,7 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 
 			channel->peer->addr = addr;
 			peer_start_channeld(channel, payload->pps,
-					    NULL, channel->psbt,
-					    true);
+					    NULL, true);
 			tal_free(payload);
 			return;
 

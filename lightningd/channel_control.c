@@ -425,7 +425,6 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 void peer_start_channeld(struct channel *channel,
 			 struct per_peer_state *pps,
 			 const u8 *fwd_msg,
-			 const struct wally_psbt *psbt,
 			 bool reconnected)
 {
 	u8 *initmsg;
