@@ -1014,7 +1014,7 @@ openchannel_init_dest(struct multifundchannel_destination *dest)
 	json_add_node_id(req->js, "id", &dest->id);
 	assert(!dest->all);
 	json_add_string(req->js, "amount",
-			fmt_amount_sat(tmpctx, &dest->amount));
+			fmt_amount_sat(tmpctx, dest->amount));
 
 	/* Copy the original parent down */
 	tal_wally_start();

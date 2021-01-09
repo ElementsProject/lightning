@@ -295,7 +295,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 		/* We could allow invoices for less, I suppose. */
 		if (!amount_msat_eq(expected, amt))
 			return fail_inv(cmd, inv, "Expected invoice for %s",
-					fmt_amount_msat(tmpctx, &expected));
+					fmt_amount_msat(tmpctx, expected));
 	}
 
 	plugin_log(cmd->plugin, LOG_INFORM,
