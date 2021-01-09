@@ -410,19 +410,11 @@ static struct command_result *invreq_amount_by_quantity(struct command *cmd,
 							const struct invreq *ir,
 							u64 *raw_amt)
 {
-	struct command_result *err;
-
 	assert(ir->offer->amount);
 
 	/* BOLT-offers #12:
-	 *
-	 * - if the offer included `amount`:
-	 *   - MUST fail the request if it contains `amount`.
+	 *     - MUST calculate the *base invoice amount* using the offer `amount`:
 	 */
-	err = invreq_must_not_have(cmd, ir, amount);
-	if (err)
-		return err;
-
 	*raw_amt = *ir->offer->amount;
 
 	/* BOLT-offers #12:
@@ -476,10 +468,42 @@ static struct command_result *invreq_base_amount_simple(struct command *cmd,
 
 static struct command_result *handle_amount_and_recurrence(struct command *cmd,
 							   struct invreq *ir,
-							   struct amount_msat amount)
+							   struct amount_msat base_inv_amount)
 {
+	/* BOLT-offers #12:
+	 * - if the offer included `amount`:
+	 *...
+	 *   - if the request contains `amount`:
+	 *     - MUST fail the request if its `amount` is less than the
+	 *       *base invoice amount*.
+	 */
+	if (ir->offer->amount && ir->invreq->amount) {
+		if (amount_msat_less(amount_msat(*ir->invreq->amount), base_inv_amount)) {
+			return fail_invreq(cmd, ir, "Amount must be at least %s",
+					   type_to_string(tmpctx, struct amount_msat,
+							  &base_inv_amount));
+		}
+		/* BOLT-offers #12:
+		 * - MAY fail the request if its `amount` is much greater than
+		 *   the *base invoice amount*.
+		 */
+		/* Much == 5? Easier to divide and compare, than multiply. */
+		if (amount_msat_greater(amount_msat_div(amount_msat(*ir->invreq->amount), 5),
+					base_inv_amount)) {
+			return fail_invreq(cmd, ir, "Amount vastly exceeds %s",
+					   type_to_string(tmpctx, struct amount_msat,
+							  &base_inv_amount));
+		}
+		/* BOLT-offers #12:
+		 * - MUST use the request's `amount` as the *base invoice
+		 *   amount*.
+		 */
+		base_inv_amount = amount_msat(*ir->invreq->amount);
+	}
+
+	/* This may be adjusted by recurrence if proportional_amount set */
 	ir->inv->amount = tal_dup(ir->inv, u64,
-				  &amount.millisatoshis); /* Raw: wire protocol */
+				  &base_inv_amount.millisatoshis); /* Raw: wire protocol */
 
 	/* Last of all, we handle recurrence details, which often requires
 	 * further lookups. */
