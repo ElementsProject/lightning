@@ -208,14 +208,14 @@ u8 *towire_gossipd_got_onionmsg_to_us(const tal_t *ctx, const struct pubkey *bli
 bool fromwire_gossipd_got_onionmsg_to_us(const tal_t *ctx, const void *p, struct pubkey **blinding_in, struct pubkey **reply_blinding, struct onionmsg_path ***reply_path, u8 **rawmsg);
 
 /* WIRE: GOSSIPD_GOT_ONIONMSG_FORWARD */
-u8 *towire_gossipd_got_onionmsg_forward(const tal_t *ctx, const struct short_channel_id *next_scid, const struct node_id *next_node_id, const struct pubkey *next_blinding, const u8 next_onion[1366]);
-bool fromwire_gossipd_got_onionmsg_forward(const tal_t *ctx, const void *p, struct short_channel_id **next_scid, struct node_id **next_node_id, struct pubkey **next_blinding, u8 next_onion[1366]);
+u8 *towire_gossipd_got_onionmsg_forward(const tal_t *ctx, const struct short_channel_id *next_scid, const struct node_id *next_node_id, const struct pubkey *next_blinding, const u8 *next_onion);
+bool fromwire_gossipd_got_onionmsg_forward(const tal_t *ctx, const void *p, struct short_channel_id **next_scid, struct node_id **next_node_id, struct pubkey **next_blinding, u8 **next_onion);
 
 /* WIRE: GOSSIPD_SEND_ONIONMSG */
 /*  Lightningd tells us to send a onion message. */
-u8 *towire_gossipd_send_onionmsg(const tal_t *ctx, const struct node_id *id, const u8 onion[1366], const struct pubkey *blinding);
-bool fromwire_gossipd_send_onionmsg(const tal_t *ctx, const void *p, struct node_id *id, u8 onion[1366], struct pubkey **blinding);
+u8 *towire_gossipd_send_onionmsg(const tal_t *ctx, const struct node_id *id, const u8 *onion, const struct pubkey *blinding);
+bool fromwire_gossipd_send_onionmsg(const tal_t *ctx, const void *p, struct node_id *id, u8 **onion, struct pubkey **blinding);
 
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_WIREGEN_H */
-// SHA256STAMP:45335ac4c553938ed7c2d63344d80465eca1ff70ab8ec750e3d0305f81acdad5
+// SHA256STAMP:6ed2cbe23f1e0cda995d8b62631875aef762ee4e1cd7109188d855d23a1752d0

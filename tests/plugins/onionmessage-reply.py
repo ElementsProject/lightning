@@ -14,6 +14,7 @@ def on_onion_message(plugin, onion_message, **kwargs):
         return
 
     plugin.rpc.call('sendonionmessage', [onion_message['reply_path']])
+    plugin.log("Got onion_message invoice '{}'".format(onion_message['invoice']))
     plugin.log("Sent reply via {}".format(onion_message['reply_path']))
     return {"result": "continue"}
 

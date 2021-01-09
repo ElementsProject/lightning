@@ -152,10 +152,12 @@ msgtype,gossipd_got_onionmsg_forward,3143
 msgdata,gossipd_got_onionmsg_forward,next_scid,?short_channel_id,
 msgdata,gossipd_got_onionmsg_forward,next_node_id,?node_id,
 msgdata,gossipd_got_onionmsg_forward,next_blinding,?pubkey,
-msgdata,gossipd_got_onionmsg_forward,next_onion,u8,1366
+msgdata,gossipd_got_onionmsg_forward,next_onion_len,u16,
+msgdata,gossipd_got_onionmsg_forward,next_onion,u8,next_onion_len
 
 # Lightningd tells us to send a onion message.
 msgtype,gossipd_send_onionmsg,3040
 msgdata,gossipd_send_onionmsg,id,node_id,
-msgdata,gossipd_send_onionmsg,onion,u8,1366
+msgdata,gossipd_send_onionmsg,onion_len,u16,
+msgdata,gossipd_send_onionmsg,onion,u8,onion_len
 msgdata,gossipd_send_onionmsg,blinding,?pubkey,

@@ -138,11 +138,11 @@ void handle_onionmsg_forward(struct lightningd *ld, const u8 *msg)
 	struct short_channel_id *next_scid;
 	struct node_id *next_node;
 	struct pubkey *next_blinding;
-	u8 onion[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
+	u8 *onion;
 
 	if (!fromwire_gossipd_got_onionmsg_forward(msg, msg, &next_scid,
 						   &next_node,
-						   &next_blinding, onion)) {
+						   &next_blinding, &onion)) {
 		log_broken(ld->log, "bad got_onionmsg_forward: %s",
 			   tal_hex(tmpctx, msg));
 		return;
@@ -398,6 +398,7 @@ static struct command_result *json_send_onion_message(struct command *cmd,
 	struct onionpacket *op;
 	struct secret *path_secrets;
 	struct node_id first_id;
+	size_t onion_size;
 
 	if (!param(cmd, buffer, params,
 		   p_req("hops", param_hops, &hops),
@@ -432,7 +433,15 @@ static struct command_result *json_send_onion_message(struct command *cmd,
 				hops[i].rawtlv, tal_bytelen(hops[i].rawtlv));
 		sphinx_add_hop(sphinx_path, &hops[i].id, take(tlv_with_len));
 	}
-	op = create_onionpacket(tmpctx, sphinx_path, ROUTING_INFO_SIZE, &path_secrets);
+	/* BOLT-offers #4:
+	 * - SHOULD set `len` to 1366 or 32834.
+	 */
+	if (sphinx_path_payloads_size(sphinx_path) <= ROUTING_INFO_SIZE)
+		onion_size = ROUTING_INFO_SIZE;
+	else
+		onion_size = 32768;
+
+	op = create_onionpacket(tmpctx, sphinx_path, onion_size, &path_secrets);
 	if (!op)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Creating onion failed (tlvs too long?)");

@@ -2348,15 +2348,18 @@ def test_sendonionmessage_reply(node_factory):
     # First hop can't be blinded!
     assert p1 == l2.info['id']
 
+    # Also tests oversize payload which won't fit in 1366-byte onion.
     l1.rpc.call('sendonionmessage',
                 {'hops':
                  [{'id': l2.info['id']},
-                  {'id': l3.info['id']}],
+                  {'id': l3.info['id'],
+                   'invoice': '77' * 15000}],
                  'reply_path':
                  {'blinding': blinding,
                   'path': [{'id': p1, 'enctlv': p1enc}, {'id': p2}]}})
 
     assert l3.daemon.wait_for_log('Got onionmsg reply_blinding reply_path')
+    assert l3.daemon.wait_for_log("Got onion_message invoice '{}'".format('77' * 15000))
     assert l3.daemon.wait_for_log('Sent reply via')
     assert l1.daemon.wait_for_log('Got onionmsg')
 
