@@ -249,22 +249,57 @@ static struct command_result *param_invoice_payment_hash(struct command *cmd,
 	return NULL;
 }
 
+struct offer_info {
+	const struct tlv_offer *offer;
+	const char *label;
+	bool *single_use;
+};
+
+static struct command_result *create_offer(struct command *cmd,
+					   struct offer_info *offinfo)
+{
+	struct out_req *req;
+
+	/* We simply pass this through. */
+	req = jsonrpc_request_start(cmd->plugin, cmd, "createoffer",
+				    forward_result, forward_error,
+				    offinfo);
+	json_add_string(req->js, "bolt12",
+			offer_encode(tmpctx, offinfo->offer));
+	if (offinfo->label)
+		json_add_string(req->js, "label", offinfo->label);
+	json_add_bool(req->js, "single_use", *offinfo->single_use);
+
+	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *currency_done(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    struct offer_info *offinfo)
+{
+	/* Fail in this case, by forwarding warnings. */
+	if (!json_get_member(buf, result, "msat"))
+		return forward_error(cmd, buf, result, offinfo);
+
+	return create_offer(cmd, offinfo);
+}
+
 struct command_result *json_offer(struct command *cmd,
 				  const char *buffer,
 				  const jsmntok_t *params)
 {
-	const char *desc, *vendor, *label;
+	const char *desc, *vendor;
 	struct tlv_offer *offer;
-	struct out_req *req;
-	bool *single_use;
+	struct offer_info *offinfo = tal(cmd, struct offer_info);
 
-	offer = tlv_offer_new(cmd);
+	offinfo->offer = offer = tlv_offer_new(offinfo);
 
 	if (!param(cmd, buffer, params,
 		   p_req("amount", param_amount, offer),
 		   p_req("description", param_escaped_string, &desc),
 		   p_opt("vendor", param_escaped_string, &vendor),
-		   p_opt("label", param_escaped_string, &label),
+		   p_opt("label", param_escaped_string, &offinfo->label),
 		   p_opt("quantity_min", param_u64, &offer->quantity_min),
 		   p_opt("quantity_max", param_u64, &offer->quantity_max),
 		   p_opt("absolute_expiry", param_u64, &offer->absolute_expiry),
@@ -278,7 +313,8 @@ struct command_result *json_offer(struct command *cmd,
 		   p_opt("recurrence_limit",
 			 param_number,
 			 &offer->recurrence_limit),
-		   p_opt_def("single_use", param_bool, &single_use, false),
+		   p_opt_def("single_use", param_bool,
+			     &offinfo->single_use, false),
 		   /* FIXME: hints support! */
 		   NULL))
 		return command_param_failed();
@@ -318,16 +354,22 @@ struct command_result *json_offer(struct command *cmd,
 
 	offer->node_id = tal_dup(offer, struct pubkey32, &id);
 
-	/* We simply pass this through. */
-	req = jsonrpc_request_start(cmd->plugin, cmd, "createoffer",
-				    forward_result, forward_error,
-				    offer);
-	json_add_string(req->js, "bolt12", offer_encode(tmpctx, offer));
-	if (label)
-		json_add_string(req->js, "label", label);
-	json_add_bool(req->js, "single_use", *single_use);
+	/* If they specify a different currency, warn if we can't
+	 * convert it! */
+	if (offer->currency) {
+		struct out_req *req;
 
-	return send_outreq(cmd->plugin, req);
+		req = jsonrpc_request_start(cmd->plugin, cmd, "currencyconvert",
+					    currency_done, forward_error,
+					    offinfo);
+		json_add_u32(req->js, "amount", 1);
+		json_add_stringn(req->js, "currency",
+				 (const char *)offer->currency,
+				 tal_bytelen(offer->currency));
+		return send_outreq(cmd->plugin, req);
+	}
+
+	return create_offer(cmd, offinfo);
 }
 
 struct command_result *json_offerout(struct command *cmd,

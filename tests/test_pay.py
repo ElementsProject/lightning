@@ -3691,7 +3691,8 @@ def test_mpp_overload_payee(node_factory, bitcoind):
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "offers are experimental")
 def test_offer(node_factory, bitcoind):
-    l1 = node_factory.get_node()
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
+    l1 = node_factory.get_node(options={'plugin': plugin})
 
     bolt12tool = os.path.join(os.path.dirname(__file__), "..", "devtools", "bolt12-cli")
     # Try different amount strings
@@ -3718,6 +3719,11 @@ def test_offer(node_factory, bitcoind):
     with pytest.raises(RpcError, match='Currency AUD requires 2 minor units'):
         l1.rpc.call('offer', {'amount': '1.1AUD',
                               'description': 'test for invalid amount'})
+
+    # Make sure it fails on unknown currencies.
+    with pytest.raises(RpcError, match='No values available for currency EUR'):
+        l1.rpc.call('offer', {'amount': '1.00EUR',
+                              'description': 'test for unknown currency'})
 
     # Test label and description
     weird_label = 'label \\ " \t \n'
