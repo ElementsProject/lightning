@@ -1,0 +1,12 @@
+--- wire/peer_exp_wire.csv	2020-12-07 14:17:07.322636209 +1030
++++ -	2020-12-08 11:05:50.990733421 +1030
+@@ -310,7 +211,8 @@
+ msgdata,gossip_timestamp_filter,first_timestamp,u32,
+ msgdata,gossip_timestamp_filter,timestamp_range,u32,
+ msgtype,onion_message,385,option_onion_messages
+-msgdata,onion_message,onionmsg,byte,1366
++msgdata,onion_message,len,u16,
++msgdata,onion_message,onionmsg,byte,len
+ msgdata,onion_message,onion_message_tlvs,onion_message_tlvs,
+ tlvtype,onion_message_tlvs,blinding,2
+ tlvdata,onion_message_tlvs,blinding,blinding,point,

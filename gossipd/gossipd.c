@@ -444,18 +444,18 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 	struct secret ss, *blinding_ss;
 	struct pubkey *blinding_in;
 	struct route_step *rs;
-	u8 onion[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
+	u8 *onion;
 	const u8 *cursor;
 	size_t max, maxlen;
 	struct tlv_onionmsg_payload *om;
 	struct tlv_onion_message_tlvs *tlvs = tlv_onion_message_tlvs_new(msg);
 
 	/* FIXME: ratelimit! */
-	if (!fromwire_onion_message(msg, onion, tlvs))
+	if (!fromwire_onion_message(msg, msg, &onion, tlvs))
 		return towire_errorfmt(peer, NULL, "Bad onion_message");
 
 	/* We unwrap the onion now. */
-	op = parse_onionpacket(tmpctx, onion, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE), &badreason);
+	op = parse_onionpacket(tmpctx, onion, tal_bytelen(onion), &badreason);
 	if (!op) {
 		status_debug("peer %s: onion msg: can't parse onionpacket: %s",
 			     type_to_string(tmpctx, struct node_id, &peer->id),
@@ -664,11 +664,11 @@ static struct io_plan *onionmsg_req(struct io_conn *conn, struct daemon *daemon,
 				    const u8 *msg)
 {
 	struct node_id id;
-	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
+	u8 *onion_routing_packet;
 	struct pubkey *blinding;
 	struct peer *peer;
 
-	if (!fromwire_gossipd_send_onionmsg(msg, msg, &id, onion_routing_packet,
+	if (!fromwire_gossipd_send_onionmsg(msg, msg, &id, &onion_routing_packet,
 					    &blinding))
 		master_badmsg(WIRE_GOSSIPD_SEND_ONIONMSG, msg);
 
