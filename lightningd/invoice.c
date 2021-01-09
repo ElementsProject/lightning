@@ -1592,5 +1592,5 @@ static const struct json_command createinvoice_command = {
 	json_createinvoice,
 	"Lowlevel command to sign and create invoice {invstring}, resolved with {preimage}, using unique {label}."
 };
-AUTODATA(json_command, &createinvoice_command);
 
+AUTODATA(json_command, &createinvoice_command);
