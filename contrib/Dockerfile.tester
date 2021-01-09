@@ -1,0 +1,78 @@
+FROM ubuntu:18.04
+MAINTAINER Christian Decker <decker.christian@gmail.com>
+
+ENV DEBIAN_FRONTEND noninteractive
+ENV BITCOIN_VERSION 0.20.1
+ENV ELEMENTS_VERSION 0.18.1.8
+
+RUN useradd -ms /bin/bash tester
+RUN mkdir /build /lightning-rfc && chown tester -R /build /lightning-rfc
+WORKDIR /build
+
+RUN apt-get -qq update && \
+    apt-get -qq install --no-install-recommends --allow-unauthenticated -yy \
+	autoconf \
+	autoconf \
+	automake \
+	binfmt-support \
+	build-essential \
+	clang \
+	cppcheck \
+	docbook-xml \
+	eatmydata \
+	gcc-aarch64-linux-gnu \
+	gcc-arm-linux-gnueabihf \
+	gcc-arm-none-eabi \
+	gettext \
+	git \
+	libc6-dev-arm64-cross \
+	libc6-dev-armhf-cross \
+	libgmp-dev \
+	libpq-dev \
+	libprotobuf-c-dev \
+	libsqlite3-dev \
+	libtool \
+	libxml2-utils \
+	locales \
+	net-tools \
+	postgresql-10 \
+	python-pkg-resources \
+	python3 \
+	python3-dev \
+	python3-pip \
+	python3-setuptools \
+	qemu \
+	qemu-system-arm \
+	qemu-user-static \
+	shellcheck \
+	software-properties-common \
+	sudo \
+	tcl \
+	unzip \
+	valgrind \
+	wget \
+	xsltproc \
+	zlib1g-dev && \
+	rm -rf /var/lib/apt/lists/*
+
+ENV LANGUAGE=en_US.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+RUN locale-gen en_US.UTF-8 && dpkg-reconfigure locales
+RUN echo "tester ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/tester && \
+    chmod 0440 /etc/sudoers.d/tester
+
+RUN cd /tmp/ && \
+	wget https://storage.googleapis.com/c-lightning-tests/bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.bz2 && \
+	wget -q https://storage.googleapis.com/c-lightning-tests/elements-$ELEMENTS_VERSION-x86_64-linux-gnu.tar.bz2 && \
+	tar -xjf bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.bz2 && \
+	tar -xjf elements-$ELEMENTS_VERSION-x86_64-linux-gnu.tar.bz2 && \
+	mv bitcoin-$BITCOIN_VERSION/bin/* /usr/local/bin && \
+	mv elements-$ELEMENTS_VERSION/bin/* /usr/local/bin && \
+	rm -rf \
+	  bitcoin-$BITCOIN_VERSION-x86_64-linux-gnu.tar.gz \
+          bitcoin-$BITCOIN_VERSION \
+          elements-$ELEMENTS_VERSION-x86_64-linux-gnu.tar.bz2 \
+          elements-$ELEMENTS_VERSION
+
+USER tester
