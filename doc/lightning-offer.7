@@ -24,7 +24,9 @@ places ending in \fIbtc\fR\.
 
 
 \fIamount\fR can also have an ISO 4217 postfix (i\.e\. USD), in which case
-currency conversion will need to be done for the invoice itself\.
+currency conversion will need to be done for the invoice itself\.  A
+plugin is needed which provides the "currencyconvert" API for this
+currency, otherwise the offer creation will fail\.
 
 
 The \fIdescription\fR is a short description of purpose of the offer,
@@ -147,4 +149,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:54947f0571c064b5190b672f79dd8c4b4555aad3e93007c28deab37c9a0566c1
+\" SHA256STAMP:60534030c8c7ebc34b521a5bb5d76bd1d59e99ac80d16f5b0a9a3ac3bd164b48

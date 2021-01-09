@@ -23,7 +23,9 @@ three decimal places ending in *sat*, or a number with 1 to 11 decimal
 places ending in *btc*.
 
 *amount* can also have an ISO 4217 postfix (i.e. USD), in which case
-currency conversion will need to be done for the invoice itself.
+currency conversion will need to be done for the invoice itself.  A
+plugin is needed which provides the "currencyconvert" API for this
+currency, otherwise the offer creation will fail.
 
 The *description* is a short description of purpose of the offer,
 e.g. *coffee*. This value is encoded into the resulting offer and is
