@@ -1767,10 +1767,10 @@ static void add_new_entry(struct json_stream *ret,
 	 * failures. */
 	if (pm->amount != NULL && pm->num_nonfailed_parts > 0)
 		json_add_string(ret, "amount_msat",
-				fmt_amount_msat(tmpctx, pm->amount));
+				fmt_amount_msat(tmpctx, *pm->amount));
 
 	json_add_string(ret, "amount_sent_msat",
-			fmt_amount_msat(tmpctx, &pm->amount_sent));
+			fmt_amount_msat(tmpctx, pm->amount_sent));
 
 	if (pm->num_nonfailed_parts > 1)
 		json_add_u64(ret, "number_of_parts",

@@ -2900,7 +2900,7 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	/* FIXME: Fuzz the boundaries a bit to avoid probing? */
 	case CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED:
 		failwiremsg = towire_temporary_channel_failure(inmsg, get_local_channel_update(inmsg, peer));
-		failstr = tal_fmt(inmsg, "Capacity exceeded - HTLC fee: %s", fmt_amount_sat(inmsg, &htlc_fee));
+		failstr = tal_fmt(inmsg, "Capacity exceeded - HTLC fee: %s", fmt_amount_sat(inmsg, htlc_fee));
 		goto failed;
 	case CHANNEL_ERR_HTLC_BELOW_MINIMUM:
 		failwiremsg = towire_amount_below_minimum(inmsg, amount, get_local_channel_update(inmsg, peer));

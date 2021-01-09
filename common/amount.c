@@ -30,42 +30,54 @@ struct amount_sat amount_msat_to_sat_round_down(struct amount_msat msat)
 
 /* Different formatting by amounts: btc, sat and msat */
 const char *fmt_amount_msat_btc(const tal_t *ctx,
-				const struct amount_msat *msat,
+				struct amount_msat msat,
 				bool append_unit)
 {
-	if (msat->millisatoshis == 0)
+	if (msat.millisatoshis == 0)
 		return tal_fmt(ctx, append_unit ? "0btc" : "0");
 
 	return tal_fmt(ctx, "%"PRIu64".%011"PRIu64"%s",
-		       msat->millisatoshis / MSAT_PER_BTC,
-		       msat->millisatoshis % MSAT_PER_BTC,
+		       msat.millisatoshis / MSAT_PER_BTC,
+		       msat.millisatoshis % MSAT_PER_BTC,
 		       append_unit ? "btc" : "");
 }
 
-const char *fmt_amount_msat(const tal_t *ctx, const struct amount_msat *msat)
+const char *fmt_amount_msat(const tal_t *ctx, struct amount_msat msat)
 {
-	return tal_fmt(ctx, "%"PRIu64"msat", msat->millisatoshis);
+	return tal_fmt(ctx, "%"PRIu64"msat", msat.millisatoshis);
 }
-REGISTER_TYPE_TO_STRING(amount_msat, fmt_amount_msat);
+
+static const char *fmt_amount_msat_ptr(const tal_t *ctx,
+				       const struct amount_msat *msat)
+{
+	return fmt_amount_msat(ctx, *msat);
+}
+REGISTER_TYPE_TO_STRING(amount_msat, fmt_amount_msat_ptr);
 
 const char *fmt_amount_sat_btc(const tal_t *ctx,
-			       const struct amount_sat *sat,
+			       struct amount_sat sat,
 			       bool append_unit)
 {
-	if (sat->satoshis == 0)
+	if (sat.satoshis == 0)
 		return tal_fmt(ctx, append_unit ? "0btc" : "0");
 
 	return tal_fmt(ctx, "%"PRIu64".%08"PRIu64"%s",
-		       sat->satoshis / SAT_PER_BTC,
-		       sat->satoshis % SAT_PER_BTC,
+		       sat.satoshis / SAT_PER_BTC,
+		       sat.satoshis % SAT_PER_BTC,
 		       append_unit ? "btc" : "");
 }
 
-const char *fmt_amount_sat(const tal_t *ctx, const struct amount_sat *sat)
+const char *fmt_amount_sat(const tal_t *ctx, struct amount_sat sat)
 {
-	return tal_fmt(ctx, "%"PRIu64"sat", sat->satoshis);
+	return tal_fmt(ctx, "%"PRIu64"sat", sat.satoshis);
 }
-REGISTER_TYPE_TO_STRING(amount_sat, fmt_amount_sat);
+
+static const char *fmt_amount_sat_ptr(const tal_t *ctx,
+				      const struct amount_sat *sat)
+{
+	return fmt_amount_sat(ctx, *sat);
+}
+REGISTER_TYPE_TO_STRING(amount_sat, fmt_amount_sat_ptr);
 
 static bool breakup(const char *str, size_t slen,
 		    /* Length of first numeric part. */
