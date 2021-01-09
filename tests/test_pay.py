@@ -3859,7 +3859,7 @@ def test_fetchinvoice(node_factory, bitcoind):
                                                {'allow_broken_log': True}])
 
     # Simple offer first.
-    offer1 = l3.rpc.call('offer', {'amount': '1msat',
+    offer1 = l3.rpc.call('offer', {'amount': '2msat',
                                    'description': 'simple test'})['bolt12']
 
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1})
@@ -3869,6 +3869,20 @@ def test_fetchinvoice(node_factory, bitcoind):
     assert 'next_period' not in inv2
     l1.rpc.pay(inv1['invoice'])
     l1.rpc.pay(inv2['invoice'])
+
+    # We can also set the amount explicitly, to tip.
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1, 'msatoshi': 3})
+    assert l1.rpc.call('decode', [inv1['invoice']])['amount_msat'] == 3
+    l1.rpc.pay(inv1['invoice'])
+
+    # More than ~5x expected is rejected as absurd (it's actually a divide test,
+    # which means we need 15 here, not 11).
+    with pytest.raises(RpcError, match="Remote node sent failure message.*Amount vastly exceeds 2msat"):
+        l1.rpc.call('fetchinvoice', {'offer': offer1, 'msatoshi': 15})
+
+    # Underpay is rejected.
+    with pytest.raises(RpcError, match="Remote node sent failure message.*Amount must be at least 2msat"):
+        l1.rpc.call('fetchinvoice', {'offer': offer1, 'msatoshi': 1})
 
     # Single-use invoice can be fetched multiple times, only paid once.
     offer2 = l3.rpc.call('offer', {'amount': '1msat',

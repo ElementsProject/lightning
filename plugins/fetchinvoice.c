@@ -818,12 +818,17 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	 *     lightning-payable unit (e.g. milli-satoshis for bitcoin) for the
 	 *     first `chains` entry.
 	 * - otherwise:
-	 *   - MUST NOT set `amount`
+	 *   - MAY omit `amount`.
+	 *     - if it sets `amount`:
+	 *       - MUST specify `amount`.`msat` as greater or equal to amount
+	 *         expected by the offer (before any proportional period amount).
 	 */
 	if (sent->offer->amount) {
-		if (msat)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "msatoshi parameter unnecessary");
+		/* FIXME: Check after quantity? */
+		if (msat) {
+			invreq->amount = tal_dup(invreq, u64,
+						 &msat->millisatoshis); /* Raw: tu64 */
+		}
 	} else {
 		if (!msat)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
