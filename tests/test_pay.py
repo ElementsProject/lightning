@@ -3853,7 +3853,10 @@ def test_offer(node_factory, bitcoind):
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "offers are experimental")
 def test_fetchinvoice(node_factory, bitcoind):
-    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
+    # We remove the conversion plugin on l3, causing it to get upset.
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts=[{}, {},
+                                               {'allow_broken_log': True}])
 
     # Simple offer first.
     offer1 = l3.rpc.call('offer', {'amount': '1msat',
@@ -3942,6 +3945,25 @@ def test_fetchinvoice(node_factory, bitcoind):
     ret = l4.rpc.call('fetchinvoice', {'offer': offer3,
                                        'recurrence_counter': 0,
                                        'recurrence_label': 'test nochannel'})
+
+    # Now, test amount in different currency!
+    plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
+    l3.rpc.plugin_start(plugin)
+
+    offerusd = l3.rpc.call('offer', {'amount': '10.05USD',
+                                     'description': 'USD test'})['bolt12']
+
+    inv = l1.rpc.call('fetchinvoice', {'offer': offerusd})
+    assert inv['changes']['msat'] == Millisatoshi(int(10.05 * 5000))
+
+    # If we remove plugin, it can no longer give us an invoice.
+    l3.rpc.plugin_stop(plugin)
+
+    with pytest.raises(RpcError, match="Internal error"):
+        l1.rpc.call('fetchinvoice', {'offer': offerusd})
+    l3.daemon.wait_for_log("Unknown command 'currencyconvert'")
+    # But we can still pay the (already-converted) invoice.
+    l1.rpc.pay(inv['invoice'])
 
     # Test timeout.
     l3.stop()

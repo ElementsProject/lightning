@@ -4,6 +4,7 @@
 #include <common/bech32_util.h>
 #include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
+#include <common/iso4217.h>
 #include <common/json_stream.h>
 #include <common/overflows.h>
 #include <common/type_to_string.h>
@@ -405,6 +406,170 @@ static bool check_recurrence_sig(const struct tlv_invoice_request *invreq,
 					   sighash.u.u8, &payer_key->pubkey) == 1;
 }
 
+static struct command_result *invreq_amount_by_quantity(struct command *cmd,
+							const struct invreq *ir,
+							u64 *raw_amt)
+{
+	struct command_result *err;
+
+	assert(ir->offer->amount);
+
+	/* BOLT-offers #12:
+	 *
+	 * - if the offer included `amount`:
+	 *   - MUST fail the request if it contains `amount`.
+	 */
+	err = invreq_must_not_have(cmd, ir, amount);
+	if (err)
+		return err;
+
+	*raw_amt = *ir->offer->amount;
+
+	/* BOLT-offers #12:
+	 * - if request contains `quantity`, multiply by `quantity`.
+	 */
+	if (ir->invreq->quantity) {
+		if (mul_overflows_u64(*ir->invreq->quantity, *raw_amt)) {
+			return fail_invreq(cmd, ir,
+					   "quantity %"PRIu64
+					   " causes overflow",
+					   *ir->invreq->quantity);
+		}
+		*raw_amt *= *ir->invreq->quantity;
+	}
+
+	return NULL;
+}
+
+/* The non-currency-converting case. */
+static struct command_result *invreq_base_amount_simple(struct command *cmd,
+							const struct invreq *ir,
+							struct amount_msat *amt)
+{
+	struct command_result *err;
+
+	if (ir->offer->amount) {
+		u64 raw_amount;
+		assert(!ir->offer->currency);
+		err = invreq_amount_by_quantity(cmd, ir, &raw_amount);
+		if (err)
+			return err;
+
+		*amt = amount_msat(raw_amount);
+	} else {
+		/* BOLT-offers #12:
+		 *
+		 * - otherwise:
+		 * - MUST fail the request if it does not contain `amount`.
+		 * - MUST use the request `amount` as the *base invoice amount*.
+		 *   (Note: invoice amount can be further modiifed by recurrence
+		 *    below)
+		 */
+		err = invreq_must_have(cmd, ir, amount);
+		if (err)
+			return err;
+
+		*amt = amount_msat(*ir->invreq->amount);
+	}
+	return NULL;
+}
+
+static struct command_result *handle_amount_and_recurrence(struct command *cmd,
+							   struct invreq *ir,
+							   struct amount_msat amount)
+{
+	ir->inv->amount = tal_dup(ir->inv, u64,
+				  &amount.millisatoshis); /* Raw: wire protocol */
+
+	/* Last of all, we handle recurrence details, which often requires
+	 * further lookups. */
+
+	/* BOLT-offers #12:
+	 * - MUST set (or not set) `recurrence_counter` exactly as the
+	 *   invoice_request did.
+	 */
+	if (ir->invreq->recurrence_counter) {
+		ir->inv->recurrence_counter = ir->invreq->recurrence_counter;
+		return check_previous_invoice(cmd, ir);
+	}
+	/* We're happy with 2 hours timeout (default): they can always
+	 * request another. */
+
+	/* FIXME: Fallbacks? */
+	return create_invoicereq(cmd, ir);
+}
+
+static struct command_result *currency_done(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    struct invreq *ir)
+{
+	const jsmntok_t *msat = json_get_member(buf, result, "msat");
+	struct amount_msat amount;
+
+	/* Fail in this case, forwarding warnings. */
+	if (!msat)
+		return fail_internalerr(cmd, ir,
+					"Cannot convert currency %.*s: %.*s",
+					(int)tal_bytelen(ir->offer->currency),
+					(const char *)ir->offer->currency,
+					json_tok_full_len(result),
+					json_tok_full(buf, result));
+
+	if (!json_to_msat(buf, msat, &amount))
+		return fail_internalerr(cmd, ir,
+					"Bad convert for currency %.*s: %.*s",
+					(int)tal_bytelen(ir->offer->currency),
+					(const char *)ir->offer->currency,
+					json_tok_full_len(msat),
+					json_tok_full(buf, msat));
+
+	return handle_amount_and_recurrence(cmd, ir, amount);
+}
+
+static struct command_result *convert_currency(struct command *cmd,
+					       struct invreq *ir)
+{
+	struct out_req *req;
+	u64 raw_amount;
+	double double_amount;
+	struct command_result *err;
+	const struct iso4217_name_and_divisor *iso4217;
+
+	assert(ir->offer->currency);
+
+	/* Multiply by quantity *first*, for best precision */
+	err = invreq_amount_by_quantity(cmd, ir, &raw_amount);
+	if (err)
+		return err;
+
+	/* BOLT-offers #12:
+	 * - MUST calculate the *base invoice amount* using the offer
+	 *  `amount`:
+	 *   - if offer `currency` is not the invoice currency, convert
+	 *     to the invoice currency.
+	 */
+	iso4217 = find_iso4217(ir->offer->currency,
+			       tal_bytelen(ir->offer->currency));
+	/* We should not create offer with unknown currency! */
+	if (!iso4217)
+		return fail_internalerr(cmd, ir,
+					"Unknown offer currency %.*s",
+					(int)tal_bytelen(ir->offer->currency),
+					ir->offer->currency);
+	double_amount = (double)raw_amount;
+	for (size_t i = 0; i < iso4217->minor_unit; i++)
+		double_amount /= 10;
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "currencyconvert",
+				    currency_done, error, ir);
+	json_add_stringn(req->js, "currency",
+			 (const char *)ir->offer->currency,
+			 tal_bytelen(ir->offer->currency));
+	json_add_member(req->js, "amount", false, "%f", double_amount);
+	return send_outreq(cmd->plugin, req);
+}
+
 static struct command_result *listoffers_done(struct command *cmd,
 					      const char *buf,
 					      const jsmntok_t *result,
@@ -413,9 +578,9 @@ static struct command_result *listoffers_done(struct command *cmd,
 	const jsmntok_t *arr = json_get_member(buf, result, "offers");
 	const jsmntok_t *offertok, *activetok, *b12tok;
 	bool active;
-	struct amount_msat amt;
 	char *fail;
 	struct command_result *err;
+	struct amount_msat amt;
 
 	/* BOLT-offers #12:
 	 *
@@ -498,64 +663,6 @@ static struct command_result *listoffers_done(struct command *cmd,
 			return err;
 	}
 
-	if (ir->offer->amount) {
-		u64 raw_amount;
-
-		/* BOLT-offers #12:
-		 *
-		 * - if the offer included `amount`:
-		 *   - MUST fail the request if it contains `amount`.
-		 */
-		err = invreq_must_not_have(cmd, ir, amount);
-		if (err)
-			return err;
-
-
-		/* BOLT-offers #12:
-		 * - MUST calculate the *base invoice amount* using the offer
-		 *  `amount`:
-		 *   - if offer `currency` is not the invoice currency, convert
-		 *     to the invoice currency.
-		 */
-		if (ir->offer->currency) {
-			/* FIXME: Currency conversion! */
-			return fail_invreq(cmd, ir,
-					   "FIXME: Request for currency %.*s",
-					   (int)tal_bytelen(ir->offer->currency),
-					   (char *)ir->offer->currency);
-		} else
-			raw_amount = *ir->offer->amount;
-
-		/* BOLT-offers #12:
-		 * - if request contains `quantity`, multiply by `quantity`.
-		 */
-		if (ir->invreq->quantity) {
-			if (mul_overflows_u64(*ir->invreq->quantity, raw_amount)) {
-				return fail_invreq(cmd, ir,
-						   "quantity %"PRIu64
-						   " causes overflow",
-						   *ir->invreq->quantity);
-			}
-			raw_amount *= *ir->invreq->quantity;
-		}
-
-		amt = amount_msat(raw_amount);
-	} else {
-		/* BOLT-offers #12:
-		 *
-		 * - otherwise:
-		 * - MUST fail the request if it does not contain `amount`.
-		 * - MUST use the request `amount` as the *base invoice amount*.
-		 *   (Note: invoice amount can be further modiifed by recurrence
-		 *    below)
-		 */
-		err = invreq_must_have(cmd, ir, amount);
-		if (err)
-			return err;
-
-		amt = amount_msat(*ir->invreq->amount);
-	}
-
 	if (ir->offer->recurrence) {
 		/* BOLT-offers #12:
 		 *
@@ -612,8 +719,6 @@ static struct command_result *listoffers_done(struct command *cmd,
 	/* Which is the same as the invreq */
 	ir->inv->offer_id = tal_dup(ir->inv, struct sha256,
 				    ir->invreq->offer_id);
-	ir->inv->amount = tal_dup(ir->inv, u64,
-				  &amt.millisatoshis); /* Raw: wire protocol */
 	ir->inv->description = tal_dup_talarr(ir->inv, char,
 					      ir->offer->description);
 	ir->inv->features = tal_dup_talarr(ir->inv, u8,
@@ -651,23 +756,14 @@ static struct command_result *listoffers_done(struct command *cmd,
 	ir->inv->timestamp = tal(ir->inv, u64);
 	*ir->inv->timestamp = time_now().ts.tv_sec;
 
-	/* Last of all, we handle recurrence details, which often requires
-	 * further lookups. */
+	/* We may require currency lookup; if so, do it now. */
+	if (ir->offer->amount && ir->offer->currency)
+		return convert_currency(cmd, ir);
 
-	/* BOLT-offers #12:
-	 * - MUST set (or not set) `recurrence_counter` exactly as the
-	 *   invoice_request did.
-	 */
-	if (ir->invreq->recurrence_counter) {
-		ir->inv->recurrence_counter = ir->invreq->recurrence_counter;
-		return check_previous_invoice(cmd, ir);
-	}
-	/* We're happy with 2 hours timeout (default): they can always
-	 * request another. */
-
-	/* FIXME: Fallbacks? */
-	/* FIXME: refunds? */
-	return create_invoicereq(cmd, ir);
+	err = invreq_base_amount_simple(cmd, ir, &amt);
+	if (err)
+		return err;
+	return handle_amount_and_recurrence(cmd, ir, amt);
 }
 
 static struct command_result *handle_offerless_request(struct command *cmd,
