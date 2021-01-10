@@ -1320,18 +1320,10 @@ static struct command_result *json_pay(struct command *cmd,
 		return command_param_failed();
 
 	b11 = bolt11_decode(cmd, b11str, plugin_feature_set(cmd->plugin),
-			    NULL, chainparams, &fail);
+			    NULL, NULL, &fail);
 	if (!b11) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Invalid bolt11: %s", fail);
-	}
-
-	if (!b11->chain) {
-		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "Invoice is for an unknown network");
-	}
-
-	if (b11->chain != chainparams) {
-		return command_fail(cmd, PAY_ROUTE_NOT_FOUND, "Invoice is for another network %s", b11->chain->network_name);
 	}
 
 	if (time_now().ts.tv_sec > b11->timestamp + b11->expiry) {
@@ -1999,7 +1991,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	p->invstring = tal_steal(p, b11str);
 
 	b11 = bolt11_decode(cmd, b11str, plugin_feature_set(cmd->plugin),
-			    NULL, chainparams, &fail);
+			    NULL, NULL, &fail);
 	if (b11) {
 		invmsat = b11->msat;
 		invexpiry = b11->timestamp + b11->expiry;
@@ -2023,7 +2015,7 @@ static struct command_result *json_paymod(struct command *cmd,
 #if EXPERIMENTAL_FEATURES
 	} else if ((b12 = invoice_decode(cmd, b11str, strlen(b11str),
 					 plugin_feature_set(cmd->plugin),
-					 chainparams, &fail)) != NULL) {
+					 NULL, &fail)) != NULL) {
 		p->features = tal_steal(p, b12->features);
 
 		if (!b12->node_id)
