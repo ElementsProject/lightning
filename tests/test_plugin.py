@@ -1323,6 +1323,12 @@ def test_rpc_command_hook(node_factory):
     # Test command redirection to a plugin
     l1.rpc.call('help', [0])
 
+    # Test calling other RPC methods from inside an rpc_command hook
+    info = l1.rpc.listnodes("0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518")
+    assert info
+    assert "msatoshi_fees_collected" in info
+    assert info["id"] == '0266e4598d1d3c415f572a8488830b60f7e744ed9235eb0b1ba93283b315c03518'
+
     # Test command which removes plugin itself!
     l1.rpc.plugin_stop('rpc_command.py')
 
