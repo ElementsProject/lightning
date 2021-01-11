@@ -23,6 +23,7 @@ sections = [
 repo = 'ElementsProject/lightning'
 
 Entry = namedtuple("Entry", ["commit", "pullreq", "content", "section"])
+Link = namedtuple("Link", ["ref", "content", "url"])
 
 
 def git(cmd):
@@ -75,6 +76,17 @@ def get_log_entries(commitrange):
     return entries
 
 
+def linkify(entries):
+    links = []
+    for e in entries:
+        links.append(Link(
+            ref='#{}'.format(e.pullreq),
+            content=e.content,
+            url="https://github.com/ElementsProject/lightning/pull/{}".format(e.pullreq)
+        ))
+    return list(set(links))
+
+
 def group(entries):
     groups = {s: [] for s in sections}
     for e in entries:
@@ -92,7 +104,12 @@ def commit_date(commitsha):
 
 template = Template("""<%def name="group(entries)">
 % for e in entries:
- - ${e.content} ([${e.pullreq}](https://github.com/ElementsProject/lightning/pull/${e.pullreq}))
+ - ${e.content} ([#${e.pullreq}])
+% endfor
+
+</%def><%def name="group_links(entries)">
+% for e in entries:
+[${e.pullreq}]: https://github.com/ElementsProject/lightning/pull/${e.pullreq}
 % endfor
 </%def>
 <!--
@@ -118,6 +135,9 @@ ${group(groups['fixed']) | trim}
 ${h3} Security
 ${group(groups['security']) | trim}
 
+% for l in links:
+[${l.ref}]: ${l.url}
+% endfor
 [${version}]: https://github.com/ElementsProject/lightning/releases/tag/v${version}""")
 
 
@@ -146,4 +166,5 @@ if __name__ == "__main__":
         h3='###',
         version=tocommit[1:],
         date=date,
+        links=linkify(entries),
     ))
