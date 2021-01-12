@@ -27,6 +27,10 @@ enum dualopend_wire {
         WIRE_DUALOPEND_GOT_OFFER = 7005,
         /*  master->dualopend: reply back with our first funding info/contribs */
         WIRE_DUALOPEND_GOT_OFFER_REPLY = 7105,
+        /*  dualopend->master: they offered a RBF */
+        WIRE_DUALOPEND_GOT_RBF_OFFER = 7500,
+        /*  master->dualopend: reply back with our funding info/contribs */
+        WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY = 7505,
         /*  dualopend->master: ready to commit channel open to database and */
         /*                     get some signatures for the funding_tx. */
         WIRE_DUALOPEND_COMMIT_RCVD = 7007,
@@ -97,6 +101,16 @@ bool fromwire_dualopend_got_offer(const tal_t *ctx, const void *p, struct channe
 /*  master->dualopend: reply back with our first funding info/contribs */
 u8 *towire_dualopend_got_offer_reply(const tal_t *ctx, struct amount_sat accepter_funding, u32 feerate_funding, const struct wally_psbt *psbt, const u8 *our_shutdown_scriptpubkey);
 bool fromwire_dualopend_got_offer_reply(const tal_t *ctx, const void *p, struct amount_sat *accepter_funding, u32 *feerate_funding, struct wally_psbt **psbt, u8 **our_shutdown_scriptpubkey);
+
+/* WIRE: DUALOPEND_GOT_RBF_OFFER */
+/*  dualopend->master: they offered a RBF */
+u8 *towire_dualopend_got_rbf_offer(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat opener_funding, u32 funding_feerate_per_kw, u32 locktime);
+bool fromwire_dualopend_got_rbf_offer(const void *p, struct channel_id *channel_id, struct amount_sat *opener_funding, u32 *funding_feerate_per_kw, u32 *locktime);
+
+/* WIRE: DUALOPEND_GOT_RBF_OFFER_REPLY */
+/*  master->dualopend: reply back with our funding info/contribs */
+u8 *towire_dualopend_got_rbf_offer_reply(const tal_t *ctx, struct amount_sat accepter_funding, const struct wally_psbt *psbt);
+bool fromwire_dualopend_got_rbf_offer_reply(const tal_t *ctx, const void *p, struct amount_sat *accepter_funding, struct wally_psbt **psbt);
 
 /* WIRE: DUALOPEND_COMMIT_RCVD */
 /*  dualopend->master: ready to commit channel open to database and */
@@ -195,4 +209,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:6e149f437eae7fde2f891bbb7f36903fa105179d9a97cd1b765d34641c0839ce
+// SHA256STAMP:d9a02c4575a71748388be74b56f3fe333147557aa715e6735b9a1c35a72c7cd5
