@@ -332,6 +332,38 @@ static void negotiation_failed(struct state *state,
 	open_error(state, "You gave bad parameters: %s", errmsg);
 }
 
+/* FIXME: remove this once used */
+void rbf_failed(struct state *state, const char *fmt, ...);
+void rbf_failed(struct state *state,
+		const char *fmt, ...)
+{
+	va_list ap;
+	const char *errmsg;
+	u8 *msg;
+
+	va_start(ap, fmt);
+	errmsg = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
+
+	msg = towire_fail_rbf(NULL, &state->channel_id,
+			      (u8 *)tal_dup_arr(errmsg, char, errmsg,
+						strlen(errmsg), 0));
+	sync_crypto_write(state->pps, take(msg));
+
+	status_debug("aborted rbf negotiation: %s", errmsg);
+	/*~ The "billboard" (exposed as "status" in the JSON listpeers RPC
+	 * call) is a transient per-channel area which indicates important
+	 * information about what is happening.  It has a "permanent" area for
+	 * each state, which can be used to indicate what went wrong in that
+	 * state (such as here), and a single transient area for current
+	 * status. */
+	peer_billboard(true, errmsg);
+
+	/* Tell master that RBF failed. */
+	msg = towire_dualopend_rbf_failed(NULL, errmsg);
+	wire_sync_write(REQ_FD, take(msg));
+}
+
 static void billboard_update(struct state *state)
 {
 	const char *update = billboard_message(tmpctx, state->funding_locked,
@@ -2676,6 +2708,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_SHUTDOWN_COMPLETE:
 	case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:
 	case WIRE_DUALOPEND_FAILED:
+	case WIRE_DUALOPEND_RBF_FAILED:
 		break;
 	}
 

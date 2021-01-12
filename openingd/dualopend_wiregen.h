@@ -38,6 +38,8 @@ enum dualopend_wire {
         WIRE_DUALOPEND_FAIL = 7003,
         /*  dualopend->master: we failed to negotiate channel */
         WIRE_DUALOPEND_FAILED = 7004,
+        /*  dualopend->master: we failed to negotate RBF */
+        WIRE_DUALOPEND_RBF_FAILED = 7015,
         /*  master->dualopend: hello */
         WIRE_DUALOPEND_OPENER_INIT = 7200,
         /*  dualopend->master received tx_sigs from peer */
@@ -122,6 +124,11 @@ bool fromwire_dualopend_fail(const tal_t *ctx, const void *p, wirestring **reaso
 u8 *towire_dualopend_failed(const tal_t *ctx, const wirestring *reason);
 bool fromwire_dualopend_failed(const tal_t *ctx, const void *p, wirestring **reason);
 
+/* WIRE: DUALOPEND_RBF_FAILED */
+/*  dualopend->master: we failed to negotate RBF */
+u8 *towire_dualopend_rbf_failed(const tal_t *ctx, const wirestring *reason);
+bool fromwire_dualopend_rbf_failed(const tal_t *ctx, const void *p, wirestring **reason);
+
 /* WIRE: DUALOPEND_OPENER_INIT */
 /*  master->dualopend: hello */
 u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags);
@@ -188,4 +195,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:466b562a93af757c8bea696934d22420f3626b43f1476012e44f7946d51b06ba
+// SHA256STAMP:6e149f437eae7fde2f891bbb7f36903fa105179d9a97cd1b765d34641c0839ce
