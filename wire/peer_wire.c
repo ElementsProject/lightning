@@ -44,6 +44,8 @@ static bool unknown_type(enum peer_wire t)
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_INIT_RBF:
+	case WIRE_ACK_RBF:
+	case WIRE_FAIL_RBF:
 	case WIRE_BLACKLIST_PODLE:
 #endif
 		return false;
@@ -95,6 +97,8 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_INIT_RBF:
+	case WIRE_ACK_RBF:
+	case WIRE_FAIL_RBF:
 	case WIRE_BLACKLIST_PODLE:
 #endif
 		break;

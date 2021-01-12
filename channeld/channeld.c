@@ -1854,11 +1854,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_SHUTDOWN:
 		handle_peer_shutdown(peer, msg);
 		return;
-#if EXPERIMENTAL_FEATURES
-	case WIRE_INIT_RBF:
-	/* FIXME: handle this here */
-		break;
-#endif
 
 	case WIRE_INIT:
 	case WIRE_OPEN_CHANNEL:
@@ -1877,6 +1872,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_TX_SIGNATURES:
 		handle_unexpected_tx_sigs(peer, msg);
 		return;
+	case WIRE_INIT_RBF:
+	case WIRE_ACK_RBF:
+	case WIRE_FAIL_RBF:
 	case WIRE_BLACKLIST_PODLE:
 #endif
 		break;

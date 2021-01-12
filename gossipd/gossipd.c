@@ -767,6 +767,8 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_OPEN_CHANNEL2:
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_INIT_RBF:
+	case WIRE_ACK_RBF:
+	case WIRE_FAIL_RBF:
 	case WIRE_BLACKLIST_PODLE:
 #endif
 		status_broken("peer %s: relayed unexpected msg of type %s",
