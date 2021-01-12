@@ -1407,6 +1407,8 @@ static bool run_tx_interactive(struct state *state,
 		case WIRE_OPEN_CHANNEL2:
 		case WIRE_ACCEPT_CHANNEL2:
 		case WIRE_INIT_RBF:
+		case WIRE_ACK_RBF:
+		case WIRE_FAIL_RBF:
 		case WIRE_BLACKLIST_PODLE:
 		case WIRE_CHANNEL_ANNOUNCEMENT:
 		case WIRE_CHANNEL_UPDATE:
@@ -2706,7 +2708,8 @@ static u8 *handle_peer_in(struct state *state)
 	enum peer_wire t = fromwire_peektype(msg);
 	struct channel_id channel_id;
 
-	if (t == WIRE_OPEN_CHANNEL2) {
+	switch (t) {
+	case WIRE_OPEN_CHANNEL2:
 		if (state->channel) {
 			status_broken("Unexpected message %s",
 				      peer_wire_name(t));
@@ -2714,14 +2717,56 @@ static u8 *handle_peer_in(struct state *state)
 		}
 		accepter_start(state, msg);
 		return NULL;
-	} else if (t == WIRE_TX_SIGNATURES) {
+	case WIRE_TX_SIGNATURES:
 		handle_tx_sigs(state, msg);
 		return NULL;
-	} else if (t == WIRE_FUNDING_LOCKED) {
+	case WIRE_FUNDING_LOCKED:
 		return handle_funding_locked(state, msg);
-	} else if (t == WIRE_SHUTDOWN) {
+	case WIRE_SHUTDOWN:
 		handle_peer_shutdown(state, msg);
 		return NULL;
+	case WIRE_INIT_RBF:
+		// FIXME: rbf_start?
+		return NULL;
+	/* Otherwise we fall through */
+	case WIRE_INIT:
+	case WIRE_ERROR:
+	case WIRE_OPEN_CHANNEL:
+	case WIRE_ACCEPT_CHANNEL:
+	case WIRE_FUNDING_CREATED:
+	case WIRE_FUNDING_SIGNED:
+	case WIRE_CLOSING_SIGNED:
+	case WIRE_UPDATE_ADD_HTLC:
+	case WIRE_UPDATE_FULFILL_HTLC:
+	case WIRE_UPDATE_FAIL_HTLC:
+	case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+	case WIRE_COMMITMENT_SIGNED:
+	case WIRE_REVOKE_AND_ACK:
+	case WIRE_UPDATE_FEE:
+	case WIRE_CHANNEL_REESTABLISH:
+	case WIRE_ANNOUNCEMENT_SIGNATURES:
+	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+	case WIRE_ONION_MESSAGE:
+	case WIRE_ACCEPT_CHANNEL2:
+	case WIRE_TX_ADD_INPUT:
+	case WIRE_TX_REMOVE_INPUT:
+	case WIRE_TX_ADD_OUTPUT:
+	case WIRE_TX_REMOVE_OUTPUT:
+	case WIRE_TX_COMPLETE:
+	case WIRE_ACK_RBF:
+	case WIRE_FAIL_RBF:
+	case WIRE_BLACKLIST_PODLE:
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+	case WIRE_CHANNEL_UPDATE:
+	case WIRE_NODE_ANNOUNCEMENT:
+	case WIRE_QUERY_CHANNEL_RANGE:
+	case WIRE_REPLY_CHANNEL_RANGE:
+	case WIRE_QUERY_SHORT_CHANNEL_IDS:
+	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
+	case WIRE_WARNING:
+	case WIRE_PING:
+	case WIRE_PONG:
+		break;
 	}
 
 #if DEVELOPER

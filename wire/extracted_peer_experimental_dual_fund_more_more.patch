@@ -1,0 +1,18 @@
+--- wire/peer_exp_wire.csv	2021-01-07 19:57:53.230947150 -0600
++++ -	2021-01-08 15:17:40.600855619 -0600
+@@ -172,8 +172,14 @@
+ msgdata,init_rbf,channel_id,channel_id,
+ msgdata,init_rbf,funding_satoshis,u64,
+ msgdata,init_rbf,locktime,u32,
+-msgdata,init_rbf,feerate_per_kw,u32,
+ msgdata,init_rbf,fee_step,byte,
++msgtype,ack_rbf,73
++msgdata,ack_rbf,channel_id,channel_id,
++msgdata,ack_rbf,funding_satoshis,u64,
++msgtype,fail_rbf,74
++msgdata,fail_rbf,channel_id,channel_id,
++msgdata,fail_rbf,len,u16,
++msgdata,fail_rbf,data,byte,len
+ msgtype,shutdown,38
+ msgdata,shutdown,channel_id,channel_id,
+ msgdata,shutdown,len,u16,
