@@ -1987,6 +1987,10 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_FAILED:
 			open_failed(dualopend, msg);
 			return 0;
+		case WIRE_DUALOPEND_RBF_FAILED:
+			// FIXME: handle this
+			abort();
+			return 0;
 		case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
 
 		/* Messages we send */

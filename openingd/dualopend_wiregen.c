@@ -29,6 +29,7 @@ const char *dualopend_wire_name(int e)
 	case WIRE_DUALOPEND_PSBT_UPDATED: return "WIRE_DUALOPEND_PSBT_UPDATED";
 	case WIRE_DUALOPEND_FAIL: return "WIRE_DUALOPEND_FAIL";
 	case WIRE_DUALOPEND_FAILED: return "WIRE_DUALOPEND_FAILED";
+	case WIRE_DUALOPEND_RBF_FAILED: return "WIRE_DUALOPEND_RBF_FAILED";
 	case WIRE_DUALOPEND_OPENER_INIT: return "WIRE_DUALOPEND_OPENER_INIT";
 	case WIRE_DUALOPEND_FUNDING_SIGS: return "WIRE_DUALOPEND_FUNDING_SIGS";
 	case WIRE_DUALOPEND_SEND_TX_SIGS: return "WIRE_DUALOPEND_SEND_TX_SIGS";
@@ -60,6 +61,7 @@ bool dualopend_wire_is_defined(u16 type)
 	case WIRE_DUALOPEND_PSBT_UPDATED:;
 	case WIRE_DUALOPEND_FAIL:;
 	case WIRE_DUALOPEND_FAILED:;
+	case WIRE_DUALOPEND_RBF_FAILED:;
 	case WIRE_DUALOPEND_OPENER_INIT:;
 	case WIRE_DUALOPEND_FUNDING_SIGS:;
 	case WIRE_DUALOPEND_SEND_TX_SIGS:;
@@ -529,6 +531,28 @@ bool fromwire_dualopend_failed(const tal_t *ctx, const void *p, wirestring **rea
 	return cursor != NULL;
 }
 
+/* WIRE: DUALOPEND_RBF_FAILED */
+/* dualopend->master: we failed to negotate RBF */
+u8 *towire_dualopend_rbf_failed(const tal_t *ctx, const wirestring *reason)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_RBF_FAILED);
+	towire_wirestring(&p, reason);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_rbf_failed(const tal_t *ctx, const void *p, wirestring **reason)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_RBF_FAILED)
+		return false;
+ 	*reason = fromwire_wirestring(ctx, &cursor, &plen);
+	return cursor != NULL;
+}
+
 /* WIRE: DUALOPEND_OPENER_INIT */
 /* master->dualopend: hello */
 u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags)
@@ -838,4 +862,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:466b562a93af757c8bea696934d22420f3626b43f1476012e44f7946d51b06ba
+// SHA256STAMP:6e149f437eae7fde2f891bbb7f36903fa105179d9a97cd1b765d34641c0839ce
