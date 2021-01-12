@@ -48,11 +48,12 @@ while read LINE; do
 	fi
     fi
     if [ -n "$NOTES" ] || $VERBOSE; then
-	echo "$COUNT $NAME $EMAIL $NOTES"
+	echo " - $COUNT $NAME $EMAIL $NOTES"
     fi
 done < /tmp/authors.$$
 
 DAYS=$(( ( $(date +%s) - $(git log "$PREV_TAG" --format=%at | head -n1) ) / (3600*24) ))
 
-echo "$TOTAL commits in $DAYS days"
+AUTHORS=$(cat /tmp/authors.$$ | wc -l)
+echo "$TOTAL commits in $DAYS days by $AUTHORS authors"
 rm /tmp/authors.$$ /tmp/namers.$$ /tmp/prev-authors.$$
