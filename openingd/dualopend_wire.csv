@@ -143,6 +143,10 @@ msgdata,dualopend_fail,reason,wirestring,
 msgtype,dualopend_failed,7004
 msgdata,dualopend_failed,reason,wirestring,
 
+# dualopend->master: we failed to negotate RBF
+msgtype,dualopend_rbf_failed,7015
+msgdata,dualopend_rbf_failed,reason,wirestring,
+
 # master->dualopend: hello, I'd like to start a channel open
 msgtype,dualopend_opener_init,7200
 msgdata,dualopend_opener_init,psbt,wally_psbt,
