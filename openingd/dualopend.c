@@ -332,10 +332,7 @@ static void negotiation_failed(struct state *state,
 	open_error(state, "You gave bad parameters: %s", errmsg);
 }
 
-/* FIXME: remove this once used */
-void rbf_failed(struct state *state, const char *fmt, ...);
-void rbf_failed(struct state *state,
-		const char *fmt, ...)
+static void rbf_failed(struct state *state, const char *fmt, ...)
 {
 	va_list ap;
 	const char *errmsg;
@@ -2349,6 +2346,180 @@ static void opener_start(struct state *state, u8 *msg)
 	wire_sync_write(REQ_FD, take(msg));
 }
 
+static bool update_feerate(struct tx_state *tx_state,
+			   u32 feerate_funding,
+			   u32 last_feerate,
+			   u8 fee_step)
+{
+	u32 feerate = feerate_funding;
+
+	/*
+	 * BOLT-487dd4b46aad9b59f7f3480b7bdf15862b52d2f9b #2:
+	 * Each `fee_step` adds 1/4 (rounded down) to the initial
+	 * transaction feerate, i.e. if the initial `feerate_per_kw_funding`
+	 * was 512 satoshis per kiloweight, `fee_step` 1 is
+	 * 512 + 512 / 4 or 640 sat/kw, `fee_step` 2
+	 * is 640 + 640 / 4 or 800 sat/kw.
+	 */
+	for (; fee_step > 0; fee_step--)
+		feerate += feerate / 4;
+
+	/* It's possible they sent us a 'bad' feerate step,
+	 * i.e. less than the last one. */
+	if (feerate < last_feerate)
+		return false;
+
+	tx_state->feerate_per_kw_funding = feerate;
+	return true;
+}
+
+static void rbf_start(struct state *state, const u8 *rbf_msg)
+{
+	struct channel_id cid;
+	struct tx_state *tx_state;
+	char *err_reason;
+	struct amount_sat total;
+	enum dualopend_wire msg_type;
+	u8 fee_step, *msg;
+
+	/* We need a new tx_state! */
+	tx_state = new_tx_state(state);
+
+	if (!fromwire_init_rbf(rbf_msg, &cid,
+			       &tx_state->opener_funding,
+			       &tx_state->tx_locktime,
+			       &fee_step))
+		peer_failed_err(state->pps, &state->channel_id,
+				"Parsing init_rbf %s",
+				tal_hex(tmpctx, rbf_msg));
+
+	/* Is this the correct channel? */
+	check_channel_id(state, &cid, &state->channel_id);
+	peer_billboard(false, "channel rbf: init received from peer");
+
+	/* Have you sent us everything we need yet ? */
+	if (!state->tx_state->remote_funding_sigs_rcvd)
+		rbf_failed(state, "Last funding attempt not complete:"
+			   " missing your funding tx_sigs");
+
+	/* FIXME: should we check for currently in progress? */
+
+	/* Copy over the channel config info -- everything except
+	 * the reserve will be the same */
+	tx_state->localconf = state->tx_state->localconf;
+	tx_state->remoteconf = state->tx_state->remoteconf;
+
+	if (!update_feerate(tx_state,
+			    state->feerate_per_kw_funding,
+			    state->tx_state->feerate_per_kw_funding,
+			    fee_step)) {
+		rbf_failed(state, "Fee step not greater than last."
+			   " Fee step %d, last feerate %d",
+			   fee_step,
+			   state->tx_state->feerate_per_kw_funding);
+		return;
+	}
+
+	/* We ask master if this is ok */
+	msg = towire_dualopend_got_rbf_offer(NULL,
+					     &state->channel_id,
+					     tx_state->opener_funding,
+					     tx_state->feerate_per_kw_funding,
+					     tx_state->tx_locktime);
+
+	wire_sync_write(REQ_FD, take(msg));
+	msg = wire_sync_read(tmpctx, REQ_FD);
+
+	if ((msg_type = fromwire_peektype(msg)) == WIRE_DUALOPEND_FAIL) {
+		if (!fromwire_dualopend_fail(msg, msg, &err_reason))
+			master_badmsg(msg_type, msg);
+		rbf_failed(state, "%s", err_reason);
+		tal_free(tx_state);
+		return;
+	}
+
+	if (!fromwire_dualopend_got_rbf_offer_reply(state, msg,
+						    &tx_state->accepter_funding,
+						    &tx_state->psbt))
+		master_badmsg(WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY, msg);
+
+	if (!tx_state->psbt)
+		tx_state->psbt = create_psbt(tx_state, 0, 0,
+					     tx_state->tx_locktime);
+
+	/* Check that total funding doesn't overflow */
+	if (!amount_sat_add(&total, tx_state->opener_funding,
+			    tx_state->accepter_funding)) {
+		rbf_failed(state, "Amount overflow. Local sats %s. "
+			   "Remote sats %s",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &tx_state->accepter_funding),
+			   type_to_string(tmpctx, struct amount_sat,
+					  &tx_state->opener_funding));
+		tal_free(tx_state);
+		return;
+	}
+
+	/* Check that total funding doesn't exceed allowed channel capacity */
+	/* BOLT #2:
+	 *
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 * - `funding_satoshis` is greater than or equal to 2^24 and the receiver does not support
+	 *   `option_support_large_channel`. */
+	/* We choose to require *negotiation*, not just support! */
+	if (!feature_negotiated(state->our_features, state->their_features,
+				OPT_LARGE_CHANNELS)
+	    && amount_sat_greater(total, chainparams->max_funding)) {
+		rbf_failed(state, "total funding_satoshis %s too large",
+			   type_to_string(tmpctx, struct amount_sat, &total));
+		tal_free(tx_state);
+		return;
+	}
+
+	/* Add all of our inputs/outputs to the changeset */
+	init_changeset(tx_state, tx_state->psbt);
+
+	/* Now that we know the total of the channel, we can set the reserve */
+	set_reserve(tx_state, total);
+
+	if (!check_config_bounds(tmpctx, total,
+				 state->feerate_per_kw_commitment,
+				 state->max_to_self_delay,
+				 state->min_effective_htlc_capacity,
+				 &tx_state->remoteconf,
+				 &tx_state->localconf,
+				 false,
+				 true, /* v2 means we use anchor outputs */
+				 &err_reason)) {
+		rbf_failed(state, "%s", err_reason);
+		tal_free(tx_state);
+		return;
+	}
+
+	msg = towire_ack_rbf(tmpctx, &state->channel_id,
+			     state->our_role == TX_INITIATOR ?
+				tx_state->opener_funding :
+				tx_state->accepter_funding);
+	sync_crypto_write(state->pps, msg);
+	peer_billboard(false, "channel rbf: ack sent, waiting for reply");
+
+
+	/* This is unused in this flow. We re-use
+	 * the wire method between accepter + opener, so we set it
+	 * to an invalid number, 1 (initiator sets; valid is even) */
+	tx_state->funding_serial = 1;
+	/* Now we figure out what the proposed new open transaction is */
+	if (!run_tx_interactive(state, tx_state,
+				&tx_state->psbt, TX_ACCEPTER))
+		return;
+
+	/* Find the funding transaction txid */
+	psbt_txid(NULL, tx_state->psbt, &tx_state->funding_txid, NULL);
+
+	// FIXME: same as accepter run now?
+}
+
 static u8 *handle_funding_locked(struct state *state, u8 *msg)
 {
 	struct channel_id cid;
@@ -2695,9 +2866,11 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_FAIL:
 	case WIRE_DUALOPEND_PSBT_UPDATED:
 	case WIRE_DUALOPEND_GOT_OFFER_REPLY:
+	case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
 
 	/* Messages we send */
 	case WIRE_DUALOPEND_GOT_OFFER:
+	case WIRE_DUALOPEND_GOT_RBF_OFFER:
 	case WIRE_DUALOPEND_PSBT_CHANGED:
 	case WIRE_DUALOPEND_COMMIT_RCVD:
 	case WIRE_DUALOPEND_FUNDING_SIGS:
@@ -2757,7 +2930,7 @@ static u8 *handle_peer_in(struct state *state)
 		handle_peer_shutdown(state, msg);
 		return NULL;
 	case WIRE_INIT_RBF:
-		// FIXME: rbf_start?
+		rbf_start(state, msg);
 		return NULL;
 	/* Otherwise we fall through */
 	case WIRE_INIT:

@@ -1922,6 +1922,9 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_GOT_OFFER:
 			accepter_got_offer(dualopend, uc, msg);
 			return 0;
+		case WIRE_DUALOPEND_GOT_RBF_OFFER:
+			// FIXME: do this
+			return 0;
 		case WIRE_DUALOPEND_PSBT_CHANGED:
 			if (uc->fc) {
 				if (!uc->fc->cmd) {
@@ -1989,6 +1992,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_REINIT:
 		case WIRE_DUALOPEND_OPENER_INIT:
 		case WIRE_DUALOPEND_GOT_OFFER_REPLY:
+		case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
 		case WIRE_DUALOPEND_FAIL:
 		case WIRE_DUALOPEND_PSBT_UPDATED:
 		case WIRE_DUALOPEND_SEND_TX_SIGS:
