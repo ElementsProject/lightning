@@ -2510,9 +2510,6 @@ static void rbf_start(struct state *state, const u8 *rbf_msg)
 		return;
 	}
 
-	/* Add all of our inputs/outputs to the changeset */
-	init_changeset(tx_state, tx_state->psbt);
-
 	/* Now that we know the total of the channel, we can set the reserve */
 	set_reserve(tx_state, total);
 
@@ -2538,11 +2535,27 @@ static void rbf_start(struct state *state, const u8 *rbf_msg)
 	peer_billboard(false, "channel rbf: ack sent, waiting for reply");
 
 
-	/* This is unused in this flow. We re-use
-	 * the wire method between accepter + opener, so we set it
-	 * to an invalid number, 1 (initiator sets; valid is even) */
-	tx_state->funding_serial = 1;
-	/* Now we figure out what the proposed new open transaction is */
+	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
+	 * The sending node:
+	 *  - if is the `opener`:
+	 *   - MUST send at least one `tx_add_output`,  the channel
+	 *     funding output.
+	 */
+	if (state->our_role == TX_INITIATOR)
+		add_funding_output(tx_state, state, total);
+	else
+		/* if accepter, set to an invalid number, 1 (odd is invalid) */
+		tx_state->funding_serial = 1;
+
+	/* Add all of our inputs/outputs to the changeset */
+	init_changeset(tx_state, tx_state->psbt);
+
+	if (state->our_role == TX_INITIATOR)
+		/* Send our first message; opener initiates */
+		if (!send_next(state, tx_state, &tx_state->psbt))
+			rbf_failed(state, "Peer error, has no tx updates.");
+
+	/* FIXME: use rbf_failed !! */
 	if (!run_tx_interactive(state, tx_state,
 				&tx_state->psbt, state->our_role))
 		return;
