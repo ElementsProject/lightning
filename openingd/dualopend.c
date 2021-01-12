@@ -151,6 +151,7 @@ struct state {
 	struct pubkey first_per_commitment_point[NUM_SIDES];
 
 	struct channel_id channel_id;
+	u8 channel_flags;
 
 	struct sha256 opening_podle_h2;
 	enum tx_role our_role;
@@ -1470,7 +1471,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 {
 	struct bitcoin_blkid chain_hash;
 	struct tlv_opening_tlvs *open_tlv;
-	u8 channel_flags;
 	char *err_reason;
 	const u8 *wscript;
 	struct channel_id cid;
@@ -1509,7 +1509,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				    &state->their_points.delayed_payment,
 				    &state->their_points.htlc,
 				    &state->first_per_commitment_point[REMOTE],
-				    &channel_flags,
+				    &state->channel_flags,
 				    open_tlv))
 		peer_failed_err(state->pps, &state->channel_id,
 				"Parsing open_channel2 %s",
@@ -1571,7 +1571,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					 state->feerate_per_kw_commitment,
 					 tx_state->remoteconf.to_self_delay,
 					 tx_state->remoteconf.max_accepted_htlcs,
-					 channel_flags,
+					 state->channel_flags,
 					 tx_state->tx_locktime,
 					 state->upfront_shutdown_script[REMOTE]);
 
@@ -1871,7 +1871,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					   tx_state->funding_txout,
 					   total,
 					   tx_state->accepter_funding,
-					   channel_flags,
+					   state->channel_flags,
 					   state->feerate_per_kw_commitment,
 					   tx_state->localconf.channel_reserve,
 					   state->upfront_shutdown_script[LOCAL],
@@ -1907,7 +1907,6 @@ static void opener_start(struct state *state, u8 *msg)
 	struct sha256 podle;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct penalty_base *pbase;
-	u8 channel_flags;
 	const u8 *wscript;
 	struct bitcoin_tx *remote_commit, *local_commit;
 	struct bitcoin_signature remote_sig, local_sig;
@@ -1921,7 +1920,7 @@ static void opener_start(struct state *state, u8 *msg)
 					    &state->upfront_shutdown_script[LOCAL],
 					    &state->feerate_per_kw_commitment,
 					    &tx_state->feerate_per_kw_funding,
-					    &channel_flags))
+					    &state->channel_flags))
 		master_badmsg(WIRE_DUALOPEND_OPENER_INIT, msg);
 
 	state->our_role = TX_INITIATOR;
@@ -1993,7 +1992,7 @@ static void opener_start(struct state *state, u8 *msg)
 				   &state->our_points.delayed_payment,
 				   &state->our_points.htlc,
 				   &state->first_per_commitment_point[LOCAL],
-				   channel_flags,
+				   state->channel_flags,
 				   open_tlv);
 
 	sync_crypto_write(state->pps, take(msg));
@@ -2334,7 +2333,7 @@ static void opener_start(struct state *state, u8 *msg)
 					   tx_state->funding_txout,
 					   total,
 					   tx_state->opener_funding,
-					   channel_flags,
+					   state->channel_flags,
 					   state->feerate_per_kw_commitment,
 					   tx_state->localconf.channel_reserve,
 					   state->upfront_shutdown_script[LOCAL],
