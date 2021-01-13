@@ -870,12 +870,14 @@ static void wait_and_check_bitcoind(struct plugin *p)
 	tal_free(cmd);
 }
 
-static void init(struct plugin *p, const char *buffer UNUSED,
-                 const jsmntok_t *config UNUSED)
+static const char *init(struct plugin *p, const char *buffer UNUSED,
+			const jsmntok_t *config UNUSED)
 {
 	wait_and_check_bitcoind(p);
 	plugin_log(p, LOG_INFORM,
 		   "bitcoin-cli initialized and connected to bitcoind.");
+
+	return NULL;
 }
 
 static const struct plugin_command commands[] = {

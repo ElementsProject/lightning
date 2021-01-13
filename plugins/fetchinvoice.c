@@ -1346,12 +1346,14 @@ static const struct plugin_command commands[] = {
 	},
 };
 
-static void init(struct plugin *p, const char *buf UNUSED,
-		 const jsmntok_t *config UNUSED)
+static const char *init(struct plugin *p, const char *buf UNUSED,
+			const jsmntok_t *config UNUSED)
 {
 	rpc_scan(p, "getinfo",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_node_id, &local_id));
+
+	return NULL;
 }
 
 static const struct plugin_hook hooks[] = {
