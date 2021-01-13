@@ -31,6 +31,10 @@ enum dualopend_wire {
         WIRE_DUALOPEND_GOT_RBF_OFFER = 7500,
         /*  master->dualopend: reply back with our funding info/contribs */
         WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY = 7505,
+        /*  dualopend->master: is this a valid RBF candidate transaction? */
+        WIRE_DUALOPEND_RBF_VALIDATE = 7506,
+        /*  master->dualopend: this is a valid RBF candidate transaction */
+        WIRE_DUALOPEND_RBF_VALID = 7507,
         /*  dualopend->master: ready to commit channel open to database and */
         /*                     get some signatures for the funding_tx. */
         WIRE_DUALOPEND_COMMIT_RCVD = 7007,
@@ -111,6 +115,16 @@ bool fromwire_dualopend_got_rbf_offer(const void *p, struct channel_id *channel_
 /*  master->dualopend: reply back with our funding info/contribs */
 u8 *towire_dualopend_got_rbf_offer_reply(const tal_t *ctx, struct amount_sat accepter_funding, const struct wally_psbt *psbt);
 bool fromwire_dualopend_got_rbf_offer_reply(const tal_t *ctx, const void *p, struct amount_sat *accepter_funding, struct wally_psbt **psbt);
+
+/* WIRE: DUALOPEND_RBF_VALIDATE */
+/*  dualopend->master: is this a valid RBF candidate transaction? */
+u8 *towire_dualopend_rbf_validate(const tal_t *ctx, const struct wally_psbt *proposed_funding_psbt);
+bool fromwire_dualopend_rbf_validate(const tal_t *ctx, const void *p, struct wally_psbt **proposed_funding_psbt);
+
+/* WIRE: DUALOPEND_RBF_VALID */
+/*  master->dualopend: this is a valid RBF candidate transaction */
+u8 *towire_dualopend_rbf_valid(const tal_t *ctx);
+bool fromwire_dualopend_rbf_valid(const void *p);
 
 /* WIRE: DUALOPEND_COMMIT_RCVD */
 /*  dualopend->master: ready to commit channel open to database and */
@@ -209,4 +223,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:65a94b9b35802a6cd6c68f724e83ce4866adb3122a392d6741ec7c791ef1fd6c
+// SHA256STAMP:e514a16cf96dfcaf44217cf344ce75e2b8cbcb460901c610d9b75e22937636cd

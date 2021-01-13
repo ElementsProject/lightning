@@ -4,7 +4,9 @@
 
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
+#include <ccan/ccan/mem/mem.h>
 #include <ccan/ccan/take/take.h>
+#include <ccan/ccan/tal/tal.h>
 #include <ccan/short_types/short_types.h>
 #include <common/amount.h>
 #include <common/channel_config.h>
@@ -1603,6 +1605,70 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 				     channel->psbt);
 }
 
+static void handle_validate_rbf(struct subd *dualopend,
+				const u8 *msg)
+{
+	struct wally_psbt *candidate_psbt;
+	struct channel_inflight *inflight;
+	struct channel *channel = dualopend->channel;
+	bool *inputs_present;
+
+	if (!fromwire_dualopend_rbf_validate(tmpctx, msg,
+					     &candidate_psbt)) {
+		channel_internal_error(channel,
+				       "Malformed dualopend_rbf_validate %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	inputs_present = tal_arr(tmpctx, bool, candidate_psbt->num_inputs);
+	memset(inputs_present, true, tal_bytelen(inputs_present));
+
+	/* Check all previous funding transactions */
+	list_for_each(&channel->inflights, inflight, list) {
+		/* Remove every non-matching input from set */
+		for (size_t i = 0; i < candidate_psbt->num_inputs; i++) {
+			struct wally_tx_input *input =
+				&candidate_psbt->tx->inputs[i];
+			struct bitcoin_txid in_txid;
+
+			wally_tx_input_get_txid(input, &in_txid);
+
+			if (!psbt_has_input(inflight->funding_psbt,
+					    &in_txid, input->index))
+				inputs_present[i] = false;
+		}
+	}
+
+	/* Are there any inputs that were present on all txs? */
+	if (memeqzero(inputs_present, tal_bytelen(inputs_present))) {
+		char *errmsg;
+
+		inflight = list_tail(&channel->inflights,
+				     struct channel_inflight,
+				     list);
+		assert(inflight);
+
+		errmsg = tal_fmt(tmpctx, "No overlapping input"
+				 " present. New: %s, last: %s",
+				 type_to_string(tmpctx,
+						struct wally_psbt,
+						candidate_psbt),
+				 type_to_string(tmpctx,
+						struct wally_psbt,
+						inflight->funding_psbt));
+		msg = towire_dualopend_fail(NULL, errmsg);
+		goto send_msg;
+	}
+
+	/* FIXME: check that total fee paid is greater than last */
+
+	msg = towire_dualopend_rbf_valid(NULL);
+
+send_msg:
+	subd_send_msg(channel->owner, take(msg));
+}
+
 
 static struct command_result *
 json_openchannel_signed(struct command *cmd,
@@ -1962,6 +2028,9 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 				accepter_commit_received(dualopend,
 							 uc, fds, msg);
 			return 0;
+		case WIRE_DUALOPEND_RBF_VALIDATE:
+			handle_validate_rbf(dualopend, msg);
+			return 0;
 		case WIRE_DUALOPEND_FUNDING_SIGS:
 			handle_peer_tx_sigs_msg(dualopend, msg);
 			return 0;
@@ -2002,6 +2071,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_OPENER_INIT:
 		case WIRE_DUALOPEND_GOT_OFFER_REPLY:
 		case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
+		case WIRE_DUALOPEND_RBF_VALID:
 		case WIRE_DUALOPEND_FAIL:
 		case WIRE_DUALOPEND_PSBT_UPDATED:
 		case WIRE_DUALOPEND_SEND_TX_SIGS:
