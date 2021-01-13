@@ -20,6 +20,7 @@ HSMD_COMMON_OBJS :=				\
 	common/amount.o				\
 	common/bigsize.o			\
 	common/bip32.o				\
+	common/bolt12_merkle.o			\
 	common/channel_id.o			\
 	common/daemon.o				\
 	common/daemon_conn.o			\
@@ -42,10 +43,6 @@ HSMD_COMMON_OBJS :=				\
 	common/utils.o				\
 	common/utxo.o				\
 	common/version.o
-
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-HSMD_COMMON_OBJS += common/bolt12_merkle.o
-endif
 
 lightningd/lightning_hsmd: $(HSMD_OBJS) $(HSMD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS)
 

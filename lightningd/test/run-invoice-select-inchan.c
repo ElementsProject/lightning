@@ -221,6 +221,23 @@ void htlc_set_fail(struct htlc_set *set UNNEEDED, const u8 *failmsg TAKES UNNEED
 /* Generated stub for htlc_set_fulfill */
 void htlc_set_fulfill(struct htlc_set *set UNNEEDED, const struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "htlc_set_fulfill called!\n"); abort(); }
+/* Generated stub for invoice_decode */
+struct tlv_invoice *invoice_decode(const tal_t *ctx UNNEEDED,
+				   const char *b12 UNNEEDED, size_t b12len UNNEEDED,
+				   const struct feature_set *our_features UNNEEDED,
+				   const struct chainparams *must_be_chain UNNEEDED,
+				   char **fail UNNEEDED)
+{ fprintf(stderr, "invoice_decode called!\n"); abort(); }
+/* Generated stub for invoice_decode_nosig */
+struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx UNNEEDED,
+					 const char *b12 UNNEEDED, size_t b12len UNNEEDED,
+					 const struct feature_set *our_features UNNEEDED,
+					 const struct chainparams *must_be_chain UNNEEDED,
+					 char **fail UNNEEDED)
+{ fprintf(stderr, "invoice_decode_nosig called!\n"); abort(); }
+/* Generated stub for invoice_encode */
+char *invoice_encode(const tal_t *ctx UNNEEDED, const struct tlv_invoice *bolt12_tlv UNNEEDED)
+{ fprintf(stderr, "invoice_encode called!\n"); abort(); }
 /* Generated stub for json_add_address */
 void json_add_address(struct json_stream *response UNNEEDED, const char *fieldname UNNEEDED,
 		      const struct wireaddr *addr UNNEEDED)
@@ -356,6 +373,9 @@ void log_(struct log *log UNNEEDED, enum log_level level UNNEEDED,
 	  const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "log_ called!\n"); abort(); }
+/* Generated stub for merkle_tlv */
+void merkle_tlv(const struct tlv_field *fields UNNEEDED, struct sha256 *merkle UNNEEDED)
+{ fprintf(stderr, "merkle_tlv called!\n"); abort(); }
 /* Generated stub for new_bolt11 */
 struct bolt11 *new_bolt11(const tal_t *ctx UNNEEDED,
 			  const struct amount_msat *msat TAKES UNNEEDED)
@@ -756,29 +776,6 @@ struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 /* Generated stub for dev_disconnect_permanent */
 bool dev_disconnect_permanent(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "dev_disconnect_permanent called!\n"); abort(); }
-#endif
-
-#if EXPERIMENTAL_FEATURES
-/* Generated stub for merkle_tlv */
-void merkle_tlv(const struct tlv_field *fields UNNEEDED, struct sha256 *merkle UNNEEDED)
-{ fprintf(stderr, "merkle_tlv called!\n"); abort(); }
-/* Generated stub for invoice_decode_nosig */
-struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx UNNEEDED,
-					 const char *b12 UNNEEDED, size_t b12len UNNEEDED,
-					 const struct feature_set *our_features UNNEEDED,
-					 const struct chainparams *must_be_chain UNNEEDED,
-					 char **fail UNNEEDED)
-{ fprintf(stderr, "invoice_decode_nosig called!\n"); abort(); }
-/* Generated stub for invoice_encode */
-char *invoice_encode(const tal_t *ctx UNNEEDED, const struct tlv_invoice *bolt12_tlv UNNEEDED)
-{ fprintf(stderr, "invoice_encode called!\n"); abort(); }
-/* Generated stub for invoice_decode */
-struct tlv_invoice *invoice_decode(const tal_t *ctx UNNEEDED,
-				   const char *b12 UNNEEDED, size_t b12len UNNEEDED,
-				   const struct feature_set *our_features UNNEEDED,
-				   const struct chainparams *must_be_chain UNNEEDED,
-				   char **fail UNNEEDED)
-{ fprintf(stderr, "invoice_decode called!\n"); abort(); }
 #endif
 
 static void add_candidate(struct routehint_candidate **candidates, int n,

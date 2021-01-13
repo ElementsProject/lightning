@@ -72,4 +72,4 @@ void printwire_onion_message(const char *fieldname, const u8 *cursor);
 void printwire_channel_update_checksums(const char *fieldname, const u8 **cursor, size_t *plen);
 void printwire_channel_update_timestamps(const char *fieldname, const u8 **cursor, size_t *plen);
 #endif /* LIGHTNING_WIRE_PEER_PRINTGEN_H */
-// SHA256STAMP:3e12752fa68ecad34eca722bae0a5027b6ea71ace1d2b825c6f87613d97863d5
+// SHA256STAMP:9f70670271b0856273026df920106d9c2ef2b60a1fa7c9c687e83a38d7d85a00

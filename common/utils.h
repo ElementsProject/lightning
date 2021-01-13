@@ -118,6 +118,13 @@ STRUCTEQ_DEF(ripemd160, 0, u);
 #define IFDEV(dev, nondev) (nondev)
 #endif
 
+#if EXPERIMENTAL_FEATURES
+/* Make sure that nondev is evaluated, and valid, but is a constant */
+#define IFEXPERIMENTAL(exp, nonexp) (0 ? (nonexp) : (exp))
+#else
+#define IFEXPERIMENTAL(exp, nonexp) (nonexp)
+#endif
+
 /* Context which all wally allocations use (see common/setup.c) */
 extern const tal_t *wally_tal_ctx;
 

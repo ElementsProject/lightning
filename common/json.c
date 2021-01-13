@@ -1198,10 +1198,8 @@ void json_add_errcode(struct json_stream *result, const char *fieldname,
 
 void json_add_invstring(struct json_stream *result, const char *invstring)
 {
-#if EXPERIMENTAL_FEATURES
 	if (strstarts(invstring, "lni"))
 		json_add_string(result, "bolt12", invstring);
 	else
-#endif
 		json_add_string(result, "bolt11", invstring);
 }
