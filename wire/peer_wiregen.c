@@ -48,6 +48,7 @@ const char *peer_wire_name(int e)
 	case WIRE_QUERY_CHANNEL_RANGE: return "WIRE_QUERY_CHANNEL_RANGE";
 	case WIRE_REPLY_CHANNEL_RANGE: return "WIRE_REPLY_CHANNEL_RANGE";
 	case WIRE_GOSSIP_TIMESTAMP_FILTER: return "WIRE_GOSSIP_TIMESTAMP_FILTER";
+	case WIRE_ONION_MESSAGE: return "WIRE_ONION_MESSAGE";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -85,6 +86,7 @@ bool peer_wire_is_defined(u16 type)
 	case WIRE_QUERY_CHANNEL_RANGE:;
 	case WIRE_REPLY_CHANNEL_RANGE:;
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:;
+	case WIRE_ONION_MESSAGE:;
 	      return true;
 	}
 	return false;
@@ -694,6 +696,61 @@ bool fromwire_reply_channel_range_tlvs(const u8 **cursor, size_t *max, struct tl
 }
 
 bool reply_channel_range_tlvs_is_valid(const struct tlv_reply_channel_range_tlvs *record, size_t *err_index)
+{
+	return tlv_fields_valid(record->fields, err_index);
+}
+
+
+struct tlv_onion_message_tlvs *tlv_onion_message_tlvs_new(const tal_t *ctx)
+{
+	/* Initialize everything to NULL. (Quiet, C pedants!) */
+	struct tlv_onion_message_tlvs *inst = talz(ctx, struct tlv_onion_message_tlvs);
+
+	/* Initialized the fields to an empty array. */
+	inst->fields = tal_arr(inst, struct tlv_field, 0);
+	return inst;
+}
+
+/* ONION_MESSAGE_TLVS MSG: blinding */
+static u8 *towire_tlv_onion_message_tlvs_blinding(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_onion_message_tlvs *r = vrecord;
+	u8 *ptr;
+
+	if (!r->blinding)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_pubkey(&ptr, r->blinding);
+	return ptr;
+}
+static void fromwire_tlv_onion_message_tlvs_blinding(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_onion_message_tlvs *r = vrecord;
+
+	    r->blinding = tal(r, struct pubkey);
+
+fromwire_pubkey(cursor, plen, &*r->blinding);
+}
+
+static const struct tlv_record_type tlvs_onion_message_tlvs[] = {
+	{ 2, towire_tlv_onion_message_tlvs_blinding, fromwire_tlv_onion_message_tlvs_blinding },
+};
+
+void towire_onion_message_tlvs(u8 **pptr, const struct tlv_onion_message_tlvs *record)
+{
+	towire_tlv(pptr, tlvs_onion_message_tlvs, 1, record);
+}
+
+
+bool fromwire_onion_message_tlvs(const u8 **cursor, size_t *max, struct tlv_onion_message_tlvs *record)
+{
+	return fromwire_tlv(cursor, max, tlvs_onion_message_tlvs, 1, record, &record->fields);
+}
+
+bool onion_message_tlvs_is_valid(const struct tlv_onion_message_tlvs *record, size_t *err_index)
 {
 	return tlv_fields_valid(record->fields, err_index);
 }
@@ -1590,6 +1647,36 @@ bool fromwire_gossip_timestamp_filter(const void *p, struct bitcoin_blkid *chain
 	return cursor != NULL;
 }
 
+/* WIRE: ONION_MESSAGE */
+u8 *towire_onion_message(const tal_t *ctx, const u8 *onionmsg, const struct tlv_onion_message_tlvs *onion_message_tlvs)
+{
+	u16 len = tal_count(onionmsg);
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_ONION_MESSAGE);
+	towire_u16(&p, len);
+	towire_u8_array(&p, onionmsg, len);
+	towire_onion_message_tlvs(&p, onion_message_tlvs);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_onion_message(const tal_t *ctx, const void *p, u8 **onionmsg, struct tlv_onion_message_tlvs *onion_message_tlvs)
+{
+	u16 len;
+
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_ONION_MESSAGE)
+		return false;
+ 	len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case onionmsg
+	*onionmsg = len ? tal_arr(ctx, u8, len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *onionmsg, len);
+ 	fromwire_onion_message_tlvs(&cursor, &plen, onion_message_tlvs);
+	return cursor != NULL;
+}
+
 /* WIRE: CHANNEL_UPDATE_OPTION_CHANNEL_HTLC_MAX */
 u8 *towire_channel_update_option_channel_htlc_max(const tal_t *ctx, const secp256k1_ecdsa_signature *signature, const struct bitcoin_blkid *chain_hash, const struct short_channel_id *short_channel_id, u32 timestamp, u8 message_flags, u8 channel_flags, u16 cltv_expiry_delta, struct amount_msat htlc_minimum_msat, u32 fee_base_msat, u32 fee_proportional_millionths, struct amount_msat htlc_maximum_msat)
 {
@@ -1630,4 +1717,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
  	*htlc_maximum_msat = fromwire_amount_msat(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:efe21d89eef0b58216ab945b85cfbf5fcee08cf783ad4ef4c45501f1a10ac7ef
+// SHA256STAMP:3e12752fa68ecad34eca722bae0a5027b6ea71ace1d2b825c6f87613d97863d5

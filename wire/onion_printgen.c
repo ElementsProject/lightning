@@ -106,6 +106,33 @@ void printonion_wire_message(const u8 *msg)
 }
 
 
+void printwire_onionmsg_path(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+
+	printf("node_id=");
+	struct pubkey node_id;
+	fromwire_pubkey(cursor, plen, &node_id);
+
+	printwire_pubkey(tal_fmt(NULL, "%s.node_id", fieldname), &node_id);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	u16 enclen = fromwire_u16(cursor, plen);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	printf("enctlv=");
+	printwire_u8_array(tal_fmt(NULL, "%s.enctlv", fieldname), cursor, plen, enclen);
+
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+
 static void printwire_tlv_tlv_payload_amt_to_forward(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "amt_to_forward");
@@ -178,6 +205,179 @@ static const struct tlv_print_record_type print_tlvs_tlv_payload[] = {
 	{ 4, printwire_tlv_tlv_payload_outgoing_cltv_value },
 	{ 6, printwire_tlv_tlv_payload_short_channel_id },
 	{ 8, printwire_tlv_tlv_payload_payment_data },
+};
+
+static void printwire_tlv_onionmsg_payload_next_node_id(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "next_node_id");
+
+	printf("node_id=");
+	struct pubkey node_id;
+	fromwire_pubkey(cursor, plen, &node_id);
+
+	printwire_pubkey(tal_fmt(NULL, "%s.node_id", fieldname), &node_id);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+static void printwire_tlv_onionmsg_payload_next_short_channel_id(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "next_short_channel_id");
+
+	printf("short_channel_id=");
+	struct short_channel_id short_channel_id;
+	fromwire_short_channel_id(cursor, plen, &short_channel_id);
+
+	printwire_short_channel_id(tal_fmt(NULL, "%s.short_channel_id", fieldname), &short_channel_id);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+static void printwire_tlv_onionmsg_payload_reply_path(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "reply_path");
+
+	printf("blinding=");
+	struct pubkey blinding;
+	fromwire_pubkey(cursor, plen, &blinding);
+
+	printwire_pubkey(tal_fmt(NULL, "%s.blinding", fieldname), &blinding);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	printf("path=");
+	printf("[");
+	for (size_t i = 0; i < *plen; i++) {
+		printf("{\n");
+		printwire_onionmsg_path(tal_fmt(NULL, "%s.path", fieldname), cursor, plen);
+		printf("}\n");
+	}
+	printf("]");
+
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+static void printwire_tlv_onionmsg_payload_enctlv(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "enctlv");
+
+	printf("enctlv=");
+	printwire_u8_array(tal_fmt(NULL, "%s.enctlv", fieldname), cursor, plen, *plen);
+
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+static void printwire_tlv_onionmsg_payload_blinding(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "blinding");
+
+	printf("blinding=");
+	struct pubkey blinding;
+	fromwire_pubkey(cursor, plen, &blinding);
+
+	printwire_pubkey(tal_fmt(NULL, "%s.blinding", fieldname), &blinding);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+static void printwire_tlv_onionmsg_payload_invoice_request(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "invoice_request");
+
+	printf("invoice_request=");
+	printwire_u8_array(tal_fmt(NULL, "%s.invoice_request", fieldname), cursor, plen, *plen);
+
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+static void printwire_tlv_onionmsg_payload_invoice(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "invoice");
+
+	printf("invoice=");
+	printwire_u8_array(tal_fmt(NULL, "%s.invoice", fieldname), cursor, plen, *plen);
+
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+static void printwire_tlv_onionmsg_payload_invoice_error(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "invoice_error");
+
+	printf("invoice_error=");
+	printwire_u8_array(tal_fmt(NULL, "%s.invoice_error", fieldname), cursor, plen, *plen);
+
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+
+static const struct tlv_print_record_type print_tlvs_onionmsg_payload[] = {
+	{ 4, printwire_tlv_onionmsg_payload_next_node_id },
+	{ 6, printwire_tlv_onionmsg_payload_next_short_channel_id },
+	{ 8, printwire_tlv_onionmsg_payload_reply_path },
+	{ 10, printwire_tlv_onionmsg_payload_enctlv },
+	{ 12, printwire_tlv_onionmsg_payload_blinding },
+	{ 64, printwire_tlv_onionmsg_payload_invoice_request },
+	{ 66, printwire_tlv_onionmsg_payload_invoice },
+	{ 68, printwire_tlv_onionmsg_payload_invoice_error },
+};
+
+static void printwire_tlv_encmsg_tlvs_next_node_id(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "next_node_id");
+
+	printf("node_id=");
+	struct pubkey node_id;
+	fromwire_pubkey(cursor, plen, &node_id);
+
+	printwire_pubkey(tal_fmt(NULL, "%s.node_id", fieldname), &node_id);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+static void printwire_tlv_encmsg_tlvs_next_short_channel_id(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "next_short_channel_id");
+
+	printf("short_channel_id=");
+	struct short_channel_id short_channel_id;
+	fromwire_short_channel_id(cursor, plen, &short_channel_id);
+
+	printwire_short_channel_id(tal_fmt(NULL, "%s.short_channel_id", fieldname), &short_channel_id);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+
+static const struct tlv_print_record_type print_tlvs_encmsg_tlvs[] = {
+	{ 4, printwire_tlv_encmsg_tlvs_next_node_id },
+	{ 6, printwire_tlv_encmsg_tlvs_next_short_channel_id },
 };
 void printwire_invalid_realm(const char *fieldname, const u8 *cursor)
 {
@@ -652,5 +852,11 @@ void printonion_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 	if (strcmp(tlv_name, "tlv_payload") == 0) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_tlv_payload, ARRAY_SIZE(print_tlvs_tlv_payload));
 	}
+	if (strcmp(tlv_name, "onionmsg_payload") == 0) {
+		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_onionmsg_payload, ARRAY_SIZE(print_tlvs_onionmsg_payload));
+	}
+	if (strcmp(tlv_name, "encmsg_tlvs") == 0) {
+		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_encmsg_tlvs, ARRAY_SIZE(print_tlvs_encmsg_tlvs));
+	}
 }
-// SHA256STAMP:00d8601fa1d48cbbe518bd3ca041bccd1d586c82d65db44fc8530d5ce6fa3705
+// SHA256STAMP:b6eb425ab1211e5f7a8413489527aea4565904f548e72f635e4ebce72e50cdd4

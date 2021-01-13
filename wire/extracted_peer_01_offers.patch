@@ -1,11 +1,12 @@
 --- wire/extracted_peer_wire_csv	2020-03-11 10:30:35.744376417 +1030
 +++ -	2020-03-26 13:47:13.409755567 +1030
-@@ -211,3 +211,8 @@
+@@ -211,3 +211,9 @@
  msgdata,gossip_timestamp_filter,chain_hash,chain_hash,
  msgdata,gossip_timestamp_filter,first_timestamp,u32,
  msgdata,gossip_timestamp_filter,timestamp_range,u32,
 +msgtype,onion_message,385,option_onion_messages
-+msgdata,onion_message,onionmsg,byte,1366
++msgdata,onion_message,len,u16,
++msgdata,onion_message,onionmsg,byte,len
 +msgdata,onion_message,onion_message_tlvs,onion_message_tlvs,
 +tlvtype,onion_message_tlvs,blinding,2
 +tlvdata,onion_message_tlvs,blinding,blinding,point,

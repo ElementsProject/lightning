@@ -66,8 +66,10 @@ void printwire_reply_channel_range(const char *fieldname, const u8 *cursor);
 
 void printwire_gossip_timestamp_filter(const char *fieldname, const u8 *cursor);
 
+void printwire_onion_message(const char *fieldname, const u8 *cursor);
+
 
 void printwire_channel_update_checksums(const char *fieldname, const u8 **cursor, size_t *plen);
 void printwire_channel_update_timestamps(const char *fieldname, const u8 **cursor, size_t *plen);
 #endif /* LIGHTNING_WIRE_PEER_PRINTGEN_H */
-// SHA256STAMP:efe21d89eef0b58216ab945b85cfbf5fcee08cf783ad4ef4c45501f1a10ac7ef
+// SHA256STAMP:3e12752fa68ecad34eca722bae0a5027b6ea71ace1d2b825c6f87613d97863d5
