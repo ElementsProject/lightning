@@ -118,8 +118,11 @@ wire/peer_exp_wiregen.c_args := $(wire/peer_wiregen.c_args)
 wire/onion_exp_wiregen.h_args := $(wire/onion_wiregen.h_args)
 wire/onion_exp_wiregen.c_args := $(wire/onion_wiregen.c_args)
 
-wire/bolt12_exp_wiregen.c_args := -s --expose-tlv-type=blinded_path --expose-tlv-type=invoice_request
-wire/bolt12_exp_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/signature.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h'  --include='wire/onion_wire.h' $(wire/bolt12_exp_wiregen.c_args)
+wire/bolt12_wiregen.c_args := -s --expose-tlv-type=blinded_path --expose-tlv-type=invoice_request
+wire/bolt12_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='bitcoin/signature.h' --include='bitcoin/privkey.h' --include='common/bigsize.h' --include='common/amount.h' --include='common/node_id.h' --include='bitcoin/block.h'  --include='wire/onion_wire.h' $(wire/bolt12_wiregen.c_args)
+# Same for _exp versions
+wire/bolt12_exp_wiregen.h_args := $(wire/bolt12_wiregen.h_args)
+wire/bolt12_exp_wiregen.c_args := $(wire/bolt12_wiregen.c_args)
 
 wire/peer_wiregen.h_args := --include='common/channel_id.h' --include='bitcoin/tx.h' --include='bitcoin/preimage.h' --include='bitcoin/short_channel_id.h' --include='common/node_id.h' --include='common/bigsize.h' --include='bitcoin/block.h' --include='bitcoin/privkey.h' -s --expose-tlv-type=n1 --expose-tlv-type=n2
 
