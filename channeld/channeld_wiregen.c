@@ -1046,4 +1046,4 @@ bool fromwire_channeld_send_error_reply(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:e80e573f3b577ea36374e290de2917ec5ebcb61b213b85c2cdf687ba04f48769
+// SHA256STAMP:8b6491f5aa25f4c067f4aedff32620ddb8b39cc78f95c70cb2d0b5366026871a

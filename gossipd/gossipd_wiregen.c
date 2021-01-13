@@ -1033,4 +1033,4 @@ bool fromwire_gossipd_send_onionmsg(const tal_t *ctx, const void *p, struct node
 	}
 	return cursor != NULL;
 }
-// SHA256STAMP:6ed2cbe23f1e0cda995d8b62631875aef762ee4e1cd7109188d855d23a1752d0
+// SHA256STAMP:1da012a28ad84883f18920e51c39a0af77f85e309e981f9ea8d158d0698f6a59
