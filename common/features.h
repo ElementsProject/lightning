@@ -122,7 +122,5 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
  *
  * | 102/103 | `option_onion_messages` |... INC+ ...
  */
-#if EXPERIMENTAL_FEATURES
 #define OPT_ONION_MESSAGES			102
-#endif
 #endif /* LIGHTNING_COMMON_FEATURES_H */

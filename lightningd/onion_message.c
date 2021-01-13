@@ -6,7 +6,6 @@
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
 
-#if EXPERIMENTAL_FEATURES
 struct onion_message_hook_payload {
 	/* Optional */
 	struct pubkey *blinding_in;
@@ -406,6 +405,11 @@ static struct command_result *json_send_onion_message(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
+	if (!feature_offered(cmd->ld->our_features->bits[NODE_ANNOUNCE_FEATURE],
+			     OPT_ONION_MESSAGES))
+		return command_fail(cmd, LIGHTNINGD,
+				    "experimental-onion-messages not enabled");
+
 	node_id_from_pubkey(&first_id, &hops[0].id);
 
 	/* Sanity check first; gossipd doesn't bother telling us if peer
@@ -461,4 +465,3 @@ static const struct json_command send_onion_message_command = {
 	"Send message over {hops} (id, [short_channel_id], [blinding], [enctlv], [invoice], [invoice_request], [invoice_error], [rawtlv]) with optional {reply_path} (blinding, path[id, enctlv])"
 };
 AUTODATA(json_command, &send_onion_message_command);
-#endif /* EXPERIMENTAL_FEATURES */
