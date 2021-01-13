@@ -2,7 +2,7 @@ PLUGIN_PAY_SRC := plugins/pay.c
 PLUGIN_PAY_OBJS := $(PLUGIN_PAY_SRC:.c=.o)
 
 ifeq ($(EXPERIMENTAL_FEATURES),1)
-PLUGIN_PAY_EXPERIMENTAL_OBJS := common/bolt12.o common/bolt12_merkle.o wire/bolt12_exp_wiregen.o bitcoin/block.o
+PLUGIN_PAY_EXPERIMENTAL_OBJS := common/bolt12.o common/bolt12_merkle.o wire/bolt12$(EXP)_wiregen.o bitcoin/block.o
 endif
 
 PLUGIN_AUTOCLEAN_SRC := plugins/autoclean.c

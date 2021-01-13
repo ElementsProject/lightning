@@ -9,6 +9,7 @@ WIRE_HEADERS :=	wire/onion_defs.h		\
 		wire/wire_io.h			\
 		wire/peer$(EXP)_wiregen.h	\
 		wire/onion$(EXP)_wiregen.h	\
+		wire/bolt12$(EXP)_wiregen.h	\
 		wire/common_wiregen.h		\
 		wire/peer$(EXP)_printgen.h	\
 		wire/onion$(EXP)_printgen.h
@@ -21,17 +22,13 @@ WIRE_SRC := wire/wire_sync.c			\
 		wire/tlvstream.c		\
 		wire/towire.c			\
 		wire/common_wiregen.c		\
+		wire/bolt12$(EXP)_wiregen.c	\
 		wire/peer$(EXP)_wiregen.c	\
 		wire/onion$(EXP)_wiregen.c	
 
 WIRE_PRINT_SRC :=				\
 		wire/onion$(EXP)_printgen.c	\
 		wire/peer$(EXP)_printgen.c
-
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-WIRE_HEADERS += wire/bolt12$(EXP)_wiregen.h
-WIRE_SRC += wire/bolt12$(EXP)_wiregen.c
-endif
 
 WIRE_OBJS := $(WIRE_SRC:.c=.o)
 WIRE_PRINT_OBJS := $(WIRE_PRINT_SRC:.c=.o)

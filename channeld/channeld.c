@@ -32,6 +32,7 @@
 #include <channeld/watchtower.h>
 #include <common/billboard.h>
 #include <common/blinding.h>
+#include <common/bolt12.h>
 #include <common/coin_mvt.h>
 #include <common/crypto_sync.h>
 #include <common/dev_disconnect.h>
@@ -65,9 +66,6 @@
 #include <inttypes.h>
 #include <secp256k1.h>
 #include <stdio.h>
-#if EXPERIMENTAL_FEATURES
-#include <wire/bolt12_exp_wiregen.h>
-#endif
 #include <wire/common_wiregen.h>
 #include <wire/onion_wire.h>
 #include <wire/peer_wire.h>
