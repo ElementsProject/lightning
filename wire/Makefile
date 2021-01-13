@@ -16,7 +16,6 @@ WIRE_HEADERS :=	wire/onion_defs.h		\
 # We don't include peer_printgen/onion_printgen here since most don't need it.
 WIRE_SRC := wire/wire_sync.c			\
 		wire/wire_io.c			\
-		wire/wire_dummy.c		\
 		wire/fromwire.c			\
 		wire/peer_wire.c		\
 		wire/tlvstream.c		\

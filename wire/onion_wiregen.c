@@ -81,6 +81,29 @@ bool onion_wire_is_defined(u16 type)
 
 
 
+/* SUBTYPE: ONIONMSG_PATH */
+void towire_onionmsg_path(u8 **p, const struct onionmsg_path *onionmsg_path)
+{
+	u16 enclen = tal_count(onionmsg_path->enctlv);
+
+	towire_pubkey(p, &onionmsg_path->node_id);
+	towire_u16(p, enclen);
+	towire_u8_array(p, onionmsg_path->enctlv, enclen);
+}
+struct onionmsg_path *
+fromwire_onionmsg_path(const tal_t *ctx, const u8 **cursor, size_t *plen)
+{
+	struct onionmsg_path *onionmsg_path = tal(ctx, struct onionmsg_path);
+	u16 enclen;
+
+ 	fromwire_pubkey(cursor, plen, &onionmsg_path->node_id);
+ 	enclen = fromwire_u16(cursor, plen);
+ 	onionmsg_path->enctlv = enclen ? tal_arr(onionmsg_path, u8, enclen) : NULL;
+fromwire_u8_array(cursor, plen, onionmsg_path->enctlv, enclen);
+
+	return onionmsg_path;
+}
+
 
 struct tlv_tlv_payload *tlv_tlv_payload_new(const tal_t *ctx)
 {
@@ -206,6 +229,312 @@ bool fromwire_tlv_payload(const u8 **cursor, size_t *max, struct tlv_tlv_payload
 }
 
 bool tlv_payload_is_valid(const struct tlv_tlv_payload *record, size_t *err_index)
+{
+	return tlv_fields_valid(record->fields, err_index);
+}
+
+
+struct tlv_onionmsg_payload *tlv_onionmsg_payload_new(const tal_t *ctx)
+{
+	/* Initialize everything to NULL. (Quiet, C pedants!) */
+	struct tlv_onionmsg_payload *inst = talz(ctx, struct tlv_onionmsg_payload);
+
+	/* Initialized the fields to an empty array. */
+	inst->fields = tal_arr(inst, struct tlv_field, 0);
+	return inst;
+}
+
+/* ONIONMSG_PAYLOAD MSG: next_node_id */
+static u8 *towire_tlv_onionmsg_payload_next_node_id(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_onionmsg_payload *r = vrecord;
+	u8 *ptr;
+
+	if (!r->next_node_id)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_pubkey(&ptr, r->next_node_id);
+	return ptr;
+}
+static void fromwire_tlv_onionmsg_payload_next_node_id(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_onionmsg_payload *r = vrecord;
+
+	    r->next_node_id = tal(r, struct pubkey);
+
+fromwire_pubkey(cursor, plen, &*r->next_node_id);
+}
+/* ONIONMSG_PAYLOAD MSG: next_short_channel_id */
+static u8 *towire_tlv_onionmsg_payload_next_short_channel_id(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_onionmsg_payload *r = vrecord;
+	u8 *ptr;
+
+	if (!r->next_short_channel_id)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_short_channel_id(&ptr, r->next_short_channel_id);
+	return ptr;
+}
+static void fromwire_tlv_onionmsg_payload_next_short_channel_id(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_onionmsg_payload *r = vrecord;
+
+	    r->next_short_channel_id = tal(r, struct short_channel_id);
+
+fromwire_short_channel_id(cursor, plen, &*r->next_short_channel_id);
+}
+/* ONIONMSG_PAYLOAD MSG: reply_path */
+static u8 *towire_tlv_onionmsg_payload_reply_path(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_onionmsg_payload *r = vrecord;
+	u8 *ptr;
+
+	if (!r->reply_path)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_pubkey(&ptr, &r->reply_path->blinding);
+
+		for (size_t i = 0; i < tal_count(r->reply_path->path); i++)
+		towire_onionmsg_path(&ptr, r->reply_path->path[i]);
+	return ptr;
+}
+static void fromwire_tlv_onionmsg_payload_reply_path(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_onionmsg_payload *r = vrecord;
+
+	r->reply_path = tal(r, struct tlv_onionmsg_payload_reply_path);
+	fromwire_pubkey(cursor, plen, &r->reply_path->blinding);
+	r->reply_path->path = *plen ? tal_arr(r->reply_path, struct onionmsg_path *, 0) : NULL;
+	for (size_t i = 0; *plen != 0; i++) {
+		struct onionmsg_path * tmp;
+		tmp = fromwire_onionmsg_path(r->reply_path, cursor, plen);
+		tal_arr_expand(&r->reply_path->path, tmp);
+	}
+}
+/* ONIONMSG_PAYLOAD MSG: enctlv */
+static u8 *towire_tlv_onionmsg_payload_enctlv(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_onionmsg_payload *r = vrecord;
+	u8 *ptr;
+
+	if (!r->enctlv)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_u8_array(&ptr, r->enctlv, tal_count(r->enctlv));
+	return ptr;
+}
+static void fromwire_tlv_onionmsg_payload_enctlv(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_onionmsg_payload *r = vrecord;
+
+	r->enctlv = *plen ? tal_arr(r, u8, *plen) : NULL;
+fromwire_u8_array(cursor, plen, r->enctlv, *plen);
+}
+/* ONIONMSG_PAYLOAD MSG: blinding */
+static u8 *towire_tlv_onionmsg_payload_blinding(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_onionmsg_payload *r = vrecord;
+	u8 *ptr;
+
+	if (!r->blinding)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_pubkey(&ptr, r->blinding);
+	return ptr;
+}
+static void fromwire_tlv_onionmsg_payload_blinding(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_onionmsg_payload *r = vrecord;
+
+	    r->blinding = tal(r, struct pubkey);
+
+fromwire_pubkey(cursor, plen, &*r->blinding);
+}
+/* ONIONMSG_PAYLOAD MSG: invoice_request */
+static u8 *towire_tlv_onionmsg_payload_invoice_request(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_onionmsg_payload *r = vrecord;
+	u8 *ptr;
+
+	if (!r->invoice_request)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_u8_array(&ptr, r->invoice_request, tal_count(r->invoice_request));
+	return ptr;
+}
+static void fromwire_tlv_onionmsg_payload_invoice_request(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_onionmsg_payload *r = vrecord;
+
+	r->invoice_request = *plen ? tal_arr(r, u8, *plen) : NULL;
+fromwire_u8_array(cursor, plen, r->invoice_request, *plen);
+}
+/* ONIONMSG_PAYLOAD MSG: invoice */
+static u8 *towire_tlv_onionmsg_payload_invoice(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_onionmsg_payload *r = vrecord;
+	u8 *ptr;
+
+	if (!r->invoice)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_u8_array(&ptr, r->invoice, tal_count(r->invoice));
+	return ptr;
+}
+static void fromwire_tlv_onionmsg_payload_invoice(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_onionmsg_payload *r = vrecord;
+
+	r->invoice = *plen ? tal_arr(r, u8, *plen) : NULL;
+fromwire_u8_array(cursor, plen, r->invoice, *plen);
+}
+/* ONIONMSG_PAYLOAD MSG: invoice_error */
+static u8 *towire_tlv_onionmsg_payload_invoice_error(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_onionmsg_payload *r = vrecord;
+	u8 *ptr;
+
+	if (!r->invoice_error)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_u8_array(&ptr, r->invoice_error, tal_count(r->invoice_error));
+	return ptr;
+}
+static void fromwire_tlv_onionmsg_payload_invoice_error(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_onionmsg_payload *r = vrecord;
+
+	r->invoice_error = *plen ? tal_arr(r, u8, *plen) : NULL;
+fromwire_u8_array(cursor, plen, r->invoice_error, *plen);
+}
+
+static const struct tlv_record_type tlvs_onionmsg_payload[] = {
+	{ 4, towire_tlv_onionmsg_payload_next_node_id, fromwire_tlv_onionmsg_payload_next_node_id },
+	{ 6, towire_tlv_onionmsg_payload_next_short_channel_id, fromwire_tlv_onionmsg_payload_next_short_channel_id },
+	{ 8, towire_tlv_onionmsg_payload_reply_path, fromwire_tlv_onionmsg_payload_reply_path },
+	{ 10, towire_tlv_onionmsg_payload_enctlv, fromwire_tlv_onionmsg_payload_enctlv },
+	{ 12, towire_tlv_onionmsg_payload_blinding, fromwire_tlv_onionmsg_payload_blinding },
+	{ 64, towire_tlv_onionmsg_payload_invoice_request, fromwire_tlv_onionmsg_payload_invoice_request },
+	{ 66, towire_tlv_onionmsg_payload_invoice, fromwire_tlv_onionmsg_payload_invoice },
+	{ 68, towire_tlv_onionmsg_payload_invoice_error, fromwire_tlv_onionmsg_payload_invoice_error },
+};
+
+void towire_onionmsg_payload(u8 **pptr, const struct tlv_onionmsg_payload *record)
+{
+	towire_tlv(pptr, tlvs_onionmsg_payload, 8, record);
+}
+
+
+bool fromwire_onionmsg_payload(const u8 **cursor, size_t *max, struct tlv_onionmsg_payload *record)
+{
+	return fromwire_tlv(cursor, max, tlvs_onionmsg_payload, 8, record, &record->fields);
+}
+
+bool onionmsg_payload_is_valid(const struct tlv_onionmsg_payload *record, size_t *err_index)
+{
+	return tlv_fields_valid(record->fields, err_index);
+}
+
+
+struct tlv_encmsg_tlvs *tlv_encmsg_tlvs_new(const tal_t *ctx)
+{
+	/* Initialize everything to NULL. (Quiet, C pedants!) */
+	struct tlv_encmsg_tlvs *inst = talz(ctx, struct tlv_encmsg_tlvs);
+
+	/* Initialized the fields to an empty array. */
+	inst->fields = tal_arr(inst, struct tlv_field, 0);
+	return inst;
+}
+
+/* ENCMSG_TLVS MSG: next_node_id */
+static u8 *towire_tlv_encmsg_tlvs_next_node_id(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_encmsg_tlvs *r = vrecord;
+	u8 *ptr;
+
+	if (!r->next_node_id)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_pubkey(&ptr, r->next_node_id);
+	return ptr;
+}
+static void fromwire_tlv_encmsg_tlvs_next_node_id(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_encmsg_tlvs *r = vrecord;
+
+	    r->next_node_id = tal(r, struct pubkey);
+
+fromwire_pubkey(cursor, plen, &*r->next_node_id);
+}
+/* ENCMSG_TLVS MSG: next_short_channel_id */
+static u8 *towire_tlv_encmsg_tlvs_next_short_channel_id(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_encmsg_tlvs *r = vrecord;
+	u8 *ptr;
+
+	if (!r->next_short_channel_id)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_short_channel_id(&ptr, r->next_short_channel_id);
+	return ptr;
+}
+static void fromwire_tlv_encmsg_tlvs_next_short_channel_id(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_encmsg_tlvs *r = vrecord;
+
+	    r->next_short_channel_id = tal(r, struct short_channel_id);
+
+fromwire_short_channel_id(cursor, plen, &*r->next_short_channel_id);
+}
+
+static const struct tlv_record_type tlvs_encmsg_tlvs[] = {
+	{ 4, towire_tlv_encmsg_tlvs_next_node_id, fromwire_tlv_encmsg_tlvs_next_node_id },
+	{ 6, towire_tlv_encmsg_tlvs_next_short_channel_id, fromwire_tlv_encmsg_tlvs_next_short_channel_id },
+};
+
+void towire_encmsg_tlvs(u8 **pptr, const struct tlv_encmsg_tlvs *record)
+{
+	towire_tlv(pptr, tlvs_encmsg_tlvs, 2, record);
+}
+
+
+bool fromwire_encmsg_tlvs(const u8 **cursor, size_t *max, struct tlv_encmsg_tlvs *record)
+{
+	return fromwire_tlv(cursor, max, tlvs_encmsg_tlvs, 2, record, &record->fields);
+}
+
+bool encmsg_tlvs_is_valid(const struct tlv_encmsg_tlvs *record, size_t *err_index)
 {
 	return tlv_fields_valid(record->fields, err_index);
 }
@@ -697,4 +1026,4 @@ bool fromwire_mpp_timeout(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:00d8601fa1d48cbbe518bd3ca041bccd1d586c82d65db44fc8530d5ce6fa3705
+// SHA256STAMP:b6eb425ab1211e5f7a8413489527aea4565904f548e72f635e4ebce72e50cdd4

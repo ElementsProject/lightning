@@ -1931,9 +1931,7 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_PING:
 	case WIRE_PONG:
 	case WIRE_ERROR:
-#if EXPERIMENTAL_FEATURES
 	case WIRE_ONION_MESSAGE:
-#endif
 		abort();
 	}
 

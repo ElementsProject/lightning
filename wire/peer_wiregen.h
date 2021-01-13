@@ -45,6 +45,7 @@ enum peer_wire {
         WIRE_QUERY_CHANNEL_RANGE = 263,
         WIRE_REPLY_CHANNEL_RANGE = 264,
         WIRE_GOSSIP_TIMESTAMP_FILTER = 265,
+        WIRE_ONION_MESSAGE = 385,
 };
 
 const char *peer_wire_name(int e);
@@ -147,6 +148,14 @@ struct tlv_reply_channel_range_tlvs {
 	 * tlv_field entries above to save on memory. */
         struct tlv_reply_channel_range_tlvs_timestamps_tlv *timestamps_tlv;
 	struct channel_update_checksums *checksums_tlv;
+};
+struct tlv_onion_message_tlvs {
+        /* Raw fields including unknown ones. */
+        struct tlv_field *fields;
+
+	/* TODO The following explicit fields could just point into the
+	 * tlv_field entries above to save on memory. */
+	struct pubkey *blinding;
 };
 
 struct tlv_init_tlvs *tlv_init_tlvs_new(const tal_t *ctx);
@@ -469,6 +478,43 @@ void towire_reply_channel_range_tlvs(u8 **pptr, const struct tlv_reply_channel_r
 bool reply_channel_range_tlvs_is_valid(const struct tlv_reply_channel_range_tlvs *record,
 			  size_t *err_index);
 
+struct tlv_onion_message_tlvs *tlv_onion_message_tlvs_new(const tal_t *ctx);
+
+/**
+ * Deserialize a TLV stream for the onion_message_tlvs namespace.
+ *
+ * This function will parse any TLV stream, as long as the type, length and
+ * value fields are formatted correctly. Fields that are not known in the
+ * current namespace are stored in the `fields` member. Validity can be
+ * checked using onion_message_tlvs_is_valid.
+ */
+bool fromwire_onion_message_tlvs(const u8 **cursor, size_t *max,
+			  struct tlv_onion_message_tlvs * record);
+
+/**
+ * Serialize a TLV stream for the onion_message_tlvs namespace.
+ *
+ * This function only considers known fields from the onion_message_tlvs namespace,
+ * and will ignore any fields that may be stored in the `fields` member. This
+ * ensures that the resulting stream is valid according to
+ * `onion_message_tlvs_is_valid`.
+ */
+void towire_onion_message_tlvs(u8 **pptr, const struct tlv_onion_message_tlvs *record);
+
+/**
+ * Check that the TLV stream is valid.
+ *
+ * Enforces the followin validity rules:
+ * - Types must be in monotonic non-repeating order
+ * - We must understand all even types
+ *
+ * Returns false if an error was detected, otherwise returns true. If err_index
+ * is non-null and we detect an error it is set to the index of the first error
+ * detected.
+ */
+bool onion_message_tlvs_is_valid(const struct tlv_onion_message_tlvs *record,
+			  size_t *err_index);
+
 /* SUBTYPE: CHANNEL_UPDATE_CHECKSUMS */
 void towire_channel_update_checksums(u8 **p, const struct channel_update_checksums *channel_update_checksums);
 void fromwire_channel_update_checksums(const u8 **cursor, size_t *plen, struct channel_update_checksums *channel_update_checksums);
@@ -589,10 +635,14 @@ bool fromwire_reply_channel_range(const tal_t *ctx, const void *p, struct bitcoi
 u8 *towire_gossip_timestamp_filter(const tal_t *ctx, const struct bitcoin_blkid *chain_hash, u32 first_timestamp, u32 timestamp_range);
 bool fromwire_gossip_timestamp_filter(const void *p, struct bitcoin_blkid *chain_hash, u32 *first_timestamp, u32 *timestamp_range);
 
+/* WIRE: ONION_MESSAGE */
+u8 *towire_onion_message(const tal_t *ctx, const u8 *onionmsg, const struct tlv_onion_message_tlvs *onion_message_tlvs);
+bool fromwire_onion_message(const tal_t *ctx, const void *p, u8 **onionmsg, struct tlv_onion_message_tlvs *onion_message_tlvs);
+
 /* WIRE: CHANNEL_UPDATE_OPTION_CHANNEL_HTLC_MAX */
 u8 *towire_channel_update_option_channel_htlc_max(const tal_t *ctx, const secp256k1_ecdsa_signature *signature, const struct bitcoin_blkid *chain_hash, const struct short_channel_id *short_channel_id, u32 timestamp, u8 message_flags, u8 channel_flags, u16 cltv_expiry_delta, struct amount_msat htlc_minimum_msat, u32 fee_base_msat, u32 fee_proportional_millionths, struct amount_msat htlc_maximum_msat);
 bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ecdsa_signature *signature, struct bitcoin_blkid *chain_hash, struct short_channel_id *short_channel_id, u32 *timestamp, u8 *message_flags, u8 *channel_flags, u16 *cltv_expiry_delta, struct amount_msat *htlc_minimum_msat, u32 *fee_base_msat, u32 *fee_proportional_millionths, struct amount_msat *htlc_maximum_msat);
 
 
 #endif /* LIGHTNING_WIRE_PEER_WIREGEN_H */
-// SHA256STAMP:efe21d89eef0b58216ab945b85cfbf5fcee08cf783ad4ef4c45501f1a10ac7ef
+// SHA256STAMP:3e12752fa68ecad34eca722bae0a5027b6ea71ace1d2b825c6f87613d97863d5
