@@ -111,6 +111,13 @@ msgtype,dualopend_got_rbf_offer_reply,7505
 msgdata,dualopend_got_rbf_offer_reply,accepter_funding,amount_sat,
 msgdata,dualopend_got_rbf_offer_reply,psbt,wally_psbt,
 
+# dualopend->master: is this a valid RBF candidate transaction?
+msgtype,dualopend_rbf_validate,7506
+msgdata,dualopend_rbf_validate,proposed_funding_psbt,wally_psbt,
+
+# master->dualopend: this is a valid RBF candidate transaction
+msgtype,dualopend_rbf_valid,7507
+
 # dualopend->master: ready to commit channel open to database and
 #                    get some signatures for the funding_tx.
 msgtype,dualopend_commit_rcvd,7007

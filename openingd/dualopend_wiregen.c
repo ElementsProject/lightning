@@ -26,6 +26,8 @@ const char *dualopend_wire_name(int e)
 	case WIRE_DUALOPEND_GOT_OFFER_REPLY: return "WIRE_DUALOPEND_GOT_OFFER_REPLY";
 	case WIRE_DUALOPEND_GOT_RBF_OFFER: return "WIRE_DUALOPEND_GOT_RBF_OFFER";
 	case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY: return "WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY";
+	case WIRE_DUALOPEND_RBF_VALIDATE: return "WIRE_DUALOPEND_RBF_VALIDATE";
+	case WIRE_DUALOPEND_RBF_VALID: return "WIRE_DUALOPEND_RBF_VALID";
 	case WIRE_DUALOPEND_COMMIT_RCVD: return "WIRE_DUALOPEND_COMMIT_RCVD";
 	case WIRE_DUALOPEND_PSBT_CHANGED: return "WIRE_DUALOPEND_PSBT_CHANGED";
 	case WIRE_DUALOPEND_PSBT_UPDATED: return "WIRE_DUALOPEND_PSBT_UPDATED";
@@ -60,6 +62,8 @@ bool dualopend_wire_is_defined(u16 type)
 	case WIRE_DUALOPEND_GOT_OFFER_REPLY:;
 	case WIRE_DUALOPEND_GOT_RBF_OFFER:;
 	case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:;
+	case WIRE_DUALOPEND_RBF_VALIDATE:;
+	case WIRE_DUALOPEND_RBF_VALID:;
 	case WIRE_DUALOPEND_COMMIT_RCVD:;
 	case WIRE_DUALOPEND_PSBT_CHANGED:;
 	case WIRE_DUALOPEND_PSBT_UPDATED:;
@@ -408,6 +412,48 @@ bool fromwire_dualopend_got_rbf_offer_reply(const tal_t *ctx, const void *p, str
 		return false;
  	*accepter_funding = fromwire_amount_sat(&cursor, &plen);
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	return cursor != NULL;
+}
+
+/* WIRE: DUALOPEND_RBF_VALIDATE */
+/* dualopend->master: is this a valid RBF candidate transaction? */
+u8 *towire_dualopend_rbf_validate(const tal_t *ctx, const struct wally_psbt *proposed_funding_psbt)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_RBF_VALIDATE);
+	towire_wally_psbt(&p, proposed_funding_psbt);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_rbf_validate(const tal_t *ctx, const void *p, struct wally_psbt **proposed_funding_psbt)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_RBF_VALIDATE)
+		return false;
+ 	*proposed_funding_psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	return cursor != NULL;
+}
+
+/* WIRE: DUALOPEND_RBF_VALID */
+/* master->dualopend: this is a valid RBF candidate transaction */
+u8 *towire_dualopend_rbf_valid(const tal_t *ctx)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_RBF_VALID);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_rbf_valid(const void *p)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_RBF_VALID)
+		return false;
 	return cursor != NULL;
 }
 
@@ -920,4 +966,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:65a94b9b35802a6cd6c68f724e83ce4866adb3122a392d6741ec7c791ef1fd6c
+// SHA256STAMP:e514a16cf96dfcaf44217cf344ce75e2b8cbcb460901c610d9b75e22937636cd

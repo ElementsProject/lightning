@@ -2592,6 +2592,20 @@ static void rbf_start(struct state *state, const u8 *rbf_msg)
 				&tx_state->psbt, state->our_role))
 		return;
 
+	/* Is this an eligible RBF (at least one overlapping input) */
+	msg = towire_dualopend_rbf_validate(NULL, tx_state->psbt);
+	wire_sync_write(REQ_FD, take(msg));
+	msg = wire_sync_read(tmpctx, REQ_FD);
+
+	if ((msg_type = fromwire_peektype(msg)) == WIRE_DUALOPEND_FAIL) {
+		if (!fromwire_dualopend_fail(msg, msg, &err_reason))
+			master_badmsg(msg_type, msg);
+		rbf_failed(state, "%s", err_reason);
+	}
+
+	if (!fromwire_dualopend_rbf_valid(msg))
+		master_badmsg(WIRE_DUALOPEND_RBF_VALID, msg);
+
 	/* Find the funding transaction txid */
 	psbt_txid(NULL, tx_state->psbt, &tx_state->funding_txid, NULL);
 
@@ -2962,10 +2976,12 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_PSBT_UPDATED:
 	case WIRE_DUALOPEND_GOT_OFFER_REPLY:
 	case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
+	case WIRE_DUALOPEND_RBF_VALID:
 
 	/* Messages we send */
 	case WIRE_DUALOPEND_GOT_OFFER:
 	case WIRE_DUALOPEND_GOT_RBF_OFFER:
+	case WIRE_DUALOPEND_RBF_VALIDATE:
 	case WIRE_DUALOPEND_PSBT_CHANGED:
 	case WIRE_DUALOPEND_COMMIT_RCVD:
 	case WIRE_DUALOPEND_FUNDING_SIGS:
