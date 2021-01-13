@@ -1229,6 +1229,17 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 			       json_tok_full_len(toks),
 			       json_tok_full(buffer, toks));
 
+	/* Plugin can disable itself: returns why it's disabled. */
+	tok = json_get_member(buffer, resulttok, "disable");
+	if (tok) {
+		log_debug(plugin->log, "disabled itself: %.*s",
+			  json_tok_full_len(tok),
+			  json_tok_full(buffer, tok));
+		/* Don't get upset if this was a built-in! */
+		plugin->important = false;
+		return json_strdup(plugin, buffer, tok);
+	}
+
 	dynamictok = json_get_member(buffer, resulttok, "dynamic");
 	if (dynamictok && !json_to_bool(buffer, dynamictok, &plugin->dynamic)) {
 		return tal_fmt(plugin, "Bad 'dynamic' field ('%.*s')",
@@ -1572,6 +1583,19 @@ static void plugin_config_cb(const char *buffer,
 			     const jsmntok_t *idtok,
 			     struct plugin *plugin)
 {
+	const char *disable;
+
+	/* Plugin can also disable itself at this stage. */
+	if (json_scan(tmpctx, buffer, toks, "{result:{disable:%}}",
+		      JSON_SCAN_TAL(tmpctx, json_strdup, &disable)) == NULL) {
+		log_debug(plugin->log, "disabled itself at init: %s",
+			  disable);
+		/* Don't get upset if this was a built-in! */
+		plugin->important = false;
+		plugin_kill(plugin, disable);
+		return;
+	}
+
 	plugin->plugin_state = INIT_COMPLETE;
 	plugin->timeout_timer = tal_free(plugin->timeout_timer);
 	if (plugin->start_cmd) {

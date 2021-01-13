@@ -2321,3 +2321,24 @@ def test_pyln_request_notify(node_factory):
     notifications = []
     l1.rpc.countdown(10)
     assert notifications == []
+
+
+def test_self_disable(node_factory):
+    """Test that plugin can disable itself without penalty.
+    """
+    plugin_path = os.path.join(
+        os.path.dirname(__file__), 'plugins/test_selfdisable'
+    )
+    l1 = node_factory.get_node(options={'important-plugin': plugin_path})
+
+    # Could happen before it gets set up.
+    l1.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log('test_selfdisable: disabled itself: "Self-disable test after getmanifest"')
+
+    assert plugin_path not in [p['name'] for p in l1.rpc.plugin_list()['plugins']]
+
+    # Also works with dynamic load attempts
+    with pytest.raises(RpcError, match="Self-disable test after getmanifest"):
+        l1.rpc.plugin_start(plugin_path)
+
+    # Now test the disable-in-init-response.

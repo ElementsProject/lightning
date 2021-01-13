@@ -128,6 +128,10 @@ The `dynamic` indicates if the plugin can be managed after `lightningd`
 has been started. Critical plugins that should not be stopped should set it
 to false.
 
+If a `disable` member exists, the plugin will be disabled and the contents
+of this member is the reason why.  This allows plugins to disable themselves
+if they are not supported in this configuration.
+
 The `featurebits` object allows the plugin to register featurebits that should be
 announced in a number of places in [the protocol][bolt9]. They can be used to signal
 support for custom protocol extensions to direct peers, remote nodes and in
@@ -237,10 +241,11 @@ simple JSON object containing the options:
 }
 ```
 
-The plugin must respond to `init` calls, however the response can be
-arbitrary and will currently be discarded by `lightningd`. JSON-RPC
-commands were chosen over notifications in order not to force plugins
-to implement notifications which are not that well supported.
+The plugin must respond to `init` calls.  The response should be a
+valid JSON-RPC response to the `init`, but this is not currently
+enforced.  If the response is an object containing `result` which
+contains `disable` then the plugin will be disabled and the contents
+of this member is the reason why.
 
 The `startup` field allows a plugin to detect if it was started at
 `lightningd` startup (true), or at runtime (false).
