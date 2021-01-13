@@ -670,6 +670,7 @@ static const char *init(struct plugin *p,
 			const jsmntok_t *config UNUSED)
 {
 	struct pubkey k;
+	bool exp_offers;
 
 	rpc_scan(p, "getinfo",
 		 take(json_out_obj(NULL, NULL, NULL)),
@@ -679,9 +680,13 @@ static const char *init(struct plugin *p,
 		abort();
 
 	rpc_scan(p, "listconfigs",
-		 take(json_out_obj(NULL, "config", "cltv-final")),
-		 "{cltv-final:%}", JSON_SCAN(json_to_number, &cltv_final));
+		 take(json_out_obj(NULL, NULL, NULL)),
+		 "{cltv-final:%,experimental-offers:%}",
+		 JSON_SCAN(json_to_number, &cltv_final),
+		 JSON_SCAN(json_to_bool, &exp_offers));
 
+	if (!exp_offers)
+		return "offers not enabled in config";
 	return NULL;
 }
 

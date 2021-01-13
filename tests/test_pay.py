@@ -3723,10 +3723,19 @@ def test_mpp_overload_payee(node_factory, bitcoind):
     l1.rpc.pay(inv)
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "offers are experimental")
+@unittest.skipIf(EXPERIMENTAL_FEATURES, "this is always on with EXPERIMENTAL_FEATURES")
+def test_offer_needs_option(node_factory):
+    """Make sure we don't make offers without offer command"""
+    l1 = node_factory.get_node()
+    with pytest.raises(RpcError, match='Unknown command'):
+        l1.rpc.call('offer', {'amount': '1msat', 'description': 'test'})
+    with pytest.raises(RpcError, match='Unknown command'):
+        l1.rpc.call('fetchinvoice', {'offer': 'aaaa'})
+
+
 def test_offer(node_factory, bitcoind):
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
-    l1 = node_factory.get_node(options={'plugin': plugin})
+    l1 = node_factory.get_node(options={'plugin': plugin, 'experimental-offers': None})
 
     bolt12tool = os.path.join(os.path.dirname(__file__), "..", "devtools", "bolt12-cli")
     # Try different amount strings
@@ -3885,12 +3894,13 @@ def test_offer(node_factory, bitcoind):
     assert 'recurrence: every 600 seconds paywindow -10 to +600 (pay proportional)\n' in output
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "offers are experimental")
 def test_fetchinvoice(node_factory, bitcoind):
     # We remove the conversion plugin on l3, causing it to get upset.
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
-                                         opts=[{}, {},
-                                               {'allow_broken_log': True}])
+                                         opts=[{'experimental-offers': None},
+                                               {'experimental-offers': None},
+                                               {'experimental-offers': None,
+                                                'allow_broken_log': True}])
 
     # Simple offer first.
     offer1 = l3.rpc.call('offer', {'amount': '2msat',
@@ -3988,7 +3998,7 @@ def test_fetchinvoice(node_factory, bitcoind):
                                  'recurrence_label': 'test recurrence'})
 
     # Check we can request invoice without a channel.
-    l4 = node_factory.get_node()
+    l4 = node_factory.get_node(options={'experimental-offers': None})
     l4.rpc.connect(l2.info['id'], 'localhost', l2.port)
     ret = l4.rpc.call('fetchinvoice', {'offer': offer3,
                                        'recurrence_counter': 0,
@@ -4062,9 +4072,9 @@ def test_pay_waitblockheight_timeout(node_factory, bitcoind):
     assert len(status['pay'][0]['attempts']) == 1
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "offers are experimental")
 def test_sendinvoice(node_factory, bitcoind):
-    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts={'experimental-offers': None})
 
     # Simple offer to send money (balances channel a little)
     offer = l1.rpc.call('offerout', {'amount': '100000sat',

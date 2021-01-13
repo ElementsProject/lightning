@@ -9,6 +9,7 @@ COMMON_SRC_NOGEN :=				\
 	common/billboard.c			\
 	common/bip32.c				\
 	common/blinding.c			\
+	common/blindedpath.c			\
 	common/bolt11.c				\
 	common/bolt11_json.c			\
 	common/bolt12.c				\
@@ -87,7 +88,6 @@ COMMON_SRC_NOGEN :=				\
 
 ifeq ($(EXPERIMENTAL_FEATURES),1)
 COMMON_SRC_NOGEN += common/psbt_internal.c
-COMMON_SRC_NOGEN += common/blindedpath.c
 endif
 
 COMMON_SRC_GEN := common/status_wiregen.c common/peer_status_wiregen.c

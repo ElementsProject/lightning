@@ -66,6 +66,9 @@ struct config {
 
 	/* How long before we give up waiting for INIT msg */
 	u32 connection_timeout_secs;
+
+	/* EXPERIMENTAL: offers support */
+	bool exp_offers;
 };
 
 typedef STRMAP(const char *) alt_subdaemon_map;

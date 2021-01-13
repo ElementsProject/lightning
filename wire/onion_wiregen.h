@@ -317,4 +317,4 @@ bool fromwire_mpp_timeout(const void *p);
 
 
 #endif /* LIGHTNING_WIRE_ONION_WIREGEN_H */
-// SHA256STAMP:b6eb425ab1211e5f7a8413489527aea4565904f548e72f635e4ebce72e50cdd4
+// SHA256STAMP:897accc52196e69cffeee8386a5e1af8754fe49baefd58460c788024e4e8dd6f

@@ -8,10 +8,8 @@
 #include <common/bech32.h>
 #include <common/bolt11.h>
 #include <common/bolt11_json.h>
-#if EXPERIMENTAL_FEATURES
 #include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
-#endif
 #include <common/configdir.h>
 #include <common/features.h>
 #include <common/json_command.h>
@@ -133,7 +131,6 @@ static void invoice_secret(const struct preimage *payment_preimage,
 	memcpy(payment_secret->data, secret.u.u8, sizeof(secret.u.u8));
 }
 
-#if EXPERIMENTAL_FEATURES
 /* FIXME: This is a hack.  The real secret should be a signature of some
  * onion key, using the payer_id */
 static void invoice_secret_bolt12(struct lightningd *ld,
@@ -156,7 +153,6 @@ static void invoice_secret_bolt12(struct lightningd *ld,
 	BUILD_ASSERT(sizeof(*payment_secret) == sizeof(merkle));
 	memcpy(payment_secret, &merkle, sizeof(merkle));
 }
-#endif /* EXPERIMENTAL_FEATURES */
 
 struct invoice_payment_hook_payload {
 	struct lightningd *ld;
@@ -371,12 +367,10 @@ invoice_check_payment(const tal_t *ctx,
 	if (payment_secret) {
 		struct secret expected;
 
-#if EXPERIMENTAL_FEATURES
 		if (details->invstring && strstarts(details->invstring, "lni1"))
 			invoice_secret_bolt12(ld, details->invstring, &expected);
 		else
-#endif /* EXPERIMENTAL_FEATURES */
-		invoice_secret(&details->r, &expected);
+			invoice_secret(&details->r, &expected);
 		if (!secret_eq_consttime(payment_secret, &expected)) {
 			log_debug(ld->log, "Attept to pay %s with wrong secret",
 				  type_to_string(tmpctx, struct sha256,
@@ -460,7 +454,6 @@ static bool hsm_sign_b11(const u5 *u5bytes,
 	return true;
 }
 
-#if EXPERIMENTAL_FEATURES
 static void hsm_sign_b12_invoice(struct lightningd *ld,
 				 struct tlv_invoice *invoice)
 {
@@ -481,7 +474,6 @@ static void hsm_sign_b12_invoice(struct lightningd *ld,
 		fatal("HSM gave bad sign_invoice_reply %s",
 		      tal_hex(msg, msg));
 }
-#endif /* EXPERIMENTAL_FEATURES */
 
 static struct command_result *parse_fallback(struct command *cmd,
 					     const char *buffer,
@@ -1505,7 +1497,6 @@ static struct command_result *json_createinvoice(struct command *cmd,
 
 		notify_invoice_creation(cmd->ld, b11->msat, *preimage, label);
 	} else {
-#if EXPERIMENTAL_FEATURES
 		struct tlv_invoice *inv;
 		struct sha256 *local_offer_id;
 
@@ -1574,7 +1565,6 @@ static struct command_result *json_createinvoice(struct command *cmd,
 						inv->amount ? &msat : NULL,
 						*preimage, label);
 		} else
-#endif /* EXPERIMENTAL_FEATURES */
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "Unparsable invoice '%s': %s",
 					    invstring, fail);

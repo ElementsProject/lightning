@@ -1,9 +1,6 @@
-DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route
+DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route devtools/blindedpath devtools/bolt12-cli
 ifeq ($(HAVE_SQLITE3),1)
 DEVTOOLS += devtools/checkchannels
-endif
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-DEVTOOLS += devtools/blindedpath devtools/bolt12-cli
 endif
 
 DEVTOOLS_TOOL_SRC := $(DEVTOOLS:=.c) devtools/print_wire.c devtools/clean_topo.c
