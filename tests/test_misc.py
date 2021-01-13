@@ -2297,9 +2297,8 @@ def test_sendcustommsg(node_factory):
             serialized=serialized, peer_id=l2.info['id']))
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs sendonionmessage")
 def test_sendonionmessage(node_factory):
-    l1, l2, l3 = node_factory.line_graph(3)
+    l1, l2, l3 = node_factory.line_graph(3, opts={'experimental-onion-messages': None})
 
     blindedpathtool = os.path.join(os.path.dirname(__file__), "..", "devtools", "blindedpath")
 

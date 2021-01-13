@@ -435,7 +435,6 @@ static bool handle_local_channel_announcement(struct daemon *daemon,
 	return true;
 }
 
-#if EXPERIMENTAL_FEATURES
 /* Peer sends onion msg. */
 static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 {
@@ -449,6 +448,11 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 	size_t max, maxlen;
 	struct tlv_onionmsg_payload *om;
 	struct tlv_onion_message_tlvs *tlvs = tlv_onion_message_tlvs_new(msg);
+
+	/* Ignore unless explicitly turned on. */
+	if (!feature_offered(peer->daemon->our_features->bits[NODE_ANNOUNCE_FEATURE],
+			     OPT_ONION_MESSAGES))
+		return NULL;
 
 	/* FIXME: ratelimit! */
 	if (!fromwire_onion_message(msg, msg, &onion, tlvs))
@@ -690,7 +694,6 @@ static struct io_plan *onionmsg_req(struct io_conn *conn, struct daemon *daemon,
 	}
 	return daemon_conn_read_next(conn, daemon->master);
 }
-#endif /* EXPERIMENTAL_FEATURES */
 
 /*~ This is where the per-peer daemons send us messages.  It's either forwarded
  * gossip, or a request for information.  We deliberately use non-overlapping
@@ -731,11 +734,9 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_PONG:
 		err = handle_pong(peer, msg);
 		goto handled_relay;
-#if EXPERIMENTAL_FEATURES
 	case WIRE_ONION_MESSAGE:
 		err = handle_onion_message(peer, msg);
 		goto handled_relay;
-#endif
 
 	/* These are non-gossip messages (!is_msg_for_gossipd()) */
 	case WIRE_INIT:
@@ -757,9 +758,6 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
-#if !EXPERIMENTAL_FEATURES
-	case WIRE_ONION_MESSAGE:
-#endif
 #if EXPERIMENTAL_FEATURES
 	case WIRE_TX_ADD_INPUT:
 	case WIRE_TX_REMOVE_INPUT:
@@ -1934,9 +1932,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 #endif /* !DEVELOPER */
 
 	case WIRE_GOSSIPD_SEND_ONIONMSG:
-#if EXPERIMENTAL_FEATURES
 		return onionmsg_req(conn, daemon, msg);
-#endif
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPD_GETNODES_REPLY:
 	case WIRE_GOSSIPD_GETROUTE_REPLY:

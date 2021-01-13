@@ -161,18 +161,12 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE_REPLY:
 		break;
 
-#if EXPERIMENTAL_FEATURES
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
 		handle_onionmsg_to_us(gossip->ld, msg);
 		break;
 	case WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD:
 		handle_onionmsg_forward(gossip->ld, msg);
 		break;
-#else
-	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
-	case WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD:
-		break;
-#endif
 	case WIRE_GOSSIPD_PING_REPLY:
 		ping_reply(gossip, msg);
 		break;
