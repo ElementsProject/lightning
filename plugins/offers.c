@@ -665,9 +665,9 @@ static struct command_result *json_decode(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
-static void init(struct plugin *p,
-		 const char *buf UNUSED,
-		 const jsmntok_t *config UNUSED)
+static const char *init(struct plugin *p,
+			const char *buf UNUSED,
+			const jsmntok_t *config UNUSED)
 {
 	struct pubkey k;
 
@@ -681,6 +681,8 @@ static void init(struct plugin *p,
 	rpc_scan(p, "listconfigs",
 		 take(json_out_obj(NULL, "config", "cltv-final")),
 		 "{cltv-final:%}", JSON_SCAN(json_to_number, &cltv_final));
+
+	return NULL;
 }
 
 static const struct plugin_command commands[] = {

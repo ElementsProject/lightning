@@ -1902,8 +1902,8 @@ static struct command_result *json_listpays(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-static void init(struct plugin *p,
-		  const char *buf UNUSED, const jsmntok_t *config UNUSED)
+static const char *init(struct plugin *p,
+			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
 	rpc_scan(p, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_node_id, &my_id));
@@ -1912,6 +1912,8 @@ static void init(struct plugin *p,
 		 take(json_out_obj(NULL, "config", "max-locktime-blocks")),
 		 "{max-locktime-blocks:%}",
 		 JSON_SCAN(json_to_number, &maxdelay_default));
+
+	return NULL;
 }
 
 struct payment_modifier *paymod_mods[] = {

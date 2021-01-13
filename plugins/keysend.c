@@ -92,8 +92,8 @@ REGISTER_PAYMENT_MODIFIER(keysend, struct keysend_data *, keysend_init,
  * End of keysend modifier
  *****************************************************************************/
 
-static void init(struct plugin *p, const char *buf UNUSED,
-		 const jsmntok_t *config UNUSED)
+static const char *init(struct plugin *p, const char *buf UNUSED,
+			const jsmntok_t *config UNUSED)
 {
 	rpc_scan(p, "getinfo", take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_node_id, &my_id));
@@ -102,6 +102,8 @@ static void init(struct plugin *p, const char *buf UNUSED,
 		 take(json_out_obj(NULL, "config", "max-locktime-blocks")),
 		 "{max-locktime-blocks:%}",
 		 JSON_SCAN(json_to_number, &maxdelay_default));
+
+	return NULL;
 }
 
 struct payment_modifier *pay_mods[8] = {

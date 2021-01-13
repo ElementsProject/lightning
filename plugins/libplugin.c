@@ -71,8 +71,8 @@ struct plugin {
 	struct plugin_option *opts;
 
 	/* Anything special to do at init ? */
-	void (*init)(struct plugin *p,
-		     const char *buf, const jsmntok_t *);
+	const char *(*init)(struct plugin *p,
+			    const char *buf, const jsmntok_t *);
 	/* Has the manifest been sent already ? */
 	bool manifested;
 	/* Has init been received ? */
@@ -878,8 +878,12 @@ static struct command_result *handle_init(struct command *cmd,
 		tal_free(opt);
 	}
 
-	if (p->init)
-		p->init(p, buf, configtok);
+	if (p->init) {
+		const char *disable = p->init(p, buf, configtok);
+		if (disable)
+			return command_success(cmd, json_out_obj(cmd, "disable",
+								 disable));
+	}
 
 	if (with_rpc)
 		io_new_conn(p, p->rpc_conn->fd, rpc_conn_init, p);
@@ -1296,8 +1300,9 @@ static struct io_plan *stdout_conn_init(struct io_conn *conn,
 }
 
 static struct plugin *new_plugin(const tal_t *ctx,
-				 void (*init)(struct plugin *p,
-					      const char *buf, const jsmntok_t *),
+				 const char *(*init)(struct plugin *p,
+						     const char *buf,
+						     const jsmntok_t *),
 				 const enum plugin_restartability restartability,
 				 bool init_rpc,
 				 struct feature_set *features,
@@ -1365,8 +1370,8 @@ static struct plugin *new_plugin(const tal_t *ctx,
 }
 
 void plugin_main(char *argv[],
-		 void (*init)(struct plugin *p,
-			      const char *buf, const jsmntok_t *),
+		 const char *(*init)(struct plugin *p,
+				     const char *buf, const jsmntok_t *),
 		 const enum plugin_restartability restartability,
 		 bool init_rpc,
 		 struct feature_set *features,

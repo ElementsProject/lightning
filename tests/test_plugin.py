@@ -2326,19 +2326,26 @@ def test_pyln_request_notify(node_factory):
 def test_self_disable(node_factory):
     """Test that plugin can disable itself without penalty.
     """
-    plugin_path = os.path.join(
-        os.path.dirname(__file__), 'plugins/test_selfdisable'
+    # This disables in response to getmanifest.
+    p1 = os.path.join(
+        os.path.dirname(__file__), 'plugins/test_selfdisable_after_getmanifest'
     )
-    l1 = node_factory.get_node(options={'important-plugin': plugin_path})
+    # This disables in response to init.
+    p2 = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
+    l1 = node_factory.get_node(options={'important-plugin': [p1, p2], 'selfdisable': None})
 
     # Could happen before it gets set up.
     l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_log('test_selfdisable: disabled itself: "Self-disable test after getmanifest"')
+    l1.daemon.wait_for_logs(['test_selfdisable_after_getmanifest: disabled itself: "Self-disable test after getmanifest"',
+                             'test_libplugin: disabled itself at init: Disabled via selfdisable option'])
 
-    assert plugin_path not in [p['name'] for p in l1.rpc.plugin_list()['plugins']]
+    assert p1 not in [p['name'] for p in l1.rpc.plugin_list()['plugins']]
+    assert p2 not in [p['name'] for p in l1.rpc.plugin_list()['plugins']]
 
     # Also works with dynamic load attempts
     with pytest.raises(RpcError, match="Self-disable test after getmanifest"):
-        l1.rpc.plugin_start(plugin_path)
+        l1.rpc.plugin_start(p1)
 
-    # Now test the disable-in-init-response.
+    # Also works with dynamic load attempts
+    with pytest.raises(RpcError, match="Disabled via selfdisable option"):
+        l1.rpc.plugin_start(p2, selfdisable=True)

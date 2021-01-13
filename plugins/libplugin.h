@@ -277,8 +277,9 @@ char *flag_option(const char *arg, bool *i);
 
 /* The main plugin runner: append with 0 or more plugin_option(), then NULL. */
 void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
-					void (*init)(struct plugin *p,
-						     const char *buf, const jsmntok_t *),
+					const char *(*init)(struct plugin *p,
+							    const char *buf,
+							    const jsmntok_t *),
 					const enum plugin_restartability restartability,
 					bool init_rpc,
 					struct feature_set *features,

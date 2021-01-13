@@ -64,8 +64,8 @@ static struct command_result *json_autocleaninvoice(struct command *cmd,
 					   expired_by, cycle_seconds));
 }
 
-static void init(struct plugin *p,
-		  const char *buf UNUSED, const jsmntok_t *config UNUSED)
+static const char *init(struct plugin *p,
+			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
 	if (cycle_seconds) {
 		plugin_log(p, LOG_INFORM, "autocleaning every %"PRIu64" seconds", cycle_seconds);
@@ -73,6 +73,8 @@ static void init(struct plugin *p,
 					  do_clean, p);
 	} else
 		plugin_log(p, LOG_DBG, "autocleaning not active");
+
+	return NULL;
 }
 
 static const struct plugin_command commands[] = { {

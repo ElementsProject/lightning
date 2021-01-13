@@ -5,7 +5,7 @@
 
 
 const char *name_option;
-
+static bool self_disable = false;
 
 static struct command_result *json_helloworld(struct command *cmd,
 					      const char *buf,
@@ -86,10 +86,15 @@ static struct command_result *json_testrpc(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-static void init(struct plugin *p,
-		  const char *buf UNUSED, const jsmntok_t *config UNUSED)
+static const char *init(struct plugin *p,
+			const char *buf UNUSED,
+			const jsmntok_t *config UNUSED)
 {
 	plugin_log(p, LOG_DBG, "test_libplugin initialised!");
+
+	if (self_disable)
+		return "Disabled via selfdisable option";
+	return NULL;
 }
 
 static const struct plugin_command commands[] = { {
@@ -149,5 +154,9 @@ int main(int argc, char *argv[])
 					     "string",
 					     "Who to say hello to.",
 					     charp_option, &name_option),
+		    plugin_option("selfdisable",
+				  "flag",
+				  "Whether to disable.",
+				  flag_option, &self_disable),
 		    NULL);
 }
