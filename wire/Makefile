@@ -47,34 +47,58 @@ BOLT_EXTRACT=$(LOCAL_BOLTDIR)/tools/extract-formats.py
 
 WIRE_BOLT_DEPS := $(BOLT_DEPS) tools/gen/impl_template tools/gen/header_template
 
-# Explicit command to re-extract CSV from BOLTs.
-extract-bolt-csv: bolt-precheck
-	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/0[127]*.md > wire/peer_wire.csv
-	@echo '#include <wire/onion_defs.h>' > wire/onion_wire.csv
-	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md >> wire/onion_wire.csv
+ALL_PEER_PATCHES := $(sort $(wildcard wire/extracted_peer*.patch))
+ALL_ONION_PATCHES := $(sort $(wildcard wire/extracted_onion*.patch))
 
-extract-bolt12-csv: bolt-precheck
-	$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/12*.md > wire/bolt12_exp_wire.csv
+# These are applied to the non-exp csvs to make the exp csvs.
+PEER_EXP_PATCHES := $(sort $(wildcard wire/extracted_peer_exp*.patch))
+ONION_EXP_PATCHES := $(sort $(wildcard wire/extracted_onion_exp*.patch))
 
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-extract-bolt-csv: extract-bolt12-csv
-endif
+# These are always applied to the bolts.
+PEER_PATCHES := $(filter-out $(PEER_EXP_PATCHES),$(ALL_PEER_PATCHES))
+ONION_PATCHES := $(filter-out $(ONION_EXP_PATCHES),$(ALL_ONION_PATCHES))
 
-# Explicit command to add patchfile for BOLT CSV's
-extract-experimental-bolt-csv: bolt-precheck
-	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/0[127]*.md | diff -u wire/peer_exp_wire.csv - >wire/extracted_peer_experimental_$(BOLTVERSION) | if [ $$? -lt 0 ];then exit 1;fi
-	@{ echo '#include <wire/onion_defs.h>'; $(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md; } | diff -u wire/onion_exp_wire.csv - > wire/extracted_onion_experimental_$(BOLTVERSION) | if [ $$? -lt 0 ];then exit 1;fi
+# Explicit command to re-extract CSV from BOLTs and patch.
+# This is not a normal make depencency, since we don't want this
+# called implicitly.
+# Note: You will need to run extract-bolt12-csv manually!
+extract-bolt-csv: extract-peer-csv extract-onion-csv
 
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-EXPERIMENTAL_PEER_PATCHES := $(sort $(wildcard wire/extracted_peer_experimental_*))
-EXPERIMENTAL_ONION_PATCHES := $(sort $(wildcard wire/extracted_onion_experimental_*))
+extract-peer-csv: wire/peer_wire.csv.raw
+	@set -e; T=wire/peer_wire.csv; trap "rm -f $$T.$$$$" 0; cp $< $$T.$$$$; for p in $(PEER_PATCHES); do echo APPLY $$p; patch $$T.$$$$ $$p; done; mv $$T.$$$$ $$T
 
-wire/peer_exp_wire.csv: wire/peer_wire.csv $(EXPERIMENTAL_PEER_PATCHES)
-	@set -e; trap "rm -f $@.$$$$" 0; cp $< $@.$$$$; for exp in $(EXPERIMENTAL_PEER_PATCHES); do patch $@.$$$$ $$exp >/dev/null ; done; mv $@.$$$$ $@
+extract-onion-csv: wire/onion_wire.csv.raw
+	@set -e; T=wire/onion_wire.csv; trap "rm -f $$T.$$$$" 0; cp $< $$T.$$$$; for p in $(ONION_PATCHES); do echo APPLY $$p; patch $$T.$$$$ $$p; done; mv $$T.$$$$ $$T
 
-wire/onion_exp_wire.csv: wire/onion_wire.csv $(EXPERIMENTAL_ONION_PATCHES)
-	@set -e; trap "rm -f $@.$$$$" 0; cp $< $@.$$$$; for exp in $(EXPERIMENTAL_ONION_PATCHES); do patch $@.$$$$ $$exp; done >/dev/null ; mv $@.$$$$ $@
-endif
+extract-bolt12-csv: wire/bolt12_wire.csv.raw
+	@set -e; T=wire/bolt12_wire.csv; trap "rm -f $$T.$$$$" 0; cp $< $$T.$$$$; for p in $(BOLT12_PATCHES); do echo APPLY $$p; patch $$T.$$$$ $$p; done; mv $$T.$$$$ $$T
+
+wire/peer_wire.csv.raw: bolt-precheck
+	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/0[127]*.md > $@
+
+wire/onion_wire.csv.raw: bolt-precheck
+	@(echo '#include <wire/onion_defs.h>'; $(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md) > $@
+
+wire/bolt12_wire.csv.raw: bolt-precheck
+	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/12*.md > $@
+
+# How to make the exp versions from non-exp versions:
+wire/peer_exp_wire.csv: wire/peer_wire.csv
+	@set -e; T=$@; trap "rm -f $$T.$$$$" 0; cp $< $$T.$$$$; for p in $(PEER_EXP_PATCHES); do echo APPLY $$p; patch $$T.$$$$ $$p; done; mv $$T.$$$$ $$T
+
+wire/onion_exp_wire.csv: wire/onion_wire.csv
+	@set -e; T=$@; trap "rm -f $$T.$$$$" 0; cp $< $$T.$$$$; for p in $(ONION_EXP_PATCHES); do echo APPLY $$p; patch $$T.$$$$ $$p; done; mv $$T.$$$$ $$T
+
+wire/bolt12_exp_wire.csv: wire/bolt12_wire.csv
+	@set -e; T=$@; trap "rm -f $$T.$$$$" 0; cp $< $$T.$$$$; for p in $(BOLT12_EXP_PATCHES); do echo APPLY $$p; patch $$T.$$$$ $$p; done; mv $$T.$$$$ $$T
+
+# These can be deleted.
+.INTERMEDIATE: wire/peer_wire.csv.raw wire/onion_wire.csv.raw wire/bolt12_wire.csv.raw
+
+# Explicit command to add patchfile for BOLT CSV's against current one.
+generate-bolt-csv-patch: bolt-precheck
+	@$(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/0[127]*.md | diff -u wire/peer$(EXP)_wire.csv - >wire/extracted_peer$(EXP)_$(BOLTVERSION).patch | if [ $$? -lt 0 ];then exit 1;fi; echo wire/extracted_peer$(EXP)_$(BOLTVERSION).patch
+	@{ echo '#include <wire/onion_defs.h>'; $(BOLT_EXTRACT) $(LOCAL_BOLTDIR)/04*.md; } | diff -u wire/onion$(EXP)_wire.csv - > wire/extracted_onion$(EXP)_$(BOLTVERSION).patch | if [ $$? -lt 0 ];then exit 1;fi; echo wire/extracted_onion$(EXP)_$(BOLTVERSION).patch
 
 # tlvs_n1 and n2 are used for test vectors, thus not referenced: expose them
 # for testing and to prevent compile error about them being unused.
