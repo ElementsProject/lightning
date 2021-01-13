@@ -1630,4 +1630,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
  	*htlc_maximum_msat = fromwire_amount_msat(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:7cb56bd1ecb24076a620bf103cd28fc31cd45a31e2d6e59a1fd1f2a742d520fd
+// SHA256STAMP:b2c31b272b7ada6d454bb530173e0f68d1f9274a17267f9a3ecb40cbf8ea478e
