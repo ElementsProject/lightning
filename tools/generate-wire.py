@@ -524,7 +524,7 @@ class Master(object):
         stuff = {}
         stuff['top_comments'] = self.top_comments
         stuff['options'] = options
-        stuff['idem'] = re.sub(r'[^A-Z]+', '_', options.header_filename.upper())
+        stuff['idem'] = re.sub(r'[^A-Z0-9]+', '_', options.header_filename.upper())
         stuff['header_filename'] = options.header_filename
         stuff['includes'] = self.inclusions
         stuff['enum_sets'] = enum_sets

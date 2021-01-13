@@ -1278,4 +1278,4 @@ bool fromwire_hsmd_sign_bolt12_reply(const void *p, struct bip340sig *sig)
  	fromwire_bip340sig(&cursor, &plen, sig);
 	return cursor != NULL;
 }
-// SHA256STAMP:bba9aa92e35397eb79f9518bbc058ccac4b51c3e48039f29205703f8bc20111e
+// SHA256STAMP:b419989953cbf50796fc237b5d7e2043f96cb838a1356dbdb27943b341f611a8
