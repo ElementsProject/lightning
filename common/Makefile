@@ -12,6 +12,7 @@ COMMON_SRC_NOGEN :=				\
 	common/bolt11.c				\
 	common/bolt11_json.c			\
 	common/bolt12.c				\
+	common/bolt12_merkle.c			\
 	common/channel_config.c			\
 	common/channel_id.c			\
 	common/coin_mvt.c			\
@@ -90,11 +91,6 @@ COMMON_SRC_NOGEN += common/blindedpath.c
 endif
 
 COMMON_SRC_GEN := common/status_wiregen.c common/peer_status_wiregen.c
-
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-COMMON_SRC_NOGEN += common/bolt12.c
-COMMON_SRC_NOGEN += common/bolt12_merkle.c
-endif
 
 COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/closing_fee.h				\

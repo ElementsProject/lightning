@@ -68,9 +68,6 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
-#if EXPERIMENTAL_FEATURES
-#include <wire/bolt12_exp_wiregen.h>
-#endif
 #include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 

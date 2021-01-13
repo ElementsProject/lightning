@@ -1,7 +1,11 @@
 #ifndef LIGHTNING_COMMON_BOLT12_H
 #define LIGHTNING_COMMON_BOLT12_H
 #include "config.h"
+#if EXPERIMENTAL_FEATURES
 #include <wire/bolt12_exp_wiregen.h>
+#else
+#include <wire/bolt12_wiregen.h>
+#endif
 
 struct feature_set;
 
