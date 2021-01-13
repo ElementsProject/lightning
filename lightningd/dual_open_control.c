@@ -1601,6 +1601,85 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 				     channel->psbt);
 }
 
+static void handle_validate_rbf(struct subd *dualopend,
+				const u8 *msg)
+{
+	struct wally_psbt *candidate_psbt;
+	struct channel_inflight *inflight;
+	struct channel *channel = dualopend->channel;
+	struct wally_psbt *set_psbt;
+
+	if (!fromwire_dualopend_rbf_validate(tmpctx, msg,
+					     &candidate_psbt)) {
+		channel_internal_error(channel,
+				       "Malformed dualopend_rbf_validate %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	/* Iterate through all previous inflights, confirm
+	 * that at least one input is in all proposed RBFs, including
+	 * this one. */
+	inflight = list_top(&channel->inflights, struct channel_inflight, list);
+	set_psbt = clone_psbt(NULL, inflight->funding_psbt);
+
+	/* Check all previous funding transactions */
+	list_for_each(&channel->inflights, inflight, list) {
+		/* Remove every non-matching input from set */
+		for (size_t i = set_psbt->num_inputs; i > 0; i--) {
+			struct wally_tx_input *input =
+				&set_psbt->tx->inputs[i - 1];
+			struct bitcoin_txid in_txid;
+
+			wally_tx_input_get_txid(input, &in_txid);
+
+			if (!psbt_has_input(inflight->funding_psbt,
+					    &in_txid, input->index))
+				psbt_rm_input(set_psbt, i - 1);
+		}
+	}
+
+	/* Finally, let's check the candidate psbt */
+	for (size_t i = set_psbt->num_inputs; i > 0; i--) {
+		struct wally_tx_input *input = &set_psbt->tx->inputs[i - 1];
+		struct bitcoin_txid in_txid;
+
+		wally_tx_input_get_txid(input, &in_txid);
+
+		if (!psbt_has_input(candidate_psbt, &in_txid, input->index))
+			psbt_rm_input(set_psbt, i - 1);
+	}
+
+	/* Are there any inputs that were present on all txs? */
+	if (set_psbt->num_inputs == 0) {
+		char *errmsg;
+
+		inflight = list_tail(&channel->inflights,
+				     struct channel_inflight,
+				     list);
+		assert(inflight);
+
+		errmsg = tal_fmt(tmpctx, "No overlapping input"
+				 " present. New: %s, last: %s",
+				 type_to_string(tmpctx,
+						struct wally_psbt,
+						candidate_psbt),
+				 type_to_string(tmpctx,
+						struct wally_psbt,
+						inflight->funding_psbt));
+		msg = towire_dualopend_fail(NULL, errmsg);
+		goto send_msg;
+	}
+
+	/* FIXME: check that total fee paid is greater than last */
+
+	msg = towire_dualopend_rbf_valid(NULL);
+
+send_msg:
+	subd_send_msg(channel->owner, take(msg));
+	tal_free(set_psbt);
+}
+
 
 static struct command_result *
 json_openchannel_signed(struct command *cmd,
@@ -1953,6 +2032,9 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 				accepter_commit_received(dualopend,
 							 uc, fds, msg);
 			return 0;
+		case WIRE_DUALOPEND_RBF_VALIDATE:
+			handle_validate_rbf(dualopend, msg);
+			return 0;
 		case WIRE_DUALOPEND_FUNDING_SIGS:
 			handle_peer_tx_sigs_msg(dualopend, msg);
 			return 0;
@@ -1993,6 +2075,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_OPENER_INIT:
 		case WIRE_DUALOPEND_GOT_OFFER_REPLY:
 		case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
+		case WIRE_DUALOPEND_RBF_VALID:
 		case WIRE_DUALOPEND_FAIL:
 		case WIRE_DUALOPEND_PSBT_UPDATED:
 		case WIRE_DUALOPEND_SEND_TX_SIGS:
