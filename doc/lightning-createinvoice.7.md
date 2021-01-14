@@ -13,7 +13,9 @@ The **createinvoice** RPC command signs and saves an invoice into the
 database.
 
 The *invstring* parameter is of bolt11 form, but without the final
-signature appended.  Minimal sanity checks are done.
+signature appended.  Minimal sanity checks are done.  (Note: if
+**experimental-offers** is enabled, *invstring* can actually be an
+unsigned bolt12 invoice).
 
 The *label* must be a unique string or number (which is treated as a
 string, so "01" is different from "1"); it is never revealed to other

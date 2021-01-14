@@ -4,7 +4,7 @@ lightning-fetchinvoice -- Command for fetch an invoice for an offer
 SYNOPSIS
 --------
 
-*EXPERIMENTAL_FEATURES only*
+**(WARNING: experimental-offers only)**
 
 **fetchinvoice** *offer* \[*msatoshi*\] \[*quantity*\] \[*recurrence_counter*\] \[*recurrence_start*\] \[*recurrence_label*\] \[*timeout*\]
 

@@ -4,7 +4,7 @@ lightning-sendinvoice -- Command for send an invoice for an offer
 SYNOPSIS
 --------
 
-*EXPERIMENTAL_FEATURES only*
+**(WARNING: experimental-offers only)**
 
 **sendinvoice** *offer* \[*label*\] \[*msatoshi*\] \[*timeout*\] \[*quantity*\]
 

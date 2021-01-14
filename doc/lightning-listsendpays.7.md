@@ -50,6 +50,10 @@ optional *label*, if provided to *sendpay*.
 the *bolt11* argument given to *pay* (may be missing for pre-0.7
 payments).
 
+ *bolt12*
+if **experimental-offers** is enabled, and `pay` was a given a bolt12
+invoice, this field will appear instead of *bolt11*.
+
 AUTHOR
 ------
 

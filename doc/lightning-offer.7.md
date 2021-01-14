@@ -4,7 +4,7 @@ lightning-offer -- Command for accepting payments
 SYNOPSIS
 --------
 
-*EXPERIMENTAL_FEATURES only*
+**(WARNING: experimental-offers only)**
 
 **offer** *amount* *description* \[*vendor*\] \[*label*\] \[*quantity_min*\] \[*quantity_max*\] \[*absolute_expiry*\] \[*recurrence*\] \[*recurrence_base*\] \[*recurrence_paywindow*\] \[*recurrence_limit*\] \[*single_use*\]
 

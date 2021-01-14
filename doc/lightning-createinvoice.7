@@ -12,7 +12,9 @@ database\.
 
 
 The \fIinvstring\fR parameter is of bolt11 form, but without the final
-signature appended\.  Minimal sanity checks are done\.
+signature appended\.  Minimal sanity checks are done\.  (Note: if
+\fBexperimental-offers\fR is enabled, \fIinvstring\fR can actually be an
+unsigned bolt12 invoice)\.
 
 
 The \fIlabel\fR must be a unique string or number (which is treated as a
@@ -57,4 +59,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:e9abfb1d376a1a5103cb4da2ce7d9d79d0ad6e23683ab1d68423ea4ea4a99f2f
+\" SHA256STAMP:155724c3e3130ed7f96d50a37dff99711dfcb4056c57d7eeb488fdb2b7925839

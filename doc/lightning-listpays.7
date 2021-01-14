@@ -19,6 +19,11 @@ On success, an array of objects is returned\. Each object contains:
 the \fIbolt11\fR invoice if provided to \fBpay\fR\.
 
 
+ \fIbolt12\fR
+if \fBexperimental-offers\fR is enabled, and \fBpay\fR was a given a bolt12
+invoice, this field will appear instead of \fIbolt11\fR\.
+
+
  \fIpayment_hash\fR
 the \fIpayment_hash\fR of the payment\.
 
@@ -69,4 +74,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:539b2a0dccaeda10b0e663217ee80f41561a79ee90b7c6eff2aed388096d7ecb
+\" SHA256STAMP:5a0e016e18f52ce18484d064c3e659aca2687eeafca4b4365e3037faa1fba53f
