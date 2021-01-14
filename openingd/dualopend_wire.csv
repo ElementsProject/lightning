@@ -102,13 +102,13 @@ msgdata,dualopend_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len
 # dualopend->master: they offered a RBF, should we continue?
 msgtype,dualopend_got_rbf_offer,7500
 msgdata,dualopend_got_rbf_offer,channel_id,channel_id,
-msgdata,dualopend_got_rbf_offer,opener_funding,amount_sat,
+msgdata,dualopend_got_rbf_offer,their_funding,amount_sat,
 msgdata,dualopend_got_rbf_offer,funding_feerate_per_kw,u32,
 msgdata,dualopend_got_rbf_offer,locktime,u32,
 
 # master->dualopend: reply back with our funding info/contribs
 msgtype,dualopend_got_rbf_offer_reply,7505
-msgdata,dualopend_got_rbf_offer_reply,accepter_funding,amount_sat,
+msgdata,dualopend_got_rbf_offer_reply,our_funding,amount_sat,
 msgdata,dualopend_got_rbf_offer_reply,psbt,wally_psbt,
 
 # dualopend->master: is this a valid RBF candidate transaction?

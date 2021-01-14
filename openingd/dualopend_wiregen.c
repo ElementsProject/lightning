@@ -365,19 +365,19 @@ bool fromwire_dualopend_got_offer_reply(const tal_t *ctx, const void *p, struct 
 
 /* WIRE: DUALOPEND_GOT_RBF_OFFER */
 /* dualopend->master: they offered a RBF */
-u8 *towire_dualopend_got_rbf_offer(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat opener_funding, u32 funding_feerate_per_kw, u32 locktime)
+u8 *towire_dualopend_got_rbf_offer(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat their_funding, u32 funding_feerate_per_kw, u32 locktime)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
 	towire_u16(&p, WIRE_DUALOPEND_GOT_RBF_OFFER);
 	towire_channel_id(&p, channel_id);
-	towire_amount_sat(&p, opener_funding);
+	towire_amount_sat(&p, their_funding);
 	towire_u32(&p, funding_feerate_per_kw);
 	towire_u32(&p, locktime);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dualopend_got_rbf_offer(const void *p, struct channel_id *channel_id, struct amount_sat *opener_funding, u32 *funding_feerate_per_kw, u32 *locktime)
+bool fromwire_dualopend_got_rbf_offer(const void *p, struct channel_id *channel_id, struct amount_sat *their_funding, u32 *funding_feerate_per_kw, u32 *locktime)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
@@ -385,7 +385,7 @@ bool fromwire_dualopend_got_rbf_offer(const void *p, struct channel_id *channel_
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_GOT_RBF_OFFER)
 		return false;
  	fromwire_channel_id(&cursor, &plen, channel_id);
- 	*opener_funding = fromwire_amount_sat(&cursor, &plen);
+ 	*their_funding = fromwire_amount_sat(&cursor, &plen);
  	*funding_feerate_per_kw = fromwire_u32(&cursor, &plen);
  	*locktime = fromwire_u32(&cursor, &plen);
 	return cursor != NULL;
@@ -393,24 +393,24 @@ bool fromwire_dualopend_got_rbf_offer(const void *p, struct channel_id *channel_
 
 /* WIRE: DUALOPEND_GOT_RBF_OFFER_REPLY */
 /* master->dualopend: reply back with our funding info/contribs */
-u8 *towire_dualopend_got_rbf_offer_reply(const tal_t *ctx, struct amount_sat accepter_funding, const struct wally_psbt *psbt)
+u8 *towire_dualopend_got_rbf_offer_reply(const tal_t *ctx, struct amount_sat our_funding, const struct wally_psbt *psbt)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
 	towire_u16(&p, WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY);
-	towire_amount_sat(&p, accepter_funding);
+	towire_amount_sat(&p, our_funding);
 	towire_wally_psbt(&p, psbt);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dualopend_got_rbf_offer_reply(const tal_t *ctx, const void *p, struct amount_sat *accepter_funding, struct wally_psbt **psbt)
+bool fromwire_dualopend_got_rbf_offer_reply(const tal_t *ctx, const void *p, struct amount_sat *our_funding, struct wally_psbt **psbt)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
 
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY)
 		return false;
- 	*accepter_funding = fromwire_amount_sat(&cursor, &plen);
+ 	*our_funding = fromwire_amount_sat(&cursor, &plen);
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
@@ -966,4 +966,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:e514a16cf96dfcaf44217cf344ce75e2b8cbcb460901c610d9b75e22937636cd
+// SHA256STAMP:0f0daed93a4de2552ca122b969c4ac215ab89e3d5babc727b963fcf02f85980d
