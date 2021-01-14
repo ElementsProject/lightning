@@ -957,6 +957,11 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 	struct peer *peer = payload->peer;
 	u8 *error;
 
+	/* Whatever happens, we free payload (it's currently a child
+	 * of the peer, which may be freed if we fail to start
+	 * subd). */
+	tal_steal(tmpctx, payload);
+
 	/* If we had a hook, interpret result. */
 	if (buffer) {
 		const jsmntok_t *resulttok;
@@ -977,7 +982,6 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 							buffer + m->start);
 				goto send_error;
 			}
-			tal_free(payload);
 			return;
 		} else if (!json_tok_streq(buffer, resulttok, "continue"))
 			fatal("Plugin returned an invalid response to the connected "
@@ -1031,7 +1035,6 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 			peer_restart_dualopend(peer, payload->pps,
 				               channel, NULL);
 
-			tal_free(payload);
 			return;
 #else
 			abort();
@@ -1044,7 +1047,6 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 			channel->peer->addr = addr;
 			peer_start_channeld(channel, payload->pps,
 					    NULL, true);
-			tal_free(payload);
 			return;
 
 		case CLOSINGD_SIGEXCHANGE:
@@ -1053,7 +1055,6 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 			channel->peer->addr = addr;
 			peer_start_closingd(channel, payload->pps,
 					    true, NULL);
-			tal_free(payload);
 			return;
 		}
 		abort();
@@ -1084,7 +1085,6 @@ send_error:
 	} else
 #endif /* EXPERIMENTAL_FEATURES */
 		peer_start_openingd(peer, payload->pps, error);
-	tal_free(payload);
 }
 
 REGISTER_SINGLE_PLUGIN_HOOK(peer_connected,
