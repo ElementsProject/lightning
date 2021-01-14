@@ -602,6 +602,11 @@ static struct command_result *send_message(struct command *cmd,
 		}
 	}
 
+	/* FIXME: Maybe we should allow this? */
+	if (tal_bytelen(backwards) == 0)
+		return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
+				    "Refusing to talk to ourselves");
+
 	/* Ok, now make reply for onion_message */
 	path = make_blindedpath(tmpctx, backwards, &blinding,
 				&sent->reply_blinding);
