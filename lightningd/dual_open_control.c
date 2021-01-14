@@ -479,7 +479,8 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 	} else if (!json_tok_streq(buffer, t_result, "continue"))
 		fatal("Plugin returned an invalid response to the"
 		      " openchannel2 hook: %.*s",
-		      toks[0].end - toks[0].start, buffer + toks[0].start);
+		      json_tok_full_len(toks),
+		      json_tok_full(buffer, toks));
 
 	if (!hook_extract_psbt(payload, dualopend, buffer, toks,
 			       "openchannel2", true, &payload->psbt))
