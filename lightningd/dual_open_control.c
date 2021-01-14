@@ -56,6 +56,45 @@ static void handle_signed_psbt(struct lightningd *ld,
 		      take(towire_dualopend_send_tx_sigs(NULL, psbt)));
 }
 
+struct rbf_channel_payload {
+	struct subd *dualopend;
+	struct node_id peer_id;
+
+	/* Info specific to this RBF */
+	struct channel_id channel_id;
+	struct amount_sat their_funding;
+	u32 funding_feerate_per_kw;
+	u32 locktime;
+
+	/* General info */
+	u32 feerate_our_max;
+	u32 feerate_our_min;
+
+	/* Returned from hook */
+	struct amount_sat our_funding;
+	struct wally_psbt *psbt;
+	char *err_msg;
+};
+
+static void
+rbf_channel_hook_serialize(struct rbf_channel_payload *payload,
+			   struct json_stream *stream)
+{
+	json_object_start(stream, "rbf_channel");
+	json_add_node_id(stream, "id", &payload->peer_id);
+	json_add_channel_id(stream, "channel_id", &payload->channel_id);
+	json_add_amount_sat_only(stream, "their_funding",
+				 payload->their_funding);
+	json_add_num(stream, "locktime", payload->locktime);
+	json_add_num(stream, "feerate_our_max",
+		     payload->feerate_our_max);
+	json_add_num(stream, "feerate_our_min",
+		     payload->feerate_our_min);
+	json_add_num(stream, "funding_feerate_per_kw",
+		     payload->funding_feerate_per_kw);
+	json_object_end(stream);
+}
+
 /* ~Map of the Territory~
  *
  * openchannel hook
@@ -347,6 +386,141 @@ static bool psbt_side_contribs_changed(struct wally_psbt *orig,
 	CHECK_CHANGES(cs->rm_outs, output);
 
 	return false;
+}
+
+static void rbf_channel_remove_dualopend(struct subd *dualopend,
+					 struct rbf_channel_payload *payload)
+{
+	assert(payload->dualopend == dualopend);
+	payload->dualopend = NULL;
+}
+
+static void rbf_channel_hook_cb(struct rbf_channel_payload *payload STEALS)
+{
+	struct subd *dualopend = payload->dualopend;
+	struct channel *channel;
+	u8 *msg;
+
+	tal_steal(tmpctx, payload);
+
+	if (!dualopend)
+		return;
+
+	assert(dualopend->ctype == CHANNEL);
+	channel = dualopend->channel;
+
+	tal_del_destructor2(dualopend, rbf_channel_remove_dualopend, payload);
+
+	if (channel->state != DUALOPEND_AWAITING_LOCKIN) {
+		log_debug(channel->log,
+			  "rbf_channel hook returned, but channel in state"
+			  " %s", channel_state_name(channel));
+		msg = towire_dualopend_fail(NULL, "Peer error. Channel"
+					    " not ready for RBF attempt.");
+		return subd_send_msg(dualopend, take(msg));
+	}
+
+	if (payload->err_msg) {
+		log_debug(channel->log,
+			  "rbf_channel hook rejects and says '%s'",
+			  payload->err_msg);
+		msg = towire_dualopend_fail(NULL, payload->err_msg);
+		return subd_send_msg(dualopend, take(msg));
+	}
+
+	/* Update channel info for "inflight" attempt.
+	 * Note that an 'inflight' doesn't get created
+	 * until *after* we've completed the tx_sigs exchange */
+	// FIXME: reinstitute the uc?? but where??
+	//struct uncommitted_channel *uc;
+	msg = towire_dualopend_got_rbf_offer_reply(NULL,
+						   payload->our_funding,
+						   payload->psbt);
+	subd_send_msg(dualopend, take(msg));
+}
+
+
+
+static bool
+rbf_channel_hook_deserialize(struct rbf_channel_payload *payload,
+			     const char *buffer,
+			     const jsmntok_t *toks)
+{
+	struct subd *dualopend = payload->dualopend;
+	struct channel *channel;
+
+	if (!dualopend) {
+		tal_free(dualopend);
+		return false;
+	}
+
+	assert(dualopend->ctype == CHANNEL);
+	channel = dualopend->channel;
+
+	/* FIXME: move to new json extraction */
+	const jsmntok_t *t_result = json_get_member(buffer, toks, "result");
+	if (!t_result)
+		fatal("Plugin returned an invalid response to the"
+		      " rbf_channel hook: %.*s",
+		      json_tok_full_len(toks),
+		      json_tok_full(buffer, toks));
+
+	if (json_tok_streq(buffer, t_result, "reject")) {
+		if (json_get_member(buffer, toks, "psbt"))
+			fatal("Plugin rejected rbf_channel but"
+			      " also set `psbt`");
+		if (json_get_member(buffer, toks, "our_funding_msat"))
+			fatal("Plugin rejected rbf_channel but"
+			      " also set `our_funding_msat`");
+
+		const jsmntok_t *t_errmsg = json_get_member(buffer, toks,
+							    "error_message");
+		if (t_errmsg)
+			payload->err_msg = json_strdup(payload, buffer,
+						       t_errmsg);
+		else
+			payload->err_msg = "";
+
+		rbf_channel_hook_cb(payload);
+		return false;
+	} else if (!json_tok_streq(buffer, t_result, "continue"))
+		fatal("Plugin returned invalid response to rbf_channel hook:"
+		      " %.*s", json_tok_full_len(toks),
+		      json_tok_full(buffer, toks));
+
+	if (!hook_extract_psbt(payload, dualopend, buffer, toks,
+			       "rbf_channel", true, &payload->psbt))
+		return false;
+
+	if (payload->psbt) {
+		enum tx_role our_role = channel->opener == LOCAL ?
+					TX_INITIATOR : TX_ACCEPTER;
+		psbt_add_serials(payload->psbt, our_role);
+	}
+
+	if (payload->psbt && !psbt_has_required_fields(payload->psbt))
+		fatal("Plugin supplied PSBT that's missing"
+		      " required fields: %s",
+		      type_to_string(tmpctx, struct wally_psbt,
+				     payload->psbt));
+	if (!hook_extract_amount(dualopend, buffer, toks,
+				 "our_funding_msat", &payload->our_funding))
+		fatal("Plugin failed to supply our_funding_msat field");
+
+	if (!payload->psbt &&
+		!amount_sat_eq(payload->our_funding, AMOUNT_SAT(0))) {
+
+		log_broken(channel->log, "`our_funding_msat` returned"
+			   " but no `psbt` present. %.*s",
+			   json_tok_full_len(toks),
+			   json_tok_full(buffer, toks));
+
+		payload->err_msg = "Client error. Unable to continue";
+		rbf_channel_hook_cb(payload);
+		return false;
+	}
+
+	return true;
 }
 
 /* dualopend dies?  Remove dualopend ptr from payload */
@@ -671,6 +845,12 @@ REGISTER_PLUGIN_HOOK(openchannel2_sign,
 		     openchannel2_sign_hook_cb,
 		     openchannel2_sign_hook_serialize,
 		     struct openchannel2_psbt_payload *);
+
+REGISTER_PLUGIN_HOOK(rbf_channel,
+		     rbf_channel_hook_deserialize,
+		     rbf_channel_hook_cb,
+		     rbf_channel_hook_serialize,
+		     struct rbf_channel_payload *);
 
 /* Steals fields from uncommitted_channel: returns NULL if can't generate a
  * key for this channel (shouldn't happen!). */
@@ -1467,6 +1647,46 @@ static void accepter_psbt_changed(struct subd *dualopend,
 	plugin_hook_call_openchannel2_changed(dualopend->ld, payload);
 }
 
+static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
+{
+	/* We expect the channel to still exist?! */
+	struct channel *channel;
+	struct rbf_channel_payload *payload;
+
+	assert(dualopend->ctype == CHANNEL);
+	channel = dualopend->channel;
+
+	payload = tal(dualopend, struct rbf_channel_payload);
+	payload->dualopend = dualopend;
+
+	if (!fromwire_dualopend_got_rbf_offer(msg,
+					      &payload->channel_id,
+					      &payload->their_funding,
+					      &payload->funding_feerate_per_kw,
+					      &payload->locktime)) {
+		log_broken(channel->log, "Malformed dualopend_got_rbf_offer %s",
+			   tal_hex(msg, msg));
+		// FIXME: is this the right thing to do here?
+		tal_free(dualopend);
+		return;
+	}
+
+	/* Fill in general channel info from channel */
+	payload->peer_id = channel->peer->id;
+	payload->feerate_our_max = feerate_max(dualopend->ld, NULL);
+	payload->feerate_our_min = feerate_min(dualopend->ld, NULL);
+
+	/* Set our contributions to empty, in case there is no plugin */
+	payload->our_funding = AMOUNT_SAT(0);
+	payload->psbt = NULL;
+
+	/* No error message known (yet) */
+	payload->err_msg = NULL;
+
+	tal_add_destructor2(dualopend, rbf_channel_remove_dualopend, payload);
+	plugin_hook_call_rbf_channel(dualopend->ld, payload);
+}
+
 static void accepter_got_offer(struct subd *dualopend,
 			       struct uncommitted_channel *uc,
 			       const u8 *msg)
@@ -2030,7 +2250,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 			accepter_got_offer(dualopend, uc, msg);
 			return 0;
 		case WIRE_DUALOPEND_GOT_RBF_OFFER:
-			// FIXME: do this
+			rbf_got_offer(dualopend, msg);
 			return 0;
 		case WIRE_DUALOPEND_PSBT_CHANGED:
 			if (uc->fc) {
