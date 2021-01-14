@@ -1983,7 +1983,10 @@ def test_setchannelfee_state(node_factory, bitcoind):
     DEF_BASE = 0
     DEF_PPM = 0
 
-    l0, l1, l2 = node_factory.get_nodes(3, opts={'fee-base': DEF_BASE, 'fee-per-satoshi': DEF_PPM})
+    l0, l1, l2 = node_factory.get_nodes(3, opts={
+        'fee-base': DEF_BASE,
+        'fee-per-satoshi': DEF_PPM
+    })
 
     # connection and funding
     l0.rpc.connect(l1.info['id'], 'localhost', l1.port)
@@ -1999,6 +2002,8 @@ def test_setchannelfee_state(node_factory, bitcoind):
 
     # test routing correct new fees once routing is established
     bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l0, l1, l2])
+
     l0.wait_for_route(l2)
     inv = l2.rpc.invoice(100000, 'test_setchannelfee_state', 'desc')['bolt11']
     result = l0.rpc.dev_pay(inv, use_shadow=False)
