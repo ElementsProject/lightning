@@ -1,0 +1,45 @@
+.TH "LIGHTNING-SENDONIONMESSAGE" "7" "" "" "lightning-sendonionmessage"
+.SH NAME
+lightning-sendonionmessage - low-level command to send an onion message
+.SH SYNOPSIS
+
+\fB(WARNING: experimental-onion-messages only)\fR
+
+
+\fBsendonionmessage\fR \fIhops\fR [\fIreply_path\fR]
+
+.SH DESCRIPTION
+
+The \fBsendonionmessage\fR RPC command can be used to send a message via
+the lightning network\.  These are currently used by \fIoffers\fR to request
+and receive invoices\.
+
+
+\fIhops\fR is an array of json objects: \fIid\fR as a public key of the node,
+and either \fIrawtlv\fR containing a hexidecimal TLV to include, or any of
+the fields \fIshort_channel_id\fR, \fIblinding\fR, \fIenctlv\fR, \fIinvoice\fR,
+\fIinvoice_request\fR and \fIinvoice_error\fR to construct the onionmessage
+TLV with\.
+
+
+\fIreply_path\fR is a json object, containing a pubkey \fIblinding\fR, and an
+array \fIpath\fR of objects containing \fIid\fR (a pubkey) and \fIenctlv\fR (a hex
+value, optional for final element)\.
+
+.SH RETURN VALUE
+
+On success, an empty JSON object is returned\.
+
+.SH AUTHOR
+
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-fetchinvoice\fR(7), \fBlightning-offer\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:680e0897d06c217e868bbc5b3985dec975d1af37dfd9fd0b91f5e1d9c651b687

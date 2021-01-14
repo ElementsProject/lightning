@@ -54,6 +54,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-reserveinputs.7 \
 	doc/lightning-sendinvoice.7 \
 	doc/lightning-sendonion.7 \
+	doc/lightning-sendonionmessage.7 \
 	doc/lightning-sendpay.7 \
 	doc/lightning-setchannelfee.7 \
 	doc/lightning-signmessage.7 \

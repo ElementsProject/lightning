@@ -84,6 +84,7 @@ c-lightning Documentation
    lightning-reserveinputs <lightning-reserveinputs.7.md>
    lightning-sendinvoice <lightning-sendinvoice.7.md>
    lightning-sendonion <lightning-sendonion.7.md>
+   lightning-sendonionmessage <lightning-sendonionmessage.7.md>
    lightning-sendpay <lightning-sendpay.7.md>
    lightning-sendpsbt <lightning-sendpsbt.7.md>
    lightning-setchannelfee <lightning-setchannelfee.7.md>
