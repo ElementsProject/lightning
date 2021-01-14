@@ -858,11 +858,13 @@ static void register_opts(struct lightningd *ld)
 				 opt_set_wumbo, ld,
 				 "Allow channels larger than 0.16777215 BTC");
 
+#if EXPERIMENTAL_FEATURES
 	opt_register_early_noarg("--experimental-dual-fund",
 				 opt_set_dual_fund, ld,
 				 "experimental: Advertise dual-funding"
 				 " and allow peers to establish channels"
 				 " via v2 channel open protocol");
+#endif
 
 	/* This affects our features, so set early. */
 	opt_register_early_noarg("--experimental-onion-messages",
