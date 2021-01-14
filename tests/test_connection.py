@@ -1123,6 +1123,10 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     # Check that can still cancel when peer is disconnected
     l1.rpc.disconnect(l2.info['id'], force=True)
     wait_for(lambda: not only_one(l1.rpc.listpeers()['peers'])['connected'])
+
+    wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state']
+             == 'CHANNELD_AWAITING_LOCKIN')
+
     assert l1.rpc.fundchannel_cancel(l2.info['id'])['cancelled']
     assert len(l1.rpc.listpeers()['peers']) == 0
 
