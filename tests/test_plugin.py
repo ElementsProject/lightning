@@ -774,7 +774,7 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
     assert(event2['cause'] == "remote")
     assert(event2['message'] == "Closing complete")
 
-    bitcoind.generate_block(100)  # so it gets settled
+    bitcoind.generate_block(100, wait_for_mempool=1)  # so it gets settled
 
     event1 = wait_for_event(l1)
     assert(event1['old_state'] == "CLOSINGD_COMPLETE")
