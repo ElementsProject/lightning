@@ -20,6 +20,10 @@ On success, an array of objects is returned. Each object contains:
  *bolt11*
 the *bolt11* invoice if provided to `pay`.
 
+ *bolt12*
+if **experimental-offers** is enabled, and `pay` was a given a bolt12
+invoice, this field will appear instead of *bolt11*.
+
  *payment_hash*
 the *payment_hash* of the payment.
 

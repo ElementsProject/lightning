@@ -4,7 +4,8 @@ lightning-offerout -- Command for offering payments
 SYNOPSIS
 --------
 
-*EXPERIMENTAL_FEATURES only*
+**(WARNING: experimental-offers only)**
+
 
 **offerout** *amount* *description* \[*vendor*\] \[*label*\] \[*absolute_expiry*\] \[*refund_for*\]
 

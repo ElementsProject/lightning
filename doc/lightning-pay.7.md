@@ -18,6 +18,9 @@ whole number, or a whole number with suffix *msat* or *sat*, or a three
 decimal point number with suffix *sat*, or an 1 to 11 decimal point
 number suffixed by *btc*.
 
+(Note: if **experimental-offers** is enabled, *bolt11* can actually be
+a bolt12 invoice, such as one received from lightningd-fetchinvoice(7)).
+
 The *label* field is used to attach a label to payments, and is returned
 in lightning-listpays(7) and lightning-listsendpays(7). The *riskfactor*
 is described in detail in lightning-getroute(7), and defaults to 10. The

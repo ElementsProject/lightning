@@ -4,7 +4,7 @@ lightning-decode -- Command for decoding an invoice string (low-level)
 SYNOPSIS
 --------
 
-*EXPERIMENTAL_FEATURES only*
+**(WARNING: experimental-offers only)**
 
 **decode** *string*
 
