@@ -1224,6 +1224,43 @@ This will ensure backward
 compatibility should the semantics be changed in future.
 
 
+### `onion_message` and `onion_message_blinded`
+
+**(WARNING: experimental-offers only)**
+
+These two hooks are almost identical, in that they are called when an
+onion message is received.  The former is only used for unblinded
+messages (where the source knows that it is sending to this node), and
+the latter for blinded messages (where the source doesn't know that
+this node is the destination).  The latter hook will have a
+"blinding_in" field, the former never will.
+
+These hooks are separate, because blinded messages must ensure the
+sender used the correct "blinding_in", otherwise it should ignore the
+message: this avoids the source trying to probe for responses without
+using the designated delivery path.
+
+The payload for a call follows this format:
+
+```json
+{
+    "onion_message": {
+        "blinding_in": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+		"reply_path": [ {"id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+                         "enctlv": "0a020d0d",
+                         "blinding": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f"} ],
+        "invoice_request": "0a020d0d",
+		"invoice": "0a020d0d",
+		"invoice_error": "0a020d0d",
+		"unknown_fields": [ {"number": 12345, "value": "0a020d0d"} ]
+	}
+}
+```
+
+All fields shown here are optional.
+
+We suggest just returning `{'result': 'continue'}`; any other result
+will cause the message not to be handed to any other hooks.
 
 ## Bitcoin backend
 
