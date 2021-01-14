@@ -949,6 +949,7 @@ def test_funding_toolarge(node_factory, bitcoind):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual-funding is experimental only")
+@unittest.skipIf(not DEVELOPER, "Requires --dev-force-features")
 def test_v2_open(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
                                     opts=[{'dev-force-features': '+223'},
