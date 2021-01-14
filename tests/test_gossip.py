@@ -426,8 +426,9 @@ def test_gossip_persistence(node_factory, bitcoind):
     # Now spend the funding tx, generate a block and see others deleting the
     # channel from their network view
     l1.rpc.dev_fail(l2.info['id'])
-    time.sleep(1)
-    bitcoind.generate_block(1)
+
+    # We need to wait for the unilateral close to hit the mempool
+    bitcoind.generate_block(1, wait_for_mempool=1)
 
     wait_for(lambda: active(l1) == [scid23, scid23])
     wait_for(lambda: active(l2) == [scid23, scid23])
