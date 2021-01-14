@@ -108,13 +108,13 @@ bool fromwire_dualopend_got_offer_reply(const tal_t *ctx, const void *p, struct 
 
 /* WIRE: DUALOPEND_GOT_RBF_OFFER */
 /*  dualopend->master: they offered a RBF */
-u8 *towire_dualopend_got_rbf_offer(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat opener_funding, u32 funding_feerate_per_kw, u32 locktime);
-bool fromwire_dualopend_got_rbf_offer(const void *p, struct channel_id *channel_id, struct amount_sat *opener_funding, u32 *funding_feerate_per_kw, u32 *locktime);
+u8 *towire_dualopend_got_rbf_offer(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat their_funding, u32 funding_feerate_per_kw, u32 locktime);
+bool fromwire_dualopend_got_rbf_offer(const void *p, struct channel_id *channel_id, struct amount_sat *their_funding, u32 *funding_feerate_per_kw, u32 *locktime);
 
 /* WIRE: DUALOPEND_GOT_RBF_OFFER_REPLY */
 /*  master->dualopend: reply back with our funding info/contribs */
-u8 *towire_dualopend_got_rbf_offer_reply(const tal_t *ctx, struct amount_sat accepter_funding, const struct wally_psbt *psbt);
-bool fromwire_dualopend_got_rbf_offer_reply(const tal_t *ctx, const void *p, struct amount_sat *accepter_funding, struct wally_psbt **psbt);
+u8 *towire_dualopend_got_rbf_offer_reply(const tal_t *ctx, struct amount_sat our_funding, const struct wally_psbt *psbt);
+bool fromwire_dualopend_got_rbf_offer_reply(const tal_t *ctx, const void *p, struct amount_sat *our_funding, struct wally_psbt **psbt);
 
 /* WIRE: DUALOPEND_RBF_VALIDATE */
 /*  dualopend->master: is this a valid RBF candidate transaction? */
@@ -223,4 +223,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:e514a16cf96dfcaf44217cf344ce75e2b8cbcb460901c610d9b75e22937636cd
+// SHA256STAMP:0f0daed93a4de2552ca122b969c4ac215ab89e3d5babc727b963fcf02f85980d
