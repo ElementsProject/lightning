@@ -525,6 +525,9 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 	if (!payload->psbt &&
 		!amount_sat_eq(payload->accepter_funding, AMOUNT_SAT(0))) {
 		/* Gotta give a PSBT if you set the accepter_funding amount */
+		/* Let dualopend know we've failed */
+		payload->err_msg = "Client error. Unable to continue";
+		openchannel2_hook_cb(payload);
 		return false;
 	}
 
