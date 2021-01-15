@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v0.9.3rc1] - 2021-01-10
+## [0.9.3rc2] - 2021-01-15
 
 ### Added
 
@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - pyln: Added support for command notifications to LightningRpc via the `notify` context-manager. ([#4311])
  - pyln: Plugin methods can now report progress or status via the `Request.notify` function ([#4311])
  - pyln: plugins can now raise RpcException for finer control over error returns. ([#4279])
+ - experimental-offers: enables fetch, payment and creation of (early draft) offers. ([#4328])
+ - libplugin: init can return a non-NULL string to disable the plugin. ([#4328])
+ - plugins: plugins can now disable themselves by returning `disable`, even if marked important. ([#4328])
+ - experimental-onion-messages enables send, receive and relay of onion messages. ([#4328])
 
 ### Changed
 
@@ -96,6 +100,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#4278]: https://github.com/ElementsProject/lightning/pull/4278
 [#4243]: https://github.com/ElementsProject/lightning/pull/4243
 [#4282]: https://github.com/ElementsProject/lightning/pull/4282
+[#4328]: https://github.com/ElementsProject/lightning/pull/4328
 [v0.9.3rc1]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.3rc1
 
 
