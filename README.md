@@ -15,6 +15,7 @@ c-lightning is a lightweight, highly customizable and [standard compliant][std] 
     * [Pruning](#pruning)
     * [HD wallet encryption](#hd-wallet-encryption)
 	* [Developers](#developers)
+* [Documentation](https://lightning.readthedocs.io/)
 
 ## Project Status
 
