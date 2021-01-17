@@ -644,7 +644,7 @@ def test_openchannel_hook_chaining(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts=opts)
     l1.fundwallet(10**6)
 
-    hook_msg = "openchannel2?_hook rejects and says '"
+    hook_msg = "openchannel2? hook rejects and says '"
     # 100005sat fundchannel should fail fatal() for l2
     # because hook_accepter.py rejects on that amount 'for a reason'
     with pytest.raises(RpcError, match=r'They sent error channel'):

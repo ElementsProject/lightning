@@ -387,7 +387,7 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 
 	if (payload->err_msg) {
 		log_debug(dualopend->ld->log,
-			  "openchannel2_hook rejects and says '%s'",
+			  "openchannel2 hook rejects and says '%s'",
 			  payload->err_msg);
 		msg = towire_dualopend_fail(NULL, payload->err_msg);
 		return subd_send_msg(dualopend, take(msg));
