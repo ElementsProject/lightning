@@ -707,7 +707,7 @@ openchannel_hook_deserialize(struct openchannel_hook_payload *payload,
 		if (t_errmsg)
 			payload->errmsg = json_strdup(payload, buffer, t_errmsg);
 		log_debug(openingd->ld->log,
-			  "openchannel_hook rejects and says '%s'",
+			  "openchannel hook rejects and says '%s'",
 			  payload->errmsg);
 		if (t_closeto)
 			fatal("Plugin rejected openchannel but also set close_to");
@@ -724,7 +724,7 @@ openchannel_hook_deserialize(struct openchannel_hook_payload *payload,
 		/* First plugin can set close_to. Log others. */
 		if (payload->our_upfront_shutdown_script != NULL) {
 			log_broken(openingd->ld->log,
-				   "openchannel_hook close_to address was"
+				   "openchannel hook close_to address was"
 				   " already set by other plugin. Ignoring!");
 			return true;
 		}
