@@ -198,8 +198,8 @@ def teardown_checks(request):
 
 
 @pytest.fixture
-def throttler():
-    yield Throttler()
+def throttler(test_base_dir):
+    yield Throttler(test_base_dir)
 
 
 @pytest.fixture
