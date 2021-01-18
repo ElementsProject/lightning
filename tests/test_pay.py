@@ -2233,7 +2233,7 @@ def test_channel_spendable(node_factory, bitcoind):
     """Test that spendable_msat is accurate"""
     sats = 10**6
     l1, l2 = node_factory.line_graph(2, fundamount=sats, wait_for_announce=True,
-                                     opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': str(TIMEOUT / 2)})
+                                     opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': '30'})
 
     payment_hash = l2.rpc.invoice('any', 'inv', 'for testing')['payment_hash']
 
@@ -2286,7 +2286,7 @@ def test_channel_receivable(node_factory, bitcoind):
     """Test that receivable_msat is accurate"""
     sats = 10**6
     l1, l2 = node_factory.line_graph(2, fundamount=sats, wait_for_announce=True,
-                                     opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': str(TIMEOUT / 2)})
+                                     opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': '30'})
 
     payment_hash = l2.rpc.invoice('any', 'inv', 'for testing')['payment_hash']
 
@@ -2339,8 +2339,15 @@ def test_channel_spendable_large(node_factory, bitcoind):
     """Test that spendable_msat is accurate for large channels"""
     # This is almost the max allowable spend.
     sats = 4294967
-    l1, l2 = node_factory.line_graph(2, fundamount=sats, wait_for_announce=True,
-                                     opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'), 'holdtime': str(TIMEOUT / 2)})
+    l1, l2 = node_factory.line_graph(
+        2,
+        fundamount=sats,
+        wait_for_announce=True,
+        opts={
+            'plugin': os.path.join(os.getcwd(), 'tests/plugins/hold_invoice.py'),
+            'holdtime': '30'
+        }
+    )
 
     payment_hash = l2.rpc.invoice('any', 'inv', 'for testing')['payment_hash']
 
