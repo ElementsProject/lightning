@@ -415,10 +415,14 @@ def closing_negotiation_step(node_factory, bitcoind, chainparams, opts):
 
     def get_fee_from_status(node, peer_id, i):
         nonlocal fees_from_status
-        status = only_one(only_one(node.rpc.listpeers(peer_id)['peers'][0]['channels'])['status'])
+        peer = only_one(node.rpc.listpeers(peer_id)['peers'])
+        channel = only_one(peer['channels'])
+        status = channel['status'][0]
+
         m = status_agreed_regex.search(status)
         if not m:
             return False
+
         fees_from_status[i] = int(m.group(1))
         return True
 
