@@ -16,6 +16,9 @@ import sys
 import unittest
 
 
+WAIT_TIMEOUT = 60  # Wait timeout for processes
+
+
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Test relies on a number of example addresses valid only in regtest")
 def test_withdraw(node_factory, bitcoind):
     amount = 1000000
@@ -979,7 +982,7 @@ def test_hsm_secret_encryption(node_factory):
     os.write(master_fd, password[2:].encode("utf-8"))
     l1.daemon.wait_for_log(r'Confirm hsm_secret password')
     os.write(master_fd, password[2:].encode("utf-8"))
-    assert(l1.daemon.proc.wait() == 1)
+    assert(l1.daemon.proc.wait(WAIT_TIMEOUT) == 1)
     assert(l1.daemon.is_in_log("Wrong password for encrypted hsm_secret."))
 
     # Test we can restore the same wallet with the same password
@@ -1026,7 +1029,7 @@ def test_hsmtool_secret_decryption(node_factory):
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hsmtool.wait_for_log(r"Enter hsm_secret password:")
     os.write(master_fd, "A wrong pass\n\n".encode("utf-8"))
-    hsmtool.proc.wait(5)
+    hsmtool.proc.wait(WAIT_TIMEOUT)
     hsmtool.is_in_log(r"Wrong password")
 
     # Decrypt it with hsmtool
@@ -1034,7 +1037,7 @@ def test_hsmtool_secret_decryption(node_factory):
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hsmtool.wait_for_log(r"Enter hsm_secret password:")
     os.write(master_fd, password.encode("utf-8"))
-    assert hsmtool.proc.wait(5) == 0
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
     # Then test we can now start it without password
     l1.daemon.opts.pop("encrypted-hsm")
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=True)
@@ -1049,7 +1052,7 @@ def test_hsmtool_secret_decryption(node_factory):
     os.write(master_fd, password.encode("utf-8"))
     hsmtool.wait_for_log(r"Confirm hsm_secret password:")
     os.write(master_fd, password.encode("utf-8"))
-    assert hsmtool.proc.wait(5) == 0
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
     # Now we need to pass the encrypted-hsm startup option
     l1.stop()
     with pytest.raises(subprocess.CalledProcessError, match=r'returned non-zero exit status 1'):
@@ -1075,7 +1078,7 @@ def test_hsmtool_secret_decryption(node_factory):
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hsmtool.wait_for_log(r"Enter hsm_secret password:")
     os.write(master_fd, password.encode("utf-8"))
-    assert hsmtool.proc.wait(5) == 0
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
     l1.daemon.opts.pop("encrypted-hsm")
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=True)
     assert node_id == l1.rpc.getinfo()["id"]
@@ -1122,7 +1125,7 @@ def test_hsmtool_generatehsm(node_factory):
     # You cannot re-generate an already existing hsm_secret
     hsmtool.start(stdin=slave_fd, stdout=subprocess.PIPE,
                   stderr=subprocess.PIPE)
-    assert hsmtool.proc.wait(5) == 2
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 2
     os.remove(hsm_path)
 
     # We can generate a valid hsm_secret from a wordlist and a "passphrase"
@@ -1135,7 +1138,7 @@ def test_hsmtool_generatehsm(node_factory):
                         "cake have wedding\n".encode("utf-8"))
     hsmtool.wait_for_log(r"Enter your passphrase:")
     os.write(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
-    hsmtool.proc.wait(5)
+    hsmtool.proc.wait(WAIT_TIMEOUT)
     hsmtool.is_in_log(r"New hsm_secret file created")
 
     # We can start the node with this hsm_secret
