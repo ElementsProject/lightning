@@ -183,6 +183,13 @@ jobs:
           ./configure CC="$CC"
           cat config.vars
 
+          cat << 'EOF' > pytest.ini
+          [pytest]
+          addopts=-p no:logging --color=yes --timeout=1800 --timeout-method=thread --test-group-random-seed=42
+          markers =
+              slow_test: marks tests as slow (deselect with '-m "not slow_test"')
+          EOF
+
           if [ "$TARGET_HOST" == "arm-linux-gnueabihf" ] || [ "$TARGET_HOST" == "aarch64-linux-gnu" ]
           then
             export QEMU_LD_PREFIX=/usr/"$TARGET_HOST"/
