@@ -660,9 +660,9 @@ int main(int argc, char *argv[])
 		if (deprecated_apis && argc > 4)
 			net = argv[4];
 
-		if (streq(net, "testnet"))
+		if (net && streq(net, "testnet"))
 			is_testnet = true;
-		else if (!streq(net, "bitcoin"))
+		else if (net && !streq(net, "bitcoin"))
 			errx(ERROR_USAGE, "Network '%s' not supported."
 					  " Supported networks: bitcoin (default),"
 					  " testnet", net);
