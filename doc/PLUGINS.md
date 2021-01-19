@@ -990,7 +990,12 @@ e.g.
 }
 ```
 
-Note that `close_to` must be a valid address for the current chain; an invalid address will cause the node to exit with an error.
+Note that `close_to` must be a valid address for the current chain,
+an invalid address will cause the node to exit with an error.
+
+Note that `openchannel` is a chained hook. Therefore `close_to` will only be
+evaluated for the first plugin that sets it. If more than one plugin tries to
+set a `close_to` address an error will be logged.
 
 
 ### `htlc_accepted`
