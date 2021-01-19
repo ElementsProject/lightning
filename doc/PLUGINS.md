@@ -777,7 +777,7 @@ no plugin is registered on the hook.
 ### `peer_connected`
 
 This hook is called whenever a peer has connected and successfully completed
-the cryptographic handshake. The parameters have the following structure if there is a channel with the peer:
+the cryptographic handshake. The parameters have the following structure:
 
 ```json
 {
@@ -789,7 +789,7 @@ the cryptographic handshake. The parameters have the following structure if ther
 }
 ```
 
-The hook is sparse on purpose, since the plugin can use the JSON-RPC
+The hook is sparse on information, since the plugin can use the JSON-RPC
 `listpeers` command to get additional details should they be required. The
 `addr` field shows the address that we are connected to ourselves, not the
 gossiped list of known addresses. In particular this means that the port for
@@ -801,6 +801,9 @@ the string `disconnect` or `continue`.  If `disconnect` and
 there's a member `error_message`, that member is sent to the peer
 before disconnection.
 
+Note that `peer_connected` is a chained hook. The first plugin that decides to
+`disconnect` with or without an `error_message` will lead to the subsequent
+plugins not being called anymore.
 
 ### `commitment_revocation`
 
@@ -936,7 +939,7 @@ This hook is called whenever a valid payment for an unpaid invoice has arrived.
 }
 ```
 
-The hook is sparse on purpose, since the plugin can use the JSON-RPC
+The hook is deliberately sparse, since the plugin can use the JSON-RPC
 `listinvoices` command to get additional details about this invoice.
 It can return a `failure_message` field as defined for final
 nodes in [BOLT 4][bolt4-failure-messages], a `result` field with the string
