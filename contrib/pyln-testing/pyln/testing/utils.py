@@ -1120,7 +1120,7 @@ class Throttler(object):
     tests, which could cause more timeouts.
 
     """
-    def __init__(self, directory: str, target: float = 75):
+    def __init__(self, directory: str, target: float = 90):
         """If specified we try to stick to a load of target (in percent).
         """
         self.target = target
