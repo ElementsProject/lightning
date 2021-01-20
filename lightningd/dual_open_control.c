@@ -1427,7 +1427,9 @@ static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
 					      &payload->locktime)) {
 		log_broken(channel->log, "Malformed dualopend_got_rbf_offer %s",
 			   tal_hex(msg, msg));
-		// FIXME: is this the right thing to do here?
+		unsaved_channel_disconnect(channel, LOG_BROKEN,
+					   "Malformed internal wire message");
+		subd_release_channel(dualopend, channel);
 		tal_free(dualopend);
 		return;
 	}
