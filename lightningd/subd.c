@@ -823,21 +823,6 @@ void subd_release_channel(struct subd *owner, void *channel)
 	}
 }
 
-void subd_swap_channel_(struct subd *daemon, void *channel,
-			void (*errcb)(void *channel,
-				      struct per_peer_state *pps,
-				      const struct channel_id *channel_id,
-				      const char *desc,
-				      bool warning,
-				      const u8 *err_for_them),
-			void (*billboardcb)(void *channel, bool perm,
-					    const char *happenings))
-{
-	daemon->channel = channel;
-	daemon->errcb = errcb;
-	daemon->billboardcb = billboardcb;
-}
-
 #if DEVELOPER
 char *opt_subd_dev_disconnect(const char *optarg, struct lightningd *ld)
 {
