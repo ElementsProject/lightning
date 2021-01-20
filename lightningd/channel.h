@@ -307,10 +307,9 @@ struct channel *active_channel_by_scid(struct lightningd *ld,
 struct channel *any_channel_by_scid(struct lightningd *ld,
 				    const struct short_channel_id *scid);
 
-/* Get channel by channel_id, optionally returning uncommitted_channel. */
+/* Get channel by channel_id */
 struct channel *channel_by_cid(struct lightningd *ld,
-			       const struct channel_id *cid,
-			       struct uncommitted_channel **uc);
+			       const struct channel_id *cid);
 
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,

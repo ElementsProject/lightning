@@ -440,30 +440,24 @@ struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid)
 }
 
 struct channel *channel_by_cid(struct lightningd *ld,
-			       const struct channel_id *cid,
-			       struct uncommitted_channel **uc)
+			       const struct channel_id *cid)
 {
 	struct peer *p;
 	struct channel *channel;
 
 	list_for_each(&ld->peers, p, list) {
 		if (p->uncommitted_channel) {
-			if (channel_id_eq(&p->uncommitted_channel->cid, cid)) {
-				if (uc)
-					*uc = p->uncommitted_channel;
+			/* We can't use this method for old, uncommitted
+			 * channels; there's no "channel" struct here! */
+			if (channel_id_eq(&p->uncommitted_channel->cid, cid))
 				return NULL;
-			}
 		}
 		list_for_each(&p->channels, channel, list) {
 			if (channel_id_eq(&channel->cid, cid)) {
-				if (uc)
-					*uc = p->uncommitted_channel;
 				return channel;
 			}
 		}
 	}
-	if (uc)
-		*uc = NULL;
 	return NULL;
 }
 
