@@ -4,6 +4,7 @@
 #include <ccan/list/list.h>
 #include <common/channel_id.h>
 #include <common/per_peer_state.h>
+#include <common/tx_roles.h>
 #include <lightningd/channel_state.h>
 #include <lightningd/peer_htlcs.h>
 #include <wallet/wallet.h>
@@ -41,6 +42,18 @@ struct channel_inflight {
 	struct bitcoin_signature last_sig;
 };
 
+struct open_attempt {
+	/* on uncommitted_channel struct */
+	struct channel *channel;
+	struct channel_config our_config;
+	enum tx_role role;
+
+	/* On funding_channel struct */
+	struct command *cmd;
+	struct amount_sat funding;
+	const u8 *our_upfront_shutdown_script;
+};
+
 struct channel {
 	/* Inside peer->channels. */
 	struct list_node list;
@@ -50,6 +63,9 @@ struct channel {
 
 	/* Inflight channel opens */
 	struct list_head inflights;
+
+	/* Open attempt */
+	struct open_attempt *open_attempt;
 
 	/* Database ID: 0 == not in db yet */
 	u64 dbid;
@@ -185,6 +201,8 @@ struct channel {
 	struct command *openchannel_signed_cmd;
 };
 
+struct open_attempt *new_channel_open_attempt(struct channel *channel);
+
 struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct wallet_shachain *their_shachain STEALS,
@@ -289,6 +307,9 @@ void channel_set_state(struct channel *channel,
 
 const char *channel_change_state_reason_str(enum state_change reason);
 
+/* Find a channel which is not yet saved to disk */
+struct channel *peer_unsaved_channel(struct peer *peer);
+
 /* Find a channel which is not onchain, if any */
 struct channel *peer_active_channel(struct peer *peer);
 
@@ -337,10 +358,17 @@ static inline bool channel_on_chain(const struct channel *channel)
 	return channel_state_on_chain(channel->state);
 }
 
+static inline bool channel_unsaved(const struct channel *channel)
+{
+	return channel->state == DUALOPEND_OPEN_INIT
+		&& channel->dbid == 0;
+}
+
 static inline bool channel_active(const struct channel *channel)
 {
 	return channel->state != FUNDING_SPEND_SEEN
 		&& channel->state != CLOSINGD_COMPLETE
+		&& !channel_unsaved(channel)
 		&& !channel_on_chain(channel);
 }
 
