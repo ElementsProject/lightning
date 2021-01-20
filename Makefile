@@ -1,6 +1,6 @@
 #! /usr/bin/make
-VERSION_NAME="Now with 0-of-N Multisig"
-VERSION=0.9.2
+VERSION_NAME="Federal Qualitative Strengthening"
+VERSION=0.9.3
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
