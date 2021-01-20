@@ -427,11 +427,8 @@ static void rbf_channel_hook_cb(struct rbf_channel_payload *payload STEALS)
 		return subd_send_msg(dualopend, take(msg));
 	}
 
-	/* Update channel info for "inflight" attempt.
-	 * Note that an 'inflight' doesn't get created
-	 * until *after* we've completed the tx_sigs exchange */
-	// FIXME: reinstitute the uc?? but where??
-	//struct uncommitted_channel *uc;
+	/* Update channel with new open attempt. */
+	channel->open_attempt = new_channel_open_attempt(channel);
 	msg = towire_dualopend_got_rbf_offer_reply(NULL,
 						   payload->our_funding,
 						   payload->psbt);
@@ -534,7 +531,7 @@ static void
 openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 {
 	struct subd *dualopend = payload->dualopend;
-	struct uncommitted_channel *uc;
+	struct channel *channel;
 	u8 *msg;
 
 	/* Free payload regardless of what happens next */
@@ -544,11 +541,10 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 	if (!dualopend)
 		return;
 
-	assert(dualopend->ctype == UNCOMMITTED);
-	uc = dualopend->channel;
+	channel = dualopend->channel;
 
 	/* Channel open is currently in progress elsewhere! */
-	if (uc->fc || uc->got_offer) {
+	if (channel->open_attempt) {
 		msg = towire_dualopend_fail(NULL, "Already initiated channel"
 					    " open");
 		log_debug(dualopend->ld->log,
@@ -593,7 +589,8 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 		}
 	}
 
-	uc->got_offer = true;
+	channel->opener = REMOTE;
+	channel->open_attempt = new_channel_open_attempt(channel);
 	msg = towire_dualopend_got_offer_reply(NULL, payload->accepter_funding,
 					       payload->funding_feerate_per_kw,
 					       payload->psbt,
@@ -1319,44 +1316,41 @@ cleanup:
 }
 
 static void
-opening_failed_cancel_commands(struct uncommitted_channel *uc,
+opening_failed_cancel_commands(struct channel *channel,
+			       struct open_attempt *oa,
 			       const char *desc)
 {
-	if (!uc->fc)
-		return;
+	if (oa->cmd)
+		was_pending(command_fail(oa->cmd, LIGHTNINGD, "%s", desc));
 
 	/* FIXME: cancels? */
 
-	if (uc->fc->cmd)
-		was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s", desc));
-
-	uc->fc = tal_free(uc->fc);
+	channel->open_attempt = tal_free(channel->open_attempt);
 }
 
 static void open_failed(struct subd *dualopend, const u8 *msg)
 {
 	char *desc;
-	struct uncommitted_channel *uc;
-
-	assert(dualopend->ctype == UNCOMMITTED);
-	uc = dualopend->channel;
-	uc->got_offer = false;
+	struct channel *channel = dualopend->channel;
+	struct open_attempt *oa = channel->open_attempt;
 
 	if (!fromwire_dualopend_failed(msg, msg, &desc)) {
-		log_broken(uc->log,
+		log_broken(channel->log,
 			   "Bad DUALOPEND_FAILED %s",
 			   tal_hex(msg, msg));
 
-		if (uc->fc && uc->fc->cmd)
-			was_pending(command_fail(uc->fc->cmd, LIGHTNINGD, "%s",
-						 tal_hex(uc->fc->cmd, msg)));
+		if (oa->cmd)
+			was_pending(command_fail(oa->cmd, LIGHTNINGD, "%s",
+						 tal_hex(oa->cmd, msg)));
 
-		notify_channel_open_failed(dualopend->ld, &uc->cid);
-		tal_free(uc);
+		notify_channel_open_failed(dualopend->ld, &channel->cid);
+		subd_release_channel(dualopend, channel);
+		channel->open_attempt = tal_free(channel->open_attempt);
+		return;
 	}
 
-	notify_channel_open_failed(dualopend->ld, &uc->cid);
-	opening_failed_cancel_commands(uc, desc);
+	notify_channel_open_failed(dualopend->ld, &channel->cid);
+	opening_failed_cancel_commands(channel, oa, desc);
 }
 
 
@@ -1687,19 +1681,19 @@ static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
 }
 
 static void accepter_got_offer(struct subd *dualopend,
-			       struct uncommitted_channel *uc,
+			       struct channel *channel,
 			       const u8 *msg)
 {
 	struct openchannel2_payload *payload;
 
-	if (peer_active_channel(uc->peer)) {
+	if (peer_active_channel(channel->peer)) {
 		subd_send_msg(dualopend,
 				take(towire_dualopend_fail(NULL,
 					"Already have active channel")));
 		return;
 	}
 
-	if (uc->fc) {
+	if (channel->open_attempt) {
 		subd_send_msg(dualopend,
 				take(towire_dualopend_fail(NULL,
 					"Already initiated channel open")));
@@ -1711,7 +1705,7 @@ static void accepter_got_offer(struct subd *dualopend,
 	payload->psbt = NULL;
 	payload->accepter_funding = AMOUNT_SAT(0);
 	payload->our_shutdown_scriptpubkey = NULL;
-	payload->peer_id = uc->peer->id;
+	payload->peer_id = channel->peer->id;
 	payload->err_msg = NULL;
 
 	if (!fromwire_dualopend_got_offer(payload, msg,
@@ -1729,7 +1723,7 @@ static void accepter_got_offer(struct subd *dualopend,
 					  &payload->channel_flags,
 					  &payload->locktime,
 					  &payload->shutdown_scriptpubkey)) {
-		log_broken(uc->log, "Malformed dual_open_got_offer %s",
+		log_broken(channel->log, "Malformed dual_open_got_offer %s",
 			   tal_hex(tmpctx, msg));
 		tal_free(dualopend);
 		return;
@@ -1925,6 +1919,8 @@ json_openchannel_signed(struct command *cmd,
 	struct channel_id *cid;
 	struct channel *channel;
 	struct bitcoin_txid txid;
+	/* FIXME: use inflight? */
+	struct wally_psbt *chan_psbt = NULL;
 
 	if (!param(cmd, buffer, params,
 		   p_req("channel_id", param_channel_id, &cid),
@@ -1936,12 +1932,11 @@ json_openchannel_signed(struct command *cmd,
 	if (!channel)
 		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
 				    "Unknown channel");
-	/* FIXME: use inflight? */
-	struct wally_psbt *chan_psbt = NULL;
-	if (chan_psbt && psbt_is_finalized(chan_psbt))
+	if (channel->open_attempt)
 		return command_fail(cmd, LIGHTNINGD,
-				    "Already have a finalized PSBT for "
-				    "this channel");
+				    "Commitments for this channel not "
+				    "yet secured, see `openchannel_update`");
+
 	if (channel->openchannel_signed_cmd)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Already sent sigs, waiting for peer's");
@@ -2014,6 +2009,14 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 				    "Unknown channel %s",
 				    type_to_string(tmpctx, struct channel_id,
 						   cid));
+	if (!channel->open_attempt)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Channel open not in progress");
+
+	if (channel->open_attempt->cmd)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Another openchannel command"
+				    " is in progress");
 
 	/* Add serials to PSBT */
 	psbt_add_serials(psbt, TX_INITIATOR);
@@ -2023,9 +2026,10 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 				    type_to_string(tmpctx, struct wally_psbt,
 						   psbt));
 
+	channel->open_attempt->cmd = cmd;
+
 	msg = towire_dualopend_psbt_updated(NULL, psbt);
-	/* FIXME: daemon? */
-	subd_send_msg(NULL, take(msg));
+	subd_send_msg(channel->owner, take(msg));
 	return command_still_pending(cmd);
 }
 
@@ -2034,7 +2038,6 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 						     const jsmntok_t *obj UNNEEDED,
 						     const jsmntok_t *params)
 {
-	struct funding_channel *fc = tal(cmd, struct funding_channel);
 	struct node_id *id;
 	struct peer *peer;
 	struct channel *channel;
@@ -2043,22 +2046,18 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	u32 *feerate_per_kw;
 	struct amount_sat *amount, psbt_val;
 	struct wally_psbt *psbt;
+	const u8 *our_upfront_shutdown_script;
+	struct open_attempt *oa;
+	u8 *msg;
 
-	u8 *msg = NULL;
-
-	fc->cmd = cmd;
-	fc->cancels = tal_arr(fc, struct command *, 0);
-	fc->uc = NULL;
-	fc->inflight = false;
-
-	if (!param(fc->cmd, buffer, params,
+	if (!param(cmd, buffer, params,
 		   p_req("id", param_node_id, &id),
 		   p_req("amount", param_sat, &amount),
 		   p_req("initialpsbt", param_psbt, &psbt),
 		   p_opt("commitment_feerate", param_feerate, &feerate_per_kw),
 		   p_opt("funding_feerate", param_feerate, &feerate_per_kw_funding),
 		   p_opt_def("announce", param_bool, &announce_channel, true),
-		   p_opt("close_to", param_bitcoin_address, &fc->our_upfront_shutdown_script),
+		   p_opt("close_to", param_bitcoin_address, &our_upfront_shutdown_script),
 		   NULL))
 		return command_param_failed();
 
@@ -2087,7 +2086,6 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 						   struct wally_psbt,
 						   psbt));
 
-	fc->funding = *amount;
 	if (!feerate_per_kw_funding) {
 		feerate_per_kw_funding = tal(cmd, u32);
 		*feerate_per_kw_funding = opening_feerate(cmd->ld->topology);
@@ -2119,19 +2117,13 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 				    channel_state_name(channel));
 	}
 
-	if (!peer->uncommitted_channel) {
+	channel = peer_unsaved_channel(peer);
+	if (!channel)
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
-	}
 
-	if (peer->uncommitted_channel->fc) {
+	if (channel->open_attempt)
 		return command_fail(cmd, LIGHTNINGD, "Already funding channel");
-	}
-
-	if (peer->uncommitted_channel->got_offer) {
-		return command_fail(cmd, LIGHTNINGD,
-				    "Channel open in progress");
-	}
 
 #if EXPERIMENTAL_FEATURES
 	if (!feature_negotiated(cmd->ld->our_features,
@@ -2157,13 +2149,6 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 				    type_to_string(tmpctx, struct amount_sat,
 						   &chainparams->max_funding));
 
-	fc->channel_flags = OUR_CHANNEL_FLAGS;
-	if (!*announce_channel) {
-		fc->channel_flags &= ~CHANNEL_FLAGS_ANNOUNCE_CHANNEL;
-		log_info(peer->ld->log, "Will open private channel with node %s",
-			type_to_string(fc, struct node_id, id));
-	}
-
 	/* Add serials to any input that's missing them */
 	psbt_add_serials(psbt, TX_INITIATOR);
 	if (!psbt_has_required_fields(psbt))
@@ -2172,22 +2157,33 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 				    type_to_string(tmpctx, struct wally_psbt,
 						   psbt));
 
-	peer->uncommitted_channel->fc = tal_steal(peer->uncommitted_channel, fc);
-	fc->uc = peer->uncommitted_channel;
+	/* Get a new open_attempt going */
+	channel->opener = LOCAL;
+	channel->open_attempt = oa = new_channel_open_attempt(channel);
+	channel->channel_flags = OUR_CHANNEL_FLAGS;
+	oa->funding = *amount;
+	oa->cmd = cmd;
+
+	if (!*announce_channel) {
+		channel->channel_flags &= ~CHANNEL_FLAGS_ANNOUNCE_CHANNEL;
+		log_info(peer->ld->log,
+			 "Will open private channel with node %s",
+			 type_to_string(tmpctx, struct node_id, id));
+	}
 
 	/* Needs to be stolen away from cmd */
-	if (fc->our_upfront_shutdown_script)
-		fc->our_upfront_shutdown_script
-			= tal_steal(fc, fc->our_upfront_shutdown_script);
+	if (our_upfront_shutdown_script)
+		oa->our_upfront_shutdown_script
+			= tal_steal(oa, our_upfront_shutdown_script);
 
 	msg = towire_dualopend_opener_init(NULL,
 					   psbt, *amount,
-					   fc->our_upfront_shutdown_script,
+					   oa->our_upfront_shutdown_script,
 					   *feerate_per_kw,
 					   *feerate_per_kw_funding,
-					   fc->channel_flags);
+					   channel->channel_flags);
 
-	subd_send_msg(peer->uncommitted_channel->open_daemon, take(msg));
+	subd_send_msg(channel->owner, take(msg));
 	return command_still_pending(cmd);
 }
 
@@ -2219,7 +2215,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 
 	switch (t) {
 		case WIRE_DUALOPEND_GOT_OFFER:
-			accepter_got_offer(dualopend, uc, msg);
+			accepter_got_offer(dualopend, dualopend->channel, msg);
 			return 0;
 		case WIRE_DUALOPEND_GOT_RBF_OFFER:
 			rbf_got_offer(dualopend, msg);

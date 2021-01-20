@@ -185,6 +185,19 @@ new_inflight(struct channel *channel,
 	return inflight;
 }
 
+struct open_attempt *new_channel_open_attempt(struct channel *channel)
+{
+	struct open_attempt *oa = tal(channel, struct open_attempt);
+	oa->channel = channel;
+	/* Copy over the config; we'll clobber the reserve */
+	oa->our_config = channel->our_config;
+	oa->role = channel->opener == LOCAL ? TX_INITIATOR : TX_ACCEPTER;
+	oa->our_upfront_shutdown_script = NULL;
+	oa->cmd = NULL;
+
+	return oa;
+}
+
 struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct wallet_shachain *their_shachain,
@@ -247,6 +260,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->dbid = dbid;
 	channel->error = NULL;
 	channel->htlc_timeout = NULL;
+	channel->open_attempt = NULL;
 	channel->openchannel_signed_cmd = NULL;
 	if (their_shachain)
 		channel->their_shachain = *their_shachain;
@@ -351,6 +365,17 @@ const char *channel_state_str(enum channel_state state)
 		if (enum_channel_state_names[i].v == state)
 			return enum_channel_state_names[i].name;
 	return "unknown";
+}
+
+struct channel *peer_unsaved_channel(struct peer *peer)
+{
+	struct channel *channel;
+
+	list_for_each(&peer->channels, channel, list) {
+		if (channel_unsaved(channel))
+			return channel;
+	}
+	return NULL;
 }
 
 struct channel *peer_active_channel(struct peer *peer)
