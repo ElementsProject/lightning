@@ -1241,9 +1241,8 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 				     const u8 *msg)
 {
 	struct channel *channel = dualopend->channel;
+	struct channel_inflight *inflight;
 	const struct wally_tx *wtx;
-	/* FIXME: psbt? */
-	struct wally_psbt *psbt = NULL;
 
 	if (!fromwire_dualopend_tx_sigs_sent(msg)) {
 		channel_internal_error(channel,
@@ -1252,21 +1251,29 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 		return;
 	}
 
-	if (psbt_finalize(cast_const(struct wally_psbt *, psbt))) {
-		wtx = psbt_final_tx(NULL, psbt);
+	inflight = channel_current_inflight(channel);
+	if (psbt_finalize(cast_const(struct wally_psbt *,
+				     inflight->funding_psbt))
+	    && inflight->remote_tx_sigs) {
+		wtx = psbt_final_tx(NULL, inflight->funding_psbt);
 		if (!wtx) {
+			/* FIXME: what's the ideal error handling here? */
 			channel_internal_error(channel,
 					       "Unable to extract final tx"
 					       " from PSBT %s",
 					       type_to_string(tmpctx,
 							      struct wally_psbt,
-							      psbt));
+							      inflight->funding_psbt));
 			return;
 		}
 
 		send_funding_tx(channel, take(wtx));
 
-		channel_set_state(channel, DUALOPEND_OPEN_INIT,
+		/* Must be in an "init" state */
+		assert(channel->state == DUALOPEND_OPEN_INIT
+		       || channel->state == DUALOPEND_AWAITING_LOCKIN);
+
+		channel_set_state(channel, channel->state,
 				  DUALOPEND_AWAITING_LOCKIN,
 				  REASON_UNKNOWN,
 				  "Sigs exchanged, waiting for lock-in");
@@ -1509,7 +1516,7 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 	const struct wally_tx *wtx;
 	struct lightningd *ld = dualopend->ld;
 	struct channel *channel = dualopend->channel;
-	struct wally_psbt *chan_psbt = NULL;
+	struct channel_inflight *inflight;
 
 	if (!fromwire_dualopend_funding_sigs(tmpctx, msg, &psbt)) {
 		channel_internal_error(channel,
@@ -1518,36 +1525,40 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 		return;
 	}
 
+	inflight = channel_current_inflight(channel);
 	/* Save that we've gotten their sigs. Sometimes
 	 * the peer doesn't send any sigs (no inputs), otherwise
 	 * we could just check the PSBT was finalized */
-	// FIXME: inflight->remote_tx_sigs = true;
+	inflight->remote_tx_sigs = true;
 	tal_wally_start();
-	if (wally_psbt_combine(chan_psbt, psbt) != WALLY_OK) {
+	if (wally_psbt_combine(inflight->funding_psbt, psbt) != WALLY_OK) {
 		channel_internal_error(channel,
 				       "Unable to combine PSBTs: %s, %s",
 				       type_to_string(tmpctx,
 						      struct wally_psbt,
-						      chan_psbt),
+						      inflight->funding_psbt),
 				       type_to_string(tmpctx,
 						      struct wally_psbt,
 						      psbt));
-		tal_wally_end(chan_psbt);
+		tal_wally_end(inflight->funding_psbt);
 		return;
 	}
-	tal_wally_end(chan_psbt);
+	tal_wally_end(inflight->funding_psbt);
+	wallet_inflight_save(ld->wallet, inflight);
 
-	if (psbt_finalize(cast_const(struct wally_psbt *, chan_psbt))) {
-		wtx = psbt_final_tx(NULL, chan_psbt);
+	if (psbt_finalize(cast_const(struct wally_psbt *, inflight->funding_psbt))) {
+		wallet_inflight_save(ld->wallet, inflight);
+		wtx = psbt_final_tx(NULL, inflight->funding_psbt);
 		if (!wtx) {
 			channel_internal_error(channel,
 					       "Unable to extract final tx"
 					       " from PSBT %s",
 					       type_to_string(tmpctx,
 							      struct wally_psbt,
-							      chan_psbt));
+							      inflight->funding_psbt));
 			return;
 		}
+
 		send_funding_tx(channel, take(wtx));
 
 		channel_set_state(channel, DUALOPEND_OPEN_INIT,
@@ -1566,10 +1577,9 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 					      &channel->remote_funding_locked);
 	}
 
-	wallet_channel_save(ld->wallet, channel);
-
 	/* Send notification with peer's signed PSBT */
-	notify_openchannel_peer_sigs(ld, &channel->cid, chan_psbt);
+	notify_openchannel_peer_sigs(ld, &channel->cid,
+				     inflight->funding_psbt);
 }
 
 static void handle_validate_rbf(struct subd *dualopend,
@@ -1690,8 +1700,7 @@ json_openchannel_signed(struct command *cmd,
 	struct channel_id *cid;
 	struct channel *channel;
 	struct bitcoin_txid txid;
-	/* FIXME: use inflight? */
-	struct wally_psbt *chan_psbt = NULL;
+	struct channel_inflight *inflight;
 
 	if (!param(cmd, buffer, params,
 		   p_req("channel_id", param_channel_id, &cid),
@@ -1725,33 +1734,59 @@ json_openchannel_signed(struct command *cmd,
 				    type_to_string(tmpctx, struct bitcoin_txid,
 						   &txid));
 
+	inflight = list_tail(&channel->inflights,
+			     struct channel_inflight,
+			     list);
+	if (!inflight)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Open attempt for channel not found");
+
+	if (!bitcoin_txid_eq(&txid, &inflight->funding_txid))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Current inflight transaction is %s,"
+				    " not %s",
+				    type_to_string(tmpctx, struct bitcoin_txid,
+						   &txid),
+				    type_to_string(tmpctx, struct bitcoin_txid,
+						   &inflight->funding_txid));
+
+	if (inflight->funding_psbt && psbt_is_finalized(inflight->funding_psbt))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Already have a finalized PSBT for "
+				    "this channel");
+
 	/* Go ahead and try to finalize things, or what we can */
 	psbt_finalize(psbt);
 
 	/* Check that all of *our* outputs are finalized */
-	if (!psbt_side_finalized(psbt, TX_INITIATOR))
+	if (!psbt_side_finalized(psbt, channel->opener == LOCAL ?
+					TX_INITIATOR : TX_ACCEPTER))
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "Local PSBT input(s) not finalized");
 
 	/* Now that we've got the signed PSBT, save it */
 	tal_wally_start();
-	if (wally_psbt_combine(cast_const(struct wally_psbt *, chan_psbt),
+	if (wally_psbt_combine(cast_const(struct wally_psbt *,
+					  inflight->funding_psbt),
 			       psbt) != WALLY_OK) {
-		tal_wally_end(tal_free(psbt));
+		tal_wally_end(tal_free(inflight->funding_psbt));
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "Failed adding sigs");
 	}
 
 	/* Make memleak happy, (otherwise cleaned up with `cmd`) */
 	tal_free(psbt);
-	tal_wally_end(tal_steal(channel, chan_psbt));
+	tal_wally_end(tal_steal(inflight, inflight->funding_psbt));
 
-	wallet_channel_save(cmd->ld->wallet, channel);
+	/* Update the PSBT on disk */
+	wallet_inflight_save(cmd->ld->wallet, inflight);
+	/* Uses the channel->funding_txid, which we verified above */
 	channel_watch_funding(cmd->ld, channel);
 
 	/* Send our tx_sigs to the peer */
 	subd_send_msg(channel->owner,
-		      take(towire_dualopend_send_tx_sigs(NULL, chan_psbt)));
+		      take(towire_dualopend_send_tx_sigs(NULL,
+							 inflight->funding_psbt)));
 
 	channel->openchannel_signed_cmd = tal_steal(channel, cmd);
 	return command_still_pending(cmd);
