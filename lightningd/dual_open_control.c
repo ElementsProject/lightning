@@ -54,6 +54,23 @@ unsaved_channel_disconnect(struct channel *channel,
 }
 
 
+/* FIXME: remove when used */
+struct channel_inflight *
+channel_current_inflight(struct channel *channel);
+struct channel_inflight *
+channel_current_inflight(struct channel *channel)
+{
+	struct channel_inflight *inflight;
+	/* The last inflight should always be the one in progress */
+	inflight = list_tail(&channel->inflights,
+			     struct channel_inflight,
+			     list);
+	if (inflight)
+		assert(bitcoin_txid_eq(&channel->funding_txid,
+				       &inflight->funding_txid));
+	return inflight;
+}
+
 static void handle_signed_psbt(struct lightningd *ld,
 			       struct subd *dualopend,
 			       const struct wally_psbt *psbt,
