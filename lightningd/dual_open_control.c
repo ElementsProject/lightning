@@ -56,10 +56,7 @@ unsaved_channel_disconnect(struct channel *channel,
 }
 
 
-/* FIXME: remove when used */
-struct channel_inflight *
-channel_current_inflight(struct channel *channel);
-struct channel_inflight *
+static struct channel_inflight *
 channel_current_inflight(struct channel *channel)
 {
 	struct channel_inflight *inflight;
@@ -76,12 +73,36 @@ channel_current_inflight(struct channel *channel)
 static void handle_signed_psbt(struct lightningd *ld,
 			       struct subd *dualopend,
 			       const struct wally_psbt *psbt,
-			       struct commit_rcvd *rcvd)
+			       struct channel *channel)
 {
-	/* Now that we've got the signed PSBT, save it */
-	// FIXME: save psbt ?
+	struct channel_inflight *inflight;
+	struct bitcoin_txid txid;
 
-	channel_watch_funding(ld, rcvd->channel);
+	inflight = channel_current_inflight(channel);
+	/* Check that we've got the same / correct PSBT */
+	psbt_txid(NULL, psbt, &txid, NULL);
+	if (!bitcoin_txid_eq(&inflight->funding->txid, &txid)) {
+		log_broken(channel->log,
+			   "PSBT's txid does not match. %s != %s",
+			   type_to_string(tmpctx, struct bitcoin_txid,
+					  &txid),
+			   type_to_string(tmpctx, struct bitcoin_txid,
+					  &inflight->funding->txid));
+		/* FIXME: what's the ideal error handling here ? */
+		subd_send_msg(dualopend,
+			      take(towire_dualopend_fail(NULL,
+							 "Peer error with PSBT"
+							 " signatures.")));
+		return;
+	}
+
+	/* Now that we've got the signed PSBT, save it */
+	tal_free(inflight->funding_psbt);
+	inflight->funding_psbt = tal_steal(inflight,
+					   cast_const(struct wally_psbt *,
+						      psbt));
+	wallet_inflight_save(ld->wallet, inflight);
+	channel_watch_funding(ld, channel);
 
 	/* Send peer our signatures */
 	subd_send_msg(dualopend,
@@ -210,7 +231,7 @@ openchannel2_hook_serialize(struct openchannel2_payload *payload,
 struct openchannel2_psbt_payload {
 	struct subd *dualopend;
 	struct wally_psbt *psbt;
-	struct commit_rcvd *rcvd;
+	struct channel *channel;
 	struct lightningd *ld;
 };
 
@@ -222,7 +243,7 @@ openchannel2_changed_hook_serialize(struct openchannel2_psbt_payload *payload,
 	json_add_psbt(stream, "psbt", payload->psbt);
 	json_add_string(stream, "channel_id",
 			type_to_string(tmpctx, struct channel_id,
-				       &payload->rcvd->cid));
+				       &payload->channel->cid));
 	json_object_end(stream);
 }
 
@@ -234,7 +255,7 @@ openchannel2_sign_hook_serialize(struct openchannel2_psbt_payload *payload,
 	json_add_psbt(stream, "psbt", payload->psbt);
 	json_add_string(stream, "channel_id",
 			type_to_string(tmpctx, struct channel_id,
-				       &payload->rcvd->channel->cid));
+				       &payload->channel->cid));
 	json_object_end(stream);
 }
 
@@ -838,7 +859,7 @@ openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 	if (!payload->dualopend) {
 		log_broken(payload->ld->log, "dualopend daemon died"
 			   " before signed PSBT returned");
-		channel_internal_error(payload->rcvd->channel, "daemon died");
+		channel_internal_error(payload->channel, "daemon died");
 		return;
 	}
 	tal_del_destructor2(payload->dualopend,
@@ -854,7 +875,7 @@ openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 		      type_to_string(tmpctx, struct wally_psbt, payload->psbt));
 
 	handle_signed_psbt(payload->ld, payload->dualopend,
-			   payload->psbt, payload->rcvd);
+			   payload->psbt, payload->channel);
 }
 
 REGISTER_PLUGIN_HOOK(openchannel2,
@@ -2010,7 +2031,7 @@ static void handle_psbt_changed(struct subd *dualopend,
 				    openchannel2_psbt_remove_dualopend,
 				    payload);
 		payload->psbt = tal_steal(payload, psbt);
-		// FIXME: payload->channel = channel;
+		payload->channel = channel;
 		plugin_hook_call_openchannel2_changed(dualopend->ld, payload);
 		return;
 	}
@@ -2135,11 +2156,11 @@ static void handle_commit_received(struct subd *dualopend,
 		tal_add_destructor2(dualopend,
 				    openchannel2_psbt_remove_dualopend,
 				    payload);
-		// FIXME: payload->channel = channel;
+		payload->channel = channel;
 		payload->psbt = clone_psbt(payload, inflight->funding_psbt);
 
 		/* We don't have a command, so set to NULL here */
-		// FIXME: payload->channel->openchannel_signed_cmd = NULL;
+		payload->channel->openchannel_signed_cmd = NULL;
 		/* We call out to hook who will
 		 * provide signatures for us! */
 		plugin_hook_call_openchannel2_sign(ld, payload);
