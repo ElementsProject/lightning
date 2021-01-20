@@ -1463,7 +1463,6 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   funding_sats, AMOUNT_MSAT(0),
 			   our_sats,
 			   false, false,
-			   NULL,
 			   &cid,
 			   AMOUNT_MSAT(3333333000),
 			   AMOUNT_MSAT(33333),
@@ -1483,7 +1482,6 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   &pk, NULL,
 			   1000, 100,
 			   NULL, true, true,
-			   NULL,
 			   LOCAL, REASON_UNKNOWN);
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);

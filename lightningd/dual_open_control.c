@@ -44,10 +44,7 @@ static void handle_signed_psbt(struct lightningd *ld,
 			       struct commit_rcvd *rcvd)
 {
 	/* Now that we've got the signed PSBT, save it */
-	rcvd->channel->psbt =
-		tal_steal(rcvd->channel,
-			  cast_const(struct wally_psbt *, psbt));
-	wallet_channel_save(ld->wallet, rcvd->channel);
+	// FIXME: save psbt ?
 
 	channel_watch_funding(ld, rcvd->channel);
 
@@ -915,7 +912,6 @@ wallet_commit_channel(struct lightningd *ld,
 			      false, /* !remote_funding_locked */
                               false, /* !remote_tx_sigs */
 			      NULL, /* no scid yet */
-			      cid,
 			      /* The three arguments below are msatoshi_to_us,
 			       * msatoshi_to_us_min, and msatoshi_to_us_max.
 			       * Because, this is a newly-funded channel,
@@ -946,7 +942,6 @@ wallet_commit_channel(struct lightningd *ld,
 			      remote_upfront_shutdown_script,
 			      option_static_remotekey,
 			      option_anchor_outputs,
-			      NULL,
 			      NUM_SIDES, /* closer not yet known */
 			      opener == LOCAL ? REASON_USER : REASON_REMOTE);
 
@@ -1302,8 +1297,7 @@ static void opener_commit_received(struct subd *dualopend,
 		json_add_hex_talarr(response, "close_to",
 				    uc->fc->our_upfront_shutdown_script);
 	/* Now that we've got the final PSBT, save it */
-	channel->psbt = tal_steal(channel, psbt);
-	wallet_channel_save(uc->fc->cmd->ld->wallet, channel);
+	// FIXME: update channel->psbt
 
 	was_pending(command_success(uc->fc->cmd, response));
 
@@ -1468,6 +1462,8 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 {
 	struct channel *channel = dualopend->channel;
 	const struct wally_tx *wtx;
+	/* FIXME: psbt? */
+	struct wally_psbt *psbt = NULL;
 
 	if (!fromwire_dualopend_tx_sigs_sent(msg)) {
 		channel_internal_error(channel,
@@ -1476,15 +1472,15 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 		return;
 	}
 
-	if (psbt_finalize(cast_const(struct wally_psbt *, channel->psbt))) {
-		wtx = psbt_final_tx(NULL, channel->psbt);
+	if (psbt_finalize(cast_const(struct wally_psbt *, psbt))) {
+		wtx = psbt_final_tx(NULL, psbt);
 		if (!wtx) {
 			channel_internal_error(channel,
 					       "Unable to extract final tx"
 					       " from PSBT %s",
 					       type_to_string(tmpctx,
 							      struct wally_psbt,
-							      channel->psbt));
+							      psbt));
 			return;
 		}
 
@@ -1607,7 +1603,6 @@ void dualopen_tell_depth(struct subd *dualopend,
 			channel->funding_outnum = inf->funding_outnum;
 			channel->funding = inf->funding;
 			channel->our_funds = inf->our_funds;
-			channel->psbt = clone_psbt(channel, inf->funding_psbt);
 			channel->last_tx = tal_steal(channel, inf->last_tx);
 			channel->last_sig = inf->last_sig;
 
@@ -1758,6 +1753,7 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 	const struct wally_tx *wtx;
 	struct lightningd *ld = dualopend->ld;
 	struct channel *channel = dualopend->channel;
+	struct wally_psbt *chan_psbt = NULL;
 
 	if (!fromwire_dualopend_funding_sigs(tmpctx, msg, &psbt)) {
 		channel_internal_error(channel,
@@ -1769,31 +1765,31 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 	/* Save that we've gotten their sigs. Sometimes
 	 * the peer doesn't send any sigs (no inputs), otherwise
 	 * we could just check the PSBT was finalized */
-	channel->remote_tx_sigs = true;
+	// FIXME: inflight->remote_tx_sigs = true;
 	tal_wally_start();
-	if (wally_psbt_combine(channel->psbt, psbt) != WALLY_OK) {
+	if (wally_psbt_combine(chan_psbt, psbt) != WALLY_OK) {
 		channel_internal_error(channel,
 				       "Unable to combine PSBTs: %s, %s",
 				       type_to_string(tmpctx,
 						      struct wally_psbt,
-						      channel->psbt),
+						      chan_psbt),
 				       type_to_string(tmpctx,
 						      struct wally_psbt,
 						      psbt));
-		tal_wally_end(channel->psbt);
+		tal_wally_end(chan_psbt);
 		return;
 	}
-	tal_wally_end(channel->psbt);
+	tal_wally_end(chan_psbt);
 
-	if (psbt_finalize(cast_const(struct wally_psbt *, channel->psbt))) {
-		wtx = psbt_final_tx(NULL, channel->psbt);
+	if (psbt_finalize(cast_const(struct wally_psbt *, chan_psbt))) {
+		wtx = psbt_final_tx(NULL, chan_psbt);
 		if (!wtx) {
 			channel_internal_error(channel,
 					       "Unable to extract final tx"
 					       " from PSBT %s",
 					       type_to_string(tmpctx,
 							      struct wally_psbt,
-							      channel->psbt));
+							      chan_psbt));
 			return;
 		}
 		send_funding_tx(channel, take(wtx));
@@ -1817,8 +1813,7 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 	wallet_channel_save(ld->wallet, channel);
 
 	/* Send notification with peer's signed PSBT */
-	notify_openchannel_peer_sigs(ld, &channel->cid,
-				     channel->psbt);
+	notify_openchannel_peer_sigs(ld, &channel->cid, chan_psbt);
 }
 
 static void handle_validate_rbf(struct subd *dualopend,
@@ -1955,7 +1950,9 @@ json_openchannel_signed(struct command *cmd,
 	if (!channel)
 		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
 				    "Unknown channel");
-	if (channel->psbt && psbt_is_finalized(channel->psbt))
+	/* FIXME: use inflight? */
+	struct wally_psbt *chan_psbt = NULL;
+	if (chan_psbt && psbt_is_finalized(chan_psbt))
 		return command_fail(cmd, LIGHTNINGD,
 				    "Already have a finalized PSBT for "
 				    "this channel");
@@ -1987,24 +1984,23 @@ json_openchannel_signed(struct command *cmd,
 
 	/* Now that we've got the signed PSBT, save it */
 	tal_wally_start();
-	if (wally_psbt_combine(cast_const(struct wally_psbt *,
-					  channel->psbt),
+	if (wally_psbt_combine(cast_const(struct wally_psbt *, chan_psbt),
 			       psbt) != WALLY_OK) {
-		tal_wally_end(tal_free(channel->psbt));
+		tal_wally_end(tal_free(psbt));
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "Failed adding sigs");
 	}
 
 	/* Make memleak happy, (otherwise cleaned up with `cmd`) */
 	tal_free(psbt);
-	tal_wally_end(tal_steal(channel, channel->psbt));
+	tal_wally_end(tal_steal(channel, chan_psbt));
 
 	wallet_channel_save(cmd->ld->wallet, channel);
 	channel_watch_funding(cmd->ld, channel);
 
 	/* Send our tx_sigs to the peer */
 	subd_send_msg(channel->owner,
-		      take(towire_dualopend_send_tx_sigs(NULL, channel->psbt)));
+		      take(towire_dualopend_send_tx_sigs(NULL, chan_psbt)));
 
 	channel->openchannel_signed_cmd = tal_steal(channel, cmd);
 	return command_still_pending(cmd);
@@ -2445,7 +2441,7 @@ void peer_restart_dualopend(struct peer *peer,
 				      channel->our_msat,
 				      &channel->channel_info.theirbase,
 				      &channel->channel_info.remote_per_commit,
-				      channel->psbt,
+				      NULL, /* FIXME! */
 				      channel->opener,
 				      channel->scid != NULL,
 				      channel->remote_funding_locked,
@@ -2453,7 +2449,7 @@ void peer_restart_dualopend(struct peer *peer,
 				      channel->shutdown_scriptpubkey[REMOTE] != NULL,
 				      channel->shutdown_scriptpubkey[LOCAL],
 				      channel->remote_upfront_shutdown_script,
-				      channel->remote_tx_sigs,
+				      false, /* FIXME! */
                                       channel->fee_states,
 				      channel->channel_flags,
 				      send_msg);

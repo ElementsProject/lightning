@@ -204,7 +204,6 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    struct amount_msat push,
 			    struct amount_sat our_funds,
 			    bool remote_funding_locked,
-			    bool remote_tx_sigs,
 			    /* NULL or stolen */
 			    struct short_channel_id *scid,
 			    struct channel_id *cid,
@@ -237,7 +236,6 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const u8 *remote_upfront_shutdown_script,
 			    bool option_static_remotekey,
 			    bool option_anchor_outputs,
-			    struct wally_psbt *psbt STEALS,
 			    enum side closer,
 			    enum state_change reason)
 {
@@ -281,7 +279,6 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->push = push;
 	channel->our_funds = our_funds;
 	channel->remote_funding_locked = remote_funding_locked;
-	channel->remote_tx_sigs = remote_tx_sigs;
 	channel->scid = tal_steal(channel, scid);
 	channel->cid = *cid;
 	channel->our_msat = our_msat;
@@ -324,12 +321,6 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->option_static_remotekey = option_static_remotekey;
 	channel->option_anchor_outputs = option_anchor_outputs;
 	channel->forgets = tal_arr(channel, struct command *, 0);
-
-	/* If we're already locked in, we no longer need the PSBT */
-	if (!remote_funding_locked && psbt)
-		channel->psbt = tal_steal(channel, psbt);
-	else
-		channel->psbt = tal_free(psbt);
 
 	list_add_tail(&peer->channels, &channel->list);
 	channel->rr_number = peer->ld->rr_counter++;
