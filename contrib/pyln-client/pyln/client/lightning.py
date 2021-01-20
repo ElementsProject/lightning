@@ -1092,6 +1092,15 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("openchannel_update", payload)
 
+    def openchannel_bump(self, channel_id, amount, initialpsbt):
+        """ Initiate an RBF for an in-progress open """
+        payload = {
+            "channel_id": channel_id,
+            "amount": amount,
+            "initialpsbt": initialpsbt,
+        }
+        return self.call("openchannel_bump", payload)
+
     def paystatus(self, bolt11=None):
         """Detail status of attempts to pay {bolt11} or any."""
         payload = {
