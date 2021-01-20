@@ -1746,8 +1746,11 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 		struct amount_sat in_amt = psbt_input_get_amount(psbt, i);
 		if (!amount_sat_add(&psbt_val, psbt_val, in_amt))
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Overflow in adding PSBT input values. %s",
-					    type_to_string(tmpctx, struct wally_psbt, psbt));
+					    "Overflow in adding PSBT input"
+					    " values. %s",
+					    type_to_string(tmpctx,
+							   struct wally_psbt,
+							   psbt));
 	}
 
 	/* If they don't pass in at least enough in the PSBT to cover
@@ -1756,8 +1759,12 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 		return command_fail(cmd, FUND_CANNOT_AFFORD,
 				    "Provided PSBT cannot afford funding of "
 				    "amount %s. %s",
-				    type_to_string(tmpctx, struct amount_sat, amount),
-				    type_to_string(tmpctx, struct wally_psbt, psbt));
+				    type_to_string(tmpctx,
+						   struct amount_sat,
+						   amount),
+				    type_to_string(tmpctx,
+						   struct wally_psbt,
+						   psbt));
 
 	fc->funding = *amount;
 	if (!feerate_per_kw_funding) {
