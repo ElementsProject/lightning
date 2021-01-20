@@ -460,7 +460,7 @@ bool fromwire_dualopend_rbf_valid(const void *p)
 /* WIRE: DUALOPEND_COMMIT_RCVD */
 /* dualopend->master: ready to commit channel open to database and */
 /*                    get some signatures for the funding_tx. */
-u8 *towire_dualopend_commit_rcvd(const tal_t *ctx, const struct channel_config *their_config, const struct bitcoin_tx *remote_first_commit, const struct penalty_base *pbase, const struct bitcoin_signature *first_commit_sig, const struct wally_psbt *psbt, const struct channel_id *channel_id, const struct pubkey *revocation_basepoint, const struct pubkey *payment_basepoint, const struct pubkey *htlc_basepoint, const struct pubkey *delayed_payment_basepoint, const struct pubkey *their_per_commit_point, const struct pubkey *remote_fundingkey, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshis, struct amount_sat our_funding_sats, u8 channel_flags, u32 feerate_per_kw, struct amount_sat our_channel_reserve_satoshis, const u8 *local_shutdown_scriptpubkey, const u8 *remote_shutdown_scriptpubkey)
+u8 *towire_dualopend_commit_rcvd(const tal_t *ctx, const struct channel_config *their_config, const struct bitcoin_tx *remote_first_commit, const struct penalty_base *pbase, const struct bitcoin_signature *first_commit_sig, const struct wally_psbt *psbt, const struct pubkey *revocation_basepoint, const struct pubkey *payment_basepoint, const struct pubkey *htlc_basepoint, const struct pubkey *delayed_payment_basepoint, const struct pubkey *their_per_commit_point, const struct pubkey *remote_fundingkey, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshis, struct amount_sat our_funding_sats, u8 channel_flags, u32 feerate_per_kw, struct amount_sat our_channel_reserve_satoshis, const u8 *local_shutdown_scriptpubkey, const u8 *remote_shutdown_scriptpubkey)
 {
 	u16 local_shutdown_len = tal_count(local_shutdown_scriptpubkey);
 	u16 remote_shutdown_len = tal_count(remote_shutdown_scriptpubkey);
@@ -477,7 +477,6 @@ u8 *towire_dualopend_commit_rcvd(const tal_t *ctx, const struct channel_config *
 	}
 	towire_bitcoin_signature(&p, first_commit_sig);
 	towire_wally_psbt(&p, psbt);
-	towire_channel_id(&p, channel_id);
 	towire_pubkey(&p, revocation_basepoint);
 	towire_pubkey(&p, payment_basepoint);
 	towire_pubkey(&p, htlc_basepoint);
@@ -498,7 +497,7 @@ u8 *towire_dualopend_commit_rcvd(const tal_t *ctx, const struct channel_config *
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dualopend_commit_rcvd(const tal_t *ctx, const void *p, struct channel_config *their_config, struct bitcoin_tx **remote_first_commit, struct penalty_base **pbase, struct bitcoin_signature *first_commit_sig, struct wally_psbt **psbt, struct channel_id *channel_id, struct pubkey *revocation_basepoint, struct pubkey *payment_basepoint, struct pubkey *htlc_basepoint, struct pubkey *delayed_payment_basepoint, struct pubkey *their_per_commit_point, struct pubkey *remote_fundingkey, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshis, struct amount_sat *our_funding_sats, u8 *channel_flags, u32 *feerate_per_kw, struct amount_sat *our_channel_reserve_satoshis, u8 **local_shutdown_scriptpubkey, u8 **remote_shutdown_scriptpubkey)
+bool fromwire_dualopend_commit_rcvd(const tal_t *ctx, const void *p, struct channel_config *their_config, struct bitcoin_tx **remote_first_commit, struct penalty_base **pbase, struct bitcoin_signature *first_commit_sig, struct wally_psbt **psbt, struct pubkey *revocation_basepoint, struct pubkey *payment_basepoint, struct pubkey *htlc_basepoint, struct pubkey *delayed_payment_basepoint, struct pubkey *their_per_commit_point, struct pubkey *remote_fundingkey, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshis, struct amount_sat *our_funding_sats, u8 *channel_flags, u32 *feerate_per_kw, struct amount_sat *our_channel_reserve_satoshis, u8 **local_shutdown_scriptpubkey, u8 **remote_shutdown_scriptpubkey)
 {
 	u16 local_shutdown_len;
 	u16 remote_shutdown_len;
@@ -518,7 +517,6 @@ bool fromwire_dualopend_commit_rcvd(const tal_t *ctx, const void *p, struct chan
 	}
  	fromwire_bitcoin_signature(&cursor, &plen, first_commit_sig);
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
- 	fromwire_channel_id(&cursor, &plen, channel_id);
  	fromwire_pubkey(&cursor, &plen, revocation_basepoint);
  	fromwire_pubkey(&cursor, &plen, payment_basepoint);
  	fromwire_pubkey(&cursor, &plen, htlc_basepoint);
@@ -966,4 +964,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:0f0daed93a4de2552ca122b969c4ac215ab89e3d5babc727b963fcf02f85980d
+// SHA256STAMP:523781b6cb29d5c57de5819abb73f492b34e9b42a91b9304a38315b194f9c85c
