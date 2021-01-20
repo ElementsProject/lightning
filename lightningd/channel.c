@@ -197,6 +197,85 @@ struct open_attempt *new_channel_open_attempt(struct channel *channel)
 	return oa;
 }
 
+struct channel *new_unsaved_channel(struct peer *peer,
+				    u32 feerate_base,
+				    u32 feerate_ppm)
+{
+	struct lightningd *ld = peer->ld;
+	struct channel *channel = tal(ld, struct channel);
+
+	channel->peer = peer;
+	/* Not saved to the database yet! */
+	channel->unsaved_dbid = wallet_get_channel_dbid(ld->wallet);
+	/* A zero value database id means it's not saved in the database yet */
+	channel->dbid = 0;
+	channel->error = NULL;
+	channel->htlc_timeout = NULL;
+	channel->openchannel_signed_cmd = NULL;
+	channel->state = DUALOPEND_OPEN_INIT;
+	channel->owner = NULL;
+	memset(&channel->billboard, 0, sizeof(channel->billboard));
+	channel->billboard.transient = tal_fmt(channel, "%s",
+					       "Empty channel init'd");
+	channel->log = new_log(channel, ld->log_book,
+			       &peer->id,
+			       "chan#%"PRIu64,
+			       channel->unsaved_dbid);
+
+	memset(&channel->cid, 0xFF, sizeof(channel->cid));
+	channel->our_config.id = 0;
+	channel->open_attempt = NULL;
+
+	channel->last_htlc_sigs = NULL;
+	channel->remote_funding_locked = false;
+	channel->scid = NULL;
+	channel->next_index[LOCAL] = 1;
+	channel->next_index[REMOTE] = 1;
+	channel->next_htlc_id = 0;
+	/* FIXME: remove push when v1 deprecated */
+	channel->push = AMOUNT_MSAT(0);
+	channel->closing_fee_negotiation_step = 50;
+	channel->closing_fee_negotiation_step_unit
+		= CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
+
+	/* Channel is connected! */
+	channel->connected = true;
+	channel->shutdown_scriptpubkey[REMOTE] = NULL;
+	channel->last_was_revoke = false;
+	channel->last_sent_commit = NULL;
+	channel->last_tx_type = TX_UNKNOWN;
+
+	channel->feerate_base = feerate_base;
+	channel->feerate_ppm = feerate_ppm;
+	/* closer not yet known */
+	channel->closer = NUM_SIDES;
+
+	/* BOLT-7b04b1461739c5036add61782d58ac490842d98b #9
+	 * | 222/223 | `option_dual_fund`
+	 * | Use v2 of channel open, enables dual funding
+	 * | IN9
+	 * | `option_anchor_outputs`    */
+	channel->option_static_remotekey = true;
+	channel->option_anchor_outputs = true;
+	channel->future_per_commitment_point = NULL;
+
+	/* No shachain yet */
+	channel->their_shachain.id = 0;
+	shachain_init(&channel->their_shachain.chain);
+
+	get_channel_basepoints(ld, &peer->id, channel->unsaved_dbid,
+			       &channel->local_basepoints,
+			       &channel->local_funding_pubkey);
+
+	channel->forgets = tal_arr(channel, struct command *, 0);
+	list_add_tail(&peer->channels, &channel->list);
+	channel->rr_number = peer->ld->rr_counter++;
+	tal_add_destructor(channel, destroy_channel);
+
+	list_head_init(&channel->inflights);
+	return channel;
+}
+
 struct channel *new_channel(struct peer *peer, u64 dbid,
 			    /* NULL or stolen */
 			    struct wallet_shachain *their_shachain,
@@ -257,6 +336,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	assert(dbid != 0);
 	channel->peer = peer;
 	channel->dbid = dbid;
+	channel->unsaved_dbid = 0;
 	channel->error = NULL;
 	channel->htlc_timeout = NULL;
 	channel->open_attempt = NULL;

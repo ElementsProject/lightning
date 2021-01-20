@@ -70,6 +70,9 @@ struct channel {
 	/* Database ID: 0 == not in db yet */
 	u64 dbid;
 
+	/* Populated by new_unsaved_channel */
+	u64 unsaved_dbid;
+
 	/* Error message (iff in error state) */
 	u8 *error;
 
@@ -200,6 +203,11 @@ struct channel {
 	/* Outstanding command for this channel, v2 only */
 	struct command *openchannel_signed_cmd;
 };
+
+/* For v2 opens, a channel that has not yet been committed/saved to disk */
+struct channel *new_unsaved_channel(struct peer *peer,
+				    u32 feerate_base,
+				    u32 feerate_ppm);
 
 struct open_attempt *new_channel_open_attempt(struct channel *channel);
 

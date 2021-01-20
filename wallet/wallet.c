@@ -1801,6 +1801,9 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 {
 	struct db_stmt *stmt;
 
+	assert(chan->dbid != 0);
+	assert(chan->unsaved_dbid == 0);
+
 	if (chan->peer->dbid == 0)
 		wallet_peer_save(w, chan->peer);
 

@@ -1293,6 +1293,9 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	c1.last_sig.s = *sig;
 	c1.last_sig.sighash_type = SIGHASH_ALL;
 	c1.last_tx->chainparams = chainparams_for_network("bitcoin");
+	c1.unsaved_dbid = 0;
+	/* Init channel inflights */
+	list_head_init(&c1.inflights);
 
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
