@@ -1681,6 +1681,54 @@ send_msg:
 	subd_send_msg(channel->owner, take(msg));
 }
 
+static struct command_result *
+json_openchannel_bump(struct command *cmd,
+		      const char *buffer,
+		      const jsmntok_t *obj UNNEEDED,
+		      const jsmntok_t *params)
+{
+	struct channel_id *cid;
+	struct channel *channel;
+	struct amount_sat *amount;
+	struct wally_psbt *psbt;
+	struct open_attempt *oa;
+
+	if (!param(cmd, buffer, params,
+		   p_req("channel_id", param_channel_id, &cid),
+		   p_req("amount", param_sat, &amount),
+		   p_req("initialpsbt", param_psbt, &psbt),
+		   NULL))
+		return command_param_failed();
+
+	/* Are we in a state where we can attempt an RBF? */
+	channel = channel_by_cid(cmd->ld, cid);
+	if (!channel)
+		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
+				    "Unknown channel %s",
+				    type_to_string(tmpctx, struct channel_id,
+						   cid));
+
+	if (channel->open_attempt)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Commitments for this channel not "
+				    "secured, see `openchannel_update`");
+
+	if (channel->state != DUALOPEND_AWAITING_LOCKIN)
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "Channel not eligible to init RBF."
+				    " Current state %s, expected state %s",
+				    channel_state_name(channel),
+				    channel_state_str(DUALOPEND_AWAITING_LOCKIN));
+	/* Ok, we're kosher to start */
+	channel->open_attempt = oa = new_channel_open_attempt(channel);
+	oa->funding = *amount;
+	oa->cmd = cmd;
+	oa->our_upfront_shutdown_script
+		= channel->shutdown_scriptpubkey[LOCAL];
+
+	/* FIXME: call dualopend with psbt + amount!! */
+	return command_still_pending(cmd);
+}
 
 static struct command_result *
 json_openchannel_signed(struct command *cmd,
@@ -2327,10 +2375,18 @@ static const struct json_command openchannel_signed_command = {
 	"Send our {signed_psbt}'s tx sigs for {channel_id}."
 };
 
+static const struct json_command openchannel_bump_command = {
+	"openchannel_bump",
+	"channels",
+	json_openchannel_bump,
+	"Attempt to bump the fee on {channel_id}'s funding transaction."
+};
+
 #if EXPERIMENTAL_FEATURES
 AUTODATA(json_command, &openchannel_init_command);
 AUTODATA(json_command, &openchannel_update_command);
 AUTODATA(json_command, &openchannel_signed_command);
+AUTODATA(json_command, &openchannel_bump_command);
 #endif /* EXPERIMENTAL_FEATURES */
 
 void peer_restart_dualopend(struct peer *peer,
