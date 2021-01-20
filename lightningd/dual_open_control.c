@@ -1702,7 +1702,6 @@ json_openchannel_signed(struct command *cmd,
 			 const jsmntok_t *params)
 {
 	struct wally_psbt *psbt;
-	struct uncommitted_channel *uc;
 	struct channel_id *cid;
 	struct channel *channel;
 	struct bitcoin_txid txid;
@@ -1713,11 +1712,7 @@ json_openchannel_signed(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	channel = channel_by_cid(cmd->ld, cid, &uc);
-	if (uc)
-		return command_fail(cmd, LIGHTNINGD,
-				    "Commitments for this channel not "
-				    "yet secured, see `openchannel_update`");
+	channel = channel_by_cid(cmd->ld, cid);
 	if (!channel)
 		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
 				    "Unknown channel");
@@ -1729,8 +1724,7 @@ json_openchannel_signed(struct command *cmd,
 				    "this channel");
 	if (channel->openchannel_signed_cmd)
 		return command_fail(cmd, LIGHTNINGD,
-				    "Already sent sigs, waiting for"
-				    " peer's");
+				    "Already sent sigs, waiting for peer's");
 
 	/* Verify that the psbt's txid matches that of the
 	 * funding txid for this channel */
@@ -1786,7 +1780,6 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 	struct wally_psbt *psbt;
 	struct channel_id *cid;
 	struct channel *channel;
-	struct uncommitted_channel *uc;
 	u8 *msg;
 
 	if (!param(cmd, buffer, params,
@@ -1795,26 +1788,12 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	/* We expect this to return NULL, as the channel hasn't been
-	 * created yet. Instead, the uncommitted channel is populated */
-	channel = channel_by_cid(cmd->ld, cid, &uc);
-	if (channel)
-		return command_fail(cmd, LIGHTNINGD, "Channel already %s",
-				    channel_state_name(channel));
-
-	if (!uc)
-		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
+	channel = channel_by_cid(cmd->ld, cid);
+	if (!channel)
+		return command_fail(cmd, LIGHTNINGD,
 				    "Unknown channel %s",
 				    type_to_string(tmpctx, struct channel_id,
 						   cid));
-
-	if (!uc->fc || !uc->fc->inflight)
-		return command_fail(cmd, LIGHTNINGD,
-				    "No channel funding in progress");
-
-	if (uc->fc->cmd)
-		return command_fail(cmd, LIGHTNINGD,
-				    "Channel funding in progress");
 
 	/* Add serials to PSBT */
 	psbt_add_serials(psbt, TX_INITIATOR);
@@ -1824,10 +1803,9 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 				    type_to_string(tmpctx, struct wally_psbt,
 						   psbt));
 
-	uc->fc->cmd = cmd;
-
 	msg = towire_dualopend_psbt_updated(NULL, psbt);
-	subd_send_msg(uc->open_daemon, take(msg));
+	/* FIXME: daemon? */
+	subd_send_msg(NULL, take(msg));
 	return command_still_pending(cmd);
 }
 
