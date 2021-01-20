@@ -176,7 +176,6 @@ wallet_commit_channel(struct lightningd *ld,
 			      push,
 			      local_funding,
 			      false, /* !remote_funding_locked */
-			      false, /* !remote_tx_sigs */
 			      NULL, /* no scid yet */
 			      cid,
 			      /* The three arguments below are msatoshi_to_us,
@@ -210,7 +209,6 @@ wallet_commit_channel(struct lightningd *ld,
 			      remote_upfront_shutdown_script,
 			      option_static_remotekey,
 			      option_anchor_outputs,
-			      NULL,
 			      NUM_SIDES, /* closer not yet known */
 			      uc->fc ? REASON_USER : REASON_REMOTE);
 
