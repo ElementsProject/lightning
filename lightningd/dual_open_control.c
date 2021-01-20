@@ -2307,6 +2307,7 @@ void peer_restart_dualopend(struct peer *peer,
 	u32 max_to_self_delay;
 	struct amount_msat min_effective_htlc_capacity;
 	struct channel_config unused_config;
+	struct channel_inflight *inflight;
         int hsmfd;
 	u8 *msg;
 
@@ -2340,6 +2341,7 @@ void peer_restart_dualopend(struct peer *peer,
 		       &max_to_self_delay,
 		       &min_effective_htlc_capacity);
 
+	inflight = channel_current_inflight(channel);
 	msg = towire_dualopend_reinit(NULL,
 				      chainparams,
 				      peer->ld->our_features,
@@ -2362,7 +2364,7 @@ void peer_restart_dualopend(struct peer *peer,
 				      channel->our_msat,
 				      &channel->channel_info.theirbase,
 				      &channel->channel_info.remote_per_commit,
-				      NULL, /* FIXME! */
+				      inflight->funding_psbt,
 				      channel->opener,
 				      channel->scid != NULL,
 				      channel->remote_funding_locked,
@@ -2370,7 +2372,7 @@ void peer_restart_dualopend(struct peer *peer,
 				      channel->shutdown_scriptpubkey[REMOTE] != NULL,
 				      channel->shutdown_scriptpubkey[LOCAL],
 				      channel->remote_upfront_shutdown_script,
-				      false, /* FIXME! */
+				      inflight->remote_tx_sigs,
                                       channel->fee_states,
 				      channel->channel_flags,
 				      send_msg);
@@ -2387,40 +2389,45 @@ void peer_start_dualopend(struct peer *peer,
 	int hsmfd;
 	u32 max_to_self_delay;
 	struct amount_msat min_effective_htlc_capacity;
-	struct uncommitted_channel *uc;
 	const u8 *msg;
+	struct channel *channel;
 
-	assert(!peer->uncommitted_channel);
-	uc = peer->uncommitted_channel = new_uncommitted_channel(peer);
+	/* And we never touch this. */
+	assert(!peer_unsaved_channel(peer));
+	channel = new_unsaved_channel(peer,
+				      peer->ld->config.fee_base,
+				      peer->ld->config.fee_per_satoshi);
 
-	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, uc->dbid,
+
+	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->unsaved_dbid,
 				  HSM_CAP_COMMITMENT_POINT
 				  | HSM_CAP_SIGN_REMOTE_TX);
 
-	uc->open_daemon = new_channel_subd(peer->ld,
-					   "lightning_dualopend",
-					   uc, UNCOMMITTED, &peer->id,
-					   uc->log, true,
-					   dualopend_wire_name,
-					   dual_opend_msg,
-					   opend_channel_errmsg,
-					   opend_channel_set_billboard,
-					   take(&pps->peer_fd),
-					   take(&pps->gossip_fd),
-					   take(&pps->gossip_store_fd),
-					   take(&hsmfd), NULL);
+	channel->owner = new_channel_subd(peer->ld,
+					  "lightning_dualopend",
+					  channel, CHANNEL,
+					  &peer->id,
+					  channel->log, true,
+					  dualopend_wire_name,
+					  dual_opend_msg,
+					  channel_errmsg,
+					  channel_set_billboard,
+					  take(&pps->peer_fd),
+					  take(&pps->gossip_fd),
+					  take(&pps->gossip_store_fd),
+					  take(&hsmfd), NULL);
 
-	if (!uc->open_daemon) {
+	if (!channel->owner) {
 		char *errmsg;
 		errmsg = tal_fmt(tmpctx,
 				 "Running lightning_dualopend: %s",
 				 strerror(errno));
-		uncommitted_channel_disconnect(uc, LOG_BROKEN, errmsg);
-		tal_free(uc);
+		unsaved_channel_disconnect(channel, LOG_BROKEN, errmsg);
+		tal_free(channel);
 		return;
 	}
 
-	channel_config(peer->ld, &uc->our_config,
+	channel_config(peer->ld, &channel->our_config,
 		       &max_to_self_delay,
 		       &min_effective_htlc_capacity);
 
@@ -2431,19 +2438,19 @@ void peer_start_dualopend(struct peer *peer,
 	 *     considers reasonable to avoid double-spending of the
 	 *     funding transaction.
 	 */
-	uc->minimum_depth = peer->ld->config.anchor_confirms;
+	channel->minimum_depth = peer->ld->config.anchor_confirms;
 
 	msg = towire_dualopend_init(NULL, chainparams,
 				    peer->ld->our_features,
 				    peer->their_features,
-				    &uc->our_config,
+				    &channel->our_config,
 				    max_to_self_delay,
 				    min_effective_htlc_capacity,
-				    pps, &uc->local_basepoints,
-				    &uc->local_funding_pubkey,
-				    uc->minimum_depth,
+				    pps, &channel->local_basepoints,
+				    &channel->local_funding_pubkey,
+				    channel->minimum_depth,
 				    feerate_min(peer->ld, NULL),
 				    feerate_max(peer->ld, NULL),
 				    send_msg);
-	subd_send_msg(uc->open_daemon, take(msg));
+	subd_send_msg(channel->owner, take(msg));
 }
