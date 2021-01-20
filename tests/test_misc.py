@@ -1718,8 +1718,7 @@ def test_bad_onion(node_factory, bitcoind):
     sha = re.search(r' 0087.{64}.{16}(.{64})', line).group(1)
 
     # Should see same sha in onionreply
-    line = l1.daemon.is_in_log(r'failcode .* from onionreply .*')
-    assert re.search(r'onionreply .*{}'.format(sha), line)
+    l1.daemon.wait_for_log(r'failcode .* from onionreply .*{sha}'.format(sha=sha))
 
     # Replace id with a different pubkey, so onion encoded badly at second hop.
     route[1]['id'] = mangled_nodeid
