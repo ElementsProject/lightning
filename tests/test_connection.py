@@ -2071,6 +2071,12 @@ def test_multiple_channels(node_factory):
 
         l1.rpc.close(chan)
 
+        # If we don't wait for l2 to make the transition we can end up
+        # attempting to re-estabilishing the channel
+        l2.daemon.wait_for_log(
+            r'State changed from CLOSINGD_SIGEXCHANGE to CLOSINGD_COMPLETE'
+        )
+
     channels = only_one(l1.rpc.listpeers()['peers'])['channels']
     assert len(channels) == 3
     # Most in state ONCHAIN, last is CLOSINGD_COMPLETE
