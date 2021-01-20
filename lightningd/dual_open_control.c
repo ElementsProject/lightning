@@ -457,7 +457,6 @@ static void rbf_channel_hook_cb(struct rbf_channel_payload *payload STEALS)
 	if (!dualopend)
 		return;
 
-	assert(dualopend->ctype == CHANNEL);
 	channel = dualopend->channel;
 
 	tal_del_destructor2(dualopend, rbf_channel_remove_dualopend, payload);
@@ -502,7 +501,6 @@ rbf_channel_hook_deserialize(struct rbf_channel_payload *payload,
 		return false;
 	}
 
-	assert(dualopend->ctype == CHANNEL);
 	channel = dualopend->channel;
 
 	/* FIXME: move to new json extraction */
@@ -1004,11 +1002,11 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 {
 	u8 *scriptpubkey;
 	struct lightningd *ld = dualopend->ld;
-	struct channel *channel;
+	struct channel *channel = dualopend->channel;
 	char *errmsg;
 
 	/* We shouldn't get this message while we're waiting to finish */
-	if (dualopend->ctype == UNCOMMITTED) {
+	if (channel_unsaved(channel)) {
 		log_broken(dualopend->ld->log, "Channel in wrong state for"
 		           " shutdown, still has uncommitted"
 		           " channel pending.");
@@ -1018,8 +1016,6 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 			      take(towire_dualopend_fail(NULL, errmsg)));
 		return;
 	}
-
-	channel = dualopend->channel;
 
 	if (!fromwire_dualopend_got_shutdown(channel, msg, &scriptpubkey)) {
 		channel_internal_error(channel, "bad channel_got_shutdown %s",
@@ -1075,7 +1071,7 @@ static void handle_channel_closed(struct subd *dualopend,
 				  const u8 *msg)
 {
 	struct per_peer_state *pps;
-	struct channel *channel;
+	struct channel *channel = dualopend->channel;
 
 	if (!fromwire_dualopend_shutdown_complete(tmpctx, msg, &pps)) {
 		channel_internal_error(dualopend->channel,
@@ -1089,8 +1085,6 @@ static void handle_channel_closed(struct subd *dualopend,
 
 	per_peer_state_set_fds_arr(pps, fds);
 
-	assert(dualopend->ctype == CHANNEL);
-	channel = dualopend->channel;
 	peer_start_closingd(channel, pps, false, NULL);
 	channel_set_state(channel,
 			  CHANNELD_SHUTTING_DOWN,
@@ -1293,10 +1287,7 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 static void handle_peer_locked(struct subd *dualopend, const u8 *msg)
 {
 	struct pubkey remote_per_commit;
-	struct channel *channel;
-
-	assert(dualopend->ctype == CHANNEL);
-	channel = dualopend->channel;
+	struct channel *channel = dualopend->channel;
 
 	if (!fromwire_dualopend_peer_locked(msg, &remote_per_commit))
 		channel_internal_error(channel,
@@ -1361,9 +1352,9 @@ void dualopen_tell_depth(struct subd *dualopend,
 	const u8 *msg;
 	u32 to_go;
 
-	if (depth < channel->minimum_depth)
+	if (depth < channel->minimum_depth) {
 		to_go = channel->minimum_depth - depth;
-	else
+	} else
 		to_go = 0;
 
 	/* Are we there yet? */
@@ -1411,7 +1402,6 @@ static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
 	struct channel *channel;
 	struct rbf_channel_payload *payload;
 
-	assert(dualopend->ctype == CHANNEL);
 	channel = dualopend->channel;
 
 	payload = tal(dualopend, struct rbf_channel_payload);
@@ -2046,10 +2036,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 static void
 channel_fail_fallen_behind(struct subd* dualopend, const u8 *msg)
 {
-	struct channel *channel;
-
-	assert(dualopend->ctype == CHANNEL);
-	channel = dualopend->channel;
+	struct channel *channel = dualopend->channel;
 
 	if (!fromwire_dualopend_fail_fallen_behind(msg)) {
 		channel_internal_error(channel,
@@ -2417,7 +2404,7 @@ void peer_restart_dualopend(struct peer *peer,
 
 	channel_set_owner(channel,
 			  new_channel_subd(peer->ld, "lightning_dualopend",
-					   channel, CHANNEL,
+					   channel,
 					   &peer->id,
 					   channel->log, true,
 					   dualopend_wire_name,
@@ -2505,7 +2492,7 @@ void peer_start_dualopend(struct peer *peer,
 
 	channel->owner = new_channel_subd(peer->ld,
 					  "lightning_dualopend",
-					  channel, CHANNEL,
+					  channel,
 					  &peer->id,
 					  channel->log, true,
 					  dualopend_wire_name,

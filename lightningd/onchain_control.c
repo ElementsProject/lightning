@@ -588,7 +588,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 
 	channel_set_owner(channel, new_channel_subd(ld,
 						    "lightning_onchaind",
-						    channel, CHANNEL,
+						    channel,
 						    &channel->peer->id,
 						    channel->log, false,
 						    onchaind_wire_name,
