@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.9.3rc2] - 2021-01-15
+## [0.9.3] - 2021-01-20
 
 ### Added
 
@@ -61,6 +61,8 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - onchaind uses much less memory on unilateral closes for old channels. ([#4250])
  - pay: Fixed an issue where waiting for the blockchain height to sync could time out. ([#4317])
  - pyln: parsing msat from a float string ([#4237])
+ - hsmtool: fix a segfault on `dumponchaindescriptors` without network parameter ([#4341])
+ - db: Speed up deletion of peer especially when there is a long history with that peer. ([#4337])
 
 ### Security
 
@@ -101,8 +103,9 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 [#4243]: https://github.com/ElementsProject/lightning/pull/4243
 [#4282]: https://github.com/ElementsProject/lightning/pull/4282
 [#4328]: https://github.com/ElementsProject/lightning/pull/4328
-[v0.9.3rc1]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.3rc1
-
+[#4341]: https://github.com/ElementsProject/lightning/pull/4341
+[#4337]: https://github.com/ElementsProject/lightning/pull/4337
+[0.9.3]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.3rc1
 
 
 ## [0.9.2] - 2020-11-20: Now with 0-of-N Multisig
