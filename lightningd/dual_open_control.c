@@ -20,6 +20,7 @@
 #include <common/per_peer_state.h>
 #include <common/psbt_open.h>
 #include <common/type_to_string.h>
+#include <connectd/connectd_wiregen.h>
 #include <hsmd/capabilities.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel_control.h>
@@ -39,6 +40,26 @@ struct commit_rcvd {
 	struct channel_id cid;
 	struct uncommitted_channel *uc;
 };
+
+/* FIXME: remove when used */
+void
+unsaved_channel_disconnect(struct channel *channel,
+			   enum log_level level,
+			   const char *desc);
+void
+unsaved_channel_disconnect(struct channel *channel,
+			   enum log_level level,
+			   const char *desc)
+{
+	u8 *msg = towire_connectd_peer_disconnected(tmpctx, &channel->peer->id);
+	log_(channel->log, level, NULL, false, "%s", desc);
+	subd_send_msg(channel->peer->ld->connectd, msg);
+	if (channel->open_attempt && channel->open_attempt->cmd)
+		was_pending(command_fail(channel->open_attempt->cmd,
+					 LIGHTNINGD, "%s", desc));
+	notify_disconnect(channel->peer->ld, &channel->peer->id);
+}
+
 
 static void handle_signed_psbt(struct lightningd *ld,
 			       struct subd *dualopend,
