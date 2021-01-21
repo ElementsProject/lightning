@@ -1260,39 +1260,46 @@ def test_funding_close_upfront(node_factory, bitcoind):
             channel = node.rpc.listpeers()['peers'][0]['channels'][-1]
             assert amount * 1000 == channel['msatoshi_total']
 
+    def _close(src, dst, addr=None):
+        """Close the channel from src to dst, with the specified address.
+
+        Returns the address of the outputs in the close tx. Raises an
+        error if some expectations are not met.
+
+        """
+        r = l1.rpc.close(l2.info['id'], destination=addr)
+        assert r['type'] == 'mutual'
+        tx = bitcoind.rpc.decoderawtransaction(r['tx'])
+
+        addrs = [vout['scriptPubKey']['addresses'][0] for vout in tx['vout']]
+        bitcoind.generate_block(1, wait_for_mempool=[r['txid']])
+        sync_blockheight(bitcoind, [l1, l2])
+        return addrs
+
     # check that normal peer close works
     _fundchannel(l1, l2, amt_normal, None)
-    assert l1.rpc.close(l2.info['id'])['type'] == 'mutual'
+    _close(l1, l2)
 
     # check that you can provide a closing address upfront
     addr = l1.rpc.newaddr()['bech32']
     _fundchannel(l1, l2, amt_normal, addr)
     # confirm that it appears in listpeers
     assert addr == only_one(l1.rpc.listpeers()['peers'])['channels'][1]['close_to_addr']
-    resp = l1.rpc.close(l2.info['id'])
-    assert resp['type'] == 'mutual'
-    assert only_one(only_one(bitcoind.rpc.decoderawtransaction(resp['tx'])['vout'])['scriptPubKey']['addresses']) == addr
+    assert _close(l1, l2) == [addr]
 
     # check that passing in the same addr to close works
     addr = bitcoind.rpc.getnewaddress()
     _fundchannel(l1, l2, amt_normal, addr)
     assert addr == only_one(l1.rpc.listpeers()['peers'])['channels'][2]['close_to_addr']
-    resp = l1.rpc.close(l2.info['id'], destination=addr)
-    assert resp['type'] == 'mutual'
-    assert only_one(only_one(bitcoind.rpc.decoderawtransaction(resp['tx'])['vout'])['scriptPubKey']['addresses']) == addr
+    assert _close(l1, l2, addr) == [addr]
 
     # check that remote peer closing works as expected (and that remote's close_to works)
     _fundchannel(l1, l2, amt_addr, addr)
     # send some money to remote so that they have a closeout
     l1.rpc.pay(l2.rpc.invoice((amt_addr // 2) * 1000, 'test_remote_close_to', 'desc')['bolt11'])
     assert only_one(l2.rpc.listpeers()['peers'])['channels'][-1]['close_to_addr'] == remote_valid_addr
-
-    resp = l2.rpc.close(l1.info['id'])
-    assert resp['type'] == 'mutual'
-    vouts = bitcoind.rpc.decoderawtransaction(resp['tx'])['vout']
-    assert len(vouts) == 2
-    for vout in vouts:
-        assert only_one(vout['scriptPubKey']['addresses']) in [addr, remote_valid_addr]
+    # The tx outputs must be one of the two permutations
+    assert _close(l2, l1) in ([addr, remote_valid_addr], [remote_valid_addr, addr])
 
     # check that passing in a different addr to close causes an RPC error
     addr2 = l1.rpc.newaddr()['bech32']
