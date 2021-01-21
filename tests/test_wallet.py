@@ -1024,6 +1024,7 @@ def test_hsmtool_secret_decryption(node_factory):
     l1.stop()
 
     # We can't use a wrong password !
+    master_fd, slave_fd = os.openpty()
     hsmtool = HsmTool("decrypt", hsm_path)
     hsmtool.start(stdin=slave_fd,
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -1033,6 +1034,7 @@ def test_hsmtool_secret_decryption(node_factory):
     hsmtool.is_in_log(r"Wrong password")
 
     # Decrypt it with hsmtool
+    master_fd, slave_fd = os.openpty()
     hsmtool.start(stdin=slave_fd,
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hsmtool.wait_for_log(r"Enter hsm_secret password:")
@@ -1045,6 +1047,7 @@ def test_hsmtool_secret_decryption(node_factory):
     l1.stop()
 
     # Test we can encrypt it offline
+    master_fd, slave_fd = os.openpty()
     hsmtool = HsmTool("encrypt", hsm_path)
     hsmtool.start(stdin=slave_fd,
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -1073,6 +1076,7 @@ def test_hsmtool_secret_decryption(node_factory):
     l1.stop()
 
     # And finally test that we can also decrypt if encrypted with hsmtool
+    master_fd, slave_fd = os.openpty()
     hsmtool = HsmTool("decrypt", hsm_path)
     hsmtool.start(stdin=slave_fd,
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -1119,16 +1123,18 @@ def test_hsmtool_generatehsm(node_factory):
     l1.stop()
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK,
                             "hsm_secret")
-    master_fd, slave_fd = os.openpty()
 
     hsmtool = HsmTool("generatehsm", hsm_path)
+
     # You cannot re-generate an already existing hsm_secret
+    master_fd, slave_fd = os.openpty()
     hsmtool.start(stdin=slave_fd, stdout=subprocess.PIPE,
                   stderr=subprocess.PIPE)
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 2
     os.remove(hsm_path)
 
     # We can generate a valid hsm_secret from a wordlist and a "passphrase"
+    master_fd, slave_fd = os.openpty()
     hsmtool.start(stdin=slave_fd, stdout=subprocess.PIPE,
                   stderr=subprocess.PIPE)
     hsmtool.wait_for_log(r"Select your language:")
