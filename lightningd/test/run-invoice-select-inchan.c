@@ -549,6 +549,9 @@ void peer_start_openingd(struct peer *peer UNNEEDED,
 			 struct per_peer_state *pps UNNEEDED,
 			 const u8 *msg UNNEEDED)
 { fprintf(stderr, "peer_start_openingd called!\n"); abort(); }
+/* Generated stub for peer_unsaved_channel */
+struct channel *peer_unsaved_channel(struct peer *peer UNNEEDED)
+{ fprintf(stderr, "peer_unsaved_channel called!\n"); abort(); }
 /* Generated stub for per_peer_state_set_fds */
 void per_peer_state_set_fds(struct per_peer_state *pps UNNEEDED,
 			    int peer_fd UNNEEDED, int gossip_fd UNNEEDED, int gossip_store_fd UNNEEDED)

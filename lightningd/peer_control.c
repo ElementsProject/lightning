@@ -1322,6 +1322,8 @@ static void json_add_peer(struct lightningd *ld,
 		connected = true;
 	else {
 		channel = peer_active_channel(p);
+		if (!channel)
+			channel = peer_unsaved_channel(p);
 		connected = channel && channel->connected;
 	}
 	json_add_bool(response, "connected", connected);
