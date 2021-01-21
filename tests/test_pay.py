@@ -1271,8 +1271,10 @@ def test_forward_stats(node_factory, bitcoind):
     l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts=[{}] * 4 + [{'may_fail': True}])
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=False)
     l2.openchannel(l4, 10**6, wait_for_announce=False)
-    l2.openchannel(l5, 10**6, wait_for_announce=True)
+    l2.openchannel(l5, 10**6, wait_for_announce=False)
 
+    bitcoind.generate_block(1)
+    sync_blockheight(bitcoind, [l1, l2, l3, l4, l5])
     bitcoind.generate_block(5)
 
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 8)
