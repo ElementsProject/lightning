@@ -145,7 +145,7 @@ jobs:
           export DEVELOPER=${DEVELOPER:-1}
           export EXPERIMENTAL_FEATURES=${EXPERIMENTAL_FEATURES:-0}
           export PATH=$CWD/dependencies/bin:"$HOME"/.local/bin:"$PATH"
-          export PYTEST_OPTS="--maxfail=5 --reruns=2 --suppress-no-test-exit-code ${PYTEST_OPTS}"
+          export PYTEST_OPTS="--maxfail=5 --suppress-no-test-exit-code ${PYTEST_OPTS}"
           export PYTEST_PAR=${PYTEST_PAR:-10}
           export PYTEST_SENTRY_ALWAYS_REPORT=1
           export SLOW_MACHINE=1
@@ -167,10 +167,9 @@ jobs:
           # running tests easier/feasible on CI (and pytest which
           # keeps breaking the rerunfailures plugin).
           pip3 install --user -U \
-            pytest==6.1.0 \
+            flaky \
             blinker \
             pytest-sentry \
-            pytest-rerunfailures==9.1.1 \
             pytest-test-groups==1.0.3 \
             pytest-custom-exit-code==0.3.0
 
@@ -185,7 +184,7 @@ jobs:
 
           cat << 'EOF' > pytest.ini
           [pytest]
-          addopts=-p no:logging --color=yes --timeout=1800 --timeout-method=thread --test-group-random-seed=42
+          addopts=-p no:logging --color=yes --timeout=1800 --timeout-method=thread --test-group-random-seed=42 --force-flaky --no-success-flaky-report --max-runs=3
           markers =
               slow_test: marks tests as slow (deselect with '-m "not slow_test"')
           EOF
