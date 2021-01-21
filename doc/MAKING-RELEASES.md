@@ -58,7 +58,11 @@ Here's a checklist for the release process.
 
 1. Update the CHANGELOG.md; remove -rcN in both places, update the date.
 2. Add a PR with that release.
-3. Merge the PR, then `git pull && git tag -s v<VERSION> && git push --tags`.
+3. Merge the PR, then:
+   - `export VERSION=0.9.3`
+   - `git pull`
+   - `git tag -a -s v${VERSION} -m v${VERSION}`
+   - `git push --tags`
 4. Run `tools/build-release.sh` to build the non-reprodicible images
    and reproducible zipfile.
 5. Use the zipfile to produce a [reproducible build](REPRODUCIBLE.md).
