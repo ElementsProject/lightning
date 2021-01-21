@@ -506,10 +506,12 @@ def test_gossip_no_empty_announcements(node_factory, bitcoind):
 def test_routing_gossip(node_factory, bitcoind):
     nodes = node_factory.get_nodes(5)
 
+    sync_blockheight(bitcoind, nodes)
     for i in range(len(nodes) - 1):
         src, dst = nodes[i], nodes[i + 1]
         src.rpc.connect(dst.info['id'], 'localhost', dst.port)
-        src.openchannel(dst, 25000)
+        src.openchannel(dst, 25000, confirm=False, wait_for_announce=False)
+        sync_blockheight(bitcoind, nodes)
 
     # Avoid "bad gossip" caused by future announcements (a node below
     # confirmation height receiving and ignoring the announcement,
@@ -517,7 +519,7 @@ def test_routing_gossip(node_factory, bitcoind):
     sync_blockheight(bitcoind, nodes)
 
     # Allow announce messages.
-    bitcoind.generate_block(5)
+    bitcoind.generate_block(6)
 
     # Deep check that all channels are in there
     comb = []
