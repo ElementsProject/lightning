@@ -304,18 +304,15 @@ def test_closing_negotiation_reconnect(node_factory, bitcoind):
     assert bitcoind.rpc.getmempoolinfo()['size'] == 0
 
     l1.rpc.close(l2.info['id'])
+    l1.daemon.wait_for_log(r'State changed from CHANNELD_NORMAL to CHANNELD_SHUTTING_DOWN')
+    l2.daemon.wait_for_log(r'State changed from CHANNELD_NORMAL to CHANNELD_SHUTTING_DOWN')
 
-    l1.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
-    l2.daemon.wait_for_log(' to CHANNELD_SHUTTING_DOWN')
-
-    l1.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
-    l2.daemon.wait_for_log(' to CLOSINGD_SIGEXCHANGE')
-
-    # And should put closing into mempool (happens async, so
-    # CLOSINGD_COMPLETE may come first).
-    l1.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
-    l2.daemon.wait_for_logs(['sendrawtx exit 0', ' to CLOSINGD_COMPLETE'])
-    assert bitcoind.rpc.getmempoolinfo()['size'] == 1
+    # Now verify that the closing tx is in the mempool.
+    bitcoind.generate_block(6, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+    for n in [l1, l2]:
+        # Ensure we actually got a mutual close.
+        n.daemon.wait_for_log(r'Resolved FUNDING_TRANSACTION/FUNDING_OUTPUT by MUTUAL_CLOSE')
 
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
