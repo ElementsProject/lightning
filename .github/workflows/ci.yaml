@@ -184,7 +184,7 @@ jobs:
 
           cat << 'EOF' > pytest.ini
           [pytest]
-          addopts=-p no:logging --color=yes --timeout=1800 --timeout-method=thread --test-group-random-seed=42 --force-flaky --no-success-flaky-report --max-runs=3
+          addopts=-p no:logging --color=yes --timeout=1800 --timeout-method=thread --test-group-random-seed=42 --force-flaky --no-success-flaky-report --max-runs=3 --junitxml=report.xml
           markers =
               slow_test: marks tests as slow (deselect with '-m "not slow_test"')
           EOF
@@ -245,3 +245,10 @@ jobs:
             eatmydata make -j32
             eatmydata $TEST_CMD
           fi
+
+      - name: Upload Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: Junit Report ${{ github.run_number }}.${{ job.container.id }}
+          path: report.xml
