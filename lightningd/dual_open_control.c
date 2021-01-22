@@ -2407,6 +2407,73 @@ AUTODATA(json_command, &openchannel_signed_command);
 AUTODATA(json_command, &openchannel_bump_command);
 #endif /* EXPERIMENTAL_FEATURES */
 
+static void start_fresh_dualopend(struct peer *peer,
+				  struct per_peer_state *pps,
+				  struct channel *channel,
+				  const u8 *send_msg)
+{
+	int hsmfd;
+	u32 max_to_self_delay;
+	struct amount_msat min_effective_htlc_capacity;
+	const u8 *msg;
+
+	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->unsaved_dbid,
+				  HSM_CAP_COMMITMENT_POINT
+				  | HSM_CAP_SIGN_REMOTE_TX);
+
+	channel->owner = new_channel_subd(peer->ld,
+					  "lightning_dualopend",
+					  channel,
+					  &peer->id,
+					  channel->log, true,
+					  dualopend_wire_name,
+					  dual_opend_msg,
+					  channel_errmsg,
+					  channel_set_billboard,
+					  take(&pps->peer_fd),
+					  take(&pps->gossip_fd),
+					  take(&pps->gossip_store_fd),
+					  take(&hsmfd), NULL);
+
+	if (!channel->owner) {
+		char *errmsg;
+		errmsg = tal_fmt(tmpctx,
+				 "Running lightning_dualopend: %s",
+				 strerror(errno));
+		unsaved_channel_disconnect(channel, LOG_BROKEN, errmsg);
+		tal_free(channel);
+		return;
+	}
+
+	channel_config(peer->ld, &channel->our_config,
+		       &max_to_self_delay,
+		       &min_effective_htlc_capacity);
+
+	/* BOLT #2:
+	 *
+	 * The sender:
+	 *   - SHOULD set `minimum_depth` to a number of blocks it
+	 *     considers reasonable to avoid double-spending of the
+	 *     funding transaction.
+	 */
+	channel->minimum_depth = peer->ld->config.anchor_confirms;
+
+	msg = towire_dualopend_init(NULL, chainparams,
+				    peer->ld->our_features,
+				    peer->their_features,
+				    &channel->our_config,
+				    max_to_self_delay,
+				    min_effective_htlc_capacity,
+				    pps, &channel->local_basepoints,
+				    &channel->local_funding_pubkey,
+				    channel->minimum_depth,
+				    feerate_min(peer->ld, NULL),
+				    feerate_max(peer->ld, NULL),
+				    send_msg);
+	subd_send_msg(channel->owner, take(msg));
+
+}
+
 void peer_restart_dualopend(struct peer *peer,
 			    struct per_peer_state *pps,
 			    struct channel *channel,
@@ -2419,6 +2486,10 @@ void peer_restart_dualopend(struct peer *peer,
         int hsmfd;
 	u8 *msg;
 
+	if (channel_unsaved(channel)) {
+		start_fresh_dualopend(peer, pps, channel, send_msg);
+		return;
+	}
 	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->dbid,
 				  HSM_CAP_COMMITMENT_POINT
 				  | HSM_CAP_SIGN_REMOTE_TX);
@@ -2493,11 +2564,6 @@ void peer_start_dualopend(struct peer *peer,
 			  struct per_peer_state *pps,
 			  const u8 *send_msg)
 {
-
-	int hsmfd;
-	u32 max_to_self_delay;
-	struct amount_msat min_effective_htlc_capacity;
-	const u8 *msg;
 	struct channel *channel;
 
 	/* And we never touch this. */
@@ -2506,59 +2572,5 @@ void peer_start_dualopend(struct peer *peer,
 				      peer->ld->config.fee_base,
 				      peer->ld->config.fee_per_satoshi);
 
-
-	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->unsaved_dbid,
-				  HSM_CAP_COMMITMENT_POINT
-				  | HSM_CAP_SIGN_REMOTE_TX);
-
-	channel->owner = new_channel_subd(peer->ld,
-					  "lightning_dualopend",
-					  channel,
-					  &peer->id,
-					  channel->log, true,
-					  dualopend_wire_name,
-					  dual_opend_msg,
-					  channel_errmsg,
-					  channel_set_billboard,
-					  take(&pps->peer_fd),
-					  take(&pps->gossip_fd),
-					  take(&pps->gossip_store_fd),
-					  take(&hsmfd), NULL);
-
-	if (!channel->owner) {
-		char *errmsg;
-		errmsg = tal_fmt(tmpctx,
-				 "Running lightning_dualopend: %s",
-				 strerror(errno));
-		unsaved_channel_disconnect(channel, LOG_BROKEN, errmsg);
-		tal_free(channel);
-		return;
-	}
-
-	channel_config(peer->ld, &channel->our_config,
-		       &max_to_self_delay,
-		       &min_effective_htlc_capacity);
-
-	/* BOLT #2:
-	 *
-	 * The sender:
-	 *   - SHOULD set `minimum_depth` to a number of blocks it
-	 *     considers reasonable to avoid double-spending of the
-	 *     funding transaction.
-	 */
-	channel->minimum_depth = peer->ld->config.anchor_confirms;
-
-	msg = towire_dualopend_init(NULL, chainparams,
-				    peer->ld->our_features,
-				    peer->their_features,
-				    &channel->our_config,
-				    max_to_self_delay,
-				    min_effective_htlc_capacity,
-				    pps, &channel->local_basepoints,
-				    &channel->local_funding_pubkey,
-				    channel->minimum_depth,
-				    feerate_min(peer->ld, NULL),
-				    feerate_max(peer->ld, NULL),
-				    send_msg);
-	subd_send_msg(channel->owner, take(msg));
+	start_fresh_dualopend(peer, pps, channel, send_msg);
 }
