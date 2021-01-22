@@ -51,6 +51,9 @@ unsaved_channel_disconnect(struct channel *channel,
 		was_pending(command_fail(channel->open_attempt->cmd,
 					 LIGHTNINGD, "%s", desc));
 	notify_disconnect(channel->peer->ld, &channel->peer->id);
+	channel->open_attempt = tal_free(channel->open_attempt);
+	if (list_empty(&channel->inflights))
+		memset(&channel->cid, 0xFF, sizeof(channel->cid));
 }
 
 void kill_unsaved_channel(struct channel *channel,
@@ -653,6 +656,7 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 		}
 	}
 
+	channel->cid = payload->channel_id;
 	channel->opener = REMOTE;
 	channel->open_attempt = new_channel_open_attempt(channel);
 	msg = towire_dualopend_got_offer_reply(NULL, payload->accepter_funding,
@@ -1118,6 +1122,8 @@ opening_failed_cancel_commands(struct channel *channel,
 	/* FIXME: cancels? */
 
 	channel->open_attempt = tal_free(channel->open_attempt);
+	if (list_empty(&channel->inflights))
+		memset(&channel->cid, 0xFF, sizeof(channel->cid));
 }
 
 static void open_failed(struct subd *dualopend, const u8 *msg)
@@ -1435,6 +1441,7 @@ static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
 		return;
 	}
 
+	assert(channel_id_eq(&channel->cid, &payload->channel_id));
 	/* Fill in general channel info from channel */
 	payload->peer_id = channel->peer->id;
 	payload->feerate_our_max = feerate_max(dualopend->ld, NULL);
