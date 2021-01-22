@@ -1719,6 +1719,10 @@ json_openchannel_bump(struct command *cmd,
 				    type_to_string(tmpctx, struct channel_id,
 						   cid));
 
+	if (!channel->owner)
+		return command_fail(cmd, LIGHTNINGD,
+				      "Peer not connected.");
+
 	if (channel->open_attempt)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Commitments for this channel not "
@@ -1763,6 +1767,10 @@ json_openchannel_signed(struct command *cmd,
 	if (!channel)
 		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
 				    "Unknown channel");
+	if (!channel->owner)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Peer not connected");
+
 	if (channel->open_attempt)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Commitments for this channel not "
@@ -1870,6 +1878,10 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 				    "Unknown channel %s",
 				    type_to_string(tmpctx, struct channel_id,
 						   cid));
+	if (!channel->owner)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Peer not connected");
+
 	if (!channel->open_attempt)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Channel open not in progress");
@@ -1979,10 +1991,9 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	}
 
 	channel = peer_unsaved_channel(peer);
-	if (!channel)
+	if (!channel || !channel->owner)
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
-
 	if (channel->open_attempt
 	     || !list_empty(&channel->inflights))
 		return command_fail(cmd, LIGHTNINGD, "Channel funding"
