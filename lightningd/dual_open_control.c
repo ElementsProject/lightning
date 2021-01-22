@@ -1761,6 +1761,10 @@ json_openchannel_signed(struct command *cmd,
 				    "Commitments for this channel not "
 				    "yet secured, see `openchannel_update`");
 
+	if (list_empty(&channel->inflights))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Channel open not initialized yet.");
+
 	if (channel->openchannel_signed_cmd)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Already sent sigs, waiting for peer's");
@@ -1972,8 +1976,11 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
 
-	if (channel->open_attempt)
-		return command_fail(cmd, LIGHTNINGD, "Already funding channel");
+	if (channel->open_attempt
+	     || !list_empty(&channel->inflights))
+		return command_fail(cmd, LIGHTNINGD, "Channel funding"
+				    " in-progress. %s",
+				    channel_state_name(channel));
 
 #if EXPERIMENTAL_FEATURES
 	if (!feature_negotiated(cmd->ld->our_features,
