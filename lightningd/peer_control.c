@@ -1152,7 +1152,6 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	if (!hook_payload->channel)
 		hook_payload->channel = peer_unsaved_channel(peer);
 
-	assert(hook_payload->channel);
 	plugin_hook_call_peer_connected(ld, hook_payload);
 }
 
