@@ -171,7 +171,8 @@ jobs:
             blinker \
             pytest-sentry \
             pytest-test-groups==1.0.3 \
-            pytest-custom-exit-code==0.3.0
+            pytest-custom-exit-code==0.3.0 \
+            mypy==0.790
 
           git clone https://github.com/lightningnetwork/lightning-rfc.git ../lightning-rfc
 
