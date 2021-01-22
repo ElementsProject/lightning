@@ -55,6 +55,20 @@ unsaved_channel_disconnect(struct channel *channel,
 	notify_disconnect(channel->peer->ld, &channel->peer->id);
 }
 
+void kill_unsaved_channel(struct channel *channel,
+			  const char *why)
+{
+	log_info(channel->log, "Killing dualopend: %s", why);
+
+	/* Close dualopend */
+	if (channel->owner) {
+		subd_release_channel(channel->owner, channel);
+		channel->owner = NULL;
+	}
+
+	unsaved_channel_disconnect(channel, LOG_INFORM, why);
+	tal_free(channel);
+}
 
 static struct channel_inflight *
 channel_current_inflight(struct channel *channel)

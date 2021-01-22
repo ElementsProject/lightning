@@ -508,6 +508,15 @@ struct channel *active_channel_by_id(struct lightningd *ld,
 	return peer_active_channel(peer);
 }
 
+struct channel *unsaved_channel_by_id(struct lightningd *ld,
+				      const struct node_id *id)
+{
+	struct peer *peer = peer_by_id(ld, id);
+	if (!peer)
+		return NULL;
+	return peer_unsaved_channel(peer);
+}
+
 struct channel *active_channel_by_scid(struct lightningd *ld,
 				       const struct short_channel_id *scid)
 {
