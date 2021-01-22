@@ -329,6 +329,10 @@ struct channel *active_channel_by_id(struct lightningd *ld,
 				     const struct node_id *id,
 				     struct uncommitted_channel **uc);
 
+/* Get unsaved channel for peer */
+struct channel *unsaved_channel_by_id(struct lightningd *ld,
+				      const struct node_id *id);
+
 struct channel *channel_by_dbid(struct lightningd *ld, const u64 dbid);
 
 struct channel *active_channel_by_scid(struct lightningd *ld,

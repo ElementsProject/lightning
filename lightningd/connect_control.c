@@ -19,6 +19,7 @@
 #include <hsmd/capabilities.h>
 #include <lightningd/channel.h>
 #include <lightningd/connect_control.h>
+#include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
@@ -284,6 +285,14 @@ static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 		kill_uncommitted_channel(uc, "Reconnected");
 	else if (c)
 		channel_fail_reconnect(c, "Reconnected");
+#if EXPERIMENTAL_FEATURES
+	else {
+		/* v2 has unsaved channels, not uncommitted_chans */
+		c = unsaved_channel_by_id(ld, &id);
+		if (c)
+			kill_unsaved_channel(c, "Reconnected");
+	}
+#endif /* EXPERIMENTAL_FEATURES */
 }
 
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)
