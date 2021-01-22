@@ -337,6 +337,9 @@ static struct command_result *json_listfunds(struct command *cmd,
 	list_for_each(&cmd->ld->peers, p, list) {
 		struct channel *c;
 		list_for_each(&p->channels, c, list) {
+			/* We don't print out uncommitted channels */
+			if (channel_unsaved(c))
+				continue;
 			json_object_start(response, NULL);
 			json_add_node_id(response, "peer_id", &p->id);
 			/* Mirrors logic in listpeers */
