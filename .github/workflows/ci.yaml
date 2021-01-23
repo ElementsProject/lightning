@@ -3,7 +3,7 @@ name: Continuous Integration
 on: [push, pull_request]
 jobs:
   build-and-test:
-    name: Test DEV=${{ matrix.DEVELOPER }} VAL=${{ matrix.VALGRIND }} EXP=${{ matrix.EXPERIMENTAL_FEATURES }}
+    name: Test config ${{ matrix.cfg }}
     env:
       DEVELOPER: 1
       VALGRIND: 0
@@ -13,37 +13,38 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {TEST_CMD: "make", NO_PYTHON: 1}
-          - {TEST_CMD: "make check-source check-units installcheck", COPTFLAGS: "-O3"}
-          - {ARCH: 32, TEST_CMD: "make check-source check-units installcheck", DEVELOPER: 0}
-          - {TEST_CMD: "make check-source check-units installcheck", EXPERIMENTAL_FEATURES: 1}
+          # CFG us just an enumeration so we can refer to the configurations more easily
+          - {CFG:  1, TEST_CMD: "make", NO_PYTHON: 1}
+          - {CFG:  2, TEST_CMD: "make check-source check-units installcheck", COPTFLAGS: "-O3"}
+          - {CFG:  3, ARCH: 32, TEST_CMD: "make check-source check-units installcheck", DEVELOPER: 0}
+          - {CFG:  4, TEST_CMD: "make check-source check-units installcheck", EXPERIMENTAL_FEATURES: 1}
 
           # All of the following will just run `make pytest`
-          - {COMPILER: clang}
-          - {COMPILER: gcc, TEST_CHECK_DBSTMTS: 1}
-          - {DEVELOPER: 0, COMPAT: 0, TEST_GROUP: 1, TEST_GROUP_COUNT: 2}
-          - {DEVELOPER: 0, COMPAT: 0, TEST_GROUP: 2, TEST_GROUP_COUNT: 2}
+          - {CFG:  5, COMPILER: clang}
+          - {CFG:  6, COMPILER: gcc, TEST_CHECK_DBSTMTS: 1}
+          - {CFG:  7, DEVELOPER: 0, COMPAT: 0, TEST_GROUP: 1, TEST_GROUP_COUNT: 2}
+          - {CFG:  8, DEVELOPER: 0, COMPAT: 0, TEST_GROUP: 2, TEST_GROUP_COUNT: 2}
 
           # All of these are pretty slo since they run under valgrind
-          - {VALGRIND: 1, TEST_GROUP: 1,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {VALGRIND: 1, TEST_GROUP: 2,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {VALGRIND: 1, TEST_GROUP: 3,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {VALGRIND: 1, TEST_GROUP: 4,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {VALGRIND: 1, TEST_GROUP: 5,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {VALGRIND: 1, TEST_GROUP: 6,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {VALGRIND: 1, TEST_GROUP: 7,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {VALGRIND: 1, TEST_GROUP: 8,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {VALGRIND: 1, TEST_GROUP: 9,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {VALGRIND: 1, TEST_GROUP: 10, TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
+          - {CFG:  9, VALGRIND: 1, TEST_GROUP: 1,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
+          - {CFG: 10, VALGRIND: 1, TEST_GROUP: 2,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
+          - {CFG: 11, VALGRIND: 1, TEST_GROUP: 3,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
+          - {CFG: 12, VALGRIND: 1, TEST_GROUP: 4,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
+          - {CFG: 13, VALGRIND: 1, TEST_GROUP: 5,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
+          - {CFG: 14, VALGRIND: 1, TEST_GROUP: 6,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
+          - {CFG: 15, VALGRIND: 1, TEST_GROUP: 7,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
+          - {CFG: 16, VALGRIND: 1, TEST_GROUP: 8,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
+          - {CFG: 17, VALGRIND: 1, TEST_GROUP: 9,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
+          - {CFG: 18, VALGRIND: 1, TEST_GROUP: 10, TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
 
           # Various other configurations
-          - {NETWORK: liquid-regtest}
-          - {DB: postgres, PYTEST_PAR: 2}
+          - {CFG: 19, NETWORK: liquid-regtest}
+          - {CFG: 20, DB: postgres, PYTEST_PAR: 2}
 
           # The cross-compiled versions
-          - {ARCH: arm32v7, TARGET_HOST: arm-linux-gnueabihf}
-          - {ARCH: arm64v8, TARGET_HOST: aarch64-linux-gnu}
-          - {EXPERIMENTAL_FEATURES: 1}
+          - {CFG: 21, ARCH: arm32v7, TARGET_HOST: arm-linux-gnueabihf}
+          - {CFG: 22, ARCH: arm64v8, TARGET_HOST: aarch64-linux-gnu}
+          - {CFG: 23, EXPERIMENTAL_FEATURES: 1}
     runs-on: ubuntu-20.04
     steps:
       - name: Checkout
@@ -251,5 +252,5 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v2
         with:
-          name: Junit Report ${{ github.run_number }}.${{ job.container.id }}
+          name: Junit Report ${{ github.run_number }}.${{ matrix.cfg }}
           path: report.xml
