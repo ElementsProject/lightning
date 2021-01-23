@@ -885,6 +885,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "CREATE INDEX forwarded_payments_state ON forwarded_payments (state)",
+         .query = "CREATE INDEX forwarded_payments_state ON forwarded_payments (state)",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
          .name = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .query = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .placeholders = 1,
@@ -1786,10 +1792,10 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
-#define DB_SQLITE3_QUERY_COUNT 296
+#define DB_SQLITE3_QUERY_COUNT 297
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:4a878278ad7a1d427b80ff3a2abe34ae82cd73cf635ecf25e5cb20532c0604be
+// SHA256STAMP:bbe38ba26543917c2c8be0eeba93c2d0345b51f7f29803e30cc3f03aaf077798

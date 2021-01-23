@@ -669,12 +669,13 @@ static struct migration dbmigrations[] = {
     /* A reference into our own offers table, if it was made from one */
     {SQL("ALTER TABLE payments ADD COLUMN local_offer_id BLOB DEFAULT NULL REFERENCES offers(offer_id);"), NULL},
     {SQL("ALTER TABLE channels ADD funding_tx_remote_sigs_received INTEGER DEFAULT 0;"), NULL},
-
     /* Speeds up deletion of one peer from the database, measurements suggest
      * it cuts down the time by 80%.  */
     {SQL("CREATE INDEX forwarded_payments_out_htlc_id"
 	 " ON forwarded_payments (out_htlc_id);"), NULL},
     {SQL("UPDATE channel_htlcs SET malformed_onion = 0 WHERE malformed_onion IS NULL"), NULL},
+    /*  Speed up forwarded_payments lookup based on state */
+    {SQL("CREATE INDEX forwarded_payments_state ON forwarded_payments (state)"), NULL},
 };
 
 /* Leak tracking. */
