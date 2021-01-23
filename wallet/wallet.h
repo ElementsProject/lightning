@@ -18,6 +18,7 @@
 #include <lightningd/htlc_end.h>
 #include <lightningd/invoice.h>
 #include <lightningd/log.h>
+#include <lightningd/peer_htlcs.h>
 #include <onchaind/onchaind_wire.h>
 #include <wally_bip32.h>
 #include <wire/onion_wire.h>
@@ -123,7 +124,11 @@ enum forward_status {
 	FORWARD_OFFERED = 0,
 	FORWARD_SETTLED = 1,
 	FORWARD_FAILED = 2,
-	FORWARD_LOCAL_FAILED = 3
+	FORWARD_LOCAL_FAILED = 3,
+	/* Special status used to express that we don't care in
+	 * queries */
+	FORWARD_ANY = 255
+
 };
 
 static inline enum forward_status wallet_forward_status_in_db(enum forward_status s)
@@ -141,6 +146,8 @@ static inline enum forward_status wallet_forward_status_in_db(enum forward_statu
 	case FORWARD_LOCAL_FAILED:
 		BUILD_ASSERT(FORWARD_LOCAL_FAILED == 3);
 		return s;
+	case FORWARD_ANY:
+		break;
 	}
 	fatal("%s: %u is invalid", __func__, s);
 }
@@ -156,9 +163,13 @@ static inline const char* forward_status_name(enum forward_status status)
 		return "failed";
 	case FORWARD_LOCAL_FAILED:
 		return "local_failed";
+	case FORWARD_ANY:
+		return "any";
 	}
 	abort();
 }
+
+bool string_to_forward_status(const char *status_str, enum forward_status *status);
 
 struct forwarding {
 	struct short_channel_id channel_in, channel_out;
@@ -1259,7 +1270,10 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w);
  * Retrieve a list of all forwarded_payments
  */
 const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
-						       const tal_t *ctx);
+						       const tal_t *ctx,
+						       enum forward_status state,
+						       const struct short_channel_id *chan_in,
+						       const struct short_channel_id *chan_out);
 
 /**
  * Load remote_ann_node_sig and remote_ann_bitcoin_sig

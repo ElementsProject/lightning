@@ -1122,51 +1122,51 @@ msgstr ""
 msgid "SELECT CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)FROM forwarded_payments WHERE state = ?;"
 msgstr ""
 
-#: wallet/wallet.c:3836
-msgid "SELECT  f.state, in_msatoshi, out_msatoshi, hin.payment_hash as payment_hash, in_channel_scid, out_channel_scid, f.received_time, f.resolved_time, f.failcode FROM forwarded_payments f LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id)"
+#: wallet/wallet.c:3861
+msgid "SELECT  f.state, in_msatoshi, out_msatoshi, hin.payment_hash as payment_hash, in_channel_scid, out_channel_scid, f.received_time, f.resolved_time, f.failcode FROM forwarded_payments f LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id) WHERE (1 = ? OR f.state = ?) AND (1 = ? OR f.in_channel_scid = ?) AND (1 = ? OR f.out_channel_scid = ?)"
 msgstr ""
 
-#: wallet/wallet.c:3924
+#: wallet/wallet.c:3983
 msgid "SELECT  t.id, t.rawtx, t.blockheight, t.txindex, t.type as txtype, c2.short_channel_id as txchan, a.location, a.idx as ann_idx, a.type as annotation_type, c.short_channel_id FROM  transactions t LEFT JOIN  transaction_annotations a ON (a.txid = t.id) LEFT JOIN  channels c ON (a.channel = c.id) LEFT JOIN  channels c2 ON (t.channel_id = c2.id) ORDER BY t.blockheight, t.txindex ASC"
 msgstr ""
 
-#: wallet/wallet.c:4018
+#: wallet/wallet.c:4077
 msgid "INSERT INTO penalty_bases (  channel_id, commitnum, txid, outnum, amount) VALUES (?, ?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:4043
+#: wallet/wallet.c:4102
 msgid "SELECT commitnum, txid, outnum, amount FROM penalty_bases WHERE channel_id = ?"
 msgstr ""
 
-#: wallet/wallet.c:4067
+#: wallet/wallet.c:4126
 msgid "DELETE FROM penalty_bases WHERE channel_id = ? AND commitnum = ?"
 msgstr ""
 
-#: wallet/wallet.c:4085
+#: wallet/wallet.c:4144
 msgid "SELECT 1  FROM offers WHERE offer_id = ?;"
 msgstr ""
 
-#: wallet/wallet.c:4098
+#: wallet/wallet.c:4157
 msgid "INSERT INTO offers (  offer_id, bolt12, label, status) VALUES (?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:4125
+#: wallet/wallet.c:4184
 msgid "SELECT bolt12, label, status  FROM offers WHERE offer_id = ?;"
 msgstr ""
 
-#: wallet/wallet.c:4153
+#: wallet/wallet.c:4212
 msgid "SELECT offer_id FROM offers;"
 msgstr ""
 
-#: wallet/wallet.c:4179
+#: wallet/wallet.c:4238
 msgid "UPDATE offers SET status=? WHERE offer_id = ?;"
 msgstr ""
 
-#: wallet/wallet.c:4190
+#: wallet/wallet.c:4249
 msgid "UPDATE invoices SET state=? WHERE state=? AND local_offer_id = ?;"
 msgstr ""
 
-#: wallet/wallet.c:4218
+#: wallet/wallet.c:4277
 msgid "SELECT status  FROM offers WHERE offer_id = ?;"
 msgstr ""
 
@@ -1181,4 +1181,4 @@ msgstr ""
 #: wallet/test/run-wallet.c:1399
 msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
-#  SHA256STAMP:c51857ae4385dd151d6a60f5ce99a5227a9a0cd01a66e0507bb81c04db07c39e
+#  SHA256STAMP:e50580171fbee6db0aa824ddc75693d353453c74f4d65c8ca4daf023d7858dc1

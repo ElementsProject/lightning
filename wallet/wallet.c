@@ -10,13 +10,13 @@
 #include <common/key_derive.h>
 #include <common/memleak.h>
 #include <common/onionreply.h>
+#include <common/status.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
-#include <lightningd/peer_htlcs.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <string.h>
 #include <wallet/db_common.h>
@@ -3825,12 +3825,37 @@ struct amount_msat wallet_total_forward_fees(struct wallet *w)
 	return total;
 }
 
+bool string_to_forward_status(const char *status_str, enum forward_status *status)
+{
+	if (streq(status_str, "offered")) {
+		*status = FORWARD_OFFERED;
+		return true;
+	} else if (streq(status_str, "settled")) {
+		*status = FORWARD_SETTLED;
+		return true;
+	} else if (streq(status_str, "failed")) {
+		*status = FORWARD_FAILED;
+		return true;
+	} else if (streq(status_str, "local_failed")) {
+		*status = FORWARD_LOCAL_FAILED;
+		return true;
+	}
+	return false;
+}
+
 const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
-						       const tal_t *ctx)
+						       const tal_t *ctx,
+						       enum forward_status status,
+						       const struct short_channel_id *chan_in,
+						       const struct short_channel_id *chan_out)
 {
 	struct forwarding *results = tal_arr(ctx, struct forwarding, 0);
 	size_t count = 0;
 	struct db_stmt *stmt;
+
+	// placeholder for any parameter, the value doesn't matter because it's discarded by sql
+	const int any = -1;
+
 	stmt = db_prepare_v2(
 	    w->db,
 	    SQL("SELECT"
@@ -3844,7 +3869,41 @@ const struct forwarding *wallet_forwarded_payments_get(struct wallet *w,
 		", f.resolved_time"
 		", f.failcode "
 		"FROM forwarded_payments f "
-		"LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id)"));
+		"LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id) "
+		"WHERE (1 = ? OR f.state = ?) AND "
+		"(1 = ? OR f.in_channel_scid = ?) AND "
+		"(1 = ? OR f.out_channel_scid = ?)"));
+
+	if (status == FORWARD_ANY) {
+		// any status
+		db_bind_int(stmt, 0, 1);
+		db_bind_int(stmt, 1, any);
+	} else {
+		// specific forward status
+		db_bind_int(stmt, 0, 0);
+		db_bind_int(stmt, 1, status);
+	}
+
+	if (chan_in) {
+		// specific in_channel
+		db_bind_int(stmt, 2, 0);
+		db_bind_u64(stmt, 3, chan_in->u64);
+	} else {
+		// any in_channel
+		db_bind_int(stmt, 2, 1);
+		db_bind_int(stmt, 3, any);
+	}
+
+	if (chan_out) {
+		// specific out_channel
+		db_bind_int(stmt, 4, 0);
+		db_bind_u64(stmt, 5, chan_out->u64);
+	} else {
+		// any out_channel
+		db_bind_int(stmt, 4, 1);
+		db_bind_int(stmt, 5, any);
+	}
+
 	db_query_prepared(stmt);
 
 	for (count=0; db_step(stmt); count++) {
