@@ -2596,11 +2596,15 @@ void json_format_forwarding_object(struct json_stream *response,
 	json_object_end(response);
 }
 
-
-static void listforwardings_add_forwardings(struct json_stream *response, struct wallet *wallet)
+static void listforwardings_add_forwardings(struct json_stream *response,
+					    struct wallet *wallet,
+					    enum forward_status status,
+					    const struct short_channel_id *chan_in,
+					    const struct short_channel_id *chan_out)
 {
 	const struct forwarding *forwardings;
-	forwardings = wallet_forwarded_payments_get(wallet, tmpctx);
+
+	forwardings = wallet_forwarded_payments_get(wallet, tmpctx, status, chan_in, chan_out);
 
 	json_array_start(response, "forwards");
 	for (size_t i=0; i<tal_count(forwardings); i++) {
@@ -2617,13 +2621,27 @@ static struct command_result *json_listforwards(struct command *cmd,
 						const jsmntok_t *obj UNNEEDED,
 						const jsmntok_t *params)
 {
+
 	struct json_stream *response;
 
-	if (!param(cmd, buffer, params, NULL))
+	struct short_channel_id *chan_in;
+	struct short_channel_id *chan_out;
+
+	const char *status_str;
+	enum forward_status status = FORWARD_ANY;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("in_channel", param_short_channel_id, &chan_in),
+		   p_opt("out_channel", param_short_channel_id, &chan_out),
+		   p_opt("status", param_string, &status_str),
+		   NULL))
 		return command_param_failed();
 
+	if (status_str && !string_to_forward_status(status_str, &status))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "Unrecognized status: %s", status_str);
+
 	response = json_stream_success(cmd);
-	listforwardings_add_forwardings(response, cmd->ld->wallet);
+	listforwardings_add_forwardings(response, cmd->ld->wallet, status, chan_in, chan_out);
 
 	return command_success(cmd, response);
 }
@@ -2632,8 +2650,7 @@ static const struct json_command listforwards_command = {
 	"listforwards",
 	"channels",
 	json_listforwards,
-	"List all forwarded payments and their information", false,
-	"List all forwarded payments and their information"
+	"List all forwarded payments and their information optionally filtering by [in_channel] [out_channel] and [state]"
 };
 
 AUTODATA(json_command, &listforwards_command);

@@ -1695,9 +1695,9 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = true,
     },
     {
-         .name = "SELECT  f.state, in_msatoshi, out_msatoshi, hin.payment_hash as payment_hash, in_channel_scid, out_channel_scid, f.received_time, f.resolved_time, f.failcode FROM forwarded_payments f LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id)",
-         .query = "SELECT  f.state, in_msatoshi, out_msatoshi, hin.payment_hash as payment_hash, in_channel_scid, out_channel_scid, f.received_time, f.resolved_time, f.failcode FROM forwarded_payments f LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id)",
-         .placeholders = 0,
+         .name = "SELECT  f.state, in_msatoshi, out_msatoshi, hin.payment_hash as payment_hash, in_channel_scid, out_channel_scid, f.received_time, f.resolved_time, f.failcode FROM forwarded_payments f LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id) WHERE (1 = ? OR f.state = ?) AND (1 = ? OR f.in_channel_scid = ?) AND (1 = ? OR f.out_channel_scid = ?)",
+         .query = "SELECT  f.state, in_msatoshi, out_msatoshi, hin.payment_hash as payment_hash, in_channel_scid, out_channel_scid, f.received_time, f.resolved_time, f.failcode FROM forwarded_payments f LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id) WHERE (1 = ? OR f.state = ?) AND (1 = ? OR f.in_channel_scid = ?) AND (1 = ? OR f.out_channel_scid = ?)",
+         .placeholders = 6,
          .readonly = true,
     },
     {
@@ -1792,4 +1792,4 @@ struct db_query db_sqlite3_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:759b19435d68328d597f6540e1f4f8c42ce22ef91dbf66c1098de0434462546c
+// SHA256STAMP:4a878278ad7a1d427b80ff3a2abe34ae82cd73cf635ecf25e5cb20532c0604be
