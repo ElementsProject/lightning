@@ -726,6 +726,9 @@ static void check_config(struct lightningd *ld)
 
 	if (ld->use_proxy_always && !ld->proxyaddr)
 		fatal("--always-use-proxy needs --proxy");
+
+	if (ld->daemon_parent_fd != -1 && !ld->logfile)
+		fatal("--daemon needs --log-file");
 }
 
 static char *test_subdaemons_and_exit(struct lightningd *ld)

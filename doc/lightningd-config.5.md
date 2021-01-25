@@ -168,7 +168,8 @@ Set to 0660 to allow users with the same group to access the RPC
 as well.
 
  **daemon**
-Run in the background, suppress stdout and stderr.
+Run in the background, suppress stdout and stderr.  Note that you need
+to specify **log-file** for this case.
 
  **conf**=*PATH*
 Sets configuration file, and disable reading the normal general and network
