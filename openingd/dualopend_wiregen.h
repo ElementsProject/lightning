@@ -35,6 +35,8 @@ enum dualopend_wire {
         WIRE_DUALOPEND_RBF_VALIDATE = 7506,
         /*  master->dualopend: this is a valid RBF candidate transaction */
         WIRE_DUALOPEND_RBF_VALID = 7507,
+        /*  master->dualopend: attempt an RBF */
+        WIRE_DUALOPEND_RBF_INIT = 7509,
         /*  dualopend->master: ready to commit channel open to database and */
         /*                     get some signatures for the funding_tx. */
         WIRE_DUALOPEND_COMMIT_RCVD = 7007,
@@ -125,6 +127,11 @@ bool fromwire_dualopend_rbf_validate(const tal_t *ctx, const void *p, struct wal
 /*  master->dualopend: this is a valid RBF candidate transaction */
 u8 *towire_dualopend_rbf_valid(const tal_t *ctx);
 bool fromwire_dualopend_rbf_valid(const void *p);
+
+/* WIRE: DUALOPEND_RBF_INIT */
+/*  master->dualopend: attempt an RBF */
+u8 *towire_dualopend_rbf_init(const tal_t *ctx, struct amount_sat our_funding, const struct wally_psbt *psbt);
+bool fromwire_dualopend_rbf_init(const tal_t *ctx, const void *p, struct amount_sat *our_funding, struct wally_psbt **psbt);
 
 /* WIRE: DUALOPEND_COMMIT_RCVD */
 /*  dualopend->master: ready to commit channel open to database and */
@@ -223,4 +230,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:16b6a5025dbdb4cd770749cf8557990d0a4ff2b85ad6fca17ce91769dd22fd68
+// SHA256STAMP:ac2f996019c8461a99192330f4d2cc506fc8c6dcebf2f0ce56f7b53157ffffe4
