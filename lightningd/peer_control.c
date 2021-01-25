@@ -443,6 +443,7 @@ struct peer_connected_hook_payload {
 	struct wireaddr_internal addr;
 	struct peer *peer;
 	struct per_peer_state *pps;
+	u8 *error;
 };
 
 static void json_add_htlcs(struct lightningd *ld,
@@ -946,10 +947,7 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 	json_object_end(stream); /* .peer */
 }
 
-static void
-peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
-		       const char *buffer,
-		       const jsmntok_t *toks)
+static void peer_connected_hook_final(struct peer_connected_hook_payload *payload STEALS)
 {
 	struct lightningd *ld = payload->ld;
 	struct channel *channel = payload->channel;
@@ -962,30 +960,10 @@ peer_connected_hook_cb(struct peer_connected_hook_payload *payload STEALS,
 	 * subd). */
 	tal_steal(tmpctx, payload);
 
-	/* If we had a hook, interpret result. */
-	if (buffer) {
-		const jsmntok_t *resulttok;
-
-		resulttok = json_get_member(buffer, toks, "result");
-		if (!resulttok) {
-			fatal("Plugin returned an invalid response to the connected "
-			      "hook: %s", buffer);
-		}
-
-		if (json_tok_streq(buffer, resulttok, "disconnect")) {
-			const jsmntok_t *m = json_get_member(buffer, toks,
-							     "error_message");
-			if (m) {
-				error = towire_errorfmt(tmpctx, NULL,
-							"%.*s",
-							m->end - m->start,
-							buffer + m->start);
-				goto send_error;
-			}
-			return;
-		} else if (!json_tok_streq(buffer, resulttok, "continue"))
-			fatal("Plugin returned an invalid response to the connected "
-			      "hook: %s", buffer);
+	/* Check for specific errors of a hook */
+	if (payload->error) {
+		error = payload->error;
+		goto send_error;
 	}
 
 	if (channel) {
@@ -1087,10 +1065,56 @@ send_error:
 		peer_start_openingd(peer, payload->pps, error);
 }
 
-REGISTER_SINGLE_PLUGIN_HOOK(peer_connected,
-			    peer_connected_hook_cb,
-			    peer_connected_serialize,
-			    struct peer_connected_hook_payload *);
+static bool
+peer_connected_hook_deserialize(struct peer_connected_hook_payload *payload,
+				const char *buffer,
+				const jsmntok_t *toks)
+{
+	struct lightningd *ld = payload->ld;
+
+	/* already rejected by prior plugin hook in the chain */
+	if (payload->error != NULL)
+		return true;
+
+	if (!toks || !buffer)
+		return true;
+
+	/* If we had a hook, interpret result. */
+	const jsmntok_t *t_res = json_get_member(buffer, toks, "result");
+	const jsmntok_t *t_err = json_get_member(buffer, toks, "error_message");
+
+	/* fail */
+	if (!t_res)
+		fatal("Plugin returned an invalid response to the "
+		      "peer_connected hook: %s", buffer);
+
+	/* reject */
+	if (json_tok_streq(buffer, t_res, "disconnect")) {
+		payload->error = (u8*)"";
+		if (t_err) {
+			payload->error = towire_errorfmt(tmpctx, NULL, "%.*s",
+						         t_err->end - t_err->start,
+						         buffer + t_err->start);
+		}
+		log_debug(ld->log, "peer_connected hook rejects and says '%s'",
+			  payload->error);
+		/* At this point we suppress other plugins in the chain and
+		 * directly move to final */
+		peer_connected_hook_final(payload);
+		return false;
+	} else if (!json_tok_streq(buffer, t_res, "continue"))
+		fatal("Plugin returned an invalid response to the "
+		      "peer_connected hook: %s", buffer);
+
+	/* call next hook */
+	return true;
+}
+
+REGISTER_PLUGIN_HOOK(peer_connected,
+		     peer_connected_hook_deserialize,
+		     peer_connected_hook_final,
+		     peer_connected_serialize,
+		     struct peer_connected_hook_payload *);
 
 /* Connectd tells us a peer has connected: it never hands us duplicates, since
  * it holds them until we say peer_died. */
@@ -1104,6 +1128,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 
 	hook_payload = tal(NULL, struct peer_connected_hook_payload);
 	hook_payload->ld = ld;
+	hook_payload->error = NULL;
 	if (!fromwire_connectd_peer_connected(hook_payload, msg,
 					     &id, &hook_payload->addr,
 					     &hook_payload->pps,
