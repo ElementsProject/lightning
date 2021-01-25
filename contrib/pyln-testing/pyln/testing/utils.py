@@ -592,6 +592,30 @@ class LightningD(TailableProc):
         return self.proc.returncode
 
 
+class PrettyPrintingLightningRpc(LightningRpc):
+    """A version of the LightningRpc that pretty-prints calls and results.
+
+    Useful when debugging based on logs, and less painful to the
+    eyes. It has some overhead since we re-serialize the request and
+    result to json in order to pretty print it.
+
+    """
+
+    def call(self, method, payload=None):
+        id = self.next_id
+        self.logger.debug(json.dumps({
+            "id": id,
+            "method": method,
+            "params": payload
+        }, indent=2))
+        res = LightningRpc.call(self, method, payload)
+        self.logger.debug(json.dumps({
+            "id": id,
+            "result": res
+        }, indent=2))
+        return res
+
+
 class LightningNode(object):
     def __init__(self, node_id, lightning_dir, bitcoind, executor, valgrind, may_fail=False,
                  may_reconnect=False, allow_broken_log=False,
@@ -609,7 +633,7 @@ class LightningNode(object):
         self.rc = 0
 
         socket_path = os.path.join(lightning_dir, TEST_NETWORK, "lightning-rpc").format(node_id)
-        self.rpc = LightningRpc(socket_path, self.executor)
+        self.rpc = PrettyPrintingLightningRpc(socket_path, self.executor)
 
         self.daemon = LightningD(
             lightning_dir, bitcoindproxy=bitcoind.get_proxy(),
