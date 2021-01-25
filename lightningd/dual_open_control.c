@@ -1153,6 +1153,31 @@ static void open_failed(struct subd *dualopend, const u8 *msg)
 	opening_failed_cancel_commands(channel, oa, desc);
 }
 
+static void rbf_failed(struct subd *dualopend, const u8 *msg)
+{
+	char *desc;
+	struct channel *channel = dualopend->channel;
+	struct open_attempt *oa = channel->open_attempt;
+
+	if (!fromwire_dualopend_rbf_failed(msg, msg, &desc)) {
+		channel_internal_error(channel,
+				       "Bad DUALOPEND_RBF_FAILED %s",
+				       tal_hex(msg, msg));
+
+		if (oa->cmd)
+			was_pending(command_fail(oa->cmd, LIGHTNINGD, "%s",
+						 tal_hex(oa->cmd, msg)));
+
+		/* FIXME: notify rbf_failed? */
+		notify_channel_open_failed(dualopend->ld, &channel->cid);
+		channel->open_attempt = tal_free(channel->open_attempt);
+		return;
+	}
+
+	/* FIXME: notify rbf_failed? */
+	notify_channel_open_failed(dualopend->ld, &channel->cid);
+	opening_failed_cancel_commands(channel, oa, desc);
+}
 
 struct channel_send {
 	const struct wally_tx *wtx;
@@ -2350,8 +2375,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 			open_failed(dualopend, msg);
 			return 0;
 		case WIRE_DUALOPEND_RBF_FAILED:
-			// FIXME: handle this
-			abort();
+			rbf_failed(dualopend, msg);
 			return 0;
 		case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
 
