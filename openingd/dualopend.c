@@ -1467,6 +1467,52 @@ static bool run_tx_interactive(struct state *state,
 	return true;
 }
 
+/* If there's a failure, we reset the state to the last
+ * valid channel */
+static void revert_channel_state(struct state *state)
+{
+	struct tx_state *tx_state = state->tx_state;
+	struct amount_sat total;
+	struct amount_msat our_msats;
+	enum side opener = state->our_role == TX_INITIATOR ? LOCAL : REMOTE;
+
+	/* We've already checked this */
+	if (!amount_sat_add(&total, tx_state->opener_funding,
+			    tx_state->accepter_funding))
+		abort();
+
+	/* We've already checked this */
+	if (!amount_sat_to_msat(&our_msats,
+				state->our_role == TX_INITIATOR ?
+					tx_state->opener_funding :
+					tx_state->accepter_funding))
+		abort();
+
+	/* If this is the first time through, we can't do anything */
+	if (!tx_state)
+		return;
+
+	tal_free(state->channel);
+	state->channel = new_initial_channel(state,
+					     &state->channel_id,
+					     &tx_state->funding_txid,
+					     tx_state->funding_txout,
+					     state->minimum_depth,
+					     total,
+					     our_msats,
+					     take(new_fee_states(
+							     NULL, opener,
+							     &state->feerate_per_kw_commitment)),
+					     &tx_state->localconf,
+					     &tx_state->remoteconf,
+					     &state->our_points,
+					     &state->their_points,
+					     &state->our_funding_pubkey,
+					     &state->their_funding_pubkey,
+					     true, true,
+					     opener);
+}
+
 static u8 *accepter_commits(struct state *state,
 			    struct tx_state *tx_state,
 			    struct amount_sat total,
@@ -1540,6 +1586,9 @@ static u8 *accepter_commits(struct state *state,
 			      "Overflow converting accepter_funding "
 			      "to msats");
 
+	if (state->channel)
+		state->channel = tal_free(state->channel);
+
 	state->channel = new_initial_channel(state,
 					     &state->channel_id,
 					     &tx_state->funding_txid,
@@ -1567,6 +1616,7 @@ static u8 *accepter_commits(struct state *state,
 	if (!local_commit) {
 		*err_reason = tal_fmt(tmpctx, "Could not meet our fees"
 				      " and reserve: %s", error);
+		revert_channel_state(state);
 		return NULL;
 	}
 
@@ -1591,21 +1641,27 @@ static u8 *accepter_commits(struct state *state,
 		 * a courtesy to other implementaters whose brains may be so
 		 * twisted by coding in Go, Scala and Rust that they can no
 		 * longer read C code. */
-		peer_failed_err(state->pps, &state->channel_id,
-				"Bad signature %s on tx %s using key %s"
-				" (funding txid %s, psbt %s)",
-				type_to_string(tmpctx, struct bitcoin_signature,
-					       &remote_sig),
-				type_to_string(tmpctx, struct bitcoin_tx,
-					       local_commit),
-				type_to_string(tmpctx, struct pubkey,
-					       &state->their_funding_pubkey),
-				/* This is the first place we'd discover
-				 * * the funding tx doesn't match up */
-				type_to_string(tmpctx, struct bitcoin_txid,
-					       &tx_state->funding_txid),
-				type_to_string(tmpctx, struct wally_psbt,
-					       tx_state->psbt));
+		*err_reason = tal_fmt(tmpctx,
+				      "Bad signature %s on tx %s using key %s"
+				      " (funding txid %s, psbt %s)",
+				      type_to_string(tmpctx,
+						     struct bitcoin_signature,
+						     &remote_sig),
+				      type_to_string(tmpctx,
+						     struct bitcoin_tx,
+						     local_commit),
+				      type_to_string(tmpctx, struct pubkey,
+						     &state->their_funding_pubkey),
+				    /* This is the first place we'd discover
+				     * the funding tx doesn't match up */
+				      type_to_string(tmpctx,
+						     struct bitcoin_txid,
+						     &tx_state->funding_txid),
+				      type_to_string(tmpctx,
+						     struct wally_psbt,
+						     tx_state->psbt));
+		revert_channel_state(state);
+		return NULL;
 	}
 
 	/* Create commitment tx signatures for remote */
@@ -1616,6 +1672,7 @@ static u8 *accepter_commits(struct state *state,
 	if (!remote_commit) {
 		*err_reason = tal_fmt(tmpctx, "Could not meet their fees"
 				      " and reserve: %s", error);
+		revert_channel_state(state);
 		return NULL;
 	}
 
@@ -2014,6 +2071,7 @@ static u8 *opener_commits(struct state *state,
 	if (!remote_commit) {
 		*err_reason = tal_fmt(tmpctx, "Could not meet their fees"
 				      " and reserve: %s", error);
+		revert_channel_state(state);
 		return NULL;
 	}
 
@@ -2051,8 +2109,10 @@ static u8 *opener_commits(struct state *state,
 
 	/* Wait for the peer to send us our commitment tx signature */
 	msg = opening_negotiate_msg(tmpctx, state);
-	if (!msg)
+	if (!msg) {
+		revert_channel_state(state);
 		return NULL;
+	}
 
 	remote_sig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_commitment_signed(tmpctx, msg, &cid,
@@ -2062,11 +2122,12 @@ static u8 *opener_commits(struct state *state,
 				 "Parsing commitment signed %s",
 				 tal_hex(tmpctx, msg));
 
-	if (htlc_sigs != NULL)
-		peer_failed_warn(state->pps, &state->channel_id,
-				 "Must not send HTLCs with first"
-				 " commitment. %s",
-				 tal_hex(tmpctx, msg));
+	if (htlc_sigs != NULL) {
+		*err_reason = tal_fmt(tmpctx, "Must not send HTLCs with first"
+				      " commitment. %s", tal_hex(tmpctx, msg));
+		revert_channel_state(state);
+		return NULL;
+	}
 
 	local_commit = initial_channel_tx(state, &wscript, state->channel,
 					  &state->first_per_commitment_point[LOCAL],
@@ -2077,6 +2138,7 @@ static u8 *opener_commits(struct state *state,
 	if (!local_commit) {
 		*err_reason = tal_fmt(tmpctx, "Could not meet our fees"
 				      " and reserve: %s", error);
+		revert_channel_state(state);
 		return NULL;
 	}
 
@@ -2102,21 +2164,27 @@ static u8 *opener_commits(struct state *state,
 		 * a courtesy to other implementaters whose brains may be so
 		 * twisted by coding in Go, Scala and Rust that they can no
 		 * longer read C code. */
-		peer_failed_err(state->pps, &state->channel_id,
-				"Bad signature %s on tx %s using key %s "
-				"(funding txid %s, psbt %s)",
-				type_to_string(tmpctx, struct bitcoin_signature,
-					       &remote_sig),
-				type_to_string(tmpctx, struct bitcoin_tx,
-					       local_commit),
-				type_to_string(tmpctx, struct pubkey,
-					       &state->their_funding_pubkey),
-				/* This is the first place we'd discover the
-				 * * funding tx doesn't match up */
-				type_to_string(tmpctx, struct bitcoin_txid,
-					       &tx_state->funding_txid),
-				type_to_string(tmpctx, struct wally_psbt,
-					       tx_state->psbt));
+		*err_reason = tal_fmt(tmpctx,
+				      "Bad signature %s on tx %s using key %s "
+				      "(funding txid %s, psbt %s)",
+				      type_to_string(tmpctx,
+						     struct bitcoin_signature,
+						     &remote_sig),
+				      type_to_string(tmpctx,
+						     struct bitcoin_tx,
+						     local_commit),
+				      type_to_string(tmpctx, struct pubkey,
+						     &state->their_funding_pubkey),
+				    /* This is the first place we'd discover the
+				     * funding tx doesn't match up */
+				      type_to_string(tmpctx,
+						     struct bitcoin_txid,
+						     &tx_state->funding_txid),
+				      type_to_string(tmpctx,
+						     struct wally_psbt,
+						     tx_state->psbt));
+		revert_channel_state(state);
+		return NULL;
 	}
 
 	if (direct_outputs[LOCAL])
