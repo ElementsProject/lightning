@@ -1744,7 +1744,16 @@ json_openchannel_bump(struct command *cmd,
 	oa->our_upfront_shutdown_script
 		= channel->shutdown_scriptpubkey[LOCAL];
 
-	/* FIXME: call dualopend with psbt + amount!! */
+	/* Add serials to any input that's missing them */
+	psbt_add_serials(psbt, TX_INITIATOR);
+	if (!psbt_has_required_fields(psbt))
+		return command_fail(cmd, FUNDING_PSBT_INVALID,
+				    "PSBT is missing required fields %s",
+				    type_to_string(tmpctx, struct wally_psbt,
+						   psbt));
+
+	subd_send_msg(channel->owner,
+		      take(towire_dualopend_rbf_init(NULL, *amount, psbt)));
 	return command_still_pending(cmd);
 }
 
@@ -2350,6 +2359,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_INIT:
 		case WIRE_DUALOPEND_REINIT:
 		case WIRE_DUALOPEND_OPENER_INIT:
+		case WIRE_DUALOPEND_RBF_INIT:
 		case WIRE_DUALOPEND_GOT_OFFER_REPLY:
 		case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
 		case WIRE_DUALOPEND_RBF_VALID:

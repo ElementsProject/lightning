@@ -28,6 +28,7 @@ const char *dualopend_wire_name(int e)
 	case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY: return "WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY";
 	case WIRE_DUALOPEND_RBF_VALIDATE: return "WIRE_DUALOPEND_RBF_VALIDATE";
 	case WIRE_DUALOPEND_RBF_VALID: return "WIRE_DUALOPEND_RBF_VALID";
+	case WIRE_DUALOPEND_RBF_INIT: return "WIRE_DUALOPEND_RBF_INIT";
 	case WIRE_DUALOPEND_COMMIT_RCVD: return "WIRE_DUALOPEND_COMMIT_RCVD";
 	case WIRE_DUALOPEND_PSBT_CHANGED: return "WIRE_DUALOPEND_PSBT_CHANGED";
 	case WIRE_DUALOPEND_PSBT_UPDATED: return "WIRE_DUALOPEND_PSBT_UPDATED";
@@ -64,6 +65,7 @@ bool dualopend_wire_is_defined(u16 type)
 	case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:;
 	case WIRE_DUALOPEND_RBF_VALIDATE:;
 	case WIRE_DUALOPEND_RBF_VALID:;
+	case WIRE_DUALOPEND_RBF_INIT:;
 	case WIRE_DUALOPEND_COMMIT_RCVD:;
 	case WIRE_DUALOPEND_PSBT_CHANGED:;
 	case WIRE_DUALOPEND_PSBT_UPDATED:;
@@ -458,6 +460,30 @@ bool fromwire_dualopend_rbf_valid(const void *p)
 
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_RBF_VALID)
 		return false;
+	return cursor != NULL;
+}
+
+/* WIRE: DUALOPEND_RBF_INIT */
+/* master->dualopend: attempt an RBF */
+u8 *towire_dualopend_rbf_init(const tal_t *ctx, struct amount_sat our_funding, const struct wally_psbt *psbt)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_RBF_INIT);
+	towire_amount_sat(&p, our_funding);
+	towire_wally_psbt(&p, psbt);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_rbf_init(const tal_t *ctx, const void *p, struct amount_sat *our_funding, struct wally_psbt **psbt)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_RBF_INIT)
+		return false;
+ 	*our_funding = fromwire_amount_sat(&cursor, &plen);
+ 	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
 
@@ -970,4 +996,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:16b6a5025dbdb4cd770749cf8557990d0a4ff2b85ad6fca17ce91769dd22fd68
+// SHA256STAMP:ac2f996019c8461a99192330f4d2cc506fc8c6dcebf2f0ce56f7b53157ffffe4
