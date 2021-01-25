@@ -120,6 +120,11 @@ msgdata,dualopend_rbf_validate,proposed_funding_psbt,wally_psbt,
 # master->dualopend: this is a valid RBF candidate transaction
 msgtype,dualopend_rbf_valid,7507
 
+# master->dualopend: attempt an RBF
+msgtype,dualopend_rbf_init,7509
+msgdata,dualopend_rbf_init,our_funding,amount_sat,
+msgdata,dualopend_rbf_init,psbt,wally_psbt,
+
 # dualopend->master: ready to commit channel open to database and
 #                    get some signatures for the funding_tx.
 msgtype,dualopend_commit_rcvd,7007
