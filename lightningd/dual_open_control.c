@@ -2172,7 +2172,7 @@ static void handle_commit_received(struct subd *dualopend,
 	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_txid funding_txid;
 	u16 funding_outnum;
-	u32 feerate_funding, feerate_commitment = 0;
+	u32 feerate_funding, feerate_commitment;
 	struct amount_sat total_funding, funding_ours;
 	u8 *remote_upfront_shutdown_script,
 	   *local_upfront_shutdown_script;
@@ -2205,6 +2205,7 @@ static void handle_commit_received(struct subd *dualopend,
 					    &funding_ours,
 					    &channel->channel_flags,
 					    &feerate_funding,
+					    &feerate_commitment,
 					    &channel->our_config.channel_reserve,
 					    &local_upfront_shutdown_script,
 					    &remote_upfront_shutdown_script)) {
@@ -2503,7 +2504,7 @@ void peer_restart_dualopend(struct peer *peer,
 	u32 max_to_self_delay;
 	struct amount_msat min_effective_htlc_capacity;
 	struct channel_config unused_config;
-	struct channel_inflight *inflight;
+	struct channel_inflight *inflight, *first_inflight;
         int hsmfd;
 	u8 *msg;
 
@@ -2542,6 +2543,11 @@ void peer_restart_dualopend(struct peer *peer,
 		       &min_effective_htlc_capacity);
 
 	inflight = channel_current_inflight(channel);
+	/* Get the first inflight to figure out the original feerate
+	 * for this channel. It's fine if it's the same as the current */
+	first_inflight = list_top(&channel->inflights,
+				  struct channel_inflight,
+				  list);
 	msg = towire_dualopend_reinit(NULL,
 				      chainparams,
 				      peer->ld->our_features,
@@ -2558,8 +2564,10 @@ void peer_restart_dualopend(struct peer *peer,
 				      channel->minimum_depth,
 				      feerate_min(peer->ld, NULL),
 				      feerate_max(peer->ld, NULL),
-				      &channel->funding_txid,
-				      channel->funding_outnum,
+				      &inflight->funding_txid,
+				      inflight->funding_outnum,
+				      first_inflight->funding_feerate,
+				      inflight->funding_feerate,
 				      channel->funding,
 				      channel->our_msat,
 				      &channel->channel_info.theirbase,

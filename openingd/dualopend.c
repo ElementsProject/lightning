@@ -1714,6 +1714,7 @@ static u8 *accepter_commits(struct state *state,
 					   total,
 					   tx_state->accepter_funding,
 					   state->channel_flags,
+					   tx_state->feerate_per_kw_funding,
 					   state->feerate_per_kw_commitment,
 					   tx_state->localconf.channel_reserve,
 					   state->upfront_shutdown_script[LOCAL],
@@ -2213,6 +2214,7 @@ static u8 *opener_commits(struct state *state,
 					    total,
 					    tx_state->opener_funding,
 					    state->channel_flags,
+					    tx_state->feerate_per_kw_funding,
 					    state->feerate_per_kw_commitment,
 					    tx_state->localconf.channel_reserve,
 					    state->upfront_shutdown_script[LOCAL],
@@ -3254,6 +3256,8 @@ int main(int argc, char *argv[])
 					     &state->max_feerate,
 					     &state->tx_state->funding_txid,
 					     &state->tx_state->funding_txout,
+					     &state->feerate_per_kw_funding,
+					     &state->tx_state->feerate_per_kw_funding,
 					     &total_funding,
 					     &our_msat,
 					     &state->their_points,
@@ -3293,6 +3297,10 @@ int main(int argc, char *argv[])
 			state->our_role = TX_INITIATOR;
 		else
 			state->our_role = TX_ACCEPTER;
+
+		/* We can pull the commitment feerate out of the feestates */
+		state->feerate_per_kw_commitment
+			= get_feerate(fee_states, opener, LOCAL);
 	} else
 		master_badmsg(fromwire_peektype(msg), msg);
 
