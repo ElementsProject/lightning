@@ -1160,7 +1160,7 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
     l2.openchannel(l4, wait_for_announce=False)
     l2.openchannel(l5, wait_for_announce=True)
-
+    sync_blockheight(bitcoind, [l1, l2, l3, l4, l5])
     bitcoind.generate_block(5)
 
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 8)
