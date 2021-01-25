@@ -1577,7 +1577,10 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 
 		send_funding_tx(channel, take(wtx));
 
-		channel_set_state(channel, DUALOPEND_OPEN_INIT,
+		assert(channel->state == DUALOPEND_OPEN_INIT
+		       /* We might be reconnecting */
+		       || channel->state == DUALOPEND_AWAITING_LOCKIN);
+		channel_set_state(channel, channel->state,
 				  DUALOPEND_AWAITING_LOCKIN,
 				  REASON_UNKNOWN,
 				  "Sigs exchanged, waiting for lock-in");
