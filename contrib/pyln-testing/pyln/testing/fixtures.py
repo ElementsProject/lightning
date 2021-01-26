@@ -90,7 +90,7 @@ def directory(request, test_base_dir, test_name):
     if not failed:
         try:
             shutil.rmtree(directory)
-        except Exception:
+        except (OSError, Exception):
             files = [os.path.join(dp, f) for dp, dn, fn in os.walk(directory) for f in fn]
             print("Directory still contains files:", files)
             raise
