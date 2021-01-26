@@ -82,7 +82,7 @@ ENV PYTHON_VERSION=3
 RUN ./configure --prefix=/tmp/lightning_install --enable-static && make -j3 DEVELOPER=${DEVELOPER} && make install
 
 
-FROM debian:stretch-slim as final
+FROM debian:buster-slim as final
 
 ARG TRACE_TOOLS=false
 ENV TRACE_TOOLS=$TRACE_TOOLS
