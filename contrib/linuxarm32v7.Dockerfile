@@ -5,7 +5,7 @@
 # * final: Copy the binaries required at runtime
 # The resulting image uploaded to dockerhub will only contain what is needed for runtime.
 # From the root of the repository, run "docker build -t yourimage:yourtag -f contrib/linuxarm32v7.Dockerfile ."
-FROM debian:stretch-slim as downloader
+FROM debian:buster-slim as downloader
 
 RUN set -ex \
 	&& apt-get update \
@@ -45,7 +45,7 @@ RUN mkdir /opt/litecoin && cd /opt/litecoin \
     && tar -xzvf litecoin.tar.gz $BD/litecoin-cli --strip-components=1 --exclude=*-qt \
     && rm litecoin.tar.gz
 
-FROM debian:stretch-slim as builder
+FROM debian:buster-slim as builder
 
 ENV LIGHTNINGD_VERSION=master
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates autoconf automake build-essential gettext git libtool python3 python3-mako wget gnupg dirmngr git \
@@ -70,12 +70,12 @@ RUN wget -q https://zlib.net/zlib-1.2.11.tar.gz \
 && make install && cd .. && rm zlib-1.2.11.tar.gz && rm -rf zlib-1.2.11
 
 RUN apt-get install -y --no-install-recommends unzip tclsh \
-&& wget -q https://www.sqlite.org/2018/sqlite-src-3260000.zip \
-&& unzip sqlite-src-3260000.zip \
-&& cd sqlite-src-3260000 \
+&& wget -q https://www.sqlite.org/2019/sqlite-src-3290000.zip \
+&& unzip sqlite-src-3290000.zip \
+&& cd sqlite-src-3290000 \
 && ./configure --enable-static --disable-readline --disable-threadsafe --disable-load-extension --host=${target_host} --prefix=$QEMU_LD_PREFIX \
 && make \
-&& make install && cd .. && rm sqlite-src-3260000.zip && rm -rf sqlite-src-3260000
+&& make install && cd .. && rm sqlite-src-3290000.zip && rm -rf sqlite-src-3290000
 
 RUN wget -q https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz \
 && tar xvf gmp-6.1.2.tar.xz \
@@ -91,9 +91,10 @@ RUN git clone --recursive /tmp/lightning . && \
     git checkout $(git --work-tree=/tmp/lightning --git-dir=/tmp/lightning/.git rev-parse HEAD)
 
 ARG DEVELOPER=0
+ENV PYTHON_VERSION=3
 RUN ./configure --prefix=/tmp/lightning_install --enable-static && make -j3 DEVELOPER=${DEVELOPER} && make install
 
-FROM arm32v7/debian:stretch-slim as final
+FROM arm32v7/debian:buster-slim as final
 COPY --from=downloader /usr/bin/qemu-arm-static /usr/bin/qemu-arm-static
 COPY --from=downloader /opt/tini /usr/bin/tini
 RUN apt-get update && apt-get install -y --no-install-recommends socat inotify-tools python3 python3-pip \
