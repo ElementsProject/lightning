@@ -392,31 +392,47 @@ def test_pay_plugin(node_factory):
     assert only_one(l1.rpc.help('pay')['help'])['command'] == msg
 
 
-def test_plugin_connected_hook(node_factory):
-    """ l1 uses the reject plugin to reject connections.
+def test_plugin_connected_hook_chaining(node_factory):
+    """ l1 uses the logger_a, reject and logger_b plugin.
 
     l1 is configured to accept connections from l2, but not from l3.
+    we check that logger_a is always called and logger_b only for l2.
     """
-    opts = [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/reject.py')}, {}, {}]
+    opts = [{'plugin': [
+        os.path.join(os.getcwd(), 'tests/plugins/peer_connected_logger_a.py'),
+        os.path.join(os.getcwd(), 'tests/plugins/reject.py'),
+        os.path.join(os.getcwd(), 'tests/plugins/peer_connected_logger_b.py'),
+    ]}, {}, {}]
+
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+    l2id = l2.info['id']
+    l3id = l3.info['id']
     l1.rpc.reject(l3.info['id'])
 
     l2.connect(l1)
-    l1.daemon.wait_for_log(r"{} is allowed".format(l2.info['id']))
-    assert len(l1.rpc.listpeers(l2.info['id'])['peers']) == 1
+    l1.daemon.wait_for_logs([
+        f"peer_connected_logger_a {l2id}",
+        f"{l2id} is allowed",
+        f"peer_connected_logger_b {l2id}"
+    ])
+    assert len(l1.rpc.listpeers(l2id)['peers']) == 1
 
     l3.connect(l1)
-    l1.daemon.wait_for_log(r"{} is in reject list".format(l3.info['id']))
+    l1.daemon.wait_for_logs([
+        f"peer_connected_logger_a {l3id}",
+        f"{l3id} is in reject list"
+    ])
 
     # FIXME: this error occurs *after* connection, so we connect then drop.
     l3.daemon.wait_for_log(r"chan#1: peer_in WIRE_ERROR")
     l3.daemon.wait_for_log(r"You are in reject list")
 
     def check_disconnect():
-        peers = l1.rpc.listpeers(l3.info['id'])['peers']
+        peers = l1.rpc.listpeers(l3id)['peers']
         return peers == [] or not peers[0]['connected']
 
     wait_for(check_disconnect)
+    assert not l3.daemon.is_in_log(f"peer_connected_logger_b {l3id}")
 
 
 def test_async_rpcmethod(node_factory, executor):
