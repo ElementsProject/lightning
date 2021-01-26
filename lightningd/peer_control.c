@@ -437,15 +437,6 @@ void channel_errmsg(struct channel *channel,
 				       err_for_them ? "sent" : "received", desc);
 }
 
-struct peer_connected_hook_payload {
-	struct lightningd *ld;
-	struct channel *channel;
-	struct wireaddr_internal addr;
-	struct peer *peer;
-	struct per_peer_state *pps;
-	u8 *error;
-};
-
 static void json_add_htlcs(struct lightningd *ld,
 			   struct json_stream *response,
 			   const struct channel *channel)
@@ -933,6 +924,15 @@ static void json_add_channel(struct lightningd *ld,
 	json_object_end(response);
 }
 
+struct peer_connected_hook_payload {
+	struct lightningd *ld;
+	struct channel *channel;
+	struct wireaddr_internal addr;
+	struct peer *peer;
+	struct per_peer_state *pps;
+	u8 *error;
+};
+
 static void
 peer_connected_serialize(struct peer_connected_hook_payload *payload,
 			 struct json_stream *stream)
@@ -978,8 +978,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 
 #if DEVELOPER
 		if (dev_disconnect_permanent(ld)) {
-			channel_fail_permanent(channel,
-					       REASON_LOCAL,
+			channel_fail_permanent(channel, REASON_LOCAL,
 					       "dev_disconnect permfail");
 			error = channel->error;
 			goto send_error;
@@ -1008,11 +1007,8 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 		case DUALOPEND_AWAITING_LOCKIN:
 #if EXPERIMENTAL_FEATURES
 			assert(!channel->owner);
-
 			channel->peer->addr = addr;
-			peer_restart_dualopend(peer, payload->pps,
-				               channel, NULL);
-
+			peer_restart_dualopend(peer, payload->pps, channel, NULL);
 			return;
 #else
 			abort();
@@ -1021,18 +1017,14 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
 			assert(!channel->owner);
-
 			channel->peer->addr = addr;
-			peer_start_channeld(channel, payload->pps,
-					    NULL, true);
+			peer_start_channeld(channel, payload->pps, NULL, true);
 			return;
 
 		case CLOSINGD_SIGEXCHANGE:
 			assert(!channel->owner);
-
 			channel->peer->addr = addr;
-			peer_start_closingd(channel, payload->pps,
-					    true, NULL);
+			peer_start_closingd(channel, payload->pps, true, NULL);
 			return;
 		}
 		abort();
@@ -1052,12 +1044,10 @@ send_error:
 		 * dualopend. we only get here if there's an error  */
 		if (channel) {
 			assert(!channel->owner);
-
 			assert(channel->state == DUALOPEND_OPEN_INIT
 			       || channel->state == DUALOPEND_AWAITING_LOCKIN);
 			channel->peer->addr = addr;
-			peer_restart_dualopend(peer, payload->pps,
-				               channel, error);
+			peer_restart_dualopend(peer, payload->pps, channel, error);
 		} else
 			peer_start_dualopend(peer, payload->pps, error);
 	} else
