@@ -25,7 +25,8 @@ check-pytest:
 	pytest tests
 
 check-mypy:
-	mypy --namespace-packages tests pyln
+	#mypy --namespace-packages tests pyln
+	echo mypy disabled for pyln-proto
 
 $(SDIST_FILE):
 	python3 setup.py sdist
