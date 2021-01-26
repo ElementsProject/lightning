@@ -3,12 +3,20 @@
 lightning-listforwards - Command showing all htlcs and their information
 .SH SYNOPSIS
 
-\fBlistforwards\fR
+\fBlistforwards\fR [\fIstatus\fR] [\fIin_channel\fR] [\fIout_channel\fR]
 
 .SH DESCRIPTION
 
 The \fBlistforwards\fR RPC command displays all htlcs that have been
 attempted to be forwarded by the c-lightning node\.
+
+
+If \fIstatus\fR is specified, then only the forwards with the given status are returned\.
+\fIstatus\fR can be either \fIoffered\fR or \fIsettled\fR or \fIfailed\fR or \fIlocal_failed\fR
+
+
+If \fIin_channel\fR or \fIout_channel\fR is specified, then only the matching forwards
+on the given in/out channel are returned\.
 
 .SH RETURN VALUE
 
@@ -71,4 +79,4 @@ Rene Pickhardt \fI<r.pickhardt@gmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:8cefda0944e3371f1f7bca046d8792125fb8b6eda11351b6f39a08bab60cff2e
+\" SHA256STAMP:b374dbf5f639ad8782b4ad2ff515f25b22a4407ef77f2e0904c975d1a7ccfbe4
