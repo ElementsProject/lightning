@@ -651,6 +651,8 @@ def test_openchannel_hook_chaining(node_factory, bitcoind):
         l1.rpc.fundchannel(l2.info['id'], 100005)
 
     assert l2.daemon.wait_for_log(hook_msg + "reject for a reason")
+    # first plugin in the chain was called
+    assert l2.daemon.is_in_log("accept on principle")
     # the third plugin must now not be called anymore
     assert not l2.daemon.is_in_log("reject on principle")
 
