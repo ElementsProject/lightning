@@ -6,7 +6,7 @@ plugin = Plugin()
 
 @plugin.hook('custommsg')
 def on_custommsg(peer_id, message, plugin, **kwargs):
-    plugin.log("Got a custom message {msg} from peer {peer_id}".format(
+    plugin.log("Got custommessage_b {msg} from peer {peer_id}".format(
         msg=message,
         peer_id=peer_id
     ))

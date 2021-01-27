@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+from pyln.client import Plugin
+
+plugin = Plugin()
+
+
+@plugin.hook('custommsg')
+def on_custommsg(peer_id, message, plugin, **kwargs):
+    plugin.log("Got custommessage_a {msg} from peer {peer_id}".format(
+        msg=message,
+        peer_id=peer_id
+    ))
+    return {'result': 'continue'}
+
+
+plugin.run()
