@@ -2239,8 +2239,10 @@ def test_sendcustommsg(node_factory):
     and we can't send to it.
 
     """
-    plugin = os.path.join(os.path.dirname(__file__), "plugins", "custommsg.py")
-    opts = {'log-level': 'io', 'plugin': plugin}
+    opts = {'log-level': 'io', 'plugin': [
+        os.path.join(os.path.dirname(__file__), "plugins", "custommsg_b.py"),
+        os.path.join(os.path.dirname(__file__), "plugins", "custommsg_a.py")
+    ]}
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=opts)
     node_factory.join_nodes([l1, l2, l3])
     l2.connect(l4)
@@ -2279,9 +2281,12 @@ def test_sendcustommsg(node_factory):
         )
     )
     l1.daemon.wait_for_log(r'\[IN\] {}'.format(serialized))
-    l1.daemon.wait_for_log(
-        r'Got a custom message {serialized} from peer {peer_id}'.format(
-            serialized=serialized, peer_id=l2.info['id']))
+    l1.daemon.wait_for_logs([
+        r'Got custommessage_a {serialized} from peer {peer_id}'.format(
+            serialized=serialized, peer_id=l2.info['id']),
+        r'Got custommessage_b {serialized} from peer {peer_id}'.format(
+            serialized=serialized, peer_id=l2.info['id'])
+    ])
 
     # This should work since the peer is currently owned by `openingd`
     l2.rpc.dev_sendcustommsg(l4.info['id'], msg)
@@ -2291,9 +2296,12 @@ def test_sendcustommsg(node_factory):
         )
     )
     l4.daemon.wait_for_log(r'\[IN\] {}'.format(serialized))
-    l4.daemon.wait_for_log(
-        r'Got a custom message {serialized} from peer {peer_id}'.format(
-            serialized=serialized, peer_id=l2.info['id']))
+    l4.daemon.wait_for_logs([
+        r'Got custommessage_a {serialized} from peer {peer_id}'.format(
+            serialized=serialized, peer_id=l2.info['id']),
+        r'Got custommessage_b {serialized} from peer {peer_id}'.format(
+            serialized=serialized, peer_id=l2.info['id']),
+    ])
 
 
 def test_sendonionmessage(node_factory):
