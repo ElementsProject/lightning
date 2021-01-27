@@ -2410,10 +2410,28 @@ struct custommsg_payload {
 	const u8 *msg;
 };
 
-static void custommsg_callback(struct custommsg_payload *payload STEALS,
-			       const char *buffer, const jsmntok_t *toks)
+static bool custommsg_cb(struct custommsg_payload *payload,
+			 const char *buffer, const jsmntok_t *toks)
 {
-	tal_free(payload);
+	const jsmntok_t *t_res;
+
+	if (!toks || !buffer)
+		return true;
+
+	t_res = json_get_member(buffer, toks, "result");
+
+	/* fail */
+	if (!t_res || !json_tok_streq(buffer, t_res, "continue"))
+		fatal("Plugin returned an invalid response to the "
+		      "custommsg hook: %s", buffer);
+
+	/* call next hook */
+	return true;
+}
+
+static void custommsg_final(struct custommsg_payload *payload STEALS)
+{
+	tal_steal(tmpctx, payload);
 }
 
 static void custommsg_payload_serialize(struct custommsg_payload *payload,
@@ -2423,10 +2441,11 @@ static void custommsg_payload_serialize(struct custommsg_payload *payload,
 	json_add_node_id(stream, "peer_id", &payload->peer_id);
 }
 
-REGISTER_SINGLE_PLUGIN_HOOK(custommsg,
-			    custommsg_callback,
-			    custommsg_payload_serialize,
-			    struct custommsg_payload *);
+REGISTER_PLUGIN_HOOK(custommsg,
+		     custommsg_cb,
+		     custommsg_final,
+		     custommsg_payload_serialize,
+		     struct custommsg_payload *);
 
 void handle_custommsg_in(struct lightningd *ld, const struct node_id *peer_id,
 			 const u8 *msg)
