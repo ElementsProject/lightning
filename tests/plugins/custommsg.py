@@ -10,6 +10,7 @@ def on_custommsg(peer_id, message, plugin, **kwargs):
         msg=message,
         peer_id=peer_id
     ))
+    return {'result': 'continue'}
 
 
 plugin.run()
