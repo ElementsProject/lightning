@@ -1218,11 +1218,8 @@ ignored by nodes (see ["it's ok to be odd" in the specification][oddok] for
 details). The plugin must implement the parsing of the message, including the
 type prefix, since c-lightning does not know how to parse the message.
 
-The result for this hook is currently being discarded. For future uses of the
-result we suggest just returning `{'result': 'continue'}`.
-This will ensure backward
-compatibility should the semantics be changed in future.
-
+Because this is a chained hook, the daemon expects the result to be
+`{'result': 'continue'}`. It will fail if something else is returned.
 
 ### `onion_message` and `onion_message_blinded`
 
