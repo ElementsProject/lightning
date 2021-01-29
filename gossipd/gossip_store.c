@@ -829,7 +829,7 @@ u32 gossip_store_load(struct routing_state *rstate, struct gossip_store *gs)
 		case WIRE_CHANNEL_UPDATE:
 			if (!routing_add_channel_update(rstate,
 							take(msg), gs->len,
-							NULL)) {
+							NULL, false)) {
 				bad = "Bad channel_update";
 				goto badmsg;
 			}

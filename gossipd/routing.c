@@ -1674,10 +1674,10 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 	/* If we had private updates, they'll immediately create the channel. */
 	if (private_updates[0])
 		routing_add_channel_update(rstate, take(private_updates[0]), 0,
-					   peer);
+					   peer, false);
 	if (private_updates[1])
 		routing_add_channel_update(rstate, take(private_updates[1]), 0,
-					   peer);
+					   peer, false);
 
 	return true;
 }
@@ -1872,7 +1872,7 @@ static void process_pending_channel_update(struct daemon *daemon,
 	if (!cupdate)
 		return;
 
-	err = handle_channel_update(rstate, cupdate, peer, NULL);
+	err = handle_channel_update(rstate, cupdate, peer, NULL, false);
 	if (err) {
 		/* FIXME: We could send this error back to peer if != NULL */
 		status_peer_debug(peer ? &peer->id : NULL,
@@ -2021,7 +2021,8 @@ static void set_connection_values(struct chan *chan,
 bool routing_add_channel_update(struct routing_state *rstate,
 				const u8 *update TAKES,
 				u32 index,
-				struct peer *peer)
+				struct peer *peer,
+				bool ignore_timestamp)
 {
 	secp256k1_ecdsa_signature signature;
 	struct short_channel_id short_channel_id;
@@ -2111,7 +2112,7 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	/* Discard older updates */
 	hc = &chan->half[direction];
 
-	if (is_halfchan_defined(hc)) {
+	if (is_halfchan_defined(hc) && !ignore_timestamp) {
 		/* If we're loading from store, duplicate entries are a bug. */
 		if (index != 0) {
 			status_broken("gossip_store channel_update %u replaces %u!",
@@ -2222,7 +2223,8 @@ bool routing_add_channel_update(struct routing_state *rstate,
 	}
 
 	status_peer_debug(peer ? &peer->id : NULL,
-			  "Received channel_update for channel %s/%d now %s",
+			  "Received %schannel_update for channel %s/%d now %s",
+			  ignore_timestamp ? "(forced) " : "",
 			  type_to_string(tmpctx, struct short_channel_id,
 					 &short_channel_id),
 			  channel_flags & 0x01,
@@ -2281,7 +2283,8 @@ void remove_channel_from_store(struct routing_state *rstate,
 
 u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 			  struct peer *peer,
-			  struct short_channel_id *unknown_scid)
+			  struct short_channel_id *unknown_scid,
+			  bool force)
 {
 	u8 *serialized;
 	const struct node_id *owner;
@@ -2376,7 +2379,7 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 		return err;
 	}
 
-	routing_add_channel_update(rstate, take(serialized), 0, peer);
+	routing_add_channel_update(rstate, take(serialized), 0, peer, force);
 	return NULL;
 }
 
