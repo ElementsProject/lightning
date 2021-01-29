@@ -253,7 +253,6 @@ void bitcoind_estimate_fees_(struct bitcoind *bitcoind,
 
 struct sendrawtx_call {
 	struct bitcoind *bitcoind;
-	const char *hextx;
 	void (*cb)(struct bitcoind *bitcoind,
 		   bool success,
 		   const char *err_msg,
@@ -292,59 +291,6 @@ static void sendrawtx_callback(const char *buf, const jsmntok_t *toks,
 	tal_free(call);
 }
 
-/* For compatibility with `sendrawtransaction` plugins written for
- * 0.9.0 or earlier.
- * Once this deprecated API is removed, we can just delete this function
- * and use sendrawtx_callback directly in bitcoind_sendrawtx_ahf_.
- */
-static void sendrawtx_compatv090_callback(const char *buf,
-					  const jsmntok_t *toks,
-					  const jsmntok_t *idtok,
-					  struct sendrawtx_call *call)
-{
-	struct jsonrpc_request *req;
-
-	static bool warned = false;
-
-
-	/* If deprecated APIs not enabled, fail it outright.  */
-	if (!deprecated_apis)
-		goto fallback;
-
-	/* If we got a JSONRPC2_INVALID_PARAMS error, assume it is
-	 * because it is an old plugin which does not support the
-	 * new `allowhighfees` parameter.
-	 */
-	if (json_scan(tmpctx, buf, toks, "{error:{code:"
-		      stringify(JSONRPC2_INVALID_PARAMS)"}}") != NULL) {
-		goto fallback;
-	}
-
-	/* Possibly it is because `allowhighfees` is not understood
-	 * by the plugin.  */
-	if (!warned) {
-		warned = true;
-		log_unusual(call->bitcoind->log,
-			    "`sendrawtransaction` failed when given two "
-			    "arguments, will retry with single-argument "
-			    "deprecated API.");
-	}
-
-	/* Retry with a single argument, hextx.  */
-	req = jsonrpc_request_start(call->bitcoind, "sendrawtransaction",
-				    call->bitcoind->log,
-				    NULL, sendrawtx_callback, call);
-	json_add_string(req->stream, "tx", call->hextx);
-	jsonrpc_request_end(req);
-	bitcoin_plugin_send(call->bitcoind, req);
-
-	return;
-
-fallback:
-	sendrawtx_callback(buf, toks, idtok, call);
-	return;
-}
-
 void bitcoind_sendrawtx_ahf_(struct bitcoind *bitcoind,
 			     const char *hextx,
 			     bool allowhighfees,
@@ -356,21 +302,13 @@ void bitcoind_sendrawtx_ahf_(struct bitcoind *bitcoind,
 	struct sendrawtx_call *call = tal(bitcoind, struct sendrawtx_call);
 
 	call->bitcoind = bitcoind;
-	/* For compatibility with 0.9.0 or earlier.
-	 * Once removed, we can remove the hextx field in
-	 * struct sendrawtx_call as well.
-	 */
-	if (deprecated_apis)
-		call->hextx = tal_strdup(call, hextx);
-	else
-		call->hextx = NULL;
 	call->cb = cb;
 	call->cb_arg = cb_arg;
 	log_debug(bitcoind->log, "sendrawtransaction: %s", hextx);
 
 	req = jsonrpc_request_start(bitcoind, "sendrawtransaction",
 				    bitcoind->log,
-				    NULL, sendrawtx_compatv090_callback,
+				    NULL, sendrawtx_callback,
 				    call);
 	json_add_string(req->stream, "tx", hextx);
 	json_add_bool(req->stream, "allowhighfees", allowhighfees);
