@@ -402,7 +402,8 @@ struct chan *next_chan(const struct node *node, struct chan_map_iter *i);
  * (if not NULL). */
 u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 			  struct peer *peer,
-			  struct short_channel_id *unknown_scid);
+			  struct short_channel_id *unknown_scid,
+			  bool force);
 
 /* Returns NULL if all OK, otherwise an error for the peer which sent.
  * If was_unknown is not NULL, sets it to true if that was the reason for
@@ -456,7 +457,8 @@ bool routing_add_channel_announcement(struct routing_state *rstate,
 bool routing_add_channel_update(struct routing_state *rstate,
 				const u8 *update TAKES,
 				u32 index,
-				struct peer *peer);
+				struct peer *peer,
+				bool ignore_timestamp);
 /**
  * Add a node_announcement to the network view without checking it
  *

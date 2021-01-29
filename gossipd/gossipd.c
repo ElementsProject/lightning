@@ -268,7 +268,7 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 
 	unknown_scid.u64 = 0;
 	err = handle_channel_update(peer->daemon->rstate, msg, peer,
-				    &unknown_scid);
+				    &unknown_scid, false);
 	if (err) {
 		if (unknown_scid.u64 != 0)
 			query_unknown_channel(peer->daemon, peer, &unknown_scid);
@@ -1797,7 +1797,7 @@ static struct io_plan *handle_payment_failure(struct io_conn *conn,
 			     tal_hex(tmpctx, channel_update),
 			     tal_hex(tmpctx, error));
 		u8 *err = handle_channel_update(daemon->rstate, channel_update,
-						NULL, NULL);
+						NULL, NULL, true);
 		if (err) {
 			status_info("extracted bad channel_update %s from onionreply %s",
 				    sanitize_error(err, err, NULL),

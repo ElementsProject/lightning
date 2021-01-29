@@ -58,7 +58,8 @@ struct timeabs gossip_time_now(const struct routing_state *rstate UNNEEDED)
 /* Generated stub for handle_channel_update */
 u8 *handle_channel_update(struct routing_state *rstate UNNEEDED, const u8 *update TAKES UNNEEDED,
 			  struct peer *peer UNNEEDED,
-			  struct short_channel_id *unknown_scid UNNEEDED)
+			  struct short_channel_id *unknown_scid UNNEEDED,
+			  bool force UNNEEDED)
 { fprintf(stderr, "handle_channel_update called!\n"); abort(); }
 /* Generated stub for handle_node_announcement */
 u8 *handle_node_announcement(struct routing_state *rstate UNNEEDED, const u8 *node UNNEEDED,

@@ -392,7 +392,7 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 	msg = handle_channel_update(daemon->rstate, update,
 				    find_peer(daemon,
 					      &chan->nodes[!direction]->id),
-				    NULL);
+				    NULL, true);
 	if (msg)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "%s: rejected local channel update %s: %s",
