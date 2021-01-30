@@ -665,6 +665,12 @@ struct rpc_command_hook_payload {
 	struct command *cmd;
 	const char *buffer;
 	const jsmntok_t *request;
+
+	/* custom response/replace/error options plugins can have */
+	const char *custom_result;
+	const char *custom_error;
+	const jsmntok_t *custom_replace;
+	const char *custom_buffer;
 };
 
 static void rpc_command_hook_serialize(struct rpc_command_hook_payload *p,
@@ -734,50 +740,89 @@ fail:
 				 "Bad response to 'rpc_command' hook: %s", bad));
 }
 
-static void
-rpc_command_hook_callback(struct rpc_command_hook_payload *p STEALS,
-                          const char *buffer, const jsmntok_t *resulttok)
+static void rpc_command_hook_final(struct rpc_command_hook_payload *p STEALS)
 {
-	const jsmntok_t *tok, *params, *custom_return;
-	const jsmntok_t *innerresulttok;
-	struct json_stream *response;
+	const jsmntok_t *params;
 
 	/* Free payload with cmd */
 	tal_steal(p->cmd, p);
 
+	if (p->custom_result != NULL) {
+		struct json_stream *s = json_start(p->cmd);
+		json_add_jsonstr(s, "result", p->custom_result);
+		json_object_compat_end(s);
+		return was_pending(command_raw_complete(p->cmd, s));
+	}
+	if (p->custom_error != NULL) {
+		struct json_stream *s = json_start(p->cmd);
+		json_add_jsonstr(s, "error", p->custom_error);
+		json_object_compat_end(s);
+		return was_pending(command_raw_complete(p->cmd, s));
+	}
+	if (p->custom_replace != NULL)
+		return replace_command(p, p->custom_buffer, p->custom_replace);
+
+	/* If no plugin requested a change, just continue command execution. */
 	params = json_get_member(p->buffer, p->request, "params");
+	return was_pending(command_exec(p->cmd->jcon,
+					p->cmd,
+					p->buffer,
+					p->request,
+					params));
+}
 
-	/* If no plugin registered, just continue command execution. Same if
-	 * the registered plugin tells us to do so. */
-	if (buffer == NULL)
-	    return was_pending(command_exec(p->cmd->jcon, p->cmd, p->buffer,
-		                                p->request, params));
+static bool
+rpc_command_hook_callback(struct rpc_command_hook_payload *p,
+			  const char *buffer, const jsmntok_t *resulttok)
+{
+	const struct lightningd *ld = p->cmd->ld;
+	const jsmntok_t *tok, *custom_return;
+	static char *error = "";
+	char *method;
 
-	innerresulttok = json_get_member(buffer, resulttok, "result");
-	if (innerresulttok) {
-		if (json_tok_streq(buffer, innerresulttok, "continue")) {
-			return was_pending(command_exec(p->cmd->jcon, p->cmd, p->buffer,
-							p->request, params));
+	if (!resulttok || !buffer)
+		return true;
+
+	tok = json_get_member(buffer, resulttok, "result");
+	if (tok) {
+		if (!json_tok_streq(buffer, tok, "continue")) {
+			error = "'result' should only be 'continue'.";
+			goto log_error_and_skip;
 		}
-		return was_pending(command_fail(p->cmd, JSONRPC2_INVALID_REQUEST,
-						"Bad 'result' to 'rpc_command' hook."));
+		/* plugin tells us to do nothing. just pass. */
+		return true;
+	}
+
+	/* didn't just continue but hook was already modified by prior plugin */
+	if (p->custom_result != NULL ||
+	    p->custom_error != NULL ||
+	    p->custom_replace != NULL) {
+		/* get method name and log error (only the first time). */
+		tok = json_get_member(p->buffer, p->request, "method");
+		method = tal_strndup(p, p->buffer + tok->start, tok->end - tok->start);
+		log_unusual(ld->log, "rpc_command hook '%s' already modified, ignoring.", method );
+		rpc_command_hook_final(p);
+		return false;
 	}
 
 	/* If the registered plugin did not respond with continue,
 	 * it wants either to replace the request... */
 	tok = json_get_member(buffer, resulttok, "replace");
-	if (tok)
-		return replace_command(p, buffer, tok);
+	if (tok) {
+		/* We need to make copies here, as buffer and tokens
+		 * can be reused. */
+		p->custom_replace = json_tok_copy(p, tok);
+		p->custom_buffer = tal_dup_talarr(p, char, buffer);
+		return true;
+	}
 
 	/* ...or return a custom JSONRPC response. */
 	tok = json_get_member(buffer, resulttok, "return");
 	if (tok) {
 		custom_return = json_get_member(buffer, tok, "result");
 		if (custom_return) {
-			response = json_start(p->cmd);
-			json_add_tok(response, "result", custom_return, buffer);
-			json_object_compat_end(response);
-			return was_pending(command_raw_complete(p->cmd, response));
+			p->custom_result = json_strdup(p, buffer, custom_return);
+			return true;
 		}
 
 		custom_return = json_get_member(buffer, tok, "error");
@@ -786,29 +831,32 @@ rpc_command_hook_callback(struct rpc_command_hook_payload *p STEALS,
 			const char *errmsg;
 			if (!json_to_errcode(buffer,
 					     json_get_member(buffer, custom_return, "code"),
-					     &code))
-				return was_pending(command_fail(p->cmd, JSONRPC2_INVALID_REQUEST,
-				                                "Bad response to 'rpc_command' hook: "
-				                                "'error' object does not contain a code."));
+					     &code)) {
+				error = "'error' object does not contain a code.";
+				goto log_error_and_skip;
+			}
 			errmsg = json_strdup(tmpctx, buffer,
 			                     json_get_member(buffer, custom_return, "message"));
-			if (!errmsg)
-				return was_pending(command_fail(p->cmd, JSONRPC2_INVALID_REQUEST,
-				                                "Bad response to 'rpc_command' hook: "
-				                                "'error' object does not contain a message."));
-			response = json_stream_fail_nodata(p->cmd, code, errmsg);
-			return was_pending(command_failed(p->cmd, response));
+			if (!errmsg) {
+				error = "'error' object does not contain a message.";
+				goto log_error_and_skip;
+			}
+			p->custom_error = json_strdup(p, buffer, custom_return);
+			return true;
 		}
 	}
 
-	was_pending(command_fail(p->cmd, JSONRPC2_INVALID_REQUEST,
-	                         "Bad response to 'rpc_command' hook."));
+log_error_and_skip:
+	/* Just log BROKEN errors. Give other plugins a chance. */
+	log_broken(ld->log, "Bad response to 'rpc_command' hook. %s", error);
+	return true;
 }
 
-REGISTER_SINGLE_PLUGIN_HOOK(rpc_command,
-			    rpc_command_hook_callback,
-			    rpc_command_hook_serialize,
-			    struct rpc_command_hook_payload *);
+REGISTER_PLUGIN_HOOK(rpc_command,
+		     rpc_command_hook_callback,
+		     rpc_command_hook_final,
+		     rpc_command_hook_serialize,
+		     struct rpc_command_hook_payload *);
 
 /* We return struct command_result so command_fail return value has a natural
  * sink; we don't actually use the result. */
@@ -883,6 +931,12 @@ parse_request(struct json_connection *jcon, const jsmntok_t tok[])
 	/* Duplicate since we might outlive the connection */
 	rpc_hook->buffer = tal_dup_talarr(rpc_hook, char, jcon->buffer);
 	rpc_hook->request = tal_dup_talarr(rpc_hook, jsmntok_t, tok);
+
+	/* NULL the custom_ values for the hooks */
+	rpc_hook->custom_result = NULL;
+	rpc_hook->custom_error = NULL;
+	rpc_hook->custom_replace = NULL;
+	rpc_hook->custom_buffer = NULL;
 
 	db_begin_transaction(jcon->ld->wallet->db);
 	completed = plugin_hook_call_rpc_command(jcon->ld, rpc_hook);
