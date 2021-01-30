@@ -1198,6 +1198,9 @@ Return a custom error to the request sender:
 }
 ```
 
+Note: The `rpc_command` hook is chainable. If two or more plugins try to
+replace/result/error the same `method`, only the first plugin in the chain
+will be respected. Others will be ignored and a warning will be logged.
 
 ### `custommsg`
 
