@@ -464,14 +464,15 @@ static void update_channel(struct gossmap *map, size_t cupdate_off)
 		errx(1, "update for channel %s not found!",
 		     type_to_string(tmpctx, struct short_channel_id, &scid));
 
-	hc.htlc_min = u64_to_fp16(map_be64(map, htlc_minimum_off), true);
+	/* We round this *down*, since too-low min is more conservative */
+	hc.htlc_min = u64_to_fp16(map_be64(map, htlc_minimum_off), false);
 	/* I checked my node: 60189 of 62358 channel_update have
 	 * htlc_maximum_msat, so we don't bother setting the rest to the
 	 * channel size (which we don't even read from the gossip_store, let
 	 * alone give up precious bytes to remember) */
 	if (map_u8(map, message_flags_off) & 1)
 		hc.htlc_max
-			= u64_to_fp16(map_be64(map, htlc_maximum_off), false);
+			= u64_to_fp16(map_be64(map, htlc_maximum_off), true);
 	else
 		hc.htlc_max = 0xFFFF;
 	hc.base_fee = map_be32(map, fee_base_off);
