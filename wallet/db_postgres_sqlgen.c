@@ -1383,8 +1383,8 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "INSERT INTO channel_htlcs ( channel_id, channel_htlc_id, direction, origin_htlc, msatoshi, cltv_expiry, payment_hash, payment_key, hstate, routing_onion, partid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
-         .query = "INSERT INTO channel_htlcs ( channel_id, channel_htlc_id, direction, origin_htlc, msatoshi, cltv_expiry, payment_hash, payment_key, hstate, routing_onion, partid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);",
+         .name = "INSERT INTO channel_htlcs ( channel_id, channel_htlc_id, direction, origin_htlc, msatoshi, cltv_expiry, payment_hash, payment_key, hstate, routing_onion, malformed_onion, partid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);",
+         .query = "INSERT INTO channel_htlcs ( channel_id, channel_htlc_id, direction, origin_htlc, msatoshi, cltv_expiry, payment_hash, payment_key, hstate, routing_onion, malformed_onion, partid) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, $11);",
          .placeholders = 11,
          .readonly = false,
     },
@@ -1786,4 +1786,4 @@ struct db_query db_postgres_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:cfcc8729b714d7182b2d3f99b83475d4c8b7f489527b1f7ec3c9e2734281315e
+// SHA256STAMP:2bec004d595805c1426966e32f0fff7b0e5e3a4fac512f5f36385d0ffa468b6d

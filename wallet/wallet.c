@@ -1954,7 +1954,8 @@ void wallet_htlc_save_out(struct wallet *wallet,
 		" payment_key,"
 		" hstate,"
 		" routing_onion,"
-		" partid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+		" malformed_onion,"
+		" partid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?);"));
 
 	db_bind_u64(stmt, 0, chan->dbid);
 	db_bind_u64(stmt, 1, out->key.id);
