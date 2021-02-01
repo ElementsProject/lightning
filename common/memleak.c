@@ -19,6 +19,7 @@
  * 3. provides a routine to access any remaining pointers in the
  *    table: these are the leaks.
  */
+#include "config.h"
 #include <assert.h>
 #include <backtrace.h>
 #include <ccan/crypto/siphash24/siphash24.h>

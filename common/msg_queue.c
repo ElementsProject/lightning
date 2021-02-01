@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <common/msg_queue.h>
 #include <common/utils.h>

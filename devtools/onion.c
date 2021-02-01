@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>

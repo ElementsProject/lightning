@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <ccan/crc32c/crc32c.h>
 #include <common/features.h>

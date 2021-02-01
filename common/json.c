@@ -1,4 +1,5 @@
 /* JSON core and helpers */
+#include "config.h"
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/json_escape/json_escape.h>

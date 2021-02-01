@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>

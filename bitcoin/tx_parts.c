@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <bitcoin/tx_parts.h>
 #include <common/utils.h>

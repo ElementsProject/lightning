@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <ccan/ccan/err/err.h>
 #include <common/memleak.h>

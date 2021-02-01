@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <backtrace-supported.h>
 #include <backtrace.h>

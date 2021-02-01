@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <bitcoin/psbt.c>
 #include <bitcoin/shadouble.c>
