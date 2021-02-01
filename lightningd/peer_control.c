@@ -1045,8 +1045,6 @@ send_error:
 		 * dualopend. we only get here if there's an error  */
 		if (channel) {
 			assert(!channel->owner);
-			assert(channel->state == DUALOPEND_OPEN_INIT
-			       || channel->state == DUALOPEND_AWAITING_LOCKIN);
 			channel->peer->addr = addr;
 			peer_restart_dualopend(peer, payload->pps, channel, error);
 		} else
