@@ -227,42 +227,6 @@ struct gossmap_chan *gossmap_find_chan(const struct gossmap *map,
 	return NULL;
 }
 
-static fp16_t u64_to_fp16(u64 val, bool round_up)
-{
-	u16 mantissa_bits, mantissa, exponent;
-
-	if (val == 0)
-		return 0;
-
-	/* How many bits do we need to represent mantissa? */
-	mantissa_bits = bitops_hs64(val) + 1;
-
-	/* We only have 11 bits, so if we need more, we will round. */
-	if (mantissa_bits > 11) {
-		exponent = mantissa_bits - 11;
-		mantissa = (val >> exponent);
-		/* If we're losing bits here, we're rounding down */
-		if (round_up && (val & ((1ULL << exponent)-1))) {
-			mantissa++;
-			if (mantissa == (1 << 11)) {
-				mantissa >>= 1;
-				exponent++;
-			}
-		}
-		/* huge number? Make it max. */
-		if (exponent >= 32) {
-			exponent = 31;
-			mantissa = (1 << 11)-1;
-		}
-	} else {
-		exponent = 0;
-		mantissa = val;
-	}
-
-	assert((mantissa >> 11) == 0);
-	return (exponent << 11) | mantissa;
-}
-
 static u32 init_node_arr(struct gossmap_node *node_arr, size_t start)
 {
 	size_t i;
@@ -822,12 +786,10 @@ bool gossmap_chan_capacity(const struct gossmap_chan *chan,
 			   int direction,
 			   struct amount_msat amount)
 {
-	if (amount.millisatoshis /* Raw: fp16 compare */
-	    < fp16_to_u64(chan->half[direction].htlc_min))
+	if (amount_msat_less_fp16(amount, chan->half[direction].htlc_min))
 		return false;
 
-	if (amount.millisatoshis /* Raw: fp16 compare */
-	    > fp16_to_u64(chan->half[direction].htlc_max))
+	if (amount_msat_greater_fp16(amount, chan->half[direction].htlc_max))
 		return false;
 
 	return true;

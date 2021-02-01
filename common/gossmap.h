@@ -4,12 +4,10 @@
 #include <bitcoin/short_channel_id.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <common/amount.h>
+#include <common/fp16.h>
 
 struct node_id;
 struct pubkey32;
-
-/* 5 bit exponent, 11 bit mantissa approximations of min/max */
-typedef u16 fp16_t;
 
 struct gossmap_node {
 	/* Offset in memory map for node_announce, or 0. */
@@ -37,11 +35,6 @@ struct gossmap_chan {
 		u64 delay : 20;
 	} half[2];
 };
-
-static inline u64 fp16_to_u64(fp16_t val)
-{
-	return ((u64)val & ((1 << 11)-1)) << (val >> 11);
-}
 
 struct gossmap *gossmap_load(const tal_t *ctx, const char *filename);
 
