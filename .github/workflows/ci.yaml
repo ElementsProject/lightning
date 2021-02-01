@@ -2,8 +2,67 @@
 name: Continuous Integration
 on: [push, pull_request]
 jobs:
-  build-and-test:
-    name: Test config ${{ matrix.cfg }}
+  smoke-test:
+    name: Smoke Test Config ${{ matrix.cfg }}
+    runs-on: ubuntu-20.04
+    env:
+      DEVELOPER: 1
+      VALGRIND: 0
+      EXPERIMENTAL_FEATURES: 0
+      COMPAT: 1
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          # CFG us just an enumeration so we can refer to the configurations more easily
+          - {CFG:  1, TEST_CMD: "make", NO_PYTHON: 1}
+          - {CFG:  2, TEST_CMD: "make check-source check-units installcheck", COPTFLAGS: "-O3"}
+          - {CFG:  3, ARCH: 32, TEST_CMD: "make check-source check-units installcheck", DEVELOPER: 0}
+          - {CFG:  4, TEST_CMD: "make check-source check-units installcheck", EXPERIMENTAL_FEATURES: 1}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.0.0
+
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+
+      - name: Build
+        env:
+          VALGRIND: ${{ matrix.VALGRIND }}
+          DEVELOPER: ${{ matrix.DEVELOPER }}
+          EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
+          COMPILER: ${{ matrix.COMPILER }}
+          ARCH: ${{ matrix.ARCH }}
+          COMPAT: ${{ matrix.COMPAT }}
+          PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
+          PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
+          NO_PYTHON: ${{ matrix.NO_PYTHON }}
+          COPTFLAGS: ${{ matrix.COPTFLAGS }}
+          NETWORK: ${{ matrix.NETWORK }}
+          TEST_CMD: ${{ matrix.TEST_CMD }}
+          TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
+          TEST_GROUP: ${{ matrix.TEST_GROUP }}
+        run: |
+          bash -x .github/scripts/build.sh
+
+      - name: Upload Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: Junit Report ${{ github.run_number }}.${{ matrix.cfg }}
+          path: report.*
+          if-no-files-found: ignore
+
+  normal-test:
+    name: Normal Test Config ${{ matrix.cfg }}
+    runs-on: ubuntu-20.04
+    needs: [smoke-test]
     env:
       DEVELOPER: 1
       VALGRIND: 0
@@ -13,19 +72,71 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # CFG us just an enumeration so we can refer to the configurations more easily
-          - {CFG:  1, TEST_CMD: "make", NO_PYTHON: 1}
-          - {CFG:  2, TEST_CMD: "make check-source check-units installcheck", COPTFLAGS: "-O3"}
-          - {CFG:  3, ARCH: 32, TEST_CMD: "make check-source check-units installcheck", DEVELOPER: 0}
-          - {CFG:  4, TEST_CMD: "make check-source check-units installcheck", EXPERIMENTAL_FEATURES: 1}
-
           # All of the following will just run `make pytest`
           - {CFG:  5, COMPILER: clang}
           - {CFG:  6, COMPILER: gcc, TEST_CHECK_DBSTMTS: 1}
           - {CFG:  7, DEVELOPER: 0, COMPAT: 0, TEST_GROUP: 1, TEST_GROUP_COUNT: 2}
           - {CFG:  8, DEVELOPER: 0, COMPAT: 0, TEST_GROUP: 2, TEST_GROUP_COUNT: 2}
 
-          # All of these are pretty slo since they run under valgrind
+          # Various other configurations
+          - {CFG: 19, NETWORK: liquid-regtest}
+          - {CFG: 20, DB: postgres, PYTEST_PAR: 2}
+
+          # The cross-compiled versions
+          - {CFG: 21, ARCH: arm32v7, TARGET_HOST: arm-linux-gnueabihf}
+          - {CFG: 22, ARCH: arm64v8, TARGET_HOST: aarch64-linux-gnu}
+          - {CFG: 23, EXPERIMENTAL_FEATURES: 1}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.0.0
+
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.6
+
+      - name: Install dependencies
+        run: |
+          bash -x .github/scripts/setup.sh
+
+      - name: Build
+        env:
+          VALGRIND: ${{ matrix.VALGRIND }}
+          DEVELOPER: ${{ matrix.DEVELOPER }}
+          EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
+          COMPILER: ${{ matrix.COMPILER }}
+          ARCH: ${{ matrix.ARCH }}
+          COMPAT: ${{ matrix.COMPAT }}
+          PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
+          PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
+          NETWORK: ${{ matrix.NETWORK }}
+          TEST_CMD: ${{ matrix.TEST_CMD }}
+          TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
+          TEST_GROUP: ${{ matrix.TEST_GROUP }}
+        run: |
+          bash -x .github/scripts/build.sh
+
+      - name: Upload Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@v2
+        with:
+          name: Junit Report ${{ github.run_number }}.${{ matrix.cfg }}
+          path: report.*
+
+  valgrind-test:
+    name: Valgrind Test Config ${{ matrix.cfg }}
+    runs-on: ubuntu-20.04
+    needs: [smoke-test]
+    env:
+      DEVELOPER: 1
+      EXPERIMENTAL_FEATURES: 0
+      COMPAT: 1
+      TEST_GROUP_COUNT: 10
+      PYTEST_PAR: 3
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
           - {CFG:  9, VALGRIND: 1, TEST_GROUP: 1,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
           - {CFG: 10, VALGRIND: 1, TEST_GROUP: 2,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
           - {CFG: 11, VALGRIND: 1, TEST_GROUP: 3,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
@@ -36,16 +147,6 @@ jobs:
           - {CFG: 16, VALGRIND: 1, TEST_GROUP: 8,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
           - {CFG: 17, VALGRIND: 1, TEST_GROUP: 9,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
           - {CFG: 18, VALGRIND: 1, TEST_GROUP: 10, TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-
-          # Various other configurations
-          - {CFG: 19, NETWORK: liquid-regtest}
-          - {CFG: 20, DB: postgres, PYTEST_PAR: 2}
-
-          # The cross-compiled versions
-          - {CFG: 21, ARCH: arm32v7, TARGET_HOST: arm-linux-gnueabihf}
-          - {CFG: 22, ARCH: arm64v8, TARGET_HOST: aarch64-linux-gnu}
-          - {CFG: 23, EXPERIMENTAL_FEATURES: 1}
-    runs-on: ubuntu-20.04
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
