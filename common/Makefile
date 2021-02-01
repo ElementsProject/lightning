@@ -32,6 +32,7 @@ COMMON_SRC_NOGEN :=				\
 	common/ecdh_hsmd.c			\
 	common/features.c			\
 	common/fee_states.c			\
+	common/fp16.c				\
 	common/gossip_rcvd_filter.c		\
 	common/gossip_store.c			\
 	common/hash_u5.c			\
