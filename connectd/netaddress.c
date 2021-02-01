@@ -1,4 +1,5 @@
 /* -*- c-basic-offset: 4; indent-tabs-mode: nil; -*- */
+#include "config.h"
 #include <arpa/inet.h>
 #include <assert.h>
 #include <common/status.h>

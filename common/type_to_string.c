@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <bitcoin/preimage.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>

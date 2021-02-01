@@ -1,3 +1,4 @@
+#include "config.h"
 #include <arpa/inet.h>
 #include <assert.h>
 #include <ccan/err/err.h>

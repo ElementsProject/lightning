@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>

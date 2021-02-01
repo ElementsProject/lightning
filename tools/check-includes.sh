@@ -40,7 +40,7 @@ for HEADER_FILE in $(filter_suffix h); do
     if [[ ! -e $C_FILE ]]; then
         continue
     fi
-    DUPLICATE_INCLUDES_IN_HEADER_AND_C_FILES=$(grep -hE "^#include " <(sort -u < "${HEADER_FILE}") <(sort -u < "${C_FILE}") | grep -E "^#include " | sort | uniq -d)
+    DUPLICATE_INCLUDES_IN_HEADER_AND_C_FILES=$(grep -hE "^#include " <(sort -u < "${HEADER_FILE}") <(sort -u < "${C_FILE}" | grep -v '"config.h"') | grep -E "^#include " | sort | uniq -d)
     if [[ ${DUPLICATE_INCLUDES_IN_HEADER_AND_C_FILES} != "" ]]; then
         echo "Include(s) from ${HEADER_FILE} duplicated in ${C_FILE}:"
         echo "${DUPLICATE_INCLUDES_IN_HEADER_AND_C_FILES}"

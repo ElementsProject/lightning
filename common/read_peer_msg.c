@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <ccan/fdpass/fdpass.h>
 #include <common/crypto_sync.h>

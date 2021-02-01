@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <bitcoin/block.h>
 #include <bitcoin/chainparams.h>

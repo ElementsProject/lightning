@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <ccan/bitops/bitops.h>
 #include <ccan/crypto/siphash24/siphash24.h>

@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <bitcoin/pubkey.h>
 #include <ccan/err/err.h>

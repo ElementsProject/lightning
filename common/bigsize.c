@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <common/bigsize.h>
 #include <wire/wire.h>

@@ -1,3 +1,4 @@
+#include "config.h"
 #include <assert.h>
 #include <bitcoin/locktime.h>
 #include <ccan/tal/str/str.h>
