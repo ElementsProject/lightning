@@ -1162,11 +1162,8 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
     else:
         num = 100
 
-    nodes = node_factory.get_nodes(num)
-
-    # Speed up cleanup by not cleaning our test nodes: on my laptop, this goes
-    # from 214 to 15 seconds
-    node_factory.nodes = [l1]
+    # Allow the other nodes to log unexpected WIRE_FUNDING_CREATED messages
+    nodes = node_factory.get_nodes(num, opts={'allow_broken_log': True})
 
     num_complete = 0
     num_cancel = 0
@@ -1221,6 +1218,9 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
     if not node_factory.valgrind:
         assert num_cancel > 0
         assert num_complete > 0
+
+    # Speed up shutdown by stopping them all concurrently
+    executor.map(lambda n: n.stop(), node_factory.nodes)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
