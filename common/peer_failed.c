@@ -49,7 +49,7 @@ void peer_failed(struct per_peer_state *pps,
 	peer_fatal_continue(take(msg), pps);
 }
 
-/* We're failing because peer sent us an error message */
+/* We're failing because peer sent us an error/warning message */
 void peer_failed_received_errmsg(struct per_peer_state *pps,
 				 const char *desc,
 				 const struct channel_id *channel_id,
@@ -62,7 +62,7 @@ void peer_failed_received_errmsg(struct per_peer_state *pps,
 		channel_id = &all_channels;
 	msg = towire_status_peer_error(NULL, channel_id, desc, soft_error, pps,
 				       NULL);
-	peer_billboard(true, "Received error from peer: %s", desc);
+	peer_billboard(true, "Received %s", desc);
 	peer_fatal_continue(take(msg), pps);
 }
 

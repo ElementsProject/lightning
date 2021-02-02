@@ -43,10 +43,10 @@ u8 *towire_errorfmtv(const tal_t *ctx,
 bool channel_id_is_all(const struct channel_id *channel_id);
 
 /**
- * sanitize_error - extract and sanitize contents of WIRE_ERROR.
+ * sanitize_error - extract and sanitize contents of WIRE_ERROR/WIRE_WARNING.
  *
  * @ctx: context to allocate from
- * @errmsg: the wire_error
+ * @errmsg: the wire_error or wire_warning
  * @channel: (out) channel it's referring to, or NULL if don't care.
  */
 char *sanitize_error(const tal_t *ctx, const u8 *errmsg,

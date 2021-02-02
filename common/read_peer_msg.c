@@ -68,11 +68,16 @@ u8 *peer_or_gossip_sync_read(const tal_t *ctx,
 
 bool is_peer_error(const tal_t *ctx, const u8 *msg,
 		   const struct channel_id *channel_id,
-		   char **desc, bool *all_channels)
+		   char **desc, bool *all_channels,
+		   bool *warning)
 {
 	struct channel_id err_chanid;
 
-	if (fromwire_peektype(msg) != WIRE_ERROR)
+	if (fromwire_peektype(msg) == WIRE_ERROR)
+		*warning = false;
+	else if (fromwire_peektype(msg) == WIRE_WARNING)
+		*warning = true;
+	else
 		return false;
 
 	*desc = sanitize_error(ctx, msg, &err_chanid);
@@ -153,7 +158,7 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 				 const u8 *msg TAKES)
 {
 	char *err;
-	bool all_channels;
+	bool all_channels, warning;
 	struct channel_id actual;
 
 #if DEVELOPER
@@ -180,12 +185,13 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 		return true;
 	}
 
-	if (is_peer_error(tmpctx, msg, channel_id, &err, &all_channels)) {
+	if (is_peer_error(tmpctx, msg, channel_id, &err, &all_channels,
+			  &warning)) {
 		if (err)
 			peer_failed_received_errmsg(pps, err,
 						    all_channels
 						    ? NULL : channel_id,
-						    soft_error);
+						    warning || soft_error);
 
 		/* Ignore unknown channel errors. */
 		goto handled;

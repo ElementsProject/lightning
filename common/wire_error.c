@@ -53,11 +53,16 @@ char *sanitize_error(const tal_t *ctx, const u8 *errmsg,
 	struct channel_id dummy;
 	u8 *data;
 	size_t i;
+	bool warning;
 
 	if (!channel_id)
 		channel_id = &dummy;
 
-	if (!fromwire_error(ctx, errmsg, channel_id, &data))
+	if (fromwire_error(ctx, errmsg, channel_id, &data))
+		warning = false;
+	else if (fromwire_warning(ctx, errmsg, channel_id, &data))
+		warning = true;
+	else
 		return tal_fmt(ctx, "Invalid ERROR message '%s'",
 			       tal_hex(ctx, errmsg));
 
@@ -79,9 +84,10 @@ char *sanitize_error(const tal_t *ctx, const u8 *errmsg,
 		}
 	}
 
-	return tal_fmt(ctx, "channel %s: %.*s",
-		       channel_id_is_all(channel_id)
-		       ? "ALL"
-		       : type_to_string(ctx, struct channel_id, channel_id),
+	return tal_fmt(ctx, "%s%s%s: %.*s",
+		       warning ? "warning" : "error",
+		       channel_id_is_all(channel_id) ? "": " channel ",
+		       channel_id_is_all(channel_id) ? ""
+		       : type_to_string(tmpctx, struct channel_id, channel_id),
 		       (int)tal_count(data), (char *)data);
 }
