@@ -49,6 +49,8 @@ const char *gossipd_wire_name(int e)
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US: return "WIRE_GOSSIPD_GOT_ONIONMSG_TO_US";
 	case WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD: return "WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD";
 	case WIRE_GOSSIPD_SEND_ONIONMSG: return "WIRE_GOSSIPD_SEND_ONIONMSG";
+	case WIRE_GOSSIPD_ADDGOSSIP: return "WIRE_GOSSIPD_ADDGOSSIP";
+	case WIRE_GOSSIPD_ADDGOSSIP_REPLY: return "WIRE_GOSSIPD_ADDGOSSIP_REPLY";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -87,6 +89,8 @@ bool gossipd_wire_is_defined(u16 type)
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:;
 	case WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD:;
 	case WIRE_GOSSIPD_SEND_ONIONMSG:;
+	case WIRE_GOSSIPD_ADDGOSSIP:;
+	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:;
 	      return true;
 	}
 	return false;
@@ -1033,4 +1037,55 @@ bool fromwire_gossipd_send_onionmsg(const tal_t *ctx, const void *p, struct node
 	}
 	return cursor != NULL;
 }
-// SHA256STAMP:1da012a28ad84883f18920e51c39a0af77f85e309e981f9ea8d158d0698f6a59
+
+/* WIRE: GOSSIPD_ADDGOSSIP */
+/* Lightningd tells us to inject a gossip message (for addgossip RPC) */
+u8 *towire_gossipd_addgossip(const tal_t *ctx, const u8 *msg)
+{
+	u16 len = tal_count(msg);
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_GOSSIPD_ADDGOSSIP);
+	towire_u16(&p, len);
+	towire_u8_array(&p, msg, len);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_gossipd_addgossip(const tal_t *ctx, const void *p, u8 **msg)
+{
+	u16 len;
+
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_ADDGOSSIP)
+		return false;
+ 	len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case msg
+	*msg = len ? tal_arr(ctx, u8, len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *msg, len);
+	return cursor != NULL;
+}
+
+/* WIRE: GOSSIPD_ADDGOSSIP_REPLY */
+/* Empty string means no problem. */
+u8 *towire_gossipd_addgossip_reply(const tal_t *ctx, const wirestring *err)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_GOSSIPD_ADDGOSSIP_REPLY);
+	towire_wirestring(&p, err);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestring **err)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_ADDGOSSIP_REPLY)
+		return false;
+ 	*err = fromwire_wirestring(ctx, &cursor, &plen);
+	return cursor != NULL;
+}
+// SHA256STAMP:e82edc5625085e21b02b27a2293d9d757556f3090a8a20b142dcb73411307a0c

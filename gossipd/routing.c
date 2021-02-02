@@ -1394,13 +1394,13 @@ static u8 *check_channel_update(const tal_t *ctx,
 		return towire_errorfmt(ctx, NULL,
 				       "Bad signature for %s hash %s"
 				       " on channel_update %s",
-				       type_to_string(ctx,
+				       type_to_string(tmpctx,
 						      secp256k1_ecdsa_signature,
 						      node_sig),
-				       type_to_string(ctx,
+				       type_to_string(tmpctx,
 						      struct sha256_double,
 						      &hash),
-				       tal_hex(ctx, update));
+				       tal_hex(tmpctx, update));
 	return NULL;
 }
 
@@ -1422,49 +1422,49 @@ static u8 *check_channel_announcement(const tal_t *ctx,
 		return towire_errorfmt(ctx, NULL,
 				       "Bad node_signature_1 %s hash %s"
 				       " on channel_announcement %s",
-				       type_to_string(ctx,
+				       type_to_string(tmpctx,
 						      secp256k1_ecdsa_signature,
 						      node1_sig),
-				       type_to_string(ctx,
+				       type_to_string(tmpctx,
 						      struct sha256_double,
 						      &hash),
-				       tal_hex(ctx, announcement));
+				       tal_hex(tmpctx, announcement));
 	}
 	if (!check_signed_hash_nodeid(&hash, node2_sig, node2_id)) {
 		return towire_errorfmt(ctx, NULL,
 				       "Bad node_signature_2 %s hash %s"
 				       " on channel_announcement %s",
-				       type_to_string(ctx,
+				       type_to_string(tmpctx,
 						      secp256k1_ecdsa_signature,
 						      node2_sig),
-				       type_to_string(ctx,
+				       type_to_string(tmpctx,
 						      struct sha256_double,
 						      &hash),
-				       tal_hex(ctx, announcement));
+				       tal_hex(tmpctx, announcement));
 	}
 	if (!check_signed_hash(&hash, bitcoin1_sig, bitcoin1_key)) {
 		return towire_errorfmt(ctx, NULL,
 				       "Bad bitcoin_signature_1 %s hash %s"
 				       " on channel_announcement %s",
-				       type_to_string(ctx,
+				       type_to_string(tmpctx,
 						      secp256k1_ecdsa_signature,
 						      bitcoin1_sig),
-				       type_to_string(ctx,
+				       type_to_string(tmpctx,
 						      struct sha256_double,
 						      &hash),
-				       tal_hex(ctx, announcement));
+				       tal_hex(tmpctx, announcement));
 	}
 	if (!check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key)) {
 		return towire_errorfmt(ctx, NULL,
 				       "Bad bitcoin_signature_2 %s hash %s"
 				       " on channel_announcement %s",
-				       type_to_string(ctx,
+				       type_to_string(tmpctx,
 						      secp256k1_ecdsa_signature,
 						      bitcoin2_sig),
-				       type_to_string(ctx,
+				       type_to_string(tmpctx,
 						      struct sha256_double,
 						      &hash),
-				       tal_hex(ctx, announcement));
+				       tal_hex(tmpctx, announcement));
 	}
 	return NULL;
 }

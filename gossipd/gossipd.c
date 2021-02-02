@@ -230,7 +230,8 @@ static bool get_node_announcement_by_id(const tal_t *ctx,
  * message, and puts the announcemnt on an internal 'pending'
  * queue.  We'll send a request to lightningd to look it up, and continue
  * processing in `handle_txout_reply`. */
-static const u8 *handle_channel_announcement_msg(struct peer *peer,
+static const u8 *handle_channel_announcement_msg(struct daemon *daemon,
+						 struct peer *peer,
 						 const u8 *msg)
 {
 	const struct short_channel_id *scid;
@@ -239,20 +240,20 @@ static const u8 *handle_channel_announcement_msg(struct peer *peer,
 	/* If it's OK, tells us the short_channel_id to lookup; it notes
 	 * if this is the unknown channel the peer was looking for (in
 	 * which case, it frees and NULLs that ptr) */
-	err = handle_channel_announcement(peer->daemon->rstate, msg,
-					  peer->daemon->current_blockheight,
+	err = handle_channel_announcement(daemon->rstate, msg,
+					  daemon->current_blockheight,
 					  &scid, peer);
 	if (err)
 		return err;
 	else if (scid) {
 		/* We give them some grace period, in case we don't know about
 		 * block yet. */
-		if (peer->daemon->current_blockheight == 0
+		if (daemon->current_blockheight == 0
 		    || !is_scid_depth_announceable(scid,
-						   peer->daemon->current_blockheight)) {
-			tal_arr_expand(&peer->daemon->deferred_txouts, *scid);
+						   daemon->current_blockheight)) {
+			tal_arr_expand(&daemon->deferred_txouts, *scid);
 		} else {
-			daemon_conn_send(peer->daemon->master,
+			daemon_conn_send(daemon->master,
 					 take(towire_gossipd_get_txout(NULL,
 								      scid)));
 		}
@@ -420,7 +421,7 @@ static bool handle_local_channel_announcement(struct daemon *daemon,
 		return false;
 	}
 
-	err = handle_channel_announcement_msg(peer, cannouncement);
+	err = handle_channel_announcement_msg(daemon, peer, cannouncement);
 	if (err) {
 		status_broken("peer %s invalid local_channel_announcement %s (%s)",
 			      type_to_string(tmpctx, struct node_id, &peer->id),
@@ -705,7 +706,7 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	/* These are messages relayed from peer */
 	switch ((enum peer_wire)fromwire_peektype(msg)) {
 	case WIRE_CHANNEL_ANNOUNCEMENT:
-		err = handle_channel_announcement_msg(peer, msg);
+		err = handle_channel_announcement_msg(peer->daemon, peer, msg);
 		goto handled_relay;
 	case WIRE_CHANNEL_UPDATE:
 		err = handle_channel_update_msg(peer, msg);
@@ -1809,6 +1810,53 @@ static struct io_plan *handle_payment_failure(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
+/*~ lightningd tells us when about a gossip message directly, when told to by
+ * the addgossip RPC call.  That's usually used when a plugin gets an update
+ * returned in an payment error. */
+static struct io_plan *inject_gossip(struct io_conn *conn,
+				     struct daemon *daemon,
+				     const u8 *msg)
+{
+	u8 *goss;
+	const u8 *errmsg;
+	const char *err;
+
+	if (!fromwire_gossipd_addgossip(msg, msg, &goss))
+		master_badmsg(WIRE_GOSSIPD_ADDGOSSIP, msg);
+
+	switch (fromwire_peektype(goss)) {
+	case WIRE_CHANNEL_ANNOUNCEMENT:
+		errmsg = handle_channel_announcement_msg(daemon, NULL, goss);
+		break;
+	case WIRE_NODE_ANNOUNCEMENT:
+		errmsg = handle_node_announcement(daemon->rstate, goss,
+						  NULL, NULL);
+		break;
+	case WIRE_CHANNEL_UPDATE:
+		errmsg = handle_channel_update(daemon->rstate, goss,
+					       NULL, NULL, true);
+		break;
+	default:
+		err = tal_fmt(tmpctx, "unknown gossip type %i",
+			      fromwire_peektype(goss));
+		goto err_extracted;
+	}
+
+	/* The APIs above are designed to send error messages back to peers:
+	 * we extract the raw string instead. */
+	if (errmsg) {
+		err = sanitize_error(tmpctx, errmsg, NULL);
+		tal_free(errmsg);
+	} else
+		/* Send empty string if no error. */
+		err = "";
+
+err_extracted:
+	daemon_conn_send(daemon->master,
+			 take(towire_gossipd_addgossip_reply(NULL, err)));
+	return daemon_conn_read_next(conn, daemon->master);
+}
+
 /*~ This is where lightningd tells us that a channel's funding transaction has
  * been spent. */
 static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
@@ -1908,6 +1956,9 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
 		return new_blockheight(conn, daemon, msg);
 
+	case WIRE_GOSSIPD_ADDGOSSIP:
+		return inject_gossip(conn, daemon, msg);
+
 #if DEVELOPER
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 		return dev_set_max_scids_encode_size(conn, daemon, msg);
@@ -1942,6 +1993,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
 	case WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD:
+	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 		break;
 	}
 

@@ -161,3 +161,13 @@ msgdata,gossipd_send_onionmsg,id,node_id,
 msgdata,gossipd_send_onionmsg,onion_len,u16,
 msgdata,gossipd_send_onionmsg,onion,u8,onion_len
 msgdata,gossipd_send_onionmsg,blinding,?pubkey,
+
+# Lightningd tells us to inject a gossip message (for addgossip RPC)
+msgtype,gossipd_addgossip,3044
+msgdata,gossipd_addgossip,len,u16,
+msgdata,gossipd_addgossip,msg,u8,len
+
+# Empty string means no problem.
+msgtype,gossipd_addgossip_reply,3144
+msgdata,gossipd_addgossip_reply,err,wirestring,
+

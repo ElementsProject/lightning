@@ -484,6 +484,15 @@ class LightningRpc(UnixDomainSocketRpc):
         if patch_json:
             monkey_patch_json(patch=True)
 
+    def addgossip(self, message):
+        """
+        Inject this (hex-encoded) gossip message.
+        """
+        payload = {
+            "message": message,
+        }
+        return self.call("addgossip", payload)
+
     def autocleaninvoice(self, cycle_seconds=None, expired_by=None):
         """
         Sets up automatic cleaning of expired invoices. {cycle_seconds} sets
