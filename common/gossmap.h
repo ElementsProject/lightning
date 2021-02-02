@@ -2,6 +2,7 @@
 #define LIGHTNING_COMMON_GOSSMAP_H
 #include "config.h"
 #include <bitcoin/short_channel_id.h>
+#include <ccan/take/take.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <common/amount.h>
 #include <common/fp16.h>
@@ -41,6 +42,34 @@ struct gossmap *gossmap_load(const tal_t *ctx, const char *filename);
 /* Call this before using to ensure it's up-to-date.  Returns true if something
  * was updated. Note: this can scramble node and chan indexes! */
 bool gossmap_refresh(struct gossmap *map);
+
+/* Insert a local-only channel (not in the mmap'ed gossmap, cleared on
+ * refresh). */
+void gossmap_local_addchan(struct gossmap *map,
+			   const struct node_id *n1,
+			   const struct node_id *n2,
+			   const struct short_channel_id *scid,
+			   const u8 *features)
+	NON_NULL_ARGS(1,2,3,4);
+
+/* Insert a local-only channel_update (not in the mmap'ed gossmap,
+ * cleared on refresh).  Must exist, and usually should be a local
+ * channel (otherwise channel will be disabled on
+ * gossmap_local_addchan!) */
+void gossmap_local_updatechan(struct gossmap *map,
+			      const struct short_channel_id *scid,
+			      struct amount_msat htlc_min,
+			      struct amount_msat htlc_max,
+			      u32 base_fee,
+			      u32 proportional_fee,
+			      u16 delay,
+			      bool enabled,
+			      int dir)
+	NO_NULL_ARGS;
+
+/* Remove all local-only changes.  Must be done before calling
+ * gossmap_refresh! */
+void gossmap_local_cleanup(struct gossmap *map);
 
 /* Each channel has a unique (low) index. */
 u32 gossmap_node_idx(const struct gossmap *map, const struct gossmap_node *node);
