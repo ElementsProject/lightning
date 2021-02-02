@@ -68,8 +68,7 @@ u8 *peer_or_gossip_sync_read(const tal_t *ctx,
 
 bool is_peer_error(const tal_t *ctx, const u8 *msg,
 		   const struct channel_id *channel_id,
-		   char **desc, bool *all_channels,
-		   bool *warning)
+		   char **desc, bool *warning)
 {
 	struct channel_id err_chanid;
 
@@ -94,8 +93,11 @@ bool is_peer_error(const tal_t *ctx, const u8 *msg,
 	 *  - if no existing channel is referred to by the message:
 	 *    - MUST ignore the message.
 	 */
-	*all_channels = channel_id_is_all(&err_chanid);
-	if (!*all_channels && !channel_id_eq(&err_chanid, channel_id))
+	/* FIXME: The spec changed, so for *errors* all 0 is not special.
+	 * But old gossipd would send these, so we turn them into warnings */
+	if (channel_id_is_all(&err_chanid))
+		*warning = true;
+	else if (!channel_id_eq(&err_chanid, channel_id))
 		*desc = tal_free(*desc);
 
 	return true;
@@ -158,7 +160,7 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 				 const u8 *msg TAKES)
 {
 	char *err;
-	bool all_channels, warning;
+	bool warning;
 	struct channel_id actual;
 
 #if DEVELOPER
@@ -185,15 +187,15 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 		return true;
 	}
 
-	if (is_peer_error(tmpctx, msg, channel_id, &err, &all_channels,
-			  &warning)) {
-		if (err)
-			peer_failed_received_errmsg(pps, err,
-						    all_channels
-						    ? NULL : channel_id,
-						    warning || soft_error);
-
+	if (is_peer_error(tmpctx, msg, channel_id, &err, &warning)) {
 		/* Ignore unknown channel errors. */
+		if (!err)
+			goto handled;
+
+		/* We hang up when a warning is received. */
+		peer_failed_received_errmsg(pps, err, channel_id,
+					    soft_error || warning);
+
 		goto handled;
 	}
 

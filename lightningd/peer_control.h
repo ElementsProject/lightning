@@ -76,7 +76,7 @@ void channel_errmsg(struct channel *channel,
 		    struct per_peer_state *pps,
 		    const struct channel_id *channel_id,
 		    const char *desc,
-		    bool soft_error,
+		    bool warning,
 		    const u8 *err_for_them);
 
 u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx);

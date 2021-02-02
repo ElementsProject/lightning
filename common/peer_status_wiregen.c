@@ -42,7 +42,7 @@ bool peer_status_wire_is_defined(u16 type)
 
 /* WIRE: STATUS_PEER_ERROR */
 /* An error occurred: if error_for_them */
-u8 *towire_status_peer_error(const tal_t *ctx, const struct channel_id *channel, const wirestring *desc, bool soft_error, const struct per_peer_state *pps, const u8 *error_for_them)
+u8 *towire_status_peer_error(const tal_t *ctx, const struct channel_id *channel, const wirestring *desc, bool warning, const struct per_peer_state *pps, const u8 *error_for_them)
 {
 	u16 len = tal_count(error_for_them);
 	u8 *p = tal_arr(ctx, u8, 0);
@@ -52,14 +52,14 @@ u8 *towire_status_peer_error(const tal_t *ctx, const struct channel_id *channel,
 	towire_channel_id(&p, channel);
 	towire_wirestring(&p, desc);
 	/* Take a deep breath */
-	towire_bool(&p, soft_error);
+	towire_bool(&p, warning);
 	towire_per_peer_state(&p, pps);
 	towire_u16(&p, len);
 	towire_u8_array(&p, error_for_them, len);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_status_peer_error(const tal_t *ctx, const void *p, struct channel_id *channel, wirestring **desc, bool *soft_error, struct per_peer_state **pps, u8 **error_for_them)
+bool fromwire_status_peer_error(const tal_t *ctx, const void *p, struct channel_id *channel, wirestring **desc, bool *warning, struct per_peer_state **pps, u8 **error_for_them)
 {
 	u16 len;
 
@@ -72,7 +72,7 @@ bool fromwire_status_peer_error(const tal_t *ctx, const void *p, struct channel_
 	fromwire_channel_id(&cursor, &plen, channel);
  	*desc = fromwire_wirestring(ctx, &cursor, &plen);
  	/* Take a deep breath */
-	*soft_error = fromwire_bool(&cursor, &plen);
+	*warning = fromwire_bool(&cursor, &plen);
  	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
  	len = fromwire_u16(&cursor, &plen);
  	// 2nd case error_for_them
@@ -80,4 +80,4 @@ bool fromwire_status_peer_error(const tal_t *ctx, const void *p, struct channel_
 	fromwire_u8_array(&cursor, &plen, *error_for_them, len);
 	return cursor != NULL;
 }
-// SHA256STAMP:de3fc242012abe21984a0590cc604e83e52af8809e3ff357acc5e6f4d7d1d41d
+// SHA256STAMP:c002247f54d5016e614dd6d757c7d06f65c713c3e19d17901f7f685a6bd4b9d9

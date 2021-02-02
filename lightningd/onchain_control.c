@@ -541,7 +541,7 @@ static void onchain_error(struct channel *channel,
 			  struct per_peer_state *pps UNUSED,
 			  const struct channel_id *channel_id UNUSED,
 			  const char *desc,
-			  bool soft_error UNUSED,
+			  bool warning UNUSED,
 			  const u8 *err_for_them UNUSED)
 {
 	/* FIXME: re-launch? */

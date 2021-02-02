@@ -199,7 +199,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 		u8 *msg;
 		bool from_gossipd;
 		char *err;
-		bool all_channels, warning;
+		bool warning;
 		struct channel_id actual;
 
 		/* The event loop is responsible for freeing tmpctx, so our
@@ -238,7 +238,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 
 		/* A helper which decodes an error. */
 		if (is_peer_error(tmpctx, msg, &state->channel_id,
-				  &err, &all_channels, &warning)) {
+				  &err, &warning)) {
 			/* BOLT #1:
 			 *
 			 *  - if no existing channel is referred to by the
@@ -250,16 +250,6 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state,
 			if (!err) {
 				tal_free(msg);
 				continue;
-			}
-			/* Close connection on all_channels error. */
-			if (all_channels) {
-				if (am_opener) {
-					msg = towire_openingd_funder_failed(NULL,
-									   err);
-					wire_sync_write(REQ_FD, take(msg));
-				}
-				peer_failed_received_errmsg(state->pps, err,
-							    NULL, false);
 			}
 			negotiation_aborted(state, am_opener,
 					    tal_fmt(tmpctx, "They sent %s",
