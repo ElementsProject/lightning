@@ -65,6 +65,10 @@ enum gossipd_wire {
         WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD = 3143,
         /*  Lightningd tells us to send a onion message. */
         WIRE_GOSSIPD_SEND_ONIONMSG = 3040,
+        /*  Lightningd tells us to inject a gossip message (for addgossip RPC) */
+        WIRE_GOSSIPD_ADDGOSSIP = 3044,
+        /*  Empty string means no problem. */
+        WIRE_GOSSIPD_ADDGOSSIP_REPLY = 3144,
 };
 
 const char *gossipd_wire_name(int e);
@@ -216,6 +220,16 @@ bool fromwire_gossipd_got_onionmsg_forward(const tal_t *ctx, const void *p, stru
 u8 *towire_gossipd_send_onionmsg(const tal_t *ctx, const struct node_id *id, const u8 *onion, const struct pubkey *blinding);
 bool fromwire_gossipd_send_onionmsg(const tal_t *ctx, const void *p, struct node_id *id, u8 **onion, struct pubkey **blinding);
 
+/* WIRE: GOSSIPD_ADDGOSSIP */
+/*  Lightningd tells us to inject a gossip message (for addgossip RPC) */
+u8 *towire_gossipd_addgossip(const tal_t *ctx, const u8 *msg);
+bool fromwire_gossipd_addgossip(const tal_t *ctx, const void *p, u8 **msg);
+
+/* WIRE: GOSSIPD_ADDGOSSIP_REPLY */
+/*  Empty string means no problem. */
+u8 *towire_gossipd_addgossip_reply(const tal_t *ctx, const wirestring *err);
+bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestring **err);
+
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_WIREGEN_H */
-// SHA256STAMP:1da012a28ad84883f18920e51c39a0af77f85e309e981f9ea8d158d0698f6a59
+// SHA256STAMP:e82edc5625085e21b02b27a2293d9d757556f3090a8a20b142dcb73411307a0c
