@@ -1443,8 +1443,14 @@ def test_multifunding_v2_exclusive(node_factory, bitcoind):
     for node in [l1, l2, l3, l4]:
         node.daemon.wait_for_log(r'to CHANNELD_NORMAL')
 
+    # For dual-funded channels, pay from accepter to initiator
+    for ldest in [l2, l3]:
+        inv = l1.rpc.invoice(5000, 'inv' + ldest.info['id'], 'inv')['bolt11']
+        ldest.rpc.pay(inv)
+
+    # Then pay other direction
     for ldest in [l2, l3, l4]:
-        inv = ldest.rpc.invoice(5000, 'inv', 'inv')['bolt11']
+        inv = ldest.rpc.invoice(10000, 'inv', 'inv')['bolt11']
         l1.rpc.pay(inv)
 
 

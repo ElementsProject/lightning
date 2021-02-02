@@ -3,52 +3,14 @@
 """
 
 from pyln.client import Plugin, Millisatoshi
-from pyln.proto import bech32_decode
-from typing import Iterable, List, Optional
 from wallycore import (
-    psbt_add_output_at,
     psbt_find_input_unknown,
     psbt_from_base64,
     psbt_get_input_unknown,
     psbt_get_num_inputs,
-    psbt_to_base64,
-    tx_output_init,
 )
 
 plugin = Plugin()
-
-
-def convertbits(data: Iterable[int], frombits: int, tobits: int, pad: bool = True) -> Optional[List[int]]:
-    """General power-of-2 base conversion."""
-    acc = 0
-    bits = 0
-    ret = []
-    maxv = (1 << tobits) - 1
-    max_acc = (1 << (frombits + tobits - 1)) - 1
-    for value in data:
-        if value < 0 or (value >> frombits):
-            return None
-        acc = ((acc << frombits) | value) & max_acc
-        bits += frombits
-        while bits >= tobits:
-            bits -= tobits
-            ret.append((acc >> bits) & maxv)
-    if pad:
-        if bits:
-            ret.append((acc << (tobits - bits)) & maxv)
-    elif bits >= frombits or ((acc << (tobits - bits)) & maxv):
-        return None
-    return ret
-
-
-def get_script(bech_addr):
-    hrp, data = bech32_decode(bech_addr)
-    # FIXME: verify hrp matches expected network
-    wprog = convertbits(data[1:], 5, 8, False)
-    wit_ver = data[0]
-    if wit_ver > 16:
-        raise ValueError("Invalid witness version {}".format(wit_ver[0]))
-    return bytes([wit_ver + 0x50 if wit_ver > 0 else wit_ver, len(wprog)] + wprog)
 
 
 def find_feerate(best, their_min, their_max, our_min, our_max):
@@ -162,24 +124,13 @@ def on_openchannel(openchannel2, plugin, **kwargs):
                                   reserve=True,
                                   locktime=locktime,
                                   minconf=0,
-                                  min_witness_weight=110)
-    psbt_obj = psbt_from_base64(funding['psbt'])
-
-    excess = Millisatoshi(funding['excess_msat'])
-    change_cost = Millisatoshi(124 * feerate)
-    dust_limit = Millisatoshi(253 * 1000)
-    if excess > (dust_limit + change_cost):
-        addr = plugin.rpc.newaddr()['bech32']
-        change = excess - change_cost
-        output = tx_output_init(change.to_whole_satoshi(), get_script(addr))
-        psbt_add_output_at(psbt_obj, 0, 0, output)
-
-    psbt = psbt_to_base64(psbt_obj, 0)
+                                  min_witness_weight=110,
+                                  excess_as_change=True)
     add_inflight(plugin, openchannel2['id'],
-                 openchannel2['channel_id'], psbt)
+                 openchannel2['channel_id'], funding['psbt'])
     plugin.log("contributing {} at feerate {}".format(amount, feerate))
 
-    return {'result': 'continue', 'psbt': psbt,
+    return {'result': 'continue', 'psbt': funding['psbt'],
             'accepter_funding_msat': amount,
             'funding_feerate': feerate}
 
