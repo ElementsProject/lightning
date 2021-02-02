@@ -4,7 +4,7 @@ lightning-fundpsbt -- Command to populate PSBT inputs from the wallet
 SYNOPSIS
 --------
 
-**fundpsbt** *satoshi* *feerate* *startweight* \[*minconf*\] \[*reserve*\] \[*locktime*\] \[*min_witness_weight*\]
+**fundpsbt** *satoshi* *feerate* *startweight* \[*minconf*\] \[*reserve*\] \[*locktime*\] \[*min_witness_weight*\] \[*excess_as_change*\]
 
 DESCRIPTION
 -----------
@@ -43,6 +43,9 @@ block height.
 witness. If the actual witness weight is greater than the provided minimum,
 the actual witness weight will be used.
 
+*excess_as_change* is an optional boolean to flag to add a change output
+for the excess sats.
+
 EXAMPLE USAGE
 -------------
 
@@ -76,6 +79,12 @@ for the weights of the inputs and startweight.
 
 If *reserve* was true, then a *reservations* array is returned,
 exactly like *reserveinputs*.
+
+If *excess_as_change* is true and the excess is enough to cover
+an additional output above the `dust_limit`, then an output is
+added to the PSBT for the excess amount. The *excess_msat* will
+be zero. A *change_outnum* will be returned with the index of
+the change output.
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
