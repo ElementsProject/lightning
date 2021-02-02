@@ -972,7 +972,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		u8 *msg;
 		bool from_gossipd;
 		char *err;
-		bool all_channels;
+		bool all_channels, warning;
 		struct channel_id actual;
 
 		/* The event loop is responsible for freeing tmpctx, so our
@@ -1011,7 +1011,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 
 		/* A helper which decodes an error. */
 		if (is_peer_error(tmpctx, msg, &state->channel_id,
-				  &err, &all_channels)) {
+				  &err, &all_channels, &warning)) {
 			/* BOLT #1:
 			 *
 			 *  - if no existing channel is referred to by the
@@ -1355,6 +1355,7 @@ static bool run_tx_interactive(struct state *state,
 			break;
 		case WIRE_INIT:
 		case WIRE_ERROR:
+		case WIRE_WARNING:
 		case WIRE_OPEN_CHANNEL:
 		case WIRE_ACCEPT_CHANNEL:
 		case WIRE_FUNDING_CREATED:

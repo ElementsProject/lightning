@@ -737,6 +737,7 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 		goto handled_relay;
 
 	/* These are non-gossip messages (!is_msg_for_gossipd()) */
+	case WIRE_WARNING:
 	case WIRE_INIT:
 	case WIRE_ERROR:
 	case WIRE_OPEN_CHANNEL:

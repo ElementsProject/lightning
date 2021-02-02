@@ -4,6 +4,7 @@
 static bool unknown_type(enum peer_wire t)
 {
 	switch (t) {
+	case WIRE_WARNING:
 	case WIRE_INIT:
 	case WIRE_ERROR:
 	case WIRE_OPEN_CHANNEL:
@@ -64,6 +65,7 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_PONG:
 	case WIRE_ONION_MESSAGE:
 		return true;
+	case WIRE_WARNING:
 	case WIRE_INIT:
 	case WIRE_ERROR:
 	case WIRE_OPEN_CHANNEL:
