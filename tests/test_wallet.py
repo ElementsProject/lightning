@@ -515,6 +515,18 @@ def test_fundpsbt(node_factory, bitcoind, chainparams):
     with pytest.raises(RpcError, match=r"not afford"):
         l1.rpc.fundpsbt(amount // 2, feerate, 0, minconf=2)
 
+    funding3 = l1.rpc.fundpsbt(amount // 2, feerate, 0, reserve=False, excess_as_change=True)
+    assert funding3['excess_msat'] == Millisatoshi(0)
+    # Should have the excess msat as the output value (minus fee for change)
+    psbt = bitcoind.rpc.decodepsbt(funding3['psbt'])
+    change = Millisatoshi("{}btc".format(psbt['tx']['vout'][funding3['change_outnum']]['value']))
+    # The weight should be greater (now includes change output)
+    change_weight = funding3['estimated_final_weight'] - funding['estimated_final_weight']
+    assert change_weight > 0
+    # Check that the amount is ok (equal to excess minus change fee)
+    change_fee = Millisatoshi(7500 * change_weight)
+    assert funding['excess_msat'] == change + change_fee
+
     # Should get two inputs.
     psbt = bitcoind.rpc.decodepsbt(l1.rpc.fundpsbt(amount, feerate, 0, reserve=False)['psbt'])
     assert len(psbt['tx']['vin']) == 2
@@ -601,6 +613,29 @@ def test_utxopsbt(node_factory, bitcoind, chainparams):
         l1.rpc.utxopsbt(amount * 2, feerate, 0,
                         ['{}:{}'.format(outputs[0][0], outputs[0][1]),
                          '{}:{}'.format(outputs[1][0], outputs[1][1])])
+
+    funding3 = l1.rpc.utxopsbt(amount // 2, feerate, 0,
+                               ['{}:{}'.format(outputs[0][0], outputs[0][1])],
+                               reserve=False,
+                               excess_as_change=True)
+    assert funding3['excess_msat'] == Millisatoshi(0)
+    # Should have the excess msat as the output value (minus fee for change)
+    psbt = bitcoind.rpc.decodepsbt(funding3['psbt'])
+    change = Millisatoshi("{}btc".format(psbt['tx']['vout'][funding3['change_outnum']]['value']))
+    # The weight should be greater (now includes change output)
+    change_weight = funding3['estimated_final_weight'] - funding['estimated_final_weight']
+    assert change_weight > 0
+    # Check that the amount is ok (equal to excess minus change fee)
+    change_fee = Millisatoshi(fee_val * change_weight // 1000 * 1000)
+    assert funding['excess_msat'] == change + change_fee
+
+    # Do it again, but without enough for change!
+    funding4 = l1.rpc.utxopsbt(amount - 3500,
+                               feerate, 0,
+                               ['{}:{}'.format(outputs[0][0], outputs[0][1])],
+                               reserve=False,
+                               excess_as_change=True)
+    assert 'change_outnum' not in funding4
 
     # Should get two inputs (and reserve!)
     funding = l1.rpc.utxopsbt(amount, feerate, 0,

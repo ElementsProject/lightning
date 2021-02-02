@@ -1,6 +1,7 @@
 /* Dealing with reserving UTXOs */
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
+#include <bitcoin/tx.h>
 #include <ccan/mem/mem.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
@@ -319,10 +320,12 @@ static struct command_result *finish_psbt(struct command *cmd,
 					  size_t weight,
 					  struct amount_sat excess,
 					  bool reserve,
-					  u32 *locktime)
+					  u32 *locktime,
+					  bool excess_as_change)
 {
 	struct json_stream *response;
 	struct wally_psbt *psbt;
+	size_t change_outnum;
 	u32 current_height = get_block_height(cmd->ld->topology);
 
 	/* Setting the locktime to the next block to be mined has multiple
@@ -347,6 +350,44 @@ static struct command_result *finish_psbt(struct command *cmd,
 				cmd->ld->wallet->bip32_base,
 				*locktime, BITCOIN_TX_RBF_SEQUENCE);
 
+	/* Should we add a change output for the excess? */
+	if (excess_as_change) {
+		struct amount_sat change;
+		struct pubkey pubkey;
+		s64 keyidx;
+		u8 *b32script;
+
+		/* Checks for dust, returns 0sat if below dust */
+		change = change_amount(excess, feerate_per_kw);
+		if (!amount_sat_greater(change, AMOUNT_SAT(0))) {
+			excess_as_change = false;
+			goto fee_calc;
+		}
+
+		/* Get a change adddress */
+		keyidx = wallet_get_newindex(cmd->ld);
+		if (keyidx < 0)
+			return command_fail(cmd, LIGHTNINGD,
+					    "Failed to generate change address."
+					    " Keys exhausted.");
+
+		if (!bip32_pubkey(cmd->ld->wallet->bip32_base, &pubkey, keyidx))
+			return command_fail(cmd, LIGHTNINGD,
+					    "Failed to generate change address."
+					    " Keys generation failure");
+		b32script = scriptpubkey_p2wpkh(tmpctx, &pubkey);
+		txfilter_add_scriptpubkey(cmd->ld->owned_txfilter, b32script);
+
+		change_outnum = psbt->num_outputs;
+		psbt_append_output(psbt, b32script, change);
+		/* Set excess to zero */
+		excess = AMOUNT_SAT(0);
+		/* Add additional weight of output */
+		weight += bitcoin_tx_output_weight(
+				BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
+	}
+
+fee_calc:
 	/* Add a fee output if this is elements */
 	if (is_elements(chainparams)) {
 		struct amount_sat est_fee =
@@ -358,6 +399,8 @@ static struct command_result *finish_psbt(struct command *cmd,
 	json_add_num(response, "feerate_per_kw", feerate_per_kw);
 	json_add_num(response, "estimated_final_weight", weight);
 	json_add_amount_sat_only(response, "excess_msat", excess);
+	if (excess_as_change)
+		json_add_num(response, "change_outnum", change_outnum);
 	if (reserve)
 		reserve_and_report(response, cmd->ld->wallet, current_height,
 				   utxos);
@@ -388,7 +431,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	u32 *feerate_per_kw;
 	u32 *minconf, *weight, *min_witness_weight;
 	struct amount_sat *amount, input, diff;
-	bool all, *reserve;
+	bool all, *reserve, *excess_as_change;
 	u32 *locktime, maxheight;
 
 	if (!param(cmd, buffer, params,
@@ -400,6 +443,8 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 		   p_opt("locktime", param_number, &locktime),
 		   p_opt_def("min_witness_weight", param_number,
 			     &min_witness_weight, 0),
+		   p_opt_def("excess_as_change", param_bool,
+			     &excess_as_change, false),
 		   NULL))
 		return command_param_failed();
 
@@ -474,7 +519,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	}
 
 	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, diff, *reserve,
-			   locktime);
+			   locktime, *excess_as_change);
 }
 
 static const struct json_command fundpsbt_command = {
@@ -558,7 +603,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 {
 	struct utxo **utxos;
 	u32 *feerate_per_kw, *weight, *min_witness_weight;
-	bool all, *reserve, *reserved_ok;
+	bool all, *reserve, *reserved_ok, *excess_as_change;
 	struct amount_sat *amount, input, excess;
 	u32 current_height, *locktime;
 
@@ -572,6 +617,8 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 		   p_opt("locktime", param_number, &locktime),
 		   p_opt_def("min_witness_weight", param_number,
 			     &min_witness_weight, 0),
+		   p_opt_def("excess_as_change", param_bool,
+			     &excess_as_change, false),
 		   NULL))
 		return command_param_failed();
 
@@ -615,7 +662,7 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 	}
 
 	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, excess,
-			   *reserve, locktime);
+			   *reserve, locktime, *excess_as_change);
 }
 static const struct json_command utxopsbt_command = {
 	"utxopsbt",

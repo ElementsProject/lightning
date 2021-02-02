@@ -3,7 +3,7 @@
 lightning-utxopsbt - Command to populate PSBT inputs from given UTXOs
 .SH SYNOPSIS
 
-\fButxopsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR \fIutxos\fR [\fIreserve\fR] [\fIreservedok\fR] [\fIlocktime\fR] [\fImin_witness_weight\fR]
+\fButxopsbt\fR \fIsatoshi\fR \fIfeerate\fR \fIstartweight\fR \fIutxos\fR [\fIreserve\fR] [\fIreservedok\fR] [\fIlocktime\fR] [\fImin_witness_weight\fR] [\fIexcess_as_change\fR]
 
 .SH DESCRIPTION
 
@@ -36,6 +36,10 @@ block height\.
 witness\. If the actual witness weight is greater than the provided minimum,
 the actual witness weight will be used\.
 
+
+\fIexcess_as_change\fR is an optional boolean to flag to add a change output
+for the excess sats\.
+
 .SH RETURN VALUE
 
 On success, returns the \fIpsbt\fR containing the inputs, \fIfeerate_per_kw\fR
@@ -49,6 +53,13 @@ for the weights of the inputs and \fIstartweight\fR\.
 
 If \fIreserve\fR was true, then a \fIreservations\fR array is returned,
 exactly like \fIreserveinputs\fR\.
+
+
+If \fIexcess_as_change\fR is true and the excess is enough to cover
+an additional output above the \fBdust_limit\fR, then an output is
+added to the PSBT for the excess amount\. The \fIexcess_msat\fR will
+be zero\. A \fIchange_outnum\fR will be returned with the index of
+the change output\.
 
 
 On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
@@ -75,4 +86,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:777710bb963f435193e92a55344c740c123d7aa4d54bf573c99a616f59eeee54
+\" SHA256STAMP:a56057522ed576f232d7d96794f39cc67a5a1b1bb7b6f7912e42c3769555e007
