@@ -33,7 +33,6 @@ u8 *peer_or_gossip_sync_read(const tal_t *ctx,
  * @msg: the peer message.
  * @channel_id: the channel id of the current channel.
  * @desc: set to non-NULL if this describes a channel we care about.
- * @all_channels: set to true if this applies to all channels.
  * @warning: set to true if this is a warning, not an error.
  *
  * If @desc is NULL, ignore this message.  Otherwise, that's usually passed
@@ -41,7 +40,7 @@ u8 *peer_or_gossip_sync_read(const tal_t *ctx,
  */
 bool is_peer_error(const tal_t *ctx, const u8 *msg,
 		   const struct channel_id *channel_id,
-		   char **desc, bool *all_channels, bool *warning);
+		   char **desc, bool *warning);
 
 /**
  * is_wrong_channel - if it's a message about a different channel, return true
