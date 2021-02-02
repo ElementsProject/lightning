@@ -51,13 +51,13 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 	out_minus_fee[LOCAL] = out[LOCAL];
 	out_minus_fee[REMOTE] = out[REMOTE];
 	if (!amount_sat_sub(&out_minus_fee[opener], out[opener], fee))
-		peer_failed(pps, channel_id,
-			    "Funder cannot afford fee %s (%s and %s)",
-			    type_to_string(tmpctx, struct amount_sat, &fee),
-			    type_to_string(tmpctx, struct amount_sat,
-					   &out[LOCAL]),
-			    type_to_string(tmpctx, struct amount_sat,
-					   &out[REMOTE]));
+		peer_failed_warn(pps, channel_id,
+				 "Funder cannot afford fee %s (%s and %s)",
+				 type_to_string(tmpctx, struct amount_sat, &fee),
+				 type_to_string(tmpctx, struct amount_sat,
+						&out[LOCAL]),
+				 type_to_string(tmpctx, struct amount_sat,
+						&out[REMOTE]));
 
 	status_debug("Making close tx at = %s/%s fee %s",
 		     type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
@@ -76,18 +76,18 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 			     out_minus_fee[REMOTE],
 			     dust_limit);
 	if (!tx)
-		peer_failed(pps, channel_id,
-			    "Both outputs below dust limit:"
-			    " funding = %s"
-			    " fee = %s"
-			    " dust_limit = %s"
-			    " LOCAL = %s"
-			    " REMOTE = %s",
-			    type_to_string(tmpctx, struct amount_sat, &funding),
-			    type_to_string(tmpctx, struct amount_sat, &fee),
-			    type_to_string(tmpctx, struct amount_sat, &dust_limit),
-			    type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
-			    type_to_string(tmpctx, struct amount_sat, &out[REMOTE]));
+		peer_failed_err(pps, channel_id,
+				"Both outputs below dust limit:"
+				" funding = %s"
+				" fee = %s"
+				" dust_limit = %s"
+				" LOCAL = %s"
+				" REMOTE = %s",
+				type_to_string(tmpctx, struct amount_sat, &funding),
+				type_to_string(tmpctx, struct amount_sat, &fee),
+				type_to_string(tmpctx, struct amount_sat, &dust_limit),
+				type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
+				type_to_string(tmpctx, struct amount_sat, &out[REMOTE]));
 	return tx;
 }
 
@@ -201,10 +201,10 @@ static void do_reconnect(struct per_peer_state *pps,
 					  &next_remote_revocation_number,
 					  &their_secret,
 					  &next_commitment_point)) {
-		peer_failed(pps, channel_id,
-			    "bad reestablish msg: %s %s",
-			    peer_wire_name(fromwire_peektype(channel_reestablish)),
-			    tal_hex(tmpctx, channel_reestablish));
+		peer_failed_warn(pps, channel_id,
+				 "bad reestablish msg: %s %s",
+				 peer_wire_name(fromwire_peektype(channel_reestablish)),
+				 tal_hex(tmpctx, channel_reestablish));
 	}
 	status_debug("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
 		     next_local_commitment_number,
@@ -360,9 +360,9 @@ receive_offer(struct per_peer_state *pps,
 	their_sig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_closing_signed(msg, &their_channel_id,
 				     &received_fee, &their_sig.s))
-		peer_failed(pps, channel_id,
-			    "Expected closing_signed: %s",
-			    tal_hex(tmpctx, msg));
+		peer_failed_warn(pps, channel_id,
+				 "Expected closing_signed: %s",
+				 tal_hex(tmpctx, msg));
 
 	/* BOLT #2:
 	 *
@@ -412,17 +412,17 @@ receive_offer(struct per_peer_state *pps,
 		if (!trimmed
 		    || !check_tx_sig(trimmed, 0, NULL, funding_wscript,
 				     &funding_pubkey[REMOTE], &their_sig)) {
-			peer_failed(pps, channel_id,
-				    "Bad closing_signed signature for"
-				    " %s (and trimmed version %s)",
-				    type_to_string(tmpctx,
-						   struct bitcoin_tx,
-						   tx),
-				    trimmed ?
-				    type_to_string(tmpctx,
-						   struct bitcoin_tx,
-						   trimmed)
-				    : "NONE");
+			peer_failed_warn(pps, channel_id,
+					 "Bad closing_signed signature for"
+					 " %s (and trimmed version %s)",
+					 type_to_string(tmpctx,
+							struct bitcoin_tx,
+							tx),
+					 trimmed ?
+					 type_to_string(tmpctx,
+							struct bitcoin_tx,
+							trimmed)
+					 : "NONE");
 		}
 		tx = trimmed;
 	}
@@ -507,10 +507,10 @@ adjust_offer(struct per_peer_state *pps, const struct channel_id *channel_id,
 
 	/* Within 1 satoshi?  Agree. */
 	if (!amount_sat_add(&min_plus_one, feerange->min, AMOUNT_SAT(1)))
-		peer_failed(pps, channel_id,
-			    "Fee offer %s min too large",
-			    type_to_string(tmpctx, struct amount_sat,
-					   &feerange->min));
+		peer_failed_warn(pps, channel_id,
+				 "Fee offer %s min too large",
+				 type_to_string(tmpctx, struct amount_sat,
+						&feerange->min));
 
 	if (amount_sat_greater_eq(min_plus_one, feerange->max))
 		return remote_offer;
@@ -524,15 +524,15 @@ adjust_offer(struct per_peer_state *pps, const struct channel_id *channel_id,
 
 	/* Max is below our minimum acceptable? */
 	if (!amount_sat_sub(&range_len, feerange->max, min_fee_to_accept))
-		peer_failed(pps, channel_id,
-			    "Feerange %s-%s"
-			    " below minimum acceptable %s",
-			    type_to_string(tmpctx, struct amount_sat,
-					   &feerange->min),
-			    type_to_string(tmpctx, struct amount_sat,
-					   &feerange->max),
-			    type_to_string(tmpctx, struct amount_sat,
-					   &min_fee_to_accept));
+		peer_failed_warn(pps, channel_id,
+				 "Feerange %s-%s"
+				 " below minimum acceptable %s",
+				 type_to_string(tmpctx, struct amount_sat,
+						&feerange->min),
+				 type_to_string(tmpctx, struct amount_sat,
+						&feerange->max),
+				 type_to_string(tmpctx, struct amount_sat,
+						&min_fee_to_accept));
 
 	if (fee_negotiation_step_unit ==
 	    CLOSING_FEE_NEGOTIATION_STEP_UNIT_SATOSHI) {

@@ -1971,7 +1971,19 @@ def test_fee_limits(node_factory, bitcoind):
     l1.set_feerates((15, 15, 15, 15), False)
     l1.start()
 
-    l1.daemon.wait_for_log('Peer transient failure in CHANNELD_NORMAL: channeld: .*: update_fee 253 outside range 1875-75000')
+    l1.daemon.wait_for_log('Peer transient failure in CHANNELD_NORMAL: channeld WARNING: .*: update_fee 253 outside range 1875-75000')
+
+    # Closes, but does not error.  Make sure it's noted in their status though.
+    assert 'update_fee 253 outside range 1875-75000' in only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['status'][0]
+    assert 'update_fee 253 outside range 1875-75000' in only_one(only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels'])['status'][0]
+
+    # Make l2 accept those fees, and it should recover.
+    l2.stop()
+    l2.set_feerates((15, 15, 15, 15), False)
+    l2.start()
+
+    l1.rpc.close(l2.info['id'])
+
     # Make sure the resolution of this one doesn't interfere with the next!
     # Note: may succeed, may fail with insufficient fee, depending on how
     # bitcoind feels!

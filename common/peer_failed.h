@@ -8,14 +8,25 @@ struct channel_id;
 struct per_peer_state;
 
 /**
- * peer_failed - Exit with error for peer.
+ * peer_failed_warn - Send a warning msg and close the connection.
  * @pps: the per-peer state.
- * @channel_id: channel with error, or NULL for all.
+ * @channel_id: channel with error, or NULL for no particular channel.
  * @fmt...: format as per status_failed(STATUS_FAIL_PEER_BAD)
  */
-void peer_failed(struct per_peer_state *pps,
-		 const struct channel_id *channel_id,
-		 const char *fmt, ...)
+void peer_failed_warn(struct per_peer_state *pps,
+		      const struct channel_id *channel_id,
+		      const char *fmt, ...)
+	PRINTF_FMT(3,4) NORETURN;
+
+/**
+ * peer_failed_err - Send a warning msg and close the channel.
+ * @pps: the per-peer state.
+ * @channel_id: channel with error.
+ * @fmt...: format as per status_failed(STATUS_FAIL_PEER_BAD)
+ */
+void peer_failed_err(struct per_peer_state *pps,
+		     const struct channel_id *channel_id,
+		     const char *fmt, ...)
 	PRINTF_FMT(3,4) NORETURN;
 
 /* We're failing because peer sent us an error message: NULL

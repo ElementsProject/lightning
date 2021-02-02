@@ -1352,13 +1352,14 @@ def test_reserve_enforcement(node_factory, executor):
     l2.start()
     wait_for(lambda: only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['connected'])
 
-    # This should be impossible to pay entire thing back: l1 should
-    # kill us for trying to violate reserve.
+    # This should be impossible to pay entire thing back: l1 should warn and
+    # close connection for trying to violate reserve.
     executor.submit(l2.pay, l1, 1000000)
     l1.daemon.wait_for_log(
-        'Peer permanent failure in CHANNELD_NORMAL: channeld: sent '
-        'ERROR Bad peer_add_htlc: CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED'
+        'Peer transient failure in CHANNELD_NORMAL: channeld.*'
+        ' CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED'
     )
+    assert only_one(l1.rpc.listpeers()['peers'])['connected'] is False
 
 
 @unittest.skipIf(not DEVELOPER, "needs dev_disconnect")
