@@ -43,20 +43,24 @@ struct gossmap *gossmap_load(const tal_t *ctx, const char *filename);
  * was updated. Note: this can scramble node and chan indexes! */
 bool gossmap_refresh(struct gossmap *map);
 
-/* Insert a local-only channel (not in the mmap'ed gossmap, cleared on
- * refresh). */
-void gossmap_local_addchan(struct gossmap *map,
+/* Local modifications. */
+struct gossmap_localmods *gossmap_localmods_new(const tal_t *ctx);
+
+/* Create a local-only channel; if this conflicts with a real channel when added,
+ * that will be used instead.
+ * Returns false (and does nothing) if scid was already in localmods.
+ */
+bool gossmap_local_addchan(struct gossmap_localmods *localmods,
 			   const struct node_id *n1,
 			   const struct node_id *n2,
 			   const struct short_channel_id *scid,
 			   const u8 *features)
 	NON_NULL_ARGS(1,2,3,4);
 
-/* Insert a local-only channel_update (not in the mmap'ed gossmap,
- * cleared on refresh).  Must exist, and usually should be a local
- * channel (otherwise channel will be disabled on
- * gossmap_local_addchan!) */
-void gossmap_local_updatechan(struct gossmap *map,
+/* Create a local-only channel_update: can apply to lcoal-only or
+ * normal channels.  Returns false if amounts don't fit in our
+ * internal representation (implies channel unusable anyway). */
+bool gossmap_local_updatechan(struct gossmap_localmods *localmods,
 			      const struct short_channel_id *scid,
 			      struct amount_msat htlc_min,
 			      struct amount_msat htlc_max,
@@ -67,9 +71,13 @@ void gossmap_local_updatechan(struct gossmap *map,
 			      int dir)
 	NO_NULL_ARGS;
 
-/* Remove all local-only changes.  Must be done before calling
- * gossmap_refresh! */
-void gossmap_local_cleanup(struct gossmap *map);
+/* Apply localmods to this map */
+void gossmap_apply_localmods(struct gossmap *map,
+			     struct gossmap_localmods *localmods);
+
+/* Remove localmods from this map */
+void gossmap_remove_localmods(struct gossmap *map,
+			      const struct gossmap_localmods *localmods);
 
 /* Each channel has a unique (low) index. */
 u32 gossmap_node_idx(const struct gossmap *map, const struct gossmap_node *node);

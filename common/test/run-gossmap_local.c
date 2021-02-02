@@ -334,6 +334,7 @@ int main(int argc, char *argv[])
 	struct node_id l1, l2, l3, l4;
 	struct short_channel_id scid23, scid12, scid_local;
 	struct gossmap_chan *chan;
+	struct gossmap_localmods *mods;
 
 	common_setup(argv[0]);
 
@@ -358,11 +359,14 @@ int main(int argc, char *argv[])
 	assert(gossmap_find_chan(map, &scid12));
 
 	/* Now, let's add a new channel l1 -> l4. */
+	mods = gossmap_localmods_new(tmpctx);
 	assert(node_id_from_hexstr("0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199", 66, &l4));
-
 	assert(short_channel_id_from_str("111x1x1", 7, &scid_local));
-	gossmap_local_addchan(map, &l1, &l4, &scid_local, NULL);
 
+	assert(gossmap_local_addchan(mods, &l1, &l4, &scid_local, NULL));
+
+	/* Apply changes, check they work. */
+	gossmap_apply_localmods(map, mods);
 	assert(gossmap_find_node(map, &l4));
 	chan = gossmap_find_chan(map, &scid_local);
 
@@ -370,11 +374,27 @@ int main(int argc, char *argv[])
 	assert(!gossmap_chan_set(chan, 0));
 	assert(!gossmap_chan_set(chan, 1));
 
-	/* Now update it. */
-	gossmap_local_updatechan(map, &scid_local,
+	/* Remove, no longer can find. */
+	gossmap_remove_localmods(map, mods);
+
+	assert(!gossmap_find_chan(map, &scid_local));
+	assert(!gossmap_find_node(map, &l4));
+
+	/* Now update it both local, and an existing one. */
+	gossmap_local_updatechan(mods, &scid_local,
 				 AMOUNT_MSAT(1),
 				 AMOUNT_MSAT(100000),
 				 2, 3, 4, true, 0);
+
+	/* Adding an existing channel is a noop. */
+	assert(gossmap_local_addchan(mods, &l2, &l3, &scid23, NULL));
+
+	gossmap_local_updatechan(mods, &scid23,
+				 AMOUNT_MSAT(99),
+				 AMOUNT_MSAT(100),
+				 101, 102, 103, true, 0);
+
+	gossmap_apply_localmods(map, mods);
 	chan = gossmap_find_chan(map, &scid_local);
 	assert(gossmap_chan_set(chan, 0));
 	assert(!gossmap_chan_set(chan, 1));
@@ -386,8 +406,17 @@ int main(int argc, char *argv[])
 	assert(chan->half[0].proportional_fee == 3);
 	assert(chan->half[0].delay == 4);
 
+	chan = gossmap_find_chan(map, &scid23);
+	assert(chan->half[0].enabled);
+	assert(chan->half[0].htlc_min == u64_to_fp16(99, false));
+	assert(chan->half[0].htlc_max == u64_to_fp16(100, true));
+	assert(chan->half[0].base_fee == 101);
+	assert(chan->half[0].proportional_fee == 102);
+	assert(chan->half[0].delay == 103);
+
 	/* Cleanup leaves everything previous intact */
-	gossmap_local_cleanup(map);
+	gossmap_remove_localmods(map, mods);
+
 	assert(!gossmap_find_node(map, &l4));
 	assert(!gossmap_find_chan(map, &scid_local));
 	assert(gossmap_find_node(map, &l1));
@@ -395,6 +424,14 @@ int main(int argc, char *argv[])
 	assert(gossmap_find_node(map, &l3));
 	assert(gossmap_find_chan(map, &scid23));
 	assert(gossmap_find_chan(map, &scid12));
+
+	chan = gossmap_find_chan(map, &scid23);
+	assert(chan->half[0].enabled);
+	assert(chan->half[0].htlc_min == u64_to_fp16(0, false));
+	assert(chan->half[0].htlc_max == u64_to_fp16(990380000, true));
+	assert(chan->half[0].base_fee == 20);
+	assert(chan->half[0].proportional_fee == 1000);
+	assert(chan->half[0].delay == 6);
 
 	/* Now we can refresh. */
 	assert(write(fd, "", 1) == 1);
