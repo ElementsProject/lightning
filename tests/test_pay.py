@@ -263,7 +263,8 @@ def test_pay_disconnect(node_factory, bitcoind):
     # Wait for l1 notice
     l1.daemon.wait_for_log(r'Peer transient failure in CHANNELD_NORMAL: channeld: .*: update_fee \d+ outside range 1875-75000')
 
-    # l2 fails hard.
+    # Make l2 fail hard.
+    l2.rpc.close(l1.info['id'], unilateraltimeout=1)
     l2.daemon.wait_for_log('sendrawtx exit')
     bitcoind.generate_block(1, wait_for_mempool=1)
     sync_blockheight(bitcoind, [l1, l2])

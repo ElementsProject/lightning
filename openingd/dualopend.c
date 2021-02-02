@@ -341,18 +341,18 @@ static void handle_peer_shutdown(struct state *state, u8 *msg)
 	struct channel_id cid;
 
 	if (!fromwire_shutdown(tmpctx, msg, &cid, &scriptpubkey))
-		peer_failed(state->pps, &state->channel_id,
+		peer_failed_warn(state->pps, &state->channel_id,
 			    "Bad shutdown %s", tal_hex(msg, msg));
 
 	if (tal_count(state->upfront_shutdown_script[REMOTE])
 	    && !memeq(scriptpubkey, tal_count(scriptpubkey),
 		      state->upfront_shutdown_script[REMOTE],
 		      tal_count(state->upfront_shutdown_script[REMOTE])))
-		peer_failed(state->pps, &state->channel_id,
-			    "scriptpubkey %s is not as agreed upfront (%s)",
-			    tal_hex(state, scriptpubkey),
-			    tal_hex(state,
-				    state->upfront_shutdown_script[REMOTE]));
+		peer_failed_warn(state->pps, &state->channel_id,
+				 "scriptpubkey %s is not as agreed upfront (%s)",
+				 tal_hex(state, scriptpubkey),
+				 tal_hex(state,
+					 state->upfront_shutdown_script[REMOTE]));
 
 	wire_sync_write(REQ_FD,
 			take(towire_dualopend_got_shutdown(NULL,
@@ -391,10 +391,10 @@ static void check_channel_id(struct state *state,
 	 * the `temporary_channel_id` in the `open_channel` message.
 	 */
 	if (!channel_id_eq(id_in, orig_id))
-		peer_failed(state->pps,	id_in,
-			    "channel ids don't match. expected %s, got %s",
-			    type_to_string(tmpctx, struct channel_id, orig_id),
-			    type_to_string(tmpctx, struct channel_id, id_in));
+		peer_failed_err(state->pps, id_in,
+				"channel ids don't match. expected %s, got %s",
+				type_to_string(tmpctx, struct channel_id, orig_id),
+				type_to_string(tmpctx, struct channel_id, id_in));
 }
 
 static void set_reserve(struct state *state, struct amount_sat funding_total)
@@ -778,10 +778,9 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 				    cast_const3(
 					 struct witness_stack ***,
 					 &ws)))
-		peer_failed(state->pps,
-			    &state->channel_id,
-			    "Bad tx_signatures %s",
-			    tal_hex(msg, msg));
+		peer_failed_warn(state->pps, &state->channel_id,
+				 "Bad tx_signatures %s",
+				 tal_hex(msg, msg));
 
 	/* Maybe they didn't get our funding_locked message ? */
 	if (state->funding_locked[LOCAL] && !state->reconnected) {
@@ -796,10 +795,9 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 	/* On reconnect, we expect them to resend tx_sigs if they haven't
 	 * gotten our funding_locked yet */
 	if (state->funding_locked[REMOTE] && !state->reconnected)
-		peer_failed(state->pps,
-			    &state->channel_id,
-			    "tx_signatures sent after funding_locked %s",
-			    tal_hex(msg, msg));
+		peer_failed_warn(state->pps, &state->channel_id,
+				 "tx_signatures sent after funding_locked %s",
+				 tal_hex(msg, msg));
 
 	if (state->remote_funding_sigs_rcvd) {
 		status_info("Got duplicate WIRE_TX_SIGNATURES, "
@@ -825,9 +823,10 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 			continue;
 
 		if (j == tal_count(ws))
-			peer_failed(state->pps, &state->channel_id,
-				    "Mismatch witness stack count %s",
-				    tal_hex(msg, msg));
+			peer_failed_warn(state->pps,
+					 &state->channel_id,
+					 "Mismatch witness stack count %s",
+					 tal_hex(msg, msg));
 
 		elem = cast_const2(const struct witness_element **,
 				   ws[j++]->witness_element);
@@ -929,8 +928,8 @@ static bool send_next(struct state *state, struct wally_psbt **psbt)
 
 	/* We should always get a updated psbt back */
 	if (!updated_psbt)
-		peer_failed(state->pps, &state->channel_id,
-			    "Unable to determine next tx update");
+		peer_failed_err(state->pps, &state->channel_id,
+				"Unable to determine next tx update");
 
 	state->changeset = tal_free(state->changeset);
 	state->changeset = psbt_get_changeset(state, *psbt, updated_psbt);
@@ -1096,9 +1095,9 @@ static bool run_tx_interactive(struct state *state,
 						   cast_const2(u8 **,
 							       &redeemscript),
 						   add_tlvs))
-				peer_failed(state->pps, &state->channel_id,
-					    "Parsing tx_add_input %s",
-					    tal_hex(tmpctx, msg));
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Parsing tx_add_input %s",
+						 tal_hex(tmpctx, msg));
 
 			check_channel_id(state, &cid, &state->channel_id);
 
@@ -1109,9 +1108,9 @@ static bool run_tx_interactive(struct state *state,
 			 *   - it receives more than 2^12 `tx_add_input`
 			 *   messages */
 			if (++state->tx_msg_count[TX_ADD_INPUT] > MAX_TX_MSG_RCVD)
-				peer_failed(state->pps, &state->channel_id,
-					    "Too many `tx_add_input`s"
-					    " received");
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Too many `tx_add_input`s"
+						 " received");
 			/*
 			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
 			 * - if is the `initiator`:
@@ -1122,9 +1121,9 @@ static bool run_tx_interactive(struct state *state,
 			 *   with the incorrect parity
 			 */
 			if (serial_id % 2 == our_role)
-				peer_failed(state->pps, &state->channel_id,
-					    "Invalid serial_id rcvd. %"PRIu64,
-					    serial_id);
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Invalid serial_id rcvd. %"PRIu64,
+						 serial_id);
 			/*
 			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
 			 * - MUST fail the transaction collaboration if:
@@ -1132,20 +1131,20 @@ static bool run_tx_interactive(struct state *state,
 			 *  - it recieves a duplicate `serial_id`
 			 */
 			if (psbt_find_serial_input(psbt, serial_id) != -1)
-				peer_failed(state->pps, &state->channel_id,
-					    "Duplicate serial_id rcvd."
-					    " %"PRIu64, serial_id);
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Duplicate serial_id rcvd."
+						 " %"PRIu64, serial_id);
 
 			/* Convert tx_bytes to a tx! */
 			len = tal_bytelen(tx_bytes);
 			tx = pull_bitcoin_tx(state, &tx_bytes, &len);
 			if (!tx || len != 0)
-				peer_failed(state->pps, &state->channel_id,
-					    "Invalid tx sent.");
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Invalid tx sent.");
 
 			if (outnum >= tx->wtx->num_outputs)
-				peer_failed(state->pps, &state->channel_id,
-					    "Invalid tx outnum sent. %u", outnum);
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Invalid tx outnum sent. %u", outnum);
 			/*
 			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
 			 * - MUST fail the transaction collaboration if:
@@ -1155,11 +1154,11 @@ static bool run_tx_interactive(struct state *state,
 			 */
 			if (!is_segwit_output(&tx->wtx->outputs[outnum],
 					      redeemscript))
-				peer_failed(state->pps, &state->channel_id,
-					    "Invalid tx sent. Not SegWit %s",
-					    type_to_string(tmpctx,
-							   struct bitcoin_tx,
-							   tx));
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Invalid tx sent. Not SegWit %s",
+						 type_to_string(tmpctx,
+								struct bitcoin_tx,
+								tx));
 
 			/*
 			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
@@ -1173,9 +1172,10 @@ static bool run_tx_interactive(struct state *state,
 			 */
 			bitcoin_txid(tx, &txid);
 			if (psbt_has_input(psbt, &txid, outnum))
-				peer_failed(state->pps, &state->channel_id,
-					    "Unable to add input - "
-					    "already present");
+				peer_failed_warn(state->pps,
+						 &state->channel_id,
+						 "Unable to add input - "
+						 "already present");
 
 			/*
 			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
@@ -1189,8 +1189,8 @@ static bool run_tx_interactive(struct state *state,
 						  NULL,
 						  redeemscript);
 			if (!in)
-				peer_failed(state->pps, &state->channel_id,
-					    "Unable to add input");
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Unable to add input");
 
 			tal_wally_start();
 			wally_psbt_input_set_utxo(in, tx->wtx);
@@ -1220,9 +1220,9 @@ static bool run_tx_interactive(struct state *state,
 			int input_index;
 
 			if (!fromwire_tx_remove_input(msg, &cid, &serial_id))
-				peer_failed(state->pps, &state->channel_id,
-					    "Parsing tx_remove_input %s",
-					    tal_hex(tmpctx, msg));
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Parsing tx_remove_input %s",
+						 tal_hex(tmpctx, msg));
 
 			check_channel_id(state, &cid, &state->channel_id);
 
@@ -1233,24 +1233,24 @@ static bool run_tx_interactive(struct state *state,
 			 *   - it receives more than 2^12 `tx_rm_input`
 			 *   messages */
 			if (++state->tx_msg_count[TX_RM_INPUT] > MAX_TX_MSG_RCVD)
-				peer_failed(state->pps, &state->channel_id,
-					    "Too many `tx_rm_input`s"
-					    " received");
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Too many `tx_rm_input`s"
+						 " received");
 
 			/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
 			 * The sending node:
 			 *   - MUST NOT send a `tx_remove_input` for an
 			 *     input which is not theirs */
 			if (serial_id % 2 == our_role)
-				peer_failed(state->pps, &state->channel_id,
-					    "Invalid serial_id rcvd. %"PRIu64,
-					    serial_id);
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Invalid serial_id rcvd. %"PRIu64,
+						 serial_id);
 
 			input_index = psbt_find_serial_input(psbt, serial_id);
 			if (input_index == -1)
-				peer_failed(state->pps, &state->channel_id,
-					    "No input added with serial_id"
-					    " %"PRIu64, serial_id);
+				peer_failed_err(state->pps, &state->channel_id,
+						"No input added with serial_id"
+						" %"PRIu64, serial_id);
 
 			psbt_rm_input(psbt, input_index);
 			break;
@@ -1263,9 +1263,10 @@ static bool run_tx_interactive(struct state *state,
 			if (!fromwire_tx_add_output(tmpctx, msg, &cid,
 						    &serial_id, &value,
 						    &scriptpubkey))
-				peer_failed(state->pps, &state->channel_id,
-					    "Parsing tx_add_output %s",
-					    tal_hex(tmpctx, msg));
+				peer_failed_warn(state->pps,
+						 &state->channel_id,
+						 "Parsing tx_add_output %s",
+						 tal_hex(tmpctx, msg));
 			check_channel_id(state, &cid, &state->channel_id);
 
 			/*
@@ -1275,9 +1276,9 @@ static bool run_tx_interactive(struct state *state,
 			 *   - it receives more than 2^12 `tx_add_output`
 			 *   messages */
 			if (++state->tx_msg_count[TX_ADD_OUTPUT] > MAX_TX_MSG_RCVD)
-				peer_failed(state->pps, &state->channel_id,
-					    "Too many `tx_add_output`s"
-					    " received");
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Too many `tx_add_output`s"
+						 " received");
 
 			/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
 			 * The receiving node:
@@ -1287,14 +1288,14 @@ static bool run_tx_interactive(struct state *state,
 			 *   - it receives a `serial_id` from the peer with the
 			 *      incorrect parity */
 			if (serial_id % 2 == our_role)
-				peer_failed(state->pps, &state->channel_id,
-					    "Invalid serial_id rcvd. %"PRIu64,
-					    serial_id);
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Invalid serial_id rcvd. %"PRIu64,
+						 serial_id);
 
 			if (psbt_find_serial_output(psbt, serial_id) != -1)
-				peer_failed(state->pps, &state->channel_id,
-					    "Duplicate serial_id rcvd."
-					    " %"PRIu64, serial_id);
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Duplicate serial_id rcvd."
+						 " %"PRIu64, serial_id);
 			amt = amount_sat(value);
 			out = psbt_append_output(psbt, scriptpubkey, amt);
 			psbt_output_set_serial_id(psbt, out, serial_id);
@@ -1304,9 +1305,9 @@ static bool run_tx_interactive(struct state *state,
 			int output_index;
 
 			if (!fromwire_tx_remove_output(msg, &cid, &serial_id))
-				peer_failed(state->pps, &state->channel_id,
-					    "Parsing tx_remove_output %s",
-					    tal_hex(tmpctx, msg));
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Parsing tx_remove_output %s",
+						 tal_hex(tmpctx, msg));
 
 			check_channel_id(state, &cid, &state->channel_id);
 
@@ -1317,32 +1318,35 @@ static bool run_tx_interactive(struct state *state,
 			 *   - it receives more than 2^12 `tx_rm_output`
 			 *   messages */
 			if (++state->tx_msg_count[TX_RM_OUTPUT] > MAX_TX_MSG_RCVD)
-				peer_failed(state->pps, &state->channel_id,
-					    "Too many `tx_rm_output`s"
-					    " received");
+				peer_failed_warn(state->pps, &state->channel_id,
+						 "Too many `tx_rm_output`s"
+						 " received");
 
 			/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
 			 * The sending node:
 			 *   - MUST NOT send a `tx_remove_ouput` for an
 			 *     input which is not theirs */
 			if (serial_id % 2 == our_role)
-				peer_failed(state->pps, &state->channel_id,
-					    "Invalid serial_id rcvd."
-					    " %"PRIu64, serial_id);
+				peer_failed_warn(state->pps,
+						 &state->channel_id,
+						 "Invalid serial_id rcvd."
+						 " %"PRIu64, serial_id);
 
 			output_index = psbt_find_serial_output(psbt, serial_id);
 			if (output_index == -1)
-				peer_failed(state->pps, &state->channel_id,
-					    "No output added with serial_id"
-					    " %"PRIu64, serial_id);
+				peer_failed_warn(state->pps,
+						 &state->channel_id,
+						 "No output added with serial_id"
+						 " %"PRIu64, serial_id);
 			psbt_rm_output(psbt, output_index);
 			break;
 		}
 		case WIRE_TX_COMPLETE:
 			if (!fromwire_tx_complete(msg, &cid))
-				peer_failed(state->pps, &state->channel_id,
-					    "Parsing tx_complete %s",
-					    tal_hex(tmpctx, msg));
+				peer_failed_warn(state->pps,
+						 &state->channel_id,
+						 "Parsing tx_complete %s",
+						 tal_hex(tmpctx, msg));
 			check_channel_id(state, &cid, &state->channel_id);
 			they_complete = true;
 			break;
@@ -1381,9 +1385,9 @@ static bool run_tx_interactive(struct state *state,
 		case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 		case WIRE_PING:
 		case WIRE_PONG:
-			peer_failed(state->pps, &state->channel_id,
-				    "Unexpected wire message %s",
-				     tal_hex(tmpctx, msg));
+			peer_failed_warn(state->pps, &state->channel_id,
+					 "Unexpected wire message %s",
+					 tal_hex(tmpctx, msg));
 			return false;
 		}
 
@@ -1443,9 +1447,9 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				    &state->first_per_commitment_point[REMOTE],
 				    &channel_flags,
 				    open_tlv))
-		peer_failed(state->pps, &state->channel_id,
-			    "Parsing open_channel2 %s",
-			    tal_hex(tmpctx, oc2_msg));
+		peer_failed_err(state->pps, &state->channel_id,
+				"Parsing open_channel2 %s",
+				tal_hex(tmpctx, oc2_msg));
 
 	if (open_tlv->option_upfront_shutdown_script) {
 		state->upfront_shutdown_script[REMOTE] = tal_steal(state,
@@ -1533,13 +1537,13 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, state->opener_funding,
 			    state->accepter_funding))
-		peer_failed(state->pps, &state->channel_id,
-			    "Amount overflow. Local sats %s. "
-			    "Remote sats %s",
-			    type_to_string(tmpctx, struct amount_sat,
-					   &state->accepter_funding),
-			    type_to_string(tmpctx, struct amount_sat,
-					   &state->opener_funding));
+		peer_failed_err(state->pps, &state->channel_id,
+				"Amount overflow. Local sats %s. "
+				"Remote sats %s",
+				type_to_string(tmpctx, struct amount_sat,
+					       &state->accepter_funding),
+				type_to_string(tmpctx, struct amount_sat,
+					       &state->opener_funding));
 
 	/* Check that total funding doesn't exceed allowed channel capacity */
 	/* BOLT #2:
@@ -1634,11 +1638,11 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	if (!find_txout(state->psbt,
 			scriptpubkey_p2wsh(tmpctx, wscript),
 			&state->funding_txout))
-		peer_failed(state->pps, &state->channel_id,
-			    "Expected output %s not found on funding tx %s",
-			    tal_hex(tmpctx, scriptpubkey_p2wsh(tmpctx, wscript)),
-			    type_to_string(tmpctx, struct wally_psbt,
-					   state->psbt));
+		peer_failed_err(state->pps, &state->channel_id,
+				"Expected output %s not found on funding tx %s",
+				tal_hex(tmpctx, scriptpubkey_p2wsh(tmpctx, wscript)),
+				type_to_string(tmpctx, struct wally_psbt,
+					       state->psbt));
 
 	/* Check tx funds are sane */
 	err_reason = check_balances(tmpctx, state,
@@ -1661,17 +1665,17 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	if (!fromwire_commitment_signed(tmpctx, msg, &cid,
 					&remote_sig.s,
 					&htlc_sigs))
-		peer_failed(state->pps, &state->channel_id,
-			    "Parsing commitment signed %s",
-			    tal_hex(tmpctx, msg));
+		peer_failed_err(state->pps, &state->channel_id,
+				"Parsing commitment signed %s",
+				tal_hex(tmpctx, msg));
 
 	check_channel_id(state, &cid, &state->channel_id);
 
 	if (htlc_sigs != NULL)
-		peer_failed(state->pps, &state->channel_id,
-			    "Must not send HTLCs with first"
-			     " commitment. %s",
-			     tal_hex(tmpctx, msg));
+		peer_failed_err(state->pps, &state->channel_id,
+				"Must not send HTLCs with first"
+				" commitment. %s",
+				tal_hex(tmpctx, msg));
 
 	if (!amount_sat_to_msat(&our_msats, state->accepter_funding))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1730,22 +1734,21 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		 * a courtesy to other implementaters whose brains may be so
 		 * twisted by coding in Go, Scala and Rust that they can no
 		 * longer read C code. */
-		peer_failed(state->pps,
-			    &state->channel_id,
-			    "Bad signature %s on tx %s using key %s"
-			    " (funding txid %s, psbt %s)",
-			    type_to_string(tmpctx, struct bitcoin_signature,
-					   &remote_sig),
-			    type_to_string(tmpctx, struct bitcoin_tx,
-					   local_commit),
-			    type_to_string(tmpctx, struct pubkey,
-					   &state->their_funding_pubkey),
-			    /* This is the first place we'd discover
-			     * the funding tx doesn't match up */
-			    type_to_string(tmpctx, struct bitcoin_txid,
-					   &state->funding_txid),
-			    type_to_string(tmpctx, struct wally_psbt,
-					   state->psbt));
+		peer_failed_err(state->pps, &state->channel_id,
+				"Bad signature %s on tx %s using key %s"
+				" (funding txid %s, psbt %s)",
+				type_to_string(tmpctx, struct bitcoin_signature,
+					       &remote_sig),
+				type_to_string(tmpctx, struct bitcoin_tx,
+					       local_commit),
+				type_to_string(tmpctx, struct pubkey,
+					       &state->their_funding_pubkey),
+				/* This is the first place we'd discover
+				 * the funding tx doesn't match up */
+				type_to_string(tmpctx, struct bitcoin_txid,
+					       &state->funding_txid),
+				type_to_string(tmpctx, struct wally_psbt,
+					       state->psbt));
 	}
 
 	/* Create commitment tx signatures for remote */
@@ -1950,8 +1953,8 @@ static void opener_start(struct state *state, u8 *msg)
 				      &state->their_points.htlc,
 				      &state->first_per_commitment_point[REMOTE],
 				      a_tlv))
-		peer_failed(state->pps, &state->channel_id,
-			    "Parsing accept_channel2 %s", tal_hex(msg, msg));
+		peer_failed_err(state->pps, &state->channel_id,
+				"Parsing accept_channel2 %s", tal_hex(msg, msg));
 
 	if (a_tlv->option_upfront_shutdown_script) {
 		state->upfront_shutdown_script[REMOTE]
@@ -1967,12 +1970,12 @@ static void opener_start(struct state *state, u8 *msg)
 			     &state->their_points.revocation);
 
 	if (!channel_id_eq(&cid, &state->channel_id))
-		peer_failed(state->pps, &state->channel_id,
-			    "accept_channel2 ids don't match: "
-			    "expected %s, got %s",
-			    type_to_string(msg, struct channel_id,
-					   &state->channel_id),
-			    type_to_string(msg, struct channel_id, &cid));
+		peer_failed_err(state->pps, &cid,
+				"accept_channel2 ids don't match: "
+				"expected %s, got %s",
+				type_to_string(msg, struct channel_id,
+					       &state->channel_id),
+				type_to_string(msg, struct channel_id, &cid));
 
 	/* BOLT-5fcbda56901af9e3b1d057cc41d0c5cfa60a2b94 #2:
 	 * The receiving node:
@@ -1982,22 +1985,22 @@ static void opener_start(struct state *state, u8 *msg)
 	 */
 	if (feerate_min > state->feerate_per_kw_funding
 	    || feerate_max < state->feerate_per_kw_funding)
-		peer_failed(state->pps, &state->channel_id,
-			    "Invalid feerate %d chosen. Valid min %d,"
-			    " valid max %d", state->feerate_per_kw_funding,
-			    feerate_min, feerate_max);
+		peer_failed_warn(state->pps, &state->channel_id,
+				 "Invalid feerate %d chosen. Valid min %d,"
+				 " valid max %d", state->feerate_per_kw_funding,
+				 feerate_min, feerate_max);
 
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, state->opener_funding,
 			    state->accepter_funding))
-		peer_failed(state->pps, &state->channel_id,
-			    "Amount overflow. Local sats %s. "
-			    "Remote sats %s",
-			    type_to_string(tmpctx, struct amount_sat,
-					   &state->opener_funding),
-			    type_to_string(tmpctx, struct amount_sat,
-					   &state->accepter_funding));
+		peer_failed_warn(state->pps, &state->channel_id,
+				 "Amount overflow. Local sats %s. "
+				 "Remote sats %s",
+				 type_to_string(tmpctx, struct amount_sat,
+						&state->opener_funding),
+				 type_to_string(tmpctx, struct amount_sat,
+						&state->accepter_funding));
 
 	/* Check that total funding doesn't exceed allowed channel capacity */
 	/* BOLT #2:
@@ -2071,11 +2074,11 @@ static void opener_start(struct state *state, u8 *msg)
 	/* Figure out the txout */
 	if (!find_txout(state->psbt, scriptpubkey_p2wsh(tmpctx, wscript),
 			&state->funding_txout))
-		peer_failed(state->pps, &state->channel_id,
-			    "Expected output %s not found on funding tx %s",
-			    tal_hex(tmpctx, scriptpubkey_p2wsh(tmpctx, wscript)),
-			    type_to_string(tmpctx, struct wally_psbt,
-					   state->psbt));
+		peer_failed_warn(state->pps, &state->channel_id,
+				 "Expected output %s not found on funding tx %s",
+				 tal_hex(tmpctx, scriptpubkey_p2wsh(tmpctx, wscript)),
+				 type_to_string(tmpctx, struct wally_psbt,
+						state->psbt));
 
 	/* Check tx funds are sane */
 	err_reason = check_balances(tmpctx, state, state->psbt,
@@ -2168,15 +2171,15 @@ static void opener_start(struct state *state, u8 *msg)
 	if (!fromwire_commitment_signed(tmpctx, msg, &cid,
 					&remote_sig.s,
 					&htlc_sigs))
-		peer_failed(state->pps, &state->channel_id,
-			    "Parsing commitment signed %s",
-			    tal_hex(tmpctx, msg));
+		peer_failed_warn(state->pps, &state->channel_id,
+				 "Parsing commitment signed %s",
+				 tal_hex(tmpctx, msg));
 
 	if (htlc_sigs != NULL)
-		peer_failed(state->pps, &state->channel_id,
-			    "Must not send HTLCs with first"
-			     " commitment. %s",
-			     tal_hex(tmpctx, msg));
+		peer_failed_warn(state->pps, &state->channel_id,
+				 "Must not send HTLCs with first"
+				 " commitment. %s",
+				 tal_hex(tmpctx, msg));
 
 	local_commit = initial_channel_tx(state, &wscript, state->channel,
 					  &state->first_per_commitment_point[LOCAL],
@@ -2212,22 +2215,21 @@ static void opener_start(struct state *state, u8 *msg)
 		 * a courtesy to other implementaters whose brains may be so
 		 * twisted by coding in Go, Scala and Rust that they can no
 		 * longer read C code. */
-		peer_failed(state->pps,
-			    &state->channel_id,
-			    "Bad signature %s on tx %s using key %s "
-			    "(funding txid %s, psbt %s)",
-			    type_to_string(tmpctx, struct bitcoin_signature,
-					   &remote_sig),
-			    type_to_string(tmpctx, struct bitcoin_tx,
-					   local_commit),
-			    type_to_string(tmpctx, struct pubkey,
-					   &state->their_funding_pubkey),
-			    /* This is the first place we'd discover the
-			     * funding tx doesn't match up */
-			    type_to_string(tmpctx, struct bitcoin_txid,
-					   &state->funding_txid),
-			    type_to_string(tmpctx, struct wally_psbt,
-					   state->psbt));
+		peer_failed_err(state->pps, &state->channel_id,
+				"Bad signature %s on tx %s using key %s "
+				"(funding txid %s, psbt %s)",
+				type_to_string(tmpctx, struct bitcoin_signature,
+					       &remote_sig),
+				type_to_string(tmpctx, struct bitcoin_tx,
+					       local_commit),
+				type_to_string(tmpctx, struct pubkey,
+					       &state->their_funding_pubkey),
+				/* This is the first place we'd discover the
+				 * funding tx doesn't match up */
+				type_to_string(tmpctx, struct bitcoin_txid,
+					       &state->funding_txid),
+				type_to_string(tmpctx, struct wally_psbt,
+					       state->psbt));
 	}
 
 	if (direct_outputs[LOCAL])
@@ -2274,23 +2276,22 @@ static u8 *handle_funding_locked(struct state *state, u8 *msg)
 	struct pubkey remote_per_commit;
 
 	if (!fromwire_funding_locked(msg, &cid, &remote_per_commit))
-		peer_failed(state->pps, &state->channel_id,
-			    "Bad funding_locked %s", tal_hex(msg, msg));
+		peer_failed_warn(state->pps, &state->channel_id,
+				 "Bad funding_locked %s", tal_hex(msg, msg));
 
 	if (!channel_id_eq(&cid, &state->channel_id))
-		peer_failed(state->pps, &state->channel_id,
-			    "funding_locked ids don't match: "
-			    "expected %s, got %s",
-			    type_to_string(msg, struct channel_id,
-					   &state->channel_id),
-			    type_to_string(msg, struct channel_id, &cid));
+		peer_failed_err(state->pps, &cid,
+				"funding_locked ids don't match: "
+				"expected %s, got %s",
+				type_to_string(msg, struct channel_id,
+					       &state->channel_id),
+				type_to_string(msg, struct channel_id, &cid));
 
 	/* If we haven't gotten their tx_sigs yet, this is a protocol error */
 	if (!state->remote_funding_sigs_rcvd) {
-		peer_failed(state->pps,
-			    &state->channel_id,
-			    "funding_locked sent before tx_signatures %s",
-			    tal_hex(msg, msg));
+		peer_failed_warn(state->pps, &state->channel_id,
+				 "funding_locked sent before tx_signatures %s",
+				 tal_hex(msg, msg));
 	}
 
 	state->funding_locked[REMOTE] = true;
@@ -2440,11 +2441,11 @@ check_future_dataloss_fields(struct state *state,
 			      tal_hex(tmpctx, msg));
 
 	if (!correct)
-		peer_failed(state->pps,
-			    &state->channel_id,
-			    "bad future last_local_per_commit_secret: %"PRIu64
-			    " vs %d",
-			    next_revocation_number, 0);
+		peer_failed_err(state->pps,
+				&state->channel_id,
+				"bad future last_local_per_commit_secret: %"PRIu64
+				" vs %d",
+				next_revocation_number, 0);
 
 	/* Oh shit, they really are from the future! */
 	peer_billboard(true, "They have future commitment number %"PRIu64
@@ -2460,7 +2461,7 @@ check_future_dataloss_fields(struct state *state,
 			take(towire_dualopend_fail_fallen_behind(NULL)));
 
 	/* We have to send them an error to trigger dropping to chain. */
-	peer_failed(state->pps, &state->channel_id,
+	peer_failed_err(state->pps, &state->channel_id,
 		    "Awaiting unilateral close");
 }
 
@@ -2511,11 +2512,10 @@ static void do_reconnect_dance(struct state *state)
 			 &next_revocation_number,
 			 &last_local_per_commit_secret,
 			 &remote_current_per_commit_point))
-		peer_failed(state->pps,
-			    &state->channel_id,
-			    "Bad reestablish msg: %s %s",
-			    peer_wire_name(fromwire_peektype(msg)),
-			    tal_hex(msg, msg));
+		peer_failed_warn(state->pps, &state->channel_id,
+				 "Bad reestablish msg: %s %s",
+				 peer_wire_name(fromwire_peektype(msg)),
+				 tal_hex(msg, msg));
 
 	check_channel_id(state, &cid, &state->channel_id);
 
@@ -2541,11 +2541,10 @@ static void do_reconnect_dance(struct state *state)
 	}
 
 	if (next_commitment_number != 1)
-		peer_failed(state->pps,
-			    &state->channel_id,
-			    "bad reestablish commitment_number: %"PRIu64
-			    " vs %d",
-			    next_commitment_number, 1);
+		peer_failed_err(state->pps, &state->channel_id,
+				"bad reestablish commitment_number: %"PRIu64
+				" vs %d",
+				next_commitment_number, 1);
 
 	/* It's possible we sent our sigs, but they didn't get them.
 	 * Resend our signatures, just in case */
