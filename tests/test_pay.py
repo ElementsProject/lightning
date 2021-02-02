@@ -286,8 +286,6 @@ def test_pay_get_error_with_update(node_factory):
 
     inv = l3.rpc.invoice(123000, 'test_pay_get_error_with_update', 'description')
 
-    route = l1.rpc.getroute(l3.info['id'], 12300, 1)["route"]
-
     # Make sure l2 doesn't tell l1 directly that channel is disabled.
     l2.rpc.dev_suppress_gossip()
     l3.stop()
@@ -296,9 +294,8 @@ def test_pay_get_error_with_update(node_factory):
     wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(chanid2)['channels']] == [False, False])
 
     assert(l1.is_channel_active(chanid2))
-    l1.rpc.sendpay(route, inv['payment_hash'])
     with pytest.raises(RpcError, match=r'WIRE_TEMPORARY_CHANNEL_FAILURE'):
-        l1.rpc.waitsendpay(inv['payment_hash'])
+        l1.rpc.pay(inv['bolt11'])
 
     # Make sure we get an onionreply, without the type prefix of the nested
     # channel_update, and it should patch it to include a type prefix. The

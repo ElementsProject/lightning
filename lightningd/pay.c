@@ -490,12 +490,6 @@ remote_routing_failure(const tal_t *ctx,
 			erring_node = &route_nodes[origin_index];
 	}
 
-	/* Tell gossipd; it will try to extract channel_update */
-	/* FIXME: sendonion caller should do this, and inform gossipd of any
-	 * permanent errors. */
-	subd_send_msg(ld->gossip,
-		      take(towire_gossipd_payment_failure(NULL, failuremsg)));
-
 	routing_failure->erring_index = (unsigned int) (origin_index + 1);
 	routing_failure->failcode = failcode;
 	routing_failure->msg = tal_dup_talarr(routing_failure, u8, failuremsg);
