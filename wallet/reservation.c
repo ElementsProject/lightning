@@ -393,6 +393,8 @@ fee_calc:
 		struct amount_sat est_fee =
 			amount_tx_fee(feerate_per_kw, weight);
 		psbt_append_output(psbt, NULL, est_fee);
+		/* Add additional weight of fee output */
+		weight += bitcoin_tx_output_weight(0);
 	}
 	response = json_stream_success(cmd);
 	json_add_psbt(response, "psbt", psbt);
