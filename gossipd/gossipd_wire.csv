@@ -96,11 +96,6 @@ msgdata,gossipd_get_txout_reply,satoshis,amount_sat,
 msgdata,gossipd_get_txout_reply,len,u16,
 msgdata,gossipd_get_txout_reply,outscript,u8,len
 
-# master->gossipd an htlc failed with this onion error.
-msgtype,gossipd_payment_failure,3021
-msgdata,gossipd_payment_failure,len,u16,
-msgdata,gossipd_payment_failure,error,u8,len
-
 # master -> gossipd: a potential funding outpoint was spent, please forget the eventual channel
 msgtype,gossipd_outpoint_spent,3024
 msgdata,gossipd_outpoint_spent,short_channel_id,short_channel_id,

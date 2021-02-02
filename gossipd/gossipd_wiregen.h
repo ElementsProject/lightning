@@ -41,8 +41,6 @@ enum gossipd_wire {
         WIRE_GOSSIPD_GET_TXOUT = 3018,
         /*  master->gossipd here is the output */
         WIRE_GOSSIPD_GET_TXOUT_REPLY = 3118,
-        /*  master->gossipd an htlc failed with this onion error. */
-        WIRE_GOSSIPD_PAYMENT_FAILURE = 3021,
         /*  master -> gossipd: a potential funding outpoint was spent */
         WIRE_GOSSIPD_OUTPOINT_SPENT = 3024,
         /*  master -> gossipd: stop gossip timers. */
@@ -157,11 +155,6 @@ bool fromwire_gossipd_get_txout(const void *p, struct short_channel_id *short_ch
 u8 *towire_gossipd_get_txout_reply(const tal_t *ctx, const struct short_channel_id *short_channel_id, struct amount_sat satoshis, const u8 *outscript);
 bool fromwire_gossipd_get_txout_reply(const tal_t *ctx, const void *p, struct short_channel_id *short_channel_id, struct amount_sat *satoshis, u8 **outscript);
 
-/* WIRE: GOSSIPD_PAYMENT_FAILURE */
-/*  master->gossipd an htlc failed with this onion error. */
-u8 *towire_gossipd_payment_failure(const tal_t *ctx, const u8 *error);
-bool fromwire_gossipd_payment_failure(const tal_t *ctx, const void *p, u8 **error);
-
 /* WIRE: GOSSIPD_OUTPOINT_SPENT */
 /*  master -> gossipd: a potential funding outpoint was spent */
 u8 *towire_gossipd_outpoint_spent(const tal_t *ctx, const struct short_channel_id *short_channel_id);
@@ -232,4 +225,4 @@ bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestrin
 
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_WIREGEN_H */
-// SHA256STAMP:e82edc5625085e21b02b27a2293d9d757556f3090a8a20b142dcb73411307a0c
+// SHA256STAMP:5fb4bcc3bb8c5f312041142d4bf555a2187c82d82921b819d5a45410efddf6f3

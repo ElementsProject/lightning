@@ -1470,6 +1470,10 @@ payment_waitsendpay_finished(struct command *cmd, const char *buffer,
 	update = channel_update_from_onion_error(tmpctx, p->result->raw_message);
 	if (update) {
 		struct out_req *req;
+		paymod_log(p, LOG_DBG,
+			   "Extracted channel_update %s from onionreply %s",
+			   tal_hex(tmpctx, update),
+			   tal_hex(tmpctx, p->result->raw_message));
 		req = jsonrpc_request_start(p->plugin, NULL, "addgossip",
 					    payment_addgossip_success,
 					    payment_addgossip_failure, p);
