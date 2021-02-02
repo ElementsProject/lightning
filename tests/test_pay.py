@@ -1011,10 +1011,7 @@ def test_decodepay(node_factory):
 @unittest.skipIf(not DEVELOPER, "Too slow without --dev-fast-gossip")
 def test_forward(node_factory, bitcoind):
     # Connect 1 -> 2 -> 3.
-    l1, l2, l3 = node_factory.line_graph(3, fundchannel=True)
-
-    # Allow announce messages.
-    l1.bitcoin.generate_block(5)
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
 
     # If they're at different block heights we can get spurious errors.
     sync_blockheight(bitcoind, [l1, l2, l3])
