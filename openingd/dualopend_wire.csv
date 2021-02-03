@@ -146,7 +146,6 @@ msgdata,dualopend_commit_rcvd,our_funding_sats,amount_sat,
 msgdata,dualopend_commit_rcvd,channel_flags,u8,
 msgdata,dualopend_commit_rcvd,feerate_per_kw_funding,u32,
 msgdata,dualopend_commit_rcvd,feerate_per_kw_commitment,u32,
-msgdata,dualopend_commit_rcvd,our_channel_reserve_satoshis,amount_sat,
 msgdata,dualopend_commit_rcvd,local_shutdown_len,u16,
 msgdata,dualopend_commit_rcvd,local_shutdown_scriptpubkey,u8,local_shutdown_len
 msgdata,dualopend_commit_rcvd,remote_shutdown_len,u16,

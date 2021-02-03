@@ -445,28 +445,30 @@ static void check_channel_id(struct state *state,
 }
 
 static void set_reserve(struct tx_state *tx_state,
-			struct amount_sat funding_total)
+			struct amount_sat funding_total,
+			enum tx_role our_role)
 {
-	struct amount_sat reserve;
+	struct amount_sat reserve, dust_limit;
 
 	/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
 	 *
 	 * The channel reserve is fixed at 1% of the total channel balance
 	 * rounded down (sum of `funding_satoshis` from `open_channel2`
-	 * and `accept_channel2`) or the `dust_limit_satoshis`, whichever
-	 * is greater.
+	 * and `accept_channel2`) or the `dust_limit_satoshis` from
+	 * `open_channel2`, whichever is greater.
 	 */
 	reserve = amount_sat_div(funding_total, 100);
+	dust_limit = our_role == TX_INITIATOR ?
+		tx_state->localconf.dust_limit :
+		tx_state->remoteconf.dust_limit;
 
-	if (amount_sat_greater(tx_state->remoteconf.dust_limit, reserve))
-		tx_state->remoteconf.channel_reserve = tx_state->remoteconf.dust_limit;
-	else
+	if (amount_sat_greater(dust_limit, reserve)) {
+		tx_state->remoteconf.channel_reserve = dust_limit;
+		tx_state->localconf.channel_reserve = dust_limit;
+	} else {
 		tx_state->remoteconf.channel_reserve = reserve;
-
-	if (amount_sat_greater(tx_state->localconf.dust_limit, reserve))
-		tx_state->localconf.channel_reserve = tx_state->localconf.dust_limit;
-	else
 		tx_state->localconf.channel_reserve = reserve;
+	}
 }
 
 static bool is_openers(const struct wally_map *unknowns)
@@ -1716,7 +1718,6 @@ static u8 *accepter_commits(struct state *state,
 					   state->channel_flags,
 					   tx_state->feerate_per_kw_funding,
 					   state->feerate_per_kw_commitment,
-					   tx_state->localconf.channel_reserve,
 					   state->upfront_shutdown_script[LOCAL],
 					   state->upfront_shutdown_script[REMOTE]);
 
@@ -1896,7 +1897,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	init_changeset(tx_state, tx_state->psbt);
 
 	/* Now that we know the total of the channel, we can set the reserve */
-	set_reserve(tx_state, total);
+	set_reserve(tx_state, total, state->our_role);
 
 	if (!check_config_bounds(tmpctx, total,
 				 state->feerate_per_kw_commitment,
@@ -2216,7 +2217,6 @@ static u8 *opener_commits(struct state *state,
 					    state->channel_flags,
 					    tx_state->feerate_per_kw_funding,
 					    state->feerate_per_kw_commitment,
-					    tx_state->localconf.channel_reserve,
 					    state->upfront_shutdown_script[LOCAL],
 					    state->upfront_shutdown_script[REMOTE]);
 
@@ -2426,7 +2426,7 @@ static void opener_start(struct state *state, u8 *msg)
 
 	/* Now that we know the total of the channel, we can
 	 * set the reserve */
-	set_reserve(tx_state, total);
+	set_reserve(tx_state, total, state->our_role);
 
 	if (!check_config_bounds(tmpctx, total,
 				 state->feerate_per_kw_commitment,
@@ -2694,7 +2694,7 @@ static void rbf_local_start(struct state *state, u8 *msg)
 	}
 
 	/* Now that we know the total of the channel, we can set the reserve */
-	set_reserve(tx_state, total);
+	set_reserve(tx_state, total, state->our_role);
 
 	if (!check_config_bounds(tmpctx, total,
 				 state->feerate_per_kw_commitment,
@@ -2825,7 +2825,7 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	}
 
 	/* Now that we know the total of the channel, we can set the reserve */
-	set_reserve(tx_state, total);
+	set_reserve(tx_state, total, state->our_role);
 
 	if (!check_config_bounds(tmpctx, total,
 				 state->feerate_per_kw_commitment,
