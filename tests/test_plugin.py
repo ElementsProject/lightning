@@ -424,7 +424,7 @@ def test_plugin_connected_hook_chaining(node_factory):
     ])
 
     # FIXME: this error occurs *after* connection, so we connect then drop.
-    l3.daemon.wait_for_log(r"chan#1: peer_in WIRE_ERROR")
+    l3.daemon.wait_for_log(r"chan#1: peer_in WIRE_WARNING")
     l3.daemon.wait_for_log(r"You are in reject list")
 
     def check_disconnect():

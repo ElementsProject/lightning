@@ -463,14 +463,14 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	unsup = features_unsupported(daemon->our_features, their_features,
 				     INIT_FEATURE);
 	if (unsup != -1) {
-		msg = towire_errorfmt(NULL, NULL, "Unsupported feature %u",
-				      unsup);
+		msg = towire_warningfmt(NULL, NULL, "Unsupported feature %u",
+					unsup);
 		msg = cryptomsg_encrypt_msg(tmpctx, cs, take(msg));
 		return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
 	}
 
 	if (!feature_check_depends(their_features, &depender, &missing)) {
-		msg = towire_errorfmt(NULL, NULL,
+		msg = towire_warningfmt(NULL, NULL,
 				      "Feature %zu requires feature %zu",
 				      depender, missing);
 		msg = cryptomsg_encrypt_msg(tmpctx, cs, take(msg));

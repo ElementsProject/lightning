@@ -71,6 +71,7 @@ void peer_failed_err(struct per_peer_state *pps,
 	va_list ap;
 	const char *desc;
 
+	assert(channel_id);
  	va_start(ap, fmt);
 	desc = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);

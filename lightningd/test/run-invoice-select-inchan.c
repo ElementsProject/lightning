@@ -615,6 +615,11 @@ void towire_node_id(u8 **pptr UNNEEDED, const struct node_id *id UNNEEDED)
 /* Generated stub for towire_onchaind_dev_memleak */
 u8 *towire_onchaind_dev_memleak(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_onchaind_dev_memleak called!\n"); abort(); }
+/* Generated stub for towire_warningfmt */
+u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
+		      const struct channel_id *channel UNNEEDED,
+		      const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "towire_warningfmt called!\n"); abort(); }
 /* Generated stub for version */
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }

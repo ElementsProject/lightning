@@ -10,18 +10,12 @@ u8 *towire_errorfmtv(const tal_t *ctx,
 		     const char *fmt,
 		     va_list ap)
 {
-	/* BOLT #1:
-	 *
-	 * The channel is referred to by `channel_id`, unless `channel_id` is
-	 * 0 (i.e. all bytes are 0), in which case it refers to all
-	 * channels. */
-	static const struct channel_id all_channels;
 	char *estr;
 	u8 *msg;
 
 	estr = tal_vfmt(ctx, fmt, ap);
 	/* We need tal_len to work, so we use copy. */
-	msg = towire_error(ctx, channel ? channel : &all_channels,
+	msg = towire_error(ctx, channel,
 			   (u8 *)tal_dup_arr(estr, char, estr, strlen(estr), 0));
 	tal_free(estr);
 

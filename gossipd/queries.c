@@ -250,9 +250,9 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 
 	if (!fromwire_query_short_channel_ids(tmpctx, msg, &chain, &encoded,
 					      tlvs)) {
-		return towire_errorfmt(peer, NULL,
-				       "Bad query_short_channel_ids w/tlvs %s",
-				       tal_hex(tmpctx, msg));
+		return towire_warningfmt(peer, NULL,
+					 "Bad query_short_channel_ids w/tlvs %s",
+					 tal_hex(tmpctx, msg));
 	}
 	if (tlvs->query_flags) {
 		/* BOLT #7:
@@ -266,9 +266,9 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 		 */
 		flags = decode_scid_query_flags(tmpctx, tlvs->query_flags);
 		if (!flags) {
-			return towire_errorfmt(peer, NULL,
-					       "Bad query_short_channel_ids query_flags %s",
-					       tal_hex(tmpctx, msg));
+			return towire_warningfmt(peer, NULL,
+						 "Bad query_short_channel_ids query_flags %s",
+						 tal_hex(tmpctx, msg));
 		}
 	} else
 		flags = NULL;
@@ -295,15 +295,15 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 	 *    - MAY fail the connection.
 	 */
 	if (peer->scid_queries || peer->scid_query_nodes) {
-		return towire_errorfmt(peer, NULL,
-				       "Bad concurrent query_short_channel_ids");
+		return towire_warningfmt(peer, NULL,
+					 "Bad concurrent query_short_channel_ids");
 	}
 
 	scids = decode_short_ids(tmpctx, encoded);
 	if (!scids) {
-		return towire_errorfmt(peer, NULL,
-				       "Bad query_short_channel_ids encoding %s",
-				       tal_hex(tmpctx, encoded));
+		return towire_warningfmt(peer, NULL,
+					 "Bad query_short_channel_ids encoding %s",
+					 tal_hex(tmpctx, encoded));
 	}
 
 	/* BOLT #7:
@@ -320,9 +320,9 @@ const u8 *handle_query_short_channel_ids(struct peer *peer, const u8 *msg)
 		memset(flags, 0xFF, tal_bytelen(flags));
 	} else {
 		if (tal_count(flags) != tal_count(scids)) {
-			return towire_errorfmt(peer, NULL,
-					       "Bad query_short_channel_ids flags count %zu scids %zu",
-					       tal_count(flags), tal_count(scids));
+			return towire_warningfmt(peer, NULL,
+						 "Bad query_short_channel_ids flags count %zu scids %zu",
+						 tal_count(flags), tal_count(scids));
 		}
 	}
 
@@ -652,9 +652,9 @@ const u8 *handle_query_channel_range(struct peer *peer, const u8 *msg)
 	if (!fromwire_query_channel_range(msg, &chain_hash,
 					  &first_blocknum, &number_of_blocks,
 					  tlvs)) {
-		return towire_errorfmt(peer, NULL,
-				       "Bad query_channel_range w/tlvs %s",
-				       tal_hex(tmpctx, msg));
+		return towire_warningfmt(peer, NULL,
+					 "Bad query_channel_range w/tlvs %s",
+					 tal_hex(tmpctx, msg));
 	}
 	if (tlvs->query_option)
 		query_option_flags = *tlvs->query_option;
@@ -703,13 +703,13 @@ static u8 *append_range_reply(struct peer *peer,
 		ts = decode_channel_update_timestamps(tmpctx,
 						      timestamps_tlv);
 		if (!ts)
-			return towire_errorfmt(peer, NULL,
-					       "reply_channel_range can't decode timestamps.");
+			return towire_warningfmt(peer, NULL,
+						 "reply_channel_range can't decode timestamps.");
 		if (tal_count(ts) != tal_count(scids)) {
-			return towire_errorfmt(peer, NULL,
-					       "reply_channel_range %zu timestamps when %zu scids?",
-					       tal_count(ts),
-					       tal_count(scids));
+			return towire_warningfmt(peer, NULL,
+						 "reply_channel_range %zu timestamps when %zu scids?",
+						 tal_count(ts),
+						 tal_count(scids));
 		}
 	} else
 		ts = NULL;
@@ -749,35 +749,35 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	if (!fromwire_reply_channel_range(tmpctx, msg, &chain, &first_blocknum,
 					  &number_of_blocks, &complete,
 					  &encoded, tlvs)) {
-		return towire_errorfmt(peer, NULL,
-				       "Bad reply_channel_range w/tlvs %s",
-				       tal_hex(tmpctx, msg));
+		return towire_warningfmt(peer, NULL,
+					 "Bad reply_channel_range w/tlvs %s",
+					 tal_hex(tmpctx, msg));
 	}
 
 	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain)) {
-		return towire_errorfmt(peer, NULL,
-				       "reply_channel_range for bad chain: %s",
-				       tal_hex(tmpctx, msg));
+		return towire_warningfmt(peer, NULL,
+					 "reply_channel_range for bad chain: %s",
+					 tal_hex(tmpctx, msg));
 	}
 
 	if (!peer->range_replies) {
-		return towire_errorfmt(peer, NULL,
-				       "reply_channel_range without query: %s",
-				       tal_hex(tmpctx, msg));
+		return towire_warningfmt(peer, NULL,
+					 "reply_channel_range without query: %s",
+					 tal_hex(tmpctx, msg));
 	}
 
 	/* Beware overflow! */
 	if (first_blocknum + number_of_blocks < first_blocknum) {
-		return towire_errorfmt(peer, NULL,
-				       "reply_channel_range invalid %u+%u",
-				       first_blocknum, number_of_blocks);
+		return towire_warningfmt(peer, NULL,
+					 "reply_channel_range invalid %u+%u",
+					 first_blocknum, number_of_blocks);
 	}
 
 	scids = decode_short_ids(tmpctx, encoded);
 	if (!scids) {
-		return towire_errorfmt(peer, NULL,
-				       "Bad reply_channel_range encoding %s",
-				       tal_hex(tmpctx, encoded));
+		return towire_warningfmt(peer, NULL,
+					 "Bad reply_channel_range encoding %s",
+					 tal_hex(tmpctx, encoded));
 	}
 
 	status_peer_debug(&peer->id,
@@ -807,12 +807,12 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	/* ie. They can be outside range we asked, but they must overlap! */
 	if (first_blocknum + number_of_blocks <= peer->range_first_blocknum
 	    || first_blocknum >= peer->range_end_blocknum) {
-		return towire_errorfmt(peer, NULL,
-				       "reply_channel_range invalid %u+%u for query %u+%u",
-				       first_blocknum, number_of_blocks,
-				       peer->range_first_blocknum,
-				       peer->range_end_blocknum
-				       - peer->range_first_blocknum);
+		return towire_warningfmt(peer, NULL,
+					 "reply_channel_range invalid %u+%u for query %u+%u",
+					 first_blocknum, number_of_blocks,
+					 peer->range_first_blocknum,
+					 peer->range_end_blocknum
+					 - peer->range_first_blocknum);
 	}
 
 	start = first_blocknum;
@@ -838,10 +838,10 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	 * can overlap. */
 	if (first_blocknum != peer->range_prev_end_blocknum + 1
 	    && first_blocknum != peer->range_prev_end_blocknum) {
-		return towire_errorfmt(peer, NULL,
-				       "reply_channel_range %u+%u previous end was block %u",
-				       first_blocknum, number_of_blocks,
-				       peer->range_prev_end_blocknum);
+		return towire_warningfmt(peer, NULL,
+					 "reply_channel_range %u+%u previous end was block %u",
+					 first_blocknum, number_of_blocks,
+					 peer->range_prev_end_blocknum);
 	}
 	peer->range_prev_end_blocknum = end;
 
@@ -878,21 +878,21 @@ const u8 *handle_reply_short_channel_ids_end(struct peer *peer, const u8 *msg)
 	u8 complete;
 
 	if (!fromwire_reply_short_channel_ids_end(msg, &chain, &complete)) {
-		return towire_errorfmt(peer, NULL,
-				       "Bad reply_short_channel_ids_end %s",
-				       tal_hex(tmpctx, msg));
+		return towire_warningfmt(peer, NULL,
+					 "Bad reply_short_channel_ids_end %s",
+					 tal_hex(tmpctx, msg));
 	}
 
 	if (!bitcoin_blkid_eq(&chainparams->genesis_blockhash, &chain)) {
-		return towire_errorfmt(peer, NULL,
-				       "reply_short_channel_ids_end for bad chain: %s",
-				       tal_hex(tmpctx, msg));
+		return towire_warningfmt(peer, NULL,
+					 "reply_short_channel_ids_end for bad chain: %s",
+					 tal_hex(tmpctx, msg));
 	}
 
 	if (!peer->scid_query_outstanding) {
-		return towire_errorfmt(peer, NULL,
-				       "unexpected reply_short_channel_ids_end: %s",
-				       tal_hex(tmpctx, msg));
+		return towire_warningfmt(peer, NULL,
+					 "unexpected reply_short_channel_ids_end: %s",
+					 tal_hex(tmpctx, msg));
 	}
 
 	peer->scid_query_outstanding = false;

@@ -1391,16 +1391,16 @@ static u8 *check_channel_update(const tal_t *ctx,
 	sha256_double(&hash, update + offset, tal_count(update) - offset);
 
 	if (!check_signed_hash_nodeid(&hash, node_sig, node_id))
-		return towire_errorfmt(ctx, NULL,
-				       "Bad signature for %s hash %s"
-				       " on channel_update %s",
-				       type_to_string(tmpctx,
-						      secp256k1_ecdsa_signature,
-						      node_sig),
-				       type_to_string(tmpctx,
-						      struct sha256_double,
-						      &hash),
-				       tal_hex(tmpctx, update));
+		return towire_warningfmt(ctx, NULL,
+					 "Bad signature for %s hash %s"
+					 " on channel_update %s",
+					 type_to_string(tmpctx,
+							secp256k1_ecdsa_signature,
+							node_sig),
+					 type_to_string(tmpctx,
+							struct sha256_double,
+							&hash),
+					 tal_hex(tmpctx, update));
 	return NULL;
 }
 
@@ -1419,52 +1419,52 @@ static u8 *check_channel_announcement(const tal_t *ctx,
 		      tal_count(announcement) - offset);
 
 	if (!check_signed_hash_nodeid(&hash, node1_sig, node1_id)) {
-		return towire_errorfmt(ctx, NULL,
-				       "Bad node_signature_1 %s hash %s"
-				       " on channel_announcement %s",
-				       type_to_string(tmpctx,
-						      secp256k1_ecdsa_signature,
-						      node1_sig),
-				       type_to_string(tmpctx,
-						      struct sha256_double,
-						      &hash),
-				       tal_hex(tmpctx, announcement));
+		return towire_warningfmt(ctx, NULL,
+					 "Bad node_signature_1 %s hash %s"
+					 " on channel_announcement %s",
+					 type_to_string(tmpctx,
+							secp256k1_ecdsa_signature,
+							node1_sig),
+					 type_to_string(tmpctx,
+							struct sha256_double,
+							&hash),
+					 tal_hex(tmpctx, announcement));
 	}
 	if (!check_signed_hash_nodeid(&hash, node2_sig, node2_id)) {
-		return towire_errorfmt(ctx, NULL,
-				       "Bad node_signature_2 %s hash %s"
-				       " on channel_announcement %s",
-				       type_to_string(tmpctx,
-						      secp256k1_ecdsa_signature,
-						      node2_sig),
-				       type_to_string(tmpctx,
-						      struct sha256_double,
-						      &hash),
-				       tal_hex(tmpctx, announcement));
+		return towire_warningfmt(ctx, NULL,
+					 "Bad node_signature_2 %s hash %s"
+					 " on channel_announcement %s",
+					 type_to_string(tmpctx,
+							secp256k1_ecdsa_signature,
+							node2_sig),
+					 type_to_string(tmpctx,
+							struct sha256_double,
+							&hash),
+					 tal_hex(tmpctx, announcement));
 	}
 	if (!check_signed_hash(&hash, bitcoin1_sig, bitcoin1_key)) {
-		return towire_errorfmt(ctx, NULL,
-				       "Bad bitcoin_signature_1 %s hash %s"
-				       " on channel_announcement %s",
-				       type_to_string(tmpctx,
-						      secp256k1_ecdsa_signature,
-						      bitcoin1_sig),
-				       type_to_string(tmpctx,
-						      struct sha256_double,
-						      &hash),
-				       tal_hex(tmpctx, announcement));
+		return towire_warningfmt(ctx, NULL,
+					 "Bad bitcoin_signature_1 %s hash %s"
+					 " on channel_announcement %s",
+					 type_to_string(tmpctx,
+							secp256k1_ecdsa_signature,
+							bitcoin1_sig),
+					 type_to_string(tmpctx,
+							struct sha256_double,
+							&hash),
+					 tal_hex(tmpctx, announcement));
 	}
 	if (!check_signed_hash(&hash, bitcoin2_sig, bitcoin2_key)) {
-		return towire_errorfmt(ctx, NULL,
-				       "Bad bitcoin_signature_2 %s hash %s"
-				       " on channel_announcement %s",
-				       type_to_string(tmpctx,
-						      secp256k1_ecdsa_signature,
-						      bitcoin2_sig),
-				       type_to_string(tmpctx,
-						      struct sha256_double,
-						      &hash),
-				       tal_hex(tmpctx, announcement));
+		return towire_warningfmt(ctx, NULL,
+					 "Bad bitcoin_signature_2 %s hash %s"
+					 " on channel_announcement %s",
+					 type_to_string(tmpctx,
+							secp256k1_ecdsa_signature,
+							bitcoin2_sig),
+					 type_to_string(tmpctx,
+							struct sha256_double,
+							&hash),
+					 tal_hex(tmpctx, announcement));
 	}
 	return NULL;
 }
@@ -1715,9 +1715,9 @@ u8 *handle_channel_announcement(struct routing_state *rstate,
 					   &pending->node_id_2,
 					   &pending->bitcoin_key_1,
 					   &pending->bitcoin_key_2)) {
-		err = towire_errorfmt(rstate, NULL,
-				      "Malformed channel_announcement %s",
-				      tal_hex(pending, pending->announce));
+		err = towire_warningfmt(rstate, NULL,
+					"Malformed channel_announcement %s",
+					tal_hex(pending, pending->announce));
 		goto malformed;
 	}
 
@@ -2309,9 +2309,9 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 				     &channel_flags, &expiry,
 				     &htlc_minimum, &fee_base_msat,
 				     &fee_proportional_millionths)) {
-		err = towire_errorfmt(rstate, NULL,
-				      "Malformed channel_update %s",
-				      tal_hex(tmpctx, serialized));
+		err = towire_warningfmt(rstate, NULL,
+					"Malformed channel_update %s",
+					tal_hex(tmpctx, serialized));
 		return err;
 	}
 	direction = channel_flags & 0x1;
@@ -2587,9 +2587,9 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 		 *    - SHOULD fail the connection.
 		 *    - MUST NOT process the message further.
 		 */
-		u8 *err = towire_errorfmt(rstate, NULL,
-					  "Malformed node_announcement %s",
-					  tal_hex(tmpctx, node_ann));
+		u8 *err = towire_warningfmt(rstate, NULL,
+					    "Malformed node_announcement %s",
+					    tal_hex(tmpctx, node_ann));
 		return err;
 	}
 
@@ -2606,16 +2606,16 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 		 *    - MUST NOT process the message further.
 		 *    - SHOULD fail the connection.
 		 */
-		u8 *err = towire_errorfmt(rstate, NULL,
-					  "Bad signature for %s hash %s"
-					  " on node_announcement %s",
-					  type_to_string(tmpctx,
-							 secp256k1_ecdsa_signature,
-							 &signature),
-					  type_to_string(tmpctx,
-							 struct sha256_double,
-							 &hash),
-					  tal_hex(tmpctx, node_ann));
+		u8 *err = towire_warningfmt(rstate, NULL,
+					    "Bad signature for %s hash %s"
+					    " on node_announcement %s",
+					    type_to_string(tmpctx,
+							   secp256k1_ecdsa_signature,
+							   &signature),
+					    type_to_string(tmpctx,
+							   struct sha256_double,
+							   &hash),
+					    tal_hex(tmpctx, node_ann));
 		return err;
 	}
 
@@ -2627,10 +2627,10 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 		 *  descriptors of the known types:
 		 *    - SHOULD fail the connection.
 		 */
-		u8 *err = towire_errorfmt(rstate, NULL,
-					  "Malformed wireaddrs %s in %s.",
-					  tal_hex(tmpctx, wireaddrs),
-					  tal_hex(tmpctx, node_ann));
+		u8 *err = towire_warningfmt(rstate, NULL,
+					    "Malformed wireaddrs %s in %s.",
+					    tal_hex(tmpctx, wireaddrs),
+					    tal_hex(tmpctx, node_ann));
 		return err;
 	}
 

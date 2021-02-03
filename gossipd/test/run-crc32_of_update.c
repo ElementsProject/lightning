@@ -113,17 +113,17 @@ void status_fmt(enum log_level level UNNEEDED,
 		const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "status_fmt called!\n"); abort(); }
-/* Generated stub for towire_errorfmt */
-u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
-		    const struct channel_id *channel UNNEEDED,
-		    const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
 /* Generated stub for towire_hsmd_cupdate_sig_req */
 u8 *towire_hsmd_cupdate_sig_req(const tal_t *ctx UNNEEDED, const u8 *cu UNNEEDED)
 { fprintf(stderr, "towire_hsmd_cupdate_sig_req called!\n"); abort(); }
 /* Generated stub for towire_hsmd_node_announcement_sig_req */
 u8 *towire_hsmd_node_announcement_sig_req(const tal_t *ctx UNNEEDED, const u8 *announcement UNNEEDED)
 { fprintf(stderr, "towire_hsmd_node_announcement_sig_req called!\n"); abort(); }
+/* Generated stub for towire_warningfmt */
+u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
+		      const struct channel_id *channel UNNEEDED,
+		      const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "towire_warningfmt called!\n"); abort(); }
 /* Generated stub for towire_wireaddr */
 void towire_wireaddr(u8 **pptr UNNEEDED, const struct wireaddr *addr UNNEEDED)
 { fprintf(stderr, "towire_wireaddr called!\n"); abort(); }

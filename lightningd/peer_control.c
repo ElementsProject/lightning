@@ -1083,9 +1083,9 @@ peer_connected_hook_deserialize(struct peer_connected_hook_payload *payload,
 	if (json_tok_streq(buffer, t_res, "disconnect")) {
 		payload->error = (u8*)"";
 		if (t_err) {
-			payload->error = towire_errorfmt(tmpctx, NULL, "%.*s",
-						         t_err->end - t_err->start,
-						         buffer + t_err->start);
+			payload->error = towire_warningfmt(tmpctx, NULL, "%.*s",
+							   t_err->end - t_err->start,
+							   buffer + t_err->start);
 		}
 		log_debug(ld->log, "peer_connected hook rejects and says '%s'",
 			  payload->error);
@@ -2238,7 +2238,8 @@ static void process_dev_forget_channel(struct bitcoind *bitcoind UNUSED,
 	json_add_txid(response, "funding_txid", &forget->channel->funding_txid);
 
 	/* Set error so we don't try to reconnect. */
-	forget->channel->error = towire_errorfmt(forget->channel, NULL,
+	forget->channel->error = towire_errorfmt(forget->channel,
+						 &forget->channel->cid,
 						 "dev_forget_channel");
 	delete_channel(forget->channel);
 

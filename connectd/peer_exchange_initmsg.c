@@ -79,7 +79,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 			status_peer_debug(&peer->id,
 			                  "No common chain with this peer '%s', closing",
 			                  tal_hex(tmpctx, msg));
-			msg = towire_errorfmt(NULL, NULL, "No common network");
+			msg = towire_warningfmt(NULL, NULL, "No common network");
 			msg = cryptomsg_encrypt_msg(NULL, &peer->cs, take(msg));
 			return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
 		}
