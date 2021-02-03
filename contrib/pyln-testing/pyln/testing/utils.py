@@ -619,8 +619,11 @@ class PrettyPrintingLightningRpc(LightningRpc):
 
 class LightningNode(object):
     def __init__(self, node_id, lightning_dir, bitcoind, executor, valgrind, may_fail=False,
-                 may_reconnect=False, allow_broken_log=False,
-                 allow_bad_gossip=False, db=None, port=None, disconnect=None, random_hsm=None, options=None,
+                 may_reconnect=False,
+                 allow_broken_log=False,
+                 allow_warning=False,
+                 allow_bad_gossip=False,
+                 db=None, port=None, disconnect=None, random_hsm=None, options=None,
                  **kwargs):
         self.bitcoin = bitcoind
         self.executor = executor
@@ -628,6 +631,7 @@ class LightningNode(object):
         self.may_reconnect = may_reconnect
         self.allow_broken_log = allow_broken_log
         self.allow_bad_gossip = allow_bad_gossip
+        self.allow_warning = allow_warning
         self.db = db
 
         # Assume successful exit
@@ -1207,6 +1211,7 @@ class NodeFactory(object):
             'disconnect',
             'may_fail',
             'allow_broken_log',
+            'allow_warning',
             'may_reconnect',
             'random_hsm',
             'feerates',

@@ -1336,7 +1336,7 @@ def test_bitcoind_goes_backwards(node_factory, bitcoind):
 @flaky
 def test_reserve_enforcement(node_factory, executor):
     """Channeld should disallow you spending into your reserve"""
-    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True})
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True, 'allow_warning': True})
 
     # Pay 1000 satoshi to l2.
     l1.pay(l2, 1000000)

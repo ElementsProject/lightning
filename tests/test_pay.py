@@ -234,7 +234,8 @@ def test_pay0(node_factory):
 def test_pay_disconnect(node_factory, bitcoind):
     """If the remote node has disconnected, we fail payment, but can try again when it reconnects"""
     l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5,
-                                              'may_reconnect': True})
+                                              'may_reconnect': True,
+                                              'allow_warning': True})
 
     # Dummy payment to kick off update_fee messages
     l1.pay(l2, 1000)
@@ -261,7 +262,7 @@ def test_pay_disconnect(node_factory, bitcoind):
     l1.set_feerates((10**6, 1000**6, 1000**6, 1000**6), False)
 
     # Wait for l1 notice
-    l1.daemon.wait_for_log(r'Peer transient failure in CHANNELD_NORMAL: channeld: .*: update_fee \d+ outside range 1875-75000')
+    l1.daemon.wait_for_log(r'Peer transient failure in CHANNELD_NORMAL: channeld WARNING: .*: update_fee \d+ outside range 1875-75000')
 
     # Make l2 fail hard.
     l2.rpc.close(l1.info['id'], unilateraltimeout=1)

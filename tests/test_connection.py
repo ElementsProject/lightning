@@ -1956,8 +1956,10 @@ def test_update_fee(node_factory, bitcoind):
 
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_fee_limits(node_factory, bitcoind):
-    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=[{'dev-max-fee-multiplier': 5, 'may_reconnect': True},
-                                                     {'dev-max-fee-multiplier': 5, 'may_reconnect': True},
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=[{'dev-max-fee-multiplier': 5, 'may_reconnect': True,
+                                                      'allow_warning': True},
+                                                     {'dev-max-fee-multiplier': 5, 'may_reconnect': True,
+                                                      'allow_warning': True},
                                                      {'ignore-fee-limits': True, 'may_reconnect': True},
                                                      {}])
 
