@@ -918,6 +918,46 @@ REGISTER_PLUGIN_HOOK(rbf_channel,
 		     rbf_channel_hook_serialize,
 		     struct rbf_channel_payload *);
 
+static struct amount_sat calculate_reserve(struct channel_config *their_config,
+					   struct amount_sat funding_total,
+					   enum side opener)
+{
+	struct amount_sat reserve, dust_limit;
+
+	/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
+	 *
+	 * The channel reserve is fixed at 1% of the total channel balance
+	 * rounded down (sum of `funding_satoshis` from `open_channel2`
+	 * and `accept_channel2`) or the `dust_limit_satoshis` from
+	 * `open_channel2`, whichever is greater.
+	 */
+	reserve = amount_sat_div(funding_total, 100);
+	dust_limit = opener == LOCAL ?
+		chainparams->dust_limit :
+		their_config->dust_limit;
+
+	if (amount_sat_greater(dust_limit, reserve))
+		return dust_limit;
+
+	return reserve;
+}
+
+static void channel_update_reserve(struct channel *channel,
+				   struct channel_config *their_config,
+				   struct amount_sat funding_total)
+{
+	struct amount_sat reserve;
+
+	reserve = calculate_reserve(their_config,
+				    funding_total,
+				    channel->opener);
+
+	/* Depending on path, these are disjoint */
+	their_config->channel_reserve = reserve;
+	channel->channel_info.their_config.channel_reserve = reserve;
+	channel->our_config.channel_reserve = reserve;
+}
+
 /* Steals fields from uncommitted_channel: returns NULL if can't generate a
  * key for this channel (shouldn't happen!). */
 static struct channel_inflight *
@@ -1431,6 +1471,11 @@ void dualopen_tell_depth(struct subd *dualopend,
 			channel->our_funds = inf->funding->our_funds;
 			channel->last_tx = tal_steal(channel, inf->last_tx);
 			channel->last_sig = inf->last_sig;
+
+			/* Update the reserve */
+			channel_update_reserve(channel,
+					       &channel->channel_info.their_config,
+					       inf->funding->total_funds);
 
 			wallet_channel_save(dualopend->ld->wallet, channel);
 			/* FIXME: delete inflights */
@@ -2230,7 +2275,6 @@ static void handle_commit_received(struct subd *dualopend,
 					    &channel->channel_flags,
 					    &feerate_funding,
 					    &feerate_commitment,
-					    &channel->our_config.channel_reserve,
 					    &local_upfront_shutdown_script,
 					    &remote_upfront_shutdown_script)) {
 		log_broken(channel->log, "bad WIRE_DUALOPEND_COMMIT_RCVD %s",
@@ -2245,6 +2289,11 @@ static void handle_commit_received(struct subd *dualopend,
 		unsaved_channel_disconnect(channel, LOG_BROKEN, err_reason);
 		goto failed;
 	}
+	/* We need to update the channel reserve on the config */
+	channel_update_reserve(channel,
+			       &channel_info.their_config,
+			       total_funding);
+
 
 	if (!(inflight = wallet_commit_channel(ld, channel,
 					       remote_commit,
