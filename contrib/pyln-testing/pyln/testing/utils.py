@@ -943,11 +943,14 @@ class LightningNode(object):
             raise ValueError("Error waiting for a route to destination {}".format(destination))
 
     # This helper waits for all HTLCs to settle
-    def wait_for_htlcs(self):
+    # `scids` can be a list of strings. If unset wait on all channels.
+    def wait_for_htlcs(self, scids=None):
         peers = self.rpc.listpeers()['peers']
         for p, peer in enumerate(peers):
             if 'channels' in peer:
                 for c, channel in enumerate(peer['channels']):
+                    if scids is not None and channel['short_channel_id'] not in scids:
+                        continue
                     if 'htlcs' in channel:
                         wait_for(lambda: len(self.rpc.listpeers()['peers'][p]['channels'][c]['htlcs']) == 0)
 
