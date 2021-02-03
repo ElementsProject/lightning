@@ -84,13 +84,14 @@ TIMEOUT = int(env("TIMEOUT", 180 if SLOW_MACHINE else 60))
 def wait_for(success, timeout=TIMEOUT):
     start_time = time.time()
     interval = 0.25
-    while not success() and time.time() < start_time + timeout:
-        time.sleep(interval)
+    while not success():
+        time_left = start_time + timeout - time.time()
+        if time_left <= 0:
+            raise ValueError("Timeout while waiting for {}", success)
+        time.sleep(min(interval, time_left))
         interval *= 2
         if interval > 5:
             interval = 5
-    if time.time() > start_time + timeout:
-        raise ValueError("Error waiting for {}", success)
 
 
 def write_config(filename, opts, regtest_opts=None, section_name='regtest'):
