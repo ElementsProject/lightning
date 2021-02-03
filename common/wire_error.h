@@ -12,25 +12,25 @@ struct channel_id;
  * towire_errorfmt - helper to turn string into WIRE_ERROR.
  *
  * @ctx: context to allocate from
- * @channel: specific channel to complain about, or NULL for all.
+ * @channel: specific channel to complain about
  * @fmt: format for error.
  */
 u8 *towire_errorfmt(const tal_t *ctx,
 		    const struct channel_id *channel,
-		    const char *fmt, ...) PRINTF_FMT(3,4);
+		    const char *fmt, ...) PRINTF_FMT(3,4) NON_NULL_ARGS(2);
 
 /**
  * towire_errorfmtv - helper to turn string into WIRE_ERROR.
  *
  * @ctx: context to allocate from
- * @channel: specific channel to complain about, or NULL for all.
+ * @channel: specific channel to complain about
  * @fmt: format for error.
  * @ap: accumulated varargs.
  */
 u8 *towire_errorfmtv(const tal_t *ctx,
 		     const struct channel_id *channel,
 		     const char *fmt,
-		     va_list ap);
+		     va_list ap) NON_NULL_ARGS(2);
 
 /**
  * towire_warningfmt - helper to turn string into WIRE_WARNING.

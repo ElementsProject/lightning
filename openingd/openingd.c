@@ -1153,11 +1153,11 @@ static u8 *handle_peer_in(struct state *state)
 		return NULL;
 
 	sync_crypto_write(state->pps,
-			  take(towire_errorfmt(NULL,
-					       extract_channel_id(msg, &channel_id) ? &channel_id : NULL,
-					       "Unexpected message %s: %s",
-					       peer_wire_name(t),
-					       tal_hex(tmpctx, msg))));
+			  take(towire_warningfmt(NULL,
+						 extract_channel_id(msg, &channel_id) ? &channel_id : NULL,
+						 "Unexpected message %s: %s",
+						 peer_wire_name(t),
+						 tal_hex(tmpctx, msg))));
 
 	/* FIXME: We don't actually want master to try to send an
 	 * error, since peer is transient.  This is a hack.
@@ -1179,20 +1179,18 @@ static void handle_gossip_in(struct state *state)
 	handle_gossip_msg(state->pps, take(msg));
 }
 
-/*~ Is this message of type `error` with the special zero-id
- * "fail-everything"?  If lightningd asked us to send such a thing, we're
- * done. */
-static void fail_if_all_error(const u8 *inner)
+/*~ Is this message of a `warning` or `error`?  If lightningd asked us to send
+ * such a thing, it wants to close the connection. */
+static void fail_if_warning_or_error(const u8 *inner)
 {
 	struct channel_id channel_id;
 	u8 *data;
 
-	if (!fromwire_error(tmpctx, inner, &channel_id, &data)
-	    || !channel_id_is_all(&channel_id)) {
+	if (!fromwire_warning(tmpctx, inner, &channel_id, &data)
+	    && !fromwire_error(tmpctx, inner, &channel_id, &data))
 		return;
-	}
 
-	status_info("Master said send err: %s",
+	status_info("Master said send %s",
 		    sanitize_error(tmpctx, inner, NULL));
 	exit(0);
 }
@@ -1358,10 +1356,10 @@ int main(int argc, char *argv[])
 	per_peer_state_set_fds(state->pps, 3, 4, 5);
 
 	/*~ If lightningd wanted us to send a msg, do so before we waste time
-	 * doing work.  If it's a global error, we'll close immediately. */
+	 * doing work.  If it's a warning, we'll close immediately. */
 	if (inner != NULL) {
 		sync_crypto_write(state->pps, inner);
-		fail_if_all_error(inner);
+		fail_if_warning_or_error(inner);
 		tal_free(inner);
 	}
 

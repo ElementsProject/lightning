@@ -792,6 +792,11 @@ u8 *towire_temporary_node_failure(const tal_t *ctx UNNEEDED)
 /* Generated stub for towire_unknown_next_peer */
 u8 *towire_unknown_next_peer(const tal_t *ctx UNNEEDED)
 { fprintf(stderr, "towire_unknown_next_peer called!\n"); abort(); }
+/* Generated stub for towire_warningfmt */
+u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
+		      const struct channel_id *channel UNNEEDED,
+		      const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "towire_warningfmt called!\n"); abort(); }
 /* Generated stub for watch_txid */
 struct txwatch *watch_txid(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,

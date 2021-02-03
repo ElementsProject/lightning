@@ -125,8 +125,8 @@ void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES)
 		/* It's a raw gossip msg: this copies or takes() */
 		gossip = tal_dup_talarr(tmpctx, u8, msg);
 
-	/* Gossipd can send us gossip messages, OR errors */
-	if (fromwire_peektype(gossip) == WIRE_ERROR) {
+	/* Gossipd can send us gossip messages, OR warnings */
+	if (fromwire_peektype(gossip) == WIRE_WARNING) {
 		sync_crypto_write(pps, gossip);
 		peer_failed_connection_lost();
 	} else {

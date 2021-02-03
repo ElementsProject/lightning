@@ -98,11 +98,6 @@ char *sanitize_error(const tal_t *ctx UNNEEDED, const u8 *errmsg UNNEEDED,
 void status_failed(enum status_failreason code UNNEEDED,
 		   const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "status_failed called!\n"); abort(); }
-/* Generated stub for towire_errorfmt */
-u8 *towire_errorfmt(const tal_t *ctx UNNEEDED,
-		    const struct channel_id *channel UNNEEDED,
-		    const char *fmt UNNEEDED, ...)
-{ fprintf(stderr, "towire_errorfmt called!\n"); abort(); }
 /* Generated stub for towire_gossip_store_channel_amount */
 u8 *towire_gossip_store_channel_amount(const tal_t *ctx UNNEEDED, struct amount_sat satoshis UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_channel_amount called!\n"); abort(); }
@@ -115,6 +110,11 @@ u8 *towire_gossip_store_private_channel(const tal_t *ctx UNNEEDED, struct amount
 /* Generated stub for towire_gossip_store_private_update */
 u8 *towire_gossip_store_private_update(const tal_t *ctx UNNEEDED, const u8 *update UNNEEDED)
 { fprintf(stderr, "towire_gossip_store_private_update called!\n"); abort(); }
+/* Generated stub for towire_warningfmt */
+u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
+		      const struct channel_id *channel UNNEEDED,
+		      const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "towire_warningfmt called!\n"); abort(); }
 /* Generated stub for update_peers_broadcast_index */
 void update_peers_broadcast_index(struct list_head *peers UNNEEDED, u32 offset UNNEEDED)
 { fprintf(stderr, "update_peers_broadcast_index called!\n"); abort(); }
