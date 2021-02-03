@@ -396,7 +396,7 @@ void channel_errmsg(struct channel *channel,
 	 * and we would close the channel on them.  We now support warnings
 	 * for this case. */
 	if (warning) {
-		channel_fail_reconnect_later(channel, "%s: (ignoring) %s",
+		channel_fail_reconnect_later(channel, "%s WARNING: %s",
 					     channel->owner->name, desc);
 		return;
 	}

@@ -398,11 +398,16 @@ def test_plugin_connected_hook_chaining(node_factory):
     l1 is configured to accept connections from l2, but not from l3.
     we check that logger_a is always called and logger_b only for l2.
     """
-    opts = [{'plugin': [
-        os.path.join(os.getcwd(), 'tests/plugins/peer_connected_logger_a.py'),
-        os.path.join(os.getcwd(), 'tests/plugins/reject.py'),
-        os.path.join(os.getcwd(), 'tests/plugins/peer_connected_logger_b.py'),
-    ]}, {}, {}]
+    opts = [{'plugin':
+             [os.path.join(os.getcwd(),
+                           'tests/plugins/peer_connected_logger_a.py'),
+              os.path.join(os.getcwd(),
+                           'tests/plugins/reject.py'),
+              os.path.join(os.getcwd(),
+                           'tests/plugins/peer_connected_logger_b.py')],
+             'allow_warning': True},
+            {},
+            {'allow_warning': True}]
 
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
     l2id = l2.info['id']
@@ -822,7 +827,10 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
 
     The misc_notifications.py plugin logs `channel_state_changed` events.
     """
-    opts = {"plugin": os.path.join(os.getcwd(), "tests/plugins/misc_notifications.py")}
+    # FIXME: We can get warnings from unilteral changes, since we treat
+    # such errors a soft because LND.
+    opts = {"plugin": os.path.join(os.getcwd(), "tests/plugins/misc_notifications.py"),
+            "allow_warning": True}
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
     l1_id = l1.rpc.getinfo()["id"]

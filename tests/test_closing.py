@@ -1784,7 +1784,11 @@ def test_listfunds_after_their_unilateral(node_factory, bitcoind):
 Make sure we show the address.
     """
     coin_mvt_plugin = os.path.join(os.getcwd(), 'tests/plugins/coin_movements.py')
-    l1, l2 = node_factory.line_graph(2, opts={'plugin': coin_mvt_plugin})
+    # FIXME: We can get warnings from unilteral changes, since we treat
+    # such errors a soft because LND.
+    l1, l2 = node_factory.line_graph(2, opts=[{'plugin': coin_mvt_plugin,
+                                               "allow_warning": True},
+                                              {'plugin': coin_mvt_plugin}])
     channel_id = first_channel_id(l1, l2)
 
     # listfunds will show 1 output change, and channels.
@@ -2523,7 +2527,10 @@ def test_shutdown(node_factory):
 @flaky
 @unittest.skipIf(not DEVELOPER, "needs to set upfront_shutdown_script")
 def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
-    l1 = node_factory.get_node(start=False)
+    # There's a workaround in channeld, that it treats incoming errors
+    # before both sides are locked in as warnings; this happens in
+    # this test, so l1 reports the error as a warning!
+    l1 = node_factory.get_node(start=False, allow_warning=True)
     # Insist on upfront script we're not going to match.
     l1.daemon.env["DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT"] = "76a91404b61f7dc1ea0dc99424464cc4064dc564d91e8988ac"
     l1.start()
