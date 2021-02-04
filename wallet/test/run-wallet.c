@@ -1124,11 +1124,31 @@ static bool bitcoin_tx_eq(const struct bitcoin_tx *tx1,
 	return eq;
 }
 
+static bool channel_inflightseq(struct channel_inflight *i1,
+				struct channel_inflight *i2)
+{
+	CHECK(memeq(&i1->funding->txid,
+		    sizeof(struct sha256_double),
+		    &i2->funding->txid,
+		    sizeof(struct sha256_double)));
+	CHECK(i1->funding->outnum == i2->funding->outnum);
+	CHECK(i1->funding->feerate == i2->funding->feerate);
+	CHECK(amount_sat_eq(i1->funding->total_funds,
+			    i2->funding->total_funds));
+	CHECK(amount_sat_eq(i1->funding->our_funds, i2->funding->our_funds));
+	CHECK(memeq(&i1->last_sig, sizeof(i1->last_sig),
+		    &i2->last_sig, sizeof(i2->last_sig)));
+	CHECK(bitcoin_tx_eq(i1->last_tx, i2->last_tx));
+
+	return true;
+}
+
 static bool channelseq(struct channel *c1, struct channel *c2)
 {
 	struct peer *p1 = c1->peer, *p2 = c2->peer;
 	struct channel_info *ci1 = &c1->channel_info, *ci2 = &c2->channel_info;
 	struct changed_htlc *lc1 = c1->last_sent_commit, *lc2 = c2->last_sent_commit;
+	struct channel_inflight *i1, *i2;
 	CHECK(c1->dbid == c2->dbid);
 	CHECK(c1->first_blocknum == c2->first_blocknum);
 	CHECK(c1->peer->dbid == c2->peer->dbid);
@@ -1189,6 +1209,20 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 		    tal_count(c2->shutdown_scriptpubkey[REMOTE])));
 
 	CHECK(c1->last_was_revoke == c2->last_was_revoke);
+
+	i1 = list_top(&c1->inflights, struct channel_inflight, list);
+	i2 = list_top(&c2->inflights, struct channel_inflight, list);
+	CHECK((i1 != NULL) == (i2 != NULL));
+	if (!i1 && !i2)
+		return true;
+
+	while ((i1 = list_next(&c1->inflights, i1, list))) {
+		i2 = list_next(&c2->inflights, i2, list);
+		CHECK(i2 != NULL);
+		CHECK(channel_inflightseq(i1, i2));
+	}
+	/* c2 should also be out of inflights */
+	CHECK(list_next(&c2->inflights, i2, list) == NULL);
 
 	return true;
 }
@@ -1264,6 +1298,8 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	c1.last_sig.s = *sig;
 	c1.last_sig.sighash_type = SIGHASH_ALL;
 	c1.last_tx->chainparams = chainparams_for_network("bitcoin");
+	/* Init channel inflights */
+	list_head_init(&c1.inflights);
 
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
@@ -1353,6 +1389,170 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 
 	/* Normally freed by destroy_channel, but we don't call that */
 	tal_free(p);
+	return true;
+}
+
+static int count_inflights(struct wallet *w, u64 channel_dbid)
+{
+	struct db_stmt *stmt;
+	int count;
+	stmt = db_prepare_v2(w->db, SQL("SELECT COUNT(1)"
+					" FROM channel_funding_inflights"
+					" WHERE channel_id = ?;"));
+	db_bind_u64(stmt, 0, channel_dbid);
+	db_query_prepared(stmt);
+	if (!db_step(stmt))
+		abort();
+	count = db_column_int(stmt, 0);
+	tal_free(stmt);
+	return count;
+}
+
+static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
+{
+	struct wallet *w = create_test_wallet(ld, ctx);
+	struct channel *chan, *c2;
+	struct channel_inflight *inflight;
+	struct bitcoin_txid txid;
+	struct bitcoin_signature sig;
+	struct amount_sat funding_sats, our_sats;
+	struct node_id id;
+	struct pubkey pk;
+	struct wireaddr_internal addr;
+	struct peer *p;
+	struct channel_config our_config;
+	struct channel_id cid;
+	struct bitcoin_tx *last_tx;
+	struct wally_psbt *funding_psbt;
+	struct channel_info *channel_info = tal(w, struct channel_info);
+	struct basepoints basepoints;
+	u32 feerate;
+	u64 dbid;
+
+	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
+	node_id_from_pubkey(&id, &pk);
+	parse_wireaddr_internal("localhost:1234", &addr, 0, false, false, false,
+				NULL);
+
+	/* new channel! */
+	p = new_peer(ld, 0, &id, &addr);
+
+	funding_sats = AMOUNT_SAT(4444444);
+	our_sats = AMOUNT_SAT(3333333);
+	mempat(&sig.s, sizeof(sig.s));
+	mempat(&cid, sizeof(struct channel_id));
+	sig.sighash_type = SIGHASH_ALL;
+
+	/* last_tx taken from BOLT #3 */
+	last_tx = bitcoin_tx_from_hex(w, "02000000000101bef67e4e2fb9ddeeb3461973cd4c62abb35050b1add772995b820b584a488489000000000038b02b8003a00f0000000000002200208c48d15160397c9731df9bc3b236656efb6665fbfe92b4a6878e88a499f741c4c0c62d0000000000160014ccf1af2f2aabee14bb40fa3851ab2301de843110ae8f6a00000000002200204adb4e2f00643db396dd120d4e7dc17625f5f2c11a40d857accc862d6b7dd80e040047304402206a2679efa3c7aaffd2a447fd0df7aba8792858b589750f6a1203f9259173198a022008d52a0e77a99ab533c36206cb15ad7aeb2aa72b93d4b571e728cb5ec2f6fe260147304402206d6cb93969d39177a09d5d45b583f34966195b77c7e585cf47ac5cce0c90cefb022031d71ae4e33a4e80df7f981d696fbdee517337806a3c7138b7491e2cbb077a0e01475221023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb21030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c152ae3e195220", strlen("02000000000101bef67e4e2fb9ddeeb3461973cd4c62abb35050b1add772995b820b584a488489000000000038b02b8003a00f0000000000002200208c48d15160397c9731df9bc3b236656efb6665fbfe92b4a6878e88a499f741c4c0c62d0000000000160014ccf1af2f2aabee14bb40fa3851ab2301de843110ae8f6a00000000002200204adb4e2f00643db396dd120d4e7dc17625f5f2c11a40d857accc862d6b7dd80e040047304402206a2679efa3c7aaffd2a447fd0df7aba8792858b589750f6a1203f9259173198a022008d52a0e77a99ab533c36206cb15ad7aeb2aa72b93d4b571e728cb5ec2f6fe260147304402206d6cb93969d39177a09d5d45b583f34966195b77c7e585cf47ac5cce0c90cefb022031d71ae4e33a4e80df7f981d696fbdee517337806a3c7138b7491e2cbb077a0e01475221023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb21030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c152ae3e195220"));
+	funding_psbt = psbt_from_b64(w, "cHNidP8BAKACAAAAAqsJSaCMWvfEm4IS9Bfi8Vqz9cM9zxU4IagTn4d6W3vkAAAAAAD+////qwlJoIxa98SbghL0F+LxWrP1wz3PFTghqBOfh3pbe+QBAAAAAP7///8CYDvqCwAAAAAZdqkUdopAu9dAy+gdmI5x3ipNXHE5ax2IrI4kAAAAAAAAGXapFG9GILVT+glechue4O/p+gOcykWXiKwAAAAAAAEHakcwRAIgR1lmF5fAGwNrJZKJSGhiGDR9iYZLcZ4ff89X0eURZYcCIFMJ6r9Wqk2Ikf/REf3xM286KdqGbX+EhtdVRs7tr5MZASEDXNxh/HupccC1AaZGoqg7ECy0OIEhfKaC3Ibi1z+ogpIAAQEgAOH1BQAAAAAXqRQ1RebjO4MsRwUPJNPuuTycA5SLx4cBBBYAFIXRNTfy4mVAWjTbr6nj3aAfuCMIAAAA", strlen("cHNidP8BAKACAAAAAqsJSaCMWvfEm4IS9Bfi8Vqz9cM9zxU4IagTn4d6W3vkAAAAAAD+////qwlJoIxa98SbghL0F+LxWrP1wz3PFTghqBOfh3pbe+QBAAAAAP7///8CYDvqCwAAAAAZdqkUdopAu9dAy+gdmI5x3ipNXHE5ax2IrI4kAAAAAAAAGXapFG9GILVT+glechue4O/p+gOcykWXiKwAAAAAAAEHakcwRAIgR1lmF5fAGwNrJZKJSGhiGDR9iYZLcZ4ff89X0eURZYcCIFMJ6r9Wqk2Ikf/REf3xM286KdqGbX+EhtdVRs7tr5MZASEDXNxh/HupccC1AaZGoqg7ECy0OIEhfKaC3Ibi1z+ogpIAAQEgAOH1BQAAAAAXqRQ1RebjO4MsRwUPJNPuuTycA5SLx4cBBBYAFIXRNTfy4mVAWjTbr6nj3aAfuCMIAAAA"));
+	feerate = 192838;
+	memset(&our_config, 1, sizeof(struct channel_config));
+	our_config.id = 0;
+	memset(&txid, 1, sizeof(txid));
+	basepoints.revocation = pk;
+	basepoints.payment = pk;
+	basepoints.htlc = pk;
+	basepoints.delayed_payment = pk;
+	memset(channel_info, 3, sizeof(*channel_info));
+	channel_info->their_config.id = 0;
+	channel_info->remote_fundingkey = pk;
+	channel_info->theirbase = basepoints;
+	channel_info->remote_per_commit = pk;
+	channel_info->old_remote_per_commit = pk;
+	chan = new_channel(p, wallet_get_channel_dbid(w),
+			   NULL,
+			   DUALOPEND_AWAITING_LOCKIN,
+			   LOCAL, NULL, "billboard",
+			   8, &our_config,
+			   101, 1, 1, 1,
+			   &txid, 1,
+			   funding_sats, AMOUNT_MSAT(0),
+			   our_sats,
+			   false, false,
+			   NULL,
+			   &cid,
+			   AMOUNT_MSAT(3333333000),
+			   AMOUNT_MSAT(33333),
+			   AMOUNT_MSAT(3333333333),
+			   last_tx, &sig,
+			   NULL,
+			   channel_info,
+			   new_fee_states(w, LOCAL, &feerate),
+			   NULL, NULL,
+			   1, false,
+			   NULL,
+			   100, /* first_blocknum */
+			   100, /* min_possible_feerate */
+			   10000, /* max_possible_feerate */
+			   false,
+			   &basepoints,
+			   &pk, NULL,
+			   1000, 100,
+			   NULL, true, true,
+			   NULL,
+			   LOCAL, REASON_UNKNOWN);
+	db_begin_transaction(w->db);
+	CHECK(!wallet_err);
+	wallet_channel_insert(w, chan);
+
+	/* info for the inflight */
+	funding_sats = AMOUNT_SAT(222222);
+	our_sats = AMOUNT_SAT(111111);
+	memset(&txid, 1, sizeof(txid));
+	mempat(&sig.s, sizeof(sig.s));
+
+	inflight = new_inflight(chan, txid, 11, 253,
+				funding_sats,
+				our_sats,
+				funding_psbt,
+				last_tx,
+				sig);
+
+	/* do inflights get correctly added to the channel? */
+	wallet_inflight_add(w, inflight);
+
+	/* do inflights get correctly loaded from the database? */
+	CHECK_MSG(c2 = wallet_channel_load(w, chan->dbid),
+		  tal_fmt(w, "Load from DB"));
+	CHECK_MSG(channelseq(chan, c2), "Compare loaded with saved (v2)");
+	tal_free(c2);
+
+	/* add another inflight, confirm existence */
+	funding_sats = AMOUNT_SAT(666666);
+	our_sats = AMOUNT_SAT(555555);
+	memset(&txid, 2, sizeof(txid));
+	mempat(&sig.s, sizeof(sig.s));
+	inflight = new_inflight(chan, txid, 111, 300,
+				funding_sats,
+				our_sats,
+				funding_psbt,
+				last_tx,
+				sig);
+	wallet_inflight_add(w, inflight);
+	CHECK_MSG(c2 = wallet_channel_load(w, chan->dbid),
+		  tal_fmt(w, "Load from DB"));
+	CHECK_MSG(channelseq(chan, c2), "Compare loaded with saved (v2)");
+	CHECK_MSG(count_inflights(w, chan->dbid) == 2, "inflights exist");
+	tal_free(c2);
+
+	/* Update the PSBT for both inflights, check that are updated
+	 * correctly on save */
+	funding_psbt = psbt_from_b64(w, "cHNidP8BAD8CAAAAAf//////////////////////////////////////////AAAAAAD/////AQAAAAAAAAAAA2oBAAAAAAAACg8BAgMEBQYHCAkPAQIDBAUGBwgJCgsMDQ4PAAA=", strlen("cHNidP8BAD8CAAAAAf//////////////////////////////////////////AAAAAAD/////AQAAAAAAAAAAA2oBAAAAAAAACg8BAgMEBQYHCAkPAQIDBAUGBwgJCgsMDQ4PAAA="));
+	list_for_each(&chan->inflights, inflight, list)
+		inflight->funding_psbt = funding_psbt;
+	wallet_channel_save(w, chan);
+	CHECK_MSG(c2 = wallet_channel_load(w, chan->dbid),
+		  tal_fmt(w, "Load from DB"));
+	CHECK_MSG(channelseq(chan, c2), "Compare loaded with saved (v2)");
+	tal_free(c2);
+
+	/* do inflights get cleared when the channel is closed?*/
+	dbid = chan->dbid;
+	delete_channel(chan); /* Also clears up peer! */
+	CHECK_MSG(count_inflights(w, dbid) == 0, "inflights cleaned up");
+	db_commit_transaction(w->db);
+	CHECK_MSG(!wallet_err, wallet_err);
 	return true;
 }
 
@@ -1572,7 +1772,9 @@ int main(int argc, const char *argv[])
 	ok &= test_wallet_outputs(ld, tmpctx);
 	ok &= test_shachain_crud(ld, tmpctx);
 	ok &= test_channel_crud(ld, tmpctx);
+	ok &= test_channel_inflight_crud(ld, tmpctx);
 	ok &= test_channel_config_crud(ld, tmpctx);
+	ok &= test_channel_inflight_crud(ld, tmpctx);
 	ok &= test_htlc_crud(ld, tmpctx);
 	ok &= test_payment_crud(ld, tmpctx);
 	ok &= test_wallet_payment_status_enum();

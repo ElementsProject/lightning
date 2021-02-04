@@ -945,6 +945,119 @@ static struct fee_states *wallet_channel_fee_states_load(struct wallet *w,
 	return fee_states;
 }
 
+void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
+{
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(w->db,
+			     SQL("INSERT INTO channel_funding_inflights ("
+				 "  channel_id"
+				 ", funding_tx_id"
+				 ", funding_tx_outnum"
+				 ", funding_feerate"
+				 ", funding_satoshi"
+				 ", our_funding_satoshi"
+				 ", funding_psbt"
+				 ", last_tx"
+				 ", last_sig"
+				 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+
+	db_bind_u64(stmt, 0, inflight->channel->dbid);
+	db_bind_txid(stmt, 1, &inflight->funding->txid);
+	db_bind_int(stmt, 2, inflight->funding->outnum);
+	db_bind_int(stmt, 3, inflight->funding->feerate);
+	db_bind_amount_sat(stmt, 4, &inflight->funding->total_funds);
+	db_bind_amount_sat(stmt, 5, &inflight->funding->our_funds);
+	db_bind_psbt(stmt, 6, inflight->funding_psbt);
+	db_bind_tx(stmt, 7, inflight->last_tx->wtx);
+	db_bind_signature(stmt, 8, &inflight->last_sig.s);
+	db_exec_prepared_v2(stmt);
+	assert(!stmt->error);
+	tal_free(stmt);
+}
+
+void wallet_inflight_save(struct wallet *w,
+			  struct channel_inflight *inflight)
+{
+	struct db_stmt *stmt;
+	/* The *only* thing you can update on an
+	 * inflight is the funding PSBT (to add sigs)
+	 * ((and maybe later the last_tx/last_sig if this is for
+	 * a splice */
+	stmt = db_prepare_v2(w->db,
+			     SQL("UPDATE channel_funding_inflights SET"
+				 "  funding_psbt=?" // 0
+				 " WHERE"
+				 "  channel_id=?" // 1
+				 " AND funding_tx_id=?" // 2
+				 " AND funding_tx_outnum=?")); // 3
+	db_bind_psbt(stmt, 0, inflight->funding_psbt);
+	db_bind_u64(stmt, 1, inflight->channel->dbid);
+	db_bind_txid(stmt, 2, &inflight->funding->txid);
+	db_bind_int(stmt, 3, inflight->funding->outnum);
+
+	db_exec_prepared_v2(take(stmt));
+}
+
+static struct channel_inflight *
+wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
+		     struct channel *chan)
+{
+	struct amount_sat funding_sat, our_funding_sat;
+	struct bitcoin_txid funding_txid;
+	struct bitcoin_signature last_sig;
+
+	db_column_txid(stmt, 0, &funding_txid);
+	db_column_amount_sat(stmt, 3, &funding_sat);
+	db_column_amount_sat(stmt, 4, &our_funding_sat);
+	if (!db_column_signature(stmt, 7, &last_sig.s))
+		return NULL;
+
+	last_sig.sighash_type = SIGHASH_ALL;
+
+	return new_inflight(chan, funding_txid,
+			    db_column_int(stmt, 1),
+			    db_column_int(stmt, 2),
+			    funding_sat,
+			    our_funding_sat,
+			    db_column_psbt(tmpctx, stmt, 5),
+			    db_column_tx(tmpctx, stmt, 6),
+			    last_sig);
+}
+
+static bool wallet_channel_load_inflights(struct wallet *w,
+					  struct channel *chan)
+{
+	bool ok = true;
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					"  funding_tx_id" // 0
+					", funding_tx_outnum" // 1
+					", funding_feerate" // 2
+					", funding_satoshi" // 3
+					", our_funding_satoshi" // 4
+					", funding_psbt" // 5
+					", last_tx" // 6
+					", last_sig" // 7
+					" FROM channel_funding_inflights"
+					" WHERE channel_id = ?")); // ?0
+
+	db_bind_u64(stmt, 0, chan->dbid);
+	db_query_prepared(stmt);
+
+	while (db_step(stmt)) {
+		struct channel_inflight *inflight;
+		inflight = wallet_stmt2inflight(w, stmt, chan);
+		if (!inflight) {
+			ok = false;
+			break;
+		}
+
+	}
+	tal_free(stmt);
+	return ok;
+}
+
 /**
  * wallet_stmt2channel - Helper to populate a wallet_channel from a `db_stmt`
  */
@@ -1127,6 +1240,11 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   psbt,
 			   db_column_int(stmt, 52),
 			   db_column_int(stmt, 53));
+
+	if (!wallet_channel_load_inflights(w, chan)) {
+		tal_free(chan);
+		return NULL;
+	}
 
 	return chan;
 }
@@ -1589,6 +1707,11 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	stmt = db_prepare_v2(w->db, SQL("UPDATE channels SET"
 					"  last_sent_commit=?"
 					" WHERE id=?"));
+	/* Update the inflights also */
+	struct channel_inflight *inflight;
+	list_for_each(&chan->inflights, inflight, list)
+		wallet_inflight_save(w, inflight);
+
 	db_bind_talarr(stmt, 0, last_sent_commit);
 	db_bind_u64(stmt, 1, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
@@ -1740,6 +1863,13 @@ void wallet_channel_close(struct wallet *w, u64 wallet_id)
 	/* Delete entries from `htlc_sigs` */
 	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channeltxs "
 					"WHERE channel_id=?"));
+	db_bind_u64(stmt, 0, wallet_id);
+	db_exec_prepared_v2(take(stmt));
+
+	/* Delete any entries from 'inflights' */
+	stmt = db_prepare_v2(w->db,
+			     SQL("DELETE FROM channel_funding_inflights "
+				 " WHERE channel_id=?"));
 	db_bind_u64(stmt, 0, wallet_id);
 	db_exec_prepared_v2(take(stmt));
 

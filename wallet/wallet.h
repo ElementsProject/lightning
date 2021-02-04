@@ -26,6 +26,7 @@
 struct amount_msat;
 struct invoices;
 struct channel;
+struct channel_inflight;
 struct lightningd;
 struct node_id;
 struct oneshot;
@@ -507,6 +508,17 @@ void wallet_channel_save(struct wallet *w, struct channel *chan);
  * @chan: the instance to store
  */
 void wallet_channel_insert(struct wallet *w, struct channel *chan);
+
+/**
+ * Save an inflight transaction for a channel
+ */
+void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight);
+
+/**
+ * Update an existing inflight channel transaction
+ */
+void wallet_inflight_save(struct wallet *w,
+			  struct channel_inflight *inflight);
 
 /**
  * After fully resolving a channel, only keep a lightweight stub

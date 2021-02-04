@@ -891,6 +891,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "CREATE TABLE channel_funding_inflights (  channel_id BIGSERIAL REFERENCES channels(id) ON DELETE CASCADE, funding_tx_id BLOB, funding_tx_outnum INTEGER, funding_feerate INTEGER, funding_satoshi BIGINT, our_funding_satoshi BIGINT, funding_psbt BLOB, last_tx BLOB, last_sig BLOB, funding_tx_remote_sigs_received INTEGER, PRIMARY KEY (channel_id, funding_tx_id));",
+         .query = "CREATE TABLE channel_funding_inflights (  channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE, funding_tx_id BLOB, funding_tx_outnum INTEGER, funding_feerate INTEGER, funding_satoshi INTEGER, our_funding_satoshi INTEGER, funding_psbt BLOB, last_tx BLOB, last_sig BLOB, funding_tx_remote_sigs_received INTEGER, PRIMARY KEY (channel_id, funding_tx_id));",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
          .name = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .query = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .placeholders = 1,
@@ -1203,6 +1209,24 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = true,
     },
     {
+         .name = "INSERT INTO channel_funding_inflights (  channel_id, funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);",
+         .query = "INSERT INTO channel_funding_inflights (  channel_id, funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);",
+         .placeholders = 9,
+         .readonly = false,
+    },
+    {
+         .name = "UPDATE channel_funding_inflights SET  funding_psbt=? WHERE  channel_id=? AND funding_tx_id=? AND funding_tx_outnum=?",
+         .query = "UPDATE channel_funding_inflights SET  funding_psbt=? WHERE  channel_id=? AND funding_tx_id=? AND funding_tx_outnum=?",
+         .placeholders = 4,
+         .readonly = false,
+    },
+    {
+         .name = "SELECT  funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig FROM channel_funding_inflights WHERE channel_id = ?",
+         .query = "SELECT  funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig FROM channel_funding_inflights WHERE channel_id = ?",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
          .name = "SELECT id FROM channels ORDER BY id DESC LIMIT 1;",
          .query = "SELECT id FROM channels ORDER BY id DESC LIMIT 1;",
          .placeholders = 0,
@@ -1355,6 +1379,12 @@ struct db_query db_sqlite3_queries[] = {
     {
          .name = "DELETE FROM channeltxs WHERE channel_id=?",
          .query = "DELETE FROM channeltxs WHERE channel_id=?",
+         .placeholders = 1,
+         .readonly = false,
+    },
+    {
+         .name = "DELETE FROM channel_funding_inflights  WHERE channel_id=?",
+         .query = "DELETE FROM channel_funding_inflights  WHERE channel_id=?",
          .placeholders = 1,
          .readonly = false,
     },
@@ -1785,6 +1815,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "SELECT COUNT(1) FROM channel_funding_inflights WHERE channel_id = ?;",
+         .query = "SELECT COUNT(1) FROM channel_funding_inflights WHERE channel_id = ?;",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
          .name = "INSERT INTO channels (id) VALUES (1);",
          .query = "INSERT INTO channels (id) VALUES (1);",
          .placeholders = 0,
@@ -1792,10 +1828,10 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
-#define DB_SQLITE3_QUERY_COUNT 297
+#define DB_SQLITE3_QUERY_COUNT 303
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:bbe38ba26543917c2c8be0eeba93c2d0345b51f7f29803e30cc3f03aaf077798
+// SHA256STAMP:044504d8dccba17231afc233809d113884b6e73ef6a3b414d061df94982755a5
