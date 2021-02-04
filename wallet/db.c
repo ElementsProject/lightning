@@ -669,11 +669,24 @@ static struct migration dbmigrations[] = {
     /* A reference into our own offers table, if it was made from one */
     {SQL("ALTER TABLE payments ADD COLUMN local_offer_id BLOB DEFAULT NULL REFERENCES offers(offer_id);"), NULL},
     {SQL("ALTER TABLE channels ADD funding_tx_remote_sigs_received INTEGER DEFAULT 0;"), NULL},
-
     /* Speeds up deletion of one peer from the database, measurements suggest
      * it cuts down the time by 80%.  */
     {SQL("CREATE INDEX forwarded_payments_out_htlc_id"
 	 " ON forwarded_payments (out_htlc_id);"), NULL},
+    {SQL("CREATE TABLE channel_funding_inflights ("
+	 "  channel_id BIGSERIAL REFERENCES channels(id) ON DELETE CASCADE"
+	 ", funding_tx_id BLOB"
+	 ", funding_tx_outnum INTEGER"
+	 ", funding_feerate INTEGER"
+	 ", funding_satoshi BIGINT"
+	 ", our_funding_satoshi BIGINT"
+	 ", funding_psbt BLOB"
+	 ", last_tx BLOB"
+	 ", last_sig BLOB"
+	 ", funding_tx_remote_sigs_received INTEGER"
+	 ", PRIMARY KEY (channel_id, funding_tx_id)"
+	 ");"),
+    NULL},
 };
 
 /* Leak tracking. */
