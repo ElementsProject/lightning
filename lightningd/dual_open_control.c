@@ -961,6 +961,59 @@ static void channel_update_reserve(struct channel *channel,
 /* Steals fields from uncommitted_channel: returns NULL if can't generate a
  * key for this channel (shouldn't happen!). */
 static struct channel_inflight *
+wallet_update_channel(struct lightningd *ld,
+		      struct channel *channel,
+		      struct bitcoin_tx *remote_commit STEALS,
+		      struct bitcoin_signature *remote_commit_sig,
+		      const struct bitcoin_txid *funding_txid,
+		      u16 funding_outnum,
+		      struct amount_sat total_funding,
+		      struct amount_sat our_funding,
+		      u32 funding_feerate,
+		      struct wally_psbt *psbt STEALS)
+{
+	struct amount_msat our_msat;
+	struct channel_inflight *inflight;
+
+	if (!amount_sat_to_msat(&our_msat, our_funding)) {
+		log_broken(channel->log, "Unable to convert funds");
+		return NULL;
+	}
+
+	assert(channel->unsaved_dbid == 0);
+	assert(channel->dbid != 0);
+
+	channel->funding_txid = *funding_txid;
+	channel->funding_outnum = funding_outnum;
+	channel->funding = total_funding;
+	channel->our_funds = our_funding;
+	channel->our_msat = our_msat;
+	channel->msat_to_us_min = our_msat;
+	channel->msat_to_us_max = our_msat;
+	channel->last_tx = tal_steal(channel, remote_commit);
+	channel->last_sig = *remote_commit_sig;
+
+	/* Update in database */
+	wallet_channel_save(ld->wallet, channel);
+
+	/* Add open attempt to channel's inflights */
+	inflight = new_inflight(channel,
+				channel->funding_txid,
+				channel->funding_outnum,
+				funding_feerate,
+				channel->funding,
+				channel->our_funds,
+				psbt,
+				channel->last_tx,
+				channel->last_sig);
+	wallet_inflight_add(ld->wallet, inflight);
+	channel->open_attempt = NULL;
+
+	return inflight;
+}
+
+/* Returns NULL if can't generate a key for this channel (Shouldn't happen) */
+static struct channel_inflight *
 wallet_commit_channel(struct lightningd *ld,
 		      struct channel *channel,
 		      struct bitcoin_tx *remote_commit,
@@ -2285,43 +2338,74 @@ static void handle_commit_received(struct subd *dualopend,
 		log_broken(channel->log, "bad WIRE_DUALOPEND_COMMIT_RCVD %s",
 			   tal_hex(msg, msg));
 		err_reason = "bad WIRE_DUALOPEND_COMMIT_RCVD";
-		unsaved_channel_disconnect(channel, LOG_BROKEN, err_reason);
+		if (channel->state == DUALOPEND_OPEN_INIT)
+			unsaved_channel_disconnect(channel, LOG_BROKEN,
+						   err_reason);
+		else {
+			/*  FIXME: handle disconnect */
+		}
 		goto failed;
 	}
 
-	if (peer_active_channel(channel->peer)) {
-		err_reason = "already have active channel";
-		unsaved_channel_disconnect(channel, LOG_BROKEN, err_reason);
-		goto failed;
-	}
 	/* We need to update the channel reserve on the config */
 	channel_update_reserve(channel,
 			       &channel_info.their_config,
 			       total_funding);
 
+	if (channel->state == DUALOPEND_OPEN_INIT) {
+		if (peer_active_channel(channel->peer)) {
+			err_reason = "already have active channel";
+			unsaved_channel_disconnect(channel, LOG_BROKEN,
+						   err_reason);
+			goto failed;
+		}
 
-	if (!(inflight = wallet_commit_channel(ld, channel,
-					       remote_commit,
-					       &remote_commit_sig,
-					       &funding_txid,
-					       funding_outnum,
-					       total_funding,
-					       funding_ours,
-					       &channel_info,
-					       feerate_funding,
-					       feerate_commitment,
-					       oa->role == TX_INITIATOR ?
-							oa->our_upfront_shutdown_script :
-							local_upfront_shutdown_script,
-					       remote_upfront_shutdown_script,
-					       psbt))) {
-		err_reason = "commit channel failed";
-		unsaved_channel_disconnect(channel, LOG_BROKEN, err_reason);
-		goto failed;
+		if (!(inflight = wallet_commit_channel(ld, channel,
+						       remote_commit,
+						       &remote_commit_sig,
+						       &funding_txid,
+						       funding_outnum,
+						       total_funding,
+						       funding_ours,
+						       &channel_info,
+						       feerate_funding,
+						       feerate_commitment,
+						       oa->role == TX_INITIATOR ?
+								oa->our_upfront_shutdown_script :
+								local_upfront_shutdown_script,
+						       remote_upfront_shutdown_script,
+						       psbt))) {
+			err_reason = "commit channel failed";
+			unsaved_channel_disconnect(channel, LOG_BROKEN,
+						   err_reason);
+			goto failed;
+		}
+
+		/* FIXME: handle RBF pbases */
+		if (pbase)
+			wallet_penalty_base_add(ld->wallet,
+						channel->dbid,
+						pbase);
+
+	} else {
+		assert(channel->state == DUALOPEND_AWAITING_LOCKIN);
+		assert(oa);
+
+		if (!(inflight = wallet_update_channel(ld, channel,
+						       remote_commit,
+						       &remote_commit_sig,
+						       &funding_txid,
+						       funding_outnum,
+						       total_funding,
+						       funding_ours,
+						       feerate_funding,
+						       psbt))) {
+			err_reason = "update channel failed";
+			/* FIXME: rbf problem ! */
+			goto failed;
+		}
+
 	}
-
-	if (pbase)
-		wallet_penalty_base_add(ld->wallet, channel->dbid, pbase);
 
 	switch (oa->role) {
 	case TX_INITIATOR:
@@ -2330,8 +2414,12 @@ static void handle_commit_received(struct subd *dualopend,
 					     "Unexpected COMMIT_RCVD %s",
 					     tal_hex(msg, msg));
 
-			unsaved_channel_disconnect(channel, LOG_UNUSUAL,
-						   err_reason);
+			if (channel->state == DUALOPEND_OPEN_INIT)
+				unsaved_channel_disconnect(channel, LOG_BROKEN,
+							   err_reason);
+			else {
+				/*  FIXME: handle disconnect */
+			}
 			goto failed;
 		}
 		response = json_stream_success(oa->cmd);
