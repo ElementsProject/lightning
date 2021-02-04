@@ -38,6 +38,7 @@ extensions = [
     'sphinx.ext.githubpages',
     'sphinx.ext.graphviz',
     'sphinx.ext.autodoc',
+    'recommonmark',
 ]
 
 source_parsers = {
