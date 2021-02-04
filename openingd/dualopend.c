@@ -2740,6 +2740,10 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	check_channel_id(state, &cid, &state->channel_id);
 	peer_billboard(false, "channel rbf: init received from peer");
 
+	if (state->our_role == TX_INITIATOR)
+		rbf_failed(state, "Only the channel initiator is allowed"
+			   " to initiate RBF");
+
 	/* Have you sent us everything we need yet ? */
 	if (!state->tx_state->remote_funding_sigs_rcvd)
 		rbf_failed(state, "Last funding attempt not complete:"
