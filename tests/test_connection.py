@@ -962,11 +962,17 @@ def test_v2_open(node_factory, bitcoind, chainparams):
     # Wait for it to arrive.
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
 
-    l1.rpc.fundchannel(l2.info['id'], 100000)
+    l1.rpc.fundchannel(l2.info['id'], 'all')
 
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, [l1])
     l1.daemon.wait_for_log(' to CHANNELD_NORMAL')
+
+    # Send a payment over the channel
+    p = l2.rpc.invoice(100000, 'testpayment', 'desc')
+    l1.rpc.pay(p['bolt11'])
+    result = l1.rpc.waitsendpay(p['payment_hash'])
+    assert(result['status'] == 'complete')
 
 
 def test_funding_push(node_factory, bitcoind, chainparams):
