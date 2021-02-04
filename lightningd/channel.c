@@ -1,3 +1,4 @@
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/tal/str/str.h>
@@ -141,6 +142,46 @@ void get_channel_basepoints(struct lightningd *ld,
 						       local_funding_pubkey))
 		fatal("HSM gave bad hsm_get_channel_basepoints_reply %s",
 		      tal_hex(msg, msg));
+}
+
+static void destroy_inflight(struct channel_inflight *inflight)
+{
+	list_del_from(&inflight->channel->inflights, &inflight->list);
+}
+
+struct channel_inflight *
+new_inflight(struct channel *channel,
+	     const struct bitcoin_txid funding_txid,
+	     u16 funding_outnum,
+	     u32 funding_feerate,
+	     struct amount_sat total_funds,
+	     struct amount_sat our_funds,
+	     struct wally_psbt *psbt STEALS,
+	     struct bitcoin_tx *last_tx STEALS,
+	     const struct bitcoin_signature last_sig)
+{
+	struct channel_inflight *inflight
+		= tal(channel, struct channel_inflight);
+	struct funding_info *funding
+		= tal(inflight, struct funding_info);
+
+	funding->txid = funding_txid;
+	funding->total_funds = total_funds;
+	funding->outnum = funding_outnum;
+	funding->feerate = funding_feerate;
+	funding->our_funds = our_funds;
+
+	inflight->funding = funding;
+	inflight->channel = channel,
+	inflight->remote_tx_sigs = false,
+	inflight->funding_psbt = tal_steal(inflight, psbt);
+	inflight->last_tx = tal_steal(inflight, last_tx);
+	inflight->last_sig = last_sig;
+
+	list_add_tail(&channel->inflights, &inflight->list);
+	tal_add_destructor(inflight, destroy_inflight);
+
+	return inflight;
 }
 
 struct channel *new_channel(struct peer *peer, u64 dbid,
@@ -293,6 +334,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	list_add_tail(&peer->channels, &channel->list);
 	channel->rr_number = peer->ld->rr_counter++;
 	tal_add_destructor(channel, destroy_channel);
+
+	list_head_init(&channel->inflights);
 
 	channel->closer = closer;
 	channel->state_change_cause = reason;

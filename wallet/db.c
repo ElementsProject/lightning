@@ -676,6 +676,20 @@ static struct migration dbmigrations[] = {
     {SQL("UPDATE channel_htlcs SET malformed_onion = 0 WHERE malformed_onion IS NULL"), NULL},
     /*  Speed up forwarded_payments lookup based on state */
     {SQL("CREATE INDEX forwarded_payments_state ON forwarded_payments (state)"), NULL},
+    {SQL("CREATE TABLE channel_funding_inflights ("
+	 "  channel_id BIGSERIAL REFERENCES channels(id) ON DELETE CASCADE"
+	 ", funding_tx_id BLOB"
+	 ", funding_tx_outnum INTEGER"
+	 ", funding_feerate INTEGER"
+	 ", funding_satoshi BIGINT"
+	 ", our_funding_satoshi BIGINT"
+	 ", funding_psbt BLOB"
+	 ", last_tx BLOB"
+	 ", last_sig BLOB"
+	 ", funding_tx_remote_sigs_received INTEGER"
+	 ", PRIMARY KEY (channel_id, funding_tx_id)"
+	 ");"),
+    NULL},
 };
 
 /* Leak tracking. */
