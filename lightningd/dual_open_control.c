@@ -1807,6 +1807,11 @@ json_openchannel_bump(struct command *cmd,
 				    " Current state %s, expected state %s",
 				    channel_state_name(channel),
 				    channel_state_str(DUALOPEND_AWAITING_LOCKIN));
+	if (channel->opener != LOCAL)
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "Only the channel opener can initiate an"
+				    " RBF attempt");
+
 	/* Ok, we're kosher to start */
 	channel->open_attempt = oa = new_channel_open_attempt(channel);
 	oa->funding = *amount;
