@@ -1175,19 +1175,24 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
     """
     amount = 10**8
     disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
-
+    plugin = os.path.join(
+        os.path.dirname(__file__),
+        'plugins',
+        'forward_payment_status.py'
+    )
     l1, l2, l3, l4, l5 = node_factory.get_nodes(5, opts=[
         {},
-        {'plugin': os.path.join(os.getcwd(), 'tests/plugins/forward_payment_status.py')},
+        {'plugin': plugin},
         {},
         {},
         {'disconnect': disconnects}])
 
-    node_factory.join_nodes([l1, l2, l3], wait_for_announce=True)
-    l2.openchannel(l4, wait_for_announce=False)
-    l2.openchannel(l5, wait_for_announce=True)
+    l1.openchannel(l2, confirm=False)
+    l2.openchannel(l3, confirm=False)
+    l2.openchannel(l4, confirm=False)
+    l2.openchannel(l5, confirm=False)
     sync_blockheight(bitcoind, [l1, l2, l3, l4, l5])
-    bitcoind.generate_block(5)
+    bitcoind.generate_block(6)
 
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 8)
 
