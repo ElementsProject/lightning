@@ -22,6 +22,7 @@ const char *peer_wire_name(int e)
 	switch ((enum peer_wire)e) {
 	case WIRE_INIT: return "WIRE_INIT";
 	case WIRE_ERROR: return "WIRE_ERROR";
+	case WIRE_WARNING: return "WIRE_WARNING";
 	case WIRE_PING: return "WIRE_PING";
 	case WIRE_PONG: return "WIRE_PONG";
 	case WIRE_OPEN_CHANNEL: return "WIRE_OPEN_CHANNEL";
@@ -60,6 +61,7 @@ bool peer_wire_is_defined(u16 type)
 	switch ((enum peer_wire)type) {
 	case WIRE_INIT:;
 	case WIRE_ERROR:;
+	case WIRE_WARNING:;
 	case WIRE_PING:;
 	case WIRE_PONG:;
 	case WIRE_OPEN_CHANNEL:;
@@ -815,6 +817,36 @@ bool fromwire_error(const tal_t *ctx, const void *p, struct channel_id *channel_
 	size_t plen = tal_count(p);
 
 	if (fromwire_u16(&cursor, &plen) != WIRE_ERROR)
+		return false;
+ 	fromwire_channel_id(&cursor, &plen, channel_id);
+ 	len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case data
+	*data = len ? tal_arr(ctx, u8, len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *data, len);
+	return cursor != NULL;
+}
+
+/* WIRE: WARNING */
+u8 *towire_warning(const tal_t *ctx, const struct channel_id *channel_id, const u8 *data)
+{
+	u16 len = tal_count(data);
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_WARNING);
+	towire_channel_id(&p, channel_id);
+	towire_u16(&p, len);
+	towire_u8_array(&p, data, len);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_warning(const tal_t *ctx, const void *p, struct channel_id *channel_id, u8 **data)
+{
+	u16 len;
+
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_WARNING)
 		return false;
  	fromwire_channel_id(&cursor, &plen, channel_id);
  	len = fromwire_u16(&cursor, &plen);
@@ -1717,4 +1749,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
  	*htlc_maximum_msat = fromwire_amount_msat(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:9f70670271b0856273026df920106d9c2ef2b60a1fa7c9c687e83a38d7d85a00
+// SHA256STAMP:d0f5b313c478153542610f14d7c6b39c1121b6a6b08fb72f3d427a103243b990
