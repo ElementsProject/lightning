@@ -820,3 +820,30 @@ void psbt_txid(const tal_t *ctx,
 	else
 		wally_tx_free(tx);
 }
+
+struct amount_sat psbt_compute_fee(struct wally_psbt *psbt)
+{
+	struct amount_sat fee, input_amt;
+	struct amount_asset asset;
+	bool ok;
+
+	fee = AMOUNT_SAT(0);
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		input_amt = psbt_input_get_amount(psbt, i);
+		ok = amount_sat_add(&fee, fee, input_amt);
+		assert(ok);
+	}
+
+	for (size_t i = 0; i < psbt->num_outputs; i++) {
+		asset = wally_tx_output_get_amount(&psbt->tx->outputs[i]);
+		if (!amount_asset_is_main(&asset)
+		    || elements_wtx_output_is_fee(psbt->tx, i))
+			continue;
+
+		ok = amount_sat_sub(&fee, fee, amount_asset_to_sat(&asset));
+		if (!ok)
+			return AMOUNT_SAT(0);
+	}
+
+	return fee;
+}
