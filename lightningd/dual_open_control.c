@@ -1612,6 +1612,7 @@ static void handle_validate_rbf(struct subd *dualopend,
 	struct channel_inflight *inflight;
 	struct channel *channel = dualopend->channel;
 	bool *inputs_present;
+	struct amount_sat candidate_fee, last_fee;
 
 	if (!fromwire_dualopend_rbf_validate(tmpctx, msg,
 					     &candidate_psbt)) {
@@ -1624,7 +1625,9 @@ static void handle_validate_rbf(struct subd *dualopend,
 	inputs_present = tal_arr(tmpctx, bool, candidate_psbt->num_inputs);
 	memset(inputs_present, true, tal_bytelen(inputs_present));
 
-	/* Check all previous funding transactions */
+	/* Iterate through all previous inflights, confirm
+	 * that at least one input is in all proposed RBFs, including
+	 * this one. */
 	list_for_each(&channel->inflights, inflight, list) {
 		/* Remove every non-matching input from set */
 		for (size_t i = 0; i < candidate_psbt->num_inputs; i++) {
@@ -1661,7 +1664,34 @@ static void handle_validate_rbf(struct subd *dualopend,
 		goto send_msg;
 	}
 
-	/* FIXME: check that total fee paid is greater than last */
+	candidate_fee = psbt_compute_fee(candidate_psbt);
+
+	inflight = list_tail(&channel->inflights,
+			     struct channel_inflight,
+			     list);
+	assert(inflight);
+	last_fee = psbt_compute_fee(inflight->funding_psbt);
+
+	/* BOLT-8edf819f1de3b110653f0b21594a04cfd03d5240 #2:
+	 *
+	 * The receiving node:
+	 * - if this is an RBF attempt:
+	 *  - MUST fail the RBF attempt if:
+	 *    - the completed transaction's total fees paid
+	 *      is less than the last successful funding transaction's fees.
+	 */
+	if (!amount_sat_greater(candidate_fee, last_fee)) {
+		char *errmsg = tal_fmt(tmpctx, "Proposed funding tx fee (%s)"
+				       " less than/equal to last (%s)",
+				       type_to_string(tmpctx,
+						      struct amount_sat,
+						      &candidate_fee),
+				       type_to_string(tmpctx,
+						      struct amount_sat,
+						      &last_fee));
+		msg = towire_dualopend_fail(NULL, errmsg);
+		goto send_msg;
+	}
 
 	msg = towire_dualopend_rbf_valid(NULL);
 
