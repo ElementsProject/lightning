@@ -25,6 +25,7 @@ Sets configuration file (default: **lightning-dir**/*config* ).
  **--mainnet**
  **--testnet**
  **--signet**
+ **--regtest**
 Sets network explicitly.
 
  **--rpc-file**=*FILE*
@@ -83,20 +84,27 @@ ARGUMENTS
 ---------
 
 Arguments may be provided positionally or using *key*=*value* after the
-command name, based on either **-o** or **-k** option. Arguments may be
-integer numbers (composed entirely of digits), floating-point numbers
-(has a radix point but otherwise composed of digits), *true*, *false*,
+command name, based on either **-o** or **-k** option. When using **-k** 
+consider prefixing all arguments of the command with their respective keyword, 
+this is to avoid having lightningd intrepret the position of an arguement. 
+
+Arguments may be integer numbers (composed entirely of digits), floating-point 
+numbers (has a radix point but otherwise composed of digits), *true*, *false*,
 or *null*. Other arguments are treated as strings.
 
 Some commands have optional arguments. You may use *null* to skip
-optional arguments to provide later arguments.
+optional arguments to provide later arguments, although this is not encouraged.
 
 EXAMPLES
 --------
 
-Example 1. List commands
+1. List commands
 
 lightning-cli help
+
+2. Fund a 10k sat channel using uncomfirmed outputs
+
+lightning-cli --keywords fundchannel id=028f...ae7d amount=10000sat minconf=0
 
 BUGS
 ----
