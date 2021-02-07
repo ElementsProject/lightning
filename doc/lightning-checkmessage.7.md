@@ -1,4 +1,4 @@
-lightning-checkmessage -- Command to check a signature is from a node
+lightning-checkmessage -- Command to check if a signature is from a node
 =====================================================================
 
 SYNOPSIS
