@@ -807,6 +807,12 @@ static struct command_result *payment_getroute(struct payment *p)
 	p->step = PAYMENT_STEP_GOT_ROUTE;
 	p->route = route_hops_from_route(p, p, r);
 
+	if (tal_count(p->route) == 0) {
+		payment_root(p)->abort = true;
+		payment_fail(p, "Empty route returned by getroute, are you "
+				"trying to pay yourself?");
+	}
+
 	fee = payment_route_fee(p);
 
 	/* Ensure that our fee and CLTV budgets are respected. */
