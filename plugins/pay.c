@@ -2105,6 +2105,11 @@ static struct command_result *json_paymod(struct command *cmd,
 		p->amount = *msat;
 	}
 
+	if (node_id_eq(&my_id, p->destination))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "This payment is destined for ourselves. "
+				    "Self-payments are not supported");
+
 	p->local_id = &my_id;
 	p->json_buffer = tal_steal(p, buf);
 	p->json_toks = params;
