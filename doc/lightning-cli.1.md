@@ -25,7 +25,6 @@ Sets configuration file (default: **lightning-dir**/*config* ).
  **--mainnet**
  **--testnet**
  **--signet**
- **--regtest**
 Sets network explicitly.
 
  **--rpc-file**=*FILE*
