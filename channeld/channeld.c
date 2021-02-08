@@ -1875,7 +1875,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		return;
 	case WIRE_INIT_RBF:
 	case WIRE_ACK_RBF:
-	case WIRE_FAIL_RBF:
 	case WIRE_BLACKLIST_PODLE:
 #endif
 		break;
