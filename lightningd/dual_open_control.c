@@ -103,7 +103,6 @@ static void handle_signed_psbt(struct lightningd *ld,
 					  &txid),
 			   type_to_string(tmpctx, struct bitcoin_txid,
 					  &inflight->funding_txid));
-		/* FIXME: what's the ideal error handling here ? */
 		subd_send_msg(dualopend,
 			      take(towire_dualopend_fail(NULL,
 							 "Peer error with PSBT"
@@ -1202,72 +1201,6 @@ static void handle_channel_closed(struct subd *dualopend,
 			  CLOSINGD_SIGEXCHANGE,
 			  REASON_UNKNOWN,
 			  "Start closingd");
-}
-
-static void
-opening_failed_cancel_commands(struct channel *channel,
-			       struct open_attempt *oa,
-			       const char *desc)
-{
-	if (oa->cmd)
-		was_pending(command_fail(oa->cmd, LIGHTNINGD, "%s", desc));
-
-	/* FIXME: cancels? */
-
-	channel->open_attempt = tal_free(channel->open_attempt);
-	if (list_empty(&channel->inflights))
-		memset(&channel->cid, 0xFF, sizeof(channel->cid));
-}
-
-static void open_failed(struct subd *dualopend, const u8 *msg)
-{
-	char *desc;
-	struct channel *channel = dualopend->channel;
-	struct open_attempt *oa = channel->open_attempt;
-
-	if (!fromwire_dualopend_failed(msg, msg, &desc)) {
-		log_broken(channel->log,
-			   "Bad DUALOPEND_FAILED %s",
-			   tal_hex(msg, msg));
-
-		if (oa->cmd)
-			was_pending(command_fail(oa->cmd, LIGHTNINGD, "%s",
-						 tal_hex(oa->cmd, msg)));
-
-		notify_channel_open_failed(dualopend->ld, &channel->cid);
-		subd_release_channel(dualopend, channel);
-		channel->open_attempt = tal_free(channel->open_attempt);
-		return;
-	}
-
-	notify_channel_open_failed(dualopend->ld, &channel->cid);
-	opening_failed_cancel_commands(channel, oa, desc);
-}
-
-static void rbf_failed(struct subd *dualopend, const u8 *msg)
-{
-	char *desc;
-	struct channel *channel = dualopend->channel;
-	struct open_attempt *oa = channel->open_attempt;
-
-	if (!fromwire_dualopend_rbf_failed(msg, msg, &desc)) {
-		channel_internal_error(channel,
-				       "Bad DUALOPEND_RBF_FAILED %s",
-				       tal_hex(msg, msg));
-
-		if (oa->cmd)
-			was_pending(command_fail(oa->cmd, LIGHTNINGD, "%s",
-						 tal_hex(oa->cmd, msg)));
-
-		/* FIXME: notify rbf_failed? */
-		notify_channel_open_failed(dualopend->ld, &channel->cid);
-		channel->open_attempt = tal_free(channel->open_attempt);
-		return;
-	}
-
-	/* FIXME: notify rbf_failed? */
-	notify_channel_open_failed(dualopend->ld, &channel->cid);
-	opening_failed_cancel_commands(channel, oa, desc);
 }
 
 struct channel_send {
@@ -2522,12 +2455,6 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 			return 0;
 		case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:
 			channel_fail_fallen_behind(dualopend, msg);
-			return 0;
-		case WIRE_DUALOPEND_FAILED:
-			open_failed(dualopend, msg);
-			return 0;
-		case WIRE_DUALOPEND_RBF_FAILED:
-			rbf_failed(dualopend, msg);
 			return 0;
 		case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
 

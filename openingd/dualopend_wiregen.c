@@ -33,8 +33,6 @@ const char *dualopend_wire_name(int e)
 	case WIRE_DUALOPEND_PSBT_CHANGED: return "WIRE_DUALOPEND_PSBT_CHANGED";
 	case WIRE_DUALOPEND_PSBT_UPDATED: return "WIRE_DUALOPEND_PSBT_UPDATED";
 	case WIRE_DUALOPEND_FAIL: return "WIRE_DUALOPEND_FAIL";
-	case WIRE_DUALOPEND_FAILED: return "WIRE_DUALOPEND_FAILED";
-	case WIRE_DUALOPEND_RBF_FAILED: return "WIRE_DUALOPEND_RBF_FAILED";
 	case WIRE_DUALOPEND_OPENER_INIT: return "WIRE_DUALOPEND_OPENER_INIT";
 	case WIRE_DUALOPEND_FUNDING_SIGS: return "WIRE_DUALOPEND_FUNDING_SIGS";
 	case WIRE_DUALOPEND_SEND_TX_SIGS: return "WIRE_DUALOPEND_SEND_TX_SIGS";
@@ -70,8 +68,6 @@ bool dualopend_wire_is_defined(u16 type)
 	case WIRE_DUALOPEND_PSBT_CHANGED:;
 	case WIRE_DUALOPEND_PSBT_UPDATED:;
 	case WIRE_DUALOPEND_FAIL:;
-	case WIRE_DUALOPEND_FAILED:;
-	case WIRE_DUALOPEND_RBF_FAILED:;
 	case WIRE_DUALOPEND_OPENER_INIT:;
 	case WIRE_DUALOPEND_FUNDING_SIGS:;
 	case WIRE_DUALOPEND_SEND_TX_SIGS:;
@@ -641,50 +637,6 @@ bool fromwire_dualopend_fail(const tal_t *ctx, const void *p, wirestring **reaso
 	return cursor != NULL;
 }
 
-/* WIRE: DUALOPEND_FAILED */
-/* dualopend->master: we failed to negotiate channel */
-u8 *towire_dualopend_failed(const tal_t *ctx, const wirestring *reason)
-{
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_DUALOPEND_FAILED);
-	towire_wirestring(&p, reason);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_dualopend_failed(const tal_t *ctx, const void *p, wirestring **reason)
-{
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_FAILED)
-		return false;
- 	*reason = fromwire_wirestring(ctx, &cursor, &plen);
-	return cursor != NULL;
-}
-
-/* WIRE: DUALOPEND_RBF_FAILED */
-/* dualopend->master: we failed to negotate RBF */
-u8 *towire_dualopend_rbf_failed(const tal_t *ctx, const wirestring *reason)
-{
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_DUALOPEND_RBF_FAILED);
-	towire_wirestring(&p, reason);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_dualopend_rbf_failed(const tal_t *ctx, const void *p, wirestring **reason)
-{
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_RBF_FAILED)
-		return false;
- 	*reason = fromwire_wirestring(ctx, &cursor, &plen);
-	return cursor != NULL;
-}
-
 /* WIRE: DUALOPEND_OPENER_INIT */
 /* master->dualopend: hello */
 u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags)
@@ -994,4 +946,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:6212fc1bc5a22513c105ad2f18046e6e724ccd98aa5f94a9228fb3a1aa45e11f
+// SHA256STAMP:407d42d23a8c3b4526b63fdbb572a1d8e75b4e7e390e13af018e289e5ac857cd

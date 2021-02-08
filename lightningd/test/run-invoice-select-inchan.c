@@ -396,6 +396,10 @@ int node_id_cmp(const struct node_id *a UNNEEDED, const struct node_id *b UNNEED
 /* Generated stub for node_id_to_hexstr */
 char *node_id_to_hexstr(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "node_id_to_hexstr called!\n"); abort(); }
+/* Generated stub for notify_channel_open_failed */
+void notify_channel_open_failed(struct lightningd *ld UNNEEDED,
+                                const struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "notify_channel_open_failed called!\n"); abort(); }
 /* Generated stub for notify_connect */
 void notify_connect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEEDED,
 		    struct wireaddr_internal *addr UNNEEDED)

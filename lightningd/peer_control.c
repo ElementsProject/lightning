@@ -391,6 +391,16 @@ void channel_errmsg(struct channel *channel,
 	if (err_for_them && !channel->error && !warning)
 		channel->error = tal_dup_talarr(channel, u8, err_for_them);
 
+	/* Clean up any in-progress open attempts */
+	if (channel->open_attempt) {
+		struct open_attempt *oa = channel->open_attempt;
+		if (oa->cmd)
+			was_pending(command_fail(oa->cmd, LIGHTNINGD,
+						 "%s", desc));
+		notify_channel_open_failed(channel->peer->ld, &channel->cid);
+		channel->open_attempt = tal_free(channel->open_attempt);
+	}
+
 	/* Other implementations chose to ignore errors early on.  Not
 	 * surprisingly, they now spew out spurious errors frequently,
 	 * and we would close the channel on them.  We now support warnings
@@ -2620,6 +2630,7 @@ static const struct json_command sendcustommsg_command = {
     .verbose = "dev-sendcustommsg node_id hexcustommsg",
 };
 
+/* Comment added to satisfice AUTODATA */
 AUTODATA(json_command, &sendcustommsg_command);
 
 #endif /* DEVELOPER */
