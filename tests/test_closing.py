@@ -1817,9 +1817,15 @@ def test_onchain_feechange(node_factory, bitcoind, executor):
     # We need 2 to drop to chain, because then 1's HTLC timeout tx
     # is generated on-the-fly, and is thus feerate sensitive.
     disconnects = ['-WIRE_UPDATE_FAIL_HTLC', 'permfail']
-    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True},
-                                              {'may_reconnect': True,
-                                               'disconnect': disconnects}])
+    l1, l2 = node_factory.line_graph(2, opts=[
+        {
+            'may_reconnect': True,
+            'allow_warning': True,
+        }, {
+            'may_reconnect': True,
+            'disconnect': disconnects,
+        }
+    ])
 
     rhash = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')['payment_hash']
     # We underpay, so it fails.
