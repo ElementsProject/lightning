@@ -1649,7 +1649,7 @@ struct state_change_entry *wallet_state_change_get(struct wallet *w,
 		tmp.old_state = db_column_int(stmt, 1);
 		tmp.new_state = db_column_int(stmt, 2);
 		tmp.cause = db_column_int(stmt, 3);
-		tmp.message = tal_strdup(ctx, (const char *)db_column_text(stmt, 4));
+		tmp.message = tal_strdup(res, (const char *)db_column_text(stmt, 4));
 		tal_arr_expand(&res, tmp);
 	}
 	tal_free(stmt);
