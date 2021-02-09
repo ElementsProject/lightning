@@ -1786,4 +1786,4 @@ struct db_query db_sqlite3_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:d99c7d86df2c57de4dad0ae207bb71ac7245e1beb3bee1066ab5d947db9b1e5c
+// SHA256STAMP:cfcc8729b714d7182b2d3f99b83475d4c8b7f489527b1f7ec3c9e2734281315e
