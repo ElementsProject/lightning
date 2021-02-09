@@ -606,6 +606,9 @@ u8 *towire_channeld_specific_feerates(const tal_t *ctx UNNEEDED, u32 feerate_bas
 /* Generated stub for towire_connectd_connect_to_peer */
 u8 *towire_connectd_connect_to_peer(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED, u32 seconds_waited UNNEEDED, const struct wireaddr_internal *addrhint UNNEEDED)
 { fprintf(stderr, "towire_connectd_connect_to_peer called!\n"); abort(); }
+/* Generated stub for towire_connectd_peer_disconnected */
+u8 *towire_connectd_peer_disconnected(const tal_t *ctx UNNEEDED, const struct node_id *id UNNEEDED)
+{ fprintf(stderr, "towire_connectd_peer_disconnected called!\n"); abort(); }
 /* Generated stub for towire_dualopend_send_shutdown */
 u8 *towire_dualopend_send_shutdown(const tal_t *ctx UNNEEDED, const u8 *shutdown_scriptpubkey UNNEEDED)
 { fprintf(stderr, "towire_dualopend_send_shutdown called!\n"); abort(); }
