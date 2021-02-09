@@ -270,6 +270,12 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 	return NULL;
 }
 
+static bool shutdown_complete(const struct state *state)
+{
+	return state->shutdown_sent[LOCAL]
+		&& state->shutdown_sent[REMOTE];
+}
+
 /* They failed the open with us */
 static void negotiation_aborted(struct state *state, const char *why)
 {
@@ -985,6 +991,43 @@ static void init_changeset(struct tx_state *tx_state, struct wally_psbt *psbt)
 	struct wally_psbt *empty_psbt = create_psbt(tmpctx, 0, 0, 0);
 
 	tx_state->changeset = psbt_get_changeset(tx_state, empty_psbt, psbt);
+}
+
+static u8 *handle_funding_locked(struct state *state, u8 *msg)
+{
+	struct channel_id cid;
+	struct pubkey remote_per_commit;
+
+	if (!fromwire_funding_locked(msg, &cid, &remote_per_commit))
+		open_err_fatal(state, "Bad funding_locked %s",
+			       tal_hex(msg, msg));
+
+	if (!channel_id_eq(&cid, &state->channel_id))
+		open_err_fatal(state, "funding_locked ids don't match:"
+			       " expected %s, got %s",
+			       type_to_string(msg, struct channel_id,
+					      &state->channel_id),
+			       type_to_string(msg, struct channel_id, &cid));
+
+	/* If we haven't gotten their tx_sigs yet, this is a protocol error */
+	if (!state->tx_state->remote_funding_sigs_rcvd) {
+		open_err_warn(state,
+			      "funding_locked sent before tx_signatures %s",
+			      tal_hex(msg, msg));
+	}
+
+	state->funding_locked[REMOTE] = true;
+	billboard_update(state);
+
+	/* We save when the peer locks, so we do the right
+	 * thing on reconnects */
+	msg = towire_dualopend_peer_locked(NULL, &remote_per_commit);
+	wire_sync_write(REQ_FD, take(msg));
+
+	if (state->funding_locked[LOCAL])
+		return towire_dualopend_channel_locked(state, state->pps);
+
+	return NULL;
 }
 
 /*~ Handle random messages we might get during opening negotiation, (eg. gossip)
@@ -2814,43 +2857,6 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	rbf_wrap_up(state, tx_state, total);
 }
 
-static u8 *handle_funding_locked(struct state *state, u8 *msg)
-{
-	struct channel_id cid;
-	struct pubkey remote_per_commit;
-
-	if (!fromwire_funding_locked(msg, &cid, &remote_per_commit))
-		open_err_fatal(state, "Bad funding_locked %s",
-			       tal_hex(msg, msg));
-
-	if (!channel_id_eq(&cid, &state->channel_id))
-		open_err_fatal(state, "funding_locked ids don't match:"
-			       " expected %s, got %s",
-			       type_to_string(msg, struct channel_id,
-					      &state->channel_id),
-			       type_to_string(msg, struct channel_id, &cid));
-
-	/* If we haven't gotten their tx_sigs yet, this is a protocol error */
-	if (!state->tx_state->remote_funding_sigs_rcvd) {
-		open_err_warn(state,
-			      "funding_locked sent before tx_signatures %s",
-			      tal_hex(msg, msg));
-	}
-
-	state->funding_locked[REMOTE] = true;
-	billboard_update(state);
-
-	/* We save when the peer locks, so we do the right
-	 * thing on reconnects */
-	msg = towire_dualopend_peer_locked(NULL, &remote_per_commit);
-	wire_sync_write(REQ_FD, take(msg));
-
-	if (state->funding_locked[LOCAL])
-		return towire_dualopend_channel_locked(state, state->pps);
-
-	return NULL;
-}
-
 static void hsm_per_commitment_point(u64 index, struct pubkey *point)
 {
 	struct secret *s;
@@ -3294,12 +3300,6 @@ static u8 *handle_peer_in(struct state *state)
 	 */
 	status_broken("Unexpected message %s", peer_wire_name(t));
 	peer_failed_connection_lost();
-}
-
-static bool shutdown_complete(const struct state *state)
-{
-	return state->shutdown_sent[LOCAL]
-		&& state->shutdown_sent[REMOTE];
 }
 
 int main(int argc, char *argv[])
