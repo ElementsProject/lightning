@@ -90,21 +90,35 @@ entirely on the lightning daemon itself\.
 .SH ARGUMENTS
 
 Arguments may be provided positionally or using \fIkey\fR=\fIvalue\fR after the
-command name, based on either \fB-o\fR or \fB-k\fR option\. Arguments may be
-integer numbers (composed entirely of digits), floating-point numbers
-(has a radix point but otherwise composed of digits), \fItrue\fR, \fIfalse\fR,
+command name, based on either \fB-o\fR or \fB-k\fR option\. When using \fB-k\fR 
+consider prefixing all arguments of the command with their respective keyword, 
+this is to avoid having lightningd intrepret the position of an arguement\. 
+
+
+Arguments may be integer numbers (composed entirely of digits), floating-point 
+numbers (has a radix point but otherwise composed of digits), \fItrue\fR, \fIfalse\fR,
 or \fInull\fR\. Other arguments are treated as strings\.
 
 
 Some commands have optional arguments\. You may use \fInull\fR to skip
-optional arguments to provide later arguments\.
+optional arguments to provide later arguments, although this is not encouraged\.
 
 .SH EXAMPLES
+.RS
+.IP 1\.
+List commands
 
-Example 1\. List commands
-
+.RE
 
 lightning-cli help
+
+.RS
+.IP 1\.
+Fund a 10k sat channel using uncomfirmed outputs
+
+.RE
+
+lightning-cli --keywords fundchannel id=028f\.\.\.ae7d amount=10000sat minconf=0
 
 .SH BUGS
 
@@ -124,4 +138,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license\.
 
-\" SHA256STAMP:b626a2499bd231acc33bf1c279c62de2a7ad2046c6c63965b97f74ec4e861365
+\" SHA256STAMP:95f9c48c35817ea601ba35006c8400c52da372ffbe725ff1fa6feec9ced3229f
