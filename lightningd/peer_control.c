@@ -380,8 +380,35 @@ void channel_errmsg(struct channel *channel,
 {
 	notify_disconnect(channel->peer->ld, &channel->peer->id);
 
+	/* Clean up any in-progress open attempts */
+	if (channel->open_attempt) {
+		struct open_attempt *oa = channel->open_attempt;
+		if (oa->cmd) {
+			was_pending(command_fail(oa->cmd, LIGHTNINGD,
+						 "%s", desc));
+			oa->cmd = NULL;
+		}
+		notify_channel_open_failed(channel->peer->ld, &channel->cid);
+		channel->open_attempt = tal_free(channel->open_attempt);
+	}
+
+	if (channel->openchannel_signed_cmd) {
+		was_pending(command_fail(channel->openchannel_signed_cmd,
+					 LIGHTNINGD, "%s", desc));
+		channel->openchannel_signed_cmd = NULL;
+	}
+
 	/* No per_peer_state means a subd crash or disconnection. */
 	if (!pps) {
+		/* If the channel is unsaved, we forget it */
+		if (channel_unsaved(channel)) {
+			log_unusual(channel->log, "%s",
+				    "Unsaved peer failed."
+				    " Disconnecting and deleting channel.");
+			delete_channel(channel);
+			return;
+		}
+
 		channel_fail_reconnect(channel, "%s: %s",
 				       channel->owner->name, desc);
 		return;
@@ -390,16 +417,6 @@ void channel_errmsg(struct channel *channel,
 	/* Do we have an error to send? */
 	if (err_for_them && !channel->error && !warning)
 		channel->error = tal_dup_talarr(channel, u8, err_for_them);
-
-	/* Clean up any in-progress open attempts */
-	if (channel->open_attempt) {
-		struct open_attempt *oa = channel->open_attempt;
-		if (oa->cmd)
-			was_pending(command_fail(oa->cmd, LIGHTNINGD,
-						 "%s", desc));
-		notify_channel_open_failed(channel->peer->ld, &channel->cid);
-		channel->open_attempt = tal_free(channel->open_attempt);
-	}
 
 	/* Other implementations chose to ignore errors early on.  Not
 	 * surprisingly, they now spew out spurious errors frequently,
