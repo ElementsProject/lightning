@@ -270,6 +270,21 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 	return NULL;
 }
 
+static void shutdown(struct state *state)
+{
+	u8 *msg = towire_dualopend_shutdown_complete(state, state->pps);
+
+	wire_sync_write(REQ_FD, msg);
+	per_peer_state_fdpass_send(REQ_FD, state->pps);
+	status_debug("Sent %s with fds",
+		     dualopend_wire_name(fromwire_peektype(msg)));
+
+	/* This frees the entire tal tree. */
+	tal_free(state);
+	daemon_shutdown();
+	exit(0);
+}
+
 static bool shutdown_complete(const struct state *state)
 {
 	return state->shutdown_sent[LOCAL]
@@ -1042,6 +1057,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		char *err;
 		bool warning;
 		struct channel_id actual;
+		enum peer_wire t;
 
 		/* The event loop is responsible for freeing tmpctx, so our
 		 * temporary allocations don't grow unbounded. */
@@ -1116,6 +1132,66 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 							       " unsupported")));
 			tal_free(msg);
 			continue;
+		}
+
+		/* In theory, we're in the middle of an open/RBF, but
+		 * it's possible we can get some different messages in
+		 * the meantime! */
+		t = fromwire_peektype(msg);
+		switch (t) {
+		case WIRE_TX_SIGNATURES:
+			/* We can get these when we restart and immediately
+			 * startup an RBF */
+			handle_tx_sigs(state, msg);
+			continue;
+		case WIRE_FUNDING_LOCKED:
+			handle_funding_locked(state, msg);
+			return NULL;
+		case WIRE_SHUTDOWN:
+			handle_peer_shutdown(state, msg);
+			/* If we're done, exit */
+			if (shutdown_complete(state))
+				shutdown(state);
+			return NULL;
+		case WIRE_INIT_RBF:
+		case WIRE_OPEN_CHANNEL2:
+		case WIRE_INIT:
+		case WIRE_ERROR:
+		case WIRE_OPEN_CHANNEL:
+		case WIRE_ACCEPT_CHANNEL:
+		case WIRE_FUNDING_CREATED:
+		case WIRE_FUNDING_SIGNED:
+		case WIRE_CLOSING_SIGNED:
+		case WIRE_UPDATE_ADD_HTLC:
+		case WIRE_UPDATE_FULFILL_HTLC:
+		case WIRE_UPDATE_FAIL_HTLC:
+		case WIRE_UPDATE_FAIL_MALFORMED_HTLC:
+		case WIRE_COMMITMENT_SIGNED:
+		case WIRE_REVOKE_AND_ACK:
+		case WIRE_UPDATE_FEE:
+		case WIRE_CHANNEL_REESTABLISH:
+		case WIRE_ANNOUNCEMENT_SIGNATURES:
+		case WIRE_GOSSIP_TIMESTAMP_FILTER:
+		case WIRE_ONION_MESSAGE:
+		case WIRE_ACCEPT_CHANNEL2:
+		case WIRE_TX_ADD_INPUT:
+		case WIRE_TX_REMOVE_INPUT:
+		case WIRE_TX_ADD_OUTPUT:
+		case WIRE_TX_REMOVE_OUTPUT:
+		case WIRE_TX_COMPLETE:
+		case WIRE_ACK_RBF:
+		case WIRE_BLACKLIST_PODLE:
+		case WIRE_CHANNEL_ANNOUNCEMENT:
+		case WIRE_CHANNEL_UPDATE:
+		case WIRE_NODE_ANNOUNCEMENT:
+		case WIRE_QUERY_CHANNEL_RANGE:
+		case WIRE_REPLY_CHANNEL_RANGE:
+		case WIRE_QUERY_SHORT_CHANNEL_IDS:
+		case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
+		case WIRE_WARNING:
+		case WIRE_PING:
+		case WIRE_PONG:
+			break;
 		}
 
 		/* If we get here, it's an interesting message. */
