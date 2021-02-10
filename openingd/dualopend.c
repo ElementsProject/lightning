@@ -850,6 +850,26 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 		return;
 	}
 
+	if (!tx_state->psbt)
+		open_err_warn(state,
+			      "tx_signatures for %s received,"
+			      " open negotiation still in progress.",
+			      type_to_string(tmpctx,
+					     struct bitcoin_txid,
+					     &txid));
+
+
+	if (!bitcoin_txid_eq(&tx_state->funding_txid, &txid))
+		open_err_warn(state,
+			      "tx_signatures for %s received,"
+			      "working on funding_txid %s",
+			      type_to_string(tmpctx,
+					     struct bitcoin_txid,
+					     &txid),
+			      type_to_string(tmpctx,
+					     struct bitcoin_txid,
+					     &tx_state->funding_txid));
+
 	/* We put the PSBT + sigs all together */
 	for (size_t i = 0; i < tx_state->psbt->num_inputs; i++) {
 		struct wally_psbt_input *in =
