@@ -2124,6 +2124,7 @@ void peer_restart_dualopend(struct peer *peer,
 				      channel->remote_upfront_shutdown_script,
 				      channel->remote_tx_sigs,
                                       channel->fee_states,
+				      channel->channel_flags,
 				      send_msg);
 
 

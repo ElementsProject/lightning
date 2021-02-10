@@ -158,7 +158,7 @@ bool fromwire_dualopend_init(const tal_t *ctx, const void *p, const struct chain
 
 /* WIRE: DUALOPEND_REINIT */
 /* master-dualopend: peer has reconnected */
-u8 *towire_dualopend_reinit(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_feature_set, const u8 *their_init_features, const struct channel_config *our_config, const struct channel_config *their_config, const struct channel_id *channel_id, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, const struct pubkey *their_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshi, struct amount_msat our_funding, const struct basepoints *their_basepoints, const struct pubkey *remote_per_commit, const struct wally_psbt *funding_psbt, enum side opener, bool local_funding_locked, bool remote_funding_locked, bool send_shutdown, bool remote_shutdown_received, const u8 *local_shutdown_scriptpubkey, const u8 *remote_shutdown_scriptpubkey, bool remote_funding_sigs_received, const struct fee_states *fee_states, const u8 *msg)
+u8 *towire_dualopend_reinit(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_feature_set, const u8 *their_init_features, const struct channel_config *our_config, const struct channel_config *their_config, const struct channel_id *channel_id, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, const struct pubkey *their_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshi, struct amount_msat our_funding, const struct basepoints *their_basepoints, const struct pubkey *remote_per_commit, const struct wally_psbt *funding_psbt, enum side opener, bool local_funding_locked, bool remote_funding_locked, bool send_shutdown, bool remote_shutdown_received, const u8 *local_shutdown_scriptpubkey, const u8 *remote_shutdown_scriptpubkey, bool remote_funding_sigs_received, const struct fee_states *fee_states, u8 channel_flags, const u8 *msg)
 {
 	u16 their_init_features_len = tal_count(their_init_features);
 	u16 local_shutdown_len = tal_count(local_shutdown_scriptpubkey);
@@ -201,13 +201,14 @@ u8 *towire_dualopend_reinit(const tal_t *ctx, const struct chainparams *chainpar
 	towire_u8_array(&p, remote_shutdown_scriptpubkey, remote_shutdown_len);
 	towire_bool(&p, remote_funding_sigs_received);
 	towire_fee_states(&p, fee_states);
+	towire_u8(&p, channel_flags);
 	/* Optional msg to send. */
 	towire_u16(&p, len);
 	towire_u8_array(&p, msg, len);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dualopend_reinit(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_feature_set, u8 **their_init_features, struct channel_config *our_config, struct channel_config *their_config, struct channel_id *channel_id, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, struct pubkey *their_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshi, struct amount_msat *our_funding, struct basepoints *their_basepoints, struct pubkey *remote_per_commit, struct wally_psbt **funding_psbt, enum side *opener, bool *local_funding_locked, bool *remote_funding_locked, bool *send_shutdown, bool *remote_shutdown_received, u8 **local_shutdown_scriptpubkey, u8 **remote_shutdown_scriptpubkey, bool *remote_funding_sigs_received, struct fee_states **fee_states, u8 **msg)
+bool fromwire_dualopend_reinit(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_feature_set, u8 **their_init_features, struct channel_config *our_config, struct channel_config *their_config, struct channel_id *channel_id, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, struct pubkey *their_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshi, struct amount_msat *our_funding, struct basepoints *their_basepoints, struct pubkey *remote_per_commit, struct wally_psbt **funding_psbt, enum side *opener, bool *local_funding_locked, bool *remote_funding_locked, bool *send_shutdown, bool *remote_shutdown_received, u8 **local_shutdown_scriptpubkey, u8 **remote_shutdown_scriptpubkey, bool *remote_funding_sigs_received, struct fee_states **fee_states, u8 *channel_flags, u8 **msg)
 {
 	u16 their_init_features_len;
 	u16 local_shutdown_len;
@@ -259,6 +260,7 @@ bool fromwire_dualopend_reinit(const tal_t *ctx, const void *p, const struct cha
 	fromwire_u8_array(&cursor, &plen, *remote_shutdown_scriptpubkey, remote_shutdown_len);
  	*remote_funding_sigs_received = fromwire_bool(&cursor, &plen);
  	*fee_states = fromwire_fee_states(ctx, &cursor, &plen);
+ 	*channel_flags = fromwire_u8(&cursor, &plen);
  	/* Optional msg to send. */
 	len = fromwire_u16(&cursor, &plen);
  	// 2nd case msg
@@ -918,4 +920,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:d9a02c4575a71748388be74b56f3fe333147557aa715e6735b9a1c35a72c7cd5
+// SHA256STAMP:65a94b9b35802a6cd6c68f724e83ce4866adb3122a392d6741ec7c791ef1fd6c
