@@ -192,7 +192,7 @@ def test_plugin_slowinit(node_factory):
     os.environ['SLOWINIT_TIME'] = '61'
     n = node_factory.get_node()
 
-    with pytest.raises(RpcError, match='failed to respond to \'init\' in time, terminating.'):
+    with pytest.raises(RpcError, match=': timed out before replying to init'):
         n.rpc.plugin_start(os.path.join(os.getcwd(), "tests/plugins/slow_init.py"))
 
     # It's not actually configured yet, see what happens;
@@ -252,8 +252,11 @@ def test_plugin_command(node_factory):
         n2.rpc.plugin_stop(plugin="static.py")
 
     # Test that we don't crash when starting a broken plugin
-    with pytest.raises(RpcError, match=r"Plugin exited before completing handshake."):
+    with pytest.raises(RpcError, match=r": exited before replying to getmanifest"):
         n2.rpc.plugin_start(plugin=os.path.join(os.getcwd(), "tests/plugins/broken.py"))
+
+    with pytest.raises(RpcError, match=r': timed out before replying to getmanifest'):
+        n2.rpc.plugin_start(os.path.join(os.getcwd(), 'contrib/plugins/fail/failtimeout.py'))
 
     # Test that we can add a directory with more than one new plugin in it.
     try:
@@ -1800,11 +1803,13 @@ def test_plugin_fail(node_factory):
     time.sleep(2)
     # It should clean up!
     assert 'failcmd' not in [h['command'] for h in l1.rpc.help()['help']]
+    l1.daemon.wait_for_log(r': exited during normal operation')
 
     l1.rpc.plugin_start(plugin)
     time.sleep(2)
     # It should clean up!
     assert 'failcmd' not in [h['command'] for h in l1.rpc.help()['help']]
+    l1.daemon.wait_for_log(r': exited during normal operation')
 
 
 @unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
