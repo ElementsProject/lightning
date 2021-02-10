@@ -533,8 +533,14 @@ static char *check_balances(const tal_t *ctx,
 		 *     - the value of the funding output is incorrect
 		 */
 		if (!amount_sat_eq(total_funding, output_val)) {
-			return "total desired funding != "
-			       "funding output";
+			return tal_fmt(tmpctx, "total desired funding %s != "
+				       "funding output %s",
+				       type_to_string(tmpctx,
+						      struct amount_sat,
+						      &total_funding),
+				       type_to_string(tmpctx,
+						      struct amount_sat,
+						      &output_val));
 		}
 
 		/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
