@@ -68,6 +68,7 @@ msgdata,dualopend_reinit,remote_shutdown_len,u16,
 msgdata,dualopend_reinit,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
 msgdata,dualopend_reinit,remote_funding_sigs_received,bool,
 msgdata,dualopend_reinit,fee_states,fee_states,
+msgdata,dualopend_reinit,channel_flags,u8,
 # Optional msg to send.
 msgdata,dualopend_reinit,len,u16,
 msgdata,dualopend_reinit,msg,u8,len
