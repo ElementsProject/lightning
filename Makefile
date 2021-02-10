@@ -485,6 +485,18 @@ check-source: check-makefile check-source-bolt check-whitespace check-markdown c
 
 full-check: check check-source
 
+# Simple target to be used on CI systems to check that all the derived
+# files were checked in and updated. It depends on the generated
+# targets, and checks if any of the tracked files changed. If they did
+# then one of the gen-targets caused this change, meaning either the
+# gen-target is not reproducible or the files were forgotten.
+#
+# Do not run on your development tree since it will complain if you
+# have a dirty tree.
+check-gen-updated: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES) wallet/statements_gettextgen.po $(MANPAGES)
+	@echo "Checking for generated files being changed by make"
+	git diff --exit-code HEAD $?
+
 coverage/coverage.info: check pytest
 	mkdir coverage || true
 	lcov --capture --directory . --output-file coverage/coverage.info
