@@ -16,9 +16,9 @@ jobs:
         include:
           # CFG us just an enumeration so we can refer to the configurations more easily
           - {CFG:  1, TEST_CMD: "make", NO_PYTHON: 1}
-          - {CFG:  2, TEST_CMD: "make check-source check-units installcheck", COPTFLAGS: "-O3"}
+          - {CFG:  2, TEST_CMD: "make check-source check-units installcheck check-gen-updated", COPTFLAGS: "-O3"}
           - {CFG:  3, ARCH: 32, TEST_CMD: "make check-source check-units installcheck", DEVELOPER: 0}
-          - {CFG:  4, TEST_CMD: "make check-source check-units installcheck", EXPERIMENTAL_FEATURES: 1}
+          - {CFG:  4, TEST_CMD: "make check-source check-units installcheck check-gen-updated", EXPERIMENTAL_FEATURES: 1}
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
