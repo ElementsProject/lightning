@@ -19,7 +19,7 @@ c-lightning is a lightweight, highly customizable and [standard compliant][std] 
 
 ## Project Status
 
-[![Build Status][travis-ci]][travis-ci-link]
+[![Continuous Integration](https://github.com/ElementsProject/lightning/workflows/Continuous%20Integration/badge.svg)][actions]
 [![Pull Requests Welcome][prs]][prs-link]
 [![Irc][IRC]][IRC-link]
 [![Documentation Status](https://readthedocs.org/projects/lightning/badge/?version=docs)][docs]
@@ -231,3 +231,4 @@ You should also configure with `--enable-developer` to get additional checks and
 [dockerhub]: https://hub.docker.com/r/elementsproject/lightningd/
 [jsonrpcspec]: https://www.jsonrpc.org/specification
 [helpme-github]: https://github.com/lightningd/plugins/tree/master/helpme
+[actions]: https://github.com/ElementsProject/lightning/actions
