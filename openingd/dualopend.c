@@ -739,10 +739,12 @@ static char *check_balances(const tal_t *ctx,
 
 	if (!amount_sat_greater_eq(initiator_diff, initiator_fee)) {
 		return tal_fmt(ctx,
-			       "initiator fee %s not covered %s",
+			       "initiator fee %s (%zux%d) not covered %s",
 			       type_to_string(ctx,
 					      struct amount_sat,
 					      &initiator_fee),
+			       initiator_weight,
+			       feerate_per_kw_funding,
 			       type_to_string(ctx,
 					      struct amount_sat,
 					      &initiator_diff));
