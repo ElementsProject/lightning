@@ -46,6 +46,24 @@ static void memleak_help_pending_requests(struct htable *memtable,
 }
 #endif /* DEVELOPER */
 
+static const char *state_desc(const struct plugin *plugin)
+{
+	switch (plugin->plugin_state) {
+	case UNCONFIGURED:
+		return "unconfigured";
+	case AWAITING_GETMANIFEST_RESPONSE:
+		return "before replying to getmanifest";
+	case NEEDS_INIT:
+		return "before we sent init";
+	case AWAITING_INIT_RESPONSE:
+		return "before replying to init";
+	case INIT_COMPLETE:
+		return "during normal operation";
+	}
+	fatal("Invalid plugin state %i for %s",
+	      plugin->plugin_state, plugin->cmd);
+}
+
 struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 			    struct lightningd *ld)
 {
@@ -630,7 +648,8 @@ static struct io_plan *plugin_write_json(struct io_conn *conn,
 /* This catches the case where their stdout closes (usually they're dead). */
 static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 {
-	plugin_kill(plugin, "Plugin exited before completing handshake.");
+	const char *msg = tal_fmt(tmpctx, "exited %s", state_desc(plugin));
+	plugin_kill(plugin, msg);
 }
 
 struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
@@ -1204,12 +1223,8 @@ static const char *plugin_add_params(struct plugin *plugin)
 static void plugin_manifest_timeout(struct plugin *plugin)
 {
 	bool startup = plugin->plugins->startup;
-	if (plugin->plugin_state == AWAITING_GETMANIFEST_RESPONSE)
-		plugin_kill(plugin,
-			    "failed to respond to 'getmanifest' in time, terminating.");
-	else
-		plugin_kill(plugin,
-			    "failed to respond to 'init' in time, terminating.");
+
+	plugin_kill(plugin, tal_fmt(tmpctx, "timed out %s", state_desc(plugin)));
 
 	if (startup)
 		fatal("Can't recover from plugin failure, terminating.");
