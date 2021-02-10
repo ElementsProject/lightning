@@ -1373,6 +1373,7 @@ static void send_funding_tx(struct channel *channel,
 {
 	struct lightningd *ld = channel->peer->ld;
 	struct channel_send *cs;
+	struct bitcoin_txid txid;
 
 	cs = tal(channel, struct channel_send);
 	cs->channel = channel;
@@ -1386,8 +1387,10 @@ static void send_funding_tx(struct channel *channel,
 		tal_wally_end(tal_steal(cs, cs->wtx));
 	}
 
+	wally_txid(wtx, &txid);
 	log_debug(channel->log,
-		  "Broadcasting funding tx for channel %s. %s",
+		  "Broadcasting funding tx %s for channel %s. %s",
+		  type_to_string(tmpctx, struct bitcoin_txid, &txid),
 		  type_to_string(tmpctx, struct channel_id, &channel->cid),
 		  type_to_string(tmpctx, struct wally_tx, cs->wtx));
 
