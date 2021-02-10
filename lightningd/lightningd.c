@@ -700,22 +700,91 @@ static void on_sigterm(int _ UNUSED)
         _exit(1);
 }
 
+/* Globals are terrible, but we all do it. */
+static int sigchld_wfd;
+
+static void on_sigchild(int _ UNUSED)
+{
+	/*~ UNIX signals are async, which is usually terrible.  The usual
+	 * trick, which we use here, it to write a byte to a pipe, and
+	 * then handle it in the main event loop.
+	 *
+	 * This can fail if we get flooded by signals but that's OK;
+	 * we made it non-blocking, and the reader will loop until
+	 * there are no more children.  But glibc's overzealous use of
+	 * __attribute__((warn_unused_result)) means we have to
+	 * "catch" the return value. */
+        if (write(sigchld_wfd, "", 1) != 1)
+		assert(errno == EAGAIN || errno == EWOULDBLOCK);
+}
+
 /*~ We only need to handle SIGTERM and SIGINT for the case we are PID 1 of
  * docker container since Linux makes special this PID and requires that
- * some handler exist. */
-static void setup_sig_handlers(void)
+ * some handler exist.
+ *
+ * We also want to catch SIGCHLD, so we can report on such children and
+ * avoid zombies. */
+static int setup_sig_handlers(void)
 {
-	struct sigaction sigint, sigterm;
+	struct sigaction sigint, sigterm, sigchild;
+	int fds[2];
+
 	memset(&sigint, 0, sizeof(struct sigaction));
 	memset(&sigterm, 0, sizeof(struct sigaction));
+	memset(&sigchild, 0, sizeof(struct sigaction));
 
 	sigint.sa_handler = on_sigint;
 	sigterm.sa_handler = on_sigterm;
+	sigchild.sa_handler = on_sigchild;
+	sigchild.sa_flags = SA_RESTART;
 
 	if (1 == getpid()) {
 		sigaction(SIGINT, &sigint, NULL);
 		sigaction(SIGTERM, &sigterm, NULL);
 	}
+
+	if (pipe(fds) != 0)
+		err(1, "creating sigchild pipe");
+	sigchld_wfd = fds[1];
+	if (fcntl(sigchld_wfd, F_SETFL,
+		  fcntl(sigchld_wfd, F_GETFL)|O_NONBLOCK) != 0)
+		err(1, "setting sigchild pip nonblock");
+	sigaction(SIGCHLD, &sigchild, NULL);
+
+	return fds[0];
+}
+
+/*~ This removes the SIGCHLD handler, so we don't try to write
+ * to a broken pipe. */
+static void remove_sigchild_handler(void)
+{
+	struct sigaction sigchild;
+
+	memset(&sigchild, 0, sizeof(struct sigaction));
+	sigchild.sa_handler = SIG_DFL;
+	sigaction(SIGCHLD, &sigchild, NULL);
+}
+
+/*~ This is the routine which sets up the sigchild handling.  We just
+ * reap them for now so they don't become zombies, but our subd
+ * handling calls waitpid() synchronously, so we can't simply do this
+ * in the signal handler or set SIGCHLD to be ignored, which has the
+ * same effect.
+ *
+ * We can usually ignore these because we keep pipes to our children,
+ * and use the closure of those to indicate termination.
+ */
+static struct io_plan *sigchld_rfd_in(struct io_conn *conn,
+				      struct lightningd *ld)
+{
+	/* We don't actually care what we read, so we stuff things here. */
+	static u8 ignorebuf;
+	static size_t len;
+
+	/* Reap the plugins, since we otherwise ignore them. */
+	while (waitpid(-1, NULL, WNOHANG) != 0);
+
+	return io_read_partial(conn, &ignorebuf, 1, &len, sigchld_rfd_in, ld);
 }
 
 /*~ We actually keep more than one set of features, used in different
@@ -782,7 +851,7 @@ int main(int argc, char *argv[])
 	struct htlc_in_map *unconnected_htlcs_in;
 	struct ext_key *bip32_base;
 	struct rlimit nofile = {1024, 1024};
-
+	int sigchld_rfd;
 	int exit_code = 0;
 
 	/*~ Make sure that we limit ourselves to something reasonable. Modesty
@@ -792,7 +861,8 @@ int main(int argc, char *argv[])
 	/*~ What happens in strange locales should stay there. */
 	setup_locale();
 
-	setup_sig_handlers();
+	/*~ This sets up SIGCHLD to make sigchld_rfd readable. */
+	sigchld_rfd = setup_sig_handlers();
 
 	/*~ This checks that the system-installed libraries (usually
 	 * dynamically linked) actually are compatible with the ones we
@@ -971,6 +1041,11 @@ int main(int argc, char *argv[])
 	 * "funding transaction spent" event which creates it. */
 	onchaind_replay_channels(ld);
 
+	/*~ Now handle sigchld, so we can clean up appropriately.
+	 * We don't keep a pointer to this, so our simple leak detection
+	 * code gets upset unless we mark it notleak(). */
+	notleak(io_new_conn(ld, sigchld_rfd, sigchld_rfd_in, ld));
+
 	/*~ Mark ourselves live.
 	 *
 	 * Note the use of type_to_string() here: it's a typesafe formatter,
@@ -1034,6 +1109,8 @@ int main(int argc, char *argv[])
 		stop_response = tal_steal(NULL, ld->stop_response);
 	}
 
+	/* We're not going to collect our children. */
+	remove_sigchild_handler();
 	shutdown_subdaemons(ld);
 
 	/* Remove plugins. */
