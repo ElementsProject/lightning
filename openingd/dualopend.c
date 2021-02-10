@@ -3102,6 +3102,7 @@ int main(int argc, char *argv[])
 					     &state->upfront_shutdown_script[REMOTE],
 					     &state->tx_state->remote_funding_sigs_rcvd,
 					     &fee_states,
+					     &state->channel_flags,
 					     &inner)) {
 
 		/*~ We only reconnect on channels that the
