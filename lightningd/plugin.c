@@ -1248,10 +1248,13 @@ static void plugin_manifest_timeout(struct plugin *plugin)
 static const char *plugin_parse_getmanifest_response(const char *buffer,
 						     const jsmntok_t *toks,
 						     const jsmntok_t *idtok,
-						     struct plugin *plugin)
+						     struct plugin *plugin,
+	const char **disabled)
 {
 	const jsmntok_t *resulttok, *dynamictok, *featurestok, *tok;
 	const char *err;
+
+	*disabled = NULL;
 
 	resulttok = json_get_member(buffer, toks, "result");
 	if (!resulttok || resulttok->type != JSMN_OBJECT)
@@ -1262,12 +1265,10 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 	/* Plugin can disable itself: returns why it's disabled. */
 	tok = json_get_member(buffer, resulttok, "disable");
 	if (tok) {
-		log_debug(plugin->log, "disabled itself: %.*s",
-			  json_tok_full_len(tok),
-			  json_tok_full(buffer, tok));
 		/* Don't get upset if this was a built-in! */
 		plugin->important = false;
-		return json_strdup(plugin, buffer, tok);
+		*disabled = json_strdup(plugin, buffer, tok);
+		return NULL;
 	}
 
 	dynamictok = json_get_member(buffer, resulttok, "dynamic");
@@ -1368,12 +1369,17 @@ static void plugin_manifest_cb(const char *buffer,
 			       const jsmntok_t *idtok,
 			       struct plugin *plugin)
 {
-	const char *err;
-	err = plugin_parse_getmanifest_response(buffer, toks, idtok, plugin);
+	const char *err, *disabled;
+	err = plugin_parse_getmanifest_response(buffer, toks, idtok, plugin, &disabled);
 
-	/* FIXME: log debug if it disabled *itself*! */
 	if (err) {
-		plugin_kill(plugin, LOG_INFORM, "%s", err);
+		plugin_kill(plugin, LOG_UNUSUAL, "%s", err);
+		return;
+	}
+
+	if (disabled) {
+		plugin_kill(plugin, LOG_DBG,
+			    "disabled itself: %s", disabled);
 		return;
 	}
 
@@ -1620,11 +1626,11 @@ static void plugin_config_cb(const char *buffer,
 	/* Plugin can also disable itself at this stage. */
 	if (json_scan(tmpctx, buffer, toks, "{result:{disable:%}}",
 		      JSON_SCAN_TAL(tmpctx, json_strdup, &disable)) == NULL) {
-		log_debug(plugin->log, "disabled itself at init: %s",
-			  disable);
 		/* Don't get upset if this was a built-in! */
 		plugin->important = false;
-		plugin_kill(plugin, LOG_DBG, disable);
+		plugin_kill(plugin, LOG_DBG,
+			    "disabled itself at init: %s",
+			    disable);
 		return;
 	}
 

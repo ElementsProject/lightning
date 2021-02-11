@@ -2374,8 +2374,8 @@ def test_self_disable(node_factory):
 
     # Could happen before it gets set up.
     l1.daemon.logsearch_start = 0
-    l1.daemon.wait_for_logs(['test_selfdisable_after_getmanifest: disabled itself: "Self-disable test after getmanifest"',
-                             'test_libplugin: disabled itself at init: Disabled via selfdisable option'])
+    l1.daemon.wait_for_logs(['test_selfdisable_after_getmanifest: .* disabled itself: Self-disable test after getmanifest',
+                             'test_libplugin: .* disabled itself at init: Disabled via selfdisable option'])
 
     assert p1 not in [p['name'] for p in l1.rpc.plugin_list()['plugins']]
     assert p2 not in [p['name'] for p in l1.rpc.plugin_list()['plugins']]
