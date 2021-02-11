@@ -2331,6 +2331,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     l1.rpc.close(l2.info['id'])
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) > 0)
     bitcoind.generate_block(100)
+    sync_blockheight(bitcoind, [l1, l2])
 
     # Can do unilateral close.
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
@@ -2342,6 +2343,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     bitcoind.generate_block(5)
     wait_for(lambda: len(bitcoind.rpc.getrawmempool()) > 0)
     bitcoind.generate_block(100)
+    sync_blockheight(bitcoind, [l1, l2])
 
     # Start estimatesmartfee.
     l1.set_feerates((15000, 11000, 7500, 3750), True)
