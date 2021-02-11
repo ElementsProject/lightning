@@ -16,6 +16,7 @@ import ast
 import json
 import os
 import pytest
+import random
 import re
 import signal
 import sqlite3
@@ -1339,28 +1340,42 @@ def test_sendpay_notifications_nowaiter(node_factory):
 
 
 def test_rpc_command_hook(node_factory):
-    """Test the `sensitive_command` hook"""
-    plugin = os.path.join(os.getcwd(), "tests/plugins/rpc_command.py")
+    """Test the `rpc_command` hook chain"""
+    plugin = [
+        os.path.join(os.getcwd(), "tests/plugins/rpc_command_1.py"),
+        os.path.join(os.getcwd(), "tests/plugins/rpc_command_2.py")
+    ]
     l1 = node_factory.get_node(options={"plugin": plugin})
 
-    # Usage of "sendpay" has been restricted by the plugin
-    with pytest.raises(RpcError, match=r"You cannot do this"):
+    # rpc_command_2 plugin restricts using "sendpay"
+    with pytest.raises(RpcError, match=r"rpc_command_2 cannot do this"):
         l1.rpc.call("sendpay")
 
-    # The plugin replaces a call made for the "invoice" command
+    # Both plugins will replace calls made for the "invoice" command
+    # The first will win, for the second a warning should be logged
     invoice = l1.rpc.invoice(10**6, "test_side", "test_input")
     decoded = l1.rpc.decodepay(invoice["bolt11"])
-    assert decoded["description"] == "A plugin modified this description"
+    assert decoded["description"] == "rpc_command_1 modified this description"
+    l1.daemon.wait_for_log("rpc_command hook 'invoice' already modified, ignoring.")
 
-    # The plugin sends a custom response to "listfunds"
+    # rpc_command_1 plugin sends a custom response to "listfunds"
     funds = l1.rpc.listfunds()
-    assert funds[0] == "Custom result"
+    assert funds[0] == "Custom rpc_command_1 result"
 
     # Test command redirection to a plugin
     l1.rpc.call('help', [0])
 
-    # Test command which removes plugin itself!
-    l1.rpc.plugin_stop('rpc_command.py')
+    # Check the 'already modified' warning is not logged on just 'continue'
+    assert not l1.daemon.is_in_log("rpc_command hook 'listfunds' already modified, ignoring.")
+
+    # Tests removing a chained hook in random order.
+    # Note: This will get flaky by design if theres a problem.
+    if bool(random.getrandbits(1)):
+        l1.rpc.plugin_stop('rpc_command_2.py')
+        l1.rpc.plugin_stop('rpc_command_1.py')
+    else:
+        l1.rpc.plugin_stop('rpc_command_1.py')
+        l1.rpc.plugin_stop('rpc_command_2.py')
 
 
 def test_libplugin(node_factory):
