@@ -117,7 +117,7 @@ static void check_plugins_manifests(struct plugins *plugins)
 		/* Only complain and free plugins! */
 		if (depfail[i]->plugin_state != NEEDS_INIT)
 			continue;
-		plugin_kill(depfail[i],
+		plugin_kill(depfail[i], LOG_UNUSUAL,
 			    "Cannot meet required hook dependencies");
 	}
 
@@ -287,9 +287,19 @@ bool plugin_blacklisted(struct plugins *plugins, const char *name)
 	return false;
 }
 
-void plugin_kill(struct plugin *plugin, const char *msg)
+void plugin_kill(struct plugin *plugin, enum log_level loglevel,
+		 const char *fmt, ...)
 {
-	log_info(plugin->log, "Killing plugin: %s", msg);
+	va_list ap;
+	const char *msg;
+
+	va_start(ap, fmt);
+	msg = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
+
+	log_(plugin->log, loglevel,
+	     NULL, loglevel >= LOG_UNUSUAL,
+	     "Killing plugin: %s", msg);
 	kill(plugin->pid, SIGKILL);
 	if (plugin->start_cmd) {
 		plugin_cmd_killed(plugin->start_cmd, plugin, msg);
@@ -605,7 +615,8 @@ static struct io_plan *plugin_read_json(struct io_conn *conn,
 				return io_close(NULL);
 
 			if (err) {
-				plugin_kill(plugin, err);
+				plugin_kill(plugin, LOG_UNUSUAL,
+					    "%s", err);
 				/* plugin_kill frees plugin */
 				return io_close(NULL);
 			}
@@ -648,8 +659,11 @@ static struct io_plan *plugin_write_json(struct io_conn *conn,
 /* This catches the case where their stdout closes (usually they're dead). */
 static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 {
-	const char *msg = tal_fmt(tmpctx, "exited %s", state_desc(plugin));
-	plugin_kill(plugin, msg);
+	/* This is expected at shutdown of course. */
+	plugin_kill(plugin,
+		    plugin->plugins->shutdown
+		    ? LOG_DBG : LOG_INFORM,
+		    "exited %s", state_desc(plugin));
 }
 
 struct io_plan *plugin_stdin_conn_init(struct io_conn *conn,
@@ -1224,7 +1238,8 @@ static void plugin_manifest_timeout(struct plugin *plugin)
 {
 	bool startup = plugin->plugins->startup;
 
-	plugin_kill(plugin, tal_fmt(tmpctx, "timed out %s", state_desc(plugin)));
+	plugin_kill(plugin, LOG_UNUSUAL,
+		    "timed out %s", state_desc(plugin));
 
 	if (startup)
 		fatal("Can't recover from plugin failure, terminating.");
@@ -1356,8 +1371,9 @@ static void plugin_manifest_cb(const char *buffer,
 	const char *err;
 	err = plugin_parse_getmanifest_response(buffer, toks, idtok, plugin);
 
+	/* FIXME: log debug if it disabled *itself*! */
 	if (err) {
-		plugin_kill(plugin, err);
+		plugin_kill(plugin, LOG_INFORM, "%s", err);
 		return;
 	}
 
@@ -1365,7 +1381,8 @@ static void plugin_manifest_cb(const char *buffer,
 	plugin->timeout_timer = tal_free(plugin->timeout_timer);
 
 	if (!plugin->plugins->startup && !plugin->dynamic)
-		plugin_kill(plugin, "Not a dynamic plugin");
+		plugin_kill(plugin, LOG_INFORM,
+			    "Not a dynamic plugin");
 	else
 		check_plugins_manifests(plugin->plugins);
 }
@@ -1554,7 +1571,7 @@ bool plugins_send_getmanifest(struct plugins *plugins)
 		}
 		if (plugins->startup)
 			fatal("error starting plugin '%s': %s", p->cmd, err);
-		plugin_kill(p, err);
+		plugin_kill(p, LOG_UNUSUAL, "%s", err);
 	}
 
 	return sent;
@@ -1607,7 +1624,7 @@ static void plugin_config_cb(const char *buffer,
 			  disable);
 		/* Don't get upset if this was a built-in! */
 		plugin->important = false;
-		plugin_kill(plugin, disable);
+		plugin_kill(plugin, LOG_DBG, disable);
 		return;
 	}
 
