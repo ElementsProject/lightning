@@ -3300,6 +3300,7 @@ def test_bolt11_null_after_pay(node_factory, bitcoind):
     # Let the channel confirm.
     bitcoind.generate_block(6)
     sync_blockheight(bitcoind, [l1, l2])
+    wait_for(lambda: only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CHANNELD_NORMAL')
 
     amt = Millisatoshi(amount_sat * 2 * 1000)
     invl1 = l1.rpc.invoice(amt, 'j', 'j')['bolt11']
