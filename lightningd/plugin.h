@@ -18,6 +18,7 @@
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>
+#include <stdarg.h>
 #include <unistd.h>
 
 
@@ -256,7 +257,8 @@ bool plugins_send_getmanifest(struct plugins *plugins);
 /**
  * Kill a plugin process and free @plugin, with an error message.
  */
-void plugin_kill(struct plugin *plugin, const char *msg);
+void plugin_kill(struct plugin *plugin, enum log_level loglevel,
+		 const char *fmt, ...);
 
 /**
  * Returns the plugin which registers the command with name {cmd_name}

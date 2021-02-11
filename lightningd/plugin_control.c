@@ -113,7 +113,8 @@ plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
 				                    "%s cannot be managed when "
 				                    "lightningd is up",
 				                    plugin_name);
-			plugin_kill(p, "stopped by lightningd via RPC");
+			plugin_kill(p, LOG_INFORM,
+				    "stopped by lightningd via RPC");
 			response = json_stream_success(cmd);
 			json_add_string(response, "result",
 			                take(tal_fmt(NULL, "Successfully stopped %s.",
