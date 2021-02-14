@@ -674,6 +674,7 @@ static struct migration dbmigrations[] = {
      * it cuts down the time by 80%.  */
     {SQL("CREATE INDEX forwarded_payments_out_htlc_id"
 	 " ON forwarded_payments (out_htlc_id);"), NULL},
+    {SQL("UPDATE channel_htlcs SET malformed_onion = 0 WHERE malformed_onion IS NULL"), NULL},
 };
 
 /* Leak tracking. */
