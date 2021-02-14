@@ -879,6 +879,12 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
+         .name = "UPDATE channel_htlcs SET malformed_onion = 0 WHERE malformed_onion IS NULL",
+         .query = "UPDATE channel_htlcs SET malformed_onion = 0 WHERE malformed_onion IS NULL",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
          .name = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .query = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = $1",
          .placeholders = 1,
@@ -1780,10 +1786,10 @@ struct db_query db_postgres_queries[] = {
     },
 };
 
-#define DB_POSTGRES_QUERY_COUNT 295
+#define DB_POSTGRES_QUERY_COUNT 296
 
 #endif /* HAVE_POSTGRES */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:2bec004d595805c1426966e32f0fff7b0e5e3a4fac512f5f36385d0ffa468b6d
+// SHA256STAMP:12a32ce7169fd1200edf6a6361c65fa6bd94ff9cfee926bd0eb6a882f46aa917
