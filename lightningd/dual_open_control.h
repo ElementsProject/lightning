@@ -19,8 +19,9 @@ void dualopen_tell_depth(struct subd *dualopend,
 			 struct channel *channel,
 			 const struct bitcoin_txid *txid,
 			 u32 depth);
-void kill_unsaved_channel(struct channel *channel,
-			  const char *why);
+
+void channel_close_conn(struct channel *channel,
+			const char *why);
 
 void json_add_unsaved_channel(struct json_stream *response,
 			      const struct channel *channel);

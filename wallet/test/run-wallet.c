@@ -60,6 +60,10 @@ void broadcast_tx(struct chain_topology *topo UNNEEDED,
 				 bool success UNNEEDED,
 				 const char *err))
 { fprintf(stderr, "broadcast_tx called!\n"); abort(); }
+/* Generated stub for channel_close_conn */
+void channel_close_conn(struct channel *channel UNNEEDED,
+			const char *why UNNEEDED)
+{ fprintf(stderr, "channel_close_conn called!\n"); abort(); }
 /* Generated stub for channel_tell_depth */
 bool channel_tell_depth(struct lightningd *ld UNNEEDED,
 				 struct channel *channel UNNEEDED,
@@ -413,10 +417,6 @@ bool json_tok_streq(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, 
 void kill_uncommitted_channel(struct uncommitted_channel *uc UNNEEDED,
 			      const char *why UNNEEDED)
 { fprintf(stderr, "kill_uncommitted_channel called!\n"); abort(); }
-/* Generated stub for kill_unsaved_channel */
-void kill_unsaved_channel(struct channel *channel UNNEEDED,
-			  const char *why UNNEEDED)
-{ fprintf(stderr, "kill_unsaved_channel called!\n"); abort(); }
 /* Generated stub for new_channel_mvt_invoice_hin */
 struct channel_coin_mvt *new_channel_mvt_invoice_hin(const tal_t *ctx UNNEEDED,
 						     struct htlc_in *hin UNNEEDED,

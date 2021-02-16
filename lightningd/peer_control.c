@@ -381,22 +381,7 @@ void channel_errmsg(struct channel *channel,
 	notify_disconnect(channel->peer->ld, &channel->peer->id);
 
 	/* Clean up any in-progress open attempts */
-	if (channel->open_attempt) {
-		struct open_attempt *oa = channel->open_attempt;
-		if (oa->cmd) {
-			was_pending(command_fail(oa->cmd, LIGHTNINGD,
-						 "%s", desc));
-			oa->cmd = NULL;
-		}
-		notify_channel_open_failed(channel->peer->ld, &channel->cid);
-		channel->open_attempt = tal_free(channel->open_attempt);
-	}
-
-	if (channel->openchannel_signed_cmd) {
-		was_pending(command_fail(channel->openchannel_signed_cmd,
-					 LIGHTNINGD, "%s", desc));
-		channel->openchannel_signed_cmd = NULL;
-	}
+	channel_cleanup_commands(channel, desc);
 
 	/* No per_peer_state means a subd crash or disconnection. */
 	if (!pps) {
@@ -1533,7 +1518,7 @@ static struct command_result *json_close(struct command *cmd,
 		}
 #if EXPERIMENTAL_FEATURES
 		if ((channel = peer_unsaved_channel(peer))) {
-			kill_unsaved_channel(channel, "close command called");
+			channel_close_conn(channel, "close command called");
 			return command_success(cmd, json_stream_success(cmd));
 		}
 #endif /* EXPERIMENTAL_FEATURES */
@@ -1805,7 +1790,7 @@ static struct command_result *json_disconnect(struct command *cmd,
 #if EXPERIMENTAL_FEATURES
 	channel = peer_unsaved_channel(peer);
 	if (channel) {
-		kill_unsaved_channel(channel, "disconnect command");
+		channel_close_conn(channel, "disconnect command");
 		return command_success(cmd, json_stream_success(cmd));
 	}
 #endif /* EXPERIMENTAL_FEATURES */
