@@ -318,6 +318,9 @@ void channel_fail_forget(struct channel *channel, const char *fmt, ...);
 /* Permanent error, but due to internal problems, not peer. */
 void channel_internal_error(struct channel *channel, const char *fmt, ...);
 
+/* Clean up any in-progress commands for a channel */
+void channel_cleanup_commands(struct channel *channel, const char *why);
+
 void channel_set_state(struct channel *channel,
 		       enum channel_state old_state,
 		       enum channel_state state,
