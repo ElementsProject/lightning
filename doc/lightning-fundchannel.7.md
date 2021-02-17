@@ -4,7 +4,7 @@ lightning-fundchannel -- Command for establishing a lightning channel
 SYNOPSIS
 --------
 
-**fundchannel** *id* *amount* \[*feerate* *announce*\] \[*minconf*\]
+**fundchannel** *id* *amount* \[*feerate*\] \[*announce*\] \[*minconf*\]
 \[*utxos*\] \[*push_msat*\] \[*close_to*\]
 
 DESCRIPTION
