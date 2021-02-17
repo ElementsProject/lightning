@@ -1,0 +1,64 @@
+.TH "LIGHTNING-DISABLEOFFER" "7" "" "" "lightning-disableoffer"
+.SH NAME
+lightning-disableoffer - Command for removing an offer
+.SH SYNOPSIS
+
+\fB(WARNING: experimental-offers only)\fR
+
+
+\fBdisableoffer\fR \fIoffer_id\fR
+
+.SH DESCRIPTION
+
+The \fBdisableoffer\fR RPC command disables an offer, so that no further
+invoices will be given out (if made with \fBlightning-offer\fR(7)) or
+invoices accepted  (if made with \fBlightning-offerout\fR(7))\.
+
+
+We currently don't support deletion of offers, so offers are not
+forgotten entirely (there may be invoices which refer to this offer)\.
+
+.SH EXAMPLE JSON REQUEST
+.nf
+.RS
+{
+  "id": 82,
+  "method": "disableoffer",
+  "params": {
+    "offer_id": "713a16ccd4eb10438bdcfbc2c8276be301020dd9d489c530773ba64f3b33307d ",
+  }
+}
+.RE
+
+.fi
+.SH RETURN VALUE
+
+If successful the command returns an object, in the same format as \fBlistoffers\fR\.
+The "active" field will always be false\.
+
+.SH EXAMPLE JSON RESPONSE
+.nf
+.RS
+{
+   "offer_id": "053a5c566fbea2681a5ff9c05a913da23e45b95d09ef5bd25d7d408f23da7084",
+   "active": false,
+   "single_use": false,
+   "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqvqcdgq2z9pk7enxv4jjqen0wgs8yatnw3ujz83qkc6rvp4j28rt3dtrn32zkvdy7efhnlrpr5rp5geqxs783wtlj550qs8czzku4nk3pqp6m593qxgunzuqcwkmgqkmp6ty0wyvjcqdguv3pnpukedwn6cr87m89t74h3auyaeg89xkvgzpac70z3m9rn5xzu28c",
+   "used": false
+}
+.RE
+
+.fi
+.SH AUTHOR
+
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-offer\fR(7), \fBlightning-offerout\fR(7), \fBlightning-listoffers\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:55cfb050fa2d28f58750dc74659d9f7bc5ec00499e218ccffd058db51efc38d2

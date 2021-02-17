@@ -21,6 +21,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-delinvoice.7 \
 	doc/lightning-delpay.7 \
 	doc/lightning-dev-sendcustommsg.7 \
+	doc/lightning-disableoffer.7 \
 	doc/lightning-disconnect.7 \
 	doc/lightning-feerates.7 \
 	doc/lightning-fetchinvoice.7 \
@@ -38,6 +39,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-listforwards.7 \
 	doc/lightning-listfunds.7 \
 	doc/lightning-listinvoices.7 \
+	doc/lightning-listoffers.7 \
 	doc/lightning-listpays.7 \
 	doc/lightning-listpeers.7 \
 	doc/lightning-listsendpays.7 \

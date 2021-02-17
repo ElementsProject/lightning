@@ -116,7 +116,7 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-offerout(7), lightning-listoffers(7), lightning-deloffer(7).
+lightning-offerout(7), lightning-listoffers(7), lightning-disableoffer(7).
 
 RESOURCES
 ---------

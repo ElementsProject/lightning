@@ -1,0 +1,71 @@
+.TH "LIGHTNING-LISTOFFERS" "7" "" "" "lightning-listoffers"
+.SH NAME
+lightning-listoffers - Command for listing offers
+.SH SYNOPSIS
+
+\fB(WARNING: experimental-offers only)\fR
+
+
+\fBlistoffers\fR [\fIoffer_id\fR] [\fIactive_only\fR]
+
+.SH DESCRIPTION
+
+The \fBlistoffers\fR RPC command list all offers, or with \fBoffer_id\fR,
+only the offer with that offer_id (if it exists)\.  If \fBactive_only\fR is
+set and is true, only offers with \fBactive\fR true are returned\.
+
+.SH EXAMPLE JSON REQUEST
+.nf
+.RS
+{
+  "id": 82,
+  "method": "listoffers",
+  "params": {
+    "active_only": false
+  }
+}
+.RE
+
+.fi
+.SH RETURN VALUE
+
+On success, an array \fIoffers\fR of objects is returned\. Each object contains
+\fIoffer_id\fR, \fIactive\fR, \fIsingle_use\fR, \fIbolt12\fR and \fIused\fR\.
+
+.SH EXAMPLE JSON RESPONSE
+.nf
+.RS
+{
+  "offers": [
+    {
+      "offer_id": "053a5c566fbea2681a5ff9c05a913da23e45b95d09ef5bd25d7d408f23da7084",
+      "active": true,
+      "single_use": false,
+      "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqvqcdgq2z9pk7enxv4jjqen0wgs8yatnw3ujz83qkc6rvp4j28rt3dtrn32zkvdy7efhnlrpr5rp5geqxs783wtlj550qs8czzku4nk3pqp6m593qxgunzuqcwkmgqkmp6ty0wyvjcqdguv3pnpukedwn6cr87m89t74h3auyaeg89xkvgzpac70z3m9rn5xzu28c",
+      "used": false
+    },
+    {
+      "offer_id": "3247d3597fec19e362ca683416a48a0f76a44c1600725a7ee1936548feadacca",
+      "active": true,
+      "single_use": false,
+      "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcxqd24x3qgqgqlgzs3gdhkven9v5sxvmmjype82um50ys3ug9kxsmqdvj3c6ut2cuu2s4nrf8k2dulccgaqcdzxgp583utjlu49rcyqt8hc3s797umxn3r9367rdqc577rma7key58fywkajxnuzyapge86hj2pg80rjrma40xdqrxnsnva5l3ce7hz4ua8wf755dees4y9vnq",
+      "used": false
+    }
+  ]
+}
+.RE
+
+.fi
+.SH AUTHOR
+
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-offer\fR(7), \fBlightning-offerout\fR(7), \fBlightning-listoffers\fR(7)\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:f654c090c24a1cae9a3947b4ba0bfd051949502a5de6d78d899a7f6cf73a8fe6
