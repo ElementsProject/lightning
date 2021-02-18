@@ -29,8 +29,17 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, an array *offers* of objects is returned. Each object contains
-*offer_id*, *active*, *single_use*, *bolt12* and *used*.
+On success, an array *offers* of objects is returned. Each object contains:
+
+* *offer_id*: the hash of the offer.
+* *active*: true
+* *single_use*: true if *single_use* was specified.
+* *bolt12*: the bolt12 offer, starting with "lno1"
+* *used*: true if an associated invoice has been paid.
+
+Optionally:
+* *label*: the user-specified label.
+
 
 EXAMPLE JSON RESPONSE
 -----
@@ -49,7 +58,7 @@ EXAMPLE JSON RESPONSE
       "active": true,
       "single_use": false,
       "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcxqd24x3qgqgqlgzs3gdhkven9v5sxvmmjype82um50ys3ug9kxsmqdvj3c6ut2cuu2s4nrf8k2dulccgaqcdzxgp583utjlu49rcyqt8hc3s797umxn3r9367rdqc577rma7key58fywkajxnuzyapge86hj2pg80rjrma40xdqrxnsnva5l3ce7hz4ua8wf755dees4y9vnq",
-      "used": false
+      "used": true
     }
   ]
 }

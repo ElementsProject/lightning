@@ -21,7 +21,7 @@ static void json_populate_offer(struct json_stream *response,
 	json_add_bool(response, "active", offer_status_active(status));
 	json_add_bool(response, "single_use", offer_status_single(status));
 	json_add_string(response, "bolt12", b12);
-	json_add_bool(response, "used", status == OFFER_USED);
+	json_add_bool(response, "used", offer_status_used(status));
 	if (label)
 		json_add_escaped_string(response, "label", label);
 }
@@ -96,9 +96,9 @@ static struct command_result *json_createoffer(struct command *cmd,
 		return command_param_failed();
 
 	if (*single_use)
-		status = OFFER_SINGLE_USE;
+		status = OFFER_SINGLE_USE_UNUSED;
 	else
-		status = OFFER_MULTIPLE_USE;
+		status = OFFER_MULTIPLE_USE_UNUSED;
  	merkle_tlv(offer->fields, &merkle);
 	offer->signature = tal(offer, struct bip340sig);
 	if (!pubkey32_from_node_id(&key, &cmd->ld->id))

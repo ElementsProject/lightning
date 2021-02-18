@@ -44,6 +44,13 @@ static void update_feerates(struct lightningd *ld, struct channel *channel)
 	if (!feerate)
 		return;
 
+	log_debug(ld->log,
+		  "update_feerates: feerate = %u, min=%u, max=%u, penalty=%u",
+		  feerate,
+		  feerate_min(ld, NULL),
+		  feerate_max(ld, NULL),
+		  try_get_feerate(ld->topology, FEERATE_PENALTY));
+
 	msg = towire_channeld_feerates(NULL, feerate,
 				       feerate_min(ld, NULL),
 				       feerate_max(ld, NULL),

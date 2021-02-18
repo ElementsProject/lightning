@@ -100,27 +100,8 @@ invoices will be expired (i\.e\. only one person can pay this offer)\.
 
 .SH RETURN VALUE
 
-On success, an object as follows is returned:
+On success, an object as follows is returned as per \fBlightning-listoffers\fR(7)\.
 
-.RS
-.IP \[bu]
-\fIoffer_id\fR: the hash of the offer\.
-.IP \[bu]
-\fIactive\fR: true
-.IP \[bu]
-\fIsingle_use\fR: true if \fIsingle_use\fR was specified\.
-.IP \[bu]
-\fIbolt12\fR: the bolt12 offer, starting with "lno1"
-
-.RE
-
-Optionally:
-
-.RS
-.IP \[bu]
-\fIlabel\fR: the user-specified label\.
-
-.RE
 
 On failure, an error is returned and no offer is created\. If the
 lightning process fails before responding, the caller should use
@@ -149,4 +130,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:4ab9701b01ad474482f7aa8d31ea2c1170904402c2f222f6d5a9ba826e963457
+\" SHA256STAMP:32c3f313b94ca968683060c9b8ba81c76b610b3b0f0c604a24a2f88bb8130c2c

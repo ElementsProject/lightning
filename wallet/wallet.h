@@ -1354,9 +1354,10 @@ void wallet_penalty_base_delete(struct wallet *w, u64 chan_id, u64 commitnum);
 #define OFFER_STATUS_SINGLE_F  0x2
 #define OFFER_STATUS_USED_F    0x4
 enum offer_status {
-	OFFER_MULTIPLE_USE = OFFER_STATUS_ACTIVE_F,
-	OFFER_SINGLE_USE = OFFER_STATUS_ACTIVE_F|OFFER_STATUS_SINGLE_F,
-	OFFER_USED = OFFER_STATUS_SINGLE_F|OFFER_STATUS_USED_F,
+	OFFER_MULTIPLE_USE_UNUSED = OFFER_STATUS_ACTIVE_F,
+	OFFER_MULTIPLE_USE_USED = OFFER_STATUS_ACTIVE_F|OFFER_STATUS_USED_F,
+	OFFER_SINGLE_USE_UNUSED = OFFER_STATUS_ACTIVE_F|OFFER_STATUS_SINGLE_F,
+	OFFER_SINGLE_USE_USED = OFFER_STATUS_SINGLE_F|OFFER_STATUS_USED_F,
 	OFFER_SINGLE_DISABLED = OFFER_STATUS_SINGLE_F,
 	OFFER_MULTIPLE_DISABLED = 0,
 };
@@ -1364,14 +1365,17 @@ enum offer_status {
 static inline enum offer_status offer_status_in_db(enum offer_status s)
 {
 	switch (s) {
-	case OFFER_MULTIPLE_USE:
-		BUILD_ASSERT(OFFER_MULTIPLE_USE == 1);
+	case OFFER_MULTIPLE_USE_UNUSED:
+		BUILD_ASSERT(OFFER_MULTIPLE_USE_UNUSED == 1);
 		return s;
-	case OFFER_SINGLE_USE:
-		BUILD_ASSERT(OFFER_SINGLE_USE == 3);
+	case OFFER_MULTIPLE_USE_USED:
+		BUILD_ASSERT(OFFER_MULTIPLE_USE_USED == 5);
 		return s;
-	case OFFER_USED:
-		BUILD_ASSERT(OFFER_USED == 6);
+	case OFFER_SINGLE_USE_UNUSED:
+		BUILD_ASSERT(OFFER_SINGLE_USE_UNUSED == 3);
+		return s;
+	case OFFER_SINGLE_USE_USED:
+		BUILD_ASSERT(OFFER_SINGLE_USE_USED == 6);
 		return s;
 	case OFFER_SINGLE_DISABLED:
 		BUILD_ASSERT(OFFER_SINGLE_DISABLED == 2);
@@ -1391,6 +1395,11 @@ static inline bool offer_status_active(enum offer_status s)
 static inline bool offer_status_single(enum offer_status s)
 {
 	return s & OFFER_STATUS_SINGLE_F;
+}
+
+static inline bool offer_status_used(enum offer_status s)
+{
+	return s & OFFER_STATUS_USED_F;
 }
 
 /**
