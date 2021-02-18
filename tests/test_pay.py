@@ -4061,6 +4061,18 @@ def test_fetchinvoice(node_factory, bitcoind):
     assert period3['paywindow_end'] == period3['starttime']
     l1.rpc.pay(ret['invoice'], label='test paywindow')
 
+    # We can get another invoice, as many times as we want.
+    # (It may return the same one!).
+    while int(time.time()) <= period3['paywindow_start']:
+        time.sleep(1)
+
+    l1.rpc.call('fetchinvoice', {'offer': offer,
+                                 'recurrence_counter': 1,
+                                 'recurrence_label': 'test paywindow'})
+    l1.rpc.call('fetchinvoice', {'offer': offer,
+                                 'recurrence_counter': 1,
+                                 'recurrence_label': 'test paywindow'})
+
     # Wait until too late!
     while int(time.time()) <= period3['paywindow_end']:
         time.sleep(1)

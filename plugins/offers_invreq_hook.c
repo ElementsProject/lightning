@@ -6,6 +6,7 @@
 #include <common/bolt12_merkle.h>
 #include <common/iso4217.h>
 #include <common/json_stream.h>
+#include <common/jsonrpc_errors.h>
 #include <common/overflows.h>
 #include <common/type_to_string.h>
 #include <plugins/offers.h>
@@ -160,6 +161,7 @@ static struct command_result *error(struct command *cmd,
 				json_tok_full(buf, err));
 }
 
+/* We can fail to create the invoice if we've already done so. */
 static struct command_result *createinvoice_done(struct command *cmd,
 						 const char *buf,
 						 const jsmntok_t *result,
@@ -182,6 +184,23 @@ static struct command_result *createinvoice_done(struct command *cmd,
 	return send_onion_reply(cmd, ir->buf, ir->replytok, "invoice", rawinv);
 }
 
+static struct command_result *createinvoice_error(struct command *cmd,
+						  const char *buf,
+						  const jsmntok_t *err,
+						  struct invreq *ir)
+{
+	u32 code;
+
+	/* If it already exists, we can reuse its bolt12 directly. */
+	if (json_scan(tmpctx, buf, err,
+		      "{code:%}", JSON_SCAN(json_to_u32, &code)) == NULL
+	    && code == INVOICE_LABEL_ALREADY_EXISTS) {
+		return createinvoice_done(cmd, buf,
+					  json_get_member(buf, err, "data"), ir);
+	}
+	return error(cmd, buf, err, ir);
+}
+
 static struct command_result *create_invoicereq(struct command *cmd,
 						struct invreq *ir)
 {
@@ -189,7 +208,7 @@ static struct command_result *create_invoicereq(struct command *cmd,
 
 	/* Now, write invoice to db (returns the signed version) */
 	req = jsonrpc_request_start(cmd->plugin, cmd, "createinvoice",
-				    createinvoice_done, error, ir);
+				    createinvoice_done, createinvoice_error, ir);
 
 	json_add_string(req->js, "invstring", invoice_encode(tmpctx, ir->inv));
 	json_add_preimage(req->js, "preimage", &ir->preimage);
