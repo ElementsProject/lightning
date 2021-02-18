@@ -316,7 +316,7 @@ It is also specific to PostgreSQL 12, and setting up for other versions
 If you want to continue a node that started using an SQLITE3 database,
 note that we do not support this.
 You should set up a new PostgreSQL node, move funds from the SQLITE3
-node to the PostgreSQL node, then shut dwon the SQLITE3 node
+node to the PostgreSQL node, then shut down the SQLITE3 node
 permanently.
 
 There are also more ways to set up PostgreSQL replication.
