@@ -92,6 +92,10 @@ One of the following warnings may occur (on success):
 - *warning\_capacity* if there is no channel that has sufficient
     incoming capacity
 - *warning\_deadends* if there is no channel that is not a dead-end
+- *warning_mpp* if there is sufficient capacity, but not in a single channel,
+    so the payer will have to use multi-part payments.
+- *warning_mpp_capacity* if there is not sufficient capacity, even with all
+    channels.
 
 AUTHOR
 ------
