@@ -3915,29 +3915,32 @@ def test_fetchinvoice(node_factory, bitcoind):
 
     # Simple offer first.
     offer1 = l3.rpc.call('offer', {'amount': '2msat',
-                                   'description': 'simple test'})['bolt12']
+                                   'description': 'simple test'})
 
-    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1})
-    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer1})
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
+    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
     assert inv1 != inv2
     assert 'next_period' not in inv1
     assert 'next_period' not in inv2
+    assert only_one(l3.rpc.call('listoffers', [offer1['offer_id']])['offers'])['used'] is False
     l1.rpc.pay(inv1['invoice'])
+    assert only_one(l3.rpc.call('listoffers', [offer1['offer_id']])['offers'])['used'] is True
     l1.rpc.pay(inv2['invoice'])
+    assert only_one(l3.rpc.call('listoffers', [offer1['offer_id']])['offers'])['used'] is True
 
     # We can also set the amount explicitly, to tip.
-    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1, 'msatoshi': 3})
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'msatoshi': 3})
     assert l1.rpc.call('decode', [inv1['invoice']])['amount_msat'] == 3
     l1.rpc.pay(inv1['invoice'])
 
     # More than ~5x expected is rejected as absurd (it's actually a divide test,
     # which means we need 15 here, not 11).
     with pytest.raises(RpcError, match="Remote node sent failure message.*Amount vastly exceeds 2msat"):
-        l1.rpc.call('fetchinvoice', {'offer': offer1, 'msatoshi': 15})
+        l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'msatoshi': 15})
 
     # Underpay is rejected.
     with pytest.raises(RpcError, match="Remote node sent failure message.*Amount must be at least 2msat"):
-        l1.rpc.call('fetchinvoice', {'offer': offer1, 'msatoshi': 1})
+        l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'msatoshi': 1})
 
     # Single-use invoice can be fetched multiple times, only paid once.
     offer2 = l3.rpc.call('offer', {'amount': '1msat',
@@ -3963,9 +3966,10 @@ def test_fetchinvoice(node_factory, bitcoind):
     # Recurring offer.
     offer3 = l2.rpc.call('offer', {'amount': '1msat',
                                    'description': 'recurring test',
-                                   'recurrence': '1minutes'})['bolt12']
+                                   'recurrence': '1minutes'})
+    assert only_one(l2.rpc.call('listoffers', [offer3['offer_id']])['offers'])['used'] is False
 
-    ret = l1.rpc.call('fetchinvoice', {'offer': offer3,
+    ret = l1.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
                                        'recurrence_counter': 0,
                                        'recurrence_label': 'test recurrence'})
     period1 = ret['next_period']
@@ -3973,10 +3977,12 @@ def test_fetchinvoice(node_factory, bitcoind):
     assert period1['endtime'] == period1['starttime'] + 59
     assert period1['paywindow_start'] == period1['starttime'] - 60
     assert period1['paywindow_end'] == period1['endtime']
+    assert only_one(l2.rpc.call('listoffers', [offer3['offer_id']])['offers'])['used'] is False
 
     l1.rpc.pay(ret['invoice'], label='test recurrence')
+    assert only_one(l2.rpc.call('listoffers', [offer3['offer_id']])['offers'])['used'] is True
 
-    ret = l1.rpc.call('fetchinvoice', {'offer': offer3,
+    ret = l1.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
                                        'recurrence_counter': 1,
                                        'recurrence_label': 'test recurrence'})
     period2 = ret['next_period']
@@ -3988,7 +3994,7 @@ def test_fetchinvoice(node_factory, bitcoind):
 
     # Can't request 2 before paying 1.
     with pytest.raises(RpcError, match='previous invoice has not been paid'):
-        l1.rpc.call('fetchinvoice', {'offer': offer3,
+        l1.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
                                      'recurrence_counter': 2,
                                      'recurrence_label': 'test recurrence'})
 
@@ -3996,7 +4002,7 @@ def test_fetchinvoice(node_factory, bitcoind):
 
     # Now we can, but it's too early:
     with pytest.raises(RpcError, match="Too early: can't send until time {}".format(period1['starttime'])):
-        l1.rpc.call('fetchinvoice', {'offer': offer3,
+        l1.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
                                      'recurrence_counter': 2,
                                      'recurrence_label': 'test recurrence'})
 
@@ -4004,14 +4010,14 @@ def test_fetchinvoice(node_factory, bitcoind):
     while time.time() < period1['starttime']:
         time.sleep(1)
 
-    l1.rpc.call('fetchinvoice', {'offer': offer3,
+    l1.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
                                  'recurrence_counter': 2,
                                  'recurrence_label': 'test recurrence'})
 
     # Check we can request invoice without a channel.
     l4 = node_factory.get_node(options={'experimental-offers': None})
     l4.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    ret = l4.rpc.call('fetchinvoice', {'offer': offer3,
+    ret = l4.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
                                        'recurrence_counter': 0,
                                        'recurrence_label': 'test nochannel'})
 
@@ -4037,7 +4043,7 @@ def test_fetchinvoice(node_factory, bitcoind):
     # Test timeout.
     l3.stop()
     with pytest.raises(RpcError, match='Timeout waiting for response'):
-        l1.rpc.call('fetchinvoice', {'offer': offer1, 'timeout': 10})
+        l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'timeout': 10})
 
     # Now try an offer with a more complex paywindow (only 10 seconds before)
     offer = l2.rpc.call('offer', {'amount': '1msat',
@@ -4089,15 +4095,17 @@ def test_sendinvoice(node_factory, bitcoind):
 
     # Simple offer to send money (balances channel a little)
     offer = l1.rpc.call('offerout', {'amount': '100000sat',
-                                     'description': 'simple test'})['bolt12']
-    print(offer)
+                                     'description': 'simple test'})
 
     # Fetchinvoice will refuse, since you're supposed to send an invoice.
     with pytest.raises(RpcError, match='Offer wants an invoice, not invoice_request'):
-        l2.rpc.call('fetchinvoice', {'offer': offer})
+        l2.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
+
+    # used will be false
+    assert only_one(l1.rpc.call('listoffers', [offer['offer_id']])['offers'])['used'] is False
 
     # sendinvoice should work.
-    out = l2.rpc.call('sendinvoice', {'offer': offer,
+    out = l2.rpc.call('sendinvoice', {'offer': offer['bolt12'],
                                       'label': 'test sendinvoice 1'})
     print(out)
     assert out['label'] == 'test sendinvoice 1'
@@ -4117,22 +4125,29 @@ def test_sendinvoice(node_factory, bitcoind):
     # *but* if it hasn't heard about payment success yet, l2 will fail
     # simply because payments are already pending.
     with pytest.raises(RpcError, match='Offer no longer available|pay attempt failed'):
-        l2.rpc.call('sendinvoice', {'offer': offer,
+        l2.rpc.call('sendinvoice', {'offer': offer['bolt12'],
                                     'label': 'test sendinvoice 2'})
+
+    # Technically, l1 may not have gotten payment success, so we need to wait.
+    wait_for(lambda: only_one(l1.rpc.call('listoffers', [offer['offer_id']])['offers'])['used'] is True)
 
     # Now try a refund.
     offer = l2.rpc.call('offer', {'amount': '100msat',
-                                  'description': 'simple test'})['bolt12']
+                                  'description': 'simple test'})
+    assert only_one(l2.rpc.call('listoffers', [offer['offer_id']])['offers'])['used'] is False
 
-    inv = l1.rpc.call('fetchinvoice', {'offer': offer})
+    inv = l1.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
     l1.rpc.pay(inv['invoice'])
+    assert only_one(l2.rpc.call('listoffers', [offer['offer_id']])['offers'])['used'] is True
 
     refund = l2.rpc.call('offerout', {'amount': '100msat',
                                       'description': 'refund test',
-                                      'refund_for': inv['invoice']})['bolt12']
+                                      'refund_for': inv['invoice']})
+    assert only_one(l2.rpc.call('listoffers', [refund['offer_id']])['offers'])['used'] is False
 
-    l1.rpc.call('sendinvoice', {'offer': refund,
+    l1.rpc.call('sendinvoice', {'offer': refund['bolt12'],
                                 'label': 'test sendinvoice refund'})
+    wait_for(lambda: only_one(l2.rpc.call('listoffers', [refund['offer_id']])['offers'])['used'] is True)
 
 
 def test_self_pay(node_factory):

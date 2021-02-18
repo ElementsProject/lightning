@@ -1181,4 +1181,4 @@ msgstr ""
 #: wallet/test/run-wallet.c:1395
 msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
-#  SHA256STAMP:ecf013adbde1360d2544fc6a84105d620a2ae3a5acc6394288ee24e6110548f7
+#  SHA256STAMP:6aef0052df3b7141edbb7af83a1242a31af18b55aed8e14ca5ede7d783f86309

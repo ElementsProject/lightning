@@ -29,9 +29,29 @@ set and is true, only offers with \fBactive\fR true are returned\.
 .fi
 .SH RETURN VALUE
 
-On success, an array \fIoffers\fR of objects is returned\. Each object contains
-\fIoffer_id\fR, \fIactive\fR, \fIsingle_use\fR, \fIbolt12\fR and \fIused\fR\.
+On success, an array \fIoffers\fR of objects is returned\. Each object contains:
 
+.RS
+.IP \[bu]
+\fIoffer_id\fR: the hash of the offer\.
+.IP \[bu]
+\fIactive\fR: true
+.IP \[bu]
+\fIsingle_use\fR: true if \fIsingle_use\fR was specified\.
+.IP \[bu]
+\fIbolt12\fR: the bolt12 offer, starting with "lno1"
+.IP \[bu]
+\fIused\fR: true if an associated invoice has been paid\.
+
+.RE
+
+Optionally:
+
+.RS
+.IP \[bu]
+\fIlabel\fR: the user-specified label\.
+
+.RE
 .SH EXAMPLE JSON RESPONSE
 .nf
 .RS
@@ -49,7 +69,7 @@ On success, an array \fIoffers\fR of objects is returned\. Each object contains
       "active": true,
       "single_use": false,
       "bolt12": "lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcxqd24x3qgqgqlgzs3gdhkven9v5sxvmmjype82um50ys3ug9kxsmqdvj3c6ut2cuu2s4nrf8k2dulccgaqcdzxgp583utjlu49rcyqt8hc3s797umxn3r9367rdqc577rma7key58fywkajxnuzyapge86hj2pg80rjrma40xdqrxnsnva5l3ce7hz4ua8wf755dees4y9vnq",
-      "used": false
+      "used": true
     }
   ]
 }
@@ -68,4 +88,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:f654c090c24a1cae9a3947b4ba0bfd051949502a5de6d78d899a7f6cf73a8fe6
+\" SHA256STAMP:bc4abe90e5475a272c61af45e4f00be9f3fab89d3adca767b577b46d70d33726
