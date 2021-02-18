@@ -113,6 +113,12 @@ One of the following warnings may occur (on success):
   incoming capacity
 .IP \[bu]
 \fIwarning_deadends\fR if there is no channel that is not a dead-end
+.IP \[bu]
+\fIwarning_mpp\fR if there is sufficient capacity, but not in a single channel,
+  so the payer will have to use multi-part payments\.
+.IP \[bu]
+\fIwarning_mpp_capacity\fR if there is not sufficient capacity, even with all
+  channels\.
 
 .RE
 .SH AUTHOR
@@ -128,4 +134,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:5a7792cb739f34adf7db346f3bd615816915230fcb8343af1b742336a677dbc2
+\" SHA256STAMP:dc375ee583188c669574a8ef203971df650ef221567dccb8df7a81ed5ee4990f
