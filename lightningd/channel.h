@@ -282,6 +282,13 @@ new_inflight(struct channel *channel,
 struct channel_inflight *channel_inflight_find(struct channel *channel,
 					       const struct bitcoin_txid *txid);
 
+/* What's the most recent inflight for this channel? */
+struct channel_inflight *
+channel_current_inflight(const struct channel *channel);
+
+/* What's the last feerate used for a funding tx on this channel? */
+u32 channel_last_funding_feerate(const struct channel *channel);
+
 void delete_channel(struct channel *channel STEALS);
 
 const char *channel_state_name(const struct channel *channel);
