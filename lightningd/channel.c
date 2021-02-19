@@ -715,6 +715,29 @@ void channel_fail_forget(struct channel *channel, const char *fmt, ...)
 	tal_free(why);
 }
 
+struct channel_inflight *
+channel_current_inflight(const struct channel *channel)
+{
+	struct channel_inflight *inflight;
+	/* The last inflight should always be the one in progress */
+	inflight = list_tail(&channel->inflights,
+			     struct channel_inflight,
+			     list);
+	if (inflight)
+		assert(bitcoin_txid_eq(&channel->funding_txid,
+				       &inflight->funding->txid));
+	return inflight;
+}
+
+u32 channel_last_funding_feerate(const struct channel *channel)
+{
+	struct channel_inflight *inflight;
+	inflight = channel_current_inflight(channel);
+	if (!inflight)
+		return 0;
+	return inflight->funding->feerate;
+}
+
 void channel_internal_error(struct channel *channel, const char *fmt, ...)
 {
 	va_list ap;
