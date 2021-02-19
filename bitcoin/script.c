@@ -11,35 +11,8 @@
 #include <common/utils.h>
 #include <sodium/randombytes.h>
 
-/* Some standard ops */
-#define OP_0		0x00
+/* To push 0-75 bytes onto stack. */
 #define OP_PUSHBYTES(val) (val)
-#define OP_PUSHDATA1	0x4C
-#define OP_PUSHDATA2	0x4D
-#define OP_PUSHDATA4	0x4E
-#define OP_NOP		0x61
-#define OP_IF		0x63
-#define OP_NOTIF	0x64
-#define OP_ELSE		0x67
-#define OP_ENDIF	0x68
-#define OP_RETURN	0x6a
-#define OP_2DROP	0x6d
-#define OP_IFDUP	0x73
-#define OP_DEPTH	0x74
-#define OP_DROP		0x75
-#define OP_DUP		0x76
-#define OP_SWAP		0x7c
-#define OP_EQUAL	0x87
-#define OP_EQUALVERIFY	0x88
-#define OP_SIZE		0x82
-#define OP_1SUB		0x8C
-#define OP_ADD		0x93
-#define OP_CHECKSIG	0xAC
-#define OP_CHECKSIGVERIFY	0xAD
-#define OP_CHECKMULTISIG	0xAE
-#define OP_HASH160	0xA9
-#define OP_CHECKSEQUENCEVERIFY	0xB2
-#define OP_CHECKLOCKTIMEVERIFY	0xB1
 
 /* Bitcoin's OP_HASH160 is RIPEMD(SHA256()) */
 static void hash160(struct ripemd160 *redeemhash, const void *mem, size_t len)
