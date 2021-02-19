@@ -34,6 +34,7 @@
 #include <common/peer_status_wiregen.h>
 #include <common/penalty_base.h>
 #include <common/read_peer_msg.h>
+#include <common/shutdown_scriptpubkey.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/type_to_string.h>
@@ -321,6 +322,20 @@ static bool setup_channel_funder(struct state *state)
 	return true;
 }
 
+static void set_remote_upfront_shutdown(struct state *state,
+					u8 *shutdown_scriptpubkey STEALS)
+{
+	state->upfront_shutdown_script[REMOTE]
+		= tal_steal(state, shutdown_scriptpubkey);
+
+	if (shutdown_scriptpubkey
+	    && !valid_shutdown_scriptpubkey(shutdown_scriptpubkey))
+		peer_failed_err(state->pps,
+				&state->channel_id,
+				"Unacceptable upfront_shutdown_script %s",
+				tal_hex(tmpctx, shutdown_scriptpubkey));
+}
+
 /* We start the 'open a channel' negotation with the supplied peer, but
  * stop when we get to the part where we need the funding txid */
 static u8 *funder_channel_start(struct state *state, u8 channel_flags)
@@ -404,8 +419,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 				&state->channel_id,
 				"Parsing accept_channel %s", tal_hex(msg, msg));
 	}
-	state->upfront_shutdown_script[REMOTE]
-		= tal_steal(state, accept_tlvs->upfront_shutdown_script);
+	set_remote_upfront_shutdown(state, accept_tlvs->upfront_shutdown_script);
 
 	/* BOLT #2:
 	 *
@@ -764,8 +778,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		    peer_failed_err(state->pps,
 				    &state->channel_id,
 				    "Parsing open_channel %s", tal_hex(tmpctx, open_channel_msg));
-	state->upfront_shutdown_script[REMOTE]
-		= tal_steal(state, open_tlvs->upfront_shutdown_script);
+	set_remote_upfront_shutdown(state, open_tlvs->upfront_shutdown_script);
 
 	/* BOLT #2:
 	 *

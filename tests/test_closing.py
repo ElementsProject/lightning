@@ -2594,3 +2594,18 @@ def test_option_upfront_shutdown_script(node_factory, bitcoind, executor):
     l1.rpc.fundchannel(l2.info['id'], 1000000)
     l1.rpc.close(l2.info['id'])
     wait_for(lambda: sorted([c['state'] for c in only_one(l1.rpc.listpeers()['peers'])['channels']]) == ['CLOSINGD_COMPLETE', 'ONCHAIN', 'ONCHAIN'])
+
+
+@unittest.skipIf(not DEVELOPER, "needs to set upfront_shutdown_script")
+def test_invalid_upfront_shutdown_script(node_factory, bitcoind, executor):
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+
+    l1 = node_factory.get_node(start=False, allow_warning=True)
+    # Insist on upfront script we're not going to match.
+    l1.daemon.env["DEV_OPENINGD_UPFRONT_SHUTDOWN_SCRIPT"] = "76a91404b61f7dc1ea0dc99424464cc4064dc564d91e8988ac00"
+    l1.start()
+
+    l2 = node_factory.get_node()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    with pytest.raises(RpcError, match=r'Unacceptable upfront_shutdown_script'):
+        l1.fundchannel(l2, 1000000, False)
