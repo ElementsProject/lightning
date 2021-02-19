@@ -120,6 +120,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/pseudorand.o			\
 	common/random_select.o			\
 	common/setup.o				\
+	common/shutdown_scriptpubkey.o		\
 	common/sphinx.o				\
 	common/status_wire.o			\
 	common/timeout.o			\
