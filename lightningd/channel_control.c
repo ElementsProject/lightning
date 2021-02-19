@@ -12,6 +12,7 @@
 #include <common/memleak.h>
 #include <common/per_peer_state.h>
 #include <common/psbt_open.h>
+#include <common/shutdown_scriptpubkey.h>
 #include <common/timeout.h>
 #include <common/tx_roles.h>
 #include <common/utils.h>
@@ -237,21 +238,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	tal_free(channel->shutdown_scriptpubkey[REMOTE]);
 	channel->shutdown_scriptpubkey[REMOTE] = scriptpubkey;
 
-	/* BOLT #2:
-	 *
-	 * 1. `OP_DUP` `OP_HASH160` `20` 20-bytes `OP_EQUALVERIFY` `OP_CHECKSIG`
-	 *   (pay to pubkey hash), OR
-	 * 2. `OP_HASH160` `20` 20-bytes `OP_EQUAL` (pay to script hash), OR
-	 * 3. `OP_0` `20` 20-bytes (version 0 pay to witness pubkey), OR
-	 * 4. `OP_0` `32` 32-bytes (version 0 pay to witness script hash)
-	 *
-	 * A receiving node:
-	 *...
-	 *  - if the `scriptpubkey` is not in one of the above forms:
-	 *    - SHOULD fail the connection.
-	 */
-	if (!is_p2pkh(scriptpubkey, NULL) && !is_p2sh(scriptpubkey, NULL)
-	    && !is_p2wpkh(scriptpubkey, NULL) && !is_p2wsh(scriptpubkey, NULL)) {
+	if (!valid_shutdown_scriptpubkey(scriptpubkey)) {
 		channel_fail_permanent(channel,
 				       REASON_PROTOCOL,
 				       "Bad shutdown scriptpubkey %s",
