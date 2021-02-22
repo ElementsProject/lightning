@@ -1722,7 +1722,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	/* BOLT #2:
 	 *
 	 * The recipient:
-	 *   - if `signature` is incorrect:
+	 *   - if `signature` is incorrect OR non-compliant with LOW-S-standard
+	 *       rule...:
 	 *     - MUST fail the channel.
 	 */
 	if (!check_tx_sig(local_commit, 0, NULL, wscript,
@@ -2203,7 +2204,8 @@ static void opener_start(struct state *state, u8 *msg)
 	/* BOLT #2:
 	 *
 	 * The recipient:
-	 *   - if `signature` is incorrect:
+	 *   - if `signature` is incorrect OR non-compliant with LOW-S-standard
+	 *     rule...:
 	 *     - MUST fail the channel.
 	 */
 	if (!check_tx_sig(local_commit, 0, NULL, wscript, &state->their_funding_pubkey,

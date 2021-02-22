@@ -1314,7 +1314,8 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	 *
 	 * A receiving node:
 	 *  - once all pending updates are applied:
-	 *    - if `signature` is not valid for its local commitment transaction:
+	 *    - if `signature` is not valid for its local commitment transaction
+	 *      OR non-compliant with LOW-S-standard rule...:
 	 *      - MUST fail the channel.
 	 */
 	if (!check_tx_sig(txs[0], 0, NULL, funding_wscript,
@@ -1349,7 +1350,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	/* BOLT #2:
 	 *
 	 *   - if any `htlc_signature` is not valid for the corresponding HTLC
-	 *     transaction:
+	 *     transaction OR non-compliant with LOW-S-standard rule...:
 	 *     - MUST fail the channel.
 	 */
 	for (i = 0; i < tal_count(htlc_sigs); i++) {

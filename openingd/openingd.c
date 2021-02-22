@@ -628,8 +628,8 @@ static bool funder_finalize_channel_setup(struct state *state,
 	/* BOLT #2:
 	 *
 	 * The recipient:
-	 *   - if `signature` is incorrect:
-	 *     - MUST fail the channel.
+	 *   - if `signature` is incorrect OR non-compliant with LOW-S-standard rule...:
+	 *     - MUST fail the channel
 	 */
 	/* So we create *our* initial commitment transaction, and check the
 	 * signature they sent against that. */
@@ -1004,7 +1004,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* BOLT #2:
 	 *
 	 * The recipient:
-	 *   - if `signature` is incorrect:
+	 *   - if `signature` is incorrect OR non-compliant with LOW-S-standard
+	 *     rule...:
 	 *     - MUST fail the channel.
 	 */
 	local_commit = initial_channel_tx(state, &wscript, state->channel,
