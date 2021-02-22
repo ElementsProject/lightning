@@ -2299,12 +2299,20 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
     # Can't use feerate names, either.
     with pytest.raises(RpcError, match=r'Cannot estimate fees'):
         l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', 'urgent')
+
+    with pytest.raises(RpcError, match=r'Cannot estimate fees'):
         l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', 'normal')
+
+    with pytest.raises(RpcError, match=r'Cannot estimate fees'):
         l1.rpc.withdraw(l2.rpc.newaddr()['bech32'], 'all', 'slow')
 
     with pytest.raises(RpcError, match=r'Cannot estimate fees'):
         l1.rpc.fundchannel(l2.info['id'], 10**6, 'urgent')
+
+    with pytest.raises(RpcError, match=r'Cannot estimate fees'):
         l1.rpc.fundchannel(l2.info['id'], 10**6, 'normal')
+
+    with pytest.raises(RpcError, match=r'Cannot estimate fees'):
         l1.rpc.fundchannel(l2.info['id'], 10**6, 'slow')
 
     # Can with manual feerate.
@@ -2350,6 +2358,7 @@ def test_no_fee_estimate(node_factory, bitcoind, executor):
 
     # Can now fund a channel (as a test, use slow feerate).
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    sync_blockheight(bitcoind, [l1])
     l1.rpc.fundchannel(l2.info['id'], 10**6, 'slow')
 
     # Can withdraw (use urgent feerate). `minconf` may be needed depending on
