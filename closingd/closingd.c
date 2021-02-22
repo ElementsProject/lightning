@@ -368,7 +368,8 @@ receive_offer(struct per_peer_state *pps,
 	 *
 	 * The receiving node:
 	 *   - if the `signature` is not valid for either variant of closing transaction
-	 *   specified in [BOLT #3](03-transactions.md#closing-transaction):
+	 *   specified in [BOLT #3](03-transactions.md#closing-transaction)
+	 *   OR non-compliant with LOW-S-standard rule...:
 	 *     - MUST fail the connection.
 	 */
 	tx = close_tx(tmpctx, chainparams, pps, channel_id,

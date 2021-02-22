@@ -173,6 +173,14 @@ bool check_signed_hash(const struct sha256_double *hash,
 {
 	int ret;
 
+	/* BOLT #2:
+	 *
+	 * - if `signature` is incorrect OR non-compliant with
+	 *   LOW-S-standard rule
+	 */
+	/* From the secp256k1_ecdsa_verify documentation: "To avoid
+	 * accepting malleable signatures, only ECDSA signatures in
+	 * lower-S form are accepted." */
 	ret = secp256k1_ecdsa_verify(secp256k1_ctx,
 				     signature,
 				     hash->sha.u.u8, &key->pubkey);
