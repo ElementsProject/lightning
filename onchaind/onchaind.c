@@ -2009,6 +2009,7 @@ static void tx_new_depth(struct tracked_output **outs,
  *   outgoing HTLC:
  *     - MUST *resolve* the output by spending it, using the HTLC-success
  *     transaction.
+ *     - MUST NOT reveal its own preimage when it's not the final recipient...
  *     - MUST resolve the output of that HTLC-success transaction.
  *   - otherwise:
  *     - if the *remote node* is NOT irrevocably committed to the HTLC:
