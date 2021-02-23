@@ -30,6 +30,8 @@ monkeytype.sqlite3
 # Ignore some generated binaries
 */test/run-*
 !*/test/run-*.c
+*/test/exp-run-*
+!*/test/exp-run-*.c
 external/libbacktrace-build/
 external/libbacktrace.a
 external/libbacktrace.la
