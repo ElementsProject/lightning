@@ -153,7 +153,6 @@ struct state {
 	struct channel_id channel_id;
 	u8 channel_flags;
 
-	struct sha256 opening_podle_h2;
 	enum tx_role our_role;
 
 	u32 feerate_per_kw_funding;
@@ -220,8 +219,7 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 		msg = towire_tx_add_input(ctx, cid, serial_id,
 					  prevtx, in->tx_input.index,
 					  in->tx_input.sequence,
-					  script,
-					  NULL);
+					  script);
 
 		tal_arr_remove(&set->added_ins, 0);
 		return msg;
@@ -1202,7 +1200,6 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		case WIRE_TX_REMOVE_OUTPUT:
 		case WIRE_TX_COMPLETE:
 		case WIRE_ACK_RBF:
-		case WIRE_BLACKLIST_PODLE:
 		case WIRE_CHANNEL_ANNOUNCEMENT:
 		case WIRE_CHANNEL_UPDATE:
 		case WIRE_NODE_ANNOUNCEMENT:
@@ -1252,8 +1249,6 @@ static bool run_tx_interactive(struct state *state,
 			struct bitcoin_tx *tx;
 			struct bitcoin_txid txid;
 			struct amount_sat amt;
-			struct tlv_tx_add_input_tlvs *add_tlvs =
-				tlv_tx_add_input_tlvs_new(tmpctx);
 
 			if (!fromwire_tx_add_input(tmpctx, msg, &cid,
 						   &serial_id,
@@ -1261,8 +1256,7 @@ static bool run_tx_interactive(struct state *state,
 							       &tx_bytes),
 						   &outnum, &sequence,
 						   cast_const2(u8 **,
-							       &redeemscript),
-						   add_tlvs))
+							       &redeemscript)))
 				open_err_fatal(state,
 					       "Parsing tx_add_input %s",
 					       tal_hex(tmpctx, msg));
@@ -1386,7 +1380,6 @@ static bool run_tx_interactive(struct state *state,
 
 			psbt_input_set_serial_id(psbt, in, serial_id);
 
-			/* FIXME: what's in the tlv? */
 			break;
 		}
 		case WIRE_TX_REMOVE_INPUT: {
@@ -1548,7 +1541,6 @@ static bool run_tx_interactive(struct state *state,
 		case WIRE_ACCEPT_CHANNEL2:
 		case WIRE_INIT_RBF:
 		case WIRE_ACK_RBF:
-		case WIRE_BLACKLIST_PODLE:
 		case WIRE_CHANNEL_ANNOUNCEMENT:
 		case WIRE_CHANNEL_UPDATE:
 		case WIRE_NODE_ANNOUNCEMENT:
@@ -1855,7 +1847,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 
 	if (!fromwire_open_channel2(oc2_msg, &chain_hash,
 				    &state->channel_id,
-				    &state->opening_podle_h2,
 				    &feerate_max,
 				    &feerate_min,
 				    &feerate_best,
@@ -1921,7 +1912,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 			     &state->our_points.revocation,
 			     &state->their_points.revocation);
 
-	/* FIXME: pass the podle back also */
 	msg = towire_dualopend_got_offer(NULL,
 					 &cid,
 					 tx_state->opener_funding,
@@ -2333,7 +2323,6 @@ static void opener_start(struct state *state, u8 *msg)
 	struct channel_id cid;
 	char *err_reason;
 	struct amount_sat total;
-	struct sha256 podle;
 	u32 feerate_min, feerate_max, feerate_best;
 	struct tx_state *tx_state = state->tx_state;
 
@@ -2392,12 +2381,9 @@ static void opener_start(struct state *state, u8 *msg)
 			state->upfront_shutdown_script[LOCAL];
 	}
 
-	/* FIXME: actually set the podle */
-	memset(&podle, 0, sizeof(podle));
 	msg = towire_open_channel2(NULL,
 				   &chainparams->genesis_blockhash,
 				   &state->channel_id,
-				   &podle, /* FIXME: podle H2! */
 				   feerate_max,
 				   feerate_min,
 				   feerate_best,
@@ -3357,7 +3343,6 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_TX_REMOVE_OUTPUT:
 	case WIRE_TX_COMPLETE:
 	case WIRE_ACK_RBF:
-	case WIRE_BLACKLIST_PODLE:
 	case WIRE_CHANNEL_ANNOUNCEMENT:
 	case WIRE_CHANNEL_UPDATE:
 	case WIRE_NODE_ANNOUNCEMENT:
