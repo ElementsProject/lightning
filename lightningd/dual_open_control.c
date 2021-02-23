@@ -243,7 +243,6 @@ struct openchannel2_payload {
 	u8 channel_flags;
 	u32 locktime;
 	u8 *shutdown_scriptpubkey;
-	/* FIXME: include the podle? */
 
 	struct amount_sat accepter_funding;
 	u32 funding_feerate_per_kw;
@@ -286,7 +285,6 @@ openchannel2_hook_serialize(struct openchannel2_payload *payload,
 	if (tal_bytelen(payload->shutdown_scriptpubkey) != 0)
 		json_add_hex_talarr(stream, "shutdown_scriptpubkey",
 				    payload->shutdown_scriptpubkey);
-	/* FIXME: include the podle? */
 	json_object_end(stream);
 }
 

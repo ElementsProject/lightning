@@ -10,7 +10,7 @@
  msgdata,tx_add_input,prevtx,byte,prevtx_len
  msgdata,tx_add_input,prevtx_vout,u32,
 @@ -48,16 +48,16 @@
- tlvdata,tx_add_input_tlvs,podle_proof,sig,byte,32
+ msgdata,tx_add_input,script,byte,redeemscript_len
  msgtype,tx_add_output,67
  msgdata,tx_add_output,channel_id,channel_id,
 -msgdata,tx_add_output,serial_id,u16,
@@ -30,9 +30,9 @@
  msgdata,tx_complete,channel_id,channel_id,
  msgtype,tx_signatures,71
 @@ -125,7 +125,9 @@
+ msgdata,funding_locked,next_per_commitment_point,point,
  msgtype,open_channel2,64
  msgdata,open_channel2,chain_hash,chain_hash,
- msgdata,open_channel2,podle_h2,sha256,
 -msgdata,open_channel2,feerate_per_kw_funding,u32,
 +msgdata,open_channel2,feerate_funding_max,u32,
 +msgdata,open_channel2,feerate_funding_min,u32,

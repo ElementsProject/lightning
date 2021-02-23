@@ -5,6 +5,6 @@
  msgtype,open_channel2,64
  msgdata,open_channel2,chain_hash,chain_hash,
 +msgdata,open_channel2,temporary_channel_id,byte,32
- msgdata,open_channel2,podle_h2,sha256,
  msgdata,open_channel2,feerate_funding_max,u32,
  msgdata,open_channel2,feerate_funding_min,u32,
+ msgdata,open_channel2,feerate_funding_best,u32,
