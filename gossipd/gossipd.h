@@ -102,12 +102,11 @@ struct peer {
 
 	/* What we're querying: [range_first_blocknum, range_end_blocknum) */
 	u32 range_first_blocknum, range_end_blocknum;
-	u32 range_prev_end_blocknum;
+	u32 range_blocks_outstanding;
 	struct range_query_reply *range_replies;
 	void (*query_channel_range_cb)(struct peer *peer,
 				       u32 first_blocknum, u32 number_of_blocks,
-				       const struct range_query_reply *replies,
-				       bool complete);
+				       const struct range_query_reply *replies);
 
 	/* The daemon_conn used to queue messages to/from the peer. */
 	struct daemon_conn *dc;

@@ -633,8 +633,8 @@ u8 *towire_query_channel_range(const tal_t *ctx, const struct bitcoin_blkid *cha
 bool fromwire_query_channel_range(const void *p, struct bitcoin_blkid *chain_hash, u32 *first_blocknum, u32 *number_of_blocks, struct tlv_query_channel_range_tlvs *tlvs);
 
 /* WIRE: REPLY_CHANNEL_RANGE */
-u8 *towire_reply_channel_range(const tal_t *ctx, const struct bitcoin_blkid *chain_hash, u32 first_blocknum, u32 number_of_blocks, u8 full_information, const u8 *encoded_short_ids, const struct tlv_reply_channel_range_tlvs *tlvs);
-bool fromwire_reply_channel_range(const tal_t *ctx, const void *p, struct bitcoin_blkid *chain_hash, u32 *first_blocknum, u32 *number_of_blocks, u8 *full_information, u8 **encoded_short_ids, struct tlv_reply_channel_range_tlvs *tlvs);
+u8 *towire_reply_channel_range(const tal_t *ctx, const struct bitcoin_blkid *chain_hash, u32 first_blocknum, u32 number_of_blocks, u8 sync_complete, const u8 *encoded_short_ids, const struct tlv_reply_channel_range_tlvs *tlvs);
+bool fromwire_reply_channel_range(const tal_t *ctx, const void *p, struct bitcoin_blkid *chain_hash, u32 *first_blocknum, u32 *number_of_blocks, u8 *sync_complete, u8 **encoded_short_ids, struct tlv_reply_channel_range_tlvs *tlvs);
 
 /* WIRE: GOSSIP_TIMESTAMP_FILTER */
 u8 *towire_gossip_timestamp_filter(const tal_t *ctx, const struct bitcoin_blkid *chain_hash, u32 first_timestamp, u32 timestamp_range);
@@ -650,4 +650,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
 
 
 #endif /* LIGHTNING_WIRE_PEER_WIREGEN_H */
-// SHA256STAMP:d0f5b313c478153542610f14d7c6b39c1121b6a6b08fb72f3d427a103243b990
+// SHA256STAMP:b3a92a714208711191936bbdb7ff0f0a2ca412941ea95e67210029e5249f3d60

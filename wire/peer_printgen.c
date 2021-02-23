@@ -2005,10 +2005,10 @@ void printwire_reply_channel_range(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 	printf("full_information=");
-	u8 full_information = fromwire_u8(&cursor, &plen);
+ 	printf("sync_complete=");
+	u8 sync_complete = fromwire_u8(&cursor, &plen);
 
-	printwire_u8(tal_fmt(NULL, "%s.full_information", fieldname), &full_information);
+	printwire_u8(tal_fmt(NULL, "%s.sync_complete", fieldname), &sync_complete);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -2130,4 +2130,4 @@ void printpeer_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_onion_message_tlvs, ARRAY_SIZE(print_tlvs_onion_message_tlvs));
 	}
 }
-// SHA256STAMP:d0f5b313c478153542610f14d7c6b39c1121b6a6b08fb72f3d427a103243b990
+// SHA256STAMP:b3a92a714208711191936bbdb7ff0f0a2ca412941ea95e67210029e5249f3d60
