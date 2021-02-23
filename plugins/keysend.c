@@ -56,23 +56,15 @@ static struct keysend_data *keysend_init(struct payment *p)
 static void keysend_cb(struct keysend_data *d, struct payment *p) {
 	struct createonion_hop *last_payload;
 	size_t hopcount;
-	struct gossmap_node *node;
-	bool enabled;
-	const struct gossmap *gossmap = get_gossmap(p->plugin);
 
 	/* On the root payment we perform the featurebit check. */
 	if (p->parent == NULL && p->step == PAYMENT_STEP_INITIALIZED) {
-		node = gossmap_find_node(gossmap, p->destination);
-
-		enabled = gossmap_node_get_feature(gossmap, node,
-						   KEYSEND_FEATUREBIT) != -1;
-		if (!enabled)
+		if (!payment_root(p)->destination_has_tlv)
 			return payment_fail(
 			    p,
 			    "Recipient %s does not support keysend payments "
-			    "(feature bit %d missing in node announcement)",
-			    node_id_to_hexstr(tmpctx, p->destination),
-			    KEYSEND_FEATUREBIT);
+			    "(no TLV support)",
+			    node_id_to_hexstr(tmpctx, p->destination));
 	}
 
 	if (p->step != PAYMENT_STEP_ONION_PAYLOAD)
