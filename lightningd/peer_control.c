@@ -2454,7 +2454,16 @@ static void custommsg_final(struct custommsg_payload *payload STEALS)
 static void custommsg_payload_serialize(struct custommsg_payload *payload,
 					struct json_stream *stream)
 {
-	json_add_hex_talarr(stream, "message", payload->msg);
+	if (deprecated_apis) {
+		json_add_hex_talarr(stream, "message", payload->msg);
+		json_add_string(
+		    stream, "warning",
+		    "The `message` field is deprecated and has been replaced "
+		    "with the payload` field which skips the internal type and "
+		    "the length prefix. Please update to use that instead.");
+	}
+	json_add_hex(stream, "payload", payload->msg + 4,
+		     tal_bytelen(payload->msg) - 4);
 	json_add_node_id(stream, "peer_id", &payload->peer_id);
 }
 

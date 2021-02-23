@@ -1212,7 +1212,7 @@ The payload for a call follows this format:
 ```json
 {
 	"peer_id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
-	"message": "1337ffffffff"
+	"payload": "1337ffffffff"
 }
 ```
 
