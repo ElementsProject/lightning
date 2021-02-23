@@ -643,8 +643,7 @@ static void check_timestamps(struct seeker *seeker,
 
 static void process_scid_probe(struct peer *peer,
 			       u32 first_blocknum, u32 number_of_blocks,
-			       const struct range_query_reply *replies,
-			       bool complete)
+			       const struct range_query_reply *replies)
 {
 	struct seeker *seeker = peer->daemon->seeker;
 	bool new_unknown_scids = false;

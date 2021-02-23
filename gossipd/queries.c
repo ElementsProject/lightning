@@ -350,7 +350,8 @@ static void send_reply_channel_range(struct peer *peer,
 				     const struct short_channel_id *scids,
 				     const struct channel_update_timestamps *tstamps,
 				     const struct channel_update_checksums *csums,
-				     size_t num_scids)
+				     size_t num_scids,
+				     bool final)
 {
 	/* BOLT #7:
 	 *
@@ -358,11 +359,6 @@ static void send_reply_channel_range(struct peer *peer,
 	 *   - MUST set with `chain_hash` equal to that of `query_channel_range`,
 	 *   - MUST limit `number_of_blocks` to the maximum number of blocks
 	 *     whose results could fit in `encoded_short_ids`
-	 *   - if does not maintain up-to-date channel information for
-	 *     `chain_hash`:
-	 *     - MUST set `full_information` to 0.
-	 *   - otherwise:
-	 *     - SHOULD set `full_information` to 1.
 	 */
 	u8 *encoded_scids = encoding_start(tmpctx);
 	u8 *encoded_timestamps = encoding_start(tmpctx);
@@ -392,11 +388,16 @@ static void send_reply_channel_range(struct peer *peer,
 						  struct channel_update_checksums,
 						  csums, num_scids, 0);
 
+	/* BOLT #7:
+	 *
+	 * - MUST set `sync_complete` to `false` if this is not the final
+	 *   `reply_channel_range`.
+	 */
 	u8 *msg = towire_reply_channel_range(NULL,
 					     &chainparams->genesis_blockhash,
 					     first_blocknum,
 					     number_of_blocks,
-					     1, encoded_scids, tlvs);
+					     final, encoded_scids, tlvs);
 	queue_peer_msg(peer, take(msg));
 }
 
@@ -453,7 +454,7 @@ static size_t max_entries(enum query_option_flags query_option_flags)
 	 *   * [`chain_hash`:`chain_hash`]
 	 *   * [`u32`:`first_blocknum`]
 	 *   * [`u32`:`number_of_blocks`]
-	 *   * [`byte`:`full_information`]
+	 *   * [`byte`:`sync_complete`]
 	 *   * [`u16`:`len`]
 	 *   * [`len*byte`:`encoded_short_ids`]
 	 */
@@ -632,7 +633,8 @@ static void queue_channel_ranges(struct peer *peer,
 					 ? tstamps + off : NULL,
 					 query_option_flags & QUERY_ADD_CHECKSUMS
 					 ? csums + off : NULL,
-					 n);
+					 n,
+					 this_num_blocks == number_of_blocks);
 		first_blocknum += this_num_blocks;
 		number_of_blocks -= this_num_blocks;
 		off += n;
@@ -733,7 +735,7 @@ static u8 *append_range_reply(struct peer *peer,
 const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 {
 	struct bitcoin_blkid chain;
-	u8 complete;
+	u8 sync_complete;
 	u32 first_blocknum, number_of_blocks, start, end;
 	u8 *encoded;
 	struct short_channel_id *scids;
@@ -741,13 +743,12 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	const u8 *err;
 	void (*cb)(struct peer *peer,
 		   u32 first_blocknum, u32 number_of_blocks,
-		   const struct range_query_reply *replies,
-		   bool complete);
+		   const struct range_query_reply *replies);
 	struct tlv_reply_channel_range_tlvs *tlvs
 		= tlv_reply_channel_range_tlvs_new(tmpctx);
 
 	if (!fromwire_reply_channel_range(tmpctx, msg, &chain, &first_blocknum,
-					  &number_of_blocks, &complete,
+					  &number_of_blocks, &sync_complete,
 					  &encoded, tlvs)) {
 		return towire_warningfmt(peer, NULL,
 					 "Bad reply_channel_range w/tlvs %s",
@@ -788,7 +789,6 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 			  tal_count(scids));
 
 	/* BOLT #7:
-	 *
 	 * The receiver of `query_channel_range`:
 	 *...
 	 * - the first `reply_channel_range` message:
@@ -797,12 +797,14 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	 *   - MUST set `first_blocknum` plus `number_of_blocks` greater than
 	 *     `first_blocknum` in `query_channel_range`.
 	 * - successive `reply_channel_range` message:
-	 *   - MUST set `first_blocknum` to the previous `first_blocknum`
-	 *     plus `number_of_blocks`.
+	 *    - MUST have `first_blocknum` equal or greater than the previous
+	 *     `first_blocknum`.
+	 *    - MUST set `sync_complete` to `false` if this is not the final `reply_channel_range`.
 	 * - the final `reply_channel_range` message:
 	 *   - MUST have `first_blocknum` plus `number_of_blocks` equal or
 	 *     greater than the `query_channel_range` `first_blocknum` plus
 	 *     `number_of_blocks`.
+	 *   - MUST set `sync_complete` to `true`.
 	 */
 	/* ie. They can be outside range we asked, but they must overlap! */
 	if (first_blocknum + number_of_blocks <= peer->range_first_blocknum
@@ -823,28 +825,58 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	if (end > peer->range_end_blocknum)
 		end = peer->range_end_blocknum;
 
-	/* LND mis-implemented the spec.  If they have multiple replies, set
-	 * each one to the *whole* range, with complete=0 except the last.
-	 * Try to accomodate that (pretend we make no progress until the
-	 * end)! */
+	/* Have a seat.  It's time for a history lesson in Rusty Screws Up.
+	 *
+	 * Part 1
+	 * ------
+	 * The original spec had a field called "complete" which meant
+	 * "I believe I have complete knowledge of gossip", with the idea
+	 * that lite nodes in future would not set this.
+	 *
+	 * But I chose a terrible name, and LND mis-implemented the spec,
+	 * thinking this was an "end of replies".  If they have multiple
+	 * replies, set each one to the *whole* range, with complete=0 except
+	 * the last.
+	 *
+	 * Here we try to accomodate that (pretend we make no progress
+	 * until the end)! */
 	if (first_blocknum == peer->range_first_blocknum
 	    && first_blocknum + number_of_blocks == peer->range_end_blocknum
-	    && !complete
+	    && !sync_complete
 	    && tal_bytelen(msg) == 64046) {
 		status_unusual("Old LND reply_channel_range detected: result will be truncated!");
 	}
 
-	/* They're supposed to send them in order, but LND actually
-	 * can overlap. */
-	if (first_blocknum != peer->range_prev_end_blocknum + 1
-	    && first_blocknum != peer->range_prev_end_blocknum) {
-		return towire_warningfmt(peer, NULL,
-					 "reply_channel_range %u+%u previous end was block %u",
-					 first_blocknum, number_of_blocks,
-					 peer->range_prev_end_blocknum);
-	}
-	peer->range_prev_end_blocknum = end;
-
+	 /*
+	  * Part 2
+	  * ------
+	  * You were supposed to use the first_blocknum + number_of_blocks
+	  * to tell when gossip was finished, with the rule being no replies
+	  * could overlap, so you could say "I asked for blocks 100-199" and if
+	  * you got a reply saying it covered blocks 50-150, you knew that you
+	  * still had 49 blocks to receive.
+	  *
+	  * The field was renamed to `full_information`, and since everyone
+	  * did it this way anyway, we insisted the replies be in
+	  * non-overlapping ascending order.
+	  *
+	  * But LND didn't do this, and can actually overlap, since they just
+	  * chop them up when they reach length, not by block boundary, so
+	  * we had to allow that.
+	  *
+	  * Reading this implementation gave me envy: it was much simpler than
+	  * backing out to a block boundary!
+	  *
+	  * And what if a single block had so many channel openings that you
+	  * couldn't fit it in a single reply?  (This was originally
+	  * inconceivable, but with the addition of timestamps and checksums,
+	  * is now possible).
+	  *
+	  * So we decided to make the lie into a truth.  `full_information`
+	  * was re-renamed to `sync_complete`, and once everyone has upgraded
+	  * we can use that, rather than tallying the block numbers, to
+	  * tell if replies are finished.
+	  */
 	err = append_range_reply(peer, scids, tlvs->timestamps_tlv);
 	if (err)
 		return err;
@@ -853,9 +885,20 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	 * since scids are only 8 bytes, use a discount over normal gossip. */
 	peer_supplied_good_gossip(peer, tal_count(scids) / 20);
 
-	/* Still more to go? */
-	if (peer->range_prev_end_blocknum < peer->range_end_blocknum)
+	/* Old code used to set this to 1 all the time; not setting it implies
+	 * we're talking to an upgraded node. */
+	if (!sync_complete) {
+		/* We no longer need old heuristic counter. */
+		peer->range_blocks_outstanding = 0;
 		return NULL;
+	}
+
+	/* FIXME: This "how many blocks do we have answers for?" heuristic
+	 * can go away once everyone uses sync_complete properly. */
+	if (end - start < peer->range_blocks_outstanding) {
+		peer->range_blocks_outstanding -= end - start;
+		return NULL;
+	}
 
 	/* Clear these immediately in case cb want to queue more */
 	replies = tal_steal(tmpctx, peer->range_replies);
@@ -864,7 +907,7 @@ const u8 *handle_reply_channel_range(struct peer *peer, const u8 *msg)
 	peer->range_replies = NULL;
 	peer->query_channel_range_cb = NULL;
 
-	cb(peer, first_blocknum, number_of_blocks, replies, complete);
+	cb(peer, first_blocknum, number_of_blocks, replies);
 	return NULL;
 }
 
@@ -1087,8 +1130,7 @@ bool query_channel_range(struct daemon *daemon,
 			 enum query_option_flags qflags,
 			 void (*cb)(struct peer *peer,
 				    u32 first_blocknum, u32 number_of_blocks,
-				    const struct range_query_reply *replies,
-				    bool complete))
+				    const struct range_query_reply *replies))
 {
 	u8 *msg;
 	struct tlv_query_channel_range_tlvs *tlvs;
@@ -1114,7 +1156,7 @@ bool query_channel_range(struct daemon *daemon,
 	queue_peer_msg(peer, take(msg));
 	peer->range_first_blocknum = first_blocknum;
 	peer->range_end_blocknum = first_blocknum + number_of_blocks;
-	peer->range_prev_end_blocknum = first_blocknum-1;
+	peer->range_blocks_outstanding = number_of_blocks;
 	peer->range_replies = tal_arr(peer, struct range_query_reply, 0);
 	peer->query_channel_range_cb = cb;
 

@@ -1617,7 +1617,7 @@ bool fromwire_query_channel_range(const void *p, struct bitcoin_blkid *chain_has
 }
 
 /* WIRE: REPLY_CHANNEL_RANGE */
-u8 *towire_reply_channel_range(const tal_t *ctx, const struct bitcoin_blkid *chain_hash, u32 first_blocknum, u32 number_of_blocks, u8 full_information, const u8 *encoded_short_ids, const struct tlv_reply_channel_range_tlvs *tlvs)
+u8 *towire_reply_channel_range(const tal_t *ctx, const struct bitcoin_blkid *chain_hash, u32 first_blocknum, u32 number_of_blocks, u8 sync_complete, const u8 *encoded_short_ids, const struct tlv_reply_channel_range_tlvs *tlvs)
 {
 	u16 len = tal_count(encoded_short_ids);
 	u8 *p = tal_arr(ctx, u8, 0);
@@ -1626,14 +1626,14 @@ u8 *towire_reply_channel_range(const tal_t *ctx, const struct bitcoin_blkid *cha
 	towire_bitcoin_blkid(&p, chain_hash);
 	towire_u32(&p, first_blocknum);
 	towire_u32(&p, number_of_blocks);
-	towire_u8(&p, full_information);
+	towire_u8(&p, sync_complete);
 	towire_u16(&p, len);
 	towire_u8_array(&p, encoded_short_ids, len);
 	towire_reply_channel_range_tlvs(&p, tlvs);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_reply_channel_range(const tal_t *ctx, const void *p, struct bitcoin_blkid *chain_hash, u32 *first_blocknum, u32 *number_of_blocks, u8 *full_information, u8 **encoded_short_ids, struct tlv_reply_channel_range_tlvs *tlvs)
+bool fromwire_reply_channel_range(const tal_t *ctx, const void *p, struct bitcoin_blkid *chain_hash, u32 *first_blocknum, u32 *number_of_blocks, u8 *sync_complete, u8 **encoded_short_ids, struct tlv_reply_channel_range_tlvs *tlvs)
 {
 	u16 len;
 
@@ -1645,7 +1645,7 @@ bool fromwire_reply_channel_range(const tal_t *ctx, const void *p, struct bitcoi
  	fromwire_bitcoin_blkid(&cursor, &plen, chain_hash);
  	*first_blocknum = fromwire_u32(&cursor, &plen);
  	*number_of_blocks = fromwire_u32(&cursor, &plen);
- 	*full_information = fromwire_u8(&cursor, &plen);
+ 	*sync_complete = fromwire_u8(&cursor, &plen);
  	len = fromwire_u16(&cursor, &plen);
  	// 2nd case encoded_short_ids
 	*encoded_short_ids = len ? tal_arr(ctx, u8, len) : NULL;
@@ -1749,4 +1749,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
  	*htlc_maximum_msat = fromwire_amount_msat(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:d0f5b313c478153542610f14d7c6b39c1121b6a6b08fb72f3d427a103243b990
+// SHA256STAMP:b3a92a714208711191936bbdb7ff0f0a2ca412941ea95e67210029e5249f3d60
