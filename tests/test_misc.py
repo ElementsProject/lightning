@@ -2283,10 +2283,10 @@ def test_sendcustommsg(node_factory):
     )
     l1.daemon.wait_for_log(r'\[IN\] {}'.format(serialized))
     l1.daemon.wait_for_logs([
-        r'Got custommessage_a {serialized} from peer {peer_id}'.format(
-            serialized=serialized, peer_id=l2.info['id']),
-        r'Got custommessage_b {serialized} from peer {peer_id}'.format(
-            serialized=serialized, peer_id=l2.info['id'])
+        r'Got custommessage_a {msg} from peer {peer_id}'.format(
+            msg=msg, peer_id=l2.info['id']),
+        r'Got custommessage_b {msg} from peer {peer_id}'.format(
+            msg=msg, peer_id=l2.info['id'])
     ])
 
     # This should work since the peer is currently owned by `openingd`
@@ -2298,10 +2298,10 @@ def test_sendcustommsg(node_factory):
     )
     l4.daemon.wait_for_log(r'\[IN\] {}'.format(serialized))
     l4.daemon.wait_for_logs([
-        r'Got custommessage_a {serialized} from peer {peer_id}'.format(
-            serialized=serialized, peer_id=l2.info['id']),
-        r'Got custommessage_b {serialized} from peer {peer_id}'.format(
-            serialized=serialized, peer_id=l2.info['id']),
+        r'Got custommessage_a {msg} from peer {peer_id}'.format(
+            msg=msg, peer_id=l2.info['id']),
+        r'Got custommessage_b {msg} from peer {peer_id}'.format(
+            msg=msg, peer_id=l2.info['id']),
     ])
 
 
