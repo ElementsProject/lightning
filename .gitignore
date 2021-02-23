@@ -37,6 +37,7 @@ external/libbacktrace.a
 external/libbacktrace.la
 external/libbase58/
 external/libbase58.a
+external/libwally-core-build/
 test/test_protocol
 test/test_sphinx
 tests/.pytest.restart
