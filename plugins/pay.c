@@ -1521,6 +1521,11 @@ static void paystatus_add_payment(struct json_stream *s, const struct payment *p
 	/* TODO Add routehint. */
 	/* TODO Add route details */
 
+	if (p->step < PAYMENT_STEP_SPLIT)
+		json_add_string(s, "state", "pending");
+	else
+		json_add_string(s, "state", "completed");
+
 	if (p->step == PAYMENT_STEP_SPLIT) {
 		/* Don't add anything, this is neither a success nor a failure. */
 	} else if (p->result != NULL) {
@@ -1530,7 +1535,7 @@ static void paystatus_add_payment(struct json_stream *s, const struct payment *p
 			json_object_start(s, "failure");
 		json_add_sendpay_result(s, p->result);
 		json_object_end(s);
-	} else {
+	} else if (p->step >= PAYMENT_STEP_SPLIT) {
 		json_object_start(s, "failure");
 		json_add_num(s, "code", PAY_ROUTE_NOT_FOUND);
 		json_add_string(s, "message", "Call to getroute: Could not find a route");
