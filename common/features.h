@@ -113,6 +113,12 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
 #define OPT_LARGE_CHANNELS			18
 #define OPT_ANCHOR_OUTPUTS			20
 
+/* BOLT-4e329271a358ee52bf43ddbd96776943c5d74508 #9:
+ *
+ * | 26/27 | `option_shutdown_anysegwit` |... IN ...
+ */
+#define OPT_SHUTDOWN_ANYSEGWIT			26
+
 /* BOLT-7b04b1461739c5036add61782d58ac490842d98b #9:
  * | 222/223 | `option_dual_fund` | ... IN9 ...
  */

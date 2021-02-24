@@ -220,6 +220,9 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 {
 	u8 *scriptpubkey;
 	struct lightningd *ld = channel->peer->ld;
+	bool anysegwit = feature_negotiated(ld->our_features,
+					    channel->peer->their_features,
+					    OPT_SHUTDOWN_ANYSEGWIT);
 
 	if (!fromwire_channeld_got_shutdown(channel, msg, &scriptpubkey)) {
 		channel_internal_error(channel, "bad channel_got_shutdown %s",
@@ -231,7 +234,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	tal_free(channel->shutdown_scriptpubkey[REMOTE]);
 	channel->shutdown_scriptpubkey[REMOTE] = scriptpubkey;
 
-	if (!valid_shutdown_scriptpubkey(scriptpubkey)) {
+	if (!valid_shutdown_scriptpubkey(scriptpubkey, anysegwit)) {
 		channel_fail_permanent(channel,
 				       REASON_PROTOCOL,
 				       "Bad shutdown scriptpubkey %s",

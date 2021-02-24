@@ -78,6 +78,10 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
+	{ OPT_SHUTDOWN_ANYSEGWIT,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
 	{ OPT_DUAL_FUND,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
@@ -385,9 +389,12 @@ static const char *feature_name(const tal_t *ctx, size_t f)
 		"option_basic_mpp",
 		"option_support_large_channel",
 		"option_anchor_outputs",
+		"option_anchors_zero_fee_htlc_tx",
+		NULL,
+		"option_shutdown_anysegwit",
 	};
 
-	if (f / 2 >= ARRAY_SIZE(fnames))
+	if (f / 2 >= ARRAY_SIZE(fnames) || !fnames[f / 2])
 		return tal_fmt(ctx, "option_unknown_%zu/%s",
 			       COMPULSORY_FEATURE(f), (f & 1) ? "odd" : "even");
 
