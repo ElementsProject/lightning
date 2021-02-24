@@ -82,6 +82,9 @@ struct htlc_out *channel_has_htlc_out(struct channel *channel UNNEEDED)
 /* Generated stub for channel_internal_error */
 void channel_internal_error(struct channel *channel UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "channel_internal_error called!\n"); abort(); }
+/* Generated stub for channel_last_funding_feerate */
+u32 channel_last_funding_feerate(const struct channel *channel UNNEEDED)
+{ fprintf(stderr, "channel_last_funding_feerate called!\n"); abort(); }
 /* Generated stub for channel_set_billboard */
 void channel_set_billboard(struct channel *channel UNNEEDED, bool perm UNNEEDED,
 			   const char *str TAKES UNNEEDED)
