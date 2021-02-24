@@ -4,6 +4,7 @@
 
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/ccan/take/take.h>
 #include <ccan/short_types/short_types.h>
 #include <common/amount.h>
@@ -70,6 +71,52 @@ void kill_unsaved_channel(struct channel *channel,
 	unsaved_channel_disconnect(channel, LOG_INFORM, why);
 	tal_free(channel);
 }
+
+void json_add_unsaved_channel(struct json_stream *response,
+			      const struct channel *channel)
+{
+	struct amount_msat total;
+
+	if (!channel)
+		return;
+
+	/* If we're chatting but no channel, that's shown by connected: True */
+	if (!channel->open_attempt)
+		return;
+
+	json_object_start(response, NULL);
+	json_add_string(response, "state", channel_state_name(channel));
+	json_add_string(response, "owner", channel->owner->name);
+	json_add_string(response, "opener", channel->opener == LOCAL ?
+					    "local" : "remote");
+	json_array_start(response, "status");
+	for (size_t i = 0; i < ARRAY_SIZE(channel->billboard.permanent); i++) {
+		if (!channel->billboard.permanent[i])
+			continue;
+		json_add_string(response, NULL,
+				channel->billboard.permanent[i]);
+	}
+	if (channel->billboard.transient)
+		json_add_string(response, NULL, channel->billboard.transient);
+	json_array_end(response);
+
+	/* These should never fail. */
+	if (amount_sat_to_msat(&total, channel->open_attempt->funding)) {
+		json_add_amount_msat_compat(response, total,
+					    "msatoshi_to_us", "to_us_msat");
+		/* This will change if peer adds funds */
+		json_add_amount_msat_compat(response, total,
+					    "msatoshi_total", "total_msat");
+	}
+
+	json_array_start(response, "features");
+	/* v2 channels assumed to have both static_remotekey + anchor_outputs */
+	json_add_string(response, NULL, "option_static_remotekey");
+	json_add_string(response, NULL, "option_anchor_outputs");
+	json_array_end(response);
+	json_object_end(response);
+}
+
 
 static struct channel_inflight *
 channel_current_inflight(struct channel *channel)

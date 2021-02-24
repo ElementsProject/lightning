@@ -1373,8 +1373,14 @@ static void json_add_peer(struct lightningd *ld,
 	json_array_start(response, "channels");
 	json_add_uncommitted_channel(response, p->uncommitted_channel);
 
-	list_for_each(&p->channels, channel, list)
-		json_add_channel(ld, response, NULL, channel);
+	list_for_each(&p->channels, channel, list) {
+#if EXPERIMENTAL_FEATURES
+		if (channel_unsaved(channel))
+			json_add_unsaved_channel(response, channel);
+		else
+#endif /* EXPERIMENTAL_FEATURES */
+			json_add_channel(ld, response, NULL, channel);
+	}
 	json_array_end(response);
 
 	if (ll)
