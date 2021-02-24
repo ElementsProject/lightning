@@ -759,6 +759,35 @@ static void json_add_channel(struct lightningd *ld,
 			type_to_string(tmpctx, struct channel_id, &channel->cid));
 	json_add_txid(response, "funding_txid", &channel->funding_txid);
 
+	if (channel->state == DUALOPEND_AWAITING_LOCKIN) {
+		struct channel_inflight *initial;
+		u32 last_feerate, next_feerate, feerate;
+		u8 feestep;
+
+		last_feerate = channel_last_funding_feerate(channel);
+		assert(last_feerate > 0);
+		next_feerate = last_feerate + last_feerate / 4;
+
+		initial = list_top(&channel->inflights,
+				   struct channel_inflight, list);
+		feerate = initial->funding->feerate;
+
+		json_add_string(response, "initial_feerate",
+			        tal_fmt(tmpctx, "%d%s", feerate,
+					feerate_style_name(FEERATE_PER_KSIPA)));
+		json_add_string(response, "last_feerate",
+				tal_fmt(tmpctx, "%d%s", last_feerate,
+					feerate_style_name(FEERATE_PER_KSIPA)));
+		json_add_string(response, "next_feerate",
+				tal_fmt(tmpctx, "%d%s", next_feerate,
+					feerate_style_name(FEERATE_PER_KSIPA)));
+
+		/* Now we derive the feestep */
+		for (feestep = 0; feerate < next_feerate; feestep++)
+			feerate += feerate / 4;
+		json_add_num(response, "next_fee_step", feestep);
+	}
+
 	if (channel->shutdown_scriptpubkey[LOCAL]) {
 		char *addr = encode_scriptpubkey_to_addr(tmpctx,
 					chainparams,
