@@ -356,6 +356,10 @@ void json_add_u64(struct json_stream *result UNNEEDED, const char *fieldname UNN
 void json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
 				  const struct uncommitted_channel *uc UNNEEDED)
 { fprintf(stderr, "json_add_uncommitted_channel called!\n"); abort(); }
+/* Generated stub for json_add_unsaved_channel */
+void json_add_unsaved_channel(struct json_stream *response UNNEEDED,
+			      const struct channel *channel UNNEEDED)
+{ fprintf(stderr, "json_add_unsaved_channel called!\n"); abort(); }
 /* Generated stub for json_array_end */
 void json_array_end(struct json_stream *js UNNEEDED)
 { fprintf(stderr, "json_array_end called!\n"); abort(); }
