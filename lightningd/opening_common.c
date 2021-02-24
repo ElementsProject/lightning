@@ -169,7 +169,12 @@ static void opening_memleak_req_done(struct subd *open_daemon,
 				     struct command *cmd)
 {
 	bool found_leak;
-	struct uncommitted_channel *uc = open_daemon->channel;
+	struct peer *p;
+
+	if (streq(open_daemon->name, "dualopend"))
+		p = ((struct channel *)open_daemon->channel)->peer;
+	else
+		p = ((struct uncommitted_channel *)open_daemon->channel)->peer;
 
 	tal_del_destructor2(open_daemon, opening_died_forget_memleak, cmd);
 	if (!fromwire_openingd_dev_memleak_reply(msg, &found_leak) &&
@@ -184,19 +189,23 @@ static void opening_memleak_req_done(struct subd *open_daemon,
 		opening_memleak_done(cmd, open_daemon);
 		return;
 	}
-	opening_memleak_req_next(cmd, uc->peer);
+	opening_memleak_req_next(cmd, p);
 }
 
 static void opening_memleak_req_next(struct command *cmd, struct peer *prev)
 {
 	struct peer *p;
+	struct channel *c;
 	u8 *msg;
 
 	list_for_each(&cmd->ld->peers, p, list) {
 		struct subd *open_daemon;
+		c = NULL;
 
-		if (!p->uncommitted_channel)
+		if (!p->uncommitted_channel
+		    && !(c = peer_unsaved_channel(p)))
 			continue;
+
 		if (p == prev) {
 			prev = NULL;
 			continue;
@@ -204,7 +213,10 @@ static void opening_memleak_req_next(struct command *cmd, struct peer *prev)
 		if (prev != NULL)
 			continue;
 
-		open_daemon = p->uncommitted_channel->open_daemon;
+		if (c)
+			open_daemon = c->owner;
+		else
+			open_daemon = p->uncommitted_channel->open_daemon;
 
 		if (!open_daemon)
 			continue;
@@ -217,7 +229,7 @@ static void opening_memleak_req_next(struct command *cmd, struct peer *prev)
 		subd_req(p, open_daemon, take(msg), -1, 0,
 			 opening_memleak_req_done, cmd);
 		/* Just in case it dies before replying! */
-		tal_add_destructor2(p->uncommitted_channel->open_daemon,
+		tal_add_destructor2(open_daemon,
 				    opening_died_forget_memleak, cmd);
 		return;
 	}
