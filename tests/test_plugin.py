@@ -1187,12 +1187,16 @@ def test_forward_event_notification(node_factory, bitcoind, executor):
         {},
         {'disconnect': disconnects}])
 
-    l1.openchannel(l2, confirm=False)
-    l2.openchannel(l3, confirm=False)
-    l2.openchannel(l4, confirm=False)
-    l2.openchannel(l5, confirm=False)
+    l1.openchannel(l2, confirm=False, wait_for_announce=False)
+    l2.openchannel(l3, confirm=False, wait_for_announce=False)
+    l2.openchannel(l4, confirm=False, wait_for_announce=False)
+    l2.openchannel(l5, confirm=False, wait_for_announce=False)
+
+    # Generate 5, then make sure everyone is up to date before
+    # last one, otherwise they might think it's in the future!
+    bitcoind.generate_block(5)
     sync_blockheight(bitcoind, [l1, l2, l3, l4, l5])
-    bitcoind.generate_block(6)
+    bitcoind.generate_block(1)
 
     wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 8)
 
