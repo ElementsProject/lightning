@@ -26,6 +26,8 @@ def expected_peer_features(wumbo_channels=False, extra=[]):
         features += [103]
         # option_anchor_outputs
         features += [21]
+        # option_shutdown_anysegwit
+        features += [27]
     if wumbo_channels:
         features += [19]
     return hex_bits(features + extra)
@@ -41,6 +43,8 @@ def expected_node_features(wumbo_channels=False, extra=[]):
         features += [103]
         # option_anchor_outputs
         features += [21]
+        # option_shutdown_anysegwit
+        features += [27]
     if wumbo_channels:
         features += [19]
     return hex_bits(features + extra)

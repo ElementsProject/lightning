@@ -16,6 +16,7 @@
  *  - if the `scriptpubkey` is not in one of the above forms:
  *    - SHOULD fail the connection.
  */
-bool valid_shutdown_scriptpubkey(const u8 *scriptpubkey);
+bool valid_shutdown_scriptpubkey(const u8 *scriptpubkey,
+				 bool anysegwit);
 
 #endif /* LIGHTNING_COMMON_SHUTDOWN_SCRIPTPUBKEY_H */

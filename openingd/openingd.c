@@ -325,11 +325,15 @@ static bool setup_channel_funder(struct state *state)
 static void set_remote_upfront_shutdown(struct state *state,
 					u8 *shutdown_scriptpubkey STEALS)
 {
+	bool anysegwit = feature_negotiated(state->our_features,
+					    state->their_features,
+					    OPT_SHUTDOWN_ANYSEGWIT);
+
 	state->upfront_shutdown_script[REMOTE]
 		= tal_steal(state, shutdown_scriptpubkey);
 
 	if (shutdown_scriptpubkey
-	    && !valid_shutdown_scriptpubkey(shutdown_scriptpubkey))
+	    && !valid_shutdown_scriptpubkey(shutdown_scriptpubkey, anysegwit))
 		peer_failed_err(state->pps,
 				&state->channel_id,
 				"Unacceptable upfront_shutdown_script %s",
