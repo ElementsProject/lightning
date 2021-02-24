@@ -2445,7 +2445,11 @@ static void peer_memleak_req_next(struct command *cmd, struct channel *prev)
 			if (prev != NULL)
 				continue;
 
-			/* Note: closingd does its own checking automatically */
+			/* Note: closingd and dualopend do their own
+			 * checking automatically */
+			if (channel_unsaved(c))
+				continue;
+
 			if (streq(c->owner->name, "channeld")) {
 				subd_req(c, c->owner,
 					 take(towire_channeld_dev_memleak(NULL)),
