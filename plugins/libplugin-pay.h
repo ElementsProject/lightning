@@ -292,6 +292,10 @@ struct payment {
 	 * and payment_lower_max_htlcs functions.
 	 */
 	u32 max_htlcs;
+
+	/* A human readable error message that is used as a top-level
+	 * explanation if a payment is aborted. */
+	char *aborterror;
 };
 
 struct payment_modifier {
@@ -435,6 +439,13 @@ void payment_set_step(struct payment *p, enum payment_step newstep);
 
 /* Fails a partial payment and continues with the core flow. */
 void payment_fail(struct payment *p, const char *fmt, ...) PRINTF_FMT(2,3);
+
+/* Fails a payment process by setting the root payment to
+ * aborted. This will cause all subpayments to terminate as soon as
+ * they can, and sets the root failreason so we have a sensible error
+ * message. The failreason is overwritten if it is already set, since
+ * we probably know better what happened in the modifier.. */
+void payment_abort(struct payment *p, const char *fmt, ...) PRINTF_FMT(2,3);
 
 struct payment *payment_root(struct payment *p);
 struct payment_tree_result payment_collect_result(struct payment *p);
