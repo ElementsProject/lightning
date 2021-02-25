@@ -4172,3 +4172,51 @@ def test_self_pay(node_factory):
 
     with pytest.raises(RpcError):
         l1.rpc.pay(inv)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', "Canned invoice is network specific")
+def test_unreachable_routehint(node_factory, bitcoind):
+    """Test that we discard routehints that we can't reach.
+
+    Reachability is tested by checking whether we can reach the
+    entrypoint of the routehint, i.e., the first node in the
+    routehint. The network we create is partitioned on purpose for
+    this: first we attempt with an unknown destination and an unknown
+    routehint entrypoint, later we make them known, but still
+    unreachable, by connecting them without a channel.
+
+    """
+
+    # Create a partitioned network, first without connecting it, then
+    # connecting it without a channel so they can sync gossip. Notice
+    # that l4 is there only to trick the deadend heuristic.
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l3, l4, l5 = node_factory.line_graph(3, wait_for_announce=True)
+    entrypoint = '0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199'
+
+    # Generate an invoice with exactly one routehint.
+    for i in range(100):
+        invoice = l5.rpc.invoice(10, 'attempt{}'.format(i), 'description')['bolt11']
+        decoded = l1.rpc.decodepay(invoice)
+        if 'routes' in decoded and len(decoded['routes']) == 1:
+            break
+
+    assert('routes' in decoded and len(decoded['routes']) == 1)
+
+    with pytest.raises(RpcError, match=r'Destination [a-f0-9]{66} is not reachable'):
+        l1.rpc.pay(invoice)
+
+    assert(l1.daemon.is_in_log(
+        r"Removed routehint 0 because entrypoint {entrypoint} is unknown.".format(
+            entrypoint=entrypoint
+        )
+    ))
+
+    # Now connect l2 to l3 to create a bridge, but without a
+    # channel. The entrypoint will become known, but still
+    # unreachable, resulting in a slightly different error message,
+    # but the routehint will still be removed.
+    l2.connect(l3)
+    wait_for(lambda: len(l1.rpc.listnodes(entrypoint)['nodes']) == 1)
+
+    # TODO(cdecker) investigate why dijkstra_distance tells us the entrypoint is reachable...

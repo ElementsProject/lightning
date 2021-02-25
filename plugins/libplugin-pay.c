@@ -2313,14 +2313,17 @@ static void trim_route(struct route_info **route, size_t n)
 
 /* Make sure routehints are reasonable length, and (since we assume we
  * can append), not directly to us.  Note: untrusted data! */
-static struct route_info **filter_routehints(struct routehints_data *d,
+static struct route_info **filter_routehints(struct gossmap *map,
+					     struct payment *p,
+					     struct routehints_data *d,
 					     struct node_id *myid,
 					     struct route_info **hints)
 {
+	const size_t max_hops = ROUTING_MAX_HOPS / 2;
 	char *mods = tal_strdup(tmpctx, "");
 	for (size_t i = 0; i < tal_count(hints); i++) {
+		struct gossmap_node *entrynode;
 		/* Trim any routehint > 10 hops */
-		size_t max_hops = ROUTING_MAX_HOPS / 2;
 		if (tal_count(hints[i]) > max_hops) {
 			tal_append_fmt(&mods,
 				       "Trimmed routehint %zu (%zu hops) to %zu. ",
@@ -2343,6 +2346,27 @@ static struct route_info **filter_routehints(struct routehints_data *d,
 				       "Removed empty routehint %zu. ", i);
 			tal_arr_remove(&hints, i);
 			i--;
+		}
+
+		/* If routehint entrypoint is unreachable there's no
+		 * point in keeping it. */
+		entrynode = gossmap_find_node(map, &hints[i][0].pubkey);
+		if (entrynode == NULL) {
+			tal_append_fmt(&mods,
+				       "Removed routehint %zu because "
+				       "entrypoint %s is unknown. ",
+				       i,
+				       type_to_string(tmpctx, struct node_id,
+						      &hints[i][0].pubkey));
+			plugin_log(p->plugin, LOG_DBG,
+				   "Removed routehint %zu because "
+				   "entrypoint %s is unknown. ",
+				   i,
+				   type_to_string(tmpctx, struct node_id,
+						  &hints[i][0].pubkey));
+			tal_arr_remove(&hints, i);
+			i--;
+			continue;
 		}
 	}
 
@@ -2616,7 +2640,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 {
 	struct route_hop hop;
 	const struct payment *root = payment_root(p);
-
+	struct gossmap *map;
 	if (p->step == PAYMENT_STEP_INITIALIZED) {
 		if (root->routes == NULL)
 			return payment_continue(p);
@@ -2625,8 +2649,9 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 		 * beginning, and every other payment will filter out the
 		 * exluded ones on the fly. */
 		if (p->parent == NULL) {
-			d->routehints = filter_routehints(d, p->local_id,
-							  p->routes);
+			map = get_gossmap(p->plugin);
+			d->routehints = filter_routehints(
+			    map, p, d, p->local_id, p->routes);
 			/* filter_routehints modifies the array, but
 			 * this could trigger a resize and the resize
 			 * could trigger a realloc.
