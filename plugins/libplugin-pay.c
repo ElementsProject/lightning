@@ -61,6 +61,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->invstring = NULL;
 	p->routetxt = NULL;
 	p->max_htlcs = UINT32_MAX;
+	p->aborterror = NULL;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -1886,6 +1887,14 @@ static void payment_finished(struct payment *p)
 
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
 			return;
+		} else if (p->aborterror != NULL) {
+			/* We set an explicit toplevel error message,
+			 * so let's report that. */
+			ret = jsonrpc_stream_fail(cmd, PAY_STOPPED_RETRYING,
+						  p->aborterror);
+			payment_json_add_attempts(ret, "attempts", p);
+			if (command_finished(cmd, ret)) {/* Ignore result. */}
+			return;
 		} else if (result.failure == NULL || result.failure->failcode < NODE) {
 			/* This is failing because we have no more routes to try */
 			msg = tal_fmt(cmd,
@@ -2026,6 +2035,32 @@ void payment_continue(struct payment *p)
 	/* We should never get here, it'd mean one of the state machine called
 	 * `payment_continue` after the final state. */
 	abort();
+}
+
+void payment_abort(struct payment *p, const char *fmt, ...) {
+	va_list ap;
+	struct payment *root = payment_root(p);
+	payment_set_step(p, PAYMENT_STEP_FAILED);
+	p->end_time = time_now();
+
+	va_start(ap, fmt);
+	p->failreason = tal_vfmt(p, fmt, ap);
+	va_end(ap);
+
+	root->abort = true;
+
+	/* Only set the abort error if it's not yet set, otherwise we
+	 * might end up clobbering the earliest and decisive failure
+	 * with less relevant ones. */
+	if (root->aborterror == NULL)
+		root->aborterror = tal_dup_talarr(root, char, p->failreason);
+
+	paymod_log(p, LOG_INFORM, "%s", p->failreason);
+
+	/* Do not use payment_continue, because that'd continue
+	 * applying the modifiers before calling
+	 * payment_finished(). */
+	payment_finished(p);
 }
 
 void payment_fail(struct payment *p, const char *fmt, ...)
