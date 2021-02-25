@@ -65,6 +65,22 @@ static void keysend_cb(struct keysend_data *d, struct payment *p) {
 			    "Recipient %s does not support keysend payments "
 			    "(no TLV support)",
 			    node_id_to_hexstr(tmpctx, p->destination));
+	} else if (p->step == PAYMENT_STEP_FAILED) {
+		/* Now we can look at the error, and the failing node,
+		   and determine whether they didn't like our
+		   attempt. This is required since most nodes don't
+		   explicitly signal support for keysend through the
+		   featurebit method.*/
+
+		if (p->result != NULL &&
+		    node_id_eq(p->destination, p->result->erring_node) &&
+		    p->result->failcode == WIRE_INVALID_ONION_PAYLOAD) {
+			return payment_abort(
+			    p,
+			    "Recipient %s reported an invalid payload, this "
+			    "usually means they don't support keysend.",
+			    node_id_to_hexstr(tmpctx, p->destination));
+		}
 	}
 
 	if (p->step != PAYMENT_STEP_ONION_PAYLOAD)
