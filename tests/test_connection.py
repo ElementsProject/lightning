@@ -950,6 +950,7 @@ def test_funding_toolarge(node_factory, bitcoind):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual-funding is experimental only")
 @unittest.skipIf(not DEVELOPER, "Requires --dev-force-features")
+@pytest.mark.xfail
 def test_v2_open(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
                                     opts=[{'dev-force-features': '+223'},
@@ -1379,6 +1380,7 @@ def test_funding_external_wallet(node_factory, bitcoind):
     l3.rpc.close(l2.info["id"])
 
 
+@pytest.mark.xfail
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "requires opt_dual_fund")
 def test_multifunding_v2_v1_mixed(node_factory, bitcoind):
     '''
@@ -1423,6 +1425,7 @@ def test_multifunding_v2_exclusive(node_factory, bitcoind):
     '''
     Simple test for multifundchannel, using v2
     '''
+    pytest.xfail()
     accepter_plugin = os.path.join(os.path.dirname(__file__),
                                    'plugins/df_accepter.py')
     # Two of three will reply with inputs of their own
