@@ -436,4 +436,5 @@ int main(int argc, char *argv[])
 	/* Now we can refresh. */
 	assert(write(fd, "", 1) == 1);
 	gossmap_refresh(map);
+	common_shutdown();
 }
