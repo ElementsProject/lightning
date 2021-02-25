@@ -3049,7 +3049,7 @@ def test_keysend(node_factory):
 
     # And finally try to send a keysend payment to l4, which doesn't
     # support it. It MUST fail.
-    with pytest.raises(RpcError, match=r"Recipient [0-9a-f]{66} does not support keysend payments"):
+    with pytest.raises(RpcError, match=r"Recipient [0-9a-f]{66} reported an invalid payload"):
         l3.rpc.keysend(l4.info['id'], amt)
 
 
