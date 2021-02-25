@@ -4219,4 +4219,10 @@ def test_unreachable_routehint(node_factory, bitcoind):
     l2.connect(l3)
     wait_for(lambda: len(l1.rpc.listnodes(entrypoint)['nodes']) == 1)
 
-    # TODO(cdecker) investigate why dijkstra_distance tells us the entrypoint is reachable...
+    with pytest.raises(RpcError):
+        l1.rpc.pay(invoice)
+    assert(l1.daemon.is_in_log(
+        r"Removed routehint 0 because entrypoint {entrypoint} is unreachable.".format(
+            entrypoint=entrypoint
+        )
+    ))

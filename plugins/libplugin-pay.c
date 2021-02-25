@@ -2322,7 +2322,9 @@ static struct route_info **filter_routehints(struct gossmap *map,
 	const size_t max_hops = ROUTING_MAX_HOPS / 2;
 	char *mods = tal_strdup(tmpctx, "");
 	for (size_t i = 0; i < tal_count(hints); i++) {
-		struct gossmap_node *entrynode;
+		struct gossmap_node *entrynode, *src;
+		u32 distance;
+
 		/* Trim any routehint > 10 hops */
 		if (tal_count(hints[i]) > max_hops) {
 			tal_append_fmt(&mods,
@@ -2351,6 +2353,8 @@ static struct route_info **filter_routehints(struct gossmap *map,
 		/* If routehint entrypoint is unreachable there's no
 		 * point in keeping it. */
 		entrynode = gossmap_find_node(map, &hints[i][0].pubkey);
+		src = gossmap_find_node(map, p->local_id);
+
 		if (entrynode == NULL) {
 			tal_append_fmt(&mods,
 				       "Removed routehint %zu because "
@@ -2367,6 +2371,29 @@ static struct route_info **filter_routehints(struct gossmap *map,
 			tal_arr_remove(&hints, i);
 			i--;
 			continue;
+		}
+
+		distance = dijkstra_distance(
+		    dijkstra(tmpctx, map, entrynode, AMOUNT_MSAT(1), 1,
+			     payment_route_can_carry_even_disabled,
+			     route_score_cheaper, p),
+		    gossmap_node_idx(map, src));
+
+		if (distance == UINT_MAX) {
+			tal_append_fmt(&mods,
+				       "Removed routehint %zu because "
+				       "entrypoint %s is unreachable. ",
+				       i,
+				       type_to_string(tmpctx, struct node_id,
+						      &hints[i][0].pubkey));
+			plugin_log(p->plugin, LOG_DBG,
+				       "Removed routehint %zu because "
+				       "entrypoint %s is unreachable. ",
+				       i,
+				       type_to_string(tmpctx, struct node_id,
+						      &hints[i][0].pubkey));
+			tal_arr_remove(&hints, i);
+			i--;
 		}
 	}
 
