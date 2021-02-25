@@ -2,6 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from flaky import flaky
 from pyln.client import RpcError
 from shutil import copyfile
+from pyln.testing.utils import SLOW_MACHINE
 from utils import (
     only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT,
     account_balance, first_channel_id, basic_fee, TEST_NETWORK,
@@ -2624,27 +2625,34 @@ Try a range of future segwit versions as shutdown scripts.  We create many nodes
     # 5. if (and only if) `option_shutdown_anysegwit` is negotiated:
     #    * `OP_1` through `OP_16` inclusive, followed by a single push of 2 to 40 bytes
     #    (witness program versions 1 through 16)
-    valid = ['51020000', '5128' + '00' * 0x28,
-             '52020000', '5228' + '00' * 0x28,
-             '53020000', '5328' + '00' * 0x28,
-             '54020000', '5428' + '00' * 0x28,
-             '55020000', '5528' + '00' * 0x28,
-             '56020000', '5628' + '00' * 0x28,
-             '57020000', '5728' + '00' * 0x28,
-             '58020000', '5828' + '00' * 0x28,
-             '59020000', '5928' + '00' * 0x28,
-             '5A020000', '5A28' + '00' * 0x28,
-             '5B020000', '5B28' + '00' * 0x28,
-             '5C020000', '5C28' + '00' * 0x28,
-             '5D020000', '5D28' + '00' * 0x28,
-             '5E020000', '5E28' + '00' * 0x28,
-             '5F020000', '5F28' + '00' * 0x28,
-             '60020000', '6028' + '00' * 0x28]
+    edge_valid = ['51020000', '5128' + '00' * 0x28,
+                  '60020000', '6028' + '00' * 0x28]
+    other_valid = ['52020000', '5228' + '00' * 0x28,
+                   '53020000', '5328' + '00' * 0x28,
+                   '54020000', '5428' + '00' * 0x28,
+                   '55020000', '5528' + '00' * 0x28,
+                   '56020000', '5628' + '00' * 0x28,
+                   '57020000', '5728' + '00' * 0x28,
+                   '58020000', '5828' + '00' * 0x28,
+                   '59020000', '5928' + '00' * 0x28,
+                   '5A020000', '5A28' + '00' * 0x28,
+                   '5B020000', '5B28' + '00' * 0x28,
+                   '5C020000', '5C28' + '00' * 0x28,
+                   '5D020000', '5D28' + '00' * 0x28,
+                   '5E020000', '5E28' + '00' * 0x28,
+                   '5F020000', '5F28' + '00' * 0x28]
+
     invalid = ['50020000',  # Not OP_1-OP_16
                '61020000',  # Not OP_1-OP_16
                '5102000000',  # Extra bytes
                '510100',  # Too short
                '5129' + '00' * 0x29]  # Too long
+
+    # Don't stress CI; just test edge cases
+    if SLOW_MACHINE:
+        valid = edge_valid
+    else:
+        valid = edge_valid + other_valid
 
     if EXPERIMENTAL_FEATURES:
         xsuccess = valid
