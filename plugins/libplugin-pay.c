@@ -2625,6 +2625,17 @@ static struct command_result *routehint_getroute_result(struct command *cmd,
 		/* FIXME: ***DO*** we need to add this extra routehint?
 		 * Once we run out of routehints the default system will
 		 * just attempt directly routing to the destination anyway.  */
+	} else if (tal_count(d->routehints) == 0) {
+		/* If we don't have any routehints and the destination
+		 * isn't reachable, then there is no point in
+		 * continuing. */
+
+		payment_abort(
+		    p,
+		    "Destination %s is not reachable directly and "
+		    "all routehints were unusable.",
+		    type_to_string(tmpctx, struct node_id, p->destination));
+		return command_still_pending(cmd);
 	}
 
 	routehint_pre_getroute(d, p);
