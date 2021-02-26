@@ -24,26 +24,34 @@
 
 #define NSEC_IN_SEC 1000000000
 
+/* Small container for things that are needed by migrations. The
+ * fields are guaranteed to be initialized and can be relied upon when
+ * migrating.
+ */
+struct migration_context {
+	const struct ext_key *bip32_base;
+};
+
 struct migration {
 	const char *sql;
 	void (*func)(struct lightningd *ld, struct db *db,
-		     const struct ext_key *bip32_base);
+		     const struct migration_context *mc);
 };
 
 static void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db,
-					       const struct ext_key *bip32_base);
+					       const struct migration_context *mc);
 
 static void migrate_our_funding(struct lightningd *ld, struct db *db,
-				const struct ext_key *bip32_base);
+				const struct migration_context *mc);
 
 static void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db,
-				    const struct ext_key *bip32_base);
+				    const struct migration_context *mc);
 
 static void fillin_missing_scriptpubkeys(struct lightningd *ld, struct db *db,
-					 const struct ext_key *bip32_base);
+					 const struct migration_context *mc);
 
 static void fillin_missing_channel_id(struct lightningd *ld, struct db *db,
-				      const struct ext_key *bip32_base);
+				      const struct migration_context *mc);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -1053,6 +1061,9 @@ static void db_migrate(struct lightningd *ld, struct db *db,
 	/* Attempt to read the version from the database */
 	int current, orig, available;
 	struct db_stmt *stmt;
+	const struct migration_context mc = {
+	    .bip32_base = bip32_base,
+	};
 
 	orig = current = db_get_version(db);
 	available = ARRAY_SIZE(dbmigrations) - 1;
@@ -1075,7 +1086,7 @@ static void db_migrate(struct lightningd *ld, struct db *db,
 			tal_free(stmt);
 		}
 		if (dbmigrations[current].func)
-			dbmigrations[current].func(ld, db, bip32_base);
+			dbmigrations[current].func(ld, db, &mc);
 	}
 
 	/* Finally update the version number in the version table */
@@ -1162,7 +1173,7 @@ void db_set_intvar(struct db *db, char *varname, s64 val)
 
 /* Will apply the current config fee settings to all channels */
 static void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db *db,
-					       const struct ext_key *bip32_base)
+					       const struct migration_context *mc)
 {
 	struct db_stmt *stmt = db_prepare_v2(
 	    db, SQL("UPDATE channels SET feerate_base = ?, feerate_ppm = ?;"));
@@ -1181,7 +1192,7 @@ static void migrate_pr2342_feerate_per_channel(struct lightningd *ld, struct db 
  * the `funder`
  */
 static void migrate_our_funding(struct lightningd *ld, struct db *db,
-				const struct ext_key *bip32_base)
+				const struct migration_context *mc)
 {
 	struct db_stmt *stmt;
 
@@ -1198,7 +1209,7 @@ static void migrate_our_funding(struct lightningd *ld, struct db *db,
 }
 
 void fillin_missing_scriptpubkeys(struct lightningd *ld, struct db *db,
-				  const struct ext_key *bip32_base)
+				  const struct migration_context *mc)
 {
 	struct db_stmt *stmt;
 
@@ -1256,7 +1267,7 @@ void fillin_missing_scriptpubkeys(struct lightningd *ld, struct db *db,
 				      tal_hex(msg, msg));
 		} else {
 			/* Build from bip32_base */
-			bip32_pubkey(bip32_base, &key, keyindex);
+			bip32_pubkey(mc->bip32_base, &key, keyindex);
 			if (type == p2sh_wpkh) {
 				u8 *redeemscript = bitcoin_redeem_p2sh_p2wpkh(stmt, &key);
 				scriptPubkey = scriptpubkey_p2sh(tmpctx, redeemscript);
@@ -1284,7 +1295,7 @@ void fillin_missing_scriptpubkeys(struct lightningd *ld, struct db *db,
  * are now two ways to do it, we save the derived channel id.
  */
 static void fillin_missing_channel_id(struct lightningd *ld, struct db *db,
-				      const struct ext_key *bip32_base)
+				      const struct migration_context *mc)
 {
 
 	struct db_stmt *stmt;
@@ -1327,7 +1338,7 @@ static void fillin_missing_channel_id(struct lightningd *ld, struct db *db,
  * adds the required input witness utxo information, and then saves it back to disk
  * */
 void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db,
-			     const struct ext_key *bip32_base)
+			     const struct migration_context *mc)
 {
 	struct db_stmt *stmt, *update_stmt;
 
