@@ -194,8 +194,9 @@ void json_add_jsonstr(struct json_stream *js,
 	size_t len = strlen(jsonstr);
 
 	p = json_member_direct(js, fieldname, len);
-
-	memcpy(p, jsonstr, len);
+	/* Could be OOM! */
+	if (p)
+		memcpy(p, jsonstr, len);
 }
 
 /* This is where we read the json_stream and write it to conn */
