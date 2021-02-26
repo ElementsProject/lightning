@@ -897,6 +897,36 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "ALTER TABLE channels ADD revocation_basepoint_local BLOB",
+         .query = "ALTER TABLE channels ADD revocation_basepoint_local BLOB",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
+         .name = "ALTER TABLE channels ADD payment_basepoint_local BLOB",
+         .query = "ALTER TABLE channels ADD payment_basepoint_local BLOB",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
+         .name = "ALTER TABLE channels ADD htlc_basepoint_local BLOB",
+         .query = "ALTER TABLE channels ADD htlc_basepoint_local BLOB",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
+         .name = "ALTER TABLE channels ADD delayed_payment_basepoint_local BLOB",
+         .query = "ALTER TABLE channels ADD delayed_payment_basepoint_local BLOB",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
+         .name = "ALTER TABLE channels ADD funding_pubkey_local BLOB",
+         .query = "ALTER TABLE channels ADD funding_pubkey_local BLOB",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
          .name = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .query = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .placeholders = 1,
@@ -1828,10 +1858,10 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
-#define DB_SQLITE3_QUERY_COUNT 303
+#define DB_SQLITE3_QUERY_COUNT 308
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:984787ceecca007210a6b465695a1fc910b7f9899ac98cdf2eae35e417bc6cf2
+// SHA256STAMP:f821e078a09daf59ba061f0a2098510f136efa4b70fa046aa9b2f5de2f0160ed
