@@ -298,3 +298,51 @@ def test_psql_key_value_dsn(node_factory, db_provider, monkeypatch):
     l1 = node_factory.get_node()
     opt = [o for o in l1.daemon.cmd_line if '--wallet' in o][0]
     assert('host=127.0.0.1' in opt)
+
+
+@unittest.skipIf(
+    TEST_NETWORK != 'regtest',
+    "The DB migration is network specific due to the chain var."
+)
+@unittest.skipIf(
+    os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3',
+    "This test is based on a sqlite3 snapshot"
+)
+def test_local_basepoints_cache(bitcoind, node_factory):
+    """XXX started caching the local basepoints as well as the remote ones.
+
+    This tests that we can successfully migrate a DB from the
+    pre-caching state to the caching state, by simply starting the
+    node up once, issue the HSMd requests, and then store them in the
+    DB.
+
+    """
+    # Reestablish the blockheight we had when generating the DB
+    bitcoind.generate_block(6)
+    l1 = node_factory.get_node(
+        dbfile='no-local-basepoints.sqlite3.xz',
+        start=False
+    )
+
+    fields = [
+        "revocation_basepoint_local",
+        "payment_basepoint_local",
+        "htlc_basepoint_local",
+        "delayed_payment_basepoint_local",
+    ]
+    q = "SELECT {fields} FROM channels".format(fields=", ".join(fields))
+
+    # Make sure the DB doesn't have the fields yet.
+    missing = l1.db.query("SELECT * FROM channels")[0]
+    for f in fields:
+        assert(f not in missing)
+
+    # Starting this should cause us to migrate the DB, but none of
+    # these fields will be set.
+    l1.start()
+
+    present = l1.db.query(q)[0]
+    for f in fields:
+        assert(f in present)
+        assert(present[f] is None)
+

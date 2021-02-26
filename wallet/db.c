@@ -690,6 +690,11 @@ static struct migration dbmigrations[] = {
 	 ", PRIMARY KEY (channel_id, funding_tx_id)"
 	 ");"),
     NULL},
+    {SQL("ALTER TABLE channels ADD revocation_basepoint_local BLOB"), NULL},
+    {SQL("ALTER TABLE channels ADD payment_basepoint_local BLOB"), NULL},
+    {SQL("ALTER TABLE channels ADD htlc_basepoint_local BLOB"), NULL},
+    {SQL("ALTER TABLE channels ADD delayed_payment_basepoint_local BLOB"), NULL},
+    {SQL("ALTER TABLE channels ADD funding_pubkey_local BLOB"), NULL},
 };
 
 /* Leak tracking. */
