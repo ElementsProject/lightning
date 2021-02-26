@@ -1380,7 +1380,8 @@ class NodeFactory(object):
             if not self.valgrind and DEVELOPER:
                 try:
                     # This also puts leaks in log.
-                    leaks = self.nodes[i].rpc.dev_memleak()['leaks']
+                    ex = self.executor.submit(self.nodes[i].rpc.dev_memleak)['leaks']
+                    leaks = ex.result(TIMEOUT)
                 except Exception:
                     pass
 
