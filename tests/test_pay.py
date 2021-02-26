@@ -1723,7 +1723,7 @@ def test_pay_routeboost(node_factory, bitcoind, compat):
     l3, l4, l5 = node_factory.line_graph(3, announce_channels=False, wait_for_announce=False)
 
     # This should a "could not find a route" because that's true.
-    error = r'Ran out of routes'
+    error = r'Destination [a-f0-9]{66} is not reachable directly and all routehints were unusable'
 
     with pytest.raises(RpcError, match=error):
         l1.rpc.pay(l5.rpc.invoice(10**8, 'test_retry', 'test_retry')['bolt11'])
@@ -4219,10 +4219,15 @@ def test_unreachable_routehint(node_factory, bitcoind):
     l2.connect(l3)
     wait_for(lambda: len(l1.rpc.listnodes(entrypoint)['nodes']) == 1)
 
-    with pytest.raises(RpcError):
+    with pytest.raises(RpcError, match=r'Destination [a-f0-9]{66} is not reachable') as excinfo:
         l1.rpc.pay(invoice)
     assert(l1.daemon.is_in_log(
         r"Removed routehint 0 because entrypoint {entrypoint} is unreachable.".format(
             entrypoint=entrypoint
         )
     ))
+
+    # Since we aborted once we realized the destination is unreachable
+    # both directly, and via the routehints we should now just have a
+    # single attempt.
+    assert(len(excinfo.value.error['attempts']) == 1)
