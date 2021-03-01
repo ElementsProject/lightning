@@ -30,6 +30,7 @@
  */
 struct migration_context {
 	const struct ext_key *bip32_base;
+	int hsm_fd;
 };
 
 struct migration {
@@ -52,6 +53,10 @@ static void fillin_missing_scriptpubkeys(struct lightningd *ld, struct db *db,
 
 static void fillin_missing_channel_id(struct lightningd *ld, struct db *db,
 				      const struct migration_context *mc);
+
+static void fillin_missing_local_basepoints(struct lightningd *ld,
+					    struct db *db,
+					    const struct migration_context *mc);
 
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
@@ -703,6 +708,7 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD htlc_basepoint_local BLOB"), NULL},
     {SQL("ALTER TABLE channels ADD delayed_payment_basepoint_local BLOB"), NULL},
     {SQL("ALTER TABLE channels ADD funding_pubkey_local BLOB"), NULL},
+    {NULL, fillin_missing_local_basepoints},
 };
 
 /* Leak tracking. */
@@ -1063,6 +1069,7 @@ static void db_migrate(struct lightningd *ld, struct db *db,
 	struct db_stmt *stmt;
 	const struct migration_context mc = {
 	    .bip32_base = bip32_base,
+	    .hsm_fd = ld->hsm_fd,
 	};
 
 	orig = current = db_get_version(db);
@@ -1327,6 +1334,68 @@ static void fillin_missing_channel_id(struct lightningd *ld, struct db *db,
 
 		db_exec_prepared_v2(update_stmt);
 		tal_free(update_stmt);
+	}
+
+	tal_free(stmt);
+}
+
+static void fillin_missing_local_basepoints(struct lightningd *ld,
+					    struct db *db,
+					    const struct migration_context *mc)
+{
+
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(
+		db,
+		SQL("SELECT"
+		    "  channels.id"
+		    ", peers.node_id "
+		    "FROM"
+		    "  channels JOIN"
+		    "  peers "
+		    "ON (peers.id = channels.peer_id)"));
+
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		struct node_id peer_id;
+		u64 dbid;
+		u8 *msg;
+		struct db_stmt *upstmt;
+		struct basepoints base;
+		struct pubkey funding_pubkey;
+
+		dbid = db_column_u64(stmt, 0);
+		db_column_node_id(stmt, 1, &peer_id);
+
+		if (!wire_sync_write(mc->hsm_fd,
+				     towire_hsmd_get_channel_basepoints(
+					 tmpctx, &peer_id, dbid)))
+			fatal("could not retrieve basepoint from hsmd");
+
+		msg = wire_sync_read(tmpctx, mc->hsm_fd);
+		if (!fromwire_hsmd_get_channel_basepoints_reply(
+			msg, &base, &funding_pubkey))
+			fatal("malformed hsmd_get_channel_basepoints_reply "
+			      "from hsmd");
+
+		upstmt = db_prepare_v2(
+			db,
+			SQL("UPDATE channels SET"
+			    "  revocation_basepoint_local = ?"
+			    ", payment_basepoint_local = ?"
+			    ", htlc_basepoint_local = ?"
+			    ", delayed_payment_basepoint_local = ?"
+			    ", funding_pubkey_local = ? "
+			    "WHERE id = ?;"));
+		db_bind_pubkey(upstmt, 0, &base.revocation);
+		db_bind_pubkey(upstmt, 1, &base.payment);
+		db_bind_pubkey(upstmt, 2, &base.htlc);
+		db_bind_pubkey(upstmt, 3, &base.delayed_payment);
+		db_bind_pubkey(upstmt, 4, &funding_pubkey);
+
+		db_bind_u64(upstmt, 5, dbid);
+
+		db_exec_prepared_v2(take(upstmt));
 	}
 
 	tal_free(stmt);
