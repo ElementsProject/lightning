@@ -26,6 +26,9 @@ void derive_channel_id(struct channel_id *channel_id UNNEEDED,
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
+/* Generated stub for fromwire_hsmd_get_channel_basepoints_reply */
+bool fromwire_hsmd_get_channel_basepoints_reply(const void *p UNNEEDED, struct basepoints *basepoints UNNEEDED, struct pubkey *funding_pubkey UNNEEDED)
+{ fprintf(stderr, "fromwire_hsmd_get_channel_basepoints_reply called!\n"); abort(); }
 /* Generated stub for fromwire_hsmd_get_output_scriptpubkey_reply */
 bool fromwire_hsmd_get_output_scriptpubkey_reply(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **script UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_get_output_scriptpubkey_reply called!\n"); abort(); }
@@ -41,6 +44,9 @@ struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
 		    const struct node_id *default_node_id UNNEEDED,
 		    const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "new_log called!\n"); abort(); }
+/* Generated stub for towire_hsmd_get_channel_basepoints */
+u8 *towire_hsmd_get_channel_basepoints(const tal_t *ctx UNNEEDED, const struct node_id *peerid UNNEEDED, u64 dbid UNNEEDED)
+{ fprintf(stderr, "towire_hsmd_get_channel_basepoints called!\n"); abort(); }
 /* Generated stub for towire_hsmd_get_output_scriptpubkey */
 u8 *towire_hsmd_get_output_scriptpubkey(const tal_t *ctx UNNEEDED, u64 channel_id UNNEEDED, const struct node_id *peer_id UNNEEDED, const struct pubkey *commitment_point UNNEEDED)
 { fprintf(stderr, "towire_hsmd_get_output_scriptpubkey called!\n"); abort(); }

@@ -344,5 +344,4 @@ def test_local_basepoints_cache(bitcoind, node_factory):
     present = l1.db.query(q)[0]
     for f in fields:
         assert(f in present)
-        assert(present[f] is None)
-
+        assert(present[f] is not None)

@@ -1011,6 +1011,18 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
+         .name = "SELECT  channels.id, peers.node_id FROM  channels JOIN  peers ON (peers.id = channels.peer_id)",
+         .query = "SELECT  channels.id, peers.node_id FROM  channels JOIN  peers ON (peers.id = channels.peer_id)",
+         .placeholders = 0,
+         .readonly = true,
+    },
+    {
+         .name = "UPDATE channels SET  revocation_basepoint_local = ?, payment_basepoint_local = ?, htlc_basepoint_local = ?, delayed_payment_basepoint_local = ?, funding_pubkey_local = ? WHERE id = ?;",
+         .query = "UPDATE channels SET  revocation_basepoint_local = $1, payment_basepoint_local = $2, htlc_basepoint_local = $3, delayed_payment_basepoint_local = $4, funding_pubkey_local = $5 WHERE id = $6;",
+         .placeholders = 6,
+         .readonly = false,
+    },
+    {
          .name = "SELECT   c.id, p.node_id, c.last_tx, c.funding_satoshi, c.fundingkey_remote, c.last_sig FROM channels c  LEFT OUTER JOIN peers p  ON p.id = c.peer_id;",
          .query = "SELECT   c.id, p.node_id, c.last_tx, c.funding_satoshi, c.fundingkey_remote, c.last_sig FROM channels c  LEFT OUTER JOIN peers p  ON p.id = c.peer_id;",
          .placeholders = 0,
@@ -1858,10 +1870,10 @@ struct db_query db_postgres_queries[] = {
     },
 };
 
-#define DB_POSTGRES_QUERY_COUNT 308
+#define DB_POSTGRES_QUERY_COUNT 310
 
 #endif /* HAVE_POSTGRES */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:1a3134f7047b5f6d980c2a876b4132b04a650340846d704b2e4b3aa62810b830
+// SHA256STAMP:31b3cec58b89d8183275a5f240715bde33901fd0e839ea4d267eed79575e2d2d
