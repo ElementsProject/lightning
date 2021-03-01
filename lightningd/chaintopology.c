@@ -357,17 +357,6 @@ static void add_feerate_history(struct chain_topology *topo,
 	topo->feehistory[feerate][0] = val;
 }
 
-/* Did the the feerate change since we last estimated it ? */
-static bool feerate_changed(struct chain_topology *topo, u32 old_feerates[])
-{
-	for (int f = 0; f < NUM_FEERATES; f++) {
-		if (try_get_feerate(topo, f) != old_feerates[f])
-			return true;
-	}
-
-	return false;
-}
-
 /* We sanitize feerates if necessary to put them in descending order. */
 static void update_feerates(struct bitcoind *bitcoind,
 			    const u32 *satoshi_per_kw,
@@ -379,6 +368,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 	 * 2 minutes. The following will do that in a polling interval
 	 * independent manner. */
 	double alpha = 1 - pow(0.1,(double)topo->poll_seconds / 120);
+	bool feerate_changed = false;
 
 	for (size_t i = 0; i < NUM_FEERATES; i++) {
 		u32 feerate = satoshi_per_kw[i];
@@ -392,14 +382,18 @@ static void update_feerates(struct bitcoind *bitcoind,
 
 		/* Initial smoothed feerate is the polled feerate */
 		if (!old_feerates[i]) {
+			feerate_changed = true;
 			old_feerates[i] = feerate;
 			init_feerate_history(topo, i, feerate);
 
 			log_debug(topo->log,
 					  "Smoothed feerate estimate for %s initialized to polled estimate %u",
 					  feerate_name(i), feerate);
-		} else
+		} else {
+			if (feerate != old_feerates[i])
+				feerate_changed = true;
 			add_feerate_history(topo, i, feerate);
+		}
 
 		/* Smooth the feerate to avoid spikes. */
 		u32 feerate_smooth = feerate * alpha + old_feerates[i] * (1 - alpha);
@@ -435,7 +429,7 @@ static void update_feerates(struct bitcoind *bitcoind,
 		maybe_completed_init(topo);
 	}
 
-	if (feerate_changed(topo, old_feerates))
+	if (feerate_changed)
 		notify_feerate_change(bitcoind->ld);
 
 	next_updatefee_timer(topo);
