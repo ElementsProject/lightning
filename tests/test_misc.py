@@ -1438,7 +1438,8 @@ def test_ipv4_and_ipv6(node_factory):
     "FEERATE_FLOOR on testnets, and we test the new API."
 )
 def test_feerates(node_factory):
-    l1 = node_factory.get_node(options={'log-level': 'io'}, start=False)
+    l1 = node_factory.get_node(options={'log-level': 'io',
+                                        'dev-no-fake-fees': True}, start=False)
     l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', {
         'error': {"errors": ["Insufficient data or no feerate found"], "blocks": 0}
     })
