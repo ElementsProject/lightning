@@ -1401,9 +1401,9 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
-         .name = "INSERT INTO channels (peer_id, first_blocknum, id) VALUES (?, ?, ?);",
-         .query = "INSERT INTO channels (peer_id, first_blocknum, id) VALUES (?, ?, ?);",
-         .placeholders = 3,
+         .name = "INSERT INTO channels (  peer_id, first_blocknum, id, revocation_basepoint_local, payment_basepoint_local, htlc_basepoint_local, delayed_payment_basepoint_local, funding_pubkey_local) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+         .query = "INSERT INTO channels (  peer_id, first_blocknum, id, revocation_basepoint_local, payment_basepoint_local, htlc_basepoint_local, delayed_payment_basepoint_local, funding_pubkey_local) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+         .placeholders = 8,
          .readonly = false,
     },
     {
@@ -1876,4 +1876,4 @@ struct db_query db_sqlite3_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:9b64275f5e8b221e0e7ae99a386d0fb5c5112b65eb893dc6c8f68c2e95d920d4
+// SHA256STAMP:a7e5a416ba406c10a88ee92a1ff39ced4373e3ecb6f67a228dd08c506b62b23b

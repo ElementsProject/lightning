@@ -345,3 +345,10 @@ def test_local_basepoints_cache(bitcoind, node_factory):
     for f in fields:
         assert(f in present)
         assert(present[f] is not None)
+
+    # New channels should automatically have the basepoints cached.
+    l2, l3 = node_factory.line_graph(2)
+    present = l2.db.query(q)[0]
+    for f in fields:
+        assert(f in present)
+        assert(present[f] is not None)

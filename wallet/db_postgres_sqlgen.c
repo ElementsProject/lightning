@@ -1401,9 +1401,9 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "INSERT INTO channels (peer_id, first_blocknum, id) VALUES (?, ?, ?);",
-         .query = "INSERT INTO channels (peer_id, first_blocknum, id) VALUES ($1, $2, $3);",
-         .placeholders = 3,
+         .name = "INSERT INTO channels (  peer_id, first_blocknum, id, revocation_basepoint_local, payment_basepoint_local, htlc_basepoint_local, delayed_payment_basepoint_local, funding_pubkey_local) VALUES (?, ?, ?, ?, ?, ?, ?, ?);",
+         .query = "INSERT INTO channels (  peer_id, first_blocknum, id, revocation_basepoint_local, payment_basepoint_local, htlc_basepoint_local, delayed_payment_basepoint_local, funding_pubkey_local) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);",
+         .placeholders = 8,
          .readonly = false,
     },
     {
@@ -1876,4 +1876,4 @@ struct db_query db_postgres_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:31b3cec58b89d8183275a5f240715bde33901fd0e839ea4d267eed79575e2d2d
+// SHA256STAMP:e565991a4998ffbb3289af68158b6a2d6f4d6eac6476f237daec1789382ee7f2
