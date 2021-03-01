@@ -2039,6 +2039,57 @@ def test_fee_limits(node_factory, bitcoind):
     l1.rpc.close(chan)
 
 
+@unittest.skipIf(not DEVELOPER, "needs dev-no-fake-fees")
+def test_update_fee_dynamic(node_factory, bitcoind):
+    # l1 has no fee estimates to start.
+    l1 = node_factory.get_node(options={'log-level': 'io',
+                                        'dev-no-fake-fees': True}, start=False)
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', {
+        'error': {"errors": ["Insufficient data or no feerate found"], "blocks": 0}
+    })
+    l1.start()
+    l2 = node_factory.get_node()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # Fails due to lack of fee estimate.
+    with pytest.raises(RpcError, match='Cannot estimate fees'):
+        l1.fundchannel(l2, 10**6)
+
+    # Explicit feerate works.
+    l1.fundchannel(l2, 10**6, feerate='10000perkw')
+
+    l1.set_feerates((15000, 11000, 7500, 3750))
+
+    # It will send UPDATE_FEE when it tries to send HTLC.
+    inv = l2.rpc.invoice(5000, 'test_update_fee_dynamic', 'test_update_fee_dynamic')['bolt11']
+    l1.rpc.pay(inv)
+
+    l2.daemon.wait_for_log('peer_in.*UPDATE_FEE')
+
+    # Now we take it away again!
+    l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', {
+        'error': {"errors": ["Insufficient data or no feerate found"], "blocks": 0}
+    })
+    # Make sure that registers!  (DEVELOPER means polling every second)
+    time.sleep(2)
+
+    inv = l2.rpc.invoice(5000, 'test_update_fee_dynamic2', 'test_update_fee_dynamic2')['bolt11']
+    l1.rpc.pay(inv)
+
+    # Won't update fee.
+    assert not l2.daemon.is_in_log('peer_in.*UPDATE_FEE',
+                                   start=l2.daemon.logsearch_start)
+
+    # Bring it back.
+    l1.set_feerates((14000, 10000, 7000, 3000))
+
+    # It will send UPDATE_FEE when it tries to send HTLC.
+    inv = l2.rpc.invoice(5000, 'test_update_fee_dynamic3', 'test_update_fee_dynamic')['bolt11']
+    l1.rpc.pay(inv)
+
+    l2.daemon.wait_for_log('peer_in.*UPDATE_FEE')
+
+
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
 def test_update_fee_reconnect(node_factory, bitcoind):
     # Disconnect after commitsig for fee update.
