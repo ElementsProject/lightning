@@ -2282,7 +2282,7 @@ def test_fundee_forget_funding_tx_unconfirmed(node_factory, bitcoind):
 
 @unittest.skipIf(not DEVELOPER, "needs dev_fail")
 def test_no_fee_estimate(node_factory, bitcoind, executor):
-    l1 = node_factory.get_node(start=False)
+    l1 = node_factory.get_node(start=False, options={'dev-no-fake-fees': True})
 
     # Fail any fee estimation requests until we allow them further down
     l1.daemon.rpcproxy.mock_rpc('estimatesmartfee', {
