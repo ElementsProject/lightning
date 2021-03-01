@@ -56,10 +56,17 @@ default_cwarnflags()
 
 default_pytest()
 {
-    PYTEST_BINS="pytest py.test pytest3 pytest-3"
+    # Since we just checked that we have python3 we give that one the
+    # most priority and then fall back to some common aliases.
+    PYTEST_BINS="python3 -m pytest,pytest,py.test,pytest3,pytest-3"
+    IFS=','
     for p in $PYTEST_BINS; do
-	if [ "$(which $p)" != "" ] ; then
-	    "$p" --version 2>&1 | grep -q "python3" || continue
+	# If it is a combined command such as `python3 -m pytest` we
+	# want to only call which on the executable
+	exe=$(echo "$p" | awk '{print $1}')
+	# shellcheck disable=SC2086
+	if [ "$(which $exe)" != "" ] ; then
+	    "$p" --version 2>&1 | grep -q "pytest" || continue
 	    echo "$p"
 	    return
 	fi
