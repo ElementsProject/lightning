@@ -873,13 +873,17 @@ bool fromwire_hsmd_get_channel_basepoints_reply(const void *p UNNEEDED,
 					       struct basepoints *basepoints,
 					       struct pubkey *funding_pubkey)
 {
-	struct secret empty;
-	memset(&empty, 0, sizeof(empty));
-	pubkey_from_secret(&empty, funding_pubkey);
-	pubkey_from_secret(&empty, &basepoints->revocation);
-	pubkey_from_secret(&empty, &basepoints->payment);
-	pubkey_from_secret(&empty, &basepoints->htlc);
-	pubkey_from_secret(&empty, &basepoints->delayed_payment);
+	struct pubkey pk;
+	pubkey_from_der(tal_hexdata(tmpctx,
+				    "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc9"
+				    "5f51ead10a02ee0be551b5dc",
+				    66),
+			33, &pk);
+	*funding_pubkey = pk;
+	basepoints->revocation = pk;
+	basepoints->payment = pk;
+	basepoints->htlc = pk;
+	basepoints->delayed_payment = pk;
 	return true;
 }
 
@@ -1309,6 +1313,13 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	ci->theirbase.payment = pk;
 	ci->theirbase.htlc = pk;
 	ci->theirbase.delayed_payment = pk;
+
+	c1.local_basepoints.revocation = pk;
+	c1.local_basepoints.payment = pk;
+	c1.local_basepoints.htlc = pk;
+	c1.local_basepoints.delayed_payment = pk;
+	c1.local_funding_pubkey = pk;
+
 	ci->remote_per_commit = pk;
 	ci->old_remote_per_commit = pk;
 	/* last_tx taken from BOLT #3 */
