@@ -352,3 +352,8 @@ def test_local_basepoints_cache(bitcoind, node_factory):
     for f in fields:
         assert(f in present)
         assert(present[f] is not None)
+
+    # Restarting will ask hsmd and verify they're unchanged. Remove
+    # after we verified.
+    l1.restart()
+    l2.restart()

@@ -1176,6 +1176,21 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	get_channel_basepoints(w->ld, &peer->id, db_column_u64(stmt, 0),
 			       &local_basepoints, &local_funding_pubkey);
 
+	// TODO(cdecker) Remove the above call once we verify that the results
+	// are correct. */
+	struct basepoints lbp;
+	struct pubkey fkey;
+	db_column_pubkey(stmt, 52, &lbp.revocation);
+	db_column_pubkey(stmt, 53, &lbp.payment);
+	db_column_pubkey(stmt, 54, &lbp.htlc);
+	db_column_pubkey(stmt, 55, &lbp.delayed_payment);
+	db_column_pubkey(stmt, 56, &fkey);
+	assert(pubkey_eq(&lbp.revocation, &local_basepoints.revocation));
+	assert(pubkey_eq(&lbp.payment, &local_basepoints.payment));
+	assert(pubkey_eq(&lbp.htlc, &local_basepoints.htlc));
+	assert(pubkey_eq(&lbp.delayed_payment, &local_basepoints.delayed_payment));
+	assert(pubkey_eq(&fkey, &local_funding_pubkey));
+
 	db_column_amount_sat(stmt, 15, &funding_sat);
 	db_column_amount_sat(stmt, 16, &our_funding_sat);
 	db_column_amount_msat(stmt, 18, &push_msat);
@@ -1315,6 +1330,11 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", shutdown_scriptpubkey_local" // 49
 					", closer" // 50
 					", state_change_reason" // 51
+					", revocation_basepoint_local" // 52
+					", payment_basepoint_local" // 53
+					", htlc_basepoint_local" // 54
+					", delayed_payment_basepoint_local" // 55
+					", funding_pubkey_local" // 56
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, 0, CLOSED);
