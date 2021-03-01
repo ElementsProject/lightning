@@ -1810,10 +1810,25 @@ void wallet_channel_insert(struct wallet *w, struct channel *chan)
 	/* Insert a stub, that we update, unifies INSERT and UPDATE paths */
 	stmt = db_prepare_v2(
 	    w->db, SQL("INSERT INTO channels ("
-		       "peer_id, first_blocknum, id) VALUES (?, ?, ?);"));
+		       "  peer_id"
+		       ", first_blocknum"
+		       ", id"
+		       ", revocation_basepoint_local"
+		       ", payment_basepoint_local"
+		       ", htlc_basepoint_local"
+		       ", delayed_payment_basepoint_local"
+		       ", funding_pubkey_local"
+		       ") VALUES (?, ?, ?, ?, ?, ?, ?, ?);"));
 	db_bind_u64(stmt, 0, chan->peer->dbid);
 	db_bind_int(stmt, 1, chan->first_blocknum);
 	db_bind_int(stmt, 2, chan->dbid);
+
+	db_bind_pubkey(stmt, 3, &chan->local_basepoints.revocation);
+	db_bind_pubkey(stmt, 4, &chan->local_basepoints.payment);
+	db_bind_pubkey(stmt, 5, &chan->local_basepoints.htlc);
+	db_bind_pubkey(stmt, 6, &chan->local_basepoints.delayed_payment);
+	db_bind_pubkey(stmt, 7, &chan->local_funding_pubkey);
+
 	db_exec_prepared_v2(take(stmt));
 
 	wallet_channel_config_insert(w, &chan->our_config);
