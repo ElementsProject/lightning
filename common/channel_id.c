@@ -18,7 +18,7 @@ void derive_channel_id_v2(struct channel_id *channel_id,
 			  const struct pubkey *basepoint_1,
 			  const struct pubkey *basepoint_2)
 {
-	/* BOLT-df8bb5994d99e4c78053f7cb57694795f8393dc5 #2:
+	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 	 * `channel_id`, v2
 	 *  For channels established using the v2 protocol, the
 	 *  `channel_id` is the
