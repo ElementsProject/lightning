@@ -73,8 +73,13 @@ enum tx_msgs {
 };
 
 /*
- * BOLT-544bda7144d91b3f51856189b8932610649f9e93 #2:
-  - MUST NOT send more than 2^12 ... messages
+ * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+ * The receiving node:
+ *  ...
+ *  - MUST fail the negotiation if: ...
+ *    - if has received 4096 `tx_add_input` messages during this negotiation
+ *     ...
+ *    - it has received 4096 `tx_add_output` messages during this negotiation
  */
 #define MAX_TX_MSG_RCVD (1 << 12)
 
@@ -131,7 +136,6 @@ struct state {
 
 	/* Constraints on a channel they open. */
 	u32 minimum_depth;
-	u32 min_feerate, max_feerate;
 	struct amount_msat min_effective_htlc_capacity;
 
 	/* Limits on what remote config we accept. */
@@ -436,12 +440,13 @@ static void set_reserve(struct tx_state *tx_state,
 {
 	struct amount_sat reserve, dust_limit;
 
-	/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
+	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 	 *
-	 * The channel reserve is fixed at 1% of the total channel balance
-	 * rounded down (sum of `funding_satoshis` from `open_channel2`
-	 * and `accept_channel2`) or the `dust_limit_satoshis` from
-	 * `open_channel2`, whichever is greater.
+	 * Instead, the channel reserve is fixed at 1% of the total
+	 * channel balance (`open_channel2`.`funding_satoshis` +
+	 * `accept_channel2`.`funding_satoshis`) rounded down to the
+	 * nearest whole satoshi or the `dust_limit_satoshis`, whichever is
+	 * greater.
 	 */
 	reserve = amount_sat_div(funding_total, 100);
 	dust_limit = our_role == TX_INITIATOR ?
@@ -459,14 +464,12 @@ static void set_reserve(struct tx_state *tx_state,
 
 static bool is_openers(const struct wally_map *unknowns)
 {
-	/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
-	 * The sending node:
-	 * ...
-	 *   - if is the `initiator`:
-	 *     - MUST send even `serial_id`s
-	 *   - if is the `contributor`:
-	 *   ...
-	 *     - MUST send odd `serial_id`s
+	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+	 * The sending node: ...
+	 * - if is the *initiator*:
+	 *   - MUST send even `serial_id`s
+	 * - if is the *non-initiator*:
+	 *   - MUST send odd `serial_id`s
 	 */
 	u64 serial_id;
 	if (!psbt_get_serial_id(unknowns, &serial_id))
@@ -487,7 +490,8 @@ static size_t psbt_input_weight(struct wally_psbt *psbt,
 		(psbt->inputs[in].redeem_script_len +
 			(varint_t) varint_size(psbt->inputs[in].redeem_script_len)) * 4;
 
-	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2
+	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #3:
+	 *
 	 * The minimum witness weight for an input is 110.
 	 */
 	weight += 110;
@@ -530,10 +534,10 @@ static char *check_balances(const tal_t *ctx,
 	size_t accepter_weight = 0;
 
 
-	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
-	 * The initiator is responsible for paying the fees
-	 * for the following fields, to be referred to as
-	 * the `common fields`.
+	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+	 *
+	 * The *initiator* is responsible for paying the fees for the
+	 * following fields, to be referred to as the `common fields`.
 	 *   - version
 	 *   - segwit marker + flag
 	 *   - input count
@@ -562,12 +566,15 @@ static char *check_balances(const tal_t *ctx,
 			return "overflow adding desired funding";
 		}
 
-		/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
-		 * The receiving node:
-		 *   ...
-		 *   - MUST fail the channel if:
-		 *   	...
-		 *     - the value of the funding output is incorrect
+		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+		 *
+		 * Upon receipt of consecutive `tx_complete`s, the receiving
+		 * node:
+		 * - if is the *accepter*:
+		 *   - MUST fail the negotiation if: ...
+		 *     - the value of the funding output is not equal to the
+		 *       sum of `open_channel2`.`funding_satoshis`
+		 *       and `accept_channel2`. `funding_satoshis`
 		 */
 		if (!amount_sat_eq(total_funding, output_val)) {
 			return tal_fmt(tmpctx, "total desired funding %s != "
@@ -580,13 +587,14 @@ static char *check_balances(const tal_t *ctx,
 						      &output_val));
 		}
 
-		/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
-		 * The receiving node:
-		 *   ...
-		 *   - MUST fail the channel if:
-		 *   	...
-		 *   	- if the `funding_output` of the resulting
-		 *   	transaction is less than the `dust_limit`
+		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+		 *
+		 * Upon receipt of consecutive `tx_complete`s, the receiving
+		 * node:
+		 *   - if is the *accepter*:
+		 *     - MUST fail the negotiation if: ...
+		 *     - the value of the funding output is
+		 *       less than the `dust_limit`
 		 */
 		if (!amount_sat_greater(output_val,
 				tx_state->remoteconf.dust_limit) ||
@@ -595,12 +603,13 @@ static char *check_balances(const tal_t *ctx,
 			return "funding output is dust";
 		}
 	} else {
-		/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
-		 * The receiving node:
-		 *   ...
-		 *   - MUST fail the channel if:
-		 *     - no funding output is received, identified by
-		 *       the `script`
+		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+		 *
+		 * Upon receipt of consecutive `tx_complete`s, the receiving
+		 * node:
+		 *   - if is the *accepter*:
+		 *     - MUST fail the negotiation if:
+		 *     - no funding output was received
 		 */
 		return "funding output not present";
 	}
@@ -650,10 +659,13 @@ static char *check_balances(const tal_t *ctx,
 			return "overflow adding output total";
 		}
 
-		/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
-		 * The sending node:
-		 *   - MUST specify a `sats` value greater
-		 *     than the dust limit
+		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+		 * The receiving node:
+		 * ...
+		 * - MUST fail the negotiation if:
+		 *   ...
+		 *   - the `sats` amount is less than or equal to
+		 *     the `dust_limit`
 		 */
 		if (!amount_sat_greater(amt,
 				tx_state->remoteconf.dust_limit) ||
@@ -685,25 +697,25 @@ static char *check_balances(const tal_t *ctx,
 		}
 	}
 
-	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
-	 * The receiving node: ...
-	 * - MUST fail the channel if:
+	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+	 *  The receiving node:
+	 *  ...
+	 *  - MUST fail the negotiation if:
 	 *   ...
-	 *   - the total satoshis of the inputs is less than
-	 *     the outputs
+	 *   - the peer's total input satoshis is less than their outputs
 	 */
 	if (!amount_sat_greater_eq(tot_input_amt, tot_output_amt)) {
 		return "inputs less than total outputs";
 	}
 
-	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
+	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 	 * The receiving node: ...
-	 * - MUST fail the channel if:
+	 * - MUST fail the negotiation if:
 	 *   ...
-	 *   - the peer's paid feerate does not meet or exceed
-	 *   the agreed `feerate`, (based on the miminum fee).
-	 *   - the `initiator`'s fees do not cover the `common`
-	 *     fields
+	 *   - the peer's paid feerate does not meet or exceed the
+	 *   agreed `feerate`, (based on the `minimum fee`).
+	 *   - if is the *non-initiator*:
+	 *     - the *initiator*'s fees do not cover the `common` fields
 	 */
 	if (!amount_sat_sub(&accepter_diff, accepter_inputs,
 			    accepter_outs)) {
@@ -715,10 +727,13 @@ static char *check_balances(const tal_t *ctx,
 		return "initiator inputs less than outputs";
 	}
 
-	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
-	 * Each party to the transaction is responsible for
-	 * paying the fees for their input, output,
-	 * and witness at the agreed `feerate`. */
+	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+	 * The receiving node:  ...
+	 * - MUST fail the negotiation if:
+	 *   ...
+	 *   - the peer's paid feerate does not meet or exceed the
+	 *   agreed `feerate`, (based on the `minimum fee`).
+	 */
 	accepter_fee = amount_tx_fee(feerate_per_kw_funding,
 				     accepter_weight);
 	initiator_fee = amount_tx_fee(feerate_per_kw_funding,
@@ -1264,32 +1279,31 @@ static bool run_tx_interactive(struct state *state,
 			check_channel_id(state, &cid, &state->channel_id);
 
 			/*
-			 * BOLT-544bda7144d91b3f51856189b8932610649f9e93 #2:
-			 * The receiving node:
-			 * - MUST fail the transaction collaboration if:
-			 *   - it receives more than 2^12 `tx_add_input`
-			 *   messages */
+			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * The receiving node: ...
+			 *   - MUST fail the negotiation if: ...
+			 *   - if has received 4096 `tx_add_input`
+			 *   messages during this negotiation
+			 */
 			if (++tx_state->tx_msg_count[TX_ADD_INPUT] > MAX_TX_MSG_RCVD)
 				open_err_warn(state, "Too many `tx_add_input`s"
 					      " received %d", MAX_TX_MSG_RCVD);
 			/*
-			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
-			 * - if is the `initiator`:
-			 *   - MUST send even `serial_id`s
-			 * - MUST fail the transaction collaboration if:
-			 *   ...
-			 * - it receives a `serial_id` from the peer
-			 *   with the incorrect parity
+			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * The receiving node: ...
+			 *   - MUST fail the negotiation if: ...
+			 *   - the `serial_id` has the wrong parity
 			 */
 			if (serial_id % 2 == our_role)
 				open_err_warn(state,
 					      "Invalid serial_id rcvd. %"PRIu64,
 					      serial_id);
 			/*
-			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
-			 * - MUST fail the transaction collaboration if:
-			 *   ...
-			 *  - it recieves a duplicate `serial_id`
+			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * The receiving node: ...
+			 *   - MUST fail the negotiation if: ...
+			 *   - the `serial_id` is already included in
+			 *   the transaction
 			 */
 			if (psbt_find_serial_input(psbt, serial_id) != -1)
 				open_err_warn(state, "Duplicate serial_id rcvd."
@@ -1306,11 +1320,11 @@ static bool run_tx_interactive(struct state *state,
 					      "Invalid tx outnum sent. %u",
 					      outnum);
 			/*
-			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
-			 * - MUST fail the transaction collaboration if:
-			 *   ...
-			 *  - it receives an input that would create a
-			 *    malleable transaction id (e.g. pre-Segwit)
+			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * The receiving node: ...
+			 *   - MUST fail the negotiation if: ...
+			 *   - the `prevtx_out` input of `prevtx` is
+			 *   not an `OP_0` to `OP_16` followed by a single push
 			 */
 			if (!is_segwit_output(&tx->wtx->outputs[outnum],
 					      redeemscript))
@@ -1321,14 +1335,12 @@ static bool run_tx_interactive(struct state *state,
 							     tx));
 
 			/*
-			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
-			 *  - MUST NOT re-transmit inputs it has already
-			 *    received from the peer
-			 *  ...
-			 * - MUST fail the transaction collaboration if:
-			 *   ...
-			 *  - it receives a duplicate input to one it
-			 *    sent previously
+			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 *   The receiving node: ...
+			 *    - MUST fail the negotiation if:
+			 *    - the `prevtx` and `prevtx_vout` are
+			 *    identical to a previously added (and not
+			 *    removed) input's
 			 */
 			bitcoin_txid(tx, &txid);
 			if (psbt_has_input(psbt, &txid, outnum))
@@ -1341,10 +1353,9 @@ static bool run_tx_interactive(struct state *state,
 					      outnum);
 
 			/*
-			 * BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2:
+			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 			 * The receiving node:
-			 *  - MUST add all received inputs to the funding
-			 *    transaction
+			 *  - MUST add all received inputs to the transaction
 			 */
 			struct wally_psbt_input *in =
 				psbt_append_input(psbt, &txid, outnum,
@@ -1392,27 +1403,23 @@ static bool run_tx_interactive(struct state *state,
 
 			check_channel_id(state, &cid, &state->channel_id);
 
-			/*
-			 * BOLT-544bda7144d91b3f51856189b8932610649f9e93 #2:
-			 * The receiving node:
-			 * - MUST fail the transaction collaboration if:
-			 *   - it receives more than 2^12 `tx_rm_input`
-			 *   messages */
-			if (++tx_state->tx_msg_count[TX_RM_INPUT] > MAX_TX_MSG_RCVD)
-				open_err_warn(state,
-					      "Too many `tx_rm_input`s"
-					      " received (%d)",
-					      MAX_TX_MSG_RCVD);
-
-			/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
-			 * The sending node:
-			 *   - MUST NOT send a `tx_remove_input` for an
-			 *     input which is not theirs */
+			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * The receiving node:  ...
+			 *   - MUST fail the negotiation if: ...
+			 *   - the input or output identified by the
+			 *   `serial_id` was not added by the sender
+			 */
 			if (serial_id % 2 == our_role)
 				open_err_warn(state,
 					      "Invalid serial_id rcvd. %"PRIu64,
 					      serial_id);
 
+			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * The receiving node:  ...
+			 *   - MUST fail the negotiation if: ...
+			 *   - the `serial_id` does not correspond
+			 *     to a currently added input (or output)
+			 */
 			input_index = psbt_find_serial_input(psbt, serial_id);
 			if (input_index == -1)
 				open_err_warn(state,
@@ -1436,34 +1443,46 @@ static bool run_tx_interactive(struct state *state,
 			check_channel_id(state, &cid, &state->channel_id);
 
 			/*
-			 * BOLT-544bda7144d91b3f51856189b8932610649f9e93 #2:
-			 * The receiving node:
-			 * - MUST fail the transaction collaboration if:
-			 *   - it receives more than 2^12 `tx_add_output`
-			 *   messages */
+			 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * The receiving node: ...
+			 * - MUST fail the negotiation if: ...
+			 *   - it has received 4096 `tx_add_output`
+			 *   messages during this negotiation
+			 */
 			if (++tx_state->tx_msg_count[TX_ADD_OUTPUT] > MAX_TX_MSG_RCVD)
 				open_err_warn(state,
 					      "Too many `tx_add_output`s"
 					      " received (%d)",
 					      MAX_TX_MSG_RCVD);
 
-			/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
-			 * The receiving node:
-			 *  ...
-			 * - MUST fail the transaction collaboration if:
-			 *   ...
-			 *   - it receives a `serial_id` from the peer with the
-			 *      incorrect parity */
+			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * The receiving node: ...
+			 * - MUST fail the negotiation if: ...
+			 *   - the `serial_id` has the wrong parity
+			 */
 			if (serial_id % 2 == our_role)
 				open_err_warn(state,
 					      "Invalid serial_id rcvd. %"PRIu64,
 					      serial_id);
 
+			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * The receiving node: ...
+			 * - MUST fail the negotiation if: ...
+			 *   - the `serial_id` is already included
+			 *   in the transaction */
 			if (psbt_find_serial_output(psbt, serial_id) != -1)
 				open_err_warn(state,
 					      "Duplicate serial_id rcvd."
 					      " %"PRIu64, serial_id);
 			amt = amount_sat(value);
+
+			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * The receiving node: ...
+			 * - MAY fail the negotiation if `script`
+			 *   is non-standard */
+			if (!is_known_scripttype(scriptpubkey))
+				open_err_warn(state, "Script is not standard");
+
 			out = psbt_append_output(psbt, scriptpubkey, amt);
 			psbt_output_set_serial_id(psbt, out, serial_id);
 			break;
@@ -1478,27 +1497,23 @@ static bool run_tx_interactive(struct state *state,
 
 			check_channel_id(state, &cid, &state->channel_id);
 
-			/*
-			 * BOLT-544bda7144d91b3f51856189b8932610649f9e93 #2:
-			 * The receiving node:
-			 * - MUST fail the transaction collaboration if:
-			 *   - it receives more than 2^12 `tx_rm_output`
-			 *   messages */
-			if (++tx_state->tx_msg_count[TX_RM_OUTPUT] > MAX_TX_MSG_RCVD)
-				open_err_warn(state,
-					      "Too many `tx_rm_output`s"
-					      " received (%d)",
-					      MAX_TX_MSG_RCVD);
-
-			/* BOLT-fe0351ca2cea3105c4f2eb18c571afca9d21c85b #2
-			 * The sending node:
-			 *   - MUST NOT send a `tx_remove_ouput` for an
-			 *     input which is not theirs */
+			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * The receiving node: ...
+			 * - MUST fail the negotiation if: ...
+			 *   - the input or output identified by the
+			 *   `serial_id` was not added by the sender
+			 */
 			if (serial_id % 2 == our_role)
 				open_err_warn(state,
 					      "Invalid serial_id rcvd."
 					      " %"PRIu64, serial_id);
 
+			/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+			 * The receiving node: ...
+			 * - MUST fail the negotiation if: ...
+			 *   - the `serial_id` does not correspond to a
+			 *     currently added input (or output)
+			 */
 			output_index = psbt_find_serial_output(psbt, serial_id);
 			if (output_index == -1)
 				open_err_warn(state, false,
@@ -1839,7 +1854,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	u8 *msg;
 	struct amount_sat total;
 	enum dualopend_wire msg_type;
-	u32 feerate_min, feerate_max, feerate_best;
 	struct tx_state *tx_state = state->tx_state;
 
 	state->our_role = TX_ACCEPTER;
@@ -1847,14 +1861,12 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 
 	if (!fromwire_open_channel2(oc2_msg, &chain_hash,
 				    &state->channel_id,
-				    &feerate_max,
-				    &feerate_min,
-				    &feerate_best,
+				    &state->feerate_per_kw_funding,
+				    &state->feerate_per_kw_commitment,
 				    &tx_state->opener_funding,
 				    &tx_state->remoteconf.dust_limit,
 				    &tx_state->remoteconf.max_htlc_value_in_flight,
 				    &tx_state->remoteconf.htlc_minimum,
-				    &state->feerate_per_kw_commitment,
 				    &tx_state->remoteconf.to_self_delay,
 				    &tx_state->remoteconf.max_accepted_htlcs,
 				    &tx_state->tx_locktime,
@@ -1874,6 +1886,9 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 			open_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey);
 	} else
 		state->upfront_shutdown_script[REMOTE] = NULL;
+
+	/* Save feerate on the tx_state as well */
+	tx_state->feerate_per_kw_funding = state->feerate_per_kw_funding;
 
 	/* BOLT #2:
 	 *
@@ -1918,9 +1933,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					 tx_state->remoteconf.dust_limit,
 					 tx_state->remoteconf.max_htlc_value_in_flight,
 					 tx_state->remoteconf.htlc_minimum,
-					 feerate_max,
-					 feerate_min,
-					 feerate_best,
+					 state->feerate_per_kw_funding,
 					 state->feerate_per_kw_commitment,
 					 tx_state->remoteconf.to_self_delay,
 					 tx_state->remoteconf.max_accepted_htlcs,
@@ -1941,7 +1954,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 
 	if (!fromwire_dualopend_got_offer_reply(state, msg,
 						&tx_state->accepter_funding,
-						&tx_state->feerate_per_kw_funding,
 						&tx_state->psbt,
 						&state->upfront_shutdown_script[LOCAL]))
 		master_badmsg(WIRE_DUALOPEND_GOT_OFFER_REPLY, msg);
@@ -2023,7 +2035,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 
 	msg = towire_accept_channel2(tmpctx, &state->channel_id,
 				     tx_state->accepter_funding,
-				     tx_state->feerate_per_kw_funding,
 				     tx_state->localconf.dust_limit,
 				     tx_state->localconf.max_htlc_value_in_flight,
 				     tx_state->localconf.htlc_minimum,
@@ -2323,7 +2334,6 @@ static void opener_start(struct state *state, u8 *msg)
 	struct channel_id cid;
 	char *err_reason;
 	struct amount_sat total;
-	u32 feerate_min, feerate_max, feerate_best;
 	struct tx_state *tx_state = state->tx_state;
 
 	if (!fromwire_dualopend_opener_init(state, msg,
@@ -2331,12 +2341,13 @@ static void opener_start(struct state *state, u8 *msg)
 					    &tx_state->opener_funding,
 					    &state->upfront_shutdown_script[LOCAL],
 					    &state->feerate_per_kw_commitment,
-					    &tx_state->feerate_per_kw_funding,
+					    &state->feerate_per_kw_funding,
 					    &state->channel_flags))
 		master_badmsg(WIRE_DUALOPEND_OPENER_INIT, msg);
 
 	state->our_role = TX_INITIATOR;
 	tx_state->tx_locktime = tx_state->psbt->tx->locktime;
+	tx_state->feerate_per_kw_funding = state->feerate_per_kw_funding;
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
 
 	/* Set the channel_id to a temporary id, we'll update
@@ -2344,28 +2355,6 @@ static void opener_start(struct state *state, u8 *msg)
 	 * send us an error in the meantime, we need to be able to
 	 * understand it */
 	temporary_channel_id(&state->channel_id);
-
-	feerate_min = state->min_feerate;
-	feerate_max = state->max_feerate;
-	if (tx_state->feerate_per_kw_funding > state->max_feerate) {
-		status_info("Selected funding feerate %d is greater than"
-			    " current suggested max %d, adjusing max upwards"
-			    " to match.",
-			    tx_state->feerate_per_kw_funding,
-			    state->max_feerate);
-
-		feerate_max = tx_state->feerate_per_kw_funding;
-	}
-	if (tx_state->feerate_per_kw_funding < state->min_feerate) {
-		status_info("Selected funding feerate %d is less than"
-			    " current suggested min %d, adjusing min downwards"
-			    " to match.",
-			    tx_state->feerate_per_kw_funding,
-			    state->min_feerate);
-
-		feerate_min = tx_state->feerate_per_kw_funding;
-	}
-	feerate_best = tx_state->feerate_per_kw_funding;
 
 	if (!state->upfront_shutdown_script[LOCAL])
 		state->upfront_shutdown_script[LOCAL]
@@ -2384,14 +2373,12 @@ static void opener_start(struct state *state, u8 *msg)
 	msg = towire_open_channel2(NULL,
 				   &chainparams->genesis_blockhash,
 				   &state->channel_id,
-				   feerate_max,
-				   feerate_min,
-				   feerate_best,
+				   state->feerate_per_kw_funding,
+				   state->feerate_per_kw_commitment,
 				   tx_state->opener_funding,
 				   tx_state->localconf.dust_limit,
 				   tx_state->localconf.max_htlc_value_in_flight,
 				   tx_state->localconf.htlc_minimum,
-				   state->feerate_per_kw_commitment,
 				   tx_state->localconf.to_self_delay,
 				   tx_state->localconf.max_accepted_htlcs,
 				   tx_state->tx_locktime,
@@ -2418,7 +2405,6 @@ static void opener_start(struct state *state, u8 *msg)
 	a_tlv = notleak(tlv_accept_tlvs_new(state));
 	if (!fromwire_accept_channel2(msg, &cid,
 				      &tx_state->accepter_funding,
-				      &tx_state->feerate_per_kw_funding,
 				      &tx_state->remoteconf.dust_limit,
 				      &tx_state->remoteconf.max_htlc_value_in_flight,
 				      &tx_state->remoteconf.htlc_minimum,
@@ -2443,10 +2429,6 @@ static void opener_start(struct state *state, u8 *msg)
 	} else
 		state->upfront_shutdown_script[REMOTE] = NULL;
 
-	/* Copy the feerate per kw into the state struct as well; this is
-	 * the original feerate we'll use to base RBF upgrades on */
-	state->feerate_per_kw_funding = tx_state->feerate_per_kw_funding;
-
 	/* Now we can set the 'real channel id' */
 	derive_channel_id_v2(&state->channel_id,
 			     &state->our_points.revocation,
@@ -2459,20 +2441,6 @@ static void opener_start(struct state *state, u8 *msg)
 				type_to_string(msg, struct channel_id,
 					       &state->channel_id),
 				type_to_string(msg, struct channel_id, &cid));
-
-	/* BOLT-5fcbda56901af9e3b1d057cc41d0c5cfa60a2b94 #2:
-	 * The receiving node:
-	 * - if the `feerate_funding` is less than the `feerate_funding_min`
-	 *   or above the `feerate_funding_max`
-	 *   - MUST error.
-	 */
-	if (feerate_min > tx_state->feerate_per_kw_funding
-	    || feerate_max < tx_state->feerate_per_kw_funding)
-		open_err_warn(state, "Invalid feerate %d chosen. Valid min %d,"
-			      " valid max %d",
-			      tx_state->feerate_per_kw_funding,
-			      feerate_min, feerate_max);
-
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
@@ -2502,11 +2470,11 @@ static void opener_start(struct state *state, u8 *msg)
 		return;
 	}
 
-	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
+	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 	 * The sending node:
-	 *  - if is the `opener`:
-	 *   - MUST send at least one `tx_add_output`,  the channel
-	 *     funding output.
+	 * - if is the *opener*:
+	 *   - MUST send at least one `tx_add_output`,  which
+	 *   contains the channel's funding output
 	 */
 	add_funding_output(tx_state, state, total);
 
@@ -2560,12 +2528,18 @@ static bool update_feerate(struct tx_state *tx_state,
 	u32 feerate = feerate_funding;
 
 	/*
-	 * BOLT-487dd4b46aad9b59f7f3480b7bdf15862b52d2f9b #2:
-	 * Each `fee_step` adds 1/4 (rounded down) to the initial
-	 * transaction feerate, i.e. if the initial `feerate_per_kw_funding`
-	 * was 512 satoshis per kiloweight, `fee_step` 1 is
-	 * 512 + 512 / 4 or 640 sat/kw, `fee_step` 2
-	 * is 640 + 640 / 4 or 800 sat/kw.
+	 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+	 *
+	 * `fee_step` is an integer value, which specifies the
+	 * `feerate` for this funding transaction, as a rate of
+	 * increase above the `open_channel2`.  `funding_feerate_perkw`.
+	 *
+	 * The effective `funding_feerate_perkw` for this RBF attempt
+	 * if calculated as 1.25^`fee_step` * `funding_feerate_perkw`.
+	 * E.g. if `feerate_per_kw_funding` is 512 and the `fee_step` is 1,
+	 * the effective `feerate` for this RBF attempt is 512 + 512 / 4
+	 * or 640 sat/kw.  A `fee_step` 2 would be `1.25^2 * 512`
+	 * (or 640 + 640 / 4), 800 sat/kw.
 	 */
 	for (; fee_step > 0; fee_step--)
 		feerate += feerate / 4;
@@ -2602,12 +2576,11 @@ static void rbf_wrap_up(struct state *state,
 	char *err_reason;
 	u8 *msg;
 
-	/* BOLT-78de9a79b491ae9fb84b1fdb4546bacf642dce87 #2:
+	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 	 * The sending node:
-	 *  - if is the `opener`:
-	 *   - MUST send at least one `tx_add_output`,  the channel
-	 *     funding output.
-	 */
+	 * - if is the *opener*:
+	 *   - MUST send at least one `tx_add_output`,  which contains the
+	 *   channel's funding output */
 	if (state->our_role == TX_INITIATOR)
 		add_funding_output(tx_state, state, total);
 	else
@@ -3424,8 +3397,6 @@ int main(int argc, char *argv[])
 				    &state->our_points,
 				    &state->our_funding_pubkey,
 				    &state->minimum_depth,
-				    &state->min_feerate,
-				    &state->max_feerate,
 				    &inner)) {
 		/*~ Initially we're not associated with a channel, but
 		 * handle_peer_gossip_or_error compares this. */
@@ -3460,8 +3431,6 @@ int main(int argc, char *argv[])
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
 					     &state->minimum_depth,
-					     &state->min_feerate,
-					     &state->max_feerate,
 					     &state->tx_state->funding_txid,
 					     &state->tx_state->funding_txout,
 					     &state->feerate_per_kw_funding,

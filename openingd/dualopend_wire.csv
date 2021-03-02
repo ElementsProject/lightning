@@ -26,8 +26,6 @@ msgdata,dualopend_init,our_basepoints,basepoints,
 msgdata,dualopend_init,our_funding_pubkey,pubkey,
 # Constraints in case the other end tries to open a channel.
 msgdata,dualopend_init,minimum_depth,u32,
-msgdata,dualopend_init,min_feerate,u32,
-msgdata,dualopend_init,max_feerate,u32,
 # Optional msg to send.
 msgdata,dualopend_init,len,u16,
 msgdata,dualopend_init,msg,u8,len
@@ -48,8 +46,6 @@ msgdata,dualopend_reinit,our_basepoints,basepoints,
 msgdata,dualopend_reinit,our_funding_pubkey,pubkey,
 msgdata,dualopend_reinit,their_funding_pubkey,pubkey,
 msgdata,dualopend_reinit,minimum_depth,u32,
-msgdata,dualopend_reinit,min_feerate,u32,
-msgdata,dualopend_reinit,max_feerate,u32,
 msgdata,dualopend_reinit,funding_txid,bitcoin_txid,
 msgdata,dualopend_reinit,funding_txout,u16,
 msgdata,dualopend_reinit,orignal_feerate_per_kw_funding,u32,
@@ -82,10 +78,8 @@ msgdata,dualopend_got_offer,opener_funding,amount_sat,
 msgdata,dualopend_got_offer,dust_limit_satoshis,amount_sat,
 msgdata,dualopend_got_offer,max_htlc_value_in_flight_msat,amount_msat,
 msgdata,dualopend_got_offer,htlc_minimum_msat,amount_msat,
-msgdata,dualopend_got_offer,feerate_funding_max,u32,
-msgdata,dualopend_got_offer,feerate_funding_min,u32,
-msgdata,dualopend_got_offer,feerate_funding_best,u32,
-msgdata,dualopend_got_offer,feerate_per_kw,u32,
+msgdata,dualopend_got_offer,feerate_per_kw_funding,u32,
+msgdata,dualopend_got_offer,feerate_per_kw_commitment,u32,
 msgdata,dualopend_got_offer,to_self_delay,u16,
 msgdata,dualopend_got_offer,max_accepted_htlcs,u16,
 msgdata,dualopend_got_offer,channel_flags,u8,
@@ -96,7 +90,6 @@ msgdata,dualopend_got_offer,shutdown_scriptpubkey,u8,shutdown_len
 # master->dualopend: reply back with our first funding info/contribs
 msgtype,dualopend_got_offer_reply,7105
 msgdata,dualopend_got_offer_reply,accepter_funding,amount_sat,
-msgdata,dualopend_got_offer_reply,feerate_funding,u32,
 msgdata,dualopend_got_offer_reply,psbt,wally_psbt,
 msgdata,dualopend_got_offer_reply,shutdown_len,u16,
 msgdata,dualopend_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len

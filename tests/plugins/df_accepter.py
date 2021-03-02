@@ -13,20 +13,6 @@ from wallycore import (
 plugin = Plugin()
 
 
-def find_feerate(best, their_min, their_max, our_min, our_max):
-    if best >= our_min and best <= our_max:
-        return best
-
-    if their_max < our_min or their_min > our_max:
-        return False
-
-    if best < our_min:
-        return our_min
-
-    # best > our_max:
-    return our_max
-
-
 def find_inputs(b64_psbt):
     serial_id_key = bytes.fromhex('fc096c696768746e696e6701')
     psbt = psbt_from_base64(b64_psbt)
@@ -106,20 +92,18 @@ def on_openchannel(openchannel2, plugin, **kwargs):
         return {'result': 'continue'}
 
     # ...unless they send us totally unacceptable feerates.
-    feerate = find_feerate(openchannel2['funding_feerate_best'],
-                           openchannel2['funding_feerate_min'],
-                           openchannel2['funding_feerate_max'],
-                           openchannel2['feerate_our_min'],
-                           openchannel2['feerate_our_max'])
+    proposed_feerate = openchannel2['funding_feerate_per_kw']
+    our_min = openchannel2['feerate_our_min']
+    our_max = openchannel2['feerate_our_max']
 
     # Their feerate range is out of bounds, we're not going to
     # participate.
-    if not feerate:
-        plugin.log("Declining to fund, no feerate found.")
+    if proposed_feerate > our_max or proposed_feerate < our_min:
+        plugin.log("Declining to fund, feerate unacceptable.")
         return {'result': 'continue'}
 
     funding = plugin.rpc.fundpsbt(int(amount.to_satoshi()),
-                                  '{}perkw'.format(feerate),
+                                  '{}perkw'.format(proposed_feerate),
                                   0,  # because we're the accepter!!
                                   reserve=True,
                                   locktime=locktime,
@@ -128,11 +112,10 @@ def on_openchannel(openchannel2, plugin, **kwargs):
                                   excess_as_change=True)
     add_inflight(plugin, openchannel2['id'],
                  openchannel2['channel_id'], funding['psbt'])
-    plugin.log("contributing {} at feerate {}".format(amount, feerate))
+    plugin.log("contributing {} at feerate {}".format(amount, proposed_feerate))
 
     return {'result': 'continue', 'psbt': funding['psbt'],
-            'accepter_funding_msat': amount,
-            'funding_feerate': feerate}
+            'accepter_funding_msat': amount}
 
 
 @plugin.hook('openchannel2_changed')
