@@ -249,7 +249,7 @@ struct amount_sat psbt_output_get_amount(const struct wally_psbt *psbt,
  *
  * @psbt -psbt
  */
-struct amount_sat psbt_compute_fee(struct wally_psbt *psbt);
+struct amount_sat psbt_compute_fee(const struct wally_psbt *psbt);
 
 /* psbt_has_input - Is this input present on this psbt
  *
