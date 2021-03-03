@@ -45,6 +45,7 @@ COMMON_SRC_NOGEN :=				\
 	common/initial_channel.c		\
 	common/initial_commit_tx.c		\
 	common/io_lock.c			\
+	common/iso4217.c			\
 	common/json.c				\
 	common/json_helpers.c			\
 	common/json_stream.c			\
@@ -100,7 +101,6 @@ COMMON_HEADERS_NOGEN := $(COMMON_SRC_NOGEN:.c=.h)	\
 	common/errcode.h				\
 	common/gossip_constants.h			\
 	common/htlc.h					\
-	common/iso4217.h				\
 	common/json_command.h				\
 	common/jsonrpc_errors.h				\
 	common/overflows.h				\
