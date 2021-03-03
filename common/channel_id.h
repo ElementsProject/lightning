@@ -20,14 +20,22 @@ struct channel_id {
 /* Define channel_id_eq (no padding) */
 STRUCTEQ_DEF(channel_id, 0, id);
 
+/* For v1 channel establishment */
 void derive_channel_id(struct channel_id *channel_id,
 		       const struct bitcoin_txid *txid, u16 txout);
 
+/* For v1 channel establishment */
+void temporary_channel_id(struct channel_id *channel_id);
+
+/* For v2 channel establishment */
 void derive_channel_id_v2(struct channel_id *channel_id,
 			  const struct pubkey *basepoint_1,
 			  const struct pubkey *basepoint_2);
 
-void temporary_channel_id(struct channel_id *channel_id);
+/* For v2 channel establishment */
+void derive_tmp_channel_id(struct channel_id *channel_id,
+			   const struct pubkey *opener_basepoint);
+
 /* Marshalling/unmarshalling functions */
 void towire_channel_id(u8 **pptr, const struct channel_id *channel_id);
 void fromwire_channel_id(const u8 **cursor, size_t *max,

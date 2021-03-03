@@ -434,6 +434,13 @@ static void check_channel_id(struct state *state,
 					     id_in));
 }
 
+static bool is_dust(struct tx_state *tx_state,
+		    struct amount_sat amount)
+{
+	return !amount_sat_greater(amount, tx_state->localconf.dust_limit)
+		|| !amount_sat_greater(amount, tx_state->remoteconf.dust_limit);
+}
+
 static void set_reserve(struct tx_state *tx_state,
 			struct amount_sat funding_total,
 			enum tx_role our_role)
@@ -542,7 +549,8 @@ static char *check_balances(const tal_t *ctx,
 	 *   - segwit marker + flag
 	 *   - input count
 	 *   - output count
-	 *   - locktime */
+	 *   - locktime
+	 */
 	size_t initiator_weight =
 		bitcoin_tx_core_weight(psbt->num_inputs,
 				       psbt->num_outputs);
@@ -596,12 +604,8 @@ static char *check_balances(const tal_t *ctx,
 		 *     - the value of the funding output is
 		 *       less than the `dust_limit`
 		 */
-		if (!amount_sat_greater(output_val,
-				tx_state->remoteconf.dust_limit) ||
-		    !amount_sat_greater(output_val,
-				tx_state->localconf.dust_limit)) {
+		if (is_dust(tx_state, output_val))
 			return "funding output is dust";
-		}
 	} else {
 		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 		 *
@@ -667,12 +671,8 @@ static char *check_balances(const tal_t *ctx,
 		 *   - the `sats` amount is less than or equal to
 		 *     the `dust_limit`
 		 */
-		if (!amount_sat_greater(amt,
-				tx_state->remoteconf.dust_limit) ||
-		    !amount_sat_greater(amt,
-				tx_state->localconf.dust_limit)) {
+		if (is_dust(tx_state, amt))
 			return "output is dust";
-		}
 
 		if (is_openers(&psbt->outputs[i].unknowns)) {
 			/* Don't add the funding output to
@@ -704,9 +704,9 @@ static char *check_balances(const tal_t *ctx,
 	 *   ...
 	 *   - the peer's total input satoshis is less than their outputs
 	 */
-	if (!amount_sat_greater_eq(tot_input_amt, tot_output_amt)) {
-		return "inputs less than total outputs";
-	}
+	/* We check both, why not? */
+	if (!amount_sat_greater_eq(initiator_inputs, initiator_outs))
+		return "initiator inputs less than outputs";
 
 	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 	 * The receiving node: ...
@@ -1421,6 +1421,7 @@ static bool run_tx_interactive(struct state *state,
 			 *     to a currently added input (or output)
 			 */
 			input_index = psbt_find_serial_input(psbt, serial_id);
+			/* We choose to error/fail negotiation */
 			if (input_index == -1)
 				open_err_warn(state,
 					      "No input added with serial_id"
@@ -1850,7 +1851,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	struct bitcoin_blkid chain_hash;
 	struct tlv_opening_tlvs *open_tlv;
 	char *err_reason;
-	struct channel_id cid;
+	struct channel_id tmp_chan_id;
 	u8 *msg;
 	struct amount_sat total;
 	enum dualopend_wire msg_type;
@@ -1860,7 +1861,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
 
 	if (!fromwire_open_channel2(oc2_msg, &chain_hash,
-				    &state->channel_id,
+				    &state->channel_id, /* Temporary! */
 				    &state->feerate_per_kw_funding,
 				    &state->feerate_per_kw_commitment,
 				    &tx_state->opener_funding,
@@ -1886,6 +1887,27 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 			open_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey);
 	} else
 		state->upfront_shutdown_script[REMOTE] = NULL;
+
+	/* BOLT-* #2
+	 * If the peer's revocation basepoint is unknown (e.g.
+	 * `open_channel2`), a temporary `channel_id` should be found
+	 * by using a zeroed out basepoint for the unknown peer.
+	 */
+	derive_tmp_channel_id(&tmp_chan_id,
+			      &state->their_points.revocation);
+	if (!channel_id_eq(&state->channel_id, &tmp_chan_id))
+		negotiation_failed(state, "open_channel2 channel_id incorrect."
+				   " Expected %s, received %s",
+				   type_to_string(tmpctx, struct channel_id,
+						  &tmp_chan_id),
+				   type_to_string(tmpctx, struct channel_id,
+						  &state->channel_id));
+
+	/* Everything's ok. Let's figure out the actual channel_id now */
+	derive_channel_id_v2(&state->channel_id,
+			     &state->our_points.revocation,
+			     &state->their_points.revocation);
+
 
 	/* Save feerate on the tx_state as well */
 	tx_state->feerate_per_kw_funding = state->feerate_per_kw_funding;
@@ -1922,13 +1944,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		return;
 	}
 
-	/* We can figure out the channel id now */
-	derive_channel_id_v2(&cid,
-			     &state->our_points.revocation,
-			     &state->their_points.revocation);
-
 	msg = towire_dualopend_got_offer(NULL,
-					 &cid,
+					 &state->channel_id,
 					 tx_state->opener_funding,
 					 tx_state->remoteconf.dust_limit,
 					 tx_state->remoteconf.max_htlc_value_in_flight,
@@ -1961,9 +1978,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	/* Set the state's feerate per kw funding, also. This is
 	 * the original feerate we'll base any increases off of. */
 	state->feerate_per_kw_funding = tx_state->feerate_per_kw_funding;
-
-	/* Set the channel id now */
-	state->channel_id = cid;
 
 	if (!tx_state->psbt)
 		tx_state->psbt = create_psbt(tx_state, 0, 0,
@@ -2350,11 +2364,13 @@ static void opener_start(struct state *state, u8 *msg)
 	tx_state->feerate_per_kw_funding = state->feerate_per_kw_funding;
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
 
-	/* Set the channel_id to a temporary id, we'll update
-	 * this as soon as we hear back from accept, but if they
-	 * send us an error in the meantime, we need to be able to
-	 * understand it */
-	temporary_channel_id(&state->channel_id);
+	/* BOLT-* #2
+	 * If the peer's revocation basepoint is unknown (e.g.
+	 * `open_channel2`), a temporary `channel_id` should be found
+	 * by using a zeroed out basepoint for the unknown peer.
+	 */
+	derive_tmp_channel_id(&state->channel_id,
+			      &state->our_points.revocation);
 
 	if (!state->upfront_shutdown_script[LOCAL])
 		state->upfront_shutdown_script[LOCAL]
@@ -2429,7 +2445,7 @@ static void opener_start(struct state *state, u8 *msg)
 	} else
 		state->upfront_shutdown_script[REMOTE] = NULL;
 
-	/* Now we can set the 'real channel id' */
+	/* Now we know the 'real channel id' */
 	derive_channel_id_v2(&state->channel_id,
 			     &state->our_points.revocation,
 			     &state->their_points.revocation);
