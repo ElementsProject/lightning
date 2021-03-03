@@ -47,6 +47,24 @@ void derive_channel_id_v2(struct channel_id *channel_id,
 	memcpy(channel_id, &sha, sizeof(*channel_id));
 }
 
+void derive_tmp_channel_id(struct channel_id *channel_id,
+			   const struct pubkey *opener_basepoint)
+{
+	struct sha256 sha;
+
+	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+	 * If the peer's revocation basepoint is unknown
+	 * (e.g. `open_channel2`), a temporary `channel_id` should be
+	 * found by using a zeroed out basepoint for the unknown peer.
+	 */
+	u8 der_keys[PUBKEY_CMPR_LEN * 2];
+	memset(der_keys, 0, PUBKEY_CMPR_LEN);
+	pubkey_to_der(der_keys + PUBKEY_CMPR_LEN, opener_basepoint);
+	sha256(&sha, der_keys, sizeof(der_keys));
+	BUILD_ASSERT(sizeof(*channel_id) == sizeof(sha));
+	memcpy(channel_id, &sha, sizeof(*channel_id));
+}
+
 /* BOLT #2:
  *
  * The sending node:
