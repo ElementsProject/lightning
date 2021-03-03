@@ -982,6 +982,23 @@ REGISTER_PLUGIN_HOOK(rbf_channel,
 		     rbf_channel_hook_serialize,
 		     struct rbf_channel_payload *);
 
+static bool feerate_satisfied(struct wally_psbt *psbt,
+			      u32 funding_feerate)
+{
+	struct wally_tx *wtx;
+	size_t tx_weight;
+	struct amount_sat fee_paid, expected_fee;
+
+	wtx = psbt_final_tx(NULL, psbt);
+	tx_weight = wally_tx_weight(wtx);
+	tal_free(wtx);
+
+	fee_paid = psbt_compute_fee(psbt);
+	expected_fee = amount_tx_fee(funding_feerate, tx_weight);
+
+	return amount_sat_greater_eq(fee_paid, expected_fee);
+}
+
 static struct amount_sat calculate_reserve(struct channel_config *their_config,
 					   struct amount_sat funding_total,
 					   enum side opener)
@@ -1419,6 +1436,24 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 					      &channel->funding,
 					      &channel->funding_txid,
 					      &channel->remote_funding_locked);
+
+		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2
+		 * The receiving node:  ...
+		 * - MUST fail the channel if:
+		 *   - the `witness_stack` weight lowers the
+		 *   effective `feerate` below the agreed upon
+		 *   transaction `feerate`
+		 */
+		if (!feerate_satisfied(inflight->funding_psbt,
+				       inflight->funding->feerate))
+			channel_fail_permanent(channel,
+					       REASON_PROTOCOL,
+					       "Agreed feerate %dperkw not"
+					       " met with witnesses %s",
+					       inflight->funding->feerate,
+					       type_to_string(tmpctx,
+							      struct wally_psbt,
+							      inflight->funding_psbt));
 	}
 }
 
@@ -1716,6 +1751,24 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 					      &channel->funding,
 					      &channel->funding_txid,
 					      &channel->remote_funding_locked);
+
+		/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2
+		 * The receiving node:  ...
+		 * - MUST fail the channel if:
+		 *   - the `witness_stack` weight lowers the
+		 *   effective `feerate` below the agreed upon
+		 *   transaction `feerate`
+		 */
+		if (!feerate_satisfied(inflight->funding_psbt,
+				       inflight->funding->feerate))
+			channel_fail_permanent(channel,
+					       REASON_PROTOCOL,
+					       "Agreed feerate %dperkw not"
+					       " met with witnesses %s",
+					       inflight->funding->feerate,
+					       type_to_string(tmpctx,
+							      struct wally_psbt,
+							      inflight->funding_psbt));
 	}
 
 	/* Send notification with peer's signed PSBT */
