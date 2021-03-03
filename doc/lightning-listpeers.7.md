@@ -202,6 +202,10 @@ state, or in various circumstances:
 * *out\_fulfilled\_msat*: A string describing the total amount of all
   outgoing HTLCs offered *and successfully claimed* over this channel;
   a number followed by a string unit.
+* *scratch_txid*: The txid of the latest transaction (what we would sign and
+  send to chain if the channel were to fail now).
+* *last_tx_fee*: The fee on that latest transaction.
+* *feerate*: An object containing the latest feerate as both *perkw* and *perkb*.
 * *htlcs*: An array of objects describing the HTLCs currently in-flight
   in the channel.
 
