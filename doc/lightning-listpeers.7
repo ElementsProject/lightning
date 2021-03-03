@@ -272,6 +272,13 @@ successfully claimed\fR over this channel\.
 outgoing HTLCs offered \fIand successfully claimed\fR over this channel;
 a number followed by a string unit\.
 .IP \[bu]
+\fIscratch_txid\fR: The txid of the latest transaction (what we would sign and
+send to chain if the channel were to fail now)\.
+.IP \[bu]
+\fIlast_tx_fee\fR: The fee on that latest transaction\.
+.IP \[bu]
+\fIfeerate\fR: An object containing the latest feerate as both \fIperkw\fR and \fIperkb\fR\.
+.IP \[bu]
 \fIhtlcs\fR: An array of objects describing the HTLCs currently in-flight
 in the channel\.
 
@@ -334,4 +341,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR Lightning
 RFC site (BOLT #9):
 \fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md\fR
 
-\" SHA256STAMP:9e2ed8ce1612c02a6251db7da1d62e2d12f8e0648a54888687f177f0784ef2e6
+\" SHA256STAMP:1163bde5a9f836ba7bd142559cd3bab893ab3159a99041a88ac8b31556b67905

@@ -1606,7 +1606,8 @@ def test_multifunding_feerates(node_factory, bitcoind):
     Test feerate parameters for multifundchannel
     '''
     funding_tx_feerate = '10000perkw'
-    commitment_tx_feerate = '2000perkw'
+    commitment_tx_feerate_int = 2000
+    commitment_tx_feerate = str(commitment_tx_feerate_int) + 'perkw'
 
     l1, l2, l3 = node_factory.get_nodes(3, opts={'log-level': 'debug'})
 
@@ -1625,6 +1626,11 @@ def test_multifunding_feerates(node_factory, bitcoind):
 
     expected_fee = int(funding_tx_feerate[:-5]) * weight // 1000
     assert expected_fee == entry['fees']['base'] * 10 ** 8
+
+    assert only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['feerate']['perkw'] == commitment_tx_feerate_int
+    assert only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['feerate']['perkb'] == commitment_tx_feerate_int * 4
+
+    txfee = only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['last_tx_fee']
 
     # We get the expected close txid, force close the channel, then fish
     # the details about the transaction out of the mempoool entry
@@ -1652,6 +1658,7 @@ def test_multifunding_feerates(node_factory, bitcoind):
         expected_fee += 330
 
     assert expected_fee == entry['fees']['base'] * 10 ** 8
+    assert Millisatoshi(str(expected_fee) + 'sat') == Millisatoshi(txfee)
 
 
 def test_multifunding_param_failures(node_factory):

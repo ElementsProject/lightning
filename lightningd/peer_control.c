@@ -698,6 +698,7 @@ static void json_add_channel(struct lightningd *ld,
 	struct amount_sat peer_funded_sats;
 	struct peer *p = channel->peer;
 	struct state_change_entry *state_changes;
+	u32 feerate;
 
 	json_object_start(response, key);
 	json_add_string(response, "state", channel_state_name(channel));
@@ -706,7 +707,17 @@ static void json_add_channel(struct lightningd *ld,
 		bitcoin_txid(channel->last_tx, &txid);
 
 		json_add_txid(response, "scratch_txid", &txid);
+		json_add_amount_sat_only(response, "last_tx_fee",
+					 bitcoin_tx_compute_fee(channel->last_tx));
 	}
+
+	json_object_start(response, "feerate");
+	feerate = get_feerate(channel->fee_states, channel->opener, LOCAL);
+	json_add_u32(response, feerate_style_name(FEERATE_PER_KSIPA), feerate);
+	json_add_u32(response, feerate_style_name(FEERATE_PER_KBYTE),
+		     feerate_to_style(feerate, FEERATE_PER_KBYTE));
+	json_object_end(response);
+
 	if (channel->owner)
 		json_add_string(response, "owner", channel->owner->name);
 
