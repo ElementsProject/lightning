@@ -54,6 +54,8 @@ fi
 if [ -z "$PATH_TO_BITCOIN" ]; then
 	if [ -d "$HOME/.bitcoin" ]; then
 		PATH_TO_BITCOIN="$HOME/.bitcoin"
+	elif [ -d "$HOME/Library/Application Support/Bitcoin/" ]; then
+		PATH_TO_BITCOIN="$HOME/Library/Application Support/Bitcoin/"
 	else
 		echo "\$PATH_TO_BITCOIN not set to a .bitcoin dir?" >&2
 		return
