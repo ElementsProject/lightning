@@ -59,6 +59,7 @@ u8 *linearize_wtx(const tal_t *ctx, const struct wally_tx *wtx);
 
 /* Get weight of tx in Sipa. */
 size_t bitcoin_tx_weight(const struct bitcoin_tx *tx);
+size_t wally_tx_weight(const struct wally_tx *wtx);
 
 /* Allocate a tx: you just need to fill in inputs and outputs (they're
  * zeroed with inputs' sequence_number set to FFFFFFFF) */
