@@ -74,14 +74,20 @@ enum tx_msgs {
 
 /*
  * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
- * The receiving node:
- *  ...
- *  - MUST fail the negotiation if: ...
- *    - if has received 4096 `tx_add_input` messages during this negotiation
- *     ...
- *    - it has received 4096 `tx_add_output` messages during this negotiation
+ * The maximum inputs and outputs are capped at 252. This effectively fixes
+ * the byte size of the input and output counts on the transaction to one (1).
  */
 #define MAX_TX_MSG_RCVD (1 << 12)
+
+/*
+ * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+ * The receiving node: ...
+ * - MUST fail the negotiation if: ...
+ *  - there are more than 252 inputs
+ *  - there are more than 252 outputs
+ */
+#define MAX_FUNDING_INPUTS 252
+#define MAX_FUNDING_OUTPUTS 252
 
 /* State for a 'new' funding transaction. There should be one
  * for every new funding transaction attempt */
@@ -559,6 +565,29 @@ static char *check_balances(const tal_t *ctx,
 		bitcoin_redeem_2of2(tmpctx,
 				    &state->our_funding_pubkey,
 				    &state->their_funding_pubkey);
+
+	/*
+	 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+	 * The receiving node: ...
+	 * - MUST fail the negotiation if: ...
+	 *  - there are more than 252 inputs
+	 */
+	if (tx_state->psbt->num_inputs > MAX_FUNDING_INPUTS)
+		negotiation_failed(state, "Too many inputs. Have %zu,"
+				   " Max allowed %zu",
+				   tx_state->psbt->num_inputs,
+				   MAX_FUNDING_INPUTS);
+	/*
+	 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+	 * The receiving node: ...
+	 * - MUST fail the negotiation if: ...
+	 *  - there are more than 252 outputs
+	 */
+	if (tx_state->psbt->num_outputs > MAX_FUNDING_OUTPUTS)
+		negotiation_failed(state, "Too many inputs. Have %zu,"
+				   " Max allowed %zu",
+				   tx_state->psbt->num_outputs,
+				   MAX_FUNDING_OUTPUTS);
 
 	/* Find funding output, check balance */
 	if (find_txout(psbt,
