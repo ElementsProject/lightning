@@ -821,7 +821,7 @@ void psbt_txid(const tal_t *ctx,
 		wally_tx_free(tx);
 }
 
-struct amount_sat psbt_compute_fee(struct wally_psbt *psbt)
+struct amount_sat psbt_compute_fee(const struct wally_psbt *psbt)
 {
 	struct amount_sat fee, input_amt;
 	struct amount_asset asset;
