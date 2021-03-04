@@ -1098,7 +1098,6 @@ wallet_update_channel(struct lightningd *ld,
 				channel->last_tx,
 				channel->last_sig);
 	wallet_inflight_add(ld->wallet, inflight);
-	channel->open_attempt = NULL;
 
 	return inflight;
 }
@@ -1196,7 +1195,6 @@ wallet_commit_channel(struct lightningd *ld,
 				channel->last_tx,
 				channel->last_sig);
 	wallet_inflight_add(ld->wallet, inflight);
-	channel->open_attempt = NULL;
 
 	return inflight;
 }
@@ -1584,6 +1582,19 @@ static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
 		channel_internal_error(channel,
 				       "Bad WIRE_DUALOPEND_GOT_RBF_OFFER: %s",
 				       tal_hex(msg, msg));
+		return;
+	}
+
+	/* There's currently another attempt in progress? */
+	if (channel->open_attempt) {
+		log_debug(channel->log,
+			  "RBF attempted while previous attempt"
+			  " is still in progress");
+
+		subd_send_msg(dualopend,
+			      take(towire_dualopend_fail(NULL,
+					"Error. Already negotiation"
+					" in progress")));
 		return;
 	}
 
@@ -2322,9 +2333,6 @@ static void handle_commit_received(struct subd *dualopend,
 	struct channel_inflight *inflight;
 	struct command *cmd = oa->cmd;
 
-	/* We clean up the open attempt regardless */
-	tal_steal(tmpctx, oa);
-
 	if (!fromwire_dualopend_commit_rcvd(tmpctx, msg,
 					    &channel_info.their_config,
 					    &remote_commit,
@@ -2349,6 +2357,7 @@ static void handle_commit_received(struct subd *dualopend,
 		channel_internal_error(channel,
 				       "Bad WIRE_DUALOPEND_COMMIT_RCVD: %s",
 				       tal_hex(msg, msg));
+		channel->open_attempt = tal_free(channel->open_attempt);
 		return;
 	}
 
@@ -2365,6 +2374,8 @@ static void handle_commit_received(struct subd *dualopend,
 						  type_to_string(tmpctx,
 							 struct node_id,
 							 &channel->peer->id));
+			channel->open_attempt
+				= tal_free(channel->open_attempt);
 			return;
 		}
 
@@ -2389,6 +2400,8 @@ static void handle_commit_received(struct subd *dualopend,
 					       type_to_string(tmpctx,
 							      struct channel_id,
 							      &channel->cid));
+			channel->open_attempt
+				= tal_free(channel->open_attempt);
 			return;
 		}
 
@@ -2400,7 +2413,6 @@ static void handle_commit_received(struct subd *dualopend,
 
 	} else {
 		assert(channel->state == DUALOPEND_AWAITING_LOCKIN);
-		assert(oa);
 
 		if (!(inflight = wallet_update_channel(ld, channel,
 						       remote_commit,
@@ -2418,7 +2430,8 @@ static void handle_commit_received(struct subd *dualopend,
 							  tmpctx,
 							  struct channel_id,
 							  &channel->cid));
-
+			channel->open_attempt
+				= tal_free(channel->open_attempt);
 			return;
 		}
 
@@ -2430,6 +2443,8 @@ static void handle_commit_received(struct subd *dualopend,
 			channel_err_broken(channel,
 					   "Unexpected COMMIT_RCVD %s",
 					   tal_hex(msg, msg));
+			channel->open_attempt
+				= tal_free(channel->open_attempt);
 			return;
 		}
 		response = json_stream_success(oa->cmd);
@@ -2447,6 +2462,8 @@ static void handle_commit_received(struct subd *dualopend,
 			/* FIXME: also include the output as address */
 		}
 
+		channel->open_attempt
+			= tal_free(channel->open_attempt);
 		was_pending(command_success(cmd, response));
 		return;
 	case TX_ACCEPTER:
@@ -2458,6 +2475,9 @@ static void handle_commit_received(struct subd *dualopend,
 				    payload);
 		payload->channel = channel;
 		payload->psbt = clone_psbt(payload, inflight->funding_psbt);
+
+		channel->open_attempt
+			= tal_free(channel->open_attempt);
 
 		/* We don't have a command, so set to NULL here */
 		payload->channel->openchannel_signed_cmd = NULL;
