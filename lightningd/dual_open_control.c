@@ -609,6 +609,13 @@ rbf_channel_hook_deserialize(struct rbf_channel_payload *payload,
 		psbt_add_serials(payload->psbt, our_role);
 	}
 
+	/* We require the PSBT to meet certain criteria such as
+	 * extra, proprietary fields (`serial_id`s) or
+	 * to have a `redeemscripts` iff the inputs are P2SH.
+	 *
+	 * Since this is externally provided, we confirm that
+	 * they've done the right thing / haven't lost any required info.
+	 */
 	if (payload->psbt && !psbt_has_required_fields(payload->psbt))
 		fatal("Plugin supplied PSBT that's missing"
 		      " required fields: %s",
@@ -785,6 +792,13 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 	if (payload->psbt)
 		psbt_add_serials(payload->psbt, TX_ACCEPTER);
 
+	/* We require the PSBT to meet certain criteria such as
+	 * extra, proprietary fields (`serial_id`s) or
+	 * to have a `redeemscripts` iff the inputs are P2SH.
+	 *
+	 * Since this is externally provided, we confirm that
+	 * they've done the right thing / haven't lost any required info.
+	 */
 	if (payload->psbt && !psbt_has_required_fields(payload->psbt))
 		fatal("Plugin supplied PSBT that's missing required fields. %s",
 		      type_to_string(tmpctx, struct wally_psbt, payload->psbt));
@@ -850,6 +864,13 @@ openchannel2_changed_deserialize(struct openchannel2_psbt_payload *payload,
 	/* Add serials to PSBT, before checking for required fields */
 	psbt_add_serials(psbt, TX_ACCEPTER);
 
+	/* We require the PSBT to meet certain criteria such as
+	 * extra, proprietary fields (`serial_id`s) or
+	 * to have a `redeemscripts` iff the inputs are P2SH.
+	 *
+	 * Since this is externally provided, we confirm that
+	 * they've done the right thing / haven't lost any required info.
+	 */
 	if (!psbt_has_required_fields(psbt))
 		fatal("Plugin supplied PSBT that's missing required fields. %s",
 		      type_to_string(tmpctx, struct wally_psbt, psbt));
@@ -894,6 +915,13 @@ openchannel2_signed_deserialize(struct openchannel2_psbt_payload *payload,
 			       false, &psbt))
 		return false;
 
+	/* We require the PSBT to meet certain criteria such as
+	 * extra, proprietary fields (`serial_id`s) or
+	 * to have a `redeemscripts` iff the inputs are P2SH.
+	 *
+	 * Since this is externally provided, we confirm that
+	 * they've done the right thing / haven't lost any required info.
+	 */
 	if (!psbt_has_required_fields(psbt))
 		fatal("Plugin supplied PSBT that's missing required fields. %s",
 		      type_to_string(tmpctx, struct wally_psbt, psbt));
@@ -1905,6 +1933,14 @@ json_openchannel_bump(struct command *cmd,
 
 	/* Add serials to any input that's missing them */
 	psbt_add_serials(psbt, TX_INITIATOR);
+
+	/* We require the PSBT to meet certain criteria such as
+	 * extra, proprietary fields (`serial_id`s) or
+	 * to have a `redeemscripts` iff the inputs are P2SH.
+	 *
+	 * Since this is externally provided, we confirm that
+	 * they've done the right thing / haven't lost any required info.
+	 */
 	if (!psbt_has_required_fields(psbt))
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "PSBT is missing required fields %s",
@@ -2064,6 +2100,14 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 
 	/* Add serials to PSBT */
 	psbt_add_serials(psbt, TX_INITIATOR);
+
+	/* We require the PSBT to meet certain criteria such as
+	 * extra, proprietary fields (`serial_id`s) or
+	 * to have a `redeemscripts` iff the inputs are P2SH.
+	 *
+	 * Since this is externally provided, we confirm that
+	 * they've done the right thing / haven't lost any required info.
+	 */
 	if (!psbt_has_required_fields(psbt))
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "PSBT is missing required fields %s",
@@ -2197,6 +2241,14 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 
 	/* Add serials to any input that's missing them */
 	psbt_add_serials(psbt, TX_INITIATOR);
+
+	/* We require the PSBT to meet certain criteria such as
+	 * extra, proprietary fields (`serial_id`s) or
+	 * to have a `redeemscripts` iff the inputs are P2SH.
+	 *
+	 * Since this is externally provided, we confirm that
+	 * they've done the right thing / haven't lost any required info.
+	 */
 	if (!psbt_has_required_fields(psbt))
 		return command_fail(cmd, FUNDING_PSBT_INVALID,
 				    "PSBT is missing required fields %s",
