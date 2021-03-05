@@ -1173,23 +1173,11 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		return NULL;
 	}
 
-	get_channel_basepoints(w->ld, &peer->id, db_column_u64(stmt, 0),
-			       &local_basepoints, &local_funding_pubkey);
-
-	// TODO(cdecker) Remove the above call once we verify that the results
-	// are correct. */
-	struct basepoints lbp;
-	struct pubkey fkey;
-	db_column_pubkey(stmt, 52, &lbp.revocation);
-	db_column_pubkey(stmt, 53, &lbp.payment);
-	db_column_pubkey(stmt, 54, &lbp.htlc);
-	db_column_pubkey(stmt, 55, &lbp.delayed_payment);
-	db_column_pubkey(stmt, 56, &fkey);
-	assert(pubkey_eq(&lbp.revocation, &local_basepoints.revocation));
-	assert(pubkey_eq(&lbp.payment, &local_basepoints.payment));
-	assert(pubkey_eq(&lbp.htlc, &local_basepoints.htlc));
-	assert(pubkey_eq(&lbp.delayed_payment, &local_basepoints.delayed_payment));
-	assert(pubkey_eq(&fkey, &local_funding_pubkey));
+	db_column_pubkey(stmt, 52, &local_basepoints.revocation);
+	db_column_pubkey(stmt, 53, &local_basepoints.payment);
+	db_column_pubkey(stmt, 54, &local_basepoints.htlc);
+	db_column_pubkey(stmt, 55, &local_basepoints.delayed_payment);
+	db_column_pubkey(stmt, 56, &local_funding_pubkey);
 
 	db_column_amount_sat(stmt, 15, &funding_sat);
 	db_column_amount_sat(stmt, 16, &our_funding_sat);
