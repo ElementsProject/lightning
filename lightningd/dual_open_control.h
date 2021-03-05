@@ -23,6 +23,9 @@ void dualopen_tell_depth(struct subd *dualopend,
 void channel_close_conn(struct channel *channel,
 			const char *why);
 
+void channel_close_reconn(struct channel *channel,
+			  const char *why);
+
 void json_add_unsaved_channel(struct json_stream *response,
 			      const struct channel *channel);
 #endif /* LIGHTNING_LIGHTNINGD_DUAL_OPEN_CONTROL_H */
