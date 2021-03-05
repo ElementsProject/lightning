@@ -82,11 +82,12 @@ void channel_close_conn(struct channel *channel, const char *why)
 	channel_disconnect(channel, LOG_INFORM, false, why);
 }
 
-static void channel_close_reconn(struct channel *channel, const char *why)
+void channel_close_reconn(struct channel *channel, const char *why)
 {
-	/* Close dualopend */
+	/* Close the daemon */
 	if (channel->owner) {
-		log_info(channel->log, "Killing dualopend: %s", why);
+		log_info(channel->log, "Killing %s: %s",
+			 channel->owner->name, why);
 
 		subd_release_channel(channel->owner, channel);
 		channel->owner = NULL;
