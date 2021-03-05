@@ -2568,16 +2568,52 @@ static void custommsg_final(struct custommsg_payload *payload STEALS)
 static void custommsg_payload_serialize(struct custommsg_payload *payload,
 					struct json_stream *stream)
 {
+	/* Backward compat for broken custommsg: if we get a custommsg
+	 * from an old c-lightning node, then we must identify and
+	 * strip the prefix from the payload. If it's a new one, we
+	 * need to add the frame for the `message` for backward
+	 * compatibility. */
+	size_t msglen = tal_bytelen(payload->msg), framedlen, unframedlen, max;
+	const u8 *unframed, *framed, *p = payload->msg;
+	u8 *tmp;
+	max = msglen;
+
+	if (msglen >= 4 && fromwire_u16(&p, &max) == WIRE_CUSTOMMSG_OUT &&
+	    fromwire_u16(&p, &max) == msglen - 4 && deprecated_apis) {
+		/* This is from an old c-lightning implementation that
+		 * erroneously sent the framed message over the
+		 * connection. */
+		unframed = payload->msg + 4;
+		unframedlen = msglen - 4;
+		framed = payload->msg;
+		framedlen = msglen;
+	} else {
+		/* This is from a new c-lightning, which correctly
+		 * sent the raw custommsg without framing. We still
+		 * need to reconstruct the wrong message since plugins
+		 * may rely on it. */
+		if (deprecated_apis) {
+			tmp = tal_arr(tmpctx, u8, 0);
+			towire_u16(&tmp, WIRE_CUSTOMMSG_OUT);
+			towire_u16(&tmp, msglen);
+			towire(&tmp, payload->msg, msglen);
+			framedlen = msglen + 4;
+			framed = tmp;
+		}
+
+		unframed = payload->msg;
+		unframedlen = msglen;
+	}
+
 	if (deprecated_apis) {
-		json_add_hex_talarr(stream, "message", payload->msg);
+		json_add_hex(stream, "message", framed, framedlen);
 		json_add_string(
 		    stream, "warning",
 		    "The `message` field is deprecated and has been replaced "
 		    "with the payload` field which skips the internal type and "
 		    "the length prefix. Please update to use that instead.");
 	}
-	json_add_hex(stream, "payload", payload->msg + 4,
-		     tal_bytelen(payload->msg) - 4);
+	json_add_hex(stream, "payload", unframed, unframedlen);
 	json_add_node_id(stream, "peer_id", &payload->peer_id);
 }
 

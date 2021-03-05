@@ -2250,8 +2250,7 @@ def test_sendcustommsg(node_factory):
     node_factory.join_nodes([l1, l2, l3])
     l2.connect(l4)
     l3.stop()
-    msg = r'ff' * 32
-    serialized = r'04070020' + msg
+    msg = 'aa' + ('ff' * 30) + 'bb'
 
     # This address doesn't exist so we should get an error when we try sending
     # a message to it.
@@ -2279,11 +2278,11 @@ def test_sendcustommsg(node_factory):
     # This should work since the peer is currently owned by `channeld`
     l2.rpc.dev_sendcustommsg(l1.info['id'], msg)
     l2.daemon.wait_for_log(
-        r'{peer_id}-{owner}-chan#[0-9]: \[OUT\] {serialized}'.format(
-            owner='channeld', serialized=serialized, peer_id=l1.info['id']
+        r'{peer_id}-{owner}-chan#[0-9]: \[OUT\] {msg}'.format(
+            owner='channeld', msg=msg, peer_id=l1.info['id']
         )
     )
-    l1.daemon.wait_for_log(r'\[IN\] {}'.format(serialized))
+    l1.daemon.wait_for_log(r'\[IN\] {}'.format(msg))
     l1.daemon.wait_for_logs([
         r'Got custommessage_a {msg} from peer {peer_id}'.format(
             msg=msg, peer_id=l2.info['id']),
@@ -2294,11 +2293,11 @@ def test_sendcustommsg(node_factory):
     # This should work since the peer is currently owned by `openingd`
     l2.rpc.dev_sendcustommsg(l4.info['id'], msg)
     l2.daemon.wait_for_log(
-        r'{peer_id}-{owner}-chan#[0-9]: \[OUT\] {serialized}'.format(
-            owner='openingd', serialized=serialized, peer_id=l4.info['id']
+        r'{peer_id}-{owner}-chan#[0-9]: \[OUT\] {msg}'.format(
+            owner='openingd', msg=msg, peer_id=l4.info['id']
         )
     )
-    l4.daemon.wait_for_log(r'\[IN\] {}'.format(serialized))
+    l4.daemon.wait_for_log(r'\[IN\] {}'.format(msg))
     l4.daemon.wait_for_logs([
         r'Got custommessage_a {msg} from peer {peer_id}'.format(
             msg=msg, peer_id=l2.info['id']),

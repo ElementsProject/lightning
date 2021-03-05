@@ -795,7 +795,10 @@ static void handle_dev_memleak(struct state *state, const u8 *msg)
  * just forward it here. */
 static void dualopend_send_custommsg(struct state *state, const u8 *msg)
 {
-	sync_crypto_write(state->pps, take(msg));
+	u8 *inner;
+	if (!fromwire_custommsg_out(tmpctx, msg, &inner))
+		master_badmsg(WIRE_CUSTOMMSG_OUT, msg);
+	sync_crypto_write(state->pps, take(inner));
 }
 #endif
 
