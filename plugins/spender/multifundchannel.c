@@ -1148,6 +1148,29 @@ perform_channel_start(struct multifundchannel_command *mfc)
 
 /*---------------------------------------------------------------------------*/
 
+static void
+fundchannel_complete_dest(struct multifundchannel_destination *dest);
+struct command_result *
+perform_fundchannel_complete(struct multifundchannel_command *mfc)
+{
+	unsigned int i;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": parallel fundchannel_complete.",
+		   mfc->id);
+
+	mfc->pending = dest_count(mfc, FUND_CHANNEL);
+
+	for (i = 0; i < tal_count(mfc->destinations); ++i) {
+		if (mfc->destinations[i].protocol == FUND_CHANNEL)
+			fundchannel_complete_dest(&mfc->destinations[i]);
+	}
+
+	assert(mfc->pending != 0);
+	return command_still_pending(mfc->cmd);
+}
+
+
 /*~ The PSBT we are holding currently has no outputs.
 We now proceed to filling in those outputs now that
 we know what the funding scriptpubkeys are.
@@ -1159,7 +1182,6 @@ We should assume that the caller of the command might
 inadvertently leak important privacy data in the order
 of its arguments, so we shuffle the outputs.
 */
-
 static struct command_result *
 perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 {
@@ -1270,7 +1292,6 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 	return perform_fundchannel_complete(mfc);
 }
 
-/*---------------------------------------------------------------------------*/
 /*~
 We now have an unsigned funding transaction in
 mfc->psbt and mfc->txid that puts the money into
@@ -1297,223 +1318,81 @@ After that point we can `signpsbt`+`sendpsbt`
 the transaction.
 */
 
-static void
-fundchannel_complete_dest(struct multifundchannel_destination *dest);
-
-struct command_result *
-perform_fundchannel_complete(struct multifundchannel_command *mfc)
-{
-	unsigned int i;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": parallel fundchannel_complete.",
-		   mfc->id);
-
-	mfc->pending = dest_count(mfc, FUND_CHANNEL);
-
-	for (i = 0; i < tal_count(mfc->destinations); ++i) {
-		if (mfc->destinations[i].protocol == FUND_CHANNEL)
-			fundchannel_complete_dest(&mfc->destinations[i]);
-	}
-
-	assert(mfc->pending != 0);
-	return command_still_pending(mfc->cmd);
-}
-
-static struct command_result *
-fundchannel_complete_ok(struct command *cmd,
-			const char *buf,
-			const jsmntok_t *result,
-			struct multifundchannel_destination *dest);
-static struct command_result *
-fundchannel_complete_err(struct command *cmd,
-			 const char *buf,
-			 const jsmntok_t *error,
-			 struct multifundchannel_destination *dest);
-
-static void
-fundchannel_complete_dest(struct multifundchannel_destination *dest)
-{
-	struct multifundchannel_command *mfc = dest->mfc;
-	struct command *cmd = mfc->cmd;
-	struct out_req *req;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64", dest %u: fundchannel_complete %s.",
-		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id));
-
-	req = jsonrpc_request_start(cmd->plugin,
-				    cmd,
-				    "fundchannel_complete",
-				    &fundchannel_complete_ok,
-				    &fundchannel_complete_err,
-				    dest);
-	json_add_node_id(req->js, "id", &dest->id);
-	json_add_string(req->js, "txid",
-			type_to_string(tmpctx, struct bitcoin_txid,
-				       mfc->txid));
-	json_add_num(req->js, "txout", dest->outnum);
-
-	send_outreq(cmd->plugin, req);
-}
-
-static struct command_result *
-fundchannel_complete_done(struct multifundchannel_destination *dest);
-
-static struct command_result *
-fundchannel_complete_ok(struct command *cmd,
-			const char *buf,
-			const jsmntok_t *result,
-			struct multifundchannel_destination *dest)
-{
-	struct multifundchannel_command *mfc = dest->mfc;
-	const jsmntok_t *channel_id_tok;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64", dest %u: fundchannel_complete %s done.",
-		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id));
-
-	channel_id_tok = json_get_member(buf, result, "channel_id");
-	if (!channel_id_tok)
-		plugin_err(cmd->plugin,
-			   "fundchannel_complete no channel_id: %.*s",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-	json_to_channel_id(buf, channel_id_tok, &dest->channel_id);
-
-	dest->state = MULTIFUNDCHANNEL_COMPLETED;
-	return fundchannel_complete_done(dest);
-}
-static struct command_result *
-fundchannel_complete_err(struct command *cmd,
-			 const char *buf,
-			 const jsmntok_t *error,
-			 struct multifundchannel_destination *dest)
-{
-	struct multifundchannel_command *mfc = dest->mfc;
-	const jsmntok_t *code_tok;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64", dest %u: "
-		   "failed! fundchannel_complete %s: %.*s",
-		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id),
-		   json_tok_full_len(error), json_tok_full(buf, error));
-
-	code_tok = json_get_member(buf, error, "code");
-	if (!code_tok)
-		plugin_err(cmd->plugin,
-			   "`fundchannel_complete` failure "
-			   "did not have `code`? "
-			   "%.*s",
-			   json_tok_full_len(error),
-			   json_tok_full(buf, error));
-	if (!json_to_errcode(buf, code_tok, &dest->code))
-		plugin_err(cmd->plugin,
-			   "`fundchannel_complete` has unparseable `code`? "
-			   "%.*s",
-			   json_tok_full_len(error),
-			   json_tok_full(buf, error));
-
-	fail_destination(dest, take(json_strdup(NULL, buf, error)));
-	return fundchannel_complete_done(dest);
-}
-
-static struct command_result *
-after_fundchannel_complete(struct multifundchannel_command *mfc);
-
-static struct command_result *
-fundchannel_complete_done(struct multifundchannel_destination *dest)
-{
-	struct multifundchannel_command *mfc = dest->mfc;
-
-	--mfc->pending;
-	if (mfc->pending == 0)
-		return after_fundchannel_complete(mfc);
-	else
-		return command_still_pending(mfc->cmd);
-}
-
-static struct command_result *
-after_fundchannel_complete(struct multifundchannel_command *mfc)
-{
-	unsigned int i;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": parallel fundchannel_complete  done.",
-		   mfc->id);
-
-	/* Check if any fundchannel_complete failed.  */
-	for (i = 0; i < tal_count(mfc->destinations); ++i) {
-		struct multifundchannel_destination *dest;
-
-		dest = &mfc->destinations[i];
-		if (dest->protocol != FUND_CHANNEL)
-			continue;
-
-		assert(dest->state == MULTIFUNDCHANNEL_COMPLETED
-		    || dest->state == MULTIFUNDCHANNEL_FAILED);
-
-		if (dest->state != MULTIFUNDCHANNEL_FAILED)
-			continue;
-
-		/* One of them failed, oh no.  */
-		return redo_multifundchannel(mfc, "fundchannel_complete");
-	}
-
-	if (dest_count(mfc, OPEN_CHANNEL) > 0)
-		return check_sigs_ready(mfc);
-
-	return perform_signpsbt(mfc);
-}
-
-/*---------------------------------------------------------------------------*/
 /*~
-Finally with everything set up correctly we `signpsbt`+`sendpsbt` the
-funding transaction.
+And finally we are done.
 */
-
-static struct command_result *
-after_signpsbt(struct command *cmd,
-	       const char *buf,
-	       const jsmntok_t *result,
-	       struct multifundchannel_command *mfc);
-
 struct command_result *
-perform_signpsbt(struct multifundchannel_command *mfc)
+multifundchannel_finished(struct multifundchannel_command *mfc)
 {
-	struct out_req *req;
+	unsigned int i;
+	struct json_stream *out;
 
-	/* Now we sign our inputs. You do remember which inputs
-	 * are yours, right? */
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": signpsbt.", mfc->id);
+		   "mfc %"PRIu64": done.", mfc->id);
 
-	req = jsonrpc_request_start(mfc->cmd->plugin, mfc->cmd,
-				    "signpsbt",
-				    &after_signpsbt,
-				    &mfc_forward_error,
-				    mfc);
-	json_add_psbt(req->js, "psbt", mfc->psbt);
-
-	/* Use input markers to identify which inputs
-	 * are ours, only sign those */
-	json_array_start(req->js, "signonly");
-	for (size_t i = 0; i < mfc->psbt->num_inputs; i++) {
-		if (psbt_input_is_ours(&mfc->psbt->inputs[i]))
-			json_add_num(req->js, NULL, i);
+	out = jsonrpc_stream_success(mfc->cmd);
+	json_add_string(out, "tx", mfc->final_tx);
+	json_add_string(out, "txid", mfc->final_txid);
+	json_array_start(out, "channel_ids");
+	for (i = 0; i < tal_count(mfc->destinations); ++i) {
+		json_object_start(out, NULL);
+		json_add_node_id(out, "id", &mfc->destinations[i].id);
+		json_add_channel_id(out, "channel_id",
+				    &mfc->destinations[i].channel_id);
+		json_add_num(out, "outnum", mfc->destinations[i].outnum);
+		if (mfc->destinations[i].close_to_script)
+			json_add_hex_talarr(out, "close_to",
+				mfc->destinations[i].close_to_script);
+		json_object_end(out);
 	}
-	json_array_end(req->js);
-	return send_outreq(mfc->cmd->plugin, req);
+	json_array_end(out);
+
+	json_array_start(out, "failed");
+	for (i = 0; i < tal_count(mfc->removeds); ++i) {
+		json_object_start(out, NULL);
+		json_add_node_id(out, "id", &mfc->removeds[i].id);
+		json_add_string(out, "method", mfc->removeds[i].method);
+		json_add_jsonstr(out, "error", mfc->removeds[i].error);
+		json_object_end(out);
+	}
+	json_array_end(out);
+
+	return mfc_finished(mfc, out);
 }
 
 static struct command_result *
 after_sendpsbt(struct command *cmd,
 	       const char *buf,
 	       const jsmntok_t *result,
-	       struct multifundchannel_command *mfc);
+	       struct multifundchannel_command *mfc)
+{
+	const jsmntok_t *tx_tok;
+	const jsmntok_t *txid_tok;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": sendpsbt done.", mfc->id);
+
+	tx_tok = json_get_member(buf, result, "tx");
+	if (!tx_tok)
+		plugin_err(cmd->plugin,
+			   "sendpsbt response has no 'tx': %.*s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	mfc->final_tx = json_strdup(mfc, buf, tx_tok);
+
+	txid_tok = json_get_member(buf, result, "txid");
+	if (!txid_tok)
+		plugin_err(cmd->plugin,
+			   "sendpsbt response has no 'txid': %.*s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	mfc->final_txid = json_strdup(mfc, buf, txid_tok);
+
+	/* PSBT is no longer something we need to clean up.  */
+	mfc->psbt = tal_free(mfc->psbt);
+
+	return multifundchannel_finished(mfc);
+}
 
 static struct command_result *
 after_signpsbt(struct command *cmd,
@@ -1612,82 +1491,170 @@ after_signpsbt(struct command *cmd,
 	return send_outreq(mfc->cmd->plugin, req);
 }
 
-static struct command_result *
-after_sendpsbt(struct command *cmd,
-	       const char *buf,
-	       const jsmntok_t *result,
-	       struct multifundchannel_command *mfc)
+struct command_result *
+perform_signpsbt(struct multifundchannel_command *mfc)
 {
-	const jsmntok_t *tx_tok;
-	const jsmntok_t *txid_tok;
+	struct out_req *req;
 
+	/* Now we sign our inputs. You do remember which inputs
+	 * are yours, right? */
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": sendpsbt done.", mfc->id);
+		   "mfc %"PRIu64": signpsbt.", mfc->id);
 
-	tx_tok = json_get_member(buf, result, "tx");
-	if (!tx_tok)
-		plugin_err(cmd->plugin,
-			   "sendpsbt response has no 'tx': %.*s",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-	mfc->final_tx = json_strdup(mfc, buf, tx_tok);
+	req = jsonrpc_request_start(mfc->cmd->plugin, mfc->cmd,
+				    "signpsbt",
+				    &after_signpsbt,
+				    &mfc_forward_error,
+				    mfc);
+	json_add_psbt(req->js, "psbt", mfc->psbt);
 
-	txid_tok = json_get_member(buf, result, "txid");
-	if (!txid_tok)
-		plugin_err(cmd->plugin,
-			   "sendpsbt response has no 'txid': %.*s",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-	mfc->final_txid = json_strdup(mfc, buf, txid_tok);
-
-	/* PSBT is no longer something we need to clean up.  */
-	mfc->psbt = tal_free(mfc->psbt);
-
-	return multifundchannel_finished(mfc);
+	/* Use input markers to identify which inputs
+	 * are ours, only sign those */
+	json_array_start(req->js, "signonly");
+	for (size_t i = 0; i < mfc->psbt->num_inputs; i++) {
+		if (psbt_input_is_ours(&mfc->psbt->inputs[i]))
+			json_add_num(req->js, NULL, i);
+	}
+	json_array_end(req->js);
+	return send_outreq(mfc->cmd->plugin, req);
 }
 
-/*---------------------------------------------------------------------------*/
 /*~
-And finally we are done.
+Finally with everything set up correctly we `signpsbt`+`sendpsbt` the
+funding transaction.
 */
-
-struct command_result *
-multifundchannel_finished(struct multifundchannel_command *mfc)
+static struct command_result *
+after_fundchannel_complete(struct multifundchannel_command *mfc)
 {
 	unsigned int i;
-	struct json_stream *out;
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": done.", mfc->id);
+		   "mfc %"PRIu64": parallel fundchannel_complete  done.",
+		   mfc->id);
 
-	out = jsonrpc_stream_success(mfc->cmd);
-	json_add_string(out, "tx", mfc->final_tx);
-	json_add_string(out, "txid", mfc->final_txid);
-	json_array_start(out, "channel_ids");
+	/* Check if any fundchannel_complete failed.  */
 	for (i = 0; i < tal_count(mfc->destinations); ++i) {
-		json_object_start(out, NULL);
-		json_add_node_id(out, "id", &mfc->destinations[i].id);
-		json_add_channel_id(out, "channel_id",
-				    &mfc->destinations[i].channel_id);
-		json_add_num(out, "outnum", mfc->destinations[i].outnum);
-		if (mfc->destinations[i].close_to_script)
-			json_add_hex_talarr(out, "close_to",
-				mfc->destinations[i].close_to_script);
-		json_object_end(out);
-	}
-	json_array_end(out);
+		struct multifundchannel_destination *dest;
 
-	json_array_start(out, "failed");
-	for (i = 0; i < tal_count(mfc->removeds); ++i) {
-		json_object_start(out, NULL);
-		json_add_node_id(out, "id", &mfc->removeds[i].id);
-		json_add_string(out, "method", mfc->removeds[i].method);
-		json_add_jsonstr(out, "error", mfc->removeds[i].error);
-		json_object_end(out);
-	}
-	json_array_end(out);
+		dest = &mfc->destinations[i];
+		if (dest->protocol != FUND_CHANNEL)
+			continue;
 
-	return mfc_finished(mfc, out);
+		assert(dest->state == MULTIFUNDCHANNEL_COMPLETED
+		    || dest->state == MULTIFUNDCHANNEL_FAILED);
+
+		if (dest->state != MULTIFUNDCHANNEL_FAILED)
+			continue;
+
+		/* One of them failed, oh no.  */
+		return redo_multifundchannel(mfc, "fundchannel_complete");
+	}
+
+	if (dest_count(mfc, OPEN_CHANNEL) > 0)
+		return check_sigs_ready(mfc);
+
+	return perform_signpsbt(mfc);
+}
+
+
+static struct command_result *
+fundchannel_complete_done(struct multifundchannel_destination *dest)
+{
+	struct multifundchannel_command *mfc = dest->mfc;
+
+	--mfc->pending;
+	if (mfc->pending == 0)
+		return after_fundchannel_complete(mfc);
+	else
+		return command_still_pending(mfc->cmd);
+}
+
+static struct command_result *
+fundchannel_complete_ok(struct command *cmd,
+			const char *buf,
+			const jsmntok_t *result,
+			struct multifundchannel_destination *dest)
+{
+	struct multifundchannel_command *mfc = dest->mfc;
+	const jsmntok_t *channel_id_tok;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64", dest %u: fundchannel_complete %s done.",
+		   mfc->id, dest->index,
+		   node_id_to_hexstr(tmpctx, &dest->id));
+
+	channel_id_tok = json_get_member(buf, result, "channel_id");
+	if (!channel_id_tok)
+		plugin_err(cmd->plugin,
+			   "fundchannel_complete no channel_id: %.*s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	json_to_channel_id(buf, channel_id_tok, &dest->channel_id);
+
+	dest->state = MULTIFUNDCHANNEL_COMPLETED;
+	return fundchannel_complete_done(dest);
+}
+
+static struct command_result *
+fundchannel_complete_err(struct command *cmd,
+			 const char *buf,
+			 const jsmntok_t *error,
+			 struct multifundchannel_destination *dest)
+{
+	struct multifundchannel_command *mfc = dest->mfc;
+	const jsmntok_t *code_tok;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64", dest %u: "
+		   "failed! fundchannel_complete %s: %.*s",
+		   mfc->id, dest->index,
+		   node_id_to_hexstr(tmpctx, &dest->id),
+		   json_tok_full_len(error), json_tok_full(buf, error));
+
+	code_tok = json_get_member(buf, error, "code");
+	if (!code_tok)
+		plugin_err(cmd->plugin,
+			   "`fundchannel_complete` failure "
+			   "did not have `code`? "
+			   "%.*s",
+			   json_tok_full_len(error),
+			   json_tok_full(buf, error));
+	if (!json_to_errcode(buf, code_tok, &dest->code))
+		plugin_err(cmd->plugin,
+			   "`fundchannel_complete` has unparseable `code`? "
+			   "%.*s",
+			   json_tok_full_len(error),
+			   json_tok_full(buf, error));
+
+	fail_destination(dest, take(json_strdup(NULL, buf, error)));
+	return fundchannel_complete_done(dest);
+}
+
+static void
+fundchannel_complete_dest(struct multifundchannel_destination *dest)
+{
+	struct multifundchannel_command *mfc = dest->mfc;
+	struct command *cmd = mfc->cmd;
+	struct out_req *req;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64", dest %u: fundchannel_complete %s.",
+		   mfc->id, dest->index,
+		   node_id_to_hexstr(tmpctx, &dest->id));
+
+	req = jsonrpc_request_start(cmd->plugin,
+				    cmd,
+				    "fundchannel_complete",
+				    &fundchannel_complete_ok,
+				    &fundchannel_complete_err,
+				    dest);
+	json_add_node_id(req->js, "id", &dest->id);
+	json_add_string(req->js, "txid",
+			type_to_string(tmpctx, struct bitcoin_txid,
+				       mfc->txid));
+	json_add_num(req->js, "txout", dest->outnum);
+
+	send_outreq(cmd->plugin, req);
 }
 
 /*~ We do cleanup, then we remove failed destinations and if we still have
