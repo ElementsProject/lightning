@@ -51,6 +51,17 @@ size_t dest_count(const struct multifundchannel_command *mfc,
 	return count;
 }
 
+void fail_destination(struct multifundchannel_destination *dest,
+		      char *error TAKES)
+{
+	dest->fail_state = dest->state;
+	dest->state = MULTIFUNDCHANNEL_FAILED;
+	if (taken(error))
+		dest->error = tal_steal(dest->mfc, error);
+	else
+		dest->error = tal_strdup(dest->mfc, error);
+}
+
 /* Return true if this destination failed, false otherwise.  */
 static bool dest_failed(struct multifundchannel_destination *dest)
 {
@@ -426,151 +437,6 @@ param_destinations_array(struct command *cmd, const char *name,
 }
 
 /*---------------------------------------------------------------------------*/
-
-static void
-fundchannel_complete_dest(struct multifundchannel_destination *dest);
-struct command_result *
-perform_fundchannel_complete(struct multifundchannel_command *mfc)
-{
-	unsigned int i;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": parallel fundchannel_complete.",
-		   mfc->id);
-
-	mfc->pending = dest_count(mfc, FUND_CHANNEL);
-
-	for (i = 0; i < tal_count(mfc->destinations); ++i) {
-		if (mfc->destinations[i].protocol == FUND_CHANNEL)
-			fundchannel_complete_dest(&mfc->destinations[i]);
-	}
-
-	assert(mfc->pending != 0);
-	return command_still_pending(mfc->cmd);
-}
-
-
-/*~ The PSBT we are holding currently has no outputs.
-We now proceed to filling in those outputs now that
-we know what the funding scriptpubkeys are.
-
-First thing we do is to shuffle the outputs.
-This is needed in order to decorrelate the transaction
-outputs from the parameters passed into the command.
-We should assume that the caller of the command might
-inadvertently leak important privacy data in the order
-of its arguments, so we shuffle the outputs.
-*/
-static struct command_result *
-perform_funding_tx_finalize(struct multifundchannel_command *mfc)
-{
-	struct multifundchannel_destination **deck;
-	char *content = tal_strdup(tmpctx, "");
-	size_t v1_dest_count = dest_count(mfc, FUND_CHANNEL);
-	size_t v2_dest_count = dest_count(mfc, OPEN_CHANNEL);
-	size_t i, deck_i;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": Creating funding tx.",
-		   mfc->id);
-
-	/* Construct a deck of destinations.  */
-	deck = tal_arr(tmpctx, struct multifundchannel_destination *,
-		       v1_dest_count + mfc->change_needed);
-
-	deck_i = 0;
-	for (i = 0; i < tal_count(mfc->destinations); i++) {
-		if (mfc->destinations[i].protocol == OPEN_CHANNEL)
-			continue;
-
-		assert(deck_i < tal_count(deck));
-		deck[deck_i++] = &mfc->destinations[i];
-	}
-
-	/* Add a NULL into the deck as a proxy for change output, if
-	 * needed.  */
-	if (mfc->change_needed)
-		deck[v1_dest_count] = NULL;
-	/* Fisher-Yates shuffle.  */
-	for (i = tal_count(deck); i > 1; --i) {
-		size_t j = pseudorand(i);
-		if (j == i - 1)
-			continue;
-		struct multifundchannel_destination *tmp;
-		tmp = deck[j];
-		deck[j] = deck[i - 1];
-		deck[i - 1] = tmp;
-	}
-
-	/* Now that we have our outputs shuffled, add outputs to the PSBT.  */
-	for (unsigned int outnum = 0; outnum < tal_count(deck); ++outnum) {
-		if (outnum != 0)
-			tal_append_fmt(&content, ", ");
-		if (deck[outnum]) {
-			/* Funding outpoint.  */
-			struct multifundchannel_destination *dest;
-			dest = deck[outnum];
-			(void) psbt_insert_output(mfc->psbt,
-						  dest->funding_script,
-						  dest->amount,
-						  outnum);
-			/* The actual output index will be based on the
-			 * serial_id if this contains any v2 outputs */
-			if (v2_dest_count == 0)
-				dest->outnum = outnum;
-			tal_append_fmt(&content, "%s: %s",
-				       type_to_string(tmpctx, struct node_id,
-						      &dest->id),
-				       type_to_string(tmpctx,
-						      struct amount_sat,
-						      &dest->amount));
-		} else {
-			/* Change output.  */
-			assert(mfc->change_needed);
-			(void) psbt_insert_output(mfc->psbt,
-						  mfc->change_scriptpubkey,
-						  mfc->change_amount,
-						  outnum);
-			tal_append_fmt(&content, "change: %s",
-				       type_to_string(tmpctx,
-						      struct amount_sat,
-						      &mfc->change_amount));
-		}
-	}
-
-	if (v2_dest_count > 0) {
-		/* Add serial_ids to all the new outputs */
-		psbt_add_serials(mfc->psbt, TX_INITIATOR);
-
-		/* Now we stash the 'mfc' command, so when/if
-		 * signature notifications start coming
-		 * in, we'll catch them. */
-		register_mfc(mfc);
-
-		/* Take a side-quest to finish filling out
-		 * the funding tx */
-		return perform_openchannel_update(mfc);
-	}
-
-	/* We've only got v1 destinations, move onward */
-	/* Elements requires a fee output.  */
-	psbt_elements_normalize_fees(mfc->psbt);
-
-	/* Generate the TXID.  */
-	mfc->txid = tal(mfc, struct bitcoin_txid);
-	psbt_txid(NULL, mfc->psbt, mfc->txid, NULL);
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": funding tx %s: %s",
-		   mfc->id,
-		   type_to_string(tmpctx, struct bitcoin_txid,
-				  mfc->txid),
-		   content);
-
-	/* Now we can feed the TXID and outnums to the peer.  */
-	return perform_fundchannel_complete(mfc);
-}
-
 /*~
 We now have an unsigned funding transaction in
 mfc->psbt and mfc->txid that puts the money into
@@ -936,15 +802,145 @@ fundchannel_complete_dest(struct multifundchannel_destination *dest)
 	send_outreq(cmd->plugin, req);
 }
 
-void fail_destination(struct multifundchannel_destination *dest,
-		      char *error TAKES)
+struct command_result *
+perform_fundchannel_complete(struct multifundchannel_command *mfc)
 {
-	dest->fail_state = dest->state;
-	dest->state = MULTIFUNDCHANNEL_FAILED;
-	if (taken(error))
-		dest->error = tal_steal(dest->mfc, error);
-	else
-		dest->error = tal_strdup(dest->mfc, error);
+	unsigned int i;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": parallel fundchannel_complete.",
+		   mfc->id);
+
+	mfc->pending = dest_count(mfc, FUND_CHANNEL);
+
+	for (i = 0; i < tal_count(mfc->destinations); ++i) {
+		if (mfc->destinations[i].protocol == FUND_CHANNEL)
+			fundchannel_complete_dest(&mfc->destinations[i]);
+	}
+
+	assert(mfc->pending != 0);
+	return command_still_pending(mfc->cmd);
+}
+
+/*~ The PSBT we are holding currently has no outputs.
+We now proceed to filling in those outputs now that
+we know what the funding scriptpubkeys are.
+
+First thing we do is to shuffle the outputs.
+This is needed in order to decorrelate the transaction
+outputs from the parameters passed into the command.
+We should assume that the caller of the command might
+inadvertently leak important privacy data in the order
+of its arguments, so we shuffle the outputs.
+*/
+static struct command_result *
+perform_funding_tx_finalize(struct multifundchannel_command *mfc)
+{
+	struct multifundchannel_destination **deck;
+	char *content = tal_strdup(tmpctx, "");
+	size_t v1_dest_count = dest_count(mfc, FUND_CHANNEL);
+	size_t v2_dest_count = dest_count(mfc, OPEN_CHANNEL);
+	size_t i, deck_i;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": Creating funding tx.",
+		   mfc->id);
+
+	/* Construct a deck of destinations.  */
+	deck = tal_arr(tmpctx, struct multifundchannel_destination *,
+		       v1_dest_count + mfc->change_needed);
+
+	deck_i = 0;
+	for (i = 0; i < tal_count(mfc->destinations); i++) {
+		if (mfc->destinations[i].protocol == OPEN_CHANNEL)
+			continue;
+
+		assert(deck_i < tal_count(deck));
+		deck[deck_i++] = &mfc->destinations[i];
+	}
+
+	/* Add a NULL into the deck as a proxy for change output, if
+	 * needed.  */
+	if (mfc->change_needed)
+		deck[v1_dest_count] = NULL;
+	/* Fisher-Yates shuffle.  */
+	for (i = tal_count(deck); i > 1; --i) {
+		size_t j = pseudorand(i);
+		if (j == i - 1)
+			continue;
+		struct multifundchannel_destination *tmp;
+		tmp = deck[j];
+		deck[j] = deck[i - 1];
+		deck[i - 1] = tmp;
+	}
+
+	/* Now that we have our outputs shuffled, add outputs to the PSBT.  */
+	for (unsigned int outnum = 0; outnum < tal_count(deck); ++outnum) {
+		if (outnum != 0)
+			tal_append_fmt(&content, ", ");
+		if (deck[outnum]) {
+			/* Funding outpoint.  */
+			struct multifundchannel_destination *dest;
+			dest = deck[outnum];
+			(void) psbt_insert_output(mfc->psbt,
+						  dest->funding_script,
+						  dest->amount,
+						  outnum);
+			/* The actual output index will be based on the
+			 * serial_id if this contains any v2 outputs */
+			if (v2_dest_count == 0)
+				dest->outnum = outnum;
+			tal_append_fmt(&content, "%s: %s",
+				       type_to_string(tmpctx, struct node_id,
+						      &dest->id),
+				       type_to_string(tmpctx,
+						      struct amount_sat,
+						      &dest->amount));
+		} else {
+			/* Change output.  */
+			assert(mfc->change_needed);
+			(void) psbt_insert_output(mfc->psbt,
+						  mfc->change_scriptpubkey,
+						  mfc->change_amount,
+						  outnum);
+			tal_append_fmt(&content, "change: %s",
+				       type_to_string(tmpctx,
+						      struct amount_sat,
+						      &mfc->change_amount));
+		}
+	}
+
+	if (v2_dest_count > 0) {
+		/* Add serial_ids to all the new outputs */
+		psbt_add_serials(mfc->psbt, TX_INITIATOR);
+
+		/* Now we stash the 'mfc' command, so when/if
+		 * signature notifications start coming
+		 * in, we'll catch them. */
+		register_mfc(mfc);
+
+		/* Take a side-quest to finish filling out
+		 * the funding tx */
+		return perform_openchannel_update(mfc);
+	}
+
+	/* We've only got v1 destinations, move onward */
+	/* Elements requires a fee output.  */
+	psbt_elements_normalize_fees(mfc->psbt);
+
+	/* Generate the TXID.  */
+	mfc->txid = tal(mfc, struct bitcoin_txid);
+	psbt_txid(NULL, mfc->psbt, mfc->txid, NULL);
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": funding tx %s: %s",
+		   mfc->id,
+		   type_to_string(tmpctx, struct bitcoin_txid,
+				  mfc->txid),
+		   content);
+
+	/* Now we can feed the TXID and outnums to the peer.  */
+	return perform_fundchannel_complete(mfc);
 }
 
 /*---------------------------------------------------------------------------*/
