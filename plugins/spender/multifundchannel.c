@@ -622,10 +622,207 @@ can actually afford the channels we will create.
 */
 
 static struct command_result *
+perform_channel_start(struct multifundchannel_command *mfc);
+
+static struct command_result *
+mfc_psbt_acquired(struct multifundchannel_command *mfc)
+{
+	/* Add serials to all of our input/outputs, so they're stable
+	 * for the life of the tx */
+	psbt_add_serials(mfc->psbt, TX_INITIATOR);
+
+	/* We also mark all of our inputs as *ours*, so we
+	 * can easily identify them for `signpsbt`, later */
+	for (size_t i = 0; i < mfc->psbt->num_inputs; i++)
+		psbt_input_mark_ours(mfc->psbt, &mfc->psbt->inputs[i]);
+
+	return perform_channel_start(mfc);
+}
+
+static struct command_result *
+after_newaddr(struct command *cmd,
+	      const char *buf,
+	      const jsmntok_t *result,
+	      struct multifundchannel_command *mfc)
+{
+	const jsmntok_t *field;
+
+	field = json_get_member(buf, result, "bech32");
+	if (!field)
+		plugin_err(cmd->plugin,
+			   "No bech32 field in newaddr result: %.*s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	if (json_to_address_scriptpubkey(mfc, chainparams, buf, field,
+					 &mfc->change_scriptpubkey)
+	 != ADDRESS_PARSE_SUCCESS)
+		plugin_err(cmd->plugin,
+			   "Unparseable bech32 field in newaddr result: %.*s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+
+	return mfc_psbt_acquired(mfc);
+}
+
+static struct command_result *
+acquire_change_address(struct multifundchannel_command *mfc)
+{
+	struct out_req *req;
+	req = jsonrpc_request_start(mfc->cmd->plugin, mfc->cmd,
+				    "newaddr",
+				    &after_newaddr, &mfc_forward_error,
+				    mfc);
+	json_add_string(req->js, "addresstype", "bech32");
+	return send_outreq(mfc->cmd->plugin, req);
+}
+
+static struct command_result *
+handle_mfc_change(struct multifundchannel_command *mfc)
+{
+	size_t change_weight;
+	struct amount_sat change_fee, fee_paid, total_fee;
+	struct amount_sat change_min_limit;
+
+	/* Determine if adding a change output is worth it.
+	 * Get the weight of a change output and how much it
+	 * costs.
+	 */
+	change_weight = bitcoin_tx_output_weight(
+				BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
+
+	/* To avoid 'off-by-one' errors due to rounding down
+	 * (which we do in `amount_tx_fee`), we find the total calculated
+	 * fees (estimated_weight + change weight @ feerate) and subtract
+	 * the originally calculated fees (estimated_weight @ feerate) */
+	fee_paid = amount_tx_fee(mfc->feerate_per_kw,
+				 mfc->estimated_final_weight);
+	total_fee = amount_tx_fee(mfc->feerate_per_kw,
+				  mfc->estimated_final_weight + change_weight);
+	if (!amount_sat_sub(&change_fee, total_fee, fee_paid))
+		abort();
+
+	/* The limit is equal to the change_fee plus the dust limit.  */
+	if (!amount_sat_add(&change_min_limit,
+			    change_fee, chainparams->dust_limit))
+		plugin_err(mfc->cmd->plugin,
+			   "Overflow dust limit and change fee.");
+
+	/* Is the excess over the limit?  */
+	if (amount_sat_greater(mfc->excess_sat, change_min_limit)) {
+		bool ok = amount_sat_sub(&mfc->change_amount,
+					 mfc->excess_sat, change_fee);
+		assert(ok);
+		mfc->change_needed = true;
+		if (!mfc->change_scriptpubkey)
+			return acquire_change_address(mfc);
+	} else
+		mfc->change_needed = false;
+
+	return mfc_psbt_acquired(mfc);
+}
+
+/* If one of the destinations specified "all", figure out how much that is.  */
+static struct command_result *
+compute_mfc_all(struct multifundchannel_command *mfc)
+{
+	size_t all_index = SIZE_MAX;
+	struct multifundchannel_destination *all_dest;
+
+	assert(has_all(mfc));
+
+	for (size_t i = 0; i < tal_count(mfc->destinations); ++i) {
+		struct multifundchannel_destination *dest;
+		dest = &mfc->destinations[i];
+		if (dest->all) {
+			assert(all_index == SIZE_MAX);
+			all_index = i;
+			continue;
+		}
+		/* Subtract the amount from the excess.  */
+		if (!amount_sat_sub(&mfc->excess_sat,
+				    mfc->excess_sat, dest->amount))
+			/* Not enough funds!  */
+			return mfc_fail(mfc, FUND_CANNOT_AFFORD,
+					"Insufficient funds.");
+	}
+	assert(all_index != SIZE_MAX);
+	all_dest = &mfc->destinations[all_index];
+
+	/* Is the excess above the dust amount?  */
+	if (amount_sat_less(mfc->excess_sat, chainparams->dust_limit))
+		return mfc_fail(mfc, FUND_OUTPUT_IS_DUST,
+				"Output 'all' %s would be dust",
+				type_to_string(tmpctx, struct amount_sat,
+					       &mfc->excess_sat));
+
+	/* Assign the remainder to the 'all' output.  */
+	all_dest->amount = mfc->excess_sat;
+	if (!feature_negotiated(plugin_feature_set(mfc->cmd->plugin),
+				all_dest->their_features,
+				OPT_LARGE_CHANNELS)
+	 && amount_sat_greater(all_dest->amount,
+			       chainparams->max_funding))
+		all_dest->amount = chainparams->max_funding;
+	/* Remove it from the excess.  */
+	bool ok = amount_sat_sub(&mfc->excess_sat,
+				 mfc->excess_sat, all_dest->amount);
+	assert(ok);
+	/* Remove the 'all' flag.  */
+	all_dest->all = false;
+
+	/* Continue.  */
+	return handle_mfc_change(mfc);
+}
+
+static struct command_result *
 after_fundpsbt(struct command *cmd,
 	       const char *buf,
 	       const jsmntok_t *result,
-	       struct multifundchannel_command *mfc);
+	       struct multifundchannel_command *mfc)
+{
+	const jsmntok_t *field;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": %s done.",
+		   mfc->id, mfc->utxos_str ? "utxopsbt" : "fundpsbt");
+
+	field = json_get_member(buf, result, "psbt");
+	if (!field)
+		goto fail;
+
+	mfc->psbt = psbt_from_b64(mfc,
+				  buf + field->start,
+				  field->end - field->start);
+	if (!mfc->psbt)
+		goto fail;
+
+	field = json_get_member(buf, result, "feerate_per_kw");
+	if (!field || !json_to_u32(buf, field, &mfc->feerate_per_kw))
+		goto fail;
+
+	field = json_get_member(buf, result, "estimated_final_weight");
+	if (!field || !json_to_u32(buf, field, &mfc->estimated_final_weight))
+		goto fail;
+
+	/* msat LOL.  */
+	field = json_get_member(buf, result, "excess_msat");
+	if (!field || !parse_amount_sat(&mfc->excess_sat,
+					buf + field->start,
+					field->end - field->start))
+		goto fail;
+
+	if (has_all(mfc))
+		return compute_mfc_all(mfc);
+	return handle_mfc_change(mfc);
+
+fail:
+	plugin_err(mfc->cmd->plugin,
+		   "Unexpected result from fundpsbt/utxopsbt: %.*s",
+		   json_tok_full_len(result),
+		   json_tok_full(buf, result));
+
+}
+
 
 static struct command_result *
 perform_fundpsbt(struct multifundchannel_command *mfc)
@@ -711,221 +908,6 @@ perform_fundpsbt(struct multifundchannel_command *mfc)
 	return send_outreq(mfc->cmd->plugin, req);
 }
 
-static struct command_result *
-compute_mfc_all(struct multifundchannel_command *mfc);
-static struct command_result *
-handle_mfc_change(struct multifundchannel_command *mfc);
-
-static struct command_result *
-after_fundpsbt(struct command *cmd,
-	       const char *buf,
-	       const jsmntok_t *result,
-	       struct multifundchannel_command *mfc)
-{
-	const jsmntok_t *field;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": %s done.",
-		   mfc->id, mfc->utxos_str ? "utxopsbt" : "fundpsbt");
-
-	field = json_get_member(buf, result, "psbt");
-	if (!field)
-		goto fail;
-
-	mfc->psbt = psbt_from_b64(mfc,
-				  buf + field->start,
-				  field->end - field->start);
-	if (!mfc->psbt)
-		goto fail;
-
-	field = json_get_member(buf, result, "feerate_per_kw");
-	if (!field || !json_to_u32(buf, field, &mfc->feerate_per_kw))
-		goto fail;
-
-	field = json_get_member(buf, result, "estimated_final_weight");
-	if (!field || !json_to_u32(buf, field, &mfc->estimated_final_weight))
-		goto fail;
-
-	/* msat LOL.  */
-	field = json_get_member(buf, result, "excess_msat");
-	if (!field || !parse_amount_sat(&mfc->excess_sat,
-					buf + field->start,
-					field->end - field->start))
-		goto fail;
-
-	if (has_all(mfc))
-		return compute_mfc_all(mfc);
-	return handle_mfc_change(mfc);
-
-fail:
-	plugin_err(mfc->cmd->plugin,
-		   "Unexpected result from fundpsbt/utxopsbt: %.*s",
-		   json_tok_full_len(result),
-		   json_tok_full(buf, result));
-
-}
-
-/* If one of the destinations specified "all", figure out how much that is.  */
-static struct command_result *
-compute_mfc_all(struct multifundchannel_command *mfc)
-{
-	size_t all_index = SIZE_MAX;
-	struct multifundchannel_destination *all_dest;
-
-	assert(has_all(mfc));
-
-	for (size_t i = 0; i < tal_count(mfc->destinations); ++i) {
-		struct multifundchannel_destination *dest;
-		dest = &mfc->destinations[i];
-		if (dest->all) {
-			assert(all_index == SIZE_MAX);
-			all_index = i;
-			continue;
-		}
-		/* Subtract the amount from the excess.  */
-		if (!amount_sat_sub(&mfc->excess_sat,
-				    mfc->excess_sat, dest->amount))
-			/* Not enough funds!  */
-			return mfc_fail(mfc, FUND_CANNOT_AFFORD,
-					"Insufficient funds.");
-	}
-	assert(all_index != SIZE_MAX);
-	all_dest = &mfc->destinations[all_index];
-
-	/* Is the excess above the dust amount?  */
-	if (amount_sat_less(mfc->excess_sat, chainparams->dust_limit))
-		return mfc_fail(mfc, FUND_OUTPUT_IS_DUST,
-				"Output 'all' %s would be dust",
-				type_to_string(tmpctx, struct amount_sat,
-					       &mfc->excess_sat));
-
-	/* Assign the remainder to the 'all' output.  */
-	all_dest->amount = mfc->excess_sat;
-	if (!feature_negotiated(plugin_feature_set(mfc->cmd->plugin),
-				all_dest->their_features,
-				OPT_LARGE_CHANNELS)
-	 && amount_sat_greater(all_dest->amount,
-			       chainparams->max_funding))
-		all_dest->amount = chainparams->max_funding;
-	/* Remove it from the excess.  */
-	bool ok = amount_sat_sub(&mfc->excess_sat,
-				 mfc->excess_sat, all_dest->amount);
-	assert(ok);
-	/* Remove the 'all' flag.  */
-	all_dest->all = false;
-
-	/* Continue.  */
-	return handle_mfc_change(mfc);
-}
-
-static struct command_result *
-acquire_change_address(struct multifundchannel_command *mfc);
-static struct command_result *
-mfc_psbt_acquired(struct multifundchannel_command *mfc);
-
-static struct command_result *
-handle_mfc_change(struct multifundchannel_command *mfc)
-{
-	size_t change_weight;
-	struct amount_sat change_fee, fee_paid, total_fee;
-	struct amount_sat change_min_limit;
-
-	/* Determine if adding a change output is worth it.
-	 * Get the weight of a change output and how much it
-	 * costs.
-	 */
-	change_weight = bitcoin_tx_output_weight(
-				BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
-
-	/* To avoid 'off-by-one' errors due to rounding down
-	 * (which we do in `amount_tx_fee`), we find the total calculated
-	 * fees (estimated_weight + change weight @ feerate) and subtract
-	 * the originally calculated fees (estimated_weight @ feerate) */
-	fee_paid = amount_tx_fee(mfc->feerate_per_kw,
-				 mfc->estimated_final_weight);
-	total_fee = amount_tx_fee(mfc->feerate_per_kw,
-				  mfc->estimated_final_weight + change_weight);
-	if (!amount_sat_sub(&change_fee, total_fee, fee_paid))
-		abort();
-
-	/* The limit is equal to the change_fee plus the dust limit.  */
-	if (!amount_sat_add(&change_min_limit,
-			    change_fee, chainparams->dust_limit))
-		plugin_err(mfc->cmd->plugin,
-			   "Overflow dust limit and change fee.");
-
-	/* Is the excess over the limit?  */
-	if (amount_sat_greater(mfc->excess_sat, change_min_limit)) {
-		bool ok = amount_sat_sub(&mfc->change_amount,
-					 mfc->excess_sat, change_fee);
-		assert(ok);
-		mfc->change_needed = true;
-		if (!mfc->change_scriptpubkey)
-			return acquire_change_address(mfc);
-	} else
-		mfc->change_needed = false;
-
-	return mfc_psbt_acquired(mfc);
-}
-
-static struct command_result *
-after_newaddr(struct command *cmd,
-	      const char *buf,
-	      const jsmntok_t *result,
-	      struct multifundchannel_command *mfc);
-
-static struct command_result *
-acquire_change_address(struct multifundchannel_command *mfc)
-{
-	struct out_req *req;
-	req = jsonrpc_request_start(mfc->cmd->plugin, mfc->cmd,
-				    "newaddr",
-				    &after_newaddr, &mfc_forward_error,
-				    mfc);
-	json_add_string(req->js, "addresstype", "bech32");
-	return send_outreq(mfc->cmd->plugin, req);
-}
-static struct command_result *
-after_newaddr(struct command *cmd,
-	      const char *buf,
-	      const jsmntok_t *result,
-	      struct multifundchannel_command *mfc)
-{
-	const jsmntok_t *field;
-
-	field = json_get_member(buf, result, "bech32");
-	if (!field)
-		plugin_err(cmd->plugin,
-			   "No bech32 field in newaddr result: %.*s",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-	if (json_to_address_scriptpubkey(mfc, chainparams, buf, field,
-					 &mfc->change_scriptpubkey)
-	 != ADDRESS_PARSE_SUCCESS)
-		plugin_err(cmd->plugin,
-			   "Unparseable bech32 field in newaddr result: %.*s",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-
-	return mfc_psbt_acquired(mfc);
-}
-
-static struct command_result *
-perform_channel_start(struct multifundchannel_command *mfc);
-static struct command_result *
-mfc_psbt_acquired(struct multifundchannel_command *mfc)
-{
-	/* Add serials to all of our input/outputs, so they're stable
-	 * for the life of the tx */
-	psbt_add_serials(mfc->psbt, TX_INITIATOR);
-
-	/* We also mark all of our inputs as *ours*, so we
-	 * can easily identify them for `signpsbt`, later */
-	for (size_t i = 0; i < mfc->psbt->num_inputs; i++)
-		psbt_input_mark_ours(mfc->psbt, &mfc->psbt->inputs[i]);
-
-	return perform_channel_start(mfc);
-}
 
 /*---------------------------------------------------------------------------*/
 
