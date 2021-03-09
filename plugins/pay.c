@@ -1961,7 +1961,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	struct payment *p;
 	const char *b11str;
 	struct bolt11 *b11;
-	char *fail;
+	char *b11_fail, *b12_fail;
 	u64 *maxfee_pct_millionths;
 	u32 *maxdelay;
 	struct amount_msat *exemptfee, *msat;
@@ -1973,7 +1973,6 @@ static struct command_result *json_paymod(struct command *cmd,
 	u64 invexpiry;
 	struct sha256 *local_offer_id;
 	const struct tlv_invoice *b12;
-	bool is_b12;
 #if DEVELOPER
 	bool *use_shadow;
 #endif
@@ -2004,16 +2003,14 @@ static struct command_result *json_paymod(struct command *cmd,
 	p = payment_new(cmd, cmd, NULL /* No parent */, paymod_mods);
 	p->invstring = tal_steal(p, b11str);
 
-	is_b12 = strlen(b11str) > 3 &&
-		 (strstarts(b11str, "lni") || strstarts(b11str, "lno") ||
-		  strstarts(b11str, "lnr"));
-
-	b11 = bolt11_decode(cmd, b11str, plugin_feature_set(cmd->plugin), NULL,
-			    chainparams, &fail);
-	if (!is_b12) {
+	if (!bolt12_has_prefix(b11str)) {
+		b11 =
+		    bolt11_decode(cmd, b11str, plugin_feature_set(cmd->plugin),
+				  NULL, chainparams, &b11_fail);
 		if (b11 == NULL)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Invalid bolt11: %s", fail);
+					    "Invalid bolt11: %s", b11_fail);
+
 		invmsat = b11->msat;
 		invexpiry = b11->timestamp + b11->expiry;
 
@@ -2038,11 +2035,10 @@ static struct command_result *json_paymod(struct command *cmd,
 	} else {
 		b12 = invoice_decode(cmd, b11str, strlen(b11str),
 				     plugin_feature_set(cmd->plugin),
-				     chainparams, &fail);
+				     chainparams, &b12_fail);
 		if (b12 == NULL)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "Invalid bolt12: %s", fail);
-
+					    "Invalid bolt12: %s", b12_fail);
 		if (!exp_offers)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "experimental-offers disabled");
