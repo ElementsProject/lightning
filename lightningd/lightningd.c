@@ -907,6 +907,16 @@ int main(int argc, char *argv[])
 	 *  options registration). */
 	plugins_init(ld->plugins);
 
+	/*~ If the plugis are misconfigured we don't want to proceed. A
+	 * misconfiguration could for example be a plugin marked as important
+	 * not working correctly or a plugin squatting something an important
+	 * plugin needs to register, such as a method or CLI option. If we are
+	 * going to shut down immediately again, we shouldn't spend too much
+	 * effort in starting up.
+	 */
+	if (ld->exit_code)
+		fatal("Could not initialize the plugins, see above for details.");
+
 	/*~ Handle options and config. */
 	handle_opts(ld, argc, argv);
 
