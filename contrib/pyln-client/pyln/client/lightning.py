@@ -927,7 +927,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listforwards", payload)
 
-    def listfunds(self, spent=False):
+    def listfunds(self, spent=None):
         """
         Show funds available for opening channels
         or both unspent and spent funds if {spent} is True.
