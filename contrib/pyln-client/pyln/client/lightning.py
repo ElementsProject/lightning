@@ -1101,6 +1101,13 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("openchannel_bump", payload)
 
+    def openchannel_abort(self, channel_id):
+        """ Abort a channel open """
+        payload = {
+            "channel_id": channel_id,
+        }
+        return self.call("openchannel_abort", payload)
+
     def paystatus(self, bolt11=None):
         """Detail status of attempts to pay {bolt11} or any."""
         payload = {

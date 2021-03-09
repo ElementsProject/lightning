@@ -46,8 +46,10 @@ Lisa Neigut <<niftynei@gmail.com>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-connect(7), lightning-fundchannel(7),
+lightning-connect(7), lightning-fundchannel(7), lightning-multifundchannel(7),
 lightning-fundchannel\_start(7), lightning-fundchannel\_complete(7)
+lightning-openchannel\_init(7), lightning-openchannel\_update(7),
+lightning-openchannel\_signed(7), lightning-openchannel\_abort(7)
 
 RESOURCES
 ---------

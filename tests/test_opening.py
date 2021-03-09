@@ -96,8 +96,9 @@ def test_v2_rbf(node_factory, bitcoind, chainparams):
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual-funding is experimental only")
 def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
-                                    opts=[{'dev-force-features': '+223'},
-                                          {'dev-force-features': '+223'}])
+                                    opts={'dev-force-features': '+223',
+                                          'may_reconnect': True,
+                                          'allow_warning': True})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -116,6 +117,11 @@ def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
     # Check that we're waiting for lockin
     l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
 
+    # Attempt to do abort, should fail since we've
+    # already gotten an inflight
+    with pytest.raises(RpcError):
+        l1.rpc.openchannel_abort(chan_id)
+
     next_feerate = find_next_feerate(l1, l2)
 
     # Initiate an RBF
@@ -126,6 +132,14 @@ def test_v2_rbf_multi(node_factory, bitcoind, chainparams):
                                excess_as_change=True)
 
     # Do the bump
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+
+    # Abort this open attempt! We will re-try
+    aborted = l1.rpc.openchannel_abort(chan_id)
+    assert not aborted['channel_canceled']
+
+    # Do the bump, again
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
 
     update = l1.rpc.openchannel_update(chan_id, bump['psbt'])

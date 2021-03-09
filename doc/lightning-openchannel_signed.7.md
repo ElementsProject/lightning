@@ -46,11 +46,11 @@ with `code` being one of the following:
 SEE ALSO
 --------
 
-=======
 lightning-openchannel\_init(7), lightning-openchannel\_update(7),
-lightning-openchannel\_bump(7), lightning-fundchannel\_start(7),
-lightning-fundchannel\_complete(7), lightning-fundchannel(7),
-lightning-fundpsbt(7), lightning-utxopsbt(7), lightning-multifundchannel(7)
+lightning-openchannel\_abort(7), lightning-openchannel\_bump(7),
+lightning-fundchannel\_start(7), lightning-fundchannel\_complete(7),
+lightning-fundchannel(7), lightning-fundpsbt(7),
+lightning-utxopsbt(7), lightning-multifundchannel(7)
 
 AUTHOR
 ------
