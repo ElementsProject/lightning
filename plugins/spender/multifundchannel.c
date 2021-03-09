@@ -453,68 +453,49 @@ And with a *multi* funding, it is more likely to
 fail due to having to coordinate many more nodes.
 */
 
-static void
-connect_dest(struct multifundchannel_destination *dest);
-
-/* Initiate the multiconnect.  */
 static struct command_result *
-perform_multiconnect(struct multifundchannel_command *mfc)
+perform_fundpsbt(struct multifundchannel_command *mfc);
+
+/* Check results of connect.  */
+static struct command_result *
+after_multiconnect(struct multifundchannel_command *mfc)
 {
 	unsigned int i;
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": multiconnect.", mfc->id);
+		   "mfc %"PRIu64": multiconnect done.", mfc->id);
 
-	mfc->pending = tal_count(mfc->destinations);
+	/* Check if anyone failed.  */
+	for (i = 0; i < tal_count(mfc->destinations); ++i) {
+		struct multifundchannel_destination *dest;
 
-	for (i = 0; i < tal_count(mfc->destinations); ++i)
-		connect_dest(&mfc->destinations[i]);
+		dest = &mfc->destinations[i];
 
-	assert(mfc->pending != 0);
-	return command_still_pending(mfc->cmd);
+		assert(dest->state == MULTIFUNDCHANNEL_CONNECTED
+		    || dest->state == MULTIFUNDCHANNEL_FAILED);
+
+		if (dest->state != MULTIFUNDCHANNEL_FAILED)
+			continue;
+
+		/* One of them failed, oh no. */
+		return redo_multifundchannel(mfc, "connect");
+	}
+
+	return perform_fundpsbt(mfc);
 }
 
 static struct command_result *
-connect_ok(struct command *cmd,
-	   const char *buf,
-	   const jsmntok_t *result,
-	   struct multifundchannel_destination *dest);
-static struct command_result *
-connect_err(struct command *cmd,
-	    const char *buf,
-	    const jsmntok_t *error,
-	    struct multifundchannel_destination *dest);
-
-static void
-connect_dest(struct multifundchannel_destination *dest)
+connect_done(struct multifundchannel_destination *dest)
 {
 	struct multifundchannel_command *mfc = dest->mfc;
-	struct command *cmd = mfc->cmd;
-	const char *id;
-	struct out_req *req;
 
-	id = node_id_to_hexstr(tmpctx, &dest->id);
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64", dest %u: connect %s.",
-		   mfc->id, dest->index, id);
-
-	req = jsonrpc_request_start(cmd->plugin, cmd,
-				    "connect",
-				    &connect_ok,
-				    &connect_err,
-				    dest);
-	if (dest->addrhint)
-		json_add_string(req->js, "id",
-				tal_fmt(tmpctx, "%s@%s",
-					id,
-					dest->addrhint));
+	--mfc->pending;
+	if (mfc->pending == 0)
+		return after_multiconnect(mfc);
 	else
-		json_add_node_id(req->js, "id", &dest->id);
-	send_outreq(cmd->plugin, req);
+		return command_still_pending(mfc->cmd);
 }
 
-static struct command_result *
-connect_done(struct multifundchannel_destination *dest);
 
 static struct command_result *
 connect_ok(struct command *cmd,
@@ -553,6 +534,7 @@ connect_ok(struct command *cmd,
 	dest->state = MULTIFUNDCHANNEL_CONNECTED;
 	return connect_done(dest);
 }
+
 static struct command_result *
 connect_err(struct command *cmd,
 	    const char *buf,
@@ -587,50 +569,50 @@ connect_err(struct command *cmd,
 	return connect_done(dest);
 }
 
-static struct command_result *
-after_multiconnect(struct multifundchannel_command *mfc);
-
-static struct command_result *
-connect_done(struct multifundchannel_destination *dest)
+static void
+connect_dest(struct multifundchannel_destination *dest)
 {
 	struct multifundchannel_command *mfc = dest->mfc;
+	struct command *cmd = mfc->cmd;
+	const char *id;
+	struct out_req *req;
 
-	--mfc->pending;
-	if (mfc->pending == 0)
-		return after_multiconnect(mfc);
+	id = node_id_to_hexstr(tmpctx, &dest->id);
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64", dest %u: connect %s.",
+		   mfc->id, dest->index, id);
+
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "connect",
+				    &connect_ok,
+				    &connect_err,
+				    dest);
+	if (dest->addrhint)
+		json_add_string(req->js, "id",
+				tal_fmt(tmpctx, "%s@%s",
+					id,
+					dest->addrhint));
 	else
-		return command_still_pending(mfc->cmd);
+		json_add_node_id(req->js, "id", &dest->id);
+	send_outreq(cmd->plugin, req);
 }
 
+/* Initiate the multiconnect.  */
 static struct command_result *
-perform_fundpsbt(struct multifundchannel_command *mfc);
-
-/* Check results of connect.  */
-static struct command_result *
-after_multiconnect(struct multifundchannel_command *mfc)
+perform_multiconnect(struct multifundchannel_command *mfc)
 {
 	unsigned int i;
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": multiconnect done.", mfc->id);
+		   "mfc %"PRIu64": multiconnect.", mfc->id);
 
-	/* Check if anyone failed.  */
-	for (i = 0; i < tal_count(mfc->destinations); ++i) {
-		struct multifundchannel_destination *dest;
+	mfc->pending = tal_count(mfc->destinations);
 
-		dest = &mfc->destinations[i];
+	for (i = 0; i < tal_count(mfc->destinations); ++i)
+		connect_dest(&mfc->destinations[i]);
 
-		assert(dest->state == MULTIFUNDCHANNEL_CONNECTED
-		    || dest->state == MULTIFUNDCHANNEL_FAILED);
-
-		if (dest->state != MULTIFUNDCHANNEL_FAILED)
-			continue;
-
-		/* One of them failed, oh no. */
-		return redo_multifundchannel(mfc, "connect");
-	}
-
-	return perform_fundpsbt(mfc);
+	assert(mfc->pending != 0);
+	return command_still_pending(mfc->cmd);
 }
 
 /*---------------------------------------------------------------------------*/
