@@ -51,6 +51,7 @@ struct open_attempt {
 	struct channel *channel;
 	struct channel_config our_config;
 	enum tx_role role;
+	bool aborted;
 
 	/* On funding_channel struct */
 	struct command *cmd;

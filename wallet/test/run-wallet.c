@@ -282,6 +282,11 @@ void json_add_amount_sat_only(struct json_stream *result UNNEEDED,
 void json_add_bool(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		   bool value UNNEEDED)
 { fprintf(stderr, "json_add_bool called!\n"); abort(); }
+/* Generated stub for json_add_channel_id */
+void json_add_channel_id(struct json_stream *response UNNEEDED,
+			 const char *fieldname UNNEEDED,
+			 const struct channel_id *cid UNNEEDED)
+{ fprintf(stderr, "json_add_channel_id called!\n"); abort(); }
 /* Generated stub for json_add_hex */
 void json_add_hex(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		  const void *data UNNEEDED, size_t len UNNEEDED)

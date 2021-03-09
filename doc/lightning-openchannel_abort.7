@@ -1,0 +1,56 @@
+.TH "LIGHTNING-OPENCHANNEL_ABORT" "7" "" "" "lightning-openchannel_abort"
+.SH NAME
+lightning-openchannel_abort - Command to abort a channel to a peer
+.SH SYNOPSIS
+
+\fBopenchannel_abort\fR \fIchannel_id\fR
+
+.SH DESCRIPTION
+
+\fBopenchannel_init\fR is a low level RPC command which initiates a channel
+open with a specified peer\. It uses the openchannel protocol
+which allows for interactive transaction construction\.
+
+
+\fIchannel_id\fR is id of this channel\.
+
+.SH RETURN VALUE
+
+On success, returns the \fIchannel_id\fR for this channel; an boolean indicating
+if the channel has been successfully canceled, \fIchannel_canceled\fR;
+a reason for the cancellation, \fIreason\fR\.
+
+
+On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
+with \fBcode\fR being one of the following:
+
+.RS
+.IP \[bu]
+-32602: If the given parameters are wrong\.
+.IP \[bu]
+-1: Catchall nonspecific error\.
+.IP \[bu]
+305: Peer is not connected\.
+.IP \[bu]
+311: Unknown channel id\.
+.IP \[bu]
+312: Channel in an invalid state
+
+.RE
+.SH SEE ALSO
+
+lightning-openchannel_\fBinit\fR(7), lightning-openchannel_\fBupdate\fR(7),
+lightning-openchannel_\fBsigned\fR(7), lightning-openchannel_\fBbump\fR(7),
+lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcomplete\fR(7),
+\fBlightning-fundchannel\fR(7), \fBlightning-fundpsbt\fR(7), \fBlightning-utxopsbt\fR(7),
+\fBlightning-multifundchannel\fR(7)
+
+.SH AUTHOR
+
+@niftynei \fI<niftynei@gmail.com\fR> is mainly responsible\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:3c6aa3f2359134f7468facf69f3f6b925334117079a46ada88ec9b6b8cdd3f0a

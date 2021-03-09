@@ -1875,6 +1875,57 @@ send_msg:
 }
 
 static struct command_result *
+json_openchannel_abort(struct command *cmd,
+		       const char *buffer,
+		       const jsmntok_t *obj UNNEEDED,
+		       const jsmntok_t *params)
+{
+	struct channel_id *cid;
+	struct channel *channel;
+	u8 *msg;
+
+	if (!param(cmd, buffer, params,
+		   p_req("channel_id", param_channel_id, &cid),
+		   NULL))
+		return command_param_failed();
+
+	channel = channel_by_cid(cmd->ld, cid);
+	if (!channel)
+		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
+				    "Unknown channel %s",
+				    type_to_string(tmpctx, struct channel_id,
+						   cid));
+
+	if (!channel->owner)
+		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+				    "Peer not connected");
+
+	if (!channel->open_attempt)
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "Channel open not in progress");
+
+	if (channel->open_attempt->cmd)
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "Another openchannel command"
+				    " is in progress");
+
+	if (channel->openchannel_signed_cmd)
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "Already sent sigs, waiting for peer's");
+
+	/* Mark it as aborted so when we clean-up, we send the
+	 * correct response */
+	channel->open_attempt->aborted = true;
+	channel->open_attempt->cmd = cmd;
+
+	/* Tell dualopend to fail this channel */
+	msg = towire_dualopend_fail(NULL, "Abort requested");
+	subd_send_msg(channel->owner, take(msg));
+
+	return command_still_pending(cmd);
+}
+
+static struct command_result *
 json_openchannel_bump(struct command *cmd,
 		      const char *buffer,
 		      const jsmntok_t *obj UNNEEDED,
@@ -2701,11 +2752,19 @@ static const struct json_command openchannel_bump_command = {
 	"Attempt to bump the fee on {channel_id}'s funding transaction."
 };
 
+static const struct json_command openchannel_abort_command = {
+	"openchannel_abort",
+	"channels",
+	json_openchannel_abort,
+	"Abort {channel_id}'s open. Usable while `commitment_signed=false`."
+};
+
 #if EXPERIMENTAL_FEATURES
 AUTODATA(json_command, &openchannel_init_command);
 AUTODATA(json_command, &openchannel_update_command);
 AUTODATA(json_command, &openchannel_signed_command);
 AUTODATA(json_command, &openchannel_bump_command);
+AUTODATA(json_command, &openchannel_abort_command);
 #endif /* EXPERIMENTAL_FEATURES */
 
 static void start_fresh_dualopend(struct peer *peer,

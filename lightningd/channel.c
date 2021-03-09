@@ -5,6 +5,7 @@
 #include <common/closing_fee.h>
 #include <common/fee_states.h>
 #include <common/json_command.h>
+#include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
 #include <common/utils.h>
 #include <common/wire_error.h>
@@ -194,6 +195,7 @@ struct open_attempt *new_channel_open_attempt(struct channel *channel)
 	oa->role = channel->opener == LOCAL ? TX_INITIATOR : TX_ACCEPTER;
 	oa->our_upfront_shutdown_script = NULL;
 	oa->cmd = NULL;
+	oa->aborted = false;
 
 	return oa;
 }
@@ -742,9 +744,22 @@ void channel_cleanup_commands(struct channel *channel, const char *why)
 {
 	if (channel->open_attempt) {
 		struct open_attempt *oa = channel->open_attempt;
-		if (oa->cmd)
-			was_pending(command_fail(oa->cmd, LIGHTNINGD,
-						 "%s", why));
+		if (oa->cmd) {
+			/* If we requested this be aborted, it's a success */
+			if (oa->aborted) {
+				struct json_stream *response;
+				response = json_stream_success(oa->cmd);
+				json_add_channel_id(response,
+						    "channel_id",
+						    &channel->cid);
+				json_add_bool(response, "channel_canceled",
+					      list_empty(&channel->inflights));
+				json_add_string(response, "reason", why);
+				was_pending(command_success(oa->cmd, response));
+			} else
+				was_pending(command_fail(oa->cmd, LIGHTNINGD,
+							 "%s", why));
+		}
 		notify_channel_open_failed(channel->peer->ld, &channel->cid);
 		channel->open_attempt = tal_free(channel->open_attempt);
 	}
