@@ -427,243 +427,6 @@ param_destinations_array(struct command *cmd, const char *name,
 
 /*---------------------------------------------------------------------------*/
 
-/*~
-We perform all the `fundchannel_start` in parallel.
-
-We need to parallelize `fundchannel_start` execution
-since the command has to wait for a response from
-the remote peer.
-The remote peer is not under our control and might
-respond after a long time.
-
-By doing them in parallel, the time it takes to
-perform all the `fundchannel_start` is only the
-slowest time among all peers.
-This is important since faster peers might impose a
-timeout on channel opening and fail subsequent
-steps if we take too long before running
-`fundchannel_complete`.
-*/
-
-static struct command_result *
-perform_funding_tx_finalize(struct multifundchannel_command *mfc);
-
-/* All fundchannel_start/openchannel_init commands have returned
- * with either success or failure.
-*/
-struct command_result *
-after_channel_start(struct multifundchannel_command *mfc)
-{
-	unsigned int i;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": parallel channel starts done.",
-		   mfc->id);
-
-	/* Check if any channel start failed.  */
-	for (i = 0; i < tal_count(mfc->destinations); ++i) {
-		struct multifundchannel_destination *dest;
-
-		dest = &mfc->destinations[i];
-
-		assert(dest->state == MULTIFUNDCHANNEL_STARTED
-		    || dest->state == MULTIFUNDCHANNEL_FAILED);
-
-		if (dest->state != MULTIFUNDCHANNEL_FAILED)
-			continue;
-
-		/* One of them failed, oh no.  */
-		return redo_multifundchannel(mfc,
-					     dest->protocol == OPEN_CHANNEL ?
-					     "openchannel_init" :
-					     "fundchannel_start");
-	}
-
-	/* Next step.  */
-	return perform_funding_tx_finalize(mfc);
-}
-
-static struct command_result *
-fundchannel_start_done(struct multifundchannel_destination *dest)
-{
-	struct multifundchannel_command *mfc = dest->mfc;
-
-	--mfc->pending;
-	if (mfc->pending == 0)
-		return after_channel_start(mfc);
-	else
-		return command_still_pending(mfc->cmd);
-}
-
-static struct command_result *
-fundchannel_start_ok(struct command *cmd,
-		     const char *buf,
-		     const jsmntok_t *result,
-		     struct multifundchannel_destination *dest)
-{
-	struct multifundchannel_command *mfc = dest->mfc;
-	const jsmntok_t *address_tok;
-	const jsmntok_t *script_tok;
-	const jsmntok_t *close_to_tok;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64", dest %u: fundchannel_start %s done.",
-		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id));
-
-	/* Extract funding_address.  */
-	address_tok = json_get_member(buf, result, "funding_address");
-	if (!address_tok)
-		plugin_err(cmd->plugin,
-			   "fundchannel_start did not "
-			   "return 'funding_address': %.*s",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-	dest->funding_addr = json_strdup(dest->mfc, buf, address_tok);
-	/* Extract scriptpubkey.  */
-	script_tok = json_get_member(buf, result, "scriptpubkey");
-	if (!script_tok)
-		plugin_err(cmd->plugin,
-			   "fundchannel_start did not "
-			   "return 'scriptpubkey': %.*s",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-	dest->funding_script = json_tok_bin_from_hex(dest->mfc,
-						     buf, script_tok);
-	if (!dest->funding_script)
-		plugin_err(cmd->plugin,
-			   "fundchannel_start did not "
-			   "return parseable 'scriptpubkey': %.*s",
-			   json_tok_full_len(script_tok),
-			   json_tok_full(buf, script_tok));
-
-	close_to_tok = json_get_member(buf, result, "close_to");
-	/* Only returned if a) we requested and b) peer supports
-	 * opt_upfront_shutdownscript */
-	if (close_to_tok) {
-		dest->close_to_script =
-			json_tok_bin_from_hex(dest->mfc, buf, close_to_tok);
-	} else
-		dest->close_to_script = NULL;
-
-
-	dest->state = MULTIFUNDCHANNEL_STARTED;
-
-	return fundchannel_start_done(dest);
-}
-
-static struct command_result *
-fundchannel_start_err(struct command *cmd,
-		      const char *buf,
-		      const jsmntok_t *error,
-		      struct multifundchannel_destination *dest)
-{
-	struct multifundchannel_command *mfc = dest->mfc;
-	const jsmntok_t *code_tok;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64", dest %u: "
-		   "failed! fundchannel_start %s: %.*s.",
-		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id),
-		   json_tok_full_len(error),
-		   json_tok_full(buf, error));
-
-	code_tok = json_get_member(buf, error, "code");
-	if (!code_tok)
-		plugin_err(cmd->plugin,
-			   "`fundchannel_start` failure did not have `code`? "
-			   "%.*s",
-			   json_tok_full_len(error),
-			   json_tok_full(buf, error));
-	if (!json_to_errcode(buf, code_tok, &dest->code))
-		plugin_err(cmd->plugin,
-			   "`fundchannel_start` has unparseable `code`? "
-			   "%.*s",
-			   json_tok_full_len(code_tok),
-			   json_tok_full(buf, code_tok));
-
-	/*
-	You might be wondering why we do not just use
-	mfc_forward_error here.
-	The reason is that other `fundchannel_start`
-	commands are running in the meantime,
-	and it is still ambiguous whether the opening
-	of other destinations was started or not.
-
-	After all parallel `fundchannel_start`s have
-	completed, we can then fail.
-	*/
-
-	fail_destination(dest, take(json_strdup(NULL, buf, error)));
-	return fundchannel_start_done(dest);
-}
-
-static void
-fundchannel_start_dest(struct multifundchannel_destination *dest)
-{
-	struct multifundchannel_command *mfc = dest->mfc;
-	struct command *cmd = mfc->cmd;
-	struct out_req *req;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64", dest %u: fundchannel_start %s.",
-		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id));
-
-	req = jsonrpc_request_start(cmd->plugin,
-				    cmd,
-				    "fundchannel_start",
-				    &fundchannel_start_ok,
-				    &fundchannel_start_err,
-				    dest);
-
-	json_add_node_id(req->js, "id", &dest->id);
-	assert(!dest->all);
-	json_add_string(req->js, "amount",
-			fmt_amount_sat(tmpctx, dest->amount));
-
-	if (mfc->cmtmt_feerate_str)
-		json_add_string(req->js, "feerate", mfc->cmtmt_feerate_str);
-	else if (mfc->feerate_str)
-		json_add_string(req->js, "feerate", mfc->feerate_str);
-	json_add_bool(req->js, "announce", dest->announce);
-	json_add_string(req->js, "push_msat",
-			fmt_amount_msat(tmpctx, dest->push_msat));
-	if (dest->close_to_str)
-		json_add_string(req->js, "close_to", dest->close_to_str);
-
-	send_outreq(cmd->plugin, req);
-}
-
-static struct command_result *
-perform_channel_start(struct multifundchannel_command *mfc)
-{
-	unsigned int i;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": fundchannel_start parallel "
-		   "with PSBT %s",
-		   mfc->id,
-		   type_to_string(tmpctx, struct wally_psbt, mfc->psbt));
-
-	mfc->pending = tal_count(mfc->destinations);
-
-	/* Since v2 is now available, we branch depending
-	 * on the capability of the peer and our feaures */
-	for (i = 0; i < tal_count(mfc->destinations); ++i) {
-		if (mfc->destinations[i].protocol == OPEN_CHANNEL)
-			openchannel_init_dest(&mfc->destinations[i]);
-		else
-			fundchannel_start_dest(&mfc->destinations[i]);
-	}
-
-	assert(mfc->pending != 0);
-	return command_still_pending(mfc->cmd);
-}
-
-/*---------------------------------------------------------------------------*/
-
 static void
 fundchannel_complete_dest(struct multifundchannel_destination *dest);
 struct command_result *
@@ -1183,6 +946,241 @@ void fail_destination(struct multifundchannel_destination *dest,
 	else
 		dest->error = tal_strdup(dest->mfc, error);
 }
+
+/*---------------------------------------------------------------------------*/
+
+/*~
+We perform all the `fundchannel_start` in parallel.
+
+We need to parallelize `fundchannel_start` execution
+since the command has to wait for a response from
+the remote peer.
+The remote peer is not under our control and might
+respond after a long time.
+
+By doing them in parallel, the time it takes to
+perform all the `fundchannel_start` is only the
+slowest time among all peers.
+This is important since faster peers might impose a
+timeout on channel opening and fail subsequent
+steps if we take too long before running
+`fundchannel_complete`.
+*/
+
+/* All fundchannel_start/openchannel_init commands have returned
+ * with either success or failure.
+*/
+struct command_result *
+after_channel_start(struct multifundchannel_command *mfc)
+{
+	unsigned int i;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": parallel channel starts done.",
+		   mfc->id);
+
+	/* Check if any channel start failed.  */
+	for (i = 0; i < tal_count(mfc->destinations); ++i) {
+		struct multifundchannel_destination *dest;
+
+		dest = &mfc->destinations[i];
+
+		assert(dest->state == MULTIFUNDCHANNEL_STARTED
+		    || dest->state == MULTIFUNDCHANNEL_FAILED);
+
+		if (dest->state != MULTIFUNDCHANNEL_FAILED)
+			continue;
+
+		/* One of them failed, oh no.  */
+		return redo_multifundchannel(mfc,
+					     dest->protocol == OPEN_CHANNEL ?
+					     "openchannel_init" :
+					     "fundchannel_start");
+	}
+
+	/* Next step.  */
+	return perform_funding_tx_finalize(mfc);
+}
+
+static struct command_result *
+fundchannel_start_done(struct multifundchannel_destination *dest)
+{
+	struct multifundchannel_command *mfc = dest->mfc;
+
+	--mfc->pending;
+	if (mfc->pending == 0)
+		return after_channel_start(mfc);
+	else
+		return command_still_pending(mfc->cmd);
+}
+
+static struct command_result *
+fundchannel_start_ok(struct command *cmd,
+		     const char *buf,
+		     const jsmntok_t *result,
+		     struct multifundchannel_destination *dest)
+{
+	struct multifundchannel_command *mfc = dest->mfc;
+	const jsmntok_t *address_tok;
+	const jsmntok_t *script_tok;
+	const jsmntok_t *close_to_tok;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64", dest %u: fundchannel_start %s done.",
+		   mfc->id, dest->index,
+		   node_id_to_hexstr(tmpctx, &dest->id));
+
+	/* Extract funding_address.  */
+	address_tok = json_get_member(buf, result, "funding_address");
+	if (!address_tok)
+		plugin_err(cmd->plugin,
+			   "fundchannel_start did not "
+			   "return 'funding_address': %.*s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	dest->funding_addr = json_strdup(dest->mfc, buf, address_tok);
+	/* Extract scriptpubkey.  */
+	script_tok = json_get_member(buf, result, "scriptpubkey");
+	if (!script_tok)
+		plugin_err(cmd->plugin,
+			   "fundchannel_start did not "
+			   "return 'scriptpubkey': %.*s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	dest->funding_script = json_tok_bin_from_hex(dest->mfc,
+						     buf, script_tok);
+	if (!dest->funding_script)
+		plugin_err(cmd->plugin,
+			   "fundchannel_start did not "
+			   "return parseable 'scriptpubkey': %.*s",
+			   json_tok_full_len(script_tok),
+			   json_tok_full(buf, script_tok));
+
+	close_to_tok = json_get_member(buf, result, "close_to");
+	/* Only returned if a) we requested and b) peer supports
+	 * opt_upfront_shutdownscript */
+	if (close_to_tok) {
+		dest->close_to_script =
+			json_tok_bin_from_hex(dest->mfc, buf, close_to_tok);
+	} else
+		dest->close_to_script = NULL;
+
+
+	dest->state = MULTIFUNDCHANNEL_STARTED;
+
+	return fundchannel_start_done(dest);
+}
+
+static struct command_result *
+fundchannel_start_err(struct command *cmd,
+		      const char *buf,
+		      const jsmntok_t *error,
+		      struct multifundchannel_destination *dest)
+{
+	struct multifundchannel_command *mfc = dest->mfc;
+	const jsmntok_t *code_tok;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64", dest %u: "
+		   "failed! fundchannel_start %s: %.*s.",
+		   mfc->id, dest->index,
+		   node_id_to_hexstr(tmpctx, &dest->id),
+		   json_tok_full_len(error),
+		   json_tok_full(buf, error));
+
+	code_tok = json_get_member(buf, error, "code");
+	if (!code_tok)
+		plugin_err(cmd->plugin,
+			   "`fundchannel_start` failure did not have `code`? "
+			   "%.*s",
+			   json_tok_full_len(error),
+			   json_tok_full(buf, error));
+	if (!json_to_errcode(buf, code_tok, &dest->code))
+		plugin_err(cmd->plugin,
+			   "`fundchannel_start` has unparseable `code`? "
+			   "%.*s",
+			   json_tok_full_len(code_tok),
+			   json_tok_full(buf, code_tok));
+
+	/*
+	You might be wondering why we do not just use
+	mfc_forward_error here.
+	The reason is that other `fundchannel_start`
+	commands are running in the meantime,
+	and it is still ambiguous whether the opening
+	of other destinations was started or not.
+
+	After all parallel `fundchannel_start`s have
+	completed, we can then fail.
+	*/
+
+	fail_destination(dest, take(json_strdup(NULL, buf, error)));
+	return fundchannel_start_done(dest);
+}
+
+static void
+fundchannel_start_dest(struct multifundchannel_destination *dest)
+{
+	struct multifundchannel_command *mfc = dest->mfc;
+	struct command *cmd = mfc->cmd;
+	struct out_req *req;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64", dest %u: fundchannel_start %s.",
+		   mfc->id, dest->index,
+		   node_id_to_hexstr(tmpctx, &dest->id));
+
+	req = jsonrpc_request_start(cmd->plugin,
+				    cmd,
+				    "fundchannel_start",
+				    &fundchannel_start_ok,
+				    &fundchannel_start_err,
+				    dest);
+
+	json_add_node_id(req->js, "id", &dest->id);
+	assert(!dest->all);
+	json_add_string(req->js, "amount",
+			fmt_amount_sat(tmpctx, dest->amount));
+
+	if (mfc->cmtmt_feerate_str)
+		json_add_string(req->js, "feerate", mfc->cmtmt_feerate_str);
+	else if (mfc->feerate_str)
+		json_add_string(req->js, "feerate", mfc->feerate_str);
+	json_add_bool(req->js, "announce", dest->announce);
+	json_add_string(req->js, "push_msat",
+			fmt_amount_msat(tmpctx, dest->push_msat));
+	if (dest->close_to_str)
+		json_add_string(req->js, "close_to", dest->close_to_str);
+
+	send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *
+perform_channel_start(struct multifundchannel_command *mfc)
+{
+	unsigned int i;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": fundchannel_start parallel "
+		   "with PSBT %s",
+		   mfc->id,
+		   type_to_string(tmpctx, struct wally_psbt, mfc->psbt));
+
+	mfc->pending = tal_count(mfc->destinations);
+
+	/* Since v2 is now available, we branch depending
+	 * on the capability of the peer and our feaures */
+	for (i = 0; i < tal_count(mfc->destinations); ++i) {
+		if (mfc->destinations[i].protocol == OPEN_CHANNEL)
+			openchannel_init_dest(&mfc->destinations[i]);
+		else
+			fundchannel_start_dest(&mfc->destinations[i]);
+	}
+
+	assert(mfc->pending != 0);
+	return command_still_pending(mfc->cmd);
+}
+
 
 /*---------------------------------------------------------------------------*/
 
