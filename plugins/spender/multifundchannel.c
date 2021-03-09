@@ -74,19 +74,76 @@ struct multifundchannel_cleanup {
 	void *arg;
 };
 
-/* Cleans up a PSBT.  */
+/* Done when all cleanup operations have completed.  */
+static struct command_result *
+mfc_cleanup_complete(struct multifundchannel_cleanup *cleanup)
+{
+	tal_steal(tmpctx, cleanup);
+	return cleanup->cb(cleanup->arg);
+}
+
+static struct command_result *
+mfc_cleanup_done(struct command *cmd,
+		       const char *buf UNUSED,
+		       const jsmntok_t *res UNUSED,
+		       struct multifundchannel_cleanup *cleanup)
+{
+	--cleanup->pending;
+	if (cleanup->pending == 0)
+		return mfc_cleanup_complete(cleanup);
+	else
+		return command_still_pending(cmd);
+}
+
+/* Cleans up a txid by doing `txdiscard` on it.  */
 static void
 mfc_cleanup_psbt(struct command *cmd,
 		 struct multifundchannel_cleanup *cleanup,
-		 struct wally_psbt *psbt);
-/* Cleans up a `fundchannel_start`ed node id.  */
+		 struct wally_psbt *psbt)
+{
+	struct wally_psbt *pruned_psbt;
+	struct out_req *req = jsonrpc_request_start(cmd->plugin,
+						    cmd,
+						    "unreserveinputs",
+						    &mfc_cleanup_done,
+						    &mfc_cleanup_done,
+						    cleanup);
+
+	/* We might have peer's inputs on this, get rid of them */
+	tal_wally_start();
+	if (wally_psbt_clone_alloc(psbt, 0, &pruned_psbt) != WALLY_OK)
+		abort();
+	tal_wally_end(tal_steal(NULL, pruned_psbt));
+
+	for (size_t i = pruned_psbt->num_inputs - 1;
+	     i < pruned_psbt->num_inputs;
+	     i--) {
+		if (!psbt_input_is_ours(&pruned_psbt->inputs[i]))
+			psbt_rm_input(pruned_psbt, i);
+	}
+
+	json_add_psbt(req->js, "psbt", take(pruned_psbt));
+	send_outreq(cmd->plugin, req);
+}
+
+/* Cleans up a `fundchannel_start` by doing `fundchannel_cancel` on
+the node.
+*/
 static void
 mfc_cleanup_fc(struct command *cmd,
 	       struct multifundchannel_cleanup *cleanup,
-	       struct multifundchannel_destination *dest);
-/* Run at completion of all cleanup tasks.  */
-static struct command_result *
-mfc_cleanup_complete(struct multifundchannel_cleanup *cleanup);
+	       struct multifundchannel_destination *dest)
+{
+	struct out_req *req = jsonrpc_request_start(cmd->plugin,
+						    cmd,
+						    "fundchannel_cancel",
+						    &mfc_cleanup_done,
+						    &mfc_cleanup_done,
+						    cleanup);
+	json_add_node_id(req->js, "id", &dest->id);
+
+	send_outreq(cmd->plugin, req);
+}
 
 /* Core cleanup function.  */
 static struct command_result *
@@ -139,86 +196,10 @@ mfc_cleanup_(struct multifundchannel_command *mfc,
 	else
 		return command_still_pending(mfc->cmd);
 }
-static struct command_result *
-mfc_cleanup_done(struct command *cmd,
-		       const char *buf UNUSED,
-		       const jsmntok_t *res UNUSED,
-		       struct multifundchannel_cleanup *cleanup)
-{
-	--cleanup->pending;
-	if (cleanup->pending == 0)
-		return mfc_cleanup_complete(cleanup);
-	else
-		return command_still_pending(cmd);
-}
-
-/* Cleans up a txid by doing `txdiscard` on it.  */
-static void
-mfc_cleanup_psbt(struct command *cmd,
-		 struct multifundchannel_cleanup *cleanup,
-		 struct wally_psbt *psbt)
-{
-	struct wally_psbt *pruned_psbt;
-	struct out_req *req = jsonrpc_request_start(cmd->plugin,
-						    cmd,
-						    "unreserveinputs",
-						    &mfc_cleanup_done,
-						    &mfc_cleanup_done,
-						    cleanup);
-
-	/* We might have peer's inputs on this, get rid of them */
-	tal_wally_start();
-	if (wally_psbt_clone_alloc(psbt, 0, &pruned_psbt) != WALLY_OK)
-		abort();
-	tal_wally_end(tal_steal(NULL, pruned_psbt));
-
-	for (size_t i = pruned_psbt->num_inputs - 1;
-	     i < pruned_psbt->num_inputs;
-	     i--) {
-		if (!psbt_input_is_ours(&pruned_psbt->inputs[i]))
-			psbt_rm_input(pruned_psbt, i);
-	}
-
-	json_add_psbt(req->js, "psbt", take(pruned_psbt));
-	send_outreq(cmd->plugin, req);
-}
-/* Cleans up a `fundchannel_start` by doing `fundchannel_cancel` on
-the node.
-*/
-static void
-mfc_cleanup_fc(struct command *cmd,
-	       struct multifundchannel_cleanup *cleanup,
-	       struct multifundchannel_destination *dest)
-{
-	struct out_req *req = jsonrpc_request_start(cmd->plugin,
-						    cmd,
-						    "fundchannel_cancel",
-						    &mfc_cleanup_done,
-						    &mfc_cleanup_done,
-						    cleanup);
-	json_add_node_id(req->js, "id", &dest->id);
-
-	send_outreq(cmd->plugin, req);
-}
-/* Done when all cleanup operations have completed.  */
-static struct command_result *
-mfc_cleanup_complete(struct multifundchannel_cleanup *cleanup)
-{
-	tal_steal(tmpctx, cleanup);
-	return cleanup->cb(cleanup->arg);
-}
 #define mfc_cleanup(mfc, cb, arg) \
 	mfc_cleanup_(mfc, typesafe_cb(struct command_result *, void *, \
 				      (cb), (arg)), \
 		     (arg))
-
-/* Use this instead of command_fail.  */
-static struct command_result *
-mfc_fail(struct multifundchannel_command *, errcode_t code,
-	 const char *fmt, ...);
-/* Use this instead of command_err_raw.  */
-static struct command_result *
-mfc_err_raw(struct multifundchannel_command *, const char *json_string);
 
 /*---------------------------------------------------------------------------*/
 
@@ -230,8 +211,16 @@ struct mfc_fail_object {
 	errcode_t code;
 	const char *msg;
 };
+
 static struct command_result *
-mfc_fail_complete(struct mfc_fail_object *obj);
+mfc_fail_complete(struct mfc_fail_object *obj)
+{
+	plugin_log(obj->mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": cleanup done, failing.", obj->mfc->id);
+	return command_fail(obj->cmd, obj->code, "%s", obj->msg);
+}
+
+/* Use this instead of command_fail.  */
 static struct command_result *
 mfc_fail(struct multifundchannel_command *mfc, errcode_t code,
 	 const char *fmt, ...)
@@ -252,20 +241,19 @@ mfc_fail(struct multifundchannel_command *mfc, errcode_t code,
 
 	return mfc_cleanup(mfc, &mfc_fail_complete, obj);
 }
-static struct command_result *
-mfc_fail_complete(struct mfc_fail_object *obj)
-{
-	plugin_log(obj->mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": cleanup done, failing.", obj->mfc->id);
-	return command_fail(obj->cmd, obj->code, "%s", obj->msg);
-}
-
 struct mfc_err_raw_object {
 	struct multifundchannel_command *mfc;
 	const char *error;
 };
 static struct command_result *
-mfc_err_raw_complete(struct mfc_err_raw_object *obj);
+mfc_err_raw_complete(struct mfc_err_raw_object *obj)
+{
+	plugin_log(obj->mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": cleanup done, failing raw.", obj->mfc->id);
+	return command_err_raw(obj->mfc->cmd, obj->error);
+}
+
+/* Use this instead of command_err_raw.  */
 static struct command_result *
 mfc_err_raw(struct multifundchannel_command *mfc, const char *json_string)
 {
@@ -276,13 +264,6 @@ mfc_err_raw(struct multifundchannel_command *mfc, const char *json_string)
 	obj->error = tal_strdup(obj, json_string);
 
 	return mfc_cleanup(mfc, &mfc_err_raw_complete, obj);
-}
-static struct command_result *
-mfc_err_raw_complete(struct mfc_err_raw_object *obj)
-{
-	plugin_log(obj->mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": cleanup done, failing raw.", obj->mfc->id);
-	return command_err_raw(obj->mfc->cmd, obj->error);
 }
 struct command_result *
 mfc_forward_error(struct command *cmd,
@@ -301,7 +282,14 @@ struct mfc_finished_object {
 	struct json_stream *response;
 };
 static struct command_result *
-mfc_finished_complete(struct mfc_finished_object *obj);
+mfc_finished_complete(struct mfc_finished_object *obj)
+{
+	plugin_log(obj->mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": cleanup done, finishing command.",
+		   obj->mfc->id);
+	return command_finished(obj->cmd, obj->response);
+}
+
 struct command_result *
 mfc_finished(struct multifundchannel_command *mfc,
 	     struct json_stream *response)
@@ -318,14 +306,6 @@ mfc_finished(struct multifundchannel_command *mfc,
 	obj->response = response;
 
 	return mfc_cleanup(mfc, &mfc_finished_complete, obj);
-}
-static struct command_result *
-mfc_finished_complete(struct mfc_finished_object *obj)
-{
-	plugin_log(obj->mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": cleanup done, finishing command.",
-		   obj->mfc->id);
-	return command_finished(obj->cmd, obj->response);
 }
 
 /*-----------------------------------------------------------------------------
