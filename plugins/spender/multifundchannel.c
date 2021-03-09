@@ -325,117 +325,6 @@ mfc_finished(struct multifundchannel_command *mfc,
 	return mfc_cleanup(mfc, &mfc_finished_complete, obj);
 }
 
-/*-----------------------------------------------------------------------------
-Input Validation
------------------------------------------------------------------------------*/
-
-/* Validates the destinations input argument.
-
-Returns NULL if checking of destinations array worked,
-or non-NULL if it failed (and this function has already
-executed mfc_fail).
-*/
-static struct command_result *
-param_destinations_array(struct command *cmd, const char *name,
-			 const char *buffer, const jsmntok_t *tok,
-			 struct multifundchannel_destination **dests)
-{
-	size_t i;
-	const jsmntok_t *json_dest;
-	bool has_all = false;
-
-	if (tok->type != JSMN_ARRAY)
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     "must be an array");
-	if (tok->size < 1)
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     "must have at least one entry");
-
-	*dests = tal_arr(cmd, struct multifundchannel_destination, tok->size);
-	for (i = 0; i < tal_count(*dests); ++i)
-		(*dests)[i].state = MULTIFUNDCHANNEL_START_NOT_YET;
-
-	json_for_each_arr(i, json_dest, tok) {
-		struct multifundchannel_destination *dest;
-		const char *id;
-		char *addrhint;
-		struct amount_sat *amount;
-		bool *announce;
-		struct amount_msat *push_msat;
-
-		dest = &(*dests)[i];
-
-		if (!param(cmd, buffer, json_dest,
-			   p_req("id", param_string, &id),
-			   p_req("amount", param_sat_or_all, &amount),
-			   p_opt_def("announce", param_bool, &announce, true),
-			   p_opt_def("push_msat", param_msat, &push_msat,
-				     AMOUNT_MSAT(0)),
-			   /* FIXME: do address validation here?
-			    * Note that it will fail eventually (when
-			    * passed in to fundchannel_start) if invalid*/
-			   p_opt("close_to", param_string,
-				 &dest->close_to_str),
-			   NULL))
-			return command_param_failed();
-
-		addrhint = strchr(id, '@');
-		if (addrhint) {
-			/* Split at @.  */
-			size_t idlen = (size_t) (addrhint - id);
-			addrhint = tal_strdup(*dests, addrhint + 1);
-			id = tal_strndup(*dests, take(id), idlen);
-		}
-
-		if (!node_id_from_hexstr(id, strlen(id), &dest->id))
-			return command_fail_badparam(cmd, name, buffer,
-						     json_dest,
-						     "invalid node id");
-
-		if (!amount_sat_eq(*amount, AMOUNT_SAT(-1ULL)) &&
-		    amount_sat_less(*amount, chainparams->dust_limit))
-			return command_fail_badparam(cmd, name, buffer,
-						     json_dest,
-						     "output would be dust");
-
-		dest->index = i;
-		dest->addrhint = addrhint;
-		dest->their_features = NULL;
-		dest->funding_script = NULL;
-		dest->funding_addr = NULL;
-		dest->all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
-		dest->amount = dest->all ? AMOUNT_SAT(0) : *amount;
-		dest->announce = *announce;
-		dest->push_msat = *push_msat;
-		dest->error = NULL;
-		dest->psbt = NULL;
-		dest->updated_psbt = NULL;
-		dest->protocol = FUND_CHANNEL;
-
-		/* Only one destination can have "all" indicator.  */
-		if (dest->all) {
-			if (has_all)
-				return command_fail_badparam(cmd, name, buffer,
-							     json_dest,
-							     "only one destination "
-							     "can indicate \"all\" "
-							     "for 'amount'.");
-			else
-				has_all = true;
-		}
-
-		/* Make sure every id is unique.  */
-		for (size_t j = 0; j < i; j++) {
-			if (node_id_eq(&dest->id, &(*dests)[j].id))
-				return command_fail_badparam(cmd, name, buffer,
-							     json_dest,
-							     "Duplicate destination");
-		}
-	}
-
-	return NULL;
-}
-
 /*---------------------------------------------------------------------------*/
 /*~
 We now have an unsigned funding transaction in
@@ -1789,8 +1678,116 @@ redo_multifundchannel(struct multifundchannel_command *mfc,
 }
 
 /*-----------------------------------------------------------------------------
-Command Entry Point
+Input Validation
 -----------------------------------------------------------------------------*/
+
+/* Validates the destinations input argument.
+
+Returns NULL if checking of destinations array worked,
+or non-NULL if it failed (and this function has already
+executed mfc_fail).
+*/
+static struct command_result *
+param_destinations_array(struct command *cmd, const char *name,
+			 const char *buffer, const jsmntok_t *tok,
+			 struct multifundchannel_destination **dests)
+{
+	size_t i;
+	const jsmntok_t *json_dest;
+	bool has_all = false;
+
+	if (tok->type != JSMN_ARRAY)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "must be an array");
+	if (tok->size < 1)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "must have at least one entry");
+
+	*dests = tal_arr(cmd, struct multifundchannel_destination, tok->size);
+	for (i = 0; i < tal_count(*dests); ++i)
+		(*dests)[i].state = MULTIFUNDCHANNEL_START_NOT_YET;
+
+	json_for_each_arr(i, json_dest, tok) {
+		struct multifundchannel_destination *dest;
+		const char *id;
+		char *addrhint;
+		struct amount_sat *amount;
+		bool *announce;
+		struct amount_msat *push_msat;
+
+		dest = &(*dests)[i];
+
+		if (!param(cmd, buffer, json_dest,
+			   p_req("id", param_string, &id),
+			   p_req("amount", param_sat_or_all, &amount),
+			   p_opt_def("announce", param_bool, &announce, true),
+			   p_opt_def("push_msat", param_msat, &push_msat,
+				     AMOUNT_MSAT(0)),
+			   /* FIXME: do address validation here?
+			    * Note that it will fail eventually (when
+			    * passed in to fundchannel_start) if invalid*/
+			   p_opt("close_to", param_string,
+				 &dest->close_to_str),
+			   NULL))
+			return command_param_failed();
+
+		addrhint = strchr(id, '@');
+		if (addrhint) {
+			/* Split at @.  */
+			size_t idlen = (size_t) (addrhint - id);
+			addrhint = tal_strdup(*dests, addrhint + 1);
+			id = tal_strndup(*dests, take(id), idlen);
+		}
+
+		if (!node_id_from_hexstr(id, strlen(id), &dest->id))
+			return command_fail_badparam(cmd, name, buffer,
+						     json_dest,
+						     "invalid node id");
+
+		if (!amount_sat_eq(*amount, AMOUNT_SAT(-1ULL)) &&
+		    amount_sat_less(*amount, chainparams->dust_limit))
+			return command_fail_badparam(cmd, name, buffer,
+						     json_dest,
+						     "output would be dust");
+
+		dest->index = i;
+		dest->addrhint = addrhint;
+		dest->their_features = NULL;
+		dest->funding_script = NULL;
+		dest->funding_addr = NULL;
+		dest->all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
+		dest->amount = dest->all ? AMOUNT_SAT(0) : *amount;
+		dest->announce = *announce;
+		dest->push_msat = *push_msat;
+		dest->error = NULL;
+		dest->psbt = NULL;
+		dest->updated_psbt = NULL;
+		dest->protocol = FUND_CHANNEL;
+
+		/* Only one destination can have "all" indicator.  */
+		if (dest->all) {
+			if (has_all)
+				return command_fail_badparam(cmd, name, buffer,
+							     json_dest,
+							     "only one destination "
+							     "can indicate \"all\" "
+							     "for 'amount'.");
+			else
+				has_all = true;
+		}
+
+		/* Make sure every id is unique.  */
+		for (size_t j = 0; j < i; j++) {
+			if (node_id_eq(&dest->id, &(*dests)[j].id))
+				return command_fail_badparam(cmd, name, buffer,
+							     json_dest,
+							     "Duplicate destination");
+		}
+	}
+
+	return NULL;
+}
+
 static struct command_result *
 param_positive_number(struct command *cmd,
 		      const char *name,
@@ -1807,8 +1804,9 @@ param_positive_number(struct command *cmd,
 	return NULL;
 }
 
-
-/* Entry function.  */
+/*-----------------------------------------------------------------------------
+Command Entry Point
+-----------------------------------------------------------------------------*/
 static struct command_result *
 json_multifundchannel(struct command *cmd,
 		      const char *buf,
