@@ -419,22 +419,6 @@ param_destinations_array(struct command *cmd, const char *name,
 	return NULL;
 }
 
-/*-----------------------------------------------------------------------------
-Command Processing
------------------------------------------------------------------------------*/
-
-/* Function to redo multifundchannel after a failure.
-*/
-static struct command_result *
-perform_multiconnect(struct multifundchannel_command *mfc);
-
-/* Initiate the multifundchannel execution.  */
-static struct command_result *
-perform_multifundchannel(struct multifundchannel_command *mfc)
-{
-	return perform_multiconnect(mfc);
-}
-
 /*---------------------------------------------------------------------------*/
 /*~
 First, connect to all the peers.
@@ -597,6 +581,10 @@ connect_dest(struct multifundchannel_destination *dest)
 	send_outreq(cmd->plugin, req);
 }
 
+/*-----------------------------------------------------------------------------
+Starting
+-----------------------------------------------------------------------------*/
+
 /* Initiate the multiconnect.  */
 static struct command_result *
 perform_multiconnect(struct multifundchannel_command *mfc)
@@ -613,6 +601,14 @@ perform_multiconnect(struct multifundchannel_command *mfc)
 
 	assert(mfc->pending != 0);
 	return command_still_pending(mfc->cmd);
+}
+
+
+/* Initiate the multifundchannel execution.  */
+static struct command_result *
+perform_multifundchannel(struct multifundchannel_command *mfc)
+{
+	return perform_multiconnect(mfc);
 }
 
 /*---------------------------------------------------------------------------*/
