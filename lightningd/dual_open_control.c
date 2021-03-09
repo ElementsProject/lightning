@@ -1350,9 +1350,7 @@ static void sendfunding_done(struct bitcoind *bitcoind UNUSED,
 		wally_txid(wtx, &txid);
 		json_add_hex_talarr(response, "tx", linearize_wtx(tmpctx, wtx));
 		json_add_txid(response, "txid", &txid);
-		json_add_string(response, "channel_id",
-				type_to_string(tmpctx, struct channel_id,
-					       &channel->cid));
+		json_add_channel_id(response, "channel_id", &channel->cid);
 		was_pending(command_success(cmd, response));
 	}
 
