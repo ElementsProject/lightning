@@ -724,7 +724,101 @@ class Plugin(object):
 
         return msgs[-1]
 
+    def print_usage(self):
+        import textwrap
+
+        executable = os.path.abspath(sys.argv[0])
+        overview = textwrap.dedent("""
+        Hi, it looks like you're trying to run a plugin from the
+        command line. Plugins are usually started and controlled by
+        lightningd, which allows you to simply specify which plugins
+        you'd like to run using the --plugin command line option when
+        starting lightningd. The following is an example of how that'd
+        look:
+
+          $ lightningd --plugin={executable}
+
+        Since we're here however let me tell you about this plugin.
+        """).format(executable=executable)
+
+        methods_header = textwrap.dedent("""
+
+        RPC methods
+        ===========
+
+        Plugins may provide additional RPC methods that you can simply
+        call as if they were built-in methods from lightningd
+        itself. To call them just use lightning-cli or any other
+        frontend. The following methods are defined by this plugin:
+        """)
+
+        parts = [overview]
+
+        method_tpl = textwrap.dedent("""
+          {name}
+        {doc}
+        """)
+
+        for method in self.methods.values():
+            if method.name in ['init', 'getmanifest']:
+                # Skip internal methods provided by all plugins
+                continue
+
+            if method.mtype != MethodType.RPCMETHOD:
+                # Don't include non-rpc-methods in the rpc-method
+                # section
+                continue
+
+            if methods_header is not None:
+                # Listen carefully, I shall say this only once :-)
+                parts.append(methods_header)
+                methods_header = None
+
+            doc = method.long_desc if method.long_desc is not None else "No documentation found"
+            parts.append(method_tpl.format(
+                name=method.name,
+                doc=textwrap.indent(doc, prefix="    ")
+            ))
+
+        options_header = textwrap.dedent("""
+        Command line options
+        ====================
+
+        This plugin exposes the following command line options. They
+        can be specified just like any other you might gice lightning
+        at startup. The following options are exposed by this plugin:
+        """)
+
+        option_tpl = textwrap.dedent("""
+          --{name}={typ}  (default: {default}
+        {doc}
+        """)
+        for opt in self.options.values():
+            if options_header is not None:
+                parts.append(options_header)
+                options_header = None
+
+            doc = textwrap.indent(opt['description'], prefix="    ")
+
+            if opt['multi']:
+                doc += "\n\n    This option can be specified multiple times"
+
+            parts.append(option_tpl.format(
+                name=opt['name'],
+                doc=doc,
+                default=opt['default'],
+                typ=opt['type'],
+            ))
+
+        sys.stdout.write("".join(parts))
+        sys.stdout.write("\n")
+
     def run(self) -> None:
+        # If we are not running inside lightningd we'll print usage
+        # and some information about the plugin.
+        if os.environ.get('LIGHTNINGD_PLUGIN', None) != '1':
+            return self.print_usage()
+
         partial = b""
         for l in self.stdin.buffer:
             partial += l
