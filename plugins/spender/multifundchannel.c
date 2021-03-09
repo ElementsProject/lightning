@@ -426,168 +426,6 @@ param_destinations_array(struct command *cmd, const char *name,
 }
 
 /*---------------------------------------------------------------------------*/
-/*~
-First, connect to all the peers.
-
-This is a convenience both to us and to the user.
-
-We delegate parsing for valid node IDs to the
-`multiconnect`.
-In addition, this means the user does not have to
-connect to the specified nodes.
-
-In particular, some implementations (including some
-versions of C-Lightning) will disconnect in case
-of funding channel failure.
-And with a *multi* funding, it is more likely to
-fail due to having to coordinate many more nodes.
-*/
-
-static struct command_result *
-perform_fundpsbt(struct multifundchannel_command *mfc);
-
-/* Check results of connect.  */
-static struct command_result *
-after_multiconnect(struct multifundchannel_command *mfc)
-{
-	unsigned int i;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": multiconnect done.", mfc->id);
-
-	/* Check if anyone failed.  */
-	for (i = 0; i < tal_count(mfc->destinations); ++i) {
-		struct multifundchannel_destination *dest;
-
-		dest = &mfc->destinations[i];
-
-		assert(dest->state == MULTIFUNDCHANNEL_CONNECTED
-		    || dest->state == MULTIFUNDCHANNEL_FAILED);
-
-		if (dest->state != MULTIFUNDCHANNEL_FAILED)
-			continue;
-
-		/* One of them failed, oh no. */
-		return redo_multifundchannel(mfc, "connect");
-	}
-
-	return perform_fundpsbt(mfc);
-}
-
-static struct command_result *
-connect_done(struct multifundchannel_destination *dest)
-{
-	struct multifundchannel_command *mfc = dest->mfc;
-
-	--mfc->pending;
-	if (mfc->pending == 0)
-		return after_multiconnect(mfc);
-	else
-		return command_still_pending(mfc->cmd);
-}
-
-
-static struct command_result *
-connect_ok(struct command *cmd,
-	   const char *buf,
-	   const jsmntok_t *result,
-	   struct multifundchannel_destination *dest)
-{
-	struct multifundchannel_command *mfc = dest->mfc;
-	const jsmntok_t *features_tok;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64", dest %u: connect done.",
-		   mfc->id, dest->index);
-
-	features_tok = json_get_member(buf, result, "features");
-	if (!features_tok)
-		plugin_err(cmd->plugin,
-			   "'connect' did not return 'features'? %.*s",
-			   json_tok_full_len(result),
-			   json_tok_full(buf, result));
-	dest->their_features = json_tok_bin_from_hex(mfc, buf, features_tok);
-	if (!dest->their_features)
-		plugin_err(cmd->plugin,
-			   "'connect' has unparesable 'features'? %.*s",
-			   json_tok_full_len(features_tok),
-			   json_tok_full(buf, features_tok));
-
-	/* Set the open protocol to use now */
-#if EXPERIMENTAL_FEATURES
-	if (feature_negotiated(plugin_feature_set(mfc->cmd->plugin),
-			       dest->their_features,
-			       OPT_DUAL_FUND))
-		dest->protocol = OPEN_CHANNEL;
-#endif /* EXPERIMENTAL_FEATURES */
-
-	dest->state = MULTIFUNDCHANNEL_CONNECTED;
-	return connect_done(dest);
-}
-
-static struct command_result *
-connect_err(struct command *cmd,
-	    const char *buf,
-	    const jsmntok_t *error,
-	    struct multifundchannel_destination *dest)
-{
-	struct multifundchannel_command *mfc = dest->mfc;
-	const jsmntok_t *code_tok;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64", dest %u: failed! connect %s: %.*s.",
-		   mfc->id, dest->index,
-		   node_id_to_hexstr(tmpctx, &dest->id),
-		   json_tok_full_len(error),
-		   json_tok_full(buf, error));
-
-	code_tok = json_get_member(buf, error, "code");
-	if (!code_tok)
-		plugin_err(cmd->plugin,
-			   "`connect` failure did not have `code`? "
-			   "%.*s",
-			   json_tok_full_len(error),
-			   json_tok_full(buf, error));
-	if (!json_to_errcode(buf, code_tok, &dest->code))
-		plugin_err(cmd->plugin,
-			   "`connect` has unparseable `code`? "
-			   "%.*s",
-			   json_tok_full_len(code_tok),
-			   json_tok_full(buf, code_tok));
-
-	fail_destination(dest, take(json_strdup(NULL, buf, error)));
-	return connect_done(dest);
-}
-
-static void
-connect_dest(struct multifundchannel_destination *dest)
-{
-	struct multifundchannel_command *mfc = dest->mfc;
-	struct command *cmd = mfc->cmd;
-	const char *id;
-	struct out_req *req;
-
-	id = node_id_to_hexstr(tmpctx, &dest->id);
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64", dest %u: connect %s.",
-		   mfc->id, dest->index, id);
-
-	req = jsonrpc_request_start(cmd->plugin, cmd,
-				    "connect",
-				    &connect_ok,
-				    &connect_err,
-				    dest);
-	if (dest->addrhint)
-		json_add_string(req->js, "id",
-				tal_fmt(tmpctx, "%s@%s",
-					id,
-					dest->addrhint));
-	else
-		json_add_node_id(req->js, "id", &dest->id);
-	send_outreq(cmd->plugin, req);
-}
-
-/*---------------------------------------------------------------------------*/
 
 /*~
 We perform all the `fundchannel_start` in parallel.
@@ -1640,7 +1478,164 @@ perform_fundpsbt(struct multifundchannel_command *mfc)
 	return send_outreq(mfc->cmd->plugin, req);
 }
 
+/*---------------------------------------------------------------------------*/
+/*~
+First, connect to all the peers.
 
+This is a convenience both to us and to the user.
+
+We delegate parsing for valid node IDs to the
+`multiconnect`.
+In addition, this means the user does not have to
+connect to the specified nodes.
+
+In particular, some implementations (including some
+versions of C-Lightning) will disconnect in case
+of funding channel failure.
+And with a *multi* funding, it is more likely to
+fail due to having to coordinate many more nodes.
+*/
+
+/* Check results of connect.  */
+static struct command_result *
+after_multiconnect(struct multifundchannel_command *mfc)
+{
+	unsigned int i;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": multiconnect done.", mfc->id);
+
+	/* Check if anyone failed.  */
+	for (i = 0; i < tal_count(mfc->destinations); ++i) {
+		struct multifundchannel_destination *dest;
+
+		dest = &mfc->destinations[i];
+
+		assert(dest->state == MULTIFUNDCHANNEL_CONNECTED
+		    || dest->state == MULTIFUNDCHANNEL_FAILED);
+
+		if (dest->state != MULTIFUNDCHANNEL_FAILED)
+			continue;
+
+		/* One of them failed, oh no. */
+		return redo_multifundchannel(mfc, "connect");
+	}
+
+	return perform_fundpsbt(mfc);
+}
+
+static struct command_result *
+connect_done(struct multifundchannel_destination *dest)
+{
+	struct multifundchannel_command *mfc = dest->mfc;
+
+	--mfc->pending;
+	if (mfc->pending == 0)
+		return after_multiconnect(mfc);
+	else
+		return command_still_pending(mfc->cmd);
+}
+
+
+static struct command_result *
+connect_ok(struct command *cmd,
+	   const char *buf,
+	   const jsmntok_t *result,
+	   struct multifundchannel_destination *dest)
+{
+	struct multifundchannel_command *mfc = dest->mfc;
+	const jsmntok_t *features_tok;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64", dest %u: connect done.",
+		   mfc->id, dest->index);
+
+	features_tok = json_get_member(buf, result, "features");
+	if (!features_tok)
+		plugin_err(cmd->plugin,
+			   "'connect' did not return 'features'? %.*s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+	dest->their_features = json_tok_bin_from_hex(mfc, buf, features_tok);
+	if (!dest->their_features)
+		plugin_err(cmd->plugin,
+			   "'connect' has unparesable 'features'? %.*s",
+			   json_tok_full_len(features_tok),
+			   json_tok_full(buf, features_tok));
+
+	/* Set the open protocol to use now */
+#if EXPERIMENTAL_FEATURES
+	if (feature_negotiated(plugin_feature_set(mfc->cmd->plugin),
+			       dest->their_features,
+			       OPT_DUAL_FUND))
+		dest->protocol = OPEN_CHANNEL;
+#endif /* EXPERIMENTAL_FEATURES */
+
+	dest->state = MULTIFUNDCHANNEL_CONNECTED;
+	return connect_done(dest);
+}
+
+static struct command_result *
+connect_err(struct command *cmd,
+	    const char *buf,
+	    const jsmntok_t *error,
+	    struct multifundchannel_destination *dest)
+{
+	struct multifundchannel_command *mfc = dest->mfc;
+	const jsmntok_t *code_tok;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64", dest %u: failed! connect %s: %.*s.",
+		   mfc->id, dest->index,
+		   node_id_to_hexstr(tmpctx, &dest->id),
+		   json_tok_full_len(error),
+		   json_tok_full(buf, error));
+
+	code_tok = json_get_member(buf, error, "code");
+	if (!code_tok)
+		plugin_err(cmd->plugin,
+			   "`connect` failure did not have `code`? "
+			   "%.*s",
+			   json_tok_full_len(error),
+			   json_tok_full(buf, error));
+	if (!json_to_errcode(buf, code_tok, &dest->code))
+		plugin_err(cmd->plugin,
+			   "`connect` has unparseable `code`? "
+			   "%.*s",
+			   json_tok_full_len(code_tok),
+			   json_tok_full(buf, code_tok));
+
+	fail_destination(dest, take(json_strdup(NULL, buf, error)));
+	return connect_done(dest);
+}
+
+static void
+connect_dest(struct multifundchannel_destination *dest)
+{
+	struct multifundchannel_command *mfc = dest->mfc;
+	struct command *cmd = mfc->cmd;
+	const char *id;
+	struct out_req *req;
+
+	id = node_id_to_hexstr(tmpctx, &dest->id);
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64", dest %u: connect %s.",
+		   mfc->id, dest->index, id);
+
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "connect",
+				    &connect_ok,
+				    &connect_err,
+				    dest);
+	if (dest->addrhint)
+		json_add_string(req->js, "id",
+				tal_fmt(tmpctx, "%s@%s",
+					id,
+					dest->addrhint));
+	else
+		json_add_node_id(req->js, "id", &dest->id);
+	send_outreq(cmd->plugin, req);
+}
 
 /*-----------------------------------------------------------------------------
 Starting
