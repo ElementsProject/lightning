@@ -581,36 +581,6 @@ connect_dest(struct multifundchannel_destination *dest)
 	send_outreq(cmd->plugin, req);
 }
 
-/*-----------------------------------------------------------------------------
-Starting
------------------------------------------------------------------------------*/
-
-/* Initiate the multiconnect.  */
-static struct command_result *
-perform_multiconnect(struct multifundchannel_command *mfc)
-{
-	unsigned int i;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": multiconnect.", mfc->id);
-
-	mfc->pending = tal_count(mfc->destinations);
-
-	for (i = 0; i < tal_count(mfc->destinations); ++i)
-		connect_dest(&mfc->destinations[i]);
-
-	assert(mfc->pending != 0);
-	return command_still_pending(mfc->cmd);
-}
-
-
-/* Initiate the multifundchannel execution.  */
-static struct command_result *
-perform_multifundchannel(struct multifundchannel_command *mfc)
-{
-	return perform_multiconnect(mfc);
-}
-
 /*---------------------------------------------------------------------------*/
 
 /*~ Create an initial funding PSBT.
@@ -1657,37 +1627,6 @@ fundchannel_complete_dest(struct multifundchannel_destination *dest)
 	send_outreq(cmd->plugin, req);
 }
 
-/*~ We do cleanup, then we remove failed destinations and if we still have
- * the minimum number, re-run.
-*/
-struct multifundchannel_redo {
-	struct multifundchannel_command *mfc;
-	const char *failing_method;
-};
-
-static struct command_result *
-post_cleanup_redo_multifundchannel(struct multifundchannel_redo *redo);
-
-struct command_result *
-redo_multifundchannel(struct multifundchannel_command *mfc,
-		      const char *failing_method)
-{
-	struct multifundchannel_redo *redo;
-
-	assert(mfc->pending == 0);
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": trying redo despite '%s' failure; "
-		   "will cleanup for now.",
-		   mfc->id, failing_method);
-
-	redo = tal(mfc, struct multifundchannel_redo);
-	redo->mfc = mfc;
-	redo->failing_method = failing_method;
-
-	return mfc_cleanup(mfc, &post_cleanup_redo_multifundchannel, redo);
-}
-
 /* Return true if this destination failed, false otherwise.  */
 static bool dest_failed(struct multifundchannel_destination *dest)
 {
@@ -1704,6 +1643,63 @@ void fail_destination(struct multifundchannel_destination *dest,
 	else
 		dest->error = tal_strdup(dest->mfc, error);
 }
+
+static struct command_result *param_positive_number(struct command *cmd,
+						    const char *name,
+						    const char *buffer,
+						    const jsmntok_t *tok,
+						    unsigned int **num)
+{
+	struct command_result *res = param_number(cmd, name, buffer, tok, num);
+	if (res)
+		return res;
+	if (**num == 0)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be a positive integer");
+	return NULL;
+}
+
+/*-----------------------------------------------------------------------------
+Starting
+-----------------------------------------------------------------------------*/
+
+/* Initiate the multiconnect.  */
+static struct command_result *
+perform_multiconnect(struct multifundchannel_command *mfc)
+{
+	unsigned int i;
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": multiconnect.", mfc->id);
+
+	mfc->pending = tal_count(mfc->destinations);
+
+	for (i = 0; i < tal_count(mfc->destinations); ++i)
+		connect_dest(&mfc->destinations[i]);
+
+	assert(mfc->pending != 0);
+	return command_still_pending(mfc->cmd);
+}
+
+
+/* Initiate the multifundchannel execution.  */
+static struct command_result *
+perform_multifundchannel(struct multifundchannel_command *mfc)
+{
+	return perform_multiconnect(mfc);
+}
+
+
+/*-----------------------------------------------------------------------------
+Re-try Entry Point
+-----------------------------------------------------------------------------*/
+/*~ We do cleanup, then we remove failed destinations and if we still have
+ * the minimum number, re-run.
+*/
+struct multifundchannel_redo {
+	struct multifundchannel_command *mfc;
+	const char *failing_method;
+};
 
 /* Filter the failing destinations.  */
 static struct command_result *
@@ -1800,19 +1796,24 @@ post_cleanup_redo_multifundchannel(struct multifundchannel_redo *redo)
 	return perform_multifundchannel(mfc);
 }
 
-static struct command_result *param_positive_number(struct command *cmd,
-						    const char *name,
-						    const char *buffer,
-						    const jsmntok_t *tok,
-						    unsigned int **num)
+struct command_result *
+redo_multifundchannel(struct multifundchannel_command *mfc,
+		      const char *failing_method)
 {
-	struct command_result *res = param_number(cmd, name, buffer, tok, num);
-	if (res)
-		return res;
-	if (**num == 0)
-		return command_fail_badparam(cmd, name, buffer, tok,
-					     "should be a positive integer");
-	return NULL;
+	struct multifundchannel_redo *redo;
+
+	assert(mfc->pending == 0);
+
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64": trying redo despite '%s' failure; "
+		   "will cleanup for now.",
+		   mfc->id, failing_method);
+
+	redo = tal(mfc, struct multifundchannel_redo);
+	redo->mfc = mfc;
+	redo->failing_method = failing_method;
+
+	return mfc_cleanup(mfc, &post_cleanup_redo_multifundchannel, redo);
 }
 
 /*-----------------------------------------------------------------------------
