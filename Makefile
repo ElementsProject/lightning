@@ -80,7 +80,7 @@ endif
 
 # (method=thread to support xdist)
 PYTEST_OPTS := -v -p no:logging $(PYTEST_OPTS)
-PYTHONPATH=$(shell pwd)/contrib/pyln-client:$(shell pwd)/contrib/pyln-testing:$(shell pwd)/contrib/pyln-proto/:$(shell pwd)/external/lnprototest:$(shell pwd)/contrib/pyln-spec/bolt1:$(shell pwd)/contrib/pyln-spec/bolt2:$(shell pwd)/contrib/pyln-spec/bolt4:$(shell pwd)/contrib/pyln-spec/bolt7
+MY_CHECK_PYTHONPATH=$${PYTHONPATH}$${PYTHONPATH:+:}$(shell pwd)/contrib/pyln-client:$(shell pwd)/contrib/pyln-testing:$(shell pwd)/contrib/pyln-proto/:$(shell pwd)/external/lnprototest:$(shell pwd)/contrib/pyln-spec/bolt1:$(shell pwd)/contrib/pyln-spec/bolt2:$(shell pwd)/contrib/pyln-spec/bolt4:$(shell pwd)/contrib/pyln-spec/bolt7
 # Collect generated python files to be excluded from lint checks
 PYTHON_GENERATED=
 
@@ -397,7 +397,7 @@ ifeq ($(PYTEST),)
 	@echo "py.test is required to run the protocol tests, please install using 'pip3 install -r requirements.txt', and rerun 'configure'."; false
 else
 ifeq ($(DEVELOPER),1)
-	@(cd external/lnprototest && PYTHONPATH=$(PYTHONPATH) LIGHTNING_SRC=../.. $(PYTEST) --runner lnprototest.clightning.Runner $(PYTEST_OPTS))
+	@(cd external/lnprototest && PYTHONPATH=$(MY_CHECK_PYTHONPATH) LIGHTNING_SRC=../.. $(PYTEST) --runner lnprototest.clightning.Runner $(PYTEST_OPTS))
 else
 	@echo "lnprototest target requires DEVELOPER=1, skipping"
 endif
@@ -409,7 +409,7 @@ ifeq ($(PYTEST),)
 	exit 1
 else
 # Explicitly hand DEVELOPER and VALGRIND so you can override on make cmd line.
-	PYTHONPATH=$(PYTHONPATH) TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) VALGRIND=$(VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
+	PYTHONPATH=$(MY_CHECK_PYTHONPATH) TEST_DEBUG=1 DEVELOPER=$(DEVELOPER) VALGRIND=$(VALGRIND) $(PYTEST) tests/ $(PYTEST_OPTS)
 endif
 
 # Keep includes in alpha order.
@@ -466,7 +466,7 @@ PYSRC=$(shell git ls-files "*.py" | grep -v /text.py) contrib/pylightning/lightn
 # allows it to find that
 PYLN_PATH=$(shell pwd)/lightningd:$(PATH)
 check-pyln-%: $(BIN_PROGRAMS) $(PKGLIBEXEC_PROGRAMS) $(PLUGINS)
-	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(MAKE) check)
+	@(cd contrib/$(shell echo $@ | cut -b 7-) && PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) $(MAKE) check)
 
 check-python: check-python-flake8 check-pytest-pyln-proto check-pyln-client check-pyln-testing
 
@@ -478,7 +478,7 @@ check-python-flake8:
 	@flake8 --ignore=E501,E731,E741,W503 --exclude $(shell echo ${PYTHON_GENERATED} | sed 's/ \+/,/g') ${PYSRC}
 
 check-pytest-pyln-proto:
-	PATH=$(PYLN_PATH) PYTHONPATH=$(PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
+	PATH=$(PYLN_PATH) PYTHONPATH=$(MY_CHECK_PYTHONPATH) $(PYTEST) contrib/pyln-proto/tests/
 
 check-includes: check-src-includes check-hdr-includes
 	@tools/check-includes.sh
