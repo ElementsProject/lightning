@@ -699,6 +699,7 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 			      const char *buffer,
 			      const jsmntok_t *toks)
 {
+	const u8 *shutdown_script;
 	struct subd *dualopend = payload->dualopend;
 
 	/* If our daemon died, we're done */
@@ -725,9 +726,6 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 		if (json_get_member(buffer, toks, "accepter_funding_msat"))
 			fatal("Plugin rejected openchannel2 but"
 			      " also set `accepter_funding_psbt`");
-		if (json_get_member(buffer, toks, "funding_feerate"))
-			fatal("Plugin rejected openchannel2 but"
-			      " also set `funding_feerate`");
 
 		const jsmntok_t *t_errmsg = json_get_member(buffer, toks,
 							    "error_message");
@@ -750,8 +748,14 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 			       "openchannel2", true, &payload->psbt))
 		return false;
 
-	payload->our_shutdown_scriptpubkey =
+	shutdown_script =
 		hook_extract_shutdown_script(dualopend, buffer, toks);
+	if (shutdown_script && payload->our_shutdown_scriptpubkey)
+		log_broken(dualopend->ld->log,
+			   "openchannel2 hook close_to address was"
+			   " already set by other plugin. Ignoring!");
+	else
+		payload->our_shutdown_scriptpubkey = shutdown_script;
 
 	/* Add a serial_id to everything that doesn't have one yet */
 	if (payload->psbt)
