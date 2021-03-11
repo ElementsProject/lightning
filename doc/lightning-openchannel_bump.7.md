@@ -1,19 +1,19 @@
-lightning-openchannel\_init -- Command to initiate a channel to a peer
+lightning-openchannel\_bump -- Command to initiate a channel RBF
 =====================================================================
 
 SYNOPSIS
 --------
 
-**openchannel_init** *id* *amount* *initalpsbt* \[*commitment_feerate*\] \[*funding_feerate*\] \[*announce*\] \[*close_to*\]
+**openchannel_bump** *channel_id* *amount* *initalpsbt*
 
 DESCRIPTION
 -----------
 
-`openchannel_init` is a low level RPC command which initiates a channel
-open with a specified peer. It uses the openchannel protocol
+`openchannel_bump` is a RPC command which initiates a channel
+RBF (Replace-By-Fee) for the specified channel. It uses the openchannel protocol
 which allows for interactive transaction construction.
 
-*id* is the node id of the remote peer.
+*id* is the id of the channel to RBF.
 
 *amount* is the satoshi value that we will contribute to the channel.
 This value will be _added_ to the provided PSBT in the output which is
@@ -25,19 +25,6 @@ see `openchannel_update`; *initialpsbt* must have at least one input.
 Must have the Non-Witness UTXO (PSBT\_IN\_NON\_WITNESS\_UTXO) set for
 every input. An error (code 309) will be returned if this requirement
 is not met.
-
-*commitment_feerate* is an optional field. Sets the feerate for
-commitment transactions: see **fundchannel**.
-
-*funding_feerate* is an optional field. Sets the feerate for the
-funding transaction. Defaults to 'opening' feerate.
-
-*announce* is an optional field. Whether or not to announce this channel.
-
-*close_to* is a Bitcoin address to which the channel funds should be
-sent on close. Only valid if both peers have negotiated
-`option_upfront_shutdown_script`.
-
 
 RETURN VALUE
 ------------
@@ -52,6 +39,9 @@ in the *psbt*.
 If the peer does not support `option_dual_fund`, this command
 will return an error.
 
+If the channel is not in a state that is eligible for RBF, this command
+will return an error.
+
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
 
@@ -59,20 +49,19 @@ with `code` being one of the following:
 - -1: Catchall nonspecific error.
 - 300: The amount exceeded the maximum configured funding amount.
 - 301: The provided PSBT cannot afford the funding amount.
-- 304: Still syncing with bitcoin network
 - 305: Peer is not connected.
-- 306: Unknown peer id.
 - 309: PSBT missing required fields
-- 310: v2 channel open protocol not supported by peer
+- 311: Unknown channel id.
 - 312: Channel in an invalid state
 
 SEE ALSO
 --------
 
-lightning-openchannel\_update(7), lightning-openchannel\_signed(7),
-lightning-openchannel\_bump(7) lightning-fundchannel\_start(7),
-lightning-fundchannel\_complete(7), lightning-fundchannel(7),
-lightning-fundpsbt(7), lightning-utxopsbt(7), lightning-multifundchannel(7)
+lightning-openchannel\_init(7), lightning-openchannel\_update(7),
+lightning-openchannel\_signed(7), lightning-openchannel\_abort(7),
+lightning-fundchannel\_start(7), lightning-fundchannel\_complete(7),
+lightning-fundchannel(7), lightning-fundpsbt(7), lightning-utxopsbt(7),
+lightning-multifundchannel(7)
 
 AUTHOR
 ------
