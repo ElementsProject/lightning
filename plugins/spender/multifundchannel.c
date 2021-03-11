@@ -73,6 +73,33 @@ bool is_v2(const struct multifundchannel_destination *dest)
 	return dest->protocol == OPEN_CHANNEL;
 }
 
+static bool
+has_commitments_secured(const struct multifundchannel_destination *dest)
+{
+	/* If it failed, make sure we hadn't gotten
+	 * commitments yet */
+	enum multifundchannel_state state = dest->state;
+	if (state == MULTIFUNDCHANNEL_FAILED)
+		state = dest->fail_state;
+
+	switch (state) {
+	case MULTIFUNDCHANNEL_START_NOT_YET:
+	case MULTIFUNDCHANNEL_CONNECTED:
+	case MULTIFUNDCHANNEL_STARTED:
+	case MULTIFUNDCHANNEL_UPDATED:
+		return false;
+	case MULTIFUNDCHANNEL_COMPLETED:
+	case MULTIFUNDCHANNEL_SECURED:
+	case MULTIFUNDCHANNEL_SIGNED:
+	case MULTIFUNDCHANNEL_DONE:
+		return true;
+	case MULTIFUNDCHANNEL_FAILED:
+		/* Shouldn't be FAILED */
+		break;
+	}
+	abort();
+}
+
 /*-----------------------------------------------------------------------------
 Command Cleanup
 -----------------------------------------------------------------------------*/
@@ -148,6 +175,22 @@ mfc_cleanup_psbt(struct command *cmd,
 	send_outreq(cmd->plugin, req);
 }
 
+/* Cleans up a `openchannel_init` by doing `openchannel_abort` for the channel*/
+static void
+mfc_cleanup_oc(struct command *cmd,
+	       struct multifundchannel_cleanup *cleanup,
+	       struct multifundchannel_destination *dest)
+{
+	struct out_req *req = jsonrpc_request_start(cmd->plugin,
+						     cmd,
+						     "openchannel_abort",
+						     &mfc_cleanup_done,
+						     &mfc_cleanup_done,
+						     cleanup);
+	json_add_channel_id(req->js, "channel_id", &dest->channel_id);
+	send_outreq(cmd->plugin, req);
+}
+
 /* Cleans up a `fundchannel_start` by doing `fundchannel_cancel` on
 the node.
 */
@@ -184,6 +227,8 @@ mfc_cleanup_(struct multifundchannel_command *mfc,
 	cleanup->cb = cb;
 	cleanup->arg = arg;
 
+	/* If there's commitments, anywhere, we have to fail/restart.
+	 * We also cleanup the PSBT if there's no v2's around */
 	if (mfc->psbt) {
 		plugin_log(mfc->cmd->plugin, LOG_DBG,
 			   "mfc %"PRIu64": unreserveinputs task.", mfc->id);
@@ -195,22 +240,60 @@ mfc_cleanup_(struct multifundchannel_command *mfc,
 		struct multifundchannel_destination *dest;
 		dest = &mfc->destinations[i];
 
-		// FIXME: openchannel_abort??
-		if (dest->protocol == OPEN_CHANNEL)
+		switch (dest->state) {
+		case MULTIFUNDCHANNEL_STARTED:
+			/* v1 handling */
+			if (!is_v2(dest)) {
+				plugin_log(mfc->cmd->plugin, LOG_DBG,
+					   "mfc %"PRIu64", dest %u: "
+					   "fundchannel_cancel task.",
+					   mfc->id, dest->index);
+				++cleanup->pending;
+				mfc_cleanup_fc(mfc->cmd, cleanup, dest);
+			} else { /* v2 handling */
+				plugin_log(mfc->cmd->plugin, LOG_DBG,
+					   "mfc %"PRIu64", dest %u:"
+					   " openchannel_abort task.",
+					   mfc->id, dest->index);
+				++cleanup->pending;
+				mfc_cleanup_oc(mfc->cmd, cleanup, dest);
+			}
 			continue;
-
-		/* If not started/completed, nothing to clean up.  */
-		if (dest->state != MULTIFUNDCHANNEL_STARTED &&
-			dest->state != MULTIFUNDCHANNEL_COMPLETED)
+		case MULTIFUNDCHANNEL_COMPLETED:
+			/* Definitely a v1 */
+			plugin_log(mfc->cmd->plugin, LOG_DBG,
+				   "mfc %"PRIu64", dest %u: "
+				   "fundchannel_cancel task.",
+				   mfc->id, dest->index);
+			++cleanup->pending;
+			mfc_cleanup_fc(mfc->cmd, cleanup, dest);
 			continue;
-
-		plugin_log(mfc->cmd->plugin, LOG_DBG,
-			   "mfc %"PRIu64", dest %u: "
-			   "fundchannel_cancel task.",
-			   mfc->id, dest->index);
-
-		++cleanup->pending;
-		mfc_cleanup_fc(mfc->cmd, cleanup, dest);
+		case MULTIFUNDCHANNEL_UPDATED:
+			/* Definitely a v2 */
+			plugin_log(mfc->cmd->plugin, LOG_DBG,
+				   "mfc %"PRIu64", dest %u:"
+				   " openchannel_abort task.",
+				   mfc->id, dest->index);
+			++cleanup->pending;
+			mfc_cleanup_oc(mfc->cmd, cleanup, dest);
+			continue;
+		case MULTIFUNDCHANNEL_SECURED:
+		case MULTIFUNDCHANNEL_SIGNED:
+			/* We don't actually *send* the
+			 * transaction until here,
+			 * but peer isnt going to forget. This
+			 * open is borked until an input is
+			 * spent or it times out */
+			continue;
+		case MULTIFUNDCHANNEL_START_NOT_YET:
+		case MULTIFUNDCHANNEL_CONNECTED:
+		case MULTIFUNDCHANNEL_DONE:
+		case MULTIFUNDCHANNEL_FAILED:
+			/* Nothing to do ! */
+			continue;
+		}
+		/* We shouldn't make it this far */
+		abort();
 	}
 
 	if (cleanup->pending == 0)
@@ -1601,7 +1684,19 @@ post_cleanup_redo_multifundchannel(struct multifundchannel_redo *redo)
 
 		dest = &old_destinations[i];
 
+		/* We have to fail any v2 that has commitments already */
+		if (is_v2(dest) && has_commitments_secured(dest)
+		     && !dest_failed(dest)) {
+			fail_destination(dest, take(tal_fmt(NULL, "%s",
+					 "\"Attempting retry,"
+					 " yet this peer already has"
+					 " exchanged commitments and is"
+					 " using the v2 open protocol."
+					 " Must spend input to reset.\"")));
+		}
+
 		if (dest_failed(dest)) {
+		    /* We can't re-try committed v2's */
 			struct multifundchannel_removed removed;
 
 			plugin_log(mfc->cmd->plugin, LOG_DBG,
