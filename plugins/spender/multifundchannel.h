@@ -249,6 +249,9 @@ void fail_destination(struct multifundchannel_destination *dest,
 size_t dest_count(const struct multifundchannel_command *mfc,
 		  enum channel_protocol);
 
+/* Is this destination using the v2/OPEN_CHANNEL protocol? */
+bool is_v2(const struct multifundchannel_destination *dest);
+
 /* Use this instead of command_finished.  */
 struct command_result *
 mfc_finished(struct multifundchannel_command *, struct json_stream *response);

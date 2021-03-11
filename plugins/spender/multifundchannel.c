@@ -68,6 +68,11 @@ static bool dest_failed(struct multifundchannel_destination *dest)
 	return dest->state == MULTIFUNDCHANNEL_FAILED;
 }
 
+bool is_v2(const struct multifundchannel_destination *dest)
+{
+	return dest->protocol == OPEN_CHANNEL;
+}
+
 /*-----------------------------------------------------------------------------
 Command Cleanup
 -----------------------------------------------------------------------------*/
@@ -501,7 +506,7 @@ after_signpsbt(struct command *cmd,
 		dest = &mfc->destinations[i];
 
 		/* Check that every dest is in the right state */
-		expected_state = dest->protocol == OPEN_CHANNEL ?
+		expected_state = is_v2(dest) ?
 			MULTIFUNDCHANNEL_SIGNED : MULTIFUNDCHANNEL_COMPLETED;
 		assert(dest->state == expected_state);
 
@@ -571,7 +576,7 @@ after_fundchannel_complete(struct multifundchannel_command *mfc)
 		struct multifundchannel_destination *dest;
 
 		dest = &mfc->destinations[i];
-		if (dest->protocol != FUND_CHANNEL)
+		if (is_v2(dest))
 			continue;
 
 		assert(dest->state == MULTIFUNDCHANNEL_COMPLETED
@@ -703,7 +708,7 @@ perform_fundchannel_complete(struct multifundchannel_command *mfc)
 	mfc->pending = dest_count(mfc, FUND_CHANNEL);
 
 	for (i = 0; i < tal_count(mfc->destinations); ++i) {
-		if (mfc->destinations[i].protocol == FUND_CHANNEL)
+		if (!is_v2(&mfc->destinations[i]))
 			fundchannel_complete_dest(&mfc->destinations[i]);
 	}
 
@@ -741,7 +746,7 @@ perform_funding_tx_finalize(struct multifundchannel_command *mfc)
 
 	deck_i = 0;
 	for (i = 0; i < tal_count(mfc->destinations); i++) {
-		if (mfc->destinations[i].protocol == OPEN_CHANNEL)
+		if (is_v2(&mfc->destinations[i]))
 			continue;
 
 		assert(deck_i < tal_count(deck));
@@ -878,7 +883,7 @@ after_channel_start(struct multifundchannel_command *mfc)
 
 		/* One of them failed, oh no.  */
 		return redo_multifundchannel(mfc,
-					     dest->protocol == OPEN_CHANNEL ?
+					     is_v2(dest) ?
 					     "openchannel_init" :
 					     "fundchannel_start");
 	}
@@ -1056,7 +1061,7 @@ perform_channel_start(struct multifundchannel_command *mfc)
 	/* Since v2 is now available, we branch depending
 	 * on the capability of the peer and our feaures */
 	for (i = 0; i < tal_count(mfc->destinations); ++i) {
-		if (mfc->destinations[i].protocol == OPEN_CHANNEL)
+		if (is_v2(&mfc->destinations[i]))
 			openchannel_init_dest(&mfc->destinations[i]);
 		else
 			fundchannel_start_dest(&mfc->destinations[i]);
