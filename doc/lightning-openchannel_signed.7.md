@@ -38,8 +38,10 @@ with `code` being one of the following:
 - -32602: If the given parameters are wrong.
 - -1: Catchall nonspecific error.
 - 303: Funding transaction broadcast failed.
+- 305: Peer is not connected.
 - 309: PSBT missing required fields.
 - 311: Unknown channel id.
+- 312: Channel in an invalid state
 
 SEE ALSO
 --------

@@ -21,21 +21,21 @@ encumbered by the 2-of-2 script for this channel.
 
 *initialpsbt* is the funded, incomplete PSBT that specifies the UTXOs and
 change output for our channel contribution. It can be updated,
-see `openchannel_update`; *initialpsbt* must have at least one input to
-provide a PoDLE to the peer.  Must have the Non-Witness UTXO
-(PSBT\_IN\_NON\_WITNESS\_UTXO) set for every input. An error
-(code 309) will be returned if this requirement is not met.
+see `openchannel_update`; *initialpsbt* must have at least one input.
+Must have the Non-Witness UTXO (PSBT\_IN\_NON\_WITNESS\_UTXO) set for
+every input. An error (code 309) will be returned if this requirement
+is not met.
 
 *commitment_feerate* is an optional field. Sets the feerate for
 commitment transactions: see **fundchannel**.
 
-*funding_feerate* is an optional field. Sets the feerate for the 
+*funding_feerate* is an optional field. Sets the feerate for the
 funding transaction. Defaults to 'opening' feerate.
 
 *announce* is an optional field. Whether or not to announce this channel.
 
 *close_to* is a Bitcoin address to which the channel funds should be
-sent on close. Only valid if both peers have negotiated 
+sent on close. Only valid if both peers have negotiated
 `option_upfront_shutdown_script`.
 
 
@@ -44,7 +44,7 @@ RETURN VALUE
 
 On success, returns the *channel_id* for this channel; an updated
 incomplete *initialpsbt* for this funding transaction; and the flag
-*commitments_secured*, which indiciates the completeness of the 
+*commitments_secured*, which indiciates the completeness of the
 passed back *psbt*. (Will always be false). Also returns the
 *funding_serial*, indicating the serial\_id of the funding output
 in the *psbt*.
@@ -64,6 +64,7 @@ with `code` being one of the following:
 - 306: Unknown peer id.
 - 309: PSBT missing required fields
 - 310: v2 channel open protocol not supported by peer
+- 312: Channel in an invalid state
 
 SEE ALSO
 --------

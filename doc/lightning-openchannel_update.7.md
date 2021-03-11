@@ -47,6 +47,7 @@ If *commitments_secured* is true, will also return:
 - 305: Peer is not connected.
 - 309: PSBT missing required fields
 - 311: Unknown channel id.
+- 312: Channel in an invalid state
 
 SEE ALSO
 --------
