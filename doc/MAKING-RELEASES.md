@@ -56,7 +56,7 @@ Here's a checklist for the release process.
 
 ### Tagging the Release
 
-1. Update the CHANGELOG.md; remove -rcN in both places, update the date.
+1. Update the CHANGELOG.md; remove -rcN in both places, update the date and add title and namer.
 2. Add a PR with that release.
 3. Merge the PR, then:
    - `export VERSION=0.9.3`
