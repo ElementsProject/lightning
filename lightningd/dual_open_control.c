@@ -2450,6 +2450,7 @@ static void handle_commit_received(struct subd *dualopend,
 				       "Bad WIRE_DUALOPEND_COMMIT_RCVD: %s",
 				       tal_hex(msg, msg));
 		channel->open_attempt = tal_free(channel->open_attempt);
+		notify_channel_open_failed(channel->peer->ld, &channel->cid);
 		return;
 	}
 
