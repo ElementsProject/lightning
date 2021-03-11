@@ -339,6 +339,20 @@ into a block.
 }
 ```
 
+### `channel_open_failed`
+
+A notification to indicate that a channel open attempt has been unsuccessful.
+Useful for cleaning up state for a v2 channel open attempt. See
+`tests/plugins/df_accepter.py` for an example of how to use this.
+
+```json
+{
+  "channel_open_failed": {
+    "channel_id": "a2d0851832f0e30a0cf...",
+  }
+}
+```
+
 ### `channel_state_changed`
 
 A notification for topic `channel_state_changed` is sent every time a channel
