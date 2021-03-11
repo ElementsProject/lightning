@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError
 from utils import (
-    only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES
+    only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES, DEVELOPER
 )
 
 import pytest
@@ -12,6 +12,90 @@ import unittest
 def find_next_feerate(node, peer):
     chan = only_one(only_one(node.rpc.listpeers(peer.info['id'])['peers'])['channels'])
     return chan['next_feerate']
+
+
+@unittest.skipIf(not DEVELOPER, "disconnect=... needs DEVELOPER=1")
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual-funding is experimental only")
+def test_multifunding_v2_best_effort(node_factory, bitcoind):
+    '''
+    Check that best_effort flag works.
+    '''
+    disconnects = ["-WIRE_INIT",
+                   "-WIRE_ACCEPT_CHANNEL",
+                   "-WIRE_FUNDING_SIGNED"]
+    l1 = node_factory.get_node(options={'dev-force-features': '+223'},
+                               allow_warning=True,
+                               may_reconnect=True)
+    l2 = node_factory.get_node(options={'dev-force-features': '+223'},
+                               allow_warning=True,
+                               may_reconnect=True)
+    l3 = node_factory.get_node(disconnect=disconnects)
+    l4 = node_factory.get_node()
+
+    l1.fundwallet(2000000)
+
+    destinations = [{"id": '{}@localhost:{}'.format(l2.info['id'], l2.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l3.info['id'], l3.port),
+                     "amount": 50000},
+                    {"id": '{}@localhost:{}'.format(l4.info['id'], l4.port),
+                     "amount": 50000}]
+
+    for i, d in enumerate(disconnects):
+        failed_sign = d == "-WIRE_FUNDING_SIGNED"
+        # Should succeed due to best-effort flag.
+        min_channels = 1 if failed_sign else 2
+        l1.rpc.multifundchannel(destinations, minchannels=min_channels)
+
+        bitcoind.generate_block(6, wait_for_mempool=1)
+
+        # l3 should fail to have channels; l2 also fails on last attempt
+        node_list = [l1, l4] if failed_sign else [l1, l2, l4]
+        for node in node_list:
+            node.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+
+        # There should be working channels to l2 and l4 for every run
+        # but the last
+        working_chans = [l4] if failed_sign else [l2, l4]
+        for ldest in working_chans:
+            inv = ldest.rpc.invoice(5000, 'i{}'.format(i), 'i{}'.format(i))['bolt11']
+            l1.rpc.pay(inv)
+
+        # Function to find the SCID of the channel that is
+        # currently open.
+        # Cannot use LightningNode.get_channel_scid since
+        # it assumes the *first* channel found is the one
+        # wanted, but in our case we close channels and
+        # open again, so multiple channels may remain
+        # listed.
+        def get_funded_channel_scid(n1, n2):
+            peers = n1.rpc.listpeers(n2.info['id'])['peers']
+            assert len(peers) == 1
+            peer = peers[0]
+            channels = peer['channels']
+            assert channels
+            for c in channels:
+                state = c['state']
+                if state in ('DUALOPEND_AWAITING_LOCKIN', 'CHANNELD_AWAITING_LOCKIN', 'CHANNELD_NORMAL'):
+                    return c['short_channel_id']
+            assert False
+
+        # Now close channels to l2 and l4, for the next run.
+        if not failed_sign:
+            l1.rpc.close(get_funded_channel_scid(l1, l2))
+        l1.rpc.close(get_funded_channel_scid(l1, l4))
+
+        for node in node_list:
+            node.daemon.wait_for_log(r'to CLOSINGD_COMPLETE')
+
+    # With 2 down, it will fail to fund channel
+    l2.stop()
+    l3.stop()
+    with pytest.raises(RpcError, match=r'Connection refused'):
+        l1.rpc.multifundchannel(destinations, minchannels=2)
+
+    # This works though.
+    l1.rpc.multifundchannel(destinations, minchannels=1)
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
