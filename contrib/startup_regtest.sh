@@ -86,9 +86,14 @@ start_nodes() {
 		log-level=debug
 		log-file=/tmp/l$i-$network/log
 		addr=localhost:$socket
-		dev-fast-gossip
-		dev-bitcoind-poll=5
 		EOF
+
+		# If we've configured to use developer, add dev options
+		if $LIGHTNINGD --help | grep -q dev-fast-gossip; then
+			echo "dev-fast-gossip" >> "/tmp/l$i-$network/config"
+			echo "dev-bitcoind-poll=5" >> "/tmp/l$i-$network/config"
+		fi
+
 
 		# Start the lightning nodes
 		test -f "/tmp/l$i-$network/lightningd-$network.pid" || \
