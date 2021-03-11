@@ -22,17 +22,17 @@ encumbered by the 2-of-2 script for this channel\.
 
 \fIinitialpsbt\fR is the funded, incomplete PSBT that specifies the UTXOs and
 change output for our channel contribution\. It can be updated,
-see \fBopenchannel_update\fR; \fIinitialpsbt\fR must have at least one input to
-provide a PoDLE to the peer\.  Must have the Non-Witness UTXO
-(PSBT_IN_NON_WITNESS_UTXO) set for every input\. An error
-(code 309) will be returned if this requirement is not met\.
+see \fBopenchannel_update\fR; \fIinitialpsbt\fR must have at least one input\.
+Must have the Non-Witness UTXO (PSBT_IN_NON_WITNESS_UTXO) set for
+every input\. An error (code 309) will be returned if this requirement
+is not met\.
 
 
 \fIcommitment_feerate\fR is an optional field\. Sets the feerate for
 commitment transactions: see \fBfundchannel\fR\.
 
 
-\fIfunding_feerate\fR is an optional field\. Sets the feerate for the 
+\fIfunding_feerate\fR is an optional field\. Sets the feerate for the
 funding transaction\. Defaults to 'opening' feerate\.
 
 
@@ -40,14 +40,14 @@ funding transaction\. Defaults to 'opening' feerate\.
 
 
 \fIclose_to\fR is a Bitcoin address to which the channel funds should be
-sent on close\. Only valid if both peers have negotiated 
+sent on close\. Only valid if both peers have negotiated
 \fBoption_upfront_shutdown_script\fR\.
 
 .SH RETURN VALUE
 
 On success, returns the \fIchannel_id\fR for this channel; an updated
 incomplete \fIinitialpsbt\fR for this funding transaction; and the flag
-\fIcommitments_secured\fR, which indiciates the completeness of the 
+\fIcommitments_secured\fR, which indiciates the completeness of the
 passed back \fIpsbt\fR\. (Will always be false)\. Also returns the
 \fIfunding_serial\fR, indicating the serial_id of the funding output
 in the \fIpsbt\fR\.
@@ -79,6 +79,8 @@ with \fBcode\fR being one of the following:
 309: PSBT missing required fields
 .IP \[bu]
 310: v2 channel open protocol not supported by peer
+.IP \[bu]
+312: Channel in an invalid state
 
 .RE
 .SH SEE ALSO
@@ -96,4 +98,4 @@ lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcomplete\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:d73cf35c01e641d80688352058111421d9213b0a23043e9cdc807398442efd7a
+\" SHA256STAMP:d36c10e11609777d0d2523660dab776eb60e739bfadea5db18285cbb002ca91e

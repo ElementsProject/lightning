@@ -1970,20 +1970,20 @@ json_openchannel_signed(struct command *cmd,
 		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
 				    "Unknown channel");
 	if (!channel->owner)
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
 
 	if (channel->open_attempt)
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Commitments for this channel not "
 				    "yet secured, see `openchannel_update`");
 
 	if (list_empty(&channel->inflights))
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Channel open not initialized yet.");
 
 	if (channel->openchannel_signed_cmd)
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Already sent sigs, waiting for peer's");
 
 	/* Verify that the psbt's txid matches that of the
@@ -2016,7 +2016,7 @@ json_openchannel_signed(struct command *cmd,
 						   &inflight->funding->txid));
 
 	if (inflight->funding_psbt && psbt_is_finalized(inflight->funding_psbt))
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Already have a finalized PSBT for "
 				    "this channel");
 
@@ -2076,20 +2076,20 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 
 	channel = channel_by_cid(cmd->ld, cid);
 	if (!channel)
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_UNKNOWN_CHANNEL,
 				    "Unknown channel %s",
 				    type_to_string(tmpctx, struct channel_id,
 						   cid));
 	if (!channel->owner)
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
 
 	if (!channel->open_attempt)
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Channel open not in progress");
 
 	if (channel->open_attempt->cmd)
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Another openchannel command"
 				    " is in progress");
 
@@ -2206,8 +2206,8 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 				    "Peer not connected");
 	if (channel->open_attempt
 	     || !list_empty(&channel->inflights))
-		return command_fail(cmd, LIGHTNINGD, "Channel funding"
-				    " in-progress. %s",
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "Channel funding in-progress. %s",
 				    channel_state_name(channel));
 
 #if EXPERIMENTAL_FEATURES
