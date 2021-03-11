@@ -586,7 +586,8 @@ after_fundchannel_complete(struct multifundchannel_command *mfc)
 			continue;
 
 		/* One of them failed, oh no.  */
-		return redo_multifundchannel(mfc, "fundchannel_complete");
+		return redo_multifundchannel(mfc, "fundchannel_complete",
+					     dest->error);
 	}
 
 	if (dest_count(mfc, OPEN_CHANNEL) > 0)
@@ -885,7 +886,8 @@ after_channel_start(struct multifundchannel_command *mfc)
 		return redo_multifundchannel(mfc,
 					     is_v2(dest) ?
 					     "openchannel_init" :
-					     "fundchannel_start");
+					     "fundchannel_start",
+					     dest->error);
 	}
 
 	/* Next step.  */
@@ -1406,7 +1408,7 @@ after_multiconnect(struct multifundchannel_command *mfc)
 			continue;
 
 		/* One of them failed, oh no. */
-		return redo_multifundchannel(mfc, "connect");
+		return redo_multifundchannel(mfc, "connect", dest->error);
 	}
 
 	return perform_fundpsbt(mfc);
@@ -1664,16 +1666,17 @@ post_cleanup_redo_multifundchannel(struct multifundchannel_redo *redo)
 
 struct command_result *
 redo_multifundchannel(struct multifundchannel_command *mfc,
-		      const char *failing_method)
+		      const char *failing_method,
+		      const char *why)
 {
 	struct multifundchannel_redo *redo;
 
 	assert(mfc->pending == 0);
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
-		   "mfc %"PRIu64": trying redo despite '%s' failure; "
-		   "will cleanup for now.",
-		   mfc->id, failing_method);
+		   "mfc %"PRIu64": trying redo despite '%s' failure (%s);"
+		   " will cleanup for now.",
+		   mfc->id, failing_method, why);
 
 	redo = tal(mfc, struct multifundchannel_redo);
 	redo->mfc = mfc;

@@ -270,5 +270,6 @@ multifundchannel_finished(struct multifundchannel_command *mfc);
 
 struct command_result *
 redo_multifundchannel(struct multifundchannel_command *mfc,
-		      const char *failing_method);
+		      const char *failing_method,
+		      const char *why);
 #endif /* LIGHTNING_PLUGINS_SPENDER_MULTIFUNDCHANNEL_H */

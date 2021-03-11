@@ -817,7 +817,8 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 
 		if (dest->state == MULTIFUNDCHANNEL_FAILED)
 			return redo_multifundchannel(mfc,
-						     "openchannel_update");
+						     "openchannel_update",
+						     dest->error);
 
 		if (dest->state == MULTIFUNDCHANNEL_SECURED ||
 			dest->state == MULTIFUNDCHANNEL_SIGNED) {
@@ -845,10 +846,11 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 		if (!update_parent_psbt(mfc, dest, dest->psbt,
 					dest->updated_psbt,
 					&mfc->psbt)) {
-			fail_destination(dest, "Unable to update parent "
-					 "with node's PSBT");
+			fail_destination(dest, "\"Unable to update parent "
+					 "with node's PSBT\"");
 			return redo_multifundchannel(mfc,
-						     "openchannel_init_parent");
+						     "openchannel_init_parent",
+						     dest->error);
 		}
 		/* Get everything sorted correctly */
 		psbt_sort_by_serial_id(mfc->psbt);
@@ -869,10 +871,11 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 			continue;
 
 		if (!update_node_psbt(mfc, mfc->psbt, &dest->psbt)) {
-			fail_destination(dest, "Unable to node PSBT"
-					 " with parent PSBT");
+			fail_destination(dest, "\"Unable to node PSBT"
+					 " with parent PSBT\"");
 			return redo_multifundchannel(mfc,
-						     "openchannel_init_node");
+						     "openchannel_init_node",
+						     dest->error);
 		}
 	}
 
@@ -955,8 +958,8 @@ openchannel_init_ok(struct command *cmd,
 	if (!update_parent_psbt(dest->mfc, dest, dest->psbt,
 				dest->updated_psbt, &mfc->psbt)) {
 		fail_destination(dest,
-				 take(tal_fmt(NULL, "Unable to update parent"
-					      " with node's PSBT")));
+				 take(tal_fmt(NULL, "\"Unable to update parent"
+					      " with node's PSBT\"")));
 	}
 
 	/* Clone updated-psbt to psbt, so original changeset
