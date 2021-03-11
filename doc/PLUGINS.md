@@ -962,8 +962,8 @@ nodes in [BOLT 4][bolt4-failure-messages], a `result` field with the string
 
 ### `openchannel`
 
-This hook is called whenever a remote peer tries to fund a channel to us,
-and it has passed basic sanity checks:
+This hook is called whenever a remote peer tries to fund a channel to us using
+the v1 protocol, and it has passed basic sanity checks:
 
 ```json
 {
@@ -1009,6 +1009,181 @@ an invalid address will cause the node to exit with an error.
 Note that `openchannel` is a chained hook. Therefore `close_to` will only be
 evaluated for the first plugin that sets it. If more than one plugin tries to
 set a `close_to` address an error will be logged.
+
+### `openchannel2`
+
+This hook is called whenever a remote peer tries to fund a channel to us using
+the v2 protocol, and it has passed basic sanity checks:
+
+```json
+{
+  "openchannel2": {
+    "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
+    "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+    "their_funding": "100000000msat",
+    "dust_limit_satoshis": "546000msat",
+    "max_htlc_value_in_flight_msat": "18446744073709551615msat",
+    "htlc_minimum_msat": "0msat",
+    "funding_feerate_per_kw": 7500,
+    "commitment_feerate_per_kw": 7500,
+    "feerate_our_max": 10000,
+    "feerate_our_min": 253,
+    "to_self_delay": 5,
+    "max_accepted_htlcs": 483,
+    "channel_flags": 1
+    "locktime": 2453,
+  }
+}
+```
+
+There may be additional fields, such as `shutdown_scriptpubkey`.  You can
+see the definitions of these fields in [BOLT 2's description of the open_channel message][bolt2-open-channel].
+
+The returned result must contain a `result` member which is either
+the string `reject` or `continue`.  If `reject` and
+there's a member `error_message`, that member is sent to the peer
+before disconnection.
+
+For a 'continue'd result, you can also include a `close_to` address,
+which will be used as the output address for a mutual close transaction; you
+can include a `psbt` and an `accepter_funding_msat` to contribute funds,
+inputs and outputs to this channel open.
+
+Note that, like `openchannel_init`, the `accepter_funding_msat` amount
+must NOT be accounted for in any supplied output. Change, however, should be
+included and should use the `funding_feerate_per_kw` to calculate.
+
+See `tests/plugins/df_accepter.py` for an example of how to use this hook
+to contribute funds to a channel open.
+
+e.g.
+
+```json
+{
+    "result": "continue",
+    "close_to": "bc1qlq8srqnz64wgklmqvurv7qnr4rvtq2u96hhfg2"
+    "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZrrw28Oed52hTw3N7t0HbIyZhFdcZRH3+61AQAAAAD9////AGYAAAAAAQDfAgAAAAABARtaSZufCbC+P+/G23XVaQ8mDwZQFW1vlCsCYhLbmVrpAAAAAAD+////AvJs5ykBAAAAFgAUT6ORgb3CgFsbwSOzNLzF7jQS5s+AhB4AAAAAABepFNi369DMyAJmqX2agouvGHcDKsZkhwJHMEQCIHELIyqrqlwRjyzquEPvqiorzL2hrvdu9EBxsqppeIKiAiBykC6De/PDElnqWw49y2vTqauSJIVBgGtSc+vq5BQd+gEhAg0f8WITWvA8o4grxNKfgdrNDncqreMLeRFiteUlne+GZQAAAAEBIICEHgAAAAAAF6kU2Lfr0MzIAmapfZqCi68YdwMqxmSHAQQWABQB+tkKvNZml+JZIWRyLeSpXr7hZQz8CWxpZ2h0bmluZwEIexhVcpJl8ugM/AlsaWdodG5pbmcCAgABAA==",
+    "accepter_funding_msat": "39999000msat"
+}
+```
+
+
+Note that `close_to` must be a valid address for the current chain,
+an invalid address will cause the node to exit with an error.
+
+Note that `openchannel` is a chained hook. Therefore `close_to` will only be
+evaluated for the first plugin that sets it. If more than one plugin tries to
+set a `close_to` address an error will be logged.
+
+
+### `openchannel2_changed`
+
+This hook is called when we received updates to the funding transaction
+from the peer.
+
+```json
+{
+	"openchannel2_changed": {
+		"channel_id": "252d1b0a1e57895e841...",
+		"psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
+	}
+}
+```
+
+In return, we expect a `result` indicated to `continue` and an updated `psbt`.
+If we have no updates to contribute, return the passed in PSBT. Once no
+changes to the PSBT are made on either side, the transaction construction
+negotation will end and commitment transactions will be exchanged.
+
+#### Expected Return
+```json
+{
+	"result": "continue",
+	"psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
+}
+```
+
+See `tests/plugins/df_accepter.py` for an example of how to use this hook
+to continue a v2 channel open.
+
+
+### `openchannel2_sign`
+
+This hook is called after we've gotten the commitment transactions for a
+channel open. It expects psbt to be returned which contains signatures
+for our inputs to the funding transaction.
+
+```json
+{
+	"openchannel2_sign": {
+		"channel_id": "252d1b0a1e57895e841...",
+		"psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
+	}
+}
+```
+
+In return, we expect a `result` indicated to `continue` and an partially
+signed `psbt`.
+
+If we have no inputs to sign, return the passed in PSBT. Once we have also
+received the signatures from the peer, the funding transaction will be
+broadcast.
+
+#### Expected Return
+```json
+{
+	"result": "continue",
+	"psbt": "cHNidP8BADMCAAAAAQ+yBipSVZr..."
+}
+```
+
+See `tests/plugins/df_accepter.py` for an example of how to use this hook
+to sign a funding transaction.
+
+
+### `rbf_channel`
+
+Similar to `openchannel2`, the `rbf_channel` hook is called when a peer
+requests an RBF for a channel funding transaction.
+
+```json
+{
+  "rbf_channel": {
+    "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
+    "channel_id": "252d1b0a1e57895e84137f28cf19ab2c35847e284c112fefdecc7afeaa5c1de7",
+    "their_funding": "100000000msat",
+    "funding_feerate_per_kw": 7500,
+    "feerate_our_max": 10000,
+    "feerate_our_min": 253,
+    "locktime": 2453,
+  }
+}
+```
+
+The returned result must contain a `result` member which is either
+the string `reject` or `continue`.  If `reject` and
+there's a member `error_message`, that member is sent to the peer
+before disconnection.
+
+For a 'continue'd result, you can include a `psbt` and an
+`our_funding_msat` to contribute funds, inputs and outputs to
+this channel open.
+
+Note that, like the `openchannel_init` RPC call, the `our_funding_msat`
+amount must NOT be accounted for in any supplied output. Change,
+however, should be included and should use the `funding_feerate_per_kw`
+to calculate.
+
+#### Return
+
+```json
+{
+    "result": "continue",
+    "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZrrw28Oed52hTw3N7t0HbIyZhFdcZRH3+61AQAAAAD9////AGYAAAAAAQDfAgAAAAABARtaSZufCbC+P+/G23XVaQ8mDwZQFW1vlCsCYhLbmVrpAAAAAAD+////AvJs5ykBAAAAFgAUT6ORgb3CgFsbwSOzNLzF7jQS5s+AhB4AAAAAABepFNi369DMyAJmqX2agouvGHcDKsZkhwJHMEQCIHELIyqrqlwRjyzquEPvqiorzL2hrvdu9EBxsqppeIKiAiBykC6De/PDElnqWw49y2vTqauSJIVBgGtSc+vq5BQd+gEhAg0f8WITWvA8o4grxNKfgdrNDncqreMLeRFiteUlne+GZQAAAAEBIICEHgAAAAAAF6kU2Lfr0MzIAmapfZqCi68YdwMqxmSHAQQWABQB+tkKvNZml+JZIWRyLeSpXr7hZQz8CWxpZ2h0bmluZwEIexhVcpJl8ugM/AlsaWdodG5pbmcCAgABAA==",
+    "our_funding_msat": "39999000msat"
+}
+```
+
 
 
 ### `htlc_accepted`
