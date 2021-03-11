@@ -323,10 +323,10 @@ corresponding payloads are listed below.
 
 ### `channel_opened`
 
-A notification for topic `channel_opened` is sent if a peer successfully funded a channel
-with us. It contains the peer id, the funding amount (in millisatoshis), the funding
-transaction id, and a boolean indicating if the funding transaction has been included
-into a block.
+A notification for topic `channel_opened` is sent if a peer successfully
+funded a channel with us. It contains the peer id, the funding amount
+(in millisatoshis), the funding transaction id, and a boolean indicating
+if the funding transaction has been included into a block.
 
 ```json
 {
@@ -717,11 +717,10 @@ here, with the peer's signatures attached.
 
 ```json
 {
-	"openchannel_peer_sigs": {
-		"channel_id": "<hex of a channel id (note, v2 format)>",
-		"signed_psbt": "<Base64 serialized PSBT of funding transaction,
-				with peer's sigs>"
-	}
+  "openchannel_peer_sigs": {
+    "channel_id": "252d1b0a1e5789...",
+    "signed_psbt": "cHNidP8BAKgCAAAAAQ+y+61AQAAAAD9////AzbkHAAAAAAAFgAUwsyrFxwqW+natS7EG4JYYwJMVGZQwwAAAAAAACIAIKYE2s4YZ+RON6BB5lYQESHR9cA7hDm6/maYtTzSLA0hUMMAAAAAAAAiACBbjNO5FM9nzdj6YnPJMDU902R2c0+9liECwt9TuQiAzWYAAAAAAQDfAgAAAAABARtaSZufCbC+P+/G23XVaQ8mDwZQFW1vlCsCYhLbmVrpAAAAAAD+////AvJs5ykBAAAAFgAUT6ORgb3CgFsbwSOzNLzF7jQS5s+AhB4AAAAAABepFNi369DMyAJmqX2agouvGHcDKsZkhwJHMEQCIHELIyqrqlwRjyzquEPvqiorzL2hrvdu9EBxsqppeIKiAiBykC6De/PDElnqWw49y2vTqauSJIVBgGtSc+vq5BQd+gEhAg0f8WITWvA8o4grxNKfgdrNDncqreMLeRFiteUlne+GZQAAAAEBIICEHgAAAAAAF6kU2Lfr0MzIAmapfZqCi68YdwMqxmSHAQcXFgAUAfrZCrzWZpfiWSFkci3kqV6+4WUBCGsCRzBEAiBF31wbNWECsJ0DrPel2inWla2hYpCgaxeVgPAvFEOT2AIgWiFWN0hvUaK6kEnXhED50wQ2fBqnobsRhoy1iDDKXE0BIQPXRURck2JmXyLg2W6edm8nPzJg3qOcina/oF3SaE3czwz8CWxpZ2h0bmluZwEIexhVcpJl8ugM/AlsaWdodG5pbmcCAgABAAz8CWxpZ2h0bmluZwEIR7FutlQgkSoADPwJbGlnaHRuaW5nAQhYT+HjxFBqeAAM/AlsaWdodG5pbmcBCOpQ5iiTTNQEAA=="
+  }
 }
 ```
 
