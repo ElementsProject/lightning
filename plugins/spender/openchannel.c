@@ -470,7 +470,7 @@ perform_openchannel_signed(struct multifundchannel_command *mfc)
 
 	mfc->pending = dest_count(mfc, OPEN_CHANNEL);
 	for (size_t i = 0; i < tal_count(mfc->destinations); i++) {
-		if (mfc->destinations[i].protocol == FUND_CHANNEL)
+		if (!is_v2(&mfc->destinations[i]))
 			continue;
 		/* We need to 'port' all of the sigs down to the
 		 * destination PSBTs */
@@ -501,7 +501,7 @@ collect_sigs(struct multifundchannel_command *mfc)
 		struct bitcoin_txid dest_txid;
 		dest = &mfc->destinations[i];
 
-		if (dest->protocol == FUND_CHANNEL) {
+		if (!is_v2(dest)) {
 			/* Since we're here, double check that
 			 * every v1 has their commitment txs */
 			assert(dest->state == MULTIFUNDCHANNEL_COMPLETED);
@@ -525,7 +525,7 @@ check_sigs_ready(struct multifundchannel_command *mfc)
 
 	for (size_t i = 0; i < tal_count(mfc->destinations); i++) {
 		enum multifundchannel_state state =
-			mfc->destinations[i].protocol == OPEN_CHANNEL ?
+			is_v2(&mfc->destinations[i]) ?
 				MULTIFUNDCHANNEL_SIGNED :
 				MULTIFUNDCHANNEL_COMPLETED;
 
@@ -631,7 +631,7 @@ funding_transaction_established(struct multifundchannel_command *mfc)
 	 * funding transaction */
 	for (size_t i = 0; i < tal_count(mfc->destinations); i++) {
 		struct multifundchannel_destination *dest;
-		if (mfc->destinations[i].protocol == OPEN_CHANNEL)
+		if (is_v2(&mfc->destinations[i]))
 			continue;
 
 		dest = &mfc->destinations[i];
@@ -839,7 +839,7 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 		struct multifundchannel_destination *dest;
 		dest = &mfc->destinations[i];
 
-		if (dest->protocol == FUND_CHANNEL)
+		if (!is_v2(dest))
 			continue;
 
 		if (!update_parent_psbt(mfc, dest, dest->psbt,
@@ -865,7 +865,7 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 		dest = &mfc->destinations[i];
 
 		/* We don't *have* psbts for v1 destinations */
-		if (dest->protocol == FUND_CHANNEL)
+		if (!is_v2(dest))
 			continue;
 
 		if (!update_node_psbt(mfc, mfc->psbt, &dest->psbt)) {
@@ -878,7 +878,7 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 
 	mfc->pending = dest_count(mfc, OPEN_CHANNEL);
 	for (i = 0; i < tal_count(mfc->destinations); i++) {
-		if (mfc->destinations[i].protocol == OPEN_CHANNEL)
+		if (is_v2(&mfc->destinations[i]))
 			openchannel_update_dest(&mfc->destinations[i]);
 	}
 
