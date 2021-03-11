@@ -115,7 +115,7 @@ def on_openchannel(openchannel2, plugin, **kwargs):
     plugin.log("contributing {} at feerate {}".format(amount, proposed_feerate))
 
     return {'result': 'continue', 'psbt': funding['psbt'],
-            'accepter_funding_msat': amount}
+            'our_funding_msat': amount}
 
 
 @plugin.hook('openchannel2_changed')

@@ -1046,10 +1046,10 @@ before disconnection.
 
 For a 'continue'd result, you can also include a `close_to` address,
 which will be used as the output address for a mutual close transaction; you
-can include a `psbt` and an `accepter_funding_msat` to contribute funds,
+can include a `psbt` and an `our_funding_msat` to contribute funds,
 inputs and outputs to this channel open.
 
-Note that, like `openchannel_init`, the `accepter_funding_msat` amount
+Note that, like `openchannel_init` RPC call, the `our_funding_msat` amount
 must NOT be accounted for in any supplied output. Change, however, should be
 included and should use the `funding_feerate_per_kw` to calculate.
 
@@ -1063,10 +1063,9 @@ e.g.
     "result": "continue",
     "close_to": "bc1qlq8srqnz64wgklmqvurv7qnr4rvtq2u96hhfg2"
     "psbt": "cHNidP8BADMCAAAAAQ+yBipSVZrrw28Oed52hTw3N7t0HbIyZhFdcZRH3+61AQAAAAD9////AGYAAAAAAQDfAgAAAAABARtaSZufCbC+P+/G23XVaQ8mDwZQFW1vlCsCYhLbmVrpAAAAAAD+////AvJs5ykBAAAAFgAUT6ORgb3CgFsbwSOzNLzF7jQS5s+AhB4AAAAAABepFNi369DMyAJmqX2agouvGHcDKsZkhwJHMEQCIHELIyqrqlwRjyzquEPvqiorzL2hrvdu9EBxsqppeIKiAiBykC6De/PDElnqWw49y2vTqauSJIVBgGtSc+vq5BQd+gEhAg0f8WITWvA8o4grxNKfgdrNDncqreMLeRFiteUlne+GZQAAAAEBIICEHgAAAAAAF6kU2Lfr0MzIAmapfZqCi68YdwMqxmSHAQQWABQB+tkKvNZml+JZIWRyLeSpXr7hZQz8CWxpZ2h0bmluZwEIexhVcpJl8ugM/AlsaWdodG5pbmcCAgABAA==",
-    "accepter_funding_msat": "39999000msat"
+    "our_funding_msat": "39999000msat"
 }
 ```
-
 
 Note that `close_to` must be a valid address for the current chain,
 an invalid address will cause the node to exit with an error.

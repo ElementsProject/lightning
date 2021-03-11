@@ -723,9 +723,9 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 		if (json_get_member(buffer, toks, "psbt"))
 			fatal("Plugin rejected openchannel2 but"
 			      " also set `psbt`");
-		if (json_get_member(buffer, toks, "accepter_funding_msat"))
+		if (json_get_member(buffer, toks, "our_funding_msat"))
 			fatal("Plugin rejected openchannel2 but"
-			      " also set `accepter_funding_psbt`");
+			      " also set `our_funding_psbt`");
 
 		const jsmntok_t *t_errmsg = json_get_member(buffer, toks,
 							    "error_message");
@@ -773,9 +773,9 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 		      type_to_string(tmpctx, struct wally_psbt, payload->psbt));
 
 	if (!hook_extract_amount(dualopend, buffer, toks,
-				 "accepter_funding_msat",
+				 "our_funding_msat",
 				 &payload->accepter_funding))
-		fatal("Plugin failed to supply accepter_funding_msat field");
+		fatal("Plugin failed to supply our_funding_msat field");
 
 	if (!payload->psbt &&
 		!amount_sat_eq(payload->accepter_funding, AMOUNT_SAT(0))) {
