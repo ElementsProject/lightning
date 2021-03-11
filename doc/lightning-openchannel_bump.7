@@ -1,18 +1,18 @@
-.TH "LIGHTNING-OPENCHANNEL_INIT" "7" "" "" "lightning-openchannel_init"
+.TH "LIGHTNING-OPENCHANNEL_BUMP" "7" "" "" "lightning-openchannel_bump"
 .SH NAME
-lightning-openchannel_init - Command to initiate a channel to a peer
+lightning-openchannel_bump - Command to initiate a channel RBF
 .SH SYNOPSIS
 
-\fBopenchannel_init\fR \fIid\fR \fIamount\fR \fIinitalpsbt\fR [\fIcommitment_feerate\fR] [\fIfunding_feerate\fR] [\fIannounce\fR] [\fIclose_to\fR]
+\fBopenchannel_bump\fR \fIchannel_id\fR \fIamount\fR \fIinitalpsbt\fR
 
 .SH DESCRIPTION
 
-\fBopenchannel_init\fR is a low level RPC command which initiates a channel
-open with a specified peer\. It uses the openchannel protocol
+\fBopenchannel_bump\fR is a RPC command which initiates a channel
+RBF (Replace-By-Fee) for the specified channel\. It uses the openchannel protocol
 which allows for interactive transaction construction\.
 
 
-\fIid\fR is the node id of the remote peer\.
+\fIid\fR is the id of the channel to RBF\.
 
 
 \fIamount\fR is the satoshi value that we will contribute to the channel\.
@@ -27,22 +27,6 @@ Must have the Non-Witness UTXO (PSBT_IN_NON_WITNESS_UTXO) set for
 every input\. An error (code 309) will be returned if this requirement
 is not met\.
 
-
-\fIcommitment_feerate\fR is an optional field\. Sets the feerate for
-commitment transactions: see \fBfundchannel\fR\.
-
-
-\fIfunding_feerate\fR is an optional field\. Sets the feerate for the
-funding transaction\. Defaults to 'opening' feerate\.
-
-
-\fIannounce\fR is an optional field\. Whether or not to announce this channel\.
-
-
-\fIclose_to\fR is a Bitcoin address to which the channel funds should be
-sent on close\. Only valid if both peers have negotiated
-\fBoption_upfront_shutdown_script\fR\.
-
 .SH RETURN VALUE
 
 On success, returns the \fIchannel_id\fR for this channel; an updated
@@ -54,6 +38,10 @@ in the \fIpsbt\fR\.
 
 
 If the peer does not support \fBoption_dual_fund\fR, this command
+will return an error\.
+
+
+If the channel is not in a state that is eligible for RBF, this command
 will return an error\.
 
 
@@ -70,25 +58,22 @@ with \fBcode\fR being one of the following:
 .IP \[bu]
 301: The provided PSBT cannot afford the funding amount\.
 .IP \[bu]
-304: Still syncing with bitcoin network
-.IP \[bu]
 305: Peer is not connected\.
-.IP \[bu]
-306: Unknown peer id\.
 .IP \[bu]
 309: PSBT missing required fields
 .IP \[bu]
-310: v2 channel open protocol not supported by peer
+311: Unknown channel id\.
 .IP \[bu]
 312: Channel in an invalid state
 
 .RE
 .SH SEE ALSO
 
-lightning-openchannel_\fBupdate\fR(7), lightning-openchannel_\fBsigned\fR(7),
-lightning-openchannel_\fBbump\fR(7) lightning-fundchannel_\fBstart\fR(7),
-lightning-fundchannel_\fBcomplete\fR(7), \fBlightning-fundchannel\fR(7),
-\fBlightning-fundpsbt\fR(7), \fBlightning-utxopsbt\fR(7), \fBlightning-multifundchannel\fR(7)
+lightning-openchannel_\fBinit\fR(7), lightning-openchannel_\fBupdate\fR(7),
+lightning-openchannel_\fBsigned\fR(7), lightning-openchannel_\fBabort\fR(7),
+lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcomplete\fR(7),
+\fBlightning-fundchannel\fR(7), \fBlightning-fundpsbt\fR(7), \fBlightning-utxopsbt\fR(7),
+\fBlightning-multifundchannel\fR(7)
 
 .SH AUTHOR
 
@@ -98,4 +83,4 @@ lightning-fundchannel_\fBcomplete\fR(7), \fBlightning-fundchannel\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:0db7db257671eb7ea20ee3fafd43ba75902cde08942815e0bb99703114b121e7
+\" SHA256STAMP:3a1f4ea363bae832e6c100bfb4a015223c2225d1eb8c0497e71e844df1bb9a99

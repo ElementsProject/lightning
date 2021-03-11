@@ -1880,7 +1880,7 @@ json_openchannel_bump(struct command *cmd,
 {
 	struct channel_id *cid;
 	struct channel *channel;
-	struct amount_sat *amount;
+	struct amount_sat *amount, psbt_val;
 	struct wally_psbt *psbt;
 	struct open_attempt *oa;
 
@@ -1891,6 +1891,36 @@ json_openchannel_bump(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
+	psbt_val = AMOUNT_SAT(0);
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		struct amount_sat in_amt = psbt_input_get_amount(psbt, i);
+		if (!amount_sat_add(&psbt_val, psbt_val, in_amt))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Overflow in adding PSBT input"
+					    " values. %s",
+					    type_to_string(tmpctx,
+							   struct wally_psbt,
+							   psbt));
+	}
+
+	/* If they don't pass in at least enough in the PSBT to cover
+	 * their amount, nope */
+	if (!amount_sat_greater(psbt_val, *amount))
+		return command_fail(cmd, FUND_CANNOT_AFFORD,
+				    "Provided PSBT cannot afford funding of "
+				    "amount %s. %s",
+				    type_to_string(tmpctx,
+						   struct amount_sat,
+						   amount),
+				    type_to_string(tmpctx,
+						   struct wally_psbt,
+						   psbt));
+
+	if (!topology_synced(cmd->ld->topology)) {
+		return command_fail(cmd, FUNDING_STILL_SYNCING_BITCOIN,
+				    "Still syncing with bitcoin network");
+	}
+
 	/* Are we in a state where we can attempt an RBF? */
 	channel = channel_by_cid(cmd->ld, cid);
 	if (!channel)
@@ -1899,12 +1929,27 @@ json_openchannel_bump(struct command *cmd,
 				    type_to_string(tmpctx, struct channel_id,
 						   cid));
 
+	/* BOLT #2:
+	 *  - if both nodes advertised `option_support_large_channel`:
+	 *    - MAY set `funding_satoshis` greater than or equal to 2^24 satoshi.
+	 *  - otherwise:
+	 *    - MUST set `funding_satoshis` to less than 2^24 satoshi.
+	 */
+	if (!feature_negotiated(cmd->ld->our_features,
+				channel->peer->their_features,
+				OPT_LARGE_CHANNELS)
+	    && amount_sat_greater(*amount, chainparams->max_funding))
+		return command_fail(cmd, FUND_MAX_EXCEEDED,
+				    "Amount exceeded %s",
+				    type_to_string(tmpctx, struct amount_sat,
+						   &chainparams->max_funding));
+
 	if (!channel->owner)
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				      "Peer not connected.");
 
 	if (channel->open_attempt)
-		return command_fail(cmd, LIGHTNINGD,
+		return command_fail(cmd, FUNDING_STATE_INVALID,
 				    "Commitments for this channel not "
 				    "secured, see `openchannel_update`");
 

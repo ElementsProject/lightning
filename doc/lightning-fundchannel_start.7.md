@@ -66,6 +66,8 @@ SEE ALSO
 
 lightning-connect(7), lightning-fundchannel(7),
 lightning-fundchannel\_complete(7), lightning-fundchannel\_cancel(7)
+lightning-openchannel\_init(7), lightning-openchannel\_update(7),
+lightning-openchannel\_signed(7), lightning-openchannel\_bump(7)
 
 RESOURCES
 ---------
