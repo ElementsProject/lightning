@@ -55,14 +55,24 @@ sudo apt-get install bitcoind lightningd
 
 ### Starting `lightningd`
 
+#### Regtest (local, fast-start) Option
 If you want to experiment with `lightningd`, there's a script to set
 up a `bitcoind` regtest test network of two local lightning nodes,
-which provides a convenient `start_ln` helper:
+which provides a convenient `start_ln` helper. See the notes at the top
+of the `startup_regtest.sh` file for details on how to use it.
 
 ```bash
 . contrib/startup_regtest.sh
 ```
 
+Note that your local nodeset will be much faster/more responsive if
+you've configured your node to expose the developer options, e.g.
+
+```bash
+./configure --enable-developer
+```
+
+#### Mainnet Option
 To test with real bitcoin,  you will need to have a local `bitcoind` node running:
 
 ```bash
