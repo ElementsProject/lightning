@@ -7,6 +7,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/channel_control.c		\
 	lightningd/closing_control.c		\
 	lightningd/coin_mvts.c			\
+	lightningd/dual_open_control.c		\
 	lightningd/connect_control.c		\
 	lightningd/onion_message.c		\
 	lightningd/gossip_control.c		\
@@ -39,11 +40,6 @@ LIGHTNINGD_SRC :=				\
 	lightningd/watch.c
 
 
-# Only build dualopend if experimental features is on
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-LIGHTNINGD_SRC += lightningd/dual_open_control.c
-endif
-
 LIGHTNINGD_SRC_NOHDR :=				\
 	lightningd/offer.c			\
 	lightningd/signmessage.c
@@ -53,9 +49,6 @@ LIGHTNINGD_HEADERS :=				\
 	lightningd/channel_state.h		\
 	lightningd/channel_state_names_gen.h
 
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-LIGHTNINGD_HEADERS += lightningd/dual_open_control.h
-endif
 
 LIGHTNINGD_OBJS := $(LIGHTNINGD_SRC:.c=.o) $(LIGHTNINGD_SRC_NOHDR:.c=.o)
 $(LIGHTNINGD_OBJS): $(LIGHTNINGD_HEADERS) $(LIGHTNINGD_CONTROL_HEADERS)

@@ -34,7 +34,6 @@ static bool unknown_type(enum peer_wire t)
 	case WIRE_REPLY_CHANNEL_RANGE:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
 	case WIRE_ONION_MESSAGE:
-#if EXPERIMENTAL_FEATURES
 	case WIRE_TX_ADD_INPUT:
 	case WIRE_TX_REMOVE_INPUT:
 	case WIRE_TX_ADD_OUTPUT:
@@ -45,7 +44,6 @@ static bool unknown_type(enum peer_wire t)
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_INIT_RBF:
 	case WIRE_ACK_RBF:
-#endif
 		return false;
 	}
 	return true;
@@ -85,7 +83,6 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
-#if EXPERIMENTAL_FEATURES
 	case WIRE_TX_ADD_INPUT:
 	case WIRE_TX_REMOVE_INPUT:
 	case WIRE_TX_ADD_OUTPUT:
@@ -96,7 +93,6 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_INIT_RBF:
 	case WIRE_ACK_RBF:
-#endif
 		break;
 	}
 	return false;

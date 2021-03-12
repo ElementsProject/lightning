@@ -338,8 +338,8 @@ def test_disconnect_fundee(node_factory):
     assert len(l2.rpc.listpeers()) == 1
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
-@unittest.skipIf(not EXPERIMENTAL_DUAL_FUND, "needs OPT_DUAL_FUND")
 def test_disconnect_fundee_v2(node_factory):
     # Now error on fundee side during channel open, with them funding
     disconnects = ['-WIRE_ACCEPT_CHANNEL2',
@@ -357,9 +357,10 @@ def test_disconnect_fundee_v2(node_factory):
 
     accepter_plugin = os.path.join(os.path.dirname(__file__),
                                    'plugins/df_accepter.py')
-    l1 = node_factory.get_node()
+    l1 = node_factory.get_node(options={'experimental-dual-fund': None})
     l2 = node_factory.get_node(disconnect=disconnects,
-                               options={'plugin': accepter_plugin})
+                               options={'plugin': accepter_plugin,
+                                        'experimental-dual-fund': None})
 
     l1.fundwallet(2000000)
     l2.fundwallet(2000000)
@@ -950,12 +951,10 @@ def test_funding_toolarge(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual-funding is experimental only")
-@unittest.skipIf(not DEVELOPER, "Requires --dev-force-features")
 def test_v2_open(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
-                                    opts=[{'dev-force-features': '+223'},
-                                          {'dev-force-features': '+223'}])
+                                    opts=[{'experimental-dual-fund': None},
+                                          {'experimental-dual-fund': None}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -1398,7 +1397,7 @@ def test_funding_external_wallet(node_factory, bitcoind):
     l3.rpc.close(l2.info["id"])
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "requires opt_dual_fund")
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_multifunding_v2_v1_mixed(node_factory, bitcoind):
     '''
     Simple test for multifundchannel, using v1 + v2
@@ -1436,8 +1435,7 @@ def test_multifunding_v2_v1_mixed(node_factory, bitcoind):
         l1.rpc.pay(inv)
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "requires opt_dual_fund")
-@unittest.skipIf(not DEVELOPER, "requires dev-force-features")
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_multifunding_v2_exclusive(node_factory, bitcoind):
     '''
     Simple test for multifundchannel, using v2
@@ -1445,10 +1443,10 @@ def test_multifunding_v2_exclusive(node_factory, bitcoind):
     accepter_plugin = os.path.join(os.path.dirname(__file__),
                                    'plugins/df_accepter.py')
     # Two of three will reply with inputs of their own
-    options = [{'dev-force-features': '+223'},
-               {'plugin': accepter_plugin, 'dev-force-features': '+223'},
-               {'plugin': accepter_plugin, 'dev-force-features': '+223'},
-               {'dev-force-features': '+223'}]
+    options = [{'experimental-dual-fund': None},
+               {'plugin': accepter_plugin, 'experimental-dual-fund': None},
+               {'plugin': accepter_plugin, 'experimental-dual-fund': None},
+               {'experimental-dual-fund': None}]
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=options)
 
     l1.fundwallet(2000000)
@@ -2809,13 +2807,14 @@ def test_fail_unconfirmed(node_factory, bitcoind, executor):
 
 
 @unittest.skipIf(not DEVELOPER, "need dev-disconnect")
-@unittest.skipIf(not EXPERIMENTAL_DUAL_FUND, "need dev-disconnect")
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_fail_unconfirmed_openchannel2(node_factory, bitcoind, executor):
     """Test that if we crash with an unconfirmed connection to a known
     peer, we don't have a dangling peer in db"""
     # = is a NOOP disconnect, but sets up file.
-    l1 = node_factory.get_node(disconnect=['=WIRE_OPEN_CHANNEL2'])
-    l2 = node_factory.get_node()
+    l1 = node_factory.get_node(disconnect=['=WIRE_OPEN_CHANNEL2'],
+                               options={'experimental-dual-fund': None})
+    l2 = node_factory.get_node(options={'experimental-dual-fund': None})
 
     # First one, we close by mutual agreement.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)

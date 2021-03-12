@@ -1540,12 +1540,10 @@ connect_ok(struct command *cmd,
 			   json_tok_full(buf, features_tok));
 
 	/* Set the open protocol to use now */
-#if EXPERIMENTAL_FEATURES
 	if (feature_negotiated(plugin_feature_set(mfc->cmd->plugin),
 			       dest->their_features,
 			       OPT_DUAL_FUND))
 		dest->protocol = OPEN_CHANNEL;
-#endif /* EXPERIMENTAL_FEATURES */
 
 	dest->state = MULTIFUNDCHANNEL_CONNECTED;
 	return connect_done(dest);

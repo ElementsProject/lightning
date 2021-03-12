@@ -22,6 +22,7 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/coin_mvts.h>
+#include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
@@ -31,10 +32,6 @@
 #include <lightningd/subd.h>
 #include <wire/common_wiregen.h>
 #include <wire/wire_sync.h>
-
-#if EXPERIMENTAL_FEATURES
- #include <lightningd/dual_open_control.h>
-#endif
 
 static void update_feerates(struct lightningd *ld, struct channel *channel)
 {
@@ -648,11 +645,9 @@ bool channel_tell_depth(struct lightningd *ld,
 			return true;
 		}
 
-#if EXPERIMENTAL_FEATURES
 		dualopen_tell_depth(channel->owner, channel,
 				    txid, depth);
 		return true;
-#endif /* EXPERIMENTAL_FEATURES */
 	} else if (channel->state != CHANNELD_AWAITING_LOCKIN
 	    && channel->state != CHANNELD_NORMAL) {
 		/* If not awaiting lockin/announce, it doesn't

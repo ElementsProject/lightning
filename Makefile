@@ -340,15 +340,11 @@ PKGLIBEXEC_PROGRAMS = \
 	       lightningd/lightning_channeld \
 	       lightningd/lightning_closingd \
 	       lightningd/lightning_connectd \
+	       lightningd/lightning_dualopend \
 	       lightningd/lightning_gossipd \
 	       lightningd/lightning_hsmd \
 	       lightningd/lightning_onchaind \
 	       lightningd/lightning_openingd
-
-# Only build dualopend if experimental features is on
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-PKGLIBEXEC_PROGRAMS += lightningd/lightning_dualopend
-endif
 
 # Don't delete these intermediaries.
 .PRECIOUS: $(ALL_GEN_HEADERS) $(ALL_GEN_SOURCES)
