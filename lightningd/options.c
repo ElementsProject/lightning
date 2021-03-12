@@ -800,6 +800,10 @@ static char *opt_set_wumbo(struct lightningd *ld)
 
 static char *opt_set_dual_fund(struct lightningd *ld)
 {
+	/* Dual funding implies anchor outputs */
+	feature_set_or(ld->our_features,
+		       take(feature_set_for_feature(NULL,
+						    OPTIONAL_FEATURE(OPT_ANCHOR_OUTPUTS))));
 	feature_set_or(ld->our_features,
 		       take(feature_set_for_feature(NULL,
 						    OPTIONAL_FEATURE(OPT_DUAL_FUND))));
