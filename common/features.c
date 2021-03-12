@@ -119,7 +119,7 @@ static const struct dependency feature_deps[] = {
 	 */
 #if EXPERIMENTAL_FEATURES
 	{ OPT_ANCHOR_OUTPUTS, OPT_STATIC_REMOTEKEY },
-	/* BOLT-7b04b1461739c5036add61782d58ac490842d98b #9:
+	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #9:
 	 * Name                | Description  | Context  | Dependencies  |
 	 * ...
 	 * `option_dual_fund`  | ...          | ...      | `option_anchor_outputs`
