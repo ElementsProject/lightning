@@ -23,12 +23,7 @@ $(DUALOPEND_OBJS): $(DUALOPEND_HEADERS)
 # Make sure these depend on everything.
 ALL_C_SOURCES += $(OPENINGD_SRC) $(DUALOPEND_SRC)
 ALL_C_HEADERS += $(OPENINGD_HEADERS) $(DUALOPEND_HEADERS)
-ALL_PROGRAMS += lightningd/lightning_openingd
-
-# Only build dualopend if experimental features is on
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-ALL_PROGRAMS += lightningd/lightning_dualopend
-endif
+ALL_PROGRAMS += lightningd/lightning_openingd lightningd/lightning_dualopend
 
 # Here's what lightningd depends on
 LIGHTNINGD_CONTROL_HEADERS += openingd/openingd_wiregen.h openingd/dualopend_wiregen.h
@@ -71,6 +66,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/peer_billboard.o			\
 	common/peer_failed.o			\
 	common/permute_tx.o			\
+	common/psbt_internal.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/read_peer_msg.o			\
@@ -87,10 +83,6 @@ OPENINGD_COMMON_OBJS :=				\
 	common/wireaddr.o			\
 	gossipd/gossipd_peerd_wiregen.o		\
 	lightningd/gossip_msg.o
-
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-OPENINGD_COMMON_OBJS += common/psbt_internal.o
-endif
 
 lightningd/lightning_openingd: $(OPENINGD_OBJS) $(OPENINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)
 

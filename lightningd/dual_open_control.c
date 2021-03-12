@@ -2324,7 +2324,6 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 				    "Channel funding in-progress. %s",
 				    channel_state_name(channel));
 
-#if EXPERIMENTAL_FEATURES
 	if (!feature_negotiated(cmd->ld->our_features,
 			        peer->their_features,
 				OPT_DUAL_FUND)) {
@@ -2332,7 +2331,6 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 				    "v2 openchannel not supported "
 				    "by peer");
 	}
-#endif /* EXPERIMENTAL_FEATURES */
 
 	/* BOLT #2:
 	 *  - if both nodes advertised `option_support_large_channel`:
@@ -2775,13 +2773,11 @@ static const struct json_command openchannel_abort_command = {
 	"Abort {channel_id}'s open. Usable while `commitment_signed=false`."
 };
 
-#if EXPERIMENTAL_FEATURES
 AUTODATA(json_command, &openchannel_init_command);
 AUTODATA(json_command, &openchannel_update_command);
 AUTODATA(json_command, &openchannel_signed_command);
 AUTODATA(json_command, &openchannel_bump_command);
 AUTODATA(json_command, &openchannel_abort_command);
-#endif /* EXPERIMENTAL_FEATURES */
 
 static void start_fresh_dualopend(struct peer *peer,
 				  struct per_peer_state *pps,

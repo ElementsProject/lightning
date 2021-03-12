@@ -7,11 +7,8 @@
 
 struct wally_psbt;
 struct wally_psbt_input;
-#if EXPERIMENTAL_FEATURES
 struct witness_element;
-#endif /* EXPERIMENTAL_FEATURES */
 
-#if EXPERIMENTAL_FEATURES
 /* psbt_finalize_input - Finalize an input with a given witness stack
  *
  * Sets the given witness elements onto the PSBT. Also finalizes
@@ -34,5 +31,5 @@ const struct witness_stack **
 psbt_to_witness_stacks(const tal_t *ctx,
 		       const struct wally_psbt *psbt,
 		       enum tx_role side_to_stack);
-#endif /* EXPERIMENTAL_FEATURES */
+
 #endif /* LIGHTNING_COMMON_PSBT_INTERNAL_H */

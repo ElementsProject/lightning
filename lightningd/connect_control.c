@@ -292,14 +292,12 @@ static void peer_please_disconnect(struct lightningd *ld, const u8 *msg)
 		channel_cleanup_commands(c, "Reconnected");
 		channel_fail_reconnect(c, "Reconnected");
 	}
-#if EXPERIMENTAL_FEATURES
 	else {
 		/* v2 has unsaved channels, not uncommitted_chans */
 		c = unsaved_channel_by_id(ld, &id);
 		if (c)
 			channel_close_conn(c, "Reconnected");
 	}
-#endif /* EXPERIMENTAL_FEATURES */
 }
 
 static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fds)

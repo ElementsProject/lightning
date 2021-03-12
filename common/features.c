@@ -77,12 +77,7 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
-#if EXPERIMENTAL_FEATURES
 	{ OPT_ANCHOR_OUTPUTS,
-	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
-			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
-			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
-	{ OPT_SHUTDOWN_ANYSEGWIT,
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
@@ -91,6 +86,11 @@ static const struct feature_style feature_styles[] = {
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [BOLT11_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
+#if EXPERIMENTAL_FEATURES
+	{ OPT_SHUTDOWN_ANYSEGWIT,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
 #endif
 };
 
@@ -117,7 +117,6 @@ static const struct dependency feature_deps[] = {
 	 *...
 	 * `option_anchor_outputs` | ...      | ...      | `option_static_remotekey`
 	 */
-#if EXPERIMENTAL_FEATURES
 	{ OPT_ANCHOR_OUTPUTS, OPT_STATIC_REMOTEKEY },
 	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #9:
 	 * Name                | Description  | Context  | Dependencies  |
@@ -125,7 +124,6 @@ static const struct dependency feature_deps[] = {
 	 * `option_dual_fund`  | ...          | ...      | `option_anchor_outputs`
 	 */
 	{ OPT_DUAL_FUND, OPT_ANCHOR_OUTPUTS },
-#endif
 };
 
 static void trim_features(u8 **features)
@@ -393,6 +391,7 @@ static const char *feature_name(const tal_t *ctx, size_t f)
 		"option_basic_mpp",
 		"option_support_large_channel",
 		"option_anchor_outputs",
+		"option_dual_fund",
 		"option_anchors_zero_fee_htlc_tx",
 		NULL,
 		"option_shutdown_anysegwit",

@@ -1058,14 +1058,10 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 		}
 		case DUALOPEND_OPEN_INIT:
 		case DUALOPEND_AWAITING_LOCKIN:
-#if EXPERIMENTAL_FEATURES
 			assert(!channel->owner);
 			channel->peer->addr = addr;
 			peer_restart_dualopend(peer, payload->pps, channel, NULL);
 			return;
-#else
-			abort();
-#endif /* EXPERIMENTAL_FEATURES */
 		case CHANNELD_AWAITING_LOCKIN:
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
@@ -1089,7 +1085,6 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 	error = NULL;
 
 send_error:
-#if EXPERIMENTAL_FEATURES
 	if (feature_negotiated(ld->our_features,
 			       peer->their_features,
 			       OPT_DUAL_FUND)) {
@@ -1104,7 +1099,6 @@ send_error:
 		} else
 			peer_start_dualopend(peer, payload->pps, error);
 	} else
-#endif /* EXPERIMENTAL_FEATURES */
 		peer_start_openingd(peer, payload->pps, error);
 }
 
@@ -1415,11 +1409,9 @@ static void json_add_peer(struct lightningd *ld,
 	json_add_uncommitted_channel(response, p->uncommitted_channel);
 
 	list_for_each(&p->channels, channel, list) {
-#if EXPERIMENTAL_FEATURES
 		if (channel_unsaved(channel))
 			json_add_unsaved_channel(response, channel);
 		else
-#endif /* EXPERIMENTAL_FEATURES */
 			json_add_channel(ld, response, NULL, channel);
 	}
 	json_array_end(response);
@@ -1562,12 +1554,10 @@ static struct command_result *json_close(struct command *cmd,
 
 			return command_success(cmd, json_stream_success(cmd));
 		}
-#if EXPERIMENTAL_FEATURES
 		if ((channel = peer_unsaved_channel(peer))) {
 			channel_close_conn(channel, "close command called");
 			return command_success(cmd, json_stream_success(cmd));
 		}
-#endif /* EXPERIMENTAL_FEATURES */
 		return command_fail(cmd, LIGHTNINGD,
 				    "Peer has no active channel");
 	}
@@ -1863,13 +1853,11 @@ static struct command_result *json_disconnect(struct command *cmd,
 		return command_fail(cmd, LIGHTNINGD, "Peer is in state %s",
 				    channel_state_name(channel));
 	}
-#if EXPERIMENTAL_FEATURES
 	channel = peer_unsaved_channel(peer);
 	if (channel) {
 		channel_close_conn(channel, "disconnect command");
 		return command_success(cmd, json_stream_success(cmd));
 	}
-#endif /* EXPERIMENTAL_FEATURES */
 	if (!peer->uncommitted_channel) {
 		return command_fail(cmd, LIGHTNINGD, "Peer not connected");
 	}

@@ -1756,7 +1756,6 @@ static bool channeld_handle_custommsg(const u8 *msg)
 #endif
 }
 
-#if EXPERIMENTAL_FEATURES
 static void handle_unexpected_tx_sigs(struct peer *peer, const u8 *msg)
 {
 	const struct witness_stack **ws;
@@ -1781,7 +1780,6 @@ static void handle_unexpected_tx_sigs(struct peer *peer, const u8 *msg)
 
 	peer->tx_sigs_allowed = false;
 }
-#endif /* EXPERIMENTAL_FEATURES */
 
 static void handle_unexpected_reestablish(struct peer *peer, const u8 *msg)
 {
@@ -1866,10 +1864,8 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		if (type != WIRE_FUNDING_LOCKED
 		    && type != WIRE_PONG
 		    && type != WIRE_SHUTDOWN
-#if EXPERIMENTAL_FEATURES
 		    /* We expect these for v2 !! */
 		    && type != WIRE_TX_SIGNATURES
-#endif /* EXPERIMENTAL_FEATURES */
 		    /* lnd sends these early; it's harmless. */
 		    && type != WIRE_UPDATE_FEE
 		    && type != WIRE_ANNOUNCEMENT_SIGNATURES) {
@@ -1917,7 +1913,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_FUNDING_CREATED:
 	case WIRE_FUNDING_SIGNED:
 	case WIRE_CLOSING_SIGNED:
-#if EXPERIMENTAL_FEATURES
 	case WIRE_TX_ADD_INPUT:
 	case WIRE_TX_REMOVE_INPUT:
 	case WIRE_TX_ADD_OUTPUT:
@@ -1930,7 +1925,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		return;
 	case WIRE_INIT_RBF:
 	case WIRE_ACK_RBF:
-#endif
 		break;
 
 	case WIRE_CHANNEL_REESTABLISH:

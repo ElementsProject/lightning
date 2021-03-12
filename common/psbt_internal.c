@@ -5,7 +5,6 @@
 #include <wally_psbt.h>
 #include <wire/peer_wire.h>
 
-#if EXPERIMENTAL_FEATURES
 static void
 psbt_input_set_final_witness_stack(const tal_t *ctx,
 				   struct wally_psbt_input *in,
@@ -103,5 +102,3 @@ psbt_to_witness_stacks(const tal_t *ctx,
 	tal_resize(&stacks, stack_index);
 	return stacks;
 }
-
-#endif /* EXPERIMENTAL_FEATURES */
