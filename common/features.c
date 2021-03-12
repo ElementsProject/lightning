@@ -380,21 +380,58 @@ int features_unsupported(const struct feature_set *our_features,
 static const char *feature_name(const tal_t *ctx, size_t f)
 {
 	static const char *fnames[] = {
-		"option_data_loss_protect",
+		"option_data_loss_protect", 	/* 0/1 */
 		"option_initial_routing_sync",
 		"option_upfront_shutdown_script",
 		"option_gossip_queries",
 		"option_var_onion_optin",
-		"option_gossip_queries_ex",
+		"option_gossip_queries_ex", 	/* 10/11 */
 		"option_static_remotekey",
 		"option_payment_secret",
 		"option_basic_mpp",
 		"option_support_large_channel",
-		"option_anchor_outputs",
-		"option_dual_fund",
+		"option_anchor_outputs", 	/* 20/21 */
 		"option_anchors_zero_fee_htlc_tx",
 		NULL,
 		"option_shutdown_anysegwit",
+		"option_dual_fund",
+		NULL, /* 30/31 */
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		NULL, /* 40/41 */
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		NULL, /* 50/51 */
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		NULL, /* 60/61 */
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		NULL, /* 70/71 */
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		NULL, /* 80/81 */
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		NULL, /* 90/91 */
+		NULL,
+		NULL,
+		NULL,
+		NULL,
+		NULL, /* 100/101 */
+		"option_onion_messages", /* 102/103 */
 	};
 
 	if (f / 2 >= ARRAY_SIZE(fnames) || !fnames[f / 2])
