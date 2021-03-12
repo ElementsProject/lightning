@@ -51,15 +51,47 @@ size_t dest_count(const struct multifundchannel_command *mfc,
 	return count;
 }
 
-void fail_destination(struct multifundchannel_destination *dest,
-		      char *error TAKES)
+static void fail_destination(struct multifundchannel_destination *dest)
 {
 	dest->fail_state = dest->state;
 	dest->state = MULTIFUNDCHANNEL_FAILED;
-	if (taken(error))
-		dest->error = tal_steal(dest->mfc, error);
+}
+
+void fail_destination_tok(struct multifundchannel_destination *dest,
+			  const char *buf,
+			  const jsmntok_t *error)
+{
+	const char *err;
+	const jsmntok_t *data_tok;
+
+	err = json_scan(tmpctx, buf, error, "{code:%,message:%}",
+			JSON_SCAN(json_to_int, &dest->error_code),
+			JSON_SCAN_TAL(dest->mfc,
+				      json_strdup,
+				      &dest->error_message));
+	if (err)
+		plugin_err(dest->mfc->cmd->plugin,
+			   "`fundchannel_complete` failure failed to parse %s",
+			   err);
+
+	data_tok = json_get_member(buf, error, "data");
+	if (data_tok)
+		dest->error_data = json_strdup(dest->mfc, buf, data_tok);
 	else
-		dest->error = tal_strdup(dest->mfc, error);
+		dest->error_data = NULL;
+
+	fail_destination(dest);
+}
+
+void fail_destination_msg(struct multifundchannel_destination *dest,
+			  errcode_t error_code,
+			  const char *err_str TAKES)
+{
+	dest->error_code = error_code;
+	dest->error_message = tal_strdup(dest->mfc, err_str);
+	dest->error_data = NULL;
+
+	fail_destination(dest);
 }
 
 /* Return true if this destination failed, false otherwise.  */
@@ -474,7 +506,14 @@ multifundchannel_finished(struct multifundchannel_command *mfc)
 		json_object_start(out, NULL);
 		json_add_node_id(out, "id", &mfc->removeds[i].id);
 		json_add_string(out, "method", mfc->removeds[i].method);
-		json_add_jsonstr(out, "error", mfc->removeds[i].error);
+		json_object_start(out, "error"); /* Start error object */
+		json_add_s32(out, "code", mfc->removeds[i].error_code);
+		json_add_string(out, "message",
+				mfc->removeds[i].error_message);
+		if (mfc->removeds[i].error_data)
+			json_add_jsonstr(out, "data",
+					 mfc->removeds[i].error_data);
+		json_object_end(out); /* End error object */
 		json_object_end(out);
 	}
 	json_array_end(out);
@@ -670,7 +709,7 @@ after_fundchannel_complete(struct multifundchannel_command *mfc)
 
 		/* One of them failed, oh no.  */
 		return redo_multifundchannel(mfc, "fundchannel_complete",
-					     dest->error);
+					     dest->error_message);
 	}
 
 	if (dest_count(mfc, OPEN_CHANNEL) > 0)
@@ -725,7 +764,6 @@ fundchannel_complete_err(struct command *cmd,
 			 struct multifundchannel_destination *dest)
 {
 	struct multifundchannel_command *mfc = dest->mfc;
-	const jsmntok_t *code_tok;
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: "
@@ -734,22 +772,7 @@ fundchannel_complete_err(struct command *cmd,
 		   node_id_to_hexstr(tmpctx, &dest->id),
 		   json_tok_full_len(error), json_tok_full(buf, error));
 
-	code_tok = json_get_member(buf, error, "code");
-	if (!code_tok)
-		plugin_err(cmd->plugin,
-			   "`fundchannel_complete` failure "
-			   "did not have `code`? "
-			   "%.*s",
-			   json_tok_full_len(error),
-			   json_tok_full(buf, error));
-	if (!json_to_errcode(buf, code_tok, &dest->code))
-		plugin_err(cmd->plugin,
-			   "`fundchannel_complete` has unparseable `code`? "
-			   "%.*s",
-			   json_tok_full_len(error),
-			   json_tok_full(buf, error));
-
-	fail_destination(dest, take(json_strdup(NULL, buf, error)));
+	fail_destination_tok(dest, buf, error);
 	return fundchannel_complete_done(dest);
 }
 
@@ -970,7 +993,7 @@ after_channel_start(struct multifundchannel_command *mfc)
 					     is_v2(dest) ?
 					     "openchannel_init" :
 					     "fundchannel_start",
-					     dest->error);
+					     dest->error_message);
 	}
 
 	/* Next step.  */
@@ -1052,31 +1075,13 @@ fundchannel_start_err(struct command *cmd,
 		      const jsmntok_t *error,
 		      struct multifundchannel_destination *dest)
 {
-	struct multifundchannel_command *mfc = dest->mfc;
-	const jsmntok_t *code_tok;
-
-	plugin_log(mfc->cmd->plugin, LOG_DBG,
+	plugin_log(dest->mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: "
 		   "failed! fundchannel_start %s: %.*s.",
-		   mfc->id, dest->index,
+		   dest->mfc->id, dest->index,
 		   node_id_to_hexstr(tmpctx, &dest->id),
 		   json_tok_full_len(error),
 		   json_tok_full(buf, error));
-
-	code_tok = json_get_member(buf, error, "code");
-	if (!code_tok)
-		plugin_err(cmd->plugin,
-			   "`fundchannel_start` failure did not have `code`? "
-			   "%.*s",
-			   json_tok_full_len(error),
-			   json_tok_full(buf, error));
-	if (!json_to_errcode(buf, code_tok, &dest->code))
-		plugin_err(cmd->plugin,
-			   "`fundchannel_start` has unparseable `code`? "
-			   "%.*s",
-			   json_tok_full_len(code_tok),
-			   json_tok_full(buf, code_tok));
-
 	/*
 	You might be wondering why we do not just use
 	mfc_forward_error here.
@@ -1089,7 +1094,7 @@ fundchannel_start_err(struct command *cmd,
 	completed, we can then fail.
 	*/
 
-	fail_destination(dest, take(json_strdup(NULL, buf, error)));
+	fail_destination_tok(dest, buf, error);
 	return fundchannel_start_done(dest);
 }
 
@@ -1491,7 +1496,8 @@ after_multiconnect(struct multifundchannel_command *mfc)
 			continue;
 
 		/* One of them failed, oh no. */
-		return redo_multifundchannel(mfc, "connect", dest->error);
+		return redo_multifundchannel(mfc, "connect",
+					     dest->error_message);
 	}
 
 	return perform_fundpsbt(mfc);
@@ -1555,7 +1561,6 @@ connect_err(struct command *cmd,
 	    struct multifundchannel_destination *dest)
 {
 	struct multifundchannel_command *mfc = dest->mfc;
-	const jsmntok_t *code_tok;
 
 	plugin_log(mfc->cmd->plugin, LOG_DBG,
 		   "mfc %"PRIu64", dest %u: failed! connect %s: %.*s.",
@@ -1564,21 +1569,7 @@ connect_err(struct command *cmd,
 		   json_tok_full_len(error),
 		   json_tok_full(buf, error));
 
-	code_tok = json_get_member(buf, error, "code");
-	if (!code_tok)
-		plugin_err(cmd->plugin,
-			   "`connect` failure did not have `code`? "
-			   "%.*s",
-			   json_tok_full_len(error),
-			   json_tok_full(buf, error));
-	if (!json_to_errcode(buf, code_tok, &dest->code))
-		plugin_err(cmd->plugin,
-			   "`connect` has unparseable `code`? "
-			   "%.*s",
-			   json_tok_full_len(code_tok),
-			   json_tok_full(buf, code_tok));
-
-	fail_destination(dest, take(json_strdup(NULL, buf, error)));
+	fail_destination_tok(dest, buf, error);
 	return connect_done(dest);
 }
 
@@ -1687,12 +1678,12 @@ post_cleanup_redo_multifundchannel(struct multifundchannel_redo *redo)
 		/* We have to fail any v2 that has commitments already */
 		if (is_v2(dest) && has_commitments_secured(dest)
 		     && !dest_failed(dest)) {
-			fail_destination(dest, take(tal_fmt(NULL, "%s",
-					 "\"Attempting retry,"
-					 " yet this peer already has"
-					 " exchanged commitments and is"
-					 " using the v2 open protocol."
-					 " Must spend input to reset.\"")));
+			fail_destination_msg(dest, FUNDING_STATE_INVALID,
+					     "Attempting retry,"
+					     " yet this peer already has"
+					     " exchanged commitments and is"
+					     " using the v2 open protocol."
+					     " Must spend input to reset.");
 		}
 
 		if (dest_failed(dest)) {
@@ -1706,8 +1697,9 @@ post_cleanup_redo_multifundchannel(struct multifundchannel_redo *redo)
 
 			removed.id = dest->id;
 			removed.method = failing_method;
-			removed.error = dest->error;
-			removed.code = dest->code;
+			removed.error_message = dest->error_message;
+			removed.error_code = dest->error_code;
+			removed.error_data = dest->error_data;
 			/* Add to removeds.  */
 			tal_arr_expand(&mfc->removeds, removed);
 		} else {
@@ -1741,13 +1733,13 @@ post_cleanup_redo_multifundchannel(struct multifundchannel_redo *redo)
 		i = tal_count(mfc->removeds) - 1;
 
 		out = jsonrpc_stream_fail_data(mfc->cmd,
-					       mfc->removeds[i].code,
-					       tal_fmt(tmpctx,
-						       "'%s' failed",
-						       failing_method));
+					       mfc->removeds[i].error_code,
+					       mfc->removeds[i].error_message);
 		json_add_node_id(out, "id", &mfc->removeds[i].id);
 		json_add_string(out, "method", failing_method);
-		json_add_jsonstr(out, "error", mfc->removeds[i].error);
+		if (mfc->removeds[i].error_data)
+			json_add_jsonstr(out, "data",
+					 mfc->removeds[i].error_data);
 
 		/* Close 'data'.  */
 		json_object_end(out);
@@ -1862,7 +1854,6 @@ param_destinations_array(struct command *cmd, const char *name,
 		dest->amount = dest->all ? AMOUNT_SAT(0) : *amount;
 		dest->announce = *announce;
 		dest->push_msat = *push_msat;
-		dest->error = NULL;
 		dest->psbt = NULL;
 		dest->updated_psbt = NULL;
 		dest->protocol = FUND_CHANNEL;

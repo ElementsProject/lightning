@@ -344,11 +344,12 @@ openchannel_finished(struct multifundchannel_command *mfc)
 				   mfc->id, dest->index);
 
 			out = jsonrpc_stream_fail_data(mfc->cmd,
-						       dest->code,
-						       dest->error);
+						       dest->error_code,
+						       dest->error_message);
 			json_add_node_id(out, "id", &dest->id);
 			json_add_string(out, "method", "openchannel_signed");
-			json_add_jsonstr(out, "error", dest->error);
+			if (dest->error_data)
+				json_add_jsonstr(out, "data", dest->error_data);
 			json_object_end(out);
 
 			return mfc_finished(mfc, out);
@@ -415,23 +416,8 @@ openchannel_signed_err(struct command *cmd,
 		       struct multifundchannel_destination *dest)
 {
 	struct multifundchannel_command *mfc = dest->mfc;
-	const jsmntok_t *code_tok;
 
-	code_tok = json_get_member(buf, error, "code");
-	if (!code_tok)
-		plugin_err(cmd->plugin,
-			   "`openchannel_signed` failure did not have `code`? "
-			   "%.*s",
-			   json_tok_full_len(error),
-			   json_tok_full(buf, error));
-	if (!json_to_errcode(buf, code_tok, &dest->code))
-		plugin_err(cmd->plugin,
-			   "`openchannel_signed` has unparseable `code`? "
-			   "%.*s",
-			   json_tok_full_len(code_tok),
-			   json_tok_full(buf, code_tok));
-
-	fail_destination(dest, take(json_strdup(NULL, buf, error)));
+	fail_destination_tok(dest, buf, error);
 	return after_openchannel_signed(mfc);
 }
 
@@ -755,23 +741,7 @@ openchannel_update_err(struct command *cmd,
 		       const jsmntok_t *error,
 		       struct multifundchannel_destination *dest)
 {
-	const jsmntok_t *code_tok;
-
-	code_tok = json_get_member(buf, error, "code");
-	if (!code_tok)
-		plugin_err(cmd->plugin,
-			   "`openchannel_update` failure missing "
-			   "`code`? %.*s",
-			   json_tok_full_len(error),
-			   json_tok_full(buf, error));
-	if (!json_to_errcode(buf, code_tok, &dest->code))
-		plugin_err(cmd->plugin,
-			   "`openchannel_update` returned unparseable `code`? "
-			   "%.*s",
-			   json_tok_full_len(error),
-			   json_tok_full(buf, error));
-
-	fail_destination(dest, take(json_strdup(NULL, buf, error)));
+	fail_destination_tok(dest, buf, error);
 	return openchannel_update_returned(dest);
 }
 
@@ -818,7 +788,7 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 		if (dest->state == MULTIFUNDCHANNEL_FAILED)
 			return redo_multifundchannel(mfc,
 						     "openchannel_update",
-						     dest->error);
+						     dest->error_message);
 
 		if (dest->state == MULTIFUNDCHANNEL_SECURED ||
 			dest->state == MULTIFUNDCHANNEL_SIGNED) {
@@ -846,11 +816,12 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 		if (!update_parent_psbt(mfc, dest, dest->psbt,
 					dest->updated_psbt,
 					&mfc->psbt)) {
-			fail_destination(dest, "\"Unable to update parent "
-					 "with node's PSBT\"");
+			fail_destination_msg(dest, FUNDING_PSBT_INVALID,
+					     "Unable to update parent "
+					     "with node's PSBT");
 			return redo_multifundchannel(mfc,
 						     "openchannel_init_parent",
-						     dest->error);
+						     dest->error_message);
 		}
 		/* Get everything sorted correctly */
 		psbt_sort_by_serial_id(mfc->psbt);
@@ -871,11 +842,12 @@ perform_openchannel_update(struct multifundchannel_command *mfc)
 			continue;
 
 		if (!update_node_psbt(mfc, mfc->psbt, &dest->psbt)) {
-			fail_destination(dest, "\"Unable to node PSBT"
-					 " with parent PSBT\"");
+			fail_destination_msg(dest, FUNDING_PSBT_INVALID,
+					     "Unable to update peer's PSBT"
+					     " with parent PSBT");
 			return redo_multifundchannel(mfc,
 						     "openchannel_init_node",
-						     dest->error);
+						     dest->error_message);
 		}
 	}
 
@@ -957,9 +929,9 @@ openchannel_init_ok(struct command *cmd,
 	/* Port any updates onto 'parent' PSBT */
 	if (!update_parent_psbt(dest->mfc, dest, dest->psbt,
 				dest->updated_psbt, &mfc->psbt)) {
-		fail_destination(dest,
-				 take(tal_fmt(NULL, "\"Unable to update parent"
-					      " with node's PSBT\"")));
+		fail_destination_msg(dest, FUNDING_PSBT_INVALID,
+				     "Unable to update parent"
+				     " with node's PSBT");
 	}
 
 	/* Clone updated-psbt to psbt, so original changeset
@@ -977,23 +949,7 @@ openchannel_init_err(struct command *cmd,
 		     const jsmntok_t *error,
 		     struct multifundchannel_destination *dest)
 {
-	const jsmntok_t *code_tok;
-
-	code_tok = json_get_member(buf, error, "code");
-	if (!code_tok)
-		plugin_err(cmd->plugin,
-			   "`openchannel_init` failure did not have `code`? "
-			   "%.*s",
-			   json_tok_full_len(error),
-			   json_tok_full(buf, error));
-	if (!json_to_errcode(buf, code_tok, &dest->code))
-		plugin_err(cmd->plugin,
-			   "`openchannel_init` has unparseable `code`? "
-			   "%.*s",
-			   json_tok_full_len(code_tok),
-			   json_tok_full(buf, code_tok));
-
-	fail_destination(dest, take(json_strdup(NULL, buf, error)));
+	fail_destination_tok(dest, buf, error);
 	return openchannel_init_done(dest);
 }
 
