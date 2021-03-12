@@ -119,10 +119,10 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
  */
 #define OPT_SHUTDOWN_ANYSEGWIT			26
 
-/* BOLT-7b04b1461739c5036add61782d58ac490842d98b #9:
- * | 222/223 | `option_dual_fund` | ... IN9 ...
+/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #9:
+ * | 28/29 | `option_dual_fund` | ... IN9 ...
  */
-#define OPT_DUAL_FUND 				222
+#define OPT_DUAL_FUND 				28
 
 /* BOLT-9fc25cfd2895578c0b1ab701ebe6c1eb67a19623 #9:
  *
