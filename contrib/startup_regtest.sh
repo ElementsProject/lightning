@@ -117,7 +117,7 @@ start_ln() {
 	# Kick it out of initialblockdownload if necessary
 	if bitcoin-cli -regtest getblockchaininfo | grep -q 'initialblockdownload.*true'; then
 		# Modern bitcoind needs createwallet
-		bt-cli createwallet default >/dev/null 2>&1
+		bitcoin-cli -regtest createwallet default >/dev/null 2>&1
 		bitcoin-cli -regtest generatetoaddress 1 "$(bitcoin-cli -regtest getnewaddress)" > /dev/null
 	fi
 	alias bt-cli='bitcoin-cli -regtest'
