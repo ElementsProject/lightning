@@ -492,7 +492,7 @@ void bitcoind_getchaininfo_(struct bitcoind *bitcoind,
 
 /* `getutxout`
  *
- * Get informations about an UTXO. If the TXO is spent, the plugin will set
+ * Get information about an UTXO. If the TXO is spent, the plugin will set
  * all fields to `null`.
  * {
  *	"amount": <The output's amount in *sats*>,

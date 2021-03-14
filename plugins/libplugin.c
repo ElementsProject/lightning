@@ -60,7 +60,7 @@ struct plugin {
 	/* Synchronous RPC interaction */
 	struct rpc_conn *rpc_conn;
 
-	/* Plugin informations */
+	/* Plugin information details */
 	enum plugin_restartability restartability;
 	const struct plugin_command *commands;
 	size_t num_commands;

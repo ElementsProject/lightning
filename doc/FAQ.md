@@ -39,7 +39,7 @@ You can use the `listfunds` command and take a ratio of `our_amount_msat` over
 `amount_msat`. Note that this doesn't account for the [channel reserve](https://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md#rationale).
 
 A better option is to use the [`summary` plugin](https://github.com/lightningd/plugins/tree/master/summary)
-which nicely displays channel balances, along with other useful channel informations.
+which nicely displays channel balances, along with other useful channel information.
 
 ### My channel is in state `STATE`, what does that mean ?
 

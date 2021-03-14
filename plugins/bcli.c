@@ -932,7 +932,7 @@ static const struct plugin_command commands[] = {
 	{
 		"getutxout",
 		"bitcoin",
-		"Get informations about an output, identified by a {txid} an a {vout}",
+		"Get information about an output, identified by a {txid} an a {vout}",
 		"",
 		getutxout
 	},

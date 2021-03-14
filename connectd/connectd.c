@@ -1422,7 +1422,7 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 								 &a.u.wireaddr));
 				tal_arr_expand(addrs, a);
 			}
-			/* Other seeds will likely have the same informations. */
+			/* Other seeds will likely have the same information. */
 			return;
 		} else
 			status_peer_debug(id, "Could not resolve %s", hostnames[i]);
