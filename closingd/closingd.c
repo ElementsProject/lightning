@@ -43,7 +43,8 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 				   const struct amount_sat out[NUM_SIDES],
 				   enum side opener,
 				   struct amount_sat fee,
-				   struct amount_sat dust_limit)
+				   struct amount_sat dust_limit,
+				   const struct bitcoin_outpoint *wrong_funding)
 {
 	struct bitcoin_tx *tx;
 	struct amount_sat out_minus_fee[NUM_SIDES];
@@ -88,6 +89,12 @@ static struct bitcoin_tx *close_tx(const tal_t *ctx,
 				type_to_string(tmpctx, struct amount_sat, &dust_limit),
 				type_to_string(tmpctx, struct amount_sat, &out[LOCAL]),
 				type_to_string(tmpctx, struct amount_sat, &out[REMOTE]));
+
+	if (wrong_funding)
+		bitcoin_tx_input_set_txid(tx, 0,
+					  &wrong_funding->txid,
+					  wrong_funding->n);
+
 	return tx;
 }
 
@@ -148,13 +155,15 @@ static void do_reconnect(struct per_peer_state *pps,
 			 u64 revocations_received,
 			 const u8 *channel_reestablish,
 			 const u8 *final_scriptpubkey,
-			 const struct secret *last_remote_per_commit_secret)
+			 const struct secret *last_remote_per_commit_secret,
+			 const struct bitcoin_outpoint *wrong_funding)
 {
 	u8 *msg;
 	struct channel_id their_channel_id;
 	u64 next_local_commitment_number, next_remote_revocation_number;
 	struct pubkey my_current_per_commitment_point, next_commitment_point;
 	struct secret their_secret;
+	struct tlv_shutdown_tlvs *tlvs;
 
 	my_current_per_commitment_point = get_per_commitment_point(next_index[LOCAL]-1);
 
@@ -218,8 +227,16 @@ static void do_reconnect(struct per_peer_state *pps,
 	 *     - if it has sent a previous `shutdown`:
 	 *       - MUST retransmit `shutdown`.
 	 */
-	/* FIXME: retransmit wrong_funding */
-	msg = towire_shutdown(NULL, channel_id, final_scriptpubkey, NULL);
+	if (wrong_funding) {
+		tlvs = tlv_shutdown_tlvs_new(tmpctx);
+		tlvs->wrong_funding
+			= tal(tlvs, struct tlv_shutdown_tlvs_wrong_funding);
+		tlvs->wrong_funding->txid = wrong_funding->txid;
+		tlvs->wrong_funding->outnum = wrong_funding->n;
+	} else
+		tlvs = NULL;
+
+	msg = towire_shutdown(NULL, channel_id, final_scriptpubkey, tlvs);
 	sync_crypto_write(pps, take(msg));
 
 	/* BOLT #2:
@@ -250,7 +267,8 @@ static void send_offer(struct per_peer_state *pps,
 		       const struct amount_sat out[NUM_SIDES],
 		       enum side opener,
 		       struct amount_sat our_dust_limit,
-		       struct amount_sat fee_to_offer)
+		       struct amount_sat fee_to_offer,
+		       const struct bitcoin_outpoint *wrong_funding)
 {
 	struct bitcoin_tx *tx;
 	struct bitcoin_signature our_sig;
@@ -269,7 +287,8 @@ static void send_offer(struct per_peer_state *pps,
 		      funding,
 		      funding_wscript,
 		      out,
-		      opener, fee_to_offer, our_dust_limit);
+		      opener, fee_to_offer, our_dust_limit,
+		      wrong_funding);
 
 	/* BOLT #3:
 	 *
@@ -329,6 +348,7 @@ receive_offer(struct per_peer_state *pps,
 	      enum side opener,
 	      struct amount_sat our_dust_limit,
 	      struct amount_sat min_fee_to_accept,
+	      const struct bitcoin_outpoint *wrong_funding,
 	      struct bitcoin_txid *closing_txid)
 {
 	u8 *msg;
@@ -379,7 +399,8 @@ receive_offer(struct per_peer_state *pps,
 		      funding_txout,
 		      funding,
 		      funding_wscript,
-		      out, opener, received_fee, our_dust_limit);
+		      out, opener, received_fee, our_dust_limit,
+		      wrong_funding);
 
 	if (!check_tx_sig(tx, 0, NULL, funding_wscript,
 			  &funding_pubkey[REMOTE], &their_sig)) {
@@ -410,7 +431,8 @@ receive_offer(struct per_peer_state *pps,
 				   funding,
 				   funding_wscript,
 				   trimming_out,
-				   opener, received_fee, our_dust_limit);
+				   opener, received_fee, our_dust_limit,
+				   wrong_funding);
 		if (!trimmed
 		    || !check_tx_sig(trimmed, 0, NULL, funding_wscript,
 				     &funding_pubkey[REMOTE], &their_sig)) {
@@ -619,6 +641,7 @@ int main(int argc, char *argv[])
 	enum side whose_turn;
 	u8 *channel_reestablish;
 	struct secret last_remote_per_commit_secret;
+	struct bitcoin_outpoint *wrong_funding;
 
 	subdaemon_setup(argc, argv);
 
@@ -626,30 +649,31 @@ int main(int argc, char *argv[])
 
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_closingd_init(ctx, msg,
-				   &chainparams,
-				   &pps,
-				   &channel_id,
-				   &funding_txid, &funding_txout,
-				   &funding,
-				   &funding_pubkey[LOCAL],
-				   &funding_pubkey[REMOTE],
-				   &opener,
-				   &out[LOCAL],
-				   &out[REMOTE],
-				   &our_dust_limit,
-				   &min_fee_to_accept, &commitment_fee,
-				   &offer[LOCAL],
-				   &scriptpubkey[LOCAL],
-				   &scriptpubkey[REMOTE],
-				   &fee_negotiation_step,
-				   &fee_negotiation_step_unit,
-				   &reconnected,
-				   &next_index[LOCAL],
-				   &next_index[REMOTE],
-				   &revocations_received,
-				   &channel_reestablish,
-				   &last_remote_per_commit_secret,
-				   &dev_fast_gossip))
+				    &chainparams,
+				    &pps,
+				    &channel_id,
+				    &funding_txid, &funding_txout,
+				    &funding,
+				    &funding_pubkey[LOCAL],
+				    &funding_pubkey[REMOTE],
+				    &opener,
+				    &out[LOCAL],
+				    &out[REMOTE],
+				    &our_dust_limit,
+				    &min_fee_to_accept, &commitment_fee,
+				    &offer[LOCAL],
+				    &scriptpubkey[LOCAL],
+				    &scriptpubkey[REMOTE],
+				    &fee_negotiation_step,
+				    &fee_negotiation_step_unit,
+				    &reconnected,
+				    &next_index[LOCAL],
+				    &next_index[REMOTE],
+				    &revocations_received,
+				    &channel_reestablish,
+				    &last_remote_per_commit_secret,
+				    &dev_fast_gossip,
+				    &wrong_funding))
 		master_badmsg(WIRE_CLOSINGD_INIT, msg);
 
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = hsmd */
@@ -670,6 +694,11 @@ int main(int argc, char *argv[])
 	status_debug("fee = %s",
 		     type_to_string(tmpctx, struct amount_sat, &offer[LOCAL]));
 	status_debug("fee negotiation step = %s", fee_negotiation_step_str);
+	if (wrong_funding)
+		status_unusual("Setting wrong_funding_txid to %s:%u",
+			       type_to_string(tmpctx, struct bitcoin_txid,
+					      &wrong_funding->txid),
+			       wrong_funding->n);
 
 	funding_wscript = bitcoin_redeem_2of2(ctx,
 					      &funding_pubkey[LOCAL],
@@ -679,7 +708,8 @@ int main(int argc, char *argv[])
 		do_reconnect(pps, &channel_id,
 			     next_index, revocations_received,
 			     channel_reestablish, scriptpubkey[LOCAL],
-			     &last_remote_per_commit_secret);
+			     &last_remote_per_commit_secret,
+			     wrong_funding);
 
 	peer_billboard(
 	    true,
@@ -705,7 +735,8 @@ int main(int argc, char *argv[])
 				   scriptpubkey, &funding_txid, funding_txout,
 				   funding, out, opener,
 				   our_dust_limit,
-				   offer[LOCAL]);
+				   offer[LOCAL],
+				   wrong_funding);
 		} else {
 			if (i == 0)
 				peer_billboard(false, "Waiting for their initial"
@@ -726,6 +757,7 @@ int main(int argc, char *argv[])
 						out, opener,
 						our_dust_limit,
 						min_fee_to_accept,
+						wrong_funding,
 						&closing_txid);
 		}
 	}
@@ -754,7 +786,8 @@ int main(int argc, char *argv[])
 				   scriptpubkey, &funding_txid, funding_txout,
 				   funding, out, opener,
 				   our_dust_limit,
-				   offer[LOCAL]);
+				   offer[LOCAL],
+				   wrong_funding);
 		} else {
 			peer_billboard(false, "Waiting for another"
 				       " closing fee offer:"
@@ -770,6 +803,7 @@ int main(int argc, char *argv[])
 						out, opener,
 						our_dust_limit,
 						min_fee_to_accept,
+						wrong_funding,
 						&closing_txid);
 		}
 
@@ -782,6 +816,7 @@ int main(int argc, char *argv[])
 
 #if DEVELOPER
 	/* We don't listen for master commands, so always check memleak here */
+	tal_free(wrong_funding);
 	closing_dev_memleak(ctx, scriptpubkey, funding_wscript);
 #endif
 

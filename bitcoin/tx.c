@@ -399,6 +399,19 @@ void bitcoin_tx_input_get_txid(const struct bitcoin_tx *tx, int innum,
 	wally_tx_input_get_txid(&tx->wtx->inputs[innum], out);
 }
 
+void bitcoin_tx_input_set_txid(struct bitcoin_tx *tx, int innum,
+			       const struct bitcoin_txid *txid,
+			       u32 index)
+{
+	struct wally_tx_input *in;
+	assert(innum < tx->wtx->num_inputs);
+
+	in = &tx->wtx->inputs[innum];
+	BUILD_ASSERT(sizeof(struct bitcoin_txid) == sizeof(in->txhash));
+	memcpy(in->txhash, txid, sizeof(struct bitcoin_txid));
+	in->index = index;
+}
+
 void wally_tx_input_get_txid(const struct wally_tx_input *in,
 			     struct bitcoin_txid *txid)
 {

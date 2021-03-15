@@ -48,7 +48,7 @@ bool closingd_wire_is_defined(u16 type)
 
 /* WIRE: CLOSINGD_INIT */
 /* Begin!  (passes peer fd */
-u8 *towire_closingd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct per_peer_state *pps, const struct channel_id *channel_id, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshi, const struct pubkey *local_fundingkey, const struct pubkey *remote_fundingkey, enum side opener, struct amount_sat local_sat, struct amount_sat remote_sat, struct amount_sat our_dust_limit, struct amount_sat min_fee_satoshi, struct amount_sat fee_limit_satoshi, struct amount_sat initial_fee_satoshi, const u8 *local_scriptpubkey, const u8 *remote_scriptpubkey, u64 fee_negotiation_step, u8 fee_negotiation_step_unit, bool reconnected, u64 next_index_local, u64 next_index_remote, u64 revocations_received, const u8 *channel_reestablish, const struct secret *last_remote_secret, bool dev_fast_gossip)
+u8 *towire_closingd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct per_peer_state *pps, const struct channel_id *channel_id, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshi, const struct pubkey *local_fundingkey, const struct pubkey *remote_fundingkey, enum side opener, struct amount_sat local_sat, struct amount_sat remote_sat, struct amount_sat our_dust_limit, struct amount_sat min_fee_satoshi, struct amount_sat fee_limit_satoshi, struct amount_sat initial_fee_satoshi, const u8 *local_scriptpubkey, const u8 *remote_scriptpubkey, u64 fee_negotiation_step, u8 fee_negotiation_step_unit, bool reconnected, u64 next_index_local, u64 next_index_remote, u64 revocations_received, const u8 *channel_reestablish, const struct secret *last_remote_secret, bool dev_fast_gossip, const struct bitcoin_outpoint *shutdown_wrong_funding)
 {
 	u16 local_scriptpubkey_len = tal_count(local_scriptpubkey);
 	u16 remote_scriptpubkey_len = tal_count(remote_scriptpubkey);
@@ -85,10 +85,16 @@ u8 *towire_closingd_init(const tal_t *ctx, const struct chainparams *chainparams
 	towire_u8_array(&p, channel_reestablish, channel_reestablish_len);
 	towire_secret(&p, last_remote_secret);
 	towire_bool(&p, dev_fast_gossip);
+	if (!shutdown_wrong_funding)
+		towire_bool(&p, false);
+	else {
+		towire_bool(&p, true);
+		towire_bitcoin_outpoint(&p, shutdown_wrong_funding);
+	}
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_closingd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct per_peer_state **pps, struct channel_id *channel_id, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshi, struct pubkey *local_fundingkey, struct pubkey *remote_fundingkey, enum side *opener, struct amount_sat *local_sat, struct amount_sat *remote_sat, struct amount_sat *our_dust_limit, struct amount_sat *min_fee_satoshi, struct amount_sat *fee_limit_satoshi, struct amount_sat *initial_fee_satoshi, u8 **local_scriptpubkey, u8 **remote_scriptpubkey, u64 *fee_negotiation_step, u8 *fee_negotiation_step_unit, bool *reconnected, u64 *next_index_local, u64 *next_index_remote, u64 *revocations_received, u8 **channel_reestablish, struct secret *last_remote_secret, bool *dev_fast_gossip)
+bool fromwire_closingd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct per_peer_state **pps, struct channel_id *channel_id, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshi, struct pubkey *local_fundingkey, struct pubkey *remote_fundingkey, enum side *opener, struct amount_sat *local_sat, struct amount_sat *remote_sat, struct amount_sat *our_dust_limit, struct amount_sat *min_fee_satoshi, struct amount_sat *fee_limit_satoshi, struct amount_sat *initial_fee_satoshi, u8 **local_scriptpubkey, u8 **remote_scriptpubkey, u64 *fee_negotiation_step, u8 *fee_negotiation_step_unit, bool *reconnected, u64 *next_index_local, u64 *next_index_remote, u64 *revocations_received, u8 **channel_reestablish, struct secret *last_remote_secret, bool *dev_fast_gossip, struct bitcoin_outpoint **shutdown_wrong_funding)
 {
 	u16 local_scriptpubkey_len;
 	u16 remote_scriptpubkey_len;
@@ -134,6 +140,12 @@ bool fromwire_closingd_init(const tal_t *ctx, const void *p, const struct chainp
 	fromwire_u8_array(&cursor, &plen, *channel_reestablish, channel_reestablish_len);
  	fromwire_secret(&cursor, &plen, last_remote_secret);
  	*dev_fast_gossip = fromwire_bool(&cursor, &plen);
+ 	if (!fromwire_bool(&cursor, &plen))
+		*shutdown_wrong_funding = NULL;
+	else {
+		*shutdown_wrong_funding = tal(ctx, struct bitcoin_outpoint);
+		fromwire_bitcoin_outpoint(&cursor, &plen, *shutdown_wrong_funding);
+	}
 	return cursor != NULL;
 }
 
@@ -201,4 +213,4 @@ bool fromwire_closingd_complete(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:196786d8f37f20c93162a33692b7caddc638a48d4ec15c1a9bc09bbec41da360
+// SHA256STAMP:95043321951ace6f7a5ee9f1dc0ae57c8a6427644b8b79d3e08e521dc9b3b49f
