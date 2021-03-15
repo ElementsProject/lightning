@@ -1,0 +1,13 @@
+--- wire/peer_wire.csv
++++ wire/peer_wire.csv
+@@ -90,6 +90,10 @@ msgtype,shutdown,38
+ msgdata,shutdown,channel_id,channel_id,
+ msgdata,shutdown,len,u16,
+ msgdata,shutdown,scriptpubkey,byte,len
++msgdata,shutdown,tlvs,shutdown_tlvs,
++tlvtype,shutdown_tlvs,wrong_funding,100
++tlvdata,shutdown_tlvs,wrong_funding,txid,sha256,
++tlvdata,shutdown_tlvs,wrong_funding,outnum,u32,
+ msgtype,closing_signed,39
+ msgdata,closing_signed,channel_id,channel_id,
+ msgdata,closing_signed,fee_satoshis,u64,

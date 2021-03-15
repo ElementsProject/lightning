@@ -73,6 +73,10 @@ struct tlv_n1_tlv3 {
         struct amount_msat amount_msat_1;
         struct amount_msat amount_msat_2;
 };
+struct tlv_shutdown_tlvs_wrong_funding {
+        struct bitcoin_txid txid;
+        u32 outnum;
+};
 struct tlv_query_short_channel_ids_tlvs_query_flags {
         u8 encoding_type;
         u8 *encoded_query_flags;
@@ -124,6 +128,14 @@ struct tlv_accept_channel_tlvs {
 	/* TODO The following explicit fields could just point into the
 	 * tlv_field entries above to save on memory. */
 	u8 *upfront_shutdown_script;
+};
+struct tlv_shutdown_tlvs {
+        /* Raw fields including unknown ones. */
+        struct tlv_field *fields;
+
+	/* TODO The following explicit fields could just point into the
+	 * tlv_field entries above to save on memory. */
+        struct tlv_shutdown_tlvs_wrong_funding *wrong_funding;
 };
 struct tlv_query_short_channel_ids_tlvs {
         /* Raw fields including unknown ones. */
@@ -368,6 +380,43 @@ void towire_accept_channel_tlvs(u8 **pptr, const struct tlv_accept_channel_tlvs 
 bool accept_channel_tlvs_is_valid(const struct tlv_accept_channel_tlvs *record,
 			  size_t *err_index);
 
+struct tlv_shutdown_tlvs *tlv_shutdown_tlvs_new(const tal_t *ctx);
+
+/**
+ * Deserialize a TLV stream for the shutdown_tlvs namespace.
+ *
+ * This function will parse any TLV stream, as long as the type, length and
+ * value fields are formatted correctly. Fields that are not known in the
+ * current namespace are stored in the `fields` member. Validity can be
+ * checked using shutdown_tlvs_is_valid.
+ */
+bool fromwire_shutdown_tlvs(const u8 **cursor, size_t *max,
+			  struct tlv_shutdown_tlvs * record);
+
+/**
+ * Serialize a TLV stream for the shutdown_tlvs namespace.
+ *
+ * This function only considers known fields from the shutdown_tlvs namespace,
+ * and will ignore any fields that may be stored in the `fields` member. This
+ * ensures that the resulting stream is valid according to
+ * `shutdown_tlvs_is_valid`.
+ */
+void towire_shutdown_tlvs(u8 **pptr, const struct tlv_shutdown_tlvs *record);
+
+/**
+ * Check that the TLV stream is valid.
+ *
+ * Enforces the followin validity rules:
+ * - Types must be in monotonic non-repeating order
+ * - We must understand all even types
+ *
+ * Returns false if an error was detected, otherwise returns true. If err_index
+ * is non-null and we detect an error it is set to the index of the first error
+ * detected.
+ */
+bool shutdown_tlvs_is_valid(const struct tlv_shutdown_tlvs *record,
+			  size_t *err_index);
+
 struct tlv_query_short_channel_ids_tlvs *tlv_query_short_channel_ids_tlvs_new(const tal_t *ctx);
 
 /**
@@ -565,8 +614,8 @@ u8 *towire_funding_locked(const tal_t *ctx, const struct channel_id *channel_id,
 bool fromwire_funding_locked(const void *p, struct channel_id *channel_id, struct pubkey *next_per_commitment_point);
 
 /* WIRE: SHUTDOWN */
-u8 *towire_shutdown(const tal_t *ctx, const struct channel_id *channel_id, const u8 *scriptpubkey);
-bool fromwire_shutdown(const tal_t *ctx, const void *p, struct channel_id *channel_id, u8 **scriptpubkey);
+u8 *towire_shutdown(const tal_t *ctx, const struct channel_id *channel_id, const u8 *scriptpubkey, const struct tlv_shutdown_tlvs *tlvs);
+bool fromwire_shutdown(const tal_t *ctx, const void *p, struct channel_id *channel_id, u8 **scriptpubkey, struct tlv_shutdown_tlvs *tlvs);
 
 /* WIRE: CLOSING_SIGNED */
 u8 *towire_closing_signed(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat fee_satoshis, const secp256k1_ecdsa_signature *signature);
@@ -650,4 +699,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
 
 
 #endif /* LIGHTNING_WIRE_PEER_WIREGEN_H */
-// SHA256STAMP:1b0c5319cd9ab8c0281132a4c64ca51ecd9ee0158c7f645e102f401ac64ca439
+// SHA256STAMP:c7056cc0ec6b038e425e0800dce339f6ba38a18f14d1b33271656de218052ee2

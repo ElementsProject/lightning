@@ -504,6 +504,63 @@ bool accept_channel_tlvs_is_valid(const struct tlv_accept_channel_tlvs *record, 
 }
 
 
+struct tlv_shutdown_tlvs *tlv_shutdown_tlvs_new(const tal_t *ctx)
+{
+	/* Initialize everything to NULL. (Quiet, C pedants!) */
+	struct tlv_shutdown_tlvs *inst = talz(ctx, struct tlv_shutdown_tlvs);
+
+	/* Initialized the fields to an empty array. */
+	inst->fields = tal_arr(inst, struct tlv_field, 0);
+	return inst;
+}
+
+/* SHUTDOWN_TLVS MSG: wrong_funding */
+static u8 *towire_tlv_shutdown_tlvs_wrong_funding(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_shutdown_tlvs *r = vrecord;
+	u8 *ptr;
+
+	if (!r->wrong_funding)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_bitcoin_txid(&ptr, &r->wrong_funding->txid);
+
+	towire_u32(&ptr, r->wrong_funding->outnum);
+	return ptr;
+}
+static void fromwire_tlv_shutdown_tlvs_wrong_funding(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_shutdown_tlvs *r = vrecord;
+
+	r->wrong_funding = tal(r, struct tlv_shutdown_tlvs_wrong_funding);
+	fromwire_bitcoin_txid(cursor, plen, &r->wrong_funding->txid);
+	r->wrong_funding->outnum = fromwire_u32(cursor, plen);
+}
+
+static const struct tlv_record_type tlvs_shutdown_tlvs[] = {
+	{ 100, towire_tlv_shutdown_tlvs_wrong_funding, fromwire_tlv_shutdown_tlvs_wrong_funding },
+};
+
+void towire_shutdown_tlvs(u8 **pptr, const struct tlv_shutdown_tlvs *record)
+{
+	towire_tlv(pptr, tlvs_shutdown_tlvs, 1, record);
+}
+
+
+bool fromwire_shutdown_tlvs(const u8 **cursor, size_t *max, struct tlv_shutdown_tlvs *record)
+{
+	return fromwire_tlv(cursor, max, tlvs_shutdown_tlvs, 1, record, &record->fields);
+}
+
+bool shutdown_tlvs_is_valid(const struct tlv_shutdown_tlvs *record, size_t *err_index)
+{
+	return tlv_fields_valid(record->fields, err_index);
+}
+
+
 struct tlv_query_short_channel_ids_tlvs *tlv_query_short_channel_ids_tlvs_new(const tal_t *ctx)
 {
 	/* Initialize everything to NULL. (Quiet, C pedants!) */
@@ -1094,7 +1151,7 @@ bool fromwire_funding_locked(const void *p, struct channel_id *channel_id, struc
 }
 
 /* WIRE: SHUTDOWN */
-u8 *towire_shutdown(const tal_t *ctx, const struct channel_id *channel_id, const u8 *scriptpubkey)
+u8 *towire_shutdown(const tal_t *ctx, const struct channel_id *channel_id, const u8 *scriptpubkey, const struct tlv_shutdown_tlvs *tlvs)
 {
 	u16 len = tal_count(scriptpubkey);
 	u8 *p = tal_arr(ctx, u8, 0);
@@ -1103,10 +1160,11 @@ u8 *towire_shutdown(const tal_t *ctx, const struct channel_id *channel_id, const
 	towire_channel_id(&p, channel_id);
 	towire_u16(&p, len);
 	towire_u8_array(&p, scriptpubkey, len);
+	towire_shutdown_tlvs(&p, tlvs);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_shutdown(const tal_t *ctx, const void *p, struct channel_id *channel_id, u8 **scriptpubkey)
+bool fromwire_shutdown(const tal_t *ctx, const void *p, struct channel_id *channel_id, u8 **scriptpubkey, struct tlv_shutdown_tlvs *tlvs)
 {
 	u16 len;
 
@@ -1120,6 +1178,7 @@ bool fromwire_shutdown(const tal_t *ctx, const void *p, struct channel_id *chann
  	// 2nd case scriptpubkey
 	*scriptpubkey = len ? tal_arr(ctx, u8, len) : NULL;
 	fromwire_u8_array(&cursor, &plen, *scriptpubkey, len);
+ 	fromwire_shutdown_tlvs(&cursor, &plen, tlvs);
 	return cursor != NULL;
 }
 
@@ -1749,4 +1808,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
  	*htlc_maximum_msat = fromwire_amount_msat(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:1b0c5319cd9ab8c0281132a4c64ca51ecd9ee0158c7f645e102f401ac64ca439
+// SHA256STAMP:c7056cc0ec6b038e425e0800dce339f6ba38a18f14d1b33271656de218052ee2

@@ -634,7 +634,8 @@ static void *towire_struct_shutdown(const tal_t *ctx,
 {
 	return towire_shutdown(ctx,
 			       &s->channel_id,
-			       s->scriptpubkey);
+			       s->scriptpubkey,
+			       NULL);
 }
 
 static struct msg_shutdown *fromwire_struct_shutdown(const tal_t *ctx, const void *p)
@@ -642,8 +643,9 @@ static struct msg_shutdown *fromwire_struct_shutdown(const tal_t *ctx, const voi
 	struct msg_shutdown *s = tal(ctx, struct msg_shutdown);
 
 	if (!fromwire_shutdown(s, p,
-			      &s->channel_id,
-			      &s->scriptpubkey))
+			       &s->channel_id,
+			       &s->scriptpubkey,
+			       NULL))
 		return tal_free(s);
 	return s;
 }
