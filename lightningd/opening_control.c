@@ -1,6 +1,8 @@
 #include "bitcoin/feerate.h"
 #include <bitcoin/privkey.h>
+#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
+#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
 #include <common/channel_config.h>
@@ -958,22 +960,38 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 	struct bitcoin_txid *funding_txid;
 	struct peer *peer;
 	struct channel *channel;
-	u32 *funding_txout_num;
-	u16 funding_txout;
+	struct wally_psbt *funding_psbt;
+	u32 *funding_txout_num = NULL;
+	struct funding_channel *fc;
+	bool old_api;
 
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &id),
-		   p_req("txid", param_txid, &funding_txid),
-		   p_req("txout", param_number, &funding_txout_num),
-		   NULL))
-		return command_param_failed();
+	/* params is NULL for initial parameter desc generation! */
+	if (params /* FIXME: && deprecated_apis */) {
+		/* We used to have a three-arg version. */
+		if (params->type == JSMN_ARRAY)
+			old_api = (params->size == 3);
+		else
+			old_api = (json_get_member(buffer, params, "txid")
+				   != NULL);
+		if (old_api) {
+			if (!param(cmd, buffer, params,
+				   p_req("id", param_node_id, &id),
+				   p_req("txid", param_txid, &funding_txid),
+				   p_req("txout", param_number, &funding_txout_num),
+				   NULL))
+				return command_param_failed();
+		}
+	} else
+		old_api = false;
 
-	if (*funding_txout_num > UINT16_MAX)
-		return command_fail(cmd, LIGHTNINGD,
-				    "Invalid parameter: funding tx vout too large %u",
-				    *funding_txout_num);
+	if (!old_api) {
+		if (!param(cmd, buffer, params,
+			   p_req("id", param_node_id, &id),
+			   p_req("psbt", param_psbt, &funding_psbt),
+			   NULL))
+			return command_param_failed();
+	}
 
-	funding_txout = *funding_txout_num;
 	peer = peer_by_id(cmd->ld, id);
 	if (!peer) {
 		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
@@ -993,11 +1011,53 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 	if (peer->uncommitted_channel->fc->cmd)
 		return command_fail(cmd, LIGHTNINGD, "Channel funding in progress.");
 
+	fc = peer->uncommitted_channel->fc;
+
+	if (!old_api) {
+		/* Figure out the correct output, and perform sanity checks. */
+		for (size_t i = 0; i < funding_psbt->tx->num_outputs; i++) {
+			if (memeq(funding_psbt->tx->outputs[i].script,
+				  funding_psbt->tx->outputs[i].script_len,
+				  fc->funding_scriptpubkey,
+				  tal_bytelen(fc->funding_scriptpubkey))) {
+				if (funding_txout_num)
+					return command_fail(cmd, FUNDING_PSBT_INVALID,
+							    "Two outputs to open channel");
+				funding_txout_num = tal(cmd, u32);
+				*funding_txout_num = i;
+			}
+		}
+		if (!funding_txout_num)
+			return command_fail(cmd, FUNDING_PSBT_INVALID,
+					    "No output to open channel");
+
+		if (!amount_sat_eq(amount_sat(funding_psbt->tx->outputs
+					      [*funding_txout_num].satoshi),
+				   fc->funding))
+			return command_fail(cmd, FUNDING_PSBT_INVALID,
+					    "Output to open channel is %"PRIu64"sat,"
+					    " should be %s",
+					    funding_psbt->tx->outputs
+					    [*funding_txout_num].satoshi,
+					    type_to_string(tmpctx, struct amount_sat,
+							   &fc->funding));
+
+		funding_txid = tal(cmd, struct bitcoin_txid);
+		psbt_txid(NULL, funding_psbt, funding_txid, NULL);
+	}
+
+	/* Fun fact: our wire protocol only allows 16 bits for outnum.
+	 * That is reflected in our encoding scheme for short_channel_id. */
+	if (*funding_txout_num > UINT16_MAX)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid parameter: funding tx vout too large %u",
+				    *funding_txout_num);
+
 	/* Set the cmd to this new cmd */
 	peer->uncommitted_channel->fc->cmd = cmd;
 	msg = towire_openingd_funder_complete(NULL,
 					     funding_txid,
-					     funding_txout);
+					     *funding_txout_num);
 	subd_send_msg(peer->uncommitted_channel->open_daemon, take(msg));
 	return command_still_pending(cmd);
 }
@@ -1193,7 +1253,7 @@ static const struct json_command fundchannel_complete_command = {
     "channels",
     json_fundchannel_complete,
     "Complete channel establishment with peer {id} for funding transaction"
-    "with {txid}. Returns true on success, false otherwise."
+    "with {psbt}. Returns true on success, false otherwise."
 };
 AUTODATA(json_command, &fundchannel_complete_command);
 
