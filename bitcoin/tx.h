@@ -202,6 +202,13 @@ void wally_tx_input_get_txid(const struct wally_tx_input *in,
 			     struct bitcoin_txid *txid);
 
 /**
+ * Overwrite the txhash and index in the wally_tx_input
+ */
+void bitcoin_tx_input_set_txid(struct bitcoin_tx *tx, int innum,
+			       const struct bitcoin_txid *txid,
+			       u32 index);
+
+/**
  * Check a transaction for consistency.
  *
  * Mainly for the transition from `bitcoin_tx` to the `wally_tx`. Checks that

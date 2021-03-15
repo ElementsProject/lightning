@@ -34,6 +34,7 @@ msgdata,closingd_init,channel_reestablish_len,u16,
 msgdata,closingd_init,channel_reestablish,u8,channel_reestablish_len
 msgdata,closingd_init,last_remote_secret,secret,
 msgdata,closingd_init,dev_fast_gossip,bool,
+msgdata,closingd_init,shutdown_wrong_funding,?bitcoin_outpoint,
 
 # We received an offer, save signature.
 msgtype,closingd_received_signature,2002
