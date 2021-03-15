@@ -376,8 +376,9 @@ static void send_shutdown(struct state *state, const u8 *final_scriptpubkey)
 {
 	u8 *msg;
 
+	/* FIXME: send wrong_funding */
 	msg = towire_shutdown(NULL, &state->channel_id,
-			      final_scriptpubkey);
+			      final_scriptpubkey, NULL);
 	sync_crypto_write(state->pps, take(msg));
 	state->shutdown_sent[LOCAL] = true;
 }
@@ -386,8 +387,9 @@ static void handle_peer_shutdown(struct state *state, u8 *msg)
 {
 	u8 *scriptpubkey;
 	struct channel_id cid;
+	struct tlv_shutdown_tlvs *tlvs = tlv_shutdown_tlvs_new(msg);
 
-	if (!fromwire_shutdown(tmpctx, msg, &cid, &scriptpubkey))
+	if (!fromwire_shutdown(tmpctx, msg, &cid, &scriptpubkey, tlvs))
 		open_err_warn(state, "Bad shutdown %s", tal_hex(msg, msg));
 
 	if (tal_count(state->upfront_shutdown_script[REMOTE])
@@ -399,6 +401,13 @@ static void handle_peer_shutdown(struct state *state, u8 *msg)
 			   tal_hex(state, scriptpubkey),
 			   tal_hex(state,
 				   state->upfront_shutdown_script[REMOTE]));
+
+	/* @niftynei points out that negotiated this together, so this
+	 * hack is not required (or safe!). */
+	if (tlvs->wrong_funding)
+		open_err_warn(state,
+			      "wrong_funding shutdown"
+			      " invalid for dual-funding");
 
 	wire_sync_write(REQ_FD,
 			take(towire_dualopend_got_shutdown(NULL,

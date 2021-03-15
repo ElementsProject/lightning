@@ -748,7 +748,9 @@ static void maybe_send_shutdown(struct peer *peer)
 	 * over us */
 	send_channel_update(peer, ROUTING_FLAGS_DISABLED);
 
-	msg = towire_shutdown(NULL, &peer->channel_id, peer->final_scriptpubkey);
+	/* FIXME: send wrong_funding */
+	msg = towire_shutdown(NULL, &peer->channel_id, peer->final_scriptpubkey,
+			      NULL);
 	sync_crypto_write(peer->pps, take(msg));
 	peer->send_shutdown = false;
 	peer->shutdown_sent[LOCAL] = true;
@@ -1633,11 +1635,13 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 {
 	struct channel_id channel_id;
 	u8 *scriptpubkey;
+	struct tlv_shutdown_tlvs *tlvs = tlv_shutdown_tlvs_new(tmpctx);
 
 	/* Disable the channel. */
 	send_channel_update(peer, ROUTING_FLAGS_DISABLED);
 
-	if (!fromwire_shutdown(tmpctx, shutdown, &channel_id, &scriptpubkey))
+	if (!fromwire_shutdown(tmpctx, shutdown, &channel_id, &scriptpubkey,
+			       tlvs))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad shutdown %s", tal_hex(peer, shutdown));
 
@@ -1658,6 +1662,16 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 				"scriptpubkey %s is not as agreed upfront (%s)",
 			    tal_hex(peer, scriptpubkey),
 			    tal_hex(peer, peer->remote_upfront_shutdown_script));
+
+	if (tlvs->wrong_funding) {
+		if (!feature_negotiated(peer->our_features,
+					peer->their_features,
+					OPT_SHUTDOWN_WRONG_FUNDING))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "wrong_funding shutdown needs"
+					 " feature %u",
+					 OPT_SHUTDOWN_WRONG_FUNDING);
+	}
 
 	/* Tell master: we don't have to wait because on reconnect other end
 	 * will re-send anyway. */

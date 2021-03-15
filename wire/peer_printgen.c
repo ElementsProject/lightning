@@ -362,6 +362,34 @@ static const struct tlv_print_record_type print_tlvs_accept_channel_tlvs[] = {
 	{ 0, printwire_tlv_accept_channel_tlvs_upfront_shutdown_script },
 };
 
+static void printwire_tlv_shutdown_tlvs_wrong_funding(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "wrong_funding");
+
+	printf("txid=");
+	struct bitcoin_txid txid;
+	fromwire_bitcoin_txid(cursor, plen, &txid);
+
+	printwire_bitcoin_txid(tal_fmt(NULL, "%s.txid", fieldname), &txid);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	printf("outnum=");
+	u32 outnum = fromwire_u32(cursor, plen);
+
+	printwire_u32(tal_fmt(NULL, "%s.outnum", fieldname), &outnum);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+
+static const struct tlv_print_record_type print_tlvs_shutdown_tlvs[] = {
+	{ 100, printwire_tlv_shutdown_tlvs_wrong_funding },
+};
+
 static void printwire_tlv_query_short_channel_ids_tlvs_query_flags(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "query_flags");
@@ -1088,6 +1116,8 @@ void printwire_shutdown(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
+ 	printf("tlvs=");
+	printwire_tlvs(tal_fmt(NULL, "%s.tlvs", fieldname), &cursor, &plen, print_tlvs_shutdown_tlvs, ARRAY_SIZE(print_tlvs_shutdown_tlvs));
 
 
 	if (plen != 0)
@@ -2117,6 +2147,9 @@ void printpeer_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 	if (strcmp(tlv_name, "accept_channel_tlvs") == 0) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_accept_channel_tlvs, ARRAY_SIZE(print_tlvs_accept_channel_tlvs));
 	}
+	if (strcmp(tlv_name, "shutdown_tlvs") == 0) {
+		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_shutdown_tlvs, ARRAY_SIZE(print_tlvs_shutdown_tlvs));
+	}
 	if (strcmp(tlv_name, "query_short_channel_ids_tlvs") == 0) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_query_short_channel_ids_tlvs, ARRAY_SIZE(print_tlvs_query_short_channel_ids_tlvs));
 	}
@@ -2130,4 +2163,4 @@ void printpeer_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_onion_message_tlvs, ARRAY_SIZE(print_tlvs_onion_message_tlvs));
 	}
 }
-// SHA256STAMP:1b0c5319cd9ab8c0281132a4c64ca51ecd9ee0158c7f645e102f401ac64ca439
+// SHA256STAMP:c7056cc0ec6b038e425e0800dce339f6ba38a18f14d1b33271656de218052ee2

@@ -218,7 +218,8 @@ static void do_reconnect(struct per_peer_state *pps,
 	 *     - if it has sent a previous `shutdown`:
 	 *       - MUST retransmit `shutdown`.
 	 */
-	msg = towire_shutdown(NULL, channel_id, final_scriptpubkey);
+	/* FIXME: retransmit wrong_funding */
+	msg = towire_shutdown(NULL, channel_id, final_scriptpubkey, NULL);
 	sync_crypto_write(pps, take(msg));
 
 	/* BOLT #2:
