@@ -1030,9 +1030,11 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 			return command_fail(cmd, FUNDING_PSBT_INVALID,
 					    "No output to open channel");
 
-		if (!amount_sat_eq(amount_sat(funding_psbt->tx->outputs
-					      [*funding_txout_num].satoshi),
-				   fc->funding))
+		/* Can't really check amounts for elements. */
+		if (!chainparams->is_elements
+		    && !amount_sat_eq(amount_sat(funding_psbt->tx->outputs
+						 [*funding_txout_num].satoshi),
+				      fc->funding))
 			return command_fail(cmd, FUNDING_PSBT_INVALID,
 					    "Output to open channel is %"PRIu64"sat,"
 					    " should be %s",
