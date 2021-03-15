@@ -1094,11 +1094,12 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'Already funding channel'):
         l1.rpc.fundchannel(l2.info['id'], amount)
 
-    # Can't complete with incorrect amount.
-    wrongamt = l1.rpc.txprepare([{start['funding_address']: amount - 1}])
-    with pytest.raises(RpcError, match=r'Output to open channel is .*, should be .*'):
-        l1.rpc.fundchannel_complete(l2.info['id'], wrongamt['psbt'])
-    l1.rpc.txdiscard(wrongamt['txid'])
+    # Can't complete with incorrect amount (unchecked on Elements)
+    if TEST_NETWORK == 'regtest':
+        wrongamt = l1.rpc.txprepare([{start['funding_address']: amount - 1}])
+        with pytest.raises(RpcError, match=r'Output to open channel is .*, should be .*'):
+            l1.rpc.fundchannel_complete(l2.info['id'], wrongamt['psbt'])
+        l1.rpc.txdiscard(wrongamt['txid'])
 
     # Can't complete with incorrect address.
     wrongaddr = l1.rpc.txprepare([{l1.rpc.newaddr()['bech32']: amount}])
