@@ -240,6 +240,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->closing_fee_negotiation_step = 50;
 	channel->closing_fee_negotiation_step_unit
 		= CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
+	channel->shutdown_wrong_funding = NULL;
 
 	/* Channel is connected! */
 	channel->connected = true;
@@ -332,7 +333,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool option_static_remotekey,
 			    bool option_anchor_outputs,
 			    enum side closer,
-			    enum state_change reason)
+			    enum state_change reason,
+			    /* NULL or stolen */
+			    const struct bitcoin_outpoint *shutdown_wrong_funding)
 {
 	struct channel *channel = tal(peer->ld, struct channel);
 
@@ -394,6 +397,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->closing_fee_negotiation_step = 50;
 	channel->closing_fee_negotiation_step_unit
 		= CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
+	channel->shutdown_wrong_funding
+		= tal_steal(channel, shutdown_wrong_funding);
 	if (local_shutdown_scriptpubkey)
 		channel->shutdown_scriptpubkey[LOCAL]
 			= tal_steal(channel, local_shutdown_scriptpubkey);

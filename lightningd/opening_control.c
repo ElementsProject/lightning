@@ -210,7 +210,8 @@ wallet_commit_channel(struct lightningd *ld,
 			      option_static_remotekey,
 			      option_anchor_outputs,
 			      NUM_SIDES, /* closer not yet known */
-			      uc->fc ? REASON_USER : REASON_REMOTE);
+			      uc->fc ? REASON_USER : REASON_REMOTE,
+			      NULL);
 
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
