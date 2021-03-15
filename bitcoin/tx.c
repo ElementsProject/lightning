@@ -716,6 +716,19 @@ void towire_bitcoin_txid(u8 **pptr, const struct bitcoin_txid *txid)
 	towire_sha256_double(pptr, &txid->shad);
 }
 
+void towire_bitcoin_outpoint(u8 **pptr, const struct bitcoin_outpoint *outp)
+{
+	towire_bitcoin_txid(pptr, &outp->txid);
+	towire_u32(pptr, outp->n);
+}
+
+void fromwire_bitcoin_outpoint(const u8 **cursor, size_t *max,
+			       struct bitcoin_outpoint *outp)
+{
+	fromwire_bitcoin_txid(cursor, max, &outp->txid);
+	outp->n = fromwire_u32(cursor, max);
+}
+
 void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 {
 	u8 *lin = linearize_tx(tmpctx, tx);
