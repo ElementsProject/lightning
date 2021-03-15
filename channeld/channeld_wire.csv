@@ -168,6 +168,7 @@ msgtype,channeld_got_revoke_reply,1122
 msgtype,channeld_send_shutdown,1023
 msgdata,channeld_send_shutdown,shutdown_len,u16,
 msgdata,channeld_send_shutdown,shutdown_scriptpubkey,u8,shutdown_len
+msgdata,channeld_send_shutdown,wrong_funding,?bitcoin_outpoint,
 
 # Peer told us that channel is shutting down
 msgtype,channeld_got_shutdown,1024

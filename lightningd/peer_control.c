@@ -1647,7 +1647,8 @@ static struct command_result *json_close(struct command *cmd,
 				} else
 					msg = towire_channeld_send_shutdown(
 						NULL,
-						channel->shutdown_scriptpubkey[LOCAL]);
+						channel->shutdown_scriptpubkey[LOCAL],
+						channel->shutdown_wrong_funding);
 				subd_send_msg(channel->owner, take(msg));
 			}
 
