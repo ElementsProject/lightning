@@ -3,7 +3,7 @@
 lightning-close - Command for closing channels with direct peers
 .SH SYNOPSIS
 
-\fBclose\fR \fIid\fR [\fIunilateraltimeout\fR] [\fIdestination\fR] [\fIfee_negotiation_step\fR]
+\fBclose\fR \fIid\fR [\fIunilateraltimeout\fR] [\fIdestination\fR] [\fIfee_negotiation_step\fR] [\fIwrong_funding\\\fR]
 
 .SH DESCRIPTION
 
@@ -54,6 +54,16 @@ The default is "50%"\.
 
 .RE
 
+\fIwrong_funding_txid\fR can only be specified if both sides have offered
+the "shutdown_wrong_funding" feature (enabled by the
+\fBexperimental-shutdown-wrong-funding\fR option): it must be a
+transaction id followed by a colon then the output number\.  Instead of
+negotiating a shutdown to spend the expected funding transaction, the
+shutdown transaction will spend this output instead\.  This is only
+allowed if this peer opened the channel and the channel is unused: it
+can rescue openings which have been manually miscreated\.
+
+
 The peer needs to be live and connected in order to negotiate a mutual
 close\. The default of unilaterally closing after 48 hours is usually a
 reasonable indication that you can no longer contact the peer\.
@@ -95,10 +105,10 @@ ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 
 .SH SEE ALSO
 
-\fBlightning-disconnect\fR(7), \fBlightning-fundchannel\fR(7)
+\fBlightning-disconnect\fR(7), \fBlightning-fundchannel\fR(7), \fBlightningd-config\fR(5)\.
 
 .SH RESOURCES
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:d16e185f9a781f23987dfb65aaa1eae8dab19796975433c69e16f1f6b18751c5
+\" SHA256STAMP:f835c6a11e0df5610761e858e78783f9f99d530b8d2a6bedaf6f301eccdc31e0

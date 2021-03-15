@@ -588,9 +588,9 @@ This usually requires \fBexperimental-onion-messages\fR as well\.  See
 
 
 Specifying this allows the \fBwrong_funding\fR field in shutdown: if a
-remote node has opened a channel using the incorrect txid (and it
-hasn't been used yet at all) this allows them to negotiate a clean
-shutdown with the txid they offer\.
+remote node has opened a channel but claims it used the incorrect txid
+(and the channel hasn't been used yet at all) this allows them to
+negotiate a clean shutdown with the txid they offer\.
 
 .SH BUGS
 
@@ -617,4 +617,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license\.
 
-\" SHA256STAMP:ecfd7ac60b50a20cad39dfa0e423e4885256a94658b5886f577df50773555e7e
+\" SHA256STAMP:b0cdc467650b05758f90f2523ab8b45e526ac818e426cb2c2bc42cb98673e373
