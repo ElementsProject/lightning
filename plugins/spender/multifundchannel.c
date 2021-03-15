@@ -795,10 +795,7 @@ fundchannel_complete_dest(struct multifundchannel_destination *dest)
 				    &fundchannel_complete_err,
 				    dest);
 	json_add_node_id(req->js, "id", &dest->id);
-	json_add_string(req->js, "txid",
-			type_to_string(tmpctx, struct bitcoin_txid,
-				       mfc->txid));
-	json_add_num(req->js, "txout", dest->outnum);
+	json_add_psbt(req->js, "psbt", mfc->psbt);
 
 	send_outreq(cmd->plugin, req);
 }
