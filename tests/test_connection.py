@@ -1,5 +1,4 @@
 from collections import namedtuple
-from decimal import Decimal
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
@@ -12,9 +11,7 @@ from utils import (
     EXPERIMENTAL_FEATURES, EXPERIMENTAL_DUAL_FUND
 )
 from pyln.testing.utils import SLOW_MACHINE, VALGRIND
-from bitcoin.core import CMutableTransaction, CMutableTxOut
 
-import binascii
 import os
 import pytest
 import random
@@ -1068,52 +1065,59 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1.fundwallet(amount + 10000000)
 
     amount = amount - 1
-    fake_txid = '929764844a8f9938b669a60a1d51a11c9e2613c7eb4776e4126f1f20c0a685c3'
-    fake_txout = 0
+
+    # make sure we can generate PSBTs.
+    addr = l1.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
+
+    # Some random (valid) psbt
+    psbt = l1.rpc.fundpsbt(amount, '253perkw', 250, reserve=False)['psbt']
 
     with pytest.raises(RpcError, match=r'Unknown peer'):
         l1.rpc.fundchannel_start(l2.info['id'], amount)
 
     with pytest.raises(RpcError, match=r'Unknown peer'):
-        l1.rpc.fundchannel_complete(l2.info['id'], fake_txid, fake_txout)
+        l1.rpc.fundchannel_complete(l2.info['id'], psbt)
 
     # Should not be able to continue without being in progress.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     with pytest.raises(RpcError, match=r'No channel funding in progress.'):
-        l1.rpc.fundchannel_complete(l2.info['id'], fake_txid, fake_txout)
+        l1.rpc.fundchannel_complete(l2.info['id'], psbt)
 
     # Fail to open (too large)
     with pytest.raises(RpcError, match=r'Amount exceeded 16777215'):
         l1.rpc.fundchannel_start(l2.info['id'], amount + 1)
 
-    l1.rpc.fundchannel_start(l2.info['id'], amount)
+    start = l1.rpc.fundchannel_start(l2.info['id'], amount)
     with pytest.raises(RpcError, match=r'Already funding channel'):
         l1.rpc.fundchannel(l2.info['id'], amount)
+
+    # Can't complete with incorrect amount.
+    wrongamt = l1.rpc.txprepare([{start['funding_address']: amount - 1}])
+    with pytest.raises(RpcError, match=r'Output to open channel is .*, should be .*'):
+        l1.rpc.fundchannel_complete(l2.info['id'], wrongamt['psbt'])
+    l1.rpc.txdiscard(wrongamt['txid'])
+
+    # Can't complete with incorrect address.
+    wrongaddr = l1.rpc.txprepare([{l1.rpc.newaddr()['bech32']: amount}])
+    with pytest.raises(RpcError, match=r'No output to open channel'):
+        l1.rpc.fundchannel_complete(l2.info['id'], wrongaddr['psbt'])
+    l1.rpc.txdiscard(wrongaddr['txid'])
 
     l1.rpc.fundchannel_cancel(l2.info['id'])
     # Should be able to 'restart' after canceling
     amount2 = 1000000
     funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount2)['funding_address']
 
-    addr = l1.rpc.newaddr()['bech32']
-    l1.bitcoin.rpc.sendtoaddress(addr, 0.1)
-    bitcoind.generate_block(1)
-    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 1)
     # Create the funding transaction
     prep = l1.rpc.txprepare([{funding_addr: amount2}])
     decode = bitcoind.rpc.decoderawtransaction(prep['unsigned_tx'])
     assert decode['txid'] == prep['txid']
 
-    # One output will be correct.
-    if decode['vout'][0]['value'] == Decimal('0.01000000'):
-        txout = 0
-    elif decode['vout'][1]['value'] == Decimal('0.01000000'):
-        txout = 1
-    else:
-        assert False
-
     # Be sure fundchannel_complete is successful
-    assert l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['commitments_secured']
+    assert l1.rpc.fundchannel_complete(l2.info['id'], prep['psbt'])['commitments_secured']
 
     # Peer shouldn't be able to cancel channel
     with pytest.raises(RpcError, match=r'Cannot cancel channel that was initiated by peer'):
@@ -1121,10 +1125,14 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 
     # We can cancel channel after fundchannel_complete
     assert l1.rpc.fundchannel_cancel(l2.info['id'])['cancelled']
+    # But must unreserve inputs manually.
+    l1.rpc.txdiscard(prep['txid'])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
-    assert l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['commitments_secured']
+    funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
+    prep = l1.rpc.txprepare([{funding_addr: amount}])
+
+    assert l1.rpc.fundchannel_complete(l2.info['id'], prep['psbt'])['commitments_secured']
 
     # Check that can still cancel when peer is disconnected
     l1.rpc.disconnect(l2.info['id'], force=True)
@@ -1146,12 +1154,16 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
     wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
 
+    # But must unreserve inputs manually.
+    l1.rpc.txdiscard(prep['txid'])
+
     # we have to connect again, because we got disconnected when everything errored
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
+    funding_addr = l1.rpc.fundchannel_start(l2.info['id'], amount)['funding_address']
+    prep = l1.rpc.txprepare([{funding_addr: amount}])
     # A successful funding_complete will always have a commitments_secured that is true,
     # otherwise it would have failed
-    assert l1.rpc.fundchannel_complete(l2.info['id'], prep['txid'], txout)['commitments_secured']
+    assert l1.rpc.fundchannel_complete(l2.info['id'], prep['psbt'])['commitments_secured']
     l1.rpc.txsend(prep['txid'])
     with pytest.raises(RpcError, match=r'.* been broadcast.*'):
         l1.rpc.fundchannel_cancel(l2.info['id'])
@@ -1162,6 +1174,12 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 @unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "requires fundchannel_start")
 def test_funding_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
+
+    # make sure we can generate PSBTs.
+    addr = l1.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 200000 / 10**8)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
 
     if node_factory.valgrind:
         num = 5
@@ -1176,16 +1194,18 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
 
     for count, n in enumerate(nodes):
         l1.rpc.connect(n.info['id'], 'localhost', n.port)
-        l1.rpc.fundchannel_start(n.info['id'], "100000sat")
+        start = l1.rpc.fundchannel_start(n.info['id'], "100000sat")
 
-        # We simply make up txids.  And submit two of each at once.
+        prep = l1.rpc.txprepare([{start['funding_address']: "100000sat"}])
+
+        # Submit two of each at once.
         completes = []
         cancels = []
 
         # Switch order around.
         for i in range(4):
             if (i + count) % 2 == 0:
-                completes.append(executor.submit(l1.rpc.fundchannel_complete, n.info['id'], "9f1844419d2f41532a57fb5ef038cacb602000f7f37b3dae68dc2d047c89048f", 0))
+                completes.append(executor.submit(l1.rpc.fundchannel_complete, n.info['id'], prep['psbt']))
             else:
                 cancels.append(executor.submit(l1.rpc.fundchannel_cancel, n.info['id']))
 
@@ -1216,6 +1236,8 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
         # channel to force the remote to forget it.
         assert cancelled
         num_cancel += 1
+        # Free up funds for next time
+        l1.rpc.txdiscard(prep['txid'])
 
     print("Cancelled {} complete {}".format(num_cancel, num_complete))
     assert num_cancel == len(nodes)
@@ -1339,23 +1361,14 @@ def test_funding_external_wallet(node_factory, bitcoind):
         l1.rpc.fundchannel_start(l2.info['id'], amount)
 
     # 'Externally' fund the address from fundchannel_start
-    addr_scriptpubkey = bitcoind.rpc.getaddressinfo(address)['scriptPubKey']
-    txout = CMutableTxOut(amount, bytearray.fromhex(addr_scriptpubkey))
-    unfunded_tx = CMutableTransaction([], [txout])
-    hextx = binascii.hexlify(unfunded_tx.serialize()).decode('utf8')
-
-    funded_tx_obj = bitcoind.rpc.fundrawtransaction(hextx)
-    raw_funded_tx = funded_tx_obj['hex']
-    txid = bitcoind.rpc.decoderawtransaction(raw_funded_tx)['txid']
-    txout = 1 if funded_tx_obj['changepos'] == 0 else 0
-
-    assert l1.rpc.fundchannel_complete(l2.info['id'], txid, txout)['commitments_secured']
+    psbt = bitcoind.rpc.walletcreatefundedpsbt([], [{address: amount / 10**8}])['psbt']
+    assert l1.rpc.fundchannel_complete(l2.info['id'], psbt)['commitments_secured']
 
     # Broadcast the transaction manually
-    signed_tx = bitcoind.rpc.signrawtransactionwithwallet(raw_funded_tx)['hex']
-    assert txid == bitcoind.rpc.decoderawtransaction(signed_tx)['txid']
-
-    bitcoind.rpc.sendrawtransaction(signed_tx)
+    process = bitcoind.rpc.walletprocesspsbt(psbt)
+    assert process['complete'] is True
+    tx = bitcoind.rpc.finalizepsbt(process['psbt'])
+    txid = bitcoind.rpc.sendrawtransaction(tx['hex'])
     bitcoind.generate_block(1)
 
     l1.daemon.wait_for_log(r'Funding tx {} depth 1 of 2'.format(txid))

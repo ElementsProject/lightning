@@ -966,7 +966,7 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 	bool old_api;
 
 	/* params is NULL for initial parameter desc generation! */
-	if (params /* FIXME: && deprecated_apis */) {
+	if (params && deprecated_apis) {
 		/* We used to have a three-arg version. */
 		if (params->type == JSMN_ARRAY)
 			old_api = (params->size == 3);
