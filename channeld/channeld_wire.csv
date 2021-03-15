@@ -173,6 +173,7 @@ msgdata,channeld_send_shutdown,shutdown_scriptpubkey,u8,shutdown_len
 msgtype,channeld_got_shutdown,1024
 msgdata,channeld_got_shutdown,scriptpubkey_len,u16,
 msgdata,channeld_got_shutdown,scriptpubkey,u8,scriptpubkey_len
+msgdata,channeld_got_shutdown,wrong_funding,?bitcoin_outpoint,
 
 # Shutdown is complete, ready for closing negotiation. + peer_fd & gossip_fd.
 msgtype,channeld_shutdown_complete,1025

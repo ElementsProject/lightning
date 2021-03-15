@@ -1074,6 +1074,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	struct wallet_shachain wshachain;
 	struct channel_config our_config;
 	struct bitcoin_txid funding_txid;
+	struct bitcoin_outpoint *shutdown_wrong_funding;
 	struct bitcoin_signature last_sig;
 	u8 *remote_shutdown_scriptpubkey;
 	u8 *local_shutdown_scriptpubkey;
@@ -1178,6 +1179,13 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	db_column_pubkey(stmt, 54, &local_basepoints.htlc);
 	db_column_pubkey(stmt, 55, &local_basepoints.delayed_payment);
 	db_column_pubkey(stmt, 56, &local_funding_pubkey);
+	if (db_column_is_null(stmt, 57))
+		shutdown_wrong_funding = NULL;
+	else {
+		shutdown_wrong_funding = tal(tmpctx, struct bitcoin_outpoint);
+		db_column_txid(stmt, 57, &shutdown_wrong_funding->txid);
+		shutdown_wrong_funding->n = db_column_int(stmt, 58);
+	}
 
 	db_column_amount_sat(stmt, 15, &funding_sat);
 	db_column_amount_sat(stmt, 16, &our_funding_sat);
@@ -1234,7 +1242,8 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_column_int(stmt, 47),
 			   db_column_int(stmt, 48),
 			   db_column_int(stmt, 50),
-			   db_column_int(stmt, 51));
+			   db_column_int(stmt, 51),
+			   shutdown_wrong_funding);
 
 	if (!wallet_channel_load_inflights(w, chan)) {
 		tal_free(chan);
@@ -1594,8 +1603,10 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  option_anchor_outputs=?," // 31
 					"  shutdown_scriptpubkey_local=?," // 32
 					"  closer=?," // 33
-					"  state_change_reason=?" // 34
-					" WHERE id=?")); // 35
+					"  state_change_reason=?," // 34
+					"  shutdown_wrong_txid=?," // 35
+					"  shutdown_wrong_outnum=?" // 36
+					" WHERE id=?")); // 37
 	db_bind_u64(stmt, 0, chan->their_shachain.id);
 	if (chan->scid)
 		db_bind_short_channel_id(stmt, 1, chan->scid);
@@ -1639,7 +1650,14 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_talarr(stmt, 32, chan->shutdown_scriptpubkey[LOCAL]);
 	db_bind_int(stmt, 33, chan->closer);
 	db_bind_int(stmt, 34, chan->state_change_cause);
-	db_bind_u64(stmt, 35, chan->dbid);
+	if (chan->shutdown_wrong_funding) {
+		db_bind_txid(stmt, 35, &chan->shutdown_wrong_funding->txid);
+		db_bind_int(stmt, 36, chan->shutdown_wrong_funding->n);
+	} else {
+		db_bind_null(stmt, 35);
+		db_bind_null(stmt, 36);
+	}
+	db_bind_u64(stmt, 37, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
 	wallet_channel_config_save(w, &chan->channel_info.their_config);

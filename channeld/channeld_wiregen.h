@@ -156,8 +156,8 @@ bool fromwire_channeld_send_shutdown(const tal_t *ctx, const void *p, u8 **shutd
 
 /* WIRE: CHANNELD_GOT_SHUTDOWN */
 /*  Peer told us that channel is shutting down */
-u8 *towire_channeld_got_shutdown(const tal_t *ctx, const u8 *scriptpubkey);
-bool fromwire_channeld_got_shutdown(const tal_t *ctx, const void *p, u8 **scriptpubkey);
+u8 *towire_channeld_got_shutdown(const tal_t *ctx, const u8 *scriptpubkey, const struct bitcoin_outpoint *wrong_funding);
+bool fromwire_channeld_got_shutdown(const tal_t *ctx, const void *p, u8 **scriptpubkey, struct bitcoin_outpoint **wrong_funding);
 
 /* WIRE: CHANNELD_SHUTDOWN_COMPLETE */
 /*  Shutdown is complete */
@@ -213,4 +213,4 @@ bool fromwire_channeld_send_error_reply(const void *p);
 
 
 #endif /* LIGHTNING_CHANNELD_CHANNELD_WIREGEN_H */
-// SHA256STAMP:8b6491f5aa25f4c067f4aedff32620ddb8b39cc78f95c70cb2d0b5366026871a
+// SHA256STAMP:09bf2ecffadb3ef3959ba8f1154d9b160780e2dd9515b12478bf3155fa34e9ad

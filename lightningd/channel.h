@@ -163,6 +163,9 @@ struct channel {
 	/* Whether closing_fee_negotiation_step is in satoshi or %. */
 	u8 closing_fee_negotiation_step_unit;
 
+	/* optional wrong_funding for mutual close */
+	const struct bitcoin_outpoint *shutdown_wrong_funding;
+
 	/* Reestablishment stuff: last sent commit and revocation details. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;
@@ -269,7 +272,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    bool option_static_remotekey,
 			    bool option_anchor_outputs,
 			    enum side closer,
-			    enum state_change reason);
+			    enum state_change reason,
+			    /* NULL or stolen */
+			    const struct bitcoin_outpoint *shutdown_wrong_funding STEALS);
 
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *

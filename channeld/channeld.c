@@ -1636,6 +1636,7 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 	struct channel_id channel_id;
 	u8 *scriptpubkey;
 	struct tlv_shutdown_tlvs *tlvs = tlv_shutdown_tlvs_new(tmpctx);
+	struct bitcoin_outpoint *wrong_funding;
 
 	/* Disable the channel. */
 	send_channel_update(peer, ROUTING_FLAGS_DISABLED);
@@ -1663,6 +1664,12 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 			    tal_hex(peer, scriptpubkey),
 			    tal_hex(peer, peer->remote_upfront_shutdown_script));
 
+	/* We only accept an wrong_funding if:
+	 * 1. It was negotiated.
+	 * 2. It's not dual-funding.
+	 * 3. They opened it.
+	 * 4. The channel was never used.
+	 */
 	if (tlvs->wrong_funding) {
 		if (!feature_negotiated(peer->our_features,
 					peer->their_features,
@@ -1671,12 +1678,35 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 					 "wrong_funding shutdown needs"
 					 " feature %u",
 					 OPT_SHUTDOWN_WRONG_FUNDING);
+		if (feature_negotiated(peer->our_features,
+				       peer->their_features,
+				       OPT_DUAL_FUND))
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "wrong_funding shutdown invalid"
+					 " with dual-funding");
+		if (peer->channel->opener != REMOTE)
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "No shutdown wrong_funding"
+					 " for channels we opened!");
+		if (peer->next_index[REMOTE] != 1
+		    || peer->next_index[LOCAL] != 1)
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "No shutdown wrong_funding"
+					 " for used channels!");
+
+		/* Turn into our outpoint type. */
+		wrong_funding = tal(tmpctx, struct bitcoin_outpoint);
+		wrong_funding->txid = tlvs->wrong_funding->txid;
+		wrong_funding->n = tlvs->wrong_funding->outnum;
+	} else {
+		wrong_funding = NULL;
 	}
 
 	/* Tell master: we don't have to wait because on reconnect other end
 	 * will re-send anyway. */
 	wire_sync_write(MASTER_FD,
-			take(towire_channeld_got_shutdown(NULL, scriptpubkey)));
+			take(towire_channeld_got_shutdown(NULL, scriptpubkey,
+							  wrong_funding)));
 
 	peer->shutdown_sent[REMOTE] = true;
 	/* BOLT #2:

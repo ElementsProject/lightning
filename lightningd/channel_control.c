@@ -227,11 +227,13 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 {
 	u8 *scriptpubkey;
 	struct lightningd *ld = channel->peer->ld;
+	struct bitcoin_outpoint *wrong_funding;
 	bool anysegwit = feature_negotiated(ld->our_features,
 					    channel->peer->their_features,
 					    OPT_SHUTDOWN_ANYSEGWIT);
 
-	if (!fromwire_channeld_got_shutdown(channel, msg, &scriptpubkey)) {
+	if (!fromwire_channeld_got_shutdown(channel, msg, &scriptpubkey,
+					    &wrong_funding)) {
 		channel_internal_error(channel, "bad channel_got_shutdown %s",
 				       tal_hex(msg, msg));
 		return;
@@ -256,6 +258,11 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 				  CHANNELD_SHUTTING_DOWN,
 				  REASON_REMOTE,
 				  "Peer closes channel");
+
+	/* If we set it, that's what we want.  Otherwise use their preference.
+	 * We can't have both, since only opener can set this! */
+	if (!channel->shutdown_wrong_funding)
+		channel->shutdown_wrong_funding = wrong_funding;
 
 	/* TODO(cdecker) Selectively save updated fields to DB */
 	wallet_channel_save(ld->wallet, channel);
