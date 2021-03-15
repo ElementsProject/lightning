@@ -2739,6 +2739,5 @@ def test_shutdown_alternate_txid(node_factory, bitcoind):
     # We will see our funds return.
     assert len(l1.rpc.listfunds()['outputs']) == 1
 
-    # FIXME: we should close channels, but we don't!
-    # wait_for(lambda: l2.rpc.listpeers()['peers'] == [])
-    # wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
+    wait_for(lambda: l2.rpc.listpeers()['peers'] == [])
+    wait_for(lambda: l1.rpc.listpeers()['peers'] == [])

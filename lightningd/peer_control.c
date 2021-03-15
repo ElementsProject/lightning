@@ -1353,6 +1353,18 @@ static enum watch_result funding_spent(struct channel *channel,
 	return onchaind_funding_spent(channel, tx, block->height, false);
 }
 
+void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel)
+{
+	/* Watch the "wrong" funding too, in case we spend it. */
+	if (channel->shutdown_wrong_funding) {
+		/* FIXME: Remove arg from cb? */
+		watch_txo(channel, ld->topology, channel,
+			  &channel->shutdown_wrong_funding->txid,
+			  channel->shutdown_wrong_funding->n,
+			  funding_spent);
+	}
+}
+
 void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 {
 	/* FIXME: Remove arg from cb? */
@@ -1361,6 +1373,7 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 	watch_txo(channel, ld->topology, channel,
 		  &channel->funding_txid, channel->funding_outnum,
 		  funding_spent);
+	channel_watch_wrong_funding(ld, channel);
 }
 
 static void json_add_peer(struct lightningd *ld,
