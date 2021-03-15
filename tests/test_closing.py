@@ -1,12 +1,12 @@
 from fixtures import *  # noqa: F401,F403
 from flaky import flaky
-from pyln.client import RpcError
+from pyln.client import RpcError, Millisatoshi
 from shutil import copyfile
 from pyln.testing.utils import SLOW_MACHINE
 from utils import (
     only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT,
     account_balance, first_channel_id, basic_fee, TEST_NETWORK,
-    EXPERIMENTAL_FEATURES,
+    EXPERIMENTAL_FEATURES, EXPERIMENTAL_DUAL_FUND,
 )
 
 import os
@@ -2695,3 +2695,50 @@ Try a range of future segwit versions as shutdown scripts.  We create many nodes
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         with pytest.raises(RpcError, match=r'Unacceptable upfront_shutdown_script'):
             l1.rpc.fundchannel(l2.info['id'], 10**6)
+
+
+@unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "Uses fundchannel_start")
+def test_shutdown_alternate_txid(node_factory, bitcoind):
+    l1, l2 = node_factory.line_graph(2, fundchannel=False,
+                                     opts={'experimental-shutdown-wrong-funding': None})
+
+    amount = 1000000
+    amount_msat = Millisatoshi(amount * 1000)
+
+    # Let's make a classic fundchannel mistake (wrong txid!)
+    addr = l1.rpc.fundchannel_start(l2.info['id'], amount_msat)['funding_address']
+    txid = bitcoind.rpc.sendtoaddress(addr, amount / 10**8)
+
+    # Gotta figure out which output manually :(
+    tx = bitcoind.rpc.getrawtransaction(txid, 1)
+    for n, out in enumerate(tx['vout']):
+        if 'addresses' in out['scriptPubKey'] and out['scriptPubKey']['addresses'][0] == addr:
+            txout = n
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    # Wrong txid, wrong txout!
+    wrong_txid = txid[16:] + txid[:16]
+    wrong_txout = txout ^ 1
+    l1.rpc.fundchannel_complete(l2.info['id'], wrong_txid, wrong_txout)
+
+    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'] != [])
+    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'][0]['state'] == 'CHANNELD_AWAITING_LOCKIN')
+
+    closeaddr = l1.rpc.newaddr()['bech32']
+
+    # Oops, try rescuing it!
+    l1.rpc.call('close', {'id': l2.info['id'], 'destination': closeaddr, 'wrong_funding': txid + ':' + str(txout)})
+
+    # Just make sure node has no funds.
+    assert l1.rpc.listfunds()['outputs'] == []
+
+    bitcoind.generate_block(100, wait_for_mempool=1)
+    sync_blockheight(bitcoind, [l1, l2])
+
+    # We will see our funds return.
+    assert len(l1.rpc.listfunds()['outputs']) == 1
+
+    # FIXME: we should close channels, but we don't!
+    # wait_for(lambda: l2.rpc.listpeers()['peers'] == [])
+    # wait_for(lambda: l1.rpc.listpeers()['peers'] == [])

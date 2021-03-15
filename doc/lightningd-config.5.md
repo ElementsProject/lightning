@@ -486,9 +486,9 @@ lightning-offer(7) and lightning-fetchinvoice(7).
  **experimental-shutdown-wrong-funding**
 
 Specifying this allows the `wrong_funding` field in shutdown: if a
-remote node has opened a channel using the incorrect txid (and it
-hasn't been used yet at all) this allows them to negotiate a clean
-shutdown with the txid they offer.
+remote node has opened a channel but claims it used the incorrect txid
+(and the channel hasn't been used yet at all) this allows them to
+negotiate a clean shutdown with the txid they offer.
 
 BUGS
 ----

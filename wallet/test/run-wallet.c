@@ -119,6 +119,9 @@ void   fatal(const char *fmt UNNEEDED, ...)
 bool feature_negotiated(const struct feature_set *our_features UNNEEDED,
 			const u8 *their_features UNNEEDED, size_t f UNNEEDED)
 { fprintf(stderr, "feature_negotiated called!\n"); abort(); }
+/* Generated stub for feature_offered */
+bool feature_offered(const u8 *features UNNEEDED, size_t f UNNEEDED)
+{ fprintf(stderr, "feature_offered called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_dev_memleak_reply */
 bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
@@ -405,6 +408,10 @@ bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 bool json_to_number(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 		    unsigned int *num UNNEEDED)
 { fprintf(stderr, "json_to_number called!\n"); abort(); }
+/* Generated stub for json_to_outpoint */
+bool json_to_outpoint(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		      struct bitcoin_outpoint *op UNNEEDED)
+{ fprintf(stderr, "json_to_outpoint called!\n"); abort(); }
 /* Generated stub for json_to_preimage */
 bool json_to_preimage(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED, struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "json_to_preimage called!\n"); abort(); }

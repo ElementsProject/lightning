@@ -172,6 +172,9 @@ bool feature_is_set(const u8 *features UNNEEDED, size_t bit UNNEEDED)
 bool feature_negotiated(const struct feature_set *our_features UNNEEDED,
 			const u8 *their_features UNNEEDED, size_t f UNNEEDED)
 { fprintf(stderr, "feature_negotiated called!\n"); abort(); }
+/* Generated stub for feature_offered */
+bool feature_offered(const u8 *features UNNEEDED, size_t f UNNEEDED)
+{ fprintf(stderr, "feature_offered called!\n"); abort(); }
 /* Generated stub for fixup_htlcs_out */
 void fixup_htlcs_out(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "fixup_htlcs_out called!\n"); abort(); }
@@ -374,6 +377,10 @@ enum address_parse_result json_to_address_scriptpubkey(const tal_t *ctx UNNEEDED
 bool json_to_node_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			       struct node_id *id UNNEEDED)
 { fprintf(stderr, "json_to_node_id called!\n"); abort(); }
+/* Generated stub for json_to_outpoint */
+bool json_to_outpoint(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+		      struct bitcoin_outpoint *op UNNEEDED)
+{ fprintf(stderr, "json_to_outpoint called!\n"); abort(); }
 /* Generated stub for json_to_short_channel_id */
 bool json_to_short_channel_id(const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
 			      struct short_channel_id *scid UNNEEDED)
