@@ -738,7 +738,7 @@ bool fromwire_channeld_got_revoke_reply(const void *p)
 
 /* WIRE: CHANNELD_SEND_SHUTDOWN */
 /* Tell peer to shut down channel. */
-u8 *towire_channeld_send_shutdown(const tal_t *ctx, const u8 *shutdown_scriptpubkey)
+u8 *towire_channeld_send_shutdown(const tal_t *ctx, const u8 *shutdown_scriptpubkey, const struct bitcoin_outpoint *wrong_funding)
 {
 	u16 shutdown_len = tal_count(shutdown_scriptpubkey);
 	u8 *p = tal_arr(ctx, u8, 0);
@@ -746,10 +746,16 @@ u8 *towire_channeld_send_shutdown(const tal_t *ctx, const u8 *shutdown_scriptpub
 	towire_u16(&p, WIRE_CHANNELD_SEND_SHUTDOWN);
 	towire_u16(&p, shutdown_len);
 	towire_u8_array(&p, shutdown_scriptpubkey, shutdown_len);
+	if (!wrong_funding)
+		towire_bool(&p, false);
+	else {
+		towire_bool(&p, true);
+		towire_bitcoin_outpoint(&p, wrong_funding);
+	}
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_channeld_send_shutdown(const tal_t *ctx, const void *p, u8 **shutdown_scriptpubkey)
+bool fromwire_channeld_send_shutdown(const tal_t *ctx, const void *p, u8 **shutdown_scriptpubkey, struct bitcoin_outpoint **wrong_funding)
 {
 	u16 shutdown_len;
 
@@ -762,6 +768,12 @@ bool fromwire_channeld_send_shutdown(const tal_t *ctx, const void *p, u8 **shutd
  	// 2nd case shutdown_scriptpubkey
 	*shutdown_scriptpubkey = shutdown_len ? tal_arr(ctx, u8, shutdown_len) : NULL;
 	fromwire_u8_array(&cursor, &plen, *shutdown_scriptpubkey, shutdown_len);
+ 	if (!fromwire_bool(&cursor, &plen))
+		*wrong_funding = NULL;
+	else {
+		*wrong_funding = tal(ctx, struct bitcoin_outpoint);
+		fromwire_bitcoin_outpoint(&cursor, &plen, *wrong_funding);
+	}
 	return cursor != NULL;
 }
 
@@ -1058,4 +1070,4 @@ bool fromwire_channeld_send_error_reply(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:09bf2ecffadb3ef3959ba8f1154d9b160780e2dd9515b12478bf3155fa34e9ad
+// SHA256STAMP:60143693b0c3611c8ecdf7f3549ef9f4c280e359cac0cd1f4df38cdca2dad3cb
