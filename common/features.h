@@ -129,4 +129,7 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
  * | 102/103 | `option_onion_messages` |... INC+ ...
  */
 #define OPT_ONION_MESSAGES			102
+
+#define OPT_SHUTDOWN_WRONG_FUNDING		104
+
 #endif /* LIGHTNING_COMMON_FEATURES_H */
