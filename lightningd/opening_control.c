@@ -267,9 +267,7 @@ static void funding_success(struct channel *channel)
 	was_pending(command_success(cmd, response));
 }
 
-static void funding_started_success(struct funding_channel *fc,
-				    u8 *scriptPubkey,
-				    bool supports_shutdown)
+static void funding_started_success(struct funding_channel *fc)
 {
 	struct json_stream *response;
 	struct command *cmd = fc->cmd;
@@ -278,10 +276,11 @@ static void funding_started_success(struct funding_channel *fc,
 	response = json_stream_success(cmd);
 	out = encode_scriptpubkey_to_addr(cmd,
 				          chainparams,
-					  scriptPubkey);
+					  fc->funding_scriptpubkey);
 	if (out) {
 		json_add_string(response, "funding_address", out);
-		json_add_hex_talarr(response, "scriptpubkey", scriptPubkey);
+		json_add_hex_talarr(response, "scriptpubkey",
+				    fc->funding_scriptpubkey);
 		if (fc->our_upfront_shutdown_script)
 			json_add_hex_talarr(response, "close_to", fc->our_upfront_shutdown_script);
 	}
@@ -315,7 +314,9 @@ static void opening_funder_start_replied(struct subd *openingd, const u8 *resp,
 		fc->our_upfront_shutdown_script =
 			tal_free(fc->our_upfront_shutdown_script);
 
-	funding_started_success(fc, funding_scriptPubkey, supports_shutdown_script);
+	/* Save this so we can indentify output for scriptpubkey */
+	fc->funding_scriptpubkey = tal_steal(fc, funding_scriptPubkey);
+	funding_started_success(fc);
 
 	/* Mark that we're in-flight */
 	fc->inflight = true;
@@ -1063,6 +1064,7 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	fc->cancels = tal_arr(fc, struct command *, 0);
 	fc->uc = NULL;
 	fc->inflight = false;
+	fc->funding_scriptpubkey = NULL;
 
 	if (!param(fc->cmd, buffer, params,
 		   p_req("id", param_node_id, &id),

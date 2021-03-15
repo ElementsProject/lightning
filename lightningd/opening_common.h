@@ -78,6 +78,9 @@ struct funding_channel {
 	/* Channel, subsequent owner of us */
 	struct uncommitted_channel *uc;
 
+	/* The scriptpubkey to pay (once started) */
+	u8 *funding_scriptpubkey;
+
 	/* Whether or not this is in the middle of getting funded */
 	bool inflight;
 
