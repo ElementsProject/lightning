@@ -947,10 +947,10 @@ void peer_start_openingd(struct peer *peer,
 	subd_send_msg(uc->open_daemon, take(msg));
 }
 
-static struct command_result *json_fund_channel_complete(struct command *cmd,
-							 const char *buffer,
-							 const jsmntok_t *obj UNNEEDED,
-							 const jsmntok_t *params)
+static struct command_result *json_fundchannel_complete(struct command *cmd,
+							const char *buffer,
+							const jsmntok_t *obj UNNEEDED,
+							const jsmntok_t *params)
 {
 	u8 *msg;
 	struct node_id *id;
@@ -1002,12 +1002,12 @@ static struct command_result *json_fund_channel_complete(struct command *cmd,
 }
 
 /**
- * json_fund_channel_cancel - Entrypoint for cancelling a channel which funding isn't broadcast
+ * json_fundchannel_cancel - Entrypoint for cancelling a channel which funding isn't broadcast
  */
-static struct command_result *json_fund_channel_cancel(struct command *cmd,
-						       const char *buffer,
-						       const jsmntok_t *obj UNNEEDED,
-						       const jsmntok_t *params)
+static struct command_result *json_fundchannel_cancel(struct command *cmd,
+						      const char *buffer,
+						      const jsmntok_t *obj UNNEEDED,
+						      const jsmntok_t *params)
 {
 
 	struct node_id *id;
@@ -1041,12 +1041,12 @@ static struct command_result *json_fund_channel_cancel(struct command *cmd,
 }
 
 /**
- * json_fund_channel_start - Entrypoint for funding a channel
+ * json_fundchannel_start - Entrypoint for funding a channel
  */
-static struct command_result *json_fund_channel_start(struct command *cmd,
-						      const char *buffer,
-						      const jsmntok_t *obj UNNEEDED,
-						      const jsmntok_t *params)
+static struct command_result *json_fundchannel_start(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *obj UNNEEDED,
+						     const jsmntok_t *params)
 {
 	struct funding_channel * fc = tal(cmd, struct funding_channel);
 	struct node_id *id;
@@ -1169,31 +1169,31 @@ static struct command_result *json_fund_channel_start(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
-static const struct json_command fund_channel_start_command = {
+static const struct json_command fundchannel_start_command = {
     "fundchannel_start",
     "channels",
-    json_fund_channel_start,
+    json_fundchannel_start,
     "Start fund channel with {id} using {amount} satoshis. "
     "Returns a bech32 address to use as an output for a funding transaction."
 };
-AUTODATA(json_command, &fund_channel_start_command);
+AUTODATA(json_command, &fundchannel_start_command);
 
-static const struct json_command fund_channel_cancel_command = {
+static const struct json_command fundchannel_cancel_command = {
     "fundchannel_cancel",
     "channels",
-    json_fund_channel_cancel,
+    json_fundchannel_cancel,
     "Cancel inflight channel establishment with peer {id}."
 };
-AUTODATA(json_command, &fund_channel_cancel_command);
+AUTODATA(json_command, &fundchannel_cancel_command);
 
-static const struct json_command fund_channel_complete_command = {
+static const struct json_command fundchannel_complete_command = {
     "fundchannel_complete",
     "channels",
-    json_fund_channel_complete,
+    json_fundchannel_complete,
     "Complete channel establishment with peer {id} for funding transaction"
     "with {txid}. Returns true on success, false otherwise."
 };
-AUTODATA(json_command, &fund_channel_complete_command);
+AUTODATA(json_command, &fundchannel_complete_command);
 
 struct subd *peer_get_owning_subd(struct peer *peer)
 {
