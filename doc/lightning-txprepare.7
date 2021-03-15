@@ -57,13 +57,13 @@ is provided by \fBtxsend\fR\.
 
 .SH RETURN VALUE
 
-On success, an object with attributes \fIunsigned_tx\fR and \fItxid\fR will be
+On success, an object with attributes \fIunsigned_tx\fR, \fIpsbt\fR and \fItxid\fR will be
 returned\. You need to hand \fItxid\fR to \fBtxsend\fR or \fBtxdiscard\fR, as the
 inputs of this transaction are reserved until then, or until the daemon
 restarts\.
 
 
-\fIunsigned_tx\fR represents the raw bitcoin transaction (not yet signed)
+\fIunsigned_tx\fR and \fIpsbt\fR represent the raw bitcoin transaction (not yet signed)
 and \fItxid\fR represent the bitcoin transaction id\.
 
 
@@ -95,4 +95,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:b3ff9c69ce535b79307ce103f8f9e5d64115a8ed388c471af37a637b9e970ae7
+\" SHA256STAMP:ebbe475ef5a3df39e772789cf3df94757662408758f0f6bb300b120d2abefebc

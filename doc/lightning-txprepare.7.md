@@ -52,12 +52,12 @@ is provided by **txsend**.
 RETURN VALUE
 ------------
 
-On success, an object with attributes *unsigned\_tx* and *txid* will be
+On success, an object with attributes *unsigned\_tx*, *psbt* and *txid* will be
 returned. You need to hand *txid* to **txsend** or **txdiscard**, as the
 inputs of this transaction are reserved until then, or until the daemon
 restarts.
 
-*unsigned\_tx* represents the raw bitcoin transaction (not yet signed)
+*unsigned\_tx* and *psbt* represent the raw bitcoin transaction (not yet signed)
 and *txid* represent the bitcoin transaction id.
 
 On failure, an error is reported and the transaction is not created.

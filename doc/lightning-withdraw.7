@@ -43,11 +43,11 @@ of "txid:vout"\. These must be drawn from the node's available UTXO set\.
 
 .SH RETURN VALUE
 
-On success, an object with attributes \fItx\fR and \fItxid\fR will be returned\.
+On success, an object with attributes \fItx\fR, \fItxid\fR and \fIpsbt\fR will be returned\.
 
 
-\fItx\fR represents the raw bitcoin, fully signed, transaction and \fItxid\fR
-represent the bitcoin transaction id\.
+\fItx\fR and \fIpsbt\fR represent the fully signed bitcoin transaction and \fItxid\fR
+represents the bitcoin transaction id\.
 
 
 On failure, an error is reported and the withdrawal transaction is not
@@ -79,4 +79,4 @@ Felix \fI<fixone@gmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:e32366bb53ffbf212d8629aba20361258f2d5534de6c2b625153c457e888beb6
+\" SHA256STAMP:0afffd7ffd7b22415e67816cc43d3be6fdde8deda863a0981f383cdc7ba48513
