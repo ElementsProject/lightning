@@ -814,6 +814,14 @@ static char *opt_set_onion_messages(struct lightningd *ld)
 	return NULL;
 }
 
+static char *opt_set_shutdown_wrong_funding(struct lightningd *ld)
+{
+	feature_set_or(ld->our_features,
+		       take(feature_set_for_feature(NULL,
+						    OPTIONAL_FEATURE(OPT_SHUTDOWN_WRONG_FUNDING))));
+	return NULL;
+}
+
 static char *opt_set_offers(struct lightningd *ld)
 {
 	ld->config.exp_offers = true;
@@ -878,6 +886,9 @@ static void register_opts(struct lightningd *ld)
 				 opt_set_offers, ld,
 				 "EXPERIMENTAL: enable send and receive of offers"
 				 " (also sets experimental-onion-messages)");
+	opt_register_early_noarg("--experimental-shutdown-wrong-funding",
+				 opt_set_shutdown_wrong_funding, ld,
+				 "EXPERIMENTAL: allow shutdown with alternate txids");
 
 	opt_register_noarg("--help|-h", opt_lightningd_usage, ld,
 				 "Print this message.");
@@ -1301,6 +1312,11 @@ static void add_config(struct lightningd *ld,
 						      OPT_ONION_MESSAGES));
 		} else if (opt->cb == (void *)opt_set_offers) {
 			json_add_bool(response, name0, ld->config.exp_offers);
+		} else if (opt->cb == (void *)opt_set_shutdown_wrong_funding) {
+			json_add_bool(response, name0,
+				      feature_offered(ld->our_features
+						      ->bits[INIT_FEATURE],
+						      OPT_SHUTDOWN_WRONG_FUNDING));
 		} else if (opt->cb == (void *)plugin_opt_flag_set) {
 			/* Noop, they will get added below along with the
 			 * OPT_HASARG options. */
