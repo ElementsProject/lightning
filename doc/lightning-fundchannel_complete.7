@@ -3,7 +3,7 @@
 lightning-fundchannel_complete - Command for completing channel establishment
 .SH SYNOPSIS
 
-\fBfundchannel_complete\fR \fIid\fR \fItxid\fR \fItxout\fR
+\fBfundchannel_complete\fR \fIid\fR \fIpsbt\fR
 
 .SH DESCRIPTION
 
@@ -14,10 +14,8 @@ complete an initiated channel establishment with a connected peer\.
 \fIid\fR is the node id of the remote peer\.
 
 
-\fItxid\fR is the hex string of the funding transaction id\.
-
-
-\fItxout\fR is the integer outpoint of the funding output for this channel\.
+\fIpsbt\fR is the transaction to use for funding (does not need to be
+signed but must be otherwise complete)\.
 
 
 Note that the funding transaction MUST NOT be broadcast until after
@@ -44,6 +42,8 @@ with \fBcode\fR being one of the following:
 305: Peer is not connected\.
 .IP \[bu]
 306: Unknown peer id\.
+.IP \[bu]
+309: PSBT does not have a unique, correct output to fund the channel\.
 
 .RE
 .SH AUTHOR
@@ -62,4 +62,4 @@ lightning-openchannel_\fBabort\fR(7)
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:53e7f55055cdfb8cf66e89ba76a1cfa6fffaa5d6e72b441c44e7e6065707fc66
+\" SHA256STAMP:13e5fee7b987b38e9b08685f4b49062314ec9e2cf52afbb5a2c5a4965fe2b01f

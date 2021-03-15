@@ -4,7 +4,7 @@ lightning-fundchannel\_complete -- Command for completing channel establishment
 SYNOPSIS
 --------
 
-**fundchannel\_complete** *id* *txid* *txout*
+**fundchannel\_complete** *id* *psbt*
 
 DESCRIPTION
 -----------
@@ -14,9 +14,8 @@ complete an initiated channel establishment with a connected peer.
 
 *id* is the node id of the remote peer.
 
-*txid* is the hex string of the funding transaction id.
-
-*txout* is the integer outpoint of the funding output for this channel.
+*psbt* is the transaction to use for funding (does not need to be
+signed but must be otherwise complete).
 
 Note that the funding transaction MUST NOT be broadcast until after
 channel establishment has been successfully completed, as the commitment
@@ -37,6 +36,7 @@ with `code` being one of the following:
 - -1: Catchall nonspecific error.
 - 305: Peer is not connected.
 - 306: Unknown peer id.
+- 309: PSBT does not have a unique, correct output to fund the channel.
 
 AUTHOR
 ------
