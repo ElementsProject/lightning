@@ -138,6 +138,7 @@ static struct command_result *sendpsbt_done(struct command *cmd,
 	out = jsonrpc_stream_success(cmd);
 	json_add_hex_talarr(out, "tx", linearize_wtx(tmpctx, utx->tx));
 	json_add_txid(out, "txid", &utx->txid);
+	json_add_psbt(out, "psbt", utx->psbt);
 	return command_finished(cmd, out);
 }
 
@@ -222,6 +223,7 @@ static struct command_result *finish_txprepare(struct command *cmd,
 	out = jsonrpc_stream_success(cmd);
 	json_add_hex_talarr(out, "unsigned_tx", linearize_wtx(tmpctx, utx->tx));
 	json_add_txid(out, "txid", &utx->txid);
+	json_add_psbt(out, "psbt", utx->psbt);
 	return command_finished(cmd, out);
 }
 

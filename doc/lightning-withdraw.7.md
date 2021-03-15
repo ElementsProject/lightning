@@ -40,10 +40,10 @@ of "txid:vout". These must be drawn from the node's available UTXO set.
 RETURN VALUE
 ------------
 
-On success, an object with attributes *tx* and *txid* will be returned.
+On success, an object with attributes *tx*, *txid* and *psbt* will be returned.
 
-*tx* represents the raw bitcoin, fully signed, transaction and *txid*
-represent the bitcoin transaction id.
+*tx* and *psbt* represent the fully signed bitcoin transaction and *txid*
+represents the bitcoin transaction id.
 
 On failure, an error is reported and the withdrawal transaction is not
 created.
