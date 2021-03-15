@@ -264,6 +264,9 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 	if (!channel->shutdown_wrong_funding)
 		channel->shutdown_wrong_funding = wrong_funding;
 
+	/* We now watch the "wrong" funding, in case we spend it. */
+	channel_watch_wrong_funding(ld, channel);
+
 	/* TODO(cdecker) Selectively save updated fields to DB */
 	wallet_channel_save(ld->wallet, channel);
 }

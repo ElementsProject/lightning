@@ -87,6 +87,8 @@ void activate_peers(struct lightningd *ld);
 void drop_to_chain(struct lightningd *ld, struct channel *channel, bool cooperative);
 
 void channel_watch_funding(struct lightningd *ld, struct channel *channel);
+/* If this channel has a "wrong funding" shutdown, watch that too. */
+void channel_watch_wrong_funding(struct lightningd *ld, struct channel *channel);
 
 struct amount_msat channel_amount_receivable(const struct channel *channel);
 
