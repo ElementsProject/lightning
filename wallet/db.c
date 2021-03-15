@@ -709,6 +709,9 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD delayed_payment_basepoint_local BLOB"), NULL},
     {SQL("ALTER TABLE channels ADD funding_pubkey_local BLOB"), NULL},
     {NULL, fillin_missing_local_basepoints},
+    /* Oops, can I haz money back plz? */
+    {SQL("ALTER TABLE channels ADD shutdown_wrong_txid BLOB DEFAULT NULL"), NULL},
+    {SQL("ALTER TABLE channels ADD shutdown_wrong_outnum INTEGER DEFAULT NULL"), NULL},
 };
 
 /* Leak tracking. */
