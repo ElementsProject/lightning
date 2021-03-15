@@ -1323,6 +1323,8 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", htlc_basepoint_local" // 54
 					", delayed_payment_basepoint_local" // 55
 					", funding_pubkey_local" // 56
+					", shutdown_wrong_txid" // 57
+					", shutdown_wrong_outnum" // 58
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, 0, CLOSED);
