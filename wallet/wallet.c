@@ -986,14 +986,16 @@ void wallet_inflight_save(struct wallet *w,
 	stmt = db_prepare_v2(w->db,
 			     SQL("UPDATE channel_funding_inflights SET"
 				 "  funding_psbt=?" // 0
+				 ", funding_tx_remote_sigs_received=?" // 1
 				 " WHERE"
-				 "  channel_id=?" // 1
-				 " AND funding_tx_id=?" // 2
-				 " AND funding_tx_outnum=?")); // 3
+				 "  channel_id=?" // 2
+				 " AND funding_tx_id=?" // 3
+				 " AND funding_tx_outnum=?")); // 4
 	db_bind_psbt(stmt, 0, inflight->funding_psbt);
-	db_bind_u64(stmt, 1, inflight->channel->dbid);
-	db_bind_txid(stmt, 2, &inflight->funding->txid);
-	db_bind_int(stmt, 3, inflight->funding->outnum);
+	db_bind_int(stmt, 1, inflight->remote_tx_sigs);
+	db_bind_u64(stmt, 2, inflight->channel->dbid);
+	db_bind_txid(stmt, 3, &inflight->funding->txid);
+	db_bind_int(stmt, 4, inflight->funding->outnum);
 
 	db_exec_prepared_v2(take(stmt));
 }
@@ -1005,6 +1007,7 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 	struct amount_sat funding_sat, our_funding_sat;
 	struct bitcoin_txid funding_txid;
 	struct bitcoin_signature last_sig;
+	struct channel_inflight *inflight;
 
 	db_column_txid(stmt, 0, &funding_txid);
 	db_column_amount_sat(stmt, 3, &funding_sat);
@@ -1014,14 +1017,18 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 
 	last_sig.sighash_type = SIGHASH_ALL;
 
-	return new_inflight(chan, funding_txid,
-			    db_column_int(stmt, 1),
-			    db_column_int(stmt, 2),
-			    funding_sat,
-			    our_funding_sat,
-			    db_column_psbt(tmpctx, stmt, 5),
-			    db_column_tx(tmpctx, stmt, 6),
-			    last_sig);
+	inflight = new_inflight(chan, funding_txid,
+				db_column_int(stmt, 1),
+				db_column_int(stmt, 2),
+				funding_sat,
+				our_funding_sat,
+				db_column_psbt(tmpctx, stmt, 5),
+				db_column_tx(tmpctx, stmt, 6),
+				last_sig);
+
+	/* Pull out the serialized tx-sigs-received-ness */
+	inflight->remote_tx_sigs = db_column_int(stmt, 8);
+	return inflight;
 }
 
 static bool wallet_channel_load_inflights(struct wallet *w,
@@ -1039,6 +1046,7 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 					", funding_psbt" // 5
 					", last_tx" // 6
 					", last_sig" // 7
+					", funding_tx_remote_sigs_received" //8
 					" FROM channel_funding_inflights"
 					" WHERE channel_id = ?")); // ?0
 
