@@ -2700,7 +2700,8 @@ Try a range of future segwit versions as shutdown scripts.  We create many nodes
 @unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "Uses fundchannel_start")
 def test_shutdown_alternate_txid(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False,
-                                     opts={'experimental-shutdown-wrong-funding': None})
+                                     opts={'experimental-shutdown-wrong-funding': None,
+                                           'allow-deprecated-apis': True})
 
     amount = 1000000
     amount_msat = Millisatoshi(amount * 1000)
