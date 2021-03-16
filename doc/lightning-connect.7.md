@@ -20,7 +20,7 @@ be of the form *id@host* or *id@host:port*. In this case, the *host* and
 
 If not specified, the *port* defaults to 9735.
 
-If *host* is not specified, the connection will be attempted to an IP
+If *host* is not specified (or doesn't work), the connection will be attempted to an IP
 belonging to *id* obtained through gossip with other already connected
 peers.
 This can fail if your C-lightning node is a fresh install that has not
@@ -40,7 +40,7 @@ RETURN VALUE
 ------------
 
 On success the peer *id* is returned, as well as a hexidecimal *features*
-bitmap.
+bitmap and an *address* object as per lightning-listnodes(7).
 
 ERRORS
 ------

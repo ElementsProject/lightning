@@ -243,7 +243,14 @@ def test_connect_by_gossip(node_factory, bitcoind):
     l1.daemon.wait_for_logs(['Received node_announcement for node {}'.format(l3.info['id'])])
 
     # Have l1 connect to l3 without explicit host and port.
-    l1.rpc.connect(l3.info['id'])
+    ret = l1.rpc.connect(l3.info['id'])
+    assert ret['address'] == {'type': 'ipv4', 'address': '127.0.0.1', 'port': l3.port}
+
+    # Now give it *wrong* port (after we make sure l2 isn't listening), it should fall back.
+    l1.rpc.disconnect(l3.info['id'])
+    l2.stop()
+    ret = l1.rpc.connect(l3.info['id'], 'localhost', l2.port)
+    assert ret['address'] == {'type': 'ipv4', 'address': '127.0.0.1', 'port': l3.port}
 
 
 @unittest.skipIf(not DEVELOPER, "DEVELOPER=1 needed to speed up gossip propagation, would be too long otherwise")

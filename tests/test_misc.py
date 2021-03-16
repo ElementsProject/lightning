@@ -784,7 +784,8 @@ def test_address(node_factory):
     l1.start()
 
     l2 = node_factory.get_node()
-    l2.rpc.connect(l1.info['id'], l1.daemon.opts['bind-addr'])
+    ret = l2.rpc.connect(l1.info['id'], l1.daemon.opts['bind-addr'])
+    assert ret['address'] == {'type': 'local socket', 'socket': l1.daemon.opts['bind-addr']}
 
     # 'addr' with local socket works too.
     l1.stop()

@@ -22,7 +22,7 @@ be of the form \fIid@host\fR or \fIid@host:port\fR\. In this case, the \fIhost\f
 If not specified, the \fIport\fR defaults to 9735\.
 
 
-If \fIhost\fR is not specified, the connection will be attempted to an IP
+If \fIhost\fR is not specified (or doesn't work), the connection will be attempted to an IP
 belonging to \fIid\fR obtained through gossip with other already connected
 peers\.
 This can fail if your C-lightning node is a fresh install that has not
@@ -43,7 +43,7 @@ another node\. Once the peer is connected a channel can be opened with
 .SH RETURN VALUE
 
 On success the peer \fIid\fR is returned, as well as a hexidecimal \fIfeatures\fR
-bitmap\.
+bitmap and an \fIaddress\fR object as per \fBlightning-listnodes\fR(7)\.
 
 .SH ERRORS
 
@@ -94,4 +94,4 @@ Felix \fI<fixone@gmail.com\fR> is the original author of this manpage\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:5f99f87ec4d94984b36da81b3f3b6fd21100b58baea493f5d0c3f50ffdcbf301
+\" SHA256STAMP:336c35e791dc6439115e25a2f58ffb9dc68989c96d51b6c39cb3de6d40328ae5

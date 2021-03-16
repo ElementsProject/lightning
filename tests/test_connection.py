@@ -33,9 +33,12 @@ def test_connect(node_factory):
     # Reconnect should be a noop
     ret = l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
     assert ret['id'] == l2.info['id']
+    assert ret['address'] == {'type': 'ipv4', 'address': '127.0.0.1', 'port': l2.port}
 
     ret = l2.rpc.connect(l1.info['id'], host='localhost', port=l1.port)
     assert ret['id'] == l1.info['id']
+    # FIXME: This gives a bogus address (since they connected to us): better to give none!
+    assert 'address' in ret
 
     # Should still only have one peer!
     assert len(l1.rpc.listpeers()) == 1
@@ -62,6 +65,7 @@ def test_connect_standard_addr(node_factory):
     # node@host
     ret = l1.rpc.connect("{}@{}".format(l2.info['id'], 'localhost'), port=l2.port)
     assert ret['id'] == l2.info['id']
+    assert ret['address'] == {'type': 'ipv4', 'address': '127.0.0.1', 'port': l2.port}
 
     # node@host:port
     ret = l1.rpc.connect("{}@localhost:{}".format(l3.info['id'], l3.port))
@@ -127,7 +131,8 @@ def test_connection_moved(node_factory, executor):
     l1.daemon.wait_for_log('connection from')
 
     # Provide correct connection details
-    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    ret = l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    assert ret['address'] == {'type': 'ipv4', 'address': '127.0.0.1', 'port': l2.port}
 
     # If we failed to update the connection, this call will error
     fut_hang.result(TIMEOUT)

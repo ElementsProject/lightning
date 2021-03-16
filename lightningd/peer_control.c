@@ -1194,7 +1194,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	peer_update_features(peer, their_features);
 
 	/* Complete any outstanding connect commands. */
-	connect_succeeded(ld, peer);
+	connect_succeeded(ld, peer, &hook_payload->addr);
 
 	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
 	assert(!peer->uncommitted_channel);
