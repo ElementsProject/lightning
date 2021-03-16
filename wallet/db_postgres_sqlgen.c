@@ -1269,14 +1269,14 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "UPDATE channel_funding_inflights SET  funding_psbt=? WHERE  channel_id=? AND funding_tx_id=? AND funding_tx_outnum=?",
-         .query = "UPDATE channel_funding_inflights SET  funding_psbt=$1 WHERE  channel_id=$2 AND funding_tx_id=$3 AND funding_tx_outnum=$4",
-         .placeholders = 4,
+         .name = "UPDATE channel_funding_inflights SET  funding_psbt=?, funding_tx_remote_sigs_received=? WHERE  channel_id=? AND funding_tx_id=? AND funding_tx_outnum=?",
+         .query = "UPDATE channel_funding_inflights SET  funding_psbt=$1, funding_tx_remote_sigs_received=$2 WHERE  channel_id=$3 AND funding_tx_id=$4 AND funding_tx_outnum=$5",
+         .placeholders = 5,
          .readonly = false,
     },
     {
-         .name = "SELECT  funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig FROM channel_funding_inflights WHERE channel_id = ?",
-         .query = "SELECT  funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig FROM channel_funding_inflights WHERE channel_id = $1",
+         .name = "SELECT  funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig, funding_tx_remote_sigs_received FROM channel_funding_inflights WHERE channel_id = ?",
+         .query = "SELECT  funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig, funding_tx_remote_sigs_received FROM channel_funding_inflights WHERE channel_id = $1",
          .placeholders = 1,
          .readonly = true,
     },
@@ -1888,4 +1888,4 @@ struct db_query db_postgres_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:8b9d33d20380d74e6f143f65bb05ab95a05403cba5b5d6afe19edc91c0a185cb
+// SHA256STAMP:3004e6442db61cf4afb9a7e0ce3600b32e27a4cd5cac0aff02cefd3ddbdac209
