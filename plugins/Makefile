@@ -95,6 +95,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/bech32_util.o			\
 	common/bigsize.o			\
 	common/bolt11.o				\
+	common/channel_id.o			\
 	common/daemon.o				\
 	common/features.o			\
 	common/hash_u5.o			\
