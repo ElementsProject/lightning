@@ -40,6 +40,7 @@ struct channel_inflight {
 	const struct funding_info *funding;
 	struct wally_psbt *funding_psbt;
 	bool remote_tx_sigs;
+	bool tx_broadcast;
 
 	/* Commitment tx and sigs */
 	struct bitcoin_tx *last_tx;

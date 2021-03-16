@@ -1405,8 +1405,17 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 	}
 
 	inflight = channel_current_inflight(channel);
-	if (psbt_finalize(inflight->funding_psbt)
-	    && inflight->remote_tx_sigs) {
+
+	/* Once we've sent our sigs to the peer, we're fine
+	 * to broadcast the transaction, even if they haven't
+	 * sent us their tx-sigs yet. They're not allowed to
+	 * send us funding-locked until their tx-sigs has been
+	 * received, but that's no reason not to broadcast.
+	 * Note this only happens if we're the only input-er */
+	if (psbt_finalize(inflight->funding_psbt) &&
+	    !inflight->tx_broadcast) {
+		inflight->tx_broadcast = true;
+
 		wtx = psbt_final_tx(NULL, inflight->funding_psbt);
 		if (!wtx) {
 			channel_internal_error(channel,
@@ -1721,7 +1730,14 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 	tal_wally_end(inflight->funding_psbt);
 	wallet_inflight_save(ld->wallet, inflight);
 
-	if (psbt_finalize(cast_const(struct wally_psbt *, inflight->funding_psbt))) {
+	/* It's possible we haven't sent them our (empty) tx-sigs yet,
+	 * but we should be sending it soon... */
+	if (psbt_finalize(cast_const(struct wally_psbt *,
+			  inflight->funding_psbt))
+	    && !inflight->tx_broadcast) {
+		inflight->tx_broadcast = true;
+
+		/* Saves the now finalized version of the psbt */
 		wallet_inflight_save(ld->wallet, inflight);
 		wtx = psbt_final_tx(NULL, inflight->funding_psbt);
 		if (!wtx) {
