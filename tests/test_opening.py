@@ -2,10 +2,12 @@ from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError
 from utils import (
-    only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES, DEVELOPER
+    only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES, DEVELOPER,
+    first_channel_id
 )
 
 import pytest
+import re
 import unittest
 
 
@@ -96,6 +98,101 @@ def test_multifunding_v2_best_effort(node_factory, bitcoind):
 
     # This works though.
     l1.rpc.multifundchannel(destinations, minchannels=1)
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual-funding is experimental only")
+def test_v2_open_sigs_restart(node_factory, bitcoind):
+    disconnects_1 = ['-WIRE_TX_SIGNATURES']
+    disconnects_2 = ['+WIRE_TX_SIGNATURES']
+
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts=[{'dev-force-features': '+223',
+                                           'disconnect': disconnects_1,
+                                           'may_reconnect': True},
+                                          {'dev-force-features': '+223',
+                                           'disconnect': disconnects_2,
+                                           'may_reconnect': True}])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    amount = 2**24
+    chan_amount = 100000
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+    # Wait for it to arrive.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    # Fund the channel, should appear to finish ok even though the
+    # peer fails
+    with pytest.raises(RpcError, match=r'Peer not connected'):
+        l1.rpc.fundchannel(l2.info['id'], chan_amount)
+
+    log = l1.daemon.is_in_log('UNKNOWN TYPE channel_id psbt')
+    psbt = re.search("channel_id psbt (.*)", log).group(1)
+
+    chan_id = first_channel_id(l1, l2)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.daemon.wait_for_log('Peer has reconnected, state DUALOPEND_OPEN_INIT')
+    with pytest.raises(RpcError):
+        l1.rpc.openchannel_signed(chan_id, psbt)
+
+    l2.daemon.wait_for_log('Broadcasting funding tx')
+    bitcoind.generate_block(6)
+
+    # Make sure we're ok.
+    l2.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "dual-funding is experimental only")
+def test_v2_open_sigs_restart_while_dead(node_factory, bitcoind):
+    # Same thing as above, except the transaction mines
+    # while we're asleep
+    disconnects_1 = ['-WIRE_TX_SIGNATURES']
+    disconnects_2 = ['+WIRE_TX_SIGNATURES']
+
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts=[{'dev-force-features': '+223',
+                                           'disconnect': disconnects_1,
+                                           'may_reconnect': True},
+                                          {'dev-force-features': '+223',
+                                           'disconnect': disconnects_2,
+                                           'may_reconnect': True}])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    amount = 2**24
+    chan_amount = 100000
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+    # Wait for it to arrive.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    # Fund the channel, should appear to finish ok even though the
+    # peer fails
+    with pytest.raises(RpcError, match=r'Peer not connected'):
+        l1.rpc.fundchannel(l2.info['id'], chan_amount)
+
+    log = l1.daemon.is_in_log('UNKNOWN TYPE channel_id psbt')
+    psbt = re.search("channel_id psbt (.*)", log).group(1)
+
+    chan_id = first_channel_id(l1, l2)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.daemon.wait_for_log('Peer has reconnected, state DUALOPEND_OPEN_INIT')
+    with pytest.raises(RpcError):
+        l1.rpc.openchannel_signed(chan_id, psbt)
+
+    l2.daemon.wait_for_log('Broadcasting funding tx')
+
+    l1.stop()
+    l2.stop()
+    bitcoind.generate_block(6)
+    l1.restart()
+    l2.restart()
+
+    # Make sure we're ok.
+    l2.daemon.wait_for_log(r'to CHANNELD_NORMAL')
+    l1.daemon.wait_for_log(r'to CHANNELD_NORMAL')
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
@@ -442,11 +539,7 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
                                     opts=[{'dev-force-features': '+223',
                                            'disconnect': disconnects,
-                                           'may_reconnect': True,
-                                           # On reconnects, we dont have cmd
-                                           # outstanding for the missed sigs
-                                           # so l1 logs a BROKEN.
-                                           'allow_broken_log': True},
+                                           'may_reconnect': True},
                                           {'dev-force-features': '+223',
                                            'may_reconnect': True}])
 
