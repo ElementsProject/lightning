@@ -1310,12 +1310,12 @@ static void sendfunding_done(struct bitcoind *bitcoind UNUSED,
 	channel->openchannel_signed_cmd = NULL;
 
 	if (!cmd && channel->opener == LOCAL)
-		log_broken(channel->log,
-			   "No outstanding command for channel %s,"
-			   " funding sent was success? %d",
-			   type_to_string(tmpctx, struct channel_id,
-					  &channel->cid),
-			   success);
+		log_unusual(channel->log,
+			    "No outstanding command for channel %s,"
+			    " funding sent was success? %d",
+			    type_to_string(tmpctx, struct channel_id,
+					   &channel->cid),
+			    success);
 
 	if (!success) {
 		if (cmd)
