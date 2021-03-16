@@ -900,12 +900,6 @@ static void handle_tx_sigs(struct state *state, const u8 *msg)
 			      "tx_signatures sent after funding_locked %s",
 			      tal_hex(msg, msg));
 
-	if (tx_state->remote_funding_sigs_rcvd) {
-		status_info("Got duplicate WIRE_TX_SIGNATURES, "
-			    "already have their sigs. Ignoring");
-		return;
-	}
-
 	if (!tx_state->psbt)
 		open_err_warn(state,
 			      "tx_signatures for %s received,"
