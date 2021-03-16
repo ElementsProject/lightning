@@ -89,7 +89,8 @@ struct command_result *command_success(struct command *cmd UNNEEDED,
 
 { fprintf(stderr, "command_success called!\n"); abort(); }
 /* Generated stub for connect_succeeded */
-void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer UNNEEDED)
+void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer UNNEEDED,
+		       const struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "connect_succeeded called!\n"); abort(); }
 /* Generated stub for create_onionreply */
 struct onionreply *create_onionreply(const tal_t *ctx UNNEEDED,
