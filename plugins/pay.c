@@ -1489,8 +1489,7 @@ static void json_add_sendpay_result(struct json_stream *s, const struct payment_
 		if (r->erring_direction)
 			json_add_num(s, "erring_direction",
 				     *r->erring_direction);
-		if (r->erring_node)
-			json_add_node_id(s, "erring_node", r->erring_node);
+
 		json_object_end(s);
 	} else {
 		/* This is a success */
