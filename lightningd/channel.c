@@ -174,8 +174,8 @@ new_inflight(struct channel *channel,
 	funding->our_funds = our_funds;
 
 	inflight->funding = funding;
-	inflight->channel = channel,
-	inflight->remote_tx_sigs = false,
+	inflight->channel = channel;
+	inflight->remote_tx_sigs = false;
 	inflight->funding_psbt = tal_steal(inflight, psbt);
 	inflight->last_tx = tal_steal(inflight, last_tx);
 	inflight->last_sig = last_sig;
