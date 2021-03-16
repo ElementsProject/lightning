@@ -1505,17 +1505,17 @@ static void handle_channel_locked(struct subd *dualopend,
 	assert(channel->scid);
 	assert(channel->remote_funding_locked);
 
-	if (channel->state != DUALOPEND_AWAITING_LOCKIN) {
+	/* This can happen if we missed their sigs, for some reason */
+	if (channel->state != DUALOPEND_AWAITING_LOCKIN)
 		log_debug(channel->log, "Lockin complete, but state %s",
 			  channel_state_name(channel));
-	} else {
-		channel_set_state(channel,
-				  DUALOPEND_AWAITING_LOCKIN,
-				  CHANNELD_NORMAL,
-				  REASON_UNKNOWN,
-				  "Lockin complete");
-		channel_record_open(channel);
-	}
+
+	channel_set_state(channel,
+			  channel->state,
+			  CHANNELD_NORMAL,
+			  REASON_UNKNOWN,
+			  "Lockin complete");
+	channel_record_open(channel);
 
 	/* FIXME: LND sigs/update_fee msgs? */
 	peer_start_channeld(channel, pps, NULL, false);
