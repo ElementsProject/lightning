@@ -58,7 +58,8 @@ static bool timestamp_filter(const struct per_peer_state *pps, u32 timestamp)
 		&& timestamp <= pps->gs->timestamp_max;
 }
 
-static void undo_read(int fd, int len, size_t wanted)
+/* Not all the data we expected was there: rewind file */
+static void failed_read(int fd, int len)
 {
 	if (len < 0) {
 		/* Grab errno before lseek overrides it */
@@ -68,10 +69,6 @@ static void undo_read(int fd, int len, size_t wanted)
 			      (u64)lseek(fd, 0, SEEK_CUR), err);
 	}
 
-	/* Shouldn't happen, but some filesystems are not as atomic as
-	 * they should be! */
-	status_unusual("gossip_store: short read %i of %zu @%"PRIu64,
-		       len, wanted, (u64)lseek(fd, 0, SEEK_CUR) - len);
 	lseek(fd, -len, SEEK_CUR);
 }
 
@@ -93,7 +90,7 @@ u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 		if (r != sizeof(hdr)) {
 			/* We expect a 0 read here at EOF */
 			if (r != 0)
-				undo_read(pps->gossip_store_fd, r, sizeof(hdr));
+				failed_read(pps->gossip_store_fd, r);
 			per_peer_state_reset_gossip_timer(pps);
 			return NULL;
 		}
@@ -116,7 +113,7 @@ u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 		msg = tal_arr(ctx, u8, msglen);
 		r = read(pps->gossip_store_fd, msg, msglen);
 		if (r != msglen) {
-			undo_read(pps->gossip_store_fd, r, msglen);
+			failed_read(pps->gossip_store_fd, r);
 			per_peer_state_reset_gossip_timer(pps);
 			return NULL;
 		}
