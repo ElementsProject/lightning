@@ -85,6 +85,9 @@ static bool append_msg(int fd, const u8 *msg, u32 timestamp,
 	u32 msglen;
 	struct iovec iov[2];
 
+	/* Don't ever overwrite the version header! */
+	assert(*len);
+
 	msglen = tal_count(msg);
 	hdr.len = cpu_to_be32(msglen);
 	if (push)
@@ -620,6 +623,9 @@ static u32 delete_by_index(struct gossip_store *gs, u32 index, int type)
 
 	/* Should never get here during loading! */
 	assert(gs->writable);
+
+	/* Should never try to overwrite version */
+	assert(index);
 
 #if DEVELOPER
 	const u8 *msg = gossip_store_get(tmpctx, gs, index);
