@@ -3030,6 +3030,10 @@ def test_keysend(node_factory):
     features = l1.rpc.listnodes(l4.info['id'])['nodes'][0]['features']
     assert(int(features, 16) >> 55 & 0x01 == 0)
 
+    # Self-sends are not allowed (see #4438)
+    with pytest.raises(RpcError, match=r'We are the destination.'):
+        l1.rpc.keysend(l1.info['id'], amt)
+
     # Send an indirect one from l1 to l3
     l1.rpc.keysend(l3.info['id'], amt)
     invs = l3.rpc.listinvoices()['invoices']
