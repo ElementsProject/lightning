@@ -287,6 +287,9 @@ invoice_payment_hooks_done(struct invoice_payment_hook_payload *payload STEALS)
 		 type_to_string(tmpctx, struct amount_msat, &payload->msat),
 		 tal_count(payload->set->htlcs));
 	htlc_set_fulfill(payload->set, &payload->preimage);
+
+	notify_invoice_payment(ld, payload->msat, payload->preimage,
+			       payload->label);
 }
 
 static bool
@@ -430,8 +433,6 @@ void invoice_try_pay(struct lightningd *ld,
 	payload->preimage = details->r;
 	payload->set = set;
 	tal_add_destructor2(set, invoice_payload_remove_set, payload);
-
-	notify_invoice_payment(ld, payload->msat, payload->preimage, payload->label);
 
 	plugin_hook_call_invoice_payment(ld, payload);
 }
