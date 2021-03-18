@@ -38,4 +38,10 @@ pysocks ~= 1.7.1
 # Dependencies from pyln-spec
 # None
 
-
+# Dependencies from lnprototest
+pyln.bolt1==1.0.1.137
+pyln.bolt2==1.0.1.137
+pyln.bolt4==1.0.1.137
+pyln.bolt7==1.0.1.137
+coincurve==13.0.0
+crc32c

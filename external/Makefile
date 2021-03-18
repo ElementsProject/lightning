@@ -3,7 +3,8 @@ SUBMODULES =					\
 	external/libwally-core			\
 	external/gheap				\
 	external/jsmn				\
-	external/libbacktrace
+	external/libbacktrace			\
+	external/lnprototest
 
 TOP := ../..
 ifdef BUILD
