@@ -78,7 +78,7 @@ endif
 
 # (method=thread to support xdist)
 PYTEST_OPTS := -v -p no:logging $(PYTEST_OPTS)
-PYTHONPATH=$(shell pwd)/contrib/pyln-client:$(shell pwd)/contrib/pyln-testing:$(shell pwd)/contrib/pyln-proto/
+PYTHONPATH=$(shell pwd)/contrib/pyln-client:$(shell pwd)/contrib/pyln-testing:$(shell pwd)/contrib/pyln-proto/:$(shell pwd)/external/lnprototest
 
 # This is where we add new features as bitcoin adds them.
 FEATURES :=
