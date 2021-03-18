@@ -85,7 +85,8 @@ jobs:
           # The cross-compiled versions
           - {CFG: 21, ARCH: arm32v7, TARGET_HOST: arm-linux-gnueabihf}
           - {CFG: 22, ARCH: arm64v8, TARGET_HOST: aarch64-linux-gnu}
-          - {CFG: 23, EXPERIMENTAL_FEATURES: 1}
+          # Disabled for 0.10.0-rc1
+          # - {CFG: 23, EXPERIMENTAL_FEATURES: 1}
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
