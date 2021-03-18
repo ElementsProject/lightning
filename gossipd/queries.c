@@ -528,7 +528,7 @@ static struct short_channel_id *gather_range(const tal_t *ctx,
 
 	/* Fix up number_of_blocks to avoid overflow. */
 	end_block = first_blocknum + number_of_blocks - 1;
-	if (end_block <= first_blocknum)
+	if (end_block < first_blocknum)
 		end_block = UINT_MAX;
 
 	/* We keep a `uintmap` of `short_channel_id` to `struct chan *`.
