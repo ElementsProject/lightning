@@ -179,6 +179,7 @@ new_inflight(struct channel *channel,
 	inflight->funding_psbt = tal_steal(inflight, psbt);
 	inflight->last_tx = tal_steal(inflight, last_tx);
 	inflight->last_sig = last_sig;
+	inflight->tx_broadcast = false;
 
 	list_add_tail(&channel->inflights, &inflight->list);
 	tal_add_destructor(inflight, destroy_inflight);
