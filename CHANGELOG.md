@@ -4,6 +4,122 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0]-rc1 - 2021-03-18: Neutralizing Fee Therapy
+
+This release named by @jsarenik.
+
+### Added
+
+ - Protocol: we treat error messages from peer which refer to "all channels" as warnings, not errors. ([#4364])
+ - Protocol: we now report the new (draft) warning message. ([#4364])
+ - JSON-RPC: `connect` returns `address` it actually connected to ([#4436])
+ - JSON-RPC: `txprepare` and `withdraw` now return a `psbt` field. ([#4428])
+ - JSON-RPC: `fundchannel_complete` takes a psbt parameter. ([#4428])
+ - pay: `pay` will now remove routehints that are unusable due to the entrypoint being unknown or unreachable. ([#4404])
+ - Plugins: If there is a misconfiguration with important plugins we now abort early with a more descriptive error message. ([#4418])
+ - pyln: Plugins that are run from the command line print helpful information on how to configure c-lightning to include them and print metadata about what RPC methods and options are exposed. ([#4419])
+ - JSON-RPC: `listpeers` now shows latest feerate and unilateral close fee. ([#4407])
+ - JSON-RPC: `listforwards` can now filter by status, in and out channel. ([#4349])
+ - JSON-RPC: Add new parameter `excess_as_change` to fundpsbt+utxopsbt ([#4368])
+ - JSON-RPC: `addgossip` allows direct injection of network gossip messages. ([#4361])
+ - pyln-testing: The RPC client will now pretty-print requests and responses to facilitate log-based debugging. ([#4357])
+
+
+### Changed
+
+ - Plugins: the `rpc_command` hook is now chainable. ([#4384])
+ - JSON-RPC: If bitcoind won't give a fee estimate in regtest, use minimum. ([#4405])
+ - Protocol: we use `sync_complete` for gossip range query replies, with detection for older spec nodes. ([#4389])
+ - Plugins: `peer_connected` rejections now send a warning, not an error, to the peer. ([#4364])
+ - Protocol: we now send warning messages and close the connection, except on unrecoverable errors. ([#4364])
+ - JSON-RPC: `sendpay` no longer extracts updates from errors, the caller should do it from the `raw_message`. ([#4361])
+ - Plugins: `peer_connected` hook is now chainable ([#4351])
+ - Plugins: `custommsg` hook is now chainable ([#4358])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+
+ - JSON-RPC: `fundchannel_complete` `txid` and `txout` parameters (use `psbt`) ([#4428])
+ - Plugins: The `message` field on the `custommsg` hook is deprecated in favor of the `payload` field, which skips the internal prefix. ([#4394])
+
+
+### Removed
+
+ - `bcli` replacements must allow `allowhighfees` argument (deprecated 0.9.1). ([#4362])
+ - `listsendpays` will no longer add `amount_msat` `null` (deprecated 0.9.1). ([#4362])
+
+
+### Fixed
+
+ - Protocol: overzealous close when peer sent more HTLCs than they'd told us we could send. ([#4432])
+ - pay: Report the correct decoding error if bolt11 parsing fails. ([#4404])
+ - pay: `pay` will now abort early if the destination is not reachable directly nor via routehints. ([#4404])
+ - pay: `pay` was reporting in-flight parts as failed ([#4404])
+ - pyln: Fixed an error when calling `listfunds` with an older c-lightning version causing an error about an unknown `spent` parameter ([#4417])
+ - Plugins: `dev-sendcustommsg` included the type and length prefix when sending a message. ([#4413])
+ - Plugins: The `custommsg` hook no longer includes the internal type prefix and length prefix in its `payload` ([#4394])
+ - db: Fixed an access to a NULL-field in the `channel_htlcs` table and resulting warning. ([#4378])
+ - pay: Payments with an empty route (self-payment) are now aborted. ([#4379])
+ - Protocol: always accept channel_updates from errors, even they'd otherwise be rejected as spam. ([#4361])
+ - connectd: Occasional crash in connectd due to use-after-free ([#4360])
+ - lightningd: JSON failures when --daemon is used without --log-file. ([#4350])
+
+### EXPERIMENTAL
+
+These options are either enabled by explicit *experimental* config
+parameters, or building with `--enable-experimental-features`.
+
+ - lightningd: `experimental-shutdown-wrong-funding` to allow remote nodes to close incorrectly opened channels. ([#4421])
+ - JSON-RPC: close has a new `wrong_funding` option to try to close out unused channels where we messed up the funding tx. ([#4421])
+ - JSON-RPC: Permit user-initiated aborting of in-progress opens. Only valid for not-yet-committed opens and RBF-attempts ([#4424])
+ - JSON-RPC: `listpeers` now includes 'last_feerate', 'next_feerate', 'initial_feerate' and 'next_fee_step' for channels in state DUALOPEND_AWAITING_LOCKIN ([#4399])
+
+
+[#4424]: https://github.com/ElementsProject/lightning/pull/4424
+[#4358]: https://github.com/ElementsProject/lightning/pull/4358
+[#4428]: https://github.com/ElementsProject/lightning/pull/4428
+[#4361]: https://github.com/ElementsProject/lightning/pull/4361
+[#4379]: https://github.com/ElementsProject/lightning/pull/4379
+[#4428]: https://github.com/ElementsProject/lightning/pull/4428
+[#4404]: https://github.com/ElementsProject/lightning/pull/4404
+[#4361]: https://github.com/ElementsProject/lightning/pull/4361
+[#4364]: https://github.com/ElementsProject/lightning/pull/4364
+[#4405]: https://github.com/ElementsProject/lightning/pull/4405
+[#4436]: https://github.com/ElementsProject/lightning/pull/4436
+[#4418]: https://github.com/ElementsProject/lightning/pull/4418
+[#4421]: https://github.com/ElementsProject/lightning/pull/4421
+[#4413]: https://github.com/ElementsProject/lightning/pull/4413
+[#4407]: https://github.com/ElementsProject/lightning/pull/4407
+[#4389]: https://github.com/ElementsProject/lightning/pull/4389
+[#4360]: https://github.com/ElementsProject/lightning/pull/4360
+[#4394]: https://github.com/ElementsProject/lightning/pull/4394
+[#4364]: https://github.com/ElementsProject/lightning/pull/4364
+[#4399]: https://github.com/ElementsProject/lightning/pull/4399
+[#4350]: https://github.com/ElementsProject/lightning/pull/4350
+[#4404]: https://github.com/ElementsProject/lightning/pull/4404
+[#4404]: https://github.com/ElementsProject/lightning/pull/4404
+[#4432]: https://github.com/ElementsProject/lightning/pull/4432
+[#4349]: https://github.com/ElementsProject/lightning/pull/4349
+[#4362]: https://github.com/ElementsProject/lightning/pull/4362
+[#4419]: https://github.com/ElementsProject/lightning/pull/4419
+[#4421]: https://github.com/ElementsProject/lightning/pull/4421
+[#4394]: https://github.com/ElementsProject/lightning/pull/4394
+[#4364]: https://github.com/ElementsProject/lightning/pull/4364
+[#4361]: https://github.com/ElementsProject/lightning/pull/4361
+[#4384]: https://github.com/ElementsProject/lightning/pull/4384
+[#4364]: https://github.com/ElementsProject/lightning/pull/4364
+[#4357]: https://github.com/ElementsProject/lightning/pull/4357
+[#4368]: https://github.com/ElementsProject/lightning/pull/4368
+[#4362]: https://github.com/ElementsProject/lightning/pull/4362
+[#4404]: https://github.com/ElementsProject/lightning/pull/4404
+[#4378]: https://github.com/ElementsProject/lightning/pull/4378
+[#4428]: https://github.com/ElementsProject/lightning/pull/4428
+[#4417]: https://github.com/ElementsProject/lightning/pull/4417
+[#4351]: https://github.com/ElementsProject/lightning/pull/4351
+[0.10.0]: https://github.com/ElementsProject/lightning/releases/tag/0.10.0
+
 ## [0.9.3] - 2021-01-20: Federal Qualitative Strengthening
 
 This release named by Karol Hosiawa.
