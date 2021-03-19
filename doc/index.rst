@@ -29,9 +29,6 @@ c-lightning Documentation
    :maxdepth: 1
    :caption: Manpages
 
-<<<<<<< HEAD
-=======
->>>>>>> df: add openchannel_abort command
    lightning-addgossip <lightning-addgossip.7.md>
    lightning-autocleaninvoice <lightning-autocleaninvoice.7.md>
    lightning-check <lightning-check.7.md>
