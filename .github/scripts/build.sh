@@ -21,23 +21,17 @@ export VALGRIND=${VALGRIND:-0}
 
 env
 
-pip3 install --user -U \
-     -r requirements.txt \
-     -r contrib/pyln-client/requirements.txt \
-     -r contrib/pyln-proto/requirements.txt \
-     -r contrib/pyln-testing/requirements.txt
+pip3 install --user -U -r requirements.txt
 
 # Install utilities that aren't dependencies, but make
 # running tests easier/feasible on CI (and pytest which
 # keeps breaking the rerunfailures plugin).
 pip3 install --user -U \
-     flaky \
      blinker \
      pytest-sentry \
      pytest-test-groups==1.0.3 \
      pytest-custom-exit-code==0.3.0 \
-     pytest-json-report \
-     mypy==0.790
+     pytest-json-report
 
 git clone https://github.com/lightningnetwork/lightning-rfc.git ../lightning-rfc
 git submodule update --init --recursive
