@@ -137,7 +137,8 @@ def test_v2_open_sigs_restart(node_factory, bitcoind):
         l1.rpc.openchannel_signed(chan_id, psbt)
 
     l2.daemon.wait_for_log('Broadcasting funding tx')
-    bitcoind.generate_block(6)
+    txid = l2.rpc.listpeers(l1.info['id'])['peers'][0]['channels'][0]['funding_txid']
+    bitcoind.generate_block(6, wait_for_mempool=txid)
 
     # Make sure we're ok.
     l2.daemon.wait_for_log(r'to CHANNELD_NORMAL')
