@@ -108,13 +108,10 @@ void timer_addrel(struct timers *timers, struct timer *t, struct timerel rel)
 
 	t->time = time_to_grains(timemono_add(time_mono(), rel));
 
-#if TIME_HAVE_MONOTONIC
-	assert(t->time >= timers->base);
-#else
 	/* Added in the past?  Treat it as imminent. */
 	if (t->time < timers->base)
 		t->time = timers->base;
-#endif
+
 	if (t->time < timers->first)
 		timers->first = t->time;
 
@@ -346,7 +343,11 @@ struct timer *timers_expire(struct timers *timers, struct timemono expire)
 	unsigned int off;
 	struct timer *t;
 
-	assert(now >= timers->base);
+	/* This can happen without TIME_HAVE_MONOTONIC, but I also have
+	 * a report of OpenBSD 6.8 under virtualbox doing this. */
+	if (now < timers->base) {
+		return NULL;
+	}
 
 	if (!timers->level[0]) {
 		if (list_empty(&timers->far))
