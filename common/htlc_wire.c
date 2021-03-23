@@ -253,7 +253,7 @@ void fromwire_changed_htlc(const u8 **cursor, size_t *max,
 
 enum side fromwire_side(const u8 **cursor, size_t *max)
 {
-	enum side side = fromwire_u8(cursor, max);
+	u8 side = fromwire_u8(cursor, max);
 	if (side >= NUM_SIDES) {
 		side = NUM_SIDES;
 		fromwire_fail(cursor, max);
