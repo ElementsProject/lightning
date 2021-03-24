@@ -48,9 +48,16 @@ wants an array of some type.
 
         return [self.elemtype.val_to_py(i, otherfields) for i in v]
 
-    def write(self, io_out: BufferedIOBase, v: List[Any], otherfields: Dict[str, Any]) -> None:
-        for i in v:
-            self.elemtype.write(io_out, i, otherfields)
+    def write(self, io_out: BufferedIOBase, vals: List[Any], otherfields: Dict[str, Any]) -> None:
+        name = self.name.split('.')[1]
+        if otherfields and name in otherfields:
+            otherfields = otherfields[name]
+        for i, val in enumerate(vals):
+            if isinstance(otherfields, list) and len(otherfields) > i:
+                fields = otherfields[i]
+            else:
+                fields = otherfields
+            self.elemtype.write(io_out, val, fields)
 
     def read_arr(self, io_in: BufferedIOBase, otherfields: Dict[str, Any], arraysize: Optional[int]) -> List[Any]:
         """arraysize None means take rest of io entirely and exactly"""
@@ -179,7 +186,7 @@ they're implied by the length of other fields"""
                 if mylen != len(otherfields[lens.name]):
                     return [fieldname]
             # Field might be missing!
-            if lens.name in otherfields:
+            if otherfields and lens.name in otherfields:
                 mylen = len(otherfields[lens.name])
         return []
 

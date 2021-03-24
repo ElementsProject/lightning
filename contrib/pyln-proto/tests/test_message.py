@@ -90,6 +90,29 @@ def test_subtype():
     assert m.missing_fields()
 
 
+def test_subtype_array():
+    ns = MessageNamespace()
+    ns.load_csv(['msgtype,tx_signatures,1',
+                 'msgdata,tx_signatures,num_witnesses,u16,',
+                 'msgdata,tx_signatures,witness_stack,witness_stack,num_witnesses',
+                 'subtype,witness_stack',
+                 'subtypedata,witness_stack,num_input_witness,u16,',
+                 'subtypedata,witness_stack,witness_element,witness_element,num_input_witness',
+                 'subtype,witness_element',
+                 'subtypedata,witness_element,len,u16,',
+                 'subtypedata,witness_element,witness,byte,len'])
+
+    for test in [["tx_signatures witness_stack="
+                 "[{witness_element=[{witness=3045022100ac0fdee3e157f50be3214288cb7f11b03ce33e13b39dadccfcdb1a174fd3729a02200b69b286ac9f0fc5c51f9f04ae5a9827ac11d384cc203a0eaddff37e8d15c1ac01},{witness=02d6a3c2d0cf7904ab6af54d7c959435a452b24a63194e1c4e7c337d3ebbb3017b}]}]",
+                  bytes.fromhex('00010001000200483045022100ac0fdee3e157f50be3214288cb7f11b03ce33e13b39dadccfcdb1a174fd3729a02200b69b286ac9f0fc5c51f9f04ae5a9827ac11d384cc203a0eaddff37e8d15c1ac01002102d6a3c2d0cf7904ab6af54d7c959435a452b24a63194e1c4e7c337d3ebbb3017b')]]:
+        m = Message.from_str(ns, test[0])
+        assert m.to_str() == test[0]
+        buf = io.BytesIO()
+        m.write(buf)
+        assert buf.getvalue().hex() == test[1].hex()
+        assert Message.read(ns, io.BytesIO(test[1])).to_str() == test[0]
+
+
 def test_tlv():
     ns = MessageNamespace()
     ns.load_csv(['msgtype,test1,1',
