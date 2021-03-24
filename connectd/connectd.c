@@ -272,32 +272,44 @@ static struct connecting *find_connecting(struct daemon *daemon,
 	return NULL;
 }
 
-/*~ Once we've connected, we disable the callback which would cause us to
+/*~ Once we've connected out, we disable the callback which would cause us to
  * to try the next address. */
-static void connected_to_peer(struct daemon *daemon,
-			      struct io_conn *conn,
-			      const struct node_id *id)
+static void connected_out_to_peer(struct daemon *daemon,
+				  struct io_conn *conn,
+				  const struct node_id *id)
 {
-	struct connecting *outgoing;
+	struct connecting *connect = find_connecting(daemon, id);
 
 	/* We allocate 'conn' as a child of 'connect': we don't want to free
 	 * it just yet though.  tal_steal() it onto the permanent 'daemon'
 	 * struct. */
 	tal_steal(daemon, conn);
 
-	/* This is either us (if conn is an outgoing connection), or
-	 * NULL or a separate attempt (if we're an incoming): in
-	 * that case, kill the outgoing in favor of our successful
-	 * incoming connection. */
-	outgoing = find_connecting(daemon, id);
-	if (outgoing) {
-		/* Don't call destroy_io_conn, since we're done. */
-		if (outgoing->conn)
-			io_set_finish(outgoing->conn, NULL, NULL);
+	/* We only allow one outgoing attempt at a time */
+	assert(connect->conn == conn);
 
-		/* Now free the 'connecting' struct. */
-		tal_free(outgoing);
-	}
+	/* Don't call destroy_io_conn, since we're done. */
+	io_set_finish(conn, NULL, NULL);
+
+	/* Now free the 'connecting' struct. */
+	tal_free(connect);
+}
+
+/*~ Once they've connected in, stop trying to connect out (if we were). */
+static void peer_connected_in(struct daemon *daemon,
+			      struct io_conn *conn,
+			      const struct node_id *id)
+{
+	struct connecting *connect = find_connecting(daemon, id);
+
+	if (!connect)
+		return;
+
+	/* Don't call destroy_io_conn, since we're done. */
+	io_set_finish(connect->conn, NULL, NULL);
+
+	/* Now free the 'connecting' struct since we succeeded. */
+	tal_free(connect);
 }
 
 /*~ Every per-peer daemon needs a connection to the gossip daemon; this allows
@@ -368,6 +380,7 @@ struct peer_reconnected {
 	struct wireaddr_internal addr;
 	struct crypto_state cs;
 	const u8 *their_features;
+	bool incoming;
 };
 
 /*~ For simplicity, lightningd only ever deals with a single connection per
@@ -384,7 +397,7 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 	/*~ Usually the pattern is to return this directly, but we have to free
 	 * our temporary structure. */
 	plan = peer_connected(conn, pr->daemon, &pr->id, &pr->addr, &pr->cs,
-			      take(pr->their_features));
+			      take(pr->their_features), pr->incoming);
 	tal_free(pr);
 	return plan;
 }
@@ -396,7 +409,8 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 					const struct node_id *id,
 					const struct wireaddr_internal *addr,
 					const struct crypto_state *cs,
-					const u8 *their_features TAKES)
+					const u8 *their_features TAKES,
+					bool incoming)
 {
 	u8 *msg;
 	struct peer_reconnected *pr;
@@ -413,6 +427,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	pr->id = *id;
 	pr->cs = *cs;
 	pr->addr = *addr;
+	pr->incoming = incoming;
 
 	/*~ Note that tal_dup_talarr() will do handle the take() of features
 	 * (turning it into a simply tal_steal() in those cases). */
@@ -436,7 +451,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       const struct node_id *id,
 			       const struct wireaddr_internal *addr,
 			       struct crypto_state *cs,
-			       const u8 *their_features TAKES)
+			       const u8 *their_features TAKES,
+			       bool incoming)
 {
 	u8 *msg;
 	struct per_peer_state *pps;
@@ -445,7 +461,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 
 	if (node_set_get(&daemon->peers, id))
 		return peer_reconnected(conn, daemon, id, addr, cs,
-					their_features);
+					their_features, incoming);
 
 	/* We promised we'd take it by marking it TAKEN above; prepare to free it. */
 	if (taken(their_features))
@@ -478,7 +494,16 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	}
 
 	/* We've successfully connected. */
-	connected_to_peer(daemon, conn, id);
+	if (incoming)
+		peer_connected_in(daemon, conn, id);
+	else
+		connected_out_to_peer(daemon, conn, id);
+
+	if (find_connecting(daemon, id))
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "After %s connection on %p, still trying to connect conn %p?",
+			      incoming ? "incoming" : "outgoing",
+			      conn, find_connecting(daemon, id)->conn);
 
 	/* This contains the per-peer state info; gossipd fills in pps->gs */
 	pps = new_per_peer_state(tmpctx, cs);
@@ -524,7 +549,7 @@ static struct io_plan *handshake_in_success(struct io_conn *conn,
 	node_id_from_pubkey(&id, id_key);
 	status_peer_debug(&id, "Connect IN");
 	return peer_exchange_initmsg(conn, daemon, daemon->our_features,
-				     cs, &id, addr);
+				     cs, &id, addr, true);
 }
 
 /*~ If the timer goes off, we simply free everything, which hangs up. */
@@ -598,7 +623,7 @@ static struct io_plan *handshake_out_success(struct io_conn *conn,
 	status_peer_debug(&id, "Connect OUT");
 	return peer_exchange_initmsg(conn, connect->daemon,
 				     connect->daemon->our_features,
-				     cs, &id, addr);
+				     cs, &id, addr, false);
 }
 
 struct io_plan *connection_out(struct io_conn *conn, struct connecting *connect)
