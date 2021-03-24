@@ -127,7 +127,12 @@ $(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(WIRE_SRC) $(WIRE_PRINT
 
 maintainer-clean: wire-maintainer-clean
 
-wire-maintainer-clean:
+clean: wire-clean
+
+wire-clean:
+	$(RM) wire/*.csv.*
+
+wire-maintainer-clean: wire-clean
 	$(RM) wire/gen_*_csv wire/extracted_*_experimental_csv
 
 include wire/test/Makefile
