@@ -248,7 +248,7 @@ other types.  Since 'msgtype' is almost identical, it inherits from this too.
             fieldname, s = s.split('=', 1)
             f = self.find_field(fieldname)
             if f is None:
-                raise ValueError("Unknown field name {}".format(fieldname))
+                raise ValueError("Unknown field name '{}'. Expected one of [{}])".format(fieldname, ','.join(str(f) for f in self.fields)))
             ret[fieldname], s = f.fieldtype.val_from_str(s)
             if s[0] == ',':
                 s = s[1:]
