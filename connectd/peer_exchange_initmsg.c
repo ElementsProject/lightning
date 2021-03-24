@@ -26,6 +26,8 @@ struct peer {
 
 	/* Buffer for reading/writing message. */
 	u8 *msg;
+
+	bool incoming;
 };
 
 static bool contains_common_chain(struct bitcoin_blkid *chains)
@@ -93,7 +95,8 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	 * be disconnected if it's a reconnect. */
 	return peer_connected(conn, peer->daemon, &peer->id,
 			      &peer->addr, &peer->cs,
-			      take(features));
+			      take(features),
+			      peer->incoming);
 }
 
 static struct io_plan *peer_init_hdr_received(struct io_conn *conn,
@@ -139,7 +142,8 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 				      const struct feature_set *our_features,
 				      const struct crypto_state *cs,
 				      const struct node_id *id,
-				      const struct wireaddr_internal *addr)
+				      const struct wireaddr_internal *addr,
+				      bool incoming)
 {
 	/* If conn is closed, forget peer */
 	struct peer *peer = tal(conn, struct peer);
@@ -150,6 +154,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	peer->id = *id;
 	peer->addr = *addr;
 	peer->cs = *cs;
+	peer->incoming = incoming;
 
 	/* BOLT #1:
 	 *
