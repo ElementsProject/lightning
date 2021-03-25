@@ -335,6 +335,11 @@ struct gossip_store *gossip_store_new(struct routing_state *rstate,
 		if (ftruncate(gs->fd, 0) != 0)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Truncating store: %s", strerror(errno));
+		/* Subtle: we are at offset 1, move back to start! */
+		if (lseek(gs->fd, 0, SEEK_SET) != 0)
+			status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				      "Seeking to start of store: %s",
+				      strerror(errno));
 	}
 	/* Empty file, write version byte */
 	gs->version = GOSSIP_STORE_VERSION;
