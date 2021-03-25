@@ -39,8 +39,11 @@ lightning-fundchannel(7).
 RETURN VALUE
 ------------
 
-On success the peer *id* is returned, as well as a hexidecimal *features*
-bitmap and an *address* object as per lightning-listnodes(7).
+On success the peer *id* is returned, as well as a hexidecimal
+*features* bitmap, a *direction* ("in" if they connected to us, "out"
+if we connected to them") and an *address* object as per
+lightning-listnodes(7).  Note that *address* will be less useful if 
+"direction" is "in", especially if a proxy is in use.
 
 ERRORS
 ------

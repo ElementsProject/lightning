@@ -28,26 +28,31 @@ bool notifications_have_topic(const char *topic)
 }
 
 static void connect_notification_serialize(struct json_stream *stream,
-					   struct node_id *nodeid,
-					   struct wireaddr_internal *addr)
+					   const struct node_id *nodeid,
+					   bool incoming,
+					   const struct wireaddr_internal *addr)
 {
 	json_add_node_id(stream, "id", nodeid);
+	json_add_string(stream, "direction", incoming ? "in" : "out");
 	json_add_address_internal(stream, "address", addr);
 }
 
 REGISTER_NOTIFICATION(connect,
 		      connect_notification_serialize);
 
-void notify_connect(struct lightningd *ld, struct node_id *nodeid,
-		    struct wireaddr_internal *addr)
+void notify_connect(struct lightningd *ld,
+		    const struct node_id *nodeid,
+		    bool incoming,
+		    const struct wireaddr_internal *addr)
 {
 	void (*serialize)(struct json_stream *,
-			  struct node_id *,
-			  struct wireaddr_internal *) = connect_notification_gen.serialize;
+			  const struct node_id *,
+			  bool,
+			  const struct wireaddr_internal *) = connect_notification_gen.serialize;
 
 	struct jsonrpc_notification *n
 		= jsonrpc_notification_start(NULL, connect_notification_gen.topic);
-	serialize(n->stream, nodeid, addr);
+	serialize(n->stream, nodeid, incoming, addr);
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }

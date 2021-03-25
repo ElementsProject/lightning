@@ -513,7 +513,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 		return io_close(conn);
 
 	/* Create message to tell master peer has connected. */
-	msg = towire_connectd_peer_connected(NULL, id, addr, pps, their_features);
+	msg = towire_connectd_peer_connected(NULL, id, addr, incoming,
+					     pps, their_features);
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd
