@@ -87,7 +87,8 @@ static void peer_update_features(struct peer *peer,
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,
 		      const struct node_id *id,
-		      const struct wireaddr_internal *addr)
+		      const struct wireaddr_internal *addr,
+		      bool connected_incoming)
 {
 	/* We are owned by our channels, and freed manually by destroy_channel */
 	struct peer *peer = tal(NULL, struct peer);
@@ -97,6 +98,7 @@ struct peer *new_peer(struct lightningd *ld, u64 dbid,
 	peer->id = *id;
 	peer->uncommitted_channel = NULL;
 	peer->addr = *addr;
+	peer->connected_incoming = connected_incoming;
 	peer->their_features = NULL;
 	list_head_init(&peer->channels);
 	peer->direction = node_id_idx(&peer->ld->id, &peer->id);
@@ -1062,6 +1064,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 		case DUALOPEND_AWAITING_LOCKIN:
 			assert(!channel->owner);
 			channel->peer->addr = addr;
+			channel->peer->connected_incoming = payload->incoming;
 			peer_restart_dualopend(peer, payload->pps, channel, NULL);
 			return;
 		case CHANNELD_AWAITING_LOCKIN:
@@ -1069,12 +1072,14 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 		case CHANNELD_SHUTTING_DOWN:
 			assert(!channel->owner);
 			channel->peer->addr = addr;
+			channel->peer->connected_incoming = payload->incoming;
 			peer_start_channeld(channel, payload->pps, NULL, true);
 			return;
 
 		case CLOSINGD_SIGEXCHANGE:
 			assert(!channel->owner);
 			channel->peer->addr = addr;
+			channel->peer->connected_incoming = payload->incoming;
 			peer_start_closingd(channel, payload->pps, true, NULL);
 			return;
 		}
@@ -1097,6 +1102,7 @@ send_error:
 			assert(channel->state == DUALOPEND_OPEN_INIT
 			       || channel->state == DUALOPEND_AWAITING_LOCKIN);
 			channel->peer->addr = addr;
+			channel->peer->connected_incoming = payload->incoming;
 			peer_restart_dualopend(peer, payload->pps, channel, error);
 		} else
 			peer_start_dualopend(peer, payload->pps, error);
@@ -1183,7 +1189,8 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	 * subdaemon.  Otherwise, we'll hand to openingd to wait there. */
 	peer = peer_by_id(ld, &id);
 	if (!peer)
-		peer = new_peer(ld, 0, &id, &hook_payload->addr);
+		peer = new_peer(ld, 0, &id, &hook_payload->addr,
+				hook_payload->incoming);
 
 	tal_steal(peer, hook_payload);
 	hook_payload->peer = peer;
@@ -1748,11 +1755,16 @@ static void activate_peer(struct peer *peer, u32 delay)
 						      "Will attempt reconnect "
 						      "in %u seconds",
 						      delay));
-			delay_then_reconnect(channel, delay, &peer->addr);
+			delay_then_reconnect(channel, delay,
+					     peer->connected_incoming
+					     ? NULL
+					     : &peer->addr);
 		} else {
 			msg = towire_connectd_connect_to_peer(NULL,
-								&peer->id, 0,
-								&peer->addr);
+							      &peer->id, 0,
+							      peer->connected_incoming
+							      ? NULL
+							      : &peer->addr);
 			subd_send_msg(ld->connectd, take(msg));
 			channel_set_billboard(channel, false,
 					      "Attempting to reconnect");

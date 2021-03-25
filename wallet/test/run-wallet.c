@@ -1319,7 +1319,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	parse_wireaddr_internal("localhost:1234", &addr, 0, false, false, false,
 				NULL);
 	c1.final_key_idx = 1337;
-	p = new_peer(ld, 0, &id, &addr);
+	p = new_peer(ld, 0, &id, &addr, false);
 	c1.peer = p;
 	c1.dbid = wallet_get_channel_dbid(w);
 	c1.state = CHANNELD_NORMAL;
@@ -1481,7 +1481,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				NULL);
 
 	/* new channel! */
-	p = new_peer(ld, 0, &id, &addr);
+	p = new_peer(ld, 0, &id, &addr, false);
 
 	funding_sats = AMOUNT_SAT(4444444);
 	our_sats = AMOUNT_SAT(3333333);

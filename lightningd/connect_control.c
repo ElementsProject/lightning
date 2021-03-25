@@ -149,8 +149,9 @@ static struct command_result *json_connect(struct command *cmd,
 		    || (channel && channel->connected)) {
 			log_debug(cmd->ld->log, "Already connected via %s",
 				  type_to_string(tmpctx, struct wireaddr_internal, &peer->addr));
-			/* FIXME: Save connection direction! */
-			return connect_cmd_succeed(cmd, peer, false, &peer->addr);
+			return connect_cmd_succeed(cmd, peer,
+						   peer->connected_incoming,
+						   &peer->addr);
 		}
 	}
 
