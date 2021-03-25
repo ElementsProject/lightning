@@ -981,6 +981,7 @@ struct peer_connected_hook_payload {
 	struct lightningd *ld;
 	struct channel *channel;
 	struct wireaddr_internal addr;
+	bool incoming;
 	struct peer *peer;
 	struct per_peer_state *pps;
 	u8 *error;
@@ -993,6 +994,7 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 	const struct peer *p = payload->peer;
 	json_object_start(stream, "peer");
 	json_add_node_id(stream, "id", &p->id);
+	json_add_string(stream, "direction", payload->incoming ? "in" : "out");
 	json_add_string(
 	    stream, "addr",
 	    type_to_string(stream, struct wireaddr_internal, &payload->addr));
@@ -1083,7 +1085,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 		abort();
 	}
 
-	notify_connect(ld, &peer->id, &addr);
+	notify_connect(ld, &peer->id, payload->incoming, &addr);
 
 	/* No err, all good. */
 	error = NULL;
@@ -1173,9 +1175,10 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	hook_payload->ld = ld;
 	hook_payload->error = NULL;
 	if (!fromwire_connectd_peer_connected(hook_payload, msg,
-					     &id, &hook_payload->addr,
-					     &hook_payload->pps,
-					     &their_features))
+					      &id, &hook_payload->addr,
+					      &hook_payload->incoming,
+					      &hook_payload->pps,
+					      &their_features))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
 		      tal_hex(msg, msg));
 
@@ -1194,7 +1197,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg,
 	peer_update_features(peer, their_features);
 
 	/* Complete any outstanding connect commands. */
-	connect_succeeded(ld, peer, &hook_payload->addr);
+	connect_succeeded(ld, peer, hook_payload->incoming, &hook_payload->addr);
 
 	/* Can't be opening, since we wouldn't have sent peer_disconnected. */
 	assert(!peer->uncommitted_channel);

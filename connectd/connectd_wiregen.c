@@ -311,7 +311,7 @@ bool fromwire_connectd_connect_failed(const tal_t *ctx, const void *p, struct no
 
 /* WIRE: CONNECTD_PEER_CONNECTED */
 /* Connectd -> master: we got a peer. Three fds: peer */
-u8 *towire_connectd_peer_connected(const tal_t *ctx, const struct node_id *id, const struct wireaddr_internal *addr, const struct per_peer_state *pps, const u8 *features)
+u8 *towire_connectd_peer_connected(const tal_t *ctx, const struct node_id *id, const struct wireaddr_internal *addr, bool incoming, const struct per_peer_state *pps, const u8 *features)
 {
 	u16 flen = tal_count(features);
 	u8 *p = tal_arr(ctx, u8, 0);
@@ -319,13 +319,14 @@ u8 *towire_connectd_peer_connected(const tal_t *ctx, const struct node_id *id, c
 	towire_u16(&p, WIRE_CONNECTD_PEER_CONNECTED);
 	towire_node_id(&p, id);
 	towire_wireaddr_internal(&p, addr);
+	towire_bool(&p, incoming);
 	towire_per_peer_state(&p, pps);
 	towire_u16(&p, flen);
 	towire_u8_array(&p, features, flen);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_connectd_peer_connected(const tal_t *ctx, const void *p, struct node_id *id, struct wireaddr_internal *addr, struct per_peer_state **pps, u8 **features)
+bool fromwire_connectd_peer_connected(const tal_t *ctx, const void *p, struct node_id *id, struct wireaddr_internal *addr, bool *incoming, struct per_peer_state **pps, u8 **features)
 {
 	u16 flen;
 
@@ -336,6 +337,7 @@ bool fromwire_connectd_peer_connected(const tal_t *ctx, const void *p, struct no
 		return false;
  	fromwire_node_id(&cursor, &plen, id);
  	fromwire_wireaddr_internal(&cursor, &plen, addr);
+ 	*incoming = fromwire_bool(&cursor, &plen);
  	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
  	flen = fromwire_u16(&cursor, &plen);
  	// 2nd case features
@@ -406,4 +408,4 @@ bool fromwire_connectd_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:f8dfca9dd140207a71bbc264cce4a86015529ec753f1a61a672800662ed7ee75
+// SHA256STAMP:9bbb0b97a226bd5c85a21bafde42c7fd438b8107d6d30b7c7b17c16a6cbd3557

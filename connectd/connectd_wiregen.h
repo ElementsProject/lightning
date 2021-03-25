@@ -84,8 +84,8 @@ bool fromwire_connectd_connect_failed(const tal_t *ctx, const void *p, struct no
 
 /* WIRE: CONNECTD_PEER_CONNECTED */
 /*  Connectd -> master: we got a peer. Three fds: peer */
-u8 *towire_connectd_peer_connected(const tal_t *ctx, const struct node_id *id, const struct wireaddr_internal *addr, const struct per_peer_state *pps, const u8 *features);
-bool fromwire_connectd_peer_connected(const tal_t *ctx, const void *p, struct node_id *id, struct wireaddr_internal *addr, struct per_peer_state **pps, u8 **features);
+u8 *towire_connectd_peer_connected(const tal_t *ctx, const struct node_id *id, const struct wireaddr_internal *addr, bool incoming, const struct per_peer_state *pps, const u8 *features);
+bool fromwire_connectd_peer_connected(const tal_t *ctx, const void *p, struct node_id *id, struct wireaddr_internal *addr, bool *incoming, struct per_peer_state **pps, u8 **features);
 
 /* WIRE: CONNECTD_PEER_DISCONNECTED */
 /*  master -> connectd: peer has disconnected. */
@@ -103,4 +103,4 @@ bool fromwire_connectd_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_CONNECTD_CONNECTD_WIREGEN_H */
-// SHA256STAMP:f8dfca9dd140207a71bbc264cce4a86015529ec753f1a61a672800662ed7ee75
+// SHA256STAMP:9bbb0b97a226bd5c85a21bafde42c7fd438b8107d6d30b7c7b17c16a6cbd3557

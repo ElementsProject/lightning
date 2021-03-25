@@ -1888,4 +1888,4 @@ struct db_query db_postgres_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:3004e6442db61cf4afb9a7e0ce3600b32e27a4cd5cac0aff02cefd3ddbdac209
+// SHA256STAMP:08adbcdb1d190901ae39605a2c1cb0d4639f6d88ddff2f1cd370e1fdc9663a2d

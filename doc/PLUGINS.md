@@ -398,12 +398,13 @@ remote peer, but we have been offline.
 ### `connect`
 
 A notification for topic `connect` is sent every time a new connection
-to a peer is established.
+to a peer is established. `direction` is either `"in"` or `"out"`.
 
 ```json
 {
   "id": "02f6725f9c1c40333b67faea92fd211c183050f28df32cac3f9d69685fe9665432",
-  "address": "1.2.3.4"
+  "direction": "in",
+  "address": "1.2.3.4:1234"
 }
 ```
 
@@ -796,6 +797,7 @@ the cryptographic handshake. The parameters have the following structure:
 {
   "peer": {
     "id": "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f",
+	"direction": "in",
     "addr": "34.239.230.56:9735",
     "features": ""
   }
@@ -803,11 +805,11 @@ the cryptographic handshake. The parameters have the following structure:
 ```
 
 The hook is sparse on information, since the plugin can use the JSON-RPC
-`listpeers` command to get additional details should they be required. The
-`addr` field shows the address that we are connected to ourselves, not the
-gossiped list of known addresses. In particular this means that the port for
-incoming connections is an ephemeral port, that may not be available for
-reconnections.
+`listpeers` command to get additional details should they be required.
+`direction` is either `"in"` or `"out"`. The `addr` field shows the address
+that we are connected to ourselves, not the gossiped list of known
+addresses. In particular this means that the port for incoming connections is
+an ephemeral port, that may not be available for reconnections.
 
 The returned result must contain a `result` member which is either
 the string `disconnect` or `continue`.  If `disconnect` and

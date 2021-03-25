@@ -90,6 +90,7 @@ struct command_result *command_success(struct command *cmd UNNEEDED,
 { fprintf(stderr, "command_success called!\n"); abort(); }
 /* Generated stub for connect_succeeded */
 void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer UNNEEDED,
+		       bool incoming UNNEEDED,
 		       const struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "connect_succeeded called!\n"); abort(); }
 /* Generated stub for create_onionreply */
@@ -139,7 +140,7 @@ bool fromwire_channeld_offer_htlc_reply(const tal_t *ctx UNNEEDED, const void *p
 bool fromwire_channeld_sending_commitsig(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u64 *commitnum UNNEEDED, struct penalty_base **pbase UNNEEDED, struct fee_states **fee_states UNNEEDED, struct changed_htlc **changed UNNEEDED, struct bitcoin_signature *commit_sig UNNEEDED, struct bitcoin_signature **htlc_sigs UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_sending_commitsig called!\n"); abort(); }
 /* Generated stub for fromwire_connectd_peer_connected */
-bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **features UNNEEDED)
+bool fromwire_connectd_peer_connected(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct node_id *id UNNEEDED, struct wireaddr_internal *addr UNNEEDED, bool *incoming UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **features UNNEEDED)
 { fprintf(stderr, "fromwire_connectd_peer_connected called!\n"); abort(); }
 /* Generated stub for fromwire_custommsg_in */
 bool fromwire_custommsg_in(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, u8 **msg UNNEEDED)
@@ -490,8 +491,10 @@ void notify_channel_state_changed(struct lightningd *ld UNNEEDED,
 				  char *message UNNEEDED)
 { fprintf(stderr, "notify_channel_state_changed called!\n"); abort(); }
 /* Generated stub for notify_connect */
-void notify_connect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEEDED,
-		    struct wireaddr_internal *addr UNNEEDED)
+void notify_connect(struct lightningd *ld UNNEEDED,
+		    const struct node_id *nodeid UNNEEDED,
+		    bool incoming UNNEEDED,
+		    const struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "notify_connect called!\n"); abort(); }
 /* Generated stub for notify_disconnect */
 void notify_disconnect(struct lightningd *ld UNNEEDED, struct node_id *nodeid UNNEEDED)

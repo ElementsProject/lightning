@@ -43,8 +43,10 @@ AUTODATA_TYPE(notifications, struct notification);
 	};                                                                       \
 	AUTODATA(notifications, &topic##_notification_gen);
 
-void notify_connect(struct lightningd *ld, struct node_id *nodeid,
-		    struct wireaddr_internal *addr);
+void notify_connect(struct lightningd *ld,
+		    const struct node_id *nodeid,
+		    bool incoming,
+		    const struct wireaddr_internal *addr);
 void notify_disconnect(struct lightningd *ld, struct node_id *nodeid);
 
 void notify_warning(struct lightningd *ld, struct log_entry *l);

@@ -56,6 +56,7 @@ msgdata,connectd_connect_failed,addrhint,?wireaddr_internal,
 msgtype,connectd_peer_connected,2002
 msgdata,connectd_peer_connected,id,node_id,
 msgdata,connectd_peer_connected,addr,wireaddr_internal,
+msgdata,connectd_peer_connected,incoming,bool,
 msgdata,connectd_peer_connected,pps,per_peer_state,
 msgdata,connectd_peer_connected,flen,u16,
 msgdata,connectd_peer_connected,features,u8,flen
