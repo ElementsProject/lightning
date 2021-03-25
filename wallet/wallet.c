@@ -823,7 +823,8 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	if (!parse_wireaddr_internal((const char*)addrstr, &addr, DEFAULT_PORT, false, false, true, NULL))
 		goto done;
 
-	peer = new_peer(w->ld, db_column_u64(stmt, 0), &id, &addr);
+	/* FIXME: save incoming in db! */
+	peer = new_peer(w->ld, db_column_u64(stmt, 0), &id, &addr, false);
 
 done:
 	tal_free(stmt);
