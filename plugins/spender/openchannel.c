@@ -564,8 +564,6 @@ static void json_peer_sigs(struct command *cmd,
 		   dest->mfc->id,
 		   tal_hexstr(tmpctx, &cid, sizeof(cid)));
 
-	assert(dest->state == MULTIFUNDCHANNEL_SECURED);
-
 	/* Combine with the parent. Unknown map dupes are ignored,
 	 * so the updated serial_id should persist on the parent */
 	tal_wally_start();
@@ -579,7 +577,19 @@ static void json_peer_sigs(struct command *cmd,
 					  dest->mfc->psbt));
 
 	tal_wally_end(dest->mfc->psbt);
-	dest->state = MULTIFUNDCHANNEL_SIGNED;
+
+	/* Bit of a race is possible here. If we're still waiting for
+	 * their commitment sigs to come back, we'll be in
+	 * "UPDATED" still. We check that SIGNED is hit before
+	 * we mark ourselves as ready to send the sigs, so it's ok
+	 * to relax this check */
+	if (dest->state == MULTIFUNDCHANNEL_UPDATED)
+		dest->state = MULTIFUNDCHANNEL_SIGNED_NOT_SECURED;
+	else {
+		assert(dest->state == MULTIFUNDCHANNEL_SECURED);
+		dest->state = MULTIFUNDCHANNEL_SIGNED;
+	}
+
 	check_sigs_ready(dest->mfc);
 }
 
@@ -727,8 +737,12 @@ openchannel_update_ok(struct command *cmd,
 		/* It's possible they beat us to the SIGNED flag,
 		 * in which case we just let that be the more senior
 		 * state position */
-		if (dest->state != MULTIFUNDCHANNEL_SIGNED)
+		if (dest->state == MULTIFUNDCHANNEL_SIGNED_NOT_SECURED)
+			dest->state = MULTIFUNDCHANNEL_SIGNED;
+		else {
+			assert(dest->state == MULTIFUNDCHANNEL_UPDATED);
 			dest->state = MULTIFUNDCHANNEL_SECURED;
+		}
 	} else
 		dest->state = MULTIFUNDCHANNEL_UPDATED;
 
