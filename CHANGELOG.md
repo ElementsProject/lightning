@@ -13,9 +13,11 @@ This release named by @jsarenik.
  - Protocol: we treat error messages from peer which refer to "all channels" as warnings, not errors. ([#4364])
  - Protocol: we now report the new (draft) warning message. ([#4364])
  - JSON-RPC: `connect` returns `address` it actually connected to ([#4436])
+ - JSON-RPC: `connect` returns "direction" ("in": they initiated, or "out": we initiated) ([#4452])
  - JSON-RPC: `txprepare` and `withdraw` now return a `psbt` field. ([#4428])
  - JSON-RPC: `fundchannel_complete` takes a psbt parameter. ([#4428])
  - pay: `pay` will now remove routehints that are unusable due to the entrypoint being unknown or unreachable. ([#4404])
+ - Plugins: `peer_connected` hook and `connect` notifications have "direction" field. ([#4452])
  - Plugins: If there is a misconfiguration with important plugins we now abort early with a more descriptive error message. ([#4418])
  - pyln: Plugins that are run from the command line print helpful information on how to configure c-lightning to include them and print metadata about what RPC methods and options are exposed. ([#4419])
  - JSON-RPC: `listpeers` now shows latest feerate and unilateral close fee. ([#4407])
@@ -57,6 +59,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - pay: Report the correct decoding error if bolt11 parsing fails. ([#4404])
  - pay: `pay` will now abort early if the destination is not reachable directly nor via routehints. ([#4404])
  - pay: `pay` was reporting in-flight parts as failed ([#4404])
+ - pay: `pay` would crash on corrupt gossip store, which (if version was ever wrong) we'd corrupt again ([#4453])
  - pyln: Fixed an error when calling `listfunds` with an older c-lightning version causing an error about an unknown `spent` parameter ([#4417])
  - Plugins: `dev-sendcustommsg` included the type and length prefix when sending a message. ([#4413])
  - Plugins: The `custommsg` hook no longer includes the internal type prefix and length prefix in its `payload` ([#4394])
@@ -65,12 +68,15 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Protocol: always accept channel_updates from errors, even they'd otherwise be rejected as spam. ([#4361])
  - connectd: Occasional crash in connectd due to use-after-free ([#4360])
  - lightningd: JSON failures when --daemon is used without --log-file. ([#4350])
+ - lightningd: don't assert if time goes backwards temporarily. ([#4449])
+
 
 ### EXPERIMENTAL
 
 These options are either enabled by explicit *experimental* config
 parameters, or building with `--enable-experimental-features`.
 
+ - lightningd: `experimental-dual-fund` runtime flag will enable dual-funded protocol on this node ([#4427])
  - lightningd: `experimental-shutdown-wrong-funding` to allow remote nodes to close incorrectly opened channels. ([#4421])
  - JSON-RPC: close has a new `wrong_funding` option to try to close out unused channels where we messed up the funding tx. ([#4421])
  - JSON-RPC: Permit user-initiated aborting of in-progress opens. Only valid for not-yet-committed opens and RBF-attempts ([#4424])
