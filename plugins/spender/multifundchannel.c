@@ -122,6 +122,7 @@ has_commitments_secured(const struct multifundchannel_destination *dest)
 		return false;
 	case MULTIFUNDCHANNEL_COMPLETED:
 	case MULTIFUNDCHANNEL_SECURED:
+	case MULTIFUNDCHANNEL_SIGNED_NOT_SECURED:
 	case MULTIFUNDCHANNEL_SIGNED:
 	case MULTIFUNDCHANNEL_DONE:
 		return true;
@@ -311,6 +312,7 @@ mfc_cleanup_(struct multifundchannel_command *mfc,
 			continue;
 		case MULTIFUNDCHANNEL_SECURED:
 		case MULTIFUNDCHANNEL_SIGNED:
+		case MULTIFUNDCHANNEL_SIGNED_NOT_SECURED:
 			/* We don't actually *send* the
 			 * transaction until here,
 			 * but peer isnt going to forget. This

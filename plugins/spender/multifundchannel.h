@@ -38,6 +38,8 @@ enum multifundchannel_state {
 	MULTIFUNDCHANNEL_SECURED,
 	/* We've recieved the peer sigs for this destination */
 	MULTIFUNDCHANNEL_SIGNED,
+	/* We've gotten their sigs, but still waiting for their commit sigs */
+	MULTIFUNDCHANNEL_SIGNED_NOT_SECURED,
 
 	/* The transaction might now be broadcasted.  */
 	MULTIFUNDCHANNEL_DONE,
