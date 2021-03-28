@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.10.0]-rc1 - 2021-03-18: Neutralizing Fee Therapy
+## [0.10.0-rc2] - 2021-03-28: Neutralizing Fee Therapy
 
 This release named by @jsarenik.
 
@@ -124,7 +124,6 @@ parameters, or building with `--enable-experimental-features`.
 [#4428]: https://github.com/ElementsProject/lightning/pull/4428
 [#4417]: https://github.com/ElementsProject/lightning/pull/4417
 [#4351]: https://github.com/ElementsProject/lightning/pull/4351
-[0.10.0]: https://github.com/ElementsProject/lightning/releases/tag/0.10.0
 
 ## [0.9.3] - 2021-01-20: Federal Qualitative Strengthening
 
@@ -1170,6 +1169,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
+[0.10.0-rc2]: https://github.com/ElementsProject/lightning/releases/tag/0.10.0-rc2
 [0.9.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.2
 [0.9.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.1
 [0.9.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.0
