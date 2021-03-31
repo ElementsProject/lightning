@@ -2598,18 +2598,34 @@ static void routehint_pre_getroute(struct routehints_data *d, struct payment *p)
 		paymod_log(p, LOG_DBG, "Not using a routehint");
 }
 
-static struct command_result *routehint_getroute_result(struct command *cmd,
-							const char *buffer,
-							const jsmntok_t *toks,
-							struct payment *p)
+static void routehint_check_reachable(struct payment *p)
 {
+	const struct gossmap_node *dst, *src;
+	struct gossmap *gossmap = get_gossmap(p->plugin);
+	const struct dijkstra *dij;
+	struct route **r;
 	struct payment *root = payment_root(p);
-	const jsmntok_t *rtok = json_get_member(buffer, toks, "route");
 	struct routehints_data *d = payment_mod_routehints_get_data(root);
 
-	/* If there was a route the destination is reachable without
-	 * routehints. */
-	d->destination_reachable = (rtok != NULL);
+	/* Start a tiny exploratory route computation, so we know
+	 * whether we stand any chance of reaching the destination
+	 * without routehints. This will later be used to mix in
+	 * attempts without routehints. */
+	src = gossmap_find_node(gossmap, p->local_id);
+	dst = gossmap_find_node(gossmap, p->destination);
+	if (dst == NULL)
+		d->destination_reachable = false;
+	else {
+		dij = dijkstra(tmpctx, gossmap, dst, AMOUNT_MSAT(1000),
+			       10 / 1000000.0,
+			       payment_route_can_carry_even_disabled,
+			       route_score_cheaper, p);
+		r = route_from_dijkstra(tmpctx, gossmap, dij, src);
+
+		/* If there was a route the destination is reachable
+		 * without routehints. */
+		d->destination_reachable = r != NULL;
+	}
 
 	if (d->destination_reachable) {
 		tal_arr_expand(&d->routehints, NULL);
@@ -2635,7 +2651,7 @@ static struct command_result *routehint_getroute_result(struct command *cmd,
 		    "Destination %s is not reachable directly and "
 		    "all routehints were unusable.",
 		    type_to_string(tmpctx, struct node_id, p->destination));
-		return command_still_pending(cmd);
+		return;
 	}
 
 	routehint_pre_getroute(d, p);
@@ -2648,30 +2664,6 @@ static struct command_result *routehint_getroute_result(struct command *cmd,
 
 	/* Now we can continue on our merry way. */
 	payment_continue(p);
-
-	/* Let payment_finished_ handle this, so we mark it as pending */
-	return command_still_pending(cmd);
-}
-
-static void routehint_check_reachable(struct payment *p)
-{
-	struct out_req *req;
-	/* Start a tiny exploratory getroute request, so we
-	 * know whether we stand any chance of reaching the
-	 * destination without routehints. This will later be
-	 * used to mix in attempts without routehints. */
-	req = jsonrpc_request_start(p->plugin, NULL, "getroute",
-				    routehint_getroute_result,
-				    routehint_getroute_result, p);
-	json_add_node_id(req->js, "id", p->destination);
-	json_add_amount_msat_only(req->js, "msatoshi", AMOUNT_MSAT(1000));
-	json_add_num(req->js, "maxhops", 20);
-	json_add_num(req->js, "riskfactor", 10);
-	send_outreq(p->plugin, req);
-	paymod_log(p, LOG_DBG,
-		   "Asking gossipd whether %s is reachable "
-		   "without routehints.",
-		   type_to_string(tmpctx, struct node_id, p->destination));
 }
 
 static void routehint_step_cb(struct routehints_data *d, struct payment *p)
