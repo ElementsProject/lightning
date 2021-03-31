@@ -691,8 +691,7 @@ openchannel_update_ok(struct command *cmd,
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result));
 
-	/* Should we check that the channel id is correct? */
-
+	/* FIXME: check that the channel id is correct? */
 	done_tok = json_get_member(buf, result, "commitments_secured");
 	if (!done_tok)
 		plugin_err(cmd->plugin,
@@ -707,6 +706,13 @@ openchannel_update_ok(struct command *cmd,
 			   "'commitments_secured': %.*s",
 			   json_tok_full_len(result),
 			   json_tok_full(buf, result));
+
+	/* We loop through here several times. We may
+	 * reach an intermediate state however,
+	 * MULTIFUNDCHANNEL_SIGNED_NOT_SECURED, so we only update
+	 * to UPDATED iff we're at the previous state (STARTED) */
+	if (dest->state == MULTIFUNDCHANNEL_STARTED)
+		dest->state = MULTIFUNDCHANNEL_UPDATED;
 
 	if (done) {
 		const jsmntok_t *outnum_tok, *close_to_tok;
@@ -739,12 +745,9 @@ openchannel_update_ok(struct command *cmd,
 		 * state position */
 		if (dest->state == MULTIFUNDCHANNEL_SIGNED_NOT_SECURED)
 			dest->state = MULTIFUNDCHANNEL_SIGNED;
-		else {
-			assert(dest->state == MULTIFUNDCHANNEL_UPDATED);
+		else
 			dest->state = MULTIFUNDCHANNEL_SECURED;
-		}
-	} else
-		dest->state = MULTIFUNDCHANNEL_UPDATED;
+	}
 
 	return openchannel_update_returned(dest);
 }
