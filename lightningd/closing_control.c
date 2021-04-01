@@ -19,6 +19,7 @@
 #include <lightningd/options.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
+#include <wire/common_wiregen.h>
 
 static struct amount_sat calc_tx_fee(struct amount_sat sat_in,
 				     const struct bitcoin_tx *tx)
@@ -160,6 +161,19 @@ static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSE
 	/* We send these, not receive them */
 	case WIRE_CLOSINGD_INIT:
 	case WIRE_CLOSINGD_RECEIVED_SIGNATURE_REPLY:
+		break;
+	}
+
+	switch ((enum common_wire)t) {
+#if DEVELOPER
+	case WIRE_CUSTOMMSG_IN:
+		handle_custommsg_in(sd->ld, sd->node_id, msg);
+		break;
+#else
+	case WIRE_CUSTOMMSG_IN:
+#endif
+	/* We send these. */
+	case WIRE_CUSTOMMSG_OUT:
 		break;
 	}
 
