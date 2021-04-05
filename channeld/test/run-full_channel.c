@@ -392,7 +392,8 @@ int main(int argc, const char *argv[])
 	 *
 	 * To start, common basic parameters for each test vector are defined:
 	 * the HTLCs are not used for the first "simple commitment tx with no
-	 * HTLCs" test.
+	 * HTLCs" test, and HTLCs 5 and 6 are only used in the "same amount and
+	 * preimage" test.
 	 *
 	 *     funding_tx_id: 8984484a580b825b9972d7adb15050b3ab624ccd731946b3eeddb92f4e7ef6be
 	 *     funding_output_index: 0
