@@ -581,7 +581,7 @@ static void dev_register_opts(struct lightningd *ld)
 			 "Force HSM to use these for all per-channel secrets");
 	opt_register_arg("--dev-max-funding-unconfirmed-blocks",
 			 opt_set_u32, opt_show_u32,
-			 &ld->max_funding_unconfirmed,
+			 &ld->dev_max_funding_unconfirmed,
 			 "Maximum number of blocks we wait for a channel "
 			 "funding transaction to confirm, if we are the "
 			 "fundee.");

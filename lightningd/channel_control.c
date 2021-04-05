@@ -679,14 +679,13 @@ is_fundee_should_forget(struct lightningd *ld,
 			struct channel *channel,
 			u32 block_height)
 {
-	u32 max_funding_unconfirmed = ld->max_funding_unconfirmed;
-
 	/* BOLT #2:
 	 *
 	 * A non-funding node (fundee):
 	 *   - SHOULD forget the channel if it does not see the
-	 * correct funding transaction after a reasonable timeout.
+	 * correct funding transaction after a timeout of 2016 blocks.
 	 */
+	u32 max_funding_unconfirmed = IFDEV(ld->dev_max_funding_unconfirmed, 2016);
 
 	/* Only applies if we are fundee. */
 	if (channel->opener == LOCAL)

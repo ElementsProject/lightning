@@ -1229,7 +1229,7 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 	 * 1. `OP_DUP` `OP_HASH160` `20` 20-bytes `OP_EQUALVERIFY` `OP_CHECKSIG`
 	 *   (pay to pubkey hash), OR
 	 * 2. `OP_HASH160` `20` 20-bytes `OP_EQUAL` (pay to script hash), OR
-	 * 3. `OP_0` `20` 20-bytes (version 0 pay to witness pubkey), OR
+	 * 3. `OP_0` `20` 20-bytes (version 0 pay to witness pubkey hash), OR
 	 * 4. `OP_0` `32` 32-bytes (version 0 pay to witness script hash)
 	 *
 	 * A receiving node:
