@@ -512,7 +512,7 @@ static bool set_htlc_timeout_fee(struct bitcoin_tx *tx,
 	struct amount_asset asset = bitcoin_tx_output_get_amount(tx, 0);
 	size_t weight;
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	/* BOLT #3:
 	 *
 	 * The fee for an HTLC-timeout transaction:
 	 *  - MUST BE calculated to match:
@@ -559,7 +559,7 @@ static void set_htlc_success_fee(struct bitcoin_tx *tx,
 	struct amount_asset asset;
 	size_t weight;
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	/* BOLT #3:
 	 *
 	 * The fee for an HTLC-success transaction:
 	 * - MUST BE calculated to match:
@@ -2559,7 +2559,7 @@ static void get_anchor_scriptpubkeys(const tal_t *ctx, u8 **anchor)
 static u8 *scriptpubkey_to_remote(const tal_t *ctx,
 				  const struct pubkey *remotekey)
 {
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	/* BOLT #3:
 	 *
 	 * #### `to_remote` Output
 	 *

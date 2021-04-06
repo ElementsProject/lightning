@@ -268,10 +268,10 @@ static struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 			scriptPubkey = utxos[i]->scriptPubkey;
 		}
 
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+		/* BOLT #3:
 		 * #### `to_remote` Output
 		 * ...
-		 * The output is spent by a transaction with `nSequence` field
+		 * The output is spent by an input with `nSequence` field
 		 * set to `1` and witness:
 		 */
 		if (utxos[i]->close_info

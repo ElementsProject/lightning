@@ -573,7 +573,7 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 	}
 
 	/*
-	 * BOLT-f5490f17d17ff49dc26ee459432b3c9db4fda8a9 #2:
+	 * BOLT #2:
 	 * A sending node:
 	 *...
 	 * - SHOULD NOT offer `amount_msat` if, after adding that HTLC to its
@@ -588,7 +588,7 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 				 channel->option_anchor_outputs);
 
 	if (channel->option_anchor_outputs) {
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1:
+		/* BOLT #3:
 		 * If `option_anchor_outputs` applies to the commitment
 		 * transaction, also subtract two times the fixed anchor size
 		 * of 330 sats from the funder (either `to_local` or

@@ -846,7 +846,7 @@ wallet_htlc_sigs_load(const tal_t *ctx, struct wallet *w, u64 channelid,
 	while (db_step(stmt)) {
 		struct bitcoin_signature sig;
 		db_column_signature(stmt, 0, &sig.s);
-		/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+		/* BOLT #3:
 		 * ## HTLC-Timeout and HTLC-Success Transactions
 		 *...
 		 * * if `option_anchor_outputs` applies to this commitment
