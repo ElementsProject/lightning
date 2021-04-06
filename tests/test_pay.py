@@ -249,7 +249,7 @@ def test_pay_disconnect(node_factory, bitcoind):
     route = l1.rpc.getroute(l2.info['id'], 123000, 1)["route"]
 
     l2.stop()
-    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels()['channels']] == [False, False])
+    wait_for(lambda: only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'] is False)
 
     # Can't pay while its offline.
     with pytest.raises(RpcError, match=r'failed: WIRE_TEMPORARY_CHANNEL_FAILURE \(First peer not ready\)'):
