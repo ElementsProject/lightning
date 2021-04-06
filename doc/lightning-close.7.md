@@ -68,9 +68,8 @@ closed if the peer reconnected.
 
 NOTIFICATIONS
 -------------
-If `allow-deprecated-apis` is false, notifications may be returned
-indicating what is going on, especially if the peer is offline and we
-are waiting.  This will be enabled by default in future!
+Notifications may be returned indicating what is going on, especially
+if the peer is offline and we are waiting.
 
 RETURN VALUE
 ------------
