@@ -62,7 +62,7 @@ bool check_config_bounds(const tal_t *ctx,
 		return false;
 	}
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #2:
+	/* BOLT #2:
 	 *  - if `option_anchor_outputs` applies to this commitment
 	 *    transaction and the sending node is the funder:
 	 *   - MUST be able to additionally pay for `to_local_anchor` and

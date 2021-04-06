@@ -1111,7 +1111,7 @@ static struct io_plan *handle_sign_remote_htlc_tx(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "Failed deriving htlc pubkey");
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	/* BOLT #3:
 	 * ## HTLC-Timeout and HTLC-Success Transactions
 	 *...
 	 * * if `option_anchor_outputs` applies to this commitment transaction,
@@ -1243,7 +1243,7 @@ static struct io_plan *handle_sign_remote_htlc_to_us(struct io_conn *conn,
 		return bad_req_fmt(conn, c, msg_in,
 				   "Failed deriving htlc privkey");
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	/* BOLT #3:
 	 * ## HTLC-Timeout and HTLC-Success Transactions
 	 *...
 	 * * if `option_anchor_outputs` applies to this commitment transaction,
@@ -1354,7 +1354,7 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 
 	/* FIXME: Check that output script is correct! */
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #3:
+	/* BOLT #3:
 	 * ## HTLC-Timeout and HTLC-Success Transactions
 	 *...
 	 * * if `option_anchor_outputs` applies to this commitment transaction,

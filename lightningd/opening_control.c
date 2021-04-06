@@ -136,7 +136,7 @@ wallet_commit_channel(struct lightningd *ld,
 	/* old_remote_per_commit not valid yet, copy valid one. */
 	channel_info->old_remote_per_commit = channel_info->remote_per_commit;
 
-	/* BOLT-a12da24dd0102c170365124782b46d9710950ac1 #2:
+	/* BOLT #2:
 	 * 1. type: 35 (`funding_signed`)
 	 * 2. data:
 	 *     * [`channel_id`:`channel_id`]
