@@ -24,7 +24,9 @@ CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
 BOLTDIR := ../lightning-rfc/
-BOLTVERSION := b201efe0546120c14bf154ce5f4e18da7243fe7a
+DEFAULT_BOLTVERSION := b201efe0546120c14bf154ce5f4e18da7243fe7a
+# Can be overridden on cmdline.
+BOLTVERSION := $(DEFAULT_BOLTVERSION)
 
 -include config.vars
 
@@ -401,11 +403,12 @@ SRC_TO_CHECK := $(filter-out $(ALL_TEST_PROGRAMS:=.c), $(ALL_NONGEN_SOURCES))
 check-src-includes: $(SRC_TO_CHECK:%=check-src-include-order/%)
 check-hdr-includes: $(ALL_NONGEN_HEADERS:%=check-hdr-include-order/%)
 
-# Experimental quotes quote the exact version.
-ifeq ($(EXPERIMENTAL_FEATURES),1)
-CHECK_BOLT_PREFIX=--prefix="BOLT-$(BOLTVERSION)"
-else
+# If you want to check a specific variant of quotes use:
+#   make check-source-bolt BOLTVERSION=xxx
+ifeq ($(BOLTVERSION),$(DEFAULT_BOLTVERSION))
 CHECK_BOLT_PREFIX=
+else
+CHECK_BOLT_PREFIX=--prefix="BOLT-$(BOLTVERSION)"
 endif
 
 # Any mention of BOLT# must be followed by an exact quote, modulo whitespace.
