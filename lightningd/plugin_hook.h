@@ -30,15 +30,6 @@
  *
  * - `serialize_payload` which takes a payload of type `cb_arg_type`
  *   and serializes it into the given `json_stream`. `
- *
- * For single-plugin hooks:
- * - `single_response_cb` is called once the plugin has responded (or with
- *   buffer == NULL if there's no plugin).  In addition an arbitrary
- *   additional argument of type `cb_arg_type` can be passed along
- *   that may contain any additional context necessary.  It must free
- *   or otherwise take ownership of the cb_arg_type argument.
- *
- * For chained-plugin hooks:
  * - `deserialize_cb` is called for each plugin, if it returns true the
  *   next one is called, otherwise the cb_arg_type argument is free.
  * - If all `deserialize_cb` return true, `final_cb` is called.  It must free
@@ -49,24 +40,9 @@
  * that all the provided functions for serialization, deserialization
  * and callback have the correct type.
  */
-
-enum plugin_hook_type {
-	PLUGIN_HOOK_SINGLE,
-	PLUGIN_HOOK_CHAIN,
-};
-
 struct plugin_hook {
 	const char *name;
 
-	/* Which type of plugin is this? It'll determine how many plugins can
-	 * register this hook, and how the hooks are called. */
-	enum plugin_hook_type type;
-
-	/* For PLUGIN_HOOK_SINGLE hooks */
-	void (*single_response_cb)(void *arg,
-				   const char *buffer, const jsmntok_t *toks);
-
-	/* For PLUGIN_HOOK_CHAIN hooks: */
 	/* Returns false if we should stop iterating (and free arg). */
 	bool (*deserialize_cb)(void *arg,
 			       const char *buffer, const jsmntok_t *toks);
@@ -114,31 +90,10 @@ bool plugin_hook_continue(void *arg, const char *buffer, const jsmntok_t *toks);
  * response_cb function accepts the deserialized response format and
  * an arbitrary extra argument used to maintain context.
  */
-#define REGISTER_SINGLE_PLUGIN_HOOK(name, response_cb,                         \
-				    serialize_payload, cb_arg_type)            \
-	struct plugin_hook name##_hook_gen = {                                 \
-	    stringify(name),                                                   \
-	    PLUGIN_HOOK_SINGLE,                                                \
-	    typesafe_cb_cast(                                                  \
-		void (*)(void *STEALS, const char *, const jsmntok_t *),       \
-		void (*)(cb_arg_type STEALS, const char *, const jsmntok_t *), \
-		response_cb),                                                  \
-	    NULL, NULL,                                                        \
-	    typesafe_cb_cast(void (*)(void *, struct json_stream *),           \
-			     void (*)(cb_arg_type, struct json_stream *),      \
-			     serialize_payload),                               \
-	    NULL, /* .plugins */                                               \
-	};                                                                     \
-	AUTODATA(hooks, &name##_hook_gen);                                     \
-	PLUGIN_HOOK_CALL_DEF(name, cb_arg_type)
-
-
 #define REGISTER_PLUGIN_HOOK(name, deserialize_cb, final_cb,                   \
 			     serialize_payload, cb_arg_type)		       \
 	struct plugin_hook name##_hook_gen = {                                 \
 	    stringify(name),                                                   \
-	    PLUGIN_HOOK_CHAIN,                                                 \
-            NULL,                                                              \
 	    typesafe_cb_cast(                                                  \
 		bool (*)(void *, const char *, const jsmntok_t *),             \
 		bool (*)(cb_arg_type, const char *, const jsmntok_t *),        \
