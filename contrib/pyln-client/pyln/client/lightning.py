@@ -692,22 +692,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("feerates", payload)
 
-    def _deprecated_fundchannel(self, node_id, satoshi, feerate=None, announce=True, minconf=None, utxos=None):
-        warnings.warn("fundchannel: the 'satoshi' field is renamed 'amount' : expect removal"
-                      " in Mid-2020",
-                      DeprecationWarning)
-
-        payload = {
-            "id": node_id,
-            "satoshi": satoshi,
-            "feerate": feerate,
-            "announce": announce,
-            "minconf": minconf,
-            "utxos": utxos
-        }
-        return self.call("fundchannel", payload)
-
-    def fundchannel(self, node_id, *args, **kwargs):
+    def fundchannel(self, node_id, amount, feerate=None, announce=True, minconf=None, utxos=None, push_msat=None, close_to=None):
         """
         Fund channel with {id} using {amount} satoshis with feerate
         of {feerate} (uses default feerate if unset).
@@ -717,39 +702,19 @@ class LightningRpc(UnixDomainSocketRpc):
         fund a channel from these specifics utxos.
         {close_to} is a valid Bitcoin address.
         """
-
-        if 'satoshi' in kwargs:
-            return self._deprecated_fundchannel(node_id, *args, **kwargs)
-
-        def _fundchannel(node_id, amount, feerate=None, announce=True, minconf=None, utxos=None, push_msat=None, close_to=None):
-            payload = {
-                "id": node_id,
-                "amount": amount,
-                "feerate": feerate,
-                "announce": announce,
-                "minconf": minconf,
-                "utxos": utxos,
-                "push_msat": push_msat,
-                "close_to": close_to,
-            }
-            return self.call("fundchannel", payload)
-
-        return _fundchannel(node_id, *args, **kwargs)
-
-    def _deprecated_fundchannel_start(self, node_id, satoshi, feerate=None, announce=True):
-        warnings.warn("fundchannel_start: the 'satoshi' field is renamed 'amount' : expect removal"
-                      " in Mid-2020",
-                      DeprecationWarning)
-
         payload = {
             "id": node_id,
-            "satoshi": satoshi,
+            "amount": amount,
             "feerate": feerate,
             "announce": announce,
+            "minconf": minconf,
+            "utxos": utxos,
+            "push_msat": push_msat,
+            "close_to": close_to,
         }
-        return self.call("fundchannel_start", payload)
+        return self.call("fundchannel", payload)
 
-    def fundchannel_start(self, node_id, *args, **kwargs):
+    def fundchannel_start(self, node_id, amount, feerate=None, announce=True, close_to=None):
         """
         Start channel funding with {id} for {amount} satoshis
         with feerate of {feerate} (uses default feerate if unset).
@@ -759,21 +724,14 @@ class LightningRpc(UnixDomainSocketRpc):
         'fundchannel_complete' to complete channel establishment
         with peer.
         """
-
-        if 'satoshi' in kwargs:
-            return self._deprecated_fundchannel_start(node_id, *args, **kwargs)
-
-        def _fundchannel_start(node_id, amount, feerate=None, announce=True, close_to=None):
-            payload = {
-                "id": node_id,
-                "amount": amount,
-                "feerate": feerate,
-                "announce": announce,
-                "close_to": close_to,
-            }
-            return self.call("fundchannel_start", payload)
-
-        return _fundchannel_start(node_id, *args, **kwargs)
+        payload = {
+            "id": node_id,
+            "amount": amount,
+            "feerate": feerate,
+            "announce": announce,
+            "close_to": close_to,
+        }
+        return self.call("fundchannel_start", payload)
 
     def fundchannel_cancel(self, node_id):
         """
