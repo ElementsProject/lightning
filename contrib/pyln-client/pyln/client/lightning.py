@@ -607,7 +607,7 @@ class LightningRpc(UnixDomainSocketRpc):
         return self.call("dev-memleak")
 
     def dev_pay(self, bolt11, msatoshi=None, label=None, riskfactor=None,
-                description=None, maxfeepercent=None, retry_for=None,
+                maxfeepercent=None, retry_for=None,
                 maxdelay=None, exemptfee=None, use_shadow=True):
         """
         A developer version of `pay`, with the possibility to deactivate
@@ -623,8 +623,6 @@ class LightningRpc(UnixDomainSocketRpc):
             "maxdelay": maxdelay,
             "exemptfee": exemptfee,
             "use_shadow": use_shadow,
-            # Deprecated.
-            "description": description,
         }
         return self.call("pay", payload)
 
@@ -1030,7 +1028,7 @@ class LightningRpc(UnixDomainSocketRpc):
         return self.call("newaddr", {"addresstype": addresstype})
 
     def pay(self, bolt11, msatoshi=None, label=None, riskfactor=None,
-            description=None, maxfeepercent=None, retry_for=None,
+            maxfeepercent=None, retry_for=None,
             maxdelay=None, exemptfee=None):
         """
         Send payment specified by {bolt11} with {msatoshi}
@@ -1046,8 +1044,6 @@ class LightningRpc(UnixDomainSocketRpc):
             "retry_for": retry_for,
             "maxdelay": maxdelay,
             "exemptfee": exemptfee,
-            # Deprecated.
-            "description": description,
         }
         return self.call("pay", payload)
 
@@ -1161,39 +1157,20 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("plugin", payload)
 
-    def _deprecated_sendpay(self, route, payment_hash, description, msatoshi=None):
-        warnings.warn("sendpay: the 'description' field is renamed 'label' : expect removal"
-                      " in early-2020",
-                      DeprecationWarning)
-        payload = {
-            "route": route,
-            "payment_hash": payment_hash,
-            "label": description,
-            "msatoshi": msatoshi,
-        }
-        return self.call("sendpay", payload)
-
-    def sendpay(self, route, payment_hash, *args, **kwargs):
+    def sendpay(self, route, payment_hash, label=None, msatoshi=None, bolt11=None, payment_secret=None, partid=None):
         """
         Send along {route} in return for preimage of {payment_hash}.
         """
-
-        if 'description' in kwargs:
-            return self._deprecated_sendpay(route, payment_hash, *args, **kwargs)
-
-        def _sendpay(route, payment_hash, label=None, msatoshi=None, bolt11=None, payment_secret=None, partid=None):
-            payload = {
-                "route": route,
-                "payment_hash": payment_hash,
-                "label": label,
-                "msatoshi": msatoshi,
-                "bolt11": bolt11,
-                "payment_secret": payment_secret,
-                "partid": partid,
-            }
-            return self.call("sendpay", payload)
-
-        return _sendpay(route, payment_hash, *args, **kwargs)
+        payload = {
+            "route": route,
+            "payment_hash": payment_hash,
+            "label": label,
+            "msatoshi": msatoshi,
+            "bolt11": bolt11,
+            "payment_secret": payment_secret,
+            "partid": partid,
+        }
+        return self.call("sendpay", payload)
 
     def setchannelfee(self, id, base=None, ppm=None):
         """
