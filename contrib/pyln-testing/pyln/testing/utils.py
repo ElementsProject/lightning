@@ -742,18 +742,20 @@ class LightningNode(object):
 
         # Make sure the fundchannel is confirmed.
         num_tx = len(self.bitcoin.rpc.getrawmempool())
-        tx = self.rpc.fundchannel(remote_node.info['id'], chan_capacity, feerate='slow', minconf=0, announce=announce, push_msat=Millisatoshi(chan_capacity * 500))['tx']
+        res = self.rpc.fundchannel(remote_node.info['id'], chan_capacity, feerate='slow', minconf=0, announce=announce, push_msat=Millisatoshi(chan_capacity * 500))
         wait_for(lambda: len(self.bitcoin.rpc.getrawmempool()) == num_tx + 1)
-        self.bitcoin.generate_block(1)
+        blockid = self.bitcoin.generate_block(1)[0]
 
         # Generate the scid.
-        # NOTE This assumes only the coinbase and the fundchannel is
-        # confirmed in the block.
-        outnum = get_tx_p2wsh_outnum(self.bitcoin, tx, total_capacity)
+        outnum = get_tx_p2wsh_outnum(self.bitcoin, res['tx'], total_capacity)
         if outnum is None:
-            raise ValueError("no outnum found. capacity {} tx {}".format(total_capacity, tx))
+            raise ValueError("no outnum found. capacity {} tx {}".format(total_capacity, res['tx']))
 
-        return '{}x1x{}'.format(self.bitcoin.rpc.getblockcount(), outnum)
+        for i, txid in enumerate(self.bitcoin.rpc.getblock(blockid)['tx']):
+            if txid == res['txid']:
+                txnum = i
+
+        return '{}x{}x{}'.format(self.bitcoin.rpc.getblockcount(), txnum, outnum)
 
     def getactivechannels(self):
         return [c for c in self.rpc.listchannels()['channels'] if c['active']]
@@ -855,11 +857,15 @@ class LightningNode(object):
                                    announce=announce_channel,
                                    **kwargs)
         wait_for(lambda: res['txid'] in self.bitcoin.rpc.getrawmempool())
-        self.bitcoin.generate_block(1)
+        blockid = self.bitcoin.generate_block(1)[0]
 
-        # Hacky way to find our output.
-        scid = "{}x1x{}".format(self.bitcoin.rpc.getblockcount(),
-                                get_tx_p2wsh_outnum(self.bitcoin, res['tx'], amount))
+        for i, txid in enumerate(self.bitcoin.rpc.getblock(blockid)['tx']):
+            if txid == res['txid']:
+                txnum = i
+
+        scid = "{}x{}x{}".format(self.bitcoin.rpc.getblockcount(),
+                                 txnum,
+                                 get_tx_p2wsh_outnum(self.bitcoin, res['tx'], amount))
 
         if wait_for_active:
             self.wait_channel_active(scid)
