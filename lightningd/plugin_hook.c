@@ -86,11 +86,6 @@ struct plugin_hook *plugin_hook_register(struct plugin *plugin, const char *meth
 	if (hook->hooks == NULL)
 		hook->hooks = notleak(tal_arr(NULL, struct hook_instance *, 0));
 
-	/* If this is a single type hook and we have a plugin registered we
-	 * must fail this attempt to add the plugin to the hook. */
-	if (hook->type == PLUGIN_HOOK_SINGLE && tal_count(hook->hooks) > 0)
-		return NULL;
-
 	/* Ensure we don't register the same plugin multple times. */
 	for (size_t i=0; i<tal_count(hook->hooks); i++)
 		if (hook->hooks[i]->plugin == plugin)
@@ -187,16 +182,14 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 			      r->hook->name, toks->end - toks->start,
 			      buffer + toks->start);
 
-		if (r->hook->type == PLUGIN_HOOK_CHAIN) {
-			db_begin_transaction(db);
-			if (!r->hook->deserialize_cb(r->cb_arg, buffer,
-						     resulttok)) {
-				tal_free(r->cb_arg);
-				db_commit_transaction(db);
-				goto cleanup;
-			}
-			in_transaction = true;
+		db_begin_transaction(db);
+		if (!r->hook->deserialize_cb(r->cb_arg, buffer,
+					     resulttok)) {
+			tal_free(r->cb_arg);
+			db_commit_transaction(db);
+			goto cleanup;
 		}
+		in_transaction = true;
 	} else {
 		/* plugin died */
 		resulttok = NULL;
@@ -212,10 +205,7 @@ static void plugin_hook_callback(const char *buffer, const jsmntok_t *toks,
 	/* We optimize for the case where we already called deserialize_cb */
 	if (!in_transaction)
 		db_begin_transaction(db);
-	if (r->hook->type == PLUGIN_HOOK_CHAIN)
-		r->hook->final_cb(r->cb_arg);
-	else
-		r->hook->single_response_cb(r->cb_arg, buffer, resulttok);
+	r->hook->final_cb(r->cb_arg);
 	db_commit_transaction(db);
 
 cleanup:
@@ -282,10 +272,7 @@ bool plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
 		 * roundtrip to the serializer and deserializer. If we
 		 * were expecting a default response it should have
 		 * been part of the `cb_arg`. */
-		if (hook->type == PLUGIN_HOOK_CHAIN)
-			hook->final_cb(cb_arg);
-		else
-			hook->single_response_cb(cb_arg, NULL, NULL);
+		hook->final_cb(cb_arg);
 		return true;
 	}
 }
@@ -294,8 +281,7 @@ bool plugin_hook_call_(struct lightningd *ld, const struct plugin_hook *hook,
  * annoying, and to make it clear that it's totally synchronous. */
 
 /* Special synchronous hook for db */
-static struct plugin_hook db_write_hook = {"db_write", PLUGIN_HOOK_CHAIN, NULL,
-					   NULL, NULL};
+static struct plugin_hook db_write_hook = {"db_write", NULL, NULL};
 AUTODATA(hooks, &db_write_hook);
 
 /* A `db_write` for one particular plugin hook.  */
