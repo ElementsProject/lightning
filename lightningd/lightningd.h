@@ -251,9 +251,6 @@ struct lightningd {
 	char *tor_service_password;
 	bool pure_tor_setup;
 
-	/* Original directory for deprecated plugin-relative-to-cwd */
-	const char *original_directory;
-
 	struct plugins *plugins;
 
 	char *wallet_dsn;
