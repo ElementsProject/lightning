@@ -17,7 +17,7 @@ sections = [
     'deprecated',
     'fixed',
     'removed',
-    'security',
+    'experimental',
 ]
 
 repo = 'ElementsProject/lightning'
@@ -132,8 +132,8 @@ ${h3} Removed
 ${group(groups['removed']) | trim}
 ${h3} Fixed
 ${group(groups['fixed']) | trim}
-${h3} Security
-${group(groups['security']) | trim}
+${h3} EXPERIMENTAL
+${group(groups['experimental']) | trim}
 
 % for l in links:
 [${l.ref}]: ${l.url}

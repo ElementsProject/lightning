@@ -230,8 +230,7 @@ have a line with one of the following prefixes:
    not yet removed
  - `Changelog-Fixed: ` if a bug has been fixed
  - `Changelog-Removed: ` if a (previously deprecated) feature has been removed
- - `Changelog-Security: ` if a security issue has been addressed and the users
-   will need to upgrade in order to stay secure
+ - `Changelog-Experimental: ` if it only affects --enable-experimental-features builds, or experimental- config options.
  
 In case you think the pull request is small enough not to require a changelog
 entry please use `Changelog-None` in one of the commit messages to opt out.
