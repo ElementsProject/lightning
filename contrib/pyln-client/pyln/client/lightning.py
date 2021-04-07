@@ -514,47 +514,19 @@ class LightningRpc(UnixDomainSocketRpc):
         payload.update({k: v for k, v in kwargs.items()})
         return self.call("check", payload)
 
-    def _deprecated_close(self, peer_id, force=None, timeout=None):
-        warnings.warn("close now takes unilateraltimeout arg: expect removal"
-                      " in early 2020",
-                      DeprecationWarning)
-        payload = {
-            "id": peer_id,
-            "force": force,
-            "timeout": timeout
-        }
-        return self.call("close", payload)
-
-    def close(self, peer_id, *args, **kwargs):
+    def close(self, peer_id, unilateraltimeout=None, destination=None, fee_negotiation_step=None):
         """
         Close the channel with peer {id}, forcing a unilateral
         close after {unilateraltimeout} seconds if non-zero, and
         the to-local output will be sent to {destination}.
-
-        Deprecated usage has {force} and {timeout} args.
         """
-
-        if 'force' in kwargs or 'timeout' in kwargs:
-            return self._deprecated_close(peer_id, *args, **kwargs)
-
-        # Single arg is ambigious.
-        if len(args) >= 1:
-            if isinstance(args[0], bool):
-                return self._deprecated_close(peer_id, *args, **kwargs)
-            if len(args) == 2:
-                if args[0] is None and isinstance(args[1], int):
-                    return self._deprecated_close(peer_id, *args, **kwargs)
-
-        def _close(peer_id, unilateraltimeout=None, destination=None, fee_negotiation_step=None):
-            payload = {
-                "id": peer_id,
-                "unilateraltimeout": unilateraltimeout,
-                "destination": destination,
-                "fee_negotiation_step": fee_negotiation_step
-            }
-            return self.call("close", payload)
-
-        return _close(peer_id, *args, **kwargs)
+        payload = {
+            "id": peer_id,
+            "unilateraltimeout": unilateraltimeout,
+            "destination": destination,
+            "fee_negotiation_step": fee_negotiation_step
+        }
+        return self.call("close", payload)
 
     def connect(self, peer_id, host=None, port=None):
         """
