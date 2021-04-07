@@ -512,23 +512,6 @@ static struct command_result *json_feerates(struct command *cmd,
 		     feerate_to_style(feerate_min(cmd->ld, NULL), *style));
 	json_add_u64(response, "max_acceptable",
 		     feerate_to_style(feerate_max(cmd->ld, NULL), *style));
-
-	if (deprecated_apis) {
-		/* urgent feerate was CONSERVATIVE/2, i.e. what bcli gives us
-		 * now for unilateral close feerate */
-		json_add_u64(response, "urgent",
-			     feerate_to_style(unilateral_feerate(cmd->ld->topology), *style));
-		/* normal feerate was ECONOMICAL/4, i.e. what bcli gives us
-		 * now for opening feerate */
-		json_add_u64(response, "normal",
-			     feerate_to_style(opening_feerate(cmd->ld->topology), *style));
-		/* slow feerate was ECONOMICAL/100, i.e. what bcli gives us
-		 * now for min feerate, but doubled (the min was slow/2 but now
-		 * the Bitcoin plugin directly gives the real min acceptable). */
-		json_add_u64(response, "slow",
-			     feerate_to_style(feerate_min(cmd->ld, NULL) * 2, *style));
-	}
-
 	json_object_end(response);
 
 	if (!missing) {
