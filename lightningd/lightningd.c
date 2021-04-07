@@ -239,11 +239,6 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 */
 	jsonrpc_setup(ld);
 
-	/*~ We changed when we start plugins, messing up relative paths.
-	 * This saves our original dirs so we can fixup and warn for the
-	 * moment (0.7.2). */
-	ld->original_directory = path_cwd(ld);
-
 	/*~ We run a number of plugins (subprocesses that we talk JSON-RPC with)
 	 * alongside this process. This allows us to have an easy way for users
 	 * to add their own tools without having to modify the c-lightning source
