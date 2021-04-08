@@ -187,6 +187,7 @@ def test_v2_open_sigs_restart_while_dead(node_factory, bitcoind):
         l1.rpc.openchannel_signed(chan_id, psbt)
 
     l2.daemon.wait_for_log('Broadcasting funding tx')
+    l2.daemon.wait_for_log('sendrawtx exit 0')
 
     l1.stop()
     l2.stop()
