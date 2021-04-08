@@ -90,6 +90,9 @@ bool fromwire_status_peer_billboard(const tal_t *ctx UNNEEDED, const void *p UNN
 /* Generated stub for fromwire_status_peer_error */
 bool fromwire_status_peer_error(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, struct channel_id *channel UNNEEDED, wirestring **desc UNNEEDED, bool *warning UNNEEDED, struct per_peer_state **pps UNNEEDED, u8 **error_for_them UNNEEDED)
 { fprintf(stderr, "fromwire_status_peer_error called!\n"); abort(); }
+/* Generated stub for fromwire_status_version */
+bool fromwire_status_version(const tal_t *ctx UNNEEDED, const void *p UNNEEDED, wirestring **version UNNEEDED)
+{ fprintf(stderr, "fromwire_status_version called!\n"); abort(); }
 /* Generated stub for gossip_init */
 void gossip_init(struct lightningd *ld UNNEEDED, int connectd_fd UNNEEDED)
 { fprintf(stderr, "gossip_init called!\n"); abort(); }

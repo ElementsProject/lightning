@@ -1,3 +1,4 @@
+#include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
 #include <ccan/io/fdpass/fdpass.h>
 #include <ccan/io/io.h>
@@ -12,6 +13,7 @@
 #include <common/peer_status_wiregen.h>
 #include <common/per_peer_state.h>
 #include <common/status_wiregen.h>
+#include <common/version.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <lightningd/lightningd.h>
@@ -402,6 +404,20 @@ static bool handle_set_billboard(struct subd *sd, const u8 *msg)
 	return true;
 }
 
+static bool handle_version(struct subd *sd, const u8 *msg)
+{
+	char *ver;
+
+	if (!fromwire_status_version(msg, msg, &ver))
+		return false;
+
+	if (!streq(ver, version())) {
+		fatal("subdaemon %s version '%s' not '%s'",
+		      sd->name, ver, version());
+	}
+	return true;
+}
+
 static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 {
 	int type = fromwire_peektype(sd->msg_in);
@@ -453,6 +469,10 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 		if (!sd->channel)
 			goto malformed;
 		if (!handle_set_billboard(sd, sd->msg_in))
+			goto malformed;
+		goto next;
+	case WIRE_STATUS_VERSION:
+		if (!handle_version(sd, sd->msg_in))
 			goto malformed;
 		goto next;
 	}

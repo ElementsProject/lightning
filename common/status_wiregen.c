@@ -25,6 +25,7 @@ const char *status_wire_name(int e)
 	case WIRE_STATUS_FAIL: return "WIRE_STATUS_FAIL";
 	case WIRE_STATUS_PEER_CONNECTION_LOST: return "WIRE_STATUS_PEER_CONNECTION_LOST";
 	case WIRE_STATUS_PEER_BILLBOARD: return "WIRE_STATUS_PEER_BILLBOARD";
+	case WIRE_STATUS_VERSION: return "WIRE_STATUS_VERSION";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -39,6 +40,7 @@ bool status_wire_is_defined(u16 type)
 	case WIRE_STATUS_FAIL:;
 	case WIRE_STATUS_PEER_CONNECTION_LOST:;
 	case WIRE_STATUS_PEER_BILLBOARD:;
+	case WIRE_STATUS_VERSION:;
 	      return true;
 	}
 	return false;
@@ -191,4 +193,25 @@ bool fromwire_status_peer_billboard(const tal_t *ctx, const void *p, bool *perm,
  	*happenings = fromwire_wirestring(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:67770c6a9a4205f10a455ea925afc2be4f853642b1e7ed70e3867221c64b7abc
+
+/* WIRE: STATUS_VERSION */
+u8 *towire_status_version(const tal_t *ctx, const wirestring *version)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_STATUS_VERSION);
+	towire_wirestring(&p, version);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_status_version(const tal_t *ctx, const void *p, wirestring **version)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_STATUS_VERSION)
+		return false;
+ 	*version = fromwire_wirestring(ctx, &cursor, &plen);
+	return cursor != NULL;
+}
+// SHA256STAMP:8e1ba9cbc812c8aad76c5049fcecefea2d706a100423c93d3c3be0afcbee851e
