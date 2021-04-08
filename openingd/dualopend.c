@@ -436,6 +436,17 @@ static void handle_our_shutdown(struct state *state, u8 *msg)
 	billboard_update(state);
 }
 
+static void handle_failure_fatal(struct state *state, u8 *msg)
+{
+	char *err;
+
+	if (!fromwire_dualopend_fail(msg, msg, &err))
+		master_badmsg(fromwire_peektype(msg), msg);
+
+	/* We're gonna fail here */
+	open_err_fatal(state, "%s", err);
+}
+
 static void check_channel_id(struct state *state,
 			     struct channel_id *id_in,
 			     struct channel_id *orig_id)
@@ -3267,12 +3278,14 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_SEND_SHUTDOWN:
 		handle_our_shutdown(state, msg);
 		return NULL;
+	case WIRE_DUALOPEND_FAIL:
+		handle_failure_fatal(state, msg);
+		return NULL;
 
 	/* Handled inline */
 	case WIRE_DUALOPEND_INIT:
 	case WIRE_DUALOPEND_REINIT:
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
-	case WIRE_DUALOPEND_FAIL:
 	case WIRE_DUALOPEND_PSBT_UPDATED:
 	case WIRE_DUALOPEND_GOT_OFFER_REPLY:
 	case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
