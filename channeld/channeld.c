@@ -3040,8 +3040,6 @@ static void init_channel(struct peer *peer)
 
 	assert(!(fcntl(MASTER_FD, F_GETFL) & O_NONBLOCK));
 
-	status_setup_sync(MASTER_FD);
-
 	msg = wire_sync_read(tmpctx, MASTER_FD);
 	if (!fromwire_channeld_init(peer, msg,
 				   &chainparams,
@@ -3224,6 +3222,8 @@ int main(int argc, char *argv[])
 	struct peer *peer;
 
 	subdaemon_setup(argc, argv);
+
+	status_setup_sync(MASTER_FD);
 
 	peer = tal(NULL, struct peer);
 	peer->expecting_pong = false;
