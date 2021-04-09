@@ -1908,7 +1908,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 
 	if (!fromwire_open_channel2(oc2_msg, &chain_hash,
 				    &state->channel_id, /* Temporary! */
-				    &state->feerate_per_kw_funding,
+				    &tx_state->feerate_per_kw_funding,
 				    &state->feerate_per_kw_commitment,
 				    &tx_state->opener_funding,
 				    &tx_state->remoteconf.dust_limit,
@@ -1955,8 +1955,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 			     &state->their_points.revocation);
 
 
-	/* Save feerate on the tx_state as well */
-	tx_state->feerate_per_kw_funding = state->feerate_per_kw_funding;
+	/* Save feerate on the state as well */
+	state->feerate_per_kw_funding = tx_state->feerate_per_kw_funding;
 
 	/* BOLT #2:
 	 *
@@ -2020,10 +2020,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 						&tx_state->psbt,
 						&state->upfront_shutdown_script[LOCAL]))
 		master_badmsg(WIRE_DUALOPEND_GOT_OFFER_REPLY, msg);
-
-	/* Set the state's feerate per kw funding, also. This is
-	 * the original feerate we'll base any increases off of. */
-	state->feerate_per_kw_funding = tx_state->feerate_per_kw_funding;
 
 	if (!tx_state->psbt)
 		tx_state->psbt = create_psbt(tx_state, 0, 0,
