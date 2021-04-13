@@ -1,7 +1,9 @@
 #! /usr/bin/make
 
 HSMD_SRC := hsmd/hsmd.c	\
-	hsmd/hsmd_wiregen.c
+	hsmd/hsmd_wiregen.c \
+	hsmd/libhsmd.c
+
 HSMD_HEADERS := hsmd/hsmd_wiregen.h
 HSMD_OBJS := $(HSMD_SRC:.c=.o)
 
