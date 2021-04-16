@@ -1155,6 +1155,10 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	/* Fire up the seeker! */
 	daemon->seeker = new_seeker(daemon);
 
+	/* connectd is already started, and uses this fd to ask us things. */
+	daemon->connectd = daemon_conn_new(daemon, CONNECTD_FD,
+					   connectd_req, NULL, daemon);
+
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
@@ -1951,10 +1955,6 @@ int main(int argc, char *argv[])
 	tal_add_destructor(daemon->master, master_gone);
 
 	status_setup_async(daemon->master);
-
-	/* connectd is already started, and uses this fd to ask us things. */
-	daemon->connectd = daemon_conn_new(daemon, CONNECTD_FD,
-					   connectd_req, NULL, daemon);
 
 	/* This loop never exits.  io_loop() only returns if a timer has
 	 * expired, or io_break() is called, or all fds are closed.  We don't
