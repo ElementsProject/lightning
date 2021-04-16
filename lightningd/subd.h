@@ -32,6 +32,9 @@ struct subd {
 	/* If we are associated with a single channel, this points to it. */
 	void *channel;
 
+	/* Have we received the version msg yet?  Don't send until we do. */
+	bool rcvd_version;
+
 	/* For logging */
 	struct log *log;
 	const struct node_id *node_id;
