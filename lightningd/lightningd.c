@@ -211,6 +211,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->listen = true;
 	ld->autolisten = true;
 	ld->reconnect = true;
+	ld->try_reexec = false;
 
 	/*~ This is from ccan/timer: it is efficient for the case where timers
 	 * are deleted before expiry (as is common with timeouts) using an
@@ -849,6 +850,8 @@ int main(int argc, char *argv[])
 	struct rlimit nofile = {1024, 1024};
 	int sigchld_rfd;
 	int exit_code = 0;
+	char **orig_argv;
+	bool try_reexec;
 
 	/*~ Make sure that we limit ourselves to something reasonable. Modesty
 	 *  is a virtue. */
@@ -882,6 +885,17 @@ int main(int argc, char *argv[])
 	 * variables. */
 	ld = new_lightningd(NULL);
 	ld->state = LD_STATE_RUNNING;
+
+	/*~ We store an copy of our arguments before parsing mangles them, so
+	 * we can re-exec if versions of subdaemons change.  Note the use of
+	 * notleak() since our leak-detector can't find orig_argv on the
+	 * stack. */
+	orig_argv = notleak(tal_arr(ld, char *, argc + 1));
+	for (size_t i = 1; i < argc; i++)
+		orig_argv[i] = tal_strdup(orig_argv, argv[i]);
+	/*~ Turn argv[0] into an absolute path (if not already) */
+	orig_argv[0] = path_join(orig_argv, take(path_cwd(NULL)), argv[0]);
+	orig_argv[argc] = NULL;
 
 	/* Figure out where our daemons are first. */
 	ld->daemon_dir = find_daemon_dir(ld, argv[0]);
@@ -1139,6 +1153,11 @@ int main(int argc, char *argv[])
 	 * ld->payments, so clean that up. */
 	clean_tmpctx();
 
+	/* Gather these before we free ld! */
+	try_reexec = ld->try_reexec;
+	if (try_reexec)
+		tal_steal(NULL, orig_argv);
+
 	/* Free this last: other things may clean up timers. */
 	timers = tal_steal(NULL, ld->timers);
 	tal_free(ld);
@@ -1154,6 +1173,21 @@ int main(int argc, char *argv[])
 		write_all(stop_fd, stop_response, strlen(stop_response));
 		close(stop_fd);
 		tal_free(stop_response);
+	}
+
+	/* Were we supposed to restart ourselves? */
+	if (try_reexec) {
+		long max_fd;
+
+		/* Give a reasonable chance for the install to finish. */
+		sleep(5);
+
+		/* Close all filedescriptors except stdin/stdout/stderr */
+		max_fd = sysconf(_SC_OPEN_MAX);
+		for (int i = STDERR_FILENO+1; i < max_fd; i++)
+			close(i);
+		execv(orig_argv[0], orig_argv);
+		err(1, "Failed to re-exec ourselves after version change");
 	}
 
 	/*~ Farewell.  Next stop: hsmd/hsmd.c. */

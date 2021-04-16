@@ -275,6 +275,9 @@ struct lightningd {
 
 	/* The round-robin list of channels, for use when doing MPP.  */
 	u64 rr_counter;
+
+	/* Should we re-exec ourselves instead of just exiting? */
+	bool try_reexec;
 };
 
 /* Turning this on allows a tal allocation to return NULL, rather than aborting.
