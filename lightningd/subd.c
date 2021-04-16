@@ -412,8 +412,12 @@ static bool handle_version(struct subd *sd, const u8 *msg)
 		return false;
 
 	if (!streq(ver, version())) {
-		fatal("subdaemon %s version '%s' not '%s'",
-		      sd->name, ver, version());
+		log_broken(sd->log, "version '%s' not '%s': restarting",
+			   ver, version());
+		sd->ld->try_reexec = true;
+		/* Return us to toplevel lightningd.c */
+		io_break(sd->ld);
+		return false;
 	}
 	return true;
 }
@@ -473,7 +477,7 @@ static struct io_plan *sd_msg_read(struct io_conn *conn, struct subd *sd)
 		goto next;
 	case WIRE_STATUS_VERSION:
 		if (!handle_version(sd, sd->msg_in))
-			goto malformed;
+			goto close;
 		goto next;
 	}
 

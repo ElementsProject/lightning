@@ -2507,3 +2507,33 @@ def test_listforwards(node_factory, bitcoind):
     # out_channel=c24
     c24_forwards = l2.rpc.listforwards(out_channel=c24)['forwards']
     assert len(c24_forwards) == 1
+
+
+def test_version_reexec(node_factory, bitcoind):
+    badopeningd = os.path.join(os.path.dirname(__file__), "plugins", "badopeningd.sh")
+    version = subprocess.check_output(['lightningd/lightningd',
+                                       '--version']).decode('utf-8').splitlines()[0]
+
+    l1, l2 = node_factory.get_nodes(2, opts=[{'subdaemon': 'openingd:' + badopeningd,
+                                              'start': False,
+                                              'allow_broken_log': True},
+                                             {}])
+    # We use a file to tell our openingd wrapper where the real one is
+    with open(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "openingd-real"), 'w') as f:
+        f.write(os.path.abspath('lightningd/lightning_openingd'))
+
+    l1.start()
+    # This is a "version" message
+    verfile = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "openingd-version")
+    with open(verfile, 'wb') as f:
+        f.write(bytes.fromhex('0000000d'        # len
+                              'fff6'))          # type
+        f.write(bytes('badversion\0', encoding='utf8'))
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    l1.daemon.wait_for_log("openingd.*version 'badversion' not '{}': restarting".format(version))
+
+    # Now "fix" it, it should restart.
+    os.unlink(verfile)
+    l1.daemon.wait_for_log("Server started with public key")
