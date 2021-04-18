@@ -6,7 +6,7 @@ from pyln.testing.utils import SLOW_MACHINE
 from utils import (
     only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT,
     account_balance, first_channel_id, basic_fee, TEST_NETWORK,
-    EXPERIMENTAL_FEATURES, EXPERIMENTAL_DUAL_FUND,
+    EXPERIMENTAL_FEATURES, EXPERIMENTAL_DUAL_FUND, scriptpubkey_addr
 )
 
 import os
@@ -372,7 +372,7 @@ def test_closing_specified_destination(node_factory, bitcoind, chainparams):
         output_num2 = [o for o in outputs if o['txid'] == closetx][0]['output']
         output_num1 = 0 if output_num2 == 1 else 1
         # Check the another address is addr
-        assert addr == bitcoind.rpc.gettxout(closetx, output_num1)['scriptPubKey']['addresses'][0]
+        assert addr == scriptpubkey_addr(bitcoind.rpc.gettxout(closetx, output_num1)['scriptPubKey'])
         assert 1 == bitcoind.rpc.gettxout(closetx, output_num1)['confirmations']
 
 
@@ -2513,7 +2513,7 @@ def test_permfail(node_factory, bitcoind):
     # Check that the all the addresses match what we generated ourselves:
     for o in l1.rpc.listfunds()['outputs']:
         txout = bitcoind.rpc.gettxout(o['txid'], o['output'])
-        addr = txout['scriptPubKey']['addresses'][0]
+        addr = scriptpubkey_addr(txout['scriptPubKey'])
         assert(addr == o['address'])
 
     addr = l1.bitcoin.getnewaddress()
@@ -2713,7 +2713,7 @@ def test_shutdown_alternate_txid(node_factory, bitcoind):
     # Gotta figure out which output manually :(
     tx = bitcoind.rpc.getrawtransaction(txid, 1)
     for n, out in enumerate(tx['vout']):
-        if 'addresses' in out['scriptPubKey'] and out['scriptPubKey']['addresses'][0] == addr:
+        if scriptpubkey_addr(out['scriptPubKey']) == addr:
             txout = n
 
     bitcoind.generate_block(1, wait_for_mempool=1)
