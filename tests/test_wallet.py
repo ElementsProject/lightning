@@ -6,7 +6,7 @@ from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
 from utils import (
     only_one, wait_for, sync_blockheight, EXPERIMENTAL_FEATURES,
-    VALGRIND, check_coin_moves, TailableProc
+    VALGRIND, check_coin_moves, TailableProc, scriptpubkey_addr,
 )
 
 import os
@@ -288,7 +288,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     for i, o in enumerate(decode['vout']):
         if i == outnum:
             assert o['scriptPubKey']['type'] == 'witness_v0_keyhash'
-            assert o['scriptPubKey']['addresses'] == [addr]
+            assert scriptpubkey_addr(o['scriptPubKey']) == addr
         else:
             assert o['scriptPubKey']['type'] in ['witness_v0_keyhash', 'fee']
 
@@ -304,7 +304,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert decode['vout'][0]['value'] < Decimal(amount * 6) / 10**8
     assert decode['vout'][0]['value'] > Decimal(amount * 6) / 10**8 - Decimal(0.0002)
     assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
-    assert decode['vout'][0]['scriptPubKey']['addresses'] == [addr]
+    assert scriptpubkey_addr(decode['vout'][0]['scriptPubKey']) == addr
 
     # If I cancel the first one, I can get those first 4 outputs.
     discard = l1.rpc.txdiscard(prep['txid'])
@@ -322,7 +322,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert decode['vout'][0]['value'] < Decimal(amount * 4) / 10**8
     assert decode['vout'][0]['value'] > Decimal(amount * 4) / 10**8 - Decimal(0.0002)
     assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
-    assert decode['vout'][0]['scriptPubKey']['addresses'] == [addr]
+    assert scriptpubkey_addr(decode['vout'][0]['scriptPubKey']) == addr
 
     # Cannot discard twice.
     with pytest.raises(RpcError, match=r'not an unreleased txid'):
@@ -342,7 +342,7 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     assert decode['vout'][0]['value'] < Decimal(amount * 10) / 10**8
     assert decode['vout'][0]['value'] > Decimal(amount * 10) / 10**8 - Decimal(0.0003)
     assert decode['vout'][0]['scriptPubKey']['type'] == 'witness_v0_keyhash'
-    assert decode['vout'][0]['scriptPubKey']['addresses'] == [addr]
+    assert scriptpubkey_addr(decode['vout'][0]['scriptPubKey']) == addr
     l1.rpc.txdiscard(prep4['txid'])
 
     # Try passing in a utxo set
@@ -373,12 +373,12 @@ def test_txprepare(node_factory, bitcoind, chainparams):
     for vout in decode['vout']:
         if vout['scriptPubKey']['type'] == 'fee':
             continue
-        if vout['scriptPubKey']['addresses'] == [addr]:
+        if scriptpubkey_addr(vout['scriptPubKey']) == addr:
             changeout = vout
 
     assert changeout['value'] == Decimal(amount * 3.5) / 10**8
     assert changeout['scriptPubKey']['type'] == 'witness_v0_keyhash'
-    assert changeout['scriptPubKey']['addresses'] == [addr]
+    assert scriptpubkey_addr(changeout['scriptPubKey']) == addr
 
     # Discard prep4 and get all funds again
     l1.rpc.txdiscard(prep5['txid'])
@@ -407,10 +407,10 @@ def test_txprepare(node_factory, bitcoind, chainparams):
             changenum = i - 1
 
     assert decode['vout'][outnum1]['scriptPubKey']['type'] == 'witness_v0_keyhash'
-    assert decode['vout'][outnum1]['scriptPubKey']['addresses'] == [addr]
+    assert scriptpubkey_addr(decode['vout'][outnum1]['scriptPubKey']) == addr
 
     assert decode['vout'][outnum2]['scriptPubKey']['type'] == 'witness_v0_keyhash'
-    assert decode['vout'][outnum2]['scriptPubKey']['addresses'] == [addr]
+    assert scriptpubkey_addr(decode['vout'][outnum2]['scriptPubKey']) == addr
 
     assert decode['vout'][changenum]['scriptPubKey']['type'] == 'witness_v0_keyhash'
 
@@ -909,7 +909,7 @@ def test_txsend(node_factory, bitcoind, chainparams):
     wait_for(lambda: len(l1.rpc.listfunds()['outputs']) == 10 - len(decode['vin']) + 1)
 
     # Change address should appear in listfunds()
-    assert decode['vout'][changenum]['scriptPubKey']['addresses'][0] in [f['address'] for f in l1.rpc.listfunds()['outputs']]
+    assert scriptpubkey_addr(decode['vout'][changenum]['scriptPubKey']) in [f['address'] for f in l1.rpc.listfunds()['outputs']]
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Fee outputs throw off our output matching logic")
@@ -1331,7 +1331,7 @@ def test_repro_4258(node_factory, bitcoind):
 
     assert(len(tx['vout']) == 1)
     o0 = tx['vout'][0]
-    assert(o0['scriptPubKey']['addresses'] == [addr])
+    assert(scriptpubkey_addr(o0['scriptPubKey']) == addr)
 
     assert(len(tx['vin']) == 1)
     i0 = tx['vin'][0]

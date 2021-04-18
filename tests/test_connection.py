@@ -8,6 +8,7 @@ from utils import (
     expected_peer_features, expected_node_features,
     expected_channel_features,
     check_coin_moves, first_channel_id, account_balance, basic_fee,
+    scriptpubkey_addr,
     EXPERIMENTAL_FEATURES, EXPERIMENTAL_DUAL_FUND
 )
 from pyln.testing.utils import SLOW_MACHINE, VALGRIND
@@ -1304,7 +1305,7 @@ def test_funding_close_upfront(node_factory, bitcoind):
         assert r['type'] == 'mutual'
         tx = bitcoind.rpc.decoderawtransaction(r['tx'])
 
-        addrs = [vout['scriptPubKey']['addresses'][0] for vout in tx['vout']]
+        addrs = [scriptpubkey_addr(vout['scriptPubKey']) for vout in tx['vout']]
         bitcoind.generate_block(1, wait_for_mempool=[r['txid']])
         sync_blockheight(bitcoind, [l1, l2])
         return addrs

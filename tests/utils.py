@@ -143,3 +143,12 @@ def basic_fee(feerate):
     else:
         weight = 724
     return (weight * feerate) // 1000
+
+
+def scriptpubkey_addr(scriptpubkey):
+    if 'addresses' in scriptpubkey:
+        return scriptpubkey['addresses'][0]
+    elif 'address' in scriptpubkey:
+        # Modern bitcoin (at least, git master)
+        return scriptpubkey['address']
+    return None

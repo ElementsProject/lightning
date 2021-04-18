@@ -10,7 +10,7 @@ from pyln.testing.utils import (
     wait_for, TailableProc, env
 )
 from utils import (
-    check_coin_moves, account_balance
+    check_coin_moves, account_balance, scriptpubkey_addr,
 )
 from ephemeral_port_reserve import reserve
 from utils import EXPERIMENTAL_FEATURES
@@ -483,7 +483,7 @@ def test_bech32_funding(node_factory, chainparams):
 
     def is_p2wpkh(output):
         return output['type'] == 'witness_v0_keyhash' and \
-            address == only_one(output['addresses'])
+            address == scriptpubkey_addr(output)
 
     assert any(is_p2wpkh(output['scriptPubKey']) for output in wallettx['vout'])
     assert only_one(fundingtx['vin'])['txid'] == res['wallettxid']
