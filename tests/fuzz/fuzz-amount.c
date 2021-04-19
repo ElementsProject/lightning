@@ -43,15 +43,15 @@ void run(const uint8_t *data, size_t size)
 	/* Format should inconditionally produce valid amount strings according to our
 	 * parser */
 
-	fmt_msat = fmt_amount_msat(NULL, &msat);
-	fmt_msatbtc = fmt_amount_msat_btc(NULL, &msat, true);
+	fmt_msat = fmt_amount_msat(NULL, msat);
+	fmt_msatbtc = fmt_amount_msat_btc(NULL, msat, true);
 	assert(parse_amount_msat(&msat, fmt_msat, tal_count(fmt_msat)));
 	assert(parse_amount_msat(&msat, fmt_msatbtc, tal_count(fmt_msatbtc)));
 	tal_free(fmt_msat);
 	tal_free(fmt_msatbtc);
 
-	fmt_sat = fmt_amount_sat(NULL, &sat);
-	fmt_satbtc = fmt_amount_sat_btc(NULL, &sat, true);
+	fmt_sat = fmt_amount_sat(NULL, sat);
+	fmt_satbtc = fmt_amount_sat_btc(NULL, sat, true);
 	assert(parse_amount_sat(&sat, fmt_sat, tal_count(fmt_sat)));
 	assert(parse_amount_sat(&sat, fmt_satbtc, tal_count(fmt_satbtc)));
 	tal_free(fmt_sat);
