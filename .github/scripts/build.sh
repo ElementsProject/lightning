@@ -18,6 +18,7 @@ export TEST_DB_PROVIDER=${DB:-"sqlite3"}
 export TEST_NETWORK=${NETWORK:-"regtest"}
 export TIMEOUT=900
 export VALGRIND=${VALGRIND:-0}
+export FUZZING=${FUZZING:-0}
 
 env
 

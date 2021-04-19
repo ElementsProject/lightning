@@ -128,7 +128,7 @@ jobs:
       matrix:
         include:
           # All of the following will just run `make pytest`
-          - {CFG:  5, COMPILER: clang}
+          - {CFG:  5, COMPILER: clang, FUZZING: 1}
           - {CFG:  6, COMPILER: gcc, TEST_CHECK_DBSTMTS: 1}
           - {CFG:  7, DEVELOPER: 0, COMPAT: 0, TEST_GROUP: 1, TEST_GROUP_COUNT: 2}
           - {CFG:  8, DEVELOPER: 0, COMPAT: 0, TEST_GROUP: 2, TEST_GROUP_COUNT: 2}
@@ -163,6 +163,7 @@ jobs:
           COMPILER: ${{ matrix.COMPILER }}
           ARCH: ${{ matrix.ARCH }}
           COMPAT: ${{ matrix.COMPAT }}
+          FUZZING: ${{ matrix.FUZZING }}
           PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
           PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
           NETWORK: ${{ matrix.NETWORK }}
