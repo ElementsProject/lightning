@@ -106,6 +106,10 @@ struct command_result *command_param_failed(void)
 	return &complete;
 }
 
+struct command_result *command_done(void)
+{
+	return &complete;
+}
 
 static void ld_send(struct plugin *plugin, struct json_stream *stream)
 {

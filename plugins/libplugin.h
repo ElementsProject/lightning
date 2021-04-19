@@ -219,6 +219,10 @@ struct command_result *forward_result(struct command *cmd,
  * send_req() path. */
 struct command_result *timer_complete(struct plugin *p);
 
+/* Signals that we've completed a command. Useful for when
+ * there's no `cmd` present */
+struct command_result *command_done(void);
+
 /* Access timer infrastructure to add a timer.
  *
  * Freeing this releases the timer, otherwise it's freed after @cb
