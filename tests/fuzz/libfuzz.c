@@ -1,15 +1,28 @@
 #include <tests/fuzz/libfuzz.h>
 
+#include <assert.h>
 #include <ccan/tal/tal.h>
+#include <ccan/isaac/isaac64.h>
+#include <common/pseudorand.h>
 #include <common/utils.h>
 #include <string.h>
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 int LLVMFuzzerInitialize(int *argc, char ***argv);
 
-int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-	run(data, size);
+/* Provide a non-random pseudo-random function to speed fuzzing. */
+static isaac64_ctx isaac64;
 
+uint64_t pseudorand(uint64_t max)
+{
+	assert(max);
+	return isaac64_next_uint(&isaac64, max);
+}
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+	isaac64_init(&isaac64, NULL, 0);
+
+	run(data, size);
 	return 0;
 }
 
