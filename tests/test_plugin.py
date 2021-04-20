@@ -606,6 +606,7 @@ def test_openchannel_hook(node_factory, bitcoind):
             'feerate_our_min': '1875',
             'locktime': '.*',
             'their_funding': '100000000msat',
+            'channel_max_msat': '16777215000msat',
         })
     else:
         expected.update({
