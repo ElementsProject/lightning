@@ -120,6 +120,28 @@ bool check_client_capabilities(struct hsmd_client *client, enum hsmd_wire t)
 	return false;
 }
 
+/*~ ccan/compiler.h defines PRINTF_FMT as the gcc compiler hint so it will
+ * check that fmt and other trailing arguments really are the correct type.
+ */
+/* This function is used to format an error message before passing it
+ * to the library user specified hsmd_status_bad_request */
+/* Temporarily pre-declare until we use the function, then we can make
+ * it static again. */
+u8 *hsmd_status_bad_request_fmt(struct hsmd_client *client, const u8 *msg,
+				const char *fmt, ...) PRINTF_FMT(3, 4);
+
+u8 *hsmd_status_bad_request_fmt(struct hsmd_client *client, const u8 *msg,
+				const char *fmt, ...)
+{
+	va_list ap;
+	char *str;
+
+	va_start(ap, fmt);
+	str = tal_fmt(tmpctx, fmt, ap);
+	va_end(ap);
+	return hsmd_status_bad_request(client, msg, str);
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {

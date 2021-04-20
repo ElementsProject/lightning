@@ -57,6 +57,23 @@ struct hsmd_client *hsmd_client_new_peer(const tal_t *ctx, u64 capabilities,
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg);
 
+/* Functions to report debugging information or errors. These must be
+ * implemented by the user of the library. */
+u8 *hsmd_status_bad_request(struct hsmd_client *client, const u8 *msg,
+			    const char *error);
+
+/* Send a printf-style debugging trace. */
+void hsmd_status_fmt(enum log_level level,
+		const struct node_id *peer,
+		const char *fmt, ...)
+	PRINTF_FMT(3,4);
+
+#define hsmd_status_debug(...)				\
+	hsmd_status_fmt(LOG_DBG, NULL, __VA_ARGS__)
+
+void hsmd_status_failed(enum status_failreason code,
+			const char *fmt, ...) PRINTF_FMT(2,3);
+
 /* The following declarations are here only temporarily while we migrate logic from hsmd.c to libhsmd.c */
 
 /*~ Nobody will ever find it here!  hsm_secret is our root secret, the bip32
