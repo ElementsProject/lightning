@@ -69,5 +69,7 @@ struct {
 	secp256k1_keypair bolt12;
 } secretstuff;
 
+bool check_client_capabilities(struct hsmd_client *client, enum hsmd_wire t);
+
 /* end of temporary global declarations. The above will be removed once we complete the migration. */
 #endif /* LIGHTNING_HSMD_LIBHSMD_H */
