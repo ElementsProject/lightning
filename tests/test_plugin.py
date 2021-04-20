@@ -599,12 +599,11 @@ def test_openchannel_hook(node_factory, bitcoind):
     if l2.config('experimental-dual-fund'):
         # openchannel2 var checks
         expected.update({
-            'commitment_feerate_per_kw': '750',
+            'channel_id': '.*',
+            'commitment_feerate_per_kw': '7500',
+            'funding_feerate_per_kw': '7500',
             'feerate_our_max': '150000',
             'feerate_our_min': '1875',
-            'funding_feerate_best': '7500',
-            'funding_feerate_max': '150000',
-            'funding_feerate_min': '1875',
             'locktime': '.*',
             'their_funding': '100000000msat',
         })
