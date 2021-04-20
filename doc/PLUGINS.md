@@ -1034,6 +1034,7 @@ the v2 protocol, and it has passed basic sanity checks:
     "max_accepted_htlcs": 483,
     "channel_flags": 1
     "locktime": 2453,
+    "channel_max_msat": "16777215000msat"
   }
 }
 ```

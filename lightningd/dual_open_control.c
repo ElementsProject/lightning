@@ -241,6 +241,9 @@ struct openchannel2_payload {
 	u8 channel_flags;
 	u32 locktime;
 	u8 *shutdown_scriptpubkey;
+	/* What's the maximum amount of funding
+	 * this channel can hold */
+	struct amount_sat channel_max;
 
 	struct amount_sat accepter_funding;
 	struct wally_psbt *psbt;
@@ -278,6 +281,8 @@ openchannel2_hook_serialize(struct openchannel2_payload *payload,
 	if (tal_bytelen(payload->shutdown_scriptpubkey) != 0)
 		json_add_hex_talarr(stream, "shutdown_scriptpubkey",
 				    payload->shutdown_scriptpubkey);
+	json_add_amount_sat_only(stream, "channel_max_msat",
+				 payload->channel_max);
 	json_object_end(stream);
 }
 
@@ -1694,6 +1699,12 @@ static void accepter_got_offer(struct subd *dualopend,
 	 * the plugin */
 	payload->feerate_our_min = feerate_min(dualopend->ld, NULL);
 	payload->feerate_our_max = feerate_max(dualopend->ld, NULL);
+
+	payload->channel_max = chainparams->max_funding;
+	if (feature_negotiated(dualopend->ld->our_features,
+			       channel->peer->their_features,
+			       OPT_LARGE_CHANNELS))
+		payload->channel_max = AMOUNT_SAT(UINT64_MAX);
 
 	tal_add_destructor2(dualopend, openchannel2_remove_dualopend, payload);
 	plugin_hook_call_openchannel2(dualopend->ld, payload);
