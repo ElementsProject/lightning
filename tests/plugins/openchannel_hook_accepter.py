@@ -12,12 +12,8 @@
 """
 
 from pyln.client import Plugin, Millisatoshi
-from pyln.testing.utils import env
 
 plugin = Plugin()
-
-
-EXPERIMENTAL_FEATURES = env("EXPERIMENTAL_FEATURES", "0") == "1"
 
 
 def run_openchannel(funding_sats_str, plugin):
@@ -59,11 +55,10 @@ def on_openchannel(openchannel, plugin, **kwargs):
     return run_openchannel(openchannel['funding_satoshis'], plugin)
 
 
-if EXPERIMENTAL_FEATURES:
-    @plugin.hook('openchannel2')
-    def on_openchannel2(openchannel2, plugin, **kwargs):
-        """ Support for v2 channel opens """
-        return run_openchannel(openchannel2['their_funding'], plugin)
+@plugin.hook('openchannel2')
+def on_openchannel2(openchannel2, plugin, **kwargs):
+    """ Support for v2 channel opens """
+    return run_openchannel(openchannel2['their_funding'], plugin)
 
 
 plugin.run()
