@@ -34,6 +34,8 @@
 #include <common/memleak.h>
 #include <common/node_id.h>
 #include <common/status.h>
+#include <common/status_wire.h>
+#include <common/status_wiregen.h>
 #include <common/subdaemon.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -1924,6 +1926,44 @@ static struct io_plan *handle_memleak(struct io_conn *conn,
 	return req_reply(conn, c, take(reply));
 }
 #endif /* DEVELOPER */
+
+u8 *hsmd_status_bad_request(struct hsmd_client *client, const u8 *msg, const char *error)
+{
+	/* Extract the pointer to the hsmd representation of the
+	 * client which has access to the underlying connection. */
+	struct client *c = (struct client*)client->extra;
+	bad_req_fmt(c->conn, c, msg, "%s", error);
+
+	/* We often use `return hsmd_status_bad_request` to drop out, and NULL
+	 * means we encountered an error. */
+	return NULL;
+}
+
+void hsmd_status_fmt(enum log_level level, const struct node_id *peer,
+		     const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	status_vfmt(level, peer, fmt, ap);
+	va_end(ap);
+}
+
+void hsmd_status_failed(enum status_failreason reason, const char *fmt, ...)
+{
+	va_list ap;
+	char *str;
+
+	va_start(ap, fmt);
+	str = tal_vfmt(NULL, fmt, ap);
+	va_end(ap);
+
+	/* Give a nice backtrace when this happens! */
+	if (reason == STATUS_FAIL_INTERNAL_ERROR)
+		send_backtrace(str);
+
+	status_send_fatal(take(towire_status_fail(NULL, reason, str)));
+}
 
 /*~ This is the core of the HSM daemon: handling requests. */
 static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
