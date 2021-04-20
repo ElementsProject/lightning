@@ -5,12 +5,8 @@ We just refuse to let them open channels with an odd amount of millisatoshis.
 """
 
 from pyln.client import Plugin, Millisatoshi
-from pyln.testing.utils import env
 
 plugin = Plugin()
-
-
-EXPERIMENTAL_FEATURES = env("EXPERIMENTAL_FEATURES", "0") == "1"
 
 
 def run_check(funding_amt_str):
@@ -28,14 +24,13 @@ def on_openchannel(openchannel, plugin, **kwargs):
     return run_check(openchannel['funding_satoshis'])
 
 
-if EXPERIMENTAL_FEATURES:
-    @plugin.hook('openchannel2')
-    def on_openchannel2(openchannel2, plugin, **kwargs):
-        print("{} VARS".format(len(openchannel2.keys())))
-        for k in sorted(openchannel2.keys()):
-            print("{}={}".format(k, openchannel2[k]))
+@plugin.hook('openchannel2')
+def on_openchannel2(openchannel2, plugin, **kwargs):
+    print("{} VARS".format(len(openchannel2.keys())))
+    for k in sorted(openchannel2.keys()):
+        print("{}={}".format(k, openchannel2[k]))
 
-        return run_check(openchannel2['their_funding'])
+    return run_check(openchannel2['their_funding'])
 
 
 plugin.run()
