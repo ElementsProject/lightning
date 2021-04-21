@@ -629,6 +629,48 @@ static u8 *handle_cannouncement_sig(struct hsmd_client *c, const u8 *msg_in)
 	return reply;
 }
 
+/*~ It's optional for nodes to send node_announcement, but it lets us set our
+ * favourite color and cool alias!  Plus other minor details like how to
+ * connect to us. */
+static u8 *handle_sign_node_announcement(struct hsmd_client *c,
+					 const u8 *msg_in)
+{
+	/* BOLT #7:
+	 *
+	 * The origin node:
+	 *...
+	 * - MUST set `signature` to the signature of the double-SHA256 of the
+	 *   entire remaining packet after `signature` (using the key given by
+	 *   `node_id`).
+	 */
+	/* 2 bytes msg type + 64 bytes signature */
+	size_t offset = 66;
+	struct sha256_double hash;
+	struct privkey node_pkey;
+	secp256k1_ecdsa_signature sig;
+	u8 *reply;
+	u8 *ann;
+
+	if (!fromwire_hsmd_node_announcement_sig_req(tmpctx, msg_in, &ann))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	if (tal_count(ann) < offset)
+		return hsmd_status_bad_request(c, msg_in,
+					       "Node announcement too short");
+
+	if (fromwire_peektype(ann) != WIRE_NODE_ANNOUNCEMENT)
+		return hsmd_status_bad_request(c, msg_in,
+					       "Invalid announcement");
+
+	node_key(&node_pkey, NULL);
+	sha256_double(&hash, ann + offset, tal_count(ann) - offset);
+
+	sign_hash(&node_pkey, &hash, &sig);
+
+	reply = towire_hsmd_node_announcement_sig_reply(NULL, &sig);
+	return reply;
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -656,7 +698,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_CLIENT_HSMFD:
 	case WIRE_HSMD_CUPDATE_SIG_REQ:
-	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REQ:
 	case WIRE_HSMD_SIGN_WITHDRAWAL:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
@@ -686,6 +727,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_get_channel_basepoints(client, msg);
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
 		return handle_cannouncement_sig(client, msg);
+	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REQ:
+		return handle_sign_node_announcement(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:

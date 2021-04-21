@@ -1485,49 +1485,6 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 			 take(towire_hsmd_sign_withdrawal_reply(NULL, psbt)));
 }
 
-/*~ It's optional for nodes to send node_announcement, but it lets us set our
- * favourite color and cool alias!  Plus other minor details like how to
- * connect to us. */
-static struct io_plan *handle_sign_node_announcement(struct io_conn *conn,
-						     struct client *c,
-						     const u8 *msg_in)
-{
-	/* BOLT #7:
-	 *
-	 * The origin node:
-	 *...
-	 * - MUST set `signature` to the signature of the double-SHA256 of the
-	 *   entire remaining packet after `signature` (using the key given by
-	 *   `node_id`).
-	 */
-	/* 2 bytes msg type + 64 bytes signature */
-	size_t offset = 66;
-	struct sha256_double hash;
-	struct privkey node_pkey;
-	secp256k1_ecdsa_signature sig;
-	u8 *reply;
-	u8 *ann;
-
-	if (!fromwire_hsmd_node_announcement_sig_req(tmpctx, msg_in, &ann))
-		return bad_req(conn, c, msg_in);
-
-	if (tal_count(ann) < offset)
-		return bad_req_fmt(conn, c, msg_in,
-				   "Node announcement too short");
-
-	if (fromwire_peektype(ann) != WIRE_NODE_ANNOUNCEMENT)
-		return bad_req_fmt(conn, c, msg_in,
-				   "Invalid announcement");
-
-	node_key(&node_pkey, NULL);
-	sha256_double(&hash, ann + offset, tal_count(ann) - offset);
-
-	sign_hash(&node_pkey, &hash, &sig);
-
-	reply = towire_hsmd_node_announcement_sig_reply(NULL, &sig);
-	return req_reply(conn, c, take(reply));
-}
-
 #if DEVELOPER
 static struct io_plan *handle_memleak(struct io_conn *conn,
 				      struct client *c,
@@ -1627,10 +1584,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_CUPDATE_SIG_REQ:
 		return handle_channel_update_sig(conn, c, c->msg_in);
 
-	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REQ:
-		return handle_sign_node_announcement(conn, c, c->msg_in);
-
-
 	case WIRE_HSMD_SIGN_WITHDRAWAL:
 		return handle_sign_withdrawal_tx(conn, c, c->msg_in);
 
@@ -1669,6 +1622,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_CHECK_FUTURE_SECRET:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
+	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REQ:
 		/* Hand off to libhsmd for processing */
 		return req_reply(conn, c,
 				 take(hsmd_handle_client_message(
