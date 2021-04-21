@@ -1165,51 +1165,6 @@ static struct io_plan *handle_sign_local_htlc_tx(struct io_conn *conn,
 	return req_reply(conn, c, take(towire_hsmd_sign_tx_reply(NULL, &sig)));
 }
 
-/*~ This get the Nth a per-commitment point, and for N > 2, returns the
- * grandparent per-commitment secret.  This pattern is because after
- * negotiating commitment N-1, we send them the next per-commitment point,
- * and reveal the previous per-commitment secret as a promise not to spend
- * the previous commitment transaction. */
-static struct io_plan *handle_get_per_commitment_point(struct io_conn *conn,
-						       struct client *c,
-						       const u8 *msg_in)
-{
-	struct secret channel_seed;
-	struct sha256 shaseed;
-	struct pubkey per_commitment_point;
-	u64 n;
-	struct secret *old_secret;
-
-	if (!fromwire_hsmd_get_per_commitment_point(msg_in, &n))
-		return bad_req(conn, c, msg_in);
-
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	if (!derive_shaseed(&channel_seed, &shaseed))
-		return bad_req_fmt(conn, c, msg_in, "bad derive_shaseed");
-
-	if (!per_commit_point(&shaseed, &per_commitment_point, n))
-		return bad_req_fmt(conn, c, msg_in,
-				   "bad per_commit_point %"PRIu64, n);
-
-	if (n >= 2) {
-		old_secret = tal(tmpctx, struct secret);
-		if (!per_commit_secret(&shaseed, old_secret, n - 2)) {
-			return bad_req_fmt(conn, c, msg_in,
-					   "Cannot derive secret %"PRIu64,
-					   n - 2);
-		}
-	} else
-		old_secret = NULL;
-
-	/*~ hsm_client_wire.csv marks the secret field here optional, so it only
-	 * gets included if the parameter is non-NULL.  We violate 80 columns
-	 * pretty badly here, but it's a recommendation not a religion. */
-	return req_reply(conn, c,
-			 take(towire_hsmd_get_per_commitment_point_reply(NULL,
-									&per_commitment_point,
-									old_secret)));
-}
-
 /* This is used by closingd to sign off on a mutual close tx. */
 static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 						   struct client *c,
@@ -1548,9 +1503,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_LOCAL_HTLC_TX:
 		return handle_sign_local_htlc_tx(conn, c, c->msg_in);
 
-	case WIRE_HSMD_GET_PER_COMMITMENT_POINT:
-		return handle_get_per_commitment_point(conn, c, c->msg_in);
-
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
 		return handle_sign_remote_commitment_tx(conn, c, c->msg_in);
 
@@ -1560,6 +1512,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_MUTUAL_CLOSE_TX:
 		return handle_sign_mutual_close_tx(conn, c, c->msg_in);
 
+	case WIRE_HSMD_GET_PER_COMMITMENT_POINT:
 	case WIRE_HSMD_GET_CHANNEL_BASEPOINTS:
 	case WIRE_HSMD_SIGN_INVOICE:
 	case WIRE_HSMD_SIGN_MESSAGE:
