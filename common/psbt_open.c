@@ -481,3 +481,13 @@ bool psbt_input_is_ours(const struct wally_psbt_input *input)
 					  PSBT_TYPE_INPUT_MARKER, &unused);
 	return !(!result);
 }
+
+bool psbt_has_our_input(const struct wally_psbt *psbt)
+{
+	for (size_t i = 0; i < psbt->num_inputs; i++) {
+		if (psbt_input_is_ours(&psbt->inputs[i]))
+			return true;
+	}
+
+	return false;
+}

@@ -174,4 +174,8 @@ void psbt_input_mark_ours(const tal_t *ctx,
  */
 bool psbt_input_is_ours(const struct wally_psbt_input *input);
 
+/* psbt_has_our_input  - Returns true if this psbt contains
+ * 			 any input that is ours
+ */
+bool psbt_has_our_input(const struct wally_psbt *psbt);
 #endif /* LIGHTNING_COMMON_PSBT_OPEN_H */
