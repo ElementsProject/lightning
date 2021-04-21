@@ -1052,7 +1052,9 @@ static void send_commit(struct peer *peer)
 	 */
 	changed_htlcs = tal_arr(tmpctx, const struct htlc *, 0);
 	if (!channel_sending_commit(peer->channel, &changed_htlcs)) {
-		status_debug("Can't send commit: nothing to send");
+		status_debug("Can't send commit: nothing to send, feechange %s (%s)",
+			     want_fee_update(peer, NULL) ? "wanted": "not wanted",
+			     type_to_string(tmpctx, struct fee_states, peer->channel->fee_states));
 
 		/* Covers the case where we've just been told to shutdown. */
 		maybe_send_shutdown(peer);
@@ -1403,8 +1405,13 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	status_debug("Received commit_sig with %zu htlc sigs",
 		     tal_count(htlc_sigs));
 
-	return send_revocation(peer,
-			       &commit_sig, htlc_sigs, changed_htlcs, txs[0]);
+	send_revocation(peer,
+			&commit_sig, htlc_sigs, changed_htlcs, txs[0]);
+
+	/* This might have synced the feerates: if so, we may want to
+	 * update */
+	if (want_fee_update(peer, NULL))
+		start_commit_timer(peer);
 }
 
 /* Pops the penalty base for the given commitnum from our internal list. There
