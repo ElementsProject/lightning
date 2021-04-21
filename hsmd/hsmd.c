@@ -914,34 +914,6 @@ static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 	return req_reply(conn, c, take(towire_hsmd_cupdate_sig_reply(NULL, cu)));
 }
 
-/*~ This gets the basepoints for a channel; it's not private information really
- * (we tell the peer this to establish a channel, as it sets up the keys used
- * for each transaction).
- *
- * Note that this is asked by lightningd, so it tells us what channels it wants.
- */
-static struct io_plan *handle_get_channel_basepoints(struct io_conn *conn,
-						     struct client *c,
-						     const u8 *msg_in)
-{
-	struct node_id peer_id;
-	u64 dbid;
-	struct secret seed;
-	struct basepoints basepoints;
-	struct pubkey funding_pubkey;
-
-	if (!fromwire_hsmd_get_channel_basepoints(msg_in, &peer_id, &dbid))
-		return bad_req(conn, c, msg_in);
-
-	get_channel_seed(&peer_id, dbid, &seed);
-	derive_basepoints(&seed, &funding_pubkey, &basepoints, NULL, NULL);
-
-	return req_reply(conn, c,
-			 take(towire_hsmd_get_channel_basepoints_reply(NULL,
-							      &basepoints,
-							      &funding_pubkey)));
-}
-
 /*~ This is another lightningd-only interface; signing a commit transaction.
  * This is dangerous, since if we sign a revoked commitment tx we'll lose
  * funds, thus it's only available to lightningd.
@@ -1810,9 +1782,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_CLIENT_HSMFD:
 		return pass_client_hsmfd(conn, c, c->msg_in);
 
-	case WIRE_HSMD_GET_CHANNEL_BASEPOINTS:
-		return handle_get_channel_basepoints(conn, c, c->msg_in);
-
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 		return handle_get_output_scriptpubkey(conn, c, c->msg_in);
 
@@ -1862,6 +1831,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_MUTUAL_CLOSE_TX:
 		return handle_sign_mutual_close_tx(conn, c, c->msg_in);
 
+	case WIRE_HSMD_GET_CHANNEL_BASEPOINTS:
 	case WIRE_HSMD_SIGN_INVOICE:
 	case WIRE_HSMD_SIGN_MESSAGE:
 	case WIRE_HSMD_SIGN_BOLT12:
