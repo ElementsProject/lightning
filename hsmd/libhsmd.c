@@ -721,6 +721,46 @@ static u8 *handle_channel_update_sig(struct hsmd_client *c, const u8 *msg_in)
 	return towire_hsmd_cupdate_sig_reply(NULL, cu);
 }
 
+/*~ This get the Nth a per-commitment point, and for N > 2, returns the
+ * grandparent per-commitment secret.  This pattern is because after
+ * negotiating commitment N-1, we send them the next per-commitment point,
+ * and reveal the previous per-commitment secret as a promise not to spend
+ * the previous commitment transaction. */
+static u8 *handle_get_per_commitment_point(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct secret channel_seed;
+	struct sha256 shaseed;
+	struct pubkey per_commitment_point;
+	u64 n;
+	struct secret *old_secret;
+
+	if (!fromwire_hsmd_get_per_commitment_point(msg_in, &n))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	if (!derive_shaseed(&channel_seed, &shaseed))
+		return hsmd_status_bad_request(c, msg_in, "bad derive_shaseed");
+
+	if (!per_commit_point(&shaseed, &per_commitment_point, n))
+		return hsmd_status_bad_request_fmt(
+		    c, msg_in, "bad per_commit_point %" PRIu64, n);
+
+	if (n >= 2) {
+		old_secret = tal(tmpctx, struct secret);
+		if (!per_commit_secret(&shaseed, old_secret, n - 2)) {
+			return hsmd_status_bad_request_fmt(
+			    c, msg_in, "Cannot derive secret %" PRIu64, n - 2);
+		}
+	} else
+		old_secret = NULL;
+
+	/*~ hsm_client_wire.csv marks the secret field here optional, so it only
+	 * gets included if the parameter is non-NULL.  We violate 80 columns
+	 * pretty badly here, but it's a recommendation not a religion. */
+	return towire_hsmd_get_per_commitment_point_reply(
+	    NULL, &per_commitment_point, old_secret);
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -753,7 +793,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
 	case WIRE_HSMD_SIGN_PENALTY_TO_US:
 	case WIRE_HSMD_SIGN_LOCAL_HTLC_TX:
-	case WIRE_HSMD_GET_PER_COMMITMENT_POINT:
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TX:
 	case WIRE_HSMD_SIGN_MUTUAL_CLOSE_TX:
@@ -780,6 +819,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_node_announcement(client, msg);
 	case WIRE_HSMD_CUPDATE_SIG_REQ:
 		return handle_channel_update_sig(client, msg);
+	case WIRE_HSMD_GET_PER_COMMITMENT_POINT:
+		return handle_get_per_commitment_point(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
