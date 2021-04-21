@@ -1,4 +1,5 @@
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
+#include <common/bolt12_merkle.h>
 #include <hsmd/capabilities.h>
 #include <hsmd/libhsmd.h>
 
@@ -188,6 +189,31 @@ static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 #endif
 }
 
+/*~ This returns the secret and/or public x-only key for this node. */
+static void node_schnorrkey(secp256k1_keypair *node_keypair,
+			    struct pubkey32 *node_id32)
+{
+	secp256k1_keypair unused_kp;
+	struct privkey node_privkey;
+
+	if (!node_keypair)
+		node_keypair = &unused_kp;
+
+	node_key(&node_privkey, NULL);
+	if (secp256k1_keypair_create(secp256k1_ctx, node_keypair,
+				     node_privkey.secret.data) != 1)
+		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				   "Failed to derive keypair");
+
+	if (node_id32) {
+		if (secp256k1_keypair_xonly_pub(secp256k1_ctx,
+						&node_id32->pubkey,
+						NULL, node_keypair) != 1)
+			hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+					   "Failed to derive xonly pub");
+	}
+}
+
 /*~ lightningd asks us to sign a message.  I tweeted the spec
  * in https://twitter.com/rusty_twit/status/1182102005914800128:
  *
@@ -225,6 +251,59 @@ static u8 *handle_sign_message(struct hsmd_client *c, const u8 *msg_in)
 	}
 
 	return towire_hsmd_sign_message_reply(NULL, &rsig);
+}
+
+/*~ lightningd asks us to sign a bolt12 (e.g. offer). */
+static u8 *handle_sign_bolt12(struct hsmd_client *c, const u8 *msg_in)
+{
+	char *messagename, *fieldname;
+	struct sha256 merkle, sha;
+	struct bip340sig sig;
+	secp256k1_keypair kp;
+	u8 *publictweak;
+
+	if (!fromwire_hsmd_sign_bolt12(tmpctx, msg_in,
+				       &messagename, &fieldname, &merkle,
+				       &publictweak))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	sighash_from_merkle(messagename, fieldname, &merkle, &sha);
+
+	if (!publictweak) {
+		node_schnorrkey(&kp, NULL);
+	} else {
+		/* If we're tweaking key, we use bolt12 key */
+		struct pubkey32 bolt12;
+		struct sha256 tweak;
+
+		if (secp256k1_keypair_xonly_pub(secp256k1_ctx,
+						&bolt12.pubkey, NULL,
+						&secretstuff.bolt12) != 1)
+			hsmd_status_failed(
+			    STATUS_FAIL_INTERNAL_ERROR,
+			    "Could not derive bolt12 public key.");
+		payer_key_tweak(&bolt12, publictweak, tal_bytelen(publictweak),
+				&tweak);
+
+		kp = secretstuff.bolt12;
+
+		if (secp256k1_keypair_xonly_tweak_add(secp256k1_ctx,
+						      &kp,
+						      tweak.u.u8) != 1) {
+			return hsmd_status_bad_request_fmt(
+			    c, msg_in, "Failed to get tweak key");
+		}
+	}
+
+	if (!secp256k1_schnorrsig_sign(secp256k1_ctx, sig.u8,
+				       sha.u.u8,
+				       &kp,
+				       NULL, NULL)) {
+		return hsmd_status_bad_request_fmt(c, msg_in,
+						   "Failed to sign bolt12");
+	}
+
+	return towire_hsmd_sign_bolt12_reply(NULL, &sig);
 }
 
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
@@ -271,10 +350,11 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TX:
 	case WIRE_HSMD_SIGN_MUTUAL_CLOSE_TX:
-	case WIRE_HSMD_SIGN_BOLT12:
 		/* Not implemented yet. Should not have been passed here yet. */
 		return hsmd_status_bad_request_fmt(client, msg, "Not implemented yet.");
 
+	case WIRE_HSMD_SIGN_BOLT12:
+		return handle_sign_bolt12(client, msg);
 	case WIRE_HSMD_SIGN_MESSAGE:
 		return handle_sign_message(client, msg);
 
