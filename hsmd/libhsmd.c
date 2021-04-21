@@ -464,6 +464,37 @@ static u8 *handle_ecdh(struct hsmd_client *c, const u8 *msg_in)
 	return towire_hsmd_ecdh_resp(NULL, &ss);
 }
 
+/*~ This is used when the remote peer claims to have knowledge of future
+ * commitment states (option_data_loss_protect in the spec) which means we've
+ * been restored from backup or something, and may have already revealed
+ * secrets.  We carefully check that this is true, here. */
+static u8 *handle_check_future_secret(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct secret channel_seed;
+	struct sha256 shaseed;
+	u64 n;
+	struct secret secret, suggested;
+
+	if (!fromwire_hsmd_check_future_secret(msg_in, &n, &suggested))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	if (!derive_shaseed(&channel_seed, &shaseed))
+		return hsmd_status_bad_request_fmt(c, msg_in,
+						   "bad derive_shaseed");
+
+	if (!per_commit_secret(&shaseed, &secret, n))
+		return hsmd_status_bad_request_fmt(
+		    c, msg_in, "bad commit secret #%" PRIu64, n);
+
+	/*~ Note the special secret_eq_consttime: we generate foo_eq for many
+	 * types using ccan/structeq, but not 'struct secret' because any
+	 * comparison risks leaking information about the secret if it is
+	 * timing dependent. */
+	return towire_hsmd_check_future_secret_reply(
+	    NULL, secret_eq_consttime(&secret, &suggested));
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -501,13 +532,14 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_PENALTY_TO_US:
 	case WIRE_HSMD_SIGN_LOCAL_HTLC_TX:
 	case WIRE_HSMD_GET_PER_COMMITMENT_POINT:
-	case WIRE_HSMD_CHECK_FUTURE_SECRET:
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TX:
 	case WIRE_HSMD_SIGN_MUTUAL_CLOSE_TX:
 		/* Not implemented yet. Should not have been passed here yet. */
 		return hsmd_status_bad_request_fmt(client, msg, "Not implemented yet.");
 
+	case WIRE_HSMD_CHECK_FUTURE_SECRET:
+		return handle_check_future_secret(client, msg);
 	case WIRE_HSMD_ECDH_REQ:
 		return handle_ecdh(client, msg);
 	case WIRE_HSMD_SIGN_INVOICE:
