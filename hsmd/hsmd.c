@@ -1333,39 +1333,6 @@ static struct io_plan *handle_get_per_commitment_point(struct io_conn *conn,
 									old_secret)));
 }
 
-/*~ This is used when the remote peer claims to have knowledge of future
- * commitment states (option_data_loss_protect in the spec) which means we've
- * been restored from backup or something, and may have already revealed
- * secrets.  We carefully check that this is true, here. */
-static struct io_plan *handle_check_future_secret(struct io_conn *conn,
-						  struct client *c,
-						  const u8 *msg_in)
-{
-	struct secret channel_seed;
-	struct sha256 shaseed;
-	u64 n;
-	struct secret secret, suggested;
-
-	if (!fromwire_hsmd_check_future_secret(msg_in, &n, &suggested))
-		return bad_req(conn, c, msg_in);
-
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	if (!derive_shaseed(&channel_seed, &shaseed))
-		return bad_req_fmt(conn, c, msg_in, "bad derive_shaseed");
-
-	if (!per_commit_secret(&shaseed, &secret, n))
-		return bad_req_fmt(conn, c, msg_in,
-				   "bad commit secret #%"PRIu64, n);
-
-	/*~ Note the special secret_eq_consttime: we generate foo_eq for many
-	 * types using ccan/structeq, but not 'struct secret' because any
-	 * comparison risks leaking information about the secret if it is
-	 * timing dependent. */
-	return req_reply(conn, c,
-			 take(towire_hsmd_check_future_secret_reply(NULL,
-				   secret_eq_consttime(&secret, &suggested))));
-}
-
 /* This is used by closingd to sign off on a mutual close tx. */
 static struct io_plan *handle_sign_mutual_close_tx(struct io_conn *conn,
 						   struct client *c,
@@ -1788,9 +1755,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_GET_PER_COMMITMENT_POINT:
 		return handle_get_per_commitment_point(conn, c, c->msg_in);
 
-	case WIRE_HSMD_CHECK_FUTURE_SECRET:
-		return handle_check_future_secret(conn, c, c->msg_in);
-
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
 		return handle_sign_remote_commitment_tx(conn, c, c->msg_in);
 
@@ -1805,7 +1769,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_MESSAGE:
 	case WIRE_HSMD_SIGN_BOLT12:
 	case WIRE_HSMD_ECDH_REQ:
-
+	case WIRE_HSMD_CHECK_FUTURE_SECRET:
 		/* Hand off to libhsmd for processing */
 		return req_reply(conn, c,
 				 take(hsmd_handle_client_message(
