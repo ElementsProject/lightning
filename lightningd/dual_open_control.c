@@ -622,6 +622,10 @@ rbf_channel_hook_deserialize(struct rbf_channel_payload *payload,
 				 "our_funding_msat", &payload->our_funding))
 		fatal("Plugin failed to supply our_funding_msat field");
 
+	if (payload->psbt
+	    && amount_sat_eq(payload->our_funding, AMOUNT_SAT(0)))
+		fatal("Plugin failed to supply our_funding_msat field");
+
 	if (!payload->psbt &&
 		!amount_sat_eq(payload->our_funding, AMOUNT_SAT(0))) {
 
@@ -782,8 +786,12 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 				 &payload->accepter_funding))
 		fatal("Plugin failed to supply our_funding_msat field");
 
-	if (!payload->psbt &&
-		!amount_sat_eq(payload->accepter_funding, AMOUNT_SAT(0))) {
+	if (payload->psbt
+	    && amount_sat_eq(payload->accepter_funding, AMOUNT_SAT(0)))
+		fatal("Plugin failed to supply our_funding_msat field");
+
+	if (!payload->psbt
+	    && !amount_sat_eq(payload->accepter_funding, AMOUNT_SAT(0))) {
 		/* Gotta give a PSBT if you set the accepter_funding amount */
 		/* Let dualopend know we've failed */
 		payload->err_msg = "Client error. Unable to continue";
