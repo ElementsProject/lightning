@@ -763,34 +763,6 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 						     &bolt12)));
 }
 
-/*~ The client has asked us to extract the shared secret from an EC Diffie
- * Hellman token.  This doesn't leak any information, but requires the private
- * key, so the hsmd performs it.  It's used to set up an encryption key for the
- * connection handshaking (BOLT #8) and for the onion wrapping (BOLT #4). */
-static struct io_plan *handle_ecdh(struct io_conn *conn,
-				   struct client *c,
-				   const u8 *msg_in)
-{
-	struct privkey privkey;
-	struct pubkey point;
-	struct secret ss;
-
-	if (!fromwire_hsmd_ecdh_req(msg_in, &point))
-		return bad_req(conn, c, msg_in);
-
-	/*~ We simply use the secp256k1_ecdh function: if privkey.secret.data is invalid,
-	 * we kill them for bad randomness (~1 in 2^127 if privkey.secret.data is random) */
-	node_key(&privkey, NULL);
-	if (secp256k1_ecdh(secp256k1_ctx, ss.data, &point.pubkey,
-			   privkey.secret.data, NULL, NULL) != 1) {
-		return bad_req_fmt(conn, c, msg_in, "secp256k1_ecdh fail");
-	}
-
-	/*~ In the normal case, we return the shared secret, and then read
-	 * the next msg. */
-	return req_reply(conn, c, take(towire_hsmd_ecdh_resp(NULL, &ss)));
-}
-
 /*~ The specific routine to sign the channel_announcement message.  This is
  * defined in BOLT #7, and requires *two* signatures: one from this node's key
  * (to prove it's from us), and one from the bitcoin key used to create the
@@ -1785,9 +1757,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 		return handle_get_output_scriptpubkey(conn, c, c->msg_in);
 
-	case WIRE_HSMD_ECDH_REQ:
-		return handle_ecdh(conn, c, c->msg_in);
-
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
 		return handle_cannouncement_sig(conn, c, c->msg_in);
 
@@ -1835,6 +1804,8 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_INVOICE:
 	case WIRE_HSMD_SIGN_MESSAGE:
 	case WIRE_HSMD_SIGN_BOLT12:
+	case WIRE_HSMD_ECDH_REQ:
+
 		/* Hand off to libhsmd for processing */
 		return req_reply(conn, c,
 				 take(hsmd_handle_client_message(

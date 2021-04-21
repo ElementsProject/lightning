@@ -437,6 +437,33 @@ static u8 *handle_get_channel_basepoints(struct hsmd_client *c,
 							&funding_pubkey);
 }
 
+/*~ The client has asked us to extract the shared secret from an EC Diffie
+ * Hellman token.  This doesn't leak any information, but requires the private
+ * key, so the hsmd performs it.  It's used to set up an encryption key for the
+ * connection handshaking (BOLT #8) and for the onion wrapping (BOLT #4). */
+static u8 *handle_ecdh(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct privkey privkey;
+	struct pubkey point;
+	struct secret ss;
+
+	if (!fromwire_hsmd_ecdh_req(msg_in, &point))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	/*~ We simply use the secp256k1_ecdh function: if privkey.secret.data is invalid,
+	 * we kill them for bad randomness (~1 in 2^127 if privkey.secret.data is random) */
+	node_key(&privkey, NULL);
+	if (secp256k1_ecdh(secp256k1_ctx, ss.data, &point.pubkey,
+			   privkey.secret.data, NULL, NULL) != 1) {
+		return hsmd_status_bad_request_fmt(c, msg_in,
+						   "secp256k1_ecdh fail");
+	}
+
+	/*~ In the normal case, we return the shared secret, and then read
+	 * the next msg. */
+	return towire_hsmd_ecdh_resp(NULL, &ss);
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -464,7 +491,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_CLIENT_HSMFD:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
-	case WIRE_HSMD_ECDH_REQ:
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
 	case WIRE_HSMD_CUPDATE_SIG_REQ:
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REQ:
@@ -482,6 +508,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		/* Not implemented yet. Should not have been passed here yet. */
 		return hsmd_status_bad_request_fmt(client, msg, "Not implemented yet.");
 
+	case WIRE_HSMD_ECDH_REQ:
+		return handle_ecdh(client, msg);
 	case WIRE_HSMD_SIGN_INVOICE:
 		return handle_sign_invoice(client, msg);
 	case WIRE_HSMD_SIGN_BOLT12:
