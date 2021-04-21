@@ -671,6 +671,56 @@ static u8 *handle_sign_node_announcement(struct hsmd_client *c,
 	return reply;
 }
 
+/*~ The specific routine to sign the channel_update message. */
+static u8 *handle_channel_update_sig(struct hsmd_client *c, const u8 *msg_in)
+{
+	/* BOLT #7:
+	 *
+	 * - MUST set `signature` to the signature of the double-SHA256 of the
+	 *   entire remaining packet after `signature`, using its own
+	 *   `node_id`.
+	 */
+	/* 2 bytes msg type + 64 bytes signature */
+	size_t offset = 66;
+	struct privkey node_pkey;
+	struct sha256_double hash;
+	secp256k1_ecdsa_signature sig;
+	struct short_channel_id scid;
+	u32 timestamp, fee_base_msat, fee_proportional_mill;
+	struct amount_msat htlc_minimum, htlc_maximum;
+	u8 message_flags, channel_flags;
+	u16 cltv_expiry_delta;
+	struct bitcoin_blkid chain_hash;
+	u8 *cu;
+
+	if (!fromwire_hsmd_cupdate_sig_req(tmpctx, msg_in, &cu))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	if (!fromwire_channel_update_option_channel_htlc_max(cu, &sig,
+			&chain_hash, &scid, &timestamp, &message_flags,
+			&channel_flags, &cltv_expiry_delta,
+			&htlc_minimum, &fee_base_msat,
+			&fee_proportional_mill, &htlc_maximum)) {
+		return hsmd_status_bad_request(c, msg_in,
+					       "Bad inner channel_update");
+	}
+	if (tal_count(cu) < offset)
+		return hsmd_status_bad_request(
+		    c, msg_in, "inner channel_update too short");
+
+	node_key(&node_pkey, NULL);
+	sha256_double(&hash, cu + offset, tal_count(cu) - offset);
+
+	sign_hash(&node_pkey, &hash, &sig);
+
+	cu = towire_channel_update_option_channel_htlc_max(tmpctx, &sig, &chain_hash,
+				   &scid, timestamp, message_flags, channel_flags,
+				   cltv_expiry_delta, htlc_minimum,
+				   fee_base_msat, fee_proportional_mill,
+				   htlc_maximum);
+	return towire_hsmd_cupdate_sig_reply(NULL, cu);
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -697,7 +747,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	switch (t) {
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_CLIENT_HSMFD:
-	case WIRE_HSMD_CUPDATE_SIG_REQ:
 	case WIRE_HSMD_SIGN_WITHDRAWAL:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
@@ -729,6 +778,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_cannouncement_sig(client, msg);
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REQ:
 		return handle_sign_node_announcement(client, msg);
+	case WIRE_HSMD_CUPDATE_SIG_REQ:
+		return handle_channel_update_sig(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
