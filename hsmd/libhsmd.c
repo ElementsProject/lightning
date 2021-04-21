@@ -1,6 +1,8 @@
+#include <bitcoin/script.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <common/bolt12_merkle.h>
 #include <common/hash_u5.h>
+#include <common/key_derive.h>
 #include <hsmd/capabilities.h>
 #include <hsmd/libhsmd.h>
 
@@ -258,6 +260,45 @@ static void get_channel_seed(const struct node_id *peer_id, u64 dbid,
 		    info, strlen(info));
 }
 
+/*~ For almost every wallet tx we use the BIP32 seed, but not for onchain
+ * unilateral closes from a peer: they (may) have an output to us using a
+ * public key based on the channel basepoints.  It's a bit spammy to spend
+ * those immediately just to make the wallet simpler, and we didn't appreciate
+ * the problem when we designed the protocol for commitment transaction keys.
+ *
+ * So we store just enough about the channel it came from (which may be
+ * long-gone) to regenerate the keys here.  That has the added advantage that
+ * the secrets themselves stay within the HSM. */
+static void hsm_unilateral_close_privkey(struct privkey *dst,
+					 struct unilateral_close_info *info)
+{
+	struct secret channel_seed;
+	struct basepoints basepoints;
+	struct secrets secrets;
+
+	get_channel_seed(&info->peer_id, info->channel_id, &channel_seed);
+	derive_basepoints(&channel_seed, NULL, &basepoints, &secrets, NULL);
+
+	/* BOLT #3:
+	 *
+	 * If `option_static_remotekey` or `option_anchor_outputs` is
+	 * negotiated, the `remotepubkey` is simply the remote node's
+	 * `payment_basepoint`, otherwise it is calculated as above using the
+	 * remote node's `payment_basepoint`.
+	 */
+	/* In our UTXO representation, this is indicated by a NULL
+	 * commitment_point. */
+	if (!info->commitment_point)
+		dst->secret = secrets.payment_basepoint_secret;
+	else if (!derive_simple_privkey(&secrets.payment_basepoint_secret,
+					&basepoints.payment,
+					info->commitment_point,
+					dst)) {
+		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				   "Deriving unilateral_close_privkey");
+	}
+}
+
 /*~ lightningd asks us to sign a message.  I tweeted the spec
  * in https://twitter.com/rusty_twit/status/1182102005914800128:
  *
@@ -495,6 +536,29 @@ static u8 *handle_check_future_secret(struct hsmd_client *c, const u8 *msg_in)
 	    NULL, secret_eq_consttime(&secret, &suggested));
 }
 
+static u8 *handle_get_output_scriptpubkey(struct hsmd_client *c,
+					  const u8 *msg_in)
+{
+	struct pubkey pubkey;
+	struct privkey privkey;
+	struct unilateral_close_info info;
+	u8 *scriptPubkey;
+
+	info.commitment_point = NULL;
+	if (!fromwire_hsmd_get_output_scriptpubkey(tmpctx, msg_in,
+						  &info.channel_id,
+						  &info.peer_id,
+						  &info.commitment_point))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	hsm_unilateral_close_privkey(&privkey, &info);
+	pubkey_from_privkey(&privkey, &pubkey);
+	scriptPubkey = scriptpubkey_p2wpkh(tmpctx, &pubkey);
+
+	return towire_hsmd_get_output_scriptpubkey_reply(NULL,
+								       scriptPubkey);
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -521,7 +585,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	switch (t) {
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_CLIENT_HSMFD:
-	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
 	case WIRE_HSMD_CUPDATE_SIG_REQ:
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REQ:
@@ -538,6 +601,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		/* Not implemented yet. Should not have been passed here yet. */
 		return hsmd_status_bad_request_fmt(client, msg, "Not implemented yet.");
 
+	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
+		return handle_get_output_scriptpubkey(client, msg);
 	case WIRE_HSMD_CHECK_FUTURE_SECRET:
 		return handle_check_future_secret(client, msg);
 	case WIRE_HSMD_ECDH_REQ:

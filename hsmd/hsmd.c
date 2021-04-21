@@ -1557,31 +1557,6 @@ static struct io_plan *handle_sign_withdrawal_tx(struct io_conn *conn,
 			 take(towire_hsmd_sign_withdrawal_reply(NULL, psbt)));
 }
 
-static struct io_plan *handle_get_output_scriptpubkey(struct io_conn *conn,
-						    struct client *c,
-						    const u8 *msg_in)
-{
-	struct pubkey pubkey;
-	struct privkey privkey;
-	struct unilateral_close_info info;
-	u8 *scriptPubkey;
-
-	info.commitment_point = NULL;
-	if (!fromwire_hsmd_get_output_scriptpubkey(tmpctx, msg_in,
-						  &info.channel_id,
-						  &info.peer_id,
-						  &info.commitment_point))
-		return bad_req(conn, c, msg_in);
-
-	hsm_unilateral_close_privkey(&privkey, &info);
-	pubkey_from_privkey(&privkey, &pubkey);
-	scriptPubkey = scriptpubkey_p2wpkh(tmpctx, &pubkey);
-
-	return req_reply(conn, c,
-			 take(towire_hsmd_get_output_scriptpubkey_reply(NULL,
-								       scriptPubkey)));
-}
-
 /*~ It's optional for nodes to send node_announcement, but it lets us set our
  * favourite color and cool alias!  Plus other minor details like how to
  * connect to us. */
@@ -1721,9 +1696,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_CLIENT_HSMFD:
 		return pass_client_hsmfd(conn, c, c->msg_in);
 
-	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
-		return handle_get_output_scriptpubkey(conn, c, c->msg_in);
-
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
 		return handle_cannouncement_sig(conn, c, c->msg_in);
 
@@ -1770,6 +1742,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_BOLT12:
 	case WIRE_HSMD_ECDH_REQ:
 	case WIRE_HSMD_CHECK_FUTURE_SECRET:
+	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 		/* Hand off to libhsmd for processing */
 		return req_reply(conn, c,
 				 take(hsmd_handle_client_message(
