@@ -763,78 +763,6 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 						     &bolt12)));
 }
 
-/*~ The specific routine to sign the channel_announcement message.  This is
- * defined in BOLT #7, and requires *two* signatures: one from this node's key
- * (to prove it's from us), and one from the bitcoin key used to create the
- * funding transaction (to prove we own the output). */
-static struct io_plan *handle_cannouncement_sig(struct io_conn *conn,
-						struct client *c,
-						const u8 *msg_in)
-{
-	/*~ Our autogeneration code doesn't define field offsets, so we just
-	 * copy this from the spec itself.
-	 *
-	 * Note that 'check-source' will actually find and check this quote
-	 * against the spec (if available); whitespace is ignored and
-	 * "..." means some content is skipped, but it works remarkably well to
-	 * track spec changes. */
-
-	/* BOLT #7:
-	 *
-	 * - MUST compute the double-SHA256 hash `h` of the message, beginning
-	 *   at offset 256, up to the end of the message.
-	 *     - Note: the hash skips the 4 signatures but hashes the rest of the
-	 *       message, including any future fields appended to the end.
-	 */
-	/* First type bytes are the msg type */
-	size_t offset = 2 + 256;
-	struct privkey node_pkey;
-	secp256k1_ecdsa_signature node_sig, bitcoin_sig;
-	struct sha256_double hash;
-	u8 *reply;
-	u8 *ca;
-	struct pubkey funding_pubkey;
-	struct privkey funding_privkey;
-	struct secret channel_seed;
-
-	/*~ You'll find FIXMEs like this scattered through the code.
-	 * Sometimes they suggest simple improvements which someone like
-	 * yourself should go ahead an implement.  Sometimes they're deceptive
-	 * quagmires which will cause you nothing but grief.  You decide! */
-
-	/*~ Christian uses TODO(cdecker) or FIXME(cdecker), but I'm sure he won't
-	 * mind if you fix this for him! */
-
-	/* FIXME: We should cache these. */
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	derive_funding_key(&channel_seed, &funding_pubkey, &funding_privkey);
-
-	/*~ fromwire_ routines which need to do allocation take a tal context
-	 * as their first field; tmpctx is good here since we won't need it
-	 * after this function. */
-	if (!fromwire_hsmd_cannouncement_sig_req(tmpctx, msg_in, &ca))
-		return bad_req(conn, c, msg_in);
-
-	if (tal_count(ca) < offset)
-		return bad_req_fmt(conn, c, msg_in,
-				   "bad cannounce length %zu",
-				   tal_count(ca));
-
-	if (fromwire_peektype(ca) != WIRE_CHANNEL_ANNOUNCEMENT)
-		return bad_req_fmt(conn, c, msg_in,
-				   "Invalid channel announcement");
-
-	node_key(&node_pkey, NULL);
-	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
-
-	sign_hash(&node_pkey, &hash, &node_sig);
-	sign_hash(&funding_privkey, &hash, &bitcoin_sig);
-
-	reply = towire_hsmd_cannouncement_sig_reply(NULL, &node_sig,
-						   &bitcoin_sig);
-	return req_reply(conn, c, take(reply));
-}
-
 /*~ The specific routine to sign the channel_update message. */
 static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
 						 struct client *c,
@@ -1696,9 +1624,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_CLIENT_HSMFD:
 		return pass_client_hsmfd(conn, c, c->msg_in);
 
-	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
-		return handle_cannouncement_sig(conn, c, c->msg_in);
-
 	case WIRE_HSMD_CUPDATE_SIG_REQ:
 		return handle_channel_update_sig(conn, c, c->msg_in);
 
@@ -1743,6 +1668,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_ECDH_REQ:
 	case WIRE_HSMD_CHECK_FUTURE_SECRET:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
+	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
 		/* Hand off to libhsmd for processing */
 		return req_reply(conn, c,
 				 take(hsmd_handle_client_message(

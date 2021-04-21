@@ -5,6 +5,7 @@
 #include <common/key_derive.h>
 #include <hsmd/capabilities.h>
 #include <hsmd/libhsmd.h>
+#include <wire/peer_wire.h>
 
 /* Version codes for BIP32 extended keys in libwally-core.
  * It's not suitable to add this struct into client struct,
@@ -559,6 +560,75 @@ static u8 *handle_get_output_scriptpubkey(struct hsmd_client *c,
 								       scriptPubkey);
 }
 
+/*~ The specific routine to sign the channel_announcement message.  This is
+ * defined in BOLT #7, and requires *two* signatures: one from this node's key
+ * (to prove it's from us), and one from the bitcoin key used to create the
+ * funding transaction (to prove we own the output). */
+static u8 *handle_cannouncement_sig(struct hsmd_client *c, const u8 *msg_in)
+{
+	/*~ Our autogeneration code doesn't define field offsets, so we just
+	 * copy this from the spec itself.
+	 *
+	 * Note that 'check-source' will actually find and check this quote
+	 * against the spec (if available); whitespace is ignored and
+	 * "..." means some content is skipped, but it works remarkably well to
+	 * track spec changes. */
+
+	/* BOLT #7:
+	 *
+	 * - MUST compute the double-SHA256 hash `h` of the message, beginning
+	 *   at offset 256, up to the end of the message.
+	 *     - Note: the hash skips the 4 signatures but hashes the rest of the
+	 *       message, including any future fields appended to the end.
+	 */
+	/* First type bytes are the msg type */
+	size_t offset = 2 + 256;
+	struct privkey node_pkey;
+	secp256k1_ecdsa_signature node_sig, bitcoin_sig;
+	struct sha256_double hash;
+	u8 *reply;
+	u8 *ca;
+	struct pubkey funding_pubkey;
+	struct privkey funding_privkey;
+	struct secret channel_seed;
+
+	/*~ You'll find FIXMEs like this scattered through the code.
+	 * Sometimes they suggest simple improvements which someone like
+	 * yourself should go ahead an implement.  Sometimes they're deceptive
+	 * quagmires which will cause you nothing but grief.  You decide! */
+
+	/*~ Christian uses TODO(cdecker) or FIXME(cdecker), but I'm sure he won't
+	 * mind if you fix this for him! */
+
+	/* FIXME: We should cache these. */
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	derive_funding_key(&channel_seed, &funding_pubkey, &funding_privkey);
+
+	/*~ fromwire_ routines which need to do allocation take a tal context
+	 * as their first field; tmpctx is good here since we won't need it
+	 * after this function. */
+	if (!fromwire_hsmd_cannouncement_sig_req(tmpctx, msg_in, &ca))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	if (tal_count(ca) < offset)
+		return hsmd_status_bad_request_fmt(
+		    c, msg_in, "bad cannounce length %zu", tal_count(ca));
+
+	if (fromwire_peektype(ca) != WIRE_CHANNEL_ANNOUNCEMENT)
+		return hsmd_status_bad_request_fmt(
+		    c, msg_in, "Invalid channel announcement");
+
+	node_key(&node_pkey, NULL);
+	sha256_double(&hash, ca + offset, tal_count(ca) - offset);
+
+	sign_hash(&node_pkey, &hash, &node_sig);
+	sign_hash(&funding_privkey, &hash, &bitcoin_sig);
+
+	reply = towire_hsmd_cannouncement_sig_reply(NULL, &node_sig,
+						   &bitcoin_sig);
+	return reply;
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -585,7 +655,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	switch (t) {
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_CLIENT_HSMFD:
-	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
 	case WIRE_HSMD_CUPDATE_SIG_REQ:
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REQ:
 	case WIRE_HSMD_SIGN_WITHDRAWAL:
@@ -615,6 +684,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_message(client, msg);
 	case WIRE_HSMD_GET_CHANNEL_BASEPOINTS:
 		return handle_get_channel_basepoints(client, msg);
+	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
+		return handle_cannouncement_sig(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
