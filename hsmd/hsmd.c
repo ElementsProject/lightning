@@ -1671,70 +1671,6 @@ static struct io_plan *handle_get_output_scriptpubkey(struct io_conn *conn,
 								       scriptPubkey)));
 }
 
-/*~ Lightning invoices, defined by BOLT 11, are signed.  This has been
- * surprisingly controversial; it means a node needs to be online to create
- * invoices.  However, it seems clear to me that in a world without
- * intermedaries you need proof that you have received an offer (the
- * signature), as well as proof that you've paid it (the preimage). */
-static struct io_plan *handle_sign_invoice(struct io_conn *conn,
-					   struct client *c,
-					   const u8 *msg_in)
-{
-	/*~ We make up a 'u5' type to represent BOLT11's 5-bits-per-byte
-	 * format: it's only for human consumption, as typedefs are almost
-	 * entirely transparent to the C compiler. */
-	u5 *u5bytes;
-	u8 *hrpu8;
-	char *hrp;
-	struct sha256 sha;
-        secp256k1_ecdsa_recoverable_signature rsig;
-	struct hash_u5 hu5;
-	struct privkey node_pkey;
-
-	if (!fromwire_hsmd_sign_invoice(tmpctx, msg_in, &u5bytes, &hrpu8))
-		return bad_req(conn, c, msg_in);
-
-	/* BOLT #11:
-	 *
-	 * A writer... MUST set `signature` to a valid 512-bit
-	 * secp256k1 signature of the SHA2 256-bit hash of the
-	 * human-readable part, represented as UTF-8 bytes,
-	 * concatenated with the data part (excluding the signature)
-	 * with 0 bits appended to pad the data to the next byte
-	 * boundary, with a trailing byte containing the recovery ID
-	 * (0, 1, 2, or 3).
-	 */
-
-	/* FIXME: Check invoice! */
-
-	/*~ tal_dup_arr() does what you'd expect: allocate an array by copying
-	 * another; the cast is needed because the hrp is a 'char' array, not
-	 * a 'u8' (unsigned char) as it's the "human readable" part.
-	 *
-	 * The final arg of tal_dup_arr() is how many extra bytes to allocate:
-	 * it's so often zero that I've thought about dropping the argument, but
-	 * in cases like this (adding a NUL terminator) it's perfect. */
-	hrp = tal_dup_arr(tmpctx, char, (char *)hrpu8, tal_count(hrpu8), 1);
-	hrp[tal_count(hrpu8)] = '\0';
-
-	hash_u5_init(&hu5, hrp);
-	hash_u5(&hu5, u5bytes, tal_count(u5bytes));
-	hash_u5_done(&hu5, &sha);
-
-	node_key(&node_pkey, NULL);
-	/*~ By no small coincidence, this libsecp routine uses the exact
-	 * recovery signature format mandated by BOLT 11. */
-	if (!secp256k1_ecdsa_sign_recoverable(secp256k1_ctx, &rsig,
-                                              (const u8 *)&sha,
-                                              node_pkey.secret.data,
-                                              NULL, NULL)) {
-		return bad_req_fmt(conn, c, msg_in, "Failed to sign invoice");
-	}
-
-	return req_reply(conn, c,
-			 take(towire_hsmd_sign_invoice_reply(NULL, &rsig)));
-}
-
 /*~ It's optional for nodes to send node_announcement, but it lets us set our
  * favourite color and cool alias!  Plus other minor details like how to
  * connect to us. */
@@ -1892,8 +1828,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REQ:
 		return handle_sign_node_announcement(conn, c, c->msg_in);
 
-	case WIRE_HSMD_SIGN_INVOICE:
-		return handle_sign_invoice(conn, c, c->msg_in);
 
 	case WIRE_HSMD_SIGN_WITHDRAWAL:
 		return handle_sign_withdrawal_tx(conn, c, c->msg_in);
@@ -1928,6 +1862,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_MUTUAL_CLOSE_TX:
 		return handle_sign_mutual_close_tx(conn, c, c->msg_in);
 
+	case WIRE_HSMD_SIGN_INVOICE:
 	case WIRE_HSMD_SIGN_MESSAGE:
 	case WIRE_HSMD_SIGN_BOLT12:
 		/* Hand off to libhsmd for processing */
