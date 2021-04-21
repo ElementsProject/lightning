@@ -763,57 +763,6 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 						     &bolt12)));
 }
 
-/*~ The specific routine to sign the channel_update message. */
-static struct io_plan *handle_channel_update_sig(struct io_conn *conn,
-						 struct client *c,
-						 const u8 *msg_in)
-{
-	/* BOLT #7:
-	 *
-	 * - MUST set `signature` to the signature of the double-SHA256 of the
-	 *   entire remaining packet after `signature`, using its own
-	 *   `node_id`.
-	 */
-	/* 2 bytes msg type + 64 bytes signature */
-	size_t offset = 66;
-	struct privkey node_pkey;
-	struct sha256_double hash;
-	secp256k1_ecdsa_signature sig;
-	struct short_channel_id scid;
-	u32 timestamp, fee_base_msat, fee_proportional_mill;
-	struct amount_msat htlc_minimum, htlc_maximum;
-	u8 message_flags, channel_flags;
-	u16 cltv_expiry_delta;
-	struct bitcoin_blkid chain_hash;
-	u8 *cu;
-
-	if (!fromwire_hsmd_cupdate_sig_req(tmpctx, msg_in, &cu))
-		return bad_req(conn, c, msg_in);
-
-	if (!fromwire_channel_update_option_channel_htlc_max(cu, &sig,
-			&chain_hash, &scid, &timestamp, &message_flags,
-			&channel_flags, &cltv_expiry_delta,
-			&htlc_minimum, &fee_base_msat,
-			&fee_proportional_mill, &htlc_maximum)) {
-		return bad_req_fmt(conn, c, msg_in, "Bad inner channel_update");
-	}
-	if (tal_count(cu) < offset)
-		return bad_req_fmt(conn, c, msg_in,
-				   "inner channel_update too short");
-
-	node_key(&node_pkey, NULL);
-	sha256_double(&hash, cu + offset, tal_count(cu) - offset);
-
-	sign_hash(&node_pkey, &hash, &sig);
-
-	cu = towire_channel_update_option_channel_htlc_max(tmpctx, &sig, &chain_hash,
-				   &scid, timestamp, message_flags, channel_flags,
-				   cltv_expiry_delta, htlc_minimum,
-				   fee_base_msat, fee_proportional_mill,
-				   htlc_maximum);
-	return req_reply(conn, c, take(towire_hsmd_cupdate_sig_reply(NULL, cu)));
-}
-
 /*~ This is another lightningd-only interface; signing a commit transaction.
  * This is dangerous, since if we sign a revoked commitment tx we'll lose
  * funds, thus it's only available to lightningd.
@@ -1581,9 +1530,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_CLIENT_HSMFD:
 		return pass_client_hsmfd(conn, c, c->msg_in);
 
-	case WIRE_HSMD_CUPDATE_SIG_REQ:
-		return handle_channel_update_sig(conn, c, c->msg_in);
-
 	case WIRE_HSMD_SIGN_WITHDRAWAL:
 		return handle_sign_withdrawal_tx(conn, c, c->msg_in);
 
@@ -1623,6 +1569,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REQ:
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REQ:
+	case WIRE_HSMD_CUPDATE_SIG_REQ:
 		/* Hand off to libhsmd for processing */
 		return req_reply(conn, c,
 				 take(hsmd_handle_client_message(
