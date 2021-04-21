@@ -2021,6 +2021,9 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	if (!tx_state->psbt)
 		tx_state->psbt = create_psbt(tx_state, 0, 0,
 					     tx_state->tx_locktime);
+	else
+		/* Locktimes must match! */
+		tx_state->psbt->tx->locktime = tx_state->tx_locktime;
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
