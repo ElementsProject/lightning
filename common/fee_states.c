@@ -73,6 +73,16 @@ u32 get_feerate(const struct fee_states *fee_states,
 	abort();
 }
 
+/* Are feerates all agreed by both sides? */
+bool feerate_changes_done(const struct fee_states *fee_states)
+{
+	size_t num_feerates = 0;
+	for (size_t i = 0; i < ARRAY_SIZE(fee_states->feerate); i++) {
+		num_feerates += (fee_states->feerate[i] != NULL);
+	}
+	return num_feerates == 1;
+}
+
 void start_fee_update(struct fee_states *fee_states,
 		      enum side opener,
 		      u32 feerate_per_kw)

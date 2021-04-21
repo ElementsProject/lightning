@@ -85,4 +85,8 @@ struct fee_states *fromwire_fee_states(const tal_t *ctx,
  * Is this fee_state struct valid for this side?
  */
 bool fee_states_valid(const struct fee_states *fee_states, enum side opener);
+
+/* Are therre no more fee changes in-flight? */
+bool feerate_changes_done(const struct fee_states *fee_states);
+
 #endif /* LIGHTNING_COMMON_FEE_STATES_H */
