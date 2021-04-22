@@ -58,7 +58,8 @@ extern struct privkey *dev_force_privkey;
 extern struct secret *dev_force_bip32_seed;
 #endif
 
-extern bool initialized;
+/* Temporary storage for the secret until we pass it to `hsmd_init` */
+struct secret hsm_secret;
 
 /*~ We keep track of clients, but there's not much to keep. */
 struct client {
@@ -292,15 +293,15 @@ static struct io_plan *req_reply(struct io_conn *conn,
 	return io_write_wire(conn, msg_out, client_read_next, c);
 }
 
-/*~ This encrypts the content of the secretstuff and stores it in hsm_secret,
- * this is called instead of create_hsm() if `lightningd` is started with
- * --encrypted-hsm.
+/*~ This encrypts the content of the `struct secret hsm_secret` and
+ * stores it in hsm_secret, this is called instead of create_hsm() if
+ * `lightningd` is started with --encrypted-hsm.
  */
 static void create_encrypted_hsm(int fd, const struct secret *encryption_key)
 {
 	struct encrypted_hsm_secret cipher;
 
-	if (!encrypt_hsm_secret(encryption_key, &secretstuff.hsm_secret,
+	if (!encrypt_hsm_secret(encryption_key, &hsm_secret,
 				&cipher))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Encrypting hsm_secret");
@@ -316,7 +317,7 @@ static void create_hsm(int fd)
 	/*~ ccan/read_write_all has a more convenient return than write() where
 	 * we'd have to check the return value == the length we gave: write()
 	 * can return short on normal files if we run out of disk space. */
-	if (!write_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret))) {
+	if (!write_all(fd, &hsm_secret, sizeof(hsm_secret))) {
 		/* ccan/noerr contains useful routines like this, which don't
 		 * clobber errno, so we can use it in our error report. */
 		unlink_noerr("hsm_secret");
@@ -344,7 +345,7 @@ static void maybe_create_new_hsm(const struct secret *encryption_key,
 	/*~ This is libsodium's cryptographic randomness routine: we assume
 	 * it's doing a good job. */
 	if (random_hsm)
-		randombytes_buf(&secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret));
+		randombytes_buf(&hsm_secret, sizeof(hsm_secret));
 
 	/*~ If an encryption_key was provided, store an encrypted seed. */
 	if (encryption_key)
@@ -402,7 +403,7 @@ static void load_hsm(const struct secret *encryption_key)
 
 	/* If the seed is stored in clear. */
 	if (st.st_size == 32) {
-		if (!read_all(fd, &secretstuff.hsm_secret, sizeof(secretstuff.hsm_secret)))
+		if (!read_all(fd, &hsm_secret, sizeof(hsm_secret)))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			              "reading: %s", strerror(errno));
 		/* If an encryption key was passed with a not yet encrypted hsm_secret,
@@ -433,7 +434,7 @@ static void load_hsm(const struct secret *encryption_key)
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			              "Reading encrypted hsm_secret: %s", strerror(errno));
 		if (!decrypt_hsm_secret(encryption_key, &encrypted_secret,
-					&secretstuff.hsm_secret)) {
+					&hsm_secret)) {
 			/* Exit but don't throw a backtrace when the user made a mistake in typing
 			 * its password. Instead exit and `lightningd` will be able to give
 			 * an error message. */
@@ -477,7 +478,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "Could not lock memory for hsm_secret encryption key.");
 	/*~ Don't swap this. */
-	sodium_mlock(secretstuff.hsm_secret.data, sizeof(secretstuff.hsm_secret.data));
+	sodium_mlock(hsm_secret.data, sizeof(hsm_secret.data));
 
 #if DEVELOPER
 	dev_force_privkey = privkey;
@@ -496,8 +497,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	if (hsm_encryption_key)
 		discard_key(take(hsm_encryption_key));
 
-	return req_reply(conn, c,
-			 hsmd_init(secretstuff.hsm_secret, bip32_key_version));
+	return req_reply(conn, c, hsmd_init(hsm_secret, bip32_key_version));
 }
 
 /*~ Since we process requests then service them in strict order, and because
