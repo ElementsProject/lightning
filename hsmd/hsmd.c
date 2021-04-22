@@ -6,40 +6,27 @@
  * which indicates what it's allowed to ask for.  We're entirely driven
  * by request, response.
  */
-#include <bitcoin/address.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
-#include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
-#include <ccan/container_of/container_of.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
-#include <ccan/endian/endian.h>
-#include <ccan/fdpass/fdpass.h>
 #include <ccan/intmap/intmap.h>
 #include <ccan/io/fdpass/fdpass.h>
 #include <ccan/io/io.h>
 #include <ccan/noerr/noerr.h>
-#include <ccan/ptrint/ptrint.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
-#include <common/bolt12_merkle.h>
 #include <common/daemon_conn.h>
 #include <common/derive_basepoints.h>
-#include <common/hash_u5.h>
 #include <common/hsm_encryption.h>
-#include <common/key_derive.h>
 #include <common/memleak.h>
 #include <common/node_id.h>
 #include <common/status.h>
-#include <common/status_wire.h>
 #include <common/status_wiregen.h>
 #include <common/subdaemon.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
-#include <common/version.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <hsmd/capabilities.h>
@@ -47,15 +34,10 @@
 #include <hsmd/hsmd_wiregen.h>
 #include <hsmd/libhsmd.h>
 #include <inttypes.h>
-#include <secp256k1_ecdh.h>
-#include <secp256k1_schnorrsig.h>
-#include <sodium.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <wally_bip32.h>
-#include <wire/peer_wire.h>
 #include <wire/wire_io.h>
 
 /*~ Each subdaemon is started with stdin connected to lightningd (for status
