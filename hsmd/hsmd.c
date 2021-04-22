@@ -814,55 +814,6 @@ static struct io_plan *handle_sign_delayed_payment_to_us(struct io_conn *conn,
 				    SIGHASH_ALL);
 }
 
-/*~ This is used when a commitment transaction is onchain, and has an HTLC
- * output paying to us (because we have the preimage); this signs that
- * transaction, which lightningd will broadcast to collect the funds. */
-static struct io_plan *handle_sign_remote_htlc_to_us(struct io_conn *conn,
-						     struct client *c,
-						     const u8 *msg_in)
-{
-	struct secret channel_seed, htlc_basepoint_secret;
-	struct pubkey htlc_basepoint;
-	struct bitcoin_tx *tx;
-	struct pubkey remote_per_commitment_point;
-	struct privkey privkey;
-	u8 *wscript;
-	bool option_anchor_outputs;
-
-	if (!fromwire_hsmd_sign_remote_htlc_to_us(tmpctx, msg_in,
-						 &remote_per_commitment_point,
-						 &tx, &wscript,
-						 &option_anchor_outputs))
-		return bad_req(conn, c, msg_in);
-
-	tx->chainparams = c->chainparams;
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-
-	if (!derive_htlc_basepoint(&channel_seed, &htlc_basepoint,
-				   &htlc_basepoint_secret))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed derive_htlc_basepoint");
-
-	if (!derive_simple_privkey(&htlc_basepoint_secret,
-				   &htlc_basepoint,
-				   &remote_per_commitment_point,
-				   &privkey))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed deriving htlc privkey");
-
-	/* BOLT #3:
-	 * ## HTLC-Timeout and HTLC-Success Transactions
-	 *...
-	 * * if `option_anchor_outputs` applies to this commitment transaction,
-	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used.
-	 */
-	return handle_sign_to_us_tx(conn, c, msg_in,
-				    tx, &privkey, wscript,
-				    option_anchor_outputs
-				    ? (SIGHASH_SINGLE|SIGHASH_ANYONECANPAY)
-				    : SIGHASH_ALL);
-}
-
 /*~ Since we process requests then service them in strict order, and because
  * only lightningd can request a new client fd, we can get away with a global
  * here!  But because we are being tricky, I set it to an invalid value when
@@ -1024,9 +975,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
 		return handle_sign_delayed_payment_to_us(conn, c, c->msg_in);
 
-	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
-		return handle_sign_remote_htlc_to_us(conn, c, c->msg_in);
-
 	case WIRE_HSMD_SIGN_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_PENALTY_TO_US:
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
@@ -1045,6 +993,7 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_NODE_ANNOUNCEMENT_SIG_REQ:
 	case WIRE_HSMD_CUPDATE_SIG_REQ:
 	case WIRE_HSMD_SIGN_LOCAL_HTLC_TX:
+	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
 		/* Hand off to libhsmd for processing */
 		return req_reply(conn, c,
 				 take(hsmd_handle_client_message(
