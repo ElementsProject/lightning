@@ -912,6 +912,76 @@ static u8 *handle_sign_mutual_close_tx(struct hsmd_client *c, const u8 *msg_in)
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
 }
 
+/*~ This is used when a commitment transaction is onchain, and has an HTLC
+ * output paying to them, which has timed out; this signs that transaction,
+ * which lightningd will broadcast to collect the funds. */
+static u8 *handle_sign_local_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
+{
+	u64 commit_num;
+	struct secret channel_seed, htlc_basepoint_secret;
+	struct sha256 shaseed;
+	struct pubkey per_commitment_point, htlc_basepoint;
+	struct bitcoin_tx *tx;
+	u8 *wscript;
+	struct bitcoin_signature sig;
+	struct privkey htlc_privkey;
+	struct pubkey htlc_pubkey;
+	bool option_anchor_outputs;
+
+	if (!fromwire_hsmd_sign_local_htlc_tx(tmpctx, msg_in,
+					     &commit_num, &tx, &wscript,
+					     &option_anchor_outputs))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	tx->chainparams = c->chainparams;
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+
+	if (!derive_shaseed(&channel_seed, &shaseed))
+		return hsmd_status_bad_request_fmt(c, msg_in,
+						   "bad derive_shaseed");
+
+	if (!per_commit_point(&shaseed, &per_commitment_point, commit_num))
+		return hsmd_status_bad_request_fmt(
+		    c, msg_in, "bad per_commitment_point %" PRIu64, commit_num);
+
+	if (!derive_htlc_basepoint(&channel_seed,
+				   &htlc_basepoint,
+				   &htlc_basepoint_secret))
+		return hsmd_status_bad_request_fmt(
+		    c, msg_in, "Failed deriving htlc basepoint");
+
+	if (!derive_simple_privkey(&htlc_basepoint_secret,
+				   &htlc_basepoint,
+				   &per_commitment_point,
+				   &htlc_privkey))
+		return hsmd_status_bad_request_fmt(
+		    c, msg_in, "Failed deriving htlc privkey");
+
+	if (!pubkey_from_privkey(&htlc_privkey, &htlc_pubkey))
+		return hsmd_status_bad_request_fmt(c, msg_in,
+						   "bad pubkey_from_privkey");
+
+	if (tx->wtx->num_inputs != 1)
+		return hsmd_status_bad_request_fmt(c, msg_in,
+						   "bad txinput count");
+
+	/* FIXME: Check that output script is correct! */
+
+	/* BOLT #3:
+	 * ## HTLC-Timeout and HTLC-Success Transactions
+	 *...
+	 * * if `option_anchor_outputs` applies to this commitment transaction,
+	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used.
+	 */
+	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
+		      option_anchor_outputs
+		      ? (SIGHASH_SINGLE|SIGHASH_ANYONECANPAY)
+		      : SIGHASH_ALL,
+		      &sig);
+
+	return towire_hsmd_sign_tx_reply(NULL, &sig);
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -942,7 +1012,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
 	case WIRE_HSMD_SIGN_PENALTY_TO_US:
-	case WIRE_HSMD_SIGN_LOCAL_HTLC_TX:
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TX:
 		/* Not implemented yet. Should not have been passed here yet. */
@@ -974,6 +1043,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_withdrawal_tx(client, msg);
 	case WIRE_HSMD_SIGN_MUTUAL_CLOSE_TX:
 		return handle_sign_mutual_close_tx(client, msg);
+	case WIRE_HSMD_SIGN_LOCAL_HTLC_TX:
+		return handle_sign_local_htlc_tx(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
