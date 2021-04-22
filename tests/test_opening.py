@@ -203,8 +203,10 @@ def test_v2_open_sigs_restart_while_dead(node_factory, bitcoind):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 def test_v2_rbf(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
-                                    opts=[{'experimental-dual-fund': None},
-                                          {'experimental-dual-fund': None}])
+                                    opts=[{'experimental-dual-fund': None,
+                                           'wumbo': None},
+                                          {'experimental-dual-fund': None,
+                                           'wumbo': None}])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
