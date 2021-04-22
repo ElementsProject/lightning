@@ -20,6 +20,14 @@ struct privkey *dev_force_privkey;
 struct secret *dev_force_bip32_seed;
 #endif
 
+/*~ Nobody will ever find it here!  hsm_secret is our root secret, the bip32
+ * tree and bolt12 payer_id keys are derived from that, and cached here. */
+struct {
+	struct secret hsm_secret;
+	struct ext_key bip32;
+	secp256k1_keypair bolt12;
+} secretstuff;
+
 /* Have we initialized the secretstuff? */
 bool initialized = false;
 

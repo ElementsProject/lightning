@@ -92,16 +92,6 @@ void hsmd_status_failed(enum status_failreason code,
 
 /* The following declarations are here only temporarily while we migrate logic from hsmd.c to libhsmd.c */
 
-/*~ Nobody will ever find it here!  hsm_secret is our root secret, the bip32
- * tree and bolt12 payer_id keys are derived from that, and cached here. */
-/* TODO: Move into the libhsmd.c file as soon as hsmd.c doesn't need
- * it anymore. */
-struct {
-	struct secret hsm_secret;
-	struct ext_key bip32;
-	secp256k1_keypair bolt12;
-} secretstuff;
-
 bool check_client_capabilities(struct hsmd_client *client, enum hsmd_wire t);
 
 /* end of temporary global declarations. The above will be removed once we complete the migration. */
