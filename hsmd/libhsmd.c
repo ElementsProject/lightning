@@ -8,11 +8,6 @@
 #include <hsmd/libhsmd.h>
 #include <wire/peer_wire.h>
 
-/* Version codes for BIP32 extended keys in libwally-core.
- * It's not suitable to add this struct into client struct,
- * so set it static.*/
-struct  bip32_key_version  bip32_key_version;
-
 #if DEVELOPER
 /* If they specify --dev-force-privkey it ends up in here. */
 struct privkey *dev_force_privkey;
