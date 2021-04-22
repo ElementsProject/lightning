@@ -1251,6 +1251,62 @@ static u8 *handle_sign_remote_htlc_to_us(struct hsmd_client *c,
 				  : SIGHASH_ALL);
 }
 
+/*~ When we send a commitment transaction onchain (unilateral close), there's
+ * a delay before we can spend it.  onchaind does an explicit transaction to
+ * transfer it to the wallet so that doesn't need to remember how to spend
+ * this complex transaction. */
+static u8 *handle_sign_delayed_payment_to_us(struct hsmd_client *c,
+					     const u8 *msg_in)
+{
+	u64 commit_num;
+	struct secret channel_seed, basepoint_secret;
+	struct pubkey basepoint;
+	struct bitcoin_tx *tx;
+	struct sha256 shaseed;
+	struct pubkey per_commitment_point;
+	struct privkey privkey;
+	u8 *wscript;
+
+	/*~ We don't derive the wscript ourselves, but perhaps we should? */
+	if (!fromwire_hsmd_sign_delayed_payment_to_us(tmpctx, msg_in,
+						     &commit_num,
+						     &tx, &wscript))
+		return hsmd_status_malformed_request(c, msg_in);
+	tx->chainparams = c->chainparams;
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+
+	/*~ ccan/crypto/shachain how we efficiently derive 2^48 ordered
+	 * preimages from a single seed; the twist is that as the preimages
+	 * are revealed, you can generate the previous ones yourself, needing
+	 * to only keep log(N) of them at any time. */
+	if (!derive_shaseed(&channel_seed, &shaseed))
+		return hsmd_status_bad_request(c, msg_in, "bad derive_shaseed");
+
+	/*~ BOLT #3 describes exactly how this is used to generate the Nth
+	 * per-commitment point. */
+	if (!per_commit_point(&shaseed, &per_commitment_point, commit_num))
+		return hsmd_status_bad_request_fmt(
+		    c, msg_in, "bad per_commitment_point %" PRIu64, commit_num);
+
+	/*~ ... which is combined with the basepoint to generate then N'th key.
+	 */
+	if (!derive_delayed_payment_basepoint(&channel_seed,
+					      &basepoint,
+					      &basepoint_secret))
+		return hsmd_status_bad_request(c, msg_in,
+					       "failed deriving basepoint");
+
+	if (!derive_simple_privkey(&basepoint_secret,
+				   &basepoint,
+				   &per_commitment_point,
+				   &privkey))
+		return hsmd_status_bad_request(c, msg_in,
+					       "failed deriving privkey");
+
+	return handle_sign_to_us_tx(c, msg_in, tx, &privkey, wscript,
+				    SIGHASH_ALL);
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -1277,7 +1333,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	switch (t) {
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_CLIENT_HSMFD:
-	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
 		/* Not implemented yet. Should not have been passed here yet. */
 		return hsmd_status_bad_request_fmt(client, msg, "Not implemented yet.");
 
@@ -1319,6 +1374,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_commitment_tx(client, msg);
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
 		return handle_sign_remote_htlc_to_us(client, msg);
+	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
+		return handle_sign_delayed_payment_to_us(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
