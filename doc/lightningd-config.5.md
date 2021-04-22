@@ -490,6 +490,14 @@ remote node has opened a channel but claims it used the incorrect txid
 (and the channel hasn't been used yet at all) this allows them to
 negotiate a clean shutdown with the txid they offer.
 
+ **experimental-dual-fund**
+ 
+Specifying this enables support for the dual funding protocol,
+allowing both parties to contribute funds to a channel. The decision
+about whether to add funds or not to a proposed channel is handled
+automatically by a plugin that implements the appropriate logic for
+your needs. The default behavior is to not contribute funds.
+
 BUGS
 ----
 
