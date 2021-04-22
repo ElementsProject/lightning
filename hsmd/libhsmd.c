@@ -401,6 +401,30 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 	}
 }
 
+/*~ This covers several cases where onchaind is creating a transaction which
+ * sends funds to our internal wallet. */
+/* FIXME: Derive output address for this client, and check it here! */
+static u8 *handle_sign_to_us_tx(struct hsmd_client *c, const u8 *msg_in,
+				struct bitcoin_tx *tx,
+				const struct privkey *privkey,
+				const u8 *wscript,
+				enum sighash_type sighash_type)
+{
+	struct bitcoin_signature sig;
+	struct pubkey pubkey;
+
+	if (!pubkey_from_privkey(privkey, &pubkey))
+		return hsmd_status_bad_request(c, msg_in,
+					       "bad pubkey_from_privkey");
+
+	if (tx->wtx->num_inputs != 1)
+		return hsmd_status_bad_request(c, msg_in, "bad txinput count");
+
+	sign_tx_input(tx, 0, NULL, wscript, privkey, &pubkey, sighash_type, &sig);
+
+	return towire_hsmd_sign_tx_reply(NULL, &sig);
+}
+
 /*~ lightningd asks us to sign a message.  I tweeted the spec
  * in https://twitter.com/rusty_twit/status/1182102005914800128:
  *
@@ -1086,6 +1110,47 @@ static u8 *handle_sign_remote_commitment_tx(struct hsmd_client *c, const u8 *msg
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
 }
 
+/*~ This is used when the remote peer's commitment transaction is revoked;
+ * we can use the revocation secret to spend the outputs.  For simplicity,
+ * we do them one at a time, though. */
+static u8 *handle_sign_penalty_to_us(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct secret channel_seed, revocation_secret, revocation_basepoint_secret;
+	struct pubkey revocation_basepoint;
+	struct bitcoin_tx *tx;
+	struct pubkey point;
+	struct privkey privkey;
+	u8 *wscript;
+
+	if (!fromwire_hsmd_sign_penalty_to_us(tmpctx, msg_in,
+					     &revocation_secret,
+					     &tx, &wscript))
+		return hsmd_status_malformed_request(c, msg_in);
+	tx->chainparams = c->chainparams;
+
+	if (!pubkey_from_secret(&revocation_secret, &point))
+		return hsmd_status_bad_request_fmt(c, msg_in,
+						   "Failed deriving pubkey");
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	if (!derive_revocation_basepoint(&channel_seed,
+					 &revocation_basepoint,
+					 &revocation_basepoint_secret))
+		return hsmd_status_bad_request_fmt(
+		    c, msg_in, "Failed deriving revocation basepoint");
+
+	if (!derive_revocation_privkey(&revocation_basepoint_secret,
+				       &revocation_secret,
+				       &revocation_basepoint,
+				       &point,
+				       &privkey))
+		return hsmd_status_bad_request_fmt(
+		    c, msg_in, "Failed deriving revocation privkey");
+
+	return handle_sign_to_us_tx(c, msg_in, tx, &privkey, wscript,
+				    SIGHASH_ALL);
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -1115,7 +1180,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
-	case WIRE_HSMD_SIGN_PENALTY_TO_US:
 		/* Not implemented yet. Should not have been passed here yet. */
 		return hsmd_status_bad_request_fmt(client, msg, "Not implemented yet.");
 
@@ -1151,6 +1215,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_remote_htlc_tx(client, msg);
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
 		return handle_sign_remote_commitment_tx(client, msg);
+	case WIRE_HSMD_SIGN_PENALTY_TO_US:
+		return handle_sign_penalty_to_us(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
