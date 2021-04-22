@@ -332,113 +332,6 @@ static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 #endif
 }
 
-/*~ Called at startup to derive the bip32 field. */
-static void populate_secretstuff(void)
-{
-	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
-	u32 salt = 0;
-	struct ext_key master_extkey, child_extkey;
-
-	assert(bip32_key_version.bip32_pubkey_version == BIP32_VER_MAIN_PUBLIC
-			|| bip32_key_version.bip32_pubkey_version == BIP32_VER_TEST_PUBLIC);
-
-	assert(bip32_key_version.bip32_privkey_version == BIP32_VER_MAIN_PRIVATE
-			|| bip32_key_version.bip32_privkey_version == BIP32_VER_TEST_PRIVATE);
-
-	/* Fill in the BIP32 tree for bitcoin addresses. */
-	/* In libwally-core, the version BIP32_VER_TEST_PRIVATE is for testnet/regtest,
-	 * and BIP32_VER_MAIN_PRIVATE is for mainnet. For litecoin, we also set it like
-	 * bitcoin else.*/
-	do {
-		hkdf_sha256(bip32_seed, sizeof(bip32_seed),
-			    &salt, sizeof(salt),
-			    &secretstuff.hsm_secret,
-			    sizeof(secretstuff.hsm_secret),
-			    "bip32 seed", strlen("bip32 seed"));
-		salt++;
-	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
-				     bip32_key_version.bip32_privkey_version,
-				     0, &master_extkey) != WALLY_OK);
-
-#if DEVELOPER
-	/* In DEVELOPER mode, we can override with --dev-force-bip32-seed */
-	if (dev_force_bip32_seed) {
-		if (bip32_key_from_seed(dev_force_bip32_seed->data,
-					sizeof(dev_force_bip32_seed->data),
-					bip32_key_version.bip32_privkey_version,
-					0, &master_extkey) != WALLY_OK)
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Can't derive bip32 master key");
-	}
-#endif /* DEVELOPER */
-
-	/* BIP 32:
-	 *
-	 * The default wallet layout
-	 *
-	 * An HDW is organized as several 'accounts'. Accounts are numbered,
-	 * the default account ("") being number 0. Clients are not required
-	 * to support more than one account - if not, they only use the
-	 * default account.
-	 *
-	 * Each account is composed of two keypair chains: an internal and an
-	 * external one. The external keychain is used to generate new public
-	 * addresses, while the internal keychain is used for all other
-	 * operations (change addresses, generation addresses, ..., anything
-	 * that doesn't need to be communicated). Clients that do not support
-	 * separate keychains for these should use the external one for
-	 * everything.
-	 *
-	 *  - m/iH/0/k corresponds to the k'th keypair of the external chain of
-	 * account number i of the HDW derived from master m.
-	 */
-	/* Hence child 0, then child 0 again to get extkey to derive from. */
-	if (bip32_key_from_parent(&master_extkey, 0, BIP32_FLAG_KEY_PRIVATE,
-				  &child_extkey) != WALLY_OK)
-		/*~ status_failed() is a helper which exits and sends lightningd
-		 * a message about what happened.  For hsmd, that's fatal to
-		 * lightningd. */
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't derive child bip32 key");
-
-	if (bip32_key_from_parent(&child_extkey, 0, BIP32_FLAG_KEY_PRIVATE,
-				  &secretstuff.bip32) != WALLY_OK)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't derive private bip32 key");
-
-	/* BIP 33:
-	 *
-	 * We propose the first level of BIP32 tree structure to be used as
-	 * "purpose". This purpose determines the further structure beneath
-	 * this node.
-	 *
-	 *  m / purpose' / *
-	 *
-	 * Apostrophe indicates that BIP32 hardened derivation is used.
-	 *
-	 * We encourage different schemes to apply for assigning a separate
-	 * BIP number and use the same number for purpose field, so addresses
-	 * won't be generated from overlapping BIP32 spaces.
-	 *
-	 * Example: Scheme described in BIP44 should use 44' (or 0x8000002C)
-	 * as purpose.
-	 */
-	/* Clearly, we should use 9735, the unicode point for lightning! */
-	if (bip32_key_from_parent(&master_extkey,
-				  BIP32_INITIAL_HARDENED_CHILD|9735,
-				  BIP32_FLAG_KEY_PRIVATE,
-				  &child_extkey) != WALLY_OK)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't derive bolt12 bip32 key");
-
-	/* libwally says: The private key with prefix byte 0; remove it
-	 * for libsecp256k1. */
-	if (secp256k1_keypair_create(secp256k1_ctx, &secretstuff.bolt12,
-				     child_extkey.priv_key+1) != 1)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "Can't derive bolt12 keypair");
-}
-
 /*~ This encrypts the content of the secretstuff and stores it in hsm_secret,
  * this is called instead of create_hsm() if `lightningd` is started with
  * --encrypted-hsm.
@@ -593,7 +486,7 @@ static void load_hsm(const struct secret *encryption_key)
 							  " seed.");
 	close(fd);
 
-	populate_secretstuff();
+	hsmd_init(secretstuff.hsm_secret, bip32_key_version);
 }
 
 /*~ This is the response to lightningd's HSM_INIT request, which is the first
@@ -658,9 +551,6 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 		              "Could derive bolt12 public key.");
 
-	/* Now we can consider ourselves initialized, and we won't get
-	 * upset if we get a non-init message. */
-	initialized = true;
 
 	/*~ Note: marshalling a bip32 tree only marshals the public side,
 	 * not the secrets!  So we're not actually handing them out here!
@@ -812,15 +702,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 		return bad_req_fmt(conn, c, c->msg_in,
 				   "does not have capability to run %d", t);
 
-	/* If we aren't initialized yet we better get an init message
-	 * first. Otherwise we don't load the secret and every
-	 * signature we produce is just going to be junk. */
-	if (!initialized && t != WIRE_HSMD_INIT)
-		status_failed(STATUS_FAIL_MASTER_IO,
-			      "hsmd was not initialized correctly, expected "
-			      "message type %d, got %d",
-			      WIRE_HSMD_INIT, t);
-
 	/* Now actually go and do what the client asked for */
 	switch (t) {
 	case WIRE_HSMD_INIT:
@@ -828,6 +709,13 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 
 	case WIRE_HSMD_CLIENT_HSMFD:
 		return pass_client_hsmfd(conn, c, c->msg_in);
+
+#if DEVELOPER
+	case WIRE_HSMD_DEV_MEMLEAK:
+		return handle_memleak(conn, c, c->msg_in);
+#else
+	case WIRE_HSMD_DEV_MEMLEAK:
+#endif /* DEVELOPER */
 
 	case WIRE_HSMD_SIGN_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_PENALTY_TO_US:
@@ -854,12 +742,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 				 take(hsmd_handle_client_message(
 				     tmpctx, c->hsmd_client, c->msg_in)));
 
-#if DEVELOPER
-	case WIRE_HSMD_DEV_MEMLEAK:
-		return handle_memleak(conn, c, c->msg_in);
-#else
-	case WIRE_HSMD_DEV_MEMLEAK:
-#endif /* DEVELOPER */
 	case WIRE_HSMD_ECDH_RESP:
 	case WIRE_HSMD_CANNOUNCEMENT_SIG_REPLY:
 	case WIRE_HSMD_CUPDATE_SIG_REPLY:
@@ -878,7 +760,10 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_SIGN_MESSAGE_REPLY:
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY:
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:
-		break;
+		return bad_req_fmt(conn, c, c->msg_in,
+				   "Received an incoming message of type %s, "
+				   "which is not a request",
+				   hsmd_wire_name(t));
 	}
 
 	return bad_req_fmt(conn, c, c->msg_in, "Unknown request");

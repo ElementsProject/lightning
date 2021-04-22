@@ -1334,7 +1334,11 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_CLIENT_HSMFD:
 		/* Not implemented yet. Should not have been passed here yet. */
-		return hsmd_status_bad_request_fmt(client, msg, "Not implemented yet.");
+		return hsmd_status_bad_request_fmt(
+		    client, msg,
+		    "Message of type %s should be handled externally to "
+		    "libhsmd",
+		    hsmd_wire_name(t));
 
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY:
 		return handle_get_output_scriptpubkey(client, msg);
@@ -1399,4 +1403,122 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		break;
 	}
 	return hsmd_status_bad_request(client, msg, "Unknown request");
+}
+
+u8 *hsmd_init(struct secret hsm_secret,
+	      struct bip32_key_version bip32_key_version)
+{
+	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
+	u32 salt = 0;
+	struct ext_key master_extkey, child_extkey;
+
+	/*~ Don't swap this. */
+	sodium_mlock(secretstuff.hsm_secret.data,
+		     sizeof(secretstuff.hsm_secret.data));
+	memcpy(secretstuff.hsm_secret.data, hsm_secret.data, sizeof(hsm_secret.data));
+
+	assert(bip32_key_version.bip32_pubkey_version == BIP32_VER_MAIN_PUBLIC
+			|| bip32_key_version.bip32_pubkey_version == BIP32_VER_TEST_PUBLIC);
+
+	assert(bip32_key_version.bip32_privkey_version == BIP32_VER_MAIN_PRIVATE
+			|| bip32_key_version.bip32_privkey_version == BIP32_VER_TEST_PRIVATE);
+
+	/* Fill in the BIP32 tree for bitcoin addresses. */
+	/* In libwally-core, the version BIP32_VER_TEST_PRIVATE is for testnet/regtest,
+	 * and BIP32_VER_MAIN_PRIVATE is for mainnet. For litecoin, we also set it like
+	 * bitcoin else.*/
+	do {
+		hkdf_sha256(bip32_seed, sizeof(bip32_seed),
+			    &salt, sizeof(salt),
+			    &secretstuff.hsm_secret,
+			    sizeof(secretstuff.hsm_secret),
+			    "bip32 seed", strlen("bip32 seed"));
+		salt++;
+	} while (bip32_key_from_seed(bip32_seed, sizeof(bip32_seed),
+				     bip32_key_version.bip32_privkey_version,
+				     0, &master_extkey) != WALLY_OK);
+
+#if DEVELOPER
+	/* In DEVELOPER mode, we can override with --dev-force-bip32-seed */
+	if (dev_force_bip32_seed) {
+		if (bip32_key_from_seed(dev_force_bip32_seed->data,
+					sizeof(dev_force_bip32_seed->data),
+					bip32_key_version.bip32_privkey_version,
+					0, &master_extkey) != WALLY_OK)
+			hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+					   "Can't derive bip32 master key");
+	}
+#endif /* DEVELOPER */
+
+	/* BIP 32:
+	 *
+	 * The default wallet layout
+	 *
+	 * An HDW is organized as several 'accounts'. Accounts are numbered,
+	 * the default account ("") being number 0. Clients are not required
+	 * to support more than one account - if not, they only use the
+	 * default account.
+	 *
+	 * Each account is composed of two keypair chains: an internal and an
+	 * external one. The external keychain is used to generate new public
+	 * addresses, while the internal keychain is used for all other
+	 * operations (change addresses, generation addresses, ..., anything
+	 * that doesn't need to be communicated). Clients that do not support
+	 * separate keychains for these should use the external one for
+	 * everything.
+	 *
+	 *  - m/iH/0/k corresponds to the k'th keypair of the external chain of
+	 * account number i of the HDW derived from master m.
+	 */
+	/* Hence child 0, then child 0 again to get extkey to derive from. */
+	if (bip32_key_from_parent(&master_extkey, 0, BIP32_FLAG_KEY_PRIVATE,
+				  &child_extkey) != WALLY_OK)
+		/*~ status_failed() is a helper which exits and sends lightningd
+		 * a message about what happened.  For hsmd, that's fatal to
+		 * lightningd. */
+		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				   "Can't derive child bip32 key");
+
+	if (bip32_key_from_parent(&child_extkey, 0, BIP32_FLAG_KEY_PRIVATE,
+				  &secretstuff.bip32) != WALLY_OK)
+		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				   "Can't derive private bip32 key");
+
+	/* BIP 33:
+	 *
+	 * We propose the first level of BIP32 tree structure to be used as
+	 * "purpose". This purpose determines the further structure beneath
+	 * this node.
+	 *
+	 *  m / purpose' / *
+	 *
+	 * Apostrophe indicates that BIP32 hardened derivation is used.
+	 *
+	 * We encourage different schemes to apply for assigning a separate
+	 * BIP number and use the same number for purpose field, so addresses
+	 * won't be generated from overlapping BIP32 spaces.
+	 *
+	 * Example: Scheme described in BIP44 should use 44' (or 0x8000002C)
+	 * as purpose.
+	 */
+	/* Clearly, we should use 9735, the unicode point for lightning! */
+	if (bip32_key_from_parent(&master_extkey,
+				  BIP32_INITIAL_HARDENED_CHILD|9735,
+				  BIP32_FLAG_KEY_PRIVATE,
+				  &child_extkey) != WALLY_OK)
+		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				   "Can't derive bolt12 bip32 key");
+
+	/* libwally says: The private key with prefix byte 0; remove it
+	 * for libsecp256k1. */
+	if (secp256k1_keypair_create(secp256k1_ctx, &secretstuff.bolt12,
+				     child_extkey.priv_key+1) != 1)
+		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				   "Can't derive bolt12 keypair");
+
+	/* Now we can consider ourselves initialized, and we won't get
+	 * upset if we get a non-init message. */
+	initialized = true;
+
+	return NULL;  /* TODO Fill in once we finish migrating. */
 }
