@@ -3,6 +3,7 @@
 #include <common/bolt12_merkle.h>
 #include <common/hash_u5.h>
 #include <common/key_derive.h>
+#include <common/type_to_string.h>
 #include <hsmd/capabilities.h>
 #include <hsmd/libhsmd.h>
 #include <wire/peer_wire.h>
@@ -297,6 +298,106 @@ static void hsm_unilateral_close_privkey(struct privkey *dst,
 					dst)) {
 		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				   "Deriving unilateral_close_privkey");
+	}
+}
+
+/*~ Get the keys for this given BIP32 index: if privkey is NULL, we
+ * don't fill it in. */
+static void bitcoin_key(struct privkey *privkey, struct pubkey *pubkey,
+			u32 index)
+{
+	struct ext_key ext;
+	struct privkey unused_priv;
+
+	if (privkey == NULL)
+		privkey = &unused_priv;
+
+	if (index >= BIP32_INITIAL_HARDENED_CHILD)
+		hsmd_status_failed(STATUS_FAIL_MASTER_IO, "Index %u too great",
+				   index);
+
+	/*~ This uses libwally, which doesn't dovetail directly with
+	 * libsecp256k1 even though it, too, uses it internally. */
+	if (bip32_key_from_parent(&secretstuff.bip32, index,
+				  BIP32_FLAG_KEY_PRIVATE, &ext) != WALLY_OK)
+		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				   "BIP32 of %u failed", index);
+
+	/* libwally says: The private key with prefix byte 0; remove it
+	 * for libsecp256k1. */
+	memcpy(privkey->secret.data, ext.priv_key+1, 32);
+	if (!secp256k1_ec_pubkey_create(secp256k1_ctx, &pubkey->pubkey,
+					privkey->secret.data))
+		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				   "BIP32 pubkey %u create failed", index);
+}
+
+/* This gets the bitcoin private key needed to spend from our wallet */
+static void hsm_key_for_utxo(struct privkey *privkey, struct pubkey *pubkey,
+			     const struct utxo *utxo)
+{
+	if (utxo->close_info != NULL) {
+		/* This is a their_unilateral_close/to-us output, so
+		 * we need to derive the secret the long way */
+		hsmd_status_debug("Unilateral close output, deriving secrets");
+		hsm_unilateral_close_privkey(privkey, utxo->close_info);
+		pubkey_from_privkey(privkey, pubkey);
+		hsmd_status_debug("Derived public key %s from unilateral close",
+			     type_to_string(tmpctx, struct pubkey, pubkey));
+	} else {
+		/* Simple case: just get derive via HD-derivation */
+		bitcoin_key(privkey, pubkey, utxo->keyindex);
+	}
+}
+
+/* Find our inputs by the pubkey associated with the inputs, and
+ * add a partial sig for each */
+static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
+{
+	for (size_t i = 0; i < tal_count(utxos); i++) {
+		struct utxo *utxo = utxos[i];
+		for (size_t j = 0; j < psbt->num_inputs; j++) {
+			struct privkey privkey;
+			struct pubkey pubkey;
+
+			if (!wally_tx_input_spends(&psbt->tx->inputs[j],
+						   &utxo->txid, utxo->outnum))
+				continue;
+
+			hsm_key_for_utxo(&privkey, &pubkey, utxo);
+
+			/* This line is basically the entire reason we have
+			 * to iterate through to match the psbt input
+			 * to the UTXO -- otherwise we would just
+			 * call wally_psbt_sign for every utxo privkey
+			 * and be done with it. We can't do that though
+			 * because any UTXO that's derived from channel_info
+			 * requires the HSM to find the pubkey, and we
+			 * skip doing that until now as a bit of a reduction
+			 * of complexity in the calling code */
+			psbt_input_add_pubkey(psbt, j, &pubkey);
+
+			/* It's actually a P2WSH in this case. */
+			if (utxo->close_info && utxo->close_info->option_anchor_outputs) {
+				const u8 *wscript = anchor_to_remote_redeem(tmpctx, &pubkey);
+				psbt_input_set_witscript(psbt, j, wscript);
+				psbt_input_set_wit_utxo(psbt, j,
+							scriptpubkey_p2wsh(psbt, wscript),
+							utxo->amount);
+			}
+			tal_wally_start();
+			if (wally_psbt_sign(psbt, privkey.secret.data,
+					    sizeof(privkey.secret.data),
+					    EC_FLAG_GRIND_R) != WALLY_OK)
+				hsmd_status_broken(
+				    "Received wally_err attempting to "
+				    "sign utxo with key %s. PSBT: %s",
+				    type_to_string(tmpctx, struct pubkey,
+						   &pubkey),
+				    type_to_string(tmpctx, struct wally_psbt,
+						   psbt));
+			tal_wally_end(psbt);
+		}
 	}
 }
 
@@ -761,6 +862,22 @@ static u8 *handle_get_per_commitment_point(struct hsmd_client *c, const u8 *msg_
 	    NULL, &per_commitment_point, old_secret);
 }
 
+/*~ lightningd asks us to sign a withdrawal; same as above but in theory
+ * we can do more to check the previous case is valid. */
+static u8 *handle_sign_withdrawal_tx(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct utxo **utxos;
+	struct wally_psbt *psbt;
+
+	if (!fromwire_hsmd_sign_withdrawal(tmpctx, msg_in,
+					  &utxos, &psbt))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	sign_our_inputs(utxos, psbt);
+
+	return towire_hsmd_sign_withdrawal_reply(NULL, psbt);
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -787,7 +904,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	switch (t) {
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_CLIENT_HSMFD:
-	case WIRE_HSMD_SIGN_WITHDRAWAL:
 	case WIRE_HSMD_SIGN_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
@@ -821,6 +937,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_channel_update_sig(client, msg);
 	case WIRE_HSMD_GET_PER_COMMITMENT_POINT:
 		return handle_get_per_commitment_point(client, msg);
+	case WIRE_HSMD_SIGN_WITHDRAWAL:
+		return handle_sign_withdrawal_tx(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:

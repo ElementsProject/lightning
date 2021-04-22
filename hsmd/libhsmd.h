@@ -70,6 +70,8 @@ void hsmd_status_fmt(enum log_level level,
 
 #define hsmd_status_debug(...)				\
 	hsmd_status_fmt(LOG_DBG, NULL, __VA_ARGS__)
+#define hsmd_status_broken(...)				\
+	hsmd_status_fmt(LOG_BROKEN, NULL, __VA_ARGS__)
 
 void hsmd_status_failed(enum status_failreason code,
 			const char *fmt, ...) PRINTF_FMT(2,3);
