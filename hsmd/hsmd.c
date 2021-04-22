@@ -786,57 +786,6 @@ static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
 			 take(towire_hsmd_sign_commitment_tx_reply(NULL, &sig)));
 }
 
-/*~ This is used by channeld to create signatures for the remote peer's
- * commitment transaction.  It's functionally identical to signing our own,
- * but we expect to do this repeatedly as commitment transactions are
- * updated.
- *
- * The HSM almost certainly *should* do more checks before signing!
- */
-/* FIXME: make sure it meets some criteria? */
-static struct io_plan *handle_sign_remote_commitment_tx(struct io_conn *conn,
-							struct client *c,
-							const u8 *msg_in)
-{
-	struct pubkey remote_funding_pubkey, local_funding_pubkey;
-	struct secret channel_seed;
-	struct bitcoin_tx *tx;
-	struct bitcoin_signature sig;
-	struct secrets secrets;
-	const u8 *funding_wscript;
-	struct pubkey remote_per_commit;
-	bool option_static_remotekey;
-
-	if (!fromwire_hsmd_sign_remote_commitment_tx(tmpctx, msg_in,
-						    &tx,
-						    &remote_funding_pubkey,
-						    &remote_per_commit,
-						    &option_static_remotekey))
-		return bad_req(conn, c, msg_in);
-	tx->chainparams = c->chainparams;
-
-	/* Basic sanity checks. */
-	if (tx->wtx->num_inputs != 1)
-		return bad_req_fmt(conn, c, msg_in, "tx must have 1 input");
-	if (tx->wtx->num_outputs == 0)
-		return bad_req_fmt(conn, c, msg_in, "tx must have > 0 outputs");
-
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	derive_basepoints(&channel_seed,
-			  &local_funding_pubkey, NULL, &secrets, NULL);
-
-	funding_wscript = bitcoin_redeem_2of2(tmpctx,
-					      &local_funding_pubkey,
-					      &remote_funding_pubkey);
-	sign_tx_input(tx, 0, NULL, funding_wscript,
-		      &secrets.funding_privkey,
-		      &local_funding_pubkey,
-		      SIGHASH_ALL,
-		      &sig);
-
-	return req_reply(conn, c, take(towire_hsmd_sign_tx_reply(NULL, &sig)));
-}
-
 /*~ This covers several cases where onchaind is creating a transaction which
  * sends funds to our internal wallet. */
 /* FIXME: Derive output address for this client, and check it here! */
@@ -1182,8 +1131,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 		return handle_sign_penalty_to_us(conn, c, c->msg_in);
 
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
-		return handle_sign_remote_commitment_tx(conn, c, c->msg_in);
-
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TX:
 	case WIRE_HSMD_SIGN_MUTUAL_CLOSE_TX:
 	case WIRE_HSMD_GET_PER_COMMITMENT_POINT:
