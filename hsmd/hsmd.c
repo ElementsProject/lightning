@@ -732,60 +732,6 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 						     &bolt12)));
 }
 
-/*~ This is another lightningd-only interface; signing a commit transaction.
- * This is dangerous, since if we sign a revoked commitment tx we'll lose
- * funds, thus it's only available to lightningd.
- *
- *
- * Oh look, another FIXME! */
-/* FIXME: Ensure HSM never does this twice for same dbid! */
-static struct io_plan *handle_sign_commitment_tx(struct io_conn *conn,
-						 struct client *c,
-						 const u8 *msg_in)
-{
-	struct pubkey remote_funding_pubkey, local_funding_pubkey;
-	struct node_id peer_id;
-	u64 dbid;
-	struct secret channel_seed;
-	struct bitcoin_tx *tx;
-	struct bitcoin_signature sig;
-	struct secrets secrets;
-	const u8 *funding_wscript;
-
-	if (!fromwire_hsmd_sign_commitment_tx(tmpctx, msg_in,
-					     &peer_id, &dbid,
-					     &tx,
-					     &remote_funding_pubkey))
-		return bad_req(conn, c, msg_in);
-
-	tx->chainparams = c->chainparams;
-
-	/* Basic sanity checks. */
-	if (tx->wtx->num_inputs != 1)
-		return bad_req_fmt(conn, c, msg_in, "tx must have 1 input");
-	if (tx->wtx->num_outputs == 0)
-		return bad_req_fmt(conn, c, msg_in, "tx must have > 0 outputs");
-
-	get_channel_seed(&peer_id, dbid, &channel_seed);
-	derive_basepoints(&channel_seed,
-			  &local_funding_pubkey, NULL, &secrets, NULL);
-
-	/*~ Bitcoin signatures cover the (part of) the script they're
-	 * executing; the rules are a bit complex in general, but for
-	 * Segregated Witness it's simply the current script. */
-	funding_wscript = bitcoin_redeem_2of2(tmpctx,
-					      &local_funding_pubkey,
-					      &remote_funding_pubkey);
-	sign_tx_input(tx, 0, NULL, funding_wscript,
-		      &secrets.funding_privkey,
-		      &local_funding_pubkey,
-		      SIGHASH_ALL,
-		      &sig);
-
-	return req_reply(conn, c,
-			 take(towire_hsmd_sign_commitment_tx_reply(NULL, &sig)));
-}
-
 /*~ This covers several cases where onchaind is creating a transaction which
  * sends funds to our internal wallet. */
 /* FIXME: Derive output address for this client, and check it here! */
@@ -1075,15 +1021,13 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 	case WIRE_HSMD_CLIENT_HSMFD:
 		return pass_client_hsmfd(conn, c, c->msg_in);
 
-	case WIRE_HSMD_SIGN_COMMITMENT_TX:
-		return handle_sign_commitment_tx(conn, c, c->msg_in);
-
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
 		return handle_sign_delayed_payment_to_us(conn, c, c->msg_in);
 
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
 		return handle_sign_remote_htlc_to_us(conn, c, c->msg_in);
 
+	case WIRE_HSMD_SIGN_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_PENALTY_TO_US:
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TX:
