@@ -591,6 +591,140 @@ static void json_channel_open_failed(struct command *cmd,
 		unreserve_psbt(open);
 }
 
+static void policy_to_json(struct json_stream *stream,
+			   struct funder_policy *policy)
+{
+	json_add_string(stream, "summary",
+			funder_policy_desc(stream, current_policy));
+	json_add_string(stream, "policy",
+			funder_opt_name(policy->opt));
+	json_add_num(stream, "policy_mod", policy->mod);
+	json_add_amount_sat_only(stream, "min_their_funding",
+				 policy->min_their_funding);
+	json_add_amount_sat_only(stream, "max_their_funding",
+				 policy->max_their_funding);
+	json_add_amount_sat_only(stream, "per_channel_min",
+				 policy->per_channel_min);
+	json_add_amount_sat_only(stream, "per_channel_max",
+				 policy->per_channel_max);
+	json_add_amount_sat_only(stream, "reserve_tank",
+				 policy->reserve_tank);
+	json_add_num(stream, "fuzz_percent", policy->fuzz_factor);
+	json_add_num(stream, "fund_probability", policy->fund_probability);
+}
+
+static struct command_result *
+param_funder_opt(struct command *cmd, const char *name,
+		 const char *buffer, const jsmntok_t *tok,
+		 enum funder_opt **opt)
+{
+	char *opt_str, *err;
+
+	*opt = tal(cmd, enum funder_opt);
+	opt_str = tal_strndup(cmd, buffer + tok->start,
+			      tok->end - tok->start);
+
+	err = funding_option(opt_str, *opt);
+	if (err)
+		return command_fail_badparam(cmd, name, buffer, tok, err);
+
+	return NULL;
+}
+
+
+static struct command_result *
+param_policy_mod(struct command *cmd, const char *name,
+		 const char *buffer, const jsmntok_t *tok,
+		 u64 **mod)
+{
+	struct amount_sat sats;
+	char *arg_str, *err;
+
+	*mod = tal(cmd, u64);
+	arg_str = tal_strndup(cmd, buffer + tok->start,
+			      tok->end - tok->start);
+
+	err = u64_option(arg_str, *mod);
+	if (err) {
+		if (!parse_amount_sat(&sats, arg_str, strlen(arg_str)))
+			return command_fail_badparam(cmd, name,
+						     buffer, tok, err);
+
+		**mod = sats.satoshis; /* Raw: convert to u64 */
+	}
+
+	return NULL;
+}
+
+static struct command_result *
+json_funderupdate(struct command *cmd,
+		  const char *buf,
+		  const jsmntok_t *params)
+{
+	struct json_stream *res;
+	struct amount_sat *min_their_funding, *max_their_funding,
+			  *per_channel_min, *per_channel_max,
+			  *reserve_tank;
+	u32 *fuzz_factor, *fund_probability;
+	u64 *mod;
+	enum funder_opt *opt;
+	const char *err;
+	struct funder_policy policy = current_policy;
+
+	if (!param(cmd, buf, params,
+		   p_opt("policy", param_funder_opt, &opt),
+		   p_opt("policy_mod", param_policy_mod, &mod),
+		   p_opt("min_their_funding", param_sat, &min_their_funding),
+		   p_opt("max_their_funding", param_sat, &max_their_funding),
+		   p_opt("per_channel_min", param_sat, &per_channel_min),
+		   p_opt("per_channel_max", param_sat, &per_channel_max),
+		   p_opt("reserve_tank", param_sat, &reserve_tank),
+		   p_opt("fuzz_percent", param_number, &fuzz_factor),
+		   p_opt("fund_probability", param_number, &fund_probability),
+		   NULL))
+		return command_param_failed();
+
+	if (opt)
+		policy.opt = *opt;
+	if (mod)
+		policy.mod = *mod;
+	if (min_their_funding)
+		policy.min_their_funding = *min_their_funding;
+	if (max_their_funding)
+		policy.max_their_funding = *max_their_funding;
+	if (per_channel_min)
+		policy.per_channel_min = *per_channel_min;
+	if (per_channel_max)
+		policy.per_channel_max = *per_channel_max;
+	if (reserve_tank)
+		policy.reserve_tank = *reserve_tank;
+	if (fuzz_factor)
+		policy.fuzz_factor = *fuzz_factor;
+	if (fund_probability)
+		policy.fund_probability = *fund_probability;
+
+	err = funder_check_policy(&policy);
+	if (err)
+		return command_done_err(cmd, JSONRPC2_INVALID_PARAMS,
+					err, NULL);
+
+	current_policy = policy;
+	res = jsonrpc_stream_success(cmd);
+	policy_to_json(res, &current_policy);
+	return command_finished(cmd, res);
+}
+
+static const struct plugin_command commands[] = { {
+		"funderupdate",
+		"channels",
+		"Update configuration for dual-funding offer",
+		"Update current funder settings. Modifies how node"
+		" reacts to incoming channel open requests. Responds with list"
+		" of current configs.",
+		json_funderupdate
+	}
+};
+
 static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 {
 	const char *err;
@@ -668,7 +802,7 @@ int main(int argc, char **argv)
 
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, true,
 		    NULL,
-		    NULL, 0,
+		    commands, ARRAY_SIZE(commands),
 		    notifs, ARRAY_SIZE(notifs),
 		    hooks, ARRAY_SIZE(hooks),
 		    plugin_option("funder-policy",
