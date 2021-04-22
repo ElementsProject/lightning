@@ -1409,8 +1409,11 @@ u8 *hsmd_init(struct secret hsm_secret,
 	      struct bip32_key_version bip32_key_version)
 {
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
+	struct pubkey key;
+	struct pubkey32 bolt12;
 	u32 salt = 0;
 	struct ext_key master_extkey, child_extkey;
+	struct node_id node_id;
 
 	/*~ Don't swap this. */
 	sodium_mlock(secretstuff.hsm_secret.data,
@@ -1520,5 +1523,20 @@ u8 *hsmd_init(struct secret hsm_secret,
 	 * upset if we get a non-init message. */
 	initialized = true;
 
-	return NULL;  /* TODO Fill in once we finish migrating. */
+	/*~ We tell lightning our node id and (public) bip32 seed. */
+	node_key(NULL, &key);
+	node_id_from_pubkey(&node_id, &key);
+
+	/* We also give it the base key for bolt12 payerids */
+	if (secp256k1_keypair_xonly_pub(secp256k1_ctx, &bolt12.pubkey, NULL,
+					&secretstuff.bolt12) != 1)
+		hsmd_status_failed(STATUS_FAIL_INTERNAL_ERROR,
+				   "Could derive bolt12 public key.");
+
+	/*~ Note: marshalling a bip32 tree only marshals the public side,
+	 * not the secrets!  So we're not actually handing them out here!
+	 */
+	return take(towire_hsmd_init_reply(
+	    NULL, &node_id, &secretstuff.bip32,
+	    &bolt12));
 }
