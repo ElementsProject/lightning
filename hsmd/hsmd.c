@@ -46,11 +46,6 @@
  * stream from lightningd. */
 #define REQ_FD 3
 
-/* Version codes for BIP32 extended keys in libwally-core.
- * It's not suitable to add this struct into client struct,
- * so set it static.*/
-extern struct  bip32_key_version  bip32_key_version;
-
 #if DEVELOPER
 /* If they specify --dev-force-privkey it ends up in here. */
 extern struct privkey *dev_force_privkey;
@@ -459,6 +454,7 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	struct secrets *secrets;
 	struct sha256 *shaseed;
 	struct secret *hsm_encryption_key;
+	struct bip32_key_version bip32_key_version;
 
 	/* This must be lightningd. */
 	assert(is_lightningd(c));
