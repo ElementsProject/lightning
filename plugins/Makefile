@@ -156,3 +156,5 @@ $(PLUGIN_ALL_OBJS): $(PLUGIN_LIB_HEADER)
 ALL_C_HEADERS += plugins/list_of_builtin_plugins_gen.h
 plugins/list_of_builtin_plugins_gen.h: plugins/Makefile Makefile
 	@$(call VERBOSE,GEN $@,echo "static const char *list_of_builtin_plugins[] = { $(foreach d,$(notdir $(PLUGINS)),\"$d\",) NULL };" > $@)
+
+include plugins/test/Makefile
