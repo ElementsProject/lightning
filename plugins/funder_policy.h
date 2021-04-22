@@ -89,4 +89,7 @@ const char *funder_policy_desc(const tal_t *ctx,
 
 /* Convert a cmdline option to a funding_opt */
 char *funding_option(const char *arg, enum funder_opt *opt);
+
+/* Check policy settings, return error if fails */
+char *funder_check_policy(const struct funder_policy *policy);
 #endif /* LIGHTNING_PLUGINS_FUNDER_POLICY_H */

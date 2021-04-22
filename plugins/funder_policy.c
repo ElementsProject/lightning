@@ -89,6 +89,32 @@ default_funder_policy(enum funder_opt policy,
 				 100);
 }
 
+char *funder_check_policy(const struct funder_policy *policy)
+{
+	if (policy->fund_probability > 100)
+		return "fund_probability max is 100";
+
+	if (policy->fuzz_factor > 100)
+		return "fuzz_percent max is 100";
+
+	switch (policy->opt) {
+	case FIXED:
+		/* We don't do anything for fixed */
+		return NULL;
+	case MATCH:
+		if (policy->mod > 200)
+			return "Max allowed policy_mod for 'match'"
+			       " is 200";
+		return NULL;
+	case AVAILABLE:
+		if (policy->mod > 100)
+			return "Max allowed policy_mod for 'available'"
+			       " is 100";
+		return NULL;
+	}
+	abort();
+}
+
 static struct amount_sat
 apply_fuzz(u32 fuzz_factor, struct amount_sat val)
 {
