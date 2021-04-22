@@ -1205,6 +1205,52 @@ static u8 *handle_sign_commitment_tx(struct hsmd_client *c, const u8 *msg_in)
 	return towire_hsmd_sign_commitment_tx_reply(NULL, &sig);
 }
 
+/*~ This is used when a commitment transaction is onchain, and has an HTLC
+ * output paying to us (because we have the preimage); this signs that
+ * transaction, which lightningd will broadcast to collect the funds. */
+static u8 *handle_sign_remote_htlc_to_us(struct hsmd_client *c,
+					 const u8 *msg_in)
+{
+	struct secret channel_seed, htlc_basepoint_secret;
+	struct pubkey htlc_basepoint;
+	struct bitcoin_tx *tx;
+	struct pubkey remote_per_commitment_point;
+	struct privkey privkey;
+	u8 *wscript;
+	bool option_anchor_outputs;
+
+	if (!fromwire_hsmd_sign_remote_htlc_to_us(
+		tmpctx, msg_in, &remote_per_commitment_point, &tx, &wscript,
+		&option_anchor_outputs))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	tx->chainparams = c->chainparams;
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+
+	if (!derive_htlc_basepoint(&channel_seed, &htlc_basepoint,
+				   &htlc_basepoint_secret))
+		return hsmd_status_bad_request(c, msg_in,
+					       "Failed derive_htlc_basepoint");
+
+	if (!derive_simple_privkey(&htlc_basepoint_secret,
+				   &htlc_basepoint,
+				   &remote_per_commitment_point,
+				   &privkey))
+		return hsmd_status_bad_request(c, msg_in,
+					       "Failed deriving htlc privkey");
+
+	/* BOLT #3:
+	 * ## HTLC-Timeout and HTLC-Success Transactions
+	 *...
+	 * * if `option_anchor_outputs` applies to this commitment transaction,
+	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used.
+	 */
+	return handle_sign_to_us_tx(
+	    c, msg_in, tx, &privkey, wscript,
+	    option_anchor_outputs ? (SIGHASH_SINGLE | SIGHASH_ANYONECANPAY)
+				  : SIGHASH_ALL);
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -1232,7 +1278,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_INIT:
 	case WIRE_HSMD_CLIENT_HSMFD:
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
-	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
 		/* Not implemented yet. Should not have been passed here yet. */
 		return hsmd_status_bad_request_fmt(client, msg, "Not implemented yet.");
 
@@ -1272,6 +1317,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_penalty_to_us(client, msg);
 	case WIRE_HSMD_SIGN_COMMITMENT_TX:
 		return handle_sign_commitment_tx(client, msg);
+	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
+		return handle_sign_remote_htlc_to_us(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
