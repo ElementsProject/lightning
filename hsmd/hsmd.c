@@ -917,49 +917,6 @@ static struct io_plan *handle_sign_remote_htlc_to_us(struct io_conn *conn,
 				    : SIGHASH_ALL);
 }
 
-/*~ This is used when the remote peer's commitment transaction is revoked;
- * we can use the revocation secret to spend the outputs.  For simplicity,
- * we do them one at a time, though. */
-static struct io_plan *handle_sign_penalty_to_us(struct io_conn *conn,
-						 struct client *c,
-						 const u8 *msg_in)
-{
-	struct secret channel_seed, revocation_secret, revocation_basepoint_secret;
-	struct pubkey revocation_basepoint;
-	struct bitcoin_tx *tx;
-	struct pubkey point;
-	struct privkey privkey;
-	u8 *wscript;
-
-	if (!fromwire_hsmd_sign_penalty_to_us(tmpctx, msg_in,
-					     &revocation_secret,
-					     &tx, &wscript))
-		return bad_req(conn, c, msg_in);
-	tx->chainparams = c->chainparams;
-
-	if (!pubkey_from_secret(&revocation_secret, &point))
-		return bad_req_fmt(conn, c, msg_in, "Failed deriving pubkey");
-
-	get_channel_seed(&c->id, c->dbid, &channel_seed);
-	if (!derive_revocation_basepoint(&channel_seed,
-					 &revocation_basepoint,
-					 &revocation_basepoint_secret))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed deriving revocation basepoint");
-
-	if (!derive_revocation_privkey(&revocation_basepoint_secret,
-				       &revocation_secret,
-				       &revocation_basepoint,
-				       &point,
-				       &privkey))
-		return bad_req_fmt(conn, c, msg_in,
-				   "Failed deriving revocation privkey");
-
-	return handle_sign_to_us_tx(conn, c, msg_in,
-				    tx, &privkey, wscript,
-				    SIGHASH_ALL);
-}
-
 /*~ Since we process requests then service them in strict order, and because
  * only lightningd can request a new client fd, we can get away with a global
  * here!  But because we are being tricky, I set it to an invalid value when
@@ -1128,8 +1085,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 		return handle_sign_remote_htlc_to_us(conn, c, c->msg_in);
 
 	case WIRE_HSMD_SIGN_PENALTY_TO_US:
-		return handle_sign_penalty_to_us(conn, c, c->msg_in);
-
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TX:
 	case WIRE_HSMD_SIGN_MUTUAL_CLOSE_TX:
