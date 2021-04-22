@@ -292,46 +292,6 @@ static struct io_plan *req_reply(struct io_conn *conn,
 	return io_write_wire(conn, msg_out, client_read_next, c);
 }
 
-/*~ This returns the secret and/or public key for this node. */
-static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
-{
-	u32 salt = 0;
-	struct privkey unused_s;
-	struct pubkey unused_k;
-
-	/* If caller specifies NULL, they don't want the results. */
-	if (node_privkey == NULL)
-		node_privkey = &unused_s;
-	if (node_id == NULL)
-		node_id = &unused_k;
-
-	/*~ So, there is apparently a 1 in 2^127 chance that a random value is
-	 * not a valid private key, so this never actually loops. */
-	do {
-		/*~ ccan/crypto/hkdf_sha256 implements RFC5869 "Hardened Key
-		 * Derivation Functions".  That means that if a derived key
-		 * leaks somehow, the other keys are not compromised. */
-		hkdf_sha256(node_privkey, sizeof(*node_privkey),
-			    &salt, sizeof(salt),
-			    &secretstuff.hsm_secret,
-			    sizeof(secretstuff.hsm_secret),
-			    "nodeid", 6);
-		salt++;
-	} while (!secp256k1_ec_pubkey_create(secp256k1_ctx, &node_id->pubkey,
-					     node_privkey->secret.data));
-
-#if DEVELOPER
-	/* In DEVELOPER mode, we can override with --dev-force-privkey */
-	if (dev_force_privkey) {
-		*node_privkey = *dev_force_privkey;
-		if (!secp256k1_ec_pubkey_create(secp256k1_ctx, &node_id->pubkey,
-						node_privkey->secret.data))
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Failed to derive pubkey for dev_force_privkey");
-	}
-#endif
-}
-
 /*~ This encrypts the content of the secretstuff and stores it in hsm_secret,
  * this is called instead of create_hsm() if `lightningd` is started with
  * --encrypted-hsm.
@@ -485,8 +445,6 @@ static void load_hsm(const struct secret *encryption_key)
 							  "no plaintext nor encrypted"
 							  " seed.");
 	close(fd);
-
-	hsmd_init(secretstuff.hsm_secret, bip32_key_version);
 }
 
 /*~ This is the response to lightningd's HSM_INIT request, which is the first
@@ -495,9 +453,6 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 				struct client *c,
 				const u8 *msg_in)
 {
-	struct node_id node_id;
-	struct pubkey key;
-	struct pubkey32 bolt12;
 	struct privkey *privkey;
 	struct secret *seed;
 	struct secrets *secrets;
@@ -541,24 +496,8 @@ static struct io_plan *init_hsm(struct io_conn *conn,
 	if (hsm_encryption_key)
 		discard_key(take(hsm_encryption_key));
 
-	/*~ We tell lightning our node id and (public) bip32 seed. */
-	node_key(NULL, &key);
-	node_id_from_pubkey(&node_id, &key);
-
-	/* We also give it the base key for bolt12 payerids */
-	if (secp256k1_keypair_xonly_pub(secp256k1_ctx, &bolt12.pubkey, NULL,
-					&secretstuff.bolt12) != 1)
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-		              "Could derive bolt12 public key.");
-
-
-	/*~ Note: marshalling a bip32 tree only marshals the public side,
-	 * not the secrets!  So we're not actually handing them out here!
-	 */
 	return req_reply(conn, c,
-			 take(towire_hsmd_init_reply(NULL, &node_id,
-						     &secretstuff.bip32,
-						     &bolt12)));
+			 hsmd_init(secretstuff.hsm_secret, bip32_key_version));
 }
 
 /*~ Since we process requests then service them in strict order, and because
