@@ -1034,6 +1034,58 @@ static u8 *handle_sign_remote_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
 }
 
+/*~ This is used by channeld to create signatures for the remote peer's
+ * commitment transaction.  It's functionally identical to signing our own,
+ * but we expect to do this repeatedly as commitment transactions are
+ * updated.
+ *
+ * The HSM almost certainly *should* do more checks before signing!
+ */
+/* FIXME: make sure it meets some criteria? */
+static u8 *handle_sign_remote_commitment_tx(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct pubkey remote_funding_pubkey, local_funding_pubkey;
+	struct secret channel_seed;
+	struct bitcoin_tx *tx;
+	struct bitcoin_signature sig;
+	struct secrets secrets;
+	const u8 *funding_wscript;
+	struct pubkey remote_per_commit;
+	bool option_static_remotekey;
+
+	if (!fromwire_hsmd_sign_remote_commitment_tx(tmpctx, msg_in,
+						    &tx,
+						    &remote_funding_pubkey,
+						    &remote_per_commit,
+						    &option_static_remotekey))
+		return hsmd_status_malformed_request(c, msg_in);
+	tx->chainparams = c->chainparams;
+
+	/* Basic sanity checks. */
+	if (tx->wtx->num_inputs != 1)
+		return hsmd_status_bad_request_fmt(c, msg_in,
+						   "tx must have 1 input");
+
+	if (tx->wtx->num_outputs == 0)
+		return hsmd_status_bad_request_fmt(c, msg_in,
+						   "tx must have > 0 outputs");
+
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	derive_basepoints(&channel_seed,
+			  &local_funding_pubkey, NULL, &secrets, NULL);
+
+	funding_wscript = bitcoin_redeem_2of2(tmpctx,
+					      &local_funding_pubkey,
+					      &remote_funding_pubkey);
+	sign_tx_input(tx, 0, NULL, funding_wscript,
+		      &secrets.funding_privkey,
+		      &local_funding_pubkey,
+		      SIGHASH_ALL,
+		      &sig);
+
+	return towire_hsmd_sign_tx_reply(NULL, &sig);
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -1064,7 +1116,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_DELAYED_PAYMENT_TO_US:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TO_US:
 	case WIRE_HSMD_SIGN_PENALTY_TO_US:
-	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
 		/* Not implemented yet. Should not have been passed here yet. */
 		return hsmd_status_bad_request_fmt(client, msg, "Not implemented yet.");
 
@@ -1098,6 +1149,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_sign_local_htlc_tx(client, msg);
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TX:
 		return handle_sign_remote_htlc_tx(client, msg);
+	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
+		return handle_sign_remote_commitment_tx(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
