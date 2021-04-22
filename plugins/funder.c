@@ -593,7 +593,13 @@ static void json_channel_open_failed(struct command *cmd,
 
 static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 {
+	const char *err;
+
 	list_head_init(&pending_opens);
+
+	err = funder_check_policy(&current_policy);
+	if (err)
+		plugin_err(p, "Invalid parameter combination: %s", err);
 
 	return NULL;
 }
