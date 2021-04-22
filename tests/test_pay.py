@@ -4210,11 +4210,11 @@ def test_unreachable_routehint(node_factory, bitcoind):
     with pytest.raises(RpcError, match=r'Destination [a-f0-9]{66} is not reachable'):
         l1.rpc.pay(invoice)
 
-    assert(l1.daemon.is_in_log(
+    l1.daemon.wait_for_log(
         r"Removed routehint 0 because entrypoint {entrypoint} is unknown.".format(
             entrypoint=entrypoint
         )
-    ))
+    )
 
     # Now connect l2 to l3 to create a bridge, but without a
     # channel. The entrypoint will become known, but still
@@ -4225,11 +4225,13 @@ def test_unreachable_routehint(node_factory, bitcoind):
 
     with pytest.raises(RpcError, match=r'Destination [a-f0-9]{66} is not reachable') as excinfo:
         l1.rpc.pay(invoice)
-    assert(l1.daemon.is_in_log(
+
+    # Verify that we failed for the correct reason.
+    l1.daemon.wait_for_log(
         r"Removed routehint 0 because entrypoint {entrypoint} is unreachable.".format(
             entrypoint=entrypoint
         )
-    ))
+    )
 
     # Since we aborted once we realized the destination is unreachable
     # both directly, and via the routehints we should now just have a
