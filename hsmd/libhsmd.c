@@ -878,6 +878,40 @@ static u8 *handle_sign_withdrawal_tx(struct hsmd_client *c, const u8 *msg_in)
 	return towire_hsmd_sign_withdrawal_reply(NULL, psbt);
 }
 
+/* This is used by closingd to sign off on a mutual close tx. */
+static u8 *handle_sign_mutual_close_tx(struct hsmd_client *c, const u8 *msg_in)
+{
+	struct secret channel_seed;
+	struct bitcoin_tx *tx;
+	struct pubkey remote_funding_pubkey, local_funding_pubkey;
+	struct bitcoin_signature sig;
+	struct secrets secrets;
+	const u8 *funding_wscript;
+
+	if (!fromwire_hsmd_sign_mutual_close_tx(tmpctx, msg_in,
+					       &tx,
+					       &remote_funding_pubkey))
+		return hsmd_status_malformed_request(c, msg_in);
+
+	tx->chainparams = c->chainparams;
+	/* FIXME: We should know dust level, decent fee range and
+	 * balances, and final_keyindex, and thus be able to check tx
+	 * outputs! */
+	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	derive_basepoints(&channel_seed,
+			  &local_funding_pubkey, NULL, &secrets, NULL);
+
+	funding_wscript = bitcoin_redeem_2of2(tmpctx,
+					      &local_funding_pubkey,
+					      &remote_funding_pubkey);
+	sign_tx_input(tx, 0, NULL, funding_wscript,
+		      &secrets.funding_privkey,
+		      &local_funding_pubkey,
+		      SIGHASH_ALL, &sig);
+
+	return towire_hsmd_sign_tx_reply(NULL, &sig);
+}
+
 u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 			       const u8 *msg)
 {
@@ -911,7 +945,6 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 	case WIRE_HSMD_SIGN_LOCAL_HTLC_TX:
 	case WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX:
 	case WIRE_HSMD_SIGN_REMOTE_HTLC_TX:
-	case WIRE_HSMD_SIGN_MUTUAL_CLOSE_TX:
 		/* Not implemented yet. Should not have been passed here yet. */
 		return hsmd_status_bad_request_fmt(client, msg, "Not implemented yet.");
 
@@ -939,6 +972,8 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 		return handle_get_per_commitment_point(client, msg);
 	case WIRE_HSMD_SIGN_WITHDRAWAL:
 		return handle_sign_withdrawal_tx(client, msg);
+	case WIRE_HSMD_SIGN_MUTUAL_CLOSE_TX:
+		return handle_sign_mutual_close_tx(client, msg);
 
 	case WIRE_HSMD_DEV_MEMLEAK:
 	case WIRE_HSMD_ECDH_RESP:
