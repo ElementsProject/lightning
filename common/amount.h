@@ -83,6 +83,9 @@ WARN_UNUSED_RESULT bool amount_sat_sub_msat(struct amount_msat *val,
 WARN_UNUSED_RESULT bool amount_msat_scale(struct amount_msat *val,
 					  struct amount_msat msat,
 					  double scale);
+WARN_UNUSED_RESULT bool amount_sat_scale(struct amount_sat *val,
+					 struct amount_sat sat,
+					 double scale);
 
 struct amount_msat amount_msat_div(struct amount_msat msat, u64 div);
 struct amount_sat amount_sat_div(struct amount_sat sat, u64 div);
