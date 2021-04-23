@@ -1157,7 +1157,8 @@ requests an RBF for a channel funding transaction.
     "funding_feerate_per_kw": 7500,
     "feerate_our_max": 10000,
     "feerate_our_min": 253,
-    "locktime": 2453,
+    "channel_max_msat": "16777215000msat",
+    "locktime": 2453
   }
 }
 ```

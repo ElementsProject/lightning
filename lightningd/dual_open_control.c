@@ -183,6 +183,9 @@ struct rbf_channel_payload {
 	/* General info */
 	u32 feerate_our_max;
 	u32 feerate_our_min;
+	/* What's the maximum amount of funding
+	 * this channel can hold */
+	struct amount_sat channel_max;
 
 	/* Returned from hook */
 	struct amount_sat our_funding;
@@ -206,6 +209,8 @@ rbf_channel_hook_serialize(struct rbf_channel_payload *payload,
 		     payload->feerate_our_min);
 	json_add_num(stream, "funding_feerate_per_kw",
 		     payload->funding_feerate_per_kw);
+	json_add_amount_sat_only(stream, "channel_max_msat",
+				 payload->channel_max);
 	json_object_end(stream);
 }
 
@@ -1648,6 +1653,12 @@ static void rbf_got_offer(struct subd *dualopend, const u8 *msg)
 
 	/* No error message known (yet) */
 	payload->err_msg = NULL;
+
+	payload->channel_max = chainparams->max_funding;
+	if (feature_negotiated(dualopend->ld->our_features,
+			       channel->peer->their_features,
+			       OPT_LARGE_CHANNELS))
+		payload->channel_max = AMOUNT_SAT(UINT_MAX);
 
 	tal_add_destructor2(dualopend, rbf_channel_remove_dualopend, payload);
 	plugin_hook_call_rbf_channel(dualopend->ld, payload);
