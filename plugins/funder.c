@@ -539,6 +539,73 @@ json_openchannel2_call(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+/* Peer has asked us to RBF */
+static struct command_result *
+json_rbf_channel_call(struct command *cmd,
+		      const char *buf,
+		      const jsmntok_t *params)
+{
+	struct open_info *info = tal(cmd, struct open_info);
+	u64 feerate_our_max, feerate_our_min;
+	const char *err;
+	struct out_req *req;
+
+	err = json_scan(tmpctx, buf, params,
+			"{rbf_channel:"
+			"{id:%"
+			",channel_id:%"
+			",their_funding:%"
+			",funding_feerate_per_kw:%"
+			",feerate_our_max:%"
+			",feerate_our_min:%"
+			",locktime:%}}",
+			JSON_SCAN(json_to_node_id, &info->id),
+			JSON_SCAN(json_to_channel_id, &info->cid),
+			JSON_SCAN(json_to_sat, &info->their_funding),
+			JSON_SCAN(json_to_u64, &info->funding_feerate_perkw),
+			JSON_SCAN(json_to_u64, &feerate_our_max),
+			JSON_SCAN(json_to_u64, &feerate_our_min),
+			JSON_SCAN(json_to_u32, &info->locktime));
+
+	if (err)
+		plugin_err(cmd->plugin,
+			   "`rbf_channel` payload did not scan %s: %.*s",
+			   err, json_tok_full_len(params),
+			   json_tok_full(buf, params));
+
+	/* If there's no channel_max, it's actually infinity */
+	err = json_scan(tmpctx, buf, params,
+			"{rbf_channel:{channel_max_msat:%}}",
+			JSON_SCAN(json_to_sat, &info->channel_max));
+	if (err)
+		info->channel_max = AMOUNT_SAT(UINT64_MAX);
+
+	/* We don't fund anything that's above or below our feerate */
+	if (info->funding_feerate_perkw < feerate_our_min
+	    || info->funding_feerate_perkw > feerate_our_max) {
+
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "their feerate %"PRIu64" is out of"
+			   " our bounds (%"PRIu64"-%"PRIu64")",
+			   info->funding_feerate_perkw,
+			   feerate_our_min,
+			   feerate_our_max);
+
+		return command_hook_success(cmd);
+	}
+
+	/* Figure out what our funds are... same flow
+	 * as with openchannel2 callback. We assume that THEY
+	 * will use the same inputs, so we use whatever we want here */
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "listfunds",
+				    &listfunds_success,
+				    &listfunds_failed,
+				    info);
+
+	return send_outreq(cmd->plugin, req);
+}
+
 static void json_disconnect(struct command *cmd,
 			    const char *buf,
 			    const jsmntok_t *params)
@@ -750,6 +817,10 @@ const struct plugin_hook hooks[] = {
 	{
 		"openchannel2_sign",
 		json_openchannel2_sign_call,
+	},
+	{
+		"rbf_channel",
+		json_rbf_channel_call,
 	},
 };
 
