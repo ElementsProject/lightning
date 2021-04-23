@@ -104,8 +104,7 @@ bool bolt12_check_signature(const struct tlv_field *fields,
 			    const char *messagename,
 			    const char *fieldname,
 			    const struct pubkey32 *key,
-			    const struct bip340sig *sig)
-	NO_NULL_ARGS;
+			    const struct bip340sig *sig);
 
 /* Given a tal_arr of chains, does it contain this chain? */
 bool bolt12_chains_match(const struct bitcoin_blkid *chains,
