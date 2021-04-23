@@ -270,6 +270,10 @@ struct open_info {
 	struct channel_id cid;
 	struct node_id id;
 	struct amount_sat our_funding;
+	struct amount_sat their_funding;
+	struct amount_sat channel_max;
+	u64 funding_feerate_perkw;
+	u32 locktime;
 };
 
 static struct command_result *
@@ -336,16 +340,134 @@ psbt_fund_failed(struct command *cmd,
 }
 
 static struct command_result *
+listfunds_success(struct command *cmd,
+		  const char *buf,
+		  const jsmntok_t *result,
+		  struct open_info *info)
+{
+	struct amount_sat available_funds;
+	const jsmntok_t *outputs_tok, *tok;
+	struct out_req *req;
+	size_t i;
+
+	outputs_tok = json_get_member(buf, result, "outputs");
+	if (!outputs_tok)
+		plugin_err(cmd->plugin,
+			   "`listfunds` payload has no outputs token: %*.s",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+
+	available_funds = AMOUNT_SAT(0);
+	json_for_each_arr(i, tok, outputs_tok) {
+		struct amount_sat val;
+		bool is_reserved;
+		char *status;
+		const char *err;
+
+		err = json_scan(tmpctx, buf, tok,
+				"{amount_msat:%"
+				",status:%"
+				",reserved:%}",
+				JSON_SCAN(json_to_sat, &val),
+				JSON_SCAN_TAL(cmd, json_strdup, &status),
+				JSON_SCAN(json_to_bool, &is_reserved));
+		if (err)
+			plugin_err(cmd->plugin,
+				   "`listfunds` payload did not scan. %s: %*.s",
+				   err, json_tok_full_len(result),
+				   json_tok_full(buf, result));
+
+		/* we skip reserved funds */
+		if (is_reserved)
+			continue;
+
+		/* we skip unconfirmed+spent funds */
+		if (!streq(status, "confirmed"))
+			continue;
+
+		if (!amount_sat_add(&available_funds, available_funds, val))
+			plugin_err(cmd->plugin,
+				   "`listfunds` overflowed output values");
+
+		/* FIXME: count of utxos? */
+	}
+
+	info->our_funding = calculate_our_funding(current_policy,
+						  info->id,
+						  info->their_funding,
+						  available_funds,
+						  info->channel_max);
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Policy %s returned funding amount of %s",
+		   funder_policy_desc(tmpctx, current_policy),
+		   type_to_string(tmpctx, struct amount_sat,
+				  &info->our_funding));
+
+	if (amount_sat_eq(info->our_funding, AMOUNT_SAT(0)))
+		return command_hook_success(cmd);
+
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "Funding channel %s with %s (their input %s)",
+		   type_to_string(tmpctx, struct channel_id, &info->cid),
+		   type_to_string(tmpctx, struct amount_sat,
+				  &info->our_funding),
+		   type_to_string(tmpctx, struct amount_sat,
+				  &info->their_funding));
+
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "fundpsbt",
+				    &psbt_funded,
+				    &psbt_fund_failed,
+				    info);
+	json_add_bool(req->js, "reserve", true);
+	json_add_string(req->js, "satoshi",
+			type_to_string(tmpctx, struct amount_sat,
+				       &info->our_funding));
+	json_add_string(req->js, "feerate",
+			tal_fmt(tmpctx, "%"PRIu64"%s",
+				info->funding_feerate_perkw,
+				feerate_style_name(FEERATE_PER_KSIPA)));
+	/* Our startweight is zero because we're freeriding on their open
+	 * transaction ! */
+	json_add_num(req->js, "startweight", 0);
+	json_add_num(req->js, "min_witness_weight", 110);
+	json_add_bool(req->js, "excess_as_change", true);
+	json_add_num(req->js, "locktime", info->locktime);
+
+	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *
+listfunds_failed(struct command *cmd,
+		 const char *buf,
+		 const jsmntok_t *error,
+		 struct open_info *info)
+{
+
+	/* Something went wrong fetching the funds info
+	 * for our wallet. Just keep going */
+	plugin_log(cmd->plugin, LOG_INFORM,
+		   "Unable to fetch wallet funds info."
+		   " Continuing channel open to %s"
+		   " without our participation. err %.*s",
+		   type_to_string(tmpctx, struct node_id,
+				  &info->id),
+		   json_tok_full_len(error),
+		   json_tok_full(buf, error));
+
+	return command_hook_success(cmd);
+}
+
+static struct command_result *
 json_openchannel2_call(struct command *cmd,
 		       const char *buf,
 		       const jsmntok_t *params)
 {
 	struct open_info *info = tal(cmd, struct open_info);
-	struct amount_sat their_funding, available_funds, channel_max;
 	struct amount_msat max_htlc_inflight, htlc_minimum;
-	u64 funding_feerate_perkw, commitment_feerate_perkw,
+	u64 commitment_feerate_perkw,
 	    feerate_our_max, feerate_our_min;
-	u32 to_self_delay, max_accepted_htlcs, locktime;
+	u32 to_self_delay, max_accepted_htlcs;
 	u16 channel_flags;
 	const char *err;
 	struct out_req *req;
@@ -367,17 +489,17 @@ json_openchannel2_call(struct command *cmd,
 			",locktime:%}}",
 			JSON_SCAN(json_to_node_id, &info->id),
 			JSON_SCAN(json_to_channel_id, &info->cid),
-			JSON_SCAN(json_to_sat, &their_funding),
+			JSON_SCAN(json_to_sat, &info->their_funding),
 			JSON_SCAN(json_to_msat, &max_htlc_inflight),
 			JSON_SCAN(json_to_msat, &htlc_minimum),
-			JSON_SCAN(json_to_u64, &funding_feerate_perkw),
+			JSON_SCAN(json_to_u64, &info->funding_feerate_perkw),
 			JSON_SCAN(json_to_u64, &commitment_feerate_perkw),
 			JSON_SCAN(json_to_u64, &feerate_our_max),
 			JSON_SCAN(json_to_u64, &feerate_our_min),
 			JSON_SCAN(json_to_u32, &to_self_delay),
 			JSON_SCAN(json_to_u32, &max_accepted_htlcs),
 			JSON_SCAN(json_to_u16, &channel_flags),
-			JSON_SCAN(json_to_u32, &locktime));
+			JSON_SCAN(json_to_u32, &info->locktime));
 
 	if (err)
 		plugin_err(cmd->plugin,
@@ -389,54 +511,30 @@ json_openchannel2_call(struct command *cmd,
 	/* If there's no channel_max, it's actually infinity */
 	err = json_scan(tmpctx, buf, params,
 			"{openchannel2:{channel_max_msat:%}}",
-			JSON_SCAN(json_to_sat, &channel_max));
+			JSON_SCAN(json_to_sat, &info->channel_max));
 	if (err)
-		channel_max = AMOUNT_SAT(UINT64_MAX);
+		info->channel_max = AMOUNT_SAT(UINT64_MAX);
 
 	/* We don't fund anything that's above or below our feerate */
-	if (funding_feerate_perkw < feerate_our_min
-	    || funding_feerate_perkw > feerate_our_max)
+	if (info->funding_feerate_perkw < feerate_our_min
+	    || info->funding_feerate_perkw > feerate_our_max) {
+
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "their feerate %"PRIu64" is out of"
+			   " our bounds (%"PRIu64"-%"PRIu64")",
+			   info->funding_feerate_perkw,
+			   feerate_our_min,
+			   feerate_our_max);
+
 		return command_hook_success(cmd);
+	}
 
-	info->our_funding = calculate_our_funding(current_policy,
-						  info->id,
-						  their_funding,
-						  available_funds,
-						  channel_max);
-	plugin_log(cmd->plugin, LOG_DBG,
-		   "Policy %s returned funding amount of %s",
-		   funder_policy_desc(tmpctx, current_policy),
-		   type_to_string(tmpctx, struct amount_sat,
-				  &info->our_funding));
-
-	if (amount_sat_eq(info->our_funding, AMOUNT_SAT(0)))
-		return command_hook_success(cmd);
-
-	plugin_log(cmd->plugin, LOG_DBG,
-		   "Funding channel %s with %s (their input %s)",
-		   type_to_string(tmpctx, struct channel_id, &info->cid),
-		   type_to_string(tmpctx, struct amount_sat,
-				  &info->our_funding),
-		   type_to_string(tmpctx, struct amount_sat, &their_funding));
-
+	/* Figure out what our funds are */
 	req = jsonrpc_request_start(cmd->plugin, cmd,
-				    "fundpsbt",
-				    &psbt_funded,
-				    &psbt_fund_failed,
+				    "listfunds",
+				    &listfunds_success,
+				    &listfunds_failed,
 				    info);
-	json_add_bool(req->js, "reserve", true);
-	json_add_string(req->js, "satoshi",
-			type_to_string(tmpctx, struct amount_sat,
-				       &info->our_funding));
-	json_add_string(req->js, "feerate",
-			tal_fmt(tmpctx, "%"PRIu64"%s", funding_feerate_perkw,
-				feerate_style_name(FEERATE_PER_KSIPA)));
-	/* Our startweight is zero because we're freeriding on their open
-	 * transaction ! */
-	json_add_num(req->js, "startweight", 0);
-	json_add_num(req->js, "min_witness_weight", 110);
-	json_add_bool(req->js, "excess_as_change", true);
-	json_add_num(req->js, "locktime", locktime);
 
 	return send_outreq(cmd->plugin, req);
 }
