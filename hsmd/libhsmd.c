@@ -50,7 +50,8 @@ struct hsmd_client *hsmd_client_new_peer(const tal_t *ctx, u64 capabilities,
 }
 
 /*~ This routine checks that a client is allowed to call the handler. */
-bool check_client_capabilities(struct hsmd_client *client, enum hsmd_wire t)
+bool hsmd_check_client_capabilities(struct hsmd_client *client,
+				    enum hsmd_wire t)
 {
 	/*~ Here's a useful trick: enums in C are not real types, they're
 	 * semantic sugar sprinkled over an int, bascally (in fact, older
@@ -1319,7 +1320,7 @@ u8 *hsmd_handle_client_message(const tal_t *ctx, struct hsmd_client *client,
 
 	/* Before we do anything else, is this client allowed to do
 	 * what he asks for? */
-	if (!check_client_capabilities(client, t))
+	if (!hsmd_check_client_capabilities(client, t))
 		return hsmd_status_bad_request_fmt(
 		    client, msg, "does not have capability to run %d", t);
 

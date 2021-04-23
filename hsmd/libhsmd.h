@@ -90,9 +90,9 @@ void hsmd_status_fmt(enum log_level level,
 void hsmd_status_failed(enum status_failreason code,
 			const char *fmt, ...) PRINTF_FMT(2,3);
 
-/* The following declarations are here only temporarily while we migrate logic from hsmd.c to libhsmd.c */
+/* Given a message type and a client that sent the message, determine
+ * whether the client was permitted to send such a message. */
+bool hsmd_check_client_capabilities(struct hsmd_client *client,
+				    enum hsmd_wire t);
 
-bool check_client_capabilities(struct hsmd_client *client, enum hsmd_wire t);
-
-/* end of temporary global declarations. The above will be removed once we complete the migration. */
 #endif /* LIGHTNING_HSMD_LIBHSMD_H */

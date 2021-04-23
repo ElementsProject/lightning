@@ -633,9 +633,10 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 
 	/* Before we do anything else, is this client allowed to do
 	 * what he asks for? */
-	if (!check_client_capabilities(c->hsmd_client, t))
+	if (!hsmd_check_client_capabilities(c->hsmd_client, t))
 		return bad_req_fmt(conn, c, c->msg_in,
-				   "does not have capability to run %d", t);
+				   "client does not have capability to run %d",
+				   t);
 
 	/* Now actually go and do what the client asked for */
 	switch (t) {
