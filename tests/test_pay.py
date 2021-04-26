@@ -3560,13 +3560,6 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
     with more than sufficient capacity, as well.
     '''
     opts = {'feerates': (1000, 1000, 1000, 1000)}
-    if EXPERIMENTAL_DUAL_FUND:
-        # fundbalancedchannel doesn't work for opt_dual_fund
-        # because we've removed push_msat
-        opts['experimental-dual-fund'] = None
-        opts['funder-policy'] = 'match'
-        opts['funder-policy-mod'] = 100
-        opts['funder-fuzz-percent'] = 0
 
     l1, l2, l3, l4, l5, l6, l7 = node_factory.get_nodes(7, opts=opts)
 
@@ -3691,13 +3684,6 @@ def test_mpp_overload_payee(node_factory, bitcoind):
     # default limit in the future, so explicitly put this value here, since
     # that is what our test assumes.
     opts = {'max-concurrent-htlcs': 30}
-    if EXPERIMENTAL_DUAL_FUND:
-        # fundbalancedchannel doesn't work for opt_dual_fund
-        # because we've removed push_msat
-        opts['experimental-dual-fund'] = None
-        opts['funder-policy'] = 'match'
-        opts['funder-policy-mod'] = 100
-        opts['funder-fuzz-percent'] = 0
 
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts)
 
