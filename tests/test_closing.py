@@ -2,7 +2,7 @@ from fixtures import *  # noqa: F401,F403
 from flaky import flaky
 from pyln.client import RpcError, Millisatoshi
 from shutil import copyfile
-from pyln.testing.utils import SLOW_MACHINE, EXPERIMENTAL_DUAL_FUND
+from pyln.testing.utils import SLOW_MACHINE
 from utils import (
     only_one, sync_blockheight, wait_for, TIMEOUT,
     account_balance, first_channel_id, basic_fee, TEST_NETWORK,
@@ -2702,7 +2702,7 @@ Try a range of future segwit versions as shutdown scripts.  We create many nodes
             l1.rpc.fundchannel(l2.info['id'], 10**6)
 
 
-@unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "Uses fundchannel_start")
+@pytest.mark.openchannel('v1')
 def test_shutdown_alternate_txid(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False,
                                      opts={'experimental-shutdown-wrong-funding': None,
