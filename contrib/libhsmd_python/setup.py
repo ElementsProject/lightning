@@ -1,17 +1,62 @@
 #!/usr/bin/env python
 
-"""
-setup.py file for SWIG example
-"""
-
-from distutils.core import setup, Extension
 import os
+import pathlib
+import subprocess
+
+from setuptools import Extension, setup
+from setuptools.command.build_ext import build_ext as build_ext_orig
+
+
+cwd = pathlib.Path(os.path.dirname(__file__))
+
+
+class ClExtension(Extension):
+    def __init__(self, name, **kwargs):
+        # don't invoke the original build_ext for this special extension
+        super().__init__(name, **kwargs)
+
+
+# The directory we compile external depencies is architecture specific.
+external_target = pathlib.Path("external") / subprocess.check_output(
+    ["clang", "-dumpmachine"]
+).strip().decode("ASCII")
+
+
+class build_ext(build_ext_orig):
+    def run(self):
+        for ext in self.extensions:
+            self.build_make(ext)
+        super().run()
+
+    def build_make(self, ext):
+        cwd = pathlib.Path().absolute()
+        srcdir = cwd / "src"
+
+        if not srcdir.exists():
+            subprocess.check_call(
+                [
+                    "git",
+                    "clone",
+                    "--recursive",
+                    '--branch=libhsmd-python',
+                    "https://github.com/cdecker/lightning.git",
+                    "src",
+                ],
+                cwd=cwd,
+            )
+
+        subprocess.check_call(["./configure"], cwd=cwd / "src")
+
+        # Selectively build some targets we rely on later
+        subprocess.check_call(["make", "lightningd/lightning_hsmd"], cwd=srcdir)
+
 
 # Absolute include dirs which we will later expand to full paths.
 include_dirs = [
     ".",
     "ccan/",
-    "external/libbacktrace/",
+    f"{external_target}/libbacktrace-build/",
     "external/libbacktrace/",
     "external/libsodium/src/libsodium/include/sodium/",
     "external/libwally-core/",
@@ -21,6 +66,7 @@ include_dirs = [
     "external/libwally-core/src/secp256k1/",
     "external/libwally-core/src/secp256k1/include/",
     "external/libwally-core/src/secp256k1/src",
+    'contrib/libhsmd_python/',
 ]
 
 sources = [
@@ -148,13 +194,15 @@ sources = [
     "wire/wire_sync.c",
 ]
 
-include_dirs = [os.path.abspath(os.path.join("../../", f)) for f in include_dirs] + ['.']
-sources = [os.path.abspath(os.path.join("../../", f)) for f in sources]
+include_dirs = [os.path.join("src", f) for f in include_dirs]
+sources = [os.path.join("src", f) for f in sources]
 
-configvars = open("../../config.vars", "r").readlines()
-configtuples = [tuple(v.strip().split("=", 1)) for v in configvars]
+configtuples = []
+if pathlib.Path('src/config.vars').exists():
+    configvars = open("src/config.vars", "r").readlines()
+    configtuples = [tuple(v.strip().split("=", 1)) for v in configvars]
 
-libhsmd_module = Extension(
+libhsmd_module = ClExtension(
     "_libhsmd",
     libraries=["sodium"],
     include_dirs=include_dirs,
@@ -178,8 +226,16 @@ libhsmd_module = Extension(
 setup(
     name="libhsmd",
     version="0.10.0",
-    author="SWIG Docs",
-    description="""Simple swig example from docs""",
+    author="Christian Decker",
+    author_email="cdecker@blockstream.com",
+    description="""Python wrapper to the libhsmd library""",
+    url="https://github.com/ElementsProject/lightning/tree/master/contrib/libhsmd_python/",
     ext_modules=[libhsmd_module],
     py_modules=["libhsmd"],
+    cmdclass={
+        "build_ext": build_ext,
+    },
+    long_description=open(cwd / "README.md", "r").read(),
+    long_description_content_type="text/markdown",
+    license="BSD-MIT"
 )
