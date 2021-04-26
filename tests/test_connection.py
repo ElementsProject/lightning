@@ -341,6 +341,7 @@ def test_disconnect_fundee(node_factory):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.developer
+@pytest.mark.openchannel('v2')
 def test_disconnect_fundee_v2(node_factory):
     # Now error on fundee side during channel open, with them funding
     disconnects = ['-WIRE_ACCEPT_CHANNEL2',
@@ -356,12 +357,11 @@ def test_disconnect_fundee_v2(node_factory):
                    '@WIRE_TX_COMPLETE',
                    '+WIRE_TX_COMPLETE']
 
-    l1 = node_factory.get_node(options={'experimental-dual-fund': None})
+    l1 = node_factory.get_node()
     l2 = node_factory.get_node(disconnect=disconnects,
                                options={'funder-policy': 'match',
                                         'funder-policy-mod': 100,
-                                        'funder-fuzz-percent': 0,
-                                        'experimental-dual-fund': None})
+                                        'funder-fuzz-percent': 0})
 
     l1.fundwallet(2000000)
     l2.fundwallet(2000000)
@@ -952,10 +952,9 @@ def test_funding_toolarge(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_v2_open(node_factory, bitcoind, chainparams):
-    l1, l2 = node_factory.get_nodes(2,
-                                    opts=[{'experimental-dual-fund': None},
-                                          {'experimental-dual-fund': None}])
+    l1, l2 = node_factory.get_nodes(2)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -1399,6 +1398,7 @@ def test_funding_external_wallet(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v1')  # We manually turn on dual-funding for select nodes
 def test_multifunding_v1_v2_mixed(node_factory, bitcoind):
     '''
     Simple test for multifundchannel, using v1 + v2
@@ -1439,21 +1439,20 @@ def test_multifunding_v1_v2_mixed(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_multifunding_v2_exclusive(node_factory, bitcoind):
     '''
     Simple test for multifundchannel, using v2
     '''
     # Two of three will reply with inputs of their own
-    options = [{'experimental-dual-fund': None},
+    options = [{},
                {'funder-policy': 'match',
                 'funder-policy-mod': 100,
-                'funder-fuzz-percent': 0,
-                'experimental-dual-fund': None},
+                'funder-fuzz-percent': 0},
                {'funder-policy': 'match',
                 'funder-policy-mod': 100,
-                'funder-fuzz-percent': 0,
-                'experimental-dual-fund': None},
-               {'experimental-dual-fund': None}]
+                'funder-fuzz-percent': 0},
+               {}]
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=options)
 
     l1.fundwallet(2000000)
@@ -2812,13 +2811,13 @@ def test_fail_unconfirmed(node_factory, bitcoind, executor):
 
 @pytest.mark.developer("need dev-disconnect")
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_fail_unconfirmed_openchannel2(node_factory, bitcoind, executor):
     """Test that if we crash with an unconfirmed connection to a known
     peer, we don't have a dangling peer in db"""
     # = is a NOOP disconnect, but sets up file.
-    l1 = node_factory.get_node(disconnect=['=WIRE_OPEN_CHANNEL2'],
-                               options={'experimental-dual-fund': None})
-    l2 = node_factory.get_node(options={'experimental-dual-fund': None})
+    l1 = node_factory.get_node(disconnect=['=WIRE_OPEN_CHANNEL2'])
+    l2 = node_factory.get_node()
 
     # First one, we close by mutual agreement.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)

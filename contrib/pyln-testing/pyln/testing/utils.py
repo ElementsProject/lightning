@@ -665,6 +665,8 @@ class LightningNode(object):
                 self.daemon.env["LIGHTNINGD_DEV_MEMLEAK"] = "1"
             if not may_reconnect:
                 self.daemon.opts["dev-no-reconnect"] = None
+        if EXPERIMENTAL_DUAL_FUND:
+            self.daemon.opts["experimental-dual-fund"] = None
 
         if options is not None:
             self.daemon.opts.update(options)
@@ -736,6 +738,10 @@ class LightningNode(object):
             # expected to contribute that same amount
             chan_capacity = total_capacity // 2
             total_capacity = chan_capacity * 2
+            # Tell the node to equally dual-fund the channel
+            remote_node.rpc.call('funderupdate', {'policy': 'match',
+                                                  'policy_mod': 100,
+                                                  'fuzz_percent': 0})
         else:
             chan_capacity = total_capacity
 
