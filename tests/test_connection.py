@@ -356,11 +356,11 @@ def test_disconnect_fundee_v2(node_factory):
                    '@WIRE_TX_COMPLETE',
                    '+WIRE_TX_COMPLETE']
 
-    accepter_plugin = os.path.join(os.path.dirname(__file__),
-                                   'plugins/df_accepter.py')
     l1 = node_factory.get_node(options={'experimental-dual-fund': None})
     l2 = node_factory.get_node(disconnect=disconnects,
-                               options={'plugin': accepter_plugin,
+                               options={'funder-policy': 'match',
+                                        'funder-policy-mod': 100,
+                                        'funder-fuzz-percent': 0,
                                         'experimental-dual-fund': None})
 
     l1.fundwallet(2000000)
@@ -1399,16 +1399,18 @@ def test_funding_external_wallet(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
-def test_multifunding_v2_v1_mixed(node_factory, bitcoind):
+def test_multifunding_v1_v2_mixed(node_factory, bitcoind):
     '''
     Simple test for multifundchannel, using v1 + v2
     '''
-    accepter_plugin = os.path.join(os.path.dirname(__file__),
-                                   'plugins/df_accepter.py')
     options = [{'experimental-dual-fund': None},
-               {'plugin': accepter_plugin,
+               {'funder-policy': 'match',
+                'funder-policy-mod': 100,
+                'funder-fuzz-percent': 0,
                 'experimental-dual-fund': None},
-               {'plugin': accepter_plugin,
+               {'funder-policy': 'match',
+                'funder-policy-mod': 100,
+                'funder-fuzz-percent': 0,
                 'experimental-dual-fund': None},
                {}]
 
@@ -1441,12 +1443,16 @@ def test_multifunding_v2_exclusive(node_factory, bitcoind):
     '''
     Simple test for multifundchannel, using v2
     '''
-    accepter_plugin = os.path.join(os.path.dirname(__file__),
-                                   'plugins/df_accepter.py')
     # Two of three will reply with inputs of their own
     options = [{'experimental-dual-fund': None},
-               {'plugin': accepter_plugin, 'experimental-dual-fund': None},
-               {'plugin': accepter_plugin, 'experimental-dual-fund': None},
+               {'funder-policy': 'match',
+                'funder-policy-mod': 100,
+                'funder-fuzz-percent': 0,
+                'experimental-dual-fund': None},
+               {'funder-policy': 'match',
+                'funder-policy-mod': 100,
+                'funder-fuzz-percent': 0,
+                'experimental-dual-fund': None},
                {'experimental-dual-fund': None}]
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=options)
 

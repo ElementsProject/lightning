@@ -3562,9 +3562,10 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
     if EXPERIMENTAL_DUAL_FUND:
         # fundbalancedchannel doesn't work for opt_dual_fund
         # because we've removed push_msat
-        accepter_plugin = os.path.join(os.path.dirname(__file__),
-                                       'plugins/df_accepter.py')
-        opts['plugin'] = accepter_plugin
+        opts['experimental-dual-fund'] = None
+        opts['funder-policy'] = 'match'
+        opts['funder-policy-mod'] = 100
+        opts['funder-fuzz-percent'] = 0
 
     l1, l2, l3, l4, l5, l6, l7 = node_factory.get_nodes(7, opts=opts)
 
@@ -3588,7 +3589,7 @@ def test_mpp_interference_2(node_factory, bitcoind, executor):
     # so that we can fund channels without making them balanced
     if EXPERIMENTAL_DUAL_FUND:
         for n in [l1, l2, l3, l4, l5, l6, l7]:
-            n.rpc.setacceptfundingmax('0msat')
+            n.rpc.call('funderupdate', {'fund_probability': 0})
 
     # The order in which the routes are built should not matter so
     # shuffle them.
@@ -3692,9 +3693,10 @@ def test_mpp_overload_payee(node_factory, bitcoind):
     if EXPERIMENTAL_DUAL_FUND:
         # fundbalancedchannel doesn't work for opt_dual_fund
         # because we've removed push_msat
-        accepter_plugin = os.path.join(os.path.dirname(__file__),
-                                       'plugins/df_accepter.py')
-        opts['plugin'] = accepter_plugin
+        opts['experimental-dual-fund'] = None
+        opts['funder-policy'] = 'match'
+        opts['funder-policy-mod'] = 100
+        opts['funder-fuzz-percent'] = 0
 
     l1, l2, l3, l4, l5, l6 = node_factory.get_nodes(6, opts=opts)
 
