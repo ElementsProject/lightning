@@ -1,5 +1,7 @@
 import pytest
 
+from pyln.testing.utils import DEVELOPER
+
 
 # This function is based upon the example of how to
 # "[make] test result information available in fixtures" at:
@@ -21,3 +23,14 @@ def pytest_runtest_makereport(item, call):
 def pytest_configure(config):
     config.addinivalue_line("markers",
                             "slow_test: slow tests aren't run under Valgrind")
+    config.addinivalue_line("markers",
+                            "developer: only run when developer is flagged on")
+
+
+def pytest_runtest_setup(item):
+    for mark in item.iter_markers(name='developer'):
+        if not DEVELOPER:
+            if len(mark.args):
+                pytest.skip('!DEVELOPER: {}'.format(mark.args[0]))
+            else:
+                pytest.skip('!DEVELOPER: Requires DEVELOPER=1')

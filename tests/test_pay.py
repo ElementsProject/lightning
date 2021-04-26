@@ -21,7 +21,7 @@ import time
 import unittest
 
 
-@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
+@pytest.mark.developer("needs to deactivate shadow routing")
 def test_pay(node_factory):
     l1, l2 = node_factory.line_graph(2)
 
@@ -70,7 +70,7 @@ def test_pay(node_factory):
     assert len(payments) == 1 and payments[0]['payment_preimage'] == preimage
 
 
-@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
+@pytest.mark.developer("needs to deactivate shadow routing")
 def test_pay_amounts(node_factory):
     l1, l2 = node_factory.line_graph(2)
     inv = l2.rpc.invoice(Millisatoshi("123sat"), 'test_pay_amounts', 'description')['bolt11']
@@ -87,7 +87,7 @@ def test_pay_amounts(node_factory):
     assert invoice['amount_received_msat'] >= Millisatoshi(123000)
 
 
-@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
+@pytest.mark.developer("needs to deactivate shadow routing")
 def test_pay_limits(node_factory, compat):
     """Test that we enforce fee max percentage and max delay"""
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
@@ -134,7 +134,7 @@ def test_pay_limits(node_factory, compat):
     assert status[0]['strategy'] == "Initial attempt"
 
 
-@unittest.skipIf(not DEVELOPER, "Gossip is too slow without developer")
+@pytest.mark.developer("Gossip is too slow without developer")
 def test_pay_exclude_node(node_factory, bitcoind):
     """Test excluding the node if there's the NODE-level error in the failure_code
     """
@@ -231,7 +231,7 @@ def test_pay0(node_factory):
         l1.rpc.waitsendpay(rhash)
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@pytest.mark.developer("needs DEVELOPER=1")
 def test_pay_disconnect(node_factory, bitcoind):
     """If the remote node has disconnected, we fail payment, but can try again when it reconnects"""
     l1, l2 = node_factory.line_graph(2, opts={'dev-max-fee-multiplier': 5,
@@ -281,7 +281,7 @@ def test_pay_disconnect(node_factory, bitcoind):
     l1.daemon.wait_for_log('ONCHAIN')
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_suppress_gossip")
+@pytest.mark.developer("needs DEVELOPER=1 for dev_suppress_gossip")
 def test_pay_get_error_with_update(node_factory):
     """We should process an update inside a temporary_channel_failure"""
     l1, l2, l3 = node_factory.line_graph(3, opts={'log-level': 'io'}, fundchannel=True, wait_for_announce=True)
@@ -310,7 +310,7 @@ def test_pay_get_error_with_update(node_factory):
     wait_for(lambda: not l1.is_channel_active(chanid2))
 
 
-@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
+@pytest.mark.developer("needs to deactivate shadow routing")
 def test_pay_optional_args(node_factory, compat):
     l1, l2 = node_factory.line_graph(2)
 
@@ -338,7 +338,7 @@ def test_pay_optional_args(node_factory, compat):
     assert len(l1.rpc.listsendpays()['payments']) == 3
 
 
-@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
+@pytest.mark.developer("needs to deactivate shadow routing")
 def test_payment_success_persistence(node_factory, bitcoind, executor):
     # Start two nodes and open a channel.. die during payment.
     # Feerates identical so we don't get gratuitous commit to update them
@@ -389,7 +389,7 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
     assert l1.rpc.dev_rhash(preimage)['rhash'] == inv1['payment_hash']
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@pytest.mark.developer("needs DEVELOPER=1")
 def test_payment_failed_persistence(node_factory, executor):
     # Start two nodes and open a channel.. die during payment.
     # Feerates identical so we don't get gratuitous commit to update them
@@ -440,7 +440,7 @@ def test_payment_failed_persistence(node_factory, executor):
         l1.rpc.pay(inv1['bolt11'])
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@pytest.mark.developer("needs DEVELOPER=1")
 def test_payment_duplicate_uncommitted(node_factory, executor):
     # We want to test two payments at the same time, before we send commit
     l1 = node_factory.get_node(disconnect=['=WIRE_UPDATE_ADD_HTLC-nocommit'])
@@ -474,7 +474,7 @@ def test_payment_duplicate_uncommitted(node_factory, executor):
     fut2.result(TIMEOUT)
 
 
-@unittest.skipIf(not DEVELOPER, "Too slow without --dev-fast-gossip")
+@pytest.mark.developer("Too slow without --dev-fast-gossip")
 def test_pay_maxfee_shadow(node_factory):
     """Test that we respect maxfeepercent for shadow routing."""
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=True,
@@ -1011,7 +1011,7 @@ def test_decodepay(node_factory):
         l1.rpc.decodepay('1111111')
 
 
-@unittest.skipIf(not DEVELOPER, "Too slow without --dev-fast-gossip")
+@pytest.mark.developer("Too slow without --dev-fast-gossip")
 def test_forward(node_factory, bitcoind):
     # Connect 1 -> 2 -> 3.
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True)
@@ -1067,7 +1067,7 @@ def test_forward(node_factory, bitcoind):
     l1.rpc.waitsendpay(rhash)
 
 
-@unittest.skipIf(not DEVELOPER, "needs --dev-fast-gossip")
+@pytest.mark.developer("needs --dev-fast-gossip")
 def test_forward_different_fees_and_cltv(node_factory, bitcoind):
     # FIXME: Check BOLT quotes here too
     # BOLT #7:
@@ -1203,7 +1203,7 @@ def test_forward_different_fees_and_cltv(node_factory, bitcoind):
         assert c[1]['source'] == c[0]['destination']
 
 
-@unittest.skipIf(not DEVELOPER, "too slow without --dev-fast-gossip")
+@pytest.mark.developer("too slow without --dev-fast-gossip")
 def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     """Test that we are allowed extra locktime delta, and fees"""
 
@@ -1254,7 +1254,7 @@ def test_forward_pad_fees_and_cltv(node_factory, bitcoind):
     assert only_one(l3.rpc.listinvoices('test_forward_pad_fees_and_cltv')['invoices'])['status'] == 'paid'
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 for dev_ignore_htlcs")
+@pytest.mark.developer("needs DEVELOPER=1 for dev_ignore_htlcs")
 def test_forward_stats(node_factory, bitcoind):
     """Check that we track forwarded payments correctly.
 
@@ -1333,7 +1333,7 @@ def test_forward_stats(node_factory, bitcoind):
     assert 'received_time' in stats['forwards'][2] and 'resolved_time' not in stats['forwards'][2]
 
 
-@unittest.skipIf(not DEVELOPER, "too slow without --dev-fast-gossip")
+@pytest.mark.developer("too slow without --dev-fast-gossip")
 @pytest.mark.slow_test
 def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     """Check that we track forwarded payments correctly.
@@ -1554,7 +1554,7 @@ def test_forward_local_failed_stats(node_factory, bitcoind, executor):
     assert 'received_time' in stats['forwards'][3] and 'resolved_time' not in stats['forwards'][4]
 
 
-@unittest.skipIf(not DEVELOPER, "too slow without --dev-fast-gossip")
+@pytest.mark.developer("too slow without --dev-fast-gossip")
 @pytest.mark.slow_test
 def test_htlcs_cltv_only_difference(node_factory, bitcoind):
     # l1 -> l2 -> l3 -> l4
@@ -1631,7 +1631,7 @@ def test_pay_variants(node_factory):
     l1.rpc.pay(b11)
 
 
-@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 @pytest.mark.slow_test
 def test_pay_retry(node_factory, bitcoind, executor, chainparams):
     """Make sure pay command retries properly. """
@@ -1715,7 +1715,7 @@ def test_pay_retry(node_factory, bitcoind, executor, chainparams):
         l1.rpc.dev_pay(inv, use_shadow=False)
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1 otherwise gossip takes 5 minutes!")
+@pytest.mark.developer("needs DEVELOPER=1 otherwise gossip takes 5 minutes!")
 @pytest.mark.slow_test
 def test_pay_routeboost(node_factory, bitcoind, compat):
     """Make sure we can use routeboost information. """
@@ -1828,7 +1828,7 @@ def test_pay_routeboost(node_factory, bitcoind, compat):
         # output
 
 
-@unittest.skipIf(not DEVELOPER, "updates are delayed without --dev-fast-gossip")
+@pytest.mark.developer("updates are delayed without --dev-fast-gossip")
 def test_setchannelfee_usage(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -1970,7 +1970,7 @@ def test_setchannelfee_usage(node_factory, bitcoind):
         l1.rpc.setchannelfee(scid, 2**32)
 
 
-@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_setchannelfee_state(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2027,7 +2027,7 @@ def test_setchannelfee_state(node_factory, bitcoind):
         l1.rpc.setchannelfee(l2.info['id'], 10, 1)
 
 
-@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_setchannelfee_routing(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2103,7 +2103,7 @@ def test_setchannelfee_routing(node_factory, bitcoind):
     assert result['msatoshi_sent'] == 5000049
 
 
-@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_setchannelfee_zero(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2144,7 +2144,7 @@ def test_setchannelfee_zero(node_factory, bitcoind):
     assert result['msatoshi_sent'] == 4999999
 
 
-@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_setchannelfee_restart(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2190,7 +2190,7 @@ def test_setchannelfee_restart(node_factory, bitcoind):
     assert result['msatoshi_sent'] == 5002020
 
 
-@unittest.skipIf(not DEVELOPER, "updates are delayed without --dev-fast-gossip")
+@pytest.mark.developer("updates are delayed without --dev-fast-gossip")
 def test_setchannelfee_all(node_factory, bitcoind):
     # TEST SETUP
     #
@@ -2227,7 +2227,7 @@ def test_setchannelfee_all(node_factory, bitcoind):
     assert result['channels'][1]['short_channel_id'] == scid3
 
 
-@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_channel_spendable(node_factory, bitcoind):
     """Test that spendable_msat is accurate"""
     sats = 10**6
@@ -2280,7 +2280,7 @@ def test_channel_spendable(node_factory, bitcoind):
     l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
 
-@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_channel_receivable(node_factory, bitcoind):
     """Test that receivable_msat is accurate"""
     sats = 10**6
@@ -2333,7 +2333,7 @@ def test_channel_receivable(node_factory, bitcoind):
     l2.rpc.waitsendpay(payment_hash, TIMEOUT)
 
 
-@unittest.skipIf(not DEVELOPER, "gossip without DEVELOPER=1 is slow")
+@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
 def test_channel_spendable_large(node_factory, bitcoind):
     """Test that spendable_msat is accurate for large channels"""
     # This is almost the max allowable spend.
@@ -2425,7 +2425,7 @@ def test_error_returns_blockheight(node_factory, bitcoind):
             == '400f{:016x}{:08x}'.format(100, bitcoind.rpc.getblockcount()))
 
 
-@unittest.skipIf(not DEVELOPER, 'Needs dev-routes')
+@pytest.mark.developer('Needs dev-routes')
 def test_tlv_or_legacy(node_factory, bitcoind):
     l1, l2, l3 = node_factory.line_graph(3,
                                          opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')})
@@ -2466,7 +2466,7 @@ def test_tlv_or_legacy(node_factory, bitcoind):
     l3.daemon.wait_for_log("Got onion.*'type': 'tlv'")
 
 
-@unittest.skipIf(not DEVELOPER, 'Needs dev-routes')
+@pytest.mark.developer('Needs dev-routes')
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Invoice is network specific")
 def test_pay_no_secret(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
@@ -2548,7 +2548,7 @@ def test_createonion_rpc(node_factory):
     assert(res['onion'].endswith('9400f45a48e6dc8ddbaeb3'))
 
 
-@unittest.skipIf(not DEVELOPER, "gossip propagation is slow without DEVELOPER=1")
+@pytest.mark.developer("gossip propagation is slow without DEVELOPER=1")
 def test_sendonion_rpc(node_factory):
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True)
     amt = 10**3
@@ -2634,7 +2634,7 @@ def test_sendonion_rpc(node_factory):
         assert(e.error['data']['raw_message'] == "400f00000000000003e80000006c")
 
 
-@unittest.skipIf(not DEVELOPER, "needs dev-disconnect, dev-no-htlc-timeout")
+@pytest.mark.developer("needs dev-disconnect, dev-no-htlc-timeout")
 def test_partial_payment(node_factory, bitcoind, executor):
     # We want to test two payments at the same time, before we send commit
     l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'disconnect': ['=WIRE_UPDATE_ADD_HTLC-nocommit'], 'dev-no-htlc-timeout': None}] * 2 + [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')}])
@@ -2777,7 +2777,7 @@ def test_partial_payment_restart(node_factory, bitcoind):
     l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=2)
 
 
-@unittest.skipIf(not DEVELOPER, "needs dev-disconnect")
+@pytest.mark.developer("needs dev-disconnect")
 def test_partial_payment_htlc_loss(node_factory, bitcoind):
     """Test that we discard a set when the HTLC is lost"""
     # We want l2 to fail once it has completed first htlc.
@@ -2833,7 +2833,7 @@ def test_createonion_limits(node_factory):
         l1.rpc.createonion(hops=hops, assocdata="BB" * 32)
 
 
-@unittest.skipIf(not DEVELOPER, "needs use_shadow")
+@pytest.mark.developer("needs use_shadow")
 def test_blockheight_disagreement(node_factory, bitcoind, executor):
     """
     While a payment is in-transit from payer to payee, a block
@@ -3084,7 +3084,7 @@ def test_invalid_onion_channel_update(node_factory):
     assert l1.rpc.getinfo()['id'] == l1id
 
 
-@unittest.skipIf(not DEVELOPER, "Requires use_shadow")
+@pytest.mark.developer("Requires use_shadow")
 def test_pay_exemptfee(node_factory, compat):
     """Tiny payment, huge fee
 
@@ -3123,7 +3123,7 @@ def test_pay_exemptfee(node_factory, compat):
     l1.rpc.dev_pay(l3.rpc.invoice(int(5001 * 200), "lbl4", "desc")['bolt11'], use_shadow=False)
 
 
-@unittest.skipIf(not DEVELOPER, "Requires use_shadow flag")
+@pytest.mark.developer("Requires use_shadow flag")
 def test_pay_peer(node_factory, bitcoind):
     """If we have a direct channel to the destination we should use that.
 
@@ -3472,7 +3472,7 @@ def test_listpays_ongoing_attempt(node_factory, bitcoind, executor):
     l1.rpc.listpays()
 
 
-@unittest.skipIf(not DEVELOPER, "needs use_shadow")
+@pytest.mark.developer("needs use_shadow")
 def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor):
     '''
     We have a bug where a blockheight disagreement between us and
@@ -3520,7 +3520,7 @@ def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor
     fut.result(TIMEOUT)
 
 
-@unittest.skipIf(not DEVELOPER, "channel setup very slow (~10 minutes) if not DEVELOPER")
+@pytest.mark.developer("channel setup very slow (~10 minutes) if not DEVELOPER")
 @pytest.mark.slow_test
 def test_mpp_interference_2(node_factory, bitcoind, executor):
     '''
@@ -3677,7 +3677,7 @@ def test_large_mpp_presplit(node_factory):
     assert(inv['msatoshi'] == inv['msatoshi_received'])
 
 
-@unittest.skipIf(not DEVELOPER, "builds large network, which is slow if not DEVELOPER")
+@pytest.mark.developer("builds large network, which is slow if not DEVELOPER")
 @pytest.mark.slow_test
 def test_mpp_overload_payee(node_factory, bitcoind):
     """

@@ -965,7 +965,7 @@ def test_channel_state_change_history(node_factory, bitcoind):
         assert(history[3]['message'] == "Closing complete")
 
 
-@unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
+@pytest.mark.developer("without DEVELOPER=1, gossip v slow")
 def test_htlc_accepted_hook_fail(node_factory):
     """Send payments from l1 to l2, but l2 just declines everything.
 
@@ -1008,7 +1008,7 @@ def test_htlc_accepted_hook_fail(node_factory):
     assert len(inv) == 1 and inv[0]['status'] == 'unpaid'
 
 
-@unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
+@pytest.mark.developer("without DEVELOPER=1, gossip v slow")
 def test_htlc_accepted_hook_resolve(node_factory):
     """l3 creates an invoice, l2 knows the preimage and will shortcircuit.
     """
@@ -1050,7 +1050,7 @@ def test_htlc_accepted_hook_direct_restart(node_factory, executor):
     f1.result()
 
 
-@unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
+@pytest.mark.developer("without DEVELOPER=1, gossip v slow")
 def test_htlc_accepted_hook_forward_restart(node_factory, executor):
     """l2 restarts while it is pondering what to do with an HTLC.
     """
@@ -1120,7 +1120,7 @@ def test_warning_notification(node_factory):
     l1.daemon.wait_for_log('plugin-pretend_badlog.py: log: Test warning notification\\(for broken event\\)')
 
 
-@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
+@pytest.mark.developer("needs to deactivate shadow routing")
 def test_invoice_payment_notification(node_factory):
     """
     Test the 'invoice_payment' notification
@@ -1139,7 +1139,7 @@ def test_invoice_payment_notification(node_factory):
                            .format(label, preimage, msats))
 
 
-@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
+@pytest.mark.developer("needs to deactivate shadow routing")
 def test_invoice_creation_notification(node_factory):
     """
     Test the 'invoice_creation' notification
@@ -1173,7 +1173,7 @@ def test_channel_opened_notification(node_factory):
                            .format(l1.info["id"], amount))
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@pytest.mark.developer("needs DEVELOPER=1")
 def test_forward_event_notification(node_factory, bitcoind, executor):
     """ test 'forward_event' notifications
     """
@@ -1738,7 +1738,7 @@ def test_replacement_payload(node_factory):
     assert l2.daemon.wait_for_log("Attept to pay.*with wrong secret")
 
 
-@unittest.skipIf(not DEVELOPER, "Requires dev_sign_last_tx")
+@pytest.mark.developer("Requires dev_sign_last_tx")
 def test_watchtower(node_factory, bitcoind, directory, chainparams):
     """Test watchtower hook.
 
@@ -1827,7 +1827,7 @@ def test_plugin_fail(node_factory):
     l1.daemon.wait_for_log(r': exited during normal operation')
 
 
-@unittest.skipIf(not DEVELOPER, "without DEVELOPER=1, gossip v slow")
+@pytest.mark.developer("without DEVELOPER=1, gossip v slow")
 def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     """Verify that coin movements are triggered correctly.
     """
@@ -2117,7 +2117,7 @@ def test_important_plugin(node_factory):
     assert get_logfile_match(logpath, 'pay: Plugin marked as important, shutting down lightningd')
 
 
-@unittest.skipIf(not DEVELOPER, "tests developer-only option.")
+@pytest.mark.developer("tests developer-only option.")
 def test_dev_builtin_plugins_unimportant(node_factory):
     n = node_factory.get_node(options={"dev-builtin-plugins-unimportant": None})
     n.rpc.plugin_stop(plugin="pay")

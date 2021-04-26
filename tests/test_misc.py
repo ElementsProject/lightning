@@ -27,7 +27,7 @@ import time
 import unittest
 
 
-@unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
+@pytest.mark.developer("needs --dev-disconnect")
 def test_stop_pending_fundchannel(node_factory, executor):
     """Stop the daemon while waiting for an accept_channel
 
@@ -290,7 +290,7 @@ def test_ping(node_factory):
                                .format(l2.info['version']))
 
 
-@unittest.skipIf(not DEVELOPER, "needs --dev-disconnect")
+@pytest.mark.developer("needs --dev-disconnect")
 def test_htlc_sig_persistence(node_factory, bitcoind, executor):
     """Interrupt a payment between two peers, then fail and recover funds using the HTLC sig.
     """
@@ -338,7 +338,7 @@ def test_htlc_sig_persistence(node_factory, bitcoind, executor):
     assert len(l1.rpc.listfunds()['outputs']) == 3
 
 
-@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
+@pytest.mark.developer("needs to deactivate shadow routing")
 def test_htlc_out_timeout(node_factory, bitcoind, executor):
     """Test that we drop onchain if the peer doesn't time out HTLC"""
 
@@ -405,7 +405,7 @@ def test_htlc_out_timeout(node_factory, bitcoind, executor):
     l2.daemon.wait_for_log('onchaind complete, forgetting peer')
 
 
-@unittest.skipIf(not DEVELOPER, "needs to deactivate shadow routing")
+@pytest.mark.developer("needs to deactivate shadow routing")
 def test_htlc_in_timeout(node_factory, bitcoind, executor):
     """Test that we drop onchain if the peer doesn't accept fulfilled HTLC"""
 
@@ -465,7 +465,7 @@ def test_htlc_in_timeout(node_factory, bitcoind, executor):
 
 
 @unittest.skipIf(not TEST_NETWORK == 'regtest', 'must be on bitcoin network')
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@pytest.mark.developer("needs DEVELOPER=1")
 def test_bech32_funding(node_factory, chainparams):
     # Don't get any funds from previous runs.
     l1, l2 = node_factory.line_graph(2, opts={'random_hsm': True}, fundchannel=False)
@@ -863,7 +863,7 @@ def test_multirpc(node_factory):
     sock.close()
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@pytest.mark.developer("needs DEVELOPER=1")
 def test_multiplexed_rpc(node_factory):
     """Test that we can do multiple RPCs which exit in different orders"""
     l1 = node_factory.get_node()
@@ -1105,7 +1105,7 @@ def test_daemon_option(node_factory):
 
 
 @flaky
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@pytest.mark.developer("needs DEVELOPER=1")
 def test_blockchaintrack(node_factory, bitcoind):
     """Check that we track the blockchain correctly across reorgs
     """
@@ -1150,7 +1150,7 @@ def test_blockchaintrack(node_factory, bitcoind):
     assert [o for o in l1.rpc.listfunds()['outputs'] if o['status'] != "unconfirmed"] == []
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@pytest.mark.developer("needs DEVELOPER=1")
 def test_funding_reorg_private(node_factory, bitcoind):
     """Change funding tx height after lockin, between node restart.
     """
@@ -1191,7 +1191,7 @@ def test_funding_reorg_private(node_factory, bitcoind):
     l2.daemon.wait_for_log(r'Deleting channel')
 
 
-@unittest.skipIf(not DEVELOPER, "needs DEVELOPER=1")
+@pytest.mark.developer("needs DEVELOPER=1")
 def test_funding_reorg_remote_lags(node_factory, bitcoind):
     """Nodes may disagree about short_channel_id before channel announcement
     """
@@ -1363,7 +1363,7 @@ def test_reserve_enforcement(node_factory, executor):
     assert only_one(l1.rpc.listpeers()['peers'])['connected'] is False
 
 
-@unittest.skipIf(not DEVELOPER, "needs dev_disconnect")
+@pytest.mark.developer("needs dev_disconnect")
 def test_htlc_send_timeout(node_factory, bitcoind, compat):
     """Test that we don't commit an HTLC to an unreachable node."""
     # Feerates identical so we don't get gratuitous commit to update them
@@ -1682,7 +1682,7 @@ def test_check_command(node_factory):
     sock.close()
 
 
-@unittest.skipIf(not DEVELOPER, "FIXME: without DEVELOPER=1 we timeout")
+@pytest.mark.developer("FIXME: without DEVELOPER=1 we timeout")
 def test_bad_onion(node_factory, bitcoind):
     """Test that we get a reasonable error from sendpay when an onion is bad"""
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
@@ -1733,7 +1733,7 @@ def test_bad_onion(node_factory, bitcoind):
     assert err.value.error['data']['erring_channel'] == route[1]['channel']
 
 
-@unittest.skipIf(not DEVELOPER, "Needs DEVELOPER=1 to force onion fail")
+@pytest.mark.developer("Needs DEVELOPER=1 to force onion fail")
 def test_bad_onion_immediate_peer(node_factory, bitcoind):
     """Test that we handle the malformed msg when we're the origin"""
     l1, l2 = node_factory.line_graph(2, opts={'dev-fail-process-onionpacket': None})
@@ -1802,7 +1802,7 @@ def test_bitcoind_fail_first(node_factory, bitcoind, executor):
     f.result()
 
 
-@unittest.skipIf(not DEVELOPER, "needs --dev-force-bip32-seed")
+@pytest.mark.developer("needs --dev-force-bip32-seed")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "Addresses are network specific")
 def test_dev_force_bip32_seed(node_factory):
     l1 = node_factory.get_node(options={'dev-force-bip32-seed': '0000000000000000000000000000000000000000000000000000000000000001'})
@@ -1819,7 +1819,7 @@ def test_dev_force_bip32_seed(node_factory):
     assert bech32 == "bcrt1q622lwmdzxxterumd746eu3d3t40pq53p62zhlz"
 
 
-@unittest.skipIf(not DEVELOPER, "needs dev command")
+@pytest.mark.developer("needs dev command")
 def test_dev_demux(node_factory):
     l1 = node_factory.get_node(may_fail=True, allow_broken_log=True)
 
@@ -2221,7 +2221,7 @@ def test_waitblockheight(node_factory, executor, bitcoind):
     fut2.result(5)
 
 
-@unittest.skipIf(not DEVELOPER, "Needs dev-sendcustommsg")
+@pytest.mark.developer("Needs dev-sendcustommsg")
 def test_sendcustommsg(node_factory):
     """Check that we can send custommsgs to peers in various states.
 
@@ -2366,7 +2366,7 @@ def test_sendonionmessage_reply(node_factory):
     assert l1.daemon.wait_for_log('Got onionmsg')
 
 
-@unittest.skipIf(not DEVELOPER, "needs --dev-force-privkey")
+@pytest.mark.developer("needs --dev-force-privkey")
 def test_getsharedsecret(node_factory):
     """
     Test getsharedsecret command.
