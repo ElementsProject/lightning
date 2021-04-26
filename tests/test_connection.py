@@ -1060,7 +1060,7 @@ def test_funding_by_utxos(node_factory, bitcoind):
 
 
 @pytest.mark.developer("needs dev_forget_channel")
-@unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "Uses fundchannel_start")
+@pytest.mark.openchannel('v1')
 def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(may_reconnect=True)
@@ -1176,7 +1176,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 
 
 @unittest.skipIf(SLOW_MACHINE and not VALGRIND, "Way too taxing on CI machines")
-@unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "requires fundchannel_start")
+@pytest.mark.openchannel('v1')
 def test_funding_cancel_race(node_factory, bitcoind, executor):
     l1 = node_factory.get_node()
 
@@ -1342,7 +1342,7 @@ def test_funding_close_upfront(node_factory, bitcoind):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
-@unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "v2 doesn't work with fundchannel_start")
+@pytest.mark.openchannel('v1')
 def test_funding_external_wallet(node_factory, bitcoind):
     l1, l2, l3 = node_factory.get_nodes(3, opts=[{'funding-confirms': 2},
                                                  {'funding-confirms': 2}, {}])
@@ -3159,7 +3159,7 @@ def test_htlc_retransmit_order(node_factory, executor):
 
 
 @unittest.skipIf(True, "Currently failing, see tracking issue #4265")
-@unittest.skipIf(EXPERIMENTAL_DUAL_FUND, "fundchannel_start not available")
+@pytest.mark.openchannel('v1')
 def test_fundchannel_start_alternate(node_factory, executor):
     ''' Test to see what happens if two nodes start channeling to
     each other alternately.
@@ -3176,7 +3176,7 @@ def test_fundchannel_start_alternate(node_factory, executor):
         fut.result(10)
 
 
-@unittest.skipIf(not EXPERIMENTAL_DUAL_FUND, "openchannel_init not available")
+@pytest.mark.openchannel('v2')
 def test_openchannel_init_alternate(node_factory, executor):
     ''' Test to see what happens if two nodes start channeling to
     each other alternately.
