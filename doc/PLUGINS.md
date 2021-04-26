@@ -409,7 +409,7 @@ if the funding transaction has been included into a block.
 
 A notification to indicate that a channel open attempt has been unsuccessful.
 Useful for cleaning up state for a v2 channel open attempt. See
-`tests/plugins/df_accepter.py` for an example of how to use this.
+`plugins/funder.c` for an example of how to use this.
 
 ```json
 {
@@ -1122,7 +1122,7 @@ Note that, like `openchannel_init` RPC call, the `our_funding_msat` amount
 must NOT be accounted for in any supplied output. Change, however, should be
 included and should use the `funding_feerate_per_kw` to calculate.
 
-See `tests/plugins/df_accepter.py` for an example of how to use this hook
+See `plugins/funder.c` for an example of how to use this hook
 to contribute funds to a channel open.
 
 e.g.
@@ -1171,7 +1171,7 @@ negotation will end and commitment transactions will be exchanged.
 }
 ```
 
-See `tests/plugins/df_accepter.py` for an example of how to use this hook
+See `plugins/funder.c` for an example of how to use this hook
 to continue a v2 channel open.
 
 
@@ -1205,7 +1205,7 @@ broadcast.
 }
 ```
 
-See `tests/plugins/df_accepter.py` for an example of how to use this hook
+See `plugins/funder.c` for an example of how to use this hook
 to sign a funding transaction.
 
 
