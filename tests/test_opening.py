@@ -699,3 +699,60 @@ def test_rbf_no_overlap(node_factory, bitcoind, chainparams):
 
     with pytest.raises(RpcError, match='No overlapping input present.'):
         l1.rpc.openchannel_update(chan_id, bump['psbt'])
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_funder_options(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.get_nodes(3, opts={'experimental-dual-fund': None})
+    l1.fundwallet(10**7)
+
+    # Check the default options
+    funder_opts = l1.rpc.call('funderupdate')
+
+    assert funder_opts['policy'] == 'fixed'
+    assert funder_opts['policy_mod'] == 0
+    assert funder_opts['min_their_funding'] == '10000000msat'
+    assert funder_opts['max_their_funding'] == '4294967295000msat'
+    assert funder_opts['per_channel_min'] == '10000000msat'
+    assert funder_opts['per_channel_max'] == '4294967295000msat'
+    assert funder_opts['reserve_tank'] == '0msat'
+    assert funder_opts['fuzz_percent'] == 5
+    assert funder_opts['fund_probability'] == 100
+
+    # l2 funds a chanenl with us. We don't contribute
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l2.fundchannel(l1, 10**6)
+    chan_info = only_one(only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels'])
+    # l1 contributed nothing
+    assert chan_info['funding_msat'][l1.info['id']] == '0msat'
+
+    # Change all the options
+    funder_opts = l1.rpc.call('funderupdate',
+                              {'policy': 'available',
+                               'policy_mod': 100,
+                               'min_their_funding': '100000msat',
+                               'max_their_funding': '2000000000msat',
+                               'per_channel_min': '8000000msat',
+                               'per_channel_max': '10000000000msat',
+                               'reserve_tank': '3000000msat',
+                               'fund_probability': 99,
+                               'fuzz_percent': 0})
+
+    assert funder_opts['policy'] == 'available'
+    assert funder_opts['policy_mod'] == 100
+    assert funder_opts['min_their_funding'] == '100000msat'
+    assert funder_opts['max_their_funding'] == '2000000000msat'
+    assert funder_opts['per_channel_min'] == '8000000msat'
+    assert funder_opts['per_channel_max'] == '10000000000msat'
+    assert funder_opts['reserve_tank'] == '3000000msat'
+    assert funder_opts['fuzz_percent'] == 0
+    assert funder_opts['fund_probability'] == 99
+
+    # Set the fund probability back up to 100.
+    funder_opts = l1.rpc.call('funderupdate',
+                              {'fund_probability': 100})
+    l3.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l3.fundchannel(l1, 10**6)
+    chan_info = only_one(only_one(l3.rpc.listpeers(l1.info['id'])['peers'])['channels'])
+    # l1 contributed everything
+    assert chan_info['funding_msat'][l1.info['id']] != '0msat'
