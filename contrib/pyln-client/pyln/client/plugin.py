@@ -223,6 +223,7 @@ class Plugin(object):
         }
 
         self.options: Dict[str, Dict[str, Any]] = {}
+        self.notification_topics: List[str] = []
 
         def convert_featurebits(
                 bits: Optional[Union[int, str, bytes]]) -> Optional[str]:
@@ -419,6 +420,11 @@ class Plugin(object):
         """
         self.add_option(name, None, description, opt_type="flag",
                         deprecated=deprecated)
+
+    def add_notification_topic(self, topic: str):
+        """Announce that the plugin will emit notifications for the topic.
+        """
+        self.notification_topics.append(topic)
 
     def get_option(self, name: str) -> str:
         if name not in self.options:
@@ -898,6 +904,9 @@ class Plugin(object):
             'subscriptions': list(self.subscriptions.keys()),
             'hooks': hooks,
             'dynamic': self.dynamic,
+            'notifications': [
+                {"method": name} for name in self.notification_topics
+            ],
         }
 
         # Compact the features a bit, not important.

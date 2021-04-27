@@ -76,6 +76,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->startup = true;
 	p->json_cmds = tal_arr(p, struct command *, 0);
 	p->blacklist = tal_arr(p, const char *, 0);
+	p->notification_topics = tal_arr(p, const char *, 0);
 	p->shutdown = false;
 	p->plugin_idx = 0;
 #if DEVELOPER
@@ -101,6 +102,25 @@ void plugins_free(struct plugins *plugins)
 	}
 
 	tal_free(plugins);
+}
+
+/* Check that all the plugin's subscriptions are actually for known
+ * notification topics. Emit a warning if that's not the case, but
+ * don't kill the plugin. */
+static void plugin_check_subscriptions(struct plugins *plugins,
+				       struct plugin *plugin)
+{
+	if (plugin->subscriptions == NULL)
+		return;
+
+	for (size_t i = 0; i < tal_count(plugin->subscriptions); i++) {
+		const char *topic = plugin->subscriptions[i];
+		if (!notifications_have_topic(plugins, topic))
+			log_unusual(
+			    plugin->log,
+			    "topic '%s' is not a known notification topic",
+			    topic);
+	}
 }
 
 /* Once they've all replied with their manifests, we can order them. */
@@ -1136,14 +1156,12 @@ static const char *plugin_subscriptions_add(struct plugin *plugin,
 					json_tok_full_len(s),
 					json_tok_full(buffer, s));
 		}
+
+		/* We add all subscriptions while parsing the
+		 * manifest, without checking that they exist, since
+		 * later plugins may also emit notifications of custom
+		 * types that we don't know about yet. */
 		topic = json_strdup(plugin, plugin->buffer, s);
-
-		if (!notifications_have_topic(topic)) {
-			return tal_fmt(
-			    plugin,
-			    "topic '%s' is not a known notification topic", topic);
-		}
-
 		tal_arr_expand(&plugin->subscriptions, topic);
 	}
 	return NULL;
@@ -1337,6 +1355,8 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 		err = plugin_hooks_add(plugin, buffer, resulttok);
 	if (!err)
 		err = plugin_add_params(plugin);
+
+	plugin_check_subscriptions(plugin->plugins, plugin);
 
 	plugin->plugin_state = NEEDS_INIT;
 	return err;

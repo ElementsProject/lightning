@@ -2402,3 +2402,13 @@ def test_self_disable(node_factory):
     # Also works with dynamic load attempts
     with pytest.raises(RpcError, match="Disabled via selfdisable option"):
         l1.rpc.plugin_start(p2, selfdisable=True)
+
+
+@pytest.mark.xfail(strict=True)
+def test_custom_notification_topics(node_factory):
+    plugin = os.path.join(
+        os.path.dirname(__file__), "plugins", "custom_notifications.py"
+    )
+    l1 = node_factory.get_node(options={'plugin': plugin})
+    l1.rpc.emit()
+    l1.daemon.wait_for_log(r'Got a custom notification Hello world')
