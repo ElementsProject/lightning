@@ -25,7 +25,7 @@
 struct onionreply;
 struct wally_psbt;
 
-bool notifications_have_topic(const char *topic);
+bool notifications_have_topic(const struct plugins *plugins, const char *topic);
 
 struct notification {
 	const char *topic;

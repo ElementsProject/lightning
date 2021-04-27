@@ -128,6 +128,10 @@ struct plugins {
 	/* Whether builtin plugins should be overridden as unimportant.  */
 	bool dev_builtin_plugins_unimportant;
 #endif /* DEVELOPER */
+
+	/* Notification topics that plugins have registered with us
+	 * and that other plugins may subscribe to. */
+	const char **notification_topics;
 };
 
 /* The value of a plugin option, which can have different types.
