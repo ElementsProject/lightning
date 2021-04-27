@@ -426,7 +426,8 @@ static const char *plugin_notification_handle(struct plugin *plugin,
 					      const jsmntok_t *toks)
 {
 	const jsmntok_t *methtok, *paramstok;
-
+	const char *methname;
+	struct jsonrpc_notification *n;
 	methtok = json_get_member(plugin->buffer, toks, "method");
 	paramstok = json_get_member(plugin->buffer, toks, "params");
 
@@ -447,6 +448,27 @@ static const char *plugin_notification_handle(struct plugin *plugin,
 	} else if (json_tok_streq(plugin->buffer, methtok, "message")
 		   || json_tok_streq(plugin->buffer, methtok, "progress")) {
 		return plugin_notify_handle(plugin, methtok, paramstok);
+	}
+
+	methname = json_strdup(tmpctx, plugin->buffer, methtok);
+
+	if (notifications_have_topic(plugin->plugins, methname)) {
+		n = tal(NULL, struct jsonrpc_notification);
+		n->method = tal_steal(n, methname);
+		n->stream = new_json_stream(n, NULL, NULL);
+		json_object_start(n->stream, NULL);
+		json_add_string(n->stream, "jsonrpc", "2.0");
+		json_add_string(n->stream, "method", methname);
+
+		json_add_tok(n->stream, "params", paramstok, plugin->buffer);
+
+		json_object_end(n->stream); /* closes '.' */
+
+		/* We guarantee to have \n\n at end of each response. */
+		json_stream_append(n->stream, "\n\n", strlen("\n\n"));
+
+		plugins_notify(plugin->plugins, take(n));
+		return NULL;
 	} else {
 		return tal_fmt(plugin, "Unknown notification method %.*s",
 			       json_tok_full_len(methtok),
