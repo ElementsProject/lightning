@@ -240,6 +240,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 	keyset.other_htlc_key = *remote_htlckey;
 
 	for (i = 0; i < tal_count(htlc_map); i++) {
+		struct bitcoin_signature localhtlcsig;
 		const struct htlc *htlc = htlc_map[i];
 
 		if (!htlc)
@@ -281,19 +282,11 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			      x_remote_htlcsecretkey, remote_htlckey,
 			      SIGHASH_ALL,
 			      &remotehtlcsig[i]);
-		printf("# signature for output %zi (htlc %"PRIu64")\n", i, htlc->id);
+		printf("# signature for output #%zi (%s for htlc #%"PRIu64")\n",
+		       i, htlc_owner(htlc) == LOCAL ? "htlc-timeout" : "htlc-success", htlc->id);
 		printf("remote_htlc_signature = %s\n",
-		       type_to_string(tmpctx, struct bitcoin_signature,
-				      &remotehtlcsig[i]));
-	}
-
-	/* For any HTLC outputs, produce htlc_tx */
-	for (i = 0; i < tal_count(htlc_map); i++) {
-		struct bitcoin_signature localhtlcsig;
-		const struct htlc *htlc = htlc_map[i];
-
-		if (!htlc)
-			continue;
+		       type_to_string(tmpctx, secp256k1_ecdsa_signature,
+				      &remotehtlcsig[i].s));
 
 		sign_tx_input(htlc_tx[i], 0,
 			      NULL,
@@ -301,9 +294,9 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 			      local_htlcsecretkey, local_htlckey,
 			      SIGHASH_ALL,
 			      &localhtlcsig);
-		printf("# local_signature = %s\n",
-		       type_to_string(tmpctx, struct bitcoin_signature,
-				      &localhtlcsig));
+		printf("# local_htlc_signature = %s\n",
+		       type_to_string(tmpctx, secp256k1_ecdsa_signature,
+				      &localhtlcsig.s));
 		if (htlc_owner(htlc) == LOCAL) {
 			htlc_timeout_tx_add_witness(htlc_tx[i],
 						    local_htlckey,
@@ -324,7 +317,7 @@ static void report_htlcs(const struct bitcoin_tx *tx,
 						    remote_revocation_key,
 						    option_anchor_outputs);
 		}
-		printf("output htlc_%s_tx %"PRIu64": %s\n",
+		printf("htlc_%s_tx (htlc #%"PRIu64"): %s\n",
 		       htlc_owner(htlc) == LOCAL ? "timeout" : "success",
 		       htlc->id,
 		       tal_hex(tmpctx, linearize_tx(tmpctx, htlc_tx[i])));
@@ -361,7 +354,7 @@ static void report(struct bitcoin_tx *tx,
 		      SIGHASH_ALL,
 		      &remotesig);
 	printf("remote_signature = %s\n",
-	       type_to_string(tmpctx, struct bitcoin_signature, &remotesig));
+	       type_to_string(tmpctx, secp256k1_ecdsa_signature, &remotesig.s));
 	sign_tx_input(tx, 0,
 		      NULL,
 		      wscript,
@@ -369,7 +362,7 @@ static void report(struct bitcoin_tx *tx,
 		      SIGHASH_ALL,
 		      &localsig);
 	printf("# local_signature = %s\n",
-	       type_to_string(tmpctx, struct bitcoin_signature, &localsig));
+	       type_to_string(tmpctx, secp256k1_ecdsa_signature, &localsig.s));
 
 	witness =
 	    bitcoin_witness_2of2(tx, &localsig, &remotesig,
@@ -801,7 +794,7 @@ int main(int argc, const char *argv[])
 	to_remote.millisatoshis = 3000000000;
 	feerate_per_kw = 0;
 	printf("\n"
-	       "name: commitment tx with all 5 htlcs untrimmed (minimum feerate)\n"
+	       "name: commitment tx with all five HTLCs untrimmed (minimum feerate)\n"
 	       "to_local_msat: %"PRIu64"\n"
 	       "to_remote_msat: %"PRIu64"\n"
 	       "local_feerate_per_kw: %u\n",
@@ -901,12 +894,19 @@ int main(int argc, const char *argv[])
 		}
 #endif
 		printf("\n"
-		       "name: commitment tx with %zu output%s untrimmed (maximum feerate)\n"
+		       "name: commitment tx with %s untrimmed (maximum feerate)\n"
 		       "to_local_msat: %"PRIu64"\n"
 		       "to_remote_msat: %"PRIu64"\n"
 		       "local_feerate_per_kw: %u\n",
-		       tx->wtx->num_outputs,
-		       tx->wtx->num_outputs > 1 ? "s" : "",
+		       /* Spec was "neatened" to change these numbers to words! */
+		       tx->wtx->num_outputs == 7 ? "seven outputs"
+		       : tx->wtx->num_outputs == 6 ? "six outputs"
+		       : tx->wtx->num_outputs == 5 ? "five outputs"
+		       : tx->wtx->num_outputs == 4 ? "four outputs"
+		       : tx->wtx->num_outputs == 3 ? "three outputs"
+		       : tx->wtx->num_outputs == 2 ? "two outputs"
+		       : tx->wtx->num_outputs == 1 ? "one output"
+		       : "no outputs???",
 		       to_local.millisatoshis, to_remote.millisatoshis, feerate_per_kw-1);
 		/* Recalc with verbosity on */
 		print_superverbose = true;
@@ -942,12 +942,19 @@ int main(int argc, const char *argv[])
 		       htlc_map);
 
 		printf("\n"
-		       "name: commitment tx with %zu output%s untrimmed (minimum feerate)\n"
+		       "name: commitment tx with %s untrimmed (minimum feerate)\n"
 		       "to_local_msat: %"PRIu64"\n"
 		       "to_remote_msat: %"PRIu64"\n"
 		       "local_feerate_per_kw: %u\n",
-		       newtx->wtx->num_outputs,
-		       newtx->wtx->num_outputs > 1 ? "s" : "",
+		       /* Spec was "neatened" to change these numbers to words! */
+		       newtx->wtx->num_outputs == 7 ? "seven outputs"
+		       : newtx->wtx->num_outputs == 6 ? "six outputs"
+		       : newtx->wtx->num_outputs == 5 ? "five outputs"
+		       : newtx->wtx->num_outputs == 4 ? "four outputs"
+		       : newtx->wtx->num_outputs == 3 ? "three outputs"
+		       : newtx->wtx->num_outputs == 2 ? "two outputs"
+		       : newtx->wtx->num_outputs == 1 ? "one output"
+		       : "no outputs???",
 		       to_local.millisatoshis, to_remote.millisatoshis, feerate_per_kw);
 		/* Recalc with verbosity on */
 		print_superverbose = true;
@@ -1020,7 +1027,7 @@ int main(int argc, const char *argv[])
 		assert(feerate_per_kw == 9651936);
 
 		printf("\n"
-		       "name: commitment tx with fee greater than opener amount\n"
+		       "name: commitment tx with fee greater than funder amount\n"
 		       "to_local_msat: %"PRIu64"\n"
 		       "to_remote_msat: %"PRIu64"\n"
 		       "local_feerate_per_kw: %u\n",
