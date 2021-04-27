@@ -134,7 +134,7 @@ static void tx_must_be_eq(const struct bitcoin_tx *a,
  *    htlc 4 expiry: 504
  *    htlc 4 payment_preimage: 0404040404040404040404040404040404040404040404040404040404040404
  */
-static const struct htlc **setup_htlcs(const tal_t *ctx)
+static const struct htlc **setup_htlcs_0_to_4(const tal_t *ctx)
 {
 	const struct htlc **htlcs = tal_arr(ctx, const struct htlc *, 5);
 	int i;
@@ -166,16 +166,56 @@ static const struct htlc **setup_htlcs(const tal_t *ctx)
 			break;
 		}
 
-		if (i == 0 || i == 1 || i == 4) {
-			/* direction: remote->local */
-
-		} else {
-			/* direction: local->remote */
-			htlc->state = SENT_ADD_ACK_REVOCATION;
-		}
 		htlc->expiry.locktime = 500 + i;
 		htlc->r = tal(htlc, struct preimage);
 		memset(htlc->r, i, sizeof(*htlc->r));
+		sha256(&htlc->rhash, htlc->r, sizeof(*htlc->r));
+		htlcs[i] = htlc;
+	}
+	return htlcs;
+}
+
+/* BOLT #3:
+ *    htlc 5 direction: local->remote
+ *    htlc 5 amount_msat: 5000000
+ *    htlc 5 expiry: 505
+ *    htlc 5 payment_preimage: 0505050505050505050505050505050505050505050505050505050505050505
+ *    htlc 6 direction: local->remote
+ *    htlc 6 amount_msat: 5000000
+ *    htlc 6 expiry: 506
+ *    htlc 6 payment_preimage: 0505050505050505050505050505050505050505050505050505050505050505
+*/
+static const struct htlc **setup_htlcs_1_5_and_6(const tal_t *ctx)
+{
+	const struct htlc **htlcs = tal_arr(ctx, const struct htlc *, 3);
+	int i;
+	const u64 htlc_ids[] = {1, 5, 6};
+
+	for (i = 0; i < 3; i++) {
+		struct htlc *htlc = tal(htlcs, struct htlc);
+
+		htlc->r = tal(htlc, struct preimage);
+		htlc->id = htlc_ids[i];
+		switch (htlc->id) {
+		case 1:
+			htlc->state = RCVD_ADD_ACK_REVOCATION;
+			htlc->amount = AMOUNT_MSAT(2000000);
+			htlc->expiry.locktime = 501;
+			memset(htlc->r, 1, sizeof(*htlc->r));
+			break;
+		case 5:
+			htlc->state = SENT_ADD_ACK_REVOCATION;
+			htlc->amount = AMOUNT_MSAT(5000000);
+			htlc->expiry.locktime = 505;
+			memset(htlc->r, 5, sizeof(*htlc->r));
+			break;
+		case 6:
+			htlc->state = SENT_ADD_ACK_REVOCATION;
+			htlc->amount = AMOUNT_MSAT(5000000);
+			htlc->expiry.locktime = 506;
+			memset(htlc->r, 5, sizeof(*htlc->r));
+			break;
+		}
 		sha256(&htlc->rhash, htlc->r, sizeof(*htlc->r));
 		htlcs[i] = htlc;
 	}
@@ -487,8 +527,15 @@ int main(int argc, const char *argv[])
 
 	chainparams = chainparams_for_network("bitcoin");
 
-	htlcs = setup_htlcs(tmpctx);
+	htlcs = setup_htlcs_0_to_4(tmpctx);
 	inv_htlcs = invert_htlcs(htlcs);
+
+#if DEVELOPER
+	/* This lets us match test vectors exactly. */
+	extern bool dev_no_grind;
+
+	dev_no_grind = true;
+#endif /* DEVELOPER */
 
 	/* BOLT #3:
 	 *
@@ -1065,6 +1112,72 @@ int main(int argc, const char *argv[])
 		break;
 	}
 
+	htlcs = setup_htlcs_1_5_and_6(tmpctx);
+	inv_htlcs = invert_htlcs(htlcs);
+
+	/* BOLT #3:
+	 *
+	 *     name: commitment tx with 3 htlc outputs, 2 offered having the same amount and preimage
+	 *     to_local_msat: 6988000000
+	 *     to_remote_msat: 3000000000
+	 *     local_feerate_per_kw: 253
+	 */
+	to_local.millisatoshis = 6988000000;
+	to_remote.millisatoshis = 3000000000;
+	feerate_per_kw = 253;
+	printf("\n"
+	       "name: commitment tx with 3 htlc outputs, 2 offered having the same amount and preimage\n"
+	       "to_local_msat: %"PRIu64"\n"
+	       "to_remote_msat: %"PRIu64"\n"
+	       "local_feerate_per_kw: %u\n",
+	       to_local.millisatoshis, to_remote.millisatoshis, feerate_per_kw);
+
+	print_superverbose = true;
+	tx = commit_tx(tmpctx,
+		       &funding_txid, funding_output_index,
+		       funding_amount,
+		       &local_funding_pubkey,
+		       &remote_funding_pubkey,
+		       LOCAL, to_self_delay,
+		       &keyset,
+		       feerate_per_kw,
+		       dust_limit,
+		       to_local,
+		       to_remote,
+		       htlcs, &htlc_map, NULL, commitment_number ^ cn_obscurer,
+		       option_anchor_outputs,
+		       LOCAL);
+	print_superverbose = false;
+	tx2 = commit_tx(tmpctx,
+			&funding_txid, funding_output_index,
+			funding_amount,
+			&local_funding_pubkey,
+			&remote_funding_pubkey,
+			REMOTE, to_self_delay,
+			&keyset,
+			feerate_per_kw,
+			dust_limit,
+			to_local,
+			to_remote,
+			inv_htlcs, &htlc_map2, NULL,
+			commitment_number ^ cn_obscurer,
+			option_anchor_outputs,
+			REMOTE);
+	tx_must_be_eq(tx, tx2);
+	report(tx, wscript, &x_remote_funding_privkey, &remote_funding_pubkey,
+	       &local_funding_privkey, &local_funding_pubkey,
+	       to_self_delay,
+	       &local_htlcsecretkey,
+	       &localkey,
+	       &local_htlckey,
+	       &local_delayedkey,
+	       &x_remote_htlcsecretkey,
+	       &remotekey,
+	       &remote_htlckey,
+	       &remote_revocation_key,
+	       feerate_per_kw,
+	       option_anchor_outputs,
+	       htlc_map);
 	common_shutdown();
 
 	/* FIXME: Do BOLT comparison! */
