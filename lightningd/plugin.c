@@ -126,6 +126,7 @@ static void plugin_check_subscriptions(struct plugins *plugins,
 /* Once they've all replied with their manifests, we can order them. */
 static void check_plugins_manifests(struct plugins *plugins)
 {
+	struct plugin *plugin;
 	struct plugin **depfail;
 
 	if (plugins_any_in_state(plugins, AWAITING_GETMANIFEST_RESPONSE))
@@ -139,6 +140,12 @@ static void check_plugins_manifests(struct plugins *plugins)
 			continue;
 		plugin_kill(depfail[i], LOG_UNUSUAL,
 			    "Cannot meet required hook dependencies");
+	}
+
+	/* Check that all the subscriptions are matched with real
+	 * topics. */
+	list_for_each(&plugins->plugins, plugin, list) {
+		plugin_check_subscriptions(plugin->plugins, plugin);
 	}
 
 	/* As startup, we break out once all getmanifest are returned */
@@ -1355,8 +1362,6 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 		err = plugin_hooks_add(plugin, buffer, resulttok);
 	if (!err)
 		err = plugin_add_params(plugin);
-
-	plugin_check_subscriptions(plugin->plugins, plugin);
 
 	plugin->plugin_state = NEEDS_INIT;
 	return err;
