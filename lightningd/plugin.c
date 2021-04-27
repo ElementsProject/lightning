@@ -1273,6 +1273,44 @@ static void plugin_manifest_timeout(struct plugin *plugin)
 		fatal("Can't recover from plugin failure, terminating.");
 }
 
+static const char *plugin_notifications_add(const char *buffer,
+					    const jsmntok_t *result,
+					    struct plugin *plugin)
+{
+	char *name;
+	const jsmntok_t *method, *obj;
+	const jsmntok_t *notifications =
+	    json_get_member(buffer, result, "notifications");
+
+	if (!notifications)
+		return NULL;
+
+	if (notifications->type != JSMN_ARRAY)
+		return tal_fmt(plugin,
+			       "\"result.notifications\" is not an array");
+
+	for (size_t i = 0; i < notifications->size; i++) {
+		obj = json_get_arr(notifications, i);
+		if (obj->type != JSMN_OBJECT)
+			return tal_fmt(
+			    plugin,
+			    "\"result.notifications[%zu]\" is not an object",
+			    i);
+
+		method = json_get_member(buffer, obj, "method");
+		if (method == NULL || method->type != JSMN_STRING)
+			return tal_fmt(plugin,
+				       "\"result.notifications[%zu].name\" "
+				       "missing or not a string.",
+				       i);
+
+		name = json_strdup(plugin->plugins, buffer, method);
+		tal_arr_expand(&plugin->plugins->notification_topics, name);
+	}
+
+	return NULL;
+}
+
 static const char *plugin_parse_getmanifest_response(const char *buffer,
 						     const jsmntok_t *toks,
 						     const jsmntok_t *idtok,
@@ -1353,7 +1391,9 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 		}
 	}
 
-	err = plugin_opts_add(plugin, buffer, resulttok);
+	err = plugin_notifications_add(buffer, resulttok, plugin);
+	if (!err)
+		err = plugin_opts_add(plugin, buffer, resulttok);
 	if (!err)
 		err = plugin_rpcmethods_add(plugin, buffer, resulttok);
 	if (!err)
