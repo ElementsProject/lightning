@@ -524,6 +524,11 @@ int main(int argc, const char *argv[])
 	struct amount_msat to_local, to_remote;
 	const struct htlc **htlcs, **htlc_map, **htlc_map2, **inv_htlcs;
 	bool option_anchor_outputs = false;
+	bool option_static_remotekey = false;
+
+	/* Allow us to check static-remotekey BOLT 3 vectors, too */
+	if (argv[1] && streq(argv[1], "--static-remotekey"))
+		option_static_remotekey = true;
 
 	chainparams = chainparams_for_network("bitcoin");
 
@@ -715,10 +720,14 @@ int main(int argc, const char *argv[])
 	printf("localkey: %s\n",
 	       type_to_string(tmpctx, struct pubkey, &localkey));
 
-	if (!derive_simple_key(&remote_payment_basepoint,
-			       &x_local_per_commitment_point,
-			       &remotekey))
-		abort();
+	if (option_static_remotekey)
+		remotekey = remote_payment_basepoint;
+	else {
+		if (!derive_simple_key(&remote_payment_basepoint,
+				       &x_local_per_commitment_point,
+				       &remotekey))
+			abort();
+	}
 	printf("remotekey: %s\n",
 	       type_to_string(tmpctx, struct pubkey, &remotekey));
 
