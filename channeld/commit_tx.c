@@ -168,9 +168,9 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 				  option_anchor_outputs, side))
 				ok &= amount_sat_add(&out, out, amount_msat_to_sat_round_down(htlcs[i]->amount));
 		}
-		if (amount_msat_greater_sat(self_pay, dust_limit))
+		if (amount_msat_greater_eq_sat(self_pay, dust_limit))
 			ok &= amount_sat_add(&out, out, amount_msat_to_sat_round_down(self_pay));
-		if (amount_msat_greater_sat(other_pay, dust_limit))
+		if (amount_msat_greater_eq_sat(other_pay, dust_limit))
 			ok &= amount_sat_add(&out, out, amount_msat_to_sat_round_down(other_pay));
 		assert(ok);
 		SUPERVERBOSE("# actual commitment transaction fee = %"PRIu64"\n",
