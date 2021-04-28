@@ -380,7 +380,11 @@ check-protos: $(ALL_PROGRAMS)
 ifeq ($(PYTEST),)
 	@echo "py.test is required to run the protocol tests, please install using 'pip3 install -r requirements.txt', and rerun 'configure'."; false
 else
+ifeq ($(DEVELOPER),1)
 	@(cd external/lnprototest && PYTHONPATH=$(PYTHONPATH) LIGHTNING_SRC=../.. $(PYTEST) --runner lnprototest.clightning.Runner $(PYTEST_OPTS))
+else
+	@echo "lnprototest target requires DEVELOPER=1, skipping"
+endif
 endif
 
 pytest: $(ALL_PROGRAMS)
