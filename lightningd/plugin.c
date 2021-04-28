@@ -240,6 +240,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p = tal(plugins, struct plugin);
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
+	p->shortname = path_basename(p, p->cmd);
 	p->start_cmd = start_cmd;
 
 	p->plugin_state = UNCONFIGURED;
@@ -250,8 +251,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p->dynamic = false;
 	p->index = plugins->plugin_idx++;
 
-	p->log = new_log(p, plugins->log_book, NULL, "plugin-%s",
-			 path_basename(tmpctx, p->cmd));
+	p->log = new_log(p, plugins->log_book, NULL, "plugin-%s", p->shortname);
 	p->methods = tal_arr(p, const char *, 0);
 	list_head_init(&p->plugin_opts);
 
@@ -1858,7 +1858,6 @@ void json_add_opt_plugins_array(struct json_stream *response,
 				bool important)
 {
 	struct plugin *p;
-	const char *plugin_name;
 	struct plugin_opt *opt;
 	const char *opt_name;
 
@@ -1873,9 +1872,7 @@ void json_add_opt_plugins_array(struct json_stream *response,
 		json_add_string(response, "path", p->cmd);
 
 		/* FIXME: use executables basename until plugins can define their names */
-		plugin_name = path_basename(NULL, p->cmd);
-		json_add_string(response, "name", plugin_name);
-		tal_free(plugin_name);
+		json_add_string(response, "name", p->shortname);
 
 		if (!list_empty(&p->plugin_opts)) {
 			json_object_start(response, "options");
