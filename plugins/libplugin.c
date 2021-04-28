@@ -92,7 +92,8 @@ struct plugin {
 	 * initialization or need to recover from a disconnect. */
 	const char *rpc_location;
 
-	char **notification_topics;
+	const char **notif_topics;
+	size_t num_notif_topics;
 };
 
 /* command_result is mainly used as a compile-time check to encourage you
@@ -1318,6 +1319,8 @@ static struct plugin *new_plugin(const tal_t *ctx,
 				 size_t num_notif_subs,
 				 const struct plugin_hook *hook_subs,
 				 size_t num_hook_subs,
+				 const char **notif_topics,
+				 size_t num_notif_topics,
 				 va_list ap)
 {
 	const char *optname;
@@ -1355,6 +1358,8 @@ static struct plugin *new_plugin(const tal_t *ctx,
 
 	p->commands = commands;
 	p->num_commands = num_commands;
+	p->notif_topics = notif_topics;
+	p->num_notif_topics = num_notif_topics;
 	p->notif_subs = notif_subs;
 	p->num_notif_subs = num_notif_subs;
 	p->hook_subs = hook_subs;
@@ -1387,6 +1392,8 @@ void plugin_main(char *argv[],
 		 size_t num_notif_subs,
 		 const struct plugin_hook *hook_subs,
 		 size_t num_hook_subs,
+		 const char **notif_topics,
+		 size_t num_notif_topics,
 		 ...)
 {
 	struct plugin *plugin;
@@ -1399,10 +1406,10 @@ void plugin_main(char *argv[],
 	/* Note this already prints to stderr, which is enough for now */
 	daemon_setup(argv[0], NULL, NULL);
 
-	va_start(ap, num_hook_subs);
+	va_start(ap, num_notif_topics);
 	plugin = new_plugin(NULL, init, restartability, init_rpc, features, commands,
 			    num_commands, notif_subs, num_notif_subs, hook_subs,
-			    num_hook_subs, ap);
+			    num_hook_subs, notif_topics, num_notif_topics, ap);
 	va_end(ap);
 	setup_command_usage(plugin);
 

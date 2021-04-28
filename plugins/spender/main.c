@@ -39,6 +39,7 @@ int main(int argc, char **argv)
 		    commands, tal_count(commands),
 		    notifs, tal_count(notifs),
 		    NULL, 0,
+		    NULL, 0, /* Notification topics */
 		    NULL);
 
 	tal_free(owner);

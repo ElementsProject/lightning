@@ -293,6 +293,8 @@ void NORETURN LAST_ARG_NULL plugin_main(char *argv[],
 					size_t num_notif_subs,
 					const struct plugin_hook *hook_subs,
 					size_t num_hook_subs,
+					const char **notif_topics,
+					size_t num_notif_topics,
 					...);
 
 struct listpeers_channel {

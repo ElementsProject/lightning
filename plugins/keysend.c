@@ -388,5 +388,5 @@ int main(int argc, char *argv[])
 
 	plugin_main(argv, init, PLUGIN_STATIC, true, &features, commands,
 		    ARRAY_SIZE(commands), NULL, 0, hooks, ARRAY_SIZE(hooks),
-		    NULL);
+		    NULL, 0, NULL);
 }
