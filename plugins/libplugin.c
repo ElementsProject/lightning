@@ -674,6 +674,14 @@ handle_getmanifest(struct command *getmanifest_cmd,
 
 	json_add_bool(params, "dynamic", p->restartability == PLUGIN_RESTARTABLE);
 
+	json_array_start(params, "notifications");
+	for (size_t i = 0; p->notif_topics && i < p->num_notif_topics; i++) {
+		json_object_start(params, NULL);
+		json_add_string(params, "method", p->notif_topics[i]);
+		json_object_end(params);
+	}
+	json_array_end(params);
+
 	return command_finished(getmanifest_cmd, params);
 }
 
