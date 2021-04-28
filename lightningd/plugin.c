@@ -417,6 +417,18 @@ static const char *plugin_notify_handle(struct plugin *plugin,
 	return NULL;
 }
 
+/* Check if the plugin is allowed to send a notification of the
+ * specified topic, i.e., whether the plugin has announced the topic
+ * correctly in its manifest. */
+static bool plugin_notification_allowed(const struct plugin *plugin, const char *topic)
+{
+	for (size_t i=0; i<tal_count(plugin->notification_topics); i++)
+		if (streq(plugin->notification_topics[i], topic))
+			return true;
+
+	return false;
+}
+
 /* Returns the error string, or NULL */
 static const char *plugin_notification_handle(struct plugin *plugin,
 					      const jsmntok_t *toks)
@@ -453,13 +465,26 @@ static const char *plugin_notification_handle(struct plugin *plugin,
 	methname = json_strdup(tmpctx, plugin->buffer, methtok);
 
 	if (notifications_have_topic(plugin->plugins, methname)) {
-		n = jsonrpc_notification_start(NULL, methname);
-		json_add_string(n->stream, "origin", plugin->shortname);
-		json_add_tok(n->stream, "payload", paramstok, plugin->buffer);
-		jsonrpc_notification_end(n);
 
-		plugins_notify(plugin->plugins, take(n));
-		return NULL;
+		if (!plugin_notification_allowed(plugin, methname)) {
+			log_unusual(
+			    plugin->log,
+			    "Plugin attempted to send a notification to topic "
+			    "\"%s\" it hasn't declared in its manifest, not "
+			    "forwarding to subscribers.",
+			    methname);
+			return NULL;
+		} else {
+
+			n = jsonrpc_notification_start(NULL, methname);
+			json_add_string(n->stream, "origin", plugin->shortname);
+			json_add_tok(n->stream, "payload", paramstok,
+				     plugin->buffer);
+			jsonrpc_notification_end(n);
+
+			plugins_notify(plugin->plugins, take(n));
+			return NULL;
+		}
 	} else {
 		return tal_fmt(plugin, "Unknown notification method %.*s",
 			       json_tok_full_len(methtok),

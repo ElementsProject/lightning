@@ -91,6 +91,8 @@ struct plugin {
 	/* Location of the RPC filename in case we need to defer RPC
 	 * initialization or need to recover from a disconnect. */
 	const char *rpc_location;
+
+	char **notification_topics;
 };
 
 /* command_result is mainly used as a compile-time check to encourage you
