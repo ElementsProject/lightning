@@ -26,15 +26,17 @@ bool notifications_topic_is_native(const char *topic)
 
 bool notifications_have_topic(const struct plugins *plugins, const char *topic)
 {
+	struct plugin *plugin;
 	if (notifications_topic_is_native(topic))
 		return true;
 
 	/* Some plugin at some point announced it'd be emitting
-	 * notifications to this topic. We don't care if it died, just
-	 * that it was a valid topic at some point in time. */
-	for (size_t i=0; i<tal_count(plugins->notification_topics); i++)
-		if (streq(plugins->notification_topics[i], topic))
-			return true;
+	 * notifications to this topic. */
+	list_for_each(&plugins->plugins, plugin, list) {
+		for (size_t i = 0; i < tal_count(plugin->notification_topics); i++)
+			if (streq(plugin->notification_topics[i], topic))
+				return true;
+	}
 
 	return false;
 }
