@@ -93,6 +93,10 @@ struct plugin {
 	/* Parameters for dynamically-started plugins. */
 	const char *parambuf;
 	const jsmntok_t *params;
+
+	/* Notification topics that this plugin has registered with us
+	 * and that other plugins may subscribe to. */
+	const char **notification_topics;
 };
 
 /**
@@ -128,10 +132,6 @@ struct plugins {
 	/* Whether builtin plugins should be overridden as unimportant.  */
 	bool dev_builtin_plugins_unimportant;
 #endif /* DEVELOPER */
-
-	/* Notification topics that plugins have registered with us
-	 * and that other plugins may subscribe to. */
-	const char **notification_topics;
 };
 
 /* The value of a plugin option, which can have different types.

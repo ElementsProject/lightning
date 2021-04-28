@@ -76,7 +76,6 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->startup = true;
 	p->json_cmds = tal_arr(p, struct command *, 0);
 	p->blacklist = tal_arr(p, const char *, 0);
-	p->notification_topics = tal_arr(p, const char *, 0);
 	p->shutdown = false;
 	p->plugin_idx = 0;
 #if DEVELOPER
@@ -246,6 +245,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p->plugin_state = UNCONFIGURED;
 	p->js_arr = tal_arr(p, struct json_stream *, 0);
 	p->used = 0;
+	p->notification_topics = tal_arr(p, const char *, 0);
 	p->subscriptions = NULL;
 	p->dynamic = false;
 	p->index = plugins->plugin_idx++;
@@ -1326,7 +1326,7 @@ static const char *plugin_notifications_add(const char *buffer,
 				       "missing or not a string.",
 				       i);
 
-		name = json_strdup(plugin->plugins, buffer, method);
+		name = json_strdup(plugin, buffer, method);
 
 		if (notifications_topic_is_native(name))
 			return tal_fmt(plugin,
@@ -1335,7 +1335,7 @@ static const char *plugin_notifications_add(const char *buffer,
 				       "however only be sent by lightningd",
 				       name);
 
-		tal_arr_expand(&plugin->plugins->notification_topics, name);
+		tal_arr_expand(&plugin->notification_topics, name);
 	}
 
 	return NULL;
