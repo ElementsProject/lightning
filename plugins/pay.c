@@ -1653,8 +1653,10 @@ struct pay_mpp {
 
 	/* This is the bolt11/bolt12 string */
 	const char *invstring;
-	/* Status of combined payment */
-	const char *status;
+
+	/* Accumulated states of all sendpay commands involved. */
+	enum payment_result_state state;
+
 	/* Optional label (of first one!) */
 	const jsmntok_t *label;
 	/* Optional preimage (iff status is successful) */
@@ -1763,7 +1765,14 @@ static void add_new_entry(struct json_stream *ret,
 		json_add_tok(ret, "destination", pm->destination, buf);
 
 	json_add_sha256(ret, "payment_hash", pm->payment_hash);
-	json_add_string(ret, "status", pm->status);
+
+	if (pm->state & PAYMENT_COMPLETE)
+		json_add_string(ret, "status", "complete");
+	else if (pm->state & PAYMENT_PENDING || attempt_ongoing(pm->payment_hash))
+		json_add_string(ret, "status", "pending");
+	else
+		json_add_string(ret, "status", "failed");
+
 	json_add_u32(ret, "created_at", pm->timestamp);
 
 	if (pm->label)
@@ -1828,6 +1837,7 @@ static struct command_result *listsendpays_done(struct command *cmd,
 		pm = pay_map_get(&pay_map, &payment_hash);
 		if (!pm) {
 			pm = tal(cmd, struct pay_mpp);
+			pm->state = 0;
 			pm->payment_hash = tal_dup(pm, struct sha256, &payment_hash);
 			pm->invstring = tal_steal(pm, invstr);
 			pm->destination = json_get_member(buf, t, "destination");
@@ -1836,7 +1846,6 @@ static struct command_result *listsendpays_done(struct command *cmd,
 			pm->amount_sent = AMOUNT_MSAT(0);
 			pm->amount = talz(pm, struct amount_msat);
 			pm->num_nonfailed_parts = 0;
-			pm->status = NULL;
 			pm->timestamp = created_at;
 			pay_map_add(&pay_map, pm);
 		}
@@ -1845,24 +1854,15 @@ static struct command_result *listsendpays_done(struct command *cmd,
 		if (json_tok_streq(buf, status, "complete")) {
 			add_amount_sent(cmd->plugin, pm->invstring, pm, buf, t);
 			pm->num_nonfailed_parts++;
-			pm->status = "complete";
 			pm->preimage
 				= json_get_member(buf, t, "payment_preimage");
+			pm->state |= PAYMENT_COMPLETE;
 		} else if (json_tok_streq(buf, status, "pending")) {
 			add_amount_sent(cmd->plugin, pm->invstring, pm, buf, t);
 			pm->num_nonfailed_parts++;
-			/* Failed -> pending; don't downgrade success. */
-			if (!pm->status || !streq(pm->status, "complete"))
-				pm->status = "pending";
+			pm->state |= PAYMENT_PENDING;
 		} else {
-			if (attempt_ongoing(pm->payment_hash)) {
-				/* Failed -> pending; don't downgrade success. */
-				if (!pm->status
-				    || !streq(pm->status, "complete"))
-					pm->status = "pending";
-			} else if (!pm->status)
-				/* Only failed if they all failed */
-				pm->status = "failed";
+			pm->state |= PAYMENT_FAILED;
 		}
 	}
 
