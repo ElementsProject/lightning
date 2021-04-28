@@ -1028,6 +1028,25 @@ static void plugin_logv(struct plugin *p, enum log_level l,
 	jsonrpc_finish_and_send(p, js);
 }
 
+struct json_stream *plugin_notification_start(struct plugin *plugin,
+					      const char *method)
+{
+	struct json_stream *js = new_json_stream(plugin, NULL, NULL);
+
+	json_object_start(js, NULL);
+	json_add_string(js, "jsonrpc", "2.0");
+	json_add_string(js, "method", method);
+
+	json_object_start(js, "params");
+	return js;
+}
+void plugin_notification_end(struct plugin *plugin,
+			     struct json_stream *stream)
+{
+	json_object_end(stream);
+	jsonrpc_finish_and_send(plugin, stream);
+}
+
 struct json_stream *plugin_notify_start(struct command *cmd, const char *method)
 {
 	struct json_stream *js = new_json_stream(cmd, NULL, NULL);

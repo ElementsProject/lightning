@@ -242,6 +242,13 @@ void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...) PRINTF
 struct json_stream *plugin_notify_start(struct command *cmd, const char *method);
 void plugin_notify_end(struct command *cmd, struct json_stream *js);
 
+/* Send a notification for a custom notification topic. These are sent
+ * to lightningd and distributed to subscribing plugins. */
+struct json_stream *plugin_notification_start(struct plugin *plugins,
+					      const char *method);
+void plugin_notification_end(struct plugin *plugin,
+			     struct json_stream *stream TAKES);
+
 /* Convenience wrapper for notify "message" */
 void plugin_notify_message(struct command *cmd,
 			   enum log_level level,
