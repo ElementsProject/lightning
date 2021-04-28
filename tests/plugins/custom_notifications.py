@@ -6,8 +6,8 @@ plugin = Plugin()
 
 
 @plugin.subscribe("custom")
-def on_custom_notification(val, plugin, **kwargs):
-    plugin.log("Got a custom notification {}".format(val))
+def on_custom_notification(origin, payload, **kwargs):
+    plugin.log("Got a custom notification {} from plugin {}".format(payload, origin))
 
 
 @plugin.method("emit")
