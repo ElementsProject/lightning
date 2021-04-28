@@ -30,9 +30,9 @@ struct createonion_request {
 
 /* States returned by listsendpays, waitsendpay, etc. */
 enum payment_result_state {
-	PAYMENT_PENDING,
-	PAYMENT_COMPLETE,
-	PAYMENT_FAILED,
+	PAYMENT_PENDING = 1,
+	PAYMENT_COMPLETE = 2,
+	PAYMENT_FAILED = 4,
 };
 
 /* A parsed version of the possible outcomes that a sendpay / payment may
