@@ -453,19 +453,10 @@ static const char *plugin_notification_handle(struct plugin *plugin,
 	methname = json_strdup(tmpctx, plugin->buffer, methtok);
 
 	if (notifications_have_topic(plugin->plugins, methname)) {
-		n = tal(NULL, struct jsonrpc_notification);
-		n->method = tal_steal(n, methname);
-		n->stream = new_json_stream(n, NULL, NULL);
-		json_object_start(n->stream, NULL);
-		json_add_string(n->stream, "jsonrpc", "2.0");
-		json_add_string(n->stream, "method", methname);
-
-		json_add_tok(n->stream, "params", paramstok, plugin->buffer);
-
-		json_object_end(n->stream); /* closes '.' */
-
-		/* We guarantee to have \n\n at end of each response. */
-		json_stream_append(n->stream, "\n\n", strlen("\n\n"));
+		n = jsonrpc_notification_start(NULL, methname);
+		json_add_string(n->stream, "origin", plugin->shortname);
+		json_add_tok(n->stream, "payload", paramstok, plugin->buffer);
+		jsonrpc_notification_end(n);
 
 		plugins_notify(plugin->plugins, take(n));
 		return NULL;

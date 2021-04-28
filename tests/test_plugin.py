@@ -2404,7 +2404,6 @@ def test_self_disable(node_factory):
         l1.rpc.plugin_start(p2, selfdisable=True)
 
 
-@pytest.mark.xfail(strict=True)
 def test_custom_notification_topics(node_factory):
     plugin = os.path.join(
         os.path.dirname(__file__), "plugins", "custom_notifications.py"
