@@ -146,6 +146,7 @@ int main(int argc, char *argv[])
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL,
 		    commands, ARRAY_SIZE(commands),
 	            notifs, ARRAY_SIZE(notifs), hooks, ARRAY_SIZE(hooks),
+		    NULL, 0,  /* Notification topics we publish */
 		    plugin_option("name",
 				  "string",
 				  "Who to say hello to.",

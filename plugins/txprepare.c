@@ -553,5 +553,5 @@ int main(int argc, char *argv[])
 {
 	setup_locale();
 	plugin_main(argv, NULL, PLUGIN_RESTARTABLE, true, NULL, commands,
-		    ARRAY_SIZE(commands), NULL, 0, NULL, 0, NULL);
+		    ARRAY_SIZE(commands), NULL, 0, NULL, 0, NULL, 0, NULL);
 }
