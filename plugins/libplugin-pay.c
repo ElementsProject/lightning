@@ -1844,6 +1844,8 @@ static void payment_finished(struct payment *p)
 	struct json_stream *ret;
 	struct command *cmd = p->cmd;
 	const char *msg;
+	struct json_stream *n;
+	struct payment *root = payment_root(p);
 
 	/* Either none of the leaf attempts succeeded yet, or we have a
 	 * preimage. */
@@ -1884,6 +1886,12 @@ static void payment_finished(struct payment *p)
 			json_add_preimage(ret, "payment_preimage", result.preimage);
 
 			json_add_string(ret, "status", "complete");
+
+			n = plugin_notification_start(p->plugin, "pay_success");
+			json_add_sha256(n, "payment_hash", p->payment_hash);
+			if (root->invstring != NULL)
+				json_add_string(n, "bolt11", root->invstring);
+			plugin_notification_end(p->plugin, n);
 
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
 			return;

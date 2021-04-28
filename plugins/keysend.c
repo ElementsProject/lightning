@@ -377,6 +377,10 @@ static const struct plugin_hook hooks[] = {
 	},
 };
 
+static const char *notification_topics[] = {
+	"pay_success",
+};
+
 int main(int argc, char *argv[])
 {
 	struct feature_set features;
@@ -388,5 +392,5 @@ int main(int argc, char *argv[])
 
 	plugin_main(argv, init, PLUGIN_STATIC, true, &features, commands,
 		    ARRAY_SIZE(commands), NULL, 0, hooks, ARRAY_SIZE(hooks),
-		    NULL, 0, NULL);
+		    notification_topics, ARRAY_SIZE(notification_topics), NULL);
 }

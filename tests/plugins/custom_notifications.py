@@ -24,6 +24,16 @@ def faulty_emit(plugin):
     plugin.notify("ididntannouncethis", "Hello world")
 
 
+@plugin.subscribe("pay_success")
+def on_pay_success(origin, payload, **kwargs):
+    plugin.log(
+        "Got a pay_success notification from plugin {} for payment_hash {}".format(
+            origin,
+            payload['payment_hash']
+        )
+    )
+
+
 @plugin.subscribe("ididntannouncethis")
 def on_faulty_emit(origin, payload, **kwargs):
     """We should never receive this as it gets dropped.
