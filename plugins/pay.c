@@ -2193,12 +2193,17 @@ static const struct plugin_command commands[] = {
 	},
 };
 
+static const char *notification_topics[] = {
+	"pay_success",
+	"pay_failure",
+};
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, true, NULL, commands,
 		    ARRAY_SIZE(commands), NULL, 0, NULL, 0,
-		    NULL, 0,
+		    notification_topics, ARRAY_SIZE(notification_topics),
 		    plugin_option("disable-mpp", "flag",
 				  "Disable multi-part payments.",
 				  flag_option, &disablempp),

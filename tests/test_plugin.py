@@ -2408,9 +2408,14 @@ def test_custom_notification_topics(node_factory):
     plugin = os.path.join(
         os.path.dirname(__file__), "plugins", "custom_notifications.py"
     )
-    l1 = node_factory.get_node(options={'plugin': plugin})
+    l1, l2 = node_factory.line_graph(2, opts=[{'plugin': plugin}, {}])
     l1.rpc.emit()
     l1.daemon.wait_for_log(r'Got a custom notification Hello world')
+
+    inv = l2.rpc.invoice(42, "lbl", "desc")['bolt11']
+    l1.rpc.pay(inv)
+
+    l1.daemon.wait_for_log(r'Got a pay_success notification from plugin pay for payment_hash [0-9a-f]{64}')
 
     # And now make sure that we drop unannounced notifications
     l1.rpc.faulty_emit()
