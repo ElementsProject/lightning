@@ -27,6 +27,10 @@ struct wally_psbt;
 
 bool notifications_have_topic(const struct plugins *plugins, const char *topic);
 
+/* Is the provided notification topic native, i.e., provided by
+ * lightningd itself? */
+bool notifications_topic_is_native(const char *topic);
+
 struct notification {
 	const char *topic;
 	/* the serialization interface */

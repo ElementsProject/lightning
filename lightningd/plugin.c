@@ -1327,6 +1327,14 @@ static const char *plugin_notifications_add(const char *buffer,
 				       i);
 
 		name = json_strdup(plugin->plugins, buffer, method);
+
+		if (notifications_topic_is_native(name))
+			return tal_fmt(plugin,
+				       "plugin attempted to register a native "
+				       "notification topic \"%s\", these may "
+				       "however only be sent by lightningd",
+				       name);
+
 		tal_arr_expand(&plugin->plugins->notification_topics, name);
 	}
 
