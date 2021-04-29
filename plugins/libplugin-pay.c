@@ -1834,6 +1834,21 @@ static void payment_json_add_attempts(struct json_stream *s,
 	json_array_end(s);
 }
 
+static void payment_notify_failure(struct payment *p, const char *error_message) {
+	struct payment *root = payment_root(p);
+	struct json_stream *n;
+			n = plugin_notification_start(p->plugin, "pay_failure");
+			json_add_sha256(n, "payment_hash", p->payment_hash);
+			if (root->invstring != NULL)
+				json_add_string(n, "bolt11", root->invstring);
+
+			json_object_start(n, "error");
+			json_add_string(n, "message", error_message);
+			json_object_end(n); /* .error */
+
+			plugin_notification_end(p->plugin, n);
+}
+
 /* This function is called whenever a payment ends up in a final state, or all
  * leafs in the subtree rooted in the payment are all in a final state. It is
  * called only once, and it is guaranteed to be called in post-order
@@ -1901,6 +1916,9 @@ static void payment_finished(struct payment *p)
 			ret = jsonrpc_stream_fail(cmd, PAY_STOPPED_RETRYING,
 						  p->aborterror);
 			payment_json_add_attempts(ret, "attempts", p);
+
+			payment_notify_failure(p, p->aborterror);
+
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
 			return;
 		} else if (result.failure == NULL || result.failure->failcode < NODE) {
@@ -1913,6 +1931,9 @@ static void payment_finished(struct payment *p)
 			ret = jsonrpc_stream_fail(cmd, PAY_STOPPED_RETRYING,
 						  msg);
 			payment_json_add_attempts(ret, "attempts", p);
+
+			payment_notify_failure(p, msg);
+
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
 			return;
 
@@ -1978,7 +1999,9 @@ static void payment_finished(struct payment *p)
 					    *failure->erring_direction);
 			}
 
-			if (command_finished(cmd, ret)) {/* Ignore result. */}
+			payment_notify_failure(p, failure->message);
+
+			if (command_finished(cmd, ret)) { /* Ignore result. */}
 			return;
 		}
 	} else {
