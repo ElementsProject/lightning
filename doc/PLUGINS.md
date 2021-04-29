@@ -102,6 +102,11 @@ example:
     "init": "0E000000",
     "invoice": "00AD0000"
   },
+  "notifications": [
+    {
+	  "method": "mycustomnotification"
+	}
+  ],
   "dynamic": true
 }
 ```
@@ -146,6 +151,13 @@ featurebits is reserved for standardize features, so please pick random, high
 position bits for experiments. If you'd like to standardize your extension
 please reach out to the [specification repository][spec] to get a featurebit
 assigned.
+
+The `notifications` array allows plugins to announce which custom
+notifications they intend to send to `lightningd`. These custom
+notifications can then be subscribed to by other plugins, allowing
+them to communicate with each other via the existing publish-subscribe
+mechanism and react to events that happen in other plugins, or collect
+information based on the notification topics.
 
 Plugins are free to register any `name` for their `rpcmethod` as long
 as the name was not previously registered. This includes both built-in
@@ -205,6 +217,60 @@ Here's an example option set, as sent in response to `getmanifest`
     }
   ],
 ```
+
+#### Custom notifications
+
+The plugins may emit custom notifications for topics they have
+announced during startup. The list of notification topics declared
+during startup must include all topics that may be emitted, in order
+to verify that all topics plugins subscribe to are also emitted by
+some other plugin, and warn if a plugin subscribes to a non-existent
+topic. In case a plugin emits notifications it has not announced the
+notification will be ignored and not forwarded to subscribers.
+
+When forwarding a custom notification `lightningd` will wrap the
+payload of the notification in an object that contains metadata about
+the notification. The following is an example of this
+transformation. The first listing is the original notification emitted
+by the `sender` plugin, while the second is the the notification as
+received by the `receiver` plugin (both listings show the full
+[JSON-RPC][jsonrpc-spec] notification to illustrate the wrapping).
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "mycustomnotification",
+  "params": {
+    "key": "value",
+	"message": "Hello fellow plugin!"
+  }
+}
+```
+
+is delivered as
+
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "mycustomnotification",
+  "params": {
+    "origin": "sender",
+    "payload": {
+      "key": "value",
+      "message": "Hello fellow plugin!"
+    }
+  }
+}
+
+```
+
+The notification topic (`method` in the JSON-RPC message) must not
+match one of the internal events in order to prevent breaking
+subscribers that expect the existing notification format. Multiple
+plugins are allowed to emit notifications for the same topics,
+allowing things like metric aggregators where the aggregator
+subscribes to a common topic and other plugins publish metrics as
+notifications.
 
 ### The `init` method
 
