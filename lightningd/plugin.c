@@ -464,32 +464,21 @@ static const char *plugin_notification_handle(struct plugin *plugin,
 
 	methname = json_strdup(tmpctx, plugin->buffer, methtok);
 
-	if (notifications_have_topic(plugin->plugins, methname)) {
-
-		if (!plugin_notification_allowed(plugin, methname)) {
-			log_unusual(
-			    plugin->log,
+	if (!plugin_notification_allowed(plugin, methname)) {
+		log_unusual(plugin->log,
 			    "Plugin attempted to send a notification to topic "
 			    "\"%s\" it hasn't declared in its manifest, not "
 			    "forwarding to subscribers.",
 			    methname);
-			return NULL;
-		} else {
+	} else if (notifications_have_topic(plugin->plugins, methname)) {
+		n = jsonrpc_notification_start(NULL, methname);
+		json_add_string(n->stream, "origin", plugin->shortname);
+		json_add_tok(n->stream, "payload", paramstok, plugin->buffer);
+		jsonrpc_notification_end(n);
 
-			n = jsonrpc_notification_start(NULL, methname);
-			json_add_string(n->stream, "origin", plugin->shortname);
-			json_add_tok(n->stream, "payload", paramstok,
-				     plugin->buffer);
-			jsonrpc_notification_end(n);
-
-			plugins_notify(plugin->plugins, take(n));
-			return NULL;
-		}
-	} else {
-		return tal_fmt(plugin, "Unknown notification method %.*s",
-			       json_tok_full_len(methtok),
-			       json_tok_full(plugin->buffer, methtok));
+		plugins_notify(plugin->plugins, take(n));
 	}
+	return NULL;
 }
 
 /* Returns the error string, or NULL */

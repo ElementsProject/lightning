@@ -2411,3 +2411,15 @@ def test_custom_notification_topics(node_factory):
     l1 = node_factory.get_node(options={'plugin': plugin})
     l1.rpc.emit()
     l1.daemon.wait_for_log(r'Got a custom notification Hello world')
+
+    # And now make sure that we drop unannounced notifications
+    l1.rpc.faulty_emit()
+    l1.daemon.wait_for_log(
+        r"Plugin attempted to send a notification to topic .* not forwarding"
+    )
+    time.sleep(1)
+    assert not l1.daemon.is_in_log(r'Got the ididntannouncethis event')
+
+    # The plugin just dist what previously was a fatal mistake (emit
+    # an unknown notification), make sure we didn't kill it.
+    assert 'custom_notifications.py' in [p['name'] for p in l1.rpc.listconfigs()['plugins']]
