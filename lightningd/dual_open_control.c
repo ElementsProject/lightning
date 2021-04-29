@@ -1935,9 +1935,13 @@ json_openchannel_abort(struct command *cmd,
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
 
-	if (!channel->open_attempt)
+	if (!channel->open_attempt) {
+		if (list_empty(&channel->inflights))
+			return command_fail(cmd, FUNDING_STATE_INVALID,
+					    "Channel open not in progress");
 		return command_fail(cmd, FUNDING_STATE_INVALID,
-				    "Channel open not in progress");
+				    "Sigs already exchanged, can't cancel");
+	}
 
 	if (channel->open_attempt->cmd)
 		return command_fail(cmd, FUNDING_STATE_INVALID,
