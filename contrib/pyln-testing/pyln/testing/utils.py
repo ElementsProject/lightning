@@ -864,8 +864,7 @@ class LightningNode(object):
                 txnum = i
 
         scid = "{}x{}x{}".format(self.bitcoin.rpc.getblockcount(),
-                                 txnum,
-                                 get_tx_p2wsh_outnum(self.bitcoin, res['tx'], amount))
+                                 txnum, res['outnum'])
 
         if wait_for_active:
             self.wait_channel_active(scid)
