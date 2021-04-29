@@ -379,6 +379,7 @@ static const struct plugin_hook hooks[] = {
 
 static const char *notification_topics[] = {
 	"pay_success",
+	"pay_failure",
 };
 
 int main(int argc, char *argv[])
