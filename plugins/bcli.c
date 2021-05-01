@@ -320,6 +320,15 @@ start_bitcoin_cli(const tal_t *ctx,
 	next_bcli(bcli->prio);
 }
 
+static void strip_trailing_whitespace(char *str, size_t len)
+{
+	size_t stripped_len = len;
+	while (stripped_len > 0 && cisspace(str[stripped_len-1]))
+		stripped_len--;
+
+	str[stripped_len] = 0x00;
+}
+
 static struct command_result *command_err_bcli_badjson(struct bitcoin_cli *bcli,
 						       const char *errmsg)
 {
@@ -595,8 +604,7 @@ static struct command_result *process_getrawblock(struct bitcoin_cli *bcli)
 	struct json_stream *response;
 	struct getrawblock_stash *stash = bcli->stash;
 
-	/* -1 to strip \n and steal onto the stash. */
-	bcli->output[bcli->output_bytes-1] = 0x00;
+	strip_trailing_whitespace(bcli->output, bcli->output_bytes);
 	stash->block_hex = tal_steal(stash, bcli->output);
 
 	response = jsonrpc_stream_success(bcli->cmd);
@@ -631,9 +639,8 @@ static struct command_result *process_getblockhash(struct bitcoin_cli *bcli)
 		return getrawblockbyheight_notfound(bcli);
 	}
 
-	/* `-1` to strip the newline character. */
-	stash->block_hash = tal_strndup(stash, bcli->output,
-					bcli->output_bytes-1);
+	strip_trailing_whitespace(bcli->output, bcli->output_bytes);
+	stash->block_hash = tal_strdup(stash, bcli->output);
 	if (!stash->block_hash || strlen(stash->block_hash) != 64) {
 		return command_err_bcli_badjson(bcli, "bad blockhash");
 	}
