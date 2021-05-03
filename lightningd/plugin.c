@@ -109,9 +109,6 @@ void plugins_free(struct plugins *plugins)
 static void plugin_check_subscriptions(struct plugins *plugins,
 				       struct plugin *plugin)
 {
-	if (plugin->subscriptions == NULL)
-		return;
-
 	for (size_t i = 0; i < tal_count(plugin->subscriptions); i++) {
 		const char *topic = plugin->subscriptions[i];
 		if (!notifications_have_topic(plugins, topic))
@@ -1305,6 +1302,7 @@ static const char *plugin_notifications_add(const char *buffer,
 					    struct plugin *plugin)
 {
 	char *name;
+	size_t i;
 	const jsmntok_t *method, *obj;
 	const jsmntok_t *notifications =
 	    json_get_member(buffer, result, "notifications");
@@ -1316,8 +1314,7 @@ static const char *plugin_notifications_add(const char *buffer,
 		return tal_fmt(plugin,
 			       "\"result.notifications\" is not an array");
 
-	for (size_t i = 0; i < notifications->size; i++) {
-		obj = json_get_arr(notifications, i);
+	json_for_each_arr(i, obj, notifications) {
 		if (obj->type != JSMN_OBJECT)
 			return tal_fmt(
 			    plugin,
