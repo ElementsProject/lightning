@@ -876,6 +876,7 @@ int main(int argc, char **argv)
 		    commands, ARRAY_SIZE(commands),
 		    notifs, ARRAY_SIZE(notifs),
 		    hooks, ARRAY_SIZE(hooks),
+		    NULL, 0,
 		    plugin_option("funder-policy",
 				  "string",
 				  "Policy to use for dual-funding requests."
