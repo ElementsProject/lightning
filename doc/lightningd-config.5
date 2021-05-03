@@ -197,6 +197,11 @@ Log to this file instead of stdout\. Sending \fBlightningd\fR(8) SIGHUP will
 cause it to reopen this file (useful for log rotation)\.
 
 
+ \fBlog-timetamps\fR=\fIBOOL\fR
+Set this to false to turn off timestamp prefixes (they will still appear
+in crash log files)\.
+
+
  \fBrpc-file\fR=\fIPATH\fR
 Set JSON-RPC socket (or /dev/tty), such as for \fBlightning-cli\fR(1)\.
 
@@ -627,4 +632,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license\.
 
-\" SHA256STAMP:cdddb53037da4e67505114769586ed56914827c584a073956387933bc09e7aa9
+\" SHA256STAMP:1cbbdff8f2b7ba54d6912c54a731357fcf37b87c053a528d546f3ffbfccd1216

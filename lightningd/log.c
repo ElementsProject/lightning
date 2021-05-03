@@ -54,6 +54,7 @@ struct log_book {
 	enum log_level *default_print_level;
 	struct timeabs init_time;
 	FILE *outf;
+	bool print_timestamps;
 
 	struct log_entry *log;
 
@@ -126,32 +127,37 @@ static void log_to_file(const char *prefix,
 			const char *str,
 			const u8 *io,
 			size_t io_len,
+			bool print_timestamps,
 			FILE *logf)
 {
-	char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ")];
-	strftime(iso8601_msec_fmt, sizeof(iso8601_msec_fmt), "%FT%T.%%03dZ", gmtime(&time->ts.tv_sec));
-	char iso8601_s[sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ")];
-	snprintf(iso8601_s, sizeof(iso8601_s), iso8601_msec_fmt, (int) time->ts.tv_nsec / 1000000);
+	char tstamp[sizeof("YYYY-mm-ddTHH:MM:SS.nnnZ ")];
+
+	if (print_timestamps) {
+		char iso8601_msec_fmt[sizeof("YYYY-mm-ddTHH:MM:SS.%03dZ ")];
+		strftime(iso8601_msec_fmt, sizeof(iso8601_msec_fmt), "%FT%T.%%03dZ ", gmtime(&time->ts.tv_sec));
+		snprintf(tstamp, sizeof(tstamp), iso8601_msec_fmt, (int) time->ts.tv_nsec / 1000000);
+	} else
+		tstamp[0] = '\0';
 
 	if (level == LOG_IO_IN || level == LOG_IO_OUT) {
 		const char *dir = level == LOG_IO_IN ? "[IN]" : "[OUT]";
 		char *hex = tal_hexstr(NULL, io, io_len);
 		if (!node_id)
-			fprintf(logf, "%s %s: %s%s %s\n",
-				iso8601_s, prefix, str, dir, hex);
+			fprintf(logf, "%s%s: %s%s %s\n",
+				tstamp, prefix, str, dir, hex);
 		else
-			fprintf(logf, "%s %s-%s: %s%s %s\n",
-				iso8601_s,
+			fprintf(logf, "%s%s-%s: %s%s %s\n",
+				tstamp,
 				node_id_to_hexstr(tmpctx, node_id),
 				prefix, str, dir, hex);
 		tal_free(hex);
 	} else {
 		if (!node_id)
-			fprintf(logf, "%s %s %s: %s\n",
-				iso8601_s, level_prefix(level), prefix, str);
+			fprintf(logf, "%s%s %s: %s\n",
+				tstamp, level_prefix(level), prefix, str);
 		else
-			fprintf(logf, "%s %s %s-%s: %s\n",
-				iso8601_s, level_prefix(level),
+			fprintf(logf, "%s%s %s-%s: %s\n",
+				tstamp, level_prefix(level),
 				node_id_to_hexstr(tmpctx, node_id),
 				prefix, str);
 	}
@@ -257,6 +263,7 @@ struct log_book *new_log_book(struct lightningd *ld, size_t max_mem)
 	lr->cache = tal(lr, struct node_id_map);
 	node_id_map_init(lr->cache);
 	lr->log = tal_arr(lr, struct log_entry, 128);
+	lr->print_timestamps = true;
 	tal_add_destructor(lr, destroy_log_book);
 
 	return lr;
@@ -378,7 +385,9 @@ static void maybe_print(struct log *log, const struct log_entry *l)
 		log_to_file(log->prefix, l->level,
 			    l->nc ? &l->nc->node_id : NULL,
 			    &l->time, l->log,
-			    l->io, tal_bytelen(l->io), log->lr->outf);
+			    l->io, tal_bytelen(l->io),
+			    log->lr->print_timestamps,
+			    log->lr->outf);
 }
 
 void logv(struct log *log, enum log_level level,
@@ -426,7 +435,9 @@ void log_io(struct log *log, enum log_level dir,
 		log_to_file(log->prefix, l->level,
 			    l->nc ? &l->nc->node_id : NULL,
 			    &l->time, str,
-			    data, len, log->lr->outf);
+			    data, len,
+			    log->lr->print_timestamps,
+			    log->lr->outf);
 
 	/* Save a tal header, by using raw malloc. */
 	l->log = strdup(str);
@@ -693,6 +704,9 @@ void opt_register_logging(struct lightningd *ld)
 	opt_register_early_arg("--log-level",
 			       opt_log_level, show_log_level, ld->log,
 			       "log level (io, debug, info, unusual, broken) [:prefix]");
+	opt_register_early_arg("--log-timestamps",
+			       opt_set_bool_arg, opt_show_bool, &ld->log->lr->print_timestamps,
+			       "prefix log messages with timestamp");
 	opt_register_early_arg("--log-prefix", arg_log_prefix, show_log_prefix,
 			       ld->log,
 			       "log prefix");
@@ -716,7 +730,9 @@ void logging_options_parsed(struct log_book *lr)
 			log_to_file(l->prefix, l->level,
 				    l->nc ? &l->nc->node_id : NULL,
 				    &l->time, l->log,
-				    l->io, tal_bytelen(l->io), lr->outf);
+				    l->io, tal_bytelen(l->io),
+				    lr->print_timestamps,
+				    lr->outf);
 	}
 }
 
