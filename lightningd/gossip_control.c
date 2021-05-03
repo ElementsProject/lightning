@@ -491,11 +491,13 @@ static void json_add_halfchan(struct json_stream *response,
 	json_object_end(response);
 }
 
+//TODO(vincenzopalazzo): Working on https://github.com/ElementsProject/lightning/issues/4425
 struct listchannels_info {
 	struct command *cmd;
 	struct json_stream *response;
 	struct short_channel_id *id;
 	struct node_id *source;
+	u32 *closed;
 };
 
 /* Called upon receiving a getchannels_reply from `gossipd` */
@@ -531,10 +533,15 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 							->short_channel_id);
 		subd_req(linfo->cmd->ld->gossip, linfo->cmd->ld->gossip,
 			 req, -1, 0, json_listchannels_reply, linfo);
-	} else {
-		json_array_end(linfo->response);
-		was_pending(command_success(linfo->cmd, linfo->response));
+		return;
 	}
+
+	if (linfo->closed) {
+		wallet_get_channels_closed(gossip->ld->wallet, tmpctx, linfo->closed);
+	}
+
+	json_array_end(linfo->response);
+	was_pending(command_success(linfo->cmd, linfo->response));
 }
 
 static struct command_result *json_listchannels(struct command *cmd,
@@ -549,6 +556,7 @@ static struct command_result *json_listchannels(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_opt("short_channel_id", param_short_channel_id, &linfo->id),
 		   p_opt("source", param_node_id, &linfo->source),
+		   p_opt("closed", param_number, &linfo->closed),
 		   NULL))
 		return command_param_failed();
 

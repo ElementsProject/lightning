@@ -1985,6 +1985,26 @@ void wallet_channel_close(struct wallet *w, u64 wallet_id)
 	db_exec_prepared_v2(take(stmt));
 }
 
+//TODO: Vincenzo Working here
+struct channel **wallet_get_channels_closed(struct wallet *w, const tal_t *ctx, u32 *buffer)
+{
+	struct db_stmt *stmt;
+	struct channel **channels;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT * FROM channels WHERE state=?"));
+	db_bind_u64(stmt, 0, CLOSED);
+	db_exec_prepared_v2(take(stmt));
+
+
+	channels = tal_arr(ctx, struct channel*, 0);
+	while (db_step(stmt)) {
+		struct channel *c = wallet_stmt2channel(w, stmt);
+		tal_arr_expand(&channels, c);
+	}
+	tal_free(stmt);
+	return channels;
+}
+
 void wallet_peer_delete(struct wallet *w, u64 peer_dbid)
 {
 	struct db_stmt *stmt;
