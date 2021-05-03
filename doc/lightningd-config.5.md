@@ -157,6 +157,10 @@ with multiple daemons.
 Log to this file instead of stdout. Sending lightningd(8) SIGHUP will
 cause it to reopen this file (useful for log rotation).
 
+ **log-timetamps**=*BOOL*
+Set this to false to turn off timestamp prefixes (they will still appear
+in crash log files).
+
  **rpc-file**=*PATH*
 Set JSON-RPC socket (or /dev/tty), such as for lightning-cli(1).
 

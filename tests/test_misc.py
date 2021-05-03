@@ -2529,3 +2529,10 @@ def test_version_reexec(node_factory, bitcoind):
     # Now "fix" it, it should restart.
     os.unlink(verfile)
     l1.daemon.wait_for_log("Server started with public key")
+
+
+def test_notimestamp_logging(node_factory):
+    l1 = node_factory.get_node(options={'log-timestamps': False})
+    assert l1.daemon.logs[0].startswith("DEBUG")
+
+    assert l1.rpc.listconfigs()['log-timestamps'] is False
