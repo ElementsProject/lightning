@@ -409,10 +409,18 @@ static struct command_result *process_getblockchaininfo(struct bitcoin_cli *bcli
 	return command_finished(bcli->cmd, response);
 }
 
+enum feerate_levels {
+	FEERATE_VERY_URGENT,
+	FEERATE_URGENT,
+	FEERATE_NORMAL,
+	FEERATE_SLOW,
+};
+#define FEERATE_LEVEL_MAX (FEERATE_SLOW)
 
 struct estimatefees_stash {
+	u32 cursor;
 	/* FIXME: We use u64 but lightningd will store them as u32. */
-	u64 very_urgent, urgent, normal, slow;
+	u64 perkb[FEERATE_LEVEL_MAX+1];
 };
 
 static struct command_result *
@@ -460,114 +468,6 @@ estimatefees_parse_feerate(struct bitcoin_cli *bcli, u64 *feerate)
 
 	return NULL;
 }
-
-/* We got all the feerates, give them to lightningd. */
-static struct command_result *estimatefees_final_step(struct bitcoin_cli *bcli)
-{
-	struct command_result *err;
-	struct json_stream *response;
-	struct estimatefees_stash *stash = bcli->stash;
-
-	/* bitcoind could theoretically fail to estimate for a higher target. */
-	if (*bcli->exitstatus != 0)
-		return estimatefees_null_response(bcli);
-
-	err = estimatefees_parse_feerate(bcli, &stash->slow);
-	if (err)
-		return err;
-
-	response = jsonrpc_stream_success(bcli->cmd);
-	json_add_u64(response, "opening", stash->normal);
-	json_add_u64(response, "mutual_close", stash->slow);
-	json_add_u64(response, "unilateral_close",
-		     stash->very_urgent * bitcoind->commit_fee_percent / 100);
-	json_add_u64(response, "delayed_to_us", stash->normal);
-	json_add_u64(response, "htlc_resolution", stash->urgent);
-	json_add_u64(response, "penalty", stash->urgent);
-	/* We divide the slow feerate for the minimum acceptable, lightningd
-	 * will use floor if it's hit, though. */
-	json_add_u64(response, "min_acceptable", stash->slow / 2);
-	/* BOLT #2:
-	*
-	* Given the variance in fees, and the fact that the transaction may be
-	* spent in the future, it's a good idea for the fee payer to keep a good
-	* margin (say 5x the expected fee requirement)
-	*/
-	json_add_u64(response, "max_acceptable",
-		     stash->very_urgent * bitcoind->max_fee_multiplier);
-
-	return command_finished(bcli->cmd, response);
-}
-
-/* We got the response for the normal feerate, now treat the slow one. */
-static struct command_result *estimatefees_fourth_step(struct bitcoin_cli *bcli)
-{
-	struct command_result *err;
-	struct estimatefees_stash *stash = bcli->stash;
-	const char **params = tal_arr(bcli->cmd, const char *, 2);
-
-	/* bitcoind could theoretically fail to estimate for a higher target. */
-	if (*bcli->exitstatus != 0)
-		return estimatefees_null_response(bcli);
-
-	err = estimatefees_parse_feerate(bcli, &stash->normal);
-	if (err)
-		return err;
-
-	params[0] = "100";
-	params[1] = "ECONOMICAL";
-	start_bitcoin_cli(NULL, bcli->cmd, estimatefees_final_step, true,
-			  BITCOIND_LOW_PRIO, "estimatesmartfee", params, stash);
-
-	return command_still_pending(bcli->cmd);
-}
-
-/* We got the response for the urgent feerate, now treat the normal one. */
-static struct command_result *estimatefees_third_step(struct bitcoin_cli *bcli)
-{
-	struct command_result *err;
-	struct estimatefees_stash *stash = bcli->stash;
-	const char **params = tal_arr(bcli->cmd, const char *, 2);
-
-	/* If we cannot estimate fees, no need to continue bothering bitcoind. */
-	if (*bcli->exitstatus != 0)
-		return estimatefees_null_response(bcli);
-
-	err = estimatefees_parse_feerate(bcli, &stash->urgent);
-	if (err)
-		return err;
-
-	params[0] = "4";
-	params[1] = "ECONOMICAL";
-	start_bitcoin_cli(NULL, bcli->cmd, estimatefees_fourth_step, true,
-			  BITCOIND_LOW_PRIO, "estimatesmartfee", params, stash);
-
-	return command_still_pending(bcli->cmd);
-}
-
-/* We got the response for the very urgent feerate, now treat the urgent one. */
-static struct command_result *estimatefees_second_step(struct bitcoin_cli *bcli)
-{
-	struct command_result *err;
-	struct estimatefees_stash *stash = bcli->stash;
-	const char **params = tal_arr(bcli->cmd, const char *, 2);
-
-	/* If we cannot estimate fees, no need to continue bothering bitcoind. */
-	if (*bcli->exitstatus != 0)
-		return estimatefees_null_response(bcli);
-
-	err = estimatefees_parse_feerate(bcli, &stash->very_urgent);
-	if (err)
-		return err;
-
-	params[0] = "3";
-	params[1] = "CONSERVATIVE";
-	start_bitcoin_cli(NULL, bcli->cmd, estimatefees_third_step, true,
-			  BITCOIND_LOW_PRIO, "estimatesmartfee", params, stash);
-
-	return command_still_pending(bcli->cmd);
-}
-
 
 static struct command_result *process_sendrawtransaction(struct bitcoin_cli *bcli)
 {
@@ -701,32 +601,97 @@ static struct command_result *getchaininfo(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+/* Mutual recursion. */
+static struct command_result *estimatefees_done(struct bitcoin_cli *bcli);
+
+/*
+ * Calls `estimatesmartfee` with targets 2/CONSERVATIVE (very urgent),
+ * 3/CONSERVATIVE (urgent), 4/ECONOMICAL (normal), and 100/ECONOMICAL (slow)
+ */
+struct estimatefee_params {
+	u32 blocks;
+	const char *style;
+};
+
+static const struct estimatefee_params estimatefee_params[] = {
+	[FEERATE_VERY_URGENT] = { 2, "CONSERVATIVE" },
+	[FEERATE_URGENT] = { 3, "CONSERVATIVE" },
+	[FEERATE_NORMAL] = { 4, "ECONOMICAL" },
+	[FEERATE_SLOW] = { 100, "ECONOMICAL" },
+};
+
+static struct command_result *estimatefees_next(struct command *cmd,
+						struct estimatefees_stash *stash)
+{
+	struct json_stream *response;
+
+	if (stash->cursor < ARRAY_SIZE(stash->perkb)) {
+		const char **params = tal_arr(cmd, const char *, 2);
+
+		params[0] = tal_fmt(params, "%u", estimatefee_params[stash->cursor].blocks);
+		params[1] = estimatefee_params[stash->cursor].style;
+		start_bitcoin_cli(NULL, cmd, estimatefees_done, true,
+				  BITCOIND_LOW_PRIO, "estimatesmartfee", params, stash);
+
+		return command_still_pending(cmd);
+	}
+
+	response = jsonrpc_stream_success(cmd);
+	json_add_u64(response, "opening", stash->perkb[FEERATE_NORMAL]);
+	json_add_u64(response, "mutual_close", stash->perkb[FEERATE_SLOW]);
+	json_add_u64(response, "unilateral_close",
+		     stash->perkb[FEERATE_VERY_URGENT] * bitcoind->commit_fee_percent / 100);
+	json_add_u64(response, "delayed_to_us", stash->perkb[FEERATE_NORMAL]);
+	json_add_u64(response, "htlc_resolution", stash->perkb[FEERATE_URGENT]);
+	json_add_u64(response, "penalty", stash->perkb[FEERATE_URGENT]);
+	/* We divide the slow feerate for the minimum acceptable, lightningd
+	 * will use floor if it's hit, though. */
+	json_add_u64(response, "min_acceptable",
+		     stash->perkb[FEERATE_SLOW] / 2);
+	/* BOLT #2:
+	 *
+	 * Given the variance in fees, and the fact that the transaction may be
+	 * spent in the future, it's a good idea for the fee payer to keep a good
+	 * margin (say 5x the expected fee requirement)
+	 */
+	json_add_u64(response, "max_acceptable",
+		     stash->perkb[FEERATE_VERY_URGENT]
+		     * bitcoind->max_fee_multiplier);
+	return command_finished(cmd, response);
+}
+
 /* Get the current feerates. We use an urgent feerate for unilateral_close and max,
  * a slightly less urgent feerate for htlc_resolution and penalty transactions,
  * a slow feerate for min, and a normal one for all others.
- *
- * Calls `estimatesmartfee` with targets 2/CONSERVATIVE (very urgent),
- * 3/CONSERVATIVE (urgent), 4/ECONOMICAL (normal), and 100/ECONOMICAL (slow)
- * then returns the feerates as sat/kVB.
  */
 static struct command_result *estimatefees(struct command *cmd,
 					   const char *buf UNUSED,
 					   const jsmntok_t *toks UNUSED)
 {
 	struct estimatefees_stash *stash = tal(cmd, struct estimatefees_stash);
-	const char **params = tal_arr(cmd, const char *, 2);
 
 	if (!param(cmd, buf, toks, NULL))
-	    return command_param_failed();
+		return command_param_failed();
 
-	/* First call to estimatesmartfee, for very urgent estimation (unilateral
-	 * and max_acceptable feerates). */
-	params[0] = "2";
-	params[1] = "CONSERVATIVE";
-	start_bitcoin_cli(NULL, cmd, estimatefees_second_step, true,
-			  BITCOIND_LOW_PRIO, "estimatesmartfee", params, stash);
+	stash->cursor = 0;
+	return estimatefees_next(cmd, stash);
+}
 
-	return command_still_pending(cmd);
+static struct command_result *estimatefees_done(struct bitcoin_cli *bcli)
+{
+	struct command_result *err;
+	struct estimatefees_stash *stash = bcli->stash;
+
+	/* If we cannot estimate fees, no need to continue bothering bitcoind. */
+	if (*bcli->exitstatus != 0)
+		return estimatefees_null_response(bcli);
+
+	err = estimatefees_parse_feerate(bcli, &stash->perkb[stash->cursor]);
+	if (err)
+		return err;
+
+	stash->cursor++;
+	return estimatefees_next(bcli->cmd, stash);
 }
 
 /* Send a transaction to the Bitcoin network.
