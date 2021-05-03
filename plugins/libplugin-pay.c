@@ -1834,19 +1834,21 @@ static void payment_json_add_attempts(struct json_stream *s,
 	json_array_end(s);
 }
 
-static void payment_notify_failure(struct payment *p, const char *error_message) {
+static void payment_notify_failure(struct payment *p, const char *error_message)
+{
 	struct payment *root = payment_root(p);
 	struct json_stream *n;
-			n = plugin_notification_start(p->plugin, "pay_failure");
-			json_add_sha256(n, "payment_hash", p->payment_hash);
-			if (root->invstring != NULL)
-				json_add_string(n, "bolt11", root->invstring);
 
-			json_object_start(n, "error");
-			json_add_string(n, "message", error_message);
-			json_object_end(n); /* .error */
+	n = plugin_notification_start(p->plugin, "pay_failure");
+	json_add_sha256(n, "payment_hash", p->payment_hash);
+	if (root->invstring != NULL)
+		json_add_string(n, "bolt11", root->invstring);
 
-			plugin_notification_end(p->plugin, n);
+	json_object_start(n, "error");
+	json_add_string(n, "message", error_message);
+	json_object_end(n); /* .error */
+
+	plugin_notification_end(p->plugin, n);
 }
 
 /* This function is called whenever a payment ends up in a final state, or all
