@@ -460,6 +460,8 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	while (!inputs_sufficient(input, *amount, *feerate_per_kw, *weight,
 				  &diff)) {
 		struct utxo *utxo;
+		struct amount_sat fee;
+		u32 utxo_weight;
 
 		utxo = wallet_find_utxo(utxos, cmd->ld->wallet,
 					cmd->ld->topology->tip->height,
@@ -468,6 +470,14 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 					maxheight,
 					cast_const2(const struct utxo **, utxos));
 		if (utxo) {
+			utxo_weight = utxo_spend_weight(utxo,
+							*min_witness_weight);
+			fee = amount_tx_fee(*feerate_per_kw, utxo_weight);
+
+			/* Uneconomic to add this utxo, skip it */
+			if (!all && amount_sat_greater_eq(fee, utxo->amount))
+				continue;
+
 			tal_arr_expand(&utxos, utxo);
 
 			/* It supplies more input. */
@@ -476,7 +486,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 						    "impossible UTXO value");
 
 			/* But also adds weight */
-			*weight += utxo_spend_weight(utxo, *min_witness_weight);
+			*weight += utxo_weight;
 			continue;
 		}
 
