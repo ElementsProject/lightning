@@ -350,7 +350,7 @@ listfunds_success(struct command *cmd,
 		  const jsmntok_t *result,
 		  struct open_info *info)
 {
-	struct amount_sat available_funds;
+	struct amount_sat available_funds, est_fee;
 	const jsmntok_t *outputs_tok, *tok;
 	struct out_req *req;
 	size_t i;
@@ -365,7 +365,7 @@ listfunds_success(struct command *cmd,
 	available_funds = AMOUNT_SAT(0);
 	json_for_each_arr(i, tok, outputs_tok) {
 		struct amount_sat val;
-		bool is_reserved;
+		bool is_reserved, is_p2sh;
 		char *status;
 		const char *err;
 
@@ -382,6 +382,16 @@ listfunds_success(struct command *cmd,
 				   err, json_tok_full_len(result),
 				   json_tok_full(buf, result));
 
+		/* is it a p2sh output? */
+		if (json_get_member(buf, tok, "redeemscript"))
+			is_p2sh = true;
+		else
+			is_p2sh = false;
+
+		/* The estimated fee per utxo. */
+		est_fee = amount_tx_fee(info->funding_feerate_perkw,
+					bitcoin_tx_input_weight(is_p2sh, 110));
+
 		/* we skip reserved funds */
 		if (is_reserved)
 			continue;
@@ -390,11 +400,14 @@ listfunds_success(struct command *cmd,
 		if (!streq(status, "confirmed"))
 			continue;
 
+		/* Don't include outputs that can't cover their weight;
+		 *  subtract the fee for this utxo out of the utxo */
+		if (!amount_sat_sub(&val, val, est_fee))
+			continue;
+
 		if (!amount_sat_add(&available_funds, available_funds, val))
 			plugin_err(cmd->plugin,
 				   "`listfunds` overflowed output values");
-
-		/* FIXME: count of utxos? */
 	}
 
 	info->our_funding = calculate_our_funding(current_policy,
