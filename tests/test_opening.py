@@ -749,3 +749,65 @@ def test_funder_options(node_factory, bitcoind):
     chan_info = only_one(only_one(l3.rpc.listpeers(l1.info['id'])['peers'])['channels'])
     # l1 contributed everything
     assert chan_info['funding_msat'][l1.info['id']] != '0msat'
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+def test_funder_contribution_limits(node_factory, bitcoind):
+    opts = {'experimental-dual-fund': None,
+            'feerates': (5000, 5000, 5000, 5000)}
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+
+    l1.fundwallet(10**8)
+
+    # Give l2 lots of utxos
+    l2.fundwallet(10**3)  # this one is too small to add
+    l2.fundwallet(10**5)
+    l2.fundwallet(10**4)
+    l2.fundwallet(10**4)
+    l2.fundwallet(10**4)
+    l2.fundwallet(10**4)
+    l2.fundwallet(10**4)
+
+    # Give l3 lots of utxos
+    l3.fundwallet(10**3)  # this one is too small to add
+    l3.fundwallet(10**4)
+    l3.fundwallet(10**4)
+    l3.fundwallet(10**4)
+    l3.fundwallet(10**4)
+    l3.fundwallet(10**4)
+    l3.fundwallet(10**4)
+    l3.fundwallet(10**4)
+    l3.fundwallet(10**4)
+    l3.fundwallet(10**4)
+    l3.fundwallet(10**4)
+    l3.fundwallet(10**4)
+
+    # Contribute 100% of available funds to l2, all 6 utxos (smallest utxo
+    # 10**3 is left out)
+    l2.rpc.call('funderupdate',
+                {'policy': 'available',
+                 'policy_mod': 100,
+                 'min_their_funding': '1000msat',
+                 'per_channel_min': '1000000msat',
+                 'fund_probability': 100,
+                 'fuzz_percent': 0})
+
+    # Set our contribution to 50k sat, should only use 7 of 12 available utxos
+    l3.rpc.call('funderupdate',
+                {'policy': 'fixed',
+                 'policy_mod': '50000sat',
+                 'min_their_funding': '1000msat',
+                 'per_channel_min': '1000sat',
+                 'per_channel_max': '500000sat',
+                 'fund_probability': 100,
+                 'fuzz_percent': 0})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundchannel(l2, 10**7)
+    assert l2.daemon.is_in_log('Policy .* returned funding amount of 139020sat')
+    assert l2.daemon.is_in_log(r'calling `signpsbt` .* 6 inputs')
+
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.fundchannel(l3, 10**7)
+    assert l3.daemon.is_in_log('Policy .* returned funding amount of 50000sat')
+    assert l3.daemon.is_in_log(r'calling `signpsbt` .* 7 inputs')
