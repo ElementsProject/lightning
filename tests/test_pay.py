@@ -259,7 +259,7 @@ def test_pay_disconnect(node_factory, bitcoind):
     l1.daemon.wait_for_log('peer_out WIRE_CHANNEL_REESTABLISH')
 
     # Make l2 upset by asking for crazy fee.
-    l1.set_feerates((10**6, 1000**6, 1000**6, 1000**6), False)
+    l1.set_feerates((10**6, 10**6, 10**6, 10**6), False)
 
     # Wait for l1 notice
     l1.daemon.wait_for_log(r'Peer transient failure in CHANNELD_NORMAL: channeld WARNING: .*: update_fee \d+ outside range 1875-75000')

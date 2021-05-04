@@ -410,7 +410,7 @@ static struct command_result *process_getblockchaininfo(struct bitcoin_cli *bcli
 }
 
 enum feerate_levels {
-	FEERATE_VERY_URGENT,
+	FEERATE_HIGHEST,
 	FEERATE_URGENT,
 	FEERATE_NORMAL,
 	FEERATE_SLOW,
@@ -604,19 +604,15 @@ static struct command_result *getchaininfo(struct command *cmd,
 /* Mutual recursion. */
 static struct command_result *estimatefees_done(struct bitcoin_cli *bcli);
 
-/*
- * Calls `estimatesmartfee` with targets 2/CONSERVATIVE (very urgent),
- * 3/CONSERVATIVE (urgent), 4/ECONOMICAL (normal), and 100/ECONOMICAL (slow)
- */
 struct estimatefee_params {
 	u32 blocks;
 	const char *style;
 };
 
 static const struct estimatefee_params estimatefee_params[] = {
-	[FEERATE_VERY_URGENT] = { 2, "CONSERVATIVE" },
-	[FEERATE_URGENT] = { 3, "CONSERVATIVE" },
-	[FEERATE_NORMAL] = { 4, "ECONOMICAL" },
+	[FEERATE_HIGHEST] = { 2, "CONSERVATIVE" },
+	[FEERATE_URGENT] = { 6, "ECONOMICAL" },
+	[FEERATE_NORMAL] = { 12, "ECONOMICAL" },
 	[FEERATE_SLOW] = { 100, "ECONOMICAL" },
 };
 
@@ -640,10 +636,10 @@ static struct command_result *estimatefees_next(struct command *cmd,
 	json_add_u64(response, "opening", stash->perkb[FEERATE_NORMAL]);
 	json_add_u64(response, "mutual_close", stash->perkb[FEERATE_SLOW]);
 	json_add_u64(response, "unilateral_close",
-		     stash->perkb[FEERATE_VERY_URGENT] * bitcoind->commit_fee_percent / 100);
+		     stash->perkb[FEERATE_URGENT] * bitcoind->commit_fee_percent / 100);
 	json_add_u64(response, "delayed_to_us", stash->perkb[FEERATE_NORMAL]);
 	json_add_u64(response, "htlc_resolution", stash->perkb[FEERATE_URGENT]);
-	json_add_u64(response, "penalty", stash->perkb[FEERATE_URGENT]);
+	json_add_u64(response, "penalty", stash->perkb[FEERATE_NORMAL]);
 	/* We divide the slow feerate for the minimum acceptable, lightningd
 	 * will use floor if it's hit, though. */
 	json_add_u64(response, "min_acceptable",
@@ -655,7 +651,7 @@ static struct command_result *estimatefees_next(struct command *cmd,
 	 * margin (say 5x the expected fee requirement)
 	 */
 	json_add_u64(response, "max_acceptable",
-		     stash->perkb[FEERATE_VERY_URGENT]
+		     stash->perkb[FEERATE_HIGHEST]
 		     * bitcoind->max_fee_multiplier);
 	return command_finished(cmd, response);
 }
