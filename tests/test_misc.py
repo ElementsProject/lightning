@@ -1470,54 +1470,50 @@ def test_feerates(node_factory):
         assert t not in feerates['perkb']
 
     # Now try setting them, one at a time.
-    # Set CONSERVATIVE/2 feerate, for max and unilateral_close
+    # Set CONSERVATIVE/2 feerate, for max
     l1.set_feerates((15000, 0, 0, 0), True)
-    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 3)
+    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 2)
     feerates = l1.rpc.feerates('perkw')
-    assert feerates['perkw']['unilateral_close'] == 15000
     assert feerates['warning_missing_feerates'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'perkb' not in feerates
     assert feerates['perkw']['max_acceptable'] == 15000 * 10
     assert feerates['perkw']['min_acceptable'] == 253
 
-    # Set CONSERVATIVE/3 feerate, for htlc_resolution and penalty
+    # Set ECONOMICAL/6 feerate, for unilateral_close and htlc_resolution
     l1.set_feerates((15000, 11000, 0, 0), True)
-    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 5)
+    wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 4)
     feerates = l1.rpc.feerates('perkw')
-    assert feerates['perkw']['unilateral_close'] == 15000
+    assert feerates['perkw']['unilateral_close'] == 11000
     assert feerates['perkw']['htlc_resolution'] == 11000
-    assert feerates['perkw']['penalty'] == 11000
     assert feerates['warning_missing_feerates'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'perkb' not in feerates
     assert feerates['perkw']['max_acceptable'] == 15000 * 10
     assert feerates['perkw']['min_acceptable'] == 253
 
-    # Set ECONOMICAL/4 feerate, for all but min (so, no mutual_close feerate)
+    # Set ECONOMICAL/12 feerate, for all but min (so, no mutual_close feerate)
     l1.set_feerates((15000, 11000, 6250, 0), True)
     wait_for(lambda: len(l1.rpc.feerates('perkb')['perkb']) == len(types) - 1 + 2)
     feerates = l1.rpc.feerates('perkb')
-    assert feerates['perkb']['unilateral_close'] == 15000 * 4
+    assert feerates['perkb']['unilateral_close'] == 11000 * 4
     assert feerates['perkb']['htlc_resolution'] == 11000 * 4
-    assert feerates['perkb']['penalty'] == 11000 * 4
     assert 'mutual_close' not in feerates['perkb']
     for t in types:
-        if t not in ("unilateral_close", "htlc_resolution", "penalty", "mutual_close"):
+        if t not in ("unilateral_close", "htlc_resolution", "mutual_close"):
             assert feerates['perkb'][t] == 25000
     assert feerates['warning_missing_feerates'] == 'Some fee estimates unavailable: bitcoind startup?'
     assert 'perkw' not in feerates
     assert feerates['perkb']['max_acceptable'] == 15000 * 4 * 10
     assert feerates['perkb']['min_acceptable'] == 253 * 4
 
-    # Set ECONOMICAL/100 feerate for min
+    # Set ECONOMICAL/100 feerate for min and mutual_close
     l1.set_feerates((15000, 11000, 6250, 5000), True)
     wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) >= len(types) + 2)
     feerates = l1.rpc.feerates('perkw')
-    assert feerates['perkw']['unilateral_close'] == 15000
+    assert feerates['perkw']['unilateral_close'] == 11000
     assert feerates['perkw']['htlc_resolution'] == 11000
-    assert feerates['perkw']['penalty'] == 11000
     assert feerates['perkw']['mutual_close'] == 5000
     for t in types:
-        if t not in ("unilateral_close", "htlc_resolution", "penalty", "mutual_close"):
+        if t not in ("unilateral_close", "htlc_resolution", "mutual_close"):
             assert feerates['perkw'][t] == 25000 // 4
     assert 'warning' not in feerates
     assert 'perkb' not in feerates
@@ -2402,7 +2398,7 @@ def test_commitfee_option(node_factory):
 
     mock_wu = 5000
     for l in [l1, l2]:
-        l.set_feerates((mock_wu, 0, 0, 0), True)
+        l.set_feerates((0, mock_wu, 0, 0), True)
     l1_commit_fees = l1.rpc.call("estimatefees")["unilateral_close"]
     l2_commit_fees = l2.rpc.call("estimatefees")["unilateral_close"]
 

@@ -814,7 +814,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
 
     # reconnect with l1, which will fulfill the payment
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
-    l2.daemon.wait_for_log('got commitsig .*: feerate 15000, 0 added, 1 fulfilled, 0 failed, 0 changed')
+    l2.daemon.wait_for_log('got commitsig .*: feerate 11000, 0 added, 1 fulfilled, 0 failed, 0 changed')
     l2.daemon.wait_for_log('coins payment_hash: {}'.format(sticky_inv['payment_hash']))
 
     # l2 moves on for closed l3
@@ -970,7 +970,7 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
 
     # reconnect with l1, which will fulfill the payment
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
-    l2.daemon.wait_for_log('got commitsig .*: feerate 15000, 0 added, 1 fulfilled, 0 failed, 0 changed')
+    l2.daemon.wait_for_log('got commitsig .*: feerate 11000, 0 added, 1 fulfilled, 0 failed, 0 changed')
     l2.daemon.wait_for_log('coins payment_hash: {}'.format(sticky_inv_2['payment_hash']))
 
     # l2 moves on for closed l3
@@ -2000,11 +2000,11 @@ def test_onchain_different_fees(node_factory, bitcoind, executor):
     # Both sides should have correct feerate
     assert l1.db_query('SELECT min_possible_feerate, max_possible_feerate FROM channels;') == [{
         'min_possible_feerate': 5000,
-        'max_possible_feerate': 16000
+        'max_possible_feerate': 11000
     }]
     assert l2.db_query('SELECT min_possible_feerate, max_possible_feerate FROM channels;') == [{
         'min_possible_feerate': 5000,
-        'max_possible_feerate': 16000
+        'max_possible_feerate': 11000
     }]
 
     bitcoind.generate_block(5)

@@ -1969,7 +1969,7 @@ def test_update_fee(node_factory, bitcoind):
     # Make payments.
     l1.pay(l2, 200000000)
     # First payment causes fee update.
-    l2.daemon.wait_for_log('peer updated fee to 14000')
+    l2.daemon.wait_for_log('peer updated fee to 11000')
     l2.pay(l1, 100000000)
 
     # Now shutdown cleanly.
@@ -2049,7 +2049,7 @@ def test_fee_limits(node_factory, bitcoind):
 
     # Try stupid high fees
     l1.stop()
-    l1.set_feerates((15000 * 10, 11000, 7500, 3750), False)
+    l1.set_feerates((15000, 11000 * 10, 7500, 3750), False)
     l1.start()
 
     l3.daemon.wait_for_log('peer_in WIRE_UPDATE_FEE')
@@ -2892,7 +2892,7 @@ def test_feerate_spam(node_factory, chainparams):
     l1.pay(l2, 10**9 - slack)
 
     # It will send this once (may have happened before line_graph's wait)
-    wait_for(lambda: l1.daemon.is_in_log('Setting REMOTE feerate to 15000'))
+    wait_for(lambda: l1.daemon.is_in_log('Setting REMOTE feerate to 11000'))
     wait_for(lambda: l1.daemon.is_in_log('peer_out WIRE_UPDATE_FEE'))
 
     # Now change feerates to something l1 can't afford.

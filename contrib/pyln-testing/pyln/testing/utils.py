@@ -1014,9 +1014,9 @@ class LightningNode(object):
             params = r['params']
             if params == [2, 'CONSERVATIVE']:
                 feerate = feerates[0] * 4
-            elif params == [3, 'CONSERVATIVE']:
+            elif params == [6, 'ECONOMICAL']:
                 feerate = feerates[1] * 4
-            elif params == [4, 'ECONOMICAL']:
+            elif params == [12, 'ECONOMICAL']:
                 feerate = feerates[2] * 4
             elif params == [100, 'ECONOMICAL']:
                 feerate = feerates[3] * 4
