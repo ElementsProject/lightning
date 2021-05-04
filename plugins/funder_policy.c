@@ -213,9 +213,6 @@ calculate_our_funding(struct funder_policy policy,
 	if (amount_sat_greater(our_funding, policy.per_channel_max))
 		our_funding = policy.per_channel_max;
 
-	/* FIXME: net_available_funds needs to know feerate, and make
-	 * worst-case UTXO assumptions? */
-
 	/* Is our_funding more than we have available? if so
 	 * set to max available */
 	if (amount_sat_greater(our_funding, net_available_funds))
