@@ -177,6 +177,7 @@ json_openchannel2_sign_call(struct command *cmd,
 	const char *err;
 	struct out_req *req;
 	struct pending_open *open;
+	size_t count;
 
 	err = json_scan(tmpctx, buf, params,
 			"{openchannel2_sign:"
@@ -219,16 +220,20 @@ json_openchannel2_sign_call(struct command *cmd,
 	/* Use input markers to identify which inputs
 	 * are ours, only sign those */
 	json_array_start(req->js, "signonly");
+	count = 0;
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
-		if (psbt_input_is_ours(&psbt->inputs[i]))
+		if (psbt_input_is_ours(&psbt->inputs[i])) {
 			json_add_num(req->js, NULL, i);
+			count++;
+		}
 	}
 	json_array_end(req->js);
 
 	plugin_log(cmd->plugin, LOG_DBG,
-		   "calling `signpsbt` for channel %s",
+		   "calling `signpsbt` for channel %s for %zu input%s",
 		   type_to_string(tmpctx, struct channel_id,
-				  &open->channel_id));
+				  &open->channel_id), count,
+		   count == 1 ? "" : "s");
 	return send_outreq(cmd->plugin, req);
 }
 
