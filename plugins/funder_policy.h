@@ -73,12 +73,13 @@ default_funder_policy(enum funder_opt policy,
 
 /* Given the policy and this request's details, figure
  * out how much we should contribute to this channel */
-struct amount_sat
+const char *
 calculate_our_funding(struct funder_policy policy,
 		      struct node_id id,
 		      struct amount_sat their_funding,
 		      struct amount_sat available_funds,
-		      struct amount_sat channel_max);
+		      struct amount_sat channel_max,
+		      struct amount_sat *our_funding);
 
 /* Get the name of this policy option */
 const char *funder_opt_name(enum funder_opt opt);
