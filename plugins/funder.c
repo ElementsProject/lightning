@@ -354,6 +354,7 @@ listfunds_success(struct command *cmd,
 	const jsmntok_t *outputs_tok, *tok;
 	struct out_req *req;
 	size_t i;
+	const char *funding_err;
 
 	outputs_tok = json_get_member(buf, result, "outputs");
 	if (!outputs_tok)
@@ -410,16 +411,18 @@ listfunds_success(struct command *cmd,
 				   "`listfunds` overflowed output values");
 	}
 
-	info->our_funding = calculate_our_funding(current_policy,
-						  info->id,
-						  info->their_funding,
-						  available_funds,
-						  info->channel_max);
+	funding_err = calculate_our_funding(current_policy,
+					    info->id,
+					    info->their_funding,
+					    available_funds,
+					    info->channel_max,
+					    &info->our_funding);
 	plugin_log(cmd->plugin, LOG_DBG,
-		   "Policy %s returned funding amount of %s",
+		   "Policy %s returned funding amount of %s. %s",
 		   funder_policy_desc(tmpctx, current_policy),
 		   type_to_string(tmpctx, struct amount_sat,
-				  &info->our_funding));
+				  &info->our_funding),
+		   funding_err ? funding_err : "");
 
 	if (amount_sat_eq(info->our_funding, AMOUNT_SAT(0)))
 		return command_hook_success(cmd);

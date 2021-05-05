@@ -37,6 +37,7 @@ struct test_case {
 	struct funder_policy policy;
 
 	struct amount_sat exp_our_funds;
+	bool expect_err;
 };
 
 struct test_case cases[] = {
@@ -58,6 +59,7 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(1111),
+		.expect_err = false,
 	},
 	/* Match 0 */
 	{
@@ -77,6 +79,7 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(0),
+		.expect_err = false,
 	},
 	/* Match 100 */
 	{
@@ -96,6 +99,7 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(5000),
+		.expect_err = false,
 	},
 	/* Match 200 */
 	{
@@ -115,6 +119,7 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(5000),
+		.expect_err = false,
 	},
 	/* Available 0 */
 	{
@@ -134,6 +139,7 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(0),
+		.expect_err = false,
 	},
 	/* Available 50 */
 	{
@@ -153,6 +159,7 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(1500),
+		.expect_err = false,
 	},
 	/* Available 100+ */
 	{
@@ -172,6 +179,7 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(5000),
+		.expect_err = false,
 	},
 	/* Fixed above per-channel max*/
 	{
@@ -193,6 +201,7 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(900),
+		.expect_err = false,
 	},
 	/* Fixed less than available space */
 	{
@@ -212,6 +221,7 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(500),
+		.expect_err = false,
 	},
 	/* Fixed less than available funds */
 	{
@@ -231,6 +241,7 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(500),
+		.expect_err = false,
 	},
 	/* Peer is under 'min_their_funding' */
 	{
@@ -250,6 +261,7 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(0),
+		.expect_err = true,
 	},
 	/* Peer exceeds 'max_their_funding' */
 	{
@@ -269,6 +281,7 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(0),
+		.expect_err = true,
 	},
 	/* Fixed less than available funds less reserve tank */
 	{
@@ -288,6 +301,47 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(900),
+		.expect_err = false,
+	},
+	/* Fixed no funds available after reserve */
+	{
+		.their_funds = AMOUNT_SAT(5000),
+		.available_funds = AMOUNT_SAT(999),
+		.channel_max = AMOUNT_SAT(10000),
+		.policy = {
+			.opt = FIXED,
+			.mod = 996,
+			.min_their_funding = AMOUNT_SAT(0),
+			.max_their_funding = AMOUNT_SAT(10000),
+			.per_channel_max = AMOUNT_SAT(10000),
+			.per_channel_min = AMOUNT_SAT(0),
+			.fuzz_factor = 0,
+			.reserve_tank = AMOUNT_SAT(1000),
+			.fund_probability = 100,
+		},
+
+		.exp_our_funds = AMOUNT_SAT(0),
+		.expect_err = true,
+	},
+	/* Fixed no funds in channel */
+	{
+		.their_funds = AMOUNT_SAT(5000),
+		.available_funds = AMOUNT_SAT(5000),
+		.channel_max = AMOUNT_SAT(5000),
+		.policy = {
+			.opt = FIXED,
+			.mod = 995,
+			.min_their_funding = AMOUNT_SAT(0),
+			.max_their_funding = AMOUNT_SAT(10000),
+			.per_channel_max = AMOUNT_SAT(10000),
+			.per_channel_min = AMOUNT_SAT(0),
+			.fuzz_factor = 0,
+			.reserve_tank = AMOUNT_SAT(1000),
+			.fund_probability = 100,
+		},
+
+		.exp_our_funds = AMOUNT_SAT(0),
+		.expect_err = true,
 	},
 	/* Fixed below per-channel min */
 	{
@@ -307,6 +361,7 @@ struct test_case cases[] = {
 		},
 
 		.exp_our_funds = AMOUNT_SAT(0),
+		.expect_err = true,
 	},
 };
 
@@ -321,10 +376,11 @@ static void check_fuzzing(struct test_case fuzzcase)
 	memset(&id, 2, sizeof(struct node_id));
 
 	for (size_t i = 0; i < 100; i++) {
-		our_funds = calculate_our_funding(fuzzcase.policy, id,
-						  fuzzcase.their_funds,
-						  fuzzcase.available_funds,
-						  fuzzcase.channel_max);
+		calculate_our_funding(fuzzcase.policy, id,
+				      fuzzcase.their_funds,
+				      fuzzcase.available_funds,
+				      fuzzcase.channel_max,
+				      &our_funds);
 		if (amount_sat_greater(our_funds, fuzz_max))
 			fuzz_max = our_funds;
 		if (amount_sat_less(our_funds, fuzz_min))
@@ -344,6 +400,7 @@ int main(int argc, const char *argv[])
 	size_t i = 0, flips = 0;
 	struct test_case flipcase, fuzzcase;
 	size_t flipcount = 0;
+	const char *err;
 
 	common_setup(argv[0]);
 	memset(&id, 2, sizeof(struct node_id));
@@ -351,18 +408,20 @@ int main(int argc, const char *argv[])
 	/* Check the default funder policy, at fixed (0msat) */
 	policy = default_funder_policy(FIXED, 0);
 
-	/* Use the first test case inputs? */
-	our_funds = calculate_our_funding(policy, id,
-					  cases[i].their_funds,
-					  cases[i].available_funds,
-					  cases[i].channel_max);
+	err = calculate_our_funding(policy, id,
+				    AMOUNT_SAT(50000),
+				    AMOUNT_SAT(50000),
+				    AMOUNT_SAT(100000),
+				    &our_funds);
 	assert(amount_sat_eq(empty, our_funds));
+	assert(!err);
 
 	for (i = 0; i < ARRAY_SIZE(cases); i++) {
-		our_funds = calculate_our_funding(cases[i].policy, id,
-						  cases[i].their_funds,
-						  cases[i].available_funds,
-						  cases[i].channel_max);
+		err = calculate_our_funding(cases[i].policy, id,
+					    cases[i].their_funds,
+					    cases[i].available_funds,
+					    cases[i].channel_max,
+					    &our_funds);
 		if (!amount_sat_eq(cases[i].exp_our_funds, our_funds)) {
 			fprintf(stderr, "FAIL policy: %s. expected %s, got %s\n",
 				funder_policy_desc(NULL, cases[i].policy),
@@ -370,6 +429,14 @@ int main(int argc, const char *argv[])
 					       &cases[i].exp_our_funds),
 				type_to_string(NULL, struct amount_sat,
 					       &our_funds));
+			ok = false;
+		}
+		if (cases[i].expect_err != (err != NULL)) {
+			fprintf(stderr, "FAIL policy: %s. expected %serr,"
+					" got %s\n",
+				funder_policy_desc(NULL, cases[i].policy),
+				cases[i].expect_err ? "" : "no ",
+				err ? err : "no err");
 			ok = false;
 		}
 	}
@@ -383,10 +450,11 @@ int main(int argc, const char *argv[])
 	flipcase.policy.fund_probability = flips;
 
 	for (i = 0; i < 100 * flips; i++) {
-		our_funds = calculate_our_funding(flipcase.policy, id,
-						  flipcase.their_funds,
-						  flipcase.available_funds,
-						  flipcase.channel_max);
+		calculate_our_funding(flipcase.policy, id,
+				      flipcase.their_funds,
+				      flipcase.available_funds,
+				      flipcase.channel_max,
+				      &our_funds);
 		if (!amount_sat_eq(our_funds, AMOUNT_SAT(0)))
 			flipcount++;
 	}

@@ -166,62 +166,109 @@ apply_policy(struct funder_policy policy,
 	abort();
 }
 
-struct amount_sat
+const char *
 calculate_our_funding(struct funder_policy policy,
 		      struct node_id id,
 		      struct amount_sat their_funding,
 		      struct amount_sat available_funds,
-		      struct amount_sat channel_max)
+		      struct amount_sat channel_max,
+		      struct amount_sat *our_funding)
 {
-	struct amount_sat our_funding, avail_channel_space,
-			  net_available_funds;
+	struct amount_sat avail_channel_space, net_available_funds;
 
 	/* Are we skipping this one? */
-	if (pseudorand(100) >= policy.fund_probability)
-		return AMOUNT_SAT(0);
+	if (pseudorand(100) >= policy.fund_probability) {
+		*our_funding = AMOUNT_SAT(0);
+		return tal_fmt(tmpctx,
+			       "Skipping, failed fund_probability test");
+	}
 
 	/* Figure out amount of actual headroom we have */
-	if (!amount_sat_sub(&avail_channel_space, channel_max, their_funding))
-		return AMOUNT_SAT(0);
+	if (!amount_sat_sub(&avail_channel_space, channel_max, their_funding)
+	    || amount_sat_eq(avail_channel_space, AMOUNT_SAT(0))) {
+		*our_funding = AMOUNT_SAT(0);
+		return tal_fmt(tmpctx, "No space available in channel."
+			       " channel_max %s, their_funding %s",
+			       type_to_string(tmpctx, struct amount_sat,
+					      &channel_max),
+			       type_to_string(tmpctx, struct amount_sat,
+					      &their_funding));
+	}
 
 	/* Figure out actual available funds, given our requested
 	 * 'reserve_tank' */
 	if (!amount_sat_sub(&net_available_funds, available_funds,
-			    policy.reserve_tank))
-		return AMOUNT_SAT(0);
+			    policy.reserve_tank)
+	    || amount_sat_eq(net_available_funds, AMOUNT_SAT(0))) {
+		*our_funding = AMOUNT_SAT(0);
+		return tal_fmt(tmpctx, "Reserve tank too low."
+			       " available_funds %s, reserve_tank requires %s",
+			       type_to_string(tmpctx, struct amount_sat,
+					      &available_funds),
+			       type_to_string(tmpctx, struct amount_sat,
+					      &policy.reserve_tank));
+	}
 
 	/* Are they funding enough ? */
-	if (amount_sat_less(their_funding, policy.min_their_funding))
-		return AMOUNT_SAT(0);
+	if (amount_sat_less(their_funding, policy.min_their_funding)) {
+		*our_funding = AMOUNT_SAT(0);
+		return tal_fmt(tmpctx, "Peer's funding too little."
+			       " their_funding %s,"
+			       " min_their_funding requires %s",
+			       type_to_string(tmpctx, struct amount_sat,
+					      &their_funding),
+			       type_to_string(tmpctx, struct amount_sat,
+					      &policy.min_their_funding));
+	}
 
 	/* Are they funding too much ? */
-	if (amount_sat_greater(their_funding, policy.max_their_funding))
-		return AMOUNT_SAT(0);
+	if (amount_sat_greater(their_funding, policy.max_their_funding)) {
+		*our_funding = AMOUNT_SAT(0);
+		return tal_fmt(tmpctx, "Peer's funding too much."
+			       " their_funding %s,"
+			       " max_their_funding requires %s",
+			       type_to_string(tmpctx, struct amount_sat,
+					      &their_funding),
+			       type_to_string(tmpctx, struct amount_sat,
+					      &policy.max_their_funding));
+	}
 
 	/* What's our amount, given our policy */
-	our_funding = apply_policy(policy, their_funding, available_funds);
+	*our_funding = apply_policy(policy, their_funding, available_funds);
+
+	/* Don't return an 'error' if we're already at 0 */
+	if (amount_sat_eq(*our_funding, AMOUNT_SAT(0)))
+		return NULL;
 
 	/* our_funding is probably sane, so let's fuzz this amount a bit */
-	our_funding = apply_fuzz(policy.fuzz_factor, our_funding);
+	*our_funding = apply_fuzz(policy.fuzz_factor, *our_funding);
 
 	/* Is our_funding more than we can fit? if so set to avail space */
-	if (amount_sat_greater(our_funding, avail_channel_space))
-		our_funding = avail_channel_space;
+	if (amount_sat_greater(*our_funding, avail_channel_space))
+		*our_funding = avail_channel_space;
 
 	/* Is our_funding more than we want to fund in a channel?
 	 * if so set at our desired per-channel max */
-	if (amount_sat_greater(our_funding, policy.per_channel_max))
-		our_funding = policy.per_channel_max;
+	if (amount_sat_greater(*our_funding, policy.per_channel_max))
+		*our_funding = policy.per_channel_max;
 
 	/* Is our_funding more than we have available? if so
 	 * set to max available */
-	if (amount_sat_greater(our_funding, net_available_funds))
-		our_funding = net_available_funds;
+	if (amount_sat_greater(*our_funding, net_available_funds))
+		*our_funding = net_available_funds;
 
 	/* Is our_funding less than our per-channel minimum?
 	 * if so, don't fund */
-	if (amount_sat_less(our_funding, policy.per_channel_min))
-		return AMOUNT_SAT(0);
+	if (amount_sat_less(*our_funding, policy.per_channel_min)) {
+		*our_funding = AMOUNT_SAT(0);
+		return tal_fmt(tmpctx, "Can't meet our min channel requirement."
+			       " our_funding %s,"
+			       " per_channel_min requires %s",
+			       type_to_string(tmpctx, struct amount_sat,
+					      our_funding),
+			       type_to_string(tmpctx, struct amount_sat,
+					      &policy.per_channel_min));
+	}
 
-	return our_funding;
+	return NULL;
 }
