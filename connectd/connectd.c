@@ -1607,6 +1607,7 @@ static struct io_plan *peer_disconnected(struct io_conn *conn,
 			      "peer_disconnected unknown peer: %s",
 			      type_to_string(tmpctx, struct node_id, &id));
 	node_set_del(&daemon->peers, node);
+	status_peer_debug(&id, "disconnect");
 
 	/* Wake up in case there's a reconnecting peer waiting in io_wait. */
 	io_wake(node);
