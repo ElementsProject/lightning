@@ -97,7 +97,7 @@ start_nodes() {
 			dev-bitcoind-poll=5
 			experimental-dual-fund
 			funder-policy=match
-			funder-policy-mod=1000
+			funder-policy-mod=100
 			funder-min-their-funding=10000
 			funder-per-channel-max=100000
 			funder-fuzz-percent=0
