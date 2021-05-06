@@ -1044,7 +1044,7 @@ def test_node_reannounce(node_factory, bitcoind):
 
     lfeatures = expected_node_features()
     if l1.config('experimental-dual-fund'):
-        lfeatures = expected_node_features(extra=[223])
+        lfeatures = expected_node_features(extra=[21, 29])
 
     # Make sure it gets features correct.
     assert only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])['features'] == lfeatures
