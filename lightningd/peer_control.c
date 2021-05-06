@@ -384,17 +384,16 @@ void channel_errmsg(struct channel *channel,
 	/* Clean up any in-progress open attempts */
 	channel_cleanup_commands(channel, desc);
 
+	if (channel_unsaved(channel)) {
+		log_info(channel->log, "%s", "Unsaved peer failed."
+			 " Disconnecting and deleting channel.");
+		delete_channel(channel);
+		return;
+	}
+
 	/* No per_peer_state means a subd crash or disconnection. */
 	if (!pps) {
 		/* If the channel is unsaved, we forget it */
-		if (channel_unsaved(channel)) {
-			log_unusual(channel->log, "%s",
-				    "Unsaved peer failed."
-				    " Disconnecting and deleting channel.");
-			delete_channel(channel);
-			return;
-		}
-
 		channel_fail_reconnect(channel, "%s: %s",
 				       channel->owner->name, desc);
 		return;
