@@ -192,7 +192,7 @@ def test_opening_tiny_channel(node_factory):
     reserves = 2 * dustlimit
     min_commit_tx_fees = basic_fee(7500)
     overhead = reserves + min_commit_tx_fees
-    if EXPERIMENTAL_FEATURES:
+    if EXPERIMENTAL_FEATURES or EXPERIMENTAL_DUAL_FUND:
         # Gotta fund those anchors too!
         overhead += 660
 
@@ -1662,7 +1662,7 @@ def test_multifunding_feerates(node_factory, bitcoind):
 
     # Because of how the anchor outputs protocol is designed,
     # we *always* pay for 2 anchor outs and their weight
-    if EXPERIMENTAL_FEATURES:  # opt_anchor_outputs
+    if EXPERIMENTAL_FEATURES or EXPERIMENTAL_DUAL_FUND:  # opt_anchor_outputs
         weight = 1124
     else:
         # the commitment transactions' feerate is calculated off
@@ -1675,7 +1675,7 @@ def test_multifunding_feerates(node_factory, bitcoind):
     # tx, but we subtract out the extra anchor output amount
     # from the to_us output, so it ends up inflating
     # our fee by that much.
-    if EXPERIMENTAL_FEATURES:  # opt_anchor_outputs
+    if EXPERIMENTAL_FEATURES or EXPERIMENTAL_DUAL_FUND:  # opt_anchor_outputs
         expected_fee += 330
 
     assert expected_fee == entry['fees']['base'] * 10 ** 8
@@ -2233,8 +2233,8 @@ def test_peerinfo(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, fundchannel=False, opts={'may_reconnect': True})
 
     if l1.config('experimental-dual-fund'):
-        lfeatures = expected_peer_features(extra=[223])
-        nfeatures = expected_node_features(extra=[223])
+        lfeatures = expected_peer_features(extra=[21, 29])
+        nfeatures = expected_node_features(extra=[21, 29])
     else:
         lfeatures = expected_peer_features()
         nfeatures = expected_node_features()
@@ -2506,9 +2506,6 @@ def test_dataloss_protection(node_factory, bitcoind):
                                feerates=(7500, 7500, 7500, 7500), allow_broken_log=True)
 
     lf = expected_peer_features()
-    if l1.config('experimental-dual-fund'):
-        lf = expected_peer_features(extra=[223])
-
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 should send out WIRE_INIT (0010)
     l1.daemon.wait_for_log(r"\[OUT\] 0010.*"
@@ -3011,7 +3008,7 @@ def test_wumbo_channels(node_factory, bitcoind):
     expected_features = expected_peer_features(wumbo_channels=True)
     if l1.config('experimental-dual-fund'):
         expected_features = expected_peer_features(wumbo_channels=True,
-                                                   extra=[223])
+                                                   extra=[21, 29])
 
     assert conn['features'] == expected_features
     assert only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['features'] == expected_features
