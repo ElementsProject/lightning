@@ -2,11 +2,11 @@ from fixtures import *  # noqa: F401,F403
 from flaky import flaky
 from pyln.client import RpcError, Millisatoshi
 from shutil import copyfile
-from pyln.testing.utils import SLOW_MACHINE
+from pyln.testing.utils import SLOW_MACHINE, EXPERIMENTAL_DUAL_FUND
 from utils import (
     only_one, sync_blockheight, wait_for, DEVELOPER, TIMEOUT,
     account_balance, first_channel_id, basic_fee, TEST_NETWORK,
-    EXPERIMENTAL_FEATURES, EXPERIMENTAL_DUAL_FUND, scriptpubkey_addr
+    EXPERIMENTAL_FEATURES, scriptpubkey_addr
 )
 
 import os
