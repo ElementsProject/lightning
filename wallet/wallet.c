@@ -1049,7 +1049,8 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 					", last_sig" // 7
 					", funding_tx_remote_sigs_received" //8
 					" FROM channel_funding_inflights"
-					" WHERE channel_id = ?")); // ?0
+					" WHERE channel_id = ?" // ?0
+					" ORDER BY funding_feerate"));
 
 	db_bind_u64(stmt, 0, chan->dbid);
 	db_query_prepared(stmt);

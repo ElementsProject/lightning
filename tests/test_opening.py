@@ -696,7 +696,6 @@ def test_rbf_no_overlap(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
-@pytest.mark.xfail
 def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
                                     opts={'allow_warning': True})
