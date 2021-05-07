@@ -680,7 +680,8 @@ def test_rbf_no_overlap(node_factory, bitcoind, chainparams):
 
     next_feerate = find_next_feerate(l1, l2)
 
-    # Initiate an RBF
+    # Initiate an RBF (this grabs the non-reserved utxo, which isnt the
+    # one we started with)
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.fundpsbt(chan_amount, next_feerate, startweight,
                                min_witness_weight=110,
