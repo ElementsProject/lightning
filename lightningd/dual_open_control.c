@@ -922,6 +922,12 @@ openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 	}
 
 	inflight = channel_current_inflight(channel);
+	if (!inflight) {
+		log_broken(channel->log,
+			   "No current channel inflight");
+		msg = towire_dualopend_fail(NULL, "No current channel inflight");
+		goto send_msg;
+	}
 
 	/* Check that we've got the same / correct PSBT */
 	psbt_txid(NULL, payload->psbt, &txid, NULL);
@@ -1405,6 +1411,13 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 	}
 
 	inflight = channel_current_inflight(channel);
+	if (!inflight) {
+		channel_internal_error(channel,
+				       "No inflight found for channel %s",
+				       type_to_string(tmpctx, struct channel,
+						      channel));
+		return;
+	}
 
 	/* Once we've sent our sigs to the peer, we're fine
 	 * to broadcast the transaction, even if they haven't
@@ -1730,6 +1743,14 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 	}
 
 	inflight = channel_current_inflight(channel);
+	if (!inflight) {
+		channel_internal_error(channel,
+				       "No inflight found for channel %s",
+				       type_to_string(tmpctx, struct channel,
+						      channel));
+		return;
+	}
+
 	/* Save that we've gotten their sigs. Sometimes
 	 * the peer doesn't send any sigs (no inputs), otherwise
 	 * we could just check the PSBT was finalized */
@@ -2917,11 +2938,14 @@ void peer_restart_dualopend(struct peer *peer,
 		       &min_effective_htlc_capacity);
 
 	inflight = channel_current_inflight(channel);
+	assert(inflight);
+
 	/* Get the first inflight to figure out the original feerate
 	 * for this channel. It's fine if it's the same as the current */
 	first_inflight = list_top(&channel->inflights,
 				  struct channel_inflight,
 				  list);
+	assert(first_inflight);
 	msg = towire_dualopend_reinit(NULL,
 				      chainparams,
 				      peer->ld->our_features,
