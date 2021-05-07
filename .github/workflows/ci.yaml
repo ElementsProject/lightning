@@ -132,6 +132,8 @@ jobs:
           - {CFG:  6, COMPILER: gcc, TEST_CHECK_DBSTMTS: 1}
           - {CFG:  7, DEVELOPER: 0, COMPAT: 0, TEST_GROUP: 1, TEST_GROUP_COUNT: 2}
           - {CFG:  8, DEVELOPER: 0, COMPAT: 0, TEST_GROUP: 2, TEST_GROUP_COUNT: 2}
+          # Same as above, but a limited set using V2 open protocol
+          - {CFG: 24, EXPERIMENTAL_DUAL_FUND: 1, DEVELOPER: 1, COMPAT: 0 }
 
           # Various other configurations
           - {CFG: 19, NETWORK: liquid-regtest}
@@ -160,6 +162,7 @@ jobs:
           VALGRIND: ${{ matrix.VALGRIND }}
           DEVELOPER: ${{ matrix.DEVELOPER }}
           EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
+          EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
           COMPILER: ${{ matrix.COMPILER }}
           ARCH: ${{ matrix.ARCH }}
           COMPAT: ${{ matrix.COMPAT }}
@@ -204,6 +207,9 @@ jobs:
           - {CFG: 16, VALGRIND: 1, TEST_GROUP: 8,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
           - {CFG: 17, VALGRIND: 1, TEST_GROUP: 9,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
           - {CFG: 18, VALGRIND: 1, TEST_GROUP: 10, TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
+            # Run (some) tests with experimental_dual_fund on
+          - {CFG: 25, VALGRIND: 1, TEST_GROUP: 1,  TEST_GROUP_COUNT: 2, PYTEST_PAR: 3, EXPERIMENTAL_DUAL_FUND: 1}
+          - {CFG: 26, VALGRIND: 1, TEST_GROUP: 2,  TEST_GROUP_COUNT: 2, PYTEST_PAR: 3, EXPERIMENTAL_DUAL_FUND: 1}
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
@@ -222,6 +228,7 @@ jobs:
           VALGRIND: ${{ matrix.VALGRIND }}
           DEVELOPER: ${{ matrix.DEVELOPER }}
           EXPERIMENTAL_FEATURES: ${{ matrix.EXPERIMENTAL_FEATURES }}
+          EXPERIMENTAL_DUAL_FUND: ${{ matrix.EXPERIMENTAL_DUAL_FUND }}
           COMPILER: ${{ matrix.COMPILER }}
           ARCH: ${{ matrix.ARCH }}
           COMPAT: ${{ matrix.COMPAT }}
