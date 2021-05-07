@@ -1027,6 +1027,8 @@ def test_gossip_store_load_amount_truncated(node_factory):
 
 
 @pytest.mark.developer("Needs fast gossip propagation")
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_node_reannounce(node_factory, bitcoind):
     "Test that we reannounce a node when parameters change"
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,

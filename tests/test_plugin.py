@@ -575,6 +575,8 @@ def test_invoice_payment_hook_hold(node_factory):
     l1.rpc.pay(inv1['bolt11'])
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_openchannel_hook(node_factory, bitcoind):
     """ l2 uses the reject_odd_funding_amounts plugin to reject some openings.
     """
@@ -631,6 +633,8 @@ def test_openchannel_hook(node_factory, bitcoind):
         l1.rpc.fundchannel(l2.info['id'], 100001)
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_openchannel_hook_error_handling(node_factory, bitcoind):
     """ l2 uses a plugin that should fatal() crash the node.
 
@@ -653,6 +657,8 @@ def test_openchannel_hook_error_handling(node_factory, bitcoind):
     assert l2.daemon.is_in_log("BROKEN.*Plugin rejected openchannel[2]? but also set close_to")
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_openchannel_hook_chaining(node_factory, bitcoind):
     """ l2 uses a set of plugin that all use the openchannel_hook.
 
@@ -672,7 +678,7 @@ def test_openchannel_hook_chaining(node_factory, bitcoind):
     hook_msg = "openchannel2? hook rejects and says '"
     # 100005sat fundchannel should fail fatal() for l2
     # because hook_accepter.py rejects on that amount 'for a reason'
-    with pytest.raises(RpcError, match=r'They sent error channel'):
+    with pytest.raises(RpcError, match=r'reject for a reason'):
         l1.rpc.fundchannel(l2.info['id'], 100005)
 
     assert l2.daemon.wait_for_log(hook_msg + "reject for a reason")
@@ -683,11 +689,14 @@ def test_openchannel_hook_chaining(node_factory, bitcoind):
 
     # 100000sat is good for hook_accepter, so it should fail 'on principle'
     # at third hook openchannel_reject.py
-    with pytest.raises(RpcError, match=r'They sent error channel'):
+    with pytest.raises(RpcError, match=r'reject on principle'):
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         l1.rpc.fundchannel(l2.info['id'], 100000)
     assert l2.daemon.wait_for_log(hook_msg + "reject on principle")
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_channel_state_changed_bilateral(node_factory, bitcoind):
     """ We open and close a channel and check notifications both sides.
 
@@ -826,6 +835,8 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
     assert(event2['message'] == "Onchain init reply")
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_channel_state_changed_unilateral(node_factory, bitcoind):
     """ We open, disconnect, force-close a channel and check for notifications.
 
@@ -926,6 +937,8 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     assert(event1['message'] == "Onchain init reply")
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_channel_state_change_history(node_factory, bitcoind):
     """ We open and close a channel and check for state_canges entries.
 
@@ -1448,6 +1461,8 @@ def test_libplugin_deprecated(node_factory):
 @unittest.skipIf(
     not DEVELOPER or DEPRECATED_APIS, "needs LIGHTNINGD_DEV_LOG_IO and new API"
 )
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_plugin_feature_announce(node_factory):
     """Check that features registered by plugins show up in messages.
 
@@ -1702,6 +1717,8 @@ def test_hook_crash(node_factory, executor, bitcoind):
         f1.result(10)
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_feature_set(node_factory):
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/show_feature_set.py')
     l1 = node_factory.get_node(options={"plugin": plugin})
@@ -1828,6 +1845,8 @@ def test_plugin_fail(node_factory):
 
 
 @pytest.mark.developer("without DEVELOPER=1, gossip v slow")
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_coin_movement_notices(node_factory, bitcoind, chainparams):
     """Verify that coin movements are triggered correctly.
     """
@@ -1916,6 +1935,14 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
 
     # Special case for dual-funded channel opens
     if l2.config('experimental-dual-fund'):
+        # option_anchor_outputs
+        l2_l3_mvts = [
+            {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'channel_mvt', 'credit': 0, 'debit': 100000000, 'tag': 'routed'},
+            {'type': 'channel_mvt', 'credit': 50000501, 'debit': 0, 'tag': 'routed'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 4215501, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 945785000, 'tag': 'withdrawal'},
+        ]
         l2_wallet_mvts = [
             {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'chain_mvt', 'credit': 0, 'debit': 0, 'tag': 'spend_track'},

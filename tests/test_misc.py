@@ -28,6 +28,7 @@ import unittest
 
 
 @pytest.mark.developer("needs --dev-disconnect")
+@pytest.mark.openchannel('v1')
 def test_stop_pending_fundchannel(node_factory, executor):
     """Stop the daemon while waiting for an accept_channel
 
@@ -161,6 +162,8 @@ def test_bitcoin_ibd(node_factory, bitcoind):
     assert 'warning_bitcoind_sync' not in l1.rpc.getinfo()
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_lightningd_still_loading(node_factory, bitcoind, executor):
     """Test that we recognize we haven't got all blocks from bitcoind"""
 
@@ -1151,6 +1154,8 @@ def test_blockchaintrack(node_factory, bitcoind):
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
+@pytest.mark.openchannel('v2')
+@pytest.mark.openchannel('v1')
 def test_funding_reorg_private(node_factory, bitcoind):
     """Change funding tx height after lockin, between node restart.
     """
@@ -1192,6 +1197,8 @@ def test_funding_reorg_private(node_factory, bitcoind):
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_funding_reorg_remote_lags(node_factory, bitcoind):
     """Nodes may disagree about short_channel_id before channel announcement
     """
@@ -1335,6 +1342,8 @@ def test_bitcoind_goes_backwards(node_factory, bitcoind):
 
 
 @flaky
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_reserve_enforcement(node_factory, executor):
     """Channeld should disallow you spending into your reserve"""
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True, 'allow_warning': True})
@@ -1870,6 +1879,8 @@ def test_dev_demux(node_factory):
         l1.rpc.call('dev', {'subcommand': 'crash'})
 
 
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_list_features_only(node_factory):
     features = subprocess.check_output(['lightningd/lightningd',
                                         '--list-features-only']).decode('utf-8').splitlines()

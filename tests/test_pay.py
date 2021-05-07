@@ -22,6 +22,8 @@ import unittest
 
 
 @pytest.mark.developer("needs to deactivate shadow routing")
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_pay(node_factory):
     l1, l2 = node_factory.line_graph(2)
 
@@ -339,6 +341,8 @@ def test_pay_optional_args(node_factory, compat):
 
 
 @pytest.mark.developer("needs to deactivate shadow routing")
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_payment_success_persistence(node_factory, bitcoind, executor):
     # Start two nodes and open a channel.. die during payment.
     # Feerates identical so we don't get gratuitous commit to update them
@@ -390,6 +394,8 @@ def test_payment_success_persistence(node_factory, bitcoind, executor):
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_payment_failed_persistence(node_factory, executor):
     # Start two nodes and open a channel.. die during payment.
     # Feerates identical so we don't get gratuitous commit to update them
@@ -2635,6 +2641,8 @@ def test_sendonion_rpc(node_factory):
 
 
 @pytest.mark.developer("needs dev-disconnect, dev-no-htlc-timeout")
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_partial_payment(node_factory, bitcoind, executor):
     # We want to test two payments at the same time, before we send commit
     l1, l2, l3, l4 = node_factory.get_nodes(4, [{}] + [{'disconnect': ['=WIRE_UPDATE_ADD_HTLC-nocommit'], 'dev-no-htlc-timeout': None}] * 2 + [{'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')}])
@@ -3522,6 +3530,8 @@ def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor
 
 @pytest.mark.developer("channel setup very slow (~10 minutes) if not DEVELOPER")
 @pytest.mark.slow_test
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
 def test_mpp_interference_2(node_factory, bitcoind, executor):
     '''
     We create a "public network" that looks like so.
