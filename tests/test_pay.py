@@ -4,9 +4,10 @@ from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
+from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
-    EXPERIMENTAL_FEATURES, env, VALGRIND, EXPERIMENTAL_DUAL_FUND
+    EXPERIMENTAL_FEATURES, env, VALGRIND
 )
 import copy
 import os

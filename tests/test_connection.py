@@ -9,9 +9,9 @@ from utils import (
     expected_channel_features,
     check_coin_moves, first_channel_id, account_balance, basic_fee,
     scriptpubkey_addr,
-    EXPERIMENTAL_FEATURES, EXPERIMENTAL_DUAL_FUND
+    EXPERIMENTAL_FEATURES
 )
-from pyln.testing.utils import SLOW_MACHINE, VALGRIND
+from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND
 
 import os
 import pytest
