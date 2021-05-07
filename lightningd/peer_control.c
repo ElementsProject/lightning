@@ -1093,7 +1093,7 @@ send_error:
 	if (feature_negotiated(ld->our_features,
 			       peer->their_features,
 			       OPT_DUAL_FUND)) {
-		if (channel) {
+		if (channel && !list_empty(&channel->inflights)) {
 			assert(!channel->owner);
 			assert(channel->state == DUALOPEND_OPEN_INIT
 			       || channel->state == DUALOPEND_AWAITING_LOCKIN
