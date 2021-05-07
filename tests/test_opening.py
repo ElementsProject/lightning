@@ -695,6 +695,54 @@ def test_rbf_no_overlap(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+@pytest.mark.xfail
+def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
+    l1, l2 = node_factory.get_nodes(2,
+                                    opts={'allow_warning': True})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    amount = 2**24
+    chan_amount = 100000
+    bitcoind.rpc.sendtoaddress(l1.rpc.newaddr()['bech32'], amount / 10**8 + 0.01)
+    bitcoind.generate_block(1)
+    # Wait for it to arrive.
+    wait_for(lambda: len(l1.rpc.listfunds()['outputs']) > 0)
+
+    # Really low feerate means that the bump wont work the first time
+    res = l1.rpc.fundchannel(l2.info['id'], chan_amount, feerate='253perkw')
+    chan_id = res['channel_id']
+    vins = bitcoind.rpc.decoderawtransaction(res['tx'])['vin']
+    assert(only_one(vins))
+    prev_utxos = ["{}:{}".format(vins[0]['txid'], vins[0]['vout'])]
+
+    # Check that we're waiting for lockin
+    l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+
+    next_feerate = find_next_feerate(l1, l2)
+
+    startweight = 42 + 172  # base weight, funding output
+    initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
+                               prev_utxos, reservedok=True,
+                               min_witness_weight=110,
+                               excess_as_change=True)
+
+    # Do the bump
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+    update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
+    assert update['commitments_secured']
+
+    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    with pytest.raises(RpcError, match=r'insufficient fee, rejecting replacement'):
+        l1.rpc.openchannel_signed(chan_id, signed_psbt)
+
+    # If we restart and listpeers, it will crash
+    l1.restart()
+
+    l1.rpc.listpeers()
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
 def test_funder_options(node_factory, bitcoind):
     l1, l2, l3 = node_factory.get_nodes(3)
     l1.fundwallet(10**7)
