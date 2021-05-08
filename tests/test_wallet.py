@@ -1343,3 +1343,11 @@ def test_repro_4258(node_factory, bitcoind):
     assert(len(tx['vin']) == 1)
     i0 = tx['vin'][0]
     assert([i0['txid'], i0['vout']] == [out['txid'], out['output']])
+
+
+def test_retreival_closed_channel(node_factory):
+    """
+    Test that ensure that the listchannels return the closed channel
+    and ensure that this operation has not side effect.
+    """
+    pass

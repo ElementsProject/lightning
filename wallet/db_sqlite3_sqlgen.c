@@ -1473,6 +1473,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "SELECT * FROM channels WHERE state=?",
+         .query = "SELECT * FROM channels WHERE state=?",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
          .name = "SELECT * FROM channels WHERE peer_id = ?;",
          .query = "SELECT * FROM channels WHERE peer_id = ?;",
          .placeholders = 1,
@@ -1900,10 +1906,22 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
+<<<<<<< refs/remotes/ElementsProject/master
 #define DB_SQLITE3_QUERY_COUNT 315
+=======
+#define DB_SQLITE3_QUERY_COUNT 313
+>>>>>>> Prepare tests
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
+<<<<<<< refs/remotes/ElementsProject/master
 // SHA256STAMP:3ab5cc5d3610b26e4df12de155aa85990ac825c0e75a1adf410e67e2ca173327
+=======
+<<<<<<< refs/remotes/ElementsProject/master
+// SHA256STAMP:387f4000b85417999e9b27c6d795d4f19012a5515e2464312e865b7f654d70dd
+=======
+// SHA256STAMP:87a364f3a2349e44f1685227f9075605cf1afa70f8648edb2252df0b7cd9bb4a
+>>>>>>> Prepare tests
+>>>>>>> Prepare tests
