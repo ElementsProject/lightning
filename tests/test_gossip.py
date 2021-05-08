@@ -134,10 +134,11 @@ def test_announce_address(node_factory, bitcoind):
 
 
 @pytest.mark.developer("needs DEVELOPER=1")
-def test_gossip_timestamp_filter(node_factory, bitcoind):
+def test_gossip_timestamp_filter(node_factory, bitcoind, chainparams):
     # Updates get backdated 5 seconds with --dev-fast-gossip.
     backdate = 5
     l1, l2, l3, l4 = node_factory.line_graph(4, fundchannel=False)
+    genesis_blockhash = chainparams['chain_hash']
 
     before_anything = int(time.time())
 
@@ -160,7 +161,7 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
     wait_for(lambda: ['alias' in node for node in l4.rpc.listnodes()['nodes']] == [True, True, True])
 
     msgs = l4.query_gossip('gossip_timestamp_filter',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            '0', '0xFFFFFFFF',
                            filters=['0109'])
 
@@ -173,14 +174,14 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
 
     # Now timestamp which doesn't overlap (gives nothing).
     msgs = l4.query_gossip('gossip_timestamp_filter',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            '0', before_anything - backdate,
                            filters=['0109'])
     assert msgs == []
 
     # Now choose range which will only give first update.
     msgs = l4.query_gossip('gossip_timestamp_filter',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            before_anything - backdate,
                            after_12 - before_anything + 1,
                            filters=['0109'])
@@ -194,7 +195,7 @@ def test_gossip_timestamp_filter(node_factory, bitcoind):
 
     # Now choose range which will only give second update.
     msgs = l4.query_gossip('gossip_timestamp_filter',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            after_12 - backdate,
                            after_23 - after_12 + 1,
                            filters=['0109'])
@@ -1029,11 +1030,12 @@ def test_gossip_store_load_amount_truncated(node_factory):
 @pytest.mark.developer("Needs fast gossip propagation")
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
-def test_node_reannounce(node_factory, bitcoind):
+def test_node_reannounce(node_factory, bitcoind, chainparams):
     "Test that we reannounce a node when parameters change"
     l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
                                               'log-level': 'io'})
     bitcoind.generate_block(5)
+    genesis_blockhash = chainparams['chain_hash']
 
     # Wait for node_announcement for l1.
     l2.daemon.wait_for_log(r'\[IN\] 0101.*{}'.format(l1.info['id']))
@@ -1059,7 +1061,7 @@ def test_node_reannounce(node_factory, bitcoind):
 
     # Get node_announcements.
     msgs = l1.query_gossip('gossip_timestamp_filter',
-                           '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                           genesis_blockhash,
                            '0', '0xFFFFFFFF',
                            # Filter out gossip_timestamp_filter,
                            # channel_announcement and channel_updates.
@@ -1073,7 +1075,7 @@ def test_node_reannounce(node_factory, bitcoind):
     l1.restart()
 
     msgs2 = l1.query_gossip('gossip_timestamp_filter',
-                            '06226e46111a0b59caaf126043eb5bbf28c34f3a5e332a1fc7b2b73cf188910f',
+                            genesis_blockhash,
                             '0', '0xFFFFFFFF',
                             # Filter out gossip_timestamp_filter,
                             # channel_announcement and channel_updates.
