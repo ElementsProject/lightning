@@ -16,6 +16,5 @@
 	url = https://github.com/valyala/gheap
 [submodule "external/lnprototest"]
 	path = external/lnprototest
-	url = https://github.com/niftynei/lnprototest.git
-	branch = nifty/small-edits
-	ignore = dirty
+	url = https://github.com/rustyrussell/lnprototest.git
+	branch = master
