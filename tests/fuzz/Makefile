@@ -15,6 +15,7 @@ FUZZ_COMMON_OBJS := \
 	common/bech32.o					\
 	common/bip32.o					\
 	common/bigsize.o				\
+	common/bolt12_merkle.o				\
 	common/channel_config.o				\
 	common/close_tx.o				\
 	common/channel_id.o				\
@@ -23,6 +24,7 @@ FUZZ_COMMON_OBJS := \
 	common/derive_basepoints.o			\
 	common/descriptor_checksum.o			\
 	common/fee_states.o				\
+	common/hash_u5.o				\
 	common/hsm_encryption.o				\
 	common/htlc_state.o				\
 	common/permute_tx.o				\
@@ -42,6 +44,7 @@ FUZZ_COMMON_OBJS := \
 	common/status_wiregen.o				\
 	common/type_to_string.o				\
 	common/utils.o					\
+	common/utxo.o					\
 	common/version.o				\
 	wire/fromwire.o					\
 	wire/onion_wiregen.o				\
@@ -54,6 +57,7 @@ FUZZ_COMMON_OBJS := \
 
 $(FUZZ_TARGETS_OBJS): $(COMMON_HEADERS) $(WIRE_HEADERS) $(COMMON_SRC)
 $(FUZZ_TARGETS_BIN): $(LIBFUZZ_OBJS) $(FUZZ_COMMON_OBJS) $(BITCOIN_OBJS)
+tests/fuzz/fuzz-libhsmd_handle_msg: hsmd/libhsmd.o hsmd/hsmd_wiregen.o
 
 ALL_C_SOURCES += $(FUZZ_TARGETS_SRC) $(LIBFUZZ_SRC)
 ALL_FUZZ_TARGETS += $(FUZZ_TARGETS_BIN)
