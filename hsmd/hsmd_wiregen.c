@@ -147,6 +147,8 @@ bool fromwire_hsmstatus_client_bad_request(const tal_t *ctx, const void *p, stru
 		return false;
  	fromwire_node_id(&cursor, &plen, id);
  	*description = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*description)
+		return NULL;
  	len = fromwire_u16(&cursor, &plen);
  	// 2nd case msg
 	*msg = len ? tal_arr(ctx, u8, len) : NULL;
@@ -440,6 +442,8 @@ bool fromwire_hsmd_sign_withdrawal(const tal_t *ctx, const void *p, struct utxo 
 	for (size_t i = 0; i < num_inputs; i++)
 		(*inputs)[i] = fromwire_utxo(*inputs, &cursor, &plen);
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	if (!*psbt)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -461,6 +465,8 @@ bool fromwire_hsmd_sign_withdrawal_reply(const tal_t *ctx, const void *p, struct
 	if (fromwire_u16(&cursor, &plen) != WIRE_HSMD_SIGN_WITHDRAWAL_REPLY)
 		return false;
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	if (!*psbt)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -696,6 +702,8 @@ bool fromwire_hsmd_sign_commitment_tx(const tal_t *ctx, const void *p, struct no
  	fromwire_node_id(&cursor, &plen, peer_id);
  	*channel_dbid = fromwire_u64(&cursor, &plen);
  	*tx = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*tx)
+		return NULL;
  	fromwire_pubkey(&cursor, &plen, remote_funding_key);
 	return cursor != NULL;
 }
@@ -749,6 +757,8 @@ bool fromwire_hsmd_sign_delayed_payment_to_us(const tal_t *ctx, const void *p, u
 		return false;
  	*commit_num = fromwire_u64(&cursor, &plen);
  	*tx = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*tx)
+		return NULL;
  	wscript_len = fromwire_u16(&cursor, &plen);
  	// 2nd case wscript
 	*wscript = wscript_len ? tal_arr(ctx, u8, wscript_len) : NULL;
@@ -782,6 +792,8 @@ bool fromwire_hsmd_sign_remote_htlc_to_us(const tal_t *ctx, const void *p, struc
 		return false;
  	fromwire_pubkey(&cursor, &plen, remote_per_commitment_point);
  	*tx = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*tx)
+		return NULL;
  	wscript_len = fromwire_u16(&cursor, &plen);
  	// 2nd case wscript
 	*wscript = wscript_len ? tal_arr(ctx, u8, wscript_len) : NULL;
@@ -815,6 +827,8 @@ bool fromwire_hsmd_sign_penalty_to_us(const tal_t *ctx, const void *p, struct se
 		return false;
  	fromwire_secret(&cursor, &plen, revocation_secret);
  	*tx = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*tx)
+		return NULL;
  	wscript_len = fromwire_u16(&cursor, &plen);
  	// 2nd case wscript
 	*wscript = wscript_len ? tal_arr(ctx, u8, wscript_len) : NULL;
@@ -849,6 +863,8 @@ bool fromwire_hsmd_sign_local_htlc_tx(const tal_t *ctx, const void *p, u64 *comm
 		return false;
  	*commit_num = fromwire_u64(&cursor, &plen);
  	*tx = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*tx)
+		return NULL;
  	wscript_len = fromwire_u16(&cursor, &plen);
  	// 2nd case wscript
 	*wscript = wscript_len ? tal_arr(ctx, u8, wscript_len) : NULL;
@@ -879,6 +895,8 @@ bool fromwire_hsmd_sign_remote_commitment_tx(const tal_t *ctx, const void *p, st
 	if (fromwire_u16(&cursor, &plen) != WIRE_HSMD_SIGN_REMOTE_COMMITMENT_TX)
 		return false;
  	*tx = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*tx)
+		return NULL;
  	fromwire_pubkey(&cursor, &plen, remote_funding_key);
  	fromwire_pubkey(&cursor, &plen, remote_per_commit);
  	*option_static_remotekey = fromwire_bool(&cursor, &plen);
@@ -911,6 +929,8 @@ bool fromwire_hsmd_sign_remote_htlc_tx(const tal_t *ctx, const void *p, struct b
 	if (fromwire_u16(&cursor, &plen) != WIRE_HSMD_SIGN_REMOTE_HTLC_TX)
 		return false;
  	*tx = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*tx)
+		return NULL;
  	len = fromwire_u16(&cursor, &plen);
  	// 2nd case wscript
 	*wscript = len ? tal_arr(ctx, u8, len) : NULL;
@@ -940,6 +960,8 @@ bool fromwire_hsmd_sign_mutual_close_tx(const tal_t *ctx, const void *p, struct 
 	if (fromwire_u16(&cursor, &plen) != WIRE_HSMD_SIGN_MUTUAL_CLOSE_TX)
 		return false;
  	*tx = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*tx)
+		return NULL;
  	fromwire_pubkey(&cursor, &plen, remote_funding_key);
 	return cursor != NULL;
 }
@@ -1248,7 +1270,11 @@ bool fromwire_hsmd_sign_bolt12(const tal_t *ctx, const void *p, wirestring **mes
 	if (fromwire_u16(&cursor, &plen) != WIRE_HSMD_SIGN_BOLT12)
 		return false;
  	*messagename = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*messagename)
+		return NULL;
  	*fieldname = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*fieldname)
+		return NULL;
  	fromwire_sha256(&cursor, &plen, merkleroot);
  	/* This is for invreq payer_id (temporary keys) */
 	publictweaklen = fromwire_u16(&cursor, &plen);
@@ -1278,4 +1304,4 @@ bool fromwire_hsmd_sign_bolt12_reply(const void *p, struct bip340sig *sig)
  	fromwire_bip340sig(&cursor, &plen, sig);
 	return cursor != NULL;
 }
-// SHA256STAMP:b419989953cbf50796fc237b5d7e2043f96cb838a1356dbdb27943b341f611a8
+// SHA256STAMP:22109a8476d017e211feb07422bef493dd7ebfd935a1d593ea982353ec5b7351

@@ -213,4 +213,4 @@ bool fromwire_channeld_send_error_reply(const void *p);
 
 
 #endif /* LIGHTNING_CHANNELD_CHANNELD_WIREGEN_H */
-// SHA256STAMP:60143693b0c3611c8ecdf7f3549ef9f4c280e359cac0cd1f4df38cdca2dad3cb
+// SHA256STAMP:fbb3ef6f7e375298852a742043706e1e6ff113c6ca8470780dc440d2e7d0f61f

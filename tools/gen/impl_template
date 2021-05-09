@@ -180,6 +180,8 @@ ${static}void fromwire_${subtype.name}(${'const tal_t *ctx, ' if subtype.needs_c
 *${f.name} = fromwire_${type_}(&cursor, &plen);
 % elif varsized:
 *${f.name} = fromwire_${type_}(ctx, &cursor, &plen);
+	if (!*${f.name})
+		return NULL;
 % else:
 fromwire_${type_}(${'ctx, ' if f.needs_context() else ''}&cursor, &plen, ${'*' if f.is_optional else ''}${f.name});
 % endif

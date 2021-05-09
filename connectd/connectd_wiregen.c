@@ -101,6 +101,8 @@ bool fromwire_connectd_init(const tal_t *ctx, const void *p, const struct chainp
 		return false;
  	fromwire_chainparams(&cursor, &plen, chainparams);
  	*our_features = fromwire_feature_set(ctx, &cursor, &plen);
+	if (!*our_features)
+		return NULL;
  	fromwire_node_id(&cursor, &plen, id);
  	num_wireaddrs = fromwire_u16(&cursor, &plen);
  	// 2nd case wireaddrs
@@ -121,6 +123,8 @@ bool fromwire_connectd_init(const tal_t *ctx, const void *p, const struct chainp
  	*dev_allow_localhost = fromwire_bool(&cursor, &plen);
  	*use_dns = fromwire_bool(&cursor, &plen);
  	*tor_password = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*tor_password)
+		return NULL;
  	*use_v3_autotor = fromwire_bool(&cursor, &plen);
  	*timeout_secs = fromwire_u32(&cursor, &plen);
 	return cursor != NULL;
@@ -299,6 +303,8 @@ bool fromwire_connectd_connect_failed(const tal_t *ctx, const void *p, struct no
  	fromwire_node_id(&cursor, &plen, id);
  	*failcode = fromwire_errcode_t(&cursor, &plen);
  	*failreason = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*failreason)
+		return NULL;
  	*seconds_to_delay = fromwire_u32(&cursor, &plen);
  	if (!fromwire_bool(&cursor, &plen))
 		*addrhint = NULL;
@@ -339,6 +345,8 @@ bool fromwire_connectd_peer_connected(const tal_t *ctx, const void *p, struct no
  	fromwire_wireaddr_internal(&cursor, &plen, addr);
  	*incoming = fromwire_bool(&cursor, &plen);
  	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
+	if (!*pps)
+		return NULL;
  	flen = fromwire_u16(&cursor, &plen);
  	// 2nd case features
 	*features = flen ? tal_arr(ctx, u8, flen) : NULL;
@@ -408,4 +416,4 @@ bool fromwire_connectd_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:9bbb0b97a226bd5c85a21bafde42c7fd438b8107d6d30b7c7b17c16a6cbd3557
+// SHA256STAMP:344f0935d1be6e42a9ba2625a6ad4ec61b6eb2212b1c5dde403f3d9b7637cacd

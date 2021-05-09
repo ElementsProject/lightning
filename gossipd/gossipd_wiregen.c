@@ -136,6 +136,8 @@ bool fromwire_gossipd_init(const tal_t *ctx, const void *p, const struct chainpa
 		return false;
  	fromwire_chainparams(&cursor, &plen, chainparams);
  	*our_features = fromwire_feature_set(ctx, &cursor, &plen);
+	if (!*our_features)
+		return NULL;
  	fromwire_node_id(&cursor, &plen, id);
  	fromwire_u8_array(&cursor, &plen, rgb, 3);
  	fromwire_u8_array(&cursor, &plen, alias, 32);
@@ -1055,6 +1057,8 @@ bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestrin
 	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_ADDGOSSIP_REPLY)
 		return false;
  	*err = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*err)
+		return NULL;
 	return cursor != NULL;
 }
-// SHA256STAMP:5fb4bcc3bb8c5f312041142d4bf555a2187c82d82921b819d5a45410efddf6f3
+// SHA256STAMP:bd3a96159e4944b574340391fec50aca8557ad7621d6e521e79382e7fa29afc6

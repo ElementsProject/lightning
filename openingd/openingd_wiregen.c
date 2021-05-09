@@ -115,12 +115,16 @@ bool fromwire_openingd_init(const tal_t *ctx, const void *p, const struct chainp
  	/* Which network are we configured for? */
 	fromwire_chainparams(&cursor, &plen, chainparams);
  	*our_features = fromwire_feature_set(ctx, &cursor, &plen);
+	if (!*our_features)
+		return NULL;
  	/* Base configuration we'll offer (channel reserve will vary with amount) */
 	fromwire_channel_config(&cursor, &plen, our_config);
  	/* Minimum/maximum configuration values we'll accept */
 	*max_to_self_delay = fromwire_u32(&cursor, &plen);
  	*min_effective_htlc_capacity_msat = fromwire_amount_msat(&cursor, &plen);
  	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
+	if (!*pps)
+		return NULL;
  	fromwire_basepoints(&cursor, &plen, our_basepoints);
  	fromwire_pubkey(&cursor, &plen, our_funding_pubkey);
  	/* Constraints in case the other end tries to open a channel. */
@@ -229,6 +233,8 @@ bool fromwire_openingd_got_offer_reply(const tal_t *ctx, const void *p, wirestri
 		*rejection = NULL;
 	else {
 		*rejection = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*rejection)
+		return NULL;
 	}
  	shutdown_len = fromwire_u16(&cursor, &plen);
  	// 2nd case our_shutdown_scriptpubkey
@@ -283,6 +289,8 @@ bool fromwire_openingd_funder_reply(const tal_t *ctx, const void *p, struct chan
 		return false;
  	fromwire_channel_config(&cursor, &plen, their_config);
  	*first_commit = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*first_commit)
+		return NULL;
  	if (!fromwire_bool(&cursor, &plen))
 		*pbase = NULL;
 	else {
@@ -291,6 +299,8 @@ bool fromwire_openingd_funder_reply(const tal_t *ctx, const void *p, struct chan
 	}
  	fromwire_bitcoin_signature(&cursor, &plen, first_commit_sig);
  	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
+	if (!*pps)
+		return NULL;
  	fromwire_pubkey(&cursor, &plen, revocation_basepoint);
  	fromwire_pubkey(&cursor, &plen, payment_basepoint);
  	fromwire_pubkey(&cursor, &plen, htlc_basepoint);
@@ -442,6 +452,8 @@ bool fromwire_openingd_funder_failed(const tal_t *ctx, const void *p, wirestring
 	if (fromwire_u16(&cursor, &plen) != WIRE_OPENINGD_FUNDER_FAILED)
 		return false;
  	*reason = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*reason)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -502,6 +514,8 @@ bool fromwire_openingd_fundee(const tal_t *ctx, const void *p, struct channel_co
 		return false;
  	fromwire_channel_config(&cursor, &plen, their_config);
  	*first_commit = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*first_commit)
+		return NULL;
  	if (!fromwire_bool(&cursor, &plen))
 		*pbase = NULL;
 	else {
@@ -510,6 +524,8 @@ bool fromwire_openingd_fundee(const tal_t *ctx, const void *p, struct channel_co
 	}
  	fromwire_bitcoin_signature(&cursor, &plen, first_commit_sig);
  	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
+	if (!*pps)
+		return NULL;
  	fromwire_pubkey(&cursor, &plen, revocation_basepoint);
  	fromwire_pubkey(&cursor, &plen, payment_basepoint);
  	fromwire_pubkey(&cursor, &plen, htlc_basepoint);
@@ -579,4 +595,4 @@ bool fromwire_openingd_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:056c30b94922859252e3b4171c02c1986242c0ec1f71f78ea62c3a0b5d26a696
+// SHA256STAMP:f270b8c87ad2b57d370c2f003df4c57acac7b4b0bacab3200ad0182b558a218d
