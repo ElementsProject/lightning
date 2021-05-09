@@ -82,6 +82,8 @@ bool fromwire_status_log(const tal_t *ctx, const void *p, enum log_level *level,
 		fromwire_node_id(&cursor, &plen, *peer);
 	}
  	*entry = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*entry)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -122,6 +124,8 @@ bool fromwire_status_io(const tal_t *ctx, const void *p, enum log_level *iodir, 
 		fromwire_node_id(&cursor, &plen, *peer);
 	}
  	*who = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*who)
+		return NULL;
  	len = fromwire_u16(&cursor, &plen);
  	// 2nd case data
 	*data = len ? tal_arr(ctx, u8, len) : NULL;
@@ -149,6 +153,8 @@ bool fromwire_status_fail(const tal_t *ctx, const void *p, enum status_failreaso
 		return false;
  	*failreason = fromwire_status_failreason(&cursor, &plen);
  	*desc = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*desc)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -191,6 +197,8 @@ bool fromwire_status_peer_billboard(const tal_t *ctx, const void *p, bool *perm,
 		return false;
  	*perm = fromwire_bool(&cursor, &plen);
  	*happenings = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*happenings)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -212,6 +220,8 @@ bool fromwire_status_version(const tal_t *ctx, const void *p, wirestring **versi
 	if (fromwire_u16(&cursor, &plen) != WIRE_STATUS_VERSION)
 		return false;
  	*version = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*version)
+		return NULL;
 	return cursor != NULL;
 }
-// SHA256STAMP:8e1ba9cbc812c8aad76c5049fcecefea2d706a100423c93d3c3be0afcbee851e
+// SHA256STAMP:6bc1d8b7640b2da697e1bf8b30b9fe33d2eb28a44536c9713372b53b6eb19f74

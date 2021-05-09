@@ -107,6 +107,8 @@ bool fromwire_closingd_init(const tal_t *ctx, const void *p, const struct chainp
 		return false;
  	fromwire_chainparams(&cursor, &plen, chainparams);
  	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
+	if (!*pps)
+		return NULL;
  	fromwire_channel_id(&cursor, &plen, channel_id);
  	fromwire_bitcoin_txid(&cursor, &plen, funding_txid);
  	*funding_txout = fromwire_u16(&cursor, &plen);
@@ -170,6 +172,8 @@ bool fromwire_closingd_received_signature(const tal_t *ctx, const void *p, struc
 		return false;
  	fromwire_bitcoin_signature(&cursor, &plen, signature);
  	*tx = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*tx)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -213,4 +217,4 @@ bool fromwire_closingd_complete(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:95043321951ace6f7a5ee9f1dc0ae57c8a6427644b8b79d3e08e521dc9b3b49f
+// SHA256STAMP:c6533f0d0bdd2a8299332d533cc713e85f4712c5a03b81547b2f1874997ec3ed

@@ -200,6 +200,8 @@ bool fromwire_channeld_init(const tal_t *ctx, const void *p, const struct chainp
 		return false;
  	fromwire_chainparams(&cursor, &plen, chainparams);
  	*our_features = fromwire_feature_set(ctx, &cursor, &plen);
+	if (!*our_features)
+		return NULL;
  	fromwire_channel_id(&cursor, &plen, channel_id);
  	fromwire_bitcoin_txid(&cursor, &plen, funding_txid);
  	*funding_txout = fromwire_u16(&cursor, &plen);
@@ -208,11 +210,15 @@ bool fromwire_channeld_init(const tal_t *ctx, const void *p, const struct chainp
  	fromwire_channel_config(&cursor, &plen, our_config);
  	fromwire_channel_config(&cursor, &plen, their_config);
  	*fee_states = fromwire_fee_states(ctx, &cursor, &plen);
+	if (!*fee_states)
+		return NULL;
  	*feerate_min = fromwire_u32(&cursor, &plen);
  	*feerate_max = fromwire_u32(&cursor, &plen);
  	*feerate_penalty = fromwire_u32(&cursor, &plen);
  	fromwire_bitcoin_signature(&cursor, &plen, first_commit_sig);
  	*per_peer_state = fromwire_per_peer_state(ctx, &cursor, &plen);
+	if (!*per_peer_state)
+		return NULL;
  	fromwire_pubkey(&cursor, &plen, remote_fundingkey);
  	fromwire_basepoints(&cursor, &plen, remote_basepoints);
  	fromwire_pubkey(&cursor, &plen, remote_per_commit);
@@ -397,6 +403,8 @@ bool fromwire_channeld_offer_htlc_reply(const tal_t *ctx, const void *p, u64 *id
 	*failuremsg = len ? tal_arr(ctx, u8, len) : NULL;
 	fromwire_u8_array(&cursor, &plen, *failuremsg, len);
  	*failurestr = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*failurestr)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -441,6 +449,8 @@ bool fromwire_channeld_fail_htlc(const tal_t *ctx, const void *p, struct failed_
 	if (fromwire_u16(&cursor, &plen) != WIRE_CHANNELD_FAIL_HTLC)
 		return false;
  	*failed_htlc = fromwire_failed_htlc(ctx, &cursor, &plen);
+	if (!*failed_htlc)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -512,6 +522,8 @@ bool fromwire_channeld_sending_commitsig(const tal_t *ctx, const void *p, u64 *c
 		fromwire_penalty_base(&cursor, &plen, *pbase);
 	}
  	*fee_states = fromwire_fee_states(ctx, &cursor, &plen);
+	if (!*fee_states)
+		return NULL;
  	/* SENT_ADD_COMMIT */
 	num_changed = fromwire_u16(&cursor, &plen);
  	// 2nd case changed
@@ -599,6 +611,8 @@ bool fromwire_channeld_got_commitsig(const tal_t *ctx, const void *p, u64 *commi
 		return false;
  	*commitnum = fromwire_u64(&cursor, &plen);
  	*fee_states = fromwire_fee_states(ctx, &cursor, &plen);
+	if (!*fee_states)
+		return NULL;
  	fromwire_bitcoin_signature(&cursor, &plen, signature);
  	num_htlcs = fromwire_u16(&cursor, &plen);
  	// 2nd case htlc_signature
@@ -629,6 +643,8 @@ bool fromwire_channeld_got_commitsig(const tal_t *ctx, const void *p, u64 *commi
 	for (size_t i = 0; i < num_changed; i++)
 		fromwire_changed_htlc(&cursor, &plen, *changed + i);
  	*tx = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*tx)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -696,6 +712,8 @@ bool fromwire_channeld_got_revoke(const tal_t *ctx, const void *p, u64 *revokenu
  	fromwire_pubkey(&cursor, &plen, next_per_commit_point);
  	/* RCVD_ADD_ACK_REVOCATION */
 	*fee_states = fromwire_fee_states(ctx, &cursor, &plen);
+	if (!*fee_states)
+		return NULL;
  	num_changed = fromwire_u16(&cursor, &plen);
  	// 2nd case changed
 	*changed = num_changed ? tal_arr(ctx, struct changed_htlc, num_changed) : NULL;
@@ -711,6 +729,8 @@ bool fromwire_channeld_got_revoke(const tal_t *ctx, const void *p, u64 *revokenu
 		*penalty_tx = NULL;
 	else {
 		*penalty_tx = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*penalty_tx)
+		return NULL;
 	}
 	return cursor != NULL;
 }
@@ -837,6 +857,8 @@ bool fromwire_channeld_shutdown_complete(const tal_t *ctx, const void *p, struct
 	if (fromwire_u16(&cursor, &plen) != WIRE_CHANNELD_SHUTDOWN_COMPLETE)
 		return false;
  	*per_peer_state = fromwire_per_peer_state(ctx, &cursor, &plen);
+	if (!*per_peer_state)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -1048,6 +1070,8 @@ bool fromwire_channeld_send_error(const tal_t *ctx, const void *p, wirestring **
 	if (fromwire_u16(&cursor, &plen) != WIRE_CHANNELD_SEND_ERROR)
 		return false;
  	*reason = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*reason)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -1070,4 +1094,4 @@ bool fromwire_channeld_send_error_reply(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:60143693b0c3611c8ecdf7f3549ef9f4c280e359cac0cd1f4df38cdca2dad3cb
+// SHA256STAMP:fbb3ef6f7e375298852a742043706e1e6ff113c6ca8470780dc440d2e7d0f61f

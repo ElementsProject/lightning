@@ -132,6 +132,8 @@ bool fromwire_dualopend_init(const tal_t *ctx, const void *p, const struct chain
  	/* Which network are we configured for? */
 	fromwire_chainparams(&cursor, &plen, chainparams);
  	*our_feature_set = fromwire_feature_set(ctx, &cursor, &plen);
+	if (!*our_feature_set)
+		return NULL;
  	their_init_features_len = fromwire_u16(&cursor, &plen);
  	// 2nd case their_init_features
 	*their_init_features = their_init_features_len ? tal_arr(ctx, u8, their_init_features_len) : NULL;
@@ -142,6 +144,8 @@ bool fromwire_dualopend_init(const tal_t *ctx, const void *p, const struct chain
 	*max_to_self_delay = fromwire_u32(&cursor, &plen);
  	*min_effective_htlc_capacity_msat = fromwire_amount_msat(&cursor, &plen);
  	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
+	if (!*pps)
+		return NULL;
  	fromwire_basepoints(&cursor, &plen, our_basepoints);
  	fromwire_pubkey(&cursor, &plen, our_funding_pubkey);
  	/* Constraints in case the other end tries to open a channel. */
@@ -220,6 +224,8 @@ bool fromwire_dualopend_reinit(const tal_t *ctx, const void *p, const struct cha
 		return false;
  	fromwire_chainparams(&cursor, &plen, chainparams);
  	*our_feature_set = fromwire_feature_set(ctx, &cursor, &plen);
+	if (!*our_feature_set)
+		return NULL;
  	their_init_features_len = fromwire_u16(&cursor, &plen);
  	// 2nd case their_init_features
 	*their_init_features = their_init_features_len ? tal_arr(ctx, u8, their_init_features_len) : NULL;
@@ -230,6 +236,8 @@ bool fromwire_dualopend_reinit(const tal_t *ctx, const void *p, const struct cha
  	*max_to_self_delay = fromwire_u32(&cursor, &plen);
  	*min_effective_htlc_capacity_msat = fromwire_amount_msat(&cursor, &plen);
  	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
+	if (!*pps)
+		return NULL;
  	fromwire_basepoints(&cursor, &plen, our_basepoints);
  	fromwire_pubkey(&cursor, &plen, our_funding_pubkey);
  	fromwire_pubkey(&cursor, &plen, their_funding_pubkey);
@@ -243,6 +251,8 @@ bool fromwire_dualopend_reinit(const tal_t *ctx, const void *p, const struct cha
  	fromwire_basepoints(&cursor, &plen, their_basepoints);
  	fromwire_pubkey(&cursor, &plen, remote_per_commit);
  	*funding_psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	if (!*funding_psbt)
+		return NULL;
  	*opener = fromwire_side(&cursor, &plen);
  	*local_funding_locked = fromwire_bool(&cursor, &plen);
  	*remote_funding_locked = fromwire_bool(&cursor, &plen);
@@ -258,6 +268,8 @@ bool fromwire_dualopend_reinit(const tal_t *ctx, const void *p, const struct cha
 	fromwire_u8_array(&cursor, &plen, *remote_shutdown_scriptpubkey, remote_shutdown_len);
  	*remote_funding_sigs_received = fromwire_bool(&cursor, &plen);
  	*fee_states = fromwire_fee_states(ctx, &cursor, &plen);
+	if (!*fee_states)
+		return NULL;
  	*channel_flags = fromwire_u8(&cursor, &plen);
  	/* Optional msg to send. */
 	len = fromwire_u16(&cursor, &plen);
@@ -344,6 +356,8 @@ bool fromwire_dualopend_got_offer_reply(const tal_t *ctx, const void *p, struct 
 		return false;
  	*accepter_funding = fromwire_amount_sat(&cursor, &plen);
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	if (!*psbt)
+		return NULL;
  	shutdown_len = fromwire_u16(&cursor, &plen);
  	// 2nd case our_shutdown_scriptpubkey
 	*our_shutdown_scriptpubkey = shutdown_len ? tal_arr(ctx, u8, shutdown_len) : NULL;
@@ -400,6 +414,8 @@ bool fromwire_dualopend_got_rbf_offer_reply(const tal_t *ctx, const void *p, str
 		return false;
  	*our_funding = fromwire_amount_sat(&cursor, &plen);
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	if (!*psbt)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -422,6 +438,8 @@ bool fromwire_dualopend_rbf_validate(const tal_t *ctx, const void *p, struct wal
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_RBF_VALIDATE)
 		return false;
  	*proposed_funding_psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	if (!*proposed_funding_psbt)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -466,6 +484,8 @@ bool fromwire_dualopend_rbf_init(const tal_t *ctx, const void *p, struct amount_
 		return false;
  	*our_funding = fromwire_amount_sat(&cursor, &plen);
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	if (!*psbt)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -521,6 +541,8 @@ bool fromwire_dualopend_commit_rcvd(const tal_t *ctx, const void *p, struct chan
 		return false;
  	fromwire_channel_config(&cursor, &plen, their_config);
  	*remote_first_commit = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*remote_first_commit)
+		return NULL;
  	if (!fromwire_bool(&cursor, &plen))
 		*pbase = NULL;
 	else {
@@ -529,6 +551,8 @@ bool fromwire_dualopend_commit_rcvd(const tal_t *ctx, const void *p, struct chan
 	}
  	fromwire_bitcoin_signature(&cursor, &plen, first_commit_sig);
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	if (!*psbt)
+		return NULL;
  	fromwire_pubkey(&cursor, &plen, revocation_basepoint);
  	fromwire_pubkey(&cursor, &plen, payment_basepoint);
  	fromwire_pubkey(&cursor, &plen, htlc_basepoint);
@@ -576,6 +600,8 @@ bool fromwire_dualopend_psbt_changed(const tal_t *ctx, const void *p, struct cha
  	fromwire_channel_id(&cursor, &plen, channel_id);
  	*funding_serial = fromwire_u64(&cursor, &plen);
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	if (!*psbt)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -598,6 +624,8 @@ bool fromwire_dualopend_psbt_updated(const tal_t *ctx, const void *p, struct wal
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_PSBT_UPDATED)
 		return false;
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	if (!*psbt)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -620,6 +648,8 @@ bool fromwire_dualopend_fail(const tal_t *ctx, const void *p, wirestring **reaso
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_FAIL)
 		return false;
  	*reason = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*reason)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -651,6 +681,8 @@ bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wall
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_OPENER_INIT)
 		return false;
  	*psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	if (!*psbt)
+		return NULL;
  	*funding_amount = fromwire_amount_sat(&cursor, &plen);
  	local_shutdown_len = fromwire_u16(&cursor, &plen);
  	// 2nd case local_shutdown_scriptpubkey
@@ -681,6 +713,8 @@ bool fromwire_dualopend_funding_sigs(const tal_t *ctx, const void *p, struct wal
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_FUNDING_SIGS)
 		return false;
  	*signed_psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	if (!*signed_psbt)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -703,6 +737,8 @@ bool fromwire_dualopend_send_tx_sigs(const tal_t *ctx, const void *p, struct wal
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_SEND_TX_SIGS)
 		return false;
  	*signed_psbt = fromwire_wally_psbt(ctx, &cursor, &plen);
+	if (!*signed_psbt)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -767,6 +803,8 @@ bool fromwire_dualopend_channel_locked(const tal_t *ctx, const void *p, struct p
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_CHANNEL_LOCKED)
 		return false;
  	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
+	if (!*pps)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -889,6 +927,8 @@ bool fromwire_dualopend_shutdown_complete(const tal_t *ctx, const void *p, struc
 	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_SHUTDOWN_COMPLETE)
 		return false;
  	*per_peer_state = fromwire_per_peer_state(ctx, &cursor, &plen);
+	if (!*per_peer_state)
+		return NULL;
 	return cursor != NULL;
 }
 
@@ -932,4 +972,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:b93c5d3aad8cc2f256ed1205341ff68ea34d5bfc4a0d05071a8fe28177186bc5
+// SHA256STAMP:ac87526130110ceb0c1a9cc168d1574a5e3be96678d6420c998be7ab53ea1087

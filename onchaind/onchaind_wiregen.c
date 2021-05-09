@@ -182,6 +182,8 @@ bool fromwire_onchaind_init(const tal_t *ctx, const void *p, struct shachain *sh
  	fromwire_basepoints(&cursor, &plen, local_basepoints);
  	fromwire_basepoints(&cursor, &plen, remote_basepoints);
  	*tx_parts = fromwire_tx_parts(ctx, &cursor, &plen);
+	if (!*tx_parts)
+		return NULL;
  	*locktime = fromwire_u32(&cursor, &plen);
  	*tx_blockheight = fromwire_u32(&cursor, &plen);
  	*reasonable_depth = fromwire_u32(&cursor, &plen);
@@ -281,6 +283,8 @@ bool fromwire_onchaind_broadcast_tx(const tal_t *ctx, const void *p, struct bitc
 	if (fromwire_u16(&cursor, &plen) != WIRE_ONCHAIND_BROADCAST_TX)
 		return false;
  	*tx = fromwire_bitcoin_tx(ctx, &cursor, &plen);
+	if (!*tx)
+		return NULL;
  	*type = fromwire_wallet_tx_type(&cursor, &plen);
  	*is_rbf = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
@@ -308,6 +312,8 @@ bool fromwire_onchaind_spent(const tal_t *ctx, const void *p, struct tx_parts **
 	if (fromwire_u16(&cursor, &plen) != WIRE_ONCHAIND_SPENT)
 		return false;
  	*tx = fromwire_tx_parts(ctx, &cursor, &plen);
+	if (!*tx)
+		return NULL;
  	*input_num = fromwire_u32(&cursor, &plen);
  	*blockheight = fromwire_u32(&cursor, &plen);
  	*is_replay = fromwire_bool(&cursor, &plen);
@@ -635,4 +641,4 @@ bool fromwire_onchaind_notify_coin_mvt(const void *p, struct chain_coin_mvt *mvt
  	fromwire_chain_coin_mvt(&cursor, &plen, mvt);
 	return cursor != NULL;
 }
-// SHA256STAMP:ef6140d74f021a554c055b0f9b6322334559e6c2059ea51abf1bda2bc90add41
+// SHA256STAMP:f16c35547df6fcd487da57dcfd8d7143260ae7b8afb1a29fdaff6501d70ca769

@@ -71,13 +71,17 @@ bool fromwire_status_peer_error(const tal_t *ctx, const void *p, struct channel_
  	/* This is implied if error_for_them */
 	fromwire_channel_id(&cursor, &plen, channel);
  	*desc = fromwire_wirestring(ctx, &cursor, &plen);
+	if (!*desc)
+		return NULL;
  	/* Take a deep breath */
 	*warning = fromwire_bool(&cursor, &plen);
  	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
+	if (!*pps)
+		return NULL;
  	len = fromwire_u16(&cursor, &plen);
  	// 2nd case error_for_them
 	*error_for_them = len ? tal_arr(ctx, u8, len) : NULL;
 	fromwire_u8_array(&cursor, &plen, *error_for_them, len);
 	return cursor != NULL;
 }
-// SHA256STAMP:c002247f54d5016e614dd6d757c7d06f65c713c3e19d17901f7f685a6bd4b9d9
+// SHA256STAMP:537aab95e1fae787ee3b5a8536c37d6a5ffadbfd276703d9cb021a6713557754
