@@ -27,6 +27,8 @@ static struct wally_operations wally_tal_ops = {
 
 void common_setup(const char *argv0)
 {
+	int wally_ret;
+
 	setup_locale();
 	err_set_progname(argv0);
 
@@ -37,8 +39,12 @@ void common_setup(const char *argv0)
 		     " available ?");
 
 	/* We set up Wally, the bitcoin wallet lib */
-	wally_init(0);
-	wally_set_operations(&wally_tal_ops);
+	wally_ret = wally_init(0);
+	if (wally_ret != WALLY_OK)
+		errx(1, "Error initializing libwally: %i", wally_ret);
+	wally_ret = wally_set_operations(&wally_tal_ops);
+	if (wally_ret != WALLY_OK)
+		errx(1, "Error setting libwally operations: %i", wally_ret);
 	secp256k1_ctx = wally_get_secp_context();
 
 	setup_tmpctx();
