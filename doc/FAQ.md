@@ -164,3 +164,9 @@ Here is an example in Python checking if [one of the `option_static_remotekey` b
 >>> bool(0x02aaa2 & ((1 << 12) | (1 << 13)))
 True
 ```
+
+## Technical Questions
+
+### How do I get the `psbt` for RPC calls that need it?
+
+A `psbt` is created and returned by a call to [`utxopsbt` with `reservedok=true`](https://lightning.readthedocs.io/lightning-utxopsbt.7.html?highlight=psbt).
