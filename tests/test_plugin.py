@@ -9,7 +9,8 @@ from utils import (
     DEVELOPER, only_one, sync_blockheight, TIMEOUT, wait_for, TEST_NETWORK,
     DEPRECATED_APIS, expected_peer_features, expected_node_features,
     expected_channel_features, account_balance,
-    check_coin_moves, first_channel_id, check_coin_moves_idx, EXPERIMENTAL_FEATURES
+    check_coin_moves, first_channel_id, check_coin_moves_idx,
+    EXPERIMENTAL_FEATURES, EXPERIMENTAL_DUAL_FUND
 )
 
 import ast
@@ -846,6 +847,9 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     # such errors a soft because LND.
     opts = {"plugin": os.path.join(os.getcwd(), "tests/plugins/misc_notifications.py"),
             "allow_warning": True}
+    if EXPERIMENTAL_DUAL_FUND:
+        opts['may_reconnect'] = True
+
     l1, l2 = node_factory.line_graph(2, opts=opts)
 
     l1_id = l1.rpc.getinfo()["id"]
@@ -901,6 +905,9 @@ def test_channel_state_changed_unilateral(node_factory, bitcoind):
     wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 1)
     # check 'closer' on l2 while the peer is not yet forgotten
     assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] == 'local')
+    if EXPERIMENTAL_DUAL_FUND:
+        l1.daemon.wait_for_log(r'Peer has reconnected, state')
+        l2.daemon.wait_for_log(r'Peer has reconnected, state')
 
     # settle the channel closure
     bitcoind.generate_block(100)

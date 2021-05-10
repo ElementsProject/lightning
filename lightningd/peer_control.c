@@ -1093,12 +1093,11 @@ send_error:
 	if (feature_negotiated(ld->our_features,
 			       peer->their_features,
 			       OPT_DUAL_FUND)) {
-		/* if we have a channel, we're actually restarting
-		 * dualopend. we only get here if there's an error  */
 		if (channel) {
 			assert(!channel->owner);
 			assert(channel->state == DUALOPEND_OPEN_INIT
-			       || channel->state == DUALOPEND_AWAITING_LOCKIN);
+			       || channel->state == DUALOPEND_AWAITING_LOCKIN
+			       || channel->state == AWAITING_UNILATERAL);
 			channel->peer->addr = addr;
 			channel->peer->connected_incoming = payload->incoming;
 			peer_restart_dualopend(peer, payload->pps, channel, error);
