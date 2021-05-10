@@ -62,7 +62,10 @@ static void channel_disconnect(struct channel *channel,
 
 	if (reconnect)
 		channel_fail_reconnect(channel, "%s: %s",
-				       channel->owner->name, desc);
+				       channel->owner ?
+						channel->owner->name :
+						"dualopend-dead",
+				       desc);
 	else
 		channel_set_owner(channel, NULL);
 }
