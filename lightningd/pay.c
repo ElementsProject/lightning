@@ -1671,6 +1671,7 @@ static struct command_result *json_createonion(struct command *cmd,
 	struct secret *session_key, *shared_secrets;
 	struct sphinx_path *sp;
 	u8 *assocdata, *serialized;
+	u32 *packet_size;
 	struct onionpacket *packet;
 	struct sphinx_hop *hops;
 
@@ -1678,6 +1679,7 @@ static struct command_result *json_createonion(struct command *cmd,
 		   p_req("hops", param_hops_array, &hops),
 		   p_req("assocdata", param_bin_from_hex, &assocdata),
 		   p_opt("session_key", param_secret, &session_key),
+		   p_opt_def("onion_size", param_number, &packet_size, ROUTING_INFO_SIZE),
 		   NULL)) {
 		return command_param_failed();
 	}
@@ -1690,12 +1692,12 @@ static struct command_result *json_createonion(struct command *cmd,
 	for (size_t i=0; i<tal_count(hops); i++)
 		sphinx_add_hop(sp, &hops[i].pubkey, hops[i].raw_payload);
 
-	if (sphinx_path_payloads_size(sp) > ROUTING_INFO_SIZE)
+	if (sphinx_path_payloads_size(sp) > *packet_size)
 		return command_fail(
 		    cmd, JSONRPC2_INVALID_PARAMS,
 		    "Payloads exceed maximum onion packet size.");
 
-	packet = create_onionpacket(cmd, sp, ROUTING_INFO_SIZE, &shared_secrets);
+	packet = create_onionpacket(cmd, sp, *packet_size, &shared_secrets);
 	if (!packet)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Could not create onion packet");
