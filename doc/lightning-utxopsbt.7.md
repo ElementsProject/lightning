@@ -39,11 +39,11 @@ for the excess sats.
 RETURN VALUE
 ------------
 
-On success, returns the *psbt* containing the inputs, *feerate_per_kw*
-showing the exact numeric feerate it used, *estimated_final_weight* for
-the estimated weight of the transaction once fully signed, and
-*excess_msat* containing the amount above *satoshi* which is
-available.  This could be zero, or dust.  If *satoshi* was "all",
+On success, returns the *psbt* it created, containing the inputs,
+*feerate_per_kw* showing the exact numeric feerate it used, 
+*estimated_final_weight* for the estimated weight of the transaction
+once fully signed, and *excess_msat* containing the amount above *satoshi*
+which is available.  This could be zero, or dust.  If *satoshi* was "all",
 then *excess_msat* is the entire amount once fees are subtracted
 for the weights of the inputs and *startweight*.
 

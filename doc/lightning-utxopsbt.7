@@ -42,11 +42,11 @@ for the excess sats\.
 
 .SH RETURN VALUE
 
-On success, returns the \fIpsbt\fR containing the inputs, \fIfeerate_per_kw\fR
-showing the exact numeric feerate it used, \fIestimated_final_weight\fR for
-the estimated weight of the transaction once fully signed, and
-\fIexcess_msat\fR containing the amount above \fIsatoshi\fR which is
-available\.  This could be zero, or dust\.  If \fIsatoshi\fR was "all",
+On success, returns the \fIpsbt\fR it created, containing the inputs,
+\fIfeerate_per_kw\fR showing the exact numeric feerate it used, 
+\fIestimated_final_weight\fR for the estimated weight of the transaction
+once fully signed, and \fIexcess_msat\fR containing the amount above \fIsatoshi\fR
+which is available\.  This could be zero, or dust\.  If \fIsatoshi\fR was "all",
 then \fIexcess_msat\fR is the entire amount once fees are subtracted
 for the weights of the inputs and \fIstartweight\fR\.
 
@@ -86,4 +86,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:a56057522ed576f232d7d96794f39cc67a5a1b1bb7b6f7912e42c3769555e007
+\" SHA256STAMP:f956240b56534af4f6e99e3e77bbb4f5bc707c390a935cde08be0178abbb9cbd
