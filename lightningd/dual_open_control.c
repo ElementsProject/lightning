@@ -53,9 +53,9 @@ static void channel_disconnect(struct channel *channel,
 	notify_disconnect(channel->peer->ld, &channel->peer->id);
 
 	if (channel_unsaved(channel)) {
-		log_unusual(channel->log, "%s",
-			    "Unsaved peer failed."
-			    " Disconnecting and deleting channel.");
+		log_debug(channel->log, "%s",
+			  "Unsaved peer failed."
+			  " Disconnecting and deleting channel.");
 		delete_channel(channel);
 		return;
 	}
@@ -521,11 +521,11 @@ static void rbf_channel_hook_cb(struct rbf_channel_payload *payload STEALS)
 	tal_steal(tmpctx, payload);
 
 	if (!dualopend) {
-		channel_err_broken(channel, "Lost conn to node %s"
-				   " awaiting callback",
-				   type_to_string(tmpctx,
-						  struct node_id,
-						  &channel->peer->id));
+		channel_close_conn(channel, tal_fmt(tmpctx,
+				   "Lost conn to node %s"
+				   " awaiting rbf_channel callback",
+				   type_to_string(tmpctx, struct node_id,
+						  &channel->peer->id)));
 		return;
 	}
 
@@ -665,11 +665,12 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 
 	/* Our daemon died, we fail and try to reconnect */
 	if (!dualopend) {
-		channel_err_broken(channel, "Lost conn to node %s"
-				   " awaiting callback",
-				   type_to_string(tmpctx,
-						  struct node_id,
-						  &channel->peer->id));
+		channel_close_conn(channel,
+				   tal_fmt(tmpctx, "Lost conn to node %s"
+				           " awaiting callback openchannel2",
+					   type_to_string(tmpctx,
+							  struct node_id,
+							  &channel->peer->id)));
 		return;
 	}
 
