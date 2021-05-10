@@ -660,9 +660,6 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 	struct channel *channel = payload->channel;
 	u8 *msg;
 
-	/* Free payload regardless of what happens next */
-	tal_steal(tmpctx, payload);
-
 	/* Our daemon died, we fail and try to reconnect */
 	if (!dualopend) {
 		channel_err_broken(channel, "Lost conn to node %s"
@@ -672,6 +669,9 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 						  &channel->peer->id));
 		return;
 	}
+
+	/* Free payload regardless of what happens next */
+	tal_steal(tmpctx, payload);
 
 	channel = dualopend->channel;
 
@@ -716,7 +716,7 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 
 	/* If our daemon died, we're done */
 	if (!dualopend) {
-		tal_free(payload);
+		openchannel2_hook_cb(payload);
 		return false;
 	}
 
