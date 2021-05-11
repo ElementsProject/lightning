@@ -1076,6 +1076,7 @@ def test_funding_push(node_factory, bitcoind, chainparams):
 
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
+@pytest.mark.developer
 def test_funding_by_utxos(node_factory, bitcoind):
     """Fund a channel with specific utxos"""
     l1, l2, l3 = node_factory.line_graph(3, fundchannel=False)
