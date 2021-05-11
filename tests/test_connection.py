@@ -1228,6 +1228,80 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
     l1.rpc.close(l2.info['id'])
 
 
+@pytest.mark.developer("needs dev_forget_channel")
+@pytest.mark.openchannel('v2')
+def test_funding_v2_corners(node_factory, bitcoind):
+    l1 = node_factory.get_node(may_reconnect=True)
+    l2 = node_factory.get_node(may_reconnect=True)
+
+    amount = 2**24
+    l1.fundwallet(amount + 10000000)
+
+    amount = amount - 1
+
+    # make sure we can generate PSBTs.
+    addr = l1.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, (amount + 1000000) / 10**8)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
+
+    # Some random (valid) psbt
+    psbt = l1.rpc.fundpsbt(amount, '253perkw', 250, reserve=False)['psbt']
+    nonexist_chanid = '11' * 32
+
+    with pytest.raises(RpcError, match=r'Unknown peer'):
+        l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
+
+    with pytest.raises(RpcError, match=r'Unknown channel'):
+        l1.rpc.openchannel_update(nonexist_chanid, psbt)
+
+    # Should not be able to continue without being in progress.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    with pytest.raises(RpcError, match=r'Unknown channel'):
+        l1.rpc.openchannel_signed(nonexist_chanid, psbt)
+
+    # Fail to open (too large)
+    with pytest.raises(RpcError, match=r'Amount exceeded 16777215'):
+        l1.rpc.openchannel_init(l2.info['id'], amount + 1, psbt)
+
+    start = l1.rpc.openchannel_init(l2.info['id'], amount, psbt)
+    with pytest.raises(RpcError, match=r'Channel funding in-progress. DUALOPEND_OPEN_INIT'):
+        l1.rpc.fundchannel(l2.info['id'], amount)
+
+    # We can abort a channel
+    l1.rpc.openchannel_abort(start['channel_id'])
+
+    # Should be able to 'restart' after canceling
+    amount2 = 1000000
+    l1.rpc.unreserveinputs(psbt)
+    psbt = l1.rpc.fundpsbt(amount2, '253perkw', 250, reserve=False)['psbt']
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    start = l1.rpc.openchannel_init(l2.info['id'], amount2, psbt)
+
+    # Check that we're connected.
+    # This caused a valgrind crash prior to this commit
+    assert only_one(l2.rpc.listpeers()['peers'])
+
+    # Disconnect peer.
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
+
+    if not len(l2.rpc.listpeers()['peers']) == 1:
+        assert l2.daemon.wait_for_log('Unsaved peer failed')
+
+    with pytest.raises(RpcError, match=r'Unknown channel'):
+        l1.rpc.openchannel_abort(start['channel_id'])
+
+    with pytest.raises(RpcError, match=r'Unknown channel'):
+        l2.rpc.openchannel_abort(start['channel_id'])
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    start = l1.rpc.openchannel_init(l2.info['id'], amount2, psbt)
+
+    # Be sure fundchannel_complete is successful
+    assert l1.rpc.openchannel_update(start['channel_id'], start['psbt'])['commitments_secured']
+
+
 @unittest.skipIf(SLOW_MACHINE and not VALGRIND, "Way too taxing on CI machines")
 @pytest.mark.openchannel('v1')
 def test_funding_cancel_race(node_factory, bitcoind, executor):
