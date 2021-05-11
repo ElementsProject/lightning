@@ -47,10 +47,6 @@ static void channel_disconnect(struct channel *channel,
 			       bool reconnect,
 			       const char *desc)
 {
-	u8 *msg = towire_connectd_peer_disconnected(tmpctx,
-						    &channel->peer->id);
-	subd_send_msg(channel->peer->ld->connectd, msg);
-
 	log_(channel->log, level, NULL, false, "%s", desc);
 	channel_cleanup_commands(channel, desc);
 
@@ -67,6 +63,8 @@ static void channel_disconnect(struct channel *channel,
 	if (reconnect)
 		channel_fail_reconnect(channel, "%s: %s",
 				       channel->owner->name, desc);
+	else
+		channel_set_owner(channel, NULL);
 }
 
 void channel_close_conn(struct channel *channel, const char *why)
