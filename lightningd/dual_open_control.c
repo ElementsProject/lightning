@@ -115,6 +115,7 @@ void json_add_unsaved_channel(struct json_stream *response,
 			      const struct channel *channel)
 {
 	struct amount_msat total;
+	struct open_attempt *oa;
 
 	if (!channel)
 		return;
@@ -122,6 +123,8 @@ void json_add_unsaved_channel(struct json_stream *response,
 	/* If we're chatting but no channel, that's shown by connected: True */
 	if (!channel->open_attempt)
 		return;
+
+	oa = channel->open_attempt;
 
 	json_object_start(response, NULL);
 	json_add_string(response, "state", channel_state_name(channel));
@@ -139,13 +142,17 @@ void json_add_unsaved_channel(struct json_stream *response,
 		json_add_string(response, NULL, channel->billboard.transient);
 	json_array_end(response);
 
-	/* These should never fail. */
-	if (amount_sat_to_msat(&total, channel->open_attempt->funding)) {
-		json_add_amount_msat_compat(response, total,
-					    "msatoshi_to_us", "to_us_msat");
-		/* This will change if peer adds funds */
-		json_add_amount_msat_compat(response, total,
-					    "msatoshi_total", "total_msat");
+	/* funding + our_upfront_shutdown only available if we're initiator */
+	if (oa->role == TX_INITIATOR) {
+		if (amount_sat_to_msat(&total, oa->funding)) {
+			json_add_amount_msat_compat(response, total,
+						    "msatoshi_to_us",
+						    "to_us_msat");
+			/* This will change if peer adds funds */
+			json_add_amount_msat_compat(response, total,
+						    "msatoshi_total",
+						    "total_msat");
+		}
 	}
 
 	json_array_start(response, "features");
