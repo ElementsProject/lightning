@@ -1112,13 +1112,15 @@ static u8 *handle_funding_locked(struct state *state, u8 *msg)
 			      tal_hex(msg, msg));
 	}
 
-	state->funding_locked[REMOTE] = true;
-	billboard_update(state);
-
 	/* We save when the peer locks, so we do the right
 	 * thing on reconnects */
-	msg = towire_dualopend_peer_locked(NULL, &remote_per_commit);
-	wire_sync_write(REQ_FD, take(msg));
+	if (!state->funding_locked[REMOTE]) {
+		msg = towire_dualopend_peer_locked(NULL, &remote_per_commit);
+		wire_sync_write(REQ_FD, take(msg));
+	}
+
+	state->funding_locked[REMOTE] = true;
+	billboard_update(state);
 
 	if (state->funding_locked[LOCAL])
 		return towire_dualopend_channel_locked(state, state->pps);
