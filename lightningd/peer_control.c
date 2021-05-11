@@ -1562,7 +1562,8 @@ static struct command_result *json_close(struct command *cmd,
 			return command_success(cmd, json_stream_success(cmd));
 		}
 		if ((channel = peer_unsaved_channel(peer))) {
-			channel_close_conn(channel, "close command called");
+			channel_unsaved_close_conn(channel,
+						   "close command called");
 			return command_success(cmd, json_stream_success(cmd));
 		}
 		return command_fail(cmd, LIGHTNINGD,
@@ -1867,7 +1868,7 @@ static struct command_result *json_disconnect(struct command *cmd,
 	}
 	channel = peer_unsaved_channel(peer);
 	if (channel) {
-		channel_close_conn(channel, "disconnect command");
+		channel_unsaved_close_conn(channel, "disconnect command");
 		return command_success(cmd, json_stream_success(cmd));
 	}
 	if (!peer->uncommitted_channel) {

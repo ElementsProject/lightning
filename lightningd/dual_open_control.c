@@ -52,63 +52,46 @@ static void channel_disconnect(struct channel *channel,
 
 	notify_disconnect(channel->peer->ld, &channel->peer->id);
 
-	if (channel_unsaved(channel)) {
-		log_debug(channel->log, "%s",
-			  "Unsaved peer failed."
-			  " Disconnecting and deleting channel.");
-		delete_channel(channel);
-		return;
-	}
-
-	if (reconnect)
+	if (!reconnect)
+		channel_set_owner(channel, NULL);
+	else
 		channel_fail_reconnect(channel, "%s: %s",
 				       channel->owner ?
 						channel->owner->name :
 						"dualopend-dead",
 				       desc);
-	else
-		channel_set_owner(channel, NULL);
 }
 
-void channel_close_conn(struct channel *channel, const char *why)
+void channel_unsaved_close_conn(struct channel *channel, const char *why)
 {
-	/* Close dualopend */
-	if (channel->owner) {
-		log_info(channel->log, "Killing dualopend: %s", why);
+	/* Gotta be unsaved */
+	assert(channel_unsaved(channel));
+	log_info(channel->log, "Unsaved peer failed."
+		 " Disconnecting and deleting channel. Reason: %s",
+		 why);
 
-		subd_release_channel(channel->owner, channel);
-		channel->owner = NULL;
-	}
+	notify_disconnect(channel->peer->ld, &channel->peer->id);
+	channel_cleanup_commands(channel, why);
 
-	channel_disconnect(channel, LOG_INFORM, false, why);
+	channel_set_owner(channel, NULL);
+	delete_channel(channel);
 }
 
-void channel_close_reconn(struct channel *channel, const char *why)
-{
-	/* Close the daemon */
-	if (channel->owner) {
-		log_info(channel->log, "Killing %s: %s",
-			 channel->owner->name, why);
-
-		subd_release_channel(channel->owner, channel);
-		channel->owner = NULL;
-	}
-
-	channel_disconnect(channel, LOG_INFORM, true, why);
-}
-
-static void channel_err_broken_reconn(struct channel *channel,
-				      const char *fmt, ...)
+static void channel_saved_err_broken_reconn(struct channel *channel,
+					    const char *fmt, ...)
 {
 	va_list ap;
 	const char *errmsg;
+
+	/* We only reconnect to 'saved' channel peers */
+	assert(!channel_unsaved(channel));
 
 	va_start(ap, fmt);
 	errmsg = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
 	log_broken(channel->log, "%s", errmsg);
-	channel_close_reconn(channel, errmsg);
+	channel_disconnect(channel, LOG_INFORM, true, errmsg);
 }
 
 static void channel_err_broken(struct channel *channel,
@@ -121,8 +104,11 @@ static void channel_err_broken(struct channel *channel,
 	errmsg = tal_vfmt(tmpctx, fmt, ap);
 	va_end(ap);
 
-	log_broken(channel->log, "%s", errmsg);
-	channel_close_conn(channel, errmsg);
+	if (channel_unsaved(channel)) {
+		log_broken(channel->log, "%s", errmsg);
+		channel_unsaved_close_conn(channel, errmsg);
+	} else
+		channel_disconnect(channel, LOG_BROKEN, false, errmsg);
 }
 
 void json_add_unsaved_channel(struct json_stream *response,
@@ -520,14 +506,8 @@ static void rbf_channel_hook_cb(struct rbf_channel_payload *payload STEALS)
 
 	tal_steal(tmpctx, payload);
 
-	if (!dualopend) {
-		channel_close_conn(channel, tal_fmt(tmpctx,
-				   "Lost conn to node %s"
-				   " awaiting rbf_channel callback",
-				   type_to_string(tmpctx, struct node_id,
-						  &channel->peer->id)));
+	if (!dualopend)
 		return;
-	}
 
 	tal_del_destructor2(dualopend, rbf_channel_remove_dualopend, payload);
 
@@ -663,16 +643,9 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 	struct channel *channel = payload->channel;
 	u8 *msg;
 
-	/* Our daemon died, we fail and try to reconnect */
-	if (!dualopend) {
-		channel_close_conn(channel,
-				   tal_fmt(tmpctx, "Lost conn to node %s"
-				           " awaiting callback openchannel2",
-					   type_to_string(tmpctx,
-							  struct node_id,
-							  &channel->peer->id)));
+	/* Our daemon died! */
+	if (!dualopend)
 		return;
-	}
 
 	/* Free payload regardless of what happens next */
 	tal_steal(tmpctx, payload);
@@ -969,9 +942,9 @@ openchannel2_sign_hook_cb(struct openchannel2_psbt_payload *payload STEALS)
 send_msg:
 	/* Peer's gone away, let's try reconnecting */
 	if (!payload->dualopend) {
-		channel_err_broken_reconn(channel, "%s: dualopend daemon died"
-					  " before signed PSBT returned",
-					  channel->owner->name);
+		channel_saved_err_broken_reconn(channel,
+						"dualopend daemon died"
+						" before signed PSBT returned");
 		return;
 	}
 	tal_del_destructor2(payload->dualopend,
@@ -1499,15 +1472,17 @@ static void handle_peer_locked(struct subd *dualopend, const u8 *msg)
 	struct pubkey remote_per_commit;
 	struct channel *channel = dualopend->channel;
 
-	if (!fromwire_dualopend_peer_locked(msg, &remote_per_commit))
+	if (!fromwire_dualopend_peer_locked(msg, &remote_per_commit)) {
 		channel_internal_error(channel,
 				       "Bad WIRE_DUALOPEND_PEER_LOCKED: %s",
 				       tal_hex(msg, msg));
+		return;
+	}
 
-	/* Updates channel with the next per-commit point etc */
+	/* Updates channel with the next per-commit point etc, calls
+	 * channel_internal_error on failure */
 	if (!channel_on_funding_locked(channel, &remote_per_commit))
-		channel_internal_error(channel,
-				       "Got funding_locked twice");
+		return;
 
 	/* Remember that we got the lock-in */
 	wallet_channel_save(dualopend->ld->wallet, channel);
@@ -2572,7 +2547,7 @@ static void handle_commit_received(struct subd *dualopend,
 
 	if (channel->state == DUALOPEND_OPEN_INIT) {
 		if (peer_active_channel(channel->peer)) {
-			channel_err_broken_reconn(channel,
+			channel_saved_err_broken_reconn(channel,
 						  "Already have active"
 						  " channel with %s",
 						  type_to_string(tmpctx,
@@ -2627,13 +2602,12 @@ static void handle_commit_received(struct subd *dualopend,
 						       funding_ours,
 						       feerate_funding,
 						       psbt))) {
-			channel_err_broken_reconn(channel,
-						  "wallet_update_channel failed"
-						  " (chan %s)",
-						  type_to_string(
-							  tmpctx,
-							  struct channel_id,
-							  &channel->cid));
+			channel_internal_error(channel,
+					       "wallet_update_channel failed"
+					       " (chan %s)",
+					       type_to_string(tmpctx,
+							      struct channel_id,
+							      &channel->cid));
 			channel->open_attempt
 				= tal_free(channel->open_attempt);
 			return;
@@ -2852,9 +2826,9 @@ static void start_fresh_dualopend(struct peer *peer,
 					  take(&hsmfd), NULL);
 
 	if (!channel->owner) {
-		channel_err_broken_reconn(channel,
-					  "Running lightning_dualopend: %s",
-					  strerror(errno));
+		channel_internal_error(channel,
+				       "Running lightningd_dualopend: %s",
+				       strerror(errno));
 		return;
 	}
 
