@@ -1383,6 +1383,80 @@ def test_funding_cancel_race(node_factory, bitcoind, executor):
     executor.map(lambda n: n.stop(), node_factory.nodes)
 
 
+@unittest.skipIf(SLOW_MACHINE and not VALGRIND, "Way too taxing on CI machines")
+@pytest.mark.openchannel('v2')
+def test_funding_v2_cancel_race(node_factory, bitcoind, executor):
+    l1 = node_factory.get_node()
+
+    # make sure we can generate PSBTs.
+    addr = l1.rpc.newaddr()['bech32']
+    bitcoind.rpc.sendtoaddress(addr, 2000000 / 10**8)
+    bitcoind.generate_block(1)
+    wait_for(lambda: len(l1.rpc.listfunds()["outputs"]) != 0)
+
+    if node_factory.valgrind:
+        num = 5
+    else:
+        num = 100
+
+    nodes = node_factory.get_nodes(num)
+
+    num_complete = 0
+    num_cancel = 0
+    amount = 100000
+
+    for count, n in enumerate(nodes):
+        l1.rpc.connect(n.info['id'], 'localhost', n.port)
+        psbt = l1.rpc.fundpsbt(amount, '7500perkw', 250, reserve=False,
+                               excess_as_change=True,
+                               min_witness_weight=110)['psbt']
+        start = l1.rpc.openchannel_init(n.info['id'], amount, psbt)
+
+        # Submit two of each at once.
+        completes = []
+        cancels = []
+
+        # Switch order around.
+        for i in range(4):
+            if (i + count) % 2 == 0:
+                completes.append(executor.submit(l1.rpc.openchannel_update,
+                                                 start['channel_id'],
+                                                 start['psbt']))
+            else:
+                cancels.append(executor.submit(l1.rpc.openchannel_abort,
+                                               start['channel_id']))
+
+        # Only up to one should succeed.
+        success = False
+        for c in completes:
+            try:
+                c.result(TIMEOUT)
+                num_complete += 1
+                assert not success
+                success = True
+            except RpcError:
+                pass
+
+        for c in cancels:
+            try:
+                c.result(TIMEOUT)
+                num_cancel += 1
+            except RpcError:
+                pass
+        # Free up funds for next time
+        l1.rpc.unreserveinputs(psbt)
+
+    print("Cancelled {} complete {}".format(num_cancel, num_complete))
+
+    # We should have raced at least once!
+    if not node_factory.valgrind:
+        assert num_cancel > 0
+        assert num_complete > 0
+
+    # Speed up shutdown by stopping them all concurrently
+    executor.map(lambda n: n.stop(), node_factory.nodes)
+
+
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(TEST_NETWORK != 'regtest', "External wallet support doesn't work with elements yet.")
