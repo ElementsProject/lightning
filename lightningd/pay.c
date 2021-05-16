@@ -1187,13 +1187,12 @@ static struct command_result *
 param_route_hop(struct command *cmd, const char *name, const char *buffer,
 		const jsmntok_t *tok, struct route_hop **hop)
 {
-	const jsmntok_t *idtok, *channeltok, *directiontok, *amounttok, *delaytok;
+	const jsmntok_t *idtok, *channeltok, *amounttok, *delaytok;
 	struct route_hop *res;
 
 	res = tal(cmd, struct route_hop);
 	idtok = json_get_member(buffer, tok, "id");
 	channeltok = json_get_member(buffer, tok, "channel");
-	directiontok = json_get_member(buffer, tok, "direction");
 	amounttok = json_get_member(buffer, tok, "amount_msat");
 	delaytok = json_get_member(buffer, tok, "delay");
 
@@ -1202,11 +1201,6 @@ param_route_hop(struct command *cmd, const char *name, const char *buffer,
 		return command_fail(
 		    cmd, JSONRPC2_INVALID_PARAMS,
 		    "Either 'id' or 'channel' is required for a route_hop");
-
-	if (channeltok && !directiontok)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "When specifying a channel you must also "
-				    "specify the direction");
 
 	if (!amounttok)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -1231,11 +1225,6 @@ param_route_hop(struct command *cmd, const char *name, const char *buffer,
 		return command_fail_badparam(cmd, name, buffer, channeltok,
 					     "should be a short_channel_id");
 	}
-
-	if (directiontok && (!json_to_int(buffer, directiontok, &res->direction) ||
-			     res->direction > 1 || res->direction < 0))
-		return command_fail_badparam(cmd, name, buffer, directiontok,
-					     "should be 0 or 1");
 
 	if (!json_to_msat(buffer, amounttok, &res->amount))
 		return command_fail_badparam(cmd, name, buffer, amounttok,
@@ -1358,6 +1347,7 @@ static struct command_result *param_route_hops(struct command *cmd,
 			   p_opt("id", param_node_id, &id),
 			   p_opt("delay", param_number, &delay),
 			   p_opt("channel", param_short_channel_id, &channel),
+			   /* Allowed (getroute supplies it) but ignored */
 			   p_opt("direction", param_number, &direction),
 			   p_opt("style", param_route_hop_style, &style),
 			   p_opt("blinding", param_pubkey, &blinding),
@@ -1401,8 +1391,6 @@ static struct command_result *param_route_hops(struct command *cmd,
 		(*hops)[i].blinding = blinding;
 		(*hops)[i].enctlv = enctlv;
 		(*hops)[i].style = style ? *style : default_style;
-		/* FIXME: Actually ignored by sending code! */
-		(*hops)[i].direction = direction ? *direction : 0;
 	}
 
 	return NULL;
