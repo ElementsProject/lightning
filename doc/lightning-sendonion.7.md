@@ -37,7 +37,6 @@ to add an HTLC for 1002 millisatoshis and a delay of 21 blocks on top of the cur
 ```json
 {
   "id": "022d223620a359a47ff7f7ac447c85c46c923da53389221a0054c11c1e3ca31d59",
-  "direction": 1,
   "amount_msat": "1002msat",
   "delay": 21,
 }
@@ -112,4 +111,3 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 [bolt04]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
-
