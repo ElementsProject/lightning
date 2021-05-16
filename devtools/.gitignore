@@ -8,8 +8,11 @@ mkfunding
 mkclose
 mkgossip
 mkencoded
-create-gossipstore 
-checkchannels 
-mkquery 
-lightning-checkmessage 
+create-gossipstore
+checkchannels
+mkquery
+lightning-checkmessage
 blindedpath
+route
+topology
+bolt12-cli
