@@ -1,11 +1,12 @@
 #include <ccan/str/hex/hex.h>
 #include <libhsmd_python.h>
+#include <common/setup.h>
 
 char *init(char *hex_hsm_secret, char *network_name) {
 	const struct bip32_key_version *key_version;
 	struct secret sec;
 	u8 *response;
-	setup_locale();
+	common_setup(NULL);
 	if (sodium_init() == -1) {
 		fprintf(
 		    stderr,
@@ -45,30 +46,29 @@ char *init(char *hex_hsm_secret, char *network_name) {
 }
 
 char *handle(long long cap, long long dbid, char *peer_id, char *hexmsg) {
-	const tal_t *ctx = tal_arr(NULL, u8, 0);
 	size_t res_len;
-	u8 *response, *request = tal_hexdata(ctx, hexmsg, strlen(hexmsg));
+	u8 *response, *request;
 	char *res;
 	struct hsmd_client *client;
 	struct node_id *peer = NULL;
-	printf("%llu: %s\n", cap, hexmsg);
+	request = tal_hexdata(tmpctx, hexmsg, strlen(hexmsg));
 	if (peer_id != NULL) {
-		peer = tal(ctx, struct node_id);
+		peer = tal(tmpctx, struct node_id);
 		node_id_from_hexstr(hexmsg, strlen(hexmsg), peer);
-		client = hsmd_client_new_peer(ctx, cap, dbid, peer, NULL);
+		client = hsmd_client_new_peer(tmpctx, cap, dbid, peer, NULL);
 	} else {
-		client = hsmd_client_new_main(ctx, cap, NULL);
+		client = hsmd_client_new_main(tmpctx, cap, NULL);
 	}
-	response = hsmd_handle_client_message(NULL, client, request);
-	printf("%s\n", tal_hex(ctx, response));
-	if (response == NULL)
-		return tal_free(ctx);
+	response = hsmd_handle_client_message(tmpctx, client, request);
+	if (response == NULL) {
+		clean_tmpctx();
+		return NULL;
+	}
 
-	res = tal_hex(NULL, response);
 	res_len = hex_str_size(tal_bytelen(response));
 	res = malloc(res_len);
 	hex_encode(response, tal_bytelen(response), res, res_len);
 
-	tal_free(ctx);
+	clean_tmpctx();
 	return res;
 }
