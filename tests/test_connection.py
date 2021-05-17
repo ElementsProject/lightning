@@ -542,7 +542,6 @@ def test_reconnect_no_update(node_factory, executor, bitcoind):
     # automatic retry.
     fundchannel_exec = executor.submit(l1.fundchannel, l2, 10**6, False)
     if l1.config('experimental-dual-fund'):
-        l2.daemon.wait_for_log(r"Peer has reconnected, state CHANNELD_NORMAL")
         l1.daemon.wait_for_log(r"dualopend.* Retransmitting funding_locked for channel")
     else:
         l1.daemon.wait_for_log(r"channeld.* Retransmitting funding_locked for channel")
