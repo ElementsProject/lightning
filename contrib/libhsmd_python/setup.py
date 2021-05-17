@@ -19,7 +19,7 @@ class ClExtension(Extension):
 
 # The directory we compile external depencies is architecture specific.
 external_target = pathlib.Path("external") / subprocess.check_output(
-    ["clang", "-dumpmachine"]
+    ["gcc", "-dumpmachine"]
 ).strip().decode("ASCII")
 
 
@@ -46,7 +46,12 @@ class build_ext(build_ext_orig):
                 cwd=cwd,
             )
 
-        subprocess.check_call(["./configure"], cwd=cwd / "src")
+        subprocess.check_call([
+            "./configure",
+            "--disable-developer",
+            "--disable-valgrind",
+            "CC=gcc"
+        ], cwd=cwd / "src")
 
         # Selectively build some targets we rely on later
         subprocess.check_call(["make", "lightningd/lightning_hsmd"], cwd=srcdir)
