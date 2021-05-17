@@ -130,7 +130,7 @@ static struct route_step *decode_with_privkey(const tal_t *ctx, const u8 *onion,
 	if (!hex_decode(hexprivkey, strlen(hexprivkey), &seckey, sizeof(seckey)))
 		errx(1, "Invalid private key hex '%s'", hexprivkey);
 
-	packet = parse_onionpacket(tmpctx, onion, TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE), &why_bad);
+	packet = parse_onionpacket(tmpctx, onion, tal_bytelen(onion), &why_bad);
 
 	if (!packet)
 		errx(1, "Error parsing message: %s", onion_wire_name(why_bad));
@@ -147,7 +147,7 @@ static struct route_step *decode_with_privkey(const tal_t *ctx, const u8 *onion,
 static void do_decode(int argc, char **argv, const u8 *assocdata)
 {
 	const tal_t *ctx = talz(NULL, tal_t);
-	u8 serialized[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
+	u8 *serialized;
 	struct route_step *step;
 
 	if (argc != 4)
@@ -161,7 +161,8 @@ static void do_decode(int argc, char **argv, const u8 *assocdata)
 	while (isspace(hextemp[hexlen-1]))
 		hexlen--;
 
-	if (!hex_decode(hextemp, hexlen, serialized, sizeof(serialized))) {
+	serialized = tal_hexdata(hextemp, hextemp, hexlen);
+	if (!serialized) {
 		errx(1, "Invalid onion hex '%s'", hextemp);
 	}
 
