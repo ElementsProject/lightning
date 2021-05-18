@@ -64,6 +64,12 @@ unrecoverable once pushed.
 on close. Only valid if both peers have negotiated `option_upfront_shutdown_script`.
 Returns `close_to` set to closing script iff is negotiated.
 
+This example shows how to use lightning-cli to open new channel with peer 03f...fc1 from one whole utxo bcc1...39c:0
+(you can use **listfunds** command to get txid and vout):
+
+	lightning-cli -k fundchannel id=03f...fc1 amount=all feerate=normal utxos='["bcc1...39c:0"]'
+
+
 RETURN VALUE
 ------------
 
