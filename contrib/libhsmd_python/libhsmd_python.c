@@ -54,7 +54,7 @@ char *handle(long long cap, long long dbid, char *peer_id, char *hexmsg) {
 	request = tal_hexdata(tmpctx, hexmsg, strlen(hexmsg));
 	if (peer_id != NULL) {
 		peer = tal(tmpctx, struct node_id);
-		node_id_from_hexstr(hexmsg, strlen(hexmsg), peer);
+		node_id_from_hexstr(peer_id, strlen(peer_id), peer);
 		client = hsmd_client_new_peer(tmpctx, cap, dbid, peer, NULL);
 	} else {
 		client = hsmd_client_new_main(tmpctx, cap, NULL);
