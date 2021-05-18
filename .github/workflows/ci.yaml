@@ -3,7 +3,7 @@ name: Continuous Integration
 on: [push, pull_request]
 jobs:
   smoke-test:
-    name: Smoke Test Config ${{ matrix.cfg }}
+    name: Smoke Test ${{ matrix.cfg }}
     runs-on: ubuntu-20.04
     env:
       DEVELOPER: 1
@@ -14,11 +14,18 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          # CFG us just an enumeration so we can refer to the configurations more easily
-          - {CFG:  1, TEST_CMD: "make"}
-          - {CFG:  2, TEST_CMD: "make check-source check-units installcheck check-gen-updated", COPTFLAGS: "-O3"}
-          - {CFG:  3, ARCH: 32, TEST_CMD: "make check-source check-units installcheck", DEVELOPER: 0}
-          - {CFG:  4, TEST_CMD: "make check-source check-units installcheck check-gen-updated", EXPERIMENTAL_FEATURES: 1}
+          - CFG: "make"
+            TEST_CMD: "make"
+          - CFG: "make-O3-check"
+            TEST_CMD: "make check-source check-units installcheck check-gen-updated"
+            COPTFLAGS: "-O3"
+          - CFG: "make-32-bit-nodev-check"
+            ARCH: 32
+            TEST_CMD: "make check-source check-units installcheck"
+            DEVELOPER: 0
+          - CFG: "make-EXPERIMENTAL-check"
+            TEST_CMD: "make check-source check-units installcheck check-gen-updated"
+            EXPERIMENTAL_FEATURES: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
@@ -128,23 +135,45 @@ jobs:
       matrix:
         include:
           # All of the following will just run `make pytest`
-          - {CFG:  5, COMPILER: clang, FUZZING: 1}
-          - {CFG:  6, COMPILER: gcc, TEST_CHECK_DBSTMTS: 1}
-          - {CFG:  7, DEVELOPER: 0, COMPAT: 0, TEST_GROUP: 1, TEST_GROUP_COUNT: 2}
-          - {CFG:  8, DEVELOPER: 0, COMPAT: 0, TEST_GROUP: 2, TEST_GROUP_COUNT: 2}
-          # Same as above, but a limited set using V2 open protocol
-          - {CFG: 24, EXPERIMENTAL_DUAL_FUND: 1, DEVELOPER: 1, COMPAT: 0 }
+          - CFG: "clang-fuzzing"
+            COMPILER: clang
+            FUZZING: 1
+          - CFG: "check-dbstmts"
+            COMPILER: gcc
+            TEST_CHECK_DBSTMTS: 1
+          - CFG: "non-DEVELOPER-non-COMPAT-1"
+            DEVELOPER: 0
+            COMPAT: 0
+            TEST_GROUP: 1
+            TEST_GROUP_COUNT: 2
+          - CFG: "non-DEVELOPER-non-COMPAT-2"
+            DEVELOPER: 0
+            COMPAT: 0
+            TEST_GROUP: 2
+            TEST_GROUP_COUNT: 2
+          - CFG: "DUAL_FUND"
+            EXPERIMENTAL_DUAL_FUND: 1
+            DEVELOPER: 1
+            COMPAT: 0
 
           # Various other configurations
-          - {CFG: 19, NETWORK: liquid-regtest}
-          - {CFG: 20, DB: postgres, PYTEST_PAR: 2}
+          - CFG: "Elements"
+            NETWORK: liquid-regtest
+          - CFG: "PostgreSQL"
+            DB: postgres
+            PYTEST_PAR: 2
 
           # The cross-compiled versions
-          - {CFG: 21, ARCH: arm32v7, TARGET_HOST: arm-linux-gnueabihf}
-          - {CFG: 22, ARCH: arm64v8, TARGET_HOST: aarch64-linux-gnu}
+          - CFG: "cross-arm32"
+            ARCH: arm32v7
+            TARGET_HOST: arm-linux-gnueabihf
+          - CFG: "cross-arm64"
+            ARCH: arm64v8
+            TARGET_HOST: aarch64-linux-gnu
 
-          # Experimental config.
-          - {CFG: 23, EXPERIMENTAL_FEATURES: 1}
+          # The experimental feature test
+          - CFG: "EXPERIMENTAL"
+            EXPERIMENTAL_FEATURES: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
@@ -194,23 +223,74 @@ jobs:
       COMPAT: 1
       TEST_GROUP_COUNT: 10
       PYTEST_PAR: 3
+      LABEL: "Valgrind-test"
     strategy:
       fail-fast: true
       matrix:
         include:
-          - {CFG:  9, VALGRIND: 1, TEST_GROUP: 1,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {CFG: 10, VALGRIND: 1, TEST_GROUP: 2,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {CFG: 11, VALGRIND: 1, TEST_GROUP: 3,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {CFG: 12, VALGRIND: 1, TEST_GROUP: 4,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {CFG: 13, VALGRIND: 1, TEST_GROUP: 5,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {CFG: 14, VALGRIND: 1, TEST_GROUP: 6,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {CFG: 15, VALGRIND: 1, TEST_GROUP: 7,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {CFG: 16, VALGRIND: 1, TEST_GROUP: 8,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {CFG: 17, VALGRIND: 1, TEST_GROUP: 9,  TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
-          - {CFG: 18, VALGRIND: 1, TEST_GROUP: 10, TEST_GROUP_COUNT: 10, PYTEST_PAR: 3}
+          - CFG: "valgrind-1"
+            VALGRIND: 1
+            TEST_GROUP: 1
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-2"
+            VALGRIND: 1
+            TEST_GROUP: 2
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-3"
+            VALGRIND: 1
+            TEST_GROUP: 3
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-4"
+            VALGRIND: 1
+            TEST_GROUP: 4
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-5"
+            VALGRIND: 1
+            TEST_GROUP: 5
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-6"
+            VALGRIND: 1
+            TEST_GROUP: 6
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-7"
+            VALGRIND: 1
+            TEST_GROUP: 7
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-8"
+            VALGRIND: 1
+            TEST_GROUP: 8
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-9"
+            VALGRIND: 1
+            TEST_GROUP: 9
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
+          - CFG: "valgrind-10"
+            VALGRIND: 1
+            TEST_GROUP: 10
+            TEST_GROUP_COUNT: 10
+            PYTEST_PAR: 3
             # Run (some) tests with experimental_dual_fund on
-          - {CFG: 25, VALGRIND: 1, TEST_GROUP: 1,  TEST_GROUP_COUNT: 2, PYTEST_PAR: 3, EXPERIMENTAL_DUAL_FUND: 1}
-          - {CFG: 26, VALGRIND: 1, TEST_GROUP: 2,  TEST_GROUP_COUNT: 2, PYTEST_PAR: 3, EXPERIMENTAL_DUAL_FUND: 1}
+          - CFG: "valgrind-DUAL_FUND-1"
+            VALGRIND: 1
+            EXPERIMENTAL_DUAL_FUND: 1
+            TEST_GROUP: 1
+            TEST_GROUP_COUNT: 2
+            PYTEST_PAR: 3
+          - CFG: "valgrind-DUAL_FUND-2"
+            VALGRIND: 1
+            EXPERIMENTAL_DUAL_FUND: 1
+            TEST_GROUP: 2
+            TEST_GROUP_COUNT: 2
+            PYTEST_PAR: 3
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
