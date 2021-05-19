@@ -698,7 +698,8 @@ def test_rbf_no_overlap(node_factory, bitcoind, chainparams):
 @pytest.mark.openchannel('v2')
 def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
-                                    opts={'allow_warning': True})
+                                    opts={'allow_warning': True,
+                                          'may_reconnect': True})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     amount = 2**24
@@ -717,28 +718,65 @@ def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
 
     # Check that we're waiting for lockin
     l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
+    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    assert inflights[-1]['funding_txid'] in bitcoind.rpc.getrawmempool()
 
-    next_feerate = find_next_feerate(l1, l2)
+    def run_retry():
+        startweight = 42 + 173
+        next_feerate = find_next_feerate(l1, l2)
+        initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
+                                   prev_utxos, reservedok=True,
+                                   min_witness_weight=110,
+                                   excess_as_change=True)
 
-    startweight = 42 + 172  # base weight, funding output
-    initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
-                               prev_utxos, reservedok=True,
-                               min_witness_weight=110,
-                               excess_as_change=True)
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+        update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
+        assert update['commitments_secured']
 
-    # Do the bump
-    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
-    update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
-    assert update['commitments_secured']
+        return l1.rpc.signpsbt(update['psbt'])['signed_psbt']
 
-    signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
+    signed_psbt = run_retry()
     with pytest.raises(RpcError, match=r'insufficient fee, rejecting replacement'):
         l1.rpc.openchannel_signed(chan_id, signed_psbt)
+    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    assert inflights[-1]['funding_txid'] not in bitcoind.rpc.getrawmempool()
 
     # If we restart and listpeers, it will crash
     l1.restart()
 
     l1.rpc.listpeers()
+
+    # We've restarted. Let's RBF until we successfully get a
+    # new funding transaction for this channel
+    # do it again
+    signed_psbt = run_retry()
+    with pytest.raises(RpcError, match=r'insufficient fee, rejecting replacement'):
+        l1.rpc.openchannel_signed(chan_id, signed_psbt)
+    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    assert inflights[-1]['funding_txid'] not in bitcoind.rpc.getrawmempool()
+
+    # and again
+    signed_psbt = run_retry()
+    with pytest.raises(RpcError, match=r'insufficient fee, rejecting replacement'):
+        l1.rpc.openchannel_signed(chan_id, signed_psbt)
+    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    assert inflights[-1]['funding_txid'] not in bitcoind.rpc.getrawmempool()
+
+    # now we should be ok
+    signed_psbt = run_retry()
+    l1.rpc.openchannel_signed(chan_id, signed_psbt)
+    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    assert len(inflights) == 5
+    assert inflights[-1]['funding_txid'] in bitcoind.rpc.getrawmempool()
+
+    l1.restart()
+
+    # Are inflights the same post restart
+    prev_inflights = inflights
+    inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
+    assert prev_inflights == inflights
+    assert inflights[-1]['funding_txid'] in bitcoind.rpc.getrawmempool()
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
