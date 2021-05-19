@@ -745,7 +745,7 @@ static void json_add_channel(struct lightningd *ld,
 	json_add_txid(response, "funding_txid", &channel->funding_txid);
 
 	if (channel->state == DUALOPEND_AWAITING_LOCKIN) {
-		struct channel_inflight *initial;
+		struct channel_inflight *initial, *inflight;
 		u32 last_feerate, next_feerate, feerate;
 		u8 feestep;
 
@@ -771,6 +771,29 @@ static void json_add_channel(struct lightningd *ld,
 		for (feestep = 0; feerate < next_feerate; feestep++)
 			feerate += feerate / 4;
 		json_add_num(response, "next_fee_step", feestep);
+
+		/* List the inflights */
+		json_array_start(response, "inflight");
+		list_for_each(&channel->inflights, inflight, list) {
+			json_object_start(response, NULL);
+			json_add_txid(response, "funding_txid",
+				      &inflight->funding->txid);
+			json_add_num(response, "funding_outnum",
+				     inflight->funding->outnum);
+			json_add_string(response, "feerate",
+					tal_fmt(tmpctx, "%d%s",
+						inflight->funding->feerate,
+						feerate_style_name(
+							FEERATE_PER_KSIPA)));
+			json_add_amount_sat_only(response,
+						 "total_funding_msat",
+						 inflight->funding->total_funds);
+			json_add_amount_sat_only(response,
+						 "our_funding_msat",
+						 inflight->funding->our_funds);
+			json_object_end(response);
+		}
+		json_array_end(response);
 	}
 
 	if (channel->shutdown_scriptpubkey[LOCAL]) {
