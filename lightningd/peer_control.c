@@ -2317,6 +2317,24 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 	json_add_tx(response, "tx", channel->last_tx);
 	remove_sig(channel->last_tx);
 
+	/* If we've got inflights, return them */
+	if (!list_empty(&channel->inflights)) {
+		struct channel_inflight *inflight;
+
+		json_array_start(response, "inflights");
+		list_for_each(&channel->inflights, inflight, list) {
+			sign_last_tx(channel, inflight->last_tx,
+				     &inflight->last_sig);
+			json_object_start(response, NULL);
+			json_add_txid(response, "funding_txid",
+				      &inflight->funding->txid);
+			remove_sig(inflight->last_tx);
+			json_add_tx(response, "tx", channel->last_tx);
+			json_object_end(response);
+		}
+		json_array_end(response);
+	}
+
 	return command_success(cmd, response);
 }
 
