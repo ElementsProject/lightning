@@ -766,7 +766,7 @@ static void json_add_channel(struct lightningd *ld,
 			type_to_string(tmpctx, struct channel_id, &channel->cid));
 	json_add_txid(response, "funding_txid", &channel->funding_txid);
 
-	if (channel->state == DUALOPEND_AWAITING_LOCKIN) {
+	if (!list_empty(&channel->inflights)) {
 		struct channel_inflight *initial, *inflight;
 		u32 last_feerate, next_feerate, feerate;
 		u8 feestep;
