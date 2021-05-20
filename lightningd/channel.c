@@ -726,15 +726,9 @@ void channel_fail_forget(struct channel *channel, const char *fmt, ...)
 struct channel_inflight *
 channel_current_inflight(const struct channel *channel)
 {
-	struct channel_inflight *inflight;
 	/* The last inflight should always be the one in progress */
-	inflight = list_tail(&channel->inflights,
-			     struct channel_inflight,
-			     list);
-	if (inflight)
-		assert(bitcoin_txid_eq(&channel->funding_txid,
-				       &inflight->funding->txid));
-	return inflight;
+	return list_tail(&channel->inflights,
+			 struct channel_inflight, list);
 }
 
 u32 channel_last_funding_feerate(const struct channel *channel)
