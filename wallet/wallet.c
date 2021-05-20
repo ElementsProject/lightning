@@ -820,7 +820,8 @@ static struct peer *wallet_peer_load(struct wallet *w, const u64 dbid)
 	db_column_node_id(stmt, 1, &id);
 
 	addrstr = db_column_text(stmt, 2);
-	if (!parse_wireaddr_internal((const char*)addrstr, &addr, DEFAULT_PORT, false, false, true, NULL))
+	if (!parse_wireaddr_internal((const char*)addrstr, &addr, DEFAULT_PORT,
+				     false, false, true, true, NULL))
 		goto done;
 
 	/* FIXME: save incoming in db! */
