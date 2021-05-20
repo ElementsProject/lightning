@@ -180,19 +180,21 @@ u8 *p2wpkh_for_keyidx(const tal_t *ctx, struct lightningd *ld, u64 keyidx)
 	return scriptpubkey_p2wpkh(ctx, &shutdownkey);
 }
 
-static void sign_last_tx(struct channel *channel)
+static void sign_last_tx(struct channel *channel,
+			 struct bitcoin_tx *last_tx,
+			 struct bitcoin_signature *last_sig)
 {
 	struct lightningd *ld = channel->peer->ld;
 	struct bitcoin_signature sig;
 	u8 *msg, **witness;
 
-	assert(!channel->last_tx->wtx->inputs[0].witness);
+	assert(!last_tx->wtx->inputs[0].witness);
 	msg = towire_hsmd_sign_commitment_tx(tmpctx,
-					    &channel->peer->id,
-					    channel->dbid,
-					    channel->last_tx,
-					    &channel->channel_info
-					    .remote_fundingkey);
+					     &channel->peer->id,
+					     channel->dbid,
+					     last_tx,
+					     &channel->channel_info
+					     .remote_fundingkey);
 
 	if (!wire_sync_write(ld->hsm_fd, take(msg)))
 		fatal("Could not write to HSM: %s", strerror(errno));
@@ -203,11 +205,11 @@ static void sign_last_tx(struct channel *channel)
 		      tal_hex(tmpctx, msg));
 
 	witness =
-	    bitcoin_witness_2of2(channel->last_tx, &channel->last_sig,
+	    bitcoin_witness_2of2(last_tx, last_sig,
 				 &sig, &channel->channel_info.remote_fundingkey,
 				 &channel->local_funding_pubkey);
 
-	bitcoin_tx_input_set_witness(channel->last_tx, 0, take(witness));
+	bitcoin_tx_input_set_witness(last_tx, 0, take(witness));
 }
 
 static void remove_sig(struct bitcoin_tx *signed_tx)
@@ -337,10 +339,31 @@ static bool invalid_last_tx(const struct bitcoin_tx *tx)
 #endif
 }
 
+static void sign_and_send_last(struct lightningd *ld,
+			       struct channel *channel,
+			       struct bitcoin_tx *last_tx,
+			       struct bitcoin_signature *last_sig)
+{
+	struct bitcoin_txid txid;
+
+	sign_last_tx(channel, last_tx, last_sig);
+	bitcoin_txid(last_tx, &txid);
+	wallet_transaction_add(ld->wallet, last_tx->wtx, 0, 0);
+	wallet_transaction_annotate(ld->wallet, &txid,
+				    channel->last_tx_type,
+				    channel->dbid);
+
+	/* Keep broadcasting until we say stop (can fail due to dup,
+	 * if they beat us to the broadcast). */
+	broadcast_tx(ld->topology, channel, last_tx, NULL);
+
+	remove_sig(last_tx);
+}
+
 void drop_to_chain(struct lightningd *ld, struct channel *channel,
 		   bool cooperative)
 {
-	struct bitcoin_txid txid;
+	struct channel_inflight *inflight;
 	/* BOLT #2:
 	 *
 	 * - if `next_revocation_number` is greater than expected
@@ -357,16 +380,15 @@ void drop_to_chain(struct lightningd *ld, struct channel *channel,
 			   "Cannot broadcast our commitment tx:"
 			   " it's invalid! (ancient channel?)");
 	} else {
-		sign_last_tx(channel);
-		bitcoin_txid(channel->last_tx, &txid);
-		wallet_transaction_add(ld->wallet, channel->last_tx->wtx, 0, 0);
-		wallet_transaction_annotate(ld->wallet, &txid, channel->last_tx_type, channel->dbid);
-
-		/* Keep broadcasting until we say stop (can fail due to dup,
-		 * if they beat us to the broadcast). */
-		broadcast_tx(ld->topology, channel, channel->last_tx, NULL);
-
-		remove_sig(channel->last_tx);
+		/* We need to drop *every* commitment transaction to chain */
+		if (!cooperative && !list_empty(&channel->inflights)) {
+			list_for_each(&channel->inflights, inflight, list)
+				sign_and_send_last(ld, channel,
+						   inflight->last_tx,
+						   &inflight->last_sig);
+		} else
+			sign_and_send_last(ld, channel, channel->last_tx,
+					   &channel->last_sig);
 	}
 
 	resolve_close_command(ld, channel, cooperative);
@@ -2286,7 +2308,7 @@ static struct command_result *json_sign_last_tx(struct command *cmd,
 	log_debug(channel->log, "dev-sign-last-tx: signing tx with %zu outputs",
 		  channel->last_tx->wtx->num_outputs);
 
-	sign_last_tx(channel);
+	sign_last_tx(channel, channel->last_tx, &channel->last_sig);
 	json_add_tx(response, "tx", channel->last_tx);
 	remove_sig(channel->last_tx);
 
