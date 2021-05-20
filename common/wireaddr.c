@@ -491,18 +491,17 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 					}
 				} else {
 					if (err_msg)
-							*err_msg = "Bad :torport: format";
+						*err_msg = "Bad :torport: format";
 					return false;
 				}
 			}
 		}
 
-	service_addr = tal_fmt(tmpctx, "%s", parts[0] + strlen("autotor:"));
+		service_addr = tal_fmt(tmpctx, "%s", parts[0] + strlen("autotor:"));
 
-	return parse_wireaddr(service_addr,
+		return parse_wireaddr(service_addr,
 				      &addr->u.torservice.address, 9051,
-				      dns_ok ? NULL : &needed_dns,
-				      err_msg);
+				      dns_ok ? NULL : &needed_dns, err_msg);
 	}
 
 	/* 'statictor:' is a special prefix meaning talk to Tor to create
@@ -540,23 +539,25 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 							*err_msg = "Blob too short";
 						return false;
 					}
-				strncpy((char *)&(addr->u.torservice.blob[0]), (const char *)parts_eq[1], TOR_V3_BLOBLEN);
+				strncpy((char *)&(addr->u.torservice.blob[0]),
+					(const char *)parts_eq[1], TOR_V3_BLOBLEN);
 				use_magic_blob = false;
 				}
 			}
 		}
 
-	if (use_magic_blob) {
-		/* when statictor called just with the service address and or port generate the unique onion */
-		strncpy((char *)&(addr->u.torservice.blob[0]), tal_fmt(tmpctx, STATIC_TOR_MAGIC_STRING), strlen(STATIC_TOR_MAGIC_STRING));
-	}
+		if (use_magic_blob) {
+			/* when statictor called just with the service address and or port generate the unique onion */
+			strncpy((char *)&(addr->u.torservice.blob[0]),
+				tal_fmt(tmpctx, STATIC_TOR_MAGIC_STRING),
+				strlen(STATIC_TOR_MAGIC_STRING));
+		}
 
-	service_addr = tal_fmt(tmpctx, "%s", parts[0] + strlen("statictor:"));
+		service_addr = tal_fmt(tmpctx, "%s", parts[0] + strlen("statictor:"));
 
-	return parse_wireaddr(service_addr,
+		return parse_wireaddr(service_addr,
 				      &addr->u.torservice.address, 9051,
-				      dns_ok ? NULL : &needed_dns,
-				      err_msg);
+				      dns_ok ? NULL : &needed_dns, err_msg);
 	}
 
 	splitport = port;
