@@ -1287,6 +1287,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "DELETE FROM channel_funding_inflights WHERE channel_id = ?",
+         .query = "DELETE FROM channel_funding_inflights WHERE channel_id = ?",
+         .placeholders = 1,
+         .readonly = false,
+    },
+    {
          .name = "SELECT  funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig, funding_tx_remote_sigs_received FROM channel_funding_inflights WHERE channel_id = ? ORDER BY funding_feerate",
          .query = "SELECT  funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig, funding_tx_remote_sigs_received FROM channel_funding_inflights WHERE channel_id = ? ORDER BY funding_feerate",
          .placeholders = 1,
@@ -1894,10 +1900,10 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
-#define DB_SQLITE3_QUERY_COUNT 314
+#define DB_SQLITE3_QUERY_COUNT 315
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:afab339ef2b9f164d7cf2e71a19f6c000779e6334f348ddf4720176100cf6de8
+// SHA256STAMP:3e9e616dd7902bee25e0b17b878a60e57a7a8c9bfec2376b4efe7c4094ffe617
