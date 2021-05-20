@@ -1001,6 +1001,24 @@ void wallet_inflight_save(struct wallet *w,
 	db_exec_prepared_v2(take(stmt));
 }
 
+void wallet_channel_clear_inflights(struct wallet *w,
+				    struct channel *chan)
+{
+	struct db_stmt *stmt;
+	struct channel_inflight *inflight;
+
+	/* Remove all the inflights for the channel */
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_funding_inflights"
+					" WHERE channel_id = ?"));
+	db_bind_u64(stmt, 0, chan->dbid);
+	db_exec_prepared_v2(take(stmt));
+
+	/* Empty out the list too */
+	while ((inflight = list_tail(&chan->inflights,
+				     struct channel_inflight, list)))
+		tal_free(inflight);
+}
+
 static struct channel_inflight *
 wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 		     struct channel *chan)

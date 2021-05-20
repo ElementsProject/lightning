@@ -1537,6 +1537,9 @@ static void handle_channel_locked(struct subd *dualopend,
 			  "Lockin complete");
 	channel_record_open(channel);
 
+	/* Empty out the inflights */
+	wallet_channel_clear_inflights(dualopend->ld->wallet, channel);
+
 	/* FIXME: LND sigs/update_fee msgs? */
 	peer_start_channeld(channel, pps, NULL, false);
 	return;

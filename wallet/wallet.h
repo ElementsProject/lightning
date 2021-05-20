@@ -521,6 +521,12 @@ void wallet_inflight_save(struct wallet *w,
 			  struct channel_inflight *inflight);
 
 /**
+ * Remove all the inflights from a channel. Also cleans up
+ * the channel's inflight list
+ */
+void wallet_channel_clear_inflights(struct wallet *w,
+				    struct channel *chan);
+/**
  * After fully resolving a channel, only keep a lightweight stub
  */
 void wallet_channel_close(struct wallet *w, u64 wallet_id);
