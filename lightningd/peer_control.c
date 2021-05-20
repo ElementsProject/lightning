@@ -1473,6 +1473,19 @@ void channel_watch_funding(struct lightningd *ld, struct channel *channel)
 	channel_watch_wrong_funding(ld, channel);
 }
 
+static void channel_watch_inflight(struct lightningd *ld,
+				   struct channel *channel,
+				   struct channel_inflight *inflight)
+{
+	/* FIXME: Remove arg from cb? */
+	watch_txid(channel, ld->topology, channel,
+		   &inflight->funding->txid, funding_depth_cb);
+	watch_txo(channel, ld->topology, channel,
+		  &inflight->funding->txid,
+		  inflight->funding->outnum,
+		  funding_spent);
+}
+
 static void json_add_peer(struct lightningd *ld,
 			  struct json_stream *response,
 			  struct peer *p,
@@ -1837,6 +1850,7 @@ static void activate_peer(struct peer *peer, u32 delay)
 {
 	u8 *msg;
 	struct channel *channel;
+	struct channel_inflight *inflight;
 	struct lightningd *ld = peer->ld;
 
 	/* We can only have one active channel: make sure connectd
@@ -1870,6 +1884,17 @@ static void activate_peer(struct peer *peer, u32 delay)
 			continue;
 		/* Watching lockin may be unnecessary, but it's harmless. */
 		channel_watch_funding(ld, channel);
+
+		/* Also watch any inflight txs */
+		list_for_each(&channel->inflights, inflight, list) {
+			/* Don't double watch the txid that's also in
+			 * channel->funding_txid */
+			if (bitcoin_txid_eq(&channel->funding_txid,
+					    &inflight->funding->txid))
+				continue;
+
+			channel_watch_inflight(ld, channel, inflight);
+		}
 	}
 }
 
