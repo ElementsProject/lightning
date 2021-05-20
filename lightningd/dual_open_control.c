@@ -1446,6 +1446,8 @@ static void handle_peer_tx_sigs_sent(struct subd *dualopend,
 			return;
 		}
 
+		/* Saves the now finalized version of the psbt */
+		wallet_inflight_save(dualopend->ld->wallet, inflight);
 		send_funding_tx(channel, take(wtx));
 
 		/* Must be in an "init" state */
