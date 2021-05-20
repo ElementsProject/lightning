@@ -159,9 +159,10 @@ new_inflight(struct channel *channel,
 	     struct amount_sat total_funds,
 	     struct amount_sat our_funds,
 	     struct wally_psbt *psbt STEALS,
-	     struct bitcoin_tx *last_tx STEALS,
+	     struct bitcoin_tx *last_tx,
 	     const struct bitcoin_signature last_sig)
 {
+	struct wally_psbt *last_tx_psbt_clone;
 	struct channel_inflight *inflight
 		= tal(channel, struct channel_inflight);
 	struct funding_info *funding
@@ -177,7 +178,10 @@ new_inflight(struct channel *channel,
 	inflight->channel = channel;
 	inflight->remote_tx_sigs = false;
 	inflight->funding_psbt = tal_steal(inflight, psbt);
-	inflight->last_tx = tal_steal(inflight, last_tx);
+
+	/* Make a 'clone' of this tx */
+	last_tx_psbt_clone = clone_psbt(inflight, last_tx->psbt);
+	inflight->last_tx = bitcoin_tx_with_psbt(inflight, last_tx_psbt_clone);
 	inflight->last_sig = last_sig;
 	inflight->tx_broadcast = false;
 
