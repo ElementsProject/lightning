@@ -111,7 +111,6 @@ def test_announce_address(node_factory, bitcoind):
     # We do not allow announcement of duplicates.
     opts = {'announce-addr':
             ['4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion',
-             'silkroad6ownowfk.onion',
              '1.2.3.4:1234',
              '::'],
             'log-level': 'io',
@@ -127,11 +126,10 @@ def test_announce_address(node_factory, bitcoind):
 
     # We should see it send node announce with all addresses (257 = 0x0101)
     # local ephemeral port is masked out.
-    l1.daemon.wait_for_log(r"\[OUT\] 0101.*54"
+    l1.daemon.wait_for_log(r"\[OUT\] 0101.*47"
                            "010102030404d2"
                            "017f000001...."
                            "02000000000000000000000000000000002607"
-                           "039216a8b803f3acd758aa2607"
                            "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607")
 
 
@@ -218,7 +216,6 @@ def test_connect_by_gossip(node_factory, bitcoind):
                                         opts=[{'announce-addr':
                                                ['127.0.0.1:2',
                                                 '[::]:2',
-                                                '3fyb44wdhnd2ghhl.onion',
                                                 'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion'],
                                                'dev-allow-localhost': None},
                                               {},
@@ -904,12 +901,15 @@ def test_query_short_channel_id(node_factory, bitcoind, chainparams):
 
 
 def test_gossip_addresses(node_factory, bitcoind):
-    l1 = node_factory.get_node(options={'announce-addr': [
-        '[::]:3',
-        '127.0.0.1:2',
-        'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion',
-        '3fyb44wdhnd2ghhl.onion:1234'
-    ]})
+    l1 = node_factory.get_node(options={
+        'announce-addr': [
+            '[::]:3',
+            '127.0.0.1:2',
+            'vww6ybal4bd7szmgncyruucpgfkqahzddi37ktceo3ah7ngmcopnpyyd.onion',
+            '3fyb44wdhnd2ghhl.onion:1234'
+        ],
+        'allow-deprecated-apis': True,
+    })
     l2 = node_factory.get_node()
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 

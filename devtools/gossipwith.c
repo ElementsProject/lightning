@@ -299,7 +299,7 @@ int main(int argc, char *argv[])
 				    (int)(at - argv[1]), argv[1]);
 
 	if (!parse_wireaddr_internal(at+1, &addr, DEFAULT_PORT, NULL,
-				     true, false, &err_msg))
+				     true, false, true, &err_msg))
 		opt_usage_exit_fail("%s '%s'", err_msg, argv[1]);
 
 	switch (addr.itype) {

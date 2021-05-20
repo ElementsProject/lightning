@@ -8,6 +8,7 @@
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/base32.h>
+#include <common/configdir.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
@@ -446,7 +447,7 @@ finish:
 
 bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 			     u16 port, bool wildcard_ok, bool dns_ok,
-			     bool unresolved_ok,
+			     bool unresolved_ok, bool allow_deprecated,
 			     const char **err_msg)
 {
 	u16 splitport;
@@ -578,8 +579,15 @@ bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 
 	addr->itype = ADDR_INTERNAL_WIREADDR;
 	if (parse_wireaddr(arg, &addr->u.wireaddr, port,
-			   dns_ok ? NULL : &needed_dns, err_msg))
+			   dns_ok ? NULL : &needed_dns, err_msg)) {
+		if (!allow_deprecated && addr->u.wireaddr.type == ADDR_TYPE_TOR_V2) {
+			if (err_msg)
+				*err_msg = "v2 Tor onion services are deprecated";
+			return false;
+		}
+
 		return true;
+	}
 
 	if (!needed_dns || !unresolved_ok)
 		return false;

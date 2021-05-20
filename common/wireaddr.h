@@ -140,7 +140,8 @@ struct wireaddr_internal {
 };
 bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 			     u16 port, bool wildcard_ok, bool dns_ok,
-			     bool unresolved_ok, const char **err_msg);
+			     bool unresolved_ok, bool allow_deprecated,
+			     const char **err_msg);
 
 void towire_wireaddr_internal(u8 **pptr,
 				 const struct wireaddr_internal *addr);

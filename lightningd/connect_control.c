@@ -2,6 +2,7 @@
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
+#include <common/configdir.h>
 #include <common/errcode.h>
 #include <common/features.h>
 #include <common/json_command.h>
@@ -166,7 +167,7 @@ static struct command_result *json_connect(struct command *cmd,
 		if (!parse_wireaddr_internal(name, addr, *port, false,
 					     !cmd->ld->use_proxy_always
 					     && !cmd->ld->pure_tor_setup,
-					     true,
+					     true, deprecated_apis,
 					     &err_msg)) {
 			return command_fail(cmd, LIGHTNINGD,
 					    "Host %s:%u not valid: %s",

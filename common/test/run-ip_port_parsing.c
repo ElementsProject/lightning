@@ -113,6 +113,7 @@ void towire_u8_array(u8 **pptr UNNEEDED, const u8 *arr UNNEEDED, size_t num UNNE
 int main(int argc, char *argv[])
 {
 	struct wireaddr addr;
+	struct wireaddr_internal addr_int;
 	char *ip;
 	u16 port;
 
@@ -188,6 +189,12 @@ int main(int argc, char *argv[])
 
 	assert(parse_wireaddr("odpzvneidqdf5hdq.onion", &addr, 1, false, NULL));
 	assert(addr.port == 1);
+
+	// Don't accept legacy hidden services with deprecated APIs on
+	assert(!parse_wireaddr_internal("odpzvneidqdf5hdq.onion", &addr_int, 1,
+				        false, false, false, /* allow_deprecated = */ false, NULL));
+	assert(parse_wireaddr_internal("odpzvneidqdf5hdq.onion", &addr_int, 1,
+				       false, false, false, /* allow_deprecated = */ true, NULL));
 
 	assert(tal_count(wireaddr_from_hostname(tmpctx, "odpzvneidqdf5hdq.onion", 1, NULL, NULL, NULL)) > 0);
 	assert(wireaddr_from_hostname(tmpctx, "aaa.onion", 1, NULL, NULL, NULL) == NULL);
