@@ -645,6 +645,8 @@ bool channel_tell_depth(struct lightningd *ld,
 			return true;
 		}
 
+		log_debug(channel->log,
+			  "Funding tx %s confirmed, telling peer", txidstr);
 		dualopen_tell_depth(channel->owner, channel,
 				    txid, depth);
 		return true;
