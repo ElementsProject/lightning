@@ -797,6 +797,8 @@ static void json_add_channel(struct lightningd *ld,
 		/* List the inflights */
 		json_array_start(response, "inflight");
 		list_for_each(&channel->inflights, inflight, list) {
+			struct bitcoin_txid txid;
+
 			json_object_start(response, NULL);
 			json_add_txid(response, "funding_txid",
 				      &inflight->funding->txid);
@@ -813,6 +815,9 @@ static void json_add_channel(struct lightningd *ld,
 			json_add_amount_sat_only(response,
 						 "our_funding_msat",
 						 inflight->funding->our_funds);
+			/* Add the expected commitment tx id also */
+			bitcoin_txid(inflight->last_tx, &txid);
+			json_add_txid(response, "scratch_txid", &txid);
 			json_object_end(response);
 		}
 		json_array_end(response);
