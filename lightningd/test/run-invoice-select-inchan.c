@@ -82,6 +82,10 @@ struct htlc_in *channel_has_htlc_in(struct channel *channel UNNEEDED)
 /* Generated stub for channel_has_htlc_out */
 struct htlc_out *channel_has_htlc_out(struct channel *channel UNNEEDED)
 { fprintf(stderr, "channel_has_htlc_out called!\n"); abort(); }
+/* Generated stub for channel_inflight_find */
+struct channel_inflight *channel_inflight_find(struct channel *channel UNNEEDED,
+					       const struct bitcoin_txid *txid UNNEEDED)
+{ fprintf(stderr, "channel_inflight_find called!\n"); abort(); }
 /* Generated stub for channel_internal_error */
 void channel_internal_error(struct channel *channel UNNEEDED, const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "channel_internal_error called!\n"); abort(); }
@@ -92,6 +96,12 @@ u32 channel_last_funding_feerate(const struct channel *channel UNNEEDED)
 void channel_set_billboard(struct channel *channel UNNEEDED, bool perm UNNEEDED,
 			   const char *str TAKES UNNEEDED)
 { fprintf(stderr, "channel_set_billboard called!\n"); abort(); }
+/* Generated stub for channel_set_last_tx */
+void channel_set_last_tx(struct channel *channel UNNEEDED,
+			 struct bitcoin_tx *tx UNNEEDED,
+			 const struct bitcoin_signature *sig UNNEEDED,
+			 enum wallet_tx_type type UNNEEDED)
+{ fprintf(stderr, "channel_set_last_tx called!\n"); abort(); }
 /* Generated stub for channel_set_state */
 void channel_set_state(struct channel *channel UNNEEDED,
 		       enum channel_state old_state UNNEEDED,
@@ -114,6 +124,11 @@ bool channel_tell_depth(struct lightningd *ld UNNEEDED,
 /* Generated stub for channel_unsaved_close_conn */
 void channel_unsaved_close_conn(struct channel *channel UNNEEDED, const char *why UNNEEDED)
 { fprintf(stderr, "channel_unsaved_close_conn called!\n"); abort(); }
+/* Generated stub for channel_update_reserve */
+void channel_update_reserve(struct channel *channel UNNEEDED,
+			    struct channel_config *their_config UNNEEDED,
+			    struct amount_sat funding_total UNNEEDED)
+{ fprintf(stderr, "channel_update_reserve called!\n"); abort(); }
 /* Generated stub for command_fail */
 struct command_result *command_fail(struct command *cmd UNNEEDED, errcode_t code UNNEEDED,
 				    const char *fmt UNNEEDED, ...)

@@ -25,4 +25,8 @@ void channel_unsaved_close_conn(struct channel *channel, const char *why);
 
 void json_add_unsaved_channel(struct json_stream *response,
 			      const struct channel *channel);
+
+void channel_update_reserve(struct channel *channel,
+			    struct channel_config *their_config,
+			    struct amount_sat funding_total);
 #endif /* LIGHTNING_LIGHTNINGD_DUAL_OPEN_CONTROL_H */

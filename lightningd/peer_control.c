@@ -1312,6 +1312,32 @@ static bool check_funding_tx(const struct bitcoin_tx *tx,
 	return false;
 }
 
+static void update_channel_from_inflight(struct lightningd *ld,
+					 struct channel *channel,
+					 struct channel_inflight *inflight)
+{
+	struct wally_psbt *psbt_copy;
+
+	channel->funding_txid = inflight->funding->txid;
+	channel->funding_outnum = inflight->funding->outnum;
+	channel->funding = inflight->funding->total_funds;
+	channel->our_funds = inflight->funding->our_funds;
+
+	/* Make a 'clone' of this tx */
+	psbt_copy = clone_psbt(channel, inflight->last_tx->psbt);
+	channel_set_last_tx(channel,
+			    bitcoin_tx_with_psbt(channel, psbt_copy),
+			    &inflight->last_sig,
+			    TX_CHANNEL_UNILATERAL);
+
+	/* Update the reserve */
+	channel_update_reserve(channel,
+			       &channel->channel_info.their_config,
+			       inflight->funding->total_funds);
+
+	wallet_channel_save(ld->wallet, channel);
+}
+
 static enum watch_result funding_depth_cb(struct lightningd *ld,
 					   struct channel *channel,
 					   const struct bitcoin_txid *txid,
@@ -1342,6 +1368,26 @@ static enum watch_result funding_depth_cb(struct lightningd *ld,
 	 * means the stale block with our funding tx was removed) */
 	if ((min_depth_reached && !channel->scid) || (depth && channel->scid)) {
 		struct txlocator *loc;
+		struct channel_inflight *inf;
+
+		/* Update the channel's info to the correct tx, if needed to
+		 * It's possible an 'inflight' has reached depth */
+		if (!list_empty(&channel->inflights)) {
+			inf = channel_inflight_find(channel, txid);
+			if (!inf) {
+				channel_fail_permanent(channel, REASON_LOCAL,
+					"Txid %s for channel"
+					" not found in inflights. (peer %s)",
+					type_to_string(tmpctx,
+						       struct bitcoin_txid,
+						       txid),
+					type_to_string(tmpctx,
+						       struct node_id,
+						       &channel->peer->id));
+				return DELETE_WATCH;
+			}
+			update_channel_from_inflight(ld, channel, inf);
+		}
 
 		wallet_annotate_txout(ld->wallet, txid, channel->funding_outnum,
 				      TX_CHANNEL_FUNDING, channel->dbid);

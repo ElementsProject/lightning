@@ -1033,9 +1033,9 @@ static struct amount_sat calculate_reserve(struct channel_config *their_config,
 	return reserve;
 }
 
-static void channel_update_reserve(struct channel *channel,
-				   struct channel_config *their_config,
-				   struct amount_sat funding_total)
+void channel_update_reserve(struct channel *channel,
+			    struct channel_config *their_config,
+			    struct amount_sat funding_total)
 {
 	struct amount_sat reserve;
 
@@ -1081,8 +1081,11 @@ wallet_update_channel(struct lightningd *ld,
 	channel->our_msat = our_msat;
 	channel->msat_to_us_min = our_msat;
 	channel->msat_to_us_max = our_msat;
-	channel->last_tx = tal_steal(channel, remote_commit);
-	channel->last_sig = *remote_commit_sig;
+
+	channel_set_last_tx(channel,
+			    tal_steal(channel, remote_commit),
+			    remote_commit_sig,
+			    TX_CHANNEL_UNILATERAL);
 
 	/* Update in database */
 	wallet_channel_save(ld->wallet, channel);
@@ -1151,8 +1154,11 @@ wallet_commit_channel(struct lightningd *ld,
 	channel->our_msat = our_msat;
 	channel->msat_to_us_min = our_msat;
 	channel->msat_to_us_max = our_msat;
+
 	channel->last_tx = tal_steal(channel, remote_commit);
 	channel->last_sig = *remote_commit_sig;
+	channel->last_tx_type = TX_CHANNEL_UNILATERAL;
+
 	channel->channel_info = *channel_info;
 	channel->fee_states = new_fee_states(channel,
 					     channel->opener,
@@ -1559,40 +1565,14 @@ void dualopen_tell_depth(struct subd *dualopend,
 	/* Are we there yet? */
 	if (to_go == 0) {
 		assert(channel->scid);
+		assert(bitcoin_txid_eq(&channel->funding_txid, txid));
 
-		/* Update the channel's info to the correct tx, if we need to */
-		if (!bitcoin_txid_eq(&channel->funding_txid, txid)) {
-			struct channel_inflight *inf;
-			inf = channel_inflight_find(channel, txid);
-			if (!inf) {
-				channel_internal_error(channel,
-					"Txid %s for channel"
-					" not found in available inflights."
-					"  (peer %s)",
-					type_to_string(tmpctx,
-						       struct bitcoin_txid,
-						       txid),
-					type_to_string(tmpctx,
-						       struct node_id,
-						       &channel->peer->id));
-				return;
-			}
+		channel_set_billboard(channel, false,
+				      tal_fmt(tmpctx, "Funding depth reached"
+					      " %d confirmations, alerting peer"
+					      " we're locked-in.",
+					      to_go));
 
-			channel->funding_txid = inf->funding->txid;
-			channel->funding_outnum = inf->funding->outnum;
-			channel->funding = inf->funding->total_funds;
-			channel->our_funds = inf->funding->our_funds;
-			channel->last_tx = tal_steal(channel, inf->last_tx);
-			channel->last_sig = inf->last_sig;
-
-			/* Update the reserve */
-			channel_update_reserve(channel,
-					       &channel->channel_info.their_config,
-					       inf->funding->total_funds);
-
-			wallet_channel_save(dualopend->ld->wallet, channel);
-			/* FIXME: delete inflights */
-		}
 		msg = towire_dualopend_depth_reached(NULL, depth);
 		subd_send_msg(dualopend, take(msg));
 	} else
