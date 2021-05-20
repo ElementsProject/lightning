@@ -969,7 +969,7 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 	db_bind_amount_sat(stmt, 4, &inflight->funding->total_funds);
 	db_bind_amount_sat(stmt, 5, &inflight->funding->our_funds);
 	db_bind_psbt(stmt, 6, inflight->funding_psbt);
-	db_bind_tx(stmt, 7, inflight->last_tx->wtx);
+	db_bind_psbt(stmt, 7, inflight->last_tx->psbt);
 	db_bind_signature(stmt, 8, &inflight->last_sig.s);
 	db_exec_prepared_v2(stmt);
 	assert(!stmt->error);
@@ -1024,7 +1024,7 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 				funding_sat,
 				our_funding_sat,
 				db_column_psbt(tmpctx, stmt, 5),
-				db_column_tx(tmpctx, stmt, 6),
+				db_column_psbt_to_tx(tmpctx, stmt, 6),
 				last_sig);
 
 	/* Pull out the serialized tx-sigs-received-ness */

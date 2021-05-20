@@ -48,6 +48,10 @@ static void migrate_our_funding(struct lightningd *ld, struct db *db,
 static void migrate_last_tx_to_psbt(struct lightningd *ld, struct db *db,
 				    const struct migration_context *mc);
 
+static void
+migrate_inflight_last_tx_to_psbt(struct lightningd *ld, struct db *db,
+				 const struct migration_context *mc);
+
 static void fillin_missing_scriptpubkeys(struct lightningd *ld, struct db *db,
 					 const struct migration_context *mc);
 
@@ -712,6 +716,7 @@ static struct migration dbmigrations[] = {
     /* Oops, can I haz money back plz? */
     {SQL("ALTER TABLE channels ADD shutdown_wrong_txid BLOB DEFAULT NULL"), NULL},
     {SQL("ALTER TABLE channels ADD shutdown_wrong_outnum INTEGER DEFAULT NULL"), NULL},
+    {NULL, migrate_inflight_last_tx_to_psbt},
 };
 
 /* Leak tracking. */
@@ -1399,6 +1404,92 @@ static void fillin_missing_local_basepoints(struct lightningd *ld,
 		db_bind_u64(upstmt, 5, dbid);
 
 		db_exec_prepared_v2(take(upstmt));
+	}
+
+	tal_free(stmt);
+}
+
+void
+migrate_inflight_last_tx_to_psbt(struct lightningd *ld, struct db *db,
+				 const struct migration_context *mc)
+{
+	struct db_stmt *stmt, *update_stmt;
+	stmt = db_prepare_v2(db, SQL("SELECT "
+				     "  c.id"
+				     ", p.node_id"
+				     ", c.fundingkey_remote"
+				     ", inflight.last_tx"
+				     ", inflight.last_sig"
+				     ", inflight.funding_satoshi"
+				     ", inflight.funding_tx_id"
+				     " FROM channels c"
+				     "  LEFT OUTER JOIN peers p"
+				     "   ON p.id = c.peer_id"
+				     "  LEFT OUTER JOIN"
+				     "   channel_funding_inflights inflight"
+				     "   ON c.id = inflight.channel_id"
+				     " WHERE inflight.last_tx IS NOT NULL;"));
+
+	db_query_prepared(stmt);
+	while (db_step(stmt)) {
+		struct bitcoin_tx *last_tx;
+		struct bitcoin_txid funding_txid;
+		struct amount_sat funding_sat;
+		struct node_id peer_id;
+		struct pubkey local_funding_pubkey, remote_funding_pubkey;
+		struct basepoints local_basepoints UNUSED;
+		struct bitcoin_signature last_sig;
+		u64 cdb_id;
+		u8 *funding_wscript;
+
+		cdb_id = db_column_u64(stmt, 0);
+		last_tx = db_column_tx(stmt, stmt, 3);
+		assert(last_tx != NULL);
+
+		/* If we've forgotten about the peer_id
+		 * because we closed / forgot the channel,
+		 * we can skip this. */
+		if (db_column_is_null(stmt, 1))
+			continue;
+		db_column_node_id(stmt, 1, &peer_id);
+		db_column_amount_sat(stmt, 5, &funding_sat);
+		db_column_pubkey(stmt, 2, &remote_funding_pubkey);
+		db_column_txid(stmt, 6, &funding_txid);
+
+		get_channel_basepoints(ld, &peer_id, cdb_id,
+				       &local_basepoints, &local_funding_pubkey);
+
+		funding_wscript = bitcoin_redeem_2of2(stmt, &local_funding_pubkey,
+						      &remote_funding_pubkey);
+
+
+		psbt_input_set_wit_utxo(last_tx->psbt, 0,
+					scriptpubkey_p2wsh(last_tx->psbt, funding_wscript),
+					funding_sat);
+		psbt_input_set_witscript(last_tx->psbt, 0, funding_wscript);
+
+		if (!db_column_signature(stmt, 4, &last_sig.s))
+			abort();
+
+		last_sig.sighash_type = SIGHASH_ALL;
+		if (!psbt_input_set_signature(last_tx->psbt, 0,
+					      &remote_funding_pubkey, &last_sig))
+			abort();
+		psbt_input_add_pubkey(last_tx->psbt, 0,
+		    &local_funding_pubkey);
+		psbt_input_add_pubkey(last_tx->psbt, 0,
+		    &remote_funding_pubkey);
+
+		update_stmt = db_prepare_v2(db,
+				SQL("UPDATE channel_funding_inflights"
+				    " SET last_tx = ?"
+				    " WHERE channel_id = ?"
+				    "   AND funding_tx_id = ?;"));
+		db_bind_psbt(update_stmt, 0, last_tx->psbt);
+		db_bind_int(update_stmt, 1, cdb_id);
+		db_bind_txid(update_stmt, 2, &funding_txid);
+		db_exec_prepared_v2(update_stmt);
+		tal_free(update_stmt);
 	}
 
 	tal_free(stmt);

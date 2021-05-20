@@ -146,6 +146,28 @@ def test_scid_upgrade(node_factory, bitcoind):
 @unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
+def test_last_tx_inflight_psbt_upgrade(node_factory, bitcoind):
+    bitcoind.generate_block(12)
+
+    prior_txs = ['02000000019CCCA2E59D863B00B5BD835BF7BA93CC257932D2C7CDBE51EFE2EE4A9D29DFCB01000000009DB0E280024A01000000000000220020BE7935A77CA9AB70A4B8B1906825637767FED3C00824AA90C988983587D68488F0820100000000002200209F4684DDB28ACDC73959BC194D1A25DF906F61ED030F52D163E6F1E247D32CBB9A3ED620', '020000000122F9EBE38F54208545B681AD7F73A7AE3504A09C8201F502673D34E28424687C01000000009DB0E280024A01000000000000220020BE7935A77CA9AB70A4B8B1906825637767FED3C00824AA90C988983587D68488F0820100000000002200209F4684DDB28ACDC73959BC194D1A25DF906F61ED030F52D163E6F1E247D32CBB9A3ED620']
+
+    l1 = node_factory.get_node(dbfile='upgrade_inflight.sqlite3.xz')
+
+    b64_last_txs = [base64.b64encode(x['last_tx']).decode('utf-8') for x in l1.db_query('SELECT last_tx FROM channel_funding_inflights ORDER BY channel_id, funding_feerate;')]
+    for i in range(len(b64_last_txs)):
+        bpsbt = b64_last_txs[i]
+        psbt = bitcoind.rpc.decodepsbt(bpsbt)
+        tx = prior_txs[i]
+        assert psbt['tx']['txid'] == bitcoind.rpc.decoderawtransaction(tx)['txid']
+        funding_input = only_one(psbt['inputs'])
+        assert funding_input['witness_utxo']['amount'] == Decimal('0.001')
+        assert funding_input['witness_utxo']['scriptPubKey']['type'] == 'witness_v0_scripthash'
+        assert funding_input['witness_script']['type'] == 'multisig'
+
+
+@unittest.skipIf(not COMPAT, "needs COMPAT to convert obsolete db")
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "This test is based on a sqlite3 snapshot")
+@unittest.skipIf(TEST_NETWORK != 'regtest', "The network must match the DB snapshot")
 def test_last_tx_psbt_upgrade(node_factory, bitcoind):
     bitcoind.generate_block(12)
 
