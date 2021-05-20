@@ -696,6 +696,7 @@ def test_rbf_no_overlap(node_factory, bitcoind, chainparams):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+@pytest.mark.developer("uses dev-sign-last-tx")
 def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.get_nodes(2,
                                     opts={'allow_warning': True,
@@ -731,6 +732,9 @@ def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
 
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
         bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+        # We should be able to call this with while an open is progress
+        # but not yet committed
+        l1.rpc.dev_sign_last_tx(l2.info['id'])
         update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
         assert update['commitments_secured']
 
@@ -777,6 +781,13 @@ def test_rbf_fails_to_broadcast(node_factory, bitcoind, chainparams):
     inflights = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['inflight']
     assert prev_inflights == inflights
     assert inflights[-1]['funding_txid'] in bitcoind.rpc.getrawmempool()
+
+    # Produce a signature for every inflight
+    last_txs = l1.rpc.dev_sign_last_tx(l2.info['id'])
+    assert len(last_txs['inflights']) == len(inflights)
+    for last_tx, inflight in zip(last_txs['inflights'], inflights):
+        assert last_tx['funding_txid'] == inflight['funding_txid']
+    assert last_txs['tx']
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
