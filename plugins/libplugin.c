@@ -229,8 +229,8 @@ static struct command_result *command_complete(struct command *cmd,
 	return &complete;
 }
 
-struct command_result *WARN_UNUSED_RESULT
-command_finished(struct command *cmd, struct json_stream *response)
+struct command_result *command_finished(struct command *cmd,
+					struct json_stream *response)
 {
 	/* "result" or "error" object */
 	json_object_end(response);
