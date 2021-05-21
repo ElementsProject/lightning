@@ -3286,7 +3286,6 @@ def test_openchannel_init_alternate(node_factory, executor):
         fut.result(10)
 
 
-@pytest.mark.xfail(strict=True)
 def test_htlc_failed_noclose(node_factory):
     """Test a bug where the htlc timeout would kick in even if the HTLC failed"""
     l1, l2 = node_factory.line_graph(2)

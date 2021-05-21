@@ -600,17 +600,22 @@ static void rcvd_htlc_reply(struct subd *subd, const u8 *msg, const int *fds UNU
 	/* When channeld includes it in commitment, we'll make it persistent. */
 }
 
-static void htlc_offer_timeout(struct channel *channel)
+static void htlc_offer_timeout(struct htlc_out *out)
 {
-	/* Unset this in case we reconnect and start again. */
-	channel->htlc_timeout = NULL;
+	struct channel *channel = out->key.channel;
+
+	out->timeout = NULL;
+
+	/* Otherwise, timer would be removed. */
+	assert(out->hstate == SENT_ADD_HTLC);
 
 	/* If owner died, we should already be taken care of. */
 	if (!channel->owner || channel->state != CHANNELD_NORMAL)
 		return;
 
 	log_unusual(channel->owner->log,
-		    "Adding HTLC too slow: killing connection");
+		    "Adding HTLC %"PRIu64" too slow: killing connection",
+		    out->key.id);
 	tal_free(channel->owner);
 	channel_set_billboard(channel, false,
 			      "Adding HTLC timed out: killed connection");
@@ -659,12 +664,14 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			      partid, in);
 	tal_add_destructor(*houtp, destroy_hout_subd_died);
 
-	/* Give channel 30 seconds to commit (first) htlc. */
-	if (!out->htlc_timeout && !IFDEV(out->peer->ld->dev_no_htlc_timeout, 0))
-		out->htlc_timeout = new_reltimer(out->peer->ld->timers,
-						 out, time_from_sec(30),
+	/* Give channel 30 seconds to commit this htlc. */
+	if (!IFDEV(out->peer->ld->dev_no_htlc_timeout, 0)) {
+		(*houtp)->timeout = new_reltimer(out->peer->ld->timers,
+						 *houtp, time_from_sec(30),
 						 htlc_offer_timeout,
-						 out);
+						 *houtp);
+	}
+
 	msg = towire_channeld_offer_htlc(out, amount, cltv, payment_hash,
 					onion_routing_packet, blinding);
 	subd_req(out->peer->ld, out->owner, take(msg), -1, 0, rcvd_htlc_reply,
@@ -1627,8 +1634,8 @@ static bool update_out_htlc(struct channel *channel,
 	/* First transition into commitment; now it outlives peer. */
 	if (newstate == SENT_ADD_COMMIT) {
 		tal_del_destructor(hout, destroy_hout_subd_died);
+		hout->timeout = tal_free(hout->timeout);
 		tal_steal(ld, hout);
-
 	} else if (newstate == RCVD_REMOVE_ACK_REVOCATION) {
 		remove_htlc_out(channel, hout);
 	}
@@ -1720,8 +1727,6 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 	struct bitcoin_signature *htlc_sigs;
 	struct lightningd *ld = channel->peer->ld;
 	struct penalty_base *pbase;
-
-	channel->htlc_timeout = tal_free(channel->htlc_timeout);
 
 	if (!fromwire_channeld_sending_commitsig(msg, msg,
 						&commitnum,
