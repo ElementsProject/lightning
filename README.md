@@ -48,9 +48,10 @@ For the impatient here's the gist of it for Ubuntu:
 
 ```bash
 sudo apt-get install -y software-properties-common
-sudo add-apt-repository -u ppa:bitcoin/bitcoin
 sudo add-apt-repository -u ppa:lightningnetwork/ppa
-sudo apt-get install bitcoind lightningd
+sudo apt-get install lightningd snapd
+sudo snap install bitcoin-core
+sudo ln -s /snap/bitcoin-core/current/bin/bitcoin{d,-cli} /usr/local/bin/
 ```
 
 ### Starting `lightningd`
