@@ -645,7 +645,10 @@ static void timeout_sent_inv(struct sent *sent)
 {
 	struct json_out *details = json_out_new(sent);
 
+	json_out_start(details, NULL, '{');
 	json_out_addstr(details, "invstring", invoice_encode(tmpctx, sent->inv));
+	json_out_end(details, '}');
+
 	/* This will free sent! */
 	discard_result(command_done_err(sent->cmd, OFFER_TIMEOUT,
 					"Failed: timeout waiting for response",
