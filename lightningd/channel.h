@@ -132,9 +132,6 @@ struct channel {
 	struct amount_msat msat_to_us_min;
 	struct amount_msat msat_to_us_max;
 
-	/* Timer we use in case they don't add an HTLC in a timely manner. */
-	struct oneshot *htlc_timeout;
-
 	/* Last tx they gave us. */
 	struct bitcoin_tx *last_tx;
 	enum wallet_tx_type last_tx_type;

@@ -297,6 +297,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	hout->failmsg = NULL;
 	hout->failonion = NULL;
 	hout->preimage = NULL;
+	hout->timeout = NULL;
 
 	if (blinding)
 		hout->blinding = tal_dup(hout, struct pubkey, blinding);

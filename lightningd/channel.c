@@ -214,7 +214,6 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	/* A zero value database id means it's not saved in the database yet */
 	channel->dbid = 0;
 	channel->error = NULL;
-	channel->htlc_timeout = NULL;
 	channel->openchannel_signed_cmd = NULL;
 	channel->state = DUALOPEND_OPEN_INIT;
 	channel->owner = NULL;
@@ -345,7 +344,6 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->dbid = dbid;
 	channel->unsaved_dbid = 0;
 	channel->error = NULL;
-	channel->htlc_timeout = NULL;
 	channel->open_attempt = NULL;
 	channel->openchannel_signed_cmd = NULL;
 	if (their_shachain)
