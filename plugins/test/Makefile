@@ -14,8 +14,6 @@ PLUGIN_TEST_COMMON_OBJS :=			\
 	common/type_to_string.o			\
 	common/utils.o
 
-update-mocks: $(PLUGIN_TEST_SRC:%=update-mocks/%)
-
 $(PLUGIN_TEST_PROGRAMS): $(CCAN_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(PLUGIN_TEST_COMMON_OBJS)
 
 $(PLUGIN_TEST_OBJS): $(PLUGIN_FUNDER_HEADER) $(PLUGIN_FUNDER_SRC)

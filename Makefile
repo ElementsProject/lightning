@@ -619,7 +619,10 @@ clean: obsclean
 	find . -name '*gcno' -delete
 	find . -name '*.nccout' -delete
 
-update-mocks: $(ALL_GEN_HEADERS)
+update-mocks: $(ALL_TEST_PROGRAMS:%=update-mocks/%.c)
+
+$(ALL_TEST_PROGRAMS:%=update-mocks/%.c): $(ALL_GEN_HEADERS) $(EXTERNAL_LIBS) $(CCAN_OBJS) ccan/ccan/cdump/tools/cdump-enumstr config.vars
+
 update-mocks/%: %
 	@MAKE=$(MAKE) tools/update-mocks.sh "$*" $(SUPPRESS_OUTPUT)
 

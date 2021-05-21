@@ -22,8 +22,6 @@ CHANNELD_TEST_COMMON_OBJS :=			\
 	common/type_to_string.o			\
 	common/utils.o
 
-update-mocks: $(CHANNELD_TEST_SRC:%=update-mocks/%)
-
 $(CHANNELD_TEST_PROGRAMS): $(CCAN_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(CHANNELD_TEST_COMMON_OBJS)
 
 $(CHANNELD_TEST_OBJS): $(CHANNELD_HEADERS) $(CHANNELD_SRC)

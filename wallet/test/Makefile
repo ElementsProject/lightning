@@ -30,8 +30,4 @@ WALLET_TEST_COMMON_OBJS :=			\
 $(WALLET_TEST_PROGRAMS): $(BITCOIN_OBJS) $(WALLET_TEST_COMMON_OBJS)
 $(WALLET_TEST_OBJS): $(WALLET_HDRS) $(WALLET_SRC)
 
-wallet/tests: $(WALLET_TEST_PROGRAMS:%=unittest/%)
-
-update-mocks: $(WALLET_TEST_SRC:%=update-mocks/%)
-
 check-units: $(WALLET_TEST_PROGRAMS:%=unittest/%)

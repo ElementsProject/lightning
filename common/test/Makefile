@@ -33,6 +33,4 @@ common/test/run-json:					\
 	wire/onion$(EXP)_wiregen.o			\
 	wire/towire.o
 
-update-mocks: $(COMMON_TEST_SRC:%=update-mocks/%)
-
 check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%)
