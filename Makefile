@@ -280,12 +280,18 @@ else
 EXP :=
 endif
 
+# tools/update-mocks.sh does nasty recursive make, must not do this!
+ifeq ($(SUPPRESS_GENERATION),1)
+SHA256STAMP_CHANGED = false
+SHA256STAMP = exit 1
+else
 # Git doesn't maintain timestamps, so we only regen if sources actually changed:
 # We place the SHA inside some generated files so we can tell if they need updating.
 # Usage: $(call SHA256STAMP_CHANGED)
 SHA256STAMP_CHANGED = [ x"`sed -n 's/.*SHA256STAMP://p' $@ 2>/dev/null`" != x"`cat $(sort $(filter-out FORCE,$^)) | $(SHA256SUM) | cut -c1-64`" ]
 # Usage: $(call SHA256STAMP,commentprefix)
 SHA256STAMP = echo '$(1) SHA256STAMP:'`cat $(sort $(filter-out FORCE,$^)) | $(SHA256SUM) | cut -c1-64` >> $@
+endif
 
 # generate-wire.py --page [header|impl] hdrfilename wirename < csv > file
 %_wiregen.h: %_wire.csv $(WIRE_GEN_DEPS)
@@ -363,7 +369,7 @@ ALL_OBJS := $(ALL_C_SOURCES:.c=.o)
 
 # We always regen wiregen and printgen files, since SHA256STAMP protects against
 # spurious rebuilds.
-$(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(ALL_C_HEADERS) $(ALL_C_SOURCES)): FORCE
+$(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(ALL_C_HEADERS) $(ALL_C_SOURCES)): $(FORCE)
 
 ifneq ($(TEST_GROUP_COUNT),)
 PYTEST_OPTS += --test-group=$(TEST_GROUP) --test-group-count=$(TEST_GROUP_COUNT)
@@ -527,9 +533,13 @@ ncc: ${TARGET_DIR}/libwally-core-build/src/libwallycore.la
 	$(MAKE) CC="ncc -ncgcc -ncld -ncfabs" AR=nccar LD=nccld
 
 # Ignore test/ directories.
-TAGS: FORCE
+TAGS:
 	$(RM) TAGS; find * -name test -type d -prune -o -name '*.[ch]' -print -o -name '*.py' -print | xargs etags --append
+
+ifneq ($(SUPPRESS_GENERATION),1)
+FORCE = FORCE
 FORCE::
+endif
 
 ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS)
 
@@ -537,7 +547,7 @@ ALL_PROGRAMS += ccan/ccan/cdump/tools/cdump-enumstr
 # Can't add to ALL_OBJS, as that makes a circular dep.
 ccan/ccan/cdump/tools/cdump-enumstr.o: $(CCAN_HEADERS) Makefile
 
-version_gen.h: FORCE
+version_gen.h: $(FORCE)
 	@(echo "#define VERSION \"$(VERSION)\"" && echo "#define BUILD_FEATURES \"$(FEATURES)\"") > $@.new
 	@if cmp $@.new $@ >/dev/null 2>&1; then rm -f $@.new; else mv $@.new $@; $(ECHO) Version updated; fi
 
