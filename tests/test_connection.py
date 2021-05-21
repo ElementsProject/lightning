@@ -11,7 +11,7 @@ from utils import (
     scriptpubkey_addr,
     EXPERIMENTAL_FEATURES
 )
-from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND
+from pyln.testing.utils import SLOW_MACHINE, VALGRIND, EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
 
 import os
 import pytest
@@ -3284,3 +3284,30 @@ def test_openchannel_init_alternate(node_factory, executor):
     fut = executor.submit(l2.rpc.openchannel_init, l1.info['id'], '1000000msat', psbt2)
     with pytest.raises(RpcError):
         fut.result(10)
+
+
+@pytest.mark.xfail(strict=True)
+def test_htlc_failed_noclose(node_factory):
+    """Test a bug where the htlc timeout would kick in even if the HTLC failed"""
+    l1, l2 = node_factory.line_graph(2)
+
+    payment_hash = l2.rpc.invoice(1000, "test", "test")['payment_hash']
+    routestep = {
+        'msatoshi': FUNDAMOUNT * 1000,
+        'id': l2.info['id'],
+        'delay': 5,
+        'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments
+    }
+
+    # This fails at channeld
+    l1.rpc.sendpay([routestep], payment_hash)
+    with pytest.raises(RpcError, match="Capacity exceeded"):
+        l1.rpc.waitsendpay(payment_hash)
+
+    # Send a second one, too: make sure we don't crash.
+    l1.rpc.sendpay([routestep], payment_hash)
+    with pytest.raises(RpcError, match="Capacity exceeded"):
+        l1.rpc.waitsendpay(payment_hash)
+
+    time.sleep(35)
+    assert l1.rpc.getpeer(l2.info['id'])['connected']
