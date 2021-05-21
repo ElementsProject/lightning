@@ -14,8 +14,6 @@ WIRE_TEST_COMMON_OBJS :=		\
 	common/setup.o			\
 	common/utils.o
 
-update-mocks: $(WIRE_TEST_SRC:%=update-mocks/%)
-
 # run-tlvstream.c needs to reach into bitcoin/pubkey for SUPERVERBOSE
 $(WIRE_TEST_PROGRAMS): $(WIRE_TEST_COMMON_OBJS) $(filter-out bitcoin/pubkey.o,$(BITCOIN_OBJS))
 

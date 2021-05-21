@@ -26,8 +26,6 @@ GOSSIPD_TEST_COMMON_OBJS :=			\
 ALL_C_SOURCES += $(GOSSIPD_TEST_SRC)
 ALL_TEST_PROGRAMS += $(GOSSIPD_TEST_PROGRAMS)
 
-update-mocks: $(GOSSIPD_TEST_SRC:%=update-mocks/%)
-
 $(GOSSIPD_TEST_PROGRAMS): $(GOSSIPD_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
 
 # Test objects depend on ../ src and headers.

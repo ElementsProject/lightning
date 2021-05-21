@@ -14,8 +14,6 @@ CONNECTD_TEST_COMMON_OBJS :=			\
 ALL_C_SOURCES += $(CONNECTD_TEST_SRC)
 ALL_TEST_PROGRAMS += $(CONNECTD_TEST_PROGRAMS)
 
-update-mocks: $(CONNECTD_TEST_SRC:%=update-mocks/%)
-
 $(CONNECTD_TEST_PROGRAMS): $(CONNECTD_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
 
 # Test objects depend on ../ src and headers.

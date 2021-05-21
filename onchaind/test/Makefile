@@ -17,8 +17,6 @@ ONCHAIND_TEST_COMMON_OBJS :=			\
 	common/type_to_string.o			\
 	common/utils.o
 
-update-mocks: $(ONCHAIND_TEST_SRC:%=update-mocks/%)
-
 $(ONCHAIND_TEST_PROGRAMS): $(ONCHAIND_TEST_COMMON_OBJS) $(BITCOIN_OBJS)
 
 # This needs many more objs:

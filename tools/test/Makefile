@@ -58,10 +58,6 @@ ALL_TEST_PROGRAMS += $(TOOL_TEST_PROGRAMS)
 check-tools: $(TOOL_TEST_PROGRAMS:%=unittest/%)
 endif # HAVE_PYTHON3_MAKO
 
-update-mocks: tools-update-mocks
-
-tools-update-mocks: $(TOOL_TEST_SRC:%=update-mocks/%)
-
 clean: tools-test-clean
 
 tools-test-clean:

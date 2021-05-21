@@ -19,8 +19,6 @@ CLI_TEST_COMMON_OBJS :=				\
 	common/type_to_string.o			\
 	common/permute_tx.o
 
-update-mocks: $(CLI_TEST_SRC:%=update-mocks/%)
-
 $(CLI_TEST_PROGRAMS): $(CCAN_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS) $(CLI_TEST_COMMON_OBJS)
 
 $(CLI_TEST_OBJS): $(LIGHTNING_CLI_HEADERS) $(LIGHTNING_CLI_SRC)
