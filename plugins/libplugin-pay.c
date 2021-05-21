@@ -688,12 +688,13 @@ static bool payment_route_can_carry_even_disabled(const struct gossmap *map,
 }
 
 static struct route_hop *route_hops_from_route(const tal_t *ctx,
-					       struct payment *p,
+					       struct gossmap *gossmap,
+					       struct amount_msat amount,
+					       u32 final_delay,
 					       struct route **r)
 {
 	struct route_hop *hops = tal_arr(ctx, struct route_hop, tal_count(r));
 	struct amount_msat amt;
-	struct gossmap *gossmap = get_gossmap(p->plugin);
 	u32 delay;
 
 	for (size_t i = 0; i < tal_count(hops); i++) {
@@ -713,8 +714,8 @@ static struct route_hop *route_hops_from_route(const tal_t *ctx,
 	}
 
 	/* Now iterate backwards to derive amount and delay. */
-	amt = p->getroute->amount;
-	delay = p->getroute->cltv;
+	amt = amount;
+	delay = final_delay;
 	for (int i = tal_count(hops) - 1; i >= 0; i--) {
 		const struct half_chan *h = &r[i]->c->half[r[i]->dir];
 
@@ -730,18 +731,70 @@ static struct route_hop *route_hops_from_route(const tal_t *ctx,
 	return hops;
 }
 
-static struct command_result *payment_getroute(struct payment *p)
+static struct route_hop *route(const tal_t *ctx,
+			       struct gossmap *gossmap,
+			       const struct gossmap_node *src,
+			       const struct gossmap_node *dst,
+			       struct amount_msat amount,
+			       u32 final_delay,
+			       double riskfactor,
+			       size_t max_hops,
+			       struct payment *p,
+			       const char **errmsg)
 {
 	const struct dijkstra *dij;
-	const struct gossmap_node *dst, *src;
 	struct route **r;
-	struct amount_msat fee;
-	struct gossmap *gossmap;
 	bool (*can_carry)(const struct gossmap *,
 			  const struct gossmap_chan *,
 			  int,
 			  struct amount_msat,
 			  struct payment *);
+
+	can_carry = payment_route_can_carry;
+	dij = dijkstra(tmpctx, gossmap, dst, amount, riskfactor,
+		       can_carry, route_score_cheaper, p);
+	r = route_from_dijkstra(tmpctx, gossmap, dij, src);
+	if (!r) {
+		/* Try using disabled channels too */
+		/* FIXME: is there somewhere we can annotate this for paystatus? */
+		can_carry = payment_route_can_carry_even_disabled;
+		dij = dijkstra(tmpctx, gossmap, dst, amount, riskfactor,
+			       can_carry, route_score_cheaper, p);
+		r = route_from_dijkstra(tmpctx, gossmap, dij, src);
+		if (!r) {
+			*errmsg = "No path found";
+			return NULL;
+		}
+	}
+
+	/* If it's too far, fall back to using shortest path. */
+	if (tal_count(r) > max_hops) {
+		/* FIXME: is there somewhere we can annotate this for paystatus? */
+		dij = dijkstra(tmpctx, gossmap, dst, amount, riskfactor,
+			       can_carry, route_score_shorter, p);
+		r = route_from_dijkstra(tmpctx, gossmap, dij, src);
+		if (!r) {
+			*errmsg = "No path found";
+			return NULL;
+		}
+
+		/* If it's still too far, fail. */
+		if (tal_count(r) > max_hops) {
+			*errmsg = tal_fmt(ctx, "Shortest path found was length %zu",
+					  tal_count(r));
+			return NULL;
+		}
+	}
+
+	return route_hops_from_route(ctx, gossmap, amount, final_delay, r);
+}
+
+static struct command_result *payment_getroute(struct payment *p)
+{
+	const struct gossmap_node *dst, *src;
+	struct amount_msat fee;
+	const char *errstr;
+	struct gossmap *gossmap;
 
 	gossmap = get_gossmap(p->plugin);
 
@@ -765,48 +818,17 @@ static struct command_result *payment_getroute(struct payment *p)
 		return command_still_pending(p->cmd);
 	}
 
-	can_carry = payment_route_can_carry;
-	dij = dijkstra(tmpctx, gossmap, dst, p->getroute->amount,
-		       p->getroute->riskfactorppm / 1000000.0,
-		       can_carry, route_score_cheaper, p);
-	r = route_from_dijkstra(tmpctx, gossmap, dij, src);
-	if (!r) {
-		/* Try using disabled channels too */
-		/* FIXME: is there somewhere we can annotate this for paystatus? */
-		can_carry = payment_route_can_carry_even_disabled;
-		dij = dijkstra(tmpctx, gossmap, dst, p->getroute->amount,
-			       p->getroute->riskfactorppm / 1000000.0,
-			       can_carry, route_score_cheaper, p);
-		r = route_from_dijkstra(tmpctx, gossmap, dij, src);
-		if (!r) {
-			payment_fail(p, "No path found");
-			return command_still_pending(p->cmd);
-		}
-	}
-
-	/* If it's too far, fall back to using shortest path. */
-	if (tal_count(r) > p->getroute->max_hops) {
-		/* FIXME: is there somewhere we can annotate this for paystatus? */
-		dij = dijkstra(tmpctx, gossmap, dst, p->getroute->amount,
-			       p->getroute->riskfactorppm / 1000000.0,
-			       can_carry, route_score_shorter, p);
-		r = route_from_dijkstra(tmpctx, gossmap, dij, src);
-		if (!r) {
-			payment_fail(p, "No path found");
-			return command_still_pending(p->cmd);
-		}
-
-		/* If it's still too far, fail. */
-		if (tal_count(r) > p->getroute->max_hops) {
-			payment_fail(p, "Shortest path found was length %zu",
-				     tal_count(p->route));
-			return command_still_pending(p->cmd);
-		}
+	p->route = route(p, gossmap, src, dst, p->getroute->amount, p->getroute->cltv,
+			 p->getroute->riskfactorppm / 1000000.0, p->getroute->max_hops,
+			 p, &errstr);
+	if (!p->route) {
+		payment_fail(p, "%s", errstr);
+		/* Let payment_finished_ handle this, so we mark it as pending */
+		return command_still_pending(p->cmd);
 	}
 
 	/* OK, now we *have* a route */
 	p->step = PAYMENT_STEP_GOT_ROUTE;
-	p->route = route_hops_from_route(p, p, r);
 
 	if (tal_count(p->route) == 0) {
 		payment_root(p)->abort = true;
