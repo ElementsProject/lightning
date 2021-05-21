@@ -414,9 +414,6 @@ all DNS lookups, to avoid leaking information.
  **disable-dns**
 Disable the DNS bootstrapping mechanism to find a node by its node ID.
 
- **enable-autotor-v2-mode**
-Try to get a v2 onion address from the Tor service call, default is v3.
-
  **tor-service-password**=*PASSWORD*
 Set a Tor control password, which may be needed for *autotor:* to
 authenticate to the Tor control port.
