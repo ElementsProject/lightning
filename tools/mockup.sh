@@ -1,5 +1,13 @@
 #!/usr/bin/env bash
 
+if [ $# = 0 ]; then
+    echo 'Usage: mockup.sh <filename> [SYMBOLS...]' >&2
+    exit 1
+fi
+
+UPDIRNAME=$(dirname "$(dirname "$1")")
+shift
+
 if [ $# -eq 0 ]; then
     # With no args, read stdin to scrape compiler output.
     # shellcheck disable=SC2046
@@ -29,7 +37,8 @@ fi
 for SYMBOL; do
     # If there are multiple declarations, pick first (eg. common/memleak.h
     # has notleak_ as a declaration, and then an inline).
-    WHERE=$(grep -nH "^[a-zA-Z0-9_ (),]* [*]*$SYMBOL(" ./*/*.h | head -n1)
+    # Also, prefer local headers over generic ones.
+    WHERE=$(shopt -s nullglob; grep -nH "^[a-zA-Z0-9_ (),]* [*]*$SYMBOL(" "$UPDIRNAME"/*.h ./*/*.h | head -n1)
     if [ x"$WHERE" = x ]; then
 	echo "/* Could not find declaration for $SYMBOL */"
 	continue

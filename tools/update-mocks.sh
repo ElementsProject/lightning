@@ -30,7 +30,7 @@ if [ -n "$START" ]; then
 	if grep -q 'too many errors emitted.*-error-limit=0' "${BASE}.err"; then
 	    LDFLAGS=-Wl,-error-limit=0 make_binary || :
 	fi
-	tools/mockup.sh < "${BASE}.err" >> "${BASE}.stubs"
+	tools/mockup.sh "$FILE" < "${BASE}.err" >> "${BASE}.stubs"
 	# If there are no link errors, maybe compile fail for other reason?
 	if ! grep -F -q 'Generated stub for' "${BASE}.stubs"; then
 	    cat "${BASE}.err"
