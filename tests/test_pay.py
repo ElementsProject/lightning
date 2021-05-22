@@ -3532,6 +3532,7 @@ def test_mpp_waitblockheight_routehint_conflict(node_factory, bitcoind, executor
 @pytest.mark.slow_test
 @pytest.mark.openchannel('v1')
 @pytest.mark.openchannel('v2')
+@unittest.skipIf(True, "Temporarily disabled while flake diagnosed: blame Rusty!")
 def test_mpp_interference_2(node_factory, bitcoind, executor):
     '''
     We create a "public network" that looks like so.
