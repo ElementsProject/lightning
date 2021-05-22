@@ -13,25 +13,9 @@
 #include <inttypes.h>
 #include <stdio.h>
 
-/* ->B->C->D.  D needs 100msat, each charges 10msat. */
-static struct amount_msat route_amount(struct route **path,
-				       size_t npath,
-				       struct amount_msat amount)
-{
-	if (npath == 0)
-		return amount;
-
-	amount = route_amount(path+1, npath-1, amount);
-	if (!amount_msat_add_fee(&amount,
-				 path[0]->c->half[path[0]->dir].base_fee,
-				 path[0]->c->half[path[0]->dir].proportional_fee))
-		abort();
-	return amount;
-}
-
-static struct route **least_cost(struct gossmap *map,
-				struct gossmap_node *src,
-				struct gossmap_node *dst)
+static struct route_hop *least_cost(struct gossmap *map,
+				    struct gossmap_node *src,
+				    struct gossmap_node *dst)
 {
 	const struct dijkstra *dij;
 	u32 srcidx = gossmap_node_idx(map, src);
@@ -43,7 +27,7 @@ static struct route **least_cost(struct gossmap *map,
 	/* Max distance is 20 */
 	const u32 distance_budget = ROUTING_MAX_HOPS;
 	struct amount_msat maxcost;
-	struct route **path;
+	struct route_hop *path;
 	struct timemono tstart, tstop;
 
 	setup_locale();
@@ -69,12 +53,10 @@ static struct route **least_cost(struct gossmap *map,
 		return NULL;
 	}
 
-	path = route_from_dijkstra(map, map, dij, src);
+	path = route_from_dijkstra(map, map, dij, src, sent, 0);
 	printf("# path length %zu\n", tal_count(path));
 	/* We don't pay fee on first hop! */
-	if (!amount_msat_sub(&fee,
-			     route_amount(path+1, tal_count(path)-1, sent),
-			     sent))
+	if (!amount_msat_sub(&fee, path[0].amount, sent))
 		abort();
 	printf("# path fee %s\n",
 	       type_to_string(tmpctx, struct amount_msat, &fee));
@@ -132,7 +114,7 @@ int main(int argc, char *argv[])
 			tal_free(least_cost(map, n, dst));
 		}
 	} else {
-		struct route **path;
+		struct route_hop *path;
 		struct node_id srcid;
 
 		if (!node_id_from_hexstr(argv[2], strlen(argv[2]), &srcid))
@@ -144,20 +126,13 @@ int main(int argc, char *argv[])
 		if (!path)
 			exit(1);
 		for (size_t i = 0; i < tal_count(path); i++) {
-			struct gossmap_node *from, *to;
-			struct node_id fromid, toid;
-			struct short_channel_id scid;
-
-			from = gossmap_nth_node(map, path[i]->c, path[i]->dir);
-			to = gossmap_nth_node(map, path[i]->c, !path[i]->dir);
-			gossmap_node_get_id(map, from, &fromid);
-			gossmap_node_get_id(map, to, &toid);
-			scid = gossmap_chan_scid(map, path[i]->c);
 			printf("%s->%s via %s\n",
-			       type_to_string(tmpctx, struct node_id, &fromid),
-			       type_to_string(tmpctx, struct node_id, &toid),
+			       type_to_string(tmpctx, struct node_id, &srcid),
+			       type_to_string(tmpctx, struct node_id,
+					      &path[i].node_id),
 			       type_to_string(tmpctx, struct short_channel_id,
-					      &scid));
+					      &path[i].scid));
+			srcid = path[i].node_id;
 		}
 	}
 

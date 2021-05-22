@@ -180,7 +180,7 @@ static bool measure_least_cost(struct gossmap *map,
 	/* Max distance is 20 */
 	const u32 distance_budget = ROUTING_MAX_HOPS;
 	struct amount_msat maxcost, fee;
-	struct route **path;
+	struct route_hop *path;
 	struct timemono tstart, tstop;
 	struct node_id srcid;
 
@@ -210,7 +210,7 @@ static bool measure_least_cost(struct gossmap *map,
 		return false;
 	}
 
-	path = route_from_dijkstra(map, map, dij, src);
+	path = route_from_dijkstra(map, map, dij, src, sent, 0);
 	printf("# path length %zu\n", tal_count(path));
 	if (!amount_msat_sub(&fee, dijkstra_amount(dij, srcidx), sent))
 		abort();
@@ -220,10 +220,11 @@ static bool measure_least_cost(struct gossmap *map,
 	/* Count possible sources */
 	for (size_t i = 0; i < tal_count(path); i++) {
 		struct gossmap_node *prev, *cur;
+		struct gossmap_chan *c = gossmap_find_chan(map, &path[i].scid);
 
 		/* N+1th node is at end of Nth hop */
-		prev = gossmap_nth_node(map, path[i]->c, path[i]->dir);
-		cur = gossmap_nth_node(map, path[i]->c, !path[i]->dir);
+		prev = gossmap_nth_node(map, c, path[i].direction);
+		cur = gossmap_nth_node(map, c, !path[i].direction);
 
 		printf("source set size node %zu/%zu: %zu\n",
 		       i+1, tal_count(path),
@@ -233,10 +234,11 @@ static bool measure_least_cost(struct gossmap *map,
 	/* Count possible destinations. */
 	for (size_t i = 0; i < tal_count(path); i++) {
 		struct gossmap_node *cur, *next;
+		struct gossmap_chan *c = gossmap_find_chan(map, &path[i].scid);
 
 		/* N+1th node is at end of Nth hop */
-		cur = gossmap_nth_node(map, path[i]->c, path[i]->dir);
-		next = gossmap_nth_node(map, path[i]->c, !path[i]->dir);
+		cur = gossmap_nth_node(map, c, path[i].direction);
+		next = gossmap_nth_node(map, c, !path[i].direction);
 
 		printf("destination set size node %zu/%zu: %zu\n",
 		       i, tal_count(path),
