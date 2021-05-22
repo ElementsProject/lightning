@@ -45,12 +45,6 @@ u32 dijkstra_delay(const struct dijkstra *dij, u32 node_idx)
 	return dij[node_idx].total_delay;
 }
 
-/* Total cost to get here. */
-struct amount_msat dijkstra_amount(const struct dijkstra *dij, u32 node_idx)
-{
-	return dij[node_idx].cost;
-}
-
 struct gossmap_chan *dijkstra_best_chan(const struct dijkstra *dij,
 					u32 node_idx)
 {

@@ -205,14 +205,15 @@ static bool measure_least_cost(struct gossmap *map,
 	}
 	if (!amount_msat_add(&maxcost, sent, budget))
 		abort();
-	if (amount_msat_greater(dijkstra_amount(dij, srcidx), maxcost)) {
+
+	path = route_from_dijkstra(map, map, dij, src, sent, 0);
+
+	if (amount_msat_greater(path[0].amount, maxcost)) {
 		printf("failed (too expensive)\n");
 		return false;
 	}
-
-	path = route_from_dijkstra(map, map, dij, src, sent, 0);
 	printf("# path length %zu\n", tal_count(path));
-	if (!amount_msat_sub(&fee, dijkstra_amount(dij, srcidx), sent))
+	if (!amount_msat_sub(&fee, path[0].amount, sent))
 		abort();
 	printf("# path fee %s\n",
 	       type_to_string(tmpctx, struct amount_msat, &fee));
