@@ -18,8 +18,6 @@ enum gossipd_peerd_wire {
         WIRE_GOSSIPD_GET_UPDATE_REPLY = 3601,
         /*  Send this channel_update. */
         WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE = 3504,
-        /*  Update your gossip_store fd: + gossip_store_fd */
-        WIRE_GOSSIPD_NEW_STORE_FD = 3505,
         /*  Send this channel_announcement */
         WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT = 3506,
 };
@@ -52,11 +50,6 @@ bool fromwire_gossipd_get_update_reply(const tal_t *ctx, const void *p, u8 **upd
 u8 *towire_gossipd_local_channel_update(const tal_t *ctx, const struct short_channel_id *short_channel_id, bool disable, u16 cltv_expiry_delta, struct amount_msat htlc_minimum_msat, u32 fee_base_msat, u32 fee_proportional_millionths, struct amount_msat htlc_maximum_msat);
 bool fromwire_gossipd_local_channel_update(const void *p, struct short_channel_id *short_channel_id, bool *disable, u16 *cltv_expiry_delta, struct amount_msat *htlc_minimum_msat, u32 *fee_base_msat, u32 *fee_proportional_millionths, struct amount_msat *htlc_maximum_msat);
 
-/* WIRE: GOSSIPD_NEW_STORE_FD */
-/*  Update your gossip_store fd: + gossip_store_fd */
-u8 *towire_gossipd_new_store_fd(const tal_t *ctx, u64 offset_shorter);
-bool fromwire_gossipd_new_store_fd(const void *p, u64 *offset_shorter);
-
 /* WIRE: GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT */
 /*  Send this channel_announcement */
 u8 *towire_gossipd_local_channel_announcement(const tal_t *ctx, const u8 *cannount);
@@ -64,4 +57,4 @@ bool fromwire_gossipd_local_channel_announcement(const tal_t *ctx, const void *p
 
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_PEERD_WIREGEN_H */
-// SHA256STAMP:3ffcd3b7d7815b6fbeaadc1b3b7235190eb584284f47e46ab8518eac91fd71b5
+// SHA256STAMP:2ef99c782b9877add7912c680d3a48bed3372c6a6fe2410716651dbe777493eb

@@ -60,6 +60,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/version.o			\
 	common/wire_error.o			\
 	common/wireaddr.o			\
+	gossipd/gossip_store_wiregen.o		\
 	gossipd/gossipd_peerd_wiregen.o
 
 lightningd/lightning_closingd: $(CLOSINGD_OBJS) $(WIRE_ONION_OBJS) $(CLOSINGD_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)

@@ -285,32 +285,6 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 	return NULL;
 }
 
-/*~ When we compact the gossip store, all the broadcast indexs move.
- * We simply offset everyone, which means in theory they could retransmit
- * some, but that's a lesser evil than skipping some. */
-void update_peers_broadcast_index(struct list_head *peers, u32 offset)
-{
-	struct peer *peer, *next;
-
-	list_for_each_safe(peers, peer, next, list) {
-		int gs_fd;
-		/*~ Since store has been compacted, they need a new fd for the
-		 * new store.  We also tell them how much this is shrunk, so
-		 * they can (approximately) tell where to start in the new store.
-		 */
-		gs_fd = gossip_store_readonly_fd(peer->daemon->rstate->gs);
-		if (gs_fd < 0) {
-			status_broken("Can't get read-only gossip store fd:"
-				      " killing peer");
-			tal_free(peer);
-		} else {
-			u8 *msg = towire_gossipd_new_store_fd(NULL, offset);
-			daemon_conn_send(peer->dc, take(msg));
-			daemon_conn_send_fd(peer->dc, gs_fd);
-		}
-	}
-}
-
 /*~ For simplicity, all pings and pongs are forwarded to us here in gossipd. */
 static u8 *handle_ping(struct peer *peer, const u8 *ping)
 {
@@ -787,7 +761,6 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 
 	/* These are the ones we send, not them */
 	case WIRE_GOSSIPD_GET_UPDATE_REPLY:
-	case WIRE_GOSSIPD_NEW_STORE_FD:
 		break;
 	}
 

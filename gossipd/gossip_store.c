@@ -459,7 +459,7 @@ bool gossip_store_compact(struct gossip_store *gs)
 {
 	size_t count = 0, deleted = 0;
 	int fd;
-	u64 off, len = sizeof(gs->version), oldlen, idx;
+	u64 off, len = sizeof(gs->version), idx;
 	struct offmap *offmap;
 	struct gossip_hdr hdr;
 	struct offmap_iter oit;
@@ -572,18 +572,15 @@ bool gossip_store_compact(struct gossip_store *gs)
 	    deleted, count, len);
 
 	/* Write end marker now new one is ready */
-	oldlen = gs->len;
 	append_msg(gs->fd, towire_gossip_store_ended(tmpctx, len),
-		   0, false, &oldlen);
+		   0, false, &gs->len);
 
 	gs->count = count;
 	gs->deleted = 0;
-	off = gs->len - len;
 	gs->len = len;
 	close(gs->fd);
 	gs->fd = fd;
 
-	update_peers_broadcast_index(gs->peers, off);
 	return true;
 
 unlink_disable:
