@@ -111,6 +111,11 @@ static inline bool gossmap_chan_set(const struct gossmap_chan *chan, int dir)
 	return chan->half[dir].htlc_max != 0;
 }
 
+/* Return capacity if it's known (fails only on race condition) */
+bool gossmap_chan_get_capacity(const struct gossmap *map,
+			       const struct gossmap_chan *c,
+			       struct amount_sat *amount);
+
 /* Get the announcement msg which created this chan */
 u8 *gossmap_chan_get_announce(const tal_t *ctx,
 			      const struct gossmap *map,
