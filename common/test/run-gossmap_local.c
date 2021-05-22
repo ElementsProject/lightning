@@ -356,7 +356,9 @@ int main(int argc, char *argv[])
 	assert(short_channel_id_from_str("103x1x0", 7, &scid23));
 	assert(short_channel_id_from_str("110x1x1", 7, &scid12));
 	assert(gossmap_find_chan(map, &scid23));
+	assert(!gossmap_find_chan(map, &scid23)->private);
 	assert(gossmap_find_chan(map, &scid12));
+	assert(gossmap_find_chan(map, &scid12)->private);
 
 	/* Now, let's add a new channel l1 -> l4. */
 	mods = gossmap_localmods_new(tmpctx);
