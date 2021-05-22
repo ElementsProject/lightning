@@ -99,6 +99,13 @@ struct command_result *param_channel_id(struct command *cmd,
 					const char *buffer,
 					const jsmntok_t *tok,
 					struct channel_id **cid);
+
+struct command_result *param_short_channel_id(struct command *cmd,
+					      const char *name,
+					      const char *buffer,
+					      const jsmntok_t *tok,
+					      struct short_channel_id **scid);
+
 /*
  * Set the address of @out to @tok.  Used as a callback by handlers that
  * want to unmarshal @tok themselves.
