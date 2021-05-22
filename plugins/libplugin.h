@@ -346,9 +346,9 @@ enum route_hop_style {
 };
 
 struct route_hop {
-	struct short_channel_id channel_id;
+	struct short_channel_id scid;
 	int direction;
-	struct node_id nodeid;
+	struct node_id node_id;
 	struct amount_msat amount;
 	u32 delay;
 	struct pubkey *blinding;

@@ -2738,8 +2738,8 @@ struct route_hop **get_route(const tal_t *ctx, struct routing_state *rstate,
 		int idx = half_chan_to(n, route[i]);
 		c = &route[i]->half[idx];
 		hops[i] = tal(hops, struct route_hop);
-		hops[i]->channel_id = route[i]->scid;
-		hops[i]->nodeid = n->id;
+		hops[i]->scid = route[i]->scid;
+		hops[i]->node_id = n->id;
 		hops[i]->amount = total_amount;
 		hops[i]->delay = total_delay;
 		hops[i]->direction = idx;

@@ -62,8 +62,8 @@ struct route_hop *fromwire_route_hop(const tal_t *ctx,
 	struct route_hop *entry = tal(ctx, struct route_hop);
 	size_t enclen;
 
-	fromwire_node_id(pptr, max, &entry->nodeid);
-	fromwire_short_channel_id(pptr, max, &entry->channel_id);
+	fromwire_node_id(pptr, max, &entry->node_id);
+	fromwire_short_channel_id(pptr, max, &entry->scid);
 	entry->direction = fromwire_u8(pptr, max);
 	entry->amount = fromwire_amount_msat(pptr, max);
 	entry->delay = fromwire_u32(pptr, max);
@@ -82,8 +82,8 @@ struct route_hop *fromwire_route_hop(const tal_t *ctx,
 
 void towire_route_hop(u8 **pptr, const struct route_hop *entry)
 {
-	towire_node_id(pptr, &entry->nodeid);
-	towire_short_channel_id(pptr, &entry->channel_id);
+	towire_node_id(pptr, &entry->node_id);
+	towire_short_channel_id(pptr, &entry->scid);
 	towire_u8(pptr, entry->direction);
 	towire_amount_msat(pptr, entry->amount);
 	towire_u32(pptr, entry->delay);
