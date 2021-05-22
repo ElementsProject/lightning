@@ -48,12 +48,12 @@ static struct route_hop *least_cost(struct gossmap *map,
 	}
 	if (!amount_msat_add(&maxcost, sent, budget))
 		abort();
-	if (amount_msat_greater(dijkstra_amount(dij, srcidx), maxcost)) {
+	path = route_from_dijkstra(map, map, dij, src, sent, 0);
+	if (amount_msat_greater(path[0].amount, maxcost)) {
 		printf("failed (too expensive)\n");
-		return NULL;
+		return tal_free(path);
 	}
 
-	path = route_from_dijkstra(map, map, dij, src, sent, 0);
 	printf("# path length %zu\n", tal_count(path));
 	/* We don't pay fee on first hop! */
 	if (!amount_msat_sub(&fee, path[0].amount, sent))
