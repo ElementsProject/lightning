@@ -134,6 +134,11 @@ int gossmap_chan_get_feature(const struct gossmap *map,
 			     const struct gossmap_chan *c,
 			     int fbit);
 
+/* Return the feature bitmap */
+u8 *gossmap_chan_get_features(const tal_t *ctx,
+			      const struct gossmap *map,
+			      const struct gossmap_chan *c);
+
 /* Return the feature bit (odd or even), or -1 if neither (or no announcement) */
 int gossmap_node_get_feature(const struct gossmap *map,
 			     const struct gossmap_node *n,

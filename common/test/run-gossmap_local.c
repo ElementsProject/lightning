@@ -402,6 +402,11 @@ int main(int argc, char *argv[])
 	assert(amount_msat_eq(htlc_minimum_msat, AMOUNT_MSAT(0)));
 	assert(amount_msat_eq(htlc_maximum_msat, AMOUNT_MSAT(990000000)));
 
+	assert(tal_bytelen(gossmap_chan_get_features(tmpctx, map,
+						     gossmap_find_chan(map, &scid12))) == 0);
+	assert(tal_bytelen(gossmap_chan_get_features(tmpctx, map,
+						     gossmap_find_chan(map, &scid23))) == 0);
+
 	/* Now, let's add a new channel l1 -> l4. */
 	mods = gossmap_localmods_new(tmpctx);
 	assert(node_id_from_hexstr("0382ce59ebf18be7d84677c2e35f23294b9992ceca95491fcf8a56c6cb2d9de199", 66, &l4));
