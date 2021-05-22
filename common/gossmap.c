@@ -1087,9 +1087,18 @@ u8 *gossmap_chan_get_announce(const tal_t *ctx,
 			      const struct gossmap *map,
 			      const struct gossmap_chan *c)
 {
-	u16 len = map_be16(map, c->cann_off);
-	u8 *msg = tal_arr(ctx, u8, len);
+	u32 len;
+	u8 *msg;
+	u32 pre_off;
 
+	/* We need to go back to struct gossip_hdr to get len */
+	if (c->private)
+		pre_off = 2 + 8 + 2 + sizeof(struct gossip_hdr);
+	else
+		pre_off = sizeof(struct gossip_hdr);
+	len = (map_be32(map, c->cann_off - pre_off) & GOSSIP_STORE_LEN_MASK);
+
+	msg = tal_arr(ctx, u8, len);
 	map_copy(map, c->cann_off, msg, len);
 	return msg;
 }
@@ -1099,13 +1108,14 @@ u8 *gossmap_node_get_announce(const tal_t *ctx,
 			      const struct gossmap *map,
 			      const struct gossmap_node *n)
 {
-	u16 len;
+	u32 len;
 	u8 *msg;
 
 	if (n->nann_off == 0)
 		return NULL;
 
-	len = map_be16(map, n->nann_off);
+	len = (map_be32(map, n->nann_off - sizeof(struct gossip_hdr))
+	       & GOSSIP_STORE_LEN_MASK);
 	msg = tal_arr(ctx, u8, len);
 
 	map_copy(map, n->nann_off, msg, len);
