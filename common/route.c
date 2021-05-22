@@ -51,7 +51,8 @@ static u32 costs_to_score(struct amount_msat cost,
 /* Prioritize distance over costs */
 u64 route_score_shorter(u32 distance,
 			struct amount_msat cost,
-			struct amount_msat risk)
+			struct amount_msat risk,
+			const struct gossmap_chan *c UNUSED)
 {
 	return costs_to_score(cost, risk) + ((u64)distance << 32);
 }
@@ -59,7 +60,8 @@ u64 route_score_shorter(u32 distance,
 /* Prioritize costs over distance */
 u64 route_score_cheaper(u32 distance,
 			struct amount_msat cost,
-			struct amount_msat risk)
+			struct amount_msat risk,
+			const struct gossmap_chan *c UNUSED)
 {
 	return ((u64)costs_to_score(cost, risk) << 32) + distance;
 }

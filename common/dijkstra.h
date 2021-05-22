@@ -23,7 +23,8 @@ dijkstra_(const tal_t *ctx,
 			     void *arg),
 	  u64 (*path_score)(u32 distance,
 			    struct amount_msat cost,
-			    struct amount_msat risk),
+			    struct amount_msat risk,
+			    const struct gossmap_chan *c),
 	  void *arg);
 
 #define dijkstra(ctx, map, start, amount, riskfactor, channel_ok,	\
