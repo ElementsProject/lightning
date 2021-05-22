@@ -58,7 +58,6 @@ HTABLE_DEFINE_TYPE(ptrint_t, nodeidx_id, nodeid_hash, nodeidx_eq_id,
 struct gossmap {
 	/* The file descriptor and filename to monitor */
 	int fd;
-	int st_dev, st_ino;
 	const char *fname;
 
 	/* The memory map of the file: u8 for arithmetic portability */
@@ -569,6 +568,21 @@ static void node_announcement(struct gossmap *map, size_t nann_off)
 	n->nann_off = nann_off;
 }
 
+static void reopen_store(struct gossmap *map, size_t ended_off)
+{
+	int fd = open(map->fname, O_RDONLY);
+
+	if (fd < 0)
+		err(1, "Failed to reopen %s", map->fname);
+
+	/* This tells us the equivalent offset in new map */
+	map->map_end = map_be64(map, ended_off + 2);
+
+	close(map->fd);
+	map->fd = fd;
+	gossmap_refresh(map);
+}
+
 static bool map_catchup(struct gossmap *map)
 {
 	size_t reclen;
@@ -605,6 +619,8 @@ static bool map_catchup(struct gossmap *map)
 			remove_channel_by_deletemsg(map, off);
 		else if (type == WIRE_NODE_ANNOUNCEMENT)
 			node_announcement(map, off);
+		else if (type == WIRE_GOSSIP_STORE_ENDED)
+			reopen_store(map, off);
 		else
 			continue;
 
@@ -616,16 +632,11 @@ static bool map_catchup(struct gossmap *map)
 
 static bool load_gossip_store(struct gossmap *map)
 {
-	struct stat st;
-
 	map->fd = open(map->fname, O_RDONLY);
 	if (map->fd < 0)
 		return false;
 
-	fstat(map->fd, &st);
-	map->st_dev = st.st_dev;
-	map->st_ino = st.st_ino;
-	map->map_size = st.st_size;
+	map->map_size = lseek(map->fd, 0, SEEK_END);
 	map->local = NULL;
 	/* If this fails, we fall back to read */
 	map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
@@ -645,12 +656,12 @@ static bool load_gossip_store(struct gossmap *map)
 	 * and 10000 nodes, let's assume each channel gets about 750 bytes.
 	 *
 	 * We halve this, since often some records are deleted. */
-	chanidx_htable_init_sized(&map->channels, st.st_size / 750 / 2);
-	nodeidx_htable_init_sized(&map->nodes, st.st_size / 2500 / 2);
+	chanidx_htable_init_sized(&map->channels, map->map_size / 750 / 2);
+	nodeidx_htable_init_sized(&map->nodes, map->map_size / 2500 / 2);
 
-	map->chan_arr = tal_arr(map, struct gossmap_chan, st.st_size / 750 / 2 + 1);
+	map->chan_arr = tal_arr(map, struct gossmap_chan, map->map_size / 750 / 2 + 1);
 	map->freed_chans = init_chan_arr(map->chan_arr, 0);
-	map->node_arr = tal_arr(map, struct gossmap_node, st.st_size / 2500 / 2 + 1);
+	map->node_arr = tal_arr(map, struct gossmap_node, map->map_size / 2500 / 2 + 1);
 	map->freed_nodes = init_node_arr(map->node_arr, 0);
 
 	map->map_end = 1;
@@ -901,31 +912,19 @@ void gossmap_remove_localmods(struct gossmap *map,
 
 bool gossmap_refresh(struct gossmap *map)
 {
-	struct stat st;
+	off_t len;
 
-	/* You must remoe local updates before this. */
+	/* You must remove local updates before this. */
 	assert(!map->local);
 
-	/* If file has changed, move to it. */
-	if (stat(map->fname, &st) != 0)
-		err(1, "statting %s", map->fname);
-
-	if (map->st_ino != st.st_ino || map->st_dev != st.st_dev) {
-		destroy_map(map);
-		tal_free(map->chan_arr);
-		tal_free(map->node_arr);
-		if (!load_gossip_store(map))
-			err(1, "reloading %s", map->fname);
-		return true;
-	}
-
 	/* If file has gotten larger, try rereading */
-	if (st.st_size == map->map_size)
+	len = lseek(map->fd, 0, SEEK_END);
+	if (len == map->map_size)
 		return false;
 
 	if (map->mmap)
 		munmap(map->mmap, map->map_size);
-	map->map_size = st.st_size;
+	map->map_size = len;
 	map->mmap = mmap(NULL, map->map_size, PROT_READ, MAP_SHARED, map->fd, 0);
 	if (map->mmap == MAP_FAILED)
 		map->mmap = NULL;
