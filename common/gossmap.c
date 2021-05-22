@@ -577,9 +577,7 @@ static bool map_catchup(struct gossmap *map)
 		u16 type;
 
 		map_copy(map, map->map_end, &ghdr, sizeof(ghdr));
-		reclen = (be32_to_cpu(ghdr.len)
-			  & ~(GOSSIP_STORE_LEN_DELETED_BIT|
-			      GOSSIP_STORE_LEN_PUSH_BIT))
+		reclen = (be32_to_cpu(ghdr.len) & GOSSIP_STORE_LEN_MASK)
 			+ sizeof(ghdr);
 
 		if (be32_to_cpu(ghdr.len) & GOSSIP_STORE_LEN_DELETED_BIT)
@@ -945,6 +943,39 @@ void gossmap_node_get_id(const struct gossmap *map,
 
 	map_nodeid(map, c->cann_off + c->plus_scid_off
 		   + 8 + PUBKEY_CMPR_LEN*dir, id);
+}
+
+bool gossmap_chan_get_capacity(const struct gossmap *map,
+			       const struct gossmap_chan *c,
+			       struct amount_sat *amount)
+{
+	struct gossip_hdr ghdr;
+	size_t off;
+	u16 type;
+
+	/* For private, we need to go back WIRE_GOSSIP_STORE_PRIVATE_CHANNEL,
+	 * which is 8 (satoshis) + 2 (len) */
+	if (c->private) {
+		*amount = amount_sat(map_be64(map, c->cann_off - 8 - 2));
+		return true;
+	}
+
+	/* Skip over this record to next; expect a gossip_store_channel_amount */
+	off = c->cann_off - sizeof(ghdr);
+	map_copy(map, off, &ghdr, sizeof(ghdr));
+	off += sizeof(ghdr) + (be32_to_cpu(ghdr.len) & GOSSIP_STORE_LEN_MASK);
+
+	/* Partial write, this can happen. */
+	if (off + sizeof(ghdr) + 2 > map->map_size)
+		return false;
+
+	/* Get type of next field. */
+	type = map_be16(map, off + sizeof(ghdr));
+	if (type != WIRE_GOSSIP_STORE_CHANNEL_AMOUNT)
+		return false;
+
+	*amount = amount_sat(map_be64(map, off + sizeof(ghdr) + sizeof(be16)));
+	return true;
 }
 
 struct gossmap_chan *gossmap_nth_chan(const struct gossmap *map,
