@@ -1140,6 +1140,22 @@ int gossmap_chan_get_feature(const struct gossmap *map,
 				c->cann_off + feature_len_off + 2, feature_len);
 }
 
+u8 *gossmap_chan_get_features(const tal_t *ctx,
+			      const struct gossmap *map,
+			      const struct gossmap_chan *c)
+{
+	u8 *ret;
+	/* Note that first two bytes are message type */
+	const size_t feature_len_off = 2 + (64 + 64 + 64 + 64);
+	size_t feature_len;
+
+	feature_len = map_be16(map, c->cann_off + feature_len_off);
+	ret = tal_arr(ctx, u8, feature_len);
+
+	map_copy(map, c->cann_off + feature_len_off + 2, ret, feature_len);
+	return ret;
+}
+
 /* BOLT #7:
  * 1. type: 258 (`channel_update`)
  * 2. data:
