@@ -116,15 +116,9 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
 void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES)
 {
 	u8 *gossip;
-	u64 offset_shorter;
 
-	if (fromwire_gossipd_new_store_fd(msg, &offset_shorter)) {
-		gossip_store_switch_fd(pps, fdpass_recv(pps->gossip_fd),
-				       offset_shorter);
-		goto out;
-	} else
-		/* It's a raw gossip msg: this copies or takes() */
-		gossip = tal_dup_talarr(tmpctx, u8, msg);
+	/* It's a raw gossip msg: this copies or takes() */
+	gossip = tal_dup_talarr(tmpctx, u8, msg);
 
 	/* Gossipd can send us gossip messages, OR warnings */
 	if (fromwire_peektype(gossip) == WIRE_WARNING) {
@@ -133,10 +127,6 @@ void handle_gossip_msg(struct per_peer_state *pps, const u8 *msg TAKES)
 	} else {
 		sync_crypto_write(pps, gossip);
 	}
-
-out:
-	if (taken(msg))
-		tal_free(msg);
 }
 
 /* takes iff returns true */

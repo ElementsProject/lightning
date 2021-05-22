@@ -8,7 +8,11 @@
 #include <common/status.h>
 #include <common/utils.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <inttypes.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
 
@@ -72,6 +76,32 @@ static void failed_read(int fd, int len)
 	lseek(fd, -len, SEEK_CUR);
 }
 
+static void reopen_gossip_store(struct per_peer_state *pps,
+				const u8 *msg)
+{
+	u64 equivalent_offset;
+	int newfd;
+
+	if (!fromwire_gossip_store_ended(msg, &equivalent_offset))
+		status_failed(STATUS_FAIL_GOSSIP_IO,
+			      "Bad gossipd GOSSIP_STORE_ENDED msg: %s",
+			      tal_hex(tmpctx, msg));
+
+	newfd = open(GOSSIP_STORE_FILENAME, O_RDONLY);
+	if (newfd < 0)
+		status_failed(STATUS_FAIL_INTERNAL_ERROR,
+			      "Cannot open %s: %s",
+			      GOSSIP_STORE_FILENAME,
+			      strerror(errno));
+
+	status_debug("gossip_store at end, new fd moved to %"PRIu64,
+		     equivalent_offset);
+	lseek(newfd, equivalent_offset, SEEK_SET);
+
+	close(pps->gossip_store_fd);
+	pps->gossip_store_fd = newfd;
+}
+
 u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 {
 	u8 *msg = NULL;
@@ -132,9 +162,11 @@ u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 			continue;
 		}
 
-		/* Ignore gossipd internal messages. */
 		type = fromwire_peektype(msg);
-		if (type != WIRE_CHANNEL_ANNOUNCEMENT
+		if (type == WIRE_GOSSIP_STORE_ENDED)
+			reopen_gossip_store(pps, msg);
+		/* Ignore gossipd internal messages. */
+		else if (type != WIRE_CHANNEL_ANNOUNCEMENT
 		    && type != WIRE_CHANNEL_UPDATE
 		    && type != WIRE_NODE_ANNOUNCEMENT)
 			msg = tal_free(msg);
@@ -143,55 +175,4 @@ u8 *gossip_store_next(const tal_t *ctx, struct per_peer_state *pps)
 	}
 
 	return msg;
-}
-
-/* newfd is at offset 1.  We need to adjust it to similar offset as our
- * current one. */
-void gossip_store_switch_fd(struct per_peer_state *pps,
-			    int newfd, u64 offset_shorter)
-{
-	u64 cur = lseek(pps->gossip_store_fd, 0, SEEK_CUR);
-
-	/* If we're already at end (common), we know where to go in new one. */
-	if (cur == lseek(pps->gossip_store_fd, 0, SEEK_END)) {
-		status_debug("gossip_store at end, new fd moved to %"PRIu64,
-			     cur - offset_shorter);
-		assert(cur > offset_shorter);
-		lseek(newfd, cur - offset_shorter, SEEK_SET);
-	} else if (cur > offset_shorter) {
-		/* We're part way through.  Worst case, we should move back by
-		 * offset_shorter (that's how much the *end* moved), but in
-		 * practice we'll probably end up retransmitting some stuff */
-		u64 target = cur - offset_shorter;
-		size_t num = 0;
-
-		status_debug("gossip_store new fd moving back %"PRIu64
-			     " to %"PRIu64,
-			     cur, target);
-		cur = 1;
-		while (cur < target) {
-			u32 msglen;
-			struct gossip_hdr hdr;
-
-			if (read(newfd, &hdr, sizeof(hdr)) != sizeof(hdr))
-				status_failed(STATUS_FAIL_INTERNAL_ERROR,
-					      "gossip_store: "
-					      "can't read hdr offset %"PRIu64
-					      " in new store target %"PRIu64,
-					      cur, target);
-			/* Skip over it. */
-			msglen = (be32_to_cpu(hdr.len)
-				  & ~GOSSIP_STORE_LEN_DELETED_BIT);
-			cur = lseek(newfd, msglen, SEEK_CUR);
-			num++;
-		}
-		status_debug("gossip_store: skipped %zu records to %"PRIu64,
-			     num, cur);
-	} else
-		status_debug("gossip_store new fd moving back %"PRIu64
-			     " to start (offset_shorter=%"PRIu64")",
-			     cur, offset_shorter);
-
-	close(pps->gossip_store_fd);
-	pps->gossip_store_fd = newfd;
 }

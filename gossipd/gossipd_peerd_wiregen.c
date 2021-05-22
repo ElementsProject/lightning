@@ -24,7 +24,6 @@ const char *gossipd_peerd_wire_name(int e)
 	case WIRE_GOSSIPD_GET_UPDATE: return "WIRE_GOSSIPD_GET_UPDATE";
 	case WIRE_GOSSIPD_GET_UPDATE_REPLY: return "WIRE_GOSSIPD_GET_UPDATE_REPLY";
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE: return "WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE";
-	case WIRE_GOSSIPD_NEW_STORE_FD: return "WIRE_GOSSIPD_NEW_STORE_FD";
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT: return "WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT";
 	}
 
@@ -38,7 +37,6 @@ bool gossipd_peerd_wire_is_defined(u16 type)
 	case WIRE_GOSSIPD_GET_UPDATE:;
 	case WIRE_GOSSIPD_GET_UPDATE_REPLY:;
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_UPDATE:;
-	case WIRE_GOSSIPD_NEW_STORE_FD:;
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT:;
 	      return true;
 	}
@@ -135,30 +133,6 @@ bool fromwire_gossipd_local_channel_update(const void *p, struct short_channel_i
 	return cursor != NULL;
 }
 
-/* WIRE: GOSSIPD_NEW_STORE_FD */
-/* Update your gossip_store fd: + gossip_store_fd */
-u8 *towire_gossipd_new_store_fd(const tal_t *ctx, u64 offset_shorter)
-{
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_GOSSIPD_NEW_STORE_FD);
-	/* How much shorter the new store is */
-	towire_u64(&p, offset_shorter);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_gossipd_new_store_fd(const void *p, u64 *offset_shorter)
-{
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_NEW_STORE_FD)
-		return false;
- 	/* How much shorter the new store is */
-	*offset_shorter = fromwire_u64(&cursor, &plen);
-	return cursor != NULL;
-}
-
 /* WIRE: GOSSIPD_LOCAL_CHANNEL_ANNOUNCEMENT */
 /* Send this channel_announcement */
 u8 *towire_gossipd_local_channel_announcement(const tal_t *ctx, const u8 *cannount)
@@ -187,4 +161,4 @@ bool fromwire_gossipd_local_channel_announcement(const tal_t *ctx, const void *p
 	fromwire_u8_array(&cursor, &plen, *cannount, len);
 	return cursor != NULL;
 }
-// SHA256STAMP:3ffcd3b7d7815b6fbeaadc1b3b7235190eb584284f47e46ab8518eac91fd71b5
+// SHA256STAMP:2ef99c782b9877add7912c680d3a48bed3372c6a6fe2410716651dbe777493eb
