@@ -18,6 +18,7 @@ GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/setup.o				\
 	common/type_to_string.o			\
 	common/utils.o				\
+	gossipd/gossip_store_wiregen.o		\
 	wire/peer$(EXP)_wiregen.o		\
 	wire/fromwire.o				\
 	wire/tlvstream.o			\
