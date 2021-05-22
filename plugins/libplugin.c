@@ -1619,8 +1619,8 @@ static bool json_to_route_hop_inplace(struct route_hop *dst, const char *buffer,
 	    amounttok == NULL || delaytok == NULL || styletok == NULL)
 		return false;
 
-	json_to_node_id(buffer, idtok, &dst->nodeid);
-	json_to_short_channel_id(buffer, channeltok, &dst->channel_id);
+	json_to_node_id(buffer, idtok, &dst->node_id);
+	json_to_short_channel_id(buffer, channeltok, &dst->scid);
 	json_to_int(buffer, directiontok, &dst->direction);
 	json_to_msat(buffer, amounttok, &dst->amount);
 	json_to_number(buffer, delaytok, &dst->delay);

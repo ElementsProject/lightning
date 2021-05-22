@@ -395,7 +395,7 @@ static void payment_exclude_most_expensive(struct payment *p)
 			worst = fee;
 		}
 	}
-	channel_hints_update(p, e->channel_id, e->direction, false, false,
+	channel_hints_update(p, e->scid, e->direction, false, false,
 			     NULL, NULL);
 }
 
@@ -411,7 +411,7 @@ static void payment_exclude_longest_delay(struct payment *p)
 			worst = delay;
 		}
 	}
-	channel_hints_update(p, e->channel_id, e->direction, false, false,
+	channel_hints_update(p, e->scid, e->direction, false, false,
 			     NULL, NULL);
 }
 
@@ -457,7 +457,7 @@ static struct channel_hint *payment_chanhints_get(struct payment *p,
 	struct channel_hint *curhint;
 	for (size_t j = 0; j < tal_count(root->channel_hints); j++) {
 		curhint = &root->channel_hints[j];
-		if (short_channel_id_eq(&curhint->scid.scid, &h->channel_id) &&
+		if (short_channel_id_eq(&curhint->scid.scid, &h->scid) &&
 		    curhint->scid.dir == h->direction) {
 			return curhint;
 		}
@@ -700,13 +700,13 @@ static struct route_hop *route_hops_from_route(const tal_t *ctx,
 	for (size_t i = 0; i < tal_count(hops); i++) {
 		const struct gossmap_node *dst;
 
-		hops[i].channel_id = gossmap_chan_scid(gossmap, r[i]->c);
+		hops[i].scid = gossmap_chan_scid(gossmap, r[i]->c);
 		hops[i].direction = r[i]->dir;
 		hops[i].blinding = NULL;
 
 		/* nodeid is nodeid of *dst* */
 		dst = gossmap_nth_node(gossmap, r[i]->c, !r[i]->dir);
-		gossmap_node_get_id(gossmap, dst, &hops[i].nodeid);
+		gossmap_node_get_id(gossmap, dst, &hops[i].node_id);
 		if (gossmap_node_get_feature(gossmap, dst, OPT_VAR_ONION) != -1)
 			hops[i].style = ROUTE_HOP_TLV;
 		else
@@ -1038,7 +1038,7 @@ static void payment_result_infer(struct route_hop *route,
 	assert(i <= len);
 
 	if (r->erring_node == NULL)
-		r->erring_node = &route[i-1].nodeid;
+		r->erring_node = &route[i-1].node_id;
 
 	/* The above assert was enough for the erring_node, but might be off
 	 * by one on channel and direction, in case the destination failed on
@@ -1047,7 +1047,7 @@ static void payment_result_infer(struct route_hop *route,
 		return;
 
 	if (r->erring_channel == NULL)
-		r->erring_channel = &route[i].channel_id;
+		r->erring_channel = &route[i].scid;
 
 	if (r->erring_direction == NULL)
 		r->erring_direction = &route[i].direction;
@@ -1059,7 +1059,7 @@ static void report_tampering(struct payment *p,
 			     size_t report_pos,
 			     const char *style)
 {
-	const struct node_id *id = &p->route[report_pos].nodeid;
+	const struct node_id *id = &p->route[report_pos].node_id;
 
 	if (report_pos == 0) {
 		paymod_log(p, LOG_UNUSUAL,
@@ -1074,7 +1074,7 @@ static void report_tampering(struct payment *p,
 			   type_to_string(tmpctx, struct node_id, id),
 			   report_pos,
 			   type_to_string(tmpctx, struct node_id,
-					  &p->route[report_pos-1].nodeid),
+					  &p->route[report_pos-1].node_id),
 			   style);
 	}
 }
@@ -1251,7 +1251,7 @@ handle_intermediate_failure(struct command *cmd,
 		   type_to_string(tmpctx, struct node_id, errnode),
 		   failcode, onion_wire_name(failcode),
 		   type_to_string(tmpctx, struct short_channel_id,
-				  &errchan->channel_id),
+				  &errchan->scid),
 		   p->routetxt);
 
 	/* We use an exhaustive switch statement here so you get a compile
@@ -1279,7 +1279,7 @@ handle_intermediate_failure(struct command *cmd,
 	case WIRE_UNKNOWN_NEXT_PEER:
 	case WIRE_REQUIRED_CHANNEL_FEATURE_MISSING:
 		/* All of these result in the channel being marked as disabled. */
-		channel_hints_update(root, errchan->channel_id,
+		channel_hints_update(root, errchan->scid,
 				     errchan->direction, false, false, NULL,
 				     NULL);
 		break;
@@ -1287,7 +1287,7 @@ handle_intermediate_failure(struct command *cmd,
 	case WIRE_TEMPORARY_CHANNEL_FAILURE: {
 		/* These are an indication that the capacity was insufficient,
 		 * remember the amount we tried as an estimate. */
-		channel_hints_update(root, errchan->channel_id,
+		channel_hints_update(root, errchan->scid,
 				     errchan->direction, true, false,
 				     &errchan->amount, NULL);
 		goto error;
@@ -1358,7 +1358,7 @@ static bool assign_blame(const struct payment *p,
 	/* Final node *shouldn't* report BADONION, but don't assume. */
 	if (index >= tal_count(p->route)) {
 		*errchan = NULL;
-		*errnode = &p->route[tal_count(p->route) - 1].nodeid;
+		*errnode = &p->route[tal_count(p->route) - 1].node_id;
 		return true;
 	}
 
@@ -1366,7 +1366,7 @@ static bool assign_blame(const struct payment *p,
 	if (index == 0)
 		*errnode = p->local_id;
 	else
-		*errnode = &p->route[index - 1].nodeid;
+		*errnode = &p->route[index - 1].node_id;
 	return true;
 }
 
@@ -1547,11 +1547,11 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	json_add_hex_talarr(req->js, "onion", p->createonion_response->onion);
 
 	json_object_start(req->js, "first_hop");
-	json_add_short_channel_id(req->js, "channel", &first->channel_id);
+	json_add_short_channel_id(req->js, "channel", &first->scid);
 	json_add_num(req->js, "direction", first->direction);
 	json_add_amount_msat_only(req->js, "amount_msat", first->amount);
 	json_add_num(req->js, "delay", first->delay);
-	json_add_node_id(req->js, "id", &first->nodeid);
+	json_add_node_id(req->js, "id", &first->node_id);
 	json_object_end(req->js);
 
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
@@ -1616,7 +1616,7 @@ static void payment_add_hop_onion_payload(struct payment *p,
 	dst->style = node->style;
 	if (force_tlv)
 		dst->style = ROUTE_HOP_TLV;
-	dst->pubkey = node->nodeid;
+	dst->pubkey = node->node_id;
 
 	switch (dst->style) {
 	case ROUTE_HOP_LEGACY:
@@ -1624,7 +1624,7 @@ static void payment_add_hop_onion_payload(struct payment *p,
 		dst->legacy_payload->forward_amt = next->amount;
 
 		if (!final)
-			dst->legacy_payload->scid = next->channel_id;
+			dst->legacy_payload->scid = next->scid;
 		else
 			dst->legacy_payload->scid = all_zero_scid;
 
@@ -1641,7 +1641,7 @@ static void payment_add_hop_onion_payload(struct payment *p,
 		if (!final)
 			tlvstream_set_short_channel_id(fields,
 						       TLV_TLV_PAYLOAD_SHORT_CHANNEL_ID,
-						       &next->channel_id);
+						       &next->scid);
 
 		if (payment_secret != NULL) {
 			assert(final);
@@ -1692,7 +1692,7 @@ static void payment_compute_onion_payloads(struct payment *p)
 					      NULL);
 		tal_append_fmt(&routetxt, "%s -> ",
 			       type_to_string(tmpctx, struct short_channel_id,
-					      &p->route[i].channel_id));
+					      &p->route[i].scid));
 	}
 
 	/* Final hop */
@@ -1702,7 +1702,7 @@ static void payment_compute_onion_payloads(struct payment *p)
 	    root->payment_secret);
 	tal_append_fmt(&routetxt, "%s",
 		       type_to_string(tmpctx, struct short_channel_id,
-				      &p->route[hopcount - 1].channel_id));
+				      &p->route[hopcount - 1].scid));
 
 	paymod_log(p, LOG_DBG,
 		   "Created outgoing onion for route: %s", routetxt);
@@ -2784,9 +2784,9 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 				return payment_continue(p);
 			}
 
-			hop.nodeid = *route_pubkey(p, routehint, i + 1);
+			hop.node_id = *route_pubkey(p, routehint, i + 1);
 			hop.style = ROUTE_HOP_LEGACY;
-			hop.channel_id = routehint[i].short_channel_id;
+			hop.scid = routehint[i].short_channel_id;
 			hop.amount = dest_amount;
 			hop.delay = route_cltv(d->final_cltv, routehint + i + 1,
 					       tal_count(routehint) - i - 1);
@@ -2796,7 +2796,7 @@ static void routehint_step_cb(struct routehints_data *d, struct payment *p)
 			 * it's rather easy to compute given the two
 			 * subsequent hops. */
 			hop.direction =
-			    node_id_cmp(&prev_hop->nodeid, &hop.nodeid) > 0 ? 1
+			    node_id_cmp(&prev_hop->node_id, &hop.node_id) > 0 ? 1
 									    : 0;
 			tal_arr_expand(&p->route, hop);
 		}
@@ -3166,9 +3166,9 @@ static void direct_pay_override(struct payment *p) {
 		p->route = tal_arr(p, struct route_hop, 1);
 		p->route[0].amount = p->amount;
 		p->route[0].delay = p->getroute->cltv;
-		p->route[0].channel_id = hint->scid.scid;
+		p->route[0].scid = hint->scid.scid;
 		p->route[0].direction = hint->scid.dir;
-		p->route[0].nodeid = *p->destination;
+		p->route[0].node_id = *p->destination;
 		p->route[0].style = p->destination_has_tlv ? ROUTE_HOP_TLV : ROUTE_HOP_LEGACY;
 		paymod_log(p, LOG_DBG,
 			   "Found a direct channel (%s) with sufficient "
