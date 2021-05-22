@@ -19,8 +19,9 @@ struct gossmap_node {
 
 struct gossmap_chan {
 	u32 cann_off;
-	/* Technically redundant, but we have a hole anyway. */
-	u32 scid_off;
+	u32 private: 1;
+	/* Technically redundant, but we have a hole anyway: from cann_off */
+	u32 plus_scid_off: 31;
 	/* two nodes we connect (lesser idx first) */
 	struct half_chan {
 		/* Top bit indicates it's enabled */

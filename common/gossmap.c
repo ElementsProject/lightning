@@ -301,10 +301,10 @@ static u32 init_chan_arr(struct gossmap_chan *chan_arr, size_t start)
 	size_t i;
 	for (i = start; i < tal_count(chan_arr) - 1; i++) {
 		chan_arr[i].cann_off = i + 1;
-		chan_arr[i].scid_off = 0;
+		chan_arr[i].plus_scid_off = 0;
 	}
 	chan_arr[i].cann_off = UINT_MAX;
-	chan_arr[i].scid_off = 0;
+	chan_arr[i].plus_scid_off = 0;
 	return start;
 }
 
@@ -327,13 +327,15 @@ static struct gossmap_chan *next_free_chan(struct gossmap *map)
 
 static struct gossmap_chan *new_channel(struct gossmap *map,
 					u32 cannounce_off,
-					u32 scid_off,
+					u32 plus_scid_off,
+					bool private,
 					u32 n1idx, u32 n2idx)
 {
 	struct gossmap_chan *chan = next_free_chan(map);
 
 	chan->cann_off = cannounce_off;
-	chan->scid_off = scid_off;
+	chan->private = private;
+	chan->plus_scid_off = plus_scid_off;
 	memset(chan->half, 0, sizeof(chan->half));
 	chan->half[0].nodeidx = n1idx;
 	chan->half[1].nodeidx = n2idx;
@@ -371,7 +373,7 @@ void gossmap_remove_chan(struct gossmap *map, struct gossmap_chan *chan)
 	remove_chan_from_node(map, gossmap_nth_node(map, chan, 0), chanidx);
 	remove_chan_from_node(map, gossmap_nth_node(map, chan, 1), chanidx);
 	chan->cann_off = map->freed_chans;
-	chan->scid_off = 0;
+	chan->plus_scid_off = 0;
 	map->freed_chans = chanidx;
 }
 
@@ -396,22 +398,23 @@ void gossmap_remove_node(struct gossmap *map, struct gossmap_node *node)
  *     * [`point`:`node_id_2`]
  */
 static struct gossmap_chan *add_channel(struct gossmap *map,
-					size_t cannounce_off)
+					size_t cannounce_off,
+					bool private)
 {
 	/* Note that first two bytes are message type */
 	const size_t feature_len_off = 2 + (64 + 64 + 64 + 64);
 	size_t feature_len;
-	size_t scid_off;
+	size_t plus_scid_off;
 	struct node_id node_id[2];
 	struct gossmap_node *n[2];
 	struct gossmap_chan *chan;
 	u32 nidx[2];
 
 	feature_len = map_be16(map, cannounce_off + feature_len_off);
-	scid_off = cannounce_off + feature_len_off + 2 + feature_len + 32;
+	plus_scid_off = feature_len_off + 2 + feature_len + 32;
 
-	map_nodeid(map, scid_off + 8, &node_id[0]);
-	map_nodeid(map, scid_off + 8 + PUBKEY_CMPR_LEN, &node_id[1]);
+	map_nodeid(map, cannounce_off + plus_scid_off + 8, &node_id[0]);
+	map_nodeid(map, cannounce_off + plus_scid_off + 8 + PUBKEY_CMPR_LEN, &node_id[1]);
 
 	/* We carefully map pointers to indexes, since new_node can move them! */
 	n[0] = gossmap_find_node(map, &node_id[0]);
@@ -426,7 +429,8 @@ static struct gossmap_chan *add_channel(struct gossmap *map,
 	else
 		nidx[1] = new_node(map);
 
-	chan = new_channel(map, cannounce_off, scid_off, nidx[0], nidx[1]);
+	chan = new_channel(map, cannounce_off, plus_scid_off, private,
+			   nidx[0], nidx[1]);
 
 	/* Now we have a channel, we can add nodes to htable */
 	if (!n[0])
@@ -530,7 +534,7 @@ struct short_channel_id gossmap_chan_scid(const struct gossmap *map,
 					  const struct gossmap_chan *c)
 {
 	struct short_channel_id scid;
-	scid.u64 = map_be64(map, c->scid_off);
+	scid.u64 = map_be64(map, c->cann_off + c->plus_scid_off);
 
 	return scid;
 }
@@ -588,9 +592,9 @@ static bool map_catchup(struct gossmap *map)
 		off = map->map_end + sizeof(ghdr);
 		type = map_be16(map, off);
 		if (type == WIRE_CHANNEL_ANNOUNCEMENT)
-			add_channel(map, off);
+			add_channel(map, off, false);
 		else if (type == WIRE_GOSSIP_STORE_PRIVATE_CHANNEL)
-			add_channel(map, off + 2 + 8 + 2);
+			add_channel(map, off + 2 + 8 + 2, true);
 		else if (type == WIRE_CHANNEL_UPDATE)
 			update_channel(map, off);
 		else if (type == WIRE_GOSSIP_STORE_PRIVATE_UPDATE)
@@ -842,7 +846,8 @@ void gossmap_apply_localmods(struct gossmap *map,
 				continue;
 
 			/* Create new channel, pointing into local. */
-			chan = add_channel(map, map->map_size + mod->local_off);
+			chan = add_channel(map, map->map_size + mod->local_off,
+					   true);
 		}
 
 		/* Save old, overwrite (keep nodeidx) */
@@ -938,7 +943,8 @@ void gossmap_node_get_id(const struct gossmap *map,
 	int dir;
 	struct gossmap_chan *c = gossmap_nth_chan(map, node, 0, &dir);
 
-	map_nodeid(map, c->scid_off + 8 + PUBKEY_CMPR_LEN*dir, id);
+	map_nodeid(map, c->cann_off + c->plus_scid_off
+		   + 8 + PUBKEY_CMPR_LEN*dir, id);
 }
 
 struct gossmap_chan *gossmap_nth_chan(const struct gossmap *map,
@@ -1005,7 +1011,7 @@ size_t gossmap_num_chans(const struct gossmap *map)
 static struct gossmap_chan *chan_iter(const struct gossmap *map, size_t start)
 {
 	for (size_t i = start; i < tal_count(map->chan_arr); i++) {
-		if (map->chan_arr[i].scid_off != 0)
+		if (map->chan_arr[i].plus_scid_off != 0)
 			return &map->chan_arr[i];
 	}
 	return NULL;
