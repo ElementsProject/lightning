@@ -3,6 +3,7 @@
 #include "config.h"
 
 #include <common/bolt11.h>
+#include <common/route.h>
 #include <plugins/libplugin.h>
 #include <wire/onion_wire.h>
 

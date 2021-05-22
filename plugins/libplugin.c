@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
 #include <common/json_stream.h>
+#include <common/route.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <plugins/libplugin.h>

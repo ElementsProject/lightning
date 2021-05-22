@@ -2,14 +2,41 @@
 #ifndef LIGHTNING_COMMON_ROUTE_H
 #define LIGHTNING_COMMON_ROUTE_H
 #include "config.h"
+#include <bitcoin/short_channel_id.h>
 #include <common/amount.h>
+#include <common/node_id.h>
 
 struct dijkstra;
 struct gossmap;
+struct gossmap_chan;
+struct gossmap_node;
 
-struct route {
-	int dir;
-	struct gossmap_chan *c;
+enum route_hop_style {
+	ROUTE_HOP_LEGACY = 1,
+	ROUTE_HOP_TLV = 2,
+};
+
+/**
+ * struct route_hop: a hop in a route.
+ *
+ * @scid: the short_channel_id.
+ * @direction: 0 (dest node_id < src node_id), 1 (dest node_id > src).
+ * @node_id: the node_id of the destination of this hop.
+ * @amount: amount to send through this hop.
+ * @delay: total cltv delay at this hop.
+ * @blinding: blinding key for this hop (if any)
+ * @enctlv: encrypted TLV for this hop (if any)
+ * @style: onion encoding style for this hop.
+ */
+struct route_hop {
+	struct short_channel_id scid;
+	int direction;
+	struct node_id node_id;
+	struct amount_msat amount;
+	u32 delay;
+	struct pubkey *blinding;
+	u8 *enctlv;
+	enum route_hop_style style;
 };
 
 /* Can c carry amount in dir? */
@@ -37,8 +64,10 @@ u64 route_score_cheaper(u32 distance,
 			struct amount_msat risk);
 
 /* Extract route tal_arr from completed dijkstra: NULL if none. */
-struct route **route_from_dijkstra(const tal_t *ctx,
-				   const struct gossmap *map,
-				   const struct dijkstra *dij,
-				   const struct gossmap_node *cur);
+struct route_hop *route_from_dijkstra(const tal_t *ctx,
+				      const struct gossmap *map,
+				      const struct dijkstra *dij,
+				      const struct gossmap_node *src,
+				      struct amount_msat final_amount,
+				      u32 final_cltv);
 #endif /* LIGHTNING_COMMON_ROUTE_H */

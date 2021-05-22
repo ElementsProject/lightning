@@ -9,6 +9,7 @@
 #include <common/amount.h>
 #include <common/gossip_constants.h>
 #include <common/node_id.h>
+#include <common/route.h>
 #include <gossipd/broadcast.h>
 #include <gossipd/gossip_store.h>
 #include <wire/onion_wire.h>
@@ -136,11 +137,6 @@ static inline bool local_chan_eq_scid(const struct local_chan *local_chan,
 HTABLE_DEFINE_TYPE(struct local_chan,
 		   local_chan_map_scid, hash_scid, local_chan_eq_scid,
 		   local_chan_map);
-
-enum route_hop_style {
-	ROUTE_HOP_LEGACY = 1,
-	ROUTE_HOP_TLV = 2,
-};
 
 /* For a small number of channels (by far the most common) we use a simple
  * array, with empty buckets NULL.  For larger, we use a proper hash table,
@@ -322,17 +318,6 @@ get_channel(const struct routing_state *rstate,
 {
 	return uintmap_get(&rstate->chanmap, scid->u64);
 }
-
-struct route_hop {
-	struct short_channel_id scid;
-	int direction;
-	struct node_id node_id;
-	struct amount_msat amount;
-	u32 delay;
-	struct pubkey *blinding;
-	u8 *enctlv;
-	enum route_hop_style style;
-};
 
 enum exclude_entry_type {
 	EXCLUDE_CHANNEL = 1,

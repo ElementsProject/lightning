@@ -143,14 +143,16 @@ static void add_connection(int store_fd,
 }
 
 static bool channel_is_between(const struct gossmap *gossmap,
-			       const struct route *route,
+			       const struct route_hop *route,
 			       const struct gossmap_node *a,
 			       const struct gossmap_node *b)
 {
-	if (route->c->half[route->dir].nodeidx
+	const struct gossmap_chan *c = gossmap_find_chan(gossmap, &route->scid);
+
+	if (c->half[route->direction].nodeidx
 	    != gossmap_node_idx(gossmap, a))
 		return false;
-	if (route->c->half[!route->dir].nodeidx
+	if (c->half[!route->direction].nodeidx
 	    != gossmap_node_idx(gossmap, b))
 		return false;
 
@@ -177,7 +179,7 @@ int main(void)
 	struct node_id a, b, c, d;
 	struct gossmap_node *a_node, *b_node, *c_node, *d_node;
 	const struct dijkstra *dij;
-	struct route **route;
+	struct route_hop *route;
 	int store_fd;
 	struct gossmap *gossmap;
 	const double riskfactor = 1.0;
@@ -238,17 +240,19 @@ int main(void)
 	dij = dijkstra(tmpctx, gossmap, c_node, AMOUNT_MSAT(1000), riskfactor,
 		       route_can_carry_unless_disabled,
 		       route_score_cheaper, NULL);
-	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node);
+	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node,
+				    AMOUNT_MSAT(1000), 0);
 	assert(route);
 	assert(tal_count(route) == 2);
-	assert(channel_is_between(gossmap, route[0], a_node, b_node));
-	assert(channel_is_between(gossmap, route[1], b_node, c_node));
+	assert(channel_is_between(gossmap, &route[0], a_node, b_node));
+	assert(channel_is_between(gossmap, &route[1], b_node, c_node));
 
 	/* We should not be able to find a route that exceeds our own capacity */
 	dij = dijkstra(tmpctx, gossmap, c_node, AMOUNT_MSAT(1000001), riskfactor,
 		       route_can_carry_unless_disabled,
 		       route_score_cheaper, NULL);
-	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node);
+	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node,
+				    AMOUNT_MSAT(1000), 0);
 	assert(!route);
 
 	/* Now test with a query that exceeds the channel capacity after adding
@@ -256,7 +260,8 @@ int main(void)
 	dij = dijkstra(tmpctx, gossmap, c_node, AMOUNT_MSAT(999999), riskfactor,
 		       route_can_carry_unless_disabled,
 		       route_score_cheaper, NULL);
-	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node);
+	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node,
+				    AMOUNT_MSAT(999999), 0);
 	assert(!route);
 
 	/* This should fail to return a route because it is smaller than these
@@ -264,7 +269,8 @@ int main(void)
 	dij = dijkstra(tmpctx, gossmap, c_node, AMOUNT_MSAT(1), riskfactor,
 		       route_can_carry_unless_disabled,
 		       route_score_cheaper, NULL);
-	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node);
+	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node,
+				    AMOUNT_MSAT(1), 0);
 	assert(!route);
 
 	/* {'active': True, 'short_id': '6990:2:1/0', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 1, 'htlc_maximum_msat': 500000, 'htlc_minimum_msat': 100, 'channel_flags': 0, 'destination': '02cca6c5c966fcf61d121e3a70e03a1cd9eeeea024b26ea666ce974d43b242e636', 'source': '03c173897878996287a8100469f954dd820fcd8941daed91c327f168f3329be0bf', 'last_update': 1504064344}, */
@@ -282,7 +288,8 @@ int main(void)
 	dij = dijkstra(tmpctx, gossmap, d_node, AMOUNT_MSAT(499968), riskfactor,
 		       route_can_carry_unless_disabled,
 		       route_score_cheaper, NULL);
-	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node);
+	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node,
+				    AMOUNT_MSAT(499968), 0);
 	assert(route);
 
 	/* This should fail to return a route because it's larger than the
@@ -290,7 +297,8 @@ int main(void)
 	dij = dijkstra(tmpctx, gossmap, d_node, AMOUNT_MSAT(499968+1), riskfactor,
 		       route_can_carry_unless_disabled,
 		       route_score_cheaper, NULL);
-	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node);
+	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node,
+				    AMOUNT_MSAT(499968+1), 0);
 	assert(!route);
 
 	tal_free(tmpctx);

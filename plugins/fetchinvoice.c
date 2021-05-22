@@ -516,28 +516,6 @@ static bool can_carry_onionmsg(const struct gossmap *map,
 	return n && gossmap_node_get_feature(map, n, OPT_ONION_MESSAGES) != -1;
 }
 
-/* make_blindedpath only needs pubkeys */
-static const struct pubkey *route_backwards(const tal_t *ctx,
-					    const struct gossmap *gossmap,
-					    struct route **r)
-{
-	struct pubkey *rarr;
-
-	rarr = tal_arr(ctx, struct pubkey, tal_count(r));
-	for (size_t i = 0; i < tal_count(r); i++) {
-		const struct gossmap_node *dst;
-		struct node_id id;
-
-		dst = gossmap_nth_node(gossmap, r[i]->c, r[i]->dir);
-		gossmap_node_get_id(gossmap, dst, &id);
-		/* We're going backwards */
-		if (!pubkey_from_node_id(&rarr[tal_count(rarr) - 1 - i], &id))
-			abort();
-	}
-
-	return rarr;
-}
-
 static struct command_result *send_message(struct command *cmd,
 					   struct sent *sent,
 					   const char *msgfield,
@@ -550,7 +528,7 @@ static struct command_result *send_message(struct command *cmd,
 {
 	const struct gossmap_node *dst;
 	struct gossmap *gossmap = get_gossmap(cmd->plugin);
-	const struct pubkey *backwards;
+	struct pubkey *backwards;
 	struct onionmsg_path **path;
 	struct pubkey blinding;
 	struct out_req *req;
@@ -574,7 +552,7 @@ static struct command_result *send_message(struct command *cmd,
 						 nodes[0].k+1,
 						 &sent->offer->node_id->pubkey);
 	} else {
-		struct route **r;
+		struct route_hop *r;
 		const struct dijkstra *dij;
 		const struct gossmap_node *src;
 
@@ -587,25 +565,31 @@ static struct command_result *send_message(struct command *cmd,
 		dij = dijkstra(tmpctx, gossmap, dst, AMOUNT_MSAT(0), 0,
 			       can_carry_onionmsg, route_score_shorter, NULL);
 
-		r = route_from_dijkstra(tmpctx, gossmap, dij, src);
+		r = route_from_dijkstra(tmpctx, gossmap, dij, src, AMOUNT_MSAT(0), 0);
 		if (!r)
 			/* FIXME: try connecting directly. */
 			return command_fail(cmd, OFFER_ROUTE_NOT_FOUND,
 					    "Can't find route");
 
-		backwards = route_backwards(tmpctx, gossmap, r);
-		nodes = tal_arr(tmpctx, struct node_id, tal_count(r));
-		for (size_t i = 0; i < tal_count(r); i++) {
-			gossmap_node_get_id(gossmap,
-					    gossmap_nth_node(gossmap, r[i]->c, !r[i]->dir),
-					    &nodes[i]);
-		}
-	}
+		/* FIXME: Maybe we should allow this? */
+		if (tal_bytelen(r) == 0)
+			return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
+					    "Refusing to talk to ourselves");
 
-	/* FIXME: Maybe we should allow this? */
-	if (tal_bytelen(backwards) == 0)
-		return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
-				    "Refusing to talk to ourselves");
+		nodes = tal_arr(tmpctx, struct node_id, tal_count(r));
+		for (size_t i = 0; i < tal_count(r); i++)
+			nodes[i] = r[i].node_id;
+
+		/* Reverse path is offset by one: we are the final node. */
+		backwards = tal_arr(tmpctx, struct pubkey, tal_count(r));
+		for (size_t i = 0; i < tal_count(r) - 1; i++) {
+			if (!pubkey_from_node_id(&backwards[tal_count(r)-2-i],
+						 &nodes[i]))
+				abort();
+		}
+		if (!pubkey_from_node_id(&backwards[tal_count(r)-1], &local_id))
+			abort();
+	}
 
 	/* Ok, now make reply for onion_message */
 	path = make_blindedpath(tmpctx, backwards, &blinding,

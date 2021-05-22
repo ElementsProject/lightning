@@ -8,7 +8,6 @@
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/random_select.h>
-#include <common/route.h>
 #include <common/type_to_string.h>
 #include <errno.h>
 #include <plugins/libplugin-pay.h>
@@ -687,50 +686,6 @@ static bool payment_route_can_carry_even_disabled(const struct gossmap *map,
 	return payment_route_check(map, c, dir, amount, p);
 }
 
-static struct route_hop *route_hops_from_route(const tal_t *ctx,
-					       struct gossmap *gossmap,
-					       struct amount_msat amount,
-					       u32 final_delay,
-					       struct route **r)
-{
-	struct route_hop *hops = tal_arr(ctx, struct route_hop, tal_count(r));
-	struct amount_msat amt;
-	u32 delay;
-
-	for (size_t i = 0; i < tal_count(hops); i++) {
-		const struct gossmap_node *dst;
-
-		hops[i].scid = gossmap_chan_scid(gossmap, r[i]->c);
-		hops[i].direction = r[i]->dir;
-		hops[i].blinding = NULL;
-
-		/* nodeid is nodeid of *dst* */
-		dst = gossmap_nth_node(gossmap, r[i]->c, !r[i]->dir);
-		gossmap_node_get_id(gossmap, dst, &hops[i].node_id);
-		if (gossmap_node_get_feature(gossmap, dst, OPT_VAR_ONION) != -1)
-			hops[i].style = ROUTE_HOP_TLV;
-		else
-			hops[i].style = ROUTE_HOP_LEGACY;
-	}
-
-	/* Now iterate backwards to derive amount and delay. */
-	amt = amount;
-	delay = final_delay;
-	for (int i = tal_count(hops) - 1; i >= 0; i--) {
-		const struct half_chan *h = &r[i]->c->half[r[i]->dir];
-
-		hops[i].amount = amt;
-		hops[i].delay = delay;
-
-		if (!amount_msat_add_fee(&amt,
-					 h->base_fee, h->proportional_fee))
-			abort();
-		delay += h->delay;
-	}
-
-	return hops;
-}
-
 static struct route_hop *route(const tal_t *ctx,
 			       struct gossmap *gossmap,
 			       const struct gossmap_node *src,
@@ -743,7 +698,7 @@ static struct route_hop *route(const tal_t *ctx,
 			       const char **errmsg)
 {
 	const struct dijkstra *dij;
-	struct route **r;
+	struct route_hop *r;
 	bool (*can_carry)(const struct gossmap *,
 			  const struct gossmap_chan *,
 			  int,
@@ -753,14 +708,15 @@ static struct route_hop *route(const tal_t *ctx,
 	can_carry = payment_route_can_carry;
 	dij = dijkstra(tmpctx, gossmap, dst, amount, riskfactor,
 		       can_carry, route_score_cheaper, p);
-	r = route_from_dijkstra(tmpctx, gossmap, dij, src);
+	r = route_from_dijkstra(ctx, gossmap, dij, src, amount, final_delay);
 	if (!r) {
 		/* Try using disabled channels too */
 		/* FIXME: is there somewhere we can annotate this for paystatus? */
 		can_carry = payment_route_can_carry_even_disabled;
-		dij = dijkstra(tmpctx, gossmap, dst, amount, riskfactor,
+		dij = dijkstra(ctx, gossmap, dst, amount, riskfactor,
 			       can_carry, route_score_cheaper, p);
-		r = route_from_dijkstra(tmpctx, gossmap, dij, src);
+		r = route_from_dijkstra(ctx, gossmap, dij, src,
+					amount, final_delay);
 		if (!r) {
 			*errmsg = "No path found";
 			return NULL;
@@ -769,10 +725,12 @@ static struct route_hop *route(const tal_t *ctx,
 
 	/* If it's too far, fall back to using shortest path. */
 	if (tal_count(r) > max_hops) {
+		tal_free(r);
 		/* FIXME: is there somewhere we can annotate this for paystatus? */
 		dij = dijkstra(tmpctx, gossmap, dst, amount, riskfactor,
 			       can_carry, route_score_shorter, p);
-		r = route_from_dijkstra(tmpctx, gossmap, dij, src);
+		r = route_from_dijkstra(ctx, gossmap, dij, src,
+					amount, final_delay);
 		if (!r) {
 			*errmsg = "No path found";
 			return NULL;
@@ -782,11 +740,11 @@ static struct route_hop *route(const tal_t *ctx,
 		if (tal_count(r) > max_hops) {
 			*errmsg = tal_fmt(ctx, "Shortest path found was length %zu",
 					  tal_count(r));
-			return NULL;
+			return tal_free(r);
 		}
 	}
 
-	return route_hops_from_route(ctx, gossmap, amount, final_delay, r);
+	return r;
 }
 
 static struct command_result *payment_getroute(struct payment *p)
@@ -2658,7 +2616,7 @@ static void routehint_check_reachable(struct payment *p)
 	const struct gossmap_node *dst, *src;
 	struct gossmap *gossmap = get_gossmap(p->plugin);
 	const struct dijkstra *dij;
-	struct route **r;
+	struct route_hop *r;
 	struct payment *root = payment_root(p);
 	struct routehints_data *d = payment_mod_routehints_get_data(root);
 
@@ -2675,7 +2633,8 @@ static void routehint_check_reachable(struct payment *p)
 			       10 / 1000000.0,
 			       payment_route_can_carry_even_disabled,
 			       route_score_cheaper, p);
-		r = route_from_dijkstra(tmpctx, gossmap, dij, src);
+		r = route_from_dijkstra(tmpctx, gossmap, dij, src,
+					AMOUNT_MSAT(1000), 0);
 
 		/* If there was a route the destination is reachable
 		 * without routehints. */

@@ -131,14 +131,15 @@ static void add_connection(int store_fd,
 }
 
 static bool channel_is_between(const struct gossmap *gossmap,
-			       const struct route *route,
+			       const struct route_hop *route,
 			       const struct gossmap_node *a,
 			       const struct gossmap_node *b)
 {
-	if (route->c->half[route->dir].nodeidx
+	const struct gossmap_chan *c = gossmap_find_chan(gossmap, &route->scid);
+	if (c->half[route->direction].nodeidx
 	    != gossmap_node_idx(gossmap, a))
 		return false;
-	if (route->c->half[!route->dir].nodeidx
+	if (c->half[!route->direction].nodeidx
 	    != gossmap_node_idx(gossmap, b))
 		return false;
 
@@ -173,7 +174,7 @@ int main(void)
 	struct gossmap_node *a_node, *b_node, *c_node, *d_node;
 	struct privkey tmp;
 	const struct dijkstra *dij;
-	struct route **route;
+	struct route_hop *route;
 	int store_fd;
 	struct gossmap *gossmap;
 	const double riskfactor = 1.0;
@@ -207,9 +208,11 @@ int main(void)
 		       route_can_carry_unless_disabled,
 		       route_score_cheaper, NULL);
 
-	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node);
+	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node, AMOUNT_MSAT(1000), 10);
 	assert(route);
 	assert(tal_count(route) == 1);
+	assert(amount_msat_eq(route[0].amount, AMOUNT_MSAT(1000)));
+	assert(route[0].delay == 10);
 
 	/* A<->B<->C */
 	memset(&tmp, 'c', sizeof(tmp));
@@ -224,9 +227,14 @@ int main(void)
 	dij = dijkstra(tmpctx, gossmap, c_node, AMOUNT_MSAT(1000), riskfactor,
 		       route_can_carry_unless_disabled,
 		       route_score_cheaper, NULL);
-	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node);
+	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node,
+				    AMOUNT_MSAT(1000), 11);
 	assert(route);
 	assert(tal_count(route) == 2);
+	assert(amount_msat_eq(route[1].amount, AMOUNT_MSAT(1000)));
+	assert(route[1].delay == 11);
+	assert(amount_msat_eq(route[0].amount, AMOUNT_MSAT(1001)));
+	assert(route[0].delay == 12);
 
 	/* A<->D<->C: Lower base, higher percentage. */
 	memset(&tmp, 'd', sizeof(tmp));
@@ -246,22 +254,32 @@ int main(void)
 	dij = dijkstra(tmpctx, gossmap, c_node, AMOUNT_MSAT(1000), riskfactor,
 		       route_can_carry_unless_disabled,
 		       route_score_cheaper, NULL);
-	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node);
+	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node,
+				    AMOUNT_MSAT(1000), 12);
 
 	assert(route);
 	assert(tal_count(route) == 2);
-	assert(channel_is_between(gossmap, route[0], a_node, d_node));
-	assert(channel_is_between(gossmap, route[1], d_node, c_node));
+	assert(channel_is_between(gossmap, &route[0], a_node, d_node));
+	assert(channel_is_between(gossmap, &route[1], d_node, c_node));
+	assert(amount_msat_eq(route[1].amount, AMOUNT_MSAT(1000)));
+	assert(route[1].delay == 12);
+	assert(amount_msat_eq(route[0].amount, AMOUNT_MSAT(1000)));
+	assert(route[0].delay == 13);
 
 	/* Will go via B for large amounts. */
 	dij = dijkstra(tmpctx, gossmap, c_node, AMOUNT_MSAT(3000000), riskfactor,
 		       route_can_carry_unless_disabled,
 		       route_score_cheaper, NULL);
-	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node);
+	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node,
+				    AMOUNT_MSAT(3000000), 13);
 	assert(route);
 	assert(tal_count(route) == 2);
-	assert(channel_is_between(gossmap, route[0], a_node, b_node));
-	assert(channel_is_between(gossmap, route[1], b_node, c_node));
+	assert(channel_is_between(gossmap, &route[0], a_node, b_node));
+	assert(channel_is_between(gossmap, &route[1], b_node, c_node));
+	assert(amount_msat_eq(route[1].amount, AMOUNT_MSAT(3000000)));
+	assert(route[1].delay == 13);
+	assert(amount_msat_eq(route[0].amount, AMOUNT_MSAT(3000000 + 3 + 1)));
+	assert(route[0].delay == 14);
 
 	/* Make B->C inactive, force it back via D */
 	update_connection(store_fd, &b, &c, 1, 1, 1, true);
@@ -276,11 +294,16 @@ int main(void)
 	dij = dijkstra(tmpctx, gossmap, c_node, AMOUNT_MSAT(3000000), riskfactor,
 		       route_can_carry_unless_disabled,
 		       route_score_cheaper, NULL);
-	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node);
+	route = route_from_dijkstra(tmpctx, gossmap, dij, a_node,
+				    AMOUNT_MSAT(3000000), 14);
 	assert(route);
 	assert(tal_count(route) == 2);
-	assert(channel_is_between(gossmap, route[0], a_node, d_node));
-	assert(channel_is_between(gossmap, route[1], d_node, c_node));
+	assert(channel_is_between(gossmap, &route[0], a_node, d_node));
+	assert(channel_is_between(gossmap, &route[1], d_node, c_node));
+	assert(amount_msat_eq(route[1].amount, AMOUNT_MSAT(3000000)));
+	assert(route[1].delay == 14);
+	assert(amount_msat_eq(route[0].amount, AMOUNT_MSAT(3000000 + 6)));
+	assert(route[0].delay == 15);
 
 	tal_free(tmpctx);
 	secp256k1_context_destroy(secp256k1_ctx);
