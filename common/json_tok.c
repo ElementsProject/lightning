@@ -206,6 +206,20 @@ struct command_result *param_channel_id(struct command *cmd, const char *name,
 				     "should be a channel id");
 }
 
+struct command_result *param_short_channel_id(struct command *cmd,
+					      const char *name,
+					      const char *buffer,
+					      const jsmntok_t *tok,
+					      struct short_channel_id **scid)
+{
+	*scid = tal(cmd, struct short_channel_id);
+	if (json_to_short_channel_id(buffer, tok, *scid))
+		return NULL;
+
+	return command_fail_badparam(cmd, name, buffer, tok,
+				     "should be a short_channel_id of form NxNxN");
+}
+
 struct command_result *param_secret(struct command *cmd, const char *name,
 				    const char *buffer, const jsmntok_t *tok,
 				    struct secret **secret)
