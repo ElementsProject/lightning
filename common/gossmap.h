@@ -22,6 +22,9 @@ struct gossmap_chan {
 	u32 private: 1;
 	/* Technically redundant, but we have a hole anyway: from cann_off */
 	u32 plus_scid_off: 31;
+	/* Offsets of cupdates (0 if missing).  Logically inside half_chan,
+	 * but that would add padding. */
+	u32 cupdate_off[2];
 	/* two nodes we connect (lesser idx first) */
 	struct half_chan {
 		/* Top bit indicates it's enabled */
@@ -108,7 +111,7 @@ void gossmap_node_get_id(const struct gossmap *map,
 /* Do we have any values for this halfchannel ? */
 static inline bool gossmap_chan_set(const struct gossmap_chan *chan, int dir)
 {
-	return chan->half[dir].htlc_max != 0;
+	return chan->cupdate_off[dir] != 0;
 }
 
 /* Return capacity if it's known (fails only on race condition) */
@@ -135,6 +138,20 @@ int gossmap_chan_get_feature(const struct gossmap *map,
 int gossmap_node_get_feature(const struct gossmap *map,
 			     const struct gossmap_node *n,
 			     int fbit);
+
+/* Returns details from channel_update (must be gossmap_chan_set, and
+ * does not work for local_updatechan! */
+void gossmap_chan_get_update_details(const struct gossmap *map,
+				     const struct gossmap_chan *chan,
+				     int dir,
+				     u32 *timestamp,
+				     u8 *message_flags,
+				     u8 *channel_flags,
+				     u32 *fee_base_msat,
+				     u32 *fee_proportional_millionths,
+				     struct amount_msat *htlc_minimum_msat,
+				     /* iff message_flags & 1 */
+				     struct amount_msat *htlc_maximum_msat);
 
 /* Given a struct node, get the nth channel, and tell us if we're half[0/1].
  * n must be less than node->num_chans */

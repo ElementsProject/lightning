@@ -336,6 +336,7 @@ static struct gossmap_chan *new_channel(struct gossmap *map,
 	chan->cann_off = cannounce_off;
 	chan->private = private;
 	chan->plus_scid_off = plus_scid_off;
+	chan->cupdate_off[0] = chan->cupdate_off[1] = 0;
 	memset(chan->half, 0, sizeof(chan->half));
 	chan->half[0].nodeidx = n1idx;
 	chan->half[1].nodeidx = n2idx;
@@ -491,11 +492,14 @@ static void update_channel(struct gossmap *map, size_t cupdate_off)
 			= u64_to_fp16(map_be64(map, htlc_maximum_off), true);
 	else
 		hc.htlc_max = 0xFFFF;
+
+	chanflags = map_u8(map, channel_flags_off);
+	hc.enabled = !(chanflags & 2);
 	hc.base_fee = map_be32(map, fee_base_off);
 	hc.proportional_fee = map_be32(map, fee_prop_off);
 	hc.delay = map_be16(map, cltv_expiry_delta_off);
 
-	/* Check they fit */
+	/* Check they fit: we turn off if not. */
 	if (hc.base_fee != map_be32(map, fee_base_off)
 	    || hc.proportional_fee != map_be32(map, fee_prop_off)
 	    || hc.delay != map_be16(map, cltv_expiry_delta_off)) {
@@ -504,14 +508,14 @@ static void update_channel(struct gossmap *map, size_t cupdate_off)
 		      map_be32(map, fee_base_off),
 		      map_be32(map, fee_prop_off),
 		      map_be16(map, cltv_expiry_delta_off));
-		return;
+		hc.htlc_max = 0;
+		hc.enabled = false;
 	}
 
-	chanflags = map_u8(map, channel_flags_off);
-	hc.enabled = !(chanflags & 2);
 	/* Preserve this */
 	hc.nodeidx = chan->half[chanflags & 1].nodeidx;
 	chan->half[chanflags & 1] = hc;
+	chan->cupdate_off[chanflags & 1] = cupdate_off;
 }
 
 static void remove_channel_by_deletemsg(struct gossmap *map, size_t del_off)
@@ -679,6 +683,9 @@ struct localmod {
 	struct half_chan hc[2];
 	/* orig[n] defined if updates_set[n] and local_off == 0xFFFFFFFF */
 	struct half_chan orig[2];
+
+	/* Original update offsets */
+	u32 orig_cupdate_off[2];
 };
 
 struct gossmap_localmods {
@@ -853,8 +860,10 @@ void gossmap_apply_localmods(struct gossmap *map,
 			if (!mod->updates_set[h])
 				continue;
 			mod->orig[h] = chan->half[h];
+			mod->orig_cupdate_off[h] = chan->cupdate_off[h];
 			chan->half[h] = mod->hc[h];
 			chan->half[h].nodeidx = mod->orig[h].nodeidx;
+			chan->cupdate_off[h] = 0xFFFFFFFF;
 		}
 	}
 }
@@ -883,6 +892,7 @@ void gossmap_remove_localmods(struct gossmap *map,
 				nodeidx = chan->half[h].nodeidx;
 				chan->half[h] = mod->orig[h];
 				chan->half[h].nodeidx = nodeidx;
+				chan->cupdate_off[h] = mod->orig_cupdate_off[h];
 			}
 		}
 	}
@@ -1128,6 +1138,67 @@ int gossmap_chan_get_feature(const struct gossmap *map,
 
 	return map_feature_test(map, COMPULSORY_FEATURE(fbit),
 				c->cann_off + feature_len_off + 2, feature_len);
+}
+
+/* BOLT #7:
+ * 1. type: 258 (`channel_update`)
+ * 2. data:
+ *     * [`signature`:`signature`]
+ *     * [`chain_hash`:`chain_hash`]
+ *     * [`short_channel_id`:`short_channel_id`]
+ *     * [`u32`:`timestamp`]
+ *     * [`byte`:`message_flags`]
+ *     * [`byte`:`channel_flags`]
+ *     * [`u16`:`cltv_expiry_delta`]
+ *     * [`u64`:`htlc_minimum_msat`]
+ *     * [`u32`:`fee_base_msat`]
+ *     * [`u32`:`fee_proportional_millionths`]
+ *     * [`u64`:`htlc_maximum_msat`] (option_channel_htlc_max)
+ */
+void gossmap_chan_get_update_details(const struct gossmap *map,
+				     const struct gossmap_chan *chan,
+				     int dir,
+				     u32 *timestamp,
+				     u8 *message_flags,
+				     u8 *channel_flags,
+				     u32 *fee_base_msat,
+				     u32 *fee_proportional_millionths,
+				     struct amount_msat *htlc_minimum_msat,
+				     /* iff message_flags & 1 */
+				     struct amount_msat *htlc_maximum_msat)
+{
+	/* Note that first two bytes are message type */
+	const size_t scid_off = chan->cupdate_off[dir] + 2 + (64 + 32);
+	const size_t timestamp_off = scid_off + 8;
+	const size_t message_flags_off = timestamp_off + 4;
+	const size_t channel_flags_off = message_flags_off + 1;
+	const size_t cltv_expiry_delta_off = channel_flags_off + 1;
+	const size_t htlc_minimum_off = cltv_expiry_delta_off + 2;
+	const size_t fee_base_off = htlc_minimum_off + 8;
+	const size_t fee_prop_off = fee_base_off + 4;
+	const size_t htlc_maximum_off = fee_prop_off + 4;
+	u8 mflags;
+
+	assert(gossmap_chan_set(chan, dir));
+
+	if (timestamp)
+		*timestamp = map_be32(map, timestamp_off);
+	/* We need this (below), even if they don't want it */
+	mflags = map_u8(map, message_flags_off);
+	if (message_flags)
+		*message_flags = mflags;
+	if (channel_flags)
+		*channel_flags = map_u8(map, channel_flags_off);
+	if (fee_base_msat)
+		*fee_base_msat = map_be32(map, fee_base_off);
+	if (fee_proportional_millionths)
+		*fee_proportional_millionths = map_be32(map, fee_prop_off);
+	if (htlc_minimum_msat)
+		*htlc_minimum_msat
+			= amount_msat(map_be64(map, htlc_minimum_off));
+	if (htlc_maximum_msat && (mflags & 1))
+		*htlc_maximum_msat
+			= amount_msat(map_be64(map, htlc_maximum_off));
 }
 
 /* BOLT #7:

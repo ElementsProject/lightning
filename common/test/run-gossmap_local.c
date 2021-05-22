@@ -300,6 +300,9 @@ int main(int argc, char *argv[])
 	struct gossmap_chan *chan;
 	struct gossmap_localmods *mods;
 	struct amount_sat capacity;
+	u32 timestamp, fee_base_msat, fee_proportional_millionths;
+	u8 message_flags, channel_flags;
+	struct amount_msat htlc_minimum_msat, htlc_maximum_msat;
 
 	common_setup(argv[0]);
 
@@ -330,6 +333,74 @@ int main(int argc, char *argv[])
 	assert(gossmap_chan_get_capacity(map, gossmap_find_chan(map, &scid12),
 					 &capacity));
 	assert(amount_sat_eq(capacity, AMOUNT_SAT(1000000)));
+
+	gossmap_chan_get_update_details(map, gossmap_find_chan(map, &scid23),
+					0,
+					&timestamp,
+					&message_flags,
+					&channel_flags,
+					&fee_base_msat,
+					&fee_proportional_millionths,
+					&htlc_minimum_msat,
+					&htlc_maximum_msat);
+	assert(timestamp == 1612141433);
+	assert(message_flags == 1);
+	assert(channel_flags == 0);
+	assert(fee_base_msat == 20);
+	assert(fee_proportional_millionths == 1000);
+	assert(amount_msat_eq(htlc_minimum_msat, AMOUNT_MSAT(0)));
+	assert(amount_msat_eq(htlc_maximum_msat, AMOUNT_MSAT(990000000)));
+
+	gossmap_chan_get_update_details(map, gossmap_find_chan(map, &scid23),
+					1,
+					&timestamp,
+					&message_flags,
+					&channel_flags,
+					&fee_base_msat,
+					&fee_proportional_millionths,
+					&htlc_minimum_msat,
+					&htlc_maximum_msat);
+	assert(timestamp == 1612141435);
+	assert(message_flags == 1);
+	assert(channel_flags == 1);
+	assert(fee_base_msat == 20);
+	assert(fee_proportional_millionths == 1000);
+	assert(amount_msat_eq(htlc_minimum_msat, AMOUNT_MSAT(0)));
+	assert(amount_msat_eq(htlc_maximum_msat, AMOUNT_MSAT(990000000)));
+
+	gossmap_chan_get_update_details(map, gossmap_find_chan(map, &scid12),
+					0,
+					&timestamp,
+					&message_flags,
+					&channel_flags,
+					&fee_base_msat,
+					&fee_proportional_millionths,
+					&htlc_minimum_msat,
+					&htlc_maximum_msat);
+	assert(timestamp == 1612141439);
+	assert(message_flags == 1);
+	assert(channel_flags == 0);
+	assert(fee_base_msat == 20);
+	assert(fee_proportional_millionths == 1000);
+	assert(amount_msat_eq(htlc_minimum_msat, AMOUNT_MSAT(0)));
+	assert(amount_msat_eq(htlc_maximum_msat, AMOUNT_MSAT(990000000)));
+
+	gossmap_chan_get_update_details(map, gossmap_find_chan(map, &scid12),
+					1,
+					&timestamp,
+					&message_flags,
+					&channel_flags,
+					&fee_base_msat,
+					&fee_proportional_millionths,
+					&htlc_minimum_msat,
+					&htlc_maximum_msat);
+	assert(timestamp == 1612141439);
+	assert(message_flags == 1);
+	assert(channel_flags == 1);
+	assert(fee_base_msat == 20);
+	assert(fee_proportional_millionths == 1000);
+	assert(amount_msat_eq(htlc_minimum_msat, AMOUNT_MSAT(0)));
+	assert(amount_msat_eq(htlc_maximum_msat, AMOUNT_MSAT(990000000)));
 
 	/* Now, let's add a new channel l1 -> l4. */
 	mods = gossmap_localmods_new(tmpctx);
