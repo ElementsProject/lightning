@@ -21,6 +21,9 @@ msgdata,gossip_store_private_update,update,u8,len
 msgtype,gossip_store_delete_chan,4103
 msgdata,gossip_store_delete_chan,scid,short_channel_id,
 
+msgtype,gossip_store_ended,4105
+msgdata,gossip_store_ended,equivalent_offset,u64,
+
 # FIXME: Here for COMPAT with v0.9.0 and before only.
 msgtype,gossipd_local_add_channel_obs,3503
 msgdata,gossipd_local_add_channel_obs,short_channel_id,short_channel_id,

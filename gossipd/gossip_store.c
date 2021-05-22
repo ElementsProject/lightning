@@ -187,11 +187,12 @@ static u32 gossip_store_compact_offline(struct routing_state *rstate)
 {
 	size_t count = 0, deleted = 0;
 	int old_fd, new_fd;
+	u64 oldlen, newlen;
 	struct gossip_hdr hdr;
 	u8 oldversion, version = GOSSIP_STORE_VERSION;
 	struct stat st;
 
-	old_fd = open(GOSSIP_STORE_FILENAME, O_RDONLY);
+	old_fd = open(GOSSIP_STORE_FILENAME, O_RDWR);
 	if (old_fd == -1)
 		return 0;
 
@@ -275,11 +276,17 @@ static u32 gossip_store_compact_offline(struct routing_state *rstate)
 			      strerror(errno));
 		goto close_old;
 	}
-	close(old_fd);
 	if (rename(GOSSIP_STORE_TEMP_FILENAME, GOSSIP_STORE_FILENAME) != 0) {
 		status_broken("gossip_store_compact_offline: rename failed: %s",
 			      strerror(errno));
 	}
+
+	/* Create end marker now new file exists. */
+	oldlen = lseek(old_fd, SEEK_END, 0);
+	newlen = lseek(new_fd, SEEK_END, 0);
+	append_msg(old_fd, towire_gossip_store_ended(tmpctx, newlen),
+		   0, false, &oldlen);
+	close(old_fd);
 	status_debug("gossip_store_compact_offline: %zu deleted, %zu copied",
 		     deleted, count);
 	return st.st_mtime;
@@ -452,7 +459,7 @@ bool gossip_store_compact(struct gossip_store *gs)
 {
 	size_t count = 0, deleted = 0;
 	int fd;
-	u64 off, len = sizeof(gs->version), idx;
+	u64 off, len = sizeof(gs->version), oldlen, idx;
 	struct offmap *offmap;
 	struct gossip_hdr hdr;
 	struct offmap_iter oit;
@@ -563,6 +570,12 @@ bool gossip_store_compact(struct gossip_store *gs)
 	status_debug(
 	    "Compaction completed: dropped %zu messages, new count %zu, len %"PRIu64,
 	    deleted, count, len);
+
+	/* Write end marker now new one is ready */
+	oldlen = gs->len;
+	append_msg(gs->fd, towire_gossip_store_ended(tmpctx, len),
+		   0, false, &oldlen);
+
 	gs->count = count;
 	gs->deleted = 0;
 	off = gs->len - len;

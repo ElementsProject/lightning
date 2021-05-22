@@ -27,6 +27,7 @@ const char *gossip_store_wire_name(int e)
 	case WIRE_GOSSIP_STORE_PRIVATE_CHANNEL: return "WIRE_GOSSIP_STORE_PRIVATE_CHANNEL";
 	case WIRE_GOSSIP_STORE_PRIVATE_UPDATE: return "WIRE_GOSSIP_STORE_PRIVATE_UPDATE";
 	case WIRE_GOSSIP_STORE_DELETE_CHAN: return "WIRE_GOSSIP_STORE_DELETE_CHAN";
+	case WIRE_GOSSIP_STORE_ENDED: return "WIRE_GOSSIP_STORE_ENDED";
 	case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL_OBS: return "WIRE_GOSSIPD_LOCAL_ADD_CHANNEL_OBS";
 	}
 
@@ -41,6 +42,7 @@ bool gossip_store_wire_is_defined(u16 type)
 	case WIRE_GOSSIP_STORE_PRIVATE_CHANNEL:;
 	case WIRE_GOSSIP_STORE_PRIVATE_UPDATE:;
 	case WIRE_GOSSIP_STORE_DELETE_CHAN:;
+	case WIRE_GOSSIP_STORE_ENDED:;
 	case WIRE_GOSSIPD_LOCAL_ADD_CHANNEL_OBS:;
 	      return true;
 	}
@@ -153,6 +155,27 @@ bool fromwire_gossip_store_delete_chan(const void *p, struct short_channel_id *s
 	return cursor != NULL;
 }
 
+/* WIRE: GOSSIP_STORE_ENDED */
+u8 *towire_gossip_store_ended(const tal_t *ctx, u64 equivalent_offset)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_GOSSIP_STORE_ENDED);
+	towire_u64(&p, equivalent_offset);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_gossip_store_ended(const void *p, u64 *equivalent_offset)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIP_STORE_ENDED)
+		return false;
+ 	*equivalent_offset = fromwire_u64(&cursor, &plen);
+	return cursor != NULL;
+}
+
 /* WIRE: GOSSIPD_LOCAL_ADD_CHANNEL_OBS */
 /* FIXME: Here for COMPAT with v0.9.0 and before only. */
 u8 *towire_gossipd_local_add_channel_obs(const tal_t *ctx, const struct short_channel_id *short_channel_id, const struct node_id *remote_node_id, struct amount_sat satoshis, const u8 *features)
@@ -187,4 +210,4 @@ bool fromwire_gossipd_local_add_channel_obs(const tal_t *ctx, const void *p, str
 	fromwire_u8_array(&cursor, &plen, *features, flen);
 	return cursor != NULL;
 }
-// SHA256STAMP:e57942b41cb479ca181f13cd0bf5cfc6dd4acbb3685618a9679af8ec546a3fcc
+// SHA256STAMP:18d52e526a219c3a8bb29c6a29b7bd82880c5befdde88c12424d57cb98a28b17

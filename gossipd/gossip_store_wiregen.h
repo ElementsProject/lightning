@@ -17,6 +17,7 @@ enum gossip_store_wire {
         WIRE_GOSSIP_STORE_PRIVATE_CHANNEL = 4104,
         WIRE_GOSSIP_STORE_PRIVATE_UPDATE = 4102,
         WIRE_GOSSIP_STORE_DELETE_CHAN = 4103,
+        WIRE_GOSSIP_STORE_ENDED = 4105,
         /*  FIXME: Here for COMPAT with v0.9.0 and before only. */
         WIRE_GOSSIPD_LOCAL_ADD_CHANNEL_OBS = 3503,
 };
@@ -51,6 +52,10 @@ bool fromwire_gossip_store_private_update(const tal_t *ctx, const void *p, u8 **
 u8 *towire_gossip_store_delete_chan(const tal_t *ctx, const struct short_channel_id *scid);
 bool fromwire_gossip_store_delete_chan(const void *p, struct short_channel_id *scid);
 
+/* WIRE: GOSSIP_STORE_ENDED */
+u8 *towire_gossip_store_ended(const tal_t *ctx, u64 equivalent_offset);
+bool fromwire_gossip_store_ended(const void *p, u64 *equivalent_offset);
+
 /* WIRE: GOSSIPD_LOCAL_ADD_CHANNEL_OBS */
 /*  FIXME: Here for COMPAT with v0.9.0 and before only. */
 u8 *towire_gossipd_local_add_channel_obs(const tal_t *ctx, const struct short_channel_id *short_channel_id, const struct node_id *remote_node_id, struct amount_sat satoshis, const u8 *features);
@@ -58,4 +63,4 @@ bool fromwire_gossipd_local_add_channel_obs(const tal_t *ctx, const void *p, str
 
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIP_STORE_WIREGEN_H */
-// SHA256STAMP:e57942b41cb479ca181f13cd0bf5cfc6dd4acbb3685618a9679af8ec546a3fcc
+// SHA256STAMP:18d52e526a219c3a8bb29c6a29b7bd82880c5befdde88c12424d57cb98a28b17
