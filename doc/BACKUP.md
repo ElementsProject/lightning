@@ -242,6 +242,31 @@ three or four storage devices.
 BTRFS would probably work better if you were purchasing an entire set
 of new storage devices to set up a new node.
 
+## SQLite Litestream Replication
+`/!\` WHO SHOULD DO THIS: Casual users
+
+One of the simpler things on any system is to use Litestream to replicate the SQLite database.
+It continuously streams SQLite changes to file or external storage - the cloud storage option 
+should not be used. 
+Backups/replication should not be on the same disk as the original SQLite DB.
+
+/etc/litestream.yml : 
+
+    dbs:
+     - path: /home/bitcoin/.lightning/bitcoin/lightningd.sqlite3
+       replicas:
+         - path: /media/storage/lightning_backup
+         
+ and start the service using systemctl:
+ 
+    $ sudo systemctl start litestream
+
+Restore:
+
+    $ litestream restore -o /media/storage/lightning_backup  /home/bitcoin/restore_lightningd.sqlite3
+
+   
+
 ## PostgreSQL Cluster
 
 `/!\` WHO SHOULD DO THIS: Enterprise users, whales.
