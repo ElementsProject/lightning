@@ -2925,9 +2925,11 @@ def test_restart_many_payments(node_factory, bitcoind):
         # OK to use change from previous fundings
         l1.rpc.fundchannel(n.info['id'], 10**6, minconf=0)
 
-    # Now mine them, get scids.
-    bitcoind.generate_block(6, wait_for_mempool=num * 2)
+    # Now mine them, get scids; make sure they all see the first block
+    # otherwise they may complain about channel_announcement from the future.
+    bitcoind.generate_block(1, wait_for_mempool=num * 2)
     sync_blockheight(bitcoind, [l1] + nodes)
+    bitcoind.generate_block(5)
 
     wait_for(lambda: [only_one(n.rpc.listpeers()['peers'])['channels'][0]['state'] for n in nodes] == ['CHANNELD_NORMAL'] * len(nodes))
 
