@@ -2361,6 +2361,7 @@ static struct route_info **filter_routehints(struct gossmap *map,
 				       "Removed empty routehint %zu. ", i);
 			tal_arr_remove(&hints, i);
 			i--;
+			continue;
 		}
 
 		/* If routehint entrypoint is unreachable there's no
