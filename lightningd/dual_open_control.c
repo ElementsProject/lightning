@@ -20,6 +20,7 @@
 #include <common/json_tok.h>
 #include <common/per_peer_state.h>
 #include <common/psbt_open.h>
+#include <common/shutdown_scriptpubkey.h>
 #include <common/type_to_string.h>
 #include <connectd/connectd_wiregen.h>
 #include <hsmd/capabilities.h>
@@ -1212,6 +1213,9 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 	struct lightningd *ld = dualopend->ld;
 	struct channel *channel = dualopend->channel;
 	char *errmsg;
+	bool anysegwit = feature_negotiated(ld->our_features,
+					    channel->peer->their_features,
+					    OPT_SHUTDOWN_ANYSEGWIT);
 
 	/* We shouldn't get this message while we're waiting to finish */
 	if (channel_unsaved(channel)) {
@@ -1238,19 +1242,12 @@ static void handle_peer_wants_to_close(struct subd *dualopend,
 
 	/* BOLT #2:
 	 *
-	 * 1. `OP_DUP` `OP_HASH160` `20` 20-bytes `OP_EQUALVERIFY` `OP_CHECKSIG`
-	 *   (pay to pubkey hash), OR
-	 * 2. `OP_HASH160` `20` 20-bytes `OP_EQUAL` (pay to script hash), OR
-	 * 3. `OP_0` `20` 20-bytes (version 0 pay to witness pubkey hash), OR
-	 * 4. `OP_0` `32` 32-bytes (version 0 pay to witness script hash)
-	 *
 	 * A receiving node:
 	 *...
 	 *  - if the `scriptpubkey` is not in one of the above forms:
 	 *    - SHOULD fail the connection.
 	 */
-	if (!is_p2pkh(scriptpubkey, NULL) && !is_p2sh(scriptpubkey, NULL)
-	    && !is_p2wpkh(scriptpubkey, NULL) && !is_p2wsh(scriptpubkey, NULL)) {
+	if (!valid_shutdown_scriptpubkey(scriptpubkey, anysegwit)) {
 		channel_fail_permanent(channel,
 				       REASON_PROTOCOL,
 				       "Bad shutdown scriptpubkey %s",
