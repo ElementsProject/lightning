@@ -1801,7 +1801,8 @@ def test_multifunding_disconnect(node_factory):
 
 
 @pytest.mark.openchannel('v1')
-@pytest.mark.openchannel('v2')
+# Temporarily disabled, since it hangs sometimes.
+# @pytest.mark.openchannel('v2')
 def test_multifunding_wumbo(node_factory):
     '''
     Test wumbo channel imposition in multifundchannel.
