@@ -2902,6 +2902,9 @@ def test_blockheight_disagreement(node_factory, bitcoind, executor):
     # Make sure l1 sends out the HTLC.
     l1.daemon.wait_for_logs([r'NEW:: HTLC LOCAL'])
 
+    height = bitcoind.rpc.getblockchaininfo()['blocks']
+    l1.daemon.wait_for_log('Remote node appears to be on a longer chain.*catch up to block {}'.format(height))
+
     # Unblock l1 from new blocks.
     l1.daemon.rpcproxy.mock_rpc('getblockhash', None)
 
