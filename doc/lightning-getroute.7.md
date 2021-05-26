@@ -277,16 +277,21 @@ factor for larger amounts, and is basically ignored for tiny ones.
 RETURN VALUE
 ------------
 
-On success, a "route" array is returned. Each array element contains
-*id* (the node being routed through), *msatoshi* (the millisatoshis
-sent), *amount\_msat* (the same, with *msat* appended), *delay* (the
-number of blocks to timeout at this node), and *style* (indicating
-the features which can be used for this hop).
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object containing **route** is returned.  It is an array of objects, where each object contains:
+- **id** (pubkey): The node at the end of this hop
+- **channel** (short_channel_id): The channel joining these nodes
+- **direction** (u32): 0 if this channel is traversed from lesser to greater **id**, otherwise 1
+- **amount_msat** (msat): The amount expected by the node at the end of this hop
+- **delay** (u32): The total CLTV expected by the node at the end of this hop
+- **style** (string): The features understood by the destination node (one of "legacy", "tlv")
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The final *id* will be the destination *id* given in the input. The
 difference between the first *msatoshi* minus the *msatoshi* given in
-the input is the fee. The first *delay* is the very worst case timeout
-for the payment failure, in blocks.
+the input is the fee (assuming the first hop is free). The first
+*delay* is the very worst case timeout for the payment failure, in
+blocks.
 
 AUTHOR
 ------
@@ -303,3 +308,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:c15c56751270e8a3df25f3e3f72fbe8ea56366e5fe1157a8485b85cec1878982)

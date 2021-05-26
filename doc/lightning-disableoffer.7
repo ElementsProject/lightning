@@ -33,9 +33,26 @@ forgotten entirely (there may be invoices which refer to this offer)\.
 .fi
 .SH RETURN VALUE
 
-If successful the command returns an object, in the same format as \fBlistoffers\fR\.
-The "active" field will always be false\.
+Note: the returned object is the same format as \fBlistoffers\fR\.
 
+
+On success, an object is returned, containing:
+
+.RS
+.IP \[bu]
+\fBoffer_id\fR (hex): the merkle hash of the offer (always 64 characters)
+.IP \[bu]
+\fBactive\fR (boolean): Whether the offer can produce invoices/payments (always "false")
+.IP \[bu]
+\fBsingle_use\fR (boolean): Whether the offer is disabled after first successful use
+.IP \[bu]
+\fBbolt12\fR (string): The bolt12 string representing this offer
+.IP \[bu]
+\fBused\fR (boolean): Whether the offer has had an invoice paid / payment made
+.IP \[bu]
+\fBlabel\fR (string, optional): The label provided when offer was created
+
+.RE
 .SH EXAMPLE JSON RESPONSE
 .nf
 .RS
@@ -61,4 +78,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:55cfb050fa2d28f58750dc74659d9f7bc5ec00499e218ccffd058db51efc38d2
+\" SHA256STAMP:33b8cddae4a830e710906268c1d0d301442bc7ab0711e1d6ce670f86c77ae320

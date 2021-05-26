@@ -44,47 +44,36 @@ which will override the recommended feerates returned by **feerates**.
 RETURN VALUE
 ------------
 
-The **feerates** command returns the feerates in an object named
-*perkw* or *perkb*, depending on your *style* parameter.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **perkb** (object, optional): If *style* parameter was perkb:
+  - **min_acceptable** (u32): The smallest feerate that you can use, usually the minimum relayed feerate of the backend
+  - **max_acceptable** (u32): The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet).
+  - **opening** (u32, optional): Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)
+  - **mutual_close** (u32, optional): Feerate to aim for in cooperative shutdown.  Note that since mutual close is a **negotiation**, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer.
+  - **unilateral_close** (u32, optional): Feerate for commitment_transaction in a live channel which we originally funded
+  - **delayed_to_us** (u32, optional): Feerate for returning unilateral close funds to our wallet
+  - **htlc_resolution** (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet
+  - **penalty** (u32, optional): Feerate to start at when penalizing a cheat attempt
+- **perkw** (object, optional): If *style* parameter was perkw:
+  - **min_acceptable** (u32): The smallest feerate that you can use, usually the minimum relayed feerate of the backend
+  - **max_acceptable** (u32): The largest feerate we will accept from remote negotiations.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet).
+  - **opening** (u32, optional): Default feerate for lightning-fundchannel(7) and lightning-withdraw(7)
+  - **mutual_close** (u32, optional): Feerate to aim for in cooperative shutdown.  Note that since mutual close is a **negotiation**, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer.
+  - **unilateral_close** (u32, optional): Feerate for commitment_transaction in a live channel which we originally funded
+  - **delayed_to_us** (u32, optional): Feerate for returning unilateral close funds to our wallet
+  - **htlc_resolution** (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet
+  - **penalty** (u32, optional): Feerate to start at when penalizing a cheat attempt
+- **onchain_fee_estimates** (object, optional):
+  - **opening_channel_satoshis** (u64): Estimated cost of typical channel open
+  - **mutual_close_satoshis** (u64): Estimated cost of typical channel close
+  - **unilateral_close_satoshis** (u64): Estimated cost of typical unilateral close (without HTLCs)
+  - **htlc_timeout_satoshis** (u64): Estimated cost of typical HTLC timeout transaction
+  - **htlc_success_satoshis** (u64): Estimated cost of typical HTLC fulfillment transaction
 
-Some of these estimations may be missing, except for *min\_acceptable*
-and *max\_acceptable*, which are always present.
-
-The *perkw* or *perkb* object may have fields containing the estimates:
-
-* *opening* - feerate used for channel opening by lightning-fundchannel(7),
-  as well as normal onchain-to-onchain spends by lightning-withdraw(7).
-  In general, for all normal onchain-to-onchain spends, this is the feerate
-  you should also use.
-* *mutual\_close* - the starting feerate used in mutual close negotiation.
-  Note that since mutual close is a **negotiation**,
-  the actual feerate used in mutual close
-  will be somewhere between this
-  and the corresponding mutual close feerate of the peer.
-* *unilateral\_close* - the feerate we will pay for when a unilateral close
-  is done on a channel we originally funded.
-  When anchor commitments are implemented,
-  this will be the feerate we will use
-  for a unilateral close we initiated.
-* *delayed\_to\_us* - the feerate we will use when claiming our output from
-  a unilateral close we initiated.
-* *htlc_resolution* - the feerate we will use to claim HTLCs
-  from a unilateral close we initiated.
-* *penalty* - the feerate we will use to revoke old state,
-  if the counterparty attempts to cheat us.
-
-The following fields are always present in the *perkw* or *perkb* object:
-
-* *min\_acceptable* - the smallest feerate that you can use,
-  usually the minimum relayed feerate of the backend.
-* *max\_acceptable* - the largest feerate we will accept
-  from remote negotiations.
-  If a peer attempts to open a channel to us but wants a unilateral close
-  feerate larger than *max\_acceptable*, we reject the open attempt.
-  If the peer attempts to change the unilateral close feerate of a channel it
-  opened to us, such that the new feerate exceeds *max\_acceptable*, we
-  unilaterally close the channel
-  (at the current unilateral close feerate instead of the new one).
+The following warnings may also be returned:
+- **warning_missing_feerates**: Some fee estimates are missing
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 ERRORS
 ------
@@ -129,3 +118,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:e16ae963e528995f1e01c80b4ed4e9b0d6c457a559928e98ab6cf32624557894)

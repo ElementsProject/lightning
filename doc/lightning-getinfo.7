@@ -22,43 +22,69 @@ The \fBgetinfo\fR gives a summary of the current running node\.
 .fi
 .SH RETURN VALUE
 
-On success, an object with the following information is returned:
+On success, an object is returned, containing:
 
 .RS
 .IP \[bu]
-\fIid\fR: A string that represents the public key of the node\. It will represents the node on the public network\.
+\fBid\fR (pubkey): The public key unique to this node
 .IP \[bu]
-\fIalias\fR: A string that represents the alias of the node, by default is calculate from the public key (node id)\.  This is just for fun; the name can be anything and is not unique!
+\fBalias\fR (string): The fun alias this node will advertize (up to 32 characters)
 .IP \[bu]
-\fIcolor\fR: A string that represents the preferred color of the node\.
+\fBcolor\fR (hex): The favorite RGB color this node will advertize (always 6 characters)
 .IP \[bu]
-\fInum_peers\fR: An integer that represents the number of peer connect to the node\.
+\fBnum_peers\fR (u32): The total count of peers, connected or with channels
 .IP \[bu]
-\fInum_pending_channels\fR: An integer that represents the number of channel which are still awaiting opening confirmation\.
+\fBnum_pending_channels\fR (u32): The total count of channels being opened
 .IP \[bu]
-\fInum_active_channels\fR: A integer that represents the number of channel which are currently open\.
+\fBnum_active_channels\fR (u32): The total count of channels in normal state
 .IP \[bu]
-\fInum_inactive_channels\fR: A integer that represents the number of channel which are closing\.
+\fBnum_inactive_channels\fR (u32): The total count of channels waiting for opening or closing transactions to be mined
 .IP \[bu]
-\fIaddress\fR: An array that represents all published addresses of the node, each object inside the array contains the following proprieties:
+\fBversion\fR (string): Identifies what bugs you are running into
+.IP \[bu]
+\fBlightning-dir\fR (string): Identifies where you can find the configuration and other related files
+.IP \[bu]
+\fBblockheight\fR (u32): The highest block height we've learned
+.IP \[bu]
+\fBnetwork\fR (string): represents the type of network on the node are working (e\.g: \fBbitcoin\fR, \fBtestnet\fR, or \fBregtest\fR)
+.IP \[bu]
+\fBfees_collected_msat\fR (msat): Total routing fees collected by this node
+.IP \[bu]
+\fBaddress\fR (array of objects, optional): The addresses we announce to the world:
 .RS
 .IP \[bu]
-\fItype\fR: A string that represents the type of the address (currently \fBipv4\fR, \fBipv6\fR, \fBtorv3\fR or \fBtorv4\fR)\.
+\fBtype\fR (string): Type of connection (one of "ipv4", "ipv6", "torv2", "torv3")
 .IP \[bu]
-\fIaddress\fR: A string that represents the value of the address\.
+\fBaddress\fR (string): address in expected format for \fBtype\fR
 .IP \[bu]
-\fIport\fR: An integer that represents the port where the node is listening with this address\.
+\fBport\fR (u16): port number
 
 .RE
 
 .IP \[bu]
-\fIbinding\fR: An array that represents all addresses where the node is binded\. Each object contains the same object type of the address propriety above\.
+\fBbinding\fR (array of objects, optional): The addresses we are listening on:
+.RS
 .IP \[bu]
-\fIversion\fR: A string that represents the version of the node\.
+\fBtype\fR (string): Type of connection (one of "local socket", "ipv4", "ipv6", "torv2", "torv3")
 .IP \[bu]
-\fIblockheight\fR: An integer that represents the blockchain height\.
+\fBaddress\fR (string, optional): address in expected format for \fBtype\fR
 .IP \[bu]
-\fInetwork\fR: A string that represents the type of network on the node are working (e\.g: \fBbitcoin\fR, \fBtestnet\fR, or \fBregtest\fR)\.
+\fBport\fR (u16, optional): port number
+.IP \[bu]
+\fBsocket\fR (string, optional): socket filename (only if \fBtype\fR is "local socket")
+
+.RE
+
+
+.RE
+
+The following warnings may also be returned:
+
+.RS
+.IP \[bu]
+\fBwarning_bitcoind_sync\fR: Bitcoind is not up-to-date with network\.
+.IP \[bu]
+\fBwarning_lightningd_sync\fR: Lightningd is still loading latest blocks from bitcoind\.
 
 .RE
 
@@ -121,4 +147,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:9e6a0e0c25569bfc9d23b07e84392a3f70f6c94a86cd482fbf48c3d668a1796d
+\" SHA256STAMP:637babe08b35ca524666bc51f1d0191e2006064af2b4c22997fbbe49cc7f935c

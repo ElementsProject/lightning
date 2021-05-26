@@ -32,8 +32,17 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-If successful the command returns an object, in the same format as **listoffers**.
-The "active" field will always be false.
+Note: the returned object is the same format as **listoffers**.
+
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **offer_id** (hex): the merkle hash of the offer (always 64 characters)
+- **active** (boolean): Whether the offer can produce invoices/payments (always "false")
+- **single_use** (boolean): Whether the offer is disabled after first successful use
+- **bolt12** (string): The bolt12 string representing this offer
+- **used** (boolean): Whether the offer has had an invoice paid / payment made
+- **label** (string, optional): The label provided when offer was created
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 EXAMPLE JSON RESPONSE
 -----
@@ -63,3 +72,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:6b0ae21e38a83742735f38e9c022b33ed4a436cacc746ff22e63d7b00779e4d0)

@@ -25,9 +25,13 @@ to remote peer again before opening channel\.
 
 .SH RETURN VALUE
 
-On success, returns confirmation that the channel establishment has been
-canceled\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBcancelled\fR (string): A message indicating it was cancelled by RPC
+
+.RE
 
 On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
 with \fBcode\fR being one of the following:
@@ -60,4 +64,4 @@ lightning-openchannel_\fBsigned\fR(7), lightning-openchannel_\fBabort\fR(7)
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:72ea44cf6efea20b369fb3ecfb61c8ede142800cbc8b427dbb9a26ec254452ce
+\" SHA256STAMP:d9006c6b2519f1ae2009a683e3e8131af6e182929d8f0025e451155e4e7d6fe6

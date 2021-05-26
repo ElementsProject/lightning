@@ -47,55 +47,43 @@ we fail (default, 60 seconds)\.
 
 .SH RETURN VALUE
 
-On success, an object as follows is returned:
+On success, an object is returned, containing:
 
 .RS
 .IP \[bu]
-\fIinvoice\fR: the bolt12-encoded invoice string, starting with "lni1"\.
+\fBinvoice\fR (string): The BOLT12 invoice we fetched
 .IP \[bu]
-\fIchanges\fR: an object detailing changes between the offer and invoice\.
+\fBchanges\fR (object): Summary of changes from offer:
+.RS
+.IP \[bu]
+\fBdescription_appended\fR (string, optional): extra characters appended to the \fIdescription\fR field\.
+.IP \[bu]
+\fBdescription\fR (string, optional): a completely replaced \fIdescription\fR field
+.IP \[bu]
+\fBvendor_removed\fR (string, optional): The \fIvendor\fR from the offer, which is missing in the invoice
+.IP \[bu]
+\fBvendor\fR (string, optional): a completely replaced \fIvendor\fR field
+.IP \[bu]
+\fBmsat\fR (msat, optional): the amount, if different from the offer amount multiplied by any \fIquantity\fR (or the offer had no amount, or was not in BTC)\.
 
 .RE
 
-Optionally:
-
+.IP \[bu]
+\fBnext_period\fR (object, optional): Only for recurring invoices if the next period is under the \fIrecurrence_limit\fR:
 .RS
 .IP \[bu]
-\fInext_period\fR: an object returned for recurring invoices if the next 
-period is under the recurrence_limit (if any)\.
+\fBcounter\fR (u64): the index of the next period to fetchinvoice
+.IP \[bu]
+\fBstarttime\fR (u64): UNIX timestamp that the next period starts
+.IP \[bu]
+\fBendtime\fR (u64): UNIX timestamp that the next period ends
+.IP \[bu]
+\fBpaywindow_start\fR (u64): UNIX timestamp of the earliest time that the next invoice can be fetched
+.IP \[bu]
+\fBpaywindow_end\fR (u64): UNIX timestamp of the latest time that the next invoice can be fetched
 
 .RE
 
-The \fIchanges\fR object can have and of the following members:
-
-.RS
-.IP \[bu]
-\fIdescription_appended\fR: extra characters appended to the \fIdescription\fR field\.
-.IP \[bu]
-\fIdescription\fR: a completely replaced \fIdescription\fR field\.
-.IP \[bu]
-\fIvendor_removed\fR": the offer vendor field, which has been omitted from the invoice\.
-.IP \[bu]
-\fIvendor\fR": the offer vendor field, which has changed from the invoice\.
-.IP \[bu]
-\fImsat\fR": the amount, if different from the offer amount multiplied
-by any \fIquantity\fR (or the offer had no amount, or was not in BTC)\.
-
-.RE
-
-The \fInext_period\fR object has at least the following members:
-
-.RS
-.IP \[bu]
-\fIcounter\fR: the index of the next period to be fetchinvoice\.
-.IP \[bu]
-\fIstarttime\fR: the time that the next period starts (seconds since 1970)
-.IP \[bu]
-\fIendtime\fR: the time that the next period ends (seconds since 1970)
-.IP \[bu]
-\fIpaywindow_start\fR: the earliest time that the next invoice can be fetched (seconds since 1970)
-.IP \[bu]
-\fIpaywindow_end\fR: the latest time that the next invoice can be fetched (seconds since 1970)
 
 .RE
 
@@ -126,4 +114,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:a96df8e4f480c093c83268688d683db82575341ecb4176ab586eae9baf69d9c1
+\" SHA256STAMP:23be8c105314c109fa0f7c532c3eebf9b2cbe47f520d600d3d2159765def3cbd

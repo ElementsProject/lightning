@@ -111,17 +111,29 @@ factor for larger amounts, and is basically ignored for tiny ones\.
 
 .SH RETURN VALUE
 
-On success, a "route" array is returned\. Each array element contains
-\fIid\fR (the node being routed through), \fImsatoshi\fR (the millisatoshis
-sent), \fIamount_msat\fR (the same, with \fImsat\fR appended), \fIdelay\fR (the
-number of blocks to timeout at this node), and \fIstyle\fR (indicating
-the features which can be used for this hop)\.
+On success, an object containing \fBroute\fR is returned\.  It is an array of objects, where each object contains:
 
+.RS
+.IP \[bu]
+\fBid\fR (pubkey): The node at the end of this hop
+.IP \[bu]
+\fBchannel\fR (short_channel_id): The channel joining these nodes
+.IP \[bu]
+\fBdirection\fR (u32): 0 if this channel is traversed from lesser to greater \fBid\fR, otherwise 1
+.IP \[bu]
+\fBamount_msat\fR (msat): The amount expected by the node at the end of this hop
+.IP \[bu]
+\fBdelay\fR (u32): The total CLTV expected by the node at the end of this hop
+.IP \[bu]
+\fBstyle\fR (string): The features understood by the destination node (one of "legacy", "tlv")
+
+.RE
 
 The final \fIid\fR will be the destination \fIid\fR given in the input\. The
 difference between the first \fImsatoshi\fR minus the \fImsatoshi\fR given in
-the input is the fee\. The first \fIdelay\fR is the very worst case timeout
-for the payment failure, in blocks\.
+the input is the fee (assuming the first hop is free)\. The first
+\fIdelay\fR is the very worst case timeout for the payment failure, in
+blocks\.
 
 .SH AUTHOR
 
@@ -135,4 +147,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:52fe58e923c36f62601e6cb2779031d0428d3561bdeae2ab8eadf3dff84a3179
+\" SHA256STAMP:aaf1dab77352de52f8bf8a5c3e4a6449769b5dbfa51bdbf9b1a06575c8ae37fe
