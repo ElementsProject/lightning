@@ -23,9 +23,13 @@ find a route even if checking the parameters succeeds\.
 
 .SH RETURN VALUE
 
-On success, the \fIcommand_to_check\fR is returned\. On failure, the
-relevant RPC error is returned\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBcommand_to_check\fR (string): the \fIcommand_to_check\fR argument
+
+.RE
 .SH AUTHOR
 
 Mark Beckwith \fI<wythe@intrig.com\fR> and Rusty Russell
@@ -35,4 +39,4 @@ Mark Beckwith \fI<wythe@intrig.com\fR> and Rusty Russell
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:8ff7c586849eae5646f182b088351b4a5baa61e9e628a31763a6647e74a7fc0a
+\" SHA256STAMP:9e78651117d3546edaf5150621630ee5dc4ccefd6e6a17b52b9dc8f86e8ba0c9

@@ -28,8 +28,40 @@ the invoice\.
 
 .SH RETURN VALUE
 
-On success, an invoice object is returned, as per \fBlistinvoices\fR(7)\.
+(Note: the return format is the same as \fBlightning-listinvoices\fR(7))\.
 
+
+On success, an object is returned, containing:
+
+.RS
+.IP \[bu]
+\fBlabel\fR (string): the label for the invoice
+.IP \[bu]
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.IP \[bu]
+\fBstatus\fR (string): Whether it has been paid, or can no longer be paid (one of "paid", "expired", "unpaid")
+.IP \[bu]
+\fBdescription\fR (string): Description extracted from \fBbolt11\fR or \fBbolt12\fR
+.IP \[bu]
+\fBexpires_at\fR (u64): UNIX timestamp of when invoice expires (or expired)
+.IP \[bu]
+\fBbolt11\fR (string, optional): the bolt11 string (always present unless \fBbolt12\fR is)
+.IP \[bu]
+\fBbolt12\fR (string, optional): the bolt12 string instead of \fBbolt11\fR (\fBexperimental-offers\fR only)
+.IP \[bu]
+\fBamount_msat\fR (msat, optional): The amount of the invoice (if it has one)
+.IP \[bu]
+\fBpay_index\fR (u64, optional): Incrementing id for when this was paid (\fBstatus\fR \fIpaid\fR only)
+.IP \[bu]
+\fBamount_received_msat\fR (msat, optional): Amount actually received (\fBstatus\fR \fIpaid\fR only)
+.IP \[bu]
+\fBpaid_at\fR (u64, optional): UNIX timestamp of when invoice was paid (\fBstatus\fR \fIpaid\fR only)
+.IP \[bu]
+\fBpayment_preimage\fR (hex, optional): the proof of payment: SHA256 of this \fBpayment_hash\fR (always 64 characters)
+.IP \[bu]
+\fBlocal_offer_id\fR (hex, optional): the \fIid\fR of our offer which created this invoice (\fBexperimental-offers\fR only)\. (always 64 characters)
+
+.RE
 
 On failure, an error is returned and no invoice is created\. If the
 lightning process fails before responding, the caller should use
@@ -53,10 +85,10 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 .SH SEE ALSO
 
 \fBlightning-invoice\fR(7), \fBlightning-listinvoices\fR(7), \fBlightning-delinvoice\fR(7),
-\fBlightning-getroute\fR(7), \fBlightning-sendpay\fR(7)\.
+\fBlightning-getroute\fR(7), \fBlightning-sendpay\fR(7), \fBlightning-offer\fR(7)\.
 
 .SH RESOURCES
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:155724c3e3130ed7f96d50a37dff99711dfcb4056c57d7eeb488fdb2b7925839
+\" SHA256STAMP:2d654675f966516a0fb0553f66e5bacd3ab96482d20cd9701a84e15ae49a4d92
