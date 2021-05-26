@@ -1667,13 +1667,12 @@ static struct command_result *json_close(struct command *cmd,
 		if (uc) {
 			/* Easy case: peer can simply be forgotten. */
 			kill_uncommitted_channel(uc, "close command called");
-
-			return command_success(cmd, json_stream_success(cmd));
+			goto discard_unopened;
 		}
 		if ((channel = peer_unsaved_channel(peer))) {
 			channel_unsaved_close_conn(channel,
 						   "close command called");
-			return command_success(cmd, json_stream_success(cmd));
+			goto discard_unopened;
 		}
 		return command_fail(cmd, LIGHTNINGD,
 				    "Peer has no active channel");
@@ -1833,6 +1832,12 @@ static struct command_result *json_close(struct command *cmd,
 
 	/* Wait until close drops down to chain. */
 	return command_still_pending(cmd);
+
+discard_unopened: {
+	struct json_stream *result = json_stream_success(cmd);
+	json_add_string(result, "type", "unopened");
+	return command_success(cmd, result);
+	}
 }
 
 static const struct json_command close_command = {
