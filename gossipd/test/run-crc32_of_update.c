@@ -11,6 +11,9 @@ int unused_main(int argc, char *argv[]);
 struct io_plan *daemon_conn_read_next(struct io_conn *conn UNNEEDED,
 				      struct daemon_conn *dc UNNEEDED)
 { fprintf(stderr, "daemon_conn_read_next called!\n"); abort(); }
+/* Generated stub for daemon_conn_send */
+void daemon_conn_send(struct daemon_conn *dc UNNEEDED, const u8 *msg UNNEEDED)
+{ fprintf(stderr, "daemon_conn_send called!\n"); abort(); }
 /* Generated stub for daemon_conn_wake */
 void daemon_conn_wake(struct daemon_conn *dc UNNEEDED)
 { fprintf(stderr, "daemon_conn_wake called!\n"); abort(); }
@@ -113,6 +116,9 @@ void status_fmt(enum log_level level UNNEEDED,
 		const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "status_fmt called!\n"); abort(); }
+/* Generated stub for towire_gossipd_offer_card */
+u8 *towire_gossipd_offer_card(const tal_t *ctx UNNEEDED)
+{ fprintf(stderr, "towire_gossipd_offer_card called!\n"); abort(); }
 /* Generated stub for towire_hsmd_cupdate_sig_req */
 u8 *towire_hsmd_cupdate_sig_req(const tal_t *ctx UNNEEDED, const u8 *cu UNNEEDED)
 { fprintf(stderr, "towire_hsmd_cupdate_sig_req called!\n"); abort(); }

@@ -1,6 +1,7 @@
 /* Routines to make our own gossip messages.  Not as in "we're the gossip
  * generation, man!" */
 #include <ccan/mem/mem.h>
+#include <common/daemon_conn.h>
 #include <common/features.h>
 #include <common/liquidity_ad.h>
 #include <common/memleak.h>
@@ -14,6 +15,7 @@
 #include <gossipd/gossip_store.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_peerd_wiregen.h>
+#include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
@@ -166,6 +168,7 @@ bool nannounce_different(struct gossip_store *gs,
 static void update_own_node_announcement(struct daemon *daemon)
 {
 	u32 timestamp = gossip_time_now(daemon->rstate).ts.tv_sec;
+	u32 wait;
 	secp256k1_ecdsa_signature sig;
 	u8 *msg, *nannounce, *err;
 	struct node *self = get_node(daemon->rstate, &daemon->id);
@@ -184,13 +187,19 @@ static void update_own_node_announcement(struct daemon *daemon)
 					     timestamp,
 					     daemon->ad);
 
+	/* Send request to master to refresh our liquidity ad info.
+	 * Won't be reflected in the node_ann until the next update */
+	daemon_conn_send(daemon->master,
+			 take(towire_gossipd_offer_card(NULL)));
 
+
+	status_debug("update own node_ann called");
 	/* If it's the same as the previous, nothing to do. */
 	if (self && self->bcast.index) {
 		u32 next;
 
 		if (!nannounce_different(daemon->rstate->gs, self, nannounce))
-			return;
+			goto wait_next;
 
 		/* BOLT #7:
 		 *
@@ -237,6 +246,18 @@ static void update_own_node_announcement(struct daemon *daemon)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "rejected own node announcement: %s",
 			      tal_hex(tmpctx, err));
+
+wait_next:
+	/* Because we can now update the liquidity_ad (`option_will_fund`)
+	 * we need to check for updates on the regular. We use the
+	 * gossip interval as the wait time */
+	wait = GOSSIP_MIN_INTERVAL(daemon->rstate->dev_fast_gossip);
+	daemon->node_announce_timer
+		= new_reltimer(&daemon->timers,
+			       daemon,
+			       time_from_sec(wait),
+			       update_own_node_announcement,
+			       daemon);
 }
 
 /* Should we announce our own node?  Called at strategic places. */

@@ -171,3 +171,14 @@ msgdata,gossipd_addgossip,msg,u8,len
 msgtype,gossipd_addgossip_reply,3144
 msgdata,gossipd_addgossip_reply,err,wirestring,
 
+# gossipd->lightningd: what offer data should we
+#                      put in the node announce?
+msgtype,gossipd_offer_card,3046
+
+# lightningd->gossipd: here's our current offer data
+msgtype,gossipd_offer_card_reply,3146
+msgdata,gossipd_offer_card_reply,has_offer,bool,
+msgdata,gossipd_offer_card_reply,lease_proportional_basis,u16,
+msgdata,gossipd_offer_card_reply,lease_base_sat,amount_sat,
+msgdata,gossipd_offer_card_reply,channel_proportional_basis,u16,
+msgdata,gossipd_offer_card_reply,channel_base_msat,amount_msat,

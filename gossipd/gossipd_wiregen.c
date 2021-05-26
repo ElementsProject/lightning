@@ -50,6 +50,8 @@ const char *gossipd_wire_name(int e)
 	case WIRE_GOSSIPD_SEND_ONIONMSG: return "WIRE_GOSSIPD_SEND_ONIONMSG";
 	case WIRE_GOSSIPD_ADDGOSSIP: return "WIRE_GOSSIPD_ADDGOSSIP";
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY: return "WIRE_GOSSIPD_ADDGOSSIP_REPLY";
+	case WIRE_GOSSIPD_OFFER_CARD: return "WIRE_GOSSIPD_OFFER_CARD";
+	case WIRE_GOSSIPD_OFFER_CARD_REPLY: return "WIRE_GOSSIPD_OFFER_CARD_REPLY";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -89,6 +91,8 @@ bool gossipd_wire_is_defined(u16 type)
 	case WIRE_GOSSIPD_SEND_ONIONMSG:;
 	case WIRE_GOSSIPD_ADDGOSSIP:;
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:;
+	case WIRE_GOSSIPD_OFFER_CARD:;
+	case WIRE_GOSSIPD_OFFER_CARD_REPLY:;
 	      return true;
 	}
 	return false;
@@ -1067,4 +1071,55 @@ bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestrin
  	*err = fromwire_wirestring(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:ed02189d3624a06105e53c5874b3c05e0eaabff4c6951924f035b7023d365f6f
+
+/* WIRE: GOSSIPD_OFFER_CARD */
+/* gossipd->lightningd: what offer data should we */
+/*                      put in the node announce? */
+u8 *towire_gossipd_offer_card(const tal_t *ctx)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_GOSSIPD_OFFER_CARD);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_gossipd_offer_card(const void *p)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_OFFER_CARD)
+		return false;
+	return cursor != NULL;
+}
+
+/* WIRE: GOSSIPD_OFFER_CARD_REPLY */
+/* lightningd->gossipd: here's our current offer data */
+u8 *towire_gossipd_offer_card_reply(const tal_t *ctx, bool has_offer, u16 lease_proportional_basis, struct amount_sat lease_base_sat, u16 channel_proportional_basis, struct amount_msat channel_base_msat)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_GOSSIPD_OFFER_CARD_REPLY);
+	towire_bool(&p, has_offer);
+	towire_u16(&p, lease_proportional_basis);
+	towire_amount_sat(&p, lease_base_sat);
+	towire_u16(&p, channel_proportional_basis);
+	towire_amount_msat(&p, channel_base_msat);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_gossipd_offer_card_reply(const void *p, bool *has_offer, u16 *lease_proportional_basis, struct amount_sat *lease_base_sat, u16 *channel_proportional_basis, struct amount_msat *channel_base_msat)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_OFFER_CARD_REPLY)
+		return false;
+ 	*has_offer = fromwire_bool(&cursor, &plen);
+ 	*lease_proportional_basis = fromwire_u16(&cursor, &plen);
+ 	*lease_base_sat = fromwire_amount_sat(&cursor, &plen);
+ 	*channel_proportional_basis = fromwire_u16(&cursor, &plen);
+ 	*channel_base_msat = fromwire_amount_msat(&cursor, &plen);
+	return cursor != NULL;
+}
+// SHA256STAMP:66c89f22c11351e1bee82433be4ba9e56b8203b735df4422decb046add17faf0

@@ -67,6 +67,11 @@ enum gossipd_wire {
         WIRE_GOSSIPD_ADDGOSSIP = 3044,
         /*  Empty string means no problem. */
         WIRE_GOSSIPD_ADDGOSSIP_REPLY = 3144,
+        /*  gossipd->lightningd: what offer data should we */
+        /*                       put in the node announce? */
+        WIRE_GOSSIPD_OFFER_CARD = 3046,
+        /*  lightningd->gossipd: here's our current offer data */
+        WIRE_GOSSIPD_OFFER_CARD_REPLY = 3146,
 };
 
 const char *gossipd_wire_name(int e);
@@ -223,6 +228,17 @@ bool fromwire_gossipd_addgossip(const tal_t *ctx, const void *p, u8 **msg);
 u8 *towire_gossipd_addgossip_reply(const tal_t *ctx, const wirestring *err);
 bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestring **err);
 
+/* WIRE: GOSSIPD_OFFER_CARD */
+/*  gossipd->lightningd: what offer data should we */
+/*                       put in the node announce? */
+u8 *towire_gossipd_offer_card(const tal_t *ctx);
+bool fromwire_gossipd_offer_card(const void *p);
+
+/* WIRE: GOSSIPD_OFFER_CARD_REPLY */
+/*  lightningd->gossipd: here's our current offer data */
+u8 *towire_gossipd_offer_card_reply(const tal_t *ctx, bool has_offer, u16 lease_proportional_basis, struct amount_sat lease_base_sat, u16 channel_proportional_basis, struct amount_msat channel_base_msat);
+bool fromwire_gossipd_offer_card_reply(const void *p, bool *has_offer, u16 *lease_proportional_basis, struct amount_sat *lease_base_sat, u16 *channel_proportional_basis, struct amount_msat *channel_base_msat);
+
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_WIREGEN_H */
-// SHA256STAMP:ed02189d3624a06105e53c5874b3c05e0eaabff4c6951924f035b7023d365f6f
+// SHA256STAMP:66c89f22c11351e1bee82433be4ba9e56b8203b735df4422decb046add17faf0

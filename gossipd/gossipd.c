@@ -1794,6 +1794,63 @@ err_extracted:
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
+static struct io_plan *handle_offer_card_update(struct io_conn *conn,
+						struct daemon *daemon,
+						const u8 *msg)
+{
+
+	bool has_offer, updated = false;
+	struct liquidity_ad *ad = tal(tmpctx, struct liquidity_ad);
+
+	if (!fromwire_gossipd_offer_card_reply(msg,
+					      &has_offer,
+					      &ad->lease_basis,
+					      &ad->lease_base_sat,
+					      &ad->channel_fee_basis,
+					      &ad->channel_base_msat))
+		master_badmsg(WIRE_GOSSIPD_OFFER_CARD_REPLY, msg);
+
+	/* Did we update? */
+	if ((!has_offer && daemon->ad) || (has_offer && !daemon->ad)
+	    || (daemon->ad && !liquidity_ad_eq(ad, daemon->ad))) {
+		status_debug("LIQUIDITY LEASES: ad updated.");
+		updated = true;
+
+		if (daemon->ad)
+			status_debug("old offer: lease terms:%d %s,"
+				     " channel fee terms:%d %s",
+				     daemon->ad->lease_basis,
+				     type_to_string(tmpctx, struct amount_sat,
+						    &daemon->ad->lease_base_sat),
+				     daemon->ad->channel_fee_basis,
+				     type_to_string(tmpctx, struct amount_msat,
+						    &daemon->ad->channel_base_msat));
+		if (has_offer)
+			status_debug("new offer: lease terms:%d %s,"
+				     " channel fee terms:%d %s",
+				     ad->lease_basis,
+				     type_to_string(tmpctx, struct amount_sat,
+						    &ad->lease_base_sat),
+				     ad->channel_fee_basis,
+				     type_to_string(tmpctx, struct amount_msat,
+						    &ad->channel_base_msat));
+		else
+			status_debug("no new offer, offers turned off");
+	} else
+		status_debug("LIQUIDITY LEASES: no update");
+
+	daemon->ad = tal_free(daemon->ad);
+	if (has_offer)
+		daemon->ad = tal_steal(daemon, ad);
+	else
+		tal_free(ad);
+
+	if (updated)
+		maybe_send_own_node_announce(daemon);
+
+	return daemon_conn_read_next(conn, daemon->master);
+}
+
 /*~ This is where lightningd tells us that a channel's funding transaction has
  * been spent. */
 static struct io_plan *handle_outpoint_spent(struct io_conn *conn,
@@ -1893,6 +1950,9 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_ADDGOSSIP:
 		return inject_gossip(conn, daemon, msg);
 
+	case WIRE_GOSSIPD_OFFER_CARD_REPLY:
+		return handle_offer_card_update(conn, daemon, msg);
+
 #if DEVELOPER
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 		return dev_set_max_scids_encode_size(conn, daemon, msg);
@@ -1916,6 +1976,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_SEND_ONIONMSG:
 		return onionmsg_req(conn, daemon, msg);
 	/* We send these, we don't receive them */
+	case WIRE_GOSSIPD_OFFER_CARD:
 	case WIRE_GOSSIPD_GETNODES_REPLY:
 	case WIRE_GOSSIPD_GETROUTE_REPLY:
 	case WIRE_GOSSIPD_GETCHANNELS_REPLY:

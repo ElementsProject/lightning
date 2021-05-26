@@ -129,6 +129,128 @@ static void get_txout(struct subd *gossip, const u8 *msg)
 	}
 }
 
+static struct liquidity_ad *parse_offerrates_reply(const tal_t *ctx,
+						   const struct plugin *p,
+						   const char *buf,
+						   const jsmntok_t *toks,
+						   const jsmntok_t *idtok)
+{
+	bool avail;
+	const char *err;
+
+	struct liquidity_ad *ad;
+	const jsmntok_t *resulttok;
+
+	resulttok = json_get_member(buf, toks, "result");
+	if (!resulttok || resulttok->type != JSMN_OBJECT)
+		fatal("%s plugin returned invalid/error response to %s. %.*s",
+		      p->shortname, CMD_OFFER_RATES,
+		      json_tok_full_len(toks),
+		      json_tok_full(buf, toks));
+
+	err = json_scan(tmpctx, buf, resulttok,
+			"{leases_available:%}",
+			JSON_SCAN(json_to_bool, &avail));
+	if (err)
+		fatal("%s plugin returned invalid response to %s."
+		      "%s: %.*s",
+		      p->shortname, CMD_OFFER_RATES, err,
+		      json_tok_full_len(resulttok),
+		      json_tok_full(buf, resulttok));
+
+	/* No rate card set */
+	if (!avail)
+		return NULL;
+
+	ad = tal(ctx, struct liquidity_ad);
+	err = json_scan(tmpctx, buf, resulttok,
+			"{channel_fee_base_max_msat:%"
+			",channel_fee_basis_max:%"
+			",lease_fee_base_msat:%"
+			",lease_fee_basis:%}",
+			JSON_SCAN(json_to_msat,
+				  &ad->channel_base_msat),
+			JSON_SCAN(json_to_u16,
+				  &ad->channel_fee_basis),
+			JSON_SCAN(json_to_sat,
+				  &ad->lease_base_sat),
+			JSON_SCAN(json_to_u16,
+				  &ad->lease_basis));
+
+	if (err)
+		fatal("%s plugin returned invalid response to %s."
+		      "%s: %.*s",
+		      p->shortname, CMD_OFFER_RATES, err,
+		      json_tok_full_len(resulttok),
+		      json_tok_full(buf, resulttok));
+
+	return ad;
+}
+
+struct offer_cb_arg {
+	struct lightningd *ld;
+	struct plugin *p;
+};
+
+static void offerrates_cb(const char *buffer,
+			  const jsmntok_t *toks,
+			  const jsmntok_t *idtok,
+			  struct offer_cb_arg *arg)
+{
+	struct liquidity_ad *ad;
+	u8 *msg;
+
+	/* If there's no plugin, there's no buffer */
+	if (!buffer
+	    || !(ad = parse_offerrates_reply(tmpctx, arg->p,
+					     buffer, toks, idtok)))
+		msg = towire_gossipd_offer_card_reply(NULL,
+						      false,
+						      -1,
+						      AMOUNT_SAT(-1),
+						      -1,
+						      AMOUNT_MSAT(-1));
+	else
+		msg = towire_gossipd_offer_card_reply(NULL,
+						      true,
+						      ad->lease_basis,
+						      ad->lease_base_sat,
+						      ad->channel_fee_basis,
+						      ad->channel_base_msat);
+
+	subd_send_msg(arg->ld->gossip, take(msg));
+	tal_free(arg);
+}
+
+static void handle_offer_card_update(struct lightningd *ld, const u8 *msg)
+{
+	struct jsonrpc_request *req;
+	struct offer_cb_arg *arg;
+
+	if (!fromwire_gossipd_offer_card(msg))
+		fatal("Gossip gave bad GOSSIPD_OFFER_CARD message %s",
+		      tal_hex(msg, msg));
+
+	arg = tal(NULL, struct offer_cb_arg);
+	arg->ld = ld;
+
+	/* There's no plugin with this command. *shrug* */
+	arg->p = find_plugin_for_command(ld, CMD_OFFER_RATES);
+	if (!arg->p) {
+		log_debug(ld->log, "No plugin found supporting"
+			  "'%s' method", CMD_OFFER_RATES);
+		offerrates_cb(NULL, NULL, NULL, arg);
+		return;
+	}
+
+	req = jsonrpc_request_start(arg->p, CMD_OFFER_RATES,
+				    arg->p->log,
+				    NULL, offerrates_cb,
+				    arg);
+	jsonrpc_request_end(req);
+	plugin_request_send(arg->p, req);
+}
+
 static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 {
 	enum gossipd_wire t = fromwire_peektype(msg);
@@ -162,6 +284,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE_REPLY:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
+	case WIRE_GOSSIPD_OFFER_CARD_REPLY:
 		break;
 
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
@@ -176,6 +299,10 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 
 	case WIRE_GOSSIPD_GET_TXOUT:
 		get_txout(gossip, msg);
+		break;
+
+	case WIRE_GOSSIPD_OFFER_CARD:
+		handle_offer_card_update(gossip->ld, msg);
 		break;
 	}
 	return 0;
