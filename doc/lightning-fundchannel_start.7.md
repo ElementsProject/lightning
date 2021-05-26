@@ -41,9 +41,12 @@ transaction before that can lead to unrecoverable loss of funds.
 RETURN VALUE
 ------------
 
-On success, returns the *funding\_address* and the *scriptpubkey* for the channel funding output.
-If a `close_to` address was provided, will close to this address iff the `close_to` address is
-returned in the response. Otherwise, the peer does not support `option_upfront_shutdownscript`.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **funding_address** (string): The address to send funding to for the channel
+- **scriptpubkey** (hex): The raw scriptPubkey for the address
+- **close_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
@@ -75,3 +78,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:9417a2d8d48b69f3557b08984d6b362e20cf20eeefcbef168fdc84b6f1de6411)

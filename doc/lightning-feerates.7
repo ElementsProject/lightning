@@ -54,61 +54,77 @@ which will override the recommended feerates returned by \fBfeerates\fR\.
 
 .SH RETURN VALUE
 
-The \fBfeerates\fR command returns the feerates in an object named
-\fIperkw\fR or \fIperkb\fR, depending on your \fIstyle\fR parameter\.
-
-
-Some of these estimations may be missing, except for \fImin_acceptable\fR
-and \fImax_acceptable\fR, which are always present\.
-
-
-The \fIperkw\fR or \fIperkb\fR object may have fields containing the estimates:
+On success, an object is returned, containing:
 
 .RS
 .IP \[bu]
-\fIopening\fR - feerate used for channel opening by \fBlightning-fundchannel\fR(7),
-as well as normal onchain-to-onchain spends by \fBlightning-withdraw\fR(7)\.
-In general, for all normal onchain-to-onchain spends, this is the feerate
-you should also use\.
+\fBperkb\fR (object, optional): If \fIstyle\fR parameter was perkb:
+.RS
 .IP \[bu]
-\fImutual_close\fR - the starting feerate used in mutual close negotiation\.
-Note that since mutual close is a \fBnegotiation\fR,
-the actual feerate used in mutual close
-will be somewhere between this
-and the corresponding mutual close feerate of the peer\.
+\fBmin_acceptable\fR (u32): The smallest feerate that you can use, usually the minimum relayed feerate of the backend
 .IP \[bu]
-\fIunilateral_close\fR - the feerate we will pay for when a unilateral close
-is done on a channel we originally funded\.
-When anchor commitments are implemented,
-this will be the feerate we will use
-for a unilateral close we initiated\.
+\fBmax_acceptable\fR (u32): The largest feerate we will accept from remote negotiations\.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet)\.
 .IP \[bu]
-\fIdelayed_to_us\fR - the feerate we will use when claiming our output from
-a unilateral close we initiated\.
+\fBopening\fR (u32, optional): Default feerate for \fBlightning-fundchannel\fR(7) and \fBlightning-withdraw\fR(7)
 .IP \[bu]
-\fIhtlc_resolution\fR - the feerate we will use to claim HTLCs
-from a unilateral close we initiated\.
+\fBmutual_close\fR (u32, optional): Feerate to aim for in cooperative shutdown\.  Note that since mutual close is a \fBnegotiation\fR, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer\.
 .IP \[bu]
-\fIpenalty\fR - the feerate we will use to revoke old state,
-if the counterparty attempts to cheat us\.
+\fBunilateral_close\fR (u32, optional): Feerate for commitment_transaction in a live channel which we originally funded
+.IP \[bu]
+\fBdelayed_to_us\fR (u32, optional): Feerate for returning unilateral close funds to our wallet
+.IP \[bu]
+\fBhtlc_resolution\fR (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet
+.IP \[bu]
+\fBpenalty\fR (u32, optional): Feerate to start at when penalizing a cheat attempt
 
 .RE
 
-The following fields are always present in the \fIperkw\fR or \fIperkb\fR object:
+.IP \[bu]
+\fBperkw\fR (object, optional): If \fIstyle\fR parameter was perkw:
+.RS
+.IP \[bu]
+\fBmin_acceptable\fR (u32): The smallest feerate that you can use, usually the minimum relayed feerate of the backend
+.IP \[bu]
+\fBmax_acceptable\fR (u32): The largest feerate we will accept from remote negotiations\.  If a peer attempts to set the feerate higher than this we will unilaterally close the channel (or simply forget it if it's not open yet)\.
+.IP \[bu]
+\fBopening\fR (u32, optional): Default feerate for \fBlightning-fundchannel\fR(7) and \fBlightning-withdraw\fR(7)
+.IP \[bu]
+\fBmutual_close\fR (u32, optional): Feerate to aim for in cooperative shutdown\.  Note that since mutual close is a \fBnegotiation\fR, the actual feerate used in mutual close will be somewhere between this and the corresponding mutual close feerate of the peer\.
+.IP \[bu]
+\fBunilateral_close\fR (u32, optional): Feerate for commitment_transaction in a live channel which we originally funded
+.IP \[bu]
+\fBdelayed_to_us\fR (u32, optional): Feerate for returning unilateral close funds to our wallet
+.IP \[bu]
+\fBhtlc_resolution\fR (u32, optional): Feerate for returning unilateral close HTLC outputs to our wallet
+.IP \[bu]
+\fBpenalty\fR (u32, optional): Feerate to start at when penalizing a cheat attempt
+
+.RE
+
+.IP \[bu]
+\fBonchain_fee_estimates\fR (object, optional):
+.RS
+.IP \[bu]
+\fBopening_channel_satoshis\fR (u64): Estimated cost of typical channel open
+.IP \[bu]
+\fBmutual_close_satoshis\fR (u64): Estimated cost of typical channel close
+.IP \[bu]
+\fBunilateral_close_satoshis\fR (u64): Estimated cost of typical unilateral close (without HTLCs)
+.IP \[bu]
+\fBhtlc_timeout_satoshis\fR (u64): Estimated cost of typical HTLC timeout transaction
+.IP \[bu]
+\fBhtlc_success_satoshis\fR (u64): Estimated cost of typical HTLC fulfillment transaction
+
+.RE
+
+
+.RE
+
+The following warnings may also be returned:
 
 .RS
 .IP \[bu]
-\fImin_acceptable\fR - the smallest feerate that you can use,
-usually the minimum relayed feerate of the backend\.
-.IP \[bu]
-\fImax_acceptable\fR - the largest feerate we will accept
-from remote negotiations\.
-If a peer attempts to open a channel to us but wants a unilateral close
-feerate larger than \fImax_acceptable\fR, we reject the open attempt\.
-If the peer attempts to change the unilateral close feerate of a channel it
-opened to us, such that the new feerate exceeds \fImax_acceptable\fR, we
-unilaterally close the channel
-(at the current unilateral close feerate instead of the new one)\.
+\fBwarning_missing_feerates\fR: Some fee estimates are missing
 
 .RE
 .SH ERRORS
@@ -153,4 +169,4 @@ manpage\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:f0fc7218cc1286cb6fb299cf81553d851d4ba4fee570e7bb169593d17aea951b
+\" SHA256STAMP:6e1ae2f26676a76231461ac1f696066e538edabfab00ec9480550a5c6bc6981e

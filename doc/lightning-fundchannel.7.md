@@ -73,14 +73,14 @@ This example shows how to use lightning-cli to open new channel with peer 03f...
 RETURN VALUE
 ------------
 
-On success, the *tx* and *txid* of the transaction is returned, as well
-as the *outnum* indicating the output index which creates the channel, as well
-as the *channel\_id* of the newly created channel. On failure, an error
-is reported and the channel is not funded.
-
-If a `close_to` address was provided, will close to this address
-iff the `close_to` script is returned in the response. Otherwise,
-the peer does not support `option_upfront_shutdownscript`.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **tx** (hex): The raw transaction which funded the channel
+- **txid** (txid): The txid of the transaction which funded the channel
+- **outnum** (u32): The 0-based output index showing which output funded the channel
+- **channel_id** (hex): The channel_id of the resulting channel (always 64 characters)
+- **close_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The following error codes may occur:
 - -1: Catchall nonspecific error.
@@ -103,3 +103,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:5b17c334b90f840a986750f9fcdb6a6bfa79bd1a3da11319a1957ba87bc4b0a7)

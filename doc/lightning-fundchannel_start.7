@@ -45,10 +45,17 @@ transaction before that can lead to unrecoverable loss of funds\.
 
 .SH RETURN VALUE
 
-On success, returns the \fIfunding_address\fR and the \fIscriptpubkey\fR for the channel funding output\.
-If a \fBclose_to\fR address was provided, will close to this address iff the \fBclose_to\fR address is
-returned in the response\. Otherwise, the peer does not support \fBoption_upfront_shutdownscript\fR\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBfunding_address\fR (string): The address to send funding to for the channel
+.IP \[bu]
+\fBscriptpubkey\fR (hex): The raw scriptPubkey for the address
+.IP \[bu]
+\fBclose_to\fR (hex, optional): The raw scriptPubkey which mutual close will go to; only present if \fIclose_to\fR parameter was specified and peer supports \fBoption_upfront_shutdown_script\fR
+
+.RE
 
 On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
 with \fBcode\fR being one of the following:
@@ -86,4 +93,4 @@ lightning-openchannel_\fBabort\fR(7)
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:6dd30561d6b00b1f2d5595cfe199e09576eb4ba2afea7ba52e8f38546720c76c
+\" SHA256STAMP:959e97d593fb77f9403e8c5024d5582a2ae81b5cffae1799a285e0a26281b770

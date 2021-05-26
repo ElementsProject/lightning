@@ -26,8 +26,11 @@ unrecoverable loss of funds.
 RETURN VALUE
 ------------
 
-On success, returns a confirmation that *commitments\_secured* and the
-derived *channel\_id*.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **channel_id** (hex): The channel_id of the resulting channel (always 64 characters)
+- **commitments_secured** (boolean): Indication that channel is safe to use (always *true*)
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
@@ -57,3 +60,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:7cb52658d81c5834e34a6011c04283bf740fe6e5feedb0208778abad5fddc519)

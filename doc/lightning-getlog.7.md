@@ -28,18 +28,30 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, a object will be return with the following parameters:
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **created_at** (string): UNIX timestamp with 9 decimal places, when logging was initialized
+- **bytes_used** (u32): The number of bytes used by logging records
+- **bytes_max** (u32): The bytes_used values at which records will be trimmed 
+- **log** (array of objects):
+  - **type** (string) (one of "SKIPPED", "BROKEN", "UNUSUAL", "INFO", "DEBUG", "IO_IN", "IO_OUT")
 
-- *created_at*: An floating point value that represents the UNIX timestamp when logging began. 
-- *bytes_used*: A string that represents the dimension in bytes of the log file.
-- *bytes_max*: An integer that represents the max dimension in bytes of log file.
-- *log*: An array of objects where each element contains the following proprieties:
- - *type*: A string that represents the log level. The propriety can have an value equal to SKIPPED to indicate the existence of omitted entries.
- - *time*: A floating point value that represents the time since *created_at*.
- - *source*: A string that represents the source of line.
- - *log*: A string that represents the content of line.
-- *num_skipped*: An integer that it is present only if the log level is equal to SKIPPED.
- 
+  If **type** is "SKIPPED":
+    - **num_skipped** (u32): number of unprinted log entries (deleted or below *level* parameter)
+
+  If **type** is "BROKEN", "UNUSUAL", "INFO" or "DEBUG":
+    - **time** (string): UNIX timestamp with 9 decimal places after **created_at**
+    - **source** (string): The particular logbook this was found in
+    - **log** (string): The actual log message
+    - **node_id** (pubkey, optional): The peer this is associated with
+
+  If **type** is "IO_IN" or "IO_OUT":
+    - **time** (string): Seconds after **created_at**, with 9 decimal places
+    - **source** (string): The particular logbook this was found in
+    - **log** (string): The associated log message
+    - **data** (hex): The IO which occurred
+    - **node_id** (pubkey, optional): The peer this is associated with
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, one of the following error codes may be returned:
 
@@ -77,3 +89,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:db99eeb155bb44ebda8b77afdc1fad773e82fa8892e1df6afd61c60a1f4b7ec3)

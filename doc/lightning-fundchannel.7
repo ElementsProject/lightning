@@ -86,16 +86,21 @@ lightning-cli -k fundchannel id=03f...fc1 amount=all feerate=normal utxos='["bcc
 .fi
 .SH RETURN VALUE
 
-On success, the \fItx\fR and \fItxid\fR of the transaction is returned, as well
-as the \fIoutnum\fR indicating the output index which creates the channel, as well
-as the \fIchannel_id\fR of the newly created channel\. On failure, an error
-is reported and the channel is not funded\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBtx\fR (hex): The raw transaction which funded the channel
+.IP \[bu]
+\fBtxid\fR (txid): The txid of the transaction which funded the channel
+.IP \[bu]
+\fBoutnum\fR (u32): The 0-based output index showing which output funded the channel
+.IP \[bu]
+\fBchannel_id\fR (hex): The channel_id of the resulting channel (always 64 characters)
+.IP \[bu]
+\fBclose_to\fR (hex, optional): The raw scriptPubkey which mutual close will go to; only present if \fIclose_to\fR parameter was specified and peer supports \fBoption_upfront_shutdown_script\fR
 
-If a \fBclose_to\fR address was provided, will close to this address
-iff the \fBclose_to\fR script is returned in the response\. Otherwise,
-the peer does not support \fBoption_upfront_shutdownscript\fR\.
-
+.RE
 
 The following error codes may occur:
 
@@ -125,4 +130,4 @@ channel parameters (funding limits, channel reserves, fees, etc\.)\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:6b8356d6c8f33ffa6885060386776334b6ee4eaf051362eed188541e3582e1e5
+\" SHA256STAMP:ee8d7d247d9d4f263f8bbed936a2ba4b61d4afc5c48580f462a0d6142c13dbbd

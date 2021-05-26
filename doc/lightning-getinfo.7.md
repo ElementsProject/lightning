@@ -25,23 +25,34 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, an object with the following information is returned:
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **id** (pubkey): The public key unique to this node
+- **alias** (string): The fun alias this node will advertize (up to 32 characters)
+- **color** (hex): The favorite RGB color this node will advertize (always 6 characters)
+- **num_peers** (u32): The total count of peers, connected or with channels
+- **num_pending_channels** (u32): The total count of channels being opened
+- **num_active_channels** (u32): The total count of channels in normal state
+- **num_inactive_channels** (u32): The total count of channels waiting for opening or closing transactions to be mined
+- **version** (string): Identifies what bugs you are running into
+- **lightning-dir** (string): Identifies where you can find the configuration and other related files
+- **blockheight** (u32): The highest block height we've learned
+- **network** (string): represents the type of network on the node are working (e.g: `bitcoin`, `testnet`, or `regtest`)
+- **fees_collected_msat** (msat): Total routing fees collected by this node
+- **address** (array of objects, optional): The addresses we announce to the world:
+  - **type** (string): Type of connection (one of "ipv4", "ipv6", "torv2", "torv3")
+  - **address** (string): address in expected format for **type**
+  - **port** (u16): port number
+- **binding** (array of objects, optional): The addresses we are listening on:
+  - **type** (string): Type of connection (one of "local socket", "ipv4", "ipv6", "torv2", "torv3")
+  - **address** (string, optional): address in expected format for **type**
+  - **port** (u16, optional): port number
+  - **socket** (string, optional): socket filename (only if **type** is "local socket")
 
-- *id*: A string that represents the public key of the node. It will represents the node on the public network.
-- *alias*: A string that represents the alias of the node, by default is calculate from the public key (node id).  This is just for fun; the name can be anything and is not unique!
-- *color*: A string that represents the preferred color of the node.
-- *num_peers*: An integer that represents the number of peer connect to the node.
-- *num_pending_channels*: An integer that represents the number of channel which are still awaiting opening confirmation.
-- *num_active_channels*: A integer that represents the number of channel which are currently open.
-- *num_inactive_channels*: A integer that represents the number of channel which are closing.
-- *address*: An array that represents all published addresses of the node, each object inside the array contains the following proprieties:
-  - *type*: A string that represents the type of the address (currently `ipv4`, `ipv6`, `torv3` or `torv4`).
-  - *address*: A string that represents the value of the address.
-  - *port*: An integer that represents the port where the node is listening with this address.
-- *binding*: An array that represents all addresses where the node is binded. Each object contains the same object type of the address propriety above.
-- *version*: A string that represents the version of the node.
-- *blockheight*: An integer that represents the blockchain height.
-- *network*: A string that represents the type of network on the node are working (e.g: `bitcoin`, `testnet`, or `regtest`).
+The following warnings may also be returned:
+- **warning_bitcoind_sync**: Bitcoind is not up-to-date with network.
+- **warning_lightningd_sync**: Lightningd is still loading latest blocks from bitcoind.
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, one of the following error codes may be returned:
 
@@ -103,3 +114,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:2aa0f0cf9de7b2d373bdce8b337535a0197ad8cb1df2cdb0e043ba49c3704816)
