@@ -5,6 +5,7 @@
 #include <gossipd/routing.h>
 
 struct route_info;
+struct liquidity_ad;
 
 struct gossip_getnodes_entry {
 	struct node_id nodeid;
@@ -13,6 +14,7 @@ struct gossip_getnodes_entry {
 	struct wireaddr *addresses;
 	u8 alias[32];
 	u8 color[3];
+	struct liquidity_ad *ad;
 };
 
 struct gossip_halfchannel_entry {

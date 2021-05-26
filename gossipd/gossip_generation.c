@@ -2,6 +2,7 @@
  * generation, man!" */
 #include <ccan/mem/mem.h>
 #include <common/features.h>
+#include <common/liquidity_ad.h>
 #include <common/memleak.h>
 #include <common/status.h>
 #include <common/timeout.h>
@@ -25,7 +26,8 @@
  * between the dummy creation and the call with a signature. */
 static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 				    const secp256k1_ecdsa_signature *sig,
-				    u32 timestamp)
+				    u32 timestamp,
+				    struct liquidity_ad *ad)
 {
 	u8 *addresses = tal_arr(tmpctx, u8, 0);
 	u8 *announcement;
@@ -39,6 +41,19 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 		towire_wireaddr(&addresses, &daemon->announcable[i]);
 
 	na_tlv = tlv_node_ann_tlvs_new(tmpctx);
+	/* `option_will_fund` */
+	if (ad) {
+		na_tlv->option_will_fund =
+			tal(na_tlv, struct tlv_node_ann_tlvs_option_will_fund);
+		na_tlv->option_will_fund->funding_fee_proportional_basis
+			= ad->lease_basis;
+		na_tlv->option_will_fund->funding_fee_base_sat
+			= ad->lease_base_sat.satoshis; /* Raw: to wire */
+		na_tlv->option_will_fund->channel_fee_proportional_basis
+			= ad->channel_fee_basis;
+		na_tlv->option_will_fund->channel_fee_base_msat
+			= ad->channel_base_msat.millisatoshis; /* Raw: to wire */
+	}
 
 	announcement =
 	    towire_node_announcement(ctx, sig,
@@ -165,7 +180,10 @@ static void update_own_node_announcement(struct daemon *daemon)
 		timestamp++;
 
 	/* Make unsigned announcement. */
-	nannounce = create_node_announcement(tmpctx, daemon, NULL, timestamp);
+	nannounce = create_node_announcement(tmpctx, daemon, NULL,
+					     timestamp,
+					     daemon->ad);
+
 
 	/* If it's the same as the previous, nothing to do. */
 	if (self && self->bcast.index) {
@@ -208,7 +226,8 @@ static void update_own_node_announcement(struct daemon *daemon)
 	/* We got the signature for our provisional node_announcement back
 	 * from the HSM, create the real announcement and forward it to
 	 * gossipd so it can take care of forwarding it. */
-	nannounce = create_node_announcement(NULL, daemon, &sig, timestamp);
+	nannounce = create_node_announcement(NULL, daemon, &sig,
+					     timestamp, daemon->ad);
 
 	/* This injects it into the routing code in routing.c; it should not
 	 * reject it! */

@@ -158,7 +158,8 @@ static bool get_node_announcement(const tal_t *ctx,
 				  u8 rgb_color[3],
 				  u8 alias[32],
 				  u8 **features,
-				  struct wireaddr **wireaddrs)
+				  struct wireaddr **wireaddrs,
+				  struct liquidity_ad **ad)
 {
 	const u8 *msg;
 	struct node_id id;
@@ -198,6 +199,21 @@ static bool get_node_announcement(const tal_t *ctx,
 	}
 
 	*wireaddrs = read_addresses(ctx, addresses);
+
+	/* Read out liquidity ad */
+	if (na_tlv->option_will_fund) {
+		*ad = tal(ctx, struct liquidity_ad);
+		(*ad)->lease_basis =
+			na_tlv->option_will_fund->funding_fee_proportional_basis;
+		(*ad)->lease_base_sat =
+			amount_sat(na_tlv->option_will_fund->funding_fee_base_sat);
+		(*ad)->channel_fee_basis =
+			na_tlv->option_will_fund->channel_fee_proportional_basis;
+		(*ad)->channel_base_msat =
+			amount_msat(na_tlv->option_will_fund->channel_fee_base_msat);
+	} else
+		*ad = NULL;
+
 	tal_free(addresses);
 	return true;
 }
@@ -209,14 +225,15 @@ static bool get_node_announcement_by_id(const tal_t *ctx,
 					u8 rgb_color[3],
 					u8 alias[32],
 					u8 **features,
-					struct wireaddr **wireaddrs)
+					struct wireaddr **wireaddrs,
+					struct liquidity_ad **ad)
 {
 	struct node *n = get_node(daemon->rstate, node_id);
 	if (!n)
 		return false;
 
 	return get_node_announcement(ctx, daemon, n, rgb_color, alias,
-				     features, wireaddrs);
+				     features, wireaddrs, ad);
 }
 
 /*~Routines to handle gossip messages from peer, forwarded by subdaemons.
@@ -920,6 +937,7 @@ static struct io_plan *connectd_get_address(struct io_conn *conn,
 	u8 alias[32];
 	u8 *features;
 	struct wireaddr *addrs;
+	struct liquidity_ad *ad;
 
 	if (!fromwire_gossipd_get_addrs(msg, &id)) {
 		status_broken("Bad gossipd_get_addrs msg from connectd: %s",
@@ -928,7 +946,8 @@ static struct io_plan *connectd_get_address(struct io_conn *conn,
 	}
 
 	if (!get_node_announcement_by_id(tmpctx, daemon, &id,
-					 rgb_color, alias, &features, &addrs))
+					 rgb_color, alias, &features, &addrs,
+					 &ad))
 		addrs = NULL;
 
 	daemon_conn_send(daemon->connectd,
@@ -1360,7 +1379,8 @@ static void add_node_entry(const tal_t *ctx,
 	if (get_node_announcement(ctx, daemon, n,
 				  e->color, e->alias,
 				  &e->features,
-				  &e->addresses)) {
+				  &e->addresses,
+				  &e->ad)) {
 		e->last_timestamp = n->bcast.timestamp;
 	} else {
 		/* Timestamp on wire is an unsigned 32 bit: we use a 64-bit
