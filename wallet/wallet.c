@@ -28,9 +28,6 @@
  * to prune? */
 #define UTXO_PRUNE_DEPTH 144
 
-/* 12 hours is usually enough reservation time */
-#define RESERVATION_INC (6 * 12)
-
 static void outpointfilters_init(struct wallet *w)
 {
 	struct db_stmt *stmt;
@@ -439,7 +436,9 @@ static void db_set_utxo(struct db *db, const struct utxo *utxo)
 	db_exec_prepared_v2(take(stmt));
 }
 
-bool wallet_reserve_utxo(struct wallet *w, struct utxo *utxo, u32 current_height)
+bool wallet_reserve_utxo(struct wallet *w, struct utxo *utxo,
+			 u32 current_height,
+			 u32 reserve)
 {
 	switch (utxo->status) {
 	case OUTPUT_STATE_SPENT:
@@ -453,9 +452,9 @@ bool wallet_reserve_utxo(struct wallet *w, struct utxo *utxo, u32 current_height
 
 	/* We simple increase existing reservations, which DTRT if we unreserve */
 	if (utxo->reserved_til >= current_height)
-		utxo->reserved_til += RESERVATION_INC;
+		utxo->reserved_til += reserve;
 	else
-		utxo->reserved_til = current_height + RESERVATION_INC;
+		utxo->reserved_til = current_height + reserve;
 
 	utxo->status = OUTPUT_STATE_RESERVED;
 
@@ -464,18 +463,20 @@ bool wallet_reserve_utxo(struct wallet *w, struct utxo *utxo, u32 current_height
 	return true;
 }
 
-void wallet_unreserve_utxo(struct wallet *w, struct utxo *utxo, u32 current_height)
+void wallet_unreserve_utxo(struct wallet *w, struct utxo *utxo,
+			   u32 current_height,
+			   u32 unreserve)
 {
 	if (utxo->status != OUTPUT_STATE_RESERVED)
 		fatal("UTXO %s:%u is not reserved",
 		      type_to_string(tmpctx, struct bitcoin_txid, &utxo->txid),
 		      utxo->outnum);
 
-	if (utxo->reserved_til <= current_height + RESERVATION_INC) {
+	if (utxo->reserved_til <= current_height + unreserve) {
 		utxo->status = OUTPUT_STATE_AVAILABLE;
 		utxo->reserved_til = 0;
 	} else
-		utxo->reserved_til -= RESERVATION_INC;
+		utxo->reserved_til -= unreserve;
 
 	db_set_utxo(w->db, utxo);
 }

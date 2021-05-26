@@ -4,7 +4,7 @@ lightning-sendpsbt -- Command to finalize, extract and send a partially signed b
 SYNOPSIS
 --------
 
-**sendpsbt** *psbt*
+**sendpsbt** *psbt* [*reserve*]
 
 DESCRIPTION
 -----------
@@ -12,6 +12,7 @@ DESCRIPTION
 The **sendpsbt** is a low-level RPC command which sends a fully-signed PSBT.
 
 - *psbt*: A string that represents psbt value.
+- *reserve*: an optional number of blocks to increase reservation of any of our inputs by; default is 72.
 
 EXAMPLE JSON REQUEST
 --------------------

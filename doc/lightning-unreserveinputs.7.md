@@ -4,7 +4,7 @@ lightning-unreserveinputs -- Release reserved UTXOs
 SYNOPSIS
 --------
 
-**unreserveinputs** *psbt*
+**unreserveinputs** *psbt* [*reserve*]
 
 DESCRIPTION
 -----------
@@ -14,6 +14,9 @@ on UTXOs which were previously marked as reserved, generally by
 lightning-reserveinputs(7).
 
 The inputs to unreserve are the inputs specified in the passed-in *psbt*.
+
+If *reserve* is specified, it is the number of blocks to decrease
+reservation by; default is 72.
 
 RETURN VALUE
 ------------

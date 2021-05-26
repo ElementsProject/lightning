@@ -3,7 +3,7 @@
 lightning-unreserveinputs - Release reserved UTXOs
 .SH SYNOPSIS
 
-\fBunreserveinputs\fR \fIpsbt\fR
+\fBunreserveinputs\fR \fIpsbt\fR [\fIreserve\fR]
 
 .SH DESCRIPTION
 
@@ -13,6 +13,10 @@ on UTXOs which were previously marked as reserved, generally by
 
 
 The inputs to unreserve are the inputs specified in the passed-in \fIpsbt\fR\.
+
+
+If \fIreserve\fR is specified, it is the number of blocks to decrease
+reservation by; default is 72\.
 
 .SH RETURN VALUE
 
@@ -55,4 +59,4 @@ niftynei \fI<niftynei@gmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:2f6d02c98127f7ab54e5c298761be2c4138f79fd6c156eed9ae19ead03db8593
+\" SHA256STAMP:d4aa9d3345ce7fa3c91b760633c3dc296d4dd7a7da7cdadc4da31c3b474e680c

@@ -756,6 +756,7 @@ struct sending_psbt {
 	struct command *cmd;
 	struct utxo **utxos;
 	struct wally_tx *wtx;
+	u32 reserve_blocks;
 };
 
 static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
@@ -772,7 +773,8 @@ static void sendpsbt_done(struct bitcoind *bitcoind UNUSED,
 		for (size_t i = 0; i < tal_count(sending->utxos); i++) {
 			wallet_unreserve_utxo(ld->wallet,
 					      sending->utxos[i],
-					      get_block_height(ld->topology));
+					      get_block_height(ld->topology),
+					      sending->reserve_blocks);
 		}
 
 		was_pending(command_fail(sending->cmd, LIGHTNINGD,
@@ -805,14 +807,17 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 	struct sending_psbt *sending;
 	struct wally_psbt *psbt;
 	struct lightningd *ld = cmd->ld;
+	u32 *reserve_blocks;
 
 	if (!param(cmd, buffer, params,
 		   p_req("psbt", param_psbt, &psbt),
+		   p_opt_def("reserve", param_number, &reserve_blocks, 12 * 6),
 		   NULL))
 		return command_param_failed();
 
 	sending = tal(cmd, struct sending_psbt);
 	sending->cmd = cmd;
+	sending->reserve_blocks = *reserve_blocks;
 
 	psbt_finalize(psbt);
 	sending->wtx = psbt_final_tx(sending, psbt);
@@ -831,7 +836,8 @@ static struct command_result *json_sendpsbt(struct command *cmd,
 
 	for (size_t i = 0; i < tal_count(sending->utxos); i++) {
 		if (!wallet_reserve_utxo(ld->wallet, sending->utxos[i],
-					 get_block_height(ld->topology)))
+					 get_block_height(ld->topology),
+					 sending->reserve_blocks))
 			fatal("UTXO not reservable?");
 	}
 
