@@ -24,7 +24,7 @@ CCANDIR := ccan
 
 # Where we keep the BOLT RFCs
 BOLTDIR := ../lightning-rfc/
-DEFAULT_BOLTVERSION := b201efe0546120c14bf154ce5f4e18da7243fe7a
+DEFAULT_BOLTVERSION := 3508e4e85d26240ae7492c3d2e02770cdc360fe9
 # Can be overridden on cmdline.
 BOLTVERSION := $(DEFAULT_BOLTVERSION)
 

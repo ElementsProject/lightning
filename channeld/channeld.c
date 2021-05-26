@@ -1494,8 +1494,8 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	/* BOLT #2:
 	 *
 	 * A receiving node:
-	 *  - if `per_commitment_secret` does not generate the previous
-	 *   `per_commitment_point`:
+	 *  - if `per_commitment_secret` is not a valid secret key or does not
+	 *    generate the previous `per_commitment_point`:
 	 *    - MUST fail the channel.
 	 */
 	memcpy(&privkey, &old_commit_secret, sizeof(privkey));

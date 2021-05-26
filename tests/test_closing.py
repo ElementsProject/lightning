@@ -2626,7 +2626,7 @@ Try a range of future segwit versions as shutdown scripts.  We create many nodes
 """
     l1 = node_factory.get_node(allow_warning=True)
 
-    # BOLT-4e329271a358ee52bf43ddbd96776943c5d74508 #2:
+    # BOLT #2:
     # 5. if (and only if) `option_shutdown_anysegwit` is negotiated:
     #    * `OP_1` through `OP_16` inclusive, followed by a single push of 2 to 40 bytes
     #    (witness program versions 1 through 16)
