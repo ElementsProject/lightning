@@ -92,9 +92,18 @@ routing.
 RETURN VALUE
 ------------
 
-On success, an object containing the onion and the shared secrets will be
-returned. Otherwise an error will be reported. The following example is the
-result of calling *createonion* with the above hops parameter:
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **onion** (hex): the onion packet (*onion_size* bytes)
+- **shared_secrets** (array of hexs): one shared secret for each node in the *hops* parameter:
+  - the shared secret with this hop (always 64 characters)
+[comment]: # (GENERATE-FROM-SCHEMA-END)
+
+EXAMPLE
+-------
+
+The following example is the result of calling *createonion* with the
+above hops parameter:
 
 ```json
 {
@@ -126,3 +135,4 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 [bolt04]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
+[comment]: # ( SHA256STAMP:a5a64325f4232f27bccbbe1c9fc62bfb602ba60c81f46a1ef2df25b06dac807e)

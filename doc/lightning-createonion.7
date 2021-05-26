@@ -104,9 +104,25 @@ routing\.
 
 .SH RETURN VALUE
 
-On success, an object containing the onion and the shared secrets will be
-returned\. Otherwise an error will be reported\. The following example is the
-result of calling \fIcreateonion\fR with the above hops parameter:
+On success, an object is returned, containing:
+
+.RS
+.IP \[bu]
+\fBonion\fR (hex): the onion packet (\fIonion_size\fR bytes)
+.IP \[bu]
+\fBshared_secrets\fR (array of hexs): one shared secret for each node in the \fIhops\fR parameter:
+.RS
+.IP \[bu]
+the shared secret with this hop (always 64 characters)
+
+.RE
+
+
+.RE
+.SH EXAMPLE
+
+The following example is the result of calling \fIcreateonion\fR with the
+above hops parameter:
 
 .nf
 .RS
@@ -137,4 +153,4 @@ Christian Decker \fI<decker.christian@gmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:d32334049025248f8b6088afed4e3322be75815ea6b976f79a007c619518f98a
+\" SHA256STAMP:c21aa197637bea17068072cd5907ad3302b48586067a8a5a8d748fd8e7e0a668

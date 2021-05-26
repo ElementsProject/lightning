@@ -22,7 +22,9 @@ messages within error replies.
 RETURN VALUE
 ------------
 
+[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an empty object is returned.
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
 ------
@@ -39,3 +41,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:f974a3848c4db5b73fffa969a741ef6619c9a375783fabe731882d84a6bbf5ff)
