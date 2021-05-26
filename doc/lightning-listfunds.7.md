@@ -34,6 +34,7 @@ Each entry in *outputs* will include:
 -   *redeemscript* (the redeemscript of the output, in hex, only if it's p2sh-wrapped)
 -   *status* (whether *unconfirmed*, *confirmed*, or *spent*)
 -   *reserved* (whether this is UTXO is currently reserved for an in-flight tx)
+-   *reserved_to_block* (when reservation expires, if *reserved* is true)
 
 Each entry in *channels* will include:
 -   *peer\_id* - the peer with which the channel is opened.
