@@ -247,6 +247,7 @@ static void json_add_utxo(struct json_stream *response,
 			  const struct utxo *utxo)
 {
 	const char *out;
+	bool reserved;
 
 	json_object_start(response, fieldname);
 	json_add_txid(response, "txid", &utxo->txid);
@@ -284,9 +285,12 @@ static void json_add_utxo(struct json_stream *response,
 	} else
 		json_add_string(response, "status", "unconfirmed");
 
-	json_add_bool(response, "reserved",
-		      utxo_is_reserved(utxo,
-				       get_block_height(wallet->ld->topology)));
+	reserved = utxo_is_reserved(utxo,
+				    get_block_height(wallet->ld->topology));
+	json_add_bool(response, "reserved", reserved);
+	if (reserved)
+		json_add_num(response, "reserved_to_block",
+			     utxo->reserved_til);
 	json_object_end(response);
 }
 

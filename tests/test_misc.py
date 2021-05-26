@@ -634,6 +634,7 @@ def test_withdraw_misc(node_factory, bitcoind, chainparams):
     for out in l1.rpc.listfunds()['outputs']:
         if out['reserved']:
             inputs += [{'txid': out['txid'], 'vout': out['output']}]
+            assert out['reserved_to_block'] > bitcoind.rpc.getblockchaininfo()['blocks']
     l1.rpc.unreserveinputs(bitcoind.rpc.createpsbt(inputs, []))
 
     # Test withdrawal to self.

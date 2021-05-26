@@ -441,27 +441,34 @@ def test_reserveinputs(node_factory, bitcoind, chainparams):
         l1.rpc.reserveinputs(psbt)
 
     assert all(o['reserved'] for o in l1.rpc.listfunds()['outputs'])
+    reserveheight = bitcoind.rpc.getblockchaininfo()['blocks'] + 72
+    assert all(o['reserved_to_block'] == reserveheight for o in l1.rpc.listfunds()['outputs'])
 
     # Unreserve as a batch.
     psbt = bitcoind.rpc.createpsbt([{'txid': out[0], 'vout': out[1]} for out in outputs], [])
     l1.rpc.unreserveinputs(psbt)
     assert not any(o['reserved'] for o in l1.rpc.listfunds()['outputs'])
+    assert not any('reserved_to_block' in o for o in l1.rpc.listfunds()['outputs'])
 
     # Reserve twice fails unless exclusive.
     l1.rpc.reserveinputs(psbt)
     with pytest.raises(RpcError, match=r"already reserved"):
         l1.rpc.reserveinputs(psbt)
     l1.rpc.reserveinputs(psbt, False)
+    assert all(o['reserved_to_block'] == reserveheight + 72 for o in l1.rpc.listfunds()['outputs'])
     l1.rpc.unreserveinputs(psbt)
     assert all(o['reserved'] for o in l1.rpc.listfunds()['outputs'])
+    assert all(o['reserved_to_block'] == reserveheight for o in l1.rpc.listfunds()['outputs'])
 
     # Stays reserved across restarts.
     l1.restart()
     assert all(o['reserved'] for o in l1.rpc.listfunds()['outputs'])
+    assert all(o['reserved_to_block'] == reserveheight for o in l1.rpc.listfunds()['outputs'])
 
     # Final unreserve works.
     l1.rpc.unreserveinputs(psbt)
     assert not any(o['reserved'] for o in l1.rpc.listfunds()['outputs'])
+    assert not any('reserved_to_block' in o for o in l1.rpc.listfunds()['outputs'])
 
 
 def test_fundpsbt(node_factory, bitcoind, chainparams):
