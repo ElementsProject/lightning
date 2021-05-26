@@ -39,6 +39,7 @@ static struct command_result *json_autocleaninvoice(struct command *cmd,
 {
 	u64 *cycle;
 	u64 *exby;
+	struct json_stream *response;
 
 	if (!param(cmd, buffer, params,
 		   p_opt_def("cycle_seconds", param_u64, &cycle, 3600),
@@ -50,18 +51,19 @@ static struct command_result *json_autocleaninvoice(struct command *cmd,
 	expired_by = *exby;
 
 	if (cycle_seconds == 0) {
-		tal_free(cleantimer);
-		return command_success_str(cmd, "Autoclean timer disabled");
+		response = jsonrpc_stream_success(cmd);
+		json_add_bool(response, "enabled", false);
+		return command_finished(cmd, response);
 	}
 	tal_free(cleantimer);
 	cleantimer = plugin_timer(cmd->plugin, time_from_sec(cycle_seconds),
 				  do_clean, cmd->plugin);
 
-	return command_success_str(cmd,
-				   tal_fmt(cmd, "Autocleaning %"PRIu64
-					   "-second old invoices every %"PRIu64
-					   " seconds",
-					   expired_by, cycle_seconds));
+	response = jsonrpc_stream_success(cmd);
+	json_add_bool(response, "enabled", true);
+	json_add_u64(response, "cycle_seconds", cycle_seconds);
+	json_add_u64(response, "expired_by", expired_by);
+	return command_finished(cmd, response);
 }
 
 static const char *init(struct plugin *p,
