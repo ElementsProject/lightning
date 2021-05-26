@@ -928,6 +928,86 @@ def test_gossip_addresses(node_factory, bitcoind):
     ]
 
 
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.developer("needs dev-fast-gossip")
+@pytest.mark.openchannel('v2')
+def test_liquidity_ads_rate_card(node_factory, bitcoind):
+    lease_opts = {'lease-fee-basis': 50,
+                  'lease-fee-base': '2000msat',
+                  'lease-channel-fee-base-max': '500sat',
+                  'lease-channel-fee-basis-max': 200}
+    l1, l2 = node_factory.get_nodes(2, opts=[lease_opts, {}])
+
+    # These logs happen during startup, start looking from the beginning
+    l1.daemon.logsearch_start = 0
+    l2.daemon.logsearch_start = 0
+    l1.daemon.wait_for_log('LIQUIDITY LEASES: offer 50 2sat 200 500000msat')
+    l2.daemon.wait_for_log('LIQUIDITY LEASES: no offer')
+
+    rates = l1.rpc.call('offerrates')
+    assert rates['leases_available']
+    assert rates['channel_fee_base_max_msat'] == Millisatoshi('500000msat')
+    assert rates['channel_fee_basis_max'] == 200
+    assert rates['lease_fee_base_msat'] == Millisatoshi('2000msat')
+    assert rates['lease_fee_basis'] == 50
+
+    rates = l2.rpc.call('offerrates')
+    assert not rates['leases_available']
+    assert 'channel_fee_base_max_msat' not in rates
+    assert 'channel_fee_basis_max' not in rates
+    assert 'lease_fee_base_msat' not in rates
+    assert 'lease_fee_basis' not in rates
+
+    # Open a channel, check that the node_announcements
+    # include offer details, as expected
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.fundchannel(l2, 10**6)
+    # Announce depth is ALWAYS 6 blocks
+    bitcoind.generate_block(5)
+
+    l2.daemon.wait_for_log('Received node_announcement for node {}'
+                           .format(l1.info['id']))
+    l1.daemon.wait_for_log('Received node_announcement for node {}'
+                           .format(l2.info['id']))
+
+    l2_nodeinfo = only_one(l1.rpc.listnodes(l2.info['id'])['nodes'])
+    l1_nodeinfo = only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])
+
+    assert 'liquidity_ad' not in l2_nodeinfo
+    ad = l1_nodeinfo['liquidity_ad']
+    assert ad['channel_fee_base_max_msat'] == Millisatoshi('500000msat')
+    assert ad['channel_fee_basis_max'] == 200
+    assert ad['lease_fee_base_msat'] == Millisatoshi('2000msat')
+    assert ad['lease_fee_basis'] == 50
+
+    # Update the node announce (set new on l2, turn off l1)
+    l1.rpc.call('funderupdate', {'leases_available': False})
+    l2.rpc.call('funderupdate', {'channel_fee_base_max_msat': '30000msat',
+                                 'channel_fee_basis_max': 100,
+                                 'lease_fee_base_msat': '400000msat',
+                                 'lease_fee_basis': 20})
+
+    # We wait a while for these to come through, since the updates
+    # are only pulled every 5s (--dev-fast-gossip)
+    l1.daemon.wait_for_logs(['LIQUIDITY LEASES: ad updated',
+                             'no new offer, offers turned off'])
+    l2.daemon.wait_for_logs(['LIQUIDITY LEASES: ad updated',
+                             'new offer: lease terms:20 400sat, channel fee terms:100 30000msat'])
+
+    l1.daemon.wait_for_log('Received node_announcement for node {}'.format(l2.info['id']))
+    l2.daemon.wait_for_log('Received node_announcement for node {}'.format(l1.info['id']))
+
+    l2_nodeinfo = only_one(l1.rpc.listnodes(l2.info['id'])['nodes'])
+    l1_nodeinfo = only_one(l2.rpc.listnodes(l1.info['id'])['nodes'])
+
+    assert 'liquidity_ad' not in l1_nodeinfo
+    ad = l2_nodeinfo['liquidity_ad']
+    assert ad['channel_fee_base_max_msat'] == Millisatoshi('30000msat')
+    assert ad['channel_fee_basis_max'] == 100
+    assert ad['lease_fee_base_msat'] == Millisatoshi('400000msat')
+    assert ad['lease_fee_basis'] == 20
+
+
 def test_gossip_store_load(node_factory):
     """Make sure we can read canned gossip store"""
     l1 = node_factory.get_node(start=False)
