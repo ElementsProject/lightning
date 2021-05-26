@@ -107,16 +107,12 @@ u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
  * | 16/17 | `basic_mpp`      |... IN9 ...
  * | 18/19 | `option_support_large_channel` |... IN ...
  * | 20/21 | `option_anchor_outputs` |... IN ...
+ * | 26/27 | `option_shutdown_anysegwit` |... IN ...
  */
 #define OPT_PAYMENT_SECRET			14
 #define OPT_BASIC_MPP				16
 #define OPT_LARGE_CHANNELS			18
 #define OPT_ANCHOR_OUTPUTS			20
-
-/* BOLT-4e329271a358ee52bf43ddbd96776943c5d74508 #9:
- *
- * | 26/27 | `option_shutdown_anysegwit` |... IN ...
- */
 #define OPT_SHUTDOWN_ANYSEGWIT			26
 
 /* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #9:

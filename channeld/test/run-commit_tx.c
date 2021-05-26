@@ -175,7 +175,7 @@ static const struct htlc **setup_htlcs_0_to_4(const tal_t *ctx)
 	return htlcs;
 }
 
-/* BOLT-3508e4e85d26240ae7492c3d2e02770cdc360fe9 #3:
+/* BOLT #3:
  *    htlc 5 direction: local->remote
  *    htlc 5 amount_msat: 5000000
  *    htlc 5 expiry: 506
