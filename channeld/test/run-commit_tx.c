@@ -175,14 +175,14 @@ static const struct htlc **setup_htlcs_0_to_4(const tal_t *ctx)
 	return htlcs;
 }
 
-/* BOLT #3:
+/* BOLT-3508e4e85d26240ae7492c3d2e02770cdc360fe9 #3:
  *    htlc 5 direction: local->remote
  *    htlc 5 amount_msat: 5000000
- *    htlc 5 expiry: 505
+ *    htlc 5 expiry: 506
  *    htlc 5 payment_preimage: 0505050505050505050505050505050505050505050505050505050505050505
  *    htlc 6 direction: local->remote
- *    htlc 6 amount_msat: 5000000
- *    htlc 6 expiry: 506
+ *    htlc 6 amount_msat: 5000001
+ *    htlc 6 expiry: 505
  *    htlc 6 payment_preimage: 0505050505050505050505050505050505050505050505050505050505050505
 */
 static const struct htlc **setup_htlcs_1_5_and_6(const tal_t *ctx)
@@ -211,7 +211,7 @@ static const struct htlc **setup_htlcs_1_5_and_6(const tal_t *ctx)
 			break;
 		case 6:
 			htlc->state = SENT_ADD_ACK_REVOCATION;
-			htlc->amount = AMOUNT_MSAT(5000000);
+			htlc->amount = AMOUNT_MSAT(5000001);
 			htlc->expiry.locktime = 506;
 			memset(htlc->r, 5, sizeof(*htlc->r));
 			break;
