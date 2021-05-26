@@ -27,7 +27,7 @@
 static struct list_head pending_opens;
 
 /* Current set policy */
-static struct funder_policy current_policy;
+static struct funder_policy *current_policy;
 
 struct pending_open {
 	struct list_node list;
@@ -757,7 +757,7 @@ json_funderupdate(struct command *cmd,
 	u64 *mod;
 	enum funder_opt *opt;
 	const char *err;
-	struct funder_policy policy = current_policy;
+	struct funder_policy *policy = current_policy;
 
 	if (!param(cmd, buf, params,
 		   p_opt("policy", param_funder_opt, &opt),
@@ -773,32 +773,32 @@ json_funderupdate(struct command *cmd,
 		return command_param_failed();
 
 	if (opt)
-		policy.opt = *opt;
+		policy->opt = *opt;
 	if (mod)
-		policy.mod = *mod;
+		policy->mod = *mod;
 	if (min_their_funding)
-		policy.min_their_funding = *min_their_funding;
+		policy->min_their_funding = *min_their_funding;
 	if (max_their_funding)
-		policy.max_their_funding = *max_their_funding;
+		policy->max_their_funding = *max_their_funding;
 	if (per_channel_min)
-		policy.per_channel_min = *per_channel_min;
+		policy->per_channel_min = *per_channel_min;
 	if (per_channel_max)
-		policy.per_channel_max = *per_channel_max;
+		policy->per_channel_max = *per_channel_max;
 	if (reserve_tank)
-		policy.reserve_tank = *reserve_tank;
+		policy->reserve_tank = *reserve_tank;
 	if (fuzz_factor)
-		policy.fuzz_factor = *fuzz_factor;
+		policy->fuzz_factor = *fuzz_factor;
 	if (fund_probability)
-		policy.fund_probability = *fund_probability;
+		policy->fund_probability = *fund_probability;
 
-	err = funder_check_policy(&policy);
+	err = funder_check_policy(policy);
 	if (err)
 		return command_done_err(cmd, JSONRPC2_INVALID_PARAMS,
 					err, NULL);
 
 	current_policy = policy;
 	res = jsonrpc_stream_success(cmd);
-	policy_to_json(res, &current_policy);
+	policy_to_json(res, current_policy);
 	return command_finished(cmd, res);
 }
 
@@ -819,7 +819,7 @@ static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 
 	list_head_init(&pending_opens);
 
-	err = funder_check_policy(&current_policy);
+	err = funder_check_policy(current_policy);
 	if (err)
 		plugin_err(p, "Invalid parameter combination: %s", err);
 
@@ -890,7 +890,7 @@ int main(int argc, char **argv)
 	setup_locale();
 
 	/* Our default funding policy is fixed (0msat) */
-	current_policy = default_funder_policy(FIXED, 0);
+	current_policy = default_funder_policy(owner, FIXED, 0);
 
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, true,
 		    NULL,
@@ -902,57 +902,57 @@ int main(int argc, char **argv)
 				  "string",
 				  "Policy to use for dual-funding requests."
 				  " [match, available, fixed]",
-				  funding_option, &current_policy.opt),
+				  funding_option, &current_policy->opt),
 		    plugin_option("funder-policy-mod",
 				  "string",
 				  "Percent to apply policy at"
 				  " (match/available); or amount to fund"
 				  " (fixed)",
 				  amount_sat_or_u64_option,
-				  &current_policy.mod),
+				  &current_policy->mod),
 		    plugin_option("funder-min-their-funding",
 				  "string",
 				  "Minimum funding peer must open with"
 				  " to activate our policy",
 				  amount_option,
-				  &current_policy.min_their_funding),
+				  &current_policy->min_their_funding),
 		    plugin_option("funder-max-their-funding",
 				  "string",
 				  "Maximum funding peer may open with"
 				  " to activate our policy",
 				  amount_option,
-				  &current_policy.max_their_funding),
+				  &current_policy->max_their_funding),
 		    plugin_option("funder-per-channel-min",
 				  "string",
 				  "Minimum funding we'll add to a channel."
 				  " If we can't meet this, we don't fund",
 				  amount_option,
-				  &current_policy.per_channel_min),
+				  &current_policy->per_channel_min),
 		    plugin_option("funder-per-channel-max",
 				  "string",
 				  "Maximum funding we'll add to a channel."
 				  " We cap all contributions to this",
 				  amount_option,
-				  &current_policy.per_channel_max),
+				  &current_policy->per_channel_max),
 		    plugin_option("funder-reserve-tank",
 				  "string",
 				  "Amount of funds we'll always leave"
 				  " available.",
 				  amount_option,
-				  &current_policy.reserve_tank),
+				  &current_policy->reserve_tank),
 		    plugin_option("funder-fuzz-percent",
 				  "int",
 				  "Percent to fuzz the policy contribution by."
 				  " Defaults to 5%. Max is 100%",
 				  u32_option,
-				  &current_policy.fuzz_factor),
+				  &current_policy->fuzz_factor),
 		    plugin_option("funder-fund-probability",
 				  "int",
 				  "Percent of requests to consider."
 				  " Defaults to 100%. Setting to 0% will"
 				  " disable dual-funding",
 				  u32_option,
-				  &current_policy.fund_probability),
+				  &current_policy->fund_probability),
 		    NULL);
 
 	tal_free(owner);
