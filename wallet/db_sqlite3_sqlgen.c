@@ -1593,8 +1593,8 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = ?;",
-         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = ?;",
+         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = ? ORDER BY id;",
+         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = ? ORDER BY id;",
          .placeholders = 1,
          .readonly = true,
     },
@@ -1906,4 +1906,4 @@ struct db_query db_sqlite3_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:3ab5cc5d3610b26e4df12de155aa85990ac825c0e75a1adf410e67e2ca173327
+// SHA256STAMP:435d8c98449934c86167d11929b515312babce55bae5487dc3cdc201cb4ba0fe
