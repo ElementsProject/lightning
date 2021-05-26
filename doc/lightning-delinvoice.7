@@ -16,9 +16,46 @@ The caller should be particularly aware of the error case caused by the
 
 .SH RETURN VALUE
 
-On success, an invoice description will be returned as per
-\fBlightning-listinvoice\fR(7)\.
+Note: The return is the same as an object from \fBlightning-listinvoice\fR(7)\.
 
+
+On success, an object is returned, containing:
+
+.RS
+.IP \[bu]
+\fBlabel\fR (string): Unique label given at creation time
+.IP \[bu]
+\fBstatus\fR (string): State of invoice (one of "paid", "expired", "unpaid")
+.IP \[bu]
+\fBexpires_at\fR (u64): UNIX timestamp when invoice expires (or expired)
+.IP \[bu]
+\fBbolt11\fR (string, optional): BOLT11 string
+.IP \[bu]
+\fBbolt12\fR (string, optional): BOLT12 string
+
+.RE
+
+If \fBbolt12\fR is present:
+
+.RS
+.IP \[bu]
+\fBlocal_offer_id\fR (hex, optional): offer for which this invoice was created
+
+.RE
+
+If \fBstatus\fR is "paid":
+
+.RS
+.IP \[bu]
+\fBpay_index\fR (u64): unique index for this invoice payment
+.IP \[bu]
+\fBamount_received_msat\fR (msat): how much was actually received
+.IP \[bu]
+\fBpaid_at\fR (u64): UNIX timestamp of when payment was received
+.IP \[bu]
+\fBpayment_preimage\fR (hex): SHA256 of this is the \fIpayment_hash\fR offered in the invoice (always 64 characters)
+
+.RE
 .SH ERRORS
 
 The following errors may be reported:
@@ -50,4 +87,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:92ad4501574b253334bb570960d1835c8bd84483e318ea058e6b565d34109832
+\" SHA256STAMP:28d1e97fe8e8925008b20815c55db569b7ed8dad33d958c0914945c71fb9d654

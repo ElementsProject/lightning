@@ -33,9 +33,42 @@ Only deletes if the payment status matches\.
 .fi
 .SH RETURN VALUE
 
-If successful the command returns a payment object, in the same format as \fBlistsendpays\fR\. If the payment is a multi-part payment (MPP) the command return a list of 
-payments will be return -- one payment object for each partid\.
+The returned format is the same as \fBlightning-listsendpays\fR(7)\.  If the
+payment is a multi-part payment (MPP) the command return a list of
+payments will be returned -- one payment object for each partid\.
 
+
+On success, an object containing \fBpayments\fR is returned\.  It is an array of objects, where each object contains:
+
+.RS
+.IP \[bu]
+\fBid\fR (u64): unique ID for this payment attempt
+.IP \[bu]
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.IP \[bu]
+\fBstatus\fR (string): status of the payment (one of "pending", "failed", "complete")
+.IP \[bu]
+\fBamount_sent_msat\fR (msat): the amount we actually sent, including fees
+.IP \[bu]
+\fBcreated_at\fR (u64): the UNIX timestamp showing when this payment was initiated
+.IP \[bu]
+\fBpartid\fR (u64, optional): unique ID within this (multi-part) payment
+.IP \[bu]
+\fBdestination\fR (pubkey, optional): the final destination of the payment if known
+.IP \[bu]
+\fBamount_msat\fR (msat, optional): the amount the destination received, if known
+.IP \[bu]
+\fBpayment_preimage\fR (hex, optional): proof of payment (always 64 characters)
+.IP \[bu]
+\fBlabel\fR (string, optional): the label, if given to sendpay
+.IP \[bu]
+\fBbolt11\fR (string, optional): the bolt11 string (if pay supplied one)
+.IP \[bu]
+\fBbolt12\fR (string, optional): the bolt12 string (if supplied for pay: \fBexperimental-offers\fR only)\.
+.IP \[bu]
+\fBerroronion\fR (hex, optional): the error onion returned on failure, if any\.
+
+.RE
 
 On failure, an error is returned\. If the lightning process fails before responding, the
 caller should use \fBlightning-listsentpays\fR(7) or \fBlightning-listpays\fR(7) to query whether this payment was deleted or not\.
@@ -87,4 +120,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:b10dd430aaace8b9f3607e72c871e2a883934f9a51d5bc0068a024df5ef1d6ee
+\" SHA256STAMP:520f0b56c7288ed46509a0ab90be0959b3b1489b56b7e94f223de19cf7028758

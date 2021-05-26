@@ -1,0 +1,79 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "required": [ "label", "payment_hash", "amount_msat", "status", "expires_at" ],
+    "additionalProperties": true,
+    "properties": {
+	"label": {
+	    "type": "string",
+	    "description": "Unique label given at creation time"
+	},
+	"bolt11": {
+	    "type": "string",
+	    "description": "BOLT11 string"
+	},
+	"bolt12": {
+	    "type": "string",
+	    "description": "BOLT12 string"
+	},
+	"status": {
+	    "type": "string",
+	    "description": "State of invoice",
+	    "enum": [ "paid", "expired", "unpaid" ]
+	},
+	"expires_at": {
+	    "type": "u64",
+	    "description": "UNIX timestamp when invoice expires (or expired)"
+	}
+    },
+    "allOf": [
+	{
+	    "if": {
+		"required": [ "bolt12" ]
+	    },
+	    "then": {
+		"required": [  ],
+		"properties": {
+		    "local_offer_id": {
+			"type": "hex",
+			"description": "offer for which this invoice was created"
+		    }
+		}
+	    }
+	},
+	{
+	    "if": {
+		"properties": {
+		    "status": {
+			"type": "string",
+			"enum": [ "paid" ]
+		    }
+		}
+	    },
+	    "then": {
+		"additionalProperties": false,
+		"required": [ "pay_index", "amount_received_msat", "paid_at", "payment_preimage" ],
+		"properties": {
+		    "pay_index": {
+			"type": "u64",
+			"description": "unique index for this invoice payment"
+		    },
+		    "amount_received_msat": {
+			"type": "msat",
+			"description": "how much was actually received"
+		    },
+		    "paid_at": {
+			"type": "u64",
+			"description": "UNIX timestamp of when payment was received"
+		    },
+		    "payment_preimage": {
+			"type": "hex",
+			"description": "SHA256 of this is the *payment_hash* offered in the invoice",
+			"maxLength": 64,
+			"minLength": 64
+		    }
+		}
+	    }
+	}
+    ]
+}
