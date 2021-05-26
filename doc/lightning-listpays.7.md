@@ -15,43 +15,27 @@ single one if either *bolt11* or *payment_hash* was specified.
 RETURN VALUE
 ------------
 
-On success, an array of objects is returned. Each object contains:
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object containing **pays** is returned.  It is an array of objects, where each object contains:
+- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **status** (string): status of the payment (one of "pending", "failed", "complete")
+- **created_at** (u64): the UNIX timestamp showing when this payment was initiated
+- **destination** (pubkey, optional): the final destination of the payment if known
+- **label** (string, optional): the label, if given to sendpay
+- **bolt11** (string, optional): the bolt11 string (if pay supplied one)
+- **bolt12** (string, optional): the bolt12 string (if supplied for pay: **experimental-offers** only).
 
- *bolt11*
-the *bolt11* invoice if provided to `pay`.
+If **status** is "pending" or "complete":
+  - **amount_sent_msat** (msat): the amount we actually sent, including fees
+  - **amount_msat** (msat, optional): the amount the destination received, if known
 
- *bolt12*
-if **experimental-offers** is enabled, and `pay` was a given a bolt12
-invoice, this field will appear instead of *bolt11*.
+If **status** is "complete":
+  - **preimage** (hex): proof of payment (always 64 characters)
+  - **number_of_parts** (u64, optional): the number of parts for a successful payment (only if more than one).
 
- *payment_hash*
-the *payment_hash* of the payment.
-
- *status*
-one of *complete*, *failed* or *pending*.
-
- *payment\_preimage*
-if *status* is *complete*.
-
- *label*
-optional *label*, if provided to *pay* or *sendonion*.
-
- *amount\_sent\_msat*
-total amount sent, in "NNNmsat" format.
-
-For old payments (pre-0.7) we didn’t save the *bolt11* string, so in its
-place are three other fields:
-
- *payment\_hash*
-the hash of the *payment\_preimage* which will prove payment.
-
- *destination*
-the final destination of the payment.
-
- *amount\_msat*
-the amount the destination received, in "NNNmsat" format.
-
-These three can all be extracted from *bolt11*, hence are obsolete.
+If **status** is "failed":
+  - **erroronion** (hex, optional): the error onion returned on failure, if any.
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
 ------
@@ -68,3 +52,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:12e7b91fc59ee65b61d9aba4e8586fda8fbb524a7e548ffa36862e204952c46b)
