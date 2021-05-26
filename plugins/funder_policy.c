@@ -1,5 +1,7 @@
 #include <assert.h>
+#include <bitcoin/script.h>
 #include <ccan/tal/str/str.h>
+#include <common/lease_rates.h>
 #include <common/node_id.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
@@ -59,7 +61,9 @@ new_funder_policy(const tal_t *ctx,
 		  struct amount_sat per_channel_max,
 		  u32 fuzz_factor,
 		  struct amount_sat reserve_tank,
-		  u32 fund_probability)
+		  u32 fund_probability,
+		  bool leases_only,
+		  struct lease_rates *rates)
 {
 	struct funder_policy *policy = tal(ctx, struct funder_policy);
 
@@ -72,6 +76,8 @@ new_funder_policy(const tal_t *ctx,
 	policy->fuzz_factor = fuzz_factor;
 	policy->reserve_tank = reserve_tank;
 	policy->fund_probability = fund_probability;
+	policy->leases_only = leases_only;
+	policy->rates = rates;
 
 	return policy;
 }
@@ -88,7 +94,34 @@ default_funder_policy(const tal_t *ctx,
 				 AMOUNT_SAT(UINT_MAX),
 				 0, 		/* fuzz_factor */
 				 AMOUNT_SAT(0), /* reserve_tank */
-				 100);
+				 100,
+				 /* Defaults to true iif we're advertising
+				  * offers */
+				 false,
+				 NULL);
+}
+
+struct lease_rates *
+default_lease_rates(const tal_t *ctx)
+{
+	struct lease_rates *rates = tal(ctx, struct lease_rates);
+
+	/* Default basis is .65%, (7.8% APR) */
+	rates->lease_fee_basis = 65;
+	/* 2000sat base rate */
+	rates->lease_fee_base_sat = 2000;
+	/* Max of 100,000ppm (10%) */
+	rates->channel_fee_max_proportional_thousandths = 100;
+	/* Max of 5000sat */
+	rates->channel_fee_max_base_msat = 5000000;
+
+	/* Let's set our default max weight to two inputs + an output
+	 * (use helpers b/c elements) */
+	rates->funding_weight
+		= 2 * bitcoin_tx_simple_input_weight(false)
+		+ bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
+
+	return rates;
 }
 
 char *funder_check_policy(const struct funder_policy *policy)
