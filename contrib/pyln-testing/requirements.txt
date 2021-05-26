@@ -9,3 +9,4 @@ pytest-timeout ~= 1.4.2
 pytest-xdist ~= 2.2.0
 pytest==6.1.*
 python-bitcoinlib==0.11.*
+jsonschema==3.2.*
