@@ -39,11 +39,21 @@ lightning-fundchannel(7).
 RETURN VALUE
 ------------
 
-On success the peer *id* is returned, as well as a hexidecimal
-*features* bitmap, a *direction* ("in" if they connected to us, "out"
-if we connected to them") and an *address* object as per
-lightning-listnodes(7).  Note that *address* will be less useful if 
-"direction" is "in", especially if a proxy is in use.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **id** (pubkey): the peer we connected to
+- **features** (hex): BOLT 9 features bitmap offered by peer
+- **direction** (string): Whether they initiated connection or we did (one of "in", "out")
+- **address** (object): Address information (mainly useful if **direction** is *out*):
+  - **type** (string): Type of connection (*torv2*/*torv3* only if **direction** is *out*) (one of "local socket", "ipv4", "ipv6", "torv2", "torv3")
+
+  If **type** is "local socket":
+    - **socket** (string): socket filename
+
+  If **type** is "ipv4", "ipv6", "torv2" or "torv3":
+    - **address** (string): address in expected format for **type**
+    - **port** (u16): port number
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 ERRORS
 ------
@@ -78,3 +88,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:5b168e7998d3db6a842eabf92bcbb74352fe831726ea42a801e39ff5c3f812ca)
