@@ -42,12 +42,45 @@ another node\. Once the peer is connected a channel can be opened with
 
 .SH RETURN VALUE
 
-On success the peer \fIid\fR is returned, as well as a hexidecimal
-\fIfeatures\fR bitmap, a \fIdirection\fR ("in" if they connected to us, "out"
-if we connected to them") and an \fIaddress\fR object as per
-\fBlightning-listnodes\fR(7)\.  Note that \fIaddress\fR will be less useful if 
-"direction" is "in", especially if a proxy is in use\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBid\fR (pubkey): the peer we connected to
+.IP \[bu]
+\fBfeatures\fR (hex): BOLT 9 features bitmap offered by peer
+.IP \[bu]
+\fBdirection\fR (string): Whether they initiated connection or we did (one of "in", "out")
+.IP \[bu]
+
+\fBaddress\fR (object): Address information (mainly useful if \fBdirection\fR is \fIout\fR):
+
+.RS
+.IP \[bu]
+\fBtype\fR (string): Type of connection (\fItorv2\fR/\fItorv3\fR only if \fBdirection\fR is \fIout\fR) (one of "local socket", "ipv4", "ipv6", "torv2", "torv3")
+
+.RE
+
+If \fBtype\fR is "local socket":
+
+.RS
+.IP \[bu]
+\fBsocket\fR (string): socket filename
+
+.RE
+
+If \fBtype\fR is "ipv4", "ipv6", "torv2" or "torv3":
+
+.RS
+.IP \[bu]
+\fBaddress\fR (string): address in expected format for \fBtype\fR
+.IP \[bu]
+\fBport\fR (u16): port number
+
+.RE
+
+
+.RE
 .SH ERRORS
 
 On failure, one of the following errors will be returned:
@@ -97,4 +130,4 @@ Felix \fI<fixone@gmail.com\fR> is the original author of this manpage\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:a392b6683fad5fe218e7a985e1eaf5d7439f38d7c74212c275cfa64db284efc0
+\" SHA256STAMP:ff422184feb295e6d3e17e88c0305405edcb24eac59482a43caf750ef281e0ed
