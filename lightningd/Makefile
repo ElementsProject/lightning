@@ -100,6 +100,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/json_helpers.o			\
 	common/json_stream.o			\
 	common/json_tok.o			\
+	common/liquidity_ad.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/node_id.o			\

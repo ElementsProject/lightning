@@ -44,6 +44,7 @@ CONNECTD_COMMON_OBJS :=				\
 	common/status_wiregen.o			\
 	common/gossip_rcvd_filter.o		\
 	common/key_derive.o			\
+	common/liquidity_ad.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/node_id.o			\

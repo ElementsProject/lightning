@@ -60,6 +60,9 @@ struct daemon {
 
 	/* Features lightningd told us to set. */
 	struct feature_set *our_features;
+
+	/* Cached liquidity ad offer, from master */
+	struct liquidity_ad *ad;
 };
 
 struct range_query_reply {

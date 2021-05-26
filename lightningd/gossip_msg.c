@@ -1,5 +1,6 @@
 #include <ccan/array_size/array_size.h>
 #include <common/bolt11.h>
+#include <common/liquidity_ad.h>
 #include <common/wireaddr.h>
 #include <lightningd/gossip_msg.h>
 #include <wire/wire.h>

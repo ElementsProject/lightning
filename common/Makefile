@@ -53,6 +53,7 @@ COMMON_SRC_NOGEN :=				\
 	common/key_derive.c			\
 	common/keyset.c				\
 	common/gossmap.c			\
+	common/liquidity_ad.c			\
 	common/memleak.c			\
 	common/msg_queue.c			\
 	common/node_id.c			\

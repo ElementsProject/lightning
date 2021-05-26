@@ -32,6 +32,7 @@
 #include <common/daemon_conn.h>
 #include <common/ecdh_hsmd.h>
 #include <common/features.h>
+#include <common/liquidity_ad.h>
 #include <common/memleak.h>
 #include <common/ping.h>
 #include <common/pseudorand.h>
