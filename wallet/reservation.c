@@ -12,6 +12,9 @@
 #include <wallet/wallet.h>
 #include <wallet/walletrpc.h>
 
+/* 12 hours is usually enough reservation time */
+#define RESERVATION_DEFAULT (6 * 12)
+
 static bool was_reserved(enum output_status oldstatus,
 			 u32 reserved_til,
 			 u32 current_height)
@@ -45,6 +48,7 @@ static void json_add_reservestatus(struct json_stream *response,
 static void reserve_and_report(struct json_stream *response,
 			       struct wallet *wallet,
 			       u32 current_height,
+			       u32 reserve,
 			       struct utxo **utxos)
 {
 	json_array_start(response, "reservations");
@@ -57,7 +61,8 @@ static void reserve_and_report(struct json_stream *response,
 
 		if (!wallet_reserve_utxo(wallet,
 					 utxos[i],
-					 current_height)) {
+					 current_height,
+					 reserve)) {
 			fatal("Unable to reserve %s:%u!",
 			      type_to_string(tmpctx,
 					     struct bitcoin_txid,
@@ -79,11 +84,13 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 	struct wally_psbt *psbt;
 	struct utxo **utxos = tal_arr(cmd, struct utxo *, 0);
 	bool *exclusive;
-	u32 current_height;
+	u32 *reserve, current_height;
 
 	if (!param(cmd, buffer, params,
 		   p_req("psbt", param_psbt, &psbt),
 		   p_opt_def("exclusive", param_bool, &exclusive, true),
+		   p_opt_def("reserve", param_number, &reserve,
+			     RESERVATION_DEFAULT),
 		   NULL))
 		return command_param_failed();
 
@@ -116,7 +123,7 @@ static struct command_result *json_reserveinputs(struct command *cmd,
 	}
 
 	response = json_stream_success(cmd);
-	reserve_and_report(response, cmd->ld->wallet, current_height, utxos);
+	reserve_and_report(response, cmd->ld->wallet, current_height, *reserve, utxos);
 	return command_success(cmd, response);
 }
 
@@ -136,9 +143,12 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 {
 	struct json_stream *response;
 	struct wally_psbt *psbt;
+	u32 *reserve;
 
 	if (!param(cmd, buffer, params,
 		   p_req("psbt", param_psbt, &psbt),
+		   p_opt_def("reserve", param_number, &reserve,
+			     RESERVATION_DEFAULT),
 		   NULL))
 		return command_param_failed();
 
@@ -183,7 +193,8 @@ static struct command_result *json_unreserveinputs(struct command *cmd,
 
 		wallet_unreserve_utxo(cmd->ld->wallet,
 				      utxo,
-				      get_block_height(cmd->ld->topology));
+				      get_block_height(cmd->ld->topology),
+				      *reserve);
 
 		json_add_reservestatus(response, utxo, oldstatus, old_res,
 				       get_block_height(cmd->ld->topology));
@@ -319,7 +330,7 @@ static struct command_result *finish_psbt(struct command *cmd,
 					  u32 feerate_per_kw,
 					  size_t weight,
 					  struct amount_sat excess,
-					  bool reserve,
+					  u32 reserve,
 					  u32 *locktime,
 					  bool excess_as_change)
 {
@@ -405,7 +416,7 @@ fee_calc:
 		json_add_num(response, "change_outnum", change_outnum);
 	if (reserve)
 		reserve_and_report(response, cmd->ld->wallet, current_height,
-				   utxos);
+				   reserve, utxos);
 	return command_success(cmd, response);
 }
 
@@ -424,6 +435,27 @@ static inline u32 minconf_to_maxheight(u32 minconf, struct lightningd *ld)
 	return ld->topology->tip->height - minconf + 1;
 }
 
+static struct command_result *param_reserve_num(struct command *cmd,
+						const char *name,
+						const char *buffer,
+						const jsmntok_t *tok,
+						unsigned int **num)
+{
+	bool flag;
+
+	/* "reserve=true" means 6 hours */
+	if (json_to_bool(buffer, tok, &flag)) {
+		*num = tal(cmd, unsigned int);
+		if (flag)
+			**num = RESERVATION_DEFAULT;
+		else
+			**num = 0;
+		return NULL;
+	}
+
+	return param_number(cmd, name, buffer, tok, num);
+}
+
 static struct command_result *json_fundpsbt(struct command *cmd,
 					      const char *buffer,
 					      const jsmntok_t *obj UNNEEDED,
@@ -433,15 +465,16 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	u32 *feerate_per_kw;
 	u32 *minconf, *weight, *min_witness_weight;
 	struct amount_sat *amount, input, diff;
-	bool all, *reserve, *excess_as_change;
-	u32 *locktime, maxheight;
+	bool all, *excess_as_change;
+	u32 *locktime, *reserve, maxheight;
 
 	if (!param(cmd, buffer, params,
 		   p_req("satoshi", param_sat_or_all, &amount),
 		   p_req("feerate", param_feerate, &feerate_per_kw),
 		   p_req("startweight", param_number, &weight),
 		   p_opt_def("minconf", param_number, &minconf, 1),
-		   p_opt_def("reserve", param_bool, &reserve, true),
+		   p_opt_def("reserve", param_reserve_num, &reserve,
+			     RESERVATION_DEFAULT),
 		   p_opt("locktime", param_number, &locktime),
 		   p_opt_def("min_witness_weight", param_number,
 			     &min_witness_weight, 0),
@@ -615,16 +648,17 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 {
 	struct utxo **utxos;
 	u32 *feerate_per_kw, *weight, *min_witness_weight;
-	bool all, *reserve, *reserved_ok, *excess_as_change;
+	bool all, *reserved_ok, *excess_as_change;
 	struct amount_sat *amount, input, excess;
-	u32 current_height, *locktime;
+	u32 current_height, *locktime, *reserve;
 
 	if (!param(cmd, buffer, params,
 		   p_req("satoshi", param_sat_or_all, &amount),
 		   p_req("feerate", param_feerate, &feerate_per_kw),
 		   p_req("startweight", param_number, &weight),
 		   p_req("utxos", param_txout, &utxos),
-		   p_opt_def("reserve", param_bool, &reserve, true),
+		   p_opt_def("reserve", param_reserve_num, &reserve,
+			     RESERVATION_DEFAULT),
 		   p_opt_def("reservedok", param_bool, &reserved_ok, false),
 		   p_opt("locktime", param_number, &locktime),
 		   p_opt_def("min_witness_weight", param_number,

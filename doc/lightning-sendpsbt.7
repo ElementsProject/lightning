@@ -3,7 +3,7 @@
 lightning-sendpsbt - Command to finalize, extract and send a partially signed bitcoin transaction (PSBT)\.
 .SH SYNOPSIS
 
-\fBsendpsbt\fR \fIpsbt\fR
+\fBsendpsbt\fR \fIpsbt\fR [\fIreserve\fR]
 
 .SH DESCRIPTION
 
@@ -12,6 +12,8 @@ The \fBsendpsbt\fR is a low-level RPC command which sends a fully-signed PSBT\.
 .RS
 .IP \[bu]
 \fIpsbt\fR: A string that represents psbt value\.
+.IP \[bu]
+\fIreserve\fR: an optional number of blocks to increase reservation of any of our inputs by; default is 72\.
 
 .RE
 .SH EXAMPLE JSON REQUEST
@@ -68,4 +70,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:795058b68607af4148d2866faa88b3743269e1641725c95efcabdbe82c886420
+\" SHA256STAMP:9241e9fa18b3a39ab64bfdfb875dc82ad5ccc242411ad265026005e69f29c2e0

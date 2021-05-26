@@ -405,19 +405,24 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 /**
  * wallet_reserve_utxo - set a reservation on a UTXO.
  *
- * If the reservation is already reserved, refreshes the reservation,
- * otherwise if it's not available, returns false.
+ * If the reservation is already reserved:
+ *   refreshes the reservation by @reserve, return true.
+ * Otherwise if it's available:
+ *   reserves until @current_height + @reserve, returns true.
+ * Otherwise:
+ *   returns false.
  */
 bool wallet_reserve_utxo(struct wallet *w,
 			 struct utxo *utxo,
-			 u32 reservation_blocknum);
+			 u32 current_height,
+			 u32 reserve);
 
 /* wallet_unreserve_utxo - make a reserved UTXO available again.
  *
  * Must be reserved.
  */
 void wallet_unreserve_utxo(struct wallet *w, struct utxo *utxo,
-			   u32 current_height);
+			   u32 current_height, u32 unreserve);
 
 /** wallet_utxo_get - Retrive a utxo.
  *

@@ -3,7 +3,7 @@
 lightning-reserveinputs - Construct a transaction and reserve the UTXOs it spends
 .SH SYNOPSIS
 
-\fBreserveinputs\fR \fIpsbt\fR [\fIexclusive\fR]
+\fBreserveinputs\fR \fIpsbt\fR [\fIexclusive\fR] [\fIreserve\fR]
 
 .SH DESCRIPTION
 
@@ -16,6 +16,10 @@ which are unknown\.
 Normally the command will fail (with no reservations made) if an input
 is already reserved\.  If \fIexclusive\fR is set to \fIFalse\fR, then existing
 reservations are simply extended, rather than causing failure\.
+
+
+By default, reservations are for the next 72 blocks (approximately 6
+hours), but this can be changed by setting \fIreserve\fR\.
 
 .SH RETURN VALUE
 
@@ -58,4 +62,4 @@ niftynei \fI<niftynei@gmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:539d241f86937d96dbc8a914f50a0cb920e7bee38b825502332a7755507f9e7b
+\" SHA256STAMP:81be9e3af4075dd3bd24c6461861ee067b435654d88817afd0c49d37e85768a3
