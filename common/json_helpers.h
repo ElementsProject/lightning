@@ -11,6 +11,7 @@ struct amount_msat;
 struct amount_sat;
 struct bip340sig;
 struct channel_id;
+struct lease_rates;
 struct node_id;
 struct preimage;
 struct pubkey;
@@ -179,4 +180,8 @@ void json_add_psbt(struct json_stream *stream,
 		   const char *fieldname,
 		   const struct wally_psbt *psbt);
 
+/* Add fields from the lease_rates to a json stream.
+ * Note that field names are set */
+void json_add_lease_rates(struct json_stream *result,
+			  const struct lease_rates *rates);
 #endif /* LIGHTNING_COMMON_JSON_HELPERS_H */

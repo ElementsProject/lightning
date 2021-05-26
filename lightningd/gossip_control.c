@@ -277,6 +277,11 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 			json_add_address(response, NULL, &nodes[i]->addresses[j]);
 		}
 		json_array_end(response);
+		if (nodes[i]->rates) {
+			json_object_start(response, "option_will_fund");
+			json_add_lease_rates(response, nodes[i]->rates);
+			json_object_end(response);
+		}
 		json_object_end(response);
 	}
 	json_array_end(response);
