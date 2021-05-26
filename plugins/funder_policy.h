@@ -55,8 +55,9 @@ struct funder_policy {
 	u32 fund_probability;
 };
 
-struct funder_policy
-new_funder_policy(enum funder_opt opt,
+struct funder_policy *
+new_funder_policy(const tal_t *ctx,
+		  enum funder_opt opt,
 		  u64 policy_mod,
 		  struct amount_sat min_their_funding,
 		  struct amount_sat max_their_funding,
@@ -67,14 +68,15 @@ new_funder_policy(enum funder_opt opt,
 		  u32 fund_probability);
 
 /* Get a new funder_policy, set to the defaults */
-struct funder_policy
-default_funder_policy(enum funder_opt policy,
+struct funder_policy *
+default_funder_policy(const tal_t *ctx,
+		      enum funder_opt policy,
 		      u64 policy_mod);
 
 /* Given the policy and this request's details, figure
  * out how much we should contribute to this channel */
 const char *
-calculate_our_funding(struct funder_policy policy,
+calculate_our_funding(struct funder_policy *policy,
 		      struct node_id id,
 		      struct amount_sat their_funding,
 		      struct amount_sat available_funds,
@@ -86,7 +88,7 @@ const char *funder_opt_name(enum funder_opt opt);
 
 /* Get a (short, for now) description of the provided policy */
 const char *funder_policy_desc(const tal_t *ctx,
-			       const struct funder_policy policy);
+			       const struct funder_policy *policy);
 
 /* Convert a cmdline option to a funding_opt */
 char *funding_option(const char *arg, enum funder_opt *opt);

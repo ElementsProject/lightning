@@ -376,7 +376,7 @@ static void check_fuzzing(struct test_case fuzzcase)
 	memset(&id, 2, sizeof(struct node_id));
 
 	for (size_t i = 0; i < 100; i++) {
-		calculate_our_funding(fuzzcase.policy, id,
+		calculate_our_funding(&fuzzcase.policy, id,
 				      fuzzcase.their_funds,
 				      fuzzcase.available_funds,
 				      fuzzcase.channel_max,
@@ -393,7 +393,7 @@ static void check_fuzzing(struct test_case fuzzcase)
 
 int main(int argc, const char *argv[])
 {
-	struct funder_policy policy;
+	struct funder_policy *policy;
 	struct node_id id;
 	struct amount_sat empty = AMOUNT_SAT(0), our_funds;
 	bool ok = true;
@@ -406,7 +406,7 @@ int main(int argc, const char *argv[])
 	memset(&id, 2, sizeof(struct node_id));
 
 	/* Check the default funder policy, at fixed (0msat) */
-	policy = default_funder_policy(FIXED, 0);
+	policy = default_funder_policy(tmpctx, FIXED, 0);
 
 	err = calculate_our_funding(policy, id,
 				    AMOUNT_SAT(50000),
@@ -417,14 +417,14 @@ int main(int argc, const char *argv[])
 	assert(!err);
 
 	for (i = 0; i < ARRAY_SIZE(cases); i++) {
-		err = calculate_our_funding(cases[i].policy, id,
+		err = calculate_our_funding(&cases[i].policy, id,
 					    cases[i].their_funds,
 					    cases[i].available_funds,
 					    cases[i].channel_max,
 					    &our_funds);
 		if (!amount_sat_eq(cases[i].exp_our_funds, our_funds)) {
 			fprintf(stderr, "FAIL policy: %s. expected %s, got %s\n",
-				funder_policy_desc(NULL, cases[i].policy),
+				funder_policy_desc(NULL, &cases[i].policy),
 				type_to_string(NULL, struct amount_sat,
 					       &cases[i].exp_our_funds),
 				type_to_string(NULL, struct amount_sat,
@@ -434,7 +434,7 @@ int main(int argc, const char *argv[])
 		if (cases[i].expect_err != (err != NULL)) {
 			fprintf(stderr, "FAIL policy: %s. expected %serr,"
 					" got %s\n",
-				funder_policy_desc(NULL, cases[i].policy),
+				funder_policy_desc(NULL, &cases[i].policy),
 				cases[i].expect_err ? "" : "no ",
 				err ? err : "no err");
 			ok = false;
@@ -450,7 +450,7 @@ int main(int argc, const char *argv[])
 	flipcase.policy.fund_probability = flips;
 
 	for (i = 0; i < 100 * flips; i++) {
-		calculate_our_funding(flipcase.policy, id,
+		calculate_our_funding(&flipcase.policy, id,
 				      flipcase.their_funds,
 				      flipcase.available_funds,
 				      flipcase.channel_max,
