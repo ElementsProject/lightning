@@ -345,21 +345,6 @@ command_success(struct command *cmd, const struct json_out *result)
 	return command_complete(cmd, js);
 }
 
-struct command_result *WARN_UNUSED_RESULT
-command_success_str(struct command *cmd, const char *str)
-{
-	struct json_stream *js = jsonrpc_stream_start(cmd);
-
-	if (str)
-		json_add_string(js, "result", str);
-	else {
-		/* Use an empty object if they don't want anything. */
-		json_object_start(js, "result");
-		json_object_end(js);
-	}
-	return command_complete(cmd, js);
-}
-
 struct command_result *command_done_err(struct command *cmd,
 					errcode_t code,
 					const char *errmsg,
@@ -904,7 +889,7 @@ static struct command_result *handle_init(struct command *cmd,
 	if (with_rpc)
 		io_new_conn(p, p->rpc_conn->fd, rpc_conn_init, p);
 
-	return command_success_str(cmd, NULL);
+	return command_success(cmd, json_out_obj(cmd, NULL, NULL));
 }
 
 char *u64_option(const char *arg, u64 *i)
