@@ -13,6 +13,7 @@
 #include <common/wireaddr.h>
 #include <errno.h>
 #include <wally_psbt.h>
+#include <wire/peer_wire.h>
 
 bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
 			    uint64_t *satoshi)
@@ -369,3 +370,16 @@ void json_add_preimage(struct json_stream *result, const char *fieldname,
 	json_add_hex(result, fieldname, preimage, sizeof(*preimage));
 }
 
+void json_add_lease_rates(struct json_stream *result,
+			  const struct lease_rates *rates)
+{
+	json_add_amount_sat_only(result, "lease_fee_base_msat",
+				 amount_sat(rates->lease_fee_base_sat));
+	json_add_num(result, "lease_fee_basis", rates->lease_fee_basis);
+	json_add_num(result, "funding_weight", rates->funding_weight);
+	json_add_amount_msat_only(result,
+				  "channel_fee_max_base_msat",
+				  amount_msat(rates->channel_fee_max_base_msat));
+	json_add_num(result, "channel_fee_max_proportional_thousandths",
+		     rates->channel_fee_max_proportional_thousandths);
+}
