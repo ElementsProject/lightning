@@ -258,6 +258,11 @@ endif
 
 default: show-flags all-programs all-test-programs doc-all
 
+ifneq ($(SUPPRESS_GENERATION),1)
+FORCE = FORCE
+FORCE::
+endif
+
 show-flags: config.vars
 	@$(ECHO) "CC: $(CC) $(CFLAGS) -c -o"
 	@$(ECHO) "LD: $(LINK.o) $(filter-out %.a,$^) $(LOADLIBES) $(EXTERNAL_LDLIBS) $(LDLIBS) -o"
@@ -535,11 +540,6 @@ ncc: ${TARGET_DIR}/libwally-core-build/src/libwallycore.la
 # Ignore test/ directories.
 TAGS:
 	$(RM) TAGS; find * -name test -type d -prune -o -name '*.[ch]' -print -o -name '*.py' -print | xargs etags --append
-
-ifneq ($(SUPPRESS_GENERATION),1)
-FORCE = FORCE
-FORCE::
-endif
 
 ccan/ccan/cdump/tools/cdump-enumstr: ccan/ccan/cdump/tools/cdump-enumstr.o $(CDUMP_OBJS) $(CCAN_OBJS)
 
