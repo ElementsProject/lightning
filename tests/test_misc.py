@@ -1898,6 +1898,8 @@ def test_list_features_only(node_factory):
         expected += ['option_anchor_outputs/odd']
         expected += ['option_shutdown_anysegwit/odd']
         expected += ['option_onion_messages/odd']
+    else:
+        expected += ['option_shutdown_anysegwit/odd']
     assert features == expected
 
 
