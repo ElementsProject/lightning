@@ -29,6 +29,7 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 {
 	u8 *addresses = tal_arr(tmpctx, u8, 0);
 	u8 *announcement;
+	struct tlv_node_ann_tlvs *na_tlv;
 	size_t i;
 
 	if (!sig)
@@ -37,13 +38,16 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 	for (i = 0; i < tal_count(daemon->announcable); i++)
 		towire_wireaddr(&addresses, &daemon->announcable[i]);
 
+	na_tlv = tlv_node_ann_tlvs_new(tmpctx);
+
 	announcement =
 	    towire_node_announcement(ctx, sig,
 				     daemon->our_features->bits
 				     [NODE_ANNOUNCE_FEATURE],
 				     timestamp,
 				     &daemon->id, daemon->rgb, daemon->alias,
-				     addresses);
+				     addresses,
+				     na_tlv);
 	return announcement;
 }
 

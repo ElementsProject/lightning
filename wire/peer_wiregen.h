@@ -46,6 +46,7 @@ enum peer_wire {
         WIRE_COMMITMENT_SIGNED = 132,
         WIRE_REVOKE_AND_ACK = 133,
         WIRE_UPDATE_FEE = 134,
+        WIRE_UPDATE_BLOCKHEIGHT = 137,
         WIRE_CHANNEL_REESTABLISH = 136,
         WIRE_ANNOUNCEMENT_SIGNATURES = 259,
         WIRE_CHANNEL_ANNOUNCEMENT = 256,
@@ -92,12 +93,29 @@ struct tlv_n1_tlv3 {
 struct tlv_opening_tlvs_option_upfront_shutdown_script {
         u8 *shutdown_scriptpubkey;
 };
+struct tlv_opening_tlvs_request_funds {
+        u64 requested_sats;
+        u32 blockheight;
+};
 struct tlv_accept_tlvs_option_upfront_shutdown_script {
         u8 *shutdown_scriptpubkey;
+};
+struct tlv_accept_tlvs_will_fund {
+        u32 funding_fee_base_sat;
+        u32 funding_fee_proportional_basis;
+        u32 funding_fee_weight_charge;
+        u32 channel_fee_base_msat;
+        u32 channel_fee_proportional_basis;
 };
 struct tlv_shutdown_tlvs_wrong_funding {
         struct bitcoin_txid txid;
         u32 outnum;
+};
+struct tlv_node_ann_tlvs_option_will_fund {
+        u16 funding_fee_proportional_basis;
+        u32 funding_fee_base_sat;
+        u16 channel_fee_proportional_basis;
+        u32 channel_fee_base_msat;
 };
 struct tlv_query_short_channel_ids_tlvs_query_flags {
         u8 encoding_type;
@@ -158,6 +176,7 @@ struct tlv_opening_tlvs {
 	/* TODO The following explicit fields could just point into the
 	 * tlv_field entries above to save on memory. */
         struct tlv_opening_tlvs_option_upfront_shutdown_script *option_upfront_shutdown_script;
+        struct tlv_opening_tlvs_request_funds *request_funds;
 };
 struct tlv_accept_tlvs {
         /* Raw fields including unknown ones. */
@@ -166,6 +185,7 @@ struct tlv_accept_tlvs {
 	/* TODO The following explicit fields could just point into the
 	 * tlv_field entries above to save on memory. */
         struct tlv_accept_tlvs_option_upfront_shutdown_script *option_upfront_shutdown_script;
+        struct tlv_accept_tlvs_will_fund *will_fund;
 };
 struct tlv_shutdown_tlvs {
         /* Raw fields including unknown ones. */
@@ -174,6 +194,14 @@ struct tlv_shutdown_tlvs {
 	/* TODO The following explicit fields could just point into the
 	 * tlv_field entries above to save on memory. */
         struct tlv_shutdown_tlvs_wrong_funding *wrong_funding;
+};
+struct tlv_node_ann_tlvs {
+        /* Raw fields including unknown ones. */
+        struct tlv_field *fields;
+
+	/* TODO The following explicit fields could just point into the
+	 * tlv_field entries above to save on memory. */
+        struct tlv_node_ann_tlvs_option_will_fund *option_will_fund;
 };
 struct tlv_query_short_channel_ids_tlvs {
         /* Raw fields including unknown ones. */
@@ -529,6 +557,43 @@ void towire_shutdown_tlvs(u8 **pptr, const struct tlv_shutdown_tlvs *record);
 bool shutdown_tlvs_is_valid(const struct tlv_shutdown_tlvs *record,
 			  size_t *err_index);
 
+struct tlv_node_ann_tlvs *tlv_node_ann_tlvs_new(const tal_t *ctx);
+
+/**
+ * Deserialize a TLV stream for the node_ann_tlvs namespace.
+ *
+ * This function will parse any TLV stream, as long as the type, length and
+ * value fields are formatted correctly. Fields that are not known in the
+ * current namespace are stored in the `fields` member. Validity can be
+ * checked using node_ann_tlvs_is_valid.
+ */
+bool fromwire_node_ann_tlvs(const u8 **cursor, size_t *max,
+			  struct tlv_node_ann_tlvs * record);
+
+/**
+ * Serialize a TLV stream for the node_ann_tlvs namespace.
+ *
+ * This function only considers known fields from the node_ann_tlvs namespace,
+ * and will ignore any fields that may be stored in the `fields` member. This
+ * ensures that the resulting stream is valid according to
+ * `node_ann_tlvs_is_valid`.
+ */
+void towire_node_ann_tlvs(u8 **pptr, const struct tlv_node_ann_tlvs *record);
+
+/**
+ * Check that the TLV stream is valid.
+ *
+ * Enforces the followin validity rules:
+ * - Types must be in monotonic non-repeating order
+ * - We must understand all even types
+ *
+ * Returns false if an error was detected, otherwise returns true. If err_index
+ * is non-null and we detect an error it is set to the index of the first error
+ * detected.
+ */
+bool node_ann_tlvs_is_valid(const struct tlv_node_ann_tlvs *record,
+			  size_t *err_index);
+
 struct tlv_query_short_channel_ids_tlvs *tlv_query_short_channel_ids_tlvs_new(const tal_t *ctx);
 
 /**
@@ -809,6 +874,10 @@ bool fromwire_revoke_and_ack(const void *p, struct channel_id *channel_id, struc
 u8 *towire_update_fee(const tal_t *ctx, const struct channel_id *channel_id, u32 feerate_per_kw);
 bool fromwire_update_fee(const void *p, struct channel_id *channel_id, u32 *feerate_per_kw);
 
+/* WIRE: UPDATE_BLOCKHEIGHT */
+u8 *towire_update_blockheight(const tal_t *ctx, const struct channel_id *channel_id, u32 blockheight);
+bool fromwire_update_blockheight(const void *p, struct channel_id *channel_id, u32 *blockheight);
+
 /* WIRE: CHANNEL_REESTABLISH */
 u8 *towire_channel_reestablish(const tal_t *ctx, const struct channel_id *channel_id, u64 next_commitment_number, u64 next_revocation_number, const struct secret *your_last_per_commitment_secret, const struct pubkey *my_current_per_commitment_point);
 bool fromwire_channel_reestablish(const void *p, struct channel_id *channel_id, u64 *next_commitment_number, u64 *next_revocation_number, struct secret *your_last_per_commitment_secret, struct pubkey *my_current_per_commitment_point);
@@ -822,8 +891,8 @@ u8 *towire_channel_announcement(const tal_t *ctx, const secp256k1_ecdsa_signatur
 bool fromwire_channel_announcement(const tal_t *ctx, const void *p, secp256k1_ecdsa_signature *node_signature_1, secp256k1_ecdsa_signature *node_signature_2, secp256k1_ecdsa_signature *bitcoin_signature_1, secp256k1_ecdsa_signature *bitcoin_signature_2, u8 **features, struct bitcoin_blkid *chain_hash, struct short_channel_id *short_channel_id, struct node_id *node_id_1, struct node_id *node_id_2, struct pubkey *bitcoin_key_1, struct pubkey *bitcoin_key_2);
 
 /* WIRE: NODE_ANNOUNCEMENT */
-u8 *towire_node_announcement(const tal_t *ctx, const secp256k1_ecdsa_signature *signature, const u8 *features, u32 timestamp, const struct node_id *node_id, const u8 rgb_color[3], const u8 alias[32], const u8 *addresses);
-bool fromwire_node_announcement(const tal_t *ctx, const void *p, secp256k1_ecdsa_signature *signature, u8 **features, u32 *timestamp, struct node_id *node_id, u8 rgb_color[3], u8 alias[32], u8 **addresses);
+u8 *towire_node_announcement(const tal_t *ctx, const secp256k1_ecdsa_signature *signature, const u8 *features, u32 timestamp, const struct node_id *node_id, const u8 rgb_color[3], const u8 alias[32], const u8 *addresses, const struct tlv_node_ann_tlvs *tlvs);
+bool fromwire_node_announcement(const tal_t *ctx, const void *p, secp256k1_ecdsa_signature *signature, u8 **features, u32 *timestamp, struct node_id *node_id, u8 rgb_color[3], u8 alias[32], u8 **addresses, struct tlv_node_ann_tlvs *tlvs);
 
 /* WIRE: CHANNEL_UPDATE */
 u8 *towire_channel_update(const tal_t *ctx, const secp256k1_ecdsa_signature *signature, const struct bitcoin_blkid *chain_hash, const struct short_channel_id *short_channel_id, u32 timestamp, u8 message_flags, u8 channel_flags, u16 cltv_expiry_delta, struct amount_msat htlc_minimum_msat, u32 fee_base_msat, u32 fee_proportional_millionths);
@@ -859,4 +928,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
 
 
 #endif /* LIGHTNING_WIRE_PEER_WIREGEN_H */
-// SHA256STAMP:aecb66d3600732f50b4279272e4c057d1ea410bddf41cbb01b6326320f5b9de8
+// SHA256STAMP:aac109bf83efd4c6aeb3f5846fd250944483a14058b085657d49c2da000693f7

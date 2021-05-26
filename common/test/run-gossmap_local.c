@@ -290,13 +290,16 @@ static void check_nannounce(const u8 *nannounce,
 	u32 timestamp;
 	u8 rgb_color[3], alias[32];
 	struct node_id node_id;
+	struct tlv_node_ann_tlvs *na_tlvs = tlv_node_ann_tlvs_new(tmpctx);
+
 	assert(fromwire_node_announcement(nannounce, nannounce,
 					  &sig, &features,
 					  &timestamp,
 					  &node_id,
 					  rgb_color,
 					  alias,
-					  &addresses));
+					  &addresses,
+					  na_tlvs));
 	assert(node_id_eq(&node_id, n));
 }
 

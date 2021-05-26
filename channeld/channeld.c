@@ -1915,6 +1915,9 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_UPDATE_FEE:
 		handle_peer_feechange(peer, msg);
 		return;
+	case WIRE_UPDATE_BLOCKHEIGHT:
+		/* FIXME: do this */
+		return;
 	case WIRE_REVOKE_AND_ACK:
 		handle_peer_revoke_and_ack(peer, msg);
 		return;

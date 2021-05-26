@@ -49,6 +49,7 @@ const char *peer_wire_name(int e)
 	case WIRE_COMMITMENT_SIGNED: return "WIRE_COMMITMENT_SIGNED";
 	case WIRE_REVOKE_AND_ACK: return "WIRE_REVOKE_AND_ACK";
 	case WIRE_UPDATE_FEE: return "WIRE_UPDATE_FEE";
+	case WIRE_UPDATE_BLOCKHEIGHT: return "WIRE_UPDATE_BLOCKHEIGHT";
 	case WIRE_CHANNEL_REESTABLISH: return "WIRE_CHANNEL_REESTABLISH";
 	case WIRE_ANNOUNCEMENT_SIGNATURES: return "WIRE_ANNOUNCEMENT_SIGNATURES";
 	case WIRE_CHANNEL_ANNOUNCEMENT: return "WIRE_CHANNEL_ANNOUNCEMENT";
@@ -98,6 +99,7 @@ bool peer_wire_is_defined(u16 type)
 	case WIRE_COMMITMENT_SIGNED:;
 	case WIRE_REVOKE_AND_ACK:;
 	case WIRE_UPDATE_FEE:;
+	case WIRE_UPDATE_BLOCKHEIGHT:;
 	case WIRE_CHANNEL_REESTABLISH:;
 	case WIRE_ANNOUNCEMENT_SIGNATURES:;
 	case WIRE_CHANNEL_ANNOUNCEMENT:;
@@ -609,20 +611,46 @@ static void fromwire_tlv_opening_tlvs_option_upfront_shutdown_script(const u8 **
 	r->option_upfront_shutdown_script->shutdown_scriptpubkey = shutdown_len ? tal_arr(r->option_upfront_shutdown_script, u8, shutdown_len) : NULL;
 fromwire_u8_array(cursor, plen, r->option_upfront_shutdown_script->shutdown_scriptpubkey, shutdown_len);
 }
+/* OPENING_TLVS MSG: request_funds */
+static u8 *towire_tlv_opening_tlvs_request_funds(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_opening_tlvs *r = vrecord;
+	u8 *ptr;
+
+	if (!r->request_funds)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_u64(&ptr, r->request_funds->requested_sats);
+
+	towire_u32(&ptr, r->request_funds->blockheight);
+	return ptr;
+}
+static void fromwire_tlv_opening_tlvs_request_funds(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_opening_tlvs *r = vrecord;
+
+	r->request_funds = tal(r, struct tlv_opening_tlvs_request_funds);
+	r->request_funds->requested_sats = fromwire_u64(cursor, plen);
+	r->request_funds->blockheight = fromwire_u32(cursor, plen);
+}
 
 static const struct tlv_record_type tlvs_opening_tlvs[] = {
 	{ 1, towire_tlv_opening_tlvs_option_upfront_shutdown_script, fromwire_tlv_opening_tlvs_option_upfront_shutdown_script },
+	{ 3, towire_tlv_opening_tlvs_request_funds, fromwire_tlv_opening_tlvs_request_funds },
 };
 
 void towire_opening_tlvs(u8 **pptr, const struct tlv_opening_tlvs *record)
 {
-	towire_tlv(pptr, tlvs_opening_tlvs, 1, record);
+	towire_tlv(pptr, tlvs_opening_tlvs, 2, record);
 }
 
 
 bool fromwire_opening_tlvs(const u8 **cursor, size_t *max, struct tlv_opening_tlvs *record)
 {
-	return fromwire_tlv(cursor, max, tlvs_opening_tlvs, 1, record, &record->fields);
+	return fromwire_tlv(cursor, max, tlvs_opening_tlvs, 2, record, &record->fields);
 }
 
 bool opening_tlvs_is_valid(const struct tlv_opening_tlvs *record, size_t *err_index)
@@ -669,20 +697,55 @@ static void fromwire_tlv_accept_tlvs_option_upfront_shutdown_script(const u8 **c
 	r->option_upfront_shutdown_script->shutdown_scriptpubkey = shutdown_len ? tal_arr(r->option_upfront_shutdown_script, u8, shutdown_len) : NULL;
 fromwire_u8_array(cursor, plen, r->option_upfront_shutdown_script->shutdown_scriptpubkey, shutdown_len);
 }
+/* ACCEPT_TLVS MSG: will_fund */
+static u8 *towire_tlv_accept_tlvs_will_fund(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_accept_tlvs *r = vrecord;
+	u8 *ptr;
+
+	if (!r->will_fund)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_u32(&ptr, r->will_fund->funding_fee_base_sat);
+
+	towire_u32(&ptr, r->will_fund->funding_fee_proportional_basis);
+
+	towire_u32(&ptr, r->will_fund->funding_fee_weight_charge);
+
+	towire_u32(&ptr, r->will_fund->channel_fee_base_msat);
+
+	towire_u32(&ptr, r->will_fund->channel_fee_proportional_basis);
+	return ptr;
+}
+static void fromwire_tlv_accept_tlvs_will_fund(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_accept_tlvs *r = vrecord;
+
+	r->will_fund = tal(r, struct tlv_accept_tlvs_will_fund);
+	r->will_fund->funding_fee_base_sat = fromwire_u32(cursor, plen);
+	r->will_fund->funding_fee_proportional_basis = fromwire_u32(cursor, plen);
+	r->will_fund->funding_fee_weight_charge = fromwire_u32(cursor, plen);
+	r->will_fund->channel_fee_base_msat = fromwire_u32(cursor, plen);
+	r->will_fund->channel_fee_proportional_basis = fromwire_u32(cursor, plen);
+}
 
 static const struct tlv_record_type tlvs_accept_tlvs[] = {
 	{ 1, towire_tlv_accept_tlvs_option_upfront_shutdown_script, fromwire_tlv_accept_tlvs_option_upfront_shutdown_script },
+	{ 2, towire_tlv_accept_tlvs_will_fund, fromwire_tlv_accept_tlvs_will_fund },
 };
 
 void towire_accept_tlvs(u8 **pptr, const struct tlv_accept_tlvs *record)
 {
-	towire_tlv(pptr, tlvs_accept_tlvs, 1, record);
+	towire_tlv(pptr, tlvs_accept_tlvs, 2, record);
 }
 
 
 bool fromwire_accept_tlvs(const u8 **cursor, size_t *max, struct tlv_accept_tlvs *record)
 {
-	return fromwire_tlv(cursor, max, tlvs_accept_tlvs, 1, record, &record->fields);
+	return fromwire_tlv(cursor, max, tlvs_accept_tlvs, 2, record, &record->fields);
 }
 
 bool accept_tlvs_is_valid(const struct tlv_accept_tlvs *record, size_t *err_index)
@@ -743,6 +806,69 @@ bool fromwire_shutdown_tlvs(const u8 **cursor, size_t *max, struct tlv_shutdown_
 }
 
 bool shutdown_tlvs_is_valid(const struct tlv_shutdown_tlvs *record, size_t *err_index)
+{
+	return tlv_fields_valid(record->fields, err_index);
+}
+
+
+struct tlv_node_ann_tlvs *tlv_node_ann_tlvs_new(const tal_t *ctx)
+{
+	/* Initialize everything to NULL. (Quiet, C pedants!) */
+	struct tlv_node_ann_tlvs *inst = talz(ctx, struct tlv_node_ann_tlvs);
+
+	/* Initialized the fields to an empty array. */
+	inst->fields = tal_arr(inst, struct tlv_field, 0);
+	return inst;
+}
+
+/* NODE_ANN_TLVS MSG: option_will_fund */
+static u8 *towire_tlv_node_ann_tlvs_option_will_fund(const tal_t *ctx, const void *vrecord)
+{
+	const struct tlv_node_ann_tlvs *r = vrecord;
+	u8 *ptr;
+
+	if (!r->option_will_fund)
+		return NULL;
+
+
+	ptr = tal_arr(ctx, u8, 0);
+
+	towire_u16(&ptr, r->option_will_fund->funding_fee_proportional_basis);
+
+	towire_u32(&ptr, r->option_will_fund->funding_fee_base_sat);
+
+	towire_u16(&ptr, r->option_will_fund->channel_fee_proportional_basis);
+
+	towire_tu32(&ptr, r->option_will_fund->channel_fee_base_msat);
+	return ptr;
+}
+static void fromwire_tlv_node_ann_tlvs_option_will_fund(const u8 **cursor, size_t *plen, void *vrecord)
+{
+	struct tlv_node_ann_tlvs *r = vrecord;
+
+	r->option_will_fund = tal(r, struct tlv_node_ann_tlvs_option_will_fund);
+	r->option_will_fund->funding_fee_proportional_basis = fromwire_u16(cursor, plen);
+	r->option_will_fund->funding_fee_base_sat = fromwire_u32(cursor, plen);
+	r->option_will_fund->channel_fee_proportional_basis = fromwire_u16(cursor, plen);
+	r->option_will_fund->channel_fee_base_msat = fromwire_tu32(cursor, plen);
+}
+
+static const struct tlv_record_type tlvs_node_ann_tlvs[] = {
+	{ 1, towire_tlv_node_ann_tlvs_option_will_fund, fromwire_tlv_node_ann_tlvs_option_will_fund },
+};
+
+void towire_node_ann_tlvs(u8 **pptr, const struct tlv_node_ann_tlvs *record)
+{
+	towire_tlv(pptr, tlvs_node_ann_tlvs, 1, record);
+}
+
+
+bool fromwire_node_ann_tlvs(const u8 **cursor, size_t *max, struct tlv_node_ann_tlvs *record)
+{
+	return fromwire_tlv(cursor, max, tlvs_node_ann_tlvs, 1, record, &record->fields);
+}
+
+bool node_ann_tlvs_is_valid(const struct tlv_node_ann_tlvs *record, size_t *err_index)
 {
 	return tlv_fields_valid(record->fields, err_index);
 }
@@ -1926,6 +2052,29 @@ bool fromwire_update_fee(const void *p, struct channel_id *channel_id, u32 *feer
 	return cursor != NULL;
 }
 
+/* WIRE: UPDATE_BLOCKHEIGHT */
+u8 *towire_update_blockheight(const tal_t *ctx, const struct channel_id *channel_id, u32 blockheight)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_UPDATE_BLOCKHEIGHT);
+	towire_channel_id(&p, channel_id);
+	towire_u32(&p, blockheight);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_update_blockheight(const void *p, struct channel_id *channel_id, u32 *blockheight)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_UPDATE_BLOCKHEIGHT)
+		return false;
+ 	fromwire_channel_id(&cursor, &plen, channel_id);
+ 	*blockheight = fromwire_u32(&cursor, &plen);
+	return cursor != NULL;
+}
+
 /* WIRE: CHANNEL_REESTABLISH */
 u8 *towire_channel_reestablish(const tal_t *ctx, const struct channel_id *channel_id, u64 next_commitment_number, u64 next_revocation_number, const struct secret *your_last_per_commitment_secret, const struct pubkey *my_current_per_commitment_point)
 {
@@ -2031,7 +2180,7 @@ bool fromwire_channel_announcement(const tal_t *ctx, const void *p, secp256k1_ec
 }
 
 /* WIRE: NODE_ANNOUNCEMENT */
-u8 *towire_node_announcement(const tal_t *ctx, const secp256k1_ecdsa_signature *signature, const u8 *features, u32 timestamp, const struct node_id *node_id, const u8 rgb_color[3], const u8 alias[32], const u8 *addresses)
+u8 *towire_node_announcement(const tal_t *ctx, const secp256k1_ecdsa_signature *signature, const u8 *features, u32 timestamp, const struct node_id *node_id, const u8 rgb_color[3], const u8 alias[32], const u8 *addresses, const struct tlv_node_ann_tlvs *tlvs)
 {
 	u16 flen = tal_count(features);
 	u16 addrlen = tal_count(addresses);
@@ -2047,10 +2196,11 @@ u8 *towire_node_announcement(const tal_t *ctx, const secp256k1_ecdsa_signature *
 	towire_u8_array(&p, alias, 32);
 	towire_u16(&p, addrlen);
 	towire_u8_array(&p, addresses, addrlen);
+	towire_node_ann_tlvs(&p, tlvs);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_node_announcement(const tal_t *ctx, const void *p, secp256k1_ecdsa_signature *signature, u8 **features, u32 *timestamp, struct node_id *node_id, u8 rgb_color[3], u8 alias[32], u8 **addresses)
+bool fromwire_node_announcement(const tal_t *ctx, const void *p, secp256k1_ecdsa_signature *signature, u8 **features, u32 *timestamp, struct node_id *node_id, u8 rgb_color[3], u8 alias[32], u8 **addresses, struct tlv_node_ann_tlvs *tlvs)
 {
 	u16 flen;
 	u16 addrlen;
@@ -2073,6 +2223,7 @@ bool fromwire_node_announcement(const tal_t *ctx, const void *p, secp256k1_ecdsa
  	// 2nd case addresses
 	*addresses = addrlen ? tal_arr(ctx, u8, addrlen) : NULL;
 	fromwire_u8_array(&cursor, &plen, *addresses, addrlen);
+ 	fromwire_node_ann_tlvs(&cursor, &plen, tlvs);
 	return cursor != NULL;
 }
 
@@ -2330,4 +2481,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
  	*htlc_maximum_msat = fromwire_amount_msat(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:aecb66d3600732f50b4279272e4c057d1ea410bddf41cbb01b6326320f5b9de8
+// SHA256STAMP:aac109bf83efd4c6aeb3f5846fd250944483a14058b085657d49c2da000693f7
