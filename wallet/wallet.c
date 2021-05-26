@@ -28,6 +28,24 @@
  * to prune? */
 #define UTXO_PRUNE_DEPTH 144
 
+/* 12 hours is usually enough reservation time */
+#define RESERVATION_INC (6 * 12)
+
+/* Possible channel state */
+enum channel_state_bucket {
+	IN_OFFERED = 0,
+	IN_FULLFILLED = 1,
+	OUT_OFFERED = 2,
+	OUT_FULLFILLED = 3,
+};
+
+/* channel state identifier */
+struct channel_state_param {
+	const char *dir_key;
+	const char *type_key;
+	const enum channel_state_bucket state;
+};
+
 static void outpointfilters_init(struct wallet *w)
 {
 	struct db_stmt *stmt;
@@ -1389,6 +1407,15 @@ bool wallet_init_channels(struct wallet *w)
 	return wallet_channels_load_active(w);
 }
 
+static enum channel_state_bucket get_state_channel_db(const char *dir, const char *typ)
+{
+	enum channel_state_bucket channel_state = IN_OFFERED;
+	if (streq(dir, "out"))
+		channel_state += 2;
+	if (streq(typ, "fulfilled"))
+		channel_state += 1;
+	return channel_state;
+}
 
 static
 void wallet_channel_stats_incr_x(struct wallet *w,
@@ -1398,32 +1425,38 @@ void wallet_channel_stats_incr_x(struct wallet *w,
 				 struct amount_msat msat)
 {
 	struct db_stmt *stmt;
-	const char *query;
-	/* TODO These would be much better as a switch statement, leaving
-	 * these here for now in order to keep the commit clean. */
-	if (streq(dir, "in") && streq(typ, "offered")) {
+	const char *query = NULL;
+
+	switch (get_state_channel_db(dir, typ)) {
+	case IN_OFFERED:
 		query = SQL("UPDATE channels"
 			    "   SET in_payments_offered = COALESCE(in_payments_offered, 0) + 1"
 			    "     , in_msatoshi_offered = COALESCE(in_msatoshi_offered, 0) + ?"
 			    " WHERE id = ?;");
-	} else if (streq(dir, "in") && streq(typ, "fulfilled")) {
+		break;
+	case IN_FULLFILLED:
 		query = SQL("UPDATE channels"
 			    "   SET in_payments_fulfilled = COALESCE(in_payments_fulfilled, 0) + 1"
 			    "     , in_msatoshi_fulfilled = COALESCE(in_msatoshi_fulfilled, 0) + ?"
 			    " WHERE id = ?;");
-	} else if (streq(dir, "out") && streq(typ, "offered")) {
+		break;
+	case OUT_OFFERED:
 		query = SQL("UPDATE channels"
 			    "   SET out_payments_offered = COALESCE(out_payments_offered, 0) + 1"
 			    "     , out_msatoshi_offered = COALESCE(out_msatoshi_offered, 0) + ?"
 			    " WHERE id = ?;");
-	} else if (streq(dir, "out") && streq(typ, "fulfilled")) {
+		break;
+	case OUT_FULLFILLED:
 		query = SQL("UPDATE channels"
 			    "   SET out_payments_fulfilled = COALESCE(out_payments_fulfilled, 0) + 1"
 			    "     , out_msatoshi_fulfilled = COALESCE(out_msatoshi_fulfilled, 0) + ?"
 			    " WHERE id = ?;");
-	} else {
-		fatal("Unknown stats key %s %s", dir, typ);
+		break;
 	}
+
+	// Sanity check!
+	if (!query)
+		fatal("Unknown channel state key (direction %s, type %s)", dir, typ);
 
 	stmt = db_prepare_v2(w->db, query);
 	db_bind_amount_msat(stmt, 0, &msat);
