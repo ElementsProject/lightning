@@ -371,6 +371,12 @@ char *plugin_opt_set(const char *arg, struct plugin_opt *popt);
 char *plugin_opt_flag_set(struct plugin_opt *popt);
 
 /**
+ * Given a name, find option of that name on plugin.
+ */
+struct plugin_opt *plugin_opt_find(struct plugin *plugin,
+				   const char *name, size_t namelen);
+
+/**
  * Helpers to initialize a connection to a plugin; we read from their
  * stdout, and write to their stdin.
  */

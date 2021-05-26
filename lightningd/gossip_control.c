@@ -16,6 +16,7 @@
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
+#include <common/liquidity_ad.h>
 #include <common/param.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -32,6 +33,7 @@
 #include <lightningd/onion_message.h>
 #include <lightningd/options.h>
 #include <lightningd/ping.h>
+#include <lightningd/plugin.h>
 #include <sodium/randombytes.h>
 #include <string.h>
 #include <wire/peer_wire.h>
@@ -195,12 +197,105 @@ static void gossip_topology_synced(struct chain_topology *topo, void *unused)
 	gossip_notify_new_block(topo->ld, get_block_height(topo));
 }
 
+static char *opt_set_u16(const char *arg, u16 *u)
+{
+	char *endp;
+	unsigned int l;
+
+	assert(arg != NULL);
+
+	/* This is how the manpage says to do it.  Yech. */
+	errno = 0;
+	l = strtoul(arg, &endp, 0);
+	if (*endp || !arg[0])
+		return tal_fmt(NULL, "'%s' is not a number", arg);
+	*u = l;
+	if (errno || *u != l)
+		return tal_fmt(NULL, "'%s' is out of range", arg);
+	return NULL;
+}
+
+/* Very hacky method of pulling the original liquidity ad rates
+ * out of the options parsing */
+static struct liquidity_ad *fetch_liquidity_ad_rates(const tal_t *ctx,
+						     struct plugin *p)
+{
+	struct liquidity_ad *ad = tal(ctx, struct liquidity_ad);
+	struct plugin_opt *opt1, *opt2, *opt3, *opt4;
+	const char *err;
+
+	opt1 = plugin_opt_find(p, OPT_LEASE_FEE_BASE,
+			      strlen(OPT_LEASE_FEE_BASE));
+	opt2 = plugin_opt_find(p, OPT_LEASE_CHAN_FEE_BASE,
+			      strlen(OPT_LEASE_CHAN_FEE_BASE));
+	opt3 = plugin_opt_find(p, OPT_LEASE_FEE_BASIS,
+			      strlen(OPT_LEASE_FEE_BASIS));
+	opt4 = plugin_opt_find(p, OPT_LEASE_CHAN_FEE_BASIS,
+			      strlen(OPT_LEASE_CHAN_FEE_BASIS));
+
+	/* If has `offerrates` command MUST have option params */
+	if (!opt1 || !opt2 || !opt3 || !opt4)
+		fatal("Plugin '%s' offers `offerrates` command"
+		      " but missing option(s): %s%s%s%s",
+		      p->shortname,
+		      !opt1 ? "[" OPT_LEASE_FEE_BASE "]" : "",
+		      !opt2 ? "[" OPT_LEASE_CHAN_FEE_BASE "]" : "",
+		      !opt3 ? "[" OPT_LEASE_FEE_BASIS "]" : "",
+		      !opt4 ? "[" OPT_LEASE_CHAN_FEE_BASIS "]" : "");
+	/* Doesn't have them set */
+	else if (!tal_count(opt1->values)
+		 && !tal_count(opt2->values)
+		 && !tal_count(opt3->values)
+		 && !tal_count(opt4->values))
+		return NULL;
+	else if (!tal_count(opt1->values)
+		 || !tal_count(opt2->values)
+		 || !tal_count(opt3->values)
+		 || !tal_count(opt4->values))
+		fatal("Offer card required param not set: %s%s%s%s",
+		      !tal_count(opt1->values) ? "[" OPT_LEASE_FEE_BASE "]" : "",
+		      !tal_count(opt2->values) ? "[" OPT_LEASE_CHAN_FEE_BASE "]" : "",
+		      !tal_count(opt3->values) ? "[" OPT_LEASE_FEE_BASIS "]" : "",
+		      !tal_count(opt4->values) ? "[" OPT_LEASE_CHAN_FEE_BASIS "]" : "");
+
+	assert(!opt1->multi);
+	if (!parse_amount_sat(&ad->lease_base_sat,
+			      opt1->values[0]->as_str,
+			      strlen(opt1->values[0]->as_str)))
+		fatal("Unable to parse '--%s' %s",
+		      opt1->name, opt1->values[0]->as_str);
+
+	assert(!opt2->multi);
+	assert(tal_count(opt2->values));
+	if (!parse_amount_msat(&ad->channel_base_msat,
+			      opt2->values[0]->as_str,
+			      strlen(opt2->values[0]->as_str)))
+		fatal("Unable to parse '--%s' %s",
+		      opt2->name, opt2->values[0]->as_str);
+
+	assert(!opt3->multi);
+	err = opt_set_u16(opt3->values[0]->as_str,
+			  &ad->lease_basis);
+	if (err)
+		fatal("Unable to parse '--%s' %s", opt3->name, err);
+
+	assert(!opt4->multi);
+	err = opt_set_u16(opt4->values[0]->as_str,
+			  &ad->channel_fee_basis);
+	if (err)
+		fatal("Unable to parse '--%s' %s", opt4->name, err);
+
+	return ad;
+}
+
 /* Create the `gossipd` subdaemon and send the initialization
  * message */
 void gossip_init(struct lightningd *ld, int connectd_fd)
 {
 	u8 *msg;
 	int hsmfd;
+	struct plugin *plugin;
+	struct liquidity_ad *ad;
 
 	hsmfd = hsm_get_global_fd(ld, HSM_CAP_ECDH|HSM_CAP_SIGN_GOSSIP);
 
@@ -214,6 +309,14 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	topology_add_sync_waiter(ld->gossip, ld->topology,
 				 gossip_topology_synced, NULL);
 
+	/* Get our current, startup liquidity ad from the plugin
+	 * that's handling it, if any */
+	plugin = find_plugin_for_command(ld, CMD_OFFER_RATES);
+	if (plugin)
+		ad = fetch_liquidity_ad_rates(tmpctx, plugin);
+	else
+		ad = NULL;
+
 	msg = towire_gossipd_init(
 	    tmpctx,
 	    chainparams,
@@ -224,7 +327,13 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    ld->announcable,
 	    IFDEV(ld->dev_gossip_time ? &ld->dev_gossip_time: NULL, NULL),
 	    IFDEV(ld->dev_fast_gossip, false),
-	    IFDEV(ld->dev_fast_gossip_prune, false));
+	    IFDEV(ld->dev_fast_gossip_prune, false),
+	    !!ad,
+	    ad ? ad->lease_basis : -1,
+	    ad ? ad->lease_base_sat : AMOUNT_SAT(-1),
+	    ad ? ad->channel_fee_basis : -1,
+	    ad ? ad->channel_base_msat : AMOUNT_MSAT(-1));
+
 	subd_send_msg(ld->gossip, msg);
 }
 

@@ -1104,20 +1104,42 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 				   const u8 *msg)
 {
 	u32 *dev_gossip_time;
-	bool dev_fast_gossip, dev_fast_gossip_prune;
+	bool dev_fast_gossip, dev_fast_gossip_prune, has_offer;
+	struct liquidity_ad *ad = tal(NULL, struct liquidity_ad);
 	u32 timestamp;
 
 	if (!fromwire_gossipd_init(daemon, msg,
-				     &chainparams,
-				     &daemon->our_features,
-				     &daemon->id,
-				     daemon->rgb,
-				     daemon->alias,
-				     &daemon->announcable,
-				     &dev_gossip_time,
-				     &dev_fast_gossip,
-				     &dev_fast_gossip_prune)) {
+				   &chainparams,
+				   &daemon->our_features,
+				   &daemon->id,
+				   daemon->rgb,
+				   daemon->alias,
+				   &daemon->announcable,
+				   &dev_gossip_time,
+				   &dev_fast_gossip,
+				   &dev_fast_gossip_prune,
+				   &has_offer,
+				   &ad->lease_basis,
+				   &ad->lease_base_sat,
+				   &ad->channel_fee_basis,
+				   &ad->channel_base_msat)) {
 		master_badmsg(WIRE_GOSSIPD_INIT, msg);
+	}
+
+	/* If we have an offer, set it onto the daemon */
+	if (has_offer) {
+		status_debug("LIQUIDITY LEASES: offer %d %s %d %s",
+			     ad->lease_basis,
+			     type_to_string(tmpctx, struct amount_sat,
+					    &ad->lease_base_sat),
+			     ad->channel_fee_basis,
+			     type_to_string(tmpctx, struct amount_msat,
+					    &ad->channel_base_msat));
+		daemon->ad = tal_steal(daemon, ad);
+	} else {
+		status_debug("LIQUIDITY LEASES: no offer");
+		daemon->ad = NULL;
+		tal_free(ad);
 	}
 
 	daemon->rstate = new_routing_state(daemon,

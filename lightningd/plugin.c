@@ -1244,8 +1244,8 @@ static const char *plugin_hooks_add(struct plugin *plugin, const char *buffer,
 	return NULL;
 }
 
-static struct plugin_opt *plugin_opt_find(struct plugin *plugin,
-					  const char *name, size_t namelen)
+struct plugin_opt *plugin_opt_find(struct plugin *plugin,
+				   const char *name, size_t namelen)
 {
 	struct plugin_opt *opt;
 

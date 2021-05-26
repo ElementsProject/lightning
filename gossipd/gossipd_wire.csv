@@ -15,6 +15,11 @@ msgdata,gossipd_init,announcable,wireaddr,num_announcable
 msgdata,gossipd_init,dev_gossip_time,?u32,
 msgdata,gossipd_init,dev_fast_gossip,bool,
 msgdata,gossipd_init,dev_fast_gossip_prune,bool,
+msgdata,gossipd_init,has_offer,bool,
+msgdata,gossipd_init,lease_proportional_basis,u16,
+msgdata,gossipd_init,lease_base_sat,amount_sat,
+msgdata,gossipd_init,channel_proportional_basis,u16,
+msgdata,gossipd_init,channel_base_msat,amount_msat,
 
 # In developer mode, we can mess with time.
 msgtype,gossipd_dev_set_time,3001

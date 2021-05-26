@@ -8,6 +8,12 @@
 struct amount_msat;
 struct amount_sat;
 
+#define OPT_LEASE_FEE_BASE "lease-fee-base"
+#define OPT_LEASE_FEE_BASIS "lease-fee-basis"
+#define OPT_LEASE_CHAN_FEE_BASE "lease-channel-fee-base-max"
+#define OPT_LEASE_CHAN_FEE_BASIS "lease-channel-fee-basis-max"
+#define CMD_OFFER_RATES "offerrates"
+
 struct liquidity_ad {
 	u16 lease_basis;
 	u16 channel_fee_basis;

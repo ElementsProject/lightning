@@ -83,8 +83,8 @@ bool gossipd_wire_is_defined(u16 type);
 
 /* WIRE: GOSSIPD_INIT */
 /*  Initialize the gossip daemon. */
-u8 *towire_gossipd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_features, const struct node_id *id, const u8 rgb[3], const u8 alias[32], const struct wireaddr *announcable, u32 *dev_gossip_time, bool dev_fast_gossip, bool dev_fast_gossip_prune);
-bool fromwire_gossipd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_features, struct node_id *id, u8 rgb[3], u8 alias[32], struct wireaddr **announcable, u32 **dev_gossip_time, bool *dev_fast_gossip, bool *dev_fast_gossip_prune);
+u8 *towire_gossipd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_features, const struct node_id *id, const u8 rgb[3], const u8 alias[32], const struct wireaddr *announcable, u32 *dev_gossip_time, bool dev_fast_gossip, bool dev_fast_gossip_prune, bool has_offer, u16 lease_proportional_basis, struct amount_sat lease_base_sat, u16 channel_proportional_basis, struct amount_msat channel_base_msat);
+bool fromwire_gossipd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_features, struct node_id *id, u8 rgb[3], u8 alias[32], struct wireaddr **announcable, u32 **dev_gossip_time, bool *dev_fast_gossip, bool *dev_fast_gossip_prune, bool *has_offer, u16 *lease_proportional_basis, struct amount_sat *lease_base_sat, u16 *channel_proportional_basis, struct amount_msat *channel_base_msat);
 
 /* WIRE: GOSSIPD_DEV_SET_TIME */
 /*  In developer mode */
@@ -225,4 +225,4 @@ bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestrin
 
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_WIREGEN_H */
-// SHA256STAMP:5fb4bcc3bb8c5f312041142d4bf555a2187c82d82921b819d5a45410efddf6f3
+// SHA256STAMP:ed02189d3624a06105e53c5874b3c05e0eaabff4c6951924f035b7023d365f6f
