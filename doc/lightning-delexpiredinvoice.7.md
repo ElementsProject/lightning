@@ -18,7 +18,9 @@ deleted.
 RETURN VALUE
 ------------
 
+[comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an empty object is returned.
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
 ------
@@ -35,3 +37,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:f267fd509a5e3e55e2322ddc8b233eb820638ed5f50f606e3e6c8ae17f1c8421)

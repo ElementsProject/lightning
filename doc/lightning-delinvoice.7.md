@@ -18,8 +18,25 @@ The caller should be particularly aware of the error case caused by the
 RETURN VALUE
 ------------
 
-On success, an invoice description will be returned as per
-lightning-listinvoice(7).
+Note: The return is the same as an object from lightning-listinvoice(7).
+
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **label** (string): Unique label given at creation time
+- **status** (string): State of invoice (one of "paid", "expired", "unpaid")
+- **expires_at** (u64): UNIX timestamp when invoice expires (or expired)
+- **bolt11** (string, optional): BOLT11 string
+- **bolt12** (string, optional): BOLT12 string
+
+If **bolt12** is present:
+  - **local_offer_id** (hex, optional): offer for which this invoice was created
+
+If **status** is "paid":
+  - **pay_index** (u64): unique index for this invoice payment
+  - **amount_received_msat** (msat): how much was actually received
+  - **paid_at** (u64): UNIX timestamp of when payment was received
+  - **payment_preimage** (hex): SHA256 of this is the *payment_hash* offered in the invoice (always 64 characters)
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 ERRORS
 ------
@@ -51,3 +68,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:8cd84ec57d229dacb6d6c52510334da87846f1c8eea7db286063a2513e8318cb)

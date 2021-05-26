@@ -31,8 +31,26 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-If successful the command returns a payment object, in the same format as **listsendpays**. If the payment is a multi-part payment (MPP) the command return a list of 
-payments will be return -- one payment object for each partid.
+The returned format is the same as lightning-listsendpays(7).  If the
+payment is a multi-part payment (MPP) the command return a list of
+payments will be returned -- one payment object for each partid.
+
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object containing **payments** is returned.  It is an array of objects, where each object contains:
+- **id** (u64): unique ID for this payment attempt
+- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **status** (string): status of the payment (one of "pending", "failed", "complete")
+- **amount_sent_msat** (msat): the amount we actually sent, including fees
+- **created_at** (u64): the UNIX timestamp showing when this payment was initiated
+- **partid** (u64, optional): unique ID within this (multi-part) payment
+- **destination** (pubkey, optional): the final destination of the payment if known
+- **amount_msat** (msat, optional): the amount the destination received, if known
+- **payment_preimage** (hex, optional): proof of payment (always 64 characters)
+- **label** (string, optional): the label, if given to sendpay
+- **bolt11** (string, optional): the bolt11 string (if pay supplied one)
+- **bolt12** (string, optional): the bolt12 string (if supplied for pay: **experimental-offers** only).
+- **erroronion** (hex, optional): the error onion returned on failure, if any.
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, an error is returned. If the lightning process fails before responding, the
 caller should use lightning-listsentpays(7) or lightning-listpays(7) to query whether this payment was deleted or not.
@@ -81,3 +99,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:26e293e5b3de31a95572763a6d7c360c0f9f78112b3fcef12c639d001b0fa9b5)
