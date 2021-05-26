@@ -260,11 +260,12 @@ def test_channel_abandon(node_factory, bitcoind):
     opening_utxo = only_one([o for o in l1.rpc.listfunds()['outputs'] if o['reserved']])
     psbt = l1.rpc.utxopsbt(0, "253perkw", 0, [opening_utxo['txid'] + ':' + str(opening_utxo['output'])], reserve=False, reservedok=True)['psbt']
 
-    # Unreserve until it's considered unreserved.
-    count = 0
-    while only_one(l1.rpc.unreserveinputs(psbt)['reservations'])['reserved']:
-        count += 1
-    assert count == 1
+    # We expect a reservation for 2016 blocks; unreserve it.
+    reservations = only_one(l1.rpc.unreserveinputs(psbt, reserve=2015)['reservations'])
+    assert reservations['reserved']
+    assert reservations['reserved_to_block'] == bitcoind.rpc.getblockchaininfo()['blocks'] + 1
+
+    assert only_one(l1.rpc.unreserveinputs(psbt, reserve=1)['reservations'])['reserved'] is False
 
     # Now it's unreserved, we can doublespend it (as long as we exceed
     # previous fee to RBF!).

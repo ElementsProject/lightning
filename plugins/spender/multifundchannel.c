@@ -205,6 +205,7 @@ mfc_cleanup_psbt(struct command *cmd,
 	}
 
 	json_add_psbt(req->js, "psbt", take(pruned_psbt));
+	json_add_u32(req->js, "reserve", 2016);
 	send_outreq(cmd->plugin, req);
 }
 
@@ -651,6 +652,9 @@ after_signpsbt(struct command *cmd,
 				    &mfc_forward_error,
 				    mfc);
 	json_add_psbt(req->js, "psbt", mfc->psbt);
+	/* We already reserved inputs by 2 weeks, we don't need
+	 * another 72 blocks. */
+	json_add_u32(req->js, "reserve", 0);
 	return send_outreq(mfc->cmd->plugin, req);
 }
 
@@ -1405,8 +1409,14 @@ perform_fundpsbt(struct multifundchannel_command *mfc)
 		json_add_u32(req->js, "minconf", mfc->minconf);
 	}
 
-	/* The entire point is to reserve the inputs.  */
-	json_add_bool(req->js, "reserve", true);
+	/* The entire point is to reserve the inputs. */
+	/*  BOLT #2:
+	 * The sender:
+	 *...
+	 *     - SHOULD ensure the funding transaction confirms in the next 2016
+	 *       blocks.
+	 */
+	json_add_u32(req->js, "reserve", 2016);
 	/* How much do we need to reserve?  */
 	if (has_all(mfc))
 		json_add_string(req->js, "satoshi", "all");
