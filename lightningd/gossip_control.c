@@ -512,6 +512,23 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 			json_add_address(response, NULL, &nodes[i]->addresses[j]);
 		}
 		json_array_end(response);
+		if (nodes[i]->ad) {
+			json_object_start(response, "liquidity_ad");
+			json_add_num(response,
+				     "lease_fee_basis",
+				     nodes[i]->ad->lease_basis);
+			json_add_amount_sat_only(response,
+						 "lease_fee_base_msat",
+						 nodes[i]->ad->lease_base_sat);
+			json_add_num(response,
+				     "channel_fee_basis_max",
+				     nodes[i]->ad->channel_fee_basis);
+			json_add_amount_msat_only(response,
+						  "channel_fee_base_max_msat",
+						  nodes[i]->ad->channel_base_msat);
+
+			json_object_end(response);
+		}
 		json_object_end(response);
 	}
 	json_array_end(response);
