@@ -1412,15 +1412,15 @@ def test_libplugin(node_factory):
     l1.rpc.check("helloworld")
 
     # Test commands
-    assert l1.rpc.call("helloworld") == "hello world"
-    assert l1.rpc.call("helloworld", {"name": "test"}) == "hello test"
+    assert l1.rpc.call("helloworld") == {"hello": "world"}
+    assert l1.rpc.call("helloworld", {"name": "test"}) == {"hello": "test"}
     l1.stop()
     l1.daemon.opts["plugin"] = plugin
     l1.daemon.opts["name"] = "test_opt"
     l1.start()
-    assert l1.rpc.call("helloworld") == "hello test_opt"
+    assert l1.rpc.call("helloworld") == {"hello": "test_opt"}
     # But param takes over!
-    assert l1.rpc.call("helloworld", {"name": "test"}) == "hello test"
+    assert l1.rpc.call("helloworld", {"name": "test"}) == {"hello": "test"}
 
     # Test hooks and notifications
     l2 = node_factory.get_node()
@@ -1460,7 +1460,7 @@ def test_libplugin_deprecated(node_factory):
                                         'name-deprecated': 'test_opt depr',
                                         'allow-deprecated-apis': True})
 
-    assert l1.rpc.call("helloworld") == "hello test_opt depr"
+    assert l1.rpc.call("helloworld") == {"hello": "test_opt depr"}
     l1.rpc.help('testrpc-deprecated')
     assert l1.rpc.call("testrpc-deprecated") == l1.rpc.getinfo()
 
