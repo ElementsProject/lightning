@@ -2,7 +2,9 @@
 #define LIGHTNING_PLUGINS_FUNDER_POLICY_H
 #include "config.h"
 #include <common/amount.h>
+#include <wire/peer_wire.h>
 
+struct lease_rates;
 struct node_id;
 
 /* Policy Options */
@@ -53,6 +55,13 @@ struct funder_policy {
 
 	/* Percent of open offers we'll consider funding. */
 	u32 fund_probability;
+
+	/* If we're advertising liquidity, only
+	 * provide funds for lease requests */
+	bool leases_only;
+
+	/* Rates we're currently charging for channel leases */
+	struct lease_rates *rates;
 };
 
 struct funder_policy *
@@ -65,13 +74,19 @@ new_funder_policy(const tal_t *ctx,
 		  struct amount_sat per_channel_max,
 		  u32 fuzz_factor,
 		  struct amount_sat reserve_tank,
-		  u32 fund_probability);
+		  u32 fund_probability,
+		  bool leases_only,
+		  struct lease_rates *rates);
 
 /* Get a new funder_policy, set to the defaults */
 struct funder_policy *
 default_funder_policy(const tal_t *ctx,
 		      enum funder_opt policy,
 		      u64 policy_mod);
+
+/* Defaults to use for the lease_rates */
+struct lease_rates *
+default_lease_rates(const tal_t *ctx);
 
 /* Given the policy and this request's details, figure
  * out how much we should contribute to this channel */

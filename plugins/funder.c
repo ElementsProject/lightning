@@ -10,18 +10,21 @@
 #include <bitcoin/feerate.h>
 #include <bitcoin/psbt.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
 #include <common/channel_id.h>
 #include <common/json.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
+#include <common/lease_rates.h>
 #include <common/node_id.h>
 #include <common/psbt_open.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <plugins/funder_policy.h>
 #include <plugins/libplugin.h>
+#include <wire/peer_wire.h>
 
 /* In-progress channel opens */
 static struct list_head pending_opens;
@@ -679,8 +682,8 @@ static void json_channel_open_failed(struct command *cmd,
 		unreserve_psbt(open);
 }
 
-static void policy_to_json(struct json_stream *stream,
-			   struct funder_policy *policy)
+static void json_add_policy(struct json_stream *stream,
+			    struct funder_policy *policy)
 {
 	json_add_string(stream, "summary",
 			funder_policy_desc(stream, current_policy));
@@ -699,6 +702,9 @@ static void policy_to_json(struct json_stream *stream,
 				 policy->reserve_tank);
 	json_add_num(stream, "fuzz_percent", policy->fuzz_factor);
 	json_add_num(stream, "fund_probability", policy->fund_probability);
+
+	if (policy->rates)
+		json_add_lease_rates(stream, policy->rates);
 }
 
 static struct command_result *
@@ -745,73 +751,250 @@ param_policy_mod(struct command *cmd, const char *name,
 }
 
 static struct command_result *
+parse_lease_rates(struct command *cmd, const char *buffer,
+		  const jsmntok_t *tok,
+		  struct funder_policy *policy,
+		  struct funder_policy *current_policy,
+		  u32 *lease_fee_basis,
+		  struct amount_sat *lease_fee_sats,
+		  u32 *funding_weight,
+		  u32 *chan_fee_ppt,
+		  struct amount_msat *chan_fee_msats)
+
+{
+	/* If there's already rates set, we start with those */
+	if (!lease_rates_empty(current_policy->rates))
+		policy->rates = tal_dup(policy, struct lease_rates,
+					current_policy->rates);
+	else if (lease_fee_basis
+		 || lease_fee_sats
+		 || funding_weight
+		 || chan_fee_ppt
+		 || chan_fee_msats)
+		policy->rates = default_lease_rates(policy);
+	else
+		policy->rates = NULL;
+
+
+	if (lease_fee_basis) {
+		policy->rates->lease_fee_basis = *lease_fee_basis;
+
+		/* Check for overflow */
+		if (policy->rates->lease_fee_basis != *lease_fee_basis)
+			return command_fail_badparam(cmd, "lease_fee_basis",
+						     buffer, tok, "overflow");
+	}
+
+	if (lease_fee_sats) {
+		policy->rates->lease_fee_base_sat
+			= lease_fee_sats->satoshis; /* Raw: conversion */
+		if (policy->rates->lease_fee_base_sat
+		    != lease_fee_sats->satoshis) /* Raw: comparison */
+			return command_fail_badparam(cmd, "lease_fee_base_msat",
+						     buffer, tok, "overflow");
+	}
+
+	if (funding_weight) {
+		policy->rates->funding_weight = *funding_weight;
+
+		/* Check for overflow */
+		if (policy->rates->funding_weight != *funding_weight)
+			return command_fail_badparam(cmd, "funding_weight",
+						     buffer, tok, "overflow");
+	}
+
+	if (chan_fee_ppt) {
+		policy->rates->channel_fee_max_proportional_thousandths
+			= *chan_fee_ppt;
+
+		/* Check for overflow */
+		if (policy->rates->channel_fee_max_proportional_thousandths
+				!= *chan_fee_ppt)
+			return command_fail_badparam(cmd, "channel_fee_max_proportional_thousandths",
+						     buffer, tok, "overflow");
+	}
+
+	if (chan_fee_msats) {
+		policy->rates->channel_fee_max_base_msat
+			= chan_fee_msats->millisatoshis; /* Raw: conversion */
+		if (policy->rates->channel_fee_max_base_msat
+		    != chan_fee_msats->millisatoshis) /* Raw: comparison */
+			return command_fail_badparam(cmd,
+						     "channel_fee_max_base_msat",
+						     buffer, tok, "overflow");
+	}
+
+	return NULL;
+}
+
+static struct command_result *
+leaserates_set(struct command *cmd, const char *buf,
+	       const jsmntok_t *result,
+	       struct funder_policy *policy)
+{
+	struct json_stream *res;
+
+	/* Ok, we updated lightningd with latest info */
+	res = jsonrpc_stream_success(cmd);
+	json_add_policy(res, policy);
+	return command_finished(cmd, res);
+}
+
+static struct command_result *
 json_funderupdate(struct command *cmd,
 		  const char *buf,
 		  const jsmntok_t *params)
 {
-	struct json_stream *res;
 	struct amount_sat *min_their_funding, *max_their_funding,
 			  *per_channel_min, *per_channel_max,
-			  *reserve_tank;
-	u32 *fuzz_factor, *fund_probability;
+			  *reserve_tank, *lease_fee_sats;
+	struct amount_msat *channel_fee_msats;
+	u32 *fuzz_factor, *fund_probability, *chan_fee_ppt,
+	    *lease_fee_basis, *funding_weight;
 	u64 *mod;
+	bool *leases_only;
 	enum funder_opt *opt;
+	const struct out_req *req;
 	const char *err;
-	struct funder_policy *policy = current_policy;
+	struct command_result *res;
+
+	struct funder_policy *policy = tal(tal_parent(current_policy),
+					   struct funder_policy);
 
 	if (!param(cmd, buf, params,
-		   p_opt("policy", param_funder_opt, &opt),
-		   p_opt("policy_mod", param_policy_mod, &mod),
-		   p_opt("min_their_funding", param_sat, &min_their_funding),
-		   p_opt("max_their_funding", param_sat, &max_their_funding),
-		   p_opt("per_channel_min", param_sat, &per_channel_min),
-		   p_opt("per_channel_max", param_sat, &per_channel_max),
-		   p_opt("reserve_tank", param_sat, &reserve_tank),
-		   p_opt("fuzz_percent", param_number, &fuzz_factor),
-		   p_opt("fund_probability", param_number, &fund_probability),
+		   p_opt_def("policy", param_funder_opt, &opt,
+			     current_policy->opt),
+		   p_opt_def("policy_mod", param_policy_mod, &mod,
+			     current_policy->mod),
+		   p_opt_def("leases_only", param_bool, &leases_only,
+			     current_policy->leases_only),
+		   p_opt_def("min_their_funding", param_sat,
+			     &min_their_funding,
+			     current_policy->min_their_funding),
+		   p_opt_def("max_their_funding", param_sat,
+			     &max_their_funding,
+			     current_policy->max_their_funding),
+		   p_opt_def("per_channel_min", param_sat,
+			     &per_channel_min,
+			     current_policy->per_channel_min),
+		   p_opt_def("per_channel_max", param_sat,
+			     &per_channel_max,
+			     current_policy->per_channel_max),
+		   p_opt_def("reserve_tank", param_sat, &reserve_tank,
+			     current_policy->reserve_tank),
+		   p_opt_def("fuzz_percent", param_number,
+			     &fuzz_factor,
+			     current_policy->fuzz_factor),
+		   p_opt_def("fund_probability", param_number,
+			     &fund_probability,
+			     current_policy->fund_probability),
+		   p_opt("lease_fee_base_msat", param_sat, &lease_fee_sats),
+		   p_opt("lease_fee_basis", param_number, &lease_fee_basis),
+		   p_opt("funding_weight", param_number, &funding_weight),
+		   p_opt("channel_fee_max_base_msat", param_msat,
+			 &channel_fee_msats),
+		   p_opt("channel_fee_max_proportional_thousandths",
+			 param_number, &chan_fee_ppt),
 		   NULL))
 		return command_param_failed();
 
-	if (opt)
-		policy->opt = *opt;
-	if (mod)
-		policy->mod = *mod;
-	if (min_their_funding)
-		policy->min_their_funding = *min_their_funding;
-	if (max_their_funding)
-		policy->max_their_funding = *max_their_funding;
-	if (per_channel_min)
-		policy->per_channel_min = *per_channel_min;
-	if (per_channel_max)
-		policy->per_channel_max = *per_channel_max;
-	if (reserve_tank)
-		policy->reserve_tank = *reserve_tank;
-	if (fuzz_factor)
-		policy->fuzz_factor = *fuzz_factor;
-	if (fund_probability)
-		policy->fund_probability = *fund_probability;
+	policy->opt = *opt;
+	policy->mod = *mod;
+	policy->min_their_funding = *min_their_funding;
+	policy->max_their_funding = *max_their_funding;
+	policy->per_channel_min = *per_channel_min;
+	policy->per_channel_max = *per_channel_max;
+	policy->reserve_tank = *reserve_tank;
+	policy->fuzz_factor = *fuzz_factor;
+	policy->fund_probability = *fund_probability;
+	policy->leases_only = *leases_only;
+
+	res = parse_lease_rates(cmd, buf, params,
+				policy, current_policy,
+				lease_fee_basis,
+				lease_fee_sats,
+				funding_weight,
+				chan_fee_ppt,
+				channel_fee_msats);
+	if (res)
+		return res;
 
 	err = funder_check_policy(policy);
-	if (err)
+	if (err) {
+		tal_free(policy);
 		return command_done_err(cmd, JSONRPC2_INVALID_PARAMS,
 					err, NULL);
+	}
 
+	tal_free(current_policy);
 	current_policy = policy;
-	res = jsonrpc_stream_success(cmd);
-	policy_to_json(res, current_policy);
-	return command_finished(cmd, res);
+
+	/* Update lightningd, also */
+	req = jsonrpc_request_start(cmd->plugin, cmd,
+				    "setleaserates",
+				    &leaserates_set,
+				    &forward_error,
+				    current_policy);
+
+	if (current_policy->rates)
+		json_add_lease_rates(req->js, current_policy->rates);
+	else {
+		/* Add empty rates to turn off */
+		struct lease_rates rates;
+		memset(&rates, 0, sizeof(rates));
+		json_add_lease_rates(req->js, &rates);
+	}
+
+	return send_outreq(cmd->plugin, req);
 }
 
-static const struct plugin_command commands[] = { {
+static const struct plugin_command commands[] = {
+	{
 		"funderupdate",
-		"channels",
-		"Update configuration for dual-funding offer",
-		"Update current funder settings. Modifies how node"
-		" reacts to incoming channel open requests. Responds with list"
+		"liquidity",
+		"Configuration for dual-funding settings.",
+		"Update current settings. Modifies how node reacts to"
+		" incoming channel open requests. Responds with list"
 		" of current configs.",
 		json_funderupdate
-	}
+	},
 };
+
+static void tell_lightningd_lease_rates(struct plugin *p,
+					struct lease_rates *rates)
+{
+	struct json_out *jout;
+	struct amount_sat val;
+	struct amount_msat mval;
+
+	/* Tell lightningd with our lease rates*/
+	jout = json_out_new(NULL);
+	json_out_start(jout, NULL, '{');
+
+	val = amount_sat(rates->lease_fee_base_sat);
+	json_out_addstr(jout, "lease_fee_base_msat",
+			type_to_string(tmpctx, struct amount_sat, &val));
+	json_out_add(jout, "lease_fee_basis", false,
+		     "%d", rates->lease_fee_basis);
+
+	json_out_add(jout, "funding_weight", false,
+		     "%d", rates->funding_weight);
+
+	mval = amount_msat(rates->channel_fee_max_base_msat);
+	json_out_addstr(jout, "channel_fee_max_base_msat",
+			type_to_string(tmpctx, struct amount_msat, &mval));
+	json_out_add(jout, "channel_fee_max_proportional_thousandths", false,
+		     "%d", rates->channel_fee_max_proportional_thousandths);
+
+	json_out_end(jout, '}');
+	json_out_finished(jout);
+
+	rpc_scan(p, "setleaserates", take(jout),
+		 /* Unused */
+		 "{lease_fee_base_msat:%}",
+		 JSON_SCAN(json_to_sat, &val));
+
+}
 
 static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 {
@@ -822,6 +1005,9 @@ static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 	err = funder_check_policy(current_policy);
 	if (err)
 		plugin_err(p, "Invalid parameter combination: %s", err);
+
+	if (current_policy->rates)
+		tell_lightningd_lease_rates(p, current_policy->rates);
 
 	return NULL;
 }
@@ -856,12 +1042,74 @@ const struct plugin_notification notifs[] = {
 	},
 };
 
+static char *option_channel_base(const char *arg, struct funder_policy *policy)
+{
+	struct amount_msat amt;
+
+	if (!parse_amount_msat(&amt, arg, strlen(arg)))
+		return tal_fmt(NULL, "Unable to parse amount '%s'", arg);
+
+	if (!policy->rates)
+		policy->rates = default_lease_rates(policy);
+
+	policy->rates->channel_fee_max_base_msat = amt.millisatoshis; /* Raw: conversion */
+
+	if (policy->rates->channel_fee_max_base_msat != amt.millisatoshis) /* Raw: comparison */
+		return tal_fmt(NULL, "channel_fee_max_base_msat overflowed");
+
+	return NULL;
+}
+
+static char *
+option_channel_fee_proportional_thousandths_max(const char *arg,
+						struct funder_policy *policy)
+{
+	if (!policy->rates)
+		policy->rates = default_lease_rates(policy);
+	return u16_option(arg, &policy->rates->channel_fee_max_proportional_thousandths);
+}
+
 static char *amount_option(const char *arg, struct amount_sat *amt)
 {
 	if (!parse_amount_sat(amt, arg, strlen(arg)))
 		return tal_fmt(NULL, "Unable to parse amount '%s'", arg);
 
 	return NULL;
+}
+
+static char *option_lease_fee_base(const char *arg,
+				   struct funder_policy *policy)
+{
+	struct amount_sat amt;
+	char *err;
+	if (!policy->rates)
+		policy->rates = default_lease_rates(policy);
+
+	err = amount_option(arg, &amt);
+	if (err)
+		return err;
+
+	policy->rates->lease_fee_base_sat = amt.satoshis; /* Raw: conversion */
+	if (policy->rates->lease_fee_base_sat != amt.satoshis) /* Raw: comparison */
+		return tal_fmt(NULL, "lease_fee_base_sat overflowed");
+
+	return NULL;
+}
+
+static char *option_lease_fee_basis(const char *arg,
+				    struct funder_policy *policy)
+{
+	if (!policy->rates)
+		policy->rates = default_lease_rates(policy);
+	return u16_option(arg, &policy->rates->lease_fee_basis);
+}
+
+static char *option_lease_weight_max(const char *arg,
+				     struct funder_policy *policy)
+{
+	if (!policy->rates)
+		policy->rates = default_lease_rates(policy);
+	return u16_option(arg, &policy->rates->funding_weight);
 }
 
 static char *amount_sat_or_u64_option(const char *arg, u64 *amt)
@@ -953,6 +1201,42 @@ int main(int argc, char **argv)
 				  " disable dual-funding",
 				  u32_option,
 				  &current_policy->fund_probability),
+		    plugin_option("funder-lease-requests-only",
+				  "bool",
+				  "Only fund lease requests. Defaults to"
+				  " true if channel lease rates are"
+				  " being advertised",
+				  bool_option,
+				  &current_policy->leases_only),
+		    plugin_option("lease-fee-base-msat",
+				  "string",
+				  "Channel lease rates, base fee for leased"
+				  " funds, in satoshi.",
+				  option_lease_fee_base, current_policy),
+		    plugin_option("lease-fee-basis",
+				  "int",
+				  "Channel lease rates, basis charged"
+				  " for leased funds (per 10,000 satoshi.)",
+				  option_lease_fee_basis, current_policy),
+		    plugin_option("lease-funding-weight",
+				  "int",
+				  "Channel lease rates, weight"
+				  " we'll ask opening peer to pay for in"
+				  " funding transaction",
+				  option_lease_weight_max, current_policy),
+		    plugin_option("channel-fee-max-base-msat",
+				  "string",
+				  "Channel lease rates, maximum channel"
+				  " fee base we'll charge for funds"
+				  " routed through a leased channel.",
+				  option_channel_base, current_policy),
+		    plugin_option("channel-fee-max-proportional-thousandths",
+				  "int",
+				  "Channel lease rates, maximum"
+				  " proportional fee (in thousandths, or ppt)"
+				  " we'll charge for funds routed through a"
+				  " leased channel. Note: 1ppt = 1,000ppm",
+				  option_channel_fee_proportional_thousandths_max, current_policy),
 		    NULL);
 
 	tal_free(owner);
