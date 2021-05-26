@@ -86,8 +86,10 @@ MANPAGES := doc/lightning-cli.1 \
 
 doc-all: $(MANPAGES) doc/index.rst
 
+# mrkd doesn't format nested lists properly, so we fixup with sed (see doc/lightning-connect.7
+# and https://github.com/refi64/mrkd/issues/4
 $(MANPAGES): doc/%: doc/%.md
-	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE, "mrkd $<", mrkd $< $@ && $(call SHA256STAMP,\\\",)); else touch $@; fi
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE, "mrkd $<", mrkd $< $@.tmp && sed -e 's/\(.\)\.RS$$/\1\n.RS/' < $@.tmp > $@ && rm $@.tmp && $(call SHA256STAMP,\\\",)); else touch $@; fi
 
 $(MANPAGES): $(FORCE)
 
