@@ -25,8 +25,23 @@ On startup of the daemon, no autoclean is set up\.
 
 .SH RETURN VALUE
 
-On success, an empty object is returned\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBenabled\fR (boolean): whether invoice autocleaning is active
+
+.RE
+
+If \fBenabled\fR is \fItrue\fR:
+
+.RS
+.IP \[bu]
+\fBexpired_by\fR (u64): how long an invoice must be expired (seconds) before we delete it
+.IP \[bu]
+\fBcycle_seconds\fR (u64): how long an invoice must be expired (seconds) before we delete it
+
+.RE
 .SH AUTHOR
 
 ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
@@ -39,4 +54,4 @@ ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:df05ece680710d67202b28af635a274d7adc38d9f334c79d88ee28b80a2cae60
+\" SHA256STAMP:dd3f512e81f45ab6084b608bc05fba5679b1d20d493aad98d422bdf593182604

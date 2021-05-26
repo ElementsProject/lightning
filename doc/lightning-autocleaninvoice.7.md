@@ -25,7 +25,14 @@ On startup of the daemon, no autoclean is set up.
 RETURN VALUE
 ------------
 
-On success, an empty object is returned.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **enabled** (boolean): whether invoice autocleaning is active
+
+If **enabled** is *true*:
+  - **expired_by** (u64): how long an invoice must be expired (seconds) before we delete it
+  - **cycle_seconds** (u64): how long an invoice must be expired (seconds) before we delete it
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
 ------
@@ -42,3 +49,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:2accf7788133af97ae097f7e4e8a80b35bbb431eb7e787e5ae12dd5c7d2c296d)
