@@ -86,12 +86,23 @@ MANPAGES := doc/lightning-cli.1 \
 
 doc-all: $(MANPAGES) doc/index.rst
 
+# Some manpages use a schema, so need that added.
+MARKDOWN_WITH_SCHEMA := $(shell grep -l GENERATE-FROM-SCHEMA $(MANPAGES:=.md))
+
+# These are hard to use in $(call) functions.
+LBRACKET=(
+RBRACKET=)
+
+$(MARKDOWN_WITH_SCHEMA): doc/lightning-%.7.md: doc/schemas/%.schema.json tools/fromschema.py
+	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE, "fromschema $@", tools/fromschema.py --markdownfile=$@ doc/schemas/$*.schema.json > $@.tmp && grep -v SHA256STAMP: $@.tmp > $@ && rm -f $@.tmp && $(call SHA256STAMP,[comment]: # $(LBRACKET),$(RBRACKET))); else touch $@; fi
+
 # mrkd doesn't format nested lists properly, so we fixup with sed (see doc/lightning-connect.7
 # and https://github.com/refi64/mrkd/issues/4
 $(MANPAGES): doc/%: doc/%.md
 	@if $(call SHA256STAMP_CHANGED); then $(call VERBOSE, "mrkd $<", mrkd $< $@.tmp && sed -e 's/\(.\)\.RS$$/\1\n.RS/' < $@.tmp > $@ && rm $@.tmp && $(call SHA256STAMP,\\\",)); else touch $@; fi
 
 $(MANPAGES): $(FORCE)
+$(MARKDOWN_WITH_SCHEMA): $(FORCE)
 
 doc/protocol-%.svg: test/test_protocol
 	test/test_protocol --svg < test/commits/$*.script > $@

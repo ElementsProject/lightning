@@ -12,56 +12,53 @@ single one if either \fIbolt11\fR or \fIpayment_hash\fR was specified\.
 
 .SH RETURN VALUE
 
-On success, an array of objects is returned\. Each object contains:
+On success, an object containing \fBpays\fR is returned\.  It is an array of objects, where each object contains:
 
+.RS
+.IP \[bu]
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.IP \[bu]
+\fBstatus\fR (string): status of the payment (one of "pending", "failed", "complete")
+.IP \[bu]
+\fBcreated_at\fR (u64): the UNIX timestamp showing when this payment was initiated
+.IP \[bu]
+\fBdestination\fR (pubkey, optional): the final destination of the payment if known
+.IP \[bu]
+\fBlabel\fR (string, optional): the label, if given to sendpay
+.IP \[bu]
+\fBbolt11\fR (string, optional): the bolt11 string (if pay supplied one)
+.IP \[bu]
+\fBbolt12\fR (string, optional): the bolt12 string (if supplied for pay: \fBexperimental-offers\fR only)\.
 
- \fIbolt11\fR
-the \fIbolt11\fR invoice if provided to \fBpay\fR\.
+.RE
 
+If \fBstatus\fR is "pending" or "complete":
 
- \fIbolt12\fR
-if \fBexperimental-offers\fR is enabled, and \fBpay\fR was a given a bolt12
-invoice, this field will appear instead of \fIbolt11\fR\.
+.RS
+.IP \[bu]
+\fBamount_sent_msat\fR (msat): the amount we actually sent, including fees
+.IP \[bu]
+\fBamount_msat\fR (msat, optional): the amount the destination received, if known
 
+.RE
 
- \fIpayment_hash\fR
-the \fIpayment_hash\fR of the payment\.
+If \fBstatus\fR is "complete":
 
+.RS
+.IP \[bu]
+\fBpreimage\fR (hex): proof of payment (always 64 characters)
+.IP \[bu]
+\fBnumber_of_parts\fR (u64, optional): the number of parts for a successful payment (only if more than one)\.
 
- \fIstatus\fR
-one of \fIcomplete\fR, \fIfailed\fR or \fIpending\fR\.
+.RE
 
+If \fBstatus\fR is "failed":
 
- \fIpayment_preimage\fR
-if \fIstatus\fR is \fIcomplete\fR\.
+.RS
+.IP \[bu]
+\fBerroronion\fR (hex, optional): the error onion returned on failure, if any\.
 
-
- \fIlabel\fR
-optional \fIlabel\fR, if provided to \fIpay\fR or \fIsendonion\fR\.
-
-
- \fIamount_sent_msat\fR
-total amount sent, in "NNNmsat" format\.
-
-
-For old payments (pre-0\.7) we didn’t save the \fIbolt11\fR string, so in its
-place are three other fields:
-
-
- \fIpayment_hash\fR
-the hash of the \fIpayment_preimage\fR which will prove payment\.
-
-
- \fIdestination\fR
-the final destination of the payment\.
-
-
- \fIamount_msat\fR
-the amount the destination received, in "NNNmsat" format\.
-
-
-These three can all be extracted from \fIbolt11\fR, hence are obsolete\.
-
+.RE
 .SH AUTHOR
 
 Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
@@ -74,4 +71,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:5a0e016e18f52ce18484d064c3e659aca2687eeafca4b4365e3037faa1fba53f
+\" SHA256STAMP:e27d57394bef9bdaf9b99ae0d9050c9044c194ab66f6c94c43b532a86e1a0031
