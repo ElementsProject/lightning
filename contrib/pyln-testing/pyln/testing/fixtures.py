@@ -1,13 +1,17 @@
 from concurrent import futures
 from pyln.testing.db import SqliteDbProvider, PostgresDbProvider
 from pyln.testing.utils import NodeFactory, BitcoinD, ElementsD, env, DEVELOPER, LightningNode, TEST_DEBUG, Throttler
+from pyln.client import Millisatoshi
 from typing import Dict
 
+import json
+import jsonschema  # type: ignore
 import logging
 import os
 import pytest  # type: ignore
 import re
 import shutil
+import string
 import sys
 import tempfile
 
@@ -202,8 +206,145 @@ def throttler(test_base_dir):
     yield Throttler(test_base_dir)
 
 
+def _extra_validator():
+    """JSON Schema validator with additions for our specialized types"""
+    def is_hex(checker, instance):
+        """Hex string"""
+        if not checker.is_type(instance, "string"):
+            return False
+        return all(c in string.hexdigits for c in instance)
+
+    def is_u64(checker, instance):
+        """64-bit integer"""
+        if not checker.is_type(instance, "integer"):
+            return False
+        return instance >= 0 and instance < 2**64
+
+    def is_u32(checker, instance):
+        """32-bit integer"""
+        if not checker.is_type(instance, "integer"):
+            return False
+        return instance >= 0 and instance < 2**32
+
+    def is_u16(checker, instance):
+        """16-bit integer"""
+        if not checker.is_type(instance, "integer"):
+            return False
+        return instance >= 0 and instance < 2**16
+
+    def is_short_channel_id(checker, instance):
+        """Short channel id"""
+        if not checker.is_type(instance, "string"):
+            return False
+        parts = instance.split("x")
+        if len(parts) != 3:
+            return False
+        # May not be integers
+        try:
+            blocknum = int(parts[0])
+            txnum = int(parts[1])
+            outnum = int(parts[2])
+        except ValueError:
+            return False
+
+        # BOLT #7:
+        # ## Definition of `short_channel_id`
+        #
+        # The `short_channel_id` is the unique description of the funding transaction.
+        # It is constructed as follows:
+        # 1. the most significant 3 bytes: indicating the block height
+        # 2. the next 3 bytes: indicating the transaction index within the block
+        # 3. the least significant 2 bytes: indicating the output index that pays to the
+        #    channel.
+        return (blocknum >= 0 and blocknum < 2**24
+                and txnum >= 0 and txnum < 2**24
+                and outnum >= 0 and outnum < 2**16)
+
+    def is_pubkey(checker, instance):
+        """SEC1 encoded compressed pubkey"""
+        if not checker.is_type(instance, "hex"):
+            return False
+        if len(instance) != 66:
+            return False
+        return instance[0:2] == "02" or instance[0:2] == "03"
+
+    def is_pubkey32(checker, instance):
+        """x-only BIP-340 public key"""
+        if not checker.is_type(instance, "hex"):
+            return False
+        if len(instance) != 64:
+            return False
+        return True
+
+    def is_signature(checker, instance):
+        """DER encoded secp256k1 ECDSA signature"""
+        if not checker.is_type(instance, "hex"):
+            return False
+        if len(instance) > 72 * 2:
+            return False
+        return True
+
+    def is_bip340sig(checker, instance):
+        """Hex encoded secp256k1 Schnorr signature"""
+        if not checker.is_type(instance, "hex"):
+            return False
+        if len(instance) != 64 * 2:
+            return False
+        return True
+
+    def is_msat(checker, instance):
+        """String number ending in msat"""
+        return type(instance) is Millisatoshi
+
+    def is_txid(checker, instance):
+        """Bitcoin transaction ID"""
+        if not checker.is_type(instance, "hex"):
+            return False
+        return len(instance) == 64
+
+    type_checker = jsonschema.Draft7Validator.TYPE_CHECKER.redefine_many({
+        "hex": is_hex,
+        "u64": is_u64,
+        "u32": is_u32,
+        "u16": is_u16,
+        "pubkey": is_pubkey,
+        "msat": is_msat,
+        "txid": is_txid,
+        "signature": is_signature,
+        "bip340sig": is_bip340sig,
+        "pubkey32": is_pubkey32,
+        "short_channel_id": is_short_channel_id,
+    })
+
+    return jsonschema.validators.extend(jsonschema.Draft7Validator,
+                                        type_checker=type_checker)
+
+
+def _load_schema(filename):
+    """Load the schema from @filename and create a validator for it"""
+    with open(filename, 'r') as f:
+        return _extra_validator()(json.load(f))
+
+
+@pytest.fixture(autouse=True)
+def jsonschemas():
+    """Load schema files if they exist"""
+    try:
+        schemafiles = os.listdir('doc/schemas')
+    except FileNotFoundError:
+        schemafiles = []
+
+    schemas = {}
+    for fname in schemafiles:
+        if not fname.endswith('.schema.json'):
+            continue
+        schemas[fname.rpartition('.schema')[0]] = _load_schema(os.path.join('doc/schemas',
+                                                                            fname))
+    return schemas
+
+
 @pytest.fixture
-def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks, node_cls, throttler):
+def node_factory(request, directory, test_name, bitcoind, executor, db_provider, teardown_checks, node_cls, throttler, jsonschemas):
     nf = NodeFactory(
         request,
         test_name,
@@ -213,6 +354,7 @@ def node_factory(request, directory, test_name, bitcoind, executor, db_provider,
         db_provider=db_provider,
         node_cls=node_cls,
         throttler=throttler,
+        jsonschemas=jsonschemas,
     )
 
     yield nf

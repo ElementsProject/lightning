@@ -349,6 +349,7 @@ class UnixDomainSocketRpc(object):
                     "enable": True
                 },
             })
+            # FIXME: Notification schema support?
             _, buf = self._readobj(sock, buf)
 
         request = {
