@@ -557,6 +557,12 @@ static void json_add_node(struct json_stream *js,
 		for (size_t i = 0; i < tal_count(addrs); i++)
 			json_add_address(js, NULL, &addrs[i]);
 		json_array_end(js);
+
+		if (na_tlvs->option_will_fund) {
+			json_object_start(js, "option_will_fund");
+			json_add_lease_rates(js, na_tlvs->option_will_fund);
+			json_object_end(js);
+		}
 	}
 out:
 	json_object_end(js);
