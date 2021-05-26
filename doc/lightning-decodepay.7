@@ -12,46 +12,77 @@ specified by the BOLT 11 specification\.
 
 .SH RETURN VALUE
 
-On success, an object is returned with the following fields, as
-specified by BOLT11:
+On success, an object is returned, containing:
 
 .RS
 .IP \[bu]
-\fIcurrency\fR: the BIP173 name for the currency\.
+\fBcurrency\fR (string): the BIP173 name for the currency
 .IP \[bu]
-\fItimestamp\fR: the UNIX-style timestamp of the invoice\.
+\fBcreated_at\fR (u64): the UNIX-style timestamp of the invoice
 .IP \[bu]
-\fIexpiry\fR: the number of seconds this is valid after \fItimestamp\fR\.
+\fBexpiry\fR (u64): the number of seconds this is valid after \fItimestamp\fR
 .IP \[bu]
-\fIpayee\fR: the public key of the recipient\.
+\fBpayee\fR (pubkey): the public key of the recipient
 .IP \[bu]
-\fIpayment_hash\fR: the payment hash of the request\.
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR (always 64 characters)
 .IP \[bu]
-\fIsignature\fR: the DER-encoded signature\.
+\fBsignature\fR (signature): signature of the \fIpayee\fR on this invoice
 .IP \[bu]
-\fIdescription\fR: the description of the purpose of the purchase (see
-below)
+\fBmin_final_cltv_expiry\fR (u32): the minimum CLTV delay for the final node
+.IP \[bu]
+\fBamount_msat\fR (msat, optional): Amount the invoice asked for
+.IP \[bu]
+\fBdescription\fR (string, optional): the description of the purpose of the purchase
+.IP \[bu]
+\fBdescription_hash\fR (hex, optional): the hash of the description, in place of \fIdescription\fR (always 64 characters)
+.IP \[bu]
+\fBpayment_secret\fR (hex, optional): the secret to hand to the payee node (always 64 characters)
+.IP \[bu]
+\fBfeatures\fR (hex, optional): the features bitmap for this invoice
+.IP \[bu]
+\fBfallbacks\fR (array of objects, optional): onchain addresses:
+.RS
+.IP \[bu]
+\fBtype\fR (string): the address type (if known) (one of "P2PKH", "P2SH", "P2WPKH", "P2WSH")
+.IP \[bu]
+\fBhex\fR (hex): Raw encoded address
+.IP \[bu]
+\fBaddr\fR (string, optional): the address in appropriate format for \fItype\fR
 
 .RE
 
-The following fields are optional:
-
+.IP \[bu]
+\fBroutes\fR (array of arrays, optional): Route hints to the \fIpayee\fR:
 .RS
 .IP \[bu]
-\fImsatoshi\fR: the number of millisatoshi requested (if any)\.
+hops in the route:
+.RS
 .IP \[bu]
-\fIamount_msat\fR: the same as above, with \fImsat\fR appended (if any)\.
+\fBpubkey\fR (pubkey): the public key of the node
 .IP \[bu]
-\fIfallbacks\fR: array of fallback address object containing a \fIhex\fR
-string, and both \fItype\fR and \fIaddr\fR if it is recognized as one of
-\fIP2PKH\fR, \fIP2SH\fR, \fIP2WPKH\fR, or \fIP2WSH\fR\.
+\fBshort_channel_id\fR (short_channel_id): a channel to the next peer
 .IP \[bu]
-\fIroutes\fR: an array of routes\. Each route is an arrays of objects,
-each containing \fIpubkey\fR, \fIshort_channel_id\fR, \fIfee_base_msat\fR,
-\fIfee_proportional_millionths\fR and \fIcltv_expiry_delta\fR\.
+\fBfee_base_msat\fR (u32): the base fee for payments
 .IP \[bu]
-\fIextra\fR: an array of objects representing unknown fields, each with
-one-character \fItag\fR and a \fIdata\fR bech32 string\.
+\fBfee_proportional_millionths\fR (u32): the parts-per-million fee for payments
+.IP \[bu]
+\fBcltv_expiry_delta\fR (u32): the CLTV delta across this hop
+
+.RE
+
+
+.RE
+
+.IP \[bu]
+\fBextra\fR (array of objects, optional): Any extra fields we didn't know how to parse:
+.RS
+.IP \[bu]
+\fBtag\fR (string): The bech32 letter which identifies this field (always 1 characters)
+.IP \[bu]
+\fBdata\fR (string): The bech32 data for this field
+
+.RE
+
 
 .RE
 
@@ -76,4 +107,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:d3944c14e16584577e0336dda8c2689881524717428eb921e23f8831144ec566
+\" SHA256STAMP:1b0e5c34291b3c252c651e952109f57fe68a90770fecaa0eeebf9070ed8c2dad
