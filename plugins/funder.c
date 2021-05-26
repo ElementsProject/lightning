@@ -16,6 +16,7 @@
 #include <common/json.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
+#include <common/liquidity_ad.h>
 #include <common/node_id.h>
 #include <common/psbt_open.h>
 #include <common/type_to_string.h>
@@ -679,6 +680,24 @@ static void json_channel_open_failed(struct command *cmd,
 		unreserve_psbt(open);
 }
 
+static void rate_card_to_json(struct json_stream *stream,
+			      struct rate_card *card)
+{
+	json_add_bool(stream, "leases_available", card != NULL);
+
+	if (!card)
+		return;
+
+	json_add_amount_msat_only(stream, "channel_fee_base_max_msat",
+				  card->channel_base_max);
+	json_add_num(stream, "channel_fee_basis_max",
+		     card->channel_basis_max);
+	json_add_amount_sat_only(stream, "lease_fee_base_msat",
+				 card->lease_fee_base);
+	json_add_num(stream, "lease_fee_basis",
+		     card->lease_fee_basis);
+}
+
 static void policy_to_json(struct json_stream *stream,
 			   struct funder_policy *policy)
 {
@@ -699,6 +718,8 @@ static void policy_to_json(struct json_stream *stream,
 				 policy->reserve_tank);
 	json_add_num(stream, "fuzz_percent", policy->fuzz_factor);
 	json_add_num(stream, "fund_probability", policy->fund_probability);
+
+	rate_card_to_json(stream, policy->rates);
 }
 
 static struct command_result *
@@ -752,64 +773,179 @@ json_funderupdate(struct command *cmd,
 	struct json_stream *res;
 	struct amount_sat *min_their_funding, *max_their_funding,
 			  *per_channel_min, *per_channel_max,
-			  *reserve_tank;
-	u32 *fuzz_factor, *fund_probability;
+			  *reserve_tank, *lease_fee_base;
+	struct amount_msat *channel_base_max;
+	u32 *fuzz_factor, *fund_probability,
+	    *channel_basis_max, *lease_fee_basis;
 	u64 *mod;
+	bool *leases_only, *leases_avail;
 	enum funder_opt *opt;
 	const char *err;
-	struct funder_policy *policy = current_policy;
+
+	struct funder_policy *policy = tal(tal_parent(current_policy),
+					   struct funder_policy);
+	struct rate_card *new_rates = tal(NULL, struct rate_card);
 
 	if (!param(cmd, buf, params,
-		   p_opt("policy", param_funder_opt, &opt),
-		   p_opt("policy_mod", param_policy_mod, &mod),
-		   p_opt("min_their_funding", param_sat, &min_their_funding),
-		   p_opt("max_their_funding", param_sat, &max_their_funding),
-		   p_opt("per_channel_min", param_sat, &per_channel_min),
-		   p_opt("per_channel_max", param_sat, &per_channel_max),
-		   p_opt("reserve_tank", param_sat, &reserve_tank),
-		   p_opt("fuzz_percent", param_number, &fuzz_factor),
-		   p_opt("fund_probability", param_number, &fund_probability),
+		   p_opt_def("policy", param_funder_opt, &opt,
+			     current_policy->opt),
+		   p_opt_def("policy_mod", param_policy_mod, &mod,
+			     current_policy->mod),
+		   p_opt_def("leases_only", param_bool, &leases_only,
+			     current_policy->leases_only),
+		   p_opt_def("min_their_funding", param_sat,
+			     &min_their_funding,
+			     current_policy->min_their_funding),
+		   p_opt_def("max_their_funding", param_sat,
+			     &max_their_funding,
+			     current_policy->max_their_funding),
+		   p_opt_def("per_channel_min", param_sat,
+			     &per_channel_min,
+			     current_policy->per_channel_min),
+		   p_opt_def("per_channel_max", param_sat,
+			     &per_channel_max,
+			     current_policy->per_channel_max),
+		   p_opt_def("reserve_tank", param_sat, &reserve_tank,
+			     current_policy->reserve_tank),
+		   p_opt_def("fuzz_percent", param_number,
+			     &fuzz_factor,
+			     current_policy->fuzz_factor),
+		   p_opt_def("fund_probability", param_number,
+			     &fund_probability,
+			     current_policy->fund_probability),
+		   p_opt("leases_available", param_bool, &leases_avail),
+		   p_opt_def("channel_fee_base_max_msat", param_msat,
+			     &channel_base_max,
+			     current_policy->rates ?
+				current_policy->rates->channel_base_max :
+				AMOUNT_MSAT(-1)),
+		   p_opt("channel_fee_basis_max", param_number,
+			     &channel_basis_max),
+		   p_opt("lease_fee_base_msat", param_sat, &lease_fee_base),
+		   p_opt("lease_fee_basis", param_number,
+			  &lease_fee_basis),
 		   NULL))
 		return command_param_failed();
 
-	if (opt)
-		policy->opt = *opt;
-	if (mod)
-		policy->mod = *mod;
-	if (min_their_funding)
-		policy->min_their_funding = *min_their_funding;
-	if (max_their_funding)
-		policy->max_their_funding = *max_their_funding;
-	if (per_channel_min)
-		policy->per_channel_min = *per_channel_min;
-	if (per_channel_max)
-		policy->per_channel_max = *per_channel_max;
-	if (reserve_tank)
-		policy->reserve_tank = *reserve_tank;
-	if (fuzz_factor)
-		policy->fuzz_factor = *fuzz_factor;
-	if (fund_probability)
-		policy->fund_probability = *fund_probability;
+	policy->opt = *opt;
+	policy->mod = *mod;
+	policy->min_their_funding = *min_their_funding;
+	policy->max_their_funding = *max_their_funding;
+	policy->per_channel_min = *per_channel_min;
+	policy->per_channel_max = *per_channel_max;
+	policy->reserve_tank = *reserve_tank;
+	policy->fuzz_factor = *fuzz_factor;
+	policy->fund_probability = *fund_probability;
+	policy->leases_only = *leases_only;
+
+	/* No rates if we're turning them off */
+	if (leases_avail && !*leases_avail) {
+		new_rates = tal_free(new_rates);
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "leases are now off");
+	}
+
+	/* If there's no prior rates and some but not all of the
+	 * lease parameters have been set, then we need to * error. */
+	if (!current_policy->rates && new_rates
+	    && (!channel_base_max || !channel_basis_max
+		|| !lease_fee_base
+		|| !lease_fee_basis))
+		return command_done_err(cmd, JSONRPC2_INVALID_PARAMS,
+				tal_fmt(tmpctx,
+					"Missing required offer card"
+					" parameter(s). %s%s%s%s",
+					!channel_base_max ?
+					 "[lease_card_channel_fee_base_max]" :
+					 "",
+					!channel_basis_max ?
+					 "[lease_card_channel_fee_basis_max]" :
+					 "",
+					 !lease_fee_base ?
+					  "[lease_card_fee_base]" : "",
+					 !lease_fee_basis ?
+					  "[lease_card_fee_basis]" : ""), NULL);
+
+
+	/* Now that we know there's a value for each of the rate card
+	 * fields, populate 'new_rates' with the stuffs */
+	if (new_rates) {
+		if (channel_base_max)
+			new_rates->channel_base_max = *channel_base_max;
+		else if (current_policy->rates)
+			new_rates->channel_base_max =
+				current_policy->rates->channel_base_max;
+
+		if (channel_basis_max)
+			new_rates->channel_basis_max = *channel_basis_max;
+		else if (current_policy->rates)
+			new_rates->channel_basis_max =
+				current_policy->rates->channel_basis_max;
+
+		if (lease_fee_base)
+			new_rates->lease_fee_base = *lease_fee_base;
+		else if (current_policy->rates)
+			new_rates->lease_fee_base =
+				current_policy->rates->lease_fee_base;
+
+		if (lease_fee_basis)
+			new_rates->lease_fee_basis = *lease_fee_basis;
+		else if (current_policy->rates)
+			new_rates->lease_fee_basis =
+				current_policy->rates->lease_fee_basis;
+
+		policy->rates = tal_steal(policy, new_rates);
+	} else
+		policy->rates = NULL;
 
 	err = funder_check_policy(policy);
-	if (err)
+	if (err) {
+		tal_free(policy);
 		return command_done_err(cmd, JSONRPC2_INVALID_PARAMS,
 					err, NULL);
+	}
 
+	tal_free(current_policy);
 	current_policy = policy;
+
 	res = jsonrpc_stream_success(cmd);
 	policy_to_json(res, current_policy);
 	return command_finished(cmd, res);
 }
 
-static const struct plugin_command commands[] = { {
+static struct command_result *
+json_offerrates(struct command *cmd,
+		const char *buf,
+		const jsmntok_t *params)
+{
+	struct json_stream *res;
+
+	if (!param(cmd, buf, params, NULL))
+		return command_param_failed();
+
+	/* We just need the four 'rate card' fields */
+	res = jsonrpc_stream_success(cmd);
+	rate_card_to_json(res, current_policy->rates);
+	return command_finished(cmd, res);
+}
+
+static const struct plugin_command commands[] = {
+	{
 		"funderupdate",
-		"channels",
-		"Update configuration for dual-funding offer",
-		"Update current funder settings. Modifies how node"
-		" reacts to incoming channel open requests. Responds with list"
+		"liquidity",
+		"Configuration for dual-funding settings.",
+		"Update current settings. Modifies how node reacts to"
+		" incoming channel open requests. Responds with list"
 		" of current configs.",
 		json_funderupdate
+	},
+	{
+		CMD_OFFER_RATES,
+		"liquidity",
+		"View currently offered rate card.",
+		"Displys currently set rate card for liquidity offers."
+		" To modify, use `funderupdate`.",
+		json_offerrates
 	}
 };
 
@@ -856,12 +992,53 @@ const struct plugin_notification notifs[] = {
 	},
 };
 
+static char *msat_option(const char *arg, struct amount_msat *amt)
+{
+	if (!parse_amount_msat(amt, arg, strlen(arg)))
+		return tal_fmt(NULL, "Unable to parse amount '%s'", arg);
+
+	return NULL;
+}
+
+static char *option_channel_base(const char *arg, struct funder_policy *policy)
+{
+	if (!policy->rates)
+		policy->rates = tal(policy, struct rate_card);
+
+	return msat_option(arg, &policy->rates->channel_base_max);
+}
+
+static char *option_channel_basis_max(const char *arg,
+				      struct funder_policy *policy)
+{
+	if (!policy->rates)
+		policy->rates = tal(policy, struct rate_card);
+	return u32_option(arg, &policy->rates->channel_basis_max);
+}
+
 static char *amount_option(const char *arg, struct amount_sat *amt)
 {
 	if (!parse_amount_sat(amt, arg, strlen(arg)))
 		return tal_fmt(NULL, "Unable to parse amount '%s'", arg);
 
 	return NULL;
+}
+
+static char *option_lease_fee_base(const char *arg,
+				   struct funder_policy *policy)
+{
+	if (!policy->rates)
+		policy->rates = tal(policy, struct rate_card);
+
+	return amount_option(arg, &policy->rates->lease_fee_base);
+}
+
+static char *option_lease_fee_basis(const char *arg,
+				    struct funder_policy *policy)
+{
+	if (!policy->rates)
+		policy->rates = tal(policy, struct rate_card);
+	return u32_option(arg, &policy->rates->lease_fee_basis);
 }
 
 static char *amount_sat_or_u64_option(const char *arg, u64 *amt)
@@ -953,6 +1130,39 @@ int main(int argc, char **argv)
 				  " disable dual-funding",
 				  u32_option,
 				  &current_policy->fund_probability),
+		    plugin_option("funder-lease-requests-only",
+				  "bool",
+				  "Only fund lease requests. Defaults to"
+				  "true (if liquidity ads are being offered)",
+				  bool_option,
+				  &current_policy->leases_only),
+		    /* Options for advertising channel leases. MUST NOT change
+		     * the names of these, as lightningd parses for them
+		     * explicitly.
+		     * These are ALL or NOTHING. e.g. if you set one but
+		     * not the others, then node will fail to start  */
+		    plugin_option(OPT_LEASE_FEE_BASE,
+				  "string",
+				  "Offer rate card, base fee for leased"
+				  " funds, in satoshi.",
+				  option_lease_fee_base, current_policy),
+		    plugin_option(OPT_LEASE_FEE_BASIS,
+				  "int",
+				  "Offer rate card, basis charged for leased"
+				  " funds, per 10,000 satoshi.",
+				  option_lease_fee_basis, current_policy),
+		    plugin_option(OPT_LEASE_CHAN_FEE_BASE,
+				  "string",
+				  "Offer rate card, maximum channel fee base"
+				  " we'll charge for funds routed through"
+				  " a leased channel.",
+				  option_channel_base, current_policy),
+		    plugin_option(OPT_LEASE_CHAN_FEE_BASIS,
+				  "int",
+				  "Offer rate card, maximum channel fee basis"
+				  " (1/10,000sat) we'll charge for funds"
+				  " routed through a leased channel.",
+				  option_channel_basis_max, current_policy),
 		    NULL);
 
 	tal_free(owner);

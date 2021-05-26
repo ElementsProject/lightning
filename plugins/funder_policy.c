@@ -59,7 +59,9 @@ new_funder_policy(const tal_t *ctx,
 		  struct amount_sat per_channel_max,
 		  u32 fuzz_factor,
 		  struct amount_sat reserve_tank,
-		  u32 fund_probability)
+		  u32 fund_probability,
+		  bool leases_only,
+		  struct rate_card *rates)
 {
 	struct funder_policy *policy = tal(ctx, struct funder_policy);
 
@@ -72,6 +74,8 @@ new_funder_policy(const tal_t *ctx,
 	policy->fuzz_factor = fuzz_factor;
 	policy->reserve_tank = reserve_tank;
 	policy->fund_probability = fund_probability;
+	policy->leases_only = leases_only;
+	policy->rates = rates;
 
 	return policy;
 }
@@ -88,16 +92,29 @@ default_funder_policy(const tal_t *ctx,
 				 AMOUNT_SAT(UINT_MAX),
 				 0, 		/* fuzz_factor */
 				 AMOUNT_SAT(0), /* reserve_tank */
-				 100);
+				 100,
+				 /* Defaults to true iif we're advertising
+				  * offers */
+				 false,
+				 NULL);
 }
 
 char *funder_check_policy(const struct funder_policy *policy)
 {
+	struct rate_card *rates = policy->rates;
+
 	if (policy->fund_probability > 100)
 		return "fund_probability max is 100";
 
 	if (policy->fuzz_factor > 100)
 		return "fuzz_percent max is 100";
+
+	if (rates) {
+		if (rates->channel_basis_max > 1000)
+			return "channel_basis_max is 1000";
+		if (rates->lease_fee_basis > 1000)
+			return "lease_fee_basis max is 1000";
+	}
 
 	switch (policy->opt) {
 	case FIXED:

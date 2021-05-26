@@ -19,6 +19,13 @@ enum funder_opt {
 	FIXED,
 };
 
+struct rate_card {
+	u32 channel_basis_max;
+	struct amount_msat channel_base_max;
+	u32 lease_fee_basis;
+	struct amount_sat lease_fee_base;
+};
+
 struct funder_policy {
 	/* How to interpret/apply the 'mod' field */
 	enum funder_opt opt;
@@ -53,6 +60,12 @@ struct funder_policy {
 
 	/* Percent of open offers we'll consider funding. */
 	u32 fund_probability;
+
+	/* If we're advertising liquidity ads, only
+	 * provide funds for lease requests */
+	bool leases_only;
+
+	struct rate_card *rates;
 };
 
 struct funder_policy *
@@ -65,13 +78,18 @@ new_funder_policy(const tal_t *ctx,
 		  struct amount_sat per_channel_max,
 		  u32 fuzz_factor,
 		  struct amount_sat reserve_tank,
-		  u32 fund_probability);
+		  u32 fund_probability,
+		  bool leases_only,
+		  struct rate_card *rates);
 
 /* Get a new funder_policy, set to the defaults */
 struct funder_policy *
 default_funder_policy(const tal_t *ctx,
 		      enum funder_opt policy,
 		      u64 policy_mod);
+
+/* Get a new rate_card, set to the defaults */
+struct rate_card *default_rates(const tal_t *ctx);
 
 /* Given the policy and this request's details, figure
  * out how much we should contribute to this channel */
