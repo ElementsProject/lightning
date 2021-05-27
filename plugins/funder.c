@@ -550,6 +550,23 @@ json_openchannel2_call(struct command *cmd,
 		return command_hook_success(cmd);
 	}
 
+	/* Now we want to reject any channel that's below our
+	 * `min_their_funding` */
+	if (amount_sat_less(info->their_funding,
+			    current_policy.min_their_funding)) {
+		const char *err
+			= tal_fmt(tmpctx,
+				  "Rejecting channel open from %s."
+				  " Their open is %s, our minimum is %s",
+				  type_to_string(tmpctx, struct node_id, &info->id),
+				  type_to_string(tmpctx, struct amount_sat,
+						 &info->their_funding),
+				  type_to_string(tmpctx, struct amount_sat,
+						 &current_policy.min_their_funding));
+		plugin_log(cmd->plugin, LOG_DBG, "%s", err);
+		return command_hook_reject(cmd, err);
+	}
+
 	/* Figure out what our funds are */
 	req = jsonrpc_request_start(cmd->plugin, cmd,
 				    "listfunds",
@@ -625,6 +642,49 @@ json_rbf_channel_call(struct command *cmd,
 				    info);
 
 	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *
+json_openchannel_call(struct command *cmd,
+		       const char *buf,
+		       const jsmntok_t *params)
+{
+	struct node_id id;
+	struct amount_sat their_funding;
+	const char *err;
+
+	err = json_scan(tmpctx, buf, params,
+			"{openchannel:"
+			"{id:%"
+			",funding_satoshis:%}}",
+			JSON_SCAN(json_to_node_id, &id),
+			JSON_SCAN(json_to_sat, &their_funding));
+
+	if (err)
+		plugin_err(cmd->plugin,
+			   "`openchannel` payload did not scan %: %.*s",
+			   err, json_tok_full_len(params),
+			   json_tok_full(buf, params));
+
+	/* Now we want to reject any channel that's below our
+	 * `min_their_funding` */
+	if (amount_sat_less(their_funding,
+			    current_policy.min_their_funding)) {
+		const char *err
+			= tal_fmt(tmpctx,
+				  "Rejecting channel open from %s."
+				  " Their open is %s, our minimum is %s",
+				  type_to_string(tmpctx, struct node_id, &id),
+				  type_to_string(tmpctx, struct amount_sat,
+						 &their_funding),
+				  type_to_string(tmpctx, struct amount_sat,
+						 &current_policy.min_their_funding));
+		plugin_log(cmd->plugin, LOG_DBG, "%s", err);
+		return command_hook_reject(cmd, err);
+	}
+
+	/* Otherwise, let's go! */
+	return command_hook_success(cmd);
 }
 
 static void json_disconnect(struct command *cmd,
@@ -827,6 +887,10 @@ static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 }
 
 const struct plugin_hook hooks[] = {
+	{
+		"openchannel",
+		json_openchannel_call,
+	},
 	{
 		"openchannel2",
 		json_openchannel2_call,
