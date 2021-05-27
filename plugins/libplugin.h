@@ -185,6 +185,12 @@ command_success(struct command *cmd, const struct json_out *result);
 struct command_result *WARN_UNUSED_RESULT
 command_hook_success(struct command *cmd);
 
+/* End a hook with a reject and message (with "result": "reject")
+ * Note that this isn't universal, only a select number of hooks
+ * support a 'reject' */
+struct command_result *WARN_UNUSED_RESULT
+command_hook_reject(struct command *cmd, const char *err);
+
 /* Synchronous helper to send command and extract fields from
  * response; can only be used in init callback. */
 void rpc_scan(struct plugin *plugin,

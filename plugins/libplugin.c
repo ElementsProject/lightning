@@ -1640,3 +1640,12 @@ command_hook_success(struct command *cmd)
 	json_add_string(response, "result", "continue");
 	return command_finished(cmd, response);
 }
+
+struct command_result *WARN_UNUSED_RESULT
+command_hook_reject(struct command *cmd, const char *err)
+{
+	struct json_stream *response = jsonrpc_stream_success(cmd);
+	json_add_string(response, "result", "reject");
+	json_add_string(response, "error_message", err);
+	return command_finished(cmd, response);
+}
