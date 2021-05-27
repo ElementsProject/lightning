@@ -17,6 +17,7 @@
 struct chan;
 struct channel_update_timestamps;
 struct broadcastable;
+struct lease_rates;
 struct seeker;
 
 /*~ The core daemon structure: */
@@ -60,6 +61,9 @@ struct daemon {
 
 	/* Features lightningd told us to set. */
 	struct feature_set *our_features;
+
+	/* The channel lease rates we're advertising */
+	const struct lease_rates *rates;
 };
 
 struct range_query_reply {
