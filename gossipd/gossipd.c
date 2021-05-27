@@ -157,7 +157,8 @@ static bool get_node_announcement(const tal_t *ctx,
 				  u8 rgb_color[3],
 				  u8 alias[32],
 				  u8 **features,
-				  struct wireaddr **wireaddrs)
+				  struct wireaddr **wireaddrs,
+				  struct lease_rates **rates)
 {
 	const u8 *msg;
 	struct node_id id;
@@ -197,6 +198,9 @@ static bool get_node_announcement(const tal_t *ctx,
 	}
 
 	*wireaddrs = read_addresses(ctx, addresses);
+
+	*rates = tal_steal(ctx, na_tlvs->option_will_fund);
+
 	tal_free(addresses);
 	return true;
 }
@@ -208,14 +212,15 @@ static bool get_node_announcement_by_id(const tal_t *ctx,
 					u8 rgb_color[3],
 					u8 alias[32],
 					u8 **features,
-					struct wireaddr **wireaddrs)
+					struct wireaddr **wireaddrs,
+					struct lease_rates **rates)
 {
 	struct node *n = get_node(daemon->rstate, node_id);
 	if (!n)
 		return false;
 
 	return get_node_announcement(ctx, daemon, n, rgb_color, alias,
-				     features, wireaddrs);
+				     features, wireaddrs, rates);
 }
 
 /*~Routines to handle gossip messages from peer, forwarded by subdaemons.
@@ -922,6 +927,7 @@ static struct io_plan *connectd_get_address(struct io_conn *conn,
 	u8 alias[32];
 	u8 *features;
 	struct wireaddr *addrs;
+	struct lease_rates *rates;
 
 	if (!fromwire_gossipd_get_addrs(msg, &id)) {
 		status_broken("Bad gossipd_get_addrs msg from connectd: %s",
@@ -930,7 +936,8 @@ static struct io_plan *connectd_get_address(struct io_conn *conn,
 	}
 
 	if (!get_node_announcement_by_id(tmpctx, daemon, &id,
-					 rgb_color, alias, &features, &addrs))
+					 rgb_color, alias, &features, &addrs,
+					 &rates))
 		addrs = NULL;
 
 	daemon_conn_send(daemon->connectd,
@@ -1362,7 +1369,8 @@ static void add_node_entry(const tal_t *ctx,
 	if (get_node_announcement(ctx, daemon, n,
 				  e->color, e->alias,
 				  &e->features,
-				  &e->addresses)) {
+				  &e->addresses,
+				  &e->rates)) {
 		e->last_timestamp = n->bcast.timestamp;
 	} else {
 		/* Timestamp on wire is an unsigned 32 bit: we use a 64-bit
@@ -1918,6 +1926,7 @@ int main(int argc, char *argv[])
 	daemon->deferred_txouts = tal_arr(daemon, struct short_channel_id, 0);
 	daemon->node_announce_timer = NULL;
 	daemon->current_blockheight = 0; /* i.e. unknown */
+	daemon->rates = NULL;
 
 	/* Tell the ecdh() function how to talk to hsmd */
 	ecdh_hsmd_setup(HSM_FD, status_failed);

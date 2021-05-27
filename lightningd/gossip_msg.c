@@ -2,6 +2,7 @@
 #include <common/bolt11.h>
 #include <common/wireaddr.h>
 #include <lightningd/gossip_msg.h>
+#include <wire/peer_wire.h>
 #include <wire/wire.h>
 
 struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
@@ -10,6 +11,7 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 	u8 numaddresses, i;
 	struct gossip_getnodes_entry *entry;
 	u16 flen;
+	bool has_rates;
 
 	entry = tal(ctx, struct gossip_getnodes_entry);
 	fromwire_node_id(pptr, max, &entry->nodeid);
@@ -34,6 +36,13 @@ struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 	fromwire(pptr, max, entry->alias, ARRAY_SIZE(entry->alias));
 	fromwire(pptr, max, entry->color, ARRAY_SIZE(entry->color));
 
+	has_rates = fromwire_u8(pptr, max);
+	if (has_rates) {
+		entry->rates = tal(entry, struct lease_rates);
+		fromwire_lease_rates(pptr, max, entry->rates);
+	} else
+		entry->rates = NULL;
+
 	return entry;
 }
 
@@ -54,6 +63,12 @@ void towire_gossip_getnodes_entry(u8 **pptr,
 	}
 	towire(pptr, entry->alias, ARRAY_SIZE(entry->alias));
 	towire(pptr, entry->color, ARRAY_SIZE(entry->color));
+
+	if (entry->rates) {
+		towire_u8(pptr, 1);
+		towire_lease_rates(pptr, entry->rates);
+	} else
+		towire_u8(pptr, 0);
 }
 
 struct route_hop *fromwire_route_hop(const tal_t *ctx,

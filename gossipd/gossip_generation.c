@@ -25,7 +25,8 @@
  * between the dummy creation and the call with a signature. */
 static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 				    const secp256k1_ecdsa_signature *sig,
-				    u32 timestamp)
+				    u32 timestamp,
+				    const struct lease_rates *rates)
 {
 	u8 *addresses = tal_arr(tmpctx, u8, 0);
 	u8 *announcement;
@@ -39,6 +40,8 @@ static u8 *create_node_announcement(const tal_t *ctx, struct daemon *daemon,
 		towire_wireaddr(&addresses, &daemon->announcable[i]);
 
 	na_tlv = tlv_node_ann_tlvs_new(tmpctx);
+	na_tlv->option_will_fund = cast_const(struct lease_rates *, rates);
+
 	announcement =
 	    towire_node_announcement(ctx, sig,
 				     daemon->our_features->bits
@@ -164,7 +167,10 @@ static void update_own_node_announcement(struct daemon *daemon)
 		timestamp++;
 
 	/* Make unsigned announcement. */
-	nannounce = create_node_announcement(tmpctx, daemon, NULL, timestamp);
+	nannounce = create_node_announcement(tmpctx, daemon, NULL,
+					     timestamp,
+					     daemon->rates);
+
 
 	/* If it's the same as the previous, nothing to do. */
 	if (self && self->bcast.index) {
@@ -207,7 +213,8 @@ static void update_own_node_announcement(struct daemon *daemon)
 	/* We got the signature for our provisional node_announcement back
 	 * from the HSM, create the real announcement and forward it to
 	 * gossipd so it can take care of forwarding it. */
-	nannounce = create_node_announcement(NULL, daemon, &sig, timestamp);
+	nannounce = create_node_announcement(NULL, daemon, &sig,
+					     timestamp, daemon->rates);
 
 	/* This injects it into the routing code in routing.c; it should not
 	 * reject it! */
