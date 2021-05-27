@@ -1,6 +1,7 @@
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from pyln.client import RpcError
+from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
 from utils import (
     only_one, wait_for, sync_blockheight, first_channel_id
 )
@@ -1081,3 +1082,39 @@ def test_funder_contribution_limits(node_factory, bitcoind):
     l1.fundchannel(l3, 10**7)
     assert l3.daemon.is_in_log('Policy .* returned funding amount of 50000sat')
     assert l3.daemon.is_in_log(r'calling `signpsbt` .* 7 inputs')
+
+
+@pytest.mark.openchannel('v1')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(TEST_NETWORK != 'regtest' and EXPERIMENTAL_DUAL_FUND, 'elementsd doesnt yet support PSBT features we need for v2')
+def test_funder_minimum_channel_size(node_factory, bitcoind):
+    # We have to set the feerates and min-capacity-sat lower so that
+    # the funder's default min-their-funding is able to trigger
+    # This is good news: we can add this change without impacting existing
+    # (default) node behavior.
+    opts = {'feerates': (300, 300, 300, 300),
+            'min-capacity-sat': 500}
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+
+    l1.fundwallet(10**8)
+    l1.fundwallet(10**8)
+
+    default_limit = 10000
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+
+    # The default to reject a channel is 10k sats. This should fail
+    with pytest.raises(RpcError, match='Rejecting channel open'):
+        l1.rpc.fundchannel(l2.info['id'], default_limit - 1)
+
+    # This should pass fine
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], default_limit)
+
+    # Let's try it with l3
+    l3.rpc.call('funderupdate', {'min_their_funding': default_limit * 100})
+    with pytest.raises(RpcError, match='Rejecting channel open'):
+        l1.rpc.fundchannel(l3.info['id'], default_limit * 100 - 1)
+
+    l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l1.rpc.fundchannel(l3.info['id'], default_limit * 100)
