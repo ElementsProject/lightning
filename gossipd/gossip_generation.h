@@ -29,7 +29,8 @@ bool cupdate_different(struct gossip_store *gs,
  * node->bcast.index must be non-zero! */
 bool nannounce_different(struct gossip_store *gs,
 			 const struct node *node,
-			 const u8 *nannounce);
+			 const u8 *nannounce,
+			 bool *only_missing_tlv);
 
 /* Should we announce our own node?  Called at strategic places. */
 void maybe_send_own_node_announce(struct daemon *daemon);
