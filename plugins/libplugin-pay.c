@@ -3446,7 +3446,7 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		/* The presplitter only acts on the root and only in the first
 		 * step. */
 		size_t count = 0;
-		u32 htlcs = payment_max_htlcs(p) / PRESPLIT_MAX_HTLC_SHARE;
+		u32 htlcs;
 		struct amount_msat target, amt = p->amount;
 		char *partids = tal_strdup(tmpctx, "");
 		u64 target_amount = MPP_TARGET_SIZE;
@@ -3470,6 +3470,11 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		 * id could be reused will never reach the `sendonion` step,
 		 * but makes debugging a bit easier. */
 		root->next_partid++;
+
+		htlcs = payment_max_htlcs(p);
+		/* Divide it up if we can, but it might be v low already */
+		if (htlcs >= PRESPLIT_MAX_HTLC_SHARE)
+			htlcs /= PRESPLIT_MAX_HTLC_SHARE;
 
 		if (htlcs == 0) {
 			p->abort = true;
