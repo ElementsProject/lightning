@@ -33,7 +33,7 @@ bool nannounce_different(struct gossip_store *gs,
 			 bool *only_missing_tlv);
 
 /* Should we announce our own node?  Called at strategic places. */
-void maybe_send_own_node_announce(struct daemon *daemon);
+void maybe_send_own_node_announce(struct daemon *daemon, bool startup);
 
 /* This is a refresh of a local channel: sends an update if one is needed. */
 void refresh_local_channel(struct daemon *daemon,
