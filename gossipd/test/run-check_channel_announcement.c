@@ -103,7 +103,8 @@ void memleak_remove_intmap_(struct htable *memtable UNNEEDED, const struct intma
 /* Generated stub for nannounce_different */
 bool nannounce_different(struct gossip_store *gs UNNEEDED,
 			 const struct node *node UNNEEDED,
-			 const u8 *nannounce UNNEEDED)
+			 const u8 *nannounce UNNEEDED,
+			 bool *only_missing_tlv UNNEEDED)
 { fprintf(stderr, "nannounce_different called!\n"); abort(); }
 /* Generated stub for new_reltimer_ */
 struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
