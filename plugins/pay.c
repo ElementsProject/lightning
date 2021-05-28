@@ -2026,7 +2026,7 @@ static struct command_result *json_paymod(struct command *cmd,
 
 	if (!bolt12_has_prefix(b11str)) {
 		b11 =
-		    bolt11_decode(cmd, b11str, plugin_feature_set(cmd->plugin),
+		    bolt11_decode(p, b11str, plugin_feature_set(cmd->plugin),
 				  NULL, chainparams, &b11_fail);
 		if (b11 == NULL)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -2054,7 +2054,7 @@ static struct command_result *json_paymod(struct command *cmd,
 			    "Invalid bolt11:"
 			    " sets feature var_onion with no secret");
 	} else {
-		b12 = invoice_decode(cmd, b11str, strlen(b11str),
+		b12 = invoice_decode(p, b11str, strlen(b11str),
 				     plugin_feature_set(cmd->plugin),
 				     chainparams, &b12_fail);
 		if (b12 == NULL)
