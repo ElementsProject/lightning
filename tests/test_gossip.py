@@ -1095,6 +1095,28 @@ def test_node_reannounce(node_factory, bitcoind, chainparams):
     # Won't have queued up another one, either.
     assert not l1.daemon.is_in_log('node_announcement: delaying')
 
+    # Try updating the lease rates ad
+    ad = l1.rpc.call('setleaserates',
+                     {'lease_fee_base_msat': '1000sat',
+                      'lease_fee_basis': 20,
+                      'funding_weight': 150,
+                      'channel_fee_max_base_msat': '2000msat',
+                      'channel_fee_max_proportional_thousandths': 22})
+
+    assert ad['lease_fee_base_msat'] == Millisatoshi('1000000msat')
+    assert ad['lease_fee_basis'] == 20
+    assert ad['funding_weight'] == 150
+    assert ad['channel_fee_max_base_msat'] == Millisatoshi('2000msat')
+    assert ad['channel_fee_max_proportional_thousandths'] == 22
+
+    msgs2 = l1.query_gossip('gossip_timestamp_filter',
+                            genesis_blockhash,
+                            '0', '0xFFFFFFFF',
+                            # Filter out gossip_timestamp_filter,
+                            # channel_announcement and channel_updates.
+                            filters=['0109', '0102', '0100'])
+    assert msgs != msgs2
+
 
 def test_gossipwith(node_factory):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True)

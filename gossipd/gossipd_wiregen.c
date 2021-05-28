@@ -43,6 +43,7 @@ const char *gossipd_wire_name(int e)
 	case WIRE_GOSSIPD_SEND_ONIONMSG: return "WIRE_GOSSIPD_SEND_ONIONMSG";
 	case WIRE_GOSSIPD_ADDGOSSIP: return "WIRE_GOSSIPD_ADDGOSSIP";
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY: return "WIRE_GOSSIPD_ADDGOSSIP_REPLY";
+	case WIRE_GOSSIPD_NEW_LEASE_RATES: return "WIRE_GOSSIPD_NEW_LEASE_RATES";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -75,6 +76,7 @@ bool gossipd_wire_is_defined(u16 type)
 	case WIRE_GOSSIPD_SEND_ONIONMSG:;
 	case WIRE_GOSSIPD_ADDGOSSIP:;
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:;
+	case WIRE_GOSSIPD_NEW_LEASE_RATES:;
 	      return true;
 	}
 	return false;
@@ -753,4 +755,26 @@ bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestrin
  	*err = fromwire_wirestring(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:9b38d439d81bbd471c821163b275c5cf3106a665dbdea563113742476f18e386
+
+/* WIRE: GOSSIPD_NEW_LEASE_RATES */
+/* Updated lease rates available */
+u8 *towire_gossipd_new_lease_rates(const tal_t *ctx, const struct lease_rates *rates)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_GOSSIPD_NEW_LEASE_RATES);
+	towire_lease_rates(&p, rates);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_gossipd_new_lease_rates(const void *p, struct lease_rates *rates)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_NEW_LEASE_RATES)
+		return false;
+ 	fromwire_lease_rates(&cursor, &plen, rates);
+	return cursor != NULL;
+}
+// SHA256STAMP:c511c2859bffa718708c4cceedd59807d0a43cd48060a59bf7cbabfa2f6515f9

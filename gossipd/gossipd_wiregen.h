@@ -10,6 +10,7 @@
 #include <common/cryptomsg.h>
 #include <common/features.h>
 #include <common/wireaddr.h>
+#include <wire/peer_wire.h>
 #include <wire/onion_wire.h>
 
 enum gossipd_wire {
@@ -54,6 +55,8 @@ enum gossipd_wire {
         WIRE_GOSSIPD_ADDGOSSIP = 3044,
         /*  Empty string means no problem. */
         WIRE_GOSSIPD_ADDGOSSIP_REPLY = 3144,
+        /*  Updated lease rates available */
+        WIRE_GOSSIPD_NEW_LEASE_RATES = 3046,
 };
 
 const char *gossipd_wire_name(int e);
@@ -178,6 +181,11 @@ bool fromwire_gossipd_addgossip(const tal_t *ctx, const void *p, u8 **msg);
 u8 *towire_gossipd_addgossip_reply(const tal_t *ctx, const wirestring *err);
 bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestring **err);
 
+/* WIRE: GOSSIPD_NEW_LEASE_RATES */
+/*  Updated lease rates available */
+u8 *towire_gossipd_new_lease_rates(const tal_t *ctx, const struct lease_rates *rates);
+bool fromwire_gossipd_new_lease_rates(const void *p, struct lease_rates *rates);
+
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_WIREGEN_H */
-// SHA256STAMP:9b38d439d81bbd471c821163b275c5cf3106a665dbdea563113742476f18e386
+// SHA256STAMP:c511c2859bffa718708c4cceedd59807d0a43cd48060a59bf7cbabfa2f6515f9

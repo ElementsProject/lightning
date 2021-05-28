@@ -1,6 +1,7 @@
 #include <common/cryptomsg.h>
 #include <common/features.h>
 #include <common/wireaddr.h>
+#include <wire/peer_wire.h>
 #include <wire/onion_wire.h>
 
 # Initialize the gossip daemon.
@@ -118,3 +119,6 @@ msgdata,gossipd_addgossip,msg,u8,len
 msgtype,gossipd_addgossip_reply,3144
 msgdata,gossipd_addgossip_reply,err,wirestring,
 
+# Updated lease rates available
+msgtype,gossipd_new_lease_rates,3046
+msgdata,gossipd_new_lease_rates,rates,lease_rates,
