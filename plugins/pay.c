@@ -1646,6 +1646,13 @@ static bool attempt_ongoing(const struct sha256 *payment_hash)
 	return false;
 }
 
+/* A unique key for each payment attempt, even if the same invoice was
+ * attempted multiple times. */
+struct pay_sort_key {
+	const struct sha256 *payment_hash;
+	u64 groupid;
+};
+
 /* We consolidate multi-part payments into a single entry. */
 struct pay_mpp {
 	/* payment_hash from the invoice and lookup key */
@@ -1676,32 +1683,31 @@ struct pay_mpp {
 
 	/* The destination of the payment, if specified. */
 	const jsmntok_t *destination;
+
+	/* Which sendpay group is this? Necessary for invoices that have been
+	 * attempted multiple times. */
+	struct pay_sort_key sortkey;
 };
 
-static const struct sha256 *pay_mpp_key(const struct pay_mpp *pm)
+static const struct pay_sort_key *pay_mpp_key(const struct pay_mpp *pm)
 {
-	return pm->payment_hash;
+	return &pm->sortkey;
 }
 
-static size_t pay_mpp_hash(const struct sha256 *payment_hash)
+static size_t pay_mpp_hash(const struct pay_sort_key *key)
 {
-	return siphash24(siphash_seed(), payment_hash, sizeof(struct sha256));
+	struct siphash24_ctx ctx;
+	siphash24_init(&ctx, siphash_seed());
+	siphash24_update(&ctx, key->payment_hash, sizeof(struct sha256));
+	siphash24_update(&ctx, &key->groupid, sizeof(u64));
+	return siphash24_done(&ctx);
 }
 
-static bool pay_mpp_eq(const struct pay_mpp *pm, const struct sha256 *payment_hash)
+static bool pay_mpp_eq(const struct pay_mpp *pm, const struct pay_sort_key *key)
 {
-	return memcmp(pm->payment_hash, payment_hash, sizeof(struct sha256)) == 0;
-}
-
-static int cmp_pay_mpp(const struct pay_mpp *a,
-		       const struct pay_mpp *b,
-		       void *unused UNUSED)
-{
-	if (a->timestamp < b->timestamp)
-		return -1;
-	if (a->timestamp == b->timestamp)
-		return 0;
-	return 1;
+	return memcmp(pm->sortkey.payment_hash, key->payment_hash,
+		      sizeof(struct sha256)) == 0 &&
+		      pm->sortkey.groupid == key->groupid;
 }
 
 HTABLE_DEFINE_TYPE(struct pay_mpp, pay_mpp_key, pay_mpp_hash, pay_mpp_eq,
@@ -1804,9 +1810,8 @@ static struct command_result *listsendpays_done(struct command *cmd,
 	const jsmntok_t *t, *arr;
 	struct json_stream *ret;
 	struct pay_map pay_map;
-	struct pay_map_iter it;
 	struct pay_mpp *pm;
-	struct pay_mpp *pays;
+	struct pay_sort_key *order = tal_arr(tmpctx, struct pay_sort_key, 0);
 
 	pay_map_init(&pay_map);
 
@@ -1816,10 +1821,12 @@ static struct command_result *listsendpays_done(struct command *cmd,
 				    "Unexpected non-array result from listsendpays");
 
 	json_for_each_arr(i, t, arr) {
-		const jsmntok_t *status, *invstrtok, *hashtok, *createdtok;
+		const jsmntok_t *status, *invstrtok, *hashtok, *createdtok, *grouptok;
 		const char *invstr = invstring;
 		struct sha256 payment_hash;
 		u32 created_at;
+		u64 groupid;
+		struct pay_sort_key key;
 
 		invstrtok = json_get_member(buf, t, "bolt11");
 		if (!invstrtok)
@@ -1829,12 +1836,21 @@ static struct command_result *listsendpays_done(struct command *cmd,
 		assert(hashtok != NULL);
 		assert(createdtok != NULL);
 
+		grouptok = json_get_member(buf, t, "groupid");
+		if (grouptok != NULL)
+			json_to_u64(buf, grouptok, &groupid);
+		else
+			groupid = 0;
+
 		json_to_sha256(buf, hashtok, &payment_hash);
 		json_to_u32(buf, createdtok, &created_at);
 		if (invstrtok)
 			invstr = json_strdup(cmd, buf, invstrtok);
 
-		pm = pay_map_get(&pay_map, &payment_hash);
+		key.payment_hash = &payment_hash;
+		key.groupid = groupid;
+
+		pm = pay_map_get(&pay_map, &key);
 		if (!pm) {
 			pm = tal(cmd, struct pay_mpp);
 			pm->state = 0;
@@ -1847,7 +1863,12 @@ static struct command_result *listsendpays_done(struct command *cmd,
 			pm->amount = talz(pm, struct amount_msat);
 			pm->num_nonfailed_parts = 0;
 			pm->timestamp = created_at;
+			pm->sortkey.payment_hash = pm->payment_hash;
+			pm->sortkey.groupid = groupid;
 			pay_map_add(&pay_map, pm);
+			// First time we see the groupid we add it to the order
+			// array, so we can retrieve them in the correct order.
+			tal_arr_expand(&order, pm->sortkey);
 		}
 
 		status = json_get_member(buf, t, "status");
@@ -1866,26 +1887,14 @@ static struct command_result *listsendpays_done(struct command *cmd,
 		}
 	}
 
-
-	pays = tal_arr(NULL, struct pay_mpp, pay_map_count(&pay_map));
-	i = 0;
-	for (pm = pay_map_first(&pay_map, &it);
-	     pm;
-	     pm = pay_map_next(&pay_map, &it)) {
-		pays[i++] = *pm;
-	}
-	pay_map_clear(&pay_map);
-
-	asort(pays, tal_count(pays), cmp_pay_mpp, NULL);
-
-	/* Now we've collapsed and sorted them, provide summary. */
 	ret = jsonrpc_stream_success(cmd);
 	json_array_start(ret, "pays");
-
-	for (i = 0; i < tal_count(pays); i++)
-		add_new_entry(ret, buf, &pays[i]);
-	tal_free(pays);
-
+	for (size_t i = 0; i < tal_count(order); i++) {
+		pm = pay_map_get(&pay_map, &order[i]);
+		assert(pm != NULL);
+		add_new_entry(ret, buf, pm);
+	}
+	pay_map_clear(&pay_map);
 	json_array_end(ret);
 	return command_finished(cmd, ret);
 }
