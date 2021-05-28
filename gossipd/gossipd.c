@@ -289,7 +289,7 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 	 * routing until you have both anyway.  For this reason, we might have
 	 * just sent out our own channel_announce, so we check if it's time to
 	 * send a node_announcement too. */
-	maybe_send_own_node_announce(peer->daemon);
+	maybe_send_own_node_announce(peer->daemon, false);
 	return NULL;
 }
 
@@ -1132,7 +1132,7 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 
 	/* If that announced channels, we can announce ourselves (options
 	 * or addresses might have changed!) */
-	maybe_send_own_node_announce(daemon);
+	maybe_send_own_node_announce(daemon, true);
 
 	/* Start the twice- weekly refresh timer. */
 	notleak(new_reltimer(&daemon->timers, daemon,
@@ -1710,7 +1710,7 @@ static struct io_plan *handle_txout_reply(struct io_conn *conn,
 
 	/* Anywhere we might have announced a channel, we check if it's time to
 	 * announce ourselves (ie. if we just announced our own first channel) */
-	maybe_send_own_node_announce(daemon);
+	maybe_send_own_node_announce(daemon, false);
 
 	return daemon_conn_read_next(conn, daemon->master);
 }
