@@ -4734,3 +4734,51 @@ def test_listpays_with_filter_by_status(node_factory, bitcoind):
 
     payments = l2.rpc.listpays()
     assert len(l2.rpc.listpays()['pays']) == 1
+
+
+@pytest.mark.xfail(strict=True)
+def test_sendpay_grouping(node_factory, bitcoind):
+    """Paying an invoice multiple times, listpays should list them individually
+    """
+    l1, l2, l3 = node_factory.line_graph(
+        3,
+        wait_for_announce=True,
+        opts=[
+            {},
+            {'may_reconnect': True},
+            {'may_reconnect': True},
+        ],
+    )
+    wait_for(lambda: len(l1.rpc.listnodes()['nodes']) == 3)
+
+    inv = l3.rpc.invoice(msatoshi='any', label='lbl1', description='desc')['bolt11']
+    l3.stop()  # Stop recipient so the first attempt fails
+
+    assert(len(l1.db.query("SELECT * FROM payments")) == 0)
+    assert(len(l1.rpc.listpays()['pays']) == 0)
+
+    with pytest.raises(RpcError, match=r'Ran out of routes to try after [0-9]+ attempts'):
+        l1.rpc.pay(inv, msatoshi='100000msat')
+
+    # After this one invocation we have one entry in `listpays`
+    assert(len(l1.rpc.listpays()['pays']) == 1)
+
+    with pytest.raises(RpcError, match=r'Ran out of routes to try after [0-9]+ attempts'):
+        l1.rpc.pay(inv, msatoshi='200000msat')
+
+    # Surprise: we should have 2 entries after 2 invocations
+    assert(len(l1.rpc.listpays()['pays']) == 2)
+
+    l3.start()
+    invoices = l3.rpc.listinvoices()['invoices']
+    assert(len(invoices) == 1)
+    assert(invoices[0]['status'] == 'unpaid')
+    l3.connect(l2)
+    scid = l3.rpc.listpeers()['peers'][0]['channels'][0]['short_channel_id']
+    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(scid)['channels']] == [True, True])
+    l1.rpc.pay(inv, msatoshi='420000msat')
+
+    # And finally we should have all 3 attempts to pay the invoice
+    pays = l1.rpc.listpays()['pays']
+    assert(len(pays) == 3)
+    assert([p['status'] for p in pays] == ['failed', 'failed', 'complete'])
