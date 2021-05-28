@@ -47,6 +47,10 @@
 #define GOSSIP_MIN_INTERVAL(dev_fast_gossip_flag) \
 	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 5, 300)
 
+/* How long to wait at start for the plugin to callback with liquidity ad */
+#define GOSSIP_NANN_STARTUP_DELAY(dev_fast_gossip_flag) \
+	DEV_FAST_GOSSIP(dev_fast_gossip_flag, 8, 60)
+
 /* BOLT #7:
  *
  * - SHOULD flush outgoing gossip messages once every 60 seconds,

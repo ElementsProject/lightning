@@ -180,62 +180,12 @@ bool nannounce_different(struct gossip_store *gs,
 		|| !memeq(oparts[2], osizes[2], nparts[2], nsizes[2]);
 }
 
-/* This routine created a `node_announcement` for our node, and hands it to
- * the routing.c code like any other `node_announcement`.  Such announcements
- * are only accepted if there is an announced channel associated with that node
- * (to prevent spam), so we only call this once we've announced a channel. */
-static void update_own_node_announcement(struct daemon *daemon)
+static void sign_and_send_nannounce(struct daemon *daemon,
+				    u8 *nannounce,
+				    u32 timestamp)
 {
-	u32 timestamp = gossip_time_now(daemon->rstate).ts.tv_sec;
 	secp256k1_ecdsa_signature sig;
-	u8 *msg, *nannounce, *err;
-	struct node *self = get_node(daemon->rstate, &daemon->id);
-
-	/* Discard existing timer. */
-	daemon->node_announce_timer = tal_free(daemon->node_announce_timer);
-
-	/* If we ever use set-based propagation, ensuring the toggle the lower
-	 * bit in consecutive timestamps makes it more robust. */
-	if (self && self->bcast.index
-	    && (timestamp & 1) == (self->bcast.timestamp & 1))
-		timestamp++;
-
-	/* Make unsigned announcement. */
-	nannounce = create_node_announcement(tmpctx, daemon, NULL,
-					     timestamp,
-					     daemon->rates);
-
-
-	/* If it's the same as the previous, nothing to do. */
-	if (self && self->bcast.index) {
-		u32 next;
-
-		if (!nannounce_different(daemon->rstate->gs, self, nannounce,
-					 NULL))
-			return;
-
-		/* BOLT #7:
-		 *
-		 * The origin node:
-		 *   - MUST set `timestamp` to be greater than that of any
-		 *    previous `node_announcement` it has previously created.
-		 */
-		/* We do better: never send them within more than 5 minutes. */
-		next = self->bcast.timestamp
-			+ GOSSIP_MIN_INTERVAL(daemon->rstate->dev_fast_gossip);
-
-		if (timestamp < next) {
-			status_debug("node_announcement: delaying %u secs",
-				     next - timestamp);
-			daemon->node_announce_timer
-				= new_reltimer(&daemon->timers,
-					       daemon,
-					       time_from_sec(next - timestamp),
-					       update_own_node_announcement,
-					       daemon);
-			return;
-		}
-	}
+	u8 *msg, *err;
 
 	/* Ask hsmd to sign it (synchronous) */
 	if (!wire_sync_write(HSM_FD, take(towire_hsmd_node_announcement_sig_req(NULL, nannounce))))
@@ -261,8 +211,139 @@ static void update_own_node_announcement(struct daemon *daemon)
 			      tal_hex(tmpctx, err));
 }
 
+/* This routine created a `node_announcement` for our node, and hands it to
+ * the routing.c code like any other `node_announcement`.  Such announcements
+ * are only accepted if there is an announced channel associated with that node
+ * (to prevent spam), so we only call this once we've announced a channel. */
+static void update_own_node_announcement(struct daemon *daemon)
+{
+	u32 timestamp = gossip_time_now(daemon->rstate).ts.tv_sec;
+	u8 *nannounce;
+	struct node *self = get_node(daemon->rstate, &daemon->id);
+
+	/* Discard existing timer. */
+	daemon->node_announce_timer = tal_free(daemon->node_announce_timer);
+
+	/* If we ever use set-based propagation, ensuring the toggle the lower
+	 * bit in consecutive timestamps makes it more robust. */
+	if (self && self->bcast.index
+	    && (timestamp & 1) == (self->bcast.timestamp & 1))
+		timestamp++;
+
+	/* Make unsigned announcement. */
+	nannounce = create_node_announcement(tmpctx, daemon, NULL,
+					     timestamp,
+					     daemon->rates);
+
+	/* If it's the same as the previous, nothing to do. */
+	if (self && self->bcast.index) {
+		u32 next;
+
+		if (!nannounce_different(daemon->rstate->gs, self, nannounce,
+					 NULL))
+			return;
+
+		/* BOLT #7:
+		 *
+		 * The origin node:
+		 *   - MUST set `timestamp` to be greater than that of any
+		 *    previous `node_announcement` it has previously created.
+		 */
+		/* We do better: never send them within more than 5 minutes. */
+		next = self->bcast.timestamp
+			+ GOSSIP_MIN_INTERVAL(daemon->rstate->dev_fast_gossip);
+
+		if (timestamp < next) {
+			status_debug("node_announcement: delaying %u secs",
+				     next - timestamp);
+
+			daemon->node_announce_timer
+				= new_reltimer(&daemon->timers,
+					       daemon,
+					       time_from_sec(next - timestamp),
+					       update_own_node_announcement,
+					       daemon);
+			return;
+		}
+	}
+
+	sign_and_send_nannounce(daemon, nannounce, timestamp);
+}
+
+static void update_own_node_announce_startup(struct daemon *daemon)
+{
+	u32 timestamp = gossip_time_now(daemon->rstate).ts.tv_sec;
+	u8 *nannounce;
+	struct node *self = get_node(daemon->rstate, &daemon->id);
+
+	/* Discard existing timer. */
+	daemon->node_announce_timer = tal_free(daemon->node_announce_timer);
+
+	/* If we ever use set-based propagation, ensuring the toggle the lower
+	 * bit in consecutive timestamps makes it more robust. */
+	if (self && self->bcast.index
+	    && (timestamp & 1) == (self->bcast.timestamp & 1))
+		timestamp++;
+
+	/* Make unsigned announcement. */
+	nannounce = create_node_announcement(tmpctx, daemon, NULL,
+					     timestamp,
+					     daemon->rates);
+
+
+	/* If it's the same as the previous, nothing to do. */
+	if (self && self->bcast.index) {
+		u32 next;
+		bool only_missing_tlv;
+
+		if (!nannounce_different(daemon->rstate->gs, self, nannounce,
+					 &only_missing_tlv))
+			return;
+
+		/* Missing liquidity_ad, maybe we'll get plugin callback */
+		if (only_missing_tlv) {
+			u32 delay = GOSSIP_NANN_STARTUP_DELAY(daemon->rstate->dev_fast_gossip);
+			status_debug("node_announcement: delaying"
+				     " %u secs at start", delay);
+
+			daemon->node_announce_timer
+				= new_reltimer(&daemon->timers,
+					       daemon,
+					       time_from_sec(delay),
+					       update_own_node_announcement,
+					       daemon);
+			return;
+		}
+
+		/* BOLT #7:
+		 *
+		 * The origin node:
+		 *   - MUST set `timestamp` to be greater than that of any
+		 *    previous `node_announcement` it has previously created.
+		 */
+		/* We do better: never send them within more than 5 minutes. */
+		next = self->bcast.timestamp
+			+ GOSSIP_MIN_INTERVAL(daemon->rstate->dev_fast_gossip);
+
+		if (timestamp < next) {
+			status_debug("node_announcement: delaying %u secs",
+				     next - timestamp);
+
+			daemon->node_announce_timer
+				= new_reltimer(&daemon->timers,
+					       daemon,
+					       time_from_sec(next - timestamp),
+					       update_own_node_announcement,
+					       daemon);
+			return;
+		}
+	}
+
+	sign_and_send_nannounce(daemon, nannounce, timestamp);
+}
+
 /* Should we announce our own node?  Called at strategic places. */
-void maybe_send_own_node_announce(struct daemon *daemon)
+void maybe_send_own_node_announce(struct daemon *daemon, bool startup)
 {
 	/* We keep an internal flag in the routing code to say we've announced
 	 * a local channel.  The alternative would be to have it make a
@@ -271,8 +352,10 @@ void maybe_send_own_node_announce(struct daemon *daemon)
 	if (!daemon->rstate->local_channel_announced)
 		return;
 
-	update_own_node_announcement(daemon);
-	daemon->rstate->local_channel_announced = false;
+	if (startup)
+		update_own_node_announce_startup(daemon);
+	else
+		update_own_node_announcement(daemon);
 }
 
 /* Our timer callbacks take a single argument, so we marshall everything
