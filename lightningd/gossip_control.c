@@ -141,6 +141,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE:
 	case WIRE_GOSSIPD_GET_TXOUT_REPLY:
 	case WIRE_GOSSIPD_OUTPOINT_SPENT:
+	case WIRE_GOSSIPD_NEW_LEASE_RATES:
 	case WIRE_GOSSIPD_GET_INCOMING_CHANNELS:
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:
 	case WIRE_GOSSIPD_DEV_SUPPRESS:
@@ -459,6 +460,74 @@ static const struct json_command getroute_command = {
 	"Set the {maxhops} the route can take (default 20)."
 };
 AUTODATA(json_command, &getroute_command);
+
+static struct command_result *json_setleaserates(struct command *cmd,
+						  const char *buffer,
+						  const jsmntok_t *obj UNNEEDED,
+						  const jsmntok_t *params)
+{
+	struct json_stream *res;
+	struct lease_rates *rates;
+	struct amount_sat *lease_base_sat;
+	struct amount_msat *channel_fee_base_msat;
+	u32 *lease_basis, *channel_fee_max_ppt, *funding_weight;
+
+	if (!param(cmd, buffer, params,
+		   p_req("lease_fee_base_msat", param_sat, &lease_base_sat),
+		   p_req("lease_fee_basis", param_number, &lease_basis),
+		   p_req("funding_weight", param_number, &funding_weight),
+		   p_req("channel_fee_max_base_msat", param_msat,
+			 &channel_fee_base_msat),
+		   p_req("channel_fee_max_proportional_thousandths",
+			 param_number, &channel_fee_max_ppt),
+		   NULL))
+		return command_param_failed();
+
+	rates = tal(tmpctx, struct lease_rates);
+	rates->lease_fee_basis = *lease_basis;
+	rates->lease_fee_base_sat = lease_base_sat->satoshis; /* Raw: conversion */
+	rates->channel_fee_max_base_msat = channel_fee_base_msat->millisatoshis; /* Raw: conversion */
+
+	rates->funding_weight = *funding_weight;
+	rates->channel_fee_max_proportional_thousandths
+		= *channel_fee_max_ppt;
+
+	/* Gotta check that we didn't overflow */
+	if (lease_base_sat->satoshis > rates->lease_fee_base_sat)
+		return command_fail_badparam(cmd, "lease_fee_base_msat",
+					     buffer, params, "Overflow");
+
+	if (channel_fee_base_msat->millisatoshis > rates->channel_fee_max_base_msat)
+		return command_fail_badparam(cmd, "channel_fee_max_base_msat",
+					     buffer, params, "Overflow");
+
+	/* Call gossipd, let them know we've got new rates */
+	subd_send_msg(cmd->ld->gossip,
+		      take(towire_gossipd_new_lease_rates(NULL, rates)));
+
+	res = json_stream_success(cmd);
+	json_add_amount_sat_only(res, "lease_fee_base_msat",
+				 amount_sat(rates->lease_fee_base_sat));
+	json_add_num(res, "lease_fee_basis", rates->lease_fee_basis);
+	json_add_num(res, "funding_weight", rates->funding_weight);
+	json_add_amount_msat_only(res, "channel_fee_max_base_msat",
+				  amount_msat(rates->channel_fee_max_base_msat));
+	json_add_num(res, "channel_fee_max_proportional_thousandths",
+		     rates->channel_fee_max_proportional_thousandths);
+
+	return command_success(cmd, res);
+}
+
+static const struct json_command setleaserates_command = {
+	"setleaserates",
+	"channels",
+	json_setleaserates,
+	"Called by plugin to set the node's present channel lease rates."
+	" Not to be set without having a plugin which can handle"
+	" `openchannel2` hooks.",
+};
+
+AUTODATA(json_command, &setleaserates_command);
 
 static void json_add_halfchan(struct json_stream *response,
 			      const struct gossip_getchannels_entry *e,
