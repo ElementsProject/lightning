@@ -96,13 +96,14 @@ bool cupdate_different(struct gossip_store *gs,
 		|| !memeq(oparts[1], osizes[1], nparts[1], nsizes[1]);
 }
 
-/* Get non-signature, non-timestamp parts of (valid!) node_announcement */
+/* Get non-signature, non-timestamp parts of (valid!) node_announcement,
+ * with TLV broken out separately  */
 static void get_nannounce_parts(const u8 *node_announcement,
-				const u8 *parts[2],
-				size_t sizes[2])
+				const u8 *parts[3],
+				size_t sizes[3])
 {
-	size_t len;
-	const u8 *flen;
+	size_t len, ad_len;
+	const u8 *flen, *ad_start;
 
 	/* BOLT #7:
 	 *
@@ -125,17 +126,43 @@ static void get_nannounce_parts(const u8 *node_announcement,
 	sizes[0] = 2 + fromwire_u16(&flen, &len);
 	assert(flen != NULL && len >= 4);
 
+	/* BOLT-0fe3485a5320efaa2be8cfa0e570ad4d0259cec3 #7:
+	 *
+	 *    * [`u32`:`timestamp`]
+	 *    * [`point`:`node_id`]
+	 *    * [`3*byte`:`rgb_color`]
+	 *    * [`32*byte`:`alias`]
+	 *    * [`u16`:`addrlen`]
+	 *    * [`addrlen*byte`:`addresses`]
+	 *    * [`node_ann_tlvs`:`tlvs`]
+	*/
 	parts[1] = node_announcement + 2 + 64 + sizes[0] + 4;
-	sizes[1] = tal_count(node_announcement) - (2 + 64 + sizes[0] + 4);
+
+	/* Find the end of the addresses */
+	ad_start = parts[1] + 33 + 3 + 32;
+	len = tal_count(node_announcement)
+		- (2 + 64 + sizes[0] + 4 + 33 + 3 + 32);
+	ad_len = fromwire_u16(&ad_start, &len);
+	assert(ad_start != NULL && len >= ad_len);
+
+	sizes[1] = 33 + 3 + 32 + 2 + ad_len;
+
+	/* Is there a TLV ? */
+	sizes[2] = len - ad_len;
+	if (sizes[2] != 0)
+		parts[2] = parts[1] + sizes[1];
+	else
+		parts[2] = NULL;
 }
 
 /* Is this node_announcement different from prev (not sigs and timestamps)? */
 bool nannounce_different(struct gossip_store *gs,
 			 const struct node *node,
-			 const u8 *nannounce)
+			 const u8 *nannounce,
+			 bool *only_missing_tlv)
 {
-	const u8 *oparts[2], *nparts[2];
-	size_t osizes[2], nsizes[2];
+	const u8 *oparts[3], *nparts[3];
+	size_t osizes[3], nsizes[3];
 	const u8 *orig;
 
 	/* Get last one we have. */
@@ -143,8 +170,14 @@ bool nannounce_different(struct gossip_store *gs,
 	get_nannounce_parts(orig, oparts, osizes);
 	get_nannounce_parts(nannounce, nparts, nsizes);
 
+	if (only_missing_tlv)
+		*only_missing_tlv = memeq(oparts[0], osizes[0], nparts[0], nsizes[0])
+			&& memeq(oparts[1], osizes[1], nparts[1], nsizes[1])
+			&& !memeq(oparts[2], osizes[2], nparts[2], nsizes[2]);
+
 	return !memeq(oparts[0], osizes[0], nparts[0], nsizes[0])
-		|| !memeq(oparts[1], osizes[1], nparts[1], nsizes[1]);
+		|| !memeq(oparts[1], osizes[1], nparts[1], nsizes[1])
+		|| !memeq(oparts[2], osizes[2], nparts[2], nsizes[2]);
 }
 
 /* This routine created a `node_announcement` for our node, and hands it to
@@ -177,7 +210,8 @@ static void update_own_node_announcement(struct daemon *daemon)
 	if (self && self->bcast.index) {
 		u32 next;
 
-		if (!nannounce_different(daemon->rstate->gs, self, nannounce))
+		if (!nannounce_different(daemon->rstate->gs, self, nannounce,
+					 NULL))
 			return;
 
 		/* BOLT #7:
