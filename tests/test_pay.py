@@ -4,7 +4,7 @@ from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
-from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND
+from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
     EXPERIMENTAL_FEATURES, env, VALGRIND
@@ -4292,3 +4292,13 @@ gives a routehint straight to us causes an issue
     l3.stop()
     with pytest.raises(RpcError, match=r'Destination .* is not reachable directly and all routehints were unusable'):
         l2.rpc.pay(inv)
+
+
+@pytest.mark.xfail(strict=True)
+def test_pay_low_max_htlcs(node_factory):
+    """Test we can pay if *any* HTLC slots are available"""
+
+    l1, l2, l3 = node_factory.line_graph(3,
+                                         opts={'max-concurrent-htlcs': 1},
+                                         wait_for_announce=True)
+    l1.rpc.pay(l3.rpc.invoice(FUNDAMOUNT * 50, "test", "test")['bolt11'])
