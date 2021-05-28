@@ -178,18 +178,21 @@ void dump_htlcs(const struct channel *channel, const char *prefix)
  * committed: HTLCs currently committed.
  * pending_removal: HTLCs pending removal (subset of committed)
  * pending_addition: HTLCs pending addition (no overlap with committed)
+ *
+ * Also returns number of HTLCs for other side.
  */
-static void gather_htlcs(const tal_t *ctx,
-			 const struct channel *channel,
-			 enum side side,
-			 const struct htlc ***committed,
-			 const struct htlc ***pending_removal,
-			 const struct htlc ***pending_addition)
+static size_t gather_htlcs(const tal_t *ctx,
+			   const struct channel *channel,
+			   enum side side,
+			   const struct htlc ***committed,
+			   const struct htlc ***pending_removal,
+			   const struct htlc ***pending_addition)
 {
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
 	const int committed_flag = HTLC_FLAG(side, HTLC_F_COMMITTED);
 	const int pending_flag = HTLC_FLAG(side, HTLC_F_PENDING);
+	size_t num_other_side = 0;
 
 	*committed = tal_arr(ctx, const struct htlc *, 0);
 	if (pending_removal)
@@ -198,18 +201,33 @@ static void gather_htlcs(const tal_t *ctx,
 		*pending_addition = tal_arr(ctx, const struct htlc *, 0);
 
 	if (!channel->htlcs)
-		return;
+		return num_other_side;
 
 	for (htlc = htlc_map_first(channel->htlcs, &it);
 	     htlc;
 	     htlc = htlc_map_next(channel->htlcs, &it)) {
 		if (htlc_has(htlc, committed_flag)) {
+#ifdef SUPERVERBOSE
+			dump_htlc(htlc, "COMMITTED");
+#endif
 			htlc_arr_append(committed, htlc);
-			if (htlc_has(htlc, pending_flag))
+			if (htlc_has(htlc, pending_flag)) {
+#ifdef SUPERVERBOSE
+				dump_htlc(htlc, "REMOVING");
+#endif
 				htlc_arr_append(pending_removal, htlc);
-		} else if (htlc_has(htlc, pending_flag))
+			} else if (htlc_owner(htlc) != side)
+				num_other_side++;
+		} else if (htlc_has(htlc, pending_flag)) {
 			htlc_arr_append(pending_addition, htlc);
+#ifdef SUPERVERBOSE
+			dump_htlc(htlc, "ADDING");
+#endif
+			if (htlc_owner(htlc) != side)
+				num_other_side++;
+		}
 	}
+	return num_other_side;
 }
 
 static bool sum_offered_msatoshis(struct amount_msat *total,
@@ -489,6 +507,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	enum side sender = htlc_state_owner(state), recipient = !sender;
 	const struct htlc **committed, **adding, **removing;
 	const struct channel_view *view;
+	size_t htlc_count;
 
 	htlc = tal(tmpctx, struct htlc);
 
@@ -563,7 +582,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	}
 
 	/* Figure out what receiver will already be committed to. */
-	gather_htlcs(tmpctx, channel, recipient, &committed, &removing, &adding);
+	htlc_count = gather_htlcs(tmpctx, channel, recipient, &committed, &removing, &adding);
 	htlc_arr_append(&adding, htlc);
 
 	/* BOLT #2:
@@ -572,8 +591,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 *     HTLCs to its local commitment transaction...
 	 *     - SHOULD fail the channel.
 	 */
-	if (tal_count(committed) - tal_count(removing) + tal_count(adding)
-	    > channel->config[recipient].max_accepted_htlcs) {
+	if (htlc_count + 1 > channel->config[recipient].max_accepted_htlcs) {
 		return CHANNEL_ERR_TOO_MANY_HTLCS;
 	}
 
@@ -583,8 +601,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 * spike with large commitment transactions.
 	 */
 	if (sender == LOCAL
-	    && tal_count(committed) - tal_count(removing) + tal_count(adding)
-	    > channel->config[LOCAL].max_accepted_htlcs) {
+	    && htlc_count + 1 > channel->config[LOCAL].max_accepted_htlcs) {
 		return CHANNEL_ERR_TOO_MANY_HTLCS;
 	}
 
