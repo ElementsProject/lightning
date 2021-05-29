@@ -277,6 +277,7 @@ void plugin_notify_progress(struct command *cmd,
 /* Standard helpers */
 char *u64_option(const char *arg, u64 *i);
 char *u32_option(const char *arg, u32 *i);
+char *u16_option(const char *arg, u16 *i);
 char *bool_option(const char *arg, bool *i);
 char *charp_option(const char *arg, char **p);
 char *flag_option(const char *arg, bool *i);
