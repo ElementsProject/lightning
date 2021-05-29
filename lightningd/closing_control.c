@@ -97,15 +97,27 @@ static void peer_received_closing_signature(struct channel *channel,
 	struct bitcoin_tx *tx;
 	struct bitcoin_txid tx_id;
 	struct lightningd *ld = channel->peer->ld;
+	u8 *funding_wscript;
 
 	if (!fromwire_closingd_received_signature(msg, msg, &sig, &tx)) {
-		channel_internal_error(channel, "Bad closing_received_signature %s",
+		channel_internal_error(channel,
+				       "Bad closing_received_signature %s",
 				       tal_hex(msg, msg));
 		return;
 	}
 	tx->chainparams = chainparams;
 
-	/* FIXME: Make sure signature is correct! */
+	funding_wscript = bitcoin_redeem_2of2(tmpctx,
+				       	      &channel->local_funding_pubkey,
+				       	      &channel->channel_info.remote_fundingkey);
+	if (!check_tx_sig(tx, 0, NULL, funding_wscript,
+			  &channel->channel_info.remote_fundingkey, &sig)) {
+		channel_internal_error(channel,
+				       "Bad closing_received_signature %s",
+				       tal_hex(msg, msg));
+		return;
+	}
+
 	if (closing_fee_is_acceptable(ld, channel, tx)) {
 		channel_set_last_tx(channel, tx, &sig, TX_CHANNEL_CLOSE);
 		wallet_channel_save(ld->wallet, channel);
