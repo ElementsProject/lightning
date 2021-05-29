@@ -925,6 +925,25 @@ char *u32_option(const char *arg, u32 *i)
 	return NULL;
 }
 
+char *u16_option(const char *arg, u16 *i)
+{
+	char *endp;
+	u64 n;
+
+	errno = 0;
+	n = strtoul(arg, &endp, 0);
+	if (*endp || !arg[0])
+		return tal_fmt(NULL, "'%s' is not a number", arg);
+	if (errno)
+		return tal_fmt(NULL, "'%s' is out of range", arg);
+
+	*i = n;
+	if (*i != n)
+		return tal_fmt(NULL, "'%s' is too large (overflow)", arg);
+
+	return NULL;
+}
+
 char *bool_option(const char *arg, bool *i)
 {
 	if (!streq(arg, "true") && !streq(arg, "false"))
