@@ -1518,6 +1518,8 @@ connect_done(struct multifundchannel_destination *dest)
 	struct multifundchannel_command *mfc = dest->mfc;
 
 	--mfc->pending;
+	plugin_log(mfc->cmd->plugin, LOG_DBG,
+		   "mfc %"PRIu64", pending = %zu", mfc->id, mfc->pending);
 	if (mfc->pending == 0)
 		return after_multiconnect(mfc);
 	else
