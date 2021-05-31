@@ -1347,7 +1347,18 @@ def test_repro_4258(node_factory, bitcoind):
 
 def test_retreival_closed_channel(node_factory):
     """
-    Test that ensure that the listchannels return the closed channel
+    Ensure that the listchannels return the closed channel
     and ensure that this operation has not side effect.
     """
-    pass
+    l1, l2 = node_factory.get_nodes(2)
+    l1.fundwallet(10**6)
+
+    l1.connect(l2)
+    l1.rpc.fundchannel(l2.info['id'], 10**5)
+    wait_for(lambda: l1.rpc.listfunds()['channels'] != [])
+
+    l1.rpc.close(l2.info['id'])
+    wait_for(lambda: l1.rpc.listfunds()['channels'] == 0)
+
+    list_channels = l1.rpc.listchannels(closed=10)
+    assert "closed" in list_channels

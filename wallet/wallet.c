@@ -1986,15 +1986,15 @@ void wallet_channel_close(struct wallet *w, u64 wallet_id)
 }
 
 //TODO: Vincenzo Working here
-struct channel **wallet_get_channels_closed(struct wallet *w, const tal_t *ctx, u32 *buffer)
+struct channel **wallet_get_channels_closed(struct wallet *w, const tal_t *ctx)
 {
 	struct db_stmt *stmt;
 	struct channel **channels;
 
 
-	stmt = db_prepare_v2(w->db, SQL("SELECT * FROM channels WHERE state=?"));
+	stmt = db_prepare_v2(w->db, SQL("SELECT * FROM channels WHERE state=?;"));
 	db_bind_u64(stmt, 0, CLOSED);
-	db_exec_prepared_v2(take(stmt));
+	db_query_prepared(stmt);
 
 
 	channels = tal_arr(ctx, struct channel*, 0);

@@ -536,8 +536,7 @@ void wallet_channel_clear_inflights(struct wallet *w,
  */
 void wallet_channel_close(struct wallet *w, u64 wallet_id);
 
-//TODO: Vincenzo Palazzo: Adding doc here
-struct channel **wallet_get_channels_closed(struct wallet *w, const tal_t *ctx, u32 *buffer);
+struct channel **wallet_get_channels_closed(struct wallet *w, const tal_t *ctx);
 
 /**
  * Adds a channel state change history entry into the database

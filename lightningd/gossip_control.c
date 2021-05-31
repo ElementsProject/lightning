@@ -497,7 +497,7 @@ struct listchannels_info {
 	struct json_stream *response;
 	struct short_channel_id *id;
 	struct node_id *source;
-	u32 *closed;
+	bool *closed;
 };
 
 /* Called upon receiving a getchannels_reply from `gossipd` */
@@ -536,11 +536,21 @@ static void json_listchannels_reply(struct subd *gossip UNUSED, const u8 *reply,
 		return;
 	}
 
+	json_array_end(linfo->response);
+	// TODO(vincenzopalazzo): Good place where add the transaction?
 	if (linfo->closed) {
-		wallet_get_channels_closed(gossip->ld->wallet, tmpctx, linfo->closed);
+	        struct channel **channels =
+			wallet_get_channels_closed(gossip->ld->wallet,
+						   tmpctx);
+		if (channels) {
+			json_array_start(linfo->response, "closed");
+			for (size_t i = 0; i < tal_count(channels); i++)
+				json_add_channel(gossip->ld, linfo->response,
+						 NULL, channels[i]);
+			json_array_end(linfo->response);
+		}
 	}
 
-	json_array_end(linfo->response);
 	was_pending(command_success(linfo->cmd, linfo->response));
 }
 
@@ -556,7 +566,7 @@ static struct command_result *json_listchannels(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_opt("short_channel_id", param_short_channel_id, &linfo->id),
 		   p_opt("source", param_node_id, &linfo->source),
-		   p_opt("closed", param_number, &linfo->closed),
+		   p_opt_def("closed", param_bool, &linfo->closed, false),
 		   NULL))
 		return command_param_failed();
 

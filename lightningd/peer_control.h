@@ -53,6 +53,10 @@ struct peer {
 #endif
 };
 
+void json_add_channel(struct lightningd *ld,
+		      struct json_stream *response, const char *key,
+		      const struct channel *channel);
+
 struct peer *find_peer_by_dbid(struct lightningd *ld, u64 dbid);
 
 struct peer *new_peer(struct lightningd *ld, u64 dbid,

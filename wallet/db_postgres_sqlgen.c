@@ -1473,8 +1473,8 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT * FROM channels WHERE state=?",
-         .query = "SELECT * FROM channels WHERE state=$1",
+         .name = "SELECT * FROM channels WHERE state=?;",
+         .query = "SELECT * FROM channels WHERE state=$1;",
          .placeholders = 1,
          .readonly = true,
     },
@@ -1906,22 +1906,10 @@ struct db_query db_postgres_queries[] = {
     },
 };
 
-<<<<<<< refs/remotes/ElementsProject/master
-#define DB_POSTGRES_QUERY_COUNT 315
-=======
-#define DB_POSTGRES_QUERY_COUNT 313
->>>>>>> Prepare tests
+#define DB_POSTGRES_QUERY_COUNT 316
 
 #endif /* HAVE_POSTGRES */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-<<<<<<< refs/remotes/ElementsProject/master
-// SHA256STAMP:3ab5cc5d3610b26e4df12de155aa85990ac825c0e75a1adf410e67e2ca173327
-=======
-<<<<<<< refs/remotes/ElementsProject/master
-// SHA256STAMP:387f4000b85417999e9b27c6d795d4f19012a5515e2464312e865b7f654d70dd
-=======
-// SHA256STAMP:87a364f3a2349e44f1685227f9075605cf1afa70f8648edb2252df0b7cd9bb4a
->>>>>>> Prepare tests
->>>>>>> Prepare tests
+// SHA256STAMP:2a6eb3b09948be4b800671715592e273d94f56772a5e1d8d221b8bd32df3f6bf
