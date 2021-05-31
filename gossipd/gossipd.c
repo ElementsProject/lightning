@@ -741,6 +741,9 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_INIT_RBF:
 	case WIRE_ACK_RBF:
+#if EXPERIMENTAL_FEATURES
+	case WIRE_STFU:
+#endif
 		status_broken("peer %s: relayed unexpected msg of type %s",
 			      type_to_string(tmpctx, struct node_id, &peer->id),
 			      peer_wire_name(fromwire_peektype(msg)));
