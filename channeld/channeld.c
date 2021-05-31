@@ -159,6 +159,17 @@ struct peer {
 	/* If master told us to send wrong_funding */
 	struct bitcoin_outpoint *shutdown_wrong_funding;
 
+#if EXPERIMENTAL_FEATURES
+	/* Do we want quiescence? */
+	bool stfu;
+	/* Which side is considered the initiator? */
+	enum side stfu_initiator;
+	/* Has stfu been sent by each side? */
+	bool stfu_sent[NUM_SIDES];
+	/* Updates master asked, which we've deferred while quiescing */
+	struct msg_queue *update_queue;
+#endif
+
 	/* Information used for reestablishment. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;
@@ -272,6 +283,99 @@ static struct amount_msat advertized_htlc_max(const struct channel *channel)
 
 	return lower_bound_msat;
 }
+
+#if EXPERIMENTAL_FEATURES
+static void maybe_send_stfu(struct peer *peer)
+{
+	if (!peer->stfu)
+		return;
+
+	if (!peer->stfu_sent[LOCAL] && !pending_updates(peer->channel, LOCAL)) {
+		u8 *msg = towire_stfu(NULL, &peer->channel_id,
+				      peer->stfu_initiator == LOCAL);
+		sync_crypto_write(peer->pps, take(msg));
+		peer->stfu_sent[LOCAL] = true;
+	}
+
+	/* FIXME: We're finished, do something! */
+	if (peer->stfu_sent[LOCAL] && peer->stfu_sent[REMOTE])
+		status_unusual("STFU complete: we are quiescent");
+}
+
+static void handle_stfu(struct peer *peer, const u8 *stfu)
+{
+	struct channel_id channel_id;
+	u8 remote_initiated;
+
+	if (!fromwire_stfu(stfu, &channel_id, &remote_initiated))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Bad stfu %s", tal_hex(peer, stfu));
+
+	if (!channel_id_eq(&channel_id, &peer->channel_id)) {
+		peer_failed_err(peer->pps, &channel_id,
+				"Wrong stfu channel_id: expected %s, got %s",
+				type_to_string(tmpctx, struct channel_id,
+					       &peer->channel_id),
+				type_to_string(tmpctx, struct channel_id,
+					       &channel_id));
+	}
+
+	/* Sanity check */
+	if (pending_updates(peer->channel, REMOTE))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "STFU but you still have updates pending?");
+
+	if (!peer->stfu) {
+		peer->stfu = true;
+		if (!remote_initiated)
+			peer_failed_warn(peer->pps, &peer->channel_id,
+					 "Unsolicited STFU but you said"
+					 " you didn't initiate?");
+		peer->stfu_initiator = REMOTE;
+	} else {
+		/* BOLT-quiescent #2:
+		 *
+		 * If both sides send `stfu` simultaneously, they will both
+		 * set `initiator` to `1`, in which case the "initiator" is
+		 * arbitrarily considered to be the channel funder (the sender
+		 * of `open_channel`).
+		 */
+		if (remote_initiated)
+			peer->stfu_initiator = peer->channel->opener;
+	}
+
+	/* BOLT-quiescent #2:
+	 * The receiver of `stfu`:
+	 *   - if it has sent `stfu` then:
+	 *     - MUST now consider the channel to be quiescent
+	 *   - otherwise:
+	 *     - SHOULD NOT send any more update messages.
+	 *     - MUST reply with `stfu` once it can do so.
+	 */
+	peer->stfu_sent[REMOTE] = true;
+
+	maybe_send_stfu(peer);
+}
+
+/* Returns true if we queued this for later handling (steals if true) */
+static bool handle_master_request_later(struct peer *peer, const u8 *msg)
+{
+	if (peer->stfu) {
+		msg_enqueue(peer->update_queue, take(msg));
+		return true;
+	}
+	return false;
+}
+#else /* !EXPERIMENTAL_FEATURES */
+static bool handle_master_request_later(struct peer *peer, const u8 *msg)
+{
+	return false;
+}
+
+static void maybe_send_stfu(struct peer *peer)
+{
+}
+#endif
 
 /* Create and send channel_update to gossipd (and maybe peer) */
 static void send_channel_update(struct peer *peer, int disable_flag)
@@ -952,6 +1056,12 @@ static bool want_fee_update(const struct peer *peer, u32 *target)
 	if (peer->channel->opener != LOCAL)
 		return false;
 
+#if EXPERIMENTAL_FEATURES
+	/* No fee update while quiescing! */
+	if (peer->stfu)
+		return false;
+#endif
+
 	max = approx_max_feerate(peer->channel);
 	val = peer->desired_feerate;
 
@@ -1408,6 +1518,9 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	send_revocation(peer,
 			&commit_sig, htlc_sigs, changed_htlcs, txs[0]);
 
+	/* We may now be quiescent on our side. */
+	maybe_send_stfu(peer);
+
 	/* This might have synced the feerates: if so, we may want to
 	 * update */
 	if (want_fee_update(peer, NULL))
@@ -1536,6 +1649,9 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 				    &peer->remote_per_commit),
 		     type_to_string(tmpctx, struct pubkey,
 				    &peer->old_remote_per_commit));
+
+	/* We may now be quiescent on our side. */
+	maybe_send_stfu(peer);
 
 	start_commit_timer(peer);
 }
@@ -1931,6 +2047,11 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		handle_peer_shutdown(peer, msg);
 		return;
 
+#if EXPERIMENTAL_FEATURES
+	case WIRE_STFU:
+		handle_stfu(peer, msg);
+		return;
+#endif
 	case WIRE_INIT:
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_ACCEPT_CHANNEL:
@@ -1949,9 +2070,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		return;
 	case WIRE_INIT_RBF:
 	case WIRE_ACK_RBF:
-#if EXPERIMENTAL_FEATURES
-	case WIRE_STFU:
-#endif
 		break;
 
 	case WIRE_CHANNEL_REESTABLISH:
@@ -2972,18 +3090,28 @@ static void req_in(struct peer *peer, const u8 *msg)
 		handle_funding_depth(peer, msg);
 		return;
 	case WIRE_CHANNELD_OFFER_HTLC:
+		if (handle_master_request_later(peer, msg))
+			return;
 		handle_offer_htlc(peer, msg);
 		return;
 	case WIRE_CHANNELD_FEERATES:
+		if (handle_master_request_later(peer, msg))
+			return;
 		handle_feerates(peer, msg);
 		return;
 	case WIRE_CHANNELD_FULFILL_HTLC:
+		if (handle_master_request_later(peer, msg))
+			return;
 		handle_preimage(peer, msg);
 		return;
 	case WIRE_CHANNELD_FAIL_HTLC:
+		if (handle_master_request_later(peer, msg))
+			return;
 		handle_fail(peer, msg);
 		return;
 	case WIRE_CHANNELD_SPECIFIC_FEERATES:
+		if (handle_master_request_later(peer, msg))
+			return;
 		handle_specific_feerates(peer, msg);
 		return;
 	case WIRE_CHANNELD_SEND_SHUTDOWN:
@@ -3266,6 +3394,11 @@ int main(int argc, char *argv[])
 	/* We actually received it in the previous daemon, but near enough */
 	peer->last_recv = time_now();
 	peer->last_empty_commitment = 0;
+#if EXPERIMENTAL_FEATURES
+	peer->stfu = false;
+	peer->stfu_sent[LOCAL] = peer->stfu_sent[REMOTE] = false;
+	peer->update_queue = msg_queue_new(peer);
+#endif
 
 	/* We send these to HSM to get real signatures; don't have valgrind
 	 * complain. */
