@@ -3470,6 +3470,30 @@ def test_openchannel_init_alternate(node_factory, executor):
         fut.result(10)
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "quiescence is experimental")
+@pytest.mark.developer("quiescence triggering is dev only")
+def test_quiescence(node_factory, executor):
+    l1, l2 = node_factory.line_graph(2)
+
+    # Works fine.
+    l1.pay(l2, 1000)
+
+    assert l1.rpc.call('dev-quiesce', [l2.info['id']]) == {}
+
+    # Both should consider themselves quiescent.
+    l1.daemon.wait_for_log("STFU complete: we are quiescent")
+    l2.daemon.wait_for_log("STFU complete: we are quiescent")
+
+    # Should not be able to increase fees.
+    l1.rpc.call('dev-feerate', [l2.info['id'], 9999])
+
+    try:
+        l1.daemon.wait_for_log('peer_out WIRE_UPDATE_FEE', 5)
+        assert False
+    except TimeoutError:
+        pass
+
+
 def test_htlc_failed_noclose(node_factory):
     """Test a bug where the htlc timeout would kick in even if the HTLC failed"""
     l1, l2 = node_factory.line_graph(2)

@@ -70,6 +70,9 @@ enum channeld_wire {
         WIRE_CHANNELD_SEND_ERROR = 1008,
         /*  Tell master channeld has sent the error message. */
         WIRE_CHANNELD_SEND_ERROR_REPLY = 1108,
+        /*  Ask channeld to quiesce. */
+        WIRE_CHANNELD_DEV_QUIESCE = 1009,
+        WIRE_CHANNELD_DEV_QUIESCE_REPLY = 1109,
 };
 
 const char *channeld_wire_name(int e);
@@ -211,6 +214,15 @@ bool fromwire_channeld_send_error(const tal_t *ctx, const void *p, wirestring **
 u8 *towire_channeld_send_error_reply(const tal_t *ctx);
 bool fromwire_channeld_send_error_reply(const void *p);
 
+/* WIRE: CHANNELD_DEV_QUIESCE */
+/*  Ask channeld to quiesce. */
+u8 *towire_channeld_dev_quiesce(const tal_t *ctx);
+bool fromwire_channeld_dev_quiesce(const void *p);
+
+/* WIRE: CHANNELD_DEV_QUIESCE_REPLY */
+u8 *towire_channeld_dev_quiesce_reply(const tal_t *ctx);
+bool fromwire_channeld_dev_quiesce_reply(const void *p);
+
 
 #endif /* LIGHTNING_CHANNELD_CHANNELD_WIREGEN_H */
-// SHA256STAMP:60143693b0c3611c8ecdf7f3549ef9f4c280e359cac0cd1f4df38cdca2dad3cb
+// SHA256STAMP:720f9917311384d373593dc1550619ddf461bdabde8b312ed6dc632cb7860c34
