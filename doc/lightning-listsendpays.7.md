@@ -20,7 +20,7 @@ command per *pay*, so this command should be used with caution.
 RETURN VALUE
 ------------
 
-On success, an array of objects is returned. Each object contains:
+On success, an array of objects is returned, ordered by increasing *id*. Each object contains:
 
  *id*
 unique internal value assigned at creation

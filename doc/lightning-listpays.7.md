@@ -37,6 +37,8 @@ If **status** is "failed":
   - **erroronion** (hex, optional): the error onion returned on failure, if any.
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
+The returned array is ordered by increasing **created_at** fields.
+
 AUTHOR
 ------
 
