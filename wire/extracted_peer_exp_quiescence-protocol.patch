@@ -1,0 +1,12 @@
+--- wire/peer_exp_wire.csv	2021-05-17 09:30:02.302260471 +0930
++++ -	2021-05-31 12:20:36.390910632 +0930
+@@ -120,6 +82,9 @@
+ msgtype,ack_rbf,73
+ msgdata,ack_rbf,channel_id,channel_id,
+ msgdata,ack_rbf,funding_satoshis,u64,
++msgtype,stfu,2
++msgdata,stfu,channel_id,channel_id,
++msgdata,stfu,initiator,u8,
+ msgtype,shutdown,38
+ msgdata,shutdown,channel_id,channel_id,
+ msgdata,shutdown,len,u16,
