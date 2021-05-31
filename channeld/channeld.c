@@ -297,9 +297,11 @@ static void maybe_send_stfu(struct peer *peer)
 		peer->stfu_sent[LOCAL] = true;
 	}
 
-	/* FIXME: We're finished, do something! */
-	if (peer->stfu_sent[LOCAL] && peer->stfu_sent[REMOTE])
+	if (peer->stfu_sent[LOCAL] && peer->stfu_sent[REMOTE]) {
 		status_unusual("STFU complete: we are quiescent");
+		wire_sync_write(MASTER_FD,
+				towire_channeld_dev_quiesce_reply(tmpctx));
+	}
 }
 
 static void handle_stfu(struct peer *peer, const u8 *stfu)
@@ -3079,6 +3081,22 @@ static void channeld_send_custommsg(struct peer *peer, const u8 *msg)
 		master_badmsg(WIRE_CUSTOMMSG_OUT, msg);
 	sync_crypto_write(peer->pps, take(inner));
 }
+
+#if EXPERIMENTAL_FEATURES
+static void handle_dev_quiesce(struct peer *peer, const u8 *msg)
+{
+	if (!fromwire_channeld_dev_quiesce(msg))
+		master_badmsg(WIRE_CHANNELD_DEV_QUIESCE, msg);
+
+	/* Don't do this twice. */
+	if (peer->stfu)
+		status_failed(STATUS_FAIL_MASTER_IO, "dev_quiesce already");
+
+	peer->stfu = true;
+	peer->stfu_initiator = LOCAL;
+	maybe_send_stfu(peer);
+}
+#endif /* EXPERIMENTAL_FEATURES */
 #endif /* DEVELOPER */
 
 static void req_in(struct peer *peer, const u8 *msg)
@@ -3127,9 +3145,15 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_DEV_MEMLEAK:
 		handle_dev_memleak(peer, msg);
 		return;
+	case WIRE_CHANNELD_DEV_QUIESCE:
+#if EXPERIMENTAL_FEATURES
+		handle_dev_quiesce(peer, msg);
+		return;
+#endif /* EXPERIMENTAL_FEATURES */
 #else
 	case WIRE_CHANNELD_DEV_REENABLE_COMMIT:
 	case WIRE_CHANNELD_DEV_MEMLEAK:
+	case WIRE_CHANNELD_DEV_QUIESCE:
 #endif /* DEVELOPER */
 	case WIRE_CHANNELD_INIT:
 	case WIRE_CHANNELD_OFFER_HTLC_REPLY:
@@ -3147,6 +3171,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_FAIL_FALLEN_BEHIND:
 	case WIRE_CHANNELD_DEV_MEMLEAK_REPLY:
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
+	case WIRE_CHANNELD_DEV_QUIESCE_REPLY:
 		break;
 	}
 

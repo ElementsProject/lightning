@@ -217,3 +217,7 @@ msgdata,channeld_send_error,reason,wirestring,
 
 # Tell master channeld has sent the error message.
 msgtype,channeld_send_error_reply,1108
+
+# Ask channeld to quiesce.
+msgtype,channeld_dev_quiesce,1009
+msgtype,channeld_dev_quiesce_reply,1109
