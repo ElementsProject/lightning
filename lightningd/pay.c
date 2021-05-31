@@ -1033,13 +1033,12 @@ send_payment_core(struct lightningd *ld,
 				       "First peer not ready"));
 	}
 
-	/* If we're retrying, delete all trace of previous one.  We delete
-	 * outgoing HTLC, too, otherwise it gets reported to onchaind as
-	 * a possibility, and we end up in handle_missing_htlc_output->
-	 * onchain_failed_our_htlc->payment_failed with no payment.
+	/* If we're retrying we delete outgoing HTLC otherwise it gets
+	 * reported to onchaind as a possibility, and we end up in
+	 * handle_missing_htlc_output -> onchain_failed_our_htlc ->
+	 * payment_failed with no payment.
 	 */
 	if (old_payment) {
-		wallet_payment_delete(ld->wallet, rhash, partid);
 		wallet_local_htlc_out_delete(ld->wallet, channel, rhash,
 					     partid);
 	}
