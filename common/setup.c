@@ -19,6 +19,7 @@ static void wally_free(void *ptr)
 }
 
 static struct wally_operations wally_tal_ops = {
+	.struct_size = sizeof(struct wally_operations),
 	.malloc_fn = wally_tal,
 	.free_fn = wally_free,
 };
