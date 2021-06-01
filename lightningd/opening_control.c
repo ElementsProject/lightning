@@ -1177,6 +1177,15 @@ static struct command_result *json_fundchannel_start(struct command *cmd,
 	}
 
 	if (!peer->uncommitted_channel) {
+		if (feature_negotiated(cmd->ld->our_features,
+				       peer->their_features,
+				       OPT_DUAL_FUND))
+			return command_fail(cmd, FUNDING_STATE_INVALID,
+					    "Peer negotiated"
+					    " `option_dual_fund`,"
+					    " must use `openchannel_init` not"
+					    " `fundchannel_start`.");
+
 		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
 				    "Peer not connected");
 	}
