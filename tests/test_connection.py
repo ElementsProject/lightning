@@ -3463,11 +3463,19 @@ def test_openchannel_init_alternate(node_factory, executor):
 
     psbt1 = l1.rpc.fundpsbt('1000000msat', '253perkw', 250)['psbt']
     psbt2 = l2.rpc.fundpsbt('1000000msat', '253perkw', 250)['psbt']
-    l1.rpc.openchannel_init(l2.info['id'], 100000, psbt1)
+    init = l1.rpc.openchannel_init(l2.info['id'], 100000, psbt1)
 
     fut = executor.submit(l2.rpc.openchannel_init, l1.info['id'], '1000000msat', psbt2)
     with pytest.raises(RpcError):
         fut.result(10)
+
+    # FIXME: Clean up so it doesn't hang. Ok if these fail.
+    for node in [l1, l2]:
+        try:
+            node.rpc.openchannel_abort(init['channel_id'])
+        except RpcError:
+            # Ignoring all errors
+            print("nothing to do")
 
 
 def test_htlc_failed_noclose(node_factory):
