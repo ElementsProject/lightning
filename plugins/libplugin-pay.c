@@ -3596,18 +3596,17 @@ static void adaptive_splitter_cb(struct adaptive_split_mod_data *d, struct payme
 		 * update our htlc_budget that we own exclusively from now
 		 * on. We do this by subtracting the number of payment
 		 * attempts an eventual presplitter has already performed. */
-		struct payment_tree_result res;
-		res = payment_collect_result(p);
+		int children = tal_count(p->children);
 		d->htlc_budget = payment_max_htlcs(p);
-		if (res.attempts > d->htlc_budget) {
+		if (children > d->htlc_budget) {
 			p->abort = true;
 			return payment_fail(
 			    p,
 			    "Cannot add %d HTLCs to our channels, we "
 			    "only have %d HTLCs available.",
-			    res.attempts, d->htlc_budget);
+			    children, d->htlc_budget);
 		}
-		d->htlc_budget -= res.attempts;
+		d->htlc_budget -= children;
 	}
 
 	if (p->step == PAYMENT_STEP_ONION_PAYLOAD) {
