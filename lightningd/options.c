@@ -390,16 +390,8 @@ static char *opt_important_plugin(const char *arg, struct lightningd *ld)
  */
 static char *opt_set_hsm_password(struct lightningd *ld)
 {
-	struct termios current_term, temp_term;
 	char *passwd, *passwd_confirmation, *err;
 
-	/* Get the password from stdin, but don't echo it. */
-	if (tcgetattr(fileno(stdin), &current_term) != 0)
-		return "Could not get current terminal options.";
-	temp_term = current_term;
-	temp_term.c_lflag &= ~ECHO;
-	if (tcsetattr(fileno(stdin), TCSAFLUSH, &temp_term) != 0)
-		return "Could not disable password echoing.";
 	printf("The hsm_secret is encrypted with a password. In order to "
 	       "decrypt it and start the node you must provide the password.\n");
 	printf("Enter hsm_secret password:\n");
