@@ -1011,7 +1011,8 @@ static bool htlc_accepted_hook_deserialize(struct htlc_accepted_hook_payload *re
 }
 
 static void htlc_accepted_hook_serialize(struct htlc_accepted_hook_payload *p,
-					 struct json_stream *s)
+					 struct json_stream *s,
+					 struct plugin *plugin)
 {
 	const struct route_step *rs = p->route_step;
 	const struct htlc_in *hin = p->hin;
@@ -2034,7 +2035,8 @@ struct commitment_revocation_payload {
 };
 
 static void commitment_revocation_hook_serialize(
-    struct commitment_revocation_payload *payload, struct json_stream *stream)
+    struct commitment_revocation_payload *payload, struct json_stream *stream,
+    struct plugin *plugin)
 {
 	json_add_txid(stream, "commitment_txid", &payload->commitment_txid);
 	json_add_tx(stream, "penalty_tx", payload->penalty_tx);

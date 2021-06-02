@@ -15,9 +15,9 @@ struct onion_message_hook_payload {
 	struct tlv_onionmsg_payload *om;
 };
 
-static void
-onion_message_serialize(struct onion_message_hook_payload *payload,
-			   struct json_stream *stream)
+static void onion_message_serialize(struct onion_message_hook_payload *payload,
+				    struct json_stream *stream,
+				    struct plugin *plugin)
 {
 	json_object_start(stream, "onion_message");
 	if (payload->blinding_in)

@@ -674,7 +674,8 @@ struct rpc_command_hook_payload {
 };
 
 static void rpc_command_hook_serialize(struct rpc_command_hook_payload *p,
-                                       struct json_stream *s)
+				       struct json_stream *s,
+				       struct plugin *plugin)
 {
 	const jsmntok_t *tok;
 	size_t i;
