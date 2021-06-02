@@ -3476,14 +3476,20 @@ static void presplit_cb(struct presplit_mod_data *d, struct payment *p)
 		if (htlcs >= PRESPLIT_MAX_HTLC_SHARE)
 			htlcs /= PRESPLIT_MAX_HTLC_SHARE;
 
+		int targethtlcs =
+		    p->amount.millisatoshis / target_amount; /* Raw: division */
 		if (htlcs == 0) {
 			p->abort = true;
 			return payment_fail(
 			    p, "Cannot attempt payment, we have no channel to "
 			       "which we can add an HTLC");
-		} else if (p->amount.millisatoshis / target_amount > htlcs) /* Raw: division */
-			target = amount_msat_div(p->amount, htlcs);
-		else
+		} else if (targethtlcs > htlcs) {
+			paymod_log(p, LOG_INFORM,
+				   "Number of pre-split HTLCs (%d) exceeds our "
+				   "HTLC budget (%d), skipping pre-splitter",
+				   targethtlcs, htlcs);
+			return payment_continue(p);
+		} else
 			target = amount_msat(target_amount);
 
 		/* If we are already below the target size don't split it
