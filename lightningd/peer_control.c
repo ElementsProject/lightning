@@ -505,6 +505,8 @@ static void json_add_htlcs(struct lightningd *ld,
 				    channel->our_config.dust_limit, LOCAL,
 				    channel->option_anchor_outputs))
 			json_add_bool(response, "local_trimmed", true);
+		if (hin->status != NULL)
+			json_add_string(response, "status", hin->status);
 		json_object_end(response);
 	}
 
