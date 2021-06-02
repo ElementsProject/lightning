@@ -1059,6 +1059,13 @@ def test_htlc_accepted_hook_direct_restart(node_factory, executor):
     f1 = executor.submit(l1.rpc.pay, i1)
 
     l2.daemon.wait_for_log(r'Holding onto an incoming htlc for 10 seconds')
+
+    # Check that the status mentions the HTLC being held
+    l2.rpc.listpeers()
+    peers = l2.rpc.listpeers()['peers']
+    htlc_status = peers[0]['channels'][0]['htlcs'][0].get('status', None)
+    assert htlc_status == "Waiting for the htlc_accepted hook of plugin hold_htlcs.py"
+
     needle = l2.daemon.logsearch_start
     l2.restart()
 
