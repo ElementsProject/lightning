@@ -232,7 +232,7 @@ static void plugin_hook_call_next(struct plugin_hook_request *ph_req)
 				    NULL,
 				    plugin_hook_callback, ph_req);
 
-	hook->serialize_payload(ph_req->cb_arg, req->stream);
+	hook->serialize_payload(ph_req->cb_arg, req->stream, ph_req->plugin);
 	jsonrpc_request_end(req);
 	plugin_request_send(ph_req->plugin, req);
 }

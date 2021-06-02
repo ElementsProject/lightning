@@ -169,7 +169,8 @@ struct invoice_payment_hook_payload {
 
 static void
 invoice_payment_serialize(struct invoice_payment_hook_payload *payload,
-			  struct json_stream *stream)
+			  struct json_stream *stream,
+			  struct plugin *plugin)
 {
 	json_object_start(stream, "payment");
 	json_add_escaped_string(stream, "label", payload->label);

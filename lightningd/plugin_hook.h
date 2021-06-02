@@ -49,7 +49,8 @@ struct plugin_hook {
 	void (*final_cb)(void *arg);
 
 	/* To send the payload to the plugin */
-	void (*serialize_payload)(void *src, struct json_stream *dest);
+	void (*serialize_payload)(void *src, struct json_stream *dest,
+				  struct plugin *plugin);
 
 	/* Which plugins have registered this hook? This is a `tal_arr`
 	 * initialized at creation. */
@@ -91,20 +92,19 @@ bool plugin_hook_continue(void *arg, const char *buffer, const jsmntok_t *toks);
  * an arbitrary extra argument used to maintain context.
  */
 #define REGISTER_PLUGIN_HOOK(name, deserialize_cb, final_cb,                   \
-			     serialize_payload, cb_arg_type)		       \
+			     serialize_payload, cb_arg_type)                   \
 	struct plugin_hook name##_hook_gen = {                                 \
 	    stringify(name),                                                   \
 	    typesafe_cb_cast(                                                  \
 		bool (*)(void *, const char *, const jsmntok_t *),             \
 		bool (*)(cb_arg_type, const char *, const jsmntok_t *),        \
 		deserialize_cb),                                               \
+	    typesafe_cb_cast(void (*)(void *STEALS),                           \
+			     void (*)(cb_arg_type STEALS), final_cb),          \
 	    typesafe_cb_cast(                                                  \
-		void (*)(void *STEALS),	                                       \
-		void (*)(cb_arg_type STEALS),                                  \
-		final_cb),                                                     \
-	    typesafe_cb_cast(void (*)(void *, struct json_stream *),           \
-			     void (*)(cb_arg_type, struct json_stream *),      \
-			     serialize_payload),                               \
+		void (*)(void *, struct json_stream *, struct plugin *),       \
+		void (*)(cb_arg_type, struct json_stream *, struct plugin *),  \
+		serialize_payload),                                            \
 	    NULL, /* .plugins */                                               \
 	};                                                                     \
 	AUTODATA(hooks, &name##_hook_gen);                                     \

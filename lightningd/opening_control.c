@@ -615,9 +615,9 @@ struct openchannel_hook_payload {
 	char *errmsg;
 };
 
-static void
-openchannel_hook_serialize(struct openchannel_hook_payload *payload,
-		       struct json_stream *stream)
+static void openchannel_hook_serialize(struct openchannel_hook_payload *payload,
+				       struct json_stream *stream,
+				       struct plugin *plugin)
 {
 	struct uncommitted_channel *uc = payload->openingd->channel;
 	json_object_start(stream, "openchannel");

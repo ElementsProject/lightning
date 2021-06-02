@@ -188,9 +188,9 @@ struct rbf_channel_payload {
 	char *err_msg;
 };
 
-static void
-rbf_channel_hook_serialize(struct rbf_channel_payload *payload,
-			   struct json_stream *stream)
+static void rbf_channel_hook_serialize(struct rbf_channel_payload *payload,
+				       struct json_stream *stream,
+				       struct plugin *plugin)
 {
 	json_object_start(stream, "rbf_channel");
 	json_add_node_id(stream, "id", &payload->peer_id);
@@ -251,9 +251,9 @@ struct openchannel2_payload {
 	char *err_msg;
 };
 
-static void
-openchannel2_hook_serialize(struct openchannel2_payload *payload,
-			    struct json_stream *stream)
+static void openchannel2_hook_serialize(struct openchannel2_payload *payload,
+					struct json_stream *stream,
+					struct plugin *plugin)
 {
 	json_object_start(stream, "openchannel2");
 	json_add_node_id(stream, "id", &payload->peer_id);
@@ -295,7 +295,8 @@ struct openchannel2_psbt_payload {
 
 static void
 openchannel2_changed_hook_serialize(struct openchannel2_psbt_payload *payload,
-				    struct json_stream *stream)
+				    struct json_stream *stream,
+				    struct plugin *plugin)
 {
 	json_object_start(stream, "openchannel2_changed");
 	json_add_psbt(stream, "psbt", payload->psbt);
@@ -307,7 +308,8 @@ openchannel2_changed_hook_serialize(struct openchannel2_psbt_payload *payload,
 
 static void
 openchannel2_sign_hook_serialize(struct openchannel2_psbt_payload *payload,
-				 struct json_stream *stream)
+				 struct json_stream *stream,
+				 struct plugin *plugin)
 {
 	json_object_start(stream, "openchannel2_sign");
 	json_add_psbt(stream, "psbt", payload->psbt);
