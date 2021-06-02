@@ -4294,7 +4294,6 @@ gives a routehint straight to us causes an issue
         l2.rpc.pay(inv)
 
 
-@pytest.mark.xfail(strict=True)
 def test_pay_low_max_htlcs(node_factory):
     """Test we can pay if *any* HTLC slots are available"""
 
@@ -4302,3 +4301,6 @@ def test_pay_low_max_htlcs(node_factory):
                                          opts={'max-concurrent-htlcs': 1},
                                          wait_for_announce=True)
     l1.rpc.pay(l3.rpc.invoice(FUNDAMOUNT * 50, "test", "test")['bolt11'])
+    l1.daemon.wait_for_log(
+        r'Number of pre-split HTLCs \([0-9]+\) exceeds our HTLC budget \([0-9]+\), skipping pre-splitter'
+    )
