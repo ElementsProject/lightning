@@ -244,7 +244,7 @@ static void fromwire_${msg.struct_name()}(const u8 **cursor, size_t *plen, void 
         fieldname = 'r->{}->{}'.format(msg.name, f.name)
         ctx = 'r->{}'.format(msg.name)
 %>\
-	${fromwire_subtype_field(fieldname, f, ctx, msg.singleton())}\
+	${fromwire_subtype_field(fieldname, f, ctx, msg.singleton() and not f.type_obj.is_varsize())}\
 	% endfor
 }
     % endfor

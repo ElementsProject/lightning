@@ -148,3 +148,10 @@ tlvdata,test_n3,tlv3,len_varlenvarsize,u8,
 tlvdata,test_n3,tlv3,varlen_varsize,test_features,len_varlenvarsize
 # implicit length
 tlvdata,test_n3,tlv3,remainder,byte,...
+# Singletons which needs a context.
+tlvtype,test_n3,tlv4,4
+tlvdata,test_n3,tlv4,singleton_varlen,subtype_var_len,
+tlvtype,test_n3,tlv5,5
+tlvdata,test_n3,tlv5,singleton_varlen_arr,subtype_var_len,...
+tlvtype,test_n3,tlv6,6
+tlvdata,test_n3,tlv6,singleton_varlen_assign,subtype_var_assign,

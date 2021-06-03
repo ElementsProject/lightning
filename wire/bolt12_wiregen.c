@@ -1562,4 +1562,4 @@ bool invoice_error_is_valid(const struct tlv_invoice_error *record, size_t *err_
 	return tlv_fields_valid(record->fields, err_index);
 }
 
-// SHA256STAMP:3c8dc54796300320573ccf24c2ec022c4f95f545576e909e55da001c1d04392d
+// SHA256STAMP:85a22376bfbb4d4b5c1104ae7823b477443ac693db9b2ee53c16b777b74f7d2a

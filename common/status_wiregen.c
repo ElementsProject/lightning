@@ -214,4 +214,4 @@ bool fromwire_status_version(const tal_t *ctx, const void *p, wirestring **versi
  	*version = fromwire_wirestring(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:8e1ba9cbc812c8aad76c5049fcecefea2d706a100423c93d3c3be0afcbee851e
+// SHA256STAMP:3164c82c28124ba916aebd075baa2315cd82cee0d785908da25c6aa6c5b11f22
