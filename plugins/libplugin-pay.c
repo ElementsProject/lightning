@@ -2332,8 +2332,16 @@ static struct route_info **filter_routehints(struct gossmap *map,
 {
 	const size_t max_hops = ROUTING_MAX_HOPS / 2;
 	char *mods = tal_strdup(tmpctx, "");
-	for (size_t i = 0; i < tal_count(hints); i++) {
-		struct gossmap_node *entrynode, *src;
+	struct gossmap_node *src = gossmap_find_node(map, p->local_id);
+
+	if (src == NULL) {
+		tal_append_fmt(&mods,
+			       "Could not locate ourselves in the gossip map, "
+			       "leaving routehints untouched. ");
+	}
+
+	for (size_t i = 0; i < tal_count(hints) && src != NULL; i++) {
+		struct gossmap_node *entrynode;
 		u32 distance;
 
 		/* Trim any routehint > 10 hops */
@@ -2365,8 +2373,6 @@ static struct route_info **filter_routehints(struct gossmap *map,
 		/* If routehint entrypoint is unreachable there's no
 		 * point in keeping it. */
 		entrynode = gossmap_find_node(map, &hints[i][0].pubkey);
-		src = gossmap_find_node(map, p->local_id);
-
 		if (entrynode == NULL) {
 			tal_append_fmt(&mods,
 				       "Removed routehint %zu because "
