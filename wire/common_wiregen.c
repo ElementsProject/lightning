@@ -100,4 +100,4 @@ bool fromwire_custommsg_out(const tal_t *ctx, const void *p, u8 **msg)
 	fromwire_u8_array(&cursor, &plen, *msg, msg_len);
 	return cursor != NULL;
 }
-// SHA256STAMP:4498506058a2fd50f9b5adca97e08dce48d1812157ee24829b962eff59e3afa6
+// SHA256STAMP:a747ee0bc8a91c00e719bae883b505d6e7c85b33165a9156a571a0aa171a7256

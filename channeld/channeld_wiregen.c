@@ -1113,4 +1113,4 @@ bool fromwire_channeld_dev_quiesce_reply(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:720f9917311384d373593dc1550619ddf461bdabde8b312ed6dc632cb7860c34
+// SHA256STAMP:fa8ee25e2f6082e9889962218e6e345dcb4430840b8f831b40cbb0c415b690b5
