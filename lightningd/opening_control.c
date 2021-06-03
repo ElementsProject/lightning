@@ -876,9 +876,7 @@ static unsigned int openingd_msg(struct subd *openingd,
 	return 0;
 }
 
-void peer_start_openingd(struct peer *peer,
-			 struct per_peer_state *pps,
-			 const u8 *send_msg)
+void peer_start_openingd(struct peer *peer, struct per_peer_state *pps)
 {
 	int hsmfd;
 	u32 max_to_self_delay;
@@ -944,7 +942,6 @@ void peer_start_openingd(struct peer *peer,
 				  feature_negotiated(peer->ld->our_features,
 						     peer->their_features,
 						     OPT_ANCHOR_OUTPUTS),
-				  send_msg,
 				  IFDEV(peer->ld->dev_force_tmp_channel_id, NULL),
 				  IFDEV(peer->ld->dev_fast_gossip, false));
 	subd_send_msg(uc->open_daemon, take(msg));

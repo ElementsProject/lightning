@@ -2813,8 +2813,7 @@ AUTODATA(json_command, &openchannel_abort_command);
 
 static void start_fresh_dualopend(struct peer *peer,
 				  struct per_peer_state *pps,
-				  struct channel *channel,
-				  const u8 *send_msg)
+				  struct channel *channel)
 {
 	int hsmfd;
 	u32 max_to_self_delay;
@@ -2867,16 +2866,14 @@ static void start_fresh_dualopend(struct peer *peer,
 				    min_effective_htlc_capacity,
 				    pps, &channel->local_basepoints,
 				    &channel->local_funding_pubkey,
-				    channel->minimum_depth,
-				    send_msg);
+				    channel->minimum_depth);
 	subd_send_msg(channel->owner, take(msg));
 
 }
 
 void peer_restart_dualopend(struct peer *peer,
 			    struct per_peer_state *pps,
-			    struct channel *channel,
-			    const u8 *send_msg)
+			    struct channel *channel)
 {
 	u32 max_to_self_delay;
 	struct amount_msat min_effective_htlc_capacity;
@@ -2886,7 +2883,7 @@ void peer_restart_dualopend(struct peer *peer,
 	u8 *msg;
 
 	if (channel_unsaved(channel)) {
-		start_fresh_dualopend(peer, pps, channel, send_msg);
+		start_fresh_dualopend(peer, pps, channel);
 		return;
 	}
 	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->dbid,
@@ -2960,16 +2957,13 @@ void peer_restart_dualopend(struct peer *peer,
 				      channel->remote_upfront_shutdown_script,
 				      inflight->remote_tx_sigs,
                                       channel->fee_states,
-				      channel->channel_flags,
-				      send_msg);
+				      channel->channel_flags);
 
 
 	subd_send_msg(channel->owner, take(msg));
 }
 
-void peer_start_dualopend(struct peer *peer,
-			  struct per_peer_state *pps,
-			  const u8 *send_msg)
+void peer_start_dualopend(struct peer *peer, struct per_peer_state *pps)
 {
 	struct channel *channel;
 
@@ -2979,5 +2973,5 @@ void peer_start_dualopend(struct peer *peer,
 				      peer->ld->config.fee_base,
 				      peer->ld->config.fee_per_satoshi);
 
-	start_fresh_dualopend(peer, pps, channel, send_msg);
+	start_fresh_dualopend(peer, pps, channel);
 }

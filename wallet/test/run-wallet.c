@@ -641,8 +641,7 @@ void peer_memleak_done(struct command *cmd UNNEEDED, struct subd *leaker UNNEEDE
 /* Generated stub for peer_restart_dualopend */
 void peer_restart_dualopend(struct peer *peer UNNEEDED,
 			    struct per_peer_state *pps UNNEEDED,
-			    struct channel *channel UNNEEDED,
-			    const u8 *send_msg UNNEEDED)
+			    struct channel *channel UNNEEDED)
 { fprintf(stderr, "peer_restart_dualopend called!\n"); abort(); }
 /* Generated stub for peer_start_channeld */
 void peer_start_channeld(struct channel *channel UNNEEDED,
@@ -657,14 +656,11 @@ void peer_start_closingd(struct channel *channel UNNEEDED,
 			 const u8 *channel_reestablish UNNEEDED)
 { fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
 /* Generated stub for peer_start_dualopend */
-void peer_start_dualopend(struct peer *peer UNNEEDED,
-			  struct per_peer_state *pps UNNEEDED,
-			  const u8 *send_msg UNNEEDED)
+void peer_start_dualopend(struct peer *peer UNNEEDED, struct per_peer_state *pps UNNEEDED)
 { fprintf(stderr, "peer_start_dualopend called!\n"); abort(); }
 /* Generated stub for peer_start_openingd */
 void peer_start_openingd(struct peer *peer UNNEEDED,
-			 struct per_peer_state *pps UNNEEDED,
-			 const u8 *msg UNNEEDED)
+			 struct per_peer_state *pps UNNEEDED)
 { fprintf(stderr, "peer_start_openingd called!\n"); abort(); }
 /* Generated stub for peer_wire_is_defined */
 bool peer_wire_is_defined(u16 type UNNEEDED)

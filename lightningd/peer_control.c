@@ -1113,7 +1113,7 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 			assert(!channel->owner);
 			channel->peer->addr = addr;
 			channel->peer->connected_incoming = payload->incoming;
-			peer_restart_dualopend(peer, payload->pps, channel, NULL);
+			peer_restart_dualopend(peer, payload->pps, channel);
 			return;
 		case CHANNELD_AWAITING_LOCKIN:
 		case CHANNELD_NORMAL:
@@ -1146,11 +1146,11 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 			       || channel->state == AWAITING_UNILATERAL);
 			channel->peer->addr = addr;
 			channel->peer->connected_incoming = payload->incoming;
-			peer_restart_dualopend(peer, payload->pps, channel, NULL);
+			peer_restart_dualopend(peer, payload->pps, channel);
 		} else
-			peer_start_dualopend(peer, payload->pps, NULL);
+			peer_start_dualopend(peer, payload->pps);
 	} else
-		peer_start_openingd(peer, payload->pps, NULL);
+		peer_start_openingd(peer, payload->pps);
 	return;
 
 send_error:

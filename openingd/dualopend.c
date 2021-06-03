@@ -3251,24 +3251,6 @@ static void do_reconnect_dance(struct state *state)
 	peer_billboard(true, "Reconnected, and reestablished.");
 }
 
-/*~ Is this message of type `error` with the special zero-id
- * "fail-everything"?  If lightningd asked us to send such a thing, we're
- * done. */
-static void fail_if_all_error(const u8 *inner)
-{
-	struct channel_id channel_id;
-	u8 *data;
-
-	if (!fromwire_error(tmpctx, inner, &channel_id, &data)
-	    || !channel_id_is_all(&channel_id)) {
-		return;
-	}
-
-	status_info("Master said send err: %s",
-		    sanitize_error(tmpctx, inner, NULL));
-	exit(0);
-}
-
 /* Standard lightningd-fd-is-ready-to-read demux code.  Again, we could hang
  * here, but if we can't trust our parent, who can we trust? */
 static u8 *handle_master_in(struct state *state)
@@ -3456,7 +3438,7 @@ int main(int argc, char *argv[])
 	struct secret *none;
 	struct fee_states *fee_states;
 	enum side opener;
-	u8 *msg, *inner;
+	u8 *msg;
 	struct amount_sat total_funding;
 	struct amount_msat our_msat;
 
@@ -3481,8 +3463,7 @@ int main(int argc, char *argv[])
 				    &state->pps,
 				    &state->our_points,
 				    &state->our_funding_pubkey,
-				    &state->minimum_depth,
-				    &inner)) {
+				    &state->minimum_depth)) {
 		/*~ Initially we're not associated with a channel, but
 		 * handle_peer_gossip_or_error compares this. */
 		memset(&state->channel_id, 0, sizeof(state->channel_id));
@@ -3534,8 +3515,7 @@ int main(int argc, char *argv[])
 					     &state->upfront_shutdown_script[REMOTE],
 					     &state->tx_state->remote_funding_sigs_rcvd,
 					     &fee_states,
-					     &state->channel_flags,
-					     &inner)) {
+					     &state->channel_flags)) {
 
 		/*~ We only reconnect on channels that the
 		 * saved the the database (exchanged commitment sigs) */
@@ -3570,14 +3550,6 @@ int main(int argc, char *argv[])
 
 	/* 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */
 	per_peer_state_set_fds(state->pps, 3, 4, 5);
-
-	/*~ If lightningd wanted us to send a msg, do so before we waste time
-	 * doing work.  If it's a global error, we'll close immediately. */
-	if (inner != NULL) {
-		sync_crypto_write(state->pps, inner);
-		fail_if_all_error(inner);
-		tal_free(inner);
-	}
 
 	/*~ We need an initial per-commitment point whether we're funding or
 	 * they are, and lightningd has reserved a unique dbid for us already,
