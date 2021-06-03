@@ -63,10 +63,9 @@ bool openingd_wire_is_defined(u16 type)
 
 
 /* WIRE: OPENINGD_INIT */
-u8 *towire_openingd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_features, const struct channel_config *our_config, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, const u8 *lfeatures, bool option_static_remotekey, bool option_anchor_outputs, const u8 *msg, const struct channel_id *dev_temporary_channel_id, bool dev_fast_gossip)
+u8 *towire_openingd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_features, const struct channel_config *our_config, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, const u8 *lfeatures, bool option_static_remotekey, bool option_anchor_outputs, const struct channel_id *dev_temporary_channel_id, bool dev_fast_gossip)
 {
 	u16 lfeatures_len = tal_count(lfeatures);
-	u16 len = tal_count(msg);
 	u8 *p = tal_arr(ctx, u8, 0);
 
 	towire_u16(&p, WIRE_OPENINGD_INIT);
@@ -89,9 +88,6 @@ u8 *towire_openingd_init(const tal_t *ctx, const struct chainparams *chainparams
 	towire_u8_array(&p, lfeatures, lfeatures_len);
 	towire_bool(&p, option_static_remotekey);
 	towire_bool(&p, option_anchor_outputs);
-	/* Optional msg to send. */
-	towire_u16(&p, len);
-	towire_u8_array(&p, msg, len);
 	if (!dev_temporary_channel_id)
 		towire_bool(&p, false);
 	else {
@@ -102,10 +98,9 @@ u8 *towire_openingd_init(const tal_t *ctx, const struct chainparams *chainparams
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_openingd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_features, struct channel_config *our_config, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, u8 **lfeatures, bool *option_static_remotekey, bool *option_anchor_outputs, u8 **msg, struct channel_id **dev_temporary_channel_id, bool *dev_fast_gossip)
+bool fromwire_openingd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_features, struct channel_config *our_config, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, u8 **lfeatures, bool *option_static_remotekey, bool *option_anchor_outputs, struct channel_id **dev_temporary_channel_id, bool *dev_fast_gossip)
 {
 	u16 lfeatures_len;
-	u16 len;
 
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
@@ -133,11 +128,6 @@ bool fromwire_openingd_init(const tal_t *ctx, const void *p, const struct chainp
 	fromwire_u8_array(&cursor, &plen, *lfeatures, lfeatures_len);
  	*option_static_remotekey = fromwire_bool(&cursor, &plen);
  	*option_anchor_outputs = fromwire_bool(&cursor, &plen);
- 	/* Optional msg to send. */
-	len = fromwire_u16(&cursor, &plen);
- 	// 2nd case msg
-	*msg = len ? tal_arr(ctx, u8, len) : NULL;
-	fromwire_u8_array(&cursor, &plen, *msg, len);
  	if (!fromwire_bool(&cursor, &plen))
 		*dev_temporary_channel_id = NULL;
 	else {
@@ -579,4 +569,4 @@ bool fromwire_openingd_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:056c30b94922859252e3b4171c02c1986242c0ec1f71f78ea62c3a0b5d26a696
+// SHA256STAMP:edd7ee392dff0ddd0dff3a383692ba852a403e64e43290dba5dece69ae438e61

@@ -1197,22 +1197,6 @@ static void handle_gossip_in(struct state *state)
 	handle_gossip_msg(state->pps, take(msg));
 }
 
-/*~ Is this message of a `warning` or `error`?  If lightningd asked us to send
- * such a thing, it wants to close the connection. */
-static void fail_if_warning_or_error(const u8 *inner)
-{
-	struct channel_id channel_id;
-	u8 *data;
-
-	if (!fromwire_warning(tmpctx, inner, &channel_id, &data)
-	    && !fromwire_error(tmpctx, inner, &channel_id, &data))
-		return;
-
-	status_info("Master said send %s",
-		    sanitize_error(tmpctx, inner, NULL));
-	exit(0);
-}
-
 /* Memory leak detection is DEVELOPER-only because we go to great lengths to
  * record the backtrace when allocations occur: without that, the leak
  * detection tends to be useless for diagnosing where the leak came from, but
@@ -1336,7 +1320,7 @@ int main(int argc, char *argv[])
 {
 	setup_locale();
 
-	u8 *msg, *inner;
+	u8 *msg;
 	struct pollfd pollfd[3];
 	struct state *state = tal(NULL, struct state);
 	struct secret *none;
@@ -1364,7 +1348,6 @@ int main(int argc, char *argv[])
 				   &state->their_features,
 				   &state->option_static_remotekey,
 				   &state->option_anchor_outputs,
-				   &inner,
 				   &force_tmp_channel_id,
 				   &dev_fast_gossip))
 		master_badmsg(WIRE_OPENINGD_INIT, msg);
@@ -1375,14 +1358,6 @@ int main(int argc, char *argv[])
 
 	/* 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */
 	per_peer_state_set_fds(state->pps, 3, 4, 5);
-
-	/*~ If lightningd wanted us to send a msg, do so before we waste time
-	 * doing work.  If it's a warning, we'll close immediately. */
-	if (inner != NULL) {
-		sync_crypto_write(state->pps, inner);
-		fail_if_warning_or_error(inner);
-		tal_free(inner);
-	}
 
 	/*~ Initially we're not associated with a channel, but
 	 * handle_peer_gossip_or_error compares this. */

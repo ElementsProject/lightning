@@ -26,9 +26,6 @@ msgdata,openingd_init,lfeatures_len,u16,
 msgdata,openingd_init,lfeatures,u8,lfeatures_len
 msgdata,openingd_init,option_static_remotekey,bool,
 msgdata,openingd_init,option_anchor_outputs,bool,
-# Optional msg to send.
-msgdata,openingd_init,len,u16,
-msgdata,openingd_init,msg,u8,len
 msgdata,openingd_init,dev_temporary_channel_id,?byte,32
 msgdata,openingd_init,dev_fast_gossip,bool,
 

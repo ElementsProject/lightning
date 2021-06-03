@@ -26,9 +26,6 @@ msgdata,dualopend_init,our_basepoints,basepoints,
 msgdata,dualopend_init,our_funding_pubkey,pubkey,
 # Constraints in case the other end tries to open a channel.
 msgdata,dualopend_init,minimum_depth,u32,
-# Optional msg to send.
-msgdata,dualopend_init,len,u16,
-msgdata,dualopend_init,msg,u8,len
 
 # master-dualopend: peer has reconnected
 msgtype,dualopend_reinit,7001
@@ -67,9 +64,6 @@ msgdata,dualopend_reinit,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
 msgdata,dualopend_reinit,remote_funding_sigs_received,bool,
 msgdata,dualopend_reinit,fee_states,fee_states,
 msgdata,dualopend_reinit,channel_flags,u8,
-# Optional msg to send.
-msgdata,dualopend_reinit,len,u16,
-msgdata,dualopend_reinit,msg,u8,len
 
 # dualopend->master: they offered channel, should we continue?
 msgtype,dualopend_got_offer,7005
