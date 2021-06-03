@@ -1654,6 +1654,7 @@ static struct io_plan *peer_final_msg(struct io_conn *conn,
 	u8 *finalmsg;
 	int fds[3];
 
+	f->daemon = daemon;
 	/* pps is allocated off f, so fds are closed when f freed. */
 	if (!fromwire_connectd_peer_final_msg(f, msg, &f->id, &pps, &finalmsg))
 		master_badmsg(WIRE_CONNECTD_PEER_FINAL_MSG, msg);
@@ -1662,8 +1663,16 @@ static struct io_plan *peer_final_msg(struct io_conn *conn,
 	tal_add_destructor(f, destroy_final_msg_data);
 
 	/* Get the fds for this peer. */
-	for (size_t i = 0; i < ARRAY_SIZE(fds); i++)
+	io_fd_block(io_conn_fd(conn), true);
+	for (size_t i = 0; i < ARRAY_SIZE(fds); i++) {
 		fds[i] = fdpass_recv(io_conn_fd(conn));
+		if (fds[i] == -1)
+			status_failed(STATUS_FAIL_MASTER_IO,
+				      "Getting fd %zu after peer_final_msg: %s",
+				      i, strerror(errno));
+	}
+	io_fd_block(io_conn_fd(conn), false);
+
 	/* We put peer fd into conn, but pps needs to free the rest */
 	per_peer_state_set_fds(pps, -1, fds[1], fds[2]);
 

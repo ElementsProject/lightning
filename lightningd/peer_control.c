@@ -1136,10 +1136,6 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 
 	notify_connect(ld, &peer->id, payload->incoming, &addr);
 
-	/* No err, all good. */
-	error = NULL;
-
-send_error:
 	if (feature_negotiated(ld->our_features,
 			       peer->their_features,
 			       OPT_DUAL_FUND)) {
@@ -1150,11 +1146,28 @@ send_error:
 			       || channel->state == AWAITING_UNILATERAL);
 			channel->peer->addr = addr;
 			channel->peer->connected_incoming = payload->incoming;
-			peer_restart_dualopend(peer, payload->pps, channel, error);
+			peer_restart_dualopend(peer, payload->pps, channel, NULL);
 		} else
-			peer_start_dualopend(peer, payload->pps, error);
+			peer_start_dualopend(peer, payload->pps, NULL);
 	} else
-		peer_start_openingd(peer, payload->pps, error);
+		peer_start_openingd(peer, payload->pps, NULL);
+	return;
+
+send_error:
+	log_debug(ld->log, "Telling connectd to send error %s",
+		  tal_hex(tmpctx, error));
+	/* Get connectd to send error and close. */
+	subd_send_msg(ld->connectd,
+		      take(towire_connectd_peer_final_msg(NULL, &peer->id,
+							  payload->pps, error)));
+	subd_send_fd(ld->connectd, payload->pps->peer_fd);
+	subd_send_fd(ld->connectd, payload->pps->gossip_fd);
+	subd_send_fd(ld->connectd, payload->pps->gossip_store_fd);
+	/* Don't close those fds! */
+	payload->pps->peer_fd
+		= payload->pps->gossip_fd
+		= payload->pps->gossip_store_fd
+		= -1;
 }
 
 static bool
