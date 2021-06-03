@@ -29,6 +29,7 @@ const char *connectd_wire_name(int e)
 	case WIRE_CONNECTD_CONNECT_FAILED: return "WIRE_CONNECTD_CONNECT_FAILED";
 	case WIRE_CONNECTD_PEER_CONNECTED: return "WIRE_CONNECTD_PEER_CONNECTED";
 	case WIRE_CONNECTD_PEER_DISCONNECTED: return "WIRE_CONNECTD_PEER_DISCONNECTED";
+	case WIRE_CONNECTD_PEER_FINAL_MSG: return "WIRE_CONNECTD_PEER_FINAL_MSG";
 	case WIRE_CONNECTD_DEV_MEMLEAK: return "WIRE_CONNECTD_DEV_MEMLEAK";
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY: return "WIRE_CONNECTD_DEV_MEMLEAK_REPLY";
 	}
@@ -49,6 +50,7 @@ bool connectd_wire_is_defined(u16 type)
 	case WIRE_CONNECTD_CONNECT_FAILED:;
 	case WIRE_CONNECTD_PEER_CONNECTED:;
 	case WIRE_CONNECTD_PEER_DISCONNECTED:;
+	case WIRE_CONNECTD_PEER_FINAL_MSG:;
 	case WIRE_CONNECTD_DEV_MEMLEAK:;
 	case WIRE_CONNECTD_DEV_MEMLEAK_REPLY:;
 	      return true;
@@ -368,6 +370,39 @@ bool fromwire_connectd_peer_disconnected(const void *p, struct node_id *id)
 	return cursor != NULL;
 }
 
+/* WIRE: CONNECTD_PEER_FINAL_MSG */
+/* master -> connectd: give message to peer and disconnect.  Three fds: peer */
+u8 *towire_connectd_peer_final_msg(const tal_t *ctx, const struct node_id *id, const struct per_peer_state *pps, const u8 *msg)
+{
+	u16 len = tal_count(msg);
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_CONNECTD_PEER_FINAL_MSG);
+	towire_node_id(&p, id);
+	towire_per_peer_state(&p, pps);
+	towire_u16(&p, len);
+	towire_u8_array(&p, msg, len);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_connectd_peer_final_msg(const tal_t *ctx, const void *p, struct node_id *id, struct per_peer_state **pps, u8 **msg)
+{
+	u16 len;
+
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_CONNECTD_PEER_FINAL_MSG)
+		return false;
+ 	fromwire_node_id(&cursor, &plen, id);
+ 	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
+ 	len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case msg
+	*msg = len ? tal_arr(ctx, u8, len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *msg, len);
+	return cursor != NULL;
+}
+
 /* WIRE: CONNECTD_DEV_MEMLEAK */
 /* master -> connectd: do you have a memleak? */
 u8 *towire_connectd_dev_memleak(const tal_t *ctx)
@@ -408,4 +443,4 @@ bool fromwire_connectd_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:9bbb0b97a226bd5c85a21bafde42c7fd438b8107d6d30b7c7b17c16a6cbd3557
+// SHA256STAMP:7c9585941825eab65d734eb1c233eee5c78b5792e19ec68f0a9986abca2b0ffe

@@ -31,6 +31,8 @@ enum connectd_wire {
         WIRE_CONNECTD_PEER_CONNECTED = 2002,
         /*  master -> connectd: peer has disconnected. */
         WIRE_CONNECTD_PEER_DISCONNECTED = 2015,
+        /*  master -> connectd: give message to peer and disconnect.  Three fds: peer */
+        WIRE_CONNECTD_PEER_FINAL_MSG = 2003,
         /*  master -> connectd: do you have a memleak? */
         WIRE_CONNECTD_DEV_MEMLEAK = 2033,
         WIRE_CONNECTD_DEV_MEMLEAK_REPLY = 2133,
@@ -92,6 +94,11 @@ bool fromwire_connectd_peer_connected(const tal_t *ctx, const void *p, struct no
 u8 *towire_connectd_peer_disconnected(const tal_t *ctx, const struct node_id *id);
 bool fromwire_connectd_peer_disconnected(const void *p, struct node_id *id);
 
+/* WIRE: CONNECTD_PEER_FINAL_MSG */
+/*  master -> connectd: give message to peer and disconnect.  Three fds: peer */
+u8 *towire_connectd_peer_final_msg(const tal_t *ctx, const struct node_id *id, const struct per_peer_state *pps, const u8 *msg);
+bool fromwire_connectd_peer_final_msg(const tal_t *ctx, const void *p, struct node_id *id, struct per_peer_state **pps, u8 **msg);
+
 /* WIRE: CONNECTD_DEV_MEMLEAK */
 /*  master -> connectd: do you have a memleak? */
 u8 *towire_connectd_dev_memleak(const tal_t *ctx);
@@ -103,4 +110,4 @@ bool fromwire_connectd_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_CONNECTD_CONNECTD_WIREGEN_H */
-// SHA256STAMP:9bbb0b97a226bd5c85a21bafde42c7fd438b8107d6d30b7c7b17c16a6cbd3557
+// SHA256STAMP:7c9585941825eab65d734eb1c233eee5c78b5792e19ec68f0a9986abca2b0ffe

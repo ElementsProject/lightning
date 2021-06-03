@@ -1591,23 +1591,19 @@ static struct io_plan *connect_to_peer(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
-/* lightningd tells us a peer has disconnected. */
-static struct io_plan *peer_disconnected(struct io_conn *conn,
-					 struct daemon *daemon, const u8 *msg)
+/* A peer is gone: clean things up. */
+static void cleanup_dead_peer(struct daemon *daemon, const struct node_id *id)
 {
-	struct node_id id, *node;
-
-	if (!fromwire_connectd_peer_disconnected(msg, &id))
-		master_badmsg(WIRE_CONNECTD_PEER_DISCONNECTED, msg);
+	struct node_id *node;
 
 	/* We should stay in sync with lightningd at all times. */
-	node = node_set_get(&daemon->peers, &id);
+	node = node_set_get(&daemon->peers, id);
 	if (!node)
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "peer_disconnected unknown peer: %s",
-			      type_to_string(tmpctx, struct node_id, &id));
+			      type_to_string(tmpctx, struct node_id, id));
 	node_set_del(&daemon->peers, node);
-	status_peer_debug(&id, "disconnect");
+	status_peer_debug(id, "disconnect");
 
 	/* Wake up in case there's a reconnecting peer waiting in io_wait. */
 	io_wake(node);
@@ -1615,6 +1611,69 @@ static struct io_plan *peer_disconnected(struct io_conn *conn,
 	/* Note: deleting from a htable (a-la node_set_del) does not free it:
 	 * htable doesn't assume it's a tal object at all. */
 	tal_free(node);
+}
+
+/* lightningd tells us a peer has disconnected. */
+static struct io_plan *peer_disconnected(struct io_conn *conn,
+					 struct daemon *daemon, const u8 *msg)
+{
+	struct node_id id;
+
+	if (!fromwire_connectd_peer_disconnected(msg, &id))
+		master_badmsg(WIRE_CONNECTD_PEER_DISCONNECTED, msg);
+
+	cleanup_dead_peer(daemon, &id);
+
+	/* Read the next message from lightningd. */
+	return daemon_conn_read_next(conn, daemon->master);
+}
+
+/* lightningd tells us to send a final (usually error) message to peer, then
+ * disconnect. */
+struct final_msg_data {
+	struct daemon *daemon;
+	struct node_id id;
+};
+
+static void destroy_final_msg_data(struct final_msg_data *f)
+{
+	cleanup_dead_peer(f->daemon, &f->id);
+}
+
+static struct io_plan *send_final_msg(struct io_conn *conn, u8 *msg)
+{
+	return io_write(conn, msg, tal_bytelen(msg), io_close_cb, NULL);
+}
+
+/* lightningd tells us to send a msg and disconnect. */
+static struct io_plan *peer_final_msg(struct io_conn *conn,
+				      struct daemon *daemon, const u8 *msg)
+{
+	struct per_peer_state *pps;
+	struct final_msg_data *f = tal(NULL, struct final_msg_data);
+	u8 *finalmsg;
+	int fds[3];
+
+	/* pps is allocated off f, so fds are closed when f freed. */
+	if (!fromwire_connectd_peer_final_msg(f, msg, &f->id, &pps, &finalmsg))
+		master_badmsg(WIRE_CONNECTD_PEER_FINAL_MSG, msg);
+
+	/* When f is freed, we want to mark node as dead. */
+	tal_add_destructor(f, destroy_final_msg_data);
+
+	/* Get the fds for this peer. */
+	for (size_t i = 0; i < ARRAY_SIZE(fds); i++)
+		fds[i] = fdpass_recv(io_conn_fd(conn));
+	/* We put peer fd into conn, but pps needs to free the rest */
+	per_peer_state_set_fds(pps, -1, fds[1], fds[2]);
+
+	/* Log and encrypt message for peer. */
+	status_peer_io(LOG_IO_OUT, &f->id, finalmsg);
+	finalmsg = cryptomsg_encrypt_msg(f, &pps->cs, take(finalmsg));
+
+	/* Organize io loop to write out that message, it will free f
+	 * once closed */
+	tal_steal(io_new_conn(daemon, fds[0], send_final_msg, finalmsg), f);
 
 	/* Read the next message from lightningd. */
 	return daemon_conn_read_next(conn, daemon->master);
@@ -1661,6 +1720,9 @@ static struct io_plan *recv_req(struct io_conn *conn,
 
 	case WIRE_CONNECTD_PEER_DISCONNECTED:
 		return peer_disconnected(conn, daemon, msg);
+
+	case WIRE_CONNECTD_PEER_FINAL_MSG:
+		return peer_final_msg(conn, daemon, msg);
 
 	case WIRE_CONNECTD_DEV_MEMLEAK:
 #if DEVELOPER

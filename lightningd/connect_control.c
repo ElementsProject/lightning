@@ -315,6 +315,7 @@ static unsigned connectd_msg(struct subd *connectd, const u8 *msg, const int *fd
 	case WIRE_CONNECTD_CONNECT_TO_PEER:
 	case WIRE_CONNECTD_PEER_DISCONNECTED:
 	case WIRE_CONNECTD_DEV_MEMLEAK:
+	case WIRE_CONNECTD_PEER_FINAL_MSG:
 	/* This is a reply, so never gets through to here. */
 	case WIRE_CONNECTD_INIT_REPLY:
 	case WIRE_CONNECTD_ACTIVATE_REPLY:
