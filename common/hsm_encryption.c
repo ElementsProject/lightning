@@ -3,7 +3,7 @@
 #include <sodium/utils.h>
 #include <termios.h>
 #include <unistd.h>
-#include <stdio.h>	
+#include <stdio.h>
 
 char *hsm_secret_encryption_key(const char *pass, struct secret *key)
 {
