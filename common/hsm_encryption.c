@@ -1,9 +1,9 @@
 #include <ccan/tal/str/str.h>
 #include <common/hsm_encryption.h>
 #include <sodium/utils.h>
+#include <stdio.h>
 #include <termios.h>
 #include <unistd.h>
-#include <stdio.h>
 
 char *hsm_secret_encryption_key(const char *pass, struct secret *key)
 {
