@@ -497,3 +497,18 @@ void towire_feature_set(u8 **pptr, const struct feature_set *fset)
 		towire_u8_array(pptr, fset->bits[i], tal_bytelen(fset->bits[i]));
 	}
 }
+
+const char *fmt_featurebits(const tal_t *ctx, const u8 *featurebits)
+{
+	size_t size = tal_count(featurebits);
+	char *fmt = tal_strdup(ctx, "");
+	const char *prefix = "";
+
+	for (size_t i = 0; i < size * 8; i++) {
+		if (feature_is_set(featurebits, i)) {
+			tal_append_fmt(&fmt, "%s%zu", prefix, i);
+			prefix = ",";
+		}
+	}
+	return fmt;
+}

@@ -71,6 +71,9 @@ void set_feature_bit(u8 **ptr, u32 bit);
 /* Given two featurebit vectors, combine them by applying a logical OR. */
 u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
 
+/* Good for debugging: returns comma-separated string of bits. */
+const char *fmt_featurebits(const tal_t *ctx, const u8 *featurebits);
+
 /* BOLT #9:
  *
  * Flags are numbered from the least-significant bit, at bit 0 (i.e. 0x1,
