@@ -258,8 +258,10 @@ void dump_htlcs(const struct channel *channel, const char *prefix);
  * pending_updates: does this side have updates pending in channel?
  * @channel: the channel
  * @side: the side who is offering or failing/fulfilling HTLC, or feechange
+ * @uncommitted_ok: don't count uncommitted changes.
  */
-bool pending_updates(const struct channel *channel, enum side side);
+bool pending_updates(const struct channel *channel, enum side side,
+		     bool uncommitted_ok);
 
 const char *channel_add_err_name(enum channel_add_err e);
 const char *channel_remove_err_name(enum channel_remove_err e);
