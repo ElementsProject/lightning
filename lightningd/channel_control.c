@@ -275,12 +275,6 @@ void channel_fallen_behind(struct channel *channel, const u8 *msg)
 	 * use its presence as a flag so set it any valid key in that case. */
 	if (!channel->future_per_commitment_point) {
 		struct pubkey *any = tal(channel, struct pubkey);
-		if (!channel->option_static_remotekey) {
-			channel_internal_error(channel,
-					       "bad channel_fail_fallen_behind %s",
-					       tal_hex(tmpctx, msg));
-			return;
-		}
 		if (!pubkey_from_node_id(any, &channel->peer->ld->id))
 			fatal("Our own id invalid?");
 		channel->future_per_commitment_point = any;
@@ -608,7 +602,7 @@ void peer_start_channeld(struct channel *channel,
 				      remote_ann_bitcoin_sig,
 				      /* Set at channel open, even if not
 				       * negotiated now! */
-				      channel->option_static_remotekey,
+				      channel->next_index[LOCAL] >= channel->static_remotekey_start[LOCAL],
 				      channel->option_anchor_outputs,
 				      IFDEV(ld->dev_fast_gossip, false),
 				      IFDEV(dev_fail_process_onionpacket, false),

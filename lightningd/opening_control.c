@@ -103,7 +103,7 @@ wallet_commit_channel(struct lightningd *ld,
 	struct amount_msat our_msat;
 	struct amount_sat local_funding;
 	s64 final_key_idx;
-	bool option_static_remotekey;
+	u64 static_remotekey_start;
 	bool option_anchor_outputs;
 
 	/* We cannot both be the fundee *and* have a `fundchannel_start`
@@ -153,10 +153,13 @@ wallet_commit_channel(struct lightningd *ld,
 	 *        transactions
 	 */
 	/* i.e. We set it now for the channel permanently. */
-	option_static_remotekey
-		= feature_negotiated(ld->our_features,
-				     uc->peer->their_features,
-				     OPT_STATIC_REMOTEKEY);
+	if (feature_negotiated(ld->our_features,
+			       uc->peer->their_features,
+			       OPT_STATIC_REMOTEKEY))
+		static_remotekey_start = 0;
+	else
+		static_remotekey_start = 0x7FFFFFFFFFFFFFFF;
+
 	option_anchor_outputs
 		= feature_negotiated(ld->our_features,
 				     uc->peer->their_features,
@@ -209,7 +212,7 @@ wallet_commit_channel(struct lightningd *ld,
 			      ld->config.fee_base,
 			      ld->config.fee_per_satoshi,
 			      remote_upfront_shutdown_script,
-			      option_static_remotekey,
+			      static_remotekey_start, static_remotekey_start,
 			      option_anchor_outputs,
 			      NUM_SIDES, /* closer not yet known */
 			      uc->fc ? REASON_USER : REASON_REMOTE,

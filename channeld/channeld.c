@@ -3353,6 +3353,9 @@ static void init_channel(struct peer *peer)
 		master_badmsg(WIRE_CHANNELD_INIT, msg);
 	}
 
+	status_debug("option_static_remotekey = %u, option_anchor_outputs = %u",
+		     option_static_remotekey, option_anchor_outputs);
+
 	/* Keeping an array of pointers is better since it allows us to avoid
 	 * extra allocations later. */
 	peer->pbases = tal_arr(peer, struct penalty_base *, 0);

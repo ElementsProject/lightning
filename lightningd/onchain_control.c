@@ -657,6 +657,9 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 		}
 	}
 
+	log_debug(channel->log, "channel->static_remotekey_start[LOCAL] %"PRIu64,
+		  channel->static_remotekey_start[LOCAL]);
+
 	msg = towire_onchaind_init(channel,
 				  &channel->their_shachain.chain,
 				  chainparams,
@@ -694,7 +697,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  channel->future_per_commitment_point,
 				  &channel->local_funding_pubkey,
 				  &channel->channel_info.remote_fundingkey,
-				  channel->option_static_remotekey,
+				   /* FIXME!  onchaind needs start numbers! */
+				  channel->static_remotekey_start[LOCAL] == 0,
 				  channel->option_anchor_outputs,
 				  is_replay,
 				  feerate_min(ld, NULL));

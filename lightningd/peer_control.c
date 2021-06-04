@@ -848,7 +848,7 @@ static void json_add_channel(struct lightningd *ld,
 		json_add_null(response, "closer");
 
 	json_array_start(response, "features");
-	if (channel->option_static_remotekey)
+	if (channel->static_remotekey_start[LOCAL] != 0x7FFFFFFFFFFFFFFF)
 		json_add_string(response, NULL, "option_static_remotekey");
 	if (channel->option_anchor_outputs)
 		json_add_string(response, NULL, "option_anchor_outputs");

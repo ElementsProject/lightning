@@ -263,7 +263,8 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	 * | Use v2 of channel open, enables dual funding
 	 * | IN9
 	 * | `option_anchor_outputs`    */
-	channel->option_static_remotekey = true;
+	channel->static_remotekey_start[LOCAL]
+		= channel->static_remotekey_start[REMOTE] = 0;
 	channel->option_anchor_outputs = true;
 	channel->future_per_commitment_point = NULL;
 
@@ -334,7 +335,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u32 feerate_base,
 			    u32 feerate_ppm,
 			    const u8 *remote_upfront_shutdown_script,
-			    bool option_static_remotekey,
+			    u64 local_static_remotekey_start,
+			    u64 remote_static_remotekey_start,
 			    bool option_anchor_outputs,
 			    enum side closer,
 			    enum state_change reason,
@@ -423,7 +425,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->feerate_ppm = feerate_ppm;
 	channel->remote_upfront_shutdown_script
 		= tal_steal(channel, remote_upfront_shutdown_script);
-	channel->option_static_remotekey = option_static_remotekey;
+	channel->static_remotekey_start[LOCAL] = local_static_remotekey_start;
+	channel->static_remotekey_start[REMOTE] = remote_static_remotekey_start;
 	channel->option_anchor_outputs = option_anchor_outputs;
 	channel->forgets = tal_arr(channel, struct command *, 0);
 
