@@ -197,6 +197,13 @@ struct channel_type **channel_upgradable_types(const tal_t *ctx,
 
 	return arr;
 }
+
+struct channel_type *channel_desired_type(const tal_t *ctx,
+					  const struct channel *channel)
+{
+	/* For now, we just want option_static_remotekey */
+	return type_static_remotekey(ctx);
+}
 #endif /* EXPERIMENTAL_FEATURES */
 
 static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)
