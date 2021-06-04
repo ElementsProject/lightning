@@ -151,6 +151,10 @@ struct channel_type *channel_type(const tal_t *ctx,
 /* What features can we upgrade?  (Returns NULL if none). */
 struct channel_type **channel_upgradable_types(const tal_t *ctx,
 					       const struct channel *channel);
+
+/* What features do we want? */
+struct channel_type *channel_desired_type(const tal_t *ctx,
+					  const struct channel *channel);
 #endif /* EXPERIMENTAL_FEATURES */
 
 #endif /* LIGHTNING_COMMON_INITIAL_CHANNEL_H */

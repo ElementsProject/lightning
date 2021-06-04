@@ -3491,7 +3491,21 @@ def test_upgrade_statickey(node_factory, executor):
 
     l1.daemon.wait_for_logs([r"They sent current_type \[\]",
                              r"They offered upgrade to \[13\]"])
-    l2.daemon.wait_for_log(r"They sent desired_type \[\]")
+    l2.daemon.wait_for_log(r"They sent desired_type \[13\]")
+
+    l1.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
+    l2.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
+
+    # Make sure it's committed to db!
+    wait_for(lambda: l1.db_query('SELECT local_static_remotekey_start, remote_static_remotekey_start FROM channels;') == [{'local_static_remotekey_start': 1, 'remote_static_remotekey_start': 1}])
+
+    # They will consider themselves upgraded.
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    # They won't offer upgrade!
+    assert not l1.daemon.is_in_log("They offered upgrade",
+                                   start=l1.daemon.logsearch_start)
+    l1.daemon.wait_for_log(r"They sent current_type \[13\]")
+    l2.daemon.wait_for_log(r"They sent desired_type \[13\]")
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "quiescence is experimental")

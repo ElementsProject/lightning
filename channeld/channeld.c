@@ -2558,7 +2558,8 @@ static void peer_reconnect(struct peer *peer,
 	 *     channel.
 	 */
 	if (peer->channel->opener == LOCAL)
-		send_tlvs->desired_type = channel_type(send_tlvs, peer->channel);
+		send_tlvs->desired_type = channel_desired_type(send_tlvs,
+							       peer->channel);
 	else {
 		/* BOLT-upgrade_protocol #2:
 		 * - otherwise:
