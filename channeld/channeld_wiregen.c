@@ -48,6 +48,7 @@ const char *channeld_wire_name(int e)
 	case WIRE_CHANNELD_SEND_ERROR_REPLY: return "WIRE_CHANNELD_SEND_ERROR_REPLY";
 	case WIRE_CHANNELD_DEV_QUIESCE: return "WIRE_CHANNELD_DEV_QUIESCE";
 	case WIRE_CHANNELD_DEV_QUIESCE_REPLY: return "WIRE_CHANNELD_DEV_QUIESCE_REPLY";
+	case WIRE_CHANNELD_UPGRADED: return "WIRE_CHANNELD_UPGRADED";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -85,6 +86,7 @@ bool channeld_wire_is_defined(u16 type)
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:;
 	case WIRE_CHANNELD_DEV_QUIESCE:;
 	case WIRE_CHANNELD_DEV_QUIESCE_REPLY:;
+	case WIRE_CHANNELD_UPGRADED:;
 	      return true;
 	}
 	return false;
@@ -1113,4 +1115,26 @@ bool fromwire_channeld_dev_quiesce_reply(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:fa8ee25e2f6082e9889962218e6e345dcb4430840b8f831b40cbb0c415b690b5
+
+/* WIRE: CHANNELD_UPGRADED */
+/* Tell master we're upgrading the commitment tx. */
+u8 *towire_channeld_upgraded(const tal_t *ctx, bool option_static_remotekey)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_CHANNELD_UPGRADED);
+	towire_bool(&p, option_static_remotekey);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_channeld_upgraded(const void *p, bool *option_static_remotekey)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_CHANNELD_UPGRADED)
+		return false;
+ 	*option_static_remotekey = fromwire_bool(&cursor, &plen);
+	return cursor != NULL;
+}
+// SHA256STAMP:2d7b763e89512ad8c5921b90c13f37ac83ab0016384c38e8c8e831683d668651

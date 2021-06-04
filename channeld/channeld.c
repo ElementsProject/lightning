@@ -368,6 +368,50 @@ static bool handle_master_request_later(struct peer *peer, const u8 *msg)
 	}
 	return false;
 }
+
+static bool channel_type_eq(const struct channel_type *a,
+			    const struct channel_type *b)
+{
+	return featurebits_eq(a->features, b->features);
+}
+
+static bool match_type(const struct channel_type *desired,
+		       const struct channel_type *current,
+		       struct channel_type **upgradable)
+{
+	/* Missing fields are possible. */
+	if (!desired || !current)
+		return false;
+
+	if (channel_type_eq(desired, current))
+		return true;
+
+	for (size_t i = 0; i < tal_count(upgradable); i++) {
+		if (channel_type_eq(desired, upgradable[i]))
+			return true;
+	}
+
+	return false;
+}
+
+static void set_channel_type(struct channel *channel,
+			     const struct channel_type *type)
+{
+	const struct channel_type *cur = channel_type(tmpctx, channel);
+
+	if (channel_type_eq(cur, type))
+		return;
+
+	/* We only allow one upgrade at the moment, so that's it. */
+	assert(!channel->option_static_remotekey);
+	assert(feature_offered(type->features, OPT_STATIC_REMOTEKEY));
+
+	/* Do upgrade, tell master. */
+	channel->option_static_remotekey = true;
+	status_unusual("Upgraded channel to [%s]",
+		       fmt_featurebits(tmpctx, type->features));
+	wire_sync_write(MASTER_FD, take(towire_channeld_upgraded(NULL, true)));
+}
 #else /* !EXPERIMENTAL_FEATURES */
 static bool handle_master_request_later(struct peer *peer, const u8 *msg)
 {
@@ -2499,7 +2543,8 @@ static void peer_reconnect(struct peer *peer,
 				 &my_current_per_commitment_point, NULL);
 
 #if EXPERIMENTAL_FEATURES
-	send_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
+	/* Subtle: we free tmpctx below as we loop, so tal off peer */
+	send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
 	/* BOLT-upgrade_protocol #2:
 	 * A node sending `channel_reestablish`, if it supports upgrading channels:
 	 *   - MUST set `next_to_send` the commitment number of the next
@@ -2797,6 +2842,71 @@ static void peer_reconnect(struct peer *peer,
 			     fmt_featurebits(tmpctx,
 					     recv_tlvs->upgradable[i]->features));
 	}
+
+	/* BOLT-upgrade_protocol #2:
+	 *
+	 * A node receiving `channel_reestablish`:
+	 *  - if it has to retransmit `commitment_signed` or `revoke_and_ack`:
+	 *    - MUST consider the channel feature change failed.
+	 */
+	if (retransmit_commitment_signed || retransmit_revoke_and_ack) {
+		status_debug("No upgrade: we retransmitted");
+	/* BOLT-upgrade_protocol #2:
+	 *
+	 *  - if `next_to_send` is missing, or not equal to the
+	 *    `next_commitment_number` it sent:
+	 *    - MUST consider the channel feature change failed.
+	 */
+	} else if (!recv_tlvs->next_to_send) {
+		status_debug("No upgrade: no next_to_send received");
+	} else if (*recv_tlvs->next_to_send != peer->next_index[LOCAL]) {
+		status_debug("No upgrade: they're retransmitting");
+	/* BOLT-upgrade_protocol #2:
+	 *
+	 *  - if updates are pending on either sides' commitment transaction:
+	 *    - MUST consider the channel feature change failed.
+	 */
+		/* Note that we can have HTLCs we *want* to add or remove
+		 * but haven't yet: thats OK! */
+	} else if (pending_updates(peer->channel, LOCAL, true)
+		   || pending_updates(peer->channel, REMOTE, true)) {
+		status_debug("No upgrade: pending changes");
+	} else {
+		const struct tlv_channel_reestablish_tlvs *initr, *ninitr;
+		const struct channel_type *type;
+
+		if (peer->channel->opener == LOCAL) {
+			initr = send_tlvs;
+			ninitr = recv_tlvs;
+		} else {
+			initr = recv_tlvs;
+			ninitr = send_tlvs;
+		}
+
+		/* BOLT-upgrade_protocol #2:
+		 *
+		 * - if `desired_type` matches `current_type` or any
+		 *   `upgradable` `upgrades`:
+		 *   - MUST consider the channel type to be `desired_type`.
+		 * - otherwise:
+		 *   - MUST consider the channel feature change failed.
+		 *   - if there is a `current_type` field:
+		 *     - MUST consider the channel type to be `current_type`.
+		 */
+		/* Note: returns NULL on missing fields, aka NULL */
+		if (match_type(initr->desired_type,
+			       ninitr->current_type, ninitr->upgradable))
+			type = initr->desired_type;
+		else if (ninitr->current_type)
+			type = ninitr->current_type;
+		else
+			type = NULL;
+
+		if (type)
+			set_channel_type(peer->channel, type);
+	}
+	tal_free(send_tlvs);
+
 #endif /* EXPERIMENTAL_FEATURES */
 
 	/* Corner case: we didn't send shutdown before because update_add_htlc
@@ -3246,6 +3356,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_DEV_MEMLEAK_REPLY:
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
 	case WIRE_CHANNELD_DEV_QUIESCE_REPLY:
+	case WIRE_CHANNELD_UPGRADED:
 		break;
 	}
 

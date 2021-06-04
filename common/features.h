@@ -71,6 +71,10 @@ void set_feature_bit(u8 **ptr, u32 bit);
 /* Given two featurebit vectors, combine them by applying a logical OR. */
 u8 *featurebits_or(const tal_t *ctx, const u8 *f1 TAKES, const u8 *f2 TAKES);
 
+/* Are these two feature bitsets functionally equal (one may have
+ * trailing zeroes)? */
+bool featurebits_eq(const u8 *f1, const u8 *f2);
+
 /* Good for debugging: returns comma-separated string of bits. */
 const char *fmt_featurebits(const tal_t *ctx, const u8 *featurebits);
 

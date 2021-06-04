@@ -221,3 +221,7 @@ msgtype,channeld_send_error_reply,1108
 # Ask channeld to quiesce.
 msgtype,channeld_dev_quiesce,1009
 msgtype,channeld_dev_quiesce_reply,1109
+
+# Tell master we're upgrading the commitment tx.
+msgtype,channeld_upgraded,1011
+msgdata,channeld_upgraded,option_static_remotekey,bool,
