@@ -3610,6 +3610,49 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")
+@pytest.mark.developer("dev-force-features, dev-disconnect required")
+def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
+    """We reconnect at all points during retransmit, and we won't upgrade."""
+    l1_disconnects = ['-WIRE_COMMITMENT_SIGNED',
+                      '-WIRE_REVOKE_AND_ACK']
+    l2_disconnects = ['-WIRE_REVOKE_AND_ACK',
+                      '-WIRE_COMMITMENT_SIGNED',
+                      '=WIRE_UPDATE_FAIL_HTLC-nocommit']
+
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
+                                               'dev-no-reconnect': None,
+                                               'disconnect': l1_disconnects,
+                                               'dev-force-features': ["-13", "-21"],
+                                               # Don't have feerate changes!
+                                               'feerates': (7500, 7500, 7500, 7500)},
+                                              {'may_reconnect': True,
+                                               'dev-no-reconnect': None,
+                                               'disconnect': l2_disconnects}])
+
+    # This HTLC will fail
+    l1.rpc.sendpay([{'msatoshi': 1000, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}], '00' * 32)
+
+    # Each one should cause one disconnection, no upgrade.
+    for d in l1_disconnects + l2_disconnects[:-1]:
+        l1.daemon.wait_for_log('Peer connection lost')
+        l2.daemon.wait_for_log('Peer connection lost')
+        assert not l1.daemon.is_in_log('option_static_remotekey enabled')
+        assert not l2.daemon.is_in_log('option_static_remotekey enabled')
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # On the last reconnect, it retransmitted revoke_and_ack.
+    l1.daemon.wait_for_log('No upgrade: we retransmitted')
+    l2.daemon.wait_for_log('No upgrade: pending changes')
+
+    # Now when we reconnect, despite having an HTLC, we're quiescent.
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    l1.daemon.wait_for_log('option_static_remotekey enabled at 2/2')
+    l2.daemon.wait_for_log('option_static_remotekey enabled at 2/2')
+
+
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "quiescence is experimental")
 @pytest.mark.developer("quiescence triggering is dev only")
 def test_quiescence(node_factory, executor):
