@@ -729,11 +729,12 @@ class LightningNode(object):
                 r'Funding tx {} depth'.format(fundingtx['txid']))
         return {'address': addr, 'wallettxid': wallettxid, 'fundingtx': fundingtx}
 
-    def fundwallet(self, sats, addrtype="p2sh-segwit"):
+    def fundwallet(self, sats, addrtype="p2sh-segwit", mine_block=True):
         addr = self.rpc.newaddr(addrtype)[addrtype]
         txid = self.bitcoin.rpc.sendtoaddress(addr, sats / 10**8)
-        self.bitcoin.generate_block(1)
-        self.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
+        if mine_block:
+            self.bitcoin.generate_block(1)
+            self.daemon.wait_for_log('Owning output .* txid {} CONFIRMED'.format(txid))
         return addr, txid
 
     def fundbalancedchannel(self, remote_node, total_capacity, announce=True):

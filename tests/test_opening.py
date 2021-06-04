@@ -1027,30 +1027,28 @@ def test_funder_contribution_limits(node_factory, bitcoind):
             'feerates': (5000, 5000, 5000, 5000)}
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
 
-    l1.fundwallet(10**8)
+    # We do a lot of these, so do them all then mine all at once.
+    addr, txid = l1.fundwallet(10**8, mine_block=False)
+    l1msgs = ['Owning output .* txid {} CONFIRMED'.format(txid)]
 
     # Give l2 lots of utxos
-    l2.fundwallet(10**3)  # this one is too small to add
-    l2.fundwallet(10**5)
-    l2.fundwallet(10**4)
-    l2.fundwallet(10**4)
-    l2.fundwallet(10**4)
-    l2.fundwallet(10**4)
-    l2.fundwallet(10**4)
+    l2msgs = []
+    for amt in (10**3,  # this one is too small to add
+                10**5, 10**4, 10**4, 10**4, 10**4, 10**4):
+        addr, txid = l2.fundwallet(amt, mine_block=False)
+        l2msgs.append('Owning output .* txid {} CONFIRMED'.format(txid))
 
     # Give l3 lots of utxos
-    l3.fundwallet(10**3)  # this one is too small to add
-    l3.fundwallet(10**4)
-    l3.fundwallet(10**4)
-    l3.fundwallet(10**4)
-    l3.fundwallet(10**4)
-    l3.fundwallet(10**4)
-    l3.fundwallet(10**4)
-    l3.fundwallet(10**4)
-    l3.fundwallet(10**4)
-    l3.fundwallet(10**4)
-    l3.fundwallet(10**4)
-    l3.fundwallet(10**4)
+    l3msgs = []
+    for amt in (10**3,  # this one is too small to add
+                10**4, 10**4, 10**4, 10**4, 10**4, 10**4, 10**4, 10**4, 10**4, 10**4, 10**4):
+        addr, txid = l3.fundwallet(amt, mine_block=False)
+        l3msgs.append('Owning output .* txid {} CONFIRMED'.format(txid))
+
+    bitcoind.generate_block(1)
+    l1.daemon.wait_for_logs(l1msgs)
+    l2.daemon.wait_for_logs(l2msgs)
+    l3.daemon.wait_for_logs(l3msgs)
 
     # Contribute 100% of available funds to l2, all 6 utxos (smallest utxo
     # 10**3 is left out)
