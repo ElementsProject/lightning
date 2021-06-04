@@ -3585,7 +3585,6 @@ static void update_ledger_unknown(const struct bitcoin_txid *txid,
 
 static void handle_unknown_commitment(const struct tx_parts *tx,
 				      u32 tx_blockheight,
-				      u64 commit_num,
 				      const struct pubkey *possible_remote_per_commitment_point,
 				      const struct basepoints basepoints[NUM_SIDES],
 				      const struct htlc_stub *htlcs,
@@ -3912,7 +3911,6 @@ int main(int argc, char *argv[])
 						open_is_replay);
 		} else {
 			handle_unknown_commitment(tx, tx_blockheight,
-						  commit_num,
 						  possible_remote_per_commitment_point,
 						  basepoints,
 						  htlcs,
