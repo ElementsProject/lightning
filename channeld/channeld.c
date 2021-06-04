@@ -290,7 +290,7 @@ static void maybe_send_stfu(struct peer *peer)
 	if (!peer->stfu)
 		return;
 
-	if (!peer->stfu_sent[LOCAL] && !pending_updates(peer->channel, LOCAL)) {
+	if (!peer->stfu_sent[LOCAL] && !pending_updates(peer->channel, LOCAL, false)) {
 		u8 *msg = towire_stfu(NULL, &peer->channel_id,
 				      peer->stfu_initiator == LOCAL);
 		sync_crypto_write(peer->pps, take(msg));
@@ -323,7 +323,7 @@ static void handle_stfu(struct peer *peer, const u8 *stfu)
 	}
 
 	/* Sanity check */
-	if (pending_updates(peer->channel, REMOTE))
+	if (pending_updates(peer->channel, REMOTE, false))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "STFU but you still have updates pending?");
 
@@ -1141,7 +1141,7 @@ static void send_commit(struct peer *peer)
 		/* FIXME: We occasionally desynchronize with LND here, so
 		 * don't stress things by having more than one feerate change
 		 * in-flight! */
-		if (feerate_changes_done(peer->channel->fee_states)) {
+		if (feerate_changes_done(peer->channel->fee_states, false)) {
 			u8 *msg;
 
 			if (!channel_update_feerate(peer->channel, feerate_target))

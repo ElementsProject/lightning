@@ -1252,26 +1252,38 @@ static bool adjust_balance(struct balance view_owed[NUM_SIDES][NUM_SIDES],
 	return true;
 }
 
-bool pending_updates(const struct channel *channel, enum side side)
+bool pending_updates(const struct channel *channel,
+		     enum side side,
+		     bool uncommitted_ok)
 {
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
 
 	/* Initiator might have fee changes in play. */
 	if (side == channel->opener) {
-		if (!feerate_changes_done(channel->fee_states))
+		if (!feerate_changes_done(channel->fee_states, uncommitted_ok))
 			return true;
 	}
 
 	for (htlc = htlc_map_first(channel->htlcs, &it);
 	     htlc;
 	     htlc = htlc_map_next(channel->htlcs, &it)) {
-		/* If it's still being added, it's owner added it. */
-		if (htlc_state_flags(htlc->state) & HTLC_ADDING) {
+		int flags = htlc_state_flags(htlc->state);
+
+		/* If it's still being added, its owner added it. */
+		if (flags & HTLC_ADDING) {
+			/* It might be OK if it's added, but not committed */
+			if (uncommitted_ok
+			    && (flags & HTLC_FLAG(!side, HTLC_F_PENDING)))
+				continue;
 			if (htlc_owner(htlc) == side)
 				return true;
 		/* If it's being removed, non-owner removed it */
 		} else if (htlc_state_flags(htlc->state) & HTLC_REMOVING) {
+			/* It might be OK if it's removed, but not committed */
+			if (uncommitted_ok
+			    && (flags & HTLC_FLAG(!side, HTLC_F_PENDING)))
+				continue;
 			if (htlc_owner(htlc) != side)
 				return true;
 		}

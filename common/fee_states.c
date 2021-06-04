@@ -74,10 +74,14 @@ u32 get_feerate(const struct fee_states *fee_states,
 }
 
 /* Are feerates all agreed by both sides? */
-bool feerate_changes_done(const struct fee_states *fee_states)
+bool feerate_changes_done(const struct fee_states *fee_states,
+			  bool ignore_uncommitted)
 {
 	size_t num_feerates = 0;
 	for (size_t i = 0; i < ARRAY_SIZE(fee_states->feerate); i++) {
+		if (ignore_uncommitted
+		    && (i == RCVD_ADD_HTLC || i == SENT_ADD_HTLC))
+			continue;
 		num_feerates += (fee_states->feerate[i] != NULL);
 	}
 	return num_feerates == 1;
