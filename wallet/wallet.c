@@ -2271,6 +2271,7 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	db_column_amount_msat(stmt, 2, &in->msat);
 	in->cltv_expiry = db_column_int(stmt, 3);
 	in->hstate = db_column_int(stmt, 4);
+	in->status = NULL;
 	/* FIXME: save blinding in db !*/
 	in->blinding = NULL;
 
