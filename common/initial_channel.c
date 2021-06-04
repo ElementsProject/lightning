@@ -186,6 +186,17 @@ struct channel_type *channel_type(const tal_t *ctx,
 
 	return new_channel_type(ctx);
 }
+
+struct channel_type **channel_upgradable_types(const tal_t *ctx,
+					       const struct channel *channel)
+{
+	struct channel_type **arr = tal_arr(ctx, struct channel_type *, 0);
+
+	if (!channel->option_static_remotekey)
+		tal_arr_expand(&arr, type_static_remotekey(arr));
+
+	return arr;
+}
 #endif /* EXPERIMENTAL_FEATURES */
 
 static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)
