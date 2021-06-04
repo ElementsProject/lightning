@@ -2500,6 +2500,12 @@ static void peer_reconnect(struct peer *peer,
 
 #if EXPERIMENTAL_FEATURES
 	send_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
+	/* BOLT-upgrade_protocol #2:
+	 * A node sending `channel_reestablish`, if it supports upgrading channels:
+	 *   - MUST set `next_to_send` the commitment number of the next
+	 *     `commitment_signed` it expects to send.
+	 */
+	send_tlvs->next_to_send = tal_dup(send_tlvs, u64, &peer->next_index[REMOTE]);
 #endif
 
 	/* BOLT #2:
