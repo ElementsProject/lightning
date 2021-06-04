@@ -3206,10 +3206,10 @@ static void handle_their_cheat(const struct tx_parts *tx,
 		}
 
 		matches = match_htlc_output(tmpctx, tx->outputs[i], htlc_scripts);
-		if (tal_count(matches) == 0)
-			status_failed(STATUS_FAIL_INTERNAL_ERROR,
-				      "Could not find resolution for output %zu",
-				      i);
+		if (tal_count(matches) == 0) {
+			status_broken("Could not find resolution for output %zu: did *we* cheat?", i);
+			continue;
+		}
 
 		/* In this case, we don't care which HTLC we choose; so pick
 		   first one */
