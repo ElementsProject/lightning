@@ -717,6 +717,17 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channels ADD shutdown_wrong_txid BLOB DEFAULT NULL"), NULL},
     {SQL("ALTER TABLE channels ADD shutdown_wrong_outnum INTEGER DEFAULT NULL"), NULL},
     {NULL, migrate_inflight_last_tx_to_psbt},
+    /* Channels can now change their type at specific commit indexes. */
+    {SQL("ALTER TABLE channels ADD local_static_remotekey_start BIGINT DEFAULT 0"),
+     NULL},
+    {SQL("ALTER TABLE channels ADD remote_static_remotekey_start BIGINT DEFAULT 0"),
+     NULL},
+    /* Set counter past 2^48 if they don't have option */
+    {SQL("UPDATE channels SET"
+	 " remote_static_remotekey_start = 9223372036854775807,"
+	 " local_static_remotekey_start = 9223372036854775807"
+	 " WHERE option_static_remotekey = 0"),
+     NULL},
 };
 
 /* Leak tracking. */
