@@ -142,6 +142,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->msat = msat;
 	hin->cltv_expiry = cltv_expiry;
 	hin->payment_hash = *payment_hash;
+	hin->status = NULL;
 	if (shared_secret)
 		hin->shared_secret = tal_dup(hin, struct secret, shared_secret);
 	else

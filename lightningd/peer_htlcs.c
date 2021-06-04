@@ -1068,6 +1068,8 @@ htlc_accepted_hook_final(struct htlc_accepted_hook_payload *request STEALS)
 	struct htlc_in *hin = request->hin;
 	struct channel *channel = request->channel;
 
+	request->hin->status = tal_free(request->hin->status);
+
 	/* *Now* we barf if it failed to decode */
 	if (!request->payload) {
 		log_debug(channel->log,

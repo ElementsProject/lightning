@@ -55,6 +55,9 @@ struct htlc_in {
 	struct secret blinding_ss;
 	/* true if we supplied the preimage */
 	bool *we_filled;
+
+	/* A simple text annotation shown in `listpeers` */
+	char *status;
 };
 
 struct htlc_out {
