@@ -176,6 +176,9 @@ static void do_reconnect(struct per_peer_state *pps,
 	struct pubkey my_current_per_commitment_point, next_commitment_point;
 	struct secret their_secret;
 	struct tlv_shutdown_tlvs *tlvs;
+#if EXPERIMENTAL_FEATURES
+	struct tlv_channel_reestablish_tlvs *reestablish_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
+#endif
 
 	my_current_per_commitment_point = get_per_commitment_point(next_index[LOCAL]-1);
 
@@ -201,7 +204,11 @@ static void do_reconnect(struct per_peer_state *pps,
 					 next_index[LOCAL],
 					 revocations_received,
 					 last_remote_per_commit_secret,
-					 &my_current_per_commitment_point);
+					 &my_current_per_commitment_point
+#if EXPERIMENTAL_FEATURES
+					 , reestablish_tlvs
+#endif
+		);
 	sync_crypto_write(pps, take(msg));
 
 	/* They might have already sent reestablish, which triggered us */
@@ -217,11 +224,19 @@ static void do_reconnect(struct per_peer_state *pps,
 			 != WIRE_CHANNEL_REESTABLISH);
 	}
 
+#if EXPERIMENTAL_FEATURES
+	reestablish_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
+#endif
+
 	if (!fromwire_channel_reestablish(channel_reestablish, &their_channel_id,
 					  &next_local_commitment_number,
 					  &next_remote_revocation_number,
 					  &their_secret,
-					  &next_commitment_point)) {
+					  &next_commitment_point
+#if EXPERIMENTAL_FEATURES
+					 , reestablish_tlvs
+#endif
+		    )) {
 		peer_failed_warn(pps, channel_id,
 				 "bad reestablish msg: %s %s",
 				 peer_wire_name(fromwire_peektype(channel_reestablish)),

@@ -1930,12 +1930,19 @@ static void handle_unexpected_reestablish(struct peer *peer, const u8 *msg)
 	u64 next_revocation_number;
 	struct secret your_last_per_commitment_secret;
 	struct pubkey my_current_per_commitment_point;
+#if EXPERIMENTAL_FEATURES
+	struct tlv_channel_reestablish_tlvs *tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
+#endif
 
 	if (!fromwire_channel_reestablish(msg, &channel_id,
 					  &next_commitment_number,
 					  &next_revocation_number,
 					  &your_last_per_commitment_secret,
-					  &my_current_per_commitment_point))
+					  &my_current_per_commitment_point
+#if EXPERIMENTAL_FEATURES
+					  , tlvs
+#endif
+		    ))
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad channel_reestablish %s", tal_hex(peer, msg));
 
@@ -2474,6 +2481,9 @@ static void peer_reconnect(struct peer *peer,
 	struct secret last_local_per_commitment_secret;
 	bool dataloss_protect, check_extra_fields;
 	const u8 **premature_msgs = tal_arr(peer, const u8 *, 0);
+#if EXPERIMENTAL_FEATURES
+	struct tlv_channel_reestablish_tlvs *send_tlvs, *recv_tlvs;
+#endif
 
 	dataloss_protect = feature_negotiated(peer->our_features,
 					      peer->their_features,
@@ -2487,6 +2497,10 @@ static void peer_reconnect(struct peer *peer,
 	 * received signed commitment */
 	get_per_commitment_point(peer->next_index[LOCAL] - 1,
 				 &my_current_per_commitment_point, NULL);
+
+#if EXPERIMENTAL_FEATURES
+	send_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
+#endif
 
 	/* BOLT #2:
 	 *
@@ -2525,14 +2539,22 @@ static void peer_reconnect(struct peer *peer,
 			 peer->revocations_received,
 			 last_remote_per_commit_secret,
 			 /* Can send any (valid) point here */
-			 &peer->remote_per_commit);
+			 &peer->remote_per_commit
+#if EXPERIMENTAL_FEATURES
+			 , send_tlvs
+#endif
+				);
 	} else {
 		msg = towire_channel_reestablish
 			(NULL, &peer->channel_id,
 			 peer->next_index[LOCAL],
 			 peer->revocations_received,
 			 last_remote_per_commit_secret,
-			 &my_current_per_commitment_point);
+			 &my_current_per_commitment_point
+#if EXPERIMENTAL_FEATURES
+			 , send_tlvs
+#endif
+				);
 	}
 
 	sync_crypto_write(peer->pps, take(msg));
@@ -2552,12 +2574,20 @@ static void peer_reconnect(struct peer *peer,
 					     msg) ||
 		 capture_premature_msg(&premature_msgs, msg));
 
+#if EXPERIMENTAL_FEATURES
+	recv_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
+#endif
+
 	if (!fromwire_channel_reestablish(msg,
 					&channel_id,
 					&next_commitment_number,
 					&next_revocation_number,
 					&last_local_per_commitment_secret,
-					&remote_current_per_commitment_point)) {
+					&remote_current_per_commitment_point
+#if EXPERIMENTAL_FEATURES
+			 , recv_tlvs
+#endif
+		    )) {
 		peer_failed_warn(peer->pps,
 				 &peer->channel_id,
 				 "bad reestablish msg: %s %s",

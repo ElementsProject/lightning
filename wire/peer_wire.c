@@ -124,10 +124,17 @@ bool extract_channel_id(const u8 *in_pkt, struct channel_id *channel_id)
 	struct bitcoin_blkid ignored_chainhash;
 	struct secret ignored_secret;
 	struct tlv_open_channel_tlvs *tlvs = tlv_open_channel_tlvs_new(tmpctx);
+#if EXPERIMENTAL_FEATURES
+	struct tlv_channel_reestablish_tlvs *reestab_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
+#endif
 
 	if (fromwire_channel_reestablish(in_pkt, channel_id,
 					 &ignored_u64, &ignored_u64,
-					 &ignored_secret, &ignored_pubkey))
+					 &ignored_secret, &ignored_pubkey
+#if EXPERIMENTAL_FEATURES
+					 , reestab_tlvs
+#endif
+		    ))
 		return true;
 	if (fromwire_open_channel(in_pkt, &ignored_chainhash,
 				  channel_id, &ignored_sat,
