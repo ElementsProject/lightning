@@ -76,7 +76,7 @@ bool onchaind_wire_is_defined(u16 type)
 
 /* WIRE: ONCHAIND_INIT */
 /* Begin!  Here's the onchain tx which spends funding tx */
-u8 *towire_onchaind_init(const tal_t *ctx, const struct shachain *shachain, const struct chainparams *chainparams, struct amount_sat funding_amount_satoshi, struct amount_msat our_msat, const struct pubkey *old_remote_per_commitment_point, const struct pubkey *remote_per_commitment_point, u32 local_to_self_delay, u32 remote_to_self_delay, u32 delayed_to_us_feerate, u32 htlc_feerate, u32 penalty_feerate, struct amount_sat local_dust_limit_satoshi, const struct bitcoin_txid *our_broadcast_txid, const u8 *local_scriptpubkey, const u8 *remote_scriptpubkey, const struct pubkey *ourwallet_pubkey, enum side opener, const struct basepoints *local_basepoints, const struct basepoints *remote_basepoints, const struct tx_parts *tx_parts, u32 locktime, u32 tx_blockheight, u32 reasonable_depth, const struct bitcoin_signature *htlc_signature, u64 num_htlcs, u32 min_possible_feerate, u32 max_possible_feerate, const struct pubkey *possible_remote_per_commit_point, const struct pubkey *local_funding_pubkey, const struct pubkey *remote_funding_pubkey, bool option_static_remotekey, bool option_anchor_outputs, bool is_replay, u32 min_relay_feerate)
+u8 *towire_onchaind_init(const tal_t *ctx, const struct shachain *shachain, const struct chainparams *chainparams, struct amount_sat funding_amount_satoshi, struct amount_msat our_msat, const struct pubkey *old_remote_per_commitment_point, const struct pubkey *remote_per_commitment_point, u32 local_to_self_delay, u32 remote_to_self_delay, u32 delayed_to_us_feerate, u32 htlc_feerate, u32 penalty_feerate, struct amount_sat local_dust_limit_satoshi, const struct bitcoin_txid *our_broadcast_txid, const u8 *local_scriptpubkey, const u8 *remote_scriptpubkey, const struct pubkey *ourwallet_pubkey, enum side opener, const struct basepoints *local_basepoints, const struct basepoints *remote_basepoints, const struct tx_parts *tx_parts, u32 locktime, u32 tx_blockheight, u32 reasonable_depth, const struct bitcoin_signature *htlc_signature, u64 num_htlcs, u32 min_possible_feerate, u32 max_possible_feerate, const struct pubkey *possible_remote_per_commit_point, const struct pubkey *local_funding_pubkey, const struct pubkey *remote_funding_pubkey, u64 local_static_remotekey_start, u64 remote_static_remotekey_start, bool option_anchor_outputs, bool is_replay, u32 min_relay_feerate)
 {
 	u16 local_scriptpubkey_len = tal_count(local_scriptpubkey);
 	u16 remote_scriptpubkey_len = tal_count(remote_scriptpubkey);
@@ -130,7 +130,8 @@ u8 *towire_onchaind_init(const tal_t *ctx, const struct shachain *shachain, cons
 	}
 	towire_pubkey(&p, local_funding_pubkey);
 	towire_pubkey(&p, remote_funding_pubkey);
-	towire_bool(&p, option_static_remotekey);
+	towire_u64(&p, local_static_remotekey_start);
+	towire_u64(&p, remote_static_remotekey_start);
 	towire_bool(&p, option_anchor_outputs);
 	towire_bool(&p, is_replay);
 	/* We need this for BIP125 rule 4 */
@@ -138,7 +139,7 @@ u8 *towire_onchaind_init(const tal_t *ctx, const struct shachain *shachain, cons
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_onchaind_init(const tal_t *ctx, const void *p, struct shachain *shachain, const struct chainparams **chainparams, struct amount_sat *funding_amount_satoshi, struct amount_msat *our_msat, struct pubkey *old_remote_per_commitment_point, struct pubkey *remote_per_commitment_point, u32 *local_to_self_delay, u32 *remote_to_self_delay, u32 *delayed_to_us_feerate, u32 *htlc_feerate, u32 *penalty_feerate, struct amount_sat *local_dust_limit_satoshi, struct bitcoin_txid *our_broadcast_txid, u8 **local_scriptpubkey, u8 **remote_scriptpubkey, struct pubkey *ourwallet_pubkey, enum side *opener, struct basepoints *local_basepoints, struct basepoints *remote_basepoints, struct tx_parts **tx_parts, u32 *locktime, u32 *tx_blockheight, u32 *reasonable_depth, struct bitcoin_signature **htlc_signature, u64 *num_htlcs, u32 *min_possible_feerate, u32 *max_possible_feerate, struct pubkey **possible_remote_per_commit_point, struct pubkey *local_funding_pubkey, struct pubkey *remote_funding_pubkey, bool *option_static_remotekey, bool *option_anchor_outputs, bool *is_replay, u32 *min_relay_feerate)
+bool fromwire_onchaind_init(const tal_t *ctx, const void *p, struct shachain *shachain, const struct chainparams **chainparams, struct amount_sat *funding_amount_satoshi, struct amount_msat *our_msat, struct pubkey *old_remote_per_commitment_point, struct pubkey *remote_per_commitment_point, u32 *local_to_self_delay, u32 *remote_to_self_delay, u32 *delayed_to_us_feerate, u32 *htlc_feerate, u32 *penalty_feerate, struct amount_sat *local_dust_limit_satoshi, struct bitcoin_txid *our_broadcast_txid, u8 **local_scriptpubkey, u8 **remote_scriptpubkey, struct pubkey *ourwallet_pubkey, enum side *opener, struct basepoints *local_basepoints, struct basepoints *remote_basepoints, struct tx_parts **tx_parts, u32 *locktime, u32 *tx_blockheight, u32 *reasonable_depth, struct bitcoin_signature **htlc_signature, u64 *num_htlcs, u32 *min_possible_feerate, u32 *max_possible_feerate, struct pubkey **possible_remote_per_commit_point, struct pubkey *local_funding_pubkey, struct pubkey *remote_funding_pubkey, u64 *local_static_remotekey_start, u64 *remote_static_remotekey_start, bool *option_anchor_outputs, bool *is_replay, u32 *min_relay_feerate)
 {
 	u16 local_scriptpubkey_len;
 	u16 remote_scriptpubkey_len;
@@ -201,7 +202,8 @@ bool fromwire_onchaind_init(const tal_t *ctx, const void *p, struct shachain *sh
 	}
  	fromwire_pubkey(&cursor, &plen, local_funding_pubkey);
  	fromwire_pubkey(&cursor, &plen, remote_funding_pubkey);
- 	*option_static_remotekey = fromwire_bool(&cursor, &plen);
+ 	*local_static_remotekey_start = fromwire_u64(&cursor, &plen);
+ 	*remote_static_remotekey_start = fromwire_u64(&cursor, &plen);
  	*option_anchor_outputs = fromwire_bool(&cursor, &plen);
  	*is_replay = fromwire_bool(&cursor, &plen);
  	/* We need this for BIP125 rule 4 */
@@ -635,4 +637,4 @@ bool fromwire_onchaind_notify_coin_mvt(const void *p, struct chain_coin_mvt *mvt
  	fromwire_chain_coin_mvt(&cursor, &plen, mvt);
 	return cursor != NULL;
 }
-// SHA256STAMP:6884d8c13750d6bb08de384fe35050309f8f66037662671c2aad2eaa16f47463
+// SHA256STAMP:66e19538be7f5a9e9076bfe995a9bf0cbb5d303df8f6c383e427c11ef2e85e2e

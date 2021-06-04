@@ -697,8 +697,8 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  channel->future_per_commitment_point,
 				  &channel->local_funding_pubkey,
 				  &channel->channel_info.remote_fundingkey,
-				   /* FIXME!  onchaind needs start numbers! */
-				  channel->static_remotekey_start[LOCAL] == 0,
+				  channel->static_remotekey_start[LOCAL],
+				  channel->static_remotekey_start[REMOTE],
 				  channel->option_anchor_outputs,
 				  is_replay,
 				  feerate_min(ld, NULL));
