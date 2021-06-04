@@ -3508,6 +3508,108 @@ def test_upgrade_statickey(node_factory, executor):
     l2.daemon.wait_for_log(r"They sent desired_type \[13\]")
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")
+@pytest.mark.developer("dev-force-features required")
+def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
+    """We test penalty before/after, and unilateral before/after"""
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
+                                               'dev-force-features': ["-13", "-21"],
+                                               # We try to cheat!
+                                               'allow_broken_log': True},
+                                              {'may_reconnect': True}])
+
+    # TEST 1: Cheat from pre-upgrade.
+    tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
+
+    # Pre-statickey penalty works.
+    bitcoind.rpc.sendrawtransaction(tx)
+    bitcoind.generate_block(1)
+
+    l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
+                                   'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
+    bitcoind.generate_block(100)
+    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
+
+    # TEST 2: Cheat from post-upgrade.
+    node_factory.join_nodes([l1, l2])
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    l1.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
+    l2.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
+
+    l1.pay(l2, 1000000)
+
+    # We will try to cheat later.
+    tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
+
+    l1.pay(l2, 1000000)
+
+    # Pre-statickey penalty works.
+    bitcoind.rpc.sendrawtransaction(tx)
+    bitcoind.generate_block(1)
+
+    l2.wait_for_onchaind_broadcast('OUR_PENALTY_TX',
+                                   'THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM')
+    bitcoind.generate_block(100)
+    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
+
+    # TEST 3: Unilateral close from pre-upgrade
+    node_factory.join_nodes([l1, l2])
+
+    # Give them both something for onchain close.
+    l1.pay(l2, 1000000)
+
+    # Make sure it's completely quiescent.
+    l1.daemon.wait_for_log("chan#3: Removing out HTLC 0 state RCVD_REMOVE_ACK_REVOCATION FULFILLED")
+
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.daemon.wait_for_log('option_static_remotekey enabled at 3/3')
+
+    # But this is the *pre*-update commit tx!
+    l2.stop()
+    l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    l2.start()
+
+    # They should both handle it fine.
+    l1.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
+    l2.daemon.wait_for_logs(['Ignoring output .*: THEIR_UNILATERAL/OUTPUT_TO_US',
+                             'Ignoring output .*: THEIR_UNILATERAL/DELAYED_OUTPUT_TO_THEM'])
+    bitcoind.generate_block(5)
+    bitcoind.generate_block(100, wait_for_mempool=1)
+
+    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
+
+    # TEST 4: Unilateral close from post-upgrade
+    node_factory.join_nodes([l1, l2])
+
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
+
+    # Move to static_remotekey.
+    l1.pay(l2, 1000000)
+
+    l2.stop()
+    l1.rpc.close(l2.info['id'], unilateraltimeout=1)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    l2.start()
+
+    # They should both handle it fine.
+    l1.daemon.wait_for_log('Propose handling OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by OUR_DELAYED_RETURN_TO_WALLET .* after 5 blocks')
+    l2.daemon.wait_for_logs(['Ignoring output .*: THEIR_UNILATERAL/OUTPUT_TO_US',
+                             'Ignoring output .*: THEIR_UNILATERAL/DELAYED_OUTPUT_TO_THEM'])
+
+    bitcoind.generate_block(5)
+    bitcoind.generate_block(100, wait_for_mempool=1)
+
+    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
+
+
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "quiescence is experimental")
 @pytest.mark.developer("quiescence triggering is dev only")
 def test_quiescence(node_factory, executor):
