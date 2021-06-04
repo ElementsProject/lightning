@@ -1505,8 +1505,6 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	json_add_hex_talarr(req->js, "onion", p->createonion_response->onion);
 
 	json_object_start(req->js, "first_hop");
-	json_add_short_channel_id(req->js, "channel", &first->scid);
-	json_add_num(req->js, "direction", first->direction);
 	json_add_amount_msat_only(req->js, "amount_msat", first->amount);
 	json_add_num(req->js, "delay", first->delay);
 	json_add_node_id(req->js, "id", &first->node_id);

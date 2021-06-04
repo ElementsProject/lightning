@@ -1007,7 +1007,7 @@ send_payment_core(struct lightningd *ld,
 					   "peer found");
 
 		json_add_routefail_info(data, 0, WIRE_UNKNOWN_NEXT_PEER,
-					&ld->id, &first_hop->scid,
+					&ld->id, NULL,
 					node_id_idx(&ld->id,
 						    &first_hop->node_id),
 					NULL);
@@ -1021,7 +1021,7 @@ send_payment_core(struct lightningd *ld,
 	if (failmsg) {
 		fail = immediate_routing_failure(cmd, ld,
 						 fromwire_peektype(failmsg),
-						 &first_hop->scid,
+						 channel->scid,
 						 &channel->peer->id);
 
 		return sendpay_fail(
