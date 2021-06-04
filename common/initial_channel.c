@@ -6,12 +6,14 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
+#include <common/features.h>
 #include <common/fee_states.h>
 #include <common/initial_channel.h>
 #include <common/initial_commit_tx.h>
 #include <common/keyset.h>
 #include <common/type_to_string.h>
 #include <inttypes.h>
+#include <wire/peer_wire.h>
 
 struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct channel_id *cid,
@@ -135,6 +137,56 @@ u32 channel_feerate(const struct channel *channel, enum side side)
 {
 	return get_feerate(channel->fee_states, channel->opener, side);
 }
+
+#if EXPERIMENTAL_FEATURES
+/* BOLT-upgrade_protocol #2:
+ * Channel features are explicitly enumerated as `channel_type` bitfields,
+ * using odd features bits.  The currently defined types are:
+ *   - no features (no bits set)
+ *   - `option_static_remotekey` (bit 13)
+ *   - `option_anchor_outputs` and `option_static_remotekey` (bits 21 and 13)
+ *   - `option_anchors_zero_fee_htlc_tx` and `option_static_remotekey` (bits 23
+ *      and 13)
+ */
+static struct channel_type *new_channel_type(const tal_t *ctx)
+{
+	struct channel_type *type = tal(ctx, struct channel_type);
+
+	type->features = tal_arr(type, u8, 0);
+	return type;
+}
+
+static struct channel_type *type_static_remotekey(const tal_t *ctx)
+{
+	struct channel_type *type = new_channel_type(ctx);
+
+	set_feature_bit(&type->features,
+			OPTIONAL_FEATURE(OPT_STATIC_REMOTEKEY));
+ 	return type;
+}
+
+static struct channel_type *type_anchor_outputs(const tal_t *ctx)
+{
+	struct channel_type *type = new_channel_type(ctx);
+
+	set_feature_bit(&type->features,
+			OPTIONAL_FEATURE(OPT_ANCHOR_OUTPUTS));
+	set_feature_bit(&type->features,
+			OPTIONAL_FEATURE(OPT_STATIC_REMOTEKEY));
+	return type;
+}
+
+struct channel_type *channel_type(const tal_t *ctx,
+				  const struct channel *channel)
+{
+	if (channel->option_anchor_outputs)
+		return type_anchor_outputs(ctx);
+	if (channel->option_static_remotekey)
+		return type_static_remotekey(ctx);
+
+	return new_channel_type(ctx);
+}
+#endif /* EXPERIMENTAL_FEATURES */
 
 static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)
 {

@@ -29,6 +29,9 @@ void memleak_add_helper_(const tal_t *p UNNEEDED, void (*cb)(struct htable *memt
 /* Generated stub for memleak_remove_htable */
 void memleak_remove_htable(struct htable *memtable UNNEEDED, const struct htable *ht UNNEEDED)
 { fprintf(stderr, "memleak_remove_htable called!\n"); abort(); }
+/* Generated stub for set_feature_bit */
+void set_feature_bit(u8 **ptr UNNEEDED, u32 bit UNNEEDED)
+{ fprintf(stderr, "set_feature_bit called!\n"); abort(); }
 /* Generated stub for status_failed */
 void status_failed(enum status_failreason code UNNEEDED,
 		   const char *fmt UNNEEDED, ...)

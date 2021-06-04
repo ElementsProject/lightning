@@ -2506,6 +2506,25 @@ static void peer_reconnect(struct peer *peer,
 	 *     `commitment_signed` it expects to send.
 	 */
 	send_tlvs->next_to_send = tal_dup(send_tlvs, u64, &peer->next_index[REMOTE]);
+
+	/* BOLT-upgrade_protocol #2:
+	 * - if it initiated the channel:
+	 *   - MUST set `desired_type` to the channel_type it wants for the
+	 *     channel.
+	 */
+	if (peer->channel->opener == LOCAL)
+		send_tlvs->desired_type = channel_type(send_tlvs, peer->channel);
+	else {
+		/* BOLT-upgrade_protocol #2:
+		 * - otherwise:
+		 *  - MUST set `current_type` to the current channel_type of the
+		 *    channel.
+		 *  - MUST set `upgradable` to the channel types it could change
+		 *    to.
+		 *  - MAY not set `upgradable` if it would be empty.
+		 */
+		send_tlvs->current_type = channel_type(send_tlvs, peer->channel);
+	}
 #endif
 
 	/* BOLT #2:
