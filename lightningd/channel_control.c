@@ -370,6 +370,29 @@ void forget_channel(struct channel *channel, const char *why)
 		forget(channel);
 }
 
+#if EXPERIMENTAL_FEATURES
+static void handle_channel_upgrade(struct channel *channel,
+				   const u8 *msg)
+{
+	bool option_static_remotekey;
+
+	if (!fromwire_channeld_upgraded(msg, &option_static_remotekey)) {
+		channel_internal_error(channel, "bad handle_channel_upgrade: %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	channel->static_remotekey_start[LOCAL] = channel->next_index[LOCAL];
+	channel->static_remotekey_start[REMOTE] = channel->next_index[REMOTE];
+	log_debug(channel->log,
+		  "option_static_remotekey enabled at %"PRIu64"/%"PRIu64,
+		  channel->static_remotekey_start[LOCAL],
+		  channel->static_remotekey_start[REMOTE]);
+
+	wallet_channel_save(channel->peer->ld->wallet, channel);
+}
+#endif /* EXPERIMENTAL_FEATURES */
+
 static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 {
 	enum channeld_wire t = fromwire_peektype(msg);
@@ -405,6 +428,13 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
 		break;
+#if EXPERIMENTAL_FEATURES
+	case WIRE_CHANNELD_UPGRADED:
+		handle_channel_upgrade(sd->channel, msg);
+		break;
+#else
+	case WIRE_CHANNELD_UPGRADED:
+#endif
 	/* And we never get these from channeld. */
 	case WIRE_CHANNELD_INIT:
 	case WIRE_CHANNELD_FUNDING_DEPTH:

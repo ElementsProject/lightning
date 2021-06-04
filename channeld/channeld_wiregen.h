@@ -73,6 +73,8 @@ enum channeld_wire {
         /*  Ask channeld to quiesce. */
         WIRE_CHANNELD_DEV_QUIESCE = 1009,
         WIRE_CHANNELD_DEV_QUIESCE_REPLY = 1109,
+        /*  Tell master we're upgrading the commitment tx. */
+        WIRE_CHANNELD_UPGRADED = 1011,
 };
 
 const char *channeld_wire_name(int e);
@@ -223,6 +225,11 @@ bool fromwire_channeld_dev_quiesce(const void *p);
 u8 *towire_channeld_dev_quiesce_reply(const tal_t *ctx);
 bool fromwire_channeld_dev_quiesce_reply(const void *p);
 
+/* WIRE: CHANNELD_UPGRADED */
+/*  Tell master we're upgrading the commitment tx. */
+u8 *towire_channeld_upgraded(const tal_t *ctx, bool option_static_remotekey);
+bool fromwire_channeld_upgraded(const void *p, bool *option_static_remotekey);
+
 
 #endif /* LIGHTNING_CHANNELD_CHANNELD_WIREGEN_H */
-// SHA256STAMP:fa8ee25e2f6082e9889962218e6e345dcb4430840b8f831b40cbb0c415b690b5
+// SHA256STAMP:2d7b763e89512ad8c5921b90c13f37ac83ab0016384c38e8c8e831683d668651
