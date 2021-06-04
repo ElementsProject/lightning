@@ -2524,6 +2524,8 @@ static void peer_reconnect(struct peer *peer,
 		 *  - MAY not set `upgradable` if it would be empty.
 		 */
 		send_tlvs->current_type = channel_type(send_tlvs, peer->channel);
+		send_tlvs->upgradable = channel_upgradable_types(send_tlvs,
+								 peer->channel);
 	}
 #endif
 
@@ -2779,6 +2781,23 @@ static void peer_reconnect(struct peer *peer,
 	 */
 	/* (If we had sent `closing_signed`, we'd be in closingd). */
 	maybe_send_shutdown(peer);
+
+#if EXPERIMENTAL_FEATURES
+	if (recv_tlvs->desired_type)
+		status_debug("They sent desired_type [%s]",
+			     fmt_featurebits(tmpctx,
+					     recv_tlvs->desired_type->features));
+	if (recv_tlvs->current_type)
+		status_debug("They sent current_type [%s]",
+			     fmt_featurebits(tmpctx,
+					     recv_tlvs->current_type->features));
+
+	for (size_t i = 0; i < tal_count(recv_tlvs->upgradable); i++) {
+		status_debug("They offered upgrade to [%s]",
+			     fmt_featurebits(tmpctx,
+					     recv_tlvs->upgradable[i]->features));
+	}
+#endif /* EXPERIMENTAL_FEATURES */
 
 	/* Corner case: we didn't send shutdown before because update_add_htlc
 	 * pending, but now they're cleared by restart, and we're actually

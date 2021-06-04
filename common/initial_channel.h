@@ -147,6 +147,10 @@ u32 channel_feerate(const struct channel *channel, enum side side);
  */
 struct channel_type *channel_type(const tal_t *ctx,
 				  const struct channel *channel);
+
+/* What features can we upgrade?  (Returns NULL if none). */
+struct channel_type **channel_upgradable_types(const tal_t *ctx,
+					       const struct channel *channel);
 #endif /* EXPERIMENTAL_FEATURES */
 
 #endif /* LIGHTNING_COMMON_INITIAL_CHANNEL_H */

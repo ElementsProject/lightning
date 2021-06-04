@@ -3478,6 +3478,22 @@ def test_openchannel_init_alternate(node_factory, executor):
             print("nothing to do")
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")
+@pytest.mark.developer("dev-force-features required")
+def test_upgrade_statickey(node_factory, executor):
+    """l1 doesn't have option_static_remotekey, l2 offers it."""
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
+                                               'dev-force-features': ["-13", "-21"]},
+                                              {'may_reconnect': True}])
+
+    l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    l1.daemon.wait_for_logs([r"They sent current_type \[\]",
+                             r"They offered upgrade to \[13\]"])
+    l2.daemon.wait_for_log(r"They sent desired_type \[\]")
+
+
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "quiescence is experimental")
 @pytest.mark.developer("quiescence triggering is dev only")
 def test_quiescence(node_factory, executor):
