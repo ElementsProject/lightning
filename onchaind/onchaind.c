@@ -84,8 +84,8 @@ static struct amount_msat our_msat;
 /* Needed for anchor outputs */
 static struct pubkey funding_pubkey[NUM_SIDES];
 
-/* Does option_static_remotekey apply to this commitment tx? */
-static bool option_static_remotekey;
+/* At what commit number does option_static_remotekey apply? */
+static u64 static_remotekey_start[NUM_SIDES];
 
 /* Does option_anchor_outputs apply to this commitment tx? */
 static bool option_anchor_outputs;
@@ -2615,7 +2615,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 	if (!derive_keyset(&local_per_commitment_point,
 			   &basepoints[LOCAL],
 			   &basepoints[REMOTE],
-			   option_static_remotekey,
+			   commit_num >= static_remotekey_start[LOCAL],
 			   ks))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
@@ -3050,7 +3050,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 	if (!derive_keyset(remote_per_commitment_point,
 			   &basepoints[REMOTE],
 			   &basepoints[LOCAL],
-			   option_static_remotekey,
+			   commit_num >= static_remotekey_start[REMOTE],
 			   ks))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
@@ -3063,7 +3063,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 		     " other_payment_key: %s"
 		     " self_htlc_key: %s"
 		     " other_htlc_key: %s"
-		     " (option_static_remotekey = %i)",
+		     " (static_remotekey = %"PRIu64"/%"PRIu64")",
 		     commit_num,
 		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->self_revocation_key),
@@ -3077,7 +3077,8 @@ static void handle_their_cheat(const struct tx_parts *tx,
 				    &keyset->self_htlc_key),
 		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_htlc_key),
-		     option_static_remotekey);
+		     static_remotekey_start[LOCAL],
+		     static_remotekey_start[REMOTE]);
 
 	remote_wscript = to_self_wscript(tmpctx, to_self_delay[REMOTE], keyset);
 
@@ -3154,7 +3155,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 					      tx_blockheight,
 					      script[LOCAL],
 					      remote_per_commitment_point,
-					      option_static_remotekey);
+					      commit_num >= static_remotekey_start[REMOTE]);
 			script[LOCAL] = NULL;
 			add_amt(&total_outs, amt);
 			continue;
@@ -3334,7 +3335,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 	if (!derive_keyset(remote_per_commitment_point,
 			   &basepoints[REMOTE],
 			   &basepoints[LOCAL],
-			   option_static_remotekey,
+			   commit_num >= static_remotekey_start[REMOTE],
 			   ks))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Deriving keyset for %"PRIu64, commit_num);
@@ -3434,7 +3435,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 					      tx_blockheight,
 					      script[LOCAL],
 					      remote_per_commitment_point,
-					      option_static_remotekey);
+					      commit_num >= static_remotekey_start[REMOTE]);
 			script[LOCAL] = NULL;
 			add_amt(&our_outs, amt);
 			continue;
@@ -3775,7 +3776,8 @@ int main(int argc, char *argv[])
 				   &possible_remote_per_commitment_point,
 				   &funding_pubkey[LOCAL],
 				   &funding_pubkey[REMOTE],
-				   &option_static_remotekey,
+				   &static_remotekey_start[LOCAL],
+				   &static_remotekey_start[REMOTE],
 				   &option_anchor_outputs,
 				   &open_is_replay,
 				   &min_relay_feerate)) {
