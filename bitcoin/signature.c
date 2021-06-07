@@ -219,8 +219,8 @@ bool check_tx_sig(const struct bitcoin_tx *tx, size_t input_num,
 	}
 	assert(input_num < tx->wtx->num_inputs);
 
-	dump_tx("check_tx_sig", tx, input_num, script, key, &hash);
 	bitcoin_tx_hash_for_sig(tx, input_num, script, sig->sighash_type, &hash);
+	dump_tx("check_tx_sig", tx, input_num, script, key, &hash);
 
 	ret = check_signed_hash(&hash, &sig->s, key);
 	if (!ret)
