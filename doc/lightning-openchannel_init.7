@@ -3,7 +3,7 @@
 lightning-openchannel_init - Command to initiate a channel to a peer
 .SH SYNOPSIS
 
-\fBopenchannel_init\fR \fIid\fR \fIamount\fR \fIinitalpsbt\fR [\fIcommitment_feerate\fR] [\fIfunding_feerate\fR] [\fIannounce\fR] [\fIclose_to\fR]
+\fBopenchannel_init\fR \fIid\fR \fIamount\fR \fIinitalpsbt\fR [\fIcommitment_feerate\fR] [\fIfunding_feerate\fR] [\fIannounce\fR] [\fIclose_to\fR] [\fIrequest_amt\fR]
 
 .SH DESCRIPTION
 
@@ -43,6 +43,11 @@ funding transaction\. Defaults to 'opening' feerate\.
 sent on close\. Only valid if both peers have negotiated
 \fBoption_upfront_shutdown_script\fR\.
 
+
+\fIrequest_amt\fR is an amount of liquidity you'd like to lease from the peer\.
+If peer supports \fBoption_will_fund\fR, indicates to them to include this
+much liquidity into the channel\.
+
 .SH RETURN VALUE
 
 On success, an object is returned, containing:
@@ -61,6 +66,15 @@ On success, an object is returned, containing:
 
 If the peer does not support \fBoption_dual_fund\fR, this command
 will return an error\.
+
+
+If you sent a \fIrequest_amt\fR and the peer supports \fBoption_will_fund\fR and is
+interested in leasing you liquidity in this channel, returns their updated
+channel fee max (\fIchannel_fee_proportional_basis\fR, \fIchannel_fee_base_msat\fR),
+updated rate card for the lease fee (\fIlease_fee_proportional_basis\fR,
+\fIlease_fee_base_sat\fR) and their on-chain weight \fIweight_charge\fR, which will
+be added to the lease fee at a rate of \fIfunding_feerate\fR \fI \fRweight_charge*
+/ 1000\.
 
 
 On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
@@ -105,4 +119,4 @@ lightning-fundchannel_\fBcomplete\fR(7), \fBlightning-fundchannel\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:ba03cf64c3578303a0cdfcf94546bb94d86ecf3d6187b16871a39c08b3a40f38
+\" SHA256STAMP:13023bb80ee4a7f6a94a168399a01e05c6c5ab68e9eec5795ebd5f49207a03ac
