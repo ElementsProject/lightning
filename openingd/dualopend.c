@@ -1904,6 +1904,51 @@ static u8 *accepter_commits(struct state *state,
 	return msg;
 }
 
+static void accept_tlv_add_offer(struct tlv_accept_tlvs *a_tlv,
+				 struct lease_rates *rates,
+				 struct pubkey funding_pubkey,
+				 u32 blockheight)
+{
+	secp256k1_ecdsa_signature ad_sig;
+	u8 *msg;
+
+	/* Go get the signature for this lease offer from HSMD */
+	msg = towire_hsmd_sign_option_will_fund_offer(NULL,
+						      &funding_pubkey,
+						      blockheight,
+						      rates->channel_fee_max_base_msat,
+						      rates->channel_fee_max_proportional_thousandths);
+	if (!wire_sync_write(HSM_FD, take(msg)))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Could not write to HSM: %s",
+			      strerror(errno));
+	msg = wire_sync_read(tmpctx, HSM_FD);
+	if (!fromwire_hsmd_sign_option_will_fund_offer_reply(msg, &ad_sig))
+		status_failed(STATUS_FAIL_HSM_IO,
+			      "Bad sign_option_will_fund_offer_reply %s",
+			      tal_hex(tmpctx, msg));
+
+	/* BOLT- #2:
+	 * The accepting node:
+	 * ...
+	 *   - MUST set `funding_fee_base_sat` to the base fee
+	 *     (in satoshi) it will charge for the `funding_satoshis`
+	 *   - MUST set `funding_fee_proportional_basis` to the amount
+	 *     (in thousandths of satoshi) it will charge per `funding_satoshi`
+	 *   - MUST set `funding_weight` to the weight they
+	 *     will contribute to this channel, to fund the request.
+	 *   - MUST set `channel_fee_base_max_msat` to the base fee
+	 *     (in millisatoshi) it will charge for any HTLC on this channel
+	 *     during the funding period.
+	 *   - MUST set `channel_fee_proportional_basis_max` to the amount
+	 *     (in thousandths of a satoshi) it will charge per transferred
+	 *     satoshi during the funding period.
+	 */
+	a_tlv->will_fund = tal(a_tlv, struct tlv_accept_tlvs_will_fund);
+	a_tlv->will_fund->lease_rates = *rates;
+	a_tlv->will_fund->signature = ad_sig;
+}
+
 static void accepter_start(struct state *state, const u8 *oc2_msg)
 {
 	struct bitcoin_blkid chain_hash;
@@ -2127,6 +2172,18 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				      tal_count(state->upfront_shutdown_script[LOCAL]),
 				      0);
 	}
+
+	/* BOLT- #2:
+	 * The accepting node:
+	 * ...
+	 * - if the `option_will_fund` tlv was sent in `open_channel2`:
+	 *   - if they decide to accept the offer:
+	 *   - MUST include a `will_fund` tlv
+	*/
+	if (open_tlv->request_funds && tx_state->rates)
+		accept_tlv_add_offer(a_tlv, tx_state->rates,
+				     state->our_funding_pubkey,
+				     lease_blockheight_start);
 
 	msg = towire_accept_channel2(tmpctx, &state->channel_id,
 				     tx_state->accepter_funding,
