@@ -247,7 +247,7 @@ bool fromwire_dualopend_reinit(const tal_t *ctx, const void *p, const struct cha
 
 /* WIRE: DUALOPEND_GOT_OFFER */
 /* dualopend->master: they offered channel */
-u8 *towire_dualopend_got_offer(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat opener_funding, struct amount_sat dust_limit_satoshis, struct amount_msat max_htlc_value_in_flight_msat, struct amount_msat htlc_minimum_msat, u32 feerate_per_kw_funding, u32 feerate_per_kw_commitment, u16 to_self_delay, u16 max_accepted_htlcs, u8 channel_flags, u32 locktime, const u8 *shutdown_scriptpubkey)
+u8 *towire_dualopend_got_offer(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat opener_funding, struct amount_sat dust_limit_satoshis, struct amount_msat max_htlc_value_in_flight_msat, struct amount_msat htlc_minimum_msat, u32 feerate_per_kw_funding, u32 feerate_per_kw_commitment, u16 to_self_delay, u16 max_accepted_htlcs, u8 channel_flags, u32 locktime, const u8 *shutdown_scriptpubkey, struct amount_sat requested_amt, u32 lease_blockheight_start)
 {
 	u16 shutdown_len = tal_count(shutdown_scriptpubkey);
 	u8 *p = tal_arr(ctx, u8, 0);
@@ -266,10 +266,12 @@ u8 *towire_dualopend_got_offer(const tal_t *ctx, const struct channel_id *channe
 	towire_u32(&p, locktime);
 	towire_u16(&p, shutdown_len);
 	towire_u8_array(&p, shutdown_scriptpubkey, shutdown_len);
+	towire_amount_sat(&p, requested_amt);
+	towire_u32(&p, lease_blockheight_start);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dualopend_got_offer(const tal_t *ctx, const void *p, struct channel_id *channel_id, struct amount_sat *opener_funding, struct amount_sat *dust_limit_satoshis, struct amount_msat *max_htlc_value_in_flight_msat, struct amount_msat *htlc_minimum_msat, u32 *feerate_per_kw_funding, u32 *feerate_per_kw_commitment, u16 *to_self_delay, u16 *max_accepted_htlcs, u8 *channel_flags, u32 *locktime, u8 **shutdown_scriptpubkey)
+bool fromwire_dualopend_got_offer(const tal_t *ctx, const void *p, struct channel_id *channel_id, struct amount_sat *opener_funding, struct amount_sat *dust_limit_satoshis, struct amount_msat *max_htlc_value_in_flight_msat, struct amount_msat *htlc_minimum_msat, u32 *feerate_per_kw_funding, u32 *feerate_per_kw_commitment, u16 *to_self_delay, u16 *max_accepted_htlcs, u8 *channel_flags, u32 *locktime, u8 **shutdown_scriptpubkey, struct amount_sat *requested_amt, u32 *lease_blockheight_start)
 {
 	u16 shutdown_len;
 
@@ -293,12 +295,14 @@ bool fromwire_dualopend_got_offer(const tal_t *ctx, const void *p, struct channe
  	// 2nd case shutdown_scriptpubkey
 	*shutdown_scriptpubkey = shutdown_len ? tal_arr(ctx, u8, shutdown_len) : NULL;
 	fromwire_u8_array(&cursor, &plen, *shutdown_scriptpubkey, shutdown_len);
+ 	*requested_amt = fromwire_amount_sat(&cursor, &plen);
+ 	*lease_blockheight_start = fromwire_u32(&cursor, &plen);
 	return cursor != NULL;
 }
 
 /* WIRE: DUALOPEND_GOT_OFFER_REPLY */
 /* master->dualopend: reply back with our first funding info/contribs */
-u8 *towire_dualopend_got_offer_reply(const tal_t *ctx, struct amount_sat accepter_funding, const struct wally_psbt *psbt, const u8 *our_shutdown_scriptpubkey)
+u8 *towire_dualopend_got_offer_reply(const tal_t *ctx, struct amount_sat accepter_funding, const struct wally_psbt *psbt, const u8 *our_shutdown_scriptpubkey, const struct lease_rates *lease_rates)
 {
 	u16 shutdown_len = tal_count(our_shutdown_scriptpubkey);
 	u8 *p = tal_arr(ctx, u8, 0);
@@ -308,10 +312,16 @@ u8 *towire_dualopend_got_offer_reply(const tal_t *ctx, struct amount_sat accepte
 	towire_wally_psbt(&p, psbt);
 	towire_u16(&p, shutdown_len);
 	towire_u8_array(&p, our_shutdown_scriptpubkey, shutdown_len);
+	if (!lease_rates)
+		towire_bool(&p, false);
+	else {
+		towire_bool(&p, true);
+		towire_lease_rates(&p, lease_rates);
+	}
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dualopend_got_offer_reply(const tal_t *ctx, const void *p, struct amount_sat *accepter_funding, struct wally_psbt **psbt, u8 **our_shutdown_scriptpubkey)
+bool fromwire_dualopend_got_offer_reply(const tal_t *ctx, const void *p, struct amount_sat *accepter_funding, struct wally_psbt **psbt, u8 **our_shutdown_scriptpubkey, struct lease_rates **lease_rates)
 {
 	u16 shutdown_len;
 
@@ -326,6 +336,12 @@ bool fromwire_dualopend_got_offer_reply(const tal_t *ctx, const void *p, struct 
  	// 2nd case our_shutdown_scriptpubkey
 	*our_shutdown_scriptpubkey = shutdown_len ? tal_arr(ctx, u8, shutdown_len) : NULL;
 	fromwire_u8_array(&cursor, &plen, *our_shutdown_scriptpubkey, shutdown_len);
+ 	if (!fromwire_bool(&cursor, &plen))
+		*lease_rates = NULL;
+	else {
+		*lease_rates = tal(ctx, struct lease_rates);
+		fromwire_lease_rates(&cursor, &plen, *lease_rates);
+	}
 	return cursor != NULL;
 }
 
@@ -605,7 +621,7 @@ bool fromwire_dualopend_fail(const tal_t *ctx, const void *p, wirestring **reaso
 
 /* WIRE: DUALOPEND_OPENER_INIT */
 /* master->dualopend: hello */
-u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags)
+u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags, struct amount_sat requested_sats, u32 blockheight)
 {
 	u16 local_shutdown_len = tal_count(local_shutdown_scriptpubkey);
 	u8 *p = tal_arr(ctx, u8, 0);
@@ -618,10 +634,12 @@ u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt
 	towire_u32(&p, feerate_per_kw);
 	towire_u32(&p, feerate_per_kw_funding);
 	towire_u8(&p, channel_flags);
+	towire_amount_sat(&p, requested_sats);
+	towire_u32(&p, blockheight);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wally_psbt **psbt, struct amount_sat *funding_amount, u8 **local_shutdown_scriptpubkey, u32 *feerate_per_kw, u32 *feerate_per_kw_funding, u8 *channel_flags)
+bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wally_psbt **psbt, struct amount_sat *funding_amount, u8 **local_shutdown_scriptpubkey, u32 *feerate_per_kw, u32 *feerate_per_kw_funding, u8 *channel_flags, struct amount_sat *requested_sats, u32 *blockheight)
 {
 	u16 local_shutdown_len;
 
@@ -639,6 +657,8 @@ bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wall
  	*feerate_per_kw = fromwire_u32(&cursor, &plen);
  	*feerate_per_kw_funding = fromwire_u32(&cursor, &plen);
  	*channel_flags = fromwire_u8(&cursor, &plen);
+ 	*requested_sats = fromwire_amount_sat(&cursor, &plen);
+ 	*blockheight = fromwire_u32(&cursor, &plen);
 	return cursor != NULL;
 }
 
@@ -912,4 +932,4 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:2aa38c967abfcd0110b6c65f62b13aa77cefacaf5f036a9217bb5d63220f1e1f
+// SHA256STAMP:d8a31a5de292561ccfb5b7050c911b590db44a50209e02469179904708328861

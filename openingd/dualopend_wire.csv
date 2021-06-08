@@ -9,6 +9,7 @@
 #include <common/htlc_wire.h>
 #include <common/penalty_base.h>
 #include <common/per_peer_state.h>
+#include <wire/peer_wire.h>
 
 msgtype,dualopend_init,7000
 # Which network are we configured for?
@@ -79,6 +80,8 @@ msgdata,dualopend_got_offer,channel_flags,u8,
 msgdata,dualopend_got_offer,locktime,u32,
 msgdata,dualopend_got_offer,shutdown_len,u16,
 msgdata,dualopend_got_offer,shutdown_scriptpubkey,u8,shutdown_len
+msgdata,dualopend_got_offer,requested_amt,amount_sat,
+msgdata,dualopend_got_offer,lease_blockheight_start,u32,
 
 # master->dualopend: reply back with our first funding info/contribs
 msgtype,dualopend_got_offer_reply,7105
@@ -86,6 +89,7 @@ msgdata,dualopend_got_offer_reply,accepter_funding,amount_sat,
 msgdata,dualopend_got_offer_reply,psbt,wally_psbt,
 msgdata,dualopend_got_offer_reply,shutdown_len,u16,
 msgdata,dualopend_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len
+msgdata,dualopend_got_offer_reply,lease_rates,?lease_rates,
 
 # dualopend->master: they offered a RBF, should we continue?
 msgtype,dualopend_got_rbf_offer,7500
@@ -161,6 +165,8 @@ msgdata,dualopend_opener_init,local_shutdown_scriptpubkey,u8,local_shutdown_len
 msgdata,dualopend_opener_init,feerate_per_kw,u32,
 msgdata,dualopend_opener_init,feerate_per_kw_funding,u32,
 msgdata,dualopend_opener_init,channel_flags,u8,
+msgdata,dualopend_opener_init,requested_sats,amount_sat,
+msgdata,dualopend_opener_init,blockheight,u32,
 
 # dualopend->master received tx_sigs from peer
 msgtype,dualopend_funding_sigs,7010
