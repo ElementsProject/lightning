@@ -357,6 +357,11 @@ bool amount_sat_eq(struct amount_sat a, struct amount_sat b)
 	return a.satoshis == b.satoshis;
 }
 
+bool amount_sat_zero(struct amount_sat a)
+{
+	return a.satoshis == 0;
+}
+
 bool amount_msat_eq(struct amount_msat a, struct amount_msat b)
 {
 	return a.millisatoshis == b.millisatoshis;
