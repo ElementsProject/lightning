@@ -33,6 +33,7 @@ struct test_case {
 	struct amount_sat their_funds;
 	struct amount_sat available_funds;
 	struct amount_sat channel_max;
+	struct amount_sat lease_request;
 
 	struct funder_policy policy;
 
@@ -46,6 +47,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(5000),
 		.available_funds = AMOUNT_SAT(100000),
 		.channel_max = AMOUNT_SAT(11000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = FIXED,
 			.mod = 1111,
@@ -56,6 +58,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(0),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(1111),
@@ -66,6 +69,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(5000),
 		.available_funds = AMOUNT_SAT(500),
 		.channel_max = AMOUNT_SAT(11000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = MATCH,
 			.mod = 0,
@@ -76,6 +80,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(0),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(0),
@@ -86,6 +91,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(5000),
 		.available_funds = AMOUNT_SAT(6000),
 		.channel_max = AMOUNT_SAT(11000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = MATCH,
 			.mod = 100,
@@ -96,6 +102,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(0),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(5000),
@@ -106,6 +113,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(2500),
 		.available_funds = AMOUNT_SAT(6000),
 		.channel_max = AMOUNT_SAT(11000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = MATCH,
 			.mod = 200,
@@ -116,6 +124,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(0),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(5000),
@@ -126,6 +135,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(2500),
 		.available_funds = AMOUNT_SAT(5000),
 		.channel_max = AMOUNT_SAT(11000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = AVAILABLE,
 			.mod = 0,
@@ -136,6 +146,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(0),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(0),
@@ -146,6 +157,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(2500),
 		.available_funds = AMOUNT_SAT(3000),
 		.channel_max = AMOUNT_SAT(11000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = AVAILABLE,
 			.mod = 50,
@@ -156,6 +168,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(0),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(1500),
@@ -166,6 +179,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(2500),
 		.available_funds = AMOUNT_SAT(5000),
 		.channel_max = AMOUNT_SAT(11000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = AVAILABLE,
 			.mod = 100,
@@ -176,6 +190,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(0),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(5000),
@@ -198,6 +213,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(0),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(900),
@@ -208,6 +224,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(5000),
 		.available_funds = AMOUNT_SAT(5000),
 		.channel_max = AMOUNT_SAT(5500),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = FIXED,
 			.mod = 1002,
@@ -218,6 +235,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(0),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(500),
@@ -228,6 +246,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(5000),
 		.available_funds = AMOUNT_SAT(500),
 		.channel_max = AMOUNT_SAT(10000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = FIXED,
 			.mod = 1001,
@@ -238,6 +257,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(0),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(500),
@@ -248,6 +268,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(5000),
 		.available_funds = AMOUNT_SAT(1000),
 		.channel_max = AMOUNT_SAT(10000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = FIXED,
 			.mod = 999,
@@ -258,6 +279,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(0),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(0),
@@ -268,6 +290,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(5001),
 		.available_funds = AMOUNT_SAT(5000),
 		.channel_max = AMOUNT_SAT(10000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = FIXED,
 			.mod = 998,
@@ -278,6 +301,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(0),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(0),
@@ -288,6 +312,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(5000),
 		.available_funds = AMOUNT_SAT(1000),
 		.channel_max = AMOUNT_SAT(10000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = FIXED,
 			.mod = 997,
@@ -298,6 +323,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(100),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(900),
@@ -308,6 +334,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(5000),
 		.available_funds = AMOUNT_SAT(999),
 		.channel_max = AMOUNT_SAT(10000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = FIXED,
 			.mod = 996,
@@ -318,6 +345,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(1000),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(0),
@@ -328,6 +356,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(5000),
 		.available_funds = AMOUNT_SAT(5000),
 		.channel_max = AMOUNT_SAT(5000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = FIXED,
 			.mod = 995,
@@ -338,6 +367,7 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(1000),
 			.fund_probability = 100,
+			.leases_only = false,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(0),
@@ -348,6 +378,7 @@ struct test_case cases[] = {
 		.their_funds = AMOUNT_SAT(5000),
 		.available_funds = AMOUNT_SAT(5000),
 		.channel_max = AMOUNT_SAT(11000),
+		.lease_request = AMOUNT_SAT(0),
 		.policy = {
 			.opt = FIXED,
 			.mod = 988,
@@ -358,6 +389,51 @@ struct test_case cases[] = {
 			.fuzz_factor = 0,
 			.reserve_tank = AMOUNT_SAT(0),
 			.fund_probability = 100,
+			.leases_only = false,
+		},
+
+		.exp_our_funds = AMOUNT_SAT(0),
+		.expect_err = true,
+	},
+	/* By default, use lease request as ceiling */
+	{
+		.their_funds = AMOUNT_SAT(5000),
+		.available_funds = AMOUNT_SAT(100000),
+		.channel_max = AMOUNT_SAT(11000),
+		.lease_request = AMOUNT_SAT(980),
+		.policy = {
+			.opt = MATCH,
+			.mod = 100,
+			.min_their_funding = AMOUNT_SAT(0),
+			.max_their_funding = AMOUNT_SAT(10000),
+			.per_channel_max = AMOUNT_SAT(100000),
+			.per_channel_min = AMOUNT_SAT(0),
+			.fuzz_factor = 0,
+			.reserve_tank = AMOUNT_SAT(0),
+			.fund_probability = 100,
+			.leases_only = false,
+		},
+
+		.exp_our_funds = AMOUNT_SAT(980),
+		.expect_err = false,
+	},
+	/* Only fund lease requests */
+	{
+		.their_funds = AMOUNT_SAT(5000),
+		.available_funds = AMOUNT_SAT(100000),
+		.channel_max = AMOUNT_SAT(11000),
+		.lease_request = AMOUNT_SAT(0),
+		.policy = {
+			.opt = FIXED,
+			.mod = 985,
+			.min_their_funding = AMOUNT_SAT(0),
+			.max_their_funding = AMOUNT_SAT(10000),
+			.per_channel_max = AMOUNT_SAT(100000),
+			.per_channel_min = AMOUNT_SAT(0),
+			.fuzz_factor = 0,
+			.reserve_tank = AMOUNT_SAT(0),
+			.fund_probability = 100,
+			.leases_only = true,
 		},
 
 		.exp_our_funds = AMOUNT_SAT(0),
@@ -380,6 +456,7 @@ static void check_fuzzing(struct test_case fuzzcase)
 				      fuzzcase.their_funds,
 				      fuzzcase.available_funds,
 				      fuzzcase.channel_max,
+				      fuzzcase.lease_request,
 				      &our_funds);
 		if (amount_sat_greater(our_funds, fuzz_max))
 			fuzz_max = our_funds;
@@ -412,6 +489,7 @@ int main(int argc, const char *argv[])
 				    AMOUNT_SAT(50000),
 				    AMOUNT_SAT(50000),
 				    AMOUNT_SAT(100000),
+				    AMOUNT_SAT(0),
 				    &our_funds);
 	assert(amount_sat_eq(empty, our_funds));
 	assert(!err);
@@ -421,6 +499,7 @@ int main(int argc, const char *argv[])
 					    cases[i].their_funds,
 					    cases[i].available_funds,
 					    cases[i].channel_max,
+					    cases[i].lease_request,
 					    &our_funds);
 		if (!amount_sat_eq(cases[i].exp_our_funds, our_funds)) {
 			fprintf(stderr, "FAIL policy: %s. expected %s, got %s\n",
@@ -454,6 +533,7 @@ int main(int argc, const char *argv[])
 				      flipcase.their_funds,
 				      flipcase.available_funds,
 				      flipcase.channel_max,
+				      flipcase.lease_request,
 				      &our_funds);
 		if (!amount_sat_eq(our_funds, AMOUNT_SAT(0)))
 			flipcount++;

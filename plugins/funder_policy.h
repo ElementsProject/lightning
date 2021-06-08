@@ -9,7 +9,7 @@ struct node_id;
 
 /* Policy Options */
 enum funder_opt {
-	/* Use their_funding as the starting
+	/* Use their_funding/requested_amt as the starting
 	 * point for your contribution */
 	MATCH,
 
@@ -96,6 +96,7 @@ calculate_our_funding(struct funder_policy *policy,
 		      struct amount_sat their_funding,
 		      struct amount_sat available_funds,
 		      struct amount_sat channel_max,
+		      struct amount_sat lease_request,
 		      struct amount_sat *our_funding);
 
 /* Get the name of this policy option */

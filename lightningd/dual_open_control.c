@@ -18,6 +18,7 @@
 #include <common/htlc.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
+#include <common/lease_rates.h>
 #include <common/per_peer_state.h>
 #include <common/psbt_open.h>
 #include <common/shutdown_scriptpubkey.h>
@@ -244,10 +245,15 @@ struct openchannel2_payload {
 	/* What's the maximum amount of funding
 	 * this channel can hold */
 	struct amount_sat channel_max;
+	/* If they've requested funds, this is their request */
+	struct amount_sat requested_lease_amt;
+	u32 lease_blockheight_start;
+	u32 node_blockheight;
 
 	struct amount_sat accepter_funding;
 	struct wally_psbt *psbt;
 	const u8 *our_shutdown_scriptpubkey;
+	struct lease_rates *rates;
 	char *err_msg;
 };
 
@@ -283,6 +289,14 @@ static void openchannel2_hook_serialize(struct openchannel2_payload *payload,
 				    payload->shutdown_scriptpubkey);
 	json_add_amount_sat_only(stream, "channel_max_msat",
 				 payload->channel_max);
+	if (!amount_sat_zero(payload->requested_lease_amt)) {
+		json_add_amount_sat_only(stream, "requested_lease_msat",
+					 payload->requested_lease_amt);
+		json_add_num(stream, "lease_blockheight_start",
+			     payload->lease_blockheight_start);
+		json_add_num(stream, "node_blockheight",
+			     payload->node_blockheight);
+	}
 	json_object_end(stream);
 }
 
@@ -699,6 +713,7 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 			      const jsmntok_t *toks)
 {
 	const u8 *shutdown_script;
+	const char *err;
 	struct subd *dualopend = payload->dualopend;
 
 	/* If our daemon died, we're done */
@@ -755,6 +770,38 @@ openchannel2_hook_deserialize(struct openchannel2_payload *payload,
 			   " already set by other plugin. Ignoring!");
 	else
 		payload->our_shutdown_scriptpubkey = shutdown_script;
+
+
+	struct amount_sat sats;
+	struct amount_msat msats;
+	payload->rates = tal(payload, struct lease_rates);
+	err = json_scan(payload, buffer, toks,
+			"{lease_fee_base_msat:%"
+			",lease_fee_basis:%"
+			",channel_fee_max_base_msat:%"
+			",channel_fee_max_proportional_thousandths:%"
+			",funding_weight:%}",
+			JSON_SCAN(json_to_sat, &sats),
+			JSON_SCAN(json_to_u16,
+				  &payload->rates->lease_fee_basis),
+			JSON_SCAN(json_to_msat, &msats),
+			JSON_SCAN(json_to_u16,
+				  &payload->rates->channel_fee_max_proportional_thousandths),
+			JSON_SCAN(json_to_u16,
+				  &payload->rates->funding_weight));
+
+	/* It's possible they didn't send these back! */
+	if (err)
+		payload->rates = tal_free(payload->rates);
+
+	/* Convert to u32s */
+	if (payload->rates &&
+	    !lease_rates_set_lease_fee_sat(payload->rates, sats))
+		fatal("Plugin sent overflowing `lease_fee_base_msat`");
+
+	if (payload->rates &&
+	    !lease_rates_set_chan_fee_base_msat(payload->rates, msats))
+		fatal("Plugin sent overflowing `channel_fee_max_base_msat`");
 
 	/* Add a serial_id to everything that doesn't have one yet */
 	if (payload->psbt)
@@ -1699,6 +1746,7 @@ static void accepter_got_offer(struct subd *dualopend,
 	 * the plugin */
 	payload->feerate_our_min = feerate_min(dualopend->ld, NULL);
 	payload->feerate_our_max = feerate_max(dualopend->ld, NULL);
+	payload->node_blockheight = get_block_height(dualopend->ld->topology);
 
 	payload->channel_max = chainparams->max_funding;
 	if (feature_negotiated(dualopend->ld->our_features,

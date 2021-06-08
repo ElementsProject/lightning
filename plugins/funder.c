@@ -282,6 +282,9 @@ struct open_info {
 	struct amount_sat channel_max;
 	u64 funding_feerate_perkw;
 	u32 locktime;
+	u32 lease_blockheight;
+	u32 node_blockheight;
+	struct amount_sat requested_lease;
 };
 
 static struct command_result *
@@ -321,6 +324,11 @@ psbt_funded(struct command *cmd,
 	json_add_psbt(response, "psbt", psbt);
 	json_add_amount_msat_only(response, "our_funding_msat",
 				  our_funding_msat);
+
+	/* If we're accepting an lease request, *and* they've
+	 * requested one, fill in our most recent infos */
+	if (current_policy->rates && !amount_sat_zero(info->requested_lease))
+		json_add_lease_rates(response, current_policy->rates);
 
 	return command_finished(cmd, response);
 }
@@ -419,6 +427,7 @@ listfunds_success(struct command *cmd,
 					    info->their_funding,
 					    available_funds,
 					    info->channel_max,
+					    info->requested_lease,
 					    &info->our_funding);
 	plugin_log(cmd->plugin, LOG_DBG,
 		   "Policy %s returned funding amount of %s. %s",
@@ -531,6 +540,21 @@ json_openchannel2_call(struct command *cmd,
 			   err, json_tok_full_len(params),
 			   json_tok_full(buf, params));
 
+	err = json_scan(tmpctx, buf, params,
+			"{openchannel2:{"
+			"requested_lease_msat:%"
+			",lease_blockheight_start:%"
+			",node_blockheight:%}}",
+			JSON_SCAN(json_to_sat, &info->requested_lease),
+			JSON_SCAN(json_to_u32, &info->node_blockheight),
+			JSON_SCAN(json_to_u32, &info->lease_blockheight));
+
+	/* These aren't necessarily included */
+	if (err) {
+		info->requested_lease = AMOUNT_SAT(0);
+		info->node_blockheight = 0;
+		info->lease_blockheight = 0;
+	}
 
 	/* If there's no channel_max, it's actually infinity */
 	err = json_scan(tmpctx, buf, params,
@@ -551,6 +575,40 @@ json_openchannel2_call(struct command *cmd,
 			   feerate_our_max);
 
 		return command_hook_success(cmd);
+	}
+
+	/* Check that their block height isn't too far behind */
+	if (!amount_sat_zero(info->requested_lease)) {
+		u32 upper_bound, lower_bound;
+
+		/* BOLT- #2:
+		 * The receiving node:
+		 * - MAY fail the negotiation if:  ...
+		 *   - if the `option_will_fund` tlv is present and:
+		 *    - the `blockheight` is considered too far in the
+		 *      past or future
+		 */
+		/* We consider 24 hrs too far out */
+		upper_bound = info->node_blockheight + 24 * 6;
+		lower_bound = info->node_blockheight - 24 * 6;
+
+		/* Check overflow */
+		if (upper_bound < info->node_blockheight)
+			upper_bound = -1;
+		if (lower_bound > info->node_blockheight)
+			lower_bound = 0;
+
+		if (upper_bound < info->lease_blockheight
+		    || lower_bound > info->lease_blockheight) {
+
+			plugin_log(cmd->plugin, LOG_DBG,
+				   "their blockheight %d is out of"
+				   " our bounds (ours is %d)",
+				   info->lease_blockheight,
+				   info->node_blockheight);
+
+			return command_hook_success(cmd);
+		}
 	}
 
 	/* Figure out what our funds are */
