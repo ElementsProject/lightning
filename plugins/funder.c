@@ -427,7 +427,7 @@ listfunds_success(struct command *cmd,
 				  &info->our_funding),
 		   funding_err ? funding_err : "");
 
-	if (amount_sat_eq(info->our_funding, AMOUNT_SAT(0)))
+	if (amount_sat_zero(info->our_funding))
 		return command_hook_success(cmd);
 
 	plugin_log(cmd->plugin, LOG_DBG,

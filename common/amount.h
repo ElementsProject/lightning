@@ -94,6 +94,9 @@ struct amount_sat amount_sat_div(struct amount_sat sat, u64 div);
 bool amount_sat_eq(struct amount_sat a, struct amount_sat b);
 bool amount_msat_eq(struct amount_msat a, struct amount_msat b);
 
+/* Is a zero? */
+bool amount_sat_zero(struct amount_sat a);
+
 /* Is a > b? */
 bool amount_sat_greater(struct amount_sat a, struct amount_sat b);
 bool amount_msat_greater(struct amount_msat a, struct amount_msat b);

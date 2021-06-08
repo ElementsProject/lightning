@@ -220,7 +220,7 @@ calculate_our_funding(struct funder_policy *policy,
 
 	/* Figure out amount of actual headroom we have */
 	if (!amount_sat_sub(&avail_channel_space, channel_max, their_funding)
-	    || amount_sat_eq(avail_channel_space, AMOUNT_SAT(0))) {
+	    || amount_sat_zero(avail_channel_space)) {
 		*our_funding = AMOUNT_SAT(0);
 		return tal_fmt(tmpctx, "No space available in channel."
 			       " channel_max %s, their_funding %s",
@@ -234,7 +234,7 @@ calculate_our_funding(struct funder_policy *policy,
 	 * 'reserve_tank' */
 	if (!amount_sat_sub(&net_available_funds, available_funds,
 			    policy->reserve_tank)
-	    || amount_sat_eq(net_available_funds, AMOUNT_SAT(0))) {
+	    || amount_sat_zero(net_available_funds)) {
 		*our_funding = AMOUNT_SAT(0);
 		return tal_fmt(tmpctx, "Reserve tank too low."
 			       " available_funds %s, reserve_tank requires %s",
@@ -272,7 +272,7 @@ calculate_our_funding(struct funder_policy *policy,
 	*our_funding = apply_policy(policy, their_funding, available_funds);
 
 	/* Don't return an 'error' if we're already at 0 */
-	if (amount_sat_eq(*our_funding, AMOUNT_SAT(0)))
+	if (amount_sat_zero(*our_funding))
 		return NULL;
 
 	/* our_funding is probably sane, so let's fuzz this amount a bit */
