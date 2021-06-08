@@ -62,6 +62,8 @@ const char *hsmd_wire_name(int e)
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY: return "WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY";
 	case WIRE_HSMD_SIGN_BOLT12: return "WIRE_HSMD_SIGN_BOLT12";
 	case WIRE_HSMD_SIGN_BOLT12_REPLY: return "WIRE_HSMD_SIGN_BOLT12_REPLY";
+	case WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER: return "WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER";
+	case WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER_REPLY: return "WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER_REPLY";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -112,6 +114,8 @@ bool hsmd_wire_is_defined(u16 type)
 	case WIRE_HSMD_GET_OUTPUT_SCRIPTPUBKEY_REPLY:;
 	case WIRE_HSMD_SIGN_BOLT12:;
 	case WIRE_HSMD_SIGN_BOLT12_REPLY:;
+	case WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER:;
+	case WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER_REPLY:;
 	      return true;
 	}
 	return false;
@@ -1278,4 +1282,53 @@ bool fromwire_hsmd_sign_bolt12_reply(const void *p, struct bip340sig *sig)
  	fromwire_bip340sig(&cursor, &plen, sig);
 	return cursor != NULL;
 }
-// SHA256STAMP:d802e57862a2ced1580824c7419e6c1075864496478c7ca6c47456df279d88df
+
+/* WIRE: HSMD_SIGN_OPTION_WILL_FUND_OFFER */
+/* Sign an option_will_fund offer hash */
+u8 *towire_hsmd_sign_option_will_fund_offer(const tal_t *ctx, const struct pubkey *funding_pubkey, u32 blockheight, u32 channel_fee_base_max_msat, u16 channel_fee_proportional_basis_max)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER);
+	towire_pubkey(&p, funding_pubkey);
+	towire_u32(&p, blockheight);
+	towire_u32(&p, channel_fee_base_max_msat);
+	towire_u16(&p, channel_fee_proportional_basis_max);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_hsmd_sign_option_will_fund_offer(const void *p, struct pubkey *funding_pubkey, u32 *blockheight, u32 *channel_fee_base_max_msat, u16 *channel_fee_proportional_basis_max)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER)
+		return false;
+ 	fromwire_pubkey(&cursor, &plen, funding_pubkey);
+ 	*blockheight = fromwire_u32(&cursor, &plen);
+ 	*channel_fee_base_max_msat = fromwire_u32(&cursor, &plen);
+ 	*channel_fee_proportional_basis_max = fromwire_u16(&cursor, &plen);
+	return cursor != NULL;
+}
+
+/* WIRE: HSMD_SIGN_OPTION_WILL_FUND_OFFER_REPLY */
+u8 *towire_hsmd_sign_option_will_fund_offer_reply(const tal_t *ctx, const secp256k1_ecdsa_signature *rsig)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER_REPLY);
+	towire_secp256k1_ecdsa_signature(&p, rsig);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_hsmd_sign_option_will_fund_offer_reply(const void *p, secp256k1_ecdsa_signature *rsig)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER_REPLY)
+		return false;
+ 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, rsig);
+	return cursor != NULL;
+}
+// SHA256STAMP:c1ec339d1925da25ee587ffb4fb5e35d0b3c578e525f519384c8fecc1054dc2a

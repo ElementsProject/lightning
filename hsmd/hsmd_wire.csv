@@ -212,3 +212,12 @@ msgdata,hsmd_sign_bolt12,publictweak,u8,publictweaklen
 msgtype,hsmd_sign_bolt12_reply,125
 msgdata,hsmd_sign_bolt12_reply,sig,bip340sig,
 
+# Sign an option_will_fund offer hash
+msgtype,hsmd_sign_option_will_fund_offer,26
+msgdata,hsmd_sign_option_will_fund_offer,funding_pubkey,pubkey,
+msgdata,hsmd_sign_option_will_fund_offer,blockheight,u32,
+msgdata,hsmd_sign_option_will_fund_offer,channel_fee_base_max_msat,u32,
+msgdata,hsmd_sign_option_will_fund_offer,channel_fee_proportional_basis_max,u16,
+
+msgtype,hsmd_sign_option_will_fund_offer_reply,126
+msgdata,hsmd_sign_option_will_fund_offer_reply,rsig,secp256k1_ecdsa_signature,
