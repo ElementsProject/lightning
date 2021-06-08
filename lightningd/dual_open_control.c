@@ -701,7 +701,8 @@ openchannel2_hook_cb(struct openchannel2_payload *payload STEALS)
 	msg = towire_dualopend_got_offer_reply(NULL,
 					       payload->accepter_funding,
 					       payload->psbt,
-					       payload->our_shutdown_scriptpubkey);
+					       payload->our_shutdown_scriptpubkey,
+					       payload->rates);
 
 	subd_send_msg(dualopend, take(msg));
 }
@@ -1733,7 +1734,9 @@ static void accepter_got_offer(struct subd *dualopend,
 					  &payload->max_accepted_htlcs,
 					  &payload->channel_flags,
 					  &payload->locktime,
-					  &payload->shutdown_scriptpubkey)) {
+					  &payload->shutdown_scriptpubkey,
+					  &payload->requested_lease_amt,
+					  &payload->lease_blockheight_start)) {
 		channel_internal_error(channel, "Bad DUALOPEND_GOT_OFFER: %s",
 				       tal_hex(tmpctx, msg));
 		return;
@@ -2324,7 +2327,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	bool *announce_channel;
 	u32 *feerate_per_kw_funding;
 	u32 *feerate_per_kw;
-	struct amount_sat *amount, psbt_val;
+	struct amount_sat *amount, psbt_val, *request_amt;
 	struct wally_psbt *psbt;
 	const u8 *our_upfront_shutdown_script;
 	struct open_attempt *oa;
@@ -2338,6 +2341,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 		   p_opt("funding_feerate", param_feerate, &feerate_per_kw_funding),
 		   p_opt_def("announce", param_bool, &announce_channel, true),
 		   p_opt("close_to", param_bitcoin_address, &our_upfront_shutdown_script),
+		   p_opt_def("request_amt", param_sat, &request_amt, AMOUNT_SAT(0)),
 		   NULL))
 		return command_param_failed();
 
@@ -2469,7 +2473,9 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 					   oa->our_upfront_shutdown_script,
 					   *feerate_per_kw,
 					   *feerate_per_kw_funding,
-					   channel->channel_flags);
+					   channel->channel_flags,
+					   *request_amt,
+					   get_block_height(cmd->ld->topology));
 
 	subd_send_msg(channel->owner, take(msg));
 	return command_still_pending(cmd);

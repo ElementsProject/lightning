@@ -119,6 +119,9 @@ struct tx_state {
 
 	/* Have we gotten the peer's tx-sigs yet? */
 	bool remote_funding_sigs_rcvd;
+
+	/* Rates that we're using for this open... */
+	struct lease_rates *rates;
 };
 
 static struct tx_state *new_tx_state(const tal_t *ctx)
@@ -1883,7 +1886,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	struct channel_id cid, full_cid;
 	char *err_reason;
 	u8 *msg;
-	struct amount_sat total;
+	struct amount_sat total, requested_amt;
+	u32 lease_blockheight_start;
 	enum dualopend_wire msg_type;
 	struct tx_state *tx_state = state->tx_state;
 
@@ -1917,6 +1921,19 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 			open_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey);
 	} else
 		state->upfront_shutdown_script[REMOTE] = NULL;
+
+	/* This is an `option_will_fund` request */
+	if (open_tlv->request_funds) {
+		/* FIXME: Do we support this? */
+		requested_amt
+			= amount_sat(open_tlv->request_funds->requested_sats);
+		lease_blockheight_start
+			= open_tlv->request_funds->blockheight;
+	} else {
+		requested_amt = AMOUNT_SAT(0);
+		lease_blockheight_start = 0;
+	}
+
 
 	/* BOLT-* #2
 	 * If the peer's revocation basepoint is unknown (e.g.
@@ -1984,7 +2001,9 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					 tx_state->remoteconf.max_accepted_htlcs,
 					 state->channel_flags,
 					 tx_state->tx_locktime,
-					 state->upfront_shutdown_script[REMOTE]);
+					 state->upfront_shutdown_script[REMOTE],
+					 requested_amt,
+					 lease_blockheight_start);
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
@@ -1999,7 +2018,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	if (!fromwire_dualopend_got_offer_reply(state, msg,
 						&tx_state->accepter_funding,
 						&tx_state->psbt,
-						&state->upfront_shutdown_script[LOCAL]))
+						&state->upfront_shutdown_script[LOCAL],
+						&tx_state->rates))
 		master_badmsg(WIRE_DUALOPEND_GOT_OFFER_REPLY, msg);
 
 	if (!tx_state->psbt)
@@ -2008,6 +2028,19 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	else
 		/* Locktimes must match! */
 		tx_state->psbt->tx->locktime = tx_state->tx_locktime;
+
+	/* BOLT- #2:
+	 *
+	 * - if they decide to accept the offer:
+	 *   ...
+	 *   - MUST set `funding_satoshis` to a value greater than 0msat
+	 */
+	if (tx_state->rates && amount_sat_zero(tx_state->accepter_funding)) {
+		status_broken("opt_will_fund ad passed in, but no funding");
+		negotiation_failed(state, "We're unable to accept"
+				   " your lease offer.");
+		return;
+	}
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
@@ -2378,7 +2411,8 @@ static void opener_start(struct state *state, u8 *msg)
 	struct tlv_accept_tlvs *a_tlv;
 	struct channel_id cid;
 	char *err_reason;
-	struct amount_sat total;
+	struct amount_sat total, requested_sats;
+	u32 current_blockheight;
 	struct tx_state *tx_state = state->tx_state;
 
 	if (!fromwire_dualopend_opener_init(state, msg,
@@ -2387,7 +2421,9 @@ static void opener_start(struct state *state, u8 *msg)
 					    &state->upfront_shutdown_script[LOCAL],
 					    &state->feerate_per_kw_commitment,
 					    &state->feerate_per_kw_funding,
-					    &state->channel_flags))
+					    &state->channel_flags,
+					    &requested_sats,
+					    &current_blockheight))
 		master_badmsg(WIRE_DUALOPEND_OPENER_INIT, msg);
 
 	state->our_role = TX_INITIATOR;
@@ -2415,6 +2451,14 @@ static void opener_start(struct state *state, u8 *msg)
 			    struct tlv_opening_tlvs_option_upfront_shutdown_script);
 		open_tlv->option_upfront_shutdown_script->shutdown_scriptpubkey =
 			state->upfront_shutdown_script[LOCAL];
+	}
+
+	if (!amount_sat_zero(requested_sats)) {
+		open_tlv->request_funds =
+			tal(open_tlv, struct tlv_opening_tlvs_request_funds);
+		open_tlv->request_funds->requested_sats =
+			requested_sats.satoshis; /* Raw: struct -> wire */
+		open_tlv->request_funds->blockheight = current_blockheight;
 	}
 
 	msg = towire_open_channel2(NULL,

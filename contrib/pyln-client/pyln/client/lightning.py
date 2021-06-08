@@ -1006,7 +1006,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("pay", payload)
 
-    def openchannel_init(self, node_id, channel_amount, psbt, feerate=None, funding_feerate=None, announce=True, close_to=None, *args, **kwargs):
+    def openchannel_init(self, node_id, channel_amount, psbt, feerate=None, funding_feerate=None, announce=True, close_to=None, request_amt=None, *args, **kwargs):
         """Initiate an openchannel with a peer """
         payload = {
             "id": node_id,
@@ -1016,6 +1016,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "funding_feerate": funding_feerate,
             "announce": announce,
             "close_to": close_to,
+            "request_amt": request_amt,
         }
         return self.call("openchannel_init", payload)
 

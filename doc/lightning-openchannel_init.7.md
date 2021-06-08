@@ -4,7 +4,7 @@ lightning-openchannel\_init -- Command to initiate a channel to a peer
 SYNOPSIS
 --------
 
-**openchannel_init** *id* *amount* *initalpsbt* \[*commitment_feerate*\] \[*funding_feerate*\] \[*announce*\] \[*close_to*\]
+**openchannel_init** *id* *amount* *initalpsbt* \[*commitment_feerate*\] \[*funding_feerate*\] \[*announce*\] \[*close_to*\] \[*request_amt*\]
 
 DESCRIPTION
 -----------
@@ -38,6 +38,10 @@ funding transaction. Defaults to 'opening' feerate.
 sent on close. Only valid if both peers have negotiated
 `option_upfront_shutdown_script`.
 
+*request_amt* is an amount of liquidity you'd like to lease from the peer.
+If peer supports `option_will_fund`, indicates to them to include this
+much liquidity into the channel.
+
 
 RETURN VALUE
 ------------
@@ -51,6 +55,14 @@ in the *psbt*.
 
 If the peer does not support `option_dual_fund`, this command
 will return an error.
+
+If you sent a *request_amt* and the peer supports `option_will_fund` and is
+interested in leasing you liquidity in this channel, returns their updated
+channel fee max (*channel_fee_proportional_basis*, *channel_fee_base_msat*),
+updated rate card for the lease fee (*lease_fee_proportional_basis*,
+*lease_fee_base_sat*) and their on-chain weight *weight_charge*, which will
+be added to the lease fee at a rate of *funding_feerate* * *weight_charge*
+/ 1000.
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
