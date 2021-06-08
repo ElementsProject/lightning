@@ -42,6 +42,7 @@ json_fundchannel(struct command *cmd,
 	const jsmntok_t *utxos;
 	const jsmntok_t *push_msat;
 	const jsmntok_t *close_to;
+	const jsmntok_t *request_amt;
 
 	struct out_req *req;
 
@@ -54,6 +55,7 @@ json_fundchannel(struct command *cmd,
 		   p_opt("utxos", param_tok, &utxos),
 		   p_opt("push_msat", param_tok, &push_msat),
 		   p_opt("close_to", param_tok, &close_to),
+		   p_opt("request_amt", param_tok, &request_amt),
 		   NULL))
 		return command_param_failed();
 
@@ -71,6 +73,8 @@ json_fundchannel(struct command *cmd,
 		json_add_tok(req->js, "push_msat", push_msat, buf);
 	if (close_to)
 		json_add_tok(req->js, "close_to", close_to, buf);
+	if (request_amt)
+		json_add_tok(req->js, "request_amt", request_amt, buf);
 	json_object_end(req->js);
 	json_array_end(req->js);
 	if (feerate)
