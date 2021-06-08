@@ -174,12 +174,17 @@ apply_fuzz(u32 fuzz_factor, struct amount_sat val)
 static struct amount_sat
 apply_policy(struct funder_policy *policy,
 	     struct amount_sat their_funding,
+	     struct amount_sat requested_lease,
 	     struct amount_sat available_funds)
 {
 	struct amount_sat our_funding;
 
 	switch (policy->opt) {
 	case MATCH:
+		/* For matches, we use requested funding, if availalbe */
+		if (!amount_sat_zero(requested_lease))
+			their_funding = requested_lease;
+
 		/* if this fails, it implies ludicrous funding offer, *and*
 		 * > 100% match. Just Say No, kids. */
 		if (!amount_sat_scale(&our_funding, their_funding,
@@ -207,12 +212,23 @@ calculate_our_funding(struct funder_policy *policy,
 		      struct amount_sat their_funding,
 		      struct amount_sat available_funds,
 		      struct amount_sat channel_max,
+		      struct amount_sat requested_lease,
 		      struct amount_sat *our_funding)
 {
 	struct amount_sat avail_channel_space, net_available_funds;
 
+	/* Are we only funding lease requests ? */
+	if (policy->leases_only && amount_sat_zero(requested_lease)) {
+		*our_funding = AMOUNT_SAT(0);
+		return tal_fmt(tmpctx,
+			       "Skipping funding open; leases-only=true"
+			       " and this open isn't asking for a lease");
+	}
+
 	/* Are we skipping this one? */
-	if (pseudorand(100) >= policy->fund_probability) {
+	if (pseudorand(100) >= policy->fund_probability
+	    /* We don't skip lease requests */
+	    && amount_sat_zero(requested_lease)) {
 		*our_funding = AMOUNT_SAT(0);
 		return tal_fmt(tmpctx,
 			       "Skipping, failed fund_probability test");
@@ -269,7 +285,10 @@ calculate_our_funding(struct funder_policy *policy,
 	}
 
 	/* What's our amount, given our policy */
-	*our_funding = apply_policy(policy, their_funding, available_funds);
+	*our_funding = apply_policy(policy,
+				    their_funding,
+				    requested_lease,
+				    available_funds);
 
 	/* Don't return an 'error' if we're already at 0 */
 	if (amount_sat_zero(*our_funding))
