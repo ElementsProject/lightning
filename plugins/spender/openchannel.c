@@ -1025,6 +1025,11 @@ openchannel_init_dest(struct multifundchannel_destination *dest)
 			   type_to_string(tmpctx, struct amount_msat,
 					  &dest->push_msat));
 
+	/* Request some sats from the peer! */
+	if (amount_sat_greater(dest->request_amt, AMOUNT_SAT(0)))
+		json_add_string(req->js, "request_amt",
+				fmt_amount_sat(tmpctx, dest->request_amt));
+
 	return send_outreq(cmd->plugin, req);
 }
 

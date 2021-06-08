@@ -58,6 +58,10 @@ out of this\.
 on close\. Only valid if both peers have negotiated
 \fBoption_upfront_shutdown_script\fR\.  Returns \fBclose_to\fR set to
 closing script iff is negotiated\.
+.IP \[bu]
+\fIrequest_amt\fR is the amount of liquidity you'd like to lease from peer\.
+If peer supports \fBoption_will_fund\fR, indicates to them to include this
+much liquidity into the channel\.
 
 .RE
 
@@ -204,4 +208,4 @@ ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:86b05635f6d0d55dc3771779237bf1046b52f8cd290f16cccc5656cb94f2863a
+\" SHA256STAMP:fa55ac01a568d6b816641ddbfa3c9cccf437dea06df5ec84747f7ef02db6d47e

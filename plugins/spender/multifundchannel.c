@@ -1813,7 +1813,7 @@ param_destinations_array(struct command *cmd, const char *name,
 		struct multifundchannel_destination *dest;
 		const char *id;
 		char *addrhint;
-		struct amount_sat *amount;
+		struct amount_sat *amount, *request_amt;
 		bool *announce;
 		struct amount_msat *push_msat;
 
@@ -1830,6 +1830,8 @@ param_destinations_array(struct command *cmd, const char *name,
 			    * passed in to fundchannel_start) if invalid*/
 			   p_opt("close_to", param_string,
 				 &dest->close_to_str),
+			   p_opt_def("request_amt", param_sat, &request_amt,
+				     AMOUNT_SAT(0)),
 			   NULL))
 			return command_param_failed();
 
@@ -1864,6 +1866,7 @@ param_destinations_array(struct command *cmd, const char *name,
 		dest->psbt = NULL;
 		dest->updated_psbt = NULL;
 		dest->protocol = FUND_CHANNEL;
+		dest->request_amt = *request_amt;
 
 		/* Only one destination can have "all" indicator.  */
 		if (dest->all) {
