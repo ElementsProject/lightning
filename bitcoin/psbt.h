@@ -272,4 +272,8 @@ struct wally_psbt *psbt_from_bytes(const tal_t *ctx, const u8 *bytes,
 void towire_wally_psbt(u8 **pptr, const struct wally_psbt *psbt);
 struct wally_psbt *fromwire_wally_psbt(const tal_t *ctx,
 				       const u8 **cursor, size_t *max);
+
+/* Calculate the weight of a psbt input or output */
+size_t psbt_input_weight(const struct wally_psbt *psbt, size_t in);
+size_t psbt_output_weight(const struct wally_psbt *psbt, size_t outnum);
 #endif /* LIGHTNING_BITCOIN_PSBT_H */
