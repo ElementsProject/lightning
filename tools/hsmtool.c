@@ -363,7 +363,7 @@ static int guess_to_remote(const char *address, struct node_id *node_id,
 	size_t witlen;
 
 	/* Get the hrp to accept addresses from any network. */
-	if (bech32_decode(hrp, goal_pubkeyhash, &witlen, address, 90) != 1)
+	if (bech32_decode(hrp, goal_pubkeyhash, &witlen, address, 90) != BECH32_ENCODING_BECH32)
 		errx(ERROR_USAGE, "Could not get address' network");
 	if (segwit_addr_decode(&witver, goal_pubkeyhash, &witlen, hrp, address) != 1)
 		errx(ERROR_USAGE, "Wrong bech32 address");
