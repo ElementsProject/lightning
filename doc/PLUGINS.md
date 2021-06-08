@@ -1100,13 +1100,20 @@ the v2 protocol, and it has passed basic sanity checks:
     "max_accepted_htlcs": 483,
     "channel_flags": 1
     "locktime": 2453,
-    "channel_max_msat": "16777215000msat"
+    "channel_max_msat": "16777215000msat",
+    "requested_lease_msat": "100000000msat",
+    "lease_blockheight_start": 683990,
+    "node_blockheight": 683990
   }
 }
 ```
 
 There may be additional fields, such as `shutdown_scriptpubkey`.  You can
 see the definitions of these fields in [BOLT 2's description of the open_channel message][bolt2-open-channel].
+
+`requested_lease_msat`, `lease_blockheight_start`, and `node_blockheight` are
+only present if the opening peer has requested a funding lease,
+per `option_will_fund`.
 
 The returned result must contain a `result` member which is either
 the string `reject` or `continue`.  If `reject` and
