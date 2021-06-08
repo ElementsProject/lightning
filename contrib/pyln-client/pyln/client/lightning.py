@@ -693,7 +693,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("feerates", payload)
 
-    def fundchannel(self, node_id, amount, feerate=None, announce=True, minconf=None, utxos=None, push_msat=None, close_to=None):
+    def fundchannel(self, node_id, amount, feerate=None, announce=True, minconf=None, utxos=None, push_msat=None, close_to=None, request_amt=None):
         """
         Fund channel with {id} using {amount} satoshis with feerate
         of {feerate} (uses default feerate if unset).
@@ -702,6 +702,10 @@ class LightningRpc(UnixDomainSocketRpc):
         If {utxos} is specified (as a list of 'txid:vout' strings),
         fund a channel from these specifics utxos.
         {close_to} is a valid Bitcoin address.
+
+        {request_amt} is the lease amount to request from the peer. Only
+        valid if peer is advertising a liquidity ad + supports v2 channel opens
+        (dual-funding)
         """
         payload = {
             "id": node_id,
@@ -712,6 +716,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "utxos": utxos,
             "push_msat": push_msat,
             "close_to": close_to,
+            "request_amt": request_amt,
         }
         return self.call("fundchannel", payload)
 
