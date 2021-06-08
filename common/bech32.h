@@ -1,7 +1,7 @@
 /* Stolen from https://github.com/sipa/bech32/blob/master/ref/c/segwit_addr.h,
  * with only the two ' > 90' checks hoisted */
 
-/* Copyright (c) 2017 Pieter Wuille
+/* Copyright (c) 2017, 2021 Pieter Wuille
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -69,7 +69,14 @@ int segwit_addr_decode(
     const char* addr
 );
 
-/** Encode a Bech32 string
+/** Supported encodings. */
+typedef enum {
+    BECH32_ENCODING_NONE,
+    BECH32_ENCODING_BECH32,
+    BECH32_ENCODING_BECH32M
+} bech32_encoding;
+
+/** Encode a Bech32 or Bech32m string
  *
  *  Out: output:  Pointer to a buffer of size strlen(hrp) + data_len + 8 that
  *                will be updated to contain the null-terminated Bech32 string.
@@ -77,6 +84,7 @@ int segwit_addr_decode(
  *      data :    Pointer to an array of 5-bit values.
  *      data_len: Length of the data array.
  *      max_input_len: Maximum valid length of input (90 for segwit usage).
+ *      enc:      Which encoding to use (BECH32_ENCODING_BECH32{,M}).
  *  Returns 1 if successful.
  */
 int bech32_encode(
@@ -84,10 +92,11 @@ int bech32_encode(
     const char *hrp,
     const uint8_t *data,
     size_t data_len,
-    size_t max_input_len
+    size_t max_input_len,
+    bech32_encoding enc
 );
 
-/** Decode a Bech32 string
+/** Decode a Bech32 or Bech32m string
  *
  *  Out: hrp:      Pointer to a buffer of size strlen(input) - 6. Will be
  *                 updated to contain the null-terminated human readable part.
@@ -97,9 +106,11 @@ int bech32_encode(
  *                 of entries in data.
  *  In: input:     Pointer to a null-terminated Bech32 string.
  *      max_input_len: Maximum valid length of input (90 for segwit usage).
- *  Returns 1 if successful.
+ *  Returns BECH32_ENCODING_BECH32{,M} to indicate decoding was successful
+ *  with the specified encoding standard. BECH32_ENCODING_NONE is returned if
+ *  decoding failed.
  */
-int bech32_decode(
+bech32_encoding bech32_decode(
     char *hrp,
     uint8_t *data,
     size_t *data_len,
@@ -120,3 +131,4 @@ extern const char bech32_charset[32];
 extern const int8_t bech32_charset_rev[128];
 
 #endif /* LIGHTNING_COMMON_BECH32_H */
+

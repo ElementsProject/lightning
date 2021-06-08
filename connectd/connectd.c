@@ -1412,7 +1412,8 @@ static const char **seednames(const tal_t *ctx, const struct node_id *id)
 	const char **seednames = tal_arr(ctx, const char *, 0);
 
 	bech32_push_bits(&data, id->k, ARRAY_SIZE(id->k)*8);
-	bech32_encode(bech32, "ln", data, tal_count(data), sizeof(bech32));
+	bech32_encode(bech32, "ln", data, tal_count(data), sizeof(bech32),
+		      BECH32_ENCODING_BECH32);
 	/* This is cdecker's seed */
 	tal_arr_expand(&seednames, tal_fmt(seednames, "%s.lseed.bitcoinstats.com", bech32));
 	/* This is darosior's seed */

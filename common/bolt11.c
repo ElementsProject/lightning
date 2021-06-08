@@ -584,7 +584,8 @@ struct bolt11 *bolt11_decode_nosig(const tal_t *ctx, const char *str,
 	hrp = tal_arr(tmpctx, char, strlen(str) - 6);
 	data = tal_arr(tmpctx, u5, strlen(str) - 8);
 
-	if (!bech32_decode(hrp, data, &data_len, str, (size_t)-1))
+	if (bech32_decode(hrp, data, &data_len, str, (size_t)-1)
+	    != BECH32_ENCODING_BECH32)
 		return decode_fail(b11, fail, "Bad bech32 string");
 
 	/* For signature checking at the end. */
@@ -1179,7 +1180,8 @@ char *bolt11_encode_(const tal_t *ctx,
 	bech32_push_bits(&data, sig_and_recid, sizeof(sig_and_recid) * CHAR_BIT);
 
 	output = tal_arr(ctx, char, strlen(hrp) + tal_count(data) + 8);
-	if (!bech32_encode(output, hrp, data, tal_count(data), (size_t)-1))
+	if (!bech32_encode(output, hrp, data, tal_count(data), (size_t)-1,
+			   BECH32_ENCODING_BECH32))
 		output = tal_free(output);
 
 	return output;
