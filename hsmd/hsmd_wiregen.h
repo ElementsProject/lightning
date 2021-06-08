@@ -79,6 +79,9 @@ enum hsmd_wire {
         /*  Sign a bolt12-style merkle hash */
         WIRE_HSMD_SIGN_BOLT12 = 25,
         WIRE_HSMD_SIGN_BOLT12_REPLY = 125,
+        /*  Sign an option_will_fund offer hash */
+        WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER = 26,
+        WIRE_HSMD_SIGN_OPTION_WILL_FUND_OFFER_REPLY = 126,
 };
 
 const char *hsmd_wire_name(int e);
@@ -281,6 +284,15 @@ bool fromwire_hsmd_sign_bolt12(const tal_t *ctx, const void *p, wirestring **mes
 u8 *towire_hsmd_sign_bolt12_reply(const tal_t *ctx, const struct bip340sig *sig);
 bool fromwire_hsmd_sign_bolt12_reply(const void *p, struct bip340sig *sig);
 
+/* WIRE: HSMD_SIGN_OPTION_WILL_FUND_OFFER */
+/*  Sign an option_will_fund offer hash */
+u8 *towire_hsmd_sign_option_will_fund_offer(const tal_t *ctx, const struct pubkey *funding_pubkey, u32 blockheight, u32 channel_fee_base_max_msat, u16 channel_fee_proportional_basis_max);
+bool fromwire_hsmd_sign_option_will_fund_offer(const void *p, struct pubkey *funding_pubkey, u32 *blockheight, u32 *channel_fee_base_max_msat, u16 *channel_fee_proportional_basis_max);
+
+/* WIRE: HSMD_SIGN_OPTION_WILL_FUND_OFFER_REPLY */
+u8 *towire_hsmd_sign_option_will_fund_offer_reply(const tal_t *ctx, const secp256k1_ecdsa_signature *rsig);
+bool fromwire_hsmd_sign_option_will_fund_offer_reply(const void *p, secp256k1_ecdsa_signature *rsig);
+
 
 #endif /* LIGHTNING_HSMD_HSMD_WIREGEN_H */
-// SHA256STAMP:d802e57862a2ced1580824c7419e6c1075864496478c7ca6c47456df279d88df
+// SHA256STAMP:c1ec339d1925da25ee587ffb4fb5e35d0b3c578e525f519384c8fecc1054dc2a
