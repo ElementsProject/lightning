@@ -2878,7 +2878,8 @@ static void start_fresh_dualopend(struct peer *peer,
 
 	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->unsaved_dbid,
 				  HSM_CAP_COMMITMENT_POINT
-				  | HSM_CAP_SIGN_REMOTE_TX);
+				  | HSM_CAP_SIGN_REMOTE_TX
+				  | HSM_CAP_SIGN_WILL_FUND_OFFER);
 
 	channel->owner = new_channel_subd(peer->ld,
 					  "lightning_dualopend",
@@ -2944,7 +2945,8 @@ void peer_restart_dualopend(struct peer *peer,
 	}
 	hsmfd = hsm_get_client_fd(peer->ld, &peer->id, channel->dbid,
 				  HSM_CAP_COMMITMENT_POINT
-				  | HSM_CAP_SIGN_REMOTE_TX);
+				  | HSM_CAP_SIGN_REMOTE_TX
+				  | HSM_CAP_SIGN_WILL_FUND_OFFER);
 
 	channel_set_owner(channel,
 			  new_channel_subd(peer->ld, "lightning_dualopend",
