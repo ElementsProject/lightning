@@ -90,6 +90,10 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
+	{ OPT_WUMBO_HTLCS,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT} },
 };
 
 struct dependency {
@@ -394,7 +398,7 @@ static const char *feature_name(const tal_t *ctx, size_t f)
 		"option_shutdown_anysegwit",
 		"option_dual_fund",
 		NULL, /* 30/31 */
-		NULL,
+		"option_wumbo_htlcs",
 		NULL,
 		NULL,
 		NULL,

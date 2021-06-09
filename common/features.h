@@ -127,6 +127,11 @@ const char *fmt_featurebits(const tal_t *ctx, const u8 *featurebits);
  */
 #define OPT_DUAL_FUND 				28
 
+/* BOLT-bbd0daee0a86c45e377b8a0a4ee7f1fc26d080e9 #9:
+ * | 32/23 | `option_wumbo_htlcs` | ... IN ...
+ */
+#define OPT_WUMBO_HTLCS				32
+
 /* BOLT-9fc25cfd2895578c0b1ab701ebe6c1eb67a19623 #9:
  *
  * | 102/103 | `option_onion_messages` |... INC+ ...
