@@ -806,6 +806,7 @@ static struct feature_set *default_features(const tal_t *ctx)
 #if EXPERIMENTAL_FEATURES
 		OPTIONAL_FEATURE(OPT_ANCHOR_OUTPUTS),
 		OPTIONAL_FEATURE(OPT_ONION_MESSAGES),
+		OPTIONAL_FEATURE(OPT_WUMBO_HTLCS),
 #endif
 	};
 

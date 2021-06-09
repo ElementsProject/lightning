@@ -4307,7 +4307,6 @@ def test_pay_low_max_htlcs(node_factory):
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs option_wumbo_htlcs")
-@pytest.mark.xfail(strict=True)
 def test_pay_wumbo_htlc(node_factory):
     """Test we can pay if *any* HTLC slots are available"""
 

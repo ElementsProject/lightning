@@ -26,6 +26,8 @@ def expected_peer_features(wumbo_channels=False, extra=[]):
         features += [103]
         # option_anchor_outputs
         features += [21]
+        # option_wumbo_htlcs
+        features += [33]
     if wumbo_channels:
         features += [19]
     if EXPERIMENTAL_DUAL_FUND:
@@ -46,6 +48,8 @@ def expected_node_features(wumbo_channels=False, extra=[]):
         features += [103]
         # option_anchor_outputs
         features += [21]
+        # option_wumbo_htlcs
+        features += [33]
     if wumbo_channels:
         features += [19]
     if EXPERIMENTAL_DUAL_FUND:
