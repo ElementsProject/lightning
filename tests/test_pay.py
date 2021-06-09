@@ -4304,3 +4304,14 @@ def test_pay_low_max_htlcs(node_factory):
     l1.daemon.wait_for_log(
         r'Number of pre-split HTLCs \([0-9]+\) exceeds our HTLC budget \([0-9]+\), skipping pre-splitter'
     )
+
+
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs option_wumbo_htlcs")
+@pytest.mark.xfail(strict=True)
+def test_pay_wumbo_htlc(node_factory):
+    """Test we can pay if *any* HTLC slots are available"""
+
+    # 32-bit msat
+    l1, l2 = node_factory.line_graph(2, fundamount=int(2**32 * 1.05 // 1000))
+
+    l1.pay(l2, 2**32)
