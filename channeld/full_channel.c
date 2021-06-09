@@ -500,6 +500,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 				     const struct pubkey *blinding TAKES,
 				     struct htlc **htlcp,
 				     bool enforce_aggregate_limits,
+				     bool option_wumbo_htlcs,
 				     struct amount_sat *htlc_fee)
 {
 	struct htlc *htlc, *old;
@@ -576,7 +577,8 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 * - for channels with `chain_hash` identifying the Bitcoin blockchain:
 	 *    - MUST set the four most significant bytes of `amount_msat` to 0.
 	 */
-	if (sender == LOCAL
+	if (!option_wumbo_htlcs
+	    && sender == LOCAL
 	    && amount_msat_greater(htlc->amount, chainparams->max_payment)) {
 		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
 	}
@@ -771,6 +773,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      const struct sha256 *payment_hash,
 				      const u8 routing[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
 				      const struct pubkey *blinding TAKES,
+				      bool option_wumbo_htlcs,
 				      struct htlc **htlcp,
 				      struct amount_sat *htlc_fee)
 {
@@ -790,7 +793,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 
 	return add_htlc(channel, state, id, amount, cltv_expiry,
 			payment_hash, routing, blinding,
-			htlcp, true, htlc_fee);
+			htlcp, true, option_wumbo_htlcs, htlc_fee);
 }
 
 struct htlc *channel_get_htlc(struct channel *channel, enum side sender, u64 id)
@@ -1346,7 +1349,7 @@ bool channel_force_htlcs(struct channel *channel,
 			     &htlcs[i]->payment_hash,
 			     htlcs[i]->onion_routing_packet,
 			     htlcs[i]->blinding,
-			     &htlc, false, NULL);
+			     &htlc, false, true, NULL);
 		if (e != CHANNEL_ERR_ADD_OK) {
 			status_broken("%s HTLC %"PRIu64" failed error %u",
 				     htlc_state_owner(htlcs[i]->state) == LOCAL

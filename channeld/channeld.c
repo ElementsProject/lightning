@@ -779,7 +779,11 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 #endif
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
-				   onion_routing_packet, blinding, &htlc, NULL);
+				   onion_routing_packet, blinding,
+				   feature_negotiated(peer->our_features,
+						      peer->their_features,
+						      OPT_WUMBO_HTLCS),
+				   &htlc, NULL);
 	if (add_err != CHANNEL_ERR_ADD_OK)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad peer_add_htlc: %s",
@@ -3024,7 +3028,11 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount, cltv_expiry, &payment_hash,
-			     onion_routing_packet, take(blinding), NULL, &htlc_fee);
+			     onion_routing_packet, take(blinding),
+			     feature_negotiated(peer->our_features,
+						peer->their_features,
+						OPT_WUMBO_HTLCS),
+			     NULL, &htlc_fee);
 	status_debug("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s",
 		     peer->htlc_id,
 		     type_to_string(tmpctx, struct amount_msat, &amount),
