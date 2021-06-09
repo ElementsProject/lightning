@@ -1039,6 +1039,8 @@ static struct command_result *json_invoice(struct command *cmd,
 	}
 
 	if (msatoshi_val
+	    && !feature_offered(cmd->ld->our_features->bits[INIT_FEATURE],
+				OPT_WUMBO_HTLCS)
 	    && amount_msat_greater(*msatoshi_val, chainparams->max_payment)) {
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "msatoshi cannot exceed %s",
