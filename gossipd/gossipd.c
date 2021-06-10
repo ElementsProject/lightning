@@ -32,6 +32,7 @@
 #include <common/daemon_conn.h>
 #include <common/ecdh_hsmd.h>
 #include <common/features.h>
+#include <common/lease_rates.h>
 #include <common/memleak.h>
 #include <common/ping.h>
 #include <common/pseudorand.h>
@@ -1771,8 +1772,11 @@ static struct io_plan *handle_new_lease_rates(struct io_conn *conn,
 	if (!fromwire_gossipd_new_lease_rates(msg, rates))
 		master_badmsg(WIRE_GOSSIPD_NEW_LEASE_RATES, msg);
 
-	tal_free(daemon->rates);
-	daemon->rates = rates;
+	daemon->rates = tal_free(daemon->rates);
+	if (!lease_rates_empty(rates))
+		daemon->rates = rates;
+	else
+		tal_free(rates);
 
 	/* Send the update over to the peer */
 	maybe_send_own_node_announce(daemon, false);
