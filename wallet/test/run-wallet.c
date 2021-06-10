@@ -841,6 +841,10 @@ u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 		      const struct channel_id *channel UNNEEDED,
 		      const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "towire_warningfmt called!\n"); abort(); }
+/* Generated stub for valid_shutdown_scriptpubkey */
+bool valid_shutdown_scriptpubkey(const u8 *scriptpubkey UNNEEDED,
+				 bool anysegwit UNNEEDED)
+{ fprintf(stderr, "valid_shutdown_scriptpubkey called!\n"); abort(); }
 /* Generated stub for watch_txid */
 struct txwatch *watch_txid(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,

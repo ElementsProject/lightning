@@ -27,7 +27,10 @@ The default is 2 days (172800 seconds)\.
 
 
 The \fIdestination\fR can be of any Bitcoin accepted type, including bech32\.
-If it isn't specified, the default is a c-lightning wallet address\.
+If it isn't specified, the default is a c-lightning wallet address\.  If
+the peer hasn't offered the \fBoption_shutdown_anysegwit\fR feature, then
+taproot addresses (or other v1+ segwit) are not allowed\.  Tell your
+friends to upgrade!
 
 
 The \fIfee_negotiation_step\fR parameter controls how closing fee
@@ -120,4 +123,4 @@ ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:507a9ca707e244eef65c5e16daa5a4d7ba8f59e93e988d252f7e854ae9f44781
+\" SHA256STAMP:17f5bb362d8501b04314756c4134e3d5d20f8729dd55f5f3cfa0b5e111b104a1

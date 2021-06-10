@@ -2772,3 +2772,27 @@ def test_segwit_anyshutdown(node_factory, bitcoind, executor):
         l1.rpc.close(l2.info['id'], destination=addr)
         bitcoind.generate_block(1, wait_for_mempool=1)
         wait_for(lambda: all([c['state'] == 'ONCHAIN' for c in only_one(l1.rpc.listpeers()['peers'])['channels']]))
+
+
+@pytest.mark.developer("needs to manipulate features")
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Uses regtest addresses")
+def test_anysegwit_close_needs_feature(node_factory, bitcoind):
+    """Rather than have peer reject our shutdown, we should refuse to shutdown toa v1+ address if they don't support it"""
+    # L2 says "no option_shutdown_anysegwit"
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True},
+                                              {'may_reconnect': True,
+                                               'dev-force-features': -27}])
+
+    with pytest.raises(RpcError, match=r'Peer does not allow v1\+ shutdown addresses'):
+        l1.rpc.close(l2.info['id'], destination='bcrt1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k0ylj56')
+
+    # From TFM: "Tell your friends to upgrade!"
+    l2.stop()
+    del l2.daemon.opts['dev-force-features']
+    l2.start()
+
+    # Now it will work!
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.close(l2.info['id'], destination='bcrt1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k0ylj56')
+    wait_for(lambda: only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_COMPLETE')
+    bitcoind.generate_block(1, wait_for_mempool=1)
