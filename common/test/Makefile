@@ -48,6 +48,7 @@ common/test/run-route common/test/run-route-specific:	\
 common/test/run-gossmap_local:				\
 	wire/fromwire.o					\
 	wire/peer$(EXP)_wiregen.o			\
+	wire/tlvstream.o				\
 	wire/towire.o
 
 check-units: $(COMMON_TEST_PROGRAMS:%=unittest/%)

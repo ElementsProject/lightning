@@ -128,6 +128,10 @@ void printpeer_wire_message(const u8 *msg)
 			printf("WIRE_UPDATE_FEE:\n");
 			printwire_update_fee("update_fee", msg);
 			return;
+		case WIRE_UPDATE_BLOCKHEIGHT:
+			printf("WIRE_UPDATE_BLOCKHEIGHT:\n");
+			printwire_update_blockheight("update_blockheight", msg);
+			return;
 		case WIRE_CHANNEL_REESTABLISH:
 			printf("WIRE_CHANNEL_REESTABLISH:\n");
 			printwire_channel_reestablish("channel_reestablish", msg);
@@ -189,6 +193,52 @@ void printwire_witness_element(const char *fieldname, const u8 **cursor, size_t 
  	printf("witness=");
 	printwire_u8_array(tal_fmt(NULL, "%s.witness", fieldname), cursor, plen, len);
 
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+
+void printwire_lease_rates(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+
+	printf("funding_weight=");
+	u16 funding_weight = fromwire_u16(cursor, plen);
+
+	printwire_u16(tal_fmt(NULL, "%s.funding_weight", fieldname), &funding_weight);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	printf("lease_fee_basis=");
+	u16 lease_fee_basis = fromwire_u16(cursor, plen);
+
+	printwire_u16(tal_fmt(NULL, "%s.lease_fee_basis", fieldname), &lease_fee_basis);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	printf("channel_fee_max_proportional_thousandths=");
+	u16 channel_fee_max_proportional_thousandths = fromwire_u16(cursor, plen);
+
+	printwire_u16(tal_fmt(NULL, "%s.channel_fee_max_proportional_thousandths", fieldname), &channel_fee_max_proportional_thousandths);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	printf("lease_fee_base_sat=");
+	u32 lease_fee_base_sat = fromwire_u32(cursor, plen);
+
+	printwire_u32(tal_fmt(NULL, "%s.lease_fee_base_sat", fieldname), &lease_fee_base_sat);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	printf("channel_fee_max_base_msat=");
+	u32 channel_fee_max_base_msat = fromwire_tu32(cursor, plen);
+
+	printwire_u32(tal_fmt(NULL, "%s.channel_fee_max_base_msat", fieldname), &channel_fee_max_base_msat);
 	if (!*cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -462,9 +512,32 @@ static void printwire_tlv_opening_tlvs_option_upfront_shutdown_script(const char
 	}
 
 }
+static void printwire_tlv_opening_tlvs_request_funds(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "request_funds");
+
+	printf("requested_sats=");
+	u64 requested_sats = fromwire_u64(cursor, plen);
+
+	printwire_u64(tal_fmt(NULL, "%s.requested_sats", fieldname), &requested_sats);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	printf("blockheight=");
+	u32 blockheight = fromwire_u32(cursor, plen);
+
+	printwire_u32(tal_fmt(NULL, "%s.blockheight", fieldname), &blockheight);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
 
 static const struct tlv_print_record_type print_tlvs_opening_tlvs[] = {
 	{ 1, printwire_tlv_opening_tlvs_option_upfront_shutdown_script },
+	{ 3, printwire_tlv_opening_tlvs_request_funds },
 };
 
 static void printwire_tlv_accept_tlvs_option_upfront_shutdown_script(const char *fieldname, const u8 **cursor, size_t *plen)
@@ -485,9 +558,29 @@ static void printwire_tlv_accept_tlvs_option_upfront_shutdown_script(const char 
 	}
 
 }
+static void printwire_tlv_accept_tlvs_will_fund(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "will_fund");
+
+	printf("signature=");
+	secp256k1_ecdsa_signature signature;
+	fromwire_secp256k1_ecdsa_signature(cursor, plen, &signature);
+
+	printwire_secp256k1_ecdsa_signature(tal_fmt(NULL, "%s.signature", fieldname), &signature);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	printf("lease_rates=");
+	printf("{\n");
+	printwire_lease_rates(tal_fmt(NULL, "%s.lease_rates", fieldname), cursor, plen);
+	printf("}\n");
+
+}
 
 static const struct tlv_print_record_type print_tlvs_accept_tlvs[] = {
 	{ 1, printwire_tlv_accept_tlvs_option_upfront_shutdown_script },
+	{ 2, printwire_tlv_accept_tlvs_will_fund },
 };
 
 static void printwire_tlv_shutdown_tlvs_wrong_funding(const char *fieldname, const u8 **cursor, size_t *plen)
@@ -516,6 +609,21 @@ static void printwire_tlv_shutdown_tlvs_wrong_funding(const char *fieldname, con
 
 static const struct tlv_print_record_type print_tlvs_shutdown_tlvs[] = {
 	{ 100, printwire_tlv_shutdown_tlvs_wrong_funding },
+};
+
+static void printwire_tlv_node_ann_tlvs_option_will_fund(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "option_will_fund");
+
+	printf("lease_rates=");
+	printf("{\n");
+	printwire_lease_rates(tal_fmt(NULL, "%s.lease_rates", fieldname), cursor, plen);
+	printf("}\n");
+
+}
+
+static const struct tlv_print_record_type print_tlvs_node_ann_tlvs[] = {
+	{ 1, printwire_tlv_node_ann_tlvs_option_will_fund },
 };
 
 static void printwire_tlv_query_short_channel_ids_tlvs_query_flags(const char *fieldname, const u8 **cursor, size_t *plen)
@@ -2249,6 +2357,37 @@ void printwire_update_fee(const char *fieldname, const u8 *cursor)
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
 }
+void printwire_update_blockheight(const char *fieldname, const u8 *cursor)
+{
+
+	size_t plen = tal_count(cursor);
+	if (fromwire_u16(&cursor, &plen) != WIRE_UPDATE_BLOCKHEIGHT) {
+		printf("WRONG TYPE?!\n");
+		return;
+	}
+
+	printf("channel_id=");
+	struct channel_id channel_id;
+	fromwire_channel_id(&cursor, &plen, &channel_id);
+
+	printwire_channel_id(tal_fmt(NULL, "%s.channel_id", fieldname), &channel_id);
+	if (!cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	printf("blockheight=");
+	u32 blockheight = fromwire_u32(&cursor, &plen);
+
+	printwire_u32(tal_fmt(NULL, "%s.blockheight", fieldname), &blockheight);
+	if (!cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+
+	if (plen != 0)
+		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
+}
 void printwire_channel_reestablish(const char *fieldname, const u8 *cursor)
 {
 
@@ -2545,6 +2684,8 @@ void printwire_node_announcement(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
+ 	printf("tlvs=");
+	printwire_tlvs(tal_fmt(NULL, "%s.tlvs", fieldname), &cursor, &plen, print_tlvs_node_ann_tlvs, ARRAY_SIZE(print_tlvs_node_ann_tlvs));
 
 
 	if (plen != 0)
@@ -2922,6 +3063,9 @@ void printpeer_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 	if (strcmp(tlv_name, "shutdown_tlvs") == 0) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_shutdown_tlvs, ARRAY_SIZE(print_tlvs_shutdown_tlvs));
 	}
+	if (strcmp(tlv_name, "node_ann_tlvs") == 0) {
+		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_node_ann_tlvs, ARRAY_SIZE(print_tlvs_node_ann_tlvs));
+	}
 	if (strcmp(tlv_name, "query_short_channel_ids_tlvs") == 0) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_query_short_channel_ids_tlvs, ARRAY_SIZE(print_tlvs_query_short_channel_ids_tlvs));
 	}
@@ -2935,4 +3079,4 @@ void printpeer_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_onion_message_tlvs, ARRAY_SIZE(print_tlvs_onion_message_tlvs));
 	}
 }
-// SHA256STAMP:3ecafff6be37e4049f121dcd6816aada2818fc7c02099372d1358d1b5b9da1ca
+// SHA256STAMP:df85cfbd9424cced7ea68df1088da25cfdf548a856c0a189677b4a52428c1914

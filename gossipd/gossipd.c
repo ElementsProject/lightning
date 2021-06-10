@@ -164,6 +164,7 @@ static bool get_node_announcement(const tal_t *ctx,
 	secp256k1_ecdsa_signature signature;
 	u32 timestamp;
 	u8 *addresses;
+	struct tlv_node_ann_tlvs *na_tlvs;
 
 	if (!n->bcast.index)
 		return false;
@@ -171,11 +172,13 @@ static bool get_node_announcement(const tal_t *ctx,
 	msg = gossip_store_get(tmpctx, daemon->rstate->gs, n->bcast.index);
 
 	/* Note: validity of node_id is already checked. */
+	na_tlvs = tlv_node_ann_tlvs_new(ctx);
 	if (!fromwire_node_announcement(ctx, msg,
 					&signature, features,
 					&timestamp,
 					&id, rgb_color, alias,
-					&addresses)) {
+					&addresses,
+					na_tlvs)) {
 		status_broken("Bad local node_announcement @%u: %s",
 			      n->bcast.index, tal_hex(tmpctx, msg));
 		return false;
@@ -728,6 +731,7 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_COMMITMENT_SIGNED:
 	case WIRE_REVOKE_AND_ACK:
 	case WIRE_UPDATE_FEE:
+	case WIRE_UPDATE_BLOCKHEIGHT:
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:

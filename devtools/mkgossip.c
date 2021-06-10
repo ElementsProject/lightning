@@ -201,14 +201,17 @@ static void print_nannounce(const struct node_id *nodeid,
 	struct sha256_double hash;
 	secp256k1_ecdsa_signature sig;
 	char alias[33];
+	struct tlv_node_ann_tlvs *tlvs;
 	u8 *nannounce;
 
 	memset(&sig, 0, sizeof(sig));
 	assert(hex_str_size(sizeof(*nodeid)) >= sizeof(alias));
 	hex_encode(nodeid, hex_data_size(sizeof(alias)), alias, sizeof(alias));
+	tlvs = tlv_node_ann_tlvs_new(NULL);
 	nannounce = towire_node_announcement(NULL, &sig, NULL, opts->timestamp,
 					     nodeid, nodeid->k, (u8 *)alias,
-					     opts->addresses);
+					     opts->addresses,
+					     tlvs);
 	sha256_double(&hash, nannounce + node_announcement_offset,
 		      tal_count(nannounce) - node_announcement_offset);
 	sign_hash(privkey, &hash, &sig);
@@ -221,6 +224,22 @@ static void print_nannounce(const struct node_id *nodeid,
 	printf("   rgb_color=%s\n", tal_hexstr(NULL, nodeid->k, 3));
 	printf("   alias=%s\n", tal_hexstr(NULL, alias, 32));
 	printf("   addresses=%s\n", tal_hex(NULL, opts->addresses));
+
+	if (tlvs->option_will_fund) {
+		struct lease_rates *rates = tlvs->option_will_fund;
+		printf("	TLV option_will_fund\n");
+		printf("	lease_fee_basis=%d\n",
+		       rates->lease_fee_basis);
+		printf("	lease_fee_base_sat=%d\n",
+		       rates->lease_fee_base_sat);
+		printf("	funding_weight=%d\n",
+		       rates->funding_weight);
+		printf("	channel_fee_max_proportional_thousandths=%d\n",
+		       rates->channel_fee_max_proportional_thousandths);
+		printf("	channel_fee_max_base_msat=%d\n",
+		       rates->channel_fee_max_base_msat);
+	}
+	tal_free(tlvs);
 }
 
 int main(int argc, char *argv[])
