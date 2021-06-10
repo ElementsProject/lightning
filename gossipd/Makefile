@@ -48,6 +48,7 @@ GOSSIPD_COMMON_OBJS :=				\
 	common/status_wiregen.o			\
 	common/gossip_rcvd_filter.o		\
 	common/key_derive.o			\
+	common/lease_rates.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/node_id.o			\
