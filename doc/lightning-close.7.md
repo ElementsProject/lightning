@@ -26,7 +26,10 @@ indefinitely until the peer is online and can negotiate a mutual close.
 The default is 2 days (172800 seconds).
 
 The *destination* can be of any Bitcoin accepted type, including bech32.
-If it isn't specified, the default is a c-lightning wallet address.
+If it isn't specified, the default is a c-lightning wallet address.  If
+the peer hasn't offered the `option_shutdown_anysegwit` feature, then
+taproot addresses (or other v1+ segwit) are not allowed.  Tell your
+friends to upgrade!
 
 The *fee_negotiation_step* parameter controls how closing fee
 negotiation is performed assuming the peer proposes a fee that is

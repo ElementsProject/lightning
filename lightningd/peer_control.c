@@ -27,6 +27,7 @@
 #include <common/key_derive.h>
 #include <common/param.h>
 #include <common/per_peer_state.h>
+#include <common/shutdown_scriptpubkey.h>
 #include <common/status.h>
 #include <common/timeout.h>
 #include <common/utils.h>
@@ -1655,6 +1656,7 @@ static struct command_result *json_close(struct command *cmd,
 	const char *fee_negotiation_step_str;
 	struct bitcoin_outpoint *wrong_funding;
 	char* end;
+	bool anysegwit;
 
 	if (!param(cmd, buffer, params,
 		   p_req("id", param_tok, &idtok),
@@ -1730,6 +1732,24 @@ static struct command_result *json_close(struct command *cmd,
 		close_script_set = false;
 	} else
 		close_script_set = false;
+
+	/* Don't send a scriptpubkey peer won't accept */
+	anysegwit = feature_negotiated(cmd->ld->our_features,
+				       channel->peer->their_features,
+				       OPT_SHUTDOWN_ANYSEGWIT);
+	if (!valid_shutdown_scriptpubkey(channel->shutdown_scriptpubkey[LOCAL],
+					 anysegwit)) {
+		/* Explicit check for future segwits. */
+		if (!anysegwit &&
+		    valid_shutdown_scriptpubkey(channel->shutdown_scriptpubkey
+						[LOCAL], true)) {
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Peer does not allow v1+ shutdown addresses");
+		}
+
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid close destination");
+	}
 
 	if (fee_negotiation_step_str == NULL) {
 		channel->closing_fee_negotiation_step = 50;

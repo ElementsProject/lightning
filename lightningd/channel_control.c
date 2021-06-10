@@ -244,7 +244,7 @@ static void peer_got_shutdown(struct channel *channel, const u8 *msg)
 		channel_fail_permanent(channel,
 				       REASON_PROTOCOL,
 				       "Bad shutdown scriptpubkey %s",
-				       tal_hex(channel, scriptpubkey));
+				       tal_hex(tmpctx, scriptpubkey));
 		return;
 	}
 
