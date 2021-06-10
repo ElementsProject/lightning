@@ -167,6 +167,7 @@ struct msg_node_announcement {
 	u8 alias[32];
 	u8 *features;
 	u8 *addresses;
+	struct tlv_node_ann_tlvs *tlvs;
 };
 struct msg_open_channel {
 	struct bitcoin_blkid chain_hash;
@@ -371,12 +372,14 @@ static void *towire_struct_node_announcement(const tal_t *ctx,
 					&s->node_id,
 					s->rgb_color,
 					s->alias,
-					s->addresses);
+					s->addresses,
+					s->tlvs);
 }
 
 static struct msg_node_announcement *fromwire_struct_node_announcement(const tal_t *ctx, const void *p)
 {
 	struct msg_node_announcement *s = tal(ctx, struct msg_node_announcement);
+	s->tlvs = tlv_node_ann_tlvs_new(s);
 	if (!fromwire_node_announcement(s, p,
 				       &s->signature,
 					&s->features,
@@ -384,7 +387,8 @@ static struct msg_node_announcement *fromwire_struct_node_announcement(const tal
 				       &s->node_id,
 				       s->rgb_color,
 				       s->alias,
-					&s->addresses))
+				       &s->addresses,
+				       s->tlvs))
 		return tal_free(s);
 	return s;
 }
@@ -925,9 +929,37 @@ static bool update_add_htlc_eq(const struct msg_update_add_htlc *a,
 	return eq_with(a, b, onion_routing_packet);
 }
 
+static bool
+lease_rates_eq(const struct lease_rates *a,
+	       const struct lease_rates *b)
+{
+	return eq_field(a, b, channel_fee_max_base_msat)
+		&& eq_field(a, b, channel_fee_max_proportional_thousandths)
+		&& eq_field(a, b, funding_weight)
+		&& eq_field(a, b, lease_fee_base_sat)
+		&& eq_field(a, b, lease_fee_basis);
+}
+
 static bool node_announcement_eq(const struct msg_node_announcement *a,
 				 const struct msg_node_announcement *b)
 {
+	/* Both or neither */
+	if (!a->tlvs != !b->tlvs)
+		return false;
+
+	if (!a->tlvs)
+		goto body_check;
+
+	/* Both or neither */
+	if (!a->tlvs->option_will_fund != !b->tlvs->option_will_fund)
+		return false;
+
+	if (a->tlvs->option_will_fund
+	    && !lease_rates_eq(a->tlvs->option_will_fund,
+			       b->tlvs->option_will_fund))
+		return false;
+
+body_check:
 	return eq_with(a, b, node_id)
 		&& eq_field(a, b, rgb_color)
 		&& eq_field(a, b, alias)
@@ -1165,11 +1197,15 @@ int main(int argc, char *argv[])
 	memset(na.features, 2, 2);
 	na.addresses = tal_arr(ctx, u8, 2);
 	memset(na.addresses, 2, 2);
+	na.tlvs= tlv_node_ann_tlvs_new(ctx);
+	na.tlvs->option_will_fund = tal(ctx, struct lease_rates);
+	memset(na.tlvs->option_will_fund, 2,
+	       sizeof(*na.tlvs->option_will_fund));
 
 	msg = towire_struct_node_announcement(ctx, &na);
 	na2 = fromwire_struct_node_announcement(ctx, msg);
 	assert(node_announcement_eq(&na, na2));
-	test_corruption(&na, na2, node_announcement);
+	test_corruption_tlv(&na, na2, node_announcement);
 
 	tal_free(ctx);
 	common_shutdown();
