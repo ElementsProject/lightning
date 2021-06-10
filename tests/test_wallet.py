@@ -1341,3 +1341,31 @@ def test_repro_4258(node_factory, bitcoind):
     assert(len(tx['vin']) == 1)
     i0 = tx['vin'][0]
     assert([i0['txid'], i0['vout']] == [out['txid'], out['output']])
+
+
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Uses regtest addresses")
+def test_withdraw_bech32m(node_factory, bitcoind):
+    l1 = node_factory.get_node()
+    l1.fundwallet(10000000)
+
+    # Based on BIP-320, but all changed to regtest.
+    addrs = ("BCRT1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KYGT080",
+             "bcrt1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qzf4jry",
+             "bcrt1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k0ylj56",
+             "BCRT1SW50QT2UWHA",
+             "bcrt1zw508d6qejxtdg4y5r3zarvaryv2wuatf",
+             "bcrt1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvseswlauz7",
+             "bcrt1pqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesyga46z",
+             "bcrt1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqc8gma6")
+
+    for addr in addrs:
+        l1.rpc.withdraw(addr, 10**3)
+        bitcoind.generate_block(1, wait_for_mempool=1)
+        print(l1.rpc.listfunds()['outputs'])
+        wait_for(lambda: [o for o in l1.rpc.listfunds()['outputs'] if o['status'] == 'confirmed' and not o['reserved']] != [])
+
+    # Test multiwithdraw
+    args = []
+    for addr in addrs:
+        args += [{addr: 10**3}]
+    l1.rpc.multiwithdraw(args)["txid"]

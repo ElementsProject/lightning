@@ -2740,3 +2740,35 @@ def test_shutdown_alternate_txid(node_factory, bitcoind):
 
     wait_for(lambda: l2.rpc.listpeers()['peers'] == [])
     wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
+
+
+@unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Uses regtest addresses")
+@pytest.mark.developer("too slow without fast polling for blocks")
+def test_segwit_anyshutdown(node_factory, bitcoind, executor):
+    """Try a range of future segwit versions for shutdown"""
+    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+
+    l1.fundwallet(10**7)
+
+    # Based on BIP-320, but all changed to regtest.
+    addrs = ("BCRT1QW508D6QEJXTDG4Y5R3ZARVARY0C5XW7KYGT080",
+             "bcrt1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3qzf4jry",
+             "bcrt1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k0ylj56",
+             "BCRT1SW50QT2UWHA",
+             "bcrt1zw508d6qejxtdg4y5r3zarvaryv2wuatf",
+             "bcrt1qqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvseswlauz7",
+             "bcrt1pqqqqp399et2xygdj5xreqhjjvcmzhxw4aywxecjdzew6hylgvsesyga46z",
+             "bcrt1p0xlxvlhemja6c4dqv22uapctqupfhlxm9h8z3k2e72q4k9hcz7vqc8gma6")
+
+    for addr in addrs:
+        l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+        l1.rpc.fundchannel(l2.info['id'], 10**6)
+        # If we don't actually make a payment, two of the above cases fail
+        # because the resulting tx is too small!  Balance channel so close
+        # has two outputs.
+        bitcoind.generate_block(1, wait_for_mempool=1)
+        wait_for(lambda: any([c['state'] == 'CHANNELD_NORMAL' for c in only_one(l1.rpc.listpeers()['peers'])['channels']]))
+        l1.pay(l2, 10**9 // 2)
+        l1.rpc.close(l2.info['id'], destination=addr)
+        bitcoind.generate_block(1, wait_for_mempool=1)
+        wait_for(lambda: all([c['state'] == 'ONCHAIN' for c in only_one(l1.rpc.listpeers()['peers'])['channels']]))
