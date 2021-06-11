@@ -46,6 +46,7 @@ const char *dualopend_wire_name(int e)
 	case WIRE_DUALOPEND_SHUTDOWN_COMPLETE: return "WIRE_DUALOPEND_SHUTDOWN_COMPLETE";
 	case WIRE_DUALOPEND_DEV_MEMLEAK: return "WIRE_DUALOPEND_DEV_MEMLEAK";
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY: return "WIRE_DUALOPEND_DEV_MEMLEAK_REPLY";
+	case WIRE_DUALOPEND_DRY_RUN: return "WIRE_DUALOPEND_DRY_RUN";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -81,6 +82,7 @@ bool dualopend_wire_is_defined(u16 type)
 	case WIRE_DUALOPEND_SHUTDOWN_COMPLETE:;
 	case WIRE_DUALOPEND_DEV_MEMLEAK:;
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:;
+	case WIRE_DUALOPEND_DRY_RUN:;
 	      return true;
 	}
 	return false;
@@ -621,7 +623,7 @@ bool fromwire_dualopend_fail(const tal_t *ctx, const void *p, wirestring **reaso
 
 /* WIRE: DUALOPEND_OPENER_INIT */
 /* master->dualopend: hello */
-u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags, struct amount_sat requested_sats, u32 blockheight)
+u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags, struct amount_sat requested_sats, u32 blockheight, bool dry_run)
 {
 	u16 local_shutdown_len = tal_count(local_shutdown_scriptpubkey);
 	u8 *p = tal_arr(ctx, u8, 0);
@@ -636,10 +638,11 @@ u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt
 	towire_u8(&p, channel_flags);
 	towire_amount_sat(&p, requested_sats);
 	towire_u32(&p, blockheight);
+	towire_bool(&p, dry_run);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wally_psbt **psbt, struct amount_sat *funding_amount, u8 **local_shutdown_scriptpubkey, u32 *feerate_per_kw, u32 *feerate_per_kw_funding, u8 *channel_flags, struct amount_sat *requested_sats, u32 *blockheight)
+bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wally_psbt **psbt, struct amount_sat *funding_amount, u8 **local_shutdown_scriptpubkey, u32 *feerate_per_kw, u32 *feerate_per_kw_funding, u8 *channel_flags, struct amount_sat *requested_sats, u32 *blockheight, bool *dry_run)
 {
 	u16 local_shutdown_len;
 
@@ -659,6 +662,7 @@ bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wall
  	*channel_flags = fromwire_u8(&cursor, &plen);
  	*requested_sats = fromwire_amount_sat(&cursor, &plen);
  	*blockheight = fromwire_u32(&cursor, &plen);
+ 	*dry_run = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
 
@@ -932,4 +936,42 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:e450d9832b4f8b8303a2f887e451d3e3964d1dfeff5cbe41762232a02bcaf13f
+
+/* WIRE: DUALOPEND_DRY_RUN */
+/* dualopend -> master: this was a dry run */
+u8 *towire_dualopend_dry_run(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat our_funding, struct amount_sat their_funding, const struct lease_rates *lease_rates)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_DRY_RUN);
+	towire_channel_id(&p, channel_id);
+	towire_amount_sat(&p, our_funding);
+	towire_amount_sat(&p, their_funding);
+	if (!lease_rates)
+		towire_bool(&p, false);
+	else {
+		towire_bool(&p, true);
+		towire_lease_rates(&p, lease_rates);
+	}
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_dry_run(const tal_t *ctx, const void *p, struct channel_id *channel_id, struct amount_sat *our_funding, struct amount_sat *their_funding, struct lease_rates **lease_rates)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_DRY_RUN)
+		return false;
+ 	fromwire_channel_id(&cursor, &plen, channel_id);
+ 	*our_funding = fromwire_amount_sat(&cursor, &plen);
+ 	*their_funding = fromwire_amount_sat(&cursor, &plen);
+ 	if (!fromwire_bool(&cursor, &plen))
+		*lease_rates = NULL;
+	else {
+		*lease_rates = tal(ctx, struct lease_rates);
+		fromwire_lease_rates(&cursor, &plen, *lease_rates);
+	}
+	return cursor != NULL;
+}
+// SHA256STAMP:8651e9ad1638a311e744432336fe51e34abdb1779ef9bbc43a9656e954ba66fe

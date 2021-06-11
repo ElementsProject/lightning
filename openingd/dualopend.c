@@ -1979,7 +1979,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		lease_blockheight_start = 0;
 	}
 
-
 	/* BOLT-* #2
 	 * If the peer's revocation basepoint is unknown (e.g.
 	 * `open_channel2`), a temporary `channel_id` should be found
@@ -2470,6 +2469,7 @@ static void opener_start(struct state *state, u8 *msg)
 	char *err_reason;
 	struct amount_sat total, requested_sats;
 	u32 current_blockheight;
+	bool dry_run;
 	struct tx_state *tx_state = state->tx_state;
 
 	if (!fromwire_dualopend_opener_init(state, msg,
@@ -2480,7 +2480,8 @@ static void opener_start(struct state *state, u8 *msg)
 					    &state->feerate_per_kw_funding,
 					    &state->channel_flags,
 					    &requested_sats,
-					    &current_blockheight))
+					    &current_blockheight,
+					    &dry_run))
 		master_badmsg(WIRE_DUALOPEND_OPENER_INIT, msg);
 
 	state->our_role = TX_INITIATOR;
@@ -2598,6 +2599,31 @@ static void opener_start(struct state *state, u8 *msg)
 	derive_channel_id_v2(&state->channel_id,
 			     &state->our_points.revocation,
 			     &state->their_points.revocation);
+
+	/* If this is a dry run, we just wanted to know
+	 * how much they'd put into the channel and their terms */
+	if (dry_run) {
+		msg = towire_dualopend_dry_run(NULL, &state->channel_id,
+					       tx_state->opener_funding,
+					       tx_state->accepter_funding,
+					       a_tlv->will_fund
+						? &a_tlv->will_fund->lease_rates : NULL);
+
+
+		wire_sync_write(REQ_FD, take(msg));
+
+		/* Note that this *normally* would return an error
+		 * to the RPC caller.  We head this off by
+		 * sending a message to master just before this,
+		 * which works as expected as long as
+		 * these messages are queued+processed sequentially */
+		open_err_warn(state, "%s", "Abort requested");
+	}
+
+	/* FIXME: BOLT QUOTE */
+	if (open_tlv->request_funds && a_tlv->will_fund) {
+		/* OK! lease mode activated */
+	}
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
@@ -3392,6 +3418,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_GOT_SHUTDOWN:
 	case WIRE_DUALOPEND_SHUTDOWN_COMPLETE:
 	case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:
+	case WIRE_DUALOPEND_DRY_RUN:
 		break;
 	}
 
