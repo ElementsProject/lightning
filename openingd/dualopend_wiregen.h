@@ -72,6 +72,8 @@ enum dualopend_wire {
         /*  master -> dualopend: do you have a memleak? */
         WIRE_DUALOPEND_DEV_MEMLEAK = 7033,
         WIRE_DUALOPEND_DEV_MEMLEAK_REPLY = 7133,
+        /*  dualopend -> master: this was a dry run */
+        WIRE_DUALOPEND_DRY_RUN = 7026,
 };
 
 const char *dualopend_wire_name(int e);
@@ -153,8 +155,8 @@ bool fromwire_dualopend_fail(const tal_t *ctx, const void *p, wirestring **reaso
 
 /* WIRE: DUALOPEND_OPENER_INIT */
 /*  master->dualopend: hello */
-u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags, struct amount_sat requested_sats, u32 blockheight);
-bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wally_psbt **psbt, struct amount_sat *funding_amount, u8 **local_shutdown_scriptpubkey, u32 *feerate_per_kw, u32 *feerate_per_kw_funding, u8 *channel_flags, struct amount_sat *requested_sats, u32 *blockheight);
+u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags, struct amount_sat requested_sats, u32 blockheight, bool dry_run);
+bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wally_psbt **psbt, struct amount_sat *funding_amount, u8 **local_shutdown_scriptpubkey, u32 *feerate_per_kw, u32 *feerate_per_kw_funding, u8 *channel_flags, struct amount_sat *requested_sats, u32 *blockheight, bool *dry_run);
 
 /* WIRE: DUALOPEND_FUNDING_SIGS */
 /*  dualopend->master received tx_sigs from peer */
@@ -215,6 +217,11 @@ bool fromwire_dualopend_dev_memleak(const void *p);
 u8 *towire_dualopend_dev_memleak_reply(const tal_t *ctx, bool leak);
 bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
 
+/* WIRE: DUALOPEND_DRY_RUN */
+/*  dualopend -> master: this was a dry run */
+u8 *towire_dualopend_dry_run(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat our_funding, struct amount_sat their_funding, const struct lease_rates *lease_rates);
+bool fromwire_dualopend_dry_run(const tal_t *ctx, const void *p, struct channel_id *channel_id, struct amount_sat *our_funding, struct amount_sat *their_funding, struct lease_rates **lease_rates);
+
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:d8a31a5de292561ccfb5b7050c911b590db44a50209e02469179904708328861
+// SHA256STAMP:a0ce1d5dfc6518a35d2e346c770754c498558ac426e3040526e10bbbc237db6f

@@ -16,6 +16,43 @@ def find_next_feerate(node, peer):
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+def test_queryrates(node_factory, bitcoind):
+    l1, l2 = node_factory.get_nodes(2)
+
+    amount = 10 ** 6
+
+    l1.fundwallet(amount * 10)
+    l2.fundwallet(amount * 10)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    result = l1.rpc.queryrates(l2.info['id'], amount, amount * 10)
+    assert result['our_funding_msat'] == Millisatoshi(amount * 1000)
+    assert result['their_funding_msat'] == Millisatoshi(0)
+    assert 'weight_charge' not in result
+
+    l2.rpc.call('funderupdate', {'policy': 'match',
+                                 'policy_mod': 100,
+                                 'per_channel_max': '1btc',
+                                 'fuzz_percent': 0,
+                                 'lease_fee_base_msat': '2sat',
+                                 'funding_weight': 1000,
+                                 'lease_fee_basis': 140,
+                                 'channel_fee_max_base_msat': '3sat',
+                                 'channel_fee_max_proportional_thousandths': 101})
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    result = l1.rpc.queryrates(l2.info['id'], amount, amount)
+    assert result['our_funding_msat'] == Millisatoshi(amount * 1000)
+    assert result['their_funding_msat'] == Millisatoshi(amount * 1000)
+    assert result['funding_weight'] == 1000
+    assert result['lease_fee_base_msat'] == Millisatoshi(2000)
+    assert result['lease_fee_basis'] == 140
+    assert result['channel_fee_max_base_msat'] == Millisatoshi(3000)
+    assert result['channel_fee_max_proportional_thousandths'] == 101
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.developer("uses dev-disconnect")
 @pytest.mark.openchannel('v1')  # Mixed v1 + v2, v2 manually turned on
 def test_multifunding_v2_best_effort(node_factory, bitcoind):
