@@ -2335,10 +2335,33 @@ static struct command_result *json_openchannel_update(struct command *cmd,
 	return command_still_pending(cmd);
 }
 
+static struct command_result *init_set_feerate(struct command *cmd,
+					       u32 **feerate_per_kw,
+					       u32 **feerate_per_kw_funding)
+
+{
+	if (!*feerate_per_kw_funding) {
+		*feerate_per_kw_funding = tal(cmd, u32);
+		**feerate_per_kw_funding = opening_feerate(cmd->ld->topology);
+		if (!**feerate_per_kw_funding)
+			return command_fail(cmd, LIGHTNINGD,
+					    "`funding_feerate` not specified and fee "
+					    "estimation failed");
+	}
+	if (!*feerate_per_kw) {
+		*feerate_per_kw = tal(cmd, u32);
+		/* FIXME: Anchors are on by default, we should use the lowest
+		 * possible feerate */
+		**feerate_per_kw = **feerate_per_kw_funding;
+	}
+
+	return NULL;
+}
+
 static struct command_result *json_openchannel_init(struct command *cmd,
-						     const char *buffer,
-						     const jsmntok_t *obj UNNEEDED,
-						     const jsmntok_t *params)
+						    const char *buffer,
+						    const jsmntok_t *obj UNNEEDED,
+						    const jsmntok_t *params)
 {
 	struct node_id *id;
 	struct peer *peer;
@@ -2350,6 +2373,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	struct wally_psbt *psbt;
 	const u8 *our_upfront_shutdown_script;
 	struct open_attempt *oa;
+	struct command_result *res;
 	u8 *msg;
 
 	if (!param(cmd, buffer, params,
@@ -2389,20 +2413,9 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 						   struct wally_psbt,
 						   psbt));
 
-	if (!feerate_per_kw_funding) {
-		feerate_per_kw_funding = tal(cmd, u32);
-		*feerate_per_kw_funding = opening_feerate(cmd->ld->topology);
-		if (!*feerate_per_kw_funding)
-			return command_fail(cmd, LIGHTNINGD,
-					    "`funding_feerate` not specified and fee "
-					    "estimation failed");
-	}
-	if (!feerate_per_kw) {
-		feerate_per_kw = tal(cmd, u32);
-		/* FIXME: Anchors are on by default, we should use the lowest
-		 * possible feerate */
-		*feerate_per_kw = *feerate_per_kw_funding;
-	}
+	res = init_set_feerate(cmd, &feerate_per_kw, &feerate_per_kw_funding);
+	if (res)
+		return res;
 
 	if (!topology_synced(cmd->ld->topology)) {
 		return command_fail(cmd, FUNDING_STILL_SYNCING_BITCOIN,
