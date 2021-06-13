@@ -11,6 +11,7 @@
 #include <common/memleak.h>
 #include <common/onionreply.h>
 #include <common/status.h>
+#include <common/utxo.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
 #include <lightningd/coin_mvts.h>
@@ -45,6 +46,16 @@ struct channel_state_param {
 	const char *type_key;
 	const enum channel_state_bucket state;
 };
+
+static bool branch_and_bound_utxos(const tal_t *ctx,
+			    unsigned *bnbtries,
+			    struct amount_sat *target,
+			    struct utxo **pool,
+			    struct amount_sat *eff_value,
+			    struct utxo **current_selection,
+			    unsigned index,
+			    unsigned feerate_per_kw,
+			    u32 *min_witness_weight);
 
 static void outpointfilters_init(struct wallet *w)
 {
@@ -499,17 +510,6 @@ void wallet_unreserve_utxo(struct wallet *w, struct utxo *utxo,
 	db_set_utxo(w->db, utxo);
 }
 
-static bool excluded(const struct utxo **excludes,
-		     const struct utxo *utxo)
-{
-	for (size_t i = 0; i < tal_count(excludes); i++) {
-		if (bitcoin_txid_eq(&excludes[i]->txid, &utxo->txid)
-		    && excludes[i]->outnum == utxo->outnum)
-			return true;
-	}
-	return false;
-}
-
 static bool deep_enough(u32 maxheight, const struct utxo *utxo)
 {
 	/* If we require confirmations check that we have a
@@ -522,17 +522,125 @@ static bool deep_enough(u32 maxheight, const struct utxo *utxo)
 	return *utxo->blockheight <= maxheight;
 }
 
-/* FIXME: Make this wallet_find_utxos, and branch and bound and I've
- * left that to @niftynei to do, who actually read the paper! */
-struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
-			      unsigned current_blockheight,
-			      struct amount_sat *amount_hint,
-			      unsigned feerate_per_kw,
-			      u32 maxheight,
-			      const struct utxo **excludes)
+static struct amount_sat *utxo_effective_value(const struct utxo *utxo,
+				       unsigned feerate_per_kw,
+				       u32 *min_witness_weight)
 {
-	struct db_stmt *stmt;
+	const size_t utxo_weight = utxo_spend_weight(utxo,
+					*min_witness_weight);
+	struct amount_sat fee = amount_tx_fee(feerate_per_kw, utxo_weight), *eff_value = NULL;
+	if (!amount_sat_sub(eff_value, utxo->amount, fee))
+		*eff_value = AMOUNT_SAT(0);
+	return eff_value;
+}
+
+static bool branch_include(const tal_t *ctx,
+		    unsigned *bnbtries,
+		    struct amount_sat *target,
+		    struct utxo **pool,
+		    struct amount_sat *eff_value,
+		    struct utxo **current_selection,
+		    unsigned index,
+		    unsigned feerate_per_kw,
+		    u32 *min_witness_weight)
+{
+	struct utxo *current_utxo = pool[index];
+	struct amount_sat *current_utxo_eff_value, *updated_eff_value = NULL;
+	current_utxo_eff_value = utxo_effective_value(current_utxo, feerate_per_kw, min_witness_weight);
+	if(!amount_sat_add(updated_eff_value, *eff_value, *current_utxo_eff_value))
+		return false;
+
+	tal_arr_expand(&current_selection, current_utxo);
+	if(branch_and_bound_utxos(ctx, bnbtries, target, pool,
+				  updated_eff_value, current_selection,
+				  index + 1, feerate_per_kw, min_witness_weight))
+		return true;
+
+	// Revert current utxo from selection and backtrack
+	tal_arr_remove(&current_selection, tal_count(current_selection) - 1);
+	return false;
+}
+
+static bool branch_omit(const tal_t *ctx,
+		 unsigned *bnbtries,
+		 struct amount_sat *target,
+		 struct utxo **pool,
+		 struct amount_sat *eff_value,
+		 struct utxo **current_selection,
+		 unsigned index,
+		 unsigned feerate_per_kw,
+		 u32 *min_witness_weight)
+{
+	return branch_and_bound_utxos(ctx, bnbtries, target, pool, eff_value,
+				      current_selection, index + 1,
+				      feerate_per_kw, min_witness_weight);
+}
+
+static bool branch_and_bound_utxos(const tal_t *ctx,
+			    unsigned *bnbtries,
+			    struct amount_sat *target,
+			    struct utxo **pool,
+			    struct amount_sat *eff_value,
+			    struct utxo **current_selection,
+			    unsigned index,
+			    unsigned feerate_per_kw,
+			    u32 *min_witness_weight)
+{
+	(*bnbtries)--;
+	struct amount_sat target_upper_bound;
+	if (!amount_sat_add(&target_upper_bound, *target, chainparams->dust_limit))
+		return false;
+	if (amount_sat_greater(*eff_value, target_upper_bound)) return false;
+	else if(amount_sat_greater_eq(*eff_value, *target)) return true;
+	else if(*bnbtries <= 0) return false;
+	else if(index >= tal_count(pool)) return false;
+	else {
+		u32 branch_order = pseudorand(2);
+		if (branch_order) {
+			// first include
+			if (branch_include(ctx, bnbtries, target, pool,
+					   eff_value, current_selection,
+					   index, feerate_per_kw,
+					   min_witness_weight))
+				return true;
+
+			// then omit
+			if (branch_omit(ctx, bnbtries, target, pool,
+					eff_value, current_selection,
+					index, feerate_per_kw,
+					min_witness_weight))
+				return true;
+		}
+		else {
+			// first omit
+			if (branch_omit(ctx, bnbtries, target, pool,
+					eff_value, current_selection,
+					index, feerate_per_kw,
+					min_witness_weight))
+				return true;
+			// then include
+			if (branch_include(ctx, bnbtries, target, pool,
+					   eff_value, current_selection,
+					   index, feerate_per_kw,
+					   min_witness_weight))
+				return true;
+		}
+
+		return false;
+	}
+}
+
+struct utxo **wallet_find_utxos(const tal_t *ctx, struct wallet *w,
+			       unsigned current_blockheight,
+			       struct amount_sat *target,
+			       unsigned feerate_per_kw,
+			       u32 maxheight,
+			       u32 *min_witness_weight)
+{
 	struct utxo *utxo;
+	struct utxo **utxos, **selected_utxos;
+
+	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(w->db, SQL("SELECT"
 					"  prev_out_tx"
@@ -552,25 +660,55 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 					" FROM outputs"
 					" WHERE status = ?"
 					" OR (status = ? AND reserved_til <= ?)"
-					"ORDER BY RANDOM();"));
+					"ORDER BY value DESC;"));
 	db_bind_int(stmt, 0, output_status_in_db(OUTPUT_STATE_AVAILABLE));
 	db_bind_int(stmt, 1, output_status_in_db(OUTPUT_STATE_RESERVED));
 	db_bind_u64(stmt, 2, current_blockheight);
 
-	/* FIXME: Use feerate + estimate of input cost to establish
-	 * range for amount_hint */
-
 	db_query_prepared(stmt);
 
-	utxo = NULL;
-	while (!utxo && db_step(stmt)) {
+	utxos = tal_arr(ctx, struct utxo *, 0);
+	while (db_step(stmt)) {
 		utxo = wallet_stmt2output(ctx, stmt);
-		if (excluded(excludes, utxo) || !deep_enough(maxheight, utxo))
-			utxo = tal_free(utxo);
+		if (deep_enough(maxheight, utxo)
+		    && amount_sat_greater(*utxo_effective_value(utxo, feerate_per_kw, min_witness_weight), AMOUNT_SAT(0)))
+			tal_arr_expand(&utxos, utxo);
+		else utxo = tal_free(utxo);
 
 	}
 	tal_free(stmt);
-	return utxo;
+
+	unsigned bnbtries = 1000000;
+	selected_utxos = tal_arr(ctx, struct utxo *, 0);
+	struct amount_sat eff_value = AMOUNT_SAT(0);
+	if(!branch_and_bound_utxos(ctx, &bnbtries, target, utxos, &eff_value,
+				   selected_utxos, 0, feerate_per_kw,
+				   min_witness_weight)) {
+		/* Fisher-Yates shuffle */
+		/* FIXME: move to ccan? */
+		for (size_t i = tal_count(utxos) - 1; i > 0; --i) {
+			size_t j = pseudorand(i + 1);
+			if (j == i)
+				continue;
+			struct utxo *tmp;
+			tmp = utxos[j];
+			utxos[j] = utxos[i];
+			utxos[i] = tmp;
+		}
+
+		struct amount_sat current_eff_value = AMOUNT_SAT(0);
+
+		for (size_t i = 0; i < tal_count(utxos); i++) {
+			struct amount_sat *utxo_eff_value = utxo_effective_value(utxos[i], feerate_per_kw, min_witness_weight);
+			if (!amount_sat_add(&current_eff_value, current_eff_value, *utxo_eff_value))
+				break;
+			tal_arr_expand(&selected_utxos, utxos[i]);
+			if (amount_sat_greater_eq(current_eff_value, *target))
+				break;
+		}
+	}
+
+	return selected_utxos;
 }
 
 bool wallet_add_onchaind_utxo(struct wallet *w,

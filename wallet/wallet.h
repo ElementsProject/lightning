@@ -362,27 +362,24 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 						     struct wallet *w);
 
 /**
- * wallet_find_utxo - Select an available UTXO (does not reserve it!).
+ * wallet_find_utxos - Select UTXOs to meet amount we are short (does not reserve it!).
  * @ctx: tal context
  * @w: wallet
  * @current_blockheight: current chain length.
- * @amount_we_are_short: optional amount.
+ * @target: amount.
  * @feerate_per_kw: feerate we are using.
  * @maxheight: zero (if caller doesn't care) or maximum blockheight to accept.
- * @excludes: UTXOs not to consider.
  *
- * If @amount_we_are_short is not NULL, we try to get something very close
- * (i.e. when we add this input, we will add => @amount_we_are_short, but
- * less than @amount_we_are_short + dustlimit).
- *
- * Otherwise we give a random UTXO.
+ * We try to get something very close (i.e. when we add this input, we will add =>
+ * @target, but less than @target + dustlimit). If it's impossible to reach
+ * @target, returns the closest value possible.
  */
-struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
-			      unsigned current_blockheight,
-			      struct amount_sat *amount_we_are_short,
-			      unsigned feerate_per_kw,
-			      u32 maxheight,
-			      const struct utxo **excludes);
+struct utxo **wallet_find_utxos(const tal_t *ctx, struct wallet *w,
+			        unsigned current_blockheight,
+			        struct amount_sat *target,
+			        unsigned feerate_per_kw,
+			        u32 maxheight,
+			        u32 *min_witness_weight);
 
 /**
  * wallet_add_onchaind_utxo - Add a UTXO with spending info from onchaind.

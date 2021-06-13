@@ -1227,8 +1227,8 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til FROM outputs WHERE status = ? OR (status = ? AND reserved_til <= ?)ORDER BY RANDOM();",
-         .query = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til FROM outputs WHERE status = ? OR (status = ? AND reserved_til <= ?)ORDER BY RANDOM();",
+         .name = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til FROM outputs WHERE status = ? OR (status = ? AND reserved_til <= ?)ORDER BY value DESC;",
+         .query = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til FROM outputs WHERE status = ? OR (status = ? AND reserved_til <= ?)ORDER BY value DESC;",
          .placeholders = 3,
          .readonly = true,
     },
@@ -1924,4 +1924,4 @@ struct db_query db_sqlite3_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:dbbcb7d784e7b3d6c7b27c2ff976dcc39335fdc26fbf095b65116488007799f7
+// SHA256STAMP:e6724507ce1e3d297c86d1b99328504e12bc045e08862bf9416638cadeff4d26

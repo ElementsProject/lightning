@@ -461,7 +461,7 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 					      const jsmntok_t *obj UNNEEDED,
 					      const jsmntok_t *params)
 {
-	struct utxo **utxos;
+	struct utxo **utxos = NULL;
 	u32 *feerate_per_kw;
 	u32 *minconf, *weight, *min_witness_weight;
 	struct amount_sat *amount, input, diff;
@@ -486,47 +486,32 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 	all = amount_sat_eq(*amount, AMOUNT_SAT(-1ULL));
 	maxheight = minconf_to_maxheight(*minconf, cmd->ld);
 
-	/* We keep adding until we meet their output requirements. */
-	utxos = tal_arr(cmd, struct utxo *, 0);
-
 	input = AMOUNT_SAT(0);
-	while (!inputs_sufficient(input, *amount, *feerate_per_kw, *weight,
+	if (!inputs_sufficient(input, *amount, *feerate_per_kw, *weight,
 				  &diff)) {
-		struct utxo *utxo;
-		struct amount_sat fee;
-		u32 utxo_weight;
-
-		utxo = wallet_find_utxo(utxos, cmd->ld->wallet,
-					cmd->ld->topology->tip->height,
-					&diff,
-					*feerate_per_kw,
-					maxheight,
-					cast_const2(const struct utxo **, utxos));
-		if (utxo) {
-			utxo_weight = utxo_spend_weight(utxo,
-							*min_witness_weight);
-			fee = amount_tx_fee(*feerate_per_kw, utxo_weight);
-
-			/* Uneconomic to add this utxo, skip it */
-			if (!all && amount_sat_greater_eq(fee, utxo->amount))
-				continue;
-
-			tal_arr_expand(&utxos, utxo);
-
+		utxos = wallet_find_utxos(utxos, cmd->ld->wallet,
+					  cmd->ld->topology->tip->height,
+					  &diff,
+					  *feerate_per_kw,
+					  maxheight,
+					  min_witness_weight);
+		for (size_t i = 0; i < tal_count(utxos); i++) {
 			/* It supplies more input. */
-			if (!amount_sat_add(&input, input, utxo->amount))
+			if (!amount_sat_add(&input, input, utxos[i]->amount))
 				return command_fail(cmd, LIGHTNINGD,
 						    "impossible UTXO value");
 
 			/* But also adds weight */
-			*weight += utxo_weight;
-			continue;
+			*weight += utxo_spend_weight(utxos[i],
+						     *min_witness_weight);;
 		}
+	}
 
-		/* If they said "all", we expect to run out of utxos. */
-		if (all && tal_count(utxos))
-			break;
 
+
+	if (!inputs_sufficient(input, all ? AMOUNT_SAT(0) : *amount,
+				       *feerate_per_kw, *weight,
+				       &diff)) {
 		/* Since it's possible the lack of utxos is because we haven't
 		 * finished syncing yet, report a sync timing error first */
 		if (!topology_synced(cmd->ld->topology))
@@ -545,22 +530,6 @@ static struct command_result *json_fundpsbt(struct command *cmd,
 				    : type_to_string(tmpctx,
 						     struct amount_sat,
 						     &diff));
-	}
-
-	if (all) {
-		/* Anything above 0 is "excess" */
-		if (!inputs_sufficient(input, AMOUNT_SAT(0),
-				       *feerate_per_kw, *weight,
-				       &diff)) {
-			if (!topology_synced(cmd->ld->topology))
-				return command_fail(cmd,
-						    FUNDING_STILL_SYNCING_BITCOIN,
-						    "Cannot afford: still syncing with bitcoin network...");
-			return command_fail(cmd, FUND_CANNOT_AFFORD,
-					    "All %zu inputs could not afford"
-					    " fees",
-					    tal_count(utxos));
-		}
 	}
 
 	return finish_psbt(cmd, utxos, *feerate_per_kw, *weight, diff, *reserve,

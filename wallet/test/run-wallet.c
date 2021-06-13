@@ -1010,8 +1010,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	struct utxo u;
 	struct pubkey pk;
 	struct node_id id;
-	struct utxo *one_utxo;
-	const struct utxo **utxos;
+	struct utxo **utxos;
 	CHECK(w);
 
 	memset(&u, 0, sizeof(u));
@@ -1043,12 +1042,12 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 		  "wallet_add_utxo with close_info");
 
 	/* Now select them */
-	utxos = tal_arr(w, const struct utxo *, 0);
-	while ((one_utxo = wallet_find_utxo(w, w, 0, NULL, 253,
-					    0 /* no confirmations required */,
-					    utxos)) != NULL) {
-		tal_arr_expand(&utxos, one_utxo);
-	}
+	utxos = wallet_find_utxos(w, w,
+				  0,
+				  NULL,
+				  253,
+				  0,
+				  0);
 	CHECK(tal_count(utxos) == 2);
 
 	if (utxos[0]->close_info)
@@ -1099,12 +1098,12 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 		  "wallet_add_utxo with close_info no commitment_point");
 
 	/* Now select it */
-	utxos = tal_arr(w, const struct utxo *, 0);
-	while ((one_utxo = wallet_find_utxo(w, w, 0, NULL, 253,
-					    0 /* no confirmations required */,
-					    utxos)) != NULL) {
-		tal_arr_expand(&utxos, one_utxo);
-	}
+	utxos = wallet_find_utxos(w, w,
+				  0,
+				  NULL,
+				  253,
+				  0,
+				  0);
 	CHECK(tal_count(utxos) == 2);
 
 	if (utxos[0]->close_info)
