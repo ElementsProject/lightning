@@ -1177,6 +1177,7 @@ def test_funding_reorg_private(node_factory, bitcoind):
              == ['{}_AWAITING_LOCKIN:Funding needs 1 more confirmations for lockin.'.format(daemon)])
     bitcoind.generate_block(1)                      # height 107
     l1.wait_channel_active('106x1x0')
+    l2.wait_channel_active('106x1x0')
     l1.stop()
 
     # Create a fork that changes short_channel_id from 106x1x0 to 108x1x0
@@ -1212,6 +1213,7 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
     l1.rpc.fundchannel(l2.info['id'], "all")
     bitcoind.generate_block(5)                      # heights 103 - 107
     l1.wait_channel_active('103x1x0')
+    l2.wait_channel_active('103x1x0')
 
     # Make l2 temporary blind for blocks > 107
     def no_more_blocks(req):
