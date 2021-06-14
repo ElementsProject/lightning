@@ -590,6 +590,85 @@ static struct command_result *json_listnodes(struct command *cmd,
 	return command_finished(cmd, js);
 }
 
+/* What is capacity of peer attached to chan #n? */
+static struct amount_sat peer_capacity(const struct gossmap *gossmap,
+				       const struct gossmap_node *me,
+				       const struct gossmap_node *peer,
+				       const struct gossmap_chan *ourchan)
+{
+	struct amount_sat capacity = AMOUNT_SAT(0);
+
+	for (size_t i = 0; i < peer->num_chans; i++) {
+		int dir;
+		struct gossmap_chan *c;
+		c = gossmap_nth_chan(gossmap, peer, i, &dir);
+		if (c == ourchan)
+			continue;
+		if (!c->half[!dir].enabled)
+			continue;
+		if (!amount_sat_add(&capacity, capacity,
+				    amount_sat(fp16_to_u64(c->half[dir]
+							   .htlc_max))))
+			continue;
+	}
+	return capacity;
+}
+
+static struct command_result *json_listincoming(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *params)
+{
+	struct json_stream *js;
+	struct gossmap_node *me;
+	struct gossmap *gossmap;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	gossmap = get_gossmap();
+
+	js = jsonrpc_stream_success(cmd);
+	json_array_start(js, "incoming");
+	me = gossmap_find_node(gossmap, &local_id);
+	if (!me)
+		goto done;
+
+	for (size_t i = 0; i < me->num_chans; i++) {
+		struct node_id peer_id;
+		int dir;
+		struct gossmap_chan *ourchan;
+		struct gossmap_node *peer;
+		struct short_channel_id scid;
+
+		ourchan = gossmap_nth_chan(gossmap, me, i, &dir);
+		/* If its half is disabled, ignore. */
+		if (!ourchan->half[!dir].enabled)
+			continue;
+
+		peer = gossmap_nth_node(gossmap, ourchan, !dir);
+		scid = gossmap_chan_scid(gossmap, ourchan);
+
+		json_object_start(js, NULL);
+		gossmap_node_get_id(gossmap, peer, &peer_id);
+		json_add_node_id(js, "id", &peer_id);
+		json_add_short_channel_id(js, "short_channel_id", &scid);
+		json_add_amount_msat_only(js, "fee_base_msat",
+					  amount_msat(ourchan->half[!dir]
+						      .base_fee));
+		json_add_u32(js, "fee_proportional_millionths",
+			     ourchan->half[!dir].proportional_fee);
+		json_add_u32(js, "cltv_expiry_delta", ourchan->half[!dir].delay);
+		json_add_amount_sat_only(js, "incoming_capacity_msat",
+					 peer_capacity(gossmap,
+						       me, peer, ourchan));
+		json_object_end(js);
+	}
+done:
+	json_array_end(js);
+
+	return command_finished(cmd, js);
+}
+
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
@@ -627,6 +706,13 @@ static const struct plugin_command commands[] = {
 		"List all known nodes in the network",
 		"Show node {id} (or all known nods, if not specified)",
 		json_listnodes,
+	},
+	{
+		"listincoming",
+		"network",
+		"List the channels incoming from our direct peers",
+		"Used by invoice code to select peers for routehints",
+		json_listincoming,
 	},
 };
 
