@@ -193,7 +193,7 @@ static bool get_node_announcement(const tal_t *ctx,
 		return false;
 	}
 
-	*wireaddrs = read_addresses(ctx, addresses);
+	*wireaddrs = fromwire_wireaddr_array(ctx, addresses);
 	tal_free(addresses);
 	return true;
 }

@@ -2383,37 +2383,6 @@ u8 *handle_channel_update(struct routing_state *rstate, const u8 *update TAKES,
 	return NULL;
 }
 
-struct wireaddr *read_addresses(const tal_t *ctx, const u8 *ser)
-{
-	const u8 *cursor = ser;
-	size_t len = tal_count(ser);
-	struct wireaddr *wireaddrs = tal_arr(ctx, struct wireaddr, 0);
-
-	while (cursor && len) {
-		struct wireaddr wireaddr;
-
-		/* BOLT #7:
-		 *
-		 * The receiving node:
-		 *...
-		 *   - SHOULD ignore the first `address descriptor` that does
-		 *     NOT match the types defined above.
-		 */
-		if (!fromwire_wireaddr(&cursor, &len, &wireaddr)) {
-			if (!cursor)
-				/* Parsing address failed */
-				return tal_free(wireaddrs);
-			/* Unknown type, stop there. */
-			status_debug("read_addresses: unknown address type %u",
-				     cursor[0]);
-			break;
-		}
-
-		tal_arr_expand(&wireaddrs, wireaddr);
-	}
-	return wireaddrs;
-}
-
 bool routing_add_node_announcement(struct routing_state *rstate,
 				   const u8 *msg TAKES,
 				   u32 index,
@@ -2619,7 +2588,7 @@ u8 *handle_node_announcement(struct routing_state *rstate, const u8 *node_ann,
 		return err;
 	}
 
-	wireaddrs = read_addresses(tmpctx, addresses);
+	wireaddrs = fromwire_wireaddr_array(tmpctx, addresses);
 	if (!wireaddrs) {
 		/* BOLT #7:
 		 *

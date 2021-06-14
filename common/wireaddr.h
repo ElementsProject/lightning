@@ -165,4 +165,7 @@ struct addrinfo *wireaddr_internal_to_addrinfo(const tal_t *ctx,
 
 bool all_tor_addresses(const struct wireaddr_internal *wireaddr);
 
+/* Decode an array of serialized addresses from node_announcement */
+struct wireaddr *fromwire_wireaddr_array(const tal_t *ctx, const u8 *ser);
+
 #endif /* LIGHTNING_COMMON_WIREADDR_H */
