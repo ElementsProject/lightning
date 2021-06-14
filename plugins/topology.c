@@ -1,6 +1,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
+#include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
@@ -12,9 +13,11 @@
 #include <common/route.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
+#include <common/wireaddr.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <plugins/libplugin.h>
+#include <wire/peer_wire.h>
 
 /* Access via get_gossmap() */
 static struct node_id local_id;
@@ -497,6 +500,96 @@ static struct command_result *json_listchannels(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+static void json_add_node(struct json_stream *js,
+			  const struct gossmap *gossmap,
+			  const struct gossmap_node *n)
+{
+	struct node_id node_id;
+	u8 *nannounce;
+
+	json_object_start(js, NULL);
+	gossmap_node_get_id(gossmap, n, &node_id);
+	json_add_node_id(js, "nodeid", &node_id);
+	nannounce = gossmap_node_get_announce(tmpctx, gossmap, n);
+	if (nannounce) {
+		secp256k1_ecdsa_signature signature;
+		u8 *features;
+		u32 timestamp;
+		u8 rgb_color[3], alias[32];
+		u8 *addresses;
+		struct node_id nid;
+		struct wireaddr *addrs;
+		struct json_escape *esc;
+
+		if (!fromwire_node_announcement(nannounce, nannounce,
+						&signature,
+						&features,
+						&timestamp,
+						&nid,
+						rgb_color,
+						alias,
+						&addresses)) {
+			plugin_log(plugin, LOG_BROKEN,
+				   "Cannot parse stored node_announcement"
+				   " for %s at %u: %s",
+				   type_to_string(tmpctx, struct node_id,
+						  &node_id),
+				   n->nann_off,
+				   tal_hex(tmpctx, nannounce));
+			goto out;
+		}
+
+		esc = json_escape(NULL,
+				  take(tal_strndup(NULL,
+						   (const char *)alias,
+						   ARRAY_SIZE(alias))));
+		json_add_escaped_string(js, "alias", take(esc));
+		json_add_hex(js, "color", rgb_color, ARRAY_SIZE(rgb_color));
+		json_add_u64(js, "last_timestamp", timestamp);
+		json_add_hex_talarr(js, "features", features);
+
+		json_array_start(js, "addresses");
+		addrs = fromwire_wireaddr_array(nannounce, addresses);
+		for (size_t i = 0; i < tal_count(addrs); i++)
+			json_add_address(js, NULL, &addrs[i]);
+		json_array_end(js);
+	}
+out:
+	json_object_end(js);
+}
+
+static struct command_result *json_listnodes(struct command *cmd,
+					     const char *buffer,
+					     const jsmntok_t *params)
+{
+	struct node_id *id;
+	struct json_stream *js;
+	struct gossmap *gossmap;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("id", param_node_id, &id),
+		   NULL))
+		return command_param_failed();
+
+	gossmap = get_gossmap();
+	js = jsonrpc_stream_success(cmd);
+	json_array_start(js, "nodes");
+	if (id) {
+		struct gossmap_node *n = gossmap_find_node(gossmap, id);
+		if (n)
+			json_add_node(js, gossmap, n);
+	} else {
+		for (struct gossmap_node *n = gossmap_first_node(gossmap);
+		     n;
+		     n = gossmap_next_node(gossmap, n)) {
+			json_add_node(js, gossmap, n);
+		}
+	}
+	json_array_end(js);
+
+	return command_finished(cmd, js);
+}
+
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
@@ -527,6 +620,13 @@ static const struct plugin_command commands[] = {
 		"List all known channels in the network",
 		"Show channel {short_channel_id} or {source} (or all known channels, if not specified)",
 		json_listchannels,
+	},
+	{
+		"listnodes",
+		"network",
+		"List all known nodes in the network",
+		"Show node {id} (or all known nods, if not specified)",
+		json_listnodes,
 	},
 };
 

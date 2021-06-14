@@ -301,7 +301,7 @@ static struct command_result *json_listnodes(struct command *cmd,
 }
 
 static const struct json_command listnodes_command = {
-	"listnodes",
+	"listnodesold",
 	"network",
 	json_listnodes,
 	"Show node {id} (or all, if no {id}), in our local network view"
