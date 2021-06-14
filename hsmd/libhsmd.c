@@ -3,6 +3,7 @@
 #include <common/bolt12_merkle.h>
 #include <common/hash_u5.h>
 #include <common/key_derive.h>
+#include <common/lease_rates.h>
 #include <common/type_to_string.h>
 #include <hsmd/capabilities.h>
 #include <hsmd/libhsmd.h>
@@ -477,35 +478,23 @@ static u8 *handle_sign_option_will_fund_offer(struct hsmd_client *c,
 					      const u8 *msg_in)
 {
 	struct pubkey funding_pubkey;
-	u32 blockheight, channel_fee_base_max_msat;
-	u16 channel_fee_proportional_basis_max;
-	struct sha256_ctx sctx = SHA256_INIT;
+	u32 lease_expiry, channel_fee_base_max_msat;
+	u16 channel_fee_max_ppt;
 	struct sha256 sha;
 	secp256k1_ecdsa_signature sig;
 	struct privkey node_pkey;
 
 	if (!fromwire_hsmd_sign_option_will_fund_offer(msg_in,
 						       &funding_pubkey,
-						       &blockheight,
+						       &lease_expiry,
 						       &channel_fee_base_max_msat,
-						       &channel_fee_proportional_basis_max))
+						       &channel_fee_max_ppt))
 		return hsmd_status_malformed_request(c, msg_in);
 
-	/* BOLT- #2:
-	 *   - MUST set `signature` to the ECDSA signature of
-	 *     SHA256("option_will_fund" || `funding_pubkey`|| `blockheight` ||
-	 *     `channel_fee_base_max_msat` ||
-	 *     `channel_fee_proportional_basis_max`)
-	 */
-	sha256_update(&sctx, "option_will_fund",
-		      strlen("option_will_fund"));
-	sha256_update(&sctx, &funding_pubkey, sizeof(funding_pubkey));
-	sha256_update(&sctx, &blockheight, sizeof(blockheight));
-	sha256_update(&sctx, &channel_fee_base_max_msat,
-		      sizeof(channel_fee_base_max_msat));
-	sha256_update(&sctx, &channel_fee_base_max_msat,
-		      sizeof(channel_fee_base_max_msat));
-	sha256_done(&sctx, &sha);
+	lease_rates_get_commitment(&funding_pubkey, lease_expiry,
+				   channel_fee_base_max_msat,
+				   channel_fee_max_ppt,
+				   &sha);
 
 	node_key(&node_pkey, NULL);
 

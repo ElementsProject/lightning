@@ -9,6 +9,7 @@
 #include <common/htlc_wire.h>
 #include <common/penalty_base.h>
 #include <common/per_peer_state.h>
+#include <secp256k1.h>
 #include <wire/peer_wire.h>
 
 msgtype,dualopend_init,7000
@@ -221,3 +222,14 @@ msgdata,dualopend_dry_run,channel_id,channel_id,
 msgdata,dualopend_dry_run,our_funding,amount_sat,
 msgdata,dualopend_dry_run,their_funding,amount_sat,
 msgdata,dualopend_dry_run,lease_rates,?lease_rates,
+
+# dualopend -> master:  validate liqudity offer sig
+msgtype,dualopend_validate_lease,7027
+msgdata,dualopend_validate_lease,sig,secp256k1_ecdsa_signature,
+msgdata,dualopend_validate_lease,lease_expiry,u32,
+msgdata,dualopend_validate_lease,chan_fee_max_base_msat,u32,
+msgdata,dualopend_validate_lease,chan_fee_max_ppt,u16,
+msgdata,dualopend_validate_lease,their_pubkey,pubkey,
+
+msgtype,dualopend_validate_lease_reply,7127
+msgdata,dualopend_validate_lease_reply,err_msg,?wirestring,

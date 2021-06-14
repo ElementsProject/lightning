@@ -18,6 +18,7 @@
 #include <common/htlc_wire.h>
 #include <common/penalty_base.h>
 #include <common/per_peer_state.h>
+#include <secp256k1.h>
 #include <wire/peer_wire.h>
 
 enum dualopend_wire {
@@ -74,6 +75,9 @@ enum dualopend_wire {
         WIRE_DUALOPEND_DEV_MEMLEAK_REPLY = 7133,
         /*  dualopend -> master: this was a dry run */
         WIRE_DUALOPEND_DRY_RUN = 7026,
+        /*  dualopend -> master:  validate liqudity offer sig */
+        WIRE_DUALOPEND_VALIDATE_LEASE = 7027,
+        WIRE_DUALOPEND_VALIDATE_LEASE_REPLY = 7127,
 };
 
 const char *dualopend_wire_name(int e);
@@ -222,6 +226,15 @@ bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
 u8 *towire_dualopend_dry_run(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat our_funding, struct amount_sat their_funding, const struct lease_rates *lease_rates);
 bool fromwire_dualopend_dry_run(const tal_t *ctx, const void *p, struct channel_id *channel_id, struct amount_sat *our_funding, struct amount_sat *their_funding, struct lease_rates **lease_rates);
 
+/* WIRE: DUALOPEND_VALIDATE_LEASE */
+/*  dualopend -> master:  validate liqudity offer sig */
+u8 *towire_dualopend_validate_lease(const tal_t *ctx, const secp256k1_ecdsa_signature *sig, u32 lease_expiry, u32 chan_fee_max_base_msat, u16 chan_fee_max_ppt, const struct pubkey *their_pubkey);
+bool fromwire_dualopend_validate_lease(const void *p, secp256k1_ecdsa_signature *sig, u32 *lease_expiry, u32 *chan_fee_max_base_msat, u16 *chan_fee_max_ppt, struct pubkey *their_pubkey);
+
+/* WIRE: DUALOPEND_VALIDATE_LEASE_REPLY */
+u8 *towire_dualopend_validate_lease_reply(const tal_t *ctx, const wirestring *err_msg);
+bool fromwire_dualopend_validate_lease_reply(const tal_t *ctx, const void *p, wirestring **err_msg);
+
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:a0ce1d5dfc6518a35d2e346c770754c498558ac426e3040526e10bbbc237db6f
+// SHA256STAMP:41650a0d42866067279024744de6ef7e52ff0ef5a406c4be3b702f1ecf11e556
