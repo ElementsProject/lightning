@@ -266,6 +266,139 @@ static struct command_result *json_getroute(struct command *cmd,
 	return command_finished(cmd, js);
 }
 
+/* To avoid multiple fetches, we represent directions as a bitmap
+ * so we can do two at once. */
+static void json_add_halfchan(struct json_stream *response,
+			      struct gossmap *gossmap,
+			      const struct gossmap_chan *c,
+			      int dirbits)
+{
+	struct short_channel_id scid;
+	struct node_id node_id[2];
+	const u8 *chanfeatures;
+	struct amount_sat capacity;
+
+	/* These are channel (not per-direction) properties */
+	chanfeatures = gossmap_chan_get_features(tmpctx, gossmap, c);
+	scid = gossmap_chan_scid(gossmap, c);
+	for (size_t i = 0; i < 2; i++)
+		gossmap_node_get_id(gossmap, gossmap_nth_node(gossmap, c, i),
+				    &node_id[i]);
+
+	/* This can theoretically happen on partial write races. */
+	if (!gossmap_chan_get_capacity(gossmap, c, &capacity))
+		capacity = AMOUNT_SAT(0);
+
+	for (int dir = 0; dir < 2; dir++) {
+		u32 timestamp;
+		u8 message_flags, channel_flags;
+		u32 fee_base_msat, fee_proportional_millionths;
+		struct amount_msat htlc_minimum_msat, htlc_maximum_msat;
+
+		if (!((1 << dir) & dirbits))
+			continue;
+
+		if (!gossmap_chan_set(c, dir))
+			continue;
+
+		json_object_start(response, NULL);
+		json_add_node_id(response, "source", &node_id[dir]);
+		json_add_node_id(response, "destination", &node_id[!dir]);
+		json_add_short_channel_id(response, "short_channel_id", &scid);
+		json_add_bool(response, "public", !c->private);
+
+		gossmap_chan_get_update_details(gossmap, c, dir,
+						&timestamp,
+						&message_flags,
+						&channel_flags,
+						&fee_base_msat,
+						&fee_proportional_millionths,
+						&htlc_minimum_msat,
+						&htlc_maximum_msat);
+
+		json_add_amount_sat_compat(response, capacity,
+					   "satoshis", "amount_msat");
+		json_add_num(response, "message_flags", message_flags);
+		json_add_num(response, "channel_flags", channel_flags);
+		json_add_bool(response, "active", c->half[dir].enabled);
+		json_add_num(response, "last_update", timestamp);
+		json_add_num(response, "base_fee_millisatoshi", fee_base_msat);
+		json_add_num(response, "fee_per_millionth",
+			     fee_proportional_millionths);
+		json_add_num(response, "delay", c->half[dir].delay);
+		json_add_amount_msat_only(response, "htlc_minimum_msat",
+					  htlc_minimum_msat);
+
+		/* We used to always print this, but that's weird */
+		if (deprecated_apis && !(message_flags & 1)) {
+			if (!amount_sat_to_msat(&htlc_maximum_msat, capacity))
+				plugin_err(plugin,
+					   "Channel with impossible capacity %s",
+					   type_to_string(tmpctx,
+							  struct amount_sat,
+							  &capacity));
+			message_flags = 1;
+		}
+
+		if (message_flags & 1)
+			json_add_amount_msat_only(response, "htlc_maximum_msat",
+						  htlc_maximum_msat);
+		json_add_hex_talarr(response, "features", chanfeatures);
+		json_object_end(response);
+	}
+}
+
+static struct command_result *json_listchannels(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *params)
+{
+	struct node_id *source;
+	struct short_channel_id *scid;
+	struct json_stream *js;
+	struct gossmap_chan *c;
+	struct gossmap *gossmap;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("short_channel_id", param_short_channel_id, &scid),
+		   p_opt("source", param_node_id, &source),
+		   NULL))
+		return command_param_failed();
+
+	if (scid && source)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot specify both source and short_channel_id");
+
+	gossmap = get_gossmap();
+	js = jsonrpc_stream_success(cmd);
+	json_array_start(js, "channels");
+	if (scid) {
+		c = gossmap_find_chan(gossmap, scid);
+		if (c)
+			json_add_halfchan(js, gossmap, c, 3);
+	} else if (source) {
+		struct gossmap_node *src;
+
+		src = gossmap_find_node(gossmap, source);
+		if (src) {
+			for (size_t i = 0; i < src->num_chans; i++) {
+				int dir;
+				c = gossmap_nth_chan(gossmap, src, i, &dir);
+				json_add_halfchan(js, gossmap, c, 1 << dir);
+			}
+		}
+	} else {
+		for (c = gossmap_first_chan(gossmap);
+		     c;
+		     c = gossmap_next_chan(gossmap, c)) {
+			json_add_halfchan(js, gossmap, c, 3);
+		}
+	}
+
+	json_array_end(js);
+
+	return command_finished(cmd, js);
+}
+
 static const char *init(struct plugin *p,
 			const char *buf UNUSED, const jsmntok_t *config UNUSED)
 {
@@ -289,6 +422,13 @@ static const struct plugin_command commands[] = {
 		"or node-id from consideration. "
 		"Set the {maxhops} the route can take (default 20).",
 		json_getroute,
+	},
+	{
+		"listchannels",
+		"channels",
+		"List all known channels in the network",
+		"Show channel {short_channel_id} or {source} (or all known channels, if not specified)",
+		json_listchannels,
 	},
 };
 

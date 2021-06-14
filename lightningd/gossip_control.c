@@ -569,7 +569,7 @@ static struct command_result *json_listchannels(struct command *cmd,
 }
 
 static const struct json_command listchannels_command = {
-	"listchannels",
+	"listchannelsold",
 	"channels",
 	json_listchannels,
 	"Show channel {short_channel_id} or {source} (or all known channels, if not specified)"
