@@ -61,5 +61,5 @@ for SYMBOL; do
 
     echo "/* Generated stub for $SYMBOL */"
 
-    tail -n "+${LINE}" < "$FILE" | head -n "$NUM" | sed 's/^extern *//' | sed 's/PRINTF_FMT([^)]*)//' | sed 's/NON_NULL_ARGS([^)]*)//' | sed 's/NO_NULL_ARGS//g' | sed 's/NORETURN//g' | sed 's/LAST_ARG_NULL//g' | sed 's/WARN_UNUSED_RESULT//g' | sed 's/,/ UNNEEDED,/g' | sed 's/\([a-z0-9A-Z*_]* [a-z0-9A-Z*_]*\));/\1 UNNEEDED);/' | sed "s/;\$/$STUB/" | sed 's/[[:space:]]*$//'
+    tail -n "+${LINE}" < "$FILE" | head -n "$NUM" | sed 's/^extern *//' | sed 's/PRINTF_FMT([^)]*)//' | sed 's/NON_NULL_ARGS([^)]*)//' | sed 's/NO_NULL_ARGS//g' | sed 's/NORETURN//g' | sed 's/RETURNS_NONNULL//g' | sed 's/LAST_ARG_NULL//g' | sed 's/WARN_UNUSED_RESULT//g' | sed 's/,/ UNNEEDED,/g' | sed 's/\([a-z0-9A-Z*_]* [a-z0-9A-Z*_]*\));/\1 UNNEEDED);/' | sed "s/;\$/$STUB/" | sed 's/[[:space:]]*$//'
 done
