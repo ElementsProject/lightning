@@ -315,12 +315,15 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 	per_peer_state_set_fds_arr(pps, fds);
 
 	/* This sets channel->owner, closes down channeld. */
-	peer_start_closingd(channel, pps, false, NULL);
-	channel_set_state(channel,
-			  CHANNELD_SHUTTING_DOWN,
-			  CLOSINGD_SIGEXCHANGE,
-			  REASON_UNKNOWN,
-			  "Start closingd");
+	peer_start_closingd(channel, pps);
+
+	/* We might have reconnected, so already be here. */
+	if (channel->state != CLOSINGD_SIGEXCHANGE)
+		channel_set_state(channel,
+				  CHANNELD_SHUTTING_DOWN,
+				  CLOSINGD_SIGEXCHANGE,
+				  REASON_UNKNOWN,
+				  "Start closingd");
 }
 
 static void forget(struct channel *channel)
@@ -619,7 +622,8 @@ void peer_start_channeld(struct channel *channel,
 				      channel->remote_funding_locked,
 				      &scid,
 				      reconnected,
-				      channel->state == CHANNELD_SHUTTING_DOWN,
+				      channel->state == CHANNELD_SHUTTING_DOWN
+				       || channel->state == CLOSINGD_SIGEXCHANGE,
 				      channel->shutdown_scriptpubkey[REMOTE] != NULL,
 				      channel->shutdown_scriptpubkey[LOCAL],
 				      channel->channel_flags,

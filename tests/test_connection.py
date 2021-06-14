@@ -588,7 +588,7 @@ def test_reconnect_no_update(node_factory, executor, bitcoind):
     # Close will trigger the @WIRE_SHUTDOWN and we then wait for the
     # automatic reconnection to trigger the retransmission.
     l1.rpc.close(l2.info['id'], 0)
-    l2.daemon.wait_for_log(r"closingd.* Retransmitting funding_locked for channel")
+    l2.daemon.wait_for_log(r"channeld.* Retransmitting funding_locked for channel")
     l1.daemon.wait_for_log(r"CLOSINGD_COMPLETE")
 
 

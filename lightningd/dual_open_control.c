@@ -1293,7 +1293,7 @@ static void handle_channel_closed(struct subd *dualopend,
 
 	per_peer_state_set_fds_arr(pps, fds);
 
-	peer_start_closingd(channel, pps, false, NULL);
+	peer_start_closingd(channel, pps);
 	channel_set_state(channel,
 			  CHANNELD_SHUTTING_DOWN,
 			  CLOSINGD_SIGEXCHANGE,

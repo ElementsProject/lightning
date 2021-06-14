@@ -1121,17 +1121,11 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 		case CHANNELD_AWAITING_LOCKIN:
 		case CHANNELD_NORMAL:
 		case CHANNELD_SHUTTING_DOWN:
-			assert(!channel->owner);
-			channel->peer->addr = addr;
-			channel->peer->connected_incoming = payload->incoming;
-			peer_start_channeld(channel, payload->pps, NULL, true);
-			return;
-
 		case CLOSINGD_SIGEXCHANGE:
 			assert(!channel->owner);
 			channel->peer->addr = addr;
 			channel->peer->connected_incoming = payload->incoming;
-			peer_start_closingd(channel, payload->pps, true, NULL);
+			peer_start_channeld(channel, payload->pps, NULL, true);
 			return;
 		}
 		abort();

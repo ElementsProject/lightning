@@ -107,9 +107,11 @@ void dev_sabotage_fd(int fd, bool close_fd)
 #endif
 
 	/* Move fd out the way if we don't want to close it. */
-	if (!close_fd)
-		dup(fd);
-	else
+	if (!close_fd) {
+		if (dup(fd) == -1) {
+			; /* -Wunused-result */
+		}
+	} else
 		/* Close other end of socket. */
 		close(fds[0]);
 

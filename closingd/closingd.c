@@ -130,158 +130,6 @@ static u8 *closing_read_peer_msg(const tal_t *ctx,
 	}
 }
 
-static struct pubkey get_per_commitment_point(u64 commitment_number)
-{
-	u8 *msg;
-	struct pubkey commitment_point;
-	struct secret *s;
-
-	/* Our current per-commitment point is the commitment point in the last
-	 * received signed commitment; HSM gives us that and the previous
-	 * secret (which we don't need). */
-	msg = towire_hsmd_get_per_commitment_point(NULL,
-	                                          commitment_number);
-	if (!wire_sync_write(HSM_FD, take(msg)))
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Writing get_per_commitment_point to HSM: %s",
-			      strerror(errno));
-
-	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!msg)
-		status_failed(STATUS_FAIL_HSM_IO,
-			      "Reading resp get_per_commitment_point reply: %s",
-			      strerror(errno));
-	if (!fromwire_hsmd_get_per_commitment_point_reply(tmpctx, msg,
-	                                                 &commitment_point,
-	                                                 &s))
-		status_failed(STATUS_FAIL_HSM_IO,
-		              "Bad per_commitment_point reply %s",
-		              tal_hex(tmpctx, msg));
-
-	return commitment_point;
-}
-
-static void do_reconnect(struct per_peer_state *pps,
-			 const struct channel_id *channel_id,
-			 const u64 next_index[NUM_SIDES],
-			 u64 revocations_received,
-			 const u8 *channel_reestablish,
-			 const u8 *final_scriptpubkey,
-			 const struct secret *last_remote_per_commit_secret,
-			 const struct bitcoin_outpoint *wrong_funding)
-{
-	u8 *msg;
-	struct channel_id their_channel_id;
-	u64 next_local_commitment_number, next_remote_revocation_number;
-	struct pubkey my_current_per_commitment_point, next_commitment_point;
-	struct secret their_secret;
-	struct tlv_shutdown_tlvs *tlvs;
-#if EXPERIMENTAL_FEATURES
-	struct tlv_channel_reestablish_tlvs *reestablish_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
-#endif
-
-	my_current_per_commitment_point = get_per_commitment_point(next_index[LOCAL]-1);
-
-	/* BOLT #2:
-	 *
-	 *   - upon reconnection:
-	 *     - if a channel is in an error state:
-	 *       - SHOULD retransmit the error packet and ignore any other packets for
-	 *        that channel.
-	 *     - otherwise:
-	 *       - MUST transmit `channel_reestablish` for each channel.
-	 *       - MUST wait to receive the other node's `channel_reestablish`
-	 *         message before sending any other messages for that channel.
-	 *
-	 * The sending node:
-	 *   - MUST set `next_commitment_number` to the commitment number
-	 *     of the next `commitment_signed` it expects to receive.
-	 *   - MUST set `next_revocation_number` to the commitment number
-	 *     of the next `revoke_and_ack` message it expects to receive.
-	 */
-
-	msg = towire_channel_reestablish(NULL, channel_id,
-					 next_index[LOCAL],
-					 revocations_received,
-					 last_remote_per_commit_secret,
-					 &my_current_per_commitment_point
-#if EXPERIMENTAL_FEATURES
-					 , reestablish_tlvs
-#endif
-		);
-	sync_crypto_write(pps, take(msg));
-
-	/* They might have already sent reestablish, which triggered us */
-	if (!channel_reestablish) {
-		do {
-			tal_free(channel_reestablish);
-			channel_reestablish = closing_read_peer_msg(tmpctx, pps,
-								    channel_id);
-			/* They *should* send reestablish first, but lnd
-			 * sends other messages, which we can ignore since
-			 * we're closing anyway... */
-		} while (fromwire_peektype(channel_reestablish)
-			 != WIRE_CHANNEL_REESTABLISH);
-	}
-
-#if EXPERIMENTAL_FEATURES
-	reestablish_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
-#endif
-
-	if (!fromwire_channel_reestablish(channel_reestablish, &their_channel_id,
-					  &next_local_commitment_number,
-					  &next_remote_revocation_number,
-					  &their_secret,
-					  &next_commitment_point
-#if EXPERIMENTAL_FEATURES
-					 , reestablish_tlvs
-#endif
-		    )) {
-		peer_failed_warn(pps, channel_id,
-				 "bad reestablish msg: %s %s",
-				 peer_wire_name(fromwire_peektype(channel_reestablish)),
-				 tal_hex(tmpctx, channel_reestablish));
-	}
-	status_debug("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
-		     next_local_commitment_number,
-		     next_remote_revocation_number);
-
-	/* BOLT #2:
-	 *
-	 * A node:
-	 *...
-	 *   - upon reconnection:
-	 *     - if it has sent a previous `shutdown`:
-	 *       - MUST retransmit `shutdown`.
-	 */
-	if (wrong_funding) {
-		tlvs = tlv_shutdown_tlvs_new(tmpctx);
-		tlvs->wrong_funding
-			= tal(tlvs, struct tlv_shutdown_tlvs_wrong_funding);
-		tlvs->wrong_funding->txid = wrong_funding->txid;
-		tlvs->wrong_funding->outnum = wrong_funding->n;
-	} else
-		tlvs = NULL;
-
-	msg = towire_shutdown(NULL, channel_id, final_scriptpubkey, tlvs);
-	sync_crypto_write(pps, take(msg));
-
-	/* BOLT #2:
-	 *
-	 * A node:
-	 *...
-	 *   - if `next_commitment_number` is 1 in both the `channel_reestablish` it sent and received:
-	 *     - MUST retransmit `funding_locked`.
-	 */
-	if (next_index[REMOTE] == 1 && next_index[LOCAL] == 1) {
-		status_debug("Retransmitting funding_locked for channel %s",
-		             type_to_string(tmpctx, struct channel_id, channel_id));
-		next_commitment_point = get_per_commitment_point(next_index[LOCAL]);
-		msg = towire_funding_locked(NULL, channel_id, &next_commitment_point);
-		sync_crypto_write(pps, take(msg));
-	}
-}
-
 static void send_offer(struct per_peer_state *pps,
 		       const struct chainparams *chainparams,
 		       const struct channel_id *channel_id,
@@ -663,11 +511,7 @@ int main(int argc, char *argv[])
 	u8 fee_negotiation_step_unit;
 	char fee_negotiation_step_str[32]; /* fee_negotiation_step + "sat" */
 	struct channel_id channel_id;
-	bool reconnected;
-	u64 next_index[NUM_SIDES], revocations_received;
 	enum side whose_turn;
-	u8 *channel_reestablish;
-	struct secret last_remote_per_commit_secret;
 	struct bitcoin_outpoint *wrong_funding;
 
 	subdaemon_setup(argc, argv);
@@ -693,12 +537,6 @@ int main(int argc, char *argv[])
 				    &scriptpubkey[REMOTE],
 				    &fee_negotiation_step,
 				    &fee_negotiation_step_unit,
-				    &reconnected,
-				    &next_index[LOCAL],
-				    &next_index[REMOTE],
-				    &revocations_received,
-				    &channel_reestablish,
-				    &last_remote_per_commit_secret,
 				    &dev_fast_gossip,
 				    &wrong_funding))
 		master_badmsg(WIRE_CLOSINGD_INIT, msg);
@@ -730,13 +568,6 @@ int main(int argc, char *argv[])
 	funding_wscript = bitcoin_redeem_2of2(ctx,
 					      &funding_pubkey[LOCAL],
 					      &funding_pubkey[REMOTE]);
-
-	if (reconnected)
-		do_reconnect(pps, &channel_id,
-			     next_index, revocations_received,
-			     channel_reestablish, scriptpubkey[LOCAL],
-			     &last_remote_per_commit_secret,
-			     wrong_funding);
 
 	peer_billboard(
 	    true,
