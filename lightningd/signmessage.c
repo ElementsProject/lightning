@@ -129,24 +129,22 @@ struct command_and_node {
 	struct node_id id;
 };
 
-/* Gossipd tells us if it's a known node by returning details. */
-static void getnode_reply(struct subd *gossip UNUSED, const u8 *reply,
-			  const int *fds UNUSED,
-			  struct command_and_node *can)
+/* topology tells us if it's a known node by returning details. */
+static void listnodes_done(const char *buffer,
+			   const jsmntok_t *toks,
+			   const jsmntok_t *idtok UNUSED,
+			   struct command_and_node *can)
 {
-	struct gossip_getnodes_entry **nodes;
 	struct json_stream *response;
+	const jsmntok_t *t;
 
-	if (!fromwire_gossipd_getnodes_reply(reply, reply, &nodes)) {
-		log_broken(can->cmd->ld->log,
-			   "Malformed gossip_getnodes response %s",
-			   tal_hex(tmpctx, reply));
-		nodes = NULL;
-	}
+	t = json_get_member(buffer, toks, "result");
+	if (t)
+		t = json_get_member(buffer, t, "nodes");
 
 	response = json_stream_success(can->cmd);
 	json_add_node_id(response, "pubkey", &can->id);
-	json_add_bool(response, "verified", tal_count(nodes) > 0);
+	json_add_bool(response, "verified", t && t->size == 1);
 	was_pending(command_success(can->cmd, response));
 }
 
@@ -207,19 +205,31 @@ static struct command_result *json_checkmessage(struct command *cmd,
 	 * make two (different) signed messages with the same recovered key
 	 * unless you know the secret key */
 	if (!pubkey) {
-		u8 *req;
+		struct jsonrpc_request *req;
+		struct plugin *plugin;
 		struct command_and_node *can = tal(cmd, struct command_and_node);
 
 		node_id_from_pubkey(&can->id, &reckey);
 		can->cmd = cmd;
-		req = towire_gossipd_getnodes_request(cmd, &can->id);
-		subd_req(cmd, cmd->ld->gossip, req, -1, 0, getnode_reply, can);
-		return command_still_pending(cmd);
+		req = jsonrpc_request_start(cmd, "listnodes",
+					    cmd->ld->log,
+					    NULL, listnodes_done,
+					    can);
+		json_add_node_id(req->stream, "id", &can->id);
+		jsonrpc_request_end(req);
+
+		/* Only works if we have listnodes! */
+		plugin = find_plugin_for_command(cmd->ld, "listnodes");
+		if (plugin) {
+			plugin_request_send(plugin, req);
+			return command_still_pending(cmd);
+		}
 	}
 
 	response = json_stream_success(cmd);
 	json_add_pubkey(response, "pubkey", &reckey);
-	json_add_bool(response, "verified", pubkey_eq(pubkey, &reckey));
+	json_add_bool(response, "verified",
+		      pubkey && pubkey_eq(pubkey, &reckey));
 	return command_success(cmd, response);
 }
 
