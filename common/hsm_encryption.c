@@ -80,6 +80,18 @@ void discard_key(struct secret *key TAKES)
 		tal_free(key);
 }
 
+/* Read a line from stdin, do not take the newline character into account. */
+static bool getline_stdin_pass(char **passwd, size_t *passwd_size)
+{
+	if (getline(passwd, passwd_size, stdin) < 0)
+		return false;
+
+	if ((*passwd)[strlen(*passwd) - 1] == '\n')
+		(*passwd)[strlen(*passwd) - 1] = '\0';
+
+	return true;
+}
+
 char *read_stdin_pass(char **reason)
 {
 	struct termios current_term, temp_term;
@@ -99,13 +111,10 @@ char *read_stdin_pass(char **reason)
 			return NULL;
 		}
 
-		/* Read the password, do not take the newline character into account. */
-		if (getline(&passwd, &passwd_size, stdin) < 0) {
+		if (!getline_stdin_pass(&passwd, &passwd_size)) {
 			*reason = "Could not read pass from stdin.";
 			return NULL;
 		}
-		if (passwd[strlen(passwd) - 1] == '\n')
-			passwd[strlen(passwd) - 1] = '\0';
 
 		/* Restore the original terminal */
 		if (tcsetattr(fileno(stdin), TCSAFLUSH, &current_term) != 0) {
@@ -113,14 +122,9 @@ char *read_stdin_pass(char **reason)
 			free(passwd);
 			return NULL;
 		}
-	} else {
-		/* Read from stdin, do not take the newline character into account. */
-		if (getline(&passwd, &passwd_size, stdin) < 0) {
-			*reason = "Could not read pass from stdin.";
-			return NULL;
-		}
-		if (passwd[strlen(passwd) - 1] == '\n')
-			passwd[strlen(passwd) - 1] = '\0';
+	} else if (!getline_stdin_pass(&passwd, &passwd_size)) {
+		*reason = "Could not read pass from stdin.";
+		return NULL;
 	}
 
 	return passwd;
