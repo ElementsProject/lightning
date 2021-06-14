@@ -1913,6 +1913,72 @@ static void handle_peer_tx_sigs_msg(struct subd *dualopend,
 				     inflight->funding_psbt);
 }
 
+static bool verify_option_will_fund_signature(struct peer *peer,
+					      struct pubkey *funding_pubkey,
+					      u32 lease_expiry,
+					      u32 chan_fee_msat,
+					      u16 chan_fee_ppt,
+					      const secp256k1_ecdsa_signature *sig)
+
+{
+	struct pubkey their_pubkey;
+	struct sha256 sha;
+	int ret;
+
+	lease_rates_get_commitment(funding_pubkey, lease_expiry,
+				   chan_fee_msat, chan_fee_ppt,
+				   &sha);
+
+	if (!pubkey_from_node_id(&their_pubkey, &peer->id)) {
+		log_broken(peer->ld->log,
+			   "Unable to extract pubkey from peer's node id %s",
+			   type_to_string(tmpctx, struct node_id, &peer->id));
+		return false;
+	}
+
+	ret = secp256k1_ecdsa_verify(secp256k1_ctx, sig, sha.u.u8,
+				     &their_pubkey.pubkey);
+	return ret == 1;
+}
+
+static void handle_validate_lease(struct subd *dualopend,
+				  const u8 *msg)
+{
+	const secp256k1_ecdsa_signature sig;
+	u16 chan_fee_max_ppt;
+	u32 chan_fee_max_base_msat, lease_expiry;
+	struct pubkey their_pubkey;
+	struct channel *chan;
+	char *err_msg;
+
+	if (!fromwire_dualopend_validate_lease(msg,
+					       cast_const(secp256k1_ecdsa_signature *, &sig),
+					       &lease_expiry,
+					       &chan_fee_max_base_msat,
+					       &chan_fee_max_ppt,
+					       &their_pubkey)) {
+		channel_internal_error(dualopend->channel,
+				       "Bad DUALOPEND_VALIDATE_LEASE: %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	assert(dualopend->channel);
+	chan = dualopend->channel;
+
+	if (!verify_option_will_fund_signature(chan->peer, &their_pubkey,
+					       lease_expiry,
+					       chan_fee_max_base_msat,
+					       chan_fee_max_ppt,
+					       &sig))
+		err_msg = "Unable to verify sig";
+	else
+		err_msg = NULL;
+
+	subd_send_msg(dualopend,
+		      take(towire_dualopend_validate_lease_reply(NULL, err_msg)));
+}
+
 static void handle_validate_rbf(struct subd *dualopend,
 				const u8 *msg)
 {
@@ -2910,6 +2976,9 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_RBF_VALIDATE:
 			handle_validate_rbf(dualopend, msg);
 			return 0;
+		case WIRE_DUALOPEND_VALIDATE_LEASE:
+			handle_validate_lease(dualopend, msg);
+			return 0;
 		case WIRE_DUALOPEND_FUNDING_SIGS:
 			handle_peer_tx_sigs_msg(dualopend, msg);
 			return 0;
@@ -2948,6 +3017,7 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_GOT_OFFER_REPLY:
 		case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
 		case WIRE_DUALOPEND_RBF_VALID:
+		case WIRE_DUALOPEND_VALIDATE_LEASE_REPLY:
 		case WIRE_DUALOPEND_FAIL:
 		case WIRE_DUALOPEND_PSBT_UPDATED:
 		case WIRE_DUALOPEND_SEND_TX_SIGS:

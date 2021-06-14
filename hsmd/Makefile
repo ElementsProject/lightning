@@ -31,6 +31,7 @@ HSMD_COMMON_OBJS :=				\
 	common/hash_u5.o			\
 	common/hsm_encryption.o			\
 	common/key_derive.o			\
+	common/lease_rates.o			\
 	common/memleak.o			\
 	common/msg_queue.o			\
 	common/node_id.o			\

@@ -33,6 +33,7 @@
 #include <common/gossip_store.h>
 #include <common/htlc.h>
 #include <common/initial_channel.h>
+#include <common/lease_rates.h>
 #include <common/memleak.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
@@ -2160,7 +2161,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	if (open_tlv->request_funds && tx_state->rates)
 		accept_tlv_add_offer(a_tlv, tx_state->rates,
 				     state->our_funding_pubkey,
-				     lease_blockheight_start);
+				     lease_blockheight_start + LEASE_RATE_DURATION);
 
 	msg = towire_accept_channel2(tmpctx, &state->channel_id,
 				     tx_state->accepter_funding,
@@ -2468,7 +2469,7 @@ static void opener_start(struct state *state, u8 *msg)
 	struct channel_id cid;
 	char *err_reason;
 	struct amount_sat total, requested_sats;
-	u32 current_blockheight;
+	u32 current_blockheight, lease_expiry;
 	bool dry_run;
 	struct tx_state *tx_state = state->tx_state;
 
@@ -2622,8 +2623,30 @@ static void opener_start(struct state *state, u8 *msg)
 
 	/* FIXME: BOLT QUOTE */
 	if (open_tlv->request_funds && a_tlv->will_fund) {
-		/* OK! lease mode activated */
-	}
+		char *err_msg;
+		struct lease_rates *rates = &a_tlv->will_fund->lease_rates;
+
+		lease_expiry = current_blockheight + LEASE_RATE_DURATION;
+
+		msg = towire_dualopend_validate_lease(NULL,
+						      &a_tlv->will_fund->signature,
+						      lease_expiry,
+						      rates->channel_fee_max_base_msat,
+						      rates->channel_fee_max_proportional_thousandths,
+						      &state->their_funding_pubkey);
+
+
+		wire_sync_write(REQ_FD, take(msg));
+		msg = wire_sync_read(tmpctx, REQ_FD);
+
+		if (!fromwire_dualopend_validate_lease_reply(tmpctx, msg,
+							     &err_msg))
+			master_badmsg(WIRE_DUALOPEND_VALIDATE_LEASE_REPLY, msg);
+
+		if (err_msg)
+			open_err_warn(state, "%s", err_msg);
+	} else
+		lease_expiry = 0;
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
@@ -3404,6 +3427,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_GOT_OFFER_REPLY:
 	case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
 	case WIRE_DUALOPEND_RBF_VALID:
+	case WIRE_DUALOPEND_VALIDATE_LEASE_REPLY:
 
 	/* Messages we send */
 	case WIRE_DUALOPEND_GOT_OFFER:
@@ -3419,6 +3443,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_DUALOPEND_SHUTDOWN_COMPLETE:
 	case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:
 	case WIRE_DUALOPEND_DRY_RUN:
+	case WIRE_DUALOPEND_VALIDATE_LEASE:
 		break;
 	}
 
