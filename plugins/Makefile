@@ -4,6 +4,9 @@ PLUGIN_PAY_OBJS := $(PLUGIN_PAY_SRC:.c=.o)
 PLUGIN_AUTOCLEAN_SRC := plugins/autoclean.c
 PLUGIN_AUTOCLEAN_OBJS := $(PLUGIN_AUTOCLEAN_SRC:.c=.o)
 
+PLUGIN_TOPOLOGY_SRC := plugins/topology.c
+PLUGIN_TOPOLOGY_OBJS := $(PLUGIN_TOPOLOGY_SRC:.c=.o)
+
 PLUGIN_TXPREPARE_SRC := plugins/txprepare.c
 PLUGIN_TXPREPARE_OBJS := $(PLUGIN_TXPREPARE_SRC:.c=.o)
 
@@ -55,6 +58,7 @@ PLUGIN_ALL_SRC :=				\
 	$(PLUGIN_BCLI_SRC)			\
 	$(PLUGIN_FETCHINVOICE_SRC)		\
 	$(PLUGIN_FUNDER_SRC)			\
+	$(PLUGIN_TOPOLOGY_SRC)			\
 	$(PLUGIN_KEYSEND_SRC)			\
 	$(PLUGIN_TXPREPARE_SRC)			\
 	$(PLUGIN_LIB_SRC)			\
@@ -76,6 +80,7 @@ PLUGINS :=					\
 	plugins/bcli				\
 	plugins/fetchinvoice			\
 	plugins/funder				\
+	plugins/topology			\
 	plugins/keysend				\
 	plugins/offers				\
 	plugins/pay				\
@@ -134,6 +139,8 @@ plugins/pay: bitcoin/chainparams.o $(PLUGIN_PAY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGI
 $(PLUGIN_PAY_OBJS): $(PLUGIN_PAY_LIB_HEADER)
 
 plugins/autoclean: bitcoin/chainparams.o $(PLUGIN_AUTOCLEAN_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
+
+plugins/topology: common/route.o common/dijkstra.o common/gossmap.o common/fp16.o bitcoin/chainparams.o $(PLUGIN_TOPOLOGY_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
 
 plugins/txprepare: bitcoin/chainparams.o $(PLUGIN_TXPREPARE_OBJS) $(PLUGIN_LIB_OBJS) $(PLUGIN_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS)
 
