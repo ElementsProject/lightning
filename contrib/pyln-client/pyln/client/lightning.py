@@ -979,7 +979,40 @@ class LightningRpc(UnixDomainSocketRpc):
         payload = {
             "id": node_id
         }
-        return self.call("listnodes", payload)
+
+        # This is a hack to make sure old and new routines return the same result.
+        e1 = None
+        ret1 = None
+        err = None
+        try:
+            ret1 = self.call("listnodes", payload)
+        except RpcError as e:
+            err = e
+            e1 = e.error
+        e2 = None
+        ret2 = None
+        try:
+            ret2 = self.call("listnodesold", payload)
+        except RpcError as e:
+            e2 = e.error
+
+        print("new listnodes: {} exception {}".format(ret1, e1))
+        print("old listnodes: {} exception {}".format(ret2, e2))
+
+        # Order is arbitrary
+        def node_key(n):
+            return n['nodeid']
+
+        if ret1:
+            ret1['nodes'].sort(key=node_key)
+        if ret2:
+            ret2['nodes'].sort(key=node_key)
+        assert ret1 == ret2
+        assert e1 == e2
+
+        if err is not None:
+            raise err
+        return ret1
 
     def listpays(self, bolt11=None, payment_hash=None):
         """
