@@ -21,6 +21,7 @@ const char *gossipd_wire_name(int e)
 
 	switch ((enum gossipd_wire)e) {
 	case WIRE_GOSSIPD_INIT: return "WIRE_GOSSIPD_INIT";
+	case WIRE_GOSSIPD_INIT_REPLY: return "WIRE_GOSSIPD_INIT_REPLY";
 	case WIRE_GOSSIPD_DEV_SET_TIME: return "WIRE_GOSSIPD_DEV_SET_TIME";
 	case WIRE_GOSSIPD_PING: return "WIRE_GOSSIPD_PING";
 	case WIRE_GOSSIPD_PING_REPLY: return "WIRE_GOSSIPD_PING_REPLY";
@@ -52,6 +53,7 @@ bool gossipd_wire_is_defined(u16 type)
 {
 	switch ((enum gossipd_wire)type) {
 	case WIRE_GOSSIPD_INIT:;
+	case WIRE_GOSSIPD_INIT_REPLY:;
 	case WIRE_GOSSIPD_DEV_SET_TIME:;
 	case WIRE_GOSSIPD_PING:;
 	case WIRE_GOSSIPD_PING_REPLY:;
@@ -136,6 +138,25 @@ bool fromwire_gossipd_init(const tal_t *ctx, const void *p, const struct chainpa
 	}
  	*dev_fast_gossip = fromwire_bool(&cursor, &plen);
  	*dev_fast_gossip_prune = fromwire_bool(&cursor, &plen);
+	return cursor != NULL;
+}
+
+/* WIRE: GOSSIPD_INIT_REPLY */
+u8 *towire_gossipd_init_reply(const tal_t *ctx)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_GOSSIPD_INIT_REPLY);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_gossipd_init_reply(const void *p)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_INIT_REPLY)
+		return false;
 	return cursor != NULL;
 }
 
@@ -732,4 +753,4 @@ bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestrin
  	*err = fromwire_wirestring(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:bc9045727cefbbe29118c8eae928972fe009a4d9d8c9e903f8b35f006973f462
+// SHA256STAMP:6f6810a7e9c5e3e7dc1dd716b6a8de019516f6e82e3664bdf760647b5a987883
