@@ -298,9 +298,10 @@ const char *param_subcommand(struct command *cmd, const char *buffer,
 			return subcmd;
 
 	/* We really do ignore this. */
-	if (command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-			 "Unknown subcommand '%s'", subcmd))
-		;
+	struct command_result *ignore;
+	ignore = command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+			      "Unknown subcommand '%s'", subcmd);
+	assert(ignore);
 	return NULL;
 }
 
@@ -323,9 +324,10 @@ bool param(struct command *cmd, const char *buffer,
 		}
 		if  (!param_add(&params, name, required, cbx, arg)) {
 			/* We really do ignore this return! */
-			if (command_fail(cmd, PARAM_DEV_ERROR,
-					 "developer error: param_add %s", name))
-				;
+			struct command_result *ignore;
+			ignore = command_fail(cmd, PARAM_DEV_ERROR,
+					      "developer error: param_add %s", name);
+			assert(ignore);
 			va_end(ap);
 			return false;
 		}

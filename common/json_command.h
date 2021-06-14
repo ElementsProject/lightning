@@ -15,7 +15,7 @@ struct command_result;
 /* Caller supplied this: param assumes it can call it. */
 struct command_result *command_fail(struct command *cmd, errcode_t code,
 				    const char *fmt, ...)
-	PRINTF_FMT(3, 4) WARN_UNUSED_RESULT;
+	PRINTF_FMT(3, 4) WARN_UNUSED_RESULT RETURNS_NONNULL;
 
 /* Convenient wrapper for "paramname: msg: invalid token '.*%s'" */
 static inline struct command_result *
