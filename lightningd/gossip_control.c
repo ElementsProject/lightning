@@ -148,6 +148,7 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_SEND_ONIONMSG:
 	case WIRE_GOSSIPD_ADDGOSSIP:
 	/* This is a reply, so never gets through to here. */
+	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE_REPLY:
@@ -187,6 +188,16 @@ static void gossip_topology_synced(struct chain_topology *topo, void *unused)
 	gossip_notify_new_block(topo->ld, get_block_height(topo));
 }
 
+/* We make sure gossipd is started before plugins (which may want gossip_map) */
+static void gossipd_init_done(struct subd *gossipd,
+			      const u8 *msg,
+			      const int *fds,
+			      void *unused)
+{
+	/* Break out of loop, so we can begin */
+	io_break(gossipd);
+}
+
 /* Create the `gossipd` subdaemon and send the initialization
  * message */
 void gossip_init(struct lightningd *ld, int connectd_fd)
@@ -207,7 +218,7 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 				 gossip_topology_synced, NULL);
 
 	msg = towire_gossipd_init(
-	    tmpctx,
+	    NULL,
 	    chainparams,
 	    ld->our_features,
 	    &ld->id,
@@ -217,7 +228,12 @@ void gossip_init(struct lightningd *ld, int connectd_fd)
 	    IFDEV(ld->dev_gossip_time ? &ld->dev_gossip_time: NULL, NULL),
 	    IFDEV(ld->dev_fast_gossip, false),
 	    IFDEV(ld->dev_fast_gossip_prune, false));
-	subd_send_msg(ld->gossip, msg);
+
+	subd_req(ld->gossip, ld->gossip, take(msg), -1, 0,
+		 gossipd_init_done, NULL);
+
+	/* Wait for gossipd_init_reply */
+	io_loop(NULL, NULL);
 }
 
 void gossipd_notify_spend(struct lightningd *ld,

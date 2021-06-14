@@ -20,24 +20,15 @@
 #include <wire/peer_wire.h>
 
 /* Access via get_gossmap() */
+static struct gossmap *global_gossmap;
 static struct node_id local_id;
 static struct plugin *plugin;
 
 /* We load this on demand, since we can start before gossipd. */
 static struct gossmap *get_gossmap(void)
 {
-	static struct gossmap *gossmap;
-
-	if (gossmap)
-		gossmap_refresh(gossmap);
-	else {
-		gossmap = notleak_with_children(gossmap_load(NULL,
-					    GOSSIP_STORE_FILENAME));
-		if (!gossmap)
-			plugin_err(plugin, "Could not load gossmap %s: %s",
-				   GOSSIP_STORE_FILENAME, strerror(errno));
-	}
-	return gossmap;
+	gossmap_refresh(global_gossmap);
+	return global_gossmap;
 }
 
 /* Convenience global since route_score_fuzz doesn't take args. 0 to 1. */
@@ -676,6 +667,12 @@ static const char *init(struct plugin *p,
 	rpc_scan(p, "getinfo",
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{id:%}", JSON_SCAN(json_to_node_id, &local_id));
+
+	global_gossmap = notleak_with_children(gossmap_load(NULL,
+					    GOSSIP_STORE_FILENAME));
+	if (!global_gossmap)
+		plugin_err(plugin, "Could not load gossmap %s: %s",
+			   GOSSIP_STORE_FILENAME, strerror(errno));
 
 	return NULL;
 }

@@ -1135,6 +1135,9 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	daemon->connectd = daemon_conn_new(daemon, CONNECTD_FD,
 					   connectd_req, NULL, daemon);
 
+	/* OK, we are ready. */
+	daemon_conn_send(daemon->master,
+			 take(towire_gossipd_init_reply(NULL)));
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
@@ -1507,6 +1510,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		return onionmsg_req(conn, daemon, msg);
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPD_PING_REPLY:
+	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE_REPLY:
 	case WIRE_GOSSIPD_GET_TXOUT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:

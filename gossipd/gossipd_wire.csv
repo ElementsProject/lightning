@@ -16,6 +16,8 @@ msgdata,gossipd_init,dev_gossip_time,?u32,
 msgdata,gossipd_init,dev_fast_gossip,bool,
 msgdata,gossipd_init,dev_fast_gossip_prune,bool,
 
+msgtype,gossipd_init_reply,3100
+
 # In developer mode, we can mess with time.
 msgtype,gossipd_dev_set_time,3001
 msgdata,gossipd_dev_set_time,dev_gossip_time,u32,

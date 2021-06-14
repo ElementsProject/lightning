@@ -15,6 +15,7 @@
 enum gossipd_wire {
         /*  Initialize the gossip daemon. */
         WIRE_GOSSIPD_INIT = 3000,
+        WIRE_GOSSIPD_INIT_REPLY = 3100,
         /*  In developer mode */
         WIRE_GOSSIPD_DEV_SET_TIME = 3001,
         /*  Ping/pong test.  Waits for a reply if it expects one. */
@@ -71,6 +72,10 @@ bool gossipd_wire_is_defined(u16 type);
 /*  Initialize the gossip daemon. */
 u8 *towire_gossipd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_features, const struct node_id *id, const u8 rgb[3], const u8 alias[32], const struct wireaddr *announcable, u32 *dev_gossip_time, bool dev_fast_gossip, bool dev_fast_gossip_prune);
 bool fromwire_gossipd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_features, struct node_id *id, u8 rgb[3], u8 alias[32], struct wireaddr **announcable, u32 **dev_gossip_time, bool *dev_fast_gossip, bool *dev_fast_gossip_prune);
+
+/* WIRE: GOSSIPD_INIT_REPLY */
+u8 *towire_gossipd_init_reply(const tal_t *ctx);
+bool fromwire_gossipd_init_reply(const void *p);
 
 /* WIRE: GOSSIPD_DEV_SET_TIME */
 /*  In developer mode */
@@ -175,4 +180,4 @@ bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestrin
 
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_WIREGEN_H */
-// SHA256STAMP:bc9045727cefbbe29118c8eae928972fe009a4d9d8c9e903f8b35f006973f462
+// SHA256STAMP:6f6810a7e9c5e3e7dc1dd716b6a8de019516f6e82e3664bdf760647b5a987883
