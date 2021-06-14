@@ -363,6 +363,10 @@ struct channel *any_channel_by_scid(struct lightningd *ld,
 struct channel *channel_by_cid(struct lightningd *ld,
 			       const struct channel_id *cid);
 
+/* Find this channel within peer */
+struct channel *find_channel_by_id(const struct peer *peer,
+				   const struct channel_id *cid);
+
 void channel_set_last_tx(struct channel *channel,
 			 struct bitcoin_tx *tx,
 			 const struct bitcoin_signature *sig,
@@ -401,6 +405,15 @@ static inline bool channel_active(const struct channel *channel)
 		&& channel->state != CLOSINGD_COMPLETE
 		&& !channel_unsaved(channel)
 		&& !channel_on_chain(channel);
+}
+
+static inline bool channel_closed(const struct channel *channel)
+{
+	return channel->state == CLOSINGD_COMPLETE
+		|| channel->state == AWAITING_UNILATERAL
+		|| channel->state == FUNDING_SPEND_SEEN
+		|| channel->state == ONCHAIN
+		|| channel->state == CLOSED;
 }
 
 void get_channel_basepoints(struct lightningd *ld,
