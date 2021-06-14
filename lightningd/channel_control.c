@@ -788,8 +788,8 @@ void channel_notify_new_block(struct lightningd *ld,
 	tal_free(to_forget);
 }
 
-static struct channel *find_channel_by_id(const struct peer *peer,
-					  const struct channel_id *cid)
+struct channel *find_channel_by_id(const struct peer *peer,
+				   const struct channel_id *cid)
 {
 	struct channel *c;
 
