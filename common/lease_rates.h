@@ -19,6 +19,12 @@ void lease_rates_get_commitment(struct pubkey *pubkey,
 				u16 chan_fee_ppt,
 				struct sha256 *sha);
 
+bool lease_rates_calc_fee(struct lease_rates *rates,
+			  struct amount_sat accept_funding_sats,
+			  struct amount_sat requested_sats,
+			  u32 onchain_feerate,
+			  struct amount_sat *fee);
+
 WARN_UNUSED_RESULT bool lease_rates_set_chan_fee_base_msat(struct lease_rates *rates, struct amount_msat amt);
 
 WARN_UNUSED_RESULT bool lease_rates_set_lease_fee_sat(struct lease_rates *rates, struct amount_sat amt);

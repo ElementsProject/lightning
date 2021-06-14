@@ -45,6 +45,41 @@ void lease_rates_get_commitment(struct pubkey *pubkey,
 	sha256_done(&sctx, sha);
 }
 
+bool lease_rates_calc_fee(struct lease_rates *rates,
+			  struct amount_sat accept_funding_sats,
+			  struct amount_sat requested_sats,
+			  u32 onchain_feerate,
+			  struct amount_sat *fee)
+{
+	struct amount_sat lease_fee, basis_sat, tx_fee;
+	/* BOLT- #2:
+	 * The lease fee is calculated as:
+	 * `lease_fee_base_sat` +
+	 * min(`accept_channel2`.`funding_satoshis`, `open_channel2`.`requested_sats`) * `lease_fee_basis` / 10_000 +
+	 * `funding_weight` * `funding_feerate_perkw` / 1000
+	 */
+
+	lease_fee = amount_sat(rates->lease_fee_base_sat);
+	basis_sat = amount_sat_less(accept_funding_sats, requested_sats)
+		? accept_funding_sats : requested_sats;
+
+	if (!amount_sat_scale(&basis_sat, basis_sat,
+			      rates->lease_fee_basis))
+		return false;
+
+	basis_sat = amount_sat_div(basis_sat, 10000);
+
+	if (!amount_sat_add(&lease_fee, lease_fee, basis_sat))
+		return false;
+
+	tx_fee = amount_tx_fee(onchain_feerate, rates->funding_weight);
+	if (!amount_sat_add(&lease_fee, lease_fee, tx_fee))
+		return false;
+
+	*fee = lease_fee;
+	return true;
+}
+
 bool lease_rates_set_chan_fee_base_msat(struct lease_rates *rates,
 					struct amount_msat amt)
 {
