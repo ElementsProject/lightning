@@ -1025,7 +1025,7 @@ static void gossip_refresh_network(struct daemon *daemon)
 				continue;
 			}
 
-			if (!is_halfchan_enabled(hc)) {
+			if (is_chan_local_disabled(daemon->rstate, c)) {
 				/* Only send keepalives for active connections */
 				continue;
 			}
@@ -1138,285 +1138,6 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
-/*~ lightningd can ask for a route between nodes. */
-static struct io_plan *getroute_req(struct io_conn *conn, struct daemon *daemon,
-				    const u8 *msg)
-{
-	struct node_id *source, destination;
-	struct amount_msat msat;
-	u32 final_cltv;
-	/* risk factor 12.345% -> riskfactor_millionths = 12345000 */
-	u64 riskfactor_millionths;
-	u32 max_hops;
-	u8 *out;
-	struct route_hop **hops;
-	/* fuzz 12.345% -> fuzz_millionths = 12345000 */
-	u64 fuzz_millionths;
-	struct exclude_entry **excluded;
-
-	/* To choose between variations, we need to know how much we're
-	 * sending (eliminates too-small channels, and also effects the fees
-	 * we'll pay), how to trade off more locktime vs. more fees, and how
-	 * much cltv we need a the final node to give exact values for each
-	 * intermediate hop, as well as how much random fuzz to inject to
-	 * avoid being too predictable.
-	 *
-	 * We also treat routing slightly differently if we're asking
-	 * for a route from ourselves (the usual case): in that case,
-	 * we don't have to consider fees on our own outgoing channels.
-	 */
-	if (!fromwire_gossipd_getroute_request(
-		msg, msg, &source, &destination, &msat, &riskfactor_millionths,
-		&final_cltv, &fuzz_millionths, &excluded, &max_hops))
-		master_badmsg(WIRE_GOSSIPD_GETROUTE_REQUEST, msg);
-
-	status_debug("Trying to find a route from %s to %s for %s",
-		     source
-		     ? type_to_string(tmpctx, struct node_id, source) : "(me)",
-		     type_to_string(tmpctx, struct node_id, &destination),
-		     type_to_string(tmpctx, struct amount_msat, &msat));
-
-	/* routing.c does all the hard work; can return NULL. */
-	hops = get_route(tmpctx, daemon->rstate, source, &destination, msat,
-			 riskfactor_millionths / 1000000.0, final_cltv,
-			 fuzz_millionths / 1000000.0, pseudorand_u64(),
-			 excluded, max_hops);
-
-	out = towire_gossipd_getroute_reply(NULL,
-					   cast_const2(const struct route_hop **,
-						       hops));
-	daemon_conn_send(daemon->master, take(out));
-	return daemon_conn_read_next(conn, daemon->master);
-}
-
-/*~ When someone asks lightningd to `listchannels`, gossipd does the work:
- * marshalling the channel information for all channels into an array of
- * gossip_getchannels_entry, which lightningd converts to JSON.  Each channel
- * is represented by two half_chan; one in each direction.
- */
-static struct gossip_halfchannel_entry *hc_entry(const tal_t *ctx,
-						 const struct chan *chan,
-						 int idx)
-{
-	/* Our 'struct chan' contains two nodes: they are in pubkey_cmp order
-	 * (ie. chan->nodes[0] is the lesser pubkey) and this is the same as
-	 * the direction bit in `channel_update`s `channel_flags`.
-	 *
-	 * The halfchans are arranged so that half[0] src == nodes[0], and we
-	 * use that here. */
-	const struct half_chan *c = &chan->half[idx];
-	struct gossip_halfchannel_entry *e;
-
-	/* If we've never seen a channel_update for this direction... */
-	if (!is_halfchan_defined(c))
-		return NULL;
-
-	e = tal(ctx, struct gossip_halfchannel_entry);
-	e->channel_flags = c->channel_flags;
-	e->message_flags = c->message_flags;
-	e->last_update_timestamp = c->bcast.timestamp;
-	e->base_fee_msat = c->base_fee;
-	e->fee_per_millionth = c->proportional_fee;
-	e->delay = c->delay;
-	e->min = c->htlc_minimum;
-	e->max = c->htlc_maximum;
-
-	return e;
-}
-
-/*~ We don't keep channel features in memory; they're rarely used.  So we
- * remember if it exists, and load it off disk when needed. */
-static u8 *get_channel_features(const tal_t *ctx,
-				struct gossip_store *gs,
-				const struct chan *chan)
-{
-	secp256k1_ecdsa_signature sig;
-	u8 *features;
-	struct bitcoin_blkid chain_hash;
-	struct short_channel_id short_channel_id;
-	struct node_id node_id;
-	struct pubkey bitcoin_key;
-	struct amount_sat sats;
-	u8 *ann;
-
-	/* This is where we stash a flag to indicate it exists. */
-	if (!chan->half[0].any_features)
-		return NULL;
-
-	ann = cast_const(u8 *, gossip_store_get(tmpctx, gs, chan->bcast.index));
-
-	/* Could be a private_channel */
-	fromwire_gossip_store_private_channel(tmpctx, ann, &sats, &ann);
-
-	if (!fromwire_channel_announcement(ctx, ann, &sig, &sig, &sig, &sig,
-					   &features, &chain_hash,
-					   &short_channel_id,
-					   &node_id, &node_id,
-					   &bitcoin_key, &bitcoin_key))
-		status_failed(STATUS_FAIL_INTERNAL_ERROR,
-			      "bad channel_announcement / local_add_channel at %u: %s",
-			      chan->bcast.index, tal_hex(tmpctx, ann));
-
-	return features;
-}
-
-/*~ Marshal (possibly) both channel directions into entries. */
-static void append_channel(struct routing_state *rstate,
-			   const struct gossip_getchannels_entry ***entries,
-			   const struct chan *chan,
-			   const struct node_id *srcfilter)
-{
-	struct gossip_getchannels_entry *e = tal(*entries, struct gossip_getchannels_entry);
-
-	e->node[0] = chan->nodes[0]->id;
-	e->node[1] = chan->nodes[1]->id;
-	e->sat = chan->sat;
-	e->local_disabled = is_chan_local_disabled(rstate, chan);
-	e->public = is_chan_public(chan);
-	e->short_channel_id = chan->scid;
-	e->features = get_channel_features(e, rstate->gs, chan);
-	if (!srcfilter || node_id_eq(&e->node[0], srcfilter))
-		e->e[0] = hc_entry(*entries, chan, 0);
-	else
-		e->e[0] = NULL;
-	if (!srcfilter || node_id_eq(&e->node[1], srcfilter))
-		e->e[1] = hc_entry(*entries, chan, 1);
-	else
-		e->e[1] = NULL;
-
-	/* We choose not to tell lightningd about channels with no updates,
-	 * as they're unusable and can't be represented in the listchannels
-	 * JSON output we use anyway. */
-	if (e->e[0] || e->e[1])
-		tal_arr_expand(entries, e);
-}
-
-/*~ This is where lightningd asks for all channels we know about. */
-static struct io_plan *getchannels_req(struct io_conn *conn,
-				       struct daemon *daemon,
-				       const u8 *msg)
-{
-	u8 *out;
-	const struct gossip_getchannels_entry **entries;
-	struct chan *chan;
-	struct short_channel_id *scid, *prev;
-	struct node_id *source;
-	bool complete = true;
-
-	/* Note: scid is marked optional in gossip_wire.csv */
-	if (!fromwire_gossipd_getchannels_request(msg, msg, &scid, &source,
-						 &prev))
-		master_badmsg(WIRE_GOSSIPD_GETCHANNELS_REQUEST, msg);
-
-	entries = tal_arr(tmpctx, const struct gossip_getchannels_entry *, 0);
-	/* They can ask about a particular channel by short_channel_id */
-	if (scid) {
-		chan = get_channel(daemon->rstate, scid);
-		if (chan)
-			append_channel(daemon->rstate, &entries, chan, NULL);
-	} else if (source) {
-		struct node *s = get_node(daemon->rstate, source);
-		if (s) {
-			struct chan_map_iter i;
-			struct chan *c;
-
-			for (c = first_chan(s, &i); c; c = next_chan(s, &i)) {
-				append_channel(daemon->rstate,
-					       &entries, c, source);
-			}
-		}
-	} else {
-		u64 idx;
-
-		/* For the more general case, we just iterate through every
-		 * short channel id, starting with previous if any (there is
-		 * no scid 0). */
-		idx = prev ? prev->u64 : 0;
-		while ((chan = uintmap_after(&daemon->rstate->chanmap, &idx))) {
-			append_channel(daemon->rstate, &entries, chan, NULL);
-			/* Limit how many we do at once. */
-			if (tal_count(entries) == 4096) {
-				complete = false;
-				break;
-			}
-		}
-	}
-
-	out = towire_gossipd_getchannels_reply(NULL, complete, entries);
-	daemon_conn_send(daemon->master, take(out));
-	return daemon_conn_read_next(conn, daemon->master);
-}
-
-/*~ Similarly, lightningd asks us for all nodes when it gets `listnodes` */
-/* We keep pointers into n, assuming it won't change. */
-static void add_node_entry(const tal_t *ctx,
-			   struct daemon *daemon,
-			   const struct node *n,
-			   struct gossip_getnodes_entry *e)
-{
-	e->nodeid = n->id;
-	if (get_node_announcement(ctx, daemon, n,
-				  e->color, e->alias,
-				  &e->features,
-				  &e->addresses)) {
-		e->last_timestamp = n->bcast.timestamp;
-	} else {
-		/* Timestamp on wire is an unsigned 32 bit: we use a 64-bit
-		 * signed, so -1 means "we never received a
-		 * channel_update". */
-		e->last_timestamp = -1;
-	}
-}
-
-/* Simply routine when they ask for `listnodes` */
-static struct io_plan *getnodes(struct io_conn *conn, struct daemon *daemon,
-				const u8 *msg)
-{
-	u8 *out;
-	struct node *n;
-	const struct gossip_getnodes_entry **nodes;
-	struct gossip_getnodes_entry *node_arr;
-	struct node_id *id;
-
-	if (!fromwire_gossipd_getnodes_request(tmpctx, msg, &id))
-		master_badmsg(WIRE_GOSSIPD_GETNODES_REQUEST, msg);
-
-	/* Format of reply is the same whether they ask for a specific node
-	 * (0 or one responses) or all nodes (0 or more) */
-	if (id) {
-		n = get_node(daemon->rstate, id);
-		if (n) {
-			node_arr = tal_arr(tmpctx,
-					   struct gossip_getnodes_entry,
-					   1);
-			add_node_entry(node_arr, daemon, n, &node_arr[0]);
-		} else {
-			nodes = NULL;
-			node_arr = NULL;
-		}
-	} else {
-		struct node_map_iter it;
-		size_t i = 0;
-		node_arr = tal_arr(tmpctx, struct gossip_getnodes_entry,
-				   node_map_count(daemon->rstate->nodes));
-		n = node_map_first(daemon->rstate->nodes, &it);
-		while (n != NULL) {
-			add_node_entry(node_arr, daemon, n, &node_arr[i++]);
-			n = node_map_next(daemon->rstate->nodes, &it);
-		}
-		assert(i == node_map_count(daemon->rstate->nodes));
-	}
-
-	/* FIXME: towire wants array of pointers. */
-	nodes = tal_arr(tmpctx, const struct gossip_getnodes_entry *,
-			tal_count(node_arr));
-	for (size_t i = 0; i < tal_count(node_arr); i++)
-		nodes[i] = &node_arr[i];
-	out = towire_gossipd_getnodes_reply(NULL, nodes);
-	daemon_conn_send(daemon->master, take(out));
-	return daemon_conn_read_next(conn, daemon->master);
-}
-
 /*~ We currently have a JSON command to ping a peer: it ends up here, where
  * gossipd generates the actual ping and sends it like any other gossip. */
 static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
@@ -1469,81 +1190,6 @@ static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
 		peer->num_pings_outstanding++;
 
 out:
-	return daemon_conn_read_next(conn, daemon->master);
-}
-
-/*~ If a node has no public channels (other than the one to us), it's not
- * a very useful route to tell anyone about. */
-static bool node_has_public_channels(const struct node *peer,
-				     const struct chan *exclude)
-{
-	struct chan_map_iter i;
-	struct chan *c;
-
-	for (c = first_chan(peer, &i); c; c = next_chan(peer, &i)) {
-		if (c == exclude)
-			continue;
-		if (is_chan_public(c))
-			return true;
-	}
-	return false;
-}
-
-/*~ For routeboost, we offer payers a hint of what incoming channels might
- * have capacity for their payment.  To do this, lightningd asks for the
- * information about all channels to this node; but gossipd doesn't know about
- * current capacities, so lightningd selects which to use. */
-static struct io_plan *get_incoming_channels(struct io_conn *conn,
-					     struct daemon *daemon,
-					     const u8 *msg)
-{
-	struct node *node;
-	struct route_info *public = tal_arr(tmpctx, struct route_info, 0);
-	struct route_info *private = tal_arr(tmpctx, struct route_info, 0);
-	bool *priv_deadends = tal_arr(tmpctx, bool, 0);
-	bool *pub_deadends = tal_arr(tmpctx, bool, 0);
-
-	if (!fromwire_gossipd_get_incoming_channels(msg))
-		master_badmsg(WIRE_GOSSIPD_GET_INCOMING_CHANNELS, msg);
-
-	node = get_node(daemon->rstate, &daemon->rstate->local_id);
-	if (node) {
-		struct chan_map_iter i;
-		struct chan *c;
-
-		for (c = first_chan(node, &i); c; c = next_chan(node, &i)) {
-			const struct half_chan *hc;
-			struct route_info ri;
-			bool deadend;
-
-			hc = &c->half[half_chan_to(node, c)];
-
-			if (!is_halfchan_enabled(hc))
-				continue;
-
-			ri.pubkey = other_node(node, c)->id;
-			ri.short_channel_id = c->scid;
-			ri.fee_base_msat = hc->base_fee;
-			ri.fee_proportional_millionths = hc->proportional_fee;
-			ri.cltv_expiry_delta = hc->delay;
-
-			deadend = !node_has_public_channels(other_node(node, c),
-							    c);
-			if (is_chan_public(c)) {
-				tal_arr_expand(&public, ri);
-				tal_arr_expand(&pub_deadends, deadend);
-			} else {
-				tal_arr_expand(&private, ri);
-				tal_arr_expand(&priv_deadends, deadend);
-			}
-		}
-	}
-
-	msg = towire_gossipd_get_incoming_channels_reply(NULL,
-							public, pub_deadends,
-							private, priv_deadends);
-	daemon_conn_send(daemon->master, take(msg));
-
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
@@ -1816,15 +1462,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_INIT:
 		return gossip_init(conn, daemon, msg);
 
-	case WIRE_GOSSIPD_GETNODES_REQUEST:
-		return getnodes(conn, daemon, msg);
-
-	case WIRE_GOSSIPD_GETROUTE_REQUEST:
-		return getroute_req(conn, daemon, msg);
-
-	case WIRE_GOSSIPD_GETCHANNELS_REQUEST:
-		return getchannels_req(conn, daemon, msg);
-
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE:
 		return get_stripped_cupdate(conn, daemon, msg);
 
@@ -1839,9 +1476,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 
 	case WIRE_GOSSIPD_PING:
 		return ping_req(conn, daemon, msg);
-
-	case WIRE_GOSSIPD_GET_INCOMING_CHANNELS:
-		return get_incoming_channels(conn, daemon, msg);
 
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
 		return new_blockheight(conn, daemon, msg);
@@ -1872,12 +1506,8 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_SEND_ONIONMSG:
 		return onionmsg_req(conn, daemon, msg);
 	/* We send these, we don't receive them */
-	case WIRE_GOSSIPD_GETNODES_REPLY:
-	case WIRE_GOSSIPD_GETROUTE_REPLY:
-	case WIRE_GOSSIPD_GETCHANNELS_REPLY:
 	case WIRE_GOSSIPD_PING_REPLY:
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE_REPLY:
-	case WIRE_GOSSIPD_GET_INCOMING_CHANNELS_REPLY:
 	case WIRE_GOSSIPD_GET_TXOUT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:

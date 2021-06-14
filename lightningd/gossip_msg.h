@@ -54,9 +54,4 @@ fromwire_gossip_getchannels_entry(const tal_t *ctx,
 void towire_gossip_getchannels_entry(
     u8 **pptr, const struct gossip_getchannels_entry *entry);
 
-struct exclude_entry *
-fromwire_exclude_entry(const tal_t *ctx,
-		       const u8 **pptr, size_t *max);
-void towire_exclude_entry(u8 **pptr, const struct exclude_entry *entry);
-
 #endif /* LIGHTNING_LIGHTNINGD_GOSSIP_MSG_H */

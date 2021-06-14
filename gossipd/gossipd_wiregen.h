@@ -11,22 +11,12 @@
 #include <common/features.h>
 #include <common/wireaddr.h>
 #include <wire/onion_wire.h>
-#include <lightningd/gossip_msg.h>
-#include <common/bolt11.h>
 
 enum gossipd_wire {
         /*  Initialize the gossip daemon. */
         WIRE_GOSSIPD_INIT = 3000,
         /*  In developer mode */
         WIRE_GOSSIPD_DEV_SET_TIME = 3001,
-        /*  Pass JSON-RPC getnodes call through */
-        WIRE_GOSSIPD_GETNODES_REQUEST = 3005,
-        WIRE_GOSSIPD_GETNODES_REPLY = 3105,
-        /*  Pass JSON-RPC getroute call through */
-        WIRE_GOSSIPD_GETROUTE_REQUEST = 3006,
-        WIRE_GOSSIPD_GETROUTE_REPLY = 3106,
-        WIRE_GOSSIPD_GETCHANNELS_REQUEST = 3007,
-        WIRE_GOSSIPD_GETCHANNELS_REPLY = 3107,
         /*  Ping/pong test.  Waits for a reply if it expects one. */
         WIRE_GOSSIPD_PING = 3008,
         WIRE_GOSSIPD_PING_REPLY = 3108,
@@ -52,10 +42,6 @@ enum gossipd_wire {
         WIRE_GOSSIPD_DEV_COMPACT_STORE = 3034,
         /*  gossipd -> master: ok */
         WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY = 3134,
-        /*  master -> gossipd: get route_info for our incoming channels */
-        WIRE_GOSSIPD_GET_INCOMING_CHANNELS = 3025,
-        /*  gossipd -> master: here they are. */
-        WIRE_GOSSIPD_GET_INCOMING_CHANNELS_REPLY = 3125,
         /*  master -> gossipd: blockheight increased. */
         WIRE_GOSSIPD_NEW_BLOCKHEIGHT = 3026,
         /*  Tell lightningd we got a onion message (for us */
@@ -90,32 +76,6 @@ bool fromwire_gossipd_init(const tal_t *ctx, const void *p, const struct chainpa
 /*  In developer mode */
 u8 *towire_gossipd_dev_set_time(const tal_t *ctx, u32 dev_gossip_time);
 bool fromwire_gossipd_dev_set_time(const void *p, u32 *dev_gossip_time);
-
-/* WIRE: GOSSIPD_GETNODES_REQUEST */
-/*  Pass JSON-RPC getnodes call through */
-u8 *towire_gossipd_getnodes_request(const tal_t *ctx, const struct node_id *id);
-bool fromwire_gossipd_getnodes_request(const tal_t *ctx, const void *p, struct node_id **id);
-
-/* WIRE: GOSSIPD_GETNODES_REPLY */
-u8 *towire_gossipd_getnodes_reply(const tal_t *ctx, const struct gossip_getnodes_entry **nodes);
-bool fromwire_gossipd_getnodes_reply(const tal_t *ctx, const void *p, struct gossip_getnodes_entry ***nodes);
-
-/* WIRE: GOSSIPD_GETROUTE_REQUEST */
-/*  Pass JSON-RPC getroute call through */
-u8 *towire_gossipd_getroute_request(const tal_t *ctx, const struct node_id *source, const struct node_id *destination, struct amount_msat msatoshi, u64 riskfactor_millionths, u32 final_cltv, u64 fuzz_millionths, const struct exclude_entry **excluded, u32 max_hops);
-bool fromwire_gossipd_getroute_request(const tal_t *ctx, const void *p, struct node_id **source, struct node_id *destination, struct amount_msat *msatoshi, u64 *riskfactor_millionths, u32 *final_cltv, u64 *fuzz_millionths, struct exclude_entry ***excluded, u32 *max_hops);
-
-/* WIRE: GOSSIPD_GETROUTE_REPLY */
-u8 *towire_gossipd_getroute_reply(const tal_t *ctx, const struct route_hop **hops);
-bool fromwire_gossipd_getroute_reply(const tal_t *ctx, const void *p, struct route_hop ***hops);
-
-/* WIRE: GOSSIPD_GETCHANNELS_REQUEST */
-u8 *towire_gossipd_getchannels_request(const tal_t *ctx, const struct short_channel_id *short_channel_id, const struct node_id *source, const struct short_channel_id *prev);
-bool fromwire_gossipd_getchannels_request(const tal_t *ctx, const void *p, struct short_channel_id **short_channel_id, struct node_id **source, struct short_channel_id **prev);
-
-/* WIRE: GOSSIPD_GETCHANNELS_REPLY */
-u8 *towire_gossipd_getchannels_reply(const tal_t *ctx, bool complete, const struct gossip_getchannels_entry **nodes);
-bool fromwire_gossipd_getchannels_reply(const tal_t *ctx, const void *p, bool *complete, struct gossip_getchannels_entry ***nodes);
 
 /* WIRE: GOSSIPD_PING */
 /*  Ping/pong test.  Waits for a reply if it expects one. */
@@ -184,16 +144,6 @@ bool fromwire_gossipd_dev_compact_store(const void *p);
 u8 *towire_gossipd_dev_compact_store_reply(const tal_t *ctx, bool success);
 bool fromwire_gossipd_dev_compact_store_reply(const void *p, bool *success);
 
-/* WIRE: GOSSIPD_GET_INCOMING_CHANNELS */
-/*  master -> gossipd: get route_info for our incoming channels */
-u8 *towire_gossipd_get_incoming_channels(const tal_t *ctx);
-bool fromwire_gossipd_get_incoming_channels(const void *p);
-
-/* WIRE: GOSSIPD_GET_INCOMING_CHANNELS_REPLY */
-/*  gossipd -> master: here they are. */
-u8 *towire_gossipd_get_incoming_channels_reply(const tal_t *ctx, const struct route_info *public_route_info, const bool *public_deadends, const struct route_info *private_route_info, const bool *private_deadends);
-bool fromwire_gossipd_get_incoming_channels_reply(const tal_t *ctx, const void *p, struct route_info **public_route_info, bool **public_deadends, struct route_info **private_route_info, bool **private_deadends);
-
 /* WIRE: GOSSIPD_NEW_BLOCKHEIGHT */
 /*  master -> gossipd: blockheight increased. */
 u8 *towire_gossipd_new_blockheight(const tal_t *ctx, u32 blockheight);
@@ -225,4 +175,4 @@ bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestrin
 
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_WIREGEN_H */
-// SHA256STAMP:a0d7494995d7f95fb7df295bab9d865e18670f15243116a0aaa9b9548534b922
+// SHA256STAMP:bc9045727cefbbe29118c8eae928972fe009a4d9d8c9e903f8b35f006973f462

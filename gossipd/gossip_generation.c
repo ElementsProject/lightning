@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <gossipd/gossip_generation.h>
 #include <gossipd/gossip_store.h>
+#include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
@@ -414,6 +415,12 @@ void refresh_local_channel(struct daemon *daemon,
 {
 	const struct half_chan *hc;
 	struct local_cupdate *lc;
+	u8 *prev;
+	secp256k1_ecdsa_signature signature;
+	struct bitcoin_blkid chain_hash;
+	struct short_channel_id short_channel_id;
+	u32 timestamp;
+	u8 message_flags, channel_flags;
 
 	hc = &local_chan->chan->half[local_chan->direction];
 
@@ -425,14 +432,32 @@ void refresh_local_channel(struct daemon *daemon,
 	lc->daemon = daemon;
 	lc->local_chan = local_chan;
 	lc->even_if_identical = even_if_identical;
-	lc->disable = (hc->channel_flags & ROUTING_FLAGS_DISABLED)
-		|| local_chan->local_disabled;
-	lc->cltv_expiry_delta = hc->delay;
-	lc->htlc_minimum = hc->htlc_minimum;
-	lc->htlc_maximum = hc->htlc_maximum;
-	lc->fee_base_msat = hc->base_fee;
-	lc->fee_proportional_millionths = hc->proportional_fee;
 
+	prev = cast_const(u8 *,
+			  gossip_store_get(tmpctx, daemon->rstate->gs,
+					   local_chan->chan->half[local_chan->direction]
+					   .bcast.index));
+
+	/* If it's a private update, unwrap */
+	fromwire_gossip_store_private_update(tmpctx, prev, &prev);
+
+	if (!fromwire_channel_update_option_channel_htlc_max(prev,
+				     &signature, &chain_hash,
+				     &short_channel_id, &timestamp,
+				     &message_flags, &channel_flags,
+				     &lc->cltv_expiry_delta,
+				     &lc->htlc_minimum,
+				     &lc->fee_base_msat,
+				     &lc->fee_proportional_millionths,
+				     &lc->htlc_maximum)) {
+		status_broken("Could not decode local channel_update %s!",
+			      tal_hex(tmpctx, prev));
+		tal_free(lc);
+		return;
+	}
+
+	lc->disable = (channel_flags & ROUTING_FLAGS_DISABLED)
+		|| local_chan->local_disabled;
 	update_local_channel(lc);
 }
 

@@ -194,32 +194,3 @@ void towire_gossip_getchannels_entry(u8 **pptr,
 	} else
 		towire_bool(pptr, false);
 }
-
-struct exclude_entry *fromwire_exclude_entry(const tal_t *ctx,
-					     const u8 **pptr, size_t *max)
-{
-	struct exclude_entry *entry = tal(ctx, struct exclude_entry);
-	entry->type = fromwire_u8(pptr, max);
-	switch (entry->type) {
-		case EXCLUDE_CHANNEL:
-			fromwire_short_channel_id_dir(pptr, max, &entry->u.chan_id);
-			return entry;
-		case EXCLUDE_NODE:
-			fromwire_node_id(pptr, max, &entry->u.node_id);
-			return entry;
-		default:
-			return fromwire_fail(pptr, max);
-	}
-}
-
-void towire_exclude_entry(u8 **pptr, const struct exclude_entry *entry)
-{
-	assert(entry->type == EXCLUDE_CHANNEL ||
-	       entry->type == EXCLUDE_NODE);
-
-	towire_u8(pptr, entry->type);
-	if (entry->type == EXCLUDE_CHANNEL)
-		towire_short_channel_id_dir(pptr, &entry->u.chan_id);
-	else
-		towire_node_id(pptr, &entry->u.node_id);
-}

@@ -20,42 +20,6 @@ msgdata,gossipd_init,dev_fast_gossip_prune,bool,
 msgtype,gossipd_dev_set_time,3001
 msgdata,gossipd_dev_set_time,dev_gossip_time,u32,
 
-# Pass JSON-RPC getnodes call through
-msgtype,gossipd_getnodes_request,3005
-msgdata,gossipd_getnodes_request,id,?node_id,
-
-#include <lightningd/gossip_msg.h>
-msgtype,gossipd_getnodes_reply,3105
-msgdata,gossipd_getnodes_reply,num_nodes,u32,
-msgdata,gossipd_getnodes_reply,nodes,gossip_getnodes_entry,num_nodes
-
-# Pass JSON-RPC getroute call through
-msgtype,gossipd_getroute_request,3006
-# Source defaults to "us", and means we don't consider first-hop channel fees
-msgdata,gossipd_getroute_request,source,?node_id,
-msgdata,gossipd_getroute_request,destination,node_id,
-msgdata,gossipd_getroute_request,msatoshi,amount_msat,
-msgdata,gossipd_getroute_request,riskfactor_millionths,u64,
-msgdata,gossipd_getroute_request,final_cltv,u32,
-msgdata,gossipd_getroute_request,fuzz_millionths,u64,
-msgdata,gossipd_getroute_request,num_excluded,u16,
-msgdata,gossipd_getroute_request,excluded,exclude_entry,num_excluded
-msgdata,gossipd_getroute_request,max_hops,u32,
-
-msgtype,gossipd_getroute_reply,3106
-msgdata,gossipd_getroute_reply,num_hops,u16,
-msgdata,gossipd_getroute_reply,hops,route_hop,num_hops
-
-msgtype,gossipd_getchannels_request,3007
-msgdata,gossipd_getchannels_request,short_channel_id,?short_channel_id,
-msgdata,gossipd_getchannels_request,source,?node_id,
-msgdata,gossipd_getchannels_request,prev,?short_channel_id,
-
-msgtype,gossipd_getchannels_reply,3107
-msgdata,gossipd_getchannels_reply,complete,bool,
-msgdata,gossipd_getchannels_reply,num_channels,u32,
-msgdata,gossipd_getchannels_reply,nodes,gossip_getchannels_entry,num_channels
-
 # Ping/pong test.  Waits for a reply if it expects one.
 msgtype,gossipd_ping,3008
 msgdata,gossipd_ping,id,node_id,
@@ -115,20 +79,6 @@ msgtype,gossipd_dev_compact_store,3034
 # gossipd -> master: ok
 msgtype,gossipd_dev_compact_store_reply,3134
 msgdata,gossipd_dev_compact_store_reply,success,bool,
-
-#include <common/bolt11.h>
-
-# master -> gossipd: get route_info for our incoming channels
-msgtype,gossipd_get_incoming_channels,3025
-
-# gossipd -> master: here they are.
-msgtype,gossipd_get_incoming_channels_reply,3125
-msgdata,gossipd_get_incoming_channels_reply,num_public,u16,
-msgdata,gossipd_get_incoming_channels_reply,public_route_info,route_info,num_public
-msgdata,gossipd_get_incoming_channels_reply,public_deadends,bool,num_public
-msgdata,gossipd_get_incoming_channels_reply,num_private,u16,
-msgdata,gossipd_get_incoming_channels_reply,private_route_info,route_info,num_private
-msgdata,gossipd_get_incoming_channels_reply,private_deadends,bool,num_private
 
 # master -> gossipd: blockheight increased.
 msgtype,gossipd_new_blockheight,3026
