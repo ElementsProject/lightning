@@ -212,7 +212,7 @@ static int decrypt_hsm(const char *hsm_secret_path)
 	unlink_noerr(backup);
 	tal_free(dir);
 
-	printf("Succesfully decrypted hsm_secret, be careful now :-).\n");
+	printf("Successfully decrypted hsm_secret, be careful now :-).\n");
 	return 0;
 }
 
@@ -285,7 +285,7 @@ static int encrypt_hsm(const char *hsm_secret_path)
 	unlink_noerr(backup);
 	tal_free(dir);
 
-	printf("Succesfully encrypted hsm_secret. You'll now have to pass the "
+	printf("Successfully encrypted hsm_secret. You'll now have to pass the "
 	       "--encrypted-hsm startup option.\n");
 	return 0;
 }
