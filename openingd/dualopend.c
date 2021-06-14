@@ -123,6 +123,9 @@ struct tx_state {
 
 	/* Rates that we're using for this open... */
 	struct lease_rates *rates;
+
+	/* If delay til the channel funds lease expires */
+	u32 lease_expiry;
 };
 
 static struct tx_state *new_tx_state(const tal_t *ctx)
@@ -192,9 +195,6 @@ struct state {
 
 	/* State of inflight funding transaction attempt */
 	struct tx_state *tx_state;
-
-	/* If delay til the channel funds lease expires */
-	u32 lease_expiry;
 };
 
 /* psbt_changeset_get_next - Get next message to send
@@ -2212,6 +2212,47 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	sync_crypto_write(state->pps, msg);
 	peer_billboard(false, "channel open: accept sent, waiting for reply");
 
+	/* Add our fee to our amount now */
+	if (tx_state->rates) {
+		struct amount_sat lease_fee;
+
+		tx_state->lease_expiry
+			= lease_blockheight_start + LEASE_RATE_DURATION;
+
+		/* BOLT- #2:
+		 * The lease fee is added to the accepter's balance
+		 * in a channel, in addition to the `funding_satoshi`
+		 * that they are contributing. The channel initiator
+		 * must contribute enough funds to cover
+		 * `open_channel2`.`funding_satoshis`, the lease fee,
+		 * and their tx weight * `funding_feerate_perkw` / 1000.
+		 */
+		if (!lease_rates_calc_fee(tx_state->rates,
+					  tx_state->accepter_funding,
+					  requested_amt,
+					  tx_state->feerate_per_kw_funding,
+					  &lease_fee))
+			negotiation_failed(state,
+					   "Unable to calculate lease fee");
+
+		/* Add it to the accepter's total */
+		if (!amount_sat_add(&tx_state->accepter_funding,
+				    tx_state->accepter_funding, lease_fee)) {
+
+			negotiation_failed(state,
+					   "Unable to add accepter's funding"
+					   " and channel lease fee (%s + %s)",
+					   type_to_string(tmpctx,
+							  struct amount_sat,
+							  &tx_state->accepter_funding),
+					   type_to_string(tmpctx,
+							  struct amount_sat,
+							  &lease_fee));
+			return;
+		}
+	} else
+		tx_state->lease_expiry = 0;
+
 	/* This is unused in this flow. We re-use
 	 * the wire method between accepter + opener, so we set it
 	 * to an invalid number, 1 (initiator sets; valid is even) */
@@ -2655,11 +2696,11 @@ static void opener_start(struct state *state, u8 *msg)
 		struct lease_rates *rates = &a_tlv->will_fund->lease_rates;
 		struct amount_sat lease_fee;
 
-		state->lease_expiry = current_blockheight + LEASE_RATE_DURATION;
+		tx_state->lease_expiry = current_blockheight + LEASE_RATE_DURATION;
 
 		msg = towire_dualopend_validate_lease(NULL,
 						      &a_tlv->will_fund->signature,
-						      state->lease_expiry,
+						      tx_state->lease_expiry,
 						      rates->channel_fee_max_base_msat,
 						      rates->channel_fee_max_proportional_thousandths,
 						      &state->their_funding_pubkey);
@@ -2706,7 +2747,7 @@ static void opener_start(struct state *state, u8 *msg)
 			return;
 		}
 	} else
-		state->lease_expiry = 0;
+		tx_state->lease_expiry = 0;
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
