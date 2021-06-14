@@ -62,8 +62,8 @@ bool is_wrong_channel(const u8 *msg, const struct channel_id *expected,
  * @msg: the peer message (only taken if returns true).
  *
  * This returns true if it handled the packet: a gossip packet (forwarded
- * to gossipd), an error packet (causes peer_failed_received_errmsg or
- * ignored), or a message about the wrong channel (sends sync error reply).
+ * to gossipd), or an error packet (causes peer_failed_received_errmsg or
+ * ignored).
  */
 bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 				 const struct channel_id *channel_id,

@@ -2668,6 +2668,15 @@ static void peer_reconnect(struct peer *peer,
 				 tal_hex(msg, msg));
 	}
 
+	if (!channel_id_eq(&channel_id, &peer->channel_id)) {
+		peer_failed_err(peer->pps,
+				&channel_id,
+				"bad reestablish msg for unknown channel %s: %s",
+				type_to_string(tmpctx, struct channel_id,
+					       &channel_id),
+				tal_hex(msg, msg));
+	}
+
 	status_debug("Got reestablish commit=%"PRIu64" revoke=%"PRIu64,
 		     next_commitment_number,
 		     next_revocation_number);
