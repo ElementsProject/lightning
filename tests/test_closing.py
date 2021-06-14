@@ -2742,7 +2742,6 @@ def test_shutdown_alternate_txid(node_factory, bitcoind):
     wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.developer("needs dev_disconnect")
 def test_htlc_rexmit_while_closing(node_factory, executor):
     """Retranmitting an HTLC revocation while shutting down should work"""

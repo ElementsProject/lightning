@@ -193,17 +193,13 @@ static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSE
 }
 
 void peer_start_closingd(struct channel *channel,
-			 struct per_peer_state *pps,
-			 bool reconnected,
-			 const u8 *channel_reestablish)
+			 struct per_peer_state *pps)
 {
 	u8 *initmsg;
 	u32 feerate;
 	struct amount_sat minfee, startfee, feelimit;
-	u64 num_revocations;
 	struct amount_msat their_msat;
 	int hsmfd;
-	struct secret last_remote_per_commit_secret;
 	struct lightningd *ld = channel->peer->ld;
 	u32 final_commit_feerate;
 
@@ -270,9 +266,6 @@ void peer_start_closingd(struct channel *channel,
 	if (amount_sat_greater(minfee, feelimit))
 		minfee = feelimit;
 
-	num_revocations
-		= revocations_received(&channel->their_shachain.chain);
-
 	/* BOLT #3:
 	 *
 	 * Each node offering a signature:
@@ -292,25 +285,6 @@ void peer_start_closingd(struct channel *channel,
 		return;
 	}
 
-	/* BOLT #2:
-	 *     - if `next_revocation_number` equals 0:
-	 *       - MUST set `your_last_per_commitment_secret` to all zeroes
-	 *     - otherwise:
-	 *       - MUST set `your_last_per_commitment_secret` to the last
-	 *         `per_commitment_secret` it received
-	 */
-	if (num_revocations == 0)
-		memset(&last_remote_per_commit_secret, 0,
-		       sizeof(last_remote_per_commit_secret));
-	else if (!shachain_get_secret(&channel->their_shachain.chain,
-				      num_revocations-1,
-				      &last_remote_per_commit_secret)) {
-		channel_fail_permanent(channel,
-				       REASON_LOCAL,
-				       "Could not get revocation secret %"PRIu64,
-				       num_revocations-1);
-		return;
-	}
 	initmsg = towire_closingd_init(tmpctx,
 				       chainparams,
 				       pps,
@@ -329,12 +303,6 @@ void peer_start_closingd(struct channel *channel,
 				       channel->shutdown_scriptpubkey[REMOTE],
 				       channel->closing_fee_negotiation_step,
 				       channel->closing_fee_negotiation_step_unit,
-				       reconnected,
-				       channel->next_index[LOCAL],
-				       channel->next_index[REMOTE],
-				       num_revocations,
-				       channel_reestablish,
-				       &last_remote_per_commit_secret,
 				       IFDEV(ld->dev_fast_gossip, false),
 				       channel->shutdown_wrong_funding);
 

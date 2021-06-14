@@ -649,12 +649,6 @@ void peer_start_channeld(struct channel *channel UNNEEDED,
 			 const u8 *fwd_msg UNNEEDED,
 			 bool reconnected UNNEEDED)
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
-/* Generated stub for peer_start_closingd */
-void peer_start_closingd(struct channel *channel UNNEEDED,
-			 struct per_peer_state *pps UNNEEDED,
-			 bool reconnected UNNEEDED,
-			 const u8 *channel_reestablish UNNEEDED)
-{ fprintf(stderr, "peer_start_closingd called!\n"); abort(); }
 /* Generated stub for peer_start_dualopend */
 void peer_start_dualopend(struct peer *peer UNNEEDED, struct per_peer_state *pps UNNEEDED)
 { fprintf(stderr, "peer_start_dualopend called!\n"); abort(); }
