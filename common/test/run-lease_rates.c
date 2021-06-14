@@ -95,11 +95,42 @@ static void check_lease_rate_commitment_hash(void)
 
 }
 
+static void check_lease_rate_fees(void)
+{
+	/* BOLT- #2:
+	 * E.g.
+	 * An node requests 1_000_000sats at a feerate of 2500perkw. They
+	 * are contributing 500_000sats. Their weight contribution to the
+	 * funding transaction will be 720.
+	 *
+	 * The accepter adds 1,100,000sats and charges a base funding fee of
+	 * 233sats with a lease fee basis of 22. Their funding weight is 444.
+	 * The lease fee is as follows:
+	 * 233 + min(1_000_000,1_100_000) * 22 / 10_000 + 444 * 2500 / 1000
+	 * The total lease fee for this open is 3543sats.
+	 */
+	struct amount_sat request_sats = amount_sat(1000000);
+	struct amount_sat accepter_contrib = amount_sat(1100000);
+	struct amount_sat fee;
+	struct lease_rates rates;
+	u32 feerate = 2500;
+
+	rates.lease_fee_basis = 22;
+	rates.lease_fee_base_sat = 233;
+	rates.funding_weight = 444;
+
+	assert(lease_rates_calc_fee(&rates, accepter_contrib,
+				    request_sats, feerate,
+				    &fee));
+	assert(amount_sat_eq(fee, amount_sat(3543)));
+}
+
 int main(int argc, char *argv[])
 {
 	common_setup(argv[0]);
 
 	check_lease_rate_commitment_hash();
+	check_lease_rate_fees();
 
 	common_shutdown();
 }

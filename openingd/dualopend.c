@@ -192,6 +192,9 @@ struct state {
 
 	/* State of inflight funding transaction attempt */
 	struct tx_state *tx_state;
+
+	/* If delay til the channel funds lease expires */
+	u32 lease_expiry;
 };
 
 /* psbt_changeset_get_next - Get next message to send
@@ -2491,7 +2494,7 @@ static void opener_start(struct state *state, u8 *msg)
 	struct channel_id cid;
 	char *err_reason;
 	struct amount_sat total, requested_sats;
-	u32 current_blockheight, lease_expiry;
+	u32 current_blockheight;
 	bool dry_run;
 	struct tx_state *tx_state = state->tx_state;
 
@@ -2642,16 +2645,21 @@ static void opener_start(struct state *state, u8 *msg)
 		open_err_warn(state, "%s", "Abort requested");
 	}
 
-	/* FIXME: BOLT QUOTE */
+	/* BOLT- #2:
+	 * The accepting node:  ...
+	 *  - if they decide to accept the offer:
+	 *    - MUST include a `will_fund` tlv
+	 */
 	if (open_tlv->request_funds && a_tlv->will_fund) {
 		char *err_msg;
 		struct lease_rates *rates = &a_tlv->will_fund->lease_rates;
+		struct amount_sat lease_fee;
 
-		lease_expiry = current_blockheight + LEASE_RATE_DURATION;
+		state->lease_expiry = current_blockheight + LEASE_RATE_DURATION;
 
 		msg = towire_dualopend_validate_lease(NULL,
 						      &a_tlv->will_fund->signature,
-						      lease_expiry,
+						      state->lease_expiry,
 						      rates->channel_fee_max_base_msat,
 						      rates->channel_fee_max_proportional_thousandths,
 						      &state->their_funding_pubkey);
@@ -2666,8 +2674,39 @@ static void opener_start(struct state *state, u8 *msg)
 
 		if (err_msg)
 			open_err_warn(state, "%s", err_msg);
+
+		/* BOLT- #2:
+		 * The lease fee is added to the accepter's balance
+		 * in a channel, in addition to the `funding_satoshi`
+		 * that they are contributing. The channel initiator
+		 * must contribute enough funds to cover
+		 * `open_channel2`.`funding_satoshis`, the lease fee,
+		 * and their tx weight * `funding_feerate_perkw` / 1000.
+		 */
+		if (!lease_rates_calc_fee(rates, tx_state->accepter_funding,
+					  requested_sats,
+					  tx_state->feerate_per_kw_funding,
+					  &lease_fee))
+			negotiation_failed(state,
+					   "Unable to calculate lease fee");
+
+		/* Add it to the accepter's total */
+		if (!amount_sat_add(&tx_state->accepter_funding,
+				    tx_state->accepter_funding, lease_fee)) {
+
+			negotiation_failed(state,
+					   "Unable to add accepter's funding"
+					   " and channel lease fee (%s + %s)",
+					   type_to_string(tmpctx,
+							  struct amount_sat,
+							  &tx_state->accepter_funding),
+					   type_to_string(tmpctx,
+							  struct amount_sat,
+							  &lease_fee));
+			return;
+		}
 	} else
-		lease_expiry = 0;
+		state->lease_expiry = 0;
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
