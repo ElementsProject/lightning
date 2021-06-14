@@ -87,15 +87,12 @@ The following error codes may occur:
 - 902: None of the specified *exposeprivatechannels* were usable.
 
 One of the following warnings may occur (on success):
-- *warning\_offline* if no channel with a currently connected peer has
-    the incoming capacity to pay this invoice
-- *warning\_capacity* if there is no channel that has sufficient
-    incoming capacity
-- *warning\_deadends* if there is no channel that is not a dead-end
+- *warning_capacity*: even using all possible channels, there's not enough incoming capacity to pay this invoice.
+- *warning_offline*: there would be enough incoming capacity, but some channels are offline, so there isn't.
+- *warning_deadends*: there would be enough incoming capacity, but some channels are dead-ends (no other public channels from those peers), so there isn't.
+- *warning_private_unused*: there would be enough incoming capacity, but some channels are unannounced and *exposeprivatechannels* is *false*, so there isn't.
 - *warning_mpp* if there is sufficient capacity, but not in a single channel,
     so the payer will have to use multi-part payments.
-- *warning_mpp_capacity* if there is not sufficient capacity, even with all
-    channels.
 
 AUTHOR
 ------

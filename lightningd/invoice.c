@@ -603,8 +603,7 @@ static struct route_info **select_inchan_mpp(const tal_t *ctx,
 					     struct lightningd *ld,
 					     struct amount_msat amount_needed,
 					     struct routehint_candidate
-					     *candidates,
-					     bool *warning_mpp_capacity)
+					     *candidates)
 {
 	/* The total amount we have gathered for incoming channels.  */
 	struct amount_msat gathered;
@@ -637,9 +636,6 @@ static struct route_info **select_inchan_mpp(const tal_t *ctx,
 		candidates[i].c->rr_number = ld->rr_counter++;
 	}
 
-	/* Check if we gathered enough.  */
-	*warning_mpp_capacity = amount_msat_less(gathered, amount_needed);
-
 	return routehints;
 }
 
@@ -657,76 +653,159 @@ struct invoice_info {
 	struct chanhints *chanhints;
 };
 
-static void gossipd_incoming_channels_reply(struct subd *gossipd,
-					    const u8 *msg,
-					    const int *fs,
-					    struct invoice_info *info)
+/* Add routehints based on listincoming results: NULL means success. */
+static struct command_result *
+add_routehints(struct invoice_info *info,
+	       const char *buffer,
+	       const jsmntok_t *toks,
+	       bool *warning_mpp,
+	       bool *warning_capacity,
+	       bool *warning_deadends,
+	       bool *warning_offline,
+	       bool *warning_private_unused)
+{
+	const struct chanhints *chanhints = info->chanhints;
+	bool node_unpublished;
+	struct amount_msat avail_capacity, deadend_capacity, offline_capacity,
+		private_capacity;
+	struct routehint_candidate *candidates;
+	struct amount_msat total, needed;
+
+	/* Dev code can force routes. */
+	if (tal_count(info->b11->routes) != 0) {
+	       *warning_mpp = *warning_capacity = *warning_deadends
+		       = *warning_offline = *warning_private_unused
+		       = false;
+		return NULL;
+	}
+
+	candidates = routehint_candidates(tmpctx, info->cmd->ld,
+					  buffer, toks,
+					  chanhints ? &chanhints->expose_all_private : NULL,
+					  chanhints ? chanhints->hints : NULL,
+					  &node_unpublished,
+					  &avail_capacity,
+					  &private_capacity,
+					  &deadend_capacity,
+					  &offline_capacity);
+
+	/* If they told us to use scids and we couldn't, fail. */
+	if (tal_count(candidates) == 0
+	    && chanhints && tal_count(chanhints->hints) != 0) {
+		return command_fail(info->cmd,
+				    INVOICE_HINTS_GAVE_NO_ROUTES,
+				    "None of those hints were suitable local channels");
+	}
+
+	needed = info->b11->msat ? *info->b11->msat : AMOUNT_MSAT(1);
+
+	/* If we are not completely unpublished, try with reservoir
+	 * sampling first.
+	 *
+	 * Why do we not do this if we are completely unpublished?
+	 * Because it is possible that multiple invoices will, by
+	 * chance, select the same channel as routehint.
+	 * This single channel might not be able to accept all the
+	 * incoming payments on all the invoices generated.
+	 * If we were published, that is fine because the payer can
+	 * fall back to just attempting to route directly.
+	 * But if we were unpublished, the only way for the payer to
+	 * reach us would be via the routehints we provide, so we
+	 * should make an effort to avoid overlapping incoming
+	 * channels, which is done by select_inchan_mpp.
+	 */
+	if (!node_unpublished)
+		info->b11->routes = select_inchan(info->b11,
+						  info->cmd->ld,
+						  needed,
+						  candidates);
+
+	/* If we are completely unpublished, or if the above reservoir
+	 * sampling fails, select channels by round-robin.  */
+	if (tal_count(info->b11->routes) == 0) {
+		info->b11->routes = select_inchan_mpp(info->b11,
+						      info->cmd->ld,
+						      needed,
+						      candidates);
+		*warning_mpp = (tal_count(info->b11->routes) > 1);
+	} else {
+		*warning_mpp = false;
+	}
+
+	log_debug(info->cmd->ld->log, "needed = %s, avail_capacity = %s, private_capacity = %s, offline_capacity = %s, deadend_capacity = %s",
+		  type_to_string(tmpctx, struct amount_msat, &needed),
+		  type_to_string(tmpctx, struct amount_msat, &avail_capacity),
+		  type_to_string(tmpctx, struct amount_msat, &private_capacity),
+		  type_to_string(tmpctx, struct amount_msat, &offline_capacity),
+		  type_to_string(tmpctx, struct amount_msat, &deadend_capacity));
+
+	if (!amount_msat_add(&total, avail_capacity, offline_capacity)
+	    || !amount_msat_add(&total, total, deadend_capacity)
+	    || !amount_msat_add(&total, total, private_capacity))
+		fatal("Cannot add %s + %s + %s + %s",
+		      type_to_string(tmpctx, struct amount_msat,
+				     &avail_capacity),
+		      type_to_string(tmpctx, struct amount_msat,
+				     &offline_capacity),
+		      type_to_string(tmpctx, struct amount_msat,
+				     &deadend_capacity),
+		      type_to_string(tmpctx, struct amount_msat,
+				     &private_capacity));
+
+	/* If we literally didn't have capacity at all, warn. */
+	*warning_capacity = amount_msat_greater_eq(needed, total);
+
+	/* We only warn about these if we didn't have capacity and
+	 * they would have helped. */
+	*warning_offline = false;
+	*warning_deadends = false;
+	*warning_private_unused = false;
+	if (amount_msat_greater(needed, avail_capacity)) {
+		struct amount_msat tot;
+
+		/* We didn't get enough: would offline have helped? */
+		if (!amount_msat_add(&tot, avail_capacity, offline_capacity))
+			abort();
+		if (amount_msat_greater_eq(tot, needed)) {
+			*warning_offline = true;
+			goto done;
+		}
+
+		/* Hmm, what about deadends? */
+		if (!amount_msat_add(&tot, tot, deadend_capacity))
+			abort();
+		if (amount_msat_greater_eq(tot, needed)) {
+			*warning_deadends = true;
+			goto done;
+		}
+
+		/* What about private channels? */
+		if (!amount_msat_add(&tot, tot, private_capacity))
+			abort();
+		if (amount_msat_greater_eq(tot, needed)) {
+			*warning_private_unused = true;
+			goto done;
+		}
+	}
+
+done:
+	return NULL;
+}
+
+static struct command_result *
+invoice_complete(struct invoice_info *info,
+		 bool warning_no_listincoming,
+		 bool warning_mpp,
+		 bool warning_capacity,
+		 bool warning_deadends,
+		 bool warning_offline,
+		 bool warning_private_unused)
 {
 	struct json_stream *response;
 	struct invoice invoice;
 	char *b11enc;
 	const struct invoice_details *details;
 	struct wallet *wallet = info->cmd->ld->wallet;
-	const struct chanhints *chanhints = info->chanhints;
-
-	struct routehint_candidate *candidates;
-	struct amount_msat offline_amt;
-	bool warning_mpp = false;
-	bool warning_mpp_capacity = false;
-	bool deadends;
-	bool node_unpublished;
-
-	candidates = routehint_candidates(tmpctx, info->cmd->ld, msg,
-					  chanhints ? chanhints->expose_all_private : false,
-					  chanhints ? chanhints->hints : NULL,
-					  &node_unpublished,
-					  &deadends,
-					  &offline_amt);
-
-	/* If they told us to use scids and we couldn't, fail. */
-	if (tal_count(candidates) == 0
-	    && chanhints && tal_count(chanhints->hints) != 0) {
-		was_pending(command_fail(info->cmd,
-					 INVOICE_HINTS_GAVE_NO_ROUTES,
-					 "None of those hints were suitable local channels"));
-		return;
-	}
-
-	if (tal_count(info->b11->routes) == 0) {
-		struct amount_msat needed;
-		needed = info->b11->msat ? *info->b11->msat : AMOUNT_MSAT(1);
-
-		/* If we are not completely unpublished, try with reservoir
-		 * sampling first.
-		 *
-		 * Why do we not do this if we are completely unpublished?
-		 * Because it is possible that multiple invoices will, by
-		 * chance, select the same channel as routehint.
-		 * This single channel might not be able to accept all the
-		 * incoming payments on all the invoices generated.
-		 * If we were published, that is fine because the payer can
-		 * fall back to just attempting to route directly.
-		 * But if we were unpublished, the only way for the payer to
-		 * reach us would be via the routehints we provide, so we
-		 * should make an effort to avoid overlapping incoming
-		 * channels, which is done by select_inchan_mpp.
-		 */
-		if (!node_unpublished)
-			info->b11->routes = select_inchan(info->b11,
-							  info->cmd->ld,
-							  needed,
-							  candidates);
-		/* If we are completely unpublished, or if the above reservoir
-		 * sampling fails, select channels by round-robin.  */
-		if (tal_count(info->b11->routes) == 0) {
-			info->b11->routes = select_inchan_mpp(info->b11,
-							      info->cmd->ld,
-							      needed,
-							      candidates,
-							      &warning_mpp_capacity);
-			warning_mpp = (tal_count(info->b11->routes) > 1);
-		}
-	}
 
 	b11enc = bolt11_encode(info, info->b11, false,
 			       hsm_sign_b11, info->cmd->ld);
@@ -734,10 +813,9 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	/* Check duplicate preimage (unlikely unless they specified it!) */
 	if (wallet_invoice_find_by_rhash(wallet,
 					 &invoice, &info->b11->payment_hash)) {
-		was_pending(command_fail(info->cmd,
-					 INVOICE_PREIMAGE_ALREADY_EXISTS,
-					 "preimage already used"));
-		return;
+		return command_fail(info->cmd,
+				    INVOICE_PREIMAGE_ALREADY_EXISTS,
+				    "preimage already used");
 	}
 
 	if (!wallet_invoice_create(wallet,
@@ -751,10 +829,9 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 				   &info->payment_preimage,
 				   &info->b11->payment_hash,
 				   NULL)) {
-		was_pending(command_fail(info->cmd, INVOICE_LABEL_ALREADY_EXISTS,
-					 "Duplicate label '%s'",
-					 info->label->s));
-		return;
+		return command_fail(info->cmd, INVOICE_LABEL_ALREADY_EXISTS,
+				    "Duplicate label '%s'",
+				    info->label->s);
 	}
 
 	/* Get details */
@@ -768,41 +845,60 @@ static void gossipd_incoming_channels_reply(struct subd *gossipd,
 	notify_invoice_creation(info->cmd->ld, info->b11->msat,
 				info->payment_preimage, info->label);
 
-	/* Warn if there's not sufficient incoming capacity. */
-	if (tal_count(info->b11->routes) == 0) {
-		log_unusual(info->cmd->ld->log,
-			    "invoice: insufficient incoming capacity for %s%s",
-			    info->b11->msat
-			    ? type_to_string(tmpctx, struct amount_msat,
-					     info->b11->msat)
-			    : "0",
-			    amount_msat_greater(offline_amt, AMOUNT_MSAT(0))
-			    ? " (among currently connected peers)" : "");
-
-		if (amount_msat_greater(offline_amt, AMOUNT_MSAT(0))) {
-			json_add_string(response, "warning_offline",
-					"No channel with a peer that is currently connected"
-					" has sufficient incoming capacity");
-		} else if (deadends) {
-			json_add_string(response, "warning_deadends",
-					"No channel with a peer that is not a dead end");
-		} else if (tal_count(candidates) == 0) {
-			json_add_string(response, "warning_capacity",
-					"No channels");
-		} else {
-			json_add_string(response, "warning_capacity",
-					"No channel with a peer that has sufficient incoming capacity");
-		}
-	}
-
+	if (warning_no_listincoming)
+		json_add_string(response, "warning_listincoming",
+				"No listincoming command available, cannot add routehints to invoice");
 	if (warning_mpp)
 		json_add_string(response, "warning_mpp",
 				"The invoice might only be payable by MPP-capable payers.");
-	if (warning_mpp_capacity)
-		json_add_string(response, "warning_mpp_capacity",
-				"The total incoming capacity is still insufficient even if the payer had MPP capability.");
+	if (warning_capacity)
+		json_add_string(response, "warning_capacity",
+				"Insufficient incoming channel capacity to pay invoice");
 
-	was_pending(command_success(info->cmd, response));
+	if (warning_deadends)
+		json_add_string(response, "warning_deadends",
+				"Insufficient incoming capacity, once dead-end peers were excluded");
+
+	if (warning_offline)
+		json_add_string(response, "warning_offline",
+				"Insufficient incoming capacity, once offline peers were excluded");
+
+	if (warning_private_unused)
+		json_add_string(response, "warning_private_unused",
+				"Insufficient incoming capacity, once private channels were excluded (try exposeprivatechannels=true?)");
+
+	return command_success(info->cmd, response);
+}
+
+/* Return from "listincoming". */
+static void listincoming_done(const char *buffer,
+			      const jsmntok_t *toks,
+			      const jsmntok_t *idtok UNUSED,
+			      struct invoice_info *info)
+{
+	struct lightningd *ld = info->cmd->ld;
+	struct command_result *ret;
+	bool warning_mpp, warning_capacity, warning_deadends, warning_offline, warning_private_unused;
+
+	ret = add_routehints(info, buffer, toks,
+			     &warning_mpp,
+			     &warning_capacity,
+			     &warning_deadends,
+			     &warning_offline,
+			     &warning_private_unused);
+	if (ret)
+		return;
+
+	/* We're actually outside a db transaction here: spooky! */
+	db_begin_transaction(ld->wallet->db);
+	invoice_complete(info,
+			 false,
+			 warning_mpp,
+			 warning_capacity,
+			 warning_deadends,
+			 warning_offline,
+			 warning_private_unused);
+	db_commit_transaction(ld->wallet->db);
 }
 
 #if DEVELOPER
@@ -940,12 +1036,11 @@ static struct command_result *param_chanhints(struct command *cmd,
 	/* Could be simply "true" or "false" */
 	if (json_to_bool(buffer, tok, &boolhint)) {
 		(*chanhints)->expose_all_private = boolhint;
-		(*chanhints)->hints
-			= tal_arr(*chanhints, struct short_channel_id, 0);
+		(*chanhints)->hints = NULL;
 		return NULL;
 	}
 
-	(*chanhints)->expose_all_private = false;
+	(*chanhints)->expose_all_private = true;
 	/* Could be a single short_channel_id or an array */
 	if (tok->type == JSMN_ARRAY) {
 		size_t i;
@@ -999,6 +1094,8 @@ static struct command_result *json_invoice(struct command *cmd,
 	struct secret payment_secret;
 	struct preimage *preimage;
 	u32 *cltv;
+	struct jsonrpc_request *req;
+	struct plugin *plugin;
 #if DEVELOPER
 	const jsmntok_t *routes;
 #endif
@@ -1094,11 +1191,21 @@ static struct command_result *json_invoice(struct command *cmd,
 	if (fallback_scripts)
 		info->b11->fallbacks = tal_steal(info->b11, fallback_scripts);
 
-	subd_req(cmd, cmd->ld->gossip,
-		 take(towire_gossipd_get_incoming_channels(NULL)),
-		 -1, 0, gossipd_incoming_channels_reply, info);
+	req = jsonrpc_request_start(info, "listincoming",
+				    cmd->ld->log,
+				    NULL, listincoming_done,
+				    info);
+	jsonrpc_request_end(req);
 
-	return command_still_pending(cmd);
+	plugin = find_plugin_for_command(cmd->ld, "listincoming");
+	if (plugin) {
+		plugin_request_send(plugin, req);
+		return command_still_pending(cmd);
+	}
+
+	/* We can't generate routehints without listincoming. */
+	return invoice_complete(info, true,
+				false, false, false, false, false);
 }
 
 static const struct json_command invoice_command = {
