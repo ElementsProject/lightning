@@ -876,7 +876,50 @@ class LightningRpc(UnixDomainSocketRpc):
             "short_channel_id": short_channel_id,
             "source": source
         }
-        return self.call("listchannels", payload)
+
+
+        # This is a hack to make sure old and new routines return the same result.
+        e1 = None
+        ret1 = None
+        err = None
+        try:
+            ret1 = self.call("listchannels", payload)
+        except RpcError as e:
+            err = e
+            e1 = e.error
+        e2 = None
+        ret2 = None
+        try:
+            ret2 = self.call("listchannelsold", payload)
+        except RpcError as e:
+            e2 = e.error
+
+        print("new listchannels: {} exception {}".format(ret1, e1))
+        print("old listchannels: {} exception {}".format(ret2, e2))
+        # gossipd only marks a channel enabled again when channeld says to;
+        # our new code just requires a reconnection.  So check that
+        # separately
+        if ret1:
+            assert len(ret1['channels']) == len(ret2['channels'])
+            for i in range(len(ret1['channels'])):
+                if ret1['channels'][i]['active'] and not ret2['channels'][i]['active']:
+                    ret2['channels'][i]['active'] = True
+
+            def chan_key(c):
+                return c['source'] + c['destination']
+
+            # Order is arbitrary
+            if ret1:
+                ret1['channels'].sort(key=chan_key)
+            if ret2:
+                ret2['channels'].sort(key=chan_key)
+
+        assert ret1 == ret2
+        assert e1 == e2
+
+        if err is not None:
+            raise err
+        return ret1
 
     def listconfigs(self, config=None):
         """List this node's config.
