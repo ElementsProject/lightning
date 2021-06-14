@@ -2742,6 +2742,51 @@ def test_shutdown_alternate_txid(node_factory, bitcoind):
     wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
 
 
+@pytest.mark.xfail(strict=True)
+@pytest.mark.developer("needs dev_disconnect")
+def test_htlc_rexmit_while_closing(node_factory, executor):
+    """Retranmitting an HTLC revocation while shutting down should work"""
+    # l1 disconnects after sending second COMMITMENT_SIGNED.
+    # Then it stops receiving after sending WIRE_SHUTDOWN (which is before it
+    # reads the revoke_and_ack).
+    disconnects = ['+WIRE_COMMITMENT_SIGNED*2',
+                   'xWIRE_SHUTDOWN']
+
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
+                                               'dev-no-reconnect': None,
+                                               'disconnect': disconnects},
+                                              {'may_reconnect': True,
+                                               'dev-no-reconnect': None}])
+
+    # Start payment, will disconnect
+    l1.pay(l2, 200000)
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['connected'] is False)
+
+    # Tell it to close (will block)
+    fut = executor.submit(l1.rpc.close, l2.info['id'])
+
+    # Original problem was with multiple disconnects, but to simplify we make
+    # l2 send shutdown too.
+    fut2 = executor.submit(l2.rpc.close, l1.info['id'])
+
+    # Reconnect, shutdown will continue disconnect again
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # Now l2 should be in CLOSINGD_SIGEXCHANGE, l1 still waiting on
+    # WIRE_REVOKE_AND_ACK.
+    wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE')
+    assert only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CHANNELD_SHUTTING_DOWN'
+
+    # They don't realize they're not talking, so disconnect and reconnect.
+    l1.rpc.disconnect(l2.info['id'], force=True)
+
+    # Now it hangs, since l1 is expecting rexmit of revoke-and-ack.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    fut.result(TIMEOUT)
+    fut2.result(TIMEOUT)
+
+
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', "Uses regtest addresses")
 @pytest.mark.developer("too slow without fast polling for blocks")
 def test_segwit_anyshutdown(node_factory, bitcoind, executor):
