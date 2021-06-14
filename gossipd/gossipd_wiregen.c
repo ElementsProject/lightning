@@ -22,12 +22,6 @@ const char *gossipd_wire_name(int e)
 	switch ((enum gossipd_wire)e) {
 	case WIRE_GOSSIPD_INIT: return "WIRE_GOSSIPD_INIT";
 	case WIRE_GOSSIPD_DEV_SET_TIME: return "WIRE_GOSSIPD_DEV_SET_TIME";
-	case WIRE_GOSSIPD_GETNODES_REQUEST: return "WIRE_GOSSIPD_GETNODES_REQUEST";
-	case WIRE_GOSSIPD_GETNODES_REPLY: return "WIRE_GOSSIPD_GETNODES_REPLY";
-	case WIRE_GOSSIPD_GETROUTE_REQUEST: return "WIRE_GOSSIPD_GETROUTE_REQUEST";
-	case WIRE_GOSSIPD_GETROUTE_REPLY: return "WIRE_GOSSIPD_GETROUTE_REPLY";
-	case WIRE_GOSSIPD_GETCHANNELS_REQUEST: return "WIRE_GOSSIPD_GETCHANNELS_REQUEST";
-	case WIRE_GOSSIPD_GETCHANNELS_REPLY: return "WIRE_GOSSIPD_GETCHANNELS_REPLY";
 	case WIRE_GOSSIPD_PING: return "WIRE_GOSSIPD_PING";
 	case WIRE_GOSSIPD_PING_REPLY: return "WIRE_GOSSIPD_PING_REPLY";
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE: return "WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE";
@@ -42,8 +36,6 @@ const char *gossipd_wire_name(int e)
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY: return "WIRE_GOSSIPD_DEV_MEMLEAK_REPLY";
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE: return "WIRE_GOSSIPD_DEV_COMPACT_STORE";
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY: return "WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY";
-	case WIRE_GOSSIPD_GET_INCOMING_CHANNELS: return "WIRE_GOSSIPD_GET_INCOMING_CHANNELS";
-	case WIRE_GOSSIPD_GET_INCOMING_CHANNELS_REPLY: return "WIRE_GOSSIPD_GET_INCOMING_CHANNELS_REPLY";
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT: return "WIRE_GOSSIPD_NEW_BLOCKHEIGHT";
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US: return "WIRE_GOSSIPD_GOT_ONIONMSG_TO_US";
 	case WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD: return "WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD";
@@ -61,12 +53,6 @@ bool gossipd_wire_is_defined(u16 type)
 	switch ((enum gossipd_wire)type) {
 	case WIRE_GOSSIPD_INIT:;
 	case WIRE_GOSSIPD_DEV_SET_TIME:;
-	case WIRE_GOSSIPD_GETNODES_REQUEST:;
-	case WIRE_GOSSIPD_GETNODES_REPLY:;
-	case WIRE_GOSSIPD_GETROUTE_REQUEST:;
-	case WIRE_GOSSIPD_GETROUTE_REPLY:;
-	case WIRE_GOSSIPD_GETCHANNELS_REQUEST:;
-	case WIRE_GOSSIPD_GETCHANNELS_REPLY:;
 	case WIRE_GOSSIPD_PING:;
 	case WIRE_GOSSIPD_PING_REPLY:;
 	case WIRE_GOSSIPD_DEV_SET_MAX_SCIDS_ENCODE_SIZE:;
@@ -81,8 +67,6 @@ bool gossipd_wire_is_defined(u16 type)
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:;
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE:;
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:;
-	case WIRE_GOSSIPD_GET_INCOMING_CHANNELS:;
-	case WIRE_GOSSIPD_GET_INCOMING_CHANNELS_REPLY:;
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:;
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:;
 	case WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD:;
@@ -174,242 +158,6 @@ bool fromwire_gossipd_dev_set_time(const void *p, u32 *dev_gossip_time)
 	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_DEV_SET_TIME)
 		return false;
  	*dev_gossip_time = fromwire_u32(&cursor, &plen);
-	return cursor != NULL;
-}
-
-/* WIRE: GOSSIPD_GETNODES_REQUEST */
-/* Pass JSON-RPC getnodes call through */
-u8 *towire_gossipd_getnodes_request(const tal_t *ctx, const struct node_id *id)
-{
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_GOSSIPD_GETNODES_REQUEST);
-	if (!id)
-		towire_bool(&p, false);
-	else {
-		towire_bool(&p, true);
-		towire_node_id(&p, id);
-	}
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_gossipd_getnodes_request(const tal_t *ctx, const void *p, struct node_id **id)
-{
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_GETNODES_REQUEST)
-		return false;
- 	if (!fromwire_bool(&cursor, &plen))
-		*id = NULL;
-	else {
-		*id = tal(ctx, struct node_id);
-		fromwire_node_id(&cursor, &plen, *id);
-	}
-	return cursor != NULL;
-}
-
-/* WIRE: GOSSIPD_GETNODES_REPLY */
-u8 *towire_gossipd_getnodes_reply(const tal_t *ctx, const struct gossip_getnodes_entry **nodes)
-{
-	u32 num_nodes = tal_count(nodes);
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_GOSSIPD_GETNODES_REPLY);
-	towire_u32(&p, num_nodes);
-	for (size_t i = 0; i < num_nodes; i++)
-		towire_gossip_getnodes_entry(&p, nodes[i]);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_gossipd_getnodes_reply(const tal_t *ctx, const void *p, struct gossip_getnodes_entry ***nodes)
-{
-	u32 num_nodes;
-
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_GETNODES_REPLY)
-		return false;
- 	num_nodes = fromwire_u32(&cursor, &plen);
- 	// 2nd case nodes
-	*nodes = num_nodes ? tal_arr(ctx, struct gossip_getnodes_entry *, num_nodes) : NULL;
-	for (size_t i = 0; i < num_nodes; i++)
-		(*nodes)[i] = fromwire_gossip_getnodes_entry(*nodes, &cursor, &plen);
-	return cursor != NULL;
-}
-
-/* WIRE: GOSSIPD_GETROUTE_REQUEST */
-/* Pass JSON-RPC getroute call through */
-u8 *towire_gossipd_getroute_request(const tal_t *ctx, const struct node_id *source, const struct node_id *destination, struct amount_msat msatoshi, u64 riskfactor_millionths, u32 final_cltv, u64 fuzz_millionths, const struct exclude_entry **excluded, u32 max_hops)
-{
-	u16 num_excluded = tal_count(excluded);
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_GOSSIPD_GETROUTE_REQUEST);
-	/* Source defaults to "us" */
-	if (!source)
-		towire_bool(&p, false);
-	else {
-		towire_bool(&p, true);
-		towire_node_id(&p, source);
-	}
-	towire_node_id(&p, destination);
-	towire_amount_msat(&p, msatoshi);
-	towire_u64(&p, riskfactor_millionths);
-	towire_u32(&p, final_cltv);
-	towire_u64(&p, fuzz_millionths);
-	towire_u16(&p, num_excluded);
-	for (size_t i = 0; i < num_excluded; i++)
-		towire_exclude_entry(&p, excluded[i]);
-	towire_u32(&p, max_hops);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_gossipd_getroute_request(const tal_t *ctx, const void *p, struct node_id **source, struct node_id *destination, struct amount_msat *msatoshi, u64 *riskfactor_millionths, u32 *final_cltv, u64 *fuzz_millionths, struct exclude_entry ***excluded, u32 *max_hops)
-{
-	u16 num_excluded;
-
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_GETROUTE_REQUEST)
-		return false;
- 	/* Source defaults to "us" */
-	if (!fromwire_bool(&cursor, &plen))
-		*source = NULL;
-	else {
-		*source = tal(ctx, struct node_id);
-		fromwire_node_id(&cursor, &plen, *source);
-	}
- 	fromwire_node_id(&cursor, &plen, destination);
- 	*msatoshi = fromwire_amount_msat(&cursor, &plen);
- 	*riskfactor_millionths = fromwire_u64(&cursor, &plen);
- 	*final_cltv = fromwire_u32(&cursor, &plen);
- 	*fuzz_millionths = fromwire_u64(&cursor, &plen);
- 	num_excluded = fromwire_u16(&cursor, &plen);
- 	// 2nd case excluded
-	*excluded = num_excluded ? tal_arr(ctx, struct exclude_entry *, num_excluded) : NULL;
-	for (size_t i = 0; i < num_excluded; i++)
-		(*excluded)[i] = fromwire_exclude_entry(*excluded, &cursor, &plen);
- 	*max_hops = fromwire_u32(&cursor, &plen);
-	return cursor != NULL;
-}
-
-/* WIRE: GOSSIPD_GETROUTE_REPLY */
-u8 *towire_gossipd_getroute_reply(const tal_t *ctx, const struct route_hop **hops)
-{
-	u16 num_hops = tal_count(hops);
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_GOSSIPD_GETROUTE_REPLY);
-	towire_u16(&p, num_hops);
-	for (size_t i = 0; i < num_hops; i++)
-		towire_route_hop(&p, hops[i]);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_gossipd_getroute_reply(const tal_t *ctx, const void *p, struct route_hop ***hops)
-{
-	u16 num_hops;
-
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_GETROUTE_REPLY)
-		return false;
- 	num_hops = fromwire_u16(&cursor, &plen);
- 	// 2nd case hops
-	*hops = num_hops ? tal_arr(ctx, struct route_hop *, num_hops) : NULL;
-	for (size_t i = 0; i < num_hops; i++)
-		(*hops)[i] = fromwire_route_hop(*hops, &cursor, &plen);
-	return cursor != NULL;
-}
-
-/* WIRE: GOSSIPD_GETCHANNELS_REQUEST */
-u8 *towire_gossipd_getchannels_request(const tal_t *ctx, const struct short_channel_id *short_channel_id, const struct node_id *source, const struct short_channel_id *prev)
-{
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_GOSSIPD_GETCHANNELS_REQUEST);
-	if (!short_channel_id)
-		towire_bool(&p, false);
-	else {
-		towire_bool(&p, true);
-		towire_short_channel_id(&p, short_channel_id);
-	}
-	if (!source)
-		towire_bool(&p, false);
-	else {
-		towire_bool(&p, true);
-		towire_node_id(&p, source);
-	}
-	if (!prev)
-		towire_bool(&p, false);
-	else {
-		towire_bool(&p, true);
-		towire_short_channel_id(&p, prev);
-	}
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_gossipd_getchannels_request(const tal_t *ctx, const void *p, struct short_channel_id **short_channel_id, struct node_id **source, struct short_channel_id **prev)
-{
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_GETCHANNELS_REQUEST)
-		return false;
- 	if (!fromwire_bool(&cursor, &plen))
-		*short_channel_id = NULL;
-	else {
-		*short_channel_id = tal(ctx, struct short_channel_id);
-		fromwire_short_channel_id(&cursor, &plen, *short_channel_id);
-	}
- 	if (!fromwire_bool(&cursor, &plen))
-		*source = NULL;
-	else {
-		*source = tal(ctx, struct node_id);
-		fromwire_node_id(&cursor, &plen, *source);
-	}
- 	if (!fromwire_bool(&cursor, &plen))
-		*prev = NULL;
-	else {
-		*prev = tal(ctx, struct short_channel_id);
-		fromwire_short_channel_id(&cursor, &plen, *prev);
-	}
-	return cursor != NULL;
-}
-
-/* WIRE: GOSSIPD_GETCHANNELS_REPLY */
-u8 *towire_gossipd_getchannels_reply(const tal_t *ctx, bool complete, const struct gossip_getchannels_entry **nodes)
-{
-	u32 num_channels = tal_count(nodes);
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_GOSSIPD_GETCHANNELS_REPLY);
-	towire_bool(&p, complete);
-	towire_u32(&p, num_channels);
-	for (size_t i = 0; i < num_channels; i++)
-		towire_gossip_getchannels_entry(&p, nodes[i]);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_gossipd_getchannels_reply(const tal_t *ctx, const void *p, bool *complete, struct gossip_getchannels_entry ***nodes)
-{
-	u32 num_channels;
-
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_GETCHANNELS_REPLY)
-		return false;
- 	*complete = fromwire_bool(&cursor, &plen);
- 	num_channels = fromwire_u32(&cursor, &plen);
- 	// 2nd case nodes
-	*nodes = num_channels ? tal_arr(ctx, struct gossip_getchannels_entry *, num_channels) : NULL;
-	for (size_t i = 0; i < num_channels; i++)
-		(*nodes)[i] = fromwire_gossip_getchannels_entry(*nodes, &cursor, &plen);
 	return cursor != NULL;
 }
 
@@ -742,79 +490,6 @@ bool fromwire_gossipd_dev_compact_store_reply(const void *p, bool *success)
 	return cursor != NULL;
 }
 
-/* WIRE: GOSSIPD_GET_INCOMING_CHANNELS */
-/* master -> gossipd: get route_info for our incoming channels */
-u8 *towire_gossipd_get_incoming_channels(const tal_t *ctx)
-{
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_GOSSIPD_GET_INCOMING_CHANNELS);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_gossipd_get_incoming_channels(const void *p)
-{
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_GET_INCOMING_CHANNELS)
-		return false;
-	return cursor != NULL;
-}
-
-/* WIRE: GOSSIPD_GET_INCOMING_CHANNELS_REPLY */
-/* gossipd -> master: here they are. */
-u8 *towire_gossipd_get_incoming_channels_reply(const tal_t *ctx, const struct route_info *public_route_info, const bool *public_deadends, const struct route_info *private_route_info, const bool *private_deadends)
-{
-	u16 num_public = tal_count(public_deadends);
-	u16 num_private = tal_count(private_deadends);
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_GOSSIPD_GET_INCOMING_CHANNELS_REPLY);
-	towire_u16(&p, num_public);
-	for (size_t i = 0; i < num_public; i++)
-		towire_route_info(&p, public_route_info + i);
-	for (size_t i = 0; i < num_public; i++)
-		towire_bool(&p, public_deadends[i]);
-	towire_u16(&p, num_private);
-	for (size_t i = 0; i < num_private; i++)
-		towire_route_info(&p, private_route_info + i);
-	for (size_t i = 0; i < num_private; i++)
-		towire_bool(&p, private_deadends[i]);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_gossipd_get_incoming_channels_reply(const tal_t *ctx, const void *p, struct route_info **public_route_info, bool **public_deadends, struct route_info **private_route_info, bool **private_deadends)
-{
-	u16 num_public;
-	u16 num_private;
-
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_GET_INCOMING_CHANNELS_REPLY)
-		return false;
- 	num_public = fromwire_u16(&cursor, &plen);
- 	// 2nd case public_route_info
-	*public_route_info = num_public ? tal_arr(ctx, struct route_info, num_public) : NULL;
-	for (size_t i = 0; i < num_public; i++)
-		fromwire_route_info(&cursor, &plen, *public_route_info + i);
- 	// 2nd case public_deadends
-	*public_deadends = num_public ? tal_arr(ctx, bool, num_public) : NULL;
-	for (size_t i = 0; i < num_public; i++)
-		(*public_deadends)[i] = fromwire_bool(&cursor, &plen);
- 	num_private = fromwire_u16(&cursor, &plen);
- 	// 2nd case private_route_info
-	*private_route_info = num_private ? tal_arr(ctx, struct route_info, num_private) : NULL;
-	for (size_t i = 0; i < num_private; i++)
-		fromwire_route_info(&cursor, &plen, *private_route_info + i);
- 	// 2nd case private_deadends
-	*private_deadends = num_private ? tal_arr(ctx, bool, num_private) : NULL;
-	for (size_t i = 0; i < num_private; i++)
-		(*private_deadends)[i] = fromwire_bool(&cursor, &plen);
-	return cursor != NULL;
-}
-
 /* WIRE: GOSSIPD_NEW_BLOCKHEIGHT */
 /* master -> gossipd: blockheight increased. */
 u8 *towire_gossipd_new_blockheight(const tal_t *ctx, u32 blockheight)
@@ -1057,4 +732,4 @@ bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestrin
  	*err = fromwire_wirestring(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:a0d7494995d7f95fb7df295bab9d865e18670f15243116a0aaa9b9548534b922
+// SHA256STAMP:bc9045727cefbbe29118c8eae928972fe009a4d9d8c9e903f8b35f006973f462

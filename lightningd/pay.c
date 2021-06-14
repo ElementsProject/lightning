@@ -10,6 +10,7 @@
 #include <common/onion.h>
 #include <common/onionreply.h>
 #include <common/param.h>
+#include <common/route.h>
 #include <common/timeout.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <lightningd/chaintopology.h>
