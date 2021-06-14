@@ -1,5 +1,6 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/siphash24/siphash24.h>
+#include <ccan/htable/htable_type.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
@@ -266,10 +267,25 @@ static struct command_result *json_getroute(struct command *cmd,
 	return command_finished(cmd, js);
 }
 
+static const struct node_id *node_id_keyof(const struct node_id *id)
+{
+	return id;
+}
+
+static size_t node_id_hash(const struct node_id *id)
+{
+	return siphash24(siphash_seed(), id->k, sizeof(id->k));
+}
+
+
+HTABLE_DEFINE_TYPE(struct node_id, node_id_keyof, node_id_hash, node_id_eq,
+		   node_map);
+
 /* To avoid multiple fetches, we represent directions as a bitmap
  * so we can do two at once. */
 static void json_add_halfchan(struct json_stream *response,
 			      struct gossmap *gossmap,
+			      const struct node_map *connected,
 			      const struct gossmap_chan *c,
 			      int dirbits)
 {
@@ -277,6 +293,7 @@ static void json_add_halfchan(struct json_stream *response,
 	struct node_id node_id[2];
 	const u8 *chanfeatures;
 	struct amount_sat capacity;
+	bool local_disable;
 
 	/* These are channel (not per-direction) properties */
 	chanfeatures = gossmap_chan_get_features(tmpctx, gossmap, c);
@@ -288,6 +305,14 @@ static void json_add_halfchan(struct json_stream *response,
 	/* This can theoretically happen on partial write races. */
 	if (!gossmap_chan_get_capacity(gossmap, c, &capacity))
 		capacity = AMOUNT_SAT(0);
+
+	/* Local channels are not "active" unless peer is connected. */
+	if (node_id_eq(&node_id[0], &local_id))
+		local_disable = !node_map_get(connected, &node_id[1]);
+	else if (node_id_eq(&node_id[1], &local_id))
+		local_disable = !node_map_get(connected, &node_id[0]);
+	else
+		local_disable = false;
 
 	for (int dir = 0; dir < 2; dir++) {
 		u32 timestamp;
@@ -320,7 +345,9 @@ static void json_add_halfchan(struct json_stream *response,
 					   "satoshis", "amount_msat");
 		json_add_num(response, "message_flags", message_flags);
 		json_add_num(response, "channel_flags", channel_flags);
-		json_add_bool(response, "active", c->half[dir].enabled);
+
+		json_add_bool(response, "active",
+			      c->half[dir].enabled && !local_disable);
 		json_add_num(response, "last_update", timestamp);
 		json_add_num(response, "base_fee_millisatoshi", fee_base_msat);
 		json_add_num(response, "fee_per_millionth",
@@ -348,55 +375,126 @@ static void json_add_halfchan(struct json_stream *response,
 	}
 }
 
-static struct command_result *json_listchannels(struct command *cmd,
-						const char *buffer,
-						const jsmntok_t *params)
-{
+struct listchannels_opts {
 	struct node_id *source;
 	struct short_channel_id *scid;
-	struct json_stream *js;
+};
+
+/* We record which local channels are valid; we could record which are
+ * invalid, but our testsuite has some weirdness where it has local
+ * channels in the store it knows nothing about. */
+static struct node_map *local_connected(const tal_t *ctx,
+					const char *buf,
+					const jsmntok_t *result)
+{
+	size_t i;
+	const jsmntok_t *t, *peers = json_get_member(buf, result, "peers");
+	struct node_map *connected = tal(ctx, struct node_map);
+
+	node_map_init(connected);
+
+	json_for_each_arr(i, t, peers) {
+		const jsmntok_t *chans, *c;
+		struct node_id id;
+		bool is_connected, normal_chan;
+		const char *err;
+		size_t j;
+
+		err = json_scan(tmpctx, buf, t,
+				"{id:%,connected:%}",
+				JSON_SCAN(json_to_node_id, &id),
+				JSON_SCAN(json_to_bool, &is_connected));
+		if (err)
+			plugin_err(plugin, "Bad listpeers response (%s): %.*s",
+				   err,
+				   json_tok_full_len(result),
+				   json_tok_full(buf, result));
+
+		if (!is_connected)
+			continue;
+
+		/* Must also have a channel in CHANNELD_NORMAL */
+		normal_chan = false;
+		chans = json_get_member(buf, t, "channels");
+		json_for_each_arr(j, c, chans) {
+			if (json_tok_streq(buf,
+					   json_get_member(buf, c, "state"),
+					   "CHANNELD_NORMAL"))
+				normal_chan = true;
+		}
+
+		if (normal_chan)
+			node_map_add(connected,
+				     tal_dup(connected, struct node_id, &id));
+	}
+
+	return connected;
+}
+
+/* We want to combine local knowledge to we know which are actually inactive! */
+static struct command_result *listpeers_done(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     struct listchannels_opts *opts)
+{
+	struct node_map *connected;
 	struct gossmap_chan *c;
-	struct gossmap *gossmap;
+	struct json_stream *js;
+	struct gossmap *gossmap = get_gossmap();
 
-	if (!param(cmd, buffer, params,
-		   p_opt("short_channel_id", param_short_channel_id, &scid),
-		   p_opt("source", param_node_id, &source),
-		   NULL))
-		return command_param_failed();
+	connected = local_connected(opts, buf, result);
 
-	if (scid && source)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Cannot specify both source and short_channel_id");
-
-	gossmap = get_gossmap();
 	js = jsonrpc_stream_success(cmd);
 	json_array_start(js, "channels");
-	if (scid) {
-		c = gossmap_find_chan(gossmap, scid);
+	if (opts->scid) {
+		c = gossmap_find_chan(gossmap, opts->scid);
 		if (c)
-			json_add_halfchan(js, gossmap, c, 3);
-	} else if (source) {
+			json_add_halfchan(js, gossmap, connected, c, 3);
+	} else if (opts->source) {
 		struct gossmap_node *src;
 
-		src = gossmap_find_node(gossmap, source);
+		src = gossmap_find_node(gossmap, opts->source);
 		if (src) {
 			for (size_t i = 0; i < src->num_chans; i++) {
 				int dir;
 				c = gossmap_nth_chan(gossmap, src, i, &dir);
-				json_add_halfchan(js, gossmap, c, 1 << dir);
+				json_add_halfchan(js, gossmap, connected,
+						  c, 1 << dir);
 			}
 		}
 	} else {
 		for (c = gossmap_first_chan(gossmap);
 		     c;
 		     c = gossmap_next_chan(gossmap, c)) {
-			json_add_halfchan(js, gossmap, c, 3);
+			json_add_halfchan(js, gossmap, connected, c, 3);
 		}
 	}
 
 	json_array_end(js);
 
 	return command_finished(cmd, js);
+}
+
+static struct command_result *json_listchannels(struct command *cmd,
+						const char *buffer,
+						const jsmntok_t *params)
+{
+	struct listchannels_opts *opts = tal(cmd, struct listchannels_opts);
+	struct out_req *req;
+
+	if (!param(cmd, buffer, params,
+		   p_opt("short_channel_id", param_short_channel_id,
+			 &opts->scid),
+		   p_opt("source", param_node_id, &opts->source),
+		   NULL))
+		return command_param_failed();
+
+	if (opts->scid && opts->source)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Cannot specify both source and short_channel_id");
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeers",
+				    listpeers_done, forward_error, opts);
+	return send_outreq(cmd->plugin, req);
 }
 
 static const char *init(struct plugin *p,
