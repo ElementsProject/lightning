@@ -777,9 +777,6 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
     amt = 10**8 // 2
     sticky_inv = l1.rpc.invoice(amt, '2', 'sticky')
     route = l4.rpc.getroute(l1.info['id'], amt, 1)['route']
-    route2 = l4.rpc.getrouteold(l1.info['id'], amt, 1)['route']
-
-    assert(route == route2)
     l4.rpc.sendpay(route, sticky_inv['payment_hash'])
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
