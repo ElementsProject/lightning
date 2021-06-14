@@ -1170,12 +1170,21 @@ static u8 *handle_peer_in(struct state *state)
 					&state->channel_id, false, msg))
 		return NULL;
 
-	sync_crypto_write(state->pps,
-			  take(towire_warningfmt(NULL,
-						 extract_channel_id(msg, &channel_id) ? &channel_id : NULL,
-						 "Unexpected message %s: %s",
-						 peer_wire_name(t),
-						 tal_hex(tmpctx, msg))));
+	if (extract_channel_id(msg, &channel_id)) {
+		sync_crypto_write(state->pps,
+				  take(towire_errorfmt(NULL,
+						       &channel_id,
+						       "Unexpected message %s: %s",
+						       peer_wire_name(t),
+						       tal_hex(tmpctx, msg))));
+	} else {
+		sync_crypto_write(state->pps,
+				  take(towire_warningfmt(NULL,
+							 NULL,
+							 "Unexpected message %s: %s",
+							 peer_wire_name(t),
+							 tal_hex(tmpctx, msg))));
+	}
 
 	/* FIXME: We don't actually want master to try to send an
 	 * error, since peer is transient.  This is a hack.

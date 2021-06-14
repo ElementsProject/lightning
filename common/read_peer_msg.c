@@ -162,7 +162,6 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 {
 	char *err;
 	bool warning;
-	struct channel_id actual;
 
 #if DEVELOPER
 	/* Any odd-typed unknown message is handled by the caller, so if we
@@ -197,18 +196,6 @@ bool handle_peer_gossip_or_error(struct per_peer_state *pps,
 		peer_failed_received_errmsg(pps, err, channel_id,
 					    soft_error || warning);
 
-		goto handled;
-	}
-
-	/* They're talking about a different channel? */
-	if (is_wrong_channel(msg, channel_id, &actual)) {
-		status_debug("Rejecting %s for unknown channel_id %s",
-			     peer_wire_name(fromwire_peektype(msg)),
-			     type_to_string(tmpctx, struct channel_id, &actual));
-		sync_crypto_write(pps,
-				  take(towire_errorfmt(NULL, &actual,
-						       "Multiple channels"
-						       " unsupported")));
 		goto handled;
 	}
 
