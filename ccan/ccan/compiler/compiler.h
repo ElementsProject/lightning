@@ -271,6 +271,19 @@
 #define NON_NULL_ARGS(...)
 #endif
 
+#if HAVE_ATTRIBUTE_RETURNS_NONNULL
+/**
+ * RETURNS_NONNULL - specify that this function cannot return NULL.
+ *
+ * Mainly an optimization opportunity, but can also suppress warnings.
+ *
+ * Example:
+ * RETURNS_NONNULL char *my_copy(char *buf);
+ */
+#define RETURNS_NONNULL __attribute__((__returns_nonnull__))
+#else
+#define RETURNS_NONNULL
+#endif
 
 #if HAVE_ATTRIBUTE_SENTINEL
 /**
