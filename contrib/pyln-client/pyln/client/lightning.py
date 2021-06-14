@@ -816,7 +816,31 @@ class LightningRpc(UnixDomainSocketRpc):
             "exclude": exclude,
             "maxhops": maxhops
         }
-        return self.call("getroute", payload)
+
+        # This is a hack to make sure old and new routines return the same result.
+        e1 = None
+        ret1 = None
+        err = None
+        try:
+            ret1 = self.call("getroute", payload)
+        except RpcError as e:
+            err = e
+            e1 = e.error
+        e2 = None
+        ret2 = None
+        try:
+            ret2 = self.call("getrouteold", payload)
+        except RpcError as e:
+            e2 = e.error
+
+        print("new getroute: {} exception {}".format(ret1, e1))
+        print("old getroute: {} exception {}".format(ret2, e2))
+        assert ret1 == ret2
+        assert e1 == e2
+
+        if err is not None:
+            raise err
+        return ret1
 
     def help(self, command=None):
         """
