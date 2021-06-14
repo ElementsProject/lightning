@@ -106,19 +106,16 @@ One of the following warnings may occur (on success):
 
 .RS
 .IP \[bu]
-\fIwarning_offline\fR if no channel with a currently connected peer has
-  the incoming capacity to pay this invoice
+\fIwarning_capacity\fR: even using all possible channels, there's not enough incoming capacity to pay this invoice\.
 .IP \[bu]
-\fIwarning_capacity\fR if there is no channel that has sufficient
-  incoming capacity
+\fIwarning_offline\fR: there would be enough incoming capacity, but some channels are offline, so there isn't\.
 .IP \[bu]
-\fIwarning_deadends\fR if there is no channel that is not a dead-end
+\fIwarning_deadends\fR: there would be enough incoming capacity, but some channels are dead-ends (no other public channels from those peers), so there isn't\.
+.IP \[bu]
+\fIwarning_private_unused\fR: there would be enough incoming capacity, but some channels are unannounced and \fIexposeprivatechannels\fR is \fIfalse\fR, so there isn't\.
 .IP \[bu]
 \fIwarning_mpp\fR if there is sufficient capacity, but not in a single channel,
   so the payer will have to use multi-part payments\.
-.IP \[bu]
-\fIwarning_mpp_capacity\fR if there is not sufficient capacity, even with all
-  channels\.
 
 .RE
 .SH AUTHOR
@@ -134,4 +131,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:dc375ee583188c669574a8ef203971df650ef221567dccb8df7a81ed5ee4990f
+\" SHA256STAMP:d53ec67cd81a41c7218e282c3d7662933868b25190334e9322de8a90ab99d603
