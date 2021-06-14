@@ -993,7 +993,7 @@ def test_transaction_annotations(node_factory, bitcoind):
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_hsm_secret_encryption(node_factory):
     l1 = node_factory.get_node(may_fail=True)  # May fail when started without key
-    password = "reckful\n"
+    password = "reckful&é🍕\n"
     # We need to simulate a terminal to use termios in `lightningd`.
     master_fd, slave_fd = os.openpty()
 
@@ -1033,11 +1033,21 @@ def test_hsm_secret_encryption(node_factory):
     os.write(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
     assert id == l1.rpc.getinfo()["id"]
+    l1.stop()
+
+    # We can restore the same wallet with the same password provided through stdin
+    l1.daemon.start(stdin=subprocess.PIPE, wait_for_initialized=False)
+    l1.daemon.proc.stdin.write(password.encode("utf-8"))
+    l1.daemon.proc.stdin.write(password.encode("utf-8"))
+    l1.daemon.proc.stdin.flush()
+    l1.daemon.wait_for_log("Server started with public key")
+    assert id == l1.rpc.getinfo()["id"]
 
 
 class HsmTool(TailableProc):
     """Helper for testing the hsmtool as a subprocess"""
     def __init__(self, *args):
+        self.prefix = "hsmtool"
         TailableProc.__init__(self)
         assert hasattr(self, "env")
         self.cmd_line = ["tools/hsmtool", *args]
@@ -1046,7 +1056,7 @@ class HsmTool(TailableProc):
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_hsmtool_secret_decryption(node_factory):
     l1 = node_factory.get_node()
-    password = "reckless\n"
+    password = "reckless123#{ù}\n"
     hsm_path = os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, "hsm_secret")
     # We need to simulate a terminal to use termios in `lightningd`.
     master_fd, slave_fd = os.openpty()
@@ -1126,6 +1136,26 @@ def test_hsmtool_secret_decryption(node_factory):
     l1.daemon.opts.pop("encrypted-hsm")
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=True)
     assert node_id == l1.rpc.getinfo()["id"]
+
+    # We can roundtrip encryption and decryption using a password provided
+    # through stdin.
+    hsmtool = HsmTool("encrypt", hsm_path)
+    hsmtool.start(stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE)
+    hsmtool.proc.stdin.write(password.encode("utf-8"))
+    hsmtool.proc.stdin.write(password.encode("utf-8"))
+    hsmtool.proc.stdin.flush()
+    hsmtool.wait_for_log("Successfully encrypted")
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
+
+    master_fd, slave_fd = os.openpty()
+    hsmtool = HsmTool("decrypt", hsm_path)
+    hsmtool.start(stdin=slave_fd,
+                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    hsmtool.wait_for_log("Enter hsm_secret password:")
+    os.write(master_fd, password.encode("utf-8"))
+    hsmtool.wait_for_log("Successfully decrypted")
+    assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
 
 
 @unittest.skipIf(TEST_NETWORK == 'liquid-regtest', '')
