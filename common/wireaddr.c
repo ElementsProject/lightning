@@ -691,6 +691,35 @@ struct addrinfo *wireaddr_to_addrinfo(const tal_t *ctx,
 	abort();
 }
 
+struct wireaddr *fromwire_wireaddr_array(const tal_t *ctx, const u8 *ser)
+{
+	const u8 *cursor = ser;
+	size_t len = tal_count(ser);
+	struct wireaddr *wireaddrs = tal_arr(ctx, struct wireaddr, 0);
+
+	while (cursor && len) {
+		struct wireaddr wireaddr;
+
+		/* BOLT #7:
+		 *
+		 * The receiving node:
+		 *...
+		 *   - SHOULD ignore the first `address descriptor` that does
+		 *     NOT match the types defined above.
+		 */
+		if (!fromwire_wireaddr(&cursor, &len, &wireaddr)) {
+			if (!cursor)
+				/* Parsing address failed */
+				return tal_free(wireaddrs);
+			/* Unknown type, stop there. */
+			break;
+		}
+
+		tal_arr_expand(&wireaddrs, wireaddr);
+	}
+	return wireaddrs;
+}
+
 bool all_tor_addresses(const struct wireaddr_internal *wireaddr)
 {
 	for (int i = 0; i < tal_count(wireaddr); i++) {
