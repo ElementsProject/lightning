@@ -90,15 +90,12 @@ enum dev_disconnect dev_disconnect(int pkt_type)
 	return dev_disconnect_line[0];
 }
 
-void dev_sabotage_fd(int fd)
+void dev_sabotage_fd(int fd, bool close_fd)
 {
 	int fds[2];
 
 	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds) != 0)
 		err(1, "dev_sabotage_fd: creating socketpair");
-
-	/* Close one. */
-	close(fds[0]);
 
 #if defined(TCP_NODELAY)
 	/* On Linux, at least, this flushes. */
@@ -108,6 +105,14 @@ void dev_sabotage_fd(int fd)
 #else
 #error No TCP_NODELAY?
 #endif
+
+	/* Move fd out the way if we don't want to close it. */
+	if (!close_fd)
+		dup(fd);
+	else
+		/* Close other end of socket. */
+		close(fds[0]);
+
 	/* Move other over to the fd we want to sabotage. */
 	dup2(fds[1], fd);
 	close(fds[1]);

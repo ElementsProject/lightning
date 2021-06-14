@@ -132,7 +132,14 @@ static struct io_plan *read_init(struct io_conn *conn, struct peer *peer)
 static struct io_plan *peer_write_postclose(struct io_conn *conn,
 					    struct peer *peer)
 {
-	dev_sabotage_fd(io_conn_fd(conn));
+	dev_sabotage_fd(io_conn_fd(conn), true);
+	return read_init(conn, peer);
+}
+
+static struct io_plan *peer_write_post_sabotage(struct io_conn *conn,
+						struct peer *peer)
+{
+	dev_sabotage_fd(io_conn_fd(conn), false);
 	return read_init(conn, peer);
 }
 #endif
@@ -197,7 +204,7 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 #if DEVELOPER
 	switch (dev_disconnect(WIRE_INIT)) {
 	case DEV_DISCONNECT_BEFORE:
-		dev_sabotage_fd(io_conn_fd(conn));
+		dev_sabotage_fd(io_conn_fd(conn), true);
 		break;
 	case DEV_DISCONNECT_DROPPKT:
 		peer->msg = tal_free(peer->msg); /* FALL THRU */
@@ -208,6 +215,9 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 		dev_blackhole_fd(io_conn_fd(conn));
 		break;
 	case DEV_DISCONNECT_NORMAL:
+		break;
+	case DEV_DISCONNECT_DISABLE_AFTER:
+		next = peer_write_post_sabotage;
 		break;
 	}
 #endif /* DEVELOPER */

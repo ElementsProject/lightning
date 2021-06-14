@@ -67,7 +67,7 @@ void status_fmt(enum log_level level,
 }
 
 #if DEVELOPER
-void dev_sabotage_fd(int fd)
+void dev_sabotage_fd(int fd, bool close_fd)
 {
 	abort();
 }

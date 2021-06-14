@@ -17,7 +17,7 @@
 void sync_crypto_write(struct per_peer_state *pps, const void *msg TAKES)
 {
 #if DEVELOPER
-	bool post_sabotage = false;
+	bool post_sabotage = false, post_close;
 	int type = fromwire_peektype(msg);
 #endif
 	u8 *enc;
@@ -28,17 +28,22 @@ void sync_crypto_write(struct per_peer_state *pps, const void *msg TAKES)
 #if DEVELOPER
 	switch (dev_disconnect(type)) {
 	case DEV_DISCONNECT_BEFORE:
-		dev_sabotage_fd(pps->peer_fd);
+		dev_sabotage_fd(pps->peer_fd, true);
 		peer_failed_connection_lost();
 	case DEV_DISCONNECT_DROPPKT:
 		enc = tal_free(enc); /* FALL THRU */
 	case DEV_DISCONNECT_AFTER:
 		post_sabotage = true;
+		post_close = true;
 		break;
 	case DEV_DISCONNECT_BLACKHOLE:
 		dev_blackhole_fd(pps->peer_fd);
 		break;
 	case DEV_DISCONNECT_NORMAL:
+		break;
+	case DEV_DISCONNECT_DISABLE_AFTER:
+		post_sabotage = true;
+		post_close = false;
 		break;
 	}
 #endif
@@ -48,7 +53,7 @@ void sync_crypto_write(struct per_peer_state *pps, const void *msg TAKES)
 
 #if DEVELOPER
 	if (post_sabotage)
-		dev_sabotage_fd(pps->peer_fd);
+		dev_sabotage_fd(pps->peer_fd, post_close);
 #endif
 }
 
