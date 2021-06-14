@@ -47,6 +47,8 @@ const char *dualopend_wire_name(int e)
 	case WIRE_DUALOPEND_DEV_MEMLEAK: return "WIRE_DUALOPEND_DEV_MEMLEAK";
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY: return "WIRE_DUALOPEND_DEV_MEMLEAK_REPLY";
 	case WIRE_DUALOPEND_DRY_RUN: return "WIRE_DUALOPEND_DRY_RUN";
+	case WIRE_DUALOPEND_VALIDATE_LEASE: return "WIRE_DUALOPEND_VALIDATE_LEASE";
+	case WIRE_DUALOPEND_VALIDATE_LEASE_REPLY: return "WIRE_DUALOPEND_VALIDATE_LEASE_REPLY";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -83,6 +85,8 @@ bool dualopend_wire_is_defined(u16 type)
 	case WIRE_DUALOPEND_DEV_MEMLEAK:;
 	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:;
 	case WIRE_DUALOPEND_DRY_RUN:;
+	case WIRE_DUALOPEND_VALIDATE_LEASE:;
+	case WIRE_DUALOPEND_VALIDATE_LEASE_REPLY:;
 	      return true;
 	}
 	return false;
@@ -974,4 +978,64 @@ bool fromwire_dualopend_dry_run(const tal_t *ctx, const void *p, struct channel_
 	}
 	return cursor != NULL;
 }
-// SHA256STAMP:a0ce1d5dfc6518a35d2e346c770754c498558ac426e3040526e10bbbc237db6f
+
+/* WIRE: DUALOPEND_VALIDATE_LEASE */
+/* dualopend -> master:  validate liqudity offer sig */
+u8 *towire_dualopend_validate_lease(const tal_t *ctx, const secp256k1_ecdsa_signature *sig, u32 lease_expiry, u32 chan_fee_max_base_msat, u16 chan_fee_max_ppt, const struct pubkey *their_pubkey)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_VALIDATE_LEASE);
+	towire_secp256k1_ecdsa_signature(&p, sig);
+	towire_u32(&p, lease_expiry);
+	towire_u32(&p, chan_fee_max_base_msat);
+	towire_u16(&p, chan_fee_max_ppt);
+	towire_pubkey(&p, their_pubkey);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_validate_lease(const void *p, secp256k1_ecdsa_signature *sig, u32 *lease_expiry, u32 *chan_fee_max_base_msat, u16 *chan_fee_max_ppt, struct pubkey *their_pubkey)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_VALIDATE_LEASE)
+		return false;
+ 	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, sig);
+ 	*lease_expiry = fromwire_u32(&cursor, &plen);
+ 	*chan_fee_max_base_msat = fromwire_u32(&cursor, &plen);
+ 	*chan_fee_max_ppt = fromwire_u16(&cursor, &plen);
+ 	fromwire_pubkey(&cursor, &plen, their_pubkey);
+	return cursor != NULL;
+}
+
+/* WIRE: DUALOPEND_VALIDATE_LEASE_REPLY */
+u8 *towire_dualopend_validate_lease_reply(const tal_t *ctx, const wirestring *err_msg)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_DUALOPEND_VALIDATE_LEASE_REPLY);
+	if (!err_msg)
+		towire_bool(&p, false);
+	else {
+		towire_bool(&p, true);
+		towire_wirestring(&p, err_msg);
+	}
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_dualopend_validate_lease_reply(const tal_t *ctx, const void *p, wirestring **err_msg)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_VALIDATE_LEASE_REPLY)
+		return false;
+ 	if (!fromwire_bool(&cursor, &plen))
+		*err_msg = NULL;
+	else {
+		*err_msg = fromwire_wirestring(ctx, &cursor, &plen);
+	}
+	return cursor != NULL;
+}
+// SHA256STAMP:41650a0d42866067279024744de6ef7e52ff0ef5a406c4be3b702f1ecf11e556
