@@ -448,7 +448,7 @@ static struct command_result *json_getroute(struct command *cmd,
 }
 
 static const struct json_command getroute_command = {
-	"getroute",
+	"getrouteold",
 	"channels",
 	json_getroute,
 	"Show route to {id} for {msatoshi}, using {riskfactor} and optional {cltv} (default 9). "
