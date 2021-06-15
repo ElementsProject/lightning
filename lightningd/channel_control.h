@@ -13,7 +13,8 @@ struct peer;
 void peer_start_channeld(struct channel *channel,
 			 struct per_peer_state *pps,
 			 const u8 *fwd_msg,
-			 bool reconnected);
+			 bool reconnected,
+			 const u8 *reestablish_only);
 
 /* Returns true if subd told, otherwise false. */
 bool channel_tell_depth(struct lightningd *ld,

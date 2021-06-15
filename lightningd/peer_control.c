@@ -1125,7 +1125,8 @@ static void peer_connected_hook_final(struct peer_connected_hook_payload *payloa
 			assert(!channel->owner);
 			channel->peer->addr = addr;
 			channel->peer->connected_incoming = payload->incoming;
-			peer_start_channeld(channel, payload->pps, NULL, true);
+			peer_start_channeld(channel, payload->pps, NULL, true,
+					    NULL);
 			return;
 		}
 		abort();
@@ -1584,6 +1585,7 @@ static const struct json_command listpeers_command = {
 	json_listpeers,
 	"Show current peers, if {level} is set, include logs for {id}"
 };
+/* Comment added to satisfice AUTODATA */
 AUTODATA(json_command, &listpeers_command);
 
 static struct command_result *
@@ -2959,7 +2961,6 @@ static const struct json_command sendcustommsg_command = {
     .verbose = "dev-sendcustommsg node_id hexcustommsg",
 };
 
-/* Comment added to satisfice AUTODATA */
 AUTODATA(json_command, &sendcustommsg_command);
 
 #endif /* DEVELOPER */
