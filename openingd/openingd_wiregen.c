@@ -21,6 +21,7 @@ const char *openingd_wire_name(int e)
 
 	switch ((enum openingd_wire)e) {
 	case WIRE_OPENINGD_INIT: return "WIRE_OPENINGD_INIT";
+	case WIRE_OPENINGD_GOT_REESTABLISH: return "WIRE_OPENINGD_GOT_REESTABLISH";
 	case WIRE_OPENINGD_GOT_OFFER: return "WIRE_OPENINGD_GOT_OFFER";
 	case WIRE_OPENINGD_GOT_OFFER_REPLY: return "WIRE_OPENINGD_GOT_OFFER_REPLY";
 	case WIRE_OPENINGD_FUNDER_REPLY: return "WIRE_OPENINGD_FUNDER_REPLY";
@@ -42,6 +43,7 @@ bool openingd_wire_is_defined(u16 type)
 {
 	switch ((enum openingd_wire)type) {
 	case WIRE_OPENINGD_INIT:;
+	case WIRE_OPENINGD_GOT_REESTABLISH:;
 	case WIRE_OPENINGD_GOT_OFFER:;
 	case WIRE_OPENINGD_GOT_OFFER_REPLY:;
 	case WIRE_OPENINGD_FUNDER_REPLY:;
@@ -135,6 +137,39 @@ bool fromwire_openingd_init(const tal_t *ctx, const void *p, const struct chainp
 		fromwire_channel_id(&cursor, &plen, *dev_temporary_channel_id);
 	}
  	*dev_fast_gossip = fromwire_bool(&cursor, &plen);
+	return cursor != NULL;
+}
+
+/* WIRE: OPENINGD_GOT_REESTABLISH */
+/* Openingd->master: they tried to reestablish a channel. */
+u8 *towire_openingd_got_reestablish(const tal_t *ctx, const struct channel_id *channel_id, const u8 *msg, const struct per_peer_state *pps)
+{
+	u16 len = tal_count(msg);
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_OPENINGD_GOT_REESTABLISH);
+	towire_channel_id(&p, channel_id);
+	towire_u16(&p, len);
+	towire_u8_array(&p, msg, len);
+	towire_per_peer_state(&p, pps);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_openingd_got_reestablish(const tal_t *ctx, const void *p, struct channel_id *channel_id, u8 **msg, struct per_peer_state **pps)
+{
+	u16 len;
+
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_OPENINGD_GOT_REESTABLISH)
+		return false;
+ 	fromwire_channel_id(&cursor, &plen, channel_id);
+ 	len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case msg
+	*msg = len ? tal_arr(ctx, u8, len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *msg, len);
+ 	*pps = fromwire_per_peer_state(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
 
@@ -569,4 +604,4 @@ bool fromwire_openingd_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:d2fcabdf157b098608e47dcdc37db0f46fe8d466d74159969544d7c4bb77f061
+// SHA256STAMP:005577de0219577522210df32b3ed325f028b24fc25d3b77a1dc770077381b6b

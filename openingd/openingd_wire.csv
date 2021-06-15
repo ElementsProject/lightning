@@ -29,6 +29,13 @@ msgdata,openingd_init,option_anchor_outputs,bool,
 msgdata,openingd_init,dev_temporary_channel_id,?byte,32
 msgdata,openingd_init,dev_fast_gossip,bool,
 
+# Openingd->master: they tried to reestablish a channel.
+msgtype,openingd_got_reestablish,6001
+msgdata,openingd_got_reestablish,channel_id,channel_id,
+msgdata,openingd_got_reestablish,len,u16,
+msgdata,openingd_got_reestablish,msg,u8,len
+msgdata,openingd_got_reestablish,pps,per_peer_state,
+
 # Openingd->master: they offered channel, should we continue?
 msgtype,openingd_got_offer,6005
 msgdata,openingd_got_offer,funding_satoshis,amount_sat,

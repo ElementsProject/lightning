@@ -1149,6 +1149,7 @@ static u8 *handle_peer_in(struct state *state)
 	u8 *msg = sync_crypto_read(tmpctx, state->pps);
 	enum peer_wire t = fromwire_peektype(msg);
 	struct channel_id channel_id;
+	bool extracted;
 
 	if (t == WIRE_OPEN_CHANNEL)
 		return fundee_channel(state, msg);
@@ -1170,21 +1171,20 @@ static u8 *handle_peer_in(struct state *state)
 					&state->channel_id, false, msg))
 		return NULL;
 
-	if (extract_channel_id(msg, &channel_id)) {
-		sync_crypto_write(state->pps,
-				  take(towire_errorfmt(NULL,
-						       &channel_id,
-						       "Unexpected message %s: %s",
-						       peer_wire_name(t),
-						       tal_hex(tmpctx, msg))));
-	} else {
-		sync_crypto_write(state->pps,
-				  take(towire_warningfmt(NULL,
-							 NULL,
-							 "Unexpected message %s: %s",
-							 peer_wire_name(t),
-							 tal_hex(tmpctx, msg))));
+	extracted = extract_channel_id(msg, &channel_id);
+
+	/* Reestablish on some now-closed channel?  Be nice. */
+	if (extracted && fromwire_peektype(msg) == WIRE_CHANNEL_REESTABLISH) {
+		return towire_openingd_got_reestablish(NULL,
+						       &channel_id, msg,
+						       state->pps);
 	}
+	sync_crypto_write(state->pps,
+			  take(towire_warningfmt(NULL,
+						 extracted ? &channel_id : NULL,
+						 "Unexpected message %s: %s",
+						 peer_wire_name(t),
+						 tal_hex(tmpctx, msg))));
 
 	/* FIXME: We don't actually want master to try to send an
 	 * error, since peer is transient.  This is a hack.
@@ -1296,6 +1296,7 @@ static u8 *handle_master_in(struct state *state)
 	case WIRE_OPENINGD_FUNDER_FAILED:
 	case WIRE_OPENINGD_GOT_OFFER:
 	case WIRE_OPENINGD_GOT_OFFER_REPLY:
+	case WIRE_OPENINGD_GOT_REESTABLISH:
 		break;
 	}
 

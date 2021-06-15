@@ -18,6 +18,8 @@
 
 enum openingd_wire {
         WIRE_OPENINGD_INIT = 6000,
+        /*  Openingd->master: they tried to reestablish a channel. */
+        WIRE_OPENINGD_GOT_REESTABLISH = 6001,
         /*  Openingd->master: they offered channel */
         WIRE_OPENINGD_GOT_OFFER = 6005,
         /*  master->openingd: optional rejection message */
@@ -60,6 +62,11 @@ bool openingd_wire_is_defined(u16 type);
 /* WIRE: OPENINGD_INIT */
 u8 *towire_openingd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_features, const struct channel_config *our_config, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, const u8 *lfeatures, bool option_static_remotekey, bool option_anchor_outputs, const struct channel_id *dev_temporary_channel_id, bool dev_fast_gossip);
 bool fromwire_openingd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_features, struct channel_config *our_config, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, u8 **lfeatures, bool *option_static_remotekey, bool *option_anchor_outputs, struct channel_id **dev_temporary_channel_id, bool *dev_fast_gossip);
+
+/* WIRE: OPENINGD_GOT_REESTABLISH */
+/*  Openingd->master: they tried to reestablish a channel. */
+u8 *towire_openingd_got_reestablish(const tal_t *ctx, const struct channel_id *channel_id, const u8 *msg, const struct per_peer_state *pps);
+bool fromwire_openingd_got_reestablish(const tal_t *ctx, const void *p, struct channel_id *channel_id, u8 **msg, struct per_peer_state **pps);
 
 /* WIRE: OPENINGD_GOT_OFFER */
 /*  Openingd->master: they offered channel */
@@ -121,4 +128,4 @@ bool fromwire_openingd_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_OPENINGD_WIREGEN_H */
-// SHA256STAMP:d2fcabdf157b098608e47dcdc37db0f46fe8d466d74159969544d7c4bb77f061
+// SHA256STAMP:005577de0219577522210df32b3ed325f028b24fc25d3b77a1dc770077381b6b
