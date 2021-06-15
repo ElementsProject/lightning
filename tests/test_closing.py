@@ -2786,7 +2786,6 @@ def test_htlc_rexmit_while_closing(node_factory, executor):
     fut2.result(TIMEOUT)
 
 
-@pytest.mark.xfail(strict=True)
 @pytest.mark.openchannel('v1')
 @pytest.mark.developer("needs dev_disconnect")
 def test_you_forgot_closed_channel(node_factory, executor):
