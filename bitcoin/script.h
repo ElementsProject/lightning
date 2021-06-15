@@ -69,7 +69,8 @@ u8 *scriptpubkey_witness_raw(const tal_t *ctx, u8 version,
 
 /* To-remotekey with csv 1 delay. */
 u8 *anchor_to_remote_redeem(const tal_t *ctx,
-			    const struct pubkey *remote_key);
+			    const struct pubkey *remote_key,
+			    u32 csv_lock);
 
 /* Create a witness which spends the 2of2. */
 u8 **bitcoin_witness_2of2(const tal_t *ctx,

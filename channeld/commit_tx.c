@@ -276,7 +276,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 */
 		if (option_anchor_outputs) {
 			scriptpubkey = scriptpubkey_p2wsh(tmpctx,
-							  anchor_to_remote_redeem(tmpctx, &keyset->other_payment_key));
+							  anchor_to_remote_redeem(tmpctx, &keyset->other_payment_key, 1));
 		} else {
 			scriptpubkey = scriptpubkey_p2wpkh(tmpctx,
 							   &keyset->other_payment_key);
