@@ -284,11 +284,11 @@ class TailableProc(object):
                     if self.is_in_log(r):
                         print("({} was previously in logs!)".format(r))
                 raise TimeoutError('Unable to find "{}" in logs.'.format(exs))
-            elif not self.running:
-                raise ValueError('Process died while waiting for logs')
 
             with self.logs_cond:
                 if pos >= len(self.logs):
+                    if not self.running:
+                        raise ValueError('Process died while waiting for logs')
                     self.logs_cond.wait(1)
                     continue
 
