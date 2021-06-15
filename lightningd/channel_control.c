@@ -481,7 +481,8 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 void peer_start_channeld(struct channel *channel,
 			 struct per_peer_state *pps,
 			 const u8 *fwd_msg,
-			 bool reconnected)
+			 bool reconnected,
+			 const u8 *reestablish_only)
 {
 	u8 *initmsg;
 	int hsmfd;
@@ -622,8 +623,11 @@ void peer_start_channeld(struct channel *channel,
 				      channel->remote_funding_locked,
 				      &scid,
 				      reconnected,
+				       /* Anything that indicates we are or have
+					* shut down */
 				      channel->state == CHANNELD_SHUTTING_DOWN
-				       || channel->state == CLOSINGD_SIGEXCHANGE,
+				       || channel->state == CLOSINGD_SIGEXCHANGE
+				       || channel_closed(channel),
 				      channel->shutdown_scriptpubkey[REMOTE] != NULL,
 				      channel->shutdown_scriptpubkey[LOCAL],
 				      channel->channel_flags,
@@ -640,7 +644,8 @@ void peer_start_channeld(struct channel *channel,
 				      channel->option_anchor_outputs,
 				      IFDEV(ld->dev_fast_gossip, false),
 				      IFDEV(dev_fail_process_onionpacket, false),
-				      pbases);
+				      pbases,
+				      reestablish_only);
 
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));

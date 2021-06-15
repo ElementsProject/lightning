@@ -1549,7 +1549,7 @@ static void handle_channel_locked(struct subd *dualopend,
 	wallet_channel_clear_inflights(dualopend->ld->wallet, channel);
 
 	/* FIXME: LND sigs/update_fee msgs? */
-	peer_start_channeld(channel, pps, NULL, false);
+	peer_start_channeld(channel, pps, NULL, false, NULL);
 	return;
 }
 

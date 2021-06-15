@@ -647,7 +647,8 @@ void peer_restart_dualopend(struct peer *peer UNNEEDED,
 void peer_start_channeld(struct channel *channel UNNEEDED,
 			 struct per_peer_state *pps UNNEEDED,
 			 const u8 *fwd_msg UNNEEDED,
-			 bool reconnected UNNEEDED)
+			 bool reconnected UNNEEDED,
+			 const u8 *reestablish_only UNNEEDED)
 { fprintf(stderr, "peer_start_channeld called!\n"); abort(); }
 /* Generated stub for peer_start_dualopend */
 void peer_start_dualopend(struct peer *peer UNNEEDED, struct per_peer_state *pps UNNEEDED)
