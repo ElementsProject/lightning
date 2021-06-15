@@ -918,6 +918,15 @@ static void maybe_send_shutdown(struct peer *peer)
 	billboard_update(peer);
 }
 
+static void send_shutdown_complete(struct peer *peer)
+{
+	/* Now we can tell master shutdown is complete. */
+	wire_sync_write(MASTER_FD,
+			take(towire_channeld_shutdown_complete(NULL, peer->pps)));
+	per_peer_state_fdpass_send(MASTER_FD, peer->pps);
+	close(MASTER_FD);
+}
+
 /* This queues other traffic from the fd until we get reply. */
 static u8 *master_wait_sync_reply(const tal_t *ctx,
 				  struct peer *peer,
@@ -2929,10 +2938,17 @@ got_reestablish:
 #endif /* EXPERIMENTAL_FEATURES */
 
 	/* Now stop, we've been polite long enough. */
-	if (reestablish_only)
+	if (reestablish_only) {
+		/* If we were successfully closing, we still go to closingd. */
+		if (shutdown_complete(peer)) {
+			send_shutdown_complete(peer);
+			daemon_shutdown();
+			exit(0);
+		}
 		peer_failed_err(peer->pps,
 				&peer->channel_id,
 				"Channel is already closed");
+	}
 
 	/* Corner case: we didn't send shutdown before because update_add_htlc
 	 * pending, but now they're cleared by restart, and we're actually
@@ -3592,15 +3608,6 @@ static void init_channel(struct peer *peer)
 	channel_announcement_negotiate(peer);
 
 	billboard_update(peer);
-}
-
-static void send_shutdown_complete(struct peer *peer)
-{
-	/* Now we can tell master shutdown is complete. */
-	wire_sync_write(MASTER_FD,
-			take(towire_channeld_shutdown_complete(NULL, peer->pps)));
-	per_peer_state_fdpass_send(MASTER_FD, peer->pps);
-	close(MASTER_FD);
 }
 
 static void try_read_gossip_store(struct peer *peer)

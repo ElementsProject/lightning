@@ -145,7 +145,7 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 	channel_set_billboard(channel, false, NULL);
 
 	/* Retransmission only, ignore closing. */
-	if (channel->state == CLOSINGD_COMPLETE)
+	if (channel_closed(channel))
 		return;
 
 	/* Channel gets dropped to chain cooperatively. */

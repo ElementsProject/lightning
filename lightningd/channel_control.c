@@ -318,7 +318,8 @@ static void peer_start_closingd_after_shutdown(struct channel *channel,
 	peer_start_closingd(channel, pps);
 
 	/* We might have reconnected, so already be here. */
-	if (channel->state != CLOSINGD_SIGEXCHANGE)
+	if (!channel_closed(channel)
+	    && channel->state != CLOSINGD_SIGEXCHANGE)
 		channel_set_state(channel,
 				  CHANNELD_SHUTTING_DOWN,
 				  CLOSINGD_SIGEXCHANGE,
