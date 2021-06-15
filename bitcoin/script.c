@@ -327,13 +327,24 @@ u8 *scriptpubkey_witness_raw(const tal_t *ctx, u8 version,
  * block csv lock.
  *    <remote_pubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
  */
+/* BOLT- #3
+ * ##### Leased channel (`option_will_fund`)
+ *
+ * If a `lease` applies to the channel, the `to_remote` output
+ * of the `initiator` ensures the `leasor` funds are not
+ * spendable until the lease expires.
+ *
+ * <remote_pubkey> OP_CHECKSIGVERIFY MAX(1, lease_end - blockheight) OP_CHECKSEQUENCEVERIFY
+ */
+
 u8 *anchor_to_remote_redeem(const tal_t *ctx,
-			    const struct pubkey *remote_key)
+			    const struct pubkey *remote_key,
+			    u32 csv_lock)
 {
 	u8 *script = tal_arr(ctx, u8, 0);
 	add_push_key(&script, remote_key);
 	add_op(&script, OP_CHECKSIGVERIFY);
-	add_number(&script, 1);
+	add_number(&script, csv_lock);
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 
 	assert(is_anchor_witness_script(script, tal_bytelen(script)));

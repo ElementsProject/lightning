@@ -2557,7 +2557,8 @@ static void get_anchor_scriptpubkeys(const tal_t *ctx, u8 **anchor)
 }
 
 static u8 *scriptpubkey_to_remote(const tal_t *ctx,
-				  const struct pubkey *remotekey)
+				  const struct pubkey *remotekey,
+				  u32 csv_lock)
 {
 	/* BOLT #3:
 	 *
@@ -2574,7 +2575,8 @@ static u8 *scriptpubkey_to_remote(const tal_t *ctx,
 	if (option_anchor_outputs) {
 		return scriptpubkey_p2wsh(ctx,
 					  anchor_to_remote_redeem(tmpctx,
-								  remotekey));
+								  remotekey,
+								  csv_lock));
 	} else {
 		return scriptpubkey_p2wpkh(ctx, remotekey);
 	}
@@ -2649,7 +2651,8 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 
 	/* Figure out what direct to-them output looks like. */
 	script[REMOTE] = scriptpubkey_to_remote(tmpctx,
-						&keyset->other_payment_key);
+						&keyset->other_payment_key,
+						1);
 
 	/* Calculate all the HTLC scripts so we can match them */
 	htlc_scripts = derive_htlc_scripts(htlcs, LOCAL);
@@ -3087,7 +3090,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 
 	/* Figure out what direct to-us output looks like. */
 	script[LOCAL] = scriptpubkey_to_remote(tmpctx,
-					       &keyset->other_payment_key);
+					       &keyset->other_payment_key, 1);
 
 	/* Calculate all the HTLC scripts so we can match them */
 	htlc_scripts = derive_htlc_scripts(htlcs, REMOTE);
@@ -3369,7 +3372,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 
 	/* Figure out what direct to-us output looks like. */
 	script[LOCAL] = scriptpubkey_to_remote(tmpctx,
-					       &keyset->other_payment_key);
+					       &keyset->other_payment_key, 1);
 
 	/* Calculate all the HTLC scripts so we can match them */
 	htlc_scripts = derive_htlc_scripts(htlcs, REMOTE);
@@ -3624,7 +3627,8 @@ static void handle_unknown_commitment(const struct tx_parts *tx,
 
 	/* Other possible local script is for option_static_remotekey */
 	local_scripts[1] = scriptpubkey_to_remote(tmpctx,
-						  &basepoints[LOCAL].payment);
+						  &basepoints[LOCAL].payment,
+						  1);
 
 	for (size_t i = 0; i < tal_count(tx->outputs); i++) {
 		struct tracked_output *out;
