@@ -2789,7 +2789,7 @@ def test_htlc_rexmit_while_closing(node_factory, executor):
 @pytest.mark.openchannel('v1')
 @pytest.mark.developer("needs dev_disconnect")
 def test_you_forgot_closed_channel(node_factory, executor):
-    """Ideally you'd keep talking to us about closed channels"""
+    """Ideally you'd keep talking to us about closed channels: simple"""
     disconnects = ['@WIRE_CLOSING_SIGNED']
 
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
@@ -2805,6 +2805,41 @@ def test_you_forgot_closed_channel(node_factory, executor):
     # l2 considers the closing done, l1 does not
     wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_COMPLETE')
     assert only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE'
+
+    # l1 reconnects, it should succeed.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    fut.result(TIMEOUT)
+
+
+@pytest.mark.developer("needs dev_disconnect")
+def test_you_forgot_closed_channel_onchain(node_factory, bitcoind, executor):
+    """Ideally you'd keep talking to us about closed channels: even if close is mined"""
+    disconnects = ['@WIRE_CLOSING_SIGNED']
+
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
+                                               'dev-no-reconnect': None},
+                                              {'may_reconnect': True,
+                                               'dev-no-reconnect': None,
+                                               'disconnect': disconnects}])
+
+    l1.pay(l2, 200000)
+
+    fut = executor.submit(l1.rpc.close, l2.info['id'])
+
+    # l2 considers the closing done, l1 does not
+    wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_COMPLETE')
+    assert only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_SIGEXCHANGE'
+
+    # l1 does not see any new blocks.
+    def no_new_blocks(req):
+        return {"result": {"blockhash": None, "block": None}}
+
+    l1.daemon.rpcproxy.mock_rpc('getrawblockbyheight', no_new_blocks)
+
+    # Close transaction mined
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    wait_for(lambda: only_one(only_one(l2.rpc.listpeers()['peers'])['channels'])['state'] == 'ONCHAIN')
 
     # l1 reconnects, it should succeed.
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
