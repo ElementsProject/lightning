@@ -1,8 +1,10 @@
 #include <ccan/ccan/tal/str/str.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
+#include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
 #include <lightningd/channel.h>
+#include <lightningd/channel_control.h>
 #include <lightningd/log.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
@@ -149,6 +151,46 @@ void channel_config(struct lightningd *ld,
 
 	 /* This is filled in by lightning_openingd, for consistency. */
 	 ours->channel_reserve = AMOUNT_SAT(UINT64_MAX);
+}
+
+void handle_reestablish(struct lightningd *ld,
+			const struct node_id *peer_id,
+			const struct channel_id *channel_id,
+			const u8 *reestablish,
+			struct per_peer_state *pps)
+{
+	struct peer *peer;
+	struct channel *c;
+
+	/* We very carefully re-xmit the last reestablish, so they can get
+	 * their secrets back.  We don't otherwise touch them. */
+	peer = peer_by_id(ld, peer_id);
+	if (peer)
+		c = find_channel_by_id(peer, channel_id);
+	else
+		c = NULL;
+
+	if (c && channel_closed(c)) {
+		log_debug(c->log, "Reestablish on %s channel: using channeld to reply",
+			  channel_state_name(c));
+		peer_start_channeld(c, pps, NULL, true, reestablish);
+	} else {
+		const u8 *err = towire_errorfmt(tmpctx, channel_id,
+				      "Unknown channel for reestablish");
+		log_debug(ld->log, "Reestablish on UNKNOWN channel %s",
+			  type_to_string(tmpctx, struct channel_id, channel_id));
+		subd_send_msg(ld->connectd,
+			      take(towire_connectd_peer_final_msg(NULL, peer_id,
+								  pps, err)));
+		subd_send_fd(ld->connectd, pps->peer_fd);
+		subd_send_fd(ld->connectd, pps->gossip_fd);
+		subd_send_fd(ld->connectd, pps->gossip_store_fd);
+		/* Don't close those fds! */
+		pps->peer_fd
+			= pps->gossip_fd
+			= pps->gossip_store_fd
+			= -1;
+	}
 }
 
 #if DEVELOPER

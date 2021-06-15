@@ -1149,7 +1149,7 @@ def test_funding_by_utxos(node_factory, bitcoind):
 @pytest.mark.developer("needs dev_forget_channel")
 @pytest.mark.openchannel('v1')
 def test_funding_external_wallet_corners(node_factory, bitcoind):
-    l1 = node_factory.get_node(may_reconnect=True, allow_broken_log=True)
+    l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(may_reconnect=True)
 
     amount = 2**24
@@ -1242,7 +1242,7 @@ def test_funding_external_wallet_corners(node_factory, bitcoind):
 
     # on reconnect, channel should get destroyed
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    l1.daemon.wait_for_log('Unexpected message WIRE_CHANNEL_REESTABLISH')
+    l1.daemon.wait_for_log('Reestablish on UNKNOWN channel')
     wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
     wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
 
