@@ -17,69 +17,85 @@ in addition to the unspent ones\. Default is false\.
 
 .SH RETURN VALUE
 
-On success two arrays will be returned: \fIoutputs\fR with funds currently
-locked onchain in UTXOs and \fIchannels\fR with funds readily spendable in
-channels\.
-
-
-Each entry in \fIoutputs\fR will include:
+On success, an object is returned, containing:
 
 .RS
 .IP \[bu]
-\fItxid\fR
+
+\fBoutputs\fR (array of objects):
+
+.RS
 .IP \[bu]
-\fIoutput\fR (the index of the output in the transaction)
+\fBtxid\fR (txid): the ID of the spendable transaction
 .IP \[bu]
-\fIvalue\fR (the output value in satoshis)
+\fBoutput\fR (u32): the index within \fItxid\fR
 .IP \[bu]
-\fIamount_msat\fR (the same as \fIvalue\fR, but in millisatoshi with \fImsat\fR
-appended)
+\fBamount_msat\fR (msat): the amount of the output
 .IP \[bu]
-\fIaddress\fR
+\fBscriptpubkey\fR (hex): the scriptPubkey of the output
 .IP \[bu]
-\fIscriptpubkey\fR (the ScriptPubkey of the output, in hex)
+\fBstatus\fR (string) (one of "unconfirmed", "confirmed", "spent")
 .IP \[bu]
-\fIredeemscript\fR (the redeemscript of the output, in hex, only if it's p2sh-wrapped)
+\fBaddress\fR (string, optional): the bitcoin address of the output
 .IP \[bu]
-\fIstatus\fR (whether \fIunconfirmed\fR, \fIconfirmed\fR, or \fIspent\fR)
-.IP \[bu]
-\fIreserved\fR (whether this is UTXO is currently reserved for an in-flight tx)
-.IP \[bu]
-\fIreserved_to_block\fR (when reservation expires, if \fIreserved\fR is true)
+\fBredeemscript\fR (hex, optional): the redeemscript, only if it's p2sh-wrapped
 
 .RE
 
-Each entry in \fIchannels\fR will include:
+If \fBstatus\fR is "confirmed":
 
 .RS
 .IP \[bu]
-\fIpeer_id\fR - the peer with which the channel is opened\.
+\fBblockheight\fR (u32): Block height where it was confirmed
+
+.RE
+
+If \fBreserved\fR is "true":
+
+.RS
 .IP \[bu]
-\fIshort_channel_id\fR - as per BOLT 7 (representing the block,
-transaction number and output index of the channel funding
-transaction)\.
+\fBreserved_to_block\fR (u32): Block height where reservation will expire
+
+.RE
+
 .IP \[bu]
-\fIchannel_sat\fR - available satoshis on our node’s end of the channel
-(values rounded down to satoshis as internal storage is in
-millisatoshi)\.
+
+\fBchannels\fR (array of objects):
+
+.RS
 .IP \[bu]
-\fIour_amount_msat\fR - same as above, but in millisatoshis with
-\fImsat\fR appended\.
+\fBpeer_id\fR (pubkey): the peer with which the channel is opened
 .IP \[bu]
-\fIchannel_total_sat\fR - total channel value in satoshi
+\fBour_amount_msat\fR (msat): available satoshis on our node’s end of the channel
 .IP \[bu]
-\fIamount_msat\fR - same as above, but in millisatoshis with \fImsat\fR
-appended\.
+\fBamount_msat\fR (msat): total channel value
 .IP \[bu]
-\fIfunding_txid\fR - funding transaction id\.
+\fBfunding_txid\fR (txid): funding transaction id
 .IP \[bu]
-\fIfunding_output\fR - the index of the output in the funding
-transaction\.
+\fBfunding_output\fR (u32): the 0-based index of the output in the funding transaction
 .IP \[bu]
-\fIconnected\fR - whether the channel peer is connected\.
+\fBconnected\fR (boolean): whether the channel peer is connected
 .IP \[bu]
-\fIstate\fR - the channel state, in particular \fICHANNELD_NORMAL\fR means the
-channel can be used normally\.
+\fBstate\fR (string): the channel state, in particular "CHANNELD_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
+
+.RE
+
+If \fBstate\fR is "CHANNELD_NORMAL":
+
+.RS
+.IP \[bu]
+\fBshort_channel_id\fR (short_channel_id): short channel id of channel
+
+.RE
+
+If \fBstate\fR is "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN" or "ONCHAIN":
+
+.RS
+.IP \[bu]
+\fBshort_channel_id\fR (short_channel_id, optional): short channel id of channel (only if funding reached lockin depth before closing)
+
+.RE
+
 
 .RE
 .SH AUTHOR
@@ -94,4 +110,4 @@ Felix \fI<fixone@gmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:d1566362ec4c99ec904f03569ccc99306a42414dc682fd88ca1a3dcb8616de53
+\" SHA256STAMP:499d7e1edccfa0751263e1742c31ca1349922ccc7cd4e6134ff016048be2e0aa
