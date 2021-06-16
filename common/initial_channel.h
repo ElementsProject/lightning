@@ -70,6 +70,9 @@ struct channel {
 
 	/* Is this using option_anchor_outputs? */
 	bool option_anchor_outputs;
+
+	/* When the lease expires for the funds in this channel */
+	u32 lease_expiry;
 };
 
 /**
@@ -79,6 +82,7 @@ struct channel {
  * @funding_txid: The commitment transaction id.
  * @funding_txout: The commitment transaction output number.
  * @minimum_depth: The minimum confirmations needed for funding transaction.
+ * @lease_expiry: Block the lease expires
  * @funding_satoshis: The commitment transaction amount.
  * @local_msatoshi: The amount for the local side (remainder goes to remote)
  * @fee_states: The fee update states.
@@ -99,6 +103,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,
 				    u32 minimum_depth,
+				    u32 lease_expiry,
 				    struct amount_sat funding,
 				    struct amount_msat local_msatoshi,
 				    const struct fee_states *fee_states TAKES,

@@ -391,7 +391,7 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 				const u8 *wscript
 					= anchor_to_remote_redeem(tmpctx,
 								  &pubkey,
-								  1); /* FIXME: lease csv ? */
+								  utxo->close_info->csv);
 				psbt_input_set_witscript(psbt, j, wscript);
 				psbt_input_set_wit_utxo(psbt, j,
 							scriptpubkey_p2wsh(psbt, wscript),
