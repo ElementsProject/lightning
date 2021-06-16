@@ -234,7 +234,10 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    output](#to_local-output).
 	 */
 	if (amount_msat_greater_eq_sat(self_pay, dust_limit)) {
-		u8 *wscript = to_self_wscript(tmpctx, to_self_delay,keyset);
+		u8 *wscript = to_self_wscript(tmpctx,
+					      to_self_delay,
+					      1, /* FIXME: csv_lock */
+					      keyset);
 		u8 *p2wsh = scriptpubkey_p2wsh(tx, wscript);
 		struct amount_sat amount = amount_msat_to_sat_round_down(self_pay);
 
@@ -275,6 +278,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 * Otherwise, this output is a simple P2WPKH to `remotepubkey`.
 		 */
 		if (option_anchor_outputs) {
+			/* FIXME: use csv_lock */
 			scriptpubkey = scriptpubkey_p2wsh(tmpctx,
 							  anchor_to_remote_redeem(tmpctx, &keyset->other_payment_key, 1));
 		} else {

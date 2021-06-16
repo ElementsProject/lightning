@@ -121,6 +121,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 				     u64 obscured_commitment_number,
 				     struct wally_tx_output *direct_outputs[NUM_SIDES],
 				     enum side side,
+				     u32 csv_lock,
 				     bool option_anchor_outputs,
 				     char** err_reason);
 
@@ -134,6 +135,7 @@ bool try_subtract_fee(enum side opener, enum side side,
  * scriptpubkey_p2wsh(ctx, wscript) gives the scriptpubkey */
 u8 *to_self_wscript(const tal_t *ctx,
 		    u16 to_self_delay,
+		    u32 csv,
 		    const struct keyset *keyset);
 
 /* To-other is simply: scriptpubkey_p2wpkh(tx, keyset->other_payment_key) */

@@ -63,7 +63,8 @@ penalty_tx_create(const tal_t *ctx,
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Failed deriving keyset");
 
-	wscript = bitcoin_wscript_to_local(tmpctx, remote_to_self_delay,
+	/* FIXME: csv_lock */
+	wscript = bitcoin_wscript_to_local(tmpctx, remote_to_self_delay, 1,
 					   &keyset.self_revocation_key,
 					   &keyset.self_delayed_payment_key);
 

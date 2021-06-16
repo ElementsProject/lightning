@@ -388,7 +388,10 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 
 			/* It's actually a P2WSH in this case. */
 			if (utxo->close_info && utxo->close_info->option_anchor_outputs) {
-				const u8 *wscript = anchor_to_remote_redeem(tmpctx, &pubkey, 1);
+				const u8 *wscript
+					= anchor_to_remote_redeem(tmpctx,
+								  &pubkey,
+								  1); /* FIXME: lease csv ? */
 				psbt_input_set_witscript(psbt, j, wscript);
 				psbt_input_set_wit_utxo(psbt, j,
 							scriptpubkey_p2wsh(psbt, wscript),
