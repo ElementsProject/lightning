@@ -19,42 +19,37 @@ in addition to the unspent ones. Default is false.
 RETURN VALUE
 ------------
 
-On success two arrays will be returned: *outputs* with funds currently
-locked onchain in UTXOs and *channels* with funds readily spendable in
-channels.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **outputs** (array of objects):
+  - **txid** (txid): the ID of the spendable transaction
+  - **output** (u32): the index within *txid*
+  - **amount_msat** (msat): the amount of the output
+  - **scriptpubkey** (hex): the scriptPubkey of the output
+  - **status** (string) (one of "unconfirmed", "confirmed", "spent")
+  - **address** (string, optional): the bitcoin address of the output
+  - **redeemscript** (hex, optional): the redeemscript, only if it's p2sh-wrapped
 
-Each entry in *outputs* will include:
--   *txid*
--   *output* (the index of the output in the transaction)
--   *value* (the output value in satoshis)
--   *amount\_msat* (the same as *value*, but in millisatoshi with *msat*
-    appended)
--   *address*
--   *scriptpubkey* (the ScriptPubkey of the output, in hex)
--   *redeemscript* (the redeemscript of the output, in hex, only if it's p2sh-wrapped)
--   *status* (whether *unconfirmed*, *confirmed*, or *spent*)
--   *reserved* (whether this is UTXO is currently reserved for an in-flight tx)
--   *reserved_to_block* (when reservation expires, if *reserved* is true)
+  If **status** is "confirmed":
+    - **blockheight** (u32): Block height where it was confirmed
 
-Each entry in *channels* will include:
--   *peer\_id* - the peer with which the channel is opened.
--   *short\_channel\_id* - as per BOLT 7 (representing the block,
-    transaction number and output index of the channel funding
-    transaction).
--   *channel\_sat* - available satoshis on our node’s end of the channel
-    (values rounded down to satoshis as internal storage is in
-    millisatoshi).
--   *our\_amount\_msat* - same as above, but in millisatoshis with
-    *msat* appended.
--   *channel\_total\_sat* - total channel value in satoshi
--   *amount\_msat* - same as above, but in millisatoshis with *msat*
-    appended.
--   *funding\_txid* - funding transaction id.
--   *funding\_output* - the index of the output in the funding
-    transaction.
--   *connected* - whether the channel peer is connected.
--   *state* - the channel state, in particular *CHANNELD_NORMAL* means the
-    channel can be used normally.
+  If **reserved** is "true":
+    - **reserved_to_block** (u32): Block height where reservation will expire
+- **channels** (array of objects):
+  - **peer_id** (pubkey): the peer with which the channel is opened
+  - **our_amount_msat** (msat): available satoshis on our node’s end of the channel
+  - **amount_msat** (msat): total channel value
+  - **funding_txid** (txid): funding transaction id
+  - **funding_output** (u32): the 0-based index of the output in the funding transaction
+  - **connected** (boolean): whether the channel peer is connected
+  - **state** (string): the channel state, in particular "CHANNELD_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
+
+  If **state** is "CHANNELD_NORMAL":
+    - **short_channel_id** (short_channel_id): short channel id of channel
+
+  If **state** is "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN" or "ONCHAIN":
+    - **short_channel_id** (short_channel_id, optional): short channel id of channel (only if funding reached lockin depth before closing)
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
 ------
@@ -71,3 +66,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:e8ce919941927237a08bbe84a2e4fbd86d391c6b9d502b85a4c9d1a20a8b2958)
