@@ -859,6 +859,8 @@ static const char *init(struct plugin *p, const char *buffer UNUSED,
 	/* Usually we fake up fees in regtest */
 	if (streq(chainparams->network_name, "regtest"))
 		bitcoind->fake_fees = IFDEV(!bitcoind->no_fake_fees, true);
+	else
+		bitcoind->fake_fees = false;
 
 	plugin_log(p, LOG_INFORM,
 		   "bitcoin-cli initialized and connected to bitcoind.");
