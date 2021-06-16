@@ -394,6 +394,7 @@ int main(int argc, char *argv[])
 	channel = new_full_channel(NULL,
 				   &cid,
 				   &funding_txid, funding_outnum, 1,
+				   0, /* Defaults to no lease */
 				   funding_amount,
 				   local_msat,
 				   take(new_fee_states(NULL, fee_payer,

@@ -20,6 +20,7 @@ struct unilateral_close_info {
 	bool option_anchor_outputs;
 	/* NULL if this is an option_static_remotekey commitment */
 	struct pubkey *commitment_point;
+	u32 csv;
 };
 
 /* Possible states for tracked outputs in the database. Not sure yet

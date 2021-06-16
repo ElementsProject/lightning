@@ -17,6 +17,7 @@ struct existing_htlc;
  * @funding_txid: The commitment transaction id.
  * @funding_txout: The commitment transaction output number.
  * @minimum_depth: The minimum confirmations needed for funding transaction.
+ * @lease_expiry: The block the lease on this channel expires at; 0 if no lease.
  * @funding: The commitment transaction amount.
  * @local_msat: The amount for the local side (remainder goes to remote)
  * @fee_states: The fee update states.
@@ -37,6 +38,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 const struct bitcoin_txid *funding_txid,
 				 unsigned int funding_txout,
 				 u32 minimum_depth,
+				 u32 lease_expiry,
 				 struct amount_sat funding,
 				 struct amount_msat local_msat,
 				 const struct fee_states *fee_states,

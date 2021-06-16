@@ -3568,6 +3568,7 @@ static void init_channel(struct peer *peer)
 					 &funding_txid,
 					 funding_txout,
 					 minimum_depth,
+					 0, /* FIXME: channel lease_expiry */
 					 funding,
 					 local_msat,
 					 take(fee_states),

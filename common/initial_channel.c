@@ -20,6 +20,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,
 				    u32 minimum_depth,
+				    u32 lease_expiry,
 				    struct amount_sat funding,
 				    struct amount_msat local_msatoshi,
 				    const struct fee_states *fee_states TAKES,
@@ -41,6 +42,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	channel->funding_txout = funding_txout;
 	channel->funding = funding;
 	channel->minimum_depth = minimum_depth;
+	channel->lease_expiry = lease_expiry;
 	if (!amount_sat_sub_msat(&remote_msatoshi,
 				 channel->funding, local_msatoshi))
 		return tal_free(channel);
@@ -120,7 +122,8 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				    0 ^ channel->commitment_number_obscurer,
 				    direct_outputs,
 				    side,
-				    0, /* FIXME: csv lock? */
+				    /* FIXME: is not the csv lock ?! */
+				    channel->lease_expiry,
 				    channel->option_anchor_outputs,
 				    err_reason);
 

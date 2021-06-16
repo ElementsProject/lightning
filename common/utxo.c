@@ -31,6 +31,7 @@ void towire_utxo(u8 **pptr, const struct utxo *utxo)
 		if (utxo->close_info->commitment_point)
 			towire_pubkey(pptr, utxo->close_info->commitment_point);
 		towire_bool(pptr, utxo->close_info->option_anchor_outputs);
+		towire_u32(pptr, utxo->close_info->csv);
 	}
 }
 
@@ -59,6 +60,7 @@ struct utxo *fromwire_utxo(const tal_t *ctx, const u8 **ptr, size_t *max)
 			utxo->close_info->commitment_point = NULL;
 		utxo->close_info->option_anchor_outputs
 			= fromwire_bool(ptr, max);
+		utxo->close_info->csv = fromwire_u32(ptr, max);
 	} else {
 		utxo->close_info = NULL;
 	}

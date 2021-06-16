@@ -481,6 +481,7 @@ int main(int argc, const char *argv[])
 	derive_channel_id(&cid, &funding_txid, funding_output_index);
 	lchannel = new_full_channel(tmpctx, &cid,
 				    &funding_txid, funding_output_index, 0,
+				    0, /* No channel lease */
 				    funding_amount, to_local,
 				    take(new_fee_states(NULL, LOCAL,
 							&feerate_per_kw[LOCAL])),
@@ -492,6 +493,7 @@ int main(int argc, const char *argv[])
 				    false, false, LOCAL);
 	rchannel = new_full_channel(tmpctx, &cid,
 				    &funding_txid, funding_output_index, 0,
+				    0, /* No channel lease */
 				    funding_amount, to_remote,
 				    take(new_fee_states(NULL, REMOTE,
 							&feerate_per_kw[REMOTE])),
