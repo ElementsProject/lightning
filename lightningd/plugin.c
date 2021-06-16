@@ -74,7 +74,7 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->log = new_log(p, log_book, NULL, "plugin-manager");
 	p->ld = ld;
 	p->startup = true;
-	p->json_cmds = tal_arr(p, struct command *, 0);
+	p->plugin_cmds = tal_arr(p, struct plugin_command *, 0);
 	p->blacklist = tal_arr(p, const char *, 0);
 	p->shutdown = false;
 	p->plugin_idx = 0;
@@ -154,27 +154,27 @@ static void check_plugins_manifests(struct plugins *plugins)
 
 static void check_plugins_initted(struct plugins *plugins)
 {
-	struct command **json_cmds;
+	struct plugin_command **plugin_cmds;
 
 	if (!plugins_all_in_state(plugins, INIT_COMPLETE))
 		return;
 
 	/* Clear commands first, in case callbacks add new ones.
 	 * Paranoia, but wouldn't that be a nasty bug to find? */
-	json_cmds = plugins->json_cmds;
-	plugins->json_cmds = tal_arr(plugins, struct command *, 0);
-	for (size_t i = 0; i < tal_count(json_cmds); i++)
-		plugin_cmd_all_complete(plugins, json_cmds[i]);
-	tal_free(json_cmds);
+	plugin_cmds = plugins->plugin_cmds;
+	plugins->plugin_cmds = tal_arr(plugins, struct plugin_command *, 0);
+	for (size_t i = 0; i < tal_count(plugin_cmds); i++)
+		plugin_cmd_all_complete(plugins, plugin_cmds[i]);
+	tal_free(plugin_cmds);
 }
 
 struct command_result *plugin_register_all_complete(struct lightningd *ld,
-						    struct command *cmd)
+						    struct plugin_command *pcmd)
 {
 	if (plugins_all_in_state(ld->plugins, INIT_COMPLETE))
-		return plugin_cmd_all_complete(ld->plugins, cmd);
+		return plugin_cmd_all_complete(ld->plugins, pcmd);
 
-	tal_arr_expand(&ld->plugins->json_cmds, cmd);
+	tal_arr_expand(&ld->plugins->plugin_cmds, pcmd);
 	return NULL;
 }
 
@@ -216,7 +216,7 @@ static void destroy_plugin(struct plugin *p)
 }
 
 struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
-			       struct command *start_cmd, bool important,
+			       struct plugin_command *start_cmd, bool important,
 			       const char *parambuf STEALS,
 			       const jsmntok_t *params STEALS)
 {

@@ -51,8 +51,9 @@ struct plugin {
 	struct io_conn *stdin_conn, *stdout_conn;
 	struct plugins *plugins;
 	const char **plugin_path;
+
 	/* If there's a json command which ordered this to start */
-	struct command *start_cmd;
+	struct plugin_command *start_cmd;
 
 	enum plugin_state plugin_state;
 
@@ -122,7 +123,7 @@ struct plugins {
 	const char *default_dir;
 
 	/* If there are json commands waiting for plugin resolutions. */
-	struct command **json_cmds;
+	struct plugin_command **plugin_cmds;
 
 	/* Blacklist of plugins from --disable-plugin */
 	const char **blacklist;
@@ -222,7 +223,7 @@ void plugins_free(struct plugins *plugins);
  */
 struct plugin *plugin_register(struct plugins *plugins,
 			       const char* path TAKES,
-			       struct command *start_cmd,
+			       struct plugin_command *start_cmd,
 			       bool important,
 			       const char *parambuf STEALS,
 			       const jsmntok_t *params STEALS);
@@ -283,7 +284,7 @@ struct plugin *find_plugin_for_command(struct lightningd *ld,
  * plugin_cmd_all_complete().
  */
 struct command_result *plugin_register_all_complete(struct lightningd *ld,
-						    struct command *cmd);
+						    struct plugin_command *pcmd);
 
 /**
  * Send the configure message to all plugins.
