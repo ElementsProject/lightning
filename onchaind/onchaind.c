@@ -36,6 +36,7 @@
 /* stdin == requests */
 #define REQ_FD STDIN_FILENO
 #define HSM_FD 3
+#define max(a, b) ((a) > (b) ? (a) : (b))
 
 /* Required in various places: keys for commitment transaction. */
 static const struct keyset *keyset;
@@ -2583,12 +2584,66 @@ static u8 *scriptpubkey_to_remote(const tal_t *ctx,
 	}
 }
 
+static void our_unilateral_to_us(struct tracked_output ***outs,
+				 const struct tx_parts *tx,
+				 u32 tx_blockheight,
+				 size_t index,
+				 struct amount_sat amt,
+				 u16 sequence,
+				 const u8 *local_scriptpubkey,
+				 const u8 *local_wscript,
+				 bool is_replay)
+{
+	struct bitcoin_tx *to_us;
+	struct tracked_output *out;
+	enum tx_type tx_type = OUR_DELAYED_RETURN_TO_WALLET;
+
+	/* BOLT #5:
+	 *
+	 * A node:
+	 *   - upon discovering its *local commitment
+	 *   transaction*:
+	 *     - SHOULD spend the `to_local` output to a
+	 *       convenient address.
+	 *     - MUST wait until the `OP_CHECKSEQUENCEVERIFY`
+	 *       delay has passed (as specified by the remote
+	 *       node's `to_self_delay` field) before spending
+	 *       the output.
+	 */
+	out = new_tracked_output(outs, &tx->txid, tx_blockheight,
+				 OUR_UNILATERAL, index,
+				 amt,
+				 DELAYED_OUTPUT_TO_US,
+				 NULL, NULL, NULL);
+	/* BOLT #3:
+	 *
+	 * The output is spent by an input with
+	 * `nSequence` field set to `to_self_delay` (which can
+	 * only be valid after that duration has passed) and
+	 * witness:
+	 *
+	 *	<local_delayedsig> <>
+	 */
+	to_us = tx_to_us(out, delayed_payment_to_us, out,
+			 sequence, 0, NULL, 0,
+			 local_wscript, &tx_type,
+			 delayed_to_us_feerate);
+
+	/* BOLT #5:
+	 *
+	 * Note: if the output is spent (as recommended), the
+	 * output is *resolved* by the spending transaction
+	 */
+	propose_resolution(out, to_us, sequence, tx_type, is_replay);
+}
+
 static void handle_our_unilateral(const struct tx_parts *tx,
 				  u32 tx_blockheight,
 				  const struct basepoints basepoints[NUM_SIDES],
 				  const struct htlc_stub *htlcs,
 				  const bool *tell_if_missing,
 				  const bool *tell_immediately,
+				  const enum side opener,
 				  const struct bitcoin_signature *remote_htlc_sigs,
 				  struct tracked_output **outs,
 				  bool is_replay)
@@ -2701,47 +2756,10 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 		} else if (script[LOCAL]
 			   && wally_tx_output_scripteq(tx->outputs[i],
 						       script[LOCAL])) {
-			struct bitcoin_tx *to_us;
-			enum tx_type tx_type = OUR_DELAYED_RETURN_TO_WALLET;
-
-			/* BOLT #5:
-			 *
-			 * A node:
-			 *   - upon discovering its *local commitment
-			 *   transaction*:
-			 *     - SHOULD spend the `to_local` output to a
-			 *       convenient address.
-			 *     - MUST wait until the `OP_CHECKSEQUENCEVERIFY`
-			 *       delay has passed (as specified by the remote
-			 *       node's `to_self_delay` field) before spending
-			 *       the output.
-			 */
-			out = new_tracked_output(&outs, &tx->txid, tx_blockheight,
-						 OUR_UNILATERAL, i,
-						 amt,
-						 DELAYED_OUTPUT_TO_US,
-						 NULL, NULL, NULL);
-			/* BOLT #3:
-			 *
-			 * The output is spent by an input with
-			 * `nSequence` field set to `to_self_delay` (which can
-			 * only be valid after that duration has passed) and
-			 * witness:
-			 *
-			 *	<local_delayedsig> <>
-			 */
-			to_us = tx_to_us(out, delayed_payment_to_us, out,
-					 to_self_delay[LOCAL], 0, NULL, 0,
-					 local_wscript, &tx_type,
-					 delayed_to_us_feerate);
-
-			/* BOLT #5:
-			 *
-			 * Note: if the output is spent (as recommended), the
-			 * output is *resolved* by the spending transaction
-			 */
-			propose_resolution(out, to_us, to_self_delay[LOCAL],
-					   tx_type, is_replay);
+			our_unilateral_to_us(&outs, tx, tx_blockheight,
+					     i, amt, to_self_delay[LOCAL],
+					     script[LOCAL],
+					     local_wscript, is_replay);
 
 			script[LOCAL] = NULL;
 			add_amt(&our_outs, amt);
@@ -2798,6 +2816,81 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 		matches = match_htlc_output(tmpctx, tx->outputs[i], htlc_scripts);
 		/* FIXME: limp along when this happens! */
 		if (tal_count(matches) == 0) {
+			bool found = false;
+
+			/* Maybe they're using option_will_fund? */
+			if (opener == REMOTE && script[LOCAL]) {
+				status_debug("Grinding for our to_local");
+				/* We already tried `1` */
+				for (size_t csv = 2;
+				     csv <= LEASE_RATE_DURATION;
+				     csv++) {
+
+					local_wscript
+						= to_self_wscript(tmpctx,
+								  to_self_delay[LOCAL],
+								  csv, keyset);
+
+					script[LOCAL]
+						= scriptpubkey_p2wsh(tmpctx,
+								     local_wscript);
+					if (!wally_tx_output_scripteq(
+						       tx->outputs[i],
+						       script[LOCAL]))
+						continue;
+
+					our_unilateral_to_us(&outs, tx,
+							     tx_blockheight,
+							     i, amt,
+							     max(to_self_delay[LOCAL], csv),
+							     script[LOCAL],
+							     local_wscript,
+							     is_replay);
+
+					script[LOCAL] = NULL;
+					add_amt(&our_outs, amt);
+					found = true;
+					break;
+				}
+			} else if (opener == LOCAL && script[REMOTE]) {
+				status_debug("Grinding for to_remote (ours)");
+				/* We already tried `1` */
+				for (size_t csv = 2;
+				     csv <= LEASE_RATE_DURATION;
+				     csv++) {
+
+					script[REMOTE]
+						= scriptpubkey_to_remote(tmpctx,
+								&keyset->other_payment_key,
+								csv);
+
+					if (!wally_tx_output_scripteq(tx->outputs[i], script[REMOTE]))
+						continue;
+
+					/* BOLT #5:
+					 *
+					 *     - MAY ignore the `to_remote` output.
+					 *       - Note: No action is required by the local
+					 *       node, as `to_remote` is considered *resolved*
+					 *       by the commitment transaction itself.
+					 */
+					out = new_tracked_output(&outs, &tx->txid, tx_blockheight,
+								 OUR_UNILATERAL, i,
+								 amt,
+								 OUTPUT_TO_THEM,
+								 NULL, NULL, NULL);
+					ignore_output(out);
+					script[REMOTE] = NULL;
+					add_amt(&their_outs, amt);
+					found = true;
+					break;
+				}
+			}
+
+
+			if (found)
+				continue;
+
 			onchain_annotate_txout(&tx->txid, i, TX_CHANNEL_PENALTY | TX_THEIRS);
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not find resolution for output %zu",
@@ -2919,7 +3012,8 @@ static void tell_wallet_to_remote(const struct tx_parts *tx,
 				  u32 tx_blockheight,
 				  const u8 *scriptpubkey,
 				  const struct pubkey *per_commit_point,
-				  bool option_static_remotekey)
+				  bool option_static_remotekey,
+				  u32 csv_lock)
 {
 	struct amount_asset asset = wally_tx_output_get_amount(tx->outputs[outnum]);
 	struct amount_sat amt;
@@ -2971,6 +3065,47 @@ static void update_ledger_cheat(const struct bitcoin_txid *txid,
 						  blockheight, amt, true)));
 }
 
+static void their_unilateral_local(struct tracked_output ***outs,
+				   const struct tx_parts *tx,
+				   u32 tx_blockheight,
+				   size_t index,
+				   struct amount_sat amt,
+				   const u8 *local_scriptpubkey,
+				   enum tx_type tx_type,
+				   bool is_replay,
+				   u32 csv_lock)
+{
+	struct tracked_output *out;
+	/* BOLT #5:
+	 *
+	 * - MAY take no action in regard to the associated
+	 *   `to_remote`, which is simply a P2WPKH output to
+	 *   the *local node*.
+	 *   - Note: `to_remote` is considered *resolved* by the
+	 *     commitment transaction itself.
+	 */
+	out = new_tracked_output(outs,
+				 &tx->txid,
+				 tx_blockheight,
+				 tx_type,
+				 index, amt,
+				 OUTPUT_TO_US,
+				 NULL, NULL,
+				 NULL);
+	ignore_output(out);
+
+	if (!is_replay)
+		record_channel_withdrawal(&tx->txid, tx_blockheight, out);
+
+	tell_wallet_to_remote(tx, index,
+			      tx_blockheight,
+			      local_scriptpubkey,
+			      remote_per_commitment_point,
+			      commit_num >= static_remotekey_start[REMOTE],
+			      csv_lock);
+}
+
+
 /* BOLT #5:
  *
  * If any node tries to cheat by broadcasting an outdated commitment
@@ -2985,6 +3120,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 			       const struct htlc_stub *htlcs,
 			       const bool *tell_if_missing,
 			       const bool *tell_immediately,
+			       const enum side opener,
 			       struct tracked_output **outs,
 			       bool is_replay)
 {
@@ -3140,28 +3276,10 @@ static void handle_their_cheat(const struct tx_parts *tx,
 		if (script[LOCAL]
 		    && wally_tx_output_scripteq(tx->outputs[i],
 						script[LOCAL])) {
-			/* BOLT #5:
-			 *
-			 *   - MAY take no action regarding the _local node's
-			 *     main output_, as this is a simple P2WPKH output
-			 *     to itself.
-			 *     - Note: this output is considered *resolved* by
-			 *       the commitment transaction itself.
-			 */
-			out = new_tracked_output(&outs, &tx->txid, tx_blockheight,
-						 THEIR_REVOKED_UNILATERAL,
-						 i, amt,
-						 OUTPUT_TO_US, NULL, NULL, NULL);
-			ignore_output(out);
-
-			if (!is_replay)
-				record_channel_withdrawal(&tx->txid, tx_blockheight, out);
-
-			tell_wallet_to_remote(tx, i,
-					      tx_blockheight,
-					      script[LOCAL],
-					      remote_per_commitment_point,
-					      commit_num >= static_remotekey_start[REMOTE]);
+			their_unilateral_local(&outs, tx, tx_blockheight,
+					       i, amt, script[LOCAL],
+					       THEIR_REVOKED_UNILATERAL,
+					       is_replay, 1);
 			script[LOCAL] = NULL;
 			add_amt(&total_outs, amt);
 			continue;
@@ -3214,7 +3332,71 @@ static void handle_their_cheat(const struct tx_parts *tx,
 
 		matches = match_htlc_output(tmpctx, tx->outputs[i], htlc_scripts);
 		if (tal_count(matches) == 0) {
-			status_broken("Could not find resolution for output %zu: did *we* cheat?", i);
+			bool found = false;
+			if (opener == REMOTE && script[LOCAL]) {
+				status_debug("Grinding for commitment to_remote"
+					     " (ours)");
+				/* We already tried `1` */
+				for (size_t csv = 2;
+				     csv <= LEASE_RATE_DURATION;
+				     csv++) {
+					script[LOCAL]
+						= scriptpubkey_to_remote(tmpctx,
+								&keyset->other_payment_key,
+								csv);
+					if (!wally_tx_output_scripteq(
+						       tx->outputs[i],
+						       script[LOCAL]))
+						continue;
+
+					their_unilateral_local(&outs, tx,
+							       tx_blockheight,
+							       i, amt,
+							       script[LOCAL],
+							       THEIR_REVOKED_UNILATERAL,
+							       is_replay,
+							       csv);
+					script[LOCAL] = NULL;
+					add_amt(&total_outs, amt);
+					found = true;
+					break;
+				}
+			} else if (opener == LOCAL && script[REMOTE]) {
+				status_debug("Grinding for commitment to_local"
+					     " (theirs)");
+				for (size_t csv = 2;
+				     csv <= LEASE_RATE_DURATION;
+				     csv++) {
+					remote_wscript
+						= to_self_wscript(tmpctx,
+								  to_self_delay[REMOTE],
+								  csv, keyset);
+					script[REMOTE]
+						= scriptpubkey_p2wsh(tmpctx,
+								remote_wscript);
+
+
+					if (!wally_tx_output_scripteq(tx->outputs[i], script[REMOTE]))
+						continue;
+
+					out = new_tracked_output(&outs, &tx->txid, tx_blockheight,
+								 THEIR_REVOKED_UNILATERAL, i,
+								 amt,
+								 DELAYED_CHEAT_OUTPUT_TO_THEM,
+								 NULL, NULL, NULL);
+					steal_to_them_output(out, csv,
+							     is_replay);
+					script[REMOTE] = NULL;
+					add_amt(&total_outs, amt);
+					found = true;
+					break;
+				}
+			}
+
+			if (!found)
+				status_broken("Could not find resolution"
+					      " for output %zu: did"
+					      " *we* cheat?", i);
 			continue;
 		}
 
@@ -3283,6 +3465,7 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 				    const struct htlc_stub *htlcs,
 				    const bool *tell_if_missing,
 				    const bool *tell_immediately,
+				    const enum side opener,
 				    struct tracked_output **outs,
 				    bool is_replay)
 {
@@ -3368,25 +3551,8 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_htlc_key));
 
-	remote_wscript = to_self_wscript(tmpctx, to_self_delay[REMOTE],
-					 1, keyset);
-
-	/* Figure out what to-them output looks like. */
-	script[REMOTE] = scriptpubkey_p2wsh(tmpctx, remote_wscript);
-
-	/* Figure out what direct to-us output looks like. */
-	script[LOCAL] = scriptpubkey_to_remote(tmpctx,
-					       &keyset->other_payment_key, 1);
-
 	/* Calculate all the HTLC scripts so we can match them */
 	htlc_scripts = derive_htlc_scripts(htlcs, REMOTE);
-
-	status_debug("Script to-them: %u: %s (%s)",
-		     to_self_delay[REMOTE],
-		     tal_hex(tmpctx, script[REMOTE]),
-		     tal_hex(tmpctx, remote_wscript));
-	status_debug("Script to-me: %s",
-		     tal_hex(tmpctx, script[LOCAL]));
 
 	get_anchor_scriptpubkeys(tmpctx, anchor);
 
@@ -3397,6 +3563,21 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 			     i, tal_hexstr(tmpctx, tx->outputs[i]->script,
 					   tx->outputs[i]->script_len));
 	}
+
+	remote_wscript = to_self_wscript(tmpctx, to_self_delay[REMOTE],
+					 1, keyset);
+	script[REMOTE] = scriptpubkey_p2wsh(tmpctx, remote_wscript);
+
+	script[LOCAL] = scriptpubkey_to_remote(tmpctx,
+					       &keyset->other_payment_key,
+					       1);
+
+	status_debug("Script to-them: %u: %s (%s)",
+		     to_self_delay[REMOTE],
+		     tal_hex(tmpctx, script[REMOTE]),
+		     tal_hex(tmpctx, remote_wscript));
+	status_debug("Script to-me: %s",
+		     tal_hex(tmpctx, script[LOCAL]));
 
 	for (i = 0; i < tal_count(tx->outputs); i++) {
 		struct tracked_output *out;
@@ -3421,28 +3602,11 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 		} else if (script[LOCAL]
 			   && wally_tx_output_scripteq(tx->outputs[i],
 						       script[LOCAL])) {
-			/* BOLT #5:
-			 *
-			 * - MAY take no action in regard to the associated
-			 *   `to_remote`, which is simply a P2WPKH output to
-			 *   the *local node*.
-			 *   - Note: `to_remote` is considered *resolved* by the
-			 *     commitment transaction itself.
-			 */
-			out = new_tracked_output(&outs, &tx->txid, tx_blockheight,
-						 THEIR_UNILATERAL,
-						 i, amt,
-						 OUTPUT_TO_US, NULL, NULL, NULL);
-			ignore_output(out);
+			their_unilateral_local(&outs, tx, tx_blockheight,
+					       i, amt, script[LOCAL],
+					       THEIR_UNILATERAL,
+					       is_replay, 1);
 
-			if (!is_replay)
-				record_channel_withdrawal(&tx->txid, tx_blockheight, out);
-
-			tell_wallet_to_remote(tx, i,
-					      tx_blockheight,
-					      script[LOCAL],
-					      remote_per_commitment_point,
-					      commit_num >= static_remotekey_start[REMOTE]);
 			script[LOCAL] = NULL;
 			add_amt(&our_outs, amt);
 			continue;
@@ -3496,10 +3660,75 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 		}
 
 		matches = match_htlc_output(tmpctx, tx->outputs[i], htlc_scripts);
-		if (tal_count(matches) == 0)
+		if (tal_count(matches) == 0) {
+			bool found = false;
+
+			/* We need to hunt for it (option_will_fund?) */
+			if (opener == REMOTE && script[LOCAL]) {
+				status_debug("Grinding for commitment to_remote"
+					     " (ours)");
+				/* We already tried `1` */
+				for (size_t csv = 2;
+				     csv <= LEASE_RATE_DURATION;
+				     csv++) {
+					script[LOCAL]
+						= scriptpubkey_to_remote(tmpctx,
+								&keyset->other_payment_key,
+								csv);
+					if (!wally_tx_output_scripteq(
+						       tx->outputs[i],
+						       script[LOCAL]))
+						continue;
+
+					their_unilateral_local(&outs, tx,
+							       tx_blockheight,
+							       i, amt,
+							       script[LOCAL],
+							       THEIR_UNILATERAL,
+							       is_replay, csv);
+					script[LOCAL] = NULL;
+					add_amt(&our_outs, amt);
+					found = true;
+					break;
+				}
+			} else if (opener == LOCAL && script[REMOTE]) {
+				status_debug("Grinding for commitment to_local"
+					     " (theirs)");
+				/* We already tried `1` */
+				for (size_t csv = 2;
+				     csv <= LEASE_RATE_DURATION;
+				     csv++) {
+					remote_wscript
+						= to_self_wscript(tmpctx,
+								  to_self_delay[REMOTE],
+								  csv, keyset);
+					script[REMOTE]
+						= scriptpubkey_p2wsh(tmpctx,
+								remote_wscript);
+
+
+					if (!wally_tx_output_scripteq(tx->outputs[i], script[REMOTE]))
+						continue;
+
+					out = new_tracked_output(&outs, &tx->txid, tx_blockheight,
+								 THEIR_UNILATERAL, i,
+								 amt,
+								 DELAYED_OUTPUT_TO_THEM,
+								 NULL, NULL, NULL);
+					ignore_output(out);
+					add_amt(&their_outs, amt);
+					found = true;
+					break;
+				}
+			}
+
+			if (found)
+				continue;
+
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Could not find resolution for output %zu",
 				      i);
+		}
 
 		if (matches_direction(matches, htlcs) == LOCAL) {
 			/* BOLT #5:
@@ -3629,59 +3858,66 @@ static void handle_unknown_commitment(const struct tx_parts *tx,
 		local_scripts[0] = NULL;
 	}
 
-	/* Other possible local script is for option_static_remotekey */
-	local_scripts[1] = scriptpubkey_to_remote(tmpctx,
-						  &basepoints[LOCAL].payment,
-						  1);
+	/* For option_will_fund, we need to figure out what CSV lock was used */
+	for (size_t csv = 1; csv <= LEASE_RATE_DURATION; csv++) {
 
-	for (size_t i = 0; i < tal_count(tx->outputs); i++) {
-		struct tracked_output *out;
-		struct amount_asset asset = wally_tx_output_get_amount(tx->outputs[i]);
-		struct amount_sat amt;
-		int which_script;
+		/* Other possible local script is for option_static_remotekey */
+		local_scripts[1] = scriptpubkey_to_remote(tmpctx,
+							  &basepoints[LOCAL].payment,
+							  csv);
 
-		assert(amount_asset_is_main(&asset));
-		amt = amount_asset_to_sat(&asset);
+		for (size_t i = 0; i < tal_count(tx->outputs); i++) {
+			struct tracked_output *out;
+			struct amount_asset asset = wally_tx_output_get_amount(tx->outputs[i]);
+			struct amount_sat amt;
+			int which_script;
 
-		/* Elements can have empty output scripts (fee output) */
-		if (local_scripts[0]
-		    && wally_tx_output_scripteq(tx->outputs[i], local_scripts[0]))
-			which_script = 0;
-		else if (local_scripts[1]
-			 && wally_tx_output_scripteq(tx->outputs[i],
-						     local_scripts[1]))
-			which_script = 1;
-		else
-			continue;
+			assert(amount_asset_is_main(&asset));
+			amt = amount_asset_to_sat(&asset);
 
-		/* BOLT #5:
-		 *
-		 * - MAY take no action in regard to the associated
-		 *   `to_remote`, which is simply a P2WPKH output to
-		 *   the *local node*.
-		 *   - Note: `to_remote` is considered *resolved* by the
-		 *     commitment transaction itself.
-		 */
-		out = new_tracked_output(&outs, &tx->txid, tx_blockheight,
-					 UNKNOWN_UNILATERAL,
-					 i, amt,
-					 OUTPUT_TO_US, NULL, NULL, NULL);
-		ignore_output(out);
+			/* Elements can have empty output scripts (fee output) */
+			if (local_scripts[0]
+			    && wally_tx_output_scripteq(tx->outputs[i], local_scripts[0]))
+				which_script = 0;
+			else if (local_scripts[1]
+				 && wally_tx_output_scripteq(tx->outputs[i],
+							     local_scripts[1]))
+				which_script = 1;
+			else
+				continue;
 
-		if (!is_replay)
-			record_channel_withdrawal(&tx->txid, tx_blockheight, out);
+			/* BOLT #5:
+			 *
+			 * - MAY take no action in regard to the associated
+			 *   `to_remote`, which is simply a P2WPKH output to
+			 *   the *local node*.
+			 *   - Note: `to_remote` is considered *resolved* by the
+			 *     commitment transaction itself.
+			 */
+			out = new_tracked_output(&outs, &tx->txid, tx_blockheight,
+						 UNKNOWN_UNILATERAL,
+						 i, amt,
+						 OUTPUT_TO_US, NULL, NULL, NULL);
+			ignore_output(out);
 
-		add_amt(&amt_salvaged, amt);
+			if (!is_replay)
+				record_channel_withdrawal(&tx->txid, tx_blockheight, out);
 
-		tell_wallet_to_remote(tx, i,
-				      tx_blockheight,
-				      local_scripts[which_script],
-				      possible_remote_per_commitment_point,
-				      which_script == 1);
-		local_scripts[0] = local_scripts[1] = NULL;
-		to_us_output = i;
+			add_amt(&amt_salvaged, amt);
+
+			tell_wallet_to_remote(tx, i,
+					      tx_blockheight,
+					      local_scripts[which_script],
+					      possible_remote_per_commitment_point,
+					      which_script == 1,
+					      csv);
+			local_scripts[0] = local_scripts[1] = NULL;
+			to_us_output = i;
+			goto script_found;
+		}
 	}
 
+script_found:
 	if (to_us_output == -1) {
 		status_broken("FUNDS LOST.  Unknown commitment #%"PRIu64"!",
 			      commit_num);
@@ -3870,6 +4106,7 @@ int main(int argc, char *argv[])
 					      basepoints,
 					      htlcs,
 					      tell_if_missing, tell_immediately,
+					      opener,
 					      remote_htlc_sigs,
 					      outs,
 					      open_is_replay);
@@ -3888,6 +4125,7 @@ int main(int argc, char *argv[])
 					   basepoints,
 					   htlcs,
 					   tell_if_missing, tell_immediately,
+					   opener,
 					   outs,
 					   open_is_replay);
 		/* BOLT #5:
@@ -3907,6 +4145,7 @@ int main(int argc, char *argv[])
 						htlcs,
 						tell_if_missing,
 						tell_immediately,
+						opener,
 						outs,
 						open_is_replay);
 		} else if (commit_num == revocations_received(&shachain) + 1) {
@@ -3917,6 +4156,7 @@ int main(int argc, char *argv[])
 						htlcs,
 						tell_if_missing,
 						tell_immediately,
+						opener,
 						outs,
 						open_is_replay);
 		} else {
