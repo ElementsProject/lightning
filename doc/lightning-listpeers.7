@@ -41,6 +41,302 @@ node will no longer appear in the command output\.
 
 .SH RETURN VALUE
 
+On success, an object containing \fBpeers\fR is returned\.  It is an array of objects, where each object contains:
+
+.RS
+.IP \[bu]
+\fBid\fR (pubkey): the public key of the peer
+.IP \[bu]
+\fBconnected\fR (boolean): True if the peer is currently connected
+.IP \[bu]
+
+\fBchannels\fR (array of objects):
+
+.RS
+.IP \[bu]
+\fBstate\fR (string): the channel state, in particular "CHANNELD_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
+.IP \[bu]
+\fBopener\fR (string): Who initiated the channel (one of "local", "remote")
+.IP \[bu]
+\fBfeatures\fR (array of strings):
+.RS
+.IP \[bu]
+BOLT #9 features which apply to this channel (one of "option_static_remotekey", "option_anchor_outputs")
+
+.RE
+
+.IP \[bu]
+\fBscratch_txid\fR (txid, optional): The txid we would use if we went onchain now
+.IP \[bu]
+\fBfeerate\fR (object, optional): Feerates for the current tx:
+.RS
+.IP \[bu]
+\fBperkw\fR (u32): Feerate per 1000 weight (i\.e kSipa)
+.IP \[bu]
+\fBperkb\fR (u32): Feerate per 1000 virtual bytes
+
+.RE
+
+.IP \[bu]
+\fBowner\fR (string, optional): The current subdaemon controlling this connection
+.IP \[bu]
+\fBshort_channel_id\fR (short_channel_id, optional): The short_channel_id (once locked in)
+.IP \[bu]
+\fBchannel_id\fR (hex, optional): The full channel_id (always 64 characters)
+.IP \[bu]
+\fBfunding_txid\fR (txid, optional): ID of the funding transaction
+.IP \[bu]
+\fBinflight\fR (array of objects, optional): Current candidate funding transactions (only for dual-funding):
+.RS
+.IP \[bu]
+\fBfunding_txid\fR (txid): ID of the funding transaction
+.IP \[bu]
+\fBfunding_outnum\fR (u32): The 0-based output number of the funding transaction which opens the channel
+.IP \[bu]
+\fBfeerate\fR (string): The feerate for this funding transaction in per-1000-weight, with "kpw" appended
+.IP \[bu]
+\fBtotal_funding_msat\fR (msat): total amount in the channel
+.IP \[bu]
+\fBour_funding_msat\fR (msat): amount we have in the channel
+.IP \[bu]
+\fBscratch_txid\fR (txid): The commitment transaction txid we would use if we went onchain now
+
+.RE
+
+.IP \[bu]
+\fBclose_to\fR (hex, optional): scriptPubkey which we have to close to if we mutual close
+.IP \[bu]
+\fBprivate\fR (boolean, optional): if False, we will not announce this channel
+.IP \[bu]
+\fBcloser\fR (string, optional): Who initiated the channel close (\fBnull\fR is deprecated!) (one of "local", "remote", \fInull\fR)
+.IP \[bu]
+\fBfunding\fR (object, optional):
+.RS
+.IP \[bu]
+\fBlocal_msat\fR (msat): Amount of channel we funded
+.IP \[bu]
+\fBremote_msat\fR (msat): Amount of channel they funded
+
+.RE
+
+.IP \[bu]
+\fBto_us_msat\fR (msat, optional): how much of channel is owed to us
+.IP \[bu]
+\fBmin_to_us_msat\fR (msat, optional): least amount owed to us ever
+.IP \[bu]
+\fBmax_to_us_msat\fR (msat, optional): most amount owed to us ever
+.IP \[bu]
+\fBtotal_msat\fR (msat, optional): total amount in the channel
+.IP \[bu]
+\fBfee_base_msat\fR (msat, optional): amount we charge to use the channel
+.IP \[bu]
+\fBfee_proportional_millionths\fR (u32, optional): amount we charge to use the channel in parts-per-million
+.IP \[bu]
+\fBdust_limit_msat\fR (msat, optional): minimum amount for an output on the channel transactions
+.IP \[bu]
+\fBmax_total_htlc_in_msat\fR (msat, optional): max amount accept in a single payment
+.IP \[bu]
+\fBtheir_reserve_msat\fR (msat, optional): minimum we insist they keep in channel
+.IP \[bu]
+\fBour_reserve_msat\fR (msat, optional): minimum they insist we keep in channel
+.IP \[bu]
+\fBspendable_msat\fR (msat, optional): total we could send through channel
+.IP \[bu]
+\fBreceivable_msat\fR (msat, optional): total peer could send through channel
+.IP \[bu]
+\fBminimum_htlc_in_msat\fR (msat, optional): the minimum amount HTLC we accept
+.IP \[bu]
+\fBtheir_to_self_delay\fR (u32, optional): the number of blocks before they can take their funds if they unilateral close
+.IP \[bu]
+\fBour_to_self_delay\fR (u32, optional): the number of blocks before we can take our funds if we unilateral close
+.IP \[bu]
+\fBmax_accepted_htlcs\fR (u32, optional): Maximum number of incoming HTLC we will accept at once
+.IP \[bu]
+\fBstate_changes\fR (array of objects, optional): Prior state changes:
+.RS
+.IP \[bu]
+\fBtimestamp\fR (string): UTC timestamp of form YYYY-mm-ddTHH:MM:SS\.%03dZ
+.IP \[bu]
+\fBold_state\fR (string): Previous state (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
+.IP \[bu]
+\fBnew_state\fR (string): New state (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
+.IP \[bu]
+\fBcause\fR (string): What caused the change (one of "unknown", "local", "user", "remote", "protocol", "onchain")
+.IP \[bu]
+\fBmessage\fR (string): Human-readable explanation
+
+.RE
+
+.IP \[bu]
+\fBstatus\fR (array of strings, optional):
+.RS
+.IP \[bu]
+Billboard log of significant changes
+
+.RE
+
+.IP \[bu]
+\fBin_payments_offered\fR (u64, optional): Number of incoming payment attempts
+.IP \[bu]
+\fBin_offered_msat\fR (msat, optional): Total amount of incoming payment attempts
+.IP \[bu]
+\fBin_payments_fulfilled\fR (u64, optional): Number of successful incoming payment attempts
+.IP \[bu]
+\fBin_fulfilled_msat\fR (msat, optional): Total amount of successful incoming payment attempts
+.IP \[bu]
+\fBout_payments_offered\fR (u64, optional): Number of outgoing payment attempts
+.IP \[bu]
+\fBout_offered_msat\fR (msat, optional): Total amount of outgoing payment attempts
+.IP \[bu]
+\fBout_payments_fulfilled\fR (u64, optional): Number of successful outgoing payment attempts
+.IP \[bu]
+\fBout_fulfilled_msat\fR (msat, optional): Total amount of successful outgoing payment attempts
+.IP \[bu]
+
+\fBhtlcs\fR (array of objects, optional): current HTLCs in this channel:
+
+.RS
+.IP \[bu]
+\fBdirection\fR (string): Whether it came from peer, or is going to peer (one of "in", "out")
+.IP \[bu]
+\fBid\fR (u64): Unique ID for this htlc on this channel in this direction
+.IP \[bu]
+\fBamount_msat\fR (msat): Amount send/received for this HTLC
+.IP \[bu]
+\fBexpiry\fR (u32): Block this HTLC expires at
+.IP \[bu]
+\fBpayment_hash\fR (hex): the hash of the payment_preimage which will prove payment (always 64 characters)
+.IP \[bu]
+\fBlocal_trimmed\fR (boolean, optional): if this is too small to enforce onchain (always \fItrue\fR)
+.IP \[bu]
+\fBstatus\fR (string, optional): set if this HTLC is currently waiting on a hook (and shows what plugin)
+
+.RE
+
+If \fBdirection\fR is "out":
+
+.RS
+.IP \[bu]
+\fBstate\fR (string): Status of the HTLC (one of "SENT_ADD_HTLC", "SENT_ADD_COMMIT", "RCVD_ADD_REVOCATION", "RCVD_ADD_ACK_COMMIT", "SENT_ADD_ACK_REVOCATION", "RCVD_REMOVE_HTLC", "RCVD_REMOVE_COMMIT", "SENT_REMOVE_REVOCATION", "SENT_REMOVE_ACK_COMMIT", "RCVD_REMOVE_ACK_REVOCATION")
+
+.RE
+
+If \fBdirection\fR is "in":
+
+.RS
+.IP \[bu]
+\fBstate\fR (string): Status of the HTLC (one of "RCVD_ADD_HTLC", "RCVD_ADD_COMMIT", "SENT_ADD_REVOCATION", "SENT_ADD_ACK_COMMIT", "RCVD_ADD_ACK_REVOCATION", "SENT_REMOVE_HTLC", "SENT_REMOVE_COMMIT", "RCVD_REMOVE_REVOCATION", "RCVD_REMOVE_ACK_COMMIT", "SENT_REMOVE_ACK_REVOCATION")
+
+.RE
+
+
+.RE
+
+If \fBclose_to\fR is present:
+
+.RS
+.IP \[bu]
+\fBclose_to_addr\fR (string, optional): The bitcoin address we will close to
+
+.RE
+
+If \fBscratch_txid\fR is present:
+
+.RS
+.IP \[bu]
+\fBlast_tx_fee_msat\fR (msat): fee attached to this the current tx
+
+.RE
+
+If \fBshort_channel_id\fR is present:
+
+.RS
+.IP \[bu]
+\fBdirection\fR (u32): 0 if we're the lesser node_id, 1 if we're the greater
+
+.RE
+
+If \fBinflight\fR is present:
+
+.RS
+.IP \[bu]
+\fBinitial_feerate\fR (string): The feerate for the initial funding transaction in per-1000-weight, with "kpw" appended
+.IP \[bu]
+\fBlast_feerate\fR (string): The feerate for the latest funding transaction in per-1000-weight, with "kpw" appended
+.IP \[bu]
+\fBnext_feerate\fR (string): The minimum feerate for the next funding transaction in per-1000-weight, with "kpw" appended
+.IP \[bu]
+\fBnext_feestep\fR (u32, optional): The number of fee steps so far, plus one
+
+.RE
+
+.IP \[bu]
+
+\fBlog\fR (array of objects, optional): if \fIlevel\fR is specified, logs for this peer:
+
+.RS
+.IP \[bu]
+\fBtype\fR (string) (one of "SKIPPED", "BROKEN", "UNUSUAL", "INFO", "DEBUG", "IO_IN", "IO_OUT")
+
+.RE
+
+If \fBtype\fR is "SKIPPED":
+
+.RS
+.IP \[bu]
+\fBnum_skipped\fR (u32): number of deleted/omitted entries
+
+.RE
+
+If \fBtype\fR is "BROKEN", "UNUSUAL", "INFO" or "DEBUG":
+
+.RS
+.IP \[bu]
+\fBtime\fR (string): UNIX timestamp with 9 decimal places
+.IP \[bu]
+\fBsource\fR (string): The particular logbook this was found in
+.IP \[bu]
+\fBlog\fR (string): The actual log message
+.IP \[bu]
+\fBnode_id\fR (pubkey): The peer this is associated with
+
+.RE
+
+If \fBtype\fR is "IO_IN" or "IO_OUT":
+
+.RS
+.IP \[bu]
+\fBtime\fR (string): UNIX timestamp with 9 decimal places
+.IP \[bu]
+\fBsource\fR (string): The particular logbook this was found in
+.IP \[bu]
+\fBlog\fR (string): The actual log message
+.IP \[bu]
+\fBnode_id\fR (pubkey): The peer this is associated with
+.IP \[bu]
+\fBdata\fR (hex): The IO which occurred
+
+.RE
+
+
+.RE
+
+If \fBconnected\fR is \fItrue\fR:
+
+.RS
+.IP \[bu]
+\fBnetaddr\fR (array of strings): A single entry array:
+.RS
+.IP \[bu]
+address, e\.g\. 1\.2\.3\.4:1234
+
+.RE
+
+.IP \[bu]
+\fBfeatures\fR (hex): bitmap of BOLT #9 features from peer's INIT message
+
+.RE
+
 On success, an object with a "peers" key is returned containing a list
 of 0 or more objects\.
 
@@ -342,4 +638,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR Lightning
 RFC site (BOLT #9):
 \fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md\fR
 
-\" SHA256STAMP:1163bde5a9f836ba7bd142559cd3bab893ab3159a99041a88ac8b31556b67905
+\" SHA256STAMP:840f7597143789d88d7e3ef1c3e8a1e50dbee44b4b471f0608433fd60077248e
