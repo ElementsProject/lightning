@@ -506,7 +506,7 @@ static void json_transaction_details(struct json_stream *response,
 		json_object_start(response, NULL);
 		json_add_txid(response, "hash", &tx->id);
 		json_add_hex_talarr(response, "rawtx", tx->rawtx);
-		json_add_u64(response, "blockheight", tx->blockheight);
+		json_add_num(response, "blockheight", tx->blockheight);
 		json_add_num(response, "txindex", tx->txindex);
 #if EXPERIMENTAL_FEATURES
 		if (tx->annotation.type != 0)
@@ -556,7 +556,9 @@ static void json_transaction_details(struct json_stream *response,
 			json_object_start(response, NULL);
 
 			json_add_u32(response, "index", i);
-			json_add_amount_sat_only(response, "satoshis", sat);
+			if (deprecated_apis)
+				json_add_amount_sat_only(response, "satoshis", sat);
+			json_add_amount_sat_only(response, "msat", sat);
 
 #if EXPERIMENTAL_FEATURES
 			struct tx_annotation *ann = &tx->output_annotations[i];
