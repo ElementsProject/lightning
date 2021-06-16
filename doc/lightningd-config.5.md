@@ -72,25 +72,25 @@ Alias for *network=testnet*.
  **signet**
 Alias for *network=signet*.
 
- **bitcoin-cli**=*PATH*
+ **bitcoin-cli**=*PATH* [plugin `bcli`]
 The name of *bitcoin-cli* executable to run.
 
- **bitcoin-datadir**=*DIR*
+ **bitcoin-datadir**=*DIR* [plugin `bcli`]
 *-datadir* argument to supply to bitcoin-cli(1).
 
- **bitcoin-rpcuser**=*USER*
+ **bitcoin-rpcuser**=*USER* [plugin `bcli`]
 The RPC username for talking to bitcoind(1).
 
- **bitcoin-rpcpassword**=*PASSWORD*
+ **bitcoin-rpcpassword**=*PASSWORD* [plugin `bcli`]
 The RPC password for talking to bitcoind(1).
 
- **bitcoin-rpcconnect**=*HOST*
+ **bitcoin-rpcconnect**=*HOST* [plugin `bcli`]
 The bitcoind(1) RPC host to connect to.
 
- **bitcoin-rpcport**=*PORT*
+ **bitcoin-rpcport**=*PORT* [plugin `bcli`]
 The bitcoind(1) RPC port to connect to.
 
- **bitcoin-retry-timeout**=*SECONDS*
+ **bitcoin-retry-timeout**=*SECONDS* [plugin `bcli`]
 Number of seconds to keep trying a bitcoin-cli(1) command. If the
 command keeps failing after this time, exit with a fatal error.
 
@@ -157,7 +157,7 @@ with multiple daemons.
 Log to this file instead of stdout. Sending lightningd(8) SIGHUP will
 cause it to reopen this file (useful for log rotation).
 
- **log-timetamps**=*BOOL*
+ **log-timestamps**=*BOOL*
 Set this to false to turn off timestamp prefixes (they will still appear
 in crash log files).
 
@@ -281,7 +281,7 @@ create a channel, and if an HTLC asks for longer, we’ll refuse it.
 Confirmations required for the funding transaction when the other side
 opens a channel before the channel is usable.
 
- **commit-fee**=*PERCENT*
+ **commit-fee**=*PERCENT* [plugin `bcli`]
 The percentage of *estimatesmartfee 2/CONSERVATIVE* to use for the commitment
 transactions: default is 100.
 
@@ -302,18 +302,18 @@ have to do that.
 
 Invoice control options:
 
- **autocleaninvoice-cycle**=*SECONDS*
+ **autocleaninvoice-cycle**=*SECONDS* [plugin `autoclean`]
 Perform cleanup of expired invoices every *SECONDS* seconds, or disable
 if 0. Usually unpaid expired invoices are uninteresting, and just take
 up space in the database.
 
- **autocleaninvoice-expired-by**=*SECONDS*
+ **autocleaninvoice-expired-by**=*SECONDS* [plugin `autoclean`]
 Control how long invoices must have been expired before they are cleaned
 (if *autocleaninvoice-cycle* is non-zero).
 
 Payment control options:
 
- **disable-mpp**
+ **disable-mpp** [plugin `pay`]
 Disable the multi-part payment sending support in the `pay` plugin. By default
 the MPP support is enabled, but it can be desirable to disable in situations
 in which each payment should result in a single HTLC being forwarded in the

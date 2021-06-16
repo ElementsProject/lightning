@@ -11,6 +11,9 @@ DESCRIPTION
 
 The **listconfigs** RPC command to list all configuration options, or with *config*, just that one.
 
+The returned values reflect the current configuration, including
+showing default values (`dev-` options are not shown).
+
 EXAMPLE JSON REQUEST
 --------------------
 
@@ -27,18 +30,64 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, an object is returned with members reflecting the
-corresponding lightningd-config(5) options which were specified in
-the configuration file(s) and command line.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **# version** (string, optional): Special field indicating the current version
+- **plugins** (array of objects, optional):
+  - **path** (string): Full path of the plugin
+  - **name** (string): short name of the plugin
+  - **options** (object, optional): Specific options set for this plugin:
+- **important-plugins** (array of objects, optional):
+  - **path** (string): Full path of the plugin
+  - **name** (string): short name of the plugin
+  - **options** (object, optional): Specific options set for this plugin:
+- **conf** (string, optional): `conf` field from cmdline, or default
+- **lightning-dir** (string, optional): `lightning-dir` field from config or cmdline, or default
+- **network** (string, optional): `network` field from config or cmdline, or default
+- **allow-deprecated-apis** (boolean, optional): `allow-deprecated-apis` field from config or cmdline, or default
+- **rpc-file** (string, optional): `rpc-file` field from config or cmdline, or default
+- **disable-plugin** (array of strings, optional):
+  - `disable-plugin` field from config or cmdline
+- **always-use-proxy** (boolean, optional): `always-use-proxy` field from config or cmdline, or default
+- **daemon** (boolean, optional): `daemon` field from config or cmdline, or default
+- **wallet** (string, optional): `wallet` field from config or cmdline, or default
+- **large-channels** (boolean, optional): `large-channels` field from config or cmdline, or default
+- **experimental-dual-fund** (boolean, optional): `experimental-dual-fund` field from config or cmdline, or default
+- **experimental-onion-messages** (boolean, optional): `experimental-onion-messages` field from config or cmdline, or default
+- **experimental-offers** (boolean, optional): `experimental-offers` field from config or cmdline, or default
+- **experimental-shutdown-wrong-funding** (boolean, optional): `experimental-shutdown-wrong-funding` field from config or cmdline, or default
+- **rgb** (hex, optional): `rgb` field from config or cmdline, or default (always 6 characters)
+- **alias** (string, optional): `alias` field from config or cmdline, or default
+- **pid-file** (string, optional): `pid-file` field from config or cmdline, or default
+- **ignore-fee-limits** (boolean, optional): `ignore-fee-limits` field from config or cmdline, or default
+- **watchtime-blocks** (u32, optional): `watchtime-blocks` field from config or cmdline, or default
+- **max-locktime-blocks** (u32, optional): `max-locktime-blocks` field from config or cmdline, or default
+- **funding-confirms** (u32, optional): `funding-confirms` field from config or cmdline, or default
+- **cltv-delta** (u32, optional): `cltv-delta` field from config or cmdline, or default
+- **cltv-final** (u32, optional): `cltv-final` field from config or cmdline, or default
+- **commit-time** (u32, optional): `commit-time` field from config or cmdline, or default
+- **fee-base** (u32, optional): `fee-base` field from config or cmdline, or default
+- **rescan** (integer, optional): `rescan` field from config or cmdline, or default
+- **fee-per-satoshi** (u32, optional): `fee-per-satoshi` field from config or cmdline, or default
+- **max-concurrent-htlcs** (u32, optional): `max-concurrent-htlcs` field from config or cmdline, or default
+- **min-capacity-sat** (u64, optional): `min-capacity-sat` field from config or cmdline, or default
+- **addr** (string, optional): `addr` field from config or cmdline (can be more than one)
+- **announce-addr** (string, optional): `announce-addr` field from config or cmdline (can be more than one)
+- **bind-addr** (string, optional): `bind-addr` field from config or cmdline (can be more than one)
+- **offline** (boolean, optional): `true` if `offline` was set in config or cmdline
+- **autolisten** (boolean, optional): `autolisten` field from config or cmdline, or default
+- **proxy** (string, optional): `proxy` field from config or cmdline, or default
+- **disable-dns** (boolean, optional): `true` if `disable-dns` was set in config or cmdline
+- **encrypted-hsm** (boolean, optional): `true` if `encrypted-hsm` was set in config or cmdline
+- **rpc-file-mode** (string, optional): `rpc-file-mode` field from config or cmdline, or default
+- **log-level** (string, optional): `log-level` field from config or cmdline, or default
+- **log-prefix** (string, optional): `log-prefix` field from config or cmdline, or default
+- **log-file** (string, optional): `log-file` field from config or cmdline, or default
+- **log-timestamps** (boolean, optional): `log-timestamps` field from config or cmdline, or default
+- **subdaemon** (string, optional): `subdaemon` fields from config or cmdline if any (can be more than one)
+- **tor-service-password** (string, optional): `tor-service-password` field from config or cmdline, if any
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
-Additional members include:
-
-- *# version*: A string that represents the version of node.
-- *plugins*: A array that represents the non-important plugin registered. Each object contains the following members:
-   - *path*: A string that represents the path of plugin.
-   - *name*: A string that represents the name of plugin.
-   - *options*: A object that contains all options accepted from command line or configuration file, if the plugin has opitions
-- *important-plugins*: An array that represents all important plugins registered to the node. Each object contains the same members as the *plugin* array.
 
 On failure, one of the following error codes may be returned:
 
@@ -154,3 +203,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:3c3f2cd354ef5b33ad34febd29b04b1861c62d545c6a5b9181eb2b2b3880258f)

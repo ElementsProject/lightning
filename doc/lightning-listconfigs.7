@@ -9,6 +9,10 @@ lightning-listconfigs - Command to list all configuration options\.
 
 The \fBlistconfigs\fR RPC command to list all configuration options, or with \fIconfig\fR, just that one\.
 
+
+The returned values reflect the current configuration, including
+showing default values (\fBdev-\fR options are not shown)\.
+
 .SH EXAMPLE JSON REQUEST
 .nf
 .RS
@@ -24,30 +28,129 @@ The \fBlistconfigs\fR RPC command to list all configuration options, or with \fI
 .fi
 .SH RETURN VALUE
 
-On success, an object is returned with members reflecting the
-corresponding \fBlightningd-config\fR(5) options which were specified in
-the configuration file(s) and command line\.
-
-
-Additional members include:
+On success, an object is returned, containing:
 
 .RS
 .IP \[bu]
-\fI# version\fR: A string that represents the version of node\.
+\fB# version\fR (string, optional): Special field indicating the current version
 .IP \[bu]
-\fIplugins\fR: A array that represents the non-important plugin registered\. Each object contains the following members:
+\fBplugins\fR (array of objects, optional):
 .RS
 .IP \[bu]
-\fIpath\fR: A string that represents the path of plugin\.
+\fBpath\fR (string): Full path of the plugin
 .IP \[bu]
-\fIname\fR: A string that represents the name of plugin\.
+\fBname\fR (string): short name of the plugin
 .IP \[bu]
-\fIoptions\fR: A object that contains all options accepted from command line or configuration file, if the plugin has opitions
+\fBoptions\fR (object, optional): Specific options set for this plugin:
 
 .RE
 
 .IP \[bu]
-\fIimportant-plugins\fR: An array that represents all important plugins registered to the node\. Each object contains the same members as the \fIplugin\fR array\.
+\fBimportant-plugins\fR (array of objects, optional):
+.RS
+.IP \[bu]
+\fBpath\fR (string): Full path of the plugin
+.IP \[bu]
+\fBname\fR (string): short name of the plugin
+.IP \[bu]
+\fBoptions\fR (object, optional): Specific options set for this plugin:
+
+.RE
+
+.IP \[bu]
+\fBconf\fR (string, optional): \fBconf\fR field from cmdline, or default
+.IP \[bu]
+\fBlightning-dir\fR (string, optional): \fBlightning-dir\fR field from config or cmdline, or default
+.IP \[bu]
+\fBnetwork\fR (string, optional): \fBnetwork\fR field from config or cmdline, or default
+.IP \[bu]
+\fBallow-deprecated-apis\fR (boolean, optional): \fBallow-deprecated-apis\fR field from config or cmdline, or default
+.IP \[bu]
+\fBrpc-file\fR (string, optional): \fBrpc-file\fR field from config or cmdline, or default
+.IP \[bu]
+\fBdisable-plugin\fR (array of strings, optional):
+.RS
+.IP \[bu]
+\fBdisable-plugin\fR field from config or cmdline
+
+.RE
+
+.IP \[bu]
+\fBalways-use-proxy\fR (boolean, optional): \fBalways-use-proxy\fR field from config or cmdline, or default
+.IP \[bu]
+\fBdaemon\fR (boolean, optional): \fBdaemon\fR field from config or cmdline, or default
+.IP \[bu]
+\fBwallet\fR (string, optional): \fBwallet\fR field from config or cmdline, or default
+.IP \[bu]
+\fBlarge-channels\fR (boolean, optional): \fBlarge-channels\fR field from config or cmdline, or default
+.IP \[bu]
+\fBexperimental-dual-fund\fR (boolean, optional): \fBexperimental-dual-fund\fR field from config or cmdline, or default
+.IP \[bu]
+\fBexperimental-onion-messages\fR (boolean, optional): \fBexperimental-onion-messages\fR field from config or cmdline, or default
+.IP \[bu]
+\fBexperimental-offers\fR (boolean, optional): \fBexperimental-offers\fR field from config or cmdline, or default
+.IP \[bu]
+\fBexperimental-shutdown-wrong-funding\fR (boolean, optional): \fBexperimental-shutdown-wrong-funding\fR field from config or cmdline, or default
+.IP \[bu]
+\fBrgb\fR (hex, optional): \fBrgb\fR field from config or cmdline, or default (always 6 characters)
+.IP \[bu]
+\fBalias\fR (string, optional): \fBalias\fR field from config or cmdline, or default
+.IP \[bu]
+\fBpid-file\fR (string, optional): \fBpid-file\fR field from config or cmdline, or default
+.IP \[bu]
+\fBignore-fee-limits\fR (boolean, optional): \fBignore-fee-limits\fR field from config or cmdline, or default
+.IP \[bu]
+\fBwatchtime-blocks\fR (u32, optional): \fBwatchtime-blocks\fR field from config or cmdline, or default
+.IP \[bu]
+\fBmax-locktime-blocks\fR (u32, optional): \fBmax-locktime-blocks\fR field from config or cmdline, or default
+.IP \[bu]
+\fBfunding-confirms\fR (u32, optional): \fBfunding-confirms\fR field from config or cmdline, or default
+.IP \[bu]
+\fBcltv-delta\fR (u32, optional): \fBcltv-delta\fR field from config or cmdline, or default
+.IP \[bu]
+\fBcltv-final\fR (u32, optional): \fBcltv-final\fR field from config or cmdline, or default
+.IP \[bu]
+\fBcommit-time\fR (u32, optional): \fBcommit-time\fR field from config or cmdline, or default
+.IP \[bu]
+\fBfee-base\fR (u32, optional): \fBfee-base\fR field from config or cmdline, or default
+.IP \[bu]
+\fBrescan\fR (integer, optional): \fBrescan\fR field from config or cmdline, or default
+.IP \[bu]
+\fBfee-per-satoshi\fR (u32, optional): \fBfee-per-satoshi\fR field from config or cmdline, or default
+.IP \[bu]
+\fBmax-concurrent-htlcs\fR (u32, optional): \fBmax-concurrent-htlcs\fR field from config or cmdline, or default
+.IP \[bu]
+\fBmin-capacity-sat\fR (u64, optional): \fBmin-capacity-sat\fR field from config or cmdline, or default
+.IP \[bu]
+\fBaddr\fR (string, optional): \fBaddr\fR field from config or cmdline (can be more than one)
+.IP \[bu]
+\fBannounce-addr\fR (string, optional): \fBannounce-addr\fR field from config or cmdline (can be more than one)
+.IP \[bu]
+\fBbind-addr\fR (string, optional): \fBbind-addr\fR field from config or cmdline (can be more than one)
+.IP \[bu]
+\fBoffline\fR (boolean, optional): \fBtrue\fR if \fBoffline\fR was set in config or cmdline
+.IP \[bu]
+\fBautolisten\fR (boolean, optional): \fBautolisten\fR field from config or cmdline, or default
+.IP \[bu]
+\fBproxy\fR (string, optional): \fBproxy\fR field from config or cmdline, or default
+.IP \[bu]
+\fBdisable-dns\fR (boolean, optional): \fBtrue\fR if \fBdisable-dns\fR was set in config or cmdline
+.IP \[bu]
+\fBencrypted-hsm\fR (boolean, optional): \fBtrue\fR if \fBencrypted-hsm\fR was set in config or cmdline
+.IP \[bu]
+\fBrpc-file-mode\fR (string, optional): \fBrpc-file-mode\fR field from config or cmdline, or default
+.IP \[bu]
+\fBlog-level\fR (string, optional): \fBlog-level\fR field from config or cmdline, or default
+.IP \[bu]
+\fBlog-prefix\fR (string, optional): \fBlog-prefix\fR field from config or cmdline, or default
+.IP \[bu]
+\fBlog-file\fR (string, optional): \fBlog-file\fR field from config or cmdline, or default
+.IP \[bu]
+\fBlog-timestamps\fR (boolean, optional): \fBlog-timestamps\fR field from config or cmdline, or default
+.IP \[bu]
+\fBsubdaemon\fR (string, optional): \fBsubdaemon\fR fields from config or cmdline if any (can be more than one)
+.IP \[bu]
+\fBtor-service-password\fR (string, optional): \fBtor-service-password\fR field from config or cmdline, if any
 
 .RE
 
@@ -165,4 +268,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:19542af1d9c13e31ec6fada46f85a080433c2c7a863779a8b9e3ac86a5903b48
+\" SHA256STAMP:f813a777c6e074907980797dafd798a48633469a59e1ac526e2581e2b1a14c83
