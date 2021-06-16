@@ -14,6 +14,8 @@ def json_value(obj):
         return '*false*'
     if type(obj) is str:
         return '"' + obj + '"'
+    if obj is None:
+        return '*null*'
     assert False
 
 
@@ -28,7 +30,11 @@ def output(line):
 
 
 def output_type(properties, is_optional):
-    typename = properties['type']
+    # FIXME: there's a horrible hack for listpeers' closer which can be NULL
+    if type(properties['type']) is list:
+        typename = properties['type'][0]
+    else:
+        typename = properties['type']
     if typename == 'array':
         typename += ' of {}s'.format(properties['items']['type'])
     if is_optional:
@@ -63,10 +69,17 @@ def output_range(properties):
             output(' (one of {})'.format(', '.join([json_value(p) for p in properties['enum']])))
 
 
-def output_member(propname, properties, is_optional, indent, print_type=True):
+def output_member(propname, properties, is_optional, indent, print_type=True, prefix=None):
     """Generate description line(s) for this member"""
-    output(indent + '- **{}**'.format(propname))
-    if print_type:
+
+    if prefix is None:
+        prefix = '- **{}**'.format(propname)
+    output(indent + prefix)
+
+    # We make them explicitly note if they don't want a type!
+    is_untyped = 'untyped' in properties
+
+    if not is_untyped and print_type:
         output_type(properties, is_optional)
 
     if 'description' in properties:
@@ -74,10 +87,10 @@ def output_member(propname, properties, is_optional, indent, print_type=True):
 
     output_range(properties)
 
-    if properties['type'] == 'object':
+    if not is_untyped and properties['type'] == 'object':
         output(':\n')
         output_members(properties, indent + '  ')
-    elif properties['type'] == 'array':
+    elif not is_untyped and properties['type'] == 'array':
         output(':\n')
         output_array(properties['items'], indent + '  ')
     else:
@@ -95,6 +108,17 @@ def output_array(items, indent):
         output(indent + '- {}'.format(items['description']))
         output_range(items)
         output('\n')
+
+
+def has_members(sub):
+    """Does this sub have any properties to print?"""
+    for p in list(sub['properties'].keys()):
+        if len(sub['properties'][p]) == 0:
+            continue
+        if 'deprecated' in sub['properties'][p]:
+            continue
+        return True
+    return False
 
 
 def output_members(sub, indent=''):
@@ -161,15 +185,20 @@ def output_members(sub, indent=''):
             conditions.append(cond)
 
         sentence = indent + "If " + ", and ".join(conditions) + ":\n"
-        # Prefix with blank line.
-        outputs(['\n', sentence])
 
-        output_members(ifclause['then'], indent + '  ')
+        if has_members(ifclause['then']):
+            # Prefix with blank line.
+            outputs(['\n', sentence])
+
+            output_members(ifclause['then'], indent + '  ')
 
 
 def generate_from_schema(schema):
     """This is not general, but works for us"""
-    assert schema['type'] == 'object'
+    if schema['type'] != 'object':
+        # 'stop' returns a single string!
+        output_member(None, schema, False, '', prefix='On success, returns a single element')
+        return
 
     toplevels = []
     warnings = []
