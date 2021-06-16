@@ -937,7 +937,7 @@ def test_transaction_annotations(node_factory, bitcoind):
     assert(len(txs) == 1)
     tx = txs[0]
     output = tx['outputs'][idx]
-    assert(output['type'] == 'deposit' and output['satoshis'] == '1000000000msat')
+    assert(output['type'] == 'deposit' and output['msat'] == Millisatoshi(1000000000))
 
     # ... and all other output should be change, and have no annotations
     types = []
