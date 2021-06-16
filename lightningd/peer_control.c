@@ -498,7 +498,7 @@ static void json_add_htlcs(struct lightningd *ld,
 		json_add_u64(response, "id", hin->key.id);
 		json_add_amount_msat_compat(response, hin->msat,
 					    "msatoshi", "amount_msat");
-		json_add_u64(response, "expiry", hin->cltv_expiry);
+		json_add_u32(response, "expiry", hin->cltv_expiry);
 		json_add_sha256(response, "payment_hash", &hin->payment_hash);
 		json_add_string(response, "state",
 				htlc_state_name(hin->hstate));
@@ -744,7 +744,10 @@ static void json_add_channel(struct lightningd *ld,
 		bitcoin_txid(channel->last_tx, &txid);
 
 		json_add_txid(response, "scratch_txid", &txid);
-		json_add_amount_sat_only(response, "last_tx_fee",
+		if (deprecated_apis)
+			json_add_amount_sat_only(response, "last_tx_fee",
+						 bitcoin_tx_compute_fee(channel->last_tx));
+		json_add_amount_sat_only(response, "last_tx_fee_msat",
 					 bitcoin_tx_compute_fee(channel->last_tx));
 	}
 
@@ -847,7 +850,7 @@ static void json_add_channel(struct lightningd *ld,
 	if (channel->closer != NUM_SIDES)
 		json_add_string(response, "closer", channel->closer == LOCAL ?
 						    "local" : "remote");
-	else
+	else if (deprecated_apis)
 		json_add_null(response, "closer");
 
 	json_array_start(response, "features");
@@ -882,20 +885,27 @@ static void json_add_channel(struct lightningd *ld,
 		our_msats = AMOUNT_MSAT(0);
 	}
 
-	json_object_start(response, "funding_allocation_msat");
-	json_add_u64(response, node_id_to_hexstr(tmpctx, &p->id),
-		     peer_msats.millisatoshis); /* Raw: JSON field */
-	json_add_u64(response, node_id_to_hexstr(tmpctx, &ld->id),
-		     our_msats.millisatoshis); /* Raw: JSON field */
-	json_object_end(response);
+	if (deprecated_apis) {
+		json_object_start(response, "funding_allocation_msat");
+		json_add_u64(response, node_id_to_hexstr(tmpctx, &p->id),
+			     peer_msats.millisatoshis); /* Raw: JSON field */
+		json_add_u64(response, node_id_to_hexstr(tmpctx, &ld->id),
+			     our_msats.millisatoshis); /* Raw: JSON field */
+		json_object_end(response);
 
-	json_object_start(response, "funding_msat");
-	json_add_sat_only(response,
-			  node_id_to_hexstr(tmpctx, &p->id),
-			  peer_funded_sats);
-	json_add_sat_only(response,
-			  node_id_to_hexstr(tmpctx, &ld->id),
-			  channel->our_funds);
+		json_object_start(response, "funding_msat");
+		json_add_sat_only(response,
+				  node_id_to_hexstr(tmpctx, &p->id),
+				  peer_funded_sats);
+		json_add_sat_only(response,
+				  node_id_to_hexstr(tmpctx, &ld->id),
+				  channel->our_funds);
+		json_object_end(response);
+	}
+
+	json_object_start(response, "funding");
+	json_add_sat_only(response, "local_msat", channel->our_funds);
+	json_add_sat_only(response, "remote_msat", peer_funded_sats);
 	json_object_end(response);
 
 	if (!amount_sat_to_msat(&funding_msat, channel->funding)) {

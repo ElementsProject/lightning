@@ -1895,7 +1895,7 @@ def test_multifunding_feerates(node_factory, bitcoind):
     assert only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['feerate']['perkw'] == commitment_tx_feerate_int
     assert only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['feerate']['perkb'] == commitment_tx_feerate_int * 4
 
-    txfee = only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['last_tx_fee']
+    txfee = only_one(only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'])['last_tx_fee_msat']
 
     # We get the expected close txid, force close the channel, then fish
     # the details about the transaction out of the mempoool entry
@@ -1923,7 +1923,7 @@ def test_multifunding_feerates(node_factory, bitcoind):
         expected_fee += 330
 
     assert expected_fee == entry['fees']['base'] * 10 ** 8
-    assert Millisatoshi(str(expected_fee) + 'sat') == Millisatoshi(txfee)
+    assert Millisatoshi(str(expected_fee) + 'sat') == txfee
 
 
 def test_multifunding_param_failures(node_factory):
@@ -3326,8 +3326,8 @@ def test_wumbo_channels(node_factory, bitcoind):
     wait_for(lambda: 'CHANNELD_NORMAL' in [c['state'] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels']])
 
     # Exact amount depends on fees, but it will be wumbo!
-    amount = [c['funding_msat'][l1.info['id']] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'] if c['state'] == 'CHANNELD_NORMAL'][0]
-    assert Millisatoshi(amount) > Millisatoshi(str((1 << 24) - 1) + "sat")
+    amount = [c['funding']['local_msat'] for c in only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['channels'] if c['state'] == 'CHANNELD_NORMAL'][0]
+    assert amount > Millisatoshi(str((1 << 24) - 1) + "sat")
 
 
 @pytest.mark.openchannel('v1')
