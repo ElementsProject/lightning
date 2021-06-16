@@ -6,21 +6,22 @@
 #include <sys/types.h>
 
 /* A dummy structure used to give multiple arguments to callbacks. */
-struct dynamic_plugin {
-	struct plugin *plugin;
+struct plugin_command {
 	struct command *cmd;
+	const char *subcmd;
 };
 
 /**
  * Returned by all subcommands on success.
  */
-static struct command_result *plugin_dynamic_list_plugins(struct command *cmd,
+static struct command_result *plugin_dynamic_list_plugins(struct plugin_command *pcmd,
 							  const struct plugins *plugins)
 {
 	struct json_stream *response;
 	const struct plugin *p;
 
-	response = json_stream_success(cmd);
+	response = json_stream_success(pcmd->cmd);
+	json_add_string(response, "command", pcmd->subcmd);
 	json_array_start(response, "plugins");
 	list_for_each(&plugins->plugins, p, list) {
 		json_object_start(response, NULL);
@@ -30,25 +31,25 @@ static struct command_result *plugin_dynamic_list_plugins(struct command *cmd,
 		json_object_end(response);
 	}
 	json_array_end(response);
-	return command_success(cmd, response);
+	return command_success(pcmd->cmd, response);
 }
 
-struct command_result *plugin_cmd_killed(struct command *cmd,
+struct command_result *plugin_cmd_killed(struct plugin_command *pcmd,
 					 struct plugin *plugin, const char *msg)
 {
-	return command_fail(cmd, PLUGIN_ERROR, "%s: %s", plugin->cmd, msg);
+	return command_fail(pcmd->cmd, PLUGIN_ERROR, "%s: %s", plugin->cmd, msg);
 }
 
-struct command_result *plugin_cmd_succeeded(struct command *cmd,
+struct command_result *plugin_cmd_succeeded(struct plugin_command *pcmd,
 					    struct plugin *plugin)
 {
-	return plugin_dynamic_list_plugins(cmd, plugin->plugins);
+	return plugin_dynamic_list_plugins(pcmd, plugin->plugins);
 }
 
 struct command_result *plugin_cmd_all_complete(struct plugins *plugins,
-					       struct command *cmd)
+					       struct plugin_command *pcmd)
 {
-	return plugin_dynamic_list_plugins(cmd, plugins);
+	return plugin_dynamic_list_plugins(pcmd, plugins);
 }
 
 /**
@@ -56,25 +57,25 @@ struct command_result *plugin_cmd_all_complete(struct plugins *plugins,
  * will give a result 60 seconds later at the most (once init completes).
  */
 static struct command_result *
-plugin_dynamic_start(struct command *cmd, const char *plugin_path,
+plugin_dynamic_start(struct plugin_command *pcmd, const char *plugin_path,
 		     const char *buffer, const jsmntok_t *params)
 {
-	struct plugin *p = plugin_register(cmd->ld->plugins, plugin_path, cmd, false, buffer, params);
+	struct plugin *p = plugin_register(pcmd->cmd->ld->plugins, plugin_path, pcmd, false, buffer, params);
 	const char *err;
 
 	if (!p)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		return command_fail(pcmd->cmd, JSONRPC2_INVALID_PARAMS,
 				    "%s: already registered",
 				    plugin_path);
 
 	/* This will come back via plugin_cmd_killed or plugin_cmd_succeeded */
 	err = plugin_send_getmanifest(p);
 	if (err)
-		return command_fail(cmd, PLUGIN_ERROR,
+		return command_fail(pcmd->cmd, PLUGIN_ERROR,
 				    "%s: %s",
 				    plugin_path, err);
 
-	return command_still_pending(cmd);
+	return command_still_pending(pcmd->cmd);
 }
 
 /**
@@ -82,22 +83,22 @@ plugin_dynamic_start(struct command *cmd, const char *plugin_path,
  * all contained plugins recursively and then starts them.
  */
 static struct command_result *
-plugin_dynamic_startdir(struct command *cmd, const char *dir_path)
+plugin_dynamic_startdir(struct plugin_command *pcmd, const char *dir_path)
 {
 	const char *err;
 	struct command_result *res;
 
-	err = add_plugin_dir(cmd->ld->plugins, dir_path, false);
+	err = add_plugin_dir(pcmd->cmd->ld->plugins, dir_path, false);
 	if (err)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS, "%s", err);
+		return command_fail(pcmd->cmd, JSONRPC2_INVALID_PARAMS, "%s", err);
 
 	/* If none added, this calls plugin_cmd_all_complete immediately */
-	res = plugin_register_all_complete(cmd->ld, cmd);
+	res = plugin_register_all_complete(pcmd->cmd->ld, pcmd);
 	if (res)
 		return res;
 
-	plugins_send_getmanifest(cmd->ld->plugins);
-	return command_still_pending(cmd);
+	plugins_send_getmanifest(pcmd->cmd->ld->plugins);
+	return command_still_pending(pcmd->cmd);
 }
 
 static struct command_result *
@@ -116,6 +117,7 @@ plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
 			plugin_kill(p, LOG_INFORM,
 				    "stopped by lightningd via RPC");
 			response = json_stream_success(cmd);
+			json_add_string(response, "command", "stop");
 			json_add_string(response, "result",
 			                take(tal_fmt(NULL, "Successfully stopped %s.",
 			                             plugin_name)));
@@ -131,20 +133,20 @@ plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
  * Look for additions in the default plugin directory.
  */
 static struct command_result *
-plugin_dynamic_rescan_plugins(struct command *cmd)
+plugin_dynamic_rescan_plugins(struct plugin_command *pcmd)
 {
 	struct command_result *res;
 
 	/* This will not fail on "already registered" error. */
-	plugins_add_default_dir(cmd->ld->plugins);
+	plugins_add_default_dir(pcmd->cmd->ld->plugins);
 
 	/* If none added, this calls plugin_cmd_all_complete immediately */
-	res = plugin_register_all_complete(cmd->ld, cmd);
+	res = plugin_register_all_complete(pcmd->cmd->ld, pcmd);
 	if (res)
 		return res;
 
-	plugins_send_getmanifest(cmd->ld->plugins);
-	return command_still_pending(cmd);
+	plugins_send_getmanifest(pcmd->cmd->ld->plugins);
+	return command_still_pending(pcmd->cmd);
 }
 
 /**
@@ -156,12 +158,17 @@ static struct command_result *json_plugin_control(struct command *cmd,
 						const jsmntok_t *obj UNNEEDED,
 						const jsmntok_t *params)
 {
+	struct plugin_command *pcmd;
 	const char *subcmd;
 	subcmd = param_subcommand(cmd, buffer, params,
 	                          "start", "stop", "startdir",
 	                          "rescan", "list", NULL);
 	if (!subcmd)
 		return command_param_failed();
+
+	pcmd = tal(cmd, struct plugin_command);
+	pcmd->cmd = cmd;
+	pcmd->subcmd = subcmd;
 
 	if (streq(subcmd, "stop")) {
 		const char *plugin_name;
@@ -202,7 +209,7 @@ static struct command_result *json_plugin_control(struct command *cmd,
 							"plugin") - 1, 1);
 		}
 		if (access(plugin_path, X_OK) == 0)
-			return plugin_dynamic_start(cmd, plugin_path,
+			return plugin_dynamic_start(pcmd, plugin_path,
 						    buffer, mod_params);
 		else
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -218,7 +225,7 @@ static struct command_result *json_plugin_control(struct command *cmd,
 			return command_param_failed();
 
 		if (access(dir_path, F_OK) == 0)
-			return plugin_dynamic_startdir(cmd, dir_path);
+			return plugin_dynamic_startdir(pcmd, dir_path);
 		else
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 						   "Could not open %s", dir_path);
@@ -228,14 +235,14 @@ static struct command_result *json_plugin_control(struct command *cmd,
 			   NULL))
 			return command_param_failed();
 
-		return plugin_dynamic_rescan_plugins(cmd);
+		return plugin_dynamic_rescan_plugins(pcmd);
 	} else if (streq(subcmd, "list")) {
 		if (!param(cmd, buffer, params,
 			   p_req("subcommand", param_ignore, cmd),
 			   NULL))
 			return command_param_failed();
 
-		return plugin_dynamic_list_plugins(cmd, cmd->ld->plugins);
+		return plugin_dynamic_list_plugins(pcmd, cmd->ld->plugins);
 	}
 
 	/* subcmd must be one of the above: param_subcommand checked it! */
