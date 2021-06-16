@@ -8,7 +8,7 @@
 	    "type": "array",
 	    "items": {
 		"type": "object",
-		"additionalProperties": true,
+		"additionalProperties": false,
 		"required": [ "id", "payment_hash", "status", "amount_sent_msat", "created_at" ],
 		"properties": {
 		    "id": {
@@ -26,6 +26,9 @@
 			"enum": [ "pending", "failed", "complete" ],
 			"description": "status of the payment"
 		    },
+		    "msatoshi_sent": {
+			"deprecated": true
+		    },
 		    "amount_sent_msat": {
 			"type": "msat",
 			"description": "the amount we actually sent, including fees"
@@ -37,6 +40,9 @@
 		    "destination": {
 			"type": "pubkey",
 			"description": "the final destination of the payment if known"
+		    },
+		    "msatoshi": {
+			"deprecated": true
 		    },
 		    "amount_msat": {
 			"type": "msat",

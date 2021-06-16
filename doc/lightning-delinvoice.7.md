@@ -23,10 +23,13 @@ Note: The return is the same as an object from lightning-listinvoice(7).
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 - **label** (string): Unique label given at creation time
+- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
 - **status** (string): State of invoice (one of "paid", "expired", "unpaid")
 - **expires_at** (u64): UNIX timestamp when invoice expires (or expired)
 - **bolt11** (string, optional): BOLT11 string
 - **bolt12** (string, optional): BOLT12 string
+- **amount_msat** (msat, optional): the amount required to pay this invoice
+- **description** (string, optional): description used in the invoice
 
 If **bolt12** is present:
   - **local_offer_id** (hex, optional): offer for which this invoice was created
@@ -68,4 +71,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:8cd84ec57d229dacb6d6c52510334da87846f1c8eea7db286063a2513e8318cb)
+[comment]: # ( SHA256STAMP:eb1f069240a14c56d3fc336c56be2fed4f966d6aa2edaa5697ede821ebc5140b)
