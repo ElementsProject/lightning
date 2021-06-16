@@ -125,8 +125,11 @@ struct wireaddr_internal {
 		/* ADDR_INTERNAL_AUTOTOR
 		 * ADDR_INTERNAL_STATICTOR */
 		struct torservice {
+			/* Where to connect to Tor proxy */
 			struct wireaddr address;
+			/* Tor port to use */
 			u16 port;
+			/* Blob to use to create tor service */
 			u8 blob[TOR_V3_BLOBLEN + 1];
 		} torservice;
 		/* ADDR_INTERNAL_FORPROXY */

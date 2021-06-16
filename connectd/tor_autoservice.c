@@ -183,7 +183,7 @@ static struct wireaddr *make_fixed_onion(const tal_t *ctx,
 
 		name = tal_fmt(tmpctx, "%s.onion", line);
 		onion = tal(ctx, struct wireaddr);
-		if (!parse_wireaddr(name, onion, local->port, false, NULL))
+		if (!parse_wireaddr(name, onion, port, false, NULL))
 			status_failed(STATUS_FAIL_INTERNAL_ERROR,
 				      "Tor gave bad onion name '%s'", name);
 		#ifdef SUPERVERBOSE
