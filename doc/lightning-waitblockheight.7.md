@@ -19,9 +19,10 @@ command returns immediately.
 RETURN VALUE
 ------------
 
-Once the specified block height has been achieved by the blockchain,
-an object with the single field *blockheight* is returned, which is
-the block height at the time the command returns.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **blockheight** (u32): The current block height (>= *blockheight* parameter)
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If *timeout* seconds is reached without the specified blockheight
 being reached, this command will fail with a code of `2000`.
@@ -36,3 +37,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:bd9cd69ae5a66b75b6172d2cd8c7bdb1c896fcd7ed1edf41fc3707c2f1a466dd)

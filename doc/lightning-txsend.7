@@ -12,12 +12,17 @@ The \fBtxsend\fR RPC command signs and broadcasts a transaction created by
 
 .SH RETURN VALUE
 
-On success, an object with attributes \fItx\fR and \fItxid\fR will be returned\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBpsbt\fR (string): the completed PSBT representing the signed transaction
+.IP \[bu]
+\fBtx\fR (hex): the fully signed transaction
+.IP \[bu]
+\fBtxid\fR (txid): the transaction id of \fItx\fR
 
-\fItx\fR represents the fully signed raw bitcoin transaction, and \fItxid\fR is
-the same as the \fItxid\fR argument\.
-
+.RE
 
 On failure, an error is reported (from bitcoind), and the inputs from
 the transaction are unreserved\.
@@ -42,4 +47,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:21ece8a91426ad0d60c15f2dd3fcdd7dda33bf66bcbc2d20b09e20fd350566b6
+\" SHA256STAMP:b3d6d0a71241ee5564eb02ecf3bea1b5528dd5868e6607a8acccd1828a80435a

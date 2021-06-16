@@ -23,6 +23,22 @@ hours), but this can be changed by setting \fIreserve\fR\.
 
 .SH RETURN VALUE
 
+On success, an object containing \fBreservations\fR is returned\.  It is an array of objects, where each object contains:
+
+.RS
+.IP \[bu]
+\fBtxid\fR (txid): the transaction id
+.IP \[bu]
+\fBvout\fR (u32): the output number which was reserved
+.IP \[bu]
+\fBwas_reserved\fR (boolean): whether the input was already reserved
+.IP \[bu]
+\fBreserved\fR (boolean): whether the input is now reserved (always \fItrue\fR)
+.IP \[bu]
+\fBreserved_to_block\fR (u32): what blockheight the reservation will expire
+
+.RE
+
 On success, a \fIreservations\fR array is returned, with an entry for each input
 which was reserved:
 
@@ -62,4 +78,4 @@ niftynei \fI<niftynei@gmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:81be9e3af4075dd3bd24c6461861ee067b435654d88817afd0c49d37e85768a3
+\" SHA256STAMP:57c1d91f48a095284bb62ef36d88cce487c44759f4ead192ebe9a97d084d028d

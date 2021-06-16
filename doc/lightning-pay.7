@@ -76,11 +76,35 @@ exceed \fImaxdelay\fR\.
 
 .SH RETURN VALUE
 
-On success, this returns the \fIpayment_preimage\fR which hashes to the
-\fIpayment_hash\fR to prove that the payment was successful\. It will also
-return, a \fIgetroute_tries\fR and a \fIsendpay_tries\fR statistics for the
-number of times it internally called \fBgetroute\fR and \fBsendpay\fR\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBpayment_preimage\fR (hex): the proof of payment: SHA256 of this \fBpayment_hash\fR (always 64 characters)
+.IP \[bu]
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.IP \[bu]
+\fBcreated_at\fR (number): the UNIX timestamp showing when this payment was initiated
+.IP \[bu]
+\fBparts\fR (u32): how many attempts this took
+.IP \[bu]
+\fBamount_msat\fR (msat): Amount the recipient received
+.IP \[bu]
+\fBamount_sent_msat\fR (msat): Total amount we sent (including fees)
+.IP \[bu]
+\fBstatus\fR (string): status of payment (always "complete")
+.IP \[bu]
+\fBdestination\fR (pubkey, optional): the final destination of the payment
+
+.RE
+
+The following warnings may also be returned:
+
+.RS
+.IP \[bu]
+\fBwarning_partial_completion\fR: Not all parts of a multi-part payment have completed
+
+.RE
 
 You can monitor the progress and retries of a payment using the
 \fBlightning-paystatus\fR(7) command\.
@@ -158,4 +182,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:c33dee8ebd5fd5b764f81ceb777a59c5b0c1162f6fc1ae1fba8b38f5215e2e13
+\" SHA256STAMP:ef0d5186428437104bb2f9c5449a37fc2fc5b1438633259ee7d2915dc07d3dc5

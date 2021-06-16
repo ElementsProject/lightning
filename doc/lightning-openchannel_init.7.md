@@ -42,12 +42,13 @@ sent on close. Only valid if both peers have negotiated
 RETURN VALUE
 ------------
 
-On success, returns the *channel_id* for this channel; an updated
-incomplete *initialpsbt* for this funding transaction; and the flag
-*commitments_secured*, which indiciates the completeness of the
-passed back *psbt*. (Will always be false). Also returns the
-*funding_serial*, indicating the serial\_id of the funding output
-in the *psbt*.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **channel_id** (hex): the channel id of the channel (always 64 characters)
+- **commitments_secured** (boolean): whether the *psbt* is complete (always *false*)
+- **funding_serial** (u64): the serial_id of the funding output in the *psbt*
+- **intiialpsbt** (string, optional): the (incomplete) PSBT of the funding transaction
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If the peer does not support `option_dual_fund`, this command
 will return an error.
@@ -84,3 +85,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:a633941043ea5882c89e444cd1e41cb7040716c092b4b5e8aaf6ddafbbcf1a5d)

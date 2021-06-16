@@ -20,39 +20,27 @@ command per *pay*, so this command should be used with caution.
 RETURN VALUE
 ------------
 
-On success, an array of objects is returned, ordered by increasing *id*. Each object contains:
+Note that the returned array is ordered by increasing *id*.
 
- *id*
-unique internal value assigned at creation
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object containing **payments** is returned.  It is an array of objects, where each object contains:
+- **id** (u64): unique ID for this payment attempt
+- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **status** (string): status of the payment (one of "pending", "failed", "complete")
+- **created_at** (u64): the UNIX timestamp showing when this payment was initiated
+- **amount_sent_msat** (msat): The amount sent
+- **amount_msat** (msat, optional): The amount delivered to destination (if known)
+- **destination** (pubkey, optional): the final destination of the payment if known
+- **label** (string, optional): the label, if given to sendpay
+- **bolt11** (string, optional): the bolt11 string (if pay supplied one)
+- **bolt12** (string, optional): the bolt12 string (if supplied for pay: **experimental-offers** only).
 
- *payment\_hash*
-the hash of the *payment\_preimage* which will prove payment.
+If **status** is "complete":
+  - **payment_preimage** (hex): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
 
- *destination*
-the final destination of the payment.
-
- *amount\_msat*
-the amount the destination received, in "NNNmsat" format.
-
- *created\_at*
-the UNIX timestamp showing when this payment was initiated.
-
- *status*
-one of *complete*, *failed* or *pending*.
-
- *payment\_preimage*
-(if *status* is *complete*) proves payment was received.
-
- *label*
-optional *label*, if provided to *sendpay*.
-
- *bolt11*
-the *bolt11* argument given to *pay* (may be missing for pre-0.7
-payments).
-
- *bolt12*
-if **experimental-offers** is enabled, and `pay` was a given a bolt12
-invoice, this field will appear instead of *bolt11*.
+If **status** is "failed":
+  - **erroronion** (hex, optional): the onion message returned
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
 ------
@@ -70,3 +58,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:db8e97cc84246f4e836ac7b2f39e265deb51cb0adacfcca8e05bb7cb9c3480de)

@@ -98,8 +98,6 @@ transactions\. See \fIfeerate\fR for valid values\.
 
 .SH RETURN VALUE
 
-On success, the \fItx\fR and \fItxid\fR of the signed and broadcsted funding
-transaction is returned\.
 This command opens multiple channels with a single large transaction,
 thus only one transaction is returned\.
 
@@ -109,22 +107,51 @@ then it is possible that one or more of the destinations
 do not have a channel even if \fBmultifundchannel\fR succeeded\.
 
 
-An array of \fIchannel_ids\fR is returned;
-each entry of the array is an object,
- with an \fIid\fR field being the node ID of the peer,
- an \fIoutnum\fR field being the output number of the transaction
-  that anchors this channel,
- and \fIchannel_id\fR field being the channel ID with that peer\.
+On success, an object is returned, containing:
+
+.RS
+.IP \[bu]
+\fBtx\fR (hex): The raw transaction which funded the channel
+.IP \[bu]
+\fBtxid\fR (txid): The txid of the transaction which funded the channel
+.IP \[bu]
+\fBchannel_ids\fR (array of objects):
+.RS
+.IP \[bu]
+\fBid\fR (pubkey): The peer we opened the channel with
+.IP \[bu]
+\fBoutnum\fR (u32): The 0-based output index showing which output funded the channel
+.IP \[bu]
+\fBchannel_id\fR (hex): The channel_id of the resulting channel (always 64 characters)
+.IP \[bu]
+\fBclose_to\fR (hex, optional): The raw scriptPubkey which mutual close will go to; only present if \fIclose_to\fR parameter was specified and peer supports \fBoption_upfront_shutdown_script\fR
+
+.RE
+
+.IP \[bu]
+\fBfailed\fR (array of objects, optional): any peers we failed to open with (if \fIminchannels\fR was specified less than the number of destinations):
+.RS
+.IP \[bu]
+\fBid\fR (pubkey): The peer we failed to open the channel with
+.IP \[bu]
+\fBmethod\fR (string): What stage we failed at (one of "connect", "openchannel_init", "fundchannel_start", "fundchannel_complete")
+.IP \[bu]
+\fBerror\fR (object):
+.RS
+.IP \[bu]
+\fBcode\fR (integer): JSON error code from failing stage
+.IP \[bu]
+\fBmessage\fR (string): Message from stage
+.IP \[bu]
+\fBdata\fR: Additional error data
+
+.RE
 
 
-An array of \fIfailed\fR is returned,
-which contains the destinations that were removed
-due to failures (this can only happen on success if \fIminchannels\fR was specified)\.
-Each entry of the array is an object,
- with an \fIid\fR field being the node ID of the removed peer,
- \fImethod\fR field describing what phase of funding the peer failed,
- and \fIerror\fR field of the exact error returned by the method\.
+.RE
 
+
+.RE
 
 On failure, none of the channels are created\.
 
@@ -177,4 +204,4 @@ ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:45015c53c73dc4d84850c84cb753d62739288365746b47f0403fb67e5f65d582
+\" SHA256STAMP:86b05635f6d0d55dc3771779237bf1046b52f8cd290f16cccc5656cb94f2863a

@@ -12,14 +12,19 @@ use of the \fItxid\fR from \fBlightning-txprepare\fR(7)\.
 
 .SH RETURN VALUE
 
-On success, an object with attributes \fIunsigned_tx\fR and \fItxid\fR will be
-returned, exactly as from \fBlightning-txprepare\fR(7)\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBunsigned_tx\fR (hex): the unsigned transaction
+.IP \[bu]
+\fBtxid\fR (txid): the transaction id of \fIunsigned_tx\fR
+
+.RE
 
 If there is no matching \fItxid\fR, an error is reported\. Note that this may
-happen due to incorrect usage (such as \fBtxdiscard\fR or \fBtxsend\fR
-already being called for \fItxid\fR) or due to lightningd restarting, which
-implicitly calls \fBtxdiscard\fR on all outputs\.
+happen due to incorrect usage, such as \fBtxdiscard\fR or \fBtxsend\fR
+already being called for \fItxid\fR\.
 
 
 The following error codes may occur:
@@ -41,4 +46,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:cd4c671bd56e7afbe224cceb4e454da314e4ac08bb15618780e06da6c12310ed
+\" SHA256STAMP:af562e4efa41431ac7692900acd231e8baf91c1fab4884788ee9746242aac8d6

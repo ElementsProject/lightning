@@ -52,13 +52,12 @@ is provided by **txsend**.
 RETURN VALUE
 ------------
 
-On success, an object with attributes *unsigned\_tx*, *psbt* and *txid* will be
-returned. You need to hand *txid* to **txsend** or **txdiscard**, as the
-inputs of this transaction are reserved until then, or until the daemon
-restarts.
-
-*unsigned\_tx* and *psbt* represent the raw bitcoin transaction (not yet signed)
-and *txid* represent the bitcoin transaction id.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **psbt** (string): the PSBT representing the unsigned transaction
+- **unsigned_tx** (hex): the unsigned transaction
+- **txid** (txid): the transaction id of *unsigned_tx*; you hand this to lightning-txsend(7) or lightning-txdiscard(7), as the inputs of this transaction are reserved.
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, an error is reported and the transaction is not created.
 
@@ -84,3 +83,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:d9c02d64810b85a3efcaa01c1403948ea4361d8281d46a2c31cc077f7300cd80)

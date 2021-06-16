@@ -37,12 +37,37 @@ The \fIlist\fR command will return all the active plugins\.
 
 .SH RETURN VALUE
 
-On success, all subcommands but \fIstop\fR return an array \fIplugins\fR of
-objects, one by plugin\.
-Each object contains the name of the plugin (\fIname\fR field) and its
-status (\fIactive\fR boolean field)\. Since plugins are configured
-asynchronously, a freshly started plugin may not appear immediately\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBcommand\fR (string): the subcommand this is responding to (one of "start", "stop", "rescan", "startdir", "list")
+
+.RE
+
+If \fBcommand\fR is "start", "startdir", "rescan" or "list":
+
+.RS
+.IP \[bu]
+\fBplugins\fR (array of objects):
+.RS
+.IP \[bu]
+\fBname\fR (string): full pathname of the plugin
+.IP \[bu]
+\fBactive\fR (boolean): status; since plugins are configured asynchronously, a freshly started plugin may not appear immediately\.
+
+.RE
+
+
+.RE
+
+If \fBcommand\fR is "stop":
+
+.RS
+.IP \[bu]
+\fBresult\fR (string): A message saying it successfully stopped
+
+.RE
 
 On error, the reason why the action could not be taken upon the
 plugin is returned\.
@@ -55,4 +80,4 @@ Antoine Poinsot \fI<darosior@protonmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:f4b405aa5a5bb8dde3b8947b7d6152ba5ac88108cde43c1375121e5c24555d30
+\" SHA256STAMP:281abf9aa97a3cb1204adc209541c3cfdcb1ca0126f62a126338dcd2fcd0bc8e

@@ -12,9 +12,41 @@ then returns that single entry as per \fBlistinvoice\fR\.
 
 .SH RETURN VALUE
 
-On success, an invoice description will be returned as per
-\fBlightning-listinvoice\fR(7)\. The \fIstatus\fR field will be \fIpaid\fR or \fIexpired\fR\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBlabel\fR (string): unique label supplied at invoice creation
+.IP \[bu]
+\fBdescription\fR (string): description used in the invoice
+.IP \[bu]
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.IP \[bu]
+\fBstatus\fR (string): Whether it's paid or expired (one of "paid", "expired")
+.IP \[bu]
+\fBexpires_at\fR (u64): UNIX timestamp of when it will become / became unpayable
+.IP \[bu]
+\fBamount_msat\fR (msat, optional): the amount required to pay this invoice
+.IP \[bu]
+\fBbolt11\fR (string, optional): the BOLT11 string (always present unless \fIbolt12\fR is)
+.IP \[bu]
+\fBbolt12\fR (string, optional): the BOLT12 string (always present unless \fIbolt11\fR is)
+
+.RE
+
+If \fBstatus\fR is "paid":
+
+.RS
+.IP \[bu]
+\fBpay_index\fR (u64): Unique incrementing index for this payment
+.IP \[bu]
+\fBamount_received_msat\fR (msat): the amount actually received (could be slightly greater than \fIamount_msat\fR, since clients may overpay)
+.IP \[bu]
+\fBpaid_at\fR (u64): UNIX timestamp of when it was paid
+.IP \[bu]
+\fBpayment_preimage\fR (hex): proof of payment (always 64 characters)
+
+.RE
 
 On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
 with \fBcode\fR being one of the following:
@@ -42,4 +74,4 @@ responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:afa7ad33136d9bd9a92b9e0c52387c3124f009ca11b045dbac4e840aaa610857
+\" SHA256STAMP:db69e2582b766856b174bf6bee2b9e9dbb398cdd31ba6d0f3e826648d24cee62

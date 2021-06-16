@@ -98,11 +98,47 @@ The \fImsatoshi\fR parameter is used to annotate the payment, and is returned by
 
 .SH RETURN VALUE
 
-On success, an object similar to the output of \fBsendpay\fR will be
-returned\. This object will have a \fIstatus\fR field that is typically the string
-\fI"pending"\fR, but may be \fI"complete"\fR if the payment was already performed
-successfully\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBid\fR (u64): unique ID for this payment attempt
+.IP \[bu]
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.IP \[bu]
+\fBstatus\fR (string): status of the payment (could be complete if already sent previously) (one of "pending", "complete")
+.IP \[bu]
+\fBcreated_at\fR (u64): the UNIX timestamp showing when this payment was initiated
+.IP \[bu]
+\fBamount_sent_msat\fR (msat): The amount sent
+.IP \[bu]
+\fBamount_msat\fR (msat, optional): The amount delivered to destination (if known)
+.IP \[bu]
+\fBdestination\fR (pubkey, optional): the final destination of the payment if known
+.IP \[bu]
+\fBlabel\fR (string, optional): the label, if given to sendpay
+.IP \[bu]
+\fBbolt11\fR (string, optional): the bolt11 string (if supplied)
+.IP \[bu]
+\fBbolt12\fR (string, optional): the bolt12 string (if supplied: \fBexperimental-offers\fR only)\.
+
+.RE
+
+If \fBstatus\fR is "complete":
+
+.RS
+.IP \[bu]
+\fBpayment_preimage\fR (hex): the proof of payment: SHA256 of this \fBpayment_hash\fR (always 64 characters)
+
+.RE
+
+If \fBstatus\fR is "pending":
+
+.RS
+.IP \[bu]
+\fBmessage\fR (string, optional): Monitor status with listpays or waitsendpay
+
+.RE
 
 If \fIshared_secrets\fR was provided and an error was returned by one of the
 intermediate nodes the error details are decrypted and presented
@@ -120,4 +156,4 @@ Christian Decker \fI<decker.christian@gmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:1d7ceae27ac4ac51597b92de50cf7bc917c59bdf59f3280efc06491ed4efaffc
+\" SHA256STAMP:5d91baad544b373c2df39220b6928d292a72239c8e41ae4ec428fdfb46727c8e

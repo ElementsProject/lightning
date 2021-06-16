@@ -24,8 +24,12 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, the command will return a empty object.  Once it has returned,
-the daemon has cleaned up completely, and if desired may be restarted.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, returns a single element (string) (always "Shutdown complete")
+[comment]: # (GENERATE-FROM-SCHEMA-END)
+
+Once it has returned, the daemon has cleaned up completely, and if
+desired may be restarted immediately.
 
 
 AUTHOR
@@ -38,3 +42,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:e0a51d1bacb47191037431841eb36b348554cb40f8a291528f67f5beb718f6cf)

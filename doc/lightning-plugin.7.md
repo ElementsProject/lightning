@@ -35,11 +35,18 @@ The *list* command will return all the active plugins.
 RETURN VALUE
 ------------
 
-On success, all subcommands but *stop* return an array *plugins* of
-objects, one by plugin.
-Each object contains the name of the plugin (*name* field) and its
-status (*active* boolean field). Since plugins are configured
-asynchronously, a freshly started plugin may not appear immediately.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **command** (string): the subcommand this is responding to (one of "start", "stop", "rescan", "startdir", "list")
+
+If **command** is "start", "startdir", "rescan" or "list":
+  - **plugins** (array of objects):
+    - **name** (string): full pathname of the plugin
+    - **active** (boolean): status; since plugins are configured asynchronously, a freshly started plugin may not appear immediately.
+
+If **command** is "stop":
+  - **result** (string): A message saying it successfully stopped
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error, the reason why the action could not be taken upon the
 plugin is returned.
@@ -54,3 +61,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:a14192d703b99bb39ed7a297bcee462a51b9728ad6d6477dd65ad636c0c87c02)

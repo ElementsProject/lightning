@@ -84,8 +84,6 @@ transactions. See *feerate* for valid values.
 RETURN VALUE
 ------------
 
-On success, the *tx* and *txid* of the signed and broadcsted funding
-transaction is returned.
 This command opens multiple channels with a single large transaction,
 thus only one transaction is returned.
 
@@ -93,20 +91,23 @@ If *minchannels* was specified and is less than the number of destinations,
 then it is possible that one or more of the destinations
 do not have a channel even if **multifundchannel** succeeded.
 
-An array of *channel\_ids* is returned;
-each entry of the array is an object,
- with an *id* field being the node ID of the peer,
- an *outnum* field being the output number of the transaction
-  that anchors this channel,
- and *channel_id* field being the channel ID with that peer.
-
-An array of *failed* is returned,
-which contains the destinations that were removed
-due to failures (this can only happen on success if *minchannels* was specified).
-Each entry of the array is an object,
- with an *id* field being the node ID of the removed peer,
- *method* field describing what phase of funding the peer failed,
- and *error* field of the exact error returned by the method.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **tx** (hex): The raw transaction which funded the channel
+- **txid** (txid): The txid of the transaction which funded the channel
+- **channel_ids** (array of objects):
+  - **id** (pubkey): The peer we opened the channel with
+  - **outnum** (u32): The 0-based output index showing which output funded the channel
+  - **channel_id** (hex): The channel_id of the resulting channel (always 64 characters)
+  - **close_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`
+- **failed** (array of objects, optional): any peers we failed to open with (if *minchannels* was specified less than the number of destinations):
+  - **id** (pubkey): The peer we failed to open the channel with
+  - **method** (string): What stage we failed at (one of "connect", "openchannel_init", "fundchannel_start", "fundchannel_complete")
+  - **error** (object):
+    - **code** (integer): JSON error code from failing stage
+    - **message** (string): Message from stage
+    - **data**: Additional error data
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, none of the channels are created.
 
@@ -150,3 +151,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:96f061609558a3baa93a2d212ef9de0d5a3cf3217504ddd42b99bf2bf2249e2c)

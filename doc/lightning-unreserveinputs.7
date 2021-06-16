@@ -20,20 +20,25 @@ reservation by; default is 72\.
 
 .SH RETURN VALUE
 
-On success, an \fIreservations\fR array is returned, with an entry for each input
-which was reserved:
+On success, an object containing \fBreservations\fR is returned\.  It is an array of objects, where each object contains:
 
 .RS
 .IP \[bu]
-\fItxid\fR is the input transaction id\.
+\fBtxid\fR (txid): the transaction id
 .IP \[bu]
-\fIvout\fR is the input index\.
+\fBvout\fR (u32): the output number which was reserved
 .IP \[bu]
-\fIwas_reserved\fR indicates whether the input was already reserved (generally true)
+\fBwas_reserved\fR (boolean): whether the input was already reserved (usually \fBtrue\fR)
 .IP \[bu]
-\fIreserved\fR indicates that the input is now reserved (may still be true, if it was previously reserved for a long time)\.
+\fBreserved\fR (boolean): whether the input is now reserved (may still be \fBtrue\fR if it was reserved for a long time)
+
+.RE
+
+If \fBreserved\fR is \fItrue\fR:
+
+.RS
 .IP \[bu]
-\fIreserved_to_block\fR (if \fIreserved\fR is still true) indicates what blockheight the reservation will expire\.
+\fBreserved_to_block\fR (u32): what blockheight the reservation will expire
 
 .RE
 
@@ -59,4 +64,4 @@ niftynei \fI<niftynei@gmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:d4aa9d3345ce7fa3c91b760633c3dc296d4dd7a7da7cdadc4da31c3b474e680c
+\" SHA256STAMP:fb2f73820b1e9b632449b241c7587b5019d5891e0348835a84d435a98fd673e8

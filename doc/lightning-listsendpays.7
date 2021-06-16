@@ -18,50 +18,50 @@ command per \fIpay\fR, so this command should be used with caution\.
 
 .SH RETURN VALUE
 
-On success, an array of objects is returned, ordered by increasing \fIid\fR\. Each object contains:
+Note that the returned array is ordered by increasing \fIid\fR\.
 
 
- \fIid\fR
-unique internal value assigned at creation
+On success, an object containing \fBpayments\fR is returned\.  It is an array of objects, where each object contains:
 
+.RS
+.IP \[bu]
+\fBid\fR (u64): unique ID for this payment attempt
+.IP \[bu]
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.IP \[bu]
+\fBstatus\fR (string): status of the payment (one of "pending", "failed", "complete")
+.IP \[bu]
+\fBcreated_at\fR (u64): the UNIX timestamp showing when this payment was initiated
+.IP \[bu]
+\fBamount_sent_msat\fR (msat): The amount sent
+.IP \[bu]
+\fBamount_msat\fR (msat, optional): The amount delivered to destination (if known)
+.IP \[bu]
+\fBdestination\fR (pubkey, optional): the final destination of the payment if known
+.IP \[bu]
+\fBlabel\fR (string, optional): the label, if given to sendpay
+.IP \[bu]
+\fBbolt11\fR (string, optional): the bolt11 string (if pay supplied one)
+.IP \[bu]
+\fBbolt12\fR (string, optional): the bolt12 string (if supplied for pay: \fBexperimental-offers\fR only)\.
 
- \fIpayment_hash\fR
-the hash of the \fIpayment_preimage\fR which will prove payment\.
+.RE
 
+If \fBstatus\fR is "complete":
 
- \fIdestination\fR
-the final destination of the payment\.
+.RS
+.IP \[bu]
+\fBpayment_preimage\fR (hex): the proof of payment: SHA256 of this \fBpayment_hash\fR (always 64 characters)
 
+.RE
 
- \fIamount_msat\fR
-the amount the destination received, in "NNNmsat" format\.
+If \fBstatus\fR is "failed":
 
+.RS
+.IP \[bu]
+\fBerroronion\fR (hex, optional): the onion message returned
 
- \fIcreated_at\fR
-the UNIX timestamp showing when this payment was initiated\.
-
-
- \fIstatus\fR
-one of \fIcomplete\fR, \fIfailed\fR or \fIpending\fR\.
-
-
- \fIpayment_preimage\fR
-(if \fIstatus\fR is \fIcomplete\fR) proves payment was received\.
-
-
- \fIlabel\fR
-optional \fIlabel\fR, if provided to \fIsendpay\fR\.
-
-
- \fIbolt11\fR
-the \fIbolt11\fR argument given to \fIpay\fR (may be missing for pre-0\.7
-payments)\.
-
-
- \fIbolt12\fR
-if \fBexperimental-offers\fR is enabled, and \fBpay\fR was a given a bolt12
-invoice, this field will appear instead of \fIbolt11\fR\.
-
+.RE
 .SH AUTHOR
 
 Christian Decker \fI<decker.christian@gmail.com\fR> is mainly
@@ -75,4 +75,4 @@ responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:c6b36205c8067723bb9edc20f3645754faa9c9d26568d6c899721b43a1e99812
+\" SHA256STAMP:01f2a7682c9af98704b04b2b5efe695ae6abc0cf41e13a4bc36c14e8b9662822

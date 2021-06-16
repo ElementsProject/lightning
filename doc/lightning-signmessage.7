@@ -17,10 +17,17 @@ only be created by something with access to this node's secret key\.
 
 .SH RETURN VALUE
 
-An object with attributes \fIsignature\fR, \fIrecid\fR and \fIzbase\fR is
-returned\.  \fIzbase\fR is the result of \fIsignature\fR and \fIrecid\fR encoded in
-a style compatible with \fBlnd\fR's \fBSignMessageRequest\fR (\fIhttps://api.lightning.community/#grpc-request-signmessagerequest\fR)\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBsignature\fR (hex): The signature (always 128 characters)
+.IP \[bu]
+\fBrecid\fR (hex): The recovery id (0, 1, 2 or 3) (always 2 characters)
+.IP \[bu]
+\fBzbase\fR (string): \fIsignature\fR and \fIrecid\fR encoded in a style compatible with \fBlnd\fR's \fBSignMessageRequest\fR (\fIhttps://api.lightning.community/#grpc-request-signmessagerequest\fR)
+
+.RE
 .SH AUTHOR
 
 Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
@@ -33,4 +40,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:e3565afa7011460ae5add0bd230b95699dadd1625ccb38bae02bc71136f468be
+\" SHA256STAMP:9b93ee7140ffee478035e0b2a13a71dc3797bb65e04aaed4f2caa95043f39614

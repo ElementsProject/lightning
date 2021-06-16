@@ -24,22 +24,30 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, the command will return a list of transactions, each object represents a transaction, with the following details:
-
-- *hash*: A string that represents the hash of transaction, which the caller can use to find it on the blockchain.
-- *rawtx*: A string that represents the hexadecimal dump of the transaction.
-- *blockheight*: An integer that represents the block height that contains the transaction on the blockchain.
-- *txindex*: An integer that represents the transaction index inside the block.
-- *locktime*: An integer that represents the nLocktime field.
-- *version*: An integer that represents the nVersion field.
-- *inputs*: A list of spent transaction outputs, each spent transaction output is represented with an object with the following properties:
-  - *txid*: A string that represents the hash of transaction. This is the output index of the transaction output being spent.
-  - *index*: An integer that represents the index of transaction.
-  - *sequence*: An integer that represents the nSequence field.
-- *outputs*: A list of transactions, each transaction is represented with an object with the following proprieties:
-  - *index*: An integer that represents the index of transaction.
-  - *satoshis*: A string that represents the amount in millisatoshi.
-  - *scriptPubKey*: A string that contains the lock script in hexadecimal dump form.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object containing **transactions** is returned.  It is an array of objects, where each object contains:
+- **hash** (txid): the transaction id
+- **rawtx** (hex): the raw transaction
+- **blockheight** (u32): the block height of this tx
+- **txindex** (u32): the transaction number within the block
+- **locktime** (u32): The nLocktime for this tx
+- **version** (u32): The nVersion for this tx
+- **inputs** (array of objects): Each input, in order:
+  - **txid** (txid): the transaction id spent
+  - **index** (u32): the output spent
+  - **sequence** (u32): the nSequence value
+  - **type** (string, optional): the purpose of this input (*EXPERIMENTAL_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel_funding", "channel_mutual_close", "channel_unilateral_close", "channel_sweep", "channel_htlc_success", "channel_htlc_timeout", "channel_penalty", "channel_unilateral_cheat")
+  - **channel** (short_channel_id, optional): the channel this input is associated with (*EXPERIMENTAL_FEATURES* only)
+- **outputs** (array of objects): Each output, in order:
+  - **index** (u32): the 0-based output number
+  - **msat** (msat): the amount of the output
+  - **scriptPubKey** (hex): the scriptPubKey
+  - **type** (string, optional): the purpose of this output (*EXPERIMENTAL_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel_funding", "channel_mutual_close", "channel_unilateral_close", "channel_sweep", "channel_htlc_success", "channel_htlc_timeout", "channel_penalty", "channel_unilateral_cheat")
+  - **channel** (short_channel_id, optional): the channel this output is associated with (*EXPERIMENTAL_FEATURES* only)
+- **type** (array of strings, optional):
+  - Reason we care about this transaction (*EXPERIMENTAL_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel_funding", "channel_mutual_close", "channel_unilateral_close", "channel_sweep", "channel_htlc_success", "channel_htlc_timeout", "channel_penalty", "channel_unilateral_cheat")
+- **channel** (short_channel_id, optional): the channel this transaction is associated with (*EXPERIMENTAL_FEATURES* only)
+[comment]: # (GENERATE-FROM-SCHEMA-END)
   
 On failure, one of the following error codes may be returned:
 - -32602: Error in given parameters.
@@ -95,3 +103,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:33483dcd0b98f2e10aa030080f8367fb814c510b601fc8ff396d0122236d750e)

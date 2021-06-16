@@ -15,8 +15,23 @@ then returns that single entry as per **listinvoice**.
 RETURN VALUE
 ------------
 
-On success, an invoice description will be returned as per
-lightning-listinvoice(7). The *status* field will be *paid* or *expired*.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **label** (string): unique label supplied at invoice creation
+- **description** (string): description used in the invoice
+- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **status** (string): Whether it's paid or expired (one of "paid", "expired")
+- **expires_at** (u64): UNIX timestamp of when it will become / became unpayable
+- **amount_msat** (msat, optional): the amount required to pay this invoice
+- **bolt11** (string, optional): the BOLT11 string (always present unless *bolt12* is)
+- **bolt12** (string, optional): the BOLT12 string (always present unless *bolt11* is)
+
+If **status** is "paid":
+  - **pay_index** (u64): Unique incrementing index for this payment
+  - **amount_received_msat** (msat): the amount actually received (could be slightly greater than *amount_msat*, since clients may overpay)
+  - **paid_at** (u64): UNIX timestamp of when it was paid
+  - **payment_preimage** (hex): proof of payment (always 64 characters)
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
@@ -42,3 +57,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:78bf07150eb67148d87187f36937536a44ed7aa489d5f9c410cd9ce7a7d6db89)

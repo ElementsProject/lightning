@@ -40,10 +40,11 @@ of "txid:vout". These must be drawn from the node's available UTXO set.
 RETURN VALUE
 ------------
 
-On success, an object with attributes *tx* and *txid* will be returned.
-
-*tx* represents the raw bitcoin, fully signed, transaction and *txid*
-represent the bitcoin transaction id.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **tx** (hex): The raw transaction which was sent
+- **txid** (txid): The txid of the **tx**
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, an error is reported and the withdrawal transaction is not
 created.
@@ -69,3 +70,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:5f289ef109eba26ca686ca0ebde3fed38cd52240ad3ee30e373719872927cfe6)

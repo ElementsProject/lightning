@@ -70,10 +70,20 @@ exceed *maxdelay*.
 RETURN VALUE
 ------------
 
-On success, this returns the *payment\_preimage* which hashes to the
-*payment\_hash* to prove that the payment was successful. It will also
-return, a *getroute\_tries* and a *sendpay\_tries* statistics for the
-number of times it internally called **getroute** and **sendpay**.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **payment_preimage** (hex): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
+- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **created_at** (number): the UNIX timestamp showing when this payment was initiated
+- **parts** (u32): how many attempts this took
+- **amount_msat** (msat): Amount the recipient received
+- **amount_sent_msat** (msat): Total amount we sent (including fees)
+- **status** (string): status of payment (always "complete")
+- **destination** (pubkey, optional): the final destination of the payment
+
+The following warnings may also be returned:
+- **warning_partial_completion**: Not all parts of a multi-part payment have completed
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 You can monitor the progress and retries of a payment using the
 lightning-paystatus(7) command.
@@ -132,3 +142,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:787ea6ae933da77756aca49aee68ba996cd54aea53b85ce2e5fcc85841022241)
