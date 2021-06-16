@@ -52,25 +52,21 @@ that previous \fBpayer_key\fR\.
 
 .SH RETURN VALUE
 
-On success, an object as follows is returned:
+On success, an object is returned, containing:
 
 .RS
 .IP \[bu]
-\fIoffer_id\fR: the hash of the offer\.
+\fBoffer_id\fR (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
 .IP \[bu]
-\fIactive\fR: true
+\fBactive\fR (boolean): whether this will pay a matching incoming invoice (always \fItrue\fR)
 .IP \[bu]
-\fIsingle_use\fR: true
+\fBsingle_use\fR (boolean): whether this expires as soon as it's paid out (always \fItrue\fR)
 .IP \[bu]
-\fIbolt12\fR: the bolt12 offer, starting with "lno1"
-
-.RE
-
-Optionally:
-
-.RS
+\fBbolt12\fR (string): the bolt12 encoding of the offer
 .IP \[bu]
-\fIlabel\fR: the user-specified label\.
+\fBused\fR (boolean): True if an incoming invoice has been paid (always \fIfalse\fR)
+.IP \[bu]
+\fBlabel\fR (string, optional): the (optional) user-specified label
 
 .RE
 
@@ -110,4 +106,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:87487dd8a47b745a98d107e1de7cb3eac0421f3ccaf44a4d2a938fa19f6261c0
+\" SHA256STAMP:ccf9c53e1189ef9138954beed8fe5e5318e2dfebb53fde2ee20a8777aff255b5

@@ -31,9 +31,10 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, the command will return an object with a single string.
-
-- *totlen*: A string that represents the answer length of the reply message (including header)
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **totlen** (u16): the answer length of the reply message (including header: 0 means no reply expected)
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, one of the following error codes may be returned:
 
@@ -63,3 +64,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:56bf89ba67c8e1db1bf3c2cf793d59eecd0c5c23012ffb66fe3f8fa8f7d9007c)

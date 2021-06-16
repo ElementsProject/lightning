@@ -35,10 +35,27 @@ the parameter is left out, the global config value will be used again\.
 
 .SH RETURN VALUE
 
-On success, an object with the new values \fIbase\fR and \fIppm\fR along with an
-array \fIchannels\fR which contains objects with fields \fIpeer_id\fR,
-\fIchannel_id\fR and \fIshort_channel_id\fR\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBbase\fR (u32): The fee_base_msat value
+.IP \[bu]
+\fBppm\fR (u32): The fee_proportional_millionths value
+.IP \[bu]
+\fBchannels\fR (array of objects): channel(s) whose rate is now set:
+.RS
+.IP \[bu]
+\fBpeer_id\fR (pubkey): The node_id of the peer
+.IP \[bu]
+\fBchannel_id\fR (hex): The channel_id of the channel (always 64 characters)
+.IP \[bu]
+\fBshort_channel_id\fR (short_channel_id, optional): the short_channel_id (if locked in)
+
+.RE
+
+
+.RE
 .SH ERRORS
 
 The following error codes may occur:
@@ -66,4 +83,4 @@ responsible for the c-lightning project\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:c430b82472ac16532cb9997013e4bc85c6aed4cd8baa6bdf881bd2fcd90b9eca
+\" SHA256STAMP:91eb0f47428ff356360672487d51db1570b8e344ebc9aea4fe0426d86bae36d8

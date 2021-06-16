@@ -27,9 +27,15 @@ If no \fIaddresstype\fR is specified the address generated is a \fIbech32\fR add
 
 .SH RETURN VALUE
 
-On success, a \fIbech32\fR address and/or a \fIp2sh-segwit\fR address will be
-returned\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBbech32\fR (string, optional): The bech32 (native segwit) address
+.IP \[bu]
+\fBp2sh-segwit\fR (string, optional): The p2sh-wrapped address
+
+.RE
 .SH ERRORS
 
 If an unrecognized address type is requested an error message will be
@@ -47,4 +53,4 @@ Felix \fI<fixone@gmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:627e85582c687ee97dea1dd1df6b3eb23000058626ab71bc4883dd1441595772
+\" SHA256STAMP:4e2f3697f7a6841d28997583e5fc4b709533b7be73c72428e1af361d0022cb1a

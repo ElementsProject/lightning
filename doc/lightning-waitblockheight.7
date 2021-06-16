@@ -17,10 +17,13 @@ command returns immediately\.
 
 .SH RETURN VALUE
 
-Once the specified block height has been achieved by the blockchain,
-an object with the single field \fIblockheight\fR is returned, which is
-the block height at the time the command returns\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBblockheight\fR (u32): The current block height (>= \fIblockheight\fR parameter)
+
+.RE
 
 If \fItimeout\fR seconds is reached without the specified blockheight
 being reached, this command will fail with a code of \fB2000\fR\.
@@ -33,4 +36,4 @@ ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:ac3320b4b9e679d8c407e42c9663540e2fc2aca75143d192f58ce255ca9b3700
+\" SHA256STAMP:38dc35b2a28f0ee342af0fdaba6b4f1f27fb1df973426804d30da0572eb3913d

@@ -29,8 +29,12 @@ PSBT.
 RETURN VALUE
 ------------
 
-On success, returns the *channel_id* for this channel; hex *tx* of the
-published funding transaction; and *txid* of the funding transaction.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **channel_id** (hex): the channel id of the channel (always 64 characters)
+- **tx** (hex): the funding transaction
+- **txid** (txid): The txid of the **tx**
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error, the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
@@ -61,3 +65,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:ec0d412cdcbc4adea1c6e5a56d527c21894f4a36cd0dc49e858163d0a9221368)

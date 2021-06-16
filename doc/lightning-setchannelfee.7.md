@@ -35,9 +35,15 @@ the parameter is left out, the global config value will be used again.
 RETURN VALUE
 ------------
 
-On success, an object with the new values *base* and *ppm* along with an
-array *channels* which contains objects with fields *peer\_id*,
-*channel\_id* and *short\_channel\_id*.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **base** (u32): The fee_base_msat value
+- **ppm** (u32): The fee_proportional_millionths value
+- **channels** (array of objects): channel(s) whose rate is now set:
+  - **peer_id** (pubkey): The node_id of the peer
+  - **channel_id** (hex): The channel_id of the channel (always 64 characters)
+  - **short_channel_id** (short_channel_id, optional): the short_channel_id (if locked in)
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 ERRORS
 ------
@@ -65,3 +71,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:6cd332e8d04e65b37bce7365c681ebb28d757f0e75881b3627395ba3e948dc8a)

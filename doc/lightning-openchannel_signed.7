@@ -30,9 +30,17 @@ PSBT\.
 
 .SH RETURN VALUE
 
-On success, returns the \fIchannel_id\fR for this channel; hex \fItx\fR of the
-published funding transaction; and \fItxid\fR of the funding transaction\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBchannel_id\fR (hex): the channel id of the channel (always 64 characters)
+.IP \[bu]
+\fBtx\fR (hex): the funding transaction
+.IP \[bu]
+\fBtxid\fR (txid): The txid of the \fBtx\fR
+
+.RE
 
 On error, the returned object will contain \fBcode\fR and \fBmessage\fR properties,
 with \fBcode\fR being one of the following:
@@ -70,4 +78,4 @@ lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcomplete\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:bd874415c73718a0a16c37c9d8cf6fec2944a491b05f2632b1ea2ff35c7a50ae
+\" SHA256STAMP:efb7b828948c079a668fec715e380df4d8e81e2c1cf9f243f00afbc155abf8e5

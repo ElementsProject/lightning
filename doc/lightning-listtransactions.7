@@ -22,45 +22,63 @@ The \fBlisttransactions\fR command returns transactions tracked in the wallet\. 
 .fi
 .SH RETURN VALUE
 
-On success, the command will return a list of transactions, each object represents a transaction, with the following details:
+On success, an object containing \fBtransactions\fR is returned\.  It is an array of objects, where each object contains:
 
 .RS
 .IP \[bu]
-\fIhash\fR: A string that represents the hash of transaction, which the caller can use to find it on the blockchain\.
+\fBhash\fR (txid): the transaction id
 .IP \[bu]
-\fIrawtx\fR: A string that represents the hexadecimal dump of the transaction\.
+\fBrawtx\fR (hex): the raw transaction
 .IP \[bu]
-\fIblockheight\fR: An integer that represents the block height that contains the transaction on the blockchain\.
+\fBblockheight\fR (u32): the block height of this tx
 .IP \[bu]
-\fItxindex\fR: An integer that represents the transaction index inside the block\.
+\fBtxindex\fR (u32): the transaction number within the block
 .IP \[bu]
-\fIlocktime\fR: An integer that represents the nLocktime field\.
+\fBlocktime\fR (u32): The nLocktime for this tx
 .IP \[bu]
-\fIversion\fR: An integer that represents the nVersion field\.
+\fBversion\fR (u32): The nVersion for this tx
 .IP \[bu]
-\fIinputs\fR: A list of spent transaction outputs, each spent transaction output is represented with an object with the following properties:
+\fBinputs\fR (array of objects): Each input, in order:
 .RS
 .IP \[bu]
-\fItxid\fR: A string that represents the hash of transaction\. This is the output index of the transaction output being spent\.
+\fBtxid\fR (txid): the transaction id spent
 .IP \[bu]
-\fIindex\fR: An integer that represents the index of transaction\.
+\fBindex\fR (u32): the output spent
 .IP \[bu]
-\fIsequence\fR: An integer that represents the nSequence field\.
+\fBsequence\fR (u32): the nSequence value
+.IP \[bu]
+\fBtype\fR (string, optional): the purpose of this input (\fIEXPERIMENTAL_FEATURES\fR only) (one of "theirs", "deposit", "withdraw", "channel_funding", "channel_mutual_close", "channel_unilateral_close", "channel_sweep", "channel_htlc_success", "channel_htlc_timeout", "channel_penalty", "channel_unilateral_cheat")
+.IP \[bu]
+\fBchannel\fR (short_channel_id, optional): the channel this input is associated with (\fIEXPERIMENTAL_FEATURES\fR only)
 
 .RE
 
 .IP \[bu]
-\fIoutputs\fR: A list of transactions, each transaction is represented with an object with the following proprieties:
+\fBoutputs\fR (array of objects): Each output, in order:
 .RS
 .IP \[bu]
-\fIindex\fR: An integer that represents the index of transaction\.
+\fBindex\fR (u32): the 0-based output number
 .IP \[bu]
-\fIsatoshis\fR: A string that represents the amount in millisatoshi\.
+\fBmsat\fR (msat): the amount of the output
 .IP \[bu]
-\fIscriptPubKey\fR: A string that contains the lock script in hexadecimal dump form\.
+\fBscriptPubKey\fR (hex): the scriptPubKey
+.IP \[bu]
+\fBtype\fR (string, optional): the purpose of this output (\fIEXPERIMENTAL_FEATURES\fR only) (one of "theirs", "deposit", "withdraw", "channel_funding", "channel_mutual_close", "channel_unilateral_close", "channel_sweep", "channel_htlc_success", "channel_htlc_timeout", "channel_penalty", "channel_unilateral_cheat")
+.IP \[bu]
+\fBchannel\fR (short_channel_id, optional): the channel this output is associated with (\fIEXPERIMENTAL_FEATURES\fR only)
 
 .RE
 
+.IP \[bu]
+\fBtype\fR (array of strings, optional):
+.RS
+.IP \[bu]
+Reason we care about this transaction (\fIEXPERIMENTAL_FEATURES\fR only) (one of "theirs", "deposit", "withdraw", "channel_funding", "channel_mutual_close", "channel_unilateral_close", "channel_sweep", "channel_htlc_success", "channel_htlc_timeout", "channel_penalty", "channel_unilateral_cheat")
+
+.RE
+
+.IP \[bu]
+\fBchannel\fR (short_channel_id, optional): the channel this transaction is associated with (\fIEXPERIMENTAL_FEATURES\fR only)
 
 .RE
 
@@ -120,4 +138,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:88c68faf136cd7ce305bab0b89813d1c0122b8f31688a2dc9c064f7cba480a1d
+\" SHA256STAMP:85b8fd1df3815845e8418d142a0e62589fd386784dc6fe90150db1e43519c4ce

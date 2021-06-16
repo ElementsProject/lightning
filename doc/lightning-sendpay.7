@@ -58,11 +58,49 @@ with success\.
 
 .SH RETURN VALUE
 
-On success, an object similar to the output of \fBlistsendpays\fR will be
-returned\. This object will have a \fIstatus\fR field that is typically the
-string \fI"pending"\fR, but may be \fI"complete"\fR if the payment was already
-performed successfully\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBid\fR (u64): unique ID for this payment attempt
+.IP \[bu]
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.IP \[bu]
+\fBstatus\fR (string): status of the payment (could be complete if already sent previously) (one of "pending", "complete")
+.IP \[bu]
+\fBcreated_at\fR (u64): the UNIX timestamp showing when this payment was initiated
+.IP \[bu]
+\fBamount_sent_msat\fR (msat): The amount sent
+.IP \[bu]
+\fBamount_msat\fR (msat, optional): The amount delivered to destination (if known)
+.IP \[bu]
+\fBdestination\fR (pubkey, optional): the final destination of the payment if known
+.IP \[bu]
+\fBlabel\fR (string, optional): the \fIlabel\fR, if given to sendpay
+.IP \[bu]
+\fBpartid\fR (u64, optional): the \fIpartid\fR, if given to sendpay
+.IP \[bu]
+\fBbolt11\fR (string, optional): the bolt11 string (if supplied)
+.IP \[bu]
+\fBbolt12\fR (string, optional): the bolt12 string (if supplied: \fBexperimental-offers\fR only)\.
+
+.RE
+
+If \fBstatus\fR is "complete":
+
+.RS
+.IP \[bu]
+\fBpayment_preimage\fR (hex): the proof of payment: SHA256 of this \fBpayment_hash\fR (always 64 characters)
+
+.RE
+
+If \fBstatus\fR is "pending":
+
+.RS
+.IP \[bu]
+\fBmessage\fR (string): Monitor status with listpays or waitsendpay
+
+.RE
 
 On error, if the error occurred from a node other than the final
 destination, the route table will be updated so that
@@ -129,4 +167,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:4ba54086e62a5f3ee820d71fdd07c66c084a8921c370e470139d81f501e6bf2f
+\" SHA256STAMP:5c4bdb9ff7afe78a304d6f999a489210c86f9280592ae49c8ec2d6aa0dc1fc05

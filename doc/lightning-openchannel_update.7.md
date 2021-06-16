@@ -28,11 +28,12 @@ the PSBT last returned by either `openchannel_init` or `openchannel_update`.
 RETURN VALUE
 ------------
 
-On success, returns the *channel_id* for this channel; an updated, potentially
-complete *psbt* for this channel's funding transaction; and the flag
-*commitments_secured*, which indicates the completeness of the returned *psbt*.
-If *commitments_secured* is true, caller should proceed with signing the
-returned PSBT and calling `openchannel_signed` to complete the channel open.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **channel_id** (hex): the channel id of the channel (always 64 characters)
+- **psbt** (string): the PSBT of the funding transaction
+- **commitments_secured** (boolean): whether the *psbt* is complete (if true, sign *psbt* and call `openchannel_signed` to complete the channel open)
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If *commitments_secured* is true, will also return:
 - The derived *channel_id*.
@@ -67,3 +68,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:7e6db299a5b5bbbd3561c69153ea6444d51850a814a8bec58e433fa7be97949c)

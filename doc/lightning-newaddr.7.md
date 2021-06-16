@@ -27,8 +27,11 @@ If no *addresstype* is specified the address generated is a *bech32* address.
 RETURN VALUE
 ------------
 
-On success, a *bech32* address and/or a *p2sh-segwit* address will be
-returned.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **bech32** (string, optional): The bech32 (native segwit) address
+- **p2sh-segwit** (string, optional): The p2sh-wrapped address
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 ERRORS
 ------
@@ -51,3 +54,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:44731ac3afb4fc3982dff2ae94e360f9addc5712e36b021c880180c68e3ed476)

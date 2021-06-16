@@ -15,13 +15,15 @@ use of the *txid* from lightning-txprepare(7).
 RETURN VALUE
 ------------
 
-On success, an object with attributes *unsigned\_tx* and *txid* will be
-returned, exactly as from lightning-txprepare(7).
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **unsigned_tx** (hex): the unsigned transaction
+- **txid** (txid): the transaction id of *unsigned_tx*
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If there is no matching *txid*, an error is reported. Note that this may
-happen due to incorrect usage (such as **txdiscard** or **txsend**
-already being called for *txid*) or due to lightningd restarting, which
-implicitly calls **txdiscard** on all outputs.
+happen due to incorrect usage, such as **txdiscard** or **txsend**
+already being called for *txid*.
 
 The following error codes may occur:
 - -1: An unknown *txid*.
@@ -41,3 +43,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:116f3262cc632e3a437d6629cd641020549f60b1264ad093e6591d5e5f83a6f0)

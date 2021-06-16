@@ -45,13 +45,19 @@ sent on close\. Only valid if both peers have negotiated
 
 .SH RETURN VALUE
 
-On success, returns the \fIchannel_id\fR for this channel; an updated
-incomplete \fIinitialpsbt\fR for this funding transaction; and the flag
-\fIcommitments_secured\fR, which indiciates the completeness of the
-passed back \fIpsbt\fR\. (Will always be false)\. Also returns the
-\fIfunding_serial\fR, indicating the serial_id of the funding output
-in the \fIpsbt\fR\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBchannel_id\fR (hex): the channel id of the channel (always 64 characters)
+.IP \[bu]
+\fBcommitments_secured\fR (boolean): whether the \fIpsbt\fR is complete (always \fIfalse\fR)
+.IP \[bu]
+\fBfunding_serial\fR (u64): the serial_id of the funding output in the \fIpsbt\fR
+.IP \[bu]
+\fBintiialpsbt\fR (string, optional): the (incomplete) PSBT of the funding transaction
+
+.RE
 
 If the peer does not support \fBoption_dual_fund\fR, this command
 will return an error\.
@@ -99,4 +105,4 @@ lightning-fundchannel_\fBcomplete\fR(7), \fBlightning-fundchannel\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:8e37cb8813751e06f59b108e8a335b5b5269e5764c346838a6ddf79138ccea6e
+\" SHA256STAMP:4663cea3fc74a8e91e7a3de6997a7b5a236bacf84dda3ed826cbbd7d544c39e8

@@ -29,12 +29,17 @@ the PSBT last returned by either \fBopenchannel_init\fR or \fBopenchannel_update
 
 .SH RETURN VALUE
 
-On success, returns the \fIchannel_id\fR for this channel; an updated, potentially
-complete \fIpsbt\fR for this channel's funding transaction; and the flag
-\fIcommitments_secured\fR, which indicates the completeness of the returned \fIpsbt\fR\.
-If \fIcommitments_secured\fR is true, caller should proceed with signing the
-returned PSBT and calling \fBopenchannel_signed\fR to complete the channel open\.
+On success, an object is returned, containing:
 
+.RS
+.IP \[bu]
+\fBchannel_id\fR (hex): the channel id of the channel (always 64 characters)
+.IP \[bu]
+\fBpsbt\fR (string): the PSBT of the funding transaction
+.IP \[bu]
+\fBcommitments_secured\fR (boolean): whether the \fIpsbt\fR is complete (if true, sign \fIpsbt\fR and call \fBopenchannel_signed\fR to complete the channel open)
+
+.RE
 
 If \fIcommitments_secured\fR is true, will also return:
 
@@ -80,4 +85,4 @@ lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcomplete\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:bc76c4c09f0c4c9c9f1e6b78f9ca495042076abac00c06309a94957646f07974
+\" SHA256STAMP:e363c79e7b56230752d8e1612ae1587501d1376c7b2b18dd647baaf25303372b

@@ -26,7 +26,7 @@
 	},
 	"reservations": {
 	    "type": "array",
-	    "description": "If the *reserve* was true, just as per lightning-reserveinputs(7)",
+	    "description": "If *reserve* was true or a non-zero number, just as per lightning-reserveinputs(7)",
 	    "items": {
 		"type": "object",
 		"required": ["txid", "vout", "was_reserved", "reserved", "reserved_to_block" ],

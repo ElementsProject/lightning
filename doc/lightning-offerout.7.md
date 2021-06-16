@@ -49,15 +49,15 @@ that previous `payer_key`.
 RETURN VALUE
 ------------
 
-On success, an object as follows is returned:
-
-* *offer_id*: the hash of the offer.
-* *active*: true
-* *single_use*: true
-* *bolt12*: the bolt12 offer, starting with "lno1"
-
-Optionally:
-* *label*: the user-specified label.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **offer_id** (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
+- **active** (boolean): whether this will pay a matching incoming invoice (always *true*)
+- **single_use** (boolean): whether this expires as soon as it's paid out (always *true*)
+- **bolt12** (string): the bolt12 encoding of the offer
+- **used** (boolean): True if an incoming invoice has been paid (always *false*)
+- **label** (string, optional): the (optional) user-specified label
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, an error is returned and no offer is created. If the
 lightning process fails before responding, the caller should use
@@ -92,3 +92,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:6db3fdba07f376e697326b3bf1bd74c013084a459cb9f4fe76d23fce58bd58fe)

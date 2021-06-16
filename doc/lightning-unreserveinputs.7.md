@@ -21,14 +21,16 @@ reservation by; default is 72.
 RETURN VALUE
 ------------
 
-On success, an *reservations* array is returned, with an entry for each input
-which was reserved:
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object containing **reservations** is returned.  It is an array of objects, where each object contains:
+- **txid** (txid): the transaction id
+- **vout** (u32): the output number which was reserved
+- **was_reserved** (boolean): whether the input was already reserved (usually `true`)
+- **reserved** (boolean): whether the input is now reserved (may still be `true` if it was reserved for a long time)
 
-- *txid* is the input transaction id.
-- *vout* is the input index.
-- *was_reserved* indicates whether the input was already reserved (generally true)
-- *reserved* indicates that the input is now reserved (may still be true, if it was previously reserved for a long time).
-- *reserved_to_block* (if *reserved* is still true) indicates what blockheight the reservation will expire.
+If **reserved** is *true*:
+  - **reserved_to_block** (u32): what blockheight the reservation will expire
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, an error is reported and no UTXOs are unreserved.
 
@@ -50,3 +52,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:5032211220b9e82b391eeed37d35e69585e7dbee4a321800d63cc5683be1022c)

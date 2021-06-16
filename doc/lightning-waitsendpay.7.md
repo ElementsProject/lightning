@@ -32,9 +32,23 @@ returns an error.
 RETURN VALUE
 ------------
 
-On success, an object similar to the output of **listsendpays** will be
-returned. This object will have a *status* field that is the string
-*"complete"*.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **id** (u64): unique ID for this payment attempt
+- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **status** (string): status of the payment (always "complete")
+- **created_at** (u64): the UNIX timestamp showing when this payment was initiated
+- **amount_sent_msat** (msat): The amount sent
+- **amount_msat** (msat, optional): The amount delivered to destination (if known)
+- **destination** (pubkey, optional): the final destination of the payment if known
+- **label** (string, optional): the label, if given to sendpay
+- **partid** (u64, optional): the *partid*, if given to sendpay
+- **bolt11** (string, optional): the bolt11 string (if pay supplied one)
+- **bolt12** (string, optional): the bolt12 string (if supplied for pay: **experimental-offers** only).
+
+If **status** is "complete":
+  - **payment_preimage** (hex): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error, and even if the error occurred from a node other than the
 final destination, the route table will no longer be updated. Use the
@@ -85,3 +99,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:3efc46e3dc2254ddfb4a82d4b3bb1936ff0a400a3cf19ce4c40a717412f83ee7)

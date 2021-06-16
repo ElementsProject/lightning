@@ -29,12 +29,13 @@ is not met.
 RETURN VALUE
 ------------
 
-On success, returns the *channel_id* for this channel; an updated
-incomplete *initialpsbt* for this funding transaction; and the flag
-*commitments_secured*, which indiciates the completeness of the
-passed back *psbt*. (Will always be false). Also returns the
-*funding_serial*, indicating the serial\_id of the funding output
-in the *psbt*.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **channel_id** (hex): the channel id of the channel (always 64 characters)
+- **psbt** (string): the (incomplete) PSBT of the RBF transaction
+- **commitments_secured** (boolean): whether the *psbt* is complete (always *false*)
+- **funding_serial** (u64): the serial_id of the funding output in the *psbt*
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If the peer does not support `option_dual_fund`, this command
 will return an error.
@@ -72,3 +73,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:51eff069a2fa8a2695cd613514f9562d3b636e451a62e7344194b7f25f06709a)

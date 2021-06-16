@@ -86,10 +86,25 @@ The *msatoshi* parameter is used to annotate the payment, and is returned by
 RETURN VALUE
 ------------
 
-On success, an object similar to the output of **sendpay** will be
-returned. This object will have a *status* field that is typically the string
-*"pending"*, but may be *"complete"* if the payment was already performed
-successfully.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **id** (u64): unique ID for this payment attempt
+- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **status** (string): status of the payment (could be complete if already sent previously) (one of "pending", "complete")
+- **created_at** (u64): the UNIX timestamp showing when this payment was initiated
+- **amount_sent_msat** (msat): The amount sent
+- **amount_msat** (msat, optional): The amount delivered to destination (if known)
+- **destination** (pubkey, optional): the final destination of the payment if known
+- **label** (string, optional): the label, if given to sendpay
+- **bolt11** (string, optional): the bolt11 string (if supplied)
+- **bolt12** (string, optional): the bolt12 string (if supplied: **experimental-offers** only).
+
+If **status** is "complete":
+  - **payment_preimage** (hex): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
+
+If **status** is "pending":
+  - **message** (string, optional): Monitor status with listpays or waitsendpay
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If *shared_secrets* was provided and an error was returned by one of the
 intermediate nodes the error details are decrypted and presented
@@ -111,3 +126,4 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 [bolt04]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
+[comment]: # ( SHA256STAMP:2cc04261aaff4e8a3fc5e20628dd74c0cc5d511e64e85435a10f56fcec3d70f7)
