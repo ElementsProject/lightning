@@ -720,9 +720,9 @@ def test_channel_state_changed_bilateral(node_factory, bitcoind):
     # check channel 'opener' and 'closer' within this testcase ...
     assert(l1.rpc.listpeers()['peers'][0]['channels'][0]['opener'] == 'local')
     assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['opener'] == 'remote')
-    # the 'closer' should be null initially
-    assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] is None)
-    assert(l2.rpc.listpeers()['peers'][0]['channels'][0]['closer'] is None)
+    # the 'closer' should be missing initially
+    assert 'closer' not in l1.rpc.listpeers()['peers'][0]['channels'][0]
+    assert 'closer' not in l2.rpc.listpeers()['peers'][0]['channels'][0]
 
     event1 = wait_for_event(l1)
     event2 = wait_for_event(l2)
