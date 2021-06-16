@@ -21,30 +21,26 @@ on the given in/out channel are returned.
 RETURN VALUE
 ------------
 
-On success one array will be returned: *forwards* with htlcs that have
-been processed
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object containing **forwards** is returned.  It is an array of objects, where each object contains:
+- **in_channel** (short_channel_id): the channel that received the HTLC
+- **in_msat** (msat): the value of the incoming HTLC
+- **status** (string): still ongoing, completed, failed locally, or failed after forwarding (one of "offered", "settled", "local_failed", "failed")
+- **received_time** (number): the UNIX timestamp when this was received
+- **out_channel** (short_channel_id, optional): the channel that the HTLC was forwarded to
+- **payment_hash** (hex, optional): payment hash sought by HTLC (always 64 characters)
 
-Each entry in *forwards* will include:
-- *in\_channel*: the short\_channel\_id of the channel that recieved the incoming htlc.
-- *in\_msatoshi*, *in\_msat* - amount of msatoshis that are forwarded to this node.
-- *status*: status can be either *offered* if the routing process is still ongoing,
-*settled* if the routing process is completed or *failed* if the routing process could not be completed.
-- *received\_time*: timestamp when incoming htlc was received.
+If **out_channel** is present:
+  - **fee_msat** (msat): the amount this paid in fees
+  - **out_msat** (msat): the amount we sent out the *out_channel*
 
-The following additional fields are usually present, but will not be for some
-variants of status *local\_failed* (if it failed before we determined these):
+If **status** is "settled" or "failed":
+  - **resolved_time** (number): the UNIX timestamp when this was resolved
 
-- *out\_channel*: the short\_channel\_id of to which the outgoing htlc is supposed to be forwarded.
-- *fee*, *fee\_msat*: fee offered for forwarding the htlc in msatoshi.
-- *out\_msatoshi*, *out\_msat* - amount of msatoshis to be forwarded.
-
-The following fields may be offered, but for old forgotten HTLCs they will be omitted:
-
-- *payment\_hash* - the payment_hash belonging to the HTLC.
-
-If the status is not 'offered', the following additional fields are present:
-
-- *resolved\_time* - timestamp when htlc was resolved (settled or failed).
+If **status** is "local_failed" or "failed":
+  - **failcode** (u32, optional): the numeric onion code returned
+  - **failreason** (string, optional): the name of the onion code returned
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
 ------
@@ -61,3 +57,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:4d4179b29525707c4c1a22aa56dc46c0875562a43f5bc7d2b7d3838b32b5bad0)

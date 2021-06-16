@@ -27,17 +27,23 @@ page is not found\.
 .fi
 .SH RETURN VALUE
 
-On success, a object will be return with the following proprieties:
+On success, an object is returned, containing:
 
 .RS
 .IP \[bu]
-\fIcommand\fR: A string that represents the stucture of the command\.
+\fBhelp\fR (array of objects):
+.RS
 .IP \[bu]
-\fIcategory\fR: A string that represents the category\.
+\fBcommand\fR (string): the command
 .IP \[bu]
-\fIdescription\fR: A string that represents the description\.
+\fBcategory\fR (string): the category for this command (useful for grouping)
 .IP \[bu]
-\fIverbose\fR: A string that represents the verbode description\.
+\fBdescription\fR (string): a one-line description of the purpose of this command
+.IP \[bu]
+\fBverbose\fR (string): a full description of this command (including whether it's deprecated)
+
+.RE
+
 
 .RE
 
@@ -72,4 +78,4 @@ Vincenzo Palazzo \fI<vincenzo.palazzo@protonmail.com\fR> wrote the initial versi
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:cbd027bd9117d2e71167ab1c9d95a63c90b8e9c556dd75e951d4913a2891cb37
+\" SHA256STAMP:e162d82c81f6a121839d2dfa1658014867f058fe52a100a885956f566a211a8e
