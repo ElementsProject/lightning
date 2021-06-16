@@ -1,0 +1,79 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [ "nodes" ],
+    "properties": {
+	"nodes": {
+	    "type": "array",
+	    "items": {
+		"type": "object",
+		"additionalProperties": true,
+		"required": [ "nodeid" ],
+		"properties": {
+		    "nodeid": {
+			"type": "pubkey",
+			"description": "the public key of the node"
+		    },
+		    "last_update": {
+			"type": "u32",
+			"description": "A node_announcement has been received for this node (UNIX timestamp)"
+		    }
+		},
+		"allOf": [
+		    {
+			"if": {
+			    "required": [ "last_update" ]
+			},
+			"then": {
+			    "additionalProperties": false,
+			    "required": [ "last_update", "alias", "color", "features", "addresses" ],
+			    "properties": {
+				"last_update": { },
+				"alias": {
+				    "type": "string",
+				    "description": "The fun alias this node advertized",
+				    "maxLength": 32
+				},
+				"color": {
+				    "type": "hex",
+				    "description": "The favorite RGB color this node advertized",
+				    "minLength": 6,
+				    "maxLength": 6
+				},
+				"features": {
+				    "type": "hex",
+				    "description": "BOLT #9 features bitmap this node advertized"
+				},
+				"addresses": {
+				    "type": "array",
+				    "description": "The addresses this node advertized",
+				    "items": {
+					"type": "object",
+					"required": [ "type", "address", "port" ],
+					"additionalProperties": false,
+					"properties": {
+					    "type": {
+						"type": "string",
+						"enum": [ "ipv4", "ipv6", "torv2", "torv3" ],
+						"description": "Type of connection"
+					    },
+					    "address": {
+						"type": "string",
+						"description": "address in expected format for *type*"
+					    },
+					    "port": {
+						"type": "u16",
+						"description": "port number"
+					    }
+					}
+				    }
+				}
+			    }
+			}
+		    }
+		]
+	    }
+	}
+    }
+}

@@ -1385,6 +1385,9 @@ def test_rpc_command_hook(node_factory):
     assert decoded["description"] == "rpc_command_1 modified this description"
     l1.daemon.wait_for_log("rpc_command hook 'invoice' already modified, ignoring.")
 
+    # Disable schema checking here!
+    schemas = l1.rpc.jsonschemas
+    l1.rpc.jsonschemas = {}
     # rpc_command_1 plugin sends a custom response to "listfunds"
     funds = l1.rpc.listfunds()
     assert funds[0] == "Custom rpc_command_1 result"
@@ -1403,6 +1406,8 @@ def test_rpc_command_hook(node_factory):
     else:
         l1.rpc.plugin_stop('rpc_command_1.py')
         l1.rpc.plugin_stop('rpc_command_2.py')
+
+    l1.rpc.jsonschemas = schemas
 
 
 def test_libplugin(node_factory):

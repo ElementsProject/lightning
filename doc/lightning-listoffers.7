@@ -29,27 +29,21 @@ set and is true, only offers with \fBactive\fR true are returned\.
 .fi
 .SH RETURN VALUE
 
-On success, an array \fIoffers\fR of objects is returned\. Each object contains:
+On success, an object containing \fBoffers\fR is returned\.  It is an array of objects, where each object contains:
 
 .RS
 .IP \[bu]
-\fIoffer_id\fR: the hash of the offer\.
+\fBoffer_id\fR (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
 .IP \[bu]
-\fIactive\fR: true
+\fBactive\fR (boolean): whether this can still be used
 .IP \[bu]
-\fIsingle_use\fR: true if \fIsingle_use\fR was specified\.
+\fBsingle_use\fR (boolean): whether this expires as soon as it's paid
 .IP \[bu]
-\fIbolt12\fR: the bolt12 offer, starting with "lno1"
+\fBbolt12\fR (string): the bolt12 encoding of the offer
 .IP \[bu]
-\fIused\fR: true if an associated invoice has been paid\.
-
-.RE
-
-Optionally:
-
-.RS
+\fBused\fR (boolean): True if an associated invoice has been paid
 .IP \[bu]
-\fIlabel\fR: the user-specified label\.
+\fBlabel\fR (string, optional): the (optional) user-specified label
 
 .RE
 .SH EXAMPLE JSON RESPONSE
@@ -88,4 +82,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:bc4abe90e5475a272c61af45e4f00be9f3fab89d3adca767b577b46d70d33726
+\" SHA256STAMP:919c848c1d8fa62be1d6c9453c90073306bc168a6969afd836a00861b61b0367

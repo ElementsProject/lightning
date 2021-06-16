@@ -24,35 +24,34 @@ The \fBlistnodes\fR command returns nodes the node has learned about via gossip 
 .fi
 .SH RETURN VALUE
 
-On success, the command will return a list of nodes, each object represents a node, with the following details:
+On success, an object containing \fBnodes\fR is returned\.  It is an array of objects, where each object contains:
 
 .RS
 .IP \[bu]
-\fInodeid\fR: A string that represents the node id\.
+\fBnodeid\fR (pubkey): the public key of the node
+.IP \[bu]
+\fBlast_update\fR (u32, optional): A node_announcement has been received for this node (UNIX timestamp)
 
 .RE
 
-For nodes which have sent a node_announcement message, the following
-are also returned:
+If \fBlast_update\fR is present:
 
 .RS
 .IP \[bu]
-\fIalias\fR: A string that represents alias of the node on the network\.
+\fBalias\fR (string): The fun alias this node advertized (up to 32 characters)
 .IP \[bu]
-\fIcolor\fR: A string that represents the personal color of the node\.
+\fBcolor\fR (hex): The favorite RGB color this node advertized (always 6 characters)
 .IP \[bu]
-\fIlast_timestamp\fR: An integer that represents the timestamp of the last-received node_announcement message\.
+\fBfeatures\fR (hex): BOLT #9 features bitmap this node advertized
 .IP \[bu]
-\fIfeatures\fR: A string that represents the features value\.
-.IP \[bu]
-\fIaddresses\fR: An array that represents the addreses avaible\. Each address is represented with an object with the following properties:
+\fBaddresses\fR (array of objects): The addresses this node advertized:
 .RS
 .IP \[bu]
-\fItype\fR: A string that represents the address type (ipv4 or ipv6)\.
+\fBtype\fR (string): Type of connection (one of "ipv4", "ipv6", "torv2", "torv3")
 .IP \[bu]
-\fIaddress\fR: A string that represents the address value\.
+\fBaddress\fR (string): address in expected format for \fItype\fR
 .IP \[bu]
-\fIport\fR: An integer that represents the port number where the node are listening\.
+\fBport\fR (u16): port number
 
 .RE
 
@@ -102,4 +101,4 @@ FIXME:
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:901b147ccbfe0a18310a44ca848b623e83fa3c68912dacadefd045d4a2095523
+\" SHA256STAMP:ab3ff8fd9153e01f861080fade794a4899397fbcca65d0c3af69b9bb5f1144fb
