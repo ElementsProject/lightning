@@ -962,7 +962,7 @@ static void register_opts(struct lightningd *ld)
 
 	if (deprecated_apis)
 		opt_register_noarg("--enable-autotor-v2-mode", opt_set_invbool, &ld->config.use_v3_autotor,
-			   	   "Try to get a v2 onion address from the Tor service call, default is v3");
+				   opt_hidden);
 
 	opt_register_noarg("--encrypted-hsm", opt_set_hsm_password, ld,
 	                   "Set the password to encrypt hsm_secret with. If no password is passed through command line, "
@@ -1265,6 +1265,13 @@ static void add_config(struct lightningd *ld,
 	const char *answer = NULL;
 	char buf[OPT_SHOW_LEN + sizeof("...")];
 
+#if DEVELOPER
+	if (strstarts(name0, "dev-")) {
+		/* Ignore dev settings */
+		return;
+	}
+#endif
+
 	if (opt->type & OPT_NOARG) {
 		if (opt->desc == opt_hidden) {
 			/* Ignore hidden options (deprecated) */
@@ -1278,18 +1285,16 @@ static void add_config(struct lightningd *ld,
 			/* These are not important */
 		} else if (opt->cb == (void *)opt_set_bool) {
 			const bool *b = opt->u.carg;
-			answer = tal_fmt(name0, "%s", *b ? "true" : "false");
+			json_add_bool(response, name0, *b);
 		} else if (opt->cb == (void *)opt_set_invbool) {
 			const bool *b = opt->u.carg;
-			answer = tal_fmt(name0, "%s", !*b ? "true" : "false");
+			json_add_bool(response, name0, !*b);
 		} else if (opt->cb == (void *)opt_set_offline) {
-			answer = tal_fmt(name0, "%s",
-					 (!ld->reconnect && !ld->listen)
-					 ? "true" : "false");
+			json_add_bool(response, name0,
+				      !ld->reconnect && !ld->listen);
 		} else if (opt->cb == (void *)opt_start_daemon) {
-			answer = tal_fmt(name0, "%s",
-					 ld->daemon_parent_fd == -1
-					 ? "false" : "true");
+			json_add_bool(response, name0,
+				      ld->daemon_parent_fd != -1);
 		} else if (opt->cb == (void *)opt_set_hsm_password) {
 			json_add_bool(response, "encrypted-hsm", ld->encrypted_hsm);
 		} else if (opt->cb == (void *)opt_set_wumbo) {
@@ -1396,10 +1401,6 @@ static void add_config(struct lightningd *ld,
 			   || opt->cb_arg == (void *)plugin_opt_flag_set) {
 			/* FIXME: We actually treat it as if they specified
 			 * --plugin for each one, so ignore these */
-#if DEVELOPER
-		} else if (strstarts(name, "dev-")) {
-			/* Ignore dev settings */
-#endif
 		} else {
 			/* Insert more decodes here! */
 			abort();
