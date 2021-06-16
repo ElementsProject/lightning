@@ -25,6 +25,8 @@ On success, an object is returned, containing:
 .IP \[bu]
 \fBlabel\fR (string): Unique label given at creation time
 .IP \[bu]
+\fBpayment_hash\fR (hex): the hash of the \fIpayment_preimage\fR which will prove payment (always 64 characters)
+.IP \[bu]
 \fBstatus\fR (string): State of invoice (one of "paid", "expired", "unpaid")
 .IP \[bu]
 \fBexpires_at\fR (u64): UNIX timestamp when invoice expires (or expired)
@@ -32,6 +34,10 @@ On success, an object is returned, containing:
 \fBbolt11\fR (string, optional): BOLT11 string
 .IP \[bu]
 \fBbolt12\fR (string, optional): BOLT12 string
+.IP \[bu]
+\fBamount_msat\fR (msat, optional): the amount required to pay this invoice
+.IP \[bu]
+\fBdescription\fR (string, optional): description used in the invoice
 
 .RE
 
@@ -87,4 +93,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:28d1e97fe8e8925008b20815c55db569b7ed8dad33d958c0914945c71fb9d654
+\" SHA256STAMP:4cd2b2a9c5dd9ad04bede3efc80981e78e147b21312fa63389ab88f6a681e1ad
