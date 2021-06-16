@@ -71,13 +71,23 @@ Otherwise, it's set to the parameter **cltv-final**.
 RETURN VALUE
 ------------
 
-On success, a hash is returned as *payment\_hash* to be given to the
-payer, and the *expiry\_time* as a UNIX timestamp. It also returns a
-BOLT11 invoice as *bolt11* to be given to the payer.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **bolt11** (string): the bolt11 string
+- **payment_hash** (hex): the hash of the *payment_preimage* which will prove payment (always 64 characters)
+- **expires_at** (u64): UNIX timestamp of when invoice expires
+
+The following warnings may also be returned:
+- **warning_capacity**: even using all possible channels, there's not enough incoming capacity to pay this invoice.
+- **warning_offline**: there would be enough incoming capacity, but some channels are offline, so there isn't.
+- **warning_deadends**: there would be enough incoming capacity, but some channels are dead-ends (no other public channels from those peers), so there isn't.
+- **warning_private_unused**: there would be enough incoming capacity, but some channels are unannounced and *exposeprivatechannels* is *false*, so there isn't.
+- **warning_mpp**: there is sufficient capacity, but not in a single channel, so the payer will have to use multi-part payments.
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, an error is returned and no invoice is created. If the
 lightning process fails before responding, the caller should use
-lightning-listinvoice(7) to query whether this invoice was created or
+lightning-listinvoices(7) to query whether this invoice was created or
 not.
 
 The following error codes may occur:
@@ -85,14 +95,6 @@ The following error codes may occur:
 - 900: An invoice with the given *label* already exists.
 - 901: An invoice with the given *preimage* already exists.
 - 902: None of the specified *exposeprivatechannels* were usable.
-
-One of the following warnings may occur (on success):
-- *warning_capacity*: even using all possible channels, there's not enough incoming capacity to pay this invoice.
-- *warning_offline*: there would be enough incoming capacity, but some channels are offline, so there isn't.
-- *warning_deadends*: there would be enough incoming capacity, but some channels are dead-ends (no other public channels from those peers), so there isn't.
-- *warning_private_unused*: there would be enough incoming capacity, but some channels are unannounced and *exposeprivatechannels* is *false*, so there isn't.
-- *warning_mpp* if there is sufficient capacity, but not in a single channel,
-    so the payer will have to use multi-part payments.
 
 AUTHOR
 ------
@@ -102,11 +104,11 @@ Rusty Russell <<rusty@rustcorp.com.au>> is mainly responsible.
 SEE ALSO
 --------
 
-lightning-listinvoice(7), lightning-delinvoice(7),
-lightning-getroute(7), lightning-sendpay(7).
+lightning-listinvoices(7), lightning-delinvoice(7), lightning-pay(7).
 
 RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
+[comment]: # ( SHA256STAMP:71eeaa119c355874d52c511e09816291e296b0709dc6acb6cefd5614bdc20fd2)

@@ -28,12 +28,14 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, a object will be return with the following proprieties:
-
-- *command*: A string that represents the stucture of the command.
-- *category*: A string that represents the category.
-- *description*: A string that represents the description.
-- *verbose*: A string that represents the verbode description.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **help** (array of objects):
+  - **command** (string): the command
+  - **category** (string): the category for this command (useful for grouping)
+  - **description** (string): a one-line description of the purpose of this command
+  - **verbose** (string): a full description of this command (including whether it's deprecated)
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, one of the following error codes may be returned:
 
@@ -64,3 +66,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:29119344d1800c7020c96a10ed94bfbf3c57491cc30e9b1f847facbdf0249aba)

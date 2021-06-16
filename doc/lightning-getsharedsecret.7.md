@@ -17,12 +17,10 @@ key DER-encoding of the SECP256K1 point.
 RETURN VALUE
 ------------
 
-On success, **getsharedsecret** returns a field *shared\_secret*,
-which is a hexadecimal string of the 256-bit SHA-2 of the
-compressed public key DER-encoding of the SECP256K1 point
-that is the shared secret generated using the
-Elliptic Curve Diffie-Hellman algorithm.
-This field is 32 bytes (64 hexadecimal characters in a string).
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object is returned, containing:
+- **shared_secret** (hex): the SHA-2 of the compressed encoding of the shared secp256k1 point (always 64 characters)
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 This command may fail if communications with the HSM has a
 problem;
@@ -92,3 +90,4 @@ RESOURCES
 * Main web site: <https://github.com/ElementsProject/lightning>
 
 
+[comment]: # ( SHA256STAMP:23508d8a2af693bf5a6b4de2a3d2c4527b3fb8502fb775f06cfe84bf3a5aedbe)

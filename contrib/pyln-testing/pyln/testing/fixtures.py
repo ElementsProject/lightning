@@ -232,6 +232,12 @@ def _extra_validator():
             return False
         return instance >= 0 and instance < 2**16
 
+    def is_u8(checker, instance):
+        """8-bit integer"""
+        if not checker.is_type(instance, "integer"):
+            return False
+        return instance >= 0 and instance < 2**8
+
     def is_short_channel_id(checker, instance):
         """Short channel id"""
         if not checker.is_type(instance, "string"):
@@ -307,6 +313,7 @@ def _extra_validator():
         "u64": is_u64,
         "u32": is_u32,
         "u16": is_u16,
+        "u8": is_u8,
         "pubkey": is_pubkey,
         "msat": is_msat,
         "txid": is_txid,

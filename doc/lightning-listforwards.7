@@ -20,51 +20,49 @@ on the given in/out channel are returned\.
 
 .SH RETURN VALUE
 
-On success one array will be returned: \fIforwards\fR with htlcs that have
-been processed
-
-
-Each entry in \fIforwards\fR will include:
+On success, an object containing \fBforwards\fR is returned\.  It is an array of objects, where each object contains:
 
 .RS
 .IP \[bu]
-\fIin_channel\fR: the short_channel_id of the channel that recieved the incoming htlc\.
+\fBin_channel\fR (short_channel_id): the channel that received the HTLC
 .IP \[bu]
-\fIin_msatoshi\fR, \fIin_msat\fR - amount of msatoshis that are forwarded to this node\.
+\fBin_msat\fR (msat): the value of the incoming HTLC
 .IP \[bu]
-\fIstatus\fR: status can be either \fIoffered\fR if the routing process is still ongoing,
-\fIsettled\fR if the routing process is completed or \fIfailed\fR if the routing process could not be completed\.
+\fBstatus\fR (string): still ongoing, completed, failed locally, or failed after forwarding (one of "offered", "settled", "local_failed", "failed")
 .IP \[bu]
-\fIreceived_time\fR: timestamp when incoming htlc was received\.
+\fBreceived_time\fR (number): the UNIX timestamp when this was received
+.IP \[bu]
+\fBout_channel\fR (short_channel_id, optional): the channel that the HTLC was forwarded to
+.IP \[bu]
+\fBpayment_hash\fR (hex, optional): payment hash sought by HTLC (always 64 characters)
 
 .RE
 
-The following additional fields are usually present, but will not be for some
-variants of status \fIlocal_failed\fR (if it failed before we determined these):
+If \fBout_channel\fR is present:
 
 .RS
 .IP \[bu]
-\fIout_channel\fR: the short_channel_id of to which the outgoing htlc is supposed to be forwarded\.
+\fBfee_msat\fR (msat): the amount this paid in fees
 .IP \[bu]
-\fIfee\fR, \fIfee_msat\fR: fee offered for forwarding the htlc in msatoshi\.
-.IP \[bu]
-\fIout_msatoshi\fR, \fIout_msat\fR - amount of msatoshis to be forwarded\.
+\fBout_msat\fR (msat): the amount we sent out the \fIout_channel\fR
 
 .RE
 
-The following fields may be offered, but for old forgotten HTLCs they will be omitted:
+If \fBstatus\fR is "settled" or "failed":
 
 .RS
 .IP \[bu]
-\fIpayment_hash\fR - the payment_hash belonging to the HTLC\.
+\fBresolved_time\fR (number): the UNIX timestamp when this was resolved
 
 .RE
 
-If the status is not 'offered', the following additional fields are present:
+If \fBstatus\fR is "local_failed" or "failed":
 
 .RS
 .IP \[bu]
-\fIresolved_time\fR - timestamp when htlc was resolved (settled or failed)\.
+\fBfailcode\fR (u32, optional): the numeric onion code returned
+.IP \[bu]
+\fBfailreason\fR (string, optional): the name of the onion code returned
 
 .RE
 .SH AUTHOR
@@ -79,4 +77,4 @@ Rene Pickhardt \fI<r.pickhardt@gmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:b374dbf5f639ad8782b4ad2ff515f25b22a4407ef77f2e0904c975d1a7ccfbe4
+\" SHA256STAMP:c2fd8db0d86c538202c27c14bbfbbca7319d1664d22290d6ac7605d1b3160cb9

@@ -26,43 +26,23 @@ broadcast on the gossip network.
 RETURN VALUE
 ------------
 
-On success, an object with a "channels" key is returned containing a
-list of 0 or more objects.
-
-Each object in the list contains the following data:
-- *source* : The node providing entry to the channel, specifying the
-fees charged for using the channel in that direction.
-- *destination* : The node providing the exit point for the channel.
-- *short\_channel\_id* : The channel identifier.
-- *public* : Boolean value, is publicly available. Non-local channels
-will only ever have this value set to true. Local channels are
-side-loaded by this node, rather than obtained through the gossip
-network, and so may have this value set to false.
-- *satoshis* : Funds available in the channel.
-- *amount\_sat* : Same as above, but ending in *sat*.
-- *message\_flags* : Bitfield showing the presence of optional fields
-in the *channel\_update* message (BOLT \#7).
-- *channel\_flags* : Bitfields indicating the direction of the channel
-and signaling various options concerning the channel. (BOLT \#7).
-- *active* : Boolean value, is available for routing. This is linked
-to the channel flags data, where if the second bit is set, signals a
-channels temporary unavailability (due to loss of connectivity) OR
-permanent unavailability where the channel has been closed but not
-settlement on-chain.
-- *last\_update* : Unix timestamp (seconds) showing when the last
-channel\_update message was received.
-- *base\_fee\_millisatoshi* : The base fee (in millisatoshi) charged
-for the HTLC (BOLT \#7; equivalent to `fee_base_msat`).
-- *fee\_per\_millionth* : The amount (in millionths of a satoshi)
-charged per transferred satoshi (BOLT \#7; equivalent to
-`fee_proportional_millionths`).
-- *delay* : The number of blocks of additional delay required when
-forwarding an HTLC in this direction. (BOLT \#7; equivalent to
-`cltv_expiry_delta`).
-- *htlc\_minimum\_msat* : The minimum payment which can be sent
-through this channel.
-- *htlc\_maximum\_msat* : The maximum payment which can be sent
-through this channel.
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object containing **channels** is returned.  It is an array of objects, where each object contains:
+- **source** (pubkey): the source node
+- **destination** (pubkey): the destination node
+- **public** (boolean): true if this is announced (otherwise it must be our channel)
+- **amount_msat** (msat): the total capacity of this channel (always a whole number of satoshis)
+- **message_flags** (u8): as defined by BOLT #7
+- **channel_flags** (u8): as defined by BOLT #7
+- **active** (boolean): true unless source has disabled it, or it's a local channel and the peer is disconnected or it's still opening or closing
+- **last_update** (u32): UNIX timestamp on the last channel_update from *source*
+- **base_fee_millisatoshi** (u32): Base fee changed by *source* to use this channel
+- **fee_per_millionth** (u32): Proportional fee changed by *source* to use this channel, in parts-per-million
+- **delay** (u32): The number of blocks delay required by *source* to use this channel
+- **htlc_minimum_msat** (msat): The smallest payment *source* will allow via this channel
+- **features** (hex): BOLT #9 features bitmap for this channel
+- **htlc_maximum_msat** (msat, optional): The largest payment *source* will allow via this channel
+[comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If *short\_channel\_id* or *source* is supplied and no matching channels
 are found, a "channels" object with an empty list is returned.
@@ -92,3 +72,4 @@ Lightning RFC site
 -   BOLT \#7:
     <https://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md>
 
+[comment]: # ( SHA256STAMP:b14e060fc39b569657050d5bb894c22c0dc575593804248746323b803053b57b)
