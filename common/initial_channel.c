@@ -120,6 +120,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				    0 ^ channel->commitment_number_obscurer,
 				    direct_outputs,
 				    side,
+				    0, /* FIXME: csv lock? */
 				    channel->option_anchor_outputs,
 				    err_reason);
 

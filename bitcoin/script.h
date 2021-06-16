@@ -67,7 +67,7 @@ u8 *scriptpubkey_p2wpkh_derkey(const tal_t *ctx, const u8 der[33]);
 u8 *scriptpubkey_witness_raw(const tal_t *ctx, u8 version,
 			     const u8 *wprog, size_t wprog_size);
 
-/* To-remotekey with csv 1 delay. */
+/* To-remotekey with csv max(lease_expiry - blockheight, 1) delay. */
 u8 *anchor_to_remote_redeem(const tal_t *ctx,
 			    const struct pubkey *remote_key,
 			    u32 csv_lock);
@@ -91,8 +91,7 @@ u8 **bitcoin_witness_sig_and_element(const tal_t *ctx,
 				     const u8 *witnessscript);
 
 /* BOLT #3 to-local output */
-u8 *bitcoin_wscript_to_local(const tal_t *ctx,
-			     u16 to_self_delay,
+u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay, u32 csv,
 			     const struct pubkey *revocation_pubkey,
 			     const struct pubkey *local_delayedkey);
 

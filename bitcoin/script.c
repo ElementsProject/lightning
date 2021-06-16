@@ -14,6 +14,8 @@
 /* To push 0-75 bytes onto stack. */
 #define OP_PUSHBYTES(val) (val)
 
+#define max(a, b) ((a) > (b) ? (a) : (b))
+
 /* Bitcoin's OP_HASH160 is RIPEMD(SHA256()) */
 static void hash160(struct ripemd160 *redeemhash, const void *mem, size_t len)
 {
@@ -353,15 +355,21 @@ u8 *anchor_to_remote_redeem(const tal_t *ctx,
 
 bool is_anchor_witness_script(const u8 *script, size_t script_len)
 {
-	if (script_len != 34 + 1 + 1 + 1)
+	size_t len = 34 + 1 + 1 + 1;
+	/* With option_will_fund, the pushbytes can be up to 2 bytes more
+	 *
+	 * <remote_pubkey> OP_CHECKSIGVERIFY
+	 * 		MAX(1, lease_end - blockheight)
+	 * 		OP_CHECKSEQUENCEVERIFY
+	 */
+	if (script_len < len || script_len > len + 2)
 		return false;
 	if (script[0] != OP_PUSHBYTES(33))
 		return false;
 	if (script[34] != OP_CHECKSIGVERIFY)
 		return false;
-	if (script[35] != 0x51)
-		return false;
-	if (script[36] != OP_CHECKSEQUENCEVERIFY)
+	/* FIXME: check for push value */
+	if (script[script_len - 1] != OP_CHECKSEQUENCEVERIFY)
 		return false;
 	return true;
 }
@@ -521,7 +529,27 @@ u8 **bitcoin_witness_sig_and_element(const tal_t *ctx,
  *     OP_ENDIF
  *     OP_CHECKSIG
  */
-u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay,
+/* BOLT- #3
+ * ##### Leased channel (`option_will_fund`)
+ * If a `lease` applies to the channel, the `to_local` output of the `accepter`
+ * ensures the `leasor` funds are not spendable until the lease expires.
+ *
+ * In a leased channel, the `to_local` output that pays the `accepter` node
+ * is modified so that its CSV is equal to the greater of the
+ * `to_self_delay` or the `lease_end` - `blockheight`.
+ *
+ *  OP_IF
+ *      # Penalty transaction
+ *      <revocationpubkey>
+ *  OP_ELSE
+ *      MAX(`to_self_delay`, `lease_end` - `blockheight`)
+ *      OP_CHECKSEQUENCEVERIFY
+ *      OP_DROP
+ *      <local_delayedpubkey>
+ *  OP_ENDIF
+ *  OP_CHECKSIG
+ */
+u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay, u32 csv,
 			     const struct pubkey *revocation_pubkey,
 			     const struct pubkey *local_delayedkey)
 {
@@ -529,7 +557,7 @@ u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay,
 	add_op(&script, OP_IF);
 	add_push_key(&script, revocation_pubkey);
 	add_op(&script, OP_ELSE);
-	add_number(&script, to_self_delay);
+	add_number(&script, max(csv, to_self_delay));
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	add_op(&script, OP_DROP);
 	add_push_key(&script, local_delayedkey);

@@ -213,6 +213,7 @@ void subdaemon_setup(int argc UNNEEDED, char *argv[])
 /* Generated stub for to_self_wscript */
 u8 *to_self_wscript(const tal_t *ctx UNNEEDED,
 		    u16 to_self_delay UNNEEDED,
+		    u32 csv UNNEEDED,
 		    const struct keyset *keyset UNNEEDED)
 { fprintf(stderr, "to_self_wscript called!\n"); abort(); }
 /* Generated stub for towire */

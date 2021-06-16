@@ -12,6 +12,7 @@
 #include <common/initial_commit_tx.h>
 #include <common/key_derive.h>
 #include <common/keyset.h>
+#include <common/lease_rates.h>
 #include <common/memleak.h>
 #include <common/overflows.h>
 #include <common/peer_billboard.h>
@@ -2644,15 +2645,15 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_htlc_key));
 
-	local_wscript = to_self_wscript(tmpctx, to_self_delay[LOCAL], keyset);
+	local_wscript = to_self_wscript(tmpctx, to_self_delay[LOCAL],
+					1, keyset);
 
 	/* Figure out what to-us output looks like. */
 	script[LOCAL] = scriptpubkey_p2wsh(tmpctx, local_wscript);
 
 	/* Figure out what direct to-them output looks like. */
 	script[REMOTE] = scriptpubkey_to_remote(tmpctx,
-						&keyset->other_payment_key,
-						1);
+						&keyset->other_payment_key, 1);
 
 	/* Calculate all the HTLC scripts so we can match them */
 	htlc_scripts = derive_htlc_scripts(htlcs, LOCAL);
@@ -2866,7 +2867,8 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 /* We produce individual penalty txs.  It's less efficient, but avoids them
  * using HTLC txs to block our penalties for long enough to pass the CSV
  * delay */
-static void steal_to_them_output(struct tracked_output *out, bool is_replay)
+static void steal_to_them_output(struct tracked_output *out,
+				 u32 csv, bool is_replay)
 {
 	u8 *wscript;
 	struct bitcoin_tx *tx;
@@ -2879,7 +2881,7 @@ static void steal_to_them_output(struct tracked_output *out, bool is_replay)
 	 *
 	 *    <revocation_sig> 1
 	 */
-	wscript = bitcoin_wscript_to_local(tmpctx, to_self_delay[REMOTE],
+	wscript = bitcoin_wscript_to_local(tmpctx, to_self_delay[REMOTE], csv,
 					   &keyset->self_revocation_key,
 					   &keyset->self_delayed_payment_key);
 
@@ -3083,7 +3085,8 @@ static void handle_their_cheat(const struct tx_parts *tx,
 		     static_remotekey_start[LOCAL],
 		     static_remotekey_start[REMOTE]);
 
-	remote_wscript = to_self_wscript(tmpctx, to_self_delay[REMOTE], keyset);
+	remote_wscript = to_self_wscript(tmpctx, to_self_delay[REMOTE],
+					 1, keyset);
 
 	/* Figure out what to-them output looks like. */
 	script[REMOTE] = scriptpubkey_p2wsh(tmpctx, remote_wscript);
@@ -3176,7 +3179,7 @@ static void handle_their_cheat(const struct tx_parts *tx,
 						 amt,
 						 DELAYED_CHEAT_OUTPUT_TO_THEM,
 						 NULL, NULL, NULL);
-			steal_to_them_output(out, is_replay);
+			steal_to_them_output(out, 1, is_replay);
 			script[REMOTE] = NULL;
 			add_amt(&total_outs, amt);
 			continue;
@@ -3365,7 +3368,8 @@ static void handle_their_unilateral(const struct tx_parts *tx,
 		     type_to_string(tmpctx, struct pubkey,
 				    &keyset->other_htlc_key));
 
-	remote_wscript = to_self_wscript(tmpctx, to_self_delay[REMOTE], keyset);
+	remote_wscript = to_self_wscript(tmpctx, to_self_delay[REMOTE],
+					 1, keyset);
 
 	/* Figure out what to-them output looks like. */
 	script[REMOTE] = scriptpubkey_p2wsh(tmpctx, remote_wscript);
