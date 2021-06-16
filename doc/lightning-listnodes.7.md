@@ -26,21 +26,20 @@ EXAMPLE JSON REQUEST
 RETURN VALUE
 ------------
 
-On success, the command will return a list of nodes, each object represents a node, with the following details:
+[comment]: # (GENERATE-FROM-SCHEMA-START)
+On success, an object containing **nodes** is returned.  It is an array of objects, where each object contains:
+- **nodeid** (pubkey): the public key of the node
+- **last_update** (u32, optional): A node_announcement has been received for this node (UNIX timestamp)
 
-- *nodeid*: A string that represents the node id.
-
-For nodes which have sent a node_announcement message, the following
-are also returned:
-
-- *alias*: A string that represents alias of the node on the network.
-- *color*: A string that represents the personal color of the node.
-- *last_timestamp*: An integer that represents the timestamp of the last-received node_announcement message.
-- *features*: A string that represents the features value.
-- *addresses*: An array that represents the addreses avaible. Each address is represented with an object with the following properties:
-  - *type*: A string that represents the address type (ipv4 or ipv6).
-  - *address*: A string that represents the address value.
-  - *port*: An integer that represents the port number where the node are listening.
+If **last_update** is present:
+  - **alias** (string): The fun alias this node advertized (up to 32 characters)
+  - **color** (hex): The favorite RGB color this node advertized (always 6 characters)
+  - **features** (hex): BOLT #9 features bitmap this node advertized
+  - **addresses** (array of objects): The addresses this node advertized:
+    - **type** (string): Type of connection (one of "ipv4", "ipv6", "torv2", "torv3")
+    - **address** (string): address in expected format for *type*
+    - **port** (u16): port number
+[comment]: # (GENERATE-FROM-SCHEMA-END)
   
 On failure, one of the following error codes may be returned:
  
@@ -84,3 +83,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
+[comment]: # ( SHA256STAMP:8c35b13edbb60a3403da9317b3177c0a5b9826cf0f06077424e94b1ddb7f1697)
