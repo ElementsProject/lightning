@@ -194,6 +194,12 @@ All `warning` fields should have unique names which start with
 `warning_`, the value of which should be an explanation.  This allows
 for programs to deal with them sanely, and also perform translations.
 
+### Documenting JSON APIs
+
+We use JSON schemas to validate that JSON-RPC returns are in the
+correct form, and also to generate documentation.  See
+[doc/schemas/WRITING_SCHEMAS.md](WRITING_SCHEMAS.md).
+
 ## Changing JSON APIs
 
 All JSON API changes need a Changelog line (see below).
