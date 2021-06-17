@@ -15,6 +15,7 @@
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
+#include <common/onion.h>
 #include <common/overflows.h>
 #include <common/param.h>
 #include <common/random_select.h>
@@ -167,6 +168,38 @@ struct invoice_payment_hook_payload {
 	/* FIXME: Include raw payload! */
 };
 
+#ifdef DEVELOPER
+static void invoice_payment_add_tlvs(struct json_stream *stream,
+				     struct htlc_set *hset)
+{
+	struct htlc_in *hin;
+	struct tlv_tlv_payload *tlvs;
+	assert(tal_count(hset->htlcs) > 0);
+
+	/* Pick the first HTLC as representative for the entire set. */
+	hin = hset->htlcs[0];
+
+	if (hin->payload->type != ONION_TLV_PAYLOAD)
+		return;
+	tlvs = hin->payload->tlv;
+
+	json_array_start(stream, "extratlvs");
+
+	for (size_t i = 0; i < tal_count(tlvs->fields); i++) {
+		struct tlv_field *field = &tlvs->fields[i];
+		/* If we have metadata attached it is not an extra TLV field. */
+		if (field->meta == NULL) {
+			json_object_start(stream, NULL);
+			json_add_u64(stream, "type", field->numtype);
+			json_add_num(stream, "length", field->length);
+			json_add_hex_talarr(stream, "value", field->value);
+			json_object_end(stream);
+		}
+	}
+	json_array_end(stream);
+}
+#endif
+
 static void
 invoice_payment_serialize(struct invoice_payment_hook_payload *payload,
 			  struct json_stream *stream,
@@ -178,6 +211,9 @@ invoice_payment_serialize(struct invoice_payment_hook_payload *payload,
 	json_add_string(stream, "msat",
 			type_to_string(tmpctx, struct amount_msat,
 				       &payload->msat));
+#ifdef DEVELOPER
+	invoice_payment_add_tlvs(stream, payload->set);
+#endif
 	json_object_end(stream); /* .payment */
 }
 
