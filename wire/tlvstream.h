@@ -28,7 +28,7 @@ struct tlv_field {
 };
 
 /* Given any tlvstream serialize the raw fields (untyped ones). */
-void towire_tlvstream_raw(u8 **pptr, const struct tlv_field *fields);
+void towire_tlvstream_raw(u8 **pptr, struct tlv_field *fields);
 
 /* Given a tlv record with manually-set fields, populate ->fields */
 #define tlv_make_fields(tlv, type)					\
