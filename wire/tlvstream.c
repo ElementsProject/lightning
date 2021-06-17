@@ -1,5 +1,6 @@
 #include "config.h"
 #include <assert.h>
+#include <ccan/asort/asort.h>
 #include <common/bigsize.h>
 #include <wire/tlvstream.h>
 #include <wire/wire.h>
@@ -8,10 +9,18 @@
 #define SUPERVERBOSE(...)
 #endif
 
-void towire_tlvstream_raw(u8 **pptr, const struct tlv_field *fields)
+static int tlv_field_cmp(const struct tlv_field *a, const struct tlv_field *b,
+			 void *x)
+{
+	return a->numtype > b->numtype ? 1 : -1;
+}
+
+void towire_tlvstream_raw(u8 **pptr, struct tlv_field *fields)
 {
 	if (!fields)
 		return;
+
+	asort(fields, tal_count(fields), tlv_field_cmp, NULL);
 
 	for (size_t i = 0; i < tal_count(fields); i++) {
 		const struct tlv_field *field = &fields[i];
