@@ -248,7 +248,7 @@ bool fromwire_init_tlvs(const u8 **cursor, size_t *max, struct tlv_init_tlvs *re
 
 bool init_tlvs_is_valid(const struct tlv_init_tlvs *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -380,7 +380,7 @@ bool fromwire_n1(const u8 **cursor, size_t *max, struct tlv_n1 *record)
 
 bool n1_is_valid(const struct tlv_n1 *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -459,7 +459,7 @@ bool fromwire_n2(const u8 **cursor, size_t *max, struct tlv_n2 *record)
 
 bool n2_is_valid(const struct tlv_n2 *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -513,7 +513,7 @@ bool fromwire_open_channel_tlvs(const u8 **cursor, size_t *max, struct tlv_open_
 
 bool open_channel_tlvs_is_valid(const struct tlv_open_channel_tlvs *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -567,7 +567,7 @@ bool fromwire_accept_channel_tlvs(const u8 **cursor, size_t *max, struct tlv_acc
 
 bool accept_channel_tlvs_is_valid(const struct tlv_accept_channel_tlvs *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -627,7 +627,7 @@ bool fromwire_opening_tlvs(const u8 **cursor, size_t *max, struct tlv_opening_tl
 
 bool opening_tlvs_is_valid(const struct tlv_opening_tlvs *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -687,7 +687,7 @@ bool fromwire_accept_tlvs(const u8 **cursor, size_t *max, struct tlv_accept_tlvs
 
 bool accept_tlvs_is_valid(const struct tlv_accept_tlvs *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -744,7 +744,7 @@ bool fromwire_shutdown_tlvs(const u8 **cursor, size_t *max, struct tlv_shutdown_
 
 bool shutdown_tlvs_is_valid(const struct tlv_shutdown_tlvs *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -802,7 +802,7 @@ bool fromwire_query_short_channel_ids_tlvs(const u8 **cursor, size_t *max, struc
 
 bool query_short_channel_ids_tlvs_is_valid(const struct tlv_query_short_channel_ids_tlvs *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -857,7 +857,7 @@ bool fromwire_query_channel_range_tlvs(const u8 **cursor, size_t *max, struct tl
 
 bool query_channel_range_tlvs_is_valid(const struct tlv_query_channel_range_tlvs *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -943,7 +943,7 @@ bool fromwire_reply_channel_range_tlvs(const u8 **cursor, size_t *max, struct tl
 
 bool reply_channel_range_tlvs_is_valid(const struct tlv_reply_channel_range_tlvs *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -998,7 +998,7 @@ bool fromwire_onion_message_tlvs(const u8 **cursor, size_t *max, struct tlv_onio
 
 bool onion_message_tlvs_is_valid(const struct tlv_onion_message_tlvs *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -2330,4 +2330,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
  	*htlc_maximum_msat = fromwire_amount_msat(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:13b9d519f8dde4c4d6a6995a2961d9d6ef810cc9f81d3ab1bd054da4c383ffe0
+// SHA256STAMP:d4f6f16581d26f95c512a5a98e962abe529ff37a70a7563bd41f25ac802bdb63

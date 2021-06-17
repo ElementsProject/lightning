@@ -753,4 +753,4 @@ bool fromwire_gossipd_addgossip_reply(const tal_t *ctx, const void *p, wirestrin
  	*err = fromwire_wirestring(ctx, &cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:6f6810a7e9c5e3e7dc1dd716b6a8de019516f6e82e3664bdf760647b5a987883
+// SHA256STAMP:9b38d439d81bbd471c821163b275c5cf3106a665dbdea563113742476f18e386
