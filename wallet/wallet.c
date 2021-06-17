@@ -1048,6 +1048,10 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 	struct bitcoin_signature last_sig;
 	struct channel_inflight *inflight;
 
+	secp256k1_ecdsa_signature *lease_commit_sig;
+	u32 lease_chan_max_msat;
+	u16 lease_chan_max_ppt;
+
 	db_column_txid(stmt, 0, &funding_txid);
 	db_column_amount_sat(stmt, 3, &funding_sat);
 	db_column_amount_sat(stmt, 4, &our_funding_sat);
@@ -1056,6 +1060,17 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 
 	last_sig.sighash_type = SIGHASH_ALL;
 
+	if (!db_column_is_null(stmt, 10)) {
+		lease_commit_sig = tal(tmpctx, secp256k1_ecdsa_signature);
+		db_column_signature(stmt, 10, lease_commit_sig);
+		lease_chan_max_msat = db_column_int(stmt, 11);
+		lease_chan_max_ppt = db_column_int(stmt, 12);
+	} else {
+		lease_commit_sig = NULL;
+		lease_chan_max_msat = 0;
+		lease_chan_max_ppt = 0;
+	}
+
 	inflight = new_inflight(chan, funding_txid,
 				db_column_int(stmt, 1),
 				db_column_int(stmt, 2),
@@ -1063,7 +1078,11 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 				our_funding_sat,
 				db_column_psbt(tmpctx, stmt, 5),
 				db_column_psbt_to_tx(tmpctx, stmt, 6),
-				last_sig);
+				last_sig,
+				db_column_int(stmt, 9),
+				lease_commit_sig,
+				lease_chan_max_msat,
+				lease_chan_max_ppt);
 
 	/* Pull out the serialized tx-sigs-received-ness */
 	inflight->remote_tx_sigs = db_column_int(stmt, 8);
@@ -1086,6 +1105,10 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 					", last_tx" // 6
 					", last_sig" // 7
 					", funding_tx_remote_sigs_received" //8
+					", lease_expiry" // 9
+					", lease_commit_sig" // 10
+					", lease_chan_max_msat" // 11
+					", lease_chan_max_ppt" // 12
 					" FROM channel_funding_inflights"
 					" WHERE channel_id = ?" // ?0
 					" ORDER BY funding_feerate"));
@@ -1133,6 +1156,9 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	struct pubkey *future_per_commitment_point;
 	struct amount_sat funding_sat, our_funding_sat;
 	struct amount_msat push_msat, our_msat, msat_to_us_min, msat_to_us_max;
+	secp256k1_ecdsa_signature *lease_commit_sig;
+	u32 lease_chan_max_msat;
+	u16 lease_chan_max_ppt;
 
 	peer_dbid = db_column_u64(stmt, 1);
 	peer = find_peer_by_dbid(w->ld, peer_dbid);
@@ -1242,6 +1268,17 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	db_column_amount_msat(stmt, 40, &msat_to_us_min);
 	db_column_amount_msat(stmt, 41, &msat_to_us_max);
 
+	if (!db_column_is_null(stmt, 61)) {
+		lease_commit_sig = tal(w, secp256k1_ecdsa_signature);
+		db_column_signature(stmt, 61, lease_commit_sig);
+		lease_chan_max_msat = db_column_int(stmt, 62);
+		lease_chan_max_ppt = db_column_int(stmt, 63);
+	} else {
+		lease_commit_sig = NULL;
+		lease_chan_max_msat = 0;
+		lease_chan_max_ppt = 0;
+	}
+
 	chan = new_channel(peer, db_column_u64(stmt, 0),
 			   &wshachain,
 			   db_column_int(stmt, 6),
@@ -1292,7 +1329,11 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_column_int(stmt, 49),
 			   db_column_int(stmt, 51),
 			   db_column_int(stmt, 52),
-			   shutdown_wrong_funding);
+			   shutdown_wrong_funding,
+			   db_column_int(stmt, 60),
+			   lease_commit_sig,
+			   lease_chan_max_msat,
+			   lease_chan_max_ppt);
 
 	if (!wallet_channel_load_inflights(w, chan)) {
 		tal_free(chan);
@@ -1384,6 +1425,10 @@ static bool wallet_channels_load_active(struct wallet *w)
 					", funding_pubkey_local" // 57
 					", shutdown_wrong_txid" // 58
 					", shutdown_wrong_outnum" // 59
+					", lease_expiry" // 60
+					", lease_commit_sig" // 61
+					", lease_chan_max_msat" // 62
+					", lease_chan_max_ppt" // 63
 					" FROM channels"
                                         " WHERE state != ?;")); //? 0
 	db_bind_int(stmt, 0, CLOSED);
@@ -1671,8 +1716,12 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 					"  closer=?," // 34
 					"  state_change_reason=?," // 35
 					"  shutdown_wrong_txid=?," // 36
-					"  shutdown_wrong_outnum=?" // 37
-					" WHERE id=?")); // 38
+					"  shutdown_wrong_outnum=?," // 37
+					"  lease_expiry=?," // 38
+					"  lease_commit_sig=?," // 39
+					"  lease_chan_max_msat=?," // 40
+					"  lease_chan_max_ppt=?" // 41
+					" WHERE id=?")); // 42
 	db_bind_u64(stmt, 0, chan->their_shachain.id);
 	if (chan->scid)
 		db_bind_short_channel_id(stmt, 1, chan->scid);
@@ -1724,7 +1773,18 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_null(stmt, 36);
 		db_bind_null(stmt, 37);
 	}
-	db_bind_u64(stmt, 38, chan->dbid);
+
+	db_bind_int(stmt, 38, chan->lease_expiry);
+	if (chan->lease_commit_sig) {
+		db_bind_signature(stmt, 39, chan->lease_commit_sig);
+		db_bind_int(stmt, 40, chan->lease_chan_max_msat);
+		db_bind_int(stmt, 41, chan->lease_chan_max_ppt);
+	} else {
+		db_bind_null(stmt, 39);
+		db_bind_null(stmt, 40);
+		db_bind_null(stmt, 41);
+	}
+	db_bind_u64(stmt, 42, chan->dbid);
 	db_exec_prepared_v2(take(stmt));
 
 	wallet_channel_config_save(w, &chan->channel_info.their_config);

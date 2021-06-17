@@ -728,6 +728,14 @@ static struct migration dbmigrations[] = {
 	 " local_static_remotekey_start = 9223372036854775807"
 	 " WHERE option_static_remotekey = 0"),
      NULL},
+    {SQL("ALTER TABLE channel_funding_inflights ADD lease_commit_sig BLOB DEFAULT NULL"), NULL},
+    {SQL("ALTER TABLE channel_funding_inflights ADD lease_chan_max_msat BIGINT DEFAULT NULL"), NULL},
+    {SQL("ALTER TABLE channel_funding_inflights ADD lease_chan_max_ppt INTEGER DEFAULT NULL"), NULL},
+    {SQL("ALTER TABLE channel_funding_inflights ADD lease_expiry INTEGER DEFAULT 0"), NULL},
+    {SQL("ALTER TABLE channels ADD lease_commit_sig BLOB DEFAULT NULL"), NULL},
+    {SQL("ALTER TABLE channels ADD lease_chan_max_msat INTEGER DEFAULT NULL"), NULL},
+    {SQL("ALTER TABLE channels ADD lease_chan_max_ppt INTEGER DEFAULT NULL"), NULL},
+    {SQL("ALTER TABLE channels ADD lease_expiry INTEGER DEFAULT 0"), NULL},
 };
 
 /* Leak tracking. */

@@ -1344,6 +1344,14 @@ static void update_channel_from_inflight(struct lightningd *ld,
 	channel->funding = inflight->funding->total_funds;
 	channel->our_funds = inflight->funding->our_funds;
 
+	/* Lease infos ! */
+	channel->lease_expiry = inflight->lease_expiry;
+	tal_free(channel->lease_commit_sig);
+	channel->lease_commit_sig
+		= tal_steal(channel, inflight->lease_commit_sig);
+	channel->lease_chan_max_msat = inflight->lease_chan_max_msat;
+	channel->lease_chan_max_ppt = inflight->lease_chan_max_ppt;
+
 	/* Make a 'clone' of this tx */
 	psbt_copy = clone_psbt(channel, inflight->last_tx->psbt);
 	channel_set_last_tx(channel,
