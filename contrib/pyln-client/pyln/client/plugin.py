@@ -744,6 +744,11 @@ class Plugin(object):
 
           $ lightningd --plugin={executable}
 
+        If lightningd is already running, you can also start a plugin
+        by using the cli:
+
+          $ lightning-cli plugin start /path/to/a/plugin
+
         Since we're here however let me tell you about this plugin.
         """).format(executable=executable)
 
