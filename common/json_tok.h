@@ -189,4 +189,9 @@ struct command_result *param_outpoint_arr(struct command *cmd,
 					  const char *buffer,
 					  const jsmntok_t *tok,
 					  struct bitcoin_outpoint **outpoints);
+
+struct command_result *param_extra_tlvs(struct command *cmd, const char *name,
+					const char *buffer,
+					const jsmntok_t *tok,
+					struct tlv_field **fields);
 #endif /* LIGHTNING_COMMON_JSON_TOK_H */
