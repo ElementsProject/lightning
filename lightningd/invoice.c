@@ -834,6 +834,19 @@ invoice_complete(struct invoice_info *info,
 				    info->label->s);
 	}
 
+	/* If this requires a giant HTLC, most implementations cannot
+	 * send that much; will need to split. */
+	/* BOLT #2:
+	 * ### Adding an HTLC: `update_add_htlc`
+	 *...
+	 *   - for channels with `chain_hash` identifying the Bitcoin blockchain:
+	 *    - MUST set the four most significant bytes of `amount_msat` to 0.
+	 */
+	if (info->b11->msat
+	    && amount_msat_greater(*info->b11->msat, chainparams->max_payment)) {
+		warning_mpp = true;
+	}
+
 	/* Get details */
 	details = wallet_invoice_details(info, wallet, invoice);
 
@@ -1133,14 +1146,6 @@ static struct command_result *json_invoice(struct command *cmd,
 				    "(description length %zu)",
 				    BOLT11_FIELD_BYTE_LIMIT,
 				    strlen(desc_val));
-	}
-
-	if (msatoshi_val
-	    && amount_msat_greater(*msatoshi_val, chainparams->max_payment)) {
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "msatoshi cannot exceed %s",
-				    type_to_string(tmpctx, struct amount_msat,
-						   &chainparams->max_payment));
 	}
 
 	if (fallbacks) {

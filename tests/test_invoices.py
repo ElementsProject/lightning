@@ -54,9 +54,9 @@ def test_invoice(node_factory, chainparams):
     assert 'routes' not in b11
     assert 'warning_capacity' in inv
 
-    # Make sure no wumbo invoices
-    with pytest.raises(RpcError, match=r'msatoshi cannot exceed 4294967295msat'):
-        l2.rpc.invoice(4294967295 + 1, 'inv3', '?')
+    # Make sure wumbo invoices warn about mpp being needed.
+    inv = l2.rpc.invoice(4294967295 + 1, 'inv4', '?')
+    assert 'warning_mpp' in inv
     l2.rpc.invoice(4294967295, 'inv3', '?')
 
     # Test cltv option.
