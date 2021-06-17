@@ -1,4 +1,6 @@
 #include <ccan/array_size/array_size.h>
+#include <ccan/ccan/tal/grab_file/grab_file.h>
+#include <ccan/crc32c/crc32c.h>
 #include <ccan/list/list.h>
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
@@ -215,21 +217,36 @@ static void destroy_plugin(struct plugin *p)
 	}
 }
 
+static u32 file_checksum(const char* path)
+{
+	char *content = grab_file(tmpctx, path);
+	if (content == NULL) return 0;
+	return crc32c(0, content, tal_count(content));
+}
+
 struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 			       struct plugin_command *start_cmd, bool important,
 			       const char *parambuf STEALS,
 			       const jsmntok_t *params STEALS)
 {
 	struct plugin *p, *p_temp;
+	u32 chksum;
 
 	/* Don't register an already registered plugin */
 	list_for_each(&plugins->plugins, p_temp, list) {
 		if (streq(path, p_temp->cmd)) {
-			if (taken(path))
-				tal_free(path);
-		 	/* If added as "important", upgrade to "important".  */
+			/* If added as "important", upgrade to "important".  */
 			if (important)
 				p_temp->important = true;
+			/* stop and restart plugin on different checksum */
+			chksum = file_checksum(path);
+			if (p_temp->checksum != chksum && !p_temp->important) {
+				plugin_kill(p_temp, LOG_INFORM,
+					    "Plugin changed, needs restart.");
+				break;
+			}
+			if (taken(path))
+				tal_free(path);
 			return NULL;
 		}
 	}
@@ -237,6 +254,7 @@ struct plugin *plugin_register(struct plugins *plugins, const char* path TAKES,
 	p = tal(plugins, struct plugin);
 	p->plugins = plugins;
 	p->cmd = tal_strdup(p, path);
+	p->checksum = file_checksum(p->cmd);
 	p->shortname = path_basename(p, p->cmd);
 	p->start_cmd = start_cmd;
 
