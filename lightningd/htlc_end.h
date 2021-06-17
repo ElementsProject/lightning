@@ -58,6 +58,9 @@ struct htlc_in {
 
 	/* A simple text annotation shown in `listpeers` */
 	char *status;
+
+	/* The decoded onion payload after hooks processed it. */
+	struct onion_payload *payload;
 };
 
 struct htlc_out {

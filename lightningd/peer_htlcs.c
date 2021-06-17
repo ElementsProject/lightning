@@ -1077,6 +1077,10 @@ htlc_accepted_hook_final(struct htlc_accepted_hook_payload *request STEALS)
 
 	request->hin->status = tal_free(request->hin->status);
 
+	/* Hand the payload to the htlc_in since we'll want to have that info
+	 * handy for the hooks and notifications. */
+	request->hin->payload = tal_steal(request->hin, request->payload);
+
 	/* *Now* we barf if it failed to decode */
 	if (!request->payload) {
 		log_debug(channel->log,
