@@ -2633,7 +2633,7 @@ static void routehint_check_reachable(struct payment *p)
 	dst = gossmap_find_node(gossmap, p->destination);
 	if (dst == NULL)
 		d->destination_reachable = false;
-	else {
+	else if (src != NULL) {
 		dij = dijkstra(tmpctx, gossmap, dst, AMOUNT_MSAT(1000),
 			       10 / 1000000.0,
 			       payment_route_can_carry_even_disabled,
@@ -2644,6 +2644,11 @@ static void routehint_check_reachable(struct payment *p)
 		/* If there was a route the destination is reachable
 		 * without routehints. */
 		d->destination_reachable = r != NULL;
+	} else {
+		paymod_log(p, LOG_DBG,
+			   "Could not locate ourselves in the network. "
+			   "Allowing direct attempts");
+		d->destination_reachable = true;
 	}
 
 	if (d->destination_reachable) {
