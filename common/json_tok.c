@@ -543,3 +543,44 @@ struct command_result *param_outpoint_arr(struct command *cmd,
 	}
 	return NULL;
 }
+
+struct command_result *param_extra_tlvs(struct command *cmd, const char *name,
+					const char *buffer,
+					const jsmntok_t *tok,
+					struct tlv_field **fields)
+{
+	size_t i;
+	const jsmntok_t *curr;
+	struct tlv_field *f, *temp;
+
+	if (tok->type != JSMN_OBJECT) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Could not decode the TLV object from %s: "
+		    "\"%s\" is not a valid JSON object.",
+		    name, json_strdup(tmpctx, buffer, tok));
+	}
+
+	temp = tal_arr(cmd, struct tlv_field, tok->size);
+	json_for_each_obj(i, curr, tok) {
+		f = &temp[i];
+		if (!json_to_u64(buffer, curr, &f->numtype)) {
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "\"%s\" is not a valid numeric TLV type.",
+			    json_strdup(tmpctx, buffer, curr));
+		}
+		f->value = json_tok_bin_from_hex(temp, buffer, curr + 1);
+
+		if (f->value == NULL) {
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "\"%s\" is not a valid hex encoded TLV value.",
+			    json_strdup(tmpctx, buffer, curr));
+		}
+		f->length = tal_bytelen(f->value);
+		f->meta = NULL;
+	}
+	*fields = temp;
+	return NULL;
+}
