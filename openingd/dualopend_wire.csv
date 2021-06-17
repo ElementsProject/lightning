@@ -66,6 +66,10 @@ msgdata,dualopend_reinit,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
 msgdata,dualopend_reinit,remote_funding_sigs_received,bool,
 msgdata,dualopend_reinit,fee_states,fee_states,
 msgdata,dualopend_reinit,channel_flags,u8,
+msgdata,dualopend_reinit,lease_expiry,u32,
+msgdata,dualopend_reinit,lease_commit_sig,?secp256k1_ecdsa_signature,
+msgdata,dualopend_reinit,lease_chan_max_msat,u32,
+msgdata,dualopend_reinit,lease_chan_max_ppt,u16,
 
 # dualopend->master: they offered channel, should we continue?
 msgtype,dualopend_got_offer,7005
@@ -142,6 +146,10 @@ msgdata,dualopend_commit_rcvd,local_shutdown_len,u16,
 msgdata,dualopend_commit_rcvd,local_shutdown_scriptpubkey,u8,local_shutdown_len
 msgdata,dualopend_commit_rcvd,remote_shutdown_len,u16,
 msgdata,dualopend_commit_rcvd,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
+msgdata,dualopend_commit_rcvd,lease_expiry,u32,
+msgdata,dualopend_commit_rcvd,lease_commit_sig,?secp256k1_ecdsa_signature,
+msgdata,dualopend_commit_rcvd,lease_chan_max_msat,u32,
+msgdata,dualopend_commit_rcvd,lease_chan_max_ppt,u16,
 
 # dualopend->master: peer updated the psbt
 msgtype,dualopend_psbt_changed,7107

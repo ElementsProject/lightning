@@ -1541,7 +1541,9 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   &pk, NULL,
 			   1000, 100,
 			   NULL, 0, 0, true,
-			   LOCAL, REASON_UNKNOWN, NULL);
+			   LOCAL, REASON_UNKNOWN, NULL,
+			   100, NULL,
+			   7777, 22);
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
 	wallet_channel_insert(w, chan);
@@ -1557,7 +1559,8 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				our_sats,
 				funding_psbt,
 				last_tx,
-				sig);
+				sig,
+				1, NULL, 2, 4);
 
 	/* do inflights get correctly added to the channel? */
 	wallet_inflight_add(w, inflight);
@@ -1578,7 +1581,8 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				our_sats,
 				funding_psbt,
 				last_tx,
-				sig);
+				sig,
+				1, NULL, 2, 4);
 	wallet_inflight_add(w, inflight);
 	CHECK_MSG(c2 = wallet_channel_load(w, chan->dbid),
 		  tal_fmt(w, "Load from DB"));

@@ -11,6 +11,7 @@
 #include <common/initial_channel.h>
 #include <common/initial_commit_tx.h>
 #include <common/keyset.h>
+#include <common/lease_rates.h>
 #include <common/type_to_string.h>
 #include <inttypes.h>
 #include <wire/peer_wire.h>
@@ -89,6 +90,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 {
 	struct keyset keyset;
 	struct bitcoin_tx *init_tx;
+	u32 csv_lock;
 
 	/* This assumes no HTLCs! */
 	assert(!channel->htlcs);
@@ -101,6 +103,13 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 		*err_reason = "Cannot derive keyset";
 		return NULL;
 	}
+
+	/* Figure out the csv_lock (if there's a lease) */
+	if (channel->lease_expiry == 0)
+		csv_lock = 1;
+	else
+		/* FIXME: */
+		csv_lock = 1;
 
 	*wscript = bitcoin_redeem_2of2(ctx,
 				       &channel->funding_pubkey[side],
@@ -121,9 +130,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				    channel->config[!side].channel_reserve,
 				    0 ^ channel->commitment_number_obscurer,
 				    direct_outputs,
-				    side,
-				    /* FIXME: is not the csv lock ?! */
-				    channel->lease_expiry,
+				    side, csv_lock,
 				    channel->option_anchor_outputs,
 				    err_reason);
 

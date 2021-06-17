@@ -1112,7 +1112,11 @@ wallet_update_channel(struct lightningd *ld,
 		      struct amount_sat total_funding,
 		      struct amount_sat our_funding,
 		      u32 funding_feerate,
-		      struct wally_psbt *psbt STEALS)
+		      struct wally_psbt *psbt STEALS,
+		      const u32 lease_expiry,
+		      secp256k1_ecdsa_signature *lease_commit_sig STEALS,
+		      const u32 lease_chan_max_msat,
+		      const u16 lease_chan_max_ppt)
 {
 	struct amount_msat our_msat;
 	struct channel_inflight *inflight;
@@ -1132,6 +1136,12 @@ wallet_update_channel(struct lightningd *ld,
 	channel->our_msat = our_msat;
 	channel->msat_to_us_min = our_msat;
 	channel->msat_to_us_max = our_msat;
+	channel->lease_expiry = lease_expiry;
+
+	tal_free(channel->lease_commit_sig);
+	channel->lease_commit_sig = tal_steal(channel, lease_commit_sig);
+	channel->lease_chan_max_msat = lease_chan_max_msat;
+	channel->lease_chan_max_ppt = lease_chan_max_ppt;
 
 	channel_set_last_tx(channel,
 			    tal_steal(channel, remote_commit),
@@ -1150,7 +1160,11 @@ wallet_update_channel(struct lightningd *ld,
 				channel->our_funds,
 				psbt,
 				channel->last_tx,
-				channel->last_sig);
+				channel->last_sig,
+				channel->lease_expiry,
+				channel->lease_commit_sig,
+				channel->lease_chan_max_msat,
+				channel->lease_chan_max_ppt);
 	wallet_inflight_add(ld->wallet, inflight);
 
 	return inflight;
@@ -1171,7 +1185,11 @@ wallet_commit_channel(struct lightningd *ld,
 		      u32 commitment_feerate,
 		      const u8 *our_upfront_shutdown_script,
 		      const u8 *remote_upfront_shutdown_script,
-		      struct wally_psbt *psbt STEALS)
+		      struct wally_psbt *psbt STEALS,
+		      const u32 lease_expiry,
+		      secp256k1_ecdsa_signature *lease_commit_sig STEALS,
+		      const u32 lease_chan_max_msat,
+		      const u16 lease_chan_max_ppt)
 {
 	struct amount_msat our_msat;
 	struct channel_inflight *inflight;
@@ -1238,6 +1256,15 @@ wallet_commit_channel(struct lightningd *ld,
 	 * in theory, but it's only used for timing out. */
 	channel->first_blocknum = get_block_height(ld->topology);
 
+	/* Update lease info for channel */
+	channel->lease_expiry = lease_expiry;
+
+	tal_free(channel->lease_commit_sig);
+	channel->lease_commit_sig = tal_steal(channel, lease_commit_sig);
+
+	channel->lease_chan_max_msat = lease_chan_max_msat;
+	channel->lease_chan_max_ppt = lease_chan_max_ppt;
+
 	/* Now we finally put it in the database. */
 	wallet_channel_insert(ld->wallet, channel);
 
@@ -1250,7 +1277,11 @@ wallet_commit_channel(struct lightningd *ld,
 				channel->our_funds,
 				psbt,
 				channel->last_tx,
-				channel->last_sig);
+				channel->last_sig,
+				channel->lease_expiry,
+				channel->lease_commit_sig,
+				channel->lease_chan_max_msat,
+				channel->lease_chan_max_ppt);
 	wallet_inflight_add(ld->wallet, inflight);
 
 	return inflight;
@@ -2785,8 +2816,9 @@ static void handle_commit_received(struct subd *dualopend,
 	struct bitcoin_tx *remote_commit;
 	struct bitcoin_signature remote_commit_sig;
 	struct bitcoin_txid funding_txid;
-	u16 funding_outnum;
-	u32 feerate_funding, feerate_commitment;
+	u16 funding_outnum, lease_chan_max_ppt;
+	u32 feerate_funding, feerate_commitment, lease_expiry,
+	    lease_chan_max_msat;
 	struct amount_sat total_funding, funding_ours;
 	u8 *remote_upfront_shutdown_script,
 	   *local_upfront_shutdown_script;
@@ -2796,6 +2828,7 @@ static void handle_commit_received(struct subd *dualopend,
 	struct openchannel2_psbt_payload *payload;
 	struct channel_inflight *inflight;
 	struct command *cmd = oa->cmd;
+	secp256k1_ecdsa_signature *lease_commit_sig;
 
 	if (!fromwire_dualopend_commit_rcvd(tmpctx, msg,
 					    &channel_info.their_config,
@@ -2817,7 +2850,11 @@ static void handle_commit_received(struct subd *dualopend,
 					    &feerate_funding,
 					    &feerate_commitment,
 					    &local_upfront_shutdown_script,
-					    &remote_upfront_shutdown_script)) {
+					    &remote_upfront_shutdown_script,
+					    &lease_expiry,
+					    &lease_commit_sig,
+					    &lease_chan_max_msat,
+					    &lease_chan_max_ppt)) {
 		channel_internal_error(channel,
 				       "Bad WIRE_DUALOPEND_COMMIT_RCVD: %s",
 				       tal_hex(msg, msg));
@@ -2858,7 +2895,11 @@ static void handle_commit_received(struct subd *dualopend,
 								oa->our_upfront_shutdown_script :
 								local_upfront_shutdown_script,
 						       remote_upfront_shutdown_script,
-						       psbt))) {
+						       psbt,
+						       lease_expiry,
+						       lease_commit_sig,
+						       lease_chan_max_msat,
+						       lease_chan_max_ppt))) {
 			channel_internal_error(channel,
 					       "wallet_commit_channel failed"
 					       " (chan %s)",
@@ -2887,7 +2928,11 @@ static void handle_commit_received(struct subd *dualopend,
 						       total_funding,
 						       funding_ours,
 						       feerate_funding,
-						       psbt))) {
+						       psbt,
+						       lease_expiry,
+						       lease_commit_sig,
+						       lease_chan_max_msat,
+						       lease_chan_max_ppt))) {
 			channel_internal_error(channel,
 					       "wallet_update_channel failed"
 					       " (chan %s)",
@@ -3247,7 +3292,11 @@ void peer_restart_dualopend(struct peer *peer,
 				      channel->remote_upfront_shutdown_script,
 				      inflight->remote_tx_sigs,
                                       channel->fee_states,
-				      channel->channel_flags);
+				      channel->channel_flags,
+				      inflight->lease_expiry,
+				      inflight->lease_commit_sig,
+				      inflight->lease_chan_max_msat,
+				      inflight->lease_chan_max_ppt);
 
 
 	subd_send_msg(channel->owner, take(msg));
