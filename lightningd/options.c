@@ -131,6 +131,30 @@ static char *opt_set_mode(const char *arg, mode_t *m)
 	return NULL;
 }
 
+#if EXPERIMENTAL_FEATURES
+static char *opt_set_accept_extra_tlv_types(const char *arg,
+					     struct lightningd *ld)
+{
+	char *endp, **elements = tal_strsplit(NULL, arg, ",", STR_NO_EMPTY);;
+	unsigned long long l;
+	u64 u;
+	for (int i = 0; elements[i] != NULL; i++) {
+		/* This is how the manpage says to do it.  Yech. */
+		errno = 0;
+		l = strtoull(elements[i], &endp, 0);
+		if (*endp || !arg[0])
+			return tal_fmt(NULL, "'%s' is not a number", arg);
+		u = l;
+		if (errno || u != l)
+			return tal_fmt(NULL, "'%s' is out of range", arg);
+		tal_arr_expand(&ld->accept_extra_tlv_types, u);
+	}
+
+	tal_free(elements);
+	return NULL;
+}
+#endif
+
 static char *opt_add_addr_withtype(const char *arg,
 				   struct lightningd *ld,
 				   enum addr_listen_announce ala,
@@ -957,6 +981,12 @@ static void register_opts(struct lightningd *ld)
 			 &ld->tor_service_password,
 			 "Set a Tor hidden service password");
 
+#if EXPERIMENTAL_FEATURES
+	opt_register_arg("--experimental-accept-extra-tlv-types",
+			 opt_set_accept_extra_tlv_types, NULL, ld,
+			 "Comma separated list of extra TLV types to accept.");
+#endif
+
 	opt_register_noarg("--disable-dns", opt_set_invbool, &ld->config.use_dns,
 			   "Disable DNS lookups of peers");
 
@@ -1401,6 +1431,10 @@ static void add_config(struct lightningd *ld,
 			   || opt->cb_arg == (void *)plugin_opt_flag_set) {
 			/* FIXME: We actually treat it as if they specified
 			 * --plugin for each one, so ignore these */
+#if EXPERIMENTAL_FEATURES
+		} else if (opt->cb_arg == (void *)opt_set_accept_extra_tlv_types) {
+#endif
+                        /* TODO Actually print the option */
 		} else {
 			/* Insert more decodes here! */
 			abort();
