@@ -1433,8 +1433,12 @@ static void add_config(struct lightningd *ld,
 			 * --plugin for each one, so ignore these */
 #if EXPERIMENTAL_FEATURES
 		} else if (opt->cb_arg == (void *)opt_set_accept_extra_tlv_types) {
-#endif
                         /* TODO Actually print the option */
+#endif
+#if DEVELOPER
+		} else if (strstarts(name, "dev-")) {
+			/* Ignore dev settings */
+#endif
 		} else {
 			/* Insert more decodes here! */
 			abort();
