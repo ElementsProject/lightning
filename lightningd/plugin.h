@@ -48,6 +48,7 @@ struct plugin {
 
 	pid_t pid;
 	char *cmd;
+	u32 checksum;
 	struct io_conn *stdin_conn, *stdout_conn;
 	struct plugins *plugins;
 	const char **plugin_path;
