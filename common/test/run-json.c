@@ -19,7 +19,8 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 bool node_id_from_hexstr(const char *str UNNEEDED, size_t slen UNNEEDED, struct node_id *id UNNEEDED)
 { fprintf(stderr, "node_id_from_hexstr called!\n"); abort(); }
 /* Generated stub for tlv_fields_valid */
-bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, size_t *err_index UNNEEDED)
+bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, u64 *allow_extra UNNEEDED,
+		      size_t *err_index UNNEEDED)
 { fprintf(stderr, "tlv_fields_valid called!\n"); abort(); }
 /* Generated stub for towire_tlv */
 void towire_tlv(u8 **pptr UNNEEDED,

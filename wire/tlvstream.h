@@ -45,9 +45,8 @@ bool fromwire_tlv(const u8 **cursor, size_t *max,
 void towire_tlv(u8 **pptr,
 		const struct tlv_record_type *types, size_t num_types,
 		const void *record);
-bool tlv_fields_valid(const struct tlv_field *fields, size_t *err_index);
-
-
+bool tlv_fields_valid(const struct tlv_field *fields, u64 *allow_extra,
+		      size_t *err_index);
 
 /* Generic primitive setters for tlvstreams. */
 void tlvstream_set_raw(struct tlv_field **stream, u64 type, void *value, size_t valuelen);

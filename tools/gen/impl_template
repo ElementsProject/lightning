@@ -270,7 +270,7 @@ bool fromwire_${tlv.name}(const u8 **cursor, size_t *max, struct ${tlv.struct_na
 
 bool ${tlv.name}_is_valid(const struct ${tlv.struct_name()} *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 % endfor ##  END TLV's

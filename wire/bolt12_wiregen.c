@@ -564,7 +564,7 @@ bool fromwire_offer(const u8 **cursor, size_t *max, struct tlv_offer *record)
 
 bool offer_is_valid(const struct tlv_offer *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -837,7 +837,7 @@ bool fromwire_invoice_request(const u8 **cursor, size_t *max, struct tlv_invoice
 
 bool invoice_request_is_valid(const struct tlv_invoice_request *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -1458,7 +1458,7 @@ bool fromwire_invoice(const u8 **cursor, size_t *max, struct tlv_invoice *record
 
 bool invoice_is_valid(const struct tlv_invoice *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
 
@@ -1559,7 +1559,7 @@ bool fromwire_invoice_error(const u8 **cursor, size_t *max, struct tlv_invoice_e
 
 bool invoice_error_is_valid(const struct tlv_invoice_error *record, size_t *err_index)
 {
-	return tlv_fields_valid(record->fields, err_index);
+	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
-// SHA256STAMP:73fe08a636a01319cb6996244159998c63cf6bc93a01e1f6562fbb27ff58d0cb
+// SHA256STAMP:fecda3c161101b67c3bb235f3fed55e215cc1dc74ac34140925999dae22064ab

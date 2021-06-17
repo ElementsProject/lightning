@@ -74,7 +74,8 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 bool pubkey_from_node_id(struct pubkey *key UNNEEDED, const struct node_id *id UNNEEDED)
 { fprintf(stderr, "pubkey_from_node_id called!\n"); abort(); }
 /* Generated stub for tlv_fields_valid */
-bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, size_t *err_index UNNEEDED)
+bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, u64 *allow_extra UNNEEDED,
+		      size_t *err_index UNNEEDED)
 { fprintf(stderr, "tlv_fields_valid called!\n"); abort(); }
 /* Generated stub for towire_amount_msat */
 void towire_amount_msat(u8 **pptr UNNEEDED, const struct amount_msat msat UNNEEDED)

@@ -79,7 +79,8 @@ int segwit_addr_decode(
 )
 { fprintf(stderr, "segwit_addr_decode called!\n"); abort(); }
 /* Generated stub for tlv_fields_valid */
-bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, size_t *err_index UNNEEDED)
+bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, u64 *allow_extra UNNEEDED,
+		      size_t *err_index UNNEEDED)
 { fprintf(stderr, "tlv_fields_valid called!\n"); abort(); }
 /* Generated stub for towire_tlv */
 void towire_tlv(u8 **pptr UNNEEDED,

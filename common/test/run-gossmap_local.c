@@ -24,7 +24,8 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
 /* Generated stub for tlv_fields_valid */
-bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, size_t *err_index UNNEEDED)
+bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, u64 *allow_extra UNNEEDED,
+		      size_t *err_index UNNEEDED)
 { fprintf(stderr, "tlv_fields_valid called!\n"); abort(); }
 /* Generated stub for towire_bigsize */
 void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)

@@ -1145,4 +1145,4 @@ bool fromwire_channeld_upgraded(const void *p, bool *option_static_remotekey)
  	*option_static_remotekey = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:d67a5e23adc6362c93c60fcf3e4a46ccb1804dff1f10ec9a8d361ba9c548bb12
+// SHA256STAMP:7fe345eb02876c231759ec37daba697e85ac3a43137e4b7cb67d136587e2bda5
