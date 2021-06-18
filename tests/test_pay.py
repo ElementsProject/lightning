@@ -3108,11 +3108,57 @@ def test_keysend_extra_tlvs(node_factory):
     assert(l2.daemon.is_in_log(r'plugin-sphinx-receiver.py.*extratlvs.*133773310.*feedc0de'))
 
     inv = invs[0]
-    print(inv)
     assert(inv['msatoshi_received'] >= amt)
 
     # Now try again with the TLV type in extra_tlvs as string:
     l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: 'FEEDC0DE'})
+
+
+def test_keysend_routehint(node_factory):
+    """Test whether we can deliver a keysend by adding a routehint on the cli
+    """
+    amt = 10000
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True)
+    l3 = node_factory.get_node()
+    l2.connect(l3)
+    l2.fundchannel(l3, announce_channel=False)
+
+    dest = l3.info['id']
+    routehints = [
+        [
+            {
+                'scid': l3.rpc.listpeers()['peers'][0]['channels'][0]['short_channel_id'],
+                'id': l2.info['id'],
+                'feebase': '1msat',
+                'feeprop': 10,
+                'expirydelta': 9,
+            }
+        ],
+        [  # Dummy
+            {
+                'scid': '1x2x3',
+                'id': '02' * 33,
+                'feebase': 1,
+                'feeprop': 1,
+                'expirydelta': 9,
+            },
+        ],
+    ]
+
+    # Without any hints we should fail:
+    with pytest.raises(RpcError):
+        l1.rpc.call("keysend", payload={'destination': dest, 'msatoshi': amt})
+
+    # We should also fail with only non-working hints:
+    with pytest.raises(RpcError):
+        l1.rpc.call("keysend", payload={'destination': dest, 'msatoshi': amt, 'routehints': routehints[1:]})
+
+    l1.rpc.call("keysend", payload={'destination': dest, 'msatoshi': amt, 'routehints': routehints})
+    invs = l3.rpc.listinvoices()['invoices']
+    assert(len(invs) == 1)
+
+    inv = invs[0]
+    assert(inv['msatoshi_received'] >= amt)
 
 
 def test_invalid_onion_channel_update(node_factory):
