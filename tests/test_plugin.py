@@ -21,6 +21,7 @@ import random
 import re
 import signal
 import sqlite3
+import stat
 import subprocess
 import time
 import unittest
@@ -2472,3 +2473,51 @@ def test_custom_notification_topics(node_factory):
     # The plugin just dist what previously was a fatal mistake (emit
     # an unknown notification), make sure we didn't kill it.
     assert 'custom_notifications.py' in [p['name'] for p in l1.rpc.listconfigs()['plugins']]
+
+
+def test_restart_on_update(node_factory):
+    """Tests if plugin rescan restarts modified plugins
+    """
+    # we need to write plugin content dynamically
+    content = """#!/usr/bin/env python3
+from pyln.client import Plugin
+import time
+plugin = Plugin()
+@plugin.init()
+def init(options, configuration, plugin):
+    plugin.log("test_restart_on_update %s")
+plugin.run()
+    """
+
+    # get a node that is not started so we can put a plugin in its lightning_dir
+    n = node_factory.get_node(start=False)
+    lndir = n.daemon.lightning_dir
+
+    # write hello world plugin to lndir/plugins
+    os.makedirs(os.path.join(lndir, 'plugins'), exist_ok=True)
+    path = os.path.join(lndir, 'plugins', 'test_restart_on_update.py')
+    file = open(path, 'w+')
+    file.write(content % "1")
+    file.close()
+    os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
+
+    # now fire up the node and wait for the plugin to print hello
+    n.daemon.start()
+    n.daemon.logsearch_start = 0
+    n.daemon.wait_for_log(r"test_restart_on_update 1")
+
+    # a rescan should not yet reload the plugin on the same file
+    n.rpc.plugin_rescan()
+    assert not n.daemon.is_in_log(r"Plugin changed, needs restart.")
+
+    # modify the file
+    file = open(path, 'w+')
+    file.write(content % "2")
+    file.close()
+    os.chmod(path, os.stat(path).st_mode | stat.S_IEXEC)
+
+    # rescan and check
+    n.rpc.plugin_rescan()
+    n.daemon.wait_for_log(r"Plugin changed, needs restart.")
+    n.daemon.wait_for_log(r"test_restart_on_update 2")
+    n.stop()
