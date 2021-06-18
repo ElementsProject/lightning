@@ -584,3 +584,73 @@ struct command_result *param_extra_tlvs(struct command *cmd, const char *name,
 	*fields = temp;
 	return NULL;
 }
+
+struct command_result *param_routehint(struct command *cmd, const char *name,
+				       const char *buffer, const jsmntok_t *tok,
+				       struct route_info **ri)
+{
+	size_t i;
+	const jsmntok_t *curr;
+	const char *err;
+
+	if (tok->type != JSMN_ARRAY) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Routehint %s (\"%s\") is not an array of hop objects",
+		    name, json_strdup(tmpctx, buffer, tok));
+	}
+
+	*ri = tal_arr(cmd, struct route_info, tok->size);
+	json_for_each_arr(i, curr, tok) {
+		struct route_info *e = &(*ri)[i];
+		struct amount_msat temp;
+
+		err = json_scan(tmpctx, buffer, curr,
+				"{id:%,scid:%,feebase:%,feeprop:%,expirydelta:%}",
+				JSON_SCAN(json_to_node_id, &e->pubkey),
+				JSON_SCAN(json_to_short_channel_id, &e->short_channel_id),
+				JSON_SCAN(json_to_msat, &temp),
+				JSON_SCAN(json_to_u32, &e->fee_proportional_millionths),
+				JSON_SCAN(json_to_u16, &e->cltv_expiry_delta)
+			);
+		e->fee_base_msat =
+		    temp.millisatoshis; /* Raw: internal conversion. */
+		if (err != NULL) {
+			return command_fail(
+			    cmd, JSONRPC2_INVALID_PARAMS,
+			    "Error parsing routehint %s[%zu]: %s", name, i,
+			    err);
+		}
+	}
+	return NULL;
+}
+
+struct command_result *
+param_routehint_array(struct command *cmd, const char *name, const char *buffer,
+		      const jsmntok_t *tok, struct route_info ***ris)
+{
+	size_t i;
+	const jsmntok_t *curr;
+	char *element_name;
+	struct command_result *err;
+	if (tok->type != JSMN_ARRAY) {
+		return command_fail(
+		    cmd, JSONRPC2_INVALID_PARAMS,
+		    "Routehint array %s (\"%s\") is not an array",
+		    name, json_strdup(tmpctx, buffer, tok));
+	}
+
+	*ris = tal_arr(cmd, struct route_info *, 0);
+	json_for_each_arr(i, curr, tok) {
+		struct route_info *element;
+		element_name = tal_fmt(cmd, "%s[%zu]", name, i);
+		err = param_routehint(cmd, element_name, buffer, curr, &element);
+		if (err != NULL) {
+			return err;
+		}
+		tal_arr_expand(ris, element);
+
+		tal_free(element_name);
+	}
+	return NULL;
+}

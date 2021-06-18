@@ -3,6 +3,7 @@
 #define LIGHTNING_COMMON_JSON_TOK_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
+#include <common/bolt11.h>
 #include <common/json.h>
 #include <common/node_id.h>
 #include <common/sphinx.h>
@@ -194,4 +195,13 @@ struct command_result *param_extra_tlvs(struct command *cmd, const char *name,
 					const char *buffer,
 					const jsmntok_t *tok,
 					struct tlv_field **fields);
+
+struct command_result *param_routehint(struct command *cmd, const char *name,
+				       const char *buffer, const jsmntok_t *tok,
+				       struct route_info **ri);
+
+struct command_result *
+param_routehint_array(struct command *cmd, const char *name, const char *buffer,
+		      const jsmntok_t *tok, struct route_info ***ris);
+
 #endif /* LIGHTNING_COMMON_JSON_TOK_H */
