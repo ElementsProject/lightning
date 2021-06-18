@@ -128,11 +128,12 @@ static const char *init(struct plugin *p, const char *buf UNUSED,
 	return NULL;
 }
 
-struct payment_modifier *pay_mods[8] = {
+struct payment_modifier *pay_mods[] = {
     &keysend_pay_mod,
     &local_channel_hints_pay_mod,
     &directpay_pay_mod,
     &shadowroute_pay_mod,
+    &routehints_pay_mod,
     &exemptfee_pay_mod,
     &waitblockheight_pay_mod,
     &retry_pay_mod,
@@ -149,6 +150,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	u64 *maxfee_pct_millionths;
 	u32 *maxdelay;
 	unsigned int *retryfor;
+	struct route_info **hints;
 #if EXPERIMENTAL_FEATURES
 	struct tlv_field *extra_fields;
 #endif
@@ -169,6 +171,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 #if DEVELOPER
 		   p_opt_def("use_shadow", param_bool, &use_shadow, true),
 #endif
+		   p_opt("routehints", param_routehint_array, &hints),
 #if EXPERIMENTAL_FEATURES
 		   p_opt("extratlvs", param_extra_tlvs, &extra_fields),
 #endif
@@ -183,7 +186,7 @@ static struct command_result *json_keysend(struct command *cmd, const char *buf,
 	p->destination_has_tlv = true;
 	p->payment_secret = NULL;
 	p->amount = *msat;
-	p->routes = NULL;
+	p->routes = tal_steal(p, hints);
 	// 22 is the Rust-Lightning default and the highest minimum we know of.
 	p->min_final_cltv_expiry = 22;
 	p->features = NULL;
