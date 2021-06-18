@@ -287,9 +287,8 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	struct sha256 payment_hash;
 	size_t max;
 	struct tlv_tlv_payload *payload;
-	struct tlv_field *preimage_field = NULL;
+	struct tlv_field *preimage_field = NULL, *unknown_field = NULL;
 	bigsize_t s;
-	bool unknown_even_type = false;
 	struct tlv_field *field;
 	struct keysend_in *ki;
 	struct out_req *req;
@@ -325,8 +324,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 			preimage_field = field;
 			break;
 		} else if (field->numtype % 2 == 0 && field->meta == NULL) {
-			unknown_even_type = true;
-			break;
+			unknown_field = field;
 		}
 	}
 
@@ -335,14 +333,22 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	if (preimage_field == NULL)
 		return htlc_accepted_continue(cmd, NULL);
 
-	if (unknown_even_type) {
+	if (unknown_field != NULL) {
+#if !EXPERIMENTAL_FEATURES
 		plugin_log(cmd->plugin, LOG_UNUSUAL,
 			   "Payload contains unknown even TLV-type %" PRIu64
 			   ", can't safely accept the keysend. Deferring to "
 			   "other plugins.",
-			   preimage_field->numtype);
+			   unknown_field->numtype);
 		return htlc_accepted_continue(cmd, NULL);
+#else
+		plugin_log(cmd->plugin, LOG_INFORM,
+			   "Experimental: Accepting the keysend payment "
+			   "despite having unknown even TLV type %" PRIu64 ".",
+			   unknown_field->numtype);
+#endif
 	}
+
 
 	/* If the preimage is not 32 bytes long then we can't accept the
 	 * payment. */
