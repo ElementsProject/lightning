@@ -1353,3 +1353,26 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         payload.update({k: v for k, v in kwargs.items()})
         return self.call("getsharedsecret", payload)
+
+    def keysend(self, destination, msatoshi, label=None, maxfeepercent=None,
+                retry_for=None, maxdelay=None, exemptfee=None,
+                extratlvs=None):
+        """
+        """
+
+        if extra_tlvs is not None and not isinstance(extra_tlvs, dict):
+            raise ValueErrr(
+                "extra_tlvs is not a dictionary with integer keys and hexadecimal values"
+            )
+
+        payload = {
+            "destination": destination,
+            "msatoshi": msatoshi,
+            "label": label,
+            "maxfeepercent": maxfeepercent,
+            "retry_for": retry_for,
+            "maxdelay": maxdelay,
+            "exemptfee": exemptfee,
+            "extratlvs": extratlvs,
+        }
+        return self.call("keysend", payload)
