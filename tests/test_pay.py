@@ -3084,6 +3084,37 @@ def test_keysend(node_factory):
         l3.rpc.keysend(l4.info['id'], amt)
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Requires extratlvs option")
+def test_keysend_extra_tlvs(node_factory):
+    """Use the extratlvs option to deliver a message with sphinx' TLV type.
+    """
+    amt = 10000
+    l1, l2 = node_factory.line_graph(
+        2,
+        wait_for_announce=True,
+        opts=[
+            {},
+            {
+                'experimental-accept-extra-tlv-types': '133773310',
+                "plugin": os.path.join(os.path.dirname(__file__), "plugins/sphinx-receiver.py"),
+            },
+        ]
+    )
+
+    # Send an indirect one from l1 to l3
+    l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: 'FEEDC0DE'})
+    invs = l2.rpc.listinvoices()['invoices']
+    assert(len(invs) == 1)
+    assert(l2.daemon.is_in_log(r'plugin-sphinx-receiver.py.*extratlvs.*133773310.*feedc0de'))
+
+    inv = invs[0]
+    print(inv)
+    assert(inv['msatoshi_received'] >= amt)
+
+    # Now try again with the TLV type in extra_tlvs as string:
+    l1.rpc.keysend(l2.info['id'], amt, extratlvs={133773310: 'FEEDC0DE'})
+
+
 def test_invalid_onion_channel_update(node_factory):
     '''
     Some onion failures "should" send a `channel_update`.
