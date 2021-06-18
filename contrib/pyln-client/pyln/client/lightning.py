@@ -1360,9 +1360,9 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         """
 
-        if extra_tlvs is not None and not isinstance(extra_tlvs, dict):
-            raise ValueErrr(
-                "extra_tlvs is not a dictionary with integer keys and hexadecimal values"
+        if extratlvs is not None and not isinstance(extratlvs, dict):
+            raise ValueError(
+                "extratlvs is not a dictionary with integer keys and hexadecimal values"
             )
 
         payload = {
