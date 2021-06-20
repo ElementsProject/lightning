@@ -39,7 +39,7 @@ Here's a checklist for the release process.
    should get a prompt to give this tag a 'message'. Make sure you fill this in.
 3. Confirm that the tag will show up for builds with `git describe`
 4. Push the tag to remote `git push --tags`.
-3. Update the /topic on #c-lightning on Freenode.
+3. Update the /topic on #c-lightning on Libera.
 4. Prepare draft release notes (see devtools/credit), and share with team for editing.
 5. Upgrade your personal nodes to the rc1, to help testing.
 6. Test `tools/build-release.sh` to build the non-reprodicible images
@@ -51,7 +51,7 @@ Here's a checklist for the release process.
 1. Change rc1 to rc2 in CHANGELOG.md.
 2. Add a PR with the rc2.
 3. Tag it `git pull && git tag -s v<VERSION>rc2 && git push --tags`
-4. Update the /topic on #c-lightning on Freenode.
+4. Update the /topic on #c-lightning on Libera.
 5. Upgrade your personal nodes to the rc2.
 
 ### Tagging the Release
@@ -81,7 +81,7 @@ Here's a checklist for the release process.
 
 1. Edit the GitHub draft and include the `SHA256SUMS.asc` file.
 2. Publish the release as not a draft.
-3. Update the /topic on #c-lightning on Freenode.
+3. Update the /topic on #c-lightning on Libera.
 4. Send a mail to c-lightning and lightning-dev mailing lists, using the
    same wording as the Release Notes in github.
 
