@@ -28,7 +28,7 @@ This implementation has been in production use on the Bitcoin mainnet since earl
 We recommend getting started by experimenting on `testnet` (or `regtest`), but the implementation is considered stable and can be safely used on mainnet.
 
 Any help testing the implementation, reporting bugs, or helping with outstanding issues is very welcome.
-Don't hesitate to reach out to us on IRC at [#lightning-dev @ freenode.net][irc1], [#c-lightning @ freenode.net][irc2], or on the implementation-specific mailing list [c-lightning@lists.ozlabs.org][ml1], or on the Lightning Network-wide mailing list [lightning-dev@lists.linuxfoundation.org][ml2].
+Don't hesitate to reach out to us on IRC at [#lightning-dev @ libera.chat][irc1], [#c-lightning @ libera.chat][irc2], or on the implementation-specific mailing list [c-lightning@lists.ozlabs.org][ml1], or on the Lightning Network-wide mailing list [lightning-dev@lists.linuxfoundation.org][ml2].
 
 ## Getting Started
 
@@ -127,7 +127,7 @@ your first channels and customizing your node.
 For a less reckless experience, you can encrypt the HD wallet seed:
  see [HD wallet encryption](#hd-wallet-encryption).
 
-You can also chat to other users at [#c-lightning @ freenode.net][irc2];
+You can also chat to other users at [#c-lightning @ libera.chat][irc2];
 we are always happy to help you get started!
 
 
@@ -230,10 +230,10 @@ You should also configure with `--enable-developer` to get additional checks and
 [travis-ci-link]: https://travis-ci.org/ElementsProject/lightning
 [prs]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat
 [prs-link]: http://makeapullrequest.com
-[IRC]: https://img.shields.io/badge/chat-on%20freenode-brightgreen.svg
-[IRC-link]: https://webchat.freenode.net/?channels=c-lightning
-[irc1]: http://webchat.freenode.net/?channels=%23lightning-dev
-[irc2]: http://webchat.freenode.net/?channels=%23c-lightning
+[IRC]: https://img.shields.io/badge/chat-on%20libera-brightgreen.svg
+[IRC-link]: https://web.libera.chat/#c-lightning
+[irc1]: https://web.libera.chat/#lightning-dev
+[irc2]: https://web.libera.chat/#c-lightning
 [ml1]: https://lists.ozlabs.org/listinfo/c-lightning
 [ml2]: https://lists.linuxfoundation.org/mailman/listinfo/lightning-dev
 [docs]: https://lightning.readthedocs.org
