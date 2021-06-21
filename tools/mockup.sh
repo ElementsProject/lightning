@@ -8,10 +8,8 @@ fi
 UPDIRNAME=$(dirname "$(dirname "$1")")
 shift
 
-if [ $# -eq 0 ]; then
-    # With no args, read stdin to scrape compiler output.
-    # shellcheck disable=SC2046
-    set -- $(while read -r LINE; do
+function process_line {
+	LINE=$1
 	case "$LINE" in
 	    *undefined\ reference\ to*)
 		# file.cc:(.text+0x10): undefined reference to `foo()'
@@ -29,9 +27,16 @@ if [ $# -eq 0 ]; then
 		echo "${LINE%\"*}"
 		;;
 	    *)
-		continue
+		return
 		;;
-	esac; done | LC_ALL=C sort -u)
+	esac
+}
+
+if [ $# -eq 0 ]; then
+    # With no args, read stdin to scrape compiler output.
+    # shellcheck disable=SC2046
+    set -- $(while read -r LINE; do
+	process_line "$LINE"; done | LC_ALL=C sort -u)
 fi
 
 for SYMBOL; do
