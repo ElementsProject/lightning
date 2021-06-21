@@ -201,6 +201,10 @@ struct channel_type **channel_upgradable_types(const tal_t *ctx,
 struct channel_type *channel_desired_type(const tal_t *ctx,
 					  const struct channel *channel)
 {
+	/* We don't actually want to downgrade anchors! */
+	if (channel->option_anchor_outputs)
+		return type_anchor_outputs(ctx);
+
 	/* For now, we just want option_static_remotekey */
 	return type_static_remotekey(ctx);
 }
