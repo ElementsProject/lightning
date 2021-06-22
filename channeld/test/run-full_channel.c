@@ -534,6 +534,7 @@ int main(int argc, const char *argv[])
 			   &local_funding_pubkey,
 			   &remote_funding_pubkey,
 			   LOCAL, remote_config->to_self_delay,
+			   0, 0, /* No lease */
 			   &keyset,
 			   feerate_per_kw[LOCAL],
 			   local_config->dust_limit,
@@ -664,6 +665,7 @@ int main(int argc, const char *argv[])
 		    &local_funding_pubkey,
 		    &remote_funding_pubkey,
 		    LOCAL, remote_config->to_self_delay,
+		    0, 0, /* No lease */
 		    &keyset, feerate_per_kw[LOCAL], local_config->dust_limit,
 		    to_local, to_remote, htlcs, &htlc_map, NULL,
 		    0x2bb038521914 ^ 42,
