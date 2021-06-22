@@ -151,6 +151,13 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
  */
 u32 channel_feerate(const struct channel *channel, enum side side);
 
+/**
+ * channel_blockheight: Get blockheight for this side of channel.
+ * @channel: The channel
+ * @side: the side
+ */
+u32 channel_blockheight(const struct channel *channel, enum side side);
+
 #if EXPERIMENTAL_FEATURES
 /* BOLT-upgrade_protocol #2:
  * Channel features are explicitly enumerated as `channel_type` bitfields,

@@ -927,6 +927,7 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 				 u64 remote_commit_index,
 				 struct penalty_base *pbase,
 				 const struct fee_states *fee_states,
+				 const struct height_states *blockheight_states,
 				 const struct htlc **changed_htlcs,
 				 const struct bitcoin_signature *commit_sig,
 				 const struct bitcoin_signature *htlc_sigs)
@@ -937,8 +938,10 @@ static u8 *sending_commitsig_msg(const tal_t *ctx,
 	/* We tell master what (of our) HTLCs peer will now be
 	 * committed to. */
 	changed = changed_htlc_arr(tmpctx, changed_htlcs);
-	msg = towire_channeld_sending_commitsig(ctx, remote_commit_index, pbase, fee_states, changed,
-					       commit_sig, htlc_sigs);
+	msg = towire_channeld_sending_commitsig(ctx, remote_commit_index,
+						pbase, fee_states,
+						blockheight_states, changed,
+						commit_sig, htlc_sigs);
 	return msg;
 }
 
@@ -1388,6 +1391,7 @@ static void send_commit(struct peer *peer)
 	msg = sending_commitsig_msg(NULL, peer->next_index[REMOTE],
 				    pbase,
 				    peer->channel->fee_states,
+				    peer->channel->blockheight_states,
 				    changed_htlcs,
 				    &commit_sig,
 				    htlc_sigs);
@@ -1562,6 +1566,7 @@ static void send_revocation(struct peer *peer,
 		= towire_channeld_got_commitsig(NULL,
 					       peer->next_index[LOCAL] - 1,
 					       peer->channel->fee_states,
+					       peer->channel->blockheight_states,
 					       commit_sig, htlc_sigs,
 					       added,
 					       fulfilled,
@@ -1740,7 +1745,8 @@ static u8 *got_revoke_msg(struct peer *peer, u64 revoke_num,
 			  const struct secret *per_commitment_secret,
 			  const struct pubkey *next_per_commit_point,
 			  const struct htlc **changed_htlcs,
-			  const struct fee_states *fee_states)
+			  const struct fee_states *fee_states,
+			  const struct height_states *blockheight_states)
 {
 	u8 *msg;
 	struct penalty_base *pbase;
@@ -1772,7 +1778,8 @@ static u8 *got_revoke_msg(struct peer *peer, u64 revoke_num,
 
 	msg = towire_channeld_got_revoke(peer, revoke_num, per_commitment_secret,
 					next_per_commit_point, fee_states,
-					changed, pbase, ptx);
+					blockheight_states, changed,
+					pbase, ptx);
 	tal_free(ptx);
 	return msg;
 }
@@ -1829,7 +1836,8 @@ static void handle_peer_revoke_and_ack(struct peer *peer, const u8 *msg)
 	msg = got_revoke_msg(peer, peer->revocations_received++,
 			     &old_commit_secret, &next_per_commit,
 			     changed_htlcs,
-			     peer->channel->fee_states);
+			     peer->channel->fee_states,
+			     peer->channel->blockheight_states);
 	master_wait_sync_reply(tmpctx, peer, take(msg),
 			       WIRE_CHANNELD_GOT_REVOKE_REPLY);
 
