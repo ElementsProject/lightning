@@ -121,6 +121,7 @@ msgtype,channeld_sending_commitsig,1020
 msgdata,channeld_sending_commitsig,commitnum,u64,
 msgdata,channeld_sending_commitsig,pbase,?penalty_base,
 msgdata,channeld_sending_commitsig,fee_states,fee_states,
+msgdata,channeld_sending_commitsig,blockheight_states,height_states,
 # SENT_ADD_COMMIT, SENT_REMOVE_ACK_COMMIT, SENT_ADD_ACK_COMMIT, SENT_REMOVE_COMMIT
 msgdata,channeld_sending_commitsig,num_changed,u16,
 msgdata,channeld_sending_commitsig,changed,changed_htlc,num_changed
@@ -135,6 +136,7 @@ msgtype,channeld_sending_commitsig_reply,1120
 msgtype,channeld_got_commitsig,1021
 msgdata,channeld_got_commitsig,commitnum,u64,
 msgdata,channeld_got_commitsig,fee_states,fee_states,
+msgdata,channeld_got_commitsig,blockheight_states,height_states,
 msgdata,channeld_got_commitsig,signature,bitcoin_signature,
 msgdata,channeld_got_commitsig,num_htlcs,u16,
 msgdata,channeld_got_commitsig,htlc_signature,bitcoin_signature,num_htlcs
@@ -162,6 +164,7 @@ msgdata,channeld_got_revoke,per_commitment_secret,secret,
 msgdata,channeld_got_revoke,next_per_commit_point,pubkey,
 # RCVD_ADD_ACK_REVOCATION, RCVD_REMOVE_ACK_REVOCATION, RCVD_ADD_REVOCATION, RCVD_REMOVE_REVOCATION
 msgdata,channeld_got_revoke,fee_states,fee_states,
+msgdata,channeld_got_revoke,blockheight_states,height_states,
 msgdata,channeld_got_revoke,num_changed,u16,
 msgdata,channeld_got_revoke,changed,changed_htlc,num_changed
 msgdata,channeld_got_revoke,pbase,?penalty_base,

@@ -1736,6 +1736,7 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 {
 	u64 commitnum;
 	struct fee_states *fee_states;
+	struct height_states *blockheight_states;
 	struct changed_htlc *changed_htlcs;
 	size_t i, maxid = 0, num_local_added = 0;
 	struct bitcoin_signature commit_sig;
@@ -1747,9 +1748,11 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 						&commitnum,
 						&pbase,
 						&fee_states,
+						&blockheight_states,
 						&changed_htlcs,
 						&commit_sig, &htlc_sigs)
-	    || !fee_states_valid(fee_states, channel->opener)) {
+	    || !fee_states_valid(fee_states, channel->opener)
+	    || !height_states_valid(blockheight_states, channel->opener)) {
 		channel_internal_error(channel, "bad channel_sending_commitsig %s",
 				       tal_hex(channel, msg));
 		return;
@@ -1791,6 +1794,9 @@ void peer_sending_commitsig(struct channel *channel, const u8 *msg)
 				      get_feerate(fee_states,
 						  channel->opener,
 						  REMOTE));
+
+	tal_free(channel->blockheight_states);
+	channel->blockheight_states = tal_steal(channel, blockheight_states);
 
 	if (!peer_save_commitsig_sent(channel, commitnum))
 		return;
@@ -1927,6 +1933,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 {
 	u64 commitnum;
 	struct fee_states *fee_states;
+	struct height_states *blockheight_states;
 	struct bitcoin_signature commit_sig, *htlc_sigs;
 	struct added_htlc *added;
 	struct fulfilled_htlc *fulfilled;
@@ -1939,6 +1946,7 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 	if (!fromwire_channeld_got_commitsig(msg, msg,
 					    &commitnum,
 					    &fee_states,
+					    &blockheight_states,
 					    &commit_sig,
 					    &htlc_sigs,
 					    &added,
@@ -1946,7 +1954,8 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 					    &failed,
 					    &changed,
 					    &tx)
-	    || !fee_states_valid(fee_states, channel->opener)) {
+	    || !fee_states_valid(fee_states, channel->opener)
+	    || !height_states_valid(blockheight_states, channel->opener)) {
 		channel_internal_error(channel,
 				    "bad fromwire_channeld_got_commitsig %s",
 				    tal_hex(channel, msg));
@@ -1975,8 +1984,9 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 
 	log_debug(channel->log,
 		  "got commitsig %"PRIu64
-		  ": feerate %u, %zu added, %zu fulfilled, %zu failed, %zu changed",
+		  ": feerate %u, blockheight: %u, %zu added, %zu fulfilled, %zu failed, %zu changed",
 		  commitnum, get_feerate(fee_states, channel->opener, LOCAL),
+		  get_blockheight(blockheight_states, channel->opener, LOCAL),
 		  tal_count(added), tal_count(fulfilled),
 		  tal_count(failed), tal_count(changed));
 
@@ -2011,6 +2021,8 @@ void peer_got_commitsig(struct channel *channel, const u8 *msg)
 				      get_feerate(fee_states,
 						  channel->opener,
 						  LOCAL));
+	tal_free(channel->blockheight_states);
+	channel->blockheight_states = tal_steal(channel, blockheight_states);
 
 	/* Since we're about to send revoke, bump state again. */
 	if (!peer_sending_revocation(channel, added, fulfilled, failed, changed))
@@ -2087,6 +2099,7 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	size_t i;
 	struct lightningd *ld = channel->peer->ld;
 	struct fee_states *fee_states;
+	struct height_states *blockheight_states;
 	struct penalty_base *pbase;
 	struct commitment_revocation_payload *payload;
 	struct bitcoin_tx *penalty_tx;
@@ -2095,10 +2108,12 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 					 &revokenum, &per_commitment_secret,
 					 &next_per_commitment_point,
 					 &fee_states,
+					 &blockheight_states,
 					 &changed,
 					 &pbase,
 					 &penalty_tx)
-	    || !fee_states_valid(fee_states, channel->opener)) {
+	    || !fee_states_valid(fee_states, channel->opener)
+	    || !height_states_valid(blockheight_states, channel->opener)) {
 		channel_internal_error(channel, "bad fromwire_channeld_got_revoke %s",
 				    tal_hex(channel, msg));
 		return;
@@ -2160,6 +2175,9 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 
 	tal_free(channel->fee_states);
 	channel->fee_states = tal_steal(channel, fee_states);
+
+	tal_free(channel->blockheight_states);
+	channel->blockheight_states = tal_steal(channel, blockheight_states);
 
 	/* FIXME: Check per_commitment_secret -> per_commit_point */
 	update_per_commit_point(channel, &next_per_commitment_point);

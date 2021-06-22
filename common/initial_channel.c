@@ -161,6 +161,12 @@ u32 channel_feerate(const struct channel *channel, enum side side)
 	return get_feerate(channel->fee_states, channel->opener, side);
 }
 
+u32 channel_blockheight(const struct channel *channel, enum side side)
+{
+	return get_blockheight(channel->blockheight_states,
+			       channel->opener, side);
+}
+
 #if EXPERIMENTAL_FEATURES
 /* BOLT-upgrade_protocol #2:
  * Channel features are explicitly enumerated as `channel_type` bitfields,
