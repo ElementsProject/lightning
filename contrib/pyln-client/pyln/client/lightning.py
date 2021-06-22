@@ -844,13 +844,15 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("invoice", payload)
 
-    def listchannels(self, short_channel_id=None, source=None):
+    def listchannels(self, short_channel_id=None, source=None, destination=None):
         """
-        Show all known channels, accept optional {short_channel_id} or {source}.
+        Show all known channels or filter by optional
+        {short_channel_id}, {source} or {destination}.
         """
         payload = {
             "short_channel_id": short_channel_id,
-            "source": source
+            "source": source,
+            "destination": destination
         }
         return self.call("listchannels", payload)
 
