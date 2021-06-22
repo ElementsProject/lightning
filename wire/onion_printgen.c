@@ -859,4 +859,4 @@ void printonion_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_encmsg_tlvs, ARRAY_SIZE(print_tlvs_encmsg_tlvs));
 	}
 }
-// SHA256STAMP:aeab913b5da11a9166e167e47d60cd748aa35a8c6c9adc2a7c1f791bed70797f
+// SHA256STAMP:fcaea2b057478205299b8935161c994fece0e410e6942503943747625ddcfc8a

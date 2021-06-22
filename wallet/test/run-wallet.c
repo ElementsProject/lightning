@@ -1184,6 +1184,15 @@ static bool channel_inflightseq(struct channel_inflight *i1,
 		    &i2->last_sig, sizeof(i2->last_sig)));
 	CHECK(bitcoin_tx_eq(i1->last_tx, i2->last_tx));
 
+	CHECK(!i1->lease_commit_sig == !i2->lease_commit_sig);
+	if (i1->lease_commit_sig)
+		CHECK(memeq(i1->lease_commit_sig, sizeof(*i1->lease_commit_sig),
+			    i2->lease_commit_sig, sizeof(*i2->lease_commit_sig)));
+	CHECK(i1->lease_expiry == i2->lease_expiry);
+	CHECK(i1->lease_chan_max_msat == i2->lease_chan_max_msat);
+	CHECK(i1->lease_chan_max_ppt == i2->lease_chan_max_ppt);
+	CHECK(i1->lease_blockheight_start == i2->lease_blockheight_start);
+
 	return true;
 }
 
@@ -1254,6 +1263,27 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 
 	CHECK(c1->last_was_revoke == c2->last_was_revoke);
 
+	CHECK(!c1->lease_commit_sig == !c2->lease_commit_sig);
+	if (c1->lease_commit_sig)
+		CHECK(memeq(c1->lease_commit_sig, sizeof(*c1->lease_commit_sig),
+			    c2->lease_commit_sig, sizeof(*c2->lease_commit_sig)));
+
+	CHECK(c1->lease_chan_max_msat == c2->lease_chan_max_msat);
+	CHECK(c1->lease_chan_max_ppt == c2->lease_chan_max_ppt);
+	CHECK(c1->lease_expiry == c2->lease_expiry);
+
+	CHECK(height_states_valid(c1->blockheight_states, c1->opener));
+	CHECK(height_states_valid(c2->blockheight_states, c2->opener));
+	for (enum htlc_state i = 0; i < ARRAY_SIZE(c1->blockheight_states->height);
+	     i++) {
+		if (c1->blockheight_states->height[i] == NULL) {
+			CHECK(c2->blockheight_states->height[i] == NULL);
+		} else {
+			CHECK(*c1->blockheight_states->height[i]
+			      == *c2->blockheight_states->height[i]);
+		}
+	}
+
 	i1 = list_top(&c1->inflights, struct channel_inflight, list);
 	i2 = list_top(&c2->inflights, struct channel_inflight, list);
 	CHECK((i1 != NULL) == (i2 != NULL));
@@ -1304,7 +1334,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	secp256k1_ecdsa_signature *node_sig1 = tal(w, secp256k1_ecdsa_signature);
 	secp256k1_ecdsa_signature *bitcoin_sig1 = tal(w, secp256k1_ecdsa_signature);
 	secp256k1_ecdsa_signature *node_sig2, *bitcoin_sig2;
-	u32 feerate;
+	u32 feerate, blockheight;
 	bool load;
 
 	memset(&c1, 0, sizeof(c1));
@@ -1320,6 +1350,8 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	node_id_from_pubkey(&id, &pk);
 	feerate = 31337;
 	c1.fee_states = new_fee_states(w, c1.opener, &feerate);
+	blockheight = 10010;
+	c1.blockheight_states = new_height_states(w, c1.opener, &blockheight);
 	mempat(scriptpubkey, tal_count(scriptpubkey));
 	c1.first_blocknum = 1;
 	parse_wireaddr_internal("localhost:1234", &addr, 0, false, false, false,
@@ -1478,7 +1510,8 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 	struct wally_psbt *funding_psbt;
 	struct channel_info *channel_info = tal(w, struct channel_info);
 	struct basepoints basepoints;
-	u32 feerate;
+	secp256k1_ecdsa_signature *lease_commit_sig;
+	u32 feerate, lease_blockheight_start;
 	u64 dbid;
 
 	pubkey_from_der(tal_hexdata(w, "02a1633cafcc01ebfb6d78e39f687a1f0995c62fc95f51ead10a02ee0be551b5dc", 66), 33, &pk);
@@ -1493,12 +1526,17 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 	our_sats = AMOUNT_SAT(3333333);
 	mempat(&sig.s, sizeof(sig.s));
 	mempat(&cid, sizeof(struct channel_id));
+
+	lease_commit_sig = tal(w, secp256k1_ecdsa_signature);
+	mempat(lease_commit_sig, sizeof(*lease_commit_sig));
+
 	sig.sighash_type = SIGHASH_ALL;
 
 	/* last_tx taken from BOLT #3 */
 	last_tx = bitcoin_tx_from_hex(w, "02000000000101bef67e4e2fb9ddeeb3461973cd4c62abb35050b1add772995b820b584a488489000000000038b02b8003a00f0000000000002200208c48d15160397c9731df9bc3b236656efb6665fbfe92b4a6878e88a499f741c4c0c62d0000000000160014ccf1af2f2aabee14bb40fa3851ab2301de843110ae8f6a00000000002200204adb4e2f00643db396dd120d4e7dc17625f5f2c11a40d857accc862d6b7dd80e040047304402206a2679efa3c7aaffd2a447fd0df7aba8792858b589750f6a1203f9259173198a022008d52a0e77a99ab533c36206cb15ad7aeb2aa72b93d4b571e728cb5ec2f6fe260147304402206d6cb93969d39177a09d5d45b583f34966195b77c7e585cf47ac5cce0c90cefb022031d71ae4e33a4e80df7f981d696fbdee517337806a3c7138b7491e2cbb077a0e01475221023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb21030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c152ae3e195220", strlen("02000000000101bef67e4e2fb9ddeeb3461973cd4c62abb35050b1add772995b820b584a488489000000000038b02b8003a00f0000000000002200208c48d15160397c9731df9bc3b236656efb6665fbfe92b4a6878e88a499f741c4c0c62d0000000000160014ccf1af2f2aabee14bb40fa3851ab2301de843110ae8f6a00000000002200204adb4e2f00643db396dd120d4e7dc17625f5f2c11a40d857accc862d6b7dd80e040047304402206a2679efa3c7aaffd2a447fd0df7aba8792858b589750f6a1203f9259173198a022008d52a0e77a99ab533c36206cb15ad7aeb2aa72b93d4b571e728cb5ec2f6fe260147304402206d6cb93969d39177a09d5d45b583f34966195b77c7e585cf47ac5cce0c90cefb022031d71ae4e33a4e80df7f981d696fbdee517337806a3c7138b7491e2cbb077a0e01475221023da092f6980e58d2c037173180e9a465476026ee50f96695963e8efe436f54eb21030e9f7b623d2ccc7c9bd44d66d5ce21ce504c0acf6385a132cec6d3c39fa711c152ae3e195220"));
 	funding_psbt = psbt_from_b64(w, "cHNidP8BAKACAAAAAqsJSaCMWvfEm4IS9Bfi8Vqz9cM9zxU4IagTn4d6W3vkAAAAAAD+////qwlJoIxa98SbghL0F+LxWrP1wz3PFTghqBOfh3pbe+QBAAAAAP7///8CYDvqCwAAAAAZdqkUdopAu9dAy+gdmI5x3ipNXHE5ax2IrI4kAAAAAAAAGXapFG9GILVT+glechue4O/p+gOcykWXiKwAAAAAAAEHakcwRAIgR1lmF5fAGwNrJZKJSGhiGDR9iYZLcZ4ff89X0eURZYcCIFMJ6r9Wqk2Ikf/REf3xM286KdqGbX+EhtdVRs7tr5MZASEDXNxh/HupccC1AaZGoqg7ECy0OIEhfKaC3Ibi1z+ogpIAAQEgAOH1BQAAAAAXqRQ1RebjO4MsRwUPJNPuuTycA5SLx4cBBBYAFIXRNTfy4mVAWjTbr6nj3aAfuCMIAAAA", strlen("cHNidP8BAKACAAAAAqsJSaCMWvfEm4IS9Bfi8Vqz9cM9zxU4IagTn4d6W3vkAAAAAAD+////qwlJoIxa98SbghL0F+LxWrP1wz3PFTghqBOfh3pbe+QBAAAAAP7///8CYDvqCwAAAAAZdqkUdopAu9dAy+gdmI5x3ipNXHE5ax2IrI4kAAAAAAAAGXapFG9GILVT+glechue4O/p+gOcykWXiKwAAAAAAAEHakcwRAIgR1lmF5fAGwNrJZKJSGhiGDR9iYZLcZ4ff89X0eURZYcCIFMJ6r9Wqk2Ikf/REf3xM286KdqGbX+EhtdVRs7tr5MZASEDXNxh/HupccC1AaZGoqg7ECy0OIEhfKaC3Ibi1z+ogpIAAQEgAOH1BQAAAAAXqRQ1RebjO4MsRwUPJNPuuTycA5SLx4cBBBYAFIXRNTfy4mVAWjTbr6nj3aAfuCMIAAAA"));
 	feerate = 192838;
+	lease_blockheight_start = 101010;
 	memset(&our_config, 1, sizeof(struct channel_config));
 	our_config.id = 0;
 	memset(&txid, 1, sizeof(txid));
@@ -1541,8 +1579,12 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   &pk, NULL,
 			   1000, 100,
 			   NULL, 0, 0, true,
-			   LOCAL, REASON_UNKNOWN, NULL,
-			   100, NULL,
+			   LOCAL, REASON_UNKNOWN,
+			   NULL,
+			   new_height_states(w, LOCAL,
+					     &lease_blockheight_start),
+			   100,
+			   lease_commit_sig,
 			   7777, 22);
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
@@ -1560,7 +1602,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				funding_psbt,
 				last_tx,
 				sig,
-				1, NULL, 2, 4);
+				1, lease_commit_sig, 2, 4, 22);
 
 	/* do inflights get correctly added to the channel? */
 	wallet_inflight_add(w, inflight);
@@ -1582,12 +1624,13 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 				funding_psbt,
 				last_tx,
 				sig,
-				1, NULL, 2, 4);
+				0, NULL, 0, 0, 0);
 	wallet_inflight_add(w, inflight);
 	CHECK_MSG(c2 = wallet_channel_load(w, chan->dbid),
 		  tal_fmt(w, "Load from DB"));
 	CHECK_MSG(channelseq(chan, c2), "Compare loaded with saved (v2)");
 	CHECK_MSG(count_inflights(w, chan->dbid) == 2, "inflights exist");
+
 	tal_free(c2);
 
 	/* Update the PSBT for both inflights, check that are updated

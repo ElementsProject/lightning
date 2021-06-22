@@ -1352,6 +1352,11 @@ static void update_channel_from_inflight(struct lightningd *ld,
 	channel->lease_chan_max_msat = inflight->lease_chan_max_msat;
 	channel->lease_chan_max_ppt = inflight->lease_chan_max_ppt;
 
+	tal_free(channel->blockheight_states);
+	channel->blockheight_states = new_height_states(channel,
+							channel->opener,
+							&inflight->lease_blockheight_start);
+
 	/* Make a 'clone' of this tx */
 	psbt_copy = clone_psbt(channel, inflight->last_tx->psbt);
 	channel_set_last_tx(channel,

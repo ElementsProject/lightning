@@ -510,7 +510,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 					     &state->funding_txid,
 					     state->funding_txout,
 					     state->minimum_depth,
-					     0, /* No lease lock */
+					     NULL, 0, /* No channel lease */
 					     state->funding,
 					     local_msat,
 					     take(new_fee_states(NULL, LOCAL,
@@ -1001,7 +1001,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					     &state->funding_txid,
 					     state->funding_txout,
 					     state->minimum_depth,
-					     0, /* No channel lease */
+					     NULL, 0, /* No channel lease */
 					     state->funding,
 					     state->push_msat,
 					     take(new_fee_states(NULL, REMOTE,

@@ -231,6 +231,7 @@ class Type(FieldSet):
         'bitcoin_tx_output',
         'exclude_entry',
         'fee_states',
+        'height_states',
         'onionreply',
         'feature_set',
         'onionmsg_path',

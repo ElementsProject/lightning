@@ -37,6 +37,7 @@ union printable_types {
 	const struct amount_msat *amount_msat;
 	const struct amount_sat *amount_sat;
 	const struct fee_states *fee_states;
+	const struct height_states *height_states;
 	const char *charp_;
 	const struct wally_psbt *wally_psbt;
 	const struct wally_tx *wally_tx;

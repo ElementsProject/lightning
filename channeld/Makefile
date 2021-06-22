@@ -35,6 +35,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/billboard.o			\
 	common/bip32.o				\
 	common/blinding.o			\
+	common/blockheight_states.o		\
 	common/channel_config.o			\
 	common/channel_id.o			\
 	common/crypto_state.o			\
