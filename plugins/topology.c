@@ -371,6 +371,7 @@ static void json_add_halfchan(struct json_stream *response,
 
 struct listchannels_opts {
 	struct node_id *source;
+	struct node_id *destination;
 	struct short_channel_id *scid;
 };
 
@@ -456,6 +457,18 @@ static struct command_result *listpeers_done(struct command *cmd,
 						  c, 1 << dir);
 			}
 		}
+	} else if (opts->destination) {
+		struct gossmap_node *dst;
+
+		dst = gossmap_find_node(gossmap, opts->destination);
+		if (dst) {
+			for (size_t i = 0; i < dst->num_chans; i++) {
+				int dir;
+				c = gossmap_nth_chan(gossmap, dst, i, &dir);
+				json_add_halfchan(js, gossmap, connected,
+						  c, 1 << !dir);
+			}
+		}
 	} else {
 		for (c = gossmap_first_chan(gossmap);
 		     c;
@@ -480,12 +493,15 @@ static struct command_result *json_listchannels(struct command *cmd,
 		   p_opt("short_channel_id", param_short_channel_id,
 			 &opts->scid),
 		   p_opt("source", param_node_id, &opts->source),
+		   p_opt("destination", param_node_id, &opts->destination),
 		   NULL))
 		return command_param_failed();
 
-	if (opts->scid && opts->source)
+	if (!!opts->scid + !!opts->source + !!opts->destination > 1)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "Cannot specify both source and short_channel_id");
+				    "Can only specify one of "
+				    "`short_channel_id`, "
+				    "`source` or `destination`");
 	req = jsonrpc_request_start(cmd->plugin, cmd, "listpeers",
 				    listpeers_done, forward_error, opts);
 	return send_outreq(cmd->plugin, req);
@@ -694,7 +710,8 @@ static const struct plugin_command commands[] = {
 		"listchannels",
 		"channels",
 		"List all known channels in the network",
-		"Show channel {short_channel_id} or {source} (or all known channels, if not specified)",
+		"Show channels for {short_channel_id}, {source} or {destination} "
+		"(or all known channels, if not specified)",
 		json_listchannels,
 	},
 	{
