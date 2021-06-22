@@ -69,6 +69,30 @@ static void try_update_feerates(struct lightningd *ld, struct channel *channel)
 	update_feerates(ld, channel);
 }
 
+static void try_update_blockheight(struct lightningd *ld,
+				   struct channel *channel,
+				   u32 blockheight)
+{
+	u8 *msg;
+
+	/* We use the same heuristic for channel states as feerates */
+	if (!channel_fees_can_change(channel))
+		return;
+
+	/* Can't if no daemon listening. */
+	if (!channel->owner)
+		return;
+
+	/* We don't update the blockheight for non-leased chans */
+	if (channel->lease_expiry == 0)
+		return;
+
+	log_debug(ld->log, "update_blockheight: height = %u", blockheight);
+
+	msg = towire_channeld_blockheight(NULL, blockheight);
+	subd_send_msg(channel->owner, take(msg));
+}
+
 void notify_feerate_change(struct lightningd *ld)
 {
 	struct peer *peer;
@@ -155,6 +179,9 @@ static void lockin_complete(struct channel *channel)
 	/* Fees might have changed (and we use IMMEDIATE once we're funded),
 	 * so update now. */
 	try_update_feerates(channel->peer->ld, channel);
+
+	try_update_blockheight(channel->peer->ld, channel,
+			       get_block_height(channel->peer->ld->topology));
 	channel_record_open(channel);
 }
 
@@ -451,6 +478,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_SEND_SHUTDOWN:
 	case WIRE_CHANNELD_DEV_REENABLE_COMMIT:
 	case WIRE_CHANNELD_FEERATES:
+	case WIRE_CHANNELD_BLOCKHEIGHT:
 	case WIRE_CHANNELD_SPECIFIC_FEERATES:
 	case WIRE_CHANNELD_DEV_MEMLEAK:
 	case WIRE_CHANNELD_DEV_QUIESCE:
@@ -587,6 +615,9 @@ void peer_start_channeld(struct channel *channel,
 				      channel->funding_outnum,
 				      channel->funding,
 				      channel->minimum_depth,
+				      get_block_height(ld->topology),
+				      channel->blockheight_states,
+				      channel->lease_expiry,
 				      &channel->our_config,
 				      &channel->channel_info.their_config,
 				      channel->fee_states,
@@ -647,9 +678,13 @@ void peer_start_channeld(struct channel *channel,
 	/* We don't expect a response: we are triggered by funding_depth_cb. */
 	subd_send_msg(channel->owner, take(initmsg));
 
-	/* On restart, feerate might not be what we expect: adjust now. */
-	if (channel->opener == LOCAL)
+	/* On restart, feerate and blockheight
+	 * might not be what we expect: adjust now. */
+	if (channel->opener == LOCAL) {
 		try_update_feerates(ld, channel);
+		try_update_blockheight(ld, channel,
+				       get_block_height(ld->topology));
+	}
 }
 
 bool channel_tell_depth(struct lightningd *ld,
@@ -757,7 +792,11 @@ void channel_notify_new_block(struct lightningd *ld,
 				continue;
 			if (is_fundee_should_forget(ld, channel, block_height)) {
 				tal_arr_expand(&to_forget, channel);
-			}
+			} else
+				/* Let channels know about new blocks,
+				 * required for lease updates */
+				try_update_blockheight(ld, channel,
+						       block_height);
 		}
 	}
 

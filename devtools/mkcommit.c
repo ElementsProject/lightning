@@ -18,6 +18,7 @@
 #include <ccan/tal/str/str.h>
 #include <channeld/full_channel.h>
 #include <common/amount.h>
+#include <common/blockheight_states.h>
 #include <common/channel_id.h>
 #include <common/derive_basepoints.h>
 #include <common/fee_states.h>
@@ -271,6 +272,7 @@ int main(int argc, char *argv[])
 	struct pubkey local_htlc_pubkey, remote_htlc_pubkey;
 	bool option_static_remotekey = false, option_anchor_outputs = false;
 	struct sha256_double hash;
+	u32 blockheight = 0;
 
 	setup_locale();
 	chainparams = chainparams_for_network("bitcoin");
@@ -394,6 +396,8 @@ int main(int argc, char *argv[])
 	channel = new_full_channel(NULL,
 				   &cid,
 				   &funding_txid, funding_outnum, 1,
+				   take(new_height_states(NULL, fee_payer,
+							  &blockheight)),
 				   0, /* Defaults to no lease */
 				   funding_amount,
 				   local_msat,

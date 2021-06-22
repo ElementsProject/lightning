@@ -8,6 +8,7 @@ ALL_TEST_PROGRAMS += $(WALLET_TEST_PROGRAMS)
 WALLET_TEST_COMMON_OBJS :=			\
 	common/amount.o				\
 	common/base32.o				\
+	common/blockheight_states.o		\
 	common/derive_basepoints.o		\
 	common/htlc_state.o			\
 	common/htlc_wire.o			\

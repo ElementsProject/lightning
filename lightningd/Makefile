@@ -69,6 +69,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/bigsize.o			\
 	common/bip32.o				\
 	common/blinding.o			\
+	common/blockheight_states.o		\
 	common/bolt11.o				\
 	common/bolt11_json.o			\
 	common/bolt12.o				\

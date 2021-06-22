@@ -34,7 +34,7 @@ void run(const uint8_t *data, size_t size)
 	u32 funding_txout, minimum_depth;
 	struct amount_sat funding, max;
 	struct amount_msat local_msatoshi;
-	u32 feerate_per_kw;
+	u32 feerate_per_kw, blockheight, lease_expiry;
 	struct channel_config local, remote;
 	struct basepoints local_basepoints, remote_basepoints;
 	struct pubkey local_funding_pubkey, remote_funding_pubkey;
@@ -51,6 +51,8 @@ void run(const uint8_t *data, size_t size)
 	if (amount_sat_greater(funding, max))
 		funding = max;
 	feerate_per_kw = fromwire_u32(&data, &size);
+	blockheight = fromwire_u32(&data, &size);
+	lease_expiry = fromwire_u32(&data, &size);
 	fromwire_channel_config(&data, &size, &local);
 	fromwire_channel_config(&data, &size, &remote);
 	fromwire_basepoints(&data, &size, &local_basepoints);
@@ -66,12 +68,20 @@ void run(const uint8_t *data, size_t size)
 		return;
 
 	for (enum side opener = 0; opener < NUM_SIDES; opener++) {
-		channel = new_initial_channel(tmpctx, &cid, &funding_txid, funding_txout,
-					      minimum_depth, funding, local_msatoshi,
-					      take(new_fee_states(NULL, opener, &feerate_per_kw)),
-					      &local, &remote, &local_basepoints,
-					      &remote_basepoints, &local_funding_pubkey,
-					      &remote_funding_pubkey, option_static_remotekey,
+		channel = new_initial_channel(tmpctx, &cid, &funding_txid,
+					      funding_txout, minimum_depth,
+					      take(new_height_states(NULL, opener,
+								     &blockheight)),
+					      lease_expiry,
+					      funding, local_msatoshi,
+					      take(new_fee_states(NULL, opener,
+								  &feerate_per_kw)),
+					      &local, &remote,
+					      &local_basepoints,
+					      &remote_basepoints,
+					      &local_funding_pubkey,
+					      &remote_funding_pubkey,
+					      option_static_remotekey,
 					      option_anchor_outputs, opener);
 
 		/* TODO: make initial_channel_tx() work with ASAN.. */
