@@ -11,6 +11,7 @@
 #include <ccan/tal/str/str.h>
 #include <channeld/commit_tx.h>
 #include <channeld/full_channel.h>
+#include <common/blockheight_states.h>
 #include <common/channel_config.h>
 #include <common/fee_states.h>
 #include <common/htlc.h>
@@ -95,6 +96,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 const struct bitcoin_txid *funding_txid,
 				 unsigned int funding_txout,
 				 u32 minimum_depth,
+				 const struct height_states *blockheight_states,
 				 u32 lease_expiry,
 				 struct amount_sat funding,
 				 struct amount_msat local_msat,
@@ -114,6 +116,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 						      funding_txid,
 						      funding_txout,
 						      minimum_depth,
+						      blockheight_states,
 						      lease_expiry,
 						      funding,
 						      local_msat,
@@ -979,6 +982,34 @@ static bool fee_incstate(struct channel *channel,
 	return true;
 }
 
+static bool blockheight_incstate(struct channel *channel,
+				 enum side sidechanged,
+				 enum htlc_state hstate)
+{
+	int preflags, postflags;
+
+	preflags = htlc_state_flags(hstate);
+	postflags = htlc_state_flags(hstate + 1);
+
+	/* You can't change sides. */
+	assert((preflags & (HTLC_LOCAL_F_OWNER|HTLC_REMOTE_F_OWNER))
+	       == (postflags & (HTLC_LOCAL_F_OWNER|HTLC_REMOTE_F_OWNER)));
+
+	/* These only advance through ADDING states. */
+	if (!(htlc_state_flags(hstate) & HTLC_ADDING))
+		return false;
+
+	if (!inc_height_state(channel->blockheight_states, hstate))
+		return false;
+
+	status_debug("Blockheight: %s->%s %s now %u",
+		     htlc_state_name(hstate),
+		     htlc_state_name(hstate+1),
+		     side_to_str(sidechanged),
+		     *channel->blockheight_states->height[hstate+1]);
+	return true;
+}
+
 /* Returns flags which were changed. */
 static int change_htlcs(struct channel *channel,
 			enum side sidechanged,
@@ -1022,9 +1053,14 @@ static int change_htlcs(struct channel *channel,
 		}
 	}
 
-	/* Update fees (do backwards, to avoid double-increment!). */
+	/* Update fees and blockheight (do backwards, to avoid
+	 * double-increment!). */
 	for (i = n_hstates - 1; i >= 0; i--) {
 		if (fee_incstate(channel, sidechanged, htlc_states[i]))
+			cflags |= (htlc_state_flags(htlc_states[i])
+				   ^ htlc_state_flags(htlc_states[i]+1));
+
+		if (blockheight_incstate(channel, sidechanged, htlc_states[i]))
 			cflags |= (htlc_state_flags(htlc_states[i])
 				   ^ htlc_state_flags(htlc_states[i]+1));
 	}
@@ -1154,6 +1190,16 @@ bool channel_update_feerate(struct channel *channel, u32 feerate_per_kw)
 	return true;
 }
 
+void channel_update_blockheight(struct channel *channel,
+				u32 blockheight)
+{
+	status_debug("Setting %s blockheight to %u",
+		     side_to_str(!channel->opener), blockheight);
+
+	start_height_update(channel->blockheight_states, channel->opener,
+			    blockheight);
+}
+
 bool channel_sending_commit(struct channel *channel,
 			    const struct htlc ***htlcs)
 {
@@ -1278,9 +1324,13 @@ bool pending_updates(const struct channel *channel,
 	struct htlc_map_iter it;
 	const struct htlc *htlc;
 
-	/* Initiator might have fee changes in play. */
+	/* Initiator might have fee changes or blockheight updates in play. */
 	if (side == channel->opener) {
 		if (!feerate_changes_done(channel->fee_states, uncommitted_ok))
+			return true;
+
+		if (!blockheight_changes_done(channel->blockheight_states,
+					      uncommitted_ok))
 			return true;
 	}
 

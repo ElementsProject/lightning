@@ -6,6 +6,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
+#include <common/blockheight_states.h>
 #include <common/features.h>
 #include <common/fee_states.h>
 #include <common/initial_channel.h>
@@ -21,6 +22,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,
 				    u32 minimum_depth,
+				    const struct height_states *height_states TAKES,
 				    u32 lease_expiry,
 				    struct amount_sat funding,
 				    struct amount_msat local_msatoshi,
@@ -57,6 +59,9 @@ struct channel *new_initial_channel(const tal_t *ctx,
 
 	/* takes() if necessary */
 	channel->fee_states = dup_fee_states(channel, fee_states);
+
+	/* takes() if necessary */
+	channel->blockheight_states = dup_height_states(channel, height_states);
 
 	channel->view[LOCAL].owed[LOCAL]
 		= channel->view[REMOTE].owed[LOCAL]

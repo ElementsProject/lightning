@@ -62,6 +62,10 @@ struct channel {
 	/* Fee changes, some which may be in transit */
 	struct fee_states *fee_states;
 
+	/* Blockheight changes, some which may be in transit
+	 * (option_will_fund)*/
+	struct height_states *blockheight_states;
+
 	/* What it looks like to each side. */
 	struct channel_view view[NUM_SIDES];
 
@@ -82,7 +86,8 @@ struct channel {
  * @funding_txid: The commitment transaction id.
  * @funding_txout: The commitment transaction output number.
  * @minimum_depth: The minimum confirmations needed for funding transaction.
- * @lease_expiry: Block the lease expires
+ * @height_states: The blockheight update states.
+ * @lease_expiry: Block the lease expires.
  * @funding_satoshis: The commitment transaction amount.
  * @local_msatoshi: The amount for the local side (remainder goes to remote)
  * @fee_states: The fee update states.
@@ -103,6 +108,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct bitcoin_txid *funding_txid,
 				    unsigned int funding_txout,
 				    u32 minimum_depth,
+				    const struct height_states *height_states TAKES,
 				    u32 lease_expiry,
 				    struct amount_sat funding,
 				    struct amount_msat local_msatoshi,

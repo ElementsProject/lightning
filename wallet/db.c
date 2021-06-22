@@ -62,6 +62,10 @@ static void fillin_missing_local_basepoints(struct lightningd *ld,
 					    struct db *db,
 					    const struct migration_context *mc);
 
+static void fillin_missing_channel_blockheights(struct lightningd *ld,
+						struct db *db,
+						const struct migration_context *mc);
+
 /* Do not reorder or remove elements from this array, it is used to
  * migrate existing databases from a previous state, based on the
  * string indices */
@@ -732,10 +736,18 @@ static struct migration dbmigrations[] = {
     {SQL("ALTER TABLE channel_funding_inflights ADD lease_chan_max_msat BIGINT DEFAULT NULL"), NULL},
     {SQL("ALTER TABLE channel_funding_inflights ADD lease_chan_max_ppt INTEGER DEFAULT NULL"), NULL},
     {SQL("ALTER TABLE channel_funding_inflights ADD lease_expiry INTEGER DEFAULT 0"), NULL},
+    {SQL("ALTER TABLE channel_funding_inflights ADD lease_blockheight_start INTEGER DEFAULT 0"), NULL},
     {SQL("ALTER TABLE channels ADD lease_commit_sig BLOB DEFAULT NULL"), NULL},
     {SQL("ALTER TABLE channels ADD lease_chan_max_msat INTEGER DEFAULT NULL"), NULL},
     {SQL("ALTER TABLE channels ADD lease_chan_max_ppt INTEGER DEFAULT NULL"), NULL},
     {SQL("ALTER TABLE channels ADD lease_expiry INTEGER DEFAULT 0"), NULL},
+    {SQL("CREATE TABLE channel_blockheights ("
+	 "  channel_id BIGINT REFERENCES channels(id) ON DELETE CASCADE,"
+	 "  hstate INTEGER,"
+	 "  blockheight INTEGER,"
+	 "  UNIQUE (channel_id, hstate)"
+	 ");"),
+     fillin_missing_channel_blockheights},
 };
 
 /* Leak tracking. */
@@ -1426,6 +1438,33 @@ static void fillin_missing_local_basepoints(struct lightningd *ld,
 	}
 
 	tal_free(stmt);
+}
+
+/* New 'channel_blockheights' table, every existing channel gets a
+ * 'initial blockheight' of 0 */
+static void fillin_missing_channel_blockheights(struct lightningd *ld,
+						struct db *db,
+						const struct migration_context *mc)
+{
+	struct db_stmt *stmt;
+
+	/* Set all existing channels to 0 */
+	/* If we're funder (LOCAL=0):
+	 *   Then our blockheight is set last (SENT_ADD_ACK_REVOCATION = 4) */
+	stmt = db_prepare_v2(db,
+			     SQL("INSERT INTO channel_blockheights"
+				 "  (channel_id, hstate, blockheight)"
+				 " SELECT id, 4, 0 FROM channels"
+				 " WHERE funder = 0;"));
+	db_exec_prepared_v2(take(stmt));
+	/* If they're funder (REMOTE=1):
+	 *   Then their blockheight is last (RCVD_ADD_ACK_REVOCATION = 14) */
+	stmt = db_prepare_v2(db,
+			     SQL("INSERT INTO channel_blockheights"
+				 "  (channel_id, hstate, blockheight)"
+				 " SELECT id, 14, 0 FROM channels"
+				 " WHERE funder = 1;"));
+	db_exec_prepared_v2(take(stmt));
 }
 
 void

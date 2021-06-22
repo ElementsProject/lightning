@@ -17,6 +17,7 @@ struct existing_htlc;
  * @funding_txid: The commitment transaction id.
  * @funding_txout: The commitment transaction output number.
  * @minimum_depth: The minimum confirmations needed for funding transaction.
+ * @blockheight_states: The blockheight update states.
  * @lease_expiry: The block the lease on this channel expires at; 0 if no lease.
  * @funding: The commitment transaction amount.
  * @local_msat: The amount for the local side (remainder goes to remote)
@@ -38,6 +39,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 const struct bitcoin_txid *funding_txid,
 				 unsigned int funding_txout,
 				 u32 minimum_depth,
+				 const struct height_states *blockheight_states,
 				 u32 lease_expiry,
 				 struct amount_sat funding,
 				 struct amount_msat local_msat,
@@ -183,6 +185,13 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate);
  * Returns true if it's affordable, otherwise does nothing.
  */
 bool channel_update_feerate(struct channel *channel, u32 feerate_per_kw);
+
+/*
+ * channel_update_blockheight: Change blockheight on non-opener side.
+ * @channel: The channel
+ * @blockheight: current blockheight
+ */
+void channel_update_blockheight(struct channel *channel, u32 blockheight);
 
 /**
  * channel_feerate: Get fee rate for this side of channel.

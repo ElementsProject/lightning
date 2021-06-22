@@ -51,6 +51,7 @@ struct channel_inflight {
 	secp256k1_ecdsa_signature *lease_commit_sig;
 	u32 lease_chan_max_msat;
 	u16 lease_chan_max_ppt;
+	u32 lease_blockheight_start;
 };
 
 struct open_attempt {
@@ -149,6 +150,9 @@ struct channel {
 
 	/* Fee status */
 	const struct fee_states *fee_states;
+
+	/* Height states (option_will_fund, update_blockheight) */
+	const struct height_states *blockheight_states;
 
 	/* Our local basepoints */
 	struct basepoints local_basepoints;
@@ -292,6 +296,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    enum state_change reason,
 			    /* NULL or stolen */
 			    const struct bitcoin_outpoint *shutdown_wrong_funding STEALS,
+			    const struct height_states *height_states TAKES,
 			    u32 lease_expiry,
 			    secp256k1_ecdsa_signature *lease_commit_sig STEALS,
 			    u32 lease_chan_max_msat,
@@ -311,7 +316,8 @@ new_inflight(struct channel *channel,
 	     const u32 lease_expiry,
 	     const secp256k1_ecdsa_signature *lease_commit_sig,
 	     const u32 lease_chan_max_msat,
-	     const u16 lease_chan_max_ppt);
+	     const u16 lease_chan_max_ppt,
+	     const u32 lease_blockheight_start);
 
 /* Given a txid, find an inflight channel stub. Returns NULL if none found */
 struct channel_inflight *channel_inflight_find(struct channel *channel,

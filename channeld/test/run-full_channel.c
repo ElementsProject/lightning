@@ -1,3 +1,4 @@
+#include "../../common/blockheight_states.c"
 #include "../../common/channel_id.c"
 #include "../../common/fee_states.c"
 #include "../../common/initial_channel.c"
@@ -370,6 +371,7 @@ int main(int argc, const char *argv[])
 	const struct htlc **htlc_map, **htlcs;
 	const u8 *funding_wscript, *funding_wscript_alt;
 	bool option_anchor_outputs = false;
+	u32 blockheight = 0;
 	size_t i;
 
 	chainparams = chainparams_for_network("bitcoin");
@@ -481,6 +483,7 @@ int main(int argc, const char *argv[])
 	derive_channel_id(&cid, &funding_txid, funding_output_index);
 	lchannel = new_full_channel(tmpctx, &cid,
 				    &funding_txid, funding_output_index, 0,
+				    take(new_height_states(NULL, LOCAL, &blockheight)),
 				    0, /* No channel lease */
 				    funding_amount, to_local,
 				    take(new_fee_states(NULL, LOCAL,
@@ -493,6 +496,7 @@ int main(int argc, const char *argv[])
 				    false, false, LOCAL);
 	rchannel = new_full_channel(tmpctx, &cid,
 				    &funding_txid, funding_output_index, 0,
+				    take(new_height_states(NULL, LOCAL, &blockheight)),
 				    0, /* No channel lease */
 				    funding_amount, to_remote,
 				    take(new_fee_states(NULL, REMOTE,

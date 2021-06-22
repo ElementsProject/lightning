@@ -24,6 +24,7 @@
 #include <ccan/short_types/short_types.h>
 #include <common/amount.h>
 #include <common/billboard.h>
+#include <common/blockheight_states.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>
 #include <common/crypto_sync.h>
@@ -124,6 +125,9 @@ struct tx_state {
 	/* Rates that we're using for this open... */
 	struct lease_rates *rates;
 
+	/* Lease blockheight start */
+	u32 blockheight;
+
 	/* If delay til the channel funds lease expires */
 	u32 lease_expiry;
 
@@ -144,6 +148,7 @@ static struct tx_state *new_tx_state(const tal_t *ctx)
 	tx_state->remote_funding_sigs_rcvd = false;
 
 	tx_state->lease_expiry = 0;
+	tx_state->blockheight = 0;
 	tx_state->lease_commit_sig = NULL;
 	tx_state->lease_chan_max_msat = 0;
 	tx_state->lease_chan_max_ppt = 0;
@@ -1672,6 +1677,8 @@ static void revert_channel_state(struct state *state)
 					     &tx_state->funding_txid,
 					     tx_state->funding_txout,
 					     state->minimum_depth,
+					     take(new_height_states(NULL, opener,
+								    &tx_state->blockheight)),
 					     tx_state->lease_expiry,
 					     total,
 					     our_msats,
@@ -1771,6 +1778,9 @@ static u8 *accepter_commits(struct state *state,
 					     &tx_state->funding_txid,
 					     tx_state->funding_txout,
 					     state->minimum_depth,
+					     take(new_height_states(NULL, REMOTE,
+								    &tx_state->blockheight)),
+
 					     tx_state->lease_expiry,
 					     total,
 					     our_msats,
@@ -1897,6 +1907,7 @@ static u8 *accepter_commits(struct state *state,
 					   state->feerate_per_kw_commitment,
 					   state->upfront_shutdown_script[LOCAL],
 					   state->upfront_shutdown_script[REMOTE],
+					   tx_state->blockheight,
 					   tx_state->lease_expiry,
 					   tx_state->lease_commit_sig,
 					   tx_state->lease_chan_max_msat,
@@ -1978,7 +1989,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	char *err_reason;
 	u8 *msg;
 	struct amount_sat total, requested_amt, lease_fee;
-	u32 lease_blockheight_start;
 	enum dualopend_wire msg_type;
 	struct tx_state *tx_state = state->tx_state;
 
@@ -2018,12 +2028,10 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		/* FIXME: Do we support this? */
 		requested_amt
 			= amount_sat(open_tlv->request_funds->requested_sats);
-		lease_blockheight_start
+		tx_state->blockheight
 			= open_tlv->request_funds->blockheight;
-	} else {
+	} else
 		requested_amt = AMOUNT_SAT(0);
-		lease_blockheight_start = 0;
-	}
 
 	/* BOLT-* #2
 	 * If the peer's revocation basepoint is unknown (e.g.
@@ -2093,7 +2101,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					 tx_state->tx_locktime,
 					 state->upfront_shutdown_script[REMOTE],
 					 requested_amt,
-					 lease_blockheight_start);
+					 tx_state->blockheight);
 
 	wire_sync_write(REQ_FD, take(msg));
 	msg = wire_sync_read(tmpctx, REQ_FD);
@@ -2206,7 +2214,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	if (open_tlv->request_funds && tx_state->rates)
 		accept_tlv_add_offer(a_tlv, tx_state, tx_state->rates,
 				     state->our_funding_pubkey,
-				     lease_blockheight_start);
+				     tx_state->blockheight);
 
 
 	msg = towire_accept_channel2(tmpctx, &state->channel_id,
@@ -2236,7 +2244,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	/* Add our fee to our amount now */
 	if (tx_state->rates) {
 		tx_state->lease_expiry
-			= lease_blockheight_start + LEASE_RATE_DURATION;
+			= tx_state->blockheight + LEASE_RATE_DURATION;
 
 		/* BOLT- #2:
 		 * The lease fee is added to the accepter's balance
@@ -2380,6 +2388,8 @@ static u8 *opener_commits(struct state *state,
 					     &tx_state->funding_txid,
 					     tx_state->funding_txout,
 					     state->minimum_depth,
+					     take(new_height_states(NULL, LOCAL,
+								    &state->tx_state->blockheight)),
 					     tx_state->lease_expiry,
 					     total,
 					     our_msats,
@@ -2550,6 +2560,7 @@ static u8 *opener_commits(struct state *state,
 					    state->feerate_per_kw_commitment,
 					    state->upfront_shutdown_script[LOCAL],
 					    state->upfront_shutdown_script[REMOTE],
+					    tx_state->blockheight,
 					    tx_state->lease_expiry,
 					    tx_state->lease_commit_sig,
 					    tx_state->lease_chan_max_msat,
@@ -2564,7 +2575,6 @@ static void opener_start(struct state *state, u8 *msg)
 	struct channel_id cid;
 	char *err_reason;
 	struct amount_sat total, requested_sats, lease_fee;
-	u32 current_blockheight;
 	bool dry_run;
 	struct tx_state *tx_state = state->tx_state;
 
@@ -2576,7 +2586,7 @@ static void opener_start(struct state *state, u8 *msg)
 					    &state->feerate_per_kw_funding,
 					    &state->channel_flags,
 					    &requested_sats,
-					    &current_blockheight,
+					    &tx_state->blockheight,
 					    &dry_run))
 		master_badmsg(WIRE_DUALOPEND_OPENER_INIT, msg);
 
@@ -2612,7 +2622,7 @@ static void opener_start(struct state *state, u8 *msg)
 			tal(open_tlv, struct tlv_opening_tlvs_request_funds);
 		open_tlv->request_funds->requested_sats =
 			requested_sats.satoshis; /* Raw: struct -> wire */
-		open_tlv->request_funds->blockheight = current_blockheight;
+		open_tlv->request_funds->blockheight = tx_state->blockheight;
 	}
 
 	msg = towire_open_channel2(NULL,
@@ -2725,7 +2735,7 @@ static void opener_start(struct state *state, u8 *msg)
 		char *err_msg;
 		struct lease_rates *rates = &a_tlv->will_fund->lease_rates;
 
-		tx_state->lease_expiry = current_blockheight + LEASE_RATE_DURATION;
+		tx_state->lease_expiry = tx_state->blockheight + LEASE_RATE_DURATION;
 
 		msg = towire_dualopend_validate_lease(NULL,
 						      &a_tlv->will_fund->signature,
@@ -3798,6 +3808,7 @@ int main(int argc, char *argv[])
 					     &state->tx_state->remote_funding_sigs_rcvd,
 					     &fee_states,
 					     &state->channel_flags,
+					     &state->tx_state->blockheight,
 					     &state->tx_state->lease_expiry,
 					     &state->tx_state->lease_commit_sig,
 					     &state->tx_state->lease_chan_max_msat,
@@ -3810,6 +3821,8 @@ int main(int argc, char *argv[])
 						     &state->tx_state->funding_txid,
 						     state->tx_state->funding_txout,
 						     state->minimum_depth,
+						     take(new_height_states(NULL, opener,
+									    &state->tx_state->blockheight)),
 						     state->tx_state->lease_expiry,
 						     total_funding,
 						     our_msat,

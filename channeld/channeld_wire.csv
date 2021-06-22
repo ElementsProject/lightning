@@ -1,5 +1,6 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/tx.h>
+#include <common/blockheight_states.h>
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>
@@ -17,6 +18,9 @@ msgdata,channeld_init,funding_txid,bitcoin_txid,
 msgdata,channeld_init,funding_txout,u16,
 msgdata,channeld_init,funding_satoshi,amount_sat,
 msgdata,channeld_init,minimum_depth,u32,
+msgdata,channeld_init,our_blockheight,u32,
+msgdata,channeld_init,blockheight_states,height_states,
+msgdata,channeld_init,lease_expiry,u32,
 msgdata,channeld_init,our_config,channel_config,
 msgdata,channeld_init,their_config,channel_config,
 msgdata,channeld_init,fee_states,fee_states,
@@ -225,3 +229,7 @@ msgtype,channeld_dev_quiesce_reply,1109
 # Tell master we're upgrading the commitment tx.
 msgtype,channeld_upgraded,1011
 msgdata,channeld_upgraded,option_static_remotekey,bool,
+
+# Tell peer about our latest and greatest blockheight.
+msgtype,channeld_blockheight,1012
+msgdata,channeld_blockheight,blockheight,u32,

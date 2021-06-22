@@ -981,6 +981,12 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
+         .name = "ALTER TABLE channel_funding_inflights ADD lease_blockheight_start INTEGER DEFAULT 0",
+         .query = "ALTER TABLE channel_funding_inflights ADD lease_blockheight_start INTEGER DEFAULT 0",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
          .name = "ALTER TABLE channels ADD lease_commit_sig BLOB DEFAULT NULL",
          .query = "ALTER TABLE channels ADD lease_commit_sig BYTEA DEFAULT NULL",
          .placeholders = 0,
@@ -1001,6 +1007,12 @@ struct db_query db_postgres_queries[] = {
     {
          .name = "ALTER TABLE channels ADD lease_expiry INTEGER DEFAULT 0",
          .query = "ALTER TABLE channels ADD lease_expiry INTEGER DEFAULT 0",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
+         .name = "CREATE TABLE channel_blockheights (  channel_id BIGINT REFERENCES channels(id) ON DELETE CASCADE,  hstate INTEGER,  blockheight INTEGER,  UNIQUE (channel_id, hstate));",
+         .query = "CREATE TABLE channel_blockheights (  channel_id BIGINT REFERENCES channels(id) ON DELETE CASCADE,  hstate INTEGER,  blockheight INTEGER,  UNIQUE (channel_id, hstate));",
          .placeholders = 0,
          .readonly = false,
     },
@@ -1098,6 +1110,18 @@ struct db_query db_postgres_queries[] = {
          .name = "UPDATE channels SET  revocation_basepoint_local = ?, payment_basepoint_local = ?, htlc_basepoint_local = ?, delayed_payment_basepoint_local = ?, funding_pubkey_local = ? WHERE id = ?;",
          .query = "UPDATE channels SET  revocation_basepoint_local = $1, payment_basepoint_local = $2, htlc_basepoint_local = $3, delayed_payment_basepoint_local = $4, funding_pubkey_local = $5 WHERE id = $6;",
          .placeholders = 6,
+         .readonly = false,
+    },
+    {
+         .name = "INSERT INTO channel_blockheights  (channel_id, hstate, blockheight) SELECT id, 4, 0 FROM channels WHERE funder = 0;",
+         .query = "INSERT INTO channel_blockheights  (channel_id, hstate, blockheight) SELECT id, 4, 0 FROM channels WHERE funder = 0;",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
+         .name = "INSERT INTO channel_blockheights  (channel_id, hstate, blockheight) SELECT id, 14, 0 FROM channels WHERE funder = 1;",
+         .query = "INSERT INTO channel_blockheights  (channel_id, hstate, blockheight) SELECT id, 14, 0 FROM channels WHERE funder = 1;",
+         .placeholders = 0,
          .readonly = false,
     },
     {
@@ -1341,9 +1365,15 @@ struct db_query db_postgres_queries[] = {
          .readonly = true,
     },
     {
-         .name = "INSERT INTO channel_funding_inflights (  channel_id, funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);",
-         .query = "INSERT INTO channel_funding_inflights (  channel_id, funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);",
-         .placeholders = 9,
+         .name = "SELECT hstate, blockheight FROM channel_blockheights WHERE channel_id = ?",
+         .query = "SELECT hstate, blockheight FROM channel_blockheights WHERE channel_id = $1",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
+         .name = "INSERT INTO channel_funding_inflights (  channel_id, funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig, lease_commit_sig, lease_chan_max_msat, lease_chan_max_ppt, lease_expiry, lease_blockheight_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+         .query = "INSERT INTO channel_funding_inflights (  channel_id, funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig, lease_commit_sig, lease_chan_max_msat, lease_chan_max_ppt, lease_expiry, lease_blockheight_start) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);",
+         .placeholders = 14,
          .readonly = false,
     },
     {
@@ -1359,8 +1389,8 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT  funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig, funding_tx_remote_sigs_received, lease_expiry, lease_commit_sig, lease_chan_max_msat, lease_chan_max_ppt FROM channel_funding_inflights WHERE channel_id = ? ORDER BY funding_feerate",
-         .query = "SELECT  funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig, funding_tx_remote_sigs_received, lease_expiry, lease_commit_sig, lease_chan_max_msat, lease_chan_max_ppt FROM channel_funding_inflights WHERE channel_id = $1 ORDER BY funding_feerate",
+         .name = "SELECT  funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig, funding_tx_remote_sigs_received, lease_expiry, lease_commit_sig, lease_chan_max_msat, lease_chan_max_ppt, lease_blockheight_start FROM channel_funding_inflights WHERE channel_id = ? ORDER BY funding_feerate",
+         .query = "SELECT  funding_tx_id, funding_tx_outnum, funding_feerate, funding_satoshi, our_funding_satoshi, funding_psbt, last_tx, last_sig, funding_tx_remote_sigs_received, lease_expiry, lease_commit_sig, lease_chan_max_msat, lease_chan_max_ppt, lease_blockheight_start FROM channel_funding_inflights WHERE channel_id = $1 ORDER BY funding_feerate",
          .placeholders = 1,
          .readonly = true,
     },
@@ -1457,6 +1487,18 @@ struct db_query db_postgres_queries[] = {
     {
          .name = "INSERT INTO channel_feerates  VALUES(?, ?, ?)",
          .query = "INSERT INTO channel_feerates  VALUES($1, $2, $3)",
+         .placeholders = 3,
+         .readonly = false,
+    },
+    {
+         .name = "DELETE FROM channel_blockheights WHERE channel_id=?",
+         .query = "DELETE FROM channel_blockheights WHERE channel_id=$1",
+         .placeholders = 1,
+         .readonly = false,
+    },
+    {
+         .name = "INSERT INTO channel_blockheights  VALUES(?, ?, ?)",
+         .query = "INSERT INTO channel_blockheights  VALUES($1, $2, $3)",
          .placeholders = 3,
          .readonly = false,
     },
@@ -1966,10 +2008,10 @@ struct db_query db_postgres_queries[] = {
     },
 };
 
-#define DB_POSTGRES_QUERY_COUNT 326
+#define DB_POSTGRES_QUERY_COUNT 333
 
 #endif /* HAVE_POSTGRES */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:06e51ede39e83d9416af098b0d38f8c778109558d3b9483cfc946554940dfab2
+// SHA256STAMP:4aa3c138e6c172aff0958062fbf1cdfd14194424349c533a46a0407b7131b7be

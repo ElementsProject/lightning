@@ -6,6 +6,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/blockheight_states.h>
 #include <common/fee_states.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>
@@ -966,21 +967,63 @@ static struct fee_states *wallet_channel_fee_states_load(struct wallet *w,
 	return fee_states;
 }
 
+static struct height_states *wallet_channel_height_states_load(struct wallet *w,
+							       const u64 id,
+							       enum side opener)
+{
+	struct height_states *states;
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT hstate, blockheight FROM channel_blockheights WHERE channel_id = ?"));
+	db_bind_u64(stmt, 0, id);
+	db_query_prepared(stmt);
+
+	/* Start with blank slate. */
+	states = new_height_states(w, opener, NULL);
+	while (db_step(stmt)) {
+		enum htlc_state hstate = db_column_int(stmt, 0);
+		u32 blockheight = db_column_int(stmt, 1);
+
+		if (states->height[hstate] != NULL) {
+			log_broken(w->log,
+				   "duplicate channel_blockheights for %s id %"PRIu64,
+				   htlc_state_name(hstate), id);
+			states = tal_free(states);
+			break;
+		}
+		states->height[hstate] = tal_dup(states, u32, &blockheight);
+	}
+	tal_free(stmt);
+
+	if (states && !height_states_valid(states, opener)) {
+		log_broken(w->log,
+			   "invalid channel_blockheight for id %"PRIu64, id);
+		states = tal_free(states);
+	}
+	return states;
+}
+
 void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 {
 	struct db_stmt *stmt;
 	stmt = db_prepare_v2(w->db,
 			     SQL("INSERT INTO channel_funding_inflights ("
-				 "  channel_id"
-				 ", funding_tx_id"
-				 ", funding_tx_outnum"
-				 ", funding_feerate"
-				 ", funding_satoshi"
-				 ", our_funding_satoshi"
-				 ", funding_psbt"
-				 ", last_tx"
-				 ", last_sig"
-				 ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 "  channel_id" // 0
+				 ", funding_tx_id" // 1
+				 ", funding_tx_outnum" // 2
+				 ", funding_feerate" // 3
+				 ", funding_satoshi" // 4
+				 ", our_funding_satoshi" // 5
+				 ", funding_psbt" // 6
+				 ", last_tx" // 7
+				 ", last_sig" // 8
+				 ", lease_commit_sig" // 9
+				 ", lease_chan_max_msat" // 10
+				 ", lease_chan_max_ppt" // 11
+				 ", lease_expiry" // 12
+				 ", lease_blockheight_start" // 13
+				 ") VALUES ("
+				 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, inflight->channel->dbid);
 	db_bind_txid(stmt, 1, &inflight->funding->txid);
@@ -991,6 +1034,21 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 	db_bind_psbt(stmt, 6, inflight->funding_psbt);
 	db_bind_psbt(stmt, 7, inflight->last_tx->psbt);
 	db_bind_signature(stmt, 8, &inflight->last_sig.s);
+
+	if (inflight->lease_expiry != 0) {
+		db_bind_signature(stmt, 9, inflight->lease_commit_sig);
+		db_bind_int(stmt, 10, inflight->lease_chan_max_msat);
+		db_bind_int(stmt, 11, inflight->lease_chan_max_ppt);
+		db_bind_int(stmt, 12, inflight->lease_expiry);
+		db_bind_int(stmt, 13, inflight->lease_blockheight_start);
+	} else {
+		db_bind_null(stmt, 9);
+		db_bind_null(stmt, 10);
+		db_bind_null(stmt, 11);
+		db_bind_null(stmt, 12);
+		db_bind_null(stmt, 13);
+	}
+
 	db_exec_prepared_v2(stmt);
 	assert(!stmt->error);
 	tal_free(stmt);
@@ -1049,7 +1107,7 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 	struct channel_inflight *inflight;
 
 	secp256k1_ecdsa_signature *lease_commit_sig;
-	u32 lease_chan_max_msat;
+	u32 lease_chan_max_msat, lease_blockheight_start;
 	u16 lease_chan_max_ppt;
 
 	db_column_txid(stmt, 0, &funding_txid);
@@ -1065,10 +1123,12 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 		db_column_signature(stmt, 10, lease_commit_sig);
 		lease_chan_max_msat = db_column_int(stmt, 11);
 		lease_chan_max_ppt = db_column_int(stmt, 12);
+		lease_blockheight_start = db_column_int(stmt, 13);
 	} else {
 		lease_commit_sig = NULL;
 		lease_chan_max_msat = 0;
 		lease_chan_max_ppt = 0;
+		lease_blockheight_start = 0;
 	}
 
 	inflight = new_inflight(chan, funding_txid,
@@ -1082,7 +1142,8 @@ wallet_stmt2inflight(struct wallet *w, struct db_stmt *stmt,
 				db_column_int(stmt, 9),
 				lease_commit_sig,
 				lease_chan_max_msat,
-				lease_chan_max_ppt);
+				lease_chan_max_ppt,
+				lease_blockheight_start);
 
 	/* Pull out the serialized tx-sigs-received-ness */
 	inflight->remote_tx_sigs = db_column_int(stmt, 8);
@@ -1109,6 +1170,7 @@ static bool wallet_channel_load_inflights(struct wallet *w,
 					", lease_commit_sig" // 10
 					", lease_chan_max_msat" // 11
 					", lease_chan_max_ppt" // 12
+					", lease_blockheight_start" // 13
 					" FROM channel_funding_inflights"
 					" WHERE channel_id = ?" // ?0
 					" ORDER BY funding_feerate"));
@@ -1137,6 +1199,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	bool ok = true;
 	struct channel_info channel_info;
 	struct fee_states *fee_states;
+	struct height_states *height_states;
 	struct short_channel_id *scid;
 	struct channel_id cid;
 	struct channel *chan;
@@ -1241,6 +1304,19 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		return NULL;
 	}
 
+	/* Blockheight states for the channel! */
+	height_states
+		= wallet_channel_height_states_load(w,
+						    db_column_u64(stmt, 0),
+						    db_column_int(stmt, 7));
+	if (!height_states)
+		ok = false;
+
+	if (!ok) {
+		tal_free(height_states);
+		return NULL;
+	}
+
 	final_key_idx = db_column_u64(stmt, 31);
 	if (final_key_idx < 0) {
 		tal_free(fee_states);
@@ -1330,6 +1406,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_column_int(stmt, 51),
 			   db_column_int(stmt, 52),
 			   shutdown_wrong_funding,
+			   take(height_states),
 			   db_column_int(stmt, 60),
 			   lease_commit_sig,
 			   lease_chan_max_msat,
@@ -1830,6 +1907,25 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		db_bind_u64(stmt, 0, chan->dbid);
 		db_bind_int(stmt, 1, i);
 		db_bind_int(stmt, 2, *chan->fee_states->feerate[i]);
+		db_exec_prepared_v2(take(stmt));
+	}
+
+	/* FIXME: Updates channel_blockheights by discarding and rewriting. */
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM channel_blockheights "
+					"WHERE channel_id=?"));
+	db_bind_u64(stmt, 0, chan->dbid);
+	db_exec_prepared_v2(take(stmt));
+
+	for (enum htlc_state i = 0;
+	     i < ARRAY_SIZE(chan->blockheight_states->height);
+	     i++) {
+		if (!chan->blockheight_states->height[i])
+			continue;
+		stmt = db_prepare_v2(w->db, SQL("INSERT INTO channel_blockheights "
+						" VALUES(?, ?, ?)"));
+		db_bind_u64(stmt, 0, chan->dbid);
+		db_bind_int(stmt, 1, i);
+		db_bind_int(stmt, 2, *chan->blockheight_states->height[i]);
 		db_exec_prepared_v2(take(stmt));
 	}
 

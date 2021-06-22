@@ -134,6 +134,9 @@ struct peer {
 	/* The feerate we want. */
 	u32 desired_feerate;
 
+	/* Current blockheight */
+	u32 our_blockheight;
+
 	/* Announcement related information */
 	struct node_id node_ids[NUM_SIDES];
 	struct short_channel_id short_channel_ids[NUM_SIDES];
@@ -837,6 +840,75 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 	status_debug("peer updated fee to %u", feerate);
 }
 
+static void handle_peer_blockheight_change(struct peer *peer, const u8 *msg)
+{
+	struct channel_id channel_id;
+	u32 blockheight, current;
+
+	if (!fromwire_update_blockheight(msg, &channel_id, &blockheight))
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "Bad update_blockheight %s",
+				 tal_hex(msg, msg));
+
+	/* BOLT- #2:
+	 * A receiving node:
+	 *   ...
+	 *   - if the sender is not the initiator:
+	 *     - MUST fail the channel.
+	 */
+	if (peer->channel->opener != REMOTE)
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "update_blockheight from non-opener?");
+
+	current = get_blockheight(peer->channel->blockheight_states,
+				  peer->channel->opener, LOCAL);
+
+	status_debug("update_blockheight %u. last update height %u,"
+		     " our current height %u",
+		     blockheight, current, peer->our_blockheight);
+
+	/* BOLT- #2:
+	 * A receiving node:
+	 *   - if the `update_blockheight` is less than the last
+	 *     received `blockheight`:
+	 *     - SHOULD fail the channel.
+	 *    ...
+	 *   - if `blockheight` is more than 1008 blocks behind
+	 *   the current blockheight:
+	 *   - SHOULD fail the channel
+	 */
+	/* Overflow check */
+	if (blockheight + 1008 < blockheight)
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "blockheight + 1008 overflow (%u)",
+				 blockheight);
+
+	/* If they're behind the last one they sent, we just warn and
+	 * reconnect, as they might be catching up */
+	/* FIXME: track for how long they send backwards blockheight? */
+	if (blockheight < current)
+		peer_failed_warn(peer->pps, &peer->channel_id,
+				 "update_blockheight %u older than previous %u",
+				 blockheight, current);
+
+	/* BOLT- #2:
+	 * A receiving node:
+	 *    ...
+	 *   - if `blockheight` is more than 1008 blocks behind
+	 *   the current blockheight:
+	 *   - SHOULD fail the channel
+	 */
+	assert(blockheight < blockheight + 1008);
+	if (blockheight + 1008 < peer->our_blockheight)
+		peer_failed_err(peer->pps, &peer->channel_id,
+				"update_blockheight %u outside"
+				" permissible range", blockheight);
+
+	channel_update_blockheight(peer->channel, blockheight);
+
+	status_debug("peer updated blockheight to %u", blockheight);
+}
+
 static struct changed_htlc *changed_htlc_arr(const tal_t *ctx,
 					     const struct htlc **changed_htlcs)
 {
@@ -1122,6 +1194,41 @@ static bool want_fee_update(const struct peer *peer, u32 *target)
 	return val != channel_feerate(peer->channel, REMOTE);
 }
 
+/* Do we want to update blockheight? */
+static bool want_blockheight_update(const struct peer *peer, u32 *height)
+{
+	u32 last;
+
+	if (peer->channel->opener != LOCAL)
+		return false;
+
+	if (peer->channel->lease_expiry == 0)
+		return false;
+
+#if EXPERIMENTAL_FEATURES
+	/* No fee update while quiescing! */
+	if (peer->stfu)
+		return false;
+#endif
+	/* What's the current blockheight */
+	last = get_blockheight(peer->channel->blockheight_states,
+			       peer->channel->opener, LOCAL);
+
+	if (peer->our_blockheight < last) {
+		status_broken("current blockheight %u less than last %u",
+			      peer->our_blockheight, last);
+		return false;
+	}
+
+	if (peer->our_blockheight == last)
+		return false;
+
+	if (height)
+		*height = peer->our_blockheight;
+
+	return true;
+}
+
 static void send_commit(struct peer *peer)
 {
 	u8 *msg;
@@ -1132,6 +1239,7 @@ static void send_commit(struct peer *peer)
 	const struct htlc **htlc_map;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct penalty_base *pbase;
+	u32 our_blockheight;
 	u32 feerate_target;
 
 #if DEVELOPER
@@ -1200,6 +1308,22 @@ static void send_commit(struct peer *peer)
 		}
 	}
 
+	if (want_blockheight_update(peer, &our_blockheight)) {
+		if (blockheight_changes_done(peer->channel->blockheight_states,
+					     false)) {
+			u8 *msg;
+
+			channel_update_blockheight(peer->channel,
+						   our_blockheight);
+
+			msg = towire_update_blockheight(NULL,
+							&peer->channel_id,
+							our_blockheight);
+
+			sync_crypto_write(peer->pps, take(msg));
+		}
+	}
+
 	/* BOLT #2:
 	 *
 	 * A sending node:
@@ -1208,9 +1332,13 @@ static void send_commit(struct peer *peer)
 	 */
 	changed_htlcs = tal_arr(tmpctx, const struct htlc *, 0);
 	if (!channel_sending_commit(peer->channel, &changed_htlcs)) {
-		status_debug("Can't send commit: nothing to send, feechange %s (%s)",
+		status_debug("Can't send commit: nothing to send,"
+			     " feechange %s (%s)"
+			     " blockheight %s (%s)",
 			     want_fee_update(peer, NULL) ? "wanted": "not wanted",
-			     type_to_string(tmpctx, struct fee_states, peer->channel->fee_states));
+			     type_to_string(tmpctx, struct fee_states, peer->channel->fee_states),
+			     want_blockheight_update(peer, NULL) ? "wanted" : "not wanted",
+			     type_to_string(tmpctx, struct height_states, peer->channel->blockheight_states));
 
 		/* Covers the case where we've just been told to shutdown. */
 		maybe_send_shutdown(peer);
@@ -2085,8 +2213,8 @@ static void peer_in(struct peer *peer, const u8 *msg)
 		handle_peer_feechange(peer, msg);
 		return;
 	case WIRE_UPDATE_BLOCKHEIGHT:
-		/* FIXME: do this! */
-		break;
+		handle_peer_blockheight_change(peer, msg);
+		return;
 	case WIRE_REVOKE_AND_ACK:
 		handle_peer_revoke_and_ack(peer, msg);
 		return;
@@ -3127,6 +3255,49 @@ static void handle_feerates(struct peer *peer, const u8 *inmsg)
 	}
 }
 
+static void handle_blockheight(struct peer *peer, const u8 *inmsg)
+{
+	u32 blockheight;
+
+	if (!fromwire_channeld_blockheight(inmsg, &blockheight))
+		master_badmsg(WIRE_CHANNELD_BLOCKHEIGHT, inmsg);
+
+	/* Save it, so we know */
+	peer->our_blockheight = blockheight;
+	if (peer->channel->opener == LOCAL)
+		start_commit_timer(peer);
+	else {
+		u32 peer_height = get_blockheight(peer->channel->blockheight_states,
+						  peer->channel->opener,
+						  REMOTE);
+		/* BOLT- #2:
+		 * The node _not responsible_ for initiating the channel:
+		 *   ...
+		 *   - if last received `blockheight` is > 1008 behind
+		 *     currently known blockheight:
+		 *     - SHOULD fail he channel
+		 */
+		assert(peer_height + 1008 > peer_height);
+		if (peer_height + 1008 < blockheight)
+			peer_failed_err(peer->pps, &peer->channel_id,
+					"Peer is too far behind, terminating"
+					" leased channel. Our current"
+					" %u, theirs %u",
+					blockheight, peer_height);
+		/* We're behind them... what do. It's possible they're lying,
+		 * but if we're in a lease this is actually in our favor so
+		 * we log it but otherwise continue on unchanged */
+		if (peer_height > blockheight
+		    && peer_height > blockheight + 100)
+			status_unusual("Peer reporting we've fallen %u"
+				       " blocks behind. Our height %u,"
+				       " their height %u",
+				       peer_height - blockheight,
+				       blockheight, peer_height);
+
+	}
+}
+
 static void handle_specific_feerates(struct peer *peer, const u8 *inmsg)
 {
 	u32 base_old = peer->fee_base;
@@ -3305,6 +3476,11 @@ static void req_in(struct peer *peer, const u8 *msg)
 			return;
 		handle_feerates(peer, msg);
 		return;
+	case WIRE_CHANNELD_BLOCKHEIGHT:
+		if (handle_master_request_later(peer, msg))
+			return;
+		handle_blockheight(peer, msg);
+		return;
 	case WIRE_CHANNELD_FULFILL_HTLC:
 		if (handle_master_request_later(peer, msg))
 			return;
@@ -3397,7 +3573,8 @@ static void init_channel(struct peer *peer)
 	u8 *fwd_msg;
 	const u8 *msg;
 	struct fee_states *fee_states;
-	u32 minimum_depth;
+	struct height_states *blockheight_states;
+	u32 minimum_depth, lease_expiry;
 	struct secret last_remote_per_commit_secret;
 	secp256k1_ecdsa_signature *remote_ann_node_sig;
 	secp256k1_ecdsa_signature *remote_ann_bitcoin_sig;
@@ -3417,6 +3594,9 @@ static void init_channel(struct peer *peer)
 				   &funding_txid, &funding_txout,
 				   &funding,
 				   &minimum_depth,
+				   &peer->our_blockheight,
+				   &blockheight_states,
+				   &lease_expiry,
 				   &conf[LOCAL], &conf[REMOTE],
 				   &fee_states,
 				   &peer->feerate_min,
@@ -3486,7 +3666,8 @@ static void init_channel(struct peer *peer)
 		     " next_idx_local = %"PRIu64
 		     " next_idx_remote = %"PRIu64
 		     " revocations_received = %"PRIu64
-		     " feerates %s range %u-%u",
+		     " feerates %s range %u-%u"
+		     " blockheights %s, our current %u",
 		     side_to_str(opener),
 		     type_to_string(tmpctx, struct pubkey,
 				    &peer->remote_per_commit),
@@ -3495,7 +3676,9 @@ static void init_channel(struct peer *peer)
 		     peer->next_index[LOCAL], peer->next_index[REMOTE],
 		     peer->revocations_received,
 		     type_to_string(tmpctx, struct fee_states, fee_states),
-		     peer->feerate_min, peer->feerate_max);
+		     peer->feerate_min, peer->feerate_max,
+		     type_to_string(tmpctx, struct height_states, blockheight_states),
+		     peer->our_blockheight);
 
 	status_debug("option_static_remotekey = %u", option_static_remotekey);
 
@@ -3525,7 +3708,8 @@ static void init_channel(struct peer *peer)
 					 &funding_txid,
 					 funding_txout,
 					 minimum_depth,
-					 0, /* FIXME: channel lease_expiry */
+					 take(blockheight_states),
+					 lease_expiry,
 					 funding,
 					 local_msat,
 					 take(fee_states),

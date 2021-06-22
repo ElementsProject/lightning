@@ -423,6 +423,11 @@ void merkle_tlv(const struct tlv_field *fields UNNEEDED, struct sha256 *merkle U
 struct bolt11 *new_bolt11(const tal_t *ctx UNNEEDED,
 			  const struct amount_msat *msat TAKES UNNEEDED)
 { fprintf(stderr, "new_bolt11 called!\n"); abort(); }
+/* Generated stub for new_height_states */
+struct height_states *new_height_states(const tal_t *ctx UNNEEDED,
+					enum side opener UNNEEDED,
+					const u32 *blockheight UNNEEDED)
+{ fprintf(stderr, "new_height_states called!\n"); abort(); }
 /* Generated stub for new_reltimer_ */
 struct oneshot *new_reltimer_(struct timers *timers UNNEEDED,
 			      const tal_t *ctx UNNEEDED,

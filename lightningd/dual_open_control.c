@@ -10,6 +10,7 @@
 #include <ccan/ccan/tal/tal.h>
 #include <ccan/short_types/short_types.h>
 #include <common/amount.h>
+#include <common/blockheight_states.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>
 #include <common/derive_basepoints.h>
@@ -1116,7 +1117,8 @@ wallet_update_channel(struct lightningd *ld,
 		      const u32 lease_expiry,
 		      secp256k1_ecdsa_signature *lease_commit_sig STEALS,
 		      const u32 lease_chan_max_msat,
-		      const u16 lease_chan_max_ppt)
+		      const u16 lease_chan_max_ppt,
+		      const u32 lease_blockheight_start)
 {
 	struct amount_msat our_msat;
 	struct channel_inflight *inflight;
@@ -1143,6 +1145,11 @@ wallet_update_channel(struct lightningd *ld,
 	channel->lease_chan_max_msat = lease_chan_max_msat;
 	channel->lease_chan_max_ppt = lease_chan_max_ppt;
 
+	tal_free(channel->blockheight_states);
+	channel->blockheight_states = new_height_states(channel,
+							channel->opener,
+							&lease_blockheight_start);
+
 	channel_set_last_tx(channel,
 			    tal_steal(channel, remote_commit),
 			    remote_commit_sig,
@@ -1164,7 +1171,8 @@ wallet_update_channel(struct lightningd *ld,
 				channel->lease_expiry,
 				channel->lease_commit_sig,
 				channel->lease_chan_max_msat,
-				channel->lease_chan_max_ppt);
+				channel->lease_chan_max_ppt,
+				lease_blockheight_start);
 	wallet_inflight_add(ld->wallet, inflight);
 
 	return inflight;
@@ -1186,6 +1194,7 @@ wallet_commit_channel(struct lightningd *ld,
 		      const u8 *our_upfront_shutdown_script,
 		      const u8 *remote_upfront_shutdown_script,
 		      struct wally_psbt *psbt STEALS,
+		      const u32 lease_blockheight_start,
 		      const u32 lease_expiry,
 		      secp256k1_ecdsa_signature *lease_commit_sig STEALS,
 		      const u32 lease_chan_max_msat,
@@ -1257,6 +1266,9 @@ wallet_commit_channel(struct lightningd *ld,
 	channel->first_blocknum = get_block_height(ld->topology);
 
 	/* Update lease info for channel */
+	channel->blockheight_states = new_height_states(channel,
+							channel->opener,
+							&lease_blockheight_start);
 	channel->lease_expiry = lease_expiry;
 
 	tal_free(channel->lease_commit_sig);
@@ -1281,7 +1293,8 @@ wallet_commit_channel(struct lightningd *ld,
 				channel->lease_expiry,
 				channel->lease_commit_sig,
 				channel->lease_chan_max_msat,
-				channel->lease_chan_max_ppt);
+				channel->lease_chan_max_ppt,
+				lease_blockheight_start);
 	wallet_inflight_add(ld->wallet, inflight);
 
 	return inflight;
@@ -2818,7 +2831,7 @@ static void handle_commit_received(struct subd *dualopend,
 	struct bitcoin_txid funding_txid;
 	u16 funding_outnum, lease_chan_max_ppt;
 	u32 feerate_funding, feerate_commitment, lease_expiry,
-	    lease_chan_max_msat;
+	    lease_chan_max_msat, lease_blockheight_start;
 	struct amount_sat total_funding, funding_ours;
 	u8 *remote_upfront_shutdown_script,
 	   *local_upfront_shutdown_script;
@@ -2851,6 +2864,7 @@ static void handle_commit_received(struct subd *dualopend,
 					    &feerate_commitment,
 					    &local_upfront_shutdown_script,
 					    &remote_upfront_shutdown_script,
+					    &lease_blockheight_start,
 					    &lease_expiry,
 					    &lease_commit_sig,
 					    &lease_chan_max_msat,
@@ -2896,6 +2910,7 @@ static void handle_commit_received(struct subd *dualopend,
 								local_upfront_shutdown_script,
 						       remote_upfront_shutdown_script,
 						       psbt,
+						       lease_blockheight_start,
 						       lease_expiry,
 						       lease_commit_sig,
 						       lease_chan_max_msat,
@@ -2932,7 +2947,8 @@ static void handle_commit_received(struct subd *dualopend,
 						       lease_expiry,
 						       lease_commit_sig,
 						       lease_chan_max_msat,
-						       lease_chan_max_ppt))) {
+						       lease_chan_max_ppt,
+						       lease_blockheight_start))) {
 			channel_internal_error(channel,
 					       "wallet_update_channel failed"
 					       " (chan %s)",
@@ -3209,7 +3225,7 @@ void peer_restart_dualopend(struct peer *peer,
 			    struct per_peer_state *pps,
 			    struct channel *channel)
 {
-	u32 max_to_self_delay;
+	u32 max_to_self_delay, blockheight;
 	struct amount_msat min_effective_htlc_capacity;
 	struct channel_config unused_config;
 	struct channel_inflight *inflight, *first_inflight;
@@ -3253,6 +3269,8 @@ void peer_restart_dualopend(struct peer *peer,
 
 	inflight = channel_current_inflight(channel);
 	assert(inflight);
+	blockheight = get_blockheight(channel->blockheight_states,
+				      channel->opener, LOCAL);
 
 	/* Get the first inflight to figure out the original feerate
 	 * for this channel. It's fine if it's the same as the current */
@@ -3293,6 +3311,7 @@ void peer_restart_dualopend(struct peer *peer,
 				      inflight->remote_tx_sigs,
                                       channel->fee_states,
 				      channel->channel_flags,
+				      blockheight,
 				      inflight->lease_expiry,
 				      inflight->lease_commit_sig,
 				      inflight->lease_chan_max_msat,
