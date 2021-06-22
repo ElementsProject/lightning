@@ -281,7 +281,18 @@ def test_gossip_jsonrpc(node_factory):
     assert only_one(channels1)['destination'] == l2.info['id']
     assert channels1 == channels2
 
-    l2.rpc.listchannels()['channels']
+    # Test listchannels-by-destination
+    channels1 = l1.rpc.listchannels(destination=l1.info['id'])['channels']
+    channels2 = l2.rpc.listchannels(destination=l1.info['id'])['channels']
+    assert only_one(channels1)['destination'] == l1.info['id']
+    assert only_one(channels1)['source'] == l2.info['id']
+    assert channels1 == channels2
+
+    # Test only one of short_channel_id, source or destination can be supplied
+    with pytest.raises(RpcError, match=r"Can only specify one of.*"):
+        l1.rpc.listchannels(source=l1.info['id'], destination=l2.info['id'])
+    with pytest.raises(RpcError, match=r"Can only specify one of.*"):
+        l1.rpc.listchannels(short_channel_id="1x1x1", source=l2.info['id'])
 
     # Now proceed to funding-depth and do a full gossip round
     l1.bitcoin.generate_block(5)
