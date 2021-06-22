@@ -482,7 +482,7 @@ bool fromwire_channeld_got_funding_locked(const void *p, struct pubkey *next_per
 
 /* WIRE: CHANNELD_SENDING_COMMITSIG */
 /* When we send a commitment_signed message */
-u8 *towire_channeld_sending_commitsig(const tal_t *ctx, u64 commitnum, const struct penalty_base *pbase, const struct fee_states *fee_states, const struct changed_htlc *changed, const struct bitcoin_signature *commit_sig, const struct bitcoin_signature *htlc_sigs)
+u8 *towire_channeld_sending_commitsig(const tal_t *ctx, u64 commitnum, const struct penalty_base *pbase, const struct fee_states *fee_states, const struct height_states *blockheight_states, const struct changed_htlc *changed, const struct bitcoin_signature *commit_sig, const struct bitcoin_signature *htlc_sigs)
 {
 	u16 num_changed = tal_count(changed);
 	u16 num_htlc_sigs = tal_count(htlc_sigs);
@@ -497,6 +497,7 @@ u8 *towire_channeld_sending_commitsig(const tal_t *ctx, u64 commitnum, const str
 		towire_penalty_base(&p, pbase);
 	}
 	towire_fee_states(&p, fee_states);
+	towire_height_states(&p, blockheight_states);
 	/* SENT_ADD_COMMIT */
 	towire_u16(&p, num_changed);
 	for (size_t i = 0; i < num_changed; i++)
@@ -508,7 +509,7 @@ u8 *towire_channeld_sending_commitsig(const tal_t *ctx, u64 commitnum, const str
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_channeld_sending_commitsig(const tal_t *ctx, const void *p, u64 *commitnum, struct penalty_base **pbase, struct fee_states **fee_states, struct changed_htlc **changed, struct bitcoin_signature *commit_sig, struct bitcoin_signature **htlc_sigs)
+bool fromwire_channeld_sending_commitsig(const tal_t *ctx, const void *p, u64 *commitnum, struct penalty_base **pbase, struct fee_states **fee_states, struct height_states **blockheight_states, struct changed_htlc **changed, struct bitcoin_signature *commit_sig, struct bitcoin_signature **htlc_sigs)
 {
 	u16 num_changed;
 	u16 num_htlc_sigs;
@@ -526,6 +527,7 @@ bool fromwire_channeld_sending_commitsig(const tal_t *ctx, const void *p, u64 *c
 		fromwire_penalty_base(&cursor, &plen, *pbase);
 	}
  	*fee_states = fromwire_fee_states(ctx, &cursor, &plen);
+ 	*blockheight_states = fromwire_height_states(ctx, &cursor, &plen);
  	/* SENT_ADD_COMMIT */
 	num_changed = fromwire_u16(&cursor, &plen);
  	// 2nd case changed
@@ -563,7 +565,7 @@ bool fromwire_channeld_sending_commitsig_reply(const void *p)
 
 /* WIRE: CHANNELD_GOT_COMMITSIG */
 /* When we have a commitment_signed message */
-u8 *towire_channeld_got_commitsig(const tal_t *ctx, u64 commitnum, const struct fee_states *fee_states, const struct bitcoin_signature *signature, const struct bitcoin_signature *htlc_signature, const struct added_htlc *added, const struct fulfilled_htlc *fulfilled, const struct failed_htlc **failed, const struct changed_htlc *changed, const struct bitcoin_tx *tx)
+u8 *towire_channeld_got_commitsig(const tal_t *ctx, u64 commitnum, const struct fee_states *fee_states, const struct height_states *blockheight_states, const struct bitcoin_signature *signature, const struct bitcoin_signature *htlc_signature, const struct added_htlc *added, const struct fulfilled_htlc *fulfilled, const struct failed_htlc **failed, const struct changed_htlc *changed, const struct bitcoin_tx *tx)
 {
 	u16 num_htlcs = tal_count(htlc_signature);
 	u16 num_added = tal_count(added);
@@ -575,6 +577,7 @@ u8 *towire_channeld_got_commitsig(const tal_t *ctx, u64 commitnum, const struct 
 	towire_u16(&p, WIRE_CHANNELD_GOT_COMMITSIG);
 	towire_u64(&p, commitnum);
 	towire_fee_states(&p, fee_states);
+	towire_height_states(&p, blockheight_states);
 	towire_bitcoin_signature(&p, signature);
 	towire_u16(&p, num_htlcs);
 	for (size_t i = 0; i < num_htlcs; i++)
@@ -598,7 +601,7 @@ u8 *towire_channeld_got_commitsig(const tal_t *ctx, u64 commitnum, const struct 
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_channeld_got_commitsig(const tal_t *ctx, const void *p, u64 *commitnum, struct fee_states **fee_states, struct bitcoin_signature *signature, struct bitcoin_signature **htlc_signature, struct added_htlc **added, struct fulfilled_htlc **fulfilled, struct failed_htlc ***failed, struct changed_htlc **changed, struct bitcoin_tx **tx)
+bool fromwire_channeld_got_commitsig(const tal_t *ctx, const void *p, u64 *commitnum, struct fee_states **fee_states, struct height_states **blockheight_states, struct bitcoin_signature *signature, struct bitcoin_signature **htlc_signature, struct added_htlc **added, struct fulfilled_htlc **fulfilled, struct failed_htlc ***failed, struct changed_htlc **changed, struct bitcoin_tx **tx)
 {
 	u16 num_htlcs;
 	u16 num_added;
@@ -613,6 +616,7 @@ bool fromwire_channeld_got_commitsig(const tal_t *ctx, const void *p, u64 *commi
 		return false;
  	*commitnum = fromwire_u64(&cursor, &plen);
  	*fee_states = fromwire_fee_states(ctx, &cursor, &plen);
+ 	*blockheight_states = fromwire_height_states(ctx, &cursor, &plen);
  	fromwire_bitcoin_signature(&cursor, &plen, signature);
  	num_htlcs = fromwire_u16(&cursor, &plen);
  	// 2nd case htlc_signature
@@ -667,7 +671,7 @@ bool fromwire_channeld_got_commitsig_reply(const void *p)
 }
 
 /* WIRE: CHANNELD_GOT_REVOKE */
-u8 *towire_channeld_got_revoke(const tal_t *ctx, u64 revokenum, const struct secret *per_commitment_secret, const struct pubkey *next_per_commit_point, const struct fee_states *fee_states, const struct changed_htlc *changed, const struct penalty_base *pbase, const struct bitcoin_tx *penalty_tx)
+u8 *towire_channeld_got_revoke(const tal_t *ctx, u64 revokenum, const struct secret *per_commitment_secret, const struct pubkey *next_per_commit_point, const struct fee_states *fee_states, const struct height_states *blockheight_states, const struct changed_htlc *changed, const struct penalty_base *pbase, const struct bitcoin_tx *penalty_tx)
 {
 	u16 num_changed = tal_count(changed);
 	u8 *p = tal_arr(ctx, u8, 0);
@@ -678,6 +682,7 @@ u8 *towire_channeld_got_revoke(const tal_t *ctx, u64 revokenum, const struct sec
 	towire_pubkey(&p, next_per_commit_point);
 	/* RCVD_ADD_ACK_REVOCATION */
 	towire_fee_states(&p, fee_states);
+	towire_height_states(&p, blockheight_states);
 	towire_u16(&p, num_changed);
 	for (size_t i = 0; i < num_changed; i++)
 		towire_changed_htlc(&p, changed + i);
@@ -696,7 +701,7 @@ u8 *towire_channeld_got_revoke(const tal_t *ctx, u64 revokenum, const struct sec
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_channeld_got_revoke(const tal_t *ctx, const void *p, u64 *revokenum, struct secret *per_commitment_secret, struct pubkey *next_per_commit_point, struct fee_states **fee_states, struct changed_htlc **changed, struct penalty_base **pbase, struct bitcoin_tx **penalty_tx)
+bool fromwire_channeld_got_revoke(const tal_t *ctx, const void *p, u64 *revokenum, struct secret *per_commitment_secret, struct pubkey *next_per_commit_point, struct fee_states **fee_states, struct height_states **blockheight_states, struct changed_htlc **changed, struct penalty_base **pbase, struct bitcoin_tx **penalty_tx)
 {
 	u16 num_changed;
 
@@ -710,6 +715,7 @@ bool fromwire_channeld_got_revoke(const tal_t *ctx, const void *p, u64 *revokenu
  	fromwire_pubkey(&cursor, &plen, next_per_commit_point);
  	/* RCVD_ADD_ACK_REVOCATION */
 	*fee_states = fromwire_fee_states(ctx, &cursor, &plen);
+ 	*blockheight_states = fromwire_height_states(ctx, &cursor, &plen);
  	num_changed = fromwire_u16(&cursor, &plen);
  	// 2nd case changed
 	*changed = num_changed ? tal_arr(ctx, struct changed_htlc, num_changed) : NULL;
@@ -1167,4 +1173,4 @@ bool fromwire_channeld_blockheight(const void *p, u32 *blockheight)
  	*blockheight = fromwire_u32(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:943ce198f20b823bbf667e253b66b1810caa3aac410e55744ac0cbeb7438904a
+// SHA256STAMP:8abda9aa7ebc8598eba2e8827f4214d63f1188fefab17b28d77dce0198e3dfc6
