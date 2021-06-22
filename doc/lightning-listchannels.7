@@ -3,7 +3,7 @@
 lightning-listchannels - Command to query active lightning channels in the entire network
 .SH SYNOPSIS
 
-\fBlistchannels\fR [\fIshort_channel_id\fR] [\fIsource\fR]
+\fBlistchannels\fR [\fIshort_channel_id\fR] [\fIsource\fR] [\fIdestination\fR]
 
 .SH DESCRIPTION
 
@@ -20,7 +20,12 @@ If \fIsource\fR is a node id, then only channels leading from that node id
 are returned\.
 
 
-If neither is supplied, data on all lightning channels known to this
+If \fIdestination\fR is a node id, then only channels leading to that node id
+are returned\.
+
+
+Only one of \fIshort_channgel_id\fR, \fIsource\fR or \fIdestination\fR can be supplied\.
+If nothing is supplied, data on all lightning channels known to this
 node, are returned\. These can be local channels or public channels
 broadcast on the gossip network\.
 
@@ -60,8 +65,8 @@ On success, an object containing \fBchannels\fR is returned\.  It is an array of
 
 .RE
 
-If \fIshort_channel_id\fR or \fIsource\fR is supplied and no matching channels
-are found, a "channels" object with an empty list is returned\.
+If one of \fIshort_channel_id\fR, \fIsource\fR or \fIdestination\fR is supplied and no
+matching channels are found, a "channels" object with an empty list is returned\.
 
 
 On error the returned object will contain \fBcode\fR and \fBmessage\fR properties,
@@ -93,4 +98,4 @@ BOLT #7:
 \fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md\fR
 
 .RE
-\" SHA256STAMP:e228d4a2553ac8fc052fd0c3acfac32cdce6f0cfd37f1bb238a87de2fa99e553
+\" SHA256STAMP:b53e67e29b3ac9efe5157e8656ea5af5b2e418559655cc6f39fa99875f52bdc0
