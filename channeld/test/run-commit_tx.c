@@ -800,6 +800,7 @@ int main(int argc, const char *argv[])
 		       &local_funding_pubkey,
 		       &remote_funding_pubkey,
 		       LOCAL, to_self_delay,
+		       0, 0, /* No lease */
 		       &keyset,
 		       feerate_per_kw,
 		       dust_limit,
@@ -815,6 +816,7 @@ int main(int argc, const char *argv[])
 			&local_funding_pubkey,
 			&remote_funding_pubkey,
 			REMOTE, to_self_delay,
+		        0, 0, /* No lease */
 			&keyset,
 			feerate_per_kw,
 			dust_limit,
@@ -863,6 +865,7 @@ int main(int argc, const char *argv[])
 		       &local_funding_pubkey,
 		       &remote_funding_pubkey,
 		       LOCAL, to_self_delay,
+		       0, 0, /* No lease */
 		       &keyset,
 		       feerate_per_kw,
 		       dust_limit,
@@ -878,6 +881,7 @@ int main(int argc, const char *argv[])
 			&local_funding_pubkey,
 			&remote_funding_pubkey,
 			REMOTE, to_self_delay,
+		        0, 0, /* No lease */
 			&keyset,
 			feerate_per_kw,
 			dust_limit,
@@ -914,6 +918,7 @@ int main(int argc, const char *argv[])
 				  &local_funding_pubkey,
 				  &remote_funding_pubkey,
 				  LOCAL, to_self_delay,
+				  0, 0, /* No lease */
 				  &keyset,
 				  feerate_per_kw,
 				  dust_limit,
@@ -930,6 +935,7 @@ int main(int argc, const char *argv[])
 				&local_funding_pubkey,
 				&remote_funding_pubkey,
 				REMOTE, to_self_delay,
+				0, 0, /* No lease */
 				&keyset,
 				feerate_per_kw,
 				dust_limit,
@@ -972,6 +978,7 @@ int main(int argc, const char *argv[])
 			       &local_funding_pubkey,
 			       &remote_funding_pubkey,
 			       LOCAL, to_self_delay,
+			       0, 0, /* No lease */
 			       &keyset,
 			       feerate_per_kw-1,
 			       dust_limit,
@@ -1020,6 +1027,7 @@ int main(int argc, const char *argv[])
 				  &local_funding_pubkey,
 				  &remote_funding_pubkey,
 				  LOCAL, to_self_delay,
+				  0, 0, /* No lease */
 				  &keyset,
 				  feerate_per_kw,
 				  dust_limit,
@@ -1094,6 +1102,7 @@ int main(int argc, const char *argv[])
 			       &local_funding_pubkey,
 			       &remote_funding_pubkey,
 			       LOCAL, to_self_delay,
+			       0, 0, /* No lease */
 			       &keyset,
 			       feerate_per_kw,
 			       dust_limit,
@@ -1148,6 +1157,7 @@ int main(int argc, const char *argv[])
 		       &local_funding_pubkey,
 		       &remote_funding_pubkey,
 		       LOCAL, to_self_delay,
+		       0, 0, /* No lease */
 		       &keyset,
 		       feerate_per_kw,
 		       dust_limit,
@@ -1163,6 +1173,7 @@ int main(int argc, const char *argv[])
 			&local_funding_pubkey,
 			&remote_funding_pubkey,
 			REMOTE, to_self_delay,
+			0, 0, /* No lease */
 			&keyset,
 			feerate_per_kw,
 			dust_limit,

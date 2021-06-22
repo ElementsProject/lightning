@@ -90,6 +90,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			     const struct pubkey *remote_funding_key,
 			     enum side opener,
 			     u16 to_self_delay,
+			     u32 lease_expiry,
+			     u32 blockheight,
 			     const struct keyset *keyset,
 			     u32 feerate_per_kw,
 			     struct amount_sat dust_limit,
@@ -234,9 +236,16 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	 *    output](#to_local-output).
 	 */
 	if (amount_msat_greater_eq_sat(self_pay, dust_limit)) {
+		/* BOLT- #3:
+		 * In a leased channel, the `to_local` output that
+		 * pays the `accepter` node is modified so that its
+		 * CSV is equal to the greater of the
+		 * `to_self_delay` or the `lease_end` - `blockheight`.
+		*/
 		u8 *wscript = to_self_wscript(tmpctx,
 					      to_self_delay,
-					      1, /* FIXME: csv_lock */
+					      lease_expiry > blockheight ?
+						lease_expiry - blockheight : 0,
 					      keyset);
 		u8 *p2wsh = scriptpubkey_p2wsh(tx, wscript);
 		struct amount_sat amount = amount_msat_to_sat_round_down(self_pay);
@@ -278,9 +287,22 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 * Otherwise, this output is a simple P2WPKH to `remotepubkey`.
 		 */
 		if (option_anchor_outputs) {
-			/* FIXME: use csv_lock */
+			/* BOLT- #3:
+			 * ##### Leased channel (`option_will_fund`)
+			 *
+			 * If a `lease` applies to the channel, the
+			 * `to_remote` output of the `initiator`
+			 * ensures the `leasor` funds are not
+			 * spendable until the lease expires.
+			 *
+			 * <remote_pubkey> OP_CHECKSIGVERIFY
+			 *       MAX(1, lease_end - blockheight)
+			 *       OP_CHECKSEQUENCEVERIFY
+			 */
+			u32 csv_lock = lease_expiry > blockheight ?
+				lease_expiry - blockheight : 1;
 			scriptpubkey = scriptpubkey_p2wsh(tmpctx,
-							  anchor_to_remote_redeem(tmpctx, &keyset->other_payment_key, 1));
+							  anchor_to_remote_redeem(tmpctx, &keyset->other_payment_key, csv_lock));
 		} else {
 			scriptpubkey = scriptpubkey_p2wpkh(tmpctx,
 							   &keyset->other_payment_key);
