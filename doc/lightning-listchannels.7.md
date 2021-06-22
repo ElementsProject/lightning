@@ -4,7 +4,7 @@ lightning-listchannels -- Command to query active lightning channels in the enti
 SYNOPSIS
 --------
 
-**listchannels** \[*short\_channel\_id*\] \[*source*\]
+**listchannels** \[*short\_channel\_id*\] \[*source*\] \[*destination*\]
 
 DESCRIPTION
 -----------
@@ -19,7 +19,11 @@ matching *short\_channel\_id* are returned.  Otherwise, it must be null.
 If *source* is a node id, then only channels leading from that node id
 are returned.
 
-If neither is supplied, data on all lightning channels known to this
+If *destination* is a node id, then only channels leading to that node id
+are returned.
+
+Only one of *short\_channgel\_id*, *source* or *destination* can be supplied.
+If nothing is supplied, data on all lightning channels known to this
 node, are returned. These can be local channels or public channels
 broadcast on the gossip network.
 
@@ -44,8 +48,8 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **htlc_maximum_msat** (msat, optional): The largest payment *source* will allow via this channel
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
-If *short\_channel\_id* or *source* is supplied and no matching channels
-are found, a "channels" object with an empty list is returned.
+If one of *short\_channel\_id*, *source* or *destination* is supplied and no
+matching channels are found, a "channels" object with an empty list is returned.
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
