@@ -553,6 +553,33 @@ static const struct json_command feerates_command = {
 };
 AUTODATA(json_command, &feerates_command);
 
+static struct command_result *json_parse_feerate(struct command *cmd,
+						 const char *buffer,
+						 const jsmntok_t *obj UNNEEDED,
+						 const jsmntok_t *params)
+{
+	struct json_stream *response;
+	u32 *feerate;
+
+	if (!param(cmd, buffer, params,
+		   p_req("feerate", param_feerate, &feerate),
+		   NULL))
+		return command_param_failed();
+
+	response = json_stream_success(cmd);
+	json_add_num(response, feerate_style_name(FEERATE_PER_KSIPA),
+		     feerate_to_style(*feerate, FEERATE_PER_KSIPA));
+	return command_success(cmd, response);
+}
+
+static const struct json_command parse_feerate_command = {
+	"parsefeerate",
+	"bitcoin",
+	json_parse_feerate,
+	"Return current feerate in perkw + perkb for given feerate string."
+};
+AUTODATA(json_command, &parse_feerate_command);
+
 static void next_updatefee_timer(struct chain_topology *topo)
 {
 	/* This takes care of its own lifetime. */

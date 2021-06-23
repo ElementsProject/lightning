@@ -110,8 +110,8 @@ manpage.
 SEE ALSO
 --------
 
-lightning-fundchannel(7), lightning-withdraw(7), lightning-txprepare(7),
-lightning-fundchannel_start(7).
+lightning-parsefeerate(7), lightning-fundchannel(7), lightning-withdraw(7),
+lightning-txprepare(7), lightning-fundchannel_start(7).
 
 RESOURCES
 ---------

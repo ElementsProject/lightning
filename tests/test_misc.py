@@ -1462,6 +1462,11 @@ def test_feerates(node_factory):
     types = ["opening", "mutual_close", "unilateral_close", "delayed_to_us",
              "htlc_resolution", "penalty"]
 
+    # Try parsing the feerates, won't work because can't estimate
+    for t in types:
+        with pytest.raises(RpcError, match=r'Cannot estimate fees'):
+            feerate = l1.rpc.parsefeerate(t)
+
     # Query feerates (shouldn't give any!)
     wait_for(lambda: len(l1.rpc.feerates('perkw')['perkw']) == 2)
     feerates = l1.rpc.feerates('perkw')
@@ -1539,6 +1544,13 @@ def test_feerates(node_factory):
     htlc_feerate = feerates["perkw"]["htlc_resolution"]
     htlc_timeout_cost = feerates["onchain_fee_estimates"]["htlc_timeout_satoshis"]
     htlc_success_cost = feerates["onchain_fee_estimates"]["htlc_success_satoshis"]
+
+    # Try parsing the feerates, won't work because can't estimate
+    for t in types:
+        feerate = l1.rpc.parsefeerate(t)
+        assert feerate['perkw']
+        assert 'perkb' not in feerate
+
     if EXPERIMENTAL_FEATURES:
         # option_anchor_outputs
         assert htlc_timeout_cost == htlc_feerate * 666 // 1000

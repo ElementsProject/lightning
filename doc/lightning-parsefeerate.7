@@ -1,0 +1,44 @@
+.TH "LIGHTNING-PARSEFEERATE" "7" "" "" "lightning-parsefeerate"
+.SH NAME
+lightning-parsefeerate - Command for parsing a feerate string to a feerate
+.SH SYNOPSIS
+
+\fBparsefeerate\fR \fIfeerate_str\fR
+
+.SH DESCRIPTION
+
+The \fBparsefeerate\fR command returns the current feerate for any valid
+\fIfeerate_str\fR\. This is useful for finding the current feerate that a
+\fBfundpsbt\fR or \fButxopsbt\fR command might use\.
+
+.SH RETURN VALUE
+
+On success, an object is returned, containing:
+
+.RS
+.IP \[bu]
+\fBperkw\fR (u32, optional): Value of \fIfeerate_str\fR in kilosipa
+
+.RE
+.SH ERRORS
+
+The \fBparsefeerate\fR command will error if the \fIfeerate_str\fR format is
+not recognized\.
+
+.RS
+.IP \[bu]
+-32602: If the given parameters are wrong\.
+
+.RE
+.SH TRIVIA
+
+In C-lightning we like to call the weight unit "sipa"
+in honor of Pieter Wuille,
+who uses the name "sipa" on IRC and elsewhere\.
+Internally we call the \fIperkw\fR style as "feerate per kilosipa"\.
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:1395d3fe85f6eb1f09c3706c50a9660dd9ade04e71435bde3fe1f9660f7b2655

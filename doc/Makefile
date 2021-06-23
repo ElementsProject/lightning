@@ -54,6 +54,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-openchannel_signed.7 \
 	doc/lightning-openchannel_update.7 \
 	doc/lightning-pay.7 \
+	doc/lightning-parsefeerate.7 \
 	doc/lightning-plugin.7 \
 	doc/lightning-reserveinputs.7 \
 	doc/lightning-sendinvoice.7 \
