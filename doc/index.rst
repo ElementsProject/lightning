@@ -82,6 +82,7 @@ c-lightning Documentation
    lightning-openchannel_init <lightning-openchannel_init.7.md>
    lightning-openchannel_signed <lightning-openchannel_signed.7.md>
    lightning-openchannel_update <lightning-openchannel_update.7.md>
+   lightning-parsefeerate <lightning-parsefeerate.7.md>
    lightning-pay <lightning-pay.7.md>
    lightning-ping <lightning-ping.7.md>
    lightning-plugin <lightning-plugin.7.md>
