@@ -193,6 +193,16 @@ void rpc_scan(struct plugin *plugin,
 	      const char *guide,
 	      ...);
 
+/* Synchronous helper to send command and extract fields from
+ * response.  Returns an error message if fails.
+ **/
+const char *rpc_scan_err(const tal_t *ctx,
+			 struct plugin *plugin,
+			 const char *method,
+			 const struct json_out *params TAKES,
+			 const char *guide,
+			 ...);
+
 /* Send an async rpc request to lightningd. */
 struct command_result *send_outreq(struct plugin *plugin,
 				   const struct out_req *req);

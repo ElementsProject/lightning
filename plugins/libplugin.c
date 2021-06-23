@@ -484,11 +484,12 @@ static struct json_out *start_json_request(const tal_t *ctx,
 }
 
 /* Synchronous routine to send command and extract fields from response */
-void rpc_scan(struct plugin *plugin,
-	      const char *method,
-	      const struct json_out *params TAKES,
-	      const char *guide,
-	      ...)
+static const char *rpc_scan_list(const tal_t *ctx,
+				 struct plugin *plugin,
+				 const char *method,
+				 const struct json_out *params TAKES,
+				 const char *guide,
+				 va_list *ap)
 {
 	bool error;
 	const char *err;
@@ -496,26 +497,59 @@ void rpc_scan(struct plugin *plugin,
 	int reqlen;
 	const char *p;
 	struct json_out *jout;
-	va_list ap;
 
 	jout = start_json_request(tmpctx, 0, method, params);
 	finish_and_send_json(plugin->rpc_conn->fd, jout);
 
 	read_rpc_reply(tmpctx, plugin, &contents, &error, &reqlen);
 	if (error)
-		plugin_err(plugin, "Got error reply to %s: '%.*s'",
-		     method, reqlen, membuf_elems(&plugin->rpc_conn->mb));
+		return tal_fmt(ctx,"Got error reply to %s: '%.*s'",
+			       method, reqlen,
+			       membuf_elems(&plugin->rpc_conn->mb));
 
 	p = membuf_consume(&plugin->rpc_conn->mb, reqlen);
 
+	err = json_scanv(tmpctx, p, contents, guide, *ap);
+	if (err)
+		return tal_fmt(ctx,
+			       "Could not parse %s in reply to %s: %s: '%.*s'",
+			       guide, method, err, reqlen,
+			       membuf_elems(&plugin->rpc_conn->mb));
+	return NULL;
+}
+
+const char *rpc_scan_err(const tal_t *ctx,
+			 struct plugin *plugin,
+			 const char *method,
+			 const struct json_out *params TAKES,
+			 const char *guide,
+			 ...)
+{
+	va_list ap;
+	const char *err;
+
 	va_start(ap, guide);
-	err = json_scanv(tmpctx, p, contents, guide, ap);
+	err = rpc_scan_list(ctx, plugin, method, params, guide, &ap);
+	va_end(ap);
+
+	return err;
+}
+
+void rpc_scan(struct plugin *plugin,
+	      const char *method,
+	      const struct json_out *params TAKES,
+	      const char *guide,
+	      ...)
+{
+	va_list ap;
+	const char *err;
+
+	va_start(ap, guide);
+	err = rpc_scan_list(plugin, plugin, method, params, guide, &ap);
 	va_end(ap);
 
 	if (err)
-		plugin_err(plugin, "Could not parse %s in reply to %s: %s: '%.*s'",
-			   guide, method, err,
-			   reqlen, membuf_elems(&plugin->rpc_conn->mb));
+		plugin_err(plugin, err);
 }
 
 static void handle_rpc_reply(struct plugin *plugin, const jsmntok_t *toks)
