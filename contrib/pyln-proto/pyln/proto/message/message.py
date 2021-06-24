@@ -521,8 +521,12 @@ tlvdata,reply_channel_range_tlvs,timestamps_tlv,encoding_type,u8,
         ret: Dict[str, Any] = {}
         for k, v in val.items():
             field = self.find_field(k)
-            assert field
-            ret[k] = field.val_to_py(v, val)
+            if field:
+                ret[k] = field.val_to_py(v, val)
+            else:
+                # Unknown TLV, index by number.
+                assert isinstance(k, int)
+                ret[k] = v.hex()
         return ret
 
     def write(self, io_out: BufferedIOBase, v: Optional[Dict[str, Any]], otherfields: Dict[str, Any]) -> None:
