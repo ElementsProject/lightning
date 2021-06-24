@@ -17,4 +17,3 @@
 [submodule "external/lnprototest"]
 	path = external/lnprototest
 	url = https://github.com/rustyrussell/lnprototest.git
-	branch = master
