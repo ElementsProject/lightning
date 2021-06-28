@@ -236,8 +236,8 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     # Default feerate = 15000/11000/7500/1000
     # It will start at the second number, accepting anything above the first.
     feerates = [[20000, 11000, 15000, 7400], [8000, 6000, 1001, 100]]
-    amounts = [0, 545999, 546000]
-    num_peers = len(feerates) * len(amounts)
+    balance = [False, True]
+    num_peers = len(feerates) * len(balance)
 
     addr = l1.rpc.newaddr()['bech32']
     bitcoind.rpc.sendtoaddress(addr, 1)
@@ -248,10 +248,10 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     # Create them in a batch, for speed!
     peers = []
     for feerate in feerates:
-        for amount in amounts:
+        for b in balance:
             p = node_factory.get_node(feerates=feerate)
             p.feerate = feerate
-            p.amount = amount
+            p.balance = balance
             l1.rpc.connect(p.info['id'], 'localhost', p.port)
             peers.append(p)
 
@@ -266,7 +266,7 @@ def test_closing_different_fees(node_factory, bitcoind, executor):
     l1.daemon.wait_for_logs(['update for channel .* now ACTIVE'] * num_peers
                             + ['to CHANNELD_NORMAL'] * num_peers)
     for p in peers:
-        if p.amount != 0:
+        if p.balance:
             l1.pay(p, 100000000)
 
     # Now close all channels (not unilaterally!)
