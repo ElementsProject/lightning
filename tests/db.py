@@ -6,7 +6,6 @@ import os
 import psycopg2
 import random
 import re
-import shutil
 import signal
 import sqlite3
 import string
@@ -24,13 +23,12 @@ class Sqlite3Db(object):
         return None
 
     def query(self, query):
-        orig = os.path.join(self.path)
-        copy = self.path + ".copy"
-        shutil.copyfile(orig, copy)
-        db = sqlite3.connect(copy)
+        db = sqlite3.connect(self.path)
 
         db.row_factory = sqlite3.Row
         c = db.cursor()
+        # Don't get upset by concurrent writes; wait for up to 5 seconds!
+        c.execute("PRAGMA busy_timeout = 5000")
         c.execute(query)
         rows = c.fetchall()
 
