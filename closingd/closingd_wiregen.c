@@ -48,7 +48,7 @@ bool closingd_wire_is_defined(u16 type)
 
 /* WIRE: CLOSINGD_INIT */
 /* Begin!  (passes peer fd */
-u8 *towire_closingd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct per_peer_state *pps, const struct channel_id *channel_id, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshi, const struct pubkey *local_fundingkey, const struct pubkey *remote_fundingkey, enum side opener, struct amount_sat local_sat, struct amount_sat remote_sat, struct amount_sat our_dust_limit, struct amount_sat min_fee_satoshi, struct amount_sat fee_limit_satoshi, struct amount_sat initial_fee_satoshi, const u8 *local_scriptpubkey, const u8 *remote_scriptpubkey, u64 fee_negotiation_step, u8 fee_negotiation_step_unit, bool dev_fast_gossip, const struct bitcoin_outpoint *shutdown_wrong_funding)
+u8 *towire_closingd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct per_peer_state *pps, const struct channel_id *channel_id, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshi, const struct pubkey *local_fundingkey, const struct pubkey *remote_fundingkey, enum side opener, struct amount_sat local_sat, struct amount_sat remote_sat, struct amount_sat our_dust_limit, u32 min_feerate_perksipa, u32 preferred_feerate_perksipa, struct amount_sat fee_limit_satoshi, const u8 *local_scriptpubkey, const u8 *remote_scriptpubkey, u64 fee_negotiation_step, u8 fee_negotiation_step_unit, bool dev_fast_gossip, const struct bitcoin_outpoint *shutdown_wrong_funding)
 {
 	u16 local_scriptpubkey_len = tal_count(local_scriptpubkey);
 	u16 remote_scriptpubkey_len = tal_count(remote_scriptpubkey);
@@ -67,9 +67,9 @@ u8 *towire_closingd_init(const tal_t *ctx, const struct chainparams *chainparams
 	towire_amount_sat(&p, local_sat);
 	towire_amount_sat(&p, remote_sat);
 	towire_amount_sat(&p, our_dust_limit);
-	towire_amount_sat(&p, min_fee_satoshi);
+	towire_u32(&p, min_feerate_perksipa);
+	towire_u32(&p, preferred_feerate_perksipa);
 	towire_amount_sat(&p, fee_limit_satoshi);
-	towire_amount_sat(&p, initial_fee_satoshi);
 	towire_u16(&p, local_scriptpubkey_len);
 	towire_u8_array(&p, local_scriptpubkey, local_scriptpubkey_len);
 	towire_u16(&p, remote_scriptpubkey_len);
@@ -86,7 +86,7 @@ u8 *towire_closingd_init(const tal_t *ctx, const struct chainparams *chainparams
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_closingd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct per_peer_state **pps, struct channel_id *channel_id, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshi, struct pubkey *local_fundingkey, struct pubkey *remote_fundingkey, enum side *opener, struct amount_sat *local_sat, struct amount_sat *remote_sat, struct amount_sat *our_dust_limit, struct amount_sat *min_fee_satoshi, struct amount_sat *fee_limit_satoshi, struct amount_sat *initial_fee_satoshi, u8 **local_scriptpubkey, u8 **remote_scriptpubkey, u64 *fee_negotiation_step, u8 *fee_negotiation_step_unit, bool *dev_fast_gossip, struct bitcoin_outpoint **shutdown_wrong_funding)
+bool fromwire_closingd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct per_peer_state **pps, struct channel_id *channel_id, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshi, struct pubkey *local_fundingkey, struct pubkey *remote_fundingkey, enum side *opener, struct amount_sat *local_sat, struct amount_sat *remote_sat, struct amount_sat *our_dust_limit, u32 *min_feerate_perksipa, u32 *preferred_feerate_perksipa, struct amount_sat *fee_limit_satoshi, u8 **local_scriptpubkey, u8 **remote_scriptpubkey, u64 *fee_negotiation_step, u8 *fee_negotiation_step_unit, bool *dev_fast_gossip, struct bitcoin_outpoint **shutdown_wrong_funding)
 {
 	u16 local_scriptpubkey_len;
 	u16 remote_scriptpubkey_len;
@@ -108,9 +108,9 @@ bool fromwire_closingd_init(const tal_t *ctx, const void *p, const struct chainp
  	*local_sat = fromwire_amount_sat(&cursor, &plen);
  	*remote_sat = fromwire_amount_sat(&cursor, &plen);
  	*our_dust_limit = fromwire_amount_sat(&cursor, &plen);
- 	*min_fee_satoshi = fromwire_amount_sat(&cursor, &plen);
+ 	*min_feerate_perksipa = fromwire_u32(&cursor, &plen);
+ 	*preferred_feerate_perksipa = fromwire_u32(&cursor, &plen);
  	*fee_limit_satoshi = fromwire_amount_sat(&cursor, &plen);
- 	*initial_fee_satoshi = fromwire_amount_sat(&cursor, &plen);
  	local_scriptpubkey_len = fromwire_u16(&cursor, &plen);
  	// 2nd case local_scriptpubkey
 	*local_scriptpubkey = local_scriptpubkey_len ? tal_arr(ctx, u8, local_scriptpubkey_len) : NULL;
@@ -195,4 +195,4 @@ bool fromwire_closingd_complete(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:cbcaa37f43a9705e657ef6905e276ac4b703171a3f9dcd6f6ca352e3d753a6f2
+// SHA256STAMP:a8b0af1ae87e71bc448585060b8d449c3e5f0d0f4f3ac195dcd4d84f8176ae17

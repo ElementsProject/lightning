@@ -197,8 +197,8 @@ void peer_start_closingd(struct channel *channel,
 {
 	u8 *initmsg;
 	u32 feerate;
-	struct amount_sat minfee, startfee, feelimit;
 	struct amount_msat their_msat;
+	struct amount_sat feelimit;
 	int hsmfd;
 	struct lightningd *ld = channel->peer->ld;
 	u32 final_commit_feerate;
@@ -247,10 +247,6 @@ void peer_start_closingd(struct channel *channel,
 	feelimit = commit_tx_base_fee(final_commit_feerate, 0,
 				      channel->option_anchor_outputs);
 
-	/* Pick some value above slow feerate (or min possible if unknown) */
-	minfee = commit_tx_base_fee(feerate_min(ld, NULL), 0,
-				    channel->option_anchor_outputs);
-
 	/* If we can't determine feerate, start at half unilateral feerate. */
 	feerate = mutual_close_feerate(ld->topology);
 	if (!feerate) {
@@ -258,13 +254,6 @@ void peer_start_closingd(struct channel *channel,
 		if (feerate < feerate_floor())
 			feerate = feerate_floor();
 	}
-	startfee = commit_tx_base_fee(feerate, 0,
-				      channel->option_anchor_outputs);
-
-	if (amount_sat_greater(startfee, feelimit))
-		startfee = feelimit;
-	if (amount_sat_greater(minfee, feelimit))
-		minfee = feelimit;
 
 	/* BOLT #3:
 	 *
@@ -298,7 +287,7 @@ void peer_start_closingd(struct channel *channel,
 				       amount_msat_to_sat_round_down(channel->our_msat),
 				       amount_msat_to_sat_round_down(their_msat),
 				       channel->our_config.dust_limit,
-				       minfee, feelimit, startfee,
+				       feerate_min(ld, NULL), feerate, feelimit,
 				       channel->shutdown_scriptpubkey[LOCAL],
 				       channel->shutdown_scriptpubkey[REMOTE],
 				       channel->closing_fee_negotiation_step,
