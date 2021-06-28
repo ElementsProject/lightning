@@ -79,7 +79,7 @@ static bool closing_fee_is_acceptable(struct lightningd *ld,
 	if (amount_sat_less(fee, min_fee)) {
 		log_debug(channel->log, "... That's below our min %s"
 			  " for weight %"PRIu64" at feerate %u",
-			  type_to_string(tmpctx, struct amount_sat, &fee),
+			  type_to_string(tmpctx, struct amount_sat, &min_fee),
 			  weight, min_feerate);
 		return false;
 	}
