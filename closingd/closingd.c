@@ -491,6 +491,84 @@ static void closing_dev_memleak(const tal_t *ctx,
 }
 #endif /* DEVELOPER */
 
+/* Figure out what weight we actually expect for this closing tx (using zero fees
+ * gives the largest possible tx: larger values might omit outputs). */
+static size_t closing_tx_weight_estimate(u8 *scriptpubkey[NUM_SIDES],
+					 const u8 *funding_wscript,
+					 const struct amount_sat *out,
+					 struct amount_sat funding,
+					 struct amount_sat dust_limit)
+{
+	/* We create a dummy close */
+	struct bitcoin_tx *tx;
+	struct bitcoin_txid dummy_txid;
+	struct bitcoin_signature dummy_sig;
+	struct privkey dummy_privkey;
+	struct pubkey dummy_pubkey;
+	u8 **witness;
+
+	memset(&dummy_txid, 0, sizeof(dummy_txid));
+	tx = create_close_tx(tmpctx, chainparams,
+			     scriptpubkey[LOCAL], scriptpubkey[REMOTE],
+			     funding_wscript,
+			     &dummy_txid, 0,
+			     funding,
+			     out[LOCAL],
+			     out[REMOTE],
+			     dust_limit);
+
+	/* Create a signature, any signature, so we can weigh fully "signed"
+	 * tx. */
+	dummy_sig.sighash_type = SIGHASH_ALL;
+	memset(&dummy_privkey, 1, sizeof(dummy_privkey));
+	sign_hash(&dummy_privkey, &dummy_txid.shad, &dummy_sig.s);
+	pubkey_from_privkey(&dummy_privkey, &dummy_pubkey);
+	witness = bitcoin_witness_2of2(NULL, &dummy_sig, &dummy_sig,
+				       &dummy_pubkey, &dummy_pubkey);
+	bitcoin_tx_input_set_witness(tx, 0, take(witness));
+
+	return bitcoin_tx_weight(tx);
+}
+
+/* Get the minimum and desired fees */
+static void calc_fee_bounds(size_t expected_weight,
+			    u32 min_feerate,
+			    u32 desired_feerate,
+			    struct amount_sat maxfee,
+			    struct amount_sat *minfee,
+			    struct amount_sat *desiredfee)
+{
+	*minfee = amount_tx_fee(min_feerate, expected_weight);
+	*desiredfee = amount_tx_fee(desired_feerate, expected_weight);
+
+	/* Can't exceed maxfee. */
+	if (amount_sat_greater(*minfee, maxfee))
+		*minfee = maxfee;
+
+	if (amount_sat_less(*desiredfee, *minfee)) {
+		status_unusual("Our ideal fee is %s (%u sats/perkw),"
+			       " but our minimum is %s: using that",
+			       type_to_string(tmpctx, struct amount_sat, desiredfee),
+			       desired_feerate,
+			       type_to_string(tmpctx, struct amount_sat, minfee));
+		*desiredfee = *minfee;
+	}
+	if (amount_sat_greater(*desiredfee, maxfee)) {
+		status_unusual("Our ideal fee is %s (%u sats/perkw),"
+			       " but our maximum is %s: using that",
+			       type_to_string(tmpctx, struct amount_sat, desiredfee),
+			       desired_feerate,
+			       type_to_string(tmpctx, struct amount_sat, &maxfee));
+		*desiredfee = maxfee;
+	}
+
+	status_debug("Expected closing weight = %zu, fee %s (min %s, max %s)",
+		     expected_weight,
+		     type_to_string(tmpctx, struct amount_sat, desiredfee),
+		     type_to_string(tmpctx, struct amount_sat, minfee),
+		     type_to_string(tmpctx, struct amount_sat, &maxfee));
+}
+
 int main(int argc, char *argv[])
 {
 	setup_locale();
@@ -504,6 +582,7 @@ int main(int argc, char *argv[])
 	struct amount_sat funding, out[NUM_SIDES];
 	struct amount_sat our_dust_limit;
 	struct amount_sat min_fee_to_accept, commitment_fee, offer[NUM_SIDES];
+	u32 min_feerate, initial_feerate;
 	struct feerange feerange;
 	enum side opener;
 	u8 *scriptpubkey[NUM_SIDES], *funding_wscript;
@@ -531,8 +610,8 @@ int main(int argc, char *argv[])
 				    &out[LOCAL],
 				    &out[REMOTE],
 				    &our_dust_limit,
-				    &min_fee_to_accept, &commitment_fee,
-				    &offer[LOCAL],
+				    &min_feerate, &initial_feerate,
+				    &commitment_fee,
 				    &scriptpubkey[LOCAL],
 				    &scriptpubkey[REMOTE],
 				    &fee_negotiation_step,
@@ -543,6 +622,17 @@ int main(int argc, char *argv[])
 
 	/* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = hsmd */
 	per_peer_state_set_fds(notleak(pps), 3, 4, 5);
+
+	funding_wscript = bitcoin_redeem_2of2(ctx,
+					      &funding_pubkey[LOCAL],
+					      &funding_pubkey[REMOTE]);
+
+	/* Start at what we consider a reasonable feerate for this tx. */
+	calc_fee_bounds(closing_tx_weight_estimate(scriptpubkey,
+						   funding_wscript,
+						   out, funding, our_dust_limit),
+			min_feerate, initial_feerate, commitment_fee,
+			&min_fee_to_accept, &offer[LOCAL]);
 
 	snprintf(fee_negotiation_step_str, sizeof(fee_negotiation_step_str),
 		 "%" PRIu64 "%s", fee_negotiation_step,
@@ -564,10 +654,6 @@ int main(int argc, char *argv[])
 			       type_to_string(tmpctx, struct bitcoin_txid,
 					      &wrong_funding->txid),
 			       wrong_funding->n);
-
-	funding_wscript = bitcoin_redeem_2of2(ctx,
-					      &funding_pubkey[LOCAL],
-					      &funding_pubkey[REMOTE]);
 
 	peer_billboard(
 	    true,

@@ -151,6 +151,12 @@ def basic_fee(feerate):
     return (weight * feerate) // 1000
 
 
+def closing_fee(feerate, num_outputs):
+    assert num_outputs == 1 or num_outputs == 2
+    weight = 424 + 124 * num_outputs
+    return (weight * feerate) // 1000
+
+
 def scriptpubkey_addr(scriptpubkey):
     if 'addresses' in scriptpubkey:
         return scriptpubkey['addresses'][0]

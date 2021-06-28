@@ -5,7 +5,7 @@ from shutil import copyfile
 from pyln.testing.utils import SLOW_MACHINE
 from utils import (
     only_one, sync_blockheight, wait_for, TIMEOUT,
-    account_balance, first_channel_id, basic_fee, TEST_NETWORK,
+    account_balance, first_channel_id, closing_fee, TEST_NETWORK,
     scriptpubkey_addr
 )
 
@@ -22,7 +22,7 @@ import unittest
 def test_closing(node_factory, bitcoind, chainparams):
     l1, l2 = node_factory.line_graph(2)
     chan = l1.get_channel_scid(l2)
-    fee = basic_fee(3750) if not chainparams['elements'] else 4477
+    fee = closing_fee(3750, 2) if not chainparams['elements'] else 3603
 
     l1.pay(l2, 200000000)
 
@@ -377,7 +377,7 @@ def closing_negotiation_step(node_factory, bitcoind, chainparams, opts):
         """Binary search to find feerate"""
         assert minimum != maximum
         mid = (minimum + maximum) // 2
-        mid_fee = basic_fee(mid)
+        mid_fee = closing_fee(mid, 1)
         if mid_fee > target:
             return feerate_for(target, minimum, mid)
         elif mid_fee < target:
@@ -452,11 +452,11 @@ def test_closing_negotiation_step_30pct(node_factory, bitcoind, chainparams):
     opts['fee_negotiation_step'] = '30%'
 
     opts['close_initiated_by'] = 'opener'
-    opts['expected_close_fee'] = 20537 if not chainparams['elements'] else 33870
+    opts['expected_close_fee'] = 20537 if not chainparams['elements'] else 26046
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
     opts['close_initiated_by'] = 'peer'
-    opts['expected_close_fee'] = 20233 if not chainparams['elements'] else 33366
+    opts['expected_close_fee'] = 20233 if not chainparams['elements'] else 25657
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
@@ -466,11 +466,11 @@ def test_closing_negotiation_step_50pct(node_factory, bitcoind, chainparams):
     opts['fee_negotiation_step'] = '50%'
 
     opts['close_initiated_by'] = 'opener'
-    opts['expected_close_fee'] = 20334 if not chainparams['elements'] else 33533
+    opts['expected_close_fee'] = 20334 if not chainparams['elements'] else 25789
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
     opts['close_initiated_by'] = 'peer'
-    opts['expected_close_fee'] = 20334 if not chainparams['elements'] else 33533
+    opts['expected_close_fee'] = 20334 if not chainparams['elements'] else 25789
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
@@ -480,7 +480,7 @@ def test_closing_negotiation_step_100pct(node_factory, bitcoind, chainparams):
     opts['fee_negotiation_step'] = '100%'
 
     opts['close_initiated_by'] = 'opener'
-    opts['expected_close_fee'] = 20001 if not chainparams['elements'] else 32985
+    opts['expected_close_fee'] = 20001 if not chainparams['elements'] else 25366
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
     # The close fee of 20499 looks strange in this case - one would expect
@@ -489,7 +489,7 @@ def test_closing_negotiation_step_100pct(node_factory, bitcoind, chainparams):
     # * the opener is always first to propose, he uses 50% step, so he proposes 20500
     # * the range is narrowed to [20001, 20499] and the peer proposes 20499
     opts['close_initiated_by'] = 'peer'
-    opts['expected_close_fee'] = 20499 if not chainparams['elements'] else 33808
+    opts['expected_close_fee'] = 20499 if not chainparams['elements'] else 25998
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
@@ -499,11 +499,11 @@ def test_closing_negotiation_step_1sat(node_factory, bitcoind, chainparams):
     opts['fee_negotiation_step'] = '1'
 
     opts['close_initiated_by'] = 'opener'
-    opts['expected_close_fee'] = 20989 if not chainparams['elements'] else 34621
+    opts['expected_close_fee'] = 20989 if not chainparams['elements'] else 26624
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
     opts['close_initiated_by'] = 'peer'
-    opts['expected_close_fee'] = 20010 if not chainparams['elements'] else 32995
+    opts['expected_close_fee'] = 20010 if not chainparams['elements'] else 25373
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
@@ -513,11 +513,11 @@ def test_closing_negotiation_step_700sat(node_factory, bitcoind, chainparams):
     opts['fee_negotiation_step'] = '700'
 
     opts['close_initiated_by'] = 'opener'
-    opts['expected_close_fee'] = 20151 if not chainparams['elements'] else 33459
+    opts['expected_close_fee'] = 20151 if not chainparams['elements'] else 25650
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
     opts['close_initiated_by'] = 'peer'
-    opts['expected_close_fee'] = 20499 if not chainparams['elements'] else 33746
+    opts['expected_close_fee'] = 20499 if not chainparams['elements'] else 25998
     closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
 
 
