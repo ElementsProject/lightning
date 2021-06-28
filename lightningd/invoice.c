@@ -443,7 +443,7 @@ invoice_check_payment(const tal_t *ctx,
 			log_debug(ld->log, "Attept to pay %s with amount %s > %s",
 				  type_to_string(tmpctx, struct sha256,
 						 &details->rhash),
-				  type_to_string(tmpctx, struct amount_msat, details->msat),
+				  type_to_string(tmpctx, struct amount_msat, &msat),
 				  type_to_string(tmpctx, struct amount_msat, &twice));
 			/* BOLT #4:
 			 *
