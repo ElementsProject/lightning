@@ -713,8 +713,13 @@ static void on_sigchild(int _ UNUSED)
 	 * there are no more children.  But glibc's overzealous use of
 	 * __attribute__((warn_unused_result)) means we have to
 	 * "catch" the return value. */
-        if (write(sigchld_wfd, "", 1) != 1)
-		assert(errno == EAGAIN || errno == EWOULDBLOCK);
+        if (write(sigchld_wfd, "", 1) != 1) {
+		if (errno != EAGAIN && errno == EWOULDBLOCK) {
+			/* Should not call this in a signal handler, but we're
+			 * already messed up! */
+			fatal("on_sigchild: write errno %s", strerror(errno));
+		}
+	}
 }
 
 /*~ We only need to handle SIGTERM and SIGINT for the case we are PID 1 of
