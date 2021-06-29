@@ -508,7 +508,7 @@ to gain our eternal gratitude!
 AUTHOR
 ------
 
-Rusty Russell &lt;<rusty@rustcorp.com.au>&gt; wrote this man page, and
+Rusty Russell <<rusty@rustcorp.com.au>> wrote this man page, and
 much of the configuration language, but many others did the hard work of
 actually implementing these options.
 

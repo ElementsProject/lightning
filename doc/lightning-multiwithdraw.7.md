@@ -58,7 +58,7 @@ fees) to create the transaction.
 AUTHOR
 ------
 
-ZmnSCPxj < <ZmnSCPxj@protonmail.com> > is mainly responsible.
+ZmnSCPxj <<ZmnSCPxj@protonmail.com>> is mainly responsible.
 
 SEE ALSO
 --------

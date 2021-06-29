@@ -69,7 +69,7 @@ to gain our eternal gratitude!
 
 AUTHOR
 ------
-ZmnSCPxj < <ZmnSCPxj@protonmail.com> > wrote the initial version of
+ZmnSCPxj <<ZmnSCPxj@protonmail.com>> wrote the initial version of
 this man page, but many others did the hard work of actually implementing
 **lightning-hsmtool**.
 

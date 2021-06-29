@@ -16,6 +16,7 @@ C-lightning will also smoothen feerate estimations from the backend\.
 
 \fIstyle\fR is either of the two strings:
 
+
 .RS
 .IP \[bu]
 \fIperkw\fR - provide feerate in units of satoshis per 1000 weight\.
@@ -25,6 +26,7 @@ C-lightning will also smoothen feerate estimations from the backend\.
 .RE
 
 Bitcoin transactions have non-witness and witness bytes:
+
 
 .RS
 .IP \[bu]
@@ -55,6 +57,7 @@ which will override the recommended feerates returned by \fBfeerates\fR\.
 .SH RETURN VALUE
 
 On success, an object is returned, containing:
+
 
 .RS
 .IP \[bu]
@@ -122,6 +125,7 @@ On success, an object is returned, containing:
 
 The following warnings may also be returned:
 
+
 .RS
 .IP \[bu]
 \fBwarning_missing_feerates\fR: Some fee estimates are missing
@@ -138,6 +142,7 @@ if feerate estimates for that kind of transaction are unavailable\.
 Many other commands have a \fIfeerate\fR parameter, which can be the strings
 \fIurgent\fR, \fInormal\fR, or \fIslow\fR\.
 These are mapped to the \fBfeerates\fR outputs as:
+
 
 .RS
 .IP \[bu]
@@ -157,7 +162,7 @@ Internally we call the \fIperkw\fR style as "feerate per kilosipa"\.
 
 .SH AUTHOR
 
-ZmnSCPxj < \fIZmnSCPxj@protonmail.com\fR > wrote the initial version of this
+ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> wrote the initial version of this
 manpage\.
 
 .SH SEE ALSO
@@ -169,4 +174,4 @@ manpage\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:4c54ce8e279cf43b55ad0dffea21df46bfb5698d49833013da9e4df4c1475ee4
+\" SHA256STAMP:227e0f9f9b4d3c2b80d58466ed4fae768a5a2e7c2234e43105e21efc4a0b1861

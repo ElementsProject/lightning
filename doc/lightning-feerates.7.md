@@ -104,7 +104,7 @@ Internally we call the *perkw* style as "feerate per kilosipa".
 AUTHOR
 ------
 
-ZmnSCPxj < <ZmnSCPxj@protonmail.com> > wrote the initial version of this
+ZmnSCPxj <<ZmnSCPxj@protonmail.com>> wrote the initial version of this
 manpage.
 
 SEE ALSO
