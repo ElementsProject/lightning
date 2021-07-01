@@ -1311,7 +1311,6 @@ static struct command_result *json_listinvoices(struct command *cmd,
 	const char *invstring;
 	struct sha256 *payment_hash;
 	char *fail;
-	struct bolt11 *b11;
 
 	if (!param(cmd, buffer, params,
 		   p_opt("label", param_label, &label),
@@ -1329,9 +1328,23 @@ static struct command_result *json_listinvoices(struct command *cmd,
 
 	/* Extract the payment_hash from the invoice. */
 	if (invstring != NULL) {
+		struct bolt11 *b11;
 		b11 = bolt11_decode(cmd, invstring, cmd->ld->our_features, NULL,
 				    NULL, &fail);
-		payment_hash = &b11->payment_hash;
+		if (b11)
+			payment_hash = &b11->payment_hash;
+		else {
+			struct tlv_invoice *b12
+				= invoice_decode(tmpctx, invstring,
+						 strlen(invstring),
+						 cmd->ld->our_features, NULL,
+						 &fail);
+			if (!b12 || !b12->payment_hash) {
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "Invalid invstring");
+			}
+			payment_hash = b12->payment_hash;
+		}
 	}
 
 	response = json_stream_success(cmd);
