@@ -145,7 +145,6 @@ What log level to print out: options are io, debug, info, unusual,
 broken\.  If \fISUBSYSTEM\fR is supplied, this sets the logging level
 for any subsystem containing that string\.  Subsystems include:
 
-
 .RS
 .IP \[bu]
 \fIlightningd\fR: The main lightning daemon
@@ -170,7 +169,6 @@ for any subsystem containing that string\.  Subsystems include:
 
   The following subsystems exist for each channel, where N is an incrementing
 internal integer id assigned for the lifetime of the channel:
-
 
 .RS
 .IP \[bu]
@@ -587,6 +585,13 @@ This usually requires \fBexperimental-onion-messages\fR as well\.  See
 \fBlightning-offer\fR(7) and \fBlightning-fetchinvoice\fR(7)\.
 
 
+ \fBfetchinvoice-noconnect\fR
+
+
+Specifying this prevents \fBfetchinvoice\fR and \fBsendinvoice\fR from
+trying to connect directly to the offering node as a last resort\.
+
+
  \fBexperimental-shutdown-wrong-funding\fR
 
 
@@ -630,4 +635,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license\.
 
-\" SHA256STAMP:55425fe062d1f3365ada296e11e57ede0bdda345b1a70583dd82de2da6e55988
+\" SHA256STAMP:40c9f5e9e4ee5257e25a1fc196d2c85c3bc5b21d3f390a4e7fafa031c4e7ad5e
