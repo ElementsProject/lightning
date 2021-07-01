@@ -1064,15 +1064,23 @@ void plugin_notify_message(struct command *cmd,
 			   const char *fmt, ...)
 {
 	va_list ap;
-	struct json_stream *js = plugin_notify_start(cmd, "message");
+	struct json_stream *js;
+	const char *msg;
 
 	va_start(ap, fmt);
+	msg = tal_vfmt(tmpctx, fmt, ap);
+	va_end(ap);
+
+	/* Also log, debug level */
+	plugin_log(cmd->plugin, LOG_DBG, "notify msg %s: %s",
+		   log_level_name(level), msg);
+
+	js = plugin_notify_start(cmd, "message");
 	json_add_string(js, "level", log_level_name(level));
 
 	/* In case we're OOM */
 	if (js->jout)
-		json_out_addv(js->jout, "message", true, fmt, ap);
-	va_end(ap);
+		json_out_addstr(js->jout, "message", msg);
 
 	plugin_notify_end(cmd, js);
 }
