@@ -1,7 +1,7 @@
 #! /usr/bin/make
 
 # Extract version from git, or if we're from a zipfile, use dirname
-VERSION=v0.10.1gl2
+VERSION=v0.10.1gl3
 
 ifeq ($(VERSION),)
 $(error "ERROR: git is required for generating version information")
