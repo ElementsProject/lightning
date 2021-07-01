@@ -6,7 +6,7 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**sendinvoice** *offer* \[*label*\] \[*msatoshi*\] \[*timeout*\] \[*quantity*\]
+**sendinvoice** *offer* *label* \[*msatoshi*\] \[*timeout*\] \[*quantity*\]
 
 DESCRIPTION
 -----------
@@ -14,6 +14,10 @@ DESCRIPTION
 The **sendinvoice** RPC command creates and sends an invoice to the
 issuer of an *offer* for it to pay: the offer must contain
 *send_invoice*; see lightning-fetchinvoice(7).
+
+If **fetchinvoice-noconnect** is not specified in the configuation, it
+will connect to the destination in the (currently common!) case where it
+cannot find a route which supports `option_onion_messages`.
 
 *offer* is the bolt12 offer string beginning with "lno1".
 

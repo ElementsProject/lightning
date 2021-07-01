@@ -15,6 +15,10 @@ The **fetchinvoice** RPC command contacts the issuer of an *offer* to get
 an actual invoice that can be paid.  It highlights any changes between the
 offer and the returned invoice.
 
+If **fetchinvoice-noconnect** is not specified in the configuation, it
+will connect to the destination in the (currently common!) case where it
+cannot find a route which supports `option_onion_messages`.
+
 The offer must not contain *send_invoice*; see lightning-sendinvoice(7).
 
 *msatoshi* is required if the *offer* does not specify

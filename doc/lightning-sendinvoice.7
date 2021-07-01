@@ -6,13 +6,18 @@ lightning-sendinvoice - Command for send an invoice for an offer
 \fB(WARNING: experimental-offers only)\fR
 
 
-\fBsendinvoice\fR \fIoffer\fR [\fIlabel\fR] [\fImsatoshi\fR] [\fItimeout\fR] [\fIquantity\fR]
+\fBsendinvoice\fR \fIoffer\fR \fIlabel\fR [\fImsatoshi\fR] [\fItimeout\fR] [\fIquantity\fR]
 
 .SH DESCRIPTION
 
 The \fBsendinvoice\fR RPC command creates and sends an invoice to the
 issuer of an \fIoffer\fR for it to pay: the offer must contain
 \fIsend_invoice\fR; see \fBlightning-fetchinvoice\fR(7)\.
+
+
+If \fBfetchinvoice-noconnect\fR is not specified in the configuation, it
+will connect to the destination in the (currently common!) case where it
+cannot find a route which supports \fBoption_onion_messages\fR\.
 
 
 \fIoffer\fR is the bolt12 offer string beginning with "lno1"\.
@@ -98,4 +103,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:de314ada333bec6eb2bad2ad1410201c8c99c492203cf178dfacd95d7b74c0f9
+\" SHA256STAMP:c01a52cc2ab1f5badf212481e3aefb91c8a4c17df93d86bd5f98588f2679d8d6

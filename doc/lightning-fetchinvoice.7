@@ -15,6 +15,11 @@ an actual invoice that can be paid\.  It highlights any changes between the
 offer and the returned invoice\.
 
 
+If \fBfetchinvoice-noconnect\fR is not specified in the configuation, it
+will connect to the destination in the (currently common!) case where it
+cannot find a route which supports \fBoption_onion_messages\fR\.
+
+
 The offer must not contain \fIsend_invoice\fR; see \fBlightning-sendinvoice\fR(7)\.
 
 
@@ -114,4 +119,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:532248cb5adbadb10367fdbddc2da7af0eeac50b29709abec2e1e8b178197b7c
+\" SHA256STAMP:8343ee7fe4d8413760a47a9d2657c4557734fa67af5bfec582daf780828ca675

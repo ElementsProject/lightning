@@ -26,6 +26,7 @@
 
 static struct gossmap *global_gossmap;
 static struct node_id local_id;
+static bool disable_connect = false;
 static LIST_HEAD(sent_list);
 
 struct sent {
@@ -37,6 +38,8 @@ struct sent {
 	struct command *cmd;
 	/* The offer we are trying to get an invoice/payment for. */
 	struct tlv_offer *offer;
+	/* Path to use. */
+	struct node_id *path;
 
 	/* The invreq we sent, OR the invoice we sent */
 	struct tlv_invoice_request *invreq;
@@ -516,6 +519,64 @@ static bool can_carry_onionmsg(const struct gossmap *map,
 	return n && gossmap_node_get_feature(map, n, OPT_ONION_MESSAGES) != -1;
 }
 
+/* Create path to node which can carry onion messages; if it can't find
+ * one, create singleton path and sets @try_connect.  */
+static struct node_id *path_to_node(const tal_t *ctx,
+				    struct gossmap *gossmap,
+				    const struct pubkey32 *node32_id,
+				    bool *try_connect)
+{
+	const struct gossmap_node *dst;
+	struct node_id *nodes, dstid;
+
+	/* FIXME: Use blinded path if avail. */
+	gossmap_guess_node_id(gossmap, node32_id, &dstid);
+	dst = gossmap_find_node(gossmap, &dstid);
+	if (!dst) {
+		nodes = tal_arr(ctx, struct node_id, 1);
+		/* We don't know the pubkey y-sign, but sendonionmessage will
+		 * fix it up if we guess wrong. */
+		nodes[0].k[0] = SECP256K1_TAG_PUBKEY_EVEN;
+		secp256k1_xonly_pubkey_serialize(secp256k1_ctx,
+						 nodes[0].k+1,
+						 &node32_id->pubkey);
+		/* Since it's not it gossmap, we don't know how to connect,
+		 * so don't try. */
+		*try_connect = false;
+		return nodes;
+	} else {
+		struct route_hop *r;
+		const struct dijkstra *dij;
+		const struct gossmap_node *src;
+
+		/* If we don't exist in gossip, routing can't happen. */
+		src = gossmap_find_node(gossmap, &local_id);
+		if (!src)
+			goto go_direct_dst;
+
+		dij = dijkstra(tmpctx, gossmap, dst, AMOUNT_MSAT(0), 0,
+			       can_carry_onionmsg, route_score_shorter, NULL);
+
+		r = route_from_dijkstra(tmpctx, gossmap, dij, src, AMOUNT_MSAT(0), 0);
+		if (!r)
+			goto go_direct_dst;
+
+		*try_connect = false;
+		nodes = tal_arr(ctx, struct node_id, tal_count(r));
+		for (size_t i = 0; i < tal_count(r); i++)
+			nodes[i] = r[i].node_id;
+		return nodes;
+	}
+
+go_direct_dst:
+	/* Try direct route, maybe it's connected? */
+	nodes = tal_arr(ctx, struct node_id, 1);
+	gossmap_node_get_id(gossmap, dst, &nodes[0]);
+	*try_connect = true;
+	return nodes;
+}
+
+/* Send this message down this path, with blinded reply path */
 static struct command_result *send_message(struct command *cmd,
 					   struct sent *sent,
 					   const char *msgfield,
@@ -526,70 +587,25 @@ static struct command_result *send_message(struct command *cmd,
 					    const jsmntok_t *result UNUSED,
 					    struct sent *sent))
 {
-	const struct gossmap_node *dst;
-	struct gossmap *gossmap = get_gossmap(cmd->plugin);
 	struct pubkey *backwards;
 	struct onionmsg_path **path;
 	struct pubkey blinding;
 	struct out_req *req;
-	struct node_id dstid, *nodes;
 
-	/* FIXME: Use blinded path if avail. */
-	gossmap_guess_node_id(gossmap, sent->offer->node_id, &dstid);
-	dst = gossmap_find_node(gossmap, &dstid);
-	if (!dst) {
-		/* Try direct. */
-		struct pubkey *us = tal_arr(tmpctx, struct pubkey, 1);
-		if (!pubkey_from_node_id(&us[0], &local_id))
-			abort();
-		backwards = us;
+	/* FIXME: Maybe we should allow this? */
+	if (tal_bytelen(sent->path) == 0)
+		return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
+				    "Refusing to talk to ourselves");
 
-		nodes = tal_arr(tmpctx, struct node_id, 1);
-		/* We don't know the pubkey y-sign, but sendonionmessage will
-		 * fix it up if we guess wrong. */
-		nodes[0].k[0] = SECP256K1_TAG_PUBKEY_EVEN;
-		secp256k1_xonly_pubkey_serialize(secp256k1_ctx,
-						 nodes[0].k+1,
-						 &sent->offer->node_id->pubkey);
-	} else {
-		struct route_hop *r;
-		const struct dijkstra *dij;
-		const struct gossmap_node *src;
-
-		/* If we don't exist in gossip, routing can't happen. */
-		src = gossmap_find_node(gossmap, &local_id);
-		if (!src)
-			return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
-					    "We don't have any channels");
-
-		dij = dijkstra(tmpctx, gossmap, dst, AMOUNT_MSAT(0), 0,
-			       can_carry_onionmsg, route_score_shorter, NULL);
-
-		r = route_from_dijkstra(tmpctx, gossmap, dij, src, AMOUNT_MSAT(0), 0);
-		if (!r)
-			/* FIXME: try connecting directly. */
-			return command_fail(cmd, OFFER_ROUTE_NOT_FOUND,
-					    "Can't find route");
-
-		/* FIXME: Maybe we should allow this? */
-		if (tal_bytelen(r) == 0)
-			return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
-					    "Refusing to talk to ourselves");
-
-		nodes = tal_arr(tmpctx, struct node_id, tal_count(r));
-		for (size_t i = 0; i < tal_count(r); i++)
-			nodes[i] = r[i].node_id;
-
-		/* Reverse path is offset by one: we are the final node. */
-		backwards = tal_arr(tmpctx, struct pubkey, tal_count(r));
-		for (size_t i = 0; i < tal_count(r) - 1; i++) {
-			if (!pubkey_from_node_id(&backwards[tal_count(r)-2-i],
-						 &nodes[i]))
-				abort();
-		}
-		if (!pubkey_from_node_id(&backwards[tal_count(r)-1], &local_id))
+	/* Reverse path is offset by one: we are the final node. */
+	backwards = tal_arr(tmpctx, struct pubkey, tal_count(sent->path));
+	for (size_t i = 0; i < tal_count(sent->path) - 1; i++) {
+		if (!pubkey_from_node_id(&backwards[tal_count(sent->path)-2-i],
+					 &sent->path[i]))
 			abort();
 	}
+	if (!pubkey_from_node_id(&backwards[tal_count(sent->path)-1], &local_id))
+		abort();
 
 	/* Ok, now make reply for onion_message */
 	path = make_blindedpath(tmpctx, backwards, &blinding,
@@ -600,10 +616,10 @@ static struct command_result *send_message(struct command *cmd,
 				    forward_error,
 				    sent);
 	json_array_start(req->js, "hops");
-	for (size_t i = 0; i < tal_count(nodes); i++) {
+	for (size_t i = 0; i < tal_count(sent->path); i++) {
 		json_object_start(req->js, NULL);
-		json_add_node_id(req->js, "id", &nodes[i]);
-		if (i == tal_count(nodes) - 1)
+		json_add_node_id(req->js, "id", &sent->path[i]);
+		if (i == tal_count(sent->path) - 1)
 			json_add_hex_talarr(req->js, msgfield, msgval);
 		json_object_end(req->js);
 	}
@@ -650,6 +666,52 @@ static struct command_result *prepare_inv_timeout(struct command *cmd,
 	return sendonionmsg_done(cmd, buf, result, sent);
 }
 
+/* We've connected (if we tried), so send the invreq. */
+static struct command_result *
+sendinvreq_after_connect(struct command *cmd,
+			 const char *buf UNUSED,
+			 const jsmntok_t *result UNUSED,
+			 struct sent *sent)
+{
+	u8 *rawinvreq = tal_arr(tmpctx, u8, 0);
+	towire_invoice_request(&rawinvreq, sent->invreq);
+
+	return send_message(cmd, sent, "invoice_request", rawinvreq,
+			    sendonionmsg_done);
+}
+
+/* We can't find a route, so we're going to try to connect, then just blast it
+ * to them. */
+static struct command_result *
+connect_direct(struct command *cmd,
+	       const struct node_id *dst,
+	       struct command_result *(*cb)(struct command *command,
+					    const char *buf,
+					    const jsmntok_t *result,
+					    struct sent *sent),
+	       struct sent *sent)
+{
+	struct out_req *req;
+
+	if (disable_connect) {
+		plugin_notify_message(cmd, LOG_UNUSUAL,
+				      "Cannot find route, but"
+				      " fetchplugin-noconnect set:"
+				      " trying direct anyway to %s",
+				      type_to_string(tmpctx, struct node_id,
+						     dst));
+		return cb(cmd, NULL, NULL, sent);
+	}
+
+	plugin_notify_message(cmd, LOG_INFORM,
+			      "Cannot find route, trying connect to %s directly",
+			      type_to_string(tmpctx, struct node_id, dst));
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "connect", cb, cb, sent);
+	json_add_node_id(req->js, "id", dst);
+	return send_outreq(cmd->plugin, req);
+}
+
 static struct command_result *invreq_done(struct command *cmd,
 					  const char *buf,
 					  const jsmntok_t *result,
@@ -657,7 +719,7 @@ static struct command_result *invreq_done(struct command *cmd,
 {
 	const jsmntok_t *t;
 	char *fail;
-	u8 *rawinvreq;
+	bool try_connect;
 
 	/* Get invoice request */
 	t = json_get_member(buf, result, "bolt12");
@@ -750,10 +812,14 @@ static struct command_result *invreq_done(struct command *cmd,
 		}
 	}
 
-	rawinvreq = tal_arr(tmpctx, u8, 0);
-	towire_invoice_request(&rawinvreq, sent->invreq);
-	return send_message(cmd, sent, "invoice_request", rawinvreq,
-			    sendonionmsg_done);
+	sent->path = path_to_node(sent, get_gossmap(cmd->plugin),
+				  sent->offer->node_id,
+				  &try_connect);
+	if (try_connect)
+		return connect_direct(cmd, &sent->path[0],
+				      sendinvreq_after_connect, sent);
+
+	return sendinvreq_after_connect(cmd, NULL, NULL, sent);
 }
 
 /* Fetches an invoice for this offer, and makes sure it corresponds. */
@@ -987,6 +1053,18 @@ static struct command_result *invoice_payment(struct command *cmd,
 	return command_hook_success(cmd);
 }
 
+/* We've connected (if we tried), so send the invoice. */
+static struct command_result *
+sendinvoice_after_connect(struct command *cmd,
+			  const char *buf UNUSED,
+			  const jsmntok_t *result UNUSED,
+			  struct sent *sent)
+{
+	u8 *rawinv = tal_arr(tmpctx, u8, 0);
+	towire_invoice(&rawinv, sent->inv);
+	return send_message(cmd, sent, "invoice", rawinv, prepare_inv_timeout);
+}
+
 static struct command_result *createinvoice_done(struct command *cmd,
 						 const char *buf,
 						 const jsmntok_t *result,
@@ -994,7 +1072,7 @@ static struct command_result *createinvoice_done(struct command *cmd,
 {
 	const jsmntok_t *invtok = json_get_member(buf, result, "bolt12");
 	char *fail;
-	u8 *rawinv;
+	bool try_connect;
 
 	/* Replace invoice with signed one */
 	tal_free(sent->inv);
@@ -1014,9 +1092,14 @@ static struct command_result *createinvoice_done(struct command *cmd,
 				    "Bad createinvoice response %s", fail);
 	}
 
-	rawinv = tal_arr(tmpctx, u8, 0);
-	towire_invoice(&rawinv, sent->inv);
-	return send_message(cmd, sent, "invoice", rawinv, prepare_inv_timeout);
+	sent->path = path_to_node(sent, get_gossmap(cmd->plugin),
+				  sent->offer->node_id,
+				  &try_connect);
+	if (try_connect)
+		return connect_direct(cmd, &sent->path[0],
+				      sendinvoice_after_connect, sent);
+
+	return sendinvoice_after_connect(cmd, NULL, NULL, sent);
 }
 
 static struct command_result *sign_invoice(struct command *cmd,
@@ -1377,6 +1460,8 @@ int main(int argc, char *argv[])
 	            NULL, 0,
 		    hooks, ARRAY_SIZE(hooks),
 		    NULL, 0,
-		    /* No options */
+		    plugin_option("fetchinvoice-noconnect", "flag",
+				  "Don't try to connect directly to fetch an invoice.",
+				  flag_option, &disable_connect),
 		    NULL);
 }
