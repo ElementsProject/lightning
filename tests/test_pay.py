@@ -4162,6 +4162,54 @@ def test_fetchinvoice(node_factory, bitcoind):
                                      'recurrence_label': 'test paywindow'})
 
 
+@pytest.mark.developer("Needs dev-allow-localhost for autoconnect, dev-force-features to avoid routing onionmsgs")
+def test_fetchinvoice_autoconnect(node_factory, bitcoind):
+    """We should autoconnect if we need to, to route."""
+
+    if EXPERIMENTAL_FEATURES:
+        # We have to force option_onion_messages off!
+        opts1 = {'dev-force-features': '-103'}
+    else:
+        opts1 = {}
+    l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
+                                     opts=[opts1,
+                                           {'experimental-offers': None,
+                                            'dev-allow-localhost': None}])
+
+    l3 = node_factory.get_node(options={'experimental-offers': None})
+    l3.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    wait_for(lambda: l3.rpc.listnodes(l2.info['id'])['nodes'] != [])
+
+    offer = l2.rpc.call('offer', {'amount': '2msat',
+                                  'description': 'simple test'})
+    l3.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
+    assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
+
+    # Similarly for send-invoice offer.
+    l3.rpc.disconnect(l2.info['id'])
+    offer = l2.rpc.call('offerout', {'amount': '2msat',
+                                     'description': 'simple test'})
+    # Ofc l2 can't actually pay it!
+    with pytest.raises(RpcError, match='pay attempt failed: "Ran out of routes to try'):
+        l3.rpc.call('sendinvoice', {'offer': offer['bolt12'], 'label': 'payme!'})
+
+    assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
+
+    # But if we create a channel l3->l1->l2 (and balance!), l2 can!
+    node_factory.join_nodes([l3, l1], wait_for_announce=True)
+    # Make sure l2 knows about it
+    wait_for(lambda: l2.rpc.listnodes(l3.info['id'])['nodes'] != [])
+
+    l3.rpc.pay(l2.rpc.invoice(FUNDAMOUNT * 500, 'balancer', 'balancer')['bolt11'])
+    # Make sure l2 has capacity (can be still resolving!).
+    wait_for(lambda: only_one(only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels'])['spendable_msat'] != Millisatoshi(0))
+
+    l3.rpc.disconnect(l2.info['id'])
+    l3.rpc.call('sendinvoice', {'offer': offer['bolt12'], 'label': 'payme for real!'})
+    # It will have autoconnected, to send invoice (since l1 says it doesn't do onion messages!)
+    assert l3.rpc.listpeers(l2.info['id'])['peers'] != []
+
+
 def test_pay_waitblockheight_timeout(node_factory, bitcoind):
     plugin = os.path.join(os.path.dirname(__file__), 'plugins', 'endlesswaitblockheight.py')
     l1, l2 = node_factory.line_graph(2, opts=[{}, {'plugin': plugin}])
