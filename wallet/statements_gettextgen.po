@@ -747,26 +747,26 @@ msgid "DELETE FROM invoices WHERE state = ?   AND expiry_time <= ?;"
 msgstr ""
 
 #: wallet/invoices.c:445
-msgid "SELECT  state, payment_key, payment_hash, label, msatoshi, expiry_time, pay_index, msatoshi_received, paid_timestamp, bolt11, description, features FROM invoices ORDER BY id;"
+msgid "SELECT  state, payment_key, payment_hash, label, msatoshi, expiry_time, pay_index, msatoshi_received, paid_timestamp, bolt11, description, features, local_offer_id FROM invoices ORDER BY id;"
 msgstr ""
 
-#: wallet/invoices.c:502
+#: wallet/invoices.c:503
 msgid "SELECT state FROM invoices WHERE id = ?;"
 msgstr ""
 
-#: wallet/invoices.c:520
+#: wallet/invoices.c:521
 msgid "SELECT local_offer_id FROM invoices WHERE id = ?;"
 msgstr ""
 
-#: wallet/invoices.c:552
+#: wallet/invoices.c:553
 msgid "UPDATE invoices   SET state=?     , pay_index=?     , msatoshi_received=?     , paid_timestamp=? WHERE id=?;"
 msgstr ""
 
-#: wallet/invoices.c:611
+#: wallet/invoices.c:612
 msgid "SELECT id  FROM invoices WHERE pay_index IS NOT NULL   AND pay_index > ? ORDER BY pay_index ASC LIMIT 1;"
 msgstr ""
 
-#: wallet/invoices.c:660
+#: wallet/invoices.c:661
 msgid "SELECT  state, payment_key, payment_hash, label, msatoshi, expiry_time, pay_index, msatoshi_received, paid_timestamp, bolt11, description, features, local_offer_id FROM invoices WHERE id = ?;"
 msgstr ""
 
@@ -1269,4 +1269,4 @@ msgstr ""
 #: wallet/test/run-wallet.c:1649
 msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
-#  SHA256STAMP:913e7b10afc4160e8b437a2c54839d996a94667fc0c00a22f3ca97856491ac72
+#  SHA256STAMP:cc1be3f6b134130e9c0251467bd7ecb8a7cdb20f3026bdd26fcf5b286872ef2c

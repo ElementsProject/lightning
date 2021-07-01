@@ -1131,8 +1131,8 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT  state, payment_key, payment_hash, label, msatoshi, expiry_time, pay_index, msatoshi_received, paid_timestamp, bolt11, description, features FROM invoices ORDER BY id;",
-         .query = "SELECT  state, payment_key, payment_hash, label, msatoshi, expiry_time, pay_index, msatoshi_received, paid_timestamp, bolt11, description, features FROM invoices ORDER BY id;",
+         .name = "SELECT  state, payment_key, payment_hash, label, msatoshi, expiry_time, pay_index, msatoshi_received, paid_timestamp, bolt11, description, features, local_offer_id FROM invoices ORDER BY id;",
+         .query = "SELECT  state, payment_key, payment_hash, label, msatoshi, expiry_time, pay_index, msatoshi_received, paid_timestamp, bolt11, description, features, local_offer_id FROM invoices ORDER BY id;",
          .placeholders = 0,
          .readonly = true,
     },
@@ -1924,4 +1924,4 @@ struct db_query db_postgres_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:3c0924d3409c1d356d9f90291ae54895d85f34c6a3a42388ad4fb6bfbf13820d
+// SHA256STAMP:8f8494fdeb030b724d84aa26c0377e7e488ad40e4b1370db7d02470ac29c4ec8

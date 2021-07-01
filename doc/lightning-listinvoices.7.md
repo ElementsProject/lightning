@@ -30,6 +30,7 @@ On success, an object containing **invoices** is returned.  It is an array of ob
 - **amount_msat** (msat, optional): the amount required to pay this invoice
 - **bolt11** (string, optional): the BOLT11 string (always present unless *bolt12* is)
 - **bolt12** (string, optional): the BOLT12 string (always present unless *bolt11* is)
+- **local_offer_id** (hex, optional): the *id* of our offer which created this invoice (**experimental-offers** only). (always 64 characters)
 
 If **status** is "paid":
   - **pay_index** (u64): Unique incrementing index for this payment
@@ -53,4 +54,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:67ff5d9aa945301f23d6694304e4b657a37f0b3f80cc1c13c2ff23a55fe51d4b)
+[comment]: # ( SHA256STAMP:cc6d7b4549d2ab905ab18041f34d13143e4ffed2bb6cc7c1df0307800e59a2fa)

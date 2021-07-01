@@ -48,6 +48,12 @@
 		    "bolt12": {
 			"type": "string",
 			"description": "the BOLT12 string (always present unless *bolt11* is)"
+		    },
+		    "local_offer_id": {
+			"type": "hex",
+			"description": "the *id* of our offer which created this invoice (**experimental-offers** only).",
+			"maxLength": 64,
+			"minLength": 64
 		    }
 		},
 		"allOf": [
@@ -72,6 +78,7 @@
 				"amount_msat": { },
 				"bolt11": { },
 				"bolt12": { },
+				"local_offer_id": { },
 				"expires_at": { },
 				"pay_index": {
 				    "type": "u64",
@@ -107,6 +114,7 @@
 				"amount_msat": { },
 				"bolt11": { },
 				"bolt12": { },
+				"local_offer_id": { },
 				"expires_at": { }
 			    }
 			}

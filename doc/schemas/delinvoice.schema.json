@@ -111,6 +111,7 @@
 		    "amount_msat": { },
 		    "description": { },
 		    "payment_hash": { },
+		    "local_offer_id": { },
 		    "pay_index": {
 			"type": "u64",
 			"description": "unique index for this invoice payment"
