@@ -4085,11 +4085,20 @@ def test_fetchinvoice(node_factory, bitcoind):
                                  'recurrence_label': 'test recurrence'})
 
     # Check we can request invoice without a channel.
-    l4 = node_factory.get_node(options={'experimental-offers': None})
+    l4, l5 = node_factory.get_nodes(2, opts={'experimental-offers': None})
     l4.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    ret = l4.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
-                                       'recurrence_counter': 0,
-                                       'recurrence_label': 'test nochannel'})
+    # ... even if we can't find ourselves.
+    l4.rpc.call('fetchinvoice', {'offer': offer3['bolt12'],
+                                 'recurrence_counter': 0,
+                                 'recurrence_label': 'test nochannel'})
+    # ... even if we know it from gossmap
+    wait_for(lambda: l4.rpc.listnodes(l3.info['id'])['nodes'] != [])
+    l4.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l4.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
+
+    # ... even if we are also in gossmap.
+    node_factory.join_nodes([l3, l5], wait_for_announce=True)
+    l4.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
 
     # Now, test amount in different currency!
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
