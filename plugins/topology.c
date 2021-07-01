@@ -77,17 +77,11 @@ static bool can_carry(const struct gossmap *map,
 
 	/* First do generic check */
 	if (!route_can_carry(map, c, dir, amount, NULL)) {
-		plugin_log(plugin, LOG_DBG, "cannot carry %s across %p",
-			   type_to_string(tmpctx, struct amount_msat, &amount),
-			   c);
 		return false;
 	}
 
 	/* Now check exclusions.  Premature optimization: */
 	if (!tal_count(excludes)) {
-		plugin_log(plugin, LOG_DBG, "CAN carry %s across %p",
-			   type_to_string(tmpctx, struct amount_msat, &amount),
-			   c);
 		return true;
 	}
 
