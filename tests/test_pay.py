@@ -3070,6 +3070,11 @@ def test_keysend(node_factory):
     print(inv)
     assert(inv['msatoshi_received'] >= amt)
 
+    # The invoice needs to have a low CLTV since otherwise we'd reject
+    # some keysends from older nodes.
+    details = l1.rpc.decode(inv['bolt11'])
+    assert(details['min_final_cltv_expiry'] == 6)
+
     # Now send a direct one instead from l1 to l2
     l1.rpc.keysend(l2.info['id'], amt)
     invs = l2.rpc.listinvoices()['invoices']
