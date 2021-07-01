@@ -3995,6 +3995,9 @@ def test_fetchinvoice(node_factory, bitcoind):
     l1.rpc.pay(inv2['invoice'])
     assert only_one(l3.rpc.call('listoffers', [offer1['offer_id']])['offers'])['used'] is True
 
+    # listinvoices will show these on l3
+    assert [x['local_offer_id'] for x in l3.rpc.listinvoices()['invoices']] == [offer1['offer_id'], offer1['offer_id']]
+
     # We can also set the amount explicitly, to tip.
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'msatoshi': 3})
     assert l1.rpc.call('decode', [inv1['invoice']])['amount_msat'] == 3

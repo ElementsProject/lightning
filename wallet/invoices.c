@@ -455,6 +455,7 @@ bool invoices_iterate(struct invoices *invoices,
 						       ", bolt11"
 						       ", description"
 						       ", features"
+						       ", local_offer_id"
 						       " FROM invoices"
 						       " ORDER BY id;"));
 		db_query_prepared(stmt);

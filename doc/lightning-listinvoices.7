@@ -37,6 +37,8 @@ On success, an object containing \fBinvoices\fR is returned\.  It is an array of
 \fBbolt11\fR (string, optional): the BOLT11 string (always present unless \fIbolt12\fR is)
 .IP \[bu]
 \fBbolt12\fR (string, optional): the BOLT12 string (always present unless \fIbolt11\fR is)
+.IP \[bu]
+\fBlocal_offer_id\fR (hex, optional): the \fIid\fR of our offer which created this invoice (\fBexperimental-offers\fR only)\. (always 64 characters)
 
 .RE
 
@@ -65,4 +67,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:1ac6fb88dc05d683e81dc951a593d88027310b9c62dd81c57e134238994b0562
+\" SHA256STAMP:d6bc8b6c09aee1f5e29900fffacbc9d3fdf1e32d27e7b90b0709a5f50ecb5c13
