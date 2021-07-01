@@ -399,6 +399,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	json_add_string(req->js, "label", ki->label);
 	json_add_string(req->js, "description", "Spontaneous incoming payment through keysend");
 	json_add_preimage(req->js, "preimage", &ki->payment_preimage);
+	json_add_num(req->js, "cltv", 6);
 
 	return send_outreq(cmd->plugin, req);
 }
