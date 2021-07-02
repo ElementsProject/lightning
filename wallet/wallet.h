@@ -400,7 +400,9 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 			      struct amount_sat amount,
 			      const struct channel *chan,
 			      /* NULL if option_static_remotekey */
-			      const struct pubkey *commitment_point);
+			      const struct pubkey *commitment_point,
+			      /* option_will_fund makes the csv_lock variable */
+			      u32 csv_lock);
 
 /**
  * wallet_reserve_utxo - set a reservation on a UTXO.
