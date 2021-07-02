@@ -1,5 +1,4 @@
 #include "config.h"
-#include <assert.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
