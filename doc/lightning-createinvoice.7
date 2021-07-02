@@ -60,6 +60,8 @@ On success, an object is returned, containing:
 \fBpayment_preimage\fR (hex, optional): the proof of payment: SHA256 of this \fBpayment_hash\fR (always 64 characters)
 .IP \[bu]
 \fBlocal_offer_id\fR (hex, optional): the \fIid\fR of our offer which created this invoice (\fBexperimental-offers\fR only)\. (always 64 characters)
+.IP \[bu]
+\fBpayer_note\fR (string, optional): the optional \fIpayer_note\fR from invoice_request which created this invoice (\fBexperimental-offers\fR only)\.
 
 .RE
 
@@ -91,4 +93,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:fd9275c58b67eca68aafee27cb79a558669b12b8cda56872f1db798637006278
+\" SHA256STAMP:98d930c694694138e37f3db934e2e8d5f4454c6761da5dfae667dd9b869d972c

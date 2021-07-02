@@ -72,8 +72,22 @@ static void json_add_invoice(struct json_stream *response,
 		json_add_string(response, "description", inv->description);
 
 	json_add_u64(response, "expires_at", inv->expiry_time);
-	if (inv->local_offer_id)
+	if (inv->local_offer_id) {
+		char *fail;
+		struct tlv_invoice *tinv;
+
 		json_add_sha256(response, "local_offer_id", inv->local_offer_id);
+
+		/* Everyone loves seeing their own payer notes!
+		 * Well: they will.  Trust me. */
+		tinv = invoice_decode(tmpctx,
+				      inv->invstring, strlen(inv->invstring),
+				      NULL, NULL, &fail);
+		if (tinv && tinv->payer_note)
+			json_add_stringn(response, "payer_note",
+					 tinv->payer_note,
+					 tal_bytelen(tinv->payer_note));
+	}
 }
 
 static struct command_result *tell_waiter(struct command *cmd,

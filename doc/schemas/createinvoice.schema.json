@@ -62,6 +62,10 @@
 	    "description": "the *id* of our offer which created this invoice (**experimental-offers** only).",
 	    "maxLength": 64,
 	    "minLength": 64
+	},
+	"payer_note": {
+	    "type": "string",
+	    "description": "the optional *payer_note* from invoice_request which created this invoice (**experimental-offers** only)."
 	}
     }
 }
