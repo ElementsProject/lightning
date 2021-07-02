@@ -3031,7 +3031,8 @@ static void tell_wallet_to_remote(const struct tx_parts *tx,
 						     per_commit_point,
 						     amt,
 						     tx_blockheight,
-						     scriptpubkey)));
+						     scriptpubkey,
+						     csv_lock)));
 }
 
 /* When a 'cheat' transaction comes through, our accounting is

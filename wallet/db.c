@@ -748,6 +748,7 @@ static struct migration dbmigrations[] = {
 	 "  UNIQUE (channel_id, hstate)"
 	 ");"),
      fillin_missing_channel_blockheights},
+    {SQL("ALTER TABLE outputs ADD csv_lock INTEGER DEFAULT 1;"), NULL},
 };
 
 /* Leak tracking. */

@@ -197,6 +197,7 @@ static struct utxo *wallet_stmt2output(const tal_t *ctx, struct db_stmt *stmt)
 			utxo->close_info->commitment_point = NULL;
 		utxo->close_info->option_anchor_outputs
 			= db_column_int(stmt, 9);
+		utxo->close_info->csv = db_column_int(stmt, 14);
 	} else {
 		utxo->close_info = NULL;
 	}
@@ -277,6 +278,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", spend_height"
 						", scriptpubkey "
 						", reserved_til "
+						", csv_lock "
 						"FROM outputs"));
 	} else {
 		stmt = db_prepare_v2(w->db, SQL("SELECT"
@@ -294,6 +296,7 @@ struct utxo **wallet_get_utxos(const tal_t *ctx, struct wallet *w, const enum ou
 						", spend_height"
 						", scriptpubkey "
 						", reserved_til "
+						", csv_lock "
 						"FROM outputs "
 						"WHERE status= ? "));
 		db_bind_int(stmt, 0, output_status_in_db(state));
@@ -332,6 +335,7 @@ struct utxo **wallet_get_unconfirmed_closeinfo_utxos(const tal_t *ctx,
 					", spend_height"
 					", scriptpubkey"
 					", reserved_til"
+					", csv_lock"
 					" FROM outputs"
 					" WHERE channel_id IS NOT NULL AND "
 					"confirmation_height IS NULL"));
@@ -369,6 +373,7 @@ struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
 					", spend_height"
 					", scriptpubkey"
 					", reserved_til"
+					", csv_lock"
 					" FROM outputs"
 					" WHERE prev_out_tx = ?"
 					" AND prev_out_index = ?"));
@@ -550,6 +555,7 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 					", spend_height"
 					", scriptpubkey "
 					", reserved_til"
+					", csv_lock"
 					" FROM outputs"
 					" WHERE status = ?"
 					" OR (status = ? AND reserved_til <= ?)"
@@ -582,7 +588,8 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 			      struct amount_sat amount,
 			      const struct channel *channel,
 			      /* NULL if option_static_remotekey */
-			      const struct pubkey *commitment_point)
+			      const struct pubkey *commitment_point,
+			      u32 csv_lock)
 {
 	struct db_stmt *stmt;
 
@@ -614,7 +621,8 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 		       ", confirmation_height"
 		       ", spend_height"
 		       ", scriptpubkey"
-		       ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+		       ", csv_lock"
+		       ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 	db_bind_txid(stmt, 0, txid);
 	db_bind_int(stmt, 1, outnum);
 	db_bind_amount_sat(stmt, 2, &amount);
@@ -634,6 +642,8 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 	/* spendheight */
 	db_bind_null(stmt, 11);
 	db_bind_blob(stmt, 12, scriptpubkey, tal_bytelen(scriptpubkey));
+
+	db_bind_int(stmt, 13, csv_lock);
 
 	db_exec_prepared_v2(take(stmt));
 	return true;

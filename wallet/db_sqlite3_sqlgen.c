@@ -1017,6 +1017,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "ALTER TABLE outputs ADD csv_lock INTEGER DEFAULT 1;",
+         .query = "ALTER TABLE outputs ADD csv_lock INTEGER DEFAULT 1;",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
          .name = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .query = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .placeholders = 1,
@@ -1269,26 +1275,26 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til FROM outputs",
-         .query = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til FROM outputs",
+         .name = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til , csv_lock FROM outputs",
+         .query = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til , csv_lock FROM outputs",
          .placeholders = 0,
          .readonly = true,
     },
     {
-         .name = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til FROM outputs WHERE status= ? ",
-         .query = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til FROM outputs WHERE status= ? ",
+         .name = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til , csv_lock FROM outputs WHERE status= ? ",
+         .query = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til , csv_lock FROM outputs WHERE status= ? ",
          .placeholders = 1,
          .readonly = true,
     },
     {
-         .name = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey, reserved_til FROM outputs WHERE channel_id IS NOT NULL AND confirmation_height IS NULL",
-         .query = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey, reserved_til FROM outputs WHERE channel_id IS NOT NULL AND confirmation_height IS NULL",
+         .name = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey, reserved_til, csv_lock FROM outputs WHERE channel_id IS NOT NULL AND confirmation_height IS NULL",
+         .query = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey, reserved_til, csv_lock FROM outputs WHERE channel_id IS NOT NULL AND confirmation_height IS NULL",
          .placeholders = 0,
          .readonly = true,
     },
     {
-         .name = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey, reserved_til FROM outputs WHERE prev_out_tx = ? AND prev_out_index = ?",
-         .query = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey, reserved_til FROM outputs WHERE prev_out_tx = ? AND prev_out_index = ?",
+         .name = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey, reserved_til, csv_lock FROM outputs WHERE prev_out_tx = ? AND prev_out_index = ?",
+         .query = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey, reserved_til, csv_lock FROM outputs WHERE prev_out_tx = ? AND prev_out_index = ?",
          .placeholders = 2,
          .readonly = true,
     },
@@ -1299,10 +1305,16 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til FROM outputs WHERE status = ? OR (status = ? AND reserved_til <= ?)ORDER BY RANDOM();",
-         .query = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til FROM outputs WHERE status = ? OR (status = ? AND reserved_til <= ?)ORDER BY RANDOM();",
+         .name = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til, csv_lock FROM outputs WHERE status = ? OR (status = ? AND reserved_til <= ?)ORDER BY RANDOM();",
+         .query = "SELECT  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey , reserved_til, csv_lock FROM outputs WHERE status = ? OR (status = ? AND reserved_til <= ?)ORDER BY RANDOM();",
          .placeholders = 3,
          .readonly = true,
+    },
+    {
+         .name = "INSERT INTO outputs (  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey, csv_lock) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+         .query = "INSERT INTO outputs (  prev_out_tx, prev_out_index, value, type, status, keyindex, channel_id, peer_id, commitment_point, option_anchor_outputs, confirmation_height, spend_height, scriptpubkey, csv_lock) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+         .placeholders = 14,
+         .readonly = false,
     },
     {
          .name = "INSERT INTO shachains (min_index, num_valid) VALUES (?, 0);",
@@ -2008,10 +2020,10 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
-#define DB_SQLITE3_QUERY_COUNT 333
+#define DB_SQLITE3_QUERY_COUNT 335
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:7ec26901d6eff90c74fbac8885e3403b52e5555a161bf21cedcec8b5d62457e4
+// SHA256STAMP:7969d7dbe623730766408455852a9ca4394f05129258c8ebe7ffbdc47c5359b1

@@ -291,6 +291,14 @@ static void json_add_utxo(struct json_stream *response,
 	if (reserved)
 		json_add_num(response, "reserved_to_block",
 			     utxo->reserved_til);
+	if (utxo->close_info && utxo->close_info->csv > 1) {
+		json_add_num(response, "csv_lock", utxo->close_info->csv);
+
+		if (utxo->blockheight)
+			json_add_u32(response, "spendable_at",
+				     *utxo->blockheight + utxo->close_info->csv);
+	}
+
 	json_object_end(response);
 }
 
