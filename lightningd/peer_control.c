@@ -1663,7 +1663,7 @@ static struct command_result *json_close(struct command *cmd,
 	struct channel *channel COMPILER_WANTS_INIT("gcc 7.3.0 fails, 8.3 OK");
 	unsigned int *timeout;
 	const u8 *close_to_script = NULL;
-	bool close_script_set, wrong_funding_changed;
+	bool close_script_set, wrong_funding_changed, *force_lease_close;
 	const char *fee_negotiation_step_str;
 	struct bitcoin_outpoint *wrong_funding;
 	char* end;
@@ -1676,6 +1676,8 @@ static struct command_result *json_close(struct command *cmd,
 		   p_opt("fee_negotiation_step", param_string,
 			 &fee_negotiation_step_str),
 		   p_opt("wrong_funding", param_outpoint, &wrong_funding),
+		   p_opt_def("force_lease_closed", param_bool,
+			     &force_lease_close, false),
 		   NULL))
 		return command_param_failed();
 
@@ -1705,6 +1707,15 @@ static struct command_result *json_close(struct command *cmd,
 				    "Peer has no active channel");
 	}
 
+	if (!*force_lease_close && channel->opener != LOCAL
+	    && get_block_height(cmd->ld->topology) < channel->lease_expiry)
+		return command_fail(cmd, LIGHTNINGD,
+				    "Peer leased this channel from us, we"
+				    " shouldn't close until lease has expired"
+				    " (lease expires block %u,"
+				    " current block %u)",
+				    channel->lease_expiry,
+				    get_block_height(cmd->ld->topology));
 
 	/* If we've set a local shutdown script for this peer, and it's not the
 	 * default upfront script, try to close to a different channel.

@@ -515,17 +515,23 @@ class LightningRpc(UnixDomainSocketRpc):
         payload.update({k: v for k, v in kwargs.items()})
         return self.call("check", payload)
 
-    def close(self, peer_id, unilateraltimeout=None, destination=None, fee_negotiation_step=None):
+    def close(self, peer_id, unilateraltimeout=None, destination=None, fee_negotiation_step=None, force_lease_closed=False):
         """
         Close the channel with peer {id}, forcing a unilateral
         close after {unilateraltimeout} seconds if non-zero, and
         the to-local output will be sent to {destination}.
+
+        If channel funds have been leased to the peer and the
+        lease has not yet expired, you can force a close with
+        {force_lease_closed}. Note that your funds will still be
+        locked until the lease expires.
         """
         payload = {
             "id": peer_id,
             "unilateraltimeout": unilateraltimeout,
             "destination": destination,
-            "fee_negotiation_step": fee_negotiation_step
+            "fee_negotiation_step": fee_negotiation_step,
+            "force_lease_closed": force_lease_closed,
         }
         return self.call("close", payload)
 
