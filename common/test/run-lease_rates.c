@@ -18,6 +18,9 @@ bool fromwire_bool(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 /* Generated stub for fromwire_fail */
 void *fromwire_fail(const u8 **cursor UNNEEDED, size_t *max UNNEEDED)
 { fprintf(stderr, "fromwire_fail called!\n"); abort(); }
+/* Generated stub for fromwire_lease_rates */
+void fromwire_lease_rates(const u8 **cursor UNNEEDED, size_t *plen UNNEEDED, struct lease_rates *lease_rates UNNEEDED)
+{ fprintf(stderr, "fromwire_lease_rates called!\n"); abort(); }
 /* Generated stub for fromwire_secp256k1_ecdsa_signature */
 void fromwire_secp256k1_ecdsa_signature(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 					secp256k1_ecdsa_signature *signature UNNEEDED)
@@ -50,6 +53,9 @@ void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 /* Generated stub for towire_bool */
 void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
 { fprintf(stderr, "towire_bool called!\n"); abort(); }
+/* Generated stub for towire_lease_rates */
+void towire_lease_rates(u8 **p UNNEEDED, const struct lease_rates *lease_rates UNNEEDED)
+{ fprintf(stderr, "towire_lease_rates called!\n"); abort(); }
 /* Generated stub for towire_secp256k1_ecdsa_signature */
 void towire_secp256k1_ecdsa_signature(u8 **pptr UNNEEDED,
 			      const secp256k1_ecdsa_signature *signature UNNEEDED)

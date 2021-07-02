@@ -2,9 +2,28 @@
 #include <bitcoin/pubkey.h>
 #include <ccan/ccan/crypto/sha256/sha256.h>
 #include <ccan/ccan/mem/mem.h>
+#include <ccan/ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/lease_rates.h>
+#include <common/type_to_string.h>
 #include <wire/peer_wire.h>
+
+/* FIXME: Is there a better way to do this ? */
+bool lease_rates_eq(struct lease_rates *l1,
+		    struct lease_rates *l2)
+{
+	if (!l1 != !l2)
+		return false;
+
+	if (!l1)
+		return true;
+
+	return l1->funding_weight == l2->funding_weight
+		&& l1->channel_fee_max_base_msat == l2->channel_fee_max_base_msat
+		&& l1->channel_fee_max_proportional_thousandths == l2->channel_fee_max_proportional_thousandths
+		&& l1->lease_fee_base_sat == l2->lease_fee_base_sat
+		&& l1->lease_fee_basis == l2->lease_fee_basis;
+}
 
 bool lease_rates_empty(struct lease_rates *rates)
 {
@@ -92,4 +111,46 @@ bool lease_rates_set_lease_fee_sat(struct lease_rates *rates,
 {
 	rates->lease_fee_base_sat = amt.satoshis; /* Raw: conversion */
 	return rates->lease_fee_base_sat == amt.satoshis; /* Raw: comparsion */
+}
+
+char *lease_rates_tohex(const tal_t *ctx, const struct lease_rates *rates)
+{
+	char *hex;
+	u8 *data = tal_arr(NULL, u8, 0);
+	towire_lease_rates(&data, rates);
+	hex = tal_hex(ctx, data);
+	tal_free(data);
+	return hex;
+}
+
+bool lease_rates_fromhex(const tal_t *ctx,
+			 const char *hexdata, size_t hexlen,
+			 struct lease_rates **rates)
+{
+	const u8 *data = tal_hexdata(ctx, hexdata, hexlen);
+	size_t len = tal_bytelen(data);
+
+	*rates = tal(ctx, struct lease_rates);
+	fromwire_lease_rates(&data, &len, *rates);
+
+	if (data == NULL) {
+		tal_free(*rates);
+		return false;
+	}
+
+	return true;
+}
+
+char *lease_rates_fmt(const tal_t *ctx, const struct lease_rates *rates)
+{
+	return tal_fmt(ctx, "{channel_fee_max_base_msat=%u,"
+		       "channel_fee_max_ppt=%u,"
+		       "funding_weight=%u,"
+		       "lease_fee_base_sat=%u,"
+		       "lease_fee_basis=%u}",
+		       rates->channel_fee_max_base_msat,
+		       rates->channel_fee_max_proportional_thousandths,
+		       rates->funding_weight,
+		       rates->lease_fee_base_sat,
+		       rates->lease_fee_basis);
 }

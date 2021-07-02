@@ -5,6 +5,7 @@
 #include <ccan/short_types/short_types.h>
 #include <common/bolt11.h>
 #include <common/json.h>
+#include <common/lease_rates.h>
 #include <common/node_id.h>
 #include <common/sphinx.h>
 #include <wire/wire.h>
@@ -204,4 +205,12 @@ struct command_result *
 param_routehint_array(struct command *cmd, const char *name, const char *buffer,
 		      const jsmntok_t *tok, struct route_info ***ris);
 
+/**
+ * Parse a 'compact-lease' (serialized lease_rates) back into lease_rates
+ */
+struct command_result *param_lease_hex(struct command *cmd,
+				       const char *name,
+				       const char *buffer,
+				       const jsmntok_t *tok,
+				       struct lease_rates **rates);
 #endif /* LIGHTNING_COMMON_JSON_TOK_H */
