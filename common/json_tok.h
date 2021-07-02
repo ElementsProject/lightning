@@ -4,6 +4,7 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <common/json.h>
+#include <common/lease_rates.h>
 #include <common/node_id.h>
 #include <common/sphinx.h>
 #include <wire/wire.h>
@@ -189,4 +190,12 @@ struct command_result *param_outpoint_arr(struct command *cmd,
 					  const char *buffer,
 					  const jsmntok_t *tok,
 					  struct bitcoin_outpoint **outpoints);
+/**
+ * Parse a 'compact-lease' (serialized lease_rates) back into lease_rates
+ */
+struct command_result *param_lease_hex(struct command *cmd,
+				       const char *name,
+				       const char *buffer,
+				       const jsmntok_t *tok,
+				       struct lease_rates **rates);
 #endif /* LIGHTNING_COMMON_JSON_TOK_H */

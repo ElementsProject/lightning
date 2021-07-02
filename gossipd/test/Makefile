@@ -14,6 +14,7 @@ GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/node_id.o			\
 	common/json.o				\
 	common/json_helpers.o			\
+	common/lease_rates.o			\
 	common/pseudorand.o			\
 	common/setup.o				\
 	common/type_to_string.o			\
