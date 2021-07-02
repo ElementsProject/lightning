@@ -108,6 +108,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	struct amount_msat total_pay;
 	struct bitcoin_tx *tx;
 	size_t i, n, untrimmed;
+	/* Is this the lessor ? */
+	enum side lessor = !opener;
 	u32 *cltvs;
 	bool to_local, to_remote;
 	struct htlc *dummy_to_local = (struct htlc *)0x01,
@@ -115,6 +117,8 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
 							local_funding_key,
 							remote_funding_key);
+	u32 csv_lock = lease_expiry > blockheight ?
+		lease_expiry - blockheight : 1;
 
 	if (!amount_msat_add(&total_pay, self_pay, other_pay))
 		abort();
@@ -244,8 +248,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		*/
 		u8 *wscript = to_self_wscript(tmpctx,
 					      to_self_delay,
-					      lease_expiry > blockheight ?
-						lease_expiry - blockheight : 0,
+					      side == lessor ? csv_lock : 0,
 					      keyset);
 		u8 *p2wsh = scriptpubkey_p2wsh(tx, wscript);
 		struct amount_sat amount = amount_msat_to_sat_round_down(self_pay);
@@ -287,6 +290,11 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 * Otherwise, this output is a simple P2WPKH to `remotepubkey`.
 		 */
 		if (option_anchor_outputs) {
+			const u8 *redeem
+				= anchor_to_remote_redeem(tmpctx,
+							  &keyset->other_payment_key,
+							  (!side) == lessor ?
+								csv_lock : 1);
 			/* BOLT- #3:
 			 * ##### Leased channel (`option_will_fund`)
 			 *
@@ -299,10 +307,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 			 *       MAX(1, lease_end - blockheight)
 			 *       OP_CHECKSEQUENCEVERIFY
 			 */
-			u32 csv_lock = lease_expiry > blockheight ?
-				lease_expiry - blockheight : 1;
-			scriptpubkey = scriptpubkey_p2wsh(tmpctx,
-							  anchor_to_remote_redeem(tmpctx, &keyset->other_payment_key, csv_lock));
+			scriptpubkey = scriptpubkey_p2wsh(tmpctx, redeem);
 		} else {
 			scriptpubkey = scriptpubkey_p2wpkh(tmpctx,
 							   &keyset->other_payment_key);
