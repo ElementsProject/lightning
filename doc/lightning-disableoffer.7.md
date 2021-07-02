@@ -40,6 +40,7 @@ On success, an object is returned, containing:
 - **active** (boolean): Whether the offer can produce invoices/payments (always "false")
 - **single_use** (boolean): Whether the offer is disabled after first successful use
 - **bolt12** (string): The bolt12 string representing this offer
+- **bolt12_unsigned** (string): The bolt12 string representing this offer, without signature
 - **used** (boolean): Whether the offer has had an invoice paid / payment made
 - **label** (string, optional): The label provided when offer was created
 [comment]: # (GENERATE-FROM-SCHEMA-END)
@@ -72,4 +73,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:abf340bf35dcefd42fba609b3ae95adb2f74bb5766c68e174a9b8f9114c80202)
+[comment]: # ( SHA256STAMP:5b96eca3e35f6c556b93db1743c617b59e69058c9421ece9cc99a9c8814c176b)

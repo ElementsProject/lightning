@@ -481,8 +481,8 @@ int main(int argc, char *argv[])
 
 	if (streq(hrp, "lno")) {
 		const struct tlv_offer *offer
-			= offer_decode_nosig(ctx, argv[2], strlen(argv[2]),
-					     NULL, NULL, &fail);
+			= offer_decode(ctx, argv[2], strlen(argv[2]),
+				       NULL, NULL, &fail);
 		if (!offer)
 			errx(ERROR_BAD_DECODE, "Bad offer: %s", fail);
 
@@ -517,7 +517,7 @@ int main(int argc, char *argv[])
 			print_features(offer->features);
 		if (offer->paths)
 			print_blindedpaths(offer->paths, NULL);
-		if (must_have(offer, signature) && offer->node_id)
+		if (offer->signature && offer->node_id)
 			well_formed &= print_signature("offer", "signature",
 						       offer->fields,
 						       offer->node_id,

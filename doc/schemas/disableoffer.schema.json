@@ -1,7 +1,7 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
-    "required": [ "offer_id", "active", "single_use", "bolt12", "used" ],
+    "required": [ "offer_id", "active", "single_use", "bolt12", "bolt12_unsigned", "used" ],
     "additionalProperties": false,
     "properties": {
 	"offer_id": {
@@ -22,6 +22,10 @@
 	"bolt12": {
 	    "type": "string",
 	    "description": "The bolt12 string representing this offer"
+	},
+	"bolt12_unsigned": {
+	    "type": "string",
+	    "description": "The bolt12 string representing this offer, without signature"
 	},
 	"used": {
 	    "type": "boolean",

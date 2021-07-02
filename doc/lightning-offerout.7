@@ -17,6 +17,11 @@ offer)\.  It automatically enables the accepting and payment of
 corresponding invoice message (we will only pay once, however!)\.
 
 
+Note that it creates two variants of the offer: a signed and an
+unsigned one (which is smaller)\.  Wallets should accept both: the
+current specification allows either\.
+
+
 The \fIamount\fR parameter can be the string "any", which creates an offer
 that can be paid with any amount (e\.g\. a donation)\.  Otherwise it can
 be a positive value in millisatoshi precision; it can be a whole
@@ -64,6 +69,8 @@ On success, an object is returned, containing:
 .IP \[bu]
 \fBbolt12\fR (string): the bolt12 encoding of the offer
 .IP \[bu]
+\fBbolt12_unsigned\fR (string): the bolt12 encoding of the offer, without a signature
+.IP \[bu]
 \fBused\fR (boolean): True if an incoming invoice has been paid (always \fIfalse\fR)
 .IP \[bu]
 \fBlabel\fR (string, optional): the (optional) user-specified label
@@ -106,4 +113,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:823219aff5dc06ab3b810442048b6cf733210c3eae80567327dc396e5f7987c8
+\" SHA256STAMP:3de11c6de7905322d9ef748981fc1d4f9ca91f4be46d76af6e9124572853047d

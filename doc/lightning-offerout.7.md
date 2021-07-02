@@ -18,6 +18,10 @@ send an invoice for us to pay (technically, this is referred to as a
 offer).  It automatically enables the accepting and payment of
 corresponding invoice message (we will only pay once, however!).
 
+Note that it creates two variants of the offer: a signed and an
+unsigned one (which is smaller).  Wallets should accept both: the
+current specification allows either.
+
 The *amount* parameter can be the string "any", which creates an offer
 that can be paid with any amount (e.g. a donation).  Otherwise it can
 be a positive value in millisatoshi precision; it can be a whole
@@ -55,6 +59,7 @@ On success, an object is returned, containing:
 - **active** (boolean): whether this will pay a matching incoming invoice (always *true*)
 - **single_use** (boolean): whether this expires as soon as it's paid out (always *true*)
 - **bolt12** (string): the bolt12 encoding of the offer
+- **bolt12_unsigned** (string): the bolt12 encoding of the offer, without a signature
 - **used** (boolean): True if an incoming invoice has been paid (always *false*)
 - **label** (string, optional): the (optional) user-specified label
 [comment]: # (GENERATE-FROM-SCHEMA-END)
@@ -92,4 +97,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:6db3fdba07f376e697326b3bf1bd74c013084a459cb9f4fe76d23fce58bd58fe)
+[comment]: # ( SHA256STAMP:2b7e7b543a88a10dbfbca2508e034af79f43ed0845abdb9df1fdf7e28ee33c26)

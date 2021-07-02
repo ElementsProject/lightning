@@ -35,9 +35,9 @@ If \fBtype\fR is "bolt12 offer", and \fBvalid\fR is \fItrue\fR:
 .IP \[bu]
 \fBnode_id\fR (pubkey32): x-only public key of the offering node
 .IP \[bu]
-\fBsignature\fR (bip340sig): BIP-340 signature of the \fInode_id\fR on this offer
-.IP \[bu]
 \fBdescription\fR (string): the description of the purpose of the offer
+.IP \[bu]
+\fBsignature\fR (bip340sig, optional): BIP-340 signature of the \fInode_id\fR on this offer
 .IP \[bu]
 \fBchains\fR (array of hexs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
 .RS
@@ -414,4 +414,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:045cd00ad893483df132bdffd913049bfe43acb152a511accc9f17f87ba06a8d
+\" SHA256STAMP:cd54af7c631f06b3db72848cdf90951ceb14d89b8bca981dba69244cd2ddbae5
