@@ -545,16 +545,25 @@ int main(int argc, char *argv[])
 			print_features(invreq->features);
 		if (invreq->quantity)
 			print_quantity(*invreq->quantity);
+		/* Note: old format didn't include this, so we don't complain! */
+		if (invreq->payer_signature)
+			well_formed &= print_signature("invoice_request",
+						       "payer_signature",
+						       invreq->fields,
+						       invreq->payer_key,
+						       invreq->payer_signature);
 		if (invreq->recurrence_counter) {
 			print_recurrence_counter(invreq->recurrence_counter,
 						 invreq->recurrence_start);
-			if (must_have(invreq, recurrence_signature)) {
+			/* Old form included recurrence_signature */
+			if (invreq->recurrence_signature)
 				well_formed &= print_signature("invoice_request",
 							       "recurrence_signature",
 							       invreq->fields,
 							       invreq->payer_key,
 							       invreq->recurrence_signature);
-			}
+			else /* New form definitely should have this! */
+				must_have(invreq, payer_signature);
 		} else {
 			must_not_have(invreq, recurrence_start);
 			must_not_have(invreq, recurrence_signature);

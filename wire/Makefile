@@ -58,14 +58,17 @@ WIRE_BOLT_DEPS := $(BOLT_DEPS) tools/gen/impl_template tools/gen/header_template
 
 ALL_PEER_PATCHES := $(sort $(wildcard wire/extracted_peer*.patch))
 ALL_ONION_PATCHES := $(sort $(wildcard wire/extracted_onion*.patch))
+ALL_BOLT12_PATCHES := $(sort $(wildcard wire/extracted_bolt12*.patch))
 
 # These are applied to the non-exp csvs to make the exp csvs.
 PEER_EXP_PATCHES := $(sort $(wildcard wire/extracted_peer_exp*.patch))
 ONION_EXP_PATCHES := $(sort $(wildcard wire/extracted_onion_exp*.patch))
+BOLT12_EXP_PATCHES := $(sort $(wildcard wire/extracted_bolt12_exp*.patch))
 
 # These are always applied to the bolts.
 PEER_PATCHES := $(filter-out $(PEER_EXP_PATCHES),$(ALL_PEER_PATCHES))
 ONION_PATCHES := $(filter-out $(ONION_EXP_PATCHES),$(ALL_ONION_PATCHES))
+BOLT12_PATCHES := $(filter-out $(BOLT12_EXP_PATCHES),$(ALL_BOLT12_PATCHES))
 
 # Explicit command to re-extract CSV from BOLTs and patch.
 # This is not a normal make depencency, since we don't want this

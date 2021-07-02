@@ -1,5 +1,6 @@
 #include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
+#include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
@@ -403,6 +404,7 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	const char *label;
 	struct json_stream *response;
 	u64 *prev_basetime = NULL;
+	struct sha256 merkle;
 
 	if (!param(cmd, buffer, params,
 		   p_req("bolt12", param_b12_invreq, &invreq),
@@ -448,24 +450,24 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 	}
 
 	/* BOLT-offers #12:
-	 * - if the offer contained `recurrence`:
-	 *...
-	 *   - MUST set `recurrence_signature` `sig` as detailed in
-	 *    [Signature Calculation](#signature-calculation) using the
-	 *    `payer_key`.
+	 *  - MUST set `payer_signature` `sig` as detailed in
+	 *  [Signature Calculation](#signature-calculation) using the `payer_key`.
 	 */
-	if (invreq->recurrence_counter) {
-		struct sha256 merkle;
+	/* This populates the ->fields from our entries */
+	invreq->fields = tlv_make_fields(invreq, invoice_request);
+	merkle_tlv(invreq->fields, &merkle);
+	invreq->payer_signature = tal(invreq, struct bip340sig);
+	hsm_sign_b12(cmd->ld, "invoice_request", "payer_signature",
+		     &merkle, invreq->payer_info, invreq->payer_key,
+		     invreq->payer_signature);
 
-		/* This populates the ->fields from our entries */
-		invreq->fields = tlv_make_fields(invreq, invoice_request);
-		merkle_tlv(invreq->fields, &merkle);
+	/* Backwards compat for older version! */
+	if (deprecated_apis && invreq->recurrence_counter) {
 		invreq->recurrence_signature = tal(invreq, struct bip340sig);
 		hsm_sign_b12(cmd->ld, "invoice_request", "recurrence_signature",
 			     &merkle, invreq->payer_info, invreq->payer_key,
 			     invreq->recurrence_signature);
 	}
-
 	response = json_stream_success(cmd);
 	json_add_string(response, "bolt12", invrequest_encode(tmpctx, invreq));
 	if (label)
