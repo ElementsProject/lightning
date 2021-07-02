@@ -75,12 +75,38 @@ static void try_update_blockheight(struct lightningd *ld,
 {
 	u8 *msg;
 
-	/* We use the same heuristic for channel states as feerates */
-	if (!channel_fees_can_change(channel))
-		return;
+	log_debug(channel->log, "attempting update blockheight %s",
+		  type_to_string(tmpctx, struct channel_id, &channel->cid));
 
-	/* Can't if no daemon listening. */
-	if (!channel->owner)
+	/* If they're offline, check that we're not too far behind anyway */
+	if (!channel->owner) {
+		if (channel->opener == REMOTE
+		    && channel->lease_expiry > 0) {
+			u32 peer_height
+				= get_blockheight(channel->blockheight_states,
+						  channel->opener, REMOTE);
+
+			/* Lease no longer active, we don't (really) care */
+			if (peer_height >= channel->lease_expiry)
+				return;
+
+			assert(peer_height + 1008 > peer_height);
+			if (peer_height + 1008 < blockheight)
+				channel_fail_permanent(channel,
+						       REASON_PROTOCOL,
+						       "Offline peer is too"
+						       " far behind,"
+						       " terminating leased"
+						       " channel. Our current"
+						       " %u, theirs %u",
+						       blockheight,
+						       peer_height);
+		}
+		return;
+	}
+
+	/* If we're not opened/locked in yet, don't send update */
+	if (!channel_fees_can_change(channel))
 		return;
 
 	/* We don't update the blockheight for non-leased chans */
