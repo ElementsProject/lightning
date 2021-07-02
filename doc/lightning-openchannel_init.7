@@ -3,7 +3,7 @@
 lightning-openchannel_init - Command to initiate a channel to a peer
 .SH SYNOPSIS
 
-\fBopenchannel_init\fR \fIid\fR \fIamount\fR \fIinitalpsbt\fR [\fIcommitment_feerate\fR] [\fIfunding_feerate\fR] [\fIannounce\fR] [\fIclose_to\fR] [\fIrequest_amt\fR]
+\fBopenchannel_init\fR \fIid\fR \fIamount\fR \fIinitalpsbt\fR [\fIcommitment_feerate\fR] [\fIfunding_feerate\fR] [\fIannounce\fR] [\fIclose_to\fR] [\fIrequest_amt\fR] [\fIcompact_lease\fR]
 
 .SH DESCRIPTION
 
@@ -46,7 +46,12 @@ sent on close\. Only valid if both peers have negotiated
 
 \fIrequest_amt\fR is an amount of liquidity you'd like to lease from the peer\.
 If peer supports \fBoption_will_fund\fR, indicates to them to include this
-much liquidity into the channel\.
+much liquidity into the channel\. Must also pass in \fIcompact_lease\fR\.
+
+
+\fIcompact_lease\fR is a compact represenation of the peer's expected
+channel lease terms\. If the peer's terms don't match this set, we will
+fail to open the channel\.
 
 .SH RETURN VALUE
 
@@ -119,4 +124,4 @@ lightning-fundchannel_\fBcomplete\fR(7), \fBlightning-fundchannel\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:13023bb80ee4a7f6a94a168399a01e05c6c5ab68e9eec5795ebd5f49207a03ac
+\" SHA256STAMP:a5532a84325f6807aa370bd34a12828dba2fd87bd348bdeaac4217518882d90c

@@ -761,8 +761,11 @@ static void json_add_policy(struct json_stream *stream,
 	json_add_num(stream, "fuzz_percent", policy->fuzz_factor);
 	json_add_num(stream, "fund_probability", policy->fund_probability);
 
-	if (policy->rates)
+	if (policy->rates) {
 		json_add_lease_rates(stream, policy->rates);
+		json_add_string(stream, "compact_lease",
+				lease_rates_tohex(tmpctx, policy->rates));
+	}
 }
 
 static struct command_result *

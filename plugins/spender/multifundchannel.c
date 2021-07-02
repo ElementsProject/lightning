@@ -7,6 +7,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/compiler/compiler.h>
 #include <ccan/crypto/sha256/sha256.h>
+#include <ccan/json_out/json_out.h>
 #include <ccan/str/str.h>
 #include <ccan/take/take.h>
 #include <common/addr.h>
@@ -16,6 +17,7 @@
 #include <common/json_stream.h>
 #include <common/json_tok.h>
 #include <common/jsonrpc_errors.h>
+#include <common/lease_rates.h>
 #include <common/node_id.h>
 #include <common/psbt_open.h>
 #include <common/pseudorand.h>
@@ -1816,6 +1818,7 @@ param_destinations_array(struct command *cmd, const char *name,
 		struct amount_sat *amount, *request_amt;
 		bool *announce;
 		struct amount_msat *push_msat;
+		struct lease_rates *rates;
 
 		dest = &(*dests)[i];
 
@@ -1832,6 +1835,7 @@ param_destinations_array(struct command *cmd, const char *name,
 				 &dest->close_to_str),
 			   p_opt_def("request_amt", param_sat, &request_amt,
 				     AMOUNT_SAT(0)),
+			   p_opt("compact_lease", param_lease_hex, &rates),
 			   NULL))
 			return command_param_failed();
 
@@ -1854,6 +1858,12 @@ param_destinations_array(struct command *cmd, const char *name,
 						     json_dest,
 						     "output would be dust");
 
+		if (!amount_sat_zero(*request_amt) && !rates)
+			return command_fail_badparam(cmd, name, buffer,
+					             json_dest,
+						     "Must pass in 'compact_"
+						     "lease' if requesting"
+						     " funds from peer");
 		dest->index = i;
 		dest->addrhint = addrhint;
 		dest->their_features = NULL;
@@ -1867,6 +1877,7 @@ param_destinations_array(struct command *cmd, const char *name,
 		dest->updated_psbt = NULL;
 		dest->protocol = FUND_CHANNEL;
 		dest->request_amt = *request_amt;
+		dest->rates = tal_steal(*dests, rates);
 
 		/* Only one destination can have "all" indicator.  */
 		if (dest->all) {

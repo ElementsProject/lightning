@@ -2598,6 +2598,7 @@ static void opener_start(struct state *state, u8 *msg)
 	char *err_reason;
 	struct amount_sat total, requested_sats, lease_fee;
 	bool dry_run;
+	struct lease_rates *expected_rates;
 	struct tx_state *tx_state = state->tx_state;
 
 	if (!fromwire_dualopend_opener_init(state, msg,
@@ -2609,7 +2610,8 @@ static void opener_start(struct state *state, u8 *msg)
 					    &state->channel_flags,
 					    &requested_sats,
 					    &tx_state->blockheight,
-					    &dry_run))
+					    &dry_run,
+					    &expected_rates))
 		master_badmsg(WIRE_DUALOPEND_OPENER_INIT, msg);
 
 	state->our_role = TX_INITIATOR;
@@ -2747,6 +2749,23 @@ static void opener_start(struct state *state, u8 *msg)
 		open_err_warn(state, "%s", "Abort requested");
 	}
 
+	/* If we've requested funds and they've failed to provide
+	 * to lease us (or give them to us for free?!) then we fail.
+	 * This isn't spec'd but it makes the UX predictable */
+	if (open_tlv->request_funds
+	    && amount_sat_less(tx_state->accepter_funding, requested_sats))
+			negotiation_failed(state,
+					   "We requested %s, which is more"
+					   " than they've offered to provide"
+					   " (%s)",
+					   type_to_string(tmpctx,
+							  struct amount_sat,
+							  &requested_sats),
+					   type_to_string(tmpctx,
+							  struct amount_sat,
+							  &tx_state->accepter_funding));
+
+
 	/* BOLT- #2:
 	 * The accepting node:  ...
 	 *  - if they decide to accept the offer:
@@ -2755,6 +2774,16 @@ static void opener_start(struct state *state, u8 *msg)
 	if (open_tlv->request_funds && a_tlv->will_fund) {
 		char *err_msg;
 		struct lease_rates *rates = &a_tlv->will_fund->lease_rates;
+
+		if (!lease_rates_eq(rates, expected_rates))
+			negotiation_failed(state,
+					   "Expected lease rates (%s),"
+					   " their returned lease rates (%s)",
+					   lease_rates_fmt(tmpctx,
+							   expected_rates),
+					   lease_rates_fmt(tmpctx,
+							   rates));
+
 
 		tx_state->lease_expiry = tx_state->blockheight + LEASE_RATE_DURATION;
 

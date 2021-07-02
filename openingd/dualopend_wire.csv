@@ -95,6 +95,7 @@ msgdata,dualopend_got_offer_reply,accepter_funding,amount_sat,
 msgdata,dualopend_got_offer_reply,psbt,wally_psbt,
 msgdata,dualopend_got_offer_reply,shutdown_len,u16,
 msgdata,dualopend_got_offer_reply,our_shutdown_scriptpubkey,?u8,shutdown_len
+# must go last because of embedded tu32
 msgdata,dualopend_got_offer_reply,lease_rates,?lease_rates,
 
 # dualopend->master: they offered a RBF, should we continue?
@@ -179,6 +180,8 @@ msgdata,dualopend_opener_init,channel_flags,u8,
 msgdata,dualopend_opener_init,requested_sats,amount_sat,
 msgdata,dualopend_opener_init,blockheight,u32,
 msgdata,dualopend_opener_init,dry_run,bool,
+# must go last because embedded tu32
+msgdata,dualopend_opener_init,expected_rates,?lease_rates,
 
 # dualopend->master received tx_sigs from peer
 msgtype,dualopend_funding_sigs,7010
@@ -231,6 +234,7 @@ msgtype,dualopend_dry_run,7026
 msgdata,dualopend_dry_run,channel_id,channel_id,
 msgdata,dualopend_dry_run,our_funding,amount_sat,
 msgdata,dualopend_dry_run,their_funding,amount_sat,
+# must go last because of embedded tu32
 msgdata,dualopend_dry_run,lease_rates,?lease_rates,
 
 # dualopend -> master:  validate liqudity offer sig

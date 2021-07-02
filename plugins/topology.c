@@ -561,6 +561,11 @@ static void json_add_node(struct json_stream *js,
 		if (na_tlvs->option_will_fund) {
 			json_object_start(js, "option_will_fund");
 			json_add_lease_rates(js, na_tlvs->option_will_fund);
+			/* As a convenience, add a hexstring version
+			 * of this info */
+			json_add_string(js, "compact_lease",
+					lease_rates_tohex(tmpctx,
+							  na_tlvs->option_will_fund));
 			json_object_end(js);
 		}
 	}
