@@ -287,7 +287,7 @@ static struct wally_psbt *psbt_using_utxos(const tal_t *ctx,
 		 */
 		if (utxos[i]->close_info
 		    && utxos[i]->close_info->option_anchor_outputs)
-			this_nsequence = 1;
+			this_nsequence = utxos[i]->close_info->csv;
 		else
 			this_nsequence = nsequence;
 

@@ -476,7 +476,7 @@ bool fromwire_onchaind_all_irrevocably_resolved(const void *p)
 
 /* WIRE: ONCHAIND_ADD_UTXO */
 /* onchaind->master: hey */
-u8 *towire_onchaind_add_utxo(const tal_t *ctx, const struct bitcoin_txid *prev_out_tx, u32 prev_out_index, const struct pubkey *per_commit_point, struct amount_sat value, u32 blockheight, const u8 *scriptpubkey)
+u8 *towire_onchaind_add_utxo(const tal_t *ctx, const struct bitcoin_txid *prev_out_tx, u32 prev_out_index, const struct pubkey *per_commit_point, struct amount_sat value, u32 blockheight, const u8 *scriptpubkey, u32 csv_lock)
 {
 	u16 len = tal_count(scriptpubkey);
 	u8 *p = tal_arr(ctx, u8, 0);
@@ -494,10 +494,11 @@ u8 *towire_onchaind_add_utxo(const tal_t *ctx, const struct bitcoin_txid *prev_o
 	towire_u32(&p, blockheight);
 	towire_u16(&p, len);
 	towire_u8_array(&p, scriptpubkey, len);
+	towire_u32(&p, csv_lock);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_onchaind_add_utxo(const tal_t *ctx, const void *p, struct bitcoin_txid *prev_out_tx, u32 *prev_out_index, struct pubkey **per_commit_point, struct amount_sat *value, u32 *blockheight, u8 **scriptpubkey)
+bool fromwire_onchaind_add_utxo(const tal_t *ctx, const void *p, struct bitcoin_txid *prev_out_tx, u32 *prev_out_index, struct pubkey **per_commit_point, struct amount_sat *value, u32 *blockheight, u8 **scriptpubkey, u32 *csv_lock)
 {
 	u16 len;
 
@@ -520,6 +521,7 @@ bool fromwire_onchaind_add_utxo(const tal_t *ctx, const void *p, struct bitcoin_
  	// 2nd case scriptpubkey
 	*scriptpubkey = len ? tal_arr(ctx, u8, len) : NULL;
 	fromwire_u8_array(&cursor, &plen, *scriptpubkey, len);
+ 	*csv_lock = fromwire_u32(&cursor, &plen);
 	return cursor != NULL;
 }
 
@@ -637,4 +639,4 @@ bool fromwire_onchaind_notify_coin_mvt(const void *p, struct chain_coin_mvt *mvt
  	fromwire_chain_coin_mvt(&cursor, &plen, mvt);
 	return cursor != NULL;
 }
-// SHA256STAMP:40630b923c5c303627b75b8ca663b0d8a060039d2171571f6ecab580695dfdba
+// SHA256STAMP:5aa638efffb78c0f1cac4889fb37e3666792ad716f7db66c925b4640628ffbde

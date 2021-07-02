@@ -132,8 +132,8 @@ bool fromwire_onchaind_all_irrevocably_resolved(const void *p);
 
 /* WIRE: ONCHAIND_ADD_UTXO */
 /*  onchaind->master: hey */
-u8 *towire_onchaind_add_utxo(const tal_t *ctx, const struct bitcoin_txid *prev_out_tx, u32 prev_out_index, const struct pubkey *per_commit_point, struct amount_sat value, u32 blockheight, const u8 *scriptpubkey);
-bool fromwire_onchaind_add_utxo(const tal_t *ctx, const void *p, struct bitcoin_txid *prev_out_tx, u32 *prev_out_index, struct pubkey **per_commit_point, struct amount_sat *value, u32 *blockheight, u8 **scriptpubkey);
+u8 *towire_onchaind_add_utxo(const tal_t *ctx, const struct bitcoin_txid *prev_out_tx, u32 prev_out_index, const struct pubkey *per_commit_point, struct amount_sat value, u32 blockheight, const u8 *scriptpubkey, u32 csv_lock);
+bool fromwire_onchaind_add_utxo(const tal_t *ctx, const void *p, struct bitcoin_txid *prev_out_tx, u32 *prev_out_index, struct pubkey **per_commit_point, struct amount_sat *value, u32 *blockheight, u8 **scriptpubkey, u32 *csv_lock);
 
 /* WIRE: ONCHAIND_DEV_MEMLEAK */
 /*  master -> onchaind: do you have a memleak? */
@@ -161,4 +161,4 @@ bool fromwire_onchaind_notify_coin_mvt(const void *p, struct chain_coin_mvt *mvt
 
 
 #endif /* LIGHTNING_ONCHAIND_ONCHAIND_WIREGEN_H */
-// SHA256STAMP:40630b923c5c303627b75b8ca663b0d8a060039d2171571f6ecab580695dfdba
+// SHA256STAMP:5aa638efffb78c0f1cac4889fb37e3666792ad716f7db66c925b4640628ffbde

@@ -382,14 +382,15 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 	struct chain_coin_mvt *mvt;
 	u32 blockheight;
 	struct bitcoin_txid txid;
-	u32 outnum;
+	u32 outnum, csv_lock;
 	struct amount_sat amount;
 	struct pubkey *commitment_point;
 	u8 *scriptPubkey;
 
 	if (!fromwire_onchaind_add_utxo(
 		tmpctx, msg, &txid, &outnum, &commitment_point,
-		&amount, &blockheight, &scriptPubkey)) {
+		&amount, &blockheight, &scriptPubkey,
+		&csv_lock)) {
 		log_broken(channel->log,
 			   "onchaind gave invalid add_utxo message: %s",
 			   tal_hex(msg, msg));
@@ -399,10 +400,15 @@ static void onchain_add_utxo(struct channel *channel, const u8 *msg)
 	assert(blockheight);
 	outpointfilter_add(channel->peer->ld->wallet->owned_outpoints,
 			   &txid, outnum);
+	log_debug(channel->log, "adding utxo to watch %s:%u, csv %u",
+		  type_to_string(tmpctx, struct bitcoin_txid, &txid),
+		  outnum, csv_lock);
+
 	wallet_add_onchaind_utxo(channel->peer->ld->wallet,
 				 &txid, outnum, scriptPubkey,
 				 blockheight, amount, channel,
-				 commitment_point);
+				 commitment_point,
+				 csv_lock);
 
 	mvt = new_coin_deposit_sat(msg, "wallet", &txid,
 				   outnum, blockheight, amount);
