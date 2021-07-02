@@ -5,7 +5,7 @@ SYNOPSIS
 --------
 
 **fundchannel** *id* *amount* \[*feerate*\] \[*announce*\] \[*minconf*\]
-\[*utxos*\] \[*push_msat*\] \[*close_to*\]
+\[*utxos*\] \[*push_msat*\] \[*close_to*\] \[*request_amt*\] \[*compact_lease*\]
 
 DESCRIPTION
 -----------
@@ -66,7 +66,12 @@ Returns `close_to` set to closing script iff is negotiated.
 
 *request_amt* is an amount of liquidity you'd like to lease from the peer.
 If peer supports `option_will_fund`, indicates to them to include this
-much liquidity into the channel.
+much liquidity into the channel. Must also pass in *compact_lease*.
+
+*compact_lease* is a compact represenation of the peer's expected
+channel lease terms. If the peer's terms don't match this set, we will
+fail to open the channel.
+
 
 
 This example shows how to use lightning-cli to open new channel with peer 03f...fc1 from one whole utxo bcc1...39c:0

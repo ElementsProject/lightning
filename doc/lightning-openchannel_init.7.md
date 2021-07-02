@@ -4,7 +4,7 @@ lightning-openchannel\_init -- Command to initiate a channel to a peer
 SYNOPSIS
 --------
 
-**openchannel_init** *id* *amount* *initalpsbt* \[*commitment_feerate*\] \[*funding_feerate*\] \[*announce*\] \[*close_to*\] \[*request_amt*\]
+**openchannel_init** *id* *amount* *initalpsbt* \[*commitment_feerate*\] \[*funding_feerate*\] \[*announce*\] \[*close_to*\] \[*request_amt*\] \[*compact_lease*\]
 
 DESCRIPTION
 -----------
@@ -40,7 +40,11 @@ sent on close. Only valid if both peers have negotiated
 
 *request_amt* is an amount of liquidity you'd like to lease from the peer.
 If peer supports `option_will_fund`, indicates to them to include this
-much liquidity into the channel.
+much liquidity into the channel. Must also pass in *compact_lease*.
+
+*compact_lease* is a compact represenation of the peer's expected
+channel lease terms. If the peer's terms don't match this set, we will
+fail to open the channel.
 
 
 RETURN VALUE

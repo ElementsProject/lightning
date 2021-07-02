@@ -1617,8 +1617,12 @@ static void handle_dry_run_finished(struct subd *dualopend, const u8 *msg)
 	json_add_amount_sat_only(response, "our_funding_msat", our_funding);
 	json_add_amount_sat_only(response, "their_funding_msat", their_funding);
 
-	if (rates)
+	if (rates) {
 		json_add_lease_rates(response, rates);
+		/* As a convenience, add a hexstring version of this data */
+		json_add_string(response, "compact_lease",
+				lease_rates_tohex(tmpctx, rates));
+	}
 
 	was_pending(command_success(cmd, response));
 }
@@ -2578,7 +2582,8 @@ static struct command_result *json_queryrates(struct command *cmd,
 					   channel->channel_flags,
 					   *request_amt,
 					   get_block_height(cmd->ld->topology),
-					   true);
+					   true,
+					   NULL);
 
 	subd_send_msg(channel->owner, take(msg));
 	return command_still_pending(cmd);
@@ -2600,6 +2605,7 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 	struct wally_psbt *psbt;
 	const u8 *our_upfront_shutdown_script;
 	struct open_attempt *oa;
+	struct lease_rates *rates;
 	struct command_result *res;
 	u8 *msg;
 
@@ -2612,9 +2618,15 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 		   p_opt_def("announce", param_bool, &announce_channel, true),
 		   p_opt("close_to", param_bitcoin_address, &our_upfront_shutdown_script),
 		   p_opt_def("request_amt", param_sat, &request_amt, AMOUNT_SAT(0)),
+		   p_opt("compact_lease", param_lease_hex, &rates),
 		   NULL))
 		return command_param_failed();
 
+	/* Gotta expect some rates ! */
+	if (!amount_sat_zero(*request_amt) && !rates)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Must pass in 'compact_lease' if requesting"
+				    " funds from peer");
 	psbt_val = AMOUNT_SAT(0);
 	for (size_t i = 0; i < psbt->num_inputs; i++) {
 		struct amount_sat in_amt = psbt_input_get_amount(psbt, i);
@@ -2735,7 +2747,8 @@ static struct command_result *json_openchannel_init(struct command *cmd,
 					   channel->channel_flags,
 					   *request_amt,
 					   get_block_height(cmd->ld->topology),
-					   false);
+					   false,
+					   rates);
 
 	subd_send_msg(channel->owner, take(msg));
 	return command_still_pending(cmd);

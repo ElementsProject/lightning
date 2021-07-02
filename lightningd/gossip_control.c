@@ -13,6 +13,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/features.h>
+#include <common/lease_rates.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
@@ -280,6 +281,11 @@ static void json_getnodes_reply(struct subd *gossip UNUSED, const u8 *reply,
 		if (nodes[i]->rates) {
 			json_object_start(response, "option_will_fund");
 			json_add_lease_rates(response, nodes[i]->rates);
+			/* As a convenience, add a hexstring version
+			 * of this info */
+			json_add_string(response, "compact_lease",
+					lease_rates_tohex(tmpctx,
+							  nodes[i]->rates));
 			json_object_end(response);
 		}
 		json_object_end(response);

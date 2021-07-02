@@ -699,7 +699,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("feerates", payload)
 
-    def fundchannel(self, node_id, amount, feerate=None, announce=True, minconf=None, utxos=None, push_msat=None, close_to=None, request_amt=None):
+    def fundchannel(self, node_id, amount, feerate=None, announce=True, minconf=None, utxos=None, push_msat=None, close_to=None, request_amt=None, compact_lease=None):
         """
         Fund channel with {id} using {amount} satoshis with feerate
         of {feerate} (uses default feerate if unset).
@@ -723,6 +723,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "push_msat": push_msat,
             "close_to": close_to,
             "request_amt": request_amt,
+            "compact_lease": compact_lease,
         }
         return self.call("fundchannel", payload)
 
