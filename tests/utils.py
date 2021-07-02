@@ -23,7 +23,7 @@ def expected_peer_features(wumbo_channels=False, extra=[]):
     features = [1, 5, 7, 9, 11, 13, 15, 17, 27]
     if EXPERIMENTAL_FEATURES:
         # OPT_ONION_MESSAGES
-        features += [103]
+        features += [39]
         # option_anchor_outputs
         features += [21]
     if wumbo_channels:
@@ -43,7 +43,7 @@ def expected_node_features(wumbo_channels=False, extra=[]):
     features = [1, 5, 7, 9, 11, 13, 15, 17, 27, 55]
     if EXPERIMENTAL_FEATURES:
         # OPT_ONION_MESSAGES
-        features += [103]
+        features += [39]
         # option_anchor_outputs
         features += [21]
     if wumbo_channels:

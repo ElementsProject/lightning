@@ -127,11 +127,11 @@ const char *fmt_featurebits(const tal_t *ctx, const u8 *featurebits);
  */
 #define OPT_DUAL_FUND 				28
 
-/* BOLT-9fc25cfd2895578c0b1ab701ebe6c1eb67a19623 #9:
+/* BOLT-1ede04a1a3225581e265b3ce96984ba88253a4a4 #9:
  *
- * | 102/103 | `option_onion_messages` |... INC+ ...
+ * | 38/39 | `option_onion_messages` |... INC+ ...
  */
-#define OPT_ONION_MESSAGES			102
+#define OPT_ONION_MESSAGES			38
 
 #define OPT_SHUTDOWN_WRONG_FUNDING		104
 

@@ -516,7 +516,9 @@ static bool can_carry_onionmsg(const struct gossmap *map,
 
 	/* Check features of recipient */
 	n = gossmap_nth_node(map, c, !dir);
-	return n && gossmap_node_get_feature(map, n, OPT_ONION_MESSAGES) != -1;
+	/* 102/103 was the old EXPERIMENTAL feature bit: remove soon! */
+	return gossmap_node_get_feature(map, n, OPT_ONION_MESSAGES) != -1
+		|| gossmap_node_get_feature(map, n, 102) != -1;
 }
 
 /* Create path to node which can carry onion messages; if it can't find
