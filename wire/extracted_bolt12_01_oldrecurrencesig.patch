@@ -1,0 +1,13 @@
+diff --git a/wire/bolt12_wire.csv b/wire/bolt12_wire.csv
+index 4c7108b98..7216e6b22 100644
+--- a/wire/bolt12_wire.csv
++++ b/wire/bolt12_wire.csv
+@@ -65,6 +65,8 @@ tlvtype,invoice_request,replace_invoice,56
+ tlvdata,invoice_request,replace_invoice,payment_hash,sha256,
+ tlvtype,invoice_request,payer_signature,241
+ tlvdata,invoice_request,payer_signature,sig,bip340sig,
++tlvtype,invoice_request,recurrence_signature,240
++tlvdata,invoice_request,recurrence_signature,sig,bip340sig,
+ tlvtype,invoice,chains,2
+ tlvdata,invoice,chains,chains,chain_hash,...
+ tlvtype,invoice,offer_id,4

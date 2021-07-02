@@ -57,9 +57,15 @@ tlvtype,invoice_request,recurrence_start,68
 tlvdata,invoice_request,recurrence_start,period_offset,tu32,
 tlvtype,invoice_request,payer_key,38
 tlvdata,invoice_request,payer_key,key,pubkey32,
+tlvtype,invoice_request,payer_note,39
+tlvdata,invoice_request,payer_note,note,utf8,...
 tlvtype,invoice_request,payer_info,50
 tlvdata,invoice_request,payer_info,blob,byte,...
-tlvtype,invoice_request,recurrence_signature,242
+tlvtype,invoice_request,replace_invoice,56
+tlvdata,invoice_request,replace_invoice,payment_hash,sha256,
+tlvtype,invoice_request,payer_signature,241
+tlvdata,invoice_request,payer_signature,sig,bip340sig,
+tlvtype,invoice_request,recurrence_signature,240
 tlvdata,invoice_request,recurrence_signature,sig,bip340sig,
 tlvtype,invoice,chains,2
 tlvdata,invoice,chains,chains,chain_hash,...
@@ -75,6 +81,8 @@ tlvtype,invoice,paths,16
 tlvdata,invoice,paths,paths,blinded_path,...
 tlvtype,invoice,blindedpay,18
 tlvdata,invoice,blindedpay,payinfo,blinded_payinfo,...
+tlvtype,invoice,blinded_capacities,19
+tlvdata,invoice,blinded_capacities,incoming_msat,u64,...
 tlvtype,invoice,vendor,20
 tlvdata,invoice,vendor,vendor,utf8,...
 tlvtype,invoice,node_id,30
@@ -92,6 +100,8 @@ tlvtype,invoice,recurrence_basetime,64
 tlvdata,invoice,recurrence_basetime,basetime,tu64,
 tlvtype,invoice,payer_key,38
 tlvdata,invoice,payer_key,key,pubkey32,
+tlvtype,invoice,payer_note,39
+tlvdata,invoice,payer_note,note,utf8,...
 tlvtype,invoice,payer_info,50
 tlvdata,invoice,payer_info,blob,byte,...
 tlvtype,invoice,timestamp,40
@@ -107,6 +117,8 @@ tlvdata,invoice,fallbacks,num,u8,
 tlvdata,invoice,fallbacks,fallbacks,fallback_address,num
 tlvtype,invoice,refund_signature,52
 tlvdata,invoice,refund_signature,payer_signature,bip340sig,
+tlvtype,invoice,replace_invoice,56
+tlvdata,invoice,replace_invoice,payment_hash,sha256,
 tlvtype,invoice,signature,240
 tlvdata,invoice,signature,sig,bip340sig,
 subtype,blinded_payinfo
