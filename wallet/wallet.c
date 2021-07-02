@@ -516,7 +516,8 @@ static bool excluded(const struct utxo **excludes,
 	return false;
 }
 
-static bool deep_enough(u32 maxheight, const struct utxo *utxo)
+static bool deep_enough(u32 maxheight, const struct utxo *utxo,
+			u32 current_blockheight)
 {
 	/* If we require confirmations check that we have a
 	 * confirmation height and that it is below the required
@@ -525,6 +526,13 @@ static bool deep_enough(u32 maxheight, const struct utxo *utxo)
 		return true;
 	if (!utxo->blockheight)
 		return false;
+	/* Check that CSV-lock is now free! */
+	if (utxo->close_info) {
+		u32 csv_free = *utxo->blockheight + utxo->close_info->csv;
+		assert(csv_free > *utxo->blockheight);
+		if (csv_free < current_blockheight)
+			return false;
+	}
 	return *utxo->blockheight <= maxheight;
 }
 
@@ -572,7 +580,8 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
 	utxo = NULL;
 	while (!utxo && db_step(stmt)) {
 		utxo = wallet_stmt2output(ctx, stmt);
-		if (excluded(excludes, utxo) || !deep_enough(maxheight, utxo))
+		if (excluded(excludes, utxo)
+		    || !deep_enough(maxheight, utxo, current_blockheight))
 			utxo = tal_free(utxo);
 
 	}

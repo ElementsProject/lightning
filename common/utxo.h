@@ -1,6 +1,7 @@
 #ifndef LIGHTNING_COMMON_UTXO_H
 #define LIGHTNING_COMMON_UTXO_H
 #include "config.h"
+#include <assert.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/shadouble.h>
@@ -69,6 +70,17 @@ static inline bool utxo_is_reserved(const struct utxo *utxo, u32 current_height)
 		return false;
 
 	return utxo->reserved_til > current_height;
+}
+
+static inline bool utxo_is_csv_locked(const struct utxo *utxo, u32 current_height)
+{
+	if (!utxo->close_info)
+		return false;
+	/* All close outputs are csv locked for option_anchor_outputs */
+	if (!utxo->blockheight && utxo->close_info->option_anchor_outputs)
+		return true;
+	assert(*utxo->blockheight + utxo->close_info->csv > *utxo->blockheight);
+	return *utxo->blockheight + utxo->close_info->csv > current_height;
 }
 
 void towire_utxo(u8 **pptr, const struct utxo *utxo);
