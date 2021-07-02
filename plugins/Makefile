@@ -94,7 +94,9 @@ ALL_PROGRAMS += $(PLUGINS)
 
 PLUGIN_COMMON_OBJS :=				\
 	bitcoin/base58.o			\
+	bitcoin/block.o				\
 	bitcoin/feerate.o			\
+	bitcoin/preimage.o			\
 	bitcoin/privkey.o			\
 	bitcoin/psbt.o				\
 	bitcoin/pubkey.o			\
@@ -133,6 +135,7 @@ PLUGIN_COMMON_OBJS :=				\
 	common/wireaddr.o			\
 	wire/fromwire.o				\
 	wire/onion$(EXP)_wiregen.o		\
+	wire/peer$(EXP)_wiregen.o		\
 	wire/tlvstream.o			\
 	wire/towire.o
 

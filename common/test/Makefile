@@ -25,12 +25,17 @@ common/test/run-json:					\
 	common/amount.o					\
 	common/base32.o					\
 	common/bigsize.o				\
+	common/channel_id.o				\
 	common/json.o					\
 	common/json_stream.o				\
+	common/lease_rates.o				\
+	common/node_id.o				\
+	common/pseudorand.o				\
 	common/wireaddr.o				\
 	common/type_to_string.o				\
 	wire/fromwire.o					\
 	wire/onion$(EXP)_wiregen.o			\
+	wire/peer$(EXP)_wiregen.o			\
 	wire/towire.o
 
 common/test/run-route common/test/run-route-specific:	\

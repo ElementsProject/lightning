@@ -654,3 +654,19 @@ param_routehint_array(struct command *cmd, const char *name, const char *buffer,
 	}
 	return NULL;
 }
+
+struct command_result *param_lease_hex(struct command *cmd,
+				       const char *name,
+				       const char *buffer,
+				       const jsmntok_t *tok,
+				       struct lease_rates **rates)
+{
+	if (!lease_rates_fromhex(cmd, buffer + tok->start,
+				 tok->end - tok->start,
+				 rates))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Could not decode '%s' %.*s",
+				    name, json_tok_full_len(tok),
+				    json_tok_full(buffer, tok));
+	return NULL;
+}

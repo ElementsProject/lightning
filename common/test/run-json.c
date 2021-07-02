@@ -15,9 +15,6 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
 		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
-/* Generated stub for node_id_from_hexstr */
-bool node_id_from_hexstr(const char *str UNNEEDED, size_t slen UNNEEDED, struct node_id *id UNNEEDED)
-{ fprintf(stderr, "node_id_from_hexstr called!\n"); abort(); }
 /* Generated stub for tlv_fields_valid */
 bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, u64 *allow_extra UNNEEDED,
 		      size_t *err_index UNNEEDED)
