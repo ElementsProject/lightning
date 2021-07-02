@@ -15,6 +15,10 @@ The **offer** RPC command creates an offer, which is a precursor to
 creating one or more invoices.  It automatically enables the processing of
 an incoming invoice_request, and issuing of invoices.
 
+Note that it creates two variants of the offer: a signed and an
+unsigned one (which is smaller).  Wallets should accept both: the
+current specification allows either.
+
 The *amount* parameter can be the string "any", which creates an offer
 that can be paid with any amount (e.g. a donation).  Otherwise it can
 be a positive value in millisatoshi precision; it can be a whole
@@ -95,6 +99,7 @@ On success, an object is returned, containing:
 - **active** (boolean): whether this can still be used (always *true*)
 - **single_use** (boolean): whether this expires as soon as it's paid (reflects the *single_use* parameter)
 - **bolt12** (string): the bolt12 encoding of the offer
+- **bolt12_unsigned** (string): the bolt12 encoding of the offer, without a signature
 - **used** (boolean): True if an associated invoice has been paid (always *false*)
 - **label** (string, optional): the (optional) user-specified label
 [comment]: # (GENERATE-FROM-SCHEMA-END)
@@ -123,4 +128,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:20c0be7bad73fcf71ccae61c2c5a112c8602216d9d2e9f647f8273fdf4e3ed8b)
+[comment]: # ( SHA256STAMP:0f9cfd3cc68aaba20af0eee763c93b475016619d960e3f5bbc0b762a809f0fef)

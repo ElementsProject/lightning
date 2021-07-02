@@ -35,6 +35,7 @@ On success, an object containing **offers** is returned.  It is an array of obje
 - **active** (boolean): whether this can still be used
 - **single_use** (boolean): whether this expires as soon as it's paid
 - **bolt12** (string): the bolt12 encoding of the offer
+- **bolt12_unsigned** (string): the bolt12 encoding of the offer, without signature
 - **used** (boolean): True if an associated invoice has been paid
 - **label** (string, optional): the (optional) user-specified label
 [comment]: # (GENERATE-FROM-SCHEMA-END)
@@ -78,4 +79,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:58e9f5aa5808e19e3be151b1c1f1215ec23953b60ab294418aa57426c5bcbd46)
+[comment]: # ( SHA256STAMP:e2b8508c98e6161c45fca91bceb273e6c2865cec0e1761dde85f8f2dd6670491)

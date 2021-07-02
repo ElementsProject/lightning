@@ -28,7 +28,7 @@
 		}
 	    },
 	    "then": {
-		"required": [ "offer_id", "node_id", "signature", "description" ],
+		"required": [ "offer_id", "node_id", "description" ],
 		"additionalProperties": false,
 		"properties": {
 		    "type": { },

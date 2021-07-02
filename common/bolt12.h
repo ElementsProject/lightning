@@ -33,19 +33,12 @@ char *offer_encode(const tal_t *ctx, const struct tlv_offer *bolt12_tlv);
  * @must_be_chain: if non-NULL, chain to enforce.
  * @fail: pointer to descriptive error string, set if this returns NULL.
  *
- * Note: checks signature!
+ * Note: checks signature if present.
  */
 struct tlv_offer *offer_decode(const tal_t *ctx, const char *b12, size_t b12len,
 			       const struct feature_set *our_features,
 			       const struct chainparams *must_be_chain,
 			       char **fail);
-
-/* Variant which does not check signature */
-struct tlv_offer *offer_decode_nosig(const tal_t *ctx,
-				     const char *b12, size_t b12len,
-				     const struct feature_set *our_features,
-				     const struct chainparams *must_be_chain,
-				     char **fail);
 
 /**
  * invrequest_encode - encode this complete bolt12 invreq TLV into text.

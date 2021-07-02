@@ -167,27 +167,6 @@ struct tlv_offer *offer_decode(const tal_t *ctx,
 			       const struct chainparams *must_be_chain,
 			       char **fail)
 {
-	struct tlv_offer *offer;
-
-	offer = offer_decode_nosig(ctx, b12, b12len,
-				   our_features, must_be_chain, fail);
-
-	if (offer) {
-		*fail = check_signature(ctx, offer->fields,
-					"offer", "signature",
-					offer->node_id, offer->signature);
-		if (*fail)
-			offer = tal_free(offer);
-	}
-	return offer;
-}
-
-struct tlv_offer *offer_decode_nosig(const tal_t *ctx,
-				     const char *b12, size_t b12len,
-				     const struct feature_set *our_features,
-				     const struct chainparams *must_be_chain,
-				     char **fail)
-{
 	struct tlv_offer *offer = tlv_offer_new(ctx);
 	const u8 *data;
 	size_t dlen;
@@ -207,6 +186,19 @@ struct tlv_offer *offer_decode_nosig(const tal_t *ctx,
 					 offer->chains);
 	if (*fail)
 		return tal_free(offer);
+
+	/* BOLT-offers #12:
+	 * - if `signature` is present, but is not a valid signature using
+	 *   `node_id` as described in [Signature Calculation](#signature-calculation):
+	 *   - MUST NOT respond to the offer.
+	 */
+	if (offer->signature) {
+		*fail = check_signature(ctx, offer->fields,
+					"offer", "signature",
+					offer->node_id, offer->signature);
+		if (*fail)
+			return tal_free(offer);
+	}
 
 	return offer;
 }

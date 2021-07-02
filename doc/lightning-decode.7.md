@@ -27,8 +27,8 @@ On success, an object is returned, containing:
 If **type** is "bolt12 offer", and **valid** is *true*:
   - **offer_id** (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
   - **node_id** (pubkey32): x-only public key of the offering node
-  - **signature** (bip340sig): BIP-340 signature of the *node_id* on this offer
   - **description** (string): the description of the purpose of the offer
+  - **signature** (bip340sig, optional): BIP-340 signature of the *node_id* on this offer
   - **chains** (array of hexs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
     - the genesis blockhash (always 64 characters)
   - **currency** (string, optional): ISO 4217 code of the currency (missing implies Bitcoin) (always 3 characters)
@@ -183,4 +183,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:f0adee97f3b5776059252703efee1b8e244c1141f9f3dd5fe73e3d7ed4d59ab4)
+[comment]: # ( SHA256STAMP:8ca0b9178b8ea6575cd80291001263dc27f721664648086a7c1a02efcb545ee7)
