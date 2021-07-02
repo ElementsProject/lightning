@@ -890,17 +890,18 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         return self.call("listtransactions")
 
-    def listinvoices(self, label=None, payment_hash=None, invstring=None):
+    def listinvoices(self, label=None, payment_hash=None, invstring=None, offer_id=None):
         """Query invoices
 
-        Show invoice matching {label} {payment_hash} or {invstring} (or
-        all, if no filters are present).
+        Show invoice matching {label}, {payment_hash}, {invstring} or {offer_id}
+        (or all, if no filters are present).
 
         """
         payload = {
             "label": label,
             "payment_hash": payment_hash,
             "invstring": invstring,
+            "offer_id": offer_id,
         }
         return self.call("listinvoices", payload)
 

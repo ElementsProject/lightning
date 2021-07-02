@@ -702,7 +702,7 @@ def test_listinvoices_filter(node_factory):
     for q in queries:
         with pytest.raises(
                 RpcError,
-                match=r'Can only specify one of {label}, {invstring} or {payment_hash}'
+                match=r'Can only specify one of {label}, {invstring}, {payment_hash} or {offer_id}'
         ):
             l1.rpc.listinvoices(**q)
 
@@ -711,6 +711,7 @@ def test_listinvoices_filter(node_factory):
         {'label': 'doesnt exist'},
         {'payment_hash': 'AA' * 32},
         {'invstring': 'lnbcrt420p1p0lfrl6pp5w4zsagnfqu08s93rd44z93s8tt920hd9jec2yph969wluwkzrwpqdq8v3jhxccxqyjw5qcqp9sp52kw0kp75f6v2jusd8nsg2nfmdr82pqj0gf3jc8tqp7a2j48rzweq9qy9qsqtlu8eslmd4yxqrtrz75v8vmqrwknnk64sm79cj4asxhgndnj22r3g2a6axdvfdkhw966zw63cy3uzzn5hxad9ja8amqpp3wputl3ffcpallm2g'},
+        {'offer_id': 'AA' * 32},
     ]
 
     for q in queries:

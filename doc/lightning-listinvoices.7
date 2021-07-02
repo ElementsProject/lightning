@@ -3,7 +3,7 @@
 lightning-listinvoices - Command for querying invoice status
 .SH SYNOPSIS
 
-\fBlistinvoices\fR [\fIlabel\fR] [\fIinvstring\fR] [\fIpayment_hash\fR]
+\fBlistinvoices\fR [\fIlabel\fR] [\fIinvstring\fR] [\fIpayment_hash\fR] [\fIoffer_id\fR]
 
 .SH DESCRIPTION
 
@@ -13,8 +13,8 @@ if it exists, or the status of all invoices if given no argument\.
 
 A specific invoice can be queried by providing either the \fBlabel\fR
 provided when creating the invoice, the \fBinvstring\fR string representing
-the invoice, or the \fBpayment_hash\fR of the invoice\. Only one of the
-query parameters can be used at once\.
+the invoice, the \fBpayment_hash\fR of the invoice, or the local \fBoffer_id\fR
+this invoice was issued for\. Only one of the query parameters can be used at once\.
 
 .SH RETURN VALUE
 
@@ -69,4 +69,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:39640db51e7edd166966ff0f68bc1448328016fa23b56cf2e6e93961e62f458a
+\" SHA256STAMP:37d1f6f0b6160b9aa4944f730bec6b04469a9f9a293b59cf8f6663d37073da9c

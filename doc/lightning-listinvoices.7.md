@@ -4,7 +4,7 @@ lightning-listinvoices -- Command for querying invoice status
 SYNOPSIS
 --------
 
-**listinvoices** \[*label*\] \[*invstring*\] \[*payment_hash*\]
+**listinvoices** \[*label*\] \[*invstring*\] \[*payment_hash*\] \[*offer_id*\]
 
 DESCRIPTION
 -----------
@@ -14,8 +14,8 @@ if it exists, or the status of all invoices if given no argument.
 
 A specific invoice can be queried by providing either the `label`
 provided when creating the invoice, the `invstring` string representing
-the invoice, or the `payment_hash` of the invoice. Only one of the
-query parameters can be used at once.
+the invoice, the `payment_hash` of the invoice, or the local `offer_id`
+this invoice was issued for. Only one of the query parameters can be used at once.
 
 RETURN VALUE
 ------------
