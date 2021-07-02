@@ -1997,6 +1997,9 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad shutdown %s", tal_hex(peer, shutdown));
 
+	/* FIXME: We shouldn't let them initiate a shutdown while the
+	 * channel is active (if we leased funds) */
+
 	/* BOLT #2:
 	 *
 	 * - if both nodes advertised the `option_upfront_shutdown_script`

@@ -4,7 +4,7 @@ lightning-close -- Command for closing channels with direct peers
 SYNOPSIS
 --------
 
-**close** *id* \[*unilateraltimeout*\] \[*destination*\] \[*fee_negotiation_step*\] \[*wrong_funding\*]
+**close** *id* \[*unilateraltimeout*\] \[*destination*\] \[*fee_negotiation_step*\] \[*wrong_funding*\] \[*force_lease_closed*\]
 
 DESCRIPTION
 -----------
@@ -55,6 +55,11 @@ negotiating a shutdown to spend the expected funding transaction, the
 shutdown transaction will spend this output instead.  This is only
 allowed if this peer opened the channel and the channel is unused: it
 can rescue openings which have been manually miscreated.
+
+*force_lease_closed* if the channel has funds leased to the peer
+(option_will_fund), we prevent initiation of a mutual close
+unless this flag is passed in. Defaults to false.
+
 
 The peer needs to be live and connected in order to negotiate a mutual
 close. The default of unilaterally closing after 48 hours is usually a

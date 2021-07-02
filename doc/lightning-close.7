@@ -3,7 +3,7 @@
 lightning-close - Command for closing channels with direct peers
 .SH SYNOPSIS
 
-\fBclose\fR \fIid\fR [\fIunilateraltimeout\fR] [\fIdestination\fR] [\fIfee_negotiation_step\fR] [\fIwrong_funding\\\fR]
+\fBclose\fR \fIid\fR [\fIunilateraltimeout\fR] [\fIdestination\fR] [\fIfee_negotiation_step\fR] [\fIwrong_funding\fR] [\fIforce_lease_closed\fR]
 
 .SH DESCRIPTION
 
@@ -67,6 +67,11 @@ allowed if this peer opened the channel and the channel is unused: it
 can rescue openings which have been manually miscreated\.
 
 
+\fIforce_lease_closed\fR if the channel has funds leased to the peer
+(option_will_fund), we prevent initiation of a mutual close
+unless this flag is passed in\. Defaults to false\.
+
+
 The peer needs to be live and connected in order to negotiate a mutual
 close\. The default of unilaterally closing after 48 hours is usually a
 reasonable indication that you can no longer contact the peer\.
@@ -123,4 +128,4 @@ ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:03f1e6937a88aad4bdcd29d010da9ced148e3498ea19b388e8cbfde25276482d
+\" SHA256STAMP:c36a8ba48c3d2826344e23f880c21e0183942df8523da94394e5786dec874083
