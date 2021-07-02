@@ -397,7 +397,7 @@ static const char *feature_name(const tal_t *ctx, size_t f)
 		NULL,
 		NULL,
 		NULL,
-		NULL,
+		"option_onion_messages", /* 38/39 */
 		NULL, /* 40/41 */
 		NULL,
 		NULL,
@@ -429,7 +429,6 @@ static const char *feature_name(const tal_t *ctx, size_t f)
 		NULL,
 		NULL,
 		NULL, /* 100/101 */
-		"option_onion_messages", /* 102/103 */
 	};
 
 	if (f / 2 >= ARRAY_SIZE(fnames) || !fnames[f / 2])

@@ -4168,7 +4168,7 @@ def test_fetchinvoice_autoconnect(node_factory, bitcoind):
 
     if EXPERIMENTAL_FEATURES:
         # We have to force option_onion_messages off!
-        opts1 = {'dev-force-features': '-103'}
+        opts1 = {'dev-force-features': '-39'}
     else:
         opts1 = {}
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
