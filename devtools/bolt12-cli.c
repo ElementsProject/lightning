@@ -373,6 +373,12 @@ static void print_payer_key(const struct pubkey32 *payer_key,
 	printf("\n");
 }
 
+static void print_payer_note(const char *payer_note)
+{
+	printf("payer_note: %.*s\n",
+	       (int)tal_bytelen(payer_note), payer_note);
+}
+
 static void print_timestamp(u64 timestamp)
 {
 	printf("timestamp: %"PRIu64" (%s)\n",
@@ -535,6 +541,8 @@ int main(int argc, char *argv[])
 			print_chains(invreq->chains);
 		if (must_have(invreq, payer_key))
 			print_payer_key(invreq->payer_key, invreq->payer_info);
+		if (invreq->payer_note)
+			print_payer_note(invreq->payer_note);
 		if (must_have(invreq, offer_id))
 			print_offer_id(invreq->offer_id);
 		if (must_have(invreq, amount))
@@ -627,6 +635,8 @@ int main(int argc, char *argv[])
 			print_payer_key(invoice->payer_key, invoice->payer_info);
 		if (must_have(invoice, timestamp))
 			print_timestamp(*invoice->timestamp);
+		if (invoice->payer_note)
+			print_payer_note(invoice->payer_note);
 		print_relative_expiry(invoice->timestamp,
 				      invoice->relative_expiry);
 		if (must_have(invoice, payment_hash))
