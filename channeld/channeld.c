@@ -2364,9 +2364,12 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 	const struct htlc **htlc_map;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 
-	status_debug("Retransmitting commitment, feerate LOCAL=%u REMOTE=%u",
+	status_debug("Retransmitting commitment, feerate LOCAL=%u REMOTE=%u,"
+		     " blockheight LOCAL=%u REMOTE=%u",
 		     channel_feerate(peer->channel, LOCAL),
-		     channel_feerate(peer->channel, REMOTE));
+		     channel_feerate(peer->channel, REMOTE),
+		     channel_blockheight(peer->channel, LOCAL),
+		     channel_blockheight(peer->channel, REMOTE));
 
 	/* Note that HTLCs must be *added* in order.  Simplest thing to do
 	 * is to sort them all into ascending ID order here (we could do
@@ -2442,10 +2445,14 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 		}
 	}
 
-	/* Make sure they have the correct fee. */
+	/* Make sure they have the correct fee and blockheight. */
 	if (peer->channel->opener == LOCAL) {
 		msg = towire_update_fee(NULL, &peer->channel_id,
 					channel_feerate(peer->channel, REMOTE));
+		sync_crypto_write(peer->pps, take(msg));
+
+		msg = towire_update_blockheight(NULL, &peer->channel_id,
+						channel_blockheight(peer->channel, REMOTE));
 		sync_crypto_write(peer->pps, take(msg));
 	}
 
