@@ -682,6 +682,15 @@ static struct command_result *json_utxopsbt(struct command *cmd,
 							   struct bitcoin_txid,
 							   &utxo->txid),
 					    utxo->outnum);
+		if (utxo_is_csv_locked(utxo, current_height))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "UTXO %s:%u is csv locked (%u)",
+					    type_to_string(tmpctx,
+							   struct bitcoin_txid,
+							   &utxo->txid),
+					    utxo->outnum,
+					    utxo->close_info->csv);
+
 
 		/* It supplies more input. */
 		if (!amount_sat_add(&input, input, utxo->amount))
