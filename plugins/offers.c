@@ -533,6 +533,9 @@ static void json_add_b12_invoice(struct json_stream *js,
 		json_add_pubkey32(js, "payer_key", invoice->payer_key);
 	if (invoice->payer_info)
 		json_add_hex_talarr(js, "payer_info", invoice->payer_info);
+	if (invoice->payer_note)
+		json_add_stringn(js, "payer_note", invoice->payer_note,
+				 tal_bytelen(invoice->payer_note));
 
 	/* BOLT-offers #12:
 	 *   - MUST reject the invoice if `timestamp` is not present.
@@ -663,6 +666,9 @@ static void json_add_invoice_request(struct json_stream *js,
 	}
 	if (invreq->payer_info)
 		json_add_hex_talarr(js, "payer_info", invreq->payer_info);
+	if (invreq->payer_note)
+		json_add_stringn(js, "payer_note", invreq->payer_note,
+				 tal_bytelen(invreq->payer_note));
 
 	/* BOLT-offers #12:
 	 *  - MUST fail the request if there is no `payer_signature` field.

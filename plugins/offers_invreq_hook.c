@@ -819,6 +819,14 @@ static struct command_result *listoffers_done(struct command *cmd,
 	ir->inv->payer_info
 		= tal_dup_talarr(ir->inv, u8, ir->invreq->payer_info);
 
+	/* BOLT-offers #12:
+	 * - MUST set (or not set) `payer_note` exactly as the invoice_request
+	 *   did, or MUST not set it.
+	 */
+	/* i.e. we don't have to do anything, but we do. */
+	ir->inv->payer_note
+		= tal_dup_talarr(ir->inv, char, ir->invreq->payer_note);
+
 	randombytes_buf(&ir->preimage, sizeof(ir->preimage));
 	ir->inv->payment_hash = tal(ir->inv, struct sha256);
 	sha256(ir->inv->payment_hash, &ir->preimage, sizeof(ir->preimage));
