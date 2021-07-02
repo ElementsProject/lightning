@@ -4009,6 +4009,9 @@ def test_fetchinvoice(node_factory, bitcoind):
     assert 'payer_note' not in only_one(l3.rpc.call('listinvoices', {'invstring': inv1['invoice']})['invoices'])
     assert only_one(l3.rpc.call('listinvoices', {'invstring': inv2['invoice']})['invoices'])['payer_note'] == 'Thanks for the fish!'
 
+    # BTW, test listinvoices-by-offer_id:
+    assert len(l3.rpc.listinvoices(offer_id=offer1['offer_id'])['invoices']) == 2
+
     # We can also set the amount explicitly, to tip.
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'msatoshi': 3})
     assert l1.rpc.call('decode', [inv1['invoice']])['amount_msat'] == 3
