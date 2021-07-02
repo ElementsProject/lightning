@@ -159,8 +159,8 @@ bool fromwire_dualopend_fail(const tal_t *ctx, const void *p, wirestring **reaso
 
 /* WIRE: DUALOPEND_OPENER_INIT */
 /*  master->dualopend: hello */
-u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags, struct amount_sat requested_sats, u32 blockheight, bool dry_run);
-bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wally_psbt **psbt, struct amount_sat *funding_amount, u8 **local_shutdown_scriptpubkey, u32 *feerate_per_kw, u32 *feerate_per_kw_funding, u8 *channel_flags, struct amount_sat *requested_sats, u32 *blockheight, bool *dry_run);
+u8 *towire_dualopend_opener_init(const tal_t *ctx, const struct wally_psbt *psbt, struct amount_sat funding_amount, const u8 *local_shutdown_scriptpubkey, u32 feerate_per_kw, u32 feerate_per_kw_funding, u8 channel_flags, struct amount_sat requested_sats, u32 blockheight, bool dry_run, const struct lease_rates *expected_rates);
+bool fromwire_dualopend_opener_init(const tal_t *ctx, const void *p, struct wally_psbt **psbt, struct amount_sat *funding_amount, u8 **local_shutdown_scriptpubkey, u32 *feerate_per_kw, u32 *feerate_per_kw_funding, u8 *channel_flags, struct amount_sat *requested_sats, u32 *blockheight, bool *dry_run, struct lease_rates **expected_rates);
 
 /* WIRE: DUALOPEND_FUNDING_SIGS */
 /*  dualopend->master received tx_sigs from peer */
@@ -237,4 +237,4 @@ bool fromwire_dualopend_validate_lease_reply(const tal_t *ctx, const void *p, wi
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:65d1bedd1e05436c5474d298811fbb9c3fc96ac4e84bef8081c4eee55de286ad
+// SHA256STAMP:893f2d8e99ee42b814c293ee5fc24c6234b4198c87eaa9ec55e83c8085b5045f

@@ -16,6 +16,7 @@
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/jsonrpc_errors.h>
+#include <common/lease_rates.h>
 #include <common/param.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
