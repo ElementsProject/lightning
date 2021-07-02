@@ -830,7 +830,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 						const jsmntok_t *params)
 {
 	struct amount_msat *msat;
-	const char *rec_label;
+	const char *rec_label, *payer_note;
 	struct out_req *req;
 	struct tlv_invoice_request *invreq;
 	struct sent *sent = tal(cmd, struct sent);
@@ -847,6 +847,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 			 &invreq->recurrence_start),
 		   p_opt("recurrence_label", param_string, &rec_label),
 		   p_opt_def("timeout", param_number, &timeout, 60),
+		   p_opt("payer_note", param_string, &payer_note),
 		   NULL))
 		return command_param_failed();
 
@@ -996,6 +997,12 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 
 	invreq->features
 		= plugin_feature_set(cmd->plugin)->bits[BOLT11_FEATURE];
+
+	/* invreq->payer_note is not a nul-terminated string! */
+	if (payer_note)
+		invreq->payer_note = tal_dup_arr(invreq, utf8,
+						 payer_note, strlen(payer_note),
+						 0);
 
 	/* Make the invoice request (fills in payer_key and payer_info) */
 	req = jsonrpc_request_start(cmd->plugin, cmd, "createinvoicerequest",

@@ -67,6 +67,10 @@
 		    "local_offer_id": {
 			"type": "hex",
 			"description": "offer for which this invoice was created"
+		    },
+		    "payer_note": {
+			"type": "string",
+			"description": "the optional *payer_note* from invoice_request which created this invoice"
 		    }
 		}
 	    },
@@ -111,6 +115,7 @@
 		    "amount_msat": { },
 		    "description": { },
 		    "payment_hash": { },
+		    "payer_note": { },
 		    "local_offer_id": { },
 		    "pay_index": {
 			"type": "u64",
@@ -145,6 +150,7 @@
 		    "payment_hash": { },
 		    "expires_at": { },
 		    "pay_index": { },
+		    "payer_note": { },
 		    "local_offer_id": { }
 		}
 	    }

@@ -3992,7 +3992,8 @@ def test_fetchinvoice(node_factory, bitcoind):
                                    'description': 'simple test'})
 
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
-    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12_unsigned']})
+    inv2 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12_unsigned'],
+                                        'payer_note': 'Thanks for the fish!'})
     assert inv1 != inv2
     assert 'next_period' not in inv1
     assert 'next_period' not in inv2
@@ -4004,6 +4005,9 @@ def test_fetchinvoice(node_factory, bitcoind):
 
     # listinvoices will show these on l3
     assert [x['local_offer_id'] for x in l3.rpc.listinvoices()['invoices']] == [offer1['offer_id'], offer1['offer_id']]
+
+    assert 'payer_note' not in only_one(l3.rpc.call('listinvoices', {'invstring': inv1['invoice']})['invoices'])
+    assert only_one(l3.rpc.call('listinvoices', {'invstring': inv2['invoice']})['invoices'])['payer_note'] == 'Thanks for the fish!'
 
     # We can also set the amount explicitly, to tip.
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'msatoshi': 3})
