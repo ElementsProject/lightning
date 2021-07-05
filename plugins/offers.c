@@ -368,9 +368,14 @@ static void json_add_offer(struct json_stream *js, const struct tlv_offer *offer
 		json_object_end(js);
 	}
 
-	/* offer_decode fails if node_id or signature not set */
-	json_add_pubkey32(js, "node_id", offer->node_id);
-	json_add_bip340sig(js, "signature", offer->signature);
+	if (offer->node_id)
+		json_add_pubkey32(js, "node_id", offer->node_id);
+	else
+		valid = false;
+
+	/* If it's present, offer_decode checked it was valid */
+	if (offer->signature)
+		json_add_bip340sig(js, "signature", offer->signature);
 
 	json_add_bool(js, "valid", valid);
 }
