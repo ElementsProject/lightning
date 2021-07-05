@@ -62,19 +62,26 @@ static struct sent *find_sent(const struct pubkey *blinding)
 	return NULL;
 }
 
-static const char *field_diff_(const tal_t *a, const tal_t *b,
+static const char *field_diff_(struct plugin *plugin,
+			       const tal_t *a, const tal_t *b,
 			       const char *fieldname)
 {
 	/* One is set and the other isn't? */
-	if ((a == NULL) != (b == NULL))
+	if ((a == NULL) != (b == NULL)) {
+		plugin_log(plugin, LOG_DBG, "field_diff %s: a is %s, b is %s",
+			   fieldname, a ? "set": "unset", b ? "set": "unset");
 		return fieldname;
-	if (!memeq(a, tal_bytelen(a), b, tal_bytelen(b)))
+	}
+	if (!memeq(a, tal_bytelen(a), b, tal_bytelen(b))) {
+		plugin_log(plugin, LOG_DBG, "field_diff %s: a=%s, b=%s",
+			   fieldname, tal_hex(tmpctx, a), tal_hex(tmpctx, b));
 		return fieldname;
+	}
 	return NULL;
 }
 
-#define field_diff(a, b, fieldname) \
-	field_diff_(a->fieldname, b->fieldname, #fieldname)
+#define field_diff(a, b, fieldname)		\
+	field_diff_((cmd)->plugin, a->fieldname, b->fieldname, #fieldname)
 
 /* Returns true if b is a with something appended. */
 static bool description_is_appended(const char *a, const char *b)
@@ -824,6 +831,66 @@ static struct command_result *invreq_done(struct command *cmd,
 	return sendinvreq_after_connect(cmd, NULL, NULL, sent);
 }
 
+/* If they hand us the payer secret, we sign it directly, bypassing checks
+ * about periods etc. */
+static struct command_result *
+force_payer_secret(struct command *cmd,
+		   struct sent *sent,
+		   struct tlv_invoice_request *invreq,
+		   const struct secret *payer_secret)
+{
+	struct sha256 merkle, sha;
+	bool try_connect;
+	secp256k1_keypair kp;
+	u8 *msg;
+	const u8 *p;
+	size_t len;
+
+	if (secp256k1_keypair_create(secp256k1_ctx, &kp, payer_secret->data) != 1)
+		return command_fail(cmd, LIGHTNINGD, "Bad payer_secret");
+
+	invreq->payer_key = tal(invreq, struct pubkey32);
+	/* Docs say this only happens if arguments are invalid! */
+	if (secp256k1_keypair_xonly_pub(secp256k1_ctx,
+					&invreq->payer_key->pubkey, NULL,
+					&kp) != 1)
+		plugin_err(cmd->plugin,
+			   "secp256k1_keypair_pub failed on %s?",
+			   type_to_string(tmpctx, struct secret, payer_secret));
+
+	/* Linearize populates ->fields */
+	msg = tal_arr(tmpctx, u8, 0);
+	towire_invoice_request(&msg, invreq);
+	p = msg;
+	len = tal_bytelen(msg);
+	sent->invreq = tlv_invoice_request_new(cmd);
+	if (!fromwire_invoice_request(&p, &len, sent->invreq))
+		plugin_err(cmd->plugin,
+			   "Could not remarshall invreq %s", tal_hex(tmpctx, msg));
+
+	merkle_tlv(sent->invreq->fields, &merkle);
+	sighash_from_merkle("invoice_request", "payer_signature", &merkle, &sha);
+
+	sent->invreq->payer_signature = tal(invreq, struct bip340sig);
+	if (!secp256k1_schnorrsig_sign(secp256k1_ctx,
+				       sent->invreq->payer_signature->u8,
+				       sha.u.u8,
+				       &kp,
+				       NULL, NULL)) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Failed to sign with payer_secret");
+	}
+
+	sent->path = path_to_node(sent, get_gossmap(cmd->plugin),
+				  sent->offer->node_id,
+				  &try_connect);
+	if (try_connect)
+		return connect_direct(cmd, &sent->path[0],
+				      sendinvreq_after_connect, sent);
+
+	return sendinvreq_after_connect(cmd, NULL, NULL, sent);
+}
+
 /* Fetches an invoice for this offer, and makes sure it corresponds. */
 static struct command_result *json_fetchinvoice(struct command *cmd,
 						const char *buffer,
@@ -834,6 +901,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	struct out_req *req;
 	struct tlv_invoice_request *invreq;
 	struct sent *sent = tal(cmd, struct sent);
+	struct secret *payer_secret = NULL;
 	u32 *timeout;
 
 	invreq = tlv_invoice_request_new(sent);
@@ -848,6 +916,9 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 		   p_opt("recurrence_label", param_string, &rec_label),
 		   p_opt_def("timeout", param_number, &timeout, 60),
 		   p_opt("payer_note", param_string, &payer_note),
+#if DEVELOPER
+		   p_opt("payer_secret", param_secret, &payer_secret),
+#endif
 		   NULL))
 		return command_param_failed();
 
@@ -964,8 +1035,8 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 		}
 
 		/* recurrence_label uniquely identifies this series of
-		 * payments. */
-		if (!rec_label)
+		 * payments (unless they supply secret themselves)! */
+		if (!rec_label && !payer_secret)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "needs recurrence_label");
 	} else {
@@ -1003,6 +1074,11 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 		invreq->payer_note = tal_dup_arr(invreq, utf8,
 						 payer_note, strlen(payer_note),
 						 0);
+
+	/* They can provide a secret, and we don't assume it's our job
+	 * to pay. */
+	if (payer_secret)
+		return force_payer_secret(cmd, sent, invreq, payer_secret);
 
 	/* Make the invoice request (fills in payer_key and payer_info) */
 	req = jsonrpc_request_start(cmd->plugin, cmd, "createinvoicerequest",

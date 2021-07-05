@@ -99,7 +99,11 @@ void merkle_tlv(const struct tlv_field *fields, struct sha256 *merkle)
 		arr[n++] = merkle_pair(s, lnall);
 	}
 
-	*merkle = merkle_recurse(arr, n);
+	/* This should never happen, but define it as lnall in this case */
+	if (n == 0)
+		*merkle = lnall;
+	else
+		*merkle = merkle_recurse(arr, n);
 	tal_free(arr);
 }
 
