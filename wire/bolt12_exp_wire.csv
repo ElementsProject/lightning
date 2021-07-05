@@ -63,10 +63,8 @@ tlvtype,invoice_request,payer_info,50
 tlvdata,invoice_request,payer_info,blob,byte,...
 tlvtype,invoice_request,replace_invoice,56
 tlvdata,invoice_request,replace_invoice,payment_hash,sha256,
-tlvtype,invoice_request,payer_signature,241
+tlvtype,invoice_request,payer_signature,240
 tlvdata,invoice_request,payer_signature,sig,bip340sig,
-tlvtype,invoice_request,recurrence_signature,240
-tlvdata,invoice_request,recurrence_signature,sig,bip340sig,
 tlvtype,invoice,chains,2
 tlvdata,invoice,chains,chains,chain_hash,...
 tlvtype,invoice,offer_id,4
