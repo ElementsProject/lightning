@@ -496,10 +496,9 @@ static struct command_result *param_offer(struct command *cmd,
 
 	/* BOLT-offers #12:
 	 *
-	 *  - if `node_id`, `description` or `signature` is not set:
+	 *  - if `node_id` or `description` is not set:
 	 *    - MUST NOT respond to the offer.
 	 */
-	/* Note: offer_decode checks `signature` */
 	if (!(*offer)->node_id)
 		return command_fail_badparam(cmd, name, buffer, tok,
 					     "Offer does not contain a node_id");
@@ -925,7 +924,7 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	sent->wait_timeout = *timeout;
 
 	/* BOLT-offers #12:
-	 *  - MUST set `offer_id` to the merkle root of the offer as described
+	 *  - MUST set `offer_id` to the Merkle root of the offer as described
 	 *    in [Signature Calculation](#signature-calculation).
 	 */
 	invreq->offer_id = tal(invreq, struct sha256);
@@ -1043,7 +1042,6 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 		/* BOLT-offers #12:
 		 * - otherwise:
 		 *   - MUST NOT set `recurrence_counter`.
-		 *...
 		 *   - MUST NOT set `recurrence_start`
 		 */
 		if (invreq->recurrence_counter)

@@ -311,7 +311,7 @@ static void json_add_offer(struct json_stream *js, const struct tlv_offer *offer
 	/* BOLT-offers #12:
 	 * A reader of an offer:
 	 *...
-	 *  - if `node_id`, `description` or `signature` is not set:
+	 *  - if `node_id` or `description` is not set:
 	 *    - MUST NOT respond to the offer.
 	 */
 	if (offer->description)
