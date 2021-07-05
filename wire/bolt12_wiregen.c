@@ -855,29 +855,6 @@ static void fromwire_tlv_invoice_request_payer_signature(const u8 **cursor, size
 
 fromwire_bip340sig(cursor, plen, &*r->payer_signature);
 }
-/* INVOICE_REQUEST MSG: recurrence_signature */
-static u8 *towire_tlv_invoice_request_recurrence_signature(const tal_t *ctx, const void *vrecord)
-{
-	const struct tlv_invoice_request *r = vrecord;
-	u8 *ptr;
-
-	if (!r->recurrence_signature)
-		return NULL;
-
-
-	ptr = tal_arr(ctx, u8, 0);
-
-	towire_bip340sig(&ptr, r->recurrence_signature);
-	return ptr;
-}
-static void fromwire_tlv_invoice_request_recurrence_signature(const u8 **cursor, size_t *plen, void *vrecord)
-{
-	struct tlv_invoice_request *r = vrecord;
-
-	    r->recurrence_signature = tal(r, struct bip340sig);
-
-fromwire_bip340sig(cursor, plen, &*r->recurrence_signature);
-}
 
 const struct tlv_record_type tlvs_invoice_request[] = {
 	{ 2, towire_tlv_invoice_request_chains, fromwire_tlv_invoice_request_chains },
@@ -891,19 +868,18 @@ const struct tlv_record_type tlvs_invoice_request[] = {
 	{ 50, towire_tlv_invoice_request_payer_info, fromwire_tlv_invoice_request_payer_info },
 	{ 56, towire_tlv_invoice_request_replace_invoice, fromwire_tlv_invoice_request_replace_invoice },
 	{ 68, towire_tlv_invoice_request_recurrence_start, fromwire_tlv_invoice_request_recurrence_start },
-	{ 240, towire_tlv_invoice_request_recurrence_signature, fromwire_tlv_invoice_request_recurrence_signature },
-	{ 241, towire_tlv_invoice_request_payer_signature, fromwire_tlv_invoice_request_payer_signature },
+	{ 240, towire_tlv_invoice_request_payer_signature, fromwire_tlv_invoice_request_payer_signature },
 };
 
 void towire_invoice_request(u8 **pptr, const struct tlv_invoice_request *record)
 {
-	towire_tlv(pptr, tlvs_invoice_request, 13, record);
+	towire_tlv(pptr, tlvs_invoice_request, 12, record);
 }
 
 
 bool fromwire_invoice_request(const u8 **cursor, size_t *max, struct tlv_invoice_request *record)
 {
-	return fromwire_tlv(cursor, max, tlvs_invoice_request, 13, record, &record->fields);
+	return fromwire_tlv(cursor, max, tlvs_invoice_request, 12, record, &record->fields);
 }
 
 bool invoice_request_is_valid(const struct tlv_invoice_request *record, size_t *err_index)
@@ -1708,4 +1684,4 @@ bool invoice_error_is_valid(const struct tlv_invoice_error *record, size_t *err_
 	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
-// SHA256STAMP:4e69a9a1519146453c234fe466d01c351cd0a21dc2c4e90538f73ed2f37fdc77
+// SHA256STAMP:95d5be81bb0846cff337017b812800a19bf176d3182dd605bfe03086c14ef1f4

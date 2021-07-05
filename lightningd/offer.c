@@ -461,13 +461,6 @@ static struct command_result *json_createinvoicerequest(struct command *cmd,
 		     &merkle, invreq->payer_info, invreq->payer_key,
 		     invreq->payer_signature);
 
-	/* Backwards compat for older version! */
-	if (deprecated_apis && invreq->recurrence_counter) {
-		invreq->recurrence_signature = tal(invreq, struct bip340sig);
-		hsm_sign_b12(cmd->ld, "invoice_request", "recurrence_signature",
-			     &merkle, invreq->payer_info, invreq->payer_key,
-			     invreq->recurrence_signature);
-	}
 	response = json_stream_success(cmd);
 	json_add_string(response, "bolt12", invrequest_encode(tmpctx, invreq));
 	if (label)

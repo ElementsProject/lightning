@@ -408,21 +408,6 @@ static struct command_result *check_previous_invoice(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-/* Obsolete recurrence_signature; we still check if present. */
-static bool check_recurrence_sig(const struct tlv_invoice_request *invreq,
-				 const struct pubkey32 *payer_key,
-				 const struct bip340sig *sig)
-{
-	struct sha256 merkle, sighash;
-	merkle_tlv(invreq->fields, &merkle);
-	sighash_from_merkle("invoice_request", "recurrence_signature",
-			    &merkle, &sighash);
-
-	return secp256k1_schnorrsig_verify(secp256k1_ctx,
-					   sig->u8,
-					   sighash.u.u8, &payer_key->pubkey) == 1;
-}
-
 /* BOLT-offers #12:
  *  - MUST fail the request if `payer_signature` is not correct.
  */
@@ -721,17 +706,13 @@ static struct command_result *listoffers_done(struct command *cmd,
 			return err;
 	}
 
-	/* FIXME: payer_signature is now always required, but we let it go
-	 * for now. */
-	if (!deprecated_apis) {
-		err = invreq_must_have(cmd, ir, payer_signature);
-		if (err)
-			return err;
-		if (!check_payer_sig(ir->invreq,
-				     ir->invreq->payer_key,
-				     ir->invreq->payer_signature)) {
-			return fail_invreq(cmd, ir, "bad payer_signature");
-		}
+	err = invreq_must_have(cmd, ir, payer_signature);
+	if (err)
+		return err;
+	if (!check_payer_sig(ir->invreq,
+			     ir->invreq->payer_key,
+			     ir->invreq->payer_signature)) {
+		return fail_invreq(cmd, ir, "bad payer_signature");
 	}
 
 	if (ir->offer->recurrence) {
@@ -748,23 +729,6 @@ static struct command_result *listoffers_done(struct command *cmd,
 		err = invreq_must_have(cmd, ir, recurrence_counter);
 		if (err)
 			return err;
-
-		if (deprecated_apis) {
-			if (ir->invreq->recurrence_signature) {
-				if (!check_recurrence_sig(ir->invreq,
-							  ir->invreq->payer_key,
-							  ir->invreq->recurrence_signature)) {
-					return fail_invreq(cmd, ir,
-							   "bad recurrence_signature");
-				}
-			} else {
-				/* You really do need payer_signature if
-				 * you're using recurrence: we rely on it! */
-				err = invreq_must_have(cmd, ir, payer_signature);
-				if (err)
-					return err;
-			}
-		}
 	} else {
 		/* BOLT-offers #12:
 		 * - otherwise (the offer had no `recurrence`):

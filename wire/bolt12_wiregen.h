@@ -94,7 +94,6 @@ struct tlv_invoice_request {
 	u8 *payer_info;
 	struct sha256 *replace_invoice;
 	struct bip340sig *payer_signature;
-	struct bip340sig *recurrence_signature;
 };
 struct tlv_invoice {
         /* Raw fields including unknown ones. */
@@ -215,7 +214,7 @@ void towire_invoice_request(u8 **pptr, const struct tlv_invoice_request *record)
 bool invoice_request_is_valid(const struct tlv_invoice_request *record,
 			  size_t *err_index);
 
-#define TLVS_ARRAY_SIZE_invoice_request 13
+#define TLVS_ARRAY_SIZE_invoice_request 12
 extern const struct tlv_record_type tlvs_invoice_request[];
 
 
@@ -233,8 +232,7 @@ enum invoice_request_types {
 	TLV_INVOICE_REQUEST_PAYER_INFO = 50,
 	TLV_INVOICE_REQUEST_REPLACE_INVOICE = 56,
 	TLV_INVOICE_REQUEST_RECURRENCE_START = 68,
-	TLV_INVOICE_REQUEST_RECURRENCE_SIGNATURE = 240,
-	TLV_INVOICE_REQUEST_PAYER_SIGNATURE = 241,
+	TLV_INVOICE_REQUEST_PAYER_SIGNATURE = 240,
 };
 
 struct tlv_invoice *tlv_invoice_new(const tal_t *ctx);
@@ -325,4 +323,4 @@ struct fallback_address *fromwire_fallback_address(const tal_t *ctx, const u8 **
 
 
 #endif /* LIGHTNING_WIRE_BOLT12_WIREGEN_H */
-// SHA256STAMP:4e69a9a1519146453c234fe466d01c351cd0a21dc2c4e90538f73ed2f37fdc77
+// SHA256STAMP:95d5be81bb0846cff337017b812800a19bf176d3182dd605bfe03086c14ef1f4
