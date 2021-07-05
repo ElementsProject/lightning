@@ -196,10 +196,10 @@ void merkle_tlv(const struct tlv_field *fields, struct sha256 *merkle)
  * Each form is signed using one or more TLV signature elements; TLV
  * types 240 through 1000 are considered signature elements.  For these
  * the tag is `lightning` | `messagename` | `fieldname`, and `msg` is the
- * merkle-root; `lightning` is the literal 9-byte ASCII string,
- * `messagename` is the name of the TLV stream being signed (i.e. `offer`
- * or `invoice`) and the `fieldname` is the TLV field containing the
- * signature (e.g. `signature` or `recurrence_signature`).
+ * Merkle-root; `lightning` is the literal 9-byte ASCII string,
+ * `messagename` is the name of the TLV stream being signed (i.e. `offer`,
+ * `invoice_request` or `invoice`) and the `fieldname` is the TLV field
+ * containing the signature (e.g. `signature` or `payer_signature`).
  */
 void sighash_from_merkle(const char *messagename,
 			 const char *fieldname,

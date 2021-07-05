@@ -480,7 +480,7 @@ static struct command_result *invreq_base_amount_simple(struct command *cmd,
 		 * - otherwise:
 		 * - MUST fail the request if it does not contain `amount`.
 		 * - MUST use the request `amount` as the *base invoice amount*.
-		 *   (Note: invoice amount can be further modiifed by recurrence
+		 *   (Note: invoice amount can be further modified by recurrence
 		 *    below)
 		 */
 		err = invreq_must_have(cmd, ir, amount);
@@ -728,10 +728,6 @@ static struct command_result *listoffers_done(struct command *cmd,
 		 * - if the offer had a `recurrence`:
 		 *   - MUST fail the request if there is no `recurrence_counter`
 		 *     field.
-		 *   - MUST fail the request if there is no
-		 *    `recurrence_signature` field.
-		 *   - MUST fail the request if `recurrence_signature` is not
-		 *     correct.
 		 */
 		err = invreq_must_have(cmd, ir, recurrence_counter);
 		if (err)
