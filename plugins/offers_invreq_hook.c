@@ -254,6 +254,13 @@ static struct command_result *check_period(struct command *cmd,
 		if (err)
 			return err;
 		period_idx += *ir->invreq->recurrence_start;
+
+		/* BOLT-offers #12:
+		 * - MUST set (or not set) `recurrence_start` exactly as the
+		 *   invoice_request did.
+		 */
+		ir->inv->recurrence_start
+			= tal_dup(ir->inv, u32, ir->invreq->recurrence_start);
 	} else {
 		/* BOLT-offers #12:
 		 *
@@ -734,8 +741,13 @@ static struct command_result *listoffers_done(struct command *cmd,
 		 * - otherwise (the offer had no `recurrence`):
 		 *   - MUST fail the request if there is a `recurrence_counter`
 		 *     field.
+		 *   - MUST fail the request if there is a `recurrence_start`
+		 *     field.
 		 */
 		err = invreq_must_not_have(cmd, ir, recurrence_counter);
+		if (err)
+			return err;
+		err = invreq_must_not_have(cmd, ir, recurrence_start);
 		if (err)
 			return err;
 	}
@@ -770,6 +782,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 	 */
 	if (ir->offer->quantity_min || ir->offer->quantity_max)
 		ir->inv->quantity = tal_dup(ir->inv, u64, ir->invreq->quantity);
+
 	/* BOLT-offers #12:
 	 *  - MUST set `payer_key` exactly as the invoice_request did.
 	 */
