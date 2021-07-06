@@ -718,6 +718,379 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     assert account_balance(l2, channel_id) == 0
 
 
+# check that the fee paid is correct
+def calc_lease_fee(amt, feerate, rates):
+    fee = rates['lease_fee_base_msat']
+    fee += amt * rates['lease_fee_basis'] // 10
+    fee += rates['funding_weight'] * feerate
+    return fee
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+@pytest.mark.slow_test
+def test_channel_lease_falls_behind(node_factory, bitcoind):
+    '''
+    If our peer falls too far behind/doesn't send us an update for
+    their blockheight, the lessor fails the channel
+    '''
+    opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
+             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100},
+            {'funder-policy': 'match', 'funder-policy-mod': 100,
+             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100}]
+    l1, l2, = node_factory.get_nodes(2, opts=opts)
+    amount = 500000
+    feerate = 2000
+    l1.fundwallet(20000000)
+    l2.fundwallet(20000000)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    rates = l1.rpc.queryrates(l2.info['id'], amount, amount)
+    l1.daemon.wait_for_log('disconnect')
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # l1 leases a channel from l2
+    l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
+                       feerate='{}perkw'.format(feerate),
+                       compact_lease=rates['compact_lease'])
+
+    # sink the funding transaction
+    bitcoind.generate_block(1)
+
+    # stop l1
+    l1.stop()
+
+    # advance blockchain 1008 blocks, the lessor should drop to chain
+    bitcoind.generate_block(1008)
+    sync_blockheight(bitcoind, [l2])
+
+    l2.daemon.wait_for_log('Offline peer is too far behind, terminating')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+@pytest.mark.slow_test
+def test_channel_lease_post_expiry(node_factory, bitcoind):
+
+    opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
+            'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+            'may_reconnect': True}
+
+    l1, l2, = node_factory.get_nodes(2, opts=opts)
+
+    feerate = 2000
+    amount = 500000
+    l1.fundwallet(20000000)
+    l2.fundwallet(20000000)
+
+    # l1 leases a channel from l2
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
+    l1.daemon.wait_for_log('disconnect')
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
+                       feerate='{}perkw'.format(feerate),
+                       compact_lease=rates['compact_lease'])
+
+    est_fees = calc_lease_fee(amount, feerate, rates)
+
+    # This should be the accepter's amount
+    fundings = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['funding']
+    assert Millisatoshi(est_fees + amount * 1000) == Millisatoshi(fundings['remote_msat'])
+
+    bitcoind.generate_block(6)
+    l1.daemon.wait_for_log('to CHANNELD_NORMAL')
+
+    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(l1.get_channel_scid(l2))['channels']] == [True, True])
+
+    # send some payments, mine a block or two
+    inv = l2.rpc.invoice(10**4, '1', 'no_1')
+    l1.rpc.pay(inv['bolt11'])
+
+    # l2 attempts to close a channel that it leased, should fail
+    with pytest.raises(RpcError, match=r'Peer leased this channel from us'):
+        l2.rpc.close(l1.get_channel_scid(l2))
+
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l1, l2])
+    # make sure we're at the right place for the csv lock
+    l2.daemon.wait_for_log('Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now 115')
+
+    # We need to give l1-l2 time to update their blockheights
+    bitcoind.generate_block(1000)
+    sync_blockheight(bitcoind, [l1, l2])
+    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_BLOCKHEIGHT')
+
+    bitcoind.generate_block(1000)
+    sync_blockheight(bitcoind, [l1, l2])
+    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_BLOCKHEIGHT')
+
+    bitcoind.generate_block(1000)
+    sync_blockheight(bitcoind, [l1, l2])
+    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_BLOCKHEIGHT')
+
+    bitcoind.generate_block(1000)
+    sync_blockheight(bitcoind, [l1, l2])
+    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_BLOCKHEIGHT')
+
+    bitcoind.generate_block(32)
+    sync_blockheight(bitcoind, [l1, l2])
+    l1.daemon.wait_for_log('peer_out WIRE_UPDATE_BLOCKHEIGHT')
+
+    # l1<->l2 mutual close should work
+    chan = l1.get_channel_scid(l2)
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l1.rpc.close(chan)
+    l2.daemon.wait_for_log('State changed from CLOSINGD_SIGEXCHANGE to CLOSINGD_COMPLETE')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+@pytest.mark.slow_test
+@pytest.mark.developer("requres 'dev-queryrates'")
+def test_channel_lease_unilat_closes(node_factory, bitcoind):
+    '''
+    Check that channel leases work
+
+    l1-l2: l1 leases funds from l2; l1 goes to chain unilaterally
+    l2-l3: l2 leases funds from l3; l3 goes to chain unilaterally
+    '''
+    opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
+            'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100}
+
+    l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
+    # Allow l2 some warnings
+    l2.allow_warning = True
+
+    feerate = 2000
+    amount = 500000
+    l1.fundwallet(20000000)
+    l2.fundwallet(20000000)
+    l3.fundwallet(20000000)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    rates = l1.rpc.queryrates(l2.info['id'], amount, amount)
+    l1.daemon.wait_for_log('disconnect')
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # l1 leases a channel from l2
+    l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
+                       feerate='{}perkw'.format(feerate),
+                       compact_lease=rates['compact_lease'])
+
+    # l2 leases a channel from l3
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    rates = l2.rpc.queryrates(l3.info['id'], amount, amount)
+    l3.daemon.wait_for_log('disconnect')
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l2.rpc.fundchannel(l3.info['id'], amount, request_amt=amount,
+                       feerate='{}perkw'.format(feerate), minconf=0,
+                       compact_lease=rates['compact_lease'])
+
+    est_fees = calc_lease_fee(amount, feerate, rates)
+
+    # This should be the accepter's amount
+    fundings = only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['funding']
+    assert Millisatoshi(est_fees + amount * 1000) == Millisatoshi(fundings['remote_msat'])
+
+    bitcoind.generate_block(6)
+    l1.daemon.wait_for_log('to CHANNELD_NORMAL')
+    l3.daemon.wait_for_log('to CHANNELD_NORMAL')
+
+    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(l1.get_channel_scid(l2))['channels']] == [True, True])
+    wait_for(lambda: [c['active'] for c in l3.rpc.listchannels(l3.get_channel_scid(l2))['channels']] == [True, True])
+
+    # send some payments, mine a block or two
+    inv = l2.rpc.invoice(10**4, '1', 'no_1')
+    l1.rpc.pay(inv['bolt11'])
+    inv = l2.rpc.invoice(10**4, '3', 'no_3')
+    l3.rpc.pay(inv['bolt11'])
+
+    bitcoind.generate_block(6)
+    sync_blockheight(bitcoind, [l1, l2, l3])
+    # make sure we're at the right place for the csv lock
+    l2.daemon.wait_for_log('Blockheight: SENT_ADD_ACK_COMMIT->RCVD_ADD_ACK_REVOCATION LOCAL now 110')
+    l2.stop()
+
+    # unilateral close channels l1<->l2 & l3<->l2
+    l1.rpc.close(l2.info['id'], 1)
+    l3.rpc.close(l2.info['id'], 1, force_lease_closed=True)
+
+    # Wait til to_self_delay expires, l1 should claim to_local back
+    bitcoind.generate_block(10, wait_for_mempool=1)
+    l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    l1.daemon.wait_for_log('Resolved OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by our proposal OUR_DELAYED_RETURN_TO_WALLET')
+    assert len(l1.rpc.listfunds()['outputs']) == 2
+
+    l2.start()
+    search_start = l2.daemon.logsearch_start
+    log = l2.daemon.wait_for_log('adding utxo to watch .* csv 40.*')
+    utxo1 = re.match('.* adding utxo to watch (.*), csv .*', log).group(1)
+
+    l2.daemon.logsearch_start = search_start
+    log = l2.daemon.wait_for_log('adding utxo to watch .* csv 1')
+    utxo3 = re.match('.* adding utxo to watch (.*), csv 1', log).group(1)
+
+    # we *shouldn't* be able to spend it, there's a lock on it
+    with pytest.raises(RpcError, match='UTXO .* is csv locked'):
+        l2.rpc.withdraw(l2.rpc.newaddr()['bech32'], "all", utxos=[utxo1])
+
+    # we *can* spend the 1csv lock one
+    l2.rpc.withdraw(l2.rpc.newaddr()['bech32'], "all", utxos=[utxo3])
+
+    bitcoind.generate_block(4032)
+    sync_blockheight(bitcoind, [l2, l3])
+
+    l2.rpc.withdraw(l2.rpc.newaddr()['bech32'], "all", utxos=[utxo1])
+
+    # l3 cleans up their to-self after their lease expires
+    assert l3.daemon.is_in_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
+def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
+    '''
+    Check that lessee can recover funds if lessor cheats
+    '''
+    opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
+             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+             'may_reconnect': True, 'allow_warning': True},
+            {'funder-policy': 'match', 'funder-policy-mod': 100,
+             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+             'may_reconnect': True, 'allow_broken_log': True}]
+    l1, l2, = node_factory.get_nodes(2, opts=opts)
+    amount = 500000
+    feerate = 2000
+    l1.fundwallet(20000000)
+    l2.fundwallet(20000000)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    rates = l1.rpc.queryrates(l2.info['id'], amount, amount)
+    l1.daemon.wait_for_log('disconnect')
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # l1 leases a channel from l2
+    l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
+                       feerate='{}perkw'.format(feerate),
+                       compact_lease=rates['compact_lease'])
+
+    bitcoind.generate_block(6)
+    l1.daemon.wait_for_log('to CHANNELD_NORMAL')
+    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(l1.get_channel_scid(l2))['channels']] == [True, True])
+    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(l2.get_channel_scid(l1))['channels']] == [True, True])
+    # send some payments, mine a block or two
+    inv = l2.rpc.invoice(10**4, '1', 'no_1')
+    l1.rpc.pay(inv['bolt11'])
+
+    bitcoind.generate_block(1)
+
+    # make database snapshot of l2
+    l2.stop()
+    l2_db_path = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3')
+    l2_db_path_bak = os.path.join(l2.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3.bak')
+    copyfile(l2_db_path, l2_db_path_bak)
+    l2.start(wait_for_bitcoind_sync=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    sync_blockheight(bitcoind, [l2])
+
+    # push some money from l2->l1, so the commit counter advances
+    inv = l1.rpc.invoice(10**5, '2', 'no_2')
+    l2.rpc.pay(inv['bolt11'])
+
+    # stop both nodes, roll back l2's database
+    l2.stop()
+    l1.stop()
+    copyfile(l2_db_path_bak, l2_db_path)
+
+    # start l2 and force close channel with l1 while l1 is still offline
+    l2.start()
+    sync_blockheight(bitcoind, [l2])
+    l2.rpc.close(l1.info['id'], 1, force_lease_closed=True)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    l1.start()
+    sync_blockheight(bitcoind, [l1])
+    l1.daemon.wait_for_logs(['Broadcasting OUR_PENALTY_TX',
+                             ' Propose handling THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM by OUR_PENALTY_TX'])
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    # l2 sees that l1 has spent their coins!
+    l2.daemon.wait_for_log('Unknown spend of OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by')
+
+
+@unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
+@pytest.mark.openchannel('v2')
+@unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
+def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
+    '''
+    Check that lessor can recover funds if lessee cheats
+    '''
+    opts = [{'funder-policy': 'match', 'funder-policy-mod': 100,
+             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+             'may_reconnect': True, 'allow_broken_log': True},
+            {'funder-policy': 'match', 'funder-policy-mod': 100,
+             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+             'may_reconnect': True}]
+    l1, l2, = node_factory.get_nodes(2, opts=opts)
+    amount = 500000
+    feerate = 2000
+    l1.fundwallet(20000000)
+    l2.fundwallet(20000000)
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    rates = l1.rpc.queryrates(l2.info['id'], amount, amount)
+    l1.daemon.wait_for_log('disconnect')
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    # l1 leases a channel from l2
+    l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
+                       feerate='{}perkw'.format(feerate),
+                       compact_lease=rates['compact_lease'])
+
+    bitcoind.generate_block(6)
+    l1.daemon.wait_for_log('to CHANNELD_NORMAL')
+    wait_for(lambda: [c['active'] for c in l1.rpc.listchannels(l1.get_channel_scid(l2))['channels']] == [True, True])
+    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels(l2.get_channel_scid(l1))['channels']] == [True, True])
+    # send some payments, mine a block or two
+    inv = l2.rpc.invoice(10**4, '1', 'no_1')
+    l1.rpc.pay(inv['bolt11'])
+
+    bitcoind.generate_block(1)
+
+    # make database snapshot of l1
+    l1.stop()
+    l1_db_path = os.path.join(l1.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3')
+    l1_db_path_bak = os.path.join(l1.daemon.lightning_dir, chainparams['name'], 'lightningd.sqlite3.bak')
+    copyfile(l1_db_path, l1_db_path_bak)
+    l1.start()
+    l1.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    sync_blockheight(bitcoind, [l1])
+
+    # push some money from l2->l1, so the commit counter advances
+    inv = l1.rpc.invoice(10**5, '2', 'no_2')
+    l2.rpc.pay(inv['bolt11'])
+
+    # stop both nodes, roll back l1's database
+    l1.stop()
+    l2.stop()
+    copyfile(l1_db_path_bak, l1_db_path)
+
+    # start l1 and force close channel with l2 while l2 is still offline
+    l1.start()
+    sync_blockheight(bitcoind, [l1])
+    l1.rpc.close(l2.info['id'], 1, force_lease_closed=True)
+    bitcoind.generate_block(1, wait_for_mempool=1)
+
+    l2.start()
+    sync_blockheight(bitcoind, [l2])
+    l2.daemon.wait_for_logs(['Broadcasting OUR_PENALTY_TX',
+                             ' Propose handling THEIR_REVOKED_UNILATERAL/DELAYED_CHEAT_OUTPUT_TO_THEM by OUR_PENALTY_TX'])
+
+    bitcoind.generate_block(1, wait_for_mempool=1)
+    # l2 sees that l1 has spent their coins!
+    l1.daemon.wait_for_logs(['Grinding for to_remote',
+                             'Unknown spend of OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by'])
+
+
 @pytest.mark.developer("needs DEVELOPER=1")
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
 @pytest.mark.slow_test
