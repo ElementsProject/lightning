@@ -790,8 +790,19 @@ static char *check_balances(const tal_t *ctx,
 	 *   - the peer's total input satoshis is less than their outputs
 	 */
 	/* We check both, why not? */
-	if (!amount_sat_greater_eq(initiator_inputs, initiator_outs))
-		return "initiator inputs less than outputs";
+	if (!amount_sat_greater_eq(initiator_inputs, initiator_outs)) {
+		return tal_fmt(tmpctx,
+			       "initiator inputs less than outputs (%s < %s)"
+			       " (lease fee %s)",
+			       type_to_string(tmpctx, struct amount_sat,
+					      &initiator_inputs),
+			       type_to_string(tmpctx, struct amount_sat,
+					      &initiator_outs),
+			       type_to_string(tmpctx, struct amount_sat,
+					      &lease_fee));
+
+
+	}
 
 	/* BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
 	 * The receiving node: ...
@@ -804,7 +815,10 @@ static char *check_balances(const tal_t *ctx,
 	 */
 	if (!amount_sat_sub(&accepter_diff, accepter_inputs,
 			    accepter_outs)) {
-		return "accepter inputs less than outputs";
+		return tal_fmt(tmpctx, "accepter inputs %s less than outputs %s (lease fee %s)",
+			       type_to_string(tmpctx, struct amount_sat, &accepter_inputs),
+			       type_to_string(tmpctx, struct amount_sat, &accepter_outs),
+			       type_to_string(tmpctx, struct amount_sat, &lease_fee));
 	}
 
 	if (!amount_sat_sub(&initiator_diff, initiator_inputs,
