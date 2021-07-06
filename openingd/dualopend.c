@@ -2633,7 +2633,7 @@ static void opener_start(struct state *state, u8 *msg)
 
 	state->our_role = TX_INITIATOR;
 	tx_state->tx_locktime = tx_state->psbt->tx->locktime;
-	open_tlv = tlv_opening_tlvs_new(tmpctx);
+	open_tlv = tlv_opening_tlvs_new(state);
 
 	/* BOLT-* #2
 	 * If the peer's revocation basepoint is unknown (e.g.
