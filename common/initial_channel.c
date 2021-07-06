@@ -108,8 +108,11 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 	if (channel->lease_expiry == 0)
 		csv_lock = 1;
 	else
-		/* FIXME: */
-		csv_lock = 1;
+		/* For the initial commitment, starts max lease */
+		csv_lock = channel->lease_expiry
+			- get_blockheight(channel->blockheight_states,
+					  channel->opener,
+					  side);
 
 	*wscript = bitcoin_redeem_2of2(ctx,
 				       &channel->funding_pubkey[side],
