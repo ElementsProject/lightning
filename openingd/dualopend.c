@@ -2002,7 +2002,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 	struct channel_id cid, full_cid;
 	char *err_reason;
 	u8 *msg;
-	struct amount_sat total, requested_amt, lease_fee;
+	struct amount_sat total, requested_amt, lease_fee, our_accept;
 	enum dualopend_wire msg_type;
 	struct tx_state *tx_state = state->tx_state;
 
@@ -2153,6 +2153,50 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 		return;
 	}
 
+	/* This we bump the accepter_funding iff there's a lease,
+	 * so we stash this here so we tell our peer the right amount */
+	our_accept = tx_state->accepter_funding;
+
+	/* Add our fee to our amount now */
+	if (tx_state->rates) {
+		tx_state->lease_expiry
+			= tx_state->blockheight + LEASE_RATE_DURATION;
+
+		/* BOLT- #2:
+		 * The lease fee is added to the accepter's balance
+		 * in a channel, in addition to the `funding_satoshi`
+		 * that they are contributing. The channel initiator
+		 * must contribute enough funds to cover
+		 * `open_channel2`.`funding_satoshis`, the lease fee,
+		 * and their tx weight * `funding_feerate_perkw` / 1000.
+		 */
+		if (!lease_rates_calc_fee(tx_state->rates,
+					  tx_state->accepter_funding,
+					  requested_amt,
+					  state->feerate_per_kw_funding,
+					  &lease_fee))
+			negotiation_failed(state,
+					   "Unable to calculate lease fee");
+
+		/* Add it to the accepter's total */
+		if (!amount_sat_add(&tx_state->accepter_funding,
+				    tx_state->accepter_funding, lease_fee))
+
+			negotiation_failed(state,
+					   "Unable to add accepter's funding"
+					   " and channel lease fee (%s + %s)",
+					   type_to_string(tmpctx,
+							  struct amount_sat,
+							  &tx_state->accepter_funding),
+					   type_to_string(tmpctx,
+							  struct amount_sat,
+							  &lease_fee));
+
+	} else {
+		tx_state->lease_expiry = 0;
+		lease_fee = AMOUNT_SAT(0);
+	}
+
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,
 			    tx_state->accepter_funding))
@@ -2231,7 +2275,8 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 
 
 	msg = towire_accept_channel2(tmpctx, &state->channel_id,
-				     tx_state->accepter_funding,
+				     /* Our amount w/o the lease fee */
+				     our_accept,
 				     tx_state->localconf.dust_limit,
 				     tx_state->localconf.max_htlc_value_in_flight,
 				     tx_state->localconf.htlc_minimum,
@@ -2253,47 +2298,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 
 	sync_crypto_write(state->pps, msg);
 	peer_billboard(false, "channel open: accept sent, waiting for reply");
-
-	/* Add our fee to our amount now */
-	if (tx_state->rates) {
-		tx_state->lease_expiry
-			= tx_state->blockheight + LEASE_RATE_DURATION;
-
-		/* BOLT- #2:
-		 * The lease fee is added to the accepter's balance
-		 * in a channel, in addition to the `funding_satoshi`
-		 * that they are contributing. The channel initiator
-		 * must contribute enough funds to cover
-		 * `open_channel2`.`funding_satoshis`, the lease fee,
-		 * and their tx weight * `funding_feerate_perkw` / 1000.
-		 */
-		if (!lease_rates_calc_fee(tx_state->rates,
-					  tx_state->accepter_funding,
-					  requested_amt,
-					  state->feerate_per_kw_funding,
-					  &lease_fee))
-			negotiation_failed(state,
-					   "Unable to calculate lease fee");
-
-		/* Add it to the accepter's total */
-		if (!amount_sat_add(&tx_state->accepter_funding,
-				    tx_state->accepter_funding, lease_fee)) {
-
-			negotiation_failed(state,
-					   "Unable to add accepter's funding"
-					   " and channel lease fee (%s + %s)",
-					   type_to_string(tmpctx,
-							  struct amount_sat,
-							  &tx_state->accepter_funding),
-					   type_to_string(tmpctx,
-							  struct amount_sat,
-							  &lease_fee));
-			return;
-		}
-	} else {
-		tx_state->lease_expiry = 0;
-		lease_fee = AMOUNT_SAT(0);
-	}
 
 	/* This is unused in this flow. We re-use
 	 * the wire method between accepter + opener, so we set it
