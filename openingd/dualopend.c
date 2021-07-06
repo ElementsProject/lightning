@@ -2050,7 +2050,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 
 	/* This is an `option_will_fund` request */
 	if (open_tlv->request_funds) {
-		/* FIXME: Do we support this? */
 		requested_amt
 			= amount_sat(open_tlv->request_funds->requested_sats);
 		tx_state->blockheight
