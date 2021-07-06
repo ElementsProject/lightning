@@ -729,6 +729,7 @@ def calc_lease_fee(amt, feerate, rates):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @pytest.mark.slow_test
+@pytest.mark.developer("requres 'dev-queryrates'")
 def test_channel_lease_falls_behind(node_factory, bitcoind):
     '''
     If our peer falls too far behind/doesn't send us an update for
@@ -745,7 +746,7 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
     l2.fundwallet(20000000)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    rates = l1.rpc.queryrates(l2.info['id'], amount, amount)
+    rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
     l1.daemon.wait_for_log('disconnect')
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 leases a channel from l2
@@ -769,6 +770,7 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @pytest.mark.slow_test
+@pytest.mark.developer("requres 'dev-queryrates'")
 def test_channel_lease_closes(node_factory, bitcoind):
     '''
     Check that channel leases work
@@ -791,7 +793,7 @@ def test_channel_lease_closes(node_factory, bitcoind):
     l4.fundwallet(20000000)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    rates = l1.rpc.queryrates(l2.info['id'], amount, amount)
+    rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
     l1.daemon.wait_for_log('disconnect')
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 leases a channel from l2
@@ -812,7 +814,7 @@ def test_channel_lease_closes(node_factory, bitcoind):
 
     # l2 leases a channel from l3
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
-    rates = l2.rpc.queryrates(l3.info['id'], amount, amount)
+    rates = l2.rpc.dev_queryrates(l3.info['id'], amount, amount)
     l3.daemon.wait_for_log('disconnect')
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l2.rpc.fundchannel(l3.info['id'], amount, request_amt=amount,
@@ -915,6 +917,7 @@ def test_channel_lease_closes(node_factory, bitcoind):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
+@pytest.mark.developer("requres 'dev-queryrates'")
 def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
     '''
     Check that lessee can recover funds if lessor cheats
@@ -932,7 +935,7 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
     l2.fundwallet(20000000)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    rates = l1.rpc.queryrates(l2.info['id'], amount, amount)
+    rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
     l1.daemon.wait_for_log('disconnect')
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 leases a channel from l2
@@ -987,6 +990,7 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Makes use of the sqlite3 db")
+@pytest.mark.developer("requres 'dev-queryrates'")
 def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
     '''
     Check that lessor can recover funds if lessee cheats
@@ -1004,7 +1008,7 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
     l2.fundwallet(20000000)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    rates = l1.rpc.queryrates(l2.info['id'], amount, amount)
+    rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
     l1.daemon.wait_for_log('disconnect')
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 leases a channel from l2

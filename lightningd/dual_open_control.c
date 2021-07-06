@@ -2490,106 +2490,6 @@ static struct command_result *init_set_feerate(struct command *cmd,
 	return NULL;
 }
 
-static struct command_result *json_queryrates(struct command *cmd,
-					      const char *buffer,
-					      const jsmntok_t *obj UNNEEDED,
-					      const jsmntok_t *params)
-{
-	struct node_id *id;
-	struct peer *peer;
-	struct channel *channel;
-	u32 *feerate_per_kw_funding;
-	u32 *feerate_per_kw;
-	struct amount_sat *amount, *request_amt;
-	struct wally_psbt *psbt;
-	struct open_attempt *oa;
-	u8 *msg;
-	struct command_result *res;
-
-	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &id),
-		   p_req("amount", param_sat, &amount),
-		   p_req("request_amt", param_sat, &request_amt),
-		   p_opt("commitment_feerate", param_feerate, &feerate_per_kw),
-		   p_opt("funding_feerate", param_feerate, &feerate_per_kw_funding),
-		   NULL))
-		return command_param_failed();
-
-	res = init_set_feerate(cmd, &feerate_per_kw, &feerate_per_kw_funding);
-	if (res)
-		return res;
-
-	peer = peer_by_id(cmd->ld, id);
-	if (!peer) {
-		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
-	}
-
-	/* We can't query rates for a peer we have a channel with */
-	channel = peer_active_channel(peer);
-	if (channel)
-		return command_fail(cmd, LIGHTNINGD, "Peer in state %s,"
-				    " can't query peer's rates if already"
-				    " have a channel",
-				    channel_state_name(channel));
-
-	channel = peer_unsaved_channel(peer);
-	if (!channel || !channel->owner)
-		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
-				    "Peer not connected");
-	if (channel->open_attempt
-	     || !list_empty(&channel->inflights))
-		return command_fail(cmd, FUNDING_STATE_INVALID,
-				    "Channel funding in-progress. %s",
-				    channel_state_name(channel));
-
-	if (!feature_negotiated(cmd->ld->our_features,
-			        peer->their_features,
-				OPT_DUAL_FUND)) {
-		return command_fail(cmd, FUNDING_V2_NOT_SUPPORTED,
-				    "v2 openchannel not supported "
-				    "by peer, can't query rates");
-	}
-
-	/* BOLT #2:
-	 *  - if both nodes advertised `option_support_large_channel`:
-	 *    - MAY set `funding_satoshis` greater than or equal to 2^24 satoshi.
-	 *  - otherwise:
-	 *    - MUST set `funding_satoshis` to less than 2^24 satoshi.
-	 */
-	if (!feature_negotiated(cmd->ld->our_features,
-				peer->their_features, OPT_LARGE_CHANNELS)
-	    && amount_sat_greater(*amount, chainparams->max_funding))
-		return command_fail(cmd, FUND_MAX_EXCEEDED,
-				    "Amount exceeded %s",
-				    type_to_string(tmpctx, struct amount_sat,
-						   &chainparams->max_funding));
-
-	/* Get a new open_attempt going, keeps us from re-initing
-	 * while looking */
-	channel->opener = LOCAL;
-	channel->open_attempt = oa = new_channel_open_attempt(channel);
-	channel->channel_flags = OUR_CHANNEL_FLAGS;
-	oa->funding = *amount;
-	oa->cmd = cmd;
-	/* empty psbt to start */
-	psbt = create_psbt(tmpctx, 0, 0, 0);
-
-	msg = towire_dualopend_opener_init(NULL,
-					   psbt, *amount,
-					   oa->our_upfront_shutdown_script,
-					   *feerate_per_kw,
-					   *feerate_per_kw_funding,
-					   channel->channel_flags,
-					   *request_amt,
-					   get_block_height(cmd->ld->topology),
-					   true,
-					   NULL);
-
-	subd_send_msg(channel->owner, take(msg));
-	return command_still_pending(cmd);
-
-}
-
 static struct command_result *json_openchannel_init(struct command *cmd,
 						    const char *buffer,
 						    const jsmntok_t *obj UNNEEDED,
@@ -3120,13 +3020,117 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 	return 0;
 }
 
+#if DEVELOPER
+static struct command_result *json_queryrates(struct command *cmd,
+					      const char *buffer,
+					      const jsmntok_t *obj UNNEEDED,
+					      const jsmntok_t *params)
+{
+	struct node_id *id;
+	struct peer *peer;
+	struct channel *channel;
+	u32 *feerate_per_kw_funding;
+	u32 *feerate_per_kw;
+	struct amount_sat *amount, *request_amt;
+	struct wally_psbt *psbt;
+	struct open_attempt *oa;
+	u8 *msg;
+	struct command_result *res;
+
+	if (!param(cmd, buffer, params,
+		   p_req("id", param_node_id, &id),
+		   p_req("amount", param_sat, &amount),
+		   p_req("request_amt", param_sat, &request_amt),
+		   p_opt("commitment_feerate", param_feerate, &feerate_per_kw),
+		   p_opt("funding_feerate", param_feerate, &feerate_per_kw_funding),
+		   NULL))
+		return command_param_failed();
+
+	res = init_set_feerate(cmd, &feerate_per_kw, &feerate_per_kw_funding);
+	if (res)
+		return res;
+
+	peer = peer_by_id(cmd->ld, id);
+	if (!peer) {
+		return command_fail(cmd, FUNDING_UNKNOWN_PEER, "Unknown peer");
+	}
+
+	/* We can't query rates for a peer we have a channel with */
+	channel = peer_active_channel(peer);
+	if (channel)
+		return command_fail(cmd, LIGHTNINGD, "Peer in state %s,"
+				    " can't query peer's rates if already"
+				    " have a channel",
+				    channel_state_name(channel));
+
+	channel = peer_unsaved_channel(peer);
+	if (!channel || !channel->owner)
+		return command_fail(cmd, FUNDING_PEER_NOT_CONNECTED,
+				    "Peer not connected");
+	if (channel->open_attempt
+	     || !list_empty(&channel->inflights))
+		return command_fail(cmd, FUNDING_STATE_INVALID,
+				    "Channel funding in-progress. %s",
+				    channel_state_name(channel));
+
+	if (!feature_negotiated(cmd->ld->our_features,
+			        peer->their_features,
+				OPT_DUAL_FUND)) {
+		return command_fail(cmd, FUNDING_V2_NOT_SUPPORTED,
+				    "v2 openchannel not supported "
+				    "by peer, can't query rates");
+	}
+
+	/* BOLT #2:
+	 *  - if both nodes advertised `option_support_large_channel`:
+	 *    - MAY set `funding_satoshis` greater than or equal to 2^24 satoshi.
+	 *  - otherwise:
+	 *    - MUST set `funding_satoshis` to less than 2^24 satoshi.
+	 */
+	if (!feature_negotiated(cmd->ld->our_features,
+				peer->their_features, OPT_LARGE_CHANNELS)
+	    && amount_sat_greater(*amount, chainparams->max_funding))
+		return command_fail(cmd, FUND_MAX_EXCEEDED,
+				    "Amount exceeded %s",
+				    type_to_string(tmpctx, struct amount_sat,
+						   &chainparams->max_funding));
+
+	/* Get a new open_attempt going, keeps us from re-initing
+	 * while looking */
+	channel->opener = LOCAL;
+	channel->open_attempt = oa = new_channel_open_attempt(channel);
+	channel->channel_flags = OUR_CHANNEL_FLAGS;
+	oa->funding = *amount;
+	oa->cmd = cmd;
+	/* empty psbt to start */
+	psbt = create_psbt(tmpctx, 0, 0, 0);
+
+	msg = towire_dualopend_opener_init(NULL,
+					   psbt, *amount,
+					   oa->our_upfront_shutdown_script,
+					   *feerate_per_kw,
+					   *feerate_per_kw_funding,
+					   channel->channel_flags,
+					   *request_amt,
+					   get_block_height(cmd->ld->topology),
+					   true,
+					   NULL);
+
+	subd_send_msg(channel->owner, take(msg));
+	return command_still_pending(cmd);
+
+}
+
 static const struct json_command queryrates_command = {
-	"queryrates",
+	"dev-queryrates",
 	"channels",
 	json_queryrates,
 	"Ask a peer what their contribution and liquidity rates are"
 	" for the given {amount} and {requested_amt}"
 };
+
+AUTODATA(json_command, &queryrates_command);
+#endif /* DEVELOPER */
 
 static const struct json_command openchannel_init_command = {
 	"openchannel_init",
@@ -3166,7 +3170,6 @@ static const struct json_command openchannel_abort_command = {
 	"Abort {channel_id}'s open. Usable while `commitment_signed=false`."
 };
 
-AUTODATA(json_command, &queryrates_command);
 AUTODATA(json_command, &openchannel_init_command);
 AUTODATA(json_command, &openchannel_update_command);
 AUTODATA(json_command, &openchannel_signed_command);

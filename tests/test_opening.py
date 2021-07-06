@@ -17,6 +17,7 @@ def find_next_feerate(node, peer):
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
 @pytest.mark.openchannel('v2')
+@pytest.mark.developer("requres 'dev-queryrates'")
 def test_queryrates(node_factory, bitcoind):
     l1, l2 = node_factory.get_nodes(2)
 
@@ -26,7 +27,7 @@ def test_queryrates(node_factory, bitcoind):
     l2.fundwallet(amount * 10)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    result = l1.rpc.queryrates(l2.info['id'], amount, amount * 10)
+    result = l1.rpc.dev_queryrates(l2.info['id'], amount, amount * 10)
     assert result['our_funding_msat'] == Millisatoshi(amount * 1000)
     assert result['their_funding_msat'] == Millisatoshi(0)
     assert 'weight_charge' not in result
@@ -42,7 +43,7 @@ def test_queryrates(node_factory, bitcoind):
                                  'channel_fee_max_proportional_thousandths': 101})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    result = l1.rpc.queryrates(l2.info['id'], amount, amount)
+    result = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
     assert result['our_funding_msat'] == Millisatoshi(amount * 1000)
     assert result['their_funding_msat'] == Millisatoshi(amount * 1000)
     assert result['funding_weight'] == 1000

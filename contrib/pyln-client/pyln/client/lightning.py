@@ -1018,7 +1018,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("pay", payload)
 
-    def queryrates(self, node_id, channel_amount, request_amt, commitment_feerate=None, funding_feerate=None):
+    def dev_queryrates(self, node_id, channel_amount, request_amt, commitment_feerate=None, funding_feerate=None):
         """Ask a peer how much they'd charge for a given liquidity amount """
         payload = {
             "id": node_id,
@@ -1027,7 +1027,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "commitment_feerate": commitment_feerate,
             "funding_feerate": funding_feerate,
         }
-        return self.call("queryrates", payload)
+        return self.call("dev-queryrates", payload)
 
     def openchannel_init(self, node_id, channel_amount, psbt, feerate=None, funding_feerate=None, announce=True, close_to=None, request_amt=None, *args, **kwargs):
         """Initiate an openchannel with a peer """
