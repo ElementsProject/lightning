@@ -577,6 +577,19 @@ json_openchannel2_call(struct command *cmd,
 		return command_hook_success(cmd);
 	}
 
+	/* If they've requested funds, but we're not actually
+	 * supporting requested funds...*/
+	if (!current_policy->rates &&
+	    !amount_sat_zero(info->requested_lease)) {
+		struct json_stream *res = jsonrpc_stream_success(cmd);
+		json_add_string(res, "result", "reject");
+		json_add_string(res, "error_message",
+				"Peer requested funds but we're not advertising"
+				" liquidity right now");
+		return command_finished(cmd, res);
+	}
+
+
 	/* Check that their block height isn't too far behind */
 	if (!amount_sat_zero(info->requested_lease)) {
 		u32 upper_bound, lower_bound;
