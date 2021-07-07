@@ -3488,7 +3488,7 @@ static void do_reconnect_dance(struct state *state)
 	struct pubkey remote_current_per_commit_point;
 	struct tx_state *tx_state = state->tx_state;
 #if EXPERIMENTAL_FEATURES
-	struct tlv_channel_reestablish_tlvs *tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
+	struct tlv_channel_reestablish_tlvs *tlvs = tlv_channel_reestablish_tlvs_new(NULL);
 #endif
 
 	/* BOLT #2:
@@ -3539,6 +3539,9 @@ static void do_reconnect_dance(struct state *state)
 			       peer_wire_name(fromwire_peektype(msg)),
 			       tal_hex(msg, msg));
 
+#if EXPERIMENTAL_FEATURES
+	tal_free(tlvs);
+#endif /* EXPERIMENTAL_FEATURES */
 	check_channel_id(state, &cid, &state->channel_id);
 
 	status_debug("Got dualopend reestablish commit=%"PRIu64
