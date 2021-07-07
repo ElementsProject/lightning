@@ -27,10 +27,8 @@ def test_queryrates(node_factory, bitcoind):
     l2.fundwallet(amount * 10)
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    result = l1.rpc.dev_queryrates(l2.info['id'], amount, amount * 10)
-    assert result['our_funding_msat'] == Millisatoshi(amount * 1000)
-    assert result['their_funding_msat'] == Millisatoshi(0)
-    assert 'weight_charge' not in result
+    with pytest.raises(RpcError, match=r'not advertising liquidity'):
+        l1.rpc.dev_queryrates(l2.info['id'], amount, amount * 10)
 
     l2.rpc.call('funderupdate', {'policy': 'match',
                                  'policy_mod': 100,
