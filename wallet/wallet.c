@@ -1064,7 +1064,7 @@ void wallet_inflight_add(struct wallet *w, struct channel_inflight *inflight)
 		db_bind_null(stmt, 9);
 		db_bind_null(stmt, 10);
 		db_bind_null(stmt, 11);
-		db_bind_null(stmt, 12);
+		db_bind_int(stmt, 12, 0);
 		db_bind_null(stmt, 13);
 	}
 

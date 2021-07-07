@@ -674,91 +674,91 @@ msgstr ""
 msgid "ALTER TABLE outputs ADD csv_lock INTEGER DEFAULT 1;"
 msgstr ""
 
-#: wallet/db.c:978
+#: wallet/db.c:979
 msgid "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?"
 msgstr ""
 
-#: wallet/db.c:1078
+#: wallet/db.c:1079
 msgid "SELECT version FROM version LIMIT 1"
 msgstr ""
 
-#: wallet/db.c:1140
+#: wallet/db.c:1141
 msgid "UPDATE version SET version=?;"
 msgstr ""
 
-#: wallet/db.c:1148
+#: wallet/db.c:1149
 msgid "INSERT INTO db_upgrades VALUES (?, ?);"
 msgstr ""
 
-#: wallet/db.c:1160
+#: wallet/db.c:1161
 msgid "SELECT intval FROM vars WHERE name = 'data_version'"
 msgstr ""
 
-#: wallet/db.c:1187
+#: wallet/db.c:1188
 msgid "SELECT intval FROM vars WHERE name= ? LIMIT 1"
 msgstr ""
 
-#: wallet/db.c:1203
+#: wallet/db.c:1204
 msgid "UPDATE vars SET intval=? WHERE name=?;"
 msgstr ""
 
-#: wallet/db.c:1212
+#: wallet/db.c:1213
 msgid "INSERT INTO vars (name, intval) VALUES (?, ?);"
 msgstr ""
 
-#: wallet/db.c:1226
+#: wallet/db.c:1227
 msgid "UPDATE channels SET feerate_base = ?, feerate_ppm = ?;"
 msgstr ""
 
-#: wallet/db.c:1247
+#: wallet/db.c:1248
 msgid "UPDATE channels SET our_funding_satoshi = funding_satoshi WHERE funder = 0;"
 msgstr ""
 
-#: wallet/db.c:1263
+#: wallet/db.c:1264
 msgid "SELECT type, keyindex, prev_out_tx, prev_out_index, channel_id, peer_id, commitment_point FROM outputs WHERE scriptpubkey IS NULL;"
 msgstr ""
 
-#: wallet/db.c:1325
+#: wallet/db.c:1326
 msgid "UPDATE outputs SET scriptpubkey = ? WHERE prev_out_tx = ?    AND prev_out_index = ?"
 msgstr ""
 
-#: wallet/db.c:1350
+#: wallet/db.c:1351
 msgid "SELECT id, funding_tx_id, funding_tx_outnum FROM channels;"
 msgstr ""
 
-#: wallet/db.c:1369
+#: wallet/db.c:1370
 msgid "UPDATE channels SET full_channel_id = ? WHERE id = ?;"
 msgstr ""
 
-#: wallet/db.c:1390
+#: wallet/db.c:1391
 msgid "SELECT  channels.id, peers.node_id FROM  channels JOIN  peers ON (peers.id = channels.peer_id)"
 msgstr ""
 
-#: wallet/db.c:1423
+#: wallet/db.c:1424
 msgid "UPDATE channels SET  revocation_basepoint_local = ?, payment_basepoint_local = ?, htlc_basepoint_local = ?, delayed_payment_basepoint_local = ?, funding_pubkey_local = ? WHERE id = ?;"
 msgstr ""
 
-#: wallet/db.c:1456
+#: wallet/db.c:1457
 msgid "INSERT INTO channel_blockheights  (channel_id, hstate, blockheight) SELECT id, 4, 0 FROM channels WHERE funder = 0;"
 msgstr ""
 
-#: wallet/db.c:1464
+#: wallet/db.c:1465
 msgid "INSERT INTO channel_blockheights  (channel_id, hstate, blockheight) SELECT id, 14, 0 FROM channels WHERE funder = 1;"
 msgstr ""
 
-#: wallet/db.c:1476
+#: wallet/db.c:1477
 msgid "SELECT   c.id, p.node_id, c.fundingkey_remote, inflight.last_tx, inflight.last_sig, inflight.funding_satoshi, inflight.funding_tx_id FROM channels c  LEFT OUTER JOIN peers p   ON p.id = c.peer_id  LEFT OUTER JOIN   channel_funding_inflights inflight   ON c.id = inflight.channel_id WHERE inflight.last_tx IS NOT NULL;"
 msgstr ""
 
-#: wallet/db.c:1543
+#: wallet/db.c:1544
 msgid "UPDATE channel_funding_inflights SET last_tx = ? WHERE channel_id = ?   AND funding_tx_id = ?;"
 msgstr ""
 
-#: wallet/db.c:1567
+#: wallet/db.c:1568
 msgid "SELECT   c.id, p.node_id, c.last_tx, c.funding_satoshi, c.fundingkey_remote, c.last_sig FROM channels c  LEFT OUTER JOIN peers p  ON p.id = c.peer_id;"
 msgstr ""
 
-#: wallet/db.c:1634
+#: wallet/db.c:1635
 msgid "UPDATE channels SET last_tx = ? WHERE id = ?;"
 msgstr ""
 
@@ -1337,4 +1337,4 @@ msgstr ""
 #: wallet/test/run-wallet.c:1696
 msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
-#  SHA256STAMP:c8431455ff375f6a6d9225082d2529a06e01ebf508690765721740d5af851987
+#  SHA256STAMP:28f0ccfe94b0a41dd9f7053d1593beba6a833c6de80e510dbe7e26aca8f98ccf
