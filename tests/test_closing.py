@@ -785,6 +785,10 @@ def test_channel_lease_closes(node_factory, bitcoind):
                                                      'lease-fee-base-msat': '100sat',
                                                      'lease-fee-basis': 100,
                                                      'may_reconnect': True})
+
+    # Allow l2 some warnings
+    l2.allow_warning = True
+
     feerate = 2000
     amount = 500000
     l1.fundwallet(20000000)
