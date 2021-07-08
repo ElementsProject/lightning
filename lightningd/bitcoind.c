@@ -196,9 +196,14 @@ static void estimatefees_callback(const char *buf, const jsmntok_t *toks,
 
 		/* FIXME: We could trawl recent blocks for median fee... */
 		if (!json_to_u32(buf, feeratetok, &feerates[f])) {
-			log_unusual(call->bitcoind->log,
-				    "Unable to estimate %s fees",
-				    feerate_name(f));
+			if (chainparams->testnet)
+				log_debug(call->bitcoind->log,
+					  "Unable to estimate %s fees",
+					  feerate_name(f));
+			else
+				log_unusual(call->bitcoind->log,
+					    "Unable to estimate %s fees",
+					    feerate_name(f));
 
 #if DEVELOPER
 			/* This is needed to test for failed feerate estimates
