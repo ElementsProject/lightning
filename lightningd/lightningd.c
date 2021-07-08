@@ -290,6 +290,11 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	 * each invoice we generate has a different set of channels.  */
 	ld->rr_counter = 0;
 
+	/*~ Because fee estimates on testnet and regtest are unreliable,
+	 * we allow overriding them with --force-feerates, in which
+	 * case this is a pointer to an enum feerate-indexed array of values */
+	ld->force_feerates = NULL;
+
 	return ld;
 }
 

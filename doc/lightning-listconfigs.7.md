@@ -84,6 +84,7 @@ On success, an object is returned, containing:
 - **log-prefix** (string, optional): `log-prefix` field from config or cmdline, or default
 - **log-file** (string, optional): `log-file` field from config or cmdline, or default
 - **log-timestamps** (boolean, optional): `log-timestamps` field from config or cmdline, or default
+- **force-feerates** (string, optional): `force-feerates` field from config or cmdline, if any
 - **subdaemon** (string, optional): `subdaemon` fields from config or cmdline if any (can be more than one)
 - **tor-service-password** (string, optional): `tor-service-password` field from config or cmdline, if any
 [comment]: # (GENERATE-FROM-SCHEMA-END)
@@ -203,4 +204,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:3c3f2cd354ef5b33ad34febd29b04b1861c62d545c6a5b9181eb2b2b3880258f)
+[comment]: # ( SHA256STAMP:ad98179a7b6254a936d4fde179918b6a975e186adcbc396917a0c2ed2888519e)

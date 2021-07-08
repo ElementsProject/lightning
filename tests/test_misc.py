@@ -2561,3 +2561,48 @@ def test_getlog(node_factory):
     # This should not
     logs = l1.rpc.getlog(level='io')['log']
     assert [l for l in logs if l['type'] == 'SKIPPED'] == []
+
+
+def test_force_feerates(node_factory):
+    l1 = node_factory.get_node(options={'force-feerates': 1111})
+    assert l1.rpc.listconfigs()['force-feerates'] == '1111'
+
+    assert l1.rpc.feerates('perkw')['perkw'] == {
+        "opening": 1111,
+        "mutual_close": 1111,
+        "unilateral_close": 1111,
+        "delayed_to_us": 1111,
+        "htlc_resolution": 1111,
+        "penalty": 1111,
+        "min_acceptable": 1875,
+        "max_acceptable": 150000}
+
+    l1.stop()
+    l1.daemon.opts['force-feerates'] = '1111/2222'
+    l1.start()
+
+    assert l1.rpc.listconfigs()['force-feerates'] == '1111/2222'
+    assert l1.rpc.feerates('perkw')['perkw'] == {
+        "opening": 1111,
+        "mutual_close": 2222,
+        "unilateral_close": 2222,
+        "delayed_to_us": 2222,
+        "htlc_resolution": 2222,
+        "penalty": 2222,
+        "min_acceptable": 1875,
+        "max_acceptable": 150000}
+
+    l1.stop()
+    l1.daemon.opts['force-feerates'] = '1111/2222/3333/4444/5555/6666'
+    l1.start()
+
+    assert l1.rpc.listconfigs()['force-feerates'] == '1111/2222/3333/4444/5555/6666'
+    assert l1.rpc.feerates('perkw')['perkw'] == {
+        "opening": 1111,
+        "mutual_close": 2222,
+        "unilateral_close": 3333,
+        "delayed_to_us": 4444,
+        "htlc_resolution": 5555,
+        "penalty": 6666,
+        "min_acceptable": 1875,
+        "max_acceptable": 150000}

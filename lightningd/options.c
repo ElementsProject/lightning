@@ -131,6 +131,51 @@ static char *opt_set_mode(const char *arg, mode_t *m)
 	return NULL;
 }
 
+static char *opt_force_feerates(const char *arg, struct lightningd *ld)
+{
+	char **vals = tal_strsplit(tmpctx, arg, "/", STR_EMPTY_OK);
+	size_t n;
+
+	/* vals has NULL at end, enum feerate is 0 based */
+	if (tal_count(vals) - 1 > FEERATE_PENALTY + 1)
+		return "Too many values";
+
+	if (!ld->force_feerates)
+		ld->force_feerates = tal_arr(ld, u32, FEERATE_PENALTY + 1);
+
+	n = 0;
+	for (size_t i = 0; i < tal_count(ld->force_feerates); i++) {
+		char *err = opt_set_u32(vals[n], &ld->force_feerates[i]);
+		if (err)
+			return err;
+		fprintf(stderr, "Set feerate %zu based on val %zu\n", i, n);
+		if (vals[n+1])
+			n++;
+	}
+	return NULL;
+}
+
+static char *fmt_force_feerates(const tal_t *ctx, const u32 *force_feerates)
+{
+	char *ret;
+	size_t last;
+
+	if (!force_feerates)
+		return NULL;
+
+	ret = tal_fmt(ctx, "%i", force_feerates[0]);
+	last = 0;
+	for (size_t i = 1; i < tal_count(force_feerates); i++) {
+		if (force_feerates[i] == force_feerates[i-1])
+			continue;
+		/* Different?  Catchup! */
+		for (size_t j = last + 1; j <= i; j++)
+			tal_append_fmt(&ret, "/%i", force_feerates[j]);
+		last = i;
+	}
+	return ret;
+}
+
 #if EXPERIMENTAL_FEATURES
 static char *opt_set_accept_extra_tlv_types(const char *arg,
 					     struct lightningd *ld)
@@ -1003,6 +1048,10 @@ static void register_opts(struct lightningd *ld)
 			 "Set the file mode (permissions) for the "
 			 "JSON-RPC socket");
 
+	opt_register_arg("--force-feerates",
+			 opt_force_feerates, NULL, ld,
+			 "Set testnet/regtest feerates in sats perkw, opening/mutual_close/unlateral_close/delayed_to_us/htlc_resolution/penalty: if fewer specified, last number applies to remainder");
+
 	opt_register_arg("--subdaemon", opt_subdaemon, NULL,
 			 ld, "Arg specified as SUBDAEMON:PATH. "
 			 "Specifies an alternate subdaemon binary. "
@@ -1423,6 +1472,8 @@ static void add_config(struct lightningd *ld,
 			json_add_opt_log_levels(response, ld->log);
 		} else if (opt->cb_arg == (void *)opt_disable_plugin) {
 			json_add_opt_disable_plugins(response, ld->plugins);
+		} else if (opt->cb_arg == (void *)opt_force_feerates) {
+			answer = fmt_force_feerates(name0, ld->force_feerates);
 		} else if (opt->cb_arg == (void *)opt_important_plugin) {
 			/* Do nothing, this is already handled by
 			 * opt_add_plugin.  */

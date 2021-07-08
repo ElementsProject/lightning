@@ -199,6 +199,10 @@ struct lightningd {
 	/* RPC response to send once we've shut down. */
 	const char *stop_response;
 
+	/* Used these feerates instead of whatever bcli returns (up to
+	 * FEERATE_PENALTY). */
+	u32 *force_feerates;
+
 #if DEVELOPER
 	/* If we want to debug a subdaemon/plugin. */
 	const char *dev_debug_subprocess;
