@@ -316,6 +316,21 @@ How long to wait before sending commitment messages to the peer: in
 theory increasing this would reduce load, but your node would have to be
 extremely busy node for you to even notice\.
 
+
+ \fBforce-feerates\fR==\fIVALUES\fR
+Networks like regtest and testnet have unreliable fee estimates: we
+usually treat them as the minumum (253 sats/kw) if we can't get them\.
+This allows override of one or more of our standard feerates (see
+\fBlightning-feerates\fR(7))\.  Up to 5 values, separated by '/' can be
+provided: if fewer are provided, then the final value is used for the
+remainder\.  The values are in per-kw (roughly 1/4 of bitcoind's per-kb
+values), an in order are "opening", "mutual_close",
+"unilateral_close", "delayed_to_us", "htlc_resolution", and "penalty"\.
+
+
+You would usually put this option in the per-chain config file, to avoid
+setting it on Bitcoin mainnet!  e\.g\. \fB~rusty/.lightning/regtest/config\fR\.
+
 .SH Lightning channel and HTLC options
 
  \fBlarge-channels\fR
@@ -635,4 +650,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license\.
 
-\" SHA256STAMP:40c9f5e9e4ee5257e25a1fc196d2c85c3bc5b21d3f390a4e7fafa031c4e7ad5e
+\" SHA256STAMP:d456e1acd004f9528d8772231afdecff1aaa01d80161c833483f6f078f4c7d70

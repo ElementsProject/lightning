@@ -235,6 +235,10 @@
 	    "type": "boolean",
 	    "description": "`log-timestamps` field from config or cmdline, or default"
 	},
+	"force-feerates": {
+	    "type": "string",
+	    "description": "force-feerate configuration setting, if any"
+	},
 	"subdaemon": {
 	    "type": "string",
 	    "description": "`subdaemon` fields from config or cmdline if any (can be more than one)"

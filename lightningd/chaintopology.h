@@ -22,6 +22,7 @@ struct txwatch;
 
 /* FIXME: move all feerate stuff out to new lightningd/feerate.[ch] files */
 enum feerate {
+	/* DO NOT REORDER: force-feerates uses this order! */
 	FEERATE_OPENING,
 	FEERATE_MUTUAL_CLOSE,
 	FEERATE_UNILATERAL_CLOSE,
