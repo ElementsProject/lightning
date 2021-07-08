@@ -33,6 +33,7 @@ On success, an object is returned, containing:
 - **channel_id** (hex): the channel id of the channel (always 64 characters)
 - **psbt** (string): the PSBT of the funding transaction
 - **commitments_secured** (boolean): whether the *psbt* is complete (if true, sign *psbt* and call `openchannel_signed` to complete the channel open)
+- **funding_outnum** (u32, optional): The index of the funding output in the psbt
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If *commitments_secured* is true, will also return:
@@ -68,4 +69,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:7e6db299a5b5bbbd3561c69153ea6444d51850a814a8bec58e433fa7be97949c)
+[comment]: # ( SHA256STAMP:24ebba507f0bc155be12a34c5bebc8002964985afed0f2b3100e809f545a4ae7)

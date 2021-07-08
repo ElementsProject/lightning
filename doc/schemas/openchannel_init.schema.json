@@ -10,7 +10,7 @@
 	    "maxLength": 64,
 	    "minLength": 64
 	},
-	"intiialpsbt": {
+	"psbt": {
 	    "type": "string",
 	    "description": "the (incomplete) PSBT of the funding transaction"
 	},
