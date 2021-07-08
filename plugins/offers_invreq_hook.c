@@ -65,7 +65,7 @@ fail_invreq_level(struct command *cmd,
 				"invoice_error", errdata);
 }
 
-static struct command_result *WARN_UNUSED_RESULT
+static struct command_result *WARN_UNUSED_RESULT PRINTF_FMT(3,4)
 fail_invreq(struct command *cmd,
 	    const struct invreq *invreq,
 	    const char *fmt, ...)
@@ -361,7 +361,7 @@ static struct command_result *prev_invoice_done(struct command *cmd,
 	status = json_get_member(buf, arr + 1, "status");
 	if (!json_tok_streq(buf, status, "paid")) {
 		return fail_invreq(cmd, ir,
-				   "Previous invoice #%u status *.%s",
+				   "Previous invoice #%u status %.*s",
 				   *ir->inv->recurrence_counter - 1,
 				   json_tok_full_len(status),
 				   json_tok_full(buf, status));
