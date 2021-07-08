@@ -1106,7 +1106,7 @@ static struct bitcoin_signature *unraw_sigs(const tal_t *ctx,
 /* Do we want to update fees? */
 static bool want_fee_update(const struct peer *peer, u32 *target)
 {
-	u32 max, val;
+	u32 current, val;
 
 	if (peer->channel->opener != LOCAL)
 		return false;
@@ -1116,19 +1116,28 @@ static bool want_fee_update(const struct peer *peer, u32 *target)
 	if (peer->stfu)
 		return false;
 #endif
+	current = channel_feerate(peer->channel, REMOTE);
 
-	max = approx_max_feerate(peer->channel);
-	val = peer->desired_feerate;
+	/* max is *approximate*: only take it into account if we're
+	 * trying to increase feerate. */
+	if (peer->desired_feerate > current) {
+		/* FIXME: We should avoid adding HTLCs until we can meet this
+		 * feerate! */
+		u32 max = approx_max_feerate(peer->channel);
 
-	/* FIXME: We should avoid adding HTLCs until we can meet this
-	 * feerate! */
-	if (val > max)
-		val = max;
+		val = peer->desired_feerate;
+		/* Respect max, but don't let us *decrease* us */
+		if (val > max)
+			val = max;
+		if (val < current)
+			val = current;
+	} else
+		val = peer->desired_feerate;
 
 	if (target)
 		*target = val;
 
-	return val != channel_feerate(peer->channel, REMOTE);
+	return val != current;
 }
 
 static void send_commit(struct peer *peer)
