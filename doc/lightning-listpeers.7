@@ -86,6 +86,14 @@ BOLT #9 features which apply to this channel (one of "option_static_remotekey", 
 .IP \[bu]
 \fBfunding_txid\fR (txid, optional): ID of the funding transaction
 .IP \[bu]
+\fBinitial_feerate\fR (string, optional): For inflight opens, the first feerate used to initiate the channel open
+.IP \[bu]
+\fBlast_feerate\fR (string, optional): For inflight opens, the most recent feerate used on the channel open
+.IP \[bu]
+\fBnext_feerate\fR (string, optional): For inflight opens, the next feerate we'll use for the channel open
+.IP \[bu]
+\fBnext_fee_step\fR (u32, optional): For inflight opens, the next feerate step we'll use for the channel open
+.IP \[bu]
 \fBinflight\fR (array of objects, optional): Current candidate funding transactions (only for dual-funding):
 .RS
 .IP \[bu]
@@ -266,7 +274,7 @@ If \fBinflight\fR is present:
 .IP \[bu]
 \fBnext_feerate\fR (string): The minimum feerate for the next funding transaction in per-1000-weight, with "kpw" appended
 .IP \[bu]
-\fBnext_feestep\fR (u32, optional): The number of fee steps so far, plus one
+\fBnext_fee_step\fR (u32): The number of fee steps so far, plus one
 
 .RE
 
@@ -638,4 +646,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR Lightning
 RFC site (BOLT #9):
 \fIhttps://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md\fR
 
-\" SHA256STAMP:840f7597143789d88d7e3ef1c3e8a1e50dbee44b4b471f0608433fd60077248e
+\" SHA256STAMP:0eee52605e08ff184fa052d51ada7eb5da26149c6bc3d2a553c8e6518a27818b

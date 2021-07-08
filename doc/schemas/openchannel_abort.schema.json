@@ -2,7 +2,7 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
     "additionalProperties": false,
-    "required": [ "channel_id", "cannel_canceled", "reason" ],
+    "required": [ "channel_id", "channel_canceled", "reason" ],
     "properties": {
 	"channel_id": {
 	    "type": "hex",

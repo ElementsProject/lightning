@@ -22,9 +22,9 @@ On success, an object is returned, containing:
 .IP \[bu]
 \fBchannel_id\fR (hex): the channel id of the aborted channel (always 64 characters)
 .IP \[bu]
-\fBreason\fR (string): usually "Abort requested", but if it happened to fail at the same time it could be different
+\fBchannel_canceled\fR (boolean): whether this is completely canceled (there may be remaining in-flight transactions)
 .IP \[bu]
-\fBchannel_canceled\fR (boolean, optional): whether this is completely canceled (there may be remaining in-flight transactions)
+\fBreason\fR (string): usually "Abort requested", but if it happened to fail at the same time it could be different
 
 .RE
 
@@ -60,4 +60,4 @@ lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcomplete\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:d2ed75d41e90988cf4a1919afb443e7a8f4b9c52fb8aa404af16d6feb44cacc8
+\" SHA256STAMP:b86aa0f7a245daebb1ed3d2989276213c520c58e790129285ebf5883aabaa876

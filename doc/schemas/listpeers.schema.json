@@ -177,6 +177,22 @@
 				    "type": "txid",
 				    "description": "ID of the funding transaction"
 				},
+				"initial_feerate": {
+				    "type": "string",
+				    "description": "For inflight opens, the first feerate used to initiate the channel open"
+				},
+				"last_feerate": {
+				    "type": "string",
+				    "description": "For inflight opens, the most recent feerate used on the channel open"
+				},
+				"next_feerate": {
+				    "type": "string",
+				    "description": "For inflight opens, the next feerate we'll use for the channel open"
+				},
+				"next_fee_step": {
+				    "type": "u32",
+				    "description": "For inflight opens, the next feerate step we'll use for the channel open"
+				},
 				"inflight": {
 				    "type": "array",
 				    "description": "Current candidate funding transactions (only for dual-funding)",
@@ -616,6 +632,10 @@
 					    "out_fulfilled_msat": { },
 					    "out_msatoshi_fulfilled": { },
 					    "htlcs": { },
+					    "initial_feerate": { },
+					    "last_feerate": { },
+					    "next_feerate": { },
+					    "next_fee_step": { },
 					    "inflight": { },
 					    "last_tx_fee": { },
 					    "last_tx_fee_msat": { },
@@ -700,7 +720,7 @@
 					    "initial_feerate": { },
 					    "last_feerate": { },
 					    "next_feerate": { },
-					    "next_feestep": { },
+					    "next_fee_step": { },
 					    "direction": { },
 					    "last_tx_fee": {
 						"deprecated": true
@@ -786,7 +806,7 @@
 					    "initial_feerate": { },
 					    "last_feerate": { },
 					    "next_feerate": { },
-					    "next_feestep": { },
+					    "next_fee_step": { },
 					    "last_tx_fee": { },
 					    "last_tx_fee_msat": { },
 					    "direction": {
@@ -882,7 +902,7 @@
 						"type": "string",
 						"description": "The minimum feerate for the next funding transaction in per-1000-weight, with \"kpw\" appended"
 					    },
-					    "next_feestep": {
+					    "next_fee_step": {
 						"type": "u32",
 						"description": "The number of fee steps so far, plus one"
 					    }

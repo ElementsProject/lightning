@@ -45,9 +45,9 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 - **channel_id** (hex): the channel id of the channel (always 64 characters)
+- **psbt** (string): the (incomplete) PSBT of the funding transaction
 - **commitments_secured** (boolean): whether the *psbt* is complete (always *false*)
 - **funding_serial** (u64): the serial_id of the funding output in the *psbt*
-- **intiialpsbt** (string, optional): the (incomplete) PSBT of the funding transaction
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If the peer does not support `option_dual_fund`, this command
@@ -85,4 +85,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:a633941043ea5882c89e444cd1e41cb7040716c092b4b5e8aaf6ddafbbcf1a5d)
+[comment]: # ( SHA256STAMP:6e5ce1c2b8aeb96b7e5469b6546a3bbf192f7d937cce8ec774ab716edf9ff9dc)

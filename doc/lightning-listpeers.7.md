@@ -55,6 +55,10 @@ On success, an object containing **peers** is returned.  It is an array of objec
   - **short_channel_id** (short_channel_id, optional): The short_channel_id (once locked in)
   - **channel_id** (hex, optional): The full channel_id (always 64 characters)
   - **funding_txid** (txid, optional): ID of the funding transaction
+  - **initial_feerate** (string, optional): For inflight opens, the first feerate used to initiate the channel open
+  - **last_feerate** (string, optional): For inflight opens, the most recent feerate used on the channel open
+  - **next_feerate** (string, optional): For inflight opens, the next feerate we'll use for the channel open
+  - **next_fee_step** (u32, optional): For inflight opens, the next feerate step we'll use for the channel open
   - **inflight** (array of objects, optional): Current candidate funding transactions (only for dual-funding):
     - **funding_txid** (txid): ID of the funding transaction
     - **funding_outnum** (u32): The 0-based output number of the funding transaction which opens the channel
@@ -128,7 +132,7 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **initial_feerate** (string): The feerate for the initial funding transaction in per-1000-weight, with "kpw" appended
     - **last_feerate** (string): The feerate for the latest funding transaction in per-1000-weight, with "kpw" appended
     - **next_feerate** (string): The minimum feerate for the next funding transaction in per-1000-weight, with "kpw" appended
-    - **next_feestep** (u32, optional): The number of fee steps so far, plus one
+    - **next_fee_step** (u32): The number of fee steps so far, plus one
 - **log** (array of objects, optional): if *level* is specified, logs for this peer:
   - **type** (string) (one of "SKIPPED", "BROKEN", "UNUSUAL", "INFO", "DEBUG", "IO_IN", "IO_OUT")
 
@@ -372,4 +376,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:61071f726dbf0ac566607035239841ec19695688d4a1fd9f94f3c22ade6548d0)
+[comment]: # ( SHA256STAMP:6db6eb853f6c1953f05160cd9026ad6a8ccb97a016b15bc76242adc8026fa4ca)
