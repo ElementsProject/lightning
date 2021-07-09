@@ -96,4 +96,4 @@ void printwire_channel_update_checksums(const char *fieldname, const u8 **cursor
 void printwire_channel_update_timestamps(const char *fieldname, const u8 **cursor, size_t *plen);
 void printwire_witness_stack(const char *fieldname, const u8 **cursor, size_t *plen);
 #endif /* LIGHTNING_WIRE_PEER_PRINTGEN_H */
-// SHA256STAMP:aeea1df56a4d408e222ac2c9f2deb201fda3cd2062f3c65f1b3ca52e11600acd
+// SHA256STAMP:a3a508935b99ff0b985d0774432ae9d98f3ec7660bf4edf64095a3d0a37ba0e8

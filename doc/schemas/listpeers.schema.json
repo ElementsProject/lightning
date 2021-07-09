@@ -579,7 +579,6 @@
 					    "short_channel_id": { },
 					    "channel_id": { },
 					    "funding_txid": { },
-					    "inflight": { },
 					    "close_to": { },
 					    "private": { },
 					    "opener": { },
@@ -635,7 +634,6 @@
 					    "initial_feerate": { },
 					    "last_feerate": { },
 					    "next_feerate": { },
-					    "next_fee_step": { },
 					    "inflight": { },
 					    "last_tx_fee": { },
 					    "last_tx_fee_msat": { },
@@ -715,12 +713,13 @@
 					    "out_fulfilled_msat": { },
 					    "out_msatoshi_fulfilled": { },
 					    "htlcs": { },
-					    "inflight": { },
+					    "initial_feerate": { },
+					    "last_feerate": { },
+					    "next_feerate": { },
 					    "close_to_addr": { },
 					    "initial_feerate": { },
 					    "last_feerate": { },
 					    "next_feerate": { },
-					    "next_fee_step": { },
 					    "direction": { },
 					    "last_tx_fee": {
 						"deprecated": true
@@ -800,13 +799,14 @@
 					    "out_fulfilled_msat": { },
 					    "out_msatoshi_fulfilled": { },
 					    "htlcs": { },
-					    "inflight": { },
+					    "initial_feerate": { },
+					    "last_feerate": { },
+					    "next_feerate": { },
 					    "last_tx_fee": { },
 					    "close_to_addr": { },
 					    "initial_feerate": { },
 					    "last_feerate": { },
 					    "next_feerate": { },
-					    "next_fee_step": { },
 					    "last_tx_fee": { },
 					    "last_tx_fee_msat": { },
 					    "direction": {
@@ -822,7 +822,7 @@
 				    },
 				    "then": {
 					"additionalProperties": false,
-					"required": [ "initial_feerate", "last_feerate", "next_feerate", "next_fee_step" ],
+					"required": [ "initial_feerate", "last_feerate", "next_feerate" ],
 					"properties": {
 					    "state": { },
 					    "scratch_txid": { },
@@ -831,7 +831,6 @@
 					    "short_channel_id": { },
 					    "channel_id": { },
 					    "funding_txid": { },
-					    "inflight": { },
 					    "close_to": { },
 					    "private": { },
 					    "opener": { },
@@ -901,10 +900,6 @@
 					    "next_feerate": {
 						"type": "string",
 						"description": "The minimum feerate for the next funding transaction in per-1000-weight, with \"kpw\" appended"
-					    },
-					    "next_fee_step": {
-						"type": "u32",
-						"description": "The number of fee steps so far, plus one"
 					    }
 					}
 				    }

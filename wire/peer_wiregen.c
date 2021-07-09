@@ -1623,7 +1623,7 @@ bool fromwire_accept_channel2(const void *p, struct channel_id *channel_id, stru
 }
 
 /* WIRE: INIT_RBF */
-u8 *towire_init_rbf(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat funding_satoshis, u32 locktime, u8 fee_step)
+u8 *towire_init_rbf(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat funding_satoshis, u32 locktime, u32 funding_feerate_perkw)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
@@ -1631,11 +1631,11 @@ u8 *towire_init_rbf(const tal_t *ctx, const struct channel_id *channel_id, struc
 	towire_channel_id(&p, channel_id);
 	towire_amount_sat(&p, funding_satoshis);
 	towire_u32(&p, locktime);
-	towire_u8(&p, fee_step);
+	towire_u32(&p, funding_feerate_perkw);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_init_rbf(const void *p, struct channel_id *channel_id, struct amount_sat *funding_satoshis, u32 *locktime, u8 *fee_step)
+bool fromwire_init_rbf(const void *p, struct channel_id *channel_id, struct amount_sat *funding_satoshis, u32 *locktime, u32 *funding_feerate_perkw)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
@@ -1645,7 +1645,7 @@ bool fromwire_init_rbf(const void *p, struct channel_id *channel_id, struct amou
  	fromwire_channel_id(&cursor, &plen, channel_id);
  	*funding_satoshis = fromwire_amount_sat(&cursor, &plen);
  	*locktime = fromwire_u32(&cursor, &plen);
- 	*fee_step = fromwire_u8(&cursor, &plen);
+ 	*funding_feerate_perkw = fromwire_u32(&cursor, &plen);
 	return cursor != NULL;
 }
 
@@ -2330,4 +2330,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
  	*htlc_maximum_msat = fromwire_amount_msat(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:aeea1df56a4d408e222ac2c9f2deb201fda3cd2062f3c65f1b3ca52e11600acd
+// SHA256STAMP:a3a508935b99ff0b985d0774432ae9d98f3ec7660bf4edf64095a3d0a37ba0e8

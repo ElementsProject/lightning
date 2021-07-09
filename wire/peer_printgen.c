@@ -1808,10 +1808,10 @@ void printwire_init_rbf(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 	printf("fee_step=");
-	u8 fee_step = fromwire_u8(&cursor, &plen);
+ 	printf("funding_feerate_perkw=");
+	u32 funding_feerate_perkw = fromwire_u32(&cursor, &plen);
 
-	printwire_u8(tal_fmt(NULL, "%s.fee_step", fieldname), &fee_step);
+	printwire_u32(tal_fmt(NULL, "%s.funding_feerate_perkw", fieldname), &funding_feerate_perkw);
 	if (!cursor) {
 		printf("**TRUNCATED**\n");
 		return;
@@ -2935,4 +2935,4 @@ void printpeer_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_onion_message_tlvs, ARRAY_SIZE(print_tlvs_onion_message_tlvs));
 	}
 }
-// SHA256STAMP:aeea1df56a4d408e222ac2c9f2deb201fda3cd2062f3c65f1b3ca52e11600acd
+// SHA256STAMP:a3a508935b99ff0b985d0774432ae9d98f3ec7660bf4edf64095a3d0a37ba0e8
