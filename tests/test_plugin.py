@@ -1959,8 +1959,8 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
             {'type': 'chain_mvt', 'credit': 1000000000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'channel_mvt', 'credit': 0, 'debit': 100000000, 'tag': 'routed'},
             {'type': 'channel_mvt', 'credit': 50000501, 'debit': 0, 'tag': 'routed'},
-            {'type': 'chain_mvt', 'credit': 0, 'debit': 4215501, 'tag': 'chain_fees'},
-            {'type': 'chain_mvt', 'credit': 0, 'debit': 945785000, 'tag': 'withdrawal'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 2520501, 'tag': 'chain_fees'},
+            {'type': 'chain_mvt', 'credit': 0, 'debit': 947480000, 'tag': 'withdrawal'},
         ]
         l2_wallet_mvts = [
             {'type': 'chain_mvt', 'credit': 2000000000, 'debit': 0, 'tag': 'deposit'},
@@ -1973,7 +1973,7 @@ def test_coin_movement_notices(node_factory, bitcoind, chainparams):
             {'type': 'chain_mvt', 'credit': 0, 'debit': 4590000, 'tag': 'chain_fees'},
             {'type': 'chain_mvt', 'credit': 995410000, 'debit': 0, 'tag': 'deposit'},
             {'type': 'chain_mvt', 'credit': 100001000, 'debit': 0, 'tag': 'deposit'},
-            {'type': 'chain_mvt', 'credit': 945785000, 'debit': 0, 'tag': 'deposit'},
+            {'type': 'chain_mvt', 'credit': 947480000, 'debit': 0, 'tag': 'deposit'},
         ]
 
     bitcoind.generate_block(5)
