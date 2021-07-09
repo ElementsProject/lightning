@@ -45,7 +45,6 @@ msgdata,dualopend_reinit,their_funding_pubkey,pubkey,
 msgdata,dualopend_reinit,minimum_depth,u32,
 msgdata,dualopend_reinit,funding_txid,bitcoin_txid,
 msgdata,dualopend_reinit,funding_txout,u16,
-msgdata,dualopend_reinit,orignal_feerate_per_kw_funding,u32,
 msgdata,dualopend_reinit,most_recent_feerate_per_kw_funding,u32,
 msgdata,dualopend_reinit,funding_satoshi,amount_sat,
 msgdata,dualopend_reinit,our_funding,amount_msat,
@@ -110,6 +109,7 @@ msgtype,dualopend_rbf_valid,7507
 # master->dualopend: attempt an RBF
 msgtype,dualopend_rbf_init,7509
 msgdata,dualopend_rbf_init,our_funding,amount_sat,
+msgdata,dualopend_rbf_init,funding_feerate_perkw,u32,
 msgdata,dualopend_rbf_init,psbt,wally_psbt,
 
 # dualopend->master: ready to commit channel open to database and

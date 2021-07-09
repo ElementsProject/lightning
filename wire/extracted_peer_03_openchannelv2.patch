@@ -91,7 +91,7 @@
 +msgdata,init_rbf,channel_id,channel_id,
 +msgdata,init_rbf,funding_satoshis,u64,
 +msgdata,init_rbf,locktime,u32,
-+msgdata,init_rbf,fee_step,byte,
++msgdata,init_rbf,funding_feerate_perkw,u32,
 +msgtype,ack_rbf,73
 +msgdata,ack_rbf,channel_id,channel_id,
 +msgdata,ack_rbf,funding_satoshis,u64,

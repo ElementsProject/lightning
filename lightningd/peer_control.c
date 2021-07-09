@@ -774,31 +774,31 @@ static void json_add_channel(struct lightningd *ld,
 
 	if (!list_empty(&channel->inflights)) {
 		struct channel_inflight *initial, *inflight;
-		u32 last_feerate, next_feerate, feerate;
-		u8 feestep;
-
-		last_feerate = channel_last_funding_feerate(channel);
-		assert(last_feerate > 0);
-		next_feerate = last_feerate + last_feerate / 4;
+		u32 last_feerate, next_feerate;
 
 		initial = list_top(&channel->inflights,
 				   struct channel_inflight, list);
-		feerate = initial->funding->feerate;
-
 		json_add_string(response, "initial_feerate",
-			        tal_fmt(tmpctx, "%d%s", feerate,
+			        tal_fmt(tmpctx, "%d%s",
+					initial->funding->feerate,
 					feerate_style_name(FEERATE_PER_KSIPA)));
+
+		last_feerate = channel_last_funding_feerate(channel);
+		assert(last_feerate > 0);
 		json_add_string(response, "last_feerate",
 				tal_fmt(tmpctx, "%d%s", last_feerate,
 					feerate_style_name(FEERATE_PER_KSIPA)));
+
+		/* BOLT-9e7723387c8859b511e178485605a0b9133b9869 #2:
+		 * - MUST set `funding_feerate_perkw` greater than or equal to
+		 *   65/64 times the last sent `funding_feerate_perkw`
+		 *   rounded down.
+		 */
+		next_feerate = last_feerate * 65 / 64;
+		assert(next_feerate > last_feerate);
 		json_add_string(response, "next_feerate",
 				tal_fmt(tmpctx, "%d%s", next_feerate,
 					feerate_style_name(FEERATE_PER_KSIPA)));
-
-		/* Now we derive the feestep */
-		for (feestep = 0; feerate < next_feerate; feestep++)
-			feerate += feerate / 4;
-		json_add_num(response, "next_fee_step", feestep);
 
 		/* List the inflights */
 		json_array_start(response, "inflight");

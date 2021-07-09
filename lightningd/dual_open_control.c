@@ -1986,12 +1986,15 @@ json_openchannel_bump(struct command *cmd,
 	struct channel *channel;
 	struct amount_sat *amount, psbt_val;
 	struct wally_psbt *psbt;
+	u32 last_feerate_perkw, next_feerate_min, *feerate_per_kw_funding;
 	struct open_attempt *oa;
 
 	if (!param(cmd, buffer, params,
 		   p_req("channel_id", param_channel_id, &cid),
 		   p_req("amount", param_sat, &amount),
 		   p_req("initialpsbt", param_psbt, &psbt),
+		   p_opt("funding_feerate", param_feerate,
+			 &feerate_per_kw_funding),
 		   NULL))
 		return command_param_failed();
 
@@ -2032,6 +2035,20 @@ json_openchannel_bump(struct command *cmd,
 				    "Unknown channel %s",
 				    type_to_string(tmpctx, struct channel_id,
 						   cid));
+
+	last_feerate_perkw = channel_last_funding_feerate(channel);
+	next_feerate_min = last_feerate_perkw * 65 / 64;
+	assert(next_feerate_min > last_feerate_perkw);
+	if (!feerate_per_kw_funding) {
+		feerate_per_kw_funding = tal(cmd, u32);
+		*feerate_per_kw_funding = next_feerate_min;
+	} else if (*feerate_per_kw_funding < next_feerate_min)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Next feerate must be at least 1/64th"
+				    " greater than the last. Min req %u,"
+				    " you proposed %u",
+				    next_feerate_min,
+				    *feerate_per_kw_funding);
 
 	/* BOLT #2:
 	 *  - if both nodes advertised `option_support_large_channel`:
@@ -2092,7 +2109,9 @@ json_openchannel_bump(struct command *cmd,
 						   psbt));
 
 	subd_send_msg(channel->owner,
-		      take(towire_dualopend_rbf_init(NULL, *amount, psbt)));
+		      take(towire_dualopend_rbf_init(NULL, *amount,
+						     *feerate_per_kw_funding,
+						     psbt)));
 	return command_still_pending(cmd);
 }
 
@@ -2876,7 +2895,7 @@ void peer_restart_dualopend(struct peer *peer,
 	u32 max_to_self_delay;
 	struct amount_msat min_effective_htlc_capacity;
 	struct channel_config unused_config;
-	struct channel_inflight *inflight, *first_inflight;
+	struct channel_inflight *inflight;
         int hsmfd;
 	u8 *msg;
 
@@ -2917,12 +2936,6 @@ void peer_restart_dualopend(struct peer *peer,
 	inflight = channel_current_inflight(channel);
 	assert(inflight);
 
-	/* Get the first inflight to figure out the original feerate
-	 * for this channel. It's fine if it's the same as the current */
-	first_inflight = list_top(&channel->inflights,
-				  struct channel_inflight,
-				  list);
-	assert(first_inflight);
 	msg = towire_dualopend_reinit(NULL,
 				      chainparams,
 				      peer->ld->our_features,
@@ -2939,7 +2952,6 @@ void peer_restart_dualopend(struct peer *peer,
 				      channel->minimum_depth,
 				      &inflight->funding->txid,
 				      inflight->funding->outnum,
-				      first_inflight->funding->feerate,
 				      inflight->funding->feerate,
 				      channel->funding,
 				      channel->our_msat,

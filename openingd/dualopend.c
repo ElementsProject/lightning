@@ -165,7 +165,6 @@ struct state {
 
 	enum tx_role our_role;
 
-	u32 feerate_per_kw_funding;
 	u32 feerate_per_kw_commitment;
 
 	/* If non-NULL, this is the scriptpubkey we/they *must* close with */
@@ -1957,9 +1956,6 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 				   type_to_string(tmpctx, struct channel_id,
 						  &cid));
 
-	/* Save feerate on the state as well */
-	state->feerate_per_kw_funding = tx_state->feerate_per_kw_funding;
-
 	/* BOLT #2:
 	 *
 	 * The receiving node MUST fail the channel if:
@@ -2002,7 +1998,7 @@ static void accepter_start(struct state *state, const u8 *oc2_msg)
 					 tx_state->remoteconf.dust_limit,
 					 tx_state->remoteconf.max_htlc_value_in_flight,
 					 tx_state->remoteconf.htlc_minimum,
-					 state->feerate_per_kw_funding,
+					 tx_state->feerate_per_kw_funding,
 					 state->feerate_per_kw_commitment,
 					 tx_state->remoteconf.to_self_delay,
 					 tx_state->remoteconf.max_accepted_htlcs,
@@ -2410,13 +2406,12 @@ static void opener_start(struct state *state, u8 *msg)
 					    &tx_state->opener_funding,
 					    &state->upfront_shutdown_script[LOCAL],
 					    &state->feerate_per_kw_commitment,
-					    &state->feerate_per_kw_funding,
+					    &tx_state->feerate_per_kw_funding,
 					    &state->channel_flags))
 		master_badmsg(WIRE_DUALOPEND_OPENER_INIT, msg);
 
 	state->our_role = TX_INITIATOR;
 	tx_state->tx_locktime = tx_state->psbt->tx->locktime;
-	tx_state->feerate_per_kw_funding = state->feerate_per_kw_funding;
 	open_tlv = tlv_opening_tlvs_new(tmpctx);
 
 	/* BOLT-* #2
@@ -2444,7 +2439,7 @@ static void opener_start(struct state *state, u8 *msg)
 	msg = towire_open_channel2(NULL,
 				   &chainparams->genesis_blockhash,
 				   &state->channel_id,
-				   state->feerate_per_kw_funding,
+				   tx_state->feerate_per_kw_funding,
 				   state->feerate_per_kw_commitment,
 				   tx_state->opener_funding,
 				   tx_state->localconf.dust_limit,
@@ -2600,52 +2595,29 @@ static void opener_start(struct state *state, u8 *msg)
 	wire_sync_write(REQ_FD, take(msg));
 }
 
-static bool update_feerate(struct tx_state *tx_state,
-			   u32 feerate_funding,
-			   u32 last_feerate,
-			   u8 fee_step)
+static bool check_funding_feerate(u32 proposed_next_feerate,
+				  u32 last_feerate)
 {
-	u32 feerate = feerate_funding;
-
 	/*
-	 * BOLT-f53ca2301232db780843e894f55d95d512f297f9 #2:
+	 * BOLT-9e7723387c8859b511e178485605a0b9133b9869 #2:
 	 *
-	 * `fee_step` is an integer value, which specifies the
-	 * `feerate` for this funding transaction, as a rate of
-	 * increase above the `open_channel2`.  `funding_feerate_perkw`.
-	 *
-	 * The effective `funding_feerate_perkw` for this RBF attempt
-	 * if calculated as 1.25^`fee_step` * `funding_feerate_perkw`.
-	 * E.g. if `feerate_per_kw_funding` is 512 and the `fee_step` is 1,
-	 * the effective `feerate` for this RBF attempt is 512 + 512 / 4
-	 * or 640 sat/kw.  A `fee_step` 2 would be `1.25^2 * 512`
-	 * (or 640 + 640 / 4), 800 sat/kw.
+	 * The recipient:  ...
+	 * - MUST fail the negotiation if:
+	 *   - the `funding_feerate_perkw` is not greater than 65/64 times
+	 *   `funding_feerate_perkw` of the last successfully negotiated
+	 *   open attempt
 	 */
-	for (; fee_step > 0; fee_step--)
-		feerate += feerate / 4;
+	u32 next_min = last_feerate * 65 / 64;
 
-	/* It's possible they sent us a 'bad' feerate step,
-	 * i.e. less than the last one. */
-	if (feerate <= last_feerate)
+	if (next_min < last_feerate) {
+		status_broken("Overflow calculating next feerate. last %u",
+			      last_feerate);
+		return false;
+	}
+	if (last_feerate > proposed_next_feerate)
 		return false;
 
-	tx_state->feerate_per_kw_funding = feerate;
-	return true;
-}
-
-static u8 find_next_feestep(u32 last_feerate, u32 feerate_funding,
-			    u32 *next_feerate)
-{
-	u8 feestep;
-	u32 feerate = feerate_funding;
-	assert(last_feerate != 0 && feerate != 0);
-
-	for (feestep = 0; feerate <= last_feerate; feestep++)
-		feerate = feerate + feerate / 4;
-
-	if (next_feerate)
-		*next_feerate = feerate;
-	return feestep;
+	return next_min <= proposed_next_feerate;
 }
 
 static void rbf_wrap_up(struct state *state,
@@ -2739,7 +2711,6 @@ static void rbf_local_start(struct state *state, u8 *msg)
 	struct channel_id cid;
 	struct amount_sat total;
 	char *err_reason;
-	u8 fee_step;
 
 	/* We need a new tx_state! */
 	tx_state = new_tx_state(state);
@@ -2752,14 +2723,18 @@ static void rbf_local_start(struct state *state, u8 *msg)
 					 state->our_role == TX_INITIATOR ?
 					 &tx_state->opener_funding :
 						&tx_state->accepter_funding,
+					 &tx_state->feerate_per_kw_funding,
 					 &tx_state->psbt))
 		master_badmsg(WIRE_DUALOPEND_RBF_INIT, msg);
 
 	peer_billboard(false, "channel rbf: init received from master");
 
-	fee_step = find_next_feestep(state->tx_state->feerate_per_kw_funding,
-				     state->feerate_per_kw_funding,
-				     &tx_state->feerate_per_kw_funding);
+	if (!check_funding_feerate(tx_state->feerate_per_kw_funding,
+				   state->tx_state->feerate_per_kw_funding)) {
+		open_err_warn(state, "Proposed funding feerate (%u) invalid",
+			      tx_state->feerate_per_kw_funding);
+		return;
+	}
 
 	/* Have you sent us everything we need yet ? */
 	if (!state->tx_state->remote_funding_sigs_rcvd) {
@@ -2778,7 +2753,7 @@ static void rbf_local_start(struct state *state, u8 *msg)
 				tx_state->opener_funding :
 				tx_state->accepter_funding,
 			      tx_state->tx_locktime,
-			      fee_step);
+			      tx_state->feerate_per_kw_funding);
 
 	sync_crypto_write(state->pps, take(msg));
 
@@ -2859,7 +2834,7 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	char *err_reason;
 	struct amount_sat total;
 	enum dualopend_wire msg_type;
-	u8 fee_step, *msg;
+	u8 *msg;
 
 	/* We need a new tx_state! */
 	tx_state = new_tx_state(state);
@@ -2869,7 +2844,7 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 					&tx_state->accepter_funding :
 					&tx_state->opener_funding,
 			       &tx_state->tx_locktime,
-			       &fee_step))
+			       &tx_state->feerate_per_kw_funding))
 		open_err_fatal(state, "Parsing init_rbf %s",
 			       tal_hex(tmpctx, rbf_msg));
 
@@ -2895,13 +2870,11 @@ static void rbf_remote_start(struct state *state, const u8 *rbf_msg)
 	tx_state->localconf = state->tx_state->localconf;
 	tx_state->remoteconf = state->tx_state->remoteconf;
 
-	if (!update_feerate(tx_state,
-			    state->feerate_per_kw_funding,
-			    state->tx_state->feerate_per_kw_funding,
-			    fee_step)) {
-		open_err_warn(state, "Fee step not greater than last."
-			      " Fee step %d, last feerate %d",
-			      fee_step,
+	if (!check_funding_feerate(tx_state->feerate_per_kw_funding,
+				   state->tx_state->feerate_per_kw_funding)) {
+		open_err_warn(state, "Funding feerate not greater than last."
+			      "Proposed %u, last feerate %u",
+			      tx_state->feerate_per_kw_funding,
 			      state->tx_state->feerate_per_kw_funding);
 		tal_free(tx_state);
 		return;
@@ -3499,7 +3472,6 @@ int main(int argc, char *argv[])
 					     &state->minimum_depth,
 					     &state->tx_state->funding_txid,
 					     &state->tx_state->funding_txout,
-					     &state->feerate_per_kw_funding,
 					     &state->tx_state->feerate_per_kw_funding,
 					     &total_funding,
 					     &our_msat,

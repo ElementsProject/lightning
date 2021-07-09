@@ -766,8 +766,8 @@ u8 *towire_accept_channel2(const tal_t *ctx, const struct channel_id *channel_id
 bool fromwire_accept_channel2(const void *p, struct channel_id *channel_id, struct amount_sat *funding_satoshis, struct amount_sat *dust_limit_satoshis, struct amount_msat *max_htlc_value_in_flight_msat, struct amount_msat *htlc_minimum_msat, u32 *minimum_depth, u16 *to_self_delay, u16 *max_accepted_htlcs, struct pubkey *funding_pubkey, struct pubkey *revocation_basepoint, struct pubkey *payment_basepoint, struct pubkey *delayed_payment_basepoint, struct pubkey *htlc_basepoint, struct pubkey *first_per_commitment_point, struct tlv_accept_tlvs *tlvs);
 
 /* WIRE: INIT_RBF */
-u8 *towire_init_rbf(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat funding_satoshis, u32 locktime, u8 fee_step);
-bool fromwire_init_rbf(const void *p, struct channel_id *channel_id, struct amount_sat *funding_satoshis, u32 *locktime, u8 *fee_step);
+u8 *towire_init_rbf(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat funding_satoshis, u32 locktime, u32 funding_feerate_perkw);
+bool fromwire_init_rbf(const void *p, struct channel_id *channel_id, struct amount_sat *funding_satoshis, u32 *locktime, u32 *funding_feerate_perkw);
 
 /* WIRE: ACK_RBF */
 u8 *towire_ack_rbf(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat funding_satoshis);
@@ -859,4 +859,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
 
 
 #endif /* LIGHTNING_WIRE_PEER_WIREGEN_H */
-// SHA256STAMP:aeea1df56a4d408e222ac2c9f2deb201fda3cd2062f3c65f1b3ca52e11600acd
+// SHA256STAMP:a3a508935b99ff0b985d0774432ae9d98f3ec7660bf4edf64095a3d0a37ba0e8

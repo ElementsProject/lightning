@@ -3,7 +3,7 @@
 lightning-openchannel_bump - Command to initiate a channel RBF
 .SH SYNOPSIS
 
-\fBopenchannel_bump\fR \fIchannel_id\fR \fIamount\fR \fIinitalpsbt\fR
+\fBopenchannel_bump\fR \fIchannel_id\fR \fIamount\fR \fIinitalpsbt\fR [\fIfunding_feerate\fR]
 
 .SH DESCRIPTION
 
@@ -26,6 +26,11 @@ see \fBopenchannel_update\fR; \fIinitialpsbt\fR must have at least one input\.
 Must have the Non-Witness UTXO (PSBT_IN_NON_WITNESS_UTXO) set for
 every input\. An error (code 309) will be returned if this requirement
 is not met\.
+
+
+\fIfunding_feerate\fR is an optional field\. Sets the feerate for the
+funding transaction\. Defaults to 1/64th greater than the last
+feerate used for this channel\.
 
 .SH RETURN VALUE
 
@@ -89,4 +94,4 @@ lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcomplete\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:53b3a3b647564ae97a249226271642dc775985dce376065dd95d332d9f60dd95
+\" SHA256STAMP:357923fcd85b832cc52f77858c0744cae6c06d7612aaebb87e65f2ef0a42f367

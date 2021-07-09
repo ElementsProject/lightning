@@ -132,7 +132,6 @@ On success, an object containing **peers** is returned.  It is an array of objec
     - **initial_feerate** (string): The feerate for the initial funding transaction in per-1000-weight, with "kpw" appended
     - **last_feerate** (string): The feerate for the latest funding transaction in per-1000-weight, with "kpw" appended
     - **next_feerate** (string): The minimum feerate for the next funding transaction in per-1000-weight, with "kpw" appended
-    - **next_fee_step** (u32): The number of fee steps so far, plus one
 - **log** (array of objects, optional): if *level* is specified, logs for this peer:
   - **type** (string) (one of "SKIPPED", "BROKEN", "UNUSUAL", "INFO", "DEBUG", "IO_IN", "IO_OUT")
 
@@ -376,4 +375,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:6db6eb853f6c1953f05160cd9026ad6a8ccb97a016b15bc76242adc8026fa4ca)
+[comment]: # ( SHA256STAMP:91d30768a795456c75c72cf499df529ae8dbcc8088d06d1ed27150272425ab37)
