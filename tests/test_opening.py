@@ -987,7 +987,8 @@ def test_funder_options(node_factory, bitcoind):
     l2.fundchannel(l1, 10**6)
     chan_info = only_one(only_one(l2.rpc.listpeers(l1.info['id'])['peers'])['channels'])
     # l1 contributed nothing
-    assert chan_info['funding_msat'][l1.info['id']] == '0msat'
+    assert chan_info['funding']['remote_msat'] == Millisatoshi('0msat')
+    assert chan_info['funding']['local_msat'] != Millisatoshi('0msat')
 
     # Change all the options
     funder_opts = l1.rpc.call('funderupdate',
@@ -1017,8 +1018,9 @@ def test_funder_options(node_factory, bitcoind):
     l3.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l3.fundchannel(l1, 10**6)
     chan_info = only_one(only_one(l3.rpc.listpeers(l1.info['id'])['peers'])['channels'])
-    # l1 contributed everything
-    assert chan_info['funding_msat'][l1.info['id']] != '0msat'
+    # l1 contributed all its funds!
+    assert chan_info['funding']['remote_msat'] == Millisatoshi('9994255000msat')
+    assert chan_info['funding']['local_msat'] == Millisatoshi('1000000000msat')
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')
