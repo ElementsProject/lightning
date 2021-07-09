@@ -39,7 +39,9 @@ On success, an object is returned, containing:
 .IP \[bu]
 \fBcommitments_secured\fR (boolean): whether the \fIpsbt\fR is complete (if true, sign \fIpsbt\fR and call \fBopenchannel_signed\fR to complete the channel open)
 .IP \[bu]
-\fBfunding_outnum\fR (u32, optional): The index of the funding output in the psbt
+\fBfunding_outnum\fR (u32): The index of the funding output in the psbt
+.IP \[bu]
+\fBclose_to\fR (hex, optional): scriptPubkey which we have to close to if we mutual close
 
 .RE
 
@@ -87,4 +89,4 @@ lightning-fundchannel_\fBstart\fR(7), lightning-fundchannel_\fBcomplete\fR(7),
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:9d0366ebbbef8d86e87174133a18113393c7ad4657f3d90456ff28664109894b
+\" SHA256STAMP:4d28ceeb8b4f2052bccdc93bf2e0b08fa829a2177b1fad34b7c347e8a682845e
