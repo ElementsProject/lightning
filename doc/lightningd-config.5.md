@@ -259,13 +259,13 @@ extremely busy node for you to even notice.
 
  **force-feerates**==*VALUES*
 Networks like regtest and testnet have unreliable fee estimates: we
-usually treat them as the minumum (253 sats/kw) if we can't get them.
+usually treat them as the minimum (253 sats/kw) if we can't get them.
 This allows override of one or more of our standard feerates (see
 lightning-feerates(7)).  Up to 5 values, separated by '/' can be
 provided: if fewer are provided, then the final value is used for the
 remainder.  The values are in per-kw (roughly 1/4 of bitcoind's per-kb
-values), an in order are "opening", "mutual_close",
-"unilateral_close", "delayed_to_us", "htlc_resolution", and "penalty".
+values), and the order is "opening", "mutual_close", "unilateral_close",
+"delayed_to_us", "htlc_resolution", and "penalty".
 
 You would usually put this option in the per-chain config file, to avoid
 setting it on Bitcoin mainnet!  e.g. `~rusty/.lightning/regtest/config`.

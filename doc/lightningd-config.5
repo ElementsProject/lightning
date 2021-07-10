@@ -145,6 +145,7 @@ What log level to print out: options are io, debug, info, unusual,
 broken\.  If \fISUBSYSTEM\fR is supplied, this sets the logging level
 for any subsystem containing that string\.  Subsystems include:
 
+
 .RS
 .IP \[bu]
 \fIlightningd\fR: The main lightning daemon
@@ -169,6 +170,7 @@ for any subsystem containing that string\.  Subsystems include:
 
   The following subsystems exist for each channel, where N is an incrementing
 internal integer id assigned for the lifetime of the channel:
+
 
 .RS
 .IP \[bu]
@@ -319,13 +321,13 @@ extremely busy node for you to even notice\.
 
  \fBforce-feerates\fR==\fIVALUES\fR
 Networks like regtest and testnet have unreliable fee estimates: we
-usually treat them as the minumum (253 sats/kw) if we can't get them\.
+usually treat them as the minimum (253 sats/kw) if we can't get them\.
 This allows override of one or more of our standard feerates (see
 \fBlightning-feerates\fR(7))\.  Up to 5 values, separated by '/' can be
 provided: if fewer are provided, then the final value is used for the
 remainder\.  The values are in per-kw (roughly 1/4 of bitcoind's per-kb
-values), an in order are "opening", "mutual_close",
-"unilateral_close", "delayed_to_us", "htlc_resolution", and "penalty"\.
+values), and the order is "opening", "mutual_close", "unilateral_close",
+"delayed_to_us", "htlc_resolution", and "penalty"\.
 
 
 You would usually put this option in the per-chain config file, to avoid
@@ -650,4 +652,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license\.
 
-\" SHA256STAMP:d456e1acd004f9528d8772231afdecff1aaa01d80161c833483f6f078f4c7d70
+\" SHA256STAMP:1c392f3fee66dc6c1fc2c34200204a9be1d79e53fd5fb1720ad169fc671f71c0
