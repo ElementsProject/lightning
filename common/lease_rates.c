@@ -18,7 +18,7 @@ bool lease_rates_empty(const struct lease_rates *rates)
 	return lease_rates_eq(rates, &zero);
 }
 
-void lease_rates_get_commitment(struct pubkey *pubkey,
+void lease_rates_get_commitment(const struct pubkey *pubkey,
 				u32 lease_expiry,
 				u32 chan_fee_msat,
 				u16 chan_fee_ppt,
@@ -44,7 +44,7 @@ void lease_rates_get_commitment(struct pubkey *pubkey,
 	sha256_done(&sctx, sha);
 }
 
-bool lease_rates_calc_fee(struct lease_rates *rates,
+bool lease_rates_calc_fee(const struct lease_rates *rates,
 			  struct amount_sat accept_funding_sats,
 			  struct amount_sat requested_sats,
 			  u32 onchain_feerate,
@@ -103,22 +103,20 @@ char *lease_rates_tohex(const tal_t *ctx, const struct lease_rates *rates)
 	return hex;
 }
 
-bool lease_rates_fromhex(const tal_t *ctx,
-			 const char *hexdata, size_t hexlen,
-			 struct lease_rates **rates)
+struct lease_rates *lease_rates_fromhex(const tal_t *ctx,
+					const char *hexdata, size_t hexlen)
 {
 	const u8 *data = tal_hexdata(ctx, hexdata, hexlen);
 	size_t len = tal_bytelen(data);
+	struct lease_rates *ret;
 
-	*rates = tal(ctx, struct lease_rates);
-	fromwire_lease_rates(&data, &len, *rates);
+	ret = tal(ctx, struct lease_rates);
+	fromwire_lease_rates(&data, &len, ret);
 
-	if (data == NULL) {
-		tal_free(*rates);
-		return false;
-	}
+	if (data == NULL || len != 0)
+		return tal_free(ret);
 
-	return true;
+	return ret;
 }
 
 char *lease_rates_fmt(const tal_t *ctx, const struct lease_rates *rates)
