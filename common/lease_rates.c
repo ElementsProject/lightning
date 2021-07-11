@@ -7,36 +7,15 @@
 #include <common/lease_rates.h>
 #include <common/overflows.h>
 #include <common/type_to_string.h>
-#include <wire/peer_wire.h>
 
-/* FIXME: Is there a better way to do this ? */
-bool lease_rates_eq(struct lease_rates *l1,
-		    struct lease_rates *l2)
+bool lease_rates_empty(const struct lease_rates *rates)
 {
-	if (!l1 != !l2)
-		return false;
-
-	if (!l1)
-		return true;
-
-	return l1->funding_weight == l2->funding_weight
-		&& l1->channel_fee_max_base_msat == l2->channel_fee_max_base_msat
-		&& l1->channel_fee_max_proportional_thousandths == l2->channel_fee_max_proportional_thousandths
-		&& l1->lease_fee_base_sat == l2->lease_fee_base_sat
-		&& l1->lease_fee_basis == l2->lease_fee_basis;
-}
-
-bool lease_rates_empty(struct lease_rates *rates)
-{
+	/* static means it's zero initialized */
+	static const struct lease_rates zero;
 	if (!rates)
 		return true;
 
-	/* FIXME: why can't i do memeqzero? */
-	return rates->funding_weight == 0
-		&& rates->channel_fee_max_base_msat == 0
-		&& rates->channel_fee_max_proportional_thousandths == 0
-		&& rates->lease_fee_base_sat == 0
-		&& rates->lease_fee_basis == 0;
+	return lease_rates_eq(rates, &zero);
 }
 
 void lease_rates_get_commitment(struct pubkey *pubkey,
