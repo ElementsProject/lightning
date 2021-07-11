@@ -2,6 +2,7 @@
 #define LIGHTNING_COMMON_LEASE_RATES_H
 #include "config.h"
 #include <stdbool.h>
+#include <wire/peer_wire.h>
 
 struct amount_msat;
 struct amount_sat;
@@ -11,7 +12,7 @@ struct sha256;
 
 #define LEASE_RATE_DURATION 4032
 
-bool lease_rates_empty(struct lease_rates *rates);
+bool lease_rates_empty(const struct lease_rates *rates);
 
 void lease_rates_get_commitment(struct pubkey *pubkey,
 				u32 lease_expiry,
@@ -19,8 +20,13 @@ void lease_rates_get_commitment(struct pubkey *pubkey,
 				u16 chan_fee_ppt,
 				struct sha256 *sha);
 
-bool lease_rates_eq(struct lease_rates *l1,
-		    struct lease_rates *l2);
+/* lease_rates_eq: has 2 padding bytes after third field */
+STRUCTEQ_DEF(lease_rates, 2,
+	     funding_weight,
+	     lease_fee_basis,
+	     channel_fee_max_proportional_thousandths,
+	     lease_fee_base_sat,
+	     channel_fee_max_base_msat);
 
 bool lease_rates_calc_fee(struct lease_rates *rates,
 			  struct amount_sat accept_funding_sats,
