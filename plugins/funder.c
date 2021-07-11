@@ -19,6 +19,7 @@
 #include <common/json_stream.h>
 #include <common/lease_rates.h>
 #include <common/node_id.h>
+#include <common/overflows.h>
 #include <common/psbt_open.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>
@@ -832,7 +833,7 @@ parse_lease_rates(struct command *cmd, const char *buffer,
 		  u32 *lease_fee_basis,
 		  struct amount_sat *lease_fee_sats,
 		  u32 *funding_weight,
-		  u32 *chan_fee_ppt,
+		  u32 *channel_fee_max_proportional_thousandths,
 		  struct amount_msat *chan_fee_msats)
 
 {
@@ -843,59 +844,37 @@ parse_lease_rates(struct command *cmd, const char *buffer,
 	else if (lease_fee_basis
 		 || lease_fee_sats
 		 || funding_weight
-		 || chan_fee_ppt
+		 || channel_fee_max_proportional_thousandths
 		 || chan_fee_msats)
 		policy->rates = default_lease_rates(policy);
 	else
 		policy->rates = NULL;
 
+	/* Sometimes a local macro is neater than the alternative */
+#define ASSIGN_OR_RETURN_FAIL(type, member)				\
+	do {								\
+		if (member &&						\
+		    !assign_overflow_##type(&policy->rates->member, *member)) \
+			return command_fail_badparam(cmd, #member,	\
+						     buffer, tok, "overflow"); \
+} while(0)
 
-	if (lease_fee_basis) {
-		policy->rates->lease_fee_basis = *lease_fee_basis;
+	ASSIGN_OR_RETURN_FAIL(u16, lease_fee_basis);
+	ASSIGN_OR_RETURN_FAIL(u16, funding_weight);
+	ASSIGN_OR_RETURN_FAIL(u16, channel_fee_max_proportional_thousandths);
+#undef ASSIGN_OR_RETURN_FAIL
 
-		/* Check for overflow */
-		if (policy->rates->lease_fee_basis != *lease_fee_basis)
-			return command_fail_badparam(cmd, "lease_fee_basis",
-						     buffer, tok, "overflow");
+	if (chan_fee_msats
+	    && !assign_overflow_u32(&policy->rates->channel_fee_max_base_msat,
+				    chan_fee_msats->millisatoshis /* Raw: conversion */)) {
+		return command_fail_badparam(cmd, "channel_fee_max_base_msat",
+					     buffer, tok, "overflow");
 	}
-
-	if (lease_fee_sats) {
-		policy->rates->lease_fee_base_sat
-			= lease_fee_sats->satoshis; /* Raw: conversion */
-		if (policy->rates->lease_fee_base_sat
-		    != lease_fee_sats->satoshis) /* Raw: comparison */
-			return command_fail_badparam(cmd, "lease_fee_base_msat",
-						     buffer, tok, "overflow");
-	}
-
-	if (funding_weight) {
-		policy->rates->funding_weight = *funding_weight;
-
-		/* Check for overflow */
-		if (policy->rates->funding_weight != *funding_weight)
-			return command_fail_badparam(cmd, "funding_weight",
-						     buffer, tok, "overflow");
-	}
-
-	if (chan_fee_ppt) {
-		policy->rates->channel_fee_max_proportional_thousandths
-			= *chan_fee_ppt;
-
-		/* Check for overflow */
-		if (policy->rates->channel_fee_max_proportional_thousandths
-				!= *chan_fee_ppt)
-			return command_fail_badparam(cmd, "channel_fee_max_proportional_thousandths",
-						     buffer, tok, "overflow");
-	}
-
-	if (chan_fee_msats) {
-		policy->rates->channel_fee_max_base_msat
-			= chan_fee_msats->millisatoshis; /* Raw: conversion */
-		if (policy->rates->channel_fee_max_base_msat
-		    != chan_fee_msats->millisatoshis) /* Raw: comparison */
-			return command_fail_badparam(cmd,
-						     "channel_fee_max_base_msat",
-						     buffer, tok, "overflow");
+	if (lease_fee_sats
+	    && !assign_overflow_u32(&policy->rates->lease_fee_base_sat,
+				    lease_fee_sats->satoshis /* Raw: conversion */)) {
+		return command_fail_badparam(cmd, "lease_fee_base_sat",
+					     buffer, tok, "overflow");
 	}
 
 	return NULL;
@@ -1126,9 +1105,8 @@ static char *option_channel_base(const char *arg, struct funder_policy *policy)
 	if (!policy->rates)
 		policy->rates = default_lease_rates(policy);
 
-	policy->rates->channel_fee_max_base_msat = amt.millisatoshis; /* Raw: conversion */
-
-	if (policy->rates->channel_fee_max_base_msat != amt.millisatoshis) /* Raw: comparison */
+	if (!assign_overflow_u32(&policy->rates->channel_fee_max_base_msat,
+				amt.millisatoshis)) /* Raw: conversion */
 		return tal_fmt(NULL, "channel_fee_max_base_msat overflowed");
 
 	return NULL;
@@ -1163,8 +1141,8 @@ static char *option_lease_fee_base(const char *arg,
 	if (err)
 		return err;
 
-	policy->rates->lease_fee_base_sat = amt.satoshis; /* Raw: conversion */
-	if (policy->rates->lease_fee_base_sat != amt.satoshis) /* Raw: comparison */
+	if (!assign_overflow_u32(&policy->rates->lease_fee_base_sat,
+				 amt.satoshis)) /* Raw: conversion */
 		return tal_fmt(NULL, "lease_fee_base_sat overflowed");
 
 	return NULL;
