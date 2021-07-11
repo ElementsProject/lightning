@@ -334,6 +334,11 @@ void json_add_node_id(struct json_stream *response UNNEEDED,
 void json_add_preimage(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		     const struct preimage *preimage UNNEEDED)
 { fprintf(stderr, "json_add_preimage called!\n"); abort(); }
+/* Generated stub for json_add_secret */
+void json_add_secret(struct json_stream *response UNNEEDED,
+		     const char *fieldname UNNEEDED,
+		     const struct secret *secret UNNEEDED)
+{ fprintf(stderr, "json_add_secret called!\n"); abort(); }
 /* Generated stub for json_add_sha256 */
 void json_add_sha256(struct json_stream *result UNNEEDED, const char *fieldname UNNEEDED,
 		     const struct sha256 *hash UNNEEDED)

@@ -855,6 +855,7 @@ invoice_complete(struct invoice_info *info,
 	struct invoice invoice;
 	char *b11enc;
 	const struct invoice_details *details;
+	struct secret payment_secret;
 	struct wallet *wallet = info->cmd->ld->wallet;
 
 	b11enc = bolt11_encode(info, info->b11, false,
@@ -904,6 +905,8 @@ invoice_complete(struct invoice_info *info,
 	json_add_sha256(response, "payment_hash", &details->rhash);
 	json_add_u64(response, "expires_at", details->expiry_time);
 	json_add_string(response, "bolt11", details->invstring);
+	invoice_secret(&details->r, &payment_secret);
+	json_add_secret(response, "payment_secret", &payment_secret);
 
 	notify_invoice_creation(info->cmd->ld, info->b11->msat,
 				info->payment_preimage, info->label);
