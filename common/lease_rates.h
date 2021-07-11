@@ -14,7 +14,7 @@ struct sha256;
 
 bool lease_rates_empty(const struct lease_rates *rates);
 
-void lease_rates_get_commitment(struct pubkey *pubkey,
+void lease_rates_get_commitment(const struct pubkey *pubkey,
 				u32 lease_expiry,
 				u32 chan_fee_msat,
 				u16 chan_fee_ppt,
@@ -28,7 +28,7 @@ STRUCTEQ_DEF(lease_rates, 2,
 	     lease_fee_base_sat,
 	     channel_fee_max_base_msat);
 
-bool lease_rates_calc_fee(struct lease_rates *rates,
+bool lease_rates_calc_fee(const struct lease_rates *rates,
 			  struct amount_sat accept_funding_sats,
 			  struct amount_sat requested_sats,
 			  u32 onchain_feerate,
@@ -42,9 +42,8 @@ WARN_UNUSED_RESULT bool lease_rates_set_lease_fee_sat(struct lease_rates *rates,
 char *lease_rates_tohex(const tal_t *ctx, const struct lease_rates *rates);
 
 /* Convert 'lease_rates' from a hexstring */
-bool lease_rates_fromhex(const tal_t *ctx,
-			 const char *hexdata, size_t len,
-			 struct lease_rates **rates);
+struct lease_rates *lease_rates_fromhex(const tal_t *ctx,
+					const char *hexdata, size_t len);
 
 /* Format a string describing the passed in lease_rates */
 char *lease_rates_fmt(const tal_t *ctx, const struct lease_rates *rates);
