@@ -5,6 +5,7 @@
 #include <ccan/ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/lease_rates.h>
+#include <common/overflows.h>
 #include <common/type_to_string.h>
 #include <wire/peer_wire.h>
 
@@ -102,15 +103,15 @@ bool lease_rates_calc_fee(struct lease_rates *rates,
 bool lease_rates_set_chan_fee_base_msat(struct lease_rates *rates,
 					struct amount_msat amt)
 {
-	rates->channel_fee_max_base_msat = amt.millisatoshis; /* Raw: conversion */
-	return rates->channel_fee_max_base_msat == amt.millisatoshis; /* Raw: comparsion */
+	return assign_overflow_u32(&rates->channel_fee_max_base_msat,
+				   amt.millisatoshis); /* Raw: conversion */
 }
 
 bool lease_rates_set_lease_fee_sat(struct lease_rates *rates,
 				   struct amount_sat amt)
 {
-	rates->lease_fee_base_sat = amt.satoshis; /* Raw: conversion */
-	return rates->lease_fee_base_sat == amt.satoshis; /* Raw: comparsion */
+	return assign_overflow_u32(&rates->lease_fee_base_sat,
+				   amt.satoshis); /* Raw: conversion */
 }
 
 char *lease_rates_tohex(const tal_t *ctx, const struct lease_rates *rates)
