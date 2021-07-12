@@ -1,3 +1,4 @@
+#include <common/features.h>
 #include <common/timeout.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/htlc_set.h>
@@ -109,6 +110,17 @@ void htlc_set_add(struct lightningd *ld,
 	details = invoice_check_payment(tmpctx, ld, &hin->payment_hash,
 					total_msat, payment_secret);
 	if (!details) {
+		local_fail_in_htlc(hin,
+				   take(failmsg_incorrect_or_unknown(NULL, ld, hin)));
+		return;
+	}
+
+	/* If we insist on a payment secret, it must always have it */
+	if (feature_is_set(details->features, COMPULSORY_FEATURE(OPT_PAYMENT_SECRET))
+	    && !payment_secret) {
+		log_debug(ld->log, "Missing payment_secret, but required for %s",
+			  type_to_string(tmpctx, struct sha256,
+					 &hin->payment_hash));
 		local_fail_in_htlc(hin,
 				   take(failmsg_incorrect_or_unknown(NULL, ld, hin)));
 		return;
