@@ -668,21 +668,22 @@ def test_reconnect_sender_add1(node_factory):
     l1.fundchannel(l2, 10**6)
 
     amt = 200000000
-    rhash = l2.rpc.invoice(amt, 'test_reconnect_sender_add1', 'desc')['payment_hash']
+    inv = l2.rpc.invoice(amt, 'test_reconnect_sender_add1', 'desc')
+    rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('test_reconnect_sender_add1')['invoices'])['status'] == 'unpaid'
 
     route = [{'msatoshi': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
 
     for i in range(0, len(disconnects)):
         with pytest.raises(RpcError):
-            l1.rpc.sendpay(route, rhash)
+            l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
             l1.rpc.waitsendpay(rhash)
 
         # Wait for reconnection.
         l1.daemon.wait_for_log('Already have funding locked in')
 
     # This will send commit, so will reconnect as required.
-    l1.rpc.sendpay(route, rhash)
+    l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
 
 
 @pytest.mark.developer
@@ -708,13 +709,14 @@ def test_reconnect_sender_add(node_factory):
     l1.fundchannel(l2, 10**6)
 
     amt = 200000000
-    rhash = l2.rpc.invoice(amt, 'testpayment', 'desc')['payment_hash']
+    inv = l2.rpc.invoice(amt, 'testpayment', 'desc')
+    rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('testpayment')['invoices'])['status'] == 'unpaid'
 
     route = [{'msatoshi': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
 
     # This will send commit, so will reconnect as required.
-    l1.rpc.sendpay(route, rhash)
+    l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     # Should have printed this for every reconnect.
     for i in range(0, len(disconnects)):
         l1.daemon.wait_for_log('Already have funding locked in')
@@ -743,11 +745,12 @@ def test_reconnect_receiver_add(node_factory):
     l1.fundchannel(l2, 10**6)
 
     amt = 200000000
-    rhash = l2.rpc.invoice(amt, 'testpayment2', 'desc')['payment_hash']
+    inv = l2.rpc.invoice(amt, 'testpayment2', 'desc')
+    rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'unpaid'
 
     route = [{'msatoshi': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
-    l1.rpc.sendpay(route, rhash)
+    l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     for i in range(len(disconnects)):
         l1.daemon.wait_for_log('Already have funding locked in')
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'paid'
@@ -775,11 +778,12 @@ def test_reconnect_receiver_fulfill(node_factory):
     l1.fundchannel(l2, 10**6)
 
     amt = 200000000
-    rhash = l2.rpc.invoice(amt, 'testpayment2', 'desc')['payment_hash']
+    inv = l2.rpc.invoice(amt, 'testpayment2', 'desc')
+    rhash = inv['payment_hash']
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'unpaid'
 
     route = [{'msatoshi': amt, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}]
-    l1.rpc.sendpay(route, rhash)
+    l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
     for i in range(len(disconnects)):
         l1.daemon.wait_for_log('Already have funding locked in')
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'paid'
@@ -2980,7 +2984,7 @@ def test_restart_many_payments(node_factory, bitcoind):
         wait_for(lambda: [c['public'] for c in n.rpc.listchannels()['channels']] == [True] * len(nodes) * 2)
 
     # Manually create routes, get invoices
-    Payment = namedtuple('Payment', ['innode', 'route', 'payment_hash'])
+    Payment = namedtuple('Payment', ['innode', 'route', 'payment_hash', 'payment_secret'])
 
     to_pay = []
     for i in range(len(innodes)):
@@ -2993,8 +2997,9 @@ def test_restart_many_payments(node_factory, bitcoind):
                   'id': outnodes[i].info['id'],
                   'delay': 5,
                   'channel': outchans[i]}]
-        payment_hash = outnodes[i].rpc.invoice(100000000, "invoice", "invoice")['payment_hash']
-        to_pay.append(Payment(innodes[i], route, payment_hash))
+        inv = outnodes[i].rpc.invoice(100000000, "invoice", "invoice")
+        payment_hash = inv['payment_hash']
+        to_pay.append(Payment(innodes[i], route, payment_hash, inv['payment_secret']))
 
         # This one should be routed through to the outnode.
         route = [{'msatoshi': 100001001,
@@ -3005,12 +3010,13 @@ def test_restart_many_payments(node_factory, bitcoind):
                   'id': outnodes[i].info['id'],
                   'delay': 5,
                   'channel': outchans[i]}]
-        payment_hash = outnodes[i].rpc.invoice(100000000, "invoice2", "invoice2")['payment_hash']
-        to_pay.append(Payment(innodes[i], route, payment_hash))
+        inv = outnodes[i].rpc.invoice(100000000, "invoice2", "invoice2")
+        payment_hash = inv['payment_hash']
+        to_pay.append(Payment(innodes[i], route, payment_hash, inv['payment_secret']))
 
     # sendpay is async.
     for p in to_pay:
-        p.innode.rpc.sendpay(p.route, p.payment_hash)
+        p.innode.rpc.sendpay(p.route, p.payment_hash, p.payment_secret)
 
     # Now restart l1 while traffic is flowing...
     l1.restart()
@@ -3247,14 +3253,15 @@ def test_pay_disconnect_stress(node_factory, executor):
         routel2l1 = [{'msatoshi': '10000msat', 'id': l1.info['id'], 'delay': 5, 'channel': scid12}]
 
         # Get invoice from l1 to pay.
-        payhash1 = l1.rpc.invoice(10000, "invoice", "invoice")['payment_hash']
+        inv = l1.rpc.invoice(10000, "invoice", "invoice")
+        payhash1 = inv['payment_hash']
 
         # Start balancing payment.
         fut = executor.submit(l1.pay, l2, 10**9 // 2)
 
         # As soon as reverse payment is accepted, reconnect.
         while True:
-            l2.rpc.sendpay(routel2l1, payhash1)
+            l2.rpc.sendpay(routel2l1, payhash1, payment_secret=inv['payment_secret'])
             try:
                 # This will usually fail with Capacity exceeded
                 l2.rpc.waitsendpay(payhash1, timeout=TIMEOUT)
@@ -3406,7 +3413,7 @@ def test_htlc_retransmit_order(node_factory, executor):
                                                            '=WIRE_UPDATE_ADD_HTLC*' + str(NUM_HTLCS - 1),
                                                            '-WIRE_COMMITMENT_SIGNED']},
                                            {'may_reconnect': True}])
-    payment_hashes = [l2.rpc.invoice(1000, str(x), str(x))['payment_hash'] for x in range(NUM_HTLCS)]
+    invoices = [l2.rpc.invoice(1000, str(x), str(x)) for x in range(NUM_HTLCS)]
 
     routestep = {
         'msatoshi': 1000,
@@ -3414,8 +3421,8 @@ def test_htlc_retransmit_order(node_factory, executor):
         'delay': 5,
         'channel': '1x1x1'  # note: can be bogus for 1-hop direct payments
     }
-    for p in payment_hashes:
-        executor.submit(l1.rpc.sendpay, [routestep], p)
+    for inv in invoices:
+        executor.submit(l1.rpc.sendpay, [routestep], inv['payment_hash'], payment_secret=inv['payment_secret'])
 
     l1.daemon.wait_for_logs(['dev_disconnect'] * 2)
     l1.rpc.call('dev-reenable-commit', [l2.info['id']])
@@ -3424,8 +3431,8 @@ def test_htlc_retransmit_order(node_factory, executor):
     # Now reconnect.
     l1.rpc.connect(l2.info['id'], 'localhost', port=l2.port)
 
-    for p in payment_hashes:
-        result = l1.rpc.waitsendpay(p)
+    for inv in invoices:
+        result = l1.rpc.waitsendpay(inv['payment_hash'])
         assert(result['status'] == 'complete')
 
     # If order was wrong, we'll get a LOG_BROKEN and fixtures will complain.
@@ -3631,7 +3638,7 @@ def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
                                                'disconnect': l2_disconnects}])
 
     # This HTLC will fail
-    l1.rpc.sendpay([{'msatoshi': 1000, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}], '00' * 32)
+    l1.rpc.sendpay([{'msatoshi': 1000, 'id': l2.info['id'], 'delay': 5, 'channel': '1x1x1'}], '00' * 32, payment_secret='00' * 32)
 
     # Each one should cause one disconnection, no upgrade.
     for d in l1_disconnects + l2_disconnects[:-1]:
@@ -3681,7 +3688,7 @@ def test_htlc_failed_noclose(node_factory):
     """Test a bug where the htlc timeout would kick in even if the HTLC failed"""
     l1, l2 = node_factory.line_graph(2)
 
-    payment_hash = l2.rpc.invoice(1000, "test", "test")['payment_hash']
+    inv = l2.rpc.invoice(1000, "test", "test")
     routestep = {
         'msatoshi': FUNDAMOUNT * 1000,
         'id': l2.info['id'],
@@ -3690,14 +3697,14 @@ def test_htlc_failed_noclose(node_factory):
     }
 
     # This fails at channeld
-    l1.rpc.sendpay([routestep], payment_hash)
+    l1.rpc.sendpay([routestep], inv['payment_hash'], payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError, match="Capacity exceeded"):
-        l1.rpc.waitsendpay(payment_hash)
+        l1.rpc.waitsendpay(inv['payment_hash'])
 
     # Send a second one, too: make sure we don't crash.
-    l1.rpc.sendpay([routestep], payment_hash)
+    l1.rpc.sendpay([routestep], inv['payment_hash'], payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError, match="Capacity exceeded"):
-        l1.rpc.waitsendpay(payment_hash)
+        l1.rpc.waitsendpay(inv['payment_hash'])
 
     time.sleep(35)
     assert l1.rpc.getpeer(l2.info['id'])['connected']

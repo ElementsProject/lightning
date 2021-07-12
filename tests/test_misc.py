@@ -1700,7 +1700,7 @@ def test_bad_onion(node_factory, bitcoind):
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
                                              opts={'log-level': 'io'})
 
-    h = l4.rpc.invoice(123000, 'test_bad_onion', 'description')['payment_hash']
+    inv = l4.rpc.invoice(123000, 'test_bad_onion', 'description')
     route = l1.rpc.getroute(l4.info['id'], 123000, 1)['route']
 
     assert len(route) == 3
@@ -1709,9 +1709,9 @@ def test_bad_onion(node_factory, bitcoind):
 
     # Replace id with a different pubkey, so onion encoded badly at third hop.
     route[2]['id'] = mangled_nodeid
-    l1.rpc.sendpay(route, h)
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError) as err:
-        l1.rpc.waitsendpay(h)
+        l1.rpc.waitsendpay(inv['payment_hash'])
 
     # FIXME: #define PAY_TRY_OTHER_ROUTE		204
     PAY_TRY_OTHER_ROUTE = 204
@@ -1733,9 +1733,9 @@ def test_bad_onion(node_factory, bitcoind):
 
     # Replace id with a different pubkey, so onion encoded badly at second hop.
     route[1]['id'] = mangled_nodeid
-    l1.rpc.sendpay(route, h)
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError) as err:
-        l1.rpc.waitsendpay(h)
+        l1.rpc.waitsendpay(inv['payment_hash'])
 
     # FIXME: #define PAY_TRY_OTHER_ROUTE		204
     PAY_TRY_OTHER_ROUTE = 204
@@ -1750,13 +1750,13 @@ def test_bad_onion_immediate_peer(node_factory, bitcoind):
     """Test that we handle the malformed msg when we're the origin"""
     l1, l2 = node_factory.line_graph(2, opts={'dev-fail-process-onionpacket': None})
 
-    h = l2.rpc.invoice(123000, 'test_bad_onion_immediate_peer', 'description')['payment_hash']
+    inv = l2.rpc.invoice(123000, 'test_bad_onion_immediate_peer', 'description')
     route = l1.rpc.getroute(l2.info['id'], 123000, 1)['route']
     assert len(route) == 1
 
-    l1.rpc.sendpay(route, h)
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError) as err:
-        l1.rpc.waitsendpay(h)
+        l1.rpc.waitsendpay(inv['payment_hash'])
 
     # FIXME: #define PAY_UNPARSEABLE_ONION		202
     PAY_UNPARSEABLE_ONION = 202
@@ -2478,14 +2478,14 @@ def test_listforwards(node_factory, bitcoind):
     l1.rpc.pay(i41['bolt11'])
 
     # failed payment
-    failed_payment_hash = l3.rpc.invoice(4000, 'failed', 'desc')['payment_hash']
+    failed_inv = l3.rpc.invoice(4000, 'failed', 'desc')
     failed_route = l1.rpc.getroute(l3.info['id'], 4000, 1)['route']
 
     l2.rpc.close(c23, 1)
 
     with pytest.raises(RpcError):
-        l1.rpc.sendpay(failed_route, failed_payment_hash)
-        l1.rpc.waitsendpay(failed_payment_hash)
+        l1.rpc.sendpay(failed_route, failed_inv['payment_hash'], payment_secret=failed_inv['payment_secret'])
+        l1.rpc.waitsendpay(failed_inv['payment_hash'])
 
     all_forwards = l2.rpc.listforwards()['forwards']
     print(json.dumps(all_forwards, indent=True))
@@ -2493,7 +2493,7 @@ def test_listforwards(node_factory, bitcoind):
     assert len(all_forwards) == 3
     assert i31['payment_hash'] in map(lambda x: x['payment_hash'], all_forwards)
     assert i41['payment_hash'] in map(lambda x: x['payment_hash'], all_forwards)
-    assert failed_payment_hash in map(lambda x: x['payment_hash'], all_forwards)
+    assert failed_inv['payment_hash'] in map(lambda x: x['payment_hash'], all_forwards)
 
     # status=settled
     settled_forwards = l2.rpc.listforwards(status='settled')['forwards']
