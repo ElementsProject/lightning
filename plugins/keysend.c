@@ -1,5 +1,7 @@
 #include <bitcoin/preimage.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/asort/asort.h>
+#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossmap.h>
 #include <common/type_to_string.h>
@@ -259,16 +261,54 @@ struct keysend_in {
 	struct tlv_field *preimage_field;
 };
 
+static int tlvfield_cmp(const struct tlv_field *a,
+			const struct tlv_field *b, void *unused)
+{
+	if (a->numtype > b->numtype)
+		return 1;
+	else if (a->numtype < b->numtype)
+		return -1;
+	return 0;
+}
+
 static struct command_result *
-htlc_accepted_invoice_created(struct command *cmd, const char *buf UNUSED,
-			      const jsmntok_t *result UNUSED,
+htlc_accepted_invoice_created(struct command *cmd, const char *buf,
+			      const jsmntok_t *result,
 			      struct keysend_in *ki)
 {
+	struct tlv_field field;
 	int preimage_field_idx = ki->preimage_field - ki->payload->fields;
 
 	/* Remove the preimage field so `lightningd` knows how to handle
 	 * this. */
 	tal_arr_remove(&ki->payload->fields, preimage_field_idx);
+
+	/* Now we can fill in the payment secret, from invoice. */
+	ki->payload->payment_data = tal(ki->payload,
+					struct tlv_tlv_payload_payment_data);
+	json_to_secret(buf, json_get_member(buf, result, "payment_secret"),
+		       &ki->payload->payment_data->payment_secret);
+
+	/* We checked that amt_to_forward was non-NULL before */
+	ki->payload->payment_data->total_msat = *ki->payload->amt_to_forward;
+
+	/* In order to put payment_data into ->fields, I'd normally re-serialize,
+	 * but we can have completely unknown fields.  So insert manually. */
+	/* BOLT #4:
+	 *     1. type: 8 (`payment_data`)
+	 *     2. data:
+	 *         * [`32*byte`:`payment_secret`]
+	 *         * [`tu64`:`total_msat`]
+	 */
+	field.numtype = 8;
+	field.value = tal_arr(ki->payload, u8, 0);
+	towire_secret(&field.value, &ki->payload->payment_data->payment_secret);
+	towire_tu64(&field.value, ki->payload->payment_data->total_msat);
+	field.length = tal_bytelen(field.value);
+	tal_arr_expand(&ki->payload->fields, field);
+
+	asort(ki->payload->fields, tal_count(ki->payload->fields),
+	      tlvfield_cmp, NULL);
 
 	/* Finally we can resolve the payment with the preimage. */
 	plugin_log(cmd->plugin, LOG_INFORM,
@@ -276,6 +316,20 @@ htlc_accepted_invoice_created(struct command *cmd, const char *buf UNUSED,
 		   "provided in the onion payload.",
 		   tal_hexstr(tmpctx, &ki->payment_hash, sizeof(struct sha256)));
 	return htlc_accepted_continue(cmd, ki->payload);
+
+}
+
+static struct command_result *
+htlc_accepted_invoice_failed(struct command *cmd, const char *buf,
+			     const jsmntok_t *error,
+			     struct keysend_in *ki)
+{
+	plugin_log(cmd->plugin, LOG_BROKEN,
+		   "Could not create invoice for keysend: %.*s",
+		   json_tok_full_len(error),
+		   json_tok_full(buf, error));
+	/* Continue, but don't change it: it will fail. */
+	return htlc_accepted_continue(cmd, NULL);
 
 }
 
@@ -349,6 +403,12 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 #endif
 	}
 
+	/* If malformed (amt is compulsory), let lightningd handle it. */
+	if (!payload->amt_to_forward) {
+		plugin_log(cmd->plugin, LOG_UNUSUAL,
+			   "Sender omitted amount.  Ignoring this HTLC.");
+		return htlc_accepted_continue(cmd, NULL);
+	}
 
 	/* If the preimage is not 32 bytes long then we can't accept the
 	 * payment. */
@@ -391,7 +451,7 @@ static struct command_result *htlc_accepted_call(struct command *cmd,
 	 * will be nice and reject the payment. */
 	req = jsonrpc_request_start(cmd->plugin, cmd, "invoice",
 				    &htlc_accepted_invoice_created,
-				    &htlc_accepted_invoice_created,
+				    &htlc_accepted_invoice_failed,
 				    ki);
 
 	plugin_log(cmd->plugin, LOG_INFORM, "Inserting a new invoice for keysend with payment_hash %s", type_to_string(tmpctx, struct sha256, &payment_hash));
