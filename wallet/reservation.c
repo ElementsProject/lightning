@@ -369,7 +369,7 @@ static struct command_result *finish_psbt(struct command *cmd,
 		u8 *b32script;
 
 		/* Checks for dust, returns 0sat if below dust */
-		change = change_amount(excess, feerate_per_kw);
+		change = change_amount(excess, feerate_per_kw, weight);
 		if (!amount_sat_greater(change, AMOUNT_SAT(0))) {
 			excess_as_change = false;
 			goto fee_calc;

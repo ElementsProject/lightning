@@ -474,7 +474,8 @@ mw_after_fundpsbt(struct command *cmd,
 	}
 
 	/* Handle any change output.  */
-	mw->change_amount = change_amount(excess_sat, feerate_per_kw);
+	mw->change_amount = change_amount(excess_sat, feerate_per_kw,
+					  estimated_final_weight);
 	mw->change_needed = !amount_sat_eq(mw->change_amount, AMOUNT_SAT(0));
 
 	if (mw->change_needed)
