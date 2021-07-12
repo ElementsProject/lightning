@@ -107,7 +107,9 @@ static bool dijkstra_to_hops(struct route_hop **hops,
 	/* Find other end of channel. */
 	next = gossmap_nth_node(gossmap, c, !(*hops)[num_hops].direction);
 	gossmap_node_get_id(gossmap, next, &(*hops)[num_hops].node_id);
-	if (gossmap_node_get_feature(gossmap, next, OPT_VAR_ONION) != -1)
+	/* If we don't have a node_announcement, we *assume* modern */
+	if (next->nann_off == 0
+	    || gossmap_node_get_feature(gossmap, next, OPT_VAR_ONION) != -1)
 		(*hops)[num_hops].style = ROUTE_HOP_TLV;
 	else
 		(*hops)[num_hops].style = ROUTE_HOP_LEGACY;

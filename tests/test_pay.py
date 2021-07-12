@@ -2464,6 +2464,8 @@ def test_error_returns_blockheight(node_factory, bitcoind):
 
 @pytest.mark.developer('Needs dev-routes')
 def test_tlv_or_legacy(node_factory, bitcoind):
+    # Ideally we'd test with l2 NOT var-onion, but then it can no longer connect
+    # to us!
     l1, l2, l3 = node_factory.line_graph(3,
                                          opts={'plugin': os.path.join(os.getcwd(), 'tests/plugins/print_htlc_onion.py')})
 
@@ -2482,8 +2484,8 @@ def test_tlv_or_legacy(node_factory, bitcoind):
                                                    'cltv_expiry_delta': 6}]]})['bolt11']
     l1.rpc.pay(inv)
 
-    # Since L1 hasn't seen broadcast, it doesn't know L2 is TLV, but invoice tells it about L3
-    l2.daemon.wait_for_log("Got onion.*'type': 'legacy'")
+    # Since L1 hasn't seen broadcast, it doesn't know L2 isn't TLV, but invoice tells it about L3
+    l2.daemon.wait_for_log("Got onion.*'type': 'tlv'")
     l3.daemon.wait_for_log("Got onion.*'type': 'tlv'")
 
     # We need 5 more blocks to announce l1->l2 channel.
