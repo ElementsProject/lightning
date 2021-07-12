@@ -1893,7 +1893,7 @@ def test_list_features_only(node_factory):
                 'option_var_onion_optin/odd',
                 'option_gossip_queries_ex/odd',
                 'option_static_remotekey/odd',
-                'option_payment_secret/odd',
+                'option_payment_secret/even',
                 'option_basic_mpp/odd',
                 ]
     if EXPERIMENTAL_FEATURES:
