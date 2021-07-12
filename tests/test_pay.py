@@ -562,6 +562,18 @@ def test_sendpay(node_factory):
         l1.rpc.sendpay([rs], rhash, payment_secret=inv['payment_secret'])
     assert invoice_unpaid(l2, 'testpayment2')
 
+    # Bad payment_secret
+    l1.rpc.sendpay([routestep], rhash, payment_secret="00" * 32)
+    with pytest.raises(RpcError):
+        l1.rpc.waitsendpay(rhash)
+    assert invoice_unpaid(l2, 'testpayment2')
+
+    # Missing payment_secret
+    l1.rpc.sendpay([routestep], rhash)
+    with pytest.raises(RpcError):
+        l1.rpc.waitsendpay(rhash)
+    assert invoice_unpaid(l2, 'testpayment2')
+
     # FIXME: test paying via another node, should fail to pay twice.
     p1 = l1.rpc.getpeer(l2.info['id'], 'info')
     p2 = l2.rpc.getpeer(l1.info['id'], 'info')
@@ -2506,9 +2518,8 @@ def test_pay_no_secret(node_factory, bitcoind):
 
     # Produced from old version (no secret!)
     inv_nosecret = 'lnbcrt1u1pwue4vapp5ve584t0cv27hwmy0cx9ca8uwyqyfw9y9dm3r8vus9fv36r2l9yjsdqaw3jhxazlwpshjhmwda0hxetrwfjhgxq8pmnt9qqcqp9570xsjyykvssa6ty8fjth6f2y8h09myngad9utesttwjwclv95fz3lgd402f9e5yzpnxmkypg55rkvpg522gcz4ymsjl2w3m4jhw4jsp55m7tl'
-    # This succeeds until we make secrets compulsory.
-    l1.rpc.pay(inv_nosecret)
-    l2.daemon.wait_for_log(r'HTLC set contains 1 HTLCs, for a total of 100000msat out of 100000msat \(no payment_secret\)')
+    with pytest.raises(RpcError, match=r"INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS.*'erring_index': 1"):
+        l1.rpc.pay(inv_nosecret)
 
 
 @flaky
