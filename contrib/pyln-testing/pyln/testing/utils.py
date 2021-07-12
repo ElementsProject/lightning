@@ -996,7 +996,10 @@ class LightningNode(object):
         assert len(self.rpc.listpeers(dst_id).get('peers')) == 1
 
         # make an invoice
-        rhash = dst.rpc.invoice(amt, label, label)['payment_hash']
+        inv = dst.rpc.invoice(amt, label, label)
+        # FIXME: pre 0.10.1 invoice calls didn't have payment_secret field
+        psecret = dst.rpc.decodepay(inv['bolt11'])['payment_secret']
+        rhash = inv['payment_hash']
         invoices = dst.rpc.listinvoices(label)['invoices']
         assert len(invoices) == 1 and invoices[0]['status'] == 'unpaid'
 
@@ -1008,7 +1011,7 @@ class LightningNode(object):
         }
 
         # sendpay is async now
-        self.rpc.sendpay([routestep], rhash)
+        self.rpc.sendpay([routestep], rhash, payment_secret=psecret)
         # wait for sendpay to comply
         result = self.rpc.waitsendpay(rhash)
         assert(result.get('status') == 'complete')

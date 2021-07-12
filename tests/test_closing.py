@@ -777,7 +777,7 @@ def test_penalty_htlc_tx_fulfill(node_factory, bitcoind, chainparams):
     amt = 10**8 // 2
     sticky_inv = l1.rpc.invoice(amt, '2', 'sticky')
     route = l4.rpc.getroute(l1.info['id'], amt, 1)['route']
-    l4.rpc.sendpay(route, sticky_inv['payment_hash'])
+    l4.rpc.sendpay(route, sticky_inv['payment_hash'], payment_secret=sticky_inv['payment_secret'])
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
     wait_for(lambda: len(l2.rpc.listpeers(l3.info['id'])['peers'][0]['channels'][0]['htlcs']) == 1)
@@ -927,12 +927,12 @@ def test_penalty_htlc_tx_timeout(node_factory, bitcoind, chainparams):
     amt = 10**8 // 2
     sticky_inv_1 = l5.rpc.invoice(amt, '2', 'sticky')
     route = l1.rpc.getroute(l5.info['id'], amt, 1)['route']
-    l1.rpc.sendpay(route, sticky_inv_1['payment_hash'])
+    l1.rpc.sendpay(route, sticky_inv_1['payment_hash'], payment_secret=sticky_inv_1['payment_secret'])
     l5.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
     sticky_inv_2 = l1.rpc.invoice(amt, '2', 'sticky')
     route = l4.rpc.getroute(l1.info['id'], amt, 1)['route']
-    l4.rpc.sendpay(route, sticky_inv_2['payment_hash'])
+    l4.rpc.sendpay(route, sticky_inv_2['payment_hash'], payment_secret=sticky_inv_2['payment_secret'])
     l1.daemon.wait_for_log('dev_disconnect: -WIRE_UPDATE_FULFILL_HTLC')
 
     wait_for(lambda: len(l2.rpc.listpeers(l3.info['id'])['peers'][0]['channels'][0]['htlcs']) == 2)
@@ -1350,14 +1350,15 @@ def test_onchaind_replay(node_factory, bitcoind):
                                                'feerates': (7500, 7500, 7500, 7500)},
                                               {'watchtime-blocks': 201, 'cltv-delta': 101}])
 
-    rhash = l2.rpc.invoice(10**8, 'onchaind_replay', 'desc')['payment_hash']
+    inv = l2.rpc.invoice(10**8, 'onchaind_replay', 'desc')
+    rhash = inv['payment_hash']
     routestep = {
         'msatoshi': 10**8 - 1,
         'id': l2.info['id'],
         'delay': 101,
         'channel': '1x1x1'
     }
-    l1.rpc.sendpay([routestep], rhash)
+    l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
     l1.daemon.wait_for_log('sendrawtx exit 0')
     bitcoind.generate_block(1, wait_for_mempool=1)
 
@@ -1409,7 +1410,8 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
     channel_id = first_channel_id(l1, l2)
 
     # Must be dust!
-    rhash = l2.rpc.invoice(1, 'onchain_dust_out', 'desc')['payment_hash']
+    inv = l2.rpc.invoice(1, 'onchain_dust_out', 'desc')
+    rhash = inv['payment_hash']
     routestep = {
         'msatoshi': 1,
         'id': l2.info['id'],
@@ -1417,7 +1419,7 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
         'channel': '1x1x1'
     }
 
-    l1.rpc.sendpay([routestep], rhash)
+    l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
     payfuture = executor.submit(l1.rpc.waitsendpay, rhash)
 
     # l1 will drop to chain.
@@ -1437,7 +1439,7 @@ def test_onchain_dust_out(node_factory, bitcoind, executor):
     # Retry payment, this should fail (and, as a side-effect, tickle a
     # bug).
     with pytest.raises(RpcError, match=r'WIRE_UNKNOWN_NEXT_PEER'):
-        l1.rpc.sendpay([routestep], rhash)
+        l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
 
     # 6 later, l1 should collect its to-self payment.
     bitcoind.generate_block(6)
@@ -1479,7 +1481,8 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
 
     channel_id = first_channel_id(l1, l2)
 
-    rhash = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')['payment_hash']
+    inv = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')
+    rhash = inv['payment_hash']
     # We underpay, so it fails.
     routestep = {
         'msatoshi': 10**8 - 1,
@@ -1488,7 +1491,7 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
         'channel': '1x1x1'
     }
 
-    l1.rpc.sendpay([routestep], rhash)
+    l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError):
         l1.rpc.waitsendpay(rhash)
 
@@ -1497,7 +1500,7 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
     sync_blockheight(bitcoind, [l1])
 
     # Second one will cause drop to chain.
-    l1.rpc.sendpay([routestep], rhash)
+    l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
     payfuture = executor.submit(l1.rpc.waitsendpay, rhash)
 
     # l1 will drop to chain.
@@ -1575,7 +1578,8 @@ def test_onchain_middleman(node_factory, bitcoind):
     l2.pay(l1, 2 * 10**8)
 
     # Must be bigger than dust!
-    rhash = l3.rpc.invoice(10**8, 'middleman', 'desc')['payment_hash']
+    inv = l3.rpc.invoice(10**8, 'middleman', 'desc')
+    rhash = inv['payment_hash']
 
     route = l1.rpc.getroute(l3.info['id'], 10**8, 1)["route"]
     assert len(route) == 2
@@ -1584,7 +1588,7 @@ def test_onchain_middleman(node_factory, bitcoind):
 
     def try_pay():
         try:
-            l1.rpc.sendpay(route, rhash)
+            l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
             l1.rpc.waitsendpay(rhash)
             q.put(None)
         except Exception as err:
@@ -1665,7 +1669,8 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind):
     l2.pay(l1, 2 * 10**8)
 
     # Must be bigger than dust!
-    rhash = l3.rpc.invoice(10**8, 'middleman', 'desc')['payment_hash']
+    inv = l3.rpc.invoice(10**8, 'middleman', 'desc')
+    rhash = inv['payment_hash']
 
     route = l1.rpc.getroute(l3.info['id'], 10**8, 1)["route"]
     assert len(route) == 2
@@ -1674,7 +1679,7 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind):
 
     def try_pay():
         try:
-            l1.rpc.sendpay(route, rhash)
+            l1.rpc.sendpay(route, rhash, payment_secret=inv['payment_secret'])
             l1.rpc.waitsendpay(rhash)
             q.put(None)
         except Exception as err:
@@ -1743,9 +1748,9 @@ def test_onchain_their_unilateral_out(node_factory, bitcoind):
 
     def try_pay():
         try:
-            # rhash is fake
+            # rhash is fake (so is payment_secret)
             rhash = 'B1' * 32
-            l1.rpc.sendpay(route, rhash)
+            l1.rpc.sendpay(route, rhash, payment_secret=rhash)
             q.put(None)
         except Exception as err:
             q.put(err)
@@ -1834,7 +1839,8 @@ def test_onchain_feechange(node_factory, bitcoind, executor):
         }
     ])
 
-    rhash = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')['payment_hash']
+    inv = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')
+    rhash = inv['payment_hash']
     # We underpay, so it fails.
     routestep = {
         'msatoshi': 10**8 - 1,
@@ -1843,7 +1849,7 @@ def test_onchain_feechange(node_factory, bitcoind, executor):
         'channel': '1x1x1'
     }
 
-    executor.submit(l1.rpc.sendpay, [routestep], rhash)
+    executor.submit(l1.rpc.sendpay, [routestep], rhash, payment_secret=inv['payment_secret'])
 
     # l2 will drop to chain.
     l2.daemon.wait_for_log('permfail')
@@ -1917,7 +1923,8 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
     l1.fundchannel(l2, 10**6)
     channel_id = first_channel_id(l1, l2)
 
-    rhash = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')['payment_hash']
+    inv = l2.rpc.invoice(10**8, 'onchain_timeout', 'desc')
+    rhash = inv['payment_hash']
     # We underpay, so it fails.
     routestep = {
         'msatoshi': 10**7 - 1,
@@ -1926,7 +1933,7 @@ def test_onchain_all_dust(node_factory, bitcoind, executor):
         'channel': '1x1x1'
     }
 
-    executor.submit(l1.rpc.sendpay, [routestep], rhash)
+    executor.submit(l1.rpc.sendpay, [routestep], rhash, payment_secret=inv['payment_secret'])
 
     # l2 will drop to chain.
     l2.daemon.wait_for_log('permfail')
@@ -2088,19 +2095,20 @@ def setup_multihtlc_test(node_factory, bitcoind):
     nodes[-1].rpc.dev_ignore_htlcs(id=nodes[-2].info['id'], ignore=True)
 
     preimage = "0" * 64
-    h = nodes[0].rpc.invoice(msatoshi=10**8, label='x', description='desc',
-                             preimage=preimage)['payment_hash']
+    inv = nodes[0].rpc.invoice(msatoshi=10**8, label='x', description='desc',
+                               preimage=preimage)
+    h = inv['payment_hash']
     nodes[-1].rpc.invoice(msatoshi=10**8, label='x', description='desc',
                           preimage=preimage)['payment_hash']
 
     # First, the failed attempts (paying wrong node).  CLTV1
     r = nodes[0].rpc.getroute(nodes[-2].info['id'], 10**8, 1)["route"]
-    nodes[0].rpc.sendpay(r, h)
+    nodes[0].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError, match=r'INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
         nodes[0].rpc.waitsendpay(h)
 
     r = nodes[-1].rpc.getroute(nodes[1].info['id'], 10**8, 1)["route"]
-    nodes[-1].rpc.sendpay(r, h)
+    nodes[-1].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
     with pytest.raises(RpcError, match=r'INCORRECT_OR_UNKNOWN_PAYMENT_DETAILS'):
         nodes[-1].rpc.waitsendpay(h)
 
@@ -2110,25 +2118,25 @@ def setup_multihtlc_test(node_factory, bitcoind):
 
     # Now, the live attempts with CLTV2 (blackholed by end nodes)
     r = nodes[0].rpc.getroute(nodes[-1].info['id'], 10**8, 1)["route"]
-    nodes[0].rpc.sendpay(r, h)
+    nodes[0].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
     r = nodes[-1].rpc.getroute(nodes[0].info['id'], 10**8, 1)["route"]
-    nodes[-1].rpc.sendpay(r, h)
+    nodes[-1].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
 
     # We send second HTLC from different node, since they refuse to send
     # multiple with same hash.
     r = nodes[1].rpc.getroute(nodes[-1].info['id'], 10**8, 1)["route"]
-    nodes[1].rpc.sendpay(r, h)
+    nodes[1].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
     r = nodes[-2].rpc.getroute(nodes[0].info['id'], 10**8, 1)["route"]
-    nodes[-2].rpc.sendpay(r, h)
+    nodes[-2].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
 
     # Now increment CLTV -> CLTV3.
     bitcoind.generate_block(1)
     sync_blockheight(bitcoind, nodes)
 
     r = nodes[2].rpc.getroute(nodes[-1].info['id'], 10**8, 1)["route"]
-    nodes[2].rpc.sendpay(r, h)
+    nodes[2].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
     r = nodes[-3].rpc.getroute(nodes[0].info['id'], 10**8, 1)["route"]
-    nodes[-3].rpc.sendpay(r, h)
+    nodes[-3].rpc.sendpay(r, h, payment_secret=inv['payment_secret'])
 
     # Make sure HTLCs have reached the end.
     nodes[0].daemon.wait_for_logs(['peer_in WIRE_UPDATE_ADD_HTLC'] * 3)
