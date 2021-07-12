@@ -277,6 +277,7 @@ static struct command_result *psbt_created(struct command *cmd,
 	const jsmntok_t *psbttok;
 	struct out_req *req;
 	struct amount_sat excess;
+	u32 weight;
 
 	psbttok = json_get_member(buf, result, "psbt");
 	txp->psbt = json_tok_psbt(txp, buf, psbttok);
@@ -300,6 +301,14 @@ static struct command_result *psbt_created(struct command *cmd,
 				    result->end - result->start,
 				    buf + result->start);
 
+	if (!json_to_number(buf, json_get_member(buf, result,
+						 "estimated_final_weight"),
+			    &weight))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Unparsable estimated_final_weight: '%.*s'",
+				    result->end - result->start,
+				    buf + result->start);
+
 	/* If we have an "all" output, now we can derive its value: excess
 	 * in this case will be total value after inputs paid for themselves. */
 	if (txp->all_output_idx != -1) {
@@ -313,7 +322,7 @@ static struct command_result *psbt_created(struct command *cmd,
 	}
 
 	/* So, do we need change? */
-	txp->change_amount = change_amount(excess, txp->feerate);
+	txp->change_amount = change_amount(excess, txp->feerate, weight);
 	if (amount_sat_eq(txp->change_amount, AMOUNT_SAT(0)))
 		return finish_txprepare(cmd, txp);
 

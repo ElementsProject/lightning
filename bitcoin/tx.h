@@ -289,7 +289,11 @@ size_t bitcoin_tx_simple_input_weight(bool p2sh);
  * If it's not worth (or possible) to make change, returns AMOUNT_SAT(0).
  * Otherwise returns the amount of the change output to add (@excess minus
  * the additional fee for the change output itself).
+ *
+ * We pass in the total_weight of the tx (up until this point) so as
+ * to avoid any off-by-one errors with rounding the change fee (down)
  */
-struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw);
+struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw,
+				size_t total_weight);
 
 #endif /* LIGHTNING_BITCOIN_TX_H */

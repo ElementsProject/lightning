@@ -899,14 +899,22 @@ size_t bitcoin_tx_simple_input_weight(bool p2sh)
 				       bitcoin_tx_simple_input_witness_weight());
 }
 
-struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw)
+struct amount_sat change_amount(struct amount_sat excess, u32 feerate_perkw,
+				size_t total_weight)
 {
 	size_t outweight;
+	struct amount_sat change_fee;
 
 	/* Must be able to pay for its own additional weight */
 	outweight = bitcoin_tx_output_weight(BITCOIN_SCRIPTPUBKEY_P2WPKH_LEN);
-	if (!amount_sat_sub(&excess,
-			    excess, amount_tx_fee(feerate_perkw, outweight)))
+
+	/* Rounding can cause off by one errors, so we do this */
+	if (!amount_sat_sub(&change_fee,
+			    amount_tx_fee(feerate_perkw, outweight + total_weight),
+			    amount_tx_fee(feerate_perkw, total_weight)))
+		return AMOUNT_SAT(0);
+
+	if (!amount_sat_sub(&excess, excess, change_fee))
 		return AMOUNT_SAT(0);
 
 	/* Must be non-dust */
