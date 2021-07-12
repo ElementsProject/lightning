@@ -2,6 +2,7 @@ from binascii import hexlify
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from flaky import flaky  # noqa: F401
+from io import BytesIO
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
@@ -2593,6 +2594,40 @@ def test_sendonion_rpc(node_factory):
         payload += "00" * 12
         return payload
 
+    def serialize_payload_final_tlv(n, payment_secret: str):
+        def truncate_encode(i: int):
+            """Encode a tu64 (or tu32 etc) value"""
+            ret = struct.pack("!Q", i)
+            while ret.startswith(b'\0'):
+                ret = ret[1:]
+            return ret
+
+        payload = TlvPayload()
+        # BOLT #4:
+        #     1. type: 2 (`amt_to_forward`)
+        #     2. data:
+        #         * [`tu64`:`amt_to_forward`]
+        b = BytesIO()
+        b.write(truncate_encode(int(n['amount_msat'])))
+        payload.add_field(2, b.getvalue())
+        # BOLT #4:
+        #    1. type: 4 (`outgoing_cltv_value`)
+        #    2. data:
+        #        * [`tu32`:`outgoing_cltv_value`]
+        b = BytesIO()
+        b.write(truncate_encode(n['delay']))
+        payload.add_field(4, b.getvalue())
+        # BOLT #4:
+        #    1. type: 8 (`payment_data`)
+        #    2. data:
+        #        * [`32*byte`:`payment_secret`]
+        #        * [`tu64`:`total_msat`]
+        b = BytesIO()
+        b.write(bytes.fromhex(payment_secret))
+        b.write(truncate_encode(int(n['amount_msat'])))
+        payload.add_field(8, b.getvalue())
+        return payload.to_bytes().hex()
+
     # Need to shift the parameters by one hop
     hops = []
     for h, n in zip(route[:-1], route[1:]):
@@ -2605,7 +2640,7 @@ def test_sendonion_rpc(node_factory):
     # The last hop has a special payload:
     hops.append({
         "pubkey": route[-1]['id'],
-        "payload": serialize_payload(route[-1])
+        "payload": serialize_payload_final_tlv(route[-1], inv['payment_secret'])
     })
 
     onion = l1.rpc.createonion(hops=hops, assocdata=inv['payment_hash'])
