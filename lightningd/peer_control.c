@@ -2780,6 +2780,8 @@ void peer_dev_memleak(struct command *cmd)
 	peer_memleak_req_next(cmd, NULL);
 }
 
+#endif /* DEVELOPER */
+
 struct custommsg_payload {
 	struct node_id peer_id;
 	const u8 *msg;
@@ -2964,6 +2966,18 @@ static struct command_result *json_sendcustommsg(struct command *cmd,
 }
 
 static const struct json_command sendcustommsg_command = {
+    "sendcustommsg",
+    "utility",
+    json_sendcustommsg,
+    "Send a custom message to the peer with the given {node_id}",
+    .verbose = "sendcustommsg node_id hexcustommsg",
+};
+
+AUTODATA(json_command, &sendcustommsg_command);
+
+#ifdef COMPAT_V0100
+#ifdef DEVELOPER
+static const struct json_command dev_sendcustommsg_command = {
     "dev-sendcustommsg",
     "utility",
     json_sendcustommsg,
@@ -2971,7 +2985,6 @@ static const struct json_command sendcustommsg_command = {
     .verbose = "dev-sendcustommsg node_id hexcustommsg",
 };
 
-AUTODATA(json_command, &sendcustommsg_command);
-
-#endif /* DEVELOPER */
-
+AUTODATA(json_command, &dev_sendcustommsg_command);
+#endif  /* DEVELOPER */
+#endif /* COMPAT_V0100 */

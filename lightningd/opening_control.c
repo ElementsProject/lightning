@@ -892,13 +892,9 @@ static unsigned int openingd_msg(struct subd *openingd,
 	}
 
 	switch ((enum common_wire)t) {
-#if DEVELOPER
 	case WIRE_CUSTOMMSG_IN:
 		handle_custommsg_in(openingd->ld, openingd->node_id, msg);
 		return 0;
-#else
-	case WIRE_CUSTOMMSG_IN:
-#endif
 	/* We send these. */
 	case WIRE_CUSTOMMSG_OUT:
 		break;

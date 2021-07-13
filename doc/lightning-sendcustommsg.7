@@ -1,13 +1,13 @@
-.TH "LIGHTNING-DEV-SENDCUSTOMMSG" "7" "" "" "lightning-dev-sendcustommsg"
+.TH "LIGHTNING-SENDCUSTOMMSG" "7" "" "" "lightning-sendcustommsg"
 .SH NAME
-lightning-dev-sendcustommsg - Low-level interface to send protocol messages to peers
+lightning-sendcustommsg - Low-level interface to send protocol messages to peers
 .SH SYNOPSIS
 
-\fBdev-sendcustommsg\fR \fInode_id\fR \fImsg\fR
+\fBsendcustommsg\fR \fInode_id\fR \fImsg\fR
 
 .SH DESCRIPTION
 
-The \fBdev-sendcustommsg\fR RPC method allows the user to inject a custom message
+The \fBsendcustommsg\fR RPC method allows the user to inject a custom message
 into the communication with the peer with the given \fBnode_id\fR\. This is
 intended as a low-level interface to implement custom protocol extensions on
 top, not for direct use by end-users\.
@@ -68,4 +68,4 @@ Christian Decker \fI<decker.christian@gmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:facefdc47adcbf0342f6e359d4752b8ab1b9a7ed2d6b466c9d202939fae5019e
+\" SHA256STAMP:ff2ed61f688613b74885b9cccdf58187453d012ca2f3ae149c80b68679ef0a8e

@@ -177,13 +177,9 @@ static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSE
 	}
 
 	switch ((enum common_wire)t) {
-#if DEVELOPER
 	case WIRE_CUSTOMMSG_IN:
 		handle_custommsg_in(sd->ld, sd->node_id, msg);
 		break;
-#else
-	case WIRE_CUSTOMMSG_IN:
-#endif
 	/* We send these. */
 	case WIRE_CUSTOMMSG_OUT:
 		break;

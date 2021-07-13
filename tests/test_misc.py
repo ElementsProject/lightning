@@ -2237,7 +2237,6 @@ def test_waitblockheight(node_factory, executor, bitcoind):
     fut2.result(5)
 
 
-@pytest.mark.developer("Needs dev-sendcustommsg")
 def test_sendcustommsg(node_factory):
     """Check that we can send custommsgs to peers in various states.
 
@@ -2261,27 +2260,27 @@ def test_sendcustommsg(node_factory):
     # a message to it.
     node_id = '02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f'
     with pytest.raises(RpcError, match=r'No such peer'):
-        l1.rpc.dev_sendcustommsg(node_id, msg)
+        l1.rpc.sendcustommsg(node_id, msg)
 
     # `l3` is disconnected and we can't send messages to it
     assert(not l2.rpc.listpeers(l3.info['id'])['peers'][0]['connected'])
     with pytest.raises(RpcError, match=r'Peer is not connected'):
-        l2.rpc.dev_sendcustommsg(l3.info['id'], msg)
+        l2.rpc.sendcustommsg(l3.info['id'], msg)
 
     # We should not be able to send a bogus `ping` message, since it collides
     # with a message defined in the spec, and could potentially mess up our
     # internal state.
     with pytest.raises(RpcError, match=r'Cannot send messages of type 18 .WIRE_PING.'):
-        l2.rpc.dev_sendcustommsg(l2.info['id'], r'0012')
+        l2.rpc.sendcustommsg(l2.info['id'], r'0012')
 
     # The sendcustommsg RPC call is currently limited to odd-typed messages,
     # since they will not result in disconnections or even worse channel
     # failures.
     with pytest.raises(RpcError, match=r'Cannot send even-typed [0-9]+ custom message'):
-        l2.rpc.dev_sendcustommsg(l2.info['id'], r'00FE')
+        l2.rpc.sendcustommsg(l2.info['id'], r'00FE')
 
     # This should work since the peer is currently owned by `channeld`
-    l2.rpc.dev_sendcustommsg(l1.info['id'], msg)
+    l2.rpc.sendcustommsg(l1.info['id'], msg)
     l2.daemon.wait_for_log(
         r'{peer_id}-{owner}-chan#[0-9]: \[OUT\] {msg}'.format(
             owner='channeld', msg=msg, peer_id=l1.info['id']
@@ -2296,7 +2295,7 @@ def test_sendcustommsg(node_factory):
     ])
 
     # This should work since the peer is currently owned by `openingd`
-    l2.rpc.dev_sendcustommsg(l4.info['id'], msg)
+    l2.rpc.sendcustommsg(l4.info['id'], msg)
     l2.daemon.wait_for_log(
         r'{peer_id}-{owner}-chan#[0-9]: \[OUT\] {msg}'.format(
             owner='openingd', msg=msg, peer_id=l4.info['id']

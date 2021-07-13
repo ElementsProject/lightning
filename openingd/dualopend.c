@@ -851,6 +851,7 @@ static void handle_dev_memleak(struct state *state, const u8 *msg)
 			take(towire_dualopend_dev_memleak_reply(NULL,
 							        found_leak)));
 }
+#endif /* DEVELOPER */
 
 /* We were told to send a custommsg to the peer by `lightningd`. All the
  * verification is done on the side of `lightningd` so we should be good to
@@ -862,7 +863,6 @@ static void dualopend_send_custommsg(struct state *state, const u8 *msg)
 		master_badmsg(WIRE_CUSTOMMSG_OUT, msg);
 	sync_crypto_write(state->pps, take(inner));
 }
-#endif
 
 static u8 *psbt_to_tx_sigs_msg(const tal_t *ctx,
 			       struct state *state,
@@ -3079,7 +3079,6 @@ static void try_read_gossip_store(struct state *state)
  */
 static bool dualopend_handle_custommsg(const u8 *msg)
 {
-#if DEVELOPER
 	enum peer_wire type = fromwire_peektype(msg);
 	if (type % 2 == 1 && !peer_wire_is_defined(type)) {
 		/* The message is not part of the messages we know how to
@@ -3090,9 +3089,6 @@ static bool dualopend_handle_custommsg(const u8 *msg)
 	} else {
 		return false;
 	}
-#else
-	return false;
-#endif
 }
 
 /* BOLT #2:
@@ -3320,13 +3316,8 @@ static u8 *handle_master_in(struct state *state)
 
 	/* Now handle common messages. */
 	switch ((enum common_wire)t) {
-#if DEVELOPER
 	case WIRE_CUSTOMMSG_OUT:
 		dualopend_send_custommsg(state, msg);
-#else
-		return NULL;
-	case WIRE_CUSTOMMSG_OUT:
-#endif
 	/* We send these. */
 	case WIRE_CUSTOMMSG_IN:
 		break;
@@ -3407,7 +3398,6 @@ static u8 *handle_peer_in(struct state *state)
 		break;
 	}
 
-#if DEVELOPER
 	/* Handle custommsgs */
 	enum peer_wire type = fromwire_peektype(msg);
 	if (type % 2 == 1 && !peer_wire_is_defined(type)) {
@@ -3417,7 +3407,6 @@ static u8 *handle_peer_in(struct state *state)
 		wire_sync_write(REQ_FD, take(towire_custommsg_in(NULL, msg)));
 		return NULL;
 	}
-#endif
 
 	/* Handles standard cases, and legal unknown ones. */
 	if (handle_peer_gossip_or_error(state->pps,
