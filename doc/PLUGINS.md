@@ -1462,7 +1462,7 @@ will be respected. Others will be ignored and a warning will be logged.
 ### `custommsg`
 
 The `custommsg` plugin hook is the receiving counterpart to the
-[`dev-sendcustommsg`][sendcustommsg] RPC method and allows plugins to handle
+[`sendcustommsg`][sendcustommsg] RPC method and allows plugins to handle
 messages that are not handled internally. The goal of these two components is
 to allow the implementation of custom protocols or prototypes on top of a
 c-lightning node, without having to change the node's implementation itself.
@@ -1610,7 +1610,7 @@ The plugin must broadcast it and respond with the following fields:
 [bolt4-failure-messages]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md#failure-messages
 [bolt4-failure-onion]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md#returning-errors
 [bolt2-open-channel]: https://github.com/lightningnetwork/lightning-rfc/blob/master/02-peer-protocol.md#the-open_channel-message
-[sendcustommsg]: lightning-dev-sendcustommsg.7.html
+[sendcustommsg]: lightning-sendcustommsg.7.html
 [oddok]: https://github.com/lightningnetwork/lightning-rfc/blob/master/00-introduction.md#its-ok-to-be-odd
 [spec]: [https://github.com/lightningnetwork/lightning-rfc]
 [bolt9]: https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md

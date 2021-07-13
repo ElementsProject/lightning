@@ -43,7 +43,6 @@ c-lightning Documentation
    lightning-delexpiredinvoice <lightning-delexpiredinvoice.7.md>
    lightning-delinvoice <lightning-delinvoice.7.md>
    lightning-delpay <lightning-delpay.7.md>
-   lightning-dev-sendcustommsg <lightning-dev-sendcustommsg.7.md>
    lightning-disableoffer <lightning-disableoffer.7.md>
    lightning-disconnect <lightning-disconnect.7.md>
    lightning-feerates <lightning-feerates.7.md>
@@ -87,6 +86,7 @@ c-lightning Documentation
    lightning-ping <lightning-ping.7.md>
    lightning-plugin <lightning-plugin.7.md>
    lightning-reserveinputs <lightning-reserveinputs.7.md>
+   lightning-sendcustommsg <lightning-sendcustommsg.7.md>
    lightning-sendinvoice <lightning-sendinvoice.7.md>
    lightning-sendonion <lightning-sendonion.7.md>
    lightning-sendonionmessage <lightning-sendonionmessage.7.md>

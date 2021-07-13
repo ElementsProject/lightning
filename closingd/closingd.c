@@ -114,7 +114,6 @@ static u8 *closing_read_peer_msg(const tal_t *ctx,
 			handle_gossip_msg(pps, take(msg));
 			continue;
 		}
-#if DEVELOPER
 		/* Handle custommsgs */
 		enum peer_wire type = fromwire_peektype(msg);
 		if (type % 2 == 1 && !peer_wire_is_defined(type)) {
@@ -124,7 +123,6 @@ static u8 *closing_read_peer_msg(const tal_t *ctx,
 			wire_sync_write(REQ_FD, take(towire_custommsg_in(NULL, msg)));
 			continue;
 		}
-#endif
 		if (!handle_peer_gossip_or_error(pps, channel_id, false, msg))
 			return msg;
 	}

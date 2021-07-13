@@ -1,15 +1,15 @@
-lightning-dev-sendcustommsg -- Low-level interface to send protocol messages to peers
+lightning-sendcustommsg -- Low-level interface to send protocol messages to peers
 =====================================================================================
 
 SYNOPSIS
 --------
 
-**dev-sendcustommsg** *node_id* *msg*
+**sendcustommsg** *node_id* *msg*
 
 DESCRIPTION
 -----------
 
-The `dev-sendcustommsg` RPC method allows the user to inject a custom message
+The `sendcustommsg` RPC method allows the user to inject a custom message
 into the communication with the peer with the given `node_id`. This is
 intended as a low-level interface to implement custom protocol extensions on
 top, not for direct use by end-users.

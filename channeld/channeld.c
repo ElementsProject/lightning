@@ -1944,7 +1944,6 @@ static void handle_peer_shutdown(struct peer *peer, const u8 *shutdown)
  */
 static bool channeld_handle_custommsg(const u8 *msg)
 {
-#if DEVELOPER
 	enum peer_wire type = fromwire_peektype(msg);
 	if (type % 2 == 1 && !peer_wire_is_defined(type)) {
 		/* The message is not part of the messages we know how to
@@ -1955,9 +1954,6 @@ static bool channeld_handle_custommsg(const u8 *msg)
 	} else {
 		return false;
 	}
-#else
-	return false;
-#endif
 }
 
 static void handle_unexpected_tx_sigs(struct peer *peer, const u8 *msg)
@@ -3305,17 +3301,6 @@ static void handle_dev_memleak(struct peer *peer, const u8 *msg)
 							       found_leak)));
 }
 
-/* We were told to send a custommsg to the peer by `lightningd`. All the
- * verification is done on the side of `lightningd` so we should be good to
- * just forward it here. */
-static void channeld_send_custommsg(struct peer *peer, const u8 *msg)
-{
-	u8 *inner;
-	if (!fromwire_custommsg_out(tmpctx, msg, &inner))
-		master_badmsg(WIRE_CUSTOMMSG_OUT, msg);
-	sync_crypto_write(peer->pps, take(inner));
-}
-
 #if EXPERIMENTAL_FEATURES
 static void handle_dev_quiesce(struct peer *peer, const u8 *msg)
 {
@@ -3332,6 +3317,17 @@ static void handle_dev_quiesce(struct peer *peer, const u8 *msg)
 }
 #endif /* EXPERIMENTAL_FEATURES */
 #endif /* DEVELOPER */
+
+/* We were told to send a custommsg to the peer by `lightningd`. All the
+ * verification is done on the side of `lightningd` so we should be good to
+ * just forward it here. */
+static void channeld_send_custommsg(struct peer *peer, const u8 *msg)
+{
+	u8 *inner;
+	if (!fromwire_custommsg_out(tmpctx, msg, &inner))
+		master_badmsg(WIRE_CUSTOMMSG_OUT, msg);
+	sync_crypto_write(peer->pps, take(inner));
+}
 
 static void req_in(struct peer *peer, const u8 *msg)
 {
@@ -3412,13 +3408,9 @@ static void req_in(struct peer *peer, const u8 *msg)
 
 	/* Now handle common messages. */
 	switch ((enum common_wire)t) {
-#if DEVELOPER
 	case WIRE_CUSTOMMSG_OUT:
 		channeld_send_custommsg(peer, msg);
 		return;
-#else
-	case WIRE_CUSTOMMSG_OUT:
-#endif
 	/* We send these. */
 	case WIRE_CUSTOMMSG_IN:
 		break;
