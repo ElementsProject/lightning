@@ -86,7 +86,7 @@ default_funder_policy(const tal_t *ctx,
 				 AMOUNT_SAT(UINT_MAX),
 				 AMOUNT_SAT(10000),
 				 AMOUNT_SAT(UINT_MAX),
-				 5, 		/* fuzz_factor */
+				 0, 		/* fuzz_factor */
 				 AMOUNT_SAT(0), /* reserve_tank */
 				 100);
 }
