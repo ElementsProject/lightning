@@ -1000,7 +1000,7 @@ def test_funder_options(node_factory, bitcoind):
     assert funder_opts['per_channel_min'] == '10000000msat'
     assert funder_opts['per_channel_max'] == '4294967295000msat'
     assert funder_opts['reserve_tank'] == '0msat'
-    assert funder_opts['fuzz_percent'] == 5
+    assert funder_opts['fuzz_percent'] == 0
     assert funder_opts['fund_probability'] == 100
 
     # l2 funds a chanenl with us. We don't contribute
