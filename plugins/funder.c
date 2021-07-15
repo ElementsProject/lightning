@@ -762,15 +762,16 @@ static void json_add_policy(struct json_stream *stream,
 	json_add_string(stream, "policy",
 			funder_opt_name(policy->opt));
 	json_add_num(stream, "policy_mod", policy->mod);
-	json_add_amount_sat_only(stream, "min_their_funding",
+	json_add_bool(stream, "leases_only", policy->leases_only);
+	json_add_amount_sat_only(stream, "min_their_funding_msat",
 				 policy->min_their_funding);
-	json_add_amount_sat_only(stream, "max_their_funding",
+	json_add_amount_sat_only(stream, "max_their_funding_msat",
 				 policy->max_their_funding);
-	json_add_amount_sat_only(stream, "per_channel_min",
+	json_add_amount_sat_only(stream, "per_channel_min_msat",
 				 policy->per_channel_min);
-	json_add_amount_sat_only(stream, "per_channel_max",
+	json_add_amount_sat_only(stream, "per_channel_max_msat",
 				 policy->per_channel_max);
-	json_add_amount_sat_only(stream, "reserve_tank",
+	json_add_amount_sat_only(stream, "reserve_tank_msat",
 				 policy->reserve_tank);
 	json_add_num(stream, "fuzz_percent", policy->fuzz_factor);
 	json_add_num(stream, "fund_probability", policy->fund_probability);
@@ -921,19 +922,19 @@ json_funderupdate(struct command *cmd,
 			     current_policy->mod),
 		   p_opt_def("leases_only", param_bool, &leases_only,
 			     current_policy->leases_only),
-		   p_opt_def("min_their_funding", param_sat,
+		   p_opt_def("min_their_funding_msat", param_sat,
 			     &min_their_funding,
 			     current_policy->min_their_funding),
-		   p_opt_def("max_their_funding", param_sat,
+		   p_opt_def("max_their_funding_msat", param_sat,
 			     &max_their_funding,
 			     current_policy->max_their_funding),
-		   p_opt_def("per_channel_min", param_sat,
+		   p_opt_def("per_channel_min_msat", param_sat,
 			     &per_channel_min,
 			     current_policy->per_channel_min),
-		   p_opt_def("per_channel_max", param_sat,
+		   p_opt_def("per_channel_max_msat", param_sat,
 			     &per_channel_max,
 			     current_policy->per_channel_max),
-		   p_opt_def("reserve_tank", param_sat, &reserve_tank,
+		   p_opt_def("reserve_tank_msat", param_sat, &reserve_tank,
 			     current_policy->reserve_tank),
 		   p_opt_def("fuzz_percent", param_number,
 			     &fuzz_factor,

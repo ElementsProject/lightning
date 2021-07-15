@@ -51,6 +51,7 @@ c-lightning Documentation
    lightning-fundchannel_cancel <lightning-fundchannel_cancel.7.md>
    lightning-fundchannel_complete <lightning-fundchannel_complete.7.md>
    lightning-fundchannel_start <lightning-fundchannel_start.7.md>
+   lightning-funderupdate <lightning-funderupdate.7.md>
    lightning-fundpsbt <lightning-fundpsbt.7.md>
    lightning-getinfo <lightning-getinfo.7.md>
    lightning-getlog <lightning-getlog.7.md>

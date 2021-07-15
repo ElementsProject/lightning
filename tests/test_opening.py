@@ -1031,11 +1031,11 @@ def test_funder_options(node_factory, bitcoind):
 
     assert funder_opts['policy'] == 'fixed'
     assert funder_opts['policy_mod'] == 0
-    assert funder_opts['min_their_funding'] == '10000000msat'
-    assert funder_opts['max_their_funding'] == '4294967295000msat'
-    assert funder_opts['per_channel_min'] == '10000000msat'
-    assert funder_opts['per_channel_max'] == '4294967295000msat'
-    assert funder_opts['reserve_tank'] == '0msat'
+    assert funder_opts['min_their_funding_msat'] == Millisatoshi('10000000msat')
+    assert funder_opts['max_their_funding_msat'] == Millisatoshi('4294967295000msat')
+    assert funder_opts['per_channel_min_msat'] == Millisatoshi('10000000msat')
+    assert funder_opts['per_channel_max_msat'] == Millisatoshi('4294967295000msat')
+    assert funder_opts['reserve_tank_msat'] == Millisatoshi('0msat')
     assert funder_opts['fuzz_percent'] == 0
     assert funder_opts['fund_probability'] == 100
 
@@ -1051,21 +1051,21 @@ def test_funder_options(node_factory, bitcoind):
     funder_opts = l1.rpc.call('funderupdate',
                               {'policy': 'available',
                                'policy_mod': 100,
-                               'min_their_funding': '100000msat',
-                               'max_their_funding': '2000000000msat',
-                               'per_channel_min': '8000000msat',
-                               'per_channel_max': '10000000000msat',
-                               'reserve_tank': '3000000msat',
+                               'min_their_funding_msat': '100000msat',
+                               'max_their_funding_msat': '2000000000msat',
+                               'per_channel_min_msat': '8000000msat',
+                               'per_channel_max_msat': '10000000000msat',
+                               'reserve_tank_msat': '3000000msat',
                                'fund_probability': 99,
                                'fuzz_percent': 0})
 
     assert funder_opts['policy'] == 'available'
     assert funder_opts['policy_mod'] == 100
-    assert funder_opts['min_their_funding'] == '100000msat'
-    assert funder_opts['max_their_funding'] == '2000000000msat'
-    assert funder_opts['per_channel_min'] == '8000000msat'
-    assert funder_opts['per_channel_max'] == '10000000000msat'
-    assert funder_opts['reserve_tank'] == '3000000msat'
+    assert funder_opts['min_their_funding_msat'] == Millisatoshi('100000msat')
+    assert funder_opts['max_their_funding_msat'] == Millisatoshi('2000000000msat')
+    assert funder_opts['per_channel_min_msat'] == Millisatoshi('8000000msat')
+    assert funder_opts['per_channel_max_msat'] == Millisatoshi('10000000000msat')
+    assert funder_opts['reserve_tank_msat'] == Millisatoshi('3000000msat')
     assert funder_opts['fuzz_percent'] == 0
     assert funder_opts['fund_probability'] == 99
 
@@ -1114,8 +1114,8 @@ def test_funder_contribution_limits(node_factory, bitcoind):
     l2.rpc.call('funderupdate',
                 {'policy': 'available',
                  'policy_mod': 100,
-                 'min_their_funding': '1000msat',
-                 'per_channel_min': '1000000msat',
+                 'min_their_funding_msat': '1000msat',
+                 'per_channel_min_msat': '1000000msat',
                  'fund_probability': 100,
                  'fuzz_percent': 0})
 
@@ -1123,9 +1123,9 @@ def test_funder_contribution_limits(node_factory, bitcoind):
     l3.rpc.call('funderupdate',
                 {'policy': 'fixed',
                  'policy_mod': '50000sat',
-                 'min_their_funding': '1000msat',
-                 'per_channel_min': '1000sat',
-                 'per_channel_max': '500000sat',
+                 'min_their_funding_msat': '1000msat',
+                 'per_channel_min_msat': '1000sat',
+                 'per_channel_max_msat': '500000sat',
                  'fund_probability': 100,
                  'fuzz_percent': 0})
 
