@@ -22,6 +22,8 @@ PKGNAME = c-lightning
 # We use our own internal ccan copy.
 CCANDIR := ccan
 
+# adding a comment to test a build
+
 # Where we keep the BOLT RFCs
 BOLTDIR := ../lightning-rfc/
 DEFAULT_BOLTVERSION := 3508e4e85d26240ae7492c3d2e02770cdc360fe9
