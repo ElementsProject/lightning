@@ -453,7 +453,7 @@ static void get_mnemonic(char *mnemonic) {
 	char *line = NULL;
 	size_t line_size = 0;
 
-	printf("Introduce your BIP39 word list separated by space:\n");
+	printf("Introduce your BIP39 word list separated by space (at least 12 words):\n");
 	fflush(stdout);
 	size_t characters = getline(&line, &line_size, stdin);
 	if (characters < 0)
