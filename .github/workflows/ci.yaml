@@ -81,15 +81,9 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        compiler: [gcc]
-        db: [postgres, sqlite3]
-        valgrind: [0, 1]
-        network: [regtest] # FIXME: add liquid-regtest
         include:
-          - {compiler: clang, db: sqlite3, valgrind: 1}
-          - {compiler: clang, db: postgres, valgrind: 1}
-          - {arch: arm32v7, TARGET_HOST: arm-linux-gnueabihf, valgrind: 1, network: regtest}
-          - {arch: arm64v8, TARGET_HOST: aarch64-linux-gnu, valgrind: 1, network: regtest}
+          - {compiler: clang, db: sqlite3}
+          - {compiler: gcc, db: postgres}
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
