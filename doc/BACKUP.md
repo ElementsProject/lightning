@@ -69,7 +69,8 @@ of the build directory.
 
     lightning-hsmtool generatehsm hsm_secret
 
-Then enter the BIP39 words, plus an optional passphrase.
+Then enter the BIP39 words, plus an optional passphrase. Then copy the
+`hsm_secret` to `${LIGHTNINGDIR}`
 
 You can regenerate the same `hsm_secret` file using the same BIP39
 words, which again, you can back up on paper.
