@@ -931,15 +931,17 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listnodes", payload)
 
-    def listpays(self, bolt11=None, payment_hash=None):
+    def listpays(self, bolt11=None, payment_hash=None, status=None):
         """
         Show outgoing payments, regarding {bolt11} or {payment_hash} if set
-        Can only specify one of {bolt11} or {payment_hash}.
+        Can only specify one of {bolt11} or {payment_hash}. It is possible
+        filter the payments by status.
         """
         assert not (bolt11 and payment_hash)
         payload = {
             "bolt11": bolt11,
-            "payment_hash": payment_hash
+            "payment_hash": payment_hash,
+            "status": status
         }
         return self.call("listpays", payload)
 
