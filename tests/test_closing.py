@@ -2027,13 +2027,18 @@ def test_onchain_middleman_their_unilateral_in(node_factory, bitcoind):
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
 
-    l2.fundchannel(l1, 10**6)
+    c12, _ = l2.fundchannel(l1, 10**6)
     c23, _ = l2.fundchannel(l3, 10**6)
     channel_id = first_channel_id(l1, l2)
 
     # Make sure routes finalized.
     bitcoind.generate_block(5)
     l1.wait_channel_active(c23)
+
+    # Make sure l3 sees gossip for channel now; it can get upset
+    # and give bad gossip msg if channel is closed before it sees
+    # node announcement.
+    wait_for(lambda: l3.rpc.listchannels(c12)['channels'] != [])
 
     # Give l1 some money to play with.
     l2.pay(l1, 2 * 10**8)
