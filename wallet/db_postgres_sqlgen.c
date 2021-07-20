@@ -1731,6 +1731,12 @@ struct db_query db_postgres_queries[] = {
          .readonly = true,
     },
     {
+         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE status = ? ORDER BY id;",
+         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE status = $1 ORDER BY id;",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
          .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments ORDER BY id;",
          .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments ORDER BY id;",
          .placeholders = 0,
@@ -2074,4 +2080,48 @@ struct db_query db_postgres_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
+<<<<<<< refs/remotes/ElementsProject/master
 // SHA256STAMP:d812809c7895cea0ed904084e48c523ea01a8cd9525e4b6be1b4e05bec2a90d1
+=======
+<<<<<<< refs/remotes/ElementsProject/master
+// SHA256STAMP:e356b7327b760559f9a7c31a7ea4a09d50194c7aacc6daef6ba9fb5caf43ae83
+=======
+<<<<<<< refs/remotes/ElementsProject/master
+// SHA256STAMP:a70af01d3b2f3a7003703b7feb0b2ef12359e0d2850bde1697a53780e2f5dbae
+=======
+<<<<<<< refs/remotes/ElementsProject/master
+// SHA256STAMP:f929ee6db13bdf55b5e0cdf54840091948b664a61c63a4aaaef403dc7e6f23ad
+=======
+<<<<<<< refs/remotes/ElementsProject/master
+// SHA256STAMP:219fccaaf2391eeabadd4cc15b4a3431c7ecab9d17755582e6962a34c74982c5
+=======
+<<<<<<< refs/remotes/ElementsProject/master
+// SHA256STAMP:1808964024bcccbd2787e723881f263b1a77ea33c302ac2b6d61dae20486a7e4
+=======
+<<<<<<< refs/remotes/ElementsProject/master
+// SHA256STAMP:411593f0957475d832c02cd75a8b0eed30b00fc6178797262ae7dd697de22383
+=======
+<<<<<<< refs/remotes/ElementsProject/master
+// SHA256STAMP:be7e5cedcb61a9b96566d4531bb25f2db4e5a344b0d884eec3fc3adf7a4fe242
+=======
+<<<<<<< refs/remotes/ElementsProject/master
+// SHA256STAMP:df06b800543e6bb886100ca428247ac1097f749098779dae43ba875154700f58
+=======
+<<<<<<< refs/remotes/ElementsProject/master
+// SHA256STAMP:27a166e040e517422e91cf7ffbd12426b34337b8d75f82d7aa4c448beae5e821
+=======
+<<<<<<< refs/remotes/ElementsProject/master
+// SHA256STAMP:6353b67b3e4f539da2d1f0c2564c4a8243f07d59cd0b73bc83d5552600bd67f7
+=======
+// SHA256STAMP:b5f4c156aa7e336af86f98eafc5e198d3653ff27b21d861a5e777645bf6d89ec
+>>>>>>> rpc: Integrate the status flow in the listsendpays command
+>>>>>>> rpc: Integrate the status flow in the listsendpays command
+>>>>>>> rpc: Integrate the status flow in the listsendpays command
+>>>>>>> rpc: Integrate the status flow in the listsendpays command
+>>>>>>> rpc: Integrate the status flow in the listsendpays command
+>>>>>>> rpc: Integrate the status flow in the listsendpays command
+>>>>>>> rpc: Integrate the status flow in the listsendpays command
+>>>>>>> rpc: Integrate the status flow in the listsendpays command
+>>>>>>> rpc: Integrate the status flow in the listsendpays command
+>>>>>>> rpc: Integrate the status flow in the listsendpays command
+>>>>>>> rpc: Integrate the status flow in the listsendpays command

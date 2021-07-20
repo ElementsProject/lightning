@@ -4603,3 +4603,26 @@ def test_pay_low_max_htlcs(node_factory):
     l1.daemon.wait_for_log(
         r'Number of pre-split HTLCs \([0-9]+\) exceeds our HTLC budget \([0-9]+\), skipping pre-splitter'
     )
+
+
+def test_listpays_with_filter_by_status(node_factory, bitcoind):
+    """
+    This test check if the filtering by status of the command listpays
+    has some mistakes.
+    """
+
+    # Create the line graph l2 -> l1 with a channel of 10 ** 5 sat!
+    l2, l1 = node_factory.line_graph(2, fundamount=10**5, wait_for_announce=True)
+
+    inv = l1.rpc.invoice(10 ** 5, 'inv', 'inv')
+    l2.rpc.pay(inv['bolt11'])
+
+    wait_for(lambda: l2.rpc.listpays(inv['bolt11'])['pays'][0]['status'] == 'complete')
+
+    # test if the node is still ready
+    payments = l2.rpc.call("listpays", {"status": 'failed'})
+
+    assert len(payments['pays']) == 0
+
+    payments = l2.rpc.listpays()
+    assert len(l2.rpc.listpays()['pays']) == 1
