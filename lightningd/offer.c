@@ -282,7 +282,7 @@ static struct command_result *prev_payment(struct command *cmd,
 	bool prev_paid = false;
 
 	assert(!invreq->payer_info);
-	payments = wallet_payment_list(cmd, cmd->ld->wallet, NULL);
+	payments = wallet_payment_list(cmd, cmd->ld->wallet, NULL, NULL);
 
 	for (size_t i = 0; i < tal_count(payments); i++) {
 		const struct tlv_invoice *inv;

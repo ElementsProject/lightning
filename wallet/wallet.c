@@ -3339,7 +3339,8 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
 const struct wallet_payment **
 wallet_payment_list(const tal_t *ctx,
 		    struct wallet *wallet,
-		    const struct sha256 *payment_hash)
+		    const struct sha256 *payment_hash,
+		    enum wallet_payment_status *status)
 {
 	const struct wallet_payment **payments;
 	struct db_stmt *stmt;
@@ -3371,6 +3372,32 @@ wallet_payment_list(const tal_t *ctx,
 						  " WHERE payment_hash = ?"
 						  " ORDER BY id;"));
 		db_bind_sha256(stmt, 0, payment_hash);
+	} else if (status) {
+		// TODO(vincenzopalazzo): Missing the filter options are both not null
+		// A possible solution is divided the string in two part (pre-where and post-where) and
+		// use a small if else to set the remain string, with this method we can have small code.
+		stmt = db_prepare_v2(wallet->db, SQL("SELECT"
+						     "  id"
+						     ", status"
+						     ", destination"
+						     ", msatoshi"
+						     ", payment_hash"
+						     ", timestamp"
+						     ", payment_preimage"
+						     ", path_secrets"
+						     ", route_nodes"
+						     ", route_channels"
+						     ", msatoshi_sent"
+						     ", description"
+						     ", bolt11"
+						     ", failonionreply"
+						     ", total_msat"
+						     ", partid"
+						     ", local_offer_id"
+						     " FROM payments"
+						     " WHERE status = ?"
+						     " ORDER BY id;"));
+		db_bind_int(stmt, 0, wallet_payment_status_in_db(*status));
 	} else {
 		stmt = db_prepare_v2(wallet->db, SQL("SELECT"
 						     "  id"

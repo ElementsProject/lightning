@@ -1106,7 +1106,8 @@ void wallet_payment_set_failinfo(struct wallet *wallet,
  */
 const struct wallet_payment **wallet_payment_list(const tal_t *ctx,
 						  struct wallet *wallet,
-						  const struct sha256 *payment_hash);
+						  const struct sha256 *payment_hash,
+						  enum wallet_payment_status *status);
 
 /**
  * wallet_payments_by_offer - Retrieve a list of payments for this local_offer_id
