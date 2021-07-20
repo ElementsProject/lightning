@@ -1154,6 +1154,12 @@ def test_blockchaintrack(node_factory, bitcoind):
     assert [o for o in l1.rpc.listfunds()['outputs'] if o['status'] != "unconfirmed"] == []
 
 
+def chan_active(node, scid, is_active):
+    chans = node.rpc.listchannels(scid)['channels']
+    print(chans)
+    return [c['active'] for c in chans] == [is_active, is_active]
+
+
 @pytest.mark.developer("needs DEVELOPER=1")
 @pytest.mark.openchannel('v2')
 @pytest.mark.openchannel('v1')
@@ -1189,8 +1195,8 @@ def test_funding_reorg_private(node_factory, bitcoind):
     l2.daemon.wait_for_logs([r'Removing stale block {}'.format(106),
                              r'Got depth change .->{} for .* REORG'.format(0)])
 
-    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('106x1x0')['channels']] == [False, False])
-    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('108x1x0')['channels']] == [True, True])
+    wait_for(lambda: chan_active(l2, '106x1x0', False))
+    wait_for(lambda: chan_active(l2, '108x1x0', True))
 
     l1.rpc.close(l2.info['id'])
     bitcoind.generate_block(1, True)
@@ -1235,8 +1241,8 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
     # Unblinding l2 brings it back in sync, restarts channeld and sends its announce sig
     l2.daemon.rpcproxy.mock_rpc('getblockhash', None)
 
-    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('103x1x0')['channels']] == [False, False])
-    wait_for(lambda: [c['active'] for c in l2.rpc.listchannels('104x1x0')['channels']] == [True, True])
+    wait_for(lambda: chan_active(l2, '103x1x0', False))
+    wait_for(lambda: chan_active(l2, '104x1x0', True))
 
     wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
         'CHANNELD_NORMAL:Reconnected, and reestablished.',
