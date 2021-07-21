@@ -3923,9 +3923,14 @@ def test_offer_needs_option(node_factory):
         l1.rpc.call('fetchinvoice', {'offer': 'aaaa'})
 
 
+@pytest.mark.xfail(strict=True)
 def test_offer(node_factory, bitcoind):
     plugin = os.path.join(os.path.dirname(__file__), 'plugins/currencyUSDAUD5000.py')
     l1 = node_factory.get_node(options={'plugin': plugin, 'experimental-offers': None})
+
+    # Try empty description
+    ret = l1.rpc.call('offer', [9, ''])
+    l1.rpc.decode(ret['bolt12'])
 
     bolt12tool = os.path.join(os.path.dirname(__file__), "..", "devtools", "bolt12-cli")
     # Try different amount strings
