@@ -2072,9 +2072,9 @@ static struct command_result *json_paymod(struct command *cmd,
 		if (!b12->payment_hash)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 					    "invoice missing payment_hash");
-		if (!b12->timestamp)
+		if (!b12->created_at)
 			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "invoice missing timestamp");
+					    "invoice missing created_at");
 		if (b12->amount) {
 			invmsat = tal(cmd, struct amount_msat);
 			*invmsat = amount_msat(*b12->amount);
@@ -2110,17 +2110,17 @@ static struct command_result *json_paymod(struct command *cmd,
 		/* BOLT-offers #12:
 		 * - if `relative_expiry` is present:
 		 *   - MUST reject the invoice if the current time since
-		 *     1970-01-01 UTC is greater than `timestamp` plus
-		 *     `seconds_from_timestamp`.
+		 *     1970-01-01 UTC is greater than `created_at` plus
+		 *     `seconds_from_creation`.
 		 * - otherwise:
 		 *   - MUST reject the invoice if the current time since
-		 *     1970-01-01 UTC is greater than `timestamp` plus
+		 *     1970-01-01 UTC is greater than `created_at` plus
 		 * 7200.
 		 */
 		if (b12->relative_expiry)
-			invexpiry = *b12->timestamp + *b12->relative_expiry;
+			invexpiry = *b12->created_at + *b12->relative_expiry;
 		else
-			invexpiry = *b12->timestamp + BOLT12_DEFAULT_REL_EXPIRY;
+			invexpiry = *b12->created_at + BOLT12_DEFAULT_REL_EXPIRY;
 		p->local_offer_id = tal_steal(p, local_offer_id);
 	}
 

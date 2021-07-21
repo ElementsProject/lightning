@@ -120,7 +120,7 @@ struct tlv_invoice {
 	struct pubkey32 *payer_key;
 	utf8 *payer_note;
 	u8 *payer_info;
-	u64 *timestamp;
+	u64 *created_at;
 	struct sha256 *payment_hash;
 	u32 *relative_expiry;
 	u32 *cltv;
@@ -323,4 +323,4 @@ struct fallback_address *fromwire_fallback_address(const tal_t *ctx, const u8 **
 
 
 #endif /* LIGHTNING_WIRE_BOLT12_WIREGEN_H */
-// SHA256STAMP:27ffc38bc2be76e159508470734655f35e59d82927beb8c1f62917e592d76d10
+// SHA256STAMP:2946a3a3734bd6af218cb73b4d42ec16fe68c1041b48e084cc160810870bcdd5

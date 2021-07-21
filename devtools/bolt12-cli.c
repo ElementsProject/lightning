@@ -379,9 +379,9 @@ static void print_payer_note(const char *payer_note)
 	       (int)tal_bytelen(payer_note), payer_note);
 }
 
-static void print_timestamp(u64 timestamp)
+static void print_created_at(u64 timestamp)
 {
-	printf("timestamp: %"PRIu64" (%s)\n",
+	printf("created_at: %"PRIu64" (%s)\n",
 	       timestamp, fmt_time(tmpctx, timestamp));
 }
 
@@ -396,27 +396,27 @@ static void print_cltv(u32 cltv)
 	printf("min_final_cltv_expiry: %u\n", cltv);
 }
 
-static void print_relative_expiry(u64 *timestamp, u32 *relative)
+static void print_relative_expiry(u64 *created_at, u32 *relative)
 {
 	/* Ignore if already malformed */
-	if (!timestamp)
+	if (!created_at)
 		return;
 
 	/* BOLT-offers #12:
 	 * - if `relative_expiry` is present:
 	 *   - MUST reject the invoice if the current time since 1970-01-01 UTC
-	 *     is greater than `timestamp` plus `seconds_from_timestamp`.
+	 *     is greater than `created_at` plus `seconds_from_creation`.
 	 *  - otherwise:
 	 *    - MUST reject the invoice if the current time since 1970-01-01 UTC
-	 *      is greater than `timestamp` plus 7200.
+	 *      is greater than `created_at` plus 7200.
 	 */
 	if (!relative)
 		printf("relative_expiry: %u (%s) (default)\n",
 		       BOLT12_DEFAULT_REL_EXPIRY,
-		       fmt_time(tmpctx, *timestamp + BOLT12_DEFAULT_REL_EXPIRY));
+		       fmt_time(tmpctx, *created_at + BOLT12_DEFAULT_REL_EXPIRY));
 	else
 		printf("relative_expiry: %u (%s)\n", *relative,
-		       fmt_time(tmpctx, *timestamp + *relative));
+		       fmt_time(tmpctx, *created_at + *relative));
 }
 
 static void print_fallbacks(const struct tlv_invoice_fallbacks *fallbacks)
@@ -622,11 +622,11 @@ int main(int argc, char *argv[])
 		}
 		if (must_have(invoice, payer_key))
 			print_payer_key(invoice->payer_key, invoice->payer_info);
-		if (must_have(invoice, timestamp))
-			print_timestamp(*invoice->timestamp);
+		if (must_have(invoice, created_at))
+			print_created_at(*invoice->created_at);
 		if (invoice->payer_note)
 			print_payer_note(invoice->payer_note);
-		print_relative_expiry(invoice->timestamp,
+		print_relative_expiry(invoice->created_at,
 				      invoice->relative_expiry);
 		if (must_have(invoice, payment_hash))
 			print_payment_hash(invoice->payment_hash);

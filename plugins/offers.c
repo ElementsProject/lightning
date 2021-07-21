@@ -543,13 +543,16 @@ static void json_add_b12_invoice(struct json_stream *js,
 				 tal_bytelen(invoice->payer_note));
 
 	/* BOLT-offers #12:
-	 *   - MUST reject the invoice if `timestamp` is not present.
+	 *   - MUST reject the invoice if `created_at` is not present.
 	 */
-	if (invoice->timestamp)
-		json_add_u64(js, "timestamp", *invoice->timestamp);
-	else {
-		json_add_string(js, "warning_invoice_missing_timestamp",
-				"invoices without a timestamp are invalid");
+	if (invoice->created_at) {
+		/* FIXME: Remove soon! */
+		if (deprecated_apis)
+			json_add_u64(js, "timestamp", *invoice->created_at);
+		json_add_u64(js, "created_at", *invoice->created_at);
+	} else {
+		json_add_string(js, "warning_invoice_missing_created_at",
+				"invoices without created_at are invalid");
 		valid = false;
 	}
 
@@ -567,7 +570,7 @@ static void json_add_b12_invoice(struct json_stream *js,
 	/* BOLT-offers #12:
 	 *
 	 * - if the expiry for accepting payment is not 7200 seconds after
-	 *   `timestamp`:
+	 *   `created_at`:
 	 *      - MUST set `relative_expiry`
 	 */
 	if (invoice->relative_expiry)
