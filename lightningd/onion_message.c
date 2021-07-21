@@ -28,7 +28,7 @@ static void onion_message_serialize(struct onion_message_hook_payload *payload,
 			json_object_start(stream, NULL);
 			json_add_pubkey(stream, "id",
 					&payload->reply_path[i]->node_id);
-			if (payload->reply_path[i]->enctlv)
+			if (tal_bytelen(payload->reply_path[i]->enctlv) != 0)
 				json_add_hex_talarr(stream, "enctlv",
 						    payload->reply_path[i]->enctlv);
 			if (i == 0)
