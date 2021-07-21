@@ -4666,7 +4666,7 @@ enum offer_status wallet_offer_disable(struct wallet *w,
 
 	assert(offer_status_active(s));
 
-	newstatus = offer_status_in_db(s &= ~OFFER_STATUS_ACTIVE_F);
+	newstatus = offer_status_in_db(s & ~OFFER_STATUS_ACTIVE_F);
 	offer_status_update(w->db, offer_id, s, newstatus);
 
 	return newstatus;
