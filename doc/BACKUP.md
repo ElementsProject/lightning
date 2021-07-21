@@ -195,7 +195,7 @@ stop your Lightning node and back up all files before doing the below.
 * Copy the contents of the `$LIGHTNINGDIR` to the BTRFS mount point.
   * Copy the entire directory, then `chown -R` the copy to the user who will
     run the `lightningd`.
-  * If you are paranoid, run `diff -R` on both copies to check.
+  * If you are paranoid, run `diff -r` on both copies to check.
 * Remove the existing `$LIGHTNINGDIR`.
 * `ln -s ${BTRFSMOUNTPOINT}/lightningdirname ${LIGHTNINGDIR}`.
   * Make sure the `$LIGHTNINGDIR` has the same structure as what you
