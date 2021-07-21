@@ -79,7 +79,7 @@ towire_${type_obj.name}(${ptr}, ${'' if type_obj.is_assignable() or type_obj.is_
     % if f.type_obj.has_array_helper():
     ## We assume array helpers only deal with things literally transcribed!!
 	% if f.is_varlen():
-${fieldname} = ${f.size('*plen')} ? tal_arr(${ctx}, ${typename}, ${f.size('*plen')}) : NULL;
+${fieldname} = tal_arr(${ctx}, ${typename}, ${f.size('*plen')});
 	% endif
 fromwire_${type_}_array(cursor, plen, ${fieldname}, ${f.size('*plen')});
     % else:

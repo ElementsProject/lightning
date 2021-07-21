@@ -134,7 +134,7 @@ fromwire_witness_element(const tal_t *ctx, const u8 **cursor, size_t *plen)
 	u16 len;
 
  	len = fromwire_u16(cursor, plen);
- 	witness_element->witness = len ? tal_arr(witness_element, u8, len) : NULL;
+ 	witness_element->witness = tal_arr(witness_element, u8, len);
 fromwire_u8_array(cursor, plen, witness_element->witness, len);
 
 	return witness_element;
@@ -514,7 +514,7 @@ static void fromwire_tlv_open_channel_tlvs_upfront_shutdown_script(const u8 **cu
 {
 	struct tlv_open_channel_tlvs *r = vrecord;
 
-	r->upfront_shutdown_script = *plen ? tal_arr(r, u8, *plen) : NULL;
+	r->upfront_shutdown_script = tal_arr(r, u8, *plen);
 fromwire_u8_array(cursor, plen, r->upfront_shutdown_script, *plen);
 }
 
@@ -568,7 +568,7 @@ static void fromwire_tlv_accept_channel_tlvs_upfront_shutdown_script(const u8 **
 {
 	struct tlv_accept_channel_tlvs *r = vrecord;
 
-	r->upfront_shutdown_script = *plen ? tal_arr(r, u8, *plen) : NULL;
+	r->upfront_shutdown_script = tal_arr(r, u8, *plen);
 fromwire_u8_array(cursor, plen, r->upfront_shutdown_script, *plen);
 }
 
@@ -628,7 +628,7 @@ static void fromwire_tlv_opening_tlvs_option_upfront_shutdown_script(const u8 **
 
 	r->option_upfront_shutdown_script = tal(r, struct tlv_opening_tlvs_option_upfront_shutdown_script);
 	shutdown_len = fromwire_u16(cursor, plen);
-	r->option_upfront_shutdown_script->shutdown_scriptpubkey = shutdown_len ? tal_arr(r->option_upfront_shutdown_script, u8, shutdown_len) : NULL;
+	r->option_upfront_shutdown_script->shutdown_scriptpubkey = tal_arr(r->option_upfront_shutdown_script, u8, shutdown_len);
 fromwire_u8_array(cursor, plen, r->option_upfront_shutdown_script->shutdown_scriptpubkey, shutdown_len);
 }
 /* OPENING_TLVS MSG: request_funds */
@@ -714,7 +714,7 @@ static void fromwire_tlv_accept_tlvs_option_upfront_shutdown_script(const u8 **c
 
 	r->option_upfront_shutdown_script = tal(r, struct tlv_accept_tlvs_option_upfront_shutdown_script);
 	shutdown_len = fromwire_u16(cursor, plen);
-	r->option_upfront_shutdown_script->shutdown_scriptpubkey = shutdown_len ? tal_arr(r->option_upfront_shutdown_script, u8, shutdown_len) : NULL;
+	r->option_upfront_shutdown_script->shutdown_scriptpubkey = tal_arr(r->option_upfront_shutdown_script, u8, shutdown_len);
 fromwire_u8_array(cursor, plen, r->option_upfront_shutdown_script->shutdown_scriptpubkey, shutdown_len);
 }
 /* ACCEPT_TLVS MSG: will_fund */
@@ -910,7 +910,7 @@ static void fromwire_tlv_query_short_channel_ids_tlvs_query_flags(const u8 **cur
 
 	r->query_flags = tal(r, struct tlv_query_short_channel_ids_tlvs_query_flags);
 	r->query_flags->encoding_type = fromwire_u8(cursor, plen);
-	r->query_flags->encoded_query_flags = *plen ? tal_arr(r->query_flags, u8, *plen) : NULL;
+	r->query_flags->encoded_query_flags = tal_arr(r->query_flags, u8, *plen);
 fromwire_u8_array(cursor, plen, r->query_flags->encoded_query_flags, *plen);
 }
 
@@ -1023,7 +1023,7 @@ static void fromwire_tlv_reply_channel_range_tlvs_timestamps_tlv(const u8 **curs
 
 	r->timestamps_tlv = tal(r, struct tlv_reply_channel_range_tlvs_timestamps_tlv);
 	r->timestamps_tlv->encoding_type = fromwire_u8(cursor, plen);
-	r->timestamps_tlv->encoded_timestamps = *plen ? tal_arr(r->timestamps_tlv, u8, *plen) : NULL;
+	r->timestamps_tlv->encoded_timestamps = tal_arr(r->timestamps_tlv, u8, *plen);
 fromwire_u8_array(cursor, plen, r->timestamps_tlv->encoded_timestamps, *plen);
 }
 /* REPLY_CHANNEL_RANGE_TLVS MSG: checksums_tlv */
@@ -2484,4 +2484,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
  	*htlc_maximum_msat = fromwire_amount_msat(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:7c9612ec7cc62b3a44ae65d19b855b521e96796940b4c3d50977d768ace8712e
+// SHA256STAMP:7acdb2f85dec7c26fb60ae3302f387fbccae349e182d05c6e4bb043ce2546797

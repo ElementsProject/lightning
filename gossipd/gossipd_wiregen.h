@@ -188,4 +188,4 @@ bool fromwire_gossipd_new_lease_rates(const void *p, struct lease_rates *rates);
 
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_WIREGEN_H */
-// SHA256STAMP:a0408d2e1f668c085378bc2729e08d8712a95edc48d12df8c6cbf063aeddbf32
+// SHA256STAMP:6252e4a2529ea03470fbb950ebe3d616c6a8ffedf199ff3091608f2d9f18efcf

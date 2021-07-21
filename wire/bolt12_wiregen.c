@@ -66,7 +66,7 @@ fromwire_blinded_payinfo(const tal_t *ctx, const u8 **cursor, size_t *plen)
  	blinded_payinfo->fee_proportional_millionths = fromwire_u32(cursor, plen);
  	blinded_payinfo->cltv_expiry_delta = fromwire_u16(cursor, plen);
  	flen = fromwire_u16(cursor, plen);
- 	blinded_payinfo->features = flen ? tal_arr(blinded_payinfo, u8, flen) : NULL;
+ 	blinded_payinfo->features = tal_arr(blinded_payinfo, u8, flen);
 fromwire_u8_array(cursor, plen, blinded_payinfo->features, flen);
 
 	return blinded_payinfo;
@@ -89,7 +89,7 @@ fromwire_fallback_address(const tal_t *ctx, const u8 **cursor, size_t *plen)
 
  	fallback_address->version = fromwire_u8(cursor, plen);
  	len = fromwire_u16(cursor, plen);
- 	fallback_address->address = len ? tal_arr(fallback_address, u8, len) : NULL;
+ 	fallback_address->address = tal_arr(fallback_address, u8, len);
 fromwire_u8_array(cursor, plen, fallback_address->address, len);
 
 	return fallback_address;
@@ -152,7 +152,7 @@ static void fromwire_tlv_offer_currency(const u8 **cursor, size_t *plen, void *v
 {
 	struct tlv_offer *r = vrecord;
 
-	r->currency = *plen ? tal_arr(r, utf8, *plen) : NULL;
+	r->currency = tal_arr(r, utf8, *plen);
 fromwire_utf8_array(cursor, plen, r->currency, *plen);
 }
 /* OFFER MSG: amount */
@@ -197,7 +197,7 @@ static void fromwire_tlv_offer_description(const u8 **cursor, size_t *plen, void
 {
 	struct tlv_offer *r = vrecord;
 
-	r->description = *plen ? tal_arr(r, utf8, *plen) : NULL;
+	r->description = tal_arr(r, utf8, *plen);
 fromwire_utf8_array(cursor, plen, r->description, *plen);
 }
 /* OFFER MSG: features */
@@ -219,7 +219,7 @@ static void fromwire_tlv_offer_features(const u8 **cursor, size_t *plen, void *v
 {
 	struct tlv_offer *r = vrecord;
 
-	r->features = *plen ? tal_arr(r, u8, *plen) : NULL;
+	r->features = tal_arr(r, u8, *plen);
 fromwire_u8_array(cursor, plen, r->features, *plen);
 }
 /* OFFER MSG: absolute_expiry */
@@ -291,7 +291,7 @@ static void fromwire_tlv_offer_vendor(const u8 **cursor, size_t *plen, void *vre
 {
 	struct tlv_offer *r = vrecord;
 
-	r->vendor = *plen ? tal_arr(r, utf8, *plen) : NULL;
+	r->vendor = tal_arr(r, utf8, *plen);
 fromwire_utf8_array(cursor, plen, r->vendor, *plen);
 }
 /* OFFER MSG: quantity_min */
@@ -670,7 +670,7 @@ static void fromwire_tlv_invoice_request_features(const u8 **cursor, size_t *ple
 {
 	struct tlv_invoice_request *r = vrecord;
 
-	r->features = *plen ? tal_arr(r, u8, *plen) : NULL;
+	r->features = tal_arr(r, u8, *plen);
 fromwire_u8_array(cursor, plen, r->features, *plen);
 }
 /* INVOICE_REQUEST MSG: quantity */
@@ -784,7 +784,7 @@ static void fromwire_tlv_invoice_request_payer_note(const u8 **cursor, size_t *p
 {
 	struct tlv_invoice_request *r = vrecord;
 
-	r->payer_note = *plen ? tal_arr(r, utf8, *plen) : NULL;
+	r->payer_note = tal_arr(r, utf8, *plen);
 fromwire_utf8_array(cursor, plen, r->payer_note, *plen);
 }
 /* INVOICE_REQUEST MSG: payer_info */
@@ -806,7 +806,7 @@ static void fromwire_tlv_invoice_request_payer_info(const u8 **cursor, size_t *p
 {
 	struct tlv_invoice_request *r = vrecord;
 
-	r->payer_info = *plen ? tal_arr(r, u8, *plen) : NULL;
+	r->payer_info = tal_arr(r, u8, *plen);
 fromwire_u8_array(cursor, plen, r->payer_info, *plen);
 }
 /* INVOICE_REQUEST MSG: replace_invoice */
@@ -990,7 +990,7 @@ static void fromwire_tlv_invoice_description(const u8 **cursor, size_t *plen, vo
 {
 	struct tlv_invoice *r = vrecord;
 
-	r->description = *plen ? tal_arr(r, utf8, *plen) : NULL;
+	r->description = tal_arr(r, utf8, *plen);
 fromwire_utf8_array(cursor, plen, r->description, *plen);
 }
 /* INVOICE MSG: features */
@@ -1012,7 +1012,7 @@ static void fromwire_tlv_invoice_features(const u8 **cursor, size_t *plen, void 
 {
 	struct tlv_invoice *r = vrecord;
 
-	r->features = *plen ? tal_arr(r, u8, *plen) : NULL;
+	r->features = tal_arr(r, u8, *plen);
 fromwire_u8_array(cursor, plen, r->features, *plen);
 }
 /* INVOICE MSG: paths */
@@ -1115,7 +1115,7 @@ static void fromwire_tlv_invoice_vendor(const u8 **cursor, size_t *plen, void *v
 {
 	struct tlv_invoice *r = vrecord;
 
-	r->vendor = *plen ? tal_arr(r, utf8, *plen) : NULL;
+	r->vendor = tal_arr(r, utf8, *plen);
 fromwire_utf8_array(cursor, plen, r->vendor, *plen);
 }
 /* INVOICE MSG: node_id */
@@ -1317,7 +1317,7 @@ static void fromwire_tlv_invoice_payer_note(const u8 **cursor, size_t *plen, voi
 {
 	struct tlv_invoice *r = vrecord;
 
-	r->payer_note = *plen ? tal_arr(r, utf8, *plen) : NULL;
+	r->payer_note = tal_arr(r, utf8, *plen);
 fromwire_utf8_array(cursor, plen, r->payer_note, *plen);
 }
 /* INVOICE MSG: payer_info */
@@ -1339,7 +1339,7 @@ static void fromwire_tlv_invoice_payer_info(const u8 **cursor, size_t *plen, voi
 {
 	struct tlv_invoice *r = vrecord;
 
-	r->payer_info = *plen ? tal_arr(r, u8, *plen) : NULL;
+	r->payer_info = tal_arr(r, u8, *plen);
 fromwire_u8_array(cursor, plen, r->payer_info, *plen);
 }
 /* INVOICE MSG: created_at */
@@ -1636,7 +1636,7 @@ static void fromwire_tlv_invoice_error_suggested_value(const u8 **cursor, size_t
 {
 	struct tlv_invoice_error *r = vrecord;
 
-	r->suggested_value = *plen ? tal_arr(r, u8, *plen) : NULL;
+	r->suggested_value = tal_arr(r, u8, *plen);
 fromwire_u8_array(cursor, plen, r->suggested_value, *plen);
 }
 /* INVOICE_ERROR MSG: error */
@@ -1658,7 +1658,7 @@ static void fromwire_tlv_invoice_error_error(const u8 **cursor, size_t *plen, vo
 {
 	struct tlv_invoice_error *r = vrecord;
 
-	r->error = *plen ? tal_arr(r, utf8, *plen) : NULL;
+	r->error = tal_arr(r, utf8, *plen);
 fromwire_utf8_array(cursor, plen, r->error, *plen);
 }
 
@@ -1684,4 +1684,4 @@ bool invoice_error_is_valid(const struct tlv_invoice_error *record, size_t *err_
 	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
-// SHA256STAMP:2946a3a3734bd6af218cb73b4d42ec16fe68c1041b48e084cc160810870bcdd5
+// SHA256STAMP:f29bdf0cc1fd0cce9362c88e3b8681781e11c203cc3026fe13e6c52a845154ba

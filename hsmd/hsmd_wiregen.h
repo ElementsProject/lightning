@@ -295,4 +295,4 @@ bool fromwire_hsmd_sign_option_will_fund_offer_reply(const void *p, secp256k1_ec
 
 
 #endif /* LIGHTNING_HSMD_HSMD_WIREGEN_H */
-// SHA256STAMP:5cc29ba49eb086d023342733bcaeb16b5b8e3c5b7b9d5826e70dd4f46b0d1dd2
+// SHA256STAMP:ca4451abdbde0ac4c8a542e9ba48d2075fb7fcd12a30be739371966dcd8b3d9e

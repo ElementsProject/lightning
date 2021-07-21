@@ -54,4 +54,4 @@ bool fromwire_gossipd_get_addrs_reply(const tal_t *ctx, const void *p, struct wi
 
 
 #endif /* LIGHTNING_CONNECTD_CONNECTD_GOSSIPD_WIREGEN_H */
-// SHA256STAMP:a115dcd604f1bcbe48bf57b25bfc2b59ec7eff3c4790812fa1c460aee2b50811
+// SHA256STAMP:f046184497c8415e2e1337f2b82412bc0094c9c7935e5a3312560331ca6c9f32
