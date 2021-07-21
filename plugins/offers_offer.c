@@ -320,6 +320,28 @@ struct command_result *json_offer(struct command *cmd,
 		return command_param_failed();
 
 	/* BOLT-offers #12:
+	 * - MUST NOT set `quantity_min` or `quantity_max` less than 1.
+	 */
+	if (offer->quantity_min && *offer->quantity_min < 1)
+		return command_fail_badparam(cmd, "quantity_min",
+					     buffer, params,
+					     "must be >= 1");
+	if (offer->quantity_max && *offer->quantity_max < 1)
+		return command_fail_badparam(cmd, "quantity_max",
+					     buffer, params,
+					     "must be >= 1");
+	/* BOLT-offers #12:
+	 * - if both:
+	 *    - MUST set `quantity_min` less than or equal to `quantity_max`.
+	 */
+	if (offer->quantity_min && offer->quantity_max) {
+		if (*offer->quantity_min > *offer->quantity_max)
+			return command_fail_badparam(cmd, "quantity_min",
+						     buffer, params,
+						     "must be <= quantity_max");
+	}
+
+	/* BOLT-offers #12:
 	 *
 	 * - if the chain for the invoice is not solely bitcoin:
 	 *   - MUST specify `chains` the offer is valid for.

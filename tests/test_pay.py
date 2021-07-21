@@ -4006,6 +4006,26 @@ def test_offer(node_factory, bitcoind):
                                       offer['bolt12']]).decode('UTF-8')
     assert 'quantity_max: 2' in output
 
+    # BOLT-offers #12:
+    # 	 * - MUST NOT set `quantity_min` or `quantity_max` less than 1.
+    with pytest.raises(RpcError, match='quantity_min: must be >= 1'):
+        ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                    'description': 'quantity_min test',
+                                    'quantity_min': 0})
+
+    with pytest.raises(RpcError, match='quantity_max: must be >= 1'):
+        ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                    'description': 'quantity_max test',
+                                    'quantity_max': 0})
+    # BOLT-offers #12:
+    # - if both:
+    #    - MUST set `quantity_min` greater or equal to `quantity_max`.
+    with pytest.raises(RpcError, match='quantity_min: must be <= quantity_max'):
+        ret = l1.rpc.call('offer', {'amount': '100000sat',
+                                    'description': 'quantity_max test',
+                                    'quantity_min': 10,
+                                    'quantity_max': 9})
+
     # Test absolute_expiry
     exp = int(time.time() + 2)
     ret = l1.rpc.call('offer', {'amount': '100000sat',
