@@ -253,8 +253,11 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	if ((badfield = field_diff(sent->invreq, inv, payer_info)))
 		goto badinv;
 
-	/* Get the amount we expected. */
-	if (sent->offer->amount && !sent->offer->currency) {
+	/* Get the amount we expected: firstly, if that's what we sent,
+	 * secondly, if specified in the invoice. */
+	if (sent->invreq->amount) {
+		expected_amount = tal_dup(tmpctx, u64, sent->invreq->amount);
+	} else if (sent->offer->amount && !sent->offer->currency) {
 		expected_amount = tal(tmpctx, u64);
 
 		*expected_amount = *sent->offer->amount;

@@ -4158,6 +4158,15 @@ def test_fetchinvoice(node_factory, bitcoind):
     with pytest.raises(RpcError, match="Remote node sent failure message.*Amount must be at least 2msat"):
         l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12'], 'msatoshi': 1})
 
+    # If no amount is specified in offer, one must be in invoice.
+    offer_noamount = l3.rpc.call('offer', {'amount': 'any',
+                                           'description': 'any amount test'})
+    with pytest.raises(RpcError, match="msatoshi parameter required"):
+        l1.rpc.call('fetchinvoice', {'offer': offer_noamount['bolt12']})
+    inv1 = l1.rpc.call('fetchinvoice', {'offer': offer_noamount['bolt12'], 'msatoshi': 100})
+    # But amount won't appear in changes
+    assert 'msat' not in inv1['changes']
+
     # Single-use invoice can be fetched multiple times, only paid once.
     offer2 = l3.rpc.call('offer', {'amount': '1msat',
                                    'description': 'single-use test',
