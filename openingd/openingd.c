@@ -329,6 +329,16 @@ static void set_remote_upfront_shutdown(struct state *state,
 					    state->their_features,
 					    OPT_SHUTDOWN_ANYSEGWIT);
 
+	/* BOLT #2:
+	 *
+	 * - MUST include `upfront_shutdown_script` with either a valid
+         *   `shutdown_scriptpubkey` as required by `shutdown` `scriptpubkey`,
+         *   or a zero-length `shutdown_scriptpubkey` (ie. `0x0000`).
+	 */
+	/* We turn empty into NULL. */
+	if (tal_bytelen(shutdown_scriptpubkey) == 0)
+		shutdown_scriptpubkey = tal_free(shutdown_scriptpubkey);
+
 	state->upfront_shutdown_script[REMOTE]
 		= tal_steal(state, shutdown_scriptpubkey);
 
