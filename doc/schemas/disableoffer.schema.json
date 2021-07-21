@@ -12,7 +12,7 @@
 	},
 	"active": {
 	    "type": "boolean",
-	    "enum": [ "false" ],
+	    "enum": [ false ],
 	    "description": "Whether the offer can produce invoices/payments"
 	},
 	"single_use": {
