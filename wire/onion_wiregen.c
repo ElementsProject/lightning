@@ -98,7 +98,7 @@ fromwire_onionmsg_path(const tal_t *ctx, const u8 **cursor, size_t *plen)
 
  	fromwire_pubkey(cursor, plen, &onionmsg_path->node_id);
  	enclen = fromwire_u16(cursor, plen);
- 	onionmsg_path->enctlv = enclen ? tal_arr(onionmsg_path, u8, enclen) : NULL;
+ 	onionmsg_path->enctlv = tal_arr(onionmsg_path, u8, enclen);
 fromwire_u8_array(cursor, plen, onionmsg_path->enctlv, enclen);
 
 	return onionmsg_path;
@@ -340,7 +340,7 @@ static void fromwire_tlv_onionmsg_payload_enctlv(const u8 **cursor, size_t *plen
 {
 	struct tlv_onionmsg_payload *r = vrecord;
 
-	r->enctlv = *plen ? tal_arr(r, u8, *plen) : NULL;
+	r->enctlv = tal_arr(r, u8, *plen);
 fromwire_u8_array(cursor, plen, r->enctlv, *plen);
 }
 /* ONIONMSG_PAYLOAD MSG: blinding */
@@ -385,7 +385,7 @@ static void fromwire_tlv_onionmsg_payload_invoice_request(const u8 **cursor, siz
 {
 	struct tlv_onionmsg_payload *r = vrecord;
 
-	r->invoice_request = *plen ? tal_arr(r, u8, *plen) : NULL;
+	r->invoice_request = tal_arr(r, u8, *plen);
 fromwire_u8_array(cursor, plen, r->invoice_request, *plen);
 }
 /* ONIONMSG_PAYLOAD MSG: invoice */
@@ -407,7 +407,7 @@ static void fromwire_tlv_onionmsg_payload_invoice(const u8 **cursor, size_t *ple
 {
 	struct tlv_onionmsg_payload *r = vrecord;
 
-	r->invoice = *plen ? tal_arr(r, u8, *plen) : NULL;
+	r->invoice = tal_arr(r, u8, *plen);
 fromwire_u8_array(cursor, plen, r->invoice, *plen);
 }
 /* ONIONMSG_PAYLOAD MSG: invoice_error */
@@ -429,7 +429,7 @@ static void fromwire_tlv_onionmsg_payload_invoice_error(const u8 **cursor, size_
 {
 	struct tlv_onionmsg_payload *r = vrecord;
 
-	r->invoice_error = *plen ? tal_arr(r, u8, *plen) : NULL;
+	r->invoice_error = tal_arr(r, u8, *plen);
 fromwire_u8_array(cursor, plen, r->invoice_error, *plen);
 }
 
@@ -1026,4 +1026,4 @@ bool fromwire_mpp_timeout(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:fcaea2b057478205299b8935161c994fece0e410e6942503943747625ddcfc8a
+// SHA256STAMP:79946dd94a6cd6e0af297d3676c688228c7098e6b874469cd49b63fee97ac8cf
