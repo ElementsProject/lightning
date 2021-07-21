@@ -229,15 +229,11 @@ static struct command_result *listoffers_done(struct command *cmd,
 	 *   or unset exactly as they are in the `offer`:
 	 *   - `refund_for`
 	 *   - `description`
-	 *   - `vendor`
 	 */
 	err = inv_must_equal_offer(cmd, inv, refund_for);
 	if (err)
 		return err;
 	err = inv_must_equal_offer(cmd, inv, description);
-	if (err)
-		return err;
-	err = inv_must_equal_offer(cmd, inv, vendor);
 	if (err)
 		return err;
 

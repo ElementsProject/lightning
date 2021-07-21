@@ -4452,6 +4452,27 @@ def test_sendinvoice(node_factory, bitcoind):
                                 'label': 'test sendinvoice refund'})
     wait_for(lambda: only_one(l2.rpc.call('listoffers', [refund['offer_id']])['offers'])['used'] is True)
 
+    # Offer with vendor: we must not copy vendor into our invoice!
+    offer = l1.rpc.call('offerout', {'amount': '10000sat',
+                                     'description': 'simple test',
+                                     'vendor': "clightning test suite"})
+
+    out = l2.rpc.call('sendinvoice', {'offer': offer['bolt12'],
+                                      'label': 'test sendinvoice 3'})
+    assert out['label'] == 'test sendinvoice 3'
+    assert out['description'] == 'simple test'
+    assert 'vendor' not in out
+    assert 'bolt12' in out
+    assert 'payment_hash' in out
+    assert out['status'] == 'paid'
+    assert 'payment_preimage' in out
+    assert 'expires_at' in out
+    assert out['msatoshi'] == 10000000
+    assert out['amount_msat'] == Millisatoshi(10000000)
+    assert 'pay_index' in out
+    assert out['msatoshi_received'] == 10000000
+    assert out['amount_received_msat'] == Millisatoshi(10000000)
+
 
 def test_self_pay(node_factory):
     """Repro test for issue 4345: pay ourselves via the pay plugin.
