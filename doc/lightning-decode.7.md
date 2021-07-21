@@ -70,9 +70,9 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
   - **signature** (bip340sig): BIP-340 signature of the *node_id* on this offer
   - **amount_msat** (msat): the amount in bitcoin
   - **description** (string): the description of the purpose of the offer
-  - **timestamp** (u64): the UNIX timestamp of the invoice
+  - **created_at** (u64): the UNIX timestamp of invoice creation
   - **payment_hash** (hex): the hash of the *payment_preimage* (always 64 characters)
-  - **relative_expiry** (u32): the number of seconds after *timestamp* when this expires
+  - **relative_expiry** (u32): the number of seconds after *created_at* when this expires
   - **min_final_cltv_expiry** (u32): the number of blocks required by destination
   - **offer_id** (hex, optional): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
   - **chains** (array of hexs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
@@ -108,7 +108,7 @@ If **type** is "bolt12 invoice", and **valid** is *false*:
     - **warning_invoice_missing_blinded_payinfo**: Has **paths** without payinfo
     - **warning_invoice_invalid_blinded_payinfo**: Does not have exactly one payinfo for each of **paths**
     - **warning_invoice_missing_recurrence_basetime**: Has **recurrence_counter** without **recurrence_basetime**
-    - **warning_invoice_missing_timestamp**: Missing **timestamp**
+    - **warning_invoice_missing_created_at**: Missing **created_at**
     - **warning_invoice_missing_payment_hash**: Missing **payment_hash**
     - **warning_invoice_refund_signature_missing_payer_key**: Missing **payer_key** for refund_signature
     - **warning_invoice_refund_signature_invalid**: **refund_signature** incorrect
@@ -183,4 +183,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:8ca0b9178b8ea6575cd80291001263dc27f721664648086a7c1a02efcb545ee7)
+[comment]: # ( SHA256STAMP:fbbfc116c23489d4f346b4d5eb06dd922592c543ec68e5a76b6822b2658bd46d)

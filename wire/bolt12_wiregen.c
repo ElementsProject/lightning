@@ -1342,28 +1342,28 @@ static void fromwire_tlv_invoice_payer_info(const u8 **cursor, size_t *plen, voi
 	r->payer_info = *plen ? tal_arr(r, u8, *plen) : NULL;
 fromwire_u8_array(cursor, plen, r->payer_info, *plen);
 }
-/* INVOICE MSG: timestamp */
-static u8 *towire_tlv_invoice_timestamp(const tal_t *ctx, const void *vrecord)
+/* INVOICE MSG: created_at */
+static u8 *towire_tlv_invoice_created_at(const tal_t *ctx, const void *vrecord)
 {
 	const struct tlv_invoice *r = vrecord;
 	u8 *ptr;
 
-	if (!r->timestamp)
+	if (!r->created_at)
 		return NULL;
 
 
 	ptr = tal_arr(ctx, u8, 0);
 
-	towire_tu64(&ptr, *r->timestamp);
+	towire_tu64(&ptr, *r->created_at);
 	return ptr;
 }
-static void fromwire_tlv_invoice_timestamp(const u8 **cursor, size_t *plen, void *vrecord)
+static void fromwire_tlv_invoice_created_at(const u8 **cursor, size_t *plen, void *vrecord)
 {
 	struct tlv_invoice *r = vrecord;
 
-	    r->timestamp = tal(r, u64);
+	    r->created_at = tal(r, u64);
 
-*r->timestamp = fromwire_tu64(cursor, plen);
+*r->created_at = fromwire_tu64(cursor, plen);
 }
 /* INVOICE MSG: payment_hash */
 static u8 *towire_tlv_invoice_payment_hash(const tal_t *ctx, const void *vrecord)
@@ -1553,7 +1553,7 @@ static const struct tlv_record_type tlvs_invoice[] = {
 	{ 36, towire_tlv_invoice_recurrence_counter, fromwire_tlv_invoice_recurrence_counter },
 	{ 38, towire_tlv_invoice_payer_key, fromwire_tlv_invoice_payer_key },
 	{ 39, towire_tlv_invoice_payer_note, fromwire_tlv_invoice_payer_note },
-	{ 40, towire_tlv_invoice_timestamp, fromwire_tlv_invoice_timestamp },
+	{ 40, towire_tlv_invoice_created_at, fromwire_tlv_invoice_created_at },
 	{ 42, towire_tlv_invoice_payment_hash, fromwire_tlv_invoice_payment_hash },
 	{ 44, towire_tlv_invoice_relative_expiry, fromwire_tlv_invoice_relative_expiry },
 	{ 46, towire_tlv_invoice_cltv, fromwire_tlv_invoice_cltv },
@@ -1684,4 +1684,4 @@ bool invoice_error_is_valid(const struct tlv_invoice_error *record, size_t *err_
 	return tlv_fields_valid(record->fields, NULL, err_index);
 }
 
-// SHA256STAMP:27ffc38bc2be76e159508470734655f35e59d82927beb8c1f62917e592d76d10
+// SHA256STAMP:2946a3a3734bd6af218cb73b4d42ec16fe68c1041b48e084cc160810870bcdd5

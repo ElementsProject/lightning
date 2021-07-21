@@ -114,8 +114,8 @@ test_field(struct command *cmd,
  * - if the invoice corresponds to an offer with `recurrence`:
  * ...
  *   - if it sets `relative_expiry`:
- *     - MUST NOT set `relative_expiry` `seconds_from_timestamp` more than the
- *       number of seconds after `timestamp` that payment for this period will
+ *     - MUST NOT set `relative_expiry` `seconds_from_creation` more than the
+ *       number of seconds after `created_at` that payment for this period will
  *       be accepted.
  */
 static void set_recurring_inv_expiry(struct tlv_invoice *inv, u64 last_pay)
@@ -123,10 +123,10 @@ static void set_recurring_inv_expiry(struct tlv_invoice *inv, u64 last_pay)
 	inv->relative_expiry = tal(inv, u32);
 
 	/* Don't give them a 0 second invoice, even if it's true. */
-	if (last_pay <= *inv->timestamp)
+	if (last_pay <= *inv->created_at)
 		*inv->relative_expiry = 1;
 	else
-		*inv->relative_expiry = last_pay - *inv->timestamp;
+		*inv->relative_expiry = last_pay - *inv->created_at;
 
 	/* FIXME: Shorten expiry if we're doing currency conversion! */
 }
@@ -292,14 +292,14 @@ static struct command_result *check_period(struct command *cmd,
 			       ir->offer->recurrence_base,
 			       basetime, period_idx,
 			       &paywindow_start, &paywindow_end);
-	if (*ir->inv->timestamp < paywindow_start) {
+	if (*ir->inv->created_at < paywindow_start) {
 		return fail_invreq(cmd, ir,
 				   "period_index %"PRIu64
 				   " too early (start %"PRIu64")",
 				   period_idx,
 				   paywindow_start);
 	}
-	if (*ir->inv->timestamp > paywindow_end) {
+	if (*ir->inv->created_at > paywindow_end) {
 		return fail_invreq(cmd, ir,
 				   "period_index %"PRIu64
 				   " too late (ended %"PRIu64")",
@@ -327,9 +327,9 @@ static struct command_result *check_period(struct command *cmd,
 		u64 end = offer_period_start(basetime, period_idx + 1,
 					     ir->offer->recurrence);
 
-		if (*ir->inv->timestamp > start) {
+		if (*ir->inv->created_at > start) {
 			*ir->inv->amount
-				*= (double)((*ir->inv->timestamp - start)
+				*= (double)((*ir->inv->created_at - start)
 					    / (end - start));
 			/* Round up to make it non-zero if necessary. */
 			if (*ir->inv->amount == 0)
@@ -401,7 +401,7 @@ static struct command_result *check_previous_invoice(struct command *cmd,
 
 	/* No previous?  Just pass through */
 	if (*ir->invreq->recurrence_counter == 0)
-		return check_period(cmd, ir, *ir->inv->timestamp);
+		return check_period(cmd, ir, *ir->inv->created_at);
 
 	req = jsonrpc_request_start(cmd->plugin, cmd,
 				    "listinvoices",
@@ -806,8 +806,8 @@ static struct command_result *listoffers_done(struct command *cmd,
 
 	ir->inv->cltv = tal_dup(ir->inv, u32, &cltv_final);
 
-	ir->inv->timestamp = tal(ir->inv, u64);
-	*ir->inv->timestamp = time_now().ts.tv_sec;
+	ir->inv->created_at = tal(ir->inv, u64);
+	*ir->inv->created_at = time_now().ts.tv_sec;
 
 	/* We may require currency lookup; if so, do it now. */
 	if (ir->offer->amount && ir->offer->currency)

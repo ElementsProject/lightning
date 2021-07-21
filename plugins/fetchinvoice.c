@@ -1413,17 +1413,17 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 	}
 
 	/* BOLT-offers #12:
-	 *   - MUST set `timestamp` to the number of seconds since Midnight 1
-	 *    January 1970, UTC.
+	 *   - MUST set `created_at` to the number of seconds since Midnight 1
+	 *    January 1970, UTC when the offer was created.
 	 */
-	sent->inv->timestamp = tal(sent->inv, u64);
-	*sent->inv->timestamp = time_now().ts.tv_sec;
+	sent->inv->created_at = tal(sent->inv, u64);
+	*sent->inv->created_at = time_now().ts.tv_sec;
 
 	/* BOLT-offers #12:
 	 * - if the expiry for accepting payment is not 7200 seconds after
-	 *   `timestamp`:
-	 *   - MUST set `relative_expiry` `seconds_from_timestamp` to the number
-	 *     of seconds after `timestamp` that payment of this invoice should
+	 *   `created_at`:
+	 *   - MUST set `relative_expiry` `seconds_from_creation` to the number
+	 *     of seconds after `created_at` that payment of this invoice should
 	 *     not be attempted.
 	 */
 	if (sent->wait_timeout != 7200) {

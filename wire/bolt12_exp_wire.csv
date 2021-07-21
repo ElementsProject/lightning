@@ -102,12 +102,12 @@ tlvtype,invoice,payer_note,39
 tlvdata,invoice,payer_note,note,utf8,...
 tlvtype,invoice,payer_info,50
 tlvdata,invoice,payer_info,blob,byte,...
-tlvtype,invoice,timestamp,40
-tlvdata,invoice,timestamp,timestamp,tu64,
+tlvtype,invoice,created_at,40
+tlvdata,invoice,created_at,timestamp,tu64,
 tlvtype,invoice,payment_hash,42
 tlvdata,invoice,payment_hash,payment_hash,sha256,
 tlvtype,invoice,relative_expiry,44
-tlvdata,invoice,relative_expiry,seconds_from_timestamp,tu32,
+tlvdata,invoice,relative_expiry,seconds_from_creation,tu32,
 tlvtype,invoice,cltv,46
 tlvdata,invoice,cltv,min_final_cltv_expiry,tu32,
 tlvtype,invoice,fallbacks,48

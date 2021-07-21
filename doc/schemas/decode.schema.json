@@ -263,7 +263,7 @@
 		}
 	    },
 	    "then": {
-		"required": [ "node_id", "signature", "amount_msat", "description", "timestamp", "payment_hash", "relative_expiry", "min_final_cltv_expiry" ],
+		"required": [ "node_id", "signature", "amount_msat", "description", "created_at", "payment_hash", "relative_expiry", "min_final_cltv_expiry" ],
 		"additionalProperties": false,
 		"properties": {
 		    "type": { },
@@ -378,8 +378,11 @@
 			"description": "the payer-provided blob to derive payer_key"
 		    },
 		    "timestamp": {
+			"deprecated": true
+		    },
+		    "created_at": {
 			"type": "u64",
-			"description": "the UNIX timestamp of the invoice"
+			"description": "the UNIX timestamp of invoice creation"
 		    },
 		    "payment_hash": {
 			"type": "hex",
@@ -389,7 +392,7 @@
 		    },
 		    "relative_expiry": {
 			"type": "u32",
-			"description": "the number of seconds after *timestamp* when this expires"
+			"description": "the number of seconds after *created_at* when this expires"
 		    },
 		    "min_final_cltv_expiry": {
 			"type": "u32",
@@ -462,6 +465,7 @@
 		    "payer_key": { },
 		    "payer_info": { },
 		    "timestamp": { },
+		    "created_at": { },
 		    "payment_hash": { },
 		    "relative_expiry": { },
 		    "min_final_cltv_expiry": { },
@@ -487,9 +491,9 @@
 			"type": "string",
 			"description": "Has **recurrence_counter** without **recurrence_basetime**"
 		    },
-		    "warning_invoice_missing_timestamp": {
+		    "warning_invoice_missing_created_at": {
 			"type": "string",
-			"description": "Missing **timestamp**"
+			"description": "Missing **created_at**"
 		    },
 		    "warning_invoice_missing_payment_hash": {
 			"type": "string",
