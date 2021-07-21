@@ -255,6 +255,31 @@ struct offer_info {
 	bool *single_use;
 };
 
+static struct command_result *check_result(struct command *cmd,
+					   const char *buf,
+					   const jsmntok_t *result,
+					   void *arg UNNEEDED)
+{
+	bool active;
+
+	/* If it's inactive, we can't return it, */
+	if (!json_to_bool(buf, json_get_member(buf, result, "active"),
+			  &active)) {
+		return command_fail(cmd,
+				    LIGHTNINGD,
+				    "Bad creaoffer status reply %.*s",
+				    json_tok_full_len(result),
+				    json_tok_full(buf, result));
+	}
+	if (!active)
+		return command_fail(cmd,
+				    OFFER_ALREADY_EXISTS,
+				    "Offer already exists, but isn't active");
+
+	/* Otherwise, push through the result. */
+	return forward_result(cmd, buf, result, arg);
+}
+
 static struct command_result *create_offer(struct command *cmd,
 					   struct offer_info *offinfo)
 {
@@ -262,7 +287,7 @@ static struct command_result *create_offer(struct command *cmd,
 
 	/* We simply pass this through. */
 	req = jsonrpc_request_start(cmd->plugin, cmd, "createoffer",
-				    forward_result, forward_error,
+				    check_result, forward_error,
 				    offinfo);
 	json_add_string(req->js, "bolt12",
 			offer_encode(tmpctx, offinfo->offer));
@@ -436,9 +461,8 @@ struct command_result *json_offerout(struct command *cmd,
 
 	offer->node_id = tal_dup(offer, struct pubkey32, &id);
 
-	/* We simply pass this through. */
 	req = jsonrpc_request_start(cmd->plugin, cmd, "createoffer",
-				    forward_result, forward_error,
+				    check_result, forward_error,
 				    offer);
 	json_add_string(req->js, "bolt12", offer_encode(tmpctx, offer));
 	if (label)

@@ -11,9 +11,10 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **offer** RPC command creates an offer, which is a precursor to
-creating one or more invoices.  It automatically enables the processing of
-an incoming invoice_request, and issuing of invoices.
+The **offer** RPC command creates an offer (or returns an existing
+one), which is a precursor to creating one or more invoices.  It
+automatically enables the processing of an incoming invoice_request,
+and issuing of invoices.
 
 Note that it creates two variants of the offer: a signed and an
 unsigned one (which is smaller).  Wallets should accept both: the
@@ -100,7 +101,8 @@ On success, an object is returned, containing:
 - **single_use** (boolean): whether this expires as soon as it's paid (reflects the *single_use* parameter)
 - **bolt12** (string): the bolt12 encoding of the offer
 - **bolt12_unsigned** (string): the bolt12 encoding of the offer, without a signature
-- **used** (boolean): True if an associated invoice has been paid (always *false*)
+- **used** (boolean): True if an associated invoice has been paid
+- **created** (boolean): false if the offer already existed
 - **label** (string, optional): the (optional) user-specified label
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -109,9 +111,12 @@ lightning process fails before responding, the caller should use
 lightning-listoffers(7) to query whether this offer was created or
 not.
 
+If the offer already existed, and is still active, that is returned;
+if it's not active then this call fails.
+
 The following error codes may occur:
 - -1: Catchall nonspecific error.
-- 1000: Offer with this offer_id already exists.
+- 1000: Offer with this offer_id already exists (but is not active).
 
 AUTHOR
 ------
@@ -128,4 +133,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:0f9cfd3cc68aaba20af0eee763c93b475016619d960e3f5bbc0b762a809f0fef)
+[comment]: # ( SHA256STAMP:53f1460e28d45129b2c00b7116c87eb47a5b717f7912f499e864f4aa28b320fa)

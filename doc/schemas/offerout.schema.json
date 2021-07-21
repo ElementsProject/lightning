@@ -2,7 +2,7 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
     "additionalProperties": false,
-    "required": [ "offer_id", "active", "single_use", "bolt12", "bolt12_unsigned", "used" ],
+    "required": [ "offer_id", "active", "single_use", "bolt12", "bolt12_unsigned", "used", "created" ],
     "properties": {
 	"offer_id": {
 	    "type": "hex",
@@ -32,6 +32,10 @@
 	    "type": "boolean",
 	    "enum": [ false ],
 	    "description": "True if an incoming invoice has been paid"
+	},
+	"created": {
+	    "type": "boolean",
+	    "description": "false if the offer already existed"
 	},
 	"label": {
 	    "type": "string",

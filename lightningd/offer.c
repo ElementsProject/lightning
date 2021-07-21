@@ -1,3 +1,4 @@
+#include <ccan/cast/cast.h>
 #include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
 #include <common/configdir.h>
@@ -91,6 +92,7 @@ static struct command_result *json_createoffer(struct command *cmd,
 	bool *single_use;
 	enum offer_status status;
 	struct pubkey32 key;
+	bool created;
 
 	if (!param(cmd, buffer, params,
 		   p_req("bolt12", param_b12_offer, &offer),
@@ -110,17 +112,28 @@ static struct command_result *json_createoffer(struct command *cmd,
 	hsm_sign_b12(cmd->ld, "offer", "signature", &merkle, NULL, &key,
 		     offer->signature);
 	b12str = offer_encode(cmd, offer);
-	if (!wallet_offer_create(cmd->ld->wallet, &merkle, b12str, label,
-				 status)) {
-		return command_fail(cmd,
-				    OFFER_ALREADY_EXISTS,
-				    "Duplicate offer");
-	}
+
+	/* If it already exists, we use that one instead (and then
+	 * the offer plugin will complain if it's inactive or expired) */
+	if (!wallet_offer_create(cmd->ld->wallet, &merkle,
+				 b12str, label, status)) {
+		if (!wallet_offer_find(cmd, cmd->ld->wallet, &merkle,
+				       cast_const2(const struct json_escape **,
+						   &label),
+				       &status)) {
+			return command_fail(cmd, LIGHTNINGD,
+					    "Could not create, nor find offer");
+		}
+		created = false;
+	} else
+		created = true;
+
 	offer->signature = tal_free(offer->signature);
 	b12str_nosig = offer_encode(cmd, offer);
 
 	response = json_stream_success(cmd);
 	json_populate_offer(response, &merkle, b12str, b12str_nosig, label, status);
+	json_add_bool(response, "created", created);
 	return command_success(cmd, response);
 }
 

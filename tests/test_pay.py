@@ -4122,6 +4122,7 @@ def test_fetchinvoice(node_factory, bitcoind):
     # Simple offer first.
     offer1 = l3.rpc.call('offer', {'amount': '2msat',
                                    'description': 'simple test'})
+    assert offer1['created'] is True
 
     inv1 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
     inv2 = l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12_unsigned'],
@@ -4273,6 +4274,15 @@ def test_fetchinvoice(node_factory, bitcoind):
     l3.daemon.wait_for_log("Unknown command 'currencyconvert'")
     # But we can still pay the (already-converted) invoice.
     l1.rpc.pay(inv['invoice'])
+
+    # Identical creation gives it again, just with created false.
+    offer1 = l3.rpc.call('offer', {'amount': '2msat',
+                                   'description': 'simple test'})
+    assert offer1['created'] is False
+    l3.rpc.call('disableoffer', {'offer_id': offer1['offer_id']})
+    with pytest.raises(RpcError, match="1000.*Offer already exists, but isn't active"):
+        l3.rpc.call('offer', {'amount': '2msat',
+                              'description': 'simple test'})
 
     # Test timeout.
     l3.stop()

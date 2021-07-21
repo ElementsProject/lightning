@@ -61,6 +61,7 @@ On success, an object is returned, containing:
 - **bolt12** (string): the bolt12 encoding of the offer
 - **bolt12_unsigned** (string): the bolt12 encoding of the offer, without a signature
 - **used** (boolean): True if an incoming invoice has been paid (always *false*)
+- **created** (boolean): false if the offer already existed
 - **label** (string, optional): the (optional) user-specified label
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -97,4 +98,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:2b7e7b543a88a10dbfbca2508e034af79f43ed0845abdb9df1fdf7e28ee33c26)
+[comment]: # ( SHA256STAMP:14fada9336956a08b6d55c4ce01fcb62726cbdef9a065f1966335f61c4e91ce5)
