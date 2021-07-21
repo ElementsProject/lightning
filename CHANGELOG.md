@@ -4,6 +4,122 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.10.1rc1] - 2021-07-21: "<awaiting name selection>"
+
+This release named by @nalinbhardwaj.
+
+### Added
+
+ - JSON-RPC: `invoice` now outputs explicit `payment_secret` it its own field. ([#4646])
+ - JSON-RPC: `listchannels` can be queried by `destination`. ([#4614])
+ - JSON-RPC: `invoice` now gives `warning_private_unused` if unused unannounced channels could have provided sufficient capacity. ([#4585])
+ - JSON-RPC: `withdraw`, `close` (and others) now accept taproot (and other future) segwit addresses. ([#4591])
+ - JSON-RPC: HTLCs in `listpeers` are now annotated with a status if they are waiting on an `htlc_accepted` hook of a plugin. ([#4580])
+ - JSON-RPC: `close` returns `type` "unopened" if it simply discards channel instead of empty object. ([#4501])
+ - JSON-RPC: `listfunds` has a new `reserved_to_block` field. ([#4510])
+ - JSON-RPC: `createonion` RPC command now accepts an optional `onion_size`. ([#4519])
+ - JSON-RPC: new command `parsefeerate` which takes a feerate string and returns the calculated perkw/perkb ([#4639])
+ - Protocol: `option_shutdown_anysegwit` allows future segwit versions on shutdown transactions. ([#4556])
+ - Protocol: We now send and accept `option_shutdown_anysegwit` so you can close channels to v1+ segwit addresses. ([#4591])
+ - Plugins: Plugins may now send custom notifications that other plugins can subscribe to. ([#4496])
+ - Plugins: Add `funder` plugin, which allows you to setup a policy for funding v2 channel open requests. Requres --experimental-dual-fund option ([#4489])
+ - Plugins: `funder` plugin includes command `funderupdate` which will show current funding configuration and allow you to modify them ([#4489])
+ - Plugins: Restart plugin on `rescan` when binary was changed. ([#4609])
+ - keysend: `keysend` can now reach non-public nodes by providing the `routehints` argument if they are known. ([#4611])
+ - keysend: You can now add extra TLVs to a payment sent via `keysend` ([#4610])
+ - config: `force_feerates` option to allow overriding feerate estimates (mainly for regtest). ([#4629])
+ - config: New option `log-timestamps` allow disabling of timestamp prefix in logs. ([#4504])
+ - hsmtool: allow piped passwords ([#4571])
+ - libhsmd: Added python bindings for `libhsmd` ([#4498])
+ - libhsmd: Extracted the `hsmd` logic into its own library for other projects to use ([#4497])
+ - lightningd: we now try to restart if subdaemons are upgraded underneath us. ([#4471])
+
+
+### Changed
+
+ - JSON-RPC: `invoice` now allows creation of giant invoices (>= 2^32 msat) ([#4606])
+ - JSON-RPC: `invoice` warnings are now better defined, and `warning_mpp_capacity` is no longer included (since `warning_capacity` covers that). ([#4585])
+ - JSON-RPC: `getroute` is now implemented in a plugin. ([#4585])
+ - JSON-RPC: `sendonion` no longer requires the gratuitous `direction` and `channel` fields in the `firsthop` parameter. ([#4537])
+ - JSON-RPC: moved dev-sendcustommsg to sendcustommsg ([#4650])
+ - JSON-RPC: `listpays` output is now ordered by the `created_at` timestamp. ([#4518])
+ - JSON-RPC: `listsendpays` output is now ordered by `id`. ([#4518])
+ - JSON-RPC: `autocleaninvoice` now returns an object, not a raw string. ([#4501])
+ - JSON-RPC: `fundpsbt` will not include UTXOs that aren't economic (can't pay for their own fees), unless 'all' ([#4509])
+ - JSON-RPC: `close` now always returns notifications on delays. ([#4465])
+ - Protocol: All new invoices require a `payment_secret` (i.e. modern TLV format onion) ([#4646])
+ - Protocol: We can no longer connect to peers which don't support `payment_secret`. ([#4646])
+ - Protocol: We will now reestablish and negotiate mutual close on channels we've already closed (great if peer has lost their database). ([#4559])
+ - Protocol: We now assume nodes support TLV onions (non-legacy) unless we have a `node_announcement` which says they don't. ([#4646])
+ - Protocol: Use a more accurate fee for mutual close negotiation. ([#4619])
+ - Protocol: channel feerates reduced to bitcoind's "6 block ECONOMICAL" rate. ([#4507])
+ - keysend now uses 22 for the final CLTV, making it rust-lightning compatible. ([#4548])
+ - Plugins: `fundchannel` and `multifundchannel` will now reserve funding they use for 2 weeks instead of 12 hours. ([#4510])
+ - Plugins: we now always send `allow-deprecated-apis` in getmanifest. ([#4465])
+
+
+### Deprecated
+
+Note: You should always set `allow-deprecated-apis=false` to test for changes.
+ - lightningd: `enable-autotor-v2-mode` option.  Use v3.  See https://blog.torproject.org/v2-deprecation-timeline. ([#4549])
+ - lightningd: v2 Tor addresses.  Use v3.  See https://blog.torproject.org/v2-deprecation-timeline. ([#4549])
+ - JSON-RPC: `listtransactions` `outputs` `satoshis` field (use `msat` instead). ([#4594])
+ - JSON-RPC: `listfunds` `channels` `funding_allocation_msat` and `funding_msat`: use `funding`. ([#4594])
+ - JSON-RPC: `listfunds` `channels` `last_tx_fee`: use `last_tx_fee_msat`. ([#4594])
+ - JSON-RPC: `listfunds` `channels` `closer` is now omitted if it does not apply, not JSON `null`. ([#4594])
+
+### Removed
+
+ - JSON-RPC: `newaddr` no longer includes `address` field (deprecated in 0.7.1) ([#4465])
+ - pyln: removed deprecated `fundchannel`/`fundchannel_start` `satoshi` arg. ([#4465])
+ - pyln: removed deprecated pay/sendpay `description` arg. ([#4465])
+ - pyln: removed deprecated close `force` variant. ([#4465])
+
+### Fixed
+
+ - JSON-RPC: `listinvoice` no longer crashes if given an invalid (or bolt12) `invstring` argument. ([#4625])
+ - JSON-RPC: `listconfigs` would list some boolean options as strings `"true"` or `"false"` instead of using JSON booleans. ([#4594])
+ - Protocol: don't ever send 0 `fee_updates` (regtest bug). ([#4629])
+ - Protocol: We could get stuck on signature exchange if we needed to retransmit the final `revoke_and_ack`. ([#4559])
+ - Protocol: Validate chain hash for `gossip_timestamp_filter` messages ([#4514])
+ - Protocol: We would sometimes gratuitously disconnect 30 seconds after an HTLC failed. ([#4550])
+ - Protocol: handle complex feerate transitions correctly. ([#4480])
+ - Protocol: Don't create more than one feerate change at a time, as this seems to desync with LND. ([#4480])
+ - Build: Fixes `make full-check` errors on macOS ([#4613])
+ - Build: Fixes `make` with `--enable-developer` option on macOS. ([#4613])
+ - Docs: Epic documentation rewrite: each now lists complete and accurate JSON output, tested against testsuite. ([#4594])
+ - Config: `addr` autotor and statictor /torport arguments now advertized correctly. ([#4603])
+ - pay: Fixed an issue when filtering routehints when we can't find ourselves in the local network view. ([#4581])
+ - pay: The presplitter mod will no longer exhaust the HTLC budget. ([#4563])
+ - pay: Fix occasional crash paying an invoice with a routehint to us. ([#4555])
+ - Compat: Handle windows-style newlines and other trailing whitespaces correctly in bitcoin-cli interface ([#4502])
+
+
+### EXPERIMENTAL
+
+ - JSON-RPC: `listpeers` now includes the `scratch_txid` for every inflight (if is a dual-funded channel) ([#4521])
+ - JSON-RPC: for v2 channels, we now list the inflights information for a channel ([#4521])
+ - JSON-RPC: `fetchinvoice` can take a payer note, and `listinvoice` will show the `payer_notes` received. ([#4625])
+ - JSON-RPC: `fetchinvoice` and `sendinvoice` will connect directly if they can't find an onionmessage route. ([#4625])
+ - JSON-RPC: `openchannel_init` now takes a `requested_amt`, which is an amount to request from peer ([#4639])
+ - JSON-RPC: `fundchannel` now takes optional `request_amt` parameter ([#4639])
+ - JSON-RPC: `fundchannel`, `multifundchannel`, and `openchannel_init` now accept a `compact_lease` for any requested funds ([#4639])
+ - JSON-RPC: close now has parameter to force close a leased channel (`option_will_fund`) ([#4639])
+ - JSON-RPC: `listnodes` now includes the `lease_rates`, if available ([#4639])
+ - JSON-RPC: new RPC `setleaserates`, for passing in the rates to advertise for a channel lease (`option_will_fund`) ([#4639])
+ - JSON-RPC: `decode` now gives a `valid` boolean (it does partial decodes of some invalid data). ([#4501])
+ - JSON-RPC: `listoffers` now shows `local_offer_id` when listing all offers. ([#4625])
+ - Protocol: we can now upgrade old channels to `option_static_remotekey`. See https://github.com/lightningnetwork/lightning-rfc/pull/868 ([#4532])
+ - Protocol: we support the quiescence protocol from https://github.com/lightningnetwork/lightning-rfc/pull/869 ([#4520])
+ - Protocol: Replaces `init_rbf`'s `fee_step` for RBF of v2 opens with `funding_feerate_perkw`, breaking change ([#4648])
+ - Protocol: BOLT12 offers can now be unsigned, for really short QR codes. ([#4625])
+ - Protocol: offer signature format changed. ([#4630])
+ - Plugins: `rbf_channel` hook has `channel_max_msat` parameter ([#4489])
+ - Plugins: `openchannel2` hook now includes optional fields for a channel lease request ([#4639])
+ - Plugins: add a `channel_max_msat` value to the `openchannel2` hook. Tells you the total max funding this channel is allowed to have. ([#4489])
+ - funder: `funderupdate` command to view and update params for contributing our wallet funds to v2 channel openings. Provides params for enabling `option_will_fund`. ([#4664])
+
+
 ## [0.10.0] - 2021-03-28: Neutralizing Fee Therapy
 
 This release named by @jsarenik.
@@ -1169,6 +1285,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
+[0.10.1rc1]: https://github.com/ElementsProject/lightning/releases/tag/v0.10.1rc1
 [0.10.0]: https://github.com/ElementsProject/lightning/releases/tag/0.10.0
 [0.9.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.2
 [0.9.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.1
