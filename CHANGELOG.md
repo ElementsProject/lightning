@@ -1286,7 +1286,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
 [0.10.1rc1]: https://github.com/ElementsProject/lightning/releases/tag/v0.10.1rc1
-[0.10.0]: https://github.com/ElementsProject/lightning/releases/tag/0.10.0
+[0.10.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.10.0
 [0.9.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.2
 [0.9.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.1
 [0.9.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.0
