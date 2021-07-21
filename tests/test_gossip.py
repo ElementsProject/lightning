@@ -1964,3 +1964,18 @@ def test_addgossip(node_factory):
 
     with pytest.raises(RpcError, match='Bad signature'):
         l3.rpc.addgossip(badupdate)
+
+
+def test_parms_listforwards(node_factory):
+    """
+    Simple test to ensure that the order of the listforwards
+    is correct as describe in the documentation.
+
+    This test is written by a issue report in the IR channel,
+    it is simple and not useful, but it is good to have to avoid
+    simile errors in the future.
+    """
+    l1, _ = node_factory.line_graph(2)
+
+    forwards = l1.rpc.listforwards("settled")["forwards"]
+    assert len(forwards) == 0
