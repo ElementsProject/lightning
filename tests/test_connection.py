@@ -3658,8 +3658,8 @@ def test_upgrade_statickey_fail(node_factory, executor, bitcoind):
     l1.rpc.disconnect(l2.info['id'], force=True)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
-    l1.daemon.wait_for_log('option_static_remotekey enabled at 2/2')
-    l2.daemon.wait_for_log('option_static_remotekey enabled at 2/2')
+    l1.daemon.wait_for_log('option_static_remotekey enabled at 2/2', timeout=360)
+    l2.daemon.wait_for_log('option_static_remotekey enabled at 2/2', timeout=360)
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "quiescence is experimental")
