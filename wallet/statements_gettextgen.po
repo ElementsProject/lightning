@@ -1641,50 +1641,69 @@ msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
 <<<<<<< refs/remotes/ElementsProject/master
 <<<<<<< refs/remotes/ElementsProject/master
+<<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:826f40774d133dbfa18209685ab964d2915e303346b964107ac4974275910111
 =======
 =======
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+=======
+>>>>>>> doc: Update doc with the new parameter supported
 <<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:0b3b17a4eb95067fdebc9d90c962c46e40fdef2002f92856cc31800ab37fbe59
 =======
 =======
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+=======
+>>>>>>> doc: Update doc with the new parameter supported
 <<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:651a6c15e8780351cd32a4e6dc3011b1c5fc2af6308b0e65a442dda2a3874e19
 =======
 =======
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+=======
+>>>>>>> doc: Update doc with the new parameter supported
 <<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:35e10cb3ec34af54b6d78d9eea1aefa0861ef9acbfe0e78745d24b8e49e50b05
 =======
 =======
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+=======
+>>>>>>> doc: Update doc with the new parameter supported
 <<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:d098fea63dcba84aefff5cf924cbc455caf9d2ec13cb28ad9ab929bb001a12e6
 =======
 =======
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+=======
+>>>>>>> doc: Update doc with the new parameter supported
 <<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:e7f23b938c7ee86b0178ca11d8d3df3f08dec52e205e0778be1f5a0b607f52f6
 =======
 =======
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+=======
+>>>>>>> doc: Update doc with the new parameter supported
 <<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:8878e1ee71d04ea6302c18aeb02f59c56e086a7e5a4647ddbe67bc2ef7c07275
 =======
 =======
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+=======
+>>>>>>> doc: Update doc with the new parameter supported
 <<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:51fa10c40312c4845f05157420486d57cc8c5ace7b7da7a92c8e496f48ff0dcc
 =======
 =======
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+=======
+>>>>>>> doc: Update doc with the new parameter supported
 <<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:d0ba3b9e4e392f7327662f333f4712582f7553a819d588ebb3641b229215e90f
 =======
 =======
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+=======
+>>>>>>> doc: Update doc with the new parameter supported
 <<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:3652b5850f08383c0f0c01a7f11c1a22ec2b4ac16018152d2770a73674fb05ec
 =======
@@ -1729,12 +1748,42 @@ msgstr ""
 #  SHA256STAMP:697c27016716f435d1ecb4ec3fca117316f779d88c02dbde7ea3214b4bc0a2c7
 >>>>>>> wallet db: Support the query on database with status and payment hash.
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+=======
+=======
+=======
+=======
+=======
+=======
+=======
+=======
+=======
+=======
+#  SHA256STAMP:de612e43f4a76fed487047d802d20cc7185cf5650ed31bc01efb89c495bfbb14
+>>>>>>> doc: Update doc with the new parameter supported
+>>>>>>> doc: Update doc with the new parameter supported
+>>>>>>> doc: Update doc with the new parameter supported
+>>>>>>> doc: Update doc with the new parameter supported
+>>>>>>> doc: Update doc with the new parameter supported
+>>>>>>> doc: Update doc with the new parameter supported
+>>>>>>> doc: Update doc with the new parameter supported
+>>>>>>> doc: Update doc with the new parameter supported
+>>>>>>> doc: Update doc with the new parameter supported
+>>>>>>> doc: Update doc with the new parameter supported

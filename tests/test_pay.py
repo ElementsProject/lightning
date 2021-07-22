@@ -4630,7 +4630,7 @@ def test_listpays_with_filter_by_status(node_factory, bitcoind):
     wait_for(lambda: l2.rpc.listpays(inv['bolt11'])['pays'][0]['status'] == 'complete')
 
     # test if the node is still ready
-    payments = l2.rpc.call("listpays", {"status": 'failed'})
+    payments = l2.rpc.listpays(status='failed')
 
     assert len(payments['pays']) == 0
 
