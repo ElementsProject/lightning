@@ -10,6 +10,7 @@ COMMON_SRC_NOGEN :=				\
 	common/bip32.c				\
 	common/blinding.c			\
 	common/blindedpath.c			\
+	common/blockheight_states.c		\
 	common/bolt11.c				\
 	common/bolt11_json.c			\
 	common/bolt12.c				\
@@ -110,6 +111,13 @@ COMMON_HEADERS := $(COMMON_HEADERS_GEN) $(COMMON_HEADERS_NOGEN)
 COMMON_SRC := $(COMMON_SRC_NOGEN) $(COMMON_SRC_GEN)
 
 COMMON_OBJS := $(COMMON_SRC:.c=.o)
+
+# Check that all h and c files are in the Makefile!
+check-common-files:
+	@$(call VERBOSE, "MISSING-SRC common", [ "$(filter-out $(COMMON_SRC), $(wildcard common/*.c))" = "" ])
+	@$(call VERBOSE, "MISSING-HEADERS common", [ "$(filter-out $(COMMON_HEADERS) $(COMMON_SRC:.c=.h), $(wildcard common/*.h))" = "" ])
+
+check-source: check-common-files
 
 # Common objects depends on bitcoin/ external/ and ccan
 $(COMMON_OBJS): $(CCAN_HEADERS) $(BITCOIN_HEADERS) $(EXTERNAL_HEADERS) $(COMMON_HEADERS_GEN)
