@@ -91,6 +91,8 @@ def hello(plugin, name="world"):
 @plugin.init()
 def init(options, configuration, plugin):
     plugin.log("Plugin helloworld.py initialized")
+    # This can also return {'disabled': <reason>} to self-disable,
+	# but normally it returns None.
 
 
 @plugin.subscribe("connect")
