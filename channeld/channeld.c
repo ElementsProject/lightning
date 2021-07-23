@@ -2451,9 +2451,11 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 					channel_feerate(peer->channel, REMOTE));
 		sync_crypto_write(peer->pps, take(msg));
 
-		msg = towire_update_blockheight(NULL, &peer->channel_id,
-						channel_blockheight(peer->channel, REMOTE));
-		sync_crypto_write(peer->pps, take(msg));
+		if (peer->channel->lease_expiry > 0) {
+			msg = towire_update_blockheight(NULL, &peer->channel_id,
+							channel_blockheight(peer->channel, REMOTE));
+			sync_crypto_write(peer->pps, take(msg));
+		}
 	}
 
 	/* Re-send the commitment_signed itself. */
