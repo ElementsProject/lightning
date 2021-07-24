@@ -789,6 +789,21 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 				 channel_add_err_name(add_err));
 }
 
+/* We don't get upset if they're outside the range, as long as they're
+ * improving (or at least, not getting worse!). */
+static bool feerate_same_or_better(const struct channel *channel,
+				   u32 feerate, u32 feerate_min, u32 feerate_max)
+{
+	u32 current = channel_feerate(channel, LOCAL);
+
+	/* Too low?  But is it going upwards?  */
+	if (feerate < feerate_min)
+		return feerate >= current;
+	if (feerate > feerate_max)
+		return feerate <= current;
+	return true;
+}
+
 static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 {
 	struct channel_id channel_id;
@@ -820,10 +835,14 @@ static void handle_peer_feechange(struct peer *peer, const u8 *msg)
 	 *     unreasonably large:
 	 *     - SHOULD fail the channel.
 	 */
-	if (feerate < peer->feerate_min || feerate > peer->feerate_max)
+	if (!feerate_same_or_better(peer->channel, feerate,
+				    peer->feerate_min, peer->feerate_max))
 		peer_failed_warn(peer->pps, &peer->channel_id,
-				 "update_fee %u outside range %u-%u",
-				 feerate, peer->feerate_min, peer->feerate_max);
+				 "update_fee %u outside range %u-%u"
+				 " (currently %u)",
+				 feerate,
+				 peer->feerate_min, peer->feerate_max,
+				 channel_feerate(peer->channel, LOCAL));
 
 	/* BOLT #2:
 	 *

@@ -3710,3 +3710,26 @@ def test_htlc_failed_noclose(node_factory):
 
     time.sleep(35)
     assert l1.rpc.getpeer(l2.info['id'])['connected']
+
+
+@pytest.mark.developer("dev-no-reconnect required")
+def test_old_feerate(node_factory):
+    """Test retransmission of old, now-unacceptable, feerate"""
+    l1, l2 = node_factory.line_graph(2, opts={'feerates': (75000, 75000, 75000, 75000),
+                                              'may_reconnect': True,
+                                              'dev-no-reconnect': None})
+
+    l1.pay(l2, 1000)
+    l1.rpc.disconnect(l2.info['id'], force=True)
+
+    # Drop acceptable feerate by l2
+    l2.set_feerates((7000, 7000, 7000, 7000))
+    l2.restart()
+
+    # Minor change to l1, so it sends update_fee
+    l1.set_feerates((74900, 74900, 74900, 74900))
+    l1.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # This will timeout if l2 didn't accept fee.
+    l1.pay(l2, 1000)
