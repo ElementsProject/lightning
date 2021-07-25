@@ -145,6 +145,10 @@ jobs:
             COMPAT: 0
             TEST_GROUP: 2
             TEST_GROUP_COUNT: 2
+          - CFG: "DUAL_FUND"
+            EXPERIMENTAL_DUAL_FUND: 1
+            DEVELOPER: 1
+            COMPAT: 0
           # Various other configurations
           - CFG: "Elements"
             NETWORK: liquid-regtest
