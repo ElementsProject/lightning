@@ -70,9 +70,6 @@ enum dualopend_wire {
         WIRE_DUALOPEND_FAIL_FALLEN_BEHIND = 1028,
         /*  Shutdown is complete */
         WIRE_DUALOPEND_SHUTDOWN_COMPLETE = 7025,
-        /*  master -> dualopend: do you have a memleak? */
-        WIRE_DUALOPEND_DEV_MEMLEAK = 7033,
-        WIRE_DUALOPEND_DEV_MEMLEAK_REPLY = 7133,
         /*  dualopend -> master: this was a dry run */
         WIRE_DUALOPEND_DRY_RUN = 7026,
         /*  dualopend -> master:  validate liqudity offer sig */
@@ -212,15 +209,6 @@ bool fromwire_dualopend_fail_fallen_behind(const void *p);
 u8 *towire_dualopend_shutdown_complete(const tal_t *ctx, const struct per_peer_state *per_peer_state);
 bool fromwire_dualopend_shutdown_complete(const tal_t *ctx, const void *p, struct per_peer_state **per_peer_state);
 
-/* WIRE: DUALOPEND_DEV_MEMLEAK */
-/*  master -> dualopend: do you have a memleak? */
-u8 *towire_dualopend_dev_memleak(const tal_t *ctx);
-bool fromwire_dualopend_dev_memleak(const void *p);
-
-/* WIRE: DUALOPEND_DEV_MEMLEAK_REPLY */
-u8 *towire_dualopend_dev_memleak_reply(const tal_t *ctx, bool leak);
-bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak);
-
 /* WIRE: DUALOPEND_DRY_RUN */
 /*  dualopend -> master: this was a dry run */
 u8 *towire_dualopend_dry_run(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat our_funding, struct amount_sat their_funding, const struct lease_rates *lease_rates);
@@ -237,4 +225,4 @@ bool fromwire_dualopend_validate_lease_reply(const tal_t *ctx, const void *p, wi
 
 
 #endif /* LIGHTNING_OPENINGD_DUALOPEND_WIREGEN_H */
-// SHA256STAMP:323fc0085091d47b8f1f66ee5455fd229fdb4a29fc43711ac81cc5fe9eb9b696
+// SHA256STAMP:bedb1217727e81cbd377567f3db8348b524bd79ccc7030f338c800e84c47b368

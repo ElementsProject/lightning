@@ -213,15 +213,10 @@ static void opening_memleak_req_done(struct subd *open_daemon,
 	bool found_leak;
 	struct peer *p;
 
-	if (streq(open_daemon->name, "dualopend"))
-		p = ((struct channel *)open_daemon->channel)->peer;
-	else
-		p = ((struct uncommitted_channel *)open_daemon->channel)->peer;
+	p = ((struct uncommitted_channel *)open_daemon->channel)->peer;
 
 	tal_del_destructor2(open_daemon, opening_died_forget_memleak, cmd);
-	if (!fromwire_openingd_dev_memleak_reply(msg, &found_leak) &&
-			!fromwire_dualopend_dev_memleak_reply(msg,
-							      &found_leak)) {
+	if (!fromwire_openingd_dev_memleak_reply(msg, &found_leak)) {
 		was_pending(command_fail(cmd, LIGHTNINGD,
 					 "Bad opening_dev_memleak"));
 		return;
@@ -263,11 +258,11 @@ static void opening_memleak_req_next(struct command *cmd, struct peer *prev)
 		if (!open_daemon)
 			continue;
 
+		/* FIXME: dualopend doesn't support memleak when we ask */
 		if (streq(open_daemon->name, "dualopend"))
-			msg = towire_dualopend_dev_memleak(NULL);
-		else
-			msg = towire_openingd_dev_memleak(NULL);
+			continue;
 
+		msg = towire_openingd_dev_memleak(NULL);
 		subd_req(p, open_daemon, take(msg), -1, 0,
 			 opening_memleak_req_done, cmd);
 		/* Just in case it dies before replying! */
