@@ -45,6 +45,7 @@ proposes a closing fee of 3000 satoshi and our estimate shows it must be 4000:
 insist on our fee as much as possible.
 * "100%": our next proposal will be 3000. This is the most relaxed case when
 we quickly accept the peer's proposal.
+ 
 The default is "50%".
 
 *wrong_funding_txid* can only be specified if both sides have offered
