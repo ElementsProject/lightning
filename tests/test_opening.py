@@ -32,7 +32,7 @@ def test_queryrates(node_factory, bitcoind):
 
     l2.rpc.call('funderupdate', {'policy': 'match',
                                  'policy_mod': 100,
-                                 'per_channel_max': '1btc',
+                                 'per_channel_max_msat': '1btc',
                                  'fuzz_percent': 0,
                                  'lease_fee_base_msat': '2sat',
                                  'funding_weight': 1000,
