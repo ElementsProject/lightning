@@ -3000,7 +3000,6 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:
 			channel_fail_fallen_behind(dualopend, msg);
 			return 0;
-		case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
 
 		/* Messages we send */
 		case WIRE_DUALOPEND_INIT:
@@ -3016,7 +3015,6 @@ static unsigned int dual_opend_msg(struct subd *dualopend,
 		case WIRE_DUALOPEND_SEND_TX_SIGS:
 		case WIRE_DUALOPEND_SEND_SHUTDOWN:
 		case WIRE_DUALOPEND_DEPTH_REACHED:
-		case WIRE_DUALOPEND_DEV_MEMLEAK:
 			break;
 	}
 

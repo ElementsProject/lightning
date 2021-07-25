@@ -44,8 +44,6 @@ const char *dualopend_wire_name(int e)
 	case WIRE_DUALOPEND_GOT_SHUTDOWN: return "WIRE_DUALOPEND_GOT_SHUTDOWN";
 	case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND: return "WIRE_DUALOPEND_FAIL_FALLEN_BEHIND";
 	case WIRE_DUALOPEND_SHUTDOWN_COMPLETE: return "WIRE_DUALOPEND_SHUTDOWN_COMPLETE";
-	case WIRE_DUALOPEND_DEV_MEMLEAK: return "WIRE_DUALOPEND_DEV_MEMLEAK";
-	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY: return "WIRE_DUALOPEND_DEV_MEMLEAK_REPLY";
 	case WIRE_DUALOPEND_DRY_RUN: return "WIRE_DUALOPEND_DRY_RUN";
 	case WIRE_DUALOPEND_VALIDATE_LEASE: return "WIRE_DUALOPEND_VALIDATE_LEASE";
 	case WIRE_DUALOPEND_VALIDATE_LEASE_REPLY: return "WIRE_DUALOPEND_VALIDATE_LEASE_REPLY";
@@ -82,8 +80,6 @@ bool dualopend_wire_is_defined(u16 type)
 	case WIRE_DUALOPEND_GOT_SHUTDOWN:;
 	case WIRE_DUALOPEND_FAIL_FALLEN_BEHIND:;
 	case WIRE_DUALOPEND_SHUTDOWN_COMPLETE:;
-	case WIRE_DUALOPEND_DEV_MEMLEAK:;
-	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:;
 	case WIRE_DUALOPEND_DRY_RUN:;
 	case WIRE_DUALOPEND_VALIDATE_LEASE:;
 	case WIRE_DUALOPEND_VALIDATE_LEASE_REPLY:;
@@ -956,47 +952,6 @@ bool fromwire_dualopend_shutdown_complete(const tal_t *ctx, const void *p, struc
 	return cursor != NULL;
 }
 
-/* WIRE: DUALOPEND_DEV_MEMLEAK */
-/* master -> dualopend: do you have a memleak? */
-u8 *towire_dualopend_dev_memleak(const tal_t *ctx)
-{
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_DUALOPEND_DEV_MEMLEAK);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_dualopend_dev_memleak(const void *p)
-{
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_DEV_MEMLEAK)
-		return false;
-	return cursor != NULL;
-}
-
-/* WIRE: DUALOPEND_DEV_MEMLEAK_REPLY */
-u8 *towire_dualopend_dev_memleak_reply(const tal_t *ctx, bool leak)
-{
-	u8 *p = tal_arr(ctx, u8, 0);
-
-	towire_u16(&p, WIRE_DUALOPEND_DEV_MEMLEAK_REPLY);
-	towire_bool(&p, leak);
-
-	return memcheck(p, tal_count(p));
-}
-bool fromwire_dualopend_dev_memleak_reply(const void *p, bool *leak)
-{
-	const u8 *cursor = p;
-	size_t plen = tal_count(p);
-
-	if (fromwire_u16(&cursor, &plen) != WIRE_DUALOPEND_DEV_MEMLEAK_REPLY)
-		return false;
- 	*leak = fromwire_bool(&cursor, &plen);
-	return cursor != NULL;
-}
-
 /* WIRE: DUALOPEND_DRY_RUN */
 /* dualopend -> master: this was a dry run */
 u8 *towire_dualopend_dry_run(const tal_t *ctx, const struct channel_id *channel_id, struct amount_sat our_funding, struct amount_sat their_funding, const struct lease_rates *lease_rates)
@@ -1096,4 +1051,4 @@ bool fromwire_dualopend_validate_lease_reply(const tal_t *ctx, const void *p, wi
 	}
 	return cursor != NULL;
 }
-// SHA256STAMP:323fc0085091d47b8f1f66ee5455fd229fdb4a29fc43711ac81cc5fe9eb9b696
+// SHA256STAMP:bedb1217727e81cbd377567f3db8348b524bd79ccc7030f338c800e84c47b368

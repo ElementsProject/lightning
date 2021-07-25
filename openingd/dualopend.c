@@ -881,25 +881,24 @@ static bool is_segwit_output(struct wally_tx_output *output,
 /* Memory leak detection is DEVELOPER-only because we go to great lengths to
  * record the backtrace when allocations occur: without that, the leak
  * detection tends to be useless for diagnosing where the leak came from, but
- * it has significant overhead. */
+ * it has significant overhead.
+ *
+ * FIXME: dualopend doesn't always listen to lightningd, so we call this
+ * at closing time, rather than when it askes.
+ */
 #if DEVELOPER
-static void handle_dev_memleak(struct state *state, const u8 *msg)
+static void dualopend_dev_memleak(struct state *state)
 {
 	struct htable *memtable;
-	bool found_leak;
 
-	/* Populate a hash table with all our allocations (except msg, which
-	 * is in use right now). */
-	memtable = memleak_find_allocations(tmpctx, msg, msg);
+	/* Populate a hash table with all our allocations. */
+	memtable = memleak_find_allocations(tmpctx, NULL, NULL);
 
 	/* Now delete state and things it has pointers to. */
 	memleak_remove_region(memtable, state, tal_bytelen(state));
 
 	/* If there's anything left, dump it to logs, and return true. */
-	found_leak = dump_memleak(memtable);
-	wire_sync_write(REQ_FD,
-			take(towire_dualopend_dev_memleak_reply(NULL,
-							        found_leak)));
+	dump_memleak(memtable);
 }
 #endif /* DEVELOPER */
 
@@ -1077,10 +1076,6 @@ fetch_psbt_changes(struct state *state,
 		open_err_warn(state, "%s", err);
 	} else if (fromwire_dualopend_psbt_updated(state, msg, &updated_psbt)) {
 		return updated_psbt;
-#if DEVELOPER
-	} else if (fromwire_dualopend_dev_memleak(msg)) {
-		handle_dev_memleak(state, msg);
-#endif /* DEVELOPER */
 	} else
 		master_badmsg(fromwire_peektype(msg), msg);
 
@@ -3591,11 +3586,6 @@ static u8 *handle_master_in(struct state *state)
 	enum dualopend_wire t = fromwire_peektype(msg);
 
 	switch (t) {
-	case WIRE_DUALOPEND_DEV_MEMLEAK:
-#if DEVELOPER
-		handle_dev_memleak(state, msg);
-#endif
-		return NULL;
 	case WIRE_DUALOPEND_OPENER_INIT:
 		opener_start(state, msg);
 		return NULL;
@@ -3617,7 +3607,6 @@ static u8 *handle_master_in(struct state *state)
 	/* Handled inline */
 	case WIRE_DUALOPEND_INIT:
 	case WIRE_DUALOPEND_REINIT:
-	case WIRE_DUALOPEND_DEV_MEMLEAK_REPLY:
 	case WIRE_DUALOPEND_PSBT_UPDATED:
 	case WIRE_DUALOPEND_GOT_OFFER_REPLY:
 	case WIRE_DUALOPEND_GOT_RBF_OFFER_REPLY:
@@ -3966,6 +3955,12 @@ int main(int argc, char *argv[])
 	per_peer_state_fdpass_send(REQ_FD, state->pps);
 	status_debug("Sent %s with fds",
 		     dualopend_wire_name(fromwire_peektype(msg)));
+	tal_free(msg);
+
+#if DEVELOPER
+	/* Now look for memory leaks. */
+	dualopend_dev_memleak(state);
+#endif /* DEVELOPER */
 
 	/* This frees the entire tal tree. */
 	tal_free(state);
