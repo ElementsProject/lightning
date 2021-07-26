@@ -274,7 +274,11 @@ class Plugin(object):
         self.rpc: Optional[LightningRpc] = None
         self.startup = True
         self.dynamic = dynamic
-        self.child_init: Optional[Callable[..., None]] = None
+
+        # The function registering as init may return a dict of the
+        # form `{'disable': 'why'}` to self-disable, however most
+        # commonly you'll want to return `None`
+        self.child_init: Optional[Callable[..., Optional[dict]]] = None
 
         self.write_lock = RLock()
 
