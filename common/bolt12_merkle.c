@@ -144,12 +144,15 @@ static const struct sha256 *merkle_recurse(const struct sha256 **base,
 
 	SUPERVERBOSE("Merkle recurse [%zu - %zu] and [%zu - %zu]\n",
 		     arr - base, arr + len / 2 - 1 - base,
-		     arr + len / 2 - base, arr + len - base);
+		     arr + len / 2 - base, arr + len - 1 - base);
 	left = merkle_recurse(base, arr, len / 2);
 	right = merkle_recurse(base, arr + len / 2, len / 2);
 	/* left is never NULL if right is not NULL */
-	if (!right)
+	if (!right) {
+		SUPERVERBOSE("[%zu - %zu] is NULL!\n",
+			     arr + len / 2 - base, arr + len - base);
 		return left;
+	}
 	return merkle_pair(base, left, right);
 }
 
@@ -162,7 +165,11 @@ void merkle_tlv(const struct tlv_field *fields, struct sha256 *merkle)
 
 	SUPERVERBOSE("nonce tag:");
 	h_lnall_ctx(&lnall_ctx, fields);
-	/* NULL-pad to next power of 2 */
+
+	/* We build an oversized power-of-2 symmentic tree, but with
+	 * NULL nodes at the end.  When we recurse, we pass through
+	 * NULL.  This is less efficient than calculating the
+	 * power-of-2 split as we recurse, but simpler. */
 	arr = tal_arrz(NULL, struct sha256 *,
 		       1ULL << (ilog64(tal_count(fields)) + 1));
 
