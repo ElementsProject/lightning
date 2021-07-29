@@ -383,16 +383,17 @@ int main(int argc, char *argv[])
 				   ordered(b12,
 					   H(LnBranch,
 					     ordered(leaf[4], leaf[5]))))));
-	json_out("],");
-	json_out("\"merkle\": \"%s\"",
-		 type_to_string(tmpctx, struct sha256, m));
-	json_out("}]");
-
 	m = H(LnBranch,
 	      ordered(H(LnBranch,
 			ordered(H(LnBranch, ordered(leaf[0], leaf[1])),
 				H(LnBranch, ordered(leaf[2], leaf[3])))),
 		      H(LnBranch, ordered(leaf[4], leaf[5]))));
+
+	json_out("],");
+	json_out("\"merkle\": \"%s\"",
+		 type_to_string(tmpctx, struct sha256, m));
+	json_out("}]");
+
 	printf("offer = %s, merkle = %s\n",
 	       tal_hex(tmpctx, all),
 	       type_to_string(tmpctx, struct sha256, m));
