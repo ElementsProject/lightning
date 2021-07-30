@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [v0.10.1rc1] - 2021-07-21: "<awaiting name selection>"
+## [v0.10.1rc2] - 2021-07-30: "<awaiting name selection>"
 
 This release named by @nalinbhardwaj.
 
@@ -105,6 +105,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
 
 ### EXPERIMENTAL
 
+ - bolt12 decode `timestamp` field deprecated in favor of new name `created_at`. ([#4669])
  - JSON-RPC: `listpeers` now includes the `scratch_txid` for every inflight (if is a dual-funded channel) ([#4521])
  - JSON-RPC: for v2 channels, we now list the inflights information for a channel ([#4521])
  - JSON-RPC: `fetchinvoice` can take a payer note, and `listinvoice` will show the `payer_notes` received. ([#4625])
@@ -126,6 +127,100 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Plugins: `openchannel2` hook now includes optional fields for a channel lease request ([#4639])
  - Plugins: add a `channel_max_msat` value to the `openchannel2` hook. Tells you the total max funding this channel is allowed to have. ([#4489])
  - funder: `funderupdate` command to view and update params for contributing our wallet funds to v2 channel openings. Provides params for enabling `option_will_fund`. ([#4664])
+
+[#4646]: https://github.com/ElementsProject/lightning/pull/4646
+[#4625]: https://github.com/ElementsProject/lightning/pull/4625
+[#4639]: https://github.com/ElementsProject/lightning/pull/4639
+[#4650]: https://github.com/ElementsProject/lightning/pull/4650
+[#4646]: https://github.com/ElementsProject/lightning/pull/4646
+[#4497]: https://github.com/ElementsProject/lightning/pull/4497
+[#4465]: https://github.com/ElementsProject/lightning/pull/4465
+[#4619]: https://github.com/ElementsProject/lightning/pull/4619
+[#4498]: https://github.com/ElementsProject/lightning/pull/4498
+[#4496]: https://github.com/ElementsProject/lightning/pull/4496
+[#4585]: https://github.com/ElementsProject/lightning/pull/4585
+[#4639]: https://github.com/ElementsProject/lightning/pull/4639
+[#4664]: https://github.com/ElementsProject/lightning/pull/4664
+[#4518]: https://github.com/ElementsProject/lightning/pull/4518
+[#4613]: https://github.com/ElementsProject/lightning/pull/4613
+[#4639]: https://github.com/ElementsProject/lightning/pull/4639
+[#4563]: https://github.com/ElementsProject/lightning/pull/4563
+[#4594]: https://github.com/ElementsProject/lightning/pull/4594
+[#4507]: https://github.com/ElementsProject/lightning/pull/4507
+[#4489]: https://github.com/ElementsProject/lightning/pull/4489
+[#4537]: https://github.com/ElementsProject/lightning/pull/4537
+[#4625]: https://github.com/ElementsProject/lightning/pull/4625
+[#4625]: https://github.com/ElementsProject/lightning/pull/4625
+[#4594]: https://github.com/ElementsProject/lightning/pull/4594
+[#4489]: https://github.com/ElementsProject/lightning/pull/4489
+[#4501]: https://github.com/ElementsProject/lightning/pull/4501
+[#4585]: https://github.com/ElementsProject/lightning/pull/4585
+[#4594]: https://github.com/ElementsProject/lightning/pull/4594
+[#4559]: https://github.com/ElementsProject/lightning/pull/4559
+[#4471]: https://github.com/ElementsProject/lightning/pull/4471
+[#4510]: https://github.com/ElementsProject/lightning/pull/4510
+[#4648]: https://github.com/ElementsProject/lightning/pull/4648
+[#4465]: https://github.com/ElementsProject/lightning/pull/4465
+[#4639]: https://github.com/ElementsProject/lightning/pull/4639
+[#4521]: https://github.com/ElementsProject/lightning/pull/4521
+[#4610]: https://github.com/ElementsProject/lightning/pull/4610
+[#4646]: https://github.com/ElementsProject/lightning/pull/4646
+[#4510]: https://github.com/ElementsProject/lightning/pull/4510
+[#4501]: https://github.com/ElementsProject/lightning/pull/4501
+[#4594]: https://github.com/ElementsProject/lightning/pull/4594
+[#4639]: https://github.com/ElementsProject/lightning/pull/4639
+[#4629]: https://github.com/ElementsProject/lightning/pull/4629
+[#4555]: https://github.com/ElementsProject/lightning/pull/4555
+[#4606]: https://github.com/ElementsProject/lightning/pull/4606
+[#4594]: https://github.com/ElementsProject/lightning/pull/4594
+[#4646]: https://github.com/ElementsProject/lightning/pull/4646
+[#4548]: https://github.com/ElementsProject/lightning/pull/4548
+[#4639]: https://github.com/ElementsProject/lightning/pull/4639
+[#4669]: https://github.com/ElementsProject/lightning/pull/4669
+[#4571]: https://github.com/ElementsProject/lightning/pull/4571
+[#4504]: https://github.com/ElementsProject/lightning/pull/4504
+[#4465]: https://github.com/ElementsProject/lightning/pull/4465
+[#4489]: https://github.com/ElementsProject/lightning/pull/4489
+[#4613]: https://github.com/ElementsProject/lightning/pull/4613
+[#4625]: https://github.com/ElementsProject/lightning/pull/4625
+[#4614]: https://github.com/ElementsProject/lightning/pull/4614
+[#4489]: https://github.com/ElementsProject/lightning/pull/4489
+[#4629]: https://github.com/ElementsProject/lightning/pull/4629
+[#4603]: https://github.com/ElementsProject/lightning/pull/4603
+[#4625]: https://github.com/ElementsProject/lightning/pull/4625
+[#4594]: https://github.com/ElementsProject/lightning/pull/4594
+[#4520]: https://github.com/ElementsProject/lightning/pull/4520
+[#4509]: https://github.com/ElementsProject/lightning/pull/4509
+[#4521]: https://github.com/ElementsProject/lightning/pull/4521
+[#4549]: https://github.com/ElementsProject/lightning/pull/4549
+[#4639]: https://github.com/ElementsProject/lightning/pull/4639
+[#4518]: https://github.com/ElementsProject/lightning/pull/4518
+[#4585]: https://github.com/ElementsProject/lightning/pull/4585
+[#4630]: https://github.com/ElementsProject/lightning/pull/4630
+[#4480]: https://github.com/ElementsProject/lightning/pull/4480
+[#4501]: https://github.com/ElementsProject/lightning/pull/4501
+[#4549]: https://github.com/ElementsProject/lightning/pull/4549
+[#4550]: https://github.com/ElementsProject/lightning/pull/4550
+[#4591]: https://github.com/ElementsProject/lightning/pull/4591
+[#4609]: https://github.com/ElementsProject/lightning/pull/4609
+[#4465]: https://github.com/ElementsProject/lightning/pull/4465
+[#4532]: https://github.com/ElementsProject/lightning/pull/4532
+[#4513]: https://github.com/ElementsProject/lightning/pull/4513
+[#4514]: https://github.com/ElementsProject/lightning/pull/4514
+[#4591]: https://github.com/ElementsProject/lightning/pull/4591
+[#4465]: https://github.com/ElementsProject/lightning/pull/4465
+[#4611]: https://github.com/ElementsProject/lightning/pull/4611
+[#4559]: https://github.com/ElementsProject/lightning/pull/4559
+[#4465]: https://github.com/ElementsProject/lightning/pull/4465
+[#4639]: https://github.com/ElementsProject/lightning/pull/4639
+[#4581]: https://github.com/ElementsProject/lightning/pull/4581
+[#4519]: https://github.com/ElementsProject/lightning/pull/4519
+[#4639]: https://github.com/ElementsProject/lightning/pull/4639
+[#4502]: https://github.com/ElementsProject/lightning/pull/4502
+[#4556]: https://github.com/ElementsProject/lightning/pull/4556
+[#4580]: https://github.com/ElementsProject/lightning/pull/4580
+[#4480]: https://github.com/ElementsProject/lightning/pull/4480
+[0.10.1rc2]: https://github.com/ElementsProject/lightning/releases/tag/v0.10.1rc2
 
 
 ## [0.10.0] - 2021-03-28: Neutralizing Fee Therapy
