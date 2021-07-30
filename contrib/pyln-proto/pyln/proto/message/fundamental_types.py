@@ -294,6 +294,10 @@ def fundamental_types() -> List[FieldType]:
             ShortChannelIDType('short_channel_id'),
             FundamentalHexType('signature', 64),
             BigSizeType('bigsize'),
+            # Extra types added in offers draft:
+            IntegerType('utf8', 1, 'B'),
+            FundamentalHexType('bip340sig', 64),
+            FundamentalHexType('point32', 32),
             ]
 
 
