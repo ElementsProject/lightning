@@ -3,7 +3,7 @@ from .invoice import Invoice
 from .onion import OnionPayload, TlvPayload, LegacyOnionPayload
 from .wire import LightningConnection, LightningServerSocket
 
-__version__ = '0.9.3'
+__version__ = '0.10.1'
 
 __all__ = [
     "Invoice",
