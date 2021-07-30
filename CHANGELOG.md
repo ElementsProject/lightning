@@ -56,6 +56,7 @@ older versions will no longer work -- `payment_secret` is now compulsory.
  - JSON-RPC: `fundpsbt` will not include UTXOs that aren't economic (can't pay for their own fees), unless 'all' ([#4509])
  - JSON-RPC: `close` now always returns notifications on delays. ([#4465])
  - Protocol: All new invoices require a `payment_secret` (i.e. modern TLV format onion) ([#4646])
+ - Protocol: Allow out-of-bound fee updates from peers, as long as they're not getting *worse* ([#4681])
  - Protocol: We can no longer connect to peers which don't support `payment_secret`. ([#4646])
  - Protocol: We will now reestablish and negotiate mutual close on channels we've already closed (great if peer has lost their database). ([#4559])
  - Protocol: We now assume nodes support TLV onions (non-legacy) unless we have a `node_announcement` which says they don't. ([#4646])
@@ -128,6 +129,7 @@ Note: You should always set `allow-deprecated-apis=false` to test for changes.
  - Plugins: add a `channel_max_msat` value to the `openchannel2` hook. Tells you the total max funding this channel is allowed to have. ([#4489])
  - funder: `funderupdate` command to view and update params for contributing our wallet funds to v2 channel openings. Provides params for enabling `option_will_fund`. ([#4664])
 
+[#4681]: https://github.com/ElementsProject/lightning/pull/4681
 [#4646]: https://github.com/ElementsProject/lightning/pull/4646
 [#4625]: https://github.com/ElementsProject/lightning/pull/4625
 [#4639]: https://github.com/ElementsProject/lightning/pull/4639
