@@ -30,7 +30,9 @@ Here's a checklist for the release process.
 3. Create a new CHANGELOG.md heading to `v<VERSION>rc1`, and create a link at
    the bottom. Note that you should exactly copy the date and name format from
    a previous release, as the `build-release.sh` script relies on this.
-4. Create a PR with the above.
+4. Update the contrib/pyln package __version__ strings, but do not upload
+   it to pypi!
+5. Create a PR with the above.
 
 ### Releasing -rc1
 
@@ -76,6 +78,8 @@ Here's a checklist for the release process.
 10. Append the signatures into a file called `SHA256SUMS.asc`, verify
    with `gpg --verify SHA256SUMS.asc` and include the file in the draft
    release.
+11. In each contrib/pyln-* directory, `make test-release` and if that succeeds,
+    `make prod-release` to upload to pypi.org.
 
 ### Performing the Release
 
