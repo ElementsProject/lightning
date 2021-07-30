@@ -24,7 +24,7 @@ check-source-flake8: $(DIRS:%=check-source-flake8-%)
 check-source-mypy: $(DIRS:%=check-source-mypy-%)
 
 check-source-flake8-%:
-	cd $* && flake8 --ignore=E501,E731,W503 --exclude=text.py
+	cd $* && flake8 --ignore=E501,E731,W503,E741 --exclude=text.py
 
 # mypy . does not recurse.  I have no idea why...
 check-source-mypy-%:

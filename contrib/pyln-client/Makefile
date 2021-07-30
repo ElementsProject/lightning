@@ -19,7 +19,7 @@ check: check-source check-pytest
 check-source: check-flake8 check-mypy
 
 check-flake8:
-	flake8 --ignore=E501,E731,W503
+	flake8 --ignore=E501,E731,W503,E741
 
 check-pytest:
 	pytest tests
