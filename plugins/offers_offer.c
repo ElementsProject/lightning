@@ -344,6 +344,10 @@ struct command_result *json_offer(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
+	if (!offers_enabled)
+		return command_fail(cmd, LIGHTNINGD,
+				    "experimental-offers not enabled");
+
 	/* BOLT-offers #12:
 	 * - MUST NOT set `quantity_min` or `quantity_max` less than 1.
 	 */
@@ -439,6 +443,10 @@ struct command_result *json_offerout(struct command *cmd,
 		   /* FIXME: hints support! */
 		   NULL))
 		return command_param_failed();
+
+	if (!offers_enabled)
+		return command_fail(cmd, LIGHTNINGD,
+				    "experimental-offers not enabled");
 
 	offer->send_invoice = tal(offer, struct tlv_offer_send_invoice);
 
