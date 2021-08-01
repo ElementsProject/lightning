@@ -3917,10 +3917,16 @@ def test_mpp_overload_payee(node_factory, bitcoind):
 def test_offer_needs_option(node_factory):
     """Make sure we don't make offers without offer command"""
     l1 = node_factory.get_node()
-    with pytest.raises(RpcError, match='Unknown command'):
+    with pytest.raises(RpcError, match='experimental-offers not enabled'):
         l1.rpc.call('offer', {'amount': '1msat', 'description': 'test'})
+    with pytest.raises(RpcError, match='experimental-offers not enabled'):
+        l1.rpc.call('offerout', {'amount': '2msat',
+                                 'description': 'simple test'})
     with pytest.raises(RpcError, match='Unknown command'):
         l1.rpc.call('fetchinvoice', {'offer': 'aaaa'})
+
+    # Decode still works though
+    assert l1.rpc.decode('lno1qgsqvgnwgcg35z6ee2h3yczraddm72xrfua9uve2rlrm9deu7xyfzrcgqyys5qq7ypnwgkvdr57yzh6h92zg3qctvrm7w38djg67kzcm4yeg8vc4cq633uzqaxlsxzxergsrav494jjrpuy9hcldjeglha57lxvz20fhha6hjwhv69nnzwzjsajntyf0c4z8h9e70dfdlfq8jdvc9rdht8vr955udtg')['valid']
 
 
 def test_offer(node_factory, bitcoind):

@@ -17,6 +17,7 @@
 
 struct pubkey32 id;
 u32 cltv_final;
+bool offers_enabled;
 
 static struct command_result *finished(struct command *cmd,
 				       const char *buf,
@@ -85,6 +86,9 @@ static struct command_result *onion_message_call(struct command *cmd,
 						 const jsmntok_t *params)
 {
 	const jsmntok_t *om, *invreqtok, *invtok;
+
+	if (!offers_enabled)
+		return command_hook_success(cmd);
 
 	om = json_get_member(buf, params, "onion_message");
 
@@ -735,7 +739,6 @@ static const char *init(struct plugin *p,
 			const jsmntok_t *config UNUSED)
 {
 	struct pubkey k;
-	bool exp_offers;
 
 	rpc_scan(p, "getinfo",
 		 take(json_out_obj(NULL, NULL, NULL)),
@@ -748,10 +751,8 @@ static const char *init(struct plugin *p,
 		 take(json_out_obj(NULL, NULL, NULL)),
 		 "{cltv-final:%,experimental-offers:%}",
 		 JSON_SCAN(json_to_number, &cltv_final),
-		 JSON_SCAN(json_to_bool, &exp_offers));
+		 JSON_SCAN(json_to_bool, &offers_enabled));
 
-	if (!exp_offers)
-		return "offers not enabled in config";
 	return NULL;
 }
 
