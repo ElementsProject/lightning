@@ -1324,12 +1324,10 @@ def test_funding_v2_corners(node_factory, bitcoind):
     l1.rpc.disconnect(l2.info['id'], force=True)
     wait_for(lambda: len(l1.rpc.listpeers()['peers']) == 0)
 
-    if not len(l2.rpc.listpeers()['peers']) == 1:
-        assert l2.daemon.wait_for_log('Unsaved peer failed')
-
     with pytest.raises(RpcError, match=r'Unknown channel'):
         l1.rpc.openchannel_abort(start['channel_id'])
 
+    wait_for(lambda: len(l2.rpc.listpeers()['peers']) == 0)
     with pytest.raises(RpcError, match=r'Unknown channel'):
         l2.rpc.openchannel_abort(start['channel_id'])
 
