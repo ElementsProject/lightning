@@ -627,7 +627,9 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log('Broadcasting funding tx')
     l1.daemon.wait_for_log(' to DUALOPEND_AWAITING_LOCKIN')
 
-    next_feerate = find_next_feerate(l1, l2)
+    rate = int(find_next_feerate(l1, l2)[:-5])
+    # We 4x the feerate to beat the min-relay fee
+    next_feerate = '{}perkw'.format(rate * 4)
 
     # Initiate an RBF
     startweight = 42 + 172  # base weight, funding output
@@ -636,7 +638,8 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
                                min_witness_weight=110,
                                excess_as_change=True)
 
-    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'],
+                                   funding_feerate=next_feerate)
     update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
 
     # Sign our inputs, and continue
@@ -647,7 +650,9 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
         l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     # We reconnect and try again. feerate should have bumped
-    next_feerate = find_next_feerate(l1, l2)
+    rate = int(find_next_feerate(l1, l2)[:-5])
+    # We 4x the feerate to beat the min-relay fee
+    next_feerate = '{}perkw'.format(rate * 4)
 
     # Initiate an RBF
     startweight = 42 + 172  # base weight, funding output
@@ -670,7 +675,8 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log('peer_in WIRE_TX_SIGNATURES')
 
     # Now we initiate the RBF
-    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'],
+                                   funding_feerate=next_feerate)
     update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
 
     # Sign our inputs, and continue
@@ -681,7 +687,9 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
         l1.rpc.openchannel_signed(chan_id, signed_psbt)
 
     # We reconnect and try again. feerate should have bumped
-    next_feerate = find_next_feerate(l1, l2)
+    rate = int(find_next_feerate(l1, l2)[:-5])
+    # We bump the feerate to beat the min-relay fee
+    next_feerate = '{}perkw'.format(rate * 2)
 
     startweight = 42 + 172  # base weight, funding output
     initpsbt = l1.rpc.utxopsbt(chan_amount, next_feerate, startweight,
@@ -703,7 +711,8 @@ def test_rbf_reconnect_tx_sigs(node_factory, bitcoind, chainparams):
     l1.daemon.wait_for_log('peer_in WIRE_TX_SIGNATURES')
 
     # 3rd RBF
-    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'])
+    bump = l1.rpc.openchannel_bump(chan_id, chan_amount, initpsbt['psbt'],
+                                   funding_feerate=next_feerate)
     update = l1.rpc.openchannel_update(chan_id, bump['psbt'])
     signed_psbt = l1.rpc.signpsbt(update['psbt'])['signed_psbt']
 
