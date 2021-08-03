@@ -617,8 +617,6 @@ static struct io_plan *handle_client(struct io_conn *conn, struct client *c)
 {
 	enum hsmd_wire t = fromwire_peektype(c->msg_in);
 
-	status_debug("Client: Received message %d from client", t);
-
 	/* Before we do anything else, is this client allowed to do
 	 * what he asks for? */
 	if (!hsmd_check_client_capabilities(c->hsmd_client, t))
