@@ -6,7 +6,7 @@ from pyln.testing.utils import SLOW_MACHINE
 from utils import (
     only_one, sync_blockheight, wait_for, TIMEOUT,
     account_balance, first_channel_id, closing_fee, TEST_NETWORK,
-    scriptpubkey_addr
+    scriptpubkey_addr, calc_lease_fee
 )
 
 import os
@@ -716,14 +716,6 @@ def test_penalty_outhtlc(node_factory, bitcoind, executor, chainparams):
     assert [o['status'] for o in outputs] == ['confirmed'] * 3
     assert set([o['txid'] for o in outputs]) == txids
     assert account_balance(l2, channel_id) == 0
-
-
-# check that the fee paid is correct
-def calc_lease_fee(amt, feerate, rates):
-    fee = rates['lease_fee_base_msat']
-    fee += amt * rates['lease_fee_basis'] // 10
-    fee += rates['funding_weight'] * feerate
-    return fee
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', 'elementsd doesnt yet support PSBT features we need')

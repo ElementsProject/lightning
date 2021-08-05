@@ -74,6 +74,13 @@ def move_matches(exp, mv):
     return True
 
 
+def calc_lease_fee(amt, feerate, rates):
+    fee = rates['lease_fee_base_msat']
+    fee += amt * rates['lease_fee_basis'] // 10
+    fee += rates['funding_weight'] * feerate
+    return fee
+
+
 def check_coin_moves(n, account_id, expected_moves, chainparams):
     moves = n.rpc.call('listcoinmoves_plugin')['coin_moves']
     node_id = n.info['id']
