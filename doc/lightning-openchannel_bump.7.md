@@ -30,6 +30,8 @@ is not met.
 funding transaction. Defaults to 1/64th greater than the last
 feerate used for this channel.
 
+Warning: bumping a leased channel will lose the lease.
+
 RETURN VALUE
 ------------
 
