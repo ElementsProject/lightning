@@ -410,7 +410,8 @@ def test_disconnect_fundee_v2(node_factory):
     l2 = node_factory.get_node(disconnect=disconnects,
                                options={'funder-policy': 'match',
                                         'funder-policy-mod': 100,
-                                        'funder-fuzz-percent': 0})
+                                        'funder-fuzz-percent': 0,
+                                        'funder-lease-requests-only': False})
 
     l1.fundwallet(2000000)
     l2.fundwallet(2000000)
@@ -1687,10 +1688,12 @@ def test_multifunding_v2_exclusive(node_factory, bitcoind):
     options = [{},
                {'funder-policy': 'match',
                 'funder-policy-mod': 100,
-                'funder-fuzz-percent': 0},
+                'funder-fuzz-percent': 0,
+                'funder-lease-requests-only': False},
                {'funder-policy': 'match',
                 'funder-policy-mod': 100,
-                'funder-fuzz-percent': 0},
+                'funder-fuzz-percent': 0,
+                'funder-lease-requests-only': False},
                {}]
     l1, l2, l3, l4 = node_factory.get_nodes(4, opts=options)
 

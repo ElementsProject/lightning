@@ -489,7 +489,7 @@ int main(int argc, const char *argv[])
 				    AMOUNT_SAT(50000),
 				    AMOUNT_SAT(50000),
 				    AMOUNT_SAT(100000),
-				    AMOUNT_SAT(0),
+				    AMOUNT_SAT(100000),
 				    &our_funds);
 	assert(amount_sat_eq(empty, our_funds));
 	assert(!err);
