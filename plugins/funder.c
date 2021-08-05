@@ -288,6 +288,17 @@ struct open_info {
 	struct amount_sat requested_lease;
 };
 
+static struct open_info *new_open_info(const tal_t *ctx)
+{
+	struct open_info *info = tal(ctx, struct open_info);
+
+	info->requested_lease = AMOUNT_SAT(0);
+	info->lease_blockheight = 0;
+	info->node_blockheight = 0;
+
+	return info;
+}
+
 static struct command_result *
 psbt_funded(struct command *cmd,
 	    const char *buf,
@@ -641,7 +652,7 @@ json_rbf_channel_call(struct command *cmd,
 		      const char *buf,
 		      const jsmntok_t *params)
 {
-	struct open_info *info = tal(cmd, struct open_info);
+	struct open_info *info = new_open_info(cmd);
 	u64 feerate_our_max, feerate_our_min;
 	const char *err;
 	struct out_req *req;
