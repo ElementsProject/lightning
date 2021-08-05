@@ -95,9 +95,7 @@ default_funder_policy(const tal_t *ctx,
 				 0, 		/* fuzz_factor */
 				 AMOUNT_SAT(0), /* reserve_tank */
 				 100,
-				 /* Defaults to true iif we're advertising
-				  * offers */
-				 false,
+				 true, /* Leases-only by default */
 				 NULL);
 }
 

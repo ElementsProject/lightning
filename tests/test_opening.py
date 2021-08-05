@@ -1038,6 +1038,7 @@ def test_funder_options(node_factory, bitcoind):
     assert funder_opts['reserve_tank_msat'] == Millisatoshi('0msat')
     assert funder_opts['fuzz_percent'] == 0
     assert funder_opts['fund_probability'] == 100
+    assert funder_opts['leases_only']
 
     # l2 funds a chanenl with us. We don't contribute
     l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
@@ -1057,7 +1058,8 @@ def test_funder_options(node_factory, bitcoind):
                                'per_channel_max_msat': '10000000000msat',
                                'reserve_tank_msat': '3000000msat',
                                'fund_probability': 99,
-                               'fuzz_percent': 0})
+                               'fuzz_percent': 0,
+                               'leases_only': False})
 
     assert funder_opts['policy'] == 'available'
     assert funder_opts['policy_mod'] == 100
@@ -1117,7 +1119,8 @@ def test_funder_contribution_limits(node_factory, bitcoind):
                  'min_their_funding_msat': '1000msat',
                  'per_channel_min_msat': '1000000msat',
                  'fund_probability': 100,
-                 'fuzz_percent': 0})
+                 'fuzz_percent': 0,
+                 'leases_only': False})
 
     # Set our contribution to 50k sat, should only use 7 of 12 available utxos
     l3.rpc.call('funderupdate',
@@ -1127,7 +1130,8 @@ def test_funder_contribution_limits(node_factory, bitcoind):
                  'per_channel_min_msat': '1000sat',
                  'per_channel_max_msat': '500000sat',
                  'fund_probability': 100,
-                 'fuzz_percent': 0})
+                 'fuzz_percent': 0,
+                 'leases_only': False})
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, 10**7)

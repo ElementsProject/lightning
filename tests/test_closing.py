@@ -857,7 +857,8 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     l2-l3: l2 leases funds from l3; l3 goes to chain unilaterally
     '''
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
-            'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100}
+            'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+            'funder-lease-requests-only': False}
 
     l1, l2, l3 = node_factory.get_nodes(3, opts=opts)
     # Allow l2 some warnings
