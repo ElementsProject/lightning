@@ -4,16 +4,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.10.1rc2] - 2021-07-30: "<awaiting name selection>"
+## [0.10.1] - 2021-08-09: "eltoo: Ethereum Layer Too"
 
 This release named by @nalinbhardwaj.
 
 NOTE ONE: Both the dual-funding and offers protocols have changed, and
-are incompatible with older releses (they're both still draft)
+are incompatible with older releses (they're both still draft) #reckless
 
 NOTE TWO: `rebalance` and `drain` plugins will need to be redownloaded as
 older versions will no longer work -- `payment_secret` is now compulsory.
-
 
 
 ### Added
@@ -1390,7 +1389,7 @@ There predate the BOLT specifications, and are only of vague historic interest:
 6. [0.5.1] - 2016-10-21
 7. [0.5.2] - 2016-11-21: "Bitcoin Savings & Trust Daily Interest II"
 
-[0.10.1rc1]: https://github.com/ElementsProject/lightning/releases/tag/v0.10.1rc1
+[0.10.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.10.1
 [0.10.0]: https://github.com/ElementsProject/lightning/releases/tag/v0.10.0
 [0.9.2]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.2
 [0.9.1]: https://github.com/ElementsProject/lightning/releases/tag/v0.9.1
