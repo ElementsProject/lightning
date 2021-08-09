@@ -1006,6 +1006,9 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	struct utxo u;
 	struct pubkey pk;
 	struct node_id id;
+	struct wireaddr_internal addr;
+	struct block block;
+	struct channel channel;
 	struct utxo *one_utxo;
 	const struct utxo **utxos;
 	CHECK(w);
@@ -1020,10 +1023,12 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	/* Should work, it's the first time we add it */
 	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
 		  "wallet_add_utxo failed on first add");
+	CHECK_MSG(!wallet_err, wallet_err);
 
 	/* Should fail, we already have that UTXO */
 	CHECK_MSG(!wallet_add_utxo(w, &u, p2sh_wpkh),
 		  "wallet_add_utxo succeeded on second add");
+	CHECK_MSG(!wallet_err, wallet_err);
 
 	/* Attempt to save an UTXO with close_info set */
 	memset(&u.txid, 1, sizeof(u.txid));
@@ -1040,7 +1045,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 
 	/* Now select them */
 	utxos = tal_arr(w, const struct utxo *, 0);
-	while ((one_utxo = wallet_find_utxo(w, w, 0, NULL, 253,
+	while ((one_utxo = wallet_find_utxo(w, w, 100, NULL, 253,
 					    0 /* no confirmations required */,
 					    utxos)) != NULL) {
 		tal_arr_expand(&utxos, one_utxo);
@@ -1089,20 +1094,49 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u.close_info->peer_id = id;
 	u.close_info->commitment_point = NULL;
 	u.close_info->option_anchor_outputs = true;
+	/* The blockheight has to be set for an option_anchor_output
+	 * closed UTXO to be spendable */
+	u32 *blockheight = tal(w, u32);
+	*blockheight = 100;
+	/* We gotta add a block to the database though */
+	block.height = 100;
+	memset(&block.blkid, 2, sizeof(block.blkid));
+	wallet_block_add(w, &block);
+	CHECK_MSG(!wallet_err, wallet_err);
+
+	u.blockheight = blockheight;
 	u.scriptPubkey = tal_arr(w, u8, 20);
 	memset(u.scriptPubkey, 1, 20);
 	CHECK_MSG(wallet_add_utxo(w, &u, p2sh_wpkh),
 		  "wallet_add_utxo with close_info no commitment_point");
+	CHECK_MSG(!wallet_err, wallet_err);
 
-	/* Now select it */
+	/* Add another utxo that's CSV-locked for 5 blocks */
+	parse_wireaddr_internal("localhost:1234", &addr, 0, false, false, false,
+				true, NULL);
+	channel.peer = new_peer(ld, 0, &id, &addr, false);
+	channel.dbid = 1;
+	channel.option_anchor_outputs = true;
+	memset(&u.txid, 3, sizeof(u.txid));
+	CHECK_MSG(wallet_add_onchaind_utxo(w, &u.txid,
+					   u.outnum,
+					   u.scriptPubkey,
+					   *u.blockheight,
+					   AMOUNT_SAT(3),
+					   &channel,
+					   NULL,
+					   5),
+		  "wallet_add_utxo with close_info and csv > 1");
+	CHECK_MSG(!wallet_err, wallet_err);
+
+	/* Select everything but 5 csv-locked utxo */
 	utxos = tal_arr(w, const struct utxo *, 0);
-	while ((one_utxo = wallet_find_utxo(w, w, 0, NULL, 253,
+	while ((one_utxo = wallet_find_utxo(w, w, 100, NULL, 253,
 					    0 /* no confirmations required */,
 					    utxos)) != NULL) {
 		tal_arr_expand(&utxos, one_utxo);
 	}
 	CHECK(tal_count(utxos) == 2);
-
 	if (utxos[0]->close_info)
 		u = *utxos[0];
 	else
@@ -1111,7 +1145,29 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	CHECK(u.close_info->channel_id == 42 &&
 	      u.close_info->commitment_point == NULL &&
 	      node_id_eq(&u.close_info->peer_id, &id) &&
-	      u.close_info->option_anchor_outputs == true);
+	      u.close_info->option_anchor_outputs == true &&
+	      u.close_info->csv == 1);
+	/* Now un-reserve them */
+	tal_free(utxos);
+
+	/* Select all utxos (5 csv-locked included) */
+	utxos = tal_arr(w, const struct utxo *, 0);
+	while ((one_utxo = wallet_find_utxo(w, w, 104, NULL, 253,
+					    0 /* no confirmations required */,
+					    utxos)) != NULL) {
+		tal_arr_expand(&utxos, one_utxo);
+	}
+	CHECK(tal_count(utxos) == 3);
+	for (size_t i = 0; i < tal_count(utxos); i++) {
+		if (!utxos[i]->close_info)
+			continue;
+
+		CHECK(u.close_info->channel_id == 42 &&
+		      u.close_info->commitment_point == NULL &&
+		      node_id_eq(&u.close_info->peer_id, &id) &&
+		      u.close_info->option_anchor_outputs == true &&
+		      u.close_info->csv > 0);
+	}
 	/* Now un-reserve them */
 	tal_free(utxos);
 
@@ -1866,12 +1922,12 @@ int main(int argc, const char *argv[])
 	htlc_in_map_init(&ld->htlcs_in);
 	htlc_out_map_init(&ld->htlcs_out);
 
-	ok &= test_wallet_outputs(ld, tmpctx);
 	ok &= test_shachain_crud(ld, tmpctx);
 	ok &= test_channel_crud(ld, tmpctx);
 	ok &= test_channel_inflight_crud(ld, tmpctx);
 	ok &= test_channel_config_crud(ld, tmpctx);
 	ok &= test_channel_inflight_crud(ld, tmpctx);
+	ok &= test_wallet_outputs(ld, tmpctx);
 	ok &= test_htlc_crud(ld, tmpctx);
 	ok &= test_payment_crud(ld, tmpctx);
 	ok &= test_wallet_payment_status_enum();

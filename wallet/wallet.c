@@ -519,6 +519,19 @@ static bool excluded(const struct utxo **excludes,
 static bool deep_enough(u32 maxheight, const struct utxo *utxo,
 			u32 current_blockheight)
 {
+	if (utxo->close_info
+	    && utxo->close_info->option_anchor_outputs) {
+		/* All option_anchor_output close_infos
+		 * have a csv of at least 1 */
+		if (!utxo->blockheight)
+			return false;
+
+		u32 csv_free = *utxo->blockheight + utxo->close_info->csv - 1;
+		assert(csv_free >= *utxo->blockheight);
+
+		if (csv_free > current_blockheight)
+			return false;
+	}
 	/* If we require confirmations check that we have a
 	 * confirmation height and that it is below the required
 	 * maxheight (current_height - minconf) */
@@ -526,13 +539,6 @@ static bool deep_enough(u32 maxheight, const struct utxo *utxo,
 		return true;
 	if (!utxo->blockheight)
 		return false;
-	/* Check that CSV-lock is now free! */
-	if (utxo->close_info) {
-		u32 csv_free = *utxo->blockheight + utxo->close_info->csv;
-		assert(csv_free > *utxo->blockheight);
-		if (current_blockheight < csv_free)
-			return false;
-	}
 	return *utxo->blockheight <= maxheight;
 }
 
