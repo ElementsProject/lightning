@@ -530,7 +530,7 @@ static bool deep_enough(u32 maxheight, const struct utxo *utxo,
 	if (utxo->close_info) {
 		u32 csv_free = *utxo->blockheight + utxo->close_info->csv;
 		assert(csv_free > *utxo->blockheight);
-		if (csv_free < current_blockheight)
+		if (current_blockheight < csv_free)
 			return false;
 	}
 	return *utxo->blockheight <= maxheight;
