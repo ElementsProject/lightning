@@ -43,7 +43,7 @@ tools/test/test_gen.h: $(TOOLS_WIRE_DEPS) tools/test/Makefile
 tools/test/test_gen.c.tmp.c: $(TOOLS_WIRE_DEPS)
 	$(BOLT_GEN) --page impl tools/test/test_gen.h test_type < tools/test/test_cases > $@
 
-tools/test/test_gen.c: tools/test/test_gen.c.tmp.c $(EXTERNAL_HEADERS) tools/test/test_gen.h
+tools/test/test_gen.c: tools/test/test_gen.c.tmp.c $(EXTERNAL_HEADERS) tools/test/test_gen.h $(CCAN_HEADERS)
 	@MAKE=$(MAKE) tools/update-mocks.sh "$<" $(SUPPRESS_OUTPUT) && mv "$<" "$@"
 
 tools/test/print_gen.h: wire/onion$(EXP)_wiregen.h $(TOOLS_WIRE_DEPS)
