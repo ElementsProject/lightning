@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 This release named by @nalinbhardwaj.
 
 NOTE ONE: Both the dual-funding and offers protocols have changed, and
-are incompatible with older releses (they're both still draft) #reckless
+are incompatible with older releases (they're both still draft) #reckless
 
 NOTE TWO: `rebalance` and `drain` plugins will need to be redownloaded as
 older versions will no longer work -- `payment_secret` is now compulsory.
