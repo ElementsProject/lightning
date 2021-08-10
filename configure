@@ -274,7 +274,7 @@ fi
 # Clean up on exit.
 trap "rm -f $CONFIG_VAR_FILE.$$" 0
 
-$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -I/usr/local/include -L/usr/local/lib $SQLITE3_CFLAGS $POSTGRES_INCLUDE <<EOF
+$CONFIGURATOR --extra-tests --autotools-style --var-file=$CONFIG_VAR_FILE.$$ --header-file=$CONFIG_HEADER.$$ --configurator-cc="$CONFIGURATOR_CC" --wrapper="$CONFIGURATOR_WRAPPER" "$CC" ${CWARNFLAGS-$BASE_WARNFLAGS} $CDEBUGFLAGS $COPTFLAGS -I/usr/local/include -L/usr/local/lib $SQLITE3_CFLAGS $POSTGRES_INCLUDE <<EOF
 
 var=HAVE_GOOD_LIBSODIUM
 desc=libsodium with IETF chacha20 variants
@@ -419,9 +419,9 @@ add_var SQLITE3_LDLIBS "$SQLITE3_LDLIBS"
 add_var POSTGRES_INCLUDE "$POSTGRES_INCLUDE"
 add_var POSTGRES_LDLIBS "$POSTGRES_LDLIBS"
 add_var VALGRIND "$VALGRIND"
-add_var DEVELOPER "$DEVELOPER" $CONFIG_HEADER
-add_var EXPERIMENTAL_FEATURES "$EXPERIMENTAL_FEATURES" $CONFIG_HEADER
-add_var COMPAT "$COMPAT" $CONFIG_HEADER
+add_var DEVELOPER "$DEVELOPER" $CONFIG_HEADER.$$
+add_var EXPERIMENTAL_FEATURES "$EXPERIMENTAL_FEATURES" $CONFIG_HEADER.$$
+add_var COMPAT "$COMPAT" $CONFIG_HEADER.$$
 add_var PYTEST "$PYTEST"
 add_var STATIC "$STATIC"
 add_var ASAN "$ASAN"
@@ -433,7 +433,7 @@ add_var FUZZING "$FUZZING"
 
 # Hack to avoid sha256 name clash with libwally: will be fixed when that
 # becomes a standalone shared lib.
-echo '#include "ccan_compat.h"' >> $CONFIG_HEADER
+echo '#include "ccan_compat.h"' >> $CONFIG_HEADER.$$
 
 # Now we set them all and check.
 while IFS='=' read VAR VAL; do
@@ -447,3 +447,4 @@ if [ "$HAVE_SQLITE3" = 0 -a "$HAVE_POSTGRES" = 0 ]; then
 fi
 
 mv $CONFIG_VAR_FILE.$$ $CONFIG_VAR_FILE
+mv $CONFIG_HEADER.$$ $CONFIG_HEADER
