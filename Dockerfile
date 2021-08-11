@@ -45,6 +45,13 @@ RUN mkdir /opt/litecoin && cd /opt/litecoin \
     && tar -xzvf litecoin.tar.gz $BD/litecoin-cli --strip-components=1 --exclude=*-qt \
     && rm litecoin.tar.gz
 
+ENV DESCHASHPLUGIN_URL https://github.com/fiatjaf/sparko/releases/download/invoicewithdescriptionhash-v1.2/invoicewithdescriptionhash_linux_amd64
+ENV DESCHASHPLUGIN_SHA256 E3EA0D076A26D774BA68D1D5E3FE48D267CE02D077933EF3CBAE1FC39007FB11
+RUN mkdir /opt/deschashplugin && cd /opt/deschashplugin \
+    && wget -qO invoicewithdescriptionhash "$DESCHASHPLUGIN_URL" \
+    && echo "$DESCHASHPLUGIN_SHA256  invoicewithdescriptionhash" | sha256sum -c - \
+    && chmod a+x invoicewithdescriptionhash
+
 FROM debian:buster-slim as builder
 
 ENV LIGHTNINGD_VERSION=master
@@ -109,11 +116,15 @@ ENV LIGHTNINGD_PORT=9735
 ENV LIGHTNINGD_NETWORK=bitcoin
 
 RUN mkdir $LIGHTNINGD_DATA && \
+    mkdir /etc/bundledplugins && \
+    mkdir $LIGHTNINGD_DATA/plugins && \
     touch $LIGHTNINGD_DATA/config
 VOLUME [ "/root/.lightning" ]
 COPY --from=builder /tmp/lightning_install/ /usr/local/
 COPY --from=downloader /opt/bitcoin/bin /usr/bin
 COPY --from=downloader /opt/litecoin/bin /usr/bin
+COPY --from=downloader /opt/deschashplugin $LIGHTNINGD_DATA/plugins
+COPY --from=downloader /opt/deschashplugin /etc/bundledplugins
 COPY tools/docker-entrypoint.sh entrypoint.sh
 
 EXPOSE 9735 9835

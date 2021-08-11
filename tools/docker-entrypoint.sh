@@ -91,6 +91,10 @@ if ! grep -q "^rpc-file=" "$LIGHTNINGD_DATA/config"; then
     echo "rpc-file=$LIGHTNINGD_DATA/lightning-rpc added to $LIGHTNINGD_DATA/config"
 fi
 
+echo "Installing bundled plugins"
+mkdir "$LIGHTNINGD_DATA/plugins"
+cp -u /etc/bundledplugins/* $LIGHTNINGD_DATA/plugins/
+
 echo "C-Lightning starting, listening on port ${LIGHTNINGD_PORT}"
 if [ "$EXPOSE_TCP" == "true" ]; then
     set -m
