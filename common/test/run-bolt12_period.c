@@ -211,15 +211,17 @@ int main(int argc, char *argv[])
 		time_t time;
 		char *timestring, *tstr, **tparts;
 
-		json_to_u64(json, json_get_member(json, t, "basetime"), &base);
-		json_to_int(json, json_get_member(json, t, "time_unit"), &unit);
+		assert(json_to_u64(json, json_get_member(json, t, "basetime"),
+				   &base));
+		assert(json_to_int(json, json_get_member(json, t, "time_unit"),
+				   &unit));
 		recurrence.time_unit = unit;
 		json_to_u32(json, json_get_member(json, t, "period"),
 			    &recurrence.period);
-		json_to_u64(json, json_get_member(json, t, "n"), &n);
+		assert(json_to_u64(json, json_get_member(json, t, "n"), &n));
 		exp = json_get_member(json, t, "expect");
-		json_to_u64(json, json_get_member(json, exp, "seconds_since_epoch"),
-			    &secs);
+		assert(json_to_u64(json, json_get_member(json, exp, "seconds_since_epoch"),
+				   &secs));
 		timestring = json_strdup(tmpctx, json,
 					 json_get_member(json, exp, "timestring"));
 		time = secs;
