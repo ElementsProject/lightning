@@ -1198,6 +1198,12 @@ void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
 const struct short_channel_id *
 wallet_utxoset_get_spent(const tal_t *ctx, struct wallet *w, u32 blockheight);
 
+/**
+ * Retrieve all UTXO entries that were created at a given blockheight.
+ */
+const struct short_channel_id *
+wallet_utxoset_get_created(const tal_t *ctx, struct wallet *w, u32 blockheight);
+
 void wallet_transaction_add(struct wallet *w, const struct wally_tx *tx,
 			    const u32 blockheight, const u32 txindex);
 

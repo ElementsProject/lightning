@@ -1827,6 +1827,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = true,
     },
     {
+         .name = "SELECT blockheight, txindex, outnum FROM utxoset WHERE blockheight = ?",
+         .query = "SELECT blockheight, txindex, outnum FROM utxoset WHERE blockheight = ?",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
          .name = "SELECT blockheight FROM transactions WHERE id=?",
          .query = "SELECT blockheight FROM transactions WHERE id=?",
          .placeholders = 1,
@@ -2020,10 +2026,10 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
-#define DB_SQLITE3_QUERY_COUNT 335
+#define DB_SQLITE3_QUERY_COUNT 336
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:27a166e040e517422e91cf7ffbd12426b34337b8d75f82d7aa4c448beae5e821
+// SHA256STAMP:df06b800543e6bb886100ca428247ac1097f749098779dae43ba875154700f58
