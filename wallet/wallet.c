@@ -3556,7 +3556,7 @@ void wallet_block_add(struct wallet *w, struct block *b)
 void wallet_block_remove(struct wallet *w, struct block *b)
 {
 	struct db_stmt *stmt =
-	    db_prepare_v2(w->db, SQL("DELETE FROM blocks WHERE hash = ?"));
+		db_prepare_v2(w->db, SQL("DELETE FROM blocks WHERE hash = ?"));
 	db_bind_sha256d(stmt, 0, &b->blkid.shad);
 	db_exec_prepared_v2(take(stmt));
 
@@ -3738,21 +3738,12 @@ struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 	return op;
 }
 
-const struct short_channel_id *
-wallet_utxoset_get_spent(const tal_t *ctx, struct wallet *w, u32 blockheight)
+/* Turns "SELECT blockheight, txindex, outnum" into scids */
+static const struct short_channel_id *db_scids(const tal_t *ctx,
+					       struct db_stmt *stmt STEALS)
 {
-	struct db_stmt *stmt;
-	struct short_channel_id *res;
-	stmt = db_prepare_v2(w->db, SQL("SELECT"
-					" blockheight,"
-					" txindex,"
-					" outnum "
-					"FROM utxoset "
-					"WHERE spendheight = ?"));
-	db_bind_int(stmt, 0, blockheight);
-	db_query_prepared(stmt);
+	struct short_channel_id *res = tal_arr(ctx, struct short_channel_id, 0);
 
-	res = tal_arr(ctx, struct short_channel_id, 0);
 	while (db_step(stmt)) {
 		struct short_channel_id scid;
 		u64 blocknum, txnum, outnum;
@@ -3767,6 +3758,40 @@ wallet_utxoset_get_spent(const tal_t *ctx, struct wallet *w, u32 blockheight)
 	}
 	tal_free(stmt);
 	return res;
+}
+
+const struct short_channel_id *
+wallet_utxoset_get_spent(const tal_t *ctx, struct wallet *w,
+			 u32 blockheight)
+{
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					" blockheight,"
+					" txindex,"
+					" outnum "
+					"FROM utxoset "
+					"WHERE spendheight = ?"));
+	db_bind_int(stmt, 0, blockheight);
+	db_query_prepared(stmt);
+
+	return db_scids(ctx, stmt);
+}
+
+const struct short_channel_id *
+wallet_utxoset_get_created(const tal_t *ctx, struct wallet *w,
+			   u32 blockheight)
+{
+	struct db_stmt *stmt;
+	stmt = db_prepare_v2(w->db, SQL("SELECT"
+					" blockheight,"
+					" txindex,"
+					" outnum "
+					"FROM utxoset "
+					"WHERE blockheight = ?"));
+	db_bind_int(stmt, 0, blockheight);
+	db_query_prepared(stmt);
+
+	return db_scids(ctx, stmt);
 }
 
 void wallet_transaction_add(struct wallet *w, const struct wally_tx *tx,

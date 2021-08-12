@@ -1195,8 +1195,9 @@ def test_funding_reorg_private(node_factory, bitcoind):
     l2.daemon.wait_for_logs([r'Removing stale block {}'.format(106),
                              r'Got depth change .->{} for .* REORG'.format(0)])
 
-    wait_for(lambda: chan_active(l2, '106x1x0', False))
+    # New one should replace old.
     wait_for(lambda: chan_active(l2, '108x1x0', True))
+    assert l2.rpc.listchannels('106x1x0')['channels'] == []
 
     l1.rpc.close(l2.info['id'])
     bitcoind.generate_block(1, True)
@@ -1241,8 +1242,8 @@ def test_funding_reorg_remote_lags(node_factory, bitcoind):
     # Unblinding l2 brings it back in sync, restarts channeld and sends its announce sig
     l2.daemon.rpcproxy.mock_rpc('getblockhash', None)
 
-    wait_for(lambda: chan_active(l2, '103x1x0', False))
     wait_for(lambda: chan_active(l2, '104x1x0', True))
+    assert l2.rpc.listchannels('103x1x0')['channels'] == []
 
     wait_for(lambda: only_one(l2.rpc.listpeers()['peers'][0]['channels'])['status'] == [
         'CHANNELD_NORMAL:Reconnected, and reestablished.',

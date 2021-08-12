@@ -870,6 +870,7 @@ static void remove_tip(struct chain_topology *topo)
 	struct block *b = topo->tip;
 	struct bitcoin_txid *txs;
 	size_t i, n;
+	const struct short_channel_id *removed_scids;
 
 	log_debug(topo->log, "Removing stale block %u: %s",
 			  topo->tip->height,
@@ -890,11 +891,20 @@ static void remove_tip(struct chain_topology *topo)
 	for (i = 0; i < n; i++)
 		txwatch_fire(topo, &txs[i], 0);
 
+	/* Grab these before we delete block from db */
+	removed_scids = wallet_utxoset_get_created(tmpctx, topo->ld->wallet,
+						   b->height);
 	wallet_block_remove(topo->ld->wallet, b);
+
 	/* This may have unconfirmed txs: reconfirm as we add blocks. */
 	watch_for_utxo_reconfirmation(topo, topo->ld->wallet);
 	block_map_del(&topo->block_map, b);
 	tal_free(b);
+
+	/* These no longer exist, so gossipd drops any reference to them just
+	 * as if they were spent. */
+	for (size_t i=0; i<tal_count(removed_scids); i++)
+		gossipd_notify_spend(topo->bitcoind->ld, &removed_scids[i]);
 }
 
 static void get_new_block(struct bitcoind *bitcoind,
