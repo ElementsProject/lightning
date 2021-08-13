@@ -1975,7 +1975,14 @@ def test_parms_listforwards(node_factory):
     it is simple and not useful, but it is good to have to avoid
     simile errors in the future.
     """
-    l1, _ = node_factory.line_graph(2)
+    l1, l2 = node_factory.line_graph(2)
 
-    forwards = l1.rpc.listforwards("settled")["forwards"]
-    assert len(forwards) == 0
+    l2.stop()
+    l2.daemon.opts['allow-deprecated-apis'] = True
+    l2.start()
+
+    forwards_new = l1.rpc.listforwards("settled")["forwards"]
+    forwards_dep = l2.rpc.call("listforwards", {"in_channel": "0x1x2", "out_channel": "0x2x3", "status": "settled"})["forwards"]
+
+    assert len(forwards_new) == 0
+    assert len(forwards_dep) == 0
