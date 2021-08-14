@@ -910,7 +910,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     l3.rpc.close(l2.info['id'], 1, force_lease_closed=True)
 
     # Wait til to_self_delay expires, l1 should claim to_local back
-    bitcoind.generate_block(10, wait_for_mempool=1)
+    bitcoind.generate_block(10, wait_for_mempool=2)
     l1.daemon.wait_for_log('Broadcasting OUR_DELAYED_RETURN_TO_WALLET')
     bitcoind.generate_block(1, wait_for_mempool=1)
     l1.daemon.wait_for_log('Resolved OUR_UNILATERAL/DELAYED_OUTPUT_TO_US by our proposal OUR_DELAYED_RETURN_TO_WALLET')
