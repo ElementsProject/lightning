@@ -932,8 +932,10 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     # we *can* spend the 1csv lock one
     l2.rpc.withdraw(l2.rpc.newaddr()['bech32'], "all", utxos=[utxo3])
 
-    bitcoind.generate_block(4032)
-    sync_blockheight(bitcoind, [l2, l3])
+    # This can timeout, so do it in four easy stages.
+    for i in range(4):
+        bitcoind.generate_block(4032 // 4)
+        sync_blockheight(bitcoind, [l2, l3])
 
     l2.rpc.withdraw(l2.rpc.newaddr()['bech32'], "all", utxos=[utxo1])
 
