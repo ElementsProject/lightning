@@ -1,6 +1,6 @@
 #! /usr/bin/make
-VERSION_NAME="Neutralizing Fee Therapy"
-VERSION=0.10.0
+VERSION_NAME="eltoo: Ethereum Layer Too"
+VERSION=0.10.1
 
 # --quiet / -s means quiet, dammit!
 ifeq ($(findstring s,$(word 1, $(MAKEFLAGS))),s)
