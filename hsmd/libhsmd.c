@@ -1124,35 +1124,50 @@ static u8 *handle_sign_remote_commitment_tx(struct hsmd_client *c, const u8 *msg
 	struct pubkey remote_per_commit;
 	bool option_static_remotekey;
 
+	hsmd_status_debug("XTRALOG: made it this far hsmd %d", __LINE__);
 	if (!fromwire_hsmd_sign_remote_commitment_tx(tmpctx, msg_in,
 						    &tx,
 						    &remote_funding_pubkey,
 						    &remote_per_commit,
-						    &option_static_remotekey))
+						    &option_static_remotekey)) {
+		hsmd_status_debug("XTRALOG: malformed request %d", __LINE__);
 		return hsmd_status_malformed_request(c, msg_in);
+	}
 	tx->chainparams = c->chainparams;
 
+	hsmd_status_debug("XTRALOG: made it this far hsmd %d", __LINE__);
 	/* Basic sanity checks. */
 	if (tx->wtx->num_inputs != 1)
 		return hsmd_status_bad_request_fmt(c, msg_in,
 						   "tx must have 1 input");
 
+	hsmd_status_debug("XTRALOG: made it this far hsmd %d", __LINE__);
 	if (tx->wtx->num_outputs == 0)
 		return hsmd_status_bad_request_fmt(c, msg_in,
 						   "tx must have > 0 outputs");
 
+	hsmd_status_debug("XTRALOG: made it this far hsmd %d", __LINE__);
+
 	get_channel_seed(&c->id, c->dbid, &channel_seed);
+	hsmd_status_debug("XTRALOG: made it this far hsmd %d", __LINE__);
 	derive_basepoints(&channel_seed,
 			  &local_funding_pubkey, NULL, &secrets, NULL);
 
+	hsmd_status_debug("XTRALOG: made it this far hsmd %d", __LINE__);
 	funding_wscript = bitcoin_redeem_2of2(tmpctx,
 					      &local_funding_pubkey,
 					      &remote_funding_pubkey);
+
+	hsmd_status_debug("XTRALOG: signing tx %s",
+			  type_to_string(tmpctx, struct bitcoin_tx, tx));
+
 	sign_tx_input(tx, 0, NULL, funding_wscript,
 		      &secrets.funding_privkey,
 		      &local_funding_pubkey,
 		      SIGHASH_ALL,
 		      &sig);
+
+	hsmd_status_debug("XTRALOG: made it this far hsmd %d", __LINE__);
 
 	return towire_hsmd_sign_tx_reply(NULL, &sig);
 }

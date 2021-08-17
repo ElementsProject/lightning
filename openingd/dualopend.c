@@ -1232,8 +1232,11 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 			 */
 			/* In this case, is_peer_error returns true, but sets
 			 * err to NULL */
+			status_debug("we got an %s from peer %s", warning ? "wraning": "error", !err ? "" : err);
+
 			if (!err) {
 				tal_free(msg);
+				status_debug("continuing anyway ... ");
 				continue;
 			}
 			negotiation_aborted(state,
@@ -1266,10 +1269,12 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		 * it's possible we can get some different messages in
 		 * the meantime! */
 		t = fromwire_peektype(msg);
+		status_debug("message type is %d", t);
 		switch (t) {
 		case WIRE_TX_SIGNATURES:
 			/* We can get these when we restart and immediately
 			 * startup an RBF */
+			status_debug("got a tx sigs?!");
 			handle_tx_sigs(state, msg);
 			continue;
 		case WIRE_FUNDING_LOCKED:
@@ -1758,13 +1763,17 @@ static u8 *accepter_commits(struct state *state,
 	/* Figure out the txout */
 	if (!find_txout(tx_state->psbt,
 			scriptpubkey_p2wsh(tmpctx, wscript),
-			&tx_state->funding_txout))
-		open_err_warn(state,
-			      "Expected output %s not found on funding tx %s",
-			      tal_hex(tmpctx,
-				      scriptpubkey_p2wsh(tmpctx, wscript)),
-			      type_to_string(tmpctx, struct wally_psbt,
-					     tx_state->psbt));
+			&tx_state->funding_txout)) {
+
+		*err_reason = tal_fmt("Expected output %s not found on"
+				      " funding tx %s",
+				      tal_hex(tmpctx,
+					      scriptpubkey_p2wsh(tmpctx,
+								 wscript)),
+				      type_to_string(tmpctx, struct wally_psbt,
+						     tx_state->psbt));
+		return NULL;
+	}
 
 	/* Check tx funds are sane */
 	error = check_balances(tmpctx, state, tx_state,
@@ -1789,15 +1798,21 @@ static u8 *accepter_commits(struct state *state,
 	remote_sig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_commitment_signed(tmpctx, msg, &cid,
 					&remote_sig.s,
-					&htlc_sigs))
+					&htlc_sigs)) {
 		open_err_fatal(state, "Parsing commitment signed %s",
 			       tal_hex(tmpctx, msg));
+		status_debug("failed parsing commitment signed");
+		return NULL;
+	}
 
 	check_channel_id(state, &cid, &state->channel_id);
 
-	if (htlc_sigs != NULL)
+	if (htlc_sigs != NULL) {
 		open_err_fatal(state, "Must not send HTLCs with first"
 			       " commitment. %s", tal_hex(tmpctx, msg));
+		status_debug("sent htlcs with first commitment");
+		return NULL;
+	}
 
 	if (!amount_sat_to_msat(&our_msats, tx_state->accepter_funding))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1910,6 +1925,7 @@ static u8 *accepter_commits(struct state *state,
 	if (!fromwire_hsmd_sign_tx_reply(msg, &local_sig))
 		status_failed(STATUS_FAIL_HSM_IO,
 			      "Bad sign_tx_reply %s", tal_hex(tmpctx, msg));
+
 
 	assert(local_sig.sighash_type == SIGHASH_ALL);
 	if (direct_outputs[LOCAL])
@@ -2380,6 +2396,7 @@ static u8 *opener_commits(struct state *state,
 				      &state->their_funding_pubkey);
 	psbt_txid(NULL, tx_state->psbt, &tx_state->funding_txid, NULL);
 
+	status_debug("XTRALOG: made it to %d", __LINE__);
 	/* Figure out the txout */
 	if (!find_txout(tx_state->psbt, scriptpubkey_p2wsh(tmpctx, wscript),
 			&tx_state->funding_txout)) {
@@ -2394,6 +2411,7 @@ static u8 *opener_commits(struct state *state,
 		return NULL;
 	}
 
+	status_debug("XTRALOG: made it to %d", __LINE__);
 	error = check_balances(tmpctx, state, tx_state,
 			       tx_state->psbt,
 			       lease_fee,
@@ -2407,14 +2425,13 @@ static u8 *opener_commits(struct state *state,
 		return NULL;
 	}
 
-	if (!amount_sat_to_msat(&our_msats, tx_state->opener_funding)) {
+	status_debug("XTRALOG: made it to %d", __LINE__);
+	if (!amount_sat_to_msat(&our_msats, tx_state->opener_funding))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "Rounding error, can't convert opener_funding %s"
 			      " to msats",
 			      type_to_string(tmpctx, struct amount_sat,
 					     &tx_state->opener_funding));
-		return NULL;
-	}
 
 	/* Ok, we're mostly good now? Let's do this */
 	state->channel = new_initial_channel(state,
@@ -2439,11 +2456,13 @@ static u8 *opener_commits(struct state *state,
 					     /* Opener is local */
 					     LOCAL);
 
+	status_debug("XTRALOG: made it to %d", __LINE__);
 	remote_commit = initial_channel_tx(state, &wscript,
 					   state->channel,
 					   &state->first_per_commitment_point[REMOTE],
 					   REMOTE, direct_outputs, &error);
 
+	status_debug("XTRALOG: made it to %d", __LINE__);
 	if (!remote_commit) {
 		*err_reason = tal_fmt(tmpctx, "Could not meet their fees"
 				      " and reserve: %s", error);
@@ -2462,11 +2481,16 @@ static u8 *opener_commits(struct state *state,
 						   &state->channel->funding_pubkey[REMOTE],
 						   &state->first_per_commitment_point[REMOTE],
 						   true);
+	status_debug("XTRALOG: made it to %d", __LINE__);
 	wire_sync_write(HSM_FD, take(msg));
+	status_debug("XTRALOG: made it to %d", __LINE__);
 	msg = wire_sync_read(tmpctx, HSM_FD);
-	if (!fromwire_hsmd_sign_tx_reply(msg, &local_sig))
+	status_debug("XTRALOG: made it to %d", __LINE__);
+	if (!fromwire_hsmd_sign_tx_reply(msg, &local_sig)) {
+		status_debug("XTRALOG: made it to %d", __LINE__);
 		status_failed(STATUS_FAIL_HSM_IO, "Bad sign_tx_reply %s",
 			      tal_hex(tmpctx, msg));
+	}
 
 	/* You can tell this has been a problem before, since there's a debug
 	 * message here: */
@@ -2490,6 +2514,8 @@ static u8 *opener_commits(struct state *state,
 		revert_channel_state(state);
 		return NULL;
 	}
+
+	status_debug("made it past opening negotiate message");
 
 	remote_sig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_commitment_signed(tmpctx, msg, &cid,
@@ -2918,15 +2944,20 @@ static void opener_start(struct state *state, u8 *msg)
 		open_err_warn(state, "%s", "Peer error, no updates to send");
 
 	/* Figure out what the funding transaction looks like! */
-	if (!run_tx_interactive(state, tx_state, &tx_state->psbt, TX_INITIATOR))
+	if (!run_tx_interactive(state, tx_state, &tx_state->psbt, TX_INITIATOR)) {
+		status_debug("run tx interactive failed");
 		return;
+	}
 
 	msg = opener_commits(state, tx_state, total, lease_fee, &err_reason);
 	if (!msg) {
-		if (err_reason)
+		if (err_reason) {
+			status_debug("opener commits failed, %s", err_reason);
 			open_err_warn(state, "%s", err_reason);
-		else
+		} else {
+			status_debug("opener commits failed, yikes");
 			open_err_warn(state, "%s", "Opener commits failed");
+		}
 		return;
 	}
 
