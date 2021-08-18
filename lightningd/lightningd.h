@@ -251,7 +251,7 @@ struct lightningd {
 
 	/* tor support */
 	struct wireaddr *proxyaddr;
-	bool use_proxy_always;
+	bool always_use_proxy;
 	char *tor_service_password;
 	bool pure_tor_setup;
 

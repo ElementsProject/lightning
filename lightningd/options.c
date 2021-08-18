@@ -213,7 +213,7 @@ static char *opt_add_addr_withtype(const char *arg,
 	tal_arr_expand(&ld->proposed_listen_announce, ala);
 	if (!parse_wireaddr_internal(arg, &wi,
 				     ld->portnum,
-				     wildcard_ok, !ld->use_proxy_always, false,
+				     wildcard_ok, !ld->always_use_proxy, false,
 				     deprecated_apis, &err_msg)) {
 		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
 	}
@@ -406,7 +406,7 @@ static char *opt_add_proxy_addr(const char *arg, struct lightningd *ld)
 	ld->proxyaddr = tal_arr(ld, struct wireaddr, 1);
 
 	if (!parse_wireaddr(arg, ld->proxyaddr, 9050,
-			    ld->use_proxy_always ? &needed_dns : NULL,
+			    ld->always_use_proxy ? &needed_dns : NULL,
 			    NULL)) {
 		return tal_fmt(NULL, "Unable to parse Tor proxy address '%s' %s",
 			       arg, needed_dns ? " (needed dns)" : "");
@@ -787,7 +787,7 @@ static void check_config(struct lightningd *ld)
 	if (ld->config.anchor_confirms == 0)
 		fatal("anchor-confirms must be greater than zero");
 
-	if (ld->use_proxy_always && !ld->proxyaddr)
+	if (ld->always_use_proxy && !ld->proxyaddr)
 		fatal("--always-use-proxy needs --proxy");
 
 	if (ld->daemon_parent_fd != -1 && !ld->logfile)
@@ -922,7 +922,7 @@ static void register_opts(struct lightningd *ld)
 	/* Early, as it suppresses DNS lookups from cmdline too. */
 	opt_register_early_arg("--always-use-proxy",
 			       opt_set_bool_arg, opt_show_bool,
-			       &ld->use_proxy_always, "Use the proxy always");
+			       &ld->always_use_proxy, "Use the proxy always");
 
 	/* This immediately makes is a daemon. */
 	opt_register_early_noarg("--daemon", opt_start_daemon, ld,
@@ -1267,7 +1267,7 @@ void handle_opts(struct lightningd *ld, int argc, char *argv[])
 	if (argc != 1)
 		errx(1, "no arguments accepted");
 
-	/* We keep a separate variable rather than overriding use_proxy_always,
+	/* We keep a separate variable rather than overriding always_use_proxy,
 	 * so listconfigs shows the correct thing. */
 	if (tal_count(ld->proposed_wireaddr) != 0
 	    && all_tor_addresses(ld->proposed_wireaddr)) {

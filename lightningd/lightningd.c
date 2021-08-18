@@ -225,7 +225,7 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->topology = new_topology(ld, ld->log);
 	ld->daemon_parent_fd = -1;
 	ld->proxyaddr = NULL;
-	ld->use_proxy_always = false;
+	ld->always_use_proxy = false;
 	ld->pure_tor_setup = false;
 	ld->tor_service_password = NULL;
 

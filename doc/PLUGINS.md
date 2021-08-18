@@ -302,7 +302,7 @@ simple JSON object containing the options:
         "port": 9050
     },
     "torv3-enabled": true,
-    "use_proxy_always": false
+    "always_use_proxy": false
   }
 }
 ```
