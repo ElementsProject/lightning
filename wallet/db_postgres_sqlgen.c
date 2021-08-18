@@ -1029,6 +1029,12 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
+         .name = "CREATE INDEX channel_state_changes_channel_id ON channel_state_changes (channel_id);",
+         .query = "CREATE INDEX channel_state_changes_channel_id ON channel_state_changes (channel_id);",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
          .name = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .query = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = $1",
          .placeholders = 1,
@@ -2062,10 +2068,10 @@ struct db_query db_postgres_queries[] = {
     },
 };
 
-#define DB_POSTGRES_QUERY_COUNT 342
+#define DB_POSTGRES_QUERY_COUNT 343
 
 #endif /* HAVE_POSTGRES */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:1808964024bcccbd2787e723881f263b1a77ea33c302ac2b6d61dae20486a7e4
+// SHA256STAMP:219fccaaf2391eeabadd4cc15b4a3431c7ecab9d17755582e6962a34c74982c5
