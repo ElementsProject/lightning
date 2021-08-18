@@ -739,7 +739,7 @@ def test_channel_lease_falls_behind(node_factory, bitcoind):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
-    l1.daemon.wait_for_log('disconnect')
+    wait_for(lambda: len(l1.rpc.listpeers(l2.info['id'])['peers']) == 0)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 leases a channel from l2
     l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
@@ -779,7 +779,7 @@ def test_channel_lease_post_expiry(node_factory, bitcoind):
     # l1 leases a channel from l2
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
-    l1.daemon.wait_for_log('disconnect')
+    wait_for(lambda: len(l1.rpc.listpeers(l2.info['id'])['peers']) == 0)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
                        feerate='{}perkw'.format(feerate),
@@ -864,7 +864,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
-    l1.daemon.wait_for_log('disconnect')
+    wait_for(lambda: len(l1.rpc.listpeers(l2.info['id'])['peers']) == 0)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 leases a channel from l2
     l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
@@ -874,7 +874,7 @@ def test_channel_lease_unilat_closes(node_factory, bitcoind):
     # l2 leases a channel from l3
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     rates = l2.rpc.dev_queryrates(l3.info['id'], amount, amount)
-    l3.daemon.wait_for_log('disconnect')
+    wait_for(lambda: len(l2.rpc.listpeers(l3.info['id'])['peers']) == 0)
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l2.rpc.fundchannel(l3.info['id'], amount, request_amt=amount,
                        feerate='{}perkw'.format(feerate), minconf=0,
@@ -965,7 +965,7 @@ def test_channel_lease_lessor_cheat(node_factory, bitcoind, chainparams):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
-    l1.daemon.wait_for_log('disconnect')
+    wait_for(lambda: len(l1.rpc.listpeers(l2.info['id'])['peers']) == 0)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 leases a channel from l2
     l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
@@ -1038,7 +1038,7 @@ def test_channel_lease_lessee_cheat(node_factory, bitcoind, chainparams):
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     rates = l1.rpc.dev_queryrates(l2.info['id'], amount, amount)
-    l1.daemon.wait_for_log('disconnect')
+    wait_for(lambda: len(l1.rpc.listpeers(l2.info['id'])['peers']) == 0)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     # l1 leases a channel from l2
     l1.rpc.fundchannel(l2.info['id'], amount, request_amt=amount,
