@@ -145,7 +145,7 @@ struct daemon {
 	struct addrinfo *proxyaddr;
 
 	/* They can tell us we must use proxy even for non-Tor addresses. */
-	bool use_proxy_always;
+	bool always_use_proxy;
 
 	/* There are DNS seeds we can use to look up node addresses as a last
 	 * resort, but doing so leaks our address so can be disabled. */
@@ -216,7 +216,7 @@ static bool broken_resolver(struct daemon *daemon)
 
 	/* If they told us to never do DNS queries, don't even do this one and
 	 * also not if we just say that we don't */
-	if (!daemon->use_dns || daemon->use_proxy_always) {
+	if (!daemon->use_dns || daemon->always_use_proxy) {
 		daemon->broken_resolver_response = NULL;
 		return false;
 	}
@@ -821,7 +821,7 @@ static struct io_plan *conn_proxy_init(struct io_conn *conn,
 static void try_connect_one_addr(struct connecting *connect)
 {
  	int fd, af;
-	bool use_proxy = connect->daemon->use_proxy_always;
+	bool use_proxy = connect->daemon->always_use_proxy;
 	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
 	struct io_conn *conn;
 
@@ -1312,7 +1312,7 @@ static struct io_plan *connect_init(struct io_conn *conn,
 		&daemon->id,
 		&proposed_wireaddr,
 		&proposed_listen_announce,
-		&proxyaddr, &daemon->use_proxy_always,
+		&proxyaddr, &daemon->always_use_proxy,
 		&daemon->dev_allow_localhost, &daemon->use_dns,
 		&tor_password,
 		&daemon->use_v3_autotor,
@@ -1528,7 +1528,7 @@ static void try_connect_peer(struct daemon *daemon,
 			     struct wireaddr_internal *addrhint)
 {
 	struct wireaddr_internal *addrs;
-	bool use_proxy = daemon->use_proxy_always;
+	bool use_proxy = daemon->always_use_proxy;
 	struct connecting *connect;
 
 	/* Already done?  May happen with timer. */
