@@ -214,7 +214,8 @@ static bool broken_resolver(struct daemon *daemon)
 	const char *hostname = "nxdomain-test.doesntexist";
 	int err;
 
-	/* If they told us to never do DNS queries, don't even do this one and also not if we just say that we don't */
+	/* If they told us to never do DNS queries, don't even do this one and
+	 * also not if we just say that we don't */
 	if (!daemon->use_dns || daemon->use_proxy_always) {
 		daemon->broken_resolver_response = NULL;
 		return false;
