@@ -97,7 +97,7 @@ The `backup` plugin requires Python 3.
   * Ideally you have an NFS or other network-based mount on your system,
     into which you will put the backup.
 * Stop your Lightning node.
-* `/path/to/backup-cli init ${LIGHTNINGDIR} file:///path/to/nfs/mount`.
+* `/path/to/backup-cli init --lightning-dir ${LIGHTNINGDIR} file:///path/to/nfs/mount`.
   This creates an initial copy of the database at the NFS mount.
 * Add these settings to your `lightningd` configuration:
   * `important-plugin=/path/to/backup.py`
