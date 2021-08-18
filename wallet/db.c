@@ -756,6 +756,8 @@ static struct migration dbmigrations[] = {
 	 "  PRIMARY KEY (key)"
 	 ");"),
      NULL},
+    {SQL("CREATE INDEX channel_state_changes_channel_id"
+	 " ON channel_state_changes (channel_id);"), NULL},
 };
 
 /* Leak tracking. */
