@@ -16,10 +16,14 @@ struct height_states *new_height_states(const tal_t *ctx,
 	for (size_t i = 0; i < ARRAY_SIZE(states->height); i++)
 		states->height[i] = NULL;
 
-	if (blockheight)
+	if (blockheight) {
 		/* We reuse fee states! */
 		states->height[last_fee_state(opener)]
 			= tal_dup(states, u32, blockheight);
+
+		assert(*blockheight == get_blockheight(states, opener, LOCAL));
+		assert(*blockheight == get_blockheight(states, opener, REMOTE));
+	}
 	return states;
 }
 
