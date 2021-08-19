@@ -4403,6 +4403,23 @@ def test_pay_waitblockheight_timeout(node_factory, bitcoind):
     assert len(status['pay'][0]['attempts']) == 1
 
 
+@pytest.mark.developer("dev-rawrequest is DEVELOPER-only")
+def test_dev_rawrequest(node_factory):
+    l1, l2 = node_factory.line_graph(2, fundchannel=False,
+                                     opts={'experimental-offers': None})
+
+    offer = l2.rpc.call('offer', {'amount': '2msat',
+                                  'description': 'simple test'})
+    # Get fetchinvoice to make us an invoice_request
+    l1.rpc.call('fetchinvoice', {'offer': offer['bolt12']})
+
+    m = re.search(r'invoice_request: \\"([a-z0-9]*)\\"', l1.daemon.is_in_log('invoice_request:'))
+    ret = l1.rpc.call('dev-rawrequest', {'invreq': m.group(1),
+                                         'nodeid': l2.info['id'],
+                                         'timeout': 10})
+    assert 'invoice' in ret
+
+
 def test_sendinvoice(node_factory, bitcoind):
     l1, l2 = node_factory.line_graph(2, wait_for_announce=True,
                                      opts={'experimental-offers': None})
