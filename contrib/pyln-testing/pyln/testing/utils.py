@@ -390,7 +390,7 @@ class BitcoinD(TailableProc):
 
         logging.info("BitcoinD started")
         try:
-            self.rpc.createwallet("lightningd-tests")
+            self.rpc.createwallet("lightningd-tests", False, False, "", False, True)
         except JSONRPCError:
             self.rpc.loadwallet("lightningd-tests")
 
