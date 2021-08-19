@@ -2440,7 +2440,7 @@ static u8 *opener_commits(struct state *state,
 					     tx_state->funding_txout,
 					     state->minimum_depth,
 					     take(new_height_states(NULL, LOCAL,
-								    &state->tx_state->blockheight)),
+								    &tx_state->blockheight)),
 					     tx_state->lease_expiry,
 					     total,
 					     our_msats,
@@ -2455,6 +2455,16 @@ static u8 *opener_commits(struct state *state,
 					     true, true,
 					     /* Opener is local */
 					     LOCAL);
+
+	status_debug("XTRALOG: made it to %d", __LINE__);
+
+	status_debug("XTRALOG: the lease_expiry is %d", state->channel->lease_expiry);
+	status_debug("XTRALOG: the blockheight is %d", tx_state->blockheight);
+	status_debug("XTRALOG: the get_blockheight is %d",
+		     get_blockheight(state->channel->blockheight_states,
+			     	     state->channel->opener,
+				     REMOTE));
+	status_debug("XTRALOG: channel no htlcs? %d", !state->channel->htlcs);
 
 	status_debug("XTRALOG: made it to %d", __LINE__);
 	remote_commit = initial_channel_tx(state, &wscript,

@@ -106,9 +106,14 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 							&funding_key[LOCAL],
 							&funding_key[REMOTE]);
 
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	if (!amount_msat_add(&total_pay, self_pay, other_pay))
 		abort();
+
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	assert(!amount_msat_greater_sat(total_pay, funding));
+
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 
 	/* BOLT #3:
 	 *
@@ -125,6 +130,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	base_fee = commit_tx_base_fee(feerate_per_kw, untrimmed,
 				      option_anchor_outputs);
 
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	/* BOLT:
 	 * If `option_anchor_outputs` applies to the commitment
 	 * transaction, also subtract two times the fixed anchor size
@@ -137,6 +143,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		return NULL;
 	}
 
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	/* BOLT #3:
 	 *
 	 * 3. Subtract this base fee from the funder (either `to_local` or
@@ -167,6 +174,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *   commitment transaction are less than or equal to
 	 *   `channel_reserve_satoshis`.
 	 */
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	if (!amount_msat_greater_sat(self_pay, self_reserve)
 	    && !amount_msat_greater_sat(other_pay, self_reserve)) {
 		*err_reason = "Neither self amount nor other amount exceed reserve on "
@@ -186,6 +194,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 
 
 	/* Worst-case sizing: both to-local and to-remote outputs + anchors. */
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	tx = bitcoin_tx(ctx, chainparams, 1, untrimmed + 4, 0);
 
 	/* This could be done in a single loop, but we follow the BOLT
@@ -210,6 +219,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *    `dust_limit_satoshis`, add a [`to_local`
 	 *    output](#to_local-output).
 	 */
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	if (amount_msat_greater_eq_sat(self_pay, dust_limit)) {
 		u8 *wscript = to_self_wscript(tmpctx,
 					      to_self_delay,
@@ -218,6 +228,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		amount = amount_msat_to_sat_round_down(self_pay);
 		int pos = bitcoin_tx_add_output(
 		    tx, scriptpubkey_p2wsh(tx, wscript), wscript, amount);
+		status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 		assert(pos == n);
 		output_order[n] = dummy_local;
 		n++;
@@ -231,6 +242,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *    `dust_limit_satoshis`, add a [`to_remote`
 	 *    output](#to_remote-output).
 	 */
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	if (amount_msat_greater_eq_sat(other_pay, dust_limit)) {
 		/* BOLT #3:
 		 *
@@ -257,6 +269,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 							   &keyset->other_payment_key);
 		}
 		pos = bitcoin_tx_add_output(tx, scriptpubkey, NULL, amount);
+		status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 		assert(pos == n);
 		output_order[n] = dummy_remote;
 		n++;
@@ -271,6 +284,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *    * if `to_remote` exists or there are untrimmed HTLCs, add a
 	 *      [`to_remote_anchor` output]
 	 */
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	if (option_anchor_outputs) {
 		if (to_local || untrimmed != 0) {
 			tx_add_anchor_output(tx, &funding_key[side]);
@@ -285,6 +299,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		}
 	}
 
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	assert(n <= tx->wtx->num_outputs);
 
 	/* BOLT #3:
@@ -292,6 +307,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 * 9. Sort the outputs into [BIP 69+CLTV
 	 *    order](#transaction-input-and-output-ordering)
 	 */
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	permute_outputs(tx, NULL, output_order);
 
 	/* BOLT #3:
@@ -300,6 +316,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *
 	 * * version: 2
 	 */
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	assert(tx->wtx->version == 2);
 
 	/* BOLT #3:
@@ -322,6 +339,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	bitcoin_tx_add_input(tx, funding_txid, funding_txout, sequence,
 			     NULL, funding, NULL, funding_wscript);
 
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	if (direct_outputs != NULL) {
 		direct_outputs[LOCAL] = direct_outputs[REMOTE] = NULL;
 		for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
@@ -333,9 +351,11 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	}
 
 	/* This doesn't reorder outputs, so we can do this after mapping outputs. */
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	bitcoin_tx_finalize(tx);
 
 	assert(bitcoin_tx_check(tx));
 
+	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	return tx;
 }
