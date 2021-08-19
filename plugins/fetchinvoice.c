@@ -194,6 +194,16 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 		goto badinv;
 	}
 
+#if DEVELOPER
+	/* Raw send?  Just fwd reply. */
+	if (!sent->offer) {
+		out = jsonrpc_stream_success(sent->cmd);
+		json_add_string(out, "invoice", invoice_encode(tmpctx, inv));
+		discard_result(command_finished(sent->cmd, out));
+		return command_hook_success(cmd);
+	}
+#endif /* DEVELOPER */
+
 	/* BOLT-offers #12:
 	 * - MUST reject the invoice unless `node_id` is equal to the offer.
 	 */
@@ -1490,6 +1500,64 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 	return sign_invoice(cmd, sent);
 }
 
+#if DEVELOPER
+static struct command_result *param_invreq(struct command *cmd,
+					   const char *name,
+					   const char *buffer,
+					   const jsmntok_t *tok,
+					   struct tlv_invoice_request **invreq)
+{
+	char *fail;
+
+	*invreq = invrequest_decode(cmd, buffer + tok->start, tok->end - tok->start,
+				    plugin_feature_set(cmd->plugin), chainparams,
+				    &fail);
+	if (!*invreq)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     tal_fmt(cmd,
+						     "Unparsable invreq: %s",
+						     fail));
+	return NULL;
+}
+
+static struct command_result *json_rawrequest(struct command *cmd,
+					      const char *buffer,
+					      const jsmntok_t *params)
+{
+	struct sent *sent = tal(cmd, struct sent);
+	u32 *timeout;
+	struct node_id *node_id;
+	struct pubkey32 node_id32;
+	bool try_connect;
+
+	if (!param(cmd, buffer, params,
+		   p_req("invreq", param_invreq, &sent->invreq),
+		   p_req("nodeid", param_node_id, &node_id),
+		   p_opt_def("timeout", param_number, &timeout, 60),
+		   NULL))
+		return command_param_failed();
+
+	/* Skip over 02/03 in node_id */
+	if (!secp256k1_xonly_pubkey_parse(secp256k1_ctx,
+					  &node_id32.pubkey,
+					  node_id->k + 1))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Invalid nodeid");
+	/* This is how long we'll wait for a reply for. */
+	sent->wait_timeout = *timeout;
+	sent->cmd = cmd;
+	sent->offer = NULL;
+
+	sent->path = path_to_node(sent, get_gossmap(cmd->plugin),
+				  &node_id32, &try_connect);
+	if (try_connect)
+		return connect_direct(cmd, node_id,
+				      sendinvreq_after_connect, sent);
+
+	return sendinvreq_after_connect(cmd, NULL, NULL, sent);
+}
+#endif /* DEVELOPER */
+
 static const struct plugin_command commands[] = {
 	{
 		"fetchinvoice",
@@ -1505,6 +1573,15 @@ static const struct plugin_command commands[] = {
 		NULL,
 		json_sendinvoice,
 	},
+#if DEVELOPER
+	{
+		"dev-rawrequest",
+		"util",
+		"Send {invreq} to {nodeid}, wait {timeout} (60 seconds by default)",
+		NULL,
+		json_rawrequest,
+	},
+#endif /* DEVELOPER */
 };
 
 static const char *init(struct plugin *p, const char *buf UNUSED,
