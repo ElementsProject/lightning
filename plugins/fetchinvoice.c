@@ -462,12 +462,18 @@ static struct command_result *sendonionmsg_done(struct command *cmd,
 
 static void init_gossmap(struct plugin *plugin)
 {
+	size_t num_cupdates_rejected;
 	global_gossmap
 		= notleak_with_children(gossmap_load(NULL,
-						     GOSSIP_STORE_FILENAME));
+						     GOSSIP_STORE_FILENAME,
+						     &num_cupdates_rejected));
 	if (!global_gossmap)
 		plugin_err(plugin, "Could not load gossmap %s: %s",
 			   GOSSIP_STORE_FILENAME, strerror(errno));
+	if (num_cupdates_rejected)
+		plugin_log(plugin, LOG_DBG,
+			   "gossmap ignored %zu channel updates",
+			   num_cupdates_rejected);
 }
 
 static struct gossmap *get_gossmap(struct plugin *plugin)
@@ -475,7 +481,7 @@ static struct gossmap *get_gossmap(struct plugin *plugin)
 	if (!global_gossmap)
 		init_gossmap(plugin);
 	else
-		gossmap_refresh(global_gossmap);
+		gossmap_refresh(global_gossmap, NULL);
 	return global_gossmap;
 }
 

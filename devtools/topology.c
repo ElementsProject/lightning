@@ -270,7 +270,7 @@ int main(int argc, char *argv[])
 		opt_usage_exit_fail("Expect 3 arguments");
 
 	tstart = time_mono();
-	map = gossmap_load(NULL, argv[1]);
+	map = gossmap_load(NULL, argv[1], NULL);
 	if (!map)
 		err(1, "Loading gossip store %s", argv[1]);
 	tstop = time_mono();

@@ -345,7 +345,7 @@ int main(void)
 	assert(write(store_fd, &gossip_version, sizeof(gossip_version))
 	       == sizeof(gossip_version));
 
-	gossmap = gossmap_load(tmpctx, gossipfilename);
+	gossmap = gossmap_load(tmpctx, gossipfilename, NULL);
 
 	for (size_t i = 0; i < NUM_NODES; i++) {
 		struct privkey tmp;
@@ -384,7 +384,7 @@ int main(void)
 			     1 << i);
 	}
 
-	assert(gossmap_refresh(gossmap));
+	assert(gossmap_refresh(gossmap, NULL));
 	for (size_t i = ROUTING_MAX_HOPS; i > 2; i--) {
 		struct gossmap_node *dst, *src;
 		struct route_hop *r;

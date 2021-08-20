@@ -190,18 +190,18 @@ int main(void)
 	store_fd = mkstemp(gossipfilename);
 	assert(write(store_fd, &gossip_version, sizeof(gossip_version))
 	       == sizeof(gossip_version));
-	gossmap = gossmap_load(tmpctx, gossipfilename);
+	gossmap = gossmap_load(tmpctx, gossipfilename, NULL);
 
 	memset(&tmp, 'a', sizeof(tmp));
 	node_id_from_privkey(&tmp, &a);
 	memset(&tmp, 'b', sizeof(tmp));
 	node_id_from_privkey(&tmp, &b);
 
-	assert(!gossmap_refresh(gossmap));
+	assert(!gossmap_refresh(gossmap, NULL));
 
 	/* A<->B */
 	add_connection(store_fd, &a, &b, 1, 1, 1);
-	assert(gossmap_refresh(gossmap));
+	assert(gossmap_refresh(gossmap, NULL));
 
 	a_node = gossmap_find_node(gossmap, &a);
 	b_node = gossmap_find_node(gossmap, &b);
@@ -219,7 +219,7 @@ int main(void)
 	memset(&tmp, 'c', sizeof(tmp));
 	node_id_from_privkey(&tmp, &c);
 	add_connection(store_fd, &b, &c, 1, 1, 1);
-	assert(gossmap_refresh(gossmap));
+	assert(gossmap_refresh(gossmap, NULL));
 
 	/* These can theoretically change after refresh! */
 	a_node = gossmap_find_node(gossmap, &a);
@@ -243,7 +243,7 @@ int main(void)
 
 	add_connection(store_fd, &a, &d, 0, 2, 1);
 	add_connection(store_fd, &d, &c, 0, 2, 1);
-	assert(gossmap_refresh(gossmap));
+	assert(gossmap_refresh(gossmap, NULL));
 
 	/* These can theoretically change after refresh! */
 	a_node = gossmap_find_node(gossmap, &a);
@@ -284,7 +284,7 @@ int main(void)
 
 	/* Make B->C inactive, force it back via D */
 	update_connection(store_fd, &b, &c, 1, 1, 1, true);
-	assert(gossmap_refresh(gossmap));
+	assert(gossmap_refresh(gossmap, NULL));
 
 	/* These can theoretically change after refresh! */
 	a_node = gossmap_find_node(gossmap, &a);
