@@ -210,7 +210,7 @@ int main(void)
 	assert(write(store_fd, &gossip_version, sizeof(gossip_version))
 	       == sizeof(gossip_version));
 
-	gossmap = gossmap_load(tmpctx, gossipfilename);
+	gossmap = gossmap_load(tmpctx, gossipfilename, NULL);
 
 	/* [{'active': True, 'short_id': '6990:2:1/1', 'fee_per_kw': 10, 'delay': 5, 'message_flags': 0, 'channel_flags': 1, 'destination': '0230ad0e74ea03976b28fda587bb75bdd357a1938af4424156a18265167f5e40ae', 'source': '02ea622d5c8d6143f15ed3ce1d501dd0d3d09d3b1c83a44d0034949f8a9ab60f06', 'last_update': 1504064344}, */
 	add_connection(store_fd, &c, &b, "6990x2x1",
@@ -232,7 +232,7 @@ int main(void)
 			  AMOUNT_MSAT(0), AMOUNT_MSAT(1000),
 			  0, 10, 5, false);
 
-	assert(gossmap_refresh(gossmap));
+	assert(gossmap_refresh(gossmap, NULL));
 
 	a_node = gossmap_find_node(gossmap, &a);
 	b_node = gossmap_find_node(gossmap, &b);
@@ -278,7 +278,7 @@ int main(void)
 	add_connection(store_fd, &a, &d, "6991x2x1",
 		       AMOUNT_MSAT(100), AMOUNT_MSAT(499968), /* exact repr in fp16! */
 		       0, 0, 5);
-	assert(gossmap_refresh(gossmap));
+	assert(gossmap_refresh(gossmap, NULL));
 
 	a_node = gossmap_find_node(gossmap, &a);
 	b_node = gossmap_find_node(gossmap, &b);

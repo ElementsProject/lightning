@@ -41,11 +41,14 @@ struct gossmap_chan {
 	} half[2];
 };
 
-struct gossmap *gossmap_load(const tal_t *ctx, const char *filename);
+/* If num_channel_updates_rejected is not NULL, indicates how many channels we
+ * marked inactive because their values were too high to be represented. */
+struct gossmap *gossmap_load(const tal_t *ctx, const char *filename,
+			     size_t *num_channel_updates_rejected);
 
 /* Call this before using to ensure it's up-to-date.  Returns true if something
  * was updated. Note: this can scramble node and chan indexes! */
-bool gossmap_refresh(struct gossmap *map);
+bool gossmap_refresh(struct gossmap *map, size_t *num_channel_updates_rejected);
 
 /* Local modifications. */
 struct gossmap_localmods *gossmap_localmods_new(const tal_t *ctx);

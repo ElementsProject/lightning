@@ -311,7 +311,7 @@ int main(int argc, char *argv[])
 	fd = mkstemp(gossfile);
 	assert(write_all(fd, canned_map, sizeof(canned_map)));
 
-	map = gossmap_load(tmpctx, gossfile);
+	map = gossmap_load(tmpctx, gossfile, NULL);
 	assert(map);
 
 	/* There is a public channel 2<->3 (103x1x0), and private
@@ -503,6 +503,6 @@ int main(int argc, char *argv[])
 
 	/* Now we can refresh. */
 	assert(write(fd, "", 1) == 1);
-	gossmap_refresh(map);
+	gossmap_refresh(map, NULL);
 	common_shutdown();
 }
