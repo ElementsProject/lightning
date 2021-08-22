@@ -520,10 +520,6 @@ def test_sendpay(node_factory):
         invoices = dst.rpc.listinvoices(label)['invoices']
         return len(invoices) == 1 and invoices[0]['status'] == 'unpaid'
 
-    def only_one(arr):
-        assert len(arr) == 1
-        return arr[0]
-
     routestep = {
         'msatoshi': amt,
         'id': l2.info['id'],
