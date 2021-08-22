@@ -1334,11 +1334,11 @@ msgstr ""
 msgid "not a valid SQL statement"
 msgstr ""
 
-#: wallet/test/run-wallet.c:1539
+#: wallet/test/run-wallet.c:1540
 msgid "SELECT COUNT(1) FROM channel_funding_inflights WHERE channel_id = ?;"
 msgstr ""
 
-#: wallet/test/run-wallet.c:1752
+#: wallet/test/run-wallet.c:1753
 msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
-#  SHA256STAMP:51fa10c40312c4845f05157420486d57cc8c5ace7b7da7a92c8e496f48ff0dcc
+#  SHA256STAMP:8878e1ee71d04ea6302c18aeb02f59c56e086a7e5a4647ddbe67bc2ef7c07275
