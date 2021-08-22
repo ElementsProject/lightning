@@ -1099,6 +1099,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 	u32 *blockheight = tal(w, u32);
 	*blockheight = 100;
 	/* We gotta add a block to the database though */
+	memset(&block, 0, sizeof(block));
 	block.height = 100;
 	memset(&block.blkid, 2, sizeof(block.blkid));
 	wallet_block_add(w, &block);
