@@ -42,96 +42,6 @@ RETURN VALUE
 On success, an object containing **peers** is returned.  It is an array of objects, where each object contains:
 - **id** (pubkey): the public key of the peer
 - **connected** (boolean): True if the peer is currently connected
-- **channels** (array of objects):
-  - **state** (string): the channel state, in particular "CHANNELD_NORMAL" means the channel can be used normally (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
-  - **opener** (string): Who initiated the channel (one of "local", "remote")
-  - **features** (array of strings):
-    - BOLT #9 features which apply to this channel (one of "option_static_remotekey", "option_anchor_outputs")
-  - **scratch_txid** (txid, optional): The txid we would use if we went onchain now
-  - **feerate** (object, optional): Feerates for the current tx:
-    - **perkw** (u32): Feerate per 1000 weight (i.e kSipa)
-    - **perkb** (u32): Feerate per 1000 virtual bytes
-  - **owner** (string, optional): The current subdaemon controlling this connection
-  - **short_channel_id** (short_channel_id, optional): The short_channel_id (once locked in)
-  - **channel_id** (hex, optional): The full channel_id (always 64 characters)
-  - **funding_txid** (txid, optional): ID of the funding transaction
-  - **initial_feerate** (string, optional): For inflight opens, the first feerate used to initiate the channel open
-  - **last_feerate** (string, optional): For inflight opens, the most recent feerate used on the channel open
-  - **next_feerate** (string, optional): For inflight opens, the next feerate we'll use for the channel open
-  - **next_fee_step** (u32, optional): For inflight opens, the next feerate step we'll use for the channel open
-  - **inflight** (array of objects, optional): Current candidate funding transactions (only for dual-funding):
-    - **funding_txid** (txid): ID of the funding transaction
-    - **funding_outnum** (u32): The 0-based output number of the funding transaction which opens the channel
-    - **feerate** (string): The feerate for this funding transaction in per-1000-weight, with "kpw" appended
-    - **total_funding_msat** (msat): total amount in the channel
-    - **our_funding_msat** (msat): amount we have in the channel
-    - **scratch_txid** (txid): The commitment transaction txid we would use if we went onchain now
-  - **close_to** (hex, optional): scriptPubkey which we have to close to if we mutual close
-  - **private** (boolean, optional): if False, we will not announce this channel
-  - **closer** (string, optional): Who initiated the channel close (`null` is deprecated!) (one of "local", "remote", *null*)
-  - **funding** (object, optional):
-    - **local_msat** (msat): Amount of channel we funded
-    - **remote_msat** (msat): Amount of channel they funded
-  - **to_us_msat** (msat, optional): how much of channel is owed to us
-  - **min_to_us_msat** (msat, optional): least amount owed to us ever
-  - **max_to_us_msat** (msat, optional): most amount owed to us ever
-  - **total_msat** (msat, optional): total amount in the channel
-  - **fee_base_msat** (msat, optional): amount we charge to use the channel
-  - **fee_proportional_millionths** (u32, optional): amount we charge to use the channel in parts-per-million
-  - **dust_limit_msat** (msat, optional): minimum amount for an output on the channel transactions
-  - **max_total_htlc_in_msat** (msat, optional): max amount accept in a single payment
-  - **their_reserve_msat** (msat, optional): minimum we insist they keep in channel
-  - **our_reserve_msat** (msat, optional): minimum they insist we keep in channel
-  - **spendable_msat** (msat, optional): total we could send through channel
-  - **receivable_msat** (msat, optional): total peer could send through channel
-  - **minimum_htlc_in_msat** (msat, optional): the minimum amount HTLC we accept
-  - **their_to_self_delay** (u32, optional): the number of blocks before they can take their funds if they unilateral close
-  - **our_to_self_delay** (u32, optional): the number of blocks before we can take our funds if we unilateral close
-  - **max_accepted_htlcs** (u32, optional): Maximum number of incoming HTLC we will accept at once
-  - **state_changes** (array of objects, optional): Prior state changes:
-    - **timestamp** (string): UTC timestamp of form YYYY-mm-ddTHH:MM:SS.%03dZ
-    - **old_state** (string): Previous state (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
-    - **new_state** (string): New state (one of "OPENINGD", "CHANNELD_AWAITING_LOCKIN", "CHANNELD_NORMAL", "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN", "ONCHAIN", "DUALOPEND_OPEN_INIT", "DUALOPEND_AWAITING_LOCKIN")
-    - **cause** (string): What caused the change (one of "unknown", "local", "user", "remote", "protocol", "onchain")
-    - **message** (string): Human-readable explanation
-  - **status** (array of strings, optional):
-    - Billboard log of significant changes
-  - **in_payments_offered** (u64, optional): Number of incoming payment attempts
-  - **in_offered_msat** (msat, optional): Total amount of incoming payment attempts
-  - **in_payments_fulfilled** (u64, optional): Number of successful incoming payment attempts
-  - **in_fulfilled_msat** (msat, optional): Total amount of successful incoming payment attempts
-  - **out_payments_offered** (u64, optional): Number of outgoing payment attempts
-  - **out_offered_msat** (msat, optional): Total amount of outgoing payment attempts
-  - **out_payments_fulfilled** (u64, optional): Number of successful outgoing payment attempts
-  - **out_fulfilled_msat** (msat, optional): Total amount of successful outgoing payment attempts
-  - **htlcs** (array of objects, optional): current HTLCs in this channel:
-    - **direction** (string): Whether it came from peer, or is going to peer (one of "in", "out")
-    - **id** (u64): Unique ID for this htlc on this channel in this direction
-    - **amount_msat** (msat): Amount send/received for this HTLC
-    - **expiry** (u32): Block this HTLC expires at
-    - **payment_hash** (hex): the hash of the payment_preimage which will prove payment (always 64 characters)
-    - **local_trimmed** (boolean, optional): if this is too small to enforce onchain (always *true*)
-    - **status** (string, optional): set if this HTLC is currently waiting on a hook (and shows what plugin)
-
-    If **direction** is "out":
-      - **state** (string): Status of the HTLC (one of "SENT_ADD_HTLC", "SENT_ADD_COMMIT", "RCVD_ADD_REVOCATION", "RCVD_ADD_ACK_COMMIT", "SENT_ADD_ACK_REVOCATION", "RCVD_REMOVE_HTLC", "RCVD_REMOVE_COMMIT", "SENT_REMOVE_REVOCATION", "SENT_REMOVE_ACK_COMMIT", "RCVD_REMOVE_ACK_REVOCATION")
-
-    If **direction** is "in":
-      - **state** (string): Status of the HTLC (one of "RCVD_ADD_HTLC", "RCVD_ADD_COMMIT", "SENT_ADD_REVOCATION", "SENT_ADD_ACK_COMMIT", "RCVD_ADD_ACK_REVOCATION", "SENT_REMOVE_HTLC", "SENT_REMOVE_COMMIT", "RCVD_REMOVE_REVOCATION", "RCVD_REMOVE_ACK_COMMIT", "SENT_REMOVE_ACK_REVOCATION")
-
-  If **close_to** is present:
-    - **close_to_addr** (string, optional): The bitcoin address we will close to
-
-  If **scratch_txid** is present:
-    - **last_tx_fee_msat** (msat): fee attached to this the current tx
-
-  If **short_channel_id** is present:
-    - **direction** (u32): 0 if we're the lesser node_id, 1 if we're the greater
-
-  If **inflight** is present:
-    - **initial_feerate** (string): The feerate for the initial funding transaction in per-1000-weight, with "kpw" appended
-    - **last_feerate** (string): The feerate for the latest funding transaction in per-1000-weight, with "kpw" appended
-    - **next_feerate** (string): The minimum feerate for the next funding transaction in per-1000-weight, with "kpw" appended
 - **log** (array of objects, optional): if *level* is specified, logs for this peer:
   - **type** (string) (one of "SKIPPED", "BROKEN", "UNUSUAL", "INFO", "DEBUG", "IO_IN", "IO_OUT")
 
@@ -166,13 +76,15 @@ Each object in the list contains the following data:
 - *connected* : A boolean value showing the connection status
 - *netaddr* : A list of network addresses the node is listening on
 - *features* : Bit flags showing supported features (BOLT \#9)
-- *channels* : An array of objects describing channels with the peer.
 - *log* : Only present if *level* is set. List logs related to the
 peer at the specified *level*
 
 If *id* is supplied and no matching nodes are found, a "peers" object
 with an empty list is returned.
 
+A list of the peer's channels can be retrieved with the **listpeerchannels**
+RPC command, which takes a peer *id* and returns an object with a "channels"
+key containing a list of 0 or more objects describing channels with the peer.
 The objects in the *channels* array will have at least these fields:
 
 * *state*: Any of these strings:
@@ -376,4 +288,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:7d11de5d2ff844d6f9e4b8093bd135c7a38d17f159ba7aca4821c5365ca11e71)
+[comment]: # ( SHA256STAMP:19b44f1ef0cef45a22516cf4daa9e603f1c709d7ebd43b8aceaf992574cf236f)

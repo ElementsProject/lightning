@@ -1438,16 +1438,18 @@ static void json_add_peer(struct lightningd *ld,
 		json_add_hex_talarr(response, "features", p->their_features);
 	}
 
-	json_array_start(response, "channels");
-	json_add_uncommitted_channel(response, p->uncommitted_channel);
+	if (deprecated_apis) {
+		json_array_start(response, "channels");
+		json_add_uncommitted_channel(response, p->uncommitted_channel);
 
-	list_for_each(&p->channels, channel, list) {
-		if (channel_unsaved(channel))
-			json_add_unsaved_channel(response, channel);
-		else
-			json_add_channel(ld, response, NULL, channel);
+		list_for_each(&p->channels, channel, list) {
+			if (channel_unsaved(channel))
+				json_add_unsaved_channel(response, channel);
+			else
+				json_add_channel(ld, response, NULL, channel);
+		}
+		json_array_end(response);
 	}
-	json_array_end(response);
 
 	if (ll)
 		json_add_log(response, ld->log_book, &p->id, *ll);
@@ -1493,6 +1495,53 @@ static const struct json_command listpeers_command = {
 };
 /* Comment added to satisfice AUTODATA */
 AUTODATA(json_command, &listpeers_command);
+
+static struct command_result *json_listpeerchannels(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *obj UNNEEDED,
+						    const jsmntok_t *params)
+{
+	enum log_level *ll;
+	struct node_id *peer_id;
+	struct peer *peer;
+	struct channel *channel;
+	struct json_stream *response;
+
+	if (!param(cmd, buffer, params,
+		   p_req("id", param_node_id, &peer_id),
+		   p_opt("level", param_loglevel, &ll),
+		   NULL))
+		return command_param_failed();
+
+	peer = peer_by_id(cmd->ld, peer_id);
+	if (!peer) {
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not find peer with that id");
+	}
+
+	response = json_stream_success(cmd);
+	json_array_start(response, "channels");
+	json_add_uncommitted_channel(response, peer->uncommitted_channel);
+
+	list_for_each(&peer->channels, channel, list) {
+		if (channel_unsaved(channel))
+			json_add_unsaved_channel(response, channel);
+		else
+			json_add_channel(cmd->ld, response, NULL, channel);
+	}
+
+	json_array_end(response);
+
+	return command_success(cmd, response);
+}
+
+static const struct json_command listpeerchannels_command = {
+        "listpeerchannels",
+        "network",
+        json_listpeerchannels,
+        "Show current channels of the specified peer."
+};
+AUTODATA(json_command, &listpeerchannels_command);
 
 struct command_result *
 command_find_channel(struct command *cmd,
