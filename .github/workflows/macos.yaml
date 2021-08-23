@@ -57,7 +57,7 @@ jobs:
           export LDFLAGS="-L/usr/local/opt/sqlite/lib"
           export CPPFLAGS="-I/usr/local/opt/sqlite/include"
 
-          pip3 install -U \
+          pip3 install --user -U --use-feature=in-tree-build \
             -r requirements.txt \
             -r contrib/pyln-client/requirements.txt \
             -r contrib/pyln-proto/requirements.txt \
