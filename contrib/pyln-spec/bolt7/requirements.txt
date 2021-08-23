@@ -1,1 +1,1 @@
-../requirements.txt
+pyln.proto >= 0.9.3
