@@ -1496,6 +1496,30 @@ static const struct json_command listpeers_command = {
 /* Comment added to satisfice AUTODATA */
 AUTODATA(json_command, &listpeers_command);
 
+static void json_add_peerchannels(struct lightningd *ld,
+				  struct json_stream *response,
+				  struct peer *peer,
+				  enum channel_state *state,
+				  const enum log_level *ll)
+{
+	struct channel *channel;
+
+        if (!state)
+	        json_add_uncommitted_channel(response, peer->uncommitted_channel);
+
+        list_for_each(&peer->channels, channel, list) {
+		if (!state || channel->state == *state) {
+	                if (channel_unsaved(channel))
+        	                json_add_unsaved_channel(response, channel);
+                	else
+                        	json_add_channel(ld, response, NULL, channel);
+		}
+        }
+
+        if (ll)
+                json_add_log(response, ld->log_book, &peer->id, *ll);
+}
+
 static struct command_result *json_listpeerchannels(struct command *cmd,
 						    const char *buffer,
 						    const jsmntok_t *obj UNNEEDED,
@@ -1503,31 +1527,27 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
 {
 	enum log_level *ll;
 	struct node_id *peer_id;
+	enum channel_state *state;
 	struct peer *peer;
-	struct channel *channel;
 	struct json_stream *response;
 
 	if (!param(cmd, buffer, params,
-		   p_req("id", param_node_id, &peer_id),
+		   p_opt("id", param_node_id, &peer_id),
+		   p_opt("state", param_channel_state, &state),
 		   p_opt("level", param_loglevel, &ll),
 		   NULL))
 		return command_param_failed();
 
-	peer = peer_by_id(cmd->ld, peer_id);
-	if (!peer) {
-		return command_fail(cmd, LIGHTNINGD,
-				    "Could not find peer with that id");
-	}
-
 	response = json_stream_success(cmd);
 	json_array_start(response, "channels");
-	json_add_uncommitted_channel(response, peer->uncommitted_channel);
 
-	list_for_each(&peer->channels, channel, list) {
-		if (channel_unsaved(channel))
-			json_add_unsaved_channel(response, channel);
-		else
-			json_add_channel(cmd->ld, response, NULL, channel);
+	if (peer_id) {
+		peer = peer_by_id(cmd->ld, peer_id);
+		if (peer)
+			json_add_peerchannels(cmd->ld, response, peer, state, ll);
+	} else {
+		list_for_each(&cmd->ld->peers, peer, list)
+			json_add_peerchannels(cmd->ld, response, peer, state, ll);
 	}
 
 	json_array_end(response);

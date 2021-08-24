@@ -487,6 +487,35 @@ const char *channel_state_str(enum channel_state state)
 	return "unknown";
 }
 
+char *channel_state_option(const char *arg, enum channel_state *opt)
+{
+        for (size_t i=0; enum_channel_state_names[i].v; i++) {
+                if (streq(arg, enum_channel_state_names[i].name)) {
+                        *opt = enum_channel_state_names[i].v;
+                        return NULL;
+                }
+        }
+        return tal_fmt(NULL, "'%s' is not a valid channel state", arg);
+}
+
+struct command_result *
+param_channel_state(struct command *cmd, const char *name,
+		    const char *buffer, const jsmntok_t *tok,
+		    enum channel_state **opt)
+{
+	char *opt_str, *err;
+
+	*opt = tal(cmd, enum channel_state);
+	opt_str = tal_strndup(cmd, buffer + tok->start,
+			      tok->end - tok->start);
+
+	err = channel_state_option(opt_str, *opt);
+	if (err)
+		return command_fail_badparam(cmd, name, buffer, tok, err);
+
+	return NULL;
+}
+
 struct channel *peer_unsaved_channel(struct peer *peer)
 {
 	struct channel *channel;

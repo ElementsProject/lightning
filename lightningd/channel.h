@@ -337,6 +337,13 @@ u32 channel_last_funding_feerate(const struct channel *channel);
 
 void delete_channel(struct channel *channel STEALS);
 
+/* Convert a command-line option to a state name */
+char *channel_state_option(const char *arg, enum channel_state *opt);
+struct command_result *
+param_channel_state(struct command *cmd, const char *name,
+                    const char *buffer, const jsmntok_t *tok,
+                    enum channel_state **opt);
+
 const char *channel_state_name(const struct channel *channel);
 const char *channel_state_str(enum channel_state state);
 
