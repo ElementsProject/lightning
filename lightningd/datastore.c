@@ -7,8 +7,12 @@
 static void json_add_datastore(struct json_stream *response,
 			       const char *key, const u8 *data)
 {
+	const char *str;
 	json_add_string(response, "key", key);
 	json_add_hex(response, "hex", data, tal_bytelen(data));
+	str = utf8_str(response, data, tal_bytelen(data));
+	if (str)
+		json_add_string(response, "string", str);
 }
 
 static struct command_result *json_datastore(struct command *cmd,
@@ -17,14 +21,26 @@ static struct command_result *json_datastore(struct command *cmd,
 					     const jsmntok_t *params)
 {
 	struct json_stream *response;
-	const char *key;
+	const char *key, *strdata;
 	u8 *data;
 
 	if (!param(cmd, buffer, params,
 		   p_req("key", param_string, &key),
-		   p_req("hex", param_bin_from_hex, &data),
+		   p_opt("string", param_string, &strdata),
+		   p_opt("hex", param_bin_from_hex, &data),
 		   NULL))
 		return command_param_failed();
+
+	if (strdata) {
+		if (data)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Cannot have both hex and string");
+		data = tal_dup_arr(cmd, u8, (u8 *)strdata, strlen(strdata), 0);
+	} else {
+		if (!data)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "Must have either hex or string");
+	}
 
 	if (!wallet_datastore_add(cmd->ld->wallet, key, data))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -103,7 +119,7 @@ static const struct json_command datastore_command = {
 	"datastore",
 	"utility",
 	json_datastore,
-	"Add a {key} and {hex} data to the data store",
+	"Add a {key} and {hex}/{string} data to the data store",
 };
 AUTODATA(json_command, &datastore_command);
 

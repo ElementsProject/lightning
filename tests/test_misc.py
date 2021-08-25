@@ -2635,45 +2635,45 @@ def test_datastore(node_factory):
 
     # Add entries.
     somedata = b'somedata'.hex()
-    assert l1.rpc.datastore('somekey', somedata) == {'key': 'somekey',
-                                                     'hex': somedata}
+    somedata_expect = {'key': 'somekey',
+                       'hex': somedata,
+                       'string': 'somedata'}
+    assert l1.rpc.datastore(key='somekey', hex=somedata) == somedata_expect
 
-    assert l1.rpc.listdatastore() == {'datastore': [{'key': 'somekey',
-                                                     'hex': somedata}]}
-    assert l1.rpc.listdatastore('somekey') == {'datastore': [{'key': 'somekey',
-                                                              'hex': somedata}]}
+    assert l1.rpc.listdatastore() == {'datastore': [somedata_expect]}
+    assert l1.rpc.listdatastore('somekey') == {'datastore': [somedata_expect]}
     assert l1.rpc.listdatastore('otherkey') == {'datastore': []}
 
     otherdata = b'otherdata'.hex()
-    assert l1.rpc.datastore('otherkey', otherdata) == {'key': 'otherkey',
-                                                       'hex': otherdata}
+    otherdata_expect = {'key': 'otherkey',
+                        'hex': otherdata,
+                        'string': 'otherdata'}
+    assert l1.rpc.datastore(key='otherkey', string='otherdata') == otherdata_expect
 
-    assert l1.rpc.listdatastore('somekey') == {'datastore': [{'key': 'somekey',
-                                                              'hex': somedata}]}
-    assert l1.rpc.listdatastore('otherkey') == {'datastore': [{'key': 'otherkey',
-                                                              'hex': otherdata}]}
+    assert l1.rpc.listdatastore('somekey') == {'datastore': [somedata_expect]}
+    assert l1.rpc.listdatastore('otherkey') == {'datastore': [otherdata_expect]}
     assert l1.rpc.listdatastore('badkey') == {'datastore': []}
 
     ds = l1.rpc.listdatastore()
     # Order is undefined!
-    assert (ds == {'datastore': [{'key': 'somekey', 'hex': somedata},
-                                 {'key': 'otherkey', 'hex': otherdata}]}
-            or ds == {'datastore': [{'key': 'otherkey', 'hex': otherdata},
-                                    {'key': 'somekey', 'hex': somedata}]})
+    assert (ds == {'datastore': [somedata_expect, otherdata_expect]}
+            or ds == {'datastore': [otherdata_expect, somedata_expect]})
 
-    assert l1.rpc.deldatastore('somekey') == {'key': 'somekey',
-                                              'hex': somedata}
-    assert l1.rpc.listdatastore() == {'datastore': [{'key': 'otherkey',
-                                                     'hex': otherdata}]}
+    assert l1.rpc.deldatastore('somekey') == somedata_expect
+    assert l1.rpc.listdatastore() == {'datastore': [otherdata_expect]}
     assert l1.rpc.listdatastore('somekey') == {'datastore': []}
-    assert l1.rpc.listdatastore('otherkey') == {'datastore': [{'key': 'otherkey',
-                                                               'hex': otherdata}]}
+    assert l1.rpc.listdatastore('otherkey') == {'datastore': [otherdata_expect]}
     assert l1.rpc.listdatastore('badkey') == {'datastore': []}
-    assert l1.rpc.listdatastore() == {'datastore': [{'key': 'otherkey',
-                                                     'hex': otherdata}]}
+    assert l1.rpc.listdatastore() == {'datastore': [otherdata_expect]}
+
+    # if it's not a string, won't print
+    badstring_expect = {'key': 'badstring',
+                        'hex': '00'}
+    assert l1.rpc.datastore(key='badstring', hex='00') == badstring_expect
+    assert l1.rpc.listdatastore('badstring') == {'datastore': [badstring_expect]}
+    assert l1.rpc.deldatastore('badstring') == badstring_expect
 
     # It's persistent
     l1.restart()
 
-    assert l1.rpc.listdatastore() == {'datastore': [{'key': 'otherkey',
-                                                     'hex': otherdata}]}
+    assert l1.rpc.listdatastore() == {'datastore': [otherdata_expect]}
