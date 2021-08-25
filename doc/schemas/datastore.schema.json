@@ -2,12 +2,15 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
     "additionalProperties": false,
-    "required": [ "key", "hex", "generation" ],
+    "required": [ "key" ],
     "properties": {
         "key": {
-            "type": "string",
-            "description": "The key which has been added to the datastore"
-        },
+	    "type": "array",
+	    "items": {
+		"type": "string",
+		"description": "Part of the key added to the datastore"
+	    }
+	},
         "generation": {
             "type": "u64",
             "description": "The number of times this has been updated"

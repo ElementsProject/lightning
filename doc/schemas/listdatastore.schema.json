@@ -9,11 +9,14 @@
 	    "items": {
 		"type": "object",
 		"additionalProperties": false,
-		"required": [ "key", "hex", "generation" ],
+		"required": [ "key" ],
 		"properties": {
 		    "key": {
-			"type": "string",
-			"description": "The key which from the datastore"
+			"type": "array",
+			"items": {
+			    "type": "string",
+			    "description": "Part of the key added to the datastore"
+			}
 		    },
 		    "generation": {
 			"type": "u64",

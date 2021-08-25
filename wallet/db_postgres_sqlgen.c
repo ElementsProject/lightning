@@ -1023,8 +1023,8 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "CREATE TABLE datastore (  key TEXT,  data BLOB,  generation BIGINT,  PRIMARY KEY (key));",
-         .query = "CREATE TABLE datastore (  key TEXT,  data BYTEA,  generation BIGINT,  PRIMARY KEY (key));",
+         .name = "CREATE TABLE datastore (  key BLOB,  data BLOB,  generation BIGINT,  PRIMARY KEY (key));",
+         .query = "CREATE TABLE datastore (  key BYTEA,  data BYTEA,  generation BIGINT,  PRIMARY KEY (key));",
          .placeholders = 0,
          .readonly = false,
     },
@@ -2025,14 +2025,14 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT data, generation  FROM datastore WHERE key = ?;",
-         .query = "SELECT data, generation  FROM datastore WHERE key = $1;",
+         .name = "SELECT key, data, generation FROM datastore WHERE key >= ? ORDER BY key;",
+         .query = "SELECT key, data, generation FROM datastore WHERE key >= $1 ORDER BY key;",
          .placeholders = 1,
          .readonly = true,
     },
     {
-         .name = "SELECT key, data, generation FROM datastore;",
-         .query = "SELECT key, data, generation FROM datastore;",
+         .name = "SELECT key, data, generation FROM datastore ORDER BY key;",
+         .query = "SELECT key, data, generation FROM datastore ORDER BY key;",
          .placeholders = 0,
          .readonly = true,
     },
@@ -2068,4 +2068,4 @@ struct db_query db_postgres_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:247577c68e8e536ee1736ddce425efb58ff609c1d3d4fbb1148b5c65b8922741
+// SHA256STAMP:1808964024bcccbd2787e723881f263b1a77ea33c302ac2b6d61dae20486a7e4

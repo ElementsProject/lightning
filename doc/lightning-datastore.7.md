@@ -12,8 +12,11 @@ DESCRIPTION
 The **datastore** RPC command allows plugins to store data in the
 c-lightning database, for later retrieval.
 
-There can only be one entry for each *key*, so prefixing with the
-plugin name (e.g. `summary.`) is recommended.
+*key* is an array of values (though a single value is treated as a
+one-element array), to form a heirarchy.  Using the first element of
+the key as the plugin name (e.g. `[ "summary" ]`) is recommended.
+A key can either have children or a value, never both: parents are
+created and removed automatically.
 
 *mode* is one of "must-create" (default, fails it it already exists),
 "must-replace" (fails it it doesn't already exist),
@@ -31,9 +34,10 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
-- **key** (string): The key which has been added to the datastore
-- **generation** (u64): The number of times this has been updated
-- **hex** (hex): The hex data which has been added to the datastore
+- **key** (array of strings):
+  - Part of the key added to the datastore
+- **generation** (u64, optional): The number of times this has been updated
+- **hex** (hex, optional): The hex data which has been added to the datastore
 - **string** (string, optional): The data as a string, if it's valid utf-8
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -41,6 +45,8 @@ The following error codes may occur:
 - 1202: The key already exists (and mode said it must not)
 - 1203: The key does not exist (and mode said it must)
 - 1204: The generation was wrong (and generation was specified)
+- 1205: The key has children already.
+- 1206: One of the parents already exists with a value.
 - -32602: invalid parameters
 
 AUTHOR
@@ -58,4 +64,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:0867f9910b75ef66e640a92aad55dbab7ce0b3278fd1fb200f91c2a1a6164409)
+[comment]: # ( SHA256STAMP:a66ad377a86e479704a3f5db06cffbd54bcd34fc9d36724649ace7b1f1e16bce)

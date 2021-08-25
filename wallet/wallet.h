@@ -1533,10 +1533,10 @@ void wallet_offer_mark_used(struct db *db, const struct sha256 *offer_id)
 /**
  * Add an new key/value to the datastore (generation 0)
  * @w: the wallet
- * @key: the first key (if returns non-NULL)
- * @data: the first data (if returns non-NULL)
+ * @key: the new key (if returns non-NULL)
+ * @data: the new data (if returns non-NULL)
  */
-void wallet_datastore_create(struct wallet *w, const char *key, const u8 *data);
+void wallet_datastore_create(struct wallet *w, const char **key, const u8 *data);
 
 /**
  * Update an existing key/value to the datastore.
@@ -1544,37 +1544,22 @@ void wallet_datastore_create(struct wallet *w, const char *key, const u8 *data);
  * @key: the first key (if returns non-NULL)
  * @data: the first data (if returns non-NULL)
  */
-void wallet_datastore_update(struct wallet *w, const char *key, const u8 *data);
+void wallet_datastore_update(struct wallet *w,
+			     const char **key,
+			     const u8 *data);
 
 /**
- * Remove a key from the datastore (return the old data).
- * @ctx: the tal ctx to allocate return off
+ * Remove a key from the datastore
  * @w: the wallet
  * @key: the key
- * @generation: the generation of deleted record
- *
- * Returns NULL if the key was not in the store.
  */
-u8 *wallet_datastore_remove(const tal_t *ctx, struct wallet *w, const char *key,
-			    u64 *generation);
-
-/**
- * Retrieve a value from the datastore.
- * @ctx: the tal ctx to allocate return off
- * @w: the wallet
- * @key: the first key (if returns non-NULL)
- * @generation: the generation (if returns non-NULL), or NULL.
- *
- * Returns NULL if the key is not in the store.
- */
-u8 *wallet_datastore_fetch(const tal_t *ctx,
-			   struct wallet *w, const char *key,
-			   u64 *generation);
+void wallet_datastore_remove(struct wallet *w, const char **key);
 
 /**
  * Iterate through the datastore.
  * @ctx: the tal ctx to allocate off
  * @w: the wallet
+ * @startkey: NULL, or the first key to start with
  * @key: the first key (if returns non-NULL)
  * @data: the first data (if returns non-NULL)
  * @generation: the first generation (if returns non-NULL)
@@ -1584,7 +1569,8 @@ u8 *wallet_datastore_fetch(const tal_t *ctx,
  */
 struct db_stmt *wallet_datastore_first(const tal_t *ctx,
 				       struct wallet *w,
-				       const char **key,
+				       const char **startkey,
+				       const char ***key,
 				       const u8 **data,
 				       u64 *generation);
 
@@ -1603,7 +1589,7 @@ struct db_stmt *wallet_datastore_first(const tal_t *ctx,
 struct db_stmt *wallet_datastore_next(const tal_t *ctx,
 				      struct wallet *w,
 				      struct db_stmt *stmt,
-				      const char **key,
+				      const char ***key,
 				      const u8 **data,
 				      u64 *generation);
 
