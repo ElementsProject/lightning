@@ -1023,6 +1023,12 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
+         .name = "CREATE TABLE datastore (  key TEXT,  data BLOB,  PRIMARY KEY (key));",
+         .query = "CREATE TABLE datastore (  key TEXT,  data BLOB,  PRIMARY KEY (key));",
+         .placeholders = 0,
+         .readonly = false,
+    },
+    {
          .name = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .query = "UPDATE vars SET intval = intval + 1 WHERE name = 'data_version' AND intval = ?",
          .placeholders = 1,
@@ -2026,10 +2032,10 @@ struct db_query db_sqlite3_queries[] = {
     },
 };
 
-#define DB_SQLITE3_QUERY_COUNT 336
+#define DB_SQLITE3_QUERY_COUNT 337
 
 #endif /* HAVE_SQLITE3 */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:411593f0957475d832c02cd75a8b0eed30b00fc6178797262ae7dd697de22383
+// SHA256STAMP:765ebe6f1bf58b1d492d8d1715e423fbe0764e3440c8bd2be8d0a09dccc95a5c
