@@ -18,6 +18,10 @@
 		    "hex": {
 			"type": "hex",
 			"description": "The hex data from the datastore"
+		    },
+		    "string": {
+			"type": "string",
+			"description": "The data as a string, if it's valid utf-8"
 		    }
 		}
 	    }

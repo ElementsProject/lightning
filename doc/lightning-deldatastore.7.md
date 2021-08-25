@@ -21,6 +21,7 @@ RETURN VALUE
 On success, an object is returned, containing:
 - **key** (string): The key which has been removed from the datastore
 - **hex** (hex): The hex data which has removed from the datastore
+- **string** (string, optional): The data as a string, if it's valid utf-8
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The main cause of failure is an non-existing entry.
@@ -43,4 +44,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:8e732382fa499ed98dc015a1525b4fa07a2d20d5009c305945f06dae84b408c7)
+[comment]: # ( SHA256STAMP:cc1dedfded4902f59879665e95a1a877c8c72c0e217a3db3de3ae8dde859e67a)

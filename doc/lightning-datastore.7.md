@@ -4,7 +4,7 @@ lightning-datastore -- Command for storing (plugin) data
 SYNOPSIS
 --------
 
-**datastore** *key* *hex*
+**datastore** *key* [*string*|*hex*]
 
 DESCRIPTION
 -----------
@@ -22,6 +22,7 @@ RETURN VALUE
 On success, an object is returned, containing:
 - **key** (string): The key which has been added to the datastore
 - **hex** (hex): The hex data which has been added to the datastore
+- **string** (string, optional): The data as a string, if it's valid utf-8
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The main cause of failure is an already-existing entry.
@@ -44,4 +45,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:692c74ea1dea25266d8d562bc23e5c3c14223f62c9152a223cbd9c2de4d01efb)
+[comment]: # ( SHA256STAMP:5eda4592b0a5e893853ea15ce7e800bb94e3a26ebd932507c2a55890f56fee14)
