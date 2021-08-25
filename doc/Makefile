@@ -15,8 +15,10 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-connect.7 \
 	doc/lightning-createonion.7 \
 	doc/lightning-createinvoice.7 \
+	doc/lightning-datastore.7 \
 	doc/lightning-decodepay.7 \
 	doc/lightning-decode.7 \
+	doc/lightning-deldatastore.7 \
 	doc/lightning-delexpiredinvoice.7 \
 	doc/lightning-delinvoice.7 \
 	doc/lightning-delpay.7 \
@@ -36,6 +38,7 @@ MANPAGES := doc/lightning-cli.1 \
 	doc/lightning-invoice.7 \
 	doc/lightning-keysend.7 \
 	doc/lightning-listchannels.7 \
+	doc/lightning-listdatastore.7 \
 	doc/lightning-listforwards.7 \
 	doc/lightning-listfunds.7 \
 	doc/lightning-listinvoices.7 \

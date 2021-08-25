@@ -1,0 +1,51 @@
+.TH "LIGHTNING-DATASTORE" "7" "" "" "lightning-datastore"
+.SH NAME
+lightning-datastore - Command for storing (plugin) data
+.SH SYNOPSIS
+
+\fBdatastore\fR \fIkey\fR \fIhex\fR
+
+.SH DESCRIPTION
+
+The \fBdatastore\fR RPC command allows plugins to store data in the
+c-lightning database, for later retrieval\.
+
+
+There can only be one entry for each \fIkey\fR, so prefixing with the
+plugin name (e\.g\. \fBsummary.\fR) is recommended\.
+
+.SH RETURN VALUE
+
+On success, an object is returned, containing:
+
+.RS
+.IP \[bu]
+\fBkey\fR (string): The key which has been added to the datastore
+.IP \[bu]
+\fBhex\fR (hex): The hex data which has been added to the datastore
+
+.RE
+
+The main cause of failure is an already-existing entry\.
+
+
+The following error codes may occur:
+
+.RS
+.IP \[bu]
+-32602: invalid parameters, including already-existing key\.
+
+.RE
+.SH AUTHOR
+
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-listdatastore\fR(7), \fBlightning-deldatastore\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:1972be4c054c35bf2e0fdbf2e7bb9a3870b3322a008ae29e6a84207c7b527458
