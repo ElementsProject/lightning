@@ -2007,6 +2007,36 @@ struct db_query db_postgres_queries[] = {
          .readonly = true,
     },
     {
+         .name = "SELECT 1  FROM datastore WHERE key = ?;",
+         .query = "SELECT 1  FROM datastore WHERE key = $1;",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
+         .name = "INSERT INTO datastore VALUES (?, ?);",
+         .query = "INSERT INTO datastore VALUES ($1, $2);",
+         .placeholders = 2,
+         .readonly = false,
+    },
+    {
+         .name = "DELETE FROM datastore WHERE key = ?",
+         .query = "DELETE FROM datastore WHERE key = $1",
+         .placeholders = 1,
+         .readonly = false,
+    },
+    {
+         .name = "SELECT data  FROM datastore WHERE key = ?;",
+         .query = "SELECT data  FROM datastore WHERE key = $1;",
+         .placeholders = 1,
+         .readonly = true,
+    },
+    {
+         .name = "SELECT key, data FROM datastore;",
+         .query = "SELECT key, data FROM datastore;",
+         .placeholders = 0,
+         .readonly = true,
+    },
+    {
          .name = "SELECT name FROM sqlite_master WHERE type='table';",
          .query = "SELECT name FROM sqlite_master WHERE type='table';",
          .placeholders = 0,
@@ -2032,10 +2062,10 @@ struct db_query db_postgres_queries[] = {
     },
 };
 
-#define DB_POSTGRES_QUERY_COUNT 337
+#define DB_POSTGRES_QUERY_COUNT 342
 
 #endif /* HAVE_POSTGRES */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:765ebe6f1bf58b1d492d8d1715e423fbe0764e3440c8bd2be8d0a09dccc95a5c
+// SHA256STAMP:743e13b59241ab495a7ebd6e0e50887f399e7816cc73fd90154f761f1b484f89

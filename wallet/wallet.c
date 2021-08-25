@@ -4737,3 +4737,92 @@ void wallet_offer_mark_used(struct db *db, const struct sha256 *offer_id)
 		offer_status_update(db, offer_id, status, newstatus);
 	}
 }
+
+bool wallet_datastore_add(struct wallet *w, const char *key, const u8 *data)
+{
+	struct db_stmt *stmt;
+
+	/* Test if already exists. */
+	stmt = db_prepare_v2(w->db, SQL("SELECT 1"
+					"  FROM datastore"
+					" WHERE key = ?;"));
+	db_bind_text(stmt, 0, key);
+	db_query_prepared(stmt);
+
+	if (db_step(stmt)) {
+		tal_free(stmt);
+		return false;
+	}
+	tal_free(stmt);
+
+	stmt = db_prepare_v2(w->db,
+			     SQL("INSERT INTO datastore VALUES (?, ?);"));
+
+	db_bind_text(stmt, 0, key);
+	db_bind_talarr(stmt, 1, data);
+	db_exec_prepared_v2(take(stmt));
+	return true;
+}
+
+u8 *wallet_datastore_remove(const tal_t *ctx, struct wallet *w, const char *key)
+{
+	u8 *data = wallet_datastore_fetch(ctx, w, key);
+	if (data) {
+		struct db_stmt *stmt;
+
+		stmt = db_prepare_v2(w->db, SQL("DELETE FROM datastore"
+						" WHERE key = ?"));
+		db_bind_text(stmt, 0, key);
+		db_exec_prepared_v2(take(stmt));
+	}
+	return data;
+}
+
+u8 *wallet_datastore_fetch(const tal_t *ctx,
+			   struct wallet *w, const char *key)
+{
+	struct db_stmt *stmt;
+	u8 *data;
+
+	/* Test if already exists. */
+	stmt = db_prepare_v2(w->db, SQL("SELECT data"
+					"  FROM datastore"
+					" WHERE key = ?;"));
+	db_bind_text(stmt, 0, key);
+	db_query_prepared(stmt);
+
+	if (db_step(stmt))
+		data = db_column_talarr(ctx, stmt, 0);
+	else
+		data = NULL;
+	tal_free(stmt);
+	return data;
+}
+
+struct db_stmt *wallet_datastore_first(const tal_t *ctx,
+				       struct wallet *w,
+				       const char **key,
+				       const u8 **data)
+{
+	struct db_stmt *stmt;
+
+	stmt = db_prepare_v2(w->db, SQL("SELECT key, data FROM datastore;"));
+	db_query_prepared(stmt);
+
+	return wallet_datastore_next(ctx, w, stmt, key, data);
+}
+
+struct db_stmt *wallet_datastore_next(const tal_t *ctx,
+				      struct wallet *w,
+				      struct db_stmt *stmt,
+				      const char **key,
+				      const u8 **data)
+{
+	if (!db_step(stmt))
+		return tal_free(stmt);
+
+	*key = tal_strdup(ctx, (const char *)db_column_text(stmt, 0));
+	*data = db_column_talarr(ctx, stmt, 1);
+
+	return stmt;
+}
