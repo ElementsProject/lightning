@@ -41,6 +41,7 @@ LIGHTNINGD_SRC :=				\
 
 
 LIGHTNINGD_SRC_NOHDR :=				\
+	lightningd/datastore.c			\
 	lightningd/offer.c			\
 	lightningd/signmessage.c
 
