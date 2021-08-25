@@ -4743,7 +4743,7 @@ void wallet_datastore_update(struct wallet *w, const char *key, const u8 *data)
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(w->db,
-			     SQL("UPDATE datastore SET data=? WHERE key=?;"));
+			     SQL("UPDATE datastore SET data=?, generation=generation+1 WHERE key=?;"));
 	db_bind_talarr(stmt, 0, data);
 	db_bind_text(stmt, 1, key);
 	db_exec_prepared_v2(take(stmt));
@@ -4754,16 +4754,17 @@ void wallet_datastore_create(struct wallet *w, const char *key, const u8 *data)
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(w->db,
-			     SQL("INSERT INTO datastore VALUES (?, ?);"));
+			     SQL("INSERT INTO datastore VALUES (?, ?, 0);"));
 
 	db_bind_text(stmt, 0, key);
 	db_bind_talarr(stmt, 1, data);
 	db_exec_prepared_v2(take(stmt));
 }
 
-u8 *wallet_datastore_remove(const tal_t *ctx, struct wallet *w, const char *key)
+u8 *wallet_datastore_remove(const tal_t *ctx, struct wallet *w, const char *key,
+			    u64 *generation)
 {
-	u8 *data = wallet_datastore_fetch(ctx, w, key);
+	u8 *data = wallet_datastore_fetch(ctx, w, key, generation);
 	if (data) {
 		struct db_stmt *stmt;
 
@@ -4776,21 +4777,24 @@ u8 *wallet_datastore_remove(const tal_t *ctx, struct wallet *w, const char *key)
 }
 
 u8 *wallet_datastore_fetch(const tal_t *ctx,
-			   struct wallet *w, const char *key)
+			   struct wallet *w, const char *key,
+			   u64 *generation)
 {
 	struct db_stmt *stmt;
 	u8 *data;
 
 	/* Test if already exists. */
-	stmt = db_prepare_v2(w->db, SQL("SELECT data"
+	stmt = db_prepare_v2(w->db, SQL("SELECT data, generation"
 					"  FROM datastore"
 					" WHERE key = ?;"));
 	db_bind_text(stmt, 0, key);
 	db_query_prepared(stmt);
 
-	if (db_step(stmt))
+	if (db_step(stmt)) {
 		data = db_column_talarr(ctx, stmt, 0);
-	else
+		if (generation)
+			*generation = db_column_u64(stmt, 1);
+	} else
 		data = NULL;
 	tal_free(stmt);
 	return data;
@@ -4799,27 +4803,31 @@ u8 *wallet_datastore_fetch(const tal_t *ctx,
 struct db_stmt *wallet_datastore_first(const tal_t *ctx,
 				       struct wallet *w,
 				       const char **key,
-				       const u8 **data)
+				       const u8 **data,
+				       u64 *generation)
 {
 	struct db_stmt *stmt;
 
-	stmt = db_prepare_v2(w->db, SQL("SELECT key, data FROM datastore;"));
+	stmt = db_prepare_v2(w->db,
+			     SQL("SELECT key, data, generation FROM datastore;"));
 	db_query_prepared(stmt);
 
-	return wallet_datastore_next(ctx, w, stmt, key, data);
+	return wallet_datastore_next(ctx, w, stmt, key, data, generation);
 }
 
 struct db_stmt *wallet_datastore_next(const tal_t *ctx,
 				      struct wallet *w,
 				      struct db_stmt *stmt,
 				      const char **key,
-				      const u8 **data)
+				      const u8 **data,
+				      u64 *generation)
 {
 	if (!db_step(stmt))
 		return tal_free(stmt);
 
 	*key = tal_strdup(ctx, (const char *)db_column_text(stmt, 0));
 	*data = db_column_talarr(ctx, stmt, 1);
+	*generation = db_column_u64(stmt, 2);
 
 	return stmt;
 }

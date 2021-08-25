@@ -1023,8 +1023,8 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
-         .name = "CREATE TABLE datastore (  key TEXT,  data BLOB,  PRIMARY KEY (key));",
-         .query = "CREATE TABLE datastore (  key TEXT,  data BLOB,  PRIMARY KEY (key));",
+         .name = "CREATE TABLE datastore (  key TEXT,  data BLOB,  generation BIGINT,  PRIMARY KEY (key));",
+         .query = "CREATE TABLE datastore (  key TEXT,  data BLOB,  generation INTEGER,  PRIMARY KEY (key));",
          .placeholders = 0,
          .readonly = false,
     },
@@ -2007,14 +2007,14 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = true,
     },
     {
-         .name = "UPDATE datastore SET data=? WHERE key=?;",
-         .query = "UPDATE datastore SET data=? WHERE key=?;",
+         .name = "UPDATE datastore SET data=?, generation=generation+1 WHERE key=?;",
+         .query = "UPDATE datastore SET data=?, generation=generation+1 WHERE key=?;",
          .placeholders = 2,
          .readonly = false,
     },
     {
-         .name = "INSERT INTO datastore VALUES (?, ?);",
-         .query = "INSERT INTO datastore VALUES (?, ?);",
+         .name = "INSERT INTO datastore VALUES (?, ?, 0);",
+         .query = "INSERT INTO datastore VALUES (?, ?, 0);",
          .placeholders = 2,
          .readonly = false,
     },
@@ -2025,14 +2025,14 @@ struct db_query db_sqlite3_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT data  FROM datastore WHERE key = ?;",
-         .query = "SELECT data  FROM datastore WHERE key = ?;",
+         .name = "SELECT data, generation  FROM datastore WHERE key = ?;",
+         .query = "SELECT data, generation  FROM datastore WHERE key = ?;",
          .placeholders = 1,
          .readonly = true,
     },
     {
-         .name = "SELECT key, data FROM datastore;",
-         .query = "SELECT key, data FROM datastore;",
+         .name = "SELECT key, data, generation FROM datastore;",
+         .query = "SELECT key, data, generation FROM datastore;",
          .placeholders = 0,
          .readonly = true,
     },
@@ -2068,4 +2068,4 @@ struct db_query db_sqlite3_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_SQLITE3 */
 
-// SHA256STAMP:5b2863e970ee24f2552e45224fed3f248badc9fd87ee3ab3ff0458fe3bcc0a83
+// SHA256STAMP:247577c68e8e536ee1736ddce425efb58ff609c1d3d4fbb1148b5c65b8922741

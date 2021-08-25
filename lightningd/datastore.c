@@ -5,10 +5,12 @@
 #include <wallet/wallet.h>
 
 static void json_add_datastore(struct json_stream *response,
-			       const char *key, const u8 *data)
+			       const char *key, const u8 *data,
+			       u64 generation)
 {
 	const char *str;
 	json_add_string(response, "key", key);
+	json_add_u64(response, "generation", generation);
 	json_add_hex(response, "hex", data, tal_bytelen(data));
 	str = utf8_str(response, data, tal_bytelen(data));
 	if (str)
@@ -58,12 +60,14 @@ static struct command_result *json_datastore(struct command *cmd,
 	const char *key, *strdata;
 	u8 *data, *prevdata;
 	enum ds_mode *mode;
+	u64 *generation, actual_gen;
 
 	if (!param(cmd, buffer, params,
 		   p_req("key", param_string, &key),
 		   p_opt("string", param_string, &strdata),
 		   p_opt("hex", param_bin_from_hex, &data),
 		   p_opt_def("mode", param_mode, &mode, DS_MUST_NOT_EXIST),
+		   p_opt("generation", param_u64, &generation),
 		   NULL))
 		return command_param_failed();
 
@@ -78,14 +82,24 @@ static struct command_result *json_datastore(struct command *cmd,
 					    "Must have either hex or string");
 	}
 
-	prevdata = wallet_datastore_fetch(cmd, cmd->ld->wallet, key);
-	if ((*mode & DS_MUST_NOT_EXIST) && prevdata)
+	if (generation && !(*mode & DS_MUST_EXIST))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "generation only valid with must-replace"
+				    " or must-append");
+
+	prevdata = wallet_datastore_fetch(cmd, cmd->ld->wallet, key,
+					  &actual_gen);
+	if ((*mode & DS_MUST_NOT_EXIST) && prevdata)
+		return command_fail(cmd, DATASTORE_UPDATE_ALREADY_EXISTS,
 				    "Key already exists");
 
 	if ((*mode & DS_MUST_EXIST) && !prevdata)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		return command_fail(cmd, DATASTORE_UPDATE_DOES_NOT_EXIST,
 				    "Key does not exist");
+
+	if (generation && actual_gen != *generation)
+		return command_fail(cmd, DATASTORE_UPDATE_WRONG_GENERATION,
+				    "generation is different");
 
 	if ((*mode & DS_APPEND) && prevdata) {
 		size_t prevlen = tal_bytelen(prevdata);
@@ -94,13 +108,16 @@ static struct command_result *json_datastore(struct command *cmd,
 		data = prevdata;
 	}
 
-	if (prevdata)
+	if (prevdata) {
 		wallet_datastore_update(cmd->ld->wallet, key, data);
-	else
+		actual_gen++;
+	} else {
 		wallet_datastore_create(cmd->ld->wallet, key, data);
+		actual_gen = 0;
+	}
 
 	response = json_stream_success(cmd);
-	json_add_datastore(response, key, data);
+	json_add_datastore(response, key, data, actual_gen);
 	return command_success(cmd, response);
 }
 
@@ -112,6 +129,7 @@ static struct command_result *json_listdatastore(struct command *cmd,
 	struct json_stream *response;
 	const char *key;
 	const u8 *data;
+	u64 generation;
 
 	if (!param(cmd, buffer, params,
 		   p_opt("key", param_string, &key),
@@ -121,22 +139,24 @@ static struct command_result *json_listdatastore(struct command *cmd,
 	response = json_stream_success(cmd);
 	json_array_start(response, "datastore");
 	if (key) {
-		data = wallet_datastore_fetch(cmd, cmd->ld->wallet, key);
+		data = wallet_datastore_fetch(cmd, cmd->ld->wallet, key,
+					      &generation);
 		if (data) {
 			json_object_start(response, NULL);
-			json_add_datastore(response, key, data);
+			json_add_datastore(response, key, data, generation);
 			json_object_end(response);
 		}
 	} else {
 		struct db_stmt *stmt;
 
 		for (stmt = wallet_datastore_first(cmd, cmd->ld->wallet,
-						   &key, &data);
+						   &key, &data, &generation);
 		     stmt;
 		     stmt = wallet_datastore_next(cmd, cmd->ld->wallet,
-						  stmt, &key, &data)) {
+						  stmt, &key, &data,
+						  &generation)) {
 			json_object_start(response, NULL);
-			json_add_datastore(response, key, data);
+			json_add_datastore(response, key, data, generation);
 			json_object_end(response);
 		}
 	}
@@ -152,19 +172,29 @@ static struct command_result *json_deldatastore(struct command *cmd,
 	struct json_stream *response;
 	const char *key;
 	u8 *data;
+	u64 *generation;
+	u64 actual_gen;
 
 	if (!param(cmd, buffer, params,
 		   p_req("key", param_string, &key),
+		   p_opt("generation", param_u64, &generation),
 		   NULL))
 		return command_param_failed();
 
-	data = wallet_datastore_remove(cmd, cmd->ld->wallet, key);
+	if (generation) {
+		data = wallet_datastore_fetch(cmd, cmd->ld->wallet, key,
+					      &actual_gen);
+		if (data && actual_gen != *generation)
+			return command_fail(cmd, DATASTORE_DEL_WRONG_GENERATION,
+					    "generation is different");
+	}
+	data = wallet_datastore_remove(cmd, cmd->ld->wallet, key, &actual_gen);
 	if (!data)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+		return command_fail(cmd, DATASTORE_DEL_DOES_NOT_EXIST,
 				    "Key does not exist");
 
 	response = json_stream_success(cmd);
-	json_add_datastore(response, key, data);
+	json_add_datastore(response, key, data, actual_gen);
 	return command_success(cmd, response);
 }
 

@@ -2,11 +2,15 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
     "additionalProperties": false,
-    "required": [ "key", "hex" ],
+    "required": [ "key", "hex", "generation" ],
     "properties": {
         "key": {
             "type": "string",
             "description": "The key which has been removed from the datastore"
+        },
+        "generation": {
+            "type": "u64",
+            "description": "The number of times this has been updated"
         },
         "hex": {
             "type": "hex",
