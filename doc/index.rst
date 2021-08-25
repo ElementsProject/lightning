@@ -38,8 +38,10 @@ c-lightning Documentation
    lightning-connect <lightning-connect.7.md>
    lightning-createinvoice <lightning-createinvoice.7.md>
    lightning-createonion <lightning-createonion.7.md>
+   lightning-datastore <lightning-datastore.7.md>
    lightning-decode <lightning-decode.7.md>
    lightning-decodepay <lightning-decodepay.7.md>
+   lightning-deldatastore <lightning-deldatastore.7.md>
    lightning-delexpiredinvoice <lightning-delexpiredinvoice.7.md>
    lightning-delinvoice <lightning-delinvoice.7.md>
    lightning-delpay <lightning-delpay.7.md>
@@ -63,6 +65,7 @@ c-lightning Documentation
    lightning-keysend <lightning-keysend.7.md>
    lightning-listchannels <lightning-listchannels.7.md>
    lightning-listconfigs <lightning-listconfigs.7.md>
+   lightning-listdatastore <lightning-listdatastore.7.md>
    lightning-listforwards <lightning-listforwards.7.md>
    lightning-listfunds <lightning-listfunds.7.md>
    lightning-listinvoices <lightning-listinvoices.7.md>
