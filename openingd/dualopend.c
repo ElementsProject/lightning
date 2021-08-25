@@ -2456,17 +2456,19 @@ static u8 *opener_commits(struct state *state,
 					     /* Opener is local */
 					     LOCAL);
 
-	status_debug("XTRALOG: made it to %d", __LINE__);
+	status_debug("XTRALOG: our_funding %s",
+		     type_to_string(tmpctx, struct amount_sat, &tx_state->opener_funding));
+	status_debug("XTRALOG: our_msats %s",
+		     type_to_string(tmpctx, struct amount_msat, &our_msats));
+	status_debug("XTRALOG: total %s",
+		     type_to_string(tmpctx, struct amount_sat, &total));
+	status_debug("XTRALOG: self_pay %s",
+		     type_to_string(tmpctx, struct amount_msat, &state->channel->view[REMOTE].owed[REMOTE]));
+	status_debug("XTRALOG: other_pay %s",
+		     type_to_string(tmpctx, struct amount_msat, &state->channel->view[REMOTE].owed[LOCAL]));
+	status_debug("XTRALOG: channel->funding %s",
+		     type_to_string(tmpctx, struct amount_sat, &state->channel->funding));
 
-	status_debug("XTRALOG: the lease_expiry is %d", state->channel->lease_expiry);
-	status_debug("XTRALOG: the blockheight is %d", tx_state->blockheight);
-	status_debug("XTRALOG: the get_blockheight is %d",
-		     get_blockheight(state->channel->blockheight_states,
-			     	     state->channel->opener,
-				     REMOTE));
-	status_debug("XTRALOG: channel no htlcs? %d", !state->channel->htlcs);
-
-	status_debug("XTRALOG: made it to %d", __LINE__);
 	remote_commit = initial_channel_tx(state, &wscript,
 					   state->channel,
 					   &state->first_per_commitment_point[REMOTE],
@@ -2893,6 +2895,9 @@ static void opener_start(struct state *state, u8 *msg)
 			= rates->channel_fee_max_proportional_thousandths;
 	} else
 		lease_fee = AMOUNT_SAT(0);
+
+	status_debug("XTRALOG: lease_fee is %s",
+		     type_to_string(tmpctx, struct amount_sat, &lease_fee));
 
 	/* Check that total funding doesn't overflow */
 	if (!amount_sat_add(&total, tx_state->opener_funding,

@@ -106,14 +106,10 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 							&funding_key[LOCAL],
 							&funding_key[REMOTE]);
 
-	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	if (!amount_msat_add(&total_pay, self_pay, other_pay))
 		abort();
 
-	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 	assert(!amount_msat_greater_sat(total_pay, funding));
-
-	status_debug("XTRALOG: %s:%d", __FILE__, __LINE__);
 
 	/* BOLT #3:
 	 *
