@@ -11,8 +11,11 @@ The \fBdatastore\fR RPC command allows plugins to store data in the
 c-lightning database, for later retrieval\.
 
 
-There can only be one entry for each \fIkey\fR, so prefixing with the
-plugin name (e\.g\. \fBsummary.\fR) is recommended\.
+\fIkey\fR is an array of values (though a single value is treated as a
+one-element array), to form a heirarchy\.  Using the first element of
+the key as the plugin name (e\.g\. \fB[ "summary" ]\fR) is recommended\.
+A key can either have children or a value, never both: parents are
+created and removed automatically\.
 
 
 \fImode\fR is one of "must-create" (default, fails it it already exists),
@@ -33,11 +36,17 @@ On success, an object is returned, containing:
 
 .RS
 .IP \[bu]
-\fBkey\fR (string): The key which has been added to the datastore
+\fBkey\fR (array of strings):
+.RS
 .IP \[bu]
-\fBgeneration\fR (u64): The number of times this has been updated
+Part of the key added to the datastore
+
+.RE
+
 .IP \[bu]
-\fBhex\fR (hex): The hex data which has been added to the datastore
+\fBgeneration\fR (u64, optional): The number of times this has been updated
+.IP \[bu]
+\fBhex\fR (hex, optional): The hex data which has been added to the datastore
 .IP \[bu]
 \fBstring\fR (string, optional): The data as a string, if it's valid utf-8
 
@@ -52,6 +61,10 @@ The following error codes may occur:
 1203: The key does not exist (and mode said it must)
 .IP \[bu]
 1204: The generation was wrong (and generation was specified)
+.IP \[bu]
+1205: The key has children already\.
+.IP \[bu]
+1206: One of the parents already exists with a value\.
 .IP \[bu]
 -32602: invalid parameters
 
@@ -68,4 +81,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:0ef09e6f98d7e34e7d8339351c29ffc70be71fbf9f05f581488e3c7f603d3721
+\" SHA256STAMP:cd66becc88b27328ebf6629d1ea607166b935fcd970c8a4a851e45fc1abe67d8

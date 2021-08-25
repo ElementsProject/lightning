@@ -20,11 +20,17 @@ On success, an object is returned, containing:
 
 .RS
 .IP \[bu]
-\fBkey\fR (string): The key which has been removed from the datastore
+\fBkey\fR (array of strings):
+.RS
 .IP \[bu]
-\fBgeneration\fR (u64): The number of times this has been updated
+Part of the key added to the datastore
+
+.RE
+
 .IP \[bu]
-\fBhex\fR (hex): The hex data which has removed from the datastore
+\fBgeneration\fR (u64, optional): The number of times this has been updated
+.IP \[bu]
+\fBhex\fR (hex, optional): The hex data which has removed from the datastore
 .IP \[bu]
 \fBstring\fR (string, optional): The data as a string, if it's valid utf-8
 
@@ -53,4 +59,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:784f58fc76fc32b92d043b67b0b7efb88534dd29a7fabda2d705cdc0611e3c11
+\" SHA256STAMP:5450068ba0e62da8f46465b4f87cce4b4a59d064efbb13d03b24228790173dcc

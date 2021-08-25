@@ -20,9 +20,10 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
-- **key** (string): The key which has been removed from the datastore
-- **generation** (u64): The number of times this has been updated
-- **hex** (hex): The hex data which has removed from the datastore
+- **key** (array of strings):
+  - Part of the key added to the datastore
+- **generation** (u64, optional): The number of times this has been updated
+- **hex** (hex, optional): The hex data which has removed from the datastore
 - **string** (string, optional): The data as a string, if it's valid utf-8
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -46,4 +47,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:ca2b7b8f45b3ecd6332978599c803e38c4f80945119a777cb8ae346cbf063b10)
+[comment]: # ( SHA256STAMP:cd6f944965165b0e276da493592f9decb15046150367e06ff3e5b5547517d4b9)

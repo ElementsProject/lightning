@@ -4,6 +4,7 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/blockheight_states.h>
@@ -4738,78 +4739,111 @@ void wallet_offer_mark_used(struct db *db, const struct sha256 *offer_id)
 	}
 }
 
-void wallet_datastore_update(struct wallet *w, const char *key, const u8 *data)
+
+/* We join key parts with nuls for now. */
+static void db_bind_datastore_key(struct db_stmt *stmt,
+				  int pos,
+				  const char **key)
+{
+	u8 *joined;
+	size_t len;
+
+	if (tal_count(key) == 1) {
+		db_bind_text(stmt, pos, key[0]);
+		return;
+	}
+
+	len = strlen(key[0]);
+	joined = (u8 *)tal_strdup(tmpctx, key[0]);
+	for (size_t i = 1; i < tal_count(key); i++) {
+		tal_resize(&joined, len + 1 + strlen(key[i]));
+		joined[len] = '\0';
+		memcpy(joined + len + 1, key[i], strlen(key[i]));
+		len += 1 + strlen(key[i]);
+	}
+	db_bind_blob(stmt, pos, joined, len);
+}
+
+static const char **db_column_datastore_key(const tal_t *ctx,
+					    struct db_stmt *stmt,
+					    int col)
+{
+	char **key;
+	const u8 *joined = db_column_blob(stmt, col);
+	size_t len = db_column_bytes(stmt, col);
+
+	key = tal_arr(ctx, char *, 0);
+	do {
+		size_t partlen;
+		for (partlen = 0; partlen < len; partlen++) {
+			if (joined[partlen] == '\0') {
+				partlen++;
+				break;
+			}
+		}
+		tal_arr_expand(&key, tal_strndup(key, (char *)joined, partlen));
+		len -= partlen;
+		joined += partlen;
+	} while (len != 0);
+
+	return cast_const2(const char **, key);
+}
+
+void wallet_datastore_update(struct wallet *w, const char **key, const u8 *data)
 {
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(w->db,
 			     SQL("UPDATE datastore SET data=?, generation=generation+1 WHERE key=?;"));
 	db_bind_talarr(stmt, 0, data);
-	db_bind_text(stmt, 1, key);
+	db_bind_datastore_key(stmt, 1, key);
 	db_exec_prepared_v2(take(stmt));
 }
 
-void wallet_datastore_create(struct wallet *w, const char *key, const u8 *data)
+void wallet_datastore_create(struct wallet *w, const char **key, const u8 *data)
 {
 	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(w->db,
 			     SQL("INSERT INTO datastore VALUES (?, ?, 0);"));
 
-	db_bind_text(stmt, 0, key);
+	db_bind_datastore_key(stmt, 0, key);
 	db_bind_talarr(stmt, 1, data);
 	db_exec_prepared_v2(take(stmt));
 }
 
-u8 *wallet_datastore_remove(const tal_t *ctx, struct wallet *w, const char *key,
-			    u64 *generation)
-{
-	u8 *data = wallet_datastore_fetch(ctx, w, key, generation);
-	if (data) {
-		struct db_stmt *stmt;
-
-		stmt = db_prepare_v2(w->db, SQL("DELETE FROM datastore"
-						" WHERE key = ?"));
-		db_bind_text(stmt, 0, key);
-		db_exec_prepared_v2(take(stmt));
-	}
-	return data;
-}
-
-u8 *wallet_datastore_fetch(const tal_t *ctx,
-			   struct wallet *w, const char *key,
-			   u64 *generation)
+void wallet_datastore_remove(struct wallet *w, const char **key)
 {
 	struct db_stmt *stmt;
-	u8 *data;
 
-	/* Test if already exists. */
-	stmt = db_prepare_v2(w->db, SQL("SELECT data, generation"
-					"  FROM datastore"
-					" WHERE key = ?;"));
-	db_bind_text(stmt, 0, key);
-	db_query_prepared(stmt);
-
-	if (db_step(stmt)) {
-		data = db_column_talarr(ctx, stmt, 0);
-		if (generation)
-			*generation = db_column_u64(stmt, 1);
-	} else
-		data = NULL;
-	tal_free(stmt);
-	return data;
+	stmt = db_prepare_v2(w->db, SQL("DELETE FROM datastore"
+					" WHERE key = ?"));
+	db_bind_datastore_key(stmt, 0, key);
+	db_exec_prepared_v2(take(stmt));
 }
 
 struct db_stmt *wallet_datastore_first(const tal_t *ctx,
 				       struct wallet *w,
-				       const char **key,
+				       const char **startkey,
+				       const char ***key,
 				       const u8 **data,
 				       u64 *generation)
 {
 	struct db_stmt *stmt;
 
-	stmt = db_prepare_v2(w->db,
-			     SQL("SELECT key, data, generation FROM datastore;"));
+	if (startkey) {
+		stmt = db_prepare_v2(w->db,
+				     SQL("SELECT key, data, generation"
+					 " FROM datastore"
+					 " WHERE key >= ?"
+					 " ORDER BY key;"));
+		db_bind_datastore_key(stmt, 0, startkey);
+	} else {
+		stmt = db_prepare_v2(w->db,
+				     SQL("SELECT key, data, generation"
+					 " FROM datastore"
+					 " ORDER BY key;"));
+	}
 	db_query_prepared(stmt);
 
 	return wallet_datastore_next(ctx, w, stmt, key, data, generation);
@@ -4818,16 +4852,18 @@ struct db_stmt *wallet_datastore_first(const tal_t *ctx,
 struct db_stmt *wallet_datastore_next(const tal_t *ctx,
 				      struct wallet *w,
 				      struct db_stmt *stmt,
-				      const char **key,
+				      const char ***key,
 				      const u8 **data,
 				      u64 *generation)
 {
 	if (!db_step(stmt))
 		return tal_free(stmt);
 
-	*key = tal_strdup(ctx, (const char *)db_column_text(stmt, 0));
-	*data = db_column_talarr(ctx, stmt, 1);
-	*generation = db_column_u64(stmt, 2);
+	*key = db_column_datastore_key(ctx, stmt, 0);
+	if (data)
+		*data = db_column_talarr(ctx, stmt, 1);
+	if (generation)
+		*generation = db_column_u64(stmt, 2);
 
 	return stmt;
 }

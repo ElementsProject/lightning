@@ -12,17 +12,18 @@ DESCRIPTION
 The **listdatastore** RPC command allows plugins to fetch data which was
 stored in the c-lightning database.
 
-All entries are returned in *key* isn't present; if *key* is present,
-zero or one entries are returned.
+All immediate children of the *key* (or root children) are returned:
+a *key* with children won't have a *hex* or *generation* entry.
 
 RETURN VALUE
 ------------
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **datastore** is returned.  It is an array of objects, where each object contains:
-- **key** (string): The key which from the datastore
-- **generation** (u64): The number of times this has been updated
-- **hex** (hex): The hex data from the datastore
+- **key** (array of strings):
+  - Part of the key added to the datastore
+- **generation** (u64, optional): The number of times this has been updated
+- **hex** (hex, optional): The hex data from the datastore
 - **string** (string, optional): The data as a string, if it's valid utf-8
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
@@ -44,4 +45,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:a6503e3d2da8f9a35a0d461b5b93248f3fea306371ad62f98df613efea51959d)
+[comment]: # ( SHA256STAMP:ee29b53cad20c6dfe9e19a979816280cc9f778507e5638d1803418284125e4c1)
