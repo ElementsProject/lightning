@@ -9,11 +9,15 @@
 	    "items": {
 		"type": "object",
 		"additionalProperties": false,
-		"required": [ "key", "hex" ],
+		"required": [ "key", "hex", "generation" ],
 		"properties": {
 		    "key": {
 			"type": "string",
 			"description": "The key which from the datastore"
+		    },
+		    "generation": {
+			"type": "u64",
+			"description": "The number of times this has been updated"
 		    },
 		    "hex": {
 			"type": "hex",

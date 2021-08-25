@@ -4,7 +4,7 @@ lightning-deldatastore -- Command for removing (plugin) data
 SYNOPSIS
 --------
 
-**deldatastore** *key*
+**deldatastore** *key* [*generation*]
 
 DESCRIPTION
 -----------
@@ -12,7 +12,8 @@ DESCRIPTION
 The **deldatastore** RPC command allows plugins to delete data it has
 stored in the c-lightning database.
 
-The command fails if the *key* isn't present.
+The command fails if the *key* isn't present, or if *generation*
+is specified and the generation of the data does not exactly match.
 
 RETURN VALUE
 ------------
@@ -20,14 +21,15 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 - **key** (string): The key which has been removed from the datastore
+- **generation** (u64): The number of times this has been updated
 - **hex** (hex): The hex data which has removed from the datastore
 - **string** (string, optional): The data as a string, if it's valid utf-8
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
-The main cause of failure is an non-existing entry.
-
 The following error codes may occur:
-- -32602: invalid parameters, including non-existing key.
+- 1200: the key does not exist
+- 1201: the key does exist, but the generation is wrong
+- -32602: invalid parameters
 
 AUTHOR
 ------
@@ -44,4 +46,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:cc1dedfded4902f59879665e95a1a877c8c72c0e217a3db3de3ae8dde859e67a)
+[comment]: # ( SHA256STAMP:ca2b7b8f45b3ecd6332978599c803e38c4f80945119a777cb8ae346cbf063b10)

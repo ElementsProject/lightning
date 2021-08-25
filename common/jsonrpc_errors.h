@@ -86,6 +86,13 @@ static const errcode_t OFFER_ROUTE_NOT_FOUND = 1003;
 static const errcode_t OFFER_BAD_INVREQ_REPLY = 1004;
 static const errcode_t OFFER_TIMEOUT = 1005;
 
+/* Errors from datastore command */
+static const errcode_t DATASTORE_DEL_DOES_NOT_EXIST = 1200;
+static const errcode_t DATASTORE_DEL_WRONG_GENERATION = 1201;
+static const errcode_t DATASTORE_UPDATE_ALREADY_EXISTS = 1202;
+static const errcode_t DATASTORE_UPDATE_DOES_NOT_EXIST = 1203;
+static const errcode_t DATASTORE_UPDATE_WRONG_GENERATION = 1204;
+
 /* Errors from wait* commands */
 static const errcode_t WAIT_TIMEOUT = 2000;
 

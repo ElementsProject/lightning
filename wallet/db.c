@@ -752,6 +752,7 @@ static struct migration dbmigrations[] = {
     {SQL("CREATE TABLE datastore ("
 	 "  key TEXT,"
 	 "  data BLOB,"
+	 "  generation BIGINT,"
 	 "  PRIMARY KEY (key)"
 	 ");"),
      NULL},

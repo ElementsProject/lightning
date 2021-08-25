@@ -2636,6 +2636,7 @@ def test_datastore(node_factory):
     # Add entries.
     somedata = b'somedata'.hex()
     somedata_expect = {'key': 'somekey',
+                       'generation': 0,
                        'hex': somedata,
                        'string': 'somedata'}
     assert l1.rpc.datastore(key='somekey', hex=somedata) == somedata_expect
@@ -2660,6 +2661,10 @@ def test_datastore(node_factory):
     l1.rpc.datastore(key='somekey', hex=somedata[-2:], mode="create-or-append")
     assert only_one(l1.rpc.listdatastore('somekey')['datastore'])['hex'] == somedata
 
+    # Generation will have increased due to three ops above.
+    somedata_expect['generation'] += 3
+    assert l1.rpc.listdatastore() == {'datastore': [somedata_expect]}
+
     # Can't replace or append non-existing records if we say not to
     with pytest.raises(RpcError, match='does not exist'):
         l1.rpc.datastore(key='otherkey', hex=somedata, mode="must-replace")
@@ -2669,6 +2674,7 @@ def test_datastore(node_factory):
 
     otherdata = b'otherdata'.hex()
     otherdata_expect = {'key': 'otherkey',
+                        'generation': 0,
                         'hex': otherdata,
                         'string': 'otherdata'}
     assert l1.rpc.datastore(key='otherkey', string='otherdata', mode="create-or-append") == otherdata_expect
@@ -2691,6 +2697,7 @@ def test_datastore(node_factory):
 
     # if it's not a string, won't print
     badstring_expect = {'key': 'badstring',
+                        'generation': 0,
                         'hex': '00'}
     assert l1.rpc.datastore(key='badstring', hex='00') == badstring_expect
     assert l1.rpc.listdatastore('badstring') == {'datastore': [badstring_expect]}
@@ -2700,3 +2707,27 @@ def test_datastore(node_factory):
     l1.restart()
 
     assert l1.rpc.listdatastore() == {'datastore': [otherdata_expect]}
+
+    # We can insist generation match on update.
+    with pytest.raises(RpcError, match='generation is different'):
+        l1.rpc.datastore(key='otherkey', hex='00', mode='must-replace',
+                         generation=otherdata_expect['generation'] + 1)
+
+    otherdata_expect['generation'] += 1
+    otherdata_expect['string'] += 'a'
+    otherdata_expect['hex'] += '61'
+    assert (l1.rpc.datastore(key='otherkey', string='otherdataa',
+                             mode='must-replace',
+                             generation=otherdata_expect['generation'] - 1)
+            == otherdata_expect)
+    assert l1.rpc.listdatastore() == {'datastore': [otherdata_expect]}
+
+    # We can insist generation match on delete.
+    with pytest.raises(RpcError, match='generation is different'):
+        l1.rpc.deldatastore(key='otherkey',
+                            generation=otherdata_expect['generation'] + 1)
+
+    assert (l1.rpc.deldatastore(key='otherkey',
+                                generation=otherdata_expect['generation'])
+            == otherdata_expect)
+    assert l1.rpc.listdatastore() == {'datastore': []}

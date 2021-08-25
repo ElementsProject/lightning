@@ -1531,7 +1531,7 @@ void wallet_offer_mark_used(struct db *db, const struct sha256 *offer_id)
 	NO_NULL_ARGS;
 
 /**
- * Add an new key/value to the datastore.
+ * Add an new key/value to the datastore (generation 0)
  * @w: the wallet
  * @key: the first key (if returns non-NULL)
  * @data: the first data (if returns non-NULL)
@@ -1551,21 +1551,25 @@ void wallet_datastore_update(struct wallet *w, const char *key, const u8 *data);
  * @ctx: the tal ctx to allocate return off
  * @w: the wallet
  * @key: the key
+ * @generation: the generation of deleted record
  *
  * Returns NULL if the key was not in the store.
  */
-u8 *wallet_datastore_remove(const tal_t *ctx, struct wallet *w, const char *key);
+u8 *wallet_datastore_remove(const tal_t *ctx, struct wallet *w, const char *key,
+			    u64 *generation);
 
 /**
- * Retreive a value from the datastore.
+ * Retrieve a value from the datastore.
  * @ctx: the tal ctx to allocate return off
  * @w: the wallet
  * @key: the first key (if returns non-NULL)
+ * @generation: the generation (if returns non-NULL), or NULL.
  *
  * Returns NULL if the key is not in the store.
  */
 u8 *wallet_datastore_fetch(const tal_t *ctx,
-			   struct wallet *w, const char *key);
+			   struct wallet *w, const char *key,
+			   u64 *generation);
 
 /**
  * Iterate through the datastore.
@@ -1573,6 +1577,7 @@ u8 *wallet_datastore_fetch(const tal_t *ctx,
  * @w: the wallet
  * @key: the first key (if returns non-NULL)
  * @data: the first data (if returns non-NULL)
+ * @generation: the first generation (if returns non-NULL)
  *
  * Returns pointer to hand as @stmt to wallet_datastore_next(), or NULL.
  * If you choose not to call wallet_datastore_next() you must free it!
@@ -1580,15 +1585,17 @@ u8 *wallet_datastore_fetch(const tal_t *ctx,
 struct db_stmt *wallet_datastore_first(const tal_t *ctx,
 				       struct wallet *w,
 				       const char **key,
-				       const u8 **data);
+				       const u8 **data,
+				       u64 *generation);
 
 /**
  * Iterate through the datastore.
  * @ctx: the tal ctx to allocate off
  * @w: the wallet
  * @stmt: the previous statement.
- * @key: the first key (if returns non-NULL)
- * @data: the first data (if returns non-NULL)
+ * @key: the key (if returns non-NULL)
+ * @data: the data (if returns non-NULL)
+ * @generation: the generation (if returns non-NULL)
  *
  * Returns pointer to hand as @stmt to wallet_datastore_next(), or NULL.
  * If you choose not to call wallet_datastore_next() you must free it!
@@ -1597,6 +1604,7 @@ struct db_stmt *wallet_datastore_next(const tal_t *ctx,
 				      struct wallet *w,
 				      struct db_stmt *stmt,
 				      const char **key,
-				      const u8 **data);
+				      const u8 **data,
+				      u64 *generation);
 
 #endif /* LIGHTNING_WALLET_WALLET_H */
