@@ -1,0 +1,48 @@
+.TH "LIGHTNING-LISTDATASTORE" "7" "" "" "lightning-listdatastore"
+.SH NAME
+lightning-listdatastore - Command for listing (plugin) data
+.SH SYNOPSIS
+
+\fBlistdatastore\fR [\fIkey\fR]
+
+.SH DESCRIPTION
+
+The \fBlistdatastore\fR RPC command allows plugins to fetch data which was
+stored in the c-lightning database\.
+
+
+All entries are returned in \fIkey\fR isn't present; if \fIkey\fR is present,
+zero or one entries are returned\.
+
+.SH RETURN VALUE
+
+On success, an object containing \fBdatastore\fR is returned\.  It is an array of objects, where each object contains:
+
+.RS
+.IP \[bu]
+\fBkey\fR (string): The key which from the datastore
+.IP \[bu]
+\fBhex\fR (hex): The hex data from the datastore
+
+.RE
+
+The following error codes may occur:
+
+.RS
+.IP \[bu]
+-32602: invalid parameters\.
+
+.RE
+.SH AUTHOR
+
+Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
+
+.SH SEE ALSO
+
+\fBlightning-datastore\fR(7), \fBlightning-deldatastore\fR(7)
+
+.SH RESOURCES
+
+Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
+
+\" SHA256STAMP:a501f1c8a7517726a49e48180c5d20966df7158f1af3afdd1654a435473efb5d

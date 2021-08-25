@@ -1,0 +1,16 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [ "key", "hex" ],
+    "properties": {
+        "key": {
+            "type": "string",
+            "description": "The key which has been removed from the datastore"
+        },
+        "hex": {
+            "type": "hex",
+            "description": "The hex data which has removed from the datastore"
+        }
+    }
+}

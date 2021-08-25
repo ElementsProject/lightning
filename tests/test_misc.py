@@ -2624,3 +2624,56 @@ def test_force_feerates(node_factory):
         "penalty": 6666,
         "min_acceptable": 1875,
         "max_acceptable": 150000}
+
+
+def test_datastore(node_factory):
+    l1 = node_factory.get_node()
+
+    # Starts empty
+    assert l1.rpc.listdatastore() == {'datastore': []}
+    assert l1.rpc.listdatastore('somekey') == {'datastore': []}
+
+    # Add entries.
+    somedata = b'somedata'.hex()
+    assert l1.rpc.datastore('somekey', somedata) == {'key': 'somekey',
+                                                     'hex': somedata}
+
+    assert l1.rpc.listdatastore() == {'datastore': [{'key': 'somekey',
+                                                     'hex': somedata}]}
+    assert l1.rpc.listdatastore('somekey') == {'datastore': [{'key': 'somekey',
+                                                              'hex': somedata}]}
+    assert l1.rpc.listdatastore('otherkey') == {'datastore': []}
+
+    otherdata = b'otherdata'.hex()
+    assert l1.rpc.datastore('otherkey', otherdata) == {'key': 'otherkey',
+                                                       'hex': otherdata}
+
+    assert l1.rpc.listdatastore('somekey') == {'datastore': [{'key': 'somekey',
+                                                              'hex': somedata}]}
+    assert l1.rpc.listdatastore('otherkey') == {'datastore': [{'key': 'otherkey',
+                                                              'hex': otherdata}]}
+    assert l1.rpc.listdatastore('badkey') == {'datastore': []}
+
+    ds = l1.rpc.listdatastore()
+    # Order is undefined!
+    assert (ds == {'datastore': [{'key': 'somekey', 'hex': somedata},
+                                 {'key': 'otherkey', 'hex': otherdata}]}
+            or ds == {'datastore': [{'key': 'otherkey', 'hex': otherdata},
+                                    {'key': 'somekey', 'hex': somedata}]})
+
+    assert l1.rpc.deldatastore('somekey') == {'key': 'somekey',
+                                              'hex': somedata}
+    assert l1.rpc.listdatastore() == {'datastore': [{'key': 'otherkey',
+                                                     'hex': otherdata}]}
+    assert l1.rpc.listdatastore('somekey') == {'datastore': []}
+    assert l1.rpc.listdatastore('otherkey') == {'datastore': [{'key': 'otherkey',
+                                                               'hex': otherdata}]}
+    assert l1.rpc.listdatastore('badkey') == {'datastore': []}
+    assert l1.rpc.listdatastore() == {'datastore': [{'key': 'otherkey',
+                                                     'hex': otherdata}]}
+
+    # It's persistent
+    l1.restart()
+
+    assert l1.rpc.listdatastore() == {'datastore': [{'key': 'otherkey',
+                                                     'hex': otherdata}]}
