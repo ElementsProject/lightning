@@ -15,6 +15,40 @@ static void json_add_datastore(struct json_stream *response,
 		json_add_string(response, "string", str);
 }
 
+enum ds_mode {
+	DS_MUST_EXIST = 1,
+	DS_MUST_NOT_EXIST = 2,
+	DS_APPEND = 4
+};
+
+static struct command_result *param_mode(struct command *cmd,
+					 const char *name,
+					 const char *buffer,
+					 const jsmntok_t *tok,
+					 enum ds_mode **mode)
+{
+	*mode = tal(cmd, enum ds_mode);
+	if (json_tok_streq(buffer, tok, "must-create"))
+		**mode = DS_MUST_NOT_EXIST;
+	else if (json_tok_streq(buffer, tok, "must-replace"))
+		**mode = DS_MUST_EXIST;
+	else if (json_tok_streq(buffer, tok, "create-or-replace"))
+		**mode = 0;
+	else if (json_tok_streq(buffer, tok, "must-append"))
+		**mode = DS_MUST_EXIST | DS_APPEND;
+	else if (json_tok_streq(buffer, tok, "create-or-append"))
+		**mode = DS_APPEND;
+	else
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be 'must-create',"
+					     " 'must-replace',"
+					     " 'create-or-replace',"
+					     " 'must-append',"
+					     " or 'create-or-append'");
+
+	return NULL;
+}
+
 static struct command_result *json_datastore(struct command *cmd,
 					     const char *buffer,
 					     const jsmntok_t *obj UNNEEDED,
@@ -22,12 +56,14 @@ static struct command_result *json_datastore(struct command *cmd,
 {
 	struct json_stream *response;
 	const char *key, *strdata;
-	u8 *data;
+	u8 *data, *prevdata;
+	enum ds_mode *mode;
 
 	if (!param(cmd, buffer, params,
 		   p_req("key", param_string, &key),
 		   p_opt("string", param_string, &strdata),
 		   p_opt("hex", param_bin_from_hex, &data),
+		   p_opt_def("mode", param_mode, &mode, DS_MUST_NOT_EXIST),
 		   NULL))
 		return command_param_failed();
 
@@ -42,9 +78,26 @@ static struct command_result *json_datastore(struct command *cmd,
 					    "Must have either hex or string");
 	}
 
-	if (!wallet_datastore_add(cmd->ld->wallet, key, data))
+	prevdata = wallet_datastore_fetch(cmd, cmd->ld->wallet, key);
+	if ((*mode & DS_MUST_NOT_EXIST) && prevdata)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "Key already exists");
+
+	if ((*mode & DS_MUST_EXIST) && !prevdata)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Key does not exist");
+
+	if ((*mode & DS_APPEND) && prevdata) {
+		size_t prevlen = tal_bytelen(prevdata);
+		tal_resize(&prevdata, prevlen + tal_bytelen(data));
+		memcpy(prevdata + prevlen, data, tal_bytelen(data));
+		data = prevdata;
+	}
+
+	if (prevdata)
+		wallet_datastore_update(cmd->ld->wallet, key, data);
+	else
+		wallet_datastore_create(cmd->ld->wallet, key, data);
 
 	response = json_stream_success(cmd);
 	json_add_datastore(response, key, data);

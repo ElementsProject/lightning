@@ -1531,14 +1531,20 @@ void wallet_offer_mark_used(struct db *db, const struct sha256 *offer_id)
 	NO_NULL_ARGS;
 
 /**
- * Add a key/value to the datastore.
+ * Add an new key/value to the datastore.
  * @w: the wallet
  * @key: the first key (if returns non-NULL)
  * @data: the first data (if returns non-NULL)
- *
- * Returns false if the key is already in the store.
  */
-bool wallet_datastore_add(struct wallet *w, const char *key, const u8 *data);
+void wallet_datastore_create(struct wallet *w, const char *key, const u8 *data);
+
+/**
+ * Update an existing key/value to the datastore.
+ * @w: the wallet
+ * @key: the first key (if returns non-NULL)
+ * @data: the first data (if returns non-NULL)
+ */
+void wallet_datastore_update(struct wallet *w, const char *key, const u8 *data);
 
 /**
  * Remove a key from the datastore (return the old data).

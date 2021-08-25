@@ -3,7 +3,7 @@
 lightning-datastore - Command for storing (plugin) data
 .SH SYNOPSIS
 
-\fBdatastore\fR \fIkey\fR [\fIstring\fR|\fIhex\fR]
+\fBdatastore\fR \fIkey\fR [\fIstring\fR] [\fIhex\fR] [\fImode\fR]
 
 .SH DESCRIPTION
 
@@ -13,6 +13,13 @@ c-lightning database, for later retrieval\.
 
 There can only be one entry for each \fIkey\fR, so prefixing with the
 plugin name (e\.g\. \fBsummary.\fR) is recommended\.
+
+
+\fImode\fR is one of "must-create" (default, fails it it already exists),
+"must-replace" (fails it it doesn't already exist),
+"create-or-replace" (never fails), "must-append" (must already exist,
+append this to what's already there) or "create-or-append" (append if
+anything is there, otherwise create)\.
 
 .SH RETURN VALUE
 
@@ -35,7 +42,7 @@ The following error codes may occur:
 
 .RS
 .IP \[bu]
--32602: invalid parameters, including already-existing key\.
+-32602: invalid parameters, including already-existing/not-existing key\.
 
 .RE
 .SH AUTHOR
@@ -50,4 +57,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:e0ea91fb846859bc22af6e4beacd5fb726d6c4ffefea5cc4e3a1250b81665317
+\" SHA256STAMP:4bb1369465ffb76e8e1962bd9e242159e579bb3af6e01c9d1461e519d8721769

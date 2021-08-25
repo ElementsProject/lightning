@@ -2644,11 +2644,34 @@ def test_datastore(node_factory):
     assert l1.rpc.listdatastore('somekey') == {'datastore': [somedata_expect]}
     assert l1.rpc.listdatastore('otherkey') == {'datastore': []}
 
+    # Cannot add by default.
+    with pytest.raises(RpcError, match='already exists'):
+        l1.rpc.datastore(key='somekey', hex=somedata)
+
+    with pytest.raises(RpcError, match='already exists'):
+        l1.rpc.datastore(key='somekey', hex=somedata, mode="must-create")
+
+    # But can insist on replace.
+    l1.rpc.datastore(key='somekey', hex=somedata[:-4], mode="must-replace")
+    assert only_one(l1.rpc.listdatastore('somekey')['datastore'])['hex'] == somedata[:-4]
+    # And append works.
+    l1.rpc.datastore(key='somekey', hex=somedata[-4:-2], mode="must-append")
+    assert only_one(l1.rpc.listdatastore('somekey')['datastore'])['hex'] == somedata[:-2]
+    l1.rpc.datastore(key='somekey', hex=somedata[-2:], mode="create-or-append")
+    assert only_one(l1.rpc.listdatastore('somekey')['datastore'])['hex'] == somedata
+
+    # Can't replace or append non-existing records if we say not to
+    with pytest.raises(RpcError, match='does not exist'):
+        l1.rpc.datastore(key='otherkey', hex=somedata, mode="must-replace")
+
+    with pytest.raises(RpcError, match='does not exist'):
+        l1.rpc.datastore(key='otherkey', hex=somedata, mode="must-append")
+
     otherdata = b'otherdata'.hex()
     otherdata_expect = {'key': 'otherkey',
                         'hex': otherdata,
                         'string': 'otherdata'}
-    assert l1.rpc.datastore(key='otherkey', string='otherdata') == otherdata_expect
+    assert l1.rpc.datastore(key='otherkey', string='otherdata', mode="create-or-append") == otherdata_expect
 
     assert l1.rpc.listdatastore('somekey') == {'datastore': [somedata_expect]}
     assert l1.rpc.listdatastore('otherkey') == {'datastore': [otherdata_expect]}

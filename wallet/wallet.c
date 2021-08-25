@@ -4738,22 +4738,20 @@ void wallet_offer_mark_used(struct db *db, const struct sha256 *offer_id)
 	}
 }
 
-bool wallet_datastore_add(struct wallet *w, const char *key, const u8 *data)
+void wallet_datastore_update(struct wallet *w, const char *key, const u8 *data)
 {
 	struct db_stmt *stmt;
 
-	/* Test if already exists. */
-	stmt = db_prepare_v2(w->db, SQL("SELECT 1"
-					"  FROM datastore"
-					" WHERE key = ?;"));
-	db_bind_text(stmt, 0, key);
-	db_query_prepared(stmt);
+	stmt = db_prepare_v2(w->db,
+			     SQL("UPDATE datastore SET data=? WHERE key=?;"));
+	db_bind_talarr(stmt, 0, data);
+	db_bind_text(stmt, 1, key);
+	db_exec_prepared_v2(take(stmt));
+}
 
-	if (db_step(stmt)) {
-		tal_free(stmt);
-		return false;
-	}
-	tal_free(stmt);
+void wallet_datastore_create(struct wallet *w, const char *key, const u8 *data)
+{
+	struct db_stmt *stmt;
 
 	stmt = db_prepare_v2(w->db,
 			     SQL("INSERT INTO datastore VALUES (?, ?);"));
@@ -4761,7 +4759,6 @@ bool wallet_datastore_add(struct wallet *w, const char *key, const u8 *data)
 	db_bind_text(stmt, 0, key);
 	db_bind_talarr(stmt, 1, data);
 	db_exec_prepared_v2(take(stmt));
-	return true;
 }
 
 u8 *wallet_datastore_remove(const tal_t *ctx, struct wallet *w, const char *key)
