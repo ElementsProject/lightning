@@ -1331,22 +1331,22 @@ msgid "SELECT status  FROM offers WHERE offer_id = ?;"
 msgstr ""
 
 #: wallet/wallet.c:4746
-msgid "SELECT 1  FROM datastore WHERE key = ?;"
+msgid "UPDATE datastore SET data=? WHERE key=?;"
 msgstr ""
 
-#: wallet/wallet.c:4759
+#: wallet/wallet.c:4757
 msgid "INSERT INTO datastore VALUES (?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:4773
+#: wallet/wallet.c:4770
 msgid "DELETE FROM datastore WHERE key = ?"
 msgstr ""
 
-#: wallet/wallet.c:4788
+#: wallet/wallet.c:4785
 msgid "SELECT data  FROM datastore WHERE key = ?;"
 msgstr ""
 
-#: wallet/wallet.c:4809
+#: wallet/wallet.c:4806
 msgid "SELECT key, data FROM datastore;"
 msgstr ""
 
@@ -1365,4 +1365,4 @@ msgstr ""
 #: wallet/test/run-wallet.c:1753
 msgid "INSERT INTO channels (id) VALUES (1);"
 msgstr ""
-#  SHA256STAMP:65a48a3f7b7223e68e12148b699342842b394228141583f008d0cd7002b18f97
+#  SHA256STAMP:33c97b729f031ff86abf939de5571a7e5a9cf3d0795bf975189d90ace76d28a1

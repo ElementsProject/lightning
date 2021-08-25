@@ -2007,10 +2007,10 @@ struct db_query db_postgres_queries[] = {
          .readonly = true,
     },
     {
-         .name = "SELECT 1  FROM datastore WHERE key = ?;",
-         .query = "SELECT 1  FROM datastore WHERE key = $1;",
-         .placeholders = 1,
-         .readonly = true,
+         .name = "UPDATE datastore SET data=? WHERE key=?;",
+         .query = "UPDATE datastore SET data=$1 WHERE key=$2;",
+         .placeholders = 2,
+         .readonly = false,
     },
     {
          .name = "INSERT INTO datastore VALUES (?, ?);",
@@ -2068,4 +2068,4 @@ struct db_query db_postgres_queries[] = {
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:743e13b59241ab495a7ebd6e0e50887f399e7816cc73fd90154f761f1b484f89
+// SHA256STAMP:5b2863e970ee24f2552e45224fed3f248badc9fd87ee3ab3ff0458fe3bcc0a83

@@ -4,7 +4,7 @@ lightning-datastore -- Command for storing (plugin) data
 SYNOPSIS
 --------
 
-**datastore** *key* [*string*|*hex*]
+**datastore** *key* [*string*] [*hex*] [*mode*]
 
 DESCRIPTION
 -----------
@@ -14,6 +14,12 @@ c-lightning database, for later retrieval.
 
 There can only be one entry for each *key*, so prefixing with the
 plugin name (e.g. `summary.`) is recommended.
+
+*mode* is one of "must-create" (default, fails it it already exists),
+"must-replace" (fails it it doesn't already exist),
+"create-or-replace" (never fails), "must-append" (must already exist,
+append this to what's already there) or "create-or-append" (append if
+anything is there, otherwise create).
 
 RETURN VALUE
 ------------
@@ -28,7 +34,7 @@ On success, an object is returned, containing:
 The main cause of failure is an already-existing entry.
 
 The following error codes may occur:
-- -32602: invalid parameters, including already-existing key.
+- -32602: invalid parameters, including already-existing/not-existing key.
 
 AUTHOR
 ------
