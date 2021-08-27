@@ -18,11 +18,11 @@
 +tlvdata,accept_tlvs,will_fund,signature,signature,
 +tlvdata,accept_tlvs,will_fund,lease_rates,lease_rates,
 +subtype,lease_rates
-+subtypedata,lease_rates,channel_fee_max_base_msat,u32,
-+subtypedata,lease_rates,channel_fee_max_proportional_thousandths,u16,
 +subtypedata,lease_rates,funding_weight,u16,
++subtypedata,lease_rates,lease_fee_basis,u16,
++subtypedata,lease_rates,channel_fee_max_proportional_thousandths,u16,
 +subtypedata,lease_rates,lease_fee_base_sat,u32,
-+subtypedata,lease_rates,lease_fee_basis,tu32,
++subtypedata,lease_rates,channel_fee_max_base_msat,tu32,
  msgtype,init_rbf,72
  msgdata,init_rbf,channel_id,channel_id,
  msgdata,init_rbf,funding_satoshis,u64,
