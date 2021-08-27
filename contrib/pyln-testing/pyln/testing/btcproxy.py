@@ -1,13 +1,13 @@
 """ A bitcoind proxy that allows instrumentation and canned responses
 """
-from flask import Flask, request
+from flask import Flask, request  # type: ignore
 from bitcoin.rpc import JSONRPCError  # type: ignore
 from bitcoin.rpc import RawProxy as BitcoinProxy  # type: ignore
 from cheroot.wsgi import Server  # type: ignore
 from cheroot.wsgi import PathInfoDispatcher  # type: ignore
 
 import decimal
-import flask
+import flask  # type: ignore
 import json
 import logging
 import threading
