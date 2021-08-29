@@ -735,14 +735,6 @@ static void forward_htlc(struct htlc_in *hin,
 		goto fail;
 	}
 
-	if (amount_msat_greater(amt_to_forward,
-				chainparams->max_payment)) {
-		/* ENOWUMBO! */
-		needs_update_appended = false;
-		failmsg = towire_required_channel_feature_missing(tmpctx);
-		goto fail;
-	}
-
 	/* BOLT #2:
 	 *
 	 * An offering node:
