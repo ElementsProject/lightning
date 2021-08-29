@@ -272,18 +272,6 @@ static struct amount_msat advertized_htlc_max(const struct channel *channel)
 					     &lower_bound));
 	}
 
-	if (amount_msat_greater(lower_bound_msat, chainparams->max_payment))
-		/* BOLT #7:
-		 *
-		 * The origin node:
-		 * ...
-		 *   - if the `htlc_maximum_msat` field is present:
-		 * ...
-		 *         - for channels with `chain_hash` identifying the Bitcoin blockchain:
-		 * 			 - MUST set this to less than 2^32.
-		 */
-		lower_bound_msat = chainparams->max_payment;
-
 	return lower_bound_msat;
 }
 
