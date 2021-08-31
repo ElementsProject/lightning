@@ -491,3 +491,19 @@ bool psbt_has_our_input(const struct wally_psbt *psbt)
 
 	return false;
 }
+
+bool psbt_contribs_changed(struct wally_psbt *orig,
+			   struct wally_psbt *new)
+{
+	struct psbt_changeset *cs;
+	bool ok;
+	cs = psbt_get_changeset(NULL, orig, new);
+
+	ok = tal_count(cs->added_ins) > 0 ||
+	    tal_count(cs->rm_ins) > 0 ||
+	    tal_count(cs->added_outs) > 0 ||
+	    tal_count(cs->rm_outs) > 0;
+
+	tal_free(cs);
+	return ok;
+}
