@@ -29,9 +29,9 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object containing **nodes** is returned.  It is an array of objects, where each object contains:
 - **nodeid** (pubkey): the public key of the node
-- **last_update** (u32, optional): A node_announcement has been received for this node (UNIX timestamp)
+- **last_timestamp** (u32, optional): A node_announcement has been received for this node (UNIX timestamp)
 
-If **last_update** is present:
+If **last_timestamp** is present:
   - **alias** (string): The fun alias this node advertized (up to 32 characters)
   - **color** (hex): The favorite RGB color this node advertized (always 6 characters)
   - **features** (hex): BOLT #9 features bitmap this node advertized
@@ -39,6 +39,15 @@ If **last_update** is present:
     - **type** (string): Type of connection (one of "ipv4", "ipv6", "torv2", "torv3")
     - **address** (string): address in expected format for *type*
     - **port** (u16): port number
+
+If **option_will_fund** is present:
+  - **option_will_fund** (object):
+    - **lease_fee_base_msat** (msat): the fixed fee for a lease (whole number of satoshis)
+    - **lease_fee_basis** (u32): the proportional fee in basis points (parts per 10,000) for a lease
+    - **funding_weight** (u32): the onchain weight you'll have to pay for a lease
+    - **channel_fee_max_base_msat** (msat): the maximum base routing fee this node will charge during the lease
+    - **channel_fee_max_proportional_thousandths** (u32): the maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)
+    - **compact_lease** (hex): the lease as represented in the node_announcement
 [comment]: # (GENERATE-FROM-SCHEMA-END)
   
 On failure, one of the following error codes may be returned:
@@ -83,4 +92,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:2f644d55512f5c03e3894341fb039fc1b7d2ebc5f210547fdb324d2f23689b37)
+[comment]: # ( SHA256STAMP:08959d1bce493b3d3c28fcc4b54e492feecc1062d960ea685899213327c8e768)

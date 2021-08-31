@@ -30,11 +30,11 @@ On success, an object containing \fBnodes\fR is returned\.  It is an array of ob
 .IP \[bu]
 \fBnodeid\fR (pubkey): the public key of the node
 .IP \[bu]
-\fBlast_update\fR (u32, optional): A node_announcement has been received for this node (UNIX timestamp)
+\fBlast_timestamp\fR (u32, optional): A node_announcement has been received for this node (UNIX timestamp)
 
 .RE
 
-If \fBlast_update\fR is present:
+If \fBlast_timestamp\fR is present:
 
 .RS
 .IP \[bu]
@@ -52,6 +52,30 @@ If \fBlast_update\fR is present:
 \fBaddress\fR (string): address in expected format for \fItype\fR
 .IP \[bu]
 \fBport\fR (u16): port number
+
+.RE
+
+
+.RE
+
+If \fBoption_will_fund\fR is present:
+
+.RS
+.IP \[bu]
+\fBoption_will_fund\fR (object):
+.RS
+.IP \[bu]
+\fBlease_fee_base_msat\fR (msat): the fixed fee for a lease (whole number of satoshis)
+.IP \[bu]
+\fBlease_fee_basis\fR (u32): the proportional fee in basis points (parts per 10,000) for a lease
+.IP \[bu]
+\fBfunding_weight\fR (u32): the onchain weight you'll have to pay for a lease
+.IP \[bu]
+\fBchannel_fee_max_base_msat\fR (msat): the maximum base routing fee this node will charge during the lease
+.IP \[bu]
+\fBchannel_fee_max_proportional_thousandths\fR (u32): the maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)
+.IP \[bu]
+\fBcompact_lease\fR (hex): the lease as represented in the node_announcement
 
 .RE
 
@@ -101,4 +125,4 @@ FIXME:
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:4366d5c238bccc06cfafc4c2d375dd417049b0b6224f13b2dcc9f25139587649
+\" SHA256STAMP:69fff299a28ed38a79e120eb4a7057db1cee86ce9bd85c7624226cbe79d70eb4
