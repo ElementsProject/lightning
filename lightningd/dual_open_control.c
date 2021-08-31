@@ -474,48 +474,6 @@ hook_extract_amount(struct subd *dualopend,
 	return true;
 }
 
-#define CHECK_CHANGES(set, dir) 					\
-	do {		   						\
-		for (size_t i = 0; i < tal_count(set); i++) { 		\
-			ok = psbt_get_serial_id(&set[i].dir.unknowns,	\
-						&serial_id); 		\
-			assert(ok); 					\
-			if (serial_id % 2 != opener_side)		\
-				return true;				\
-		}							\
-	} while (false)
-
-static bool psbt_side_contribs_changed(struct wally_psbt *orig,
-				       struct wally_psbt *new,
-				       enum side opener_side)
-{
-	struct psbt_changeset *cs;
-	u64 serial_id;
-	bool ok;
-
-	cs = psbt_get_changeset(tmpctx, orig, new);
-
-	if (tal_count(cs->added_ins) == 0 &&
-	    tal_count(cs->rm_ins) == 0 &&
-	    tal_count(cs->added_outs) == 0 &&
-	    tal_count(cs->rm_outs) == 0)
-		return false;
-
-	/* If there were *any* changes, then the answer to the 'both sides'
-	 * question is "yes, there were changes" */
-	if (opener_side == NUM_SIDES)
-		return true;
-
-	/* Check that none of the included updates have a serial
-	 * id that's the peer's parity */
-	CHECK_CHANGES(cs->added_ins, input);
-	CHECK_CHANGES(cs->rm_ins, input);
-	CHECK_CHANGES(cs->added_outs, output);
-	CHECK_CHANGES(cs->rm_outs, output);
-
-	return false;
-}
-
 static void rbf_channel_remove_dualopend(struct subd *dualopend,
 					 struct rbf_channel_payload *payload)
 {
@@ -932,7 +890,7 @@ openchannel2_signed_deserialize(struct openchannel2_psbt_payload *payload,
 	 * totally managled the data here but left the serial_ids intact,
 	 * you'll get a failure back from the peer when you send
 	 * commitment sigs */
-	if (psbt_side_contribs_changed(payload->psbt, psbt, NUM_SIDES))
+	if (psbt_contribs_changed(payload->psbt, psbt))
 		fatal("Plugin must not change psbt input/output set. "
 		      "orig: %s. updated: %s",
 		      type_to_string(tmpctx, struct wally_psbt,

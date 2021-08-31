@@ -178,4 +178,13 @@ bool psbt_input_is_ours(const struct wally_psbt_input *input);
  * 			 any input that is ours
  */
 bool psbt_has_our_input(const struct wally_psbt *psbt);
+
+/* psbt_contribs_changed - Returns true if the psbt's inputs/outputs
+ *                         have changed.
+ *
+ * @orig - originating psbt
+ * @new  - 'updated' psbt, to verify is unchanged
+ */
+bool psbt_contribs_changed(struct wally_psbt *orig,
+			   struct wally_psbt *new);
 #endif /* LIGHTNING_COMMON_PSBT_OPEN_H */
