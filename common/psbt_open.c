@@ -80,11 +80,11 @@ static const u8 *linearize_input(const tal_t *ctx,
 	/* signatures, keypaths, etc - we dont care if they change */
 	psbt->inputs[0].final_witness = NULL;
 	psbt->inputs[0].final_scriptsig_len = 0;
+	psbt->inputs[0].witness_script = NULL;
 	psbt->inputs[0].witness_script_len = 0;
 	psbt->inputs[0].redeem_script_len = 0;
 	psbt->inputs[0].keypaths.num_items = 0;
 	psbt->inputs[0].signatures.num_items = 0;
-
 
 	const u8 *bytes = psbt_get_bytes(ctx, psbt, &byte_len);
 
