@@ -1,5 +1,6 @@
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
+#include <ccan/array_size/array_size.h>
 #include <ccan/endian/endian.h>
 #include <common/initial_commit_tx.h>
 #include <common/keyset.h>
@@ -101,7 +102,8 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	enum side lessor = !opener;
 	u32 sequence;
 	void *dummy_local = (void *)LOCAL, *dummy_remote = (void *)REMOTE;
-	const void *output_order[NUM_SIDES];
+	/* There is a direct, and possibly an anchor output for each side. */
+	const void *output_order[2 * NUM_SIDES];
 	const u8 *funding_wscript = bitcoin_redeem_2of2(tmpctx,
 							&funding_key[LOCAL],
 							&funding_key[REMOTE]);
@@ -286,6 +288,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	}
 
 	assert(n <= tx->wtx->num_outputs);
+	assert(n <= ARRAY_SIZE(output_order));
 
 	/* BOLT #3:
 	 *
