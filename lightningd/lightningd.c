@@ -1141,6 +1141,9 @@ int main(int argc, char *argv[])
 		stop_response = tal_steal(NULL, ld->stop_response);
 	}
 
+	/* Stop topology callbacks. */
+	stop_topology(ld->topology);
+
 	/* We're not going to collect our children. */
 	remove_sigchild_handler();
 	shutdown_subdaemons(ld);

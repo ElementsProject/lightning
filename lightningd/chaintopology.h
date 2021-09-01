@@ -113,6 +113,9 @@ struct chain_topology {
 	/* The bitcoind. */
 	struct bitcoind *bitcoind;
 
+	/* Timers we're running. */
+	struct oneshot *extend_timer, *updatefee_timer;
+
 	/* Bitcoin transactions we're broadcasting */
 	struct list_head outgoing_txs;
 
@@ -194,6 +197,8 @@ void setup_topology(struct chain_topology *topology,
 		    u32 min_blockheight, u32 max_blockheight);
 
 void begin_topology(struct chain_topology *topo);
+
+void stop_topology(struct chain_topology *topo);
 
 struct txlocator *locate_tx(const void *ctx, const struct chain_topology *topo, const struct bitcoin_txid *txid);
 
