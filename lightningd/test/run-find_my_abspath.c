@@ -202,7 +202,7 @@ void plugins_set_builtin_plugins_dir(struct plugins *plugins UNNEEDED,
 void setup_color_and_alias(struct lightningd *ld UNNEEDED)
 { fprintf(stderr, "setup_color_and_alias called!\n"); abort(); }
 /* Generated stub for setup_topology */
-void setup_topology(struct chain_topology *topology UNNEEDED, struct timers *timers UNNEEDED,
+void setup_topology(struct chain_topology *topology UNNEEDED,
 		    u32 min_blockheight UNNEEDED, u32 max_blockheight UNNEEDED)
 { fprintf(stderr, "setup_topology called!\n"); abort(); }
 /* Generated stub for timer_expired */

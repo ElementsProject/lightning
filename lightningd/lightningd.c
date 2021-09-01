@@ -1035,8 +1035,7 @@ int main(int argc, char *argv[])
 
 	/*~ Initialize block topology.  This does its own io_loop to
 	 * talk to bitcoind, so does its own db transactions. */
-	setup_topology(ld->topology, ld->timers,
-		       min_blockheight, max_blockheight);
+	setup_topology(ld->topology, min_blockheight, max_blockheight);
 
 	db_begin_transaction(ld->wallet->db);
 

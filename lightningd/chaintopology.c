@@ -47,7 +47,7 @@ static void maybe_completed_init(struct chain_topology *topo)
 static void next_topology_timer(struct chain_topology *topo)
 {
 	/* This takes care of its own lifetime. */
-	notleak(new_reltimer(topo->timers, topo,
+	notleak(new_reltimer(topo->ld->timers, topo,
 			     time_from_sec(topo->poll_seconds),
 			     try_extend_tip, topo));
 }
@@ -583,7 +583,7 @@ AUTODATA(json_command, &parse_feerate_command);
 static void next_updatefee_timer(struct chain_topology *topo)
 {
 	/* This takes care of its own lifetime. */
-	notleak(new_reltimer(topo->timers, topo,
+	notleak(new_reltimer(topo->ld->timers, topo,
 			     time_from_sec(topo->poll_seconds),
 			     start_fee_estimate, topo));
 }
@@ -1157,11 +1157,9 @@ static void retry_check_chain(struct chain_topology *topo)
 }
 
 void setup_topology(struct chain_topology *topo,
-		    struct timers *timers,
 		    u32 min_blockheight, u32 max_blockheight)
 {
 	memset(&topo->feerate, 0, sizeof(topo->feerate));
-	topo->timers = timers;
 
 	topo->min_blockheight = min_blockheight;
 	topo->max_blockheight = max_blockheight;
