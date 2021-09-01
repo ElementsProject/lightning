@@ -113,9 +113,6 @@ struct chain_topology {
 	/* The bitcoind. */
 	struct bitcoind *bitcoind;
 
-	/* Our timer list. */
-	struct timers *timers;
-
 	/* Bitcoin transactions we're broadcasting */
 	struct list_head outgoing_txs;
 
@@ -193,7 +190,7 @@ void broadcast_tx_ahf(struct chain_topology *topo,
 				     const char *err));
 
 struct chain_topology *new_topology(struct lightningd *ld, struct log *log);
-void setup_topology(struct chain_topology *topology, struct timers *timers,
+void setup_topology(struct chain_topology *topology,
 		    u32 min_blockheight, u32 max_blockheight);
 
 void begin_topology(struct chain_topology *topo);
