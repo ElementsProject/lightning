@@ -2,7 +2,7 @@
 set -e
 
 # When run inside docker (from below), we do build and drop result in /release
-if [ x"$1" = x"--inside-docker" ]; then
+if [ "$1" = "--inside-docker" ]; then
     VER="$2"
     git clone /src /build
     cd /build

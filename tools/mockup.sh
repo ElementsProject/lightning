@@ -44,7 +44,7 @@ for SYMBOL; do
     # has notleak_ as a declaration, and then an inline).
     # Also, prefer local headers over generic ones.
     WHERE=$(shopt -s nullglob; grep -nH "^[a-zA-Z0-9_ (),]* [*]*$SYMBOL(" "$UPDIRNAME"/*.h ./*/*.h | head -n1)
-    if [ x"$WHERE" = x ]; then
+    if [ -z "$WHERE" ]; then
 	echo "/* Could not find declaration for $SYMBOL */"
 	continue
     fi
