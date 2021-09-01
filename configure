@@ -116,7 +116,7 @@ set_defaults()
     # which matters since you might explicitly set of these blank.
     PREFIX=${PREFIX:-/usr/local}
     CC=${CC:-cc}
-    CDEBUGFLAGS=${CDEBUGFLAGS--std=gnu11 -g -fstack-protector}
+    CDEBUGFLAGS=${CDEBUGFLAGS--std=gnu11 -g -fstack-protector-strong}
     DEVELOPER=${DEVELOPER:-0}
     EXPERIMENTAL_FEATURES=${EXPERIMENTAL_FEATURES:-0}
     COMPAT=${COMPAT:-1}
