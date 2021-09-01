@@ -205,6 +205,9 @@ void setup_color_and_alias(struct lightningd *ld UNNEEDED)
 void setup_topology(struct chain_topology *topology UNNEEDED,
 		    u32 min_blockheight UNNEEDED, u32 max_blockheight UNNEEDED)
 { fprintf(stderr, "setup_topology called!\n"); abort(); }
+/* Generated stub for stop_topology */
+void stop_topology(struct chain_topology *topo UNNEEDED)
+{ fprintf(stderr, "stop_topology called!\n"); abort(); }
 /* Generated stub for timer_expired */
 void timer_expired(tal_t *ctx UNNEEDED, struct timer *timer UNNEEDED)
 { fprintf(stderr, "timer_expired called!\n"); abort(); }
