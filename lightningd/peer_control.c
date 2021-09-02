@@ -2353,6 +2353,32 @@ static void set_channel_fees(struct command *cmd, struct channel *channel,
 	json_object_end(response);
 }
 
+static struct command_result *check_lease_channel_commitments(struct command *cmd,
+                                                              struct channel *channel,
+                                                              u32 base, u32 ppm)
+{
+	/* if channel is leased from us, make sure we're not exceeding promised
+	* maximums */
+	if (channel->opener != LOCAL
+	    && get_block_height(cmd->ld->topology) < channel->lease_expiry) {
+		assert(channel->lease_chan_max_ppt * 1000 < channel->lease_chan_max_ppt);
+
+		if (channel->lease_chan_max_msat < base
+		    || channel->lease_chan_max_ppt * 1000 < ppm) {
+		    return command_fail(cmd, LIGHTNINGD,
+					"Channel %s is leased until block %d."
+					" Committed to base of %d and ppm of %d."
+					" You input base %d and ppm %d",
+					type_to_string(tmpctx, struct channel_id, &channel->cid),
+					channel->lease_expiry,
+					channel->lease_chan_max_msat,
+					channel->lease_chan_max_ppt * 1000,
+					base, ppm);
+		}
+	}
+	return NULL;
+}
+
 static struct command_result *json_setchannelfee(struct command *cmd,
 					 const char *buffer,
 					 const jsmntok_t *obj UNNEEDED,
@@ -2362,6 +2388,7 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 	struct peer *peer;
 	struct channel *channel;
 	u32 *base, *ppm;
+	struct command_result *res;
 
 	/* Parse the JSON command */
 	if (!param(cmd, buffer, params,
@@ -2379,6 +2406,27 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 	    && channel->state != DUALOPEND_AWAITING_LOCKIN)
 		return command_fail(cmd, LIGHTNINGD,
 				    "Channel is in state %s", channel_state_name(channel));
+
+	/* Since the set can fail if the channel has committed to a maximum,
+	* we check that each will succeed before we set them. */
+	if (channel == NULL) {
+		list_for_each(&cmd->ld->peers, peer, list) {
+			channel = peer_active_channel(peer);
+			if (!channel)
+				continue;
+			if (channel->state != CHANNELD_NORMAL &&
+			    channel->state != CHANNELD_AWAITING_LOCKIN &&
+			    channel->state != DUALOPEND_AWAITING_LOCKIN)
+				continue;
+			res = check_lease_channel_commitments(cmd, channel, *base, *ppm);
+			if (res)
+				return res;
+		}
+	} else {
+		res = check_lease_channel_commitments(cmd, channel, *base, *ppm);
+	if (res)
+		return res;
+	}
 
 	/* Open JSON response object for later iteration */
 	response = json_stream_success(cmd);

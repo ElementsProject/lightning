@@ -767,6 +767,8 @@ def test_channel_lease_post_expiry(node_factory, bitcoind):
 
     opts = {'funder-policy': 'match', 'funder-policy-mod': 100,
             'lease-fee-base-msat': '100sat', 'lease-fee-basis': 100,
+            'channel-fee-max-base-msat': '500msat',
+            'channel-fee-max-proportional-thousandths': 1,
             'may_reconnect': True}
 
     l1, l2, = node_factory.get_nodes(2, opts=opts)
@@ -803,6 +805,12 @@ def test_channel_lease_post_expiry(node_factory, bitcoind):
     # l2 attempts to close a channel that it leased, should fail
     with pytest.raises(RpcError, match=r'Peer leased this channel from us'):
         l2.rpc.close(l1.get_channel_scid(l2))
+
+    # Try setting the fee above the committed rates, should fail
+    with pytest.raises(RpcError, match='is leased until'):
+        l2.rpc.setfeerates(l1.info['id'], '501msat', 1001)
+
+    l2.rpc.setfeerates(l1.info['id'], '500msat', 1000)
 
     bitcoind.generate_block(6)
     sync_blockheight(bitcoind, [l1, l2])
