@@ -2545,3 +2545,14 @@ plugin.run()
     n.daemon.wait_for_log(r"Plugin changed, needs restart.")
     n.daemon.wait_for_log(r"test_restart_on_update 2")
     n.stop()
+
+
+@pytest.mark.xfail
+def test_hook_everything(node_factory):
+    """ This simply loads a plugin that stresses the deamon by subscribing
+        and hooking anything possible and delaying execution a bit """
+    plugin = os.path.join(os.path.dirname(__file__), "plugins", "hook_everything.py")
+    l1, l2 = node_factory.line_graph(2,
+                                     opts=[{'plugin': plugin}, {}],
+                                     wait_for_announce=True)
+    l1.pay(l2, 100000)
