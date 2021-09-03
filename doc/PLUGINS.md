@@ -906,7 +906,9 @@ The payload consists of the following information:
 ```json
 {
 	"commitment_txid": "58eea2cf538cfed79f4d6b809b920b40bb6b35962c4bb4cc81f5550a7728ab05",
-	"penalty_tx": "02000000000101...ac00000000"
+	"penalty_tx": "02000000000101...ac00000000",
+	"channel_id": "fb16398de93e8690c665873715ef590c038dfac5dd6c49a9d4b61dccfcedc2fb",
+	"commitnum": 21
 }
 ```
 
