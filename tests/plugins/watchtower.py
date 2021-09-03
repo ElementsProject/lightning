@@ -6,9 +6,9 @@ plugin = Plugin()
 
 
 @plugin.hook('commitment_revocation')
-def on_commitment_revocation(commitment_txid, penalty_tx, plugin, **kwargs):
+def on_commitment_revocation(commitment_txid, penalty_tx, channel_id, commitnum, plugin, **kwargs):
     with open('watchtower.csv', 'a') as f:
-        f.write("{}, {}\n".format(commitment_txid, penalty_tx))
+        f.write("{}, {}, {}, {}\n".format(commitment_txid, penalty_tx, channel_id, commitnum))
 
 
 plugin.run()

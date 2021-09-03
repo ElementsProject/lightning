@@ -1797,6 +1797,7 @@ def test_watchtower(node_factory, bitcoind, directory, chainparams):
         2,
         opts=[{'may_fail': True, 'allow_broken_log': True}, {'plugin': p}]
     )
+    channel_id = l1.rpc.listpeers()['peers'][0]['channels'][0]['channel_id']
 
     # Force a new commitment
     l1.rpc.pay(l2.rpc.invoice(25000000, 'lbl1', 'desc1')['bolt11'])
@@ -1821,8 +1822,12 @@ def test_watchtower(node_factory, bitcoind, directory, chainparams):
     )
 
     cheat_tx = bitcoind.rpc.decoderawtransaction(tx)
+    lastcommitnum = 0
     for l in open(wt_file, 'r'):
-        txid, penalty = l.strip().split(', ')
+        txid, penalty, channel_id_hook, commitnum = l.strip().split(', ')
+        assert lastcommitnum == int(commitnum)
+        assert channel_id_hook == channel_id
+        lastcommitnum += 1
         if txid == cheat_tx['txid']:
             # This one should succeed, since it is a response to the cheat_tx
             bitcoind.rpc.sendrawtransaction(penalty)
