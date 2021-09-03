@@ -56,6 +56,7 @@ On success, an object is returned, containing:
 - **psbt** (string): the (incomplete) PSBT of the funding transaction
 - **commitments_secured** (boolean): whether the *psbt* is complete (always *false*)
 - **funding_serial** (u64): the serial_id of the funding output in the *psbt*
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If the peer does not support `option_dual_fund`, this command
@@ -101,4 +102,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:6e5ce1c2b8aeb96b7e5469b6546a3bbf192f7d937cce8ec774ab716edf9ff9dc)
+[comment]: # ( SHA256STAMP:d37b879bb07c8a29c3733620792bff777d8316e22cea9abd38efca9585a790e0)

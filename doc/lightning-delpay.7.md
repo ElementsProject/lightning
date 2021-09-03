@@ -50,6 +50,7 @@ On success, an object containing **payments** is returned.  It is an array of ob
 - **bolt11** (string, optional): the bolt11 string (if pay supplied one)
 - **bolt12** (string, optional): the bolt12 string (if supplied for pay: **experimental-offers** only).
 - **erroronion** (hex, optional): the error onion returned on failure, if any.
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, an error is returned. If the lightning process fails before responding, the
@@ -99,4 +100,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:c3a603b1e43a370ff38a3d9eebe63f8acf26447b024cf5e4bd6f93fe41632529)
+[comment]: # ( SHA256STAMP:59b05702a120f92395c71c392d934ccfba343f5ffa98cfc715c657d312d457c2)

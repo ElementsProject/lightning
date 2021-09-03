@@ -73,6 +73,7 @@ On success, an object is returned, containing:
 
 The following warnings may also be returned:
 - **warning_missing_feerates**: Some fee estimates are missing
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 ERRORS
@@ -118,4 +119,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:b7efbc2380ce39e1d8f244a9c16203f034d53b84f8396f4c4fc06973d24cefe4)
+[comment]: # ( SHA256STAMP:aa3360c535d2f7e42adead8e78a290a21c5bd88d412f9afa53dfe7388c7edeab)

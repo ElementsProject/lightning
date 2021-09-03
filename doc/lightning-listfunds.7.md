@@ -49,6 +49,7 @@ On success, an object is returned, containing:
 
   If **state** is "CHANNELD_SHUTTING_DOWN", "CLOSINGD_SIGEXCHANGE", "CLOSINGD_COMPLETE", "AWAITING_UNILATERAL", "FUNDING_SPEND_SEEN" or "ONCHAIN":
     - **short_channel_id** (short_channel_id, optional): short channel id of channel (only if funding reached lockin depth before closing)
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -66,4 +67,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:878fab92cc95fdb4680c13f3a2d791e9bbaac3ea732608ece65e684428f7705a)
+[comment]: # ( SHA256STAMP:26ae5f60c67eb3a481191ccf109b09ded7dc14d2881898b9f0173ef05a2ef47b)

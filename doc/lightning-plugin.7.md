@@ -46,6 +46,7 @@ If **command** is "start", "startdir", "rescan" or "list":
 
 If **command** is "stop":
   - **result** (string): A message saying it successfully stopped
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error, the reason why the action could not be taken upon the
@@ -61,4 +62,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:a14192d703b99bb39ed7a297bcee462a51b9728ad6d6477dd65ad636c0c87c02)
+[comment]: # ( SHA256STAMP:418af4df95dc56c0d1bf1d42dded0a5fcbc875800a603d80ea6d18bb2ff0b531)

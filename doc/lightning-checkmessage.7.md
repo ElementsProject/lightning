@@ -32,6 +32,7 @@ If **verified** is *true*:
 
 If **verified** is *false*:
   - **pubkey** (pubkey): the *pubkey* (if any) which could have signed this; this is usually not useful!
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -49,4 +50,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:7c0607f4a7d11de4c9d4cac0e56df8475c0a14e9f1ce70d7fc49322a5b184901)
+[comment]: # ( SHA256STAMP:eb1ea64cb5e8e16e8e7214f38184b60f2c30d8e7f68db1623fabda665bf1fdec)

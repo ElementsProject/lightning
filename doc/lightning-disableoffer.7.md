@@ -43,6 +43,7 @@ On success, an object is returned, containing:
 - **bolt12_unsigned** (string): The bolt12 string representing this offer, without signature
 - **used** (boolean): Whether the offer has had an invoice paid / payment made
 - **label** (string, optional): The label provided when offer was created
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 EXAMPLE JSON RESPONSE
@@ -73,4 +74,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:8f0595c22a7684d99da3000cc19b2465991fa1d2ee435a395b7a1527330aa490)
+[comment]: # ( SHA256STAMP:75f31b4614cfb2083d7f5c5de17d0892aae8504434da600132668b326fa4e0a4)

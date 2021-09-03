@@ -53,6 +53,7 @@ On success, an object is returned, containing:
   If **type** is "ipv4", "ipv6", "torv2" or "torv3":
     - **address** (string): address in expected format for **type**
     - **port** (u16): port number
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 ERRORS
@@ -88,4 +89,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:973f366e2f87becdece4ba3b71f9a5156529d7c155bb8fcac0d2b6662a9e467d)
+[comment]: # ( SHA256STAMP:306d0966721f20c9a8688f33a030114a5ac095c6218eeb7fafd88fca97b9ee52)

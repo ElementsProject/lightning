@@ -22,6 +22,7 @@ RETURN VALUE
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 - **blockheight** (u32): The current block height (>= *blockheight* parameter)
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If *timeout* seconds is reached without the specified blockheight
@@ -37,4 +38,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:bd9cd69ae5a66b75b6172d2cd8c7bdb1c896fcd7ed1edf41fc3707c2f1a466dd)
+[comment]: # ( SHA256STAMP:bf58d803775bc97144d92449d85de21189fa00fe9cec22bd64bc7cde87ebfe06)

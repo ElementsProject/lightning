@@ -113,6 +113,7 @@ On success, an object is returned, containing:
     - **code** (integer): JSON error code from failing stage
     - **message** (string): Message from stage
     - **data**: Additional error data
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, none of the channels are created.
@@ -157,4 +158,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:96f061609558a3baa93a2d212ef9de0d5a3cf3217504ddd42b99bf2bf2249e2c)
+[comment]: # ( SHA256STAMP:acad87896396156dff379973010ed1243af8bbb3ee5cfcc052ca177e0725bce3)

@@ -38,6 +38,7 @@ If **status** is "paid":
   - **amount_received_msat** (msat): the amount actually received (could be slightly greater than *amount_msat*, since clients may overpay)
   - **paid_at** (u64): UNIX timestamp of when it was paid
   - **payment_preimage** (hex): proof of payment (always 64 characters)
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -55,4 +56,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:99dd5cb3f84e8201903e531b601a04dafde3f6eae3f582b538caea7fac20aad0)
+[comment]: # ( SHA256STAMP:5fc525b5436359e2271f4131a626bcd1654792d980e478738a0564dcedb58761)

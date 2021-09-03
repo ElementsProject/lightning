@@ -84,6 +84,7 @@ On success, an object is returned, containing:
   - **was_reserved** (boolean): Whether this output was previously reserved (always *false*)
   - **reserved** (boolean): Whether this output is now reserved (always *true*)
   - **reserved_to_block** (u32): The blockheight the reservation will expire
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If *excess_as_change* is true and the excess is enough to cover
@@ -114,4 +115,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:4b3ea2f97eb94e65c752f165a989d99afee0eb8453178bf6a23e4a662fb6abf3)
+[comment]: # ( SHA256STAMP:fd84205c50f43a2e55b0adb1c4d0709cd5d909c211148b005674e8e1afffba53)

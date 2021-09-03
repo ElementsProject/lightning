@@ -159,6 +159,7 @@ If **type** is "bolt11 invoice", and **valid** is *true*:
   - **extra** (array of objects, optional): Any extra fields we didn't know how to parse:
     - **tag** (string): The bech32 letter which identifies this field (always 1 characters)
     - **data** (string): The bech32 data for this field
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -181,4 +182,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:fbbfc116c23489d4f346b4d5eb06dd922592c543ec68e5a76b6822b2658bd46d)
+[comment]: # ( SHA256STAMP:d9e00b0a8c93fecd75aab0688204601a7ceeca0f424012cf0d04ce24b6017aee)

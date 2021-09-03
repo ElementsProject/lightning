@@ -48,6 +48,7 @@ On success, an object is returned, containing:
 
 If **status** is "complete":
   - **payment_preimage** (hex): the proof of payment: SHA256 of this **payment_hash** (always 64 characters)
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error, and even if the error occurred from a node other than the
@@ -99,4 +100,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:3efc46e3dc2254ddfb4a82d4b3bb1936ff0a400a3cf19ce4c40a717412f83ee7)
+[comment]: # ( SHA256STAMP:7a51daf13b7275c49a6c6f411de005998c674e9d5290ee83f3b41ea711da42f1)

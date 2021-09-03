@@ -40,6 +40,7 @@ If **status** is "complete":
 
 If **status** is "failed":
   - **erroronion** (hex, optional): the onion message returned
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -58,4 +59,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:db8e97cc84246f4e836ac7b2f39e265deb51cb0adacfcca8e05bb7cb9c3480de)
+[comment]: # ( SHA256STAMP:e6a71b4e168fe64b774dc4738a46470edf00b4566ae2927166621ba79f89ca79)

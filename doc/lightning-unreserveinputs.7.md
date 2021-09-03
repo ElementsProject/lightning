@@ -30,6 +30,7 @@ On success, an object containing **reservations** is returned.  It is an array o
 
 If **reserved** is *true*:
   - **reserved_to_block** (u32): what blockheight the reservation will expire
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, an error is reported and no UTXOs are unreserved.
@@ -52,4 +53,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:5032211220b9e82b391eeed37d35e69585e7dbee4a321800d63cc5683be1022c)
+[comment]: # ( SHA256STAMP:4239256a270c707e6beb2da43fb5069ebc59affb9f22df8fc67c19229aca3f44)

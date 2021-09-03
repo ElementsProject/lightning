@@ -31,6 +31,7 @@ RETURN VALUE
 On success, an object is returned, containing:
 - **bech32** (string, optional): The bech32 (native segwit) address
 - **p2sh-segwit** (string, optional): The p2sh-wrapped address
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 ERRORS
@@ -54,4 +55,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:44731ac3afb4fc3982dff2ae94e360f9addc5712e36b021c880180c68e3ed476)
+[comment]: # ( SHA256STAMP:af64240aaa930f899eda7b146a5cdc22abb7572d20ff6f9012097a84b3affeaa)

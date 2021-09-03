@@ -20,6 +20,7 @@ On success, an object is returned, containing:
 - **psbt** (string): the completed PSBT representing the signed transaction
 - **tx** (hex): the fully signed transaction
 - **txid** (txid): the transaction id of *tx*
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, an error is reported (from bitcoind), and the inputs from
@@ -43,4 +44,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:2fae4915336d7663498f7a221e9894a430a1521fa683deef58f59d71f7b1745d)
+[comment]: # ( SHA256STAMP:f97eb686421f6c9636a97100787cb3af3b482e07434d9e2b158ed09f06335f32)

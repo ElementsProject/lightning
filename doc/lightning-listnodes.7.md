@@ -48,6 +48,7 @@ If **option_will_fund** is present:
     - **channel_fee_max_base_msat** (msat): the maximum base routing fee this node will charge during the lease
     - **channel_fee_max_proportional_thousandths** (u32): the maximum proportional routing fee this node will charge during the lease (in thousandths, not millionths like channel_update)
     - **compact_lease** (hex): the lease as represented in the node_announcement
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
   
 On failure, one of the following error codes may be returned:
@@ -92,4 +93,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:0674630a9770ef2da2820e83bc19c1c4a3653955edc7a42cb14fa17299713cfe)
+[comment]: # ( SHA256STAMP:158477348efb51a8cf71a595b3d76dde545ab6824958c8a32d4b3dbbbe2c8121)

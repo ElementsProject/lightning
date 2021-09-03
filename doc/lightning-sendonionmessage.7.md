@@ -30,6 +30,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an empty object is returned.
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -49,4 +50,4 @@ Main web site: <https://github.com/ElementsProject/lightning>
 
 [bolt04]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
 
-[comment]: # ( SHA256STAMP:b4538602c664359160562ea32ca71a350926201c2001272ac3eba57a32d21040)
+[comment]: # ( SHA256STAMP:9125b71f093569c584c116210e488f11331029fca930dada6c040009daeb09f8)

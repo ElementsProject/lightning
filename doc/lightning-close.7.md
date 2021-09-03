@@ -90,6 +90,7 @@ On success, an object is returned, containing:
 If **type** is "mutual" or "unilateral":
   - **tx** (hex): the raw bitcoin transaction used to close the channel (if it was open)
   - **txid** (txid): the transaction id of the *tx* field
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 A unilateral close may still occur at any time if the peer did not
@@ -113,4 +114,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:d590b312dff1e1fb4e0bf5540d04bfa4925f6cba51bef6664a642e382ec257d9)
+[comment]: # ( SHA256STAMP:db5ba99eb3393f6c55833f0bbace34b3ca504d490a25cb26c53b8790ae325981)

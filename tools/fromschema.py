@@ -238,6 +238,10 @@ def generate_from_schema(schema):
         for w, desc in warnings:
             output("- **{}**: {}\n".format(w, desc))
 
+    # GH markdown rendering gets upset if there isn't a blank line
+    # between a list and the end comment.
+    output('\n')
+
 
 def main(schemafile, markdownfile):
     start_marker = '[comment]: # (GENERATE-FROM-SCHEMA-START)\n'

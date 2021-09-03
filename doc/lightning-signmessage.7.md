@@ -23,6 +23,7 @@ On success, an object is returned, containing:
 - **signature** (hex): The signature (always 128 characters)
 - **recid** (hex): The recovery id (0, 1, 2 or 3) (always 2 characters)
 - **zbase** (string): *signature* and *recid* encoded in a style compatible with **lnd**'s [SignMessageRequest](https://api.lightning.community/#grpc-request-signmessagerequest)
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -40,4 +41,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:b52d27220550c5b9742fc6f9fb876a458007c9832e83572309e7b19900852133)
+[comment]: # ( SHA256STAMP:54ed4ed0f8e10de232b82793ffa6a1794ef632f8fd315deeb276803f6f2d639d)

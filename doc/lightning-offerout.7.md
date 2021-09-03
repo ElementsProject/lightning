@@ -63,6 +63,7 @@ On success, an object is returned, containing:
 - **used** (boolean): True if an incoming invoice has been paid (always *false*)
 - **created** (boolean): false if the offer already existed
 - **label** (string, optional): the (optional) user-specified label
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, an error is returned and no offer is created. If the
@@ -98,4 +99,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:14fada9336956a08b6d55c4ce01fcb62726cbdef9a065f1966335f61c4e91ce5)
+[comment]: # ( SHA256STAMP:99a4e1cdf68ec7bcf05b9d6b088b8a84f01d085fae5a1565192f488ff8484570)

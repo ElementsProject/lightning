@@ -47,6 +47,7 @@ On success, an object containing **transactions** is returned.  It is an array o
 - **type** (array of strings, optional):
   - Reason we care about this transaction (*EXPERIMENTAL_FEATURES* only) (one of "theirs", "deposit", "withdraw", "channel_funding", "channel_mutual_close", "channel_unilateral_close", "channel_sweep", "channel_htlc_success", "channel_htlc_timeout", "channel_penalty", "channel_unilateral_cheat")
 - **channel** (short_channel_id, optional): the channel this transaction is associated with (*EXPERIMENTAL_FEATURES* only)
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
   
 On failure, one of the following error codes may be returned:
@@ -103,4 +104,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:33483dcd0b98f2e10aa030080f8367fb814c510b601fc8ff396d0122236d750e)
+[comment]: # ( SHA256STAMP:f170fb4e2ab3bf44d6159f9bcf5445102db3774f19cb61e7b8c68acfaac51688)

@@ -52,6 +52,7 @@ On success, an object is returned, containing:
 The following warnings may also be returned:
 - **warning_bitcoind_sync**: Bitcoind is not up-to-date with network.
 - **warning_lightningd_sync**: Lightningd is still loading latest blocks from bitcoind.
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, one of the following error codes may be returned:
@@ -114,4 +115,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:50348a6798a89537bd7a15b1725c479e13f890fe77cbf6d8f0722e91c05eadd1)
+[comment]: # ( SHA256STAMP:a41fb9bb8e6e61bec105ff250584ae019dda93d4f97bfff53bc86d57ab6e8607)

@@ -57,6 +57,7 @@ On success, an object is returned, containing:
   - **was_reserved** (boolean): Whether this output was previously reserved
   - **reserved** (boolean): Whether this output is now reserved (always *true*)
   - **reserved_to_block** (u32): The blockheight the reservation will expire
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 
@@ -99,4 +100,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:50870aade11499391f94c5384959260ec2525d879c2115226302c368ed6ffeb7)
+[comment]: # ( SHA256STAMP:3be73c6c58be24510cfa792ad428990664ebf1e01d6cdb8c245607aea376d79a)

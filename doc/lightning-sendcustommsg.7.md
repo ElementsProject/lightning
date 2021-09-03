@@ -50,6 +50,7 @@ explicit error message stating the issue.
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an object is returned, containing:
 - **status** (string): Information about where message was queued
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -67,4 +68,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:28ff2cdde9b35e81ceec3b1860facb1b2f91c5049ce33776b3c992621aba475d)
+[comment]: # ( SHA256STAMP:ebaf8137d91cab5c0899dc749079ab5f1bbe8df998c155b41496b80820128af3)
