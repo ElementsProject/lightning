@@ -2550,3 +2550,25 @@ plugin.run()
     n.daemon.wait_for_log(r"Plugin changed, needs restart.")
     n.daemon.wait_for_log(r"test_restart_on_update 2")
     n.stop()
+
+
+def test_plugin_shutdown(node_factory):
+    """test 'shutdown' notification"""
+    p = os.path.join(os.getcwd(), "tests/plugins/test_libplugin")
+    l1 = node_factory.get_node(options={'plugin': p})
+
+    l1.rpc.plugin_stop(p)
+    l1.daemon.wait_for_log(r"test_libplugin: shutdown called")
+    # FIXME: clean this up!
+    l1.daemon.wait_for_log(r"test_libplugin: Killing plugin: exited during normal operation")
+
+    # Now try timeout.
+    l1.rpc.plugin_start(p, dont_shutdown=True)
+    l1.rpc.plugin_stop(p)
+    l1.daemon.wait_for_log(r"test_libplugin: shutdown called")
+    l1.daemon.wait_for_log(r"test_libplugin: Timeout on shutdown: killing anyway")
+
+    # Now, should also shutdown on finish.
+    l1.rpc.plugin_start(p)
+    l1.rpc.stop()
+    l1.daemon.wait_for_log(r"test_libplugin: shutdown called")

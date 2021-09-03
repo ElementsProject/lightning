@@ -1,4 +1,5 @@
 #include <ccan/opt/opt.h>
+#include <lightningd/notification.h>
 #include <lightningd/options.h>
 #include <lightningd/plugin_control.h>
 #include <lightningd/plugin_hook.h>
@@ -101,11 +102,44 @@ plugin_dynamic_startdir(struct plugin_command *pcmd, const char *dir_path)
 	return command_still_pending(pcmd->cmd);
 }
 
+static struct command_result *plugin_stop(struct command *cmd, struct plugin *p,
+					  bool kill)
+{
+	struct json_stream *response;
+	const char *stopmsg = tal_fmt(NULL, "Successfully stopped %s.",
+				      p->shortname);
+
+	if (kill)
+		plugin_kill(p, LOG_INFORM, "stopped by lightningd via RPC");
+
+	response = json_stream_success(cmd);
+	json_add_string(response, "command", "stop");
+	json_add_string(response, "result", take(stopmsg));
+	return command_success(cmd, response);
+}
+
+/* If plugin stops itself, we end up here. */
+static void plugin_stopped(struct plugin *p, struct command *cmd)
+{
+	plugin_stop(cmd, p, false);
+}
+
+struct plugin_stop_timeout {
+	struct command *cmd;
+	struct plugin *p;
+};
+
+static void plugin_stop_timeout(struct plugin_stop_timeout *pst)
+{
+	log_unusual(pst->p->log, "Timeout on shutdown: killing anyway");
+	tal_del_destructor2(pst->p, plugin_stopped, pst->cmd);
+	plugin_stop(pst->cmd, pst->p, true);
+}
+
 static struct command_result *
 plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
 {
 	struct plugin *p;
-	struct json_stream *response;
 
 	list_for_each(&cmd->ld->plugins->plugins, p, list) {
 		if (plugin_paths_match(p->cmd, plugin_name)) {
@@ -114,14 +148,24 @@ plugin_dynamic_stop(struct command *cmd, const char *plugin_name)
 				                    "%s cannot be managed when "
 				                    "lightningd is up",
 				                    plugin_name);
-			plugin_kill(p, LOG_INFORM,
-				    "stopped by lightningd via RPC");
-			response = json_stream_success(cmd);
-			json_add_string(response, "command", "stop");
-			json_add_string(response, "result",
-			                take(tal_fmt(NULL, "Successfully stopped %s.",
-			                             plugin_name)));
-			return command_success(cmd, response);
+
+			/* If it's interested in clean shutdown, tell it. */
+			if (notify_plugin_shutdown(cmd->ld, p)) {
+				struct plugin_stop_timeout *pst;
+
+				/* Kill in 30 seconds if it doesn't exit. */
+				pst = tal(p, struct plugin_stop_timeout);
+				pst->p = p;
+				pst->cmd = cmd;
+				notleak(new_reltimer(cmd->ld->timers, pst,
+						     time_from_sec(30),
+						     plugin_stop_timeout,
+						     pst));
+
+				tal_add_destructor2(p, plugin_stopped, cmd);
+				return command_still_pending(cmd);
+			}
+			return plugin_stop(cmd, p, true);
 		}
 	}
 
