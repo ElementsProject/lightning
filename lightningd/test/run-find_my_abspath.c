@@ -184,9 +184,6 @@ void per_peer_state_set_fds_arr(struct per_peer_state *pps UNNEEDED, const int *
 /* Generated stub for plugins_config */
 void plugins_config(struct plugins *plugins UNNEEDED)
 { fprintf(stderr, "plugins_config called!\n"); abort(); }
-/* Generated stub for plugins_free */
-void plugins_free(struct plugins *plugins UNNEEDED)
-{ fprintf(stderr, "plugins_free called!\n"); abort(); }
 /* Generated stub for plugins_init */
 void plugins_init(struct plugins *plugins UNNEEDED)
 { fprintf(stderr, "plugins_init called!\n"); abort(); }
@@ -205,6 +202,9 @@ void setup_color_and_alias(struct lightningd *ld UNNEEDED)
 void setup_topology(struct chain_topology *topology UNNEEDED,
 		    u32 min_blockheight UNNEEDED, u32 max_blockheight UNNEEDED)
 { fprintf(stderr, "setup_topology called!\n"); abort(); }
+/* Generated stub for shutdown_plugins */
+void shutdown_plugins(struct lightningd *ld UNNEEDED)
+{ fprintf(stderr, "shutdown_plugins called!\n"); abort(); }
 /* Generated stub for stop_topology */
 void stop_topology(struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "stop_topology called!\n"); abort(); }
