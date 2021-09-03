@@ -6,7 +6,7 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**fetchinvoice** *offer* \[*msatoshi*\] \[*quantity*\] \[*recurrence_counter*\] \[*recurrence_start*\] \[*recurrence_label*\] \[*timeout*\]
+**fetchinvoice** *offer* \[*msatoshi*\] \[*quantity*\] \[*recurrence_counter*\] \[*recurrence_start*\] \[*recurrence_label*\] \[*timeout*\] \[*payer_note*\]
 
 DESCRIPTION
 -----------
@@ -42,6 +42,8 @@ calls for the same recurrence, as it is used to link them together.
 
 *timeout* is an optional timeout; if we don't get a reply before this
 we fail (default, 60 seconds).
+
+*payer_note* is an optional payer note to include in the fetched invoice.
 
 RETURN VALUE
 ------------
