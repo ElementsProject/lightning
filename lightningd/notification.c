@@ -554,3 +554,14 @@ void notify_channel_open_failed(struct lightningd *ld,
 	jsonrpc_notification_end(n);
 	plugins_notify(ld->plugins, take(n));
 }
+
+REGISTER_NOTIFICATION(plugin_shutdown, NULL);
+
+bool notify_plugin_shutdown(struct lightningd *ld, struct plugin *p)
+{
+	struct jsonrpc_notification *n =
+		jsonrpc_notification_start(NULL, "shutdown");
+
+	jsonrpc_notification_end(n);
+	return plugin_single_notify(p, take(n));
+}

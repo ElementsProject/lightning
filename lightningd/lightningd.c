@@ -1146,10 +1146,10 @@ int main(int argc, char *argv[])
 
 	/* We're not going to collect our children. */
 	remove_sigchild_handler();
-	shutdown_subdaemons(ld);
 
-	/* Remove plugins. */
-	plugins_free(ld->plugins);
+	/* Tell plugins we're shutting down. */
+	shutdown_plugins(ld);
+	shutdown_subdaemons(ld);
 
 	/* Clean up the JSON-RPC. This needs to happen in a DB transaction since
 	 * it might actually be touching the DB in some destructors, e.g.,
