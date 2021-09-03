@@ -2048,8 +2048,9 @@ struct commitment_revocation_payload {
 	struct bitcoin_txid commitment_txid;
 	const struct bitcoin_tx *penalty_tx;
 	struct wallet *wallet;
-	u64 channel_id;
+	u64 channel_dbid;
 	u64 commitnum;
+	struct channel_id channel_id;
 };
 
 static void commitment_revocation_hook_serialize(
@@ -2058,11 +2059,13 @@ static void commitment_revocation_hook_serialize(
 {
 	json_add_txid(stream, "commitment_txid", &payload->commitment_txid);
 	json_add_tx(stream, "penalty_tx", payload->penalty_tx);
+	json_add_channel_id(stream, "channel_id", &payload->channel_id);
+	json_add_u64(stream, "commitnum", payload->commitnum);
 }
 
 static void
 commitment_revocation_hook_cb(struct commitment_revocation_payload *p STEALS){
-	wallet_penalty_base_delete(p->wallet, p->channel_id, p->commitnum);
+	wallet_penalty_base_delete(p->wallet, p->channel_dbid, p->commitnum);
 }
 
 static bool
@@ -2209,8 +2212,9 @@ void peer_got_revoke(struct channel *channel, const u8 *msg)
 	payload->commitment_txid = pbase->txid;
 	payload->penalty_tx = tal_steal(payload, penalty_tx);
 	payload->wallet = ld->wallet;
-	payload->channel_id = channel->dbid;
+	payload->channel_dbid = channel->dbid;
 	payload->commitnum = pbase->commitment_num;
+	payload->channel_id = channel->cid;
 	plugin_hook_call_commitment_revocation(ld, payload);
 }
 
