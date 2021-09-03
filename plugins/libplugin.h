@@ -164,6 +164,9 @@ struct command_result *command_param_failed(void);
 /* Call this on fatal error. */
 void NORETURN plugin_err(struct plugin *p, const char *fmt, ...);
 
+/* Normal exit (makes sure to flush output!). */
+void NORETURN plugin_exit(struct plugin *p, int exitcode);
+
 /* This command is finished, here's a detailed error; @cmd cannot be
  * NULL, data can be NULL; otherwise it must be a JSON object. */
 struct command_result *WARN_UNUSED_RESULT

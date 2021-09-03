@@ -12,6 +12,7 @@
 #include <plugins/libplugin.h>
 #include <poll.h>
 #include <stdarg.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -78,6 +79,8 @@ struct plugin {
 	bool manifested;
 	/* Has init been received ? */
 	bool initialized;
+	/* Are we exiting? */
+	bool exiting;
 
 	/* Map from json command names to usage strings: we don't put this inside
 	 * struct json_command as it's good practice to have those const. */
@@ -1123,6 +1126,15 @@ void plugin_notify_progress(struct command *cmd,
 	plugin_notify_end(cmd, js);
 }
 
+void NORETURN plugin_exit(struct plugin *p, int exitcode)
+{
+	p->exiting = true;
+	io_conn_out_exclusive(p->stdout_conn, true);
+	io_wake(p);
+	io_loop(NULL, NULL);
+	exit(exitcode);
+}
+
 void NORETURN plugin_err(struct plugin *p, const char *fmt, ...)
 {
 	va_list ap;
@@ -1131,8 +1143,10 @@ void NORETURN plugin_err(struct plugin *p, const char *fmt, ...)
 	plugin_logv(p, LOG_BROKEN, fmt, ap);
 	va_end(ap);
 	va_start(ap, fmt);
-	errx(1, "%s", tal_vfmt(NULL, fmt, ap));
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
 	va_end(ap);
+	plugin_exit(p, 1);
 }
 
 void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...)
@@ -1315,6 +1329,9 @@ static struct io_plan *ld_write_json(struct io_conn *conn,
 		return json_stream_output(plugin->js_arr[0], plugin->stdout_conn,
 					  ld_stream_complete, plugin);
 
+	/* If we were simply flushing final output, stop now. */
+	if (plugin->exiting)
+		io_break(plugin);
 	return io_out_wait(conn, plugin, ld_write_json, plugin);
 }
 
@@ -1391,7 +1408,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	}
 
 	p->init = init;
-	p->manifested = p->initialized = false;
+	p->manifested = p->initialized = p->exiting = false;
 	p->restartability = restartability;
 	strmap_init(&p->usagemap);
 	p->in_timer = 0;
