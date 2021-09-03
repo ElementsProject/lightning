@@ -6,7 +6,7 @@ lightning-fetchinvoice - Command for fetch an invoice for an offer
 \fB(WARNING: experimental-offers only)\fR
 
 
-\fBfetchinvoice\fR \fIoffer\fR [\fImsatoshi\fR] [\fIquantity\fR] [\fIrecurrence_counter\fR] [\fIrecurrence_start\fR] [\fIrecurrence_label\fR] [\fItimeout\fR]
+\fBfetchinvoice\fR \fIoffer\fR [\fImsatoshi\fR] [\fIquantity\fR] [\fIrecurrence_counter\fR] [\fIrecurrence_start\fR] [\fIrecurrence_label\fR] [\fItimeout\fR] [\fIpayer_note\fR]
 
 .SH DESCRIPTION
 
@@ -50,9 +50,13 @@ calls for the same recurrence, as it is used to link them together\.
 \fItimeout\fR is an optional timeout; if we don't get a reply before this
 we fail (default, 60 seconds)\.
 
+
+\fIpayer_note\fR is an optional payer note to include in the fetched invoice\.
+
 .SH RETURN VALUE
 
 On success, an object is returned, containing:
+
 
 .RS
 .IP \[bu]
@@ -94,6 +98,7 @@ On success, an object is returned, containing:
 
 The following error codes may occur:
 
+
 .RS
 .IP \[bu]
 -1: Catchall nonspecific error\.
@@ -119,4 +124,4 @@ Rusty Russell \fI<rusty@rustcorp.com.au\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:8343ee7fe4d8413760a47a9d2657c4557734fa67af5bfec582daf780828ca675
+\" SHA256STAMP:278c8d05aa5412cd3dd58c2903d23b670e0666f2ac923d914f438d9808bd9ac8
