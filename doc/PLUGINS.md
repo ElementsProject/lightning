@@ -791,6 +791,16 @@ here, with the peer's signatures attached.
 }
 ```
 
+### `shutdown`
+
+Called when lightningd is shutting down, or this plugin has been
+shutdown by the plugin stop command.  The plugin has 30 seconds to
+exit itself, otherwise it's killed.
+
+Because lightningd can crash or be killed, a plugin cannot rely on
+this function always called.
+
+
 ## Hooks
 
 Hooks allow a plugin to define custom behavior for `lightningd`
