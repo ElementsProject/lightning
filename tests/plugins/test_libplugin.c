@@ -6,6 +6,7 @@
 
 const char *name_option;
 static bool self_disable = false;
+static bool dont_shutdown = false;
 
 static struct command_result *json_helloworld(struct command *cmd,
 					      const char *buf,
@@ -54,6 +55,18 @@ static void json_connected(struct command *cmd,
 	assert(idtok);
 	plugin_log(cmd->plugin, LOG_INFORM, "%s connected",
 		   json_strdup(tmpctx, buf, idtok));
+}
+
+static void json_shutdown(struct command *cmd,
+			  const char *buf,
+			  const jsmntok_t *params)
+{
+	plugin_log(cmd->plugin, LOG_DBG, "shutdown called");
+
+	if (dont_shutdown)
+		return;
+
+	plugin_exit(cmd->plugin, 0);
 }
 
 static struct command_result *testrpc_cb(struct command *cmd,
@@ -137,6 +150,9 @@ static const struct plugin_hook hooks[] = { {
 static const struct plugin_notification notifs[] = { {
 		"connect",
 		json_connected,
+	}, {
+		"shutdown",
+		json_shutdown
 	}
 };
 
@@ -159,5 +175,9 @@ int main(int argc, char *argv[])
 				  "flag",
 				  "Whether to disable.",
 				  flag_option, &self_disable),
+		    plugin_option("dont_shutdown",
+				  "flag",
+				  "Whether to timeout when asked to shutdown.",
+				  flag_option, &dont_shutdown),
 		    NULL);
 }
