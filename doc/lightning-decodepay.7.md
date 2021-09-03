@@ -43,6 +43,7 @@ On success, an object is returned, containing:
 - **extra** (array of objects, optional): Any extra fields we didn't know how to parse:
   - **tag** (string): The bech32 letter which identifies this field (always 1 characters)
   - **data** (string): The bech32 data for this field
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 Technically, the *description* field is optional if a
@@ -68,4 +69,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:435b2a155971979a75be7e9aefc5a686795c3ab210b94af72cf069bd5f3bcefc)
+[comment]: # ( SHA256STAMP:b6cf489b74ca9719c8adc7d17115f8109d61e288e77f8b3bed02ac64d7ede08f)

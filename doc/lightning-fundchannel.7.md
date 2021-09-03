@@ -89,6 +89,7 @@ On success, an object is returned, containing:
 - **outnum** (u32): The 0-based output index showing which output funded the channel
 - **channel_id** (hex): The channel_id of the resulting channel (always 64 characters)
 - **close_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The following error codes may occur:
@@ -112,4 +113,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:6c8f18b20d695e0b4dba0786f9fc70042a6cc9970aeb7cca2ad1c8fc4c406244)
+[comment]: # ( SHA256STAMP:43dfc7b25dad697f3589492a5bdcd895b8edbc2d39e9edb6a9c18313fac9ca50)

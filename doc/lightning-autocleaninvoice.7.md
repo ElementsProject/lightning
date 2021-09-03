@@ -32,6 +32,7 @@ On success, an object is returned, containing:
 If **enabled** is *true*:
   - **expired_by** (u64): how long an invoice must be expired (seconds) before we delete it
   - **cycle_seconds** (u64): how long an invoice must be expired (seconds) before we delete it
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -49,4 +50,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:b03847eff3fac04edb72f6ef86b31a2d05c077a8771845717a26f463ebed4ae7)
+[comment]: # ( SHA256STAMP:dc9caae8f7ca886630f2685ea972fb1113ffcfd5a5e46c2d212c3c4bbc4e5f44)

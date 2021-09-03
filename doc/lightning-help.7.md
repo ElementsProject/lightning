@@ -35,6 +35,7 @@ On success, an object is returned, containing:
   - **category** (string): the category for this command (useful for grouping)
   - **description** (string): a one-line description of the purpose of this command
   - **verbose** (string): a full description of this command (including whether it's deprecated)
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, one of the following error codes may be returned:
@@ -66,4 +67,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:89fb5e6d1f3127f8a4331fb00756871565c10e874a24554c60fa1a0e26ca5c8f)
+[comment]: # ( SHA256STAMP:2e41227e559aac229adc2cab0f0a2e591ed0ad33218bfe8647ce4022f25332fd)

@@ -97,6 +97,7 @@ On success, an object is returned, containing:
 - **onion** (hex): the onion packet (*onion_size* bytes)
 - **shared_secrets** (array of hexs): one shared secret for each node in the *hops* parameter:
   - the shared secret with this hop (always 64 characters)
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 EXAMPLE
@@ -135,4 +136,4 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 [bolt04]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
-[comment]: # ( SHA256STAMP:68e54caa71beb0445389b61d8b384e40ec91e7569d4e2f2de05ed7612713ee64)
+[comment]: # ( SHA256STAMP:a00e746c41b59c6f34fb4a875cf3bf1cded7101f3e4d6d5b35f577d6aca6387f)

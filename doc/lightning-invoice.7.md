@@ -84,6 +84,7 @@ The following warnings may also be returned:
 - **warning_deadends**: there would be enough incoming capacity, but some channels are dead-ends (no other public channels from those peers), so there isn't.
 - **warning_private_unused**: there would be enough incoming capacity, but some channels are unannounced and *exposeprivatechannels* is *false*, so there isn't.
 - **warning_mpp**: there is sufficient capacity, but not in a single channel, so the payer will have to use multi-part payments.
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, an error is returned and no invoice is created. If the
@@ -112,4 +113,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:cba838098a7f95ab74906f387b2d67777b33ccc40349cb9a8ef1f7c9cc28c6ef)
+[comment]: # ( SHA256STAMP:a65026d45e3a70b98c97d838c08748f873aeab20321d930de17fb45cf5022848)

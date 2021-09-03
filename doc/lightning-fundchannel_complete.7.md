@@ -30,6 +30,7 @@ RETURN VALUE
 On success, an object is returned, containing:
 - **channel_id** (hex): The channel_id of the resulting channel (always 64 characters)
 - **commitments_secured** (boolean): Indication that channel is safe to use (always *true*)
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error the returned object will contain `code` and `message` properties,
@@ -60,4 +61,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:5d6a53a68f16ec338c75e26e0e7ffbc4390afb771ca636eed4206cb8fdd56943)
+[comment]: # ( SHA256STAMP:29c1e2bbc878ffb6b7e41f552afc608af58e335a329c79d09680e8e2995ff0d5)

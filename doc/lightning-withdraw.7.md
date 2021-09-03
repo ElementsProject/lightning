@@ -45,6 +45,7 @@ On success, an object is returned, containing:
 - **tx** (hex): the fully signed bitcoin transaction
 - **txid** (txid): the transaction id of *tx*
 - **psbt** (string): the PSBT representing the unsigned transaction
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, an error is reported and the withdrawal transaction is not
@@ -72,4 +73,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:e233afb9fefd986fbcba8709f6cce8a221db8772f48c00a481a68fb0326c641d)
+[comment]: # ( SHA256STAMP:10741263b2d8890b368d48ab7be8d2fc9bd149afa73c5ba7022dfb6903f0135d)

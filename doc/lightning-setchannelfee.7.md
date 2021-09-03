@@ -43,6 +43,7 @@ On success, an object is returned, containing:
   - **peer_id** (pubkey): The node_id of the peer
   - **channel_id** (hex): The channel_id of the channel (always 64 characters)
   - **short_channel_id** (short_channel_id, optional): the short_channel_id (if locked in)
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 ERRORS
@@ -71,4 +72,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:6cd332e8d04e65b37bce7365c681ebb28d757f0e75881b3627395ba3e948dc8a)
+[comment]: # ( SHA256STAMP:1f040269076ac47e5ed973225bfddbcffdec83dd91f6df143d29bcb981de04ed)

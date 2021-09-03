@@ -83,6 +83,7 @@ On success, an object is returned, containing:
 
 The following warnings may also be returned:
 - **warning_partial_completion**: Not all parts of a multi-part payment have completed
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 You can monitor the progress and retries of a payment using the
@@ -142,4 +143,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:787ea6ae933da77756aca49aee68ba996cd54aea53b85ce2e5fcc85841022241)
+[comment]: # ( SHA256STAMP:1c931f2ff49a169011ca6c2abde58281570a1db0dfbdca829105999723fe8bb8)

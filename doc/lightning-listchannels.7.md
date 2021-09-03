@@ -46,6 +46,7 @@ On success, an object containing **channels** is returned.  It is an array of ob
 - **htlc_minimum_msat** (msat): The smallest payment *source* will allow via this channel
 - **features** (hex): BOLT #9 features bitmap for this channel
 - **htlc_maximum_msat** (msat, optional): The largest payment *source* will allow via this channel
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If one of *short\_channel\_id*, *source* or *destination* is supplied and no
@@ -76,4 +77,4 @@ Lightning RFC site
 -   BOLT \#7:
     <https://github.com/lightningnetwork/lightning-rfc/blob/master/07-routing-gossip.md>
 
-[comment]: # ( SHA256STAMP:b24b9cef75bf6809a85ee5ff9b821ffad68d012dc58b514844675c63c469488e)
+[comment]: # ( SHA256STAMP:ab173bcd769b6abd351a670e63be6adfbdfb0c24abcef157c0912b28f86d2250)

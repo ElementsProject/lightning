@@ -51,6 +51,7 @@ On success, an object is returned, containing:
     - **log** (string): The associated log message
     - **data** (hex): The IO which occurred
     - **node_id** (pubkey, optional): The peer this is associated with
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, one of the following error codes may be returned:
@@ -89,4 +90,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:4336a649aa44151ac41b408fea9e3c68c76a6b3b981925fb79c0e7b0ca73a543)
+[comment]: # ( SHA256STAMP:155507c9105521bb4c113232d9bc6fd585cce269303ee8e7e27ea803ca8405cf)

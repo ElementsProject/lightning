@@ -35,6 +35,7 @@ If **status** is "complete":
 
 If **status** is "failed":
   - **erroronion** (hex, optional): the error onion returned on failure, if any.
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The returned array is ordered by increasing **created_at** fields.
@@ -54,4 +55,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:22b3a2437901da705b706792b9e263ab65e002835ad3f5735895f8d971699c3b)
+[comment]: # ( SHA256STAMP:3599920cbe998244ce7583961cab022f236685c242c781e8767d74709ce4e3d2)

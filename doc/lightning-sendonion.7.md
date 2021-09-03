@@ -104,6 +104,7 @@ If **status** is "complete":
 
 If **status** is "pending":
   - **message** (string, optional): Monitor status with listpays or waitsendpay
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 If *shared_secrets* was provided and an error was returned by one of the
@@ -126,4 +127,4 @@ RESOURCES
 Main web site: <https://github.com/ElementsProject/lightning>
 
 [bolt04]: https://github.com/lightningnetwork/lightning-rfc/blob/master/04-onion-routing.md
-[comment]: # ( SHA256STAMP:2cc04261aaff4e8a3fc5e20628dd74c0cc5d511e64e85435a10f56fcec3d70f7)
+[comment]: # ( SHA256STAMP:cdb61326a6ac1481fa9aae6a0ab13cb6a0e70f4ae7b0af5228808fa0015ad9b6)

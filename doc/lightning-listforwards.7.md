@@ -40,6 +40,7 @@ If **status** is "settled" or "failed":
 If **status** is "local_failed" or "failed":
   - **failcode** (u32, optional): the numeric onion code returned
   - **failreason** (string, optional): the name of the onion code returned
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -57,4 +58,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:d2fe60f5039f5ad4682c88ce88d513c0ad74d8d4967dd233b399a19e27aac2ee)
+[comment]: # ( SHA256STAMP:8d5189bf6f515520f1acd225f372e1123378eab01b032313b5956089a635c2f7)

@@ -34,6 +34,7 @@ On success, an object is returned, containing:
 - **channel_id** (hex): the channel id of the channel (always 64 characters)
 - **tx** (hex): the funding transaction
 - **txid** (txid): The txid of the **tx**
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error, the returned object will contain `code` and `message` properties,
@@ -65,4 +66,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:ec0d412cdcbc4adea1c6e5a56d527c21894f4a36cd0dc49e858163d0a9221368)
+[comment]: # ( SHA256STAMP:d0d4435e0b0885f8f3685ea381cf0b020db2ff1ea5ca44c7d0d09e59d0419cc7)

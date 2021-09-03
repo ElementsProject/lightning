@@ -40,6 +40,7 @@ If **status** is "paid":
   - **amount_received_msat** (msat): how much was actually received
   - **paid_at** (u64): UNIX timestamp of when payment was received
   - **payment_preimage** (hex): SHA256 of this is the *payment_hash* offered in the invoice (always 64 characters)
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 ERRORS
@@ -72,4 +73,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:65c14a16b939461a06d81b0ff41e976ea4c7bf963cccdeba47739fe9ca1658a1)
+[comment]: # ( SHA256STAMP:63d72da38a7b758ef7fb7f3a35fbb1c48fd3f3c2a5bffef6559fc98dccd77cf6)

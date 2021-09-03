@@ -20,6 +20,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an empty object is returned.
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 AUTHOR
@@ -37,4 +38,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:644749218693cab4f48f6557a908aba66ae32f6b769576345f66ad62a6c7e7e0)
+[comment]: # ( SHA256STAMP:cfc042477a22946d8f3a07fbecf543a0063a73b54f955b1fc6adc4e8a294ec32)

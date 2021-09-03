@@ -39,6 +39,7 @@ On success, an object is returned, containing:
 - **generation** (u64, optional): The number of times this has been updated
 - **hex** (hex, optional): The hex data which has been added to the datastore
 - **string** (string, optional): The data as a string, if it's valid utf-8
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The following error codes may occur:
@@ -64,4 +65,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:a66ad377a86e479704a3f5db06cffbd54bcd34fc9d36724649ace7b1f1e16bce)
+[comment]: # ( SHA256STAMP:fd53ebaf7190249460f62aa509010207dbdbc3ae3c90279f49d3c61d4a621c7d)

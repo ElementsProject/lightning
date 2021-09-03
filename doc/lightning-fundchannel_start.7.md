@@ -46,6 +46,7 @@ On success, an object is returned, containing:
 - **funding_address** (string): The address to send funding to for the channel
 - **scriptpubkey** (hex): The raw scriptPubkey for the address
 - **close_to** (hex, optional): The raw scriptPubkey which mutual close will go to; only present if *close_to* parameter was specified and peer supports `option_upfront_shutdown_script`
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error the returned object will contain `code` and `message` properties,
@@ -78,4 +79,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:164e9d5c0adfe28e392e0d7e5401ca301ce1f0fafeb944b56836f0be91754e2f)
+[comment]: # ( SHA256STAMP:8d7a9f3cf343f7c72148a5d0b1aa0217cd9ef91e8c618dc2ff1077b15b9f25d4)

@@ -123,6 +123,7 @@ On success, an object is returned, containing:
 - **channel_fee_max_base_msat** (msat, optional): Maximum channel_fee_base_msat we'll charge for routing funds leased on this channel.
 - **channel_fee_max_proportional_thousandths** (u32, optional): Maximum channel_fee_proportional_millitionths we'll charge for routing funds leased on this channel, in thousandths.
 - **compact_lease** (hex, optional): Compact description of the channel lease parameters.
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The following error code may occur:
@@ -145,4 +146,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:e09e7cd45085dbcbf9a5ea556a413f004812995506703f91973c1d2671780c5b)
+[comment]: # ( SHA256STAMP:ed47e802b2e61f46461f5b65312c8c4de40e64a0970d1d745e59d63201dbfae8)

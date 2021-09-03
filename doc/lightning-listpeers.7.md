@@ -155,6 +155,7 @@ If **connected** is *true*:
   - **netaddr** (array of strings): A single entry array:
     - address, e.g. 1.2.3.4:1234
   - **features** (hex): bitmap of BOLT #9 features from peer's INIT message
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On success, an object with a "peers" key is returned containing a list
@@ -375,4 +376,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:91d30768a795456c75c72cf499df529ae8dbcc8088d06d1ed27150272425ab37)
+[comment]: # ( SHA256STAMP:7d11de5d2ff844d6f9e4b8093bd135c7a38d17f159ba7aca4821c5365ca11e71)

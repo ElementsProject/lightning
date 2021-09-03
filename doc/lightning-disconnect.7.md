@@ -35,6 +35,7 @@ RETURN VALUE
 
 [comment]: # (GENERATE-FROM-SCHEMA-START)
 On success, an empty object is returned.
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error the returned object will contain `code` and `message` properties,
@@ -58,4 +59,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:f807f98a54c194fab710f8a3393e96685fdbd0efa5e178cca54507a70a7a5c20)
+[comment]: # ( SHA256STAMP:86b47e27413141ffd6e8b79d83ac4a5cc80e5a7e6f5ba4b0df6825e744f9eea7)

@@ -53,6 +53,7 @@ If **status** is "paid":
   - **amount_received_msat** (msat): the amount actually received (could be slightly greater than *amount_msat*, since clients may overpay)
   - **paid_at** (u64): UNIX timestamp of when it was paid
   - **payment_preimage** (hex): proof of payment (always 64 characters)
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The following error codes may occur:
@@ -77,4 +78,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:8e245f0780b07e68f4b76989c0fbd00ad088f4f4c832b9f05b69ba037ba16df9)
+[comment]: # ( SHA256STAMP:4788ac272caee6e3dc8200cfbaf9dafffd2d10880b33f3d06e067767c1e0eee8)

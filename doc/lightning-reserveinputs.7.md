@@ -31,6 +31,7 @@ On success, an object containing **reservations** is returned.  It is an array o
 - **was_reserved** (boolean): whether the input was already reserved
 - **reserved** (boolean): whether the input is now reserved (always *true*)
 - **reserved_to_block** (u32): what blockheight the reservation will expire
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On success, a *reservations* array is returned, with an entry for each input
@@ -62,4 +63,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:bf45dfdf5c5c3a47e6e9ded7f42260ee07b1e6d02e84f39f2bce809650ed19b3)
+[comment]: # ( SHA256STAMP:77e6483379efd12bde3532e3d86a4305c83c7ab31819eef4b1ec0a993f6d24bc)

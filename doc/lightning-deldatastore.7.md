@@ -25,6 +25,7 @@ On success, an object is returned, containing:
 - **generation** (u64, optional): The number of times this has been updated
 - **hex** (hex, optional): The hex data which has removed from the datastore
 - **string** (string, optional): The data as a string, if it's valid utf-8
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 The following error codes may occur:
@@ -47,4 +48,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:cd6f944965165b0e276da493592f9decb15046150367e06ff3e5b5547517d4b9)
+[comment]: # ( SHA256STAMP:b9d59e2d14e91b9440f75fc1577e9f26848821d87d8281e5ca2393adf412fa0d)

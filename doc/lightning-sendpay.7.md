@@ -73,6 +73,7 @@ If **status** is "complete":
 
 If **status** is "pending":
   - **message** (string): Monitor status with listpays or waitsendpay
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On error, if the error occurred from a node other than the final
@@ -125,4 +126,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:96f73baefe7add38af6b6b4618848eff41bbbb1d1c31a0f668611216e4860dd1)
+[comment]: # ( SHA256STAMP:4dd638126f66c3c4b233b3bb0aaeec5f225a80ec7186edd1901f8ed4cf23380e)

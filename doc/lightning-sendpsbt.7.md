@@ -34,6 +34,7 @@ RETURN VALUE
 On success, an object is returned, containing:
 - **tx** (hex): The raw transaction which was sent
 - **txid** (txid): The txid of the **tx**
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On failure, one of the following error codes may be returned:
@@ -64,4 +65,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:5f289ef109eba26ca686ca0ebde3fed38cd52240ad3ee30e373719872927cfe6)
+[comment]: # ( SHA256STAMP:0b374dbb074a5eed153d6a153526c20bd1681f67245dfc42a8ec3a2f1510c6b5)
