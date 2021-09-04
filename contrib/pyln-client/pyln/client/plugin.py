@@ -630,8 +630,8 @@ class Plugin(object):
         try:
             result = self._exec_func(method.func, request)
             if not method.background:
-                # Only if this is not an async (background) call do we need to
-                # return the result, otherwise the callee will eventually need
+                # Only if this is a synchronous (background=False) call do we need to
+                # return the result. Otherwise the callee (method) will eventually need
                 # to call request.set_result or request.set_exception to
                 # return a result or raise an exception.
                 request.set_result(result)
