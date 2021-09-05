@@ -463,8 +463,6 @@ The origin node:
       - MUST set this to less than or equal to the channel capacity.
       - MUST set this to less than or equal to `max_htlc_value_in_flight_msat`
     it received from the peer.
-      - for channels with `chain_hash` identifying the Bitcoin blockchain:
-        - MUST set this to less than 2^32.
   - otherwise:
     - MUST set the `option_channel_htlc_max` bit of `message_flags` to 0.
   - MUST set bits in `channel_flags` and `message_flags `that are not assigned a meaning to 0.
@@ -599,7 +597,7 @@ Nodes can signal that they support extended gossip queries with the `gossip_quer
     * [`len*byte`:`encoded_short_ids`]
     * [`query_short_channel_ids_tlvs`:`tlvs`]
 
-1. tlvs: `query_short_channel_ids_tlvs`
+1. `tlv_stream`: `query_short_channel_ids_tlvs`
 2. types:
     1. type: 1 (`query_flags`)
     2. data:
@@ -704,7 +702,7 @@ timeouts.  It also causes a natural ratelimiting of queries.
     * [`u32`:`number_of_blocks`]
     * [`query_channel_range_tlvs`:`tlvs`]
 
-1. tlvs: `query_channel_range_tlvs`
+1. `tlv_stream`: `query_channel_range_tlvs`
 2. types:
     1. type: 1 (`query_option`)
     2. data:
@@ -724,12 +722,12 @@ Though it is possible, it would not be very useful to ask for checksums without 
     * [`chain_hash`:`chain_hash`]
     * [`u32`:`first_blocknum`]
     * [`u32`:`number_of_blocks`]
-    * [`byte`:`full_information`]
+    * [`byte`:`sync_complete`]
     * [`u16`:`len`]
     * [`len*byte`:`encoded_short_ids`]
     * [`reply_channel_range_tlvs`:`tlvs`]
 
-1. tlvs: `reply_channel_range_tlvs`
+1. `tlv_stream`: `reply_channel_range_tlvs`
 2. types:
     1. type: 1 (`timestamps_tlv`)
     2. data:
@@ -763,7 +761,7 @@ Where:
 
 The checksum of a `channel_update` is the CRC32C checksum as specified in [RFC3720](https://tools.ietf.org/html/rfc3720#appendix-B.4) of this `channel_update` without its `signature` and `timestamp` fields.
 
-This allows to query for channels within specific blocks. 
+This allows querying for channels within specific blocks.
 
 #### Requirements
 
@@ -782,22 +780,20 @@ The receiver of `query_channel_range`:
     - MUST set with `chain_hash` equal to that of `query_channel_range`,
     - MUST limit `number_of_blocks` to the maximum number of blocks whose
       results could fit in `encoded_short_ids`
-    - if does not maintain up-to-date channel information for `chain_hash`:
-      - MUST set `full_information` to 0.
-    - otherwise:
-      - SHOULD set `full_information` to 1.
+    - MAY split block contents across multiple `reply_channel_range`.
     - the first `reply_channel_range` message:
 	  - MUST set `first_blocknum` less than or equal to the `first_blocknum` in `query_channel_range`
 	  - MUST set `first_blocknum` plus `number_of_blocks` greater than `first_blocknum` in `query_channel_range`.
 	- successive `reply_channel_range` message:
-	  - MUST set `first_blocknum` to the previous `first_blocknum` plus `number_of_blocks`.
+	  - MUST have `first_blocknum` equal or greater than the previous `first_blocknum`.
+    - MUST set `sync_complete` to `false` if this is not the final `reply_channel_range`.
 	- the final `reply_channel_range` message:
 	  - MUST have `first_blocknum` plus `number_of_blocks` equal or greater than the `query_channel_range` `first_blocknum` plus `number_of_blocks`.
+    - MUST set `sync_complete` to `true`.
 
 If the incoming message includes `query_option`, the receiver MAY append additional information to its reply:
 - if bit 0 in `query_option_flags` is set, the receiver MAY append a `timestamps_tlv` that contains `channel_update` timestamps for all `short_chanel_id`s in `encoded_short_ids`
 - if bit 1 in `query_option_flags` is set, the receiver MAY append a `checksums_tlv` that contains `channel_update` checksums for all `short_chanel_id`s in `encoded_short_ids`
-
 
 #### Rationale
 
@@ -982,7 +978,7 @@ A node:
 #### Requirements
 
 A node:
-  - if a channel's latest `channel_update`s `timestamp` is older than two weeks
+  - if a channel's oldest `channel_update`s `timestamp` is older than two weeks
   (1209600 seconds):
     - MAY prune the channel.
     - MAY ignore the channel.
@@ -999,6 +995,11 @@ both endpoints lose access to their private keys and can neither sign
 unlikely to be part of a computed route, since they would be partitioned off
 from the rest of the network; however, they would remain in the local network
 view would be forwarded to other peers indefinitely.
+
+The oldest `channel_update` is used to prune the channel since both sides need
+to be active in order for the channel to be usable. Doing so prunes channels
+even if one side continues to send fresh `channel_update`s but the other node
+has disappeared.
 
 ## Recommendations for Routing
 

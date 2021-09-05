@@ -136,7 +136,8 @@ according to the message-specific format determined by `type`.
 ### Requirements
 
 The sending node:
- - MUST order `tlv_record`s in a `tlv_stream` by monotonically-increasing `type`.
+ - MUST order `tlv_record`s in a `tlv_stream` by strictly-increasing `type`,
+   hence MUST not produce more than a single TLV record with the same `type`
  - MUST minimally encode `type` and `length`.
  - When defining custom record `type` identifiers:
    - SHOULD pick random `type` identifiers to avoid collision with other
@@ -152,7 +153,8 @@ The receiving node:
    - MUST stop parsing the `tlv_stream`.
  - if a `type` or `length` is not minimally encoded:
    - MUST fail to parse the `tlv_stream`.
- - if decoded `type`s are not monotonically-increasing:
+ - if decoded `type`s are not strictly-increasing (including situations when
+   two or more occurrences of the same `type` are met):
    - MUST fail to parse the `tlv_stream`.
  - if `length` exceeds the number of bytes remaining in the message:
    - MUST fail to parse the `tlv_stream`.
@@ -176,8 +178,8 @@ encoded element. Without TLV, even if a node does not wish to use a particular
 field, the node is forced to add parsing logic for that field in order to
 determine the offset of any fields that follow.
 
-The monotonicity constraint ensures that all `type`s are unique and can appear
-at most once. Fields that map to complex objects, e.g. vectors, maps, or
+The strict monotonicity constraint ensures that all `type`s are unique and can
+appear at most once. Fields that map to complex objects, e.g. vectors, maps, or
 structs, should do so by defining the encoding such that the object is
 serialized within a single `tlv_record`. The uniqueness constraint, among other
 things, enables the following optimizations:
@@ -252,7 +254,7 @@ The `features` field MUST be padded to bytes with 0s.
    * [`flen*byte`:`features`]
    * [`init_tlvs`:`tlvs`]
 
-1. tlvs: `init_tlvs`
+1. `tlv_stream`: `init_tlvs`
 2. types:
     1. type: 1 (`networks`)
     2. data:
@@ -671,7 +673,7 @@ The following tests assume that two separate TLV namespaces exist: n1 and n2.
 
 The n1 namespace supports the following TLV types:
 
-1. tlvs: `n1`
+1. `tlv_stream`: `n1`
 2. types:
    1. type: 1 (`tlv1`)
    2. data:
@@ -690,7 +692,7 @@ The n1 namespace supports the following TLV types:
 
 The n2 namespace supports the following TLV types:
 
-1. tlvs: `n2`
+1. `tlv_stream`: `n2`
 2. types:
    1. type: 0 (`tlv1`)
    2. data:
