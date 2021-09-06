@@ -11,7 +11,7 @@ DESCRIPTION
 
 The **listpay** RPC command gets the status of all *pay* commands, or a
 single one if either *bolt11* or *payment_hash* was specified.
-It is possible filter the payments also by status.
+It is possible filter the payments also by *status*.
 
 RETURN VALUE
 ------------
