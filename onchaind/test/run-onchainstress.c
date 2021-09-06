@@ -44,16 +44,6 @@ struct htable *memleak_find_allocations(const tal_t *ctx UNNEEDED,
 					const void *exclude1 UNNEEDED,
 					const void *exclude2 UNNEEDED)
 { fprintf(stderr, "memleak_find_allocations called!\n"); abort(); }
-/* Generated stub for memleak_get */
-const void *memleak_get(struct htable *memtable UNNEEDED, const uintptr_t **backtrace UNNEEDED)
-{ fprintf(stderr, "memleak_get called!\n"); abort(); }
-/* Generated stub for memleak_init */
-void memleak_init(void)
-{ fprintf(stderr, "memleak_init called!\n"); abort(); }
-/* Generated stub for memleak_remove_region */
-void memleak_remove_region(struct htable *memtable UNNEEDED,
-			   const void *p UNNEEDED, size_t bytelen UNNEEDED)
-{ fprintf(stderr, "memleak_remove_region called!\n"); abort(); }
 /* Generated stub for new_coin_penalty_sat */
 struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx UNNEEDED,
 					    const char *account_name UNNEEDED,
@@ -105,6 +95,20 @@ const char *version(void)
 /* Generated stub for dev_disconnect_init */
 void dev_disconnect_init(int fd UNNEEDED)
 { fprintf(stderr, "dev_disconnect_init called!\n"); abort(); }
+/* Generated stub for dump_memleak */
+bool dump_memleak(struct htable *memtable UNNEEDED,
+		  void  (*print)(const char *fmt UNNEEDED, ...))
+{ fprintf(stderr, "dump_memleak called!\n"); abort(); }
+/* Generated stub for memleak_init */
+void memleak_init(void)
+{ fprintf(stderr, "memleak_init called!\n"); abort(); }
+/* Generated stub for memleak_remove_region */
+void memleak_remove_region(struct htable *memtable UNNEEDED,
+			   const void *p UNNEEDED, size_t bytelen UNNEEDED)
+{ fprintf(stderr, "memleak_remove_region called!\n"); abort(); }
+/* Generated stub for memleak_status_broken */
+void memleak_status_broken(const char *fmt UNNEEDED, ...)
+{ fprintf(stderr, "memleak_status_broken called!\n"); abort(); }
 #endif
 
 /* Noops */

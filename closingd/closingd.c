@@ -485,7 +485,7 @@ static void closing_dev_memleak(const tal_t *ctx,
 	memleak_remove_pointer(memtable, scriptpubkey[REMOTE]);
 	memleak_remove_pointer(memtable, funding_wscript);
 
-	dump_memleak(memtable);
+	dump_memleak(memtable, memleak_status_broken);
 }
 #endif /* DEVELOPER */
 

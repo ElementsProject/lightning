@@ -3496,7 +3496,7 @@ static void handle_dev_memleak(struct peer *peer, const u8 *msg)
 	/* Now delete peer and things it has pointers to. */
 	memleak_remove_region(memtable, peer, tal_bytelen(peer));
 
-	found_leak = dump_memleak(memtable);
+	found_leak = dump_memleak(memtable, memleak_status_broken);
 	wire_sync_write(MASTER_FD,
 			 take(towire_channeld_dev_memleak_reply(NULL,
 							       found_leak)));

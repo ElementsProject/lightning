@@ -1234,7 +1234,7 @@ static void handle_dev_memleak(struct state *state, const u8 *msg)
 	memleak_remove_region(memtable, state, sizeof(*state));
 
 	/* If there's anything left, dump it to logs, and return true. */
-	found_leak = dump_memleak(memtable);
+	found_leak = dump_memleak(memtable, memleak_status_broken);
 	wire_sync_write(REQ_FD,
 			take(towire_openingd_dev_memleak_reply(NULL,
 							      found_leak)));
