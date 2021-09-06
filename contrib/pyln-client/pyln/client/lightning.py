@@ -935,7 +935,7 @@ class LightningRpc(UnixDomainSocketRpc):
         """
         Show outgoing payments, regarding {bolt11} or {payment_hash} if set
         Can only specify one of {bolt11} or {payment_hash}. It is possible
-        filter the payments by status.
+        filter the payments by {status}.
         """
         assert not (bolt11 and payment_hash)
         payload = {
