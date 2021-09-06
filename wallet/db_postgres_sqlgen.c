@@ -2080,20 +2080,13 @@ struct db_query db_postgres_queries[] = {
     },
 };
 
-<<<<<<< refs/remotes/ElementsProject/master
-#define DB_POSTGRES_QUERY_COUNT 343
-=======
-<<<<<<< refs/remotes/ElementsProject/master
-#define DB_POSTGRES_QUERY_COUNT 342
-=======
-#define DB_POSTGRES_QUERY_COUNT 337
->>>>>>> wallet db: Support the query on database with status and payment hash.
->>>>>>> wallet db: Support the query on database with status and payment hash.
+#define DB_POSTGRES_QUERY_COUNT 345
 
 #endif /* HAVE_POSTGRES */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
+<<<<<<< refs/remotes/ElementsProject/master
 <<<<<<< refs/remotes/ElementsProject/master
 <<<<<<< refs/remotes/ElementsProject/master
 <<<<<<< refs/remotes/ElementsProject/master
@@ -2103,6 +2096,8 @@ struct db_query db_postgres_queries[] = {
 >>>>>>> wallet db: Support the query on database with status and payment hash.
 =======
 >>>>>>> doc: Update doc with the new parameter supported
+=======
+>>>>>>> plugin: Adding status to the pay plugin
 <<<<<<< refs/remotes/ElementsProject/master
 // SHA256STAMP:e356b7327b760559f9a7c31a7ea4a09d50194c7aacc6daef6ba9fb5caf43ae83
 =======
@@ -2110,6 +2105,8 @@ struct db_query db_postgres_queries[] = {
 >>>>>>> wallet db: Support the query on database with status and payment hash.
 =======
 >>>>>>> doc: Update doc with the new parameter supported
+=======
+>>>>>>> plugin: Adding status to the pay plugin
 <<<<<<< refs/remotes/ElementsProject/master
 // SHA256STAMP:a70af01d3b2f3a7003703b7feb0b2ef12359e0d2850bde1697a53780e2f5dbae
 =======
@@ -2117,6 +2114,8 @@ struct db_query db_postgres_queries[] = {
 >>>>>>> wallet db: Support the query on database with status and payment hash.
 =======
 >>>>>>> doc: Update doc with the new parameter supported
+=======
+>>>>>>> plugin: Adding status to the pay plugin
 <<<<<<< refs/remotes/ElementsProject/master
 // SHA256STAMP:f929ee6db13bdf55b5e0cdf54840091948b664a61c63a4aaaef403dc7e6f23ad
 =======
@@ -2239,6 +2238,18 @@ struct db_query db_postgres_queries[] = {
 >>>>>>> doc: Update doc with the new parameter supported
 >>>>>>> doc: Update doc with the new parameter supported
 >>>>>>> doc: Update doc with the new parameter supported
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> doc: Update doc with the new parameter supported
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> doc: Update doc with the new parameter supported
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> doc: Update doc with the new parameter supported
+=======
+=======
+=======
+=======
+// SHA256STAMP:d6c1c3aced24e67abe2596259beb7599406c070622ef70f88f07d2672c4f4eb9
+>>>>>>> plugin: Adding status to the pay plugin
+>>>>>>> plugin: Adding status to the pay plugin
+>>>>>>> plugin: Adding status to the pay plugin
+>>>>>>> plugin: Adding status to the pay plugin

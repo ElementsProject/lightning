@@ -1144,10 +1144,13 @@ msgstr ""
 
 <<<<<<< refs/remotes/ElementsProject/master
 <<<<<<< refs/remotes/ElementsProject/master
+<<<<<<< refs/remotes/ElementsProject/master
 #: wallet/wallet.c:3352
 =======
 =======
 >>>>>>> wallet db: Support the query on database with status and payment hash.
+=======
+>>>>>>> plugin: Adding status to the pay plugin
 <<<<<<< refs/remotes/ElementsProject/master
 #: wallet/wallet.c:3355
 =======
@@ -1248,86 +1251,89 @@ msgstr ""
 #: wallet/wallet.c:3341
 =======
 #: wallet/wallet.c:3344
+=======
+#: wallet/wallet.c:3351
+>>>>>>> plugin: Adding status to the pay plugin
 msgid "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = ? AND status = ? ORDER BY id;"
 msgstr ""
 
-#: wallet/wallet.c:3369
->>>>>>> wallet db: Support the query on database with status and payment hash.
+#: wallet/wallet.c:3376
 msgid "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = ? ORDER BY id;"
 msgstr ""
 
-#: wallet/wallet.c:3392
+#: wallet/wallet.c:3399
 msgid "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE status = ? ORDER BY id;"
 msgstr ""
 
-#: wallet/wallet.c:3415
+#: wallet/wallet.c:3422
 msgid "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments ORDER BY id;"
 msgstr ""
 
-#: wallet/wallet.c:3466
+#: wallet/wallet.c:3473
 msgid "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE local_offer_id = ?;"
 msgstr ""
 
-#: wallet/wallet.c:3511
+#: wallet/wallet.c:3518
 msgid "DELETE FROM htlc_sigs WHERE channelid = ?"
 msgstr ""
 
-#: wallet/wallet.c:3518
+#: wallet/wallet.c:3525
 msgid "INSERT INTO htlc_sigs (channelid, signature) VALUES (?, ?)"
 msgstr ""
 
-#: wallet/wallet.c:3530
+#: wallet/wallet.c:3537
 msgid "SELECT blobval FROM vars WHERE name='genesis_hash'"
 msgstr ""
 
-#: wallet/wallet.c:3554
+#: wallet/wallet.c:3561
 msgid "INSERT INTO vars (name, blobval) VALUES ('genesis_hash', ?);"
 msgstr ""
 
-#: wallet/wallet.c:3572
+#: wallet/wallet.c:3579
 msgid "SELECT txid, outnum FROM utxoset WHERE spendheight < ?"
 msgstr ""
 
-#: wallet/wallet.c:3584
+#: wallet/wallet.c:3591
 msgid "DELETE FROM utxoset WHERE spendheight < ?"
 msgstr ""
 
-#: wallet/wallet.c:3592 wallet/wallet.c:3706
+#: wallet/wallet.c:3599 wallet/wallet.c:3713
 msgid "INSERT INTO blocks (height, hash, prev_hash) VALUES (?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:3611
+#: wallet/wallet.c:3618
 msgid "DELETE FROM blocks WHERE hash = ?"
 msgstr ""
 
-#: wallet/wallet.c:3617
+#: wallet/wallet.c:3624
 msgid "SELECT * FROM blocks WHERE height >= ?;"
 msgstr ""
 
-#: wallet/wallet.c:3626
+#: wallet/wallet.c:3633
 msgid "DELETE FROM blocks WHERE height > ?"
 msgstr ""
 
-#: wallet/wallet.c:3638
+#: wallet/wallet.c:3645
 msgid "UPDATE outputs SET spend_height = ?,  status = ? WHERE prev_out_tx = ? AND prev_out_index = ?"
 msgstr ""
 
-#: wallet/wallet.c:3656
+#: wallet/wallet.c:3663
 msgid "UPDATE utxoset SET spendheight = ? WHERE txid = ? AND outnum = ?"
 msgstr ""
 
-#: wallet/wallet.c:3679 wallet/wallet.c:3717
+#: wallet/wallet.c:3686 wallet/wallet.c:3724
 msgid "INSERT INTO utxoset ( txid, outnum, blockheight, spendheight, txindex, scriptpubkey, satoshis) VALUES(?, ?, ?, ?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:3743
+#: wallet/wallet.c:3750
 msgid "SELECT height FROM blocks WHERE height = ?"
 msgstr ""
 
-#: wallet/wallet.c:3756
+#: wallet/wallet.c:3763
 msgid "SELECT txid, spendheight, scriptpubkey, satoshis FROM utxoset WHERE blockheight = ? AND txindex = ? AND outnum = ? AND spendheight IS NULL"
 msgstr ""
 
+<<<<<<< refs/remotes/ElementsProject/master
 <<<<<<< refs/remotes/ElementsProject/master
 <<<<<<< refs/remotes/ElementsProject/master
 #: wallet/wallet.c:3768
@@ -1484,101 +1490,125 @@ msgid "UPDATE transactions SET blockheight = ?, txindex = ? WHERE id = ?"
 msgstr ""
 
 #: wallet/wallet.c:3877
-msgid "INSERT INTO transaction_annotations (txid, idx, location, type, channel) VALUES (?, ?, ?, ?, ?) ON CONFLICT(txid,idx) DO NOTHING;"
+=======
+#: wallet/wallet.c:3827
+msgid "SELECT blockheight, txindex, outnum FROM utxoset WHERE spendheight = ?"
+msgstr ""
+
+#: wallet/wallet.c:3844
+msgid "SELECT blockheight, txindex, outnum FROM utxoset WHERE blockheight = ?"
+msgstr ""
+
+#: wallet/wallet.c:3861 wallet/wallet.c:4021
+msgid "SELECT blockheight FROM transactions WHERE id=?"
+msgstr ""
+
+#: wallet/wallet.c:3871
+msgid "INSERT INTO transactions (  id, blockheight, txindex, rawtx) VALUES (?, ?, ?, ?);"
+msgstr ""
+
+#: wallet/wallet.c:3892
+msgid "UPDATE transactions SET blockheight = ?, txindex = ? WHERE id = ?"
 msgstr ""
 
 #: wallet/wallet.c:3909
+>>>>>>> plugin: Adding status to the pay plugin
+msgid "INSERT INTO transaction_annotations (txid, idx, location, type, channel) VALUES (?, ?, ?, ?, ?) ON CONFLICT(txid,idx) DO NOTHING;"
+msgstr ""
+
+#: wallet/wallet.c:3941
 msgid "SELECT type, channel_id FROM transactions WHERE id=?"
 msgstr ""
 
-#: wallet/wallet.c:3925
+#: wallet/wallet.c:3957
 msgid "UPDATE transactions SET type = ?, channel_id = ? WHERE id = ?"
 msgstr ""
 
-#: wallet/wallet.c:3944
+#: wallet/wallet.c:3976
 msgid "SELECT type FROM transactions WHERE id=?"
 msgstr ""
 
-#: wallet/wallet.c:3967
+#: wallet/wallet.c:3999
 msgid "SELECT rawtx FROM transactions WHERE id=?"
 msgstr ""
 
-#: wallet/wallet.c:4013
+#: wallet/wallet.c:4045
 msgid "SELECT blockheight, txindex FROM transactions WHERE id=?"
 msgstr ""
 
-#: wallet/wallet.c:4041
+#: wallet/wallet.c:4073
 msgid "SELECT id FROM transactions WHERE blockheight=?"
 msgstr ""
 
-#: wallet/wallet.c:4060
+#: wallet/wallet.c:4092
 msgid "INSERT INTO channeltxs (  channel_id, type, transaction_id, input_num, blockheight) VALUES (?, ?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:4084
+#: wallet/wallet.c:4116
 msgid "SELECT DISTINCT(channel_id) FROM channeltxs WHERE type = ?;"
 msgstr ""
 
-#: wallet/wallet.c:4105
+#: wallet/wallet.c:4137
 msgid "SELECT  c.type, c.blockheight, t.rawtx, c.input_num, c.blockheight - t.blockheight + 1 AS depth, t.id as txid FROM channeltxs c JOIN transactions t ON t.id = c.transaction_id WHERE c.channel_id = ? ORDER BY c.id ASC;"
 msgstr ""
 
-#: wallet/wallet.c:4150
+#: wallet/wallet.c:4182
 msgid "UPDATE forwarded_payments SET  in_msatoshi=?, out_msatoshi=?, state=?, resolved_time=?, failcode=? WHERE in_htlc_id=?"
 msgstr ""
 
-#: wallet/wallet.c:4208
+#: wallet/wallet.c:4240
 msgid "INSERT INTO forwarded_payments (  in_htlc_id, out_htlc_id, in_channel_scid, out_channel_scid, in_msatoshi, out_msatoshi, state, received_time, resolved_time, failcode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:4267
+#: wallet/wallet.c:4299
 msgid "SELECT CAST(COALESCE(SUM(in_msatoshi - out_msatoshi), 0) AS BIGINT)FROM forwarded_payments WHERE state = ?;"
 msgstr ""
 
-#: wallet/wallet.c:4316
+#: wallet/wallet.c:4348
 msgid "SELECT  f.state, in_msatoshi, out_msatoshi, hin.payment_hash as payment_hash, in_channel_scid, out_channel_scid, f.received_time, f.resolved_time, f.failcode FROM forwarded_payments f LEFT JOIN channel_htlcs hin ON (f.in_htlc_id = hin.id) WHERE (1 = ? OR f.state = ?) AND (1 = ? OR f.in_channel_scid = ?) AND (1 = ? OR f.out_channel_scid = ?)"
 msgstr ""
 
-#: wallet/wallet.c:4438
+#: wallet/wallet.c:4470
 msgid "SELECT  t.id, t.rawtx, t.blockheight, t.txindex, t.type as txtype, c2.short_channel_id as txchan, a.location, a.idx as ann_idx, a.type as annotation_type, c.short_channel_id FROM  transactions t LEFT JOIN  transaction_annotations a ON (a.txid = t.id) LEFT JOIN  channels c ON (a.channel = c.id) LEFT JOIN  channels c2 ON (t.channel_id = c2.id) ORDER BY t.blockheight, t.txindex ASC"
 msgstr ""
 
-#: wallet/wallet.c:4532
+#: wallet/wallet.c:4564
 msgid "INSERT INTO penalty_bases (  channel_id, commitnum, txid, outnum, amount) VALUES (?, ?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:4557
+#: wallet/wallet.c:4589
 msgid "SELECT commitnum, txid, outnum, amount FROM penalty_bases WHERE channel_id = ?"
 msgstr ""
 
-#: wallet/wallet.c:4581
+#: wallet/wallet.c:4613
 msgid "DELETE FROM penalty_bases WHERE channel_id = ? AND commitnum = ?"
 msgstr ""
 
-#: wallet/wallet.c:4599
+#: wallet/wallet.c:4631
 msgid "SELECT 1  FROM offers WHERE offer_id = ?;"
 msgstr ""
 
-#: wallet/wallet.c:4612
+#: wallet/wallet.c:4644
 msgid "INSERT INTO offers (  offer_id, bolt12, label, status) VALUES (?, ?, ?, ?);"
 msgstr ""
 
-#: wallet/wallet.c:4639
+#: wallet/wallet.c:4671
 msgid "SELECT bolt12, label, status  FROM offers WHERE offer_id = ?;"
 msgstr ""
 
-#: wallet/wallet.c:4667
+#: wallet/wallet.c:4699
 msgid "SELECT offer_id FROM offers;"
 msgstr ""
 
-#: wallet/wallet.c:4693
+#: wallet/wallet.c:4725
 msgid "UPDATE offers SET status=? WHERE offer_id = ?;"
 msgstr ""
 
-#: wallet/wallet.c:4704
+#: wallet/wallet.c:4736
 msgid "UPDATE invoices SET state=? WHERE state=? AND local_offer_id = ?;"
 msgstr ""
 
+<<<<<<< refs/remotes/ElementsProject/master
 <<<<<<< refs/remotes/ElementsProject/master
 #: wallet/wallet.c:4707
 >>>>>>> rpc: Integrate the status flow in the listsendpays command
@@ -1620,7 +1650,34 @@ msgstr ""
 msgid "SELECT key, data, generation FROM datastore WHERE key >= ? ORDER BY key;"
 msgstr ""
 
+<<<<<<< refs/remotes/ElementsProject/master
 #: wallet/wallet.c:4848
+=======
+#: wallet/wallet.c:4851
+=======
+#: wallet/wallet.c:4764
+msgid "SELECT status  FROM offers WHERE offer_id = ?;"
+msgstr ""
+
+#: wallet/wallet.c:4849
+msgid "UPDATE datastore SET data=?, generation=generation+1 WHERE key=?;"
+msgstr ""
+
+#: wallet/wallet.c:4860
+msgid "INSERT INTO datastore VALUES (?, ?, 0);"
+msgstr ""
+
+#: wallet/wallet.c:4871
+msgid "DELETE FROM datastore WHERE key = ?"
+msgstr ""
+
+#: wallet/wallet.c:4888
+msgid "SELECT key, data, generation FROM datastore WHERE key >= ? ORDER BY key;"
+msgstr ""
+
+#: wallet/wallet.c:4895
+>>>>>>> plugin: Adding status to the pay plugin
+>>>>>>> plugin: Adding status to the pay plugin
 msgid "SELECT key, data, generation FROM datastore ORDER BY key;"
 msgstr ""
 
@@ -1642,12 +1699,15 @@ msgstr ""
 <<<<<<< refs/remotes/ElementsProject/master
 <<<<<<< refs/remotes/ElementsProject/master
 <<<<<<< refs/remotes/ElementsProject/master
+<<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:826f40774d133dbfa18209685ab964d2915e303346b964107ac4974275910111
 =======
 =======
 >>>>>>> wallet db: Support the query on database with status and payment hash.
 =======
 >>>>>>> doc: Update doc with the new parameter supported
+=======
+>>>>>>> plugin: Adding status to the pay plugin
 <<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:0b3b17a4eb95067fdebc9d90c962c46e40fdef2002f92856cc31800ab37fbe59
 =======
@@ -1655,6 +1715,8 @@ msgstr ""
 >>>>>>> wallet db: Support the query on database with status and payment hash.
 =======
 >>>>>>> doc: Update doc with the new parameter supported
+=======
+>>>>>>> plugin: Adding status to the pay plugin
 <<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:651a6c15e8780351cd32a4e6dc3011b1c5fc2af6308b0e65a442dda2a3874e19
 =======
@@ -1662,6 +1724,8 @@ msgstr ""
 >>>>>>> wallet db: Support the query on database with status and payment hash.
 =======
 >>>>>>> doc: Update doc with the new parameter supported
+=======
+>>>>>>> plugin: Adding status to the pay plugin
 <<<<<<< refs/remotes/ElementsProject/master
 #  SHA256STAMP:35e10cb3ec34af54b6d78d9eea1aefa0861ef9acbfe0e78745d24b8e49e50b05
 =======
@@ -1784,6 +1848,18 @@ msgstr ""
 >>>>>>> doc: Update doc with the new parameter supported
 >>>>>>> doc: Update doc with the new parameter supported
 >>>>>>> doc: Update doc with the new parameter supported
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> doc: Update doc with the new parameter supported
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> doc: Update doc with the new parameter supported
+<<<<<<< refs/remotes/ElementsProject/master
 >>>>>>> doc: Update doc with the new parameter supported
+=======
+=======
+=======
+=======
+#  SHA256STAMP:721561d65cdfbde26634a75453d7816c6533f3ff3f32f2f7ee67337ce58b39a7
+>>>>>>> plugin: Adding status to the pay plugin
+>>>>>>> plugin: Adding status to the pay plugin
+>>>>>>> plugin: Adding status to the pay plugin
+>>>>>>> plugin: Adding status to the pay plugin
