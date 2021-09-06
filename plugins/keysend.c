@@ -480,14 +480,14 @@ static const char *notification_topics[] = {
 
 int main(int argc, char *argv[])
 {
-	struct feature_set features;
+	struct feature_set *features = tal(NULL, struct feature_set);
 	setup_locale();
 
-	for (int i=0; i<ARRAY_SIZE(features.bits); i++)
-		features.bits[i] = tal_arr(NULL, u8, 0);
-	set_feature_bit(&features.bits[NODE_ANNOUNCE_FEATURE], KEYSEND_FEATUREBIT);
+	for (int i=0; i<ARRAY_SIZE(features->bits); i++)
+		features->bits[i] = tal_arr(features, u8, 0);
+	set_feature_bit(&features->bits[NODE_ANNOUNCE_FEATURE], KEYSEND_FEATUREBIT);
 
-	plugin_main(argv, init, PLUGIN_STATIC, true, &features, commands,
+	plugin_main(argv, init, PLUGIN_STATIC, true, features, commands,
 		    ARRAY_SIZE(commands), NULL, 0, hooks, ARRAY_SIZE(hooks),
 		    notification_topics, ARRAY_SIZE(notification_topics), NULL);
 }
