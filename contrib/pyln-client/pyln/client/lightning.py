@@ -955,11 +955,12 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listpeers", payload)
 
-    def listsendpays(self, bolt11=None, payment_hash=None):
+    def listsendpays(self, bolt11=None, payment_hash=None, status=None):
         """Show all sendpays results, or only for `bolt11` or `payment_hash`."""
         payload = {
             "bolt11": bolt11,
-            "payment_hash": payment_hash
+            "payment_hash": payment_hash,
+            "status": status
         }
         return self.call("listsendpays", payload)
 
