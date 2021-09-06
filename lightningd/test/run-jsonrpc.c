@@ -50,9 +50,6 @@ void log_io(struct log *log UNNEEDED, enum log_level dir UNNEEDED,
 /* Generated stub for log_level_name */
 const char *log_level_name(enum log_level level UNNEEDED)
 { fprintf(stderr, "log_level_name called!\n"); abort(); }
-/* Generated stub for memleak_remove_strmap_ */
-void memleak_remove_strmap_(struct htable *memtable UNNEEDED, const struct strmap *m UNNEEDED)
-{ fprintf(stderr, "memleak_remove_strmap_ called!\n"); abort(); }
 /* Generated stub for new_log */
 struct log *new_log(const tal_t *ctx UNNEEDED, struct log_book *record UNNEEDED,
 		    const struct node_id *default_node_id UNNEEDED,
