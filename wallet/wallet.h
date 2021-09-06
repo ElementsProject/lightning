@@ -1593,4 +1593,11 @@ struct db_stmt *wallet_datastore_next(const tal_t *ctx,
 				      const u8 **data,
 				      u64 *generation);
 
+
+/**
+ * Delete all the not active offers stored in the database
+ * @w: the wallet.
+ */
+void wallet_offer_delete_inactive(struct wallet *w)
+	NO_NULL_ARGS;
 #endif /* LIGHTNING_WALLET_WALLET_H */

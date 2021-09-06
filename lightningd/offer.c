@@ -528,3 +528,27 @@ static const struct json_command payersign_command = {
 	"Sign {messagename} {fieldname} {merkle} (a 32-byte hex string) using public {tweak}",
 };
 AUTODATA(json_command, &payersign_command);
+
+static struct command_result *json_delinactiveoffers(struct command *cmd,
+						     const char *buffer,
+						     const jsmntok_t *obj UNNEEDED,
+						     const jsmntok_t *params) {
+	struct json_stream *response;
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	wallet_offer_delete_inactive(cmd->ld->wallet);
+
+	//TODO: it is better put in the response the list of deleted offers?
+	response = json_stream_success(cmd);
+	return command_success(cmd, response);
+}
+
+static const struct json_command delinactiveoffers_command = {
+	"delinactiveoffers",
+	"payment",
+	json_delinactiveoffers,
+	"TODO: adding a description of the command here",
+};
+AUTODATA(json_command, &delinactiveoffers_command);

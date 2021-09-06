@@ -4603,3 +4603,35 @@ def test_pay_low_max_htlcs(node_factory):
     l1.daemon.wait_for_log(
         r'Number of pre-split HTLCs \([0-9]+\) exceeds our HTLC budget \([0-9]+\), skipping pre-splitter'
     )
+
+
+def test_delete_inactive_offers_one(node_factory):
+    """
+    Test that we can delete all the inactive offers in the db.
+    """
+    l1 = node_factory.get_nodes(1, opts={"experimental-offers": None})[0]
+    for i in range(0, 3):
+        offer_id = l1.rpc.call("offer", {"amount": 1000, "description": "Offers n: {}".format(i)})["offer_id"]
+        l1.rpc.call("disableoffer", {"offer_id": offer_id})
+
+    assert len(l1.rpc.call("listoffers")["offers"]) == 3
+
+    l1.rpc.call("delinactiveoffers", {})
+    assert len(l1.rpc.call("listoffers")["offers"]) == 0
+
+
+def test_delete_inactive_offers_two(node_factory):
+    """
+    Test that we can delete all the inactive offers in the db,
+    and make sure that we will skip the active one.
+    """
+    l1 = node_factory.get_nodes(1, opts={"experimental-offers": None})[0]
+    for i in range(0, 3):
+        offer_id = l1.rpc.call("offer", {"amount": 1000, "description": "Offers n: {}".format(i)})["offer_id"]
+        if i % 2 == 0:
+            l1.rpc.call("disableoffer", {"offer_id": offer_id})
+
+    assert len(l1.rpc.call("listoffers")["offers"]) == 3
+
+    l1.rpc.call("delinactiveoffers", {})
+    assert len(l1.rpc.call("listoffers")["offers"]) == 1

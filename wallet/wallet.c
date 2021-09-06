@@ -4867,3 +4867,25 @@ struct db_stmt *wallet_datastore_next(const tal_t *ctx,
 
 	return stmt;
 }
+
+void wallet_offer_delete_inactive(struct wallet *w)
+{
+	struct db_stmt *stmt;
+	struct sha256 id;
+	const struct json_escape *label;
+	enum offer_status status;
+
+	for (stmt = wallet_offer_id_first(w, &id);
+	     stmt;
+	     stmt = wallet_offer_id_next(w, stmt, &id)) {
+		wallet_offer_find(tmpctx, w, &id,
+					&label, &status);
+		if (!offer_status_active(status)) {
+			struct db_stmt *stmt_del =
+				db_prepare_v2(w->db, SQL("DELETE from offers"
+							 " WHERE offer_id = ?;"));
+			db_bind_sha256(stmt_del, 0, &id);
+			db_exec_prepared_v2(take(stmt_del));
+		}
+	}
+}

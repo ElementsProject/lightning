@@ -2043,6 +2043,12 @@ struct db_query db_postgres_queries[] = {
          .readonly = true,
     },
     {
+         .name = "DELETE from offers WHERE offer_id = ?;",
+         .query = "DELETE from offers WHERE offer_id = $1;",
+         .placeholders = 1,
+         .readonly = false,
+    },
+    {
          .name = "SELECT name FROM sqlite_master WHERE type='table';",
          .query = "SELECT name FROM sqlite_master WHERE type='table';",
          .placeholders = 0,
@@ -2068,10 +2074,10 @@ struct db_query db_postgres_queries[] = {
     },
 };
 
-#define DB_POSTGRES_QUERY_COUNT 343
+#define DB_POSTGRES_QUERY_COUNT 344
 
 #endif /* HAVE_POSTGRES */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-// SHA256STAMP:219fccaaf2391eeabadd4cc15b4a3431c7ecab9d17755582e6962a34c74982c5
+// SHA256STAMP:298bd92e32ad873078d9ee0ebf2a713d563e16dd181e3783bb1cef1b06444cdf
