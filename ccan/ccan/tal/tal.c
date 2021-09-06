@@ -824,36 +824,36 @@ static void dump_node(unsigned int indent, const struct tal_hdr *t)
         const struct prop_hdr *p;
 
 	for (i = 0; i < indent; i++)
-		printf("  ");
-	printf("%p len=%zu", t, t->bytelen);
+		fprintf(stderr, "  ");
+	fprintf(stderr, "%p len=%zu", t, t->bytelen);
         for (p = t->prop; p; p = p->next) {
 		struct children *c;
 		struct name *n;
 		struct notifier *no;
                 if (is_literal(p)) {
-			printf(" \"%s\"", (const char *)p);
+			fprintf(stderr, " \"%s\"", (const char *)p);
 			break;
 		}
 		switch (p->type) {
 		case CHILDREN:
 			c = (struct children *)p;
-			printf(" CHILDREN(%p):parent=%p,children={%p,%p}\n",
+			fprintf(stderr, " CHILDREN(%p):parent=%p,children={%p,%p}\n",
 			       p, c->parent,
 			       c->children.n.prev, c->children.n.next);
 			break;
 		case NAME:
 			n = (struct name *)p;
-			printf(" NAME(%p):%s", p, n->name);
+			fprintf(stderr, " NAME(%p):%s", p, n->name);
 			break;
 		case NOTIFIER:
 			no = (struct notifier *)p;
-			printf(" NOTIFIER(%p):fn=%p", p, no->u.notifyfn);
+			fprintf(stderr, " NOTIFIER(%p):fn=%p", p, no->u.notifyfn);
 			break;
 		default:
-			printf(" **UNKNOWN(%p):%i**", p, p->type);
+			fprintf(stderr, " **UNKNOWN(%p):%i**", p, p->type);
 		}
 	}
-	printf("\n");
+	fprintf(stderr, "\n");
 }
 
 static void tal_dump_(unsigned int level, const struct tal_hdr *t)
