@@ -1370,13 +1370,13 @@ static struct plugin *new_plugin(const tal_t *ctx,
 				 const enum plugin_restartability restartability,
 				 bool init_rpc,
 				 struct feature_set *features STEALS,
-				 const struct plugin_command *commands,
+				 const struct plugin_command *commands TAKES,
 				 size_t num_commands,
-				 const struct plugin_notification *notif_subs,
+				 const struct plugin_notification *notif_subs TAKES,
 				 size_t num_notif_subs,
-				 const struct plugin_hook *hook_subs,
+				 const struct plugin_hook *hook_subs TAKES,
 				 size_t num_hook_subs,
-				 const char **notif_topics,
+				 const char **notif_topics TAKES,
 				 size_t num_notif_topics,
 				 va_list ap)
 {
@@ -1414,12 +1414,20 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->in_timer = 0;
 
 	p->commands = commands;
+	if (taken(commands))
+		tal_steal(p, commands);
 	p->num_commands = num_commands;
 	p->notif_topics = notif_topics;
+	if (taken(notif_topics))
+		tal_steal(p, notif_topics);
 	p->num_notif_topics = num_notif_topics;
 	p->notif_subs = notif_subs;
+	if (taken(notif_subs))
+		tal_steal(p, notif_subs);
 	p->num_notif_subs = num_notif_subs;
 	p->hook_subs = hook_subs;
+	if (taken(hook_subs))
+		tal_steal(p, hook_subs);
 	p->num_hook_subs = num_hook_subs;
 	p->opts = tal_arr(p, struct plugin_option, 0);
 
@@ -1443,13 +1451,13 @@ void plugin_main(char *argv[],
 		 const enum plugin_restartability restartability,
 		 bool init_rpc,
 		 struct feature_set *features STEALS,
-		 const struct plugin_command *commands,
+		 const struct plugin_command *commands TAKES,
 		 size_t num_commands,
-		 const struct plugin_notification *notif_subs,
+		 const struct plugin_notification *notif_subs TAKES,
 		 size_t num_notif_subs,
-		 const struct plugin_hook *hook_subs,
+		 const struct plugin_hook *hook_subs TAKES,
 		 size_t num_hook_subs,
-		 const char **notif_topics,
+		 const char **notif_topics TAKES,
 		 size_t num_notif_topics,
 		 ...)
 {
