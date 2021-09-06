@@ -898,7 +898,7 @@ static void dualopend_dev_memleak(struct state *state)
 	memleak_remove_region(memtable, state, tal_bytelen(state));
 
 	/* If there's anything left, dump it to logs, and return true. */
-	dump_memleak(memtable);
+	dump_memleak(memtable, memleak_status_broken);
 }
 #endif /* DEVELOPER */
 

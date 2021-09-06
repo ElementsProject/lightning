@@ -121,4 +121,10 @@ const void *memleak_get(struct htable *memtable, const uintptr_t **backtrace);
 
 extern struct backtrace_state *backtrace_state;
 
+#if DEVELOPER
+/* Only defined if DEVELOPER */
+bool dump_memleak(struct htable *memtable,
+		  void PRINTF_FMT(1,2) (*print)(const char *fmt, ...));
+#endif
+
 #endif /* LIGHTNING_COMMON_MEMLEAK_H */

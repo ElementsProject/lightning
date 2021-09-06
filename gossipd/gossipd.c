@@ -1260,7 +1260,7 @@ static struct io_plan *dev_gossip_memleak(struct io_conn *conn,
 	/* Now delete daemon and those which it has pointers to. */
 	memleak_remove_region(memtable, daemon, sizeof(*daemon));
 
-	found_leak = dump_memleak(memtable);
+	found_leak = dump_memleak(memtable, memleak_status_broken);
 	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_dev_memleak_reply(NULL,
 							      found_leak)));
