@@ -1369,7 +1369,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 						     const jsmntok_t *),
 				 const enum plugin_restartability restartability,
 				 bool init_rpc,
-				 struct feature_set *features,
+				 struct feature_set *features STEALS,
 				 const struct plugin_command *commands,
 				 size_t num_commands,
 				 const struct plugin_notification *notif_subs,
@@ -1399,7 +1399,7 @@ static struct plugin *new_plugin(const tal_t *ctx,
 	p->next_outreq_id = 0;
 	uintmap_init(&p->out_reqs);
 
-	p->our_features = features;
+	p->our_features = tal_steal(p, features);
 	if (init_rpc) {
 		/* Sync RPC FIXME: maybe go full async ? */
 		p->rpc_conn = tal(p, struct rpc_conn);
@@ -1442,7 +1442,7 @@ void plugin_main(char *argv[],
 				     const char *buf, const jsmntok_t *),
 		 const enum plugin_restartability restartability,
 		 bool init_rpc,
-		 struct feature_set *features,
+		 struct feature_set *features STEALS,
 		 const struct plugin_command *commands,
 		 size_t num_commands,
 		 const struct plugin_notification *notif_subs,
