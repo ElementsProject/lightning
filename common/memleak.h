@@ -2,6 +2,7 @@
 #define LIGHTNING_COMMON_MEMLEAK_H
 #include "config.h"
 #include <ccan/cast/cast.h>
+#include <ccan/strmap/strmap.h>
 #include <ccan/tal/tal.h>
 #include <ccan/typesafe_cb/typesafe_cb.h>
 #include <inttypes.h>
@@ -108,6 +109,11 @@ void memleak_remove_htable(struct htable *memtable, const struct htable *ht);
 
 struct intmap;
 void memleak_remove_intmap_(struct htable *memtable, const struct intmap *m);
+
+/* Remove any pointers inside this strmap (which is opaque to memleak). */
+#define memleak_remove_strmap(memtable, strmap) \
+	memleak_remove_strmap_((memtable), tcon_unwrap(strmap))
+void memleak_remove_strmap_(struct htable *memtable, const struct strmap *m);
 
 /**
  * memleak_get: get (and remove) a leak from memtable, or NULL

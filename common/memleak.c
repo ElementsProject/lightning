@@ -160,6 +160,24 @@ void memleak_remove_intmap_(struct htable *memtable, const struct intmap *m)
 		memleak_remove_region(memtable, p, tal_bytelen(p));
 }
 
+static bool handle_strmap(const char *member, void *p, void *memtable_)
+{
+	struct htable *memtable = memtable_;
+
+	/* membername may *not* be a tal ptr, but it can be! */
+	pointer_referenced(memtable, member);
+	memleak_remove_region(memtable, p, tal_bytelen(p));
+
+	/* Keep going */
+	return true;
+}
+
+/* FIXME: If strmap used tal, this wouldn't be necessary! */
+void memleak_remove_strmap_(struct htable *memtable, const struct strmap *m)
+{
+	strmap_iterate_(m, handle_strmap, memtable);
+}
+
 static bool ptr_match(const void *candidate, void *ptr)
 {
 	return candidate == ptr;
