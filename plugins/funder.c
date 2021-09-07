@@ -20,6 +20,7 @@
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
 #include <common/lease_rates.h>
+#include <common/memleak.h>
 #include <common/node_id.h>
 #include <common/overflows.h>
 #include <common/psbt_open.h>
@@ -829,6 +830,7 @@ param_policy_mod(struct command *cmd, const char *name,
 
 	err = u64_option(arg_str, *mod);
 	if (err) {
+		tal_free(err);
 		if (!parse_amount_sat(&sats, arg_str, strlen(arg_str)))
 			return command_fail_badparam(cmd, name,
 						     buffer, tok, err);
@@ -924,9 +926,7 @@ json_funderupdate(struct command *cmd,
 	const struct out_req *req;
 	const char *err;
 	struct command_result *res;
-
-	struct funder_policy *policy = tal(tal_parent(current_policy),
-					   struct funder_policy);
+	struct funder_policy *policy = tal(cmd, struct funder_policy);
 
 	if (!param(cmd, buf, params,
 		   p_opt_def("policy", param_funder_opt, &opt,
@@ -994,7 +994,7 @@ json_funderupdate(struct command *cmd,
 	}
 
 	tal_free(current_policy);
-	current_policy = policy;
+	current_policy = tal_steal(NULL, policy);
 
 	/* Update lightningd, also */
 	req = jsonrpc_request_start(cmd->plugin, cmd,
@@ -1063,6 +1063,14 @@ static void tell_lightningd_lease_rates(struct plugin *p,
 
 }
 
+#if DEVELOPER
+static void memleak_mark(struct plugin *p, struct htable *memtable)
+{
+	memleak_remove_region(memtable, &pending_opens, sizeof(pending_opens));
+	memleak_remove_region(memtable, current_policy, sizeof(*current_policy));
+}
+#endif
+
 static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 {
 	const char *err;
@@ -1075,6 +1083,10 @@ static const char *init(struct plugin *p, const char *b, const jsmntok_t *t)
 
 	if (current_policy->rates)
 		tell_lightningd_lease_rates(p, current_policy->rates);
+
+#if DEVELOPER
+	plugin_set_memleak_handler(p, memleak_mark);
+#endif
 
 	return NULL;
 }
@@ -1199,12 +1211,10 @@ static char *amount_sat_or_u64_option(const char *arg, u64 *amt)
 
 int main(int argc, char **argv)
 {
-	char *owner = tal(NULL, char);
-
 	setup_locale();
 
 	/* Our default funding policy is fixed (0msat) */
-	current_policy = default_funder_policy(owner, FIXED, 0);
+	current_policy = default_funder_policy(NULL, FIXED, 0);
 
 	plugin_main(argv, init, PLUGIN_RESTARTABLE, true,
 		    NULL,
@@ -1305,6 +1315,6 @@ int main(int argc, char **argv)
 				  option_channel_fee_proportional_thousandths_max, current_policy),
 		    NULL);
 
-	tal_free(owner);
+	tal_free(current_policy);
 	return 0;
 }
