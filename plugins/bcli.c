@@ -851,6 +851,13 @@ static void wait_and_check_bitcoind(struct plugin *p)
 	tal_free(cmd);
 }
 
+#if DEVELOPER
+static void memleak_mark_bitcoind(struct plugin *p, struct htable *memtable)
+{
+	memleak_remove_region(memtable, bitcoind, sizeof(*bitcoind));
+}
+#endif
+
 static const char *init(struct plugin *p, const char *buffer UNUSED,
 			const jsmntok_t *config UNUSED)
 {
@@ -862,6 +869,9 @@ static const char *init(struct plugin *p, const char *buffer UNUSED,
 	else
 		bitcoind->fake_fees = false;
 
+#if DEVELOPER
+	plugin_set_memleak_handler(p, memleak_mark_bitcoind);
+#endif
 	plugin_log(p, LOG_INFORM,
 		   "bitcoin-cli initialized and connected to bitcoind.");
 
