@@ -2,6 +2,7 @@
 
 from pyln.spec.bolt7 import (channel_announcement, channel_update,
                              node_announcement)
+from pyln.proto import ShortChannelId
 from typing import Any, Dict, List, Optional
 
 import io
@@ -26,11 +27,6 @@ class GossipStoreHeader(object):
         length, self.crc, self.timestamp = struct.unpack('>III', buf)
         self.deleted = (length & GOSSIP_STORE_LEN_DELETED_BIT) != 0
         self.length = (length & GOSSIP_STORE_LEN_MASK)
-
-
-# FIXME!
-class short_channel_id(int):
-    pass
 
 
 class point(bytes):
@@ -75,7 +71,7 @@ class Gossmap(object):
         self.store_file = open(store_filename, "rb")
         self.store_buf = bytes()
         self.nodes: Dict[point, GossmapNode] = {}
-        self.channels: Dict[short_channel_id, GossmapChannel] = {}
+        self.channels: Dict[ShortChannelId, GossmapChannel] = {}
         version = self.store_file.read(1)
         if version[0] != GOSSIP_STORE_VERSION:
             raise ValueError("Invalid gossip store version {}".format(version))
@@ -85,7 +81,7 @@ class Gossmap(object):
     def _new_channel(self,
                      fields: Dict[str, Any],
                      announce_offset: int,
-                     scid: short_channel_id,
+                     scid: ShortChannelId,
                      node1_id: point,
                      node2_id: point,
                      is_private: bool):
@@ -101,7 +97,7 @@ class Gossmap(object):
         self.nodes[node1_id].channels.append(c)
         self.nodes[node2_id].channels.append(c)
 
-    def _del_channel(self, scid: short_channel_id):
+    def _del_channel(self, scid: ShortChannelId):
         c = self.channels[scid]
         n1 = self.nodes[c.node1_id]
         n2 = self.nodes[c.node2_id]
@@ -115,14 +111,15 @@ class Gossmap(object):
 
     def add_channel(self, rec: bytes, off: int, is_private: bool):
         fields = channel_announcement.read(io.BytesIO(rec[2:]), {})
-        self._new_channel(fields, off, fields['short_channel_id'],
+        self._new_channel(fields, off,
+                          ShortChannelId.from_int(fields['short_channel_id']),
                           fields['node_id_1'], fields['node_id_2'],
                           is_private)
 
     def update_channel(self, rec: bytes, off: int):
         fields = channel_update.read(io.BytesIO(rec[2:]), {})
         direction = fields['channel_flags'] & 1
-        c = self.channels[fields['short_channel_id']]
+        c = self.channels[ShortChannelId.from_int(fields['short_channel_id'])]
         c.updates_fields[direction] = fields
         c.updates_offset = off
 
