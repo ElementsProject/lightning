@@ -52,6 +52,9 @@ struct bitcoind {
 	/* Pending requests (high and low prio). */
 	struct list_head pending[BITCOIND_NUM_PRIO];
 
+	/* In flight requests (in a list for memleak detection) */
+	struct list_head current;
+
 	/* If non-zero, time we first hit a bitcoind error. */
 	unsigned int error_count;
 	struct timemono first_error_time;
@@ -176,9 +179,18 @@ static char *bcli_args(struct bitcoin_cli *bcli)
     return args_string(bcli, bcli->args);
 }
 
+/* Only set as destructor once bcli is in current. */
+static void destroy_bcli(struct bitcoin_cli *bcli)
+{
+	list_del_from(&bitcoind->current, &bcli->list);
+}
+
 static void retry_bcli(void *cb_arg)
 {
 	struct bitcoin_cli *bcli = cb_arg;
+	list_del_from(&bitcoind->current, &bcli->list);
+	tal_del_destructor(bcli, destroy_bcli);
+
 	list_add_tail(&bitcoind->pending[bcli->prio], &bcli->list);
 	next_bcli(bcli->prio);
 }
@@ -210,7 +222,7 @@ static void bcli_failure(struct bitcoin_cli *bcli,
 		   bcli_args(bcli), exitstatus);
 	bitcoind->error_count++;
 
-	/* Retry in 1 second (not a leak!) */
+	/* Retry in 1 second */
 	plugin_timer(bcli->cmd->plugin, time_from_sec(1), retry_bcli, bcli);
 }
 
@@ -287,8 +299,12 @@ static void next_bcli(enum bitcoind_prio prio)
 
 	bitcoind->num_requests[prio]++;
 
-	conn = io_new_conn(bcli, bcli->fd, output_init, bcli);
+	/* We don't keep a pointer to this, but it's not a leak */
+	conn = notleak(io_new_conn(bcli, bcli->fd, output_init, bcli));
 	io_set_finish(conn, bcli_finished, bcli);
+
+	list_add_tail(&bitcoind->current, &bcli->list);
+	tal_add_destructor(bcli, destroy_bcli);
 }
 
 /* If ctx is non-NULL, and is freed before we return, we don't call process().
@@ -928,6 +944,7 @@ static struct bitcoind *new_bitcoind(const tal_t *ctx)
 		bitcoind->num_requests[i] = 0;
 		list_head_init(&bitcoind->pending[i]);
 	}
+	list_head_init(&bitcoind->current);
 	bitcoind->error_count = 0;
 	bitcoind->retry_timeout = 60;
 	bitcoind->rpcuser = NULL;
