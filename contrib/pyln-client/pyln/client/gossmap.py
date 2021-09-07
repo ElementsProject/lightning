@@ -2,7 +2,7 @@
 
 from pyln.spec.bolt7 import (channel_announcement, channel_update,
                              node_announcement)
-from pyln.proto import ShortChannelId
+from pyln.proto import ShortChannelId, PublicKey
 from typing import Any, Dict, List, Optional
 
 import io
@@ -29,18 +29,14 @@ class GossipStoreHeader(object):
         self.length = (length & GOSSIP_STORE_LEN_MASK)
 
 
-class point(bytes):
-    pass
-
-
 class GossmapChannel(object):
     """A channel: fields of channel_announcement are in .fields, optional updates are in .updates_fields, which can be None of there has been no channel update."""
     def __init__(self,
                  fields: Dict[str, Any],
                  announce_offset: int,
                  scid,
-                 node1_id: point,
-                 node2_id: point,
+                 node1_id: bytes,
+                 node2_id: bytes,
                  is_private: bool):
         self.fields = fields
         self.announce_offset = announce_offset
@@ -52,12 +48,34 @@ class GossmapChannel(object):
         self.updates_offset: List[Optional[int]] = [None, None]
 
 
+class GossmapNodeId(object):
+    def __init__(self, buf: bytes):
+        if len(buf) != 33 or (buf[0] != 2 and buf[0] != 3):
+            raise ValueError("{} is not a valid node_id".format(buf.hex()))
+        self.nodeid = buf
+
+    def to_pubkey(self) -> PublicKey:
+        return PublicKey(self.nodeid)
+
+    def __eq__(self, other):
+        if not isinstance(other, GossmapNodeId):
+            return False
+
+        return self.nodeid == other.nodeid
+
+    def __hash__(self):
+        return self.nodeid.__hash__()
+
+    def __repr__(self):
+        return "GossmapNodeId[0x{}]".format(self.nodeid.hex())
+
+
 class GossmapNode(object):
     """A node: fields of node_announcement are in .announce_fields, which can be None of there has been no node announcement.
 
 .channels is a list of the GossmapChannels attached to this node.
 """
-    def __init__(self, node_id: point):
+    def __init__(self, node_id: GossmapNodeId):
         self.announce_fields: Optional[Dict[str, Any]] = None
         self.announce_offset = None
         self.channels = []
@@ -70,7 +88,7 @@ class Gossmap(object):
         self.store_filename = store_filename
         self.store_file = open(store_filename, "rb")
         self.store_buf = bytes()
-        self.nodes: Dict[point, GossmapNode] = {}
+        self.nodes: Dict[bytes, GossmapNode] = {}
         self.channels: Dict[ShortChannelId, GossmapChannel] = {}
         version = self.store_file.read(1)
         if version[0] != GOSSIP_STORE_VERSION:
@@ -82,8 +100,8 @@ class Gossmap(object):
                      fields: Dict[str, Any],
                      announce_offset: int,
                      scid: ShortChannelId,
-                     node1_id: point,
-                     node2_id: point,
+                     node1_id: GossmapNodeId,
+                     node2_id: GossmapNodeId,
                      is_private: bool):
         c = GossmapChannel(fields, announce_offset,
                            scid, node1_id, node2_id,
@@ -113,7 +131,7 @@ class Gossmap(object):
         fields = channel_announcement.read(io.BytesIO(rec[2:]), {})
         self._new_channel(fields, off,
                           ShortChannelId.from_int(fields['short_channel_id']),
-                          fields['node_id_1'], fields['node_id_2'],
+                          GossmapNodeId(fields['node_id_1']), GossmapNodeId(fields['node_id_2']),
                           is_private)
 
     def update_channel(self, rec: bytes, off: int):
@@ -125,8 +143,9 @@ class Gossmap(object):
 
     def add_node_announcement(self, rec: bytes, off: int):
         fields = node_announcement.read(io.BytesIO(rec[2:]), {})
-        self.nodes[fields['node_id']].announce_fields = fields
-        self.nodes[fields['node_id']].announce_offset = off
+        node_id = GossmapNodeId(fields['node_id'])
+        self.nodes[node_id].announce_fields = fields
+        self.nodes[node_id].announce_offset = off
 
     def reopen_store(self):
         """FIXME: Implement!"""
