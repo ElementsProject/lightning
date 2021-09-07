@@ -29,8 +29,22 @@ class GossipStoreHeader(object):
         self.length = (length & GOSSIP_STORE_LEN_MASK)
 
 
+class GossmapHalfchannel(object):
+    """One direction of a GossmapChannel."""
+    def __init__(self, timestamp: int,
+                 cltv_expiry_delta: int,
+                 htlc_minimum_msat: int, htlc_maximum_msat: int,
+                 fee_base_msat: int, fee_proportional_millionths: int):
+        self.timestamp: int = timestamp
+        self.cltv_expiry_delta: int = cltv_expiry_delta
+        self.htlc_minimum_msat: int = htlc_minimum_msat
+        self.htlc_maximum_msat: Optional[int] = htlc_maximum_msat
+        self.fee_base_msat: int = fee_base_msat
+        self.fee_proportional_millionths: int = fee_proportional_millionths
+
+
 class GossmapChannel(object):
-    """A channel: fields of channel_announcement are in .fields, optional updates are in .updates_fields, which can be None of there has been no channel update."""
+    """A channel: fields of channel_announcement are in .fields, optional updates are in .updates_fields, which can be None if there has been no channel update."""
     def __init__(self,
                  fields: Dict[str, Any],
                  announce_offset: int,
@@ -46,6 +60,24 @@ class GossmapChannel(object):
         self.node2_id = node2_id
         self.updates_fields: List[Optional[Dict[str, Any]]] = [None, None]
         self.updates_offset: List[Optional[int]] = [None, None]
+
+        self.capacity = None  # TODO: where do we get this?
+        self.half_channels: List[GossmapHalfchannel] = [None, None]
+
+    def update_channel(self,
+                       direction: int,
+                       fields: List[Optional[Dict[str, Any]]] = [None, None],
+                       off: List[Optional[int]] = [None, None]):
+        self.updates_fields[direction] = fields
+        self.updates_offset = off
+
+        half = GossmapHalfchannel(fields['timestamp'],
+                                  fields['cltv_expiry_delta'],
+                                  fields['htlc_minimum_msat'],
+                                  fields.get('htlc_maximum_msat', None),
+                                  fields['fee_base_msat'],
+                                  fields['fee_proportional_millionths'])
+        self.half_channels[direction] = half
 
 
 class GossmapNodeId(object):
@@ -138,8 +170,7 @@ class Gossmap(object):
         fields = channel_update.read(io.BytesIO(rec[2:]), {})
         direction = fields['channel_flags'] & 1
         c = self.channels[ShortChannelId.from_int(fields['short_channel_id'])]
-        c.updates_fields[direction] = fields
-        c.updates_offset = off
+        c.update_channel(direction, fields, off)
 
     def add_node_announcement(self, rec: bytes, off: int):
         fields = node_announcement.read(io.BytesIO(rec[2:]), {})
