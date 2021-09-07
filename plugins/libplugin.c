@@ -1218,10 +1218,10 @@ void plugin_set_memleak_handler(struct plugin *plugin,
 #endif /* DEVELOPER */
 
 static void ld_command_handle(struct plugin *plugin,
-			      struct command *cmd,
 			      const jsmntok_t *toks)
 {
 	const jsmntok_t *idtok, *methtok, *paramstok;
+	struct command *cmd;
 
 	idtok = json_get_member(plugin->buffer, toks, "id");
 	methtok = json_get_member(plugin->buffer, toks, "method");
@@ -1233,6 +1233,7 @@ static void ld_command_handle(struct plugin *plugin,
 			   json_tok_full_len(toks),
 			   json_tok_full(plugin->buffer, toks));
 
+	cmd = tal(plugin, struct command);
 	cmd->plugin = plugin;
 	cmd->id = NULL;
 	cmd->usage_only = false;
@@ -1321,7 +1322,6 @@ static void ld_command_handle(struct plugin *plugin,
 static bool ld_read_json_one(struct plugin *plugin)
 {
 	bool complete;
-	struct command *cmd = tal(plugin, struct command);
 
 	if (!json_parse_input(&plugin->parser, &plugin->toks,
 			      plugin->buffer, plugin->used,
@@ -1346,7 +1346,7 @@ static bool ld_read_json_one(struct plugin *plugin)
 
 	/* FIXME: Spark doesn't create proper jsonrpc 2.0!  So we don't
 	 * check for "jsonrpc" here. */
-	ld_command_handle(plugin, cmd, plugin->toks);
+	ld_command_handle(plugin, plugin->toks);
 
 	/* Move this object out of the buffer */
 	memmove(plugin->buffer, plugin->buffer + plugin->toks[0].end,
