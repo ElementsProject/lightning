@@ -310,7 +310,7 @@ other types.  Since 'msgtype' is almost identical, it inherits from this too.
             f.fieldtype.write(io_out, val, otherfields)
 
     def read(self, io_in: BufferedIOBase, otherfields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        vals = {}
+        vals: Dict[str, Any] = {}
         for field in self.fields:
             val = field.fieldtype.read(io_in, vals)
             if val is None:
