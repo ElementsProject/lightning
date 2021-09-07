@@ -38,7 +38,7 @@ def test_gossmap(tmp_path):
     assert set(g.nodes.keys()) == set(g2.nodes.keys())
 
     # Check some details
-    channel1 = g.get_channel("632677x1635x1")
-    channel2 = g.get_channel("632675x1524x0")
-    assert channel1.satoshis == 348185
-    assert channel2.satoshis == 31337
+    channel1 = g.get_channel("686386x1093x1")
+    channel2 = g.get_channel("686200x1137x0")
+    assert channel1.satoshis == 1000000
+    assert channel2.satoshis == 3000000
