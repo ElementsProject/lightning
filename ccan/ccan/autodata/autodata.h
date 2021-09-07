@@ -43,7 +43,7 @@
 #define AUTODATA(name, ptr) \
 	static const autodata_##name##_ *NEEDED		\
 	__attribute__((section("xautodata_" #name)))	\
-	AUTODATA_VAR_(name, __LINE__) = (ptr);
+	AUTODATA_VAR_(name, __LINE__, __COUNTER__) = (ptr);
 
 /**
  * autodata_get - get an autodata set
@@ -80,8 +80,8 @@
 void autodata_free(void *p);
 
 /* Internal functions. */
-#define AUTODATA_VAR__(name, line) autodata_##name##_##line
-#define AUTODATA_VAR_(name, line) AUTODATA_VAR__(name, line)
+#define AUTODATA_VAR__(name, line, counter) autodata_##name##_##line##_##counter
+#define AUTODATA_VAR_(name, line, counter) AUTODATA_VAR__(name, line, counter)
 
 #if HAVE_SECTION_START_STOP
 void *autodata_get_section(void *start, void *stop, size_t *nump);
@@ -91,13 +91,15 @@ void *autodata_get_section(void *start, void *stop, size_t *nump);
 	static const void *autodata_##name##_ex = &autodata_##name##_ex
 
 #define AUTODATA_MAGIC ((long)0xFEEDA10DA7AF00D5ULL)
-#define AUTODATA(name, ptr)						\
+#define AUTODATA_WITH_COUNTER(name, ptr, counter)			\
 	static const autodata_##name##_ *NEEDED				\
-	AUTODATA_VAR_(name, __LINE__)[4] =				\
+	AUTODATA_VAR_(name, __LINE__, counter)[4] =			\
 	{ (void *)AUTODATA_MAGIC,					\
-	  (void *)&AUTODATA_VAR_(name, __LINE__),			\
+	  (void *)&AUTODATA_VAR_(name, __LINE__, counter),		\
 	  (ptr),							\
 	  (void *)#name }
+#define AUTODATA(name, ptr)						\
+	AUTODATA_WITH_COUNTER(name, ptr, __COUNTER__)
 
 #define autodata_get(name, nump)					\
 	((autodata_##name##_ **)					\
