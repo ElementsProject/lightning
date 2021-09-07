@@ -5,6 +5,8 @@
  *  "They say marriages are made in Heaven.
  *   But so is funder and lightning."
  *     - Clint Eastwood
+ *  (because funder rhymes with thunder)
+ *
  */
 #include "config.h"
 #include <bitcoin/feerate.h>
