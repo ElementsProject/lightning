@@ -99,10 +99,10 @@ class GossmapChannel(object):
         self.satoshis = None
         self.half_channels: List[Optional[GossmapHalfchannel]] = [None, None]
 
-    def update_channel(self,
-                       direction: int,
-                       fields: Dict[str, Any],
-                       off: int):
+    def _update_channel(self,
+                        direction: int,
+                        fields: Dict[str, Any],
+                        off: int):
         self.updates_fields[direction] = fields
         self.updates_offset[direction] = off
 
@@ -182,7 +182,7 @@ class Gossmap(object):
         if len(n2.channels):
             del self.nodes[c.node2_id]
 
-    def add_channel(self, rec: bytes, off: int, is_private: bool):
+    def _add_channel(self, rec: bytes, off: int, is_private: bool):
         fields = channel_announcement.read(io.BytesIO(rec[2:]), {})
         # Add nodes one the fly
         node1_id = GossmapNodeId(fields['node_id_1'])
@@ -213,13 +213,13 @@ class Gossmap(object):
             node_id = GossmapNodeId.from_str(node_id)
         return self.nodes.get(cast(GossmapNodeId, node_id))
 
-    def update_channel(self, rec: bytes, off: int):
+    def _update_channel(self, rec: bytes, off: int):
         fields = channel_update.read(io.BytesIO(rec[2:]), {})
         direction = fields['channel_flags'] & 1
         c = self.channels[ShortChannelId.from_int(fields['short_channel_id'])]
-        c.update_channel(direction, fields, off)
+        c._update_channel(direction, fields, off)
 
-    def add_node_announcement(self, rec: bytes, off: int):
+    def _add_node_announcement(self, rec: bytes, off: int):
         fields = node_announcement.read(io.BytesIO(rec[2:]), {})
         node_id = GossmapNodeId(fields['node_id'])
         self.nodes[node_id].announce_fields = fields
@@ -229,7 +229,7 @@ class Gossmap(object):
         """FIXME: Implement!"""
         assert False
 
-    def remove_channel_by_deletemsg(self, rec: bytes):
+    def _remove_channel_by_deletemsg(self, rec: bytes):
         scid, = struct.unpack(">Q", rec[2:])
         # It might have already been deleted when we skipped it.
         if scid in self.channels:
@@ -271,19 +271,19 @@ class Gossmap(object):
 
             rectype, = struct.unpack(">H", rec[:2])
             if rectype == channel_announcement.number:
-                self.add_channel(rec, off, False)
+                self._add_channel(rec, off, False)
             elif rectype == WIRE_GOSSIP_STORE_PRIVATE_CHANNEL:
-                self.add_channel(rec[2 + 8 + 2:], off + 2 + 8 + 2, True)
+                self._add_channel(rec[2 + 8 + 2:], off + 2 + 8 + 2, True)
             elif rectype == WIRE_GOSSIP_STORE_CHANNEL_AMOUNT:
                 self._set_channel_amount(rec)
             elif rectype == channel_update.number:
-                self.update_channel(rec, off)
+                self._update_channel(rec, off)
             elif rectype == WIRE_GOSSIP_STORE_PRIVATE_UPDATE:
-                self.update_channel(rec[2 + 2:], off + 2 + 2)
+                self._update_channel(rec[2 + 2:], off + 2 + 2)
             elif rectype == WIRE_GOSSIP_STORE_DELETE_CHAN:
-                self.remove_channel_by_deletemsg(rec)
+                self._remove_channel_by_deletemsg(rec)
             elif rectype == node_announcement.number:
-                self.add_node_announcement(rec, off)
+                self._add_node_announcement(rec, off)
             elif rectype == WIRE_GOSSIP_STORE_ENDED:
                 self.reopen_store()
             else:
