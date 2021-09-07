@@ -36,8 +36,12 @@ class GossmapHalfchannel(object):
                  timestamp: int, cltv_expiry_delta: int,
                  htlc_minimum_msat: int, htlc_maximum_msat: int,
                  fee_base_msat: int, fee_proportional_millionths: int):
+
         self.channel = channel
         self.direction = direction
+        self.source = channel.node1 if direction == 0 else channel.node2
+        self.destination = channel.node2 if direction == 0 else channel.node1
+
         self.timestamp: int = timestamp
         self.cltv_expiry_delta: int = cltv_expiry_delta
         self.htlc_minimum_msat: int = htlc_minimum_msat
@@ -115,7 +119,7 @@ class GossmapChannel(object):
                                   fields['fee_proportional_millionths'])
         self.half_channels[direction] = half
 
-    def get_half_channel(self, direction: int):
+    def get_direction(self, direction: int):
         """ returns the GossmapHalfchannel if known by channel_update """
         if not 0 <= direction <= 1:
             raise ValueError("direction can only be 0 or 1")
