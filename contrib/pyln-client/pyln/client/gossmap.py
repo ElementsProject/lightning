@@ -2,7 +2,7 @@
 
 from pyln.spec.bolt7 import (channel_announcement, channel_update,
                              node_announcement)
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import io
 import struct
@@ -39,25 +39,25 @@ class point(bytes):
 
 class GossmapChannel(object):
     def __init__(self,
-                 announce: bytes,
+                 fields: Dict[str, Any],
                  announce_offset: int,
                  scid,
                  node1_id: point,
                  node2_id: point,
                  is_private: bool):
-        self.announce = announce
+        self.fields = fields
         self.announce_offset = announce_offset
         self.is_private = is_private
         self.scid = scid
         self.node1_id = node1_id
         self.node2_id = node2_id
-        self.updates: List[Optional[bytes]] = [None, None]
+        self.updates_fields: List[Optional[Dict[str, Any]]] = [None, None]
         self.updates_offset: List[Optional[int]] = [None, None]
 
 
 class GossmapNode(object):
     def __init__(self, node_id: point):
-        self.announce = None
+        self.announce_fields: Optional[Dict[str, Any]] = None
         self.announce_offset = None
         self.channels = []
         self.node_id = node_id
@@ -78,13 +78,13 @@ class Gossmap(object):
         self.refresh()
 
     def _new_channel(self,
-                     announce: bytes,
+                     fields: Dict[str, Any],
                      announce_offset: int,
                      scid: short_channel_id,
                      node1_id: point,
                      node2_id: point,
                      is_private: bool):
-        c = GossmapChannel(announce, announce_offset,
+        c = GossmapChannel(fields, announce_offset,
                            scid, node1_id, node2_id,
                            is_private)
         if node1_id not in self.nodes:
@@ -110,7 +110,7 @@ class Gossmap(object):
 
     def add_channel(self, rec: bytes, off: int, is_private: bool):
         fields = channel_announcement.read(io.BytesIO(rec[2:]), {})
-        self._new_channel(rec, off, fields['short_channel_id'],
+        self._new_channel(fields, off, fields['short_channel_id'],
                           fields['node_id_1'], fields['node_id_2'],
                           is_private)
 
@@ -118,12 +118,12 @@ class Gossmap(object):
         fields = channel_update.read(io.BytesIO(rec[2:]), {})
         direction = fields['channel_flags'] & 1
         c = self.channels[fields['short_channel_id']]
-        c.updates[direction] = rec
+        c.updates_fields[direction] = fields
         c.updates_offset = off
 
     def add_node_announcement(self, rec: bytes, off: int):
         fields = node_announcement.read(io.BytesIO(rec[2:]), {})
-        self.nodes[fields['node_id']].announce = rec
+        self.nodes[fields['node_id']].announce_fields = fields
         self.nodes[fields['node_id']].announce_offset = off
 
     def reopen_store(self):
