@@ -90,8 +90,9 @@ static bool update_parent_psbt(const tal_t *ctx,
 	if (wally_psbt_clone_alloc(new_node_psbt, 0, &new_node_copy)
 			!= WALLY_OK)
 		abort();
-	/* copy is cleaned up below */
-	tal_wally_end(NULL);
+	/* copy is cleaned up below, but we need parts we steal from it
+	 * owned by the clone.  */
+	tal_wally_end(clone);
 
 	changes = psbt_get_changeset(NULL, old_node_psbt,
 				     new_node_copy);
