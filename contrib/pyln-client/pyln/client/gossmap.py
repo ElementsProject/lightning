@@ -65,8 +65,12 @@ class GossmapNodeId(object):
     def __eq__(self, other):
         if not isinstance(other, GossmapNodeId):
             return False
+        return self.nodeid.__eq__(other.nodeid)
 
-        return self.nodeid == other.nodeid
+    def __lt__(self, other):
+        if not isinstance(other, GossmapNodeId):
+            raise ValueError(f"Cannot compare GossmapNodeId with {type(other)}")
+        return self.nodeid.__lt__(other.nodeid)  # yes, that works
 
     def __hash__(self):
         return self.nodeid.__hash__()
@@ -142,6 +146,16 @@ class GossmapNode(object):
 
     def __repr__(self):
         return "GossmapNode[{}]".format(self.node_id.nodeid.hex())
+
+    def __eq__(self, other):
+        if not isinstance(other, GossmapNode):
+            return False
+        return self.node_id.__eq__(other.node_id)
+
+    def __lt__(self, other):
+        if not isinstance(other, GossmapNode):
+            raise ValueError(f"Cannot compare GossmapNode with {type(other)}")
+        return self.node_id.__lt__(other.node_id)
 
 
 class Gossmap(object):
