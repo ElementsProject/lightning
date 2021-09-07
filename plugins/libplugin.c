@@ -1185,8 +1185,7 @@ static void PRINTF_FMT(1,2) log_memleak(const char *fmt, ...)
 	va_list ap;
 
 	va_start(ap, fmt);
-	/* FIXME: This is LOG_DEBUG until we fix leaks! */
-	plugin_logv(memleak_plugin, LOG_DBG, fmt, ap);
+	plugin_logv(memleak_plugin, LOG_BROKEN, fmt, ap);
 	va_end(ap);
 }
 
