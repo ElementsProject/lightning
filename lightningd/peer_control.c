@@ -2424,8 +2424,8 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 		}
 	} else {
 		res = check_lease_channel_commitments(cmd, channel, *base, *ppm);
-	if (res)
-		return res;
+		if (res)
+			return res;
 	}
 
 	/* Open JSON response object for later iteration */
