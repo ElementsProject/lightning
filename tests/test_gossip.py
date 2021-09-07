@@ -1966,6 +1966,22 @@ def test_addgossip(node_factory):
         l3.rpc.addgossip(badupdate)
 
 
+def test_topology_leak(node_factory, bitcoind):
+    l1, l2, l3 = node_factory.line_graph(3)
+
+    l1.rpc.listchannels()
+    bitcoind.generate_block(5)
+
+    # Wait until l1 sees all the channels.
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 4)
+
+    # Close and wait for gossip to catchup.
+    txid = l2.rpc.close(l3.info['id'])['txid']
+    bitcoind.generate_block(1, txid)
+
+    wait_for(lambda: len(l1.rpc.listchannels()['channels']) == 2)
+
+
 def test_parms_listforwards(node_factory):
     """
     Simple test to ensure that the order of the listforwards
