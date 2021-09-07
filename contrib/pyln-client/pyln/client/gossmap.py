@@ -38,6 +38,7 @@ class point(bytes):
 
 
 class GossmapChannel(object):
+    """A channel: fields of channel_announcement are in .fields, optional updates are in .updates_fields, which can be None of there has been no channel update."""
     def __init__(self,
                  fields: Dict[str, Any],
                  announce_offset: int,
@@ -56,6 +57,10 @@ class GossmapChannel(object):
 
 
 class GossmapNode(object):
+    """A node: fields of node_announcement are in .announce_fields, which can be None of there has been no node announcement.
+
+.channels is a list of the GossmapChannels attached to this node.
+"""
     def __init__(self, node_id: point):
         self.announce_fields: Optional[Dict[str, Any]] = None
         self.announce_offset = None
@@ -127,6 +132,7 @@ class Gossmap(object):
         self.nodes[fields['node_id']].announce_offset = off
 
     def reopen_store(self):
+        """FIXME: Implement!"""
         assert False
 
     def remove_channel_by_deletemsg(self, rec: bytes):
