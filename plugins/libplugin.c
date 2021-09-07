@@ -6,6 +6,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <common/route.h>
 #include <common/utils.h>
 #include <errno.h>
@@ -584,6 +585,7 @@ handle_getmanifest(struct command *getmanifest_cmd,
 	struct json_stream *params = jsonrpc_stream_success(getmanifest_cmd);
 	struct plugin *p = getmanifest_cmd->plugin;
 	const jsmntok_t *dep;
+	bool has_shutdown_notif;
 
 	/* This was added post 0.9.0 */
 	dep = json_get_member(buf, getmanifest_params, "allow-deprecated-apis");
@@ -623,8 +625,20 @@ handle_getmanifest(struct command *getmanifest_cmd,
 	json_array_end(params);
 
 	json_array_start(params, "subscriptions");
-	for (size_t i = 0; i < p->num_notif_subs; i++)
+	has_shutdown_notif = false;
+	for (size_t i = 0; i < p->num_notif_subs; i++) {
 		json_add_string(params, NULL, p->notif_subs[i].name);
+		if (streq(p->notif_subs[i].name, "shutdown"))
+			has_shutdown_notif = true;
+	}
+#if DEVELOPER
+	/* For memleak detection, always get notified of shutdown. */
+	if (!has_shutdown_notif)
+		json_add_string(params, NULL, "shutdown");
+#else
+	/* Don't care this is unused: compiler don't complain! */
+	(void)has_shutdown_notif;
+#endif
 	json_array_end(params);
 
 	json_array_start(params, "hooks");
@@ -1158,6 +1172,36 @@ void plugin_log(struct plugin *p, enum log_level l, const char *fmt, ...)
 	va_end(ap);
 }
 
+#if DEVELOPER
+/* Hack since we have no extra ptr to log_memleak */
+static struct plugin *memleak_plugin;
+static void PRINTF_FMT(1,2) log_memleak(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	/* FIXME: This is LOG_DEBUG until we fix leaks! */
+	plugin_logv(memleak_plugin, LOG_DBG, fmt, ap);
+	va_end(ap);
+}
+
+static void memleak_check(struct plugin *plugin, struct command *cmd)
+{
+	struct htable *memtable;
+
+	memtable = memleak_find_allocations(tmpctx, cmd, cmd);
+
+	/* Now delete plugin and anything it has pointers to. */
+	memleak_remove_region(memtable, plugin, sizeof(*plugin));
+
+	/* We know usage strings are referred to. */
+	memleak_remove_strmap(memtable, &cmd->plugin->usagemap);
+
+	memleak_plugin = plugin;
+	dump_memleak(memtable, log_memleak);
+}
+#endif /* DEVELOPER */
+
 static void ld_command_handle(struct plugin *plugin,
 			      struct command *cmd,
 			      const jsmntok_t *toks)
@@ -1208,6 +1252,11 @@ static void ld_command_handle(struct plugin *plugin,
 
 	/* If that's a notification. */
 	if (!cmd->id) {
+#if DEVELOPER
+		bool is_shutdown = streq(cmd->methodname, "shutdown");
+		if (is_shutdown)
+			memleak_check(plugin, cmd);
+#endif
 		for (size_t i = 0; i < plugin->num_notif_subs; i++) {
 			if (streq(cmd->methodname,
 				  plugin->notif_subs[i].name)) {
@@ -1217,6 +1266,13 @@ static void ld_command_handle(struct plugin *plugin,
 				return;
 			}
 		}
+
+#if DEVELOPER
+		/* We subscribe them to this always */
+		if (is_shutdown)
+			plugin_exit(plugin, 0);
+#endif
+
 		plugin_err(plugin, "Unregistered notification %.*s",
 			   json_tok_full_len(methtok),
 			   json_tok_full(plugin->buffer, methtok));
