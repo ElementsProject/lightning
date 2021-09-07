@@ -49,3 +49,4 @@ contrib/pyln-*/dist/
 contrib/pyln-*/pyln_*.egg-info/
 release/
 tests/plugins/test_selfdisable_after_getmanifest
+.DS_Store
