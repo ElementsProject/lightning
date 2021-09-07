@@ -88,6 +88,9 @@ class ShortChannelId(object):
     def __hash__(self):
         return self.to_int().__hash__()
 
+    def __repr__(self):
+        return "ShortChannelId[{}]".format(str(self))
+
 
 class Secret(object):
     def __init__(self, data: bytes) -> None:
