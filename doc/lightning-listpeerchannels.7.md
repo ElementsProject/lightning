@@ -128,6 +128,7 @@ If **inflight** is present:
   - **initial_feerate** (string): The feerate for the initial funding transaction in per-1000-weight, with "kpw" appended
   - **last_feerate** (string): The feerate for the latest funding transaction in per-1000-weight, with "kpw" appended
   - **next_feerate** (string): The minimum feerate for the next funding transaction in per-1000-weight, with "kpw" appended
+
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On success, an object with a "channels" key is returned containing a list
@@ -337,4 +338,4 @@ Main web site: <https://github.com/ElementsProject/lightning> Lightning
 RFC site (BOLT \#9):
 <https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md>
 
-[comment]: # ( SHA256STAMP:1ecd5ac923d7c56e0c4caafe58e3c90e565ceec9e3fa1de8065a4671ddb3b5e0)
+[comment]: # ( SHA256STAMP:ead7f090a04abb8829f83a1ae1e0ec26e8149ea61026f2d6198d044e7cf7898e)
