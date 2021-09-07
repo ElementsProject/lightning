@@ -54,7 +54,7 @@ class GossmapHalfchannel(object):
 
 
 class GossmapNodeId(object):
-    def __init__(self, buf: bytes):
+    def __init__(self, buf: Union[bytes, str]):
         if isinstance(buf, str):
             buf = bytes.fromhex(buf)
         if len(buf) != 33 or (buf[0] != 2 and buf[0] != 3):
@@ -84,7 +84,7 @@ class GossmapNodeId(object):
     def from_str(cls, s: str):
         if s.startswith('0x'):
             s = s[2:]
-        if len(s) != 67:
+        if len(s) != 66:
             raise ValueError(f"{s} is not a valid hexstring of a node_id")
         return cls(bytes.fromhex(s))
 
@@ -140,7 +140,7 @@ class GossmapNode(object):
 
 .channels is a list of the GossmapChannels attached to this node.
 """
-    def __init__(self, node_id: GossmapNodeId):
+    def __init__(self, node_id: Union[GossmapNodeId, bytes, str]):
         if isinstance(node_id, bytes) or isinstance(node_id, str):
             node_id = GossmapNodeId(node_id)
         self.announce_fields: Optional[Dict[str, Any]] = None
@@ -194,15 +194,14 @@ class Gossmap(object):
 
     def _del_channel(self, scid: ShortChannelId):
         c = self.channels[scid]
-        n1 = self.nodes[c.node1_id]
-        n2 = self.nodes[c.node2_id]
-        n1.channels.remove(c)
-        n2.channels.remove(c)
+        del self.channels[scid]
+        c.node1.channels.remove(c)
+        c.node2.channels.remove(c)
         # Beware self-channels n1-n1!
-        if len(n1.channels) == 0 and n1 != n2:
-            del self.nodes[c.node1_id]
-        if len(n2.channels):
-            del self.nodes[c.node2_id]
+        if len(c.node1.channels) == 0 and c.node1 != c.node2:
+            del self.nodes[c.node1.node_id]
+        if len(c.node2.channels) == 0:
+            del self.nodes[c.node2.node_id]
 
     def _add_channel(self, rec: bytes, off: int, is_private: bool):
         fields = channel_announcement.read(io.BytesIO(rec[2:]), {})
@@ -252,7 +251,8 @@ class Gossmap(object):
         assert False
 
     def _remove_channel_by_deletemsg(self, rec: bytes):
-        scid, = struct.unpack(">Q", rec[2:])
+        scidint, = struct.unpack(">Q", rec[2:])
+        scid = ShortChannelId.from_int(scidint)
         # It might have already been deleted when we skipped it.
         if scid in self.channels:
             self._del_channel(scid)

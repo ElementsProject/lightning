@@ -28,6 +28,12 @@ def test_gossmap(tmp_path):
 
     g.refresh()
 
+    # This actually deletes a channel, which deletes a node.
+    assert g.get_channel("686386x1093x1") is None
+    assert g.get_node('029deaf9d2fba868fe0a124050f0a13e021519a12f41bea34f391fe7533fb3166d') is None
+    # The other node is untouched
+    assert g.get_node('02e0af3c70bf42343316513e54683b10c01d906c04a05dfcd9479b90d7beed9129')
+
     # It will notice the new ones.
     assert chans < len(g.channels)
     assert nodes < len(g.nodes)
@@ -38,9 +44,8 @@ def test_gossmap(tmp_path):
     assert set(g.nodes.keys()) == set(g2.nodes.keys())
 
     # Check some details
-    channel1 = g.get_channel("686386x1093x1")
     channel2 = g.get_channel("686200x1137x0")
-    assert channel1.satoshis == 1000000
+    assert g.get_channel("686386x1093x1") is None
     assert channel2.satoshis == 3000000
 
 
