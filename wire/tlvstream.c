@@ -44,7 +44,7 @@ static struct tlv_field *tlvstream_get_raw(struct tlv_field *stream, u64 type)
 	return NULL;
 }
 
-void tlvstream_set_raw(struct tlv_field **stream, u64 type, void *value, size_t valuelen)
+void tlvstream_set_raw(struct tlv_field **stream, u64 type, void *value TAKES, size_t valuelen)
 {
 	struct tlv_field f, *e = tlvstream_get_raw(*stream, type);
 
@@ -66,21 +66,21 @@ void tlvstream_set_short_channel_id(struct tlv_field **stream, u64 type,
 {
 	u8 *ser = tal_arr(NULL, u8, 0);
 	towire_short_channel_id(&ser, value);
-	tlvstream_set_raw(stream, type, ser, tal_bytelen(ser));
+	tlvstream_set_raw(stream, type, take(ser), tal_bytelen(ser));
 }
 
 void tlvstream_set_tu64(struct tlv_field **stream, u64 type, u64 value)
 {
 	u8 *ser = tal_arr(NULL, u8, 0);
 	towire_tu64(&ser, value);
-	tlvstream_set_raw(stream, type, ser, tal_bytelen(ser));
+	tlvstream_set_raw(stream, type, take(ser), tal_bytelen(ser));
 }
 
 void tlvstream_set_tu32(struct tlv_field **stream, u64 type, u32 value)
 {
 	u8 *ser = tal_arr(NULL, u8, 0);
 	towire_tu64(&ser, value);
-	tlvstream_set_raw(stream, type, ser, tal_bytelen(ser));
+	tlvstream_set_raw(stream, type, take(ser), tal_bytelen(ser));
 }
 
 bool tlvstream_get_short_channel_id(struct tlv_field *stream, u64 type,

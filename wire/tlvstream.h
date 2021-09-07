@@ -49,7 +49,7 @@ bool tlv_fields_valid(const struct tlv_field *fields, u64 *allow_extra,
 		      size_t *err_index);
 
 /* Generic primitive setters for tlvstreams. */
-void tlvstream_set_raw(struct tlv_field **stream, u64 type, void *value, size_t valuelen);
+void tlvstream_set_raw(struct tlv_field **stream, u64 type, void *value TAKES, size_t valuelen);
 void tlvstream_set_short_channel_id(struct tlv_field **stream, u64 type,
 				    struct short_channel_id *value);
 void tlvstream_set_tu64(struct tlv_field **stream, u64 type, u64 value);
