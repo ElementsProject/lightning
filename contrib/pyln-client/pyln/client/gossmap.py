@@ -79,6 +79,12 @@ class GossmapChannel(object):
                                   fields['fee_proportional_millionths'])
         self.half_channels[direction] = half
 
+    def get_half_channel(self, direction: int):
+        """ returns the GossmapHalfchannel if known by channel_update """
+        if not 0 <= direction <= 1:
+            raise ValueError("direction can only be 0 or 1")
+        return self.half_channels[direction]
+
 
 class GossmapNodeId(object):
     def __init__(self, buf: bytes):
@@ -100,6 +106,13 @@ class GossmapNodeId(object):
 
     def __repr__(self):
         return "GossmapNodeId[0x{}]".format(self.nodeid.hex())
+
+    def from_str(self, s: str):
+        if s.startswith('0x'):
+            s = s[2:]
+        if len(s) != 67:
+            raise ValueError(f"{s} is not a valid hexstring of a node_id")
+        return GossmapNodeId(bytes.fromhex(s))
 
 
 class GossmapNode(object):
@@ -165,6 +178,18 @@ class Gossmap(object):
                           ShortChannelId.from_int(fields['short_channel_id']),
                           GossmapNodeId(fields['node_id_1']), GossmapNodeId(fields['node_id_2']),
                           is_private)
+
+    def get_channel(self, short_channel_id: ShortChannelId):
+        """ Resolves a channel by its short channel id """
+        if type(short_channel_id) == str:
+            short_channel_id = ShortChannelId.from_str(short_channel_id)
+        return self.channels.get(short_channel_id)
+
+    def get_node(self, node_id: GossmapNodeId):
+        """ Resolves a node by its public key node_id """
+        if type(node_id) == str:
+            node_id = GossmapNodeId.from_str(node_id)
+        return self.nodes.get(node_id)
 
     def update_channel(self, rec: bytes, off: int):
         fields = channel_update.read(io.BytesIO(rec[2:]), {})
