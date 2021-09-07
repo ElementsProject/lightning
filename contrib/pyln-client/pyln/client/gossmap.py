@@ -85,15 +85,15 @@ class GossmapChannel(object):
                  fields: Dict[str, Any],
                  announce_offset: int,
                  scid,
-                 node1_id: GossmapNodeId,
-                 node2_id: GossmapNodeId,
+                 node1: 'GossmapNode',
+                 node2: 'GossmapNode',
                  is_private: bool):
         self.fields = fields
         self.announce_offset = announce_offset
         self.is_private = is_private
         self.scid = scid
-        self.node1_id = node1_id
-        self.node2_id = node2_id
+        self.node1 = node1
+        self.node2 = node2
         self.updates_fields: List[Optional[Dict[str, Any]]] = [None, None]
         self.updates_offset: List[Optional[int]] = [None, None]
         self.satoshis = None
@@ -159,21 +159,16 @@ class Gossmap(object):
                      fields: Dict[str, Any],
                      announce_offset: int,
                      scid: ShortChannelId,
-                     node1_id: GossmapNodeId,
-                     node2_id: GossmapNodeId,
+                     node1: GossmapNode,
+                     node2: GossmapNode,
                      is_private: bool):
         c = GossmapChannel(fields, announce_offset,
-                           scid, node1_id, node2_id,
+                           scid, node1, node2,
                            is_private)
-        if node1_id not in self.nodes:
-            self.nodes[node1_id] = GossmapNode(node1_id)
-        if node2_id not in self.nodes:
-            self.nodes[node2_id] = GossmapNode(node2_id)
-
         self._last_scid = scid
         self.channels[scid] = c
-        self.nodes[node1_id].channels.append(c)
-        self.nodes[node2_id].channels.append(c)
+        node1.channels.append(c)
+        node2.channels.append(c)
 
     def _del_channel(self, scid: ShortChannelId):
         c = self.channels[scid]
@@ -189,9 +184,16 @@ class Gossmap(object):
 
     def add_channel(self, rec: bytes, off: int, is_private: bool):
         fields = channel_announcement.read(io.BytesIO(rec[2:]), {})
+        # Add nodes one the fly
+        node1_id = GossmapNodeId(fields['node_id_1'])
+        node2_id = GossmapNodeId(fields['node_id_2'])
+        if node1_id not in self.nodes:
+            self.nodes[node1_id] = GossmapNode(node1_id)
+        if node2_id not in self.nodes:
+            self.nodes[node2_id] = GossmapNode(node2_id)
         self._new_channel(fields, off,
                           ShortChannelId.from_int(fields['short_channel_id']),
-                          GossmapNodeId(fields['node_id_1']), GossmapNodeId(fields['node_id_2']),
+                          self.get_node(node1_id), self.get_node(node2_id),
                           is_private)
 
     def _set_channel_amount(self, rec: bytes):
