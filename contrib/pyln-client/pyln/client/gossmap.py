@@ -32,16 +32,21 @@ class GossipStoreHeader(object):
 
 class GossmapHalfchannel(object):
     """One direction of a GossmapChannel."""
-    def __init__(self, timestamp: int,
-                 cltv_expiry_delta: int,
+    def __init__(self, channel: GossmapChannel, direction: int,
+                 timestamp: int, cltv_expiry_delta: int,
                  htlc_minimum_msat: int, htlc_maximum_msat: int,
                  fee_base_msat: int, fee_proportional_millionths: int):
+        self.channel = channel
+        self.direction = direction
         self.timestamp: int = timestamp
         self.cltv_expiry_delta: int = cltv_expiry_delta
         self.htlc_minimum_msat: int = htlc_minimum_msat
         self.htlc_maximum_msat: Optional[int] = htlc_maximum_msat
         self.fee_base_msat: int = fee_base_msat
         self.fee_proportional_millionths: int = fee_proportional_millionths
+
+    def __repr__(self):
+        return "GossmapHalfchannel[{}x{}]".format(str(self.channel.scid), self.direction)
 
 
 class GossmapChannel(object):
@@ -71,7 +76,8 @@ class GossmapChannel(object):
         self.updates_fields[direction] = fields
         self.updates_offset = off
 
-        half = GossmapHalfchannel(fields['timestamp'],
+        half = GossmapHalfchannel(self, direction,
+                                  fields['timestamp'],
                                   fields['cltv_expiry_delta'],
                                   fields['htlc_minimum_msat'],
                                   fields.get('htlc_maximum_msat', None),
@@ -84,6 +90,9 @@ class GossmapChannel(object):
         if not 0 <= direction <= 1:
             raise ValueError("direction can only be 0 or 1")
         return self.half_channels[direction]
+
+    def __repr__(self):
+        return "GossmapChannel[{}]".format(str(self.scid))
 
 
 class GossmapNodeId(object):
@@ -105,7 +114,7 @@ class GossmapNodeId(object):
         return self.nodeid.__hash__()
 
     def __repr__(self):
-        return "GossmapNodeId[0x{}]".format(self.nodeid.hex())
+        return "GossmapNodeId[{}]".format(self.nodeid.hex())
 
     def from_str(self, s: str):
         if s.startswith('0x'):
@@ -125,6 +134,9 @@ class GossmapNode(object):
         self.announce_offset = None
         self.channels = []
         self.node_id = node_id
+
+    def __repr__(self):
+        return "GossmapNode[{}]".format(self.node_id.nodeid.hex())
 
 
 class Gossmap(object):
