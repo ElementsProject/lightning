@@ -55,6 +55,8 @@ class GossmapHalfchannel(object):
 
 class GossmapNodeId(object):
     def __init__(self, buf: bytes):
+        if isinstance(buf, str):
+            buf = bytes.fromhex(buf)
         if len(buf) != 33 or (buf[0] != 2 and buf[0] != 3):
             raise ValueError("{} is not a valid node_id".format(buf.hex()))
         self.nodeid = buf
@@ -139,6 +141,8 @@ class GossmapNode(object):
 .channels is a list of the GossmapChannels attached to this node.
 """
     def __init__(self, node_id: GossmapNodeId):
+        if isinstance(node_id, bytes) or isinstance(node_id, str):
+            node_id = GossmapNodeId(node_id)
         self.announce_fields: Optional[Dict[str, Any]] = None
         self.announce_offset: Optional[int] = None
         self.channels: List[GossmapChannel] = []

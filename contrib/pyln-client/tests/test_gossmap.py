@@ -1,4 +1,4 @@
-from pyln.client import Gossmap
+from pyln.client import Gossmap, GossmapNode, GossmapNodeId
 
 import os.path
 import lzma
@@ -42,3 +42,28 @@ def test_gossmap(tmp_path):
     channel2 = g.get_channel("686200x1137x0")
     assert channel1.satoshis == 1000000
     assert channel2.satoshis == 3000000
+
+
+def test_objects():
+    boltz = "026165850492521f4ac8abd9bd8088123446d126f648ca35e60f88177dc149ceb2"
+    acinq = "03864ef025fde8fb587d989186ce6a4a186895ee44a926bfc370e2c366597a3f8f"
+
+    boltz_id = GossmapNodeId(bytes.fromhex(boltz))
+    acinq_id = GossmapNodeId(bytes.fromhex(acinq))
+    assert boltz_id == GossmapNodeId(boltz)
+
+    assert boltz_id < acinq_id
+    assert acinq_id > boltz_id
+    assert boltz_id != acinq_id
+    assert acinq_id != boltz_id
+    assert not boltz_id > acinq_id
+    assert not acinq_id < boltz_id
+    assert not boltz_id == acinq_id
+    assert not acinq_id == boltz_id
+
+    boltz_node = GossmapNode(boltz_id)
+    acinq_node = GossmapNode(acinq_id)
+    assert boltz_node == GossmapNode(boltz)
+    assert boltz_node < acinq_node
+    assert acinq_node > boltz_node
+    assert boltz_node != acinq_node
