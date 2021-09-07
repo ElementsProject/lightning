@@ -1608,7 +1608,6 @@ static const struct json_command listpeers_command = {
 	json_listpeers,
 	"Show current peers, if {level} is set, include logs for {id}"
 };
-/* Comment added to satisfice AUTODATA */
 AUTODATA(json_command, &listpeers_command);
 
 static struct command_result *
