@@ -1029,7 +1029,7 @@ struct plugin_timer *plugin_timer_(struct plugin *p, struct timerel t,
 				   void (*cb)(void *cb_arg),
 				   void *cb_arg)
 {
-	struct plugin_timer *timer = tal(NULL, struct plugin_timer);
+	struct plugin_timer *timer = notleak(tal(NULL, struct plugin_timer));
 	timer->cb = cb;
 	timer->cb_arg = cb_arg;
 	timer_init(&timer->timer);
