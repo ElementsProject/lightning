@@ -342,4 +342,11 @@ struct createonion_response *json_to_createonion_response(const tal_t *ctx,
 struct route_hop *json_to_route(const tal_t *ctx, const char *buffer,
 				const jsmntok_t *toks);
 
+#if DEVELOPER
+struct htable;
+void plugin_set_memleak_handler(struct plugin *plugin,
+				void (*mark_mem)(struct plugin *plugin,
+						 struct htable *memtable));
+#endif /* DEVELOPER */
+
 #endif /* LIGHTNING_PLUGINS_LIBPLUGIN_H */
