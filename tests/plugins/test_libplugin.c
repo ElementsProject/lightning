@@ -1,6 +1,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_stream.h>
+#include <common/memleak.h>
 #include <plugins/libplugin.h>
 
 
@@ -99,6 +100,14 @@ static struct command_result *json_testrpc(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
+#if DEVELOPER
+static void memleak_mark(struct plugin *p, struct htable *memtable)
+{
+	/* name_option is not a leak! */
+	memleak_remove_region(memtable, &name_option, sizeof(name_option));
+}
+#endif /* DEVELOPER */
+
 static const char *init(struct plugin *p,
 			const char *buf UNUSED,
 			const jsmntok_t *config UNUSED)
@@ -107,6 +116,11 @@ static const char *init(struct plugin *p,
 
 	if (self_disable)
 		return "Disabled via selfdisable option";
+
+#if DEVELOPER
+	plugin_set_memleak_handler(p, memleak_mark);
+#endif
+
 	return NULL;
 }
 
