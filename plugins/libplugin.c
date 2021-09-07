@@ -99,6 +99,11 @@ struct plugin {
 
 	const char **notif_topics;
 	size_t num_notif_topics;
+
+#if DEVELOPER
+	/* Lets them remove ptrs from leak detection. */
+	void (*mark_mem)(struct plugin *plugin, struct htable *memtable);
+#endif
 };
 
 /* command_result is mainly used as a compile-time check to encourage you
@@ -1197,8 +1202,18 @@ static void memleak_check(struct plugin *plugin, struct command *cmd)
 	/* We know usage strings are referred to. */
 	memleak_remove_strmap(memtable, &cmd->plugin->usagemap);
 
+	if (plugin->mark_mem)
+		plugin->mark_mem(plugin, memtable);
+
 	memleak_plugin = plugin;
 	dump_memleak(memtable, log_memleak);
+}
+
+void plugin_set_memleak_handler(struct plugin *plugin,
+				void (*mark_mem)(struct plugin *plugin,
+						 struct htable *memtable))
+{
+	plugin->mark_mem = mark_mem;
 }
 #endif /* DEVELOPER */
 
@@ -1498,6 +1513,9 @@ static struct plugin *new_plugin(const tal_t *ctx,
 		tal_arr_expand(&p->opts, o);
 	}
 
+#if DEVELOPER
+	p->mark_mem = NULL;
+#endif
 	return p;
 }
 
