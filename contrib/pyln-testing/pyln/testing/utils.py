@@ -1151,7 +1151,7 @@ def flock(directory: Path):
     # So now we have a position in the lock, let's check if we are the
     # next one to go:
     while True:
-        files = sorted([f.resolve() for f in d.iterdir() if f.is_file()])
+        files = sorted([f for f in d.iterdir() if f.is_file()])
         # We're queued, so it should at least have us.
         assert len(files) >= 1
         if files[0] == fname:
