@@ -19,6 +19,7 @@ msgdata,closingd_init,remote_sat,amount_sat,
 msgdata,closingd_init,our_dust_limit,amount_sat,
 msgdata,closingd_init,min_feerate_perksipa,u32,
 msgdata,closingd_init,preferred_feerate_perksipa,u32,
+msgdata,closingd_init,max_feerate_perksipa,?u32,
 msgdata,closingd_init,fee_limit_satoshi,amount_sat,
 msgdata,closingd_init,local_scriptpubkey_len,u16,
 msgdata,closingd_init,local_scriptpubkey,u8,local_scriptpubkey_len

@@ -193,7 +193,7 @@ void peer_start_closingd(struct channel *channel,
 			 struct per_peer_state *pps)
 {
 	u8 *initmsg;
-	u32 feerate;
+	u32 feerate, *max_feerate;
 	struct amount_msat their_msat;
 	struct amount_sat feelimit;
 	int hsmfd;
@@ -253,6 +253,19 @@ void peer_start_closingd(struct channel *channel,
 			feerate = feerate_floor();
 	}
 
+	/* We use a feerate if anchor_outputs, otherwise max fee is set by
+	 * the final unilateral. */
+	if (channel->option_anchor_outputs) {
+		max_feerate = tal(tmpctx, u32);
+		/* Aim for reasonable max, but use final if we don't know. */
+		*max_feerate = unilateral_feerate(ld->topology);
+		if (!*max_feerate)
+			*max_feerate = final_commit_feerate;
+		/* No other limit on fees */
+		feelimit = channel->funding;
+	} else
+		max_feerate = NULL;
+
 	/* BOLT #3:
 	 *
 	 * Each node offering a signature:
@@ -285,7 +298,9 @@ void peer_start_closingd(struct channel *channel,
 				       amount_msat_to_sat_round_down(channel->our_msat),
 				       amount_msat_to_sat_round_down(their_msat),
 				       channel->our_config.dust_limit,
-				       feerate_min(ld, NULL), feerate, feelimit,
+				       feerate_min(ld, NULL), feerate,
+				       max_feerate,
+				       feelimit,
 				       channel->shutdown_scriptpubkey[LOCAL],
 				       channel->shutdown_scriptpubkey[REMOTE],
 				       channel->closing_fee_negotiation_step,
