@@ -126,6 +126,9 @@ struct chain_topology {
 	/* The number of headers known to the bitcoin backend at startup. Not
 	 * updated after the initial check. */
 	u32 headercount;
+
+	/* Are we stopped? */
+	bool stopping;
 };
 
 /* Information relevant to locating a TX in a blockchain. */
