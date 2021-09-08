@@ -4,7 +4,7 @@ lightning-listpeerchannels -- Command returning data on channels of connected li
 SYNOPSIS
 --------
 
-**listpeerchannels** \[*id*\] \[*state*\] \[*level*\]
+**listpeerchannels** \[*id*\] \[*status*\] \[*level*\]
 
 DESCRIPTION
 -----------
@@ -19,9 +19,9 @@ returned.
 Supplying *id* will filter the results to only return channel data on the node
 with the matching *id*, if one exists.
 
-Supplying *state* will filter the results to return data only for channels whose
-state matches the supplied value. The possible values that can be supplied for
-the *state* argument are the same as the possible values that can be returned
+Supplying *status* will filter the results to return data only for channels whose
+status matches the supplied value. The possible values that can be supplied for
+the *status* argument are the same as the possible values that can be returned
 for the channel state (listed below).
 
 Supplying *level* will show log entries related to that peer at the
@@ -132,7 +132,7 @@ If **inflight** is present:
 [comment]: # (GENERATE-FROM-SCHEMA-END)
 
 On success, an object with a "channels" key is returned containing a list
-of 0 or more objects. If *id* and/or *state* are supplied and no matching
+of 0 or more objects. If *id* and/or *status* are supplied and no matching
 nodes are found, a "channels" object with an empty list is returned.
 
 The objects in the *channels* array will have at least these fields:

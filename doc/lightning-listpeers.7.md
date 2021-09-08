@@ -85,7 +85,7 @@ with an empty list is returned.
 A list of the peer's channels can be retrieved with the **listpeerchannels**
 RPC command, which returns an object with a "channels" key containing a list
 of 0 or more objects describing channels with the peer, optionally filtered by
-peer *id* and/or channel *state*.
+peer *id* and/or channel *status*.
 
 On error the returned object will contain `code` and `message` properties,
 with `code` being one of the following:
