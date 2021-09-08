@@ -1661,6 +1661,31 @@ static struct command_result *param_outpoint(struct command *cmd,
 				     "should be a txid:outnum");
 }
 
+static struct command_result *param_feerate_range(struct command *cmd,
+						  const char *name,
+						  const char *buffer,
+						  const jsmntok_t *tok,
+						  u32 **feerate_range)
+{
+	struct command_result *ret;
+	u32 *rate;
+
+	*feerate_range = tal_arr(cmd, u32, 2);
+	if (tok->type != JSMN_ARRAY || tok->size != 2)
+		return command_fail_badparam(cmd, name, buffer, tok,
+					     "should be an array of 2 entries");
+
+	ret = param_feerate(cmd, name, buffer, tok+1, &rate);
+	if (ret)
+		return ret;
+	(*feerate_range)[0] = *rate;
+	ret = param_feerate(cmd, name, buffer, tok+2, &rate);
+	if (ret)
+		return ret;
+	(*feerate_range)[1] = *rate;
+	return NULL;
+}
+
 static struct command_result *json_close(struct command *cmd,
 					 const char *buffer,
 					 const jsmntok_t *obj UNNEEDED,
@@ -1674,6 +1699,7 @@ static struct command_result *json_close(struct command *cmd,
 	bool close_script_set, wrong_funding_changed, *force_lease_close;
 	const char *fee_negotiation_step_str;
 	struct bitcoin_outpoint *wrong_funding;
+	u32 *feerate_range;
 	char* end;
 	bool anysegwit;
 
@@ -1687,6 +1713,7 @@ static struct command_result *json_close(struct command *cmd,
 		   p_opt("wrong_funding", param_outpoint, &wrong_funding),
 		   p_opt_def("force_lease_closed", param_bool,
 			     &force_lease_close, false),
+		   p_opt("feerange", param_feerate_range, &feerate_range),
 		   NULL))
 		return command_param_failed();
 
@@ -1844,6 +1871,9 @@ static struct command_result *json_close(struct command *cmd,
 		} else
 			wrong_funding_changed = false;
 	}
+
+	/* Works fine if feerate_range is NULL */
+	channel->closing_feerate_range = tal_steal(channel, feerate_range);
 
 	/* Normal case.
 	 * We allow states shutting down and sigexchange; a previous

@@ -3,7 +3,7 @@
 lightning-close - Command for closing channels with direct peers
 .SH SYNOPSIS
 
-\fBclose\fR \fIid\fR [\fIunilateraltimeout\fR] [\fIdestination\fR] [\fIfee_negotiation_step\fR] [\fIwrong_funding\fR] [\fIforce_lease_closed\fR]
+\fBclose\fR \fIid\fR [\fIunilateraltimeout\fR] [\fIdestination\fR] [\fIfee_negotiation_step\fR] [\fIwrong_funding\fR] [\fIforce_lease_closed\fR] [*feerange*]
 
 .SH DESCRIPTION
 
@@ -35,7 +35,12 @@ friends to upgrade!
 
 The \fIfee_negotiation_step\fR parameter controls how closing fee
 negotiation is performed assuming the peer proposes a fee that is
-different than our estimate\. On every negotiation step we must give up
+different than our estimate\.  (Note that using this option
+prevents \fBexperimental-quick-close\fR, as the quick-close protocol
+does not allow negotiation)\.
+
+
+On every negotiation step we must give up
 some amount from our proposal towards the peer's proposal\. This parameter
 can be an integer in which case it is interpreted as number of satoshis
 to step at a time\. Or it can be an integer followed by "%" to designate
@@ -72,6 +77,26 @@ can rescue openings which have been manually miscreated\.
 \fIforce_lease_closed\fR if the channel has funds leased to the peer
 (option_will_fund), we prevent initiation of a mutual close
 unless this flag is passed in\. Defaults to false\.
+
+
+\fIfeerange\fR is an optional array [ \fImin\fR, \fImax\fR ], indicating the
+minimum and maximum feerates to offer\.  \fIslow\fR and \fIunilateral_close\fR
+are the defaults\.
+
+
+Rates are one of the strings \fIurgent\fR (aim for next block), \fInormal\fR
+(next 4 blocks or so) or \fIslow\fR (next 100 blocks or so) to use
+lightningd’s internal estimates, or one of the names from
+\fBlightning-feerates\fR(7)\.  Otherwise, they can be numbers with
+an optional suffix: \fIperkw\fR means the number is interpreted as
+satoshi-per-kilosipa (weight), and \fIperkb\fR means it is interpreted
+bitcoind-style as satoshi-per-kilobyte\. Omitting the suffix is
+equivalent to \fIperkb\fR\.
+
+
+Note that the maximum fee will be capped at the final commitment
+transaction fee (unless the experimental anchor-outputs option is
+negotiated)\.
 
 
 The peer needs to be live and connected in order to negotiate a mutual
@@ -130,4 +155,4 @@ ZmnSCPxj \fI<ZmnSCPxj@protonmail.com\fR> is mainly responsible\.
 
 Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 
-\" SHA256STAMP:0af2affd80bd44dcd733b24c17429058c20b0c3ca41d23e06d70487ea759320c
+\" SHA256STAMP:94359c9d63107e5558c7f9cec137899a057f2d172df08f4a78de8fe09defb440

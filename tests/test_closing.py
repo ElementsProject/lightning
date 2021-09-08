@@ -3327,3 +3327,25 @@ def test_anysegwit_close_needs_feature(node_factory, bitcoind):
     l1.rpc.close(l2.info['id'], destination='bcrt1pw508d6qejxtdg4y5r3zarvary0c5xw7kw508d6qejxtdg4y5r3zarvary0c5xw7k0ylj56')
     wait_for(lambda: only_one(only_one(l1.rpc.listpeers()['peers'])['channels'])['state'] == 'CLOSINGD_COMPLETE')
     bitcoind.generate_block(1, wait_for_mempool=1)
+
+
+def test_close_feerate_range(node_factory, bitcoind, chainparams):
+    """Test the quick-close fee range negotiation"""
+    l1, l2 = node_factory.line_graph(2, opts={'experimental-quick-close': None})
+
+    # Lowball the range here.
+    l1.rpc.close(l2.info['id'], feerange=['253perkw', 'normal'])
+
+    if not chainparams['elements']:
+        l1_range = [138, 4110]
+        l2_range = [1027, 1000000]
+    else:
+        # That fee output is a little chunky.
+        l1_range = [175, 5212]
+        l2_range = [1303, 1000000]
+
+    l1.daemon.wait_for_log('Negotiating closing fee between {}sat and {}sat satoshi'.format(l1_range[0], l1_range[1]))
+    l2.daemon.wait_for_log('Negotiating closing fee between {}sat and {}sat satoshi'.format(l2_range[0], l2_range[1]))
+
+    overlap = [max(l1_range[0], l2_range[0]), min(l1_range[1], l2_range[1])]
+    l1.daemon.wait_for_log('performing quickclose in range {}sat-{}sat'.format(overlap[0], overlap[1]))

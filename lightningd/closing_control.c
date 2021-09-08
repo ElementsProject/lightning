@@ -193,7 +193,7 @@ void peer_start_closingd(struct channel *channel,
 			 struct per_peer_state *pps)
 {
 	u8 *initmsg;
-	u32 feerate, *max_feerate;
+	u32 min_feerate, feerate, *max_feerate;
 	struct amount_msat their_msat;
 	struct amount_sat feelimit;
 	int hsmfd;
@@ -266,6 +266,14 @@ void peer_start_closingd(struct channel *channel,
 	} else
 		max_feerate = NULL;
 
+	min_feerate = feerate_min(ld, NULL);
+
+	/* If they specified feerates in `close`, they apply now! */
+	if (channel->closing_feerate_range) {
+		min_feerate = channel->closing_feerate_range[0];
+		max_feerate = &channel->closing_feerate_range[1];
+	}
+
 	/* BOLT #3:
 	 *
 	 * Each node offering a signature:
@@ -298,8 +306,7 @@ void peer_start_closingd(struct channel *channel,
 				       amount_msat_to_sat_round_down(channel->our_msat),
 				       amount_msat_to_sat_round_down(their_msat),
 				       channel->our_config.dust_limit,
-				       feerate_min(ld, NULL), feerate,
-				       max_feerate,
+				       min_feerate, feerate, max_feerate,
 				       feelimit,
 				       channel->shutdown_scriptpubkey[LOCAL],
 				       channel->shutdown_scriptpubkey[REMOTE],
