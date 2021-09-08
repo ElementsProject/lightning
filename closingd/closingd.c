@@ -584,16 +584,59 @@ static size_t closing_tx_weight_estimate(u8 *scriptpubkey[NUM_SIDES],
 static void calc_fee_bounds(size_t expected_weight,
 			    u32 min_feerate,
 			    u32 desired_feerate,
-			    struct amount_sat maxfee,
+			    u32 *max_feerate,
+			    struct amount_sat commitment_fee,
+			    struct amount_sat funding,
+			    enum side opener,
 			    struct amount_sat *minfee,
-			    struct amount_sat *desiredfee)
+			    struct amount_sat *desiredfee,
+			    struct amount_sat *maxfee)
 {
 	*minfee = amount_tx_fee(min_feerate, expected_weight);
 	*desiredfee = amount_tx_fee(desired_feerate, expected_weight);
 
+	/* BOLT-closing-fee_range #2:
+	 * - if it is not the funder:
+	 *  - SHOULD set `max_fee_satoshis` to at least the `max_fee_satoshis`
+	 *   received
+	 *...
+	 * Note that the non-funder is not paying the fee, so there is
+	 * no reason for it to have a maximum feerate.
+	 */
+	if (opener == REMOTE) {
+		*maxfee = funding;
+	/* BOLT-closing-fee_range #2:
+	 * - If the channel does not use `option_anchor_outputs`:
+	 *   - MUST set `fee_satoshis` less than or equal to the base fee of
+	 *     the final commitment transaction, as calculated in
+	 *     [BOLT #3](03-transactions.md#fee-calculation).
+	 */
+	} else if (max_feerate) {
+		*maxfee = amount_tx_fee(*max_feerate, expected_weight);
+
+		status_debug("deriving max fee from rate %u -> %s (not %s)",
+			     *max_feerate,
+			     type_to_string(tmpctx, struct amount_sat, maxfee),
+			     type_to_string(tmpctx, struct amount_sat, &commitment_fee));
+
+		/* option_anchor_outputs sets commitment_fee to max, so this
+		 * doesn't do anything */
+		if (amount_sat_greater(*maxfee, commitment_fee)) {
+			status_unusual("Maximum feerate %u would give fee %s:"
+				       " we must limit it to the final commitment fee %s",
+				       *max_feerate,
+				       type_to_string(tmpctx, struct amount_sat,
+						      maxfee),
+				       type_to_string(tmpctx, struct amount_sat,
+						      &commitment_fee));
+			*maxfee = commitment_fee;
+		}
+	} else
+		*maxfee = commitment_fee;
+
 	/* Can't exceed maxfee. */
-	if (amount_sat_greater(*minfee, maxfee))
-		*minfee = maxfee;
+	if (amount_sat_greater(*minfee, *maxfee))
+		*minfee = *maxfee;
 
 	if (amount_sat_less(*desiredfee, *minfee)) {
 		status_unusual("Our ideal fee is %s (%u sats/perkw),"
@@ -603,20 +646,20 @@ static void calc_fee_bounds(size_t expected_weight,
 			       type_to_string(tmpctx, struct amount_sat, minfee));
 		*desiredfee = *minfee;
 	}
-	if (amount_sat_greater(*desiredfee, maxfee)) {
+	if (amount_sat_greater(*desiredfee, *maxfee)) {
 		status_unusual("Our ideal fee is %s (%u sats/perkw),"
 			       " but our maximum is %s: using that",
 			       type_to_string(tmpctx, struct amount_sat, desiredfee),
 			       desired_feerate,
-			       type_to_string(tmpctx, struct amount_sat, &maxfee));
-		*desiredfee = maxfee;
+			       type_to_string(tmpctx, struct amount_sat, maxfee));
+		*desiredfee = *maxfee;
 	}
 
 	status_debug("Expected closing weight = %zu, fee %s (min %s, max %s)",
 		     expected_weight,
 		     type_to_string(tmpctx, struct amount_sat, desiredfee),
 		     type_to_string(tmpctx, struct amount_sat, minfee),
-		     type_to_string(tmpctx, struct amount_sat, &maxfee));
+		     type_to_string(tmpctx, struct amount_sat, maxfee));
 }
 
 /* We've received one offer; if we're opener, that means we've already sent one
@@ -802,8 +845,9 @@ int main(int argc, char *argv[])
 	u16 funding_txout;
 	struct amount_sat funding, out[NUM_SIDES];
 	struct amount_sat our_dust_limit;
-	struct amount_sat min_fee_to_accept, commitment_fee, offer[NUM_SIDES];
-	u32 min_feerate, initial_feerate;
+	struct amount_sat min_fee_to_accept, commitment_fee, offer[NUM_SIDES],
+		max_fee_to_accept;
+	u32 min_feerate, initial_feerate, *max_feerate;
 	struct feerange feerange;
 	enum side opener;
 	u8 *scriptpubkey[NUM_SIDES], *funding_wscript;
@@ -833,7 +877,7 @@ int main(int argc, char *argv[])
 				    &out[LOCAL],
 				    &out[REMOTE],
 				    &our_dust_limit,
-				    &min_feerate, &initial_feerate,
+				    &min_feerate, &initial_feerate, &max_feerate,
 				    &commitment_fee,
 				    &scriptpubkey[LOCAL],
 				    &scriptpubkey[REMOTE],
@@ -855,8 +899,9 @@ int main(int argc, char *argv[])
 	calc_fee_bounds(closing_tx_weight_estimate(scriptpubkey,
 						   funding_wscript,
 						   out, funding, our_dust_limit),
-			min_feerate, initial_feerate, commitment_fee,
-			&min_fee_to_accept, &offer[LOCAL]);
+			min_feerate, initial_feerate, max_feerate,
+			commitment_fee, funding, opener,
+			&min_fee_to_accept, &offer[LOCAL], &max_fee_to_accept);
 
 	/* Write values into tlv for updated closing fee neg */
 	their_feerange = tal(ctx, struct tlv_closing_signed_tlvs_fee_range *);
@@ -865,19 +910,7 @@ int main(int argc, char *argv[])
 	if (use_quickclose) {
 		our_feerange = tal(ctx, struct tlv_closing_signed_tlvs_fee_range);
 		our_feerange->min_fee_satoshis = min_fee_to_accept;
-
-		/* BOLT-closing-fee_range #2:
-		 * - if it is not the funder:
-		 *  - SHOULD set `max_fee_satoshis` to at least the
-		 *    `max_fee_satoshis` received
-		 *...
-		 * Note that the non-funder is not paying the fee, so there is
-		 * no reason for it to have a maximum feerate.
-		 */
-		if (opener == REMOTE)
-			our_feerange->max_fee_satoshis = funding;
-		else
-			our_feerange->max_fee_satoshis = commitment_fee;
+		our_feerange->max_fee_satoshis = max_fee_to_accept;
 	} else
 		our_feerange = NULL;
 
@@ -907,7 +940,7 @@ int main(int argc, char *argv[])
 	    "Negotiating closing fee between %s and %s satoshi (ideal %s) "
 	    "using step %s",
 	    type_to_string(tmpctx, struct amount_sat, &min_fee_to_accept),
-	    type_to_string(tmpctx, struct amount_sat, &commitment_fee),
+	    type_to_string(tmpctx, struct amount_sat, &max_fee_to_accept),
 	    type_to_string(tmpctx, struct amount_sat, &offer[LOCAL]),
 	    fee_negotiation_step_str);
 
@@ -970,7 +1003,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Now we have first two points, we can init fee range. */
-	init_feerange(&feerange, commitment_fee, offer);
+	init_feerange(&feerange, max_fee_to_accept, offer);
 
 	/* Apply (and check) opener offer now. */
 	adjust_feerange(&feerange, offer[opener], opener);
@@ -1029,6 +1062,7 @@ exit_thru_the_giftshop:
 	tal_free(wrong_funding);
 	tal_free(our_feerange);
 	tal_free(their_feerange);
+	tal_free(max_feerate);
 	closing_dev_memleak(ctx, scriptpubkey, funding_wscript);
 #endif
 
