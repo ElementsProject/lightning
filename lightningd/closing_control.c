@@ -312,9 +312,8 @@ void peer_start_closingd(struct channel *channel,
 				       channel->shutdown_scriptpubkey[REMOTE],
 				       channel->closing_fee_negotiation_step,
 				       channel->closing_fee_negotiation_step_unit,
-				       (ld->use_quickclose
 					/* Don't quickclose if they specified how to negotiate! */
-					&& channel->closing_fee_negotiation_step == 50
+				       (channel->closing_fee_negotiation_step == 50
 					&& channel->closing_fee_negotiation_step_unit == CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE)
 				       /* Always use quickclose with anchors */
 				       || channel->option_anchor_outputs,
