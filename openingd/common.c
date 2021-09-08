@@ -63,7 +63,7 @@ bool check_config_bounds(const tal_t *ctx,
 	}
 
 	/* BOLT #2:
-	 *  - if `option_anchor_outputs` applies to this commitment
+	 *  - if `option_anchors` applies to this commitment
 	 *    transaction and the sending node is the funder:
 	 *   - MUST be able to additionally pay for `to_local_anchor` and
 	 *    `to_remote_anchor` above its reserve.

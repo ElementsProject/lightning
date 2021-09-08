@@ -292,7 +292,7 @@ static void hsm_unilateral_close_privkey(struct privkey *dst,
 
 	/* BOLT #3:
 	 *
-	 * If `option_static_remotekey` or `option_anchor_outputs` is
+	 * If `option_static_remotekey` or `option_anchors` is
 	 * negotiated, the `remotepubkey` is simply the remote node's
 	 * `payment_basepoint`, otherwise it is calculated as above using the
 	 * remote node's `payment_basepoint`.
@@ -1041,7 +1041,7 @@ static u8 *handle_sign_local_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
 	/* BOLT #3:
 	 * ## HTLC-Timeout and HTLC-Success Transactions
 	 *...
-	 * * if `option_anchor_outputs` applies to this commitment transaction,
+	 * * if `option_anchors` applies to this commitment transaction,
 	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used.
 	 */
 	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
@@ -1094,7 +1094,7 @@ static u8 *handle_sign_remote_htlc_tx(struct hsmd_client *c, const u8 *msg_in)
 	/* BOLT #3:
 	 * ## HTLC-Timeout and HTLC-Success Transactions
 	 *...
-	 * * if `option_anchor_outputs` applies to this commitment transaction,
+	 * * if `option_anchors` applies to this commitment transaction,
 	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used.
 	 */
 	sign_tx_input(tx, 0, NULL, wscript, &htlc_privkey, &htlc_pubkey,
@@ -1289,7 +1289,7 @@ static u8 *handle_sign_remote_htlc_to_us(struct hsmd_client *c,
 	/* BOLT #3:
 	 * ## HTLC-Timeout and HTLC-Success Transactions
 	 *...
-	 * * if `option_anchor_outputs` applies to this commitment transaction,
+	 * * if `option_anchors` applies to this commitment transaction,
 	 *   `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is used.
 	 */
 	return handle_sign_to_us_tx(

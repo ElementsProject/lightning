@@ -680,7 +680,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 			return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
 
 		/* BOLT #3:
-		 * If `option_anchor_outputs` applies to the commitment
+		 * If `option_anchors` applies to the commitment
 		 * transaction, also subtract two times the fixed anchor size
 		 * of 330 sats from the funder (either `to_local` or
 		 * `to_remote`).
@@ -1102,7 +1102,7 @@ u32 approx_max_feerate(const struct channel *channel)
 	avail = amount_msat_to_sat_round_down(channel->view[!channel->opener].owed[channel->opener]);
 
 	/* BOLT #3:
-	 * If `option_anchor_outputs` applies to the commitment
+	 * If `option_anchors` applies to the commitment
 	 * transaction, also subtract two times the fixed anchor size
 	 * of 330 sats from the funder (either `to_local` or
 	 * `to_remote`).
@@ -1143,7 +1143,7 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 				 channel->option_anchor_outputs);
 
 	/* BOLT #3:
-	 * If `option_anchor_outputs` applies to the commitment
+	 * If `option_anchors` applies to the commitment
 	 * transaction, also subtract two times the fixed anchor size
 	 * of 330 sats from the funder (either `to_local` or
 	 * `to_remote`).

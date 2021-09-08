@@ -147,7 +147,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		     base_fee.satoshis /* Raw: spec uses raw numbers */);
 
 	/* BOLT #3:
-	 * If `option_anchor_outputs` applies to the commitment
+	 * If `option_anchors` applies to the commitment
 	 * transaction, also subtract two times the fixed anchor size
 	 * of 330 sats from the funder (either `to_local` or
 	 * `to_remote`).
@@ -281,7 +281,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 		 *
 		 * #### `to_remote` Output
 		 *
-		 * If `option_anchor_outputs` applies to the commitment
+		 * If `option_anchors` applies to the commitment
 		 * transaction, the `to_remote` output is encumbered by a one
 		 * block csv lock.
 		 *    <remote_pubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
@@ -329,7 +329,7 @@ struct bitcoin_tx *commit_tx(const tal_t *ctx,
 
 	/* BOLT #3:
 	 *
-	 * 8. If `option_anchor_outputs` applies to the commitment transaction:
+	 * 8. If `option_anchors` applies to the commitment transaction:
 	 *    * if `to_local` exists or there are untrimmed HTLCs, add a
 	 *      [`to_local_anchor` output]...
 	 *    * if `to_remote` exists or there are untrimmed HTLCs, add a

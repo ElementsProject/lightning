@@ -32,7 +32,7 @@ bool derive_keyset(const struct pubkey *per_commitment_point,
 	 *
 	 * ### `remotepubkey` Derivation
 	 *
-	 * If `option_static_remotekey` or `option_anchor_outputs` is
+	 * If `option_static_remotekey` or `option_anchors` is
 	 * negotiated, the `remotepubkey` is simply the remote node's
 	 * `payment_basepoint`, otherwise it is calculated as above using the
 	 * remote node's `payment_basepoint`.

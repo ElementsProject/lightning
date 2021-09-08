@@ -1173,7 +1173,7 @@ static struct bitcoin_signature *unraw_sigs(const tal_t *ctx,
 		/* BOLT #3:
 		 * ## HTLC-Timeout and HTLC-Success Transactions
 		 *...
-		 * * if `option_anchor_outputs` applies to this commitment
+		 * * if `option_anchors` applies to this commitment
 		 *   transaction, `SIGHASH_SINGLE|SIGHASH_ANYONECANPAY` is
 		 *   used.
 		 */
@@ -2489,7 +2489,8 @@ static void resend_commitment(struct peer *peer, struct changed_htlc *last)
 /* BOLT #2:
  *
  * A receiving node:
- *  - if `option_static_remotekey` applies to the commitment transaction:
+ *  - if `option_static_remotekey` or `option_anchors` applies to the
+ *    commitment transaction:
  *    - if `next_revocation_number` is greater than expected above, AND
  *    `your_last_per_commitment_secret` is correct for that
  *    `next_revocation_number` minus 1:
@@ -2552,7 +2553,8 @@ static void check_future_dataloss_fields(struct peer *peer,
 /* BOLT #2:
  *
  * A receiving node:
- *  - if `option_static_remotekey` applies to the commitment transaction:
+ *  - if `option_static_remotekey` or `option_anchors` applies to the
+ *    commitment transaction:
  * ...
  *  - if `your_last_per_commitment_secret` does not match the expected values:
  *     - SHOULD fail the channel.
@@ -2764,7 +2766,7 @@ static void peer_reconnect(struct peer *peer,
 	 *     of the next `commitment_signed` it expects to receive.
 	 *   - MUST set `next_revocation_number` to the commitment number
 	 *     of the next `revoke_and_ack` message it expects to receive.
-	 *   - if `option_static_remotekey` applies to the commitment transaction:
+	 *   - if `option_static_remotekey` or `option_anchors` applies to the commitment transaction:
 	 *     - MUST set `my_current_per_commitment_point` to a valid point.
 	 *   - otherwise:
 	 *     - MUST set `my_current_per_commitment_point` to its commitment
