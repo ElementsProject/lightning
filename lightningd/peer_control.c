@@ -1533,7 +1533,7 @@ static struct command_result *json_listpeerchannels(struct command *cmd,
 
 	if (!param(cmd, buffer, params,
 		   p_opt("id", param_node_id, &peer_id),
-		   p_opt("state", param_channel_state, &state),
+		   p_opt("status", param_channel_state, &state),
 		   p_opt("level", param_loglevel, &ll),
 		   NULL))
 		return command_param_failed();
