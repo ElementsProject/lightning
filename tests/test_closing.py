@@ -3132,6 +3132,43 @@ def test_shutdown_alternate_txid(node_factory, bitcoind):
     wait_for(lambda: l1.rpc.listpeers()['peers'] == [])
 
 
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs anchor_outputs")
+@pytest.mark.developer("needs to set dev-disconnect")
+def test_closing_higherfee(node_factory, bitcoind, executor):
+    """With anchor outputs we can ask for a *higher* fee than the last commit tx"""
+
+    # We change the feerate before it starts negotiating close, so it aims
+    # for *higher* than last commit tx.
+    l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
+                                               'dev-no-reconnect': None,
+                                               'feerates': (7500, 7500, 7500, 7500),
+                                               'disconnect': ['-WIRE_CLOSING_SIGNED']},
+                                              {'may_reconnect': True,
+                                               'dev-no-reconnect': None,
+                                               'feerates': (7500, 7500, 7500, 7500)}])
+    # This will trigger disconnect.
+    fut = executor.submit(l1.rpc.close, l2.info['id'])
+    l1.daemon.wait_for_log('dev_disconnect')
+
+    # Now adjust fees so l1 asks for more on reconnect.
+    l1.set_feerates((30000,) * 4, False)
+    l2.set_feerates((30000,) * 4, False)
+    l1.restart()
+    l2.restart()
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+
+    # This causes us to *exceed* previous requirements!
+    l1.daemon.wait_for_log(r'deriving max fee from rate 30000 -> 16440sat \(not 1000000sat\)')
+
+    # This will fail because l1 restarted!
+    with pytest.raises(RpcError, match=r'Connection to RPC server lost.'):
+        fut.result(TIMEOUT)
+
+    # But we still complete negotiation!
+    wait_for(lambda: only_one(l1.rpc.listpeers()['peers'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
+    wait_for(lambda: only_one(l2.rpc.listpeers()['peers'])['channels'][0]['state'] == 'CLOSINGD_COMPLETE')
+
+
 @pytest.mark.developer("needs dev_disconnect")
 def test_htlc_rexmit_while_closing(node_factory, executor):
     """Retranmitting an HTLC revocation while shutting down should work"""
