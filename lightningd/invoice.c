@@ -885,19 +885,6 @@ invoice_complete(struct invoice_info *info,
 				    info->label->s);
 	}
 
-	/* If this requires a giant HTLC, most implementations cannot
-	 * send that much; will need to split. */
-	/* BOLT #2:
-	 * ### Adding an HTLC: `update_add_htlc`
-	 *...
-	 *   - for channels with `chain_hash` identifying the Bitcoin blockchain:
-	 *    - MUST set the four most significant bytes of `amount_msat` to 0.
-	 */
-	if (info->b11->msat
-	    && amount_msat_greater(*info->b11->msat, chainparams->max_payment)) {
-		warning_mpp = true;
-	}
-
 	/* Get details */
 	details = wallet_invoice_details(info, wallet, invoice);
 
@@ -916,7 +903,7 @@ invoice_complete(struct invoice_info *info,
 				"No listincoming command available, cannot add routehints to invoice");
 	if (warning_mpp)
 		json_add_string(response, "warning_mpp",
-				"The invoice might only be payable by MPP-capable payers.");
+				"The invoice is only payable by MPP-capable payers.");
 	if (warning_capacity)
 		json_add_string(response, "warning_capacity",
 				"Insufficient incoming channel capacity to pay invoice");
