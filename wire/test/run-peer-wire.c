@@ -615,20 +615,27 @@ static struct msg_funding_signed *fromwire_struct_funding_signed(const tal_t *ct
 static void *towire_struct_closing_signed(const tal_t *ctx,
 					  const struct msg_closing_signed *s)
 {
+	struct tlv_closing_signed_tlvs *close_tlvs;
+
+	close_tlvs = tlv_closing_signed_tlvs_new(ctx);
 	return towire_closing_signed(ctx,
 				     &s->channel_id,
 				     s->fee_satoshis,
-				     &s->signature);
+				     &s->signature,
+				     close_tlvs);
 }
 
 static struct msg_closing_signed *fromwire_struct_closing_signed(const tal_t *ctx, const void *p)
 {
 	struct msg_closing_signed *s = tal(ctx, struct msg_closing_signed);
+	struct tlv_closing_signed_tlvs *close_tlvs;
 
+	close_tlvs = tlv_closing_signed_tlvs_new(ctx);
 	if (fromwire_closing_signed(p,
 				    &s->channel_id,
 				    &s->fee_satoshis,
-				    &s->signature))
+				    &s->signature,
+				    close_tlvs))
 		return s;
 	return tal_free(s);
 }
