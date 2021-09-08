@@ -2,6 +2,7 @@
 #include <bitcoin/script.h>
 #include <closingd/closingd_wiregen.h>
 #include <common/close_tx.h>
+#include <common/closing_fee.h>
 #include <common/fee_states.h>
 #include <common/initial_commit_tx.h>
 #include <common/per_peer_state.h>
@@ -289,6 +290,12 @@ void peer_start_closingd(struct channel *channel,
 				       channel->shutdown_scriptpubkey[REMOTE],
 				       channel->closing_fee_negotiation_step,
 				       channel->closing_fee_negotiation_step_unit,
+				       (ld->use_quickclose
+					/* Don't quickclose if they specified how to negotiate! */
+					&& channel->closing_fee_negotiation_step == 50
+					&& channel->closing_fee_negotiation_step_unit == CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE)
+				       /* Always use quickclose with anchors */
+				       || channel->option_anchor_outputs,
 				       IFDEV(ld->dev_fast_gossip, false),
 				       channel->shutdown_wrong_funding);
 

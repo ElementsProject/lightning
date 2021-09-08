@@ -48,7 +48,7 @@ bool closingd_wire_is_defined(u16 type)
 
 /* WIRE: CLOSINGD_INIT */
 /* Begin!  (passes peer fd */
-u8 *towire_closingd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct per_peer_state *pps, const struct channel_id *channel_id, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshi, const struct pubkey *local_fundingkey, const struct pubkey *remote_fundingkey, enum side opener, struct amount_sat local_sat, struct amount_sat remote_sat, struct amount_sat our_dust_limit, u32 min_feerate_perksipa, u32 preferred_feerate_perksipa, struct amount_sat fee_limit_satoshi, const u8 *local_scriptpubkey, const u8 *remote_scriptpubkey, u64 fee_negotiation_step, u8 fee_negotiation_step_unit, bool dev_fast_gossip, const struct bitcoin_outpoint *shutdown_wrong_funding)
+u8 *towire_closingd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct per_peer_state *pps, const struct channel_id *channel_id, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshi, const struct pubkey *local_fundingkey, const struct pubkey *remote_fundingkey, enum side opener, struct amount_sat local_sat, struct amount_sat remote_sat, struct amount_sat our_dust_limit, u32 min_feerate_perksipa, u32 preferred_feerate_perksipa, struct amount_sat fee_limit_satoshi, const u8 *local_scriptpubkey, const u8 *remote_scriptpubkey, u64 fee_negotiation_step, u8 fee_negotiation_step_unit, bool use_quickclose, bool dev_fast_gossip, const struct bitcoin_outpoint *shutdown_wrong_funding)
 {
 	u16 local_scriptpubkey_len = tal_count(local_scriptpubkey);
 	u16 remote_scriptpubkey_len = tal_count(remote_scriptpubkey);
@@ -76,6 +76,7 @@ u8 *towire_closingd_init(const tal_t *ctx, const struct chainparams *chainparams
 	towire_u8_array(&p, remote_scriptpubkey, remote_scriptpubkey_len);
 	towire_u64(&p, fee_negotiation_step);
 	towire_u8(&p, fee_negotiation_step_unit);
+	towire_bool(&p, use_quickclose);
 	towire_bool(&p, dev_fast_gossip);
 	if (!shutdown_wrong_funding)
 		towire_bool(&p, false);
@@ -86,7 +87,7 @@ u8 *towire_closingd_init(const tal_t *ctx, const struct chainparams *chainparams
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_closingd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct per_peer_state **pps, struct channel_id *channel_id, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshi, struct pubkey *local_fundingkey, struct pubkey *remote_fundingkey, enum side *opener, struct amount_sat *local_sat, struct amount_sat *remote_sat, struct amount_sat *our_dust_limit, u32 *min_feerate_perksipa, u32 *preferred_feerate_perksipa, struct amount_sat *fee_limit_satoshi, u8 **local_scriptpubkey, u8 **remote_scriptpubkey, u64 *fee_negotiation_step, u8 *fee_negotiation_step_unit, bool *dev_fast_gossip, struct bitcoin_outpoint **shutdown_wrong_funding)
+bool fromwire_closingd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct per_peer_state **pps, struct channel_id *channel_id, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshi, struct pubkey *local_fundingkey, struct pubkey *remote_fundingkey, enum side *opener, struct amount_sat *local_sat, struct amount_sat *remote_sat, struct amount_sat *our_dust_limit, u32 *min_feerate_perksipa, u32 *preferred_feerate_perksipa, struct amount_sat *fee_limit_satoshi, u8 **local_scriptpubkey, u8 **remote_scriptpubkey, u64 *fee_negotiation_step, u8 *fee_negotiation_step_unit, bool *use_quickclose, bool *dev_fast_gossip, struct bitcoin_outpoint **shutdown_wrong_funding)
 {
 	u16 local_scriptpubkey_len;
 	u16 remote_scriptpubkey_len;
@@ -121,6 +122,7 @@ bool fromwire_closingd_init(const tal_t *ctx, const void *p, const struct chainp
 	fromwire_u8_array(&cursor, &plen, *remote_scriptpubkey, remote_scriptpubkey_len);
  	*fee_negotiation_step = fromwire_u64(&cursor, &plen);
  	*fee_negotiation_step_unit = fromwire_u8(&cursor, &plen);
+ 	*use_quickclose = fromwire_bool(&cursor, &plen);
  	*dev_fast_gossip = fromwire_bool(&cursor, &plen);
  	if (!fromwire_bool(&cursor, &plen))
 		*shutdown_wrong_funding = NULL;
@@ -195,4 +197,4 @@ bool fromwire_closingd_complete(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:961ca5ceef03f911684ba0e7863d69993e692b9b418108e6038a567cb7cc7b3e
+// SHA256STAMP:b736e1d2c03a883962558ddcd5675d26cb09dcf3462c0cf82b3d49f1fd980c8a
