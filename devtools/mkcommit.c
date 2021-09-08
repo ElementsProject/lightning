@@ -408,6 +408,7 @@ int main(int argc, char *argv[])
 				   &funding_localkey, &funding_remotekey,
 				   option_static_remotekey,
 				   option_anchor_outputs,
+				   false,
 				   fee_payer);
 
 	if (!channel_force_htlcs(channel,

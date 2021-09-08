@@ -578,7 +578,8 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		return CHANNEL_ERR_HTLC_BELOW_MINIMUM;
 	}
 
-	/* BOLT #2:
+	/* FIXME: There used to be a requirement that we not send more than
+	 * 2^32 msat, *but* only electrum enforced it.  Remove in next version:
 	 *
 	 * A sending node:
 	 *...
