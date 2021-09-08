@@ -174,6 +174,9 @@ struct channel {
 	/* optional wrong_funding for mutual close */
 	const struct bitcoin_outpoint *shutdown_wrong_funding;
 
+	/* optional feerate min/max for mutual close */
+	u32 *closing_feerate_range;
+
 	/* Reestablishment stuff: last sent commit and revocation details. */
 	bool last_was_revoke;
 	struct changed_htlc *last_sent_commit;

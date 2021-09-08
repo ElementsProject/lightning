@@ -263,6 +263,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	channel->closing_fee_negotiation_step_unit
 		= CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
 	channel->shutdown_wrong_funding = NULL;
+	channel->closing_feerate_range = NULL;
 
 	/* Channel is connected! */
 	channel->connected = true;
@@ -429,6 +430,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		= CLOSING_FEE_NEGOTIATION_STEP_UNIT_PERCENTAGE;
 	channel->shutdown_wrong_funding
 		= tal_steal(channel, shutdown_wrong_funding);
+	channel->closing_feerate_range = NULL;
 	if (local_shutdown_scriptpubkey)
 		channel->shutdown_scriptpubkey[LOCAL]
 			= tal_steal(channel, local_shutdown_scriptpubkey);

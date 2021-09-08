@@ -622,6 +622,7 @@ static void calc_fee_bounds(size_t expected_weight,
 		/* option_anchor_outputs sets commitment_fee to max, so this
 		 * doesn't do anything */
 		if (amount_sat_greater(*maxfee, commitment_fee)) {
+			/* FIXME: would be nice to notify close cmd here! */
 			status_unusual("Maximum feerate %u would give fee %s:"
 				       " we must limit it to the final commitment fee %s",
 				       *max_feerate,

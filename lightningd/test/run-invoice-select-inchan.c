@@ -534,6 +534,11 @@ struct command_result *param_escaped_string(struct command *cmd UNNEEDED,
 					    const jsmntok_t *tok UNNEEDED,
 					    const char **str UNNEEDED)
 { fprintf(stderr, "param_escaped_string called!\n"); abort(); }
+/* Generated stub for param_feerate */
+struct command_result *param_feerate(struct command *cmd UNNEEDED, const char *name UNNEEDED,
+				     const char *buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
+				     u32 **feerate UNNEEDED)
+{ fprintf(stderr, "param_feerate called!\n"); abort(); }
 /* Generated stub for param_label */
 struct command_result *param_label(struct command *cmd UNNEEDED, const char *name UNNEEDED,
 				   const char * buffer UNNEEDED, const jsmntok_t *tok UNNEEDED,
