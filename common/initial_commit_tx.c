@@ -143,7 +143,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	 *
 	 * 3. Subtract this base fee from the funder (either `to_local` or
 	 * `to_remote`).
-	 * If `option_anchor_outputs` applies to the commitment transaction,
+	 * If `option_anchors` applies to the commitment transaction,
 	 * also subtract two times the fixed anchor size of 330 sats from the
 	 * funder (either `to_local` or `to_remote`).
 	 */
@@ -236,7 +236,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 	if (amount_msat_greater_eq_sat(other_pay, dust_limit)) {
 		/* BOLT #3:
 		 *
-		 * If `option_anchor_outputs` applies to the commitment
+		 * If `option_anchors` applies to the commitment
 		 * transaction, the `to_remote` output is encumbered by a one
 		 * block csv lock.
 		 *    <remote_pubkey> OP_CHECKSIGVERIFY 1 OP_CHECKSEQUENCEVERIFY
@@ -267,7 +267,7 @@ struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
 		to_remote = false;
 
 	/* BOLT #3:
-	 * 8. If `option_anchor_outputs` applies to the commitment transaction:
+	 * 8. If `option_anchors` applies to the commitment transaction:
 	 *    * if `to_local` exists or there are untrimmed HTLCs, add a
 	 *      [`to_local_anchor` output]...
 	 *    * if `to_remote` exists or there are untrimmed HTLCs, add a

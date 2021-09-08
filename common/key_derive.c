@@ -20,7 +20,7 @@
  * the `local_delayedpubkey` uses the local node's `delayed_payment_basepoint`;
  * and the `remote_delayedpubkey` uses the remote node's `delayed_payment_basepoint`.
  *...
- * If `option_static_remotekey` or `option_anchor_outputs` is negotiated, the
+ * If `option_static_remotekey` or `option_anchors` is negotiated, the
  * `remotepubkey` is simply the remote node's `payment_basepoint`, otherwise
  * it is calculated as above using the remote node's `payment_basepoint`.
  */

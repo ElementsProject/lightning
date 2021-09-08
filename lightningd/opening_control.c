@@ -147,12 +147,14 @@ wallet_commit_channel(struct lightningd *ld,
 	 * #### Requirements
 	 *
 	 * Both peers:
-	 *   - if `option_static_remotekey` or `option_anchor_outputs` was negotiated:
-	 *     - `option_static_remotekey` or `option_anchor_outputs` applies to all commitment
-	 *       transactions
+	 *  - if `option_static_remotekey`, `option_anchor_outputs` or
+	 *    `option_anchors_zero_fee_htlc_tx` was negotiated:
+	 *    - `option_static_remotekey`, `option_anchor_outputs` or
+	 *      `option_anchors_zero_fee_htlc_tx` applies to all commitment transactions
 	 *   - otherwise:
-	 *     - `option_static_remotekey` or `option_anchor_outputs` does not apply to any commitment
-	 *        transactions
+	 *       - `option_static_remotekey`, `option_anchor_outputs` or
+	 *      `option_anchors_zero_fee_htlc_tx` does not apply to any commitment
+	 *      transactions
 	 */
 	/* i.e. We set it now for the channel permanently. */
 	if (feature_negotiated(ld->our_features,

@@ -231,7 +231,8 @@ void peer_start_closingd(struct channel *channel,
 		return;
 	}
 
-	/* BOLT #2:
+	/* FIXME: This is the old BOLT 2 text, which restricted the closing
+	 * fee to cap at the final commitment fee.  We still do this for now.
 	 *
 	 * The sending node:
 	 *  - MUST set `fee_satoshis` less than or equal to the base
