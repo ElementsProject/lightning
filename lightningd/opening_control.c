@@ -147,14 +147,18 @@ wallet_commit_channel(struct lightningd *ld,
 	 * #### Requirements
 	 *
 	 * Both peers:
-	 *  - if `option_static_remotekey`, `option_anchor_outputs` or
-	 *    `option_anchors_zero_fee_htlc_tx` was negotiated:
-	 *    - `option_static_remotekey`, `option_anchor_outputs` or
-	 *      `option_anchors_zero_fee_htlc_tx` applies to all commitment transactions
+	 * ...
+	 *   - if `option_anchors_zero_fee_htlc_tx` was negotiated:
+	 *     - the `channel_type` is `option_anchors_zero_fee_htlc_tx` and
+	 *       `option_static_remotekey` (bits 22 and 12)
+	 *   - otherwise, if `option_anchor_outputs` was negotiated:
+	 *     - the `channel_type` is `option_anchor_outputs` and
+	 *       `option_static_remotekey` (bits 20 and 12)
+	 *   - otherwise, if `option_static_remotekey` was negotiated:
+	 *     - the `channel_type` is `option_static_remotekey` (bit 12)
 	 *   - otherwise:
-	 *       - `option_static_remotekey`, `option_anchor_outputs` or
-	 *      `option_anchors_zero_fee_htlc_tx` does not apply to any commitment
-	 *      transactions
+	 *     - the `channel_type` is empty
+	 * - MUST use that `channel_type` for all commitment transactions.
 	 */
 	/* i.e. We set it now for the channel permanently. */
 	if (feature_negotiated(ld->our_features,

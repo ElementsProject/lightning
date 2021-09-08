@@ -185,7 +185,7 @@ static void send_offer(struct per_peer_state *pps,
 		     type_to_string(tmpctx, struct amount_sat, &fee_to_offer));
 
 	assert(our_sig.sighash_type == SIGHASH_ALL);
-	msg = towire_closing_signed(NULL, channel_id, fee_to_offer, &our_sig.s);
+	msg = towire_closing_signed(NULL, channel_id, fee_to_offer, &our_sig.s, NULL);
 	sync_crypto_write(pps, take(msg));
 }
 
@@ -229,6 +229,7 @@ receive_offer(struct per_peer_state *pps,
 	struct amount_sat received_fee;
 	struct bitcoin_signature their_sig;
 	struct bitcoin_tx *tx;
+	struct tlv_closing_signed_tlvs *close_tlvs;
 
 	/* Wait for them to say something interesting */
 	do {
@@ -252,8 +253,10 @@ receive_offer(struct per_peer_state *pps,
 	} while (!msg);
 
 	their_sig.sighash_type = SIGHASH_ALL;
+	close_tlvs = tlv_closing_signed_tlvs_new(msg);
 	if (!fromwire_closing_signed(msg, &their_channel_id,
-				     &received_fee, &their_sig.s))
+				     &received_fee, &their_sig.s,
+				     close_tlvs))
 		peer_failed_warn(pps, channel_id,
 				 "Expected closing_signed: %s",
 				 tal_hex(tmpctx, msg));
@@ -347,7 +350,8 @@ static void init_feerange(struct feerange *feerange,
 {
 	feerange->min = AMOUNT_SAT(0);
 
-	/* BOLT #2:
+	/* FIXME: BOLT 2 previously said that we have to set it to less than
+	 * the final commit fee: we do this for now, still:
 	 *
 	 *  - MUST set `fee_satoshis` less than or equal to the base
          *    fee of the final commitment transaction, as calculated
@@ -371,7 +375,8 @@ static void adjust_feerange(struct feerange *feerange,
 {
 	bool ok;
 
-	/* BOLT #2:
+	/* FIXME: BOLT 2 previously said that we have to set it to less than
+	 * the final commit fee: we do this for now, still:
 	 *
 	 *     - MUST propose a value "strictly between" the received
 	 *      `fee_satoshis` and its previously-sent `fee_satoshis`.
