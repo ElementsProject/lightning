@@ -625,6 +625,16 @@ about whether to add funds or not to a proposed channel is handled
 automatically by a plugin that implements the appropriate logic for
 your needs\. The default behavior is to not contribute funds\.
 
+
+ \fBexperimental-quick-close\fR
+
+
+Specifying this means we send our range of acceptable fees to the peer
+on mutual close\.  If they support it too, we'll simply use that for
+closing (unless \fIfee_negotiation_step\fR is set, see \fBlightning-close\fR(7))\.
+We always use this on channels which negotiation \fBoption_anchor_outputs\fR,
+as the spec requires that\.
+
 .SH BUGS
 
 You should report bugs on our github issues page, and maybe submit a fix
@@ -650,4 +660,4 @@ Main web site: \fIhttps://github.com/ElementsProject/lightning\fR
 Note: the modules in the ccan/ directory have their own licenses, but
 the rest of the code is covered by the BSD-style MIT license\.
 
-\" SHA256STAMP:1c392f3fee66dc6c1fc2c34200204a9be1d79e53fd5fb1720ad169fc671f71c0
+\" SHA256STAMP:0d2474276b325cb002191211fb1d0da2409ebc859ff3ccc6dd3e688b10d4550c

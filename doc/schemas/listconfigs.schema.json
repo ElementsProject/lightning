@@ -117,6 +117,10 @@
 	    "type": "boolean",
 	    "description": "`experimental-offers` field from config or cmdline, or default"
 	},
+	"experimental-quick-close": {
+	    "type": "boolean",
+	    "description": "`experimental-quick-close` field from config or cmdline, or default"
+	},
 	"experimental-shutdown-wrong-funding": {
 	    "type": "boolean",
 	    "description": "`experimental-shutdown-wrong-funding` field from config or cmdline, or default"

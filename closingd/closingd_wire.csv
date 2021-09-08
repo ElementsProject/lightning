@@ -26,6 +26,7 @@ msgdata,closingd_init,remote_scriptpubkey_len,u16,
 msgdata,closingd_init,remote_scriptpubkey,u8,remote_scriptpubkey_len
 msgdata,closingd_init,fee_negotiation_step,u64,
 msgdata,closingd_init,fee_negotiation_step_unit,u8,
+msgdata,closingd_init,use_quickclose,bool,
 msgdata,closingd_init,dev_fast_gossip,bool,
 msgdata,closingd_init,shutdown_wrong_funding,?bitcoin_outpoint,
 
