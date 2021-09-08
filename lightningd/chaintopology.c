@@ -438,6 +438,8 @@ static void update_feerates(struct bitcoind *bitcoind,
 static void start_fee_estimate(struct chain_topology *topo)
 {
 	topo->updatefee_timer = NULL;
+	if (topo->stopping)
+		return;
 	/* Once per new block head, update fee estimates. */
 	bitcoind_estimate_fees(topo->bitcoind, NUM_FEERATES, update_feerates,
 			       topo);
@@ -937,6 +939,8 @@ static void get_new_block(struct bitcoind *bitcoind,
 static void try_extend_tip(struct chain_topology *topo)
 {
 	topo->extend_timer = NULL;
+	if (topo->stopping)
+		return;
 	bitcoind_getrawblockbyheight(topo->bitcoind, topo->tip->height + 1,
 				     get_new_block, topo);
 }
@@ -1066,6 +1070,7 @@ struct chain_topology *new_topology(struct lightningd *ld, struct log *log)
 	topo->feerate_uninitialized = true;
 	topo->root = NULL;
 	topo->sync_waiters = tal(topo, struct list_head);
+	topo->stopping = false;
 	list_head_init(topo->sync_waiters);
 
 	return topo;
@@ -1158,6 +1163,8 @@ check_chain(struct bitcoind *bitcoind, const char *chain,
 static void retry_check_chain(struct chain_topology *topo)
 {
 	topo->bitcoind->checkchain_timer = NULL;
+	if (topo->stopping)
+		return;
 	bitcoind_getchaininfo(topo->bitcoind, false, check_chain, topo);
 }
 
@@ -1194,9 +1201,11 @@ void begin_topology(struct chain_topology *topo)
 
 void stop_topology(struct chain_topology *topo)
 {
+	/* Stop timers from re-arming. */
+	topo->stopping = true;
+
 	/* Remove timers while we're cleaning up plugins. */
 	tal_free(topo->bitcoind->checkchain_timer);
 	tal_free(topo->extend_timer);
 	tal_free(topo->updatefee_timer);
 }
-
