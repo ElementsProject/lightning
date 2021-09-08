@@ -517,14 +517,6 @@ about whether to add funds or not to a proposed channel is handled
 automatically by a plugin that implements the appropriate logic for
 your needs. The default behavior is to not contribute funds.
 
- **experimental-quick-close**
- 
-Specifying this means we send our range of acceptable fees to the peer
-on mutual close.  If they support it too, we'll simply use that for
-closing (unless *fee_negotiation_step* is set, see lightning-close(7)).
-We always use this on channels which negotiation `option_anchor_outputs`,
-as the spec requires that.
-
 BUGS
 ----
 

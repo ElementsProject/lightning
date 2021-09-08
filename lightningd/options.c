@@ -1062,10 +1062,6 @@ static void register_opts(struct lightningd *ld)
 			 "--subdaemon=hsmd:remote_signer "
 			 "would use a hypothetical remote signing subdaemon.");
 
-	opt_register_noarg("--experimental-quick-close",
-			   opt_set_bool, &ld->use_quickclose,
-			   "EXPERIMENTAL: offer range to mutual close");
-
 	opt_register_logging(ld);
 	opt_register_version();
 

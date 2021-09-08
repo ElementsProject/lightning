@@ -462,21 +462,6 @@ def test_closing_negotiation_step_30pct(node_factory, bitcoind, chainparams):
 
 
 @unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
-def test_closing_negotiation_step_50pct(node_factory, bitcoind, chainparams):
-    """Test that the closing fee negotiation step works, 50%, the default"""
-    opts = {}
-    opts['fee_negotiation_step'] = '50%'
-
-    opts['close_initiated_by'] = 'opener'
-    opts['expected_close_fee'] = 20334 if not chainparams['elements'] else 25789
-    closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
-
-    opts['close_initiated_by'] = 'peer'
-    opts['expected_close_fee'] = 20334 if not chainparams['elements'] else 25789
-    closing_negotiation_step(node_factory, bitcoind, chainparams, opts)
-
-
-@unittest.skipIf(EXPERIMENTAL_FEATURES, "anchors uses quick-close, not negotiation")
 def test_closing_negotiation_step_100pct(node_factory, bitcoind, chainparams):
     """Test that the closing fee negotiation step works, 100%"""
     opts = {}
@@ -3331,7 +3316,7 @@ def test_anysegwit_close_needs_feature(node_factory, bitcoind):
 
 def test_close_feerate_range(node_factory, bitcoind, chainparams):
     """Test the quick-close fee range negotiation"""
-    l1, l2 = node_factory.line_graph(2, opts={'experimental-quick-close': None})
+    l1, l2 = node_factory.line_graph(2)
 
     # Lowball the range here.
     l1.rpc.close(l2.info['id'], feerange=['253perkw', 'normal'])

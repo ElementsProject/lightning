@@ -33,9 +33,7 @@ friends to upgrade!
 
 The *fee_negotiation_step* parameter controls how closing fee
 negotiation is performed assuming the peer proposes a fee that is
-different than our estimate.  (Note that using this option
-prevents **experimental-quick-close**, as the quick-close protocol
-does not allow negotiation).
+different than our estimate.  (Note that modern peers use the quick-close protocol which does not allow negotiation: see *feerange* instead).
 
 On every negotiation step we must give up
 some amount from our proposal towards the peer's proposal. This parameter
@@ -65,10 +63,10 @@ can rescue openings which have been manually miscreated.
 (option_will_fund), we prevent initiation of a mutual close
 unless this flag is passed in. Defaults to false.
 
-
 *feerange* is an optional array [ *min*, *max* ], indicating the
-minimum and maximum feerates to offer.  *slow* and *unilateral_close*
-are the defaults.
+minimum and maximum feerates to offer: the peer will obey these if it
+supports the quick-close protocol.  *slow* and *unilateral_close* are
+the defaults.
 
 Rates are one of the strings *urgent* (aim for next block), *normal*
 (next 4 blocks or so) or *slow* (next 100 blocks or so) to use
