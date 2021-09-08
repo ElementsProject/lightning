@@ -3789,6 +3789,8 @@ static void init_channel(struct peer *peer)
 					 &funding_pubkey[REMOTE],
 					 option_static_remotekey,
 					 option_anchor_outputs,
+					 feature_offered(peer->their_features,
+							 OPT_LARGE_CHANNELS),
 					 opener);
 
 	if (!channel_force_htlcs(peer->channel,

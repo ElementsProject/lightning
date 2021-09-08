@@ -109,6 +109,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 const struct pubkey *remote_funding_pubkey,
 				 bool option_static_remotekey,
 				 bool option_anchor_outputs,
+				 bool option_wumbo,
 				 enum side opener)
 {
 	struct channel *channel = new_initial_channel(ctx,
@@ -128,6 +129,7 @@ struct channel *new_full_channel(const tal_t *ctx,
 						      remote_funding_pubkey,
 						      option_static_remotekey,
 						      option_anchor_outputs,
+						      option_wumbo,
 						      opener);
 
 	if (channel) {
@@ -584,7 +586,8 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	 *    - MUST set the four most significant bytes of `amount_msat` to 0.
 	 */
 	if (sender == LOCAL
-	    && amount_msat_greater(htlc->amount, chainparams->max_payment)) {
+	    && amount_msat_greater(htlc->amount, chainparams->max_payment)
+	    && !channel->option_wumbo) {
 		return CHANNEL_ERR_MAX_HTLC_VALUE_EXCEEDED;
 	}
 

@@ -1726,6 +1726,8 @@ static void revert_channel_state(struct state *state)
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
 					     true, true,
+					     feature_offered(state->their_features,
+							     OPT_LARGE_CHANNELS),
 					     opener);
 }
 
@@ -1828,6 +1830,8 @@ static u8 *accepter_commits(struct state *state,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
 					     true, true,
+					     feature_offered(state->their_features,
+							     OPT_LARGE_CHANNELS),
 					     REMOTE);
 
 	local_commit = initial_channel_tx(state, &wscript, state->channel,
@@ -2436,6 +2440,8 @@ static u8 *opener_commits(struct state *state,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
 					     true, true,
+					     feature_offered(state->their_features,
+							     OPT_LARGE_CHANNELS),
 					     /* Opener is local */
 					     LOCAL);
 
@@ -3858,7 +3864,10 @@ int main(int argc, char *argv[])
 						     &state->their_points,
 						     &state->our_funding_pubkey,
 						     &state->their_funding_pubkey,
-						     true, true, opener);
+						     true, true,
+						     feature_offered(state->their_features,
+								     OPT_LARGE_CHANNELS),
+						     opener);
 
 		if (opener == LOCAL)
 			state->our_role = TX_INITIATOR;

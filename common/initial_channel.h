@@ -75,6 +75,9 @@ struct channel {
 	/* Is this using option_anchor_outputs? */
 	bool option_anchor_outputs;
 
+	/* Are we using big channels? */
+	bool option_wumbo;
+
 	/* When the lease expires for the funds in this channel */
 	u32 lease_expiry;
 };
@@ -99,6 +102,7 @@ struct channel {
  * @remote_fundingkey: remote funding key
  * @option_static_remotekey: was this created with option_static_remotekey?
  * @option_anchor_outputs: was this created with option_anchor_outputs?
+ * @option_wumbo: has peer currently negotiated wumbo?
  * @opener: which side initiated it.
  *
  * Returns channel, or NULL if malformed.
@@ -121,6 +125,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct pubkey *remote_funding_pubkey,
 				    bool option_static_remotekey,
 				    bool option_anchor_outputs,
+				    bool option_wumbo,
 				    enum side opener);
 
 /**

@@ -533,6 +533,8 @@ static bool funder_finalize_channel_setup(struct state *state,
 					     &state->their_funding_pubkey,
 					     state->option_static_remotekey,
 					     state->option_anchor_outputs,
+					     feature_offered(state->their_features,
+							     OPT_LARGE_CHANNELS),
 					     /* Opener is local */
 					     LOCAL);
 	/* We were supposed to do enough checks above, but just in case,
@@ -1023,6 +1025,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					     &their_funding_pubkey,
 					     state->option_static_remotekey,
 					     state->option_anchor_outputs,
+					     feature_offered(state->their_features,
+							     OPT_LARGE_CHANNELS),
 					     REMOTE);
 	/* We don't expect this to fail, but it does do some additional
 	 * internal sanity checks. */
