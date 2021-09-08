@@ -35,6 +35,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct pubkey *remote_funding_pubkey,
 				    bool option_static_remotekey,
 				    bool option_anchor_outputs,
+				    bool option_wumbo,
 				    enum side opener)
 {
 	struct channel *channel = tal(ctx, struct channel);
@@ -83,6 +84,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 
 	channel->option_static_remotekey = option_static_remotekey;
 	channel->option_anchor_outputs = option_anchor_outputs;
+	channel->option_wumbo = option_wumbo;
 	if (option_anchor_outputs)
 		assert(option_static_remotekey);
 	return channel;

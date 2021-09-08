@@ -493,7 +493,7 @@ int main(int argc, const char *argv[])
 				    &localbase, &remotebase,
 				    &local_funding_pubkey,
 				    &remote_funding_pubkey,
-				    false, false, LOCAL);
+				    false, false, false, LOCAL);
 	rchannel = new_full_channel(tmpctx, &cid,
 				    &funding_txid, funding_output_index, 0,
 				    take(new_height_states(NULL, REMOTE, &blockheight)),
@@ -506,7 +506,7 @@ int main(int argc, const char *argv[])
 				    &remotebase, &localbase,
 				    &remote_funding_pubkey,
 				    &local_funding_pubkey,
-				    false, false, REMOTE);
+				    false, false, false, REMOTE);
 
 	/* BOLT #3:
 	 *
