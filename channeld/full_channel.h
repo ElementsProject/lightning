@@ -28,8 +28,7 @@ struct existing_htlc;
  * @remote_basepoints: remote basepoints.
  * @local_fundingkey: local funding key
  * @remote_fundingkey: remote funding key
- * @option_static_remotekey: use `option_static_remotekey`.
- * @option_anchor_outputs: use `option_anchor_outputs`.
+ * @type: type for this channel
  * @option_wumbo: large channel negotiated.
  * @opener: which side initiated it.
  *
@@ -44,15 +43,14 @@ struct channel *new_full_channel(const tal_t *ctx,
 				 u32 lease_expiry,
 				 struct amount_sat funding,
 				 struct amount_msat local_msat,
-				 const struct fee_states *fee_states,
+				 const struct fee_states *fee_states TAKES,
 				 const struct channel_config *local,
 				 const struct channel_config *remote,
 				 const struct basepoints *local_basepoints,
 				 const struct basepoints *remote_basepoints,
 				 const struct pubkey *local_funding_pubkey,
 				 const struct pubkey *remote_funding_pubkey,
-				 bool option_static_remotekey,
-				 bool option_anchor_outputs,
+				 const struct channel_type *type TAKES,
 				 bool option_wumbo,
 				 enum side opener);
 

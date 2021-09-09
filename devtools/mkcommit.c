@@ -272,6 +272,7 @@ int main(int argc, char *argv[])
 	struct privkey local_htlc_privkey, remote_htlc_privkey;
 	struct pubkey local_htlc_pubkey, remote_htlc_pubkey;
 	bool option_static_remotekey = false, option_anchor_outputs = false;
+	const struct channel_type *channel_type;
 	struct sha256_double hash;
 	u32 blockheight = 0;
 
@@ -394,6 +395,13 @@ int main(int argc, char *argv[])
 	/* FIXME: option for v2? */
 	derive_channel_id(&cid, &funding_txid, funding_outnum);
 
+	if (option_anchor_outputs)
+		channel_type = channel_type_anchor_outputs(NULL);
+	else if (option_static_remotekey)
+		channel_type = channel_type_static_remotekey(NULL);
+	else
+		channel_type = channel_type_none(NULL);
+
 	channel = new_full_channel(NULL,
 				   &cid,
 				   &funding_txid, funding_outnum, 1,
@@ -407,8 +415,7 @@ int main(int argc, char *argv[])
 				   &localconfig, &remoteconfig,
 				   &localbase, &remotebase,
 				   &funding_localkey, &funding_remotekey,
-				   option_static_remotekey,
-				   option_anchor_outputs,
+				   channel_type,
 				   false,
 				   fee_payer);
 

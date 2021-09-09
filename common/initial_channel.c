@@ -33,8 +33,7 @@ struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct basepoints *remote_basepoints,
 				    const struct pubkey *local_funding_pubkey,
 				    const struct pubkey *remote_funding_pubkey,
-				    bool option_static_remotekey,
-				    bool option_anchor_outputs,
+				    const struct channel_type *type TAKES,
 				    bool option_wumbo,
 				    enum side opener)
 {
@@ -82,11 +81,10 @@ struct channel *new_initial_channel(const tal_t *ctx,
 		= commit_number_obscurer(&channel->basepoints[opener].payment,
 					 &channel->basepoints[!opener].payment);
 
-	channel->option_static_remotekey = option_static_remotekey;
-	channel->option_anchor_outputs = option_anchor_outputs;
 	channel->option_wumbo = option_wumbo;
-	if (option_anchor_outputs)
-		assert(option_static_remotekey);
+	/* takes() if necessary */
+	channel->type = tal_dup(channel, struct channel_type, type);
+
 	return channel;
 }
 
@@ -109,7 +107,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 	if (!derive_keyset(per_commitment_point,
 			   &channel->basepoints[side],
 			   &channel->basepoints[!side],
-			   channel->option_static_remotekey,
+			   channel_has(channel, OPT_STATIC_REMOTEKEY),
 			   &keyset)) {
 		*err_reason = "Cannot derive keyset";
 		return NULL;
@@ -145,7 +143,7 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				    0 ^ channel->commitment_number_obscurer,
 				    direct_outputs,
 				    side, csv_lock,
-				    channel->option_anchor_outputs,
+				    channel_has(channel, OPT_ANCHOR_OUTPUTS),
 				    err_reason);
 
 	if (init_tx) {
@@ -169,23 +167,12 @@ u32 channel_blockheight(const struct channel *channel, enum side side)
 			       channel->opener, side);
 }
 
-struct channel_type *current_channel_type(const tal_t *ctx,
-                                         const struct channel *channel)
-{
-       if (channel->option_anchor_outputs)
-               return channel_type_anchor_outputs(ctx);
-       if (channel->option_static_remotekey)
-               return channel_type_static_remotekey(ctx);
-
-       return channel_type_none(ctx);
-}
-
 struct channel_type **channel_upgradable_types(const tal_t *ctx,
 					       const struct channel *channel)
 {
 	struct channel_type **arr = tal_arr(ctx, struct channel_type *, 0);
 
-	if (!channel->option_static_remotekey)
+	if (!channel_has(channel, OPT_STATIC_REMOTEKEY))
 		tal_arr_expand(&arr, channel_type_static_remotekey(arr));
 
 	return arr;
@@ -195,11 +182,16 @@ struct channel_type *channel_desired_type(const tal_t *ctx,
 					  const struct channel *channel)
 {
 	/* We don't actually want to downgrade anchors! */
-	if (channel->option_anchor_outputs)
+	if (channel_has(channel, OPT_ANCHOR_OUTPUTS))
 		return channel_type_anchor_outputs(ctx);
 
 	/* For now, we just want option_static_remotekey */
 	return channel_type_static_remotekey(ctx);
+}
+
+bool channel_has(const struct channel *channel, int feature)
+{
+	return channel_type_has(channel->type, feature);
 }
 
 static char *fmt_channel_view(const tal_t *ctx, const struct channel_view *view)

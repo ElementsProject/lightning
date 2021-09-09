@@ -377,17 +377,18 @@ static bool match_type(const struct channel_type *desired,
 static void set_channel_type(struct channel *channel,
 			     const struct channel_type *type)
 {
-	const struct channel_type *cur = current_channel_type(tmpctx, channel);
+	const struct channel_type *cur = channel->type;
 
 	if (channel_type_eq(cur, type))
 		return;
 
 	/* We only allow one upgrade at the moment, so that's it. */
-	assert(!channel->option_static_remotekey);
+	assert(!channel_has(channel, OPT_STATIC_REMOTEKEY));
 	assert(feature_offered(type->features, OPT_STATIC_REMOTEKEY));
 
 	/* Do upgrade, tell master. */
-	channel->option_static_remotekey = true;
+	tal_free(channel->type);
+	channel->type = channel_type_dup(channel, type);
 	status_unusual("Upgraded channel to [%s]",
 		       fmt_featurebits(tmpctx, type->features));
 	wire_sync_write(MASTER_FD, take(towire_channeld_upgraded(NULL, true)));
@@ -1053,7 +1054,8 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 	msg = towire_hsmd_sign_remote_commitment_tx(NULL, txs[0],
 						   &peer->channel->funding_pubkey[REMOTE],
 						   &peer->remote_per_commit,
-						   peer->channel->option_static_remotekey);
+						    channel_has(peer->channel,
+								OPT_STATIC_REMOTEKEY));
 
 	msg = hsm_req(tmpctx, take(msg));
 	if (!fromwire_hsmd_sign_tx_reply(msg, commit_sig))
@@ -1093,7 +1095,8 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 							  txs[i+1]->wtx->inputs[0].index);
 		msg = towire_hsmd_sign_remote_htlc_tx(NULL, txs[i + 1], wscript,
 						     &peer->remote_per_commit,
-						     peer->channel->option_anchor_outputs);
+						      channel_has(peer->channel,
+								  OPT_ANCHOR_OUTPUTS));
 
 		msg = hsm_req(tmpctx, take(msg));
 		if (!fromwire_hsmd_sign_tx_reply(msg, &htlc_sigs[i]))
@@ -1621,7 +1624,7 @@ static void handle_peer_commit_sig(struct peer *peer, const u8 *msg)
 	/* SIGHASH_ALL is implied. */
 	commit_sig.sighash_type = SIGHASH_ALL;
 	htlc_sigs = unraw_sigs(tmpctx, raw_sigs,
-			       peer->channel->option_anchor_outputs);
+			       channel_has(peer->channel, OPT_ANCHOR_OUTPUTS));
 
 	txs =
 	    channel_txs(tmpctx, &htlc_map, NULL,
@@ -2699,7 +2702,7 @@ static void peer_reconnect(struct peer *peer,
 
 	/* Both these options give us extra fields to check. */
 	check_extra_fields
-		= dataloss_protect || peer->channel->option_static_remotekey;
+		= dataloss_protect || channel_has(peer->channel, OPT_STATIC_REMOTEKEY);
 
 	/* Our current per-commitment point is the commitment point in the last
 	 * received signed commitment */
@@ -2733,8 +2736,8 @@ static void peer_reconnect(struct peer *peer,
 		 *    to.
 		 *  - MAY not set `upgradable` if it would be empty.
 		 */
-		send_tlvs->current_type
-			= current_channel_type(send_tlvs, peer->channel);
+		send_tlvs->current_type = tal_dup(send_tlvs, struct channel_type,
+						  peer->channel->type);
 		send_tlvs->upgradable = channel_upgradable_types(send_tlvs,
 								 peer->channel);
 	}
@@ -2770,7 +2773,7 @@ static void peer_reconnect(struct peer *peer,
 	 *     - MUST set `your_last_per_commitment_secret` to the last
 	 *       `per_commitment_secret` it received
 	 */
-	if (peer->channel->option_static_remotekey) {
+	if (channel_has(peer->channel, OPT_STATIC_REMOTEKEY)) {
 		msg = towire_channel_reestablish
 			(NULL, &peer->channel_id,
 			 peer->next_index[LOCAL],
@@ -2933,7 +2936,9 @@ got_reestablish:
 		check_future_dataloss_fields(peer,
 					     next_revocation_number,
 					     &last_local_per_commitment_secret,
-					     peer->channel->option_static_remotekey ? NULL :
+					     channel_has(peer->channel,
+							 OPT_STATIC_REMOTEKEY)
+					     ? NULL :
 					     &remote_current_per_commitment_point);
  	} else
  		retransmit_revoke_and_ack = false;
@@ -2981,7 +2986,8 @@ got_reestablish:
 					      next_revocation_number,
 					      next_commitment_number,
 					      &last_local_per_commitment_secret,
-					      peer->channel->option_static_remotekey
+					      channel_has(peer->channel,
+							  OPT_STATIC_REMOTEKEY)
 					      ? NULL
 					      : &remote_current_per_commitment_point);
 
@@ -3641,6 +3647,7 @@ static void init_channel(struct peer *peer)
 	bool option_static_remotekey, option_anchor_outputs;
 	struct penalty_base *pbases;
 	u8 *reestablish_only;
+	struct channel_type *channel_type;
 #if !DEVELOPER
 	bool dev_fail_process_onionpacket; /* Ignored */
 #endif
@@ -3766,6 +3773,14 @@ static void init_channel(struct peer *peer)
 	get_per_commitment_point(peer->next_index[LOCAL],
 				 &peer->next_local_per_commit, NULL);
 
+	/* FIXME: hand type directly from lightningd! */
+	if (option_anchor_outputs)
+		channel_type = channel_type_anchor_outputs(NULL);
+	else if (option_static_remotekey)
+		channel_type = channel_type_static_remotekey(NULL);
+	else
+		channel_type = channel_type_none(NULL);
+
 	peer->channel = new_full_channel(peer, &peer->channel_id,
 					 &funding_txid,
 					 funding_txout,
@@ -3779,8 +3794,7 @@ static void init_channel(struct peer *peer)
 					 &points[LOCAL], &points[REMOTE],
 					 &funding_pubkey[LOCAL],
 					 &funding_pubkey[REMOTE],
-					 option_static_remotekey,
-					 option_anchor_outputs,
+					 take(channel_type),
 					 feature_offered(peer->their_features,
 							 OPT_LARGE_CHANNELS),
 					 opener);
