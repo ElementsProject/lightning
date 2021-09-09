@@ -18,9 +18,9 @@
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
+#include <common/channel_type.h>
 #include <common/crypto_sync.h>
 #include <common/derive_basepoints.h>
-#include <common/features.h>
 #include <common/fee_states.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>

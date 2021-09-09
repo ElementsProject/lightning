@@ -3500,8 +3500,8 @@ def test_upgrade_statickey(node_factory, executor):
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     l1.daemon.wait_for_logs([r"They sent current_type \[\]",
-                             r"They offered upgrade to \[13\]"])
-    l2.daemon.wait_for_log(r"They sent desired_type \[13\]")
+                             r"They offered upgrade to \[12\]"])
+    l2.daemon.wait_for_log(r"They sent desired_type \[12\]")
 
     l1.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
     l2.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
@@ -3514,8 +3514,8 @@ def test_upgrade_statickey(node_factory, executor):
     # They won't offer upgrade!
     assert not l1.daemon.is_in_log("They offered upgrade",
                                    start=l1.daemon.logsearch_start)
-    l1.daemon.wait_for_log(r"They sent current_type \[13\]")
-    l2.daemon.wait_for_log(r"They sent desired_type \[13\]")
+    l1.daemon.wait_for_log(r"They sent current_type \[12\]")
+    l2.daemon.wait_for_log(r"They sent desired_type \[12\]")
 
 
 @unittest.skipIf(not EXPERIMENTAL_FEATURES, "upgrade protocol not available")

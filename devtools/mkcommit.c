@@ -20,6 +20,7 @@
 #include <common/amount.h>
 #include <common/blockheight_states.h>
 #include <common/channel_id.h>
+#include <common/channel_type.h>
 #include <common/derive_basepoints.h>
 #include <common/fee_states.h>
 #include <common/htlc_wire.h>

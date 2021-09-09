@@ -33,11 +33,11 @@
 #include <common/billboard.h>
 #include <common/blinding.h>
 #include <common/bolt12.h>
+#include <common/channel_type.h>
 #include <common/coin_mvt.h>
 #include <common/crypto_sync.h>
 #include <common/dev_disconnect.h>
 #include <common/ecdh_hsmd.h>
-#include <common/features.h>
 #include <common/gossip_constants.h>
 #include <common/gossip_store.h>
 #include <common/htlc_tx.h>
@@ -360,12 +360,6 @@ static bool handle_master_request_later(struct peer *peer, const u8 *msg)
 	return false;
 }
 
-static bool channel_type_eq(const struct channel_type *a,
-			    const struct channel_type *b)
-{
-	return featurebits_eq(a->features, b->features);
-}
-
 static bool match_type(const struct channel_type *desired,
 		       const struct channel_type *current,
 		       struct channel_type **upgradable)
@@ -377,18 +371,13 @@ static bool match_type(const struct channel_type *desired,
 	if (channel_type_eq(desired, current))
 		return true;
 
-	for (size_t i = 0; i < tal_count(upgradable); i++) {
-		if (channel_type_eq(desired, upgradable[i]))
-			return true;
-	}
-
-	return false;
+	return channel_type_eq_any(desired, upgradable);
 }
 
 static void set_channel_type(struct channel *channel,
 			     const struct channel_type *type)
 {
-	const struct channel_type *cur = channel_type(tmpctx, channel);
+	const struct channel_type *cur = current_channel_type(tmpctx, channel);
 
 	if (channel_type_eq(cur, type))
 		return;
@@ -2744,7 +2733,8 @@ static void peer_reconnect(struct peer *peer,
 		 *    to.
 		 *  - MAY not set `upgradable` if it would be empty.
 		 */
-		send_tlvs->current_type = channel_type(send_tlvs, peer->channel);
+		send_tlvs->current_type
+			= current_channel_type(send_tlvs, peer->channel);
 		send_tlvs->upgradable = channel_upgradable_types(send_tlvs,
 								 peer->channel);
 	}
