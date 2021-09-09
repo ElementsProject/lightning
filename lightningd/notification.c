@@ -555,7 +555,7 @@ void notify_channel_open_failed(struct lightningd *ld,
 	plugins_notify(ld->plugins, take(n));
 }
 
-REGISTER_NOTIFICATION(plugin_shutdown, NULL);
+REGISTER_NOTIFICATION(shutdown, NULL);
 
 bool notify_plugin_shutdown(struct lightningd *ld, struct plugin *p)
 {
