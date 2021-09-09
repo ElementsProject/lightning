@@ -284,7 +284,7 @@ struct channel *new_unsaved_channel(struct peer *peer,
 	 * | `option_anchor_outputs`    */
 	channel->static_remotekey_start[LOCAL]
 		= channel->static_remotekey_start[REMOTE] = 0;
-	channel->option_anchor_outputs = true;
+	channel->type = channel_type_anchor_outputs(channel);
 	channel->future_per_commitment_point = NULL;
 
 	channel->lease_commit_sig = NULL;
@@ -358,7 +358,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    const u8 *remote_upfront_shutdown_script,
 			    u64 local_static_remotekey_start,
 			    u64 remote_static_remotekey_start,
-			    bool option_anchor_outputs,
+			    const struct channel_type *type STEALS,
 			    enum side closer,
 			    enum state_change reason,
 			    /* NULL or stolen */
@@ -454,7 +454,7 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		= tal_steal(channel, remote_upfront_shutdown_script);
 	channel->static_remotekey_start[LOCAL] = local_static_remotekey_start;
 	channel->static_remotekey_start[REMOTE] = remote_static_remotekey_start;
-	channel->option_anchor_outputs = option_anchor_outputs;
+	channel->type = tal_steal(channel, type);
 	channel->forgets = tal_arr(channel, struct command *, 0);
 
 	channel->lease_expiry = lease_expiry;

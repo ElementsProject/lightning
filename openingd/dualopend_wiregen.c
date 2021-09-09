@@ -1051,4 +1051,4 @@ bool fromwire_dualopend_validate_lease_reply(const tal_t *ctx, const void *p, wi
 	}
 	return cursor != NULL;
 }
-// SHA256STAMP:c698a54fc29460937c0acb7747670f756df42d10b6cb2fe1d3676dd9c045eb4b
+// SHA256STAMP:4f00f3d34c3e8137837cf975ff52c868901b17ce0bc72efa61a561b0bb29fb07

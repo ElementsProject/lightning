@@ -639,4 +639,4 @@ bool fromwire_onchaind_notify_coin_mvt(const void *p, struct chain_coin_mvt *mvt
  	fromwire_chain_coin_mvt(&cursor, &plen, mvt);
 	return cursor != NULL;
 }
-// SHA256STAMP:20dc7be2811008cab3f7d2ddafb6c8496c9e8fcf91d00cb770c2f4b7f2038ff6
+// SHA256STAMP:bc0704404825187064ec3c7721098bdf5f2ccf07e9b7c3262474f3c8275f5a40

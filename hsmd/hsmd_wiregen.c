@@ -1331,4 +1331,4 @@ bool fromwire_hsmd_sign_option_will_fund_offer_reply(const void *p, secp256k1_ec
  	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, rsig);
 	return cursor != NULL;
 }
-// SHA256STAMP:5ad9bd055256f1ef74c90f07b1a7afce00922aef9780fb948eecbed409f288a7
+// SHA256STAMP:a4574dbaca95afe998846ff0252826cb9ec827a614eb8018c7decfb2c863f377
