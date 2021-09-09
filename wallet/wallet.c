@@ -652,7 +652,7 @@ bool wallet_add_onchaind_utxo(struct wallet *w,
 	else
 		db_bind_null(stmt, 8);
 
-	db_bind_int(stmt, 9, channel->option_anchor_outputs);
+	db_bind_int(stmt, 9, channel_has(channel, OPT_ANCHOR_OUTPUTS));
 	db_bind_int(stmt, 10, blockheight);
 
 	/* spendheight */
@@ -1245,6 +1245,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 	struct pubkey *future_per_commitment_point;
 	struct amount_sat funding_sat, our_funding_sat;
 	struct amount_msat push_msat, our_msat, msat_to_us_min, msat_to_us_max;
+	struct channel_type *type;
 	secp256k1_ecdsa_signature *lease_commit_sig;
 	u32 lease_chan_max_msat;
 	u16 lease_chan_max_ppt;
@@ -1381,6 +1382,13 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 		lease_chan_max_ppt = 0;
 	}
 
+	if (db_column_int(stmt, 49))
+		type = channel_type_anchor_outputs(NULL);
+	else if (db_column_u64(stmt, 47) != 0x7FFFFFFFFFFFFFFFULL)
+		type = channel_type_static_remotekey(NULL);
+	else
+		type = channel_type_none(NULL);
+
 	chan = new_channel(peer, db_column_u64(stmt, 0),
 			   &wshachain,
 			   db_column_int(stmt, 6),
@@ -1428,7 +1436,7 @@ static struct channel *wallet_stmt2channel(struct wallet *w, struct db_stmt *stm
 			   db_column_arr(tmpctx, stmt, 46, u8),
 			   db_column_u64(stmt, 47),
 			   db_column_u64(stmt, 48),
-			   db_column_int(stmt, 49),
+			   type,
 			   db_column_int(stmt, 51),
 			   db_column_int(stmt, 52),
 			   shutdown_wrong_funding,
@@ -1865,7 +1873,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 	db_bind_talarr(stmt, 29, chan->remote_upfront_shutdown_script);
 	db_bind_u64(stmt, 30, chan->static_remotekey_start[LOCAL]);
 	db_bind_u64(stmt, 31, chan->static_remotekey_start[REMOTE]);
-	db_bind_int(stmt, 32, chan->option_anchor_outputs);
+	db_bind_int(stmt, 32, channel_has(chan, OPT_ANCHOR_OUTPUTS));
 	db_bind_talarr(stmt, 33, chan->shutdown_scriptpubkey[LOCAL]);
 	db_bind_int(stmt, 34, chan->closer);
 	db_bind_int(stmt, 35, chan->state_change_cause);

@@ -705,7 +705,7 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  &channel->channel_info.remote_fundingkey,
 				  channel->static_remotekey_start[LOCAL],
 				  channel->static_remotekey_start[REMOTE],
-				  channel->option_anchor_outputs,
+				   channel_has(channel, OPT_ANCHOR_OUTPUTS),
 				  is_replay,
 				  feerate_min(ld, NULL));
 	subd_send_msg(channel->owner, take(msg));

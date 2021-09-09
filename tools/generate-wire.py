@@ -220,6 +220,7 @@ class Type(FieldSet):
     # Externally defined variable size types (require a context)
     varsize_types = [
         'peer_features',
+        'channel_type',
         'gossip_getnodes_entry',
         'gossip_getchannels_entry',
         'failed_htlc',

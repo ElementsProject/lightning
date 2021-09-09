@@ -504,7 +504,7 @@ static void json_add_htlcs(struct lightningd *ld,
 				htlc_state_name(hin->hstate));
 		if (htlc_is_trimmed(REMOTE, hin->msat, local_feerate,
 				    channel->our_config.dust_limit, LOCAL,
-				    channel->option_anchor_outputs))
+				    channel_has(channel, OPT_ANCHOR_OUTPUTS)))
 			json_add_bool(response, "local_trimmed", true);
 		if (hin->status != NULL)
 			json_add_string(response, "status", hin->status);
@@ -528,7 +528,7 @@ static void json_add_htlcs(struct lightningd *ld,
 				htlc_state_name(hout->hstate));
 		if (htlc_is_trimmed(LOCAL, hout->msat, local_feerate,
 				    channel->our_config.dust_limit, LOCAL,
-				    channel->option_anchor_outputs))
+				    channel_has(channel, OPT_ANCHOR_OUTPUTS)))
 			json_add_bool(response, "local_trimmed", true);
 		json_object_end(response);
 	}
@@ -563,6 +563,7 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 				  channel->opener, side);
 	struct amount_sat dust_limit;
 	struct amount_sat fee;
+	bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
 
 	if (side == LOCAL)
 		dust_limit = channel->our_config.dust_limit;
@@ -571,7 +572,7 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 
 	/* Assume we tried to add "amount" */
 	if (!htlc_is_trimmed(side, amount, feerate, dust_limit, side,
-			     channel->option_anchor_outputs))
+			     option_anchor_outputs))
 		num_untrimmed_htlcs++;
 
 	for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
@@ -580,8 +581,7 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 		if (hin->key.channel != channel)
 			continue;
 		if (!htlc_is_trimmed(!side, hin->msat, feerate, dust_limit,
-				     side,
-				     channel->option_anchor_outputs))
+				     side, option_anchor_outputs))
 			num_untrimmed_htlcs++;
 	}
 	for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
@@ -590,8 +590,7 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 		if (hout->key.channel != channel)
 			continue;
 		if (!htlc_is_trimmed(side, hout->msat, feerate, dust_limit,
-				     side,
-				     channel->option_anchor_outputs))
+				     side, option_anchor_outputs))
 			num_untrimmed_htlcs++;
 	}
 
@@ -608,9 +607,9 @@ static struct amount_sat commit_txfee(const struct channel *channel,
 	 *   predictability between implementations.
 	*/
 	fee = commit_tx_base_fee(2 * feerate, num_untrimmed_htlcs + 1,
-				 channel->option_anchor_outputs);
+				 option_anchor_outputs);
 
-	if (channel->option_anchor_outputs) {
+	if (option_anchor_outputs) {
 		/* BOLT #3:
 		 * If `option_anchors` applies to the commitment
 		 * transaction, also subtract two times the fixed anchor size
@@ -854,9 +853,9 @@ static void json_add_channel(struct lightningd *ld,
 		json_add_null(response, "closer");
 
 	json_array_start(response, "features");
-	if (channel->static_remotekey_start[LOCAL] != 0x7FFFFFFFFFFFFFFF)
+	if (channel_has(channel, OPT_STATIC_REMOTEKEY))
 		json_add_string(response, NULL, "option_static_remotekey");
-	if (channel->option_anchor_outputs)
+	if (channel_has(channel, OPT_ANCHOR_OUTPUTS))
 		json_add_string(response, NULL, "option_anchor_outputs");
 	json_array_end(response);
 

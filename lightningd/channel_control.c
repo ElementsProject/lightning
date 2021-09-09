@@ -431,14 +431,32 @@ void forget_channel(struct channel *channel, const char *why)
 static void handle_channel_upgrade(struct channel *channel,
 				   const u8 *msg)
 {
-	bool option_static_remotekey;
+	struct channel_type *newtype;
 
-	if (!fromwire_channeld_upgraded(msg, &option_static_remotekey)) {
+	if (!fromwire_channeld_upgraded(msg, msg, &newtype)) {
 		channel_internal_error(channel, "bad handle_channel_upgrade: %s",
 				       tal_hex(tmpctx, msg));
 		return;
 	}
 
+	/* You can currently only upgrade to turn on option_static_remotekey:
+	 * if they somehow thought anything else we need to close channel! */
+	if (channel->static_remotekey_start[LOCAL] != 0x7FFFFFFFFFFFFFFFULL) {
+		channel_internal_error(channel,
+				       "channel_upgrade already static_remotekey? %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
+	if (!channel_type_eq(newtype, channel_type_static_remotekey(tmpctx))) {
+		channel_internal_error(channel,
+				       "channel_upgrade must be static_remotekey, not %s",
+				       fmt_featurebits(tmpctx, newtype->features));
+		return;
+	}
+
+	tal_free(channel->type);
+	channel->type = channel_type_dup(channel, newtype);
 	channel->static_remotekey_start[LOCAL] = channel->next_index[LOCAL];
 	channel->static_remotekey_start[REMOTE] = channel->next_index[REMOTE];
 	log_debug(channel->log,
@@ -692,10 +710,7 @@ void peer_start_channeld(struct channel *channel,
 				      channel->remote_upfront_shutdown_script,
 				      remote_ann_node_sig,
 				      remote_ann_bitcoin_sig,
-				      /* Set at channel open, even if not
-				       * negotiated now! */
-				      channel->next_index[LOCAL] >= channel->static_remotekey_start[LOCAL],
-				      channel->option_anchor_outputs,
+				      channel->type,
 				      IFDEV(ld->dev_fast_gossip, false),
 				      IFDEV(dev_fail_process_onionpacket, false),
 				      pbases,

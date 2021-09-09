@@ -1127,7 +1127,6 @@ static bool ecdh_maybe_blinding(const struct pubkey *ephemeral_key,
 	return true;
 }
 
-/* AUTODATA wants a different line number */
 REGISTER_PLUGIN_HOOK(htlc_accepted,
 		     htlc_accepted_hook_deserialize,
 		     htlc_accepted_hook_final,

@@ -161,4 +161,4 @@ bool fromwire_gossipd_local_channel_announcement(const tal_t *ctx, const void *p
 	fromwire_u8_array(&cursor, &plen, *cannount, len);
 	return cursor != NULL;
 }
-// SHA256STAMP:f3c8b8c99b8a6d1e0337375ea2e252024b99bc8e88d86a91387f0886b7cfffff
+// SHA256STAMP:b3c6474e393f3aa6427a63a1b1ad873badc6d0592ae8247add28a099815cdbdd

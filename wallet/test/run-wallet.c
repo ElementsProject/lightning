@@ -121,13 +121,6 @@ char *encode_scriptpubkey_to_addr(const tal_t *ctx UNNEEDED,
 /* Generated stub for fatal */
 void   fatal(const char *fmt UNNEEDED, ...)
 { fprintf(stderr, "fatal called!\n"); abort(); }
-/* Generated stub for feature_negotiated */
-bool feature_negotiated(const struct feature_set *our_features UNNEEDED,
-			const u8 *their_features UNNEEDED, size_t f UNNEEDED)
-{ fprintf(stderr, "feature_negotiated called!\n"); abort(); }
-/* Generated stub for feature_offered */
-bool feature_offered(const u8 *features UNNEEDED, size_t f UNNEEDED)
-{ fprintf(stderr, "feature_offered called!\n"); abort(); }
 /* Generated stub for fromwire_channeld_dev_memleak_reply */
 bool fromwire_channeld_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_channeld_dev_memleak_reply called!\n"); abort(); }
@@ -1122,7 +1115,7 @@ static bool test_wallet_outputs(struct lightningd *ld, const tal_t *ctx)
 				true, NULL);
 	channel.peer = new_peer(ld, 0, &id, &addr, false);
 	channel.dbid = 1;
-	channel.option_anchor_outputs = true;
+	channel.type = channel_type_anchor_outputs(tmpctx);
 	memset(&u.txid, 3, sizeof(u.txid));
 	CHECK_MSG(wallet_add_onchaind_utxo(w, &u.txid,
 					   u.outnum,
@@ -1359,6 +1352,7 @@ static bool channelseq(struct channel *c1, struct channel *c2)
 	}
 	/* c2 should also be out of inflights */
 	CHECK(list_next(&c2->inflights, i2, list) == NULL);
+	CHECK(channel_type_eq(c1->type, c2->type));
 
 	return true;
 }
@@ -1398,6 +1392,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	secp256k1_ecdsa_signature *node_sig2, *bitcoin_sig2;
 	u32 feerate, blockheight;
 	bool load;
+	const struct channel_type *type = channel_type_static_remotekey(w);
 
 	memset(&c1, 0, sizeof(c1));
 	memset(c2, 0, sizeof(*c2));
@@ -1446,6 +1441,7 @@ static bool test_channel_crud(struct lightningd *ld, const tal_t *ctx)
 	c1.unsaved_dbid = 0;
 	/* Init channel inflights */
 	list_head_init(&c1.inflights);
+	c1.type = type;
 
 	db_begin_transaction(w->db);
 	CHECK(!wallet_err);
@@ -1640,7 +1636,7 @@ static bool test_channel_inflight_crud(struct lightningd *ld, const tal_t *ctx)
 			   &basepoints,
 			   &pk, NULL,
 			   1000, 100,
-			   NULL, 0, 0, true,
+			   NULL, 0, 0, channel_type_static_remotekey(NULL),
 			   LOCAL, REASON_UNKNOWN,
 			   NULL,
 			   new_height_states(w, LOCAL,

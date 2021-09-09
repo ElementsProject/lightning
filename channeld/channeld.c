@@ -391,7 +391,8 @@ static void set_channel_type(struct channel *channel,
 	channel->type = channel_type_dup(channel, type);
 	status_unusual("Upgraded channel to [%s]",
 		       fmt_featurebits(tmpctx, type->features));
-	wire_sync_write(MASTER_FD, take(towire_channeld_upgraded(NULL, true)));
+	wire_sync_write(MASTER_FD,
+			take(towire_channeld_upgraded(NULL, channel->type)));
 }
 #else /* !EXPERIMENTAL_FEATURES */
 static bool handle_master_request_later(struct peer *peer, const u8 *msg)
@@ -3644,7 +3645,6 @@ static void init_channel(struct peer *peer)
 	struct secret last_remote_per_commit_secret;
 	secp256k1_ecdsa_signature *remote_ann_node_sig;
 	secp256k1_ecdsa_signature *remote_ann_bitcoin_sig;
-	bool option_static_remotekey, option_anchor_outputs;
 	struct penalty_base *pbases;
 	u8 *reestablish_only;
 	struct channel_type *channel_type;
@@ -3708,8 +3708,7 @@ static void init_channel(struct peer *peer)
 				   &peer->remote_upfront_shutdown_script,
 				   &remote_ann_node_sig,
 				   &remote_ann_bitcoin_sig,
-				   &option_static_remotekey,
-				   &option_anchor_outputs,
+				   &channel_type,
 				   &dev_fast_gossip,
 				   &dev_fail_process_onionpacket,
 				   &pbases,
@@ -3718,7 +3717,8 @@ static void init_channel(struct peer *peer)
 	}
 
 	status_debug("option_static_remotekey = %u, option_anchor_outputs = %u",
-		     option_static_remotekey, option_anchor_outputs);
+		     channel_type_has(channel_type, OPT_STATIC_REMOTEKEY),
+		     channel_type_has(channel_type, OPT_ANCHOR_OUTPUTS));
 
 	/* Keeping an array of pointers is better since it allows us to avoid
 	 * extra allocations later. */
@@ -3749,8 +3749,6 @@ static void init_channel(struct peer *peer)
 		     type_to_string(tmpctx, struct height_states, blockheight_states),
 		     peer->our_blockheight);
 
-	status_debug("option_static_remotekey = %u", option_static_remotekey);
-
 	if (remote_ann_node_sig && remote_ann_bitcoin_sig) {
 		peer->announcement_node_sigs[REMOTE] = *remote_ann_node_sig;
 		peer->announcement_bitcoin_sigs[REMOTE] = *remote_ann_bitcoin_sig;
@@ -3772,14 +3770,6 @@ static void init_channel(struct peer *peer)
 
 	get_per_commitment_point(peer->next_index[LOCAL],
 				 &peer->next_local_per_commit, NULL);
-
-	/* FIXME: hand type directly from lightningd! */
-	if (option_anchor_outputs)
-		channel_type = channel_type_anchor_outputs(NULL);
-	else if (option_static_remotekey)
-		channel_type = channel_type_static_remotekey(NULL);
-	else
-		channel_type = channel_type_none(NULL);
 
 	peer->channel = new_full_channel(peer, &peer->channel_id,
 					 &funding_txid,
