@@ -968,6 +968,7 @@ void peer_start_openingd(struct peer *peer, struct per_peer_state *pps)
 	msg = towire_openingd_init(NULL,
 				  chainparams,
 				  peer->ld->our_features,
+				  peer->their_features,
 				  &uc->our_config,
 				  max_to_self_delay,
 				  min_effective_htlc_capacity,
@@ -976,13 +977,6 @@ void peer_start_openingd(struct peer *peer, struct per_peer_state *pps)
 				  uc->minimum_depth,
 				  feerate_min(peer->ld, NULL),
 				  feerate_max(peer->ld, NULL),
-				  peer->their_features,
-				  feature_negotiated(peer->ld->our_features,
-						     peer->their_features,
-						     OPT_STATIC_REMOTEKEY),
-				  feature_negotiated(peer->ld->our_features,
-						     peer->their_features,
-						     OPT_ANCHOR_OUTPUTS),
 				  IFDEV(peer->ld->dev_force_tmp_channel_id, NULL),
 				  IFDEV(peer->ld->dev_fast_gossip, false));
 	subd_send_msg(uc->open_daemon, take(msg));
