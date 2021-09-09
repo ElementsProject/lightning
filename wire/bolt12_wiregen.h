@@ -323,4 +323,4 @@ struct fallback_address *fromwire_fallback_address(const tal_t *ctx, const u8 **
 
 
 #endif /* LIGHTNING_WIRE_BOLT12_WIREGEN_H */
-// SHA256STAMP:f29bdf0cc1fd0cce9362c88e3b8681781e11c203cc3026fe13e6c52a845154ba
+// SHA256STAMP:53c38e8f9d5938a10c80fffa22d9093be51728cf59d3ef13ec477c848e9d48d1
