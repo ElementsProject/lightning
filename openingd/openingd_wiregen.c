@@ -65,15 +65,17 @@ bool openingd_wire_is_defined(u16 type)
 
 
 /* WIRE: OPENINGD_INIT */
-u8 *towire_openingd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_features, const struct channel_config *our_config, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, const u8 *lfeatures, bool option_static_remotekey, bool option_anchor_outputs, const struct channel_id *dev_temporary_channel_id, bool dev_fast_gossip)
+u8 *towire_openingd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct feature_set *our_features, const u8 *their_init_features, const struct channel_config *our_config, u32 max_to_self_delay, struct amount_msat min_effective_htlc_capacity_msat, const struct per_peer_state *pps, const struct basepoints *our_basepoints, const struct pubkey *our_funding_pubkey, u32 minimum_depth, u32 min_feerate, u32 max_feerate, const struct channel_id *dev_temporary_channel_id, bool dev_fast_gossip)
 {
-	u16 lfeatures_len = tal_count(lfeatures);
+	u16 their_init_features_len = tal_count(their_init_features);
 	u8 *p = tal_arr(ctx, u8, 0);
 
 	towire_u16(&p, WIRE_OPENINGD_INIT);
 	/* Which network are we configured for? */
 	towire_chainparams(&p, chainparams);
 	towire_feature_set(&p, our_features);
+	towire_u16(&p, their_init_features_len);
+	towire_u8_array(&p, their_init_features, their_init_features_len);
 	/* Base configuration we'll offer (channel reserve will vary with amount) */
 	towire_channel_config(&p, our_config);
 	/* Minimum/maximum configuration values we'll accept */
@@ -86,10 +88,6 @@ u8 *towire_openingd_init(const tal_t *ctx, const struct chainparams *chainparams
 	towire_u32(&p, minimum_depth);
 	towire_u32(&p, min_feerate);
 	towire_u32(&p, max_feerate);
-	towire_u16(&p, lfeatures_len);
-	towire_u8_array(&p, lfeatures, lfeatures_len);
-	towire_bool(&p, option_static_remotekey);
-	towire_bool(&p, option_anchor_outputs);
 	if (!dev_temporary_channel_id)
 		towire_bool(&p, false);
 	else {
@@ -100,9 +98,9 @@ u8 *towire_openingd_init(const tal_t *ctx, const struct chainparams *chainparams
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_openingd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_features, struct channel_config *our_config, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, u8 **lfeatures, bool *option_static_remotekey, bool *option_anchor_outputs, struct channel_id **dev_temporary_channel_id, bool *dev_fast_gossip)
+bool fromwire_openingd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct feature_set **our_features, u8 **their_init_features, struct channel_config *our_config, u32 *max_to_self_delay, struct amount_msat *min_effective_htlc_capacity_msat, struct per_peer_state **pps, struct basepoints *our_basepoints, struct pubkey *our_funding_pubkey, u32 *minimum_depth, u32 *min_feerate, u32 *max_feerate, struct channel_id **dev_temporary_channel_id, bool *dev_fast_gossip)
 {
-	u16 lfeatures_len;
+	u16 their_init_features_len;
 
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
@@ -112,6 +110,10 @@ bool fromwire_openingd_init(const tal_t *ctx, const void *p, const struct chainp
  	/* Which network are we configured for? */
 	fromwire_chainparams(&cursor, &plen, chainparams);
  	*our_features = fromwire_feature_set(ctx, &cursor, &plen);
+ 	their_init_features_len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case their_init_features
+	*their_init_features = their_init_features_len ? tal_arr(ctx, u8, their_init_features_len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *their_init_features, their_init_features_len);
  	/* Base configuration we'll offer (channel reserve will vary with amount) */
 	fromwire_channel_config(&cursor, &plen, our_config);
  	/* Minimum/maximum configuration values we'll accept */
@@ -124,12 +126,6 @@ bool fromwire_openingd_init(const tal_t *ctx, const void *p, const struct chainp
 	*minimum_depth = fromwire_u32(&cursor, &plen);
  	*min_feerate = fromwire_u32(&cursor, &plen);
  	*max_feerate = fromwire_u32(&cursor, &plen);
- 	lfeatures_len = fromwire_u16(&cursor, &plen);
- 	// 2nd case lfeatures
-	*lfeatures = lfeatures_len ? tal_arr(ctx, u8, lfeatures_len) : NULL;
-	fromwire_u8_array(&cursor, &plen, *lfeatures, lfeatures_len);
- 	*option_static_remotekey = fromwire_bool(&cursor, &plen);
- 	*option_anchor_outputs = fromwire_bool(&cursor, &plen);
  	if (!fromwire_bool(&cursor, &plen))
 		*dev_temporary_channel_id = NULL;
 	else {
@@ -604,4 +600,4 @@ bool fromwire_openingd_dev_memleak_reply(const void *p, bool *leak)
  	*leak = fromwire_bool(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:e01a9f3e8b3c9962c9b35502d3b74977e289e61ebebf28627276e97d06bc4b35
+// SHA256STAMP:7d60f5bf289ffe8adcf1e445c9c82ef0e69438cd0e7cea47f1f2bd73727aabf2
