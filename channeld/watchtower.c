@@ -4,6 +4,7 @@
 #include <bitcoin/script.h>
 #include <bitcoin/signature.h>
 #include <bitcoin/tx.h>
+#include <common/features.h>
 #include <common/htlc_tx.h>
 #include <common/key_derive.h>
 #include <common/keyset.h>
@@ -32,7 +33,7 @@ penalty_tx_create(const tal_t *ctx,
 	struct amount_sat fee, min_out, amt;
 	struct bitcoin_signature sig;
 	u32 locktime = 0;
-	bool option_static_remotekey = channel->option_static_remotekey;
+	bool option_static_remotekey = channel_has(channel, OPT_STATIC_REMOTEKEY);
 	u8 **witness;
 	u32 remote_to_self_delay = channel->config[REMOTE].to_self_delay;
 	const struct amount_sat dust_limit = channel->config[LOCAL].dust_limit;

@@ -502,6 +502,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 	struct channel_id cid;
 	char *err_reason;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
+	struct channel_type *type;
 
 	/*~ Now we can initialize the `struct channel`.  This represents
 	 * the current channel state and is how we can generate the current
@@ -513,6 +514,10 @@ static bool funder_finalize_channel_setup(struct state *state,
 	 * `channeld` which lives in channeld/full_channel. */
 	derive_channel_id(&cid,
 			  &state->funding_txid, state->funding_txout);
+
+	type = default_channel_type(NULL,
+				    state->our_features,
+				    state->their_features);
 
 	state->channel = new_initial_channel(state,
 					     &cid,
@@ -530,12 +535,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 					     &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
-					     feature_negotiated(state->our_features,
-								state->their_features,
-								OPT_STATIC_REMOTEKEY),
-					     feature_negotiated(state->our_features,
-								state->their_features,
-								OPT_ANCHOR_OUTPUTS),
+					     take(type),
 					     feature_offered(state->their_features,
 							     OPT_LARGE_CHANNELS),
 					     /* Opener is local */
@@ -582,7 +582,8 @@ static bool funder_finalize_channel_setup(struct state *state,
 						   *tx,
 						   &state->channel->funding_pubkey[REMOTE],
 						   &state->first_per_commitment_point[REMOTE],
-						   state->channel->option_static_remotekey);
+						    channel_has(state->channel,
+								OPT_STATIC_REMOTEKEY));
 
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
@@ -764,6 +765,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	char* err_reason;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct penalty_base *pbase;
+	struct channel_type *type;
 	struct tlv_accept_channel_tlvs *accept_tlvs;
 	struct tlv_open_channel_tlvs *open_tlvs
 		= tlv_open_channel_tlvs_new(tmpctx);
@@ -1012,6 +1014,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					       &state->channel_id),
 				type_to_string(msg, struct channel_id, &id_in));
 
+	type = default_channel_type(NULL,
+				    state->our_features, state->their_features);
+
 	/* Now we can create the channel structure. */
 	state->channel = new_initial_channel(state,
 					     &state->channel_id,
@@ -1028,12 +1033,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					     &state->our_points, &theirs,
 					     &state->our_funding_pubkey,
 					     &their_funding_pubkey,
-					     feature_negotiated(state->our_features,
-								state->their_features,
-								OPT_STATIC_REMOTEKEY),
-					     feature_negotiated(state->our_features,
-								state->their_features,
-								OPT_ANCHOR_OUTPUTS),
+					     take(type),
 					     feature_offered(state->their_features,
 							     OPT_LARGE_CHANNELS),
 					     REMOTE);
@@ -1123,7 +1123,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 						   remote_commit,
 						   &state->channel->funding_pubkey[REMOTE],
 						   &state->first_per_commitment_point[REMOTE],
-						   state->channel->option_static_remotekey);
+						    channel_has(state->channel,
+								OPT_STATIC_REMOTEKEY));
 
 	wire_sync_write(HSM_FD, take(msg));
 	msg = wire_sync_read(tmpctx, HSM_FD);
