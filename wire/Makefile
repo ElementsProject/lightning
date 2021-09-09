@@ -11,6 +11,7 @@ WIRE_HEADERS :=	wire/onion_defs.h		\
 		wire/onion$(EXP)_wiregen.h	\
 		wire/bolt12$(EXP)_wiregen.h	\
 		wire/common_wiregen.h		\
+		wire/channel_type_wiregen.h	\
 		wire/peer$(EXP)_printgen.h	\
 		wire/onion$(EXP)_printgen.h
 
@@ -24,11 +25,13 @@ WIRE_SRC := wire/wire_sync.c			\
 		wire/common_wiregen.c		\
 		wire/bolt12$(EXP)_wiregen.c	\
 		wire/peer$(EXP)_wiregen.c	\
+		wire/channel_type_wiregen.c	\
 		wire/onion$(EXP)_wiregen.c	
 
 WIRE_PRINT_SRC :=				\
 		wire/onion$(EXP)_printgen.c	\
-		wire/peer$(EXP)_printgen.c
+		wire/peer$(EXP)_printgen.c	\
+		wire/channel_type_printgen.c
 
 WIRE_OBJS := $(WIRE_SRC:.c=.o)
 WIRE_PRINT_OBJS := $(WIRE_PRINT_SRC:.c=.o)
@@ -45,7 +48,8 @@ WIRE_NONEXP_HEADERS := wire/peer_wiregen.h	\
 		wire/onion_wiregen.h		\
 		wire/bolt12_wiregen.h		\
 		wire/peer_printgen.h		\
-		wire/onion_printgen.h
+		wire/onion_printgen.h		\
+		wire/channel_type_printgen.h
 
 ALL_C_SOURCES += $(WIRE_SRC) $(WIRE_PRINT_SRC) $(WIRE_NONEXP_SRC)
 
@@ -125,8 +129,9 @@ wire/onion_wiregen.h_args := --include='bitcoin/short_channel_id.h' --include='b
 wire/onion_wiregen.c_args := -s --expose-tlv-type=tlv_payload
 
 # Same for _exp versions
-wire/peer_exp_wiregen.h_args := $(wire/peer_wiregen.h_args)
+wire/peer_exp_wiregen.h_args := $(wire/peer_wiregen.h_args) --include='wire/channel_type_wiregen.h'
 wire/peer_exp_wiregen.c_args := $(wire/peer_wiregen.c_args)
+wire/peer_exp_printgen.h_args := --include='wire/channel_type_printgen.h'
 wire/onion_exp_wiregen.h_args := $(wire/onion_wiregen.h_args)
 wire/onion_exp_wiregen.c_args := $(wire/onion_wiregen.c_args)
 
@@ -137,6 +142,9 @@ wire/bolt12_exp_wiregen.h_args := $(wire/bolt12_wiregen.h_args)
 wire/bolt12_exp_wiregen.c_args := $(wire/bolt12_wiregen.c_args)
 
 wire/peer_wiregen.h_args := --include='common/channel_id.h' --include='bitcoin/tx.h' --include='bitcoin/preimage.h' --include='bitcoin/short_channel_id.h' --include='common/node_id.h' --include='common/bigsize.h' --include='bitcoin/block.h' --include='bitcoin/privkey.h' -s --expose-tlv-type=n1 --expose-tlv-type=n2
+
+wire/channel_type_wiregen.h_args := -s
+wire/channel_type_wiregen.c_args := $(wire/channel_type_wiregen.h_args)
 
 # All generated wire/ files depend on this Makefile
 $(filter %printgen.h %printgen.c %wiregen.h %wiregen.c, $(WIRE_SRC) $(WIRE_PRINT_SRC) $(WIRE_NONEXP_SRC) $(WIRE_HEADERS) $(WIRE_NONEXP_HEADERS)): wire/Makefile

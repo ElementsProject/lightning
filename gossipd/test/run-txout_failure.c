@@ -1,5 +1,6 @@
 #include "../routing.c"
 #include "../common/timeout.c"
+#include <common/channel_type.h>
 #include <common/json_stream.h>
 #include <common/setup.h>
 #include <stdio.h>
@@ -13,6 +14,9 @@ bool cupdate_different(struct gossip_store *gs UNNEEDED,
 /* Generated stub for fmt_wireaddr_without_port */
 char *fmt_wireaddr_without_port(const tal_t *ctx UNNEEDED, const struct wireaddr *a UNNEEDED)
 { fprintf(stderr, "fmt_wireaddr_without_port called!\n"); abort(); }
+/* Generated stub for fromwire_channel_type */
+struct channel_type *fromwire_channel_type(const tal_t *ctx UNNEEDED, const u8 **cursor UNNEEDED, size_t *plen UNNEEDED)
+{ fprintf(stderr, "fromwire_channel_type called!\n"); abort(); }
 /* Generated stub for fromwire_wireaddr_array */
 struct wireaddr *fromwire_wireaddr_array(const tal_t *ctx UNNEEDED, const u8 *ser UNNEEDED)
 { fprintf(stderr, "fromwire_wireaddr_array called!\n"); abort(); }
@@ -89,6 +93,9 @@ void status_fmt(enum log_level level UNNEEDED,
 		const char *fmt UNNEEDED, ...)
 
 { fprintf(stderr, "status_fmt called!\n"); abort(); }
+/* Generated stub for towire_channel_type */
+void towire_channel_type(u8 **p UNNEEDED, const struct channel_type *channel_type UNNEEDED)
+{ fprintf(stderr, "towire_channel_type called!\n"); abort(); }
 /* Generated stub for towire_warningfmt */
 u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 		      const struct channel_id *channel UNNEEDED,

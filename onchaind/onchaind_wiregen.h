@@ -161,4 +161,4 @@ bool fromwire_onchaind_notify_coin_mvt(const void *p, struct chain_coin_mvt *mvt
 
 
 #endif /* LIGHTNING_ONCHAIND_ONCHAIND_WIREGEN_H */
-// SHA256STAMP:f591fbdc03a41071e5db7a11ee0420f52a1edf1fdd282d32aca0dadca9ef58e9
+// SHA256STAMP:20dc7be2811008cab3f7d2ddafb6c8496c9e8fcf91d00cb770c2f4b7f2038ff6

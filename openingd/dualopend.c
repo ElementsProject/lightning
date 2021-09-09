@@ -27,8 +27,8 @@
 #include <common/blockheight_states.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>
+#include <common/channel_type.h>
 #include <common/crypto_sync.h>
-#include <common/features.h>
 #include <common/fee_states.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>

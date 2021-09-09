@@ -17,6 +17,7 @@ COMMON_SRC_NOGEN :=				\
 	common/bolt12_merkle.c			\
 	common/channel_config.c			\
 	common/channel_id.c			\
+	common/channel_type.c			\
 	common/coin_mvt.c			\
 	common/close_tx.c			\
 	common/configdir.c			\

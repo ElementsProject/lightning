@@ -38,6 +38,7 @@ CHANNELD_COMMON_OBJS :=				\
 	common/blockheight_states.o		\
 	common/channel_config.o			\
 	common/channel_id.o			\
+	common/channel_type.o			\
 	common/crypto_state.o			\
 	common/crypto_sync.o			\
 	common/cryptomsg.o			\
