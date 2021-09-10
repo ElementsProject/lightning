@@ -1005,9 +1005,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 
 	/* If they give us a reason to reject, do so. */
 	if (err_reason) {
-		u8 *errmsg = towire_errorfmt(NULL, &state->channel_id,
-					     "%s", err_reason);
-		sync_crypto_write(state->pps, take(errmsg));
+		negotiation_failed(state, false, "%s", err_reason);
 		tal_free(err_reason);
 		return NULL;
 	}
