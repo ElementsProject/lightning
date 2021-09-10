@@ -806,6 +806,9 @@ static char *list_features_and_exit(struct lightningd *ld)
 	const char **features = list_supported_features(tmpctx, ld->our_features);
 	for (size_t i = 0; i < tal_count(features); i++)
 		printf("%s\n", features[i]);
+#if EXPERIMENTAL_FEATURES
+	printf("supports_open_accept_channel_type\n");
+#endif
 	exit(0);
 }
 
