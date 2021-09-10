@@ -380,7 +380,6 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	open_tlvs->upfront_shutdown_script
 		= state->upfront_shutdown_script[LOCAL];
 
-#if EXPERIMENTAL_FEATURES
 	/* BOLT-channel-types #2:
 	 *  - if it includes `channel_type`:
 	 *     - MUST set it to a defined type representing the type it wants.
@@ -390,7 +389,6 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	 *       negotiated.
 	 */
 	open_tlvs->channel_type = state->channel_type->features;
-#endif
 
 	msg = towire_open_channel(NULL,
 				  &chainparams->genesis_blockhash,
@@ -453,7 +451,6 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	}
 	set_remote_upfront_shutdown(state, accept_tlvs->upfront_shutdown_script);
 
-#if EXPERIMENTAL_FEATURES
 	/* BOLT-channel-types #2:
 	 * - if `channel_type` is set, and `channel_type` was set in
 	 *   `open_channel`, and they are not equal types:
@@ -468,7 +465,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 						   accept_tlvs->channel_type));
 		return NULL;
 	}
-#endif /* EXPERIMENTAL_FEATURES */
+
 	/* BOLT #2:
 	 *
 	 * The `temporary_channel_id` MUST be the same as the
@@ -839,7 +836,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 		= default_channel_type(state,
 				       state->our_features, state->their_features);
 
-#if EXPERIMENTAL_FEATURES
 	/* BOLT-channel-types #2:
 	 * The receiving node MUST fail the channel if:
 	 *...
@@ -857,7 +853,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 						   open_tlvs->channel_type));
 		return NULL;
 	}
-#endif
 
 	/* BOLT #2:
 	 *
@@ -1022,13 +1017,11 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	accept_tlvs = tlv_accept_channel_tlvs_new(tmpctx);
 	accept_tlvs->upfront_shutdown_script
 		= state->upfront_shutdown_script[LOCAL];
-#if EXPERIMENTAL_FEATURES
 	/* BOLT-channel-types #2:
 	 * - if it sets `channel_type`:
 	 *    - MUST set it to the `channel_type` from `open_channel`
 	 */
 	accept_tlvs->channel_type = state->channel_type->features;
-#endif
 
 	msg = towire_accept_channel(NULL, &state->channel_id,
 				    state->localconf.dust_limit,
