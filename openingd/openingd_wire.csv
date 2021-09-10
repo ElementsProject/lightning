@@ -2,6 +2,7 @@
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>
+#include <common/channel_type.h>
 #include <common/derive_basepoints.h>
 #include <common/features.h>
 #include <common/per_peer_state.h>
@@ -48,6 +49,7 @@ msgdata,openingd_got_offer,max_accepted_htlcs,u16,
 msgdata,openingd_got_offer,channel_flags,u8,
 msgdata,openingd_got_offer,shutdown_len,u16,
 msgdata,openingd_got_offer,shutdown_scriptpubkey,u8,shutdown_len
+
 # master->openingd: optional rejection message
 msgtype,openingd_got_offer_reply,6105
 msgdata,openingd_got_offer_reply,rejection,?wirestring,
@@ -76,6 +78,7 @@ msgdata,openingd_funder_reply,feerate_per_kw,u32,
 msgdata,openingd_funder_reply,our_channel_reserve_satoshis,amount_sat,
 msgdata,openingd_funder_reply,shutdown_len,u16,
 msgdata,openingd_funder_reply,shutdown_scriptpubkey,u8,shutdown_len
+msgdata,openingd_funder_reply,channel_type,channel_type,
 
 # master->openingd: start channel establishment for a funding tx
 msgtype,openingd_funder_start,6002
@@ -91,6 +94,7 @@ msgtype,openingd_funder_start_reply,6102
 msgdata,openingd_funder_start_reply,script_len,u8,
 msgdata,openingd_funder_start_reply,scriptpubkey,u8,script_len
 msgdata,openingd_funder_start_reply,upfront_shutdown_negotiated,bool,
+msgdata,openingd_funder_start_reply,channel_type,channel_type,
 
 # master->openingd: complete channel establishment for a funding
 # tx that will be paid for by an external wallet
@@ -98,6 +102,7 @@ msgdata,openingd_funder_start_reply,upfront_shutdown_negotiated,bool,
 msgtype,openingd_funder_complete,6012
 msgdata,openingd_funder_complete,funding_txid,bitcoin_txid,
 msgdata,openingd_funder_complete,funding_txout,u16,
+msgdata,openingd_funder_complete,channel_type,channel_type,
 
 #master->openingd: cancel channel establishment for a funding
 msgtype,openingd_funder_cancel,6013
@@ -134,6 +139,7 @@ msgdata,openingd_fundee,local_shutdown_len,u16,
 msgdata,openingd_fundee,local_shutdown_scriptpubkey,u8,local_shutdown_len
 msgdata,openingd_fundee,remote_shutdown_len,u16,
 msgdata,openingd_fundee,remote_shutdown_scriptpubkey,u8,remote_shutdown_len
+msgdata,openingd_fundee,channel_type,channel_type,
 
 # master -> openingd: do you have a memleak?
 msgtype,openingd_dev_memleak,6033
