@@ -372,9 +372,25 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 						     state->our_features,
 						     state->their_features);
 
+	state->channel_type = default_channel_type(state,
+						   state->our_features,
+						   state->their_features);
+
 	open_tlvs = tlv_open_channel_tlvs_new(tmpctx);
 	open_tlvs->upfront_shutdown_script
 		= state->upfront_shutdown_script[LOCAL];
+
+#if EXPERIMENTAL_FEATURES
+	/* BOLT-channel-types #2:
+	 *  - if it includes `channel_type`:
+	 *     - MUST set it to a defined type representing the type it wants.
+	 *     - MUST use the smallest bitmap possible to represent the channel
+	 *       type.
+	 *     - SHOULD NOT set it to a type containing a feature which was not
+	 *       negotiated.
+	 */
+	open_tlvs->channel_type = state->channel_type->features;
+#endif
 
 	msg = towire_open_channel(NULL,
 				  &chainparams->genesis_blockhash,
@@ -437,10 +453,22 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	}
 	set_remote_upfront_shutdown(state, accept_tlvs->upfront_shutdown_script);
 
-	state->channel_type = default_channel_type(state,
-						   state->our_features,
-						   state->their_features);
-
+#if EXPERIMENTAL_FEATURES
+	/* BOLT-channel-types #2:
+	 * - if `channel_type` is set, and `channel_type` was set in
+	 *   `open_channel`, and they are not equal types:
+	 *    - MUST reject the channel.
+	 */
+	if (accept_tlvs->channel_type
+	    && !featurebits_eq(accept_tlvs->channel_type,
+			       state->channel_type->features)) {
+		negotiation_failed(state, true,
+				   "Return unoffered channel_type: %s",
+				   fmt_featurebits(tmpctx,
+						   accept_tlvs->channel_type));
+		return NULL;
+	}
+#endif /* EXPERIMENTAL_FEATURES */
 	/* BOLT #2:
 	 *
 	 * The `temporary_channel_id` MUST be the same as the
@@ -807,6 +835,30 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				    "Parsing open_channel %s", tal_hex(tmpctx, open_channel_msg));
 	set_remote_upfront_shutdown(state, open_tlvs->upfront_shutdown_script);
 
+	state->channel_type
+		= default_channel_type(state,
+				       state->our_features, state->their_features);
+
+#if EXPERIMENTAL_FEATURES
+	/* BOLT-channel-types #2:
+	 * The receiving node MUST fail the channel if:
+	 *...
+	 *   - It supports `channel_type`, `channel_type` was set, and the
+	 *     `type` is not suitable.
+	 */
+
+	/* FIXME: We in fact insist on the exact type we want! */
+	if (open_tlvs->channel_type
+	    && !featurebits_eq(state->channel_type->features,
+			       open_tlvs->channel_type)) {
+		negotiation_failed(state, false,
+				   "Did not support channel_type %s",
+				   fmt_featurebits(tmpctx,
+						   open_tlvs->channel_type));
+		return NULL;
+	}
+#endif
+
 	/* BOLT #2:
 	 *
 	 * The receiving node MUST fail the channel if:
@@ -970,6 +1022,13 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	accept_tlvs = tlv_accept_channel_tlvs_new(tmpctx);
 	accept_tlvs->upfront_shutdown_script
 		= state->upfront_shutdown_script[LOCAL];
+#if EXPERIMENTAL_FEATURES
+	/* BOLT-channel-types #2:
+	 * - if it sets `channel_type`:
+	 *    - MUST set it to the `channel_type` from `open_channel`
+	 */
+	accept_tlvs->channel_type = state->channel_type->features;
+#endif
 
 	msg = towire_accept_channel(NULL, &state->channel_id,
 				    state->localconf.dust_limit,
@@ -989,9 +1048,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 
 	sync_crypto_write(state->pps, take(msg));
 
-	state->channel_type = default_channel_type(state,
-						   state->our_features,
-						   state->their_features);
 	peer_billboard(false,
 		       "Incoming channel: accepted, now waiting for them to create funding tx");
 
