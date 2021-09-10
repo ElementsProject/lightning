@@ -1,7 +1,7 @@
 #include <ccan/array_size/array_size.h>
 #include <common/channel_type.h>
 
-/* BOLT-channel-types #2:
+/* BOLT #2:
  * Channel types are an explicit enumeration: for convenience of future
  * definitions they reuse even feature bits, but they are not an
  * arbitrary combination (they represent the persistent features which
@@ -46,13 +46,13 @@ struct channel_type *default_channel_type(const tal_t *ctx,
 					  const struct feature_set *our_features,
 					  const u8 *their_features)
 {
-	/* BOLT-channel-types #2:
+	/* BOLT #2:
 	 * Both peers:
 	 *   - if `channel_type` was present in both `open_channel` and `accept_channel`:
 	 *     - This is the `channel_type` (they must be equal, required above)
 	 *   - otherwise:
 	 */
-	/* BOLT-channel-types #2:
+	/* BOLT #2:
 	 * - otherwise, if `option_anchor_outputs` was negotiated:
 	 *   - the `channel_type` is `option_anchor_outputs` and
 	 *     `option_static_remotekey` (bits 20 and 12)
@@ -60,14 +60,14 @@ struct channel_type *default_channel_type(const tal_t *ctx,
 	if (feature_negotiated(our_features, their_features,
 			       OPT_ANCHOR_OUTPUTS))
 		return channel_type_anchor_outputs(ctx);
-	/* BOLT-channel-types #2:
+	/* BOLT #2:
 	 * - otherwise, if `option_static_remotekey` was negotiated:
 	 *   - the `channel_type` is `option_static_remotekey` (bit 12)
 	 */
 	else if (feature_negotiated(our_features, their_features,
 				    OPT_STATIC_REMOTEKEY))
 		return channel_type_static_remotekey(ctx);
-	/* BOLT-channel-types #2:
+	/* BOLT #2:
 	 *     - otherwise:
 	 *       - the `channel_type` is empty
 	 */
