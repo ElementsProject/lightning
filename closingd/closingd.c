@@ -595,7 +595,7 @@ static void calc_fee_bounds(size_t expected_weight,
 	*minfee = amount_tx_fee(min_feerate, expected_weight);
 	*desiredfee = amount_tx_fee(desired_feerate, expected_weight);
 
-	/* BOLT-closing-fee_range #2:
+	/* BOLT #2:
 	 * - if it is not the funder:
 	 *  - SHOULD set `max_fee_satoshis` to at least the `max_fee_satoshis`
 	 *   received
@@ -605,7 +605,9 @@ static void calc_fee_bounds(size_t expected_weight,
 	 */
 	if (opener == REMOTE) {
 		*maxfee = funding;
-	/* BOLT-closing-fee_range #2:
+
+	/* This used to appear in BOLT #2: we still set it for non-anchor
+	 * peers who may still enforce it:
 	 * - If the channel does not use `option_anchor_outputs`:
 	 *   - MUST set `fee_satoshis` less than or equal to the base fee of
 	 *     the final commitment transaction, as calculated in
@@ -685,7 +687,7 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 	struct tlv_closing_signed_tlvs_fee_range overlap;
 
 
-	/* BOLT-closing-fee_range #2:
+	/* BOLT #2:
 	 *   - if the message contains a `fee_range`:
 	 *     - if there is no overlap between that and its own `fee_range`:
 	 *       - SHOULD fail the connection
@@ -715,12 +717,12 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 		    type_to_string(tmpctx, struct amount_sat,
 				   &overlap.max_fee_satoshis));
 
-	/* BOLT-closing-fee_range #2:
+	/* BOLT #2:
 	 * - otherwise:
 	 *   - if it is the funder:
 	 *     - if `fee_satoshis` is not in the overlap between the sent
 	 *       and received `fee_range`:
-	 *       - SHOULD fail the connection
+	 *       - MUST fail the channel
 	 *     - otherwise:
 	 *       - MUST reply with the same `fee_satoshis`.
 	 */
@@ -758,11 +760,11 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 				   our_feerange);
 		}
 	} else {
-		/* BOLT-closing-fee_range #2:
+		/* BOLT #2:
 		 * - otherwise (it is not the funder):
 		 *   - if it has already sent a `closing_signed`:
 		 *     - if `fee_satoshis` is not the same as the value it sent:
-		 *       - SHOULD fail the connection.
+		 *       - MUST fail the channel
 		 *   - otherwise:
 		 *     - MUST propose a `fee_satoshis` in the overlap between
 		 *       received and (about-to-be) sent `fee_range`.
@@ -810,12 +812,12 @@ static void do_quickclose(struct amount_sat offer[NUM_SIDES],
 						wrong_funding,
 						closing_txid,
 						NULL);
-			/* BOLT-closing-fee_range #2:
+			/* BOLT #2:
 			 * - otherwise (it is not the funder):
 			 *   - if it has already sent a `closing_signed`:
 			 *     - if `fee_satoshis` is not the same as the value
 			 *       it sent:
-			 *       - SHOULD fail the connection.
+			 *       - MUST fail the channel
 			 */
 			if (!amount_sat_eq(offer[LOCAL], offer[REMOTE])) {
 				peer_failed_warn(pps, channel_id,
