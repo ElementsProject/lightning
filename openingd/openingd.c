@@ -709,12 +709,14 @@ static bool funder_finalize_channel_setup(struct state *state,
 
 	if (!check_tx_sig(*tx, 0, NULL, wscript, &state->their_funding_pubkey, sig)) {
 		peer_failed_err(state->pps, &state->channel_id,
-				"Bad signature %s on tx %s using key %s",
+				"Bad signature %s on tx %s using key %s (channel_type=%s)",
 				type_to_string(tmpctx, struct bitcoin_signature,
 					       sig),
 				type_to_string(tmpctx, struct bitcoin_tx, *tx),
 				type_to_string(tmpctx, struct pubkey,
-					       &state->their_funding_pubkey));
+					       &state->their_funding_pubkey),
+				fmt_featurebits(tmpctx,
+						state->channel->type->features));
 	}
 
 	/* We save their sig to our first commitment tx */
