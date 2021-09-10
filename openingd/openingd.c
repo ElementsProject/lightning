@@ -380,7 +380,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	open_tlvs->upfront_shutdown_script
 		= state->upfront_shutdown_script[LOCAL];
 
-	/* BOLT-channel-types #2:
+	/* BOLT #2:
 	 *  - if it includes `channel_type`:
 	 *     - MUST set it to a defined type representing the type it wants.
 	 *     - MUST use the smallest bitmap possible to represent the channel
@@ -451,7 +451,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	}
 	set_remote_upfront_shutdown(state, accept_tlvs->upfront_shutdown_script);
 
-	/* BOLT-channel-types #2:
+	/* BOLT #2:
 	 * - if `channel_type` is set, and `channel_type` was set in
 	 *   `open_channel`, and they are not equal types:
 	 *    - MUST reject the channel.
@@ -834,7 +834,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				    "Parsing open_channel %s", tal_hex(tmpctx, open_channel_msg));
 	set_remote_upfront_shutdown(state, open_tlvs->upfront_shutdown_script);
 
-	/* BOLT-channel-types #2:
+	/* BOLT #2:
 	 * The receiving node MUST fail the channel if:
 	 *...
 	 *   - It supports `channel_type`, `channel_type` was set, and the
@@ -1022,7 +1022,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	accept_tlvs = tlv_accept_channel_tlvs_new(tmpctx);
 	accept_tlvs->upfront_shutdown_script
 		= state->upfront_shutdown_script[LOCAL];
-	/* BOLT-channel-types #2:
+	/* BOLT #2:
 	 * - if it sets `channel_type`:
 	 *    - MUST set it to the `channel_type` from `open_channel`
 	 */
