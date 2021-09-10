@@ -78,6 +78,9 @@ struct funding_channel {
 	/* Channel, subsequent owner of us */
 	struct uncommitted_channel *uc;
 
+	/* Channel type we ended up negotiating. */
+	struct channel_type *channel_type;
+
 	/* The scriptpubkey to pay (once started) */
 	u8 *funding_scriptpubkey;
 

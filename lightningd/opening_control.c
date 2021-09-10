@@ -98,14 +98,14 @@ wallet_commit_channel(struct lightningd *ld,
 		      struct channel_info *channel_info,
 		      u32 feerate,
 		      const u8 *our_upfront_shutdown_script,
-		      const u8 *remote_upfront_shutdown_script)
+		      const u8 *remote_upfront_shutdown_script,
+		      const struct channel_type *type)
 {
 	struct channel *channel;
 	struct amount_msat our_msat;
 	struct amount_sat local_funding;
 	s64 final_key_idx;
 	u64 static_remotekey_start;
-	struct channel_type *type;
 	u32 lease_start_blockheight = 0; /* No leases on v1 */
 
 	/* We cannot both be the fundee *and* have a `fundchannel_start`
@@ -161,8 +161,6 @@ wallet_commit_channel(struct lightningd *ld,
 	 * - MUST use that `channel_type` for all commitment transactions.
 	 */
 	/* i.e. We set it now for the channel permanently. */
-	type = default_channel_type(NULL,
-				    ld->our_features, uc->peer->their_features);
 	if (channel_type_has(type, OPT_STATIC_REMOTEKEY))
 		static_remotekey_start = 0;
 	else
@@ -305,12 +303,12 @@ static void opening_funder_start_replied(struct subd *openingd, const u8 *resp,
 					 const int *fds,
 					 struct funding_channel *fc)
 {
-	u8 *funding_scriptPubkey;
 	bool supports_shutdown_script;
 
-	if (!fromwire_openingd_funder_start_reply(resp, resp,
-						 &funding_scriptPubkey,
-						 &supports_shutdown_script)) {
+	if (!fromwire_openingd_funder_start_reply(fc, resp,
+						  &fc->funding_scriptpubkey,
+						  &supports_shutdown_script,
+						  &fc->channel_type)) {
 		log_broken(fc->uc->log,
 			   "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
@@ -325,8 +323,6 @@ static void opening_funder_start_replied(struct subd *openingd, const u8 *resp,
 		fc->our_upfront_shutdown_script =
 			tal_free(fc->our_upfront_shutdown_script);
 
-	/* Save this so we can indentify output for scriptpubkey */
-	fc->funding_scriptpubkey = tal_steal(fc, funding_scriptPubkey);
 	funding_started_success(fc);
 
 	/* Mark that we're in-flight */
@@ -356,6 +352,7 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 	u8 *remote_upfront_shutdown_script;
 	struct per_peer_state *pps;
 	struct penalty_base *pbase;
+	struct channel_type *type;
 
 	/* This is a new channel_info.their_config so set its ID to 0 */
 	channel_info.their_config.id = 0;
@@ -377,7 +374,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					   &funding_txout,
 					   &feerate,
 					   &fc->uc->our_config.channel_reserve,
-					   &remote_upfront_shutdown_script)) {
+					   &remote_upfront_shutdown_script,
+					   &type)) {
 		log_broken(fc->uc->log,
 			   "bad OPENING_FUNDER_REPLY %s",
 			   tal_hex(resp, resp));
@@ -412,7 +410,8 @@ static void opening_funder_finished(struct subd *openingd, const u8 *resp,
 					&channel_info,
 					feerate,
 					fc->our_upfront_shutdown_script,
-					remote_upfront_shutdown_script);
+					remote_upfront_shutdown_script,
+					type);
 	if (!channel) {
 		was_pending(command_fail(fc->cmd, LIGHTNINGD,
 					 "Key generation failure"));
@@ -456,6 +455,7 @@ static void opening_fundee_finished(struct subd *openingd,
 	u8 *remote_upfront_shutdown_script, *local_upfront_shutdown_script;
 	struct per_peer_state *pps;
 	struct penalty_base *pbase;
+	struct channel_type *type;
 
 	log_debug(uc->log, "Got opening_fundee_finish_response");
 
@@ -483,7 +483,8 @@ static void opening_fundee_finished(struct subd *openingd,
 				     cast_const2(u8 **, &fwd_msg),
 				     &uc->our_config.channel_reserve,
 				     &local_upfront_shutdown_script,
-				     &remote_upfront_shutdown_script)) {
+				     &remote_upfront_shutdown_script,
+				     &type)) {
 		log_broken(uc->log, "bad OPENING_FUNDEE_REPLY %s",
 			   tal_hex(reply, reply));
 		uncommitted_channel_disconnect(uc, LOG_BROKEN,
@@ -520,7 +521,8 @@ static void opening_fundee_finished(struct subd *openingd,
 					&channel_info,
 					feerate,
 					local_upfront_shutdown_script,
-					remote_upfront_shutdown_script);
+					remote_upfront_shutdown_script,
+					type);
 	if (!channel) {
 		uncommitted_channel_disconnect(uc, LOG_BROKEN,
 					       "Commit channel failed");
@@ -1085,8 +1087,9 @@ static struct command_result *json_fundchannel_complete(struct command *cmd,
 	/* Set the cmd to this new cmd */
 	peer->uncommitted_channel->fc->cmd = cmd;
 	msg = towire_openingd_funder_complete(NULL,
-					     funding_txid,
-					     *funding_txout_num);
+					      funding_txid,
+					      *funding_txout_num,
+					      peer->uncommitted_channel->fc->channel_type);
 	subd_send_msg(peer->uncommitted_channel->open_daemon, take(msg));
 	return command_still_pending(cmd);
 }

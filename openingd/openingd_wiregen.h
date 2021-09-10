@@ -11,6 +11,7 @@
 #include <common/cryptomsg.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>
+#include <common/channel_type.h>
 #include <common/derive_basepoints.h>
 #include <common/features.h>
 #include <common/per_peer_state.h>
@@ -81,8 +82,8 @@ bool fromwire_openingd_got_offer_reply(const tal_t *ctx, const void *p, wirestri
 /* WIRE: OPENINGD_FUNDER_REPLY */
 /*  Openingd->master: we've successfully offered channel. */
 /*  This gives their sig */
-u8 *towire_openingd_funder_reply(const tal_t *ctx, const struct channel_config *their_config, const struct bitcoin_tx *first_commit, const struct penalty_base *pbase, const struct bitcoin_signature *first_commit_sig, const struct per_peer_state *pps, const struct pubkey *revocation_basepoint, const struct pubkey *payment_basepoint, const struct pubkey *htlc_basepoint, const struct pubkey *delayed_payment_basepoint, const struct pubkey *their_per_commit_point, u32 minimum_depth, const struct pubkey *remote_fundingkey, const struct bitcoin_txid *funding_txid, u16 funding_txout, u32 feerate_per_kw, struct amount_sat our_channel_reserve_satoshis, const u8 *shutdown_scriptpubkey);
-bool fromwire_openingd_funder_reply(const tal_t *ctx, const void *p, struct channel_config *their_config, struct bitcoin_tx **first_commit, struct penalty_base **pbase, struct bitcoin_signature *first_commit_sig, struct per_peer_state **pps, struct pubkey *revocation_basepoint, struct pubkey *payment_basepoint, struct pubkey *htlc_basepoint, struct pubkey *delayed_payment_basepoint, struct pubkey *their_per_commit_point, u32 *minimum_depth, struct pubkey *remote_fundingkey, struct bitcoin_txid *funding_txid, u16 *funding_txout, u32 *feerate_per_kw, struct amount_sat *our_channel_reserve_satoshis, u8 **shutdown_scriptpubkey);
+u8 *towire_openingd_funder_reply(const tal_t *ctx, const struct channel_config *their_config, const struct bitcoin_tx *first_commit, const struct penalty_base *pbase, const struct bitcoin_signature *first_commit_sig, const struct per_peer_state *pps, const struct pubkey *revocation_basepoint, const struct pubkey *payment_basepoint, const struct pubkey *htlc_basepoint, const struct pubkey *delayed_payment_basepoint, const struct pubkey *their_per_commit_point, u32 minimum_depth, const struct pubkey *remote_fundingkey, const struct bitcoin_txid *funding_txid, u16 funding_txout, u32 feerate_per_kw, struct amount_sat our_channel_reserve_satoshis, const u8 *shutdown_scriptpubkey, const struct channel_type *channel_type);
+bool fromwire_openingd_funder_reply(const tal_t *ctx, const void *p, struct channel_config *their_config, struct bitcoin_tx **first_commit, struct penalty_base **pbase, struct bitcoin_signature *first_commit_sig, struct per_peer_state **pps, struct pubkey *revocation_basepoint, struct pubkey *payment_basepoint, struct pubkey *htlc_basepoint, struct pubkey *delayed_payment_basepoint, struct pubkey *their_per_commit_point, u32 *minimum_depth, struct pubkey *remote_fundingkey, struct bitcoin_txid *funding_txid, u16 *funding_txout, u32 *feerate_per_kw, struct amount_sat *our_channel_reserve_satoshis, u8 **shutdown_scriptpubkey, struct channel_type **channel_type);
 
 /* WIRE: OPENINGD_FUNDER_START */
 /*  master->openingd: start channel establishment for a funding tx */
@@ -91,15 +92,15 @@ bool fromwire_openingd_funder_start(const tal_t *ctx, const void *p, struct amou
 
 /* WIRE: OPENINGD_FUNDER_START_REPLY */
 /*  openingd->master: send back output script for 2-of-2 funding output */
-u8 *towire_openingd_funder_start_reply(const tal_t *ctx, const u8 *scriptpubkey, bool upfront_shutdown_negotiated);
-bool fromwire_openingd_funder_start_reply(const tal_t *ctx, const void *p, u8 **scriptpubkey, bool *upfront_shutdown_negotiated);
+u8 *towire_openingd_funder_start_reply(const tal_t *ctx, const u8 *scriptpubkey, bool upfront_shutdown_negotiated, const struct channel_type *channel_type);
+bool fromwire_openingd_funder_start_reply(const tal_t *ctx, const void *p, u8 **scriptpubkey, bool *upfront_shutdown_negotiated, struct channel_type **channel_type);
 
 /* WIRE: OPENINGD_FUNDER_COMPLETE */
 /*  master->openingd: complete channel establishment for a funding */
 /*  tx that will be paid for by an external wallet */
 /*  response to this is a normal `openingd_funder_reply` ?? */
-u8 *towire_openingd_funder_complete(const tal_t *ctx, const struct bitcoin_txid *funding_txid, u16 funding_txout);
-bool fromwire_openingd_funder_complete(const void *p, struct bitcoin_txid *funding_txid, u16 *funding_txout);
+u8 *towire_openingd_funder_complete(const tal_t *ctx, const struct bitcoin_txid *funding_txid, u16 funding_txout, const struct channel_type *channel_type);
+bool fromwire_openingd_funder_complete(const tal_t *ctx, const void *p, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct channel_type **channel_type);
 
 /* WIRE: OPENINGD_FUNDER_CANCEL */
 /* master->openingd: cancel channel establishment for a funding */
@@ -114,8 +115,8 @@ bool fromwire_openingd_funder_failed(const tal_t *ctx, const void *p, wirestring
 /* WIRE: OPENINGD_FUNDEE */
 /*  Openingd->master: they offered channel. */
 /*  This gives their txid and info */
-u8 *towire_openingd_fundee(const tal_t *ctx, const struct channel_config *their_config, const struct bitcoin_tx *first_commit, const struct penalty_base *pbase, const struct bitcoin_signature *first_commit_sig, const struct per_peer_state *pps, const struct pubkey *revocation_basepoint, const struct pubkey *payment_basepoint, const struct pubkey *htlc_basepoint, const struct pubkey *delayed_payment_basepoint, const struct pubkey *their_per_commit_point, const struct pubkey *remote_fundingkey, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshis, struct amount_msat push_msat, u8 channel_flags, u32 feerate_per_kw, const u8 *funding_signed_msg, struct amount_sat our_channel_reserve_satoshis, const u8 *local_shutdown_scriptpubkey, const u8 *remote_shutdown_scriptpubkey);
-bool fromwire_openingd_fundee(const tal_t *ctx, const void *p, struct channel_config *their_config, struct bitcoin_tx **first_commit, struct penalty_base **pbase, struct bitcoin_signature *first_commit_sig, struct per_peer_state **pps, struct pubkey *revocation_basepoint, struct pubkey *payment_basepoint, struct pubkey *htlc_basepoint, struct pubkey *delayed_payment_basepoint, struct pubkey *their_per_commit_point, struct pubkey *remote_fundingkey, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshis, struct amount_msat *push_msat, u8 *channel_flags, u32 *feerate_per_kw, u8 **funding_signed_msg, struct amount_sat *our_channel_reserve_satoshis, u8 **local_shutdown_scriptpubkey, u8 **remote_shutdown_scriptpubkey);
+u8 *towire_openingd_fundee(const tal_t *ctx, const struct channel_config *their_config, const struct bitcoin_tx *first_commit, const struct penalty_base *pbase, const struct bitcoin_signature *first_commit_sig, const struct per_peer_state *pps, const struct pubkey *revocation_basepoint, const struct pubkey *payment_basepoint, const struct pubkey *htlc_basepoint, const struct pubkey *delayed_payment_basepoint, const struct pubkey *their_per_commit_point, const struct pubkey *remote_fundingkey, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshis, struct amount_msat push_msat, u8 channel_flags, u32 feerate_per_kw, const u8 *funding_signed_msg, struct amount_sat our_channel_reserve_satoshis, const u8 *local_shutdown_scriptpubkey, const u8 *remote_shutdown_scriptpubkey, const struct channel_type *channel_type);
+bool fromwire_openingd_fundee(const tal_t *ctx, const void *p, struct channel_config *their_config, struct bitcoin_tx **first_commit, struct penalty_base **pbase, struct bitcoin_signature *first_commit_sig, struct per_peer_state **pps, struct pubkey *revocation_basepoint, struct pubkey *payment_basepoint, struct pubkey *htlc_basepoint, struct pubkey *delayed_payment_basepoint, struct pubkey *their_per_commit_point, struct pubkey *remote_fundingkey, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshis, struct amount_msat *push_msat, u8 *channel_flags, u32 *feerate_per_kw, u8 **funding_signed_msg, struct amount_sat *our_channel_reserve_satoshis, u8 **local_shutdown_scriptpubkey, u8 **remote_shutdown_scriptpubkey, struct channel_type **channel_type);
 
 /* WIRE: OPENINGD_DEV_MEMLEAK */
 /*  master -> openingd: do you have a memleak? */
@@ -128,4 +129,4 @@ bool fromwire_openingd_dev_memleak_reply(const void *p, bool *leak);
 
 
 #endif /* LIGHTNING_OPENINGD_OPENINGD_WIREGEN_H */
-// SHA256STAMP:d29170ad38f0c5273930ae4c87ab3ce075af9671d16f3977d5db7584f3fde1b9
+// SHA256STAMP:f1728e2b3e5e2001e7620e23b0d1c1d359569684fd7d585b6f4471d1abeb332c

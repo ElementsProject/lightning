@@ -114,6 +114,9 @@ struct state {
 	 * as initial channels never have HTLCs. */
 	struct channel *channel;
 
+	/* Channel type we agreed on (even before channel populated) */
+	struct channel_type *channel_type;
+
 	struct feature_set *our_features;
 };
 
@@ -147,6 +150,8 @@ static void negotiation_aborted(struct state *state, bool am_opener,
 	* failed. */
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = tal_free(state->channel);
+
+	state->channel_type = tal_free(state->channel_type);
 }
 
 /*~ For negotiation failures: we tell them the parameter we didn't like. */
@@ -432,6 +437,10 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	}
 	set_remote_upfront_shutdown(state, accept_tlvs->upfront_shutdown_script);
 
+	state->channel_type = default_channel_type(state,
+						   state->our_features,
+						   state->their_features);
+
 	/* BOLT #2:
 	 *
 	 * The `temporary_channel_id` MUST be the same as the
@@ -483,11 +492,12 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 		       tal_hex(tmpctx, funding_output_script));
 
 	return towire_openingd_funder_start_reply(state,
-						 funding_output_script,
-						 feature_negotiated(
-							 state->our_features,
-							 state->their_features,
-							 OPT_UPFRONT_SHUTDOWN_SCRIPT));
+						  funding_output_script,
+						  feature_negotiated(
+							  state->our_features,
+							  state->their_features,
+							  OPT_UPFRONT_SHUTDOWN_SCRIPT),
+						  state->channel_type);
 }
 
 static bool funder_finalize_channel_setup(struct state *state,
@@ -502,7 +512,6 @@ static bool funder_finalize_channel_setup(struct state *state,
 	struct channel_id cid;
 	char *err_reason;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
-	struct channel_type *type;
 
 	/*~ Now we can initialize the `struct channel`.  This represents
 	 * the current channel state and is how we can generate the current
@@ -514,10 +523,6 @@ static bool funder_finalize_channel_setup(struct state *state,
 	 * `channeld` which lives in channeld/full_channel. */
 	derive_channel_id(&cid,
 			  &state->funding_txid, state->funding_txout);
-
-	type = default_channel_type(NULL,
-				    state->our_features,
-				    state->their_features);
 
 	state->channel = new_initial_channel(state,
 					     &cid,
@@ -535,7 +540,7 @@ static bool funder_finalize_channel_setup(struct state *state,
 					     &state->their_points,
 					     &state->our_funding_pubkey,
 					     &state->their_funding_pubkey,
-					     take(type),
+					     state->channel_type,
 					     feature_offered(state->their_features,
 							     OPT_LARGE_CHANNELS),
 					     /* Opener is local */
@@ -747,7 +752,8 @@ static u8 *funder_channel_complete(struct state *state)
 					   state->funding_txout,
 					   state->feerate_per_kw,
 					   state->localconf.channel_reserve,
-					   state->upfront_shutdown_script[REMOTE]);
+					   state->upfront_shutdown_script[REMOTE],
+					   state->channel_type);
 }
 
 /*~ The peer sent us an `open_channel`, that means we're the fundee. */
@@ -765,7 +771,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	char* err_reason;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct penalty_base *pbase;
-	struct channel_type *type;
 	struct tlv_accept_channel_tlvs *accept_tlvs;
 	struct tlv_open_channel_tlvs *open_tlvs
 		= tlv_open_channel_tlvs_new(tmpctx);
@@ -984,6 +989,9 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 
 	sync_crypto_write(state->pps, take(msg));
 
+	state->channel_type = default_channel_type(state,
+						   state->our_features,
+						   state->their_features);
 	peer_billboard(false,
 		       "Incoming channel: accepted, now waiting for them to create funding tx");
 
@@ -1014,9 +1022,6 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					       &state->channel_id),
 				type_to_string(msg, struct channel_id, &id_in));
 
-	type = default_channel_type(NULL,
-				    state->our_features, state->their_features);
-
 	/* Now we can create the channel structure. */
 	state->channel = new_initial_channel(state,
 					     &state->channel_id,
@@ -1033,7 +1038,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 					     &state->our_points, &theirs,
 					     &state->our_funding_pubkey,
 					     &their_funding_pubkey,
-					     take(type),
+					     state->channel_type,
 					     feature_offered(state->their_features,
 							     OPT_LARGE_CHANNELS),
 					     REMOTE);
@@ -1164,7 +1169,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				     msg,
 				     state->localconf.channel_reserve,
 				     state->upfront_shutdown_script[LOCAL],
-				     state->upfront_shutdown_script[REMOTE]);
+				     state->upfront_shutdown_script[REMOTE],
+				     state->channel_type);
 }
 
 /*~ Standard "peer sent a message, handle it" demuxer.  Though it really only
@@ -1291,9 +1297,10 @@ static u8 *handle_master_in(struct state *state)
 			wire_sync_write(REQ_FD, take(msg));
 		return NULL;
 	case WIRE_OPENINGD_FUNDER_COMPLETE:
-		if (!fromwire_openingd_funder_complete(msg,
-						      &funding_txid,
-						      &funding_txout))
+		if (!fromwire_openingd_funder_complete(state, msg,
+						       &funding_txid,
+						       &funding_txout,
+						       &state->channel_type))
 			master_badmsg(WIRE_OPENINGD_FUNDER_COMPLETE, msg);
 		state->funding_txid = funding_txid;
 		state->funding_txout = funding_txout;
