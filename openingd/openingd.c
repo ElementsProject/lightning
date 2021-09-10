@@ -832,27 +832,30 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				    "Parsing open_channel %s", tal_hex(tmpctx, open_channel_msg));
 	set_remote_upfront_shutdown(state, open_tlvs->upfront_shutdown_script);
 
-	state->channel_type
-		= default_channel_type(state,
-				       state->our_features, state->their_features);
-
 	/* BOLT-channel-types #2:
 	 * The receiving node MUST fail the channel if:
 	 *...
 	 *   - It supports `channel_type`, `channel_type` was set, and the
 	 *     `type` is not suitable.
 	 */
-
-	/* FIXME: We in fact insist on the exact type we want! */
-	if (open_tlvs->channel_type
-	    && !featurebits_eq(state->channel_type->features,
-			       open_tlvs->channel_type)) {
-		negotiation_failed(state, false,
-				   "Did not support channel_type %s",
-				   fmt_featurebits(tmpctx,
-						   open_tlvs->channel_type));
-		return NULL;
-	}
+	if (open_tlvs->channel_type) {
+		state->channel_type =
+			channel_type_accept(state,
+					    open_tlvs->channel_type,
+					    state->our_features,
+					    state->their_features);
+		if (!state->channel_type) {
+			negotiation_failed(state, false,
+					   "Did not support channel_type %s",
+					   fmt_featurebits(tmpctx,
+							   open_tlvs->channel_type));
+			return NULL;
+		}
+	} else
+		state->channel_type
+			= default_channel_type(state,
+					       state->our_features,
+					       state->their_features);
 
 	/* BOLT #2:
 	 *
