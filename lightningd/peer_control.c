@@ -1871,6 +1871,9 @@ static struct command_result *json_close(struct command *cmd,
 			wrong_funding_changed = false;
 	}
 
+	/* May already be set by previous close cmd. */
+	tal_free(channel->closing_feerate_range);
+
 	/* Works fine if feerate_range is NULL */
 	channel->closing_feerate_range = tal_steal(channel, feerate_range);
 
