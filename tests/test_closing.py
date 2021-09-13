@@ -3334,3 +3334,23 @@ def test_close_feerate_range(node_factory, bitcoind, chainparams):
 
     overlap = [max(l1_range[0], l2_range[0]), min(l1_range[1], l2_range[1])]
     l1.daemon.wait_for_log('performing quickclose in range {}sat-{}sat'.format(overlap[0], overlap[1]))
+
+
+def test_close_twice(node_factory, executor):
+    # First feerate is too low, second fixes it.
+    l1, l2 = node_factory.line_graph(2, opts=[{'allow_warning': True,
+                                               'may_reconnect': True},
+                                              {'allow_warning': True,
+                                               'may_reconnect': True,
+                                               'feerates': (15000, 15000, 15000, 15000)}])
+
+    # This makes it disconnect, since feerate is too low.
+    fut = executor.submit(l1.rpc.close, l2.info['id'], feerange=['253perkw', '500perkw'])
+    l1.daemon.wait_for_log('WARNING.*Unable to agree on a feerate')
+
+    fut2 = executor.submit(l1.rpc.close, l2.info['id'], feerange=['253perkw', '15000perkw'])
+
+    # Now reconnect, it should work.
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    assert fut.result(TIMEOUT)['type'] == 'mutual'
+    assert fut2.result(TIMEOUT)['type'] == 'mutual'
