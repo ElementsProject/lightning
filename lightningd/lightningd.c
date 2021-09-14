@@ -21,9 +21,9 @@
 #include "gossip_control.h"
 #include "hsm_control.h"
 #include "lightningd.h"
+#include "notification.h"
 #include "peer_control.h"
 #include "subd.h"
-
 /*~ This is Ian Lance Taylor's libbacktrace.  It turns out that it's
  * horrifically difficult to obtain a decent backtrace in C; the standard
  * backtrace function is useless in most programs. */
@@ -1100,6 +1100,13 @@ int main(int argc, char *argv[])
 	/*~ Now that all the notifications for transactions are in place, we
 	 *  can start the poll loop which queries bitcoind for new blocks. */
 	begin_topology(ld->topology);
+
+	/*~ This is where we notify all the plugin that the node it is ready,
+	 * and after this notifications, that plugin can safely call RPC method
+	 * through the socket.
+	 * TODO(vincenzopalazzo) It is the good place where put the notification?
+	 */
+	notify_node_startup(ld);
 
 	/*~ To handle --daemon, we fork the daemon early (otherwise we hit
 	 * issues with our pid changing), but keep the parent around until

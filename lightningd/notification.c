@@ -565,3 +565,30 @@ bool notify_plugin_shutdown(struct lightningd *ld, struct plugin *p)
 	jsonrpc_notification_end(n);
 	return plugin_single_notify(p, take(n));
 }
+
+static void startup_serialize(struct json_stream *stream, struct node_id *node_id,
+		       const char *node_alias, const char *node_color)
+{
+	json_object_start(stream, "startup");
+	json_add_node_id(stream, "id", node_id);
+	json_add_string(stream, "alias", node_alias);
+	json_add_string(stream, "color", node_color);
+	json_object_end(stream);
+}
+
+REGISTER_NOTIFICATION(startup, startup_serialize);
+
+void notify_node_startup(struct lightningd* ld)
+{
+	void (*serialize)(struct json_stream *,
+			  struct node_id *,
+			  const char *,
+			  const char *) = startup_notification_gen.serialize;
+
+
+	struct jsonrpc_notification *n =
+		jsonrpc_notification_start(NULL, "node_startup");
+	serialize(n->stream, &ld->id, (const char*)ld->alias, (const char*)ld->rgb);
+	jsonrpc_notification_end(n);
+	plugins_notify(ld->plugins, take(n));
+}

@@ -107,4 +107,8 @@ void notify_channel_open_failed(struct lightningd *ld,
 
 /* Tell this plugin to shutdown: returns true if it was subscribed. */
 bool notify_plugin_shutdown(struct lightningd *ld, struct plugin *p);
+
+/* Tell to all the plugin register to the startup notify that the node it is ready */
+void notify_node_startup(struct lightningd* ld);
+
 #endif /* LIGHTNING_LIGHTNINGD_NOTIFICATION_H */
