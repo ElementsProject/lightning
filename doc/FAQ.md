@@ -159,11 +159,21 @@ Which is to say that channels created after block [598000](https://blockstream.i
 
 You can verify it using the `features` field from the [`listpeers` command](https://lightning.readthedocs.io/lightning-listpeers.7.html)'s result.
 
-Here is an example in Python checking if [one of the `option_static_remotekey` bits](https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md) is set in the negotiated features corresponding to `0x02aaa2`:
+Here is an example in Python checking if [one of the `option_static_remotekey` bits][spec-features] is set in the negotiated features corresponding to `0x02aaa2`:
 ```python
 >>> bool(0x02aaa2 & ((1 << 12) | (1 << 13)))
 True
 ```
+
+If `option_static_remotekey` is enabled you can attempt to recover the
+funds in a channel following [this tutorial][mandelbit-recovery] on
+how to extract the necessary information from the network topology. If
+successful, result will be a private key matching a unilaterally
+closed channel, that you can import into any wallet, recovering the
+funds into that wallet.
+
+[spec-features]: https://github.com/lightningnetwork/lightning-rfc/blob/master/09-features.md
+[mandelbit-recovery]: https://github.com/mandelbit/bitcoin-tutorials/blob/master/CLightningRecoverFunds.md
 
 ## Technical Questions
 
