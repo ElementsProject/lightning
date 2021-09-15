@@ -109,4 +109,11 @@ void handle_custommsg_in(struct lightningd *ld, const struct node_id *peer_id,
 void waitblockheight_notify_new_block(struct lightningd *ld,
 				      u32 block_height);
 
+
+/* JSON parameter by channel_id or scid */
+struct command_result *
+command_find_channel(struct command *cmd,
+		     const char *buffer, const jsmntok_t *tok,
+		     struct channel **channel);
+
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */
