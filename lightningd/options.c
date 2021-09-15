@@ -191,7 +191,6 @@ static char *opt_add_addr_withtype(const char *arg,
 
 	assert(arg != NULL);
 
-	tal_arr_expand(&ld->proposed_listen_announce, ala);
 	if (!parse_wireaddr_internal(arg, &wi,
 				     ld->portnum,
 				     wildcard_ok, !ld->always_use_proxy, false,
@@ -210,6 +209,8 @@ static char *opt_add_addr_withtype(const char *arg,
 				       ala & ADDR_ANNOUNCE ? "announce" : "listen",
 				       type_to_string(tmpctx, struct wireaddr_internal, &wi));
 	}
+
+	tal_arr_expand(&ld->proposed_listen_announce, ala);
 	tal_arr_expand(&ld->proposed_wireaddr, wi);
 	return NULL;
 
