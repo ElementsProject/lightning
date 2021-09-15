@@ -283,6 +283,25 @@ static void peer_closing_complete(struct channel *channel, const u8 *msg)
 			  "Closing complete");
 }
 
+static void peer_closing_notify(struct channel *channel, const u8 *msg)
+{
+	char *message;
+	struct close_command *i;
+	enum log_level level;
+
+	if (!fromwire_closingd_notification(msg, msg, &level, &message)) {
+		channel_internal_error(channel, "Bad closing_notify %s",
+				       tal_hex(msg, msg));
+		return;
+	}
+
+	list_for_each(&channel->peer->ld->close_commands, i, list) {
+		if (i->channel != channel)
+			continue;
+		json_notify_fmt(i->cmd, level, "%s", message);
+	}
+}
+
 static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSED)
 {
 	enum closingd_wire t = fromwire_peektype(msg);
@@ -294,6 +313,10 @@ static unsigned closing_msg(struct subd *sd, const u8 *msg, const int *fds UNUSE
 
 	case WIRE_CLOSINGD_COMPLETE:
 		peer_closing_complete(sd->channel, msg);
+		break;
+
+	case WIRE_CLOSINGD_NOTIFICATION:
+		peer_closing_notify(sd->channel, msg);
 		break;
 
 	/* We send these, not receive them */

@@ -21,6 +21,7 @@ const char *closingd_wire_name(int e)
 
 	switch ((enum closingd_wire)e) {
 	case WIRE_CLOSINGD_INIT: return "WIRE_CLOSINGD_INIT";
+	case WIRE_CLOSINGD_NOTIFICATION: return "WIRE_CLOSINGD_NOTIFICATION";
 	case WIRE_CLOSINGD_RECEIVED_SIGNATURE: return "WIRE_CLOSINGD_RECEIVED_SIGNATURE";
 	case WIRE_CLOSINGD_RECEIVED_SIGNATURE_REPLY: return "WIRE_CLOSINGD_RECEIVED_SIGNATURE_REPLY";
 	case WIRE_CLOSINGD_COMPLETE: return "WIRE_CLOSINGD_COMPLETE";
@@ -34,6 +35,7 @@ bool closingd_wire_is_defined(u16 type)
 {
 	switch ((enum closingd_wire)type) {
 	case WIRE_CLOSINGD_INIT:;
+	case WIRE_CLOSINGD_NOTIFICATION:;
 	case WIRE_CLOSINGD_RECEIVED_SIGNATURE:;
 	case WIRE_CLOSINGD_RECEIVED_SIGNATURE_REPLY:;
 	case WIRE_CLOSINGD_COMPLETE:;
@@ -145,6 +147,30 @@ bool fromwire_closingd_init(const tal_t *ctx, const void *p, const struct chainp
 	return cursor != NULL;
 }
 
+/* WIRE: CLOSINGD_NOTIFICATION */
+/* Message for any commands waiting. */
+u8 *towire_closingd_notification(const tal_t *ctx, enum log_level level, const wirestring *message)
+{
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_CLOSINGD_NOTIFICATION);
+	towire_log_level(&p, level);
+	towire_wirestring(&p, message);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_closingd_notification(const tal_t *ctx, const void *p, enum log_level *level, wirestring **message)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_CLOSINGD_NOTIFICATION)
+		return false;
+ 	*level = fromwire_log_level(&cursor, &plen);
+ 	*message = fromwire_wirestring(ctx, &cursor, &plen);
+	return cursor != NULL;
+}
+
 /* WIRE: CLOSINGD_RECEIVED_SIGNATURE */
 /* We received an offer */
 u8 *towire_closingd_received_signature(const tal_t *ctx, const struct bitcoin_signature *signature, const struct bitcoin_tx *tx)
@@ -209,4 +235,4 @@ bool fromwire_closingd_complete(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:0d0d56c4ec5230461ead5cfac728e57e75db7bff1b53b1b0aaef20b82ce76362
+// SHA256STAMP:0602a002b81e43b45a8c40a15cb4af6c5e7ea66d6f95b7ba89f386b2fe73bd0e
