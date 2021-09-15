@@ -431,7 +431,7 @@ static void destroy_command(struct command *cmd)
 {
 	if (!cmd->jcon) {
 		log_debug(cmd->ld->log,
-			    "Command returned result after jcon close");
+			    "Command returned result after jcon close: %s", cmd->json_cmd->name);
 		return;
 	}
 	list_del_from(&cmd->jcon->commands, &cmd->list);
