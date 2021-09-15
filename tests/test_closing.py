@@ -3318,8 +3318,14 @@ def test_close_feerate_range(node_factory, bitcoind, chainparams):
     """Test the quick-close fee range negotiation"""
     l1, l2 = node_factory.line_graph(2)
 
+    notifications = []
+
+    def save_notifications(message, progress, request, **kwargs):
+        notifications.append(message)
+
     # Lowball the range here.
-    l1.rpc.close(l2.info['id'], feerange=['253perkw', 'normal'])
+    with l1.rpc.notify(save_notifications):
+        l1.rpc.close(l2.info['id'], feerange=['253perkw', 'normal'])
 
     if not chainparams['elements']:
         l1_range = [138, 4110]
@@ -3334,6 +3340,16 @@ def test_close_feerate_range(node_factory, bitcoind, chainparams):
 
     overlap = [max(l1_range[0], l2_range[0]), min(l1_range[1], l2_range[1])]
     l1.daemon.wait_for_log('performing quickclose in range {}sat-{}sat'.format(overlap[0], overlap[1]))
+
+    log = l1.daemon.is_in_log('Their actual closing tx fee is .*sat')
+    rate = re.match('.*Their actual closing tx fee is ([0-9]*sat).*', log).group(1)
+
+    assert notifications == ['Sending closing fee offer {}, with range {}sat-{}sat'.format(rate,
+                                                                                           l1_range[0],
+                                                                                           l1_range[1]),
+                             'Received closing fee offer {}, with range {}sat-{}sat'.format(rate,
+                                                                                            l2_range[0],
+                                                                                            l2_range[1])]
 
 
 def test_close_twice(node_factory, executor):

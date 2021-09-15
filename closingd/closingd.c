@@ -32,6 +32,20 @@
 #define REQ_FD STDIN_FILENO
 #define HSM_FD 6
 
+static void notify(enum log_level level, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	wire_sync_write(REQ_FD,
+			take(towire_closingd_notification(NULL,
+							  level,
+							  tal_vfmt(tmpctx, fmt,
+								   ap))));
+
+	va_end(ap);
+}
+
 static struct bitcoin_tx *close_tx(const tal_t *ctx,
 				   const struct chainparams *chainparams,
 				   struct per_peer_state *pps,
@@ -192,6 +206,10 @@ static void send_offer(struct per_peer_state *pps,
 		close_tlvs->fee_range
 			= cast_const(struct tlv_closing_signed_tlvs_fee_range *,
 				     tlv_fees);
+		notify(LOG_INFORM, "Sending closing fee offer %s, with range %s-%s",
+		       type_to_string(tmpctx, struct amount_sat, &fee_to_offer),
+		       type_to_string(tmpctx, struct amount_sat, &tlv_fees->min_fee_satoshis),
+		       type_to_string(tmpctx, struct amount_sat, &tlv_fees->max_fee_satoshis));
 	} else
 		close_tlvs = NULL;
 
@@ -345,10 +363,23 @@ receive_offer(struct per_peer_state *pps,
 		     type_to_string(tmpctx, struct amount_sat, &received_fee));
 
 	if (tlv_fees) {
-		if (close_tlvs)
+		if (close_tlvs) {
 			*tlv_fees = tal_steal(tlv_fees, close_tlvs->fee_range);
-		else
+		} else {
 			*tlv_fees = NULL;
+		}
+	}
+
+	if (close_tlvs && close_tlvs->fee_range) {
+		notify(LOG_INFORM, "Received closing fee offer %s, with range %s-%s",
+		       type_to_string(tmpctx, struct amount_sat, &received_fee),
+		       type_to_string(tmpctx, struct amount_sat,
+				      &close_tlvs->fee_range->min_fee_satoshis),
+		       type_to_string(tmpctx, struct amount_sat,
+				      &close_tlvs->fee_range->max_fee_satoshis));
+	} else {
+		notify(LOG_INFORM, "Received closing fee offer %s, without range",
+		       type_to_string(tmpctx, struct amount_sat, &received_fee));
 	}
 
 	/* Master sorts out what is best offer, we just tell it any above min */
@@ -1080,4 +1111,5 @@ exit_thru_the_giftshop:
 	daemon_shutdown();
 
 	return 0;
+
 }

@@ -3,6 +3,7 @@
 #include <common/cryptomsg.h>
 #include <common/htlc_wire.h>
 #include <common/per_peer_state.h>
+#include <common/status_wire.h>
 # Begin!  (passes peer fd, gossipd-client fd)
 msgtype,closingd_init,2001
 msgdata,closingd_init,chainparams,chainparams,
@@ -30,6 +31,11 @@ msgdata,closingd_init,fee_negotiation_step_unit,u8,
 msgdata,closingd_init,use_quickclose,bool,
 msgdata,closingd_init,dev_fast_gossip,bool,
 msgdata,closingd_init,shutdown_wrong_funding,?bitcoin_outpoint,
+
+# Message for any commands waiting.
+msgtype,closingd_notification,2003
+msgdata,closingd_notification,level,enum log_level,
+msgdata,closingd_notification,message,wirestring,
 
 # We received an offer, save signature.
 msgtype,closingd_received_signature,2002

@@ -12,10 +12,13 @@
 #include <common/cryptomsg.h>
 #include <common/htlc_wire.h>
 #include <common/per_peer_state.h>
+#include <common/status_wire.h>
 
 enum closingd_wire {
         /*  Begin!  (passes peer fd */
         WIRE_CLOSINGD_INIT = 2001,
+        /*  Message for any commands waiting. */
+        WIRE_CLOSINGD_NOTIFICATION = 2003,
         /*  We received an offer */
         WIRE_CLOSINGD_RECEIVED_SIGNATURE = 2002,
         WIRE_CLOSINGD_RECEIVED_SIGNATURE_REPLY = 2102,
@@ -40,6 +43,11 @@ bool closingd_wire_is_defined(u16 type);
 u8 *towire_closingd_init(const tal_t *ctx, const struct chainparams *chainparams, const struct per_peer_state *pps, const struct channel_id *channel_id, const struct bitcoin_txid *funding_txid, u16 funding_txout, struct amount_sat funding_satoshi, const struct pubkey *local_fundingkey, const struct pubkey *remote_fundingkey, enum side opener, struct amount_sat local_sat, struct amount_sat remote_sat, struct amount_sat our_dust_limit, u32 min_feerate_perksipa, u32 preferred_feerate_perksipa, u32 *max_feerate_perksipa, struct amount_sat fee_limit_satoshi, const u8 *local_scriptpubkey, const u8 *remote_scriptpubkey, u64 fee_negotiation_step, u8 fee_negotiation_step_unit, bool use_quickclose, bool dev_fast_gossip, const struct bitcoin_outpoint *shutdown_wrong_funding);
 bool fromwire_closingd_init(const tal_t *ctx, const void *p, const struct chainparams **chainparams, struct per_peer_state **pps, struct channel_id *channel_id, struct bitcoin_txid *funding_txid, u16 *funding_txout, struct amount_sat *funding_satoshi, struct pubkey *local_fundingkey, struct pubkey *remote_fundingkey, enum side *opener, struct amount_sat *local_sat, struct amount_sat *remote_sat, struct amount_sat *our_dust_limit, u32 *min_feerate_perksipa, u32 *preferred_feerate_perksipa, u32 **max_feerate_perksipa, struct amount_sat *fee_limit_satoshi, u8 **local_scriptpubkey, u8 **remote_scriptpubkey, u64 *fee_negotiation_step, u8 *fee_negotiation_step_unit, bool *use_quickclose, bool *dev_fast_gossip, struct bitcoin_outpoint **shutdown_wrong_funding);
 
+/* WIRE: CLOSINGD_NOTIFICATION */
+/*  Message for any commands waiting. */
+u8 *towire_closingd_notification(const tal_t *ctx, enum log_level level, const wirestring *message);
+bool fromwire_closingd_notification(const tal_t *ctx, const void *p, enum log_level *level, wirestring **message);
+
 /* WIRE: CLOSINGD_RECEIVED_SIGNATURE */
 /*  We received an offer */
 u8 *towire_closingd_received_signature(const tal_t *ctx, const struct bitcoin_signature *signature, const struct bitcoin_tx *tx);
@@ -56,4 +64,4 @@ bool fromwire_closingd_complete(const void *p);
 
 
 #endif /* LIGHTNING_CLOSINGD_CLOSINGD_WIREGEN_H */
-// SHA256STAMP:0d0d56c4ec5230461ead5cfac728e57e75db7bff1b53b1b0aaef20b82ce76362
+// SHA256STAMP:0602a002b81e43b45a8c40a15cb4af6c5e7ea66d6f95b7ba89f386b2fe73bd0e
