@@ -472,10 +472,13 @@ def test_async_rpcmethod(node_factory, executor):
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Only sqlite3 implements the db_write_hook currently")
 def test_db_hook(node_factory, executor):
-    """This tests the db hook."""
+    """This tests the db hook and that all db_write's are seen by plugin during shutdown"""
     dbfile = os.path.join(node_factory.directory, "dblog.sqlite3")
-    l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/dblog.py'),
-                                        'dblog-file': dbfile})
+    opts = {'dblog-file': dbfile,
+            'plugin': [os.path.join(os.getcwd(), 'tests/plugins/dblog.py'),
+                       os.path.join(os.getcwd(), 'tests/plugins/misc_notifications.py')]}
+
+    l1 = node_factory.get_node(options=opts)
 
     # It should see the db being created, and sometime later actually get
     # initted.
@@ -486,6 +489,7 @@ def test_db_hook(node_factory, executor):
     l1.daemon.wait_for_log('plugin-dblog.py: CREATE TABLE version \\(version INTEGER\\)')
     l1.daemon.wait_for_log("plugin-dblog.py: initialized.* 'startup': True")
 
+    # misc_notifications.py triggers db_write in shutdown
     l1.stop()
 
     # Databases should be identical.
