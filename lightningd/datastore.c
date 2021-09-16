@@ -2,10 +2,8 @@
 #include <common/json_command.h>
 #include <common/json_tok.h>
 #include <common/param.h>
-#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <wallet/wallet.h>
 
 static void json_add_datastore(struct json_stream *response,
 			       const char **key, const u8 *data,

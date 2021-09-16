@@ -9,7 +9,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/utils.h>
 #include <common/version.h>
-#include <errno.h>
 
 bool deprecated_apis = true;
 

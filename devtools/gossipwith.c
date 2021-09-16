@@ -17,6 +17,7 @@
 #include <netdb.h>
 #include <poll.h>
 #include <secp256k1_ecdh.h>
+#include <stdio.h>
 #include <wire/peer_wire.h>
 
 #define io_write_ simple_write

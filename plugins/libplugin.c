@@ -1,6 +1,5 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
-#include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -9,17 +8,11 @@
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/route.h>
-#include <common/utils.h>
 #include <errno.h>
 #include <plugins/libplugin.h>
-#include <poll.h>
-#include <stdarg.h>
 #include <stdio.h>
-#include <string.h>
 #include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/un.h>
-#include <unistd.h>
 
 #define READ_CHUNKSIZE 4096
 

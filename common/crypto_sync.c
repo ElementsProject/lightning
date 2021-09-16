@@ -5,14 +5,11 @@
 #include <common/peer_failed.h>
 #include <common/per_peer_state.h>
 #include <common/status.h>
-#include <common/utils.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <sys/socket.h>
 #include <wire/wire.h>
-#include <wire/wire_sync.h>
 
 void sync_crypto_write(struct per_peer_state *pps, const void *msg TAKES)
 {

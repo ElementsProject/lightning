@@ -1,14 +1,11 @@
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/tal/tal.h>
 #include <common/htlc.h>
-#include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/log.h>
-#include <stdio.h>
 
 size_t hash_htlc_key(const struct htlc_key *k)
 {

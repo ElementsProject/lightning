@@ -1,19 +1,13 @@
 #include "config.h"
 #include <assert.h>
-#include <bitcoin/block.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
-#include <ccan/crypto/sha256/sha256.h>
-#include <ccan/endian/endian.h>
-#include <ccan/mem/mem.h>
-#include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
 #include <common/type_to_string.h>
-#include <stdio.h>
 #include <wally_psbt.h>
 #include <wire/wire.h>
+#include <bitcoin/tx.h>
 
 #define SEGREGATED_WITNESS_FLAG 0x1
 

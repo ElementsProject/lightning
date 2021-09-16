@@ -1,7 +1,6 @@
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/chainparams.h>
-#include <ccan/fdpass/fdpass.h>
 #include <common/crypto_sync.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
@@ -9,13 +8,8 @@
 #include <common/per_peer_state.h>
 #include <common/read_peer_msg.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
-#include <common/utils.h>
 #include <common/wire_error.h>
 #include <errno.h>
-#include <gossipd/gossipd_peerd_wiregen.h>
-#include <sys/select.h>
-#include <unistd.h>
 #include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 

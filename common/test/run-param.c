@@ -2,16 +2,9 @@
 #include "../json_tok.c"
 #include "../param.c"
 #include <ccan/array_size/array_size.h>
-#include <ccan/err/err.h>
-#include <common/errcode.h>
-#include <common/json.h>
+#include <common/channel_type.h>
 #include <common/setup.h>
-#include <setjmp.h>
-#include <signal.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <wire/channel_type_wiregen.h>
-#include <wire/wire.h>
 
 char *fail_msg = NULL;
 bool failed = false;

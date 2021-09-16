@@ -1,9 +1,6 @@
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/tal/grab_file/grab_file.h>
-#include <common/decode_array.h>
-#include <common/utils.h>
-#include <stdio.h>
 #include <unistd.h>
 #if EXPERIMENTAL_FEATURES
   #include <wire/onion_exp_printgen.h>

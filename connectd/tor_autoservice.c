@@ -1,27 +1,17 @@
 #include "config.h"
-#include <arpa/inet.h>
-#include <assert.h>
 #include <ccan/err/err.h>
-#include <ccan/io/io.h>
 #include <ccan/rbuf/rbuf.h>
 #include <ccan/read_write_all/read_write_all.h>
-#include <ccan/str/hex/hex.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
 #include <common/base64.h>
-#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/wireaddr.h>
 #include <connectd/tor_autoservice.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <lightningd/log.h>
 #include <netdb.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
-#include <wire/wire.h>
 
 
 static void *buf_resize(struct membuf *mb, void *buf, size_t len)

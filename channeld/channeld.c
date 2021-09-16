@@ -10,67 +10,39 @@
  *    reading and writing synchronously we could deadlock if we hit buffer
  *    limits, unlikely as that is.
  */
-#include <bitcoin/chainparams.h>
-#include <bitcoin/privkey.h>
-#include <bitcoin/psbt.h>
-#include <bitcoin/script.h>
-#include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/cast/cast.h>
-#include <ccan/container_of/container_of.h>
-#include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
-#include <ccan/crypto/shachain/shachain.h>
-#include <ccan/err/err.h>
-#include <ccan/fdpass/fdpass.h>
 #include <ccan/mem/mem.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
 #include <channeld/channeld_wiregen.h>
-#include <channeld/commit_tx.h>
 #include <channeld/full_channel.h>
 #include <channeld/watchtower.h>
 #include <common/billboard.h>
-#include <common/blinding.h>
-#include <common/bolt12.h>
-#include <common/channel_type.h>
-#include <common/coin_mvt.h>
 #include <common/crypto_sync.h>
 #include <common/dev_disconnect.h>
 #include <common/ecdh_hsmd.h>
-#include <common/gossip_constants.h>
 #include <common/gossip_store.h>
-#include <common/htlc_tx.h>
 #include <common/key_derive.h>
 #include <common/memleak.h>
 #include <common/msg_queue.h>
-#include <common/node_id.h>
 #include <common/onionreply.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
 #include <common/ping.h>
 #include <common/private_channel_announcement.h>
-#include <common/psbt_open.h>
 #include <common/read_peer_msg.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
-#include <common/version.h>
 #include <common/wire_error.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <inttypes.h>
-#include <secp256k1.h>
-#include <stdio.h>
 #include <wire/common_wiregen.h>
-#include <wire/onion_wire.h>
 #include <wire/peer_wire.h>
-#include <wire/wire.h>
-#include <wire/wire_io.h>
 #include <wire/wire_sync.h>
 
 /* stdin == requests, 3 == peer, 4 = gossip, 5 = gossip_store, 6 = HSM */

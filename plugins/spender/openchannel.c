@@ -1,18 +1,13 @@
 #include "config.h"
-#include <assert.h>
 #include <bitcoin/psbt.h>
 #include <ccan/ccan/array_size/array_size.h>
-#include <ccan/ccan/cast/cast.h>
 #include <ccan/ccan/mem/mem.h>
-#include <ccan/ccan/tal/str/str.h>
 #include <common/json_stream.h>
 #include <common/lease_rates.h>
 #include <common/psbt_open.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <plugins/spender/multifundchannel.h>
 #include <plugins/spender/openchannel.h>
-#include <wally_psbt.h>
 
 static struct list_head mfc_commands;
 

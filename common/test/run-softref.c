@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <ccan/short_types/short_types.h>
 #include <common/amount.h>
 #include <common/setup.h>
 #include <common/utils.h>

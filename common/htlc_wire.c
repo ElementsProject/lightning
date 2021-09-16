@@ -1,11 +1,8 @@
-#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/shachain/shachain.h>
 #include <common/htlc_wire.h>
-#include <common/memleak.h>
 #include <common/onionreply.h>
-#include <wire/wire.h>
 
 struct failed_htlc *failed_htlc_dup(const tal_t *ctx,
 				    const struct failed_htlc *f TAKES)

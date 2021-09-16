@@ -2,7 +2,6 @@
 #include <bitcoin/script.h>
 #include <ccan/tal/str/str.h>
 #include <common/lease_rates.h>
-#include <common/node_id.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <inttypes.h>

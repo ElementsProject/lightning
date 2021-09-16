@@ -1,5 +1,3 @@
-#include <common/utils.h>
-#include <plugins/libplugin.h>
 #include <plugins/spender/fundchannel.h>
 #include <plugins/spender/multifundchannel.h>
 #include <plugins/spender/multiwithdraw.h>

@@ -8,7 +8,6 @@
 #include <common/status.h>
 #include <common/status_wiregen.h>
 #include <common/wire_error.h>
-#include <stdarg.h>
 
 /* Fatal error here, return peer control to lightningd */
 static void NORETURN

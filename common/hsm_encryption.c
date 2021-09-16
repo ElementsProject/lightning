@@ -1,7 +1,4 @@
-#include <ccan/tal/str/str.h>
 #include <common/hsm_encryption.h>
-#include <sodium/utils.h>
-#include <stdio.h>
 #include <termios.h>
 #include <unistd.h>
 

@@ -1,5 +1,4 @@
 #include "../fp16.c"
-#include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <stdio.h>
 #include <wire/wire.h>

@@ -1,24 +1,12 @@
 #include "config.h"
 #include <arpa/inet.h>
 #include <assert.h>
-#include <ccan/build_assert/build_assert.h>
-#include <ccan/err/err.h>
-#include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
-#include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <common/base32.h>
-#include <common/configdir.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <common/wireaddr.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <netdb.h>
-#include <netinet/in.h>
-#include <sodium/randombytes.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <wire/wire.h>
 
 bool wireaddr_eq(const struct wireaddr *a, const struct wireaddr *b)

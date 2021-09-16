@@ -1,12 +1,6 @@
-#include <ccan/asort/asort.h>
 #include <ccan/io/io.h>
-#include <ccan/list/list.h>
-#include <common/configdir.h>
 #include <common/memleak.h>
-#include <lightningd/jsonrpc.h>
 #include <lightningd/plugin_hook.h>
-#include <wallet/db.h>
-#include <wallet/db_common.h>
 
 /* Struct containing all the information needed to deserialize and
  * dispatch an eventual plugin_hook response. */

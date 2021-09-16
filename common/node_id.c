@@ -5,7 +5,6 @@
 #include <ccan/str/hex/hex.h>
 #include <common/node_id.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <wire/wire.h>
 
 /* Convert from pubkey to compressed pubkey. */

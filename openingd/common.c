@@ -1,5 +1,4 @@
 #include <ccan/ccan/tal/str/str.h>
-#include <common/amount.h>
 #include <common/channel_config.h>
 #include <common/features.h>
 #include <common/initial_commit_tx.h>

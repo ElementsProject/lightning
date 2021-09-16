@@ -1,15 +1,10 @@
 #include "config.h"
 #include <assert.h>
-#include <stdint.h>
-#include <string.h>
 #include <tests/fuzz/libfuzz.h>
 
 #include <bitcoin/pubkey.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
-#include <ccan/tal/tal.h>
-#include <common/amount.h>
 #include <common/close_tx.h>
 #include <common/setup.h>
 #include <common/utils.h>

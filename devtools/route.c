@@ -1,12 +1,8 @@
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/time/time.h>
-#include <common/amount.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
-#include <common/node_id.h>
-#include <common/pseudorand.h>
-#include <common/random_select.h>
 #include <common/route.h>
 #include <common/type_to_string.h>
 #include <devtools/clean_topo.h>

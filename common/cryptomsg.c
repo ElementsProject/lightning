@@ -1,18 +1,9 @@
 #include "config.h"
 #include <assert.h>
-#include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
-#include <ccan/crypto/sha256/sha256.h>
-#include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
-#include <ccan/take/take.h>
 #include <common/cryptomsg.h>
-#include <common/dev_disconnect.h>
-#include <common/status.h>
-#include <common/utils.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
-#include <wire/peer_wire.h>
-#include <wire/wire.h>
 #include <wire/wire_io.h>
 
 static void hkdf_two_keys(struct secret *out1, struct secret *out2,

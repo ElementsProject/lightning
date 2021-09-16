@@ -1,9 +1,5 @@
 #include "log.h"
-#include <backtrace-supported.h>
-#include <backtrace.h>
-#include <ccan/array_size/array_size.h>
 #include <ccan/err/err.h>
-#include <ccan/htable/htable_type.h>
 #include <ccan/io/io.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
@@ -12,24 +8,13 @@
 #include <ccan/tal/str/str.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
-#include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/param.h>
-#include <common/pseudorand.h>
-#include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <lightningd/json.h>
-#include <lightningd/jsonrpc.h>
-#include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
-#include <lightningd/options.h>
 #include <signal.h>
 #include <stdio.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 /* What logging level to use if they didn't specify */
 #define DEFAULT_LOGLEVEL LOG_INFORM

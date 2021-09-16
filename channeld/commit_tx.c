@@ -1,12 +1,9 @@
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
-#include <ccan/endian/endian.h>
 #include <channeld/commit_tx.h>
 #include <common/htlc_trim.h>
 #include <common/htlc_tx.h>
 #include <common/keyset.h>
 #include <common/permute_tx.h>
-#include <common/utils.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)

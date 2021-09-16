@@ -6,17 +6,11 @@
 #include "common/channel_id.c"
 #include "common/node_id.c"
 
-#include <assert.h>
 #include <stdio.h>
 
-#include <ccan/str/hex/hex.h>
-#include <common/amount.h>
-#include <common/bigsize.h>
 #include <common/channel_type.h>
-#include <bitcoin/chainparams.h>
 #include <common/setup.h>
 #include <common/sphinx.h>
-#include <wire/peer_wire.h>
 #include <wire/tlvstream.c>
 
 extern secp256k1_context *secp256k1_ctx;

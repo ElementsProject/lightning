@@ -12,9 +12,7 @@
 #include <secp256k1_ecdh.h>
 #include <secp256k1_schnorrsig.h>
 #include <sodium/utils.h>
-#include <wally_bip32.h>
 #include <wally_psbt.h>
-#include <wire/peer_wire.h>
 
 #if DEVELOPER
 /* If they specify --dev-force-privkey it ends up in here. */

@@ -2,11 +2,9 @@
 #include <assert.h>
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/crypto/siphash24/siphash24.h>
-#include <ccan/err/err.h>
 #include <ccan/isaac/isaac64.h>
 #include <ccan/likely/likely.h>
 #include <sodium/randombytes.h>
-#include <stdbool.h>
 #include <string.h>
 
 static struct isaac64_ctx isaac64;

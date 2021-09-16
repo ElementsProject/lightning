@@ -1,5 +1,4 @@
 #include <common/base64.h>
-#include <sodium.h>
 #include <sodium/utils.h>
 
 /* Decode/encode from/to base64, base64 helper functions.

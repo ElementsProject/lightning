@@ -1,19 +1,12 @@
 #include <ccan/io/io.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/tal/str/str.h>
 #include <common/status.h>
 #include <common/utils.h>
-#include <common/wireaddr.h>
 #include <connectd/connectd.h>
 #include <connectd/tor.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <netdb.h>
 #include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #define SOCKS_NOAUTH		0
 #define SOCKS_ERROR 	 0xff

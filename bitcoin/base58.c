@@ -8,11 +8,7 @@
 #include "privkey.h"
 #include "pubkey.h"
 #include "shadouble.h"
-#include <assert.h>
-#include <ccan/build_assert/build_assert.h>
-#include <ccan/tal/str/str.h>
 #include <common/utils.h>
-#include <string.h>
 #include <wally_core.h>
 
 static char *to_base58(const tal_t *ctx, u8 version,

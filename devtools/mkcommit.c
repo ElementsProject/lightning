@@ -10,27 +10,21 @@
  */
 #include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <ccan/cast/cast.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
 #include <channeld/full_channel.h>
-#include <common/amount.h>
 #include <common/blockheight_states.h>
-#include <common/channel_id.h>
 #include <common/channel_type.h>
-#include <common/derive_basepoints.h>
 #include <common/fee_states.h>
 #include <common/htlc_wire.h>
 #include <common/key_derive.h>
-#include <common/keyset.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
 #include <common/version.h>
 #include <inttypes.h>
-#include <stdarg.h>
 #include <stdio.h>
 
 static bool verbose = false;

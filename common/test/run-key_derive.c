@@ -1,10 +1,8 @@
 #define SUPERVERBOSE
 
-#include <assert.h>
 #include <ccan/str/hex/hex.h>
 #include <common/amount.h>
 #include <common/setup.h>
-#include <common/utils.h>
 #include <stdio.h>
 #include <wire/wire.h>
 #include "../type_to_string.c"

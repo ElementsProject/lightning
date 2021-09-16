@@ -1,13 +1,10 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
-#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32_util.h>
-#include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
 #include <common/iso4217.h>
 #include <common/json_stream.h>
-#include <common/jsonrpc_errors.h>
 #include <common/overflows.h>
 #include <common/type_to_string.h>
 #include <plugins/offers.h>

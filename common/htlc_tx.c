@@ -1,6 +1,5 @@
 #include <bitcoin/preimage.h>
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <common/htlc_tx.h>
 #include <common/keyset.h>
 

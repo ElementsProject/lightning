@@ -1,11 +1,9 @@
 #include <common/bolt11.h>
 #include <common/json_helpers.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <lightningd/channel.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/routehint.h>
 

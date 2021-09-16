@@ -1,26 +1,17 @@
 #include "config.h"
 #include <assert.h>
-#include <bitcoin/privkey.h>
 #include <ccan/err/err.h>
-#include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/str/hex/hex.h>
-#include <ccan/tal/tal.h>
 #include <common/blinding.h>
 #include <common/ecdh.h>
-#include <common/hmac.h>
 #include <common/setup.h>
 #include <common/sphinx.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <common/version.h>
-#include <secp256k1.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
-#include <sodium/crypto_auth_hmacsha256.h>
 #include <stdio.h>
-#include <string.h>
-#include <unistd.h>
 
 static bool simpleout = false;
 

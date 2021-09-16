@@ -1,13 +1,10 @@
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/endian/endian.h>
 #include <common/initial_commit_tx.h>
 #include <common/keyset.h>
 #include <common/permute_tx.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
-#include <inttypes.h>
 
 /* BOLT #3:
  *

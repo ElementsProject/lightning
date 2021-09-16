@@ -1,10 +1,8 @@
 #include <bitcoin/chainparams.h>
-#include <ccan/cast/cast.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32_util.h>
-#include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
 #include <common/features.h>
 #include <common/iso4217.h>
@@ -14,11 +12,7 @@
 #include <inttypes.h>
 #include <secp256k1_schnorrsig.h>
 #include <stdio.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/un.h>
 #include <time.h>
-#include <unistd.h>
 
 #define NO_ERROR 0
 #define ERROR_BAD_DECODE 1

@@ -4,6 +4,7 @@
 #include <ccan/alignof/alignof.h>
 #include <common/errcode.h>
 #include <common/setup.h>
+#include <stdio.h>
 
 bool deprecated_apis = false;
 

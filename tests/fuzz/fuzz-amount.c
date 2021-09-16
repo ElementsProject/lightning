@@ -1,11 +1,8 @@
 #include "config.h"
 #include <assert.h>
-#include <stdint.h>
 #include <tests/fuzz/libfuzz.h>
 
-#include <ccan/tal/tal.h>
 #include <common/amount.h>
-#include <common/utils.h>
 
 void init(int *argc, char ***argv)
 {

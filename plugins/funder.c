@@ -10,26 +10,17 @@
  */
 #include "config.h"
 #include <bitcoin/feerate.h>
-#include <bitcoin/psbt.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_out/json_out.h>
-#include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
-#include <common/channel_id.h>
-#include <common/json.h>
-#include <common/json_helpers.h>
 #include <common/json_stream.h>
 #include <common/json_tok.h>
-#include <common/lease_rates.h>
 #include <common/memleak.h>
-#include <common/node_id.h>
 #include <common/overflows.h>
 #include <common/psbt_open.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <plugins/funder_policy.h>
 #include <plugins/libplugin.h>
-#include <wire/peer_wire.h>
 
 /* In-progress channel opens */
 static struct list_head pending_opens;

@@ -1,7 +1,5 @@
 #include "config.h"
 #include <assert.h>
-#include <stdint.h>
-#include <string.h>
 #include <tests/fuzz/libfuzz.h>
 
 #include <common/base32.h>

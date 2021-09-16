@@ -2,24 +2,15 @@
 #include <assert.h>
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
-#include <ccan/read_write_all/read_write_all.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/str/str.h>
-#include <common/amount.h>
 #include <common/ecdh.h>
-#include <common/json.h>
 #include <common/json_helpers.h>
 #include <common/onion.h>
 #include <common/sphinx.h>
-#include <common/utils.h>
 #include <common/version.h>
 #include <err.h>
-#include <secp256k1.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
 
 /* We don't actually use this, but common/onion needs it */
 void ecdh(const struct pubkey *point, struct secret *ss)

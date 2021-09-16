@@ -1,9 +1,6 @@
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/chainparams.h>
-#include <bitcoin/privkey.h>
-#include <bitcoin/pubkey.h>
-#include <common/node_id.h>
 #include <common/private_channel_announcement.h>
 #include <wire/peer_wire.h>
 

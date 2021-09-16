@@ -1,6 +1,5 @@
 #include "../bolt12.c"
 #include "../json.c"
-#include <assert.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>

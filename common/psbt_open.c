@@ -1,8 +1,6 @@
 #include "config.h"
-#include <assert.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <ccan/asort/asort.h>
 #include <ccan/ccan/endian/endian.h>
 #include <ccan/ccan/mem/mem.h>

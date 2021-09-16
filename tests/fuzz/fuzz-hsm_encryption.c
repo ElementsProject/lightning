@@ -2,12 +2,8 @@
 #include <assert.h>
 #include <tests/fuzz/libfuzz.h>
 
-#include <bitcoin/privkey.h>
 #include <ccan/mem/mem.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 #include <common/hsm_encryption.h>
-#include <common/utils.h>
 
 void init(int *argc, char ***argv)
 {

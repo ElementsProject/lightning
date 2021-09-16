@@ -1,11 +1,8 @@
 #include "io_loop_with_timers.h"
 
 #include <ccan/io/io.h>
-#include <ccan/timer/timer.h>
 #include <common/timeout.h>
 #include <lightningd/lightningd.h>
-#include <wallet/db.h>
-#include <wallet/wallet.h>
 
 void *io_loop_with_timers(struct lightningd *ld)
 {

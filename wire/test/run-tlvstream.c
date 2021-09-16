@@ -1,9 +1,4 @@
-#include <ccan/array_size/array_size.h>
-#include <ccan/str/hex/hex.h>
-#include <common/channel_type.h>
 #include <common/utils.h>
-#include <stdio.h>
-#include <wally_core.h>
 
 static const char *reason;
 #undef SUPERVERBOSE
@@ -12,6 +7,7 @@ static const char *reason;
 #include <bitcoin/pubkey.c>
 #include <common/amount.c>
 #include <common/bigsize.c>
+#include <common/channel_type.h>
 #include <common/node_id.c>
 #include <common/setup.h>
 

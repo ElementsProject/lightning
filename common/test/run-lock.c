@@ -1,10 +1,7 @@
 #include "../io_lock.c"
-#include <ccan/io/io.h>
-#include <ccan/short_types/short_types.h>
 #include <common/amount.h>
 #include <common/setup.h>
 #include <common/utils.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <stdio.h>
 #include <wire/wire.h>

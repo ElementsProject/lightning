@@ -1,17 +1,11 @@
 /* -*- c-basic-offset: 4; indent-tabs-mode: nil; -*- */
 #include "config.h"
-#include <arpa/inet.h>
 #include <assert.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <connectd/netaddress.h>
 #include <errno.h>
 #include <netinet/in.h>
-#include <stdbool.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <unistd.h>
-#include <wire/wire.h>
 
 /* Based on bitcoin's src/netaddress.cpp, hence different naming and styling!
    version 7f31762cb6261806542cc6d1188ca07db98a6950:

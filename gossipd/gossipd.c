@@ -10,29 +10,11 @@
  * The gossip protocol itself is fairly simple, but has some twists which
  * add complexity to this daemon.
  */
-#include <bitcoin/chainparams.h>
-#include <ccan/array_size/array_size.h>
-#include <ccan/build_assert/build_assert.h>
 #include <ccan/cast/cast.h>
-#include <ccan/container_of/container_of.h>
-#include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
-#include <ccan/crypto/siphash24/siphash24.h>
-#include <ccan/endian/endian.h>
-#include <ccan/fdpass/fdpass.h>
-#include <ccan/io/fdpass/fdpass.h>
-#include <ccan/io/io.h>
-#include <ccan/mem/mem.h>
-#include <ccan/noerr/noerr.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
-#include <common/bech32.h>
-#include <common/bech32_util.h>
 #include <common/blinding.h>
-#include <common/cryptomsg.h>
-#include <common/daemon.h>
 #include <common/daemon_conn.h>
 #include <common/ecdh_hsmd.h>
-#include <common/features.h>
 #include <common/lease_rates.h>
 #include <common/memleak.h>
 #include <common/ping.h>
@@ -42,36 +24,18 @@
 #include <common/subdaemon.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
-#include <common/version.h>
 #include <common/wire_error.h>
-#include <common/wireaddr.h>
 #include <connectd/connectd_gossipd_wiregen.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <gossipd/broadcast.h>
 #include <gossipd/gossip_generation.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_peerd_wiregen.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <gossipd/queries.h>
-#include <gossipd/routing.h>
 #include <gossipd/seeker.h>
-#include <inttypes.h>
 #include <lightningd/gossip_msg.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <secp256k1_ecdh.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
-#include <sodium/randombytes.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/un.h>
-#include <unistd.h>
-#include <wire/wire_io.h>
-#include <wire/wire_sync.h>
 
 /*~ A channel consists of a `struct half_chan` for each direction, each of
  * which has a `flags` word from the `channel_update`; bit 1 is

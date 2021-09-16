@@ -5,6 +5,7 @@
 #include <ccan/str/hex/hex.h>
 #include <common/dev_disconnect.h>
 #include <common/onionreply.h>
+#include <common/version.h>
 #include <err.h>
 #include <zlib.h>
 

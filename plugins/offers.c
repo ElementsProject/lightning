@@ -5,12 +5,9 @@
 #include <common/bech32.h>
 #include <common/bolt11.h>
 #include <common/bolt11_json.h>
-#include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
 #include <common/iso4217.h>
 #include <common/json_stream.h>
-#include <common/utils.h>
-#include <plugins/libplugin.h>
 #include <plugins/offers.h>
 #include <plugins/offers_inv_hook.h>
 #include <plugins/offers_invreq_hook.h>

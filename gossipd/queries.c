@@ -3,7 +3,6 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
 #include <ccan/crc32c/crc32c.h>
-#include <ccan/tal/tal.h>
 #include <common/daemon_conn.h>
 #include <common/decode_array.h>
 #include <common/status.h>
@@ -14,9 +13,6 @@
 #include <gossipd/gossipd_wiregen.h>
 #include <gossipd/queries.h>
 #include <gossipd/routing.h>
-#include <gossipd/seeker.h>
-#include <wire/peer_wire.h>
-#include <wire/wire.h>
 #include <zlib.h>
 
 #if DEVELOPER

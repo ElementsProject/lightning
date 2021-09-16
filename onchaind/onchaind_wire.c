@@ -1,6 +1,5 @@
 #include <common/htlc_wire.h>
 #include <onchaind/onchaind_wire.h>
-#include <wire/wire.h>
 
 void towire_htlc_stub(u8 **pptr, const struct htlc_stub *htlc_stub)
 {

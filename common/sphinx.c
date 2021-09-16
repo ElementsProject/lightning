@@ -1,24 +1,17 @@
 #include "config.h"
 #include <assert.h>
 
-#include <ccan/array_size/array_size.h>
-#include <ccan/crypto/ripemd160/ripemd160.h>
-#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/mem/mem.h>
-#include <common/node_id.h>
 #include <common/onion.h>
 #include <common/onionreply.h>
 #include <common/sphinx.h>
-#include <common/utils.h>
 
-#include <err.h>
 
 #include <secp256k1_ecdh.h>
 
 #include <sodium/crypto_stream_chacha20.h>
 #include <sodium/randombytes.h>
 
-#include <wire/wire.h>
 
 #define BLINDING_FACTOR_SIZE 32
 

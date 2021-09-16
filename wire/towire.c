@@ -1,13 +1,8 @@
 #include "wire.h"
 #include <assert.h>
-#include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/endian/endian.h>
 #include <ccan/mem/mem.h>
-#include <ccan/tal/tal.h>
-#include <common/amount.h>
-#include <common/errcode.h>
-#include <common/node_id.h>
 #include <common/utils.h>
 
 void towire(u8 **pptr, const void *data, size_t len)

@@ -3,7 +3,6 @@
 #include <common/wireaddr.h>
 #include <lightningd/gossip_msg.h>
 #include <wire/peer_wire.h>
-#include <wire/wire.h>
 
 struct gossip_getnodes_entry *fromwire_gossip_getnodes_entry(const tal_t *ctx,
 	const u8 **pptr, size_t *max)

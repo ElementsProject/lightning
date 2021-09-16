@@ -1,21 +1,11 @@
-#include <bitcoin/chainparams.h>
-#include <bitcoin/feerate.h>
 #include <bitcoin/psbt.h>
-#include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
-#include <ccan/json_out/json_out.h>
-#include <ccan/list/list.h>
-#include <ccan/tal/str/str.h>
 #include <common/addr.h>
-#include <common/amount.h>
-#include <common/features.h>
 #include <common/json_stream.h>
 #include <common/json_tok.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <plugins/libplugin.h>
 #include <wally_psbt.h>
 

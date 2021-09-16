@@ -1,7 +1,6 @@
 /* JSON core and helpers */
 #include "config.h"
 #include <assert.h>
-#include <ccan/build_assert/build_assert.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
@@ -11,11 +10,9 @@
 #include <common/json_stream.h>
 #include <common/overflows.h>
 #include <common/utils.h>
-#include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <string.h>
 
 const char *json_tok_full(const char *buffer, const jsmntok_t *t)
 {

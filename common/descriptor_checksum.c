@@ -1,6 +1,5 @@
 #include <ccan/short_types/short_types.h>
 #include <common/descriptor_checksum.h>
-#include <stdio.h>
 #include <stdlib.h>
 
 

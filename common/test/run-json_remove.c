@@ -1,6 +1,5 @@
 #include "config.h"
 #include <common/amount.h>
-#include <common/utils.h>
 #include <common/json.c>
 #include <common/setup.h>
 #include <wire/wire.h>

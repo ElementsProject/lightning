@@ -4,40 +4,17 @@
 #include "lightningd.h"
 #include "peer_control.h"
 #include "subd.h"
-#include <ccan/array_size/array_size.h>
-#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/err/err.h>
-#include <ccan/fdpass/fdpass.h>
-#include <ccan/json_escape/json_escape.h>
-#include <ccan/take/take.h>
-#include <ccan/tal/str/str.h>
-#include <common/amount.h>
-#include <common/features.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
-#include <common/jsonrpc_errors.h>
-#include <common/lease_rates.h>
 #include <common/param.h>
-#include <common/type_to_string.h>
-#include <common/utils.h>
-#include <errno.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/capabilities.h>
-#include <inttypes.h>
-#include <lightningd/connect_control.h>
-#include <lightningd/gossip_msg.h>
 #include <lightningd/hsm_control.h>
-#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
-#include <lightningd/log.h>
 #include <lightningd/onion_message.h>
-#include <lightningd/options.h>
 #include <lightningd/ping.h>
-#include <sodium/randombytes.h>
-#include <string.h>
-#include <wire/peer_wire.h>
-#include <wire/wire_sync.h>
 
 static void got_txout(struct bitcoind *bitcoind,
 		      const struct bitcoin_tx_output *output,
