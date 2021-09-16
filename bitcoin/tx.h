@@ -4,11 +4,8 @@
 #include "shadouble.h"
 #include "signature.h"
 #include "varint.h"
-#include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
-#include <ccan/tal/tal.h>
 #include <common/amount.h>
-#include <wally_psbt.h>
 #include <wally_transaction.h>
 
 #define BITCOIN_TX_DEFAULT_SEQUENCE 0xFFFFFFFF

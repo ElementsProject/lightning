@@ -47,6 +47,7 @@
 #include <ccan/io/io.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/noerr/noerr.h>
+#include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/take/take.h>
@@ -62,6 +63,7 @@
 #include <common/hsm_encryption.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/version.h>
 
@@ -70,6 +72,7 @@
 #include <header_versions_gen.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/connect_control.h>
@@ -80,11 +83,15 @@
 #include <lightningd/memdump.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/options.h>
+#include <lightningd/plugin.h>
 #include <signal.h>
 #include <sodium.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <wallet/txfilter.h>
+#include <wally_bip32.h>
 
 static void destroy_alt_subdaemons(struct lightningd *ld);
 #if DEVELOPER

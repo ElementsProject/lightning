@@ -2,9 +2,6 @@
 #define LIGHTNING_LIGHTNINGD_HSM_CONTROL_H
 #include "config.h"
 #include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
-#include <hsmd/capabilities.h>
-#include <stdbool.h>
 
 struct lightningd;
 struct node_id;

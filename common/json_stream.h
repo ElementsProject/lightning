@@ -4,13 +4,7 @@
 #ifndef LIGHTNING_COMMON_JSON_STREAM_H
 #define LIGHTNING_COMMON_JSON_STREAM_H
 #include "config.h"
-#include <ccan/membuf/membuf.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
 
 struct command;
 struct io_conn;

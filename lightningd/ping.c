@@ -1,5 +1,6 @@
 #include <channeld/channeld_wiregen.h>
 #include <common/json_command.h>
+#include <common/json_tok.h>
 #include <common/jsonrpc_errors.h>
 #include <common/param.h>
 #include <common/sphinx.h>

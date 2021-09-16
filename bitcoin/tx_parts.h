@@ -5,7 +5,6 @@
 #define LIGHTNING_BITCOIN_TX_PARTS_H
 #include "config.h"
 #include <bitcoin/tx.h>
-#include <wally_transaction.h>
 
 struct tx_parts {
 	/* The txid of this transacation */

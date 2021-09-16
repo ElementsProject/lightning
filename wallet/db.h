@@ -6,14 +6,8 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/short_channel_id.h>
 #include <bitcoin/tx.h>
-#include <ccan/autodata/autodata.h>
 #include <ccan/json_escape/json_escape.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
-#include <common/amount.h>
-#include <secp256k1_ecdh.h>
-#include <stdbool.h>
 
 struct channel_id;
 struct ext_key;

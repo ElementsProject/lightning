@@ -6,13 +6,16 @@
 #include <common/bolt12_merkle.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
+#include <common/json_tok.h>
 #include <common/jsonrpc_errors.h>
 #include <common/onion.h>
 #include <common/onionreply.h>
 #include <common/param.h>
 #include <common/route.h>
 #include <common/timeout.h>
+#include <common/type_to_string.h>
 #include <gossipd/gossipd_wiregen.h>
+#include <lightningd/channel.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>

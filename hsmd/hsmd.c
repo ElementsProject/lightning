@@ -17,6 +17,7 @@
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
+#include <common/daemon.h>
 #include <common/daemon_conn.h>
 #include <common/derive_basepoints.h>
 #include <common/hsm_encryption.h>

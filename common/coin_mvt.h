@@ -2,14 +2,8 @@
 #define LIGHTNING_COMMON_COIN_MVT_H
 #include "config.h"
 
-#include <bitcoin/tx.h>
-#include <ccan/ccan/crypto/sha256/sha256.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 #include <common/amount.h>
 #include <common/channel_id.h>
-#include <stdbool.h>
-#include <wire/wire.h>
 
 #define COIN_MVT_VERSION 1
 

@@ -1,18 +1,8 @@
 #ifndef LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #define LIGHTNING_LIGHTNINGD_LIGHTNINGD_H
 #include "config.h"
-#include <bitcoin/chainparams.h>
-#include <bitcoin/privkey.h>
-#include <ccan/container_of/container_of.h>
-#include <ccan/strmap/strmap.h>
-#include <ccan/time/time.h>
-#include <ccan/timer/timer.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/htlc_set.h>
-#include <lightningd/plugin.h>
-#include <stdio.h>
-#include <sys/stat.h>
-#include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 
 /* Various adjustable things. */

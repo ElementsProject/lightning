@@ -3,25 +3,12 @@
 
 #include "config.h"
 #include "db.h"
-#include <bitcoin/chainparams.h>
-#include <bitcoin/tx.h>
-#include <ccan/build_assert/build_assert.h>
-#include <ccan/crypto/shachain/shachain.h>
-#include <ccan/list/list.h>
-#include <ccan/tal/tal.h>
-#include <common/channel_config.h>
 #include <common/penalty_base.h>
 #include <common/utxo.h>
 #include <common/wallet.h>
 #include <lightningd/bitcoind.h>
-#include <lightningd/chaintopology.h>
-#include <lightningd/htlc_end.h>
-#include <lightningd/invoice.h>
 #include <lightningd/log.h>
 #include <lightningd/peer_htlcs.h>
-#include <onchaind/onchaind_wire.h>
-#include <wally_bip32.h>
-#include <wire/onion_wire.h>
 
 struct amount_msat;
 struct invoices;

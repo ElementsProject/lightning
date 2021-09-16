@@ -3,11 +3,8 @@
 
 #include "config.h"
 #include <bitcoin/block.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/bip32.h>
-#include <stdbool.h>
 
 #define ELEMENTS_ASSET_LEN 33
 

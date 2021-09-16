@@ -4,6 +4,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/take/take.h>
+#include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/json.h>
 #include <common/json_helpers.h>
@@ -14,6 +15,7 @@
 #include <plugins/spender/multiwithdraw.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <wally_psbt.h>
 
 /*-----------------------------------------------------------------------------
 Command Access

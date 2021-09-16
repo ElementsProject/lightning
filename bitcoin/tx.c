@@ -12,6 +12,7 @@
 #include <ccan/str/hex/hex.h>
 #include <common/type_to_string.h>
 #include <stdio.h>
+#include <wally_psbt.h>
 #include <wire/wire.h>
 
 #define SEGREGATED_WITNESS_FLAG 0x1

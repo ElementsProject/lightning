@@ -1,8 +1,6 @@
 #ifndef LIGHTNING_COMMON_DIJKSTRA_H
 #define LIGHTNING_COMMON_DIJKSTRA_H
 #include "config.h"
-#include <ccan/tal/tal.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <common/amount.h>
 
 struct gossmap;

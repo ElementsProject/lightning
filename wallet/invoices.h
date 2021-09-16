@@ -2,8 +2,6 @@
 #define LIGHTNING_WALLET_INVOICES_H
 #include "config.h"
 #include <bitcoin/preimage.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/tal.h>
 
 struct amount_msat;

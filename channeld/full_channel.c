@@ -11,6 +11,7 @@
 #include <ccan/tal/str/str.h>
 #include <channeld/commit_tx.h>
 #include <channeld/full_channel.h>
+#include <channeld/full_channel_error.h>
 #include <common/blockheight_states.h>
 #include <common/channel_config.h>
 #include <common/features.h>

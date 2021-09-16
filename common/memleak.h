@@ -1,10 +1,8 @@
 #ifndef LIGHTNING_COMMON_MEMLEAK_H
 #define LIGHTNING_COMMON_MEMLEAK_H
 #include "config.h"
-#include <ccan/cast/cast.h>
 #include <ccan/strmap/strmap.h>
 #include <ccan/tal/tal.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <inttypes.h>
 
 struct htable;

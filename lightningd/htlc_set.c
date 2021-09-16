@@ -1,7 +1,9 @@
 #include <common/features.h>
 #include <common/timeout.h>
+#include <common/type_to_string.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/htlc_set.h>
+#include <lightningd/invoice.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/peer_htlcs.h>
 

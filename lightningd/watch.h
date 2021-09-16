@@ -2,11 +2,7 @@
 #define LIGHTNING_LIGHTNINGD_WATCH_H
 #include "config.h"
 #include <bitcoin/tx.h>
-#include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/htable/htable_type.h>
-#include <ccan/list/list.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
 
 struct bitcoin_tx;
 struct block;

@@ -1,5 +1,9 @@
+#include <common/json_command.h>
 #include <common/json_helpers.h>
+#include <common/param.h>
+#include <common/type_to_string.h>
 #include <gossipd/gossipd_wiregen.h>
+#include <lightningd/channel.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/onion_message.h>
 #include <lightningd/peer_control.h>

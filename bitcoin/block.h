@@ -3,10 +3,8 @@
 #include "config.h"
 #include "bitcoin/shadouble.h"
 #include <ccan/endian/endian.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/structeq/structeq.h>
 #include <ccan/tal/tal.h>
-#include <stdbool.h>
 
 struct chainparams;
 

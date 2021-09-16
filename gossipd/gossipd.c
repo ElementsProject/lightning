@@ -29,6 +29,7 @@
 #include <common/bech32_util.h>
 #include <common/blinding.h>
 #include <common/cryptomsg.h>
+#include <common/daemon.h>
 #include <common/daemon_conn.h>
 #include <common/ecdh_hsmd.h>
 #include <common/features.h>

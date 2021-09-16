@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_COMMON_CONFIGDIR_H
 #define LIGHTNING_COMMON_CONFIGDIR_H
 #include "config.h"
-#include <ccan/ptrint/ptrint.h>
 #include <ccan/tal/tal.h>
 
 /* Put things we're going to get rid of behind this, so testers can catch

@@ -8,9 +8,11 @@
 #include <channeld/channeld_wiregen.h>
 #include <common/blinding.h>
 #include <common/coin_mvt.h>
+#include <common/configdir.h>
 #include <common/ecdh.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
+#include <common/json_tok.h>
 #include <common/jsonrpc_errors.h>
 #include <common/onion.h>
 #include <common/onionreply.h>
@@ -18,8 +20,10 @@
 #include <common/param.h>
 #include <common/sphinx.h>
 #include <common/timeout.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <gossipd/gossipd_wiregen.h>
+#include <lightningd/channel.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/htlc_end.h>

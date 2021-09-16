@@ -11,6 +11,7 @@
 #include <common/node_id.h>
 #include <common/onionreply.h>
 #include <common/version.h>
+#include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
 #include <inttypes.h>
 #include <lightningd/channel.h>

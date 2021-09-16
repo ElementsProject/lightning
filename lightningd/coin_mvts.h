@@ -3,8 +3,6 @@
 #include "config.h"
 
 #include <common/coin_mvt.h>
-#include <lightningd/channel.h>
-#include <lightningd/htlc_end.h>
 #include <lightningd/lightningd.h>
 
 void notify_channel_mvt(struct lightningd *ld, const struct channel_coin_mvt *mvt);

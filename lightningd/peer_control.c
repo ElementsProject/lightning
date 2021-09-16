@@ -16,6 +16,7 @@
 #include <channeld/channeld_wiregen.h>
 #include <common/addr.h>
 #include <common/closing_fee.h>
+#include <common/configdir.h>
 #include <common/dev_disconnect.h>
 #include <common/features.h>
 #include <common/htlc_trim.h>
@@ -30,6 +31,7 @@
 #include <common/shutdown_scriptpubkey.h>
 #include <common/status.h>
 #include <common/timeout.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/version.h>
 #include <common/wire_error.h>
@@ -40,6 +42,7 @@
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/connect_control.h>
@@ -57,6 +60,7 @@
 #include <lightningd/peer_htlcs.h>
 #include <lightningd/plugin_hook.h>
 #include <limits.h>
+#include <onchaind/onchaind_wiregen.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <wally_bip32.h>

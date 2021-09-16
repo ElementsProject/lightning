@@ -2,10 +2,8 @@
 #define LIGHTNING_COMMON_BECH32_UTIL_H
 #include "config.h"
 
-#include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <common/hash_u5.h>
-#include <stdbool.h>
 
 /**
  * Push the bytes in src in 5 bit format onto the end of data.

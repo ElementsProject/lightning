@@ -4,7 +4,6 @@
 #include "config.h"
 
 #include <ccan/short_types/short_types.h>
-#include <inttypes.h>
 
 typedef s32 errcode_t;
 

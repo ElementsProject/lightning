@@ -1,9 +1,11 @@
 #include "config.h"
 #include <assert.h>
+#include <bitcoin/tx.h>
 #include <ccan/ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/coin_mvt.h>
 #include <common/type_to_string.h>
+#include <wire/wire.h>
 
 static const char *mvt_types[] = { "chain_mvt", "channel_mvt" };
 const char *mvt_type_str(enum mvt_type type)

@@ -5,11 +5,7 @@
 #include "bitcoin/privkey.h"
 #include "bitcoin/pubkey.h"
 
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 #include <common/hmac.h>
-#include <secp256k1.h>
-#include <sodium/randombytes.h>
 #include <wire/onion_wire.h>
 
 struct node_id;

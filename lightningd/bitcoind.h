@@ -4,12 +4,7 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/tx.h>
 #include <ccan/list/list.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/strmap/strmap.h>
-#include <ccan/tal/tal.h>
-#include <ccan/time/time.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
-#include <stdbool.h>
 
 struct bitcoin_blkid;
 struct bitcoin_tx_output;

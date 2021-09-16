@@ -1,8 +1,10 @@
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/tal/str/str.h>
 #include <common/bolt12.h>
 #include <common/iso4217.h>
 #include <common/json_stream.h>
+#include <common/json_tok.h>
 #include <common/overflows.h>
 #include <plugins/offers_offer.h>
 #include <wire/onion_wire.h>

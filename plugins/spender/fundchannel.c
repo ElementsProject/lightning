@@ -2,6 +2,7 @@
 #include <ccan/compiler/compiler.h>
 #include <common/json.h>
 #include <common/json_stream.h>
+#include <common/json_tok.h>
 #include <plugins/spender/fundchannel.h>
 
 static struct command_result *

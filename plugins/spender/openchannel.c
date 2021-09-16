@@ -6,6 +6,7 @@
 #include <ccan/ccan/mem/mem.h>
 #include <ccan/ccan/tal/str/str.h>
 #include <common/json_stream.h>
+#include <common/lease_rates.h>
 #include <common/psbt_open.h>
 #include <common/type_to_string.h>
 #include <common/utils.h>

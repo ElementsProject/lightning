@@ -17,6 +17,7 @@
 #include <common/gossip_constants.h>
 #include <common/gossmap.h>
 #include <common/json_stream.h>
+#include <common/json_tok.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
 #include <inttypes.h>

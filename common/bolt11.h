@@ -2,11 +2,8 @@
 #define LIGHTNING_COMMON_BOLT11_H
 #include "config.h"
 
-#include <bitcoin/pubkey.h>
 #include <bitcoin/short_channel_id.h>
 #include <ccan/list/list.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/take/take.h>
 #include <common/hash_u5.h>
 #include <common/node_id.h>
 #include <secp256k1_recovery.h>

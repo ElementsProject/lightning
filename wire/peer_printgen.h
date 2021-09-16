@@ -3,7 +3,6 @@
 /* Template located at tools/gen/print_header_template */
 #ifndef LIGHTNING_WIRE_PEER_PRINTGEN_H
 #define LIGHTNING_WIRE_PEER_PRINTGEN_H
-#include <ccan/tal/tal.h>
 #include <devtools/print_wire.h>
 
 void printpeer_wire_message(const u8 *msg);

@@ -2,13 +2,8 @@
 #define LIGHTNING_COMMON_JSON_H
 #include "config.h"
 #include <ccan/crypto/sha256/sha256.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <common/errcode.h>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdlib.h>
 
 #define JSMN_STRICT 1
 # include <external/jsmn/jsmn.h>

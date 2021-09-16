@@ -6,6 +6,7 @@
 #include <ccan/time/time.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
+#include <common/utils.h>
 #include <gheap.h>
 #include <inttypes.h>
 #include <stdio.h>

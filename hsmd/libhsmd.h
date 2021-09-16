@@ -1,16 +1,9 @@
 #ifndef LIGHTNING_HSMD_LIBHSMD_H
 #define LIGHTNING_HSMD_LIBHSMD_H
 
-#include <bitcoin/privkey.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 #include <common/node_id.h>
 #include <common/status_levels.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <secp256k1_ecdh.h>
-#include <secp256k1_schnorrsig.h>
-#include <sodium.h>
-#include <wally_bip32.h>
 
 /*~ A struct that holds some context about the origin of an
  * incoming request. It can either be a main daemon client, which is

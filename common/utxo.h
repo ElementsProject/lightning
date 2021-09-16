@@ -2,15 +2,8 @@
 #define LIGHTNING_COMMON_UTXO_H
 #include "config.h"
 #include <assert.h>
-#include <bitcoin/chainparams.h>
-#include <bitcoin/pubkey.h>
-#include <bitcoin/shadouble.h>
 #include <bitcoin/tx.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
-#include <common/amount.h>
 #include <common/node_id.h>
-#include <stdbool.h>
 
 struct ext_key;
 

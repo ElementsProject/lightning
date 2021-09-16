@@ -3,8 +3,6 @@
 #include "config.h"
 #include "signature.h"
 #include "tx.h"
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 #include <wally_script.h>
 
 struct bitcoin_address;

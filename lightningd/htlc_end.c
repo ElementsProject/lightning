@@ -5,6 +5,7 @@
 #include <common/htlc.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
+#include <common/type_to_string.h>
 #include <lightningd/htlc_end.h>
 #include <lightningd/log.h>
 #include <stdio.h>

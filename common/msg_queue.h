@@ -4,7 +4,6 @@
 #include "config.h"
 #include <ccan/io/io.h>
 #include <ccan/short_types/short_types.h>
-#include <ccan/take/take.h>
 
 /* Reserved type used to indicate we're actually passing an fd. */
 #define MSG_PASS_FD 0xFFFF

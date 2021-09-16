@@ -4,6 +4,7 @@
 #include "config.h"
 
 #include <bitcoin/short_channel_id.h>
+#include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <gossipd/routing.h>

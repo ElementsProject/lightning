@@ -3,7 +3,6 @@
 
 #include "config.h"
 #include <ccan/io/io.h>
-#include <ccan/tal/tal.h>
 struct io_lock;
 
 /**

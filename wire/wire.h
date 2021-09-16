@@ -6,7 +6,6 @@
 #include <common/errcode.h>
 #include <secp256k1_recovery.h>
 #include <stdlib.h>
-#include <wire/tlvstream.h>
 
 struct ripemd160;
 struct sha256;

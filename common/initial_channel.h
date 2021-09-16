@@ -3,17 +3,11 @@
 #define LIGHTNING_COMMON_INITIAL_CHANNEL_H
 #include "config.h"
 
-#include <bitcoin/pubkey.h>
-#include <bitcoin/shadouble.h>
 #include <bitcoin/tx.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
-#include <common/amount.h>
 #include <common/channel_config.h>
 #include <common/channel_id.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc.h>
-#include <stdbool.h>
 
 struct signature;
 struct added_htlc;

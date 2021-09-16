@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_COMMON_CRYPTOMSG_H
 #define LIGHTNING_COMMON_CRYPTOMSG_H
 #include "config.h"
-#include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <common/crypto_state.h>
 

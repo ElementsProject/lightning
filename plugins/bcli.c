@@ -14,6 +14,7 @@
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/json_helpers.h>
+#include <common/json_tok.h>
 #include <common/memleak.h>
 #include <common/utils.h>
 #include <errno.h>

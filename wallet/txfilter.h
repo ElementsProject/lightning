@@ -3,8 +3,6 @@
 #include "config.h"
 #include <bitcoin/pubkey.h>
 #include <bitcoin/tx.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 
 struct txfilter;
 

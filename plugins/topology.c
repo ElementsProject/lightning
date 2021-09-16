@@ -8,6 +8,7 @@
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/json_stream.h>
+#include <common/json_tok.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/route.h>

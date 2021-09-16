@@ -4,7 +4,6 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <secp256k1.h>
-#include <stdbool.h>
 
 struct sha256_double;
 struct sha256_ctx;

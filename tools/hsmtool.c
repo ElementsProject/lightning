@@ -21,6 +21,7 @@
 #include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <wally_bip32.h>
 #include <wally_bip39.h>
 
 #define ERROR_HSM_FILE errno

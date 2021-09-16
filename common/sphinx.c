@@ -16,6 +16,7 @@
 #include <secp256k1_ecdh.h>
 
 #include <sodium/crypto_stream_chacha20.h>
+#include <sodium/randombytes.h>
 
 #include <wire/wire.h>
 

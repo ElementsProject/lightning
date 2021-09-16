@@ -12,6 +12,7 @@
 #include <common/jsonrpc_errors.h>
 #include <common/param.h>
 #include <common/status.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>

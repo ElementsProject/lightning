@@ -16,6 +16,7 @@
 #include <common/json_tok.h>
 #include <common/jsonrpc_errors.h>
 #include <common/param.h>
+#include <common/utils.h>
 
 struct command_result *param_array(struct command *cmd, const char *name,
 				   const char *buffer, const jsmntok_t *tok,

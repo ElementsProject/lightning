@@ -1,6 +1,7 @@
 #include "chainparams.h"
 #include <ccan/array_size/array_size.h>
 #include <ccan/str/str.h>
+#include <ccan/tal/str/str.h>
 #include <common/utils.h>
 #include <string.h>
 

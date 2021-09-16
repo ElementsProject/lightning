@@ -1,13 +1,11 @@
 #ifndef LIGHTNING_LIGHTNINGD_CHANNEL_H
 #define LIGHTNING_LIGHTNINGD_CHANNEL_H
 #include "config.h"
-#include <ccan/list/list.h>
 #include <common/channel_id.h>
 #include <common/channel_type.h>
-#include <common/per_peer_state.h>
 #include <common/tx_roles.h>
+#include <common/utils.h>
 #include <lightningd/channel_state.h>
-#include <lightningd/peer_htlcs.h>
 #include <wallet/wallet.h>
 
 struct channel_id;
