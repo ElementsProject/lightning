@@ -1,6 +1,7 @@
 #include <ccan/ccan/tal/str/str.h>
 #include <common/json_command.h>
 #include <common/jsonrpc_errors.h>
+#include <common/type_to_string.h>
 #include <common/wire_error.h>
 #include <connectd/connectd_wiregen.h>
 #include <lightningd/channel.h>

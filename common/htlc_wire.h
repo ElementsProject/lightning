@@ -2,11 +2,8 @@
 #define LIGHTNING_COMMON_HTLC_WIRE_H
 #include "config.h"
 #include <bitcoin/preimage.h>
-#include <ccan/short_types/short_types.h>
-#include <common/amount.h>
 #include <common/htlc.h>
 #include <common/sphinx.h>
-#include <wire/onion_wire.h>
 
 struct bitcoin_tx;
 struct shachain;

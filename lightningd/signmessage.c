@@ -2,6 +2,7 @@
 #include <common/hash_u5.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
+#include <common/json_tok.h>
 #include <common/jsonrpc_errors.h>
 #include <common/param.h>
 #include <common/type_to_string.h>
@@ -9,8 +10,10 @@
 #include <errno.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <lightningd/plugin.h>
 #include <lightningd/subd.h>
 #include <string.h>
 #include <wire/wire_sync.h>

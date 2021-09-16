@@ -1,6 +1,7 @@
 #include <bitcoin/chainparams.h>
 #include <bitcoin/preimage.h>
 #include <ccan/cast/cast.h>
+#include <ccan/tal/str/str.h>
 #include <common/bech32_util.h>
 #include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
@@ -12,6 +13,7 @@
 #include <plugins/offers.h>
 #include <plugins/offers_invreq_hook.h>
 #include <secp256k1_schnorrsig.h>
+#include <sodium.h>
 
 /* We need to keep the reply path around so we can reply with invoice */
 struct invreq {

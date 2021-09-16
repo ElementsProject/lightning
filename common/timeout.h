@@ -3,9 +3,7 @@
 #include "config.h"
 
 #include <ccan/tal/tal.h>
-#include <ccan/time/time.h>
 #include <ccan/timer/timer.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
 
 /* tal_free this to disable timer. */
 struct oneshot *new_reltimer_(struct timers *timers,

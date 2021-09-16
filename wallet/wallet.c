@@ -13,8 +13,11 @@
 #include <common/memleak.h>
 #include <common/onionreply.h>
 #include <common/status.h>
+#include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <inttypes.h>
+#include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
@@ -22,6 +25,8 @@
 #include <onchaind/onchaind_wiregen.h>
 #include <string.h>
 #include <wallet/db_common.h>
+#include <wallet/txfilter.h>
+#include <wally_bip32.h>
 
 #define SQLITE_MAX_UINT 0x7FFFFFFFFFFFFFFF
 #define DIRECTION_INCOMING 0

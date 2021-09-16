@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <ccan/asort/asort.h>
 #include <common/bigsize.h>
+#include <common/utils.h>
 #include <wire/tlvstream.h>
 #include <wire/wire.h>
 

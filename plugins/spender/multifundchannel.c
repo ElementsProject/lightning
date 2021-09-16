@@ -9,6 +9,7 @@
 #include <ccan/crypto/sha256/sha256.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/str/str.h>
+#include <ccan/tal/str/str.h>
 #include <ccan/take/take.h>
 #include <common/addr.h>
 #include <common/amount.h>

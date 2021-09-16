@@ -3,9 +3,7 @@
 /* Template located at tools/gen/print_header_template */
 #ifndef LIGHTNING_WIRE_ONION_PRINTGEN_H
 #define LIGHTNING_WIRE_ONION_PRINTGEN_H
-#include <ccan/tal/tal.h>
 #include <devtools/print_wire.h>
-#include <wire/onion_defs.h>
 
 void printonion_wire_message(const u8 *msg);
 

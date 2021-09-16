@@ -2,6 +2,7 @@
 #include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
+#include <common/json_tok.h>
 #include <common/utils.h>
 #include <inttypes.h>
 #include <plugins/libplugin.h>

@@ -7,6 +7,7 @@
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/tal/str/str.h>
 #include <common/crypto_sync.h>
 #include <common/dev_disconnect.h>
 #include <common/features.h>

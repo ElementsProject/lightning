@@ -31,7 +31,9 @@
 #include <ccan/ptrint/ptrint.h>
 #include <common/pseudorand.h>
 #include <common/timeout.h>
+#include <common/type_to_string.h>
 #include <lightningd/bitcoind.h>
+#include <lightningd/channel.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/lightningd.h>
 #include <lightningd/log.h>

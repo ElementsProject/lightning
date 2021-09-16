@@ -4,10 +4,6 @@
 
 #include <bitcoin/chainparams.h>
 #include <ccan/crypto/ripemd160/ripemd160.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
-#include <stdbool.h>
-#include <stdlib.h>
 
 struct pubkey;
 struct privkey;

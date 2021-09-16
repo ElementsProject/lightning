@@ -2,6 +2,7 @@
 #include <bitcoin/preimage.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
+#include <ccan/tal/str/str.h>
 #include <common/bech32_util.h>
 #include <common/bolt12.h>
 #include <common/bolt12_merkle.h>

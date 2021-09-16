@@ -2,7 +2,6 @@
 #define LIGHTNING_COMMON_HSM_ENCRYPTION_H
 #include "config.h"
 #include <bitcoin/privkey.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <sodium.h>
 

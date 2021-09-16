@@ -1,9 +1,7 @@
 #ifndef LIGHTNING_CHANNELD_CHANNELD_HTLC_H
 #define LIGHTNING_CHANNELD_CHANNELD_HTLC_H
 #include "config.h"
-#include <bitcoin/locktime.h>
-#include <ccan/short_types/short_types.h>
-#include <common/amount.h>
+#include <ccan/crypto/siphash24/siphash24.h>
 #include <common/htlc.h>
 #include <common/pseudorand.h>
 #include <wire/onion_wire.h>

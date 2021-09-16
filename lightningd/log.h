@@ -1,14 +1,9 @@
 #ifndef LIGHTNING_LIGHTNINGD_LOG_H
 #define LIGHTNING_LIGHTNINGD_LOG_H
 #include "config.h"
-#include <ccan/list/list.h>
-#include <ccan/tal/tal.h>
 #include <ccan/time/time.h>
-#include <ccan/typesafe_cb/typesafe_cb.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
 #include <jsmn.h>
-#include <stdarg.h>
 
 struct command;
 struct json_stream;

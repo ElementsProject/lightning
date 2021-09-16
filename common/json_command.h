@@ -4,10 +4,8 @@
 #define LIGHTNING_COMMON_JSON_COMMAND_H
 #include "config.h"
 #include <ccan/compiler/compiler.h>
-#include <common/errcode.h>
 #include <common/json.h>
 #include <common/jsonrpc_errors.h>
-#include <stdbool.h>
 
 struct command;
 struct command_result;

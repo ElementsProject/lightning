@@ -26,6 +26,7 @@
 #include <lightningd/opening_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
+#include <wallet/txfilter.h>
 #include <wire/wire_sync.h>
 
 static bool connects_to_peer(struct subd *owner)

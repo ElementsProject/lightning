@@ -2,9 +2,7 @@
 #define LIGHTNING_GOSSIPD_BROADCAST_H
 #include "config.h"
 
-#include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 
 /* This is nested inside a node, chan or half_chan; rewriting the store can
  * cause it to change! */

@@ -2,24 +2,8 @@
 #define LIGHTNING_LIGHTNINGD_PLUGIN_H
 #include "config.h"
 #include <ccan/intmap/intmap.h>
-#include <ccan/io/io.h>
-#include <ccan/pipecmd/pipecmd.h>
-#include <ccan/take/take.h>
-#include <ccan/tal/path/path.h>
-#include <ccan/tal/tal.h>
-#include <common/json_command.h>
-#include <common/jsonrpc_errors.h>
-#include <common/memleak.h>
-#include <common/param.h>
-#include <common/timeout.h>
-#include <dirent.h>
-#include <errno.h>
-#include <lightningd/io_loop_with_timers.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
-#include <stdarg.h>
-#include <unistd.h>
 
 
 enum plugin_state {

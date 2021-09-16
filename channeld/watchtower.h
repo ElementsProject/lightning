@@ -1,9 +1,6 @@
 #ifndef LIGHTNING_CHANNELD_WATCHTOWER_H
 #define LIGHTNING_CHANNELD_WATCHTOWER_H
 #include "config.h"
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
-#include <common/derive_basepoints.h>
 #include <common/initial_channel.h>
 
 const struct bitcoin_tx *

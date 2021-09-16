@@ -1,8 +1,6 @@
 #ifndef LIGHTNING_COMMON_CHANNEL_CONFIG_H
 #define LIGHTNING_COMMON_CHANNEL_CONFIG_H
 #include "config.h"
-#include <ccan/short_types/short_types.h>
-#include <ccan/tal/tal.h>
 #include <common/amount.h>
 
 /* BOLT #2:

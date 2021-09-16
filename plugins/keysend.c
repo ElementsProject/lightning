@@ -4,9 +4,11 @@
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossmap.h>
+#include <common/json_tok.h>
 #include <common/type_to_string.h>
 #include <plugins/libplugin-pay.h>
 #include <plugins/libplugin.h>
+#include <sodium.h>
 #include <wire/onion_wire.h>
 
 #define PREIMAGE_TLV_TYPE 5482373484

@@ -29,6 +29,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/io_loop_with_timers.h>
 #include <lightningd/plugin.h>
 
 /* The names of the requests we can make to our Bitcoin backend. */

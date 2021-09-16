@@ -14,6 +14,7 @@
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/json_stream.h>
+#include <common/json_tok.h>
 #include <common/memleak.h>
 #include <common/overflows.h>
 #include <common/route.h>
@@ -23,6 +24,7 @@
 #include <inttypes.h>
 #include <plugins/libplugin.h>
 #include <secp256k1_schnorrsig.h>
+#include <sodium.h>
 
 static struct gossmap *global_gossmap;
 static struct node_id local_id;

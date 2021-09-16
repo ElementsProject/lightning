@@ -1,4 +1,5 @@
 #include <bitcoin/chainparams.h>
+#include <bitcoin/privkey.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
 #include <ccan/json_out/json_out.h>

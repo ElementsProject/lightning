@@ -4,7 +4,6 @@
 #include "config.h"
 #include <bitcoin/chainparams.h>
 #include <bitcoin/pubkey.h>
-#include <common/amount.h>
 #include <common/htlc.h>
 #include <common/utils.h>
 

@@ -6,13 +6,16 @@
 #include <ccan/tal/str/str.h>
 #include <common/addr.h>
 #include <common/bech32.h>
+#include <common/configdir.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
+#include <common/json_tok.h>
 #include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
 #include <common/param.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <common/utxo.h>
 #include <errno.h>
@@ -20,6 +23,7 @@
 #include <inttypes.h>
 #include <lightningd/bitcoind.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
@@ -28,9 +32,11 @@
 #include <lightningd/options.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
+#include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 #include <wallet/walletrpc.h>
 #include <wally_bip32.h>
+#include <wally_psbt.h>
 #include <wire/wire_sync.h>
 
 /* May return NULL if encoding error occurs. */

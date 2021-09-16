@@ -1,11 +1,7 @@
 #ifndef LIGHTNING_GOSSIPD_GOSSIPD_H
 #define LIGHTNING_GOSSIPD_GOSSIPD_H
 #include "config.h"
-#include <bitcoin/block.h>
-#include <ccan/list/list.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/timer/timer.h>
-#include <common/bigsize.h>
 #include <common/node_id.h>
 #include <wire/peer_wire.h>
 

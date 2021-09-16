@@ -2,15 +2,23 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
+#include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
+#include <common/json_tok.h>
 #include <common/jsonrpc_errors.h>
 #include <common/key_derive.h>
+#include <common/param.h>
+#include <common/type_to_string.h>
+#include <lightningd/chaintopology.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
+#include <wallet/txfilter.h>
 #include <wallet/wallet.h>
 #include <wallet/walletrpc.h>
+#include <wally_psbt.h>
 
 /* 12 hours is usually enough reservation time */
 #define RESERVATION_DEFAULT (6 * 12)

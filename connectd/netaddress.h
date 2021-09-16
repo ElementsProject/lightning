@@ -1,7 +1,6 @@
 #ifndef LIGHTNING_CONNECTD_NETADDRESS_H
 #define LIGHTNING_CONNECTD_NETADDRESS_H
 #include "config.h"
-#include <ccan/short_types/short_types.h>
 #include <common/wireaddr.h>
 
 /* Address is a wildcard: try to guess what it looks like to outside world */

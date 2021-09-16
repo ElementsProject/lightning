@@ -1,5 +1,7 @@
 #include <bitcoin/script.h>
+#include <ccan/cast/cast.h>
 #include <ccan/fdpass/fdpass.h>
+#include <ccan/tal/str/str.h>
 #include <closingd/closingd_wiregen.h>
 #include <common/close_tx.h>
 #include <common/closing_fee.h>

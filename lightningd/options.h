@@ -1,8 +1,6 @@
 #ifndef LIGHTNING_LIGHTNINGD_OPTIONS_H
 #define LIGHTNING_LIGHTNINGD_OPTIONS_H
 #include "config.h"
-#include <ccan/tal/tal.h>
-#include <common/configdir.h>
 
 struct lightningd;
 

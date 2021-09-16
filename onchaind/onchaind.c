@@ -7,6 +7,7 @@
 #include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/coin_mvt.h>
+#include <common/daemon.h>
 #include <common/derive_basepoints.h>
 #include <common/htlc_tx.h>
 #include <common/initial_commit_tx.h>

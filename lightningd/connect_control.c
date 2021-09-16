@@ -8,12 +8,14 @@
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
+#include <common/json_tok.h>
 #include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/node_id.h>
 #include <common/param.h>
 #include <common/pseudorand.h>
 #include <common/timeout.h>
+#include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <connectd/connectd_wiregen.h>
 #include <errno.h>

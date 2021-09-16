@@ -10,6 +10,7 @@
 #include <common/per_peer_state.h>
 #include <common/node_id.h>
 #include <common/status_wire.h>
+#include <common/status_levels.h>
 
 enum status_wire {
         WIRE_STATUS_LOG = 0xFFF0,
@@ -58,4 +59,4 @@ bool fromwire_status_version(const tal_t *ctx, const void *p, wirestring **versi
 
 
 #endif /* LIGHTNING_COMMON_STATUS_WIREGEN_H */
-// SHA256STAMP:83a462b28754c5b0c5a496b7e719f15ef6f6c1560f0eea12f76fa4b114189caa
+// SHA256STAMP:6910f83360952ba00ee6a56e96a7402d9b973eb125a6c98bec4d52fa97740457

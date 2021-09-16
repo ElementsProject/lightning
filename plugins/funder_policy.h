@@ -2,7 +2,6 @@
 #define LIGHTNING_PLUGINS_FUNDER_POLICY_H
 #include "config.h"
 #include <common/amount.h>
-#include <wire/peer_wire.h>
 
 struct lease_rates;
 struct node_id;

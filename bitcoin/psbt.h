@@ -3,7 +3,6 @@
 #include "config.h"
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
-#include <stddef.h>
 
 struct wally_psbt;
 struct wally_psbt_input;

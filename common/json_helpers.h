@@ -2,7 +2,6 @@
 #ifndef LIGHTNING_COMMON_JSON_HELPERS_H
 #define LIGHTNING_COMMON_JSON_HELPERS_H
 #include "config.h"
-#include <bitcoin/short_channel_id.h>
 #include <bitcoin/tx.h>
 #include <common/json.h>
 #include <wire/wire.h>
@@ -18,6 +17,7 @@ struct pubkey;
 struct pubkey32;
 struct secret;
 struct short_channel_id;
+struct short_channel_id_dir;
 struct wireaddr;
 struct wireaddr_internal;
 struct wally_psbt;

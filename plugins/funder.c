@@ -19,6 +19,7 @@
 #include <common/json.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
+#include <common/json_tok.h>
 #include <common/lease_rates.h>
 #include <common/memleak.h>
 #include <common/node_id.h>

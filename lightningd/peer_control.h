@@ -9,11 +9,7 @@
 #include <common/json.h>
 #include <common/node_id.h>
 #include <common/wireaddr.h>
-#include <lightningd/channel.h>
-#include <lightningd/channel_state.h>
-#include <stdbool.h>
 #include <wallet/wallet.h>
-#include <wire/peer_wire.h>
 
 struct per_peer_state;
 struct wally_psbt;

@@ -1,6 +1,7 @@
 #include <bitcoin/chainparams.h>
 #include <ccan/cast/cast.h>
 #include <ccan/err/err.h>
+#include <ccan/opt/opt.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32_util.h>
 #include <common/bolt12.h>

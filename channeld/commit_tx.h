@@ -1,10 +1,7 @@
 #ifndef LIGHTNING_CHANNELD_COMMIT_TX_H
 #define LIGHTNING_CHANNELD_COMMIT_TX_H
 #include "config.h"
-#include <bitcoin/chainparams.h>
-#include <bitcoin/pubkey.h>
 #include <channeld/channeld_htlc.h>
-#include <common/htlc.h>
 #include <common/initial_commit_tx.h>
 
 struct keyset;

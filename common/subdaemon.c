@@ -1,4 +1,5 @@
 #include <ccan/tal/str/str.h>
+#include <common/daemon.h>
 #include <common/dev_disconnect.h>
 #include <common/status.h>
 #include <common/subdaemon.h>

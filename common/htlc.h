@@ -4,11 +4,7 @@
 #include "bitcoin/locktime.h"
 #include "htlc_state.h"
 #include <assert.h>
-#include <ccan/crypto/sha256/sha256.h>
-#include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
-#include <ccan/short_types/short_types.h>
-#include <ccan/str/str.h>
 
 #define NUM_SIDES (REMOTE + 1)
 enum side {

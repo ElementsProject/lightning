@@ -2,8 +2,6 @@
 #define LIGHTNING_COMMON_PENALTY_BASE_H
 #include "config.h"
 #include <bitcoin/tx.h>
-#include <ccan/short_types/short_types.h>
-#include <common/amount.h>
 
 /* To create a penalty, all we need are these. */
 struct penalty_base {

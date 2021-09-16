@@ -1,10 +1,18 @@
 #include <ccan/opt/opt.h>
+#include <ccan/tal/str/str.h>
+#include <common/json_command.h>
+#include <common/json_tok.h>
+#include <common/memleak.h>
+#include <common/param.h>
+#include <common/timeout.h>
+#include <errno.h>
 #include <lightningd/notification.h>
 #include <lightningd/options.h>
 #include <lightningd/plugin_control.h>
 #include <lightningd/plugin_hook.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 /* A dummy structure used to give multiple arguments to callbacks. */
 struct plugin_command {

@@ -23,12 +23,16 @@
 #include <common/memleak.h>
 #include <common/param.h>
 #include <common/timeout.h>
+#include <common/type_to_string.h>
 #include <common/utils.h>
 #include <inttypes.h>
 #include <lightningd/channel_control.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/gossip_control.h>
 #include <lightningd/io_loop_with_timers.h>
+#include <lightningd/json.h>
+#include <math.h>
+#include <wallet/txfilter.h>
 
 /* Mutual recursion via timer. */
 static void try_extend_tip(struct chain_topology *topo);

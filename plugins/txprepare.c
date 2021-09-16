@@ -17,6 +17,7 @@
 #include <common/type_to_string.h>
 #include <common/utils.h>
 #include <plugins/libplugin.h>
+#include <wally_psbt.h>
 
 struct tx_output {
 	struct amount_sat amount;

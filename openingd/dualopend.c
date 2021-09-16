@@ -16,10 +16,12 @@
 #include <bitcoin/script.h>
 #include <bitcoin/tx.h>
 #include <bitcoin/varint.h>
-#include <ccan/ccan/array_size/array_size.h>
-#include <ccan/ccan/mem/mem.h>
-#include <ccan/ccan/take/take.h>
-#include <ccan/ccan/time/time.h>
+#include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
+#include <ccan/mem/mem.h>
+#include <ccan/take/take.h>
+#include <ccan/tal/str/str.h>
+#include <ccan/time/time.h>
 #include <ccan/fdpass/fdpass.h>
 #include <ccan/short_types/short_types.h>
 #include <common/amount.h>

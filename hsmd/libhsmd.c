@@ -1,5 +1,6 @@
 #include <bitcoin/script.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
+#include <ccan/tal/str/str.h>
 #include <common/bolt12_merkle.h>
 #include <common/hash_u5.h>
 #include <common/key_derive.h>
@@ -7,6 +8,12 @@
 #include <common/type_to_string.h>
 #include <hsmd/capabilities.h>
 #include <hsmd/libhsmd.h>
+#include <inttypes.h>
+#include <secp256k1_ecdh.h>
+#include <secp256k1_schnorrsig.h>
+#include <sodium/utils.h>
+#include <wally_bip32.h>
+#include <wally_psbt.h>
 #include <wire/peer_wire.h>
 
 #if DEVELOPER

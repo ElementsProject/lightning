@@ -2,12 +2,9 @@
 #define LIGHTNING_LIGHTNINGD_HTLC_END_H
 #include "config.h"
 #include <ccan/htable/htable_type.h>
-#include <ccan/short_types/short_types.h>
 #include <ccan/time/time.h>
-#include <common/amount.h>
 #include <common/htlc_state.h>
 #include <common/sphinx.h>
-#include <wire/onion_wire.h>
 
 /* We look up HTLCs by channel & id */
 struct htlc_key {

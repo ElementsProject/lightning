@@ -9,6 +9,7 @@
 #include <common/bolt12_merkle.h>
 #include <common/iso4217.h>
 #include <common/json_stream.h>
+#include <common/utils.h>
 #include <plugins/libplugin.h>
 #include <plugins/offers.h>
 #include <plugins/offers_inv_hook.h>
