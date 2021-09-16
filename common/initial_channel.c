@@ -1,10 +1,6 @@
 #include "config.h"
-#include <assert.h>
-#include <bitcoin/chainparams.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
-#include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
 #include <common/blockheight_states.h>
 #include <common/channel_type.h>
@@ -12,10 +8,7 @@
 #include <common/initial_channel.h>
 #include <common/initial_commit_tx.h>
 #include <common/keyset.h>
-#include <common/lease_rates.h>
 #include <common/type_to_string.h>
-#include <inttypes.h>
-#include <wire/peer_wire.h>
 
 struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct channel_id *cid,

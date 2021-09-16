@@ -1,12 +1,8 @@
 #include <ccan/array_size/array_size.h>
-#include <ccan/str/hex/hex.h>
 #include <ccan/tal/grab_file/grab_file.h>
-#include <ccan/tal/str/str.h>
 #include <common/amount.h>
 #include <common/json.c>
 #include <common/setup.h>
-#include <common/utils.h>
-#include <wire/wire.h>
 
 static const char *reason;
 #define SUPERVERBOSE(r) do { if (!reason) reason = (r); } while(0)

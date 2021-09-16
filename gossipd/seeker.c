@@ -1,23 +1,17 @@
 /* This contains the code which actively seeks out gossip from peers */
 #include <bitcoin/chainparams.h>
-#include <bitcoin/short_channel_id.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/asort/asort.h>
-#include <ccan/list/list.h>
-#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/tal/tal.h>
 #include <common/decode_array.h>
 #include <common/pseudorand.h>
 #include <common/random_select.h>
 #include <common/status.h>
 #include <common/timeout.h>
-#include <common/type_to_string.h>
 #include <gossipd/gossipd.h>
 #include <gossipd/queries.h>
 #include <gossipd/routing.h>
 #include <gossipd/seeker.h>
-#include <wire/peer_wire.h>
 
 #define GOSSIP_SEEKER_INTERVAL(seeker) \
 	DEV_FAST_GOSSIP((seeker)->daemon->rstate->dev_fast_gossip, 5, 60)

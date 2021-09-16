@@ -4,29 +4,17 @@
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
-#include <ccan/intmap/intmap.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
-#include <common/amount.h>
-#include <common/bolt11.h>
-#include <common/bolt12.h>
 #include <common/bolt12_merkle.h>
-#include <common/errcode.h>
-#include <common/features.h>
-#include <common/gossip_constants.h>
 #include <common/gossmap.h>
 #include <common/json_stream.h>
 #include <common/json_tok.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
-#include <inttypes.h>
 #include <plugins/libplugin-pay.h>
-#include <plugins/libplugin.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <wire/onion_defs.h>
-#include <wire/wire.h>
 
 /* Public key of this node. */
 static struct node_id my_id;

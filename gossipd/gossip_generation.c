@@ -7,7 +7,6 @@
 #include <common/status.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <common/wireaddr.h>
 #include <errno.h>
 #include <gossipd/gossip_generation.h>
@@ -16,7 +15,6 @@
 #include <gossipd/gossipd.h>
 #include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
 /* Create a node_announcement with the given signature. It may be NULL in the

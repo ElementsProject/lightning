@@ -2,7 +2,6 @@
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
 #include <stdio.h>
-#include <string.h>
 #include <wire/wire.h>
 
 /* BOLT#07:

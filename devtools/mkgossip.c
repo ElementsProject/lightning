@@ -8,18 +8,12 @@
  */
 #include "config.h"
 #include <assert.h>
-#include <bitcoin/address.h>
-#include <bitcoin/script.h>
-#include <bitcoin/short_channel_id.h>
-#include <bitcoin/tx.h>
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
-#include <common/gossip_constants.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <inttypes.h>
 #include <stdio.h>
 #include <wire/peer_wire.h>

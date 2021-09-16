@@ -2,11 +2,8 @@
 
 #include <bitcoin/feerate.h>
 #include <bitcoin/script.h>
-#include <bitcoin/signature.h>
-#include <bitcoin/tx.h>
 #include <common/features.h>
 #include <common/htlc_tx.h>
-#include <common/key_derive.h>
 #include <common/keyset.h>
 #include <common/status.h>
 #include <common/type_to_string.h>

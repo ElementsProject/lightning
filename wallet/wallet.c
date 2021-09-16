@@ -1,7 +1,6 @@
 #include "invoices.h"
 #include "wallet.h"
 
-#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
@@ -9,21 +8,14 @@
 #include <ccan/tal/str/str.h>
 #include <common/blockheight_states.h>
 #include <common/fee_states.h>
-#include <common/key_derive.h>
-#include <common/memleak.h>
 #include <common/onionreply.h>
-#include <common/status.h>
 #include <common/type_to_string.h>
-#include <common/wireaddr.h>
-#include <inttypes.h>
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
-#include <lightningd/lightningd.h>
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
 #include <onchaind/onchaind_wiregen.h>
-#include <string.h>
 #include <wallet/db_common.h>
 #include <wallet/txfilter.h>
 #include <wally_bip32.h>

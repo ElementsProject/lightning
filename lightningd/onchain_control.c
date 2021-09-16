@@ -1,8 +1,6 @@
 #include <bitcoin/feerate.h>
-#include <bitcoin/script.h>
 #include <common/key_derive.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <errno.h>
 #include <hsmd/capabilities.h>
 #include <inttypes.h>
@@ -10,14 +8,11 @@
 #include <lightningd/channel.h>
 #include <lightningd/coin_mvts.h>
 #include <lightningd/hsm_control.h>
-#include <lightningd/log.h>
 #include <lightningd/onchain_control.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
-#include <lightningd/watch.h>
 #include <onchaind/onchaind_wiregen.h>
 #include <wallet/txfilter.h>
-#include <wire/wire_sync.h>
 
 /* We dump all the known preimages when onchaind starts up. */
 static void onchaind_tell_fulfill(struct channel *channel)

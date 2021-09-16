@@ -1,12 +1,8 @@
 #include "config.h"
 #include <assert.h>
 #include <bitcoin/preimage.h>
-#include <ccan/crypto/ripemd160/ripemd160.h>
-#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
-#include <inttypes.h>
 
 /* We need at least one, and these are in CCAN so register it here. */
 REGISTER_TYPE_TO_HEXSTR(sha256);

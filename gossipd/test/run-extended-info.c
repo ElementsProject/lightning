@@ -5,10 +5,8 @@
 #include "../queries.c"
 #include <ccan/str/hex/hex.h>
 #include <common/channel_type.h>
-#include <common/json.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
-#include <common/memleak.h>
 #include <stdio.h>
 
 #ifdef NDEBUG

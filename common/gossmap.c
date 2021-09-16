@@ -1,26 +1,19 @@
 #include "config.h"
 #include <assert.h>
-#include <ccan/bitops/bitops.h>
 #include <ccan/crypto/siphash24/siphash24.h>
-#include <ccan/endian/endian.h>
 #include <ccan/err/err.h>
 #include <ccan/htable/htable_type.h>
-#include <ccan/mem/mem.h>
 #include <ccan/ptrint/ptrint.h>
 #include <ccan/tal/str/str.h>
 #include <common/features.h>
 #include <common/gossip_store.h>
 #include <common/gossmap.h>
-#include <common/node_id.h>
 #include <common/pseudorand.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
 

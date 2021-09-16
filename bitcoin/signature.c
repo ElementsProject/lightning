@@ -6,10 +6,8 @@
 #include "tx.h"
 #include <assert.h>
 #include <bitcoin/psbt.h>
-#include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <wire/wire.h>
 
 #undef DEBUG

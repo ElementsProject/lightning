@@ -1,34 +1,19 @@
 #include "config.h"
-#include <assert.h>
-#include <bitcoin/chainparams.h>
-#include <bitcoin/preimage.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
-#include <ccan/mem/mem.h>
-#include <ccan/tal/str/str.h>
 #include <channeld/commit_tx.h>
 #include <channeld/full_channel.h>
-#include <channeld/full_channel_error.h>
 #include <common/blockheight_states.h>
-#include <common/channel_config.h>
 #include <common/features.h>
 #include <common/fee_states.h>
-#include <common/htlc.h>
-#include <common/htlc_trim.h>
 #include <common/htlc_tx.h>
 #include <common/htlc_wire.h>
-#include <common/key_derive.h>
 #include <common/keyset.h>
 #include <common/memleak.h>
-#include <common/onionreply.h>
 #include <common/status.h>
 #include <common/type_to_string.h>
-#include <inttypes.h>
 #include <stdio.h>
-#include <string.h>
   /* Needs to be at end, since it doesn't include its own hdrs */
   #include "full_channel_error_names_gen.h"
 

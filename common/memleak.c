@@ -20,15 +20,12 @@
  *    table: these are the leaks.
  */
 #include "config.h"
-#include <assert.h>
 #include <backtrace.h>
 #include <ccan/cast/cast.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable.h>
 #include <ccan/intmap/intmap.h>
-#include <common/daemon.h>
 #include <common/memleak.h>
-#include <common/utils.h>
 
 struct backtrace_state *backtrace_state;
 

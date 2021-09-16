@@ -1,5 +1,4 @@
 #include <ccan/array_size/array_size.h>
-#include <ccan/build_assert/build_assert.h>
 #include <common/status_levels.h>
 
 static const char *ll_names[] = {

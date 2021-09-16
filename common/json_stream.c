@@ -1,15 +1,8 @@
 #include <ccan/io/io.h>
   /* To reach into io_plan: not a public header! */
   #include <ccan/io/backend.h>
-#include <ccan/json_escape/json_escape.h>
 #include <ccan/json_out/json_out.h>
-#include <ccan/str/hex/hex.h>
-#include <ccan/tal/str/str.h>
-#include <common/daemon.h>
 #include <common/json_stream.h>
-#include <common/utils.h>
-#include <stdarg.h>
-#include <stdio.h>
 
 
 static void adjust_io_write(struct json_out *jout,

@@ -1,7 +1,6 @@
 #include "config.h"
 #include <assert.h>
 #include <ccan/ccan/err/err.h>
-#include <common/memleak.h>
 #include <common/setup.h>
 #include <common/utils.h>
 #include <sodium.h>

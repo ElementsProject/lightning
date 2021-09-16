@@ -1,22 +1,15 @@
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
-#include <bitcoin/chainparams.h>
 #include <bitcoin/feerate.h>
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
-#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/json_escape/json_escape.h>
 #include <ccan/str/hex/hex.h>
 #include <ccan/tal/str/str.h>
-#include <common/amount.h>
 #include <common/bech32.h>
-#include <common/channel_id.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
-#include <common/jsonrpc_errors.h>
-#include <common/param.h>
-#include <common/utils.h>
 
 struct command_result *param_array(struct command *cmd, const char *name,
 				   const char *buffer, const jsmntok_t *tok,

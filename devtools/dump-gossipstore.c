@@ -3,14 +3,9 @@
 #include <ccan/opt/opt.h>
 #include <common/gossip_store.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
-#include <gossipd/gossipd_peerd_wiregen.h>
-#include <inttypes.h>
 #include <stdio.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
 

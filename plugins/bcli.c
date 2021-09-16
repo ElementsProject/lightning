@@ -1,24 +1,13 @@
 #include <bitcoin/base58.h>
-#include <bitcoin/block.h>
-#include <bitcoin/feerate.h>
-#include <bitcoin/script.h>
-#include <bitcoin/shadouble.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/io/io.h>
-#include <ccan/json_out/json_out.h>
 #include <ccan/pipecmd/pipecmd.h>
-#include <ccan/str/hex/hex.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/grab_file/grab_file.h>
-#include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
-#include <common/json_helpers.h>
 #include <common/json_tok.h>
 #include <common/memleak.h>
-#include <common/utils.h>
 #include <errno.h>
-#include <inttypes.h>
 #include <plugins/libplugin.h>
 
 /* Bitcoind's web server has a default of 4 threads, with queue depth 16.

@@ -26,18 +26,10 @@
  *
  * WE ASSUME NO MALLEABILITY!  This requires segregated witness.
  */
-#include <bitcoin/script.h>
-#include <ccan/crypto/siphash24/siphash24.h>
-#include <ccan/ptrint/ptrint.h>
-#include <common/pseudorand.h>
-#include <common/timeout.h>
 #include <common/type_to_string.h>
-#include <lightningd/bitcoind.h>
-#include <lightningd/channel.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/channel.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/watch.h>
 
 /* Watching an output */

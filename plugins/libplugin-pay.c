@@ -1,9 +1,7 @@
-#include <bitcoin/preimage.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/tal/str/str.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
-#include <common/json_helpers.h>
 #include <common/json_stream.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>

@@ -1,8 +1,6 @@
 #include "common/utils.h"
-#include <stdint.h>
 #include <tests/fuzz/libfuzz.h>
 
-#include <ccan/ccan/tal/tal.h>
 #include <common/addr.h>
 #include <common/setup.h>
 

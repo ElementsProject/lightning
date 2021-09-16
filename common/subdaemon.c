@@ -1,16 +1,8 @@
-#include <ccan/tal/str/str.h>
-#include <common/daemon.h>
 #include <common/dev_disconnect.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
-#include <common/utils.h>
 #include <common/version.h>
-#include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <wally_core.h>
 
 static void status_backtrace_print(const char *fmt, ...)
 {

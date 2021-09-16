@@ -3,6 +3,7 @@
 #include <common/daemon.h>
 #include <common/setup.h>
 #include <common/status.h>
+#include <stdio.h>
 
 #undef status_debug
 #define status_debug(...)

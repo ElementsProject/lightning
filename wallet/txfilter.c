@@ -1,13 +1,10 @@
 #include "txfilter.h"
 
 #include <bitcoin/script.h>
-#include <ccan/build_assert/build_assert.h>
-#include <ccan/crypto/ripemd160/ripemd160.h>
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/mem/mem.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
-#include <common/utils.h>
 #include <wallet/wallet.h>
 
 static size_t scriptpubkey_hash(const u8 *out)

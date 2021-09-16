@@ -1,8 +1,6 @@
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
-#include <ccan/crypto/sha256/sha256.h>
 #include <common/derive_basepoints.h>
 #include <common/utils.h>
-#include <wire/wire.h>
 
 #if DEVELOPER
 /* If they specify --dev-force-channel-secrets it ends up in here. */

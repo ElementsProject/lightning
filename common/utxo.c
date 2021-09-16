@@ -1,10 +1,4 @@
 #include "config.h"
-#include <bitcoin/privkey.h>
-#include <bitcoin/psbt.h>
-#include <bitcoin/script.h>
-#include <ccan/ccan/mem/mem.h>
-#include <common/key_derive.h>
-#include <common/utils.h>
 #include <common/utxo.h>
 #include <wire/wire.h>
 

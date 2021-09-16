@@ -1,12 +1,8 @@
-#include <bitcoin/privkey.h>
-#include <bitcoin/pubkey.h>
 #include <ccan/cast/cast.h>
 #include <common/blindedpath.h>
 #include <common/blinding.h>
 #include <common/bolt11.h>
 #include <common/hmac.h>
-#include <common/node_id.h>
-#include <common/utils.h>
 #include <secp256k1_ecdh.h>
 #include <sodium.h>
 #include <wire/onion_wire.h>

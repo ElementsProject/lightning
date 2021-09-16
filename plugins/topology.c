@@ -2,9 +2,7 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable_type.h>
 #include <ccan/json_escape/json_escape.h>
-#include <ccan/json_out/json_out.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
 #include <common/json_stream.h>
@@ -13,12 +11,9 @@
 #include <common/pseudorand.h>
 #include <common/route.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <common/wireaddr.h>
 #include <errno.h>
-#include <inttypes.h>
 #include <plugins/libplugin.h>
-#include <wire/peer_wire.h>
 
 /* Access via get_gossmap() */
 static struct gossmap *global_gossmap;

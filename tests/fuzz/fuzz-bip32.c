@@ -1,10 +1,6 @@
 #include "config.h"
-#include <assert.h>
-#include <stdint.h>
-#include <string.h>
 #include <tests/fuzz/libfuzz.h>
 
-#include <ccan/tal/tal.h>
 #include <common/bip32.h>
 #include <wally_bip32.h>
 

@@ -1,15 +1,9 @@
 /* Without this, gheap is *really* slow!  Comment out for debugging. */
 #define NDEBUG
 #include <ccan/cast/cast.h>
-#include <ccan/err/err.h>
-#include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
 #include <common/dijkstra.h>
 #include <common/gossmap.h>
-#include <common/utils.h>
 #include <gheap.h>
-#include <inttypes.h>
-#include <stdio.h>
 
 /* Each node has this side-info. */
 struct dijkstra {

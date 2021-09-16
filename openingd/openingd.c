@@ -7,52 +7,31 @@
  * there's nothing permanent about the channel: lightningd will only have to
  * commit to the database once openingd succeeds.
  */
-#include <bitcoin/block.h>
-#include <bitcoin/chainparams.h>
-#include <bitcoin/privkey.h>
-#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/breakpoint/breakpoint.h>
-#include <ccan/cast/cast.h>
-#include <ccan/fdpass/fdpass.h>
-#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
 #include <common/channel_type.h>
 #include <common/crypto_sync.h>
-#include <common/derive_basepoints.h>
 #include <common/fee_states.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
 #include <common/initial_channel.h>
-#include <common/initial_commit_tx.h>
-#include <common/key_derive.h>
 #include <common/memleak.h>
-#include <common/overflows.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
-#include <common/peer_status_wiregen.h>
-#include <common/penalty_base.h>
 #include <common/read_peer_msg.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
 #include <common/type_to_string.h>
-#include <common/version.h>
 #include <common/wire_error.h>
 #include <errno.h>
-#include <gossipd/gossipd_peerd_wiregen.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <inttypes.h>
 #include <openingd/common.h>
 #include <openingd/openingd_wiregen.h>
-#include <poll.h>
-#include <secp256k1.h>
-#include <stdio.h>
-#include <wally_bip32.h>
 #include <wire/common_wiregen.h>
 #include <wire/peer_wire.h>
-#include <wire/wire.h>
 #include <wire/wire_sync.h>
 
 /* stdin == lightningd, 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */

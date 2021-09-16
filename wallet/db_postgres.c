@@ -2,7 +2,6 @@
 #include <ccan/ccan/tal/str/str.h>
 #include <ccan/endian/endian.h>
 #include <lightningd/log.h>
-#include <stdio.h>
 #include <wallet/db_common.h>
 
 #if HAVE_POSTGRES

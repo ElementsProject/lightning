@@ -1,15 +1,11 @@
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
-#include <bitcoin/chainparams.h>
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
-#include <ccan/read_write_all/read_write_all.h>
-#include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
 #include <ccan/time/time.h>
-#include <common/amount.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
 #include <common/features.h>
@@ -18,10 +14,6 @@
 #include <common/version.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/un.h>
-#include <unistd.h>
 
 #define NO_ERROR 0
 #define ERROR_BAD_DECODE 1

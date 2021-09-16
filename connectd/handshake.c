@@ -1,8 +1,6 @@
 #include "config.h"
 #include <assert.h>
-#include <bitcoin/privkey.h>
 #include <bitcoin/pubkey.h>
-#include <ccan/build_assert/build_assert.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/endian/endian.h>
 #include <ccan/io/io.h>
@@ -15,13 +13,9 @@
 #include <common/wireaddr.h>
 #include <connectd/handshake.h>
 #include <errno.h>
-#include <secp256k1.h>
 #include <secp256k1_ecdh.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <sodium/randombytes.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <wire/wire.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)

@@ -1,10 +1,7 @@
-#include <ccan/array_size/array_size.h>
 #include <common/json_helpers.h>
 #include <common/type_to_string.h>
 #include <lightningd/channel.h>
-#include <lightningd/json.h>
 #include <lightningd/notification.h>
-#include <lightningd/peer_htlcs.h>
 
 static struct notification *find_notification_by_topic(const char* topic)
 {

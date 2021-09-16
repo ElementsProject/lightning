@@ -3,7 +3,6 @@
 #include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
 #include <bitcoin/short_channel_id.h>
-#include <bitcoin/tx.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/err/err.h>
 #include <ccan/mem/mem.h>
@@ -12,7 +11,6 @@
 #include <ccan/tal/path/path.h>
 #include <common/configdir.h>
 #include <common/node_id.h>
-#include <common/utils.h>
 #include <inttypes.h>
 #include <sqlite3.h>
 

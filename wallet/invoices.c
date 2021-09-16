@@ -1,17 +1,8 @@
 #include "db.h"
 #include "invoices.h"
 #include "wallet.h"
-#include <assert.h>
-#include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
-#include <ccan/timer/timer.h>
-#include <common/amount.h>
 #include <common/timeout.h>
-#include <common/utils.h>
-#include <lightningd/invoice.h>
-#include <sodium/randombytes.h>
-#include <string.h>
 
 struct invoice_waiter {
 	/* Is this waiter already triggered? */

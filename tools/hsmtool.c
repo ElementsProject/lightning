@@ -1,10 +1,8 @@
-#include <bitcoin/privkey.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crypto/hkdf_sha256/hkdf_sha256.h>
 #include <ccan/err/err.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
-#include <ccan/str/str.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
@@ -14,11 +12,9 @@
 #include <common/hsm_encryption.h>
 #include <common/node_id.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <limits.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <wally_bip32.h>

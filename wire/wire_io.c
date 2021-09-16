@@ -2,8 +2,6 @@
  #include <unistd.h>
 #include <ccan/io/io_plan.h>
 #include <ccan/mem/mem.h>
-#include <ccan/take/take.h>
-#include <ccan/tal/tal.h>
 #include <common/utils.h>
 #include <errno.h>
 #include <wire/wire_io.h>

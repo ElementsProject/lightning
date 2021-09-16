@@ -4,19 +4,13 @@
 #include <backtrace.h>
 #include <ccan/err/err.h>
 #include <ccan/io/io.h>
-#include <ccan/str/str.h>
 #include <ccan/tal/str/str.h>
 #include <common/daemon.h>
 #include <common/memleak.h>
 #include <common/setup.h>
-#include <common/status.h>
 #include <common/utils.h>
 #include <common/version.h>
 #include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 #if BACKTRACE_SUPPORTED
 static void (*bt_print)(const char *fmt, ...) PRINTF_FMT(1,2);

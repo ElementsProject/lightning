@@ -1,28 +1,20 @@
 #include "gossip_store.h"
 
-#include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/crc32c/crc32c.h>
-#include <ccan/endian/endian.h>
 #include <ccan/noerr/noerr.h>
 #include <ccan/read_write_all/read_write_all.h>
 #include <ccan/tal/str/str.h>
 #include <common/gossip_store.h>
 #include <common/private_channel_announcement.h>
 #include <common/status.h>
-#include <common/type_to_string.h>
-#include <common/utils.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
-#include <gossipd/gossipd_peerd_wiregen.h>
-#include <gossipd/gossipd_wiregen.h>
-#include <stdio.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
-#include <wire/wire.h>
 
 #define GOSSIP_STORE_TEMP_FILENAME "gossip_store.tmp"
 

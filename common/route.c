@@ -1,17 +1,9 @@
 #include "config.h"
 #include <assert.h>
-#include <ccan/err/err.h>
-#include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
 #include <common/dijkstra.h>
 #include <common/features.h>
 #include <common/gossmap.h>
-#include <common/pseudorand.h>
-#include <common/random_select.h>
 #include <common/route.h>
-#include <common/type_to_string.h>
-#include <inttypes.h>
-#include <stdio.h>
 
 bool route_can_carry_even_disabled(const struct gossmap *map,
 				   const struct gossmap_chan *c,

@@ -1,27 +1,18 @@
 #include "routing.h"
-#include <arpa/inet.h>
-#include <bitcoin/block.h>
 #include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/endian/endian.h>
-#include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
-#include <common/features.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>
 #include <common/status.h>
 #include <common/timeout.h>
 #include <common/type_to_string.h>
 #include <common/wire_error.h>
-#include <common/wireaddr.h>
 #include <gossipd/gossip_generation.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <gossipd/gossipd.h>
-#include <gossipd/gossipd_peerd_wiregen.h>
 #include <gossipd/gossipd_wiregen.h>
-#include <inttypes.h>
-#include <wire/peer_wire.h>
 
 #ifndef SUPERVERBOSE
 #define SUPERVERBOSE(...)

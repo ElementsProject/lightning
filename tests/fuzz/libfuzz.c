@@ -1,11 +1,8 @@
 #include <tests/fuzz/libfuzz.h>
 
 #include <assert.h>
-#include <ccan/tal/tal.h>
 #include <ccan/isaac/isaac64.h>
 #include <common/pseudorand.h>
-#include <common/utils.h>
-#include <string.h>
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 int LLVMFuzzerInitialize(int *argc, char ***argv);

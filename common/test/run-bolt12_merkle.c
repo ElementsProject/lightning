@@ -5,12 +5,9 @@
 #include "../bolt12_merkle.c"
 #include <assert.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
-#include <ccan/tal/str/str.h>
+#include <common/channel_type.h>
 #include <common/features.h>
 #include <common/setup.h>
-#include <stdarg.h>
-#include <wire/channel_type_wiregen.h>
 
 /* Definition of n1 from the spec */
 #include <wire/peer_wire.h>

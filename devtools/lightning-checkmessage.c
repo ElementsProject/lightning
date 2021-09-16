@@ -1,8 +1,6 @@
 #include <bitcoin/pubkey.h>
 #include <bitcoin/shadouble.h>
-#include <ccan/crypto/sha256/sha256.h>
 #include <ccan/err/err.h>
-#include <ccan/short_types/short_types.h>
 #include <common/bech32.h>
 #include <common/utils.h>
 #include <secp256k1_recovery.h>

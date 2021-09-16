@@ -1,15 +1,12 @@
 #include <bitcoin/address.h>
 #include <bitcoin/base58.h>
-#include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bolt11.h>
 #include <common/bolt11_json.h>
-#include <common/json.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
-#include <common/utils.h>
 
 static void json_add_fallback(struct json_stream *response,
 			      const char *fieldname,

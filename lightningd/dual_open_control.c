@@ -2,33 +2,18 @@
  * dualopend subdaemons. It manages the callbacks and database
  * saves and funding tx watching for a channel open */
 
-#include <bitcoin/psbt.h>
-#include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
-#include <ccan/take/take.h>
-#include <ccan/tal/tal.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/short_types/short_types.h>
-#include <common/amount.h>
 #include <common/blockheight_states.h>
-#include <common/channel_config.h>
-#include <common/channel_id.h>
-#include <common/derive_basepoints.h>
-#include <common/features.h>
-#include <common/fee_states.h>
-#include <common/htlc.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
-#include <common/lease_rates.h>
 #include <common/param.h>
-#include <common/per_peer_state.h>
 #include <common/psbt_open.h>
 #include <common/shutdown_scriptpubkey.h>
 #include <common/type_to_string.h>
-#include <connectd/connectd_wiregen.h>
 #include <errno.h>
 #include <hsmd/capabilities.h>
 #include <lightningd/chaintopology.h>
@@ -37,14 +22,13 @@
 #include <lightningd/closing_control.h>
 #include <lightningd/dual_open_control.h>
 #include <lightningd/hsm_control.h>
+#include <lightningd/json.h>
 #include <lightningd/notification.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/plugin_hook.h>
-#include <lightningd/json.h>
 #include <openingd/dualopend_wiregen.h>
 #include <wire/common_wiregen.h>
-#include <wire/peer_wire.h>
 
 struct commit_rcvd {
 	struct channel *channel;

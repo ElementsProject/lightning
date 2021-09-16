@@ -17,17 +17,8 @@ static void db_log_(struct log *log UNUSED, enum log_level level UNUSED, const s
 
 #include "wallet/db.c"
 
-#include <ccan/mem/mem.h>
-#include <ccan/tal/str/str.h>
-#include <common/amount.h>
-#include <common/errcode.h>
-#include <common/memleak.h>
 #include <common/setup.h>
-#include <stdarg.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <wally_core.h>
 
 bool deprecated_apis = true;
 

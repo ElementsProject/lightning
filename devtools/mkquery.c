@@ -1,16 +1,7 @@
 /* Generate various query messages. */
 #include "config.h"
-#include <assert.h>
-#include <bitcoin/address.h>
-#include <bitcoin/script.h>
-#include <bitcoin/short_channel_id.h>
-#include <bitcoin/tx.h>
-#include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
 #include <ccan/str/hex/hex.h>
-#include <common/gossip_constants.h>
-#include <common/utils.h>
-#include <inttypes.h>
 #include <stdio.h>
 #include <wire/peer_wire.h>
 

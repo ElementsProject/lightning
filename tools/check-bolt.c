@@ -2,14 +2,11 @@
  * they're accurate. */
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
-#include <ccan/str/str.h>
 #include <ccan/tal/grab_file/grab_file.h>
 #include <ccan/tal/path/path.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/tal/tal.h>
 #include <common/utils.h>
 #include <dirent.h>
-#include <sys/types.h>
 
 static bool verbose = false;
 

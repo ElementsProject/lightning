@@ -2,11 +2,8 @@
 #include "memdump.h"
 #if DEVELOPER
 #include <backtrace.h>
-#include <ccan/strmap/strmap.h>
 #include <ccan/tal/str/str.h>
-#include <common/daemon.h>
 #include <common/json_command.h>
-#include <common/jsonrpc_errors.h>
 #include <common/memleak.h>
 #include <common/param.h>
 #include <common/timeout.h>
@@ -17,11 +14,9 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
 #include <lightningd/opening_common.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/subd.h>
-#include <stdio.h>
 #include <wire/wire_sync.h>
 
 static void json_add_ptr(struct json_stream *response, const char *name,

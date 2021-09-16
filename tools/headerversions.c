@@ -14,9 +14,6 @@
 #else
 # define IF_SQLITE3(...)
 #endif
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 #include <zlib.h>
 
 static const char template[] =

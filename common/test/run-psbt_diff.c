@@ -1,11 +1,6 @@
 #include "config.h"
-#include <assert.h>
-#include <bitcoin/chainparams.h>
-#include <bitcoin/psbt.h>
-#include <bitcoin/tx.h>
 #include <common/setup.h>
 #include <stdio.h>
-#include <wire/wire.h>
 #include "../amount.c"
 #include "../psbt_open.c"
 

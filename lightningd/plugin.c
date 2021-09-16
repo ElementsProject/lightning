@@ -2,7 +2,6 @@
 #include <ccan/ccan/tal/grab_file/grab_file.h>
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/io/io.h>
-#include <ccan/list/list.h>
 #include <ccan/mem/mem.h>
 #include <ccan/opt/opt.h>
 #include <ccan/pipecmd/pipecmd.h>
@@ -15,20 +14,15 @@
 #include <common/json_helpers.h>
 #include <common/memleak.h>
 #include <common/timeout.h>
-#include <common/utils.h>
 #include <common/version.h>
 #include <dirent.h>
 #include <errno.h>
 #include <lightningd/io_loop_with_timers.h>
-#include <lightningd/json.h>
 #include <lightningd/notification.h>
-#include <lightningd/options.h>
 #include <lightningd/plugin.h>
 #include <lightningd/plugin_control.h>
 #include <lightningd/plugin_hook.h>
-#include <signal.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 /* Only this file can include this generated header! */
 # include <plugins/list_of_builtin_plugins_gen.h>

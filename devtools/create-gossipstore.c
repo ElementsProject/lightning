@@ -1,20 +1,12 @@
-#include <bitcoin/short_channel_id.h>
 #include <ccan/crc32c/crc32c.h>
 #include <ccan/err/err.h>
 #include <ccan/opt/opt.h>
 #include <ccan/read_write_all/read_write_all.h>
-#include <common/amount.h>
 #include <common/gossip_store.h>
-#include <common/node_id.h>
-#include <common/type_to_string.h>
-#include <common/utils.h>
 #include <fcntl.h>
 #include <gossipd/gossip_store_wiregen.h>
 #include <inttypes.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
 

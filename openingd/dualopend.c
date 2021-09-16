@@ -11,56 +11,36 @@
  * new and improved, two-party opening protocol, which allows bother peers to
  * contribute inputs to the transaction
  */
-#include <bitcoin/feerate.h>
-#include <bitcoin/privkey.h>
 #include <bitcoin/script.h>
-#include <bitcoin/tx.h>
-#include <bitcoin/varint.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <ccan/mem/mem.h>
-#include <ccan/take/take.h>
 #include <ccan/tal/str/str.h>
-#include <ccan/time/time.h>
-#include <ccan/fdpass/fdpass.h>
-#include <ccan/short_types/short_types.h>
-#include <common/amount.h>
 #include <common/billboard.h>
 #include <common/blockheight_states.h>
-#include <common/channel_config.h>
-#include <common/channel_id.h>
 #include <common/channel_type.h>
 #include <common/crypto_sync.h>
-#include <common/fee_states.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/gossip_store.h>
-#include <common/htlc.h>
 #include <common/initial_channel.h>
 #include <common/lease_rates.h>
 #include <common/memleak.h>
 #include <common/peer_billboard.h>
 #include <common/peer_failed.h>
-#include <common/penalty_base.h>
-#include <common/per_peer_state.h>
 #include <common/psbt_internal.h>
 #include <common/psbt_open.h>
 #include <common/read_peer_msg.h>
 #include <common/setup.h>
 #include <common/status.h>
 #include <common/subdaemon.h>
-#include <common/tx_roles.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
-#include <common/version.h>
 #include <common/wire_error.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <inttypes.h>
 #include <openingd/common.h>
 #include <openingd/dualopend_wiregen.h>
 #include <unistd.h>
 #include <wire/common_wiregen.h>
-#include <wire/peer_wire.h>
 #include <wire/wire_sync.h>
 
 /* stdin == lightningd, 3 == peer, 4 == gossipd, 5 = gossip_store, 6 = hsmd */

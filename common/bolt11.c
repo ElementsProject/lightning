@@ -1,26 +1,14 @@
 #include <bitcoin/address.h>
-#include <bitcoin/base58.h>
-#include <bitcoin/chainparams.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
-#include <ccan/cast/cast.h>
-#include <ccan/endian/endian.h>
 #include <ccan/tal/str/str.h>
 #include <common/bech32.h>
 #include <common/bech32_util.h>
 #include <common/bolt11.h>
 #include <common/features.h>
-#include <common/utils.h>
 #include <errno.h>
 #include <inttypes.h>
-#include <lightningd/hsm_control.h>
-#include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <wire/wire.h>
-#include <wire/wire_sync.h>
 
 struct multiplier {
 	const char letter;

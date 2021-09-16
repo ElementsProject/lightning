@@ -1,18 +1,11 @@
 #include <arpa/inet.h>
-#include <bitcoin/preimage.h>
-#include <bitcoin/privkey.h>
 #include <bitcoin/psbt.h>
-#include <bitcoin/pubkey.h>
 #include <ccan/ccan/str/hex/hex.h>
-#include <common/amount.h>
-#include <common/channel_id.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
-#include <common/node_id.h>
 #include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <errno.h>
-#include <wally_psbt.h>
 #include <wire/peer_wire.h>
 
 bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,

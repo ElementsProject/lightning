@@ -4,16 +4,11 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/script.h>
-#include <bitcoin/signature.h>
 #include <ccan/ccan/array_size/array_size.h>
 #include <ccan/ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
-#include <common/amount.h>
 #include <common/type_to_string.h>
-#include <common/utils.h>
-#include <string.h>
 #include <wally_psbt.h>
-#include <wally_transaction.h>
 #include <wire/wire.h>
 
 

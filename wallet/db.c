@@ -1,26 +1,17 @@
 #include "db.h"
 
-#include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/mem/mem.h>
 #include <ccan/tal/str/str.h>
-#include <common/channel_id.h>
-#include <common/derive_basepoints.h>
 #include <common/key_derive.h>
-#include <common/node_id.h>
 #include <common/onionreply.h>
 #include <common/version.h>
 #include <errno.h>
 #include <hsmd/hsmd_wiregen.h>
-#include <inttypes.h>
 #include <lightningd/channel.h>
-#include <lightningd/lightningd.h>
-#include <lightningd/log.h>
 #include <lightningd/plugin_hook.h>
 #include <wallet/db_common.h>
-#include <wallet/wallet.h>
-#include <wally_bip32.h>
 #include <wire/wire_sync.h>
 
 #define NSEC_IN_SEC 1000000000

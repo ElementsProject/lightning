@@ -3,11 +3,9 @@
 #include <ccan/tal/str/str.h>
 #include <common/bolt12.h>
 #include <common/iso4217.h>
-#include <common/json_stream.h>
 #include <common/json_tok.h>
 #include <common/overflows.h>
 #include <plugins/offers_offer.h>
-#include <wire/onion_wire.h>
 
 static bool msat_or_any(const char *buffer,
 			const jsmntok_t *tok,

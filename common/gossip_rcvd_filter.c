@@ -1,6 +1,5 @@
 #include <ccan/crypto/siphash24/siphash24.h>
 #include <ccan/htable/htable.h>
-#include <ccan/structeq/structeq.h>
 #include <common/gossip_rcvd_filter.h>
 #include <common/memleak.h>
 #include <common/pseudorand.h>

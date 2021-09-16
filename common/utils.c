@@ -2,7 +2,6 @@
 #include <bitcoin/chainparams.h>
 #include <ccan/list/list.h>
 #include <ccan/str/hex/hex.h>
-#include <ccan/tal/str/str.h>
 #include <ccan/utf8/utf8.h>
 #include <errno.h>
 #include <locale.h>

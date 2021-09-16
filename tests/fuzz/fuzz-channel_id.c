@@ -2,11 +2,8 @@
 #include <assert.h>
 #include <bitcoin/pubkey.h>
 #include <bitcoin/tx.h>
-#include <stdint.h>
-#include <string.h>
 #include <tests/fuzz/libfuzz.h>
 
-#include <ccan/tal/tal.h>
 #include <common/channel_id.h>
 #include <wire/wire.h>
 

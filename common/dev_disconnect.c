@@ -1,16 +1,10 @@
 #include "config.h"
-#include <assert.h>
 #include <ccan/err/err.h>
-#include <ccan/str/str.h>
 #include <common/dev_disconnect.h>
 #include <common/status.h>
-#include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <stdlib.h>
-#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <wire/peer_wire.h>
 

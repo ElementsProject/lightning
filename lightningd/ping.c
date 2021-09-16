@@ -1,17 +1,9 @@
-#include <channeld/channeld_wiregen.h>
 #include <common/json_command.h>
 #include <common/json_tok.h>
-#include <common/jsonrpc_errors.h>
 #include <common/param.h>
-#include <common/sphinx.h>
-#include <common/utils.h>
 #include <gossipd/gossipd_wiregen.h>
-#include <lightningd/htlc_end.h>
-#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/lightningd.h>
-#include <lightningd/log.h>
-#include <lightningd/peer_control.h>
 #include <lightningd/ping.h>
 #include <lightningd/subd.h>
 
