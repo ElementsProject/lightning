@@ -18,6 +18,7 @@
 #include <common/utils.h>
 #include <gossipd/routing.h>
 #include <lightningd/chaintopology.h>
+#include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/options.h>
 #include <sys/socket.h>

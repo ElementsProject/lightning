@@ -210,4 +210,4 @@ bool fromwire_gossipd_local_add_channel_obs(const tal_t *ctx, const void *p, str
 	fromwire_u8_array(&cursor, &plen, *features, flen);
 	return cursor != NULL;
 }
-// SHA256STAMP:f145d927f4dfe0434bf705f22e3cfae212f96ef95c1cd4dc31fe53c000ef5adb
+// SHA256STAMP:15e0760c876736aaf08229c33e7615b20e6a35790fb8d72d09ecc31a472bf783

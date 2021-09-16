@@ -1,4 +1,4 @@
-#include "lightningd/io_loop_with_timers.h"
+#include "io_loop_with_timers.h"
 
 #include <ccan/io/io.h>
 #include <ccan/timer/timer.h>

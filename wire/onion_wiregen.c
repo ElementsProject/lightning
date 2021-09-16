@@ -1026,4 +1026,4 @@ bool fromwire_mpp_timeout(const void *p)
 		return false;
 	return cursor != NULL;
 }
-// SHA256STAMP:fd460361e76105eb612f69f2a3f27e70115c0ebdad82785f2c852c13f9c08c8d
+// SHA256STAMP:1425ef44095bc90c4b405497ade727e41d6cde27c1f6e64c8d7239036410dd30
