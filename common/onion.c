@@ -3,6 +3,7 @@
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
 #include <common/ecdh.h>
+#include <common/onion.h>
 #include <common/sphinx.h>
 #include <sodium/crypto_aead_chacha20poly1305.h>
 #include <wire/onion_wire.h>

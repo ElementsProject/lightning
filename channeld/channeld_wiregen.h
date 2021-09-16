@@ -241,4 +241,4 @@ bool fromwire_channeld_blockheight(const void *p, u32 *blockheight);
 
 
 #endif /* LIGHTNING_CHANNELD_CHANNELD_WIREGEN_H */
-// SHA256STAMP:d00ca466d1339c66bbed6afc95227ca89177dab02344de8e333cc11f85e82cd9
+// SHA256STAMP:f02f2fc72a5382fd545bdcd1789d873d1619baefea7f26d0bde92b5091b5b880

@@ -56,6 +56,12 @@ for C_FILE in $(filter_suffix c); do
         echo
         EXIT_CODE=1
     fi
+    H_FILE="${C_FILE%.c}.h"
+    H_BASE="$(basename "$H_FILE")"
+    if [ -f "$H_FILE" ] && ! grep -E '#include (<'"$H_FILE"'>|"'"$H_BASE"'")' "$C_FILE" > /dev/null; then
+	echo "${C_FILE} does not include $H_FILE" >& 2
+	EXIT_CODE=1
+    fi
 done
 
 exit ${EXIT_CODE}
