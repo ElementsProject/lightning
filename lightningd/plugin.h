@@ -16,7 +16,9 @@ enum plugin_state {
 	/* We have to get `init` response */
 	AWAITING_INIT_RESPONSE,
 	/* We have `init` response. */
-	INIT_COMPLETE
+	INIT_COMPLETE,
+	/* We are shutting down, maybe waiting for it to self-terminate */
+	SHUTDOWN
 };
 
 /**
@@ -112,9 +114,6 @@ struct plugins {
 
 	/* Blacklist of plugins from --disable-plugin */
 	const char **blacklist;
-
-	/* Whether we are shutting down (`plugins_free` is called) */
-	bool shutdown;
 
 	/* Index to show what order they were added in */
 	u64 plugin_idx;
@@ -236,9 +235,15 @@ void plugin_kill(struct plugin *plugin, enum log_level loglevel,
 		 const char *fmt, ...);
 
 /**
- * Tell all the plugins we're shutting down, and free them.
+ * The @first=true call sends all subscribed plugins a shutdown notification and
+ * gives those 30s to self-terminate, others are killed immediate. Plugins
+ * that registered the db_write hook are kept alive, but their JSON RPC methods
+ * are removed.
+ *
+ * The 2nd (first=false) call repeats above for any remaining plugins, so
+ * db_write plugins can be notified twice, gives them 5s to self-terminate.
  */
-void shutdown_plugins(struct lightningd *ld);
+void shutdown_plugins(struct lightningd *ld, bool first);
 
 /**
  * Returns the plugin which registers the command with name {cmd_name}

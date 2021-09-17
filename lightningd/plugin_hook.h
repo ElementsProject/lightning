@@ -108,6 +108,9 @@ bool plugin_hook_continue(void *arg, const char *buffer, const jsmntok_t *toks);
 struct plugin_hook *plugin_hook_register(struct plugin *plugin,
 					 const char *method);
 
+/* Helper to tell if plugin registered the db_write hook */
+bool plugin_registered_db_write_hook(struct plugin *plugin);
+
 /* Special sync plugin hook for db. */
 void plugin_hook_db_sync(struct db *db);
 

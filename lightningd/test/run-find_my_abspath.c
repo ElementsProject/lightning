@@ -199,7 +199,7 @@ void setup_topology(struct chain_topology *topology UNNEEDED,
 		    u32 min_blockheight UNNEEDED, u32 max_blockheight UNNEEDED)
 { fprintf(stderr, "setup_topology called!\n"); abort(); }
 /* Generated stub for shutdown_plugins */
-void shutdown_plugins(struct lightningd *ld UNNEEDED)
+void shutdown_plugins(struct lightningd *ld UNNEEDED, bool first UNNEEDED)
 { fprintf(stderr, "shutdown_plugins called!\n"); abort(); }
 /* Generated stub for stop_topology */
 void stop_topology(struct chain_topology *topo UNNEEDED)

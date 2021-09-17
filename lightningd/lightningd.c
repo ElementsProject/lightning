@@ -1187,8 +1187,8 @@ int main(int argc, char *argv[])
 	/* We're not going to collect our children. */
 	remove_sigchild_handler();
 
-	/* Tell plugins we're shutting down. */
-	shutdown_plugins(ld);
+	/* Tell plugins we're shutting down, except db_write plugins */
+	shutdown_plugins(ld, true);
 	shutdown_subdaemons(ld);
 
 	/* Clean up the JSON-RPC. This needs to happen in a DB transaction since
@@ -1197,6 +1197,9 @@ int main(int argc, char *argv[])
 	db_begin_transaction(ld->wallet->db);
 	tal_free(ld->jsonrpc);
 	db_commit_transaction(ld->wallet->db);
+
+	/* Shutdown remaining plugins and close the db */
+	shutdown_plugins(ld, false);
 
 	/* Clean our our HTLC maps, since they use malloc. */
 	htlc_in_map_clear(&ld->htlcs_in);

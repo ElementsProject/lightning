@@ -291,6 +291,16 @@ struct db_write_hook_req {
 	size_t *num_hooks;
 };
 
+bool plugin_registered_db_write_hook(struct plugin *plugin) {
+	const struct plugin_hook *hook = &db_write_hook;
+
+	for (size_t i = 0; i < tal_count(hook->hooks); i++)
+		if (hook->hooks[i]->plugin == plugin)
+			return true;
+
+	return false;
+}
+
 static void db_hook_response(const char *buffer, const jsmntok_t *toks,
 			     const jsmntok_t *idtok,
 			     struct db_write_hook_req *dwh_req)

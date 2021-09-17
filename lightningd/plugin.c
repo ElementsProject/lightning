@@ -65,6 +65,8 @@ static const char *state_desc(const struct plugin *plugin)
 		return "before replying to init";
 	case INIT_COMPLETE:
 		return "during normal operation";
+	case SHUTDOWN:
+	    return "during shutdown";
 	}
 	fatal("Invalid plugin state %i for %s",
 	      plugin->plugin_state, plugin->cmd);
@@ -82,7 +84,6 @@ struct plugins *plugins_new(const tal_t *ctx, struct log_book *log_book,
 	p->startup = true;
 	p->plugin_cmds = tal_arr(p, struct plugin_command *, 0);
 	p->blacklist = tal_arr(p, const char *, 0);
-	p->shutdown = false;
 	p->plugin_idx = 0;
 #if DEVELOPER
 	p->dev_builtin_plugins_unimportant = false;
@@ -193,9 +194,9 @@ static void destroy_plugin(struct plugin *p)
 
 	/* If we are shutting down, do not continue to checking if
 	 * the dying plugin is important.  */
-	if (p->plugins->shutdown) {
-		/* But return if this was the last plugin! */
-		if (list_empty(&p->plugins->plugins))
+	if (p->plugin_state == SHUTDOWN) {
+		/* At shutdown we wait for plugins to self-terminate */
+		if (!plugins_any_in_state(p->plugins, SHUTDOWN))
 			io_break(p->plugins);
 		return;
 	}
@@ -722,7 +723,7 @@ static void plugin_conn_finish(struct io_conn *conn, struct plugin *plugin)
 {
 	/* This is expected at shutdown of course. */
 	plugin_kill(plugin,
-		    plugin->plugins->shutdown
+		    plugin->plugin_state == SHUTDOWN
 		    ? LOG_DBG : LOG_INFORM,
 		    "exited %s", state_desc(plugin));
 }
@@ -1981,12 +1982,10 @@ void plugins_notify(struct plugins *plugins,
 	if (taken(n))
 		tal_steal(tmpctx, n);
 
-	/* If we're shutting down, ld->plugins will be NULL */
-	if (plugins) {
-		list_for_each(&plugins->plugins, p, list) {
-			plugin_single_notify(p, n);
-		}
-	}
+    list_for_each(&plugins->plugins, p, list) {
+        if (p->plugin_state != SHUTDOWN)
+            plugin_single_notify(p, n);
+    }
 }
 
 static void destroy_request(struct jsonrpc_request *req,
@@ -2087,36 +2086,44 @@ static void plugin_shutdown_timeout(struct lightningd *ld)
 	io_break(ld->plugins);
 }
 
-void shutdown_plugins(struct lightningd *ld)
+void shutdown_plugins(struct lightningd *ld, bool first)
 {
 	struct plugin *p, *next;
 
-	/* This makes sure we don't complain about important plugins
-	 * vanishing! */
-	ld->plugins->shutdown = true;
+	/* First mark a set of plugins we want to shutdown in this call */
+	list_for_each(&ld->plugins->plugins, p, list) {
+		if (first && plugin_registered_db_write_hook(p))
+			continue;
+		/* don't complain about important plugins vanishing and stop sending
+		 * it any (other) notifications */
+		plugin_set_state(p, SHUTDOWN);
+	}
 
-	/* Tell them all to shutdown; if they care. */
+	/* Notify **all** subscribed plugins */
 	list_for_each_safe(&ld->plugins->plugins, p, next, list) {
-		/* Kill immediately, deletes self from list. */
-		if (!notify_plugin_shutdown(ld, p))
+		if (notify_plugin_shutdown(ld, p))
+			continue;
+		/* or kill immediately those in the set */
+		else if (p->plugin_state == SHUTDOWN)
 			tal_free(p);
 	}
 
-	/* If anyone was interested in shutdown, give them time. */
-	if (!list_empty(&ld->plugins->plugins)) {
+	if (plugins_any_in_state(ld->plugins, SHUTDOWN)) {
 		struct oneshot *t;
-
-		/* 30 seconds should do it. */
+		/* Give them 30 or 5 seconds to self-terminate, the last one in
+		 * the set calls io_break when destroyed */
 		t = new_reltimer(ld->timers, ld,
-				 time_from_sec(30),
+				 time_from_sec(first ? 30 : 5),
 				 plugin_shutdown_timeout, ld);
 
 		io_loop_with_timers(ld);
 		tal_free(t);
 
-		/* Report and free remaining plugins. */
-		while (!list_empty(&ld->plugins->plugins)) {
-			p = list_pop(&ld->plugins->plugins, struct plugin, list);
+		/* Report and free plugins that didn't self-terminate */
+		list_for_each_safe(&ld->plugins->plugins, p, next, list) {
+			if (p->plugin_state != SHUTDOWN)
+				continue;
+
 			log_debug(ld->log,
 				  "%s: failed to shutdown, killing.",
 				  p->shortname);
@@ -2124,6 +2131,18 @@ void shutdown_plugins(struct lightningd *ld)
 		}
 	}
 
-	/* NULL stops notifications trying to access plugins. */
-	ld->plugins = tal_free(ld->plugins);
+	/* In 2nd call all should be gone, close the db */
+	if (!first) {
+		assert(list_empty(&ld->plugins->plugins));
+		ld->plugins = tal_free(ld->plugins);
+		tal_free(ld->wallet);
+		return;
+	}
+
+	/* In first call, remove JSON-RPC methods of remaining plugins */
+	list_for_each(&ld->plugins->plugins, p, list) {
+		for (size_t i=0; i<tal_count(p->methods); i++) {
+			jsonrpc_command_del(ld->jsonrpc, p->methods[i]);
+		}
+	}
 }
