@@ -1725,27 +1725,9 @@ struct db_query db_postgres_queries[] = {
          .readonly = false,
     },
     {
-         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = ? AND status = ? ORDER BY id;",
-         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = $1 AND status = $2 ORDER BY id;",
-         .placeholders = 2,
-         .readonly = true,
-    },
-    {
-         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = ? ORDER BY id;",
-         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE payment_hash = $1 ORDER BY id;",
-         .placeholders = 1,
-         .readonly = true,
-    },
-    {
-         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE status = ? ORDER BY id;",
-         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE status = $1 ORDER BY id;",
-         .placeholders = 1,
-         .readonly = true,
-    },
-    {
-         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments ORDER BY id;",
-         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments ORDER BY id;",
-         .placeholders = 0,
+         .name = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE (payment_hash = ? OR ?) AND (status = ? OR ?) ORDER BY id;",
+         .query = "SELECT  id, status, destination, msatoshi, payment_hash, timestamp, payment_preimage, path_secrets, route_nodes, route_channels, msatoshi_sent, description, bolt11, failonionreply, total_msat, partid, local_offer_id FROM payments WHERE (payment_hash = $1 OR $2) AND (status = $3 OR $4) ORDER BY id;",
+         .placeholders = 4,
          .readonly = true,
     },
     {
@@ -2080,176 +2062,10 @@ struct db_query db_postgres_queries[] = {
     },
 };
 
-#define DB_POSTGRES_QUERY_COUNT 345
+#define DB_POSTGRES_QUERY_COUNT 342
 
 #endif /* HAVE_POSTGRES */
 
 #endif /* LIGHTNINGD_WALLET_GEN_DB_POSTGRES */
 
-<<<<<<< refs/remotes/ElementsProject/master
-<<<<<<< refs/remotes/ElementsProject/master
-<<<<<<< refs/remotes/ElementsProject/master
-<<<<<<< refs/remotes/ElementsProject/master
-// SHA256STAMP:d812809c7895cea0ed904084e48c523ea01a8cd9525e4b6be1b4e05bec2a90d1
-=======
-=======
->>>>>>> wallet db: Support the query on database with status and payment hash.
-=======
->>>>>>> doc: Update doc with the new parameter supported
-=======
->>>>>>> plugin: Adding status to the pay plugin
-<<<<<<< refs/remotes/ElementsProject/master
-// SHA256STAMP:e356b7327b760559f9a7c31a7ea4a09d50194c7aacc6daef6ba9fb5caf43ae83
-=======
-=======
->>>>>>> wallet db: Support the query on database with status and payment hash.
-=======
->>>>>>> doc: Update doc with the new parameter supported
-=======
->>>>>>> plugin: Adding status to the pay plugin
-<<<<<<< refs/remotes/ElementsProject/master
-// SHA256STAMP:a70af01d3b2f3a7003703b7feb0b2ef12359e0d2850bde1697a53780e2f5dbae
-=======
-=======
->>>>>>> wallet db: Support the query on database with status and payment hash.
-=======
->>>>>>> doc: Update doc with the new parameter supported
-=======
->>>>>>> plugin: Adding status to the pay plugin
-<<<<<<< refs/remotes/ElementsProject/master
-// SHA256STAMP:f929ee6db13bdf55b5e0cdf54840091948b664a61c63a4aaaef403dc7e6f23ad
-=======
-=======
->>>>>>> wallet db: Support the query on database with status and payment hash.
-=======
->>>>>>> doc: Update doc with the new parameter supported
-<<<<<<< refs/remotes/ElementsProject/master
-// SHA256STAMP:219fccaaf2391eeabadd4cc15b4a3431c7ecab9d17755582e6962a34c74982c5
-=======
-=======
->>>>>>> wallet db: Support the query on database with status and payment hash.
-=======
->>>>>>> doc: Update doc with the new parameter supported
-<<<<<<< refs/remotes/ElementsProject/master
-// SHA256STAMP:1808964024bcccbd2787e723881f263b1a77ea33c302ac2b6d61dae20486a7e4
-=======
-=======
->>>>>>> wallet db: Support the query on database with status and payment hash.
-=======
->>>>>>> doc: Update doc with the new parameter supported
-<<<<<<< refs/remotes/ElementsProject/master
-// SHA256STAMP:411593f0957475d832c02cd75a8b0eed30b00fc6178797262ae7dd697de22383
-=======
-=======
->>>>>>> wallet db: Support the query on database with status and payment hash.
-=======
->>>>>>> doc: Update doc with the new parameter supported
-<<<<<<< refs/remotes/ElementsProject/master
-// SHA256STAMP:be7e5cedcb61a9b96566d4531bb25f2db4e5a344b0d884eec3fc3adf7a4fe242
-=======
-=======
->>>>>>> wallet db: Support the query on database with status and payment hash.
-=======
->>>>>>> doc: Update doc with the new parameter supported
-<<<<<<< refs/remotes/ElementsProject/master
-// SHA256STAMP:df06b800543e6bb886100ca428247ac1097f749098779dae43ba875154700f58
-=======
-=======
->>>>>>> wallet db: Support the query on database with status and payment hash.
-=======
->>>>>>> doc: Update doc with the new parameter supported
-<<<<<<< refs/remotes/ElementsProject/master
-// SHA256STAMP:27a166e040e517422e91cf7ffbd12426b34337b8d75f82d7aa4c448beae5e821
-=======
-=======
->>>>>>> wallet db: Support the query on database with status and payment hash.
-<<<<<<< refs/remotes/ElementsProject/master
-// SHA256STAMP:6353b67b3e4f539da2d1f0c2564c4a8243f07d59cd0b73bc83d5552600bd67f7
-=======
-// SHA256STAMP:b5f4c156aa7e336af86f98eafc5e198d3653ff27b21d861a5e777645bf6d89ec
->>>>>>> rpc: Integrate the status flow in the listsendpays command
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> rpc: Integrate the status flow in the listsendpays command
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> rpc: Integrate the status flow in the listsendpays command
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> rpc: Integrate the status flow in the listsendpays command
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> rpc: Integrate the status flow in the listsendpays command
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> rpc: Integrate the status flow in the listsendpays command
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> rpc: Integrate the status flow in the listsendpays command
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> rpc: Integrate the status flow in the listsendpays command
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> rpc: Integrate the status flow in the listsendpays command
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> rpc: Integrate the status flow in the listsendpays command
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> rpc: Integrate the status flow in the listsendpays command
-=======
-=======
-=======
-=======
-=======
-=======
-=======
-=======
-=======
-=======
-=======
-// SHA256STAMP:2af9ace16d4db060e649c3e078271504fce5a7c5661a25464a551aa7cc7029d0
->>>>>>> wallet db: Support the query on database with status and payment hash.
->>>>>>> wallet db: Support the query on database with status and payment hash.
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> wallet db: Support the query on database with status and payment hash.
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> wallet db: Support the query on database with status and payment hash.
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> wallet db: Support the query on database with status and payment hash.
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> wallet db: Support the query on database with status and payment hash.
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> wallet db: Support the query on database with status and payment hash.
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> wallet db: Support the query on database with status and payment hash.
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> wallet db: Support the query on database with status and payment hash.
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> wallet db: Support the query on database with status and payment hash.
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> wallet db: Support the query on database with status and payment hash.
-=======
-=======
-=======
-=======
-=======
-=======
-=======
-=======
-=======
-=======
-// SHA256STAMP:c08699eae7d8de418f7b197aad5682203ebbae633ce8888b9b4797a2db8ce106
->>>>>>> doc: Update doc with the new parameter supported
->>>>>>> doc: Update doc with the new parameter supported
->>>>>>> doc: Update doc with the new parameter supported
->>>>>>> doc: Update doc with the new parameter supported
->>>>>>> doc: Update doc with the new parameter supported
->>>>>>> doc: Update doc with the new parameter supported
->>>>>>> doc: Update doc with the new parameter supported
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> doc: Update doc with the new parameter supported
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> doc: Update doc with the new parameter supported
-<<<<<<< refs/remotes/ElementsProject/master
->>>>>>> doc: Update doc with the new parameter supported
-=======
-=======
-=======
-=======
-// SHA256STAMP:d6c1c3aced24e67abe2596259beb7599406c070622ef70f88f07d2672c4f4eb9
->>>>>>> plugin: Adding status to the pay plugin
->>>>>>> plugin: Adding status to the pay plugin
->>>>>>> plugin: Adding status to the pay plugin
->>>>>>> plugin: Adding status to the pay plugin
+// SHA256STAMP:e9f02b73335ca1a0b3308fba7c97f45bafe6fd773c42a915f07fb9679ca51b81

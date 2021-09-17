@@ -19,7 +19,7 @@ void printwire_channel_type(const char *fieldname, const u8 **cursor, size_t *pl
 		printf("**TRUNCATED**\n");
 		return;
 	}
-	printf("features=");
+ 	printf("features=");
 	printwire_u8_array(tal_fmt(NULL, "%s.features", fieldname), cursor, plen, len);
 
 	if (!*cursor) {

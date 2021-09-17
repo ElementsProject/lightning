@@ -32,8 +32,8 @@ fromwire_channel_type(const tal_t *ctx, const u8 **cursor, size_t *plen)
 	struct channel_type *channel_type = tal(ctx, struct channel_type);
 	u16 len;
 
-	len = fromwire_u16(cursor, plen);
-	channel_type->features = tal_arr(channel_type, u8, len);
+ 	len = fromwire_u16(cursor, plen);
+ 	channel_type->features = tal_arr(channel_type, u8, len);
 fromwire_u8_array(cursor, plen, channel_type->features, len);
 
 	return channel_type;
