@@ -3,7 +3,9 @@
 /* Template located at tools/gen/print_header_template */
 #ifndef LIGHTNING_WIRE_ONION_PRINTGEN_H
 #define LIGHTNING_WIRE_ONION_PRINTGEN_H
+#include <ccan/tal/tal.h>
 #include <devtools/print_wire.h>
+#include <wire/onion_defs.h>
 
 void printonion_wire_message(const u8 *msg);
 
@@ -56,4 +58,4 @@ void printwire_mpp_timeout(const char *fieldname, const u8 *cursor);
 
 void printwire_onionmsg_path(const char *fieldname, const u8 **cursor, size_t *plen);
 #endif /* LIGHTNING_WIRE_ONION_PRINTGEN_H */
-// SHA256STAMP:1425ef44095bc90c4b405497ade727e41d6cde27c1f6e64c8d7239036410dd30
+// SHA256STAMP:5ef4b9da2deee24db844109a2b461c65ad3dbc262da673a304d15082484398e0
