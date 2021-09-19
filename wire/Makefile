@@ -155,6 +155,7 @@ clean: wire-clean
 
 wire-clean:
 	$(RM) wire/*.csv.*
+	$(RM) wire/channel_type_*gen*
 
 wire-maintainer-clean: wire-clean
 	$(RM) wire/gen_*_csv wire/extracted_*_experimental_csv

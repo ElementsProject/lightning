@@ -3,6 +3,7 @@
 /* Template located at tools/gen/print_header_template */
 #ifndef LIGHTNING_WIRE_PEER_PRINTGEN_H
 #define LIGHTNING_WIRE_PEER_PRINTGEN_H
+#include <ccan/tal/tal.h>
 #include <devtools/print_wire.h>
 
 void printpeer_wire_message(const u8 *msg);
@@ -98,4 +99,4 @@ void printwire_channel_update_checksums(const char *fieldname, const u8 **cursor
 void printwire_channel_update_timestamps(const char *fieldname, const u8 **cursor, size_t *plen);
 void printwire_witness_stack(const char *fieldname, const u8 **cursor, size_t *plen);
 #endif /* LIGHTNING_WIRE_PEER_PRINTGEN_H */
-// SHA256STAMP:80b32650a8208ef15d83ebecbb3bae3c321fdc8594802de10847ae95f2169952
+// SHA256STAMP:30dc0f24cedd3001a2f330446f89575d68b80a2f0c33563bf07093b7bf4196b3
