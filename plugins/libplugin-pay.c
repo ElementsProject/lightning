@@ -9,6 +9,7 @@
 #include <common/type_to_string.h>
 #include <errno.h>
 #include <plugins/libplugin-pay.h>
+#include <sys/types.h>
 #include <wire/peer_wire.h>
 
 static struct gossmap *global_gossmap;

@@ -69,7 +69,6 @@
 #include <lightningd/options.h>
 #include <lightningd/plugin.h>
 #include <sys/resource.h>
-#include <sys/stat.h>
 #include <wallet/txfilter.h>
 #include <wally_bip32.h>
 
