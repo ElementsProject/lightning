@@ -20,6 +20,8 @@ ccan/ccan/cdump/tools/cdump-enumstr
 gen_*.c
 gen_*.h
 wire/gen_*_csv
+wire/channel_type_printgen*
+wire/channel_type_wiregen*
 cli/lightning-cli
 coverage
 ccan/config.h
