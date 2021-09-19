@@ -9,6 +9,7 @@
 #include <inttypes.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/socket.h>
 #include <wire/wire.h>
 
 void sync_crypto_write(struct per_peer_state *pps, const void *msg TAKES)

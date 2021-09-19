@@ -3,6 +3,8 @@
 #include "config.h"
 #include <lightningd/htlc_end.h>
 #include <lightningd/htlc_set.h>
+#include <signal.h>
+#include <sys/stat.h>
 #include <wallet/wallet.h>
 
 /* Various adjustable things. */
