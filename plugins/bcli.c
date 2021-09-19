@@ -16,6 +16,7 @@
  * This is how many request for each priority level we have.
  */
 #define BITCOIND_MAX_PARALLEL 4
+#define RPC_TRANSACTION_ALREADY_IN_CHAIN -27
 
 enum bitcoind_prio {
 	BITCOIND_LOW_PRIO,
@@ -489,7 +490,10 @@ static struct command_result *process_sendrawtransaction(struct bitcoin_cli *bcl
 				bcli->output);
 
 	response = jsonrpc_stream_success(bcli->cmd);
-	json_add_bool(response, "success", *bcli->exitstatus == 0);
+	json_add_bool(response, "success",
+		      *bcli->exitstatus == 0 ||
+			  *bcli->exitstatus ==
+			      RPC_TRANSACTION_ALREADY_IN_CHAIN);
 	json_add_string(response, "errmsg",
 			*bcli->exitstatus ?
 			tal_strndup(bcli->cmd,
