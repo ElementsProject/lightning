@@ -207,6 +207,43 @@ static const struct tlv_print_record_type print_tlvs_tlv_payload[] = {
 	{ 8, printwire_tlv_tlv_payload_payment_data },
 };
 
+static void printwire_tlv_onionmsg_payload_reply_path(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "reply_path");
+
+	printf("first_node_id=");
+	struct pubkey first_node_id;
+	fromwire_pubkey(cursor, plen, &first_node_id);
+
+	printwire_pubkey(tal_fmt(NULL, "%s.first_node_id", fieldname), &first_node_id);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	printf("blinding=");
+	struct pubkey blinding;
+	fromwire_pubkey(cursor, plen, &blinding);
+
+	printwire_pubkey(tal_fmt(NULL, "%s.blinding", fieldname), &blinding);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	printf("path=");
+	printf("[");
+	for (size_t i = 0; i < *plen; i++) {
+		printf("{\n");
+		printwire_onionmsg_path(tal_fmt(NULL, "%s.path", fieldname), cursor, plen);
+		printf("}\n");
+	}
+	printf("]");
+
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
 static void printwire_tlv_onionmsg_payload_obs_next_node_id(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "obs_next_node_id");
@@ -334,6 +371,7 @@ static void printwire_tlv_onionmsg_payload_invoice_error(const char *fieldname, 
 }
 
 static const struct tlv_print_record_type print_tlvs_onionmsg_payload[] = {
+	{ 2, printwire_tlv_onionmsg_payload_reply_path },
 	{ 4, printwire_tlv_onionmsg_payload_obs_next_node_id },
 	{ 6, printwire_tlv_onionmsg_payload_obs_next_short_channel_id },
 	{ 8, printwire_tlv_onionmsg_payload_obs_reply_path },
@@ -344,6 +382,19 @@ static const struct tlv_print_record_type print_tlvs_onionmsg_payload[] = {
 	{ 68, printwire_tlv_onionmsg_payload_invoice_error },
 };
 
+static void printwire_tlv_encmsg_tlvs_padding(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "padding");
+
+	printf("pad=");
+	printwire_u8_array(tal_fmt(NULL, "%s.pad", fieldname), cursor, plen, *plen);
+
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
 static void printwire_tlv_encmsg_tlvs_next_node_id(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "next_node_id");
@@ -374,10 +425,41 @@ static void printwire_tlv_encmsg_tlvs_obs_next_short_channel_id(const char *fiel
 	}
 
 }
+static void printwire_tlv_encmsg_tlvs_next_blinding(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "next_blinding");
+
+	printf("blinding=");
+	struct pubkey blinding;
+	fromwire_pubkey(cursor, plen, &blinding);
+
+	printwire_pubkey(tal_fmt(NULL, "%s.blinding", fieldname), &blinding);
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
+static void printwire_tlv_encmsg_tlvs_self_id(const char *fieldname, const u8 **cursor, size_t *plen)
+{
+	printf("(msg_name=%s)\n", "self_id");
+
+	printf("data=");
+	printwire_u8_array(tal_fmt(NULL, "%s.data", fieldname), cursor, plen, *plen);
+
+	if (!*cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+}
 
 static const struct tlv_print_record_type print_tlvs_encmsg_tlvs[] = {
+	{ 1, printwire_tlv_encmsg_tlvs_padding },
 	{ 4, printwire_tlv_encmsg_tlvs_next_node_id },
 	{ 6, printwire_tlv_encmsg_tlvs_obs_next_short_channel_id },
+	{ 12, printwire_tlv_encmsg_tlvs_next_blinding },
+	{ 14, printwire_tlv_encmsg_tlvs_self_id },
 };
 void printwire_invalid_realm(const char *fieldname, const u8 *cursor)
 {
@@ -859,4 +941,4 @@ void printonion_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_encmsg_tlvs, ARRAY_SIZE(print_tlvs_encmsg_tlvs));
 	}
 }
-// SHA256STAMP:6564b6a17750dfd460f88f9c484964a5fbfdfd77242c1b5c9986e4d69e00d387
+// SHA256STAMP:dc74e1b66f37a96bed7d2ab3f5b83fdf7cbe4ee7775ebda3ee43812e75f260ba

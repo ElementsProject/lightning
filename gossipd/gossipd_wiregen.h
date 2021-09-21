@@ -49,8 +49,10 @@ enum gossipd_wire {
         /*  Tell lightningd we got an obsolete onion message (for us */
         WIRE_GOSSIPD_GOT_OBS_ONIONMSG_TO_US = 3142,
         WIRE_GOSSIPD_GOT_OBS_ONIONMSG_FORWARD = 3143,
+        WIRE_GOSSIPD_GOT_ONIONMSG_TO_US = 3145,
         /*  Lightningd tells us to send a onion message. */
         WIRE_GOSSIPD_SEND_OBS_ONIONMSG = 3040,
+        WIRE_GOSSIPD_SEND_ONIONMSG = 3041,
         /*  Lightningd tells us to inject a gossip message (for addgossip RPC) */
         WIRE_GOSSIPD_ADDGOSSIP = 3044,
         /*  Empty string means no problem. */
@@ -166,10 +168,18 @@ bool fromwire_gossipd_got_obs_onionmsg_to_us(const tal_t *ctx, const void *p, st
 u8 *towire_gossipd_got_obs_onionmsg_forward(const tal_t *ctx, const struct short_channel_id *next_scid, const struct node_id *next_node_id, const struct pubkey *next_blinding, const u8 *next_onion);
 bool fromwire_gossipd_got_obs_onionmsg_forward(const tal_t *ctx, const void *p, struct short_channel_id **next_scid, struct node_id **next_node_id, struct pubkey **next_blinding, u8 **next_onion);
 
+/* WIRE: GOSSIPD_GOT_ONIONMSG_TO_US */
+u8 *towire_gossipd_got_onionmsg_to_us(const tal_t *ctx, const struct pubkey *blinding_in, const struct pubkey *reply_blinding, const struct pubkey *reply_first_node, const struct onionmsg_path **reply_path, const u8 *rawmsg);
+bool fromwire_gossipd_got_onionmsg_to_us(const tal_t *ctx, const void *p, struct pubkey *blinding_in, struct pubkey **reply_blinding, struct pubkey **reply_first_node, struct onionmsg_path ***reply_path, u8 **rawmsg);
+
 /* WIRE: GOSSIPD_SEND_OBS_ONIONMSG */
 /*  Lightningd tells us to send a onion message. */
 u8 *towire_gossipd_send_obs_onionmsg(const tal_t *ctx, const struct node_id *id, const u8 *onion, const struct pubkey *blinding);
 bool fromwire_gossipd_send_obs_onionmsg(const tal_t *ctx, const void *p, struct node_id *id, u8 **onion, struct pubkey **blinding);
+
+/* WIRE: GOSSIPD_SEND_ONIONMSG */
+u8 *towire_gossipd_send_onionmsg(const tal_t *ctx, const struct node_id *id, const u8 *onion, const struct pubkey *blinding);
+bool fromwire_gossipd_send_onionmsg(const tal_t *ctx, const void *p, struct node_id *id, u8 **onion, struct pubkey *blinding);
 
 /* WIRE: GOSSIPD_ADDGOSSIP */
 /*  Lightningd tells us to inject a gossip message (for addgossip RPC) */
@@ -188,4 +198,4 @@ bool fromwire_gossipd_new_lease_rates(const void *p, struct lease_rates *rates);
 
 
 #endif /* LIGHTNING_GOSSIPD_GOSSIPD_WIREGEN_H */
-// SHA256STAMP:d06e71483fdad04048e15d46b823420747d5f79efc97fa968752fa04b033d551
+// SHA256STAMP:aacb7a093fb63386eb9fa20a51d07c995ae363283a4b76d94ba3cd09ec298df2

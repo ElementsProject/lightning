@@ -176,6 +176,10 @@ void printpeer_wire_message(const u8 *msg)
 			printf("WIRE_OBS_ONION_MESSAGE:\n");
 			printwire_obs_onion_message("obs_onion_message", msg);
 			return;
+		case WIRE_ONION_MESSAGE:
+			printf("WIRE_ONION_MESSAGE:\n");
+			printwire_onion_message("onion_message", msg);
+			return;
 	}
 
 	printf("UNKNOWN: %s\\n", tal_hex(msg, msg));
@@ -3093,6 +3097,41 @@ void printwire_obs_onion_message(const char *fieldname, const u8 *cursor)
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
 }
+void printwire_onion_message(const char *fieldname, const u8 *cursor)
+{
+
+	size_t plen = tal_count(cursor);
+	if (fromwire_u16(&cursor, &plen) != WIRE_ONION_MESSAGE) {
+		printf("WRONG TYPE?!\n");
+		return;
+	}
+
+	printf("blinding=");
+	struct pubkey blinding;
+	fromwire_pubkey(&cursor, &plen, &blinding);
+
+	printwire_pubkey(tal_fmt(NULL, "%s.blinding", fieldname), &blinding);
+	if (!cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	u16 len = fromwire_u16(&cursor, &plen);
+	if (!cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+ 	printf("onionmsg=");
+	printwire_u8_array(tal_fmt(NULL, "%s.onionmsg", fieldname), &cursor, &plen, len);
+
+	if (!cursor) {
+		printf("**TRUNCATED**\n");
+		return;
+	}
+
+
+	if (plen != 0)
+		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
+}
 
 void printpeer_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 	size_t plen = tal_count(msg);
@@ -3139,4 +3178,4 @@ void printpeer_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_obs_onion_message_tlvs, ARRAY_SIZE(print_tlvs_obs_onion_message_tlvs));
 	}
 }
-// SHA256STAMP:6d70cc661b9bfd206dc82540e4a53f9c2ef6301355710d1e444acdeaf29c53ef
+// SHA256STAMP:6c0b9a8708efecb98f258c55fb8cc46909b5cf1ea1204cf18cc7b422f3496d41

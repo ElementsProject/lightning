@@ -58,6 +58,7 @@ enum peer_wire {
         WIRE_REPLY_CHANNEL_RANGE = 264,
         WIRE_GOSSIP_TIMESTAMP_FILTER = 265,
         WIRE_OBS_ONION_MESSAGE = 385,
+        WIRE_ONION_MESSAGE = 387,
 };
 
 const char *peer_wire_name(int e);
@@ -975,10 +976,14 @@ bool fromwire_gossip_timestamp_filter(const void *p, struct bitcoin_blkid *chain
 u8 *towire_obs_onion_message(const tal_t *ctx, const u8 *onionmsg, const struct tlv_obs_onion_message_tlvs *obs_onion_message_tlvs);
 bool fromwire_obs_onion_message(const tal_t *ctx, const void *p, u8 **onionmsg, struct tlv_obs_onion_message_tlvs *obs_onion_message_tlvs);
 
+/* WIRE: ONION_MESSAGE */
+u8 *towire_onion_message(const tal_t *ctx, const struct pubkey *blinding, const u8 *onionmsg);
+bool fromwire_onion_message(const tal_t *ctx, const void *p, struct pubkey *blinding, u8 **onionmsg);
+
 /* WIRE: CHANNEL_UPDATE_OPTION_CHANNEL_HTLC_MAX */
 u8 *towire_channel_update_option_channel_htlc_max(const tal_t *ctx, const secp256k1_ecdsa_signature *signature, const struct bitcoin_blkid *chain_hash, const struct short_channel_id *short_channel_id, u32 timestamp, u8 message_flags, u8 channel_flags, u16 cltv_expiry_delta, struct amount_msat htlc_minimum_msat, u32 fee_base_msat, u32 fee_proportional_millionths, struct amount_msat htlc_maximum_msat);
 bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ecdsa_signature *signature, struct bitcoin_blkid *chain_hash, struct short_channel_id *short_channel_id, u32 *timestamp, u8 *message_flags, u8 *channel_flags, u16 *cltv_expiry_delta, struct amount_msat *htlc_minimum_msat, u32 *fee_base_msat, u32 *fee_proportional_millionths, struct amount_msat *htlc_maximum_msat);
 
 
 #endif /* LIGHTNING_WIRE_PEER_WIREGEN_H */
-// SHA256STAMP:6d70cc661b9bfd206dc82540e4a53f9c2ef6301355710d1e444acdeaf29c53ef
+// SHA256STAMP:6c0b9a8708efecb98f258c55fb8cc46909b5cf1ea1204cf18cc7b422f3496d41

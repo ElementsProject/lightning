@@ -103,12 +103,27 @@ msgdata,gossipd_got_obs_onionmsg_forward,next_blinding,?pubkey,
 msgdata,gossipd_got_obs_onionmsg_forward,next_onion_len,u16,
 msgdata,gossipd_got_obs_onionmsg_forward,next_onion,u8,next_onion_len
 
+msgtype,gossipd_got_onionmsg_to_us,3145
+msgdata,gossipd_got_onionmsg_to_us,blinding_in,pubkey,
+msgdata,gossipd_got_onionmsg_to_us,reply_blinding,?pubkey,
+msgdata,gossipd_got_onionmsg_to_us,reply_first_node,?pubkey,
+msgdata,gossipd_got_onionmsg_to_us,reply_path_len,u16,
+msgdata,gossipd_got_onionmsg_to_us,reply_path,onionmsg_path,reply_path_len
+msgdata,gossipd_got_onionmsg_to_us,rawmsg_len,u16,
+msgdata,gossipd_got_onionmsg_to_us,rawmsg,u8,rawmsg_len
+
 # Lightningd tells us to send a onion message.
 msgtype,gossipd_send_obs_onionmsg,3040
 msgdata,gossipd_send_obs_onionmsg,id,node_id,
 msgdata,gossipd_send_obs_onionmsg,onion_len,u16,
 msgdata,gossipd_send_obs_onionmsg,onion,u8,onion_len
 msgdata,gossipd_send_obs_onionmsg,blinding,?pubkey,
+
+msgtype,gossipd_send_onionmsg,3041
+msgdata,gossipd_send_onionmsg,id,node_id,
+msgdata,gossipd_send_onionmsg,onion_len,u16,
+msgdata,gossipd_send_onionmsg,onion,u8,onion_len
+msgdata,gossipd_send_onionmsg,blinding,pubkey,
 
 # Lightningd tells us to inject a gossip message (for addgossip RPC)
 msgtype,gossipd_addgossip,3044

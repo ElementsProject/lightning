@@ -334,3 +334,7 @@ msgdata,obs_onion_message,onionmsg,byte,len
 msgdata,obs_onion_message,obs_onion_message_tlvs,obs_onion_message_tlvs,
 tlvtype,obs_onion_message_tlvs,blinding,2
 tlvdata,obs_onion_message_tlvs,blinding,blinding,point,
+msgtype,onion_message,387,option_onion_messages
+msgdata,onion_message,blinding,point,
+msgdata,onion_message,len,u16,
+msgdata,onion_message,onionmsg,byte,len
