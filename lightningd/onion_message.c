@@ -89,7 +89,7 @@ REGISTER_PLUGIN_HOOK(onion_message_blinded,
 		     onion_message_serialize,
 		     struct onion_message_hook_payload *);
 
-void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
+void handle_obs_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 {
 	struct onion_message_hook_payload *payload;
 	u8 *submsg;
@@ -99,11 +99,11 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	payload = tal(ld, struct onion_message_hook_payload);
 	payload->om = tlv_onionmsg_payload_new(payload);
 
-	if (!fromwire_gossipd_got_onionmsg_to_us(payload, msg,
-						 &payload->blinding_in,
-						 &payload->reply_blinding,
-						 &payload->reply_path,
-						 &submsg)) {
+	if (!fromwire_gossipd_got_obs_onionmsg_to_us(payload, msg,
+						     &payload->blinding_in,
+						     &payload->reply_blinding,
+						     &payload->reply_path,
+						     &submsg)) {
 		log_broken(ld->log, "bad got_onionmsg_tous: %s",
 			   tal_hex(tmpctx, msg));
 		return;
@@ -135,16 +135,16 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 		plugin_hook_call_onion_message(ld, payload);
 }
 
-void handle_onionmsg_forward(struct lightningd *ld, const u8 *msg)
+void handle_obs_onionmsg_forward(struct lightningd *ld, const u8 *msg)
 {
 	struct short_channel_id *next_scid;
 	struct node_id *next_node;
 	struct pubkey *next_blinding;
 	u8 *onion;
 
-	if (!fromwire_gossipd_got_onionmsg_forward(msg, msg, &next_scid,
-						   &next_node,
-						   &next_blinding, &onion)) {
+	if (!fromwire_gossipd_got_obs_onionmsg_forward(msg, msg, &next_scid,
+						       &next_node,
+						       &next_blinding, &onion)) {
 		log_broken(ld->log, "bad got_onionmsg_forward: %s",
 			   tal_hex(tmpctx, msg));
 		return;
@@ -164,10 +164,10 @@ void handle_onionmsg_forward(struct lightningd *ld, const u8 *msg)
 			  : "unspecified dest");
 	} else {
 		subd_send_msg(ld->gossip,
-			      take(towire_gossipd_send_onionmsg(NULL,
-								next_node,
-								onion,
-								next_blinding)));
+			      take(towire_gossipd_send_obs_onionmsg(NULL,
+								    next_node,
+								    onion,
+								    next_blinding)));
 	}
 }
 
@@ -440,7 +440,7 @@ static struct command_result *json_send_onion_message(struct command *cmd,
 				    "Creating onion failed (tlvs too long?)");
 
 	subd_send_msg(cmd->ld->gossip,
-		      take(towire_gossipd_send_onionmsg(NULL, &first_id,
+		      take(towire_gossipd_send_obs_onionmsg(NULL, &first_id,
 					serialize_onionpacket(tmpctx, op),
 					NULL)));
 

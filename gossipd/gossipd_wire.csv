@@ -87,28 +87,28 @@ msgdata,gossipd_dev_compact_store_reply,success,bool,
 msgtype,gossipd_new_blockheight,3026
 msgdata,gossipd_new_blockheight,blockheight,u32,
 
-# Tell lightningd we got a onion message (for us, or to fwd)
-msgtype,gossipd_got_onionmsg_to_us,3142
-msgdata,gossipd_got_onionmsg_to_us,blinding_in,?pubkey,
-msgdata,gossipd_got_onionmsg_to_us,reply_blinding,?pubkey,
-msgdata,gossipd_got_onionmsg_to_us,reply_path_len,u16,
-msgdata,gossipd_got_onionmsg_to_us,reply_path,onionmsg_path,reply_path_len
-msgdata,gossipd_got_onionmsg_to_us,rawmsg_len,u16,
-msgdata,gossipd_got_onionmsg_to_us,rawmsg,u8,rawmsg_len
+# Tell lightningd we got an obsolete onion message (for us, or to fwd)
+msgtype,gossipd_got_obs_onionmsg_to_us,3142
+msgdata,gossipd_got_obs_onionmsg_to_us,blinding_in,?pubkey,
+msgdata,gossipd_got_obs_onionmsg_to_us,reply_blinding,?pubkey,
+msgdata,gossipd_got_obs_onionmsg_to_us,reply_path_len,u16,
+msgdata,gossipd_got_obs_onionmsg_to_us,reply_path,onionmsg_path,reply_path_len
+msgdata,gossipd_got_obs_onionmsg_to_us,rawmsg_len,u16,
+msgdata,gossipd_got_obs_onionmsg_to_us,rawmsg,u8,rawmsg_len
 
-msgtype,gossipd_got_onionmsg_forward,3143
-msgdata,gossipd_got_onionmsg_forward,next_scid,?short_channel_id,
-msgdata,gossipd_got_onionmsg_forward,next_node_id,?node_id,
-msgdata,gossipd_got_onionmsg_forward,next_blinding,?pubkey,
-msgdata,gossipd_got_onionmsg_forward,next_onion_len,u16,
-msgdata,gossipd_got_onionmsg_forward,next_onion,u8,next_onion_len
+msgtype,gossipd_got_obs_onionmsg_forward,3143
+msgdata,gossipd_got_obs_onionmsg_forward,next_scid,?short_channel_id,
+msgdata,gossipd_got_obs_onionmsg_forward,next_node_id,?node_id,
+msgdata,gossipd_got_obs_onionmsg_forward,next_blinding,?pubkey,
+msgdata,gossipd_got_obs_onionmsg_forward,next_onion_len,u16,
+msgdata,gossipd_got_obs_onionmsg_forward,next_onion,u8,next_onion_len
 
 # Lightningd tells us to send a onion message.
-msgtype,gossipd_send_onionmsg,3040
-msgdata,gossipd_send_onionmsg,id,node_id,
-msgdata,gossipd_send_onionmsg,onion_len,u16,
-msgdata,gossipd_send_onionmsg,onion,u8,onion_len
-msgdata,gossipd_send_onionmsg,blinding,?pubkey,
+msgtype,gossipd_send_obs_onionmsg,3040
+msgdata,gossipd_send_obs_onionmsg,id,node_id,
+msgdata,gossipd_send_obs_onionmsg,onion_len,u16,
+msgdata,gossipd_send_obs_onionmsg,onion,u8,onion_len
+msgdata,gossipd_send_obs_onionmsg,blinding,?pubkey,
 
 # Lightningd tells us to inject a gossip message (for addgossip RPC)
 msgtype,gossipd_addgossip,3044
