@@ -52,7 +52,7 @@ send_onion_reply(struct command *cmd,
 		   replyfield, tal_hex(tmpctx, replydata));
 
 	/* Send to requester, using return route. */
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendobsonionmessage",
 				    finished, sendonionmessage_error, NULL);
 
 	/* Add reply into last hop. */

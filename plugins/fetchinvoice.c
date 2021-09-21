@@ -649,7 +649,7 @@ static struct command_result *send_message(struct command *cmd,
 	path = make_blindedpath(tmpctx, backwards, &blinding,
 				&sent->reply_blinding);
 
-	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendobsonionmessage",
 				    done,
 				    forward_error,
 				    sent);
