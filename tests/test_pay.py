@@ -4117,6 +4117,16 @@ def test_offer(node_factory, bitcoind):
     assert 'recurrence: every 600 seconds paywindow -10 to +600 (pay proportional)\n' in output
 
 
+def test_fetchinvoice_3hop(node_factory, bitcoind):
+    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
+                                             opts={'experimental-offers': None})
+    offer1 = l4.rpc.call('offer', {'amount': '2msat',
+                                   'description': 'simple test'})
+    assert offer1['created'] is True
+
+    l1.rpc.call('fetchinvoice', {'offer': offer1['bolt12']})
+
+
 def test_fetchinvoice(node_factory, bitcoind):
     # We remove the conversion plugin on l3, causing it to get upset.
     l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,

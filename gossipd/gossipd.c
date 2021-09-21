@@ -386,7 +386,7 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 	enum onion_wire badreason;
 	struct onionpacket *op;
 	struct secret ss, *blinding_ss;
-	struct pubkey *blinding_in;
+	struct pubkey *blinding_in, ephemeral;
 	struct route_step *rs;
 	u8 *onion;
 	const u8 *cursor;
@@ -412,6 +412,7 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 		return NULL;
 	}
 
+	ephemeral = op->ephemeralkey;
 	if (tlvs->blinding) {
 		struct secret hmac;
 
@@ -430,7 +431,7 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 		 * our normal privkey: since hsmd knows only how to ECDH with
 		 * our real key */
 		if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
-						  &op->ephemeralkey.pubkey,
+						  &ephemeral.pubkey,
 						  hmac.data) != 1) {
 			status_debug("peer %s: onion msg: can't tweak pubkey",
 				     type_to_string(tmpctx, struct node_id, &peer->id));
@@ -441,7 +442,7 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 		blinding_in = NULL;
 	}
 
-	ecdh(&op->ephemeralkey, &ss);
+	ecdh(&ephemeral, &ss);
 
 	/* We make sure we can parse onion packet, so we know if shared secret
 	 * is actually valid (this checks hmac). */
