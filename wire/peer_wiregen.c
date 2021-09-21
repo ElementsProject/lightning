@@ -61,6 +61,7 @@ const char *peer_wire_name(int e)
 	case WIRE_REPLY_CHANNEL_RANGE: return "WIRE_REPLY_CHANNEL_RANGE";
 	case WIRE_GOSSIP_TIMESTAMP_FILTER: return "WIRE_GOSSIP_TIMESTAMP_FILTER";
 	case WIRE_OBS_ONION_MESSAGE: return "WIRE_OBS_ONION_MESSAGE";
+	case WIRE_ONION_MESSAGE: return "WIRE_ONION_MESSAGE";
 	}
 
 	snprintf(invalidbuf, sizeof(invalidbuf), "INVALID %i", e);
@@ -111,6 +112,7 @@ bool peer_wire_is_defined(u16 type)
 	case WIRE_REPLY_CHANNEL_RANGE:;
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:;
 	case WIRE_OBS_ONION_MESSAGE:;
+	case WIRE_ONION_MESSAGE:;
 	      return true;
 	}
 	return false;
@@ -2549,6 +2551,36 @@ bool fromwire_obs_onion_message(const tal_t *ctx, const void *p, u8 **onionmsg, 
 	return cursor != NULL;
 }
 
+/* WIRE: ONION_MESSAGE */
+u8 *towire_onion_message(const tal_t *ctx, const struct pubkey *blinding, const u8 *onionmsg)
+{
+	u16 len = tal_count(onionmsg);
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_ONION_MESSAGE);
+	towire_pubkey(&p, blinding);
+	towire_u16(&p, len);
+	towire_u8_array(&p, onionmsg, len);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_onion_message(const tal_t *ctx, const void *p, struct pubkey *blinding, u8 **onionmsg)
+{
+	u16 len;
+
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_ONION_MESSAGE)
+		return false;
+ 	fromwire_pubkey(&cursor, &plen, blinding);
+ 	len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case onionmsg
+	*onionmsg = len ? tal_arr(ctx, u8, len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *onionmsg, len);
+	return cursor != NULL;
+}
+
 /* WIRE: CHANNEL_UPDATE_OPTION_CHANNEL_HTLC_MAX */
 u8 *towire_channel_update_option_channel_htlc_max(const tal_t *ctx, const secp256k1_ecdsa_signature *signature, const struct bitcoin_blkid *chain_hash, const struct short_channel_id *short_channel_id, u32 timestamp, u8 message_flags, u8 channel_flags, u16 cltv_expiry_delta, struct amount_msat htlc_minimum_msat, u32 fee_base_msat, u32 fee_proportional_millionths, struct amount_msat htlc_maximum_msat)
 {
@@ -2589,4 +2621,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
  	*htlc_maximum_msat = fromwire_amount_msat(&cursor, &plen);
 	return cursor != NULL;
 }
-// SHA256STAMP:6d70cc661b9bfd206dc82540e4a53f9c2ef6301355710d1e444acdeaf29c53ef
+// SHA256STAMP:6c0b9a8708efecb98f258c55fb8cc46909b5cf1ea1204cf18cc7b422f3496d41

@@ -1283,6 +1283,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 		case WIRE_CHANNEL_REESTABLISH:
 		case WIRE_ANNOUNCEMENT_SIGNATURES:
 		case WIRE_GOSSIP_TIMESTAMP_FILTER:
+		case WIRE_ONION_MESSAGE:
 		case WIRE_OBS_ONION_MESSAGE:
 		case WIRE_ACCEPT_CHANNEL2:
 		case WIRE_TX_ADD_INPUT:
@@ -1631,6 +1632,7 @@ static bool run_tx_interactive(struct state *state,
 		case WIRE_CHANNEL_REESTABLISH:
 		case WIRE_ANNOUNCEMENT_SIGNATURES:
 		case WIRE_GOSSIP_TIMESTAMP_FILTER:
+		case WIRE_ONION_MESSAGE:
 		case WIRE_OBS_ONION_MESSAGE:
 		case WIRE_TX_SIGNATURES:
 		case WIRE_OPEN_CHANNEL2:
@@ -3689,6 +3691,7 @@ static u8 *handle_peer_in(struct state *state)
 	case WIRE_CHANNEL_REESTABLISH:
 	case WIRE_ANNOUNCEMENT_SIGNATURES:
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
+	case WIRE_ONION_MESSAGE:
 	case WIRE_OBS_ONION_MESSAGE:
 	case WIRE_ACCEPT_CHANNEL2:
 	case WIRE_TX_ADD_INPUT:

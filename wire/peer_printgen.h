@@ -92,6 +92,8 @@ void printwire_gossip_timestamp_filter(const char *fieldname, const u8 *cursor);
 
 void printwire_obs_onion_message(const char *fieldname, const u8 *cursor);
 
+void printwire_onion_message(const char *fieldname, const u8 *cursor);
+
 
 void printwire_witness_element(const char *fieldname, const u8 **cursor, size_t *plen);
 void printwire_lease_rates(const char *fieldname, const u8 **cursor, size_t *plen);
@@ -99,4 +101,4 @@ void printwire_channel_update_checksums(const char *fieldname, const u8 **cursor
 void printwire_channel_update_timestamps(const char *fieldname, const u8 **cursor, size_t *plen);
 void printwire_witness_stack(const char *fieldname, const u8 **cursor, size_t *plen);
 #endif /* LIGHTNING_WIRE_PEER_PRINTGEN_H */
-// SHA256STAMP:6d70cc661b9bfd206dc82540e4a53f9c2ef6301355710d1e444acdeaf29c53ef
+// SHA256STAMP:6c0b9a8708efecb98f258c55fb8cc46909b5cf1ea1204cf18cc7b422f3496d41

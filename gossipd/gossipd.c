@@ -380,7 +380,7 @@ static bool handle_local_channel_announcement(struct daemon *daemon,
 	return true;
 }
 
-/* Peer sends onion msg. */
+/* Peer sends obsolete onion msg. */
 static u8 *handle_obs_onion_message(struct peer *peer, const u8 *msg)
 {
 	enum onion_wire badreason;
@@ -609,6 +609,13 @@ static u8 *handle_obs_onion_message(struct peer *peer, const u8 *msg)
 	return NULL;
 }
 
+/* Peer sends onion msg. */
+static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
+{
+	/* FIXME */
+	return NULL;
+}
+
 /* We send an obsolete onion msg. */
 static struct io_plan *obs_onionmsg_req(struct io_conn *conn, struct daemon *daemon,
 				    const u8 *msg)
@@ -637,6 +644,28 @@ static struct io_plan *obs_onionmsg_req(struct io_conn *conn, struct daemon *dae
 			       take(towire_obs_onion_message(NULL,
 							 onion_routing_packet,
 							 tlvs)));
+	}
+	return daemon_conn_read_next(conn, daemon->master);
+}
+
+static struct io_plan *onionmsg_req(struct io_conn *conn, struct daemon *daemon,
+				    const u8 *msg)
+{
+	struct node_id id;
+	u8 *onionmsg;
+	struct pubkey blinding;
+	struct peer *peer;
+
+	if (!fromwire_gossipd_send_onionmsg(msg, msg, &id, &onionmsg, &blinding))
+		master_badmsg(WIRE_GOSSIPD_SEND_ONIONMSG, msg);
+
+	/* Even though lightningd checks for valid ids, there's a race
+	 * where it might vanish before we read this command. */
+	peer = find_peer(daemon, &id);
+	if (peer) {
+		queue_peer_msg(peer,
+			       take(towire_onion_message(NULL,
+							 &blinding, onionmsg)));
 	}
 	return daemon_conn_read_next(conn, daemon->master);
 }
@@ -682,6 +711,9 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 		goto handled_relay;
 	case WIRE_OBS_ONION_MESSAGE:
 		err = handle_obs_onion_message(peer, msg);
+		goto handled_relay;
+	case WIRE_ONION_MESSAGE:
+		err = handle_onion_message(peer, msg);
 		goto handled_relay;
 
 	/* These are non-gossip messages (!is_msg_for_gossipd()) */
@@ -1509,6 +1541,10 @@ static struct io_plan *recv_req(struct io_conn *conn,
 
 	case WIRE_GOSSIPD_SEND_OBS_ONIONMSG:
 		return obs_onionmsg_req(conn, daemon, msg);
+
+	case WIRE_GOSSIPD_SEND_ONIONMSG:
+		return onionmsg_req(conn, daemon, msg);
+
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPD_PING_REPLY:
 	case WIRE_GOSSIPD_INIT_REPLY:
@@ -1518,6 +1554,7 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
 	case WIRE_GOSSIPD_GOT_OBS_ONIONMSG_TO_US:
 	case WIRE_GOSSIPD_GOT_OBS_ONIONMSG_FORWARD:
+	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 		break;
 	}

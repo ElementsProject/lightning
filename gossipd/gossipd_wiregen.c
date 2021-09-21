@@ -40,7 +40,9 @@ const char *gossipd_wire_name(int e)
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT: return "WIRE_GOSSIPD_NEW_BLOCKHEIGHT";
 	case WIRE_GOSSIPD_GOT_OBS_ONIONMSG_TO_US: return "WIRE_GOSSIPD_GOT_OBS_ONIONMSG_TO_US";
 	case WIRE_GOSSIPD_GOT_OBS_ONIONMSG_FORWARD: return "WIRE_GOSSIPD_GOT_OBS_ONIONMSG_FORWARD";
+	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US: return "WIRE_GOSSIPD_GOT_ONIONMSG_TO_US";
 	case WIRE_GOSSIPD_SEND_OBS_ONIONMSG: return "WIRE_GOSSIPD_SEND_OBS_ONIONMSG";
+	case WIRE_GOSSIPD_SEND_ONIONMSG: return "WIRE_GOSSIPD_SEND_ONIONMSG";
 	case WIRE_GOSSIPD_ADDGOSSIP: return "WIRE_GOSSIPD_ADDGOSSIP";
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY: return "WIRE_GOSSIPD_ADDGOSSIP_REPLY";
 	case WIRE_GOSSIPD_NEW_LEASE_RATES: return "WIRE_GOSSIPD_NEW_LEASE_RATES";
@@ -73,7 +75,9 @@ bool gossipd_wire_is_defined(u16 type)
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:;
 	case WIRE_GOSSIPD_GOT_OBS_ONIONMSG_TO_US:;
 	case WIRE_GOSSIPD_GOT_OBS_ONIONMSG_FORWARD:;
+	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:;
 	case WIRE_GOSSIPD_SEND_OBS_ONIONMSG:;
+	case WIRE_GOSSIPD_SEND_ONIONMSG:;
 	case WIRE_GOSSIPD_ADDGOSSIP:;
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:;
 	case WIRE_GOSSIPD_NEW_LEASE_RATES:;
@@ -662,6 +666,70 @@ bool fromwire_gossipd_got_obs_onionmsg_forward(const tal_t *ctx, const void *p, 
 	return cursor != NULL;
 }
 
+/* WIRE: GOSSIPD_GOT_ONIONMSG_TO_US */
+u8 *towire_gossipd_got_onionmsg_to_us(const tal_t *ctx, const struct pubkey *blinding_in, const struct pubkey *reply_blinding, const struct pubkey *reply_first_node, const struct onionmsg_path **reply_path, const u8 *rawmsg)
+{
+	u16 reply_path_len = tal_count(reply_path);
+	u16 rawmsg_len = tal_count(rawmsg);
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_GOSSIPD_GOT_ONIONMSG_TO_US);
+	towire_pubkey(&p, blinding_in);
+	if (!reply_blinding)
+		towire_bool(&p, false);
+	else {
+		towire_bool(&p, true);
+		towire_pubkey(&p, reply_blinding);
+	}
+	if (!reply_first_node)
+		towire_bool(&p, false);
+	else {
+		towire_bool(&p, true);
+		towire_pubkey(&p, reply_first_node);
+	}
+	towire_u16(&p, reply_path_len);
+	for (size_t i = 0; i < reply_path_len; i++)
+		towire_onionmsg_path(&p, reply_path[i]);
+	towire_u16(&p, rawmsg_len);
+	towire_u8_array(&p, rawmsg, rawmsg_len);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_gossipd_got_onionmsg_to_us(const tal_t *ctx, const void *p, struct pubkey *blinding_in, struct pubkey **reply_blinding, struct pubkey **reply_first_node, struct onionmsg_path ***reply_path, u8 **rawmsg)
+{
+	u16 reply_path_len;
+	u16 rawmsg_len;
+
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_GOT_ONIONMSG_TO_US)
+		return false;
+ 	fromwire_pubkey(&cursor, &plen, blinding_in);
+ 	if (!fromwire_bool(&cursor, &plen))
+		*reply_blinding = NULL;
+	else {
+		*reply_blinding = tal(ctx, struct pubkey);
+		fromwire_pubkey(&cursor, &plen, *reply_blinding);
+	}
+ 	if (!fromwire_bool(&cursor, &plen))
+		*reply_first_node = NULL;
+	else {
+		*reply_first_node = tal(ctx, struct pubkey);
+		fromwire_pubkey(&cursor, &plen, *reply_first_node);
+	}
+ 	reply_path_len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case reply_path
+	*reply_path = reply_path_len ? tal_arr(ctx, struct onionmsg_path *, reply_path_len) : NULL;
+	for (size_t i = 0; i < reply_path_len; i++)
+		(*reply_path)[i] = fromwire_onionmsg_path(*reply_path, &cursor, &plen);
+ 	rawmsg_len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case rawmsg
+	*rawmsg = rawmsg_len ? tal_arr(ctx, u8, rawmsg_len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *rawmsg, rawmsg_len);
+	return cursor != NULL;
+}
+
 /* WIRE: GOSSIPD_SEND_OBS_ONIONMSG */
 /* Lightningd tells us to send a onion message. */
 u8 *towire_gossipd_send_obs_onionmsg(const tal_t *ctx, const struct node_id *id, const u8 *onion, const struct pubkey *blinding)
@@ -702,6 +770,38 @@ bool fromwire_gossipd_send_obs_onionmsg(const tal_t *ctx, const void *p, struct 
 		*blinding = tal(ctx, struct pubkey);
 		fromwire_pubkey(&cursor, &plen, *blinding);
 	}
+	return cursor != NULL;
+}
+
+/* WIRE: GOSSIPD_SEND_ONIONMSG */
+u8 *towire_gossipd_send_onionmsg(const tal_t *ctx, const struct node_id *id, const u8 *onion, const struct pubkey *blinding)
+{
+	u16 onion_len = tal_count(onion);
+	u8 *p = tal_arr(ctx, u8, 0);
+
+	towire_u16(&p, WIRE_GOSSIPD_SEND_ONIONMSG);
+	towire_node_id(&p, id);
+	towire_u16(&p, onion_len);
+	towire_u8_array(&p, onion, onion_len);
+	towire_pubkey(&p, blinding);
+
+	return memcheck(p, tal_count(p));
+}
+bool fromwire_gossipd_send_onionmsg(const tal_t *ctx, const void *p, struct node_id *id, u8 **onion, struct pubkey *blinding)
+{
+	u16 onion_len;
+
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_GOSSIPD_SEND_ONIONMSG)
+		return false;
+ 	fromwire_node_id(&cursor, &plen, id);
+ 	onion_len = fromwire_u16(&cursor, &plen);
+ 	// 2nd case onion
+	*onion = onion_len ? tal_arr(ctx, u8, onion_len) : NULL;
+	fromwire_u8_array(&cursor, &plen, *onion, onion_len);
+ 	fromwire_pubkey(&cursor, &plen, blinding);
 	return cursor != NULL;
 }
 
@@ -777,4 +877,4 @@ bool fromwire_gossipd_new_lease_rates(const void *p, struct lease_rates *rates)
  	fromwire_lease_rates(&cursor, &plen, rates);
 	return cursor != NULL;
 }
-// SHA256STAMP:d06e71483fdad04048e15d46b823420747d5f79efc97fa968752fa04b033d551
+// SHA256STAMP:aacb7a093fb63386eb9fa20a51d07c995ae363283a4b76d94ba3cd09ec298df2

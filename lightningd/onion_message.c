@@ -171,6 +171,12 @@ void handle_obs_onionmsg_forward(struct lightningd *ld, const u8 *msg)
 	}
 }
 
+void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
+{
+	/* FIXME! */
+	return;
+}
+
 struct hop {
 	struct pubkey id;
 	struct short_channel_id *scid;
