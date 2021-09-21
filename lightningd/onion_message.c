@@ -1,9 +1,11 @@
 #include <common/json_command.h>
 #include <common/json_helpers.h>
+#include <common/json_tok.h>
 #include <common/param.h>
 #include <common/type_to_string.h>
 #include <gossipd/gossipd_wiregen.h>
 #include <lightningd/channel.h>
+#include <lightningd/json.h>
 #include <lightningd/onion_message.h>
 #include <lightningd/peer_control.h>
 #include <lightningd/plugin_hook.h>
@@ -460,3 +462,100 @@ static const struct json_command send_obs_onion_message_command = {
 	"Send message over {hops} (id, [short_channel_id], [blinding], [enctlv], [invoice], [invoice_request], [invoice_error], [rawtlv]) with optional {reply_path} (blinding, path[id, enctlv])"
 };
 AUTODATA(json_command, &send_obs_onion_message_command);
+
+struct onion_hop {
+	struct pubkey node;
+	u8 *tlv;
+};
+
+static struct command_result *param_onion_hops(struct command *cmd,
+					       const char *name,
+					       const char *buffer,
+					       const jsmntok_t *tok,
+					       struct onion_hop **hops)
+{
+	size_t i;
+	const jsmntok_t *t;
+
+	if (tok->type != JSMN_ARRAY || tok->size == 0)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "%s must be an (non-empty) array", name);
+
+	*hops = tal_arr(cmd, struct onion_hop, tok->size);
+	json_for_each_arr(i, t, tok) {
+		const char *err;
+
+		err = json_scan(cmd, buffer, t, "{id:%,tlv:%}",
+				JSON_SCAN(json_to_pubkey, &(*hops)[i].node),
+				JSON_SCAN_TAL(tmpctx, json_tok_bin_from_hex,
+					      &(*hops)[i].tlv));
+		if (err)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "%s[%zu]: %s", name, i, err);
+	}
+	return NULL;
+}
+
+static struct command_result *json_sendonionmessage(struct command *cmd,
+						    const char *buffer,
+						    const jsmntok_t *obj UNNEEDED,
+						    const jsmntok_t *params)
+{
+	struct onion_hop *hops;
+	struct node_id *first_id;
+	struct pubkey *blinding;
+	struct sphinx_path *sphinx_path;
+	struct onionpacket *op;
+	struct secret *path_secrets;
+	size_t onion_size;
+
+	if (!param(cmd, buffer, params,
+		   p_req("first_id", param_node_id, &first_id),
+		   p_req("blinding", param_pubkey, &blinding),
+		   p_req("hops", param_onion_hops, &hops),
+		   NULL))
+		return command_param_failed();
+
+	if (!feature_offered(cmd->ld->our_features->bits[NODE_ANNOUNCE_FEATURE],
+			     OPT_ONION_MESSAGES))
+		return command_fail(cmd, LIGHTNINGD,
+				    "experimental-onion-messages not enabled");
+
+	/* Sanity check first; gossipd doesn't bother telling us if peer
+	 * can't be reached. */
+	if (!peer_by_id(cmd->ld, first_id))
+		return command_fail(cmd, LIGHTNINGD, "Unknown first peer");
+
+	/* Create an onion which encodes this. */
+	sphinx_path = sphinx_path_new(cmd, NULL);
+	for (size_t i = 0; i < tal_count(hops); i++)
+		sphinx_add_modern_hop(sphinx_path, &hops[i].node, hops[i].tlv);
+
+	/* BOLT-onion-message #4:
+	 * - SHOULD set `len` to 1366 or 32834.
+	 */
+	if (sphinx_path_payloads_size(sphinx_path) <= ROUTING_INFO_SIZE)
+		onion_size = ROUTING_INFO_SIZE;
+	else
+		onion_size = 32768;
+
+	op = create_onionpacket(tmpctx, sphinx_path, onion_size, &path_secrets);
+	if (!op)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "Creating onion failed (tlvs too long?)");
+
+	subd_send_msg(cmd->ld->gossip,
+		      take(towire_gossipd_send_onionmsg(NULL, first_id,
+					serialize_onionpacket(tmpctx, op),
+					blinding)));
+
+	return command_success(cmd, json_stream_success(cmd));
+}
+
+static const struct json_command sendonionmessage_command = {
+	"sendonionmessage",
+	"utility",
+	json_sendonionmessage,
+	"Send message to {first_id}, using {blinding}, encoded over {hops} (id, tlv)"
+};
+AUTODATA(json_command, &sendonionmessage_command);
