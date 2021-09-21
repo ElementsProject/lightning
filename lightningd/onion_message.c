@@ -291,12 +291,12 @@ static struct command_result *param_reply_path(struct command *cmd,
 					       const char *name,
 					       const char *buffer,
 					       const jsmntok_t *tok,
-					       struct tlv_onionmsg_payload_reply_path **reply_path)
+					       struct tlv_onionmsg_payload_obs_reply_path **reply_path)
 {
 	const jsmntok_t *tblinding, *tpath, *t;
 	size_t i;
 
-	*reply_path = tal(cmd, struct tlv_onionmsg_payload_reply_path);
+	*reply_path = tal(cmd, struct tlv_onionmsg_payload_obs_reply_path);
 	tblinding = json_get_member(buffer, tok, "blinding");
 	if (!tblinding)
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
@@ -351,7 +351,7 @@ static struct command_result *param_reply_path(struct command *cmd,
 
 /* Generate ->rawtlv if not already supplied. */
 static void populate_tlvs(struct hop *hops,
-			  struct tlv_onionmsg_payload_reply_path *reply_path)
+			  struct tlv_onionmsg_payload_obs_reply_path *reply_path)
 {
 	for (size_t i = 0; i < tal_count(hops); i++) {
 		struct tlv_onionmsg_payload *tlv;
@@ -362,16 +362,16 @@ static void populate_tlvs(struct hop *hops,
 		tlv = tlv_onionmsg_payload_new(tmpctx);
 		/* If they don't give scid, use next node id */
 		if (hops[i].scid) {
-			tlv->next_short_channel_id
+			tlv->obs_next_short_channel_id
 				= tal_dup(tlv, struct short_channel_id,
 					  hops[i].scid);
 		} else if (i != tal_count(hops)-1) {
-			tlv->next_node_id = tal_dup(tlv, struct pubkey,
-						    &hops[i+1].id);
+			tlv->obs_next_node_id = tal_dup(tlv, struct pubkey,
+							&hops[i+1].id);
 		}
 		if (hops[i].blinding) {
-			tlv->blinding = tal_dup(tlv, struct pubkey,
-						hops[i].blinding);
+			tlv->obs_blinding = tal_dup(tlv, struct pubkey,
+						    hops[i].blinding);
 		}
 		/* Note: tal_dup_talarr returns NULL for NULL */
 		tlv->enctlv = tal_dup_talarr(tlv, u8, hops[i].enctlv);
@@ -382,7 +382,7 @@ static void populate_tlvs(struct hop *hops,
 						    hops[i].invoice_err);
 
 		if (i == tal_count(hops)-1 && reply_path)
-			tlv->reply_path = reply_path;
+			tlv->obs_reply_path = reply_path;
 
 		hops[i].rawtlv = tal_arr(hops, u8, 0);
 		towire_onionmsg_payload(&hops[i].rawtlv, tlv);
@@ -395,7 +395,7 @@ static struct command_result *json_send_onion_message(struct command *cmd,
 						      const jsmntok_t *params)
 {
 	struct hop *hops;
-	struct tlv_onionmsg_payload_reply_path *reply_path;
+	struct tlv_onionmsg_payload_obs_reply_path *reply_path;
 	struct sphinx_path *sphinx_path;
 	struct onionpacket *op;
 	struct secret *path_secrets;

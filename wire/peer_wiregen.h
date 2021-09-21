@@ -57,7 +57,7 @@ enum peer_wire {
         WIRE_QUERY_CHANNEL_RANGE = 263,
         WIRE_REPLY_CHANNEL_RANGE = 264,
         WIRE_GOSSIP_TIMESTAMP_FILTER = 265,
-        WIRE_ONION_MESSAGE = 385,
+        WIRE_OBS_ONION_MESSAGE = 385,
 };
 
 const char *peer_wire_name(int e);
@@ -240,7 +240,7 @@ struct tlv_reply_channel_range_tlvs {
         struct tlv_reply_channel_range_tlvs_timestamps_tlv *timestamps_tlv;
 	struct channel_update_checksums *checksums_tlv;
 };
-struct tlv_onion_message_tlvs {
+struct tlv_obs_onion_message_tlvs {
         /* Raw fields including unknown ones. */
         struct tlv_field *fields;
 
@@ -754,28 +754,28 @@ void towire_reply_channel_range_tlvs(u8 **pptr, const struct tlv_reply_channel_r
 bool reply_channel_range_tlvs_is_valid(const struct tlv_reply_channel_range_tlvs *record,
 			  size_t *err_index);
 
-struct tlv_onion_message_tlvs *tlv_onion_message_tlvs_new(const tal_t *ctx);
+struct tlv_obs_onion_message_tlvs *tlv_obs_onion_message_tlvs_new(const tal_t *ctx);
 
 /**
- * Deserialize a TLV stream for the onion_message_tlvs namespace.
+ * Deserialize a TLV stream for the obs_onion_message_tlvs namespace.
  *
  * This function will parse any TLV stream, as long as the type, length and
  * value fields are formatted correctly. Fields that are not known in the
  * current namespace are stored in the `fields` member. Validity can be
- * checked using onion_message_tlvs_is_valid.
+ * checked using obs_onion_message_tlvs_is_valid.
  */
-bool fromwire_onion_message_tlvs(const u8 **cursor, size_t *max,
-			  struct tlv_onion_message_tlvs * record);
+bool fromwire_obs_onion_message_tlvs(const u8 **cursor, size_t *max,
+			  struct tlv_obs_onion_message_tlvs * record);
 
 /**
- * Serialize a TLV stream for the onion_message_tlvs namespace.
+ * Serialize a TLV stream for the obs_onion_message_tlvs namespace.
  *
- * This function only considers known fields from the onion_message_tlvs namespace,
+ * This function only considers known fields from the obs_onion_message_tlvs namespace,
  * and will ignore any fields that may be stored in the `fields` member. This
  * ensures that the resulting stream is valid according to
- * `onion_message_tlvs_is_valid`.
+ * `obs_onion_message_tlvs_is_valid`.
  */
-void towire_onion_message_tlvs(u8 **pptr, const struct tlv_onion_message_tlvs *record);
+void towire_obs_onion_message_tlvs(u8 **pptr, const struct tlv_obs_onion_message_tlvs *record);
 
 /**
  * Check that the TLV stream is valid.
@@ -788,7 +788,7 @@ void towire_onion_message_tlvs(u8 **pptr, const struct tlv_onion_message_tlvs *r
  * is non-null and we detect an error it is set to the index of the first error
  * detected.
  */
-bool onion_message_tlvs_is_valid(const struct tlv_onion_message_tlvs *record,
+bool obs_onion_message_tlvs_is_valid(const struct tlv_obs_onion_message_tlvs *record,
 			  size_t *err_index);
 
 /* SUBTYPE: WITNESS_ELEMENT */
@@ -971,9 +971,9 @@ bool fromwire_reply_channel_range(const tal_t *ctx, const void *p, struct bitcoi
 u8 *towire_gossip_timestamp_filter(const tal_t *ctx, const struct bitcoin_blkid *chain_hash, u32 first_timestamp, u32 timestamp_range);
 bool fromwire_gossip_timestamp_filter(const void *p, struct bitcoin_blkid *chain_hash, u32 *first_timestamp, u32 *timestamp_range);
 
-/* WIRE: ONION_MESSAGE */
-u8 *towire_onion_message(const tal_t *ctx, const u8 *onionmsg, const struct tlv_onion_message_tlvs *onion_message_tlvs);
-bool fromwire_onion_message(const tal_t *ctx, const void *p, u8 **onionmsg, struct tlv_onion_message_tlvs *onion_message_tlvs);
+/* WIRE: OBS_ONION_MESSAGE */
+u8 *towire_obs_onion_message(const tal_t *ctx, const u8 *onionmsg, const struct tlv_obs_onion_message_tlvs *obs_onion_message_tlvs);
+bool fromwire_obs_onion_message(const tal_t *ctx, const void *p, u8 **onionmsg, struct tlv_obs_onion_message_tlvs *obs_onion_message_tlvs);
 
 /* WIRE: CHANNEL_UPDATE_OPTION_CHANNEL_HTLC_MAX */
 u8 *towire_channel_update_option_channel_htlc_max(const tal_t *ctx, const secp256k1_ecdsa_signature *signature, const struct bitcoin_blkid *chain_hash, const struct short_channel_id *short_channel_id, u32 timestamp, u8 message_flags, u8 channel_flags, u16 cltv_expiry_delta, struct amount_msat htlc_minimum_msat, u32 fee_base_msat, u32 fee_proportional_millionths, struct amount_msat htlc_maximum_msat);
@@ -981,4 +981,4 @@ bool fromwire_channel_update_option_channel_htlc_max(const void *p, secp256k1_ec
 
 
 #endif /* LIGHTNING_WIRE_PEER_WIREGEN_H */
-// SHA256STAMP:30dc0f24cedd3001a2f330446f89575d68b80a2f0c33563bf07093b7bf4196b3
+// SHA256STAMP:6d70cc661b9bfd206dc82540e4a53f9c2ef6301355710d1e444acdeaf29c53ef

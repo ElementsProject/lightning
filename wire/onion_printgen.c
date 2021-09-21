@@ -207,9 +207,9 @@ static const struct tlv_print_record_type print_tlvs_tlv_payload[] = {
 	{ 8, printwire_tlv_tlv_payload_payment_data },
 };
 
-static void printwire_tlv_onionmsg_payload_next_node_id(const char *fieldname, const u8 **cursor, size_t *plen)
+static void printwire_tlv_onionmsg_payload_obs_next_node_id(const char *fieldname, const u8 **cursor, size_t *plen)
 {
-	printf("(msg_name=%s)\n", "next_node_id");
+	printf("(msg_name=%s)\n", "obs_next_node_id");
 
 	printf("node_id=");
 	struct pubkey node_id;
@@ -222,9 +222,9 @@ static void printwire_tlv_onionmsg_payload_next_node_id(const char *fieldname, c
 	}
 
 }
-static void printwire_tlv_onionmsg_payload_next_short_channel_id(const char *fieldname, const u8 **cursor, size_t *plen)
+static void printwire_tlv_onionmsg_payload_obs_next_short_channel_id(const char *fieldname, const u8 **cursor, size_t *plen)
 {
-	printf("(msg_name=%s)\n", "next_short_channel_id");
+	printf("(msg_name=%s)\n", "obs_next_short_channel_id");
 
 	printf("short_channel_id=");
 	struct short_channel_id short_channel_id;
@@ -237,9 +237,9 @@ static void printwire_tlv_onionmsg_payload_next_short_channel_id(const char *fie
 	}
 
 }
-static void printwire_tlv_onionmsg_payload_reply_path(const char *fieldname, const u8 **cursor, size_t *plen)
+static void printwire_tlv_onionmsg_payload_obs_reply_path(const char *fieldname, const u8 **cursor, size_t *plen)
 {
-	printf("(msg_name=%s)\n", "reply_path");
+	printf("(msg_name=%s)\n", "obs_reply_path");
 
 	printf("blinding=");
 	struct pubkey blinding;
@@ -278,9 +278,9 @@ static void printwire_tlv_onionmsg_payload_enctlv(const char *fieldname, const u
 	}
 
 }
-static void printwire_tlv_onionmsg_payload_blinding(const char *fieldname, const u8 **cursor, size_t *plen)
+static void printwire_tlv_onionmsg_payload_obs_blinding(const char *fieldname, const u8 **cursor, size_t *plen)
 {
-	printf("(msg_name=%s)\n", "blinding");
+	printf("(msg_name=%s)\n", "obs_blinding");
 
 	printf("blinding=");
 	struct pubkey blinding;
@@ -334,11 +334,11 @@ static void printwire_tlv_onionmsg_payload_invoice_error(const char *fieldname, 
 }
 
 static const struct tlv_print_record_type print_tlvs_onionmsg_payload[] = {
-	{ 4, printwire_tlv_onionmsg_payload_next_node_id },
-	{ 6, printwire_tlv_onionmsg_payload_next_short_channel_id },
-	{ 8, printwire_tlv_onionmsg_payload_reply_path },
+	{ 4, printwire_tlv_onionmsg_payload_obs_next_node_id },
+	{ 6, printwire_tlv_onionmsg_payload_obs_next_short_channel_id },
+	{ 8, printwire_tlv_onionmsg_payload_obs_reply_path },
 	{ 10, printwire_tlv_onionmsg_payload_enctlv },
-	{ 12, printwire_tlv_onionmsg_payload_blinding },
+	{ 12, printwire_tlv_onionmsg_payload_obs_blinding },
 	{ 64, printwire_tlv_onionmsg_payload_invoice_request },
 	{ 66, printwire_tlv_onionmsg_payload_invoice },
 	{ 68, printwire_tlv_onionmsg_payload_invoice_error },
@@ -359,9 +359,9 @@ static void printwire_tlv_encmsg_tlvs_next_node_id(const char *fieldname, const 
 	}
 
 }
-static void printwire_tlv_encmsg_tlvs_next_short_channel_id(const char *fieldname, const u8 **cursor, size_t *plen)
+static void printwire_tlv_encmsg_tlvs_obs_next_short_channel_id(const char *fieldname, const u8 **cursor, size_t *plen)
 {
-	printf("(msg_name=%s)\n", "next_short_channel_id");
+	printf("(msg_name=%s)\n", "obs_next_short_channel_id");
 
 	printf("short_channel_id=");
 	struct short_channel_id short_channel_id;
@@ -377,7 +377,7 @@ static void printwire_tlv_encmsg_tlvs_next_short_channel_id(const char *fieldnam
 
 static const struct tlv_print_record_type print_tlvs_encmsg_tlvs[] = {
 	{ 4, printwire_tlv_encmsg_tlvs_next_node_id },
-	{ 6, printwire_tlv_encmsg_tlvs_next_short_channel_id },
+	{ 6, printwire_tlv_encmsg_tlvs_obs_next_short_channel_id },
 };
 void printwire_invalid_realm(const char *fieldname, const u8 *cursor)
 {
@@ -859,4 +859,4 @@ void printonion_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_encmsg_tlvs, ARRAY_SIZE(print_tlvs_encmsg_tlvs));
 	}
 }
-// SHA256STAMP:5ef4b9da2deee24db844109a2b461c65ad3dbc262da673a304d15082484398e0
+// SHA256STAMP:6564b6a17750dfd460f88f9c484964a5fbfdfd77242c1b5c9986e4d69e00d387
