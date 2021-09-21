@@ -33,6 +33,9 @@ const char *type_to_string_(const tal_t *ctx,  const char *typename,
 			break;
 		}
 	}
+#if DEVELOPER
+	assert(s);
+#endif
 	if (!s)
 		s = tal_fmt(ctx, "UNKNOWN TYPE %s", typename);
 
