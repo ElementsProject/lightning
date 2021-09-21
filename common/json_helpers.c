@@ -6,6 +6,7 @@
 #include <common/type_to_string.h>
 #include <common/wireaddr.h>
 #include <errno.h>
+#include <wire/onion_wire.h>
 #include <wire/peer_wire.h>
 
 bool json_to_bitcoin_amount(const char *buffer, const jsmntok_t *tok,
@@ -138,6 +139,42 @@ struct wally_psbt *json_to_psbt(const tal_t *ctx, const char *buffer,
 				const jsmntok_t *tok)
 {
 	return psbt_from_b64(ctx, buffer + tok->start, tok->end - tok->start);
+}
+
+struct tlv_onionmsg_payload_reply_path *
+json_to_reply_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok)
+{
+	struct tlv_onionmsg_payload_reply_path *rpath;
+	const jsmntok_t *hops, *t;
+	size_t i;
+	const char *err;
+
+	rpath = tal(ctx, struct tlv_onionmsg_payload_reply_path);
+	err = json_scan(tmpctx, buffer, tok, "{blinding:%,first_node_id:%}",
+			JSON_SCAN(json_to_pubkey, &rpath->blinding),
+			JSON_SCAN(json_to_pubkey, &rpath->first_node_id),
+			NULL);
+	if (err)
+		return tal_free(rpath);
+
+	hops = json_get_member(buffer, tok, "hops");
+	if (!hops || hops->size < 1)
+		return tal_free(rpath);
+
+	rpath->path = tal_arr(rpath, struct onionmsg_path *, hops->size);
+	json_for_each_arr(i, t, hops) {
+		rpath->path[i] = tal(rpath->path, struct onionmsg_path);
+		err = json_scan(tmpctx, buffer, t, "{id:%,enctlv:%}",
+				JSON_SCAN(json_to_pubkey,
+					  &rpath->path[i]->node_id),
+				JSON_SCAN_TAL(rpath->path[i],
+					      json_tok_bin_from_hex,
+					      &rpath->path[i]->enctlv));
+		if (err)
+			return tal_free(rpath);
+	}
+
+	return rpath;
 }
 
 void json_add_node_id(struct json_stream *response,

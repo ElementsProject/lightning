@@ -79,6 +79,10 @@ bool split_tok(const char *buffer, const jsmntok_t *tok,
 				jsmntok_t *a,
 				jsmntok_t *b);
 
+/* Extract reply path from this JSON */
+struct tlv_onionmsg_payload_reply_path *
+json_to_reply_path(const tal_t *ctx, const char *buffer, const jsmntok_t *tok);
+
 /* Helpers for outputting JSON results */
 
 /* '"fieldname" : "0289abcdef..."' or "0289abcdef..." if fieldname is NULL */
