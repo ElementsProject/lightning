@@ -916,19 +916,19 @@ class LightningNode(object):
         yet.
 
         """
-        peers = self.rpc.listpeers(other.info['id'])['peers']
-        if not peers or 'channels' not in peers[0]:
+        peerchannels = self.rpc.listpeerchannels(other.info['id'])['channels']
+        if not peerchannels:
             return None
-        channel = peers[0]['channels'][0]
+        channel = peerchannels[0]
         return channel['state']
 
     def get_channel_scid(self, other):
         """Get the short_channel_id for the channel to the other node.
         """
-        peers = self.rpc.listpeers(other.info['id'])['peers']
-        if not peers or 'channels' not in peers[0]:
+        peerchannels = self.rpc.listpeerchannels(other.info['id'])['channels']
+        if not peerchannels:
             return None
-        channel = peers[0]['channels'][0]
+        channel = peerchannels[0]
         return channel['short_channel_id']
 
     def get_channel_id(self, other):

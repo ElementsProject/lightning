@@ -955,6 +955,18 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("listpeers", payload)
 
+    def listpeerchannels(self, peerid=None, channel_state=None, level=None):
+        """
+        Show current peer channels, optionally by {status}. If {level} is set,
+        include {log}s".
+        """
+        payload = {
+            "id": peerid,
+            "status": channel_state,
+            "level": level,
+        }
+        return self.call("listpeerchannels", payload)
+
     def listsendpays(self, bolt11=None, payment_hash=None, status=None):
         """Show all sendpays results, or only for `bolt11` or `payment_hash`."""
         payload = {
