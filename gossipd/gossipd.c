@@ -567,7 +567,7 @@ static u8 *handle_obs_onion_message(struct peer *peer, const u8 *msg)
 		omsg = tal_arr(tmpctx, u8, 0);
 		towire_tlvstream_raw(&omsg, om->fields);
 		daemon_conn_send(peer->daemon->master,
-				 take(towire_gossipd_got_onionmsg_to_us(NULL,
+				 take(towire_gossipd_got_obs_onionmsg_to_us(NULL,
 							blinding_in,
 							blinding,
 							path,
@@ -600,7 +600,7 @@ static u8 *handle_obs_onion_message(struct peer *peer, const u8 *msg)
 			next_node = NULL;
 
 		daemon_conn_send(peer->daemon->master,
-				 take(towire_gossipd_got_onionmsg_forward(NULL,
+				 take(towire_gossipd_got_obs_onionmsg_forward(NULL,
 						  om->obs_next_short_channel_id,
 						  next_node,
 						  next_blinding,
@@ -609,8 +609,8 @@ static u8 *handle_obs_onion_message(struct peer *peer, const u8 *msg)
 	return NULL;
 }
 
-/* We send onion msg. */
-static struct io_plan *onionmsg_req(struct io_conn *conn, struct daemon *daemon,
+/* We send an obsolete onion msg. */
+static struct io_plan *obs_onionmsg_req(struct io_conn *conn, struct daemon *daemon,
 				    const u8 *msg)
 {
 	struct node_id id;
@@ -618,9 +618,9 @@ static struct io_plan *onionmsg_req(struct io_conn *conn, struct daemon *daemon,
 	struct pubkey *blinding;
 	struct peer *peer;
 
-	if (!fromwire_gossipd_send_onionmsg(msg, msg, &id, &onion_routing_packet,
+	if (!fromwire_gossipd_send_obs_onionmsg(msg, msg, &id, &onion_routing_packet,
 					    &blinding))
-		master_badmsg(WIRE_GOSSIPD_SEND_ONIONMSG, msg);
+		master_badmsg(WIRE_GOSSIPD_SEND_OBS_ONIONMSG, msg);
 
 	/* Even if lightningd were to check for valid ids, there's a race
 	 * where it might vanish before we read this command; cleaner to
@@ -1507,8 +1507,8 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		break;
 #endif /* !DEVELOPER */
 
-	case WIRE_GOSSIPD_SEND_ONIONMSG:
-		return onionmsg_req(conn, daemon, msg);
+	case WIRE_GOSSIPD_SEND_OBS_ONIONMSG:
+		return obs_onionmsg_req(conn, daemon, msg);
 	/* We send these, we don't receive them */
 	case WIRE_GOSSIPD_PING_REPLY:
 	case WIRE_GOSSIPD_INIT_REPLY:
@@ -1516,8 +1516,8 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_GET_TXOUT:
 	case WIRE_GOSSIPD_DEV_MEMLEAK_REPLY:
 	case WIRE_GOSSIPD_DEV_COMPACT_STORE_REPLY:
-	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
-	case WIRE_GOSSIPD_GOT_ONIONMSG_FORWARD:
+	case WIRE_GOSSIPD_GOT_OBS_ONIONMSG_TO_US:
+	case WIRE_GOSSIPD_GOT_OBS_ONIONMSG_FORWARD:
 	case WIRE_GOSSIPD_ADDGOSSIP_REPLY:
 		break;
 	}
