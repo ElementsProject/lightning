@@ -990,6 +990,13 @@ def test_transaction_annotations(node_factory, bitcoind):
     assert(txs[1]['outputs'][fundidx]['channel'] == scid)
 
 
+def write_all(fd, bytestr):
+    """Wrapper, since os.write can do partial writes"""
+    off = 0
+    while off < len(bytestr):
+        off += os.write(fd, bytestr[off:])
+
+
 @unittest.skipIf(VALGRIND, "It does not play well with prompt and key derivation.")
 def test_hsm_secret_encryption(node_factory):
     l1 = node_factory.get_node(may_fail=True)  # May fail when started without key
@@ -1002,9 +1009,9 @@ def test_hsm_secret_encryption(node_factory):
     l1.daemon.opts.update({"encrypted-hsm": None})
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
     l1.daemon.wait_for_log(r'Enter hsm_secret password')
-    os.write(master_fd, password.encode("utf-8"))
+    write_all(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log(r'Confirm hsm_secret password')
-    os.write(master_fd, password.encode("utf-8"))
+    write_all(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
     id = l1.rpc.getinfo()["id"]
     l1.stop()
@@ -1019,18 +1026,18 @@ def test_hsm_secret_encryption(node_factory):
     l1.daemon.start(stdin=slave_fd, stderr=subprocess.STDOUT,
                     wait_for_initialized=False)
     l1.daemon.wait_for_log(r'Enter hsm_secret password')
-    os.write(master_fd, password[2:].encode("utf-8"))
+    write_all(master_fd, password[2:].encode("utf-8"))
     l1.daemon.wait_for_log(r'Confirm hsm_secret password')
-    os.write(master_fd, password[2:].encode("utf-8"))
+    write_all(master_fd, password[2:].encode("utf-8"))
     assert(l1.daemon.proc.wait(WAIT_TIMEOUT) == 1)
     assert(l1.daemon.is_in_log("Wrong password for encrypted hsm_secret."))
 
     # Test we can restore the same wallet with the same password
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
     l1.daemon.wait_for_log(r'The hsm_secret is encrypted')
-    os.write(master_fd, password.encode("utf-8"))
+    write_all(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log(r'Confirm hsm_secret password')
-    os.write(master_fd, password.encode("utf-8"))
+    write_all(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
     assert id == l1.rpc.getinfo()["id"]
     l1.stop()
@@ -1066,9 +1073,9 @@ def test_hsmtool_secret_decryption(node_factory):
     l1.daemon.opts.update({"encrypted-hsm": None})
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=False)
     l1.daemon.wait_for_log(r'Enter hsm_secret password')
-    os.write(master_fd, password.encode("utf-8"))
+    write_all(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log(r'Confirm hsm_secret password')
-    os.write(master_fd, password.encode("utf-8"))
+    write_all(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
     node_id = l1.rpc.getinfo()["id"]
     l1.stop()
@@ -1079,7 +1086,7 @@ def test_hsmtool_secret_decryption(node_factory):
     hsmtool.start(stdin=slave_fd,
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hsmtool.wait_for_log(r"Enter hsm_secret password:")
-    os.write(master_fd, "A wrong pass\n\n".encode("utf-8"))
+    write_all(master_fd, "A wrong pass\n\n".encode("utf-8"))
     hsmtool.proc.wait(WAIT_TIMEOUT)
     hsmtool.is_in_log(r"Wrong password")
 
@@ -1088,7 +1095,7 @@ def test_hsmtool_secret_decryption(node_factory):
     hsmtool.start(stdin=slave_fd,
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hsmtool.wait_for_log(r"Enter hsm_secret password:")
-    os.write(master_fd, password.encode("utf-8"))
+    write_all(master_fd, password.encode("utf-8"))
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
     # Then test we can now start it without password
     l1.daemon.opts.pop("encrypted-hsm")
@@ -1102,9 +1109,9 @@ def test_hsmtool_secret_decryption(node_factory):
     hsmtool.start(stdin=slave_fd,
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hsmtool.wait_for_log(r"Enter hsm_secret password:")
-    os.write(master_fd, password.encode("utf-8"))
+    write_all(master_fd, password.encode("utf-8"))
     hsmtool.wait_for_log(r"Confirm hsm_secret password:")
-    os.write(master_fd, password.encode("utf-8"))
+    write_all(master_fd, password.encode("utf-8"))
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
     # Now we need to pass the encrypted-hsm startup option
     l1.stop()
@@ -1117,9 +1124,9 @@ def test_hsmtool_secret_decryption(node_factory):
                     wait_for_initialized=False)
 
     l1.daemon.wait_for_log(r'The hsm_secret is encrypted')
-    os.write(master_fd, password.encode("utf-8"))
+    write_all(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log(r'Confirm hsm_secret password')
-    os.write(master_fd, password.encode("utf-8"))
+    write_all(master_fd, password.encode("utf-8"))
     l1.daemon.wait_for_log("Server started with public key")
     print(node_id, l1.rpc.getinfo()["id"])
     assert node_id == l1.rpc.getinfo()["id"]
@@ -1131,7 +1138,7 @@ def test_hsmtool_secret_decryption(node_factory):
     hsmtool.start(stdin=slave_fd,
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hsmtool.wait_for_log(r"Enter hsm_secret password:")
-    os.write(master_fd, password.encode("utf-8"))
+    write_all(master_fd, password.encode("utf-8"))
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
     l1.daemon.opts.pop("encrypted-hsm")
     l1.daemon.start(stdin=slave_fd, wait_for_initialized=True)
@@ -1153,7 +1160,7 @@ def test_hsmtool_secret_decryption(node_factory):
     hsmtool.start(stdin=slave_fd,
                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     hsmtool.wait_for_log("Enter hsm_secret password:")
-    os.write(master_fd, password.encode("utf-8"))
+    write_all(master_fd, password.encode("utf-8"))
     hsmtool.wait_for_log("Successfully decrypted")
     assert hsmtool.proc.wait(WAIT_TIMEOUT) == 0
 
@@ -1208,12 +1215,12 @@ def test_hsmtool_generatehsm(node_factory):
     hsmtool.start(stdin=slave_fd, stdout=subprocess.PIPE,
                   stderr=subprocess.PIPE)
     hsmtool.wait_for_log(r"Select your language:")
-    os.write(master_fd, "0\n".encode("utf-8"))
+    write_all(master_fd, "0\n".encode("utf-8"))
     hsmtool.wait_for_log(r"Introduce your BIP39 word list")
-    os.write(master_fd, "ritual idle hat sunny universe pluck key alpha wing "
-                        "cake have wedding\n".encode("utf-8"))
+    write_all(master_fd, "ritual idle hat sunny universe pluck key alpha wing "
+              "cake have wedding\n".encode("utf-8"))
     hsmtool.wait_for_log(r"Enter your passphrase:")
-    os.write(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
+    write_all(master_fd, "This is actually not a passphrase\n".encode("utf-8"))
     hsmtool.proc.wait(WAIT_TIMEOUT)
     hsmtool.is_in_log(r"New hsm_secret file created")
 
