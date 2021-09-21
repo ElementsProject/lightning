@@ -93,7 +93,6 @@ FEATURES :=
 
 CCAN_OBJS :=					\
 	ccan-asort.o				\
-	ccan-autodata.o				\
 	ccan-bitmap.o				\
 	ccan-bitops.o				\
 	ccan-breakpoint.o			\
@@ -147,7 +146,6 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/alignof/alignof.h		\
 	$(CCANDIR)/ccan/array_size/array_size.h		\
 	$(CCANDIR)/ccan/asort/asort.h			\
-	$(CCANDIR)/ccan/autodata/autodata.h		\
 	$(CCANDIR)/ccan/bitmap/bitmap.h			\
 	$(CCANDIR)/ccan/bitops/bitops.h			\
 	$(CCANDIR)/ccan/breakpoint/breakpoint.h		\
@@ -772,8 +770,6 @@ ccan-take.o: $(CCANDIR)/ccan/take/take.c
 ccan-list.o: $(CCANDIR)/ccan/list/list.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-asort.o: $(CCANDIR)/ccan/asort/asort.c
-	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
-ccan-autodata.o: $(CCANDIR)/ccan/autodata/autodata.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
 ccan-ptr_valid.o: $(CCANDIR)/ccan/ptr_valid/ptr_valid.c
 	@$(call VERBOSE, "cc $<", $(CC) $(CFLAGS) -c -o $@ $<)
