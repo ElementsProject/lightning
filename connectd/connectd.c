@@ -34,6 +34,7 @@
 #include <connectd/tor_autoservice.h>
 #include <errno.h>
 #include <netdb.h>
+#include <netinet/in.h>
 #include <sodium.h>
 #include <wire/wire_sync.h>
 
