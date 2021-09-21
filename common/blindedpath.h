@@ -59,4 +59,57 @@ u8 *create_final_enctlv(const tal_t *ctx,
 			struct pubkey *node_alias)
 	NON_NULL_ARGS(2, 3, 6);
 
+/**
+ * unblind_onion - tweak onion epheremeral key so we can decode it with ours.
+ * @blinding: E(i), the blinding pubkey the previous peer gave us.
+ * @ecdh: the ecdh routine (usually ecdh from common/ecdh_hsmd).
+ * @onion_key: (in, out) the onionpacket->ephemeralkey to tweak.
+ * @ss: (out) the shared secret we gained from blinding pubkey.
+ *
+ * The shared secret is needed to decrypt the enctlv we expect to find, too.
+ */
+bool unblind_onion(const struct pubkey *blinding,
+		   void (*ecdh)(const struct pubkey *point, struct secret *ss),
+		   struct pubkey *onion_key,
+		   struct secret *ss)
+	NO_NULL_ARGS;
+
+/**
+ * decrypt_enctlv - Decrypt an encmsg to form an enctlv.
+ * @blinding: E(i), the blinding pubkey the previous peer gave us.
+ * @ss: the blinding secret from unblind_onion().
+ * @enctlv: the enctlv from the onion (tal, may be NULL).
+ * @next_node: (out) the next node_id.
+ * @next_blinding: (out) the next blinding E(i+1).
+ *
+ * Returns false if decryption failed or encmsg was malformed.
+ */
+bool decrypt_enctlv(const struct pubkey *blinding,
+		    const struct secret *ss,
+		    const u8 *enctlv,
+		    struct pubkey *next_node,
+		    struct pubkey *next_blinding)
+	NON_NULL_ARGS(1, 2, 4, 5);
+
+/**
+ * decrypt_final_enctlv - Decrypt an encmsg to form an enctlv.
+ * @ctx: tal context for @self_id
+ * @blinding: E(i), the blinding pubkey the previous peer gave us.
+ * @ss: the blinding secret from unblind_onion().
+ * @enctlv: the enctlv from the onion (tal, may be NULL).
+ * @my_id: the pubkey of this node.
+ * @alias: (out) the node_id this was addressed to.
+ * @self_id: (out) the secret contained in the enctlv, if any.
+ *
+ * Returns false if decryption failed or encmsg was malformed.
+ */
+bool decrypt_final_enctlv(const tal_t *ctx,
+			  const struct pubkey *blinding,
+			  const struct secret *ss,
+			  const u8 *enctlv,
+			  const struct pubkey *my_id,
+			  struct pubkey *alias,
+			  struct secret **self_id)
+	NON_NULL_ARGS(1, 2, 4, 5);
+
 #endif /* LIGHTNING_COMMON_BLINDEDPATH_H */
