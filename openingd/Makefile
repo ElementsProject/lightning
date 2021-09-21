@@ -32,6 +32,7 @@ LIGHTNINGD_CONTROL_OBJS += openingd/openingd_wiregen.o openingd/dualopend_wirege
 # Common source we use.
 OPENINGD_COMMON_OBJS :=				\
 	common/amount.o				\
+	common/autodata.o			\
 	common/base32.o				\
 	common/bigsize.o			\
 	common/billboard.o			\

@@ -9,6 +9,7 @@ ALL_TEST_PROGRAMS += $(CHANNELD_TEST_PROGRAMS)
 
 CHANNELD_TEST_COMMON_OBJS :=			\
 	common/amount.o				\
+	common/autodata.o			\
 	common/channel_type.o			\
 	common/daemon_conn.o			\
 	common/features.o			\

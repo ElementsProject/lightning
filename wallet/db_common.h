@@ -1,9 +1,9 @@
 #ifndef LIGHTNING_WALLET_DB_COMMON_H
 #define LIGHTNING_WALLET_DB_COMMON_H
 #include "config.h"
-#include <ccan/autodata/autodata.h>
 #include <ccan/list/list.h>
 #include <ccan/short_types/short_types.h>
+#include <common/autodata.h>
 
 /* For testing, we want to catch fatal messages. */
 #ifndef db_fatal

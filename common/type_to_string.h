@@ -2,7 +2,7 @@
 #define LIGHTNING_COMMON_TYPE_TO_STRING_H
 #include "config.h"
 #include "utils.h"
-#include <ccan/autodata/autodata.h>
+#include <common/autodata.h>
 
 /* This must match the type_to_string_ cases. */
 union printable_types {

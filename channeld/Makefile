@@ -30,6 +30,7 @@ LIGHTNINGD_CONTROL_OBJS += channeld/channeld_wiregen.o
 # Common source we use.
 CHANNELD_COMMON_OBJS :=				\
 	common/amount.o				\
+	common/autodata.o			\
 	common/base32.o				\
 	common/bigsize.o			\
 	common/billboard.o			\

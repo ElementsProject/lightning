@@ -33,6 +33,7 @@ LIGHTNINGD_CONTROL_OBJS += \
 # Common source we use.
 ONCHAIND_COMMON_OBJS :=				\
 	common/amount.o				\
+	common/autodata.o			\
 	common/bigsize.o			\
 	common/bip32.o				\
 	common/coin_mvt.o			\

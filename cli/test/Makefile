@@ -8,6 +8,7 @@ ALL_C_SOURCES += $(CLI_TEST_SRC)
 ALL_TEST_PROGRAMS += $(CLI_TEST_PROGRAMS)
 
 CLI_TEST_COMMON_OBJS :=				\
+	common/autodata.o			\
 	common/configdir.o			\
 	common/daemon_conn.o			\
 	common/htlc_state.o			\
