@@ -20,6 +20,7 @@ ALL_TEST_PROGRAMS += $(COMMON_TEST_PROGRAMS)
 
 # Sphinx test wants to decode TLVs.
 common/test/run-sphinx: wire/onion$(EXP)_wiregen.o wire/towire.o wire/fromwire.o
+common/test/run-blindedpath_enctlv: wire/onion$(EXP)_wiregen.o wire/towire.o wire/fromwire.o wire/tlvstream.o
 
 common/test/run-param					\
 common/test/run-json:					\
