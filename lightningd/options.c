@@ -1050,8 +1050,8 @@ static void register_opts(struct lightningd *ld)
 			 "Comma separated list of extra TLV types to accept.");
 #endif
 
-	opt_register_noarg("--disable-dns", opt_set_invbool, &ld->config.use_dns,
-			   "Disable DNS lookups of peers");
+	opt_register_early_noarg("--disable-dns", opt_set_invbool, &ld->config.use_dns,
+				 "Disable DNS lookups of peers");
 
 	if (deprecated_apis)
 		opt_register_noarg("--enable-autotor-v2-mode", opt_set_invbool, &ld->config.use_v3_autotor,
