@@ -107,8 +107,8 @@ u8 *towire_hsmd_init(const tal_t *ctx, const struct bip32_key_version *bip32_key
 bool fromwire_hsmd_init(const tal_t *ctx, const void *p, struct bip32_key_version *bip32_key_version, const struct chainparams **chainparams, struct secret **hsm_encryption_key, struct privkey **dev_force_privkey, struct secret **dev_force_bip32_seed, struct secrets **dev_force_channel_secrets, struct sha256 **dev_force_channel_secrets_shaseed);
 
 /* WIRE: HSMD_INIT_REPLY */
-u8 *towire_hsmd_init_reply(const tal_t *ctx, const struct node_id *node_id, const struct ext_key *bip32, const struct pubkey32 *bolt12);
-bool fromwire_hsmd_init_reply(const void *p, struct node_id *node_id, struct ext_key *bip32, struct pubkey32 *bolt12);
+u8 *towire_hsmd_init_reply(const tal_t *ctx, const struct node_id *node_id, const struct ext_key *bip32, const struct pubkey32 *bolt12, const struct secret *onion_reply_secret);
+bool fromwire_hsmd_init_reply(const void *p, struct node_id *node_id, struct ext_key *bip32, struct pubkey32 *bolt12, struct secret *onion_reply_secret);
 
 /* WIRE: HSMD_CLIENT_HSMFD */
 /*  Get a new HSM FD */
@@ -295,4 +295,4 @@ bool fromwire_hsmd_sign_option_will_fund_offer_reply(const void *p, secp256k1_ec
 
 
 #endif /* LIGHTNING_HSMD_HSMD_WIREGEN_H */
-// SHA256STAMP:739903bb8c5fedb86d1d35fea7b926f35b117d9cfdb5e3e8e1f62ddca731f54b
+// SHA256STAMP:34afee076f2df0aca89c651f73043e5fbf11817a1ae482d70530212b25a82918

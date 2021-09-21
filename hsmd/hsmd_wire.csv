@@ -21,6 +21,7 @@ msgtype,hsmd_init_reply,111
 msgdata,hsmd_init_reply,node_id,node_id,
 msgdata,hsmd_init_reply,bip32,ext_key,
 msgdata,hsmd_init_reply,bolt12,pubkey32,
+msgdata,hsmd_init_reply,onion_reply_secret,secret,
 
 # Get a new HSM FD, with the specified capabilities
 msgtype,hsmd_client_hsmfd,9
