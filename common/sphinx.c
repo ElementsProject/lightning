@@ -112,6 +112,19 @@ void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 	tal_arr_expand(&path->hops, sp);
 }
 
+void sphinx_add_modern_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+			   const u8 *payload TAKES)
+{
+	u8 *with_len = tal_arr(NULL, u8, 0);
+	size_t len = tal_bytelen(payload);
+	towire_bigsize(&with_len, len);
+	towire_u8_array(&with_len, payload, len);
+	if (taken(payload))
+		tal_free(payload);
+
+	sphinx_add_hop(path, pubkey, take(with_len));
+}
+
 /* Small helper to append data to a buffer and update the position
  * into the buffer
  */
