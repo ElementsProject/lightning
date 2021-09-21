@@ -70,6 +70,7 @@ LIGHTNINGD_COMMON_OBJS :=			\
 	common/bech32_util.o			\
 	common/bigsize.o			\
 	common/bip32.o				\
+	common/blindedpath.o			\
 	common/blinding.o			\
 	common/blockheight_states.o		\
 	common/bolt11.o				\
