@@ -1431,7 +1431,7 @@ static void json_add_peer(struct lightningd *ld,
 	if (connected) {
 		json_array_start(response, "netaddr");
 		json_add_string(response, NULL,
-				type_to_string(response,
+				type_to_string(tmpctx,
 					       struct wireaddr_internal,
 					       &p->addr));
 		json_array_end(response);
