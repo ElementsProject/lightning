@@ -1,0 +1,66 @@
+#include "config.h"
+#include <stdio.h>
+#include <string.h>
+
+/**
+ * graphql - Routines to lex and parse GraphQL.
+ *
+ * This code contains routines to lex and parse GraphQL code.
+ * This code was written per the spec at:
+ *    https://spec.graphql.org/draft/
+ * ...dated Fri, May 21, 2021 at the time of writing.
+ *    Copyright (c) 2021 WhiteCloudFarm.org <robert.lee.dickinson@gmail.com>
+ *    <https://github.com/rl-d/ccan>
+ * 
+ * Example:
+ *	
+ *	int main(int argc, char *argv[]) {
+ *	
+ *		const char *input_string = "{ fieldName }";
+ *		struct list_head *output_tokens;
+ *		struct graphql_executable_document *output_document;
+ *	
+ *		const char *errmsg = graphql_lexparse(
+ *			input_string,
+ *			NULL, // tal context
+ *			&output_tokens, // variable to receive tokens
+ *			&output_document); // variable to receive AST
+ *	
+ *		if (errmsg) {
+ *			struct graphql_token *last_token;
+ *			last_token = list_tail(output_tokens, struct graphql_token, list);
+ *			printf("Line %d, col %d: %s",
+ *				last_token->source_line,
+ *				last_token->source_column + last_token->source_len,
+ *				errmsg);
+ *		} else {
+ *			// Normally you would check every indirection in the resulting AST for null
+ *			// pointers, but for simplicity of example:
+ *			printf("A field from the parsed string: %s\n",
+ *				output_document->first_def->op_def->sel_set->
+ *				first->field->name->token_string);
+ *		}
+ *	
+ *		output_tokens = tal_free(output_tokens);
+ *	}
+ *
+ * License: BSD-MIT
+ */
+int main(int argc, char *argv[])
+{
+	/* Expect exactly one argument */
+	if (argc != 2)
+		return 1;
+
+	if (strcmp(argv[1], "depends") == 0) {
+		printf("ccan/list\n");
+		printf("ccan/str\n");
+		printf("ccan/tal\n");
+		printf("ccan/tal/str\n");
+		printf("ccan/utf8\n");
+		return 0;
+	}
+
+	return 1;
+}
+
