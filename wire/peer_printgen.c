@@ -172,9 +172,9 @@ void printpeer_wire_message(const u8 *msg)
 			printf("WIRE_GOSSIP_TIMESTAMP_FILTER:\n");
 			printwire_gossip_timestamp_filter("gossip_timestamp_filter", msg);
 			return;
-		case WIRE_ONION_MESSAGE:
-			printf("WIRE_ONION_MESSAGE:\n");
-			printwire_onion_message("onion_message", msg);
+		case WIRE_OBS_ONION_MESSAGE:
+			printf("WIRE_OBS_ONION_MESSAGE:\n");
+			printwire_obs_onion_message("obs_onion_message", msg);
 			return;
 	}
 
@@ -772,7 +772,7 @@ static const struct tlv_print_record_type print_tlvs_reply_channel_range_tlvs[] 
 	{ 3, printwire_tlv_reply_channel_range_tlvs_checksums_tlv },
 };
 
-static void printwire_tlv_onion_message_tlvs_blinding(const char *fieldname, const u8 **cursor, size_t *plen)
+static void printwire_tlv_obs_onion_message_tlvs_blinding(const char *fieldname, const u8 **cursor, size_t *plen)
 {
 	printf("(msg_name=%s)\n", "blinding");
 
@@ -788,8 +788,8 @@ static void printwire_tlv_onion_message_tlvs_blinding(const char *fieldname, con
 
 }
 
-static const struct tlv_print_record_type print_tlvs_onion_message_tlvs[] = {
-	{ 2, printwire_tlv_onion_message_tlvs_blinding },
+static const struct tlv_print_record_type print_tlvs_obs_onion_message_tlvs[] = {
+	{ 2, printwire_tlv_obs_onion_message_tlvs_blinding },
 };
 void printwire_init(const char *fieldname, const u8 *cursor)
 {
@@ -3065,11 +3065,11 @@ void printwire_gossip_timestamp_filter(const char *fieldname, const u8 *cursor)
 	if (plen != 0)
 		printf("EXTRA: %s\n", tal_hexstr(NULL, cursor, plen));
 }
-void printwire_onion_message(const char *fieldname, const u8 *cursor)
+void printwire_obs_onion_message(const char *fieldname, const u8 *cursor)
 {
 
 	size_t plen = tal_count(cursor);
-	if (fromwire_u16(&cursor, &plen) != WIRE_ONION_MESSAGE) {
+	if (fromwire_u16(&cursor, &plen) != WIRE_OBS_ONION_MESSAGE) {
 		printf("WRONG TYPE?!\n");
 		return;
 	}
@@ -3086,8 +3086,8 @@ void printwire_onion_message(const char *fieldname, const u8 *cursor)
 		printf("**TRUNCATED**\n");
 		return;
 	}
- 	printf("onion_message_tlvs=");
-	printwire_tlvs(tal_fmt(NULL, "%s.onion_message_tlvs", fieldname), &cursor, &plen, print_tlvs_onion_message_tlvs, ARRAY_SIZE(print_tlvs_onion_message_tlvs));
+ 	printf("obs_onion_message_tlvs=");
+	printwire_tlvs(tal_fmt(NULL, "%s.obs_onion_message_tlvs", fieldname), &cursor, &plen, print_tlvs_obs_onion_message_tlvs, ARRAY_SIZE(print_tlvs_obs_onion_message_tlvs));
 
 
 	if (plen != 0)
@@ -3135,8 +3135,8 @@ void printpeer_wire_tlv_message(const char *tlv_name, const u8 *msg) {
 	if (strcmp(tlv_name, "reply_channel_range_tlvs") == 0) {
 		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_reply_channel_range_tlvs, ARRAY_SIZE(print_tlvs_reply_channel_range_tlvs));
 	}
-	if (strcmp(tlv_name, "onion_message_tlvs") == 0) {
-		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_onion_message_tlvs, ARRAY_SIZE(print_tlvs_onion_message_tlvs));
+	if (strcmp(tlv_name, "obs_onion_message_tlvs") == 0) {
+		printwire_tlvs(tlv_name, &msg, &plen, print_tlvs_obs_onion_message_tlvs, ARRAY_SIZE(print_tlvs_obs_onion_message_tlvs));
 	}
 }
-// SHA256STAMP:30dc0f24cedd3001a2f330446f89575d68b80a2f0c33563bf07093b7bf4196b3
+// SHA256STAMP:6d70cc661b9bfd206dc82540e4a53f9c2ef6301355710d1e444acdeaf29c53ef

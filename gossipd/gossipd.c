@@ -381,7 +381,7 @@ static bool handle_local_channel_announcement(struct daemon *daemon,
 }
 
 /* Peer sends onion msg. */
-static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
+static u8 *handle_obs_onion_message(struct peer *peer, const u8 *msg)
 {
 	enum onion_wire badreason;
 	struct onionpacket *op;
@@ -392,7 +392,7 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 	const u8 *cursor;
 	size_t max, maxlen;
 	struct tlv_onionmsg_payload *om;
-	struct tlv_onion_message_tlvs *tlvs = tlv_onion_message_tlvs_new(msg);
+	struct tlv_obs_onion_message_tlvs *tlvs = tlv_obs_onion_message_tlvs_new(msg);
 
 	/* Ignore unless explicitly turned on. */
 	if (!feature_offered(peer->daemon->our_features->bits[NODE_ANNOUNCE_FEATURE],
@@ -400,7 +400,7 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 		return NULL;
 
 	/* FIXME: ratelimit! */
-	if (!fromwire_onion_message(msg, msg, &onion, tlvs))
+	if (!fromwire_obs_onion_message(msg, msg, &onion, tlvs))
 		return towire_warningfmt(peer, NULL, "Bad onion_message");
 
 	/* We unwrap the onion now. */
@@ -480,9 +480,9 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 	}
 
 	/* If we weren't given a blinding factor, tlv can provide one. */
-	if (om->blinding && !blinding_ss) {
+	if (om->obs_blinding && !blinding_ss) {
 		/* E(i) */
-		blinding_in = tal_dup(msg, struct pubkey, om->blinding);
+		blinding_in = tal_dup(msg, struct pubkey, om->obs_blinding);
 		blinding_ss = tal(msg, struct secret);
 
 		ecdh(blinding_in, blinding_ss);
@@ -554,10 +554,10 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 		const struct onionmsg_path **path;
 		u8 *omsg;
 
-		if (om->reply_path) {
-			blinding = &om->reply_path->blinding;
+		if (om->obs_reply_path) {
+			blinding = &om->obs_reply_path->blinding;
 			path = cast_const2(const struct onionmsg_path **,
-					   om->reply_path->path);
+					   om->obs_reply_path->path);
 		} else {
 			blinding = NULL;
 			path = NULL;
@@ -577,7 +577,7 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 		struct node_id *next_node;
 
 		/* This *MUST* have instructions on where to go next. */
-		if (!om->next_short_channel_id && !om->next_node_id) {
+		if (!om->obs_next_short_channel_id && !om->obs_next_node_id) {
 			status_debug("peer %s: onion msg: no next field in %s",
 				     type_to_string(tmpctx, struct node_id, &peer->id),
 				     tal_hex(tmpctx, rs->raw_payload));
@@ -593,15 +593,15 @@ static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 		} else
 			next_blinding = NULL;
 
-		if (om->next_node_id) {
+		if (om->obs_next_node_id) {
 			next_node = tal(tmpctx, struct node_id);
-			node_id_from_pubkey(next_node, om->next_node_id);
+			node_id_from_pubkey(next_node, om->obs_next_node_id);
 		} else
 			next_node = NULL;
 
 		daemon_conn_send(peer->daemon->master,
 				 take(towire_gossipd_got_onionmsg_forward(NULL,
-						  om->next_short_channel_id,
+						  om->obs_next_short_channel_id,
 						  next_node,
 						  next_blinding,
 						  serialize_onionpacket(tmpctx, rs->next))));
@@ -627,14 +627,14 @@ static struct io_plan *onionmsg_req(struct io_conn *conn, struct daemon *daemon,
 	 * handle it here with 'sent' = false. */
 	peer = find_peer(daemon, &id);
 	if (peer) {
-		struct tlv_onion_message_tlvs *tlvs;
+		struct tlv_obs_onion_message_tlvs *tlvs;
 
-		tlvs = tlv_onion_message_tlvs_new(msg);
+		tlvs = tlv_obs_onion_message_tlvs_new(msg);
 		if (blinding)
 			tlvs->blinding = tal_dup(tlvs, struct pubkey, blinding);
 
 		queue_peer_msg(peer,
-			       take(towire_onion_message(NULL,
+			       take(towire_obs_onion_message(NULL,
 							 onion_routing_packet,
 							 tlvs)));
 	}
@@ -680,8 +680,8 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_PONG:
 		err = handle_pong(peer, msg);
 		goto handled_relay;
-	case WIRE_ONION_MESSAGE:
-		err = handle_onion_message(peer, msg);
+	case WIRE_OBS_ONION_MESSAGE:
+		err = handle_obs_onion_message(peer, msg);
 		goto handled_relay;
 
 	/* These are non-gossip messages (!is_msg_for_gossipd()) */

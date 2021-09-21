@@ -59,7 +59,7 @@ struct tlv_tlv_payload_payment_data {
         struct secret payment_secret;
         u64 total_msat;
 };
-struct tlv_onionmsg_payload_reply_path {
+struct tlv_onionmsg_payload_obs_reply_path {
         struct pubkey blinding;
         struct onionmsg_path **path;
 };
@@ -80,11 +80,11 @@ struct tlv_onionmsg_payload {
 
 	/* TODO The following explicit fields could just point into the
 	 * tlv_field entries above to save on memory. */
-	struct pubkey *next_node_id;
-	struct short_channel_id *next_short_channel_id;
-        struct tlv_onionmsg_payload_reply_path *reply_path;
+	struct pubkey *obs_next_node_id;
+	struct short_channel_id *obs_next_short_channel_id;
+        struct tlv_onionmsg_payload_obs_reply_path *obs_reply_path;
 	u8 *enctlv;
-	struct pubkey *blinding;
+	struct pubkey *obs_blinding;
 	u8 *invoice_request;
 	u8 *invoice;
 	u8 *invoice_error;
@@ -96,7 +96,7 @@ struct tlv_encmsg_tlvs {
 	/* TODO The following explicit fields could just point into the
 	 * tlv_field entries above to save on memory. */
 	struct pubkey *next_node_id;
-	struct short_channel_id *next_short_channel_id;
+	struct short_channel_id *obs_next_short_channel_id;
 };
 
 struct tlv_tlv_payload *tlv_tlv_payload_new(const tal_t *ctx);
@@ -317,4 +317,4 @@ bool fromwire_mpp_timeout(const void *p);
 
 
 #endif /* LIGHTNING_WIRE_ONION_WIREGEN_H */
-// SHA256STAMP:5ef4b9da2deee24db844109a2b461c65ad3dbc262da673a304d15082484398e0
+// SHA256STAMP:6564b6a17750dfd460f88f9c484964a5fbfdfd77242c1b5c9986e4d69e00d387
