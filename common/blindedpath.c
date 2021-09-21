@@ -204,6 +204,167 @@ static u8 *enctlv_from_encmsg(const tal_t *ctx,
 	return ret;
 }
 
+bool unblind_onion(const struct pubkey *blinding,
+		   void (*ecdh)(const struct pubkey *point, struct secret *ss),
+		   struct pubkey *onion_key,
+		   struct secret *ss)
+{
+	struct secret hmac;
+
+	/* E(i) */
+	ecdh(blinding, ss);
+
+	/* b(i) = HMAC256("blinded_node_id", ss(i)) * k(i) */
+	subkey_from_hmac("blinded_node_id", ss, &hmac);
+
+	/* We instead tweak the *ephemeral* key from the onion and use
+	 * our normal privkey: since hsmd knows only how to ECDH with
+	 * our real key */
+	return secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
+					     &onion_key->pubkey,
+					     hmac.data) == 1;
+}
+
+static struct tlv_encmsg_tlvs *decrypt_encmsg(const tal_t *ctx,
+					      const struct pubkey *blinding,
+					      const struct secret *ss,
+					      const u8 *enctlv)
+{
+	struct secret rho;
+	u8 *dec;
+	const u8 *cursor;
+	size_t maxlen;
+	struct tlv_encmsg_tlvs *encmsg;
+	/* All-zero npub */
+	static const unsigned char npub[crypto_aead_chacha20poly1305_ietf_NPUBBYTES];
+
+	/* We need this to decrypt enctlv */
+	subkey_from_hmac("rho", ss, &rho);
+
+	/* BOLT-onion-message #4:
+	 *   - if `enctlv` is not present, or does not decrypt with the
+	 *     shared secret from the given `blinding` parameter:
+	 *   - MUST drop the message.
+	 */
+	/* Too short? */
+	if (tal_bytelen(enctlv) < crypto_aead_chacha20poly1305_ietf_ABYTES)
+		return NULL;
+
+	dec = tal_arr(tmpctx, u8, tal_bytelen(enctlv)
+		      - crypto_aead_chacha20poly1305_ietf_ABYTES);
+	if (crypto_aead_chacha20poly1305_ietf_decrypt(dec, NULL,
+						      NULL,
+						      enctlv, tal_bytelen(enctlv),
+						      NULL, 0,
+						      npub,
+						      rho.data) != 0)
+		return NULL;
+
+	cursor = dec;
+	maxlen = tal_bytelen(dec);
+
+	/* BOLT-onion-message #4:
+	 *
+	 * - if the `enctlv` is not a valid TLV...
+	 *   - MUST drop the message.
+	 */
+	encmsg = tlv_encmsg_tlvs_new(ctx);
+	if (!fromwire_encmsg_tlvs(&cursor, &maxlen, encmsg)
+	    || !tlv_fields_valid(encmsg->fields, NULL, NULL))
+		return tal_free(encmsg);
+
+	return encmsg;
+}
+
+bool decrypt_enctlv(const struct pubkey *blinding,
+		    const struct secret *ss,
+		    const u8 *enctlv,
+		    struct pubkey *next_node,
+		    struct pubkey *next_blinding)
+{
+	struct tlv_encmsg_tlvs *encmsg;
+
+	encmsg = decrypt_encmsg(tmpctx, blinding, ss, enctlv);
+	if (!encmsg)
+		return false;
+
+	/* BOLT-onion-message #4:
+	 *
+	 * The reader:
+	 *  - if it is not the final node according to the onion encryption:
+	 *...
+	 *    - if the `enctlv` ... does not contain
+	 *      `next_node_id`:
+	 *      - MUST drop the message.
+	 */
+	if (!encmsg->next_node_id)
+		return false;
+
+	/* BOLT-onion-message #4:
+	 * The reader:
+	 *  - if it is not the final node according to the onion encryption:
+	 *...
+	 *    - if the `enctlv` contains `self_id`:
+	 *      - MUST drop the message.
+	 */
+	if (encmsg->self_id)
+		return false;
+
+	/* BOLT-onion-message #4:
+	 * The reader:
+	 *  - if it is not the final node according to the onion encryption:
+	 *...
+	 *    - if `blinding` is specified in the `enctlv`:
+	 *       - MUST pass that as `blinding` in the `onion_message`
+	 *    - otherwise:
+	 *       - MUST pass `blinding` derived as in
+	 *         [Route Blinding][route-blinding] (i.e.
+	 *         `E(i+1) = H(E(i) || ss(i)) * E(i)`).
+	 */
+	*next_node = *encmsg->next_node_id;
+	if (encmsg->next_blinding)
+		*next_blinding = *encmsg->next_blinding;
+	else {
+		/* E(i-1) = H(E(i) || ss(i)) * E(i) */
+		struct sha256 h;
+		blinding_hash_e_and_ss(blinding, ss, &h);
+		blinding_next_pubkey(blinding, &h, next_blinding);
+	}
+	return true;
+}
+
+bool decrypt_final_enctlv(const tal_t *ctx,
+			  const struct pubkey *blinding,
+			  const struct secret *ss,
+			  const u8 *enctlv,
+			  const struct pubkey *my_id,
+			  struct pubkey *alias,
+			  struct secret **self_id)
+{
+	struct tlv_encmsg_tlvs *encmsg;
+	struct secret node_id_blinding;
+
+	/* Repeat the tweak to get the alias it was using for us */
+	subkey_from_hmac("blinded_node_id", ss, &node_id_blinding);
+	*alias = *my_id;
+	if (secp256k1_ec_pubkey_tweak_mul(secp256k1_ctx,
+					  &alias->pubkey,
+					  node_id_blinding.data) != 1)
+		return false;
+
+	encmsg = decrypt_encmsg(tmpctx, blinding, ss, enctlv);
+	if (!encmsg)
+		return false;
+
+	if (tal_bytelen(encmsg->self_id) == sizeof(**self_id)) {
+		*self_id = tal(ctx, struct secret);
+		memcpy(*self_id, encmsg->self_id, sizeof(**self_id));
+	} else
+		*self_id = NULL;
+
+	return true;
+}
+
 u8 *create_enctlv(const tal_t *ctx,
 		  const struct privkey *blinding,
 		  const struct pubkey *node,

@@ -60,10 +60,64 @@ static void json_strfield(const char *name, const char *val)
 	printf("\t\"%s\": \"%s\",\n", name, val);
 }
 
+/* Updated each time, as we pretend to be Alice, Bob, Carol */
+static const struct privkey *mykey;
+
+static void test_ecdh(const struct pubkey *point, struct secret *ss)
+{
+	if (secp256k1_ecdh(secp256k1_ctx, ss->data, &point->pubkey,
+			   mykey->secret.data, NULL, NULL) != 1)
+		abort();
+}
+
+static void test_decrypt(const struct pubkey *blinding,
+			 const u8 *enctlv,
+			 const struct privkey *me,
+			 const struct pubkey *expected_next_node,
+			 const struct privkey *expected_next_blinding_priv)
+{
+	struct pubkey expected_next_blinding, dummy, next_node, next_blinding;
+	struct secret ss;
+
+	/* We don't actually have an onion, so we put some dummy */
+	pubkey_from_privkey(me, &dummy);
+
+	mykey = me;
+	assert(unblind_onion(blinding, test_ecdh, &dummy, &ss));
+	assert(decrypt_enctlv(blinding, &ss, enctlv, &next_node, &next_blinding));
+
+	pubkey_from_privkey(expected_next_blinding_priv, &expected_next_blinding);
+	assert(pubkey_eq(&next_blinding, &expected_next_blinding));
+	assert(pubkey_eq(&next_node, expected_next_node));
+}
+
+static void test_final_decrypt(const struct pubkey *blinding,
+			       const u8 *enctlv,
+			       const struct privkey *me,
+			       const struct pubkey *expected_alias,
+			       const struct secret *expected_self_id)
+{
+	struct pubkey my_pubkey, dummy, alias;
+	struct secret ss, *self_id;
+
+	/* We don't actually have an onion, so we put some dummy */
+	pubkey_from_privkey(me, &dummy);
+
+	mykey = me;
+	pubkey_from_privkey(me, &my_pubkey);
+	assert(unblind_onion(blinding, test_ecdh, &dummy, &ss));
+	assert(decrypt_final_enctlv(tmpctx, blinding, &ss, enctlv, &my_pubkey,
+				    &alias, &self_id));
+
+	assert(pubkey_eq(&alias, expected_alias));
+	assert(secret_eq_consttime(self_id, expected_self_id));
+}
+
 int main(int argc, char *argv[])
 {
 	struct privkey alice, bob, carol, dave, blinding, override_blinding;
 	struct pubkey alice_id, bob_id, carol_id, dave_id, blinding_pub, override_blinding_pub, alias;
+	struct secret self_id;
 	u8 *enctlv;
 
 	common_setup(argv[0]);
@@ -102,6 +156,8 @@ int main(int argc, char *argv[])
 	       "},\n",
 	       tal_hex(tmpctx, enctlv));
 
+	test_decrypt(&blinding_pub, enctlv, &alice, &bob_id, &blinding);
+
 	pubkey_from_privkey(&blinding, &blinding_pub);
 	memset(&override_blinding, 7, sizeof(override_blinding));
 	pubkey_from_privkey(&override_blinding, &override_blinding_pub);
@@ -130,6 +186,8 @@ int main(int argc, char *argv[])
 	       "},\n",
 	       tal_hex(tmpctx, enctlv));
 
+	test_decrypt(&blinding_pub, enctlv, &bob, &carol_id, &override_blinding);
+
 	/* That replaced the blinding */
 	blinding = override_blinding;
 	blinding_pub = override_blinding_pub;
@@ -157,5 +215,15 @@ int main(int argc, char *argv[])
 	       "}]\n",
 	       tal_hex(tmpctx, enctlv));
 
+	test_decrypt(&blinding_pub, enctlv, &carol, &dave_id, &blinding);
+
+	/* FIXME: Add this to the test vectors! */
+	fclose(stdout);
+	memset(&self_id, 0x77, sizeof(self_id));
+	enctlv = create_final_enctlv(tmpctx, &blinding, &dave_id,
+				     0, &self_id, &alias);
+
+	pubkey_from_privkey(&blinding, &blinding_pub);
+	test_final_decrypt(&blinding_pub, enctlv, &dave, &alias, &self_id);
 	common_shutdown();
 }
