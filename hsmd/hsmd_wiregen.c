@@ -243,7 +243,7 @@ bool fromwire_hsmd_init(const tal_t *ctx, const void *p, struct bip32_key_versio
 }
 
 /* WIRE: HSMD_INIT_REPLY */
-u8 *towire_hsmd_init_reply(const tal_t *ctx, const struct node_id *node_id, const struct ext_key *bip32, const struct pubkey32 *bolt12)
+u8 *towire_hsmd_init_reply(const tal_t *ctx, const struct node_id *node_id, const struct ext_key *bip32, const struct pubkey32 *bolt12, const struct secret *onion_reply_secret)
 {
 	u8 *p = tal_arr(ctx, u8, 0);
 
@@ -251,10 +251,11 @@ u8 *towire_hsmd_init_reply(const tal_t *ctx, const struct node_id *node_id, cons
 	towire_node_id(&p, node_id);
 	towire_ext_key(&p, bip32);
 	towire_pubkey32(&p, bolt12);
+	towire_secret(&p, onion_reply_secret);
 
 	return memcheck(p, tal_count(p));
 }
-bool fromwire_hsmd_init_reply(const void *p, struct node_id *node_id, struct ext_key *bip32, struct pubkey32 *bolt12)
+bool fromwire_hsmd_init_reply(const void *p, struct node_id *node_id, struct ext_key *bip32, struct pubkey32 *bolt12, struct secret *onion_reply_secret)
 {
 	const u8 *cursor = p;
 	size_t plen = tal_count(p);
@@ -264,6 +265,7 @@ bool fromwire_hsmd_init_reply(const void *p, struct node_id *node_id, struct ext
  	fromwire_node_id(&cursor, &plen, node_id);
  	fromwire_ext_key(&cursor, &plen, bip32);
  	fromwire_pubkey32(&cursor, &plen, bolt12);
+ 	fromwire_secret(&cursor, &plen, onion_reply_secret);
 	return cursor != NULL;
 }
 
@@ -1331,4 +1333,4 @@ bool fromwire_hsmd_sign_option_will_fund_offer_reply(const void *p, secp256k1_ec
  	fromwire_secp256k1_ecdsa_signature(&cursor, &plen, rsig);
 	return cursor != NULL;
 }
-// SHA256STAMP:739903bb8c5fedb86d1d35fea7b926f35b117d9cfdb5e3e8e1f62ddca731f54b
+// SHA256STAMP:34afee076f2df0aca89c651f73043e5fbf11817a1ae482d70530212b25a82918
