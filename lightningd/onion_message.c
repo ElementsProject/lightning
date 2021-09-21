@@ -125,7 +125,7 @@ void handle_obs_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 		payload->reply_path = tal_free(payload->reply_path);
 	}
 
-	log_debug(ld->log, "Got onionmsg%s%s",
+	log_debug(ld->log, "Got obsolete onionmsg%s%s",
 		  payload->reply_blinding ? " reply_blinding": "",
 		  payload->reply_path ? " reply_path": "");
 
@@ -389,10 +389,10 @@ static void populate_tlvs(struct hop *hops,
 	}
 }
 
-static struct command_result *json_send_onion_message(struct command *cmd,
-						      const char *buffer,
-						      const jsmntok_t *obj UNNEEDED,
-						      const jsmntok_t *params)
+static struct command_result *json_send_obs_onion_message(struct command *cmd,
+							  const char *buffer,
+							  const jsmntok_t *obj UNNEEDED,
+							  const jsmntok_t *params)
 {
 	struct hop *hops;
 	struct tlv_onionmsg_payload_obs_reply_path *reply_path;
@@ -447,10 +447,10 @@ static struct command_result *json_send_onion_message(struct command *cmd,
 	return command_success(cmd, json_stream_success(cmd));
 }
 
-static const struct json_command send_onion_message_command = {
-	"sendonionmessage",
+static const struct json_command send_obs_onion_message_command = {
+	"sendobsonionmessage",
 	"utility",
-	json_send_onion_message,
+	json_send_obs_onion_message,
 	"Send message over {hops} (id, [short_channel_id], [blinding], [enctlv], [invoice], [invoice_request], [invoice_error], [rawtlv]) with optional {reply_path} (blinding, path[id, enctlv])"
 };
-AUTODATA(json_command, &send_onion_message_command);
+AUTODATA(json_command, &send_obs_onion_message_command);

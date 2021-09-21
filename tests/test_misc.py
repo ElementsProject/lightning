@@ -2335,24 +2335,24 @@ def test_sendcustommsg(node_factory):
     ])
 
 
-def test_sendonionmessage(node_factory):
+def test_sendobsonionmessage(node_factory):
     l1, l2, l3 = node_factory.line_graph(3, opts={'experimental-onion-messages': None})
 
     blindedpathtool = os.path.join(os.path.dirname(__file__), "..", "devtools", "blindedpath")
 
-    l1.rpc.call('sendonionmessage',
+    l1.rpc.call('sendobsonionmessage',
                 {'hops':
                  [{'id': l2.info['id']},
                   {'id': l3.info['id']}]})
-    assert l3.daemon.wait_for_log('Got onionmsg')
+    assert l3.daemon.wait_for_log('Got obsolete onionmsg')
 
     # Now by SCID.
-    l1.rpc.call('sendonionmessage',
+    l1.rpc.call('sendobsonionmessage',
                 {'hops':
                  [{'id': l2.info['id'],
                    'short_channel_id': l2.get_channel_scid(l3)},
                   {'id': l3.info['id']}]})
-    assert l3.daemon.wait_for_log('Got onionmsg')
+    assert l3.daemon.wait_for_log('Got obsolete onionmsg')
 
     # Now test blinded path.
     output = subprocess.check_output(
@@ -2364,17 +2364,17 @@ def test_sendonionmessage(node_factory):
     # First hop can't be blinded!
     assert p1 == l2.info['id']
 
-    l1.rpc.call('sendonionmessage',
+    l1.rpc.call('sendobsonionmessage',
                 {'hops':
                  [{'id': l2.info['id'],
                    'blinding': blinding,
                    'enctlv': p1enc},
                   {'id': p2}]})
-    assert l3.daemon.wait_for_log('Got onionmsg')
+    assert l3.daemon.wait_for_log('Got obsolete onionmsg')
 
 
-@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs sendonionmessage")
-def test_sendonionmessage_reply(node_factory):
+@unittest.skipIf(not EXPERIMENTAL_FEATURES, "Needs sendobsonionmessage")
+def test_sendobsonionmessage_reply(node_factory):
     blindedpathtool = os.path.join(os.path.dirname(__file__), "..", "devtools", "blindedpath")
 
     plugin = os.path.join(os.path.dirname(__file__), "plugins", "onionmessage-reply.py")
@@ -2391,7 +2391,7 @@ def test_sendonionmessage_reply(node_factory):
     assert p1 == l2.info['id']
 
     # Also tests oversize payload which won't fit in 1366-byte onion.
-    l1.rpc.call('sendonionmessage',
+    l1.rpc.call('sendobsonionmessage',
                 {'hops':
                  [{'id': l2.info['id']},
                   {'id': l3.info['id'],
@@ -2400,10 +2400,10 @@ def test_sendonionmessage_reply(node_factory):
                  {'blinding': blinding,
                   'path': [{'id': p1, 'enctlv': p1enc}, {'id': p2}]}})
 
-    assert l3.daemon.wait_for_log('Got onionmsg reply_blinding reply_path')
+    assert l3.daemon.wait_for_log('Got obsolete onionmsg reply_blinding reply_path')
     assert l3.daemon.wait_for_log("Got onion_message invoice '{}'".format('77' * 15000))
     assert l3.daemon.wait_for_log('Sent reply via')
-    assert l1.daemon.wait_for_log('Got onionmsg')
+    assert l1.daemon.wait_for_log('Got obsolete onionmsg')
 
 
 @pytest.mark.developer("needs --dev-force-privkey")
