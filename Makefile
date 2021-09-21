@@ -170,6 +170,7 @@ CCAN_HEADERS :=						\
 	$(CCANDIR)/ccan/endian/endian.h			\
 	$(CCANDIR)/ccan/err/err.h			\
 	$(CCANDIR)/ccan/fdpass/fdpass.h			\
+	$(CCANDIR)/ccan/graphql/graphql.h		\
 	$(CCANDIR)/ccan/htable/htable.h			\
 	$(CCANDIR)/ccan/htable/htable_type.h		\
 	$(CCANDIR)/ccan/ilog/ilog.h			\
