@@ -229,6 +229,13 @@ void sphinx_add_hop(struct sphinx_path *path, const struct pubkey *pubkey,
 		    const u8 *payload TAKES);
 
 /**
+ * Prepend length to payload and add: for onionmessage, any size is OK,
+ * for HTLC onions tal_bytelen(payload) must be > 1.
+ */
+void sphinx_add_modern_hop(struct sphinx_path *path, const struct pubkey *pubkey,
+			   const u8 *payload TAKES);
+
+/**
  * Compute the size of the serialized payloads.
  */
 size_t sphinx_path_payloads_size(const struct sphinx_path *path);

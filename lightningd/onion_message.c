@@ -423,14 +423,9 @@ static struct command_result *json_send_onion_message(struct command *cmd,
 	/* Create an onion which encodes this. */
 	populate_tlvs(hops, reply_path);
 	sphinx_path = sphinx_path_new(cmd, NULL);
-	for (size_t i = 0; i < tal_count(hops); i++) {
-		/* FIXME: Remove legacy, then length prefix can be removed! */
-		u8 *tlv_with_len = tal_arr(NULL, u8, 0);
-		towire_bigsize(&tlv_with_len, tal_bytelen(hops[i].rawtlv));
-		towire_u8_array(&tlv_with_len,
-				hops[i].rawtlv, tal_bytelen(hops[i].rawtlv));
-		sphinx_add_hop(sphinx_path, &hops[i].id, take(tlv_with_len));
-	}
+	for (size_t i = 0; i < tal_count(hops); i++)
+		sphinx_add_modern_hop(sphinx_path, &hops[i].id, hops[i].rawtlv);
+
 	/* BOLT-onion-message #4:
 	 * - SHOULD set `len` to 1366 or 32834.
 	 */

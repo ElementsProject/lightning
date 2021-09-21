@@ -110,6 +110,9 @@ void towire(u8 **pptr UNNEEDED, const void *data UNNEEDED, size_t len UNNEEDED)
 /* Generated stub for towire_amount_sat */
 void towire_amount_sat(u8 **pptr UNNEEDED, const struct amount_sat sat UNNEEDED)
 { fprintf(stderr, "towire_amount_sat called!\n"); abort(); }
+/* Generated stub for towire_bigsize */
+void towire_bigsize(u8 **pptr UNNEEDED, const bigsize_t val UNNEEDED)
+{ fprintf(stderr, "towire_bigsize called!\n"); abort(); }
 /* Generated stub for towire_bool */
 void towire_bool(u8 **pptr UNNEEDED, bool v UNNEEDED)
 { fprintf(stderr, "towire_bool called!\n"); abort(); }
