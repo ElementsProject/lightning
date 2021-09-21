@@ -1,3 +1,4 @@
+#include <common/blindedpath.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
@@ -10,6 +11,7 @@
 #include <lightningd/peer_control.h>
 #include <lightningd/plugin_hook.h>
 #include <lightningd/subd.h>
+#include <sodium/randombytes.h>
 
 struct onion_message_hook_payload {
 	/* Optional */
@@ -19,6 +21,26 @@ struct onion_message_hook_payload {
 
 	struct tlv_onionmsg_payload *om;
 };
+
+static void json_add_blindedpath(struct json_stream *stream,
+				 const char *fieldname,
+				 const struct pubkey *blinding,
+				 const struct pubkey *first_node_id,
+				 struct onionmsg_path **path)
+{
+	json_object_start(stream, fieldname);
+	json_add_pubkey(stream, "blinding", blinding);
+	json_add_pubkey(stream, "first_node_id", first_node_id);
+	json_array_start(stream, "hops");
+	for (size_t i = 0; i < tal_count(path); i++) {
+		json_object_start(stream, NULL);
+		json_add_pubkey(stream, "id", &path[i]->node_id);
+		json_add_hex_talarr(stream, "enctlv", path[i]->enctlv);
+		json_object_end(stream);
+	};
+	json_array_end(stream);
+	json_object_end(stream);
+}
 
 static void onion_message_serialize(struct onion_message_hook_payload *payload,
 				    struct json_stream *stream,
@@ -559,3 +581,103 @@ static const struct json_command sendonionmessage_command = {
 	"Send message to {first_id}, using {blinding}, encoded over {hops} (id, tlv)"
 };
 AUTODATA(json_command, &sendonionmessage_command);
+
+static struct command_result *param_pubkeys(struct command *cmd,
+					    const char *name,
+					    const char *buffer,
+					    const jsmntok_t *tok,
+					    struct pubkey **pubkeys)
+{
+	size_t i;
+	const jsmntok_t *t;
+
+	if (tok->type != JSMN_ARRAY || tok->size == 0)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "%s must be an (non-empty) array", name);
+
+	*pubkeys = tal_arr(cmd, struct pubkey, tok->size);
+	json_for_each_arr(i, t, tok) {
+		if (!json_to_pubkey(buffer, t, &(*pubkeys)[i]))
+			return command_fail_badparam(cmd, name, buffer, t,
+						     "should be a compressed pubkey");
+	}
+	return NULL;
+}
+
+static struct command_result *json_blindedpath(struct command *cmd,
+					       const char *buffer,
+					       const jsmntok_t *obj UNNEEDED,
+					       const jsmntok_t *params)
+{
+	struct pubkey *ids;
+	struct onionmsg_path **path;
+	struct privkey blinding_iter;
+	struct pubkey first_blinding, first_node, me;
+	size_t nhops;
+	struct json_stream *response;
+
+	if (!param(cmd, buffer, params,
+		   p_req("ids", param_pubkeys, &ids),
+		   NULL))
+		return command_param_failed();
+
+	nhops = tal_count(ids);
+
+	/* Final id should be us! */
+	if (!pubkey_from_node_id(&me, &cmd->ld->id))
+		fatal("My id %s is invalid?",
+		      type_to_string(tmpctx, struct node_id, &cmd->ld->id));
+
+	first_node = ids[0];
+	if (!pubkey_eq(&ids[nhops-1], &me))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Final of ids must be this node (%s), not %s",
+				    type_to_string(tmpctx, struct pubkey, &me),
+				    type_to_string(tmpctx, struct pubkey,
+						   &ids[nhops-1]));
+
+	randombytes_buf(&blinding_iter, sizeof(blinding_iter));
+	if (!pubkey_from_privkey(&blinding_iter, &first_blinding))
+		/* Should not happen! */
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not convert blinding to pubkey!");
+
+	/* We convert ids into aliases as we go. */
+	path = tal_arr(cmd, struct onionmsg_path *, nhops);
+
+	for (size_t i = 0; i < nhops - 1; i++) {
+		path[i] = tal(path, struct onionmsg_path);
+		path[i]->enctlv = create_enctlv(path[i],
+						&blinding_iter,
+						&ids[i],
+						&ids[i+1],
+						/* FIXME: Pad? */
+						0,
+						NULL,
+						&blinding_iter,
+						&path[i]->node_id);
+	}
+
+	/* FIXME: Add padding! */
+	path[nhops-1] = tal(path, struct onionmsg_path);
+	path[nhops-1]->enctlv = create_final_enctlv(path[nhops-1],
+						    &blinding_iter,
+						    &ids[nhops-1],
+						    /* FIXME: Pad? */
+						    0,
+						    &cmd->ld->onion_reply_secret,
+						    &path[nhops-1]->node_id);
+
+	response = json_stream_success(cmd);
+	json_add_blindedpath(response, "blindedpath",
+			     &first_blinding, &first_node, path);
+	return command_success(cmd, response);
+}
+
+static const struct json_command blindedpath_command = {
+	"blindedpath",
+	"utility",
+	json_blindedpath,
+	"Create blinded path to us along {ids} (pubkey array ending in our id)"
+};
+AUTODATA(json_command, &blindedpath_command);
