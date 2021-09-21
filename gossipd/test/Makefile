@@ -8,6 +8,7 @@ GOSSIPD_TEST_PROGRAMS := $(GOSSIPD_TEST_OBJS:.o=)
 
 GOSSIPD_TEST_COMMON_OBJS :=			\
 	common/amount.o				\
+	common/autodata.o			\
 	common/bigsize.o			\
 	common/channel_id.o			\
 	common/features.o			\

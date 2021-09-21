@@ -26,6 +26,7 @@ LIGHTNINGD_CONTROL_OBJS += connectd/connectd_wiregen.o
 # Common source we use.
 CONNECTD_COMMON_OBJS :=				\
 	common/amount.o				\
+	common/autodata.o			\
 	common/base32.o				\
 	common/base64.o				\
 	common/bech32.o				\

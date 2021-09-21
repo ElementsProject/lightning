@@ -8,6 +8,7 @@ COMMON_TEST_OBJS := $(COMMON_TEST_SRC:.c=.o)
 COMMON_TEST_PROGRAMS := $(COMMON_TEST_OBJS:.o=)
 
 COMMON_TEST_COMMON_OBJS :=				\
+	common/autodata.o				\
 	common/setup.o					\
 	common/utils.o
 

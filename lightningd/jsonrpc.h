@@ -1,8 +1,8 @@
 #ifndef LIGHTNING_LIGHTNINGD_JSONRPC_H
 #define LIGHTNING_LIGHTNINGD_JSONRPC_H
 #include "config.h"
-#include <ccan/autodata/autodata.h>
 #include <ccan/list/list.h>
+#include <common/autodata.h>
 #include <common/json.h>
 #include <common/json_stream.h>
 #include <common/status_levels.h>

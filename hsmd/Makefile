@@ -20,6 +20,7 @@ ALL_PROGRAMS += lightningd/lightning_hsmd
 # Common source we use.
 HSMD_COMMON_OBJS :=				\
 	common/amount.o				\
+	common/autodata.o			\
 	common/bigsize.o			\
 	common/bip32.o				\
 	common/bolt12_merkle.o			\
