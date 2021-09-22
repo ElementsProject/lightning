@@ -334,9 +334,18 @@ static void fail_out_htlc(struct htlc_out *hout,
 static bool check_fwd_amount(struct htlc_in *hin,
 			     struct amount_msat amt_to_forward,
 			     struct amount_msat amt_in_htlc,
-			     struct amount_msat fee)
+			     u32 feerate_base, u32 feerate_ppm)
 {
+	struct amount_msat fee;
 	struct amount_msat fwd;
+
+	if (!amount_msat_fee(&fee, amt_to_forward,
+			     feerate_base, feerate_ppm)) {
+		log_broken(hin->key.channel->log, "Fee overflow forwarding %s!",
+			   type_to_string(tmpctx, struct amount_msat,
+					  &amt_to_forward));
+		return false;
+	}
 
 	if (amount_msat_sub(&fwd, amt_in_htlc, fee)
 	    && amount_msat_greater_eq(fwd, amt_to_forward))
@@ -673,7 +682,6 @@ static void forward_htlc(struct htlc_in *hin,
 			 const struct pubkey *next_blinding)
 {
 	const u8 *failmsg;
-	struct amount_msat fee;
 	struct lightningd *ld = hin->key.channel->peer->ld;
 	struct channel *next = active_channel_by_scid(ld, scid);
 	struct htlc_out *hout = NULL;
@@ -695,17 +703,9 @@ static void forward_htlc(struct htlc_in *hin,
 	 *   - SHOULD accept HTLCs that pay a fee equal to or greater than:
 	 *     - fee_base_msat + ( amount_to_forward * fee_proportional_millionths / 1000000 )
 	 */
-	if (!amount_msat_fee(&fee, amt_to_forward,
-				next->feerate_base,
-				next->feerate_ppm)) {
-		log_broken(ld->log, "Fee overflow forwarding %s!",
-			   type_to_string(tmpctx, struct amount_msat,
-					  &amt_to_forward));
-		needs_update_appended = true;
-		failmsg = towire_fee_insufficient(tmpctx, hin->msat, NULL);
-		goto fail;
-	}
-	if (!check_fwd_amount(hin, amt_to_forward, hin->msat, fee)) {
+	if (!check_fwd_amount(hin, amt_to_forward, hin->msat,
+			      next->feerate_base,
+			      next->feerate_ppm)) {
 		needs_update_appended = true;
 		failmsg = towire_fee_insufficient(tmpctx, hin->msat, NULL);
 		goto fail;
