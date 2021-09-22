@@ -22,7 +22,7 @@ export FUZZING=${FUZZING:-0}
 
 env
 
-pip3 install --user -U -r requirements.txt
+pip3 install --user -U -r requirements.txt --use-feature=in-tree-build
 
 # Install utilities that aren't dependencies, but make
 # running tests easier/feasible on CI (and pytest which
