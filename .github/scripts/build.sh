@@ -29,6 +29,8 @@ pip3 install --user -U -r requirements.txt --use-feature=in-tree-build
 # keeps breaking the rerunfailures plugin).
 pip3 install --user -U \
      blinker \
+     flake8 \
+     make \
      pytest-sentry \
      pytest-test-groups==1.0.3 \
      pytest-custom-exit-code==0.3.0 \
