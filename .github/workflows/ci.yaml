@@ -49,7 +49,6 @@ jobs:
           COMPAT: ${{ matrix.COMPAT }}
           PYTEST_PAR: ${{ matrix.PYTEST_PAR }}
           PYTEST_OPTS: ${{ matrix.PYTEST_OPTS }}
-          NO_PYTHON: ${{ matrix.NO_PYTHON }}
           COPTFLAGS: ${{ matrix.COPTFLAGS }}
           NETWORK: ${{ matrix.NETWORK }}
           TEST_CMD: ${{ matrix.TEST_CMD }}
