@@ -5360,3 +5360,30 @@ def test_sendpay_dual_amounts(node_factory):
 
     with pytest.raises(RpcError, match=r'No connection to first peer found'):
         l1.rpc.sendpay(route=route, payment_hash="00" * 32)
+
+
+@pytest.mark.developer("Too slow without dev-fast-gossip")
+def test_channelfee_error_update(node_factory, bitcoind):
+    l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
+                                             opts={'fee-base': 1,
+                                                   'fee-per-satoshi': 10000,
+                                                   'may_reconnect': True})
+
+    # Now it's all propagated, restart with normal 60 second gossip delay.
+    l2.stop()
+    l3.stop()
+    del l2.daemon.opts['dev-fast-gossip']
+    del l3.daemon.opts['dev-fast-gossip']
+    l2.start()
+    l3.start()
+    l2.rpc.connect(l1.info['id'], 'localhost', l1.port)
+    l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
+    l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
+
+    inv = l4.rpc.invoice(1000, "test", "test")
+    # Update fee in l3, pay command on l1 should still work.
+    l3.rpc.setchannelfee("all", 2, 10000, 0)
+    l1.rpc.pay(inv['bolt11'])
+
+    assert l1.daemon.is_in_log('WIRE_FEE_INSUFFICIENT')
+    assert l1.daemon.is_in_log('Extracted channel_update')
