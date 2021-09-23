@@ -19,17 +19,7 @@ def read(rel_path):
         return fp.read()
 
 
-def get_version(rel_path):
-    for line in read(rel_path).splitlines():
-        if line.startswith('__version__'):
-            delim = '"' if '"' in line else "'"
-            return line.split(delim)[1]
-    else:
-        raise RuntimeError("Unable to find version string.")
-
-
 setup(name='pyln-proto',
-      version=get_version("pyln/proto/__init__.py"),
       description='Pure python implementation of the Lightning Network protocol',
       long_description=long_description,
       long_description_content_type='text/markdown',
@@ -41,4 +31,13 @@ setup(name='pyln-proto',
       package_data={'pyln.proto.message': ['py.typed']},
       scripts=[],
       zip_safe=True,
+      use_scm_version={
+          "root": "../..",
+          "relative_to": __file__,
+          "write_to": "contrib/pyln-proto/pyln/proto/__version__.py",
+          "write_to_template": "__version__ = \"{version}\"\n",
+          "version_scheme": "post-release",
+          "local_scheme": "no-local-version",
+      },
+      setup_requires=["setuptools_scm"],
       install_requires=requirements)
