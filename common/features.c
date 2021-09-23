@@ -373,7 +373,7 @@ int features_unsupported(const struct feature_set *our_features,
 	return all_supported_features(our_features, their_features, p);
 }
 
-static const char *feature_name(const tal_t *ctx, size_t f)
+const char *feature_name(const tal_t *ctx, size_t f)
 {
 	static const char *fnames[] = {
 		"option_data_loss_protect", 	/* 0/1 */
