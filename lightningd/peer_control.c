@@ -1944,8 +1944,18 @@ static struct command_result *param_msat_u32(struct command *cmd,
 }
 
 static void set_channel_fees(struct command *cmd, struct channel *channel,
-		u32 base, u32 ppm, struct json_stream *response)
+			     u32 base, u32 ppm, u32 delaysecs,
+			     struct json_stream *response)
 {
+	/* We only need to defer values if we *increase* them; we always
+	 * allow users to overpay fees. */
+	if (base > channel->feerate_base || ppm > channel->feerate_ppm) {
+		channel->old_feerate_timeout
+			= timeabs_add(time_now(), time_from_sec(delaysecs));
+		channel->old_feerate_base = channel->feerate_base;
+		channel->old_feerate_ppm = channel->feerate_ppm;
+	}
+
 	/* set new values */
 	channel->feerate_base = base;
 	channel->feerate_ppm = ppm;
@@ -1976,7 +1986,7 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 	struct json_stream *response;
 	struct peer *peer;
 	struct channel *channel;
-	u32 *base, *ppm;
+	u32 *base, *ppm, *delaysecs;
 
 	/* Parse the JSON command */
 	if (!param(cmd, buffer, params,
@@ -1985,6 +1995,7 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 			     &base, cmd->ld->config.fee_base),
 		   p_opt_def("ppm", param_number, &ppm,
 			     cmd->ld->config.fee_per_satoshi),
+		   p_opt_def("enforcedelay", param_number, &delaysecs, 600),
 		   NULL))
 		return command_param_failed();
 
@@ -2011,12 +2022,14 @@ static struct command_result *json_setchannelfee(struct command *cmd,
 			    channel->state != CHANNELD_AWAITING_LOCKIN &&
 			    channel->state != DUALOPEND_AWAITING_LOCKIN)
 				continue;
-			set_channel_fees(cmd, channel, *base, *ppm, response);
+			set_channel_fees(cmd, channel, *base, *ppm, *delaysecs,
+					 response);
 		}
 
 	/* single channel should be updated */
 	} else {
-		set_channel_fees(cmd, channel, *base, *ppm, response);
+		set_channel_fees(cmd, channel, *base, *ppm, *delaysecs,
+				 response);
 	}
 
 	/* Close and return response */

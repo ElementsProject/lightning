@@ -4615,6 +4615,67 @@ def test_pay_low_max_htlcs(node_factory):
     )
 
 
+def test_setchannelfee_enforcement_delay(node_factory, bitcoind):
+    # Fees start at 1msat + 1%
+    l1, l2, l3 = node_factory.line_graph(3, wait_for_announce=True,
+                                         opts={'fee-base': 1,
+                                               'fee-per-satoshi': 10000})
+
+    chanid1 = only_one(l1.rpc.getpeer(l2.info['id'])['channels'])['short_channel_id']
+    chanid2 = only_one(l2.rpc.getpeer(l3.info['id'])['channels'])['short_channel_id']
+
+    route = [{'msatoshi': 1011,
+              'id': l2.info['id'],
+              'delay': 20,
+              'channel': chanid1},
+             {'msatoshi': 1000,
+              'id': l3.info['id'],
+              'delay': 10,
+              'channel': chanid2}]
+
+    # This works.
+    inv = l3.rpc.invoice(1000, "test1", "test1")
+    l1.rpc.sendpay(route,
+                   payment_hash=inv['payment_hash'],
+                   payment_secret=inv['payment_secret'])
+    l1.rpc.waitsendpay(inv['payment_hash'])
+
+    # Increase fee immediately; l1 payment rejected.
+    l2.rpc.setchannelfee("all", 2, 10000, 0)
+
+    inv = l3.rpc.invoice(1000, "test2", "test2")
+    l1.rpc.sendpay(route,
+                   payment_hash=inv['payment_hash'],
+                   payment_secret=inv['payment_secret'])
+    with pytest.raises(RpcError, match=r'WIRE_FEE_INSUFFICIENT'):
+        l1.rpc.waitsendpay(inv['payment_hash'])
+
+    # Test increased amount.
+    route[0]['msatoshi'] += 1
+    inv = l3.rpc.invoice(1000, "test3", "test3")
+    l1.rpc.sendpay(route,
+                   payment_hash=inv['payment_hash'],
+                   payment_secret=inv['payment_secret'])
+    l1.rpc.waitsendpay(inv['payment_hash'])
+
+    # Now, give us 30 seconds please.
+    l2.rpc.setchannelfee("all", 3, 10000, 30)
+    inv = l3.rpc.invoice(1000, "test4", "test4")
+    l1.rpc.sendpay(route,
+                   payment_hash=inv['payment_hash'],
+                   payment_secret=inv['payment_secret'])
+    l1.rpc.waitsendpay(inv['payment_hash'])
+    l2.daemon.wait_for_log("Allowing payment using older feerate")
+
+    time.sleep(30)
+    inv = l3.rpc.invoice(1000, "test5", "test5")
+    l1.rpc.sendpay(route,
+                   payment_hash=inv['payment_hash'],
+                   payment_secret=inv['payment_secret'])
+    with pytest.raises(RpcError, match=r'WIRE_FEE_INSUFFICIENT'):
+        l1.rpc.waitsendpay(inv['payment_hash'])
+
+
 def test_listpays_with_filter_by_status(node_factory, bitcoind):
     """
     This test check if the filtering by status of the command listpays
