@@ -264,6 +264,8 @@ struct channel *new_unsaved_channel(struct peer *peer,
 
 	channel->feerate_base = feerate_base;
 	channel->feerate_ppm = feerate_ppm;
+	channel->old_feerate_timeout.ts.tv_sec = 0;
+	channel->old_feerate_timeout.ts.tv_nsec = 0;
 	/* closer not yet known */
 	channel->closer = NUM_SIDES;
 
@@ -440,6 +442,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 		= tal_steal(channel, future_per_commitment_point);
 	channel->feerate_base = feerate_base;
 	channel->feerate_ppm = feerate_ppm;
+	channel->old_feerate_timeout.ts.tv_sec = 0;
+	channel->old_feerate_timeout.ts.tv_nsec = 0;
 	channel->remote_upfront_shutdown_script
 		= tal_steal(channel, remote_upfront_shutdown_script);
 	channel->static_remotekey_start[LOCAL] = local_static_remotekey_start;

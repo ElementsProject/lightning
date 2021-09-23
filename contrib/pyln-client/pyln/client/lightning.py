@@ -1153,16 +1153,17 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("sendpay", payload)
 
-    def setchannelfee(self, id, base=None, ppm=None):
+    def setchannelfee(self, id, base=None, ppm=None, enforcedelay=None):
         """
         Set routing fees for a channel/peer {id} (or 'all'). {base} is a value in millisatoshi
         that is added as base fee to any routed payment. {ppm} is a value added proportionally
-        per-millionths to any routed payment volume in satoshi.
+        per-millionths to any routed payment volume in satoshi. {enforcedelay} is the number of seconds before enforcing this change.
         """
         payload = {
             "id": id,
             "base": base,
-            "ppm": ppm
+            "ppm": ppm,
+            "enforcedelay": enforcedelay,
         }
         return self.call("setchannelfee", payload)
 

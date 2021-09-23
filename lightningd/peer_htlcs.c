@@ -706,9 +706,18 @@ static void forward_htlc(struct htlc_in *hin,
 	if (!check_fwd_amount(hin, amt_to_forward, hin->msat,
 			      next->feerate_base,
 			      next->feerate_ppm)) {
-		needs_update_appended = true;
-		failmsg = towire_fee_insufficient(tmpctx, hin->msat, NULL);
-		goto fail;
+		/* Are we in old-fee grace-period? */
+		if (!time_before(time_now(), next->old_feerate_timeout)
+		    || !check_fwd_amount(hin, amt_to_forward, hin->msat,
+					 next->old_feerate_base,
+					 next->old_feerate_ppm)) {
+			needs_update_appended = true;
+			failmsg = towire_fee_insufficient(tmpctx, hin->msat,
+							  NULL);
+			goto fail;
+		}
+		log_info(hin->key.channel->log,
+			 "Allowing payment using older feerate");
 	}
 
 	if (!check_cltv(hin, cltv_expiry, outgoing_cltv_value,

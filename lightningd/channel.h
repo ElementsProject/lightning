@@ -196,6 +196,9 @@ struct channel {
 
 	/* Feerate per channel */
 	u32 feerate_base, feerate_ppm;
+	/* But allow these feerates up until this time. */
+	struct timeabs old_feerate_timeout;
+	u32 old_feerate_base, old_feerate_ppm;
 
 	/* If they used option_upfront_shutdown_script. */
 	const u8 *remote_upfront_shutdown_script;
