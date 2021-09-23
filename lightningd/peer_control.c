@@ -7,6 +7,7 @@
 #include <bitcoin/tx.h>
 #include <ccan/array_size/array_size.h>
 #include <ccan/cast/cast.h>
+#include <ccan/graphql/graphql.h>
 #include <ccan/io/io.h>
 #include <ccan/mem/mem.h>
 #include <ccan/noerr/noerr.h>
@@ -924,6 +925,689 @@ static void json_add_channel(struct lightningd *ld,
 	json_object_end(response);
 }
 
+struct command_result *json_add_channel_inflight_field(struct json_stream *response,
+						       struct command *cmd,
+                                                       struct channel_inflight *inflight,
+                                                       struct graphql_selection *sel);
+
+struct command_result *json_add_channel_inflight_field(struct json_stream *response,
+						       struct command *cmd,
+						       struct channel_inflight *inflight,
+						       struct graphql_selection *sel)
+{
+	const char *name, *alias;
+
+	if (!sel->field || sel->frag_spread || sel->inline_frag)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "fragments not supported");
+	if (!sel->field->name || sel->field->name->token_type != 'a' ||
+	    !sel->field->name->token_string)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "invalid field");
+	name = alias = sel->field->name->token_string;
+	if (sel->field->alias && sel->field->alias->name &&
+	    sel->field->alias->name->token_type == 'a' &&
+	    sel->field->alias->name->token_string)
+		alias = sel->field->alias->name->token_string;
+
+	if (streq(name, "funding_txid"))
+		json_add_txid(response, alias,
+			      &inflight->funding->txid);
+	else if (streq(name, "funding_outnum"))
+		json_add_num(response, alias,
+			     inflight->funding->outnum);
+	else if (streq(name, "feerate"))
+		json_add_string(response, alias,
+				tal_fmt(tmpctx, "%d%s",
+					inflight->funding->feerate,
+					feerate_style_name(
+						FEERATE_PER_KSIPA)));
+	else if (streq(name, "total_funding_msat"))
+		json_add_amount_sat_only(response, alias,
+					 inflight->funding->total_funds);
+	else if (streq(name, "our_funding_msat"))
+		json_add_amount_sat_only(response, alias,
+					 inflight->funding->our_funds);
+	else if (streq(name, "scratch_txid")) {
+		struct bitcoin_txid txid;
+
+		/* Add the expected commitment tx id also */
+		bitcoin_txid(inflight->last_tx, &txid);
+		json_add_txid(response, alias, &txid);
+	} else
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "unknown field");
+	return NULL;
+}
+
+struct command_result *json_add_channel_inflight(struct json_stream *response,
+						 struct command *cmd,
+                                                 struct channel_inflight *inflight,
+                                                 struct graphql_selection_set *ss);
+
+struct command_result *json_add_channel_inflight(struct json_stream *response,
+						 struct command *cmd,
+						 struct channel_inflight *inflight,
+						 struct graphql_selection_set *ss)
+{
+	struct graphql_selection *sel;
+	struct command_result *result;
+
+	json_object_start(response, NULL);
+	if (ss)
+		for (sel = ss->first; sel; sel = sel->next) {
+			result = json_add_channel_inflight_field(response, cmd,
+								 inflight, sel);
+			if (result)
+				return result;
+		}
+	json_object_end(response);
+
+	return NULL;
+}
+
+struct command_result *json_add_channel_funding_field(struct json_stream *response,
+						      struct command *cmd,
+						      const struct channel *channel,
+						      const struct amount_sat peer_funded_sats,
+                                                      const struct graphql_selection *sel);
+
+struct command_result *json_add_channel_funding_field(struct json_stream *response,
+						      struct command *cmd,
+						      const struct channel *channel,
+						      const struct amount_sat peer_funded_sats,
+						      const struct graphql_selection *sel)
+{
+	const char *name, *alias;
+
+	if (!sel->field || sel->frag_spread || sel->inline_frag)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "fragments not supported");
+	if (!sel->field->name || sel->field->name->token_type != 'a' ||
+	    !sel->field->name->token_string)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "invalid field");
+	name = alias = sel->field->name->token_string;
+	if (sel->field->alias && sel->field->alias->name &&
+	    sel->field->alias->name->token_type == 'a' &&
+	    sel->field->alias->name->token_string)
+		alias = sel->field->alias->name->token_string;
+
+	if (streq(name, "local_msat"))
+		json_add_sat_only(response, alias, channel->our_funds);
+	else if (streq(name, "remote_msat"))
+		json_add_sat_only(response, alias, peer_funded_sats);
+	else
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "unknown field");
+	return NULL;
+}
+
+struct command_result *json_add_channel_state_change_field(
+				struct json_stream *response,
+				struct command *cmd,
+				struct state_change_entry *state_change,
+				const struct graphql_selection *sel);
+
+struct command_result *json_add_channel_state_change_field(
+				struct json_stream *response,
+				struct command *cmd,
+				struct state_change_entry *state_change,
+				const struct graphql_selection *sel)
+{
+	const char *name, *alias;
+
+	if (!sel->field || sel->frag_spread || sel->inline_frag)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "fragments not supported");
+	if (!sel->field->name || sel->field->name->token_type != 'a' ||
+	    !sel->field->name->token_string)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "invalid field");
+	name = alias = sel->field->name->token_string;
+	if (sel->field->alias && sel->field->alias->name &&
+	    sel->field->alias->name->token_type == 'a' &&
+	    sel->field->alias->name->token_string)
+		alias = sel->field->alias->name->token_string;
+
+	if (streq(name, "timestamp"))
+		json_add_timeiso(response, alias,
+				 &state_change->timestamp);
+	else if (streq(name, "old_state"))
+		json_add_string(response, alias,
+				channel_state_str(state_change->old_state));
+	else if (streq(name, "new_state"))
+		json_add_string(response, alias,
+				channel_state_str(state_change->new_state));
+	else if (streq(name, "cause"))
+		json_add_string(response, alias,
+				channel_change_state_reason_str(state_change->cause));
+	else if (streq(name, "message"))
+		json_add_string(response, alias,
+				state_change->message);
+	else
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "unknown field");
+	return NULL;
+}
+
+struct command_result *json_add_channel_htlc_field(struct json_stream *response,
+						   struct command *cmd,
+						   const struct channel *channel,
+                                                   const void *hinout, bool in,
+                                                   const struct graphql_selection *sel);
+
+struct command_result *json_add_channel_htlc_field(struct json_stream *response,
+						   struct command *cmd,
+						   const struct channel *channel,
+						   const void *hinout, bool in,
+						   const struct graphql_selection *sel)
+{
+	const char *name, *alias;
+
+	if (!sel->field || sel->frag_spread || sel->inline_frag)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "fragments not supported");
+	if (!sel->field->name || sel->field->name->token_type != 'a' ||
+	    !sel->field->name->token_string)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "invalid field");
+	name = alias = sel->field->name->token_string;
+	if (sel->field->alias && sel->field->alias->name &&
+	    sel->field->alias->name->token_type == 'a' &&
+	    sel->field->alias->name->token_string)
+		alias = sel->field->alias->name->token_string;
+
+	/* only one of these will be valid, based on "in" argument */
+	/* use only the correct one */
+	const struct htlc_in *hin = (const struct htlc_in *)hinout;
+	const struct htlc_out *hout = (const struct htlc_out *)hinout;
+
+	if (streq(name, "direction"))
+		json_add_string(response, alias, in? "in":"out");
+	else if (streq(name, "id"))
+		json_add_u64(response, alias, in? hin->key.id: hout->key.id);
+	else if (streq(name, "msatoshi"))
+		json_add_u64(response, alias,
+			     in? hin->msat.millisatoshis: hout->msat.millisatoshis);
+	else if (streq(name, "amount_msat"))
+		json_add_amount_msat_only(response, alias, in? hin->msat: hout->msat);
+	else if (streq(name, "expiry")) {
+		if (in)
+			json_add_u32(response, alias, hin->cltv_expiry);
+		else
+			json_add_u64(response, alias, hout->cltv_expiry);
+	} else if (streq(name, "payment_hash"))
+		json_add_sha256(response, alias,
+				in? &hin->payment_hash: &hout->payment_hash);
+	else if (streq(name, "state"))
+		json_add_string(response, alias,
+				htlc_state_name(in? hin->hstate: hout->hstate));
+	else if (streq(name, "local_trimmed")) {
+		u32 local_feerate = get_feerate(channel->fee_states,
+						channel->opener, LOCAL);
+		json_add_bool(response, alias,
+			htlc_is_trimmed(in?REMOTE:LOCAL, in?hin->msat:hout->msat,
+					local_feerate,
+					channel->our_config.dust_limit, LOCAL,
+					channel_has(channel, OPT_ANCHOR_OUTPUTS))?
+			true : false);
+	} else if (streq(name, "status")) {
+		if (in) {
+			if (hin->status != NULL)
+				json_add_string(response, alias, hin->status);
+			else
+				json_add_null(response, alias);
+		}
+	} else
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "unknown field");
+	return NULL;
+}
+
+struct command_result *json_add_channel_field(struct lightningd *ld,
+                                              struct json_stream *response,
+					      struct command *cmd,
+                                              const struct channel *channel,
+					      const struct amount_sat *peer_funded_sats,
+					      const struct amount_msat *funding_msat,
+					      const struct channel_stats *channel_stats,
+                                              bool inflights,
+                                              const struct graphql_selection *sel);
+
+struct command_result *json_add_channel_field(struct lightningd *ld,
+					      struct json_stream *response,
+					      struct command *cmd,
+					      const struct channel *channel,
+					      const struct amount_sat *peer_funded_sats,
+					      const struct amount_msat *funding_msat,
+					      const struct channel_stats *channel_stats,
+					      bool inflights,
+					      const struct graphql_selection *sel)
+{
+	struct command_result *result;
+	const char *name, *alias;
+
+	if (!sel->field || sel->frag_spread || sel->inline_frag)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "fragments not supported");
+	if (!sel->field->name || sel->field->name->token_type != 'a' ||
+	    !sel->field->name->token_string)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "invalid field");
+	name = alias = sel->field->name->token_string;
+	if (sel->field->alias && sel->field->alias->name &&
+	    sel->field->alias->name->token_type == 'a' &&
+	    sel->field->alias->name->token_string)
+		alias = sel->field->alias->name->token_string;
+
+	if (streq(name, "state")) {
+		json_add_string(response, alias, channel_state_name(channel));
+	} else if (streq(name, "scratch_txid")) {
+		if (channel->last_tx && !invalid_last_tx(channel->last_tx)) {
+			struct bitcoin_txid txid;
+			bitcoin_txid(channel->last_tx, &txid);
+
+			json_add_txid(response, alias, &txid);
+		}
+	} else if (streq(name, "last_tx_fee") && deprecated_apis) {
+		json_add_amount_sat_only(response, alias,
+					 bitcoin_tx_compute_fee(channel->last_tx));
+	} else if (streq(name, "last_tx_fee_msat")) {
+		json_add_amount_sat_only(response, alias,
+					 bitcoin_tx_compute_fee(channel->last_tx));
+	} else if (streq(name, "feerate")) {
+		json_object_start(response, alias);
+		u32 feerate = get_feerate(channel->fee_states, channel->opener, LOCAL);
+		json_add_u32(response, feerate_style_name(FEERATE_PER_KSIPA), feerate);
+		json_add_u32(response, feerate_style_name(FEERATE_PER_KBYTE),
+			     feerate_to_style(feerate, FEERATE_PER_KBYTE));
+		json_object_end(response);
+	} else if (streq(name, "owner")) {
+		if (channel->owner)
+			json_add_string(response, alias,
+					channel->owner->name);
+		else
+			json_add_null(response, alias);
+	} else if (streq(name, "short_channel_id")) {
+		if (channel->scid)
+			json_add_short_channel_id(response, alias, channel->scid);
+		else
+			json_add_null(response, alias);
+	} else if (streq(name, "direction")) {
+		if (channel->scid)
+			json_add_num(response, alias,
+				     node_id_idx(&ld->id, &channel->peer->id));
+		else
+			json_add_null(response, alias);
+	} else if (streq(name, "channel_id")) {
+		json_add_string(response, alias,
+				type_to_string(tmpctx, struct channel_id, &channel->cid));
+	} else if (streq(name, "funding_txid")) {
+		json_add_txid(response, alias, &channel->funding_txid);
+	} else if (streq(name, "initial_feerate")) {
+		if (!inflights)
+			json_add_null(response, alias);
+		else {
+			struct channel_inflight *initial;
+			initial = list_top(&channel->inflights,
+					   struct channel_inflight, list);
+			json_add_string(response, alias,
+					tal_fmt(tmpctx, "%d%s",
+						initial->funding->feerate,
+						feerate_style_name(FEERATE_PER_KSIPA)));
+		}
+	} else if (streq(name, "last_feerate")) {
+		if (!inflights)
+			json_add_null(response, alias);
+		else {
+			u32 last_feerate;
+			last_feerate = channel_last_funding_feerate(channel);
+			assert(last_feerate > 0);
+			json_add_string(response, alias,
+					tal_fmt(tmpctx, "%d%s", last_feerate,
+						feerate_style_name(FEERATE_PER_KSIPA)));
+		}
+	} else if (streq(name, "next_feerate")) {
+		if (!inflights)
+			json_add_null(response, alias);
+		else {
+			u32 next_feerate, last_feerate;
+			last_feerate = channel_last_funding_feerate(channel);
+			assert(last_feerate > 0);
+			/* BOLT-9e7723387c8859b511e178485605a0b9133b9869 #2:
+			 * - MUST set `funding_feerate_perkw` greater than or equal to
+			 *   65/64 times the last sent `funding_feerate_perkw`
+			 *   rounded down.
+			 */
+			next_feerate = last_feerate * 65 / 64;
+			assert(next_feerate > last_feerate);
+			json_add_string(response, alias,
+					tal_fmt(tmpctx, "%d%s", next_feerate,
+						feerate_style_name(FEERATE_PER_KSIPA)));
+		}
+	} else if (streq(name, "inflight")) {
+		struct channel_inflight *inflight;
+		/* List the inflights */
+		json_array_start(response, alias);
+		list_for_each(&channel->inflights, inflight, list) {
+			result = json_add_channel_inflight(response, cmd, inflight,
+							   sel->field->sel_set);
+			if (result)
+				return result;
+		}
+		json_array_end(response);
+	} else if (streq(name, "close_to_addr")) {
+		if (channel->shutdown_scriptpubkey[LOCAL]) {
+			char *addr = encode_scriptpubkey_to_addr(tmpctx,
+						chainparams,
+						channel->shutdown_scriptpubkey[LOCAL]);
+			if (addr)
+				json_add_string(response, alias, addr);
+			else
+				json_add_null(response, alias);
+		} else
+			json_add_null(response, alias);
+	} else if (streq(name, "close_to")) {
+		if (channel->shutdown_scriptpubkey[LOCAL])
+			json_add_hex_talarr(response, alias,
+				    channel->shutdown_scriptpubkey[LOCAL]);
+		else
+			json_add_null(response, alias);
+	} else if (streq(name, "private")) {
+		json_add_bool(
+			response, alias,
+			!(channel->channel_flags & CHANNEL_FLAGS_ANNOUNCE_CHANNEL));
+	} else if (streq(name, "opener")) {
+		assert(channel->opener != NUM_SIDES);
+		json_add_string(response, alias, channel->opener == LOCAL ?
+						 "local" : "remote");
+	} else if (streq(name, "closer")) {
+		if (channel->closer != NUM_SIDES)
+			json_add_string(response, alias, channel->closer == LOCAL ?
+							 "local" : "remote");
+		else
+			json_add_null(response, alias);
+	} else if (streq(name, "features")) {
+		json_array_start(response, alias);
+		if (channel_has(channel, OPT_STATIC_REMOTEKEY))
+			json_add_string(response, NULL, "option_static_remotekey");
+		if (channel_has(channel, OPT_ANCHOR_OUTPUTS))
+			json_add_string(response, NULL, "option_anchor_outputs");
+		json_array_end(response);
+	} else if (streq(name, "funding")) {
+		struct graphql_selection *s;
+		json_object_start(response, alias);
+		if (sel->field->sel_set)
+			for (s = sel->field->sel_set->first; s; s = s->next) {
+				result = json_add_channel_funding_field(
+						response, cmd, channel,
+						*peer_funded_sats, s);
+				if (result)
+					return result;
+			}
+		json_object_end(response);
+	} else if (streq(name, "msatoshi_to_us"))
+		json_add_u64(response, alias, channel->our_msat.millisatoshis);
+	else if (streq(name, "to_us_msat"))
+		json_add_amount_msat_only(response, alias, channel->our_msat);
+	else if (streq(name, "msatoshi_to_us_min"))
+		json_add_u64(response, alias, channel->msat_to_us_min.millisatoshis);
+	else if (streq(name, "min_to_us_msat"))
+		json_add_amount_msat_only(response, alias, channel->msat_to_us_min);
+	else if (streq(name, "msatoshi_to_us_max"))
+		json_add_u64(response, alias, channel->msat_to_us_max.millisatoshis);
+	else if (streq(name, "max_to_us_msat"))
+		json_add_amount_msat_only(response, alias, channel->msat_to_us_max);
+	else if (streq(name, "msatoshi_total"))
+		json_add_u64(response, alias, funding_msat->millisatoshis);
+	else if (streq(name, "total_msat"))
+		json_add_amount_msat_only(response, alias, *funding_msat);
+	else if (streq(name, "fee_base_msat"))
+		/* routing fees */
+		json_add_amount_msat_only(response, alias,
+					  amount_msat(channel->feerate_base));
+	else if (streq(name, "fee_proportional_millionths"))
+		json_add_u32(response, alias, channel->feerate_ppm);
+	else if (streq(name, "dust_limit_satoshis"))
+		/* channel config */
+		json_add_u64(response, alias, channel->our_config.dust_limit.satoshis);
+	else if (streq(name, "dust_limit_msat"))
+		json_add_amount_sat_only(response, alias, channel->our_config.dust_limit);
+	else if (streq(name, "max_htlc_value_in_flight_msat"))
+		json_add_u64(response, alias,
+			     channel->our_config.max_htlc_value_in_flight.millisatoshis);
+	else if (streq(name, "max_total_htlc_in_msat"))
+		json_add_amount_msat_only(response, alias,
+					  channel->our_config.max_htlc_value_in_flight);
+	else if (streq(name, "their_channel_reserve_satoshis"))
+		/* The `channel_reserve_satoshis` is imposed on
+		 * the *other* side (see `channel_reserve_msat`
+		 * function in, it uses `!side` to flip sides).
+		 * So our configuration `channel_reserve_satoshis`
+		 * is imposed on their side, while their
+		 * configuration `channel_reserve_satoshis` is
+		 * imposed on ours. */
+		json_add_u64(response, alias,
+			channel->our_config.channel_reserve.satoshis);
+	else if (streq(name, "their_reserve_msat"))
+		json_add_amount_sat_only(response, alias,
+			channel->our_config.channel_reserve);
+	else if (streq(name, "our_channel_reserve_satoshis"))
+		json_add_u64(response, alias,
+			channel->channel_info.their_config.channel_reserve.satoshis);
+	else if (streq(name, "our_reserve_msat"))
+		json_add_amount_sat_only(response, alias,
+			channel->channel_info.their_config.channel_reserve);
+	else if (streq(name, "spendable_msatoshi"))
+		json_add_u64(response, alias,
+			     channel_amount_spendable(channel).millisatoshis);
+	else if (streq(name, "spendable_msat"))
+		json_add_amount_msat_only(response, alias,
+					  channel_amount_spendable(channel));
+	else if (streq(name, "receivable_msatoshi"))
+		json_add_u64(response, alias,
+			     channel_amount_receivable(channel).millisatoshis);
+	else if (streq(name, "receivable_msat"))
+		json_add_amount_msat_only(response, alias,
+					  channel_amount_receivable(channel));
+	else if (streq(name, "htlc_minimum_msat"))
+		json_add_u64(response, alias,
+			     channel->our_config.htlc_minimum.millisatoshis);
+	else if (streq(name, "minimum_htlc_in_msat"))
+		json_add_amount_msat_only(response, alias,
+					  channel->our_config.htlc_minimum);
+	else if (streq(name, "their_to_self_delay"))
+		/* The `to_self_delay` is imposed on the *other*
+		 * side, so our configuration `to_self_delay` is
+		 * imposed on their side, while their configuration
+		 * `to_self_delay` is imposed on ours. */
+		json_add_num(response, alias,
+			     channel->our_config.to_self_delay);
+	else if (streq(name, "our_to_self_delay"))
+		json_add_num(response, alias,
+			     channel->channel_info.their_config.to_self_delay);
+	else if (streq(name, "max_accepted_htlcs"))
+		json_add_num(response, alias,
+			     channel->our_config.max_accepted_htlcs);
+	else if (streq(name, "state_changes")) {
+		struct state_change_entry *state_changes;
+		const struct graphql_selection *s;
+		state_changes = wallet_state_change_get(ld->wallet, tmpctx, channel->dbid);
+		json_array_start(response, "state_changes");
+		for (size_t i = 0; i < tal_count(state_changes); i++) {
+			json_object_start(response, NULL);
+			if (sel->field->sel_set)
+				for (s = sel->field->sel_set->first; s; s = s->next) {
+					result = json_add_channel_state_change_field(
+							response, cmd, &state_changes[i], s);
+					if (result)
+						return result;
+				}
+			json_object_end(response);
+		}
+		json_array_end(response);
+	} else if (streq(name, "status")) {
+		json_array_start(response, alias);
+		for (size_t i = 0; i < ARRAY_SIZE(channel->billboard.permanent); i++) {
+			if (!channel->billboard.permanent[i])
+				continue;
+			json_add_string(response, NULL,
+					channel->billboard.permanent[i]);
+		}
+		json_array_end(response);
+	} else if (streq(name, "in_payments_offered"))
+		json_add_u64(response, alias, channel_stats->in_payments_offered);
+	else if (streq(name, "in_msatoshi_offered"))
+		json_add_u64(response, alias,
+			     channel_stats->in_msatoshi_offered.millisatoshis);
+	else if (streq(name, "in_offered_msat"))
+		json_add_amount_msat_only(response, alias,
+					  channel_stats->in_msatoshi_offered);
+	else if (streq(name, "in_payments_fulfilled"))
+		json_add_u64(response, alias, channel_stats->in_payments_fulfilled);
+	else if (streq(name, "in_msatoshi_fulfilled"))
+		json_add_u64(response, alias,
+			     channel_stats->in_msatoshi_fulfilled.millisatoshis);
+	else if (streq(name, "in_fulfilled_msat"))
+		json_add_amount_msat_only(response, alias,
+					  channel_stats->in_msatoshi_fulfilled);
+	else if (streq(name, "out_payments_offered"))
+		json_add_u64(response, alias, channel_stats->out_payments_offered);
+	else if (streq(name, "out_msatoshi_offered"))
+		json_add_u64(response, alias,
+			     channel_stats->out_msatoshi_offered.millisatoshis);
+	else if (streq(name, "out_offered_msat"))
+		json_add_amount_msat_only(response, alias,
+					  channel_stats->out_msatoshi_offered);
+	else if (streq(name, "out_payments_fulfilled"))
+		json_add_u64(response, alias, channel_stats->out_payments_fulfilled);
+	else if (streq(name, "out_msatoshi_fulfilled"))
+		json_add_u64(response, alias,
+			     channel_stats->out_msatoshi_fulfilled.millisatoshis);
+	else if (streq(name, "out_fulfilled_msat"))
+		json_add_amount_msat_only(response, alias,
+					  channel_stats->out_msatoshi_fulfilled);
+	else if (streq(name, "htlcs")) {
+		const struct htlc_in *hin;
+		struct htlc_in_map_iter ini;
+		const struct htlc_out *hout;
+		struct htlc_out_map_iter outi;
+		const struct graphql_selection *s;
+
+		json_array_start(response, alias);
+
+		for (hin = htlc_in_map_first(&ld->htlcs_in, &ini);
+		     hin;
+		     hin = htlc_in_map_next(&ld->htlcs_in, &ini)) {
+			if (hin->key.channel != channel)
+				continue;
+			json_object_start(response, NULL);
+			if (sel->field->sel_set)
+				for (s = sel->field->sel_set->first; s; s = s->next) {
+					result = json_add_channel_htlc_field(
+							response, cmd, channel,
+							hin, true, s);
+					if (result)
+						return result;
+				}
+			json_object_end(response);
+		}
+		for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
+		     hout;
+		     hout = htlc_out_map_next(&ld->htlcs_out, &outi)) {
+			if (hout->key.channel != channel)
+				continue;
+			json_object_start(response, NULL);
+			if (sel->field->sel_set)
+				for (s = sel->field->sel_set->first; s; s = s->next) {
+					result = json_add_channel_htlc_field(
+							response, cmd, channel,
+							hout, false, s);
+					if (result)
+						return result;
+				}
+			json_object_end(response);
+		}
+		json_array_end(response);
+	} else
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "unknown field");
+	return NULL;
+}
+
+struct command_result *json_add_channel2(struct lightningd *ld,
+                                         struct json_stream *response, const char *key,
+					 struct command *cmd,
+                                         const struct channel *channel,
+                                         const struct graphql_selection_set *ss);
+
+struct command_result *json_add_channel2(struct lightningd *ld,
+					 struct json_stream *response, const char *key,
+					 struct command *cmd,
+					 const struct channel *channel,
+					 const struct graphql_selection_set *ss)
+{
+	struct channel_stats channel_stats;
+	struct amount_msat funding_msat, peer_msats, our_msats;
+	struct amount_sat peer_funded_sats;
+	const struct graphql_selection *sel;
+	struct command_result *result;
+
+	bool inf = !list_empty(&channel->inflights);
+
+	if (!amount_sat_sub(&peer_funded_sats, channel->funding,
+			    channel->our_funds)) {
+		log_broken(channel->log,
+			   "Overflow subtracing funding %s, our funds %s",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &channel->funding),
+			   type_to_string(tmpctx, struct amount_sat,
+					  &channel->our_funds));
+		peer_funded_sats = AMOUNT_SAT(0);
+	}
+	if (!amount_sat_to_msat(&peer_msats, peer_funded_sats)) {
+		log_broken(channel->log,
+			   "Overflow converting peer sats %s to msat",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &peer_funded_sats));
+		peer_msats = AMOUNT_MSAT(0);
+	}
+	if (!amount_sat_to_msat(&our_msats, channel->our_funds)) {
+		log_broken(channel->log,
+			   "Overflow converting peer sats %s to msat",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &channel->our_funds));
+		our_msats = AMOUNT_MSAT(0);
+	}
+
+	if (!amount_sat_to_msat(&funding_msat, channel->funding)) {
+		log_broken(channel->log,
+			   "Overflow converting funding %s",
+			   type_to_string(tmpctx, struct amount_sat,
+					  &channel->funding));
+		funding_msat = AMOUNT_MSAT(0);
+	}
+
+	/* Provide channel statistics */
+	wallet_channel_stats_load(ld->wallet, channel->dbid, &channel_stats);
+
+        json_object_start(response, key);
+        if (ss)
+                for (sel = ss->first; sel; sel = sel->next) {
+                        result = json_add_channel_field(ld, response, cmd, channel,
+							&peer_funded_sats,
+							&funding_msat,
+							&channel_stats,
+                                                        inf, sel);
+                        if (result)
+                                return result;
+                }
+        json_object_end(response);
+
+        return NULL;
+}
+
 struct peer_connected_hook_payload {
 	struct lightningd *ld;
 	struct channel *channel;
@@ -1452,6 +2136,183 @@ static void json_add_peer(struct lightningd *ld,
 	json_object_end(response);
 }
 
+struct command_result *json_add_peer_field(struct json_stream *js,
+                                           struct command *cmd,
+                                           const struct peer *p, bool connected,
+                                           const struct graphql_selection *sel);
+
+struct command_result *json_add_peer_field(struct json_stream *js,
+					   struct command *cmd,
+					   const struct peer *p, bool connected,
+					   const struct graphql_selection *sel)
+{
+	struct command_result *result;
+	const char *name, *alias;
+
+	if (!sel->field || sel->frag_spread || sel->inline_frag)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "fragments not supported");
+	if (!sel->field->name || sel->field->name->token_type != 'a' ||
+	    !sel->field->name->token_string)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "invalid field");
+	name = alias = sel->field->name->token_string;
+	if (sel->field->alias && sel->field->alias->name &&
+	    sel->field->alias->name->token_type == 'a' &&
+	    sel->field->alias->name->token_string)
+		alias = sel->field->alias->name->token_string;
+	if (streq(name, "id"))
+		json_add_node_id(js, alias, &p->id);
+	else if (streq(name, "connected"))
+		json_add_bool(js, alias, connected);
+	else if (streq(name, "netaddr")) {
+		/* see "features" note below */
+		json_array_start(js, alias);
+		if (connected)
+			json_add_string(js, NULL,
+					type_to_string(tmpctx,
+					       struct wireaddr_internal,
+					       &p->addr));
+		json_array_end(js);
+	} else if (streq(name, "features")) {
+		/* If it's not connected, features are unreliable: we don't
+		 * store them in the database, and they would only reflect
+		 * their features *last* time they connected. */
+		if (!connected)
+			json_add_null(js, alias);
+		else
+			json_add_hex_talarr(js, alias, p->their_features);
+	} else if (streq(name, "channels")) {
+		struct channel *channel;
+		json_array_start(js, alias);
+		result = json_add_uncommitted_channel2(js, cmd,
+						       p->uncommitted_channel,
+						       sel->field->sel_set);
+		if (result)
+			return result;
+
+		list_for_each(&p->channels, channel, list) {
+			if (channel_unsaved(channel)) {
+				result = json_add_unsaved_channel2(js, cmd, channel,
+								   sel->field->sel_set);
+			} else {
+				result = json_add_channel2(cmd->ld, js, NULL,
+							   cmd, channel,
+							   sel->field->sel_set);
+			}
+			if (result)
+				return result;
+		}
+		json_array_end(js);
+	} else if (streq(name, "log")) {
+		if (!streq(alias, "log"))
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "alias not allowed");
+		enum log_level *ll = 0;//TODO: gql_getarg(sel->field, "level");
+		json_add_log(js, cmd->ld->log_book, &p->id, !ll? 0 : *ll);
+	} else
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "unknown field");
+	return NULL;
+}
+
+struct command_result *json_add_peer2(struct json_stream *js,
+				      struct command *cmd,
+				      struct peer *p,
+				      const struct graphql_selection *sel);
+
+struct command_result *json_add_peer2(struct json_stream *js,
+				      struct command *cmd,
+				      struct peer *peer,
+				      const struct graphql_selection *sel)
+{
+	struct command_result *result;
+	const struct graphql_selection *s;
+
+	json_object_start(js, NULL);
+	if (sel->field->sel_set) {
+		/* Channel is also connected if uncommitted */
+		bool connected;
+		struct channel *channel;
+		if (peer->uncommitted_channel)
+			connected = true;
+		else {
+			channel = peer_active_channel(peer);
+			if (!channel)
+				channel = peer_unsaved_channel(peer);
+			connected = channel && channel->connected;
+		}
+
+		for (s = sel->field->sel_set->first; s; s = s->next)
+			if ((result = json_add_peer_field(js, cmd, peer,
+							  connected, s)))
+				return result;
+	}
+	json_object_end(js);
+	return NULL;
+}
+
+struct command_result *json_add_field(struct json_stream *js,
+                                      struct command *cmd,
+                                      const struct graphql_selection *sel);
+
+struct command_result *json_add_field(struct json_stream *js,
+				      struct command *cmd,
+				      const struct graphql_selection *sel)
+{
+	struct command_result *result;
+	const char *name, *alias;
+	struct peer *peer;
+
+	if (!sel->field || sel->frag_spread || sel->inline_frag)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "fragments not supported");
+	if (!sel->field->name || sel->field->name->token_type != 'a' ||
+	    !sel->field->name->token_string)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "invalid field");
+	name = alias = sel->field->name->token_string;
+	if (sel->field->alias && sel->field->alias->name &&
+	    sel->field->alias->name->token_type == 'a' &&
+	    sel->field->alias->name->token_string)
+		alias = sel->field->alias->name->token_string;
+	if (streq(name, "peers")) {
+		json_array_start(js, alias);
+		list_for_each(&cmd->ld->peers, peer, list) {
+			if ((result = json_add_peer2(js, cmd, peer, sel)))
+				return result;
+		}
+		json_array_end(js);
+	} else
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+                                    "unknown field");
+	return NULL;
+}
+
+struct command_result *json_add_op(struct json_stream *js,
+                                   struct command *cmd,
+                                   const struct graphql_operation_definition *op);
+
+struct command_result *json_add_op(struct json_stream *js,
+				   struct command *cmd,
+				   const struct graphql_operation_definition *op)
+{
+	struct command_result *result;
+	const struct graphql_selection *sel;
+
+	if (op->op_type && op->op_type->op_type &&
+	    !(op->op_type->op_type->token_type == 'a' &&
+	      streq(op->op_type->op_type->token_string, "query")))
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+                                    "only query operations are supported");
+	if (op->sel_set)
+		for (sel = op->sel_set->first; sel; sel = sel->next) {
+			if ((result = json_add_field(js, cmd, sel)))
+				return result;
+		}
+	return NULL;
+}
+
 static struct command_result *json_listpeers(struct command *cmd,
 					     const char *buffer,
 					     const jsmntok_t *obj UNNEEDED,
@@ -1459,26 +2320,54 @@ static struct command_result *json_listpeers(struct command *cmd,
 {
 	enum log_level *ll;
 	struct node_id *specific_id;
+	const char *querystr, *queryerr;
+	struct list_head *toks;
+	struct graphql_executable_document *doc;
+	struct graphql_executable_definition *def;
 	struct peer *peer;
 	struct json_stream *response;
+	struct command_result *result;
 
 	if (!param(cmd, buffer, params,
 		   p_opt("id", param_node_id, &specific_id),
 		   p_opt("level", param_loglevel, &ll),
+		   p_opt("query", param_string, &querystr),
 		   NULL))
 		return command_param_failed();
 
-	response = json_stream_success(cmd);
-	json_array_start(response, "peers");
-	if (specific_id) {
-		peer = peer_by_id(cmd->ld, specific_id);
-		if (peer)
-			json_add_peer(cmd->ld, response, peer, ll);
+	if (specific_id != NULL && querystr != NULL)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+                                    "{id} and {query} are mutually exclusive");
+
+	if (querystr) {
+		if ((queryerr = graphql_lexparse(querystr, cmd, &toks, &doc)))
+			return command_fail_badparam(cmd, "query", buffer,
+						     params, queryerr);
+		if (!doc)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "invalid GraphQL executable document");
+
+		response = json_stream_success(cmd);
+		for (def = doc->first_def; def; def = def->next_def) {
+			if (!def->op_def || def->frag_def)
+				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+						    "fragments not supported");
+			if ((result = json_add_op(response, cmd, def->op_def)))
+				return result;
+		}
 	} else {
-		list_for_each(&cmd->ld->peers, peer, list)
-			json_add_peer(cmd->ld, response, peer, ll);
+		response = json_stream_success(cmd);
+		json_array_start(response, "peers");
+		if (specific_id) {
+			peer = peer_by_id(cmd->ld, specific_id);
+			if (peer)
+				json_add_peer(cmd->ld, response, peer, ll);
+		} else {
+			list_for_each(&cmd->ld->peers, peer, list)
+				json_add_peer(cmd->ld, response, peer, ll);
+		}
+		json_array_end(response);
 	}
-	json_array_end(response);
 
 	return command_success(cmd, response);
 }
@@ -1488,6 +2377,7 @@ static const struct json_command listpeers_command = {
 	"network",
 	json_listpeers,
 	"Show current peers, if {level} is set, include logs for {id}"
+//	", and if {query} is given, return only selected fields"
 };
 /* Comment added to satisfice AUTODATA */
 AUTODATA(json_command, &listpeers_command);

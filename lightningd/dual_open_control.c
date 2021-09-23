@@ -157,6 +157,108 @@ void json_add_unsaved_channel(struct json_stream *response,
 	json_object_end(response);
 }
 
+struct command_result *json_add_unsaved_channel_field(struct json_stream *response,
+                                                      struct command *cmd,
+                                                      const struct channel *channel,
+                                                      struct amount_msat *total,
+                                                      struct graphql_selection *sel);
+
+struct command_result *json_add_unsaved_channel_field(struct json_stream *response,
+						      struct command *cmd,
+						      const struct channel *channel,
+						      struct amount_msat *total,
+						      struct graphql_selection *sel)
+{
+	const char *name, *alias;
+
+	if (!sel->field || sel->frag_spread || sel->inline_frag)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "fragments not supported");
+	if (!sel->field->name || sel->field->name->token_type != 'a' ||
+	    !sel->field->name->token_string)
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "invalid field");
+	name = alias = sel->field->name->token_string;
+	if (sel->field->alias && sel->field->alias->name &&
+	    sel->field->alias->name->token_type == 'a' &&
+	    sel->field->alias->name->token_string)
+		alias = sel->field->alias->name->token_string;
+
+	if (streq(name, "state"))
+		json_add_string(response, alias, channel_state_name(channel));
+	else if (streq(name, "owner"))
+		json_add_string(response, alias, channel->owner->name);
+	else if (streq(name, "opener"))
+		json_add_string(response, alias, channel->opener == LOCAL ?
+						 "local" : "remote");
+	else if (streq(name, "status")) {
+		json_array_start(response, alias);
+		for (size_t i = 0; i < ARRAY_SIZE(channel->billboard.permanent); i++) {
+			if (!channel->billboard.permanent[i])
+				continue;
+			json_add_string(response, NULL,
+					channel->billboard.permanent[i]);
+		}
+		if (channel->billboard.transient)
+			json_add_string(response, NULL, channel->billboard.transient);
+		json_array_end(response);
+	} else if (streq(name, "msatoshi_to_us"))
+		json_add_u64(response, alias, total->millisatoshis);
+	else if (streq(name, "to_us_msat"))
+		json_add_amount_msat_only(response, alias, *total);
+	else if (streq(name, "msatoshi_total"))
+		/* This will change if peer adds funds */
+		json_add_u64(response, alias, total->millisatoshis);
+	else if (streq(name, "total_msat"))
+		json_add_amount_msat_only(response, alias, *total);
+	else if (streq(name, "features")) {
+		json_array_start(response, "features");
+		/* v2 channels assumed to have both static_remotekey + anchor_outputs */
+		json_add_string(response, NULL, "option_static_remotekey");
+		json_add_string(response, NULL, "option_anchor_outputs");
+		json_array_end(response);
+	} else
+		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+				    "unknown field");
+	return NULL;
+}
+
+struct command_result *json_add_unsaved_channel2(struct json_stream *response,
+						struct command *cmd,
+						const struct channel *channel,
+						struct graphql_selection_set *ss)
+{
+	struct amount_msat total;
+	bool amounts_valid;
+	struct graphql_selection *sel;
+	struct command_result *result;
+
+	if (!channel)
+		return NULL;
+
+	/* If we're chatting but no channel, that's shown by connected: True */
+	if (!channel->open_attempt)
+		return NULL;
+
+	/* funding + our_upfront_shutdown only available if we're initiator */
+	amounts_valid = channel->open_attempt->role == TX_INITIATOR &&
+			(amount_sat_to_msat(&total, channel->open_attempt->funding));
+	if (!amounts_valid)
+		total.millisatoshis = 0;
+
+	json_object_start(response, NULL);
+	if (ss)
+		for (sel = ss->first; sel; sel = sel->next) {
+			result = json_add_unsaved_channel_field(response, cmd, channel,
+								&total, sel);
+			if (result)
+				return result;
+		}
+	json_object_end(response);
+
+	return NULL;
+}
+
 struct rbf_channel_payload {
 	struct subd *dualopend;
 	struct channel *channel;
