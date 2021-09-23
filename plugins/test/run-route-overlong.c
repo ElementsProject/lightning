@@ -332,7 +332,6 @@ int main(void)
 	int store_fd;
 	struct payment *p;
 	struct payment_modifier **mods;
-	struct gossmap *gossmap;
 	char gossip_version = GOSSIP_STORE_VERSION;
 	char gossipfilename[] = "/tmp/run-route-overlong.XXXXXX";
 
@@ -344,7 +343,7 @@ int main(void)
 	assert(write(store_fd, &gossip_version, sizeof(gossip_version))
 	       == sizeof(gossip_version));
 
-	gossmap = gossmap_load(tmpctx, gossipfilename, NULL);
+	global_gossmap = gossmap_load(tmpctx, gossipfilename, NULL);
 
 	for (size_t i = 0; i < NUM_NODES; i++) {
 		struct privkey tmp;
@@ -383,7 +382,7 @@ int main(void)
 			     1 << i);
 	}
 
-	assert(gossmap_refresh(gossmap, NULL));
+	assert(gossmap_refresh(global_gossmap, NULL));
 	for (size_t i = ROUTING_MAX_HOPS; i > 2; i--) {
 		struct gossmap_node *dst, *src;
 		struct route_hop *r;
@@ -392,9 +391,9 @@ int main(void)
 			     type_to_string(tmpctx, struct node_id, &ids[0]),
 			     type_to_string(tmpctx, struct node_id, &ids[NUM_NODES-1]));
 
-		src = gossmap_find_node(gossmap, &ids[0]);
-		dst = gossmap_find_node(gossmap, &ids[NUM_NODES-1]);
-		r = route(tmpctx, gossmap, src, dst, AMOUNT_MSAT(1000), 0, 0.0,
+		src = gossmap_find_node(global_gossmap, &ids[0]);
+		dst = gossmap_find_node(global_gossmap, &ids[NUM_NODES-1]);
+		r = route(tmpctx, global_gossmap, src, dst, AMOUNT_MSAT(1000), 0, 0.0,
 			  i - 1, p, &errmsg);
 		assert(r);
 		/* FIXME: We naively fall back on shortest, rather
