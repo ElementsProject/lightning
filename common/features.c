@@ -388,22 +388,22 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		"option_support_large_channel",
 		"option_anchor_outputs", 	/* 20/21 */
 		"option_anchors_zero_fee_htlc_tx",
-		NULL,
+		"option_trampoline_routing", /* https://github.com/lightningnetwork/lightning-rfc/pull/836 */
 		"option_shutdown_anysegwit",
 		"option_dual_fund",
-		NULL, /* 30/31 */
+		"option_amp", /* 30/31 */ /* https://github.com/lightningnetwork/lightning-rfc/pull/658 */
 		NULL,
+		"option_upgrade_channel", /* https://github.com/lightningnetwork/lightning-rfc/pull/868 */
 		NULL,
-		NULL,
-		"option_onion_messages", /* 38/39 */
-		NULL, /* 40/41 */
-		NULL,
+		"option_onion_messages",  /* https://github.com/lightningnetwork/lightning-rfc/pull/759 */
+		"option_want_peer_backup", /* 40/41 */ /* https://github.com/lightningnetwork/lightning-rfc/pull/881 */
+		"option_provide_peer_backup", /* https://github.com/lightningnetwork/lightning-rfc/pull/881 */
 		NULL,
 		NULL,
 		NULL,
 		NULL, /* 50/51 */
 		NULL,
-		NULL,
+		"option_keysend",
 		NULL,
 		NULL,
 		NULL, /* 60/61 */
