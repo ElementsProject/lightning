@@ -1933,9 +1933,8 @@ def test_addgossip(node_factory):
     # 0x0100 = channel_announcement
     # 0x0102 = channel_update
     # 0x0101 = node_announcement
-    ann = l1.daemon.is_in_log(r"\[OUT\] 0100.*")
-    if ann is None:
-        ann = l2.daemon.is_in_log(r"\[OUT\] 0100.*")
+    l1.daemon.logsearch_start = 0
+    ann = l1.daemon.wait_for_log(r"\[OUT\] 0100.*")
 
     upd1 = l1.daemon.is_in_log(r"\[OUT\] 0102.*")
     upd2 = l2.daemon.is_in_log(r"\[OUT\] 0102.*")
