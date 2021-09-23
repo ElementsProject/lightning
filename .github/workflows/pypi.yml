@@ -47,8 +47,13 @@ jobs:
         repository_url: https://test.pypi.org/legacy/
         packages_dir: "${{ env.WORKDIR}}/dist"
         skip_existing: true
-#    - name: Publish distribution 📦 to PyPI
-#      if: startsWith(github.ref, 'refs/tags')
-#      uses: pypa/gh-action-pypi-publish@master
-#      with:
-#        password: ${{ secrets.PYPI_API_TOKEN }}
+    - name: Publish distribution 📦 to PyPI
+      if: startsWith(github.ref, 'refs/tags')
+      uses: pypa/gh-action-pypi-publish@master
+      env:
+        WORKDIR: ${{ matrix.WORKDIR }}
+      with:
+        password: ${{ secrets.PYPI_API_TOKEN }}
+        packages_dir: "${{ env.WORKDIR}}/dist"
+        # We should never have a conflict here, the version tags are unique
+        skip_existing: false
