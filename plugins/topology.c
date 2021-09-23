@@ -48,6 +48,7 @@ struct exclude_entry {
 static u64 route_score_fuzz(u32 distance,
 			    struct amount_msat cost,
 			    struct amount_msat risk,
+			    int dir UNUSED,
 			    const struct gossmap_chan *c)
 {
 	u64 costs = cost.millisatoshis + risk.millisatoshis; /* Raw: score */
