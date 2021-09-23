@@ -64,6 +64,9 @@ bool feature_check_depends(const u8 *their_features,
 const char **list_supported_features(const tal_t *ctx,
 				     const struct feature_set *fset);
 
+/* Give a name for this feature */
+const char *feature_name(const tal_t *ctx, size_t f);
+
 /* Low-level helpers to deal with big-endian bitfields. */
 bool feature_is_set(const u8 *features, size_t bit);
 void set_feature_bit(u8 **ptr, u32 bit);

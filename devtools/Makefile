@@ -1,4 +1,4 @@
-DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route devtools/blindedpath devtools/bolt12-cli devtools/encodeaddr
+DEVTOOLS := devtools/bolt11-cli devtools/decodemsg devtools/onion devtools/dump-gossipstore devtools/gossipwith devtools/create-gossipstore devtools/mkcommit devtools/mkfunding devtools/mkclose devtools/mkgossip devtools/mkencoded devtools/mkquery devtools/lightning-checkmessage devtools/topology devtools/route devtools/blindedpath devtools/bolt12-cli devtools/encodeaddr devtools/features
 ifeq ($(HAVE_SQLITE3),1)
 DEVTOOLS += devtools/checkchannels
 endif
@@ -46,6 +46,8 @@ DEVTOOLS_COMMON_OBJS :=				\
 	wire/peer$(EXP)_wiregen.o		\
 	wire/channel_type_wiregen.o		\
 	wire/tlvstream.o
+
+devtools/features: $(CCAN_OBJS) common/features.o common/utils.o wire/fromwire.o wire/towire.o devtools/features.o
 
 devtools/bolt11-cli: $(DEVTOOLS_COMMON_OBJS) $(JSMN_OBJS) $(CCAN_OBJS) $(BITCOIN_OBJS) wire/fromwire.o wire/towire.o devtools/bolt11-cli.o
 
