@@ -139,6 +139,7 @@ dijkstra_(const tal_t *ctx,
 	  u64 (*path_score)(u32 distance,
 			    struct amount_msat cost,
 			    struct amount_msat risk,
+			    int dir,
 			    const struct gossmap_chan *c),
 	  void *arg)
 {
@@ -246,7 +247,7 @@ dijkstra_(const tal_t *ctx,
 			risk = risk_price(cost, riskfactor,
 					  cur_d->total_delay
 					  + c->half[!which_half].delay);
-			score = path_score(cur_d->distance + 1, cost, risk, c);
+			score = path_score(cur_d->distance + 1, cost, risk, !which_half, c);
 			if (score >= d->score)
 				continue;
 

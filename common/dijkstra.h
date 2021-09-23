@@ -22,6 +22,7 @@ dijkstra_(const tal_t *ctx,
 	  u64 (*path_score)(u32 distance,
 			    struct amount_msat cost,
 			    struct amount_msat risk,
+			    int dir,
 			    const struct gossmap_chan *c),
 	  void *arg);
 
