@@ -50,3 +50,10 @@ contrib/pyln-*/pyln_*.egg-info/
 release/
 tests/plugins/test_selfdisable_after_getmanifest
 .DS_Store
+
+# Ignore generated files
+doc/lightning*.[1578]
+*_sqlgen.[ch]
+*_wiregen.[ch]
+*_printgen.[ch]
+*_gettextgen.po
