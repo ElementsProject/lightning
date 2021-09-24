@@ -50,3 +50,6 @@ contrib/pyln-*/pyln_*.egg-info/
 release/
 tests/plugins/test_selfdisable_after_getmanifest
 .DS_Store
+*gen*
+devtools/features
+doc/*.[0-9]
