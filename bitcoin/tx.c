@@ -700,8 +700,13 @@ struct bitcoin_tx *fromwire_bitcoin_tx(const tal_t *ctx,
 {
 	struct bitcoin_tx *tx;
 
+	u32 len = fromwire_u32(cursor, max);
+	size_t start = *max;
 	tx = pull_bitcoin_tx(ctx, cursor, max);
 	if (!tx)
+		return fromwire_fail(cursor, max);
+	// Check that we consumed len bytes
+	if (start - *max != len)
 		return fromwire_fail(cursor, max);
 
 	/* pull_bitcoin_tx sets the psbt */
@@ -744,6 +749,7 @@ void fromwire_bitcoin_outpoint(const u8 **cursor, size_t *max,
 void towire_bitcoin_tx(u8 **pptr, const struct bitcoin_tx *tx)
 {
 	u8 *lin = linearize_tx(tmpctx, tx);
+	towire_u32(pptr, tal_count(lin));
 	towire_u8_array(pptr, lin, tal_count(lin));
 
 	towire_wally_psbt(pptr, tx->psbt);
