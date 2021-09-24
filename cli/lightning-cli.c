@@ -270,6 +270,24 @@ static char *opt_set_ordered(enum input *input)
 	return NULL;
 }
 
+enum escape {
+	PASSTHRU,
+	ALLOW_JSON,
+	DEFAULT_ESCAPE
+};
+
+static char *opt_set_passthru(enum escape *escape)
+{
+	*escape = PASSTHRU;
+	return NULL;
+}
+
+static char *opt_set_allow_json(enum escape *escape)
+{
+	*escape = ALLOW_JSON;
+	return NULL;
+}
+
 static bool is_literal(const char *arg)
 {
 	size_t arglen = strlen(arg);
@@ -286,11 +304,11 @@ static bool is_literal(const char *arg)
 }
 
 static void add_input(char **cmd, const char *input,
-		      int i, int argc)
+		      int i, int argc, enum escape escape)
 {
 	/* Numbers, bools, objects and arrays are left unquoted,
 	 * and quoted things left alone. */
-	if (is_literal(input))
+	if (escape == ALLOW_JSON && is_literal(input))
 		tal_append_fmt(cmd, "%s", input);
 	else
 		tal_append_fmt(cmd, "\"%s\"", json_escape(*cmd, input)->s);
@@ -612,6 +630,7 @@ int main(int argc, char *argv[])
 	int parserr;
 	enum format format = DEFAULT_FORMAT;
 	enum input input = DEFAULT_INPUT;
+	enum escape escape = DEFAULT_ESCAPE;
 	enum log_level notification_level = LOG_INFORM;
 	bool last_was_progress = false;
 	char *command = NULL;
@@ -641,6 +660,10 @@ int main(int argc, char *argv[])
 			   "Use format key=value for <params>");
 	opt_register_noarg("-o|--order", opt_set_ordered, &input,
 			   "Use params in order for <params>");
+	opt_register_noarg("-p|--passthru", opt_set_passthru, &escape,
+			   "Pass <params> as-is");
+	opt_register_noarg("-j|--allow-json", opt_set_allow_json, &escape,
+			   "Allow JSON in <params> (default)");
 	opt_register_arg("-N|--notifications", opt_set_level,
 			 opt_show_level, &notification_level,
 			 "Set notification level, or none");
@@ -713,6 +736,9 @@ int main(int argc, char *argv[])
 			input = ORDERED;
 	}
 
+	if (escape == DEFAULT_ESCAPE)
+		escape = ALLOW_JSON;
+
 	if (input == KEYWORDS) {
 		tal_append_fmt(&cmd, "{ ");
 		for (i = 2; i < argc; i++) {
@@ -725,13 +751,13 @@ int main(int argc, char *argv[])
 			tal_append_fmt(&cmd, "\"%.*s\" : ",
 				       (int)(eq - argv[i]), argv[i]);
 
-			add_input(&cmd, eq + 1, i, argc);
+			add_input(&cmd, eq + 1, i, argc, escape);
 		}
 		tal_append_fmt(&cmd, "} }");
 	} else {
 		tal_append_fmt(&cmd, "[ ");
 		for (i = 2; i < argc; i++)
-			add_input(&cmd, argv[i], i, argc);
+			add_input(&cmd, argv[i], i, argc, escape);
 		tal_append_fmt(&cmd, "] }");
 	}
 
