@@ -2331,7 +2331,7 @@ static struct command_result *json_listpeers(struct command *cmd,
 	if (!param(cmd, buffer, params,
 		   p_opt("id", param_node_id, &specific_id),
 		   p_opt("level", param_loglevel, &ll),
-		   p_opt("query", param_string, &querystr),
+		   p_opt("query", param_escaped_string, &querystr),
 		   NULL))
 		return command_param_failed();
 
