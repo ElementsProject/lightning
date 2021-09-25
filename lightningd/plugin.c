@@ -1445,8 +1445,15 @@ static const char *plugin_parse_getmanifest_response(const char *buffer,
 	if (!err)
 		err = plugin_add_params(plugin);
 
-	plugin->plugin_state = NEEDS_INIT;
+	plugin_set_state(plugin, NEEDS_INIT);
 	return err;
+}
+
+void plugin_set_state(struct plugin *p, enum plugin_state state) {
+	if (state >= p->plugin_state) {
+		p->plugin_state = state;
+	} else if (p->plugin_state != SHUTDOWN)
+		plugin_kill(p, LOG_UNUSUAL, "Attempt to decrement plugin state");
 }
 
 bool plugins_any_in_state(const struct plugins *plugins, enum plugin_state state)
@@ -1661,7 +1668,7 @@ const char *plugin_send_getmanifest(struct plugin *p)
 	json_add_bool(req->stream, "allow-deprecated-apis", deprecated_apis);
 	jsonrpc_request_end(req);
 	plugin_request_send(p, req);
-	p->plugin_state = AWAITING_GETMANIFEST_RESPONSE;
+	plugin_set_state(p, AWAITING_GETMANIFEST_RESPONSE);
 
 	plugin_set_timeout(p);
 	return NULL;
@@ -1742,7 +1749,7 @@ static void plugin_config_cb(const char *buffer,
 		return;
 	}
 
-	plugin->plugin_state = INIT_COMPLETE;
+	plugin_set_state(plugin, INIT_COMPLETE);
 	plugin->timeout_timer = tal_free(plugin->timeout_timer);
 	if (plugin->start_cmd) {
 		plugin_cmd_succeeded(plugin->start_cmd, plugin);
@@ -1841,7 +1848,7 @@ plugin_config(struct plugin *plugin)
 	plugin_populate_init_request(plugin, req);
 	jsonrpc_request_end(req);
 	plugin_request_send(plugin, req);
-	plugin->plugin_state = AWAITING_INIT_RESPONSE;
+	plugin_set_state(plugin, AWAITING_INIT_RESPONSE);
 }
 
 void plugins_config(struct plugins *plugins)

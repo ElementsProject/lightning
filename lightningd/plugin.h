@@ -267,6 +267,11 @@ struct command_result *plugin_register_all_complete(struct lightningd *ld,
 void plugins_config(struct plugins *plugins);
 
 /**
+ * Set plugin's state to state, an attempt to decrement (outside shutdown) kills it
+ */
+void plugin_set_state(struct plugin *p, enum plugin_state state);
+
+/**
  * Are any plugins at this state still?
  */
 bool plugins_any_in_state(const struct plugins *plugins, enum plugin_state state);

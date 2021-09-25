@@ -37,7 +37,7 @@ static void plugin_config_cb(const char *buffer,
 			     const jsmntok_t *idtok,
 			     struct plugin *plugin)
 {
-	plugin->plugin_state = INIT_COMPLETE;
+	plugin_set_state(plugin, INIT_COMPLETE);
 	io_break(plugin);
 }
 
