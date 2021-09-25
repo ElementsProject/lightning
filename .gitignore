@@ -52,6 +52,7 @@ tests/plugins/test_selfdisable_after_getmanifest
 .DS_Store
 
 # Ignore generated files
+devtools/features
 doc/lightning*.[1578]
 *_sqlgen.[ch]
 *_wiregen.[ch]
