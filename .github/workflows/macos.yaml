@@ -15,6 +15,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
+        with:
+          # Need to fetch full history to get pyln versions identified
+          # correctly
+          fetch-depth: 0
 
       - name: Set up Python 3.6
         uses: actions/setup-python@v2
@@ -53,27 +57,32 @@ jobs:
           TEST_GROUP_COUNT: ${{ matrix.TEST_GROUP_COUNT }}
           TEST_GROUP: ${{ matrix.TEST_GROUP }}
         run: |
-          export PATH="/usr/local/opt:$PATH"
+          export PATH="/usr/local/opt:/Users/runner/.local/bin:$PATH"
           export LDFLAGS="-L/usr/local/opt/sqlite/lib"
           export CPPFLAGS="-I/usr/local/opt/sqlite/include"
 
-          pip3 install --user -U --use-feature=in-tree-build \
-            -r requirements.txt \
-            -r contrib/pyln-client/requirements.txt \
-            -r contrib/pyln-proto/requirements.txt \
-            -r contrib/pyln-testing/requirements.txt
+          pip3 install --user -U \
+            -r requirements.lock
 
-            # Install utilities that aren't dependencies, but make
-            # running tests easier/feasible on CI (and pytest which
-            # keeps breaking the rerunfailures plugin).
-          pip3 install -U \
-            flaky \
+          pip3 install --user --no-index \
+            --use-feature=in-tree-build \
+            ./contrib/pyln-spec/bolt7 \
+            ./contrib/pyln-client \
+            ./contrib/pyln-proto \
+            ./contrib/pyln-testing
+
+          # Install utilities that aren't dependencies, but make
+          # running tests easier/feasible on CI (and pytest which
+          # keeps breaking the rerunfailures plugin).
+          pip3 install --user -U \
             blinker \
+            flake8 \
+            flaky \
+            mako \
             pytest-sentry \
             pytest-test-groups==1.0.3 \
             pytest-custom-exit-code==0.3.0 \
-            pytest-json-report \
-            mypy==0.790
+            pytest-json-report
 
           cat << EOF > pytest.ini
           [pytest]

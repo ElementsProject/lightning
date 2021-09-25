@@ -20,20 +20,27 @@ export TIMEOUT=900
 export VALGRIND=${VALGRIND:-0}
 export FUZZING=${FUZZING:-0}
 
-env
+pip3 install --user -U \
+     -r requirements.lock
 
-pip3 install --user -U -r requirements.txt --use-feature=in-tree-build
+timeout 60 pip3 install --user \
+     --use-feature=in-tree-build \
+     ./contrib/pyln-client \
+     ./contrib/pyln-proto \
+     ./contrib/pyln-testing
 
 # Install utilities that aren't dependencies, but make
 # running tests easier/feasible on CI (and pytest which
 # keeps breaking the rerunfailures plugin).
-pip3 install --user -U \
+pip3 install --user \
      blinker \
      flake8 \
-     make \
+     flaky \
+     mako \
      pytest-sentry \
      pytest-test-groups==1.0.3 \
      pytest-custom-exit-code==0.3.0 \
+     pytest-timeout \
      pytest-json-report
 
 git clone https://github.com/lightningnetwork/lightning-rfc.git ../lightning-rfc
