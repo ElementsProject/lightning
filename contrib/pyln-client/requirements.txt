@@ -1,2 +1,2 @@
-recommonmark>=0.7.*
+recommonmark~=0.7
 pyln-bolt7
