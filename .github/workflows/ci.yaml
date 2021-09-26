@@ -30,6 +30,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2.0.0
 
+      - name: Fetch tags for auto versioning
+        run: git fetch --prune --unshallow --tags
+
       - name: Set up Python 3.6
         uses: actions/setup-python@v2
         with:
