@@ -15,10 +15,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2.0.0
-        with:
-          # Need to fetch full history to get pyln versions identified
-          # correctly
-          fetch-depth: 0
+
+      - name: Fetch tags for auto versioning
+        run: git fetch --prune --unshallow --tags
 
       - name: Set up Python 3.6
         uses: actions/setup-python@v2
