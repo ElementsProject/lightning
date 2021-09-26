@@ -31,8 +31,13 @@ static const char template[] =
 	"{\n"
 	"	char compiled_gmp_version[100];\n"
 	IF_SQLITE3(
-	"	if (SQLITE_VERSION_NUMBER != sqlite3_libversion_number())\n"
+	"       /* Require at least the version we compiled with. */"
+	"	if (SQLITE_VERSION_NUMBER > sqlite3_libversion_number())\n"
 	"		errx(1, \"SQLITE version mismatch: compiled %%u, now %%u\",\n"
+	"		     SQLITE_VERSION_NUMBER, sqlite3_libversion_number());\n"
+	"       /* Ensure the major version matches. */"
+	"	if (SQLITE_VERSION_NUMBER + 1000000 < sqlite3_libversion_number())\n"
+	"		errx(1, \"SQLITE major version mismatch: compiled %%u, now %%u\",\n"
 	"		     SQLITE_VERSION_NUMBER, sqlite3_libversion_number());\n"
 	)
 	"	/* zlib documents that first char alters ABI. Kudos! */\n"
