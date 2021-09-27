@@ -191,6 +191,9 @@ void jsonrpc_listen(struct jsonrpc *rpc, struct lightningd *ld);
 bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command,
 			 const char *usage TAKES);
 
+/* Remove a command from the JSON-RPC interface */
+bool jsonrpc_command_del(struct jsonrpc *rpc, const char *name);
+
 /**
  * Begin a JSON-RPC notification with the specified topic.
  *

@@ -1159,6 +1159,18 @@ bool jsonrpc_command_add(struct jsonrpc *rpc, struct json_command *command,
 	return true;
 }
 
+bool jsonrpc_command_del(struct jsonrpc *rpc, const char *name)
+{
+	size_t count = tal_count(rpc->commands);
+	for (size_t j = 0; j < count; j++) {
+		if (streq(name, rpc->commands[j]->name)) {
+			tal_free(rpc->commands[j]);
+			return true;
+		}
+	}
+	return false;
+}
+
 static bool jsonrpc_command_add_perm(struct lightningd *ld,
 				     struct jsonrpc *rpc,
 				     struct json_command *command)
