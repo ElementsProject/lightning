@@ -160,7 +160,6 @@ void json_add_unsaved_channel(struct json_stream *response,
 static void json_add_unsaved_channel_field(struct json_stream *response,
 					   struct command *cmd,
 					   const struct channel *channel,
-					   struct amount_msat *total,
 					   struct graphql_selection *sel)
 {
 	const char *name, *alias;
@@ -189,16 +188,23 @@ static void json_add_unsaved_channel_field(struct json_stream *response,
 		if (channel->billboard.transient)
 			json_add_string(response, NULL, channel->billboard.transient);
 		json_array_end(response);
-	} else if (streq(name, "msatoshi_to_us"))
-		json_add_u64(response, alias, total->millisatoshis);
-	else if (streq(name, "to_us_msat"))
-		json_add_amount_msat_only(response, alias, *total);
-	else if (streq(name, "msatoshi_total"))
+	} else if (streq(name, "to_us_msat")) {
+		struct amount_msat total;
+		/* funding + our_upfront_shutdown only available if we're initiator */
+		if (channel->open_attempt->role == TX_INITIATOR &&
+		    amount_sat_to_msat(&total, channel->open_attempt->funding))
+			json_add_amount_msat_only(response, alias, total);
+		else
+			json_add_null(response, alias);
+	} else if (streq(name, "total_msat")) {
+		struct amount_msat total;
 		/* This will change if peer adds funds */
-		json_add_u64(response, alias, total->millisatoshis);
-	else if (streq(name, "total_msat"))
-		json_add_amount_msat_only(response, alias, *total);
-	else if (streq(name, "features")) {
+		if (channel->open_attempt->role == TX_INITIATOR &&
+		    amount_sat_to_msat(&total, channel->open_attempt->funding))
+			json_add_amount_msat_only(response, alias, total);
+		else
+			json_add_null(response, alias);
+	} else if (streq(name, "features")) {
 		json_array_start(response, "features");
 		/* v2 channels assumed to have both static_remotekey + anchor_outputs */
 		json_add_string(response, NULL, "option_static_remotekey");
@@ -213,8 +219,6 @@ void json_add_unsaved_channel2(struct json_stream *response,
 			       const struct channel *channel,
 			       struct graphql_selection_set *ss)
 {
-	struct amount_msat total;
-	bool amounts_valid;
 	struct graphql_selection *sel;
 
 	if (!channel)
@@ -224,17 +228,11 @@ void json_add_unsaved_channel2(struct json_stream *response,
 	if (!channel->open_attempt)
 		return;
 
-	/* funding + our_upfront_shutdown only available if we're initiator */
-	amounts_valid = channel->open_attempt->role == TX_INITIATOR &&
-			(amount_sat_to_msat(&total, channel->open_attempt->funding));
-	if (!amounts_valid)
-		total.millisatoshis = 0;
-
 	json_object_start(response, NULL);
 	if (ss)
 		for (sel = ss->first; sel; sel = sel->next) {
 			json_add_unsaved_channel_field(response, cmd, channel,
-						       &total, sel);
+						       sel);
 		}
 	json_object_end(response);
 }

@@ -1060,9 +1060,6 @@ static void json_add_channel_htlc_field(struct json_stream *response,
 		json_add_string(response, alias, in? "in":"out");
 	else if (streq(name, "id"))
 		json_add_u64(response, alias, in? hin->key.id: hout->key.id);
-	else if (streq(name, "msatoshi"))
-		json_add_u64(response, alias,
-			     in? hin->msat.millisatoshis: hout->msat.millisatoshis);
 	else if (streq(name, "amount_msat"))
 		json_add_amount_msat_only(response, alias, in? hin->msat: hout->msat);
 	else if (streq(name, "expiry")) {
@@ -1255,20 +1252,13 @@ static void json_add_channel_field(struct lightningd *ld,
 					response, cmd, channel,
 					*peer_funded_sats, s);
 		json_object_end(response);
-	} else if (streq(name, "msatoshi_to_us"))
-		json_add_u64(response, alias, channel->our_msat.millisatoshis);
+	}
 	else if (streq(name, "to_us_msat"))
 		json_add_amount_msat_only(response, alias, channel->our_msat);
-	else if (streq(name, "msatoshi_to_us_min"))
-		json_add_u64(response, alias, channel->msat_to_us_min.millisatoshis);
 	else if (streq(name, "min_to_us_msat"))
 		json_add_amount_msat_only(response, alias, channel->msat_to_us_min);
-	else if (streq(name, "msatoshi_to_us_max"))
-		json_add_u64(response, alias, channel->msat_to_us_max.millisatoshis);
 	else if (streq(name, "max_to_us_msat"))
 		json_add_amount_msat_only(response, alias, channel->msat_to_us_max);
-	else if (streq(name, "msatoshi_total"))
-		json_add_u64(response, alias, funding_msat->millisatoshis);
 	else if (streq(name, "total_msat"))
 		json_add_amount_msat_only(response, alias, *funding_msat);
 	else if (streq(name, "fee_base_msat"))
@@ -1277,18 +1267,13 @@ static void json_add_channel_field(struct lightningd *ld,
 					  amount_msat(channel->feerate_base));
 	else if (streq(name, "fee_proportional_millionths"))
 		json_add_u32(response, alias, channel->feerate_ppm);
-	else if (streq(name, "dust_limit_satoshis"))
-		/* channel config */
-		json_add_u64(response, alias, channel->our_config.dust_limit.satoshis);
 	else if (streq(name, "dust_limit_msat"))
+		/* channel config */
 		json_add_amount_sat_only(response, alias, channel->our_config.dust_limit);
-	else if (streq(name, "max_htlc_value_in_flight_msat"))
-		json_add_u64(response, alias,
-			     channel->our_config.max_htlc_value_in_flight.millisatoshis);
 	else if (streq(name, "max_total_htlc_in_msat"))
 		json_add_amount_msat_only(response, alias,
 					  channel->our_config.max_htlc_value_in_flight);
-	else if (streq(name, "their_channel_reserve_satoshis"))
+	else if (streq(name, "their_reserve_msat"))
 		/* The `channel_reserve_satoshis` is imposed on
 		 * the *other* side (see `channel_reserve_msat`
 		 * function in, it uses `!side` to flip sides).
@@ -1296,32 +1281,17 @@ static void json_add_channel_field(struct lightningd *ld,
 		 * is imposed on their side, while their
 		 * configuration `channel_reserve_satoshis` is
 		 * imposed on ours. */
-		json_add_u64(response, alias,
-			channel->our_config.channel_reserve.satoshis);
-	else if (streq(name, "their_reserve_msat"))
 		json_add_amount_sat_only(response, alias,
 			channel->our_config.channel_reserve);
-	else if (streq(name, "our_channel_reserve_satoshis"))
-		json_add_u64(response, alias,
-			channel->channel_info.their_config.channel_reserve.satoshis);
 	else if (streq(name, "our_reserve_msat"))
 		json_add_amount_sat_only(response, alias,
 			channel->channel_info.their_config.channel_reserve);
-	else if (streq(name, "spendable_msatoshi"))
-		json_add_u64(response, alias,
-			     channel_amount_spendable(channel).millisatoshis);
 	else if (streq(name, "spendable_msat"))
 		json_add_amount_msat_only(response, alias,
 					  channel_amount_spendable(channel));
-	else if (streq(name, "receivable_msatoshi"))
-		json_add_u64(response, alias,
-			     channel_amount_receivable(channel).millisatoshis);
 	else if (streq(name, "receivable_msat"))
 		json_add_amount_msat_only(response, alias,
 					  channel_amount_receivable(channel));
-	else if (streq(name, "htlc_minimum_msat"))
-		json_add_u64(response, alias,
-			     channel->our_config.htlc_minimum.millisatoshis);
 	else if (streq(name, "minimum_htlc_in_msat"))
 		json_add_amount_msat_only(response, alias,
 					  channel->our_config.htlc_minimum);
@@ -1363,33 +1333,21 @@ static void json_add_channel_field(struct lightningd *ld,
 		json_array_end(response);
 	} else if (streq(name, "in_payments_offered"))
 		json_add_u64(response, alias, channel_stats->in_payments_offered);
-	else if (streq(name, "in_msatoshi_offered"))
-		json_add_u64(response, alias,
-			     channel_stats->in_msatoshi_offered.millisatoshis);
 	else if (streq(name, "in_offered_msat"))
 		json_add_amount_msat_only(response, alias,
 					  channel_stats->in_msatoshi_offered);
 	else if (streq(name, "in_payments_fulfilled"))
 		json_add_u64(response, alias, channel_stats->in_payments_fulfilled);
-	else if (streq(name, "in_msatoshi_fulfilled"))
-		json_add_u64(response, alias,
-			     channel_stats->in_msatoshi_fulfilled.millisatoshis);
 	else if (streq(name, "in_fulfilled_msat"))
 		json_add_amount_msat_only(response, alias,
 					  channel_stats->in_msatoshi_fulfilled);
 	else if (streq(name, "out_payments_offered"))
 		json_add_u64(response, alias, channel_stats->out_payments_offered);
-	else if (streq(name, "out_msatoshi_offered"))
-		json_add_u64(response, alias,
-			     channel_stats->out_msatoshi_offered.millisatoshis);
 	else if (streq(name, "out_offered_msat"))
 		json_add_amount_msat_only(response, alias,
 					  channel_stats->out_msatoshi_offered);
 	else if (streq(name, "out_payments_fulfilled"))
 		json_add_u64(response, alias, channel_stats->out_payments_fulfilled);
-	else if (streq(name, "out_msatoshi_fulfilled"))
-		json_add_u64(response, alias,
-			     channel_stats->out_msatoshi_fulfilled.millisatoshis);
 	else if (streq(name, "out_fulfilled_msat"))
 		json_add_amount_msat_only(response, alias,
 					  channel_stats->out_msatoshi_fulfilled);
