@@ -13,6 +13,12 @@ bool deprecated_apis = false;
 struct channel *active_channel_by_scid(struct lightningd *ld UNNEEDED,
 				       const struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "active_channel_by_scid called!\n"); abort(); }
+/* Generated stub for arg_loglevel */
+bool arg_loglevel(const char *name UNNEEDED, struct graphql_field *field UNNEEDED, void *ctx UNNEEDED, enum log_level **ll UNNEEDED)
+{ fprintf(stderr, "arg_loglevel called!\n"); abort(); }
+/* Generated stub for arg_node_id */
+bool arg_node_id(const char *name UNNEEDED, struct graphql_field *field UNNEEDED, void *ctx UNNEEDED, struct node_id **id UNNEEDED)
+{ fprintf(stderr, "arg_node_id called!\n"); abort(); }
 /* Generated stub for bitcoind_getutxout_ */
 void bitcoind_getutxout_(struct bitcoind *bitcoind UNNEEDED,
 			 const struct bitcoin_outpoint *outpoint UNNEEDED,
@@ -356,7 +362,7 @@ void json_add_uncommitted_channel(struct json_stream *response UNNEEDED,
 				  const struct uncommitted_channel *uc UNNEEDED)
 { fprintf(stderr, "json_add_uncommitted_channel called!\n"); abort(); }
 /* Generated stub for json_add_uncommitted_channel2 */
-struct command_result *json_add_uncommitted_channel2(struct json_stream *js UNNEEDED,
+void json_add_uncommitted_channel2(struct json_stream *response UNNEEDED,
 				   struct command *cmd UNNEEDED,
 				   const struct uncommitted_channel *uc UNNEEDED,
 				   struct graphql_selection_set *ss UNNEEDED)
@@ -366,10 +372,10 @@ void json_add_unsaved_channel(struct json_stream *response UNNEEDED,
 			      const struct channel *channel UNNEEDED)
 { fprintf(stderr, "json_add_unsaved_channel called!\n"); abort(); }
 /* Generated stub for json_add_unsaved_channel2 */
-struct command_result *json_add_unsaved_channel2(struct json_stream *response UNNEEDED,
-                                                struct command *cmd UNNEEDED,
-                                                const struct channel *channel UNNEEDED,
-                                                struct graphql_selection_set *ss UNNEEDED)
+void json_add_unsaved_channel2(struct json_stream *response UNNEEDED,
+			       struct command *cmd UNNEEDED,
+			       const struct channel *channel UNNEEDED,
+			       struct graphql_selection_set *ss UNNEEDED)
 { fprintf(stderr, "json_add_unsaved_channel2 called!\n"); abort(); }
 /* Generated stub for json_array_end */
 void json_array_end(struct json_stream *js UNNEEDED)
