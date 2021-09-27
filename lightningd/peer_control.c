@@ -939,32 +939,33 @@ static void json_add_channel_inflight_field(struct json_stream *response,
 	    sel->field->alias->name->token_string)
 		alias = sel->field->alias->name->token_string;
 
-	if (streq(name, "funding_txid"))
+	if (streq(name, "funding_txid")) {
 		json_add_txid(response, alias,
 			      &inflight->funding->txid);
-	else if (streq(name, "funding_outnum"))
+	} else if (streq(name, "funding_outnum")) {
 		json_add_num(response, alias,
 			     inflight->funding->outnum);
-	else if (streq(name, "feerate"))
+	} else if (streq(name, "feerate")) {
 		json_add_string(response, alias,
 				tal_fmt(tmpctx, "%d%s",
 					inflight->funding->feerate,
 					feerate_style_name(
 						FEERATE_PER_KSIPA)));
-	else if (streq(name, "total_funding_msat"))
+	} else if (streq(name, "total_funding_msat")) {
 		json_add_amount_sat_only(response, alias,
 					 inflight->funding->total_funds);
-	else if (streq(name, "our_funding_msat"))
+	} else if (streq(name, "our_funding_msat")) {
 		json_add_amount_sat_only(response, alias,
 					 inflight->funding->our_funds);
-	else if (streq(name, "scratch_txid")) {
+	} else if (streq(name, "scratch_txid")) {
 		struct bitcoin_txid txid;
 
 		/* Add the expected commitment tx id also */
 		bitcoin_txid(inflight->last_tx, &txid);
 		json_add_txid(response, alias, &txid);
-	} else
+	} else {
 		json_add_null(response, alias);
+	}
 }
 
 static void json_add_channel_inflight(struct json_stream *response,
@@ -1056,24 +1057,24 @@ static void json_add_channel_htlc_field(struct json_stream *response,
 	const struct htlc_in *hin = (const struct htlc_in *)hinout;
 	const struct htlc_out *hout = (const struct htlc_out *)hinout;
 
-	if (streq(name, "direction"))
+	if (streq(name, "direction")) {
 		json_add_string(response, alias, in? "in":"out");
-	else if (streq(name, "id"))
+	} else if (streq(name, "id")) {
 		json_add_u64(response, alias, in? hin->key.id: hout->key.id);
-	else if (streq(name, "amount_msat"))
+	} else if (streq(name, "amount_msat")) {
 		json_add_amount_msat_only(response, alias, in? hin->msat: hout->msat);
-	else if (streq(name, "expiry")) {
+	} else if (streq(name, "expiry")) {
 		if (in)
 			json_add_u32(response, alias, hin->cltv_expiry);
 		else
 			json_add_u64(response, alias, hout->cltv_expiry);
-	} else if (streq(name, "payment_hash"))
+	} else if (streq(name, "payment_hash")) {
 		json_add_sha256(response, alias,
 				in? &hin->payment_hash: &hout->payment_hash);
-	else if (streq(name, "state"))
+	} else if (streq(name, "state")) {
 		json_add_string(response, alias,
 				htlc_state_name(in? hin->hstate: hout->hstate));
-	else if (streq(name, "local_trimmed")) {
+	} else if (streq(name, "local_trimmed")) {
 		u32 local_feerate = get_feerate(channel->fee_states,
 						channel->opener, LOCAL);
 		json_add_bool(response, alias,
@@ -1089,8 +1090,9 @@ static void json_add_channel_htlc_field(struct json_stream *response,
 			else
 				json_add_null(response, alias);
 		}
-	} else
+	} else {
 		json_add_null(response, alias);
+	}
 }
 
 static void json_add_channel_field(struct lightningd *ld,
@@ -1252,28 +1254,27 @@ static void json_add_channel_field(struct lightningd *ld,
 					response, cmd, channel,
 					*peer_funded_sats, s);
 		json_object_end(response);
-	}
-	else if (streq(name, "to_us_msat"))
+	} else if (streq(name, "to_us_msat")) {
 		json_add_amount_msat_only(response, alias, channel->our_msat);
-	else if (streq(name, "min_to_us_msat"))
+	} else if (streq(name, "min_to_us_msat")) {
 		json_add_amount_msat_only(response, alias, channel->msat_to_us_min);
-	else if (streq(name, "max_to_us_msat"))
+	} else if (streq(name, "max_to_us_msat")) {
 		json_add_amount_msat_only(response, alias, channel->msat_to_us_max);
-	else if (streq(name, "total_msat"))
+	} else if (streq(name, "total_msat")) {
 		json_add_amount_msat_only(response, alias, *funding_msat);
-	else if (streq(name, "fee_base_msat"))
+	} else if (streq(name, "fee_base_msat")) {
 		/* routing fees */
 		json_add_amount_msat_only(response, alias,
 					  amount_msat(channel->feerate_base));
-	else if (streq(name, "fee_proportional_millionths"))
+	} else if (streq(name, "fee_proportional_millionths")) {
 		json_add_u32(response, alias, channel->feerate_ppm);
-	else if (streq(name, "dust_limit_msat"))
+	} else if (streq(name, "dust_limit_msat")) {
 		/* channel config */
 		json_add_amount_sat_only(response, alias, channel->our_config.dust_limit);
-	else if (streq(name, "max_total_htlc_in_msat"))
+	} else if (streq(name, "max_total_htlc_in_msat")) {
 		json_add_amount_msat_only(response, alias,
 					  channel->our_config.max_htlc_value_in_flight);
-	else if (streq(name, "their_reserve_msat"))
+	} else if (streq(name, "their_reserve_msat")) {
 		/* The `channel_reserve_satoshis` is imposed on
 		 * the *other* side (see `channel_reserve_msat`
 		 * function in, it uses `!side` to flip sides).
@@ -1283,32 +1284,32 @@ static void json_add_channel_field(struct lightningd *ld,
 		 * imposed on ours. */
 		json_add_amount_sat_only(response, alias,
 			channel->our_config.channel_reserve);
-	else if (streq(name, "our_reserve_msat"))
+	} else if (streq(name, "our_reserve_msat")) {
 		json_add_amount_sat_only(response, alias,
 			channel->channel_info.their_config.channel_reserve);
-	else if (streq(name, "spendable_msat"))
+	} else if (streq(name, "spendable_msat")) {
 		json_add_amount_msat_only(response, alias,
 					  channel_amount_spendable(channel));
-	else if (streq(name, "receivable_msat"))
+	} else if (streq(name, "receivable_msat")) {
 		json_add_amount_msat_only(response, alias,
 					  channel_amount_receivable(channel));
-	else if (streq(name, "minimum_htlc_in_msat"))
+	} else if (streq(name, "minimum_htlc_in_msat")) {
 		json_add_amount_msat_only(response, alias,
 					  channel->our_config.htlc_minimum);
-	else if (streq(name, "their_to_self_delay"))
+	} else if (streq(name, "their_to_self_delay")) {
 		/* The `to_self_delay` is imposed on the *other*
 		 * side, so our configuration `to_self_delay` is
 		 * imposed on their side, while their configuration
 		 * `to_self_delay` is imposed on ours. */
 		json_add_num(response, alias,
 			     channel->our_config.to_self_delay);
-	else if (streq(name, "our_to_self_delay"))
+	} else if (streq(name, "our_to_self_delay")) {
 		json_add_num(response, alias,
 			     channel->channel_info.their_config.to_self_delay);
-	else if (streq(name, "max_accepted_htlcs"))
+	} else if (streq(name, "max_accepted_htlcs")) {
 		json_add_num(response, alias,
 			     channel->our_config.max_accepted_htlcs);
-	else if (streq(name, "state_changes")) {
+	} else if (streq(name, "state_changes")) {
 		struct state_change_entry *state_changes;
 		const struct graphql_selection *s;
 		state_changes = wallet_state_change_get(ld->wallet, tmpctx, channel->dbid);
@@ -1331,27 +1332,27 @@ static void json_add_channel_field(struct lightningd *ld,
 					channel->billboard.permanent[i]);
 		}
 		json_array_end(response);
-	} else if (streq(name, "in_payments_offered"))
+	} else if (streq(name, "in_payments_offered")) {
 		json_add_u64(response, alias, channel_stats->in_payments_offered);
-	else if (streq(name, "in_offered_msat"))
+	} else if (streq(name, "in_offered_msat")) {
 		json_add_amount_msat_only(response, alias,
 					  channel_stats->in_msatoshi_offered);
-	else if (streq(name, "in_payments_fulfilled"))
+	} else if (streq(name, "in_payments_fulfilled")) {
 		json_add_u64(response, alias, channel_stats->in_payments_fulfilled);
-	else if (streq(name, "in_fulfilled_msat"))
+	} else if (streq(name, "in_fulfilled_msat")) {
 		json_add_amount_msat_only(response, alias,
 					  channel_stats->in_msatoshi_fulfilled);
-	else if (streq(name, "out_payments_offered"))
+	} else if (streq(name, "out_payments_offered")) {
 		json_add_u64(response, alias, channel_stats->out_payments_offered);
-	else if (streq(name, "out_offered_msat"))
+	} else if (streq(name, "out_offered_msat")) {
 		json_add_amount_msat_only(response, alias,
 					  channel_stats->out_msatoshi_offered);
-	else if (streq(name, "out_payments_fulfilled"))
+	} else if (streq(name, "out_payments_fulfilled")) {
 		json_add_u64(response, alias, channel_stats->out_payments_fulfilled);
-	else if (streq(name, "out_fulfilled_msat"))
+	} else if (streq(name, "out_fulfilled_msat")) {
 		json_add_amount_msat_only(response, alias,
 					  channel_stats->out_msatoshi_fulfilled);
-	else if (streq(name, "htlcs")) {
+	} else if (streq(name, "htlcs")) {
 		const struct htlc_in *hin;
 		struct htlc_in_map_iter ini;
 		const struct htlc_out *hout;
@@ -1387,8 +1388,9 @@ static void json_add_channel_field(struct lightningd *ld,
 			json_object_end(response);
 		}
 		json_array_end(response);
-	} else
+	} else {
 		json_add_null(response, alias);
+	}
 }
 
 static void json_add_channel2(struct lightningd *ld,
@@ -1991,11 +1993,11 @@ static void json_add_peer_field(struct json_stream *js,
 	    sel->field->alias->name->token_string)
 		alias = sel->field->alias->name->token_string;
 
-	if (streq(name, "id"))
+	if (streq(name, "id")) {
 		json_add_node_id(js, alias, &p->id);
-	else if (streq(name, "connected"))
+	} else if (streq(name, "connected")) {
 		json_add_bool(js, alias, connected);
-	else if (streq(name, "netaddr")) {
+	} else if (streq(name, "netaddr")) {
 		/* see "features" note below */
 		json_array_start(js, alias);
 		if (connected)
@@ -2042,8 +2044,9 @@ static void json_add_peer_field(struct json_stream *js,
 		} else
 			json_add_log(js, cmd->ld->log_book, &p->id,
 				     !ll? 0 : *ll);
-	} else
+	} else {
 		json_add_null(js, alias);
+	}
 }
 
 static void json_add_peer2(struct json_stream *js,
@@ -2058,9 +2061,9 @@ static void json_add_peer2(struct json_stream *js,
 		/* Channel is also connected if uncommitted */
 		bool connected;
 		struct channel *channel;
-		if (peer->uncommitted_channel)
+		if (peer->uncommitted_channel) {
 			connected = true;
-		else {
+		} else {
 			channel = peer_active_channel(peer);
 			if (!channel)
 				channel = peer_unsaved_channel(peer);
@@ -2085,6 +2088,7 @@ static void json_add_field(struct json_stream *js,
 	    sel->field->alias->name->token_type == 'a' &&
 	    sel->field->alias->name->token_string)
 		alias = sel->field->alias->name->token_string;
+
 	if (streq(name, "peers")) {
                 struct node_id *specific_id;
 		bool invalid;

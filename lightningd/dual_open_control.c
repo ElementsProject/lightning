@@ -170,14 +170,14 @@ static void json_add_unsaved_channel_field(struct json_stream *response,
 	    sel->field->alias->name->token_string)
 		alias = sel->field->alias->name->token_string;
 
-	if (streq(name, "state"))
+	if (streq(name, "state")) {
 		json_add_string(response, alias, channel_state_name(channel));
-	else if (streq(name, "owner"))
+	} else if (streq(name, "owner")) {
 		json_add_string(response, alias, channel->owner->name);
-	else if (streq(name, "opener"))
+	} else if (streq(name, "opener")) {
 		json_add_string(response, alias, channel->opener == LOCAL ?
 						 "local" : "remote");
-	else if (streq(name, "status")) {
+	} else if (streq(name, "status")) {
 		json_array_start(response, alias);
 		for (size_t i = 0; i < ARRAY_SIZE(channel->billboard.permanent); i++) {
 			if (!channel->billboard.permanent[i])
@@ -210,8 +210,9 @@ static void json_add_unsaved_channel_field(struct json_stream *response,
 		json_add_string(response, NULL, "option_static_remotekey");
 		json_add_string(response, NULL, "option_anchor_outputs");
 		json_array_end(response);
-	} else
+	} else {
 		json_add_null(response, alias);
+	}
 }
 
 void json_add_unsaved_channel2(struct json_stream *response,

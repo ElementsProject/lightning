@@ -86,13 +86,13 @@ static void json_add_uncommitted_channel_field(
 	    sel->field->alias->name->token_string)
 		alias = sel->field->alias->name->token_string;
 
-	if (streq(name, "state"))
+	if (streq(name, "state")) {
 		json_add_string(response, alias, "OPENINGD");
-	else if (streq(name, "owner"))
+	} else if (streq(name, "owner")) {
 		json_add_string(response, alias, "lightning_openingd");
-	else if (streq(name, "opener"))
+	} else if (streq(name, "opener")) {
 		json_add_string(response, alias, "local");
-	else if (streq(name, "status")) {
+	} else if (streq(name, "status")) {
 		json_array_start(response, alias);
 		if (uc->transient_billboard)
 			json_add_string(response, NULL, uc->transient_billboard);
@@ -122,9 +122,9 @@ static void json_add_uncommitted_channel_field(
 				       OPT_ANCHOR_OUTPUTS))
 			json_add_string(response, NULL, "option_anchor_outputs");
 		json_array_end(response);
-	} else
+	} else {
 		json_add_null(response, alias);
-	return;
+	}
 }
 
 void json_add_uncommitted_channel2(struct json_stream *js,
