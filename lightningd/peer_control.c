@@ -20,6 +20,7 @@
 #include <common/configdir.h>
 #include <common/dev_disconnect.h>
 #include <common/features.h>
+#include <common/graphql_args.h>
 #include <common/htlc_trim.h>
 #include <common/initial_commit_tx.h>
 #include <common/json_command.h>
@@ -925,25 +926,13 @@ static void json_add_channel(struct lightningd *ld,
 	json_object_end(response);
 }
 
-struct command_result *json_add_channel_inflight_field(struct json_stream *response,
-						       struct command *cmd,
-                                                       struct channel_inflight *inflight,
-                                                       struct graphql_selection *sel);
-
-struct command_result *json_add_channel_inflight_field(struct json_stream *response,
-						       struct command *cmd,
-						       struct channel_inflight *inflight,
-						       struct graphql_selection *sel)
+static void json_add_channel_inflight_field(struct json_stream *response,
+					    struct command *cmd,
+					    struct channel_inflight *inflight,
+					    struct graphql_selection *sel)
 {
 	const char *name, *alias;
 
-	if (!sel->field || sel->frag_spread || sel->inline_frag)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "fragments not supported");
-	if (!sel->field->name || sel->field->name->token_type != 'a' ||
-	    !sel->field->name->token_string)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "invalid field");
 	name = alias = sel->field->name->token_string;
 	if (sel->field->alias && sel->field->alias->name &&
 	    sel->field->alias->name->token_type == 'a' &&
@@ -975,58 +964,32 @@ struct command_result *json_add_channel_inflight_field(struct json_stream *respo
 		bitcoin_txid(inflight->last_tx, &txid);
 		json_add_txid(response, alias, &txid);
 	} else
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "unknown field");
-	return NULL;
+		json_add_null(response, alias);
 }
 
-struct command_result *json_add_channel_inflight(struct json_stream *response,
-						 struct command *cmd,
-                                                 struct channel_inflight *inflight,
-                                                 struct graphql_selection_set *ss);
-
-struct command_result *json_add_channel_inflight(struct json_stream *response,
-						 struct command *cmd,
-						 struct channel_inflight *inflight,
-						 struct graphql_selection_set *ss)
+static void json_add_channel_inflight(struct json_stream *response,
+				      struct command *cmd,
+				      struct channel_inflight *inflight,
+				      struct graphql_selection_set *ss)
 {
 	struct graphql_selection *sel;
-	struct command_result *result;
 
 	json_object_start(response, NULL);
 	if (ss)
-		for (sel = ss->first; sel; sel = sel->next) {
-			result = json_add_channel_inflight_field(response, cmd,
-								 inflight, sel);
-			if (result)
-				return result;
-		}
+		for (sel = ss->first; sel; sel = sel->next)
+			json_add_channel_inflight_field(response, cmd,
+							inflight, sel);
 	json_object_end(response);
-
-	return NULL;
 }
 
-struct command_result *json_add_channel_funding_field(struct json_stream *response,
-						      struct command *cmd,
-						      const struct channel *channel,
-						      const struct amount_sat peer_funded_sats,
-                                                      const struct graphql_selection *sel);
-
-struct command_result *json_add_channel_funding_field(struct json_stream *response,
-						      struct command *cmd,
-						      const struct channel *channel,
-						      const struct amount_sat peer_funded_sats,
-						      const struct graphql_selection *sel)
+static void json_add_channel_funding_field(struct json_stream *response,
+					   struct command *cmd,
+					   const struct channel *channel,
+					   const struct amount_sat peer_funded_sats,
+					   const struct graphql_selection *sel)
 {
 	const char *name, *alias;
 
-	if (!sel->field || sel->frag_spread || sel->inline_frag)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "fragments not supported");
-	if (!sel->field->name || sel->field->name->token_type != 'a' ||
-	    !sel->field->name->token_string)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "invalid field");
 	name = alias = sel->field->name->token_string;
 	if (sel->field->alias && sel->field->alias->name &&
 	    sel->field->alias->name->token_type == 'a' &&
@@ -1038,18 +1001,10 @@ struct command_result *json_add_channel_funding_field(struct json_stream *respon
 	else if (streq(name, "remote_msat"))
 		json_add_sat_only(response, alias, peer_funded_sats);
 	else
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "unknown field");
-	return NULL;
+		json_add_null(response, alias);
 }
 
-struct command_result *json_add_channel_state_change_field(
-				struct json_stream *response,
-				struct command *cmd,
-				struct state_change_entry *state_change,
-				const struct graphql_selection *sel);
-
-struct command_result *json_add_channel_state_change_field(
+static void json_add_channel_state_change_field(
 				struct json_stream *response,
 				struct command *cmd,
 				struct state_change_entry *state_change,
@@ -1057,13 +1012,6 @@ struct command_result *json_add_channel_state_change_field(
 {
 	const char *name, *alias;
 
-	if (!sel->field || sel->frag_spread || sel->inline_frag)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "fragments not supported");
-	if (!sel->field->name || sel->field->name->token_type != 'a' ||
-	    !sel->field->name->token_string)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "invalid field");
 	name = alias = sel->field->name->token_string;
 	if (sel->field->alias && sel->field->alias->name &&
 	    sel->field->alias->name->token_type == 'a' &&
@@ -1086,32 +1034,17 @@ struct command_result *json_add_channel_state_change_field(
 		json_add_string(response, alias,
 				state_change->message);
 	else
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "unknown field");
-	return NULL;
+		json_add_null(response, alias);
 }
 
-struct command_result *json_add_channel_htlc_field(struct json_stream *response,
-						   struct command *cmd,
-						   const struct channel *channel,
-                                                   const void *hinout, bool in,
-                                                   const struct graphql_selection *sel);
-
-struct command_result *json_add_channel_htlc_field(struct json_stream *response,
-						   struct command *cmd,
-						   const struct channel *channel,
-						   const void *hinout, bool in,
-						   const struct graphql_selection *sel)
+static void json_add_channel_htlc_field(struct json_stream *response,
+					struct command *cmd,
+					const struct channel *channel,
+					const void *hinout, bool in,
+					const struct graphql_selection *sel)
 {
 	const char *name, *alias;
 
-	if (!sel->field || sel->frag_spread || sel->inline_frag)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "fragments not supported");
-	if (!sel->field->name || sel->field->name->token_type != 'a' ||
-	    !sel->field->name->token_string)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "invalid field");
 	name = alias = sel->field->name->token_string;
 	if (sel->field->alias && sel->field->alias->name &&
 	    sel->field->alias->name->token_type == 'a' &&
@@ -1160,41 +1093,21 @@ struct command_result *json_add_channel_htlc_field(struct json_stream *response,
 				json_add_null(response, alias);
 		}
 	} else
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "unknown field");
-	return NULL;
+		json_add_null(response, alias);
 }
 
-struct command_result *json_add_channel_field(struct lightningd *ld,
-                                              struct json_stream *response,
-					      struct command *cmd,
-                                              const struct channel *channel,
-					      const struct amount_sat *peer_funded_sats,
-					      const struct amount_msat *funding_msat,
-					      const struct channel_stats *channel_stats,
-                                              bool inflights,
-                                              const struct graphql_selection *sel);
-
-struct command_result *json_add_channel_field(struct lightningd *ld,
-					      struct json_stream *response,
-					      struct command *cmd,
-					      const struct channel *channel,
-					      const struct amount_sat *peer_funded_sats,
-					      const struct amount_msat *funding_msat,
-					      const struct channel_stats *channel_stats,
-					      bool inflights,
-					      const struct graphql_selection *sel)
+static void json_add_channel_field(struct lightningd *ld,
+				   struct json_stream *response,
+				   struct command *cmd,
+				   const struct channel *channel,
+				   const struct amount_sat *peer_funded_sats,
+				   const struct amount_msat *funding_msat,
+				   const struct channel_stats *channel_stats,
+				   bool inflights,
+				   const struct graphql_selection *sel)
 {
-	struct command_result *result;
 	const char *name, *alias;
 
-	if (!sel->field || sel->frag_spread || sel->inline_frag)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "fragments not supported");
-	if (!sel->field->name || sel->field->name->token_type != 'a' ||
-	    !sel->field->name->token_string)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "invalid field");
 	name = alias = sel->field->name->token_string;
 	if (sel->field->alias && sel->field->alias->name &&
 	    sel->field->alias->name->token_type == 'a' &&
@@ -1291,10 +1204,8 @@ struct command_result *json_add_channel_field(struct lightningd *ld,
 		/* List the inflights */
 		json_array_start(response, alias);
 		list_for_each(&channel->inflights, inflight, list) {
-			result = json_add_channel_inflight(response, cmd, inflight,
-							   sel->field->sel_set);
-			if (result)
-				return result;
+			json_add_channel_inflight(response, cmd, inflight,
+						  sel->field->sel_set);
 		}
 		json_array_end(response);
 	} else if (streq(name, "close_to_addr")) {
@@ -1339,13 +1250,10 @@ struct command_result *json_add_channel_field(struct lightningd *ld,
 		struct graphql_selection *s;
 		json_object_start(response, alias);
 		if (sel->field->sel_set)
-			for (s = sel->field->sel_set->first; s; s = s->next) {
-				result = json_add_channel_funding_field(
-						response, cmd, channel,
-						*peer_funded_sats, s);
-				if (result)
-					return result;
-			}
+			for (s = sel->field->sel_set->first; s; s = s->next)
+				json_add_channel_funding_field(
+					response, cmd, channel,
+					*peer_funded_sats, s);
 		json_object_end(response);
 	} else if (streq(name, "msatoshi_to_us"))
 		json_add_u64(response, alias, channel->our_msat.millisatoshis);
@@ -1438,12 +1346,9 @@ struct command_result *json_add_channel_field(struct lightningd *ld,
 		for (size_t i = 0; i < tal_count(state_changes); i++) {
 			json_object_start(response, NULL);
 			if (sel->field->sel_set)
-				for (s = sel->field->sel_set->first; s; s = s->next) {
-					result = json_add_channel_state_change_field(
-							response, cmd, &state_changes[i], s);
-					if (result)
-						return result;
-				}
+				for (s = sel->field->sel_set->first; s; s = s->next)
+					json_add_channel_state_change_field(
+						response, cmd, &state_changes[i], s);
 			json_object_end(response);
 		}
 		json_array_end(response);
@@ -1504,13 +1409,10 @@ struct command_result *json_add_channel_field(struct lightningd *ld,
 				continue;
 			json_object_start(response, NULL);
 			if (sel->field->sel_set)
-				for (s = sel->field->sel_set->first; s; s = s->next) {
-					result = json_add_channel_htlc_field(
-							response, cmd, channel,
-							hin, true, s);
-					if (result)
-						return result;
-				}
+				for (s = sel->field->sel_set->first; s; s = s->next)
+					json_add_channel_htlc_field(
+						response, cmd, channel,
+						hin, true, s);
 			json_object_end(response);
 		}
 		for (hout = htlc_out_map_first(&ld->htlcs_out, &outi);
@@ -1520,39 +1422,27 @@ struct command_result *json_add_channel_field(struct lightningd *ld,
 				continue;
 			json_object_start(response, NULL);
 			if (sel->field->sel_set)
-				for (s = sel->field->sel_set->first; s; s = s->next) {
-					result = json_add_channel_htlc_field(
-							response, cmd, channel,
-							hout, false, s);
-					if (result)
-						return result;
-				}
+				for (s = sel->field->sel_set->first; s; s = s->next)
+					json_add_channel_htlc_field(
+						response, cmd, channel,
+						hout, false, s);
 			json_object_end(response);
 		}
 		json_array_end(response);
 	} else
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "unknown field");
-	return NULL;
+		json_add_null(response, alias);
 }
 
-struct command_result *json_add_channel2(struct lightningd *ld,
-                                         struct json_stream *response, const char *key,
-					 struct command *cmd,
-                                         const struct channel *channel,
-                                         const struct graphql_selection_set *ss);
-
-struct command_result *json_add_channel2(struct lightningd *ld,
-					 struct json_stream *response, const char *key,
-					 struct command *cmd,
-					 const struct channel *channel,
-					 const struct graphql_selection_set *ss)
+static void json_add_channel2(struct lightningd *ld,
+			      struct json_stream *response, const char *key,
+			      struct command *cmd,
+			      const struct channel *channel,
+			      const struct graphql_selection_set *ss)
 {
 	struct channel_stats channel_stats;
 	struct amount_msat funding_msat, peer_msats, our_msats;
 	struct amount_sat peer_funded_sats;
 	const struct graphql_selection *sel;
-	struct command_result *result;
 
 	bool inf = !list_empty(&channel->inflights);
 
@@ -1594,18 +1484,12 @@ struct command_result *json_add_channel2(struct lightningd *ld,
 
         json_object_start(response, key);
         if (ss)
-                for (sel = ss->first; sel; sel = sel->next) {
-                        result = json_add_channel_field(ld, response, cmd, channel,
-							&peer_funded_sats,
-							&funding_msat,
-							&channel_stats,
-                                                        inf, sel);
-                        if (result)
-                                return result;
-                }
+                for (sel = ss->first; sel; sel = sel->next)
+                        json_add_channel_field(ld, response, cmd, channel,
+					       &peer_funded_sats,
+					       &funding_msat, &channel_stats,
+					       inf, sel);
         json_object_end(response);
-
-        return NULL;
 }
 
 struct peer_connected_hook_payload {
@@ -2136,31 +2020,19 @@ static void json_add_peer(struct lightningd *ld,
 	json_object_end(response);
 }
 
-struct command_result *json_add_peer_field(struct json_stream *js,
-                                           struct command *cmd,
-                                           const struct peer *p, bool connected,
-                                           const struct graphql_selection *sel);
-
-struct command_result *json_add_peer_field(struct json_stream *js,
-					   struct command *cmd,
-					   const struct peer *p, bool connected,
-					   const struct graphql_selection *sel)
+static void json_add_peer_field(struct json_stream *js,
+				struct command *cmd,
+				const struct peer *p, bool connected,
+				const struct graphql_selection *sel)
 {
-	struct command_result *result;
 	const char *name, *alias;
 
-	if (!sel->field || sel->frag_spread || sel->inline_frag)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "fragments not supported");
-	if (!sel->field->name || sel->field->name->token_type != 'a' ||
-	    !sel->field->name->token_string)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "invalid field");
 	name = alias = sel->field->name->token_string;
 	if (sel->field->alias && sel->field->alias->name &&
 	    sel->field->alias->name->token_type == 'a' &&
 	    sel->field->alias->name->token_string)
 		alias = sel->field->alias->name->token_string;
+
 	if (streq(name, "id"))
 		json_add_node_id(js, alias, &p->id);
 	else if (streq(name, "connected"))
@@ -2185,48 +2057,42 @@ struct command_result *json_add_peer_field(struct json_stream *js,
 	} else if (streq(name, "channels")) {
 		struct channel *channel;
 		json_array_start(js, alias);
-		result = json_add_uncommitted_channel2(js, cmd,
-						       p->uncommitted_channel,
-						       sel->field->sel_set);
-		if (result)
-			return result;
+		json_add_uncommitted_channel2(js, cmd,
+					      p->uncommitted_channel,
+					      sel->field->sel_set);
 
 		list_for_each(&p->channels, channel, list) {
-			if (channel_unsaved(channel)) {
-				result = json_add_unsaved_channel2(js, cmd, channel,
-								   sel->field->sel_set);
-			} else {
-				result = json_add_channel2(cmd->ld, js, NULL,
-							   cmd, channel,
-							   sel->field->sel_set);
-			}
-			if (result)
-				return result;
+			if (channel_unsaved(channel))
+				json_add_unsaved_channel2(js, cmd, channel,
+							  sel->field->sel_set);
+			else
+				json_add_channel2(cmd->ld, js, NULL,
+						  cmd, channel,
+						  sel->field->sel_set);
 		}
 		json_array_end(js);
+
 	} else if (streq(name, "log")) {
-		if (!streq(alias, "log"))
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "alias not allowed");
-		enum log_level *ll = 0;//TODO: gql_getarg(sel->field, "level");
-		json_add_log(js, cmd->ld->log_book, &p->id, !ll? 0 : *ll);
+		enum log_level *ll;
+		bool invalid;
+                invalid = arg_loglevel("level", sel->field, cmd, &ll)
+			  && !ll;
+		if (invalid) {
+			/* return an empty array */
+			json_array_start(js, name);
+			json_array_end(js);
+		} else
+			json_add_log(js, cmd->ld->log_book, &p->id,
+				     !ll? 0 : *ll);
 	} else
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "unknown field");
-	return NULL;
+		json_add_null(js, alias);
 }
 
-struct command_result *json_add_peer2(struct json_stream *js,
-				      struct command *cmd,
-				      struct peer *p,
-				      const struct graphql_selection *sel);
-
-struct command_result *json_add_peer2(struct json_stream *js,
-				      struct command *cmd,
-				      struct peer *peer,
-				      const struct graphql_selection *sel)
+static void json_add_peer2(struct json_stream *js,
+			   struct command *cmd,
+			   struct peer *peer,
+			   const struct graphql_selection *sel)
 {
-	struct command_result *result;
 	const struct graphql_selection *s;
 
 	json_object_start(js, NULL);
@@ -2244,73 +2110,56 @@ struct command_result *json_add_peer2(struct json_stream *js,
 		}
 
 		for (s = sel->field->sel_set->first; s; s = s->next)
-			if ((result = json_add_peer_field(js, cmd, peer,
-							  connected, s)))
-				return result;
+			json_add_peer_field(js, cmd, peer, connected, s);
 	}
 	json_object_end(js);
-	return NULL;
 }
 
-struct command_result *json_add_field(struct json_stream *js,
-                                      struct command *cmd,
-                                      const struct graphql_selection *sel);
-
-struct command_result *json_add_field(struct json_stream *js,
-				      struct command *cmd,
-				      const struct graphql_selection *sel)
+static void json_add_field(struct json_stream *js,
+			   struct command *cmd,
+			   const struct graphql_selection *sel)
 {
-	struct command_result *result;
 	const char *name, *alias;
 	struct peer *peer;
 
-	if (!sel->field || sel->frag_spread || sel->inline_frag)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "fragments not supported");
-	if (!sel->field->name || sel->field->name->token_type != 'a' ||
-	    !sel->field->name->token_string)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "invalid field");
 	name = alias = sel->field->name->token_string;
 	if (sel->field->alias && sel->field->alias->name &&
 	    sel->field->alias->name->token_type == 'a' &&
 	    sel->field->alias->name->token_string)
 		alias = sel->field->alias->name->token_string;
 	if (streq(name, "peers")) {
+                struct node_id *specific_id;
+		bool invalid;
+		invalid = arg_node_id("id", sel->field, cmd, &specific_id)
+			  && !specific_id;
+
 		json_array_start(js, alias);
-		list_for_each(&cmd->ld->peers, peer, list) {
-			if ((result = json_add_peer2(js, cmd, peer, sel)))
-				return result;
+		if (!invalid) {
+			if (specific_id) {
+				peer = peer_by_id(cmd->ld, specific_id);
+				if (peer)
+					json_add_peer2(js, cmd, peer, sel);
+			} else {
+				list_for_each(&cmd->ld->peers, peer, list)
+					json_add_peer2(js, cmd, peer, sel);
+			}
 		}
 		json_array_end(js);
-	} else
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-                                    "unknown field");
-	return NULL;
+	} else {
+		json_add_null(js, alias);
+	}
 }
 
-struct command_result *json_add_op(struct json_stream *js,
-                                   struct command *cmd,
-                                   const struct graphql_operation_definition *op);
-
-struct command_result *json_add_op(struct json_stream *js,
-				   struct command *cmd,
-				   const struct graphql_operation_definition *op)
+static void json_add_op(struct json_stream *js,
+			struct command *cmd,
+			const struct graphql_operation_definition *op)
 {
-	struct command_result *result;
 	const struct graphql_selection *sel;
 
-	if (op->op_type && op->op_type->op_type &&
-	    !(op->op_type->op_type->token_type == 'a' &&
-	      streq(op->op_type->op_type->token_string, "query")))
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-                                    "only query operations are supported");
-	if (op->sel_set)
+	if (!op->op_type && op->sel_set)
 		for (sel = op->sel_set->first; sel; sel = sel->next) {
-			if ((result = json_add_field(js, cmd, sel)))
-				return result;
+			json_add_field(js, cmd, sel);
 		}
-	return NULL;
 }
 
 static struct command_result *json_listpeers(struct command *cmd,
@@ -2326,7 +2175,6 @@ static struct command_result *json_listpeers(struct command *cmd,
 	struct graphql_executable_definition *def;
 	struct peer *peer;
 	struct json_stream *response;
-	struct command_result *result;
 
 	if (!param(cmd, buffer, params,
 		   p_opt("id", param_node_id, &specific_id),
@@ -2335,26 +2183,21 @@ static struct command_result *json_listpeers(struct command *cmd,
 		   NULL))
 		return command_param_failed();
 
-	if (specific_id != NULL && querystr != NULL)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-                                    "{id} and {query} are mutually exclusive");
-
 	if (querystr) {
+		if (specific_id != NULL || ll != NULL)
+			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
+					    "When {query} is used, {id} and/or"
+					    " {level} should be incorporated "
+					    "in the query");
+
 		if ((queryerr = graphql_lexparse(querystr, cmd, &toks, &doc)))
 			return command_fail_badparam(cmd, "query", buffer,
 						     params, queryerr);
-		if (!doc)
-			return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-					    "invalid GraphQL executable document");
 
 		response = json_stream_success(cmd);
-		for (def = doc->first_def; def; def = def->next_def) {
-			if (!def->op_def || def->frag_def)
-				return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-						    "fragments not supported");
-			if ((result = json_add_op(response, cmd, def->op_def)))
-				return result;
-		}
+		for (def = doc->first_def; def; def = def->next_def)
+			if (def->op_def)
+				json_add_op(response, cmd, def->op_def);
 	} else {
 		response = json_stream_success(cmd);
 		json_array_start(response, "peers");

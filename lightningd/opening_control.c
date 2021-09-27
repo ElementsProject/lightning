@@ -138,22 +138,21 @@ struct command_result *json_add_uncommitted_channel_field(
 	return NULL;
 }
 
-struct command_result *json_add_uncommitted_channel2(struct json_stream *js,
-						     struct command *cmd,
-						     const struct uncommitted_channel *uc,
-						     struct graphql_selection_set *ss)
+void json_add_uncommitted_channel2(struct json_stream *js,
+				   struct command *cmd,
+				   const struct uncommitted_channel *uc,
+				   struct graphql_selection_set *ss)
 {
-	struct command_result *result;
 	struct amount_msat total, ours;
 	bool amounts_valid;
 	struct graphql_selection *sel;
 
 	if (!uc)
-		return NULL;
+		return;
 
 	/* If we're chatting but no channel, that's shown by connected: True */
 	if (!uc->fc)
-		return NULL;
+		return;
 
 	amounts_valid = (amount_sat_to_msat(&total, uc->fc->funding)
 		      && amount_msat_sub(&ours, total, uc->fc->push));
@@ -164,14 +163,10 @@ struct command_result *json_add_uncommitted_channel2(struct json_stream *js,
 
 	json_object_start(js, NULL);
 	if (ss)
-		for (sel = ss->first; sel; sel = sel->next) {
-			result = json_add_uncommitted_channel_field(js, cmd, uc, &ours, &total, sel);
-			if (result)
-				return result;
-		}
+		for (sel = ss->first; sel; sel = sel->next)
+			json_add_uncommitted_channel_field(js, cmd, uc, &ours,
+							   &total, sel);
 	json_object_end(js);
-
-	return NULL;
 }
 
 /* Steals fields from uncommitted_channel: returns NULL if can't generate a

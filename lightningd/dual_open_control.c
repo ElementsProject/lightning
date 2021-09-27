@@ -157,27 +157,14 @@ void json_add_unsaved_channel(struct json_stream *response,
 	json_object_end(response);
 }
 
-struct command_result *json_add_unsaved_channel_field(struct json_stream *response,
-                                                      struct command *cmd,
-                                                      const struct channel *channel,
-                                                      struct amount_msat *total,
-                                                      struct graphql_selection *sel);
-
-struct command_result *json_add_unsaved_channel_field(struct json_stream *response,
-						      struct command *cmd,
-						      const struct channel *channel,
-						      struct amount_msat *total,
-						      struct graphql_selection *sel)
+static void json_add_unsaved_channel_field(struct json_stream *response,
+					   struct command *cmd,
+					   const struct channel *channel,
+					   struct amount_msat *total,
+					   struct graphql_selection *sel)
 {
 	const char *name, *alias;
 
-	if (!sel->field || sel->frag_spread || sel->inline_frag)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "fragments not supported");
-	if (!sel->field->name || sel->field->name->token_type != 'a' ||
-	    !sel->field->name->token_string)
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "invalid field");
 	name = alias = sel->field->name->token_string;
 	if (sel->field->alias && sel->field->alias->name &&
 	    sel->field->alias->name->token_type == 'a' &&
@@ -218,27 +205,24 @@ struct command_result *json_add_unsaved_channel_field(struct json_stream *respon
 		json_add_string(response, NULL, "option_anchor_outputs");
 		json_array_end(response);
 	} else
-		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
-				    "unknown field");
-	return NULL;
+		json_add_null(response, alias);
 }
 
-struct command_result *json_add_unsaved_channel2(struct json_stream *response,
-						struct command *cmd,
-						const struct channel *channel,
-						struct graphql_selection_set *ss)
+void json_add_unsaved_channel2(struct json_stream *response,
+			       struct command *cmd,
+			       const struct channel *channel,
+			       struct graphql_selection_set *ss)
 {
 	struct amount_msat total;
 	bool amounts_valid;
 	struct graphql_selection *sel;
-	struct command_result *result;
 
 	if (!channel)
-		return NULL;
+		return;
 
 	/* If we're chatting but no channel, that's shown by connected: True */
 	if (!channel->open_attempt)
-		return NULL;
+		return;
 
 	/* funding + our_upfront_shutdown only available if we're initiator */
 	amounts_valid = channel->open_attempt->role == TX_INITIATOR &&
@@ -249,14 +233,10 @@ struct command_result *json_add_unsaved_channel2(struct json_stream *response,
 	json_object_start(response, NULL);
 	if (ss)
 		for (sel = ss->first; sel; sel = sel->next) {
-			result = json_add_unsaved_channel_field(response, cmd, channel,
-								&total, sel);
-			if (result)
-				return result;
+			json_add_unsaved_channel_field(response, cmd, channel,
+						       &total, sel);
 		}
 	json_object_end(response);
-
-	return NULL;
 }
 
 struct rbf_channel_payload {
