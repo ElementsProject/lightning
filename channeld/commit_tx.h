@@ -25,6 +25,26 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
 			       enum side side);
 
 /**
+ * commit_tx_amount_trimmed: what's the sum of trimmed htlc amounts?
+ * @htlcs: tal_arr of HTLCs
+ * @feerate_per_kw: feerate to use
+ * @dust_limit: dust limit below which to trim outputs.
+ * @option_anchor_outputs: does option_anchor_outputs apply to this channel?
+ * @side: from which side's point of view
+ * @amt: returned, total value trimmed from this commitment
+ *
+ * We need @side because HTLC fees are different for offered and
+ * received HTLCs.
+ *
+ * Returns false if unable to calculate amount trimmed.
+ */
+bool commit_tx_amount_trimmed(const struct htlc **htlcs,
+			      u32 feerate_per_kw,
+			      struct amount_sat dust_limit,
+			      bool option_anchor_outputs,
+			      enum side side,
+			      struct amount_msat *amt);
+/**
  * commit_tx: create (unsigned) commitment tx to spend the funding tx output
  * @ctx: context to allocate transaction and @htlc_map from.
  * @funding, @funding_sats: funding outpoint and amount

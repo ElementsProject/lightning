@@ -35,6 +35,22 @@ size_t commit_tx_num_untrimmed(const struct htlc **htlcs,
 	return n;
 }
 
+bool commit_tx_amount_trimmed(const struct htlc **htlcs,
+			      u32 feerate_per_kw,
+			      struct amount_sat dust_limit,
+			      bool option_anchor_outputs,
+			      enum side side,
+			      struct amount_msat *amt)
+{
+	for (size_t i = 0; i < tal_count(htlcs); i++) {
+		if (trim(htlcs[i], feerate_per_kw, dust_limit,
+			 option_anchor_outputs, side))
+			if (!amount_msat_add(amt, *amt, htlcs[i]->amount))
+				return false;
+	}
+	return true;
+}
+
 static void add_offered_htlc_out(struct bitcoin_tx *tx, size_t n,
 				 const struct htlc *htlc,
 				 const struct keyset *keyset,

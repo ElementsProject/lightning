@@ -181,6 +181,18 @@ u32 approx_max_feerate(const struct channel *channel);
 bool can_opener_afford_feerate(const struct channel *channel, u32 feerate);
 
 /**
+ * htlc_dust_ok: will this feerate keep our dusted htlc's beneath
+ * 		 the updated feerate?
+ *
+ * @channel: The channel state
+ * @feerate_per_kw: new feerate to test ok'ness for
+ * @side: which side's htlcs to verify
+ */
+bool htlc_dust_ok(const struct channel *channel,
+		  u32 feerate_per_kw,
+		  enum side side);
+
+/**
  * channel_update_feerate: Change fee rate on non-opener side.
  * @channel: The channel
  * @feerate_per_kw: fee in satoshi per 1000 bytes.
