@@ -222,9 +222,10 @@ struct wallet_payment {
 	u64 id;
 	u32 timestamp;
 
-	/* The combination of these two fields is unique: */
+	/* The combination of these three fields is unique: */
 	struct sha256 payment_hash;
 	u64 partid;
+	u64 groupid;
 
 	enum wallet_payment_status status;
 

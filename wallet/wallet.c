@@ -2931,8 +2931,9 @@ void wallet_payment_store(struct wallet *wallet,
 		    "  bolt11,"
 		    "  total_msat,"
 		    "  partid,"
-		    "  local_offer_id"
-		    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+		    "  local_offer_id,"
+		    "  groupid"
+		    ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_int(stmt, 0, payment->status);
 	db_bind_sha256(stmt, 1, &payment->payment_hash);
@@ -2978,6 +2979,8 @@ void wallet_payment_store(struct wallet *wallet,
 		db_bind_sha256(stmt, 13, payment->local_offer_id);
 	else
 		db_bind_null(stmt, 13);
+
+	db_bind_u64(stmt, 14, payment->groupid);
 
 	db_exec_prepared_v2(stmt);
 	payment->id = db_last_insert_id_v2(stmt);
@@ -3105,6 +3108,11 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	} else
 		payment->local_offer_id = NULL;
 
+	if (!db_column_is_null(stmt, 17))
+		payment->groupid = db_column_u64(stmt, 17);
+	else
+		payment->groupid = 0;
+
 	return payment;
 }
 
@@ -3139,6 +3147,7 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 					     ", total_msat"
 					     ", partid"
 					     ", local_offer_id"
+					     ", groupid"
 					     " FROM payments"
 					     " WHERE payment_hash = ?"
 					     " AND partid = ?"));
@@ -3370,6 +3379,7 @@ wallet_payment_list(const tal_t *ctx,
 				      ", total_msat"
 				      ", partid"
 				      ", local_offer_id"
+				      ", groupid"
 				      " FROM payments"
 				      " WHERE"
 				      "  (payment_hash = ? OR 1=?) AND"
@@ -3435,6 +3445,7 @@ wallet_payments_by_offer(const tal_t *ctx,
 					     ", total_msat"
 					     ", partid"
 					     ", local_offer_id"
+					     ", groupid"
 					     " FROM payments"
 					     " WHERE local_offer_id = ?;"));
 	db_bind_sha256(stmt, 0, local_offer_id);
