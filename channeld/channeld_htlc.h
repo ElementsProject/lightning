@@ -28,6 +28,9 @@ struct htlc {
 
 	/* Blinding (optional). */
 	struct pubkey *blinding;
+
+	/* Should we immediately fail this htlc? */
+	bool fail_immediate;
 };
 
 static inline bool htlc_has(const struct htlc *h, int flag)

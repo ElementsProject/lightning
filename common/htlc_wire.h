@@ -15,6 +15,7 @@ struct added_htlc {
 	struct sha256 payment_hash;
 	u32 cltv_expiry;
 	u8 onion_routing_packet[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)];
+	bool fail_immediate;
 
 	/* If this is non-NULL, secret is the resulting shared secret */
 	struct pubkey *blinding;

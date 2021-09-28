@@ -738,7 +738,11 @@ static void handle_peer_add_htlc(struct peer *peer, const u8 *msg)
 #endif
 	add_err = channel_add_htlc(peer->channel, REMOTE, id, amount,
 				   cltv_expiry, &payment_hash,
-				   onion_routing_packet, blinding, &htlc, NULL);
+				   onion_routing_packet, blinding, &htlc, NULL,
+				   /* We don't immediately fail incoming htlcs,
+				    * instead we wait and fail them after
+				    * they've been committed */
+				   false);
 	if (add_err != CHANNEL_ERR_ADD_OK)
 		peer_failed_warn(peer->pps, &peer->channel_id,
 				 "Bad peer_add_htlc: %s",
@@ -1468,6 +1472,7 @@ static void marshall_htlc_info(const tal_t *ctx,
 				ecdh(a.blinding, &a.blinding_ss);
 			} else
 				a.blinding = NULL;
+			a.fail_immediate = htlc->fail_immediate;
 			tal_arr_expand(added, a);
 		} else if (htlc->state == RCVD_REMOVE_COMMIT) {
 			if (htlc->r) {
@@ -3299,7 +3304,8 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 
 	e = channel_add_htlc(peer->channel, LOCAL, peer->htlc_id,
 			     amount, cltv_expiry, &payment_hash,
-			     onion_routing_packet, take(blinding), NULL, &htlc_fee);
+			     onion_routing_packet, take(blinding), NULL,
+			     &htlc_fee, true);
 	status_debug("Adding HTLC %"PRIu64" amount=%s cltv=%u gave %s",
 		     peer->htlc_id,
 		     type_to_string(tmpctx, struct amount_msat, &amount),

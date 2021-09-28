@@ -103,6 +103,10 @@ u32 actual_feerate(const struct channel *channel,
  * @routing: routing information (copied)
  * @blinding: optional blinding information for this HTLC.
  * @htlcp: optional pointer for resulting htlc: filled in if and only if CHANNEL_ERR_NONE.
+ * @err_immediate_failures: in some cases (dusty htlcs) we want to immediately
+ *                          fail the htlc; for peer incoming don't want to
+ *                          error, but rather mark it as failed and fail after
+ *                          it's been committed to (so set this to false)
  *
  * If this returns CHANNEL_ERR_NONE, the fee htlc was added and
  * the output amounts adjusted accordingly.  Otherwise nothing
@@ -117,7 +121,8 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      const u8 routing[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
 				      const struct pubkey *blinding TAKES,
 				      struct htlc **htlcp,
-				      struct amount_sat *htlc_fee);
+				      struct amount_sat *htlc_fee,
+				      bool err_immediate_failures);
 
 /**
  * channel_get_htlc: find an HTLC

@@ -52,6 +52,8 @@ struct htlc_in {
 	struct secret blinding_ss;
 	/* true if we supplied the preimage */
 	bool *we_filled;
+	/* true if we immediately fail the htlc (too much dust) */
+	bool fail_immediate;
 
 	/* A simple text annotation shown in `listpeers` */
 	char *status;
@@ -154,7 +156,8 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    const struct secret *shared_secret TAKES,
 			    const struct pubkey *blinding TAKES,
 			    const struct secret *blinding_ss,
-			    const u8 *onion_routing_packet);
+			    const u8 *onion_routing_packet,
+			    bool fail_immediate);
 
 /* You need to set the ID, then connect_htlc_out this! */
 struct htlc_out *new_htlc_out(const tal_t *ctx,

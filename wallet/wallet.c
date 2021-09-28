@@ -2317,8 +2317,9 @@ void wallet_htlc_save_in(struct wallet *wallet,
 				 " shared_secret,"
 				 " routing_onion,"
 				 " received_time,"
-				 " min_commit_num) VALUES "
-				 "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 " min_commit_num, "
+				 " fail_immediate) VALUES "
+				 "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, chan->dbid);
 	db_bind_u64(stmt, 1, in->key.id);
@@ -2344,6 +2345,8 @@ void wallet_htlc_save_in(struct wallet *wallet,
 	db_bind_timeabs(stmt, 10, in->received_time);
 	db_bind_u64(stmt, 11, min_unsigned(chan->next_index[LOCAL]-1,
 					   chan->next_index[REMOTE]-1));
+
+	db_bind_int(stmt, 12, in->fail_immediate);
 
 	db_exec_prepared_v2(stmt);
 	in->dbid = db_last_insert_id_v2(take(stmt));
@@ -2555,6 +2558,8 @@ static bool wallet_stmt2htlc_in(struct channel *channel,
 	} else
 		in->we_filled = NULL;
 
+	in->fail_immediate = db_column_int(stmt, 14);
+
 	return ok;
 }
 
@@ -2683,6 +2688,7 @@ bool wallet_htlcs_load_in_for_channel(struct wallet *wallet,
 					     ", shared_secret"
 					     ", received_time"
 					     ", we_filled"
+					     ", fail_immediate"
 					     " FROM channel_htlcs"
 					     " WHERE direction= ?"
 					     " AND channel_id= ?"
