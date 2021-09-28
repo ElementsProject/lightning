@@ -42,3 +42,15 @@ bool htlc_is_trimmed(enum side htlc_owner,
 		return true;
 	return amount_msat_less_sat(htlc_amount, htlc_min);
 }
+
+/*  Minimum amount of headroom we should use for
+ *  anticipated feerate adjustments */
+#define HTLC_FEE_MIN_RANGE 2530
+#define max(a, b) ((a) > (b) ? (a) : (b))
+
+u32 htlc_trim_feerate_ceiling(u32 feerate_per_kw)
+{
+	/* Add the greater of 1.25x or 2530 sat/kw */
+	return max(feerate_per_kw + feerate_per_kw / 4,
+		   feerate_per_kw + HTLC_FEE_MIN_RANGE);
+}

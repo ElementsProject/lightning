@@ -1292,6 +1292,14 @@ static void send_commit(struct peer *peer)
 		if (feerate_changes_done(peer->channel->fee_states, false)) {
 			u8 *msg;
 
+			/* Is this feerate update going to push the committed
+			 * htlcs over our allowed dust limits? */
+			if (!htlc_dust_ok(peer->channel, feerate_target, REMOTE)
+			   || !htlc_dust_ok(peer->channel, feerate_target, LOCAL))
+				/* We fail the channel. Oops */
+				peer_failed_err(peer->pps, &peer->channel_id,
+						"Too much dust to update fee");
+
 			if (!channel_update_feerate(peer->channel, feerate_target))
 				status_failed(STATUS_FAIL_INTERNAL_ERROR,
 					      "Could not afford feerate %u"
@@ -3359,6 +3367,10 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 	case CHANNEL_ERR_TOO_MANY_HTLCS:
 		failwiremsg = towire_temporary_channel_failure(inmsg, get_local_channel_update(inmsg, peer));
 		failstr = "Too many HTLCs";
+		goto failed;
+	case CHANNEL_ERR_DUST_FAILURE:
+		failwiremsg = towire_temporary_channel_failure(inmsg, get_local_channel_update(inmsg, peer));
+		failstr = "HTLC too dusty, allowed dust limit reached";
 		goto failed;
 	}
 	/* Shouldn't return anything else! */

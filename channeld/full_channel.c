@@ -7,6 +7,7 @@
 #include <common/blockheight_states.h>
 #include <common/features.h>
 #include <common/fee_states.h>
+#include <common/htlc_trim.h>
 #include <common/htlc_tx.h>
 #include <common/htlc_wire.h>
 #include <common/keyset.h>
@@ -423,6 +424,37 @@ static struct amount_sat fee_for_htlcs(const struct channel *channel,
 	return commit_tx_base_fee(feerate, untrimmed, option_anchor_outputs);
 }
 
+static bool htlc_dust(const struct channel *channel,
+		      const struct htlc **committed,
+		      const struct htlc **adding,
+		      const struct htlc **removing,
+		      enum side side,
+		      u32 feerate,
+		      struct amount_msat *trim_total)
+{
+	struct amount_sat dust_limit = channel->config[side].dust_limit;
+	bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	struct amount_msat trim_rmvd = AMOUNT_MSAT(0);
+
+	if (!commit_tx_amount_trimmed(committed, feerate,
+				      dust_limit,
+				      option_anchor_outputs,
+				      side, trim_total))
+		return false;
+	if (!commit_tx_amount_trimmed(adding, feerate,
+				      dust_limit,
+				      option_anchor_outputs,
+				      side, trim_total))
+		return false;
+	if (!commit_tx_amount_trimmed(removing, feerate,
+				      dust_limit,
+				      option_anchor_outputs,
+				      side, &trim_rmvd))
+		return false;
+
+	return amount_msat_sub(trim_total, *trim_total, trim_rmvd);
+}
+
 /*
  * There is a corner case where the opener can spend so much that the
  * non-opener can't add any non-dust HTLCs (since the opener would
@@ -497,12 +529,14 @@ static enum channel_add_err add_htlc(struct channel *channel,
 				     bool err_immediate_failures)
 {
 	struct htlc *htlc, *old;
-	struct amount_msat msat_in_htlcs, committed_msat, adding_msat, removing_msat;
+	struct amount_msat msat_in_htlcs, committed_msat,
+			   adding_msat, removing_msat, htlc_dust_amt;
 	enum side sender = htlc_state_owner(state), recipient = !sender;
 	const struct htlc **committed, **adding, **removing;
 	const struct channel_view *view;
 	size_t htlc_count;
 	bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
+	u32 feerate, feerate_ceil;
 
 	htlc = tal(tmpctx, struct htlc);
 
@@ -753,6 +787,42 @@ static enum channel_add_err add_htlc(struct channel *channel,
 		}
 	}
 
+	htlc_dust_amt = AMOUNT_MSAT(0);
+	feerate = channel_feerate(channel, recipient);
+	/* Note that we check for trimmed htlcs at an
+	 * *accelerated* rate, so that future feerate changes
+	 * don't suddenly surprise us */
+	feerate_ceil = htlc_trim_feerate_ceiling(feerate);
+
+	if (!htlc_dust(channel, committed,
+		       adding, removing, recipient,
+		       feerate_ceil, &htlc_dust_amt))
+		return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
+
+	if (amount_msat_greater(htlc_dust_amt,
+				channel->config[LOCAL].max_dust_htlc_exposure_msat)) {
+		htlc->fail_immediate = true;
+		if (err_immediate_failures)
+			return CHANNEL_ERR_DUST_FAILURE;
+	}
+
+
+	/* Also check the sender, as they'll eventually have the same
+	 * constraint */
+	htlc_dust_amt = AMOUNT_MSAT(0);
+	feerate = channel_feerate(channel, sender);
+	feerate_ceil = htlc_trim_feerate_ceiling(feerate);
+	if (!htlc_dust(channel, committed, adding,
+		       removing, sender, feerate_ceil,
+		       &htlc_dust_amt))
+		return CHANNEL_ERR_CHANNEL_CAPACITY_EXCEEDED;
+
+	if (amount_msat_greater(htlc_dust_amt,
+				channel->config[LOCAL].max_dust_htlc_exposure_msat)) {
+		htlc->fail_immediate = true;
+		if (err_immediate_failures)
+			return CHANNEL_ERR_DUST_FAILURE;
+	}
 	dump_htlc(htlc, "NEW:");
 	htlc_map_add(channel->htlcs, tal_steal(channel, htlc));
 	if (htlcp)
@@ -1109,6 +1179,37 @@ u32 approx_max_feerate(const struct channel *channel)
 	return avail.satoshis / weight * 1000; /* Raw: once-off reverse feerate*/
 }
 
+/* Is the sum of trimmed htlcs, as this new feerate, above our
+ * max allowed htlc dust limit? */
+static struct amount_msat htlc_calculate_dust(const struct channel *channel,
+					      u32 feerate_per_kw,
+					      enum side side)
+{
+	const struct htlc **committed, **adding, **removing;
+	struct amount_msat acc_dust = AMOUNT_MSAT(0);
+
+	gather_htlcs(tmpctx, channel, side,
+		     &committed, &removing, &adding);
+
+	htlc_dust(channel, committed, adding, removing,
+		  side, feerate_per_kw, &acc_dust);
+
+	return acc_dust;
+}
+
+bool htlc_dust_ok(const struct channel *channel,
+		  u32 feerate_per_kw,
+		  enum side side)
+{
+	struct amount_msat total_dusted;
+
+	total_dusted = htlc_calculate_dust(channel, feerate_per_kw, side);
+
+	return amount_msat_greater_eq(
+		channel->config[LOCAL].max_dust_htlc_exposure_msat,
+		total_dusted);
+}
+
 bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw)
 {
 	struct amount_sat needed, fee;
@@ -1178,6 +1279,9 @@ bool can_opener_afford_feerate(const struct channel *channel, u32 feerate_per_kw
 bool channel_update_feerate(struct channel *channel, u32 feerate_per_kw)
 {
 	if (!can_opener_afford_feerate(channel, feerate_per_kw))
+		return false;
+
+	if (!htlc_dust_ok(channel, feerate_per_kw, REMOTE))
 		return false;
 
 	status_debug("Setting %s feerate to %u",
