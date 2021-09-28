@@ -146,6 +146,10 @@ bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNE
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
+/* Generated stub for graphqlrpc_add_warning */
+void graphqlrpc_add_warning(struct json_stream *js UNNEEDED, const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "graphqlrpc_add_warning called!\n"); abort(); }
 /* Generated stub for htlc_is_trimmed */
 bool htlc_is_trimmed(enum side htlc_owner UNNEEDED,
 		     struct amount_msat htlc_amount UNNEEDED,

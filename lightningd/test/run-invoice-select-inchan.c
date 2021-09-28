@@ -242,6 +242,10 @@ u32 get_feerate(const struct fee_states *fee_states UNNEEDED,
 		enum side opener UNNEEDED,
 		enum side side UNNEEDED)
 { fprintf(stderr, "get_feerate called!\n"); abort(); }
+/* Generated stub for graphqlrpc_add_warning */
+void graphqlrpc_add_warning(struct json_stream *js UNNEEDED, const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "graphqlrpc_add_warning called!\n"); abort(); }
 /* Generated stub for hash_htlc_key */
 size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
 { fprintf(stderr, "hash_htlc_key called!\n"); abort(); }

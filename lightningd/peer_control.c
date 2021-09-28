@@ -49,6 +49,7 @@
 #include <lightningd/closing_control.h>
 #include <lightningd/connect_control.h>
 #include <lightningd/dual_open_control.h>
+#include <lightningd/graphqlrpc.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/jsonrpc.h>
@@ -965,6 +966,7 @@ static void json_add_channel_inflight_field(struct json_stream *response,
 		json_add_txid(response, alias, &txid);
 	} else {
 		json_add_null(response, alias);
+		graphqlrpc_add_warning(response, "field not found '%s'", name);
 	}
 }
 
@@ -997,12 +999,14 @@ static void json_add_channel_funding_field(struct json_stream *response,
 	    sel->field->alias->name->token_string)
 		alias = sel->field->alias->name->token_string;
 
-	if (streq(name, "local_msat"))
+	if (streq(name, "local_msat")) {
 		json_add_sat_only(response, alias, channel->our_funds);
-	else if (streq(name, "remote_msat"))
+	} else if (streq(name, "remote_msat")) {
 		json_add_sat_only(response, alias, peer_funded_sats);
-	else
+	} else {
 		json_add_null(response, alias);
+		graphqlrpc_add_warning(response, "field not found '%s'", name);
+	}
 }
 
 static void json_add_channel_state_change_field(
@@ -1019,23 +1023,25 @@ static void json_add_channel_state_change_field(
 	    sel->field->alias->name->token_string)
 		alias = sel->field->alias->name->token_string;
 
-	if (streq(name, "timestamp"))
+	if (streq(name, "timestamp")) {
 		json_add_timeiso(response, alias,
 				 &state_change->timestamp);
-	else if (streq(name, "old_state"))
+	} else if (streq(name, "old_state")) {
 		json_add_string(response, alias,
 				channel_state_str(state_change->old_state));
-	else if (streq(name, "new_state"))
+	} else if (streq(name, "new_state")) {
 		json_add_string(response, alias,
 				channel_state_str(state_change->new_state));
-	else if (streq(name, "cause"))
+	} else if (streq(name, "cause")) {
 		json_add_string(response, alias,
 				channel_change_state_reason_str(state_change->cause));
-	else if (streq(name, "message"))
+	} else if (streq(name, "message")) {
 		json_add_string(response, alias,
 				state_change->message);
-	else
+	} else {
 		json_add_null(response, alias);
+		graphqlrpc_add_warning(response, "field not found '%s'", name);
+	}
 }
 
 static void json_add_channel_htlc_field(struct json_stream *response,
@@ -1092,6 +1098,7 @@ static void json_add_channel_htlc_field(struct json_stream *response,
 		}
 	} else {
 		json_add_null(response, alias);
+		graphqlrpc_add_warning(response, "field not found '%s'", name);
 	}
 }
 
@@ -1390,6 +1397,7 @@ static void json_add_channel_field(struct lightningd *ld,
 		json_array_end(response);
 	} else {
 		json_add_null(response, alias);
+		graphqlrpc_add_warning(response, "field not found '%s'", name);
 	}
 }
 
@@ -2041,11 +2049,14 @@ static void json_add_peer_field(struct json_stream *js,
 			/* return an empty array */
 			json_array_start(js, name);
 			json_array_end(js);
-		} else
+			graphqlrpc_add_warning(js, "invalid log level specified");
+		} else {
 			json_add_log(js, cmd->ld->log_book, &p->id,
 				     !ll? 0 : *ll);
+		}
 	} else {
 		json_add_null(js, alias);
+		graphqlrpc_add_warning(js, "field not found '%s'", name);
 	}
 }
 
@@ -2087,6 +2098,9 @@ void json_add_peers(struct json_stream *js,
 	bool invalid;
 	invalid = arg_node_id("id", field, cmd, &specific_id)
 		  && !specific_id;
+	if (invalid)
+		graphqlrpc_add_warning(js, "invalid node id argument to %s field",
+				       field->name->token_string);
 
 	json_array_start(js, alias);
 	if (!invalid) {
@@ -2112,12 +2126,13 @@ static void json_add_field(struct json_stream *js,
 	if (sel->field->alias && sel->field->alias->name &&
 	    sel->field->alias->name->token_type == 'a' &&
 	    sel->field->alias->name->token_string)
-	alias = sel->field->alias->name->token_string;
+		alias = sel->field->alias->name->token_string;
 
 	if (streq(name, "peers")) {
 		json_add_peers(js, cmd, alias, sel->field);
 	} else {
 		json_add_null(js, alias);
+		graphqlrpc_add_warning(js, "field not found '%s'", name);
 	}
 }
 

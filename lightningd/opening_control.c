@@ -17,6 +17,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
+#include <lightningd/graphqlrpc.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/notification.h>
@@ -124,6 +125,7 @@ static void json_add_uncommitted_channel_field(
 		json_array_end(response);
 	} else {
 		json_add_null(response, alias);
+		graphqlrpc_add_warning(response, "field not found '%s'", name);
 	}
 }
 
