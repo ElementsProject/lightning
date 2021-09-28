@@ -1,8 +1,10 @@
+from binascii import hexlify, unhexlify
 from fixtures import *  # noqa: F401,F403
 from fixtures import TEST_NETWORK
 from io import BytesIO
 from pyln.client import RpcError, Millisatoshi
 from pyln.proto.onion import TlvPayload
+from pyln.spec import bolt7
 from pyln.testing.utils import EXPERIMENTAL_DUAL_FUND, FUNDAMOUNT
 from utils import (
     DEVELOPER, wait_for, only_one, sync_blockheight, TIMEOUT,
@@ -5363,7 +5365,7 @@ def test_sendpay_dual_amounts(node_factory):
 
 
 @pytest.mark.developer("Too slow without dev-fast-gossip")
-def test_channelfee_error_update(node_factory, bitcoind):
+def test_channelfee_error_update(node_factory, bitcoind, executor):
     l1, l2, l3, l4 = node_factory.line_graph(4, wait_for_announce=True,
                                              opts={'fee-base': 1,
                                                    'fee-per-satoshi': 10000,
@@ -5380,10 +5382,41 @@ def test_channelfee_error_update(node_factory, bitcoind):
     l2.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l3.rpc.connect(l4.info['id'], 'localhost', l4.port)
 
-    inv = l4.rpc.invoice(1000, "test", "test")
-    # Update fee in l3, pay command on l1 should still work.
-    l3.rpc.setchannelfee("all", 2, 10000, 0)
-    l1.rpc.pay(inv['bolt11'])
+    inv = l4.rpc.call('invoice', {'msatoshi': 1000,
+                                  'label': "test",
+                                  'description': "test",
+                                  'dev-routes': []})
 
-    assert l1.daemon.is_in_log('WIRE_FEE_INSUFFICIENT')
-    assert l1.daemon.is_in_log('Extracted channel_update')
+    # Update fee in l3, pay command on l1 should still work.
+    l3.rpc.setchannelfee("all", 5, 50000, 0)
+
+    # Ensure l3 has locally seen the changed fees
+    c = l3.rpc.listpeers(l4.info['id'])['peers'][0]['channels'][0]
+    assert (c['fee_base_msat'], c['fee_proportional_millionths']) == (5, 50000)
+
+    # Ensure sender hasn't seen the update yet, and uses old fees
+    assert [
+        (c['base_fee_millisatoshi'], c['fee_per_millionth'])
+        for c in l1.rpc.listchannels()['channels']
+    ] == [(1, 10000)] * 6
+
+    p = executor.submit(l1.rpc.pay, inv['bolt11'])
+
+    # The extracted update should have the new fees, otherwise we
+    # shouldn't have received a failure at all:
+    log = l1.daemon.wait_for_log(f'Extracted channel_update')
+    l1.daemon.wait_for_log('WIRE_FEE_INSUFFICIENT')
+    update = unhexlify(log.split(' ')[-4])
+    update = bolt7.channel_update.read(BytesIO(update[2:]), {})
+    assert update['fee_base_msat'] == 5
+    assert update['fee_proportional_millionths'] == 50000
+
+    # Now we should succeed.
+    p.result()
+
+    # Now with routehint.
+    inv = l4.rpc.invoice(1000, "test2", "test")
+
+    # Update fee in l3, pay command on l1 should still work.
+    l3.rpc.setchannelfee("all", 6, 51000, 0)
+    l1.rpc.pay(inv['bolt11'])
