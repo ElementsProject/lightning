@@ -51,7 +51,6 @@ contrib/pyln-*/.eggs/
 contrib/pyln-*/pyln/*/__version__.py
 release/
 tests/plugins/test_selfdisable_after_getmanifest
-.DS_Store
 
 # Ignore generated files
 devtools/features
@@ -60,3 +59,7 @@ doc/lightning*.[1578]
 *_wiregen.[ch]
 *_printgen.[ch]
 *_gettextgen.po
+
+# Ignore unrelated stuff
+.DS_Store
+.gdb_history
