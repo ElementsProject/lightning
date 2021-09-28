@@ -8,6 +8,10 @@
 	    "type": "u64",
 	    "description": "unique ID for this payment attempt"
 	},
+	"groupid": {
+	    "type": "u64",
+	    "description": "Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash"
+	},
 	"payment_hash": {
 	    "type": "hex",
 	    "description": "the hash of the *payment_preimage* which will prove payment",
@@ -73,6 +77,7 @@
 		"required": [ "payment_preimage" ],
 		"properties": {
 		    "id": { },
+		    "groupid": { },
 		    "payment_hash": { },
 		    "status": { },
 		    "msatoshi": { },
@@ -108,6 +113,7 @@
 		"required": [ "message" ],
 		"properties": {
 		    "id": { },
+		    "groupid": { },
 		    "payment_hash": { },
 		    "status": { },
 		    "msatoshi": { },
