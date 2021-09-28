@@ -493,7 +493,8 @@ static enum channel_add_err add_htlc(struct channel *channel,
 				     const struct pubkey *blinding TAKES,
 				     struct htlc **htlcp,
 				     bool enforce_aggregate_limits,
-				     struct amount_sat *htlc_fee)
+				     struct amount_sat *htlc_fee,
+				     bool err_immediate_failures)
 {
 	struct htlc *htlc, *old;
 	struct amount_msat msat_in_htlcs, committed_msat, adding_msat, removing_msat;
@@ -508,6 +509,7 @@ static enum channel_add_err add_htlc(struct channel *channel,
 	htlc->id = id;
 	htlc->amount = amount;
 	htlc->state = state;
+	htlc->fail_immediate = false;
 
 	htlc->rhash = *payment_hash;
 	if (blinding)
@@ -768,7 +770,8 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 				      const u8 routing[TOTAL_PACKET_SIZE(ROUTING_INFO_SIZE)],
 				      const struct pubkey *blinding TAKES,
 				      struct htlc **htlcp,
-				      struct amount_sat *htlc_fee)
+				      struct amount_sat *htlc_fee,
+				      bool err_immediate_failures)
 {
 	enum htlc_state state;
 
@@ -786,7 +789,7 @@ enum channel_add_err channel_add_htlc(struct channel *channel,
 
 	return add_htlc(channel, state, id, amount, cltv_expiry,
 			payment_hash, routing, blinding,
-			htlcp, true, htlc_fee);
+			htlcp, true, htlc_fee, err_immediate_failures);
 }
 
 struct htlc *channel_get_htlc(struct channel *channel, enum side sender, u64 id)
@@ -1392,7 +1395,7 @@ bool channel_force_htlcs(struct channel *channel,
 			     &htlcs[i]->payment_hash,
 			     htlcs[i]->onion_routing_packet,
 			     htlcs[i]->blinding,
-			     &htlc, false, NULL);
+			     &htlc, false, NULL, false);
 		if (e != CHANNEL_ERR_ADD_OK) {
 			status_broken("%s HTLC %"PRIu64" failed error %u",
 				     htlc_state_owner(htlcs[i]->state) == LOCAL

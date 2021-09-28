@@ -78,6 +78,7 @@ void towire_added_htlc(u8 **pptr, const struct added_htlc *added)
 		towire_secret(pptr, &added->blinding_ss);
 	} else
 		towire_bool(pptr, false);
+	towire_bool(pptr, added->fail_immediate);
 }
 
 void towire_existing_htlc(u8 **pptr, const struct existing_htlc *existing)
@@ -171,6 +172,7 @@ void fromwire_added_htlc(const u8 **cursor, size_t *max,
 		fromwire_secret(cursor, max, &added->blinding_ss);
 	} else
 		added->blinding = NULL;
+	added->fail_immediate = fromwire_bool(cursor, max);
 }
 
 struct existing_htlc *fromwire_existing_htlc(const tal_t *ctx,

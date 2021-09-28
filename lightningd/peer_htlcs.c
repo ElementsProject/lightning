@@ -1171,6 +1171,13 @@ static bool peer_accepted_htlc(const tal_t *ctx,
 		goto fail;
 	}
 
+	if (hin->fail_immediate && htlc_in_update_state(channel, hin, RCVD_ADD_ACK_REVOCATION)) {
+		log_debug(channel->log, "failing immediately, as requested");
+		/* Failing the htlc, typically done because of htlc dust */
+		*failmsg = towire_temporary_node_failure(ctx);
+		goto fail;
+	}
+
 	if (!replay && !htlc_in_update_state(channel, hin, RCVD_ADD_ACK_REVOCATION)) {
 		*failmsg = towire_temporary_node_failure(ctx);
 		goto fail;
@@ -1863,7 +1870,8 @@ static bool channel_added_their_htlc(struct channel *channel,
 			  added->cltv_expiry, &added->payment_hash,
 			  op ? &shared_secret : NULL,
 			  added->blinding, &added->blinding_ss,
-			  added->onion_routing_packet);
+			  added->onion_routing_packet,
+			  added->fail_immediate);
 
 	/* Save an incoming htlc to the wallet */
 	wallet_htlc_save_in(ld->wallet, channel, hin);

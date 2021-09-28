@@ -130,7 +130,8 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 			    const struct secret *shared_secret TAKES,
 			    const struct pubkey *blinding TAKES,
 			    const struct secret *blinding_ss,
-			    const u8 *onion_routing_packet)
+			    const u8 *onion_routing_packet,
+			    bool fail_immediate)
 {
 	struct htlc_in *hin = tal(ctx, struct htlc_in);
 
@@ -141,6 +142,7 @@ struct htlc_in *new_htlc_in(const tal_t *ctx,
 	hin->cltv_expiry = cltv_expiry;
 	hin->payment_hash = *payment_hash;
 	hin->status = NULL;
+	hin->fail_immediate = fail_immediate;
 	if (shared_secret)
 		hin->shared_secret = tal_dup(hin, struct secret, shared_secret);
 	else
