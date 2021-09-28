@@ -9,6 +9,7 @@ void towire_channel_config(u8 **pptr, const struct channel_config *config)
 	towire_amount_msat(pptr, config->htlc_minimum);
 	towire_u16(pptr, config->to_self_delay);
 	towire_u16(pptr, config->max_accepted_htlcs);
+	towire_amount_msat(pptr, config->max_dust_htlc_exposure_msat);
 }
 
 void fromwire_channel_config(const u8 **ptr, size_t *max,
@@ -20,4 +21,5 @@ void fromwire_channel_config(const u8 **ptr, size_t *max,
 	config->htlc_minimum = fromwire_amount_msat(ptr, max);
 	config->to_self_delay = fromwire_u16(ptr, max);
 	config->max_accepted_htlcs = fromwire_u16(ptr, max);
+	config->max_dust_htlc_exposure_msat = fromwire_amount_msat(ptr, max);
 }

@@ -406,6 +406,8 @@ int main(int argc, const char *argv[])
 
 	local_config->max_htlc_value_in_flight = AMOUNT_MSAT(-1ULL);
 	remote_config->max_htlc_value_in_flight = AMOUNT_MSAT(-1ULL);
+	local_config->max_dust_htlc_exposure_msat = AMOUNT_MSAT(-1ULL);
+	remote_config->max_dust_htlc_exposure_msat = AMOUNT_MSAT(-1ULL);
 	local_config->channel_reserve = AMOUNT_SAT(0);
 	remote_config->channel_reserve = AMOUNT_SAT(0);
 	local_config->htlc_minimum = AMOUNT_MSAT(0);

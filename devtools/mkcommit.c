@@ -149,6 +149,7 @@ static int parse_config(char *argv[],
 	config->max_htlc_value_in_flight = AMOUNT_MSAT(-1ULL);
 	config->htlc_minimum = AMOUNT_MSAT(0);
 	config->max_accepted_htlcs = 483;
+	config->max_dust_htlc_exposure_msat = AMOUNT_MSAT(-1ULL);
 
 	config->to_self_delay = atoi(argv[argnum]);
 	argnum++;

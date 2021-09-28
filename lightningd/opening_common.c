@@ -132,6 +132,9 @@ void channel_config(struct lightningd *ld,
 	ours->dust_limit = chainparams->dust_limit;
 	ours->max_htlc_value_in_flight = AMOUNT_MSAT(UINT64_MAX);
 
+	ours->max_dust_htlc_exposure_msat
+		= ld->config.max_dust_htlc_exposure_msat;
+
 	/* Don't care */
 	ours->htlc_minimum = AMOUNT_MSAT(0);
 

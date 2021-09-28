@@ -71,6 +71,12 @@ struct channel_config {
 	 * similarly, `max_accepted_htlcs` limits the number of outstanding
 	 * HTLCs the other node can offer. */
 	u16 max_accepted_htlcs;
+
+	/* BOLT-TBD #X
+	 *
+	 * maximum dust exposure allowed for this channel
+	 */
+	struct amount_msat max_dust_htlc_exposure_msat;
 };
 
 void towire_channel_config(u8 **pptr, const struct channel_config *config);

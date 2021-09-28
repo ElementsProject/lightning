@@ -7,6 +7,8 @@
 #include <sys/stat.h>
 #include <wallet/wallet.h>
 
+struct amount_msat;
+
 /* Various adjustable things. */
 struct config {
 	/* How long do we want them to lock up their funds? (blocks) */
@@ -30,6 +32,9 @@ struct config {
 
 	/* htlcs per channel */
 	u32 max_concurrent_htlcs;
+
+	/* Max amount of dust allowed per channel */
+	struct amount_msat max_dust_htlc_exposure_msat;
 
 	/* How long between changing commit and sending COMMIT message. */
 	u32 commit_time_ms;

@@ -71,6 +71,7 @@ On success, an object is returned, containing:
 - **rescan** (integer, optional): `rescan` field from config or cmdline, or default
 - **fee-per-satoshi** (u32, optional): `fee-per-satoshi` field from config or cmdline, or default
 - **max-concurrent-htlcs** (u32, optional): `max-concurrent-htlcs` field from config or cmdline, or default
+- **max-dust-htlc-exposure-msat** (msat, optional): `max-dust-htlc-exposure-mast` field from config or cmdline, or default
 - **min-capacity-sat** (u64, optional): `min-capacity-sat` field from config or cmdline, or default
 - **addr** (string, optional): `addr` field from config or cmdline (can be more than one)
 - **announce-addr** (string, optional): `announce-addr` field from config or cmdline (can be more than one)
@@ -206,4 +207,4 @@ RESOURCES
 ---------
 
 Main web site: <https://github.com/ElementsProject/lightning>
-[comment]: # ( SHA256STAMP:47c067588120e0f9a71206313685cebb2a8c515e9b04b688b202d2772c8f8146)
+[comment]: # ( SHA256STAMP:71a911b67203f75e7c1f717be611f505713fce4e8113fc4a84c89bc50730d2bf)

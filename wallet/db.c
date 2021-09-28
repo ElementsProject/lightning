@@ -852,6 +852,9 @@ static struct migration dbmigrations[] = {
 	 " shared_secret=NULL,"
 	 " localfailmsg=NULL"
 	 " WHERE (hstate=9 OR hstate=19);"), NULL},
+    /* We default to 50k sats */
+    {SQL("ALTER TABLE channel_configs ADD max_dust_htlc_exposure_msat BIGINT DEFAULT 50000000"), NULL},
+    {SQL("ALTER TABLE channel_htlcs ADD fail_immediate INTEGER DEFAULT 0"), NULL},
 };
 
 /* Leak tracking. */
