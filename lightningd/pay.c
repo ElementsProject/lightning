@@ -111,6 +111,7 @@ void json_add_payment_fields(struct json_stream *response,
 {
 	json_add_u64(response, "id", t->id);
 	json_add_sha256(response, "payment_hash", &t->payment_hash);
+	json_add_u64(response, "groupid", t->groupid);
 	if (t->partid)
 		json_add_u64(response, "partid", t->partid);
 	if (t->destination != NULL)
@@ -839,6 +840,7 @@ send_payment_core(struct lightningd *ld,
 		  struct command *cmd,
 		  const struct sha256 *rhash,
 		  u64 partid,
+		  u64 group,
 		  const struct route_hop *first_hop,
 		  struct amount_msat msat,
 		  struct amount_msat total_msat,
@@ -1038,6 +1040,7 @@ send_payment_core(struct lightningd *ld,
 	payment->id = 0;
 	payment->payment_hash = *rhash;
 	payment->partid = partid;
+	payment->groupid = group;
 	if (destination)
 		payment->destination = tal_dup(payment, struct node_id, destination);
 	else
@@ -1083,6 +1086,7 @@ send_payment(struct lightningd *ld,
 	     struct command *cmd,
 	     const struct sha256 *rhash,
 	     u64 partid,
+	     u64 group,
 	     const struct route_hop *route,
 	     struct amount_msat msat,
 	     struct amount_msat total_msat,
@@ -1169,7 +1173,7 @@ send_payment(struct lightningd *ld,
 		 type_to_string(tmpctx, struct amount_msat, &route[0].amount),
 		 n_hops, type_to_string(tmpctx, struct amount_msat, &msat));
 	packet = create_onionpacket(tmpctx, path, ROUTING_INFO_SIZE, &path_secrets);
-	return send_payment_core(ld, cmd, rhash, partid, &route[0],
+	return send_payment_core(ld, cmd, rhash, partid, group, &route[0],
 				 msat, total_msat, label, invstring,
 				 packet, &ids[n_hops - 1], ids,
 				 channels, path_secrets, local_offer_id);
@@ -1245,7 +1249,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 	struct node_id *destination;
 	struct secret *path_secrets;
 	struct amount_msat *msat;
-	u64 *partid;
+	u64 *partid, *group;
 	struct sha256 *local_offer_id = NULL;
 
 	if (!param(cmd, buffer, params,
@@ -1260,6 +1264,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 		   p_opt_def("msatoshi", param_msat, &msat, AMOUNT_MSAT(0)),
 		   p_opt("destination", param_node_id, &destination),
 		   p_opt("localofferid", param_sha256, &local_offer_id),
+		   p_opt_def("groupid", param_u64, &group, 0),
 		   NULL))
 		return command_param_failed();
 
@@ -1271,7 +1276,7 @@ static struct command_result *json_sendonion(struct command *cmd,
 				    "with failcode=%d",
 				    failcode);
 
-	return send_payment_core(ld, cmd, payment_hash, *partid,
+	return send_payment_core(ld, cmd, payment_hash, *partid, *group,
 				 first_hop, *msat, AMOUNT_MSAT(0),
 				 label, invstring, packet, destination, NULL, NULL,
 				 path_secrets, local_offer_id);
@@ -1397,7 +1402,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 	struct route_hop *route;
 	struct amount_msat *msat;
 	const char *invstring, *label;
-	u64 *partid;
+	u64 *partid, *group;
 	struct secret *payment_secret;
 	struct sha256 *local_offer_id = NULL;
 
@@ -1412,6 +1417,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 		   p_opt("payment_secret", param_secret, &payment_secret),
 		   p_opt_def("partid", param_u64, &partid, 0),
 		   p_opt("localofferid", param_sha256, &local_offer_id),
+		   p_opt_def("groupid", param_u64, &group, 0),
 		   NULL))
 		return command_param_failed();
 
@@ -1451,7 +1457,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
 				    "partid requires payment_secret");
 
-	return send_payment(cmd->ld, cmd, rhash, *partid,
+	return send_payment(cmd->ld, cmd, rhash, *partid, *group,
 			    route,
 			    final_amount,
 			    msat ? *msat : final_amount,

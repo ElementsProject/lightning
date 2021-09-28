@@ -61,6 +61,7 @@ On success, an object is returned, containing:
 - **status** (string): status of the payment (could be complete if already sent previously) (one of "pending", "complete")
 - **created_at** (u64): the UNIX timestamp showing when this payment was initiated
 - **amount_sent_msat** (msat): The amount sent
+- **groupid** (u64, optional): Grouping key to disambiguate multiple attempts to pay an invoice or the same payment_hash
 - **amount_msat** (msat, optional): The amount delivered to destination (if known)
 - **destination** (pubkey, optional): the final destination of the payment if known
 - **label** (string, optional): the *label*, if given to sendpay
@@ -126,4 +127,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:4dd638126f66c3c4b233b3bb0aaeec5f225a80ec7186edd1901f8ed4cf23380e)
+[comment]: # ( SHA256STAMP:f7572da509a442c08f73460c042d8e2aa950747ce175ebb9b89d32b88add6de6)
