@@ -1429,6 +1429,9 @@ int main(int argc, char *argv[])
 	memset(&state->channel_id, 0, sizeof(state->channel_id));
 	state->channel = NULL;
 
+	/* Default this to zero, we only ever look at the local */
+	state->remoteconf.max_dust_htlc_exposure_msat = AMOUNT_MSAT(0);
+
 	/*~ We set these to NULL, meaning no requirements on shutdown */
 	state->upfront_shutdown_script[LOCAL]
 		= state->upfront_shutdown_script[REMOTE]

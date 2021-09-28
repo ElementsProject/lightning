@@ -134,6 +134,9 @@ static struct tx_state *new_tx_state(const tal_t *ctx)
 	tx_state->lease_chan_max_msat = 0;
 	tx_state->lease_chan_max_ppt = 0;
 
+	/* no max_htlc_dust_exposure on remoteconf, we exclusively use the local's */
+	tx_state->remoteconf.max_dust_htlc_exposure_msat = AMOUNT_MSAT(0);
+
 	for (size_t i = 0; i < NUM_TX_MSGS; i++)
 		tx_state->tx_msg_count[i] = 0;
 
