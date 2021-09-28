@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """Plugin to be used to test miscellaneous notifications.
-
-Only used for 'channel_opened' for now.
 """
 
 from pyln.client import Plugin
-from time import sleep
 
 plugin = Plugin()
 
@@ -34,7 +31,6 @@ def shutdown(plugin, **kwargs):
     # should see the data before being shutdown and its hooks unregistered
     plugin.log("received shutdown notification")
     plugin.rpc.datastore(key='{}'.format(__file__), string="data written at shutdown")
-    sleep(5)
 
 
 plugin.run()

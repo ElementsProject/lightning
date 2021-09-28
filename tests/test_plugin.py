@@ -517,6 +517,10 @@ def test_db_hook_multiple(node_factory, executor):
     l1.daemon.wait_for_log("plugin-dblog.py: initialized.* 'startup': True")
 
     l1.stop()
+    # it registered db_write hook and receives 2 notifications, then self-terminates
+    l1.daemon.wait_for_log("plugin-dbdummy.py: received shutdown notification 1")
+    l1.daemon.wait_for_log("plugin-dbdummy.py: received shutdown notification 2")
+    l1.daemon.wait_for_log("plugin-dbdummy.py: Killing plugin: exited during shutdown")
 
     # Databases should be identical.
     db1 = sqlite3.connect(os.path.join(l1.daemon.lightning_dir, TEST_NETWORK, 'lightningd.sqlite3'))
