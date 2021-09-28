@@ -1138,7 +1138,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("plugin", payload)
 
-    def sendpay(self, route, payment_hash, label=None, msatoshi=None, bolt11=None, payment_secret=None, partid=None):
+    def sendpay(self, route, payment_hash, label=None, msatoshi=None, bolt11=None, payment_secret=None, partid=None, groupid=None):
         """
         Send along {route} in return for preimage of {payment_hash}.
         """
@@ -1150,8 +1150,34 @@ class LightningRpc(UnixDomainSocketRpc):
             "bolt11": bolt11,
             "payment_secret": payment_secret,
             "partid": partid,
+            "groupid": groupid,
         }
         return self.call("sendpay", payload)
+
+    def sendonion(
+            self, onion, first_hop, payment_hash, label=None,
+            shared_secrets=None, partid=None, bolt11=None, msatoshi=None,
+            destination=None
+    ):
+        """Send an outgoing payment using the specified onion.
+
+        This method allows sending a payment using an externally
+        generated routing onion, with optional metadata to facilitate
+        internal handling, but not required.
+
+        """
+        payload = {
+            "onion": onion,
+            "first_hop": first_hop,
+            "payment_hash": payment_hash,
+            "label": label,
+            "shared_secrets": shared_secrets,
+            "partid": partid,
+            "bolt11": bolt11,
+            "msatoshi": msatoshi,
+            "destination": destination,
+        }
+        return self.call("sendonion", payload)
 
     def setchannelfee(self, id, base=None, ppm=None, enforcedelay=None):
         """
@@ -1206,7 +1232,7 @@ class LightningRpc(UnixDomainSocketRpc):
         }
         return self.call("waitinvoice", payload)
 
-    def waitsendpay(self, payment_hash, timeout=None, partid=None):
+    def waitsendpay(self, payment_hash, timeout=None, partid=None, groupid=None):
         """
         Wait for payment for preimage of {payment_hash} to complete.
         """
@@ -1214,6 +1240,7 @@ class LightningRpc(UnixDomainSocketRpc):
             "payment_hash": payment_hash,
             "timeout": timeout,
             "partid": partid,
+            "groupid": groupid,
         }
         return self.call("waitsendpay", payload)
 
