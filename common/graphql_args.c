@@ -3,7 +3,9 @@
 #include <external/jsmn/jsmn.h>
 
 /* Helper: Get a field argument by name, or NULL */
-static struct graphql_argument *find_arg(struct graphql_field *field, const char *argname) {
+static struct graphql_argument *find_arg(const struct graphql_field *field,
+					 const char *argname)
+{
 	struct graphql_argument *arg;
 	if (!field || !field->args)
 		return NULL;
@@ -17,7 +19,8 @@ static struct graphql_argument *find_arg(struct graphql_field *field, const char
 }
 
 /* Helper: Get a string argument's value, or NULL */
-static const char *get_string(struct graphql_argument *arg) {
+static const char *get_string(const struct graphql_argument *arg)
+{
 	if (arg && arg->val && arg->val->str_val && arg->val->str_val->val &&
 	    arg->val->str_val->val->token_type == 's' &&
 	    arg->val->str_val->val->token_string)
@@ -26,7 +29,9 @@ static const char *get_string(struct graphql_argument *arg) {
 }
 
 /* Get a node_id argument */
-bool arg_node_id(const char *name, struct graphql_field *field, void *ctx, struct node_id **id) {
+bool arg_node_id(const char *name, const struct graphql_field *field,
+		 void *ctx, struct node_id **id)
+{
 	const char *str;
 	*id = NULL;
 	if ((str = get_string(find_arg(field, name)))) {
@@ -48,7 +53,9 @@ bool arg_node_id(const char *name, struct graphql_field *field, void *ctx, struc
 }
 
 /* Get a log_level argument */
-bool arg_loglevel(const char *name, struct graphql_field *field, void *ctx, enum log_level **ll) {
+bool arg_loglevel(const char *name, const struct graphql_field *field,
+		  void *ctx, enum log_level **ll)
+{
 	const char *str;
 	*ll = NULL;
 	if ((str = get_string(find_arg(field, name)))) {

@@ -12,6 +12,7 @@ LIGHTNINGD_SRC :=				\
 	lightningd/onion_message.c		\
 	lightningd/gossip_control.c		\
 	lightningd/gossip_msg.c			\
+	lightningd/graphqlrpc.c			\
 	lightningd/hsm_control.c		\
 	lightningd/htlc_end.c			\
 	lightningd/htlc_set.c			\

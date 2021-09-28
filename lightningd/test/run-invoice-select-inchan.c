@@ -14,10 +14,12 @@ struct channel *active_channel_by_scid(struct lightningd *ld UNNEEDED,
 				       const struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "active_channel_by_scid called!\n"); abort(); }
 /* Generated stub for arg_loglevel */
-bool arg_loglevel(const char *name UNNEEDED, struct graphql_field *field UNNEEDED, void *ctx UNNEEDED, enum log_level **ll UNNEEDED)
+bool arg_loglevel(const char *name UNNEEDED, const struct graphql_field *field UNNEEDED,
+		  void *ctx UNNEEDED, enum log_level **ll UNNEEDED)
 { fprintf(stderr, "arg_loglevel called!\n"); abort(); }
 /* Generated stub for arg_node_id */
-bool arg_node_id(const char *name UNNEEDED, struct graphql_field *field UNNEEDED, void *ctx UNNEEDED, struct node_id **id UNNEEDED)
+bool arg_node_id(const char *name UNNEEDED, const struct graphql_field *field UNNEEDED,
+		 void *ctx UNNEEDED, struct node_id **id UNNEEDED)
 { fprintf(stderr, "arg_node_id called!\n"); abort(); }
 /* Generated stub for bitcoind_getutxout_ */
 void bitcoind_getutxout_(struct bitcoind *bitcoind UNNEEDED,

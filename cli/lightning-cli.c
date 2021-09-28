@@ -271,14 +271,14 @@ static char *opt_set_ordered(enum input *input)
 }
 
 enum escape {
-	PASSTHRU,
+	ESCAPE_ALL,
 	ALLOW_JSON,
 	DEFAULT_ESCAPE
 };
 
-static char *opt_set_passthru(enum escape *escape)
+static char *opt_set_escape_all(enum escape *escape)
 {
-	*escape = PASSTHRU;
+	*escape = ESCAPE_ALL;
 	return NULL;
 }
 
@@ -660,7 +660,7 @@ int main(int argc, char *argv[])
 			   "Use format key=value for <params>");
 	opt_register_noarg("-o|--order", opt_set_ordered, &input,
 			   "Use params in order for <params>");
-	opt_register_noarg("-p|--passthru", opt_set_passthru, &escape,
+	opt_register_noarg("-e|--escape-all", opt_set_escape_all, &escape,
 			   "Pass <params> as-is");
 	opt_register_noarg("-j|--allow-json", opt_set_allow_json, &escape,
 			   "Allow JSON in <params> (default)");
@@ -736,8 +736,13 @@ int main(int argc, char *argv[])
 			input = ORDERED;
 	}
 
-	if (escape == DEFAULT_ESCAPE)
-		escape = ALLOW_JSON;
+	if (escape == DEFAULT_ESCAPE) {
+		/* GraphQL is almost always misdetected as JSON; this helps */
+		if (streq(method, "graphql"))
+			escape = ESCAPE_ALL;
+		else
+			escape = ALLOW_JSON;
+	}
 
 	if (input == KEYWORDS) {
 		tal_append_fmt(&cmd, "{ ");

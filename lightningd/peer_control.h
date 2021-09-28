@@ -13,6 +13,7 @@
 
 struct per_peer_state;
 struct wally_psbt;
+struct graphql_field;
 
 struct peer {
 	/* Inside ld->peers. */
@@ -111,5 +112,10 @@ struct command_result *
 command_find_channel(struct command *cmd,
 		     const char *buffer, const jsmntok_t *tok,
 		     struct channel **channel);
+
+void json_add_peers(struct json_stream *js,
+		    struct command *cmd,
+		    const char *alias,
+		    const struct graphql_field *field);
 
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */

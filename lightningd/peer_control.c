@@ -2052,12 +2052,12 @@ static void json_add_peer_field(struct json_stream *js,
 static void json_add_peer2(struct json_stream *js,
 			   struct command *cmd,
 			   struct peer *peer,
-			   const struct graphql_selection *sel)
+			   const struct graphql_field *field)
 {
-	const struct graphql_selection *s;
+	const struct graphql_selection *sel;
 
 	json_object_start(js, NULL);
-	if (sel->field->sel_set) {
+	if (field->sel_set) {
 		/* Channel is also connected if uncommitted */
 		bool connected;
 		struct channel *channel;
@@ -2070,10 +2070,36 @@ static void json_add_peer2(struct json_stream *js,
 			connected = channel && channel->connected;
 		}
 
-		for (s = sel->field->sel_set->first; s; s = s->next)
-			json_add_peer_field(js, cmd, peer, connected, s);
+		for (sel = field->sel_set->first; sel; sel = sel->next)
+			json_add_peer_field(js, cmd, peer, connected, sel);
 	}
 	json_object_end(js);
+}
+
+void json_add_peers(struct json_stream *js,
+		    struct command *cmd,
+		    const char *alias,
+		    const struct graphql_field *field)
+{
+	struct peer *peer;
+
+	struct node_id *specific_id;
+	bool invalid;
+	invalid = arg_node_id("id", field, cmd, &specific_id)
+		  && !specific_id;
+
+	json_array_start(js, alias);
+	if (!invalid) {
+		if (specific_id) {
+			peer = peer_by_id(cmd->ld, specific_id);
+			if (peer)
+				json_add_peer2(js, cmd, peer, field);
+		} else {
+			list_for_each(&cmd->ld->peers, peer, list)
+				json_add_peer2(js, cmd, peer, field);
+		}
+	}
+	json_array_end(js);
 }
 
 static void json_add_field(struct json_stream *js,
@@ -2081,32 +2107,15 @@ static void json_add_field(struct json_stream *js,
 			   const struct graphql_selection *sel)
 {
 	const char *name, *alias;
-	struct peer *peer;
 
 	name = alias = sel->field->name->token_string;
 	if (sel->field->alias && sel->field->alias->name &&
 	    sel->field->alias->name->token_type == 'a' &&
 	    sel->field->alias->name->token_string)
-		alias = sel->field->alias->name->token_string;
+	alias = sel->field->alias->name->token_string;
 
 	if (streq(name, "peers")) {
-                struct node_id *specific_id;
-		bool invalid;
-		invalid = arg_node_id("id", sel->field, cmd, &specific_id)
-			  && !specific_id;
-
-		json_array_start(js, alias);
-		if (!invalid) {
-			if (specific_id) {
-				peer = peer_by_id(cmd->ld, specific_id);
-				if (peer)
-					json_add_peer2(js, cmd, peer, sel);
-			} else {
-				list_for_each(&cmd->ld->peers, peer, list)
-					json_add_peer2(js, cmd, peer, sel);
-			}
-		}
-		json_array_end(js);
+		json_add_peers(js, cmd, alias, sel->field);
 	} else {
 		json_add_null(js, alias);
 	}
