@@ -188,12 +188,14 @@ static char *opt_add_addr_withtype(const char *arg,
 {
 	char const *err_msg;
 	struct wireaddr_internal wi;
+	bool dns_ok;
 
 	assert(arg != NULL);
+	dns_ok = !ld->always_use_proxy && ld->config.use_dns;
 
 	if (!parse_wireaddr_internal(arg, &wi,
 				     ld->portnum,
-				     wildcard_ok, !ld->always_use_proxy, false,
+				     wildcard_ok, dns_ok, false,
 				     deprecated_apis, &err_msg)) {
 		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
 	}
