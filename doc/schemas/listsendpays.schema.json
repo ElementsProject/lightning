@@ -80,6 +80,7 @@
 			    "required": [ "payment_preimage" ],
 			    "properties": {
 				"id": { },
+				"partid": { },
 				"groupid": { },
 				"payment_hash": { },
 				"status": { },
@@ -115,6 +116,7 @@
 			    "required": [  ],
 			    "properties": {
 				"id": { },
+				"partid": { },
 				"groupid": { },
 				"payment_hash": { },
 				"status": { },
@@ -148,6 +150,7 @@
 			    "required": [  ],
 			    "properties": {
 				"id": { },
+				"partid": { },
 				"groupid": { },
 				"payment_hash": { },
 				"status": { },
