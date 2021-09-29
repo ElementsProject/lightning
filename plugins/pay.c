@@ -1936,6 +1936,76 @@ static const char *init(struct plugin *p,
 	return NULL;
 }
 
+/* We are interested in any prior attempts to pay this payment_hash /
+ * invoice so we can set the `groupid` correctly and ensure we don't
+ * already have a pending payment running. */
+static struct command_result *
+payment_listsendpays_previous(struct command *cmd, const char *buf,
+			      const jsmntok_t *result, struct payment *p)
+{
+	size_t i;
+	const jsmntok_t *t, *arr, *err;
+	/* What was the groupid of an eventual previous attempt? */
+	u64 last_group = 0;
+	/* Do we have pending sendpays for the previous attempt? */
+	bool pending = false;
+	/* Did a prior attempt succeed? */
+	bool completed = false;
+
+	err = json_get_member(buf, result, "error");
+	if (err)
+		return command_fail(
+			   cmd, LIGHTNINGD,
+			   "Error retrieving previous pay attempts: %s",
+			   json_strdup(tmpctx, buf, err));
+
+			   arr = json_get_member(buf, result, "payments");
+	if (!arr || arr->type != JSMN_ARRAY)
+		return command_fail(
+		    cmd, LIGHTNINGD,
+		    "Unexpected non-array result from listsendpays");
+
+	/* We iterate through all prior sendpays, looking for the
+	 * latest group and remembering what its state is. */
+	json_for_each_arr(i, t, arr)
+	{
+		u64 groupid;
+		const jsmntok_t *status, *grouptok;
+		grouptok = json_get_member(buf, t, "groupid");
+		json_to_u64(buf, grouptok, &groupid);
+
+		/* New group, reset what we collected. */
+		if (last_group != groupid) {
+			completed = false;
+			pending = false;
+			last_group = groupid;
+		}
+
+		status = json_get_member(buf, t, "status");
+		completed |= json_tok_streq(buf, status, "complete");
+		pending |= json_tok_streq(buf, status, "pending");
+	}
+
+	if (completed) {
+		return command_fail(
+		    cmd, PAY_RHASH_ALREADY_USED,
+		    "The payment with payment_hash=%s was successful "
+		    "(groupid=%" PRIu64 ")",
+		    type_to_string(tmpctx, struct sha256, p->payment_hash),
+		    last_group);
+	} else if (pending) {
+		return command_fail(
+		    cmd, PAY_IN_PROGRESS,
+		    "Already have payment with payment_hash=%s in progress "
+		    "(groupid=%" PRIu64 ")",
+		    type_to_string(tmpctx, struct sha256, p->payment_hash),
+		    last_group);
+	}
+	p->groupid = last_group + 1;
+	payment_start(p);
+	return command_still_pending(cmd);
+}
+
 struct payment_modifier *paymod_mods[] = {
 	&local_channel_hints_pay_mod,
 	&exemptfee_pay_mod,
@@ -1986,6 +2056,7 @@ static struct command_result *json_paymod(struct command *cmd,
 	u64 invexpiry;
 	struct sha256 *local_offer_id;
 	const struct tlv_invoice *b12;
+	struct out_req *req;
 #if DEVELOPER
 	bool *use_shadow;
 #endif
@@ -2167,12 +2238,16 @@ static struct command_result *json_paymod(struct command *cmd,
 	shadow_route->use_shadow = *use_shadow;
 #endif
 	p->label = tal_steal(p, label);
-	payment_start(p);
 	list_add_tail(&payments, &p->list);
 	/* We're keeping this around now */
 	tal_steal(cmd->plugin, p);
 
-	return command_still_pending(cmd);
+	req = jsonrpc_request_start(cmd->plugin, cmd, "listsendpays",
+				    payment_listsendpays_previous,
+				    payment_listsendpays_previous, p);
+
+	json_add_sha256(req->js, "payment_hash", p->payment_hash);
+	return send_outreq(cmd->plugin, req);
 }
 
 static const struct plugin_command commands[] = {
