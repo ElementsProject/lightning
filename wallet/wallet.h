@@ -1048,7 +1048,7 @@ void wallet_local_htlc_out_delete(struct wallet *wallet,
 struct wallet_payment *
 wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 		       const struct sha256 *payment_hash,
-		       u64 partid);
+		       u64 partid, u64 groupid);
 
 /**
  * Retrieve maximum groupid for a given payment_hash.
@@ -1082,6 +1082,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 struct wallet *wallet,
 				 const struct sha256 *payment_hash,
 				 u64 partid,
+				 u64 groupid,
 				 /* outputs */
 				 struct onionreply **failonionreply,
 				 bool *faildestperm,

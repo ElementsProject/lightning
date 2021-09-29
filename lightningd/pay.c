@@ -33,6 +33,7 @@ struct sendpay_command {
 
 	struct sha256 payment_hash;
 	u64 partid;
+	u64 groupid;
 	struct command *cmd;
 };
 
@@ -77,12 +78,13 @@ static void
 add_sendpay_waiter(struct lightningd *ld,
 		   struct command *cmd,
 		   const struct sha256 *payment_hash,
-		   u64 partid)
+		   u64 partid, u64 groupid)
 {
 	struct sendpay_command *pc = tal(cmd, struct sendpay_command);
 
 	pc->payment_hash = *payment_hash;
 	pc->partid = partid;
+	pc->groupid = groupid;
 	pc->cmd = cmd;
 	list_add(&ld->sendpay_commands, &pc->list);
 	tal_add_destructor(pc, destroy_sendpay_command);
@@ -94,12 +96,13 @@ static void
 add_waitsendpay_waiter(struct lightningd *ld,
 		       struct command *cmd,
 		       const struct sha256 *payment_hash,
-		       u64 partid)
+		       u64 partid, u64 groupid)
 {
 	struct sendpay_command *pc = tal(cmd, struct sendpay_command);
 
 	pc->payment_hash = *payment_hash;
 	pc->partid = partid;
+	pc->groupid = groupid;
 	pc->cmd = cmd;
 	list_add(&ld->waitsendpay_commands, &pc->list);
 	tal_add_destructor(pc, destroy_sendpay_command);
@@ -285,6 +288,8 @@ static void tell_waiters_failed(struct lightningd *ld,
 			continue;
 		if (payment->partid != pc->partid)
 			continue;
+		if (payment->groupid != pc->groupid)
+			continue;
 
 		sendpay_fail(pc->cmd, payment, pay_errcode, onionreply, fail,
 			     errmsg);
@@ -311,6 +316,8 @@ static void tell_waiters_success(struct lightningd *ld,
 			continue;
 		if (payment->partid != pc->partid)
 			continue;
+		if (payment->groupid != pc->groupid)
+			continue;
 
 		sendpay_success(pc->cmd, payment);
 	}
@@ -327,7 +334,7 @@ void payment_succeeded(struct lightningd *ld, struct htlc_out *hout,
 				  PAYMENT_COMPLETE, rval);
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
 					 &hout->payment_hash,
-					 hout->partid);
+					 hout->partid, hout->groupid);
 	assert(payment);
 
 	if (payment->local_offer_id)
@@ -539,7 +546,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
 					 &hout->payment_hash,
-					 hout->partid);
+					 hout->partid, hout->groupid);
 
 #ifdef COMPAT_V052
 	/* Prior to "pay: delete HTLC when we delete payment." we would
@@ -652,7 +659,7 @@ void payment_failed(struct lightningd *ld, const struct htlc_out *hout,
 static struct command_result *wait_payment(struct lightningd *ld,
 					   struct command *cmd,
 					   const struct sha256 *payment_hash,
-					   u64 partid)
+					   u64 partid, u64 groupid)
 {
 	struct wallet_payment *payment;
 	struct onionreply *failonionreply;
@@ -668,7 +675,7 @@ static struct command_result *wait_payment(struct lightningd *ld,
 	errcode_t rpcerrorcode;
 
 	payment = wallet_payment_by_hash(tmpctx, ld->wallet,
-					 payment_hash, partid);
+					 payment_hash, partid, groupid);
 	if (!payment) {
 		return command_fail(cmd, PAY_NO_SUCH_PAYMENT,
 				    "Never attempted payment part %"PRIu64
@@ -678,12 +685,12 @@ static struct command_result *wait_payment(struct lightningd *ld,
 						   payment_hash));
 	}
 
-	log_debug(cmd->ld->log, "Payment part %"PRIu64"/%"PRIu64" status %u",
-		  partid, payment->partid, payment->status);
+	log_debug(cmd->ld->log, "Payment part %"PRIu64"/%"PRIu64"/%"PRIu64" status %u",
+		  partid, payment->partid, payment->groupid, payment->status);
 
 	switch (payment->status) {
 	case PAYMENT_PENDING:
-		add_waitsendpay_waiter(ld, cmd, payment_hash, partid);
+		add_waitsendpay_waiter(ld, cmd, payment_hash, partid, groupid);
 		return NULL;
 
 	case PAYMENT_COMPLETE:
@@ -694,6 +701,7 @@ static struct command_result *wait_payment(struct lightningd *ld,
 		wallet_payment_get_failinfo(tmpctx, ld->wallet,
 					    payment_hash,
 					    partid,
+					    groupid,
 					    &failonionreply,
 					    &faildestperm,
 					    &failindex,
@@ -1078,7 +1086,7 @@ send_payment_core(struct lightningd *ld,
 	/* We write this into db when HTLC is actually sent. */
 	wallet_payment_setup(ld->wallet, payment);
 
-	add_sendpay_waiter(ld, cmd, rhash, partid);
+	add_sendpay_waiter(ld, cmd, rhash, partid, group);
 	return command_still_pending(cmd);
 }
 
@@ -1487,16 +1495,21 @@ static struct command_result *json_waitsendpay(struct command *cmd,
 	struct sha256 *rhash;
 	unsigned int *timeout;
 	struct command_result *res;
-	u64 *partid;
+	u64 *partid, *groupid;
 
 	if (!param(cmd, buffer, params,
 		   p_req("payment_hash", param_sha256, &rhash),
 		   p_opt("timeout", param_number, &timeout),
 		   p_opt_def("partid", param_u64, &partid, 0),
+		   p_opt("groupid", param_u64, &groupid),
 		   NULL))
 		return command_param_failed();
 
-	res = wait_payment(cmd->ld, cmd, rhash, *partid);
+	if (groupid == NULL) {
+		groupid = tal(cmd, u64);
+		*groupid = wallet_payment_get_groupid(cmd->ld->wallet, rhash);
+	}
+	res = wait_payment(cmd->ld, cmd, rhash, *partid, *groupid);
 	if (res)
 		return res;
 

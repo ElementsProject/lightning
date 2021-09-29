@@ -1490,6 +1490,7 @@ static struct command_result *payment_sendonion_success(struct command *cmd,
 				    payment_waitsendpay_finished, p);
 	json_add_sha256(req->js, "payment_hash", p->payment_hash);
 	json_add_num(req->js, "partid", p->partid);
+	json_add_u64(req->js, "groupid", p->groupid);
 	send_outreq(p->plugin, req);
 
 	return command_still_pending(cmd);

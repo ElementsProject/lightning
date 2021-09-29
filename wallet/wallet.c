@@ -2910,9 +2910,10 @@ void wallet_payment_store(struct wallet *wallet,
 		stmt =
 		    db_prepare_v2(wallet->db, SQL("SELECT status FROM payments"
 						  " WHERE payment_hash=?"
-						  " AND partid = ?;"));
+						  " AND partid = ? AND groupid = ?;"));
 		db_bind_sha256(stmt, 0, &payment->payment_hash);
 		db_bind_u64(stmt, 1, payment->partid);
+		db_bind_u64(stmt, 2, payment->groupid);
 		db_query_prepared(stmt);
 		res = db_step(stmt);
 		assert(res);
@@ -3134,10 +3135,7 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 	} else
 		payment->local_offer_id = NULL;
 
-	if (!db_column_is_null(stmt, 17))
-		payment->groupid = db_column_u64(stmt, 17);
-	else
-		payment->groupid = 0;
+	payment->groupid = db_column_u64(stmt, 17);
 
 	return payment;
 }
@@ -3145,7 +3143,7 @@ static struct wallet_payment *wallet_stmt2payment(const tal_t *ctx,
 struct wallet_payment *
 wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 		       const struct sha256 *payment_hash,
-		       u64 partid)
+		       u64 partid, u64 groupid)
 {
 	struct db_stmt *stmt;
 	struct wallet_payment *payment;
@@ -3176,10 +3174,11 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 					     ", groupid"
 					     " FROM payments"
 					     " WHERE payment_hash = ?"
-					     " AND partid = ?"));
+					     " AND partid = ? AND groupid=?"));
 
 	db_bind_sha256(stmt, 0, payment_hash);
 	db_bind_u64(stmt, 1, partid);
+	db_bind_u64(stmt, 2, groupid);
 	db_query_prepared(stmt);
 	if (db_step(stmt)) {
 		payment = wallet_stmt2payment(ctx, stmt);
@@ -3245,6 +3244,7 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 struct wallet *wallet,
 				 const struct sha256 *payment_hash,
 				 u64 partid,
+				 u64 groupid,
 				 /* outputs */
 				 struct onionreply **failonionreply,
 				 bool *faildestperm,
@@ -3266,9 +3266,10 @@ void wallet_payment_get_failinfo(const tal_t *ctx,
 				 ", failnode, failchannel"
 				 ", failupdate, faildetail, faildirection"
 				 "  FROM payments"
-				 " WHERE payment_hash=? AND partid=?;"));
+				 " WHERE payment_hash=? AND partid=? AND groupid=?;"));
 	db_bind_sha256(stmt, 0, payment_hash);
 	db_bind_u64(stmt, 1, partid);
+	db_bind_u64(stmt, 2, groupid);
 	db_query_prepared(stmt);
 	resb = db_step(stmt);
 	assert(resb);

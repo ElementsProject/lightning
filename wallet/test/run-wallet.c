@@ -1820,13 +1820,13 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	t->payment_preimage = NULL;
 	memset(&t->payment_hash, 1, sizeof(t->payment_hash));
 	t->partid = 0;
-	t->groupid = 0;
+	t->groupid = 12345;
 
 	db_begin_transaction(w->db);
 	t2 = tal_dup(NULL, struct wallet_payment, t);
 	wallet_payment_setup(w, t2);
 	wallet_payment_store(w, take(t2));
-	t2 = wallet_payment_by_hash(ctx, w, &t->payment_hash, 0);
+	t2 = wallet_payment_by_hash(ctx, w, &t->payment_hash, 0, t->groupid);
 	CHECK(t2 != NULL);
 	CHECK(t2->status == t->status);
 	CHECK(sha256_eq(&t2->payment_hash, &t->payment_hash));
@@ -1842,7 +1842,7 @@ static bool test_payment_crud(struct lightningd *ld, const tal_t *ctx)
 	memset(t->payment_preimage, 2, sizeof(*t->payment_preimage));
 	wallet_payment_set_status(w, &t->payment_hash, t->partid, t->groupid,
 				  t->status, t->payment_preimage);
-	t2 = wallet_payment_by_hash(ctx, w, &t->payment_hash, t->partid);
+	t2 = wallet_payment_by_hash(ctx, w, &t->payment_hash, t->partid, t->groupid);
 	CHECK(t2 != NULL);
 	CHECK(t2->status == t->status);
 	CHECK(sha256_eq(&t2->payment_hash, &t->payment_hash));

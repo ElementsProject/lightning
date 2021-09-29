@@ -1622,7 +1622,8 @@ static bool update_out_htlc(struct channel *channel,
 		if (hout->am_origin) {
 			payment = wallet_payment_by_hash(tmpctx, ld->wallet,
 							 &hout->payment_hash,
-							 hout->partid);
+							 hout->partid,
+							 hout->groupid);
 			assert(payment);
 			payment_store(ld, take(payment));
 		}
