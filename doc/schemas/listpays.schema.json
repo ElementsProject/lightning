@@ -132,6 +132,7 @@
 				"label": { },
 				"bolt11": { },
 				"bolt12": { },
+				"amount_sent_msat": { },
 				"erroronion": {
 				    "type": "hex",
 				    "description": "the error onion returned on failure, if any."
