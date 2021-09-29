@@ -2360,7 +2360,7 @@ static struct command_result *check_lease_channel_commitments(struct command *cm
 	* maximums */
 	if (channel->opener != LOCAL
 	    && get_block_height(cmd->ld->topology) < channel->lease_expiry) {
-		// Check for integer overflow wrapping
+		/* Check for integer overflow wrapping */
 		assert(channel->lease_chan_max_ppt * 1000 < channel->lease_chan_max_ppt);
 
 		if (channel->lease_chan_max_msat < base
