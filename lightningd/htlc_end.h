@@ -91,6 +91,9 @@ struct htlc_out {
 	/* If am_origin, this is the partid of the payment. */
 	u64 partid;
 
+	/* Is this is part of a group of HTLCs, which group is it? */
+	u64 groupid;
+
 	/* Where it's from, if not going to us. */
 	struct htlc_in *in;
 
@@ -163,6 +166,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      const struct pubkey *blinding,
 			      bool am_origin,
 			      u64 partid,
+			      u64 groupid,
 			      struct htlc_in *in);
 
 void connect_htlc_in(struct htlc_in_map *map, struct htlc_in *hin);

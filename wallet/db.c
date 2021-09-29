@@ -832,6 +832,9 @@ static struct migration dbmigrations[] = {
 	 ", 0"
 	 ", local_offer_id FROM temp_payments;"), NULL},
     {SQL("DROP TABLE temp_payments;"), NULL},
+    /* HTLCs also need to carry the groupid around so we can
+     * selectively update them. */
+    {SQL("ALTER TABLE channel_htlcs ADD groupid BIGINT;"), NULL},
 };
 
 /* Leak tracking. */
