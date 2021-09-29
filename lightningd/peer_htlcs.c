@@ -621,6 +621,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 			const struct sha256 *payment_hash,
 			const struct pubkey *blinding,
 			u64 partid,
+			u64 groupid,
 			const u8 *onion_routing_packet,
 			struct htlc_in *in,
 			struct htlc_out **houtp,
@@ -654,7 +655,7 @@ const u8 *send_htlc_out(const tal_t *ctx,
 	*houtp = new_htlc_out(out->owner, out, amount, cltv,
 			      payment_hash, onion_routing_packet,
 			      blinding, in == NULL,
-			      partid, in);
+			      partid, groupid, in);
 	tal_add_destructor(*houtp, destroy_hout_subd_died);
 
 	/* Give channel 30 seconds to commit this htlc. */
@@ -766,8 +767,8 @@ static void forward_htlc(struct htlc_in *hin,
 
 	failmsg = send_htlc_out(tmpctx, next, amt_to_forward,
 				outgoing_cltv_value, &hin->payment_hash,
-				next_blinding, 0, next_onion, hin,
-				&hout, &needs_update_appended);
+				next_blinding, 0 /* partid */, 0 /* groupid */,
+				next_onion, hin, &hout, &needs_update_appended);
 	if (!failmsg)
 		return;
 

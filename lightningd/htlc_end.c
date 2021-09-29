@@ -277,6 +277,7 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 			      const struct pubkey *blinding,
 			      bool am_origin,
 			      u64 partid,
+			      u64 groupid,
 			      struct htlc_in *in)
 {
 	struct htlc_out *hout = tal(ctx, struct htlc_out);
@@ -303,8 +304,10 @@ struct htlc_out *new_htlc_out(const tal_t *ctx,
 	else
 		hout->blinding = NULL;
 	hout->am_origin = am_origin;
-	if (am_origin)
+	if (am_origin) {
 		hout->partid = partid;
+		hout->groupid = groupid;
+	}
 	hout->in = NULL;
 	if (in)
 		htlc_out_connect_htlc_in(hout, in);
