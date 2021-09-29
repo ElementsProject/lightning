@@ -60,7 +60,7 @@ the user, and is not writable, as otherwise `lightningd` will refuse to
 start.
 Hence the `chmod 0400 hsm_secret` command.
 
-Alternately, if you are deploying a new node that has no funds and
+Alternatively, if you are deploying a new node that has no funds and
 channels yet, you can generate BIP39 words using any process, and
 create the `hsm_secret` using the `hsmtool generatehsm` command.
 If you did `make install` then `hsmtool` is installed as
