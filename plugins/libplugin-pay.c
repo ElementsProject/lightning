@@ -89,6 +89,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		p->id = parent->id;
 		p->local_id = parent->local_id;
 		p->local_offer_id = parent->local_offer_id;
+		p->groupid = parent->groupid;
 	} else {
 		assert(cmd != NULL);
 		p->partid = 0;
@@ -100,6 +101,7 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 		/* Caller must set this.  */
 		p->local_id = NULL;
 		p->local_offer_id = NULL;
+		p->groupid = 0;
 	}
 
 	/* Initialize all modifier data so we can point to the fields when
@@ -1525,6 +1527,7 @@ static struct command_result *payment_createonion_success(struct command *cmd,
 	json_array_end(req->js);
 
 	json_add_num(req->js, "partid", p->partid);
+	json_add_u64(req->js, "groupid", p->groupid);
 
 	if (p->label)
 		json_add_string(req->js, "label", p->label);
