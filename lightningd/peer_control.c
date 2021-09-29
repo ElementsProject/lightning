@@ -966,7 +966,7 @@ static void json_add_channel_inflight_field(struct json_stream *response,
 		json_add_txid(response, alias, &txid);
 	} else {
 		json_add_null(response, alias);
-		graphqlrpc_add_warning(response, "field not found '%s'", name);
+		queue_warning(response, "field not found '%s'", name);
 	}
 }
 
@@ -1005,7 +1005,7 @@ static void json_add_channel_funding_field(struct json_stream *response,
 		json_add_sat_only(response, alias, peer_funded_sats);
 	} else {
 		json_add_null(response, alias);
-		graphqlrpc_add_warning(response, "field not found '%s'", name);
+		queue_warning(response, "field not found '%s'", name);
 	}
 }
 
@@ -1040,7 +1040,7 @@ static void json_add_channel_state_change_field(
 				state_change->message);
 	} else {
 		json_add_null(response, alias);
-		graphqlrpc_add_warning(response, "field not found '%s'", name);
+		queue_warning(response, "field not found '%s'", name);
 	}
 }
 
@@ -1098,7 +1098,7 @@ static void json_add_channel_htlc_field(struct json_stream *response,
 		}
 	} else {
 		json_add_null(response, alias);
-		graphqlrpc_add_warning(response, "field not found '%s'", name);
+		queue_warning(response, "field not found '%s'", name);
 	}
 }
 
@@ -1397,7 +1397,7 @@ static void json_add_channel_field(struct lightningd *ld,
 		json_array_end(response);
 	} else {
 		json_add_null(response, alias);
-		graphqlrpc_add_warning(response, "field not found '%s'", name);
+		queue_warning(response, "field not found '%s'", name);
 	}
 }
 
@@ -2042,21 +2042,20 @@ static void json_add_peer_field(struct json_stream *js,
 
 	} else if (streq(name, "log")) {
 		enum log_level *ll;
-		bool invalid;
-                invalid = arg_loglevel("level", sel->field, cmd, &ll)
-			  && !ll;
-		if (invalid) {
-			/* return an empty array */
+
+		get_args(cmd, js, sel->field,
+			 a_opt_def("level", str_to_log_level, &ll, "io"),
+			 NULL);
+
+		if (ll) {
+			json_add_log(js, cmd->ld->log_book, &p->id, *ll);
+		} else {
 			json_array_start(js, name);
 			json_array_end(js);
-			graphqlrpc_add_warning(js, "invalid log level specified");
-		} else {
-			json_add_log(js, cmd->ld->log_book, &p->id,
-				     !ll? 0 : *ll);
 		}
 	} else {
 		json_add_null(js, alias);
-		graphqlrpc_add_warning(js, "field not found '%s'", name);
+		queue_warning(js, "field not found '%s'", name);
 	}
 }
 
@@ -2093,25 +2092,20 @@ void json_add_peers(struct json_stream *js,
 		    const struct graphql_field *field)
 {
 	struct peer *peer;
-
 	struct node_id *specific_id;
-	bool invalid;
-	invalid = arg_node_id("id", field, cmd, &specific_id)
-		  && !specific_id;
-	if (invalid)
-		graphqlrpc_add_warning(js, "invalid node id argument to %s field",
-				       field->name->token_string);
+
+	get_args(cmd, js, field,
+		a_opt("id", str_to_node_id, &specific_id),
+		NULL);
 
 	json_array_start(js, alias);
-	if (!invalid) {
-		if (specific_id) {
-			peer = peer_by_id(cmd->ld, specific_id);
-			if (peer)
-				json_add_peer2(js, cmd, peer, field);
-		} else {
-			list_for_each(&cmd->ld->peers, peer, list)
-				json_add_peer2(js, cmd, peer, field);
-		}
+	if (specific_id) {
+		peer = peer_by_id(cmd->ld, specific_id);
+		if (peer)
+			json_add_peer2(js, cmd, peer, field);
+	} else {
+		list_for_each(&cmd->ld->peers, peer, list)
+			json_add_peer2(js, cmd, peer, field);
 	}
 	json_array_end(js);
 }
@@ -2132,7 +2126,7 @@ static void json_add_field(struct json_stream *js,
 		json_add_peers(js, cmd, alias, sel->field);
 	} else {
 		json_add_null(js, alias);
-		graphqlrpc_add_warning(js, "field not found '%s'", name);
+		queue_warning(js, "field not found '%s'", name);
 	}
 }
 

@@ -7,6 +7,7 @@
 #include <common/blockheight_states.h>
 #include <common/configdir.h>
 #include <common/fee_states.h>
+#include <common/graphql_args.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_tok.h>
@@ -17,7 +18,6 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
-#include <lightningd/graphqlrpc.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/notification.h>
@@ -125,7 +125,7 @@ static void json_add_uncommitted_channel_field(
 		json_array_end(response);
 	} else {
 		json_add_null(response, alias);
-		graphqlrpc_add_warning(response, "field not found '%s'", name);
+		queue_warning(response, "field not found '%s'", name);
 	}
 }
 

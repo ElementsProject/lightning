@@ -13,14 +13,6 @@ bool deprecated_apis = false;
 struct channel *active_channel_by_scid(struct lightningd *ld UNNEEDED,
 				       const struct short_channel_id *scid UNNEEDED)
 { fprintf(stderr, "active_channel_by_scid called!\n"); abort(); }
-/* Generated stub for arg_loglevel */
-bool arg_loglevel(const char *name UNNEEDED, const struct graphql_field *field UNNEEDED,
-		  void *ctx UNNEEDED, enum log_level **ll UNNEEDED)
-{ fprintf(stderr, "arg_loglevel called!\n"); abort(); }
-/* Generated stub for arg_node_id */
-bool arg_node_id(const char *name UNNEEDED, const struct graphql_field *field UNNEEDED,
-		 void *ctx UNNEEDED, struct node_id **id UNNEEDED)
-{ fprintf(stderr, "arg_node_id called!\n"); abort(); }
 /* Generated stub for bitcoind_getutxout_ */
 void bitcoind_getutxout_(struct bitcoind *bitcoind UNNEEDED,
 			 const struct bitcoin_outpoint *outpoint UNNEEDED,
@@ -234,6 +226,10 @@ void fromwire_node_id(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct n
 /* Generated stub for fromwire_onchaind_dev_memleak_reply */
 bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNEEDED)
 { fprintf(stderr, "fromwire_onchaind_dev_memleak_reply called!\n"); abort(); }
+/* Generated stub for get_args */
+void get_args(void *ctx UNNEEDED, struct json_stream *js UNNEEDED,
+	      const struct graphql_field *field UNNEEDED, ...)
+{ fprintf(stderr, "get_args called!\n"); abort(); }
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
@@ -242,10 +238,6 @@ u32 get_feerate(const struct fee_states *fee_states UNNEEDED,
 		enum side opener UNNEEDED,
 		enum side side UNNEEDED)
 { fprintf(stderr, "get_feerate called!\n"); abort(); }
-/* Generated stub for graphqlrpc_add_warning */
-void graphqlrpc_add_warning(struct json_stream *js UNNEEDED, const char *fmt UNNEEDED, ...)
-
-{ fprintf(stderr, "graphqlrpc_add_warning called!\n"); abort(); }
 /* Generated stub for hash_htlc_key */
 size_t hash_htlc_key(const struct htlc_key *htlc_key UNNEEDED)
 { fprintf(stderr, "hash_htlc_key called!\n"); abort(); }
@@ -632,10 +624,20 @@ bool plugin_hook_call_(struct lightningd *ld UNNEEDED, const struct plugin_hook 
 void plugin_request_send(struct plugin *plugin UNNEEDED,
 			 struct jsonrpc_request *req TAKES UNNEEDED)
 { fprintf(stderr, "plugin_request_send called!\n"); abort(); }
+/* Generated stub for queue_warning */
+void queue_warning(struct json_stream *js UNNEEDED, const char *fmt UNNEEDED, ...)
+
+{ fprintf(stderr, "queue_warning called!\n"); abort(); }
 /* Generated stub for resolve_close_command */
 void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
 			   bool cooperative UNNEEDED)
 { fprintf(stderr, "resolve_close_command called!\n"); abort(); }
+/* Generated stub for str_to_log_level */
+void str_to_log_level(void *ctx UNNEEDED, const char *str UNNEEDED, enum log_level **ll UNNEEDED)
+{ fprintf(stderr, "str_to_log_level called!\n"); abort(); }
+/* Generated stub for str_to_node_id */
+void str_to_node_id(void *ctx UNNEEDED, const char *str UNNEEDED, struct node_id **id UNNEEDED)
+{ fprintf(stderr, "str_to_node_id called!\n"); abort(); }
 /* Generated stub for subd_req_ */
 void subd_req_(const tal_t *ctx UNNEEDED,
 	       struct subd *sd UNNEEDED,
