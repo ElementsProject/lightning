@@ -327,7 +327,8 @@ struct command_result *handle_invoice(struct command *cmd,
 
 	/* Make a copy of entire buffer, for later. */
 	inv->buf = tal_dup_arr(inv, char, buf, replytok->end, 0);
-	inv->replytok = replytok;
+	inv->replytok = tal_dup_arr(inv, jsmntok_t, replytok,
+				    json_next(replytok) - replytok, 0);
 
 	inv->inv = tlv_invoice_new(cmd);
 	if (!fromwire_invoice(&invbin, &len, inv->inv)) {
