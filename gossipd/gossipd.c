@@ -12,6 +12,7 @@
  */
 #include <ccan/cast/cast.h>
 #include <ccan/tal/str/str.h>
+#include <common/blindedpath.h>
 #include <common/blinding.h>
 #include <common/daemon_conn.h>
 #include <common/ecdh_hsmd.h>
@@ -612,7 +613,148 @@ static u8 *handle_obs_onion_message(struct peer *peer, const u8 *msg)
 /* Peer sends onion msg. */
 static u8 *handle_onion_message(struct peer *peer, const u8 *msg)
 {
-	/* FIXME */
+	enum onion_wire badreason;
+	struct onionpacket *op;
+	struct pubkey blinding, ephemeral;
+	struct route_step *rs;
+	u8 *onion;
+	struct tlv_onionmsg_payload *om;
+	struct secret ss, onion_ss;
+	const u8 *cursor;
+	size_t max, maxlen;
+
+	/* Ignore unless explicitly turned on. */
+	if (!feature_offered(peer->daemon->our_features->bits[NODE_ANNOUNCE_FEATURE],
+			     OPT_ONION_MESSAGES))
+		return NULL;
+
+	/* FIXME: ratelimit! */
+	if (!fromwire_onion_message(msg, msg, &blinding, &onion))
+		return towire_warningfmt(peer, NULL, "Bad onion_message");
+
+	/* We unwrap the onion now. */
+	op = parse_onionpacket(tmpctx, onion, tal_bytelen(onion), &badreason);
+	if (!op) {
+		status_peer_debug(&peer->id, "onion msg: can't parse onionpacket: %s",
+				  onion_wire_name(badreason));
+		return NULL;
+	}
+
+	ephemeral = op->ephemeralkey;
+	if (!unblind_onion(&blinding, ecdh, &ephemeral, &ss)) {
+		status_peer_debug(&peer->id, "onion msg: can't unblind onionpacket");
+		return NULL;
+	}
+
+	/* Now get onion shared secret and parse it. */
+	ecdh(&ephemeral, &onion_ss);
+	rs = process_onionpacket(tmpctx, op, &onion_ss, NULL, 0, false);
+	if (!rs) {
+		status_peer_debug(&peer->id,
+				  "onion msg: can't process onionpacket ss=%s",
+				  type_to_string(tmpctx, struct secret, &onion_ss));
+		return NULL;
+	}
+
+	/* The raw payload is prepended with length in the modern onion. */
+	cursor = rs->raw_payload;
+	max = tal_bytelen(rs->raw_payload);
+	maxlen = fromwire_bigsize(&cursor, &max);
+	if (!cursor) {
+		status_peer_debug(&peer->id, "onion msg: Invalid hop payload %s",
+				  tal_hex(tmpctx, rs->raw_payload));
+		return NULL;
+	}
+	if (maxlen > max) {
+		status_peer_debug(&peer->id, "onion msg: overlong hop payload %s",
+				  tal_hex(tmpctx, rs->raw_payload));
+		return NULL;
+	}
+
+	om = tlv_onionmsg_payload_new(msg);
+	if (!fromwire_onionmsg_payload(&cursor, &maxlen, om)) {
+		status_peer_debug(&peer->id, "onion msg: invalid onionmsg_payload %s",
+				  tal_hex(tmpctx, rs->raw_payload));
+		return NULL;
+	}
+
+	if (rs->nextcase == ONION_END) {
+		struct pubkey *reply_blinding, *first_node_id, me, alias;
+		const struct onionmsg_path **reply_path;
+		struct secret *self_id;
+		u8 *omsg;
+
+		if (!pubkey_from_node_id(&me, &peer->daemon->id)) {
+			status_broken("Failed to convert own id");
+			return NULL;
+		}
+
+		/* Final enctlv is actually optional */
+		if (!om->enctlv) {
+			alias = me;
+			self_id = NULL;
+		} else if (!decrypt_final_enctlv(tmpctx, &blinding, &ss,
+						 om->enctlv, &me, &alias,
+						 &self_id)) {
+			status_peer_debug(&peer->id,
+					  "onion msg: failed to decrypt enctlv"
+					  " %s", tal_hex(tmpctx, om->enctlv));
+			return NULL;
+		}
+
+		if (om->reply_path) {
+			first_node_id = &om->reply_path->first_node_id;
+			reply_blinding = &om->reply_path->blinding;
+			reply_path = cast_const2(const struct onionmsg_path **,
+						 om->reply_path->path);
+		} else {
+			first_node_id = NULL;
+			reply_blinding = NULL;
+			reply_path = NULL;
+		}
+
+		/* We re-marshall here by policy, before handing to lightningd */
+		omsg = tal_arr(tmpctx, u8, 0);
+		towire_tlvstream_raw(&omsg, om->fields);
+		daemon_conn_send(peer->daemon->master,
+				 take(towire_gossipd_got_onionmsg_to_us(NULL,
+							&alias, self_id,
+							reply_blinding,
+							first_node_id,
+							reply_path,
+							omsg)));
+	} else {
+		struct pubkey next_node, next_blinding;
+		struct peer *next_peer;
+		struct node_id next_node_id;
+
+		/* This fails as expected if no enctlv. */
+		if (!decrypt_enctlv(&blinding, &ss, om->enctlv, &next_node,
+				    &next_blinding)) {
+			status_peer_debug(&peer->id,
+					  "onion msg: invalid enctlv %s",
+					  tal_hex(tmpctx, om->enctlv));
+			return NULL;
+		}
+
+		/* Even though lightningd checks for valid ids, there's a race
+		 * where it might vanish before we read this command. */
+		node_id_from_pubkey(&next_node_id, &next_node);
+		next_peer = find_peer(peer->daemon, &next_node_id);
+		if (!next_peer) {
+			status_peer_debug(&peer->id,
+					  "onion msg: unknown next peer %s",
+					  type_to_string(tmpctx,
+							 struct pubkey,
+							 &next_node));
+			return NULL;
+		}
+		queue_peer_msg(next_peer,
+			       take(towire_onion_message(NULL,
+							 &next_blinding,
+							 serialize_onionpacket(tmpctx, rs->next))));
+	}
+
 	return NULL;
 }
 
