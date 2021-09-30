@@ -48,24 +48,25 @@ json_peer_connected(struct command *cmd,
 	return command_finished(cmd, response);
 }
 
-static void json_connected(struct command *cmd,
-			   const char *buf,
-			   const jsmntok_t *params)
+static struct command_result *json_connected(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *params)
 {
 	const jsmntok_t *idtok = json_get_member(buf, params, "id");
 	assert(idtok);
 	plugin_log(cmd->plugin, LOG_INFORM, "%s connected",
 		   json_strdup(tmpctx, buf, idtok));
+	return notification_handled(cmd);
 }
 
-static void json_shutdown(struct command *cmd,
-			  const char *buf,
-			  const jsmntok_t *params)
+static struct command_result *json_shutdown(struct command *cmd,
+					    const char *buf,
+					    const jsmntok_t *params)
 {
 	plugin_log(cmd->plugin, LOG_DBG, "shutdown called");
 
 	if (dont_shutdown)
-		return;
+		return notification_handled(cmd);
 
 	plugin_exit(cmd->plugin, 0);
 }

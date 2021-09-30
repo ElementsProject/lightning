@@ -1759,3 +1759,10 @@ command_hook_success(struct command *cmd)
 	json_add_string(response, "result", "continue");
 	return command_finished(cmd, response);
 }
+
+struct command_result *WARN_UNUSED_RESULT
+notification_handled(struct command *cmd)
+{
+	tal_free(cmd);
+	return &complete;
+}

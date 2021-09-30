@@ -708,9 +708,9 @@ json_rbf_channel_call(struct command *cmd,
 	return send_outreq(cmd->plugin, req);
 }
 
-static void json_disconnect(struct command *cmd,
-			    const char *buf,
-			    const jsmntok_t *params)
+static struct command_result *json_disconnect(struct command *cmd,
+					      const char *buf,
+					      const jsmntok_t *params)
 {
 	struct node_id id;
 	const char *err;
@@ -730,11 +730,13 @@ static void json_disconnect(struct command *cmd,
 		   type_to_string(tmpctx, struct node_id, &id));
 
 	cleanup_peer_pending_opens(&id);
+
+	return notification_handled(cmd);
 }
 
-static void json_channel_open_failed(struct command *cmd,
-				     const char *buf,
-				     const jsmntok_t *params)
+static struct command_result *json_channel_open_failed(struct command *cmd,
+						       const char *buf,
+						       const jsmntok_t *params)
 {
 	struct channel_id cid;
 	struct pending_open *open;
@@ -758,6 +760,8 @@ static void json_channel_open_failed(struct command *cmd,
 	open = cleanup_channel_pending_open(&cid);
 	if (open)
 		unreserve_psbt(open);
+
+	return notification_handled(cmd);
 }
 
 static void json_add_policy(struct json_stream *stream,
