@@ -750,6 +750,14 @@ static struct migration dbmigrations[] = {
      NULL},
     {SQL("CREATE INDEX channel_state_changes_channel_id"
 	 " ON channel_state_changes (channel_id);"), NULL},
+    /* Funny story!  Back in 2019, before postgresql, we used FALSE
+     * instead of 0.  So this does the static-remotekey upgrade for
+     * those ancient databases: it's a repeat of line 722. */
+    {SQL("UPDATE channels SET"
+	 " remote_static_remotekey_start = 9223372036854775807,"
+	 " local_static_remotekey_start = 9223372036854775807"
+	 " WHERE CAST(option_static_remotekey AS INTEGER) = 0"),
+     NULL},
 };
 
 /* Leak tracking. */
