@@ -524,9 +524,9 @@ check_sigs_ready(struct multifundchannel_command *mfc)
 	return command_still_pending(mfc->cmd);
 }
 
-static void json_peer_sigs(struct command *cmd,
-			   const char *buf,
-			   const jsmntok_t *params)
+static struct command_result *json_peer_sigs(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *params)
 {
 	struct channel_id cid;
 	const struct wally_psbt *psbt;
@@ -552,7 +552,7 @@ static void json_peer_sigs(struct command *cmd,
 			   "mfc ??: `openchannel_peer_sigs` no "
 			   "pending dest found for channel_id %s",
 			   type_to_string(tmpctx, struct channel_id, &cid));
-		return;
+		return notification_handled(cmd);
 	}
 
 	plugin_log(cmd->plugin, LOG_DBG,
@@ -587,7 +587,12 @@ static void json_peer_sigs(struct command *cmd,
 		dest->state = MULTIFUNDCHANNEL_SIGNED;
 	}
 
+	/* Possibly free up the struct command for the mfc that
+	 * we found.  */
 	check_sigs_ready(dest->mfc);
+
+	/* Free up the struct command for *this* call.  */
+	return notification_handled(cmd);
 }
 
 /*~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*

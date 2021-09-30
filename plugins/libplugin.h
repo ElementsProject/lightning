@@ -84,9 +84,11 @@ struct plugin_option {
 /* Create an array of these, one for each notification you subscribe to. */
 struct plugin_notification {
 	const char *name;
-	void (*handle)(struct command *cmd,
-	               const char *buf,
-	               const jsmntok_t *params);
+	/* The handler must eventually trigger a `notification_handled`
+	 * call.  */
+	struct command_result* (*handle)(struct command *cmd,
+					 const char *buf,
+					 const jsmntok_t *params);
 };
 
 /* Create an array of these, one for each hook you subscribe to. */
@@ -189,6 +191,13 @@ command_success(struct command *cmd, const struct json_out *result);
 /* End a hook normally (with "result": "continue") */
 struct command_result *WARN_UNUSED_RESULT
 command_hook_success(struct command *cmd);
+
+/* End a notification handler.  */
+struct command_result *WARN_UNUSED_RESULT
+notification_handled(struct command *cmd);
+
+/* Helper for notification handler that will be finished in a callback.  */
+#define notification_handler_pending(cmd) command_still_pending(cmd)
 
 /* Synchronous helper to send command and extract fields from
  * response; can only be used in init callback. */
