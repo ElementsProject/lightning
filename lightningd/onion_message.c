@@ -1,3 +1,4 @@
+#include <ccan/mem/mem.h>
 #include <common/blindedpath.h>
 #include <common/json_command.h>
 #include <common/json_helpers.h>
@@ -14,10 +15,15 @@
 #include <sodium/randombytes.h>
 
 struct onion_message_hook_payload {
+	/* Pre-spec or modern? */
+	bool obsolete;
+
 	/* Optional */
-	struct pubkey *blinding_in;
+	struct pubkey *blinding_in; /* obsolete only */
 	struct pubkey *reply_blinding;
 	struct onionmsg_path **reply_path;
+	struct pubkey *reply_first_node; /* non-obsolete only */
+	struct pubkey *our_alias; /* non-obsolete only */
 
 	struct tlv_onionmsg_payload *om;
 };
@@ -47,9 +53,19 @@ static void onion_message_serialize(struct onion_message_hook_payload *payload,
 				    struct plugin *plugin)
 {
 	json_object_start(stream, "onion_message");
+	json_add_bool(stream, "obsolete", payload->obsolete);
 	if (payload->blinding_in)
 		json_add_pubkey(stream, "blinding_in", payload->blinding_in);
-	if (payload->reply_path) {
+	if (payload->our_alias)
+		json_add_pubkey(stream, "our_alias", payload->our_alias);
+
+	/* Modern style. */
+	if (payload->reply_first_node) {
+		json_add_blindedpath(stream, "reply_blindedpath",
+				     payload->reply_blinding,
+				     payload->reply_first_node,
+				     payload->reply_path);
+	} else if (payload->reply_path) {
 		json_array_start(stream, "reply_path");
 		for (size_t i = 0; i < tal_count(payload->reply_path); i++) {
 			json_object_start(stream, NULL);
@@ -113,6 +129,12 @@ REGISTER_PLUGIN_HOOK(onion_message_blinded,
 		     onion_message_serialize,
 		     struct onion_message_hook_payload *);
 
+REGISTER_PLUGIN_HOOK(onion_message_ourpath,
+		     plugin_hook_continue,
+		     onion_message_hook_cb,
+		     onion_message_serialize,
+		     struct onion_message_hook_payload *);
+
 void handle_obs_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 {
 	struct onion_message_hook_payload *payload;
@@ -121,7 +143,10 @@ void handle_obs_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	const u8 *subptr;
 
 	payload = tal(ld, struct onion_message_hook_payload);
+	payload->obsolete = true;
+	payload->reply_first_node = NULL;
 	payload->om = tlv_onionmsg_payload_new(payload);
+	payload->our_alias = NULL;
 
 	if (!fromwire_gossipd_got_obs_onionmsg_to_us(payload, msg,
 						     &payload->blinding_in,
@@ -197,8 +222,62 @@ void handle_obs_onionmsg_forward(struct lightningd *ld, const u8 *msg)
 
 void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 {
-	/* FIXME! */
-	return;
+	struct onion_message_hook_payload *payload;
+	u8 *submsg;
+	struct secret *self_id;
+	size_t submsglen;
+	const u8 *subptr;
+
+	payload = tal(ld, struct onion_message_hook_payload);
+	payload->obsolete = false;
+	payload->om = tlv_onionmsg_payload_new(payload);
+	payload->blinding_in = NULL;
+	payload->our_alias = tal(payload, struct pubkey);
+
+	if (!fromwire_gossipd_got_onionmsg_to_us(payload, msg,
+						 payload->our_alias,
+						 &self_id,
+						 &payload->reply_blinding,
+						 &payload->reply_first_node,
+						 &payload->reply_path,
+						 &submsg)) {
+		log_broken(ld->log, "bad got_onionmsg_tous: %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+
+	/* If there's no self_id, or it's not correct, ignore alias: alias
+	 * means we created the path it's using. */
+	if (!self_id || !secret_eq_consttime(self_id, &ld->onion_reply_secret))
+		payload->our_alias = tal_free(payload->our_alias);
+
+	submsglen = tal_bytelen(submsg);
+	subptr = submsg;
+	if (!fromwire_onionmsg_payload(&subptr,
+				       &submsglen, payload->om)) {
+		tal_free(payload);
+		log_broken(ld->log, "bad got_onionmsg_tous om: %s",
+			   tal_hex(tmpctx, msg));
+		return;
+	}
+	tal_free(submsg);
+
+	/* Make sure gossipd gets this right. */
+	if (payload->reply_path
+	    && (!payload->reply_blinding || !payload->reply_first_node)) {
+		log_broken(ld->log,
+			   "No reply blinding/first_node, ignoring reply path");
+		payload->reply_path = tal_free(payload->reply_path);
+	}
+
+	log_debug(ld->log, "Got onionmsg%s%s",
+		  payload->our_alias ? " via-ourpath": "",
+		  payload->reply_path ? " reply_path": "");
+
+	if (payload->our_alias)
+		plugin_hook_call_onion_message_ourpath(ld, payload);
+	else
+		plugin_hook_call_onion_message_blinded(ld, payload);
 }
 
 struct hop {

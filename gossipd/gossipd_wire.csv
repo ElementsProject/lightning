@@ -104,7 +104,8 @@ msgdata,gossipd_got_obs_onionmsg_forward,next_onion_len,u16,
 msgdata,gossipd_got_obs_onionmsg_forward,next_onion,u8,next_onion_len
 
 msgtype,gossipd_got_onionmsg_to_us,3145
-msgdata,gossipd_got_onionmsg_to_us,blinding_in,pubkey,
+msgdata,gossipd_got_onionmsg_to_us,node_alias,pubkey,
+msgdata,gossipd_got_onionmsg_to_us,self_id,?secret,
 msgdata,gossipd_got_onionmsg_to_us,reply_blinding,?pubkey,
 msgdata,gossipd_got_onionmsg_to_us,reply_first_node,?pubkey,
 msgdata,gossipd_got_onionmsg_to_us,reply_path_len,u16,
