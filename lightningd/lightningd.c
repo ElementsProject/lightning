@@ -127,6 +127,8 @@ static struct lightningd *new_lightningd(const tal_t *ctx)
 	ld->dev_no_htlc_timeout = false;
 	ld->dev_no_version_checks = false;
 	ld->dev_max_funding_unconfirmed = 2016;
+	ld->dev_ignore_modern_onion = false;
+	ld->dev_ignore_obsolete_onion = false;
 #endif
 
 	/*~ These are CCAN lists: an embedded double-linked list.  It's not

@@ -242,6 +242,9 @@ struct lightningd {
 	/* Number of blocks we wait for a channel to get funded
 	 * if we are the fundee. */
 	u32 dev_max_funding_unconfirmed;
+
+	/* Special switches to test onion compatibility */
+	bool dev_ignore_modern_onion, dev_ignore_obsolete_onion;
 #endif /* DEVELOPER */
 
 	/* tor support */

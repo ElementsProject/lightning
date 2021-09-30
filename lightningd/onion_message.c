@@ -142,6 +142,11 @@ void handle_obs_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	size_t submsglen;
 	const u8 *subptr;
 
+#if DEVELOPER
+	if (ld->dev_ignore_obsolete_onion)
+		return;
+#endif
+
 	payload = tal(ld, struct onion_message_hook_payload);
 	payload->obsolete = true;
 	payload->reply_first_node = NULL;
@@ -227,6 +232,11 @@ void handle_onionmsg_to_us(struct lightningd *ld, const u8 *msg)
 	struct secret *self_id;
 	size_t submsglen;
 	const u8 *subptr;
+
+#if DEVELOPER
+	if (ld->dev_ignore_modern_onion)
+		return;
+#endif
 
 	payload = tal(ld, struct onion_message_hook_payload);
 	payload->obsolete = false;
