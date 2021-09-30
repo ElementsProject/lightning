@@ -1508,28 +1508,34 @@ type prefix, since c-lightning does not know how to parse the message.
 Because this is a chained hook, the daemon expects the result to be
 `{'result': 'continue'}`. It will fail if something else is returned.
 
-### `onion_message` and `onion_message_blinded`
+### `onion_message`, `onion_message_blinded` and `onion_message_ourpath`
 
 **(WARNING: experimental-offers only)**
 
-These two hooks are almost identical, in that they are called when an
-onion message is received.  The former is only used for unblinded
-messages (where the source knows that it is sending to this node), and
-the latter for blinded messages (where the source doesn't know that
-this node is the destination).  The latter hook will have a
-"blinding_in" field, the former never will.
+These three hooks are almost identical, in that they are called when
+an onion message is received.  The `onion_message` hook is only used
+for obsolete unblinded messages, and can be ignored for modern usage.
 
-These hooks are separate, because blinded messages must ensure the
-sender used the correct "blinding_in", otherwise it should ignore the
-message: this avoids the source trying to probe for responses without
-using the designated delivery path.
+`onion_message_blinded` is used for unsolicited messages (where the
+source knows that it is sending to this node), and
+`onion_message_ourpath` is used for messages which use a blinded path
+we supplied (where the source doesn't know that this node is the
+destination).  The latter hook will have a `our_alias` field, the
+former never will.
+
+These hooks are separate, because replies MUST be ignored unless they
+use the correct path (i.e. `onion_message_ourpath`, with the expected
+`our_alias`).  This avoids the source trying to probe for responses
+without using the designated delivery path.
 
 The payload for a call follows this format:
 
 ```json
 {
     "onion_message": {
-        "blinding_in": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+        "our_alias": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+        "reply_first_node": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
+        "reply_blinding": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
 		"reply_path": [ {"id": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f",
                          "enctlv": "0a020d0d",
                          "blinding": "02df5ffe895c778e10f7742a6c5b8a0cefbe9465df58b92fadeb883752c8107c8f"} ],
