@@ -648,6 +648,12 @@ static void dev_register_opts(struct lightningd *ld)
 	opt_register_arg("--dev-timeout-secs", opt_set_u32, opt_show_u32,
 			 &ld->config.connection_timeout_secs,
 			 "Seconds to timeout if we don't receive INIT from peer");
+	opt_register_noarg("--dev-no-modern-onion", opt_set_bool,
+			   &ld->dev_ignore_modern_onion,
+			   "Ignore modern onion messages");
+	opt_register_noarg("--dev-no-obsolete-onion", opt_set_bool,
+			   &ld->dev_ignore_obsolete_onion,
+			   "Ignore obsolete onion messages");
 }
 #endif /* DEVELOPER */
 
