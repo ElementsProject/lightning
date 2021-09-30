@@ -16,7 +16,10 @@
 struct invreq {
 	struct tlv_invoice_request *invreq;
 	const char *buf;
+	/* If obsolete style */
 	const jsmntok_t *replytok;
+	/* If modern style. */
+	struct tlv_onionmsg_payload_reply_path *reply_path;
 
 	/* The offer, once we've looked it up. */
 	struct tlv_offer *offer;
@@ -60,7 +63,8 @@ fail_invreq_level(struct command *cmd,
 
 	errdata = tal_arr(cmd, u8, 0);
 	towire_invoice_error(&errdata, err);
-	return send_onion_reply(cmd, invreq->buf, invreq->replytok,
+	return send_onion_reply(cmd, invreq->reply_path,
+				invreq->buf, invreq->replytok,
 				"invoice_error", errdata);
 }
 
@@ -180,7 +184,8 @@ static struct command_result *createinvoice_done(struct command *cmd,
 					json_tok_full(buf, t));
 	}
 
-	return send_onion_reply(cmd, ir->buf, ir->replytok, "invoice", rawinv);
+	return send_onion_reply(cmd, ir->reply_path, ir->buf, ir->replytok,
+				"invoice", rawinv);
 }
 
 static struct command_result *createinvoice_error(struct command *cmd,
@@ -828,7 +833,8 @@ static struct command_result *handle_offerless_request(struct command *cmd,
 struct command_result *handle_invoice_request(struct command *cmd,
 					      const char *buf,
 					      const jsmntok_t *invreqtok,
-					      const jsmntok_t *replytok)
+					      const jsmntok_t *replytok,
+					      struct tlv_onionmsg_payload_reply_path *reply_path)
 {
 	const u8 *invreqbin = json_tok_bin_from_hex(cmd, buf, invreqtok);
 	size_t len = tal_count(invreqbin);
@@ -837,9 +843,16 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	int bad_feature;
 
 	/* Make a copy of entire buffer, for later. */
-	ir->buf = tal_dup_arr(ir, char, buf, replytok->end, 0);
-	ir->replytok = tal_dup_arr(ir, jsmntok_t, replytok,
-				   json_next(replytok) - replytok, 0);
+	if (reply_path) {
+		ir->buf = NULL;
+		ir->replytok = NULL;
+		ir->reply_path = reply_path;
+	} else {
+		ir->buf = tal_dup_arr(ir, char, buf, replytok->end, 0);
+		ir->replytok = tal_dup_arr(ir, jsmntok_t, replytok,
+					   json_next(replytok) - replytok, 0);
+		ir->reply_path = NULL;
+	}
 
 	ir->invreq = tlv_invoice_request_new(cmd);
 	if (!fromwire_invoice_request(&invreqbin, &len, ir->invreq)) {
