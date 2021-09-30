@@ -1051,6 +1051,15 @@ wallet_payment_by_hash(const tal_t *ctx, struct wallet *wallet,
 		       u64 partid);
 
 /**
+ * Retrieve maximum groupid for a given payment_hash.
+ *
+ * Useful to either wait on the latest payment that was iniated with
+ * the hash or start a new one by incrementing the groupid.
+ */
+u64 wallet_payment_get_groupid(struct wallet *wallet,
+			       const struct sha256 *payment_hash);
+
+/**
  * wallet_payment_set_status - Update the status of the payment
  *
  * Search for the payment with the given `payment_hash` and update

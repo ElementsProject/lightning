@@ -3018,6 +3018,23 @@ void wallet_payment_delete(struct wallet *wallet,
 	db_exec_prepared_v2(take(stmt));
 }
 
+u64 wallet_payment_get_groupid(struct wallet *wallet,
+			       const struct sha256 *payment_hash)
+{
+	struct db_stmt *stmt;
+	u64 groupid = 0;
+	stmt = db_prepare_v2(
+		wallet->db, SQL("SELECT MAX(groupid) FROM payments WHERE payment_hash = ?"));
+
+	db_bind_sha256(stmt, 0, payment_hash);
+	db_query_prepared(stmt);
+	if (db_step(stmt) && !db_column_is_null(stmt, 0)) {
+		groupid = db_column_u64(stmt, 0);
+	}
+	tal_free(stmt);
+	return groupid;
+}
+
 void wallet_payment_delete_by_hash(struct wallet *wallet,
 				   const struct sha256 *payment_hash)
 {
