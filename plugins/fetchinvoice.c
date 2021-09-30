@@ -49,12 +49,23 @@ struct sent {
 	u32 wait_timeout;
 };
 
-static struct sent *find_sent(const struct pubkey *blinding)
+static struct sent *find_sent_by_blinding(const struct pubkey *blinding)
 {
 	struct sent *i;
 
 	list_for_each(&sent_list, i, list) {
 		if (i->reply_blinding && pubkey_eq(i->reply_blinding, blinding))
+			return i;
+	}
+	return NULL;
+}
+
+static struct sent *find_sent_by_alias(const struct pubkey *alias)
+{
+	struct sent *i;
+
+	list_for_each(&sent_list, i, list) {
+		if (i->reply_alias && pubkey_eq(i->reply_alias, alias))
 			return i;
 	}
 	return NULL;
@@ -394,24 +405,67 @@ badinv:
 	return command_hook_success(cmd);
 }
 
-static struct command_result *recv_onion_message(struct command *cmd,
-						 const char *buf,
-						 const jsmntok_t *params)
+static struct command_result *recv_modern_onion_message(struct command *cmd,
+							const char *buf,
+							const jsmntok_t *params)
+{
+	const jsmntok_t *om, *aliastok;
+	struct sent *sent;
+	struct pubkey alias;
+	struct command_result *err;
+
+	om = json_get_member(buf, params, "onion_message");
+
+	aliastok = json_get_member(buf, om, "our_alias");
+	if (!aliastok || !json_to_pubkey(buf, aliastok, &alias))
+		return command_hook_success(cmd);
+
+	sent = find_sent_by_alias(&alias);
+	if (!sent) {
+		plugin_log(cmd->plugin, LOG_DBG,
+			   "No match for modern onion %.*s",
+			   json_tok_full_len(om),
+			   json_tok_full(buf, om));
+		return command_hook_success(cmd);
+	}
+
+	plugin_log(cmd->plugin, LOG_DBG, "Received modern onion message: %.*s",
+		   json_tok_full_len(params),
+		   json_tok_full(buf, params));
+
+	err = handle_error(cmd, sent, buf, om);
+	if (err)
+		return err;
+
+	if (sent->invreq)
+		return handle_invreq_response(cmd, sent, buf, om);
+
+	return command_hook_success(cmd);
+}
+
+static struct command_result *recv_obs_onion_message(struct command *cmd,
+						     const char *buf,
+						     const jsmntok_t *params)
 {
 	const jsmntok_t *om, *blindingtok;
+	bool obsolete;
 	struct sent *sent;
 	struct pubkey blinding;
 	struct command_result *err;
 
 	om = json_get_member(buf, params, "onion_message");
+	json_to_bool(buf, json_get_member(buf, om, "obsolete"), &obsolete);
+	if (!obsolete)
+		return command_hook_success(cmd);
+
 	blindingtok = json_get_member(buf, om, "blinding_in");
 	if (!blindingtok || !json_to_pubkey(buf, blindingtok, &blinding))
 		return command_hook_success(cmd);
 
-	sent = find_sent(&blinding);
+	sent = find_sent_by_blinding(&blinding);
 	if (!sent) {
 		plugin_log(cmd->plugin, LOG_DBG,
-			   "No match for onion %.*s",
+			   "No match for obsolete onion %.*s",
 			   json_tok_full_len(om),
 			   json_tok_full(buf, om));
 		return command_hook_success(cmd);
@@ -1882,7 +1936,11 @@ static const char *init(struct plugin *p, const char *buf UNUSED,
 static const struct plugin_hook hooks[] = {
 	{
 		"onion_message_blinded",
-		recv_onion_message
+		recv_obs_onion_message
+	},
+	{
+		"onion_message_ourpath",
+		recv_modern_onion_message
 	},
 	{
 		"invoice_payment",
