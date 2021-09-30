@@ -1938,7 +1938,9 @@ static const char *init(struct plugin *p,
 
 /* We are interested in any prior attempts to pay this payment_hash /
  * invoice so we can set the `groupid` correctly and ensure we don't
- * already have a pending payment running. */
+ * already have a pending payment running. We also collect the summary
+ * about an eventual previous complete payment so we can return that
+ * as a no-op. */
 static struct command_result *
 payment_listsendpays_previous(struct command *cmd, const char *buf,
 			      const jsmntok_t *result, struct payment *p)
@@ -1951,6 +1953,14 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 	bool pending = false;
 	/* Did a prior attempt succeed? */
 	bool completed = false;
+
+	/* Metadata for a complete payment, if one exists. */
+	struct json_stream *ret;
+	u32 parts = 0;
+	struct preimage preimage;
+	struct amount_msat sent, msat;
+	struct node_id destination;
+	u32 created_at;
 
 	err = json_get_member(buf, result, "error");
 	if (err)
@@ -1971,6 +1981,7 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 	{
 		u64 groupid;
 		const jsmntok_t *status, *grouptok;
+		struct amount_msat diff_sent, diff_msat;
 		grouptok = json_get_member(buf, t, "groupid");
 		json_to_u64(buf, grouptok, &groupid);
 
@@ -1979,6 +1990,30 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 			completed = false;
 			pending = false;
 			last_group = groupid;
+
+			parts = 1;
+			json_scan(tmpctx, buf, t,
+				  "{destination:%"
+				  ",created_at:%"
+				  ",amount_msat:%"
+				  ",amount_sent_msat:%"
+				  ",payment_preimage:%}",
+				  JSON_SCAN(json_to_node_id, &destination),
+				  JSON_SCAN(json_to_u32, &created_at),
+				  JSON_SCAN(json_to_msat, &msat),
+				  JSON_SCAN(json_to_msat, &sent),
+				  JSON_SCAN(json_to_preimage, &preimage));
+		} else {
+			json_scan(tmpctx, buf, t,
+				  "{amount_msat:%"
+				  ",amount_sent_msat:%}",
+				  JSON_SCAN(json_to_msat, &diff_msat),
+				  JSON_SCAN(json_to_msat, &diff_sent));
+			if (!amount_msat_add(&msat, msat, diff_msat) ||
+			    !amount_msat_add(&sent, sent, diff_sent))
+				plugin_err(p->plugin,
+					   "msat overflow adding up parts");
+			parts++;
 		}
 
 		status = json_get_member(buf, t, "status");
@@ -1987,12 +2022,18 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 	}
 
 	if (completed) {
-		return command_fail(
-		    cmd, PAY_RHASH_ALREADY_USED,
-		    "The payment with payment_hash=%s was successful "
-		    "(groupid=%" PRIu64 ")",
-		    type_to_string(tmpctx, struct sha256, p->payment_hash),
-		    last_group);
+		ret = jsonrpc_stream_success(cmd);
+		json_add_preimage(ret, "payment_preimage", &preimage);
+		json_add_string(ret, "status", "complete");
+		json_add_amount_msat_compat(ret, msat, "msatoshi",
+					    "amount_msat");
+		json_add_amount_msat_compat(ret, sent, "msatoshi_sent",
+					    "amount_sent_msat");
+		json_add_node_id(ret, "destination", p->destination);
+		json_add_sha256(ret, "payment_hash", p->payment_hash);
+		json_add_u32(ret, "created_at", created_at);
+		json_add_num(ret, "parts", parts);
+		return command_finished(cmd, ret);
 	} else if (pending) {
 		return command_fail(
 		    cmd, PAY_IN_PROGRESS,
