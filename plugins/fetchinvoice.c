@@ -1,5 +1,6 @@
 #include <bitcoin/chainparams.h>
 #include <ccan/array_size/array_size.h>
+#include <ccan/cast/cast.h>
 #include <ccan/json_out/json_out.h>
 #include <ccan/mem/mem.h>
 #include <ccan/str/hex/hex.h>
@@ -27,8 +28,10 @@ static LIST_HEAD(sent_list);
 struct sent {
 	/* We're in sent_invreqs, awaiting reply. */
 	struct list_node list;
-	/* The blinding factor used by reply. */
-	struct pubkey reply_blinding;
+	/* The blinding factor used by reply (obsolete only) */
+	struct pubkey *reply_blinding;
+	/* The alias used by reply (modern only) */
+	struct pubkey *reply_alias;
 	/* The command which sent us. */
 	struct command *cmd;
 	/* The offer we are trying to get an invoice/payment for. */
@@ -51,7 +54,7 @@ static struct sent *find_sent(const struct pubkey *blinding)
 	struct sent *i;
 
 	list_for_each(&sent_list, i, list) {
-		if (pubkey_eq(&i->reply_blinding, blinding))
+		if (i->reply_blinding && pubkey_eq(i->reply_blinding, blinding))
 			return i;
 	}
 	return NULL;
@@ -624,21 +627,28 @@ static struct pubkey *path_to_node(const tal_t *ctx,
 	return nodes;
 }
 
+/* Marshal arguments for sending obsolete and modern onion messages */
+struct sending {
+	struct sent *sent;
+	const char *msgfield;
+	const u8 *msgval;
+	struct command_result *(*done)(struct command *cmd,
+				       const char *buf UNUSED,
+				       const jsmntok_t *result UNUSED,
+				       struct sent *sent);
+};
+
 /* Send this message down this path, with blinded reply path */
-static struct command_result *send_message(struct command *cmd,
-					   struct sent *sent,
-					   const char *msgfield,
-					   const u8 *msgval,
-					   struct command_result *(*done)
-					   (struct command *cmd,
-					    const char *buf UNUSED,
-					    const jsmntok_t *result UNUSED,
-					    struct sent *sent))
+static struct command_result *send_obs_message(struct command *cmd,
+					       const char *buf UNUSED,
+					       const jsmntok_t *result UNUSED,
+					       struct sending *sending)
 {
 	struct pubkey *backwards;
 	struct onionmsg_path **path;
 	struct pubkey blinding;
 	struct out_req *req;
+	struct sent *sent = sending->sent;
 
 	/* FIXME: Maybe we should allow this? */
 	if (tal_count(sent->path) == 1)
@@ -651,11 +661,12 @@ static struct command_result *send_message(struct command *cmd,
 		backwards[tal_count(backwards)-1-i] = sent->path[i];
 
 	/* Ok, now make reply for onion_message */
+	sent->reply_blinding = tal(sent, struct pubkey);
 	path = make_blindedpath(tmpctx, backwards, &blinding,
-				&sent->reply_blinding);
+				sent->reply_blinding);
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "sendobsonionmessage",
-				    done,
+				    sending->done,
 				    forward_error,
 				    sent);
 	json_array_start(req->js, "hops");
@@ -663,7 +674,8 @@ static struct command_result *send_message(struct command *cmd,
 		json_object_start(req->js, NULL);
 		json_add_pubkey(req->js, "id", &sent->path[i]);
 		if (i == tal_count(sent->path) - 1)
-			json_add_hex_talarr(req->js, msgfield, msgval);
+			json_add_hex_talarr(req->js,
+					    sending->msgfield, sending->msgval);
 		json_object_end(req->js);
 	}
 	json_array_end(req->js);
@@ -681,6 +693,156 @@ static struct command_result *send_message(struct command *cmd,
 	json_array_end(req->js);
 	json_object_end(req->js);
 	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *
+send_modern_message(struct command *cmd,
+		    struct tlv_onionmsg_payload_reply_path *reply_path,
+		    struct sending *sending)
+{
+	struct sent *sent = sending->sent;
+	struct privkey blinding_iter;
+	struct pubkey fwd_blinding, *node_alias;
+	size_t nhops = tal_count(sent->path);
+	struct tlv_onionmsg_payload **payloads;
+	struct out_req *req;
+
+	/* Now create enctlvs for *forward* path. */
+	randombytes_buf(&blinding_iter, sizeof(blinding_iter));
+	if (!pubkey_from_privkey(&blinding_iter, &fwd_blinding))
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could not convert blinding %s to pubkey!",
+				    type_to_string(tmpctx, struct privkey,
+						   &blinding_iter));
+
+	/* We overallocate: this node (0) doesn't have payload or alias */
+	payloads = tal_arr(cmd, struct tlv_onionmsg_payload *, nhops);
+	node_alias = tal_arr(cmd, struct pubkey, nhops);
+
+	for (size_t i = 1; i < nhops - 1; i++) {
+		payloads[i] = tlv_onionmsg_payload_new(payloads);
+		payloads[i]->enctlv = create_enctlv(payloads[i],
+						    &blinding_iter,
+						    &sent->path[i],
+						    &sent->path[i+1],
+						    /* FIXME: Pad? */
+						    0,
+						    NULL,
+						    &blinding_iter,
+						    &node_alias[i]);
+	}
+	/* Final payload contains the actual data. */
+	payloads[nhops-1] = tlv_onionmsg_payload_new(payloads);
+
+	/* We don't include enctlv in final, but it gives us final alias */
+	if (!create_final_enctlv(tmpctx, &blinding_iter, &sent->path[nhops-1],
+				 /* FIXME: Pad? */ 0,
+				 NULL,
+				 &node_alias[nhops-1])) {
+		/* Should not happen! */
+		return command_fail(cmd, LIGHTNINGD,
+				    "Could create final enctlv");
+	}
+
+	/* FIXME: This interface is a string for sendobsonionmessage! */
+	if (streq(sending->msgfield, "invoice_request")) {
+		payloads[nhops-1]->invoice_request
+			= cast_const(u8 *, sending->msgval);
+	} else {
+		assert(streq(sending->msgfield, "invoice"));
+		payloads[nhops-1]->invoice
+			= cast_const(u8 *, sending->msgval);
+	}
+	payloads[nhops-1]->reply_path = reply_path;
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "sendonionmessage",
+				    /* We try obsolete msg next */
+				    send_obs_message,
+				    forward_error,
+				    sending);
+	json_add_pubkey(req->js, "first_id", &sent->path[1]);
+	json_add_pubkey(req->js, "blinding", &fwd_blinding);
+	json_array_start(req->js, "hops");
+	for (size_t i = 1; i < nhops; i++) {
+		u8 *tlv;
+		json_object_start(req->js, NULL);
+		json_add_pubkey(req->js, "id", &node_alias[i]);
+		tlv = tal_arr(tmpctx, u8, 0);
+		towire_onionmsg_payload(&tlv, payloads[i]);
+		json_add_hex_talarr(req->js, "tlv", tlv);
+		json_object_end(req->js);
+	}
+	json_array_end(req->js);
+	return send_outreq(cmd->plugin, req);
+}
+
+/* Lightningd gives us reply path, since we don't know secret to put
+ * in final so it will recognize it. */
+static struct command_result *use_reply_path(struct command *cmd,
+					     const char *buf,
+					     const jsmntok_t *result,
+					     struct sending *sending)
+{
+	struct tlv_onionmsg_payload_reply_path *rpath;
+
+	rpath = json_to_reply_path(cmd, buf,
+				   json_get_member(buf, result, "blindedpath"));
+	if (!rpath)
+		plugin_err(cmd->plugin,
+			   "could not parse reply path %.*s?",
+			   json_tok_full_len(result),
+			   json_tok_full(buf, result));
+
+	/* Remember our alias we used so we can recognize reply */
+	sending->sent->reply_alias
+		= tal_dup(sending->sent, struct pubkey,
+			  &rpath->path[tal_count(rpath->path)-1]->node_id);
+
+	return send_modern_message(cmd, rpath, sending);
+}
+
+static struct command_result *make_reply_path(struct command *cmd,
+					      struct sending *sending)
+{
+	struct out_req *req;
+	size_t nhops = tal_count(sending->sent->path);
+
+	/* FIXME: Maybe we should allow this? */
+	if (tal_count(sending->sent->path) == 1)
+		return command_fail(cmd, PAY_ROUTE_NOT_FOUND,
+				    "Refusing to talk to ourselves");
+
+	req = jsonrpc_request_start(cmd->plugin, cmd, "blindedpath",
+				    use_reply_path,
+				    forward_error,
+				    sending);
+
+	/* FIXME: Could create an independent reply path, not just
+	 * reverse existing. */
+	json_array_start(req->js, "ids");
+	for (int i = nhops - 2; i >= 0; i--)
+		json_add_pubkey(req->js, NULL, &sending->sent->path[i]);
+	json_array_end(req->js);
+	return send_outreq(cmd->plugin, req);
+}
+
+static struct command_result *send_message(struct command *cmd,
+					   struct sent *sent,
+					   const char *msgfield TAKES,
+					   const u8 *msgval TAKES,
+					   struct command_result *(*done)
+					   (struct command *cmd,
+					    const char *buf UNUSED,
+					    const jsmntok_t *result UNUSED,
+					    struct sent *sent))
+{
+	struct sending *sending = tal(cmd, struct sending);
+	sending->sent = sent;
+	sending->msgfield = tal_strdup(sending, msgfield);
+	sending->msgval = tal_dup_talarr(sending, u8, msgval);
+	sending->done = done;
+
+	return make_reply_path(cmd, sending);
 }
 
 /* We've received neither a reply nor a payment; return failure. */
