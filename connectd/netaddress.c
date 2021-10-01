@@ -258,6 +258,7 @@ bool guess_address(struct wireaddr *addr)
     }
     case ADDR_TYPE_TOR_V2_REMOVED:
     case ADDR_TYPE_TOR_V3:
+    case ADDR_TYPE_DNS:
     case ADDR_TYPE_WEBSOCKET:
         status_broken("Cannot guess address type %u", addr->type);
         break;

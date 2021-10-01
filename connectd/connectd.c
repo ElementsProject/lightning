@@ -975,6 +975,9 @@ static void try_connect_one_addr(struct connecting *connect)
 		case ADDR_TYPE_IPV6:
 			af = AF_INET6;
 			break;
+		case ADDR_TYPE_DNS:
+			// TODO: resolve with getaddrinfo and set af
+			break;
 		case ADDR_TYPE_WEBSOCKET:
 			af = -1;
 			break;
@@ -1159,6 +1162,7 @@ static bool handle_wireaddr_listen(struct daemon *daemon,
 	case ADDR_TYPE_WEBSOCKET:
 	case ADDR_TYPE_TOR_V2_REMOVED:
 	case ADDR_TYPE_TOR_V3:
+	case ADDR_TYPE_DNS:
 		break;
 	}
 	status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -1614,6 +1618,8 @@ static void add_seed_addrs(struct wireaddr_internal **addrs,
 		                                   NULL, broken_reply, NULL);
 		if (new_addrs) {
 			for (size_t j = 0; j < tal_count(new_addrs); j++) {
+				if (new_addrs[j].type == ADDR_TYPE_DNS)
+					continue;
 				struct wireaddr_internal a;
 				a.itype = ADDR_INTERNAL_WIREADDR;
 				a.u.wireaddr = new_addrs[j];

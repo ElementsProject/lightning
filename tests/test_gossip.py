@@ -110,9 +110,11 @@ def test_announce_address(node_factory, bitcoind):
     """Make sure our announcements are well formed."""
 
     # We do not allow announcement of duplicates.
-    opts = {'announce-addr':
+    opts = {'disable-dns': None, 'announce-addr':
             ['4acth47i6kxnvkewtm6q7ib2s3ufpo5sqbsnzjpbi7utijcltosqemad.onion',
              '1.2.3.4:1234',
+             'localhost:1235',
+             'example.com:1236',
              '::'],
             'log-level': 'io',
             'dev-allow-localhost': None}
@@ -126,12 +128,30 @@ def test_announce_address(node_factory, bitcoind):
     l2.wait_channel_active(scid)
 
     # We should see it send node announce with all addresses (257 = 0x0101)
-    # local ephemeral port is masked out.
-    l1.daemon.wait_for_log(r"\[OUT\] 0101.*47"
-                           "010102030404d2"
-                           "017f000001...."
-                           "02000000000000000000000000000000002607"
-                           "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607")
+    # Note: local ephemeral port is masked out.
+    # Note: Since we `disable-dns` it should not announce a resolved IPv4
+    #       or IPv6 address for example.com
+    #
+    # Also expect the address descriptor types to be sorted!
+    # BOLT #7:
+    #   - MUST place address descriptors in ascending order.
+    l1.daemon.wait_for_log(r"\[OUT\] 0101.*0063"
+                           "010102030404d2"  # IPv4 01 1.2.3.4:1234
+                           "017f000001...."  # IPv4 01 127.0.0.1:wxyz
+                           "02000000000000000000000000000000002607"  # IPv6 02 :::9735
+                           "04e00533f3e8f2aedaa8969b3d0fa03a96e857bbb28064dca5e147e934244b9ba50230032607"  # TORv3 04
+                           "05096c6f63616c686f737404d3"       # DNS 05 len localhost:1235
+                           "050b6578616d706c652e636f6d04d4")  # DNS 05 len example.com:1236
+
+    # Check other node can parse these
+    addresses = l2.rpc.listnodes(l1.info['id'])['nodes'][0]['addresses']
+    addresses_dns = [address for address in addresses if address['type'] == 'dns']
+    assert len(addresses) == 6
+    assert len(addresses_dns) == 2
+    assert addresses_dns[0]['address'] == 'localhost'
+    assert addresses_dns[0]['port'] == 1235
+    assert addresses_dns[1]['address'] == 'example.com'
+    assert addresses_dns[1]['port'] == 1236
 
 
 @pytest.mark.developer("needs DEVELOPER=1")

@@ -37,13 +37,18 @@ struct sockaddr_un;
  *             where `checksum = sha3(".onion checksum" | pubkey || version)[:2]`
  */
 
+/* BOLT-hostnames #7:
+ *   * `5`: DNS hostname; data = `[byte:len][len*byte:hostname][u16:port]` (length up to 258)
+ */
+
 /* BOLT-websockets #7:
  *    * `6`: WebSocket port; data = `[2:port]` (length 2)
  */
 
 #define	TOR_V2_ADDRLEN 10
 #define	TOR_V3_ADDRLEN 35
-#define	LARGEST_ADDRLEN TOR_V3_ADDRLEN
+#define	DNS_ADDRLEN 255
+#define	LARGEST_ADDRLEN DNS_ADDRLEN
 #define	TOR_V3_BLOBLEN 64
 #define	STATIC_TOR_MAGIC_STRING "gen-default-toraddress"
 
@@ -52,10 +57,10 @@ enum wire_addr_type {
 	ADDR_TYPE_IPV6 = 2,
 	ADDR_TYPE_TOR_V2_REMOVED = 3,
 	ADDR_TYPE_TOR_V3 = 4,
-	ADDR_TYPE_WEBSOCKET = 6,
+	ADDR_TYPE_DNS = 5,
+	ADDR_TYPE_WEBSOCKET = 6
 };
 
-/* Structure now fit for tor support */
 struct wireaddr {
 	enum wire_addr_type type;
 	u8 addrlen;

@@ -37,6 +37,11 @@ bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
 	case ADDR_TYPE_TOR_V3:
 		addr->addrlen = TOR_V3_ADDRLEN;
 		break;
+	case ADDR_TYPE_DNS:
+		addr->addrlen = fromwire_u8(cursor, max);
+		memset(&addr->addr, 0, sizeof(addr->addr));
+		addr->addr[addr->addrlen] = 0;
+		break;
 	case ADDR_TYPE_WEBSOCKET:
 		addr->addrlen = 0;
 		break;
@@ -52,6 +57,8 @@ bool fromwire_wireaddr(const u8 **cursor, size_t *max, struct wireaddr *addr)
 void towire_wireaddr(u8 **pptr, const struct wireaddr *addr)
 {
 	towire_u8(pptr, addr->type);
+	if (addr->type == ADDR_TYPE_DNS)
+		towire_u8(pptr, addr->addrlen);
 	towire(pptr, addr->addr, addr->addrlen);
 	towire_u16(pptr, addr->port);
 }
@@ -211,6 +218,7 @@ bool wireaddr_is_wildcard(const struct wireaddr *addr)
 		return memeqzero(addr->addr, addr->addrlen);
 	case ADDR_TYPE_TOR_V2_REMOVED:
 	case ADDR_TYPE_TOR_V3:
+	case ADDR_TYPE_DNS:
 	case ADDR_TYPE_WEBSOCKET:
 		return false;
 	}
@@ -259,6 +267,8 @@ char *fmt_wireaddr_without_port(const tal_t * ctx, const struct wireaddr *a)
 	case ADDR_TYPE_TOR_V3:
 		return tal_fmt(ctx, "%s.onion",
 			       b32_encode(tmpctx, a->addr, a->addrlen));
+	case ADDR_TYPE_DNS:
+		return tal_fmt(ctx, "%s", a->addr);
 	case ADDR_TYPE_WEBSOCKET:
 		return tal_strdup(ctx, "websocket");
 	}
@@ -789,6 +799,7 @@ struct addrinfo *wireaddr_to_addrinfo(const tal_t *ctx,
 		return ai;
 	case ADDR_TYPE_TOR_V2_REMOVED:
 	case ADDR_TYPE_TOR_V3:
+	case ADDR_TYPE_DNS:
 	case ADDR_TYPE_WEBSOCKET:
 		break;
 	}
@@ -841,6 +852,7 @@ bool all_tor_addresses(const struct wireaddr_internal *wireaddr)
 			switch (wireaddr[i].u.wireaddr.type) {
 			case ADDR_TYPE_IPV4:
 			case ADDR_TYPE_IPV6:
+			case ADDR_TYPE_DNS:
 				return false;
 			case ADDR_TYPE_TOR_V2_REMOVED:
 			case ADDR_TYPE_TOR_V3:

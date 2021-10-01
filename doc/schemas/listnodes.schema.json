@@ -74,6 +74,7 @@
                       "type": {
                         "type": "string",
                         "enum": [
+                          "dns",
                           "ipv4",
                           "ipv6",
                           "torv2",
@@ -92,6 +93,7 @@
                         "type": {
                           "type": "string",
                           "enum": [
+                            "dns",
                             "ipv4",
                             "ipv6",
                             "torv2",
