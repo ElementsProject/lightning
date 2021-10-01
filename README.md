@@ -25,14 +25,14 @@ c-lightning is a lightweight, highly customizable and [standard compliant][std] 
 [![Documentation Status](https://readthedocs.org/projects/lightning/badge/?version=docs)][docs]
 
 This implementation has been in production use on the Bitcoin mainnet since early 2018, with the launch of the [Blockstream Store][blockstream-store-blog].
-We recommend getting started by experimenting on `testnet` (or `regtest`), but the implementation is considered stable and can be safely used on mainnet.
+We recommend getting started by experimenting on `testnet` (or `regtest`), but this implementation is considered stable and can be safely used on mainnet.
 
 Any help testing the implementation, reporting bugs, or helping with outstanding issues is very welcome.
 Don't hesitate to reach out to us on IRC at [#lightning-dev @ libera.chat][irc1], [#c-lightning @ libera.chat][irc2], or on the implementation-specific mailing list [c-lightning@lists.ozlabs.org][ml1], or on the Lightning Network-wide mailing list [lightning-dev@lists.linuxfoundation.org][ml2].
 
 ## Getting Started
 
-c-lightning works only on Linux and Mac OS, and requires a locally (or remotely) running `bitcoind` (version 0.16 or above) that is fully caught up with the network you're running on, and relays transactions (ie with `blocksonly=0`).
+c-lightning works only on Linux and Mac OS, and requires a locally (remotely) running `bitcoind` (version 0.16 or above) that is fully caught up with the network you're running on, and relays transactions (ie with `blocksonly=0`).
 Pruning (`prune=n` option in `bitcoin.conf`) is partially supported, see [here](#pruning) for more details.
 
 ### Installation
