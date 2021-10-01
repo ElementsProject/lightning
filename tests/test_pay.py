@@ -2436,6 +2436,113 @@ def test_lockup_drain(node_factory, bitcoind):
         l2.pay(l1, total // 2)
 
 
+@pytest.mark.developer("needs DEVELOPER=1 for dev_ignore_htlcs")
+def test_htlc_too_dusty_outgoing(node_factory, bitcoind, chainparams):
+    """ Try to hit the 'too much dust' limit, should fail the HTLC """
+    feerate = 10000
+
+    # elements txs are bigger so they become dusty faster
+    max_dust_limit_sat = 100000 if chainparams['elements'] else 50000
+    non_dust_htlc_val_sat = 20000 if chainparams['elements'] else 10000
+    htlc_val_sat = 10000 if chainparams['elements'] else 5000
+
+    l1, l2 = node_factory.line_graph(2, opts={'may_reconnect': True,
+                                              'feerates': (feerate, feerate, feerate, feerate),
+                                              'max-dust-htlc-exposure-msat': '{}sat'.format(max_dust_limit_sat),
+                                              'allow_warning': True})
+
+    # l2 holds all of l1's htlcs hostage
+    l2.rpc.dev_ignore_htlcs(id=l1.info['id'], ignore=True)
+
+    # l2's max dust limit is set to 100k
+    htlc_val_msat = htlc_val_sat * 1000
+    num_dusty_htlcs = max_dust_limit_sat // htlc_val_sat
+
+    # add a some non-dusty htlcs, these will fail when we raise the dust limit
+    route = l1.rpc.getroute(l2.info['id'], non_dust_htlc_val_sat * 1000, 1)['route']
+    for i in range(0, 3):
+        inv = l2.rpc.invoice((non_dust_htlc_val_sat * 1000), str(i + 100), str(i + 100))
+        l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+        l2.daemon.wait_for_log(r'their htlc .* dev_ignore_htlcs')
+        res = only_one(l1.rpc.listsendpays(payment_hash=inv['payment_hash'])['payments'])
+        assert res['status'] == 'pending'
+
+    # add some dusty-htlcs
+    route = l1.rpc.getroute(l2.info['id'], htlc_val_msat, 1)['route']
+    for i in range(0, num_dusty_htlcs):
+        inv = l2.rpc.invoice(htlc_val_msat, str(i), str(i))
+        l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+        l2.daemon.wait_for_log(r'their htlc .* dev_ignore_htlcs')
+        res = only_one(l1.rpc.listsendpays(payment_hash=inv['payment_hash'])['payments'])
+        assert res['status'] == 'pending'
+
+    # one more should tip it over, and return a payment failure
+    inv = l2.rpc.invoice(htlc_val_msat, str(num_dusty_htlcs), str(num_dusty_htlcs))
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    l1.daemon.wait_for_log('CHANNEL_ERR_DUST_FAILURE')
+    wait_for(lambda: only_one(l1.rpc.listsendpays(payment_hash=inv['payment_hash'])['payments'])['status'] == 'failed')
+
+    # but we can still add a non dust htlc
+    route = l1.rpc.getroute(l2.info['id'], non_dust_htlc_val_sat * 1000, 1)['route']
+    inv = l2.rpc.invoice((10000 * 1000), str(120), str(120))
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    l2.daemon.wait_for_log(r'their htlc .* dev_ignore_htlcs')
+    res = only_one(l1.rpc.listsendpays(payment_hash=inv['payment_hash'])['payments'])
+    assert res['status'] == 'pending'
+
+    # Ok, adjust our feerate upward, so the non-dust htlcs are now dust
+    # note that this is above the buffer we've been keeping, so the channel
+    # should automatically fail
+    l1.set_feerates([feerate * 2] * 4, False)
+    l1.restart()
+
+    # the channel should fail -- too much dust
+    inv = l2.rpc.invoice(htlc_val_msat, str(num_dusty_htlcs + 1), str(num_dusty_htlcs + 1))
+    with pytest.raises(RpcError, match=r'WIRE_UNKNOWN_NEXT_PEER'):
+        l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+
+
+@pytest.mark.developer("needs DEVELOPER=1 for dev_ignore_htlcs")
+def test_htlc_too_dusty_incoming(node_factory, bitcoind):
+    """ Try to hit the 'too much dust' limit, should fail the HTLC """
+    feerate = 30000
+    l1, l2, l3 = node_factory.line_graph(3, opts=[{'may_reconnect': True,
+                                                   'feerates': (feerate, feerate, feerate, feerate),
+                                                   'max-dust-htlc-exposure-msat': '200000sat'},
+                                                  {'may_reconnect': True,
+                                                   'feerates': (feerate, feerate, feerate, feerate),
+                                                   'max-dust-htlc-exposure-msat': '100000sat',
+                                                   'fee-base': 0,
+                                                   'fee-per-satoshi': 0},
+                                                  {'max-dust-htlc-exposure-msat': '500000sat'}],
+                                         wait_for_announce=True)
+
+    # on the l2->l3, and l3 holds all the htlcs hostage
+    # have l3 hold onto all the htlcs and not fulfill them
+    l3.rpc.dev_ignore_htlcs(id=l2.info['id'], ignore=True)
+
+    # l2's max dust limit is set to 100k
+    max_dust_limit_sat = 100000
+    htlc_val_sat = 10000
+    htlc_val_msat = htlc_val_sat * 1000
+    num_dusty_htlcs = max_dust_limit_sat // htlc_val_sat
+    route = l1.rpc.getroute(l3.info['id'], htlc_val_msat, 1)['route']
+
+    # l1 sends as much money as it can
+    for i in range(0, num_dusty_htlcs):
+        inv = l3.rpc.invoice(htlc_val_msat, str(i), str(i))
+        l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+        l3.daemon.wait_for_log(r'their htlc .* dev_ignore_htlcs')
+        res = only_one(l1.rpc.listsendpays(payment_hash=inv['payment_hash'])['payments'])
+        assert res['status'] == 'pending'
+
+    # one more should tip it over, and return a payment failure
+    inv = l3.rpc.invoice(htlc_val_msat, str(num_dusty_htlcs), str(num_dusty_htlcs))
+    l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
+    l2.daemon.wait_for_log('failing immediately, as requested')
+    wait_for(lambda: only_one(l1.rpc.listsendpays(payment_hash=inv['payment_hash'])['payments'])['status'] == 'failed')
+
+
 def test_error_returns_blockheight(node_factory, bitcoind):
     """Test that incorrect_or_unknown_payment_details returns block height"""
     l1, l2 = node_factory.line_graph(2)
