@@ -25,7 +25,7 @@ c-lightning is a lightweight, highly customizable and [standard compliant][std] 
 [![Documentation Status](https://readthedocs.org/projects/lightning/badge/?version=docs)][docs]
 
 This implementation has been in production use on the Bitcoin mainnet since early 2018, with the launch of the [Blockstream Store][blockstream-store-blog].
-We recommend getting started by experimenting on `testnet` (or `regtest`), but the implementation is considered stable and can be safely used on mainnet.
+We recommend getting started by experimenting on `testnet` (or `regtest`), but this implementation is considered stable and can be safely used on mainnet.
 
 Any help testing the implementation, reporting bugs, or helping with outstanding issues is very welcome.
 Don't hesitate to reach out to us on IRC at [#lightning-dev @ libera.chat][irc1], [#c-lightning @ libera.chat][irc2], or on the implementation-specific mailing list [c-lightning@lists.ozlabs.org][ml1], or on the Lightning Network-wide mailing list [lightning-dev@lists.linuxfoundation.org][ml2].
@@ -74,7 +74,7 @@ you've configured your node to expose the developer options, e.g.
 ```
 
 #### Mainnet Option
-To test with real bitcoin,  you will need to have a local `bitcoind` node running:
+To test with the  real bitcoin,  you will need to have a local `bitcoind` node running:
 
 ```bash
 bitcoind -daemon
