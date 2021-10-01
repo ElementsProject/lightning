@@ -189,31 +189,52 @@ static char *opt_add_addr_withtype(const char *arg,
 	char const *err_msg;
 	struct wireaddr_internal wi;
 	bool dns_ok;
+	char *address;
+	u16 port;
 
 	assert(arg != NULL);
 	dns_ok = !ld->always_use_proxy && ld->config.use_dns;
 
-	if (!parse_wireaddr_internal(arg, &wi,
-				     ld->portnum,
-				     wildcard_ok, dns_ok, false,
-				     deprecated_apis, &err_msg)) {
-		return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
+	if (!separate_address_and_port(tmpctx, arg, &address, &port))
+		return tal_fmt(NULL, "Unable to parse address:port '%s'", arg);
+
+	if (is_ipaddr(address) || is_toraddr(address) || ala != ADDR_ANNOUNCE) {
+		if (!parse_wireaddr_internal(arg, &wi, ld->portnum,
+					     wildcard_ok, dns_ok, false,
+					     deprecated_apis, &err_msg)) {
+			return tal_fmt(NULL, "Unable to parse address '%s': %s", arg, err_msg);
+		}
+
+		/* Sanity check for exact duplicates. */
+		for (size_t i = 0; i < tal_count(ld->proposed_wireaddr); i++) {
+			/* Only compare announce vs announce and bind vs bind */
+			if ((ld->proposed_listen_announce[i] & ala) == 0)
+				continue;
+
+			if (wireaddr_internal_eq(&ld->proposed_wireaddr[i], &wi))
+				return tal_fmt(NULL, "Duplicate %s address %s",
+					       ala & ADDR_ANNOUNCE ? "announce" : "listen",
+					       type_to_string(tmpctx, struct wireaddr_internal, &wi));
+		}
+
+		tal_arr_expand(&ld->proposed_listen_announce, ala);
+		tal_arr_expand(&ld->proposed_wireaddr, wi);
 	}
 
-	/* Sanity check for exact duplicates. */
-	for (size_t i = 0; i < tal_count(ld->proposed_wireaddr); i++) {
-		/* Only compare announce vs announce and bind vs bind */
-		if ((ld->proposed_listen_announce[i] & ala) == 0)
-			continue;
+	/* Add ADDR_TYPE_DNS to announce DNS hostnames */
+	if (is_dnsaddr(address) && ala & ADDR_ANNOUNCE) {
+		memset(&wi, 0, sizeof(wi));
+		wi.itype = ADDR_INTERNAL_WIREADDR;
+		wi.u.wireaddr.type = ADDR_TYPE_DNS;
+		wi.u.wireaddr.addrlen = strlen(address);
+		strncpy((char * restrict)&wi.u.wireaddr.addr,
+			address, sizeof(wi.u.wireaddr.addr) - 1);
+		wi.u.wireaddr.port = port;
 
-		if (wireaddr_internal_eq(&ld->proposed_wireaddr[i], &wi))
-			return tal_fmt(NULL, "Duplicate %s address %s",
-				       ala & ADDR_ANNOUNCE ? "announce" : "listen",
-				       type_to_string(tmpctx, struct wireaddr_internal, &wi));
+		tal_arr_expand(&ld->proposed_listen_announce, ADDR_ANNOUNCE);
+		tal_arr_expand(&ld->proposed_wireaddr, wi);
 	}
 
-	tal_arr_expand(&ld->proposed_listen_announce, ala);
-	tal_arr_expand(&ld->proposed_wireaddr, wi);
 	return NULL;
 
 }

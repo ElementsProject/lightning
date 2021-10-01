@@ -324,6 +324,9 @@ int main(int argc, char *argv[])
 		case ADDR_TYPE_WEBSOCKET:
 			opt_usage_exit_fail("Don't support websockets");
 			break;
+		case ADDR_TYPE_DNS:
+			opt_usage_exit_fail("Don't support DNS");
+			break;
 		case ADDR_TYPE_IPV4:
 			af = AF_INET;
 			break;
