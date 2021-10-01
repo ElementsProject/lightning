@@ -875,6 +875,7 @@ static struct io_plan *conn_init(struct io_conn *conn,
 		break;
 	case ADDR_INTERNAL_WIREADDR:
 		/* If it was a Tor address, we wouldn't be here. */
+		assert(!is_toraddr((char*)addr->u.wireaddr.addr));
 		ai = wireaddr_to_addrinfo(tmpctx, &addr->u.wireaddr);
 		break;
 	}

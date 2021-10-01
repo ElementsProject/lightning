@@ -149,6 +149,16 @@ struct wireaddr_internal {
 
 bool wireaddr_internal_eq(const struct wireaddr_internal *a,
 			  const struct wireaddr_internal *b);
+
+bool separate_address_and_port(const tal_t *ctx, const char *arg,
+			       char **addr, u16 *port);
+
+bool is_ipaddr(const char *arg);
+
+bool is_toraddr(const char *arg);
+
+bool is_dnsaddr(const char *arg);
+
 bool parse_wireaddr_internal(const char *arg, struct wireaddr_internal *addr,
 			     u16 port, bool wildcard_ok, bool dns_ok,
 			     bool unresolved_ok, bool allow_deprecated,

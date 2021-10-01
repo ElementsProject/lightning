@@ -287,8 +287,8 @@ REGISTER_TYPE_TO_STRING(wireaddr, fmt_wireaddr);
  * Returns false if it wasn't one of these forms.  If it returns true,
  * it only overwrites *port if it was specified by <number> above.
  */
-static bool separate_address_and_port(const tal_t *ctx, const char *arg,
-				      char **addr, u16 *port)
+bool separate_address_and_port(const tal_t *ctx, const char *arg,
+			       char **addr, u16 *port)
 {
 	char *portcolon;
 
@@ -318,6 +318,81 @@ static bool separate_address_and_port(const tal_t *ctx, const char *arg,
 		char *endp;
 		*port = strtol(portcolon + 1, &endp, 10);
 		return *port != 0 && *endp == '\0';
+	}
+	return true;
+}
+
+bool is_ipaddr(const char *arg)
+{
+	struct in_addr v4;
+	struct in6_addr v6;
+	if (inet_pton(AF_INET, arg, &v4))
+		return true;
+	if (inet_pton(AF_INET6, arg, &v6))
+		return true;
+	return false;
+}
+
+bool is_toraddr(const char *arg)
+{
+	size_t i, arglen;
+	arglen = strlen(arg);
+	if (!strends(arg, ".onion"))
+		return false;
+	if (arglen != 16 + 6 && arglen != 56 + 6)
+		return false;
+	for (i = 0; i < arglen - 6; i++) {
+		if (arg[i] >= 'a' && arg[i] <= 'z')
+			continue;
+		if (arg[i] >= '0' && arg[i] <= '9')
+			continue;
+		return false;
+	}
+	return true;
+}
+
+/* Rules:
+ *
+ * - not longer than 255
+ * - segments are separated with . dot
+ * - segments do not start or end with - hyphen
+ * - segments must be longer thant zero
+ * - lowercase a-z and digits 0-9 and - hyphen
+ */
+bool is_dnsaddr(const char *arg)
+{
+	size_t i, arglen;
+	int lastdot;
+
+	if (is_ipaddr(arg) || is_toraddr(arg))
+		return false;
+
+	/* now that its not IP or TOR, check its a DNS name */
+	arglen = strlen(arg);
+	if (arglen > 255)
+		return false;
+	lastdot = -1;
+	for (i = 0; i < arglen; i++) {
+		if (arg[i] == '.') {
+			/* segment must be longer than zero */
+			if (i - lastdot == 1)
+				return false;
+			/* last segment can not end with hypen */
+			if (i != 0 && arg[i-1] == '-')
+				return false;
+			lastdot = i;
+			continue;
+		}
+		/* segment cannot start with hyphen */
+		if (i == lastdot + 1 && arg[i] == '-')
+			return false;
+		if (arg[i] >= 'a' && arg[i] <= 'z')
+			continue;
+		if (arg[i] >= '0' && arg[i] <= '9')
+			continue;
+		if (arg[i] == '-')
+			continue;
+		return false;
 	}
 	return true;
 }
