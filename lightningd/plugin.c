@@ -2108,21 +2108,20 @@ void shutdown_plugins(struct lightningd *ld, bool first)
 			tal_free(p);
 	}
 
-	/* Somehow a separate io_loop is needed to service the notification !? */
-	struct oneshot *t1;
-	t1 = new_reltimer(ld->timers, ld,
-					 time_from_sec(1),
-					 plugin_shutdown_timeout, ld);
-	io_loop_with_timers(ld);
-	tal_free(t1);
-
 	if (plugins_any_in_state(ld->plugins, SHUTDOWN)) {
 		struct oneshot *t;
+		void *ret;
 		/* Give them 30 or 5 seconds to self-terminate, the last one in
 		 * the set calls io_break when destroyed */
 		t = new_reltimer(ld->timers, ld,
 				 time_from_sec(first ? 30 : 5),
 				 plugin_shutdown_timeout, ld);
+
+		/* Maybe a freed plugin called io_break before, which would return the
+		 * io_loop immediately, so we explicitly reset it */
+		io_break(ld);
+		ret = io_loop(NULL, NULL);
+		assert(ret == ld);
 
 		io_loop_with_timers(ld);
 		tal_free(t);
