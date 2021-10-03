@@ -947,7 +947,7 @@ newchar:
 				char *this_indent_start;
 				const char *this_indent_end;
 				const char *common_indent_start = NULL;
-				const char *common_indent_end;
+				const char *common_indent_end = common_indent_start;
 				const char *r;
 				q = tok->token_string;
 				do {
