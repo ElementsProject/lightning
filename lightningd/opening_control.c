@@ -18,6 +18,7 @@
 #include <lightningd/chaintopology.h>
 #include <lightningd/channel.h>
 #include <lightningd/channel_control.h>
+#include <lightningd/graphqlrpc.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/notification.h>
@@ -73,68 +74,123 @@ void json_add_uncommitted_channel(struct json_stream *response,
 	json_object_end(response);
 }
 
-static void json_add_uncommitted_channel_field(
-					struct json_stream *response,
-					struct command *cmd,
-					const struct uncommitted_channel *uc,
-					struct graphql_selection *sel)
+struct uc_cbd;
+typedef void (*uc_json_cb)(struct json_stream *js,
+			   const struct uc_cbd *d,
+			   const struct uncommitted_channel *uc);
+struct uc_cbd {
+        uc_json_cb json_add_func;
+        const char *name;
+};
+#define CHANNEL_CB(name) \
+static void name(struct json_stream *response, \
+                 const struct uc_cbd *d, \
+                 const struct uncommitted_channel *uc)
+
+CHANNEL_CB(json_add_uc_state)
 {
-	const char *name, *alias;
-
-	name = alias = sel->field->name->token_string;
-	if (sel->field->alias && sel->field->alias->name &&
-	    sel->field->alias->name->token_type == 'a' &&
-	    sel->field->alias->name->token_string)
-		alias = sel->field->alias->name->token_string;
-
-	if (streq(name, "state")) {
-		json_add_string(response, alias, "OPENINGD");
-	} else if (streq(name, "owner")) {
-		json_add_string(response, alias, "lightning_openingd");
-	} else if (streq(name, "opener")) {
-		json_add_string(response, alias, "local");
-	} else if (streq(name, "status")) {
-		json_array_start(response, alias);
-		if (uc->transient_billboard)
-			json_add_string(response, NULL, uc->transient_billboard);
-		json_array_end(response);
-	} else if (streq(name, "to_us_msat")) {
-		/* These should never fail. */
-		struct amount_msat total, ours;
-		if (amount_sat_to_msat(&total, uc->fc->funding) &&
-		    amount_msat_sub(&ours, total, uc->fc->push))
-			json_add_amount_msat_only(response, alias, ours);
-		else
-			json_add_null(response, alias);
-	} else if (streq(name, "total_msat")) {
-		struct amount_msat total;
-		if (amount_sat_to_msat(&total, uc->fc->funding))
-			json_add_amount_msat_only(response, alias, total);
-		else
-			json_add_null(response, alias);
-	} else if (streq(name, "features")) {
-		json_array_start(response, alias);
-		if (feature_negotiated(uc->peer->ld->our_features,
-				       uc->peer->their_features,
-				       OPT_STATIC_REMOTEKEY))
-			json_add_string(response, NULL, "option_static_remotekey");
-		if (feature_negotiated(uc->peer->ld->our_features,
-				       uc->peer->their_features,
-				       OPT_ANCHOR_OUTPUTS))
-			json_add_string(response, NULL, "option_anchor_outputs");
-		json_array_end(response);
-	} else {
-		json_add_null(response, alias);
-		queue_warning(response, "field not found '%s'", name);
-	}
+	json_add_string(response, d->name, "OPENINGD");
 }
 
-void json_add_uncommitted_channel2(struct json_stream *js,
-				   struct command *cmd,
-				   const struct uncommitted_channel *uc,
-				   struct graphql_selection_set *ss)
+CHANNEL_CB(json_add_uc_owner)
+{
+	json_add_string(response, d->name, "lightning_openingd");
+}
+
+CHANNEL_CB(json_add_uc_opener)
+{
+	json_add_string(response, d->name, "local");
+}
+
+CHANNEL_CB(json_add_uc_status)
+{
+	json_array_start(response, d->name);
+	if (uc->transient_billboard)
+		json_add_string(response, NULL, uc->transient_billboard);
+	json_array_end(response);
+}
+
+/* These should never fail. */
+CHANNEL_CB(json_add_uc_to_us_msat)
+{
+	struct amount_msat total, ours;
+	if (amount_sat_to_msat(&total, uc->fc->funding)
+	    && amount_msat_sub(&ours, total, uc->fc->push))
+		json_add_amount_msat_only(response, d->name, ours);
+	else
+		json_add_null(response, d->name);
+}
+
+CHANNEL_CB(json_add_uc_total_msat)
+{
+	struct amount_msat total;
+	if (amount_sat_to_msat(&total, uc->fc->funding))
+		json_add_amount_msat_only(response, d->name, total);
+	else
+		json_add_null(response, d->name);
+}
+
+CHANNEL_CB(json_add_uc_features)
+{
+	json_array_start(response, d->name);
+	if (feature_negotiated(uc->peer->ld->our_features,
+			       uc->peer->their_features,
+			       OPT_STATIC_REMOTEKEY))
+		json_add_string(response, NULL, "option_static_remotekey");
+	if (feature_negotiated(uc->peer->ld->our_features,
+			       uc->peer->their_features,
+			       OPT_ANCHOR_OUTPUTS))
+		json_add_string(response, NULL, "option_anchor_outputs");
+	json_array_end(response);
+}
+
+static struct command_result *
+prep_uc_field_cb(struct command *cmd, struct graphql_field *field,
+		 uc_json_cb cb)
+{
+	struct uc_cbd *d;
+
+	d = create_cbd(field, "UncommittedChannel", cmd, struct uc_cbd);
+	//field->data = d = tal(cmd, struct uc_cbd);
+	d->json_add_func = cb;
+	d->name = get_alias(field);
+
+	NO_ARGS(cmd, field);
+	NO_SUBFIELDS(cmd, field);
+
+	return NULL;
+}
+
+struct command_result *
+prep_uncommitted_channels_field(struct command *cmd, struct graphql_field *field, bool gen_err)
+{
+        const char *name = field->name->token_string;
+
+        if (streq(name, "state"))
+                return prep_uc_field_cb(cmd, field, json_add_uc_state);
+        else if (streq(name, "owner"))
+                return prep_uc_field_cb(cmd, field, json_add_uc_owner);
+        else if (streq(name, "opener"))
+                return prep_uc_field_cb(cmd, field, json_add_uc_opener);
+        else if (streq(name, "features"))
+                return prep_uc_field_cb(cmd, field, json_add_uc_features);
+        else if (streq(name, "to_us_msat"))
+                return prep_uc_field_cb(cmd, field, json_add_uc_to_us_msat);
+        else if (streq(name, "total_msat"))
+                return prep_uc_field_cb(cmd, field, json_add_uc_total_msat);
+        else if (streq(name, "status"))
+                return prep_uc_field_cb(cmd, field, json_add_uc_status);
+        else
+                return gen_err? command_fail(cmd, GRAPHQL_FIELD_NOT_FOUND,
+					     "unknown field '%s'", name): NULL;
+}
+
+void json_add_uncommitted_channel2(struct json_stream *response,
+				   const struct graphql_selection_set *sel_set,
+				   const struct uncommitted_channel *uc)
 {
 	struct graphql_selection *sel;
+	struct uc_cbd *cbd;
 
 	if (!uc)
 		return;
@@ -143,11 +199,13 @@ void json_add_uncommitted_channel2(struct json_stream *js,
 	if (!uc->fc)
 		return;
 
-	json_object_start(js, NULL);
-	if (ss)
-		for (sel = ss->first; sel; sel = sel->next)
-			json_add_uncommitted_channel_field(js, cmd, uc, sel);
-	json_object_end(js);
+	json_object_start(response, NULL);
+	if (sel_set)
+		for (sel = sel_set->first; sel; sel = sel->next) {
+			cbd = get_cbd(sel->field, "UncommittedChannel", struct uc_cbd);
+			cbd->json_add_func(response, cbd, uc);
+		}
+	json_object_end(response);
 }
 
 /* Steals fields from uncommitted_channel: returns NULL if can't generate a

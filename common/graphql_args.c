@@ -7,60 +7,14 @@
 #include <common/node_id.h>
 #include <external/jsmn/jsmn.h>
 
-static struct list_head warnings = LIST_HEAD_INIT(warnings);
-
-struct graphqlrpc_warning {
-	struct list_node node;
-	struct json_stream *stream;
-	const char *message;
-};
-
-void queue_warning(struct json_stream *js, const char *fmt, ...)
+const char *get_alias(struct graphql_field *field)
 {
-	va_list ap;
-	struct graphqlrpc_warning *w;
-
-	va_start(ap, fmt);
-	w = tal(NULL, struct graphqlrpc_warning);
-	w->stream = js;
-	w->message = tal_vfmt(w, fmt, ap);
-	va_end(ap);
-
-	/* Don't add the same message twice */
-	struct graphqlrpc_warning *v;
-	list_for_each(&warnings, v, node)
-		if (streq(v->message, w->message)) {
-			w = tal_free(w);
-			return;
-		}
-
-	list_add(&warnings, &w->node);
-}
-
-void json_add_warnings(struct json_stream *js)
-{
-	struct list_head temp = LIST_HEAD_INIT(temp);
-	struct list_head todo = LIST_HEAD_INIT(todo);
-	struct graphqlrpc_warning *w;
-
-	while ((w = list_pop(&warnings, struct graphqlrpc_warning, node))) {
-		if (w->stream == js)
-			list_add(&todo, &w->node);
-		else
-			list_add(&temp, &w->node);
-	}
-	while ((w = list_pop(&temp, struct graphqlrpc_warning, node))) {
-		list_add(&warnings, &w->node);
-	}
-
-	if (list_top(&todo, struct graphqlrpc_warning, node)) {
-		json_array_start(js, "warnings");
-		while ((w = list_pop(&todo, struct graphqlrpc_warning, node))) {
-			json_add_string(js, NULL, w->message);
-			w = tal_free(w);
-		}
-		json_array_end(js);
-	}
+	const char *alias = field->name->token_string;
+	if (field->alias && field->alias->name &&
+	    field->alias->name->token_type == 'a' &&
+	    field->alias->name->token_string)
+		alias = field->alias->name->token_string;
+	return alias;
 }
 
 /* Helper: Get a string argument's value, or NULL */
@@ -73,8 +27,7 @@ static const char *get_string(const struct graphql_argument *arg)
 	return NULL;
 }
 
-void get_args(void *ctx, struct json_stream *js,
-	      const struct graphql_field *field, ...)
+void get_args(void *ctx, const struct graphql_field *field, ...)
 {
 	struct graphql_argument *arg;
 	va_list ap;
@@ -104,15 +57,15 @@ void get_args(void *ctx, struct json_stream *js,
 			if (streq(name, arg->name->token_string)) {
 				found = true;
 				if (*var) {
-					queue_warning(
-						js, "ignoring duplicate argument '%s'",
-						name);
+					//queue_warning(
+					//	js, "ignoring duplicate argument '%s'",
+					//	name);
 				} else {
 					cbx(ctx, get_string(arg), var);
-					if (!*var)
-						queue_warning(
-							js, "invalid value for agrument '%s'",
-							name);
+					//if (!*var)
+						//queue_warning(
+						//	js, "invalid value for agrument '%s'",
+						//	name);
 				}
 				break;
 			}
@@ -120,8 +73,9 @@ void get_args(void *ctx, struct json_stream *js,
 		va_end(ap);
 
 		if (!found)
-			queue_warning(js, "unrecognized argument '%s'",
-				      arg->name->token_string);
+			//queue_warning(js, "unrecognized argument '%s'",
+			//	      arg->name->token_string)
+;
 	}
 
 	va_start(ap, field);
@@ -131,8 +85,9 @@ void get_args(void *ctx, struct json_stream *js,
 		void **var = va_arg(ap, void **);
 		const char *def = va_arg(ap, const char *);
 		if (is_required && *var == NULL)
-			queue_warning(js, "missing required argument '%s'",
-				      name);
+			//queue_warning(js, "missing required argument '%s'",
+			//	      name)
+;
 		if (*var == NULL && def != NULL) {
 			cbx(ctx, def, var);
 		}

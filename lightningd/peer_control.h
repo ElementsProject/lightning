@@ -114,8 +114,9 @@ command_find_channel(struct command *cmd,
 		     struct channel **channel);
 
 void json_add_peers(struct json_stream *js,
-		    struct command *cmd,
-		    const char *alias,
 		    const struct graphql_field *field);
+
+struct command_result *prep_peers(struct command *cmd,
+                                  struct graphql_field *field);
 
 #endif /* LIGHTNING_LIGHTNINGD_PEER_CONTROL_H */

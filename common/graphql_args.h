@@ -17,13 +17,9 @@ struct graphql_field;
 struct graphql_value;
 struct node_id;
 
-void queue_warning(struct json_stream *js, const char *fmt, ...)
-	PRINTF_FMT(2, 3);
+const char *get_alias(struct graphql_field *field);
 
-void json_add_warnings(struct json_stream *js);
-
-void get_args(void *ctx, struct json_stream *js,
-	      const struct graphql_field *field, ...) LAST_ARG_NULL;
+void get_args(void *ctx, const struct graphql_field *field, ...) LAST_ARG_NULL;
 
 typedef void (*arg_cbx)(void *ctx, const char *str, void *var);
 

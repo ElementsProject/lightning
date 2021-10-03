@@ -24,10 +24,13 @@ void channel_unsaved_close_conn(struct channel *channel, const char *why);
 void json_add_unsaved_channel(struct json_stream *response,
 			      const struct channel *channel);
 
+struct command_result *prep_unsaved_channels_field(
+				struct command *cmd,
+				struct graphql_field *field, bool gen_err);
+
 void json_add_unsaved_channel2(struct json_stream *response,
-			       struct command *cmd,
-			       const struct channel *channel,
-			       struct graphql_selection_set *ss);
+			       const struct graphql_selection_set *sel_set,
+			       const struct channel *channel);
 
 void channel_update_reserve(struct channel *channel,
 			    struct channel_config *their_config,

@@ -13,6 +13,12 @@ static const errcode_t JSONRPC2_INVALID_REQUEST = -32600;
 static const errcode_t JSONRPC2_METHOD_NOT_FOUND = -32601;
 static const errcode_t JSONRPC2_INVALID_PARAMS = -32602;
 
+/* Errors pertaining to GraphQL */
+static const errcode_t GRAPHQL_INVALID_SYNTAX = -32000;
+static const errcode_t GRAPHQL_FIELD_NOT_FOUND = -32001;
+static const errcode_t GRAPHQL_ARG_NOT_FOUND = -32002;
+static const errcode_t GRAPHQL_FEATURE_NOT_SUPPORTED = -32003;
+
 /* Uncategorized error.
  * FIXME: This should be replaced in all places
  * with a specific error code, and then removed.

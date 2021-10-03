@@ -22,6 +22,7 @@
 #include <lightningd/channel_control.h>
 #include <lightningd/closing_control.h>
 #include <lightningd/dual_open_control.h>
+#include <lightningd/graphqlrpc.h>
 #include <lightningd/hsm_control.h>
 #include <lightningd/json.h>
 #include <lightningd/notification.h>
@@ -158,71 +159,127 @@ void json_add_unsaved_channel(struct json_stream *response,
 	json_object_end(response);
 }
 
-static void json_add_unsaved_channel_field(struct json_stream *response,
-					   struct command *cmd,
-					   const struct channel *channel,
-					   struct graphql_selection *sel)
+struct usc_cbd;
+typedef void (*usc_json_cb)(struct json_stream *js,
+			    const struct usc_cbd *d,
+			    const struct channel *channel);
+struct usc_cbd {
+	usc_json_cb json_add_func;
+	const char *name;
+};
+#define CHANNEL_CB(name) \
+static void name(struct json_stream *response, \
+		 const struct usc_cbd *d, \
+		 const struct channel *channel)
+
+CHANNEL_CB(json_add_usc_state)
 {
-	const char *name, *alias;
+	json_add_string(response, d->name, channel_state_name(channel));
+}
 
-	name = alias = sel->field->name->token_string;
-	if (sel->field->alias && sel->field->alias->name &&
-	    sel->field->alias->name->token_type == 'a' &&
-	    sel->field->alias->name->token_string)
-		alias = sel->field->alias->name->token_string;
+CHANNEL_CB(json_add_usc_owner)
+{
+	json_add_string(response, d->name, channel->owner->name);
+}
 
-	if (streq(name, "state")) {
-		json_add_string(response, alias, channel_state_name(channel));
-	} else if (streq(name, "owner")) {
-		json_add_string(response, alias, channel->owner->name);
-	} else if (streq(name, "opener")) {
-		json_add_string(response, alias, channel->opener == LOCAL ?
-						 "local" : "remote");
-	} else if (streq(name, "status")) {
-		json_array_start(response, alias);
-		for (size_t i = 0; i < ARRAY_SIZE(channel->billboard.permanent); i++) {
-			if (!channel->billboard.permanent[i])
-				continue;
-			json_add_string(response, NULL,
-					channel->billboard.permanent[i]);
-		}
-		if (channel->billboard.transient)
-			json_add_string(response, NULL, channel->billboard.transient);
-		json_array_end(response);
-	} else if (streq(name, "to_us_msat")) {
-		struct amount_msat total;
-		/* funding + our_upfront_shutdown only available if we're initiator */
-		if (channel->open_attempt->role == TX_INITIATOR &&
-		    amount_sat_to_msat(&total, channel->open_attempt->funding))
-			json_add_amount_msat_only(response, alias, total);
-		else
-			json_add_null(response, alias);
-	} else if (streq(name, "total_msat")) {
-		struct amount_msat total;
-		/* This will change if peer adds funds */
-		if (channel->open_attempt->role == TX_INITIATOR &&
-		    amount_sat_to_msat(&total, channel->open_attempt->funding))
-			json_add_amount_msat_only(response, alias, total);
-		else
-			json_add_null(response, alias);
-	} else if (streq(name, "features")) {
-		json_array_start(response, "features");
-		/* v2 channels assumed to have both static_remotekey + anchor_outputs */
-		json_add_string(response, NULL, "option_static_remotekey");
-		json_add_string(response, NULL, "option_anchor_outputs");
-		json_array_end(response);
-	} else {
-		json_add_null(response, alias);
-		queue_warning(response, "field not found '%s'", name);
+CHANNEL_CB(json_add_usc_opener)
+{
+	json_add_string(response, d->name, channel->opener == LOCAL ?
+					   "local" : "remote");
+}
+
+CHANNEL_CB(json_add_usc_status)
+{
+	json_array_start(response, d->name);
+	for (size_t i = 0; i < ARRAY_SIZE(channel->billboard.permanent); i++) {
+		if (!channel->billboard.permanent[i])
+			continue;
+		json_add_string(response, NULL,
+				channel->billboard.permanent[i]);
 	}
+	if (channel->billboard.transient)
+		json_add_string(response, NULL, channel->billboard.transient);
+	json_array_end(response);
+}
+
+/* funding + our_upfront_shutdown only available if we're initiator */
+CHANNEL_CB(json_add_usc_to_us_msat)
+{
+	struct amount_msat total;
+	struct open_attempt *oa = channel->open_attempt;
+
+	if (oa->role == TX_INITIATOR)
+		if (amount_sat_to_msat(&total, oa->funding))
+			json_add_amount_msat_only(response, d->name, total);
+}
+
+CHANNEL_CB(json_add_usc_total_msat)
+{
+	struct amount_msat total;
+	struct open_attempt *oa = channel->open_attempt;
+
+	if (oa->role == TX_INITIATOR)
+		if (amount_sat_to_msat(&total, oa->funding))
+			/* This will change if peer adds funds */
+			json_add_amount_msat_only(response, d->name, total);
+}
+
+CHANNEL_CB(json_add_usc_features)
+{
+	json_array_start(response, "features");
+	/* v2 channels assumed to have both static_remotekey + anchor_outputs */
+	json_add_string(response, NULL, "option_static_remotekey");
+	json_add_string(response, NULL, "option_anchor_outputs");
+	json_array_end(response);
+}
+
+static struct command_result *
+prep_usc_field_cb(struct command *cmd, struct graphql_field *field,
+		  usc_json_cb cb)
+{
+	struct usc_cbd *d;
+
+	d = create_cbd(field, "UnsavedChannel", cmd, struct usc_cbd);
+	//field->data = d = tal(cmd, struct usc_cbd);
+	d->json_add_func = cb;
+	d->name = get_alias(field);
+
+	NO_ARGS(cmd, field);
+	NO_SUBFIELDS(cmd, field);
+
+	return NULL;
+}
+
+struct command_result *
+prep_unsaved_channels_field(struct command *cmd, struct graphql_field *field, bool gen_err)
+{
+	const char *name = field->name->token_string;
+
+	if (streq(name, "state"))
+		return prep_usc_field_cb(cmd, field, json_add_usc_state);
+	else if (streq(name, "owner"))
+		return prep_usc_field_cb(cmd, field, json_add_usc_owner);
+	else if (streq(name, "opener"))
+		return prep_usc_field_cb(cmd, field, json_add_usc_opener);
+	else if (streq(name, "features"))
+		return prep_usc_field_cb(cmd, field, json_add_usc_features);
+	else if (streq(name, "to_us_msat"))
+		return prep_usc_field_cb(cmd, field, json_add_usc_to_us_msat);
+	else if (streq(name, "total_msat"))
+		return prep_usc_field_cb(cmd, field, json_add_usc_total_msat);
+	else if (streq(name, "status"))
+		return prep_usc_field_cb(cmd, field, json_add_usc_status);
+	else
+		return gen_err? command_fail(cmd, GRAPHQL_FIELD_NOT_FOUND,
+					     "unknown field '%s'", name): NULL;
 }
 
 void json_add_unsaved_channel2(struct json_stream *response,
-			       struct command *cmd,
-			       const struct channel *channel,
-			       struct graphql_selection_set *ss)
+			       const struct graphql_selection_set *sel_set,
+			       const struct channel *channel)
 {
 	struct graphql_selection *sel;
+	struct usc_cbd *cbd;
 
 	if (!channel)
 		return;
@@ -232,11 +289,12 @@ void json_add_unsaved_channel2(struct json_stream *response,
 		return;
 
 	json_object_start(response, NULL);
-	if (ss)
-		for (sel = ss->first; sel; sel = sel->next) {
-			json_add_unsaved_channel_field(response, cmd, channel,
-						       sel);
+	if (sel_set) {
+		for (sel = sel_set->first; sel; sel = sel->next) {
+			cbd = get_cbd(sel->field, "UnsavedChannel", struct usc_cbd);
+			cbd->json_add_func(response, cbd, channel);
 		}
+	}
 	json_object_end(response);
 }
 
