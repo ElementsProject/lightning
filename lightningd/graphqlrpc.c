@@ -56,17 +56,15 @@ void *get_cbd_(const struct graphql_field *field, const char *tname)
 	struct typelist *tl;
 	struct typenode *tn = NULL, *n;
 
+	if (!field->data)
+		return NULL;
 	tl = field->data;
 	list_for_each(&tl->types, n, node) {
 		if (streq(n->type_name, tname))
 			tn = n;
 	}
-if (!tn) {
-fprintf(stderr, "get_cbd_(\"%s\") failed!\n", tname);
-list_for_each(&tl->types, n, node)
-fprintf(stderr, ": \"%s\"\n", n->type_name);
-}
-assert(tn);
+	if (!tn)
+		return NULL;
 
 	return tn->cb_data;
 }

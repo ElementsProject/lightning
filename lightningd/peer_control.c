@@ -2070,7 +2070,10 @@ static void json_add_channel2(struct json_stream *response,
 	if (sel_set) {
 		for (sel = sel_set->first; sel; sel = sel->next) {
 			cbd = get_cbd(sel->field, "Channel", struct chan_cbd);
-			cbd->json_add_func(response, cbd, channel);
+			if (cbd)
+				cbd->json_add_func(response, cbd, channel);
+			else
+				json_add_null(response, get_alias(sel->field));
 		}
 	}
 	json_object_end(response);
