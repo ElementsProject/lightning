@@ -92,7 +92,7 @@ prep_toplevel_field(struct command *cmd,
 	if (streq(name, "peers"))
 		return prep_peers(cmd, sel->field);
 	else
-		return command_fail(cmd, GRAPHQL_FIELD_NOT_FOUND,
+		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
 				    "unknown field '%s'", name);
 }
 

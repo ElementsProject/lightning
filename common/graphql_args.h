@@ -3,6 +3,8 @@
 #include "config.h"
 #include <common/status_levels.h>
 
+struct command;
+
 #define a_opt_def(name, callback, var, def) \
 		(name), 0, (callback), (var), (def) \
 
@@ -19,7 +21,7 @@ struct node_id;
 
 const char *get_alias(struct graphql_field *field);
 
-void get_args(void *ctx, const struct graphql_field *field, ...) LAST_ARG_NULL;
+bool get_args(struct command *cmd, const struct graphql_field *field, ...) LAST_ARG_NULL;
 
 typedef void (*arg_cbx)(void *ctx, const char *str, void *var);
 

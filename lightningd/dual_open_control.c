@@ -270,7 +270,7 @@ prep_unsaved_channels_field(struct command *cmd, struct graphql_field *field, bo
 	else if (streq(name, "status"))
 		return prep_usc_field_cb(cmd, field, json_add_usc_status);
 	else
-		return gen_err? command_fail(cmd, GRAPHQL_FIELD_NOT_FOUND,
+		return gen_err? command_fail(cmd, GRAPHQL_FIELD_ERROR,
 					     "unknown field '%s'", name): NULL;
 }
 

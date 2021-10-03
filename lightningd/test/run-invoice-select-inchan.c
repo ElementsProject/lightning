@@ -233,7 +233,7 @@ bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNE
 const char *get_alias(struct graphql_field *field UNNEEDED)
 { fprintf(stderr, "get_alias called!\n"); abort(); }
 /* Generated stub for get_args */
-void get_args(void *ctx UNNEEDED, const struct graphql_field *field UNNEEDED, ...)
+bool get_args(struct command *cmd UNNEEDED, const struct graphql_field *field UNNEEDED, ...)
 { fprintf(stderr, "get_args called!\n"); abort(); }
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)

@@ -15,8 +15,8 @@ static const errcode_t JSONRPC2_INVALID_PARAMS = -32602;
 
 /* Errors pertaining to GraphQL */
 static const errcode_t GRAPHQL_INVALID_SYNTAX = -32000;
-static const errcode_t GRAPHQL_FIELD_NOT_FOUND = -32001;
-static const errcode_t GRAPHQL_ARG_NOT_FOUND = -32002;
+static const errcode_t GRAPHQL_FIELD_ERROR = -32001;
+static const errcode_t GRAPHQL_ARG_ERROR = -32002;
 static const errcode_t GRAPHQL_FEATURE_NOT_SUPPORTED = -32003;
 
 /* Uncategorized error.

@@ -1,6 +1,7 @@
 #include <ccan/graphql/graphql.h>
 #include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
+#include <common/json_command.h>
 #include <common/graphql_args.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
@@ -27,11 +28,12 @@ static const char *get_string(const struct graphql_argument *arg)
 	return NULL;
 }
 
-void get_args(void *ctx, const struct graphql_field *field, ...)
+bool get_args(struct command *cmd, const struct graphql_field *field, ...)
 {
 	struct graphql_argument *arg;
 	va_list ap;
 	const char *name;
+	struct command_result *ignore;
 
 	va_start(ap, field);
 	while ((name = va_arg(ap, const char *)) != NULL) {
@@ -43,7 +45,7 @@ void get_args(void *ctx, const struct graphql_field *field, ...)
 	}
 	va_end(ap);
 
-	if (field && field->args) // guard entire for loop
+	if (field && field->args) // guard entire for loop, spare indent
 	for (arg = field->args->first; arg; arg = arg->next) {
 		bool found;
 
@@ -57,25 +59,37 @@ void get_args(void *ctx, const struct graphql_field *field, ...)
 			if (streq(name, arg->name->token_string)) {
 				found = true;
 				if (*var) {
-					//queue_warning(
-					//	js, "ignoring duplicate argument '%s'",
-					//	name);
+					ignore = command_fail(
+							cmd, GRAPHQL_ARG_ERROR,
+							"duplicate argument '%s'",
+							name);
+					assert(ignore);
+					va_end(ap);
+					return false;
 				} else {
-					cbx(ctx, get_string(arg), var);
-					//if (!*var)
-						//queue_warning(
-						//	js, "invalid value for agrument '%s'",
-						//	name);
+					cbx(cmd, get_string(arg), var);
+					if (!*var) {
+						ignore = command_fail(
+							cmd, GRAPHQL_ARG_ERROR,
+							"invalid value for argument '%s'",
+							name);
+						assert(ignore);
+						va_end(ap);
+						return false;
+					}
 				}
 				break;
 			}
 		}
 		va_end(ap);
 
-		if (!found)
-			//queue_warning(js, "unrecognized argument '%s'",
-			//	      arg->name->token_string)
-;
+		if (!found) {
+			ignore = command_fail(cmd, GRAPHQL_ARG_ERROR,
+					"unrecognized argument '%s'",
+					arg->name->token_string);
+			assert(ignore);
+			return false;
+		}
 	}
 
 	va_start(ap, field);
@@ -84,15 +98,20 @@ void get_args(void *ctx, const struct graphql_field *field, ...)
 		arg_cbx cbx = va_arg(ap, arg_cbx);
 		void **var = va_arg(ap, void **);
 		const char *def = va_arg(ap, const char *);
-		if (is_required && *var == NULL)
-			//queue_warning(js, "missing required argument '%s'",
-			//	      name)
-;
+		if (is_required && *var == NULL) {
+			ignore = command_fail(cmd, GRAPHQL_ARG_ERROR,
+				"missing required argument '%s'",
+				name);
+			assert(ignore);
+			va_end(ap);
+			return false;
+		}
 		if (*var == NULL && def != NULL) {
-			cbx(ctx, def, var);
+			cbx(cmd, def, var);
 		}
 	}
 	va_end(ap);
+	return true;
 }
 
 /* Helper: Get a field argument by name, or NULL */

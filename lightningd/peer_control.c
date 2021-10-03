@@ -1039,7 +1039,7 @@ prep_htlc_field(struct command *cmd, struct graphql_field *field)
 	else if (streq(name, "status"))
 		return prep_htlc_field_cb(cmd, field, json_add_htlc_status);
 	else
-		return command_fail(cmd, GRAPHQL_FIELD_NOT_FOUND,
+		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
 				    "unknown field '%s'", name);
 }
 
@@ -1120,7 +1120,7 @@ prep_state_change_field(struct command *cmd, struct graphql_field *field)
 	else if (streq(name, "message"))
 		return prep_sc_field_cb(cmd, field, json_add_sc_message);
 	else
-		return command_fail(cmd, GRAPHQL_FIELD_NOT_FOUND,
+		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
 				    "unknown field '%s'", name);
 }
 
@@ -1213,7 +1213,7 @@ prep_inflight_field(struct command *cmd, struct graphql_field *field)
 	else if (streq(name, "scratch_txid"))
 		return prep_inf_field_cb(cmd, field, json_add_inf_scratch_txid);
 	else
-		return command_fail(cmd, GRAPHQL_FIELD_NOT_FOUND,
+		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
 				    "unknown field '%s'", name);
 }
 
@@ -1879,7 +1879,7 @@ prep_funding_field(struct command *cmd, struct graphql_field *field)
 	else if (streq(name, "remote_msat"))
 		return prep_chan_field_cb(cmd, field, json_add_chan_funding_remote_msat);
 	else
-		return command_fail(cmd, GRAPHQL_FIELD_NOT_FOUND,
+		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
 				    "unknown field '%s'", name);
 }
 
@@ -2054,7 +2054,7 @@ prep_channels_field(struct command *cmd, struct graphql_field *field)
 	else if (streq(name, "htlcs"))
 		return prep_chan_htlc_cb(cmd, field, json_add_chan_htlcs);
 	else
-		return command_fail(cmd, GRAPHQL_FIELD_NOT_FOUND,
+		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
 				    "unknown field '%s'", name);
 }
 
@@ -2782,9 +2782,10 @@ prep_peers_log(struct command *cmd, struct graphql_field *field)
 	NO_ALIAS_SUPPORT(cmd, field);
 	NO_SUBFIELD_SELECTION(cmd, field);
 
-	get_args(cmd, field,
-		 a_opt_def("level", str_to_log_level, &d->ll, "io"),
-		 NULL);
+	if (!get_args(cmd, field,
+		      a_opt_def("level", str_to_log_level, &d->ll, "io"),
+		      NULL))
+		return command_param_failed();
 
 	return NULL;
 }
@@ -2807,7 +2808,7 @@ prep_peers_field(struct command *cmd, struct graphql_field *field)
 	else if (streq(name, "log"))
 		return prep_peers_log(cmd, field);
 	else
-		return command_fail(cmd, GRAPHQL_FIELD_NOT_FOUND,
+		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
 				    "unknown field '%s'", name);
 }
 
@@ -2866,9 +2867,10 @@ prep_peers(struct command *cmd, struct graphql_field *field)
 	d->name = get_alias(field);
 	d->cmd = cmd;
 
-	get_args(cmd, field,
-		 a_opt("id", str_to_node_id, &d->specific_id),
-		 NULL);
+	if (!get_args(cmd, field,
+		      a_opt("id", str_to_node_id, &d->specific_id),
+		      NULL))
+		return command_param_failed();
 
 	if (field->sel_set)
 		for (sel = field->sel_set->first; sel; sel = sel->next)
