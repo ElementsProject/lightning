@@ -1,8 +1,8 @@
 #include <ccan/graphql/graphql.h>
 #include <ccan/list/list.h>
 #include <ccan/tal/str/str.h>
-#include <common/json_command.h>
 #include <common/graphql_args.h>
+#include <common/json_command.h>
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
 #include <common/node_id.h>
