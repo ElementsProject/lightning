@@ -1292,6 +1292,20 @@ static void send_commit(struct peer *peer)
 		if (feerate_changes_done(peer->channel->fee_states, false)) {
 			u8 *msg;
 
+			/* BOLT-919 #2:
+			 *
+			 * A sending node:
+			 * - if the `dust_balance_on_counterparty_tx` at the
+			 *   new `dust_buffer_feerate` is superior to
+			 *   `max_dust_htlc_exposure_msat`:
+			 *   - MAY NOT send `update_fee`
+			 *   - MAY fail the channel
+			 * - if the `dust_balance_on_holder_tx` at the
+			 *   new `dust_buffer_feerate` is superior to
+			 *   the `max_dust_htlc_exposure_msat`:
+			 *   - MAY NOT send `update_fee`
+			 *   - MAY fail the channel
+			 */
 			/* Is this feerate update going to push the committed
 			 * htlcs over our allowed dust limits? */
 			if (!htlc_dust_ok(peer->channel, feerate_target, REMOTE)
@@ -3369,6 +3383,12 @@ static void handle_offer_htlc(struct peer *peer, const u8 *inmsg)
 		failstr = "Too many HTLCs";
 		goto failed;
 	case CHANNEL_ERR_DUST_FAILURE:
+		/* BOLT-919 #2:
+		 * - upon an outgoing HTLC:
+		 *   - if a HTLC's `amount_msat` is inferior the counterparty's...
+		 *   - SHOULD NOT send this HTLC
+		 *   - SHOULD fail this HTLC if it's forwarded
+		 */
 		failwiremsg = towire_temporary_channel_failure(inmsg, get_local_channel_update(inmsg, peer));
 		failstr = "HTLC too dusty, allowed dust limit reached";
 		goto failed;

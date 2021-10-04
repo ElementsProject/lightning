@@ -50,7 +50,11 @@ bool htlc_is_trimmed(enum side htlc_owner,
 
 u32 htlc_trim_feerate_ceiling(u32 feerate_per_kw)
 {
-	/* Add the greater of 1.25x or 2530 sat/kw */
+	/* BOLT-919 #2:
+	 *
+	 * `dust_buffer_feerate` is defined as the maximum
+	 * of either 2530 sats per kWU or 125% of the
+	 * current `feerate_per_kw`. */
 	return max(feerate_per_kw + feerate_per_kw / 4,
 		   feerate_per_kw + HTLC_FEE_MIN_RANGE);
 }
