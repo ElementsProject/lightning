@@ -910,12 +910,24 @@ send_payment_core(struct lightningd *ld,
 			return sendpay_success(cmd, payments[i]);
 
 		case PAYMENT_PENDING:
+			/* At most one payment group can be in-flight at any
+			 * time. */
+			if (payments[i]->groupid != group) {
+				return command_fail(
+				    cmd, PAY_IN_PROGRESS,
+				    "Payment with groupid=%" PRIu64
+				    " still in progress, cannot retry before "
+				    "that completes.",
+				    payments[i]->groupid);
+			}
+
 			/* Can't mix non-parallel and parallel payments! */
 			if (!payments[i]->partid != !partid) {
 				return command_fail(cmd, PAY_IN_PROGRESS,
 						    "Already have %s payment in progress",
 						    payments[i]->partid ? "parallel" : "non-parallel");
 			}
+
 			if (payments[i]->partid == partid) {
 				/* You can't change details while it's pending */
 				if (!amount_msat_eq(payments[i]->msatoshi, msat)) {
