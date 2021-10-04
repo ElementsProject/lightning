@@ -298,6 +298,11 @@ struct payment {
 	/* A human readable error message that is used as a top-level
 	 * explanation if a payment is aborted. */
 	char *aborterror;
+
+	/* Callback to be called when the entire payment process
+	 * completes successfully. */
+	void (*on_payment_success)(struct payment *p);
+	void (*on_payment_failure)(struct payment *p);
 };
 
 struct payment_modifier {

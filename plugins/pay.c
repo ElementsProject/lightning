@@ -1936,6 +1936,16 @@ static const char *init(struct plugin *p,
 	return NULL;
 }
 
+static void on_payment_success(struct payment *payment)
+{
+	return;
+}
+
+static void on_payment_failure(struct payment *payment)
+{
+	return;
+}
+
 /* We are interested in any prior attempts to pay this payment_hash /
  * invoice so we can set the `groupid` correctly and ensure we don't
  * already have a pending payment running. We also collect the summary
@@ -2043,6 +2053,8 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 		    last_group);
 	}
 	p->groupid = last_group + 1;
+	p->on_payment_success = on_payment_success;
+	p->on_payment_failure = on_payment_failure;
 	payment_start(p);
 	return command_still_pending(cmd);
 }
