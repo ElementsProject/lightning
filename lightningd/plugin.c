@@ -192,10 +192,10 @@ static void destroy_plugin(struct plugin *p)
 	if (p->plugin_state == AWAITING_INIT_RESPONSE)
 		check_plugins_initted(p->plugins);
 
-	/* If we are shutting down, do not continue to checking if
-	 * the dying plugin is important.  */
+	/* If we are shutting down, do not continue checking if
+	 * the dying plugin is important. */
 	if (p->plugin_state == SHUTDOWN) {
-		/* At shutdown we wait for plugins to self-terminate */
+		/* Maybe we are waiting for it to self-terminate */
 		if (!plugins_any_in_state(p->plugins, SHUTDOWN))
 			io_break(p->plugins);
 		return;
@@ -2090,7 +2090,7 @@ void shutdown_plugins(struct lightningd *ld, bool first)
 {
 	struct plugin *p, *next;
 
-	/* First mark a set of plugins we want to shutdown in this call */
+	/* First mark the plugins we want to shutdown in this call */
 	list_for_each(&ld->plugins->plugins, p, list) {
 		if (first && plugin_registered_db_write_hook(p))
 			continue;
@@ -2099,26 +2099,24 @@ void shutdown_plugins(struct lightningd *ld, bool first)
 		plugin_set_state(p, SHUTDOWN);
 	}
 
-	/* Notify **all** subscribed plugins */
+	/* Notify *all* subscribed plugins or kill immediately (when marked) */
 	list_for_each_safe(&ld->plugins->plugins, p, next, list) {
 		if (notify_plugin_shutdown(ld, p))
 			continue;
-		/* or kill immediately those in the set */
 		else if (p->plugin_state == SHUTDOWN)
 			tal_free(p);
 	}
 
+	/* Wait for remaining (marked) plugins to self-terminate */
 	if (plugins_any_in_state(ld->plugins, SHUTDOWN)) {
 		struct oneshot *t;
 		void *ret;
-		/* Give them 30 or 5 seconds to self-terminate, the last one in
-		 * the set calls io_break when destroyed */
 		t = new_reltimer(ld->timers, ld,
 				 time_from_sec(first ? 30 : 5),
 				 plugin_shutdown_timeout, ld);
 
-		/* Maybe a freed plugin called io_break before, which would return the
-		 * io_loop immediately, so we explicitly reset it */
+		/* Destructor of plugins called io_break, which makes the next io_loop
+		 * return immediately, so we explicitly reset it */
 		io_break(ld);
 		ret = io_loop(NULL, NULL);
 		assert(ret == ld);
@@ -2132,7 +2130,7 @@ void shutdown_plugins(struct lightningd *ld, bool first)
 				continue;
 
 			log_debug(ld->log,
-				  "%s: failed to shutdown, killing.",
+				  "%s: failed to self-terminate, killing.",
 				  p->shortname);
 			tal_free(p);
 		}
