@@ -801,6 +801,18 @@ static enum channel_add_err add_htlc(struct channel *channel,
 
 	if (amount_msat_greater(htlc_dust_amt,
 				channel->config[LOCAL].max_dust_htlc_exposure_msat)) {
+		/* BOLT-919 #2:
+		 * A node:
+		 * - upon an incoming HTLC:
+		 *   - if a HTLC's `amount_msat` is inferior to the
+		 *   counterparty's `dust_limit_satoshis` plus the HTLC-timeout fee
+		 *   at the `dust_buffer_feerate`: ...
+		 *   - SHOULD fail this HTLC once it's committed
+		 *   - SHOULD NOT reveal a preimage for this HTLC
+		*/
+		/* Note: Marking this as 'fail_immediate' and
+		 * NOT returning an ERR will fail this HTLC
+		 * once it's committed */
 		htlc->fail_immediate = true;
 		if (err_immediate_failures)
 			return CHANNEL_ERR_DUST_FAILURE;
@@ -1281,7 +1293,15 @@ bool channel_update_feerate(struct channel *channel, u32 feerate_per_kw)
 	if (!can_opener_afford_feerate(channel, feerate_per_kw))
 		return false;
 
-	if (!htlc_dust_ok(channel, feerate_per_kw, REMOTE))
+	/* BOLT-919 #2:
+	 * - if the `dust_balance_on_holder_tx` at the
+	 *   new `dust_buffer_feerate` is superior to
+	 *   the `max_dust_htlc_exposure_msat`:
+	 *   ...
+	 *   - MAY fail the channel
+	 */
+	if (!htlc_dust_ok(channel, feerate_per_kw, REMOTE) ||
+	    !htlc_dust_ok(channel, feerate_per_kw, LOCAL))
 		return false;
 
 	status_debug("Setting %s feerate to %u",
