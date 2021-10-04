@@ -20,9 +20,7 @@ def shutdown(plugin, **kwargs):
     global shutdown_notifications
     shutdown_notifications += 1
     plugin.log("received shutdown notification {}".format(shutdown_notifications))
-    if shutdown_notifications > 1:
-        sleep(4)    # we have 5s to exit before timeout
-        exit(0)
+    # don't exit to triggers the 5s timeout
 
 
 plugin.run()
