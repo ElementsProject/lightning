@@ -4,7 +4,6 @@ that they have some control at shutdown.
 '''
 
 from pyln.client import Plugin
-from time import sleep
 
 plugin = Plugin()
 shutdown_notifications = 0
