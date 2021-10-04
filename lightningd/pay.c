@@ -1284,9 +1284,17 @@ static struct command_result *json_sendonion(struct command *cmd,
 		   p_opt_def("msatoshi", param_msat, &msat, AMOUNT_MSAT(0)),
 		   p_opt("destination", param_node_id, &destination),
 		   p_opt("localofferid", param_sha256, &local_offer_id),
-		   p_opt_def("groupid", param_u64, &group, 0),
+		   p_opt("groupid", param_u64, &group),
 		   NULL))
 		return command_param_failed();
+
+	/* If groupid was not provided default to incrementing from the previous one. */
+	if (group == NULL) {
+		group = tal(tmpctx, u64);
+		*group =
+		    wallet_payment_get_groupid(cmd->ld->wallet, payment_hash) +
+		    1;
+	}
 
 	packet = parse_onionpacket(cmd, onion, tal_bytelen(onion), &failcode);
 
@@ -1437,7 +1445,7 @@ static struct command_result *json_sendpay(struct command *cmd,
 		   p_opt("payment_secret", param_secret, &payment_secret),
 		   p_opt_def("partid", param_u64, &partid, 0),
 		   p_opt("localofferid", param_sha256, &local_offer_id),
-		   p_opt_def("groupid", param_u64, &group, 0),
+		   p_opt("groupid", param_u64, &group),
 		   NULL))
 		return command_param_failed();
 
@@ -1446,6 +1454,12 @@ static struct command_result *json_sendpay(struct command *cmd,
 				    "Must specify msatoshi with partid");
 
 	const struct amount_msat final_amount = route[tal_count(route)-1].amount;
+
+	/* If groupid was not provided default to incrementing from the previous one. */
+	if (group == NULL) {
+		group = tal(tmpctx, u64);
+		*group = wallet_payment_get_groupid(cmd->ld->wallet, rhash) + 1;
+	}
 
 	if (msat && !*partid && !amount_msat_eq(*msat, final_amount))
 		return command_fail(cmd, JSONRPC2_INVALID_PARAMS,
