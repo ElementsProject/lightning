@@ -66,6 +66,8 @@ struct payment *payment_new(tal_t *ctx, struct command *cmd,
 	p->routetxt = NULL;
 	p->max_htlcs = UINT32_MAX;
 	p->aborterror = NULL;
+	p->on_payment_success = NULL;
+	p->on_payment_failure = NULL;
 
 	/* Copy over the relevant pieces of information. */
 	if (parent != NULL) {
@@ -1869,6 +1871,10 @@ static void payment_finished(struct payment *p)
 			assert(result.leafstates & PAYMENT_STEP_SUCCESS);
 			assert(result.preimage != NULL);
 
+			/* Call any callback we might have registered. */
+			if (p->on_payment_success != NULL)
+				p->on_payment_success(p);
+
 			ret = jsonrpc_stream_success(cmd);
 			json_add_node_id(ret, "destination", p->destination);
 			json_add_sha256(ret, "payment_hash", p->payment_hash);
@@ -1911,6 +1917,9 @@ static void payment_finished(struct payment *p)
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
 			return;
 		} else if (result.failure == NULL || result.failure->failcode < NODE) {
+			if (p->on_payment_failure != NULL)
+				p->on_payment_failure(p);
+
 			/* This is failing because we have no more routes to try */
 			msg = tal_fmt(cmd,
 				      "Ran out of routes to try after "
@@ -1929,6 +1938,8 @@ static void payment_finished(struct payment *p)
 		}  else {
 			struct payment_result *failure = result.failure;
 			assert(failure!= NULL);
+			if (p->on_payment_failure != NULL)
+				p->on_payment_failure(p);
 			ret = jsonrpc_stream_fail(cmd, failure->code,
 						  failure->message);
 
