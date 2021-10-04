@@ -1853,7 +1853,7 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
         'channel': '1x1x1'
     }
 
-    l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
+    l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'], groupid=1)
     with pytest.raises(RpcError):
         l1.rpc.waitsendpay(rhash)
 
@@ -1862,7 +1862,7 @@ def test_onchain_timeout(node_factory, bitcoind, executor):
     sync_blockheight(bitcoind, [l1])
 
     # Second one will cause drop to chain.
-    l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
+    l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'], groupid=2)
     payfuture = executor.submit(l1.rpc.waitsendpay, rhash)
 
     # l1 will drop to chain.
