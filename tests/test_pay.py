@@ -2875,17 +2875,46 @@ def test_partial_payment_timeout(node_factory, bitcoind):
     paysecret = l2.rpc.decodepay(inv['bolt11'])['payment_secret']
 
     route = l1.rpc.getroute(l2.info['id'], 500, 1)['route']
-    l1.rpc.sendpay(route=route, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
+    l1.rpc.sendpay(
+        route=route,
+        payment_hash=inv['payment_hash'],
+        msatoshi=1000,
+        bolt11=inv['bolt11'],
+        payment_secret=paysecret,
+        partid=1,
+        groupid=1,
+    )
 
     with pytest.raises(RpcError, match=r'WIRE_MPP_TIMEOUT'):
-        l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=70 + TIMEOUT // 4, partid=1)
+        l1.rpc.waitsendpay(
+            payment_hash=inv['payment_hash'],
+            timeout=70 + TIMEOUT // 4,
+            partid=1,
+            groupid=1,
+        )
     l2.daemon.wait_for_log(r'HTLC set contains 1 HTLCs, for a total of 500msat out of 1000msat \(payment_secret\)')
 
     # We can still pay it normally.
-    l1.rpc.sendpay(route=route, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
-    l1.rpc.sendpay(route=route, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=2)
-    l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=1)
-    l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=2)
+    l1.rpc.sendpay(
+        route=route,
+        payment_hash=inv['payment_hash'],
+        msatoshi=1000,
+        bolt11=inv['bolt11'],
+        payment_secret=paysecret,
+        partid=1,
+        groupid=2
+    )
+    l1.rpc.sendpay(
+        route=route,
+        payment_hash=inv['payment_hash'],
+        msatoshi=1000,
+        bolt11=inv['bolt11'],
+        payment_secret=paysecret,
+        partid=2,
+        groupid=2
+    )
+    l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=1, groupid=2)
+    l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=2, groupid=2)
     l2.daemon.wait_for_log(r'HTLC set contains 1 HTLCs, for a total of 500msat out of 1000msat \(payment_secret\)')
     l2.daemon.wait_for_log(r'HTLC set contains 2 HTLCs, for a total of 1000msat out of 1000msat \(payment_secret\)')
 
@@ -2901,7 +2930,15 @@ def test_partial_payment_restart(node_factory, bitcoind):
 
     route = l1.rpc.getroute(l3.info['id'], 500, 1)['route']
 
-    l1.rpc.sendpay(route=route, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=1)
+    l1.rpc.sendpay(
+        route=route,
+        payment_hash=inv['payment_hash'],
+        msatoshi=1000,
+        bolt11=inv['bolt11'],
+        payment_secret=paysecret,
+        partid=1,
+        groupid=1,
+    )
 
     wait_for(lambda: [f['status'] for f in l2.rpc.listforwards()['forwards']] == ['offered'])
 
@@ -2911,7 +2948,15 @@ def test_partial_payment_restart(node_factory, bitcoind):
     wait_for(lambda: [p['connected'] for p in l2.rpc.listpeers()['peers']] == [True, True])
 
     # Pay second part.
-    l1.rpc.sendpay(route=route, payment_hash=inv['payment_hash'], msatoshi=1000, bolt11=inv['bolt11'], payment_secret=paysecret, partid=2)
+    l1.rpc.sendpay(
+        route=route,
+        payment_hash=inv['payment_hash'],
+        msatoshi=1000,
+        bolt11=inv['bolt11'],
+        payment_secret=paysecret,
+        partid=2,
+        groupid=1,
+    )
 
     l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=1)
     l1.rpc.waitsendpay(payment_hash=inv['payment_hash'], timeout=TIMEOUT, partid=2)
