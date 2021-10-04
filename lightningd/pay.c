@@ -985,6 +985,22 @@ send_payment_core(struct lightningd *ld,
 			if (payments[i]->partid == partid)
 				old_payment = payments[i];
  		}
+		/* There is no way for us to add a payment with the
+		 * same (payment_hash, partid, groupid) tuple since
+		 * it'd collide with the database primary key. So
+		 * report this as soon as possible. */
+
+		if (payments[i]->partid == partid && payments[i]->groupid == group) {
+			return command_fail(
+			    cmd, PAY_RHASH_ALREADY_USED,
+			    "There already is a payment with payment_hash=%s, "
+			    "groupid=%" PRIu64 ", partid=%" PRIu64
+			    ". Either change the partid, or wait for the "
+			    "payment to complete and start a new group.",
+			    type_to_string(tmpctx, struct sha256, rhash), group,
+			    partid);
+		}
+
 	}
 
 	/* If any part has succeeded, you can't start a new one! */
