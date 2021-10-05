@@ -2090,23 +2090,20 @@ void shutdown_plugins(struct lightningd *ld, bool first)
 {
 	struct plugin *p, *next;
 
-	/* First mark the set plugins we want to shutdown in this call */
-	list_for_each(&ld->plugins->plugins, p, list) {
+	/* Mark the set of plugins we want to shutdown in this call */
+	list_for_each_safe(&ld->plugins->plugins, p, next, list) {
 		if (first && plugin_registered_db_write_hook(p))
 			continue;
+
 		/* don't complain about important plugins vanishing and stop sending
 		 * it any (other) notifications */
 		plugin_set_state(p, SHUTDOWN);
-	}
 
-	/* Within the set, notify subscribed plugins or kill immediately */
-	list_for_each_safe(&ld->plugins->plugins, p, next, list) {
-		if (p->plugin_state == SHUTDOWN) {
-			if (notify_plugin_shutdown(ld, p))
-				continue;
-			else
-				tal_free(p);
-		}
+		/* notify subscribed ones, others are killed immediately */
+		if (notify_plugin_shutdown(ld, p))
+			continue;
+		else
+			tal_free(p);
 	}
 
 	/* Remaining plugins in the set have 30s or 5s to self-terminate */
@@ -2117,8 +2114,8 @@ void shutdown_plugins(struct lightningd *ld, bool first)
 				 time_from_sec(first ? 30 : 5),
 				 plugin_shutdown_timeout, ld);
 
-		/* Destructor of plugins called io_break, which makes the next io_loop
-		 * return immediately, so we explicitly reset it */
+		/* Destructor of plugins could've called io_break, which makes the next
+		 * io_loop return immediately, so we explicitly reset it */
 		io_break(ld);
 		ret = io_loop(NULL, NULL);
 		assert(ret == ld);
