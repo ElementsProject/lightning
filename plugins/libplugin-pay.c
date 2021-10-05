@@ -1904,6 +1904,7 @@ static void payment_finished(struct payment *p)
 			plugin_notification_end(p->plugin, n);
 
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
+			p->cmd = NULL;
 			return;
 		} else if (p->aborterror != NULL) {
 			/* We set an explicit toplevel error message,
@@ -1915,6 +1916,7 @@ static void payment_finished(struct payment *p)
 			payment_notify_failure(p, p->aborterror);
 
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
+			p->cmd = NULL;
 			return;
 		} else if (result.failure == NULL || result.failure->failcode < NODE) {
 			if (p->on_payment_failure != NULL)
@@ -1933,6 +1935,7 @@ static void payment_finished(struct payment *p)
 			payment_notify_failure(p, msg);
 
 			if (command_finished(cmd, ret)) {/* Ignore result. */}
+			p->cmd = NULL;
 			return;
 
 		}  else {
@@ -2002,6 +2005,7 @@ static void payment_finished(struct payment *p)
 			payment_notify_failure(p, failure->message);
 
 			if (command_finished(cmd, ret)) { /* Ignore result. */}
+			p->cmd = NULL;
 			return;
 		}
 	} else {
