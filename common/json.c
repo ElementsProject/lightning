@@ -1077,9 +1077,9 @@ void json_add_literal(struct json_stream *result, const char *fieldname,
 		      const char *literal, int len)
 {
 	/* Literal may contain quotes, so bypass normal checks */
-	char *dest = json_member_direct(result, fieldname, strlen(literal));
+	char *dest = json_member_direct(result, fieldname, len);
 	if (dest)
-		memcpy(dest, literal, strlen(literal));
+		memcpy(dest, literal, len);
 }
 
 void json_add_stringn(struct json_stream *result, const char *fieldname,
