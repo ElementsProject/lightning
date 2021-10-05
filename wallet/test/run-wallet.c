@@ -34,6 +34,16 @@ void bitcoind_getutxout_(struct bitcoind *bitcoind UNNEEDED,
 				    void *arg) UNNEEDED,
 			 void *arg UNNEEDED)
 { fprintf(stderr, "bitcoind_getutxout_ called!\n"); abort(); }
+/* Generated stub for blinding_hash_e_and_ss */
+void blinding_hash_e_and_ss(const struct pubkey *e UNNEEDED,
+			    const struct secret *ss UNNEEDED,
+			    struct sha256 *sha UNNEEDED)
+{ fprintf(stderr, "blinding_hash_e_and_ss called!\n"); abort(); }
+/* Generated stub for blinding_next_pubkey */
+bool blinding_next_pubkey(const struct pubkey *pk UNNEEDED,
+			  const struct sha256 *h UNNEEDED,
+			  struct pubkey *next UNNEEDED)
+{ fprintf(stderr, "blinding_next_pubkey called!\n"); abort(); }
 /* Generated stub for broadcast_tx */
 void broadcast_tx(struct chain_topology *topo UNNEEDED,
 		  struct channel *channel UNNEEDED, const struct bitcoin_tx *tx UNNEEDED,
@@ -691,6 +701,11 @@ void subd_send_fd(struct subd *sd UNNEEDED, int fd UNNEEDED)
 /* Generated stub for subd_send_msg */
 void subd_send_msg(struct subd *sd UNNEEDED, const u8 *msg_out UNNEEDED)
 { fprintf(stderr, "subd_send_msg called!\n"); abort(); }
+/* Generated stub for subkey_from_hmac */
+void subkey_from_hmac(const char *prefix UNNEEDED,
+		      const struct secret *base UNNEEDED,
+		      struct secret *key UNNEEDED)
+{ fprintf(stderr, "subkey_from_hmac called!\n"); abort(); }
 /* Generated stub for topology_add_sync_waiter_ */
 void topology_add_sync_waiter_(const tal_t *ctx UNNEEDED,
 			       struct chain_topology *topo UNNEEDED,
