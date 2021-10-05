@@ -5,6 +5,9 @@ This package implements the Unix socket based JSON-RPC protocol that
 arbitrary functions on the RPC interface, and serves as a basis for plugins
 written in python.
 
+If you are writing a new plugin you should use [pyln-client](https://github.com/ElementsProject/lightning/tree/master/contrib/pyln-client)
+(the renamed, updated version of pylightning) instead as pylightning is
+currently an empty shell around pyln-client.
 
 ## Installation
 
