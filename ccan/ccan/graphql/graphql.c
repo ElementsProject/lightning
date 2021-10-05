@@ -904,7 +904,7 @@ newchar:
 							break;
 						case 'u': {
 								// Insert escaped character using UTF-8 multi-byte encoding.
-								char buf[5], *b;
+								char buf[5], *b = buf;
 								for (int i = 0; i < 4; i++)
 									*b++ = *q++;
 								*b = 0;
