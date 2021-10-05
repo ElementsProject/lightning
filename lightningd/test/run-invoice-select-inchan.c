@@ -157,6 +157,9 @@ void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer U
 		       bool incoming UNNEEDED,
 		       const struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "connect_succeeded called!\n"); abort(); }
+/* Generated stub for convert_args_to_paramtokens */
+void convert_args_to_paramtokens(struct graphql_field *field UNNEEDED, void *ctx UNNEEDED, jsmntok_t **params UNNEEDED)
+{ fprintf(stderr, "convert_args_to_paramtokens called!\n"); abort(); }
 /* Generated stub for create_cbd_ */
 void *create_cbd_(struct graphql_field *field UNNEEDED, const char *tname UNNEEDED, void *ctx UNNEEDED, void *obj UNNEEDED)
 { fprintf(stderr, "create_cbd_ called!\n"); abort(); }
@@ -232,9 +235,6 @@ bool fromwire_onchaind_dev_memleak_reply(const void *p UNNEEDED, bool *leak UNNE
 /* Generated stub for get_alias */
 const char *get_alias(struct graphql_field *field UNNEEDED)
 { fprintf(stderr, "get_alias called!\n"); abort(); }
-/* Generated stub for get_args */
-bool get_args(struct command *cmd UNNEEDED, const struct graphql_field *field UNNEEDED, ...)
-{ fprintf(stderr, "get_args called!\n"); abort(); }
 /* Generated stub for get_block_height */
 u32 get_block_height(const struct chain_topology *topo UNNEEDED)
 { fprintf(stderr, "get_block_height called!\n"); abort(); }
@@ -644,12 +644,6 @@ struct command_result *prep_unsaved_channels_field(
 void resolve_close_command(struct lightningd *ld UNNEEDED, struct channel *channel UNNEEDED,
 			   bool cooperative UNNEEDED)
 { fprintf(stderr, "resolve_close_command called!\n"); abort(); }
-/* Generated stub for str_to_log_level */
-void str_to_log_level(void *ctx UNNEEDED, const char *str UNNEEDED, enum log_level **ll UNNEEDED)
-{ fprintf(stderr, "str_to_log_level called!\n"); abort(); }
-/* Generated stub for str_to_node_id */
-void str_to_node_id(void *ctx UNNEEDED, const char *str UNNEEDED, struct node_id **id UNNEEDED)
-{ fprintf(stderr, "str_to_node_id called!\n"); abort(); }
 /* Generated stub for subd_req_ */
 void subd_req_(const tal_t *ctx UNNEEDED,
 	       struct subd *sd UNNEEDED,

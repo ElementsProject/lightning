@@ -6,7 +6,6 @@
 #include <common/json_helpers.h>
 #include <common/json_stream.h>
 #include <common/node_id.h>
-#include <external/jsmn/jsmn.h>
 
 const char *get_alias(struct graphql_field *field)
 {
@@ -18,146 +17,86 @@ const char *get_alias(struct graphql_field *field)
 	return alias;
 }
 
-/* Helper: Get a string argument's value, or NULL */
-static const char *get_string(const struct graphql_argument *arg)
+static int count_args(struct graphql_field *field)
 {
-	if (arg && arg->val && arg->val->str_val && arg->val->str_val->val &&
-	    arg->val->str_val->val->token_type == 's' &&
-	    arg->val->str_val->val->token_string)
-		return arg->val->str_val->val->token_string;
-	return NULL;
+	int n = 0;
+	struct graphql_argument *a;
+
+	if (!field->args)
+		return 0;
+
+	for (a = field->args->first; a; a = a->next)
+		n++;
+	return n;
 }
 
-bool get_args(struct command *cmd, const struct graphql_field *field, ...)
+static void convert_string_token(struct graphql_token *t, jsmntok_t *p)
 {
-	struct graphql_argument *arg;
-	va_list ap;
-	const char *name;
-	struct command_result *ignore;
-
-	va_start(ap, field);
-	while ((name = va_arg(ap, const char *)) != NULL) {
-		va_arg(ap, int); // is_required
-		va_arg(ap, arg_cbx);
-		void **var = va_arg(ap, void **);
-		va_arg(ap, const char *);
-		*var = NULL;
-	}
-	va_end(ap);
-
-	if (field && field->args) // guard entire for loop, spare indent
-	for (arg = field->args->first; arg; arg = arg->next) {
-		bool found;
-
-		found = false;
-		va_start(ap, field);
-		while ((name = va_arg(ap, const char *)) != NULL) {
-			va_arg(ap, int); // is_required
-			arg_cbx cbx = va_arg(ap, arg_cbx);
-			void **var = va_arg(ap, void **);
-			va_arg(ap, const char *);
-			if (streq(name, arg->name->token_string)) {
-				found = true;
-				if (*var) {
-					ignore = command_fail(
-							cmd, GRAPHQL_ARG_ERROR,
-							"duplicate argument '%s'",
-							name);
-					assert(ignore);
-					va_end(ap);
-					return false;
-				} else {
-					cbx(cmd, get_string(arg), var);
-					if (!*var) {
-						ignore = command_fail(
-							cmd, GRAPHQL_ARG_ERROR,
-							"invalid value for argument '%s'",
-							name);
-						assert(ignore);
-						va_end(ap);
-						return false;
-					}
-				}
-				break;
-			}
-		}
-		va_end(ap);
-
-		if (!found) {
-			ignore = command_fail(cmd, GRAPHQL_ARG_ERROR,
-					"unrecognized argument '%s'",
-					arg->name->token_string);
-			assert(ignore);
-			return false;
-		}
-	}
-
-	va_start(ap, field);
-	while ((name = va_arg(ap, const char *)) != NULL) {
-		bool is_required = va_arg(ap, int);
-		arg_cbx cbx = va_arg(ap, arg_cbx);
-		void **var = va_arg(ap, void **);
-		const char *def = va_arg(ap, const char *);
-		if (is_required && *var == NULL) {
-			ignore = command_fail(cmd, GRAPHQL_ARG_ERROR,
-				"missing required argument '%s'",
-				name);
-			assert(ignore);
-			va_end(ap);
-			return false;
-		}
-		if (*var == NULL && def != NULL) {
-			cbx(cmd, def, var);
-		}
-	}
-	va_end(ap);
-	return true;
+	p->type = JSMN_STRING;
+	p->start = t->source_offset;
+	p->end = t->source_offset + t->source_len;
+	p->size = 0;
 }
 
-/* Helper: Get a field argument by name, or NULL */
-/*static struct graphql_argument *find_arg(const struct graphql_field *field,
-					 const char *argname)
+static void convert_primitive_token(struct graphql_token *t, jsmntok_t *p)
 {
-	struct graphql_argument *arg;
-	if (!field || !field->args)
-		return NULL;
-	for (arg = field->args->first; arg; arg = arg->next) {
-		if (arg->name && arg->name->token_type == 'a' &&
-		    arg->name->token_string &&
-		    streq(arg->name->token_string, argname))
-			return arg;
-	}
-	return NULL;
-}
-*/
-
-void str_to_node_id(void *ctx, const char *str, struct node_id **id)
-{
-        *id = NULL;
-        if (!str)
-                return;
-        *id = tal(ctx, struct node_id);
-
-	/* A hackish way of being able to reuse json_to_node_id */
-	jsmntok_t tmptok;
-	tmptok.type = JSMN_STRING;
-	tmptok.start = 0;
-	tmptok.end = strlen(str);
-	tmptok.size = 0;
-
-        if (json_to_node_id(str, &tmptok, *id))
-                return;
-        *id = tal_free(*id);
+	p->type = JSMN_PRIMITIVE;
+	p->start = t->source_offset;
+	p->end = t->source_offset + t->source_len;
+	p->size = 0;
 }
 
-void str_to_log_level(void *ctx, const char *str, enum log_level **ll)
+void convert_args_to_paramtokens(struct graphql_field *field, void *ctx, jsmntok_t **params)
 {
-	*ll = NULL;
-	if (!str)
+	int n = count_args(field);
+	struct graphql_argument *a;
+	struct graphql_token *t;
+	jsmntok_t *p;
+
+	*params = tal_arr(ctx, jsmntok_t, 1 + n * 2);
+
+	p = *params;
+	p->type = JSMN_OBJECT;
+	p->size = n;
+	p++;
+
+	if (!field->args)
 		return;
-	*ll = tal(ctx, enum log_level);
-	if (log_level_parse(str, strlen(str), *ll))
-		return;
-	*ll = tal_free(*ll);
+
+	for (a = field->args->first; a; a = a->next) {
+		t = a->name;
+		convert_string_token(t, p);
+		p++;
+		if (a->val->str_val) {
+			t = a->val->str_val->val;
+			convert_string_token(t, p);
+			p++;
+		} else if (a->val->int_val) {
+			t = a->val->int_val->val;
+			convert_primitive_token(t, p);
+			p++;
+		} else if (a->val->float_val) {
+			t = a->val->float_val->val;
+			convert_primitive_token(t, p);
+			p++;
+		} else if (a->val->bool_val) {
+			t = a->val->bool_val->val;
+			convert_primitive_token(t, p);
+			p++;
+		} else if (a->val->null_val) {
+			t = a->val->null_val->val;
+			convert_primitive_token(t, p);
+			p++;
+		} else if (a->val->enum_val) {
+			t = a->val->enum_val->val;
+			convert_string_token(t, p);
+			p++;
+		} else {
+			t = a->name;
+			convert_string_token(t, p);
+			p->end = p->start;
+			p++;
+		}
+	}
 }
 

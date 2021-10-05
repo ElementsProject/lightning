@@ -682,6 +682,7 @@ newchar:
 			tok->token_string = NULL;
 			tok->source_line = line_num;
 			tok->source_column = start - line_beginning + 1;
+			tok->source_offset = start - input;
 			tok->source_len = p - start;
 
 		} else if (NAME_START(c)) {
@@ -709,6 +710,7 @@ newchar:
 			// Note the end of the name and calculate the length.
 			name_end = p - 1;
 			name_len = name_end - name_begin;
+			tok->source_offset = name_begin - input;
 			tok->source_len = name_len;
 
 			// Copy the token string.
@@ -771,6 +773,7 @@ newchar:
 			tok->token_string = tal_strndup(tok, num_start, num_len);
 			tok->source_line = line_num;
 			tok->source_column = num_start - line_beginning + 1;
+			tok->source_offset = num_start - input;
 			tok->source_len = num_len;
 
 			goto newchar;
@@ -854,6 +857,7 @@ newchar:
 			tok->token_string = tal_strndup(tok, str_begin, str_len);
 			tok->source_line = line_num;
 			tok->source_column = str_begin - line_beginning + 1;
+			tok->source_offset = str_begin - input;
 			tok->source_len = str_len;
 
 			// Process escape sequences. These always shorten the string (so the memory allocation is always enough).
@@ -900,7 +904,10 @@ newchar:
 							break;
 						case 'u': {
 								// Insert escaped character using UTF-8 multi-byte encoding.
-								char buf[] = {*q++, *q++, *q++, *q++, 0};
+								char buf[5], *b;
+								for (int i = 0; i < 4; i++)
+									*b++ = *q++;
+								*b = 0;
 								int code_point = strtol(buf, 0, 16);
 								int bytes = utf8_encode(code_point, rewrite_dest);
 								rewrite_dest += bytes;

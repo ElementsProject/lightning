@@ -2769,9 +2769,11 @@ prep_peers_channels(struct command *cmd, struct graphql_field *field)
 }
 
 static struct command_result *
-prep_peers_log(struct command *cmd, struct graphql_field *field)
+prep_peers_log(struct command *cmd, const char *buffer,
+	       struct graphql_field *field)
 {
 	struct peer_log_cbd *d;
+	jsmntok_t *params;
 
 	d = create_cbd(field, "Peer", cmd, struct peer_log_cbd);
 	//field->data = d = tal(cmd, struct peer_log_cbd);
@@ -2782,16 +2784,18 @@ prep_peers_log(struct command *cmd, struct graphql_field *field)
 	NO_ALIAS_SUPPORT(cmd, field);
 	NO_SUBFIELD_SELECTION(cmd, field);
 
-	if (!get_args(cmd, field,
-		      a_opt_def("level", str_to_log_level, &d->ll, "io"),
-		      NULL))
+	convert_args_to_paramtokens(field, cmd, &params);
+
+	if (!param(cmd, buffer, params,
+		   p_opt_def("level", param_loglevel, &d->ll, 0),
+		   NULL))
 		return command_param_failed();
 
 	return NULL;
 }
 
 static struct command_result *
-prep_peers_field(struct command *cmd, struct graphql_field *field)
+prep_peers_field(struct command *cmd, const char *buffer, struct graphql_field *field)
 {
 	const char *name = field->name->token_string;
 
@@ -2806,7 +2810,7 @@ prep_peers_field(struct command *cmd, struct graphql_field *field)
 	else if (streq(name, "channels"))
 		return prep_peers_channels(cmd, field);
 	else if (streq(name, "log"))
-		return prep_peers_log(cmd, field);
+		return prep_peers_log(cmd, buffer, field);
 	else
 		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
 				    "unknown field '%s'", name);
@@ -2855,9 +2859,11 @@ void json_add_peers(struct json_stream *js,
 }
 
 struct command_result *
-prep_peers(struct command *cmd, struct graphql_field *field)
+prep_peers(struct command *cmd, const char *buffer,
+	   struct graphql_field *field)
 {
 	struct peers_cbd *d;
+	jsmntok_t *params;
 	struct graphql_selection *sel;
 	struct command_result *err;
 
@@ -2867,14 +2873,16 @@ prep_peers(struct command *cmd, struct graphql_field *field)
 	d->name = get_alias(field);
 	d->cmd = cmd;
 
-	if (!get_args(cmd, field,
-		      a_opt("id", str_to_node_id, &d->specific_id),
-		      NULL))
+	convert_args_to_paramtokens(field, cmd, &params);
+
+	if (!param(cmd, buffer, params,
+		   p_opt("id", param_node_id, &d->specific_id),
+		   NULL))
 		return command_param_failed();
 
 	if (field->sel_set)
 		for (sel = field->sel_set->first; sel; sel = sel->next)
-			if ((err = prep_peers_field(cmd, sel->field)))
+			if ((err = prep_peers_field(cmd, buffer, sel->field)))
 				return err;
 	return NULL;
 }
@@ -3117,6 +3125,318 @@ static const struct json_command disconnect_command = {
 	"Disconnect from {id} that has previously been connected to using connect; with {force} set, even if it has a current channel"
 };
 AUTODATA(json_command, &disconnect_command);
+
+struct info_cbd {
+	struct toplevel_field_data cb;
+	const char *name;
+	struct command *cmd;
+
+	bool stats_valid;
+	unsigned int pending_channels, active_channels,
+		     inactive_channels, num_peers;
+};
+
+struct info_field_cbd;
+typedef void (*info_json_cb)(struct json_stream *js,
+			     const struct info_field_cbd *d);
+struct info_field_cbd {
+	info_json_cb json_add_func;
+	const char *name;
+	const struct lightningd *ld;
+};
+#define INFO_CB(name) \
+static void name(struct json_stream *response, \
+		 const struct info_field_cbd *d)
+
+struct info_field_cbd_ext1;
+typedef void (*info_json_cb_ext1)(struct json_stream *js,
+				  struct info_field_cbd_ext1 *d);
+struct info_field_cbd_ext1 {
+	info_json_cb_ext1 json_add_func;
+	const char *name;
+	const struct lightningd *ld;
+	struct info_cbd *parent;
+};
+#define INFO_CB_EXT1(name) \
+static void name(struct json_stream *response, \
+		 struct info_field_cbd_ext1 *d)
+
+INFO_CB(json_add_info_id)
+{
+	json_add_node_id(response, d->name, &d->ld->id);
+}
+
+INFO_CB(json_add_info_alias)
+{
+	json_add_string(response, d->name, (const char *)d->ld->alias);
+}
+
+INFO_CB(json_add_info_color)
+{
+	json_add_hex_talarr(response, d->name, d->ld->rgb);
+}
+
+static void info_get_stats(struct info_field_cbd_ext1 *d)
+{
+	struct peer *peer;
+	struct channel *channel;
+
+	if (d->parent->stats_valid)
+		return;
+
+fprintf(stderr, "info_get_stats() calc\n");
+	/* Calc peer and channel stats */
+	list_for_each(&d->ld->peers, peer, list) {
+		d->parent->num_peers++;
+
+		list_for_each(&peer->channels, channel, list) {
+			if (channel->state == CHANNELD_AWAITING_LOCKIN
+			    || channel->state == DUALOPEND_AWAITING_LOCKIN
+			    || channel->state == DUALOPEND_OPEN_INIT) {
+				d->parent->pending_channels++;
+			} else if (channel_active(channel)) {
+				d->parent->active_channels++;
+			} else {
+				d->parent->inactive_channels++;
+			}
+		}
+	}
+	d->parent->stats_valid = true;
+}
+
+INFO_CB_EXT1(json_add_info_num_peers)
+{
+	info_get_stats(d);
+	json_add_num(response, d->name, d->parent->num_peers);
+}
+
+INFO_CB_EXT1(json_add_info_num_pending_channels)
+{
+	info_get_stats(d);
+	json_add_num(response, d->name, d->parent->pending_channels);
+}
+
+INFO_CB_EXT1(json_add_info_num_active_channels)
+{
+	info_get_stats(d);
+	json_add_num(response, d->name, d->parent->active_channels);
+}
+
+INFO_CB_EXT1(json_add_info_num_inactive_channels)
+{
+	info_get_stats(d);
+	json_add_num(response, d->name, d->parent->inactive_channels);
+}
+
+INFO_CB(json_add_info_address)
+{
+	/* These are the addresses we're announcing */
+	json_array_start(response, d->name);
+	if (d->ld->listen)
+		for (size_t i = 0; i < tal_count(d->ld->announcable); i++)
+			json_add_address(response, NULL, d->ld->announcable+i);
+	json_array_end(response);
+}
+
+INFO_CB(json_add_info_binding)
+{
+	/* This is what we're actually bound to. */
+	json_array_start(response, d->name);
+	if (d->ld->listen)
+		for (size_t i = 0; i < tal_count(d->ld->binding); i++)
+			json_add_address_internal(response, NULL,
+						  d->ld->binding+i);
+	json_array_end(response);
+}
+
+INFO_CB(json_add_info_version)
+{
+	json_add_string(response, d->name, version());
+}
+
+INFO_CB(json_add_info_blockheight)
+{
+	json_add_num(response, d->name, get_block_height(d->ld->topology));
+}
+
+INFO_CB(json_add_info_network)
+{
+	json_add_string(response, d->name, chainparams->network_name);
+}
+
+INFO_CB(json_add_info_fees_collected_msat)
+{
+	json_add_amount_msat_only(response, d->name,
+				  wallet_total_forward_fees(d->ld->wallet));
+}
+
+INFO_CB(json_add_info_lightningdir)
+{
+	json_add_string(response, d->name, d->ld->config_netdir);
+}
+
+INFO_CB(json_add_info_warning_bitcoind_sync)
+{
+	if (!d->ld->topology->bitcoind->synced)
+		json_add_string(response, d->name,
+				"Bitcoind is not up-to-date with network.");
+	else
+		json_add_null(response, d->name);
+}
+
+INFO_CB(json_add_info_warning_lightningd_sync)
+{
+	if (d->ld->topology->bitcoind->synced &&
+	    !topology_synced(d->ld->topology))
+		json_add_string(response, d->name,
+				"Still loading latest blocks from bitcoind.");
+	else
+		json_add_null(response, d->name);
+}
+
+static struct command_result *
+prep_info_field_cb(struct command *cmd, struct graphql_field *field,
+		   info_json_cb cb)
+{
+	struct info_field_cbd *d;
+
+	field->data = d = tal(cmd, struct info_field_cbd);
+	d->json_add_func = cb;
+	d->name = get_alias(field);
+	d->ld = cmd->ld;
+
+	NO_ARGS(cmd, field);
+	NO_SUBFIELDS(cmd, field);
+
+	return NULL;
+}
+
+static struct command_result *
+prep_info_binding_cb(struct command *cmd, struct graphql_field *field,
+		     info_json_cb cb)
+{
+	struct info_field_cbd *d;
+
+	field->data = d = tal(cmd, struct info_field_cbd);
+	d->json_add_func = cb;
+	d->name = get_alias(field);
+	d->ld = cmd->ld;
+
+	NO_ARGS(cmd, field);
+	NO_SUBFIELD_SELECTION(cmd, field);
+
+	return NULL;
+}
+
+static struct command_result *
+prep_info_stats_cb(struct command *cmd, struct graphql_field *field,
+		   struct info_cbd *parent, info_json_cb_ext1 cb)
+{
+	struct info_field_cbd_ext1 *d;
+
+	field->data = d = tal(cmd, struct info_field_cbd_ext1);
+	d->json_add_func = cb;
+	d->name = get_alias(field);
+	d->ld = cmd->ld;
+	d->parent = parent;
+
+	NO_ARGS(cmd, field);
+	NO_SUBFIELDS(cmd, field);
+
+	return NULL;
+}
+
+static struct command_result *
+prep_info_field(struct command *cmd, const char *buffer,
+		struct graphql_field *field, struct info_cbd *parent)
+{
+	const char *name = field->name->token_string;
+
+	if (streq(name, "id"))
+		return prep_info_field_cb(cmd, field, json_add_info_id);
+	else if (streq(name, "alias"))
+		return prep_info_field_cb(cmd, field, json_add_info_alias);
+	else if (streq(name, "color"))
+		return prep_info_field_cb(cmd, field, json_add_info_color);
+	else if (streq(name, "num_peers"))
+		return prep_info_stats_cb(cmd, field, parent, json_add_info_num_peers);
+	else if (streq(name, "num_pending_channels"))
+		return prep_info_stats_cb(cmd, field, parent, json_add_info_num_pending_channels);
+	else if (streq(name, "num_active_channels"))
+		return prep_info_stats_cb(cmd, field, parent, json_add_info_num_active_channels);
+	else if (streq(name, "num_inactive_channels"))
+		return prep_info_stats_cb(cmd, field, parent, json_add_info_num_inactive_channels);
+	else if (streq(name, "address"))
+		return prep_info_field_cb(cmd, field, json_add_info_address);
+	else if (streq(name, "binding"))
+		return prep_info_binding_cb(cmd, field, json_add_info_binding);
+	else if (streq(name, "version"))
+		return prep_info_field_cb(cmd, field, json_add_info_version);
+	else if (streq(name, "blockheight"))
+		return prep_info_field_cb(cmd, field, json_add_info_blockheight);
+	else if (streq(name, "network"))
+		return prep_info_field_cb(cmd, field, json_add_info_network);
+	else if (streq(name, "fees_collected_msat"))
+		return prep_info_field_cb(cmd, field, json_add_info_fees_collected_msat);
+	else if (streq(name, "lightningdir"))
+		return prep_info_field_cb(cmd, field, json_add_info_lightningdir);
+	else if (streq(name, "warning_bitcoind_sync"))
+		return prep_info_field_cb(cmd, field, json_add_info_warning_bitcoind_sync);
+	else if (streq(name, "warning_lightningd_sync"))
+		return prep_info_field_cb(cmd, field, json_add_info_warning_lightningd_sync);
+	else
+		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
+				    "unknown field '%s'", name);
+}
+
+void json_add_info(struct json_stream *js,
+		   const struct graphql_field *field)
+{
+	struct info_cbd *d = (struct info_cbd *)field->data;
+	const struct graphql_selection *sel;
+	const struct info_field_cbd *cbd;
+
+	d->stats_valid = false;
+	d->pending_channels = 0;
+	d->active_channels = 0;
+	d->inactive_channels = 0;
+	d->num_peers = 0;
+
+        json_object_start(js, d->name);
+	if (field->sel_set) {
+		for (sel = field->sel_set->first; sel; sel = sel->next) {
+			cbd = (struct info_field_cbd *)sel->field->data;
+			cbd->json_add_func(js, cbd);
+		}
+	}
+        json_object_end(js);
+}
+
+struct command_result *prep_info(struct command *cmd,
+				 const char *buffer,
+				 struct graphql_field *field)
+{
+	struct info_cbd *d;
+	jsmntok_t *params;
+	struct graphql_selection *sel;
+	struct command_result *err;
+
+	field->data = d = tal(cmd, struct info_cbd);
+	d->cb.json_add_func = json_add_info;
+	d->name = get_alias(field);
+	d->cmd = cmd;
+
+	convert_args_to_paramtokens(field, cmd, &params);
+
+	if (!param(cmd, buffer, params, NULL))
+		return command_param_failed();
+
+	if (field->sel_set)
+		for (sel = field->sel_set->first; sel; sel = sel->next)
+			if ((err = prep_info_field(cmd, buffer, sel->field, d)))
+				return err;
+	return NULL;
+}
 
 static struct command_result *json_getinfo(struct command *cmd,
 					   const char *buffer,

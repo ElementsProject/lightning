@@ -52,59 +52,59 @@ struct graphql_variable_definition {
 
 struct graphql_variable_definitions {
 	struct graphql_variable_definition *first;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_variable {
 	struct graphql_token *name;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_object_field {
 	struct graphql_object_field *next;
 	struct graphql_token *name;
 	struct graphql_value *val;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_object_value {
 	struct graphql_object_field *first;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_list_value {
 	struct graphql_token *val;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_enum_value {
 	struct graphql_token *val;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_null_value {
 	struct graphql_token *val;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_string_value {
 	struct graphql_token *val;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_boolean_value {
 	struct graphql_token *val;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_float_value {
 	struct graphql_token *val;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_int_value {
 	struct graphql_token *val;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_value {
@@ -117,24 +117,24 @@ struct graphql_value {
 	struct graphql_enum_value *enum_val;
 	struct graphql_list_value *list_val;
 	struct graphql_object_value *obj_val;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_inline_fragment {
 	struct graphql_type_condition *type_cond;
 	struct graphql_directives *directives;
 	struct graphql_selection_set *sel_set;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_type_condition {
 	struct graphql_named_type *named_type;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_fragment_name {
 	struct graphql_token *name;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_fragment_definition {
@@ -142,30 +142,30 @@ struct graphql_fragment_definition {
 	struct graphql_type_condition *type_cond;
 	struct graphql_directives *directives;
 	struct graphql_selection_set *sel_set;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_fragment_spread {
 	struct graphql_fragment_name *name;
 	struct graphql_directives *directives;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_alias {
 	struct graphql_token *name;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_argument {
 	struct graphql_argument *next;
 	struct graphql_token *name;
 	struct graphql_value *val;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_arguments {
 	struct graphql_argument *first;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_field {
@@ -174,7 +174,7 @@ struct graphql_field {
 	struct graphql_arguments *args;
 	struct graphql_directives *directives;
 	struct graphql_selection_set *sel_set;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_selection {
@@ -182,17 +182,17 @@ struct graphql_selection {
 	struct graphql_field *field;
 	struct graphql_fragment_spread *frag_spread;
 	struct graphql_inline_fragment *inline_frag;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_selection_set {
 	struct graphql_selection *first;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_operation_type {
 	struct graphql_token *op_type;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_operation_definition {
@@ -201,31 +201,31 @@ struct graphql_operation_definition {
 	struct graphql_variable_definitions *vars;
 	struct graphql_directives *directives;
 	struct graphql_selection_set *sel_set;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_executable_definition {
 	struct graphql_executable_definition *next_def;
 	struct graphql_operation_definition *op_def;
 	struct graphql_fragment_definition *frag_def;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_executable_document {
 	struct graphql_executable_definition *first_def;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_definition {
 	struct graphql_definition *next_def;
 	struct graphql_executable_definition *executable_def;
 	struct graphql_type_system_definition_or_extension *type_system_def;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 struct graphql_document {
 	struct graphql_definition *first_def;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 
@@ -236,8 +236,9 @@ struct graphql_token {
 	char *token_string;
 	unsigned int source_line;
 	unsigned int source_column;
+	unsigned int source_offset;
 	unsigned int source_len;
-        void *data; // for application use
+	void *data; // for application use
 };
 
 /* The lexer.

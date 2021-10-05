@@ -84,20 +84,22 @@ static void json_add_op(struct json_stream *js,
 }
 
 static struct command_result *
-prep_toplevel_field(struct command *cmd,
+prep_toplevel_field(struct command *cmd, const char *buffer,
 		    const struct graphql_selection *sel)
 {
 	const char *name = sel->field->name->token_string;
 
 	if (streq(name, "peers"))
-		return prep_peers(cmd, sel->field);
+		return prep_peers(cmd, buffer, sel->field);
+	else if (streq(name, "info"))
+		return prep_info(cmd, buffer, sel->field);
 	else
 		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
 				    "unknown field '%s'", name);
 }
 
 static struct command_result *
-prep_op(struct command *cmd,
+prep_op(struct command *cmd, const char *buffer,
 	const struct graphql_operation_definition *op)
 {
 	const struct graphql_selection *sel;
@@ -105,7 +107,7 @@ prep_op(struct command *cmd,
 
 	if (!op->op_type && op->sel_set)
 		for (sel = op->sel_set->first; sel; sel = sel->next)
-			if ((err = prep_toplevel_field(cmd, sel)))
+			if ((err = prep_toplevel_field(cmd, buffer, sel)))
 				return err;
 	return NULL;
 }
@@ -134,7 +136,7 @@ static struct command_result *json_graphql(struct command *cmd,
 	/* Traverse the AST and prepare for execution */
 	for (def = doc->first_def; def; def = def->next_def)
 		if (def->op_def)
-			if ((err = prep_op(cmd, def->op_def)))
+			if ((err = prep_op(cmd, querystr, def->op_def)))
 				return err;
 
 	/* Execute */
