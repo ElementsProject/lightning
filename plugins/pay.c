@@ -1938,12 +1938,202 @@ static const char *init(struct plugin *p,
 
 static void on_payment_success(struct payment *payment)
 {
-	return;
+	struct payment *p;
+	struct payment_tree_result result = payment_collect_result(payment);
+	struct json_stream *ret;
+	assert(result.treestates & PAYMENT_STEP_SUCCESS);
+	assert(result.leafstates & PAYMENT_STEP_SUCCESS);
+	assert(result.preimage != NULL);
+
+	/* Iterate through any pending payments we suspended and
+	 * terminate them. */
+
+	list_for_each(&payments, p, list) {
+		/* The result for the active payment is returned in
+		 * `payment_finished`. */
+		if (payment == p)
+			continue;
+		if (!sha256_eq(payment->payment_hash, p->payment_hash))
+			continue;
+		if (p->cmd == NULL)
+			continue;
+
+		ret = jsonrpc_stream_success(p->cmd);
+		json_add_node_id(ret, "destination", p->destination);
+		json_add_sha256(ret, "payment_hash", p->payment_hash);
+		json_add_timeabs(ret, "created_at", p->start_time);
+		json_add_num(ret, "parts", result.attempts);
+
+		json_add_amount_msat_compat(ret, p->amount, "msatoshi",
+					    "amount_msat");
+		json_add_amount_msat_compat(ret, result.sent, "msatoshi_sent",
+					    "amount_sent_msat");
+
+		if (result.leafstates != PAYMENT_STEP_SUCCESS)
+			json_add_string(
+				ret, "warning_partial_completion",
+				"Some parts of the payment are not yet "
+				"completed, but we have the confirmation "
+				"from the recipient.");
+		json_add_preimage(ret, "payment_preimage", result.preimage);
+
+		json_add_string(ret, "status", "complete");
+		if (command_finished(p->cmd, ret)) {/* Ignore result. */}
+		p->cmd = NULL;
+		list_del(&p->list);
+	}
+}
+
+static void payment_add_attempt(struct json_stream *s, const char *fieldname, struct payment *p, bool recurse)
+{
+	bool finished = p->step >= PAYMENT_STEP_RETRY,
+	     success = p->step == PAYMENT_STEP_SUCCESS;
+
+	/* A fieldname is only reasonable if we're not recursing. Otherwise the
+	 * fieldname would be reused for all attempts. */
+	assert(!recurse || fieldname == NULL);
+
+	json_object_start(s, fieldname);
+
+	if (!finished)
+		json_add_string(s, "status", "pending");
+	else if (success)
+		json_add_string(s, "status", "success");
+	else
+		json_add_string(s, "status", "failed");
+
+	if (p->failreason != NULL)
+		json_add_string(s, "failreason", p->failreason);
+
+	json_add_u64(s, "partid", p->partid);
+	json_add_amount_msat_only(s, "amount", p->amount);
+	if (p->parent != NULL)
+		json_add_u64(s, "parent_partid", p->parent->partid);
+
+	json_object_end(s);
+	for (size_t i=0; i<tal_count(p->children); i++) {
+		payment_add_attempt(s, fieldname, p->children[i], recurse);
+	}
+}
+
+static void payment_json_add_attempts(struct json_stream *s,
+				      const char *fieldname, struct payment *p)
+{
+	assert(p == payment_root(p));
+	json_array_start(s, fieldname);
+	payment_add_attempt(s, NULL, p, true);
+	json_array_end(s);
 }
 
 static void on_payment_failure(struct payment *payment)
 {
-	return;
+	struct payment *p;
+	struct payment_tree_result result = payment_collect_result(payment);
+	list_for_each(&payments, p, list)
+	{
+		struct json_stream *ret;
+		struct command *cmd;
+		const char *msg;
+		/* The result for the active payment is returned in
+		 * `payment_finished`. */
+		if (payment == p)
+			continue;
+		if (!sha256_eq(payment->payment_hash, p->payment_hash))
+			continue;
+		if (p->cmd == NULL)
+			continue;
+
+		cmd = p->cmd;
+
+		if (p->aborterror != NULL) {
+			/* We set an explicit toplevel error message,
+			 * so let's report that. */
+			ret = jsonrpc_stream_fail(cmd, PAY_STOPPED_RETRYING,
+						  p->aborterror);
+			payment_json_add_attempts(ret, "attempts", p);
+
+			if (command_finished(cmd, ret)) {/* Ignore result. */}
+		} else if (result.failure == NULL || result.failure->failcode < NODE) {
+			/* This is failing because we have no more routes to try */
+			msg = tal_fmt(cmd,
+				      "Ran out of routes to try after "
+				      "%d attempt%s: see `paystatus`",
+				      result.attempts,
+				      result.attempts == 1 ? "" : "s");
+			ret = jsonrpc_stream_fail(cmd, PAY_STOPPED_RETRYING,
+						  msg);
+			payment_json_add_attempts(ret, "attempts", p);
+
+			if (command_finished(cmd, ret)) {/* Ignore result. */}
+
+		}  else {
+			struct payment_result *failure = result.failure;
+			assert(failure!= NULL);
+
+			ret = jsonrpc_stream_fail(cmd, failure->code,
+						  failure->message);
+
+			json_add_u64(ret, "id", failure->id);
+
+			json_add_u32(ret, "failcode", failure->failcode);
+			json_add_string(ret, "failcodename",
+					failure->failcodename);
+
+			if (p->invstring)
+				json_add_invstring(ret, p->invstring);
+
+			json_add_hex_talarr(ret, "raw_message",
+					    result.failure->raw_message);
+			json_add_num(ret, "created_at", p->start_time.ts.tv_sec);
+			json_add_node_id(ret, "destination", p->destination);
+			json_add_sha256(ret, "payment_hash", p->payment_hash);
+			// OK
+			if (result.leafstates & PAYMENT_STEP_SUCCESS) {
+				/* If one sub-payment succeeded then we have
+				 * proof of payment, and the payment is a
+				 * success. */
+				json_add_string(ret, "status", "complete");
+
+			} else if (result.leafstates & ~PAYMENT_STEP_FAILED) {
+				/* If there are non-failed leafs we are still trying. */
+				json_add_string(ret, "status", "pending");
+
+			} else {
+				json_add_string(ret, "status", "failed");
+			}
+
+			json_add_amount_msat_compat(ret, p->amount, "msatoshi",
+						    "amount_msat");
+
+			json_add_amount_msat_compat(ret, result.sent,
+						    "msatoshi_sent",
+						    "amount_sent_msat");
+
+			if (failure != NULL) {
+				if (failure->erring_index)
+					json_add_num(ret, "erring_index",
+						     *failure->erring_index);
+
+				if (failure->erring_node)
+					json_add_node_id(ret, "erring_node",
+							 failure->erring_node);
+
+				if (failure->erring_channel)
+					json_add_short_channel_id(
+					    ret, "erring_channel",
+					    failure->erring_channel);
+
+				if (failure->erring_direction)
+					json_add_num(
+					    ret, "erring_direction",
+					    *failure->erring_direction);
+			}
+
+			if (command_finished(cmd, ret)) { /* Ignore result. */}
+		}
+		p->cmd = NULL;
+		list_del(&p->list);
+	}
 }
 
 /* We are interested in any prior attempts to pay this payment_hash /
@@ -2045,12 +2235,11 @@ payment_listsendpays_previous(struct command *cmd, const char *buf,
 		json_add_num(ret, "parts", parts);
 		return command_finished(cmd, ret);
 	} else if (pending) {
-		return command_fail(
-		    cmd, PAY_IN_PROGRESS,
-		    "Already have payment with payment_hash=%s in progress "
-		    "(groupid=%" PRIu64 ")",
-		    type_to_string(tmpctx, struct sha256, p->payment_hash),
-		    last_group);
+		/* We suspend this call and wait for the
+		 * `on_payment_success` or `on_payment_failure`
+		 * handler of the currently running payment to notify
+		 * us about its completion. */
+		return command_still_pending(cmd);
 	}
 	p->groupid = last_group + 1;
 	p->on_payment_success = on_payment_success;
