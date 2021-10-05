@@ -501,7 +501,8 @@ def test_db_hook(node_factory, executor):
 
 @unittest.skipIf(os.getenv('TEST_DB_PROVIDER', 'sqlite3') != 'sqlite3', "Only sqlite3 implements the db_write_hook currently")
 def test_db_hook_multiple(node_factory, executor):
-    """This tests the db hook for multiple-plugin case and the 2-step shutdown of db_write plugins"""
+    """This tests the db hook for multiple-plugin case and the separate shutdown
+        timeout for db_write plugins that subscribed to it"""
     dbfile = os.path.join(node_factory.directory, "dblog.sqlite3")
     l1 = node_factory.get_node(options={'plugin': os.path.join(os.getcwd(), 'tests/plugins/dblog.py'),
                                         'important-plugin': os.path.join(os.getcwd(), 'tests/plugins/dbdummy.py'),
@@ -517,9 +518,8 @@ def test_db_hook_multiple(node_factory, executor):
     l1.daemon.wait_for_log("plugin-dblog.py: initialized.* 'startup': True")
 
     l1.stop()
-    # it registered db_write hook and receives 2 notifications, then times out
-    l1.daemon.wait_for_log("plugin-dbdummy.py: received shutdown notification 1")
-    l1.daemon.wait_for_log("plugin-dbdummy.py: received shutdown notification 2")
+    # it registered db_write hook and subscribed to shutdown and should timeout after 5s
+    l1.daemon.wait_for_log("plugin-dbdummy.py: received shutdown notification")
     l1.daemon.wait_for_log("lightningd: dbdummy.py: failed to self-terminate, killing.")
 
     # Databases should be identical.

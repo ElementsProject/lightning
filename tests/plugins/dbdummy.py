@@ -4,6 +4,8 @@ that they have some control at shutdown.
 '''
 
 from pyln.client import Plugin
+from time import sleep
+import sys
 
 plugin = Plugin()
 shutdown_notifications = 0
@@ -16,10 +18,11 @@ def db_write(plugin, **kwargs):
 
 @plugin.subscribe("shutdown")
 def shutdown(plugin, **kwargs):
-    global shutdown_notifications
-    shutdown_notifications += 1
-    plugin.log("received shutdown notification {}".format(shutdown_notifications))
-    # don't exit to triggers the 5s timeout
+    plugin.log("received shutdown notification")
+    # plugins shutdown has timeout of 30s in first call and 5s in 2nd call
+    # so only in 2nd call we timeout
+    sleep(6)
+    sys.exit(0)
 
 
 plugin.run()
