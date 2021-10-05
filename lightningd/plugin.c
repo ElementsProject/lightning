@@ -2090,7 +2090,7 @@ void shutdown_plugins(struct lightningd *ld, bool first)
 {
 	struct plugin *p, *next;
 
-	/* First mark the plugins we want to shutdown in this call */
+	/* First mark the set plugins we want to shutdown in this call */
 	list_for_each(&ld->plugins->plugins, p, list) {
 		if (first && plugin_registered_db_write_hook(p))
 			continue;
@@ -2099,15 +2099,17 @@ void shutdown_plugins(struct lightningd *ld, bool first)
 		plugin_set_state(p, SHUTDOWN);
 	}
 
-	/* Notify *all* subscribed plugins or kill immediately (when marked) */
+	/* Within the set, notify subscribed plugins or kill immediately */
 	list_for_each_safe(&ld->plugins->plugins, p, next, list) {
-		if (notify_plugin_shutdown(ld, p))
-			continue;
-		else if (p->plugin_state == SHUTDOWN)
-			tal_free(p);
+		if (p->plugin_state == SHUTDOWN) {
+			if (notify_plugin_shutdown(ld, p))
+				continue;
+			else
+				tal_free(p);
+		}
 	}
 
-	/* Wait for remaining (marked) plugins to self-terminate */
+	/* Remaining plugins in the set have 30s or 5s to self-terminate */
 	if (plugins_any_in_state(ld->plugins, SHUTDOWN)) {
 		struct oneshot *t;
 		void *ret;

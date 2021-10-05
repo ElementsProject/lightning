@@ -235,13 +235,13 @@ void plugin_kill(struct plugin *plugin, enum log_level loglevel,
 		 const char *fmt, ...);
 
 /**
- * The @first=true call sends all subscribed plugins a shutdown notification and
- * gives those 30s to self-terminate, others are killed immediate. Plugins
- * that registered the db_write hook are kept alive, but their JSON RPC methods
- * are removed.
+ * In the @first=true call: subscribed (non-db_write) plugins get a shutdown
+ * notification and have 30s to self-terminate, others are killed right away.
+ * Plugins that registered the db_write hook are kept alive, but stripped from
+ * their JSON RPC methods.
  *
- * The 2nd (first=false) call repeats above for any remaining plugins, so
- * db_write plugins can be notified twice, gives them 5s to self-terminate.
+ * In the 2nd (@first=false) call: kill remaining plugins, subscribed ones are
+ * notified and have 5s to self-terminate, finally the db is closed.
  */
 void shutdown_plugins(struct lightningd *ld, bool first);
 
