@@ -608,12 +608,12 @@ def test_sendpay(node_factory):
     wait_for(check_balances)
 
     # Repeat will "succeed", but won't actually send anything (duplicate)
-    assert not l1.daemon.is_in_log('Payment 0/1: .* COMPLETE')
+    assert not l1.daemon.is_in_log('Payment ./.: .* COMPLETE')
     details = l1.rpc.sendpay([routestep], rhash, payment_secret=inv['payment_secret'])
     assert details['status'] == "complete"
     preimage2 = details['payment_preimage']
     assert preimage == preimage2
-    l1.daemon.wait_for_log('Payment 0/1: .* COMPLETE')
+    l1.daemon.wait_for_log('Payment ./.: .* COMPLETE')
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['status'] == 'paid'
     assert only_one(l2.rpc.listinvoices('testpayment2')['invoices'])['msatoshi_received'] == rs['msatoshi']
 
@@ -629,21 +629,21 @@ def test_sendpay(node_factory):
 
     # Test listsendpays
     payments = l1.rpc.listsendpays()['payments']
-    assert len(payments) == 2
+    assert len(payments) == 7  # Failed attempts also create entries, but with a different groupid
 
     invoice2 = only_one(l2.rpc.listinvoices('testpayment2')['invoices'])
     payments = l1.rpc.listsendpays(payment_hash=invoice2['payment_hash'])['payments']
-    assert len(payments) == 1
+    assert len(payments) == 6  # Failed attempts also create entries, but with a different groupid
 
-    assert payments[0]['status'] == 'complete'
-    assert payments[0]['payment_preimage'] == preimage2
+    assert payments[-1]['status'] == 'complete'
+    assert payments[-1]['payment_preimage'] == preimage2
 
     invoice3 = only_one(l2.rpc.listinvoices('testpayment3')['invoices'])
     payments = l1.rpc.listsendpays(payment_hash=invoice3['payment_hash'])['payments']
     assert len(payments) == 1
 
-    assert payments[0]['status'] == 'complete'
-    assert payments[0]['payment_preimage'] == preimage3
+    assert payments[-1]['status'] == 'complete'
+    assert payments[-1]['payment_preimage'] == preimage3
 
 
 @unittest.skipIf(TEST_NETWORK != 'regtest', "The reserve computation is bitcoin specific")
