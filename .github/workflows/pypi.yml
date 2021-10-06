@@ -50,7 +50,7 @@ jobs:
         python -m build --sdist --wheel --outdir dist/ .
 
     - name: Publish distribution 📦 to Test PyPI
-      if: github.repository == ‘ElementsProject/lightning’
+      if: github.repository == 'ElementsProject/lightning'
       uses: pypa/gh-action-pypi-publish@master
       env:
         WORKDIR: ${{ matrix.WORKDIR }}
@@ -61,7 +61,7 @@ jobs:
         skip_existing: true
 
     - name: Publish distribution 📦 to PyPI
-      if: startsWith(github.ref, 'refs/tags') && github.repository == ‘ElementsProject/lightning’
+      if: startsWith(github.ref, 'refs/tags') && github.repository == 'ElementsProject/lightning'
       uses: pypa/gh-action-pypi-publish@master
       env:
         WORKDIR: ${{ matrix.WORKDIR }}
