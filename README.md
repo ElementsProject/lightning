@@ -95,7 +95,7 @@ This creates a `.lightning/` subdirectory in your home directory: see `man -l do
 
 ### Using The JSON-RPC Interface
 
-c-lightning exposes a [JSON-RPC 2.0][jsonrpcspec] interface over a Unix Domain socket; the `lightning-cli` tool can be used to access it, or there is a [python client library](contrib/pylightning).
+c-lightning exposes a [JSON-RPC 2.0][jsonrpcspec] interface over a Unix Domain socket; the `lightning-cli` tool can be used to access it, or there is a [python client library](contrib/pyln-client).
 
 You can use `lightning-cli help` to print a table of RPC methods; `lightning-cli help <command>`
 will offer specific information on that command.
