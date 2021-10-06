@@ -3415,7 +3415,8 @@ def test_pay_peer(node_factory, bitcoind):
      v  /
      l3
     """
-    l1, l2, l3 = node_factory.get_nodes(3)
+    # Set the dust exposure higher, this gets triggered on liquid
+    l1, l2, l3 = node_factory.get_nodes(3, opts={'max-dust-htlc-exposure-msat': '100000sat'})
     node_factory.join_nodes([l1, l2])
     node_factory.join_nodes([l1, l3])
     node_factory.join_nodes([l3, l2], wait_for_announce=True)
