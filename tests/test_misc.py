@@ -1074,63 +1074,63 @@ def test_cli(node_factory):
 
     # Check -j (--allow-json) option.
     out = subprocess.run(['cli/lightning-cli',
-                                   '--network={}'.format(TEST_NETWORK),
-                                   '--lightning-dir={}'
-                                   .format(l1.daemon.lightning_dir),
-                                   '-j',
-                                   'fail-op',
-                                   '{info{id}}'],
-                                   stderr=subprocess.PIPE)
+                          '--network={}'.format(TEST_NETWORK),
+                          '--lightning-dir={}'
+                          .format(l1.daemon.lightning_dir),
+                          '-j',
+                          'fail-op',
+                          '{info{id}}'],
+                         stderr=subprocess.PIPE)
     lines = out.stderr.decode('utf-8').splitlines()
     # Should fail due to parse attempt on invalid JSON in last argument.
     assert lines[0].startswith('lightning-cli: Some parameters are malformed, cannot create a valid JSON-RPC request: { "jsonrpc" : "2.0", "method" : "fail-op"')
 
     # Check default escaping (same as --allow-json).
     out = subprocess.run(['cli/lightning-cli',
-                                   '--network={}'.format(TEST_NETWORK),
-                                   '--lightning-dir={}'
-                                   .format(l1.daemon.lightning_dir),
-                                   'fail-op',
-                                   '{info{id}}'],
-                                   stderr=subprocess.PIPE)
+                          '--network={}'.format(TEST_NETWORK),
+                          '--lightning-dir={}'
+                          .format(l1.daemon.lightning_dir),
+                          'fail-op',
+                          '{info{id}}'],
+                         stderr=subprocess.PIPE)
     lines = out.stderr.decode('utf-8').splitlines()
     # Should fail due to parse attempt on invalid JSON in last argument.
     assert lines[0].startswith('lightning-cli: Some parameters are malformed, cannot create a valid JSON-RPC request: { "jsonrpc" : "2.0", "method" : "fail-op"')
 
     # Check -e (--escape-all) option.
     out = subprocess.run(['cli/lightning-cli',
-                                   '--network={}'.format(TEST_NETWORK),
-                                   '--lightning-dir={}'
-                                   .format(l1.daemon.lightning_dir),
-                                   '-e',
-                                   'graphql',
-                                   '{info{id}}'],
-                                   stdout=subprocess.PIPE)
+                          '--network={}'.format(TEST_NETWORK),
+                          '--lightning-dir={}'
+                          .format(l1.daemon.lightning_dir),
+                          '-e',
+                          'graphql',
+                          '{info{id}}'],
+                         stdout=subprocess.PIPE)
     lines = out.stdout.decode('utf-8').splitlines()
     # Should succeed with same last parameter as above, because it is escaped as a valid argument.
     print(lines)
     assert(lines[0] == r'{'
-       and lines[1] == r'   "info": {'
-       and lines[2].startswith(r'      "id": "')
-       and lines[3] == r'   }'
-       and lines[4] == r'}')
+           and lines[1] == r'   "info": {'
+           and lines[2].startswith(r'      "id": "')
+           and lines[3] == r'   }'
+           and lines[4] == r'}')
 
     # Check that the graphql command defaults to the same as -e (--escape-all) implicitly.
     out = subprocess.run(['cli/lightning-cli',
-                                   '--network={}'.format(TEST_NETWORK),
-                                   '--lightning-dir={}'
-                                   .format(l1.daemon.lightning_dir),
-                                   'graphql',
-                                   '{info{id}}'],
-                                   stdout=subprocess.PIPE)
+                          '--network={}'.format(TEST_NETWORK),
+                          '--lightning-dir={}'
+                          .format(l1.daemon.lightning_dir),
+                          'graphql',
+                          '{info{id}}'],
+                         stdout=subprocess.PIPE)
     lines = out.stdout.decode('utf-8').splitlines()
     # Should succeed with same last parameter as above, because it is escaped as a valid argument.
     print(lines)
     assert(lines[0] == r'{'
-       and lines[1] == r'   "info": {'
-       and lines[2].startswith(r'      "id": "')
-       and lines[3] == r'   }'
-       and lines[4] == r'}')
+           and lines[1] == r'   "info": {'
+           and lines[2].startswith(r'      "id": "')
+           and lines[3] == r'   }'
+           and lines[4] == r'}')
 
 
 def test_daemon_option(node_factory):
