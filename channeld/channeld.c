@@ -1309,10 +1309,10 @@ static void send_commit(struct peer *peer)
 			/* Is this feerate update going to push the committed
 			 * htlcs over our allowed dust limits? */
 			if (!htlc_dust_ok(peer->channel, feerate_target, REMOTE)
-			   || !htlc_dust_ok(peer->channel, feerate_target, LOCAL))
-				/* We fail the channel. Oops */
-				peer_failed_err(peer->pps, &peer->channel_id,
-						"Too much dust to update fee");
+			    || !htlc_dust_ok(peer->channel, feerate_target, LOCAL))
+				peer_failed_warn(peer->pps, &peer->channel_id,
+						"Too much dust to update fee (Desired"
+						" feerate update %d)", feerate_target);
 
 			if (!channel_update_feerate(peer->channel, feerate_target))
 				status_failed(STATUS_FAIL_INTERNAL_ERROR,

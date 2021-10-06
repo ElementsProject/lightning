@@ -2496,9 +2496,9 @@ def test_htlc_too_dusty_outgoing(node_factory, bitcoind, chainparams):
     l1.set_feerates([feerate * 2] * 4, False)
     l1.restart()
 
-    # the channel should fail -- too much dust
+    # the channel should start warning -- too much dust
     inv = l2.rpc.invoice(htlc_val_msat, str(num_dusty_htlcs + 1), str(num_dusty_htlcs + 1))
-    with pytest.raises(RpcError, match=r'WIRE_UNKNOWN_NEXT_PEER'):
+    with pytest.raises(RpcError, match=r'WIRE_TEMPORARY_CHANNEL_FAILURE'):
         l1.rpc.sendpay(route, inv['payment_hash'], payment_secret=inv['payment_secret'])
 
 
