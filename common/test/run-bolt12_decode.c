@@ -208,7 +208,7 @@ int main(int argc, char *argv[])
 					  strtok->end - strtok->start);
 		str = json_escape_unescape(tmpctx, esc);
 		actual = (string_to_data(tmpctx, str, strlen(str),
-					 "lni", &dlen, &fail) != NULL);
+					 "lno", &dlen, &fail) != NULL);
 		assert(actual == valid);
 	}
 	tal_free(tmpctx);
