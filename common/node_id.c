@@ -26,7 +26,7 @@ bool pubkey_from_node_id(struct pubkey *key, const struct node_id *id)
 }
 
 WARN_UNUSED_RESULT
-bool pubkey32_from_node_id(struct pubkey32 *key, const struct node_id *id)
+bool point32_from_node_id(struct point32 *key, const struct node_id *id)
 {
 	struct pubkey k;
 	if (!pubkey_from_node_id(&k, id))

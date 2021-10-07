@@ -201,9 +201,9 @@ void json_add_pubkey(struct json_stream *response,
 	json_add_hex(response, fieldname, der, sizeof(der));
 }
 
-void json_add_pubkey32(struct json_stream *response,
-		       const char *fieldname,
-		       const struct pubkey32 *key)
+void json_add_point32(struct json_stream *response,
+		      const char *fieldname,
+		      const struct point32 *key)
 {
 	u8 output[32];
 

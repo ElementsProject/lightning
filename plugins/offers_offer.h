@@ -3,7 +3,7 @@
 #include "config.h"
 #include <plugins/libplugin.h>
 
-extern struct pubkey32 id;
+extern struct point32 id;
 extern bool offers_enabled;
 
 struct command_result *json_offer(struct command *cmd,

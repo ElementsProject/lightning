@@ -216,7 +216,7 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	/* BOLT-offers #12:
 	 * - MUST reject the invoice unless `node_id` is equal to the offer.
 	 */
-	if (!pubkey32_eq(sent->offer->node_id, inv->node_id)) {
+	if (!point32_eq(sent->offer->node_id, inv->node_id)) {
 		badfield = "node_id";
 		goto badinv;
 	}
@@ -613,8 +613,8 @@ static enum nodeid_parity node_parity(const struct gossmap *gossmap,
 	return id.k[0];
 }
 
-static void node_id_from_pubkey32(struct node_id *nid,
-				  const struct pubkey32 *node32_id,
+static void node_id_from_point32(struct node_id *nid,
+				  const struct point32 *node32_id,
 				  enum nodeid_parity parity)
 {
 	assert(parity == SECP256K1_TAG_PUBKEY_EVEN
@@ -629,7 +629,7 @@ static void node_id_from_pubkey32(struct node_id *nid,
  * for 33rd nodeid byte. */
 static struct pubkey *path_to_node(const tal_t *ctx,
 				   struct plugin *plugin,
-				   const struct pubkey32 *node32_id,
+				   const struct point32 *node32_id,
 				   enum nodeid_parity *parity)
 {
 	struct route_hop *r;
@@ -642,11 +642,11 @@ static struct pubkey *path_to_node(const tal_t *ctx,
 
 	/* We try both parities. */
 	*parity = nodeid_parity_even;
-	node_id_from_pubkey32(&dstid, node32_id, *parity);
+	node_id_from_point32(&dstid, node32_id, *parity);
 	dst = gossmap_find_node(gossmap, &dstid);
 	if (!dst) {
 		*parity = nodeid_parity_odd;
-		node_id_from_pubkey32(&dstid, node32_id, *parity);
+		node_id_from_point32(&dstid, node32_id, *parity);
 		dst = gossmap_find_node(gossmap, &dstid);
 		if (!dst) {
 			*parity = nodeid_parity_unknown;
@@ -999,7 +999,7 @@ static struct command_result *try_other_parity(struct command *cmd,
  * to them. */
 static struct command_result *
 connect_direct(struct command *cmd,
-	       const struct pubkey32 *dst,
+	       const struct point32 *dst,
 	       enum nodeid_parity parity,
 	       struct command_result *(*cb)(struct command *command,
 					    const char *buf,
@@ -1016,15 +1016,15 @@ connect_direct(struct command *cmd,
 	if (parity == nodeid_parity_unknown) {
 		plugin_notify_message(cmd, LOG_INFORM,
 				      "Cannot find route, trying connect to 02/03%s directly",
-				      type_to_string(tmpctx, struct pubkey32, dst));
+				      type_to_string(tmpctx, struct point32, dst));
 		/* Try even first. */
-		node_id_from_pubkey32(&ca->node_id, dst, SECP256K1_TAG_PUBKEY_EVEN);
+		node_id_from_point32(&ca->node_id, dst, SECP256K1_TAG_PUBKEY_EVEN);
 	} else {
 		plugin_notify_message(cmd, LOG_INFORM,
 				      "Cannot find route, trying connect to %02x%s directly",
 				      parity,
-				      type_to_string(tmpctx, struct pubkey32, dst));
-		node_id_from_pubkey32(&ca->node_id, dst, parity);
+				      type_to_string(tmpctx, struct point32, dst));
+		node_id_from_point32(&ca->node_id, dst, parity);
 	}
 
 	/* Make a direct path -> dst. */
@@ -1043,7 +1043,7 @@ connect_direct(struct command *cmd,
 				      "Cannot find route, but"
 				      " fetchplugin-noconnect set:"
 				      " trying direct anyway to %s",
-				      type_to_string(tmpctx, struct pubkey32,
+				      type_to_string(tmpctx, struct point32,
 						     dst));
 		return cb(cmd, NULL, NULL, sent);
 	}
@@ -1183,7 +1183,7 @@ force_payer_secret(struct command *cmd,
 	if (secp256k1_keypair_create(secp256k1_ctx, &kp, payer_secret->data) != 1)
 		return command_fail(cmd, LIGHTNINGD, "Bad payer_secret");
 
-	invreq->payer_key = tal(invreq, struct pubkey32);
+	invreq->payer_key = tal(invreq, struct point32);
 	/* Docs say this only happens if arguments are invalid! */
 	if (secp256k1_keypair_xonly_pub(secp256k1_ctx,
 					&invreq->payer_key->pubkey, NULL,
@@ -1691,7 +1691,7 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 	 *   - MUST set `node_id` to the id of the node to send payment to.
 	 *   - MUST set `description` the same as the offer.
 	 */
-	sent->inv->node_id = tal(sent->inv, struct pubkey32);
+	sent->inv->node_id = tal(sent->inv, struct point32);
 
 	/* This only fails if pubkey is invalid. */
 	if (!secp256k1_xonly_pubkey_from_pubkey(secp256k1_ctx,
@@ -1853,7 +1853,7 @@ static struct command_result *json_rawrequest(struct command *cmd,
 	struct sent *sent = tal(cmd, struct sent);
 	u32 *timeout;
 	struct node_id *node_id;
-	struct pubkey32 node_id32;
+	struct point32 node_id32;
 	enum nodeid_parity parity;
 
 	if (!param(cmd, buffer, params,

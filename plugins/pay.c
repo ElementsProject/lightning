@@ -2073,7 +2073,7 @@ static struct command_result *json_paymod(struct command *cmd,
 		} else
 			invmsat = NULL;
 
-		/* FIXME: gossmap should store as pubkey32 */
+		/* FIXME: gossmap should store as point32 */
 		p->destination = tal(p, struct node_id);
 		gossmap_guess_node_id(get_gossmap(cmd->plugin), b12->node_id,
 				      p->destination);

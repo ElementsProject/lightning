@@ -24,7 +24,7 @@ On success, an object is returned, containing:
 
 If **type** is "bolt12 offer", and **valid** is *true*:
   - **offer_id** (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
-  - **node_id** (pubkey32): x-only public key of the offering node
+  - **node_id** (point32): x-only public key of the offering node
   - **description** (string): the description of the purpose of the offer
   - **signature** (bip340sig, optional): BIP-340 signature of the *node_id* on this offer
   - **chains** (array of hexs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
@@ -64,7 +64,7 @@ If **type** is "bolt12 offer", and **valid** is *false*:
     - **warning_offer_missing_description**: No **description**
 
 If **type** is "bolt12 invoice", and **valid** is *true*:
-  - **node_id** (pubkey32): x-only public key of the offering node
+  - **node_id** (point32): x-only public key of the offering node
   - **signature** (bip340sig): BIP-340 signature of the *node_id* on this offer
   - **amount_msat** (msat): the amount in bitcoin
   - **description** (string): the description of the purpose of the offer
@@ -88,7 +88,7 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
   - **recurrence_counter** (u32, optional): the 0-based counter for a recurring payment
   - **recurrence_start** (u32, optional): the optional start period for a recurring payment
   - **recurrence_basetime** (u32, optional): the UNIX timestamp of the first recurrence period start
-  - **payer_key** (pubkey32, optional): the transient key which identifies the payer
+  - **payer_key** (point32, optional): the transient key which identifies the payer
   - **payer_info** (hex, optional): the payer-provided blob to derive payer_key
   - **fallbacks** (array of objects, optional): onchain addresses:
     - **version** (u8): Segwit address version
@@ -114,7 +114,7 @@ If **type** is "bolt12 invoice", and **valid** is *false*:
 
 If **type** is "bolt12 invoice_request", and **valid** is *true*:
   - **offer_id** (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
-  - **payer_key** (pubkey32): the transient key which identifies the payer
+  - **payer_key** (point32): the transient key which identifies the payer
   - **chains** (array of hexs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
     - the genesis blockhash (always 64 characters)
   - **amount_msat** (msat, optional): the amount in bitcoin
@@ -182,4 +182,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:d9e00b0a8c93fecd75aab0688204601a7ceeca0f424012cf0d04ce24b6017aee)
+[comment]: # ( SHA256STAMP:f12157fe0af8ff3c9569374cc95bdbdd9df00c9a818fbfe30450a3eea020053a)

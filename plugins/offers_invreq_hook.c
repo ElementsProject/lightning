@@ -137,14 +137,14 @@ static void set_recurring_inv_expiry(struct tlv_invoice *inv, u64 last_pay)
 /* We rely on label forms for uniqueness. */
 static void json_add_label(struct json_stream *js,
 			   const struct sha256 *offer_id,
-			   const struct pubkey32 *payer_key,
+			   const struct point32 *payer_key,
 			   const u32 counter)
 {
 	char *label;
 
 	label = tal_fmt(tmpctx, "%s-%s-%u",
 			type_to_string(tmpctx, struct sha256, offer_id),
-			type_to_string(tmpctx, struct pubkey32,
+			type_to_string(tmpctx, struct point32,
 				       payer_key),
 			counter);
 	json_add_string(js, "label", label);
@@ -423,7 +423,7 @@ static struct command_result *check_previous_invoice(struct command *cmd,
  *  - MUST fail the request if `payer_signature` is not correct.
  */
 static bool check_payer_sig(const struct tlv_invoice_request *invreq,
-			    const struct pubkey32 *payer_key,
+			    const struct point32 *payer_key,
 			    const struct bip340sig *sig)
 {
 	struct sha256 merkle, sighash;
@@ -775,7 +775,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 	/* FIXME: Insert paths and payinfo */
 
 	ir->inv->vendor = tal_dup_talarr(ir->inv, char, ir->offer->vendor);
-	ir->inv->node_id = tal_dup(ir->inv, struct pubkey32, ir->offer->node_id);
+	ir->inv->node_id = tal_dup(ir->inv, struct point32, ir->offer->node_id);
 	/* BOLT-offers #12:
 	 *  - MUST set (or not set) `quantity` exactly as the invoice_request
 	 *    did.
@@ -786,7 +786,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 	/* BOLT-offers #12:
 	 *  - MUST set `payer_key` exactly as the invoice_request did.
 	 */
-	ir->inv->payer_key = tal_dup(ir->inv, struct pubkey32,
+	ir->inv->payer_key = tal_dup(ir->inv, struct point32,
 				     ir->invreq->payer_key);
 
 	/* BOLT-offers #12:

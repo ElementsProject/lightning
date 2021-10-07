@@ -8,7 +8,7 @@
 #include <common/fp16.h>
 
 struct node_id;
-struct pubkey32;
+struct point32;
 
 struct gossmap_node {
 	/* Offset in memory map for node_announce, or 0. */
@@ -202,7 +202,7 @@ struct gossmap_chan *gossmap_next_chan(const struct gossmap *map,
 /* Each x-only pubkey has two possible values: we can figure out which by
  * examining the gossmap. */
 void gossmap_guess_node_id(const struct gossmap *map,
-			   const struct pubkey32 *pubkey32,
+			   const struct point32 *point32,
 			   struct node_id *id);
 
 #endif /* LIGHTNING_COMMON_GOSSMAP_H */
