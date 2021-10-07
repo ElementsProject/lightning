@@ -3411,7 +3411,9 @@ wallet_payment_list(const tal_t *ctx,
 				      ", local_offer_id"
 				      ", groupid"
 				      " FROM payments"
-				      " WHERE (payment_hash = ? OR ?) AND (status = ? OR ?)"
+				      " WHERE"
+				      "  (payment_hash = ? OR 1=?) AND"
+				      "  (status = ? OR 1=?)"
 				      " ORDER BY id;"));
 
 	if (payment_hash)
