@@ -107,6 +107,9 @@ void queue_peer_from_store(struct peer *peer UNNEEDED,
 /* Generated stub for queue_peer_msg */
 void queue_peer_msg(struct peer *peer UNNEEDED, const u8 *msg TAKES UNNEEDED)
 { fprintf(stderr, "queue_peer_msg called!\n"); abort(); }
+/* Generated stub for reltimer_arg */
+void *reltimer_arg(struct oneshot *t UNNEEDED)
+{ fprintf(stderr, "reltimer_arg called!\n"); abort(); }
 /* Generated stub for status_failed */
 void status_failed(enum status_failreason code UNNEEDED,
 		   const char *fmt UNNEEDED, ...)
