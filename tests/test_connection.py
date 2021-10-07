@@ -532,7 +532,7 @@ def test_reconnect_openingd(node_factory):
 @pytest.mark.developer
 def test_reconnect_gossiping(node_factory):
     # connectd thinks we're still gossiping; peer reconnects.
-    disconnects = ['0WIRE_PING']
+    disconnects = ['0INVALID 33333']
     l1 = node_factory.get_node(may_reconnect=True)
     l2 = node_factory.get_node(disconnect=disconnects,
                                may_reconnect=True)
@@ -540,7 +540,7 @@ def test_reconnect_gossiping(node_factory):
     # Make sure l2 knows about l1
     wait_for(lambda: l2.rpc.listpeers(l1.info['id'])['peers'] != [])
 
-    l2.rpc.ping(l1.info['id'], 1, 65532)
+    l2.rpc.sendcustommsg(l1.info['id'], bytes([0x82, 0x35]).hex())
     wait_for(lambda: l1.rpc.listpeers(l2.info['id'])['peers'] == [])
 
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)

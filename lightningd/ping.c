@@ -47,6 +47,8 @@ static struct ping_command *new_ping_command(const tal_t *ctx,
 
 void ping_reply(struct subd *subd, const u8 *msg)
 {
+	(void)find_ping_cmd;
+#if 0 /* Disabled until channeld sends us ping info */
 	u16 totlen;
 	bool ok, sent = true;
 	struct node_id id;
@@ -69,6 +71,7 @@ void ping_reply(struct subd *subd, const u8 *msg)
 		json_add_num(response, "totlen", totlen);
 		was_pending(command_success(pc->cmd, response));
 	}
+#endif
 }
 
 static struct command_result *json_ping(struct command *cmd,
@@ -76,7 +79,6 @@ static struct command_result *json_ping(struct command *cmd,
 					const jsmntok_t *obj UNNEEDED,
 					const jsmntok_t *params)
 {
-	u8 *msg;
 	unsigned int *len, *pongbytes;
 	struct node_id *id;
 
@@ -115,9 +117,11 @@ static struct command_result *json_ping(struct command *cmd,
 	/* parent is cmd, so when we complete cmd, we free this. */
 	new_ping_command(cmd, cmd->ld, id, cmd);
 
+#if 0 /* FIXME: make channeld take this message */
 	/* gossipd handles all pinging, even if it's in another daemon. */
 	msg = towire_gossipd_ping(NULL, id, *pongbytes, *len);
 	subd_send_msg(cmd->ld->gossip, take(msg));
+#endif
 	return command_still_pending(cmd);
 }
 

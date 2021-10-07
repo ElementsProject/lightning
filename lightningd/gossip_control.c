@@ -113,7 +113,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	switch (t) {
 	/* These are messages we send, not them. */
 	case WIRE_GOSSIPD_INIT:
-	case WIRE_GOSSIPD_PING:
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE:
 	case WIRE_GOSSIPD_GET_TXOUT_REPLY:
 	case WIRE_GOSSIPD_OUTPOINT_SPENT:
@@ -145,10 +144,6 @@ static unsigned gossip_msg(struct subd *gossip, const u8 *msg, const int *fds)
 	case WIRE_GOSSIPD_GOT_ONIONMSG_TO_US:
 		handle_onionmsg_to_us(gossip->ld, msg);
 		break;
-	case WIRE_GOSSIPD_PING_REPLY:
-		ping_reply(gossip, msg);
-		break;
-
 	case WIRE_GOSSIPD_GET_TXOUT:
 		get_txout(gossip, msg);
 		break;
