@@ -403,7 +403,7 @@ struct command_result *json_offer(struct command *cmd,
 			= tal_dup_arr(offer, char, vendor, strlen(vendor), 0);
 	}
 
-	offer->node_id = tal_dup(offer, struct pubkey32, &id);
+	offer->node_id = tal_dup(offer, struct point32, &id);
 
 	/* If they specify a different currency, warn if we can't
 	 * convert it! */
@@ -467,7 +467,7 @@ struct command_result *json_offerout(struct command *cmd,
 		offer->vendor = tal_dup_arr(offer, char,
 					    vendor, strlen(vendor), 0);
 
-	offer->node_id = tal_dup(offer, struct pubkey32, &id);
+	offer->node_id = tal_dup(offer, struct point32, &id);
 
 	req = jsonrpc_request_start(cmd->plugin, cmd, "createoffer",
 				    check_result, forward_error,

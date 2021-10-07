@@ -96,7 +96,7 @@ struct tlv_invoice *invoice_decode_nosig(const tal_t *ctx,
 bool bolt12_check_signature(const struct tlv_field *fields,
 			    const char *messagename,
 			    const char *fieldname,
-			    const struct pubkey32 *key,
+			    const struct point32 *key,
 			    const struct bip340sig *sig);
 
 /* Given a tal_arr of chains, does it contain this chain? */

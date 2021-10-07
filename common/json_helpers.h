@@ -14,7 +14,7 @@ struct lease_rates;
 struct node_id;
 struct preimage;
 struct pubkey;
-struct pubkey32;
+struct point32;
 struct secret;
 struct short_channel_id;
 struct short_channel_id_dir;
@@ -91,9 +91,9 @@ void json_add_pubkey(struct json_stream *response,
 		     const struct pubkey *key);
 
 /* '"fieldname" : "89abcdef..."' or "89abcdef..." if fieldname is NULL */
-void json_add_pubkey32(struct json_stream *response,
+void json_add_point32(struct json_stream *response,
 		       const char *fieldname,
-		       const struct pubkey32 *key);
+		       const struct point32 *key);
 
 /* '"fieldname" : "89abcdef..."' or "89abcdef..." if fieldname is NULL */
 void json_add_bip340sig(struct json_stream *response,

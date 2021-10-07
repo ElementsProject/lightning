@@ -210,7 +210,7 @@ static void node_key(struct privkey *node_privkey, struct pubkey *node_id)
 
 /*~ This returns the secret and/or public x-only key for this node. */
 static void node_schnorrkey(secp256k1_keypair *node_keypair,
-			    struct pubkey32 *node_id32)
+			    struct point32 *node_id32)
 {
 	secp256k1_keypair unused_kp;
 	struct privkey node_privkey;
@@ -536,7 +536,7 @@ static u8 *handle_sign_bolt12(struct hsmd_client *c, const u8 *msg_in)
 		node_schnorrkey(&kp, NULL);
 	} else {
 		/* If we're tweaking key, we use bolt12 key */
-		struct pubkey32 bolt12;
+		struct point32 bolt12;
 		struct sha256 tweak;
 
 		if (secp256k1_keypair_xonly_pub(secp256k1_ctx,
@@ -1465,7 +1465,7 @@ u8 *hsmd_init(struct secret hsm_secret,
 {
 	u8 bip32_seed[BIP32_ENTROPY_LEN_256];
 	struct pubkey key;
-	struct pubkey32 bolt12;
+	struct point32 bolt12;
 	u32 salt = 0;
 	struct ext_key master_extkey, child_extkey;
 	struct node_id node_id;

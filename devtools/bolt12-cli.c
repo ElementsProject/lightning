@@ -144,9 +144,9 @@ static void print_vendor(const char *vendor)
 	printf("vendor: %.*s\n", (int)tal_bytelen(vendor), vendor);
 }
 
-static void print_node_id(const struct pubkey32 *node_id)
+static void print_node_id(const struct point32 *node_id)
 {
-	printf("node_id: %s\n", type_to_string(tmpctx, struct pubkey32, node_id));
+	printf("node_id: %s\n", type_to_string(tmpctx, struct point32, node_id));
 }
 
 static void print_quantity_min(u64 min)
@@ -299,7 +299,7 @@ static void print_refund_for(const struct sha256 *payment_hash)
 static bool print_signature(const char *messagename,
 			    const char *fieldname,
 			    const struct tlv_field *fields,
-			    const struct pubkey32 *node_id,
+			    const struct point32 *node_id,
 			    const struct bip340sig *sig)
 {
 	struct sha256 m, shash;
@@ -358,11 +358,11 @@ static bool print_recurrence_counter_with_base(const u32 *recurrence_counter,
 	return true;
 }
 
-static void print_payer_key(const struct pubkey32 *payer_key,
+static void print_payer_key(const struct point32 *payer_key,
 			    const u8 *payer_info)
 {
 	printf("payer_key: %s",
-	       type_to_string(tmpctx, struct pubkey32, payer_key));
+	       type_to_string(tmpctx, struct point32, payer_key));
 	if (payer_info)
 		printf(" (payer_info %s)", tal_hex(tmpctx, payer_info));
 	printf("\n");
