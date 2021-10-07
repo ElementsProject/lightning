@@ -70,6 +70,7 @@ OPENINGD_COMMON_OBJS :=				\
 	common/peer_billboard.o			\
 	common/peer_failed.o			\
 	common/permute_tx.o			\
+	common/ping.o				\
 	common/psbt_internal.o			\
 	common/psbt_open.o			\
 	common/pseudorand.o			\

@@ -47,6 +47,7 @@ CLOSINGD_COMMON_OBJS :=				\
 	common/peer_failed.o			\
 	common/per_peer_state.o			\
 	common/permute_tx.o			\
+	common/ping.o				\
 	common/psbt_open.o			\
 	common/pseudorand.o			\
 	common/read_peer_msg.o			\
