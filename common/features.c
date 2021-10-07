@@ -88,6 +88,10 @@ static const struct feature_style feature_styles[] = {
 	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
 			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
 			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
+	{ OPT_QUIESCE,
+	  .copy_style = { [INIT_FEATURE] = FEATURE_REPRESENT,
+			  [NODE_ANNOUNCE_FEATURE] = FEATURE_REPRESENT,
+			  [CHANNEL_FEATURE] = FEATURE_DONT_REPRESENT } },
 };
 
 struct dependency {
@@ -393,7 +397,7 @@ const char *feature_name(const tal_t *ctx, size_t f)
 		"option_dual_fund",
 		"option_amp", /* 30/31 */ /* https://github.com/lightningnetwork/lightning-rfc/pull/658 */
 		NULL,
-		"option_upgrade_channel", /* https://github.com/lightningnetwork/lightning-rfc/pull/868 */
+		"option_quiesce", /* https://github.com/lightningnetwork/lightning-rfc/pull/869 */
 		NULL,
 		"option_onion_messages",  /* https://github.com/lightningnetwork/lightning-rfc/pull/759 */
 		"option_want_peer_backup", /* 40/41 */ /* https://github.com/lightningnetwork/lightning-rfc/pull/881 */
