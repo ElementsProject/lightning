@@ -14,6 +14,10 @@ struct channel_type *channel_type_anchor_outputs(const tal_t *ctx);
 struct channel_type *channel_type_dup(const tal_t *ctx,
 				      const struct channel_type *t);
 
+/* Convert feature bits to channel_type */
+struct channel_type *channel_type_from(const tal_t *ctx,
+				       const u8 *features TAKES);
+
 /* Derive channel type from feature negotiation */
 struct channel_type *default_channel_type(const tal_t *ctx,
 					  const struct feature_set *our_features,
@@ -25,10 +29,6 @@ bool channel_type_has(const struct channel_type *type, int feature);
 /* Are these two channel_types equivalent? */
 bool channel_type_eq(const struct channel_type *a,
 		     const struct channel_type *b);
-
-/* Is channel_type_eq() for any type in this array? */
-bool channel_type_eq_any(const struct channel_type *t,
-			 struct channel_type **arr);
 
 /* Return channel_type if this is acceptable, otherwise NULL */
 struct channel_type *channel_type_accept(const tal_t *ctx,

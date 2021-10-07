@@ -332,37 +332,32 @@ static bool handle_master_request_later(struct peer *peer, const u8 *msg)
 	return false;
 }
 
-static bool match_type(const struct channel_type *desired,
-		       const struct channel_type *current,
-		       struct channel_type **upgradable)
+/* Compare, with false if either is NULL */
+static bool match_type(const u8 *t1, const u8 *t2)
 {
 	/* Missing fields are possible. */
-	if (!desired || !current)
+	if (!t1 || !t2)
 		return false;
 
-	if (channel_type_eq(desired, current))
-		return true;
-
-	return channel_type_eq_any(desired, upgradable);
+	return featurebits_eq(t1, t2);
 }
 
-static void set_channel_type(struct channel *channel,
-			     const struct channel_type *type)
+static void set_channel_type(struct channel *channel, const u8 *type)
 {
 	const struct channel_type *cur = channel->type;
 
-	if (channel_type_eq(cur, type))
+	if (featurebits_eq(cur->features, type))
 		return;
 
 	/* We only allow one upgrade at the moment, so that's it. */
 	assert(!channel_has(channel, OPT_STATIC_REMOTEKEY));
-	assert(feature_offered(type->features, OPT_STATIC_REMOTEKEY));
+	assert(feature_offered(type, OPT_STATIC_REMOTEKEY));
 
 	/* Do upgrade, tell master. */
 	tal_free(channel->type);
-	channel->type = channel_type_dup(channel, type);
+	channel->type = channel_type_from(channel, type);
 	status_unusual("Upgraded channel to [%s]",
-		       fmt_featurebits(tmpctx, type->features));
+		       fmt_featurebits(tmpctx, type));
 	wire_sync_write(MASTER_FD,
 			take(towire_channeld_upgraded(NULL, channel->type)));
 }
@@ -2650,6 +2645,27 @@ static bool capture_premature_msg(const u8 ***shit_lnd_says, const u8 *msg)
 	return true;
 }
 
+#if EXPERIMENTAL_FEATURES
+/* Unwrap a channel_type into a raw byte array for the wire: can be NULL */
+static u8 *to_bytearr(const tal_t *ctx,
+		      const struct channel_type *channel_type TAKES)
+{
+	u8 *ret;
+	bool steal;
+
+	steal = taken(channel_type);
+	if (!channel_type)
+		return NULL;
+
+	if (steal) {
+		ret = tal_steal(ctx, channel_type->features);
+		tal_free(channel_type);
+	} else
+		ret = tal_dup_talarr(ctx, u8, channel_type->features);
+	return ret;
+}
+#endif
+
 static void peer_reconnect(struct peer *peer,
 			   const struct secret *last_remote_per_commit_secret,
 			   u8 *reestablish_only)
@@ -2699,8 +2715,10 @@ static void peer_reconnect(struct peer *peer,
 	 *     channel.
 	 */
 	if (peer->channel->opener == LOCAL)
-		send_tlvs->desired_type = channel_desired_type(send_tlvs,
-							       peer->channel);
+		send_tlvs->desired_channel_type =
+			to_bytearr(send_tlvs,
+				   take(channel_desired_type(NULL,
+							     peer->channel)));
 	else {
 		/* BOLT-upgrade_protocol #2:
 		 * - otherwise:
@@ -2710,10 +2728,12 @@ static void peer_reconnect(struct peer *peer,
 		 *    to.
 		 *  - MAY not set `upgradable` if it would be empty.
 		 */
-		send_tlvs->current_type = tal_dup(send_tlvs, struct channel_type,
-						  peer->channel->type);
-		send_tlvs->upgradable = channel_upgradable_types(send_tlvs,
-								 peer->channel);
+		send_tlvs->current_channel_type
+			= to_bytearr(send_tlvs, peer->channel->type);
+		send_tlvs->upgradable_channel_type
+			= to_bytearr(send_tlvs,
+				     take(channel_upgradable_type(NULL,
+								  peer->channel)));
 	}
 #endif
 
@@ -2991,20 +3011,19 @@ got_reestablish:
 	maybe_send_shutdown(peer);
 
 #if EXPERIMENTAL_FEATURES
-	if (recv_tlvs->desired_type)
-		status_debug("They sent desired_type [%s]",
+	if (recv_tlvs->desired_channel_type)
+		status_debug("They sent desired_channel_type [%s]",
 			     fmt_featurebits(tmpctx,
-					     recv_tlvs->desired_type->features));
-	if (recv_tlvs->current_type)
-		status_debug("They sent current_type [%s]",
+					     recv_tlvs->desired_channel_type));
+	if (recv_tlvs->current_channel_type)
+		status_debug("They sent current_channel_type [%s]",
 			     fmt_featurebits(tmpctx,
-					     recv_tlvs->current_type->features));
+					     recv_tlvs->current_channel_type));
 
-	for (size_t i = 0; i < tal_count(recv_tlvs->upgradable); i++) {
+	if (recv_tlvs->upgradable_channel_type)
 		status_debug("They offered upgrade to [%s]",
 			     fmt_featurebits(tmpctx,
-					     recv_tlvs->upgradable[i]->features));
-	}
+					     recv_tlvs->upgradable_channel_type));
 
 	/* BOLT-upgrade_protocol #2:
 	 *
@@ -3036,7 +3055,7 @@ got_reestablish:
 		status_debug("No upgrade: pending changes");
 	} else {
 		const struct tlv_channel_reestablish_tlvs *initr, *ninitr;
-		const struct channel_type *type;
+		const u8 *type;
 
 		if (peer->channel->opener == LOCAL) {
 			initr = send_tlvs;
@@ -3048,20 +3067,21 @@ got_reestablish:
 
 		/* BOLT-upgrade_protocol #2:
 		 *
-		 * - if `desired_type` matches `current_type` or any
-		 *   `upgradable` `upgrades`:
-		 *   - MUST consider the channel type to be `desired_type`.
+		 * - if `desired_channel_type` matches `current_channel_type` or any
+		 *   `upgradable_channel_type`:
+		 *   - MUST consider the channel type to be `desired_channel_type`.
 		 * - otherwise:
-		 *   - MUST consider the channel feature change failed.
-		 *   - if there is a `current_type` field:
-		 *     - MUST consider the channel type to be `current_type`.
+		 *   - MUST consider the channel type change failed.
+		 *   - if there is a `current_channel_type` field:
+		 *     - MUST consider the channel type to be `current_channel_type`.
 		 */
-		/* Note: returns NULL on missing fields, aka NULL */
-		if (match_type(initr->desired_type,
-			       ninitr->current_type, ninitr->upgradable))
-			type = initr->desired_type;
-		else if (ninitr->current_type)
-			type = ninitr->current_type;
+		if (match_type(initr->desired_channel_type,
+			       ninitr->current_channel_type)
+		    || match_type(initr->desired_channel_type,
+				  ninitr->upgradable_channel_type))
+			type = initr->desired_channel_type;
+		else if (ninitr->current_channel_type)
+			type = ninitr->current_channel_type;
 		else
 			type = NULL;
 
