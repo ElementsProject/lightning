@@ -18,7 +18,6 @@
 #include <common/ecdh_hsmd.h>
 #include <common/lease_rates.h>
 #include <common/memleak.h>
-#include <common/ping.h>
 #include <common/pseudorand.h>
 #include <common/sphinx.h>
 #include <common/status.h>
@@ -256,36 +255,6 @@ static u8 *handle_channel_update_msg(struct peer *peer, const u8 *msg)
 	 * just sent out our own channel_announce, so we check if it's time to
 	 * send a node_announcement too. */
 	maybe_send_own_node_announce(peer->daemon, false);
-	return NULL;
-}
-
-/*~ For simplicity, all pings and pongs are forwarded to us here in gossipd. */
-static u8 *handle_ping(struct peer *peer, const u8 *ping)
-{
-	u8 *pong;
-
-	/* This checks the ping packet and makes a pong reply if needed; peer
-	 * can specify it doesn't want a response, to simulate traffic. */
-	if (!check_ping_make_pong(NULL, ping, &pong))
-		return towire_warningfmt(peer, NULL, "Bad ping");
-
-	if (pong)
-		queue_peer_msg(peer, take(pong));
-	return NULL;
-}
-
-/*~ When we get a pong, we tell lightningd about it (it's probably a response
- * to the `ping` JSON RPC command). */
-static const u8 *handle_pong(struct peer *peer, const u8 *pong)
-{
-	const char *err = got_pong(pong, &peer->num_pings_outstanding);
-
-	if (err)
-		return towire_warningfmt(peer, NULL, "%s", err);
-
-	daemon_conn_send(peer->daemon->master,
-			 take(towire_gossipd_ping_reply(NULL, &peer->id, true,
-						       tal_count(pong))));
 	return NULL;
 }
 
@@ -845,12 +814,6 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 		err = handle_reply_short_channel_ids_end(peer, msg);
 		goto handled_relay;
-	case WIRE_PING:
-		err = handle_ping(peer, msg);
-		goto handled_relay;
-	case WIRE_PONG:
-		err = handle_pong(peer, msg);
-		goto handled_relay;
 	case WIRE_OBS_ONION_MESSAGE:
 		err = handle_obs_onion_message(peer, msg);
 		goto handled_relay;
@@ -862,6 +825,8 @@ static struct io_plan *peer_msg_in(struct io_conn *conn,
 	case WIRE_WARNING:
 	case WIRE_INIT:
 	case WIRE_ERROR:
+	case WIRE_PING:
+	case WIRE_PONG:
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_ACCEPT_CHANNEL:
 	case WIRE_FUNDING_CREATED:
@@ -998,7 +963,6 @@ static struct io_plan *connectd_new_peer(struct io_conn *conn,
 	peer->scid_query_outstanding = false;
 	peer->range_replies = NULL;
 	peer->query_channel_range_cb = NULL;
-	peer->num_pings_outstanding = 0;
 
 	/* We keep a list so we can find peer by id */
 	list_add_tail(&peer->daemon->peers, &peer->list);
@@ -1289,61 +1253,6 @@ static struct io_plan *gossip_init(struct io_conn *conn,
 	/* OK, we are ready. */
 	daemon_conn_send(daemon->master,
 			 take(towire_gossipd_init_reply(NULL)));
-	return daemon_conn_read_next(conn, daemon->master);
-}
-
-/*~ We currently have a JSON command to ping a peer: it ends up here, where
- * gossipd generates the actual ping and sends it like any other gossip. */
-static struct io_plan *ping_req(struct io_conn *conn, struct daemon *daemon,
-				const u8 *msg)
-{
-	struct node_id id;
-	u16 num_pong_bytes, len;
-	struct peer *peer;
-	u8 *ping;
-
-	if (!fromwire_gossipd_ping(msg, &id, &num_pong_bytes, &len))
-		master_badmsg(WIRE_GOSSIPD_PING, msg);
-
-	/* Even if lightningd were to check for valid ids, there's a race
-	 * where it might vanish before we read this command; cleaner to
-	 * handle it here with 'sent' = false. */
-	peer = find_peer(daemon, &id);
-	if (!peer) {
-		daemon_conn_send(daemon->master,
-				 take(towire_gossipd_ping_reply(NULL, &id,
-							       false, 0)));
-		goto out;
-	}
-
-	/* It should never ask for an oversize ping. */
-	ping = make_ping(peer, num_pong_bytes, len);
-	if (tal_count(ping) > 65535)
-		status_failed(STATUS_FAIL_MASTER_IO, "Oversize ping");
-
-	queue_peer_msg(peer, take(ping));
-	status_peer_debug(&peer->id, "sending ping expecting %sresponse",
-			  num_pong_bytes >= 65532 ? "no " : "");
-
-	/* BOLT #1:
-	 *
-	 * A node receiving a `ping` message:
-	 *...
-	 *  - if `num_pong_bytes` is less than 65532:
-	 *    - MUST respond by sending a `pong` message, with `byteslen` equal
-	 *      to `num_pong_bytes`.
-	 *  - otherwise (`num_pong_bytes` is **not** less than 65532):
-	 *    - MUST ignore the `ping`.
-	 */
-	if (num_pong_bytes >= 65532)
-		daemon_conn_send(daemon->master,
-				 take(towire_gossipd_ping_reply(NULL, &id,
-							       true, 0)));
-	else
-		/* We'll respond to lightningd once the pong comes in */
-		peer->num_pings_outstanding++;
-
-out:
 	return daemon_conn_read_next(conn, daemon->master);
 }
 
@@ -1649,9 +1558,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 	case WIRE_GOSSIPD_LOCAL_CHANNEL_CLOSE:
 		return handle_local_channel_close(conn, daemon, msg);
 
-	case WIRE_GOSSIPD_PING:
-		return ping_req(conn, daemon, msg);
-
 	case WIRE_GOSSIPD_NEW_BLOCKHEIGHT:
 		return new_blockheight(conn, daemon, msg);
 
@@ -1688,7 +1594,6 @@ static struct io_plan *recv_req(struct io_conn *conn,
 		return onionmsg_req(conn, daemon, msg);
 
 	/* We send these, we don't receive them */
-	case WIRE_GOSSIPD_PING_REPLY:
 	case WIRE_GOSSIPD_INIT_REPLY:
 	case WIRE_GOSSIPD_GET_STRIPPED_CUPDATE_REPLY:
 	case WIRE_GOSSIPD_GET_TXOUT:

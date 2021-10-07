@@ -23,19 +23,6 @@ msgtype,gossipd_init_reply,3100
 msgtype,gossipd_dev_set_time,3001
 msgdata,gossipd_dev_set_time,dev_gossip_time,u32,
 
-# Ping/pong test.  Waits for a reply if it expects one.
-msgtype,gossipd_ping,3008
-msgdata,gossipd_ping,id,node_id,
-msgdata,gossipd_ping,num_pong_bytes,u16,
-msgdata,gossipd_ping,len,u16,
-
-msgtype,gossipd_ping_reply,3108
-msgdata,gossipd_ping_reply,id,node_id,
-# False if id in gossip_ping was unknown.
-msgdata,gossipd_ping_reply,sent,bool,
-# 0 == no pong expected
-msgdata,gossipd_ping_reply,totlen,u16,
-
 # Set artificial maximum reply_channel_range size.  Master->gossipd
 msgtype,gossipd_dev_set_max_scids_encode_size,3030
 msgdata,gossipd_dev_set_max_scids_encode_size,max,u32,

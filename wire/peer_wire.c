@@ -63,13 +63,13 @@ bool is_msg_for_gossipd(const u8 *cursor)
 	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 	case WIRE_QUERY_CHANNEL_RANGE:
 	case WIRE_REPLY_CHANNEL_RANGE:
-	case WIRE_PING:
-	case WIRE_PONG:
 	case WIRE_ONION_MESSAGE:
 	case WIRE_OBS_ONION_MESSAGE:
 		return true;
 	case WIRE_WARNING:
 	case WIRE_INIT:
+	case WIRE_PING:
+	case WIRE_PONG:
 	case WIRE_ERROR:
 	case WIRE_OPEN_CHANNEL:
 	case WIRE_ACCEPT_CHANNEL:

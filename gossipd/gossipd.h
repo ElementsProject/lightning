@@ -97,9 +97,6 @@ struct peer {
 	bool scid_query_outstanding;
 	void (*scid_query_cb)(struct peer *peer, bool complete);
 
-	/* How many pongs are we expecting? */
-	size_t num_pings_outstanding;
-
 	/* What we're querying: [range_first_blocknum, range_end_blocknum) */
 	u32 range_first_blocknum, range_end_blocknum;
 	u32 range_blocks_outstanding;
