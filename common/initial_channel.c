@@ -160,15 +160,13 @@ u32 channel_blockheight(const struct channel *channel, enum side side)
 			       channel->opener, side);
 }
 
-struct channel_type **channel_upgradable_types(const tal_t *ctx,
-					       const struct channel *channel)
+struct channel_type *channel_upgradable_type(const tal_t *ctx,
+					     const struct channel *channel)
 {
-	struct channel_type **arr = tal_arr(ctx, struct channel_type *, 0);
-
 	if (!channel_has(channel, OPT_STATIC_REMOTEKEY))
-		tal_arr_expand(&arr, channel_type_static_remotekey(arr));
+		return channel_type_static_remotekey(ctx);
 
-	return arr;
+	return NULL;
 }
 
 struct channel_type *channel_desired_type(const tal_t *ctx,

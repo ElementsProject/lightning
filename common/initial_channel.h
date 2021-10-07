@@ -152,15 +152,11 @@ u32 channel_feerate(const struct channel *channel, enum side side);
  */
 u32 channel_blockheight(const struct channel *channel, enum side side);
 
-/* BOLT-upgrade_protocol #2:
- * Channel features are explicitly enumerated as `channel_type` bitfields,
- * using odd features bits.
- */
-/* What features can we upgrade?  (Returns NULL if none). */
-struct channel_type **channel_upgradable_types(const tal_t *ctx,
-					       const struct channel *channel);
+/* What can we upgrade to?  (Returns NULL if none). */
+struct channel_type *channel_upgradable_type(const tal_t *ctx,
+					     const struct channel *channel);
 
-/* What features do we want? */
+/* What channel type do we want? */
 struct channel_type *channel_desired_type(const tal_t *ctx,
 					  const struct channel *channel);
 

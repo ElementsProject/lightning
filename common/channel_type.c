@@ -86,21 +86,19 @@ bool channel_type_eq(const struct channel_type *a,
 	return featurebits_eq(a->features, b->features);
 }
 
-bool channel_type_eq_any(const struct channel_type *t,
-			 struct channel_type **arr)
-{
-	for (size_t i = 0; i < tal_count(arr); i++) {
-		if (channel_type_eq(t, arr[i]))
-			return true;
-	}
-	return false;
-}
-
 struct channel_type *channel_type_dup(const tal_t *ctx,
 				      const struct channel_type *t)
 {
 	struct channel_type *ret = tal(ctx, struct channel_type);
 	ret->features = tal_dup_talarr(ret, u8, t->features);
+	return ret;
+}
+
+struct channel_type *channel_type_from(const tal_t *ctx,
+				       const u8 *features TAKES)
+{
+	struct channel_type *ret = tal(ctx, struct channel_type);
+	ret->features = tal_dup_talarr(ret, u8, features);
 	return ret;
 }
 
