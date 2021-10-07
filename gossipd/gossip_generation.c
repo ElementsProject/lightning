@@ -314,6 +314,7 @@ struct local_cupdate {
 
 	bool disable;
 	bool even_if_identical;
+	bool even_if_too_soon;
 
 	u16 cltv_expiry_delta;
 	struct amount_msat htlc_minimum, htlc_maximum;
@@ -409,7 +410,7 @@ static void update_local_channel(struct local_cupdate *lc /* frees! */)
 		next = hc->bcast.timestamp
 			+ GOSSIP_MIN_INTERVAL(daemon->rstate->dev_fast_gossip);
 
-		if (timestamp < next) {
+		if (timestamp < next && !lc->even_if_too_soon) {
 			status_debug("channel_update %s/%u: delaying %u secs",
 				     type_to_string(tmpctx,
 						    struct short_channel_id,
@@ -503,10 +504,21 @@ void refresh_local_channel(struct daemon *daemon,
 	if (!is_halfchan_defined(hc))
 		return;
 
+	/* If there's an update pending already, force it to apply now. */
+	if (local_chan->channel_update_timer) {
+		lc = reltimer_arg(local_chan->channel_update_timer);
+		lc->even_if_too_soon = true;
+		update_local_channel(lc);
+		/* Free timer */
+		local_chan->channel_update_timer
+			= tal_free(local_chan->channel_update_timer);
+	}
+
 	lc = tal(NULL, struct local_cupdate);
 	lc->daemon = daemon;
 	lc->local_chan = local_chan;
 	lc->even_if_identical = even_if_identical;
+	lc->even_if_too_soon = false;
 
 	prev = cast_const(u8 *,
 			  gossip_store_get(tmpctx, daemon->rstate->gs,
@@ -546,6 +558,7 @@ bool handle_local_channel_update(struct daemon *daemon,
 
 	lc->daemon = daemon;
 	lc->even_if_identical = false;
+	lc->even_if_too_soon = false;
 
 	/* FIXME: We should get scid from lightningd when setting up the
 	 * connection, so no per-peer daemon can mess with channels other than
