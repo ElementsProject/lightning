@@ -874,6 +874,8 @@ static struct io_plan *conn_init(struct io_conn *conn,
 			      "Can't connect to forproxy address");
 		break;
 	case ADDR_INTERNAL_WIREADDR:
+		/* DNS should have been resolved before */
+		assert(addr->u.wireaddr.type != ADDR_TYPE_DNS);
 		/* If it was a Tor address, we wouldn't be here. */
 		assert(!is_toraddr((char*)addr->u.wireaddr.addr));
 		ai = wireaddr_to_addrinfo(tmpctx, &addr->u.wireaddr);
@@ -926,6 +928,12 @@ static void try_connect_one_addr(struct connecting *connect)
 	bool use_proxy = connect->daemon->always_use_proxy;
 	const struct wireaddr_internal *addr = &connect->addrs[connect->addrnum];
 	struct io_conn *conn;
+	bool use_dns = connect->daemon->use_dns;
+	struct addrinfo hints, *ais, *aii;
+	struct wireaddr_internal addrhint;
+	int gai_err;
+	struct sockaddr_in *sa4;
+	struct sockaddr_in6 *sa6;
 
 	/* In case we fail without a connection, make destroy_io_conn happy */
 	connect->conn = NULL;
@@ -976,8 +984,48 @@ static void try_connect_one_addr(struct connecting *connect)
 			af = AF_INET6;
 			break;
 		case ADDR_TYPE_DNS:
-			// TODO: resolve with getaddrinfo and set af
-			break;
+			if (use_proxy) /* hand it to the proxy */
+				break;
+			if (!use_dns)  /* ignore DNS when we can't use it */
+				goto next;
+			/* Resolve with getaddrinfo */
+			memset(&hints, 0, sizeof(hints));
+			hints.ai_socktype = SOCK_STREAM;
+			hints.ai_family = AF_UNSPEC;
+			hints.ai_protocol = 0;
+			hints.ai_flags = AI_ADDRCONFIG;
+			gai_err = getaddrinfo((char *)addr->u.wireaddr.addr,
+					      tal_fmt(tmpctx, "%d",
+						      addr->u.wireaddr.port),
+					      &hints, &ais);
+			if (gai_err != 0) {
+				status_debug("DNS with getaddrinfo gave: %s",
+					     gai_strerror(gai_err));
+				goto next;
+			}
+			/* create new addrhints on-the-fly per result ... */
+			for (aii = ais; aii; aii = aii->ai_next) {
+				addrhint.itype = ADDR_INTERNAL_WIREADDR;
+				if (aii->ai_family == AF_INET) {
+					sa4 = (struct sockaddr_in *) aii->ai_addr;
+					wireaddr_from_ipv4(&addrhint.u.wireaddr,
+							   &sa4->sin_addr,
+							   addr->u.wireaddr.port);
+				} else if (aii->ai_family == AF_INET6) {
+					sa6 = (struct sockaddr_in6 *) aii->ai_addr;
+					wireaddr_from_ipv6(&addrhint.u.wireaddr,
+							   &sa6->sin6_addr,
+							   addr->u.wireaddr.port);
+				} else {
+					/* skip unsupported ai_family */
+					continue;
+				}
+				tal_arr_expand(&connect->addrs, addrhint);
+				/* don't forget to update convenience pointer */
+				addr = &connect->addrs[connect->addrnum];
+			}
+			freeaddrinfo(ais);
+			goto next;
 		case ADDR_TYPE_WEBSOCKET:
 			af = -1;
 			break;
