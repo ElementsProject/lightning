@@ -2664,6 +2664,22 @@ static u8 *to_bytearr(const tal_t *ctx,
 		ret = tal_dup_talarr(ctx, u8, channel_type->features);
 	return ret;
 }
+
+/* This is the no-tlvs version, where we can't handle old tlvs */
+static bool fromwire_channel_reestablish_notlvs(const void *p, struct channel_id *channel_id, u64 *next_commitment_number, u64 *next_revocation_number, struct secret *your_last_per_commitment_secret, struct pubkey *my_current_per_commitment_point)
+{
+	const u8 *cursor = p;
+	size_t plen = tal_count(p);
+
+	if (fromwire_u16(&cursor, &plen) != WIRE_CHANNEL_REESTABLISH)
+		return false;
+ 	fromwire_channel_id(&cursor, &plen, channel_id);
+ 	*next_commitment_number = fromwire_u64(&cursor, &plen);
+ 	*next_revocation_number = fromwire_u64(&cursor, &plen);
+ 	fromwire_secret(&cursor, &plen, your_last_per_commitment_secret);
+ 	fromwire_pubkey(&cursor, &plen, my_current_per_commitment_point);
+	return cursor != NULL;
+}
 #endif
 
 static void peer_reconnect(struct peer *peer,
@@ -2702,6 +2718,14 @@ static void peer_reconnect(struct peer *peer,
 #if EXPERIMENTAL_FEATURES
 	/* Subtle: we free tmpctx below as we loop, so tal off peer */
 	send_tlvs = tlv_channel_reestablish_tlvs_new(peer);
+
+	/* FIXME: v0.10.1 would send a different tlv set, due to older spec.
+	 * That did *not* offer OPT_QUIESCE, so in that case don't send tlvs. */
+	if (!feature_negotiated(peer->our_features,
+				peer->their_features,
+				OPT_QUIESCE))
+		goto skip_tlvs;
+
 	/* BOLT-upgrade_protocol #2:
 	 * A node sending `channel_reestablish`, if it supports upgrading channels:
 	 *   - MUST set `next_to_send` the commitment number of the next
@@ -2735,6 +2759,8 @@ static void peer_reconnect(struct peer *peer,
 				     take(channel_upgradable_type(NULL,
 								  peer->channel)));
 	}
+
+skip_tlvs:
 #endif
 
 	/* BOLT #2:
@@ -2819,24 +2845,50 @@ static void peer_reconnect(struct peer *peer,
 got_reestablish:
 #if EXPERIMENTAL_FEATURES
 	recv_tlvs = tlv_channel_reestablish_tlvs_new(tmpctx);
-#endif
 
+	/* FIXME: v0.10.1 would send a different tlv set, due to older spec.
+	 * That did *not* offer OPT_QUIESCE, so in that case ignore tlvs. */
+	if (!feature_negotiated(peer->our_features,
+				peer->their_features,
+				OPT_QUIESCE)) {
+		if (!fromwire_channel_reestablish_notlvs(msg,
+					&channel_id,
+					&next_commitment_number,
+					&next_revocation_number,
+					&last_local_per_commitment_secret,
+					&remote_current_per_commitment_point))
+			peer_failed_warn(peer->pps,
+					 &peer->channel_id,
+					 "bad reestablish msg: %s %s",
+					 peer_wire_name(fromwire_peektype(msg)),
+					 tal_hex(msg, msg));
+	} else if (!fromwire_channel_reestablish(msg,
+						 &channel_id,
+						 &next_commitment_number,
+						 &next_revocation_number,
+						 &last_local_per_commitment_secret,
+						 &remote_current_per_commitment_point,
+						 recv_tlvs)) {
+			peer_failed_warn(peer->pps,
+					 &peer->channel_id,
+					 "bad reestablish msg: %s %s",
+					 peer_wire_name(fromwire_peektype(msg)),
+					 tal_hex(msg, msg));
+	}
+#else /* !EXPERIMENTAL_FEATURES */
 	if (!fromwire_channel_reestablish(msg,
 					&channel_id,
 					&next_commitment_number,
 					&next_revocation_number,
 					&last_local_per_commitment_secret,
-					&remote_current_per_commitment_point
-#if EXPERIMENTAL_FEATURES
-			 , recv_tlvs
-#endif
-		    )) {
+					  &remote_current_per_commitment_point)) {
 		peer_failed_warn(peer->pps,
 				 &peer->channel_id,
 				 "bad reestablish msg: %s %s",
 				 peer_wire_name(fromwire_peektype(msg)),
 				 tal_hex(msg, msg));
 	}
+#endif
 
 	if (!channel_id_eq(&channel_id, &peer->channel_id)) {
 		peer_failed_err(peer->pps,
