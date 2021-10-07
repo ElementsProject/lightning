@@ -3570,7 +3570,8 @@ def test_mpp_presplit(node_factory):
 
     l1, l2, l3 = node_factory.line_graph(
         3, fundamount=10**8, wait_for_announce=True,
-        opts={'wumbo': None}
+        opts={'wumbo': None,
+              'max-dust-htlc-exposure-msat': '500000sat'}
     )
 
     inv = l3.rpc.invoice(amt, 'lbl', 'desc')['bolt11']
