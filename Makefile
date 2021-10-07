@@ -580,6 +580,9 @@ $(CCAN_OBJS) $(CDUMP_OBJS): $(CCAN_HEADERS) Makefile
 # Except for CCAN, we treat everything else as dependent on external/ bitcoin/ common/ wire/ and all generated headers, and Makefile
 $(ALL_OBJS): $(BITCOIN_HEADERS) $(COMMON_HEADERS) $(CCAN_HEADERS) $(WIRE_HEADERS) $(ALL_GEN_HEADERS) $(EXTERNAL_HEADERS) Makefile
 
+# Test files can literally #include generated C files.
+$(ALL_TEST_PROGRAMS:=.o): $(ALL_GEN_SOURCES)
+
 update-ccan:
 	mv ccan ccan.old
 	DIR=$$(pwd)/ccan; cd ../ccan && ./tools/create-ccan-tree -a $$DIR `cd $$DIR.old/ccan && find * -name _info | sed s,/_info,, | $(SORT)` $(CCAN_NEW)
