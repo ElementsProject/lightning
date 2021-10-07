@@ -130,6 +130,11 @@ const char *fmt_featurebits(const tal_t *ctx, const u8 *featurebits);
  */
 #define OPT_DUAL_FUND 				28
 
+/* BOLT-quiescent #9:
+ * | 34/35 | `option_quiesce` | ... IN ...
+ */
+#define OPT_QUIESCE 				34
+
 /* BOLT-1ede04a1a3225581e265b3ce96984ba88253a4a4 #9:
  *
  * | 38/39 | `option_onion_messages` |... INC+ ...
