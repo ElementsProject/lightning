@@ -89,7 +89,7 @@ void connect_succeeded(struct lightningd *ld UNNEEDED, const struct peer *peer U
 		       const struct wireaddr_internal *addr UNNEEDED)
 { fprintf(stderr, "connect_succeeded called!\n"); abort(); }
 /* Generated stub for convert_args_to_paramtokens */
-void convert_args_to_paramtokens(struct graphql_field *field UNNEEDED, void *ctx UNNEEDED, jsmntok_t **params UNNEEDED)
+void convert_args_to_paramtokens(struct graphql_field *field UNNEEDED, const tal_t *ctx UNNEEDED, jsmntok_t **params UNNEEDED)
 { fprintf(stderr, "convert_args_to_paramtokens called!\n"); abort(); }
 /* Generated stub for create_cbd_ */
 void *create_cbd_(struct graphql_field *field UNNEEDED, const char *tname UNNEEDED, void *ctx UNNEEDED, void *obj UNNEEDED)

@@ -1,8 +1,15 @@
+/* Shamelessly copied from run-param.c as a template for GraphQL arg tests */
+/* Notes:
+ * - GraphQL only supports named arguments, so all positional parameter tests
+ *   have been ripped out or converted to use named arguments.
+ */
 #include "config.h"
 #include "../json_tok.c"
 #include "../param.c"
 #include <ccan/array_size/array_size.h>
+#include <ccan/graphql/graphql.h>
 #include <common/channel_type.h>
+#include <common/graphql_args.c>
 #include <common/setup.h>
 #include <stdio.h>
 
@@ -134,37 +141,30 @@ static void convert_quotes(char *first)
 	}
 }
 
-static struct json *json_parse(const tal_t * ctx, const char *str)
+static struct json *gql_parse(const tal_t *ctx, const char *str)
 {
 	struct json *j = tal(ctx, struct json);
 	j->buffer = tal_strdup(j, str);
 	convert_quotes(j->buffer);
 
-	j->toks = tal_arr(j, jsmntok_t, 50);
-	assert(j->toks);
-	jsmn_parser parser;
+	/* Instead of doing jsmn_parse() like in run-params.c, we parse an
+	 * equivalent GraphQL expression.
+	 */
+	const char *err;
+	struct list_head *gql_tokens;
+	struct graphql_executable_document *doc;
+	struct graphql_field *field1;
+	err = graphql_lexparse(j->buffer, ctx, &gql_tokens, &doc);
+	assert(err == NULL);
+	field1 = doc->first_def->op_def->sel_set->first->field;
+	convert_args_to_paramtokens(field1, ctx, &j->toks);
 
-      again:
-	jsmn_init(&parser);
-	int ret = jsmn_parse(&parser, j->buffer, strlen(j->buffer), j->toks,
-			     tal_count(j->toks));
-	if (ret == JSMN_ERROR_NOMEM) {
-		tal_resize(&j->toks, tal_count(j->toks) * 2);
-		goto again;
-	}
-
-	if (ret <= 0) {
-		assert(0);
-	}
 	return j;
 }
 
 static void zero_params(void)
 {
-	struct json *j = json_parse(cmd, "{}");
-	assert(param(cmd, j->buffer, j->toks, NULL));
-
-	j = json_parse(cmd, "[]");
+	struct json *j = gql_parse(cmd, "{f}");
 	assert(param(cmd, j->buffer, j->toks, NULL));
 }
 
@@ -178,22 +178,18 @@ struct sanity {
 
 struct sanity buffers[] = {
 	// pass
-	{"['42', '3.15']", false, 42, 3150000, NULL},
-	{"{ 'u64' : '42', 'fp' : '3.15' }", false, 42, 3150000, NULL},
+	{"{ f(u64 : 42, fp : 3.15) }", false, 42, 3150000, NULL},
 
 	// fail
-	{"{'u64':'42', 'fp':'3.15', 'extra':'stuff'}", true, 0, 0,
+	{"{f(u64:42, fp:3.15, extra:'stuff')}", true, 0, 0,
 	 "unknown parameter"},
-	{"['42', '3.15', 'stuff']", true, 0, 0, "too many"},
-	{"['42', '3.15', 'null']", true, 0, 0, "too many"},
 
 	// not enough
-	{"{'u64':'42'}", true, 0, 0, "missing required"},
-	{"['42']", true, 0, 0, "missing required"},
+	{"{f(u64:42)}", true, 0, 0, "missing required"},
 
 	// fail wrong type
-	{"{'u64':'hello', 'fp':'3.15'}", true, 0, 0, "be an unsigned 64"},
-	{"['3.15', '3.15', 'stuff']", true, 0, 0, "integer"},
+	{"{f(u64:'hello', fp:3.15)}", true, 0, 0, "be an unsigned 64"},
+	{"{f(u64:3.15, fp:3.15, extra:'stuff')}", true, 0, 0, "integer"},
 };
 
 static void stest(const struct json *j, struct sanity *b)
@@ -220,7 +216,7 @@ static void stest(const struct json *j, struct sanity *b)
 static void sanity(void)
 {
 	for (int i = 0; i < ARRAY_SIZE(buffers); ++i) {
-		struct json *j = json_parse(cmd, buffers[i].str);
+		struct json *j = gql_parse(cmd, buffers[i].str);
 		assert(j->toks->type == JSMN_OBJECT
 		       || j->toks->type == JSMN_ARRAY);
 		stest(j, &buffers[i]);
@@ -236,7 +232,7 @@ static void tok_tok(void)
 	{
 		unsigned int n;
 		const jsmntok_t *tok = NULL;
-		struct json *j = json_parse(cmd, "{ 'satoshi': '546' }");
+		struct json *j = gql_parse(cmd, "{ f(satoshi: 546) }");
 
 		assert(param(cmd, j->buffer, j->toks,
 			     p_req("satoshi", param_tok, &tok), NULL));
@@ -249,7 +245,7 @@ static void tok_tok(void)
 		/* make sure it is *not* NULL */
 		const jsmntok_t *tok = (const jsmntok_t *) 65535;
 
-		struct json *j = json_parse(cmd, "{}");
+		struct json *j = gql_parse(cmd, "{f}");
 		assert(param(cmd, j->buffer, j->toks,
 			     p_opt("satoshi", param_tok, &tok), NULL));
 
@@ -262,8 +258,8 @@ static void tok_tok(void)
 static void dup_names(void)
 {
 	struct json *j =
-		json_parse(cmd,
-			   "{ 'u64' : '42', 'u64' : '43', 'fp' : '3.15' }");
+		gql_parse(cmd,
+			  "{ f(u64 : 42, u64 : 43, fp : 3.15) }");
 
 	u64 *i;
 	u64 *fp;
@@ -277,16 +273,16 @@ static void null_params(void)
 	uint64_t **intptrs = tal_arr(cmd, uint64_t *, 7);
 	/* no null params */
 	struct json *j =
-	    json_parse(cmd, "[ '10', '11', '12', '13', '14', '15', '16']");
+	    gql_parse(cmd, "{ f(a:10, b:11, c:12, d:13, e:14, f:15, g:16) }");
 
 	assert(param(cmd, j->buffer, j->toks,
-		     p_req("0", param_u64, &intptrs[0]),
-		     p_req("1", param_u64, &intptrs[1]),
-		     p_req("2", param_u64, &intptrs[2]),
-		     p_req("3", param_u64, &intptrs[3]),
-		     p_opt_def("4", param_u64, &intptrs[4], 999),
-		     p_opt("5", param_u64, &intptrs[5]),
-		     p_opt("6", param_u64, &intptrs[6]),
+		     p_req("a", param_u64, &intptrs[0]),
+		     p_req("b", param_u64, &intptrs[1]),
+		     p_req("c", param_u64, &intptrs[2]),
+		     p_req("d", param_u64, &intptrs[3]),
+		     p_opt_def("e", param_u64, &intptrs[4], 999),
+		     p_opt("f", param_u64, &intptrs[5]),
+		     p_opt("g", param_u64, &intptrs[6]),
 		     NULL));
 	for (int i = 0; i < tal_count(intptrs); ++i) {
 		assert(intptrs[i]);
@@ -294,15 +290,15 @@ static void null_params(void)
 	}
 
 	/* missing at end */
-	j = json_parse(cmd, "[ '10', '11', '12', '13', '14']");
+	j = gql_parse(cmd, "{ f(a:10, b:11, c:12, d:13, e:14) }");
 	assert(param(cmd, j->buffer, j->toks,
-		     p_req("0", param_u64, &intptrs[0]),
-		     p_req("1", param_u64, &intptrs[1]),
-		     p_req("2", param_u64, &intptrs[2]),
-		     p_req("3", param_u64, &intptrs[3]),
-		     p_opt("4", param_u64, &intptrs[4]),
-		     p_opt("5", param_u64, &intptrs[5]),
-		     p_opt_def("6", param_u64, &intptrs[6], 888),
+		     p_req("a", param_u64, &intptrs[0]),
+		     p_req("b", param_u64, &intptrs[1]),
+		     p_req("c", param_u64, &intptrs[2]),
+		     p_req("d", param_u64, &intptrs[3]),
+		     p_opt("e", param_u64, &intptrs[4]),
+		     p_opt("f", param_u64, &intptrs[5]),
+		     p_opt_def("g", param_u64, &intptrs[6], 888),
 		     NULL));
 	assert(*intptrs[0] == 10);
 	assert(*intptrs[1] == 11);
@@ -315,10 +311,10 @@ static void null_params(void)
 
 static void no_params(void)
 {
-	struct json *j = json_parse(cmd, "[]");
+	struct json *j = gql_parse(cmd, "{f}");
 	assert(param(cmd, j->buffer, j->toks, NULL));
 
-	j = json_parse(cmd, "[ 'unexpected' ]");
+	j = gql_parse(cmd, "{ f(arg:'unexpected') }");
 	assert(!param(cmd, j->buffer, j->toks, NULL));
 }
 
@@ -332,7 +328,7 @@ static void bad_programmer(void)
 	u64 *ival;
 	u64 *ival2;
 	u64 *fpval;
-	struct json *j = json_parse(cmd, "[ '25', '546', '26' ]");
+	struct json *j = gql_parse(cmd, "{ f(a:25, b:546, c:26) }");
 
 	/* check for repeated names */
 	assert(!param(cmd, j->buffer, j->toks,
@@ -369,7 +365,7 @@ static void bad_programmer(void)
 	assert(strstr(fail_msg, "developer error"));
 
 	/* Add required param after optional */
-	j = json_parse(cmd, "[ '25', '546', '26', '1.1' ]");
+	j = gql_parse(cmd, "{ f(u64:25, fp:546, msatoshi:26, riskfactor:1.1) }");
 	unsigned int *msatoshi;
 	u64 *riskfactor_millionths;
 	assert(!param(
@@ -386,17 +382,14 @@ static void bad_programmer(void)
 #endif
 
 static void add_members(struct param **params,
-			char **obj,
-			char **arr, unsigned int **ints)
+			char **obj, unsigned int **ints)
 {
 	for (int i = 0; i < tal_count(ints); ++i) {
-		const char *name = tal_fmt(*params, "%i", i);
+		const char *name = tal_fmt(*params, "a%i", i);
 		if (i != 0) {
 			tal_append_fmt(obj, ", ");
-			tal_append_fmt(arr, ", ");
 		}
-		tal_append_fmt(obj, "\"%i\" : %i", i, i);
-		tal_append_fmt(arr, "%i", i);
+		tal_append_fmt(obj, "a%i : %i", i, i);
 		param_add(params, name, true,
 			  typesafe_cb_preargs(struct command_result *, void **,
 					      param_number,
@@ -418,14 +411,11 @@ static void five_hundred_params(void)
 	struct param *params = tal_arr(NULL, struct param, 0);
 
 	unsigned int **ints = tal_arr(params, unsigned int*, 500);
-	char *obj = tal_fmt(params, "{ ");
-	char *arr = tal_fmt(params, "[ ");
-	add_members(&params, &obj, &arr, ints);
-	tal_append_fmt(&obj, "}");
-	tal_append_fmt(&arr, "]");
+	char *obj = tal_fmt(params, "{ f(");
+	add_members(&params, &obj, ints);
+	tal_append_fmt(&obj, ") }");
 
-	/* first test object version */
-	struct json *j = json_parse(params, obj);
+	struct json *j = gql_parse(params, obj);
 	assert(param_arr(cmd, j->buffer, j->toks, params, false) == NULL);
 	for (int i = 0; i < tal_count(ints); ++i) {
 		assert(ints[i]);
@@ -433,19 +423,12 @@ static void five_hundred_params(void)
 		*ints[i] = 65535;
 	}
 
-	/* now test array */
-	j = json_parse(params, arr);
-	assert(param_arr(cmd, j->buffer, j->toks, params, false) == NULL);
-	for (int i = 0; i < tal_count(ints); ++i) {
-		assert(*ints[i] == i);
-	}
-
 	tal_free(params);
 }
 
 static void sendpay(void)
 {
-	struct json *j = json_parse(cmd, "[ 'A', '123', 'hello there' '547']");
+	struct json *j = gql_parse(cmd, "{ f(route:'A', cltv:123, note:'hello there' msatoshi:547) }");
 
 	const jsmntok_t *routetok, *note;
 	u64 *msatoshi;
@@ -468,7 +451,7 @@ static void sendpay(void)
 
 static void sendpay_nulltok(void)
 {
-	struct json *j = json_parse(cmd, "[ 'A', '123']");
+	struct json *j = gql_parse(cmd, "{ f(route:'A', cltv:123) }");
 
 	const jsmntok_t *routetok, *note = (void *) 65535;
 	u64 *msatoshi;
@@ -489,7 +472,7 @@ static void sendpay_nulltok(void)
 static void advanced(void)
 {
 	{
-		struct json *j = json_parse(cmd, "[ 'lightning', 24, 'tok', 543 ]");
+		struct json *j = gql_parse(cmd, "{ f(description:'lightning', msat:24, tok:'tok', msat_opt1:543) }");
 
 		struct json_escape *label;
 		u64 *msat;
@@ -512,7 +495,7 @@ static void advanced(void)
 		assert(msat_opt2 == NULL);
 	}
 	{
-		struct json *j = json_parse(cmd, "[ 3, 'foo' ]");
+		struct json *j = gql_parse(cmd, "{ f(label:3, foo:'foo') }");
 		struct json_escape *label, *foo;
 		assert(param(cmd, j->buffer, j->toks,
 			      p_req("label", param_label, &label),
@@ -524,7 +507,7 @@ static void advanced(void)
 	{
 		u64 *msat;
 		u64 *msat2;
-		struct json *j = json_parse(cmd, "[ 3 ]");
+		struct json *j = gql_parse(cmd, "{ f(msat:3) }");
 		assert(param(cmd, j->buffer, j->toks,
 			      p_opt_def("msat", param_u64, &msat, 23),
 			      p_opt_def("msat2", param_u64, &msat2, 53),
@@ -538,7 +521,7 @@ static void advanced(void)
 static void advanced_fail(void)
 {
 	{
-		struct json *j = json_parse(cmd, "[ 'anyx' ]");
+		struct json *j = gql_parse(cmd, "{ f(msat:'anyx') }");
 		u64 *msat;
 		assert(!param(cmd, j->buffer, j->toks,
 			      p_req("msat", param_u64, &msat),
@@ -550,9 +533,9 @@ static void advanced_fail(void)
 
 #define test_cb(cb, T, json_, value, pass) \
 { \
-	struct json *j = json_parse(cmd, json_); \
+	struct json *j = gql_parse(cmd, json_); \
 	T *v; \
-	struct command_result *ret = cb(cmd, "name", j->buffer, j->toks + 1, &v); \
+	struct command_result *ret = cb(cmd, "name", j->buffer, j->toks + 2, &v); \
 	assert((ret == NULL) == pass);					\
 	if (ret == NULL) { \
 		assert(v); \
@@ -562,21 +545,21 @@ static void advanced_fail(void)
 
 static void param_tests(void)
 {
-	test_cb(param_bool, bool, "[ true ]", true, true);
-	test_cb(param_bool, bool, "[ false ]", false, true);
-	test_cb(param_bool, bool, "[ tru ]", false, false);
-	test_cb(param_bool, bool, "[ 1 ]", false, false);
+	test_cb(param_bool, bool, "{ f(n:true) }", true, true);
+	test_cb(param_bool, bool, "{ f(n:false) }", false, true);
+	test_cb(param_bool, bool, "{ f(n:tru) }", false, false);
+	test_cb(param_bool, bool, "{ f(n:1) }", false, false);
 
-	test_cb(param_millionths, u64, "[ -0.01 ]", 0, false);
-	test_cb(param_millionths, u64, "[ 0.00 ]", 0, true);
-	test_cb(param_millionths, u64, "[ 1 ]", 1000000, true);
-	test_cb(param_millionths, u64, "[ 1.1 ]", 1100000, true);
-	test_cb(param_millionths, u64, "[ 1.01 ]", 1010000, true);
-	test_cb(param_millionths, u64, "[ 99.99 ]", 99990000, true);
-	test_cb(param_millionths, u64, "[ 100.0 ]", 100000000, true);
-	test_cb(param_millionths, u64, "[ 100.001 ]", 100001000, true);
-	test_cb(param_millionths, u64, "[ 1000 ]", 1000000000, true);
-	test_cb(param_millionths, u64, "[ 'wow' ]", 0, false);
+	test_cb(param_millionths, u64, "{ f(n:-0.01) }", 0, false);
+	test_cb(param_millionths, u64, "{ f(n:0.00) }", 0, true);
+	test_cb(param_millionths, u64, "{ f(n:1) }", 1000000, true);
+	test_cb(param_millionths, u64, "{ f(n:1.1) }", 1100000, true);
+	test_cb(param_millionths, u64, "{ f(n:1.01) }", 1010000, true);
+	test_cb(param_millionths, u64, "{ f(n:99.99) }", 99990000, true);
+	test_cb(param_millionths, u64, "{ f(n:100.0) }", 100000000, true);
+	test_cb(param_millionths, u64, "{ f(n:100.001) }", 100001000, true);
+	test_cb(param_millionths, u64, "{ f(n:1000) }", 1000000000, true);
+	test_cb(param_millionths, u64, "{ f(n:'wow') }", 0, false);
 }
 
 static void test_invoice(struct command *cmd,

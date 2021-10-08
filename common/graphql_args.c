@@ -46,7 +46,7 @@ static void convert_primitive_token(struct graphql_token *t, jsmntok_t *p)
 	p->size = 0;
 }
 
-void convert_args_to_paramtokens(struct graphql_field *field, void *ctx, jsmntok_t **params)
+void convert_args_to_paramtokens(struct graphql_field *field, const tal_t *ctx, jsmntok_t **params)
 {
 	int n = count_args(field);
 	struct graphql_argument *a;
