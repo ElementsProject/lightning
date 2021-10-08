@@ -19,6 +19,7 @@
 #define ERROR_USAGE 3
 
 static bool well_formed = true;
+bool deprecated_apis = true;
 
 /* Tal wrappers for opt. */
 static void *opt_allocfn(size_t size)
@@ -70,6 +71,12 @@ static void print_chains(const struct bitcoin_blkid *chains)
 		printf(" %s", type_to_string(tmpctx, struct bitcoin_blkid, &chains[i]));
 	}
 	printf("\n");
+}
+
+static void print_chain(const struct bitcoin_blkid *chain)
+{
+	printf("chain: %s\n",
+	       type_to_string(tmpctx, struct bitcoin_blkid, chain));
 }
 
 static bool print_amount(const struct bitcoin_blkid *chains,
@@ -532,8 +539,8 @@ int main(int argc, char *argv[])
 		if (!invreq)
 			errx(ERROR_BAD_DECODE, "Bad invoice_request: %s", fail);
 
-		if (invreq->chains)
-			print_chains(invreq->chains);
+		if (invreq->chain)
+			print_chain(invreq->chain);
 		if (must_have(invreq, payer_key))
 			print_payer_key(invreq->payer_key, invreq->payer_info);
 		if (invreq->payer_note)
@@ -541,7 +548,7 @@ int main(int argc, char *argv[])
 		if (must_have(invreq, offer_id))
 			print_offer_id(invreq->offer_id);
 		if (must_have(invreq, amount))
-			well_formed &= print_amount(invreq->chains,
+			well_formed &= print_amount(invreq->chain,
 						    NULL,
 						    *invreq->amount);
 		if (invreq->features)
@@ -569,14 +576,14 @@ int main(int argc, char *argv[])
 		if (!invoice)
 			errx(ERROR_BAD_DECODE, "Bad invoice: %s", fail);
 
-		if (invoice->chains)
-			print_chains(invoice->chains);
+		if (invoice->chain)
+			print_chain(invoice->chain);
 
 		if (invoice->offer_id) {
 			print_offer_id(invoice->offer_id);
 		}
 		if (must_have(invoice, amount))
-			well_formed &= print_amount(invoice->chains,
+			well_formed &= print_amount(invoice->chain,
 						    NULL,
 						    *invoice->amount);
 		if (must_have(invoice, description))

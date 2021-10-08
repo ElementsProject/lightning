@@ -369,10 +369,10 @@ struct command_result *handle_invoice(struct command *cmd,
 	 *   - MUST fail the request if `chains` does not include (or imply) a
 	 *     supported chain.
 	 */
-	if (!bolt12_chains_match(inv->inv->chains, chainparams)) {
+	if (!bolt12_chain_matches(inv->inv->chain, chainparams, inv->inv->chains)) {
 		return fail_inv(cmd, inv,
 				"Wrong chains %s",
-				tal_hex(tmpctx, inv->inv->chains));
+				tal_hex(tmpctx, inv->inv->chain));
 	}
 
 	/* BOLT-offers #12:
