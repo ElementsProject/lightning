@@ -139,9 +139,9 @@ static void print_description(const char *description)
 	       (int)tal_bytelen(description), description);
 }
 
-static void print_vendor(const char *vendor)
+static void print_issuer(const char *issuer)
 {
-	printf("vendor: %.*s\n", (int)tal_bytelen(vendor), vendor);
+	printf("issuer: %.*s\n", (int)tal_bytelen(issuer), issuer);
 }
 
 static void print_node_id(const struct point32 *node_id)
@@ -499,8 +499,8 @@ int main(int argc, char *argv[])
 						    *offer->amount);
 		if (must_have(offer, description))
 			print_description(offer->description);
-		if (offer->vendor)
-			print_vendor(offer->vendor);
+		if (offer->issuer)
+			print_issuer(offer->issuer);
 		if (must_have(offer, node_id))
 			print_node_id(offer->node_id);
 		if (offer->quantity_min)
@@ -589,8 +589,8 @@ int main(int argc, char *argv[])
 							  invoice->blindedpay);
 		} else
 			must_not_have(invoice, blindedpay);
-		if (invoice->vendor)
-			print_vendor(invoice->vendor);
+		if (invoice->issuer)
+			print_issuer(invoice->issuer);
 		if (must_have(invoice, node_id))
 			print_node_id(invoice->node_id);
 		if (invoice->quantity)

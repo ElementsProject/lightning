@@ -425,9 +425,14 @@ static void json_add_offer(struct json_stream *js, const struct tlv_offer *offer
 		valid = false;
 	}
 
-	if (offer->vendor)
-		json_add_stringn(js, "vendor", offer->vendor,
-				 tal_bytelen(offer->vendor));
+	if (offer->issuer) {
+		json_add_stringn(js, "issuer", offer->issuer,
+				 tal_bytelen(offer->issuer));
+		if (deprecated_apis) {
+			json_add_stringn(js, "vendor", offer->issuer,
+					 tal_bytelen(offer->issuer));
+		}
+	}
 	if (offer->features)
 		json_add_hex_talarr(js, "features", offer->features);
 	if (offer->absolute_expiry)
@@ -587,9 +592,14 @@ static void json_add_b12_invoice(struct json_stream *js,
 		valid = false;
 	}
 
-	if (invoice->vendor)
-		json_add_stringn(js, "vendor", invoice->vendor,
-				 tal_bytelen(invoice->vendor));
+	if (invoice->issuer) {
+		json_add_stringn(js, "issuer", invoice->issuer,
+				 tal_bytelen(invoice->issuer));
+		if (deprecated_apis) {
+			json_add_stringn(js, "vendor", invoice->issuer,
+					 tal_bytelen(invoice->issuer));
+		}
+	}
 	if (invoice->features)
 		json_add_hex_talarr(js, "features", invoice->features);
 	if (invoice->paths) {
@@ -858,14 +868,14 @@ static const struct plugin_command commands[] = {
 	    "offer",
 	    "payment",
 	    "Create an offer to accept money",
-            "Create an offer for invoices of {amount} with {description}, optional {vendor}, internal {label}, {quantity_min}, {quantity_max}, {absolute_expiry}, {recurrence}, {recurrence_base}, {recurrence_paywindow}, {recurrence_limit} and {single_use}",
+            "Create an offer for invoices of {amount} with {description}, optional {issuer}, internal {label}, {quantity_min}, {quantity_max}, {absolute_expiry}, {recurrence}, {recurrence_base}, {recurrence_paywindow}, {recurrence_limit} and {single_use}",
             json_offer
     },
     {
 	    "offerout",
 	    "payment",
 	    "Create an offer to send money",
-            "Create an offer to pay invoices of {amount} with {description}, optional {vendor}, internal {label}, {absolute_expiry} and {refund_for}",
+            "Create an offer to pay invoices of {amount} with {description}, optional {issuer}, internal {label}, {absolute_expiry} and {refund_for}",
             json_offerout
     },
     {

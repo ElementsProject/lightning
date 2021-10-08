@@ -329,18 +329,18 @@ static struct command_result *handle_invreq_response(struct command *cmd,
 	}
 
 	/* BOLT-offers #12:
-	 * - SHOULD confirm authorization if `vendor` does not exactly
+	 * - SHOULD confirm authorization if `issuer` does not exactly
 	 *   match the `offer`
 	 */
-	if (field_diff(sent->offer, inv, vendor)) {
-		if (!inv->vendor)
-			json_add_stringn(out, "vendor_removed",
-					 sent->offer->vendor,
-					 tal_bytelen(sent->offer->vendor));
+	if (field_diff(sent->offer, inv, issuer)) {
+		if (!inv->issuer)
+			json_add_stringn(out, "issuer_removed",
+					 sent->offer->issuer,
+					 tal_bytelen(sent->offer->issuer));
 		else
-			json_add_stringn(out, "vendor",
-					 inv->vendor,
-					 tal_bytelen(inv->vendor));
+			json_add_stringn(out, "issuer",
+					 inv->issuer,
+					 tal_bytelen(inv->issuer));
 	}
 	/* BOLT-offers #12:
 	 *   - SHOULD confirm authorization if `msat` is not within the amount
