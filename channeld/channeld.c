@@ -157,9 +157,6 @@ struct peer {
 	/* Make sure timestamps move forward. */
 	u32 last_update_timestamp;
 
-	/* Make sure peer is live. */
-	struct timeabs last_recv;
-
 	/* Additional confirmations need for local lockin. */
 	u32 depth_togo;
 
@@ -1092,27 +1089,6 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 	return htlc_sigs;
 }
 
-/* Have we received something from peer recently? */
-static bool peer_recently_active(struct peer *peer)
-{
-	return time_less(time_between(time_now(), peer->last_recv),
-			 time_from_sec(30));
-}
-
-static void maybe_send_ping(struct peer *peer)
-{
-	/* Already have a ping in flight? */
-	if (peer->expecting_pong)
-		return;
-
-	if (peer_recently_active(peer))
-		return;
-
-	/* Send a ping to try to elicit a receive. */
-	sync_crypto_write_no_delay(peer->pps, take(make_ping(NULL, 1, 0)));
-	peer->expecting_pong = true;
-}
-
 /* Peer protocol doesn't want sighash flags. */
 static secp256k1_ecdsa_signature *raw_sigs(const tal_t *ctx,
 					   const struct bitcoin_signature *sigs)
@@ -1273,14 +1249,6 @@ static void send_commit(struct peer *peer)
 		return;
 	}
 
-	/* If we haven't received a packet for > 30 seconds, delay. */
-	if (!peer_recently_active(peer)) {
-		/* Mark this as done and try again. */
-		peer->commit_timer = NULL;
-		start_commit_timer(peer);
-		return;
-	}
-
 	/* If we wanted to update fees, do it now. */
 	if (want_fee_update(peer, &feerate_target)) {
 		/* FIXME: We occasionally desynchronize with LND here, so
@@ -1390,9 +1358,6 @@ static void send_commit(struct peer *peer)
 
 static void start_commit_timer(struct peer *peer)
 {
-	/* We should send a ping now if we need a liveness check. */
-	maybe_send_ping(peer);
-
 	/* Already armed? */
 	if (peer->commit_timer)
 		return;
@@ -2160,8 +2125,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	 * otherwise we can't cancel a channel before it has opened.
 	 */
 	bool soft_error = peer->funding_locked[REMOTE] || peer->funding_locked[LOCAL];
-
-	peer->last_recv = time_now();
 
 	/* Catch our own ping replies. */
 	if (type == WIRE_PONG && peer->expecting_pong) {
@@ -3828,8 +3791,6 @@ int main(int argc, char *argv[])
 	peer->shutdown_sent[LOCAL] = false;
 	peer->shutdown_wrong_funding = NULL;
 	peer->last_update_timestamp = 0;
-	/* We actually received it in the previous daemon, but near enough */
-	peer->last_recv = time_now();
 	peer->last_empty_commitment = 0;
 #if EXPERIMENTAL_FEATURES
 	peer->stfu = false;
