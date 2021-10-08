@@ -4748,7 +4748,7 @@ static void db_bind_datastore_key(struct db_stmt *stmt,
 	size_t len;
 
 	if (tal_count(key) == 1) {
-		db_bind_text(stmt, pos, key[0]);
+		db_bind_blob(stmt, pos, (u8 *)key[0], strlen(key[0]));
 		return;
 	}
 
