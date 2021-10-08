@@ -154,6 +154,70 @@ def test_announce_address(node_factory, bitcoind):
     assert addresses_dns[1]['port'] == 1236
 
 
+@pytest.mark.developer("gossip without DEVELOPER=1 is slow")
+def test_announce_and_connect_via_dns(node_factory, bitcoind):
+    """ Test that DNS annoucements propagate and can be used when connecting.
+
+        - First node announces only a FQDN like 'localhost.localdomain'.
+        - Second node gets a channel with first node.
+        - Third node just connects to second node.
+        - Fourth node with DNS disabled also connects to second node.
+        - Wait for gossip so third and fourth node sees first node.
+        - Third node must be able to 'resolve' 'localhost.localdomain'
+          and connect to first node.
+        - Fourth node must not be able to connect because he has disabled DNS.
+
+        Notes:
+        - --disable-dns is needed so the first node does not announce 127.0.0.1 itself.
+        - 'dev-allow-localhost' must not be set, so it does not resolve localhost anyway.
+    """
+    opts1 = {'disable-dns': None,
+             'announce-addr': ['localhost.localdomain:12345'],  # announce dns
+             'bind-addr': ['127.0.0.1:12345', '[::1]:12345']}   # and bind local IPs
+    opts3 = {'may_reconnect': True}
+    opts4 = {'disable-dns': None}
+    l1, l2, l3, l4 = node_factory.get_nodes(4, opts=[opts1, {}, opts3, opts4])
+
+    # In order to enable DNS on a pyln testnode we need to delete the
+    # 'disable-dns' opt (which is added by pyln test utils) and restart it.
+    del l3.daemon.opts['disable-dns']
+    l3.restart()
+
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    l4.rpc.connect(l2.info['id'], 'localhost', l2.port)
+    scid, _ = l1.fundchannel(l2, 10**6)
+    bitcoind.generate_block(5)
+
+    # wait until l3 and l4 see l1 via gossip with announced addresses
+    wait_for(lambda: len(l3.rpc.listnodes(l1.info['id'])['nodes']) == 1)
+    wait_for(lambda: len(l4.rpc.listnodes(l1.info['id'])['nodes']) == 1)
+    wait_for(lambda: 'addresses' in l3.rpc.listnodes(l1.info['id'])['nodes'][0])
+    wait_for(lambda: 'addresses' in l4.rpc.listnodes(l1.info['id'])['nodes'][0])
+    addresses = l3.rpc.listnodes(l1.info['id'])['nodes'][0]['addresses']
+    assert(len(addresses) == 1)  # no other addresses must be announced for this
+    assert(addresses[0]['type'] == 'dns')
+    assert(addresses[0]['address'] == 'localhost.localdomain')
+    assert(addresses[0]['port'] == 12345)
+
+    # now l3 must be able to use DNS to resolve and connect to l1
+    result = l3.rpc.connect(l1.info['id'])
+    assert result['id'] == l1.info['id']
+    assert result['direction'] == 'out'
+    assert result['address']['port'] == 12345
+    if result['address']['type'] == 'ipv4':
+        assert result['address']['address'] == '127.0.0.1'
+    elif result['address']['type'] == 'ipv6':
+        assert result['address']['address'] == '::1'
+    else:
+        assert False
+
+    # l4 however must not be able to connect because he used '--disable-dns'
+    # This raises RpcError code 401, currently with an empty error message.
+    with pytest.raises(RpcError, match=r"401"):
+        l4.rpc.connect(l1.info['id'])
+
+
 @pytest.mark.developer("needs DEVELOPER=1")
 def test_gossip_timestamp_filter(node_factory, bitcoind, chainparams):
     # Updates get backdated 5 seconds with --dev-fast-gossip.
