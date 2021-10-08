@@ -103,6 +103,11 @@ bool bolt12_check_signature(const struct tlv_field *fields,
 bool bolt12_chains_match(const struct bitcoin_blkid *chains,
 			 const struct chainparams *must_be_chain);
 
+/* Given a single bolt12 chain, does it match?  (NULL == bitcoin) */
+bool bolt12_chain_matches(const struct bitcoin_blkid *chain,
+			  const struct chainparams *must_be_chain,
+			  const struct bitcoin_blkid *deprecated_chains);
+
 /* Given a basetime, when does period N start? */
 u64 offer_period_start(u64 basetime, size_t n,
 		       const struct tlv_offer_recurrence *recurrence);

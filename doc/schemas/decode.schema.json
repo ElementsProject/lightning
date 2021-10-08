@@ -282,15 +282,11 @@
 			"type": "bip340sig",
 			"description": "BIP-340 signature of the *node_id* on this offer"
 		    },
-		    "chains": {
-			"type": "array",
-			"description": "which blockchains this offer is for (missing implies bitcoin mainnet only)",
-			"items": {
-			    "type": "hex",
-			    "description": "the genesis blockhash",
-			    "maxLength": 64,
-			    "minLength": 64
-			}
+		    "chain": {
+			"type": "hex",
+			"description": "which blockchain this invoice is for (missing implies bitcoin mainnet only)",
+			"maxLength": 64,
+			"minLength": 64
 		    },
 		    "amount_msat": {
 			"type": "msat",
@@ -450,7 +446,7 @@
 		    "offer_id": { },
 		    "node_id": { },
 		    "signature": { },
-		    "chains": { },
+		    "chain": { },
 		    "amount_msat": { },
 		    "send_invoice": { },
 		    "refund_for": { },
@@ -551,19 +547,15 @@
 		    "valid": { },
 		    "offer_id": {
 			"type": "hex",
-			"description": "the id of this offer (merkle hash of non-signature fields)",
+			"description": "the id of the offer this is requesting (merkle hash of non-signature fields)",
 			"maxLength": 64,
 			"minLength": 64
 		    },
-		    "chains": {
-			"type": "array",
-			"description": "which blockchains this offer is for (missing implies bitcoin mainnet only)",
-			"items": {
-			    "type": "hex",
-			    "description": "the genesis blockhash",
-			    "maxLength": 64,
-			    "minLength": 64
-			}
+		    "chain": {
+			"type": "hex",
+			"description": "which blockchain this invoice_request is for (missing implies bitcoin mainnet only)",
+			"maxLength": 64,
+			"minLength": 64
 		    },
 		    "amount_msat": {
 			"type": "msat",
@@ -620,7 +612,7 @@
 		    "type": { },
 		    "valid": { },
 		    "offer_id": { },
-		    "chains": { },
+		    "chain": { },
 		    "amount_msat": { },
 		    "features": { },
 		    "quantity": { },

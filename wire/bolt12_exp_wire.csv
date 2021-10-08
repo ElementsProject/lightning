@@ -44,6 +44,8 @@ subtypedata,blinded_path,num_hops,byte,
 subtypedata,blinded_path,path,onionmsg_path,num_hops
 tlvtype,invoice_request,chains,2
 tlvdata,invoice_request,chains,chains,chain_hash,...
+tlvtype,invoice_request,chain,3
+tlvdata,invoice_request,chain,chain,chain_hash,
 tlvtype,invoice_request,offer_id,4
 tlvdata,invoice_request,offer_id,offer_id,sha256,
 tlvtype,invoice_request,amount,8
@@ -68,6 +70,8 @@ tlvtype,invoice_request,payer_signature,240
 tlvdata,invoice_request,payer_signature,sig,bip340sig,
 tlvtype,invoice,chains,2
 tlvdata,invoice,chains,chains,chain_hash,...
+tlvtype,invoice,chain,3
+tlvdata,invoice,chain,chain,chain_hash,
 tlvtype,invoice,offer_id,4
 tlvdata,invoice,offer_id,offer_id,sha256,
 tlvtype,invoice,amount,8

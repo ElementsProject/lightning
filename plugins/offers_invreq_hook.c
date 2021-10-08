@@ -758,9 +758,14 @@ static struct command_result *listoffers_done(struct command *cmd,
 	 *     - MUST specify `chains` the offer is valid for.
 	 */
 	if (!streq(chainparams->network_name, "bitcoin")) {
-		ir->inv->chains = tal_arr(ir->inv, struct bitcoin_blkid, 1);
-		ir->inv->chains[0] = chainparams->genesis_blockhash;
+		if (deprecated_apis) {
+			ir->inv->chains = tal_arr(ir->inv, struct bitcoin_blkid, 1);
+			ir->inv->chains[0] = chainparams->genesis_blockhash;
+		}
+		ir->inv->chain = tal_dup(ir->inv, struct bitcoin_blkid,
+					 &chainparams->genesis_blockhash);
 	}
+
 	/* BOLT-offers #12:
 	 *   - MUST set `offer_id` to the id of the offer.
 	 */
@@ -883,10 +888,11 @@ struct command_result *handle_invoice_request(struct command *cmd,
 	 *   - MUST fail the request if `chains` does not include (or imply) a
 	 *     supported chain.
 	 */
-	if (!bolt12_chains_match(ir->invreq->chains, chainparams)) {
+	if (!bolt12_chain_matches(ir->invreq->chain, chainparams,
+				  ir->invreq->chains)) {
 		return fail_invreq(cmd, ir,
-				   "Wrong chains %s",
-				   tal_hex(tmpctx, ir->invreq->chains));
+				   "Wrong chain %s",
+				   tal_hex(tmpctx, ir->invreq->chain));
 	}
 
 	/* BOLT-offers #12:

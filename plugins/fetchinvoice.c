@@ -1395,8 +1395,12 @@ static struct command_result *json_fetchinvoice(struct command *cmd,
 	 *   - the bitcoin chain is implied as the first and only entry.
 	 */
 	if (!streq(chainparams->network_name, "bitcoin")) {
-		invreq->chains = tal_arr(invreq, struct bitcoin_blkid, 1);
-		invreq->chains[0] = chainparams->genesis_blockhash;
+		if (deprecated_apis) {
+			invreq->chains = tal_arr(invreq, struct bitcoin_blkid, 1);
+			invreq->chains[0] = chainparams->genesis_blockhash;
+		}
+		invreq->chain = tal_dup(invreq, struct bitcoin_blkid,
+					&chainparams->genesis_blockhash);
 	}
 
 	invreq->features
@@ -1790,8 +1794,12 @@ static struct command_result *json_sendinvoice(struct command *cmd,
 	 *   - the bitcoin chain is implied as the first and only entry.
 	 */
 	if (!streq(chainparams->network_name, "bitcoin")) {
-		sent->inv->chains = tal_arr(sent->inv, struct bitcoin_blkid, 1);
-		sent->inv->chains[0] = chainparams->genesis_blockhash;
+		if (deprecated_apis) {
+			sent->inv->chains = tal_arr(sent->inv, struct bitcoin_blkid, 1);
+			sent->inv->chains[0] = chainparams->genesis_blockhash;
+		}
+		sent->inv->chain = tal_dup(sent->inv, struct bitcoin_blkid,
+					   &chainparams->genesis_blockhash);
 	}
 
 	sent->inv->features
