@@ -7,7 +7,7 @@ SYNOPSIS
 **(WARNING: experimental-offers only)**
 
 
-**offerout** *amount* *description* \[*vendor*\] \[*label*\] \[*absolute_expiry*\] \[*refund_for*\]
+**offerout** *amount* *description* \[*issuer*\] \[*label*\] \[*absolute_expiry*\] \[*refund_for*\]
 
 DESCRIPTION
 -----------
@@ -34,7 +34,7 @@ e.g. *withdrawl from ATM*. This value is encoded into the resulting offer and is
 viewable by anyone you expose this offer to. It must be UTF-8, and
 cannot use *\\u* JSON escape codes.
 
-The *vendor* is another (optional) field exposed in the offer, and
+The *issuer* is another (optional) field exposed in the offer, and
 reflects who is issuing this offer (i.e. you) if appropriate.
 
 The *label* field is an internal-use name for the offer, which can

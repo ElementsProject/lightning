@@ -3984,16 +3984,16 @@ def test_offer(node_factory, bitcoind):
                                       offer['bolt12']]).decode('UTF-8')
     assert 'description: ' + weird_desc in output
 
-    # Test vendor
-    weird_vendor = 'description \\ " \t \n ナンセンス 1杯'
+    # Test issuer
+    weird_issuer = 'description \\ " \t \n ナンセンス 1杯'
     ret = l1.rpc.call('offer', {'amount': '100000sat',
-                                'description': 'vendor test',
-                                'vendor': weird_vendor})
+                                'description': 'issuer test',
+                                'issuer': weird_issuer})
     offer = only_one(l1.rpc.call('listoffers', [ret['offer_id']])['offers'])
 
     output = subprocess.check_output([bolt12tool, 'decode',
                                       offer['bolt12']]).decode('UTF-8')
-    assert 'vendor: ' + weird_vendor in output
+    assert 'issuer: ' + weird_issuer in output
 
     # Test quantity min/max
     ret = l1.rpc.call('offer', {'amount': '100000sat',
@@ -4508,16 +4508,16 @@ def do_test_sendinvoice(node_factory, bitcoind, disable):
                                 'label': 'test sendinvoice refund'})
     wait_for(lambda: only_one(l2.rpc.call('listoffers', [refund['offer_id']])['offers'])['used'] is True)
 
-    # Offer with vendor: we must not copy vendor into our invoice!
+    # Offer with issuer: we must not copy issuer into our invoice!
     offer = l1.rpc.call('offerout', {'amount': '10000sat',
                                      'description': 'simple test',
-                                     'vendor': "clightning test suite"})
+                                     'issuer': "clightning test suite"})
 
     out = l2.rpc.call('sendinvoice', {'offer': offer['bolt12'],
                                       'label': 'test sendinvoice 3'})
     assert out['label'] == 'test sendinvoice 3'
     assert out['description'] == 'simple test'
-    assert 'vendor' not in out
+    assert 'issuer' not in out
     assert 'bolt12' in out
     assert 'payment_hash' in out
     assert out['status'] == 'paid'

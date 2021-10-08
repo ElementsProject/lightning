@@ -774,7 +774,7 @@ static struct command_result *listoffers_done(struct command *cmd,
 				       ->bits[BOLT11_FEATURE]);
 	/* FIXME: Insert paths and payinfo */
 
-	ir->inv->vendor = tal_dup_talarr(ir->inv, char, ir->offer->vendor);
+	ir->inv->issuer = tal_dup_talarr(ir->inv, char, ir->offer->issuer);
 	ir->inv->node_id = tal_dup(ir->inv, struct point32, ir->offer->node_id);
 	/* BOLT-offers #12:
 	 *  - MUST set (or not set) `quantity` exactly as the invoice_request

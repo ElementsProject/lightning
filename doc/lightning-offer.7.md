@@ -6,7 +6,7 @@ SYNOPSIS
 
 **(WARNING: experimental-offers only)**
 
-**offer** *amount* *description* \[*vendor*\] \[*label*\] \[*quantity_min*\] \[*quantity_max*\] \[*absolute_expiry*\] \[*recurrence*\] \[*recurrence_base*\] \[*recurrence_paywindow*\] \[*recurrence_limit*\] \[*single_use*\]
+**offer** *amount* *description* \[*issuer*\] \[*label*\] \[*quantity_min*\] \[*quantity_max*\] \[*absolute_expiry*\] \[*recurrence*\] \[*recurrence_base*\] \[*recurrence_paywindow*\] \[*recurrence_limit*\] \[*single_use*\]
 
 DESCRIPTION
 -----------
@@ -37,7 +37,7 @@ e.g. *coffee*. This value is encoded into the resulting offer and is
 viewable by anyone you expose this offer to. It must be UTF-8, and
 cannot use *\\u* JSON escape codes.
 
-The *vendor* is another (optional) field exposed in the offer, and
+The *issuer* is another (optional) field exposed in the offer, and
 reflects who is issuing this offer (i.e. you) if appropriate.
 
 The *label* field is an internal-use name for the offer, which can
