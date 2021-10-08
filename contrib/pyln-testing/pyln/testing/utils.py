@@ -961,7 +961,7 @@ class LightningNode(object):
                                   + ['Received channel_update for channel {}/1'.format(c)
                                      for c in scids])
 
-    def wait_for_route(self, destination, timeout=30):
+    def wait_for_route(self, destination, timeout=TIMEOUT):
         """ Wait for a route to the destination to become available.
         """
         start_time = time.time()
