@@ -23,6 +23,7 @@ common/test/run-sphinx: wire/onion$(EXP)_wiregen.o wire/towire.o wire/fromwire.o
 common/test/run-blindedpath_enctlv: wire/onion$(EXP)_wiregen.o wire/towire.o wire/fromwire.o wire/tlvstream.o
 
 common/test/run-param					\
+common/test/run-param-graphql				\
 common/test/run-json:					\
 	common/amount.o					\
 	common/base32.o					\
