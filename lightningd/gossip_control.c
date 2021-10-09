@@ -14,7 +14,6 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/jsonrpc.h>
 #include <lightningd/onion_message.h>
-#include <lightningd/ping.h>
 
 static void got_txout(struct bitcoind *bitcoind,
 		      const struct bitcoin_tx_output *output,

@@ -49,6 +49,15 @@
 #define MASTER_FD STDIN_FILENO
 #define HSM_FD 6
 
+enum pong_expect_type {
+	/* We weren't expecting a ping reply */
+	PONG_UNEXPECTED = 0,
+	/* We were expecting a ping reply due to ping command */
+	PONG_EXPECTED_COMMAND = 1,
+	/* We were expecting a ping reply due to ping timer */
+	PONG_EXPECTED_PROBING = 2,
+};
+
 struct peer {
 	struct per_peer_state *pps;
 	bool funding_locked[NUM_SIDES];
@@ -104,7 +113,7 @@ struct peer {
 	struct oneshot *ping_timer;
 
 	/* Are we expecting a pong? */
-	bool expecting_pong;
+	enum pong_expect_type expecting_pong;
 
 	/* The feerate we want. */
 	u32 desired_feerate;
@@ -1105,13 +1114,13 @@ static void set_ping_timer(struct peer *peer)
 static void send_ping(struct peer *peer)
 {
 	/* Already have a ping in flight? */
-	if (peer->expecting_pong) {
+	if (peer->expecting_pong != PONG_UNEXPECTED) {
 		status_debug("Last ping unreturned: hanging up");
 		exit(0);
 	}
 
 	sync_crypto_write_no_delay(peer->pps, take(make_ping(NULL, 1, 0)));
-	peer->expecting_pong = true;
+	peer->expecting_pong = PONG_EXPECTED_PROBING;
 	set_ping_timer(peer);
 }
 
@@ -2143,6 +2152,29 @@ static void handle_unexpected_reestablish(struct peer *peer, const u8 *msg)
 				       &channel_id));
 }
 
+static void handle_ping_reply(struct peer *peer, const u8 *msg)
+{
+	u8 *ignored;
+	size_t i;
+
+	/* We print this out because we asked for pong, so can't spam us... */
+	if (!fromwire_pong(msg, msg, &ignored))
+		status_unusual("Got malformed ping reply %s",
+			       tal_hex(tmpctx, msg));
+
+	/* We print this because dev versions of c-lightning embed
+	 * version here: see check_ping_make_pong! */
+	for (i = 0; i < tal_count(ignored); i++) {
+		if (ignored[i] < ' ' || ignored[i] == 127)
+			break;
+	}
+	status_debug("Got pong %zu bytes (%.*s...)",
+		     tal_count(ignored), (int)i, (char *)ignored);
+	wire_sync_write(MASTER_FD,
+			take(towire_channeld_ping_reply(NULL, true,
+							tal_bytelen(msg))));
+}
+
 static void peer_in(struct peer *peer, const u8 *msg)
 {
 	enum peer_wire type = fromwire_peektype(msg);
@@ -2236,12 +2268,18 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_ACK_RBF:
 		break;
 	case WIRE_PONG:
-		if (peer->expecting_pong) {
-			peer->expecting_pong = false;
+		switch (peer->expecting_pong) {
+		case PONG_EXPECTED_COMMAND:
+			handle_ping_reply(peer, msg);
+			/* fall thru */
+		case PONG_EXPECTED_PROBING:
+			peer->expecting_pong = PONG_UNEXPECTED;
+			return;
+		case PONG_UNEXPECTED:
+			status_debug("Unexpected pong?");
 			return;
 		}
-		status_debug("Unexpected pong?");
-		return;
+		abort();
 
 	case WIRE_CHANNEL_REESTABLISH:
 		handle_unexpected_reestablish(peer, msg);
@@ -3437,6 +3475,57 @@ static void handle_send_error(struct peer *peer, const u8 *msg)
 			take(towire_channeld_send_error_reply(NULL)));
 }
 
+static void handle_send_ping(struct peer *peer, const u8 *msg)
+{
+	u8 *ping;
+	u16 len, num_pong_bytes;
+
+	if (!fromwire_channeld_ping(msg, &num_pong_bytes, &len))
+		master_badmsg(WIRE_CHANNELD_PING, msg);
+
+	/* We're not supposed to send another ping until previous replied */
+	if (peer->expecting_pong != PONG_UNEXPECTED) {
+		wire_sync_write(MASTER_FD,
+				take(towire_channeld_ping_reply(NULL, false, 0)));
+		return;
+	}
+
+	/* It should never ask for an oversize ping. */
+	ping = make_ping(NULL, num_pong_bytes, len);
+	if (tal_count(ping) > 65535)
+		status_failed(STATUS_FAIL_MASTER_IO, "Oversize ping");
+
+	sync_crypto_write_no_delay(peer->pps, take(ping));
+
+	/* Since we're doing this manually, kill and restart timer. */
+	status_debug("sending ping expecting %sresponse",
+		     num_pong_bytes >= 65532 ? "no " : "");
+
+	/* BOLT #1:
+	 *
+	 * A node receiving a `ping` message:
+	 *...
+	 *  - if `num_pong_bytes` is less than 65532:
+	 *    - MUST respond by sending a `pong` message, with `byteslen` equal
+	 *      to `num_pong_bytes`.
+	 *  - otherwise (`num_pong_bytes` is **not** less than 65532):
+	 *    - MUST ignore the `ping`.
+	 */
+	if (num_pong_bytes >= 65532) {
+		wire_sync_write(MASTER_FD,
+				take(towire_channeld_ping_reply(NULL,
+								true, 0)));
+		return;
+	}
+
+	/* We'll respond to lightningd once the pong comes in */
+	peer->expecting_pong = PONG_EXPECTED_COMMAND;
+
+	/* Restart our timed pings now. */
+	tal_free(peer->ping_timer);
+	set_ping_timer(peer);
+}
+
 #if DEVELOPER
 static void handle_dev_reenable_commit(struct peer *peer)
 {
@@ -3535,6 +3624,9 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_SEND_ERROR:
 		handle_send_error(peer, msg);
 		return;
+	case WIRE_CHANNELD_PING:
+		handle_send_ping(peer, msg);
+		return;
 #if DEVELOPER
 	case WIRE_CHANNELD_DEV_REENABLE_COMMIT:
 		handle_dev_reenable_commit(peer);
@@ -3570,6 +3662,7 @@ static void req_in(struct peer *peer, const u8 *msg)
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
 	case WIRE_CHANNELD_DEV_QUIESCE_REPLY:
 	case WIRE_CHANNELD_UPGRADED:
+	case WIRE_CHANNELD_PING_REPLY:
 		break;
 	}
 
@@ -3807,7 +3900,7 @@ int main(int argc, char *argv[])
 	status_setup_sync(MASTER_FD);
 
 	peer = tal(NULL, struct peer);
-	peer->expecting_pong = false;
+	peer->expecting_pong = PONG_UNEXPECTED;
 	timers_init(&peer->timers, time_mono());
 	peer->commit_timer = NULL;
 	set_ping_timer(peer);

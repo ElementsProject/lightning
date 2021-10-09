@@ -253,9 +253,8 @@ def test_lightningd_still_loading(node_factory, bitcoind, executor):
     l1.pay(l2, 1000)
 
 
-@pytest.mark.skip(reason="FIXME: channeld needs to handle pings")
 def test_ping(node_factory):
-    l1, l2 = node_factory.line_graph(2, fundchannel=False)
+    l1, l2 = node_factory.line_graph(2)
 
     def ping_tests(l1, l2):
         # 0-byte pong gives just type + length field.
@@ -283,14 +282,6 @@ def test_ping(node_factory):
         # = 65529 max.
         with pytest.raises(RpcError, match=r'oversize ping'):
             l1.rpc.ping(l2.info['id'], 65530, 1)
-
-    # Test gossip pinging.
-    ping_tests(l1, l2)
-    if DEVELOPER:
-        l1.daemon.wait_for_log(r'Got pong 1000 bytes \({}\.\.\.\)'
-                               .format(l2.info['version']), timeout=1)
-
-    l1.fundchannel(l2, 10**5)
 
     # channeld pinging
     ping_tests(l1, l2)
