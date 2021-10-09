@@ -96,7 +96,7 @@ def test_reconnect_channel_peers(node_factory, executor):
     wait_for(lambda: not only_one(l1.rpc.listpeers(l2.info['id'])['peers'])['connected'])
 
     # Now should fail.
-    with pytest.raises(RpcError, match=r'Connection refused'):
+    with pytest.raises(RpcError, match=r'(Connection refused|Bad file descriptor)'):
         l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
 
     # Wait for exponential backoff to give us a 2 second window.
@@ -2040,7 +2040,7 @@ def test_multifunding_best_effort(node_factory, bitcoind):
     # With 2 down, it will fail to fund channel
     l2.stop()
     l3.stop()
-    with pytest.raises(RpcError, match=r'Connection refused'):
+    with pytest.raises(RpcError, match=r'(Connection refused|Bad file descriptor)'):
         l1.rpc.multifundchannel(destinations, minchannels=2)
 
     # This works though.
