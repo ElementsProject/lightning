@@ -3734,3 +3734,17 @@ def test_old_feerate(node_factory):
 
     # This will timeout if l2 didn't accept fee.
     l1.pay(l2, 1000)
+
+
+@pytest.mark.developer("dev-disconnect required")
+def test_ping_timeout(node_factory):
+    # Disconnects after this, but doesn't know it.
+    l1_disconnects = ['xWIRE_PING']
+
+    l1, l2 = node_factory.line_graph(2, opts=[{'dev-no-reconnect': None,
+                                               'disconnect': l1_disconnects},
+                                              {}])
+    # Takes 15-45 seconds, then another to try second ping
+    l1.daemon.wait_for_log('Last ping unreturned: hanging up',
+                           timeout=45 + 45 + 5)
+    wait_for(lambda: l1.rpc.getpeer(l2.info['id'])['connected'] is False)
