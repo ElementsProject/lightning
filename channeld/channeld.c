@@ -100,6 +100,9 @@ struct peer {
 	u64 commit_timer_attempts;
 	u32 commit_msec;
 
+	/* Random ping timer, to detect dead connections. */
+	struct oneshot *ping_timer;
+
 	/* Are we expecting a pong? */
 	bool expecting_pong;
 
@@ -1082,6 +1085,29 @@ static struct bitcoin_signature *calc_commitsigs(const tal_t *ctx,
 	}
 
 	return htlc_sigs;
+}
+
+/* Mutual recursion */
+static void send_ping(struct peer *peer);
+
+static void set_ping_timer(struct peer *peer)
+{
+	peer->ping_timer = new_reltimer(&peer->timers, peer,
+					time_from_sec(15 + pseudorand(30)),
+					send_ping, peer);
+}
+
+static void send_ping(struct peer *peer)
+{
+	/* Already have a ping in flight? */
+	if (peer->expecting_pong) {
+		status_debug("Last ping unreturned: hanging up");
+		exit(0);
+	}
+
+	sync_crypto_write_no_delay(peer->pps, take(make_ping(NULL, 1, 0)));
+	peer->expecting_pong = true;
+	set_ping_timer(peer);
 }
 
 /* Peer protocol doesn't want sighash flags. */
@@ -2121,12 +2147,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	 */
 	bool soft_error = peer->funding_locked[REMOTE] || peer->funding_locked[LOCAL];
 
-	/* Catch our own ping replies. */
-	if (type == WIRE_PONG && peer->expecting_pong) {
-		peer->expecting_pong = false;
-		return;
-	}
-
 	if (channeld_handle_custommsg(msg))
 		return;
 
@@ -2210,6 +2230,13 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_INIT_RBF:
 	case WIRE_ACK_RBF:
 		break;
+	case WIRE_PONG:
+		if (peer->expecting_pong) {
+			peer->expecting_pong = false;
+			return;
+		}
+		status_debug("Unexpected pong?");
+		return;
 
 	case WIRE_CHANNEL_REESTABLISH:
 		handle_unexpected_reestablish(peer, msg);
@@ -2225,7 +2252,6 @@ static void peer_in(struct peer *peer, const u8 *msg)
 	case WIRE_GOSSIP_TIMESTAMP_FILTER:
 	case WIRE_REPLY_SHORT_CHANNEL_IDS_END:
 	case WIRE_PING:
-	case WIRE_PONG:
 	case WIRE_WARNING:
 	case WIRE_ERROR:
 	case WIRE_ONION_MESSAGE:
@@ -3856,6 +3882,7 @@ int main(int argc, char *argv[])
 	peer->expecting_pong = false;
 	timers_init(&peer->timers, time_mono());
 	peer->commit_timer = NULL;
+	set_ping_timer(peer);
 	peer->have_sigs[LOCAL] = peer->have_sigs[REMOTE] = false;
 	peer->announce_depth_reached = false;
 	peer->channel_local_active = false;
