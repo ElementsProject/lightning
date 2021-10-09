@@ -19,6 +19,7 @@
 #include <lightningd/hsm_control.h>
 #include <lightningd/notification.h>
 #include <lightningd/peer_control.h>
+#include <lightningd/ping.h>
 #include <wire/common_wiregen.h>
 
 static void update_feerates(struct lightningd *ld, struct channel *channel)
@@ -491,6 +492,9 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_SEND_ERROR_REPLY:
 		handle_error_channel(sd->channel, msg);
 		break;
+	case WIRE_CHANNELD_PING_REPLY:
+		ping_reply(sd, msg);
+		break;
 #if EXPERIMENTAL_FEATURES
 	case WIRE_CHANNELD_UPGRADED:
 		handle_channel_upgrade(sd->channel, msg);
@@ -520,6 +524,7 @@ static unsigned channel_msg(struct subd *sd, const u8 *msg, const int *fds)
 	case WIRE_CHANNELD_DEV_MEMLEAK_REPLY:
 	case WIRE_CHANNELD_SEND_ERROR:
 	case WIRE_CHANNELD_DEV_QUIESCE_REPLY:
+	case WIRE_CHANNELD_PING:
 		break;
 	}
 
