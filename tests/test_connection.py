@@ -3580,6 +3580,7 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     l1.daemon.wait_for_log("chan#3: Removing out HTLC 0 state RCVD_REMOVE_ACK_REVOCATION FULFILLED")
 
     l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.daemon.wait_for_log('option_static_remotekey enabled at 3/3')
 
     # But this is the *pre*-update commit tx!
@@ -3601,6 +3602,7 @@ def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     node_factory.join_nodes([l1, l2])
 
     l1.rpc.disconnect(l2.info['id'], force=True)
+    l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.daemon.wait_for_log('option_static_remotekey enabled at 1/1')
 
     # Move to static_remotekey.
