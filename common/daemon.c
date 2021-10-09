@@ -176,6 +176,7 @@ void daemon_maybe_debug(char *argv[])
 		 * https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66425 */
 		if (system(cmd))
 			;
+		tal_free(cmd);
 		/* Continue in the debugger. */
 		kill(getpid(), SIGSTOP);
 	}
