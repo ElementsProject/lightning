@@ -3523,10 +3523,12 @@ def test_upgrade_statickey(node_factory, executor):
 def test_upgrade_statickey_onchaind(node_factory, executor, bitcoind):
     """We test penalty before/after, and unilateral before/after"""
     l1, l2 = node_factory.line_graph(2, opts=[{'may_reconnect': True,
+                                               'dev-no-reconnect': None,
                                                'dev-force-features': ["-13", "-21"],
                                                # We try to cheat!
                                                'allow_broken_log': True},
-                                              {'may_reconnect': True}])
+                                              {'may_reconnect': True,
+                                               'dev-no-reconnect': None}])
 
     # TEST 1: Cheat from pre-upgrade.
     tx = l1.rpc.dev_sign_last_tx(l2.info['id'])['tx']
