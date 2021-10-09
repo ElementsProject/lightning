@@ -3851,15 +3851,21 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
+		/* Might not be waiting for anything. */
+		tptr = NULL;
+
 		if (timer_earliest(&peer->timers, &first)) {
 			timeout = timespec_to_timeval(
 				timemono_between(first, now).ts);
 			tptr = &timeout;
-		} else if (time_to_next_gossip(peer->pps, &trel)) {
+		}
+
+		/* If timer to next gossip is sooner, use that instead. */
+		if (time_to_next_gossip(peer->pps, &trel)
+		    && (!tptr || time_less(trel, timeval_to_timerel(*tptr)))) {
 			timeout = timerel_to_timeval(trel);
 			tptr = &timeout;
-		} else
-			tptr = NULL;
+		}
 
 		if (select(nfds, &rfds, NULL, NULL, tptr) < 0) {
 			/* Signals OK, eg. SIGUSR1 */
