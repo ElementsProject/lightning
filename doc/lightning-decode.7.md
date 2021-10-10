@@ -73,8 +73,7 @@ If **type** is "bolt12 invoice", and **valid** is *true*:
   - **relative_expiry** (u32): the number of seconds after *created_at* when this expires
   - **min_final_cltv_expiry** (u32): the number of blocks required by destination
   - **offer_id** (hex, optional): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
-  - **chains** (array of hexs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
-    - the genesis blockhash (always 64 characters)
+  - **chain** (hex, optional): which blockchain this invoice is for (missing implies bitcoin mainnet only) (always 64 characters)
   - **send_invoice** (boolean, optional): present if this offer was a send_invoice offer (always *true*)
   - **refund_for** (hex, optional): the *payment_preimage* of invoice this is a refund for (always 64 characters)
   - **vendor** (string, optional): the name of the vendor for this offer
@@ -113,10 +112,9 @@ If **type** is "bolt12 invoice", and **valid** is *false*:
     - **warning_invoice_refund_missing_signature**: No **refund_signature**
 
 If **type** is "bolt12 invoice_request", and **valid** is *true*:
-  - **offer_id** (hex): the id of this offer (merkle hash of non-signature fields) (always 64 characters)
+  - **offer_id** (hex): the id of the offer this is requesting (merkle hash of non-signature fields) (always 64 characters)
   - **payer_key** (point32): the transient key which identifies the payer
-  - **chains** (array of hexs, optional): which blockchains this offer is for (missing implies bitcoin mainnet only):
-    - the genesis blockhash (always 64 characters)
+  - **chain** (hex, optional): which blockchain this invoice_request is for (missing implies bitcoin mainnet only) (always 64 characters)
   - **amount_msat** (msat, optional): the amount in bitcoin
   - **features** (hex, optional): the array of feature bits for this offer
   - **quantity** (u64, optional): the quantity ordered
@@ -182,4 +180,4 @@ RESOURCES
 
 Main web site: <https://github.com/ElementsProject/lightning>
 
-[comment]: # ( SHA256STAMP:f12157fe0af8ff3c9569374cc95bdbdd9df00c9a818fbfe30450a3eea020053a)
+[comment]: # ( SHA256STAMP:7ddb369a73cb0bf8782e2176d0726e13015d9099f71a5ceda39d3e1cb7cd2241)
