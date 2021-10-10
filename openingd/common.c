@@ -133,6 +133,9 @@ bool check_config_bounds(const tal_t *ctx,
 	 * set by lightningd, don't bother opening it. */
 	if (amount_msat_greater_sat(min_effective_htlc_capacity,
 				    capacity)) {
+		struct amount_sat min_effective_htlc_capacity_sat =
+			amount_msat_to_sat_round_down(min_effective_htlc_capacity);
+
 		*err_reason = tal_fmt(ctx,
 				      "channel capacity with funding %s,"
 				      " reserves %s/%s,"
@@ -148,8 +151,8 @@ bool check_config_bounds(const tal_t *ctx,
 						     &remoteconf->max_htlc_value_in_flight),
 				      type_to_string(ctx, struct amount_sat,
 						     &capacity),
-				      type_to_string(ctx, struct amount_msat,
-						     &min_effective_htlc_capacity));
+				      type_to_string(ctx, struct amount_sat,
+						     &min_effective_htlc_capacity_sat));
 		return false;
 	}
 
