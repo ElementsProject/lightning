@@ -213,17 +213,17 @@ def test_opening_tiny_channel(node_factory):
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
 
-    with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*msat'):
+    with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l2, l2_min_capacity + overhead - 1)
     l1.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l1.fundchannel(l2, l2_min_capacity + overhead)
 
-    with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*msat'):
+    with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l3, l3_min_capacity + overhead - 1)
     l1.rpc.connect(l3.info['id'], 'localhost', l3.port)
     l1.fundchannel(l3, l3_min_capacity + overhead)
 
-    with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*msat'):
+    with pytest.raises(RpcError, match=r'They sent [error|warning].*channel capacity is .*, which is below .*sat'):
         l1.fundchannel(l4, l4_min_capacity + overhead - 1)
     l1.rpc.connect(l4.info['id'], 'localhost', l4.port)
     l1.fundchannel(l4, l4_min_capacity + overhead)
@@ -231,7 +231,7 @@ def test_opening_tiny_channel(node_factory):
     # Note that this check applies locally too, so you can't open it if
     # you would reject it.
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
-    with pytest.raises(RpcError, match=r"channel capacity is .*, which is below .*msat"):
+    with pytest.raises(RpcError, match=r"channel capacity is .*, which is below .*sat"):
         l3.fundchannel(l2, l3_min_capacity + overhead - 1)
     l3.rpc.connect(l2.info['id'], 'localhost', l2.port)
     l3.fundchannel(l2, l3_min_capacity + overhead)
