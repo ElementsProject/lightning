@@ -284,6 +284,9 @@ receive_offer(struct per_peer_state *pps,
 		 */
 		else if (fromwire_peektype(msg) == WIRE_SHUTDOWN)
 			msg = tal_free(msg);
+		/* channeld may have sent ping: ignore pong! */
+		else if (fromwire_peektype(msg) == WIRE_PONG)
+			msg = tal_free(msg);
 	} while (!msg);
 
 	their_sig.sighash_type = SIGHASH_ALL;
