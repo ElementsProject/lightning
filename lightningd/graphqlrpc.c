@@ -5,10 +5,8 @@
  * It takes a single string argument, fully JSON-escaped, which is a
  * GraphQL "executable document" per the GraphQL spec.
  *
- * Plugins may register their own top-level GraphQL fields, allowing plugins
- * to extend the GraphQL query mechanism.
  */
-/* eg: { peers { id, log(level: "broken"), channels { state } }, pluginA { field1, field2 } } */
+/* eg: { info { id }, peers { id, log(level: UNUSUAL), channels { state } } } */
 #include "ccan/config.h"
 #include <ccan/graphql/graphql.h>
 #include <ccan/list/list.h>

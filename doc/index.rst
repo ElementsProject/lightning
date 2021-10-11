@@ -59,6 +59,7 @@ c-lightning Documentation
    lightning-getlog <lightning-getlog.7.md>
    lightning-getroute <lightning-getroute.7.md>
    lightning-getsharedsecret <lightning-getsharedsecret.7.md>
+   lightning-graphql <lightning-graphql.7.md>
    lightning-help <lightning-help.7.md>
    lightning-hsmtool <lightning-hsmtool.8.md>
    lightning-invoice <lightning-invoice.7.md>

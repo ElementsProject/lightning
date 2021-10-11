@@ -9,12 +9,12 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **graphql** command executes the given GraphQL operation and returns the
+The **graphql** command executes the given GraphQL *operation* and returns the
 requested data. This command is useful for requesting a subset of the data
 that is available via other RPC methods, and for aggregating data that would
 otherwise require calls to multiple RPC methods.
 
-General information about GraphQL can be found at graphql.org.
+General information about GraphQL can be found at [graphql.org](https://graphql.org).
 
 Information about other RPC methods whose data can be queried via GraphQL can
 be found in the sections referenced in SEE ALSO.
@@ -43,7 +43,7 @@ manual, with exceptions noted in those sections.
 
 Requested non-array fields for which no data is available will generally be
 returned with a `null` value, whereas array fields will be empty if no data is
-available. Satoshi or millisatoshi amount compatibility fields are not
+available. Compatibility fields for satoshi or millisatoshi amounts are not
 available via GraphQL.
 
 On failure, any error code documented in sections relevant to the requested

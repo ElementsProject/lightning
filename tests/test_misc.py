@@ -951,7 +951,7 @@ def test_graphqlrpc_info(node_factory):
     for item in ref:
         if item == 'msatoshi_fees_collected':
             # Compat fields not available via GraphQL
-            assert not item in gql
+            assert item not in gql
         elif item == 'lightning-dir':
             # GraphQL names can't have hyphens
             assert gql['lightningdir'] == ref[item]
@@ -1004,7 +1004,7 @@ def test_graphqlrpc_peers(node_factory):
                             'htlc_minimum_msat', 'in_msatoshi_offered',
                             'in_msatoshi_fulfilled', 'out_msatoshi_offered',
                             'out_msatoshi_fulfilled']:
-                    assert not item in gql[p]['channels'][c]
+                    assert item not in gql[p]['channels'][c]
                 else:
                     assert gql[p]['channels'][c][item] == ref[p]['channels'][c][item]
 
