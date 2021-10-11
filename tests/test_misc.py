@@ -936,6 +936,79 @@ def test_malformed_rpc(node_factory):
     sock.close()
 
 
+def test_graphqlrpc_info(node_factory):
+    """Test GraphQL operations"""
+    l1 = node_factory.get_node()
+    ref = l1.rpc.getinfo()
+    gql = l1.rpc.call('graphql', ['{info{'
+                                  'id,alias,color,'
+                                  'num_peers,num_pending_channels,'
+                                  'num_active_channels,num_inactive_channels,'
+                                  'address,binding,version,blockheight,network,'
+                                  'fees_collected_msat,lightningdir'
+                                  '}}'])['info']
+    assert(gql['id'] == ref['id'])
+    for item in ref:
+        if item == 'msatoshi_fees_collected':
+            # Compat fields not available via GraphQL
+            assert not item in gql
+        elif item == 'lightning-dir':
+            # GraphQL names can't have hyphens
+            assert gql['lightningdir'] == ref[item]
+        else:
+            assert gql[item] == ref[item]
+
+
+def test_graphqlrpc_peers(node_factory):
+    """Test GraphQL operations"""
+    l1, l2 = node_factory.line_graph(2)
+    ref = l1.rpc.listpeers()['peers']
+    gql = l1.rpc.call('graphql', ['{peers{'
+                                  'id, connected, netaddr, features, channels{'
+                                  'state, scratch_txid, last_tx_fee_msat, '
+                                  'feerate, owner, short_channel_id, direction, '
+                                  'channel_id, funding_txid, close_to_addr, '
+                                  'close_to, private, opener, closer, features, '
+                                  'funding{local_msat, remote_msat}, to_us_msat, '
+                                  'min_to_us_msat, max_to_us_msat, total_msat, '
+                                  'fee_base_msat, fee_proportional_millionths, '
+                                  'dust_limit_msat, max_total_htlc_in_msat, '
+                                  'their_reserve_msat, our_reserve_msat, '
+                                  'spendable_msat, receivable_msat, '
+                                  'minimum_htlc_in_msat, their_to_self_delay, '
+                                  'our_to_self_delay, max_accepted_htlcs, '
+                                  'state_changes{timestamp, old_state, new_state, '
+                                  'cause, message}, status, in_payments_offered, '
+                                  'in_offered_msat, in_payments_fulfilled, '
+                                  'in_fulfilled_msat, out_payments_offered, '
+                                  'out_offered_msat, out_payments_fulfilled, '
+                                  'out_fulfilled_msat, htlcs{direction}'
+                                  '}}}'])['peers']
+    assert(gql[0]['id'] == ref[0]['id'])
+    for p in range(0, 1):
+        for item in ref[p]:
+            if item == 'channels':
+                # Channels are handled below
+                assert 1
+            else:
+                assert gql[p][item] == ref[p][item]
+        for c in range(0, 1):
+            for item in ref[p]['channels'][c]:
+                # Compat fields not available via GraphQL
+                if item in ['msatoshi_to_us', 'msatoshi_to_us_min',
+                            'msatoshi_to_us_max', 'msatoshi_total',
+                            'dust_limit_satoshis', 'max_htlc_value_in_flight_msat',
+                            'their_channel_reserve_satoshis',
+                            'our_channel_reserve_satoshis',
+                            'spendable_msatoshi', 'receivable_msatoshi',
+                            'htlc_minimum_msat', 'in_msatoshi_offered',
+                            'in_msatoshi_fulfilled', 'out_msatoshi_offered',
+                            'out_msatoshi_fulfilled']:
+                    assert not item in gql[p]['channels'][c]
+                else:
+                    assert gql[p]['channels'][c][item] == ref[p]['channels'][c][item]
+
+
 def test_cli(node_factory):
     l1 = node_factory.get_node()
 
