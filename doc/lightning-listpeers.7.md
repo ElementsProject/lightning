@@ -10,7 +10,8 @@ DESCRIPTION
 -----------
 
 The **listpeers** RPC command returns data on nodes that are connected
-or are not connected but have open channels with this node.
+or are not connected but have open channels with this node. This data
+is also available via GraphQL using `peers` as the top-level field name.
 
 Once a connection to another lightning node has been established, using
 the **connect** command, data on the node can be returned using
@@ -367,7 +368,7 @@ SEE ALSO
 --------
 
 lightning-connect(7), lightning-fundchannel\_start(7),
-lightning-setchannelfee(7)
+lightning-setchannelfee(7), lightning-graphql(7)
 
 RESOURCES
 ---------

@@ -9,7 +9,8 @@ SYNOPSIS
 DESCRIPTION
 -----------
 
-The **getinfo** gives a summary of the current running node.
+The **getinfo** gives a summary of the current running node. This data is also
+available via GraphQL using `info` as the top-level field name.
 
 
 EXAMPLE JSON REQUEST
@@ -101,6 +102,10 @@ EXAMPLE JSON RESPONSE
 
 ```
 
+When requesting `info` via GraphQL, the `lightning-dir` field is available
+under the name `lightningdir` (without the hyphen), and the
+`msatoshi_fees_collected` compatibility field is not available.
+
 
 AUTHOR
 ------
@@ -111,7 +116,7 @@ Vincenzo Palazzo <<vincenzo.palazzo@protonmail.com>> wrote the initial version o
 SEE ALSO
 ------
 
-lightning-connect(7), lightning-fundchannel(7), lightning-listconfigs(7).
+lightning-connect(7), lightning-fundchannel(7), lightning-listconfigs(7), lightning-graphql(7).
 
 RESOURCES
 ---------
