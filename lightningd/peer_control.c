@@ -1006,8 +1006,7 @@ prep_htlc_field_cb(struct command *cmd, struct graphql_field *field,
 {
 	struct htlc_cbd *d;
 
-	d = create_cbd(field, "HTLC", cmd, struct htlc_cbd);
-	//field->data = d = tal(cmd, struct htlc_cbd);
+	field->data = d = tal(cmd, struct htlc_cbd);
 	d->json_add_func = cb;
 	d->name = get_alias(field);
 
@@ -1093,8 +1092,7 @@ prep_sc_field_cb(struct command *cmd, struct graphql_field *field,
 {
 	struct state_change_cbd *d;
 
-	d = create_cbd(field, "StateChange", cmd, struct state_change_cbd);
-	//field->data = d = tal(cmd, struct state_change_cbd);
+	field->data = d = tal(cmd, struct state_change_cbd);
 	d->json_add_func = cb;
 	d->name = get_alias(field);
 
@@ -1184,8 +1182,7 @@ prep_inf_field_cb(struct command *cmd, struct graphql_field *field,
 {
 	struct inf_cbd *d;
 
-	d = create_cbd(field, "Inflight", cmd, struct inf_cbd);
-	//field->data = d = tal(cmd, struct inf_cbd);
+	field->data = d = tal(cmd, struct inf_cbd);
 	d->json_add_func = cb;
 	d->name = get_alias(field);
 
@@ -1260,7 +1257,7 @@ static void json_add_inflight(struct json_stream *response,
 	json_object_start(response, NULL);
 	if (d->sel_set) {
 		for (sel = d->sel_set->first; sel; sel = sel->next) {
-			cbd = get_cbd(sel->field, "Inflight", struct inf_cbd);
+			cbd = (struct inf_cbd *)sel->field->data;
 			cbd->json_add_func(response, cbd, inflight);
 		}
 	}
@@ -1278,7 +1275,7 @@ static void json_add_state_change(struct json_stream *response,
 	json_object_start(response, NULL);
 	if (d->sel_set) {
 		for (sel = d->sel_set->first; sel; sel = sel->next) {
-			cbd = get_cbd(sel->field, "StateChange", struct state_change_cbd);
+			cbd = (struct state_change_cbd *)sel->field->data;
 			cbd->json_add_func(response, cbd, state_change);
 		}
 	}
@@ -1297,7 +1294,7 @@ static void json_add_htlc_in(struct json_stream *response,
 	json_object_start(response, NULL);
 	if (d->sel_set) {
 		for (sel = d->sel_set->first; sel; sel = sel->next) {
-			cbd = get_cbd(sel->field, "HTLC", struct htlc_cbd);
+			cbd = (struct htlc_cbd *)sel->field->data;
 			cbd->json_add_func(response, cbd,
 					   channel, true, hin, NULL);
 		}
@@ -1317,7 +1314,7 @@ static void json_add_htlc_out(struct json_stream *response,
 	json_object_start(response, NULL);
 	if (d->sel_set) {
 		for (sel = d->sel_set->first; sel; sel = sel->next) {
-			cbd = get_cbd(sel->field, "HTLC", struct htlc_cbd);
+			cbd = (struct htlc_cbd *)sel->field->data;
 			cbd->json_add_func(response, cbd,
 					   channel, false, NULL, hout);
 		}
@@ -2731,8 +2728,7 @@ prep_peers_field_cb(struct command *cmd, struct graphql_field *field,
 {
 	struct peer_cbd *d;
 
-	d = create_cbd(field, "Peer", cmd, struct peer_cbd);
-	//field->data = d = tal(cmd, struct peer_cbd);
+	field->data = d = tal(cmd, struct peer_cbd);
 	d->json_add_func = cb;
 	d->name = get_alias(field);
 
@@ -2749,8 +2745,7 @@ prep_peers_channels(struct command *cmd, struct graphql_field *field)
 	struct graphql_selection *sel;
 	struct command_result *err;
 
-	d = create_cbd(field, "Peer", cmd, struct peer_cbd_ext);
-	//field->data = d = tal(cmd, struct peer_cbd_ext);
+	field->data = d = tal(cmd, struct peer_cbd_ext);
 	d->json_add_func = json_add_peer_channels;
 	d->name = get_alias(field);
 	d->sel_set = field->sel_set;
@@ -2775,8 +2770,7 @@ prep_peers_log(struct command *cmd, const char *buffer,
 	struct peer_log_cbd *d;
 	jsmntok_t *params;
 
-	d = create_cbd(field, "Peer", cmd, struct peer_log_cbd);
-	//field->data = d = tal(cmd, struct peer_log_cbd);
+	field->data = d = tal(cmd, struct peer_log_cbd);
 	d->json_add_func = json_add_peer_log;
 	d->name = get_alias(field);
 	d->ld = cmd->ld;
@@ -2826,7 +2820,7 @@ static void json_add_peer2(struct json_stream *js,
 	json_object_start(js, NULL);
 	if (field->sel_set) {
 		for (sel = field->sel_set->first; sel; sel = sel->next) {
-			cbd = get_cbd(sel->field, "Peer", struct peer_cbd);
+			cbd = (struct peer_cbd *)sel->field->data;
 			cbd->json_add_func(js, cbd, peer);
 		}
 	}
@@ -2844,7 +2838,7 @@ void json_add_peers(struct json_stream *js,
 		    const struct graphql_field *field)
 {
 	struct peer *peer;
-	struct peers_cbd *d = field->data; //get_cbd(field, "Peers", struct peers_cbd);
+	struct peers_cbd *d = field->data;
 
 	json_array_start(js, d->name);
 	if (d->specific_id) {
@@ -2867,7 +2861,6 @@ prep_peers(struct command *cmd, const char *buffer,
 	struct graphql_selection *sel;
 	struct command_result *err;
 
-	//d = create_cbd(field, "Peers", cmd, struct peers_cbd);
 	field->data = d = tal(cmd, struct peers_cbd);
 	d->cb.json_add_func = json_add_peers;
 	d->name = get_alias(field);

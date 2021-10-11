@@ -240,7 +240,6 @@ prep_usc_field_cb(struct command *cmd, struct graphql_field *field,
 	struct usc_cbd *d;
 
 	d = create_cbd(field, "UnsavedChannel", cmd, struct usc_cbd);
-	//field->data = d = tal(cmd, struct usc_cbd);
 	d->json_add_func = cb;
 	d->name = get_alias(field);
 
