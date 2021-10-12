@@ -26,6 +26,9 @@ bool fromwire_tlv(const u8 **cursor UNNEEDED, size_t *max UNNEEDED,
 		  const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
 		  void *record UNNEEDED, struct tlv_field **fields UNNEEDED)
 { fprintf(stderr, "fromwire_tlv called!\n"); abort(); }
+/* Generated stub for fromwire_wireaddr */
+bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
+{ fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
 /* Generated stub for tlv_fields_valid */
 bool tlv_fields_valid(const struct tlv_field *fields UNNEEDED, u64 *allow_extra UNNEEDED,
 		      size_t *err_index UNNEEDED)
@@ -41,6 +44,9 @@ void towire_tlv(u8 **pptr UNNEEDED,
 		const struct tlv_record_type *types UNNEEDED, size_t num_types UNNEEDED,
 		const void *record UNNEEDED)
 { fprintf(stderr, "towire_tlv called!\n"); abort(); }
+/* Generated stub for towire_wireaddr */
+void towire_wireaddr(u8 **pptr UNNEEDED, const struct wireaddr *addr UNNEEDED)
+{ fprintf(stderr, "towire_wireaddr called!\n"); abort(); }
 /* Generated stub for type_to_string_ */
 const char *type_to_string_(const tal_t *ctx UNNEEDED, const char *typename UNNEEDED,
 			    union printable_types u UNNEEDED)

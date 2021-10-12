@@ -4,6 +4,7 @@
 #include <ccan/short_types/short_types.h>
 #include <ccan/tal/tal.h>
 #include <common/errcode.h>
+#include <common/wireaddr.h>
 #include <secp256k1_recovery.h>
 #include <stdlib.h>
 

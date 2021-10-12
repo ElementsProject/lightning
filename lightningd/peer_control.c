@@ -929,6 +929,7 @@ struct peer_connected_hook_payload {
 	struct lightningd *ld;
 	struct channel *channel;
 	struct wireaddr_internal addr;
+	struct wireaddr *remote_addr;
 	bool incoming;
 	struct peer *peer;
 	struct peer_fd *peer_fd;
@@ -946,6 +947,10 @@ peer_connected_serialize(struct peer_connected_hook_payload *payload,
 	json_add_string(
 	    stream, "addr",
 	    type_to_string(stream, struct wireaddr_internal, &payload->addr));
+	if (payload->remote_addr)
+		json_add_string(
+		    stream, "remote_addr",
+		    type_to_string(stream, struct wireaddr, payload->remote_addr));
 	json_add_hex_talarr(stream, "features", p->their_features);
 	json_object_end(stream); /* .peer */
 }
@@ -1121,6 +1126,7 @@ void peer_connected(struct lightningd *ld, const u8 *msg, int peer_fd)
 	hook_payload->error = NULL;
 	if (!fromwire_connectd_peer_connected(hook_payload, msg,
 					      &id, &hook_payload->addr,
+					      &hook_payload->remote_addr,
 					      &hook_payload->incoming,
 					      &their_features))
 		fatal("Connectd gave bad CONNECT_PEER_CONNECTED message %s",
@@ -1150,6 +1156,14 @@ void peer_connected(struct lightningd *ld, const u8 *msg, int peer_fd)
 	/* It might be v2 opening, though, since we hang onto these */
 	if (!hook_payload->channel)
 		hook_payload->channel = peer_unsaved_channel(peer);
+
+	/* Log remote_addr for now */
+	if (hook_payload->remote_addr && (
+	    hook_payload->remote_addr->type == ADDR_TYPE_IPV4 ||
+	    hook_payload->remote_addr->type == ADDR_TYPE_IPV6)) {
+		log_info(ld->log, "Peer says it sees our address as: %s",
+			 fmt_wireaddr(peer, hook_payload->remote_addr));
+	}
 
 	plugin_hook_call_peer_connected(ld, hook_payload);
 }

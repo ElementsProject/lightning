@@ -92,6 +92,7 @@ bool parse_wireaddr(const char *arg, struct wireaddr *addr, u16 port,
 
 char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a);
 char *fmt_wireaddr_without_port(const tal_t *ctx, const struct wireaddr *a);
+char *printwire_wireaddr(const tal_t *ctx, const struct wireaddr *a);
 
 /* If no_dns is non-NULL, we will set it to true and return NULL if
  * we wanted to do a DNS lookup. */

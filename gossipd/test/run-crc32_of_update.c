@@ -69,6 +69,9 @@ bool fromwire_hsmd_cupdate_sig_reply(const tal_t *ctx UNNEEDED, const void *p UN
 /* Generated stub for fromwire_hsmd_node_announcement_sig_reply */
 bool fromwire_hsmd_node_announcement_sig_reply(const void *p UNNEEDED, secp256k1_ecdsa_signature *signature UNNEEDED)
 { fprintf(stderr, "fromwire_hsmd_node_announcement_sig_reply called!\n"); abort(); }
+/* Generated stub for fromwire_wireaddr */
+bool fromwire_wireaddr(const u8 **cursor UNNEEDED, size_t *max UNNEEDED, struct wireaddr *addr UNNEEDED)
+{ fprintf(stderr, "fromwire_wireaddr called!\n"); abort(); }
 /* Generated stub for get_node */
 struct node *get_node(struct routing_state *rstate UNNEEDED,
 		      const struct node_id *id UNNEEDED)

@@ -34,6 +34,7 @@ LIGHTNINGD_CONTROL_OBJS += \
 ONCHAIND_COMMON_OBJS :=				\
 	common/amount.o				\
 	common/autodata.o			\
+	common/base32.o				\
 	common/bigsize.o			\
 	common/bip32.o				\
 	common/coin_mvt.o			\
@@ -63,7 +64,8 @@ ONCHAIND_COMMON_OBJS :=				\
 	common/utils.o				\
 	common/utxo.o				\
 	common/version.o			\
-	common/wallet.o
+	common/wallet.o				\
+	common/wireaddr.o
 
 lightningd/lightning_onchaind: $(ONCHAIND_OBJS) $(WIRE_ONION_OBJS) $(ONCHAIND_COMMON_OBJS) $(WIRE_OBJS) $(BITCOIN_OBJS) $(HSMD_CLIENT_OBJS)
 

@@ -7,6 +7,7 @@
 #include <common/wire_error.h>
 #include <connectd/connectd.h>
 #include <connectd/connectd_wiregen.h>
+#include <connectd/netaddress.h>
 #include <connectd/peer_exchange_initmsg.h>
 #include <wire/peer_wire.h>
 
@@ -47,6 +48,7 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	u8 *msg = cryptomsg_decrypt_body(tmpctx, &peer->cs, peer->msg);
 	u8 *globalfeatures, *features;
 	struct tlv_init_tlvs *tlvs = tlv_init_tlvs_new(msg);
+	struct wireaddr *remote_addr;
 
 	if (!msg)
 		return io_close(conn);
@@ -86,6 +88,28 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 		}
 	}
 
+	/* fetch optional tlv `remote_addr` */
+	remote_addr = NULL;
+	/* BOLT-remote-address #1:
+	 * The receiving node:
+	 * ...
+	 *  - MAY use the `remote_addr` to update its `node_annoucement`
+	 */
+	if (tlvs->remote_addr) {
+		switch (tlvs->remote_addr->type) {
+		case ADDR_TYPE_IPV4:
+		case ADDR_TYPE_IPV6:
+			remote_addr = tal_steal(peer, tlvs->remote_addr);
+			break;
+		/* We are only interested in IP addresses */
+		case ADDR_TYPE_TOR_V2_REMOVED:
+		case ADDR_TYPE_TOR_V3:
+		case ADDR_TYPE_DNS:
+		case ADDR_TYPE_WEBSOCKET:
+			break;
+		}
+	}
+
 	/* The globalfeatures field is now unused, but there was a
 	 * window where it was: combine the two. */
 	features = featurebits_or(tmpctx, take(features), globalfeatures);
@@ -96,7 +120,9 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 	/* Usually return io_close_taken_fd, but may wait for old peer to
 	 * be disconnected if it's a reconnect. */
 	return peer_connected(conn, peer->daemon, &peer->id,
-			      &peer->addr, &peer->cs,
+			      &peer->addr,
+			      remote_addr,
+			      &peer->cs,
 			      take(features),
 			      peer->incoming);
 }
@@ -181,6 +207,32 @@ struct io_plan *peer_exchange_initmsg(struct io_conn *conn,
 	tlvs = tlv_init_tlvs_new(tmpctx);
 	tlvs->networks = tal_dup_arr(tlvs, struct bitcoin_blkid,
 				     &chainparams->genesis_blockhash, 1, 0);
+
+	/* set optional tlv `remote_addr` on incoming IP connections */
+	tlvs->remote_addr = NULL;
+	/* BOLT-remote-address #1:
+	 * The sending node:
+	 * ...
+	 *  - SHOULD set `remote_addr` to reflect the remote IP address (and port) of an
+	 *    incoming connection, if the node is the receiver and the connection was done
+	 *    via IP.
+	 */
+	if (incoming && addr->itype == ADDR_INTERNAL_WIREADDR &&
+			address_routable(&addr->u.wireaddr, true)) {
+		switch (addr->u.wireaddr.type) {
+		case ADDR_TYPE_IPV4:
+		case ADDR_TYPE_IPV6:
+			tlvs->remote_addr = tal(tlvs, struct wireaddr);
+			*tlvs->remote_addr = addr->u.wireaddr;
+			break;
+		/* Only report IP addresses back for now */
+		case ADDR_TYPE_TOR_V2_REMOVED:
+		case ADDR_TYPE_TOR_V3:
+		case ADDR_TYPE_DNS:
+		case ADDR_TYPE_WEBSOCKET:
+			break;
+		}
+	}
 
 	/* Initially, there were two sets of feature bits: global and local.
 	 * Local affected peer nodes only, global affected everyone.  Both were
