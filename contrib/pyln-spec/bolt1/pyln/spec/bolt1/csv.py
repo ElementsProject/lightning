@@ -7,6 +7,8 @@ csv = [
     "msgdata,init,tlvs,init_tlvs,",
     "tlvtype,init_tlvs,networks,1",
     "tlvdata,init_tlvs,networks,chains,chain_hash,...",
+    "tlvtype,init_tlvs,remote_addr,3",
+    "tlvdata,init_tlvs,remote_addr,data,byte,...",
     "msgtype,error,17",
     "msgdata,error,channel_id,channel_id,",
     "msgdata,error,len,u16,",
