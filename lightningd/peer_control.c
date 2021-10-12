@@ -1233,17 +1233,18 @@ static void name(struct json_stream *response, \
 /* channel callback and struct with extended fields */
 struct chan_cbd_ext;
 typedef void (*chan_json_cb_ext)(struct json_stream *js,
-				 const struct chan_cbd_ext *d,
+				 struct chan_cbd_ext *d,
 				 const struct channel *chan);
 struct chan_cbd_ext {
 	chan_json_cb_ext json_add_func;
 	const char *name;
 	const struct graphql_selection_set *sel_set;
 	const struct lightningd *ld;
+	struct peer_chan_cbd *parent;
 };
 #define CHANNEL_CB_EXT(name) \
 static void name(struct json_stream *response, \
-		 const struct chan_cbd_ext *d, \
+		 struct chan_cbd_ext *d, \
 		 const struct channel *channel)
 
 /* This function doesn't fit the mold because it straddles channel and inflight. */
@@ -1699,66 +1700,58 @@ CHANNEL_CB(json_add_chan_status)
 	json_array_end(response);
 }
 
+struct peer_chan_cbd;
 static const struct channel_stats *
-get_stats(const struct channel *channel, const struct chan_cbd_ext *d)
-{
-	static const struct channel *stats_loaded;
-	static struct channel_stats channel_stats;
-
-	if (stats_loaded == channel)
-		return &channel_stats;
-	wallet_channel_stats_load(d->ld->wallet, channel->dbid, &channel_stats);
-	return &channel_stats;
-}
+chan_get_stats(const struct channel *channel, struct chan_cbd_ext *d);
 
 CHANNEL_CB_EXT(json_add_chan_in_payments_offered)
 {
-	const struct channel_stats *channel_stats = get_stats(channel, d);
+	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_u64(response, d->name, channel_stats->in_payments_offered);
 }
 
 CHANNEL_CB_EXT(json_add_chan_in_offered_msat)
 {
-	const struct channel_stats *channel_stats = get_stats(channel, d);
+	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_amount_msat_only(response, d->name,
 				  channel_stats->in_msatoshi_offered);
 }
 
 CHANNEL_CB_EXT(json_add_chan_in_payments_fulfilled)
 {
-	const struct channel_stats *channel_stats = get_stats(channel, d);
+	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_u64(response, d->name, channel_stats->in_payments_fulfilled);
 }
 
 CHANNEL_CB_EXT(json_add_chan_in_fulfilled_msat)
 {
-	const struct channel_stats *channel_stats = get_stats(channel, d);
+	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_amount_msat_only(response, d->name,
 				  channel_stats->in_msatoshi_fulfilled);
 }
 
 CHANNEL_CB_EXT(json_add_chan_out_payments_offered)
 {
-	const struct channel_stats *channel_stats = get_stats(channel, d);
+	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_u64(response, d->name, channel_stats->out_payments_offered);
 }
 
 CHANNEL_CB_EXT(json_add_chan_out_offered_msat)
 {
-	const struct channel_stats *channel_stats = get_stats(channel, d);
+	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_amount_msat_only(response, d->name,
 				  channel_stats->out_msatoshi_offered);
 }
 
 CHANNEL_CB_EXT(json_add_chan_out_payments_fulfilled)
 {
-	const struct channel_stats *channel_stats = get_stats(channel, d);
+	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_u64(response, d->name, channel_stats->out_payments_fulfilled);
 }
 
 CHANNEL_CB_EXT(json_add_chan_out_fulfilled_msat)
 {
-	const struct channel_stats *channel_stats = get_stats(channel, d);
+	const struct channel_stats *channel_stats = chan_get_stats(channel, d);
 	json_add_amount_msat_only(response, d->name,
 				  channel_stats->out_msatoshi_fulfilled);
 }
@@ -1809,8 +1802,8 @@ prep_chan_field_cb(struct command *cmd, struct graphql_field *field,
 }
 
 static struct command_result *
-prep_chan_field_cb_ext(struct command *cmd, struct graphql_field *field,
-		       chan_json_cb_ext cb)
+prep_chan_field_cb_ext1(struct command *cmd, struct graphql_field *field,
+		        struct peer_chan_cbd *parent, chan_json_cb_ext cb)
 {
 	struct chan_cbd_ext *d;
 
@@ -1819,11 +1812,19 @@ prep_chan_field_cb_ext(struct command *cmd, struct graphql_field *field,
 	d->json_add_func = cb;
 	d->name = get_alias(field);
 	d->ld = cmd->ld;
+	d->parent = parent;
 
 	NO_ARGS(cmd, field);
 	NO_SUBFIELDS(cmd, field);
 
 	return NULL;
+}
+
+static struct command_result *
+prep_chan_field_cb_ext(struct command *cmd, struct graphql_field *field,
+		       chan_json_cb_ext cb)
+{
+	return prep_chan_field_cb_ext1(cmd, field, NULL, cb);
 }
 
 static struct command_result *
@@ -1952,7 +1953,7 @@ prep_chan_htlc_cb(struct command *cmd, struct graphql_field *field,
 }
 
 static struct command_result *
-prep_channels_field(struct command *cmd, struct graphql_field *field)
+prep_channels_field(struct command *cmd, struct graphql_field *field, struct peer_chan_cbd *d)
 {
 	const char *name = field->name->token_string;
 
@@ -2033,47 +2034,26 @@ prep_channels_field(struct command *cmd, struct graphql_field *field)
 	else if (streq(name, "status"))
 		return prep_chan_field_cb(cmd, field, json_add_chan_status);
 	else if (streq(name, "in_payments_offered"))
-		return prep_chan_field_cb_ext(cmd, field, json_add_chan_in_payments_offered);
+		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_in_payments_offered);
 	else if (streq(name, "in_offered_msat"))
-		return prep_chan_field_cb_ext(cmd, field, json_add_chan_in_offered_msat);
+		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_in_offered_msat);
 	else if (streq(name, "in_payments_fulfilled"))
-		return prep_chan_field_cb_ext(cmd, field, json_add_chan_in_payments_fulfilled);
+		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_in_payments_fulfilled);
 	else if (streq(name, "in_fulfilled_msat"))
-		return prep_chan_field_cb_ext(cmd, field, json_add_chan_in_fulfilled_msat);
+		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_in_fulfilled_msat);
 	else if (streq(name, "out_payments_offered"))
-		return prep_chan_field_cb_ext(cmd, field, json_add_chan_out_payments_offered);
+		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_out_payments_offered);
 	else if (streq(name, "out_offered_msat"))
-		return prep_chan_field_cb_ext(cmd, field, json_add_chan_out_offered_msat);
+		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_out_offered_msat);
 	else if (streq(name, "out_payments_fulfilled"))
-		return prep_chan_field_cb_ext(cmd, field, json_add_chan_out_payments_fulfilled);
+		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_out_payments_fulfilled);
 	else if (streq(name, "out_fulfilled_msat"))
-		return prep_chan_field_cb_ext(cmd, field, json_add_chan_out_fulfilled_msat);
+		return prep_chan_field_cb_ext1(cmd, field, d, json_add_chan_out_fulfilled_msat);
 	else if (streq(name, "htlcs"))
 		return prep_chan_htlc_cb(cmd, field, json_add_chan_htlcs);
 	else
 		return command_fail(cmd, GRAPHQL_FIELD_ERROR,
 				    "unknown field '%s'", name);
-}
-
-static void json_add_channel2(struct json_stream *response,
-			      const struct graphql_selection_set *sel_set,
-			      const char *key,
-			      const struct channel *channel)
-{
-	const struct graphql_selection *sel;
-	struct chan_cbd *cbd;
-
-	json_object_start(response, key);
-	if (sel_set) {
-		for (sel = sel_set->first; sel; sel = sel->next) {
-			cbd = get_cbd(sel->field, "Channel", struct chan_cbd);
-			if (cbd)
-				cbd->json_add_func(response, cbd, channel);
-			else
-				json_add_null(response, get_alias(sel->field));
-		}
-	}
-	json_object_end(response);
 }
 
 struct peer_connected_hook_payload {
@@ -2620,19 +2600,21 @@ static void name(struct json_stream *response, \
                  const struct peer_cbd *d, \
                  const struct peer *p)
 
-/* callback and struct with extension */
-struct peer_cbd_ext;
-typedef void (*peer_json_cb_ext)(struct json_stream *response,
-				 const struct peer_cbd_ext *d,
+/* callback and struct with extension for channels field */
+struct peer_chan_cbd;
+typedef void (*peer_json_chan_cb)(struct json_stream *response,
+				 struct peer_chan_cbd *d,
 				 const struct peer *p);
-struct peer_cbd_ext {
-	peer_json_cb_ext json_add_func;
+struct peer_chan_cbd {
+	peer_json_chan_cb json_add_func;
 	const char *name;
 	struct graphql_selection_set *sel_set;
+	bool stats_valid;
+	struct channel_stats channel_stats;
 };
-#define PEER_CB_EXT(name) \
+#define PEER_CHAN_CB(name) \
 static void name(struct json_stream *response, \
-		 const struct peer_cbd_ext *d, \
+		 struct peer_chan_cbd *d, \
 		 const struct peer *p)
 
 /* callback and struct with extensions for log */
@@ -2702,7 +2684,12 @@ PEER_CB(json_add_peer_features)
 	json_add_hex_talarr(response, d->name, p->their_features);
 }
 
-PEER_CB_EXT(json_add_peer_channels)
+static void json_add_channel2(struct json_stream *response,
+			      struct peer_chan_cbd *d,
+			      const char *key,
+			      const struct channel *channel);
+
+PEER_CHAN_CB(json_add_peer_channels)
 {
 	struct channel *channel;
 
@@ -2712,7 +2699,7 @@ PEER_CB_EXT(json_add_peer_channels)
 		if (channel_unsaved(channel))
 			json_add_unsaved_channel2(response, d->sel_set, channel);
 		else
-			json_add_channel2(response, d->sel_set, NULL, channel);
+			json_add_channel2(response, d, NULL, channel);
 	}
 	json_array_end(response);
 }
@@ -2741,11 +2728,11 @@ prep_peers_field_cb(struct command *cmd, struct graphql_field *field,
 static struct command_result *
 prep_peers_channels(struct command *cmd, struct graphql_field *field)
 {
-	struct peer_cbd_ext *d;
+	struct peer_chan_cbd *d;
 	struct graphql_selection *sel;
 	struct command_result *err;
 
-	field->data = d = tal(cmd, struct peer_cbd_ext);
+	field->data = d = tal(cmd, struct peer_chan_cbd);
 	d->json_add_func = json_add_peer_channels;
 	d->name = get_alias(field);
 	d->sel_set = field->sel_set;
@@ -2757,7 +2744,7 @@ prep_peers_channels(struct command *cmd, struct graphql_field *field)
 		{
 			prep_uncommitted_channels_field(cmd, sel->field, false);
 			prep_unsaved_channels_field(cmd, sel->field, false);
-			if ((err = prep_channels_field(cmd, sel->field)))
+			if ((err = prep_channels_field(cmd, sel->field, d)))
 				return err;
 		}
 	return NULL;
@@ -2810,6 +2797,28 @@ prep_peers_field(struct command *cmd, const char *buffer, struct graphql_field *
 				    "unknown field '%s'", name);
 }
 
+static void json_add_channel2(struct json_stream *response,
+			      struct peer_chan_cbd *d,
+			      const char *key,
+			      const struct channel *channel)
+{
+	const struct graphql_selection *sel;
+	struct chan_cbd *cbd;
+
+	json_object_start(response, key);
+	if (d->sel_set) {
+		d->stats_valid = false;
+		for (sel = d->sel_set->first; sel; sel = sel->next) {
+			cbd = get_cbd(sel->field, "Channel", struct chan_cbd);
+			if (cbd)
+				cbd->json_add_func(response, cbd, channel);
+			else
+				json_add_null(response, get_alias(sel->field));
+		}
+	}
+	json_object_end(response);
+}
+
 static void json_add_peer2(struct json_stream *js,
 			   const struct graphql_field *field,
 			   const struct peer *peer)
@@ -2825,6 +2834,18 @@ static void json_add_peer2(struct json_stream *js,
 		}
 	}
 	json_object_end(js);
+}
+
+static const struct channel_stats *
+chan_get_stats(const struct channel *channel, struct chan_cbd_ext *d)
+{
+	if (d->parent->stats_valid)
+		return &d->parent->channel_stats;
+
+	wallet_channel_stats_load(d->ld->wallet, channel->dbid,
+				  &d->parent->channel_stats);
+	d->parent->stats_valid = true;
+	return &d->parent->channel_stats;
 }
 
 struct peers_cbd {
@@ -3177,7 +3198,6 @@ static void info_get_stats(struct info_field_cbd_ext1 *d)
 	if (d->parent->stats_valid)
 		return;
 
-fprintf(stderr, "info_get_stats() calc\n");
 	/* Calc peer and channel stats */
 	list_for_each(&d->ld->peers, peer, list) {
 		d->parent->num_peers++;
