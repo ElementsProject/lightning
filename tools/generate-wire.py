@@ -16,6 +16,9 @@
 # Subtypes:
 #   subtype,<subtypename>
 #   subtypedata,<subtypename>,<fieldname>,<typename>,[<count>]
+#
+# Note: <count> can be a fixed value, a named value read before,
+#       or '...' to read until the end of the current structure.
 
 from argparse import ArgumentParser, REMAINDER
 from collections import OrderedDict
