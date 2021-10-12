@@ -40,12 +40,27 @@ static bool contains_common_chain(struct bitcoin_blkid *chains)
 /* Here in case we need to read another message. */
 static struct io_plan *read_init(struct io_conn *conn, struct early_peer *peer);
 
+struct remote_addr_any {
+	u8 type; /* ipv4:1  ipv6:2 */
+	union {
+		struct {
+			u8 addr[4];
+			u16 port;
+		} ipv4;
+		struct {
+			u8 addr[16];
+			u16 port;
+		} ipv6;
+	} u;
+}__attribute__((packed));
+
 static struct io_plan *peer_init_received(struct io_conn *conn,
 					  struct early_peer *peer)
 {
 	u8 *msg = cryptomsg_decrypt_body(tmpctx, &peer->cs, peer->msg);
 	u8 *globalfeatures, *features;
 	struct tlv_init_tlvs *tlvs = tlv_init_tlvs_new(msg);
+	struct remote_addr_any *remote_addr_any;
 
 	if (!msg)
 		return io_close(conn);
@@ -83,6 +98,20 @@ static struct io_plan *peer_init_received(struct io_conn *conn,
 			msg = cryptomsg_encrypt_msg(NULL, &peer->cs, take(msg));
 			return io_write(conn, msg, tal_count(msg), io_close_cb, NULL);
 		}
+	}
+
+	/* BOLT-remote-address #1:
+	 * The receiving node:
+	 * ...
+	 *  - MAY use the `remote_addr` to update its `node_annoucement`
+	 */
+	if (tlvs->remote_addr) {
+		/* 'parsing' can be done by overlaying the correct C struct */
+		remote_addr_any = (struct remote_addr_any *)tlvs->remote_addr;
+		status_peer_debug(&peer->id,
+				  "Peer reported remote_addr type %i. "
+				  "TODO: do something useful",
+				  remote_addr_any->type);
 	}
 
 	/* The globalfeatures field is now unused, but there was a
