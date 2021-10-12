@@ -21,6 +21,7 @@ ALL_PROGRAMS += lightningd/lightning_hsmd
 HSMD_COMMON_OBJS :=				\
 	common/amount.o				\
 	common/autodata.o			\
+	common/base32.o				\
 	common/bigsize.o			\
 	common/bip32.o				\
 	common/bolt12_merkle.o			\
@@ -46,7 +47,8 @@ HSMD_COMMON_OBJS :=				\
 	common/type_to_string.o			\
 	common/utils.o				\
 	common/utxo.o				\
-	common/version.o
+	common/version.o			\
+	common/wireaddr.o
 
 lightningd/lightning_hsmd: $(HSMD_OBJS) $(HSMD_COMMON_OBJS) $(BITCOIN_OBJS) $(WIRE_OBJS)
 

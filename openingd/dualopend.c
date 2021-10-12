@@ -295,7 +295,7 @@ static u8 *psbt_changeset_get_next(const tal_t *ctx,
 	return NULL;
 }
 
-static void shutdown(struct state *state)
+static void dualopen_shutdown(struct state *state)
 {
 	u8 *msg = towire_dualopend_shutdown_complete(state);
 
@@ -1243,7 +1243,7 @@ static u8 *opening_negotiate_msg(const tal_t *ctx, struct state *state)
 			handle_peer_shutdown(state, msg);
 			/* If we're done, exit */
 			if (shutdown_complete(state))
-				shutdown(state);
+				dualopen_shutdown(state);
 			return NULL;
 		case WIRE_INIT_RBF:
 		case WIRE_OPEN_CHANNEL2:

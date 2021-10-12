@@ -13,6 +13,7 @@
 #include <common/channel_type.h>
 #include <common/setup.h>
 #include <common/sphinx.h>
+#include <common/wireaddr.h>
 #include <wire/tlvstream.c>
 
 extern secp256k1_context *secp256k1_ctx;

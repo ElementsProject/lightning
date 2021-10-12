@@ -287,6 +287,11 @@ char *fmt_wireaddr(const tal_t *ctx, const struct wireaddr *a)
 }
 REGISTER_TYPE_TO_STRING(wireaddr, fmt_wireaddr);
 
+char *printwire_wireaddr(const tal_t *ctx, const struct wireaddr *a)
+{
+	return fmt_wireaddr(ctx, a);
+}
+
 /* Valid forms:
  *
  * [anything]:<number>

@@ -215,6 +215,7 @@ struct peer_reconnected {
 	struct daemon *daemon;
 	struct node_id id;
 	struct wireaddr_internal addr;
+	const struct wireaddr *remote_addr;
 	struct crypto_state cs;
 	const u8 *their_features;
 	bool incoming;
@@ -233,8 +234,9 @@ static struct io_plan *retry_peer_connected(struct io_conn *conn,
 
 	/*~ Usually the pattern is to return this directly, but we have to free
 	 * our temporary structure. */
-	plan = peer_connected(conn, pr->daemon, &pr->id, &pr->addr, &pr->cs,
-			      take(pr->their_features), pr->incoming);
+	plan = peer_connected(conn, pr->daemon, &pr->id, &pr->addr,
+			      pr->remote_addr,
+			      &pr->cs, take(pr->their_features), pr->incoming);
 	tal_free(pr);
 	return plan;
 }
@@ -245,6 +247,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 					struct daemon *daemon,
 					const struct node_id *id,
 					const struct wireaddr_internal *addr,
+					const struct wireaddr *remote_addr,
 					const struct crypto_state *cs,
 					const u8 *their_features TAKES,
 					bool incoming)
@@ -264,6 +267,7 @@ static struct io_plan *peer_reconnected(struct io_conn *conn,
 	pr->id = *id;
 	pr->cs = *cs;
 	pr->addr = *addr;
+	pr->remote_addr = remote_addr;
 	pr->incoming = incoming;
 
 	/*~ Note that tal_dup_talarr() will do handle the take() of features
@@ -335,6 +339,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 			       struct daemon *daemon,
 			       const struct node_id *id,
 			       const struct wireaddr_internal *addr,
+			       const struct wireaddr *remote_addr,
 			       struct crypto_state *cs,
 			       const u8 *their_features TAKES,
 			       bool incoming)
@@ -348,7 +353,7 @@ struct io_plan *peer_connected(struct io_conn *conn,
 
 	peer = peer_htable_get(&daemon->peers, id);
 	if (peer)
-		return peer_reconnected(conn, daemon, id, addr, cs,
+		return peer_reconnected(conn, daemon, id, addr, remote_addr, cs,
 					their_features, incoming);
 
 	/* We promised we'd take it by marking it TAKEN above; prepare to free it. */
@@ -413,8 +418,8 @@ struct io_plan *peer_connected(struct io_conn *conn,
 	setup_peer_gossip_store(peer, daemon->our_features, their_features);
 
 	/* Create message to tell master peer has connected. */
-	msg = towire_connectd_peer_connected(NULL, id, addr, incoming,
-					     their_features);
+	msg = towire_connectd_peer_connected(NULL, id, addr, remote_addr,
+					     incoming, their_features);
 
 	/*~ daemon_conn is a message queue for inter-daemon communication: we
 	 * queue up the `connect_peer_connected` message to tell lightningd
