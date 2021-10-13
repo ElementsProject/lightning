@@ -835,6 +835,15 @@ static struct migration dbmigrations[] = {
     /* HTLCs also need to carry the groupid around so we can
      * selectively update them. */
     {SQL("ALTER TABLE channel_htlcs ADD groupid BIGINT;"), NULL},
+    {SQL("ALTER TABLE channel_htlcs ADD COLUMN"
+	 " min_commit_num BIGINT default 0;"), NULL},
+    {SQL("ALTER TABLE channel_htlcs ADD COLUMN"
+	 " max_commit_num BIGINT default NULL;"), NULL},
+    /* Set max_commit_num for dead (RCVD_REMOVE_ACK_REVOCATION or SENT_REMOVE_ACK_REVOCATION) HTLCs based on latest indexes */
+    {SQL("UPDATE channel_htlcs SET max_commit_num ="
+	 " (SELECT GREATEST(next_index_local, next_index_remote)"
+	 "  FROM channels WHERE id=channel_id)"
+	 " WHERE (hstate=9 OR hstate=19);"), NULL},
 };
 
 /* Leak tracking. */

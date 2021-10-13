@@ -43,6 +43,8 @@ class Sqlite3Rewriter(Rewriter):
             r'INSERT INTO[ \t]+(.*)[ \t]+ON CONFLICT.*DO NOTHING;': 'INSERT OR IGNORE INTO \\1;',
             # Rewrite "decode('abcd', 'hex')" to become "x'abcd'"
             r'decode\((.*),\s*[\'\"]hex[\'\"]\)': 'x\\1',
+            # GREATEST() of multiple columns is simple MAX in sqlite3.
+            r'GREATEST\(([^)]*)\)': "MAX(\\1)",
         }
         return self.rewrite_types(query, typemapping)
 
