@@ -11,6 +11,7 @@ union printable_types {
 	const struct node_id *node_id;
 	const struct bitcoin_txid *bitcoin_txid;
 	const struct bitcoin_blkid *bitcoin_blkid;
+	const struct bitcoin_outpoint *bitcoin_outpoint;
 	const struct sha256 *sha256;
 	const struct sha256_double *sha256_double;
 	const struct ripemd160 *ripemd160;

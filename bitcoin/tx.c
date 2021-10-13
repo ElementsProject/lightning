@@ -4,6 +4,7 @@
 #include <bitcoin/psbt.h>
 #include <bitcoin/script.h>
 #include <ccan/str/hex/hex.h>
+#include <ccan/tal/str/str.h>
 #include <common/type_to_string.h>
 #include <wally_psbt.h>
 #include <wire/wire.h>
@@ -677,6 +678,14 @@ static char *fmt_bitcoin_txid(const tal_t *ctx, const struct bitcoin_txid *txid)
 	return hexstr;
 }
 
+static char *fmt_bitcoin_outpoint(const tal_t *ctx,
+				  const struct bitcoin_outpoint *outpoint)
+{
+	return tal_fmt(ctx, "%s:%u",
+		       fmt_bitcoin_txid(tmpctx, &outpoint->txid),
+		       outpoint->n);
+}
+
 static char *fmt_wally_tx(const tal_t *ctx, const struct wally_tx *tx)
 {
 	u8 *lin = linearize_wtx(ctx, tx);
@@ -687,6 +696,7 @@ static char *fmt_wally_tx(const tal_t *ctx, const struct wally_tx *tx)
 
 REGISTER_TYPE_TO_STRING(bitcoin_tx, fmt_bitcoin_tx);
 REGISTER_TYPE_TO_STRING(bitcoin_txid, fmt_bitcoin_txid);
+REGISTER_TYPE_TO_STRING(bitcoin_outpoint, fmt_bitcoin_outpoint);
 REGISTER_TYPE_TO_STRING(wally_tx, fmt_wally_tx);
 
 void fromwire_bitcoin_txid(const u8 **cursor, size_t *max,
