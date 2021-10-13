@@ -159,6 +159,77 @@ static inline const char* forward_status_name(enum forward_status status)
 
 bool string_to_forward_status(const char *status_str, enum forward_status *status);
 
+/* DB wrapper to check htlc_state */
+static inline enum htlc_state htlc_state_in_db(enum htlc_state s)
+{
+	switch (s) {
+	case SENT_ADD_HTLC:
+		BUILD_ASSERT(SENT_ADD_HTLC == 0);
+		return s;
+	case SENT_ADD_COMMIT:
+		BUILD_ASSERT(SENT_ADD_COMMIT == 1);
+		return s;
+	case RCVD_ADD_REVOCATION:
+		BUILD_ASSERT(RCVD_ADD_REVOCATION == 2);
+		return s;
+	case RCVD_ADD_ACK_COMMIT:
+		BUILD_ASSERT(RCVD_ADD_ACK_COMMIT == 3);
+		return s;
+	case SENT_ADD_ACK_REVOCATION:
+		BUILD_ASSERT(SENT_ADD_ACK_REVOCATION == 4);
+		return s;
+	case RCVD_REMOVE_HTLC:
+		BUILD_ASSERT(RCVD_REMOVE_HTLC == 5);
+		return s;
+	case RCVD_REMOVE_COMMIT:
+		BUILD_ASSERT(RCVD_REMOVE_COMMIT == 6);
+		return s;
+	case SENT_REMOVE_REVOCATION:
+		BUILD_ASSERT(SENT_REMOVE_REVOCATION == 7);
+		return s;
+	case SENT_REMOVE_ACK_COMMIT:
+		BUILD_ASSERT(SENT_REMOVE_ACK_COMMIT == 8);
+		return s;
+	case RCVD_REMOVE_ACK_REVOCATION:
+		BUILD_ASSERT(RCVD_REMOVE_ACK_REVOCATION == 9);
+		return s;
+	case RCVD_ADD_HTLC:
+		BUILD_ASSERT(RCVD_ADD_HTLC == 10);
+		return s;
+	case RCVD_ADD_COMMIT:
+		BUILD_ASSERT(RCVD_ADD_COMMIT == 11);
+		return s;
+	case SENT_ADD_REVOCATION:
+		BUILD_ASSERT(SENT_ADD_REVOCATION == 12);
+		return s;
+	case SENT_ADD_ACK_COMMIT:
+		BUILD_ASSERT(SENT_ADD_ACK_COMMIT == 13);
+		return s;
+	case RCVD_ADD_ACK_REVOCATION:
+		BUILD_ASSERT(RCVD_ADD_ACK_REVOCATION == 14);
+		return s;
+	case SENT_REMOVE_HTLC:
+		BUILD_ASSERT(SENT_REMOVE_HTLC == 15);
+		return s;
+	case SENT_REMOVE_COMMIT:
+		BUILD_ASSERT(SENT_REMOVE_COMMIT == 16);
+		return s;
+	case RCVD_REMOVE_REVOCATION:
+		BUILD_ASSERT(RCVD_REMOVE_REVOCATION == 17);
+		return s;
+	case RCVD_REMOVE_ACK_COMMIT:
+		BUILD_ASSERT(RCVD_REMOVE_ACK_COMMIT == 18);
+		return s;
+	case SENT_REMOVE_ACK_REVOCATION:
+		BUILD_ASSERT(SENT_REMOVE_ACK_REVOCATION == 19);
+		return s;
+	case HTLC_STATE_INVALID:
+		/* Not in db! */
+		break;
+	}
+	fatal("%s: %u is invalid", __func__, s);
+}
+
 struct forwarding {
 	struct short_channel_id channel_in, channel_out;
 	struct amount_msat msat_in, msat_out, fee;

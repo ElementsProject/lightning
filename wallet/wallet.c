@@ -968,7 +968,7 @@ static struct fee_states *wallet_channel_fee_states_load(struct wallet *w,
 	/* Start with blank slate. */
 	fee_states = new_fee_states(w, opener, NULL);
 	while (db_step(stmt)) {
-		enum htlc_state hstate = db_column_int(stmt, 0);
+		enum htlc_state hstate = htlc_state_in_db(db_column_int(stmt, 0));
 		u32 feerate = db_column_int(stmt, 1);
 
 		if (fee_states->feerate[hstate] != NULL) {
@@ -1004,7 +1004,7 @@ static struct height_states *wallet_channel_height_states_load(struct wallet *w,
 	/* Start with blank slate. */
 	states = new_height_states(w, opener, NULL);
 	while (db_step(stmt)) {
-		enum htlc_state hstate = db_column_int(stmt, 0);
+		enum htlc_state hstate = htlc_state_in_db(db_column_int(stmt, 0));
 		u32 blockheight = db_column_int(stmt, 1);
 
 		if (states->height[hstate] != NULL) {
@@ -1936,7 +1936,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		stmt = db_prepare_v2(w->db, SQL("INSERT INTO channel_feerates "
 						" VALUES(?, ?, ?)"));
 		db_bind_u64(stmt, 0, chan->dbid);
-		db_bind_int(stmt, 1, i);
+		db_bind_int(stmt, 1, htlc_state_in_db(i));
 		db_bind_int(stmt, 2, *chan->fee_states->feerate[i]);
 		db_exec_prepared_v2(take(stmt));
 	}
@@ -1955,7 +1955,7 @@ void wallet_channel_save(struct wallet *w, struct channel *chan)
 		stmt = db_prepare_v2(w->db, SQL("INSERT INTO channel_blockheights "
 						" VALUES(?, ?, ?)"));
 		db_bind_u64(stmt, 0, chan->dbid);
-		db_bind_int(stmt, 1, i);
+		db_bind_int(stmt, 1, htlc_state_in_db(i));
 		db_bind_int(stmt, 2, *chan->blockheight_states->height[i]);
 		db_exec_prepared_v2(take(stmt));
 	}
@@ -2429,8 +2429,7 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			    "we_filled=?"
 			    " WHERE id=?"));
 
-	/* FIXME: htlc_state_in_db */
-	db_bind_int(stmt, 0, new_state);
+	db_bind_int(stmt, 0, htlc_state_in_db(new_state));
 	db_bind_u64(stmt, 6, htlc_dbid);
 
 	if (payment_key)
