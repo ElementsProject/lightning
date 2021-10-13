@@ -19,6 +19,7 @@ export TEST_NETWORK=${NETWORK:-"regtest"}
 export TIMEOUT=900
 export VALGRIND=${VALGRIND:-0}
 export FUZZING=${FUZZING:-0}
+export LIGHTNINGD_POSTGRES_NO_VACUUM=1
 
 pip3 install --user -U \
      -r requirements.lock
