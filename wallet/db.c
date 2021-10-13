@@ -844,6 +844,14 @@ static struct migration dbmigrations[] = {
 	 " (SELECT GREATEST(next_index_local, next_index_remote)"
 	 "  FROM channels WHERE id=channel_id)"
 	 " WHERE (hstate=9 OR hstate=19);"), NULL},
+    /* Remove unused fields which take much room in db. */
+    {SQL("UPDATE channel_htlcs SET"
+	 " payment_key=NULL,"
+	 " routing_onion=NULL,"
+	 " failuremsg=NULL,"
+	 " shared_secret=NULL,"
+	 " localfailmsg=NULL"
+	 " WHERE (hstate=9 OR hstate=19);"), NULL},
 };
 
 /* Leak tracking. */
