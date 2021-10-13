@@ -2314,8 +2314,9 @@ void wallet_htlc_save_in(struct wallet *wallet,
 				 " hstate,"
 				 " shared_secret,"
 				 " routing_onion,"
-				 " received_time) VALUES "
-				 "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
+				 " received_time,"
+				 " min_commit_num) VALUES "
+				 "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, chan->dbid);
 	db_bind_u64(stmt, 1, in->key.id);
@@ -2339,6 +2340,8 @@ void wallet_htlc_save_in(struct wallet *wallet,
 		     sizeof(in->onion_routing_packet));
 
 	db_bind_timeabs(stmt, 10, in->received_time);
+	db_bind_u64(stmt, 11, min_unsigned(chan->next_index[LOCAL]-1,
+					   chan->next_index[REMOTE]-1));
 
 	db_exec_prepared_v2(stmt);
 	in->dbid = db_last_insert_id_v2(take(stmt));
@@ -2369,8 +2372,9 @@ void wallet_htlc_save_out(struct wallet *wallet,
 		" routing_onion,"
 		" malformed_onion,"
 		" partid,"
-		" groupid"
-		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?);"));
+		" groupid,"
+		" min_commit_num"
+		") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?);"));
 
 	db_bind_u64(stmt, 0, chan->dbid);
 	db_bind_u64(stmt, 1, out->key.id);
@@ -2400,6 +2404,8 @@ void wallet_htlc_save_out(struct wallet *wallet,
 		db_bind_u64(stmt, 10, out->partid);
 		db_bind_u64(stmt, 11, out->groupid);
 	}
+	db_bind_u64(stmt, 12, min_u64(chan->next_index[LOCAL]-1,
+				      chan->next_index[REMOTE]-1));
 
 	db_exec_prepared_v2(stmt);
 	out->dbid = db_last_insert_id_v2(stmt);
@@ -2410,6 +2416,7 @@ void wallet_htlc_save_out(struct wallet *wallet,
 void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
 			const struct preimage *payment_key,
+			u64 max_commit_num,
 			enum onion_wire badonion,
 			const struct onionreply *failonion,
 			const u8 *failmsg,
@@ -2426,11 +2433,11 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 	stmt = db_prepare_v2(
 	    wallet->db, SQL("UPDATE channel_htlcs SET hstate=?, payment_key=?, "
 			    "malformed_onion=?, failuremsg=?, localfailmsg=?, "
-			    "we_filled=?"
+			    "we_filled=?, max_commit_num=?"
 			    " WHERE id=?"));
 
 	db_bind_int(stmt, 0, htlc_state_in_db(new_state));
-	db_bind_u64(stmt, 6, htlc_dbid);
+	db_bind_u64(stmt, 7, htlc_dbid);
 
 	if (payment_key)
 		db_bind_preimage(stmt, 1, payment_key);
@@ -2450,6 +2457,13 @@ void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 		db_bind_int(stmt, 5, *we_filled);
 	else
 		db_bind_null(stmt, 5);
+
+	/* Set max_commit_num iff we're in final state. */
+	if (new_state == RCVD_REMOVE_ACK_REVOCATION
+	    || new_state == SENT_REMOVE_ACK_REVOCATION)
+		db_bind_u64(stmt, 6, max_commit_num);
+	else
+		db_bind_null(stmt, 6);
 
 	db_exec_prepared_v2(take(stmt));
 }

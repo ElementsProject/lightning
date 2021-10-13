@@ -713,6 +713,7 @@ void wallet_htlc_save_out(struct wallet *wallet,
  * @new_state: the state we should transition to
  * @payment_key: the `payment_key` which hashes to the `payment_hash`,
  *   or NULL if unknown.
+ * @max_commit_num: maximum of local and remote commitment numbers.
  * @badonion: the current BADONION failure code, or 0.
  * @failonion: the current failure onion message (from peer), or NULL.
  * @failmsg: the current local failure message, or NULL.
@@ -725,6 +726,7 @@ void wallet_htlc_save_out(struct wallet *wallet,
 void wallet_htlc_update(struct wallet *wallet, const u64 htlc_dbid,
 			const enum htlc_state new_state,
 			const struct preimage *payment_key,
+			u64 max_commit_num,
 			enum onion_wire badonion,
 			const struct onionreply *failonion,
 			const u8 *failmsg,
