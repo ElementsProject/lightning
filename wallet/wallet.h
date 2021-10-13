@@ -1058,9 +1058,10 @@ const struct invoice_details *wallet_invoice_details(const tal_t *ctx,
  * @ctx: Allocation context for the return value
  * @wallet: Wallet to load from
  * @chan: Channel to fetch stubs for
+ * @commit_num: The commitment number of the commit tx.
  */
 struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
-				    struct channel *chan);
+				    struct channel *chan, u64 commit_num);
 
 /**
  * wallet_payment_setup - Remember this payment for later committing.

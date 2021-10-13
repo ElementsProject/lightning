@@ -2836,7 +2836,7 @@ const struct invoice_details *wallet_invoice_details(const tal_t *ctx,
 }
 
 struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
-				    struct channel *chan)
+				    struct channel *chan, u64 commit_num)
 {
 	struct htlc_stub *stubs;
 	struct sha256 payment_hash;
@@ -2845,9 +2845,11 @@ struct htlc_stub *wallet_htlc_stubs(const tal_t *ctx, struct wallet *wallet,
 	stmt = db_prepare_v2(wallet->db,
 			     SQL("SELECT channel_id, direction, cltv_expiry, "
 				 "channel_htlc_id, payment_hash "
-				 "FROM channel_htlcs WHERE channel_id = ?;"));
+				 "FROM channel_htlcs WHERE channel_id = ? AND min_commit_num <= ? AND ((max_commit_num IS NULL) OR max_commit_num >= ?);"));
 
 	db_bind_u64(stmt, 0, chan->dbid);
+	db_bind_u64(stmt, 1, commit_num);
+	db_bind_u64(stmt, 2, commit_num);
 	db_query_prepared(stmt);
 
 	stubs = tal_arr(ctx, struct htlc_stub, 0);
