@@ -1204,7 +1204,7 @@ static int db_get_version(struct db *db)
 /**
  * db_migrate - Apply all remaining migrations from the current version
  */
-static void db_migrate(struct lightningd *ld, struct db *db,
+static bool db_migrate(struct lightningd *ld, struct db *db,
 		       const struct ext_key *bip32_base)
 {
 	/* Attempt to read the version from the database */
@@ -1254,6 +1254,8 @@ static void db_migrate(struct lightningd *ld, struct db *db,
 		db_exec_prepared_v2(stmt);
 		tal_free(stmt);
 	}
+
+	return current != orig;
 }
 
 u32 db_data_version_get(struct db *db)
@@ -1272,14 +1274,22 @@ struct db *db_setup(const tal_t *ctx, struct lightningd *ld,
 		    const struct ext_key *bip32_base)
 {
 	struct db *db = db_open(ctx, ld->wallet_dsn);
+	bool migrated;
 	db->log = new_log(db, ld->log_book, NULL, "database");
 
 	db_begin_transaction(db);
 
-	db_migrate(ld, db, bip32_base);
+	migrated = db_migrate(ld, db, bip32_base);
 
 	db->data_version = db_data_version_get(db);
 	db_commit_transaction(db);
+
+	/* This needs to be done outside a transaction, apparently.
+	 * It's a good idea to do this every so often, and on db
+	 * upgrade is a reasonable time. */
+	if (migrated && !db->config->vacuum_fn(db))
+		db_fatal("Error vacuuming db: %s", db->error);
+
 	return db;
 }
 

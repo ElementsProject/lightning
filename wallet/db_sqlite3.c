@@ -234,6 +234,20 @@ static u64 db_sqlite3_last_insert_id(struct db_stmt *stmt)
 	return sqlite3_last_insert_rowid(s);
 }
 
+static bool db_sqlite3_vacuum(struct db *db)
+{
+	int err;
+	sqlite3_stmt *stmt;
+
+	sqlite3_prepare_v2(db->conn, "VACUUM;", -1, &stmt, NULL);
+	err = sqlite3_step(stmt);
+	if (err != SQLITE_DONE)
+		db->error = tal_fmt(db, "%s", sqlite3_errmsg(db->conn));
+	sqlite3_finalize(stmt);
+
+	return err == SQLITE_DONE;
+}
+
 struct db_config db_sqlite3_config = {
 	.name = "sqlite3",
 	.queries = db_sqlite3_queries,
@@ -256,6 +270,8 @@ struct db_config db_sqlite3_config = {
 	.count_changes_fn = &db_sqlite3_count_changes,
 	.setup_fn = &db_sqlite3_setup,
 	.teardown_fn = &db_sqlite3_close,
+
+	.vacuum_fn = db_sqlite3_vacuum,
 };
 
 AUTODATA(db_backends, &db_sqlite3_config);
