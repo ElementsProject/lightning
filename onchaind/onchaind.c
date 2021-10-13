@@ -23,7 +23,6 @@
 /* stdin == requests */
 #define REQ_FD STDIN_FILENO
 #define HSM_FD 3
-#define max(a, b) ((a) > (b) ? (a) : (b))
 
 /* Required in various places: keys for commitment transaction. */
 static const struct keyset *keyset;
@@ -2837,7 +2836,7 @@ static void handle_our_unilateral(const struct tx_parts *tx,
 					our_unilateral_to_us(&outs, tx,
 							     tx_blockheight,
 							     i, amt,
-							     max(to_self_delay[LOCAL], csv),
+							     max_unsigned(to_self_delay[LOCAL], csv),
 							     script[LOCAL],
 							     local_wscript,
 							     is_replay);

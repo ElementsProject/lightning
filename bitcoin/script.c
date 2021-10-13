@@ -12,8 +12,6 @@
 /* To push 0-75 bytes onto stack. */
 #define OP_PUSHBYTES(val) (val)
 
-#define max(a, b) ((a) > (b) ? (a) : (b))
-
 /* Bitcoin's OP_HASH160 is RIPEMD(SHA256()) */
 static void hash160(struct ripemd160 *redeemhash, const void *mem, size_t len)
 {
@@ -556,7 +554,7 @@ u8 *bitcoin_wscript_to_local(const tal_t *ctx, u16 to_self_delay,
 	add_op(&script, OP_IF);
 	add_push_key(&script, revocation_pubkey);
 	add_op(&script, OP_ELSE);
-	add_number(&script, max(lease_remaining, to_self_delay));
+	add_number(&script, max_unsigned(lease_remaining, to_self_delay));
 	add_op(&script, OP_CHECKSEQUENCEVERIFY);
 	add_op(&script, OP_DROP);
 	add_push_key(&script, local_delayedkey);
