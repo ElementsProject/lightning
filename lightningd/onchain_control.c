@@ -70,14 +70,79 @@ static void onchaind_tell_fulfill(struct channel *channel)
 	}
 }
 
-static void handle_onchain_init_reply(struct channel *channel, const u8 *msg UNUSED)
+/* If we want to know if this HTLC is missing, return depth. */
+static bool tell_if_missing(const struct channel *channel,
+			    struct htlc_stub *stub,
+			    bool *tell_immediate)
 {
+	struct htlc_out *hout;
+
+	/* Keep valgrind happy. */
+	*tell_immediate = false;
+
+	/* Don't care about incoming HTLCs, just ones we offered. */
+	if (stub->owner == REMOTE)
+		return false;
+
+	/* Might not be a current HTLC. */
+	hout = find_htlc_out(&channel->peer->ld->htlcs_out, channel, stub->id);
+	if (!hout)
+		return false;
+
+	/* BOLT #5:
+	 *
+	 *   - for any committed HTLC that does NOT have an output in this
+	 *     commitment transaction:
+	 *     - once the commitment transaction has reached reasonable depth:
+	 *       - MUST fail the corresponding incoming HTLC (if any).
+	 *     - if no *valid* commitment transaction contains an output
+	 *       corresponding to the HTLC.
+	 *       - MAY fail the corresponding incoming HTLC sooner.
+	 */
+	if (hout->hstate >= RCVD_ADD_REVOCATION
+	    && hout->hstate < SENT_REMOVE_REVOCATION)
+		*tell_immediate = true;
+
+	log_debug(channel->log,
+		  "We want to know if htlc %"PRIu64" is missing (%s)",
+		  hout->key.id, *tell_immediate ? "immediate" : "later");
+	return true;
+}
+
+static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
+{
+	struct htlc_stub *stubs;
+	u64 commit_num;
+	bool *tell, *tell_immediate;
+
+	if (!fromwire_onchaind_init_reply(msg, &commit_num)) {
+		channel_internal_error(channel, "Invalid onchaind_init_reply %s",
+				       tal_hex(tmpctx, msg));
+		return;
+	}
+
 	/* FIXME: We may already be ONCHAIN state when we implement restart! */
 	channel_set_state(channel,
 			  FUNDING_SPEND_SEEN,
 			  ONCHAIN,
 			  REASON_UNKNOWN,
 			  "Onchain init reply");
+
+	/* Tell it about any relevant HTLCs */
+	/* FIXME: Filter by commitnum! */
+	stubs = wallet_htlc_stubs(tmpctx, channel->peer->ld->wallet, channel);
+	tell = tal_arr(stubs, bool, tal_count(stubs));
+	tell_immediate = tal_arr(stubs, bool, tal_count(stubs));
+
+	for (size_t i = 0; i < tal_count(stubs); i++) {
+		tell[i] = tell_if_missing(channel, &stubs[i],
+					  &tell_immediate[i]);
+	}
+	msg = towire_onchaind_htlcs(channel, stubs, tell, tell_immediate);
+	subd_send_msg(channel->owner, take(msg));
+
+	/* Tell it about any preimages we know. */
+	onchaind_tell_fulfill(channel);
 }
 
 /**
@@ -492,7 +557,7 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 	case WIRE_ONCHAIND_INIT:
 	case WIRE_ONCHAIND_SPENT:
 	case WIRE_ONCHAIND_DEPTH:
-	case WIRE_ONCHAIND_HTLC:
+	case WIRE_ONCHAIND_HTLCS:
 	case WIRE_ONCHAIND_KNOWN_PREIMAGE:
 	case WIRE_ONCHAIND_DEV_MEMLEAK:
 	case WIRE_ONCHAIND_DEV_MEMLEAK_REPLY:
@@ -500,45 +565,6 @@ static unsigned int onchain_msg(struct subd *sd, const u8 *msg, const int *fds U
 	}
 
 	return 0;
-}
-
-/* If we want to know if this HTLC is missing, return depth. */
-static bool tell_if_missing(const struct channel *channel,
-			    struct htlc_stub *stub,
-			    bool *tell_immediate)
-{
-	struct htlc_out *hout;
-
-	/* Keep valgrind happy. */
-	*tell_immediate = false;
-
-	/* Don't care about incoming HTLCs, just ones we offered. */
-	if (stub->owner == REMOTE)
-		return false;
-
-	/* Might not be a current HTLC. */
-	hout = find_htlc_out(&channel->peer->ld->htlcs_out, channel, stub->id);
-	if (!hout)
-		return false;
-
-	/* BOLT #5:
-	 *
-	 *   - for any committed HTLC that does NOT have an output in this
-	 *     commitment transaction:
-	 *     - once the commitment transaction has reached reasonable depth:
-	 *       - MUST fail the corresponding incoming HTLC (if any).
-	 *     - if no *valid* commitment transaction contains an output
-	 *       corresponding to the HTLC.
-	 *       - MAY fail the corresponding incoming HTLC sooner.
-	 */
-	if (hout->hstate >= RCVD_ADD_REVOCATION
-	    && hout->hstate < SENT_REMOVE_REVOCATION)
-		*tell_immediate = true;
-
-	log_debug(channel->log,
-		  "We want to know if htlc %"PRIu64" is missing (%s)",
-		  hout->key.id, *tell_immediate ? "immediate" : "later");
-	return true;
 }
 
 /* Only error onchaind can get is if it dies. */
@@ -564,7 +590,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 {
 	u8 *msg;
 	struct bitcoin_txid our_last_txid;
-	struct htlc_stub *stubs;
 	struct lightningd *ld = channel->peer->ld;
 	struct pubkey final_key;
 	int hsmfd;
@@ -606,12 +631,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 	if (!channel->owner) {
 		log_broken(channel->log, "Could not subdaemon onchain: %s",
 			   strerror(errno));
-		return KEEP_WATCHING;
-	}
-
-	stubs = wallet_htlc_stubs(tmpctx, ld->wallet, channel);
-	if (!stubs) {
-		log_broken(channel->log, "Could not load htlc_stubs");
 		return KEEP_WATCHING;
 	}
 
@@ -695,7 +714,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  /* FIXME: config for 'reasonable depth' */
 				  3,
 				  channel->last_htlc_sigs,
-				  tal_count(stubs),
 				  channel->min_possible_feerate,
 				  channel->max_possible_feerate,
 				  channel->future_per_commitment_point,
@@ -707,18 +725,6 @@ enum watch_result onchaind_funding_spent(struct channel *channel,
 				  is_replay,
 				  feerate_min(ld, NULL));
 	subd_send_msg(channel->owner, take(msg));
-
-	/* FIXME: Don't queue all at once, use an empty cb... */
-	for (size_t i = 0; i < tal_count(stubs); i++) {
-		bool tell_immediate;
-		bool tell = tell_if_missing(channel, &stubs[i], &tell_immediate);
-		msg = towire_onchaind_htlc(channel, &stubs[i],
-					  tell, tell_immediate);
-		subd_send_msg(channel->owner, take(msg));
-	}
-
-	/* Tell it about any preimages we know. */
-	onchaind_tell_fulfill(channel);
 
 	watch_tx_and_outputs(channel, tx);
 
