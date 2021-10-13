@@ -299,10 +299,11 @@ static void watch_for_utxo_reconfirmation(struct chain_topology *topo,
 		assert(unconfirmed[i]->close_info != NULL);
 		assert(unconfirmed[i]->blockheight == NULL);
 
-		if (find_txwatch(topo, &unconfirmed[i]->txid, NULL))
+		if (find_txwatch(topo, &unconfirmed[i]->outpoint.txid, NULL))
 			continue;
 
-		notleak(watch_txid(topo, topo, NULL, &unconfirmed[i]->txid,
+		notleak(watch_txid(topo, topo, NULL,
+				   &unconfirmed[i]->outpoint.txid,
 				   closeinfo_txid_confirmed));
 	}
 }
@@ -654,25 +655,24 @@ static void updates_complete(struct chain_topology *topo)
 
 static void record_utxo_spent(struct lightningd *ld,
 			      const struct bitcoin_txid *txid,
-			      const struct bitcoin_txid *utxo_txid,
-			      u32 vout, u32 blockheight,
+			      const struct bitcoin_outpoint *outpoint,
+			      u32 blockheight,
 			      struct amount_sat *input_amt)
 {
 	struct utxo *utxo;
 	struct chain_coin_mvt *mvt;
 	u8 *ctx = tal(NULL, u8);
 
-	utxo = wallet_utxo_get(ctx, ld->wallet, utxo_txid, vout);
+	utxo = wallet_utxo_get(ctx, ld->wallet, outpoint);
 	if (!utxo) {
-		log_broken(ld->log, "No record of utxo %s:%d",
-			    type_to_string(tmpctx, struct bitcoin_txid,
-					   utxo_txid),
-			    vout);
+		log_broken(ld->log, "No record of utxo %s",
+			    type_to_string(tmpctx, struct bitcoin_outpoint,
+					   outpoint));
 		return;
 	}
 
 	*input_amt = utxo->amount;
-	mvt = new_coin_spend_track(ctx, txid, utxo_txid, vout, blockheight);
+	mvt = new_coin_spend_track(ctx, txid, outpoint, blockheight);
 	notify_chain_mvt(ld, mvt);
 	tal_free(ctx);
 }
@@ -680,20 +680,23 @@ static void record_utxo_spent(struct lightningd *ld,
 static void record_outputs_as_withdraws(const tal_t *ctx,
 					struct lightningd *ld,
 					const struct bitcoin_tx *tx,
-					struct bitcoin_txid *txid,
+					const struct bitcoin_txid *txid,
 					u32 blockheight)
 {
 	struct chain_coin_mvt *mvt;
-	for (size_t i = 0; i < tx->wtx->num_outputs; i++) {
+	struct bitcoin_outpoint outpoint;
+
+	outpoint.txid = *txid;
+	for (outpoint.n = 0; outpoint.n < tx->wtx->num_outputs; outpoint.n++) {
 		struct amount_asset asset;
 		struct amount_sat outval;
-		if (elements_tx_output_is_fee(tx, i))
+		if (elements_tx_output_is_fee(tx, outpoint.n))
 			continue;
-		asset = bitcoin_tx_output_get_amount(tx, i);
+		asset = bitcoin_tx_output_get_amount(tx, outpoint.n);
 		assert(amount_asset_is_main(&asset));
 		outval = amount_asset_to_sat(&asset);
 		mvt = new_coin_withdrawal_sat(ctx, "wallet", txid,
-					      txid, i, blockheight,
+					      &outpoint, blockheight,
 					      outval);
 		notify_chain_mvt(ld, mvt);
 	}
@@ -701,7 +704,7 @@ static void record_outputs_as_withdraws(const tal_t *ctx,
 
 static void record_tx_outs_and_fees(struct lightningd *ld,
 				    const struct bitcoin_tx *tx,
-				    struct bitcoin_txid *txid,
+				    const struct bitcoin_txid *txid,
 				    u32 blockheight,
 				    struct amount_sat inputs_total,
 				    bool our_tx)
@@ -728,7 +731,7 @@ static void record_tx_outs_and_fees(struct lightningd *ld,
 		/* We don't have detailed withdrawal info for this tx,
 		 * so we log the wallet withdrawal as a single entry */
 		mvt = new_coin_withdrawal_sat(ctx, "wallet", txid, NULL,
-					      0, blockheight, out_val);
+					      blockheight, out_val);
 		notify_chain_mvt(ld, mvt);
 		goto log_fee;
 	}
@@ -763,23 +766,21 @@ static void topo_update_spends(struct chain_topology *topo, struct block *b)
 		txid = b->txids[i];
 
 		for (size_t j = 0; j < tx->wtx->num_inputs; j++) {
-			const struct wally_tx_input *input = &tx->wtx->inputs[j];
-			struct bitcoin_txid outpoint_txid;
+			struct bitcoin_outpoint outpoint;
 			bool our_spend;
 
-			bitcoin_tx_input_get_txid(tx, j, &outpoint_txid);
+			bitcoin_tx_input_get_outpoint(tx, j, &outpoint);
 
 			our_spend = wallet_outpoint_spend(
-			    topo->ld->wallet, tmpctx, b->height, &outpoint_txid,
-			    input->index);
+			    topo->ld->wallet, tmpctx, b->height, &outpoint);
 			our_tx &= our_spend;
 			includes_our_spend |= our_spend;
 			if (our_spend) {
 				struct amount_sat input_amt;
 				bool ok;
 
-				record_utxo_spent(topo->ld, &txid, &outpoint_txid,
-						  input->index, b->height, &input_amt);
+				record_utxo_spent(topo->ld, &txid, &outpoint,
+						  b->height, &input_amt);
 				ok = amount_sat_add(&inputs_total, inputs_total, input_amt);
 				assert(ok);
 			}
@@ -804,15 +805,21 @@ static void topo_add_utxos(struct chain_topology *topo, struct block *b)
 {
 	for (size_t i = 0; i < tal_count(b->full_txs); i++) {
 		const struct bitcoin_tx *tx = b->full_txs[i];
-		for (size_t j = 0; j < tx->wtx->num_outputs; j++) {
-			if (tx->wtx->outputs[j].features & WALLY_TX_IS_COINBASE)
+		struct bitcoin_outpoint outpoint;
+
+		bitcoin_txid(tx, &outpoint.txid);
+		for (outpoint.n = 0;
+		     outpoint.n < tx->wtx->num_outputs;
+		     outpoint.n++) {
+			if (tx->wtx->outputs[outpoint.n].features
+			    & WALLY_TX_IS_COINBASE)
 				continue;
 
-			const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, j);
-			struct amount_asset amt = bitcoin_tx_output_get_amount(tx, j);
+			const u8 *script = bitcoin_tx_output_get_script(tmpctx, tx, outpoint.n);
+			struct amount_asset amt = bitcoin_tx_output_get_amount(tx, outpoint.n);
 
 			if (amount_asset_is_main(&amt) && is_p2wsh(script, NULL)) {
-				wallet_utxoset_add(topo->ld->wallet, tx, j,
+				wallet_utxoset_add(topo->ld->wallet, &outpoint,
 						   b->height, i, script,
 						   amount_asset_to_sat(&amt));
 			}

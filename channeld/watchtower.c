@@ -38,6 +38,7 @@ penalty_tx_create(const tal_t *ctx,
 	const struct secret remote_per_commitment_secret = *revocation_preimage;
 	struct pubkey remote_per_commitment_point;
 	const struct basepoints *basepoints = channel->basepoints;
+	struct bitcoin_outpoint outpoint;
 
 	if (to_them_outnum == -1 ||
 	    amount_sat_less_eq(to_them_sats, dust_limit)) {
@@ -46,6 +47,9 @@ penalty_tx_create(const tal_t *ctx,
 			    "is no non-dust to_them output in the commitment.");
 		return NULL;
 	}
+
+	outpoint.txid = *commitment_txid;
+	outpoint.n = to_them_outnum;
 
 	if (!pubkey_from_secret(&remote_per_commitment_secret, &remote_per_commitment_point))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
@@ -67,7 +71,7 @@ penalty_tx_create(const tal_t *ctx,
 					   &keyset.self_delayed_payment_key);
 
 	tx = bitcoin_tx(ctx, chainparams, 1, 1, locktime);
-	bitcoin_tx_add_input(tx, commitment_txid, to_them_outnum, 0xFFFFFFFF,
+	bitcoin_tx_add_input(tx, &outpoint, 0xFFFFFFFF,
 			     NULL, to_them_sats, NULL, wscript);
 
 	bitcoin_tx_add_output(tx, final_scriptpubkey, NULL, to_them_sats);

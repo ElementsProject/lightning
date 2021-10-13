@@ -144,8 +144,7 @@ static void destroy_inflight(struct channel_inflight *inflight)
 
 struct channel_inflight *
 new_inflight(struct channel *channel,
-	     const struct bitcoin_txid funding_txid,
-	     u16 funding_outnum,
+	     const struct bitcoin_outpoint *funding_outpoint,
 	     u32 funding_feerate,
 	     struct amount_sat total_funds,
 	     struct amount_sat our_funds,
@@ -163,9 +162,8 @@ new_inflight(struct channel *channel,
 	struct funding_info *funding
 		= tal(inflight, struct funding_info);
 
-	funding->txid = funding_txid;
+	funding->outpoint = *funding_outpoint;
 	funding->total_funds = total_funds;
-	funding->outnum = funding_outnum;
 	funding->feerate = funding_feerate;
 	funding->our_funds = our_funds;
 
@@ -312,9 +310,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u64 next_index_local,
 			    u64 next_index_remote,
 			    u64 next_htlc_id,
-			    const struct bitcoin_txid *funding_txid,
-			    u16 funding_outnum,
-			    struct amount_sat funding,
+			    const struct bitcoin_outpoint *funding,
+			    struct amount_sat funding_sats,
 			    struct amount_msat push,
 			    struct amount_sat our_funds,
 			    bool remote_funding_locked,
@@ -396,9 +393,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 	channel->next_index[LOCAL] = next_index_local;
 	channel->next_index[REMOTE] = next_index_remote;
 	channel->next_htlc_id = next_htlc_id;
-	channel->funding_txid = *funding_txid;
-	channel->funding_outnum = funding_outnum;
-	channel->funding = funding;
+	channel->funding = *funding;
+	channel->funding_sats = funding_sats;
 	channel->push = push;
 	channel->our_funds = our_funds;
 	channel->remote_funding_locked = remote_funding_locked;
@@ -514,7 +510,7 @@ struct channel_inflight *channel_inflight_find(struct channel *channel,
 {
 	struct channel_inflight *inflight;
 	list_for_each(&channel->inflights, inflight, list) {
-		if (bitcoin_txid_eq(txid, &inflight->funding->txid))
+		if (bitcoin_txid_eq(txid, &inflight->funding->outpoint.txid))
 			return inflight;
 	}
 

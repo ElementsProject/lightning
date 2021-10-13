@@ -80,12 +80,11 @@ static bool balance_ok(const struct balance *balance,
 
 struct channel *new_full_channel(const tal_t *ctx,
 				 const struct channel_id *cid,
-				 const struct bitcoin_txid *funding_txid,
-				 unsigned int funding_txout,
+				 const struct bitcoin_outpoint *funding,
 				 u32 minimum_depth,
 				 const struct height_states *blockheight_states,
 				 u32 lease_expiry,
-				 struct amount_sat funding,
+				 struct amount_sat funding_sats,
 				 struct amount_msat local_msat,
 				 const struct fee_states *fee_states TAKES,
 				 const struct channel_config *local,
@@ -100,12 +99,11 @@ struct channel *new_full_channel(const tal_t *ctx,
 {
 	struct channel *channel = new_initial_channel(ctx,
 						      cid,
-						      funding_txid,
-						      funding_txout,
+						      funding,
 						      minimum_depth,
 						      blockheight_states,
 						      lease_expiry,
-						      funding,
+						      funding_sats,
 						      local_msat,
 						      fee_states,
 						      local, remote,
@@ -244,16 +242,15 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 		      const struct keyset *keyset,
 		      enum side side)
 {
-	size_t i;
-	struct bitcoin_txid txid;
+	struct bitcoin_outpoint outpoint;
 	u32 feerate_per_kw = channel_feerate(channel, side);
 	bool option_anchor_outputs = channel_has(channel, OPT_ANCHOR_OUTPUTS);
 
 	/* Get txid of commitment transaction */
-	bitcoin_txid((*txs)[0], &txid);
+	bitcoin_txid((*txs)[0], &outpoint.txid);
 
-	for (i = 0; i < tal_count(htlcmap); i++) {
-		const struct htlc *htlc = htlcmap[i];
+	for (outpoint.n = 0; outpoint.n < tal_count(htlcmap); outpoint.n++) {
+		const struct htlc *htlc = htlcmap[outpoint.n];
 		struct bitcoin_tx *tx;
 		struct ripemd160 ripemd;
 		const u8 *wscript;
@@ -265,7 +262,7 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 			ripemd160(&ripemd, htlc->rhash.u.u8, sizeof(htlc->rhash.u.u8));
 			wscript = htlc_offered_wscript(tmpctx, &ripemd, keyset,
 						       option_anchor_outputs);
-			tx = htlc_timeout_tx(*txs, chainparams, &txid, i,
+			tx = htlc_timeout_tx(*txs, chainparams, &outpoint,
 					     wscript,
 					     htlc->amount,
 					     htlc->expiry.locktime,
@@ -278,7 +275,7 @@ static void add_htlcs(struct bitcoin_tx ***txs,
 			wscript = htlc_received_wscript(tmpctx, &ripemd,
 							&htlc->expiry, keyset,
 							option_anchor_outputs);
-			tx = htlc_success_tx(*txs, chainparams, &txid, i,
+			tx = htlc_success_tx(*txs, chainparams, &outpoint,
 					     wscript,
 					     htlc->amount,
 					     channel->config[!side].to_self_delay,
@@ -324,8 +321,8 @@ struct bitcoin_tx **channel_txs(const tal_t *ctx,
 
 	txs = tal_arr(ctx, struct bitcoin_tx *, 1);
 	txs[0] = commit_tx(
-	    ctx, &channel->funding_txid, channel->funding_txout,
-	    channel->funding,
+	    ctx, &channel->funding,
+	    channel->funding_sats,
 	    &channel->funding_pubkey[side],
 	    &channel->funding_pubkey[!side],
 	    channel->opener,

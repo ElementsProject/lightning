@@ -325,10 +325,9 @@ struct wallet_payment {
 };
 
 struct outpoint {
-	struct bitcoin_txid txid;
+	struct bitcoin_outpoint outpoint;
 	u32 blockheight;
 	u32 txindex;
-	u32 outnum;
 	struct amount_sat sat;
 	u8 *scriptpubkey;
 	u32 spendheight;
@@ -397,8 +396,8 @@ void wallet_confirm_tx(struct wallet *w,
  * `output_state_any` as @oldstatus.
  */
 bool wallet_update_output_status(struct wallet *w,
-				 const struct bitcoin_txid *txid,
-				 const u32 outnum, enum output_status oldstatus,
+				 const struct bitcoin_outpoint *outpoint,
+				 enum output_status oldstatus,
 				 enum output_status newstatus);
 
 /**
@@ -452,8 +451,7 @@ struct utxo *wallet_find_utxo(const tal_t *ctx, struct wallet *w,
  * Returns false if we already have it in db (that's fine).
  */
 bool wallet_add_onchaind_utxo(struct wallet *w,
-			      const struct bitcoin_txid *txid,
-			      u32 outnum,
+			      const struct bitcoin_outpoint *outpoint,
 			      const u8 *scriptpubkey,
 			      u32 blockheight,
 			      struct amount_sat amount,
@@ -490,8 +488,7 @@ void wallet_unreserve_utxo(struct wallet *w, struct utxo *utxo,
  * Returns a utxo, or NULL if not found.
  */
 struct utxo *wallet_utxo_get(const tal_t *ctx, struct wallet *w,
-			     const struct bitcoin_txid *txid,
-			     u32 outnum);
+			     const struct bitcoin_outpoint *outpoint);
 
 /**
  * wallet_select_specific - Select utxos given an array of txids and an array of outputs index
@@ -1245,13 +1242,14 @@ bool wallet_have_block(struct wallet *w, u32 blockheight);
  */
 bool wallet_outpoint_spend(struct wallet *w, const tal_t *ctx,
 			   const u32 blockheight,
-			   const struct bitcoin_txid *txid, const u32 outnum);
+			   const struct bitcoin_outpoint *outpoint);
 
 struct outpoint *wallet_outpoint_for_scid(struct wallet *w, tal_t *ctx,
 					  const struct short_channel_id *scid);
 
-void wallet_utxoset_add(struct wallet *w, const struct bitcoin_tx *tx,
-			const u32 outnum, const u32 blockheight,
+void wallet_utxoset_add(struct wallet *w,
+			const struct bitcoin_outpoint *outpoint,
+			const u32 blockheight,
 			const u32 txindex, const u8 *scriptpubkey,
 			struct amount_sat sat);
 
@@ -1279,8 +1277,9 @@ wallet_utxoset_get_created(const tal_t *ctx, struct wallet *w, u32 blockheight);
 void wallet_transaction_add(struct wallet *w, const struct wally_tx *tx,
 			    const u32 blockheight, const u32 txindex);
 
-void wallet_annotate_txout(struct wallet *w, const struct bitcoin_txid *txid,
-			   int outnum, enum wallet_tx_type type, u64 channel);
+void wallet_annotate_txout(struct wallet *w,
+			   const struct bitcoin_outpoint *outpoint,
+			   enum wallet_tx_type type, u64 channel);
 
 void wallet_annotate_txin(struct wallet *w, const struct bitcoin_txid *txid,
 			  int innum, enum wallet_tx_type type, u64 channel);
@@ -1423,8 +1422,7 @@ void wallet_persist_utxo_reservation(struct wallet *w, const struct utxo **utxos
  * We unreserve utxos so that they can be spent elsewhere.
  * */
 bool wallet_unreserve_output(struct wallet *w,
-			     const struct bitcoin_txid *txid,
-			     const u32 outnum);
+			     const struct bitcoin_outpoint *outpoint);
 /**
  * Get a list of transactions that we track in the wallet.
  *

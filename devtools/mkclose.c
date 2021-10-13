@@ -50,8 +50,7 @@ int main(int argc, char *argv[])
 	struct pubkey funding_pubkey[NUM_SIDES], outkey[NUM_SIDES];
 	struct privkey funding_privkey[NUM_SIDES];
 	struct amount_sat funding_amount;
-	struct bitcoin_txid funding_txid;
-	unsigned int funding_outnum;
+	struct bitcoin_outpoint funding;
 	u32 feerate_per_kw;
 	struct amount_sat fee;
 	struct bitcoin_signature local_sig, remote_sig;
@@ -81,10 +80,10 @@ int main(int argc, char *argv[])
 
 	argnum = 1;
 	if (!bitcoin_txid_from_hex(argv[argnum],
-				   strlen(argv[argnum]), &funding_txid))
+				   strlen(argv[argnum]), &funding.txid))
 		errx(1, "Bad funding-txid");
 	argnum++;
-	funding_outnum = atoi(argv[argnum++]);
+	funding.n = atoi(argv[argnum++]);
 	if (!parse_amount_sat(&funding_amount, argv[argnum], strlen(argv[argnum])))
 		errx(1, "Bad funding-amount");
 	argnum++;
@@ -165,7 +164,7 @@ int main(int argc, char *argv[])
 	       tal_hex(NULL, funding_wscript));
 
 	/* Our input spends the anchor tx output. */
-	bitcoin_tx_add_input(tx, &funding_txid, funding_outnum,
+	bitcoin_tx_add_input(tx, &funding,
 			     BITCOIN_TX_DEFAULT_SEQUENCE, NULL,
 			     funding_amount, NULL, funding_wscript);
 

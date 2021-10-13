@@ -1470,14 +1470,13 @@ static void fillin_missing_channel_id(struct lightningd *ld, struct db *db,
 	while (db_step(stmt)) {
 		struct db_stmt *update_stmt;
 		size_t id;
-		struct bitcoin_txid funding_txid;
+		struct bitcoin_outpoint funding;
 		struct channel_id cid;
-		u32 outnum;
 
 		id = db_column_u64(stmt, 0);
-		db_column_txid(stmt, 1, &funding_txid);
-		outnum = db_column_int(stmt, 2);
-		derive_channel_id(&cid, &funding_txid, outnum);
+		db_column_txid(stmt, 1, &funding.txid);
+		funding.n = db_column_int(stmt, 2);
+		derive_channel_id(&cid, &funding);
 
 		update_stmt = db_prepare_v2(db, SQL("UPDATE channels"
 						    " SET full_channel_id = ?"

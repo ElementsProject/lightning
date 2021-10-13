@@ -19,8 +19,7 @@ struct billboard {
 };
 
 struct funding_info {
-	struct bitcoin_txid txid;
-	u16 outnum;
+	struct bitcoin_outpoint outpoint;
 	u32 feerate;
 	struct amount_sat total_funds;
 
@@ -117,10 +116,9 @@ struct channel {
 	u64 next_index[NUM_SIDES];
 	u64 next_htlc_id;
 
-	/* Funding txid and amounts */
-	struct bitcoin_txid funding_txid;
-	u16 funding_outnum;
-	struct amount_sat funding;
+	/* Funding outpoint and amount */
+	struct bitcoin_outpoint funding;
+	struct amount_sat funding_sats;
 
 	/* Our original funds, in funding amount */
 	struct amount_sat our_funds;
@@ -258,9 +256,8 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 			    u64 next_index_local,
 			    u64 next_index_remote,
 			    u64 next_htlc_id,
-			    const struct bitcoin_txid *funding_txid,
-			    u16 funding_outnum,
-			    struct amount_sat funding,
+			    const struct bitcoin_outpoint *funding,
+			    struct amount_sat funding_sats,
 			    struct amount_msat push,
 			    struct amount_sat our_funds,
 			    bool remote_funding_locked,
@@ -310,10 +307,9 @@ struct channel *new_channel(struct peer *peer, u64 dbid,
 /* new_inflight - Create a new channel_inflight for a channel */
 struct channel_inflight *
 new_inflight(struct channel *channel,
-	     const struct bitcoin_txid funding_txid,
-	     u16 funding_outnum,
+	     const struct bitcoin_outpoint *funding_outpoint,
 	     u32 funding_feerate,
-	     struct amount_sat funding,
+	     struct amount_sat funding_sat,
 	     struct amount_sat our_funds,
 	     struct wally_psbt *funding_psbt STEALS,
 	     struct bitcoin_tx *last_tx STEALS,

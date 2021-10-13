@@ -57,7 +57,7 @@ static void got_filteredblock(struct bitcoind *bitcoind,
 	u32 txindex = short_channel_id_txnum(scid);
 	for (size_t i=0; i<tal_count(fb->outpoints); i++) {
 		o = fb->outpoints[i];
-		if (o->txindex == txindex && o->outnum == outnum) {
+		if (o->txindex == txindex && o->outpoint.n == outnum) {
 			fbo = o;
 			break;
 		}

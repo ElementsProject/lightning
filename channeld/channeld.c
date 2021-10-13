@@ -235,12 +235,12 @@ static struct amount_msat advertized_htlc_max(const struct channel *channel)
 	struct amount_msat lower_bound_msat;
 
 	/* This shouldn't fail */
-	if (!amount_sat_sub(&lower_bound, channel->funding,
+	if (!amount_sat_sub(&lower_bound, channel->funding_sats,
 			    channel->config[REMOTE].channel_reserve)) {
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "funding %s - remote reserve %s?",
 			      type_to_string(tmpctx, struct amount_sat,
-					     &channel->funding),
+					     &channel->funding_sats),
 			      type_to_string(tmpctx, struct amount_sat,
 					     &channel->config[REMOTE]
 					     .channel_reserve));
@@ -454,7 +454,8 @@ static void make_channel_local_active(struct peer *peer)
 
 	/* Tell gossipd about local channel. */
 	msg = towire_gossip_store_private_channel(NULL,
-						  peer->channel->funding, ann);
+						  peer->channel->funding_sats,
+						  ann);
  	wire_sync_write(peer->pps->gossip_fd, take(msg));
 
 	/* Tell gossipd and the other side what parameters we expect should
@@ -3755,12 +3756,11 @@ static void req_in(struct peer *peer, const u8 *msg)
 static void init_channel(struct peer *peer)
 {
 	struct basepoints points[NUM_SIDES];
-	struct amount_sat funding;
-	u16 funding_txout;
+	struct amount_sat funding_sats;
 	struct amount_msat local_msat;
 	struct pubkey funding_pubkey[NUM_SIDES];
 	struct channel_config conf[NUM_SIDES];
-	struct bitcoin_txid funding_txid;
+	struct bitcoin_outpoint funding;
 	enum side opener;
 	struct existing_htlc **htlcs;
 	bool reconnected;
@@ -3786,8 +3786,8 @@ static void init_channel(struct peer *peer)
 				   &chainparams,
 				   &peer->our_features,
 				   &peer->channel_id,
-				   &funding_txid, &funding_txout,
 				   &funding,
+				   &funding_sats,
 				   &minimum_depth,
 				   &peer->our_blockheight,
 				   &blockheight_states,
@@ -3899,12 +3899,11 @@ static void init_channel(struct peer *peer)
 				 &peer->next_local_per_commit, NULL);
 
 	peer->channel = new_full_channel(peer, &peer->channel_id,
-					 &funding_txid,
-					 funding_txout,
+					 &funding,
 					 minimum_depth,
 					 take(blockheight_states),
 					 lease_expiry,
-					 funding,
+					 funding_sats,
 					 local_msat,
 					 take(fee_states),
 					 &conf[LOCAL], &conf[REMOTE],

@@ -375,7 +375,7 @@ static void sign_our_inputs(struct utxo **utxos, struct wally_psbt *psbt)
 			struct pubkey pubkey;
 
 			if (!wally_tx_input_spends(&psbt->tx->inputs[j],
-						   &utxo->txid, utxo->outnum))
+						   &utxo->outpoint))
 				continue;
 
 			hsm_key_for_utxo(&privkey, &pubkey, utxo);

@@ -15,7 +15,7 @@ struct channel *active_channel_by_scid(struct lightningd *ld UNNEEDED,
 { fprintf(stderr, "active_channel_by_scid called!\n"); abort(); }
 /* Generated stub for bitcoind_getutxout_ */
 void bitcoind_getutxout_(struct bitcoind *bitcoind UNNEEDED,
-			 const struct bitcoin_txid *txid UNNEEDED, const u32 outnum UNNEEDED,
+			 const struct bitcoin_outpoint *outpoint UNNEEDED,
 			 void (*cb)(struct bitcoind *bitcoind UNNEEDED,
 				    const struct bitcoin_tx_output *txout UNNEEDED,
 				    void *arg) UNNEEDED,
@@ -676,8 +676,9 @@ u8 *towire_warningfmt(const tal_t *ctx UNNEEDED,
 const char *version(void)
 { fprintf(stderr, "version called!\n"); abort(); }
 /* Generated stub for wallet_annotate_txout */
-void wallet_annotate_txout(struct wallet *w UNNEEDED, const struct bitcoin_txid *txid UNNEEDED,
-			   int outnum UNNEEDED, enum wallet_tx_type type UNNEEDED, u64 channel UNNEEDED)
+void wallet_annotate_txout(struct wallet *w UNNEEDED,
+			   const struct bitcoin_outpoint *outpoint UNNEEDED,
+			   enum wallet_tx_type type UNNEEDED, u64 channel UNNEEDED)
 { fprintf(stderr, "wallet_annotate_txout called!\n"); abort(); }
 /* Generated stub for wallet_channel_save */
 void wallet_channel_save(struct wallet *w UNNEEDED, struct channel *chan UNNEEDED)
@@ -820,8 +821,7 @@ struct txwatch *watch_txid(const tal_t *ctx UNNEEDED,
 struct txowatch *watch_txo(const tal_t *ctx UNNEEDED,
 			   struct chain_topology *topo UNNEEDED,
 			   struct channel *channel UNNEEDED,
-			   const struct bitcoin_txid *txid UNNEEDED,
-			   unsigned int output UNNEEDED,
+			   const struct bitcoin_outpoint *outpoint UNNEEDED,
 			   enum watch_result (*cb)(struct channel *channel UNNEEDED,
 						   const struct bitcoin_tx *tx UNNEEDED,
 						   size_t input_num UNNEEDED,
@@ -870,7 +870,7 @@ static struct channel *add_peer(struct lightningd *ld, int n,
 	c->opener = LOCAL;
 	c->peer = peer;
 	/* Channel has incoming capacity n*1000 - 1 millisatoshi */
-	c->funding.satoshis = n+1;
+	c->funding_sats.satoshis = n+1;
 	c->our_msat = AMOUNT_MSAT(1);
 	c->our_config.channel_reserve = AMOUNT_SAT(1);
 	c->our_config.htlc_minimum = AMOUNT_MSAT(0);

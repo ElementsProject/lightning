@@ -12,6 +12,7 @@ struct wally_tx_output;
 struct wally_map;
 struct amount_asset;
 struct amount_sat;
+struct bitcoin_outpoint;
 struct bitcoin_signature;
 struct bitcoin_txid;
 struct pubkey;
@@ -119,8 +120,8 @@ struct wally_psbt_input *psbt_add_input(struct wally_psbt *psbt,
 
 /* One stop shop for adding an input + metadata to a PSBT */
 struct wally_psbt_input *psbt_append_input(struct wally_psbt *psbt,
-					   const struct bitcoin_txid *txid,
-					   u32 outnum, u32 sequence,
+					   const struct bitcoin_outpoint *outpoint,
+					   u32 sequence,
 					   const u8 *scriptSig,
 					   const u8 *input_wscript,
 					   const u8 *redeemscript);
@@ -253,12 +254,10 @@ struct amount_sat psbt_compute_fee(const struct wally_psbt *psbt);
 /* psbt_has_input - Is this input present on this psbt
  *
  * @psbt - psbt
- * @txid - txid of input
- * @outnum - output index of input
+ * @outpoint - txid/index spent by input
  */
 bool psbt_has_input(const struct wally_psbt *psbt,
-		    const struct bitcoin_txid *txid,
-		    u32 outnum);
+		    const struct bitcoin_outpoint *outpoint);
 
 struct wally_psbt *psbt_from_b64(const tal_t *ctx,
 				 const char *b64,

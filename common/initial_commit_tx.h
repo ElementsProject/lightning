@@ -7,7 +7,7 @@
 #include <common/htlc.h>
 #include <common/utils.h>
 
-struct bitcoin_txid;
+struct bitcoin_outpoint;
 struct keyset;
 struct wally_tx_output;
 
@@ -84,7 +84,7 @@ static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
 /**
  * initial_commit_tx: create (unsigned) commitment tx to spend the funding tx output
  * @ctx: context to allocate transaction and @htlc_map from.
- * @funding_txid, @funding_out, @funding: funding outpoint.
+ * @funding, @funding_sats: funding outpoint and amount
  * @funding_wscript: scriptPubkey of the funding output
  * @funding_keys: funding bitcoin keys
  * @opener: is the LOCAL or REMOTE paying the fee?
@@ -105,9 +105,8 @@ static inline struct amount_sat commit_tx_base_fee(u32 feerate_per_kw,
  * transaction, so we carefully use the terms "self" and "other" here.
  */
 struct bitcoin_tx *initial_commit_tx(const tal_t *ctx,
-				     const struct bitcoin_txid *funding_txid,
-				     unsigned int funding_txout,
-				     struct amount_sat funding,
+				     const struct bitcoin_outpoint *funding,
+				     struct amount_sat funding_sats,
 				     const struct pubkey funding_key[NUM_SIDES],
 				     enum side opener,
 				     u16 to_self_delay,

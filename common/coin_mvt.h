@@ -51,8 +51,7 @@ struct chain_coin_mvt {
 	/* account_id */
 	const char *account_name;
 	const struct bitcoin_txid *tx_txid;
-	const struct bitcoin_txid *output_txid;
-	u32 vout;
+	const struct bitcoin_outpoint *outpoint;
 
 	/* some on-chain movements have a payment hash */
 	struct sha256 *payment_hash;
@@ -74,8 +73,7 @@ struct mvt_id {
 	struct sha256 *payment_hash;
 	u64 *part_id;
 	const struct bitcoin_txid *tx_txid;
-	const struct bitcoin_txid *output_txid;
-	u32 vout;
+	const struct bitcoin_outpoint *outpoint;
 };
 
 struct coin_mvt {
@@ -119,17 +117,15 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 					      bool is_credit);
 
 struct chain_coin_mvt *new_coin_withdrawal(const tal_t *ctx,
-					  const char *account_name,
-					  const struct bitcoin_txid *tx_txid,
-					  const struct bitcoin_txid *out_txid,
-					  u32 vout,
-					  u32 blockheight,
-					  struct amount_msat amount);
+					   const char *account_name,
+					   const struct bitcoin_txid *tx_txid,
+					   const struct bitcoin_outpoint *outpoint,
+					   u32 blockheight,
+					   struct amount_msat amount);
 struct chain_coin_mvt *new_coin_withdrawal_sat(const tal_t *ctx,
 					       const char *account_name,
 					       const struct bitcoin_txid *tx_txid,
-					       const struct bitcoin_txid *out_txid,
-					       u32 vout,
+					       const struct bitcoin_outpoint *outpoint,
 					       u32 blockheight,
 					       struct amount_sat amount);
 struct chain_coin_mvt *new_coin_chain_fees(const tal_t *ctx,
@@ -145,43 +141,39 @@ struct chain_coin_mvt *new_coin_chain_fees_sat(const tal_t *ctx,
 struct chain_coin_mvt *new_coin_journal_entry(const tal_t *ctx,
 					      const char *account_name,
 					      const struct bitcoin_txid *txid,
-					      const struct bitcoin_txid *out_txid,
-					      u32 vout,
+					      const struct bitcoin_outpoint *outpoint,
 					      u32 blockheight,
 					      struct amount_msat amount,
 					      bool is_credit);
 struct chain_coin_mvt *new_coin_deposit(const tal_t *ctx,
 					const char *account_name,
-					const struct bitcoin_txid *txid,
-					u32 vout, u32 blockheight,
+					const struct bitcoin_outpoint *outpoint,
+					u32 blockheight,
 					struct amount_msat amount);
 struct chain_coin_mvt *new_coin_deposit_sat(const tal_t *ctx,
 					    const char *account_name,
-					    const struct bitcoin_txid *txid,
-					    u32 vout,
+					    const struct bitcoin_outpoint *outpoint,
 					    u32 blockheight,
 					    struct amount_sat amount);
 struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx,
 					    const char *account_name,
 					    const struct bitcoin_txid *txid,
-					    const struct bitcoin_txid *out_txid,
-					    u32 vout,
+					    const struct bitcoin_outpoint *outpoint,
 					    u32 blockheight,
 					    struct amount_sat amount);
 
 struct chain_coin_mvt *new_coin_onchain_htlc_sat(const tal_t *ctx,
 						 const char *account_name,
 						 const struct bitcoin_txid *txid,
-						 const struct bitcoin_txid *out_txid,
-						 u32 vout,
+						 const struct bitcoin_outpoint *outpoint,
 						 struct sha256 payment_hash,
 						 u32 blockheight,
 						 struct amount_sat amount,
 						 bool is_credit);
 struct chain_coin_mvt *new_coin_spend_track(const tal_t *ctx,
 					    const struct bitcoin_txid *txid,
-					    const struct bitcoin_txid *out_txid,
-					    u32 vout, u32 blockheight);
+					    const struct bitcoin_outpoint *outpoint,
+					    u32 blockheight);
 struct chain_coin_mvt *new_coin_pushed(const tal_t *ctx,
 				       const char *account_name,
 				       const struct bitcoin_txid *txid,

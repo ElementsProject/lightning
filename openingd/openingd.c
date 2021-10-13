@@ -75,11 +75,10 @@ struct state {
 	struct channel_id channel_id;
 
 	/* Funding and feerate: set by opening peer. */
-	struct amount_sat funding;
+	struct amount_sat funding_sats;
 	struct amount_msat push_msat;
 	u32 feerate_per_kw;
-	struct bitcoin_txid funding_txid;
-	u16 funding_txout;
+	struct bitcoin_outpoint funding;
 
 	/* If non-NULL, this is the scriptpubkey we/they *must* close with */
 	u8 *upfront_shutdown_script[NUM_SIDES];
@@ -155,7 +154,8 @@ static void negotiation_failed(struct state *state, bool am_opener,
 /* We always set channel_reserve_satoshis to 1%, rounded down. */
 static void set_reserve(struct state *state, const struct amount_sat dust_limit)
 {
-	state->localconf.channel_reserve = amount_sat_div(state->funding, 100);
+	state->localconf.channel_reserve
+		= amount_sat_div(state->funding_sats, 100);
 
 	/* BOLT #2:
 	 *
@@ -290,13 +290,14 @@ static bool setup_channel_funder(struct state *state)
 	 */
 	if (!feature_negotiated(state->our_features,
 				state->their_features, OPT_LARGE_CHANNELS)
-	    && amount_sat_greater(state->funding, chainparams->max_funding)) {
+	    && amount_sat_greater(state->funding_sats,
+				  chainparams->max_funding)) {
 		status_failed(STATUS_FAIL_MASTER_IO,
 			      "funding_satoshis must be < %s, not %s",
 			      type_to_string(tmpctx, struct amount_sat,
 					     &chainparams->max_funding),
 			      type_to_string(tmpctx, struct amount_sat,
-					     &state->funding));
+					     &state->funding_sats));
 		return false;
 	}
 
@@ -372,7 +373,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 	msg = towire_open_channel(NULL,
 				  &chainparams->genesis_blockhash,
 				  &state->channel_id,
-				  state->funding,
+				  state->funding_sats,
 				  state->push_msat,
 				  state->localconf.dust_limit,
 				  state->localconf.max_htlc_value_in_flight,
@@ -469,7 +470,7 @@ static u8 *funder_channel_start(struct state *state, u8 channel_flags)
 		return NULL;
 	}
 
-	if (!check_config_bounds(tmpctx, state->funding,
+	if (!check_config_bounds(tmpctx, state->funding_sats,
 				 state->feerate_per_kw,
 				 state->max_to_self_delay,
 				 state->min_effective_htlc_capacity,
@@ -525,16 +526,14 @@ static bool funder_finalize_channel_setup(struct state *state,
 	 * part (common/initial_channel) which doesn't support HTLCs and is
 	 * enough for us here, and the complete channel support required by
 	 * `channeld` which lives in channeld/full_channel. */
-	derive_channel_id(&cid,
-			  &state->funding_txid, state->funding_txout);
+	derive_channel_id(&cid, &state->funding);
 
 	state->channel = new_initial_channel(state,
 					     &cid,
-					     &state->funding_txid,
-					     state->funding_txout,
+					     &state->funding,
 					     state->minimum_depth,
 					     NULL, 0, /* No channel lease */
-					     state->funding,
+					     state->funding_sats,
 					     local_msat,
 					     take(new_fee_states(NULL, LOCAL,
 								 &state->feerate_per_kw)),
@@ -611,8 +610,8 @@ static bool funder_finalize_channel_setup(struct state *state,
 	/* Now we give our peer the signature for their first commitment
 	 * transaction. */
 	msg = towire_funding_created(state, &state->channel_id,
-				     &state->funding_txid,
-				     state->funding_txout,
+				     &state->funding.txid,
+				     state->funding.n,
 				     &sig->s);
 	sync_crypto_write(state->pps, msg);
 
@@ -725,17 +724,17 @@ static u8 *funder_channel_complete(struct state *state)
 	/* Update the billboard about what we're doing*/
 	peer_billboard(false,
 		       "Funding channel con't: continuing with funding_txid %s",
-		       type_to_string(tmpctx, struct bitcoin_txid, &state->funding_txid));
+		       type_to_string(tmpctx, struct bitcoin_txid, &state->funding.txid));
 
 	/* We recalculate the local_msat from cached values; should
 	 * succeed because we checked it earlier */
-	if (!amount_sat_sub_msat(&local_msat, state->funding, state->push_msat))
+	if (!amount_sat_sub_msat(&local_msat, state->funding_sats, state->push_msat))
 		status_failed(STATUS_FAIL_INTERNAL_ERROR,
 			      "push_msat %s > funding %s?",
 			      type_to_string(tmpctx, struct amount_msat,
 					     &state->push_msat),
 			      type_to_string(tmpctx, struct amount_sat,
-					     &state->funding));
+					     &state->funding_sats));
 
 	if (!funder_finalize_channel_setup(state, local_msat, &sig, &tx,
 					   &pbase))
@@ -754,8 +753,7 @@ static u8 *funder_channel_complete(struct state *state)
 					   &state->first_per_commitment_point[REMOTE],
 					   state->minimum_depth,
 					   &state->their_funding_pubkey,
-					   &state->funding_txid,
-					   state->funding_txout,
+					   &state->funding,
 					   state->feerate_per_kw,
 					   state->localconf.channel_reserve,
 					   state->upfront_shutdown_script[REMOTE],
@@ -774,6 +772,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	u8 *msg;
 	const u8 *wscript;
 	u8 channel_flags;
+	u16 funding_txout;
 	char* err_reason;
 	struct wally_tx_output *direct_outputs[NUM_SIDES];
 	struct penalty_base *pbase;
@@ -791,7 +790,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 */
 	if (!fromwire_open_channel(open_channel_msg, &chain_hash,
 			    &state->channel_id,
-			    &state->funding,
+			    &state->funding_sats,
 			    &state->push_msat,
 			    &state->remoteconf.dust_limit,
 			    &state->remoteconf.max_htlc_value_in_flight,
@@ -862,11 +861,11 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* We choose to require *negotiation*, not just support! */
 	if (!feature_negotiated(state->our_features, state->their_features,
 				OPT_LARGE_CHANNELS)
-	    && amount_sat_greater(state->funding, chainparams->max_funding)) {
+	    && amount_sat_greater(state->funding_sats, chainparams->max_funding)) {
 		negotiation_failed(state, false,
 				   "funding_satoshis %s too large",
 				   type_to_string(tmpctx, struct amount_sat,
-						  &state->funding));
+						  &state->funding_sats));
 		return NULL;
 	}
 
@@ -876,14 +875,14 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 * ...
 	 *   - `push_msat` is greater than `funding_satoshis` * 1000.
 	 */
-	if (amount_msat_greater_sat(state->push_msat, state->funding)) {
+	if (amount_msat_greater_sat(state->push_msat, state->funding_sats)) {
 		peer_failed_err(state->pps, &state->channel_id,
 				"Their push_msat %s"
 				" would be too large for funding_satoshis %s",
 				type_to_string(tmpctx, struct amount_msat,
 					       &state->push_msat),
 				type_to_string(tmpctx, struct amount_sat,
-					       &state->funding));
+					       &state->funding_sats));
 		return NULL;
 	}
 
@@ -944,7 +943,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	}
 
 	/* These checks are the same whether we're opener or accepter... */
-	if (!check_config_bounds(tmpctx, state->funding,
+	if (!check_config_bounds(tmpctx, state->funding_sats,
 				 state->feerate_per_kw,
 				 state->max_to_self_delay,
 				 state->min_effective_htlc_capacity,
@@ -962,7 +961,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* Check with lightningd that we can accept this?  In particular,
 	 * if we have an existing channel, we don't support it. */
 	msg = towire_openingd_got_offer(NULL,
-				       state->funding,
+				       state->funding_sats,
 				       state->push_msat,
 				       state->remoteconf.dust_limit,
 				       state->remoteconf.max_htlc_value_in_flight,
@@ -1035,11 +1034,13 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 * tx they generated; the sighash type is implied, so we set it here. */
 	theirsig.sighash_type = SIGHASH_ALL;
 	if (!fromwire_funding_created(msg, &id_in,
-				      &state->funding_txid,
-				      &state->funding_txout,
+				      &state->funding.txid,
+				      &funding_txout,
 				      &theirsig.s))
 		peer_failed_err(state->pps, &state->channel_id,
 			    "Parsing funding_created");
+	/* We only allow 16 bits for this on the wire. */
+	state->funding.n = funding_txout;
 
 	/* BOLT #2:
 	 *
@@ -1056,11 +1057,10 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	/* Now we can create the channel structure. */
 	state->channel = new_initial_channel(state,
 					     &state->channel_id,
-					     &state->funding_txid,
-					     state->funding_txout,
+					     &state->funding,
 					     state->minimum_depth,
 					     NULL, 0, /* No channel lease */
-					     state->funding,
+					     state->funding_sats,
 					     state->push_msat,
 					     take(new_fee_states(NULL, REMOTE,
 								 &state->feerate_per_kw)),
@@ -1127,8 +1127,7 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 	 * `funding_txid` and the `funding_output_index`, using big-endian
 	 * exclusive-OR (i.e. `funding_output_index` alters the last 2 bytes).
 	 */
-	derive_channel_id(&state->channel_id,
-			  &state->funding_txid, state->funding_txout);
+	derive_channel_id(&state->channel_id, &state->funding);
 
 	/*~ We generate the `funding_signed` message here, since we have all
 	 * the data and it's only applicable in the fundee case.
@@ -1191,9 +1190,8 @@ static u8 *fundee_channel(struct state *state, const u8 *open_channel_msg)
 				     &theirs.delayed_payment,
 				     &state->first_per_commitment_point[REMOTE],
 				     &their_funding_pubkey,
-				     &state->funding_txid,
-				     state->funding_txout,
-				     state->funding,
+				     &state->funding,
+				     state->funding_sats,
 				     state->push_msat,
 				     channel_flags,
 				     state->feerate_per_kw,
@@ -1315,11 +1313,12 @@ static u8 *handle_master_in(struct state *state)
 
 	switch (t) {
 	case WIRE_OPENINGD_FUNDER_START:
-		if (!fromwire_openingd_funder_start(state, msg, &state->funding,
-						   &state->push_msat,
-						   &state->upfront_shutdown_script[LOCAL],
-						   &state->feerate_per_kw,
-						   &channel_flags))
+		if (!fromwire_openingd_funder_start(state, msg,
+						    &state->funding_sats,
+						    &state->push_msat,
+						    &state->upfront_shutdown_script[LOCAL],
+						    &state->feerate_per_kw,
+						    &channel_flags))
 			master_badmsg(WIRE_OPENINGD_FUNDER_START, msg);
 		msg = funder_channel_start(state, channel_flags);
 
@@ -1333,8 +1332,8 @@ static u8 *handle_master_in(struct state *state)
 						       &funding_txout,
 						       &state->channel_type))
 			master_badmsg(WIRE_OPENINGD_FUNDER_COMPLETE, msg);
-		state->funding_txid = funding_txid;
-		state->funding_txout = funding_txout;
+		state->funding.txid = funding_txid;
+		state->funding.n = funding_txout;
 		return funder_channel_complete(state);
 	case WIRE_OPENINGD_FUNDER_CANCEL:
 		/* We're aborting this, simple */

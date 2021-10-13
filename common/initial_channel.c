@@ -12,12 +12,11 @@
 
 struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct channel_id *cid,
-				    const struct bitcoin_txid *funding_txid,
-				    unsigned int funding_txout,
+				    const struct bitcoin_outpoint *funding,
 				    u32 minimum_depth,
 				    const struct height_states *height_states TAKES,
 				    u32 lease_expiry,
-				    struct amount_sat funding,
+				    struct amount_sat funding_sats,
 				    struct amount_msat local_msatoshi,
 				    const struct fee_states *fee_states TAKES,
 				    const struct channel_config *local,
@@ -34,13 +33,12 @@ struct channel *new_initial_channel(const tal_t *ctx,
 	struct amount_msat remote_msatoshi;
 
 	channel->cid = *cid;
-	channel->funding_txid = *funding_txid;
-	channel->funding_txout = funding_txout;
-	channel->funding = funding;
+	channel->funding = *funding;
+	channel->funding_sats = funding_sats;
 	channel->minimum_depth = minimum_depth;
 	channel->lease_expiry = lease_expiry;
 	if (!amount_sat_sub_msat(&remote_msatoshi,
-				 channel->funding, local_msatoshi))
+				 channel->funding_sats, local_msatoshi))
 		return tal_free(channel);
 
 	channel->opener = opener;
@@ -120,9 +118,8 @@ struct bitcoin_tx *initial_channel_tx(const tal_t *ctx,
 				       &channel->funding_pubkey[side],
 				       &channel->funding_pubkey[!side]);
 
-	init_tx = initial_commit_tx(ctx, &channel->funding_txid,
-				    channel->funding_txout,
-				    channel->funding,
+	init_tx = initial_commit_tx(ctx, &channel->funding,
+				    channel->funding_sats,
 				    channel->funding_pubkey,
 				    channel->opener,
 				    /* They specify our to_self_delay and v.v. */
@@ -203,7 +200,7 @@ static char *fmt_channel(const tal_t *ctx, const struct channel *channel)
 		       " local=%s,"
 		       " remote=%s }",
 		       type_to_string(tmpctx, struct amount_sat,
-				      &channel->funding),
+				      &channel->funding_sats),
 		       side_to_str(channel->opener),
 		       fmt_channel_view(ctx, &channel->view[LOCAL]),
 		       fmt_channel_view(ctx, &channel->view[REMOTE]));

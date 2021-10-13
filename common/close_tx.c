@@ -10,9 +10,8 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 				   const u8 *our_script,
 				   const u8 *their_script,
 				   const u8 *funding_wscript,
-				   const struct bitcoin_txid *anchor_txid,
-				   unsigned int anchor_index,
-				   struct amount_sat funding,
+				   const struct bitcoin_outpoint *funding,
+				   struct amount_sat funding_sats,
 				   struct amount_sat to_us,
 				   struct amount_sat to_them,
 				   struct amount_sat dust_limit)
@@ -23,7 +22,7 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	u8 *script;
 
 	assert(amount_sat_add(&total_out, to_us, to_them));
-	assert(amount_sat_less_eq(total_out, funding));
+	assert(amount_sat_less_eq(total_out, funding_sats));
 
 	/* BOLT #3:
 	 *
@@ -39,9 +38,9 @@ struct bitcoin_tx *create_close_tx(const tal_t *ctx,
 	tx = bitcoin_tx(ctx, chainparams, 1, 2, 0);
 
 	/* Our input spends the anchor tx output. */
-	bitcoin_tx_add_input(tx, anchor_txid, anchor_index,
+	bitcoin_tx_add_input(tx, funding,
 			     BITCOIN_TX_DEFAULT_SEQUENCE, NULL,
-			     funding, NULL, funding_wscript);
+			     funding_sats, NULL, funding_wscript);
 
 	if (amount_sat_greater_eq(to_us, dust_limit)) {
 		script = tal_dup_talarr(tx, u8, our_script);

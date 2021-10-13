@@ -26,14 +26,13 @@ struct channel {
 	struct channel_id cid;
 
 	/* Funding txid and output. */
-	struct bitcoin_txid funding_txid;
-	unsigned int funding_txout;
+	struct bitcoin_outpoint funding;
 
 	/* Keys used to spend funding tx. */
 	struct pubkey funding_pubkey[NUM_SIDES];
 
 	/* satoshis in from commitment tx */
-	struct amount_sat funding;
+	struct amount_sat funding_sats;
 
 	/* confirmations needed for locking funding */
 	u32 minimum_depth;
@@ -77,12 +76,11 @@ struct channel {
  * new_initial_channel: Given initial fees and funding, what is initial state?
  * @ctx: tal context to allocate return value from.
  * @cid: The channel's id.
- * @funding_txid: The commitment transaction id.
- * @funding_txout: The commitment transaction output number.
+ * @funding: The commitment transaction id/outnum
  * @minimum_depth: The minimum confirmations needed for funding transaction.
  * @height_states: The blockheight update states.
  * @lease_expiry: Block the lease expires.
- * @funding_satoshis: The commitment transaction amount.
+ * @funding_sats: The commitment transaction amount.
  * @local_msatoshi: The amount for the local side (remainder goes to remote)
  * @fee_states: The fee update states.
  * @local: local channel configuration
@@ -99,12 +97,11 @@ struct channel {
  */
 struct channel *new_initial_channel(const tal_t *ctx,
 				    const struct channel_id *cid,
-				    const struct bitcoin_txid *funding_txid,
-				    unsigned int funding_txout,
+				    const struct bitcoin_outpoint *funding,
 				    u32 minimum_depth,
 				    const struct height_states *height_states TAKES,
 				    u32 lease_expiry,
-				    struct amount_sat funding,
+				    struct amount_sat funding_sats,
 				    struct amount_msat local_msatoshi,
 				    const struct fee_states *fee_states TAKES,
 				    const struct channel_config *local,

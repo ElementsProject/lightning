@@ -20,8 +20,7 @@ void run(const uint8_t *data, size_t size)
 {
 	const uint8_t *wire_ptr;
 	size_t wire_max, min_size, script_size;
-	struct bitcoin_txid txid;
-	uint32_t vout;
+	struct bitcoin_outpoint outpoint;
 	struct amount_sat funding, to_us, to_them, dust_limit, max;
 	const uint8_t *our_script, *their_script, *funding_script;
 	struct pubkey *pk1, *pk2;
@@ -62,10 +61,8 @@ void run(const uint8_t *data, size_t size)
 		to_them = amount_sat_div(max, 2);
 	}
 
-	wire_max = 4;
-	vout = fromwire_u32(&wire_ptr, &wire_max);
-	wire_max = 32;
-	fromwire_bitcoin_txid(&wire_ptr, &wire_max, &txid);
+	wire_max = 36;
+	fromwire_bitcoin_outpoint(&wire_ptr, &wire_max, &outpoint);
 
 	our_script = tal_dup_arr(tmpctx, const uint8_t, wire_ptr, script_size, 0);
 	their_script = tal_dup_arr(tmpctx, const uint8_t, wire_ptr + script_size,
@@ -81,8 +78,8 @@ void run(const uint8_t *data, size_t size)
 	funding_script = bitcoin_redeem_2of2(tmpctx, pk1, pk2);
 
 	create_close_tx(tmpctx, chainparams, our_script,
-			their_script, funding_script, &txid,
-			vout, funding, to_us, to_them, dust_limit);
+			their_script, funding_script, &outpoint,
+			funding, to_us, to_them, dust_limit);
 
 	clean_tmpctx();
 }

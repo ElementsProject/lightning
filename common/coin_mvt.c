@@ -59,8 +59,7 @@ struct channel_coin_mvt *new_channel_coin_mvt(const tal_t *ctx,
 static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 						 const char *account_name,
 						 const struct bitcoin_txid *tx_txid,
-						 const struct bitcoin_txid *output_txid,
-						 u32 vout,
+						 const struct bitcoin_outpoint *outpoint,
 						 const struct sha256 *payment_hash TAKES,
 						 u32 blockheight, enum mvt_tag tag,
 						 struct amount_msat amount,
@@ -75,8 +74,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 		mvt->account_name = NULL;
 
 	mvt->tx_txid = tx_txid;
-	mvt->output_txid = output_txid;
-	mvt->vout = vout;
+	mvt->outpoint = outpoint;
 
 	/* for htlc's that are filled onchain, we also have a
 	 * preimage, NULL otherwise */
@@ -101,8 +99,7 @@ static struct chain_coin_mvt *new_chain_coin_mvt(const tal_t *ctx,
 static struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx,
 						     const char *account_name,
 						     const struct bitcoin_txid *tx_txid,
-						     const struct bitcoin_txid *output_txid,
-						     u32 vout,
+						     const struct bitcoin_outpoint *outpoint,
 						     const struct sha256 *payment_hash TAKES,
 						     u32 blockheight, enum mvt_tag tag,
 						     struct amount_sat amt_sat,
@@ -114,28 +111,27 @@ static struct chain_coin_mvt *new_chain_coin_mvt_sat(const tal_t *ctx,
 	assert(ok);
 
 	return new_chain_coin_mvt(ctx, account_name, tx_txid,
-				  output_txid, vout, payment_hash,
+				  outpoint, payment_hash,
 				  blockheight, tag, amt_msat, is_credit);
 }
 
 struct chain_coin_mvt *new_coin_withdrawal(const tal_t *ctx,
-					  const char *account_name,
-					  const struct bitcoin_txid *tx_txid,
-					  const struct bitcoin_txid *out_txid,
-					  u32 vout,
-					  u32 blockheight,
-					  struct amount_msat amount)
+					   const char *account_name,
+					   const struct bitcoin_txid *tx_txid,
+					   const struct bitcoin_outpoint *outpoint,
+					   u32 blockheight,
+					   struct amount_msat amount)
 {
+	assert(!amount_msat_eq(amount, AMOUNT_MSAT(7206000)));
 	return new_chain_coin_mvt(ctx, account_name, tx_txid,
-				  out_txid, vout, NULL, blockheight,
+				  outpoint, NULL, blockheight,
 				  WITHDRAWAL, amount, false);
 }
 
 struct chain_coin_mvt *new_coin_withdrawal_sat(const tal_t *ctx,
 					       const char *account_name,
 					       const struct bitcoin_txid *tx_txid,
-					       const struct bitcoin_txid *out_txid,
-					       u32 vout,
+					       const struct bitcoin_outpoint *outpoint,
 					       u32 blockheight,
 					       struct amount_sat amount)
 {
@@ -145,7 +141,7 @@ struct chain_coin_mvt *new_coin_withdrawal_sat(const tal_t *ctx,
 	ok = amount_sat_to_msat(&amt_msat, amount);
 	assert(ok);
 
-	return new_coin_withdrawal(ctx, account_name, tx_txid, out_txid, vout,
+	return new_coin_withdrawal(ctx, account_name, tx_txid, outpoint,
 				   blockheight, amt_msat);
 }
 
@@ -156,7 +152,7 @@ struct chain_coin_mvt *new_coin_chain_fees(const tal_t *ctx,
 					   struct amount_msat amount)
 {
 	return new_chain_coin_mvt(ctx, account_name, tx_txid,
-				  NULL, 0, NULL, blockheight,
+				  NULL, NULL, blockheight,
 				  CHAIN_FEES, amount, false);
 }
 
@@ -179,33 +175,32 @@ struct chain_coin_mvt *new_coin_chain_fees_sat(const tal_t *ctx,
 struct chain_coin_mvt *new_coin_journal_entry(const tal_t *ctx,
 					      const char *account_name,
 					      const struct bitcoin_txid *txid,
-					      const struct bitcoin_txid *out_txid,
-					      u32 vout,
+					      const struct bitcoin_outpoint *outpoint,
 					      u32 blockheight,
 					      struct amount_msat amount,
 					      bool is_credit)
 {
 	return new_chain_coin_mvt(ctx, account_name, txid,
-				  out_txid, vout, NULL,
+				  outpoint, NULL,
 				  blockheight, JOURNAL,
 				  amount, is_credit);
 }
 
 struct chain_coin_mvt *new_coin_deposit(const tal_t *ctx,
 					const char *account_name,
-					const struct bitcoin_txid *txid,
-					u32 vout, u32 blockheight,
+					const struct bitcoin_outpoint *outpoint,
+					u32 blockheight,
 					struct amount_msat amount)
 {
-	return new_chain_coin_mvt(ctx, account_name, txid, txid,
-				  vout, NULL, blockheight, DEPOSIT,
+	/* FIXME: Why dup txid here? */
+	return new_chain_coin_mvt(ctx, account_name, &outpoint->txid, outpoint,
+				  NULL, blockheight, DEPOSIT,
 				  amount, true);
 }
 
 struct chain_coin_mvt *new_coin_deposit_sat(const tal_t *ctx,
 					    const char *account_name,
-					    const struct bitcoin_txid *txid,
-					    u32 vout,
+					    const struct bitcoin_outpoint *outpoint,
 					    u32 blockheight,
 					    struct amount_sat amount)
 {
@@ -215,14 +210,13 @@ struct chain_coin_mvt *new_coin_deposit_sat(const tal_t *ctx,
 	ok = amount_sat_to_msat(&amt_msat, amount);
 	assert(ok);
 
-	return new_coin_deposit(ctx, account_name, txid,
-				vout, blockheight, amt_msat);
+	return new_coin_deposit(ctx, account_name, outpoint,
+				blockheight, amt_msat);
 }
 struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx,
 					    const char *account_name,
 					    const struct bitcoin_txid *txid,
-					    const struct bitcoin_txid *out_txid,
-					    u32 vout,
+					    const struct bitcoin_outpoint *outpoint,
 					    u32 blockheight,
 					    struct amount_sat amount)
 {
@@ -233,8 +227,7 @@ struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx,
 	assert(ok);
 
 	return new_chain_coin_mvt(ctx, account_name,
-				  txid, out_txid,
-				  vout, NULL,
+				  txid, outpoint, NULL,
 				  blockheight, PENALTY,
 				  amt_msat, false);
 }
@@ -242,15 +235,14 @@ struct chain_coin_mvt *new_coin_penalty_sat(const tal_t *ctx,
 struct chain_coin_mvt *new_coin_onchain_htlc_sat(const tal_t *ctx,
 						 const char *account_name,
 						 const struct bitcoin_txid *txid,
-						 const struct bitcoin_txid *out_txid,
-						 u32 vout,
+						 const struct bitcoin_outpoint *outpoint,
 						 struct sha256 payment_hash,
 						 u32 blockheight,
 						 struct amount_sat amount,
 						 bool is_credit)
 {
 	return new_chain_coin_mvt_sat(ctx, account_name,
-				      txid, out_txid, vout,
+				      txid, outpoint,
 				      take(tal_dup(NULL, struct sha256,
 						   &payment_hash)), blockheight,
 				      ONCHAIN_HTLC, amount, is_credit);
@@ -262,17 +254,17 @@ struct chain_coin_mvt *new_coin_pushed(const tal_t *ctx,
 				       u32 blockheight,
 				       struct amount_msat amount)
 {
-	return new_chain_coin_mvt(ctx, account_name, txid, NULL, 0,
+	return new_chain_coin_mvt(ctx, account_name, txid, NULL,
 				  NULL, blockheight, PUSHED, amount,
 				  false);
 }
 
 struct chain_coin_mvt *new_coin_spend_track(const tal_t *ctx,
 					    const struct bitcoin_txid *txid,
-					    const struct bitcoin_txid *out_txid,
-					    u32 vout, u32 blockheight)
+					    const struct bitcoin_outpoint *outpoint,
+					    u32 blockheight)
 {
-	return new_chain_coin_mvt_sat(ctx, "wallet", txid, out_txid, vout,
+	return new_chain_coin_mvt_sat(ctx, "wallet", txid, outpoint,
 				      NULL, blockheight, SPEND_TRACK, AMOUNT_SAT(0),
 				      false);
 }
@@ -292,8 +284,7 @@ struct coin_mvt *finalize_chain_mvt(const tal_t *ctx,
 	mvt->type = CHAIN_MVT;
 
 	mvt->id.tx_txid = chain_mvt->tx_txid;
-	mvt->id.output_txid = chain_mvt->output_txid;
-	mvt->id.vout = chain_mvt->vout;
+	mvt->id.outpoint = chain_mvt->outpoint;
 	mvt->id.payment_hash = chain_mvt->payment_hash;
 	mvt->tag = chain_mvt->tag;
 	mvt->credit = chain_mvt->credit;
@@ -322,8 +313,7 @@ struct coin_mvt *finalize_channel_mvt(const tal_t *ctx,
 	mvt->id.payment_hash = chan_mvt->payment_hash;
 	mvt->id.part_id = chan_mvt->part_id;
 	mvt->id.tx_txid = NULL;
-	mvt->id.output_txid = NULL;
-	mvt->id.vout = 0;
+	mvt->id.outpoint = NULL;
 	mvt->tag = chan_mvt->tag;
 	mvt->credit = chan_mvt->credit;
 	mvt->debit = chan_mvt->debit;
@@ -346,12 +336,11 @@ void towire_chain_coin_mvt(u8 **pptr, const struct chain_coin_mvt *mvt)
 		towire_u16(pptr, 0);
 	towire_bitcoin_txid(pptr, cast_const(struct bitcoin_txid *, mvt->tx_txid));
 
-	if (mvt->output_txid) {
+	if (mvt->outpoint) {
 		towire_bool(pptr, true);
-		towire_bitcoin_txid(pptr, cast_const(struct bitcoin_txid *, mvt->output_txid));
+		towire_bitcoin_outpoint(pptr, mvt->outpoint);
 	} else
 		towire_bool(pptr, false);
-	towire_u32(pptr, mvt->vout);
 	if (mvt->payment_hash) {
 		towire_bool(pptr, true);
 		towire_sha256(pptr, mvt->payment_hash);
@@ -378,12 +367,13 @@ void fromwire_chain_coin_mvt(const u8 **cursor, size_t *max, struct chain_coin_m
 	fromwire_bitcoin_txid(cursor, max,
 			      cast_const(struct bitcoin_txid *, mvt->tx_txid));
 	if (fromwire_bool(cursor, max)) {
-		mvt->output_txid = tal(mvt, struct bitcoin_txid);
-		fromwire_bitcoin_txid(cursor, max,
-				      cast_const(struct bitcoin_txid *, mvt->output_txid));
+		/* Read into non-const version */
+		struct bitcoin_outpoint *outpoint
+			= tal(mvt, struct bitcoin_outpoint);
+		fromwire_bitcoin_outpoint(cursor, max, outpoint);
+		mvt->outpoint = outpoint;
 	} else
-		mvt->output_txid = NULL;
-	mvt->vout = fromwire_u32(cursor, max);
+		mvt->outpoint = NULL;
 	if (fromwire_bool(cursor, max)) {
 		mvt->payment_hash = tal(mvt, struct sha256);
 		fromwire_sha256(cursor, max, mvt->payment_hash);
