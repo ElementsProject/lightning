@@ -31,8 +31,10 @@ static struct command_result *sendonionmessage_error(struct command *cmd,
 						     const jsmntok_t *err,
 						     void *unused)
 {
-	plugin_log(cmd->plugin, LOG_BROKEN,
-		   "sendoniomessage gave JSON error: %.*s",
+	/* This can happen if the peer goes offline or wasn't directly
+	 * connected: "Unknown first peer" */
+	plugin_log(cmd->plugin, LOG_DBG,
+		   "sendonionmessage gave JSON error: %.*s",
 		   json_tok_full_len(err),
 		   json_tok_full(buf, err));
 	return command_hook_success(cmd);
