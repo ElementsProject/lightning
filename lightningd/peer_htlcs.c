@@ -63,6 +63,8 @@ static bool htlc_in_update_state(struct channel *channel,
 
 	wallet_htlc_update(channel->peer->ld->wallet,
 			   hin->dbid, newstate, hin->preimage,
+			   max_unsigned(channel->next_index[LOCAL],
+					channel->next_index[REMOTE]),
 			   hin->badonion, hin->failonion, NULL,
 			   hin->we_filled);
 
@@ -80,7 +82,10 @@ static bool htlc_out_update_state(struct channel *channel,
 
 	bool we_filled = false;
 	wallet_htlc_update(channel->peer->ld->wallet, hout->dbid, newstate,
-			   hout->preimage, 0, hout->failonion,
+			   hout->preimage,
+			   max_unsigned(channel->next_index[LOCAL],
+					channel->next_index[REMOTE]),
+			   0, hout->failonion,
 			   hout->failmsg, &we_filled);
 
 	hout->hstate = newstate;
@@ -174,6 +179,8 @@ static void failmsg_update_reply(struct subd *gossipd,
 	wallet_htlc_update(gossipd->ld->wallet,
 			   cbdata->hin->dbid, cbdata->hin->hstate,
 			   cbdata->hin->preimage,
+			   max_unsigned(cbdata->hin->key.channel->next_index[LOCAL],
+					cbdata->hin->key.channel->next_index[REMOTE]),
 			   cbdata->hin->badonion,
 			   cbdata->hin->failonion, NULL, &we_filled);
 
@@ -1282,7 +1289,10 @@ static void fulfill_our_htlc_out(struct channel *channel, struct htlc_out *hout,
 	htlc_out_check(hout, __func__);
 
 	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
-			   hout->preimage, 0, hout->failonion,
+			   hout->preimage,
+			   max_unsigned(channel->next_index[LOCAL],
+					channel->next_index[REMOTE]),
+			   0, hout->failonion,
 			   hout->failmsg, &we_filled);
 	/* Update channel stats */
 	wallet_channel_stats_incr_out_fulfilled(ld->wallet,
@@ -1453,7 +1463,10 @@ void onchain_failed_our_htlc(const struct channel *channel,
 
 	bool we_filled = false;
 	wallet_htlc_update(ld->wallet, hout->dbid, hout->hstate,
-			   hout->preimage, 0, hout->failonion,
+			   hout->preimage,
+			   max_unsigned(channel->next_index[LOCAL],
+					channel->next_index[REMOTE]),
+			   0, hout->failonion,
 			   hout->failmsg, &we_filled);
 
 	if (hout->am_origin) {
