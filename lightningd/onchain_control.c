@@ -130,7 +130,8 @@ static void handle_onchain_init_reply(struct channel *channel, const u8 *msg)
 
 	/* Tell it about any relevant HTLCs */
 	/* FIXME: Filter by commitnum! */
-	stubs = wallet_htlc_stubs(tmpctx, channel->peer->ld->wallet, channel);
+	stubs = wallet_htlc_stubs(tmpctx, channel->peer->ld->wallet, channel,
+				  commit_num);
 	tell = tal_arr(stubs, bool, tal_count(stubs));
 	tell_immediate = tal_arr(stubs, bool, tal_count(stubs));
 
