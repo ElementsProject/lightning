@@ -66,6 +66,9 @@ static u32 reasonable_depth;
 /* The messages to send at that depth. */
 static u8 **missing_htlc_msgs;
 
+/* The messages which were sent to us before init_reply was processed. */
+static u8 **queued_msgs;
+
 /* Our recorded channel balance at 'chain time' */
 static struct amount_msat our_msat;
 
@@ -2151,6 +2154,8 @@ static void memleak_remove_globals(struct htable *memtable, const tal_t *topctx)
 	memleak_remove_pointer(memtable, topctx);
 	memleak_remove_region(memtable,
 			      missing_htlc_msgs, tal_bytelen(missing_htlc_msgs));
+	memleak_remove_region(memtable,
+			      queued_msgs, tal_bytelen(queued_msgs));
 }
 
 static bool handle_dev_memleak(struct tracked_output **outs, const u8 *msg)
@@ -2193,12 +2198,18 @@ static void wait_for_resolved(struct tracked_output **outs)
 	billboard_update(outs);
 
 	while (num_not_irrevocably_resolved(outs) != 0) {
-		u8 *msg = wire_sync_read(outs, REQ_FD);
+		u8 *msg;
 		struct bitcoin_txid txid;
 		u32 input_num, depth, tx_blockheight;
 		struct preimage preimage;
 		bool is_replay;
 		struct tx_parts *tx_parts;
+
+		if (tal_count(queued_msgs)) {
+			msg = tal_steal(outs, queued_msgs[0]);
+			tal_arr_remove(&queued_msgs, 0);
+		} else
+			msg = wire_sync_read(outs, REQ_FD);
 
 		status_debug("Got new message %s",
 			     onchaind_wire_name(fromwire_peektype(msg)));
@@ -2253,13 +2264,19 @@ static struct htlcs_info *init_reply(const tal_t *ctx, const char *what)
 	peer_billboard(true, what);
 
 	/* Read in htlcs */
-	/* FIXME: queue other messages! */
-	msg = wire_sync_read(tmpctx, REQ_FD);
-	if (!fromwire_onchaind_htlcs(htlcs_info, msg,
-				     &htlcs_info->htlcs,
-				     &htlcs_info->tell_if_missing,
-				     &htlcs_info->tell_immediately))
-		master_badmsg(WIRE_ONCHAIND_HTLCS, msg);
+	for (;;) {
+		msg = wire_sync_read(queued_msgs, REQ_FD);
+		if (fromwire_onchaind_htlcs(htlcs_info, msg,
+					    &htlcs_info->htlcs,
+					    &htlcs_info->tell_if_missing,
+					    &htlcs_info->tell_immediately)) {
+			tal_free(msg);
+			break;
+		}
+
+		/* Process later */
+		tal_arr_expand(&queued_msgs, msg);
+	}
 
 	/* We want htlcs to be a valid tal parent, so make it a zero-length
 	 * array if NULL (fromwire makes it NULL if there are no entries) */
@@ -4057,6 +4074,7 @@ int main(int argc, char *argv[])
 	status_setup_sync(REQ_FD);
 
 	missing_htlc_msgs = tal_arr(ctx, u8 *, 0);
+	queued_msgs = tal_arr(ctx, u8 *, 0);
 
 	msg = wire_sync_read(tmpctx, REQ_FD);
 	if (!fromwire_onchaind_init(tmpctx, msg,
